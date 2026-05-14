@@ -783,12 +783,8 @@
     // 渲染角色选择网格（使用动态角色列表）
     const roleGrid = document.getElementById('crRoleGrid');
     roleGrid.innerHTML = _rolesList.map(r => {
-      const preset = r.avatarPreset || '';
-      const color = r.avatarColor || '#4b8fd9';
-      const initial = (r.name || '?')[0];
-      const avatarHTML = preset
-        ? `<img src="avatar://${preset}.png" alt="${r.name}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span class="rs-chip-avatar" style="display:none;background:${color};color:#fff;font-weight:700;">${initial}</span>`
-        : `<span class="rs-chip-avatar" style="background:${color};color:#fff;font-weight:700;">${initial}</span>`;
+      const preset = r.avatarPreset || r.id;
+      const avatarHTML = `<img src="avatar://${preset}.png" alt="${r.name}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`;
       return `<button class="rs-chip ${(_crRole || '') === r.id ? 'active' : ''}" data-role="${r.id}">
         ${avatarHTML}
         <span>${r.name}</span>
@@ -1501,14 +1497,7 @@
     if (fb) fb.remove();
     // onerror fallback: 隐藏图片，显示颜色圆形
     avatar.onerror = function() {
-      avatar.style.display = 'none';
-      if (!avatar.nextElementSibling || !avatar.nextElementSibling.classList.contains('ri-avatar-fb')) {
-        const color = r.avatarColor || '#4b8fd9';
-        const fbEl = document.createElement('span');
-        fbEl.className = 'ri-avatar-fb';
-        fbEl.style.cssText = `display:inline-block;width:22px;height:22px;border-radius:50%;background:${color};flex-shrink:0;`;
-        avatar.parentNode.insertBefore(fbEl, avatar.nextElementSibling);
-      }
+      avatar.src = 'avatar://dami.png'; // fallback to dami
     };
   }
 
@@ -1543,14 +1532,8 @@
   }
 
   function renderRoleItem(r) {
-    const color = r.avatarColor || '#4b8fd9';
-    const preset = r.avatarPreset || '';
-    let avatarHTML;
-    if (preset) {
-      avatarHTML = `<img class="si-avatar" src="avatar://${preset}.png" alt="${r.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span class="si-avatar-initial" style="display:none;background:${color};color:#fff;font-weight:700;font-size:13px;">${(r.name||'?')[0]}</span>`;
-    } else {
-      avatarHTML = `<img class="si-avatar" src="avatar://${r.id}.png" alt="${r.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" style="display:none;" /><span class="si-avatar-initial" style="background:${color};color:#fff;font-weight:700;font-size:13px;">${(r.name||'?')[0]}</span>`;
-    }
+    const preset = r.avatarPreset || r.id;
+    const avatarHTML = `<img class="si-avatar" src="avatar://${preset}.png" alt="${r.name}" />`;
     return `<button class="sidebar-item role-item" data-role="${r.id}" onclick="handleRole('${r.id}')">
       <span class="unread-badge" data-role="${r.id}"></span>
       ${avatarHTML}
@@ -1629,18 +1612,16 @@
     const name = document.getElementById('reName')?.value?.trim();
     const systemPrompt = document.getElementById('rePrompt')?.value?.trim();
     const avatarPreset = overlay.dataset.avatarPreset || AVATAR_PRESETS[0];
-    const r = _rolesList.find(x => x.id === (roleId || ''));
-    const avatarColor = r?.avatarColor || '#4b8fd9';
 
     if (!name) { showDialog('⚠️', '请输入角色名称'); return; }
 
     try {
       if (roleId) {
         // 编辑已有角色
-        await window.hermes.rolesUpdate(roleId, { name, systemPrompt, avatarColor, avatarPreset });
+        await window.hermes.rolesUpdate(roleId, { name, systemPrompt, avatarPreset });
       } else {
         // 新建角色
-        await window.hermes.rolesAdd({ name, systemPrompt, avatarColor, avatarPreset });
+        await window.hermes.rolesAdd({ name, systemPrompt, avatarPreset });
       }
       // 重新加载
       await loadRolesFromIPC();
@@ -1682,13 +1663,8 @@
     // 构建角色列表（使用动态角色）
     const list = document.getElementById('rsList');
     list.innerHTML = _rolesList.map(r => {
-      const preset = r.avatarPreset || '';
-      let avatarHTML;
-      if (preset) {
-        avatarHTML = `<img src="avatar://${preset}.png" alt="${r.name}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span class="rs-avatar-fb" style="display:none;background:${r.avatarColor||'#4b8fd9'};color:#fff;font-weight:700;font-size:14px;">${(r.name||'?')[0]}</span>`;
-      } else {
-        avatarHTML = `<img src="avatar://${r.id}.png" alt="${r.name}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span class="rs-avatar-fb" style="background:${r.avatarColor||'#4b8fd9'};color:#fff;font-weight:700;font-size:14px;">${(r.name||'?')[0]}</span>`;
-      }
+      const preset = r.avatarPreset || r.id;
+      const avatarHTML = `<img src="avatar://${preset}.png" alt="${r.name}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`;
       return `<button class="rs-item${currentAction === r.id ? ' active' : ''}" onclick="event.stopPropagation();switchRole('${r.id}')">
         ${avatarHTML}
         <span>${r.name}</span>
@@ -1827,16 +1803,7 @@
   function applyAvatarFallback(img, role) {
     if (img._fbApplied) return;
     img._fbApplied = true;
-    const r = _rolesList.find(x => x.id === role);
-    const ac = r?.avatarColor || '#4b8fd9';
-    img.style.display = 'none';
-    const fb = document.createElement('span');
-    fb.className = 'si-avatar si-avatar-fb';
-    fb.style.setProperty('--ac', ac);
-    fb.style.setProperty('--ad', ac);
-    fb.setAttribute('data-fb-role', role);
-    img.parentNode.insertBefore(fb, img);
-    img._fbEl = fb;
+    img.src = 'avatar://dami.png';
   }
 
   function clearAvatarFallback(img) {
