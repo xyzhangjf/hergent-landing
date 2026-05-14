@@ -1678,14 +1678,17 @@
     popup.style.left = (rect.left - 6) + 'px';
     popup.classList.add('show');
 
-    // 点击外部关闭
+    // 点击外部关闭（先移除旧监听防止泄漏）
+    if (popup._closeHandler) document.removeEventListener('click', popup._closeHandler);
     setTimeout(() => {
-      document.addEventListener('click', function closeRS(e) {
+      popup._closeHandler = function closeRS(e) {
         if (!popup.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
           popup.classList.remove('show');
           document.removeEventListener('click', closeRS);
+          popup._closeHandler = null;
         }
-      });
+      };
+      document.addEventListener('click', popup._closeHandler);
     }, 10);
   }
 

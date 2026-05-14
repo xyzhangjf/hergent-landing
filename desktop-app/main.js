@@ -368,7 +368,7 @@ function ensureRoleProfile(role, channel, config) {
   const soulPath = path.join(profileDir, 'SOUL.md');
   const roles = loadRoles();
   const roleData = roles.find(r => r.id === role);
-  const rolePrompt = (roleData && roleData.systemPrompt) || `你是"${roleData?.name || role}"。说人话，不啰嗦。`;
+  const rolePrompt = (roleData && roleData.systemPrompt) || `你是"${roleData?.name || role || '助手'}"。说人话，不啰嗦。`;
   const fullSoul = `# Hermes AI — ${role} 角色\n\n${rolePrompt}\n\n## 工作原则\n- 先干活再说话\n- 做了错事就认、马上改\n- 用户没问的不多嘴，但该提醒的主动说\n`;
   fs.writeFileSync(soulPath, fullSoul);
   // 写入/更新 .env 文件
@@ -741,26 +741,6 @@ ipcMain.handle('hermes:execute', async (event, params) => {
         }
 
       }
-
-      const requestId = 'req_' + Date.now();
-
-      const promptFile = path.join(cronDir, `chat_${requestId}.txt`);
-
-      let promptContent = `[action: ${action || 'unknown'}]\n${text || ''}`;
-
-      if (savedFiles.length > 0) {
-
-        promptContent += '\n附件:\n' + savedFiles.join('\n');
-
-      }
-
-      fs.writeFileSync(promptFile, promptContent);
-
-
-
-      // 后台运行 Hermes，结果推回渲染进程
-
-
 
       // === 直接对话模式（不点按钮直接打字） ===
 
@@ -1792,8 +1772,8 @@ ipcMain.handle('roles:add', async (event, roleData) => {
   const roles = loadRoles();
   const newRole = {
     id: 'custom-' + Date.now(),
-    name: roleData.name || '新角色',
-    systemPrompt: roleData.systemPrompt || '',
+    name: (roleData.name || '新员工').slice(0, 20),
+    systemPrompt: (roleData.systemPrompt || '').slice(0, 2000),
     opening: '',
     avatarColor: roleData.avatarColor || '#22d3ee',
     avatarPreset: roleData.avatarPreset || '',
@@ -1818,8 +1798,8 @@ ipcMain.handle('roles:update', async (event, roleId, updates) => {
   const roles = loadRoles();
   const target = roles.find(r => r.id === roleId);
   if (!target) return { success: false, error: '员工不存在' };
-  if (updates.name !== undefined) target.name = updates.name;
-  if (updates.systemPrompt !== undefined) target.systemPrompt = updates.systemPrompt;
+  if (updates.name !== undefined) target.name = String(updates.name).slice(0, 20);
+  if (updates.systemPrompt !== undefined) target.systemPrompt = String(updates.systemPrompt).slice(0, 2000);
   if (updates.avatarColor !== undefined) target.avatarColor = updates.avatarColor;
   if (updates.avatarPreset !== undefined) target.avatarPreset = updates.avatarPreset;
   if (updates.opening !== undefined) target.opening = updates.opening;
@@ -2027,7 +2007,7 @@ function downloadFile(url, dest) {
 
       file.on('finish', () => { file.close(); resolve(); });
 
-    }).on('error', (err) => { fs.unlinkSync(dest); reject(err); });
+    }).on('error', (err) => { try { if (fs.existsSync(dest)) fs.unlinkSync(dest); } catch(_) {} reject(err); });
 
   });
 
