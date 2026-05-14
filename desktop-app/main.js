@@ -922,7 +922,8 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               if (_activeChild === child) _activeChild = null;
 
               // --resume 或 --continue 失败时自动回退重试
-              if (code !== 0 && (stderr.includes('No previous CLI session') || stderr.includes('not found') || stderr.includes('Session'))) {
+              const hasSessionFlag = spawnArgs.includes('--resume') || spawnArgs.includes('--continue');
+              if (code !== 0 && hasSessionFlag) {
                 const retryArgs = spawnArgs.filter(a => a !== '--continue' && a !== '--resume' && a !== (spawnArgs[spawnArgs.indexOf('--resume') + 1] || ''));
                 // 清理掉 --resume <id> 对
                 const resumeIdx = retryArgs.indexOf('--resume');
@@ -1019,7 +1020,6 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             // --- 自动打通飞书/App 消息（首次发消息后自动 handoff 当前会话）---
             if (!_activeSessions._handoffDone) _activeSessions._handoffDone = {};
             if (!_activeSessions._handoffDone[roleKey]) {
-              _activeSessions._handoffDone[roleKey] = true;
               try {
                 const channels = loadChannels();
                 if (channels.feishu && channels.feishu[roleKey]) {
@@ -1042,6 +1042,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
                           `import sqlite3;db=sqlite3.connect('${dbPath}');sid='${sidMatch[1]}';db.execute("UPDATE sessions SET handoff_state='pending',handoff_platform='feishu' WHERE id=? AND handoff_state IS NULL",(sid,));db.commit();db.close()`
                         ], { timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'] });
                       }
+                      _activeSessions._handoffDone[roleKey] = true; // 成功后才标记，失败下次重试
                     }
                   }
                 }
