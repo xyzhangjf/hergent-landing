@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HerAgent · 你的数字员工</title>
+  <meta name="description" content="HerAgent — 双击安装就能用的AI数字员工。不用配模型、不用写代码、不用懂技术。读文件、搜信息、写文章、做报表，装好就能干活。" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+      color: #1a1a2e;
+      background: #f8f9fb;
+      line-height: 1.6;
+    }
+    a { text-decoration: none; color: inherit; }
+
+    nav {
+      position: fixed; top: 0; width: 100%; z-index: 100;
+      background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      padding: 0 24px; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    nav .logo { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    nav .logo span {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    nav .nav-links { display: flex; gap: 32px; align-items: center; }
+    nav .nav-links a { font-size: 15px; color: #555; font-weight: 500; }
+    nav .nav-links a:hover { color: #667eea; }
+    nav .nav-links .download-btn {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff !important; padding: 10px 24px; border-radius: 24px; font-weight: 600;
+    }
+    nav .nav-links .download-btn:hover { opacity: 0.9; }
+
+    .hero {
+      padding: 160px 24px 100px; max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; gap: 60px;
+    }
+    .hero-text { flex: 1; }
+    .hero-text .badge {
+      display: inline-block; background: rgba(102,126,234,0.1); color: #667eea;
+      padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; margin-bottom: 20px;
+    }
+    .hero-text h1 { font-size: 48px; line-height: 1.2; margin-bottom: 12px; font-weight: 800; }
+    .hero-text h1 .gradient { background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero-text .subtitle { font-size: 22px; color: #444; font-weight: 600; margin-bottom: 16px; }
+    .hero-text p { font-size: 18px; color: #666; margin-bottom: 32px; max-width: 480px; }
+    .hero-text .actions { display: flex; gap: 16px; align-items: center; }
+    .hero-text .actions .primary-btn {
+      display: inline-block; background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff !important; padding: 14px 36px; border-radius: 28px; font-weight: 600; font-size: 16px;
+      transition: transform 0.2s;
+    }
+    .hero-text .actions .primary-btn:hover { transform: translateY(-2px); }
+    .hero-text .actions .secondary-btn {
+      display: inline-block; color: #555; padding: 14px 24px; font-weight: 500; font-size: 15px;
+      border-bottom: 2px solid transparent;
+    }
+    .hero-text .actions .secondary-btn:hover { border-bottom-color: #667eea; color: #667eea; }
+    .hero-visual { flex: 1; text-align: center; }
+    .hero-visual .app-window {
+      background: #fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+      padding: 20px; text-align: left; max-width: 420px; margin: 0 auto;
+    }
+    .hero-visual .app-window .title-bar { display: flex; gap: 8px; margin-bottom: 20px; }
+    .hero-visual .app-window .title-bar span { width: 12px; height: 12px; border-radius: 50%; }
+    .hero-visual .app-window .title-bar span:nth-child(1) { background: #ff5f57; }
+    .hero-visual .app-window .title-bar span:nth-child(2) { background: #ffbd2e; }
+    .hero-visual .app-window .title-bar span:nth-child(3) { background: #28c840; }
+    .hero-visual .app-window .app-content { display: flex; flex-direction: column; gap: 10px; }
+    .hero-visual .app-window .chat-bubble {
+      padding: 10px 14px; border-radius: 12px; font-size: 14px; max-width: 85%;
+    }
+    .hero-visual .app-window .chat-bubble.ai { background: #f0f4ff; color: #333; align-self: flex-start; }
+    .hero-visual .app-window .chat-bubble.user { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; align-self: flex-end; }
+
+    .roles { padding: 60px 24px 80px; background: #fff; }
+    .roles-inner { max-width: 1100px; margin: 0 auto; }
+    .roles h2 { text-align: center; font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+    .roles .subtitle { text-align: center; color: #888; font-size: 16px; margin-bottom: 48px; }
+    .roles-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; }
+    .role-card {
+      text-align: center; padding: 24px 16px; border-radius: 16px;
+      background: #f8f9fb; transition: transform 0.2s, box-shadow 0.2s; cursor: default;
+    }
+    .role-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+    .role-card .avatar {
+      width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 12px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: #fff;
+    }
+    .role-card h3 { font-size: 15px; margin-bottom: 4px; }
+    .role-card p { font-size: 12px; color: #888; line-height: 1.5; }
+
+    .features { padding: 80px 24px 100px; max-width: 1100px; margin: 0 auto; }
+    .features h2 { text-align: center; font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+    .features .subtitle { text-align: center; color: #888; font-size: 16px; margin-bottom: 60px; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+    .feature-card {
+      background: #fff; border-radius: 16px; padding: 32px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04); transition: transform 0.2s;
+    }
+    .feature-card:hover { transform: translateY(-4px); }
+    .feature-card .icon { font-size: 36px; margin-bottom: 16px; display: block; }
+    .feature-card h3 { font-size: 20px; margin-bottom: 8px; }
+    .feature-card p { color: #666; font-size: 15px; line-height: 1.7; }
+
+    .how { padding: 80px 24px 100px; background: #fff; }
+    .how-inner { max-width: 900px; margin: 0 auto; }
+    .how h2 { text-align: center; font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+    .how .subtitle { text-align: center; color: #888; font-size: 16px; margin-bottom: 60px; }
+    .steps { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; }
+    .step { text-align: center; flex: 1; min-width: 200px; }
+    .step .step-number {
+      width: 48px; height: 48px; line-height: 48px; border-radius: 50%;
+      background: linear-gradient(135deg, #667eea, #764ba2); color: #fff;
+      font-size: 20px; font-weight: 700; margin: 0 auto 16px;
+    }
+    .step h3 { font-size: 18px; margin-bottom: 8px; }
+    .step p { font-size: 14px; color: #888; }
+
+    .pricing { padding: 80px 24px 100px; max-width: 800px; margin: 0 auto; }
+    .pricing h2 { text-align: center; font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+    .pricing .subtitle { text-align: center; color: #888; font-size: 16px; margin-bottom: 60px; }
+    .pricing-card {
+      background: #fff; border-radius: 20px; padding: 48px 40px; text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04); max-width: 440px; margin: 0 auto;
+      border: 2px solid #667eea;
+    }
+    .pricing-card .free-badge {
+      display: inline-block; background: rgba(102,126,234,0.1); color: #667eea;
+      padding: 6px 20px; border-radius: 16px; font-size: 14px; font-weight: 600; margin-bottom: 20px;
+    }
+    .pricing-card .price { font-size: 48px; font-weight: 800; margin-bottom: 4px; }
+    .pricing-card .price-label { color: #888; font-size: 14px; margin-bottom: 24px; }
+    .pricing-card ul { text-align: left; margin-bottom: 8px; }
+    .pricing-card ul li {
+      font-size: 15px; color: #555; padding: 8px 0; list-style: none; padding-left: 24px; position: relative;
+    }
+    .pricing-card ul li::before { content: "✓"; position: absolute; left: 0; color: #28c840; font-weight: bold; }
+    .tiers-note { text-align: center; color: #888; font-size: 14px; margin-top: 24px; }
+
+    .cta {
+      padding: 80px 24px; background: linear-gradient(135deg, #667eea, #764ba2);
+      text-align: center; color: #fff;
+    }
+    .cta h2 { font-size: 32px; font-weight: 700; margin-bottom: 12px; }
+    .cta p { font-size: 18px; opacity: 0.9; margin-bottom: 32px; }
+    .cta .cta-btn {
+      display: inline-block; background: #fff; color: #667eea !important;
+      padding: 16px 48px; border-radius: 28px; font-weight: 700; font-size: 18px;
+      transition: transform 0.2s;
+    }
+    .cta .cta-btn:hover { transform: translateY(-2px); }
+    .version-info { margin-top: 16px; font-size: 14px; opacity: 0.7; }
+
+    footer { padding: 40px 24px; text-align: center; background: #1a1a2e; color: #888; font-size: 14px; }
+    footer a { color: #aaa; }
+    footer a:hover { color: #fff; }
+
+    @media (max-width: 768px) {
+      .hero { flex-direction: column; padding: 120px 20px 60px; gap: 40px; }
+      .hero-text h1 { font-size: 32px; }
+      .hero-text .subtitle { font-size: 18px; }
+      nav .nav-links a:not(.download-btn) { display: none; }
+      .steps { flex-direction: column; gap: 24px; }
+      .roles-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">🤖 <span>HerAgent</span></div>
+  <div class="nav-links">
+    <a href="#roles">数字员工</a>
+    <a href="#features">能力</a>
+    <a href="#how">上手</a>
+    <a href="#pricing">价格</a>
+    <a href="#download" class="download-btn">免费下载</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-text">
+    <div class="badge">macOS 版已发布</div>
+    <h1>你的第一个<br><span class="gradient">AI 数字员工</span></h1>
+    <p class="subtitle">下载、双击、就能用。</p>
+    <p>不用配模型，不用写代码，不用懂技术。装好就送 200 积分，马上开始干活。</p>
+    <div class="actions">
+      <a href="#download" class="primary-btn">免费下载</a>
+      <a href="#roles" class="secondary-btn">看看能干什么 →</a>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="app-window">
+      <div class="title-bar"><span></span><span></span><span></span></div>
+      <div class="app-content">
+        <div class="chat-bubble ai">你好！我是 HerAgent，你的数字员工。我能读文件、搜信息、写文章、做报表。你想让我做什么？</div>
+        <div class="chat-bubble user">帮我把这份合同总结成 3 个要点，看看有没有风险</div>
+        <div class="chat-bubble ai">好的，正在读取你的合同文件...</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="roles" id="roles">
+  <div class="roles-inner">
+    <h2>7 位数字员工，随时待命</h2>
+    <p class="subtitle">每个角色有专属技能。你可以随时切换，一个 App 当七个用。</p>
+    <div class="roles-grid">
+      <div class="role-card">
+        <div class="avatar">💰</div>
+        <h3>会计</h3>
+        <p>对账、做表、算税</p>
+      </div>
+      <div class="role-card">
+        <div class="avatar">💻</div>
+        <h3>程序员</h3>
+        <p>写代码、Debug、解释技术</p>
+      </div>
+      <div class="role-card">
+        <div class="avatar">✍️</div>
+        <h3>写手</h3>
+        <p>写文章、润色、翻译</p>
+      </div>
+      <div class="role-card">
+        <div class="avatar">🎬</div>
+        <h3>编剧</h3>
+        <p>写剧本、编故事、策划</p>
+      </div>
+      <div class="role-card">
+        <div class="avatar">📚</div>
+        <h3>辅导老师</h3>
+        <p>解题、备课、答疑</p>
+      </div>
+      <div class="role-card">
+        <div class="avatar">💪</div>
+        <h3>健康顾问</h3>
+        <p>饮食规划、运动建议</p>
+      </div>
+      <div class="role-card">
+        <div class="avatar">🤖</div>
+        <h3>全能助手</h3>
+        <p>什么都行，你说了算</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <h2>装好就能干这些活</h2>
+  <p class="subtitle">不需要任何配置。你只需要告诉它做什么。</p>
+  <div class="features-grid">
+
+    <div class="feature-card">
+      <span class="icon">📄</span>
+      <h3>读文件</h3>
+      <p>把 PDF、Word、Excel、图片拖进去，自动帮你总结、分析、提取关键信息。</p>
+    </div>
+
+    <div class="feature-card">
+      <span class="icon">✍️</span>
+      <h3>写东西</h3>
+      <p>周报、邮件、文案、PPT 大纲、合同草稿——你说需求，它来写。</p>
+    </div>
+
+    <div class="feature-card">
+      <span class="icon">🔍</span>
+      <h3>搜信息</h3>
+      <p>联网搜索最新资讯，整理成你要的格式。比你自己翻网页快。</p>
+    </div>
+
+    <div class="feature-card">
+      <span class="icon">⏰</span>
+      <h3>定时提醒</h3>
+      <p>"每天早上 9 点把天气推送到飞书""每周五下午生成销售周报"。设好就不用管了。</p>
+    </div>
+
+    <div class="feature-card">
+      <span class="icon">📱</span>
+      <h3>手机远程控制</h3>
+      <p>连上飞书或企业微信，你人在外面用手机发消息，电脑上的 HerAgent 帮你干活。</p>
+    </div>
+
+    <div class="feature-card">
+      <span class="icon">🔒</span>
+      <h3>数据留在你电脑</h3>
+      <p>文件在本地处理，不传到第三方。你的数据你做主。</p>
+    </div>
+
+  </div>
+</section>
+
+<section class="how" id="how">
+  <div class="how-inner">
+    <h2>三步开始</h2>
+    <p class="subtitle">从下载到干第一件活，不超过 3 分钟。</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>下载安装</h3>
+        <p>下载 DMG，双击打开，拖到 Applications 文件夹。不需要命令行，不需要配置。</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>选一个数字员工</h3>
+        <p>打开 App，选你需要的角色——会计、写手、程序员... 或者直接用全能助手。</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>告诉它干什么</h3>
+        <p>打字或者上传文件，像跟同事说话一样。它就开始干活了。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <h2>价格</h2>
+  <p class="subtitle">先送 200 积分，够用很久。用完了再充，没有月费。</p>
+  <div class="pricing-card">
+    <div class="free-badge">🎁 新用户送 200 积分</div>
+    <div class="price">10 元起</div>
+    <div class="price-label">充值制，永不过期</div>
+    <ul>
+      <li>10 元 = 1000 积分（够聊 ~2000 次普通对话）</li>
+      <li>30 元 = 3000 积分</li>
+      <li>50 元 = 5500 积分（多送 500）</li>
+      <li>无月费、无年费、无订阅</li>
+    </ul>
+  </div>
+  <p class="tiers-note">一次普通聊天大约 0.5 积分。读文件、深度搜索消耗略多。积分永不过期。</p>
+</section>
+
+<section class="cta" id="download">
+  <h2>下载 HerAgent，拥有你的第一个数字员工</h2>
+  <p>macOS 版本已就绪 · 下载后双击安装 · 3 分钟开始使用</p>
+  <a href="HerAgent.dmg" class="cta-btn" onclick="handleDownload(event)">📥 下载 HerAgent（macOS）</a>
+  <div class="version-info">
+    v1.0.0 · macOS 12+ · Apple Silicon & Intel<br>
+    Windows 版开发中
+  </div>
+</section>
+
+<footer>
+  <p>HerAgent · 你的数字员工 · <a href="mailto:xyzhangjf@gmail.com">联系作者</a></p>
+  <p style="margin-top:8px;font-size:12px;">灵境未知数研究实验室</p>
+</footer>
+
+<script>
+  function handleDownload(e) {
+    e.preventDefault();
+    alert('安装包准备中。请稍后刷新页面获取下载链接。');
+  }
+</script>
+
+</body>
+</html>

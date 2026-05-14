@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0",
+  "release_date": "2026-05-12",
+  "release_notes": "HerAgent v1.0 正式发布！\n\n你的第一个AI数字员工：\n- 💬 自由对话：写文章、回邮件、做PPT大纲\n- 📄 读文件：PDF/Word/Excel/图片拖进去就能分析\n- 🔍 搜信息：联网搜索+整理\n- ⏰ 定时任务：设好了自动干活\n- 📱 手机远程控制：连飞书/企微，人不在电脑前也能指挥\n- 🎁 新用户送200积分\n\n系统要求：macOS 12+ · Apple Silicon & Intel\n\n下载：https://your-domain.com/download/HerAgent.dmg",
+  "download_url": "https://your-domain.com/download/HerAgent.dmg",
+  "checksum": ""
+}

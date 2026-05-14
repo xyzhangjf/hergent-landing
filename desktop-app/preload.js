@@ -95,6 +95,9 @@ contextBridge.exposeInMainWorld('hermes', {
   authVerifyCode: (phone, code) => ipcRenderer.invoke('auth:verify-code', phone, code),
   authWechatUrl: () => ipcRenderer.invoke('auth:wechat-url'),
   authLogout: (token) => ipcRenderer.invoke('auth:logout', token),
+
+  // 清除角色活跃会话（新建对话时调用）
+  sessionClear: (role) => ipcRenderer.invoke('session:clear', role),
 });
 
 

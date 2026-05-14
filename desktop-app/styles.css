@@ -170,7 +170,7 @@
     .chn-status.saved { color: var(--amber); }
     .chn-btn {
       padding: 5px 14px;
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       border: 1px solid var(--border-default);
       background: var(--bg-input);
       color: var(--text-secondary);
@@ -252,18 +252,21 @@
       border-top: 1px solid var(--border-subtle);
     }
     .chn-add-role-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       width: 100%;
-      padding: 6px 0;
-      border: 1px dashed var(--border-default);
-      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      border: none;
+      border-radius: 8px;
       background: transparent;
       color: var(--text-tertiary);
-      font-size: 12px;
+      font-size: 13px;
       font-family: inherit;
       cursor: pointer;
-      transition: all var(--dur-fast);
+      transition: all var(--dur-fast) var(--ease-smooth);
     }
-    .chn-add-role-btn:hover { border-color: var(--brand-400); color: var(--brand-500); background: var(--bg-input); }
+    .chn-add-role-btn:hover { background: rgba(0,0,0,0.04); color: var(--brand-500); }
 
     /* 角色选择芯片 */
     .role-select-grid {
@@ -277,7 +280,7 @@
       gap: 6px;
       padding: 6px 10px;
       border: 1px solid var(--border-default);
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       background: var(--bg-elevated);
       cursor: pointer;
       font-size: 12px;
@@ -546,6 +549,7 @@
       cursor: pointer;
       transition: box-shadow 0.2s var(--ease-smooth), transform 0.2s var(--ease-smooth);
       font-weight: 500;
+      font-family: inherit;
     }
     .btn:hover { box-shadow: 0 4px 14px rgba(75,143,217,0.3); transform: translateY(-1px); }
     .btn.secondary {
@@ -572,7 +576,7 @@
     .gateway-restart-btn {
       font-size: 12px; padding: 4px 12px;
       border: 1px solid var(--border-default);
-      border-radius: 6px; background: var(--bg-elevated);
+      border-radius: 8px; background: var(--bg-elevated);
       color: var(--text-secondary); cursor: pointer;
       font-family: inherit;
     }
@@ -604,12 +608,14 @@
       background: none; border: 1px solid var(--border-default); border-radius: 8px;
       padding: 4px 12px; font-size: 12px; color: var(--gray-600); cursor: pointer;
       transition: all .2s;
+      font-family: inherit;
     }
     .btn-task-del:hover { border-color: var(--red); color: var(--red); background: rgba(239,68,68,0.05); }
     .btn-task-toggle {
       background: none; border: 1px solid var(--border-default); border-radius: 8px;
       padding: 4px 12px; font-size: 12px; color: var(--gray-700); cursor: pointer;
       transition: all .2s; white-space: nowrap;
+      font-family: inherit;
     }
     .btn-task-toggle:hover { border-color: var(--amber); color: var(--amber); background: rgba(245,158,11,0.05); }
     .btn-task-toggle.paused { color: var(--green); border-color: #b7eb8f; }
@@ -618,6 +624,7 @@
       background: rgba(75,143,217,0.08); border: 1px solid rgba(75,143,217,0.2); border-radius: 8px;
       padding: 4px 12px; font-size: 12px; color: var(--brand-500); cursor: pointer;
       transition: all .2s; white-space: nowrap;
+      font-family: inherit;
     }
     .btn-task-run:hover { background: rgba(75,143,217,0.15); }
     .task-status { font-size: 11px; color: var(--gray-500); margin-right: 4px; white-space: nowrap; }
@@ -772,7 +779,7 @@
       width: 32px; height: 32px;
       border: none;
       background: transparent;
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       cursor: pointer;
       color: var(--text-secondary);
       display: flex;
@@ -1060,7 +1067,7 @@
       margin-top: 8px;
       padding: 8px 10px;
       background: var(--bg-input);
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       border: 1px solid var(--border-subtle);
       font-size: 12px;
     }
@@ -1200,7 +1207,7 @@
       padding: 4px 8px 4px 4px;
       border: none;
       background: var(--bg-input);
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       cursor: pointer;
       font-family: inherit;
       font-size: 12px;
@@ -1235,7 +1242,7 @@
       align-items: center;
       gap: 10px;
       padding: 8px 10px;
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       cursor: pointer;
       font-size: 13px;
       color: var(--text-primary);
@@ -1264,7 +1271,7 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       color: var(--text-secondary);
       transition: color 0.15s, background 0.15s;
     }
@@ -1280,7 +1287,7 @@
       border: none;
       background: var(--brand-500);
       color: #fff;
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       cursor: pointer;
       flex-shrink: 0;
       display: flex;
@@ -1306,7 +1313,7 @@
       padding: 6px 10px 6px 8px;
       background: var(--bg-input);
       border: 1px solid var(--border-default);
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       font-size: 12px;
       color: var(--text-primary);
       max-width: 100%;
@@ -1693,7 +1700,7 @@
   border: 1.5px solid var(--red);
   background: transparent;
   color: var(--red);
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   cursor: pointer;
   flex-shrink: 0;
   display: flex;
@@ -1730,7 +1737,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   font-size: 13px;
   color: var(--text-primary);
   margin: 0 -4px;
@@ -1746,7 +1753,7 @@
   width: 100%;
   padding: 10px 14px;
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   background: var(--bg-elevated);
   font-size: 13px;
   cursor: pointer;
@@ -2100,7 +2107,7 @@
       top: 50%;
       transform: translateY(-50%);
       width: 22px; height: 22px;
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       background: var(--bg-elevated);
       border: 1px solid var(--border-default);
       color: var(--text-tertiary);
@@ -2120,21 +2127,21 @@
     .sidebar-add-role-btn {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       width: 100%;
-      padding: 8px 14px;
-      margin-top: 4px;
-      border: 1px dashed var(--border-default);
-      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      margin-bottom: 1px;
+      border: none;
+      border-radius: 8px;
       background: transparent;
       color: var(--text-tertiary);
       font-size: 13px;
+      font-family: inherit;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all var(--dur-fast) var(--ease-smooth);
     }
     .sidebar-add-role-btn:hover {
-      background: var(--bg-elevated);
-      border-color: var(--brand-400);
+      background: rgba(0,0,0,0.04);
       color: var(--brand-500);
     }
 
@@ -2156,7 +2163,7 @@
       width: 100%;
       padding: 8px 10px;
       border: 1px solid var(--border-default);
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       background: var(--bg-input);
       color: var(--text-primary);
       font-size: 14px;
@@ -2164,25 +2171,6 @@
       box-sizing: border-box;
     }
     .re-field textarea { resize: vertical; min-height: 60px; }
-
-    .re-color-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .re-color-swatch {
-      width: 28px; height: 28px;
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid transparent;
-      transition: transform 0.15s, border-color 0.15s;
-      flex-shrink: 0;
-    }
-    .re-color-swatch:hover { transform: scale(1.2); }
-    .re-color-swatch.selected {
-      border-color: var(--text-primary);
-      box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--text-primary);
-    }
 
     /* 角色切换器 — 首字头像 */
     .rs-avatar-fb {
@@ -2207,8 +2195,10 @@
     /* Dark mode */
     :root.dark .si-edit-btn { background: var(--bg-elevated); border-color: var(--border-default); color: var(--text-tertiary); }
     :root.dark .si-edit-btn:hover { background: rgba(6,182,212,0.15); border-color: var(--brand-500); color: var(--brand-400); }
-    :root.dark .sidebar-add-role-btn { border-color: var(--border-default); color: var(--text-tertiary); }
-    :root.dark .sidebar-add-role-btn:hover { background: rgba(255,255,255,0.04); border-color: var(--brand-400); color: var(--brand-400); }
+    :root.dark .sidebar-add-role-btn { color: var(--text-tertiary); }
+    :root.dark .sidebar-add-role-btn:hover { background: rgba(255,255,255,0.05); color: var(--brand-400); }
+    :root.dark .chn-add-role-btn { color: var(--text-tertiary); }
+    :root.dark .chn-add-role-btn:hover { background: rgba(255,255,255,0.05); color: var(--brand-400); }
     :root.dark .re-field input,
     :root.dark .re-field textarea { background: var(--bg-input); border-color: var(--border-default); color: var(--text-primary); }
 
@@ -2245,37 +2235,15 @@
       object-fit: cover;
     }
 
-    /* 头像/颜色分隔线 */
-    .re-separator {
-      display: flex;
-      align-items: center;
-      margin: 10px 0 8px;
-      color: var(--text-tertiary);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .re-separator::before,
-    .re-separator::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border-default);
-    }
-    .re-separator span { padding: 0 10px; }
-
     /* Dark mode */
     :root.dark .re-avatar-swatch { background: var(--bg-elevated); }
-    :root.dark .re-separator { color: var(--text-tertiary); }
-    :root.dark .re-separator::before,
-    :root.dark .re-separator::after { background: var(--border-subtle); }
 
     /* ===== 平台消息徽标 ===== */
     .platform-badge {
       display: inline-block;
       font-size: 11px;
       padding: 1px 6px;
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       background: var(--brand-100);
       color: var(--brand-600);
       font-weight: 500;

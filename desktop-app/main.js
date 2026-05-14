@@ -849,7 +849,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
 
             let finalLines = [];           // 最终回复的行
 
-            const timer = setTimeout(() => { child.kill(); reject(new Error('执行超时（600秒）')); }, 600000);
+            const timer = setTimeout(() => { child.kill(); reject(new Error('回复时间较长，请重试')); }, 600000);
 
             child.stdout.on('data', (d) => {
 
@@ -937,7 +937,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
                   let retryErr = '';
                   let retryLines = [];
                   let retryInBanner = true, retryInBox = false;
-                  const retryTimer = setTimeout(() => { retryChild.kill(); reject(new Error('执行超时（600秒）')); }, 600000);
+                  const retryTimer = setTimeout(() => { retryChild.kill(); reject(new Error('回复时间较长，请重试')); }, 600000);
                   retryChild.stdout.on('data', (d) => {
                     const chunk = d.toString(); retryOut += chunk;
                     chunk.split('\n').forEach(raw => {
@@ -953,7 +953,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
                     clearTimeout(retryTimer);
                     if (_activeChild === retryChild) _activeChild = null;
                     if (rc === 0) resolve({ stdout: retryOut, stderr: retryErr, finalLines: retryLines });
-                    else reject(new Error(retryErr || `退出码 ${rc}`));
+                    else reject(new Error(retryErr || "AI 处理失败，请重试"));
                   });
                   retryChild.on('error', (e) => { clearTimeout(retryTimer); if (_activeChild === retryChild) _activeChild = null; reject(e); });
                   return;
@@ -962,7 +962,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
 
               if (code === 0) resolve({ stdout, stderr, finalLines });
 
-              else reject(new Error(stderr || `退出码 ${code}`));
+              else reject(new Error(stderr || "AI 处理失败，请重试"));
 
             });
 

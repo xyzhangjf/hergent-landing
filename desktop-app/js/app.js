@@ -150,9 +150,13 @@
   // 转换技术错误为友好中文提示
   function friendlyError(e) {
     const msg = (e && (e.message || String(e))) || '';
-    if (/failed to fetch|networkerror|fetch error/i.test(msg)) return '无法连接服务，请检查网络或重启应用';
-    if (/timeout|timed ?out/i.test(msg)) return '请求超时，服务可能繁忙，请稍后重试';
-    if (/ECONNREFUSED|connection refused/i.test(msg)) return '服务未启动，请稍后重试或重启应用';
+    if (/failed to fetch|networkerror|fetch error/i.test(msg)) return '无法连接服务，请检查网络';
+    if (/timeout|timed ?out/i.test(msg)) return '响应超时，请稍后重试';
+    if (/ECONNREFUSED|connection refused/i.test(msg)) return 'AI 引擎未就绪，请稍后重试';
+    if (/退出码 1|exit code 1/i.test(msg)) return 'AI 处理失败，请重试';
+    if (/退出码|exit code/i.test(msg)) return 'AI 引擎异常，请重试';
+    if (/EPIPE|broken pipe/i.test(msg)) return '连接中断，请重试';
+    if (/ENOENT|not found/i.test(msg)) return '未找到所需程序，请确认安装完整';
     return (e && e.message) || '未知错误，请重试';
   }
 
@@ -408,9 +412,9 @@
     if (empty) empty.style.display = 'none';
     const msg = document.createElement('div');
     msg.className = 'chat-msg hermes';
-    msg.innerHTML = '你好！我是 Hergent，你的 AI 数字员工团队 👋<br><br>左边有 8 位伙伴，各有所长。直接跟我说你想做什么，或者拖个文件进来。<span class="time">' + new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) + '</span>';
+    msg.innerHTML = '你好！我是 Hergent，你的 AI 数字员工团队 👋<br><br>左边是 8 位伙伴，选一个直接聊。<br>想人不在时也能用？去 <b>📱 连接手机</b> 配飞书/企微，我就能在手机上回复你。<span class="time">' + new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) + '</span>';
     history.appendChild(msg);
-    const msgs = [{ role: 'hermes', text: '你好！我是 Hergent，你的数字员工 👋\n\n我能帮你：\n📄 读文件 — PDF/Word/Excel 拖进来就能分析\n✍️ 写东西 — 周报、邮件、方案、合同\n🔍 搜信息 — 全网搜索帮你整理\n⏰ 定时干活 — 设好时间自动执行\n📱 手机遥控 — 连飞书/企微，人不在也能用\n\n左边有 8 位数字员工，选一个试试？\n也可以直接跟我说你想做什么。', time: new Date().toISOString() }];
+    const msgs = [{ role: 'hermes', text: '你好！我是 Hergent，你的数字员工 👋\n\n我能帮你：\n📄 读文件 — PDF/Word/Excel 拖进来就能分析\n✍️ 写东西 — 周报、邮件、方案、合同\n🔍 搜信息 — 全网搜索帮你整理\n⏰ 定时干活 — 设好时间自动执行\n📱 手机遥控 — 连飞书/企微，人不在也能用\n\n💡 第一步：左边选一个数字员工\n💡 第二步：点「📱 连接手机」配飞书，手机上也能用\n\n选一个试试？或者直接跟我说你想做什么。', time: new Date().toISOString() }];
     localStorage.setItem('hermes_chat', JSON.stringify(msgs));
     scrollChat();
   }
@@ -778,12 +782,18 @@
 
     // 渲染角色选择网格（使用动态角色列表）
     const roleGrid = document.getElementById('crRoleGrid');
-    roleGrid.innerHTML = _rolesList.map(r =>
-      `<button class="rs-chip ${(_crRole || '') === r.id ? 'active' : ''}" data-role="${r.id}">
-        <span class="rs-chip-avatar" style="background:${r.avatarColor||'#4b8fd9'};color:#fff;font-weight:700;">${(r.name||'?')[0]}</span>
+    roleGrid.innerHTML = _rolesList.map(r => {
+      const preset = r.avatarPreset || '';
+      const color = r.avatarColor || '#4b8fd9';
+      const initial = (r.name || '?')[0];
+      const avatarHTML = preset
+        ? `<img src="avatar://${preset}.png" alt="${r.name}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span class="rs-chip-avatar" style="display:none;background:${color};color:#fff;font-weight:700;">${initial}</span>`
+        : `<span class="rs-chip-avatar" style="background:${color};color:#fff;font-weight:700;">${initial}</span>`;
+      return `<button class="rs-chip ${(_crRole || '') === r.id ? 'active' : ''}" data-role="${r.id}">
+        ${avatarHTML}
         <span>${r.name}</span>
-      </button>`
-    ).join('');
+      </button>`;
+    }).join('');
     // 用事件委托绑定点击
     roleGrid.querySelectorAll('.rs-chip').forEach(btn => {
       btn.addEventListener('click', function() {
@@ -906,7 +916,7 @@
         : '<div class="chn-role-empty">暂无配置，点击下方添加角色</div>';
 
       return `<div class="channel-card-new" id="chCard_${c.key}">
-        <div class="chn-icon-wrap">${c.icon}</div>
+        <div class="chn-icon-wrap"><img src="avatar://${c.icon}.png" alt="${c.label}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;" /></div>
         <div class="chn-body">
           <div class="chn-name">${c.label}</div>
         </div>
@@ -1027,8 +1037,8 @@
       okBtn.textContent = '确定';
       return new Promise((resolve) => {
         _dialogResolve = resolve;
-        okBtn.onclick = () => { closeDialog(); resolve(true); };
-        cancelBtn.onclick = () => { closeDialog(); resolve(false); };
+        okBtn.onclick = () => { hideOverlay('dialogOverlay'); _dialogResolve = null; resolve(true); };
+        cancelBtn.onclick = () => { hideOverlay('dialogOverlay'); _dialogResolve = null; resolve(false); };
         showOverlay('dialogOverlay');
       });
     }
@@ -1040,7 +1050,7 @@
   }
   function closeDialog() {
     hideOverlay('dialogOverlay');
-    if (_dialogResolve) { _dialogResolve(false); _dialogResolve = null; }
+    _dialogResolve = null;
   }
 
 
@@ -1432,6 +1442,12 @@
   function handleRole(role) {
     if (!role || _switchingRole) return;
     _switchingRole = true;
+    // 立即停掉旧角色的流，防止数据串到新角色面板
+    _clearPendingTimer();
+    _streamActive = false;
+    _streamTarget = null;
+    _streamRole = null;
+    localStorage.removeItem('hermes_streaming');
     try {
       // 保存当前角色的聊天记录
       saveChatHistoryNow();
@@ -1445,11 +1461,6 @@
       localStorage.setItem('hermes_last_role', role);
       clearUnread(role);
       questionnaireHistory = '';
-      // 切角色时强清残留 streaming 状态
-      _clearPendingTimer();
-      _streamActive = false;
-      _streamTarget = null;
-      localStorage.removeItem('hermes_streaming');
       const chatHistory = document.getElementById('chatHistory');
       if (chatHistory) chatHistory.innerHTML = '';
       loadChatHistory();
@@ -1551,18 +1562,9 @@
   }
 
   // ===== 角色编辑器 =====
-  const PRESET_COLORS = ['#4b8fd9','#f59e0b','#3b82f6','#8b5cf6','#ec4899','#10b981','#ef4444','#c8a951','#22d3ee','#f97316','#84cc16','#6366f1'];
-
   const AVATAR_PRESETS = [
     'dami', 'accountant', 'programmer', 'writer', 'screenwriter', 'tutor', 'health', 'investor',
-    'secretary-alt1', 'secretary-alt2', 'secretary-alt3',
-    'accountant-alt1', 'accountant-alt2',
-    'writer-alt1', 'writer-alt2', 'writer-alt3',
-    'programmer-alt1', 'programmer-alt2',
-    'health-alt1', 'health-alt2',
-    'manager-1', 'manager-2',
-    'investor-alt1', 'teacher-1',
-    'style-3d-1', 'style-3d-2', 'style-3d-3', 'style-3d-4', 'style-3d-5'
+    'health-advisor', 'manager', 'secretary', 'teacher'
   ];
 
   function openRoleEditor(roleId) {
@@ -1571,7 +1573,6 @@
     const title = document.getElementById('reTitle');
     const nameInput = document.getElementById('reName');
     const promptInput = document.getElementById('rePrompt');
-    const colorGrid = document.getElementById('reColorGrid');
     const avatarGrid = document.getElementById('reAvatarGrid');
     const deleteBtn = document.getElementById('reDeleteBtn');
 
@@ -1585,8 +1586,7 @@
     if (promptInput) promptInput.value = role ? (role.systemPrompt || '') : '';
 
     // 预设头像网格
-    const currentPreset = role?.avatarPreset || '';
-    const currentColor = role?.avatarColor || '#4b8fd9';
+    const currentPreset = role?.avatarPreset || AVATAR_PRESETS[0];
     if (avatarGrid) {
       avatarGrid.innerHTML = AVATAR_PRESETS.map(p =>
         `<span class="re-avatar-swatch${p === currentPreset ? ' selected' : ''}" data-preset="${p}" onclick="selectRoleAvatar('${p}')">
@@ -1594,14 +1594,6 @@
         </span>`
       ).join('');
       avatarGrid.dataset.selected = currentPreset;
-    }
-
-    // 色板（备选）
-    if (colorGrid) {
-      colorGrid.innerHTML = PRESET_COLORS.map(c =>
-        `<span class="re-color-swatch${c === currentColor && !currentPreset ? ' selected' : ''}" style="background:${c}" data-color="${c}" onclick="selectRoleColor('${c}')"></span>`
-      ).join('');
-      colorGrid.dataset.selected = currentColor;
     }
 
     // 删除按钮：仅非内置角色可删
@@ -1622,34 +1614,12 @@
   function selectRoleAvatar(preset) {
     const overlay = document.getElementById('roleEditorOverlay');
     const avatarGrid = document.getElementById('reAvatarGrid');
-    const colorGrid = document.getElementById('reColorGrid');
     if (!overlay || !avatarGrid) return;
-    // 选中头像，清空颜色
     overlay.dataset.avatarPreset = preset;
     avatarGrid.dataset.selected = preset;
     avatarGrid.querySelectorAll('.re-avatar-swatch').forEach(s => {
       s.classList.toggle('selected', s.dataset.preset === preset);
     });
-    if (colorGrid) {
-      colorGrid.querySelectorAll('.re-color-swatch').forEach(s => s.classList.remove('selected'));
-    }
-  }
-
-  function selectRoleColor(color) {
-    const overlay = document.getElementById('roleEditorOverlay');
-    const colorGrid = document.getElementById('reColorGrid');
-    const avatarGrid = document.getElementById('reAvatarGrid');
-    if (!colorGrid) return;
-    // 选中颜色，清空头像
-    if (overlay) overlay.dataset.avatarPreset = '';
-    colorGrid.dataset.selected = color;
-    colorGrid.querySelectorAll('.re-color-swatch').forEach(s => {
-      s.classList.toggle('selected', s.dataset.color === color);
-    });
-    if (avatarGrid) {
-      avatarGrid.dataset.selected = '';
-      avatarGrid.querySelectorAll('.re-avatar-swatch').forEach(s => s.classList.remove('selected'));
-    }
   }
 
   async function saveRole() {
@@ -1658,9 +1628,9 @@
     const roleId = overlay.dataset.roleId;
     const name = document.getElementById('reName')?.value?.trim();
     const systemPrompt = document.getElementById('rePrompt')?.value?.trim();
-    const colorGrid = document.getElementById('reColorGrid');
-    const avatarColor = colorGrid?.dataset?.selected || '#22d3ee';
-    const avatarPreset = overlay.dataset.avatarPreset || '';
+    const avatarPreset = overlay.dataset.avatarPreset || AVATAR_PRESETS[0];
+    const r = _rolesList.find(x => x.id === (roleId || ''));
+    const avatarColor = r?.avatarColor || '#4b8fd9';
 
     if (!name) { showDialog('⚠️', '请输入角色名称'); return; }
 
@@ -1950,7 +1920,9 @@
 
   // 接收后端流式推送的实时步骤
   window.hermes_on.stream((data) => {
-    if (!_streamActive || !_streamTarget) return;
+    if (!_streamActive || !_streamTarget || _switchingRole) return;
+    // 只处理当前角色的流，忽略旧角色的残留数据
+    if (_streamRole && _streamRole !== (currentAction || 'chat')) return;
     const step = (data && data.text) ? data.text.trim() : '';
     if (!step || step.startsWith('│') || step.startsWith('╭') || step.startsWith('╰')) return;
 
@@ -2168,6 +2140,7 @@ ${questionnaireHistory}`;
       loadingMsg.setAttribute('data-pending', 'true');
       _streamTarget = loadingMsg;
       _streamActive = true;
+      _streamRole = currentAction || 'chat';
       toggleCancelButton(true);
       _startPendingTimer(loadingMsg);
       _streamKey = sendingKey;
@@ -2232,6 +2205,7 @@ ${questionnaireHistory}`;
     loadingMsg.setAttribute('data-pending', 'true');
     _streamTarget = loadingMsg;
     _streamActive = true;
+    _streamRole = currentAction || 'chat';
     toggleCancelButton(true);
     _startPendingTimer(loadingMsg);
     _streamKey = sendingKey;
@@ -2282,42 +2256,29 @@ ${questionnaireHistory}`;
     return normalized === 'chat' ? 'hermes_chat' : `hermes_chat_${normalized}`;
   }
 
-  // 统一消息持久化：append 追加，replaceLast 替换最后一条，自动修剪 >200
-  function saveMessagesToRole(role, messages, { append, replaceLast } = {}) {
-    const key = roleStorageKey(role);
-    try {
-      let msgs = [];
-      try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch (_) {}
-      if (replaceLast && msgs.length > 0) {
-        msgs[msgs.length - 1] = messages[0] || messages;
-      } else if (append) {
-        msgs.push(...(Array.isArray(messages) ? messages : [messages]));
-      } else {
-        msgs = Array.isArray(messages) ? messages : [messages];
-      }
-      if (msgs.length > 200) msgs = msgs.slice(-150);
-      localStorage.setItem(key, JSON.stringify(msgs));
-    } catch (_) {}
-  }
-
   // 将 Hermes 回复存入指定角色的 localStorage（跨角色切换时用）
   function saveResponseToRole(role, text) {
+    // 回复的不是当前正在看的角色对话，加未读
     const _viewing = currentAction || 'chat';
     const _homeActive = document.getElementById('pageHome').classList.contains('active');
+    // 用统一的 key 映射比较（dami 和 chat 是同一个角色）
     const viewingKey = roleStorageKey(_viewing);
     const sendingKey = roleStorageKey(role);
     if (sendingKey !== viewingKey || !_homeActive) bumpUnread(role);
-    const time = new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}).replace(/^0/,'');
-    // 如果最后一条是"思考中"就替换，否则追加
-    const key = roleStorageKey(role);
-    let msgs = [];
-    try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch (_) {}
-    const last = msgs[msgs.length - 1];
-    if (last && last.role === 'hermes' && last.text === '思考中') {
-      saveMessagesToRole(role, [{ role: 'hermes', text, files: [], time }], { replaceLast: true });
-    } else {
-      saveMessagesToRole(role, [{ role: 'hermes', text, files: [], time }], { append: true });
-    }
+    const storageKey = sendingKey;
+    try {
+      const msgs = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      // 如果最后一条是“思考中”就替换，否则追加
+      const last = msgs[msgs.length - 1];
+      if (last && last.role === 'hermes' && last.text === '思考中') {
+        last.text = text;
+        last.time = new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}).replace(/^0/,'');
+      } else {
+        msgs.push({ role: 'hermes', text, files: [], time: new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}).replace(/^0/,'') });
+        if (msgs.length > 200) msgs = msgs.slice(-150);
+      }
+      localStorage.setItem(storageKey, JSON.stringify(msgs));
+    } catch(e) {}
   }
 
   // ===== 聊天持久化 =====
@@ -2335,31 +2296,16 @@ ${questionnaireHistory}`;
   }
 
   function saveChatHistoryNow() {
-    const history = document.getElementById('chatHistory');
-    const msgs = [];
-    history.querySelectorAll('.chat-msg').forEach(div => {
-      const role = div.classList.contains('user') ? 'user' : 'hermes';
-      const timeSpan = div.querySelector('.time');
-      const filesBadges = div.querySelectorAll('.files-badge');
-      let html = div.getAttribute('data-text') || div.innerHTML;
-      let msgTime = '';
-      if (timeSpan) { msgTime = timeSpan.textContent; }
-      if (!div.hasAttribute('data-text')) {
-        html = html.replace(timeSpan?.outerHTML || '', '');
-        filesBadges.forEach(b => { html = html.replace(b.outerHTML, ''); });
-        html = html
-          .replace(/<br\s*\/?>/gi, '\\n')
-          .replace(/<a[^>]*>(.*?)<\/a>/gi, '$1')
-          .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-          .trim();
-      }
-      if (html === '思考中' || html.includes('stream-status')) return;
-      const msg = { role, text: html };
-      if (msgTime) msg.time = msgTime;
-      msgs.push(msg);
-    });
+    // 直接保存当前 localStorage 数据（addChatMessage 已在每次消息时实时写入）
+    // 不再从 DOM 序列化，避免 DOM 状态与存储不一致导致消息丢失
     try {
-      localStorage.setItem(chatStorageKey(), JSON.stringify(msgs));
+      const key = chatStorageKey();
+      const msgs = JSON.parse(localStorage.getItem(key) || '[]');
+      // 过滤掉思考中占位
+      const clean = msgs.filter(m => m.text !== '思考中' && !(m.text || '').includes('stream-status'));
+      if (clean.length !== msgs.length) {
+        localStorage.setItem(key, JSON.stringify(clean));
+      }
     } catch (e) { /* localStorage 满了，忽略 */ }
   }
 
@@ -2373,6 +2319,7 @@ ${questionnaireHistory}`;
     _switchingRole = true;
     saveChatHistoryNow();
     localStorage.removeItem(chatStorageKey());
+    window.hermes.sessionClear(currentAction || 'dami'); // 清除 main.js 缓存的旧会话
     document.getElementById('chatHistory').innerHTML = '';
     const empty = document.createElement('div');
     empty.className = 'chat-empty';
@@ -2425,6 +2372,7 @@ ${questionnaireHistory}`;
       ph.setAttribute('data-pending', 'true');
       _streamTarget = ph;
       _streamActive = true;
+      _streamRole = currentAction || 'chat';
       toggleCancelButton(true);
       _startPendingTimer(ph);
       _streamKey = chatStorageKey();
@@ -2667,7 +2615,7 @@ ${questionnaireHistory}`;
   // 监听后端推送的处理结果
   if (window.hermes_on && window.hermes_on.result) {
     window.hermes_on.result((data) => {
-      if (_switchingRole) return;  // 切角色中，跳过
+      if (_switchingRole || !data || !data.output) return;  // 切角色中或无效数据，跳过
       // 找到最后一个 pending 的 hermes 消息替换
       const history = document.getElementById('chatHistory');
       const pending = history.querySelectorAll('.hermes[data-pending]');

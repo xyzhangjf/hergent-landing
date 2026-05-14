@@ -1,0 +1,46 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(hermes --version)",
+      "Read(//Users/zhangjunfeng/.hermes/hermes-agent/venv/**)",
+      "Read(//Users/zhangjunfeng/.hermes/hermes-agent/venv/bin/**)",
+      "Bash(cat ~/.hermes/hermes-agent/setup-hermes.sh | head -80)",
+      "Read(//Users/zhangjunfeng/.hermes/hermes-agent/**)",
+      "Bash(node -c main.js)",
+      "Bash(node -c preload.js)",
+      "Bash(node -c js/config.js)",
+      "Bash(node -c js/app.js)",
+      "Bash(sed -i '' 's/pythonBin = VENV_PYTHON;//' /Users/zhangjunfeng/Documents/laozhangai-product/desktop-app/main.js)",
+      "Bash(sed -i '' 's/${pythonBin}/${VENV_PYTHON}/g' /Users/zhangjunfeng/Documents/laozhangai-product/desktop-app/main.js)",
+      "Bash(cp main.js main.js.bak)",
+      "Bash(awk 'NR<32 || NR>157' main.js.bak)",
+      "Bash(sed -i '' '/stopCreditsServer\\(\\);/d' main.js)",
+      "Bash(sed -i '' '/startCreditsServer\\(\\);/d' main.js)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('server.py'\\).read\\(\\)\\); print\\('server.py syntax OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('server.py'\\).read\\(\\)\\); print\\('server.py OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('auth.py'\\).read\\(\\)\\); print\\('auth.py OK'\\)\")",
+      "Bash(~/.hermes/hermes-agent/venv/bin/hermes chat *)",
+      "Bash(~/.hermes/hermes-agent/venv/bin/hermes --help)",
+      "Bash(xattr -cr /tmp/HerAgent-working.app)",
+      "Bash(open /tmp/HerAgent-working.app)",
+      "Read(//Users/zhangjunfeng/.npm/_npx/**)",
+      "Bash(npx electron@42.0.0 --version)",
+      "Bash(./node_modules/electron/dist/Electron.app/Contents/MacOS/Electron -e \"console.log\\('test:', typeof require\\('electron'\\).ipcMain\\)\")",
+      "Bash(# Find any cached electron binaries *)",
+      "Read(//private/tmp/**)",
+      "Bash(~/.npm/_npx/b702a41e1d1d6670/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --version)",
+      "Bash(~/.npm/_npx/b702a41e1d1d6670/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron -e \"console.log\\('ipcMain:', typeof require\\('electron'\\).ipcMain\\)\")",
+      "Bash(~/.hermes/hermes-agent/venv/bin/hermes --version)",
+      "Bash(~/.local/bin/hermes --version)",
+      "Bash(cp config.yaml config.yaml.bak)",
+      "Bash(python3 -c ' *)",
+      "Bash(# Restore original config *)",
+      "Bash(pip3 install *)",
+      "Bash(npx --yes sharp-cli --help)",
+      "Bash(npx --yes @aspect-build/svg2png --help)"
+    ],
+    "additionalDirectories": [
+      "/Users/zhangjunfeng/.hermes"
+    ]
+  }
+}
