@@ -2721,6 +2721,44 @@ function _initDomEvents() {
   initDragDrop();
   initCustomAvatars();
   initTheme();
+  initSidebarResize();
+}
+
+// ===== 侧边栏拖拽调整宽度 =====
+function initSidebarResize() {
+  const sidebar = document.querySelector('.sidebar');
+  const handle = document.getElementById('sidebarResizeHandle');
+  if (!sidebar || !handle) return;
+
+  const savedWidth = localStorage.getItem('hermes_sidebar_width');
+  if (savedWidth) sidebar.style.width = savedWidth + 'px';
+
+  let dragging = false, startX = 0, startWidth = 0;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startX = e.clientX;
+    startWidth = sidebar.offsetWidth;
+    handle.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = Math.max(160, Math.min(320, startWidth + e.clientX - startX));
+    sidebar.style.width = w + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    localStorage.setItem('hermes_sidebar_width', sidebar.offsetWidth);
+  });
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _initDomEvents);

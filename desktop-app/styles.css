@@ -391,6 +391,7 @@
     /* ===== 侧边栏 ===== */
     .sidebar {
       width: 190px;
+      min-width: 160px;
       flex-shrink: 0;
       background: var(--bg-surface);
       border-right: 1px solid var(--border-subtle);
@@ -398,6 +399,20 @@
       flex-direction: column;
       padding: 48px 0 12px;
       overflow-y: auto;
+    }
+    .sidebar-resize-handle {
+      width: 4px;
+      cursor: col-resize;
+      flex-shrink: 0;
+      background: transparent;
+      transition: background 0.15s;
+      position: relative;
+      z-index: 10;
+      margin-left: -3px;
+    }
+    .sidebar-resize-handle:hover,
+    .sidebar-resize-handle.active {
+      background: var(--brand-400);
     }
     .sidebar-section { padding: 0 8px; }
     .sidebar-label {
@@ -497,12 +512,13 @@
       flex: 1;
       flex-direction: column;
       overflow: hidden;
+      padding-top: 20px;
     }
     .right-panel .page.active { display: flex; }
     #pageChannels { overflow-y: auto; }
 
     /* ===== 主页（对话面板填满右侧）===== */
-    #pageHome { padding: 0; }
+    #pageHome { padding-top: 16px; }
 
     /* ===== 通用组件 ===== */
     .page-header {
@@ -774,7 +790,7 @@
     .chat-history {
       flex: 1;
       overflow-y: auto;
-      padding: 16px;
+      padding: 16px 24px 20px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -1096,8 +1112,8 @@
       gap: 2px;
       opacity: 0;
       transition: opacity 0.15s var(--ease-smooth);
-      margin-top: 6px;
-      padding-top: 6px;
+      margin-top: 4px;
+      padding-top: 3px;
       border-top: 1px solid var(--border-subtle);
     }
     .chat-msg.hermes:hover .msg-actions { opacity: 1; }
