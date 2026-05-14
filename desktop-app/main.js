@@ -136,6 +136,7 @@ let tray = null;
 let isQuitting = false;
 
 let _activeChild = null; // 当前正在运行的 hermes CLI 进程
+let _activeSessions = {}; // 每个角色当前活跃的 session ID，保证同一角色对话连续
 
 
 
@@ -422,12 +423,13 @@ const HERMES_CLI = HERMES_BIN;
 
 
 function hermesCLI(args, timeout = 30000) {
-  const result = spawnSync(HERMES_CLI, Array.isArray(args) ? args : [args], {
-    timeout, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe']
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error((result.stderr || '') || `Exit code ${result.status}`);
-  return (result.stdout || '').trim();
+
+  const cmd = `${HERMES_CLI} ${args}`;
+
+  const result = execSync(cmd, { timeout, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+
+  return result.trim();
+
 }
 
 
@@ -816,20 +818,21 @@ ipcMain.handle('hermes:execute', async (event, params) => {
 
 
 
-        // --- 调用本地 Hermes CLI ---
+        // --- 查找活跃会话：app 内已建立的会话优先，否则交给 --continue 自动找最近的 ---
+        const roleKey = role || 'dami';
+        const activeSessionId = _activeSessions[roleKey] || null;
+        if (role && role !== 'dami') ensureRoleProfile(role);
 
-        // 并发锁：拒绝同时运行多个 chat
-        if (_activeChild) {
-          return { requestId: null, success: false, output: '上一个任务还在处理中，请稍候' };
-        }
+        // --- 调用本地 Hermes CLI ---
 
         try {
 
           const result = await new Promise((resolve, reject) => {
 
-            const spawnArgs = ['chat', '--continue', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
+            const spawnArgs = activeSessionId
+              ? ['chat', '--resume', activeSessionId, '-q', fullText, '--max-turns', '60', '--source', 'tool']
+              : ['chat', '--continue', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
             if (role && role !== 'dami') {
-              ensureRoleProfile(role);
               spawnArgs.unshift('--profile', role);
             }
             const child = spawn(HERMES_BIN, spawnArgs);
@@ -918,44 +921,43 @@ ipcMain.handle('hermes:execute', async (event, params) => {
 
               if (_activeChild === child) _activeChild = null;
 
-              // --continue 在没有历史会话时会失败，自动回退重试
-              if (code !== 0 && stderr.includes('No previous CLI session')) {
-                const retryArgs = spawnArgs.filter(a => a !== '--continue');
-                const retryChild = spawn(HERMES_BIN, retryArgs);
-                _activeChild = retryChild;
-                let retryStdout = '';
-                let retryStderr = '';
-                let retryFinalLines = [];
-                let retryInBanner = true;
-                let retryInBox = false;
-                const retryTimer = setTimeout(() => { retryChild.kill(); reject(new Error('执行超时（600秒）')); }, 600000);
-                retryChild.stdout.on('data', (d) => {
-                  const chunk = d.toString();
-                  retryStdout += chunk;
-                  const lines = chunk.split('\n');
-                  for (const raw of lines) {
-                    const line = raw.trim();
-                    if (!line) continue;
-                    if (retryInBanner) { if (line.startsWith('Query:')) retryInBanner = false; continue; }
-                    if (line.includes('╭─') || line.startsWith('│')) { retryInBox = true; continue; }
-                    if (retryInBox) {
-                      if (line.startsWith('╰─')) { retryInBox = false; continue; }
-                      retryFinalLines.push(line);
-                      try { event.sender.send('hermes:stream', { text: line, type: 'response' }); } catch(_) {}
-                      continue;
-                    }
-                    if (line.startsWith('┊')) { try { event.sender.send('hermes:stream', { text: line }); } catch(_) {} }
-                  }
-                });
-                retryChild.stderr.on('data', (d) => { retryStderr += d.toString(); });
-                retryChild.on('close', (retryCode) => {
-                  clearTimeout(retryTimer);
-                  if (_activeChild === retryChild) _activeChild = null;
-                  if (retryCode === 0) resolve({ stdout: retryStdout, stderr: retryStderr, finalLines: retryFinalLines });
-                  else reject(new Error(retryStderr || `退出码 ${retryCode}`));
-                });
-                retryChild.on('error', (e) => { clearTimeout(retryTimer); if (_activeChild === retryChild) _activeChild = null; reject(e); });
-                return;
+              // --resume 或 --continue 失败时自动回退重试
+              if (code !== 0 && (stderr.includes('No previous CLI session') || stderr.includes('not found') || stderr.includes('Session'))) {
+                const retryArgs = spawnArgs.filter(a => a !== '--continue' && a !== '--resume' && a !== (spawnArgs[spawnArgs.indexOf('--resume') + 1] || ''));
+                // 清理掉 --resume <id> 对
+                const resumeIdx = retryArgs.indexOf('--resume');
+                if (resumeIdx >= 0) retryArgs.splice(resumeIdx, 2);
+                const continueIdx = retryArgs.indexOf('--continue');
+                if (continueIdx >= 0) retryArgs.splice(continueIdx, 1);
+                if (retryArgs.length < spawnArgs.length) {
+                  _activeSessions[roleKey] = null; // 旧会话失效，清除
+                  const retryChild = spawn(HERMES_BIN, retryArgs);
+                  _activeChild = retryChild;
+                  let retryOut = '';
+                  let retryErr = '';
+                  let retryLines = [];
+                  let retryInBanner = true, retryInBox = false;
+                  const retryTimer = setTimeout(() => { retryChild.kill(); reject(new Error('执行超时（600秒）')); }, 600000);
+                  retryChild.stdout.on('data', (d) => {
+                    const chunk = d.toString(); retryOut += chunk;
+                    chunk.split('\n').forEach(raw => {
+                      const line = raw.trim(); if (!line) return;
+                      if (retryInBanner) { if (line.startsWith('Query:')) retryInBanner = false; return; }
+                      if (line.includes('╭─') || line.startsWith('│')) { retryInBox = true; return; }
+                      if (retryInBox) { if (line.startsWith('╰─')) { retryInBox = false; return; } retryLines.push(line); try { event.sender.send('hermes:stream', { text: line, type: 'response' }); } catch(_) {} return; }
+                      if (line.startsWith('┊')) { try { event.sender.send('hermes:stream', { text: line }); } catch(_) {} }
+                    });
+                  });
+                  retryChild.stderr.on('data', (d) => { retryErr += d.toString(); });
+                  retryChild.on('close', (rc) => {
+                    clearTimeout(retryTimer);
+                    if (_activeChild === retryChild) _activeChild = null;
+                    if (rc === 0) resolve({ stdout: retryOut, stderr: retryErr, finalLines: retryLines });
+                    else reject(new Error(retryErr || `退出码 ${rc}`));
+                  });
+                  retryChild.on('error', (e) => { clearTimeout(retryTimer); if (_activeChild === retryChild) _activeChild = null; reject(e); });
+                  return;
+                }
               }
 
               if (code === 0) resolve({ stdout, stderr, finalLines });
@@ -1009,6 +1011,44 @@ ipcMain.handle('hermes:execute', async (event, params) => {
 
 
 
+          // 提取会话 ID，存入活跃会话表，保证下一轮对话连续
+          const sidMatch = result.stdout.match(/Session:\s+(\S+)/);
+          if (sidMatch) {
+            _activeSessions[roleKey] = sidMatch[1];
+
+            // --- 自动打通飞书/App 消息（首次发消息后自动 handoff 当前会话）---
+            if (!_activeSessions._handoffDone) _activeSessions._handoffDone = {};
+            if (!_activeSessions._handoffDone[roleKey]) {
+              _activeSessions._handoffDone[roleKey] = true;
+              try {
+                const channels = loadChannels();
+                if (channels.feishu && channels.feishu[roleKey]) {
+                  const channelDir = path.join(hermDir, 'channel_directory.json');
+                  if (fs.existsSync(channelDir)) {
+                    const dir = JSON.parse(fs.readFileSync(channelDir, 'utf-8'));
+                    const feishuChannels = dir.platforms?.feishu || [];
+                    if (feishuChannels.length > 0) {
+                      const homeId = feishuChannels[0].id;
+                      const setCmd = (roleKey === 'dami')
+                        ? `config set feishu.home_channel "${homeId}"`
+                        : `--profile ${roleKey} config set feishu.home_channel "${homeId}"`;
+                      execSync(`${HERMES_CLI} ${setCmd}`, { timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] });
+                      const dbPath = (roleKey === 'dami')
+                        ? path.join(hermDir, 'state.db')
+                        : path.join(hermDir, 'profiles', roleKey, 'state.db');
+                      if (fs.existsSync(dbPath)) {
+                        const pythonBin = fs.existsSync(VENV_PYTHON) ? VENV_PYTHON : pythonCmd;
+                        spawnSync(pythonBin, ['-c',
+                          `import sqlite3;db=sqlite3.connect('${dbPath}');sid='${sidMatch[1]}';db.execute("UPDATE sessions SET handoff_state='pending',handoff_platform='feishu' WHERE id=? AND handoff_state IS NULL",(sid,));db.commit();db.close()`
+                        ], { timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'] });
+                      }
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+
           fs.appendFileSync(logFile, `[${new Date().toISOString()}] hermes done: ${responseText.length} chars\n`);
 
 
@@ -1023,22 +1063,19 @@ ipcMain.handle('hermes:execute', async (event, params) => {
 
 
 
-          // 扣减积分
-
+          // 扣减积分（失败不返回结果，防止绕过付费）
+          let deductOK = false;
           try {
-
             await httpPost(`${SERVER_URL}/api/credits/deduct`,
-
-              JSON.stringify({ credits: creditsUsed, model: 'hermes' }),
-
-              { timeout: 5000, headers: { 'User-Agent': 'HermesAI-Desktop/1.0', 'Accept-Language': 'zh-CN,zh;q=0.9' } }
-
+              JSON.stringify({ credits: creditsUsed, model: 'hermes', requestId }),
+              { timeout: 5000, headers: { 'User-Agent': 'Hergent-Desktop/1.0', 'Accept-Language': 'zh-CN,zh;q=0.9' } }
             );
-
+            deductOK = true;
           } catch (de) {
-
             fs.appendFileSync(logFile, `[${new Date().toISOString()}] deduct failed: ${de.message}\n`);
-
+          }
+          if (!deductOK) {
+            return { requestId, success: false, output: '积分扣减失败，请检查网络后重试' };
           }
 
 
@@ -1070,36 +1107,41 @@ ipcMain.handle('hermes:execute', async (event, params) => {
   
 
   if (action === 'fs:list') {
-    const safeDirs = [process.env.HOME, path.join(process.env.HOME, 'Documents'), path.join(process.env.HOME, 'Desktop'), path.join(process.env.HOME, 'Downloads')];
+
     const dir = (args && args.dir) || path.join(process.env.HOME, 'Documents');
-    const resolved = path.resolve(dir);
-    if (!safeDirs.some(d => resolved.startsWith(path.resolve(d) + path.sep) || resolved === path.resolve(d))) {
-      return { files: [], error: '目录不在允许范围内' };
-    }
+
     try {
+
       const names = fs.readdirSync(dir);
+
       return { files: names };
+
     } catch (e) {
-      return { files: [], error: '读取失败' };
+
+      return { files: [], error: e.message };
+
     }
+
   } else if (action === 'fs:read') {
-    const safeDirs = [process.env.HOME, path.join(process.env.HOME, 'Documents'), path.join(process.env.HOME, 'Desktop'), path.join(process.env.HOME, 'Downloads')];
+
     const filePath = (args && args.path) || '';
-    const resolved = path.resolve(filePath);
-    if (!safeDirs.some(d => resolved.startsWith(path.resolve(d) + path.sep) || resolved === path.resolve(d))) {
-      return { content: '', error: '文件不在允许范围内' };
-    }
+
     try {
+
       const content = fs.readFileSync(filePath, 'utf8');
+
       return { content };
+
     } catch (e) {
-      return { content: '', error: '读取失败' };
+
+      return { content: '', error: e.message };
+
     }
+
   } else if (action === 'shell:open') {
+
     const target = (args && args.path) || '';
-    if (target && !target.startsWith('https://') && !target.startsWith('http://')) {
-      return { success: false, error: '仅允许 http/https 链接' };
-    }
+
     try {
 
       const st = fs.statSync(target);
@@ -1168,7 +1210,7 @@ ipcMain.handle('file:select', async (event, opts) => {
 
 // ===== 头像上传 — 存到 Resources/avatars/，锁死到 App 内 =====
 
-const AVATARS_DIR = path.join(__dirname, '..', 'avatars');
+const AVATARS_DIR = path.join(__dirname, 'avatars');
 
 
 
@@ -1344,7 +1386,7 @@ ipcMain.handle('cron:list', async () => {
 
   try {
 
-    const result = hermesCLI(['cron', 'list'], 5000);
+    const result = hermesCLI('cron list', 5000);
 
     // 解析格式化输出：每个任务由 hex id + [active/disabled] 开头，后面是缩进的 Key: Value 行
 
@@ -1425,9 +1467,13 @@ ipcMain.handle('cron:create', async (event, opts) => {
   try {
 
     const result = hermesCLI(
-      ['cron', 'create', schedule, prompt, '--name', (name || 'app-' + Date.now()), '--deliver', 'origin'],
+
+      `cron create "${schedule}" "${prompt.replace(/"/g, '\\"')}" --name "${(name || 'app-' + Date.now()).replace(/"/g, '')}" --deliver origin`,
+
       15000
+
     );
+
     return { success: true, output: result.trim() };
 
   } catch (e) {
@@ -1446,7 +1492,7 @@ ipcMain.handle('cron:remove', async (event, params) => {
 
   try {
 
-    hermesCLI(['cron', 'remove', id], 5000);
+    hermesCLI(`cron remove ${id}`, 5000);
 
     return { success: true };
 
@@ -1464,7 +1510,7 @@ ipcMain.handle('cron:pause', async (event, id) => {
 
   try {
 
-    hermesCLI(['cron', 'pause', id], 5000);
+    hermesCLI(`cron pause ${id}`, 5000);
 
     return { success: true };
 
@@ -1482,7 +1528,7 @@ ipcMain.handle('cron:resume', async (event, id) => {
 
   try {
 
-    hermesCLI(['cron', 'resume', id], 5000);
+    hermesCLI(`cron resume ${id}`, 5000);
 
     return { success: true };
 
@@ -1500,7 +1546,7 @@ ipcMain.handle('cron:run', async (event, id) => {
 
   try {
 
-    hermesCLI(['cron', 'run', id], 15000);
+    hermesCLI(`cron run ${id}`, 15000);
 
     return { success: true };
 
@@ -1550,9 +1596,10 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
   try {
     for (const [key, value] of Object.entries(config)) {
       if (!value) continue;
-      hermesCLI(['--profile', role, 'config', 'set', `${channel}.${key}`, value], 5000);
+      const escaped = value.replaceAll('"', '\\"');
+      hermesCLI(`--profile ${role} config set ${channel}.${key} "${escaped}"`, 5000);
     }
-    hermesCLI(['--profile', role, 'config', 'set', `${channel}.enabled`, 'true'], 5000);
+    hermesCLI(`--profile ${role} config set ${channel}.enabled true`, 5000);
   } catch (e) {
     console.error('hermes config set failed:', e.message);
   }
@@ -1571,7 +1618,7 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
 
 ipcMain.handle('channels:pairing-approve', async (event, channel, role, code) => {
   try {
-    const result = hermesCLI(['--profile', role, 'pairing', 'approve', channel, code], 10000);
+    const result = hermesCLI(`--profile ${role} pairing approve ${channel} ${code}`, 10000);
     return { success: true, output: result };
   } catch (e) {
     return { success: false, output: e.stderr || e.message };
@@ -1585,7 +1632,7 @@ ipcMain.handle('channels:remove', async (event, channel, role) => {
     if (Object.keys(data[channel]).length === 0) delete data[channel];
     saveChannels(data);
   }
-  try { hermesCLI(['--profile', role, 'config', 'unset', channel], 5000); } catch (_) {}
+  try { hermesCLI(`--profile ${role} config unset ${channel}`, 5000); } catch (_) {}
   try { await restartGateway(role); } catch (_) {}
   return { success: true };
 });
@@ -1733,6 +1780,12 @@ ipcMain.handle('channels:gateway-restart', async () => {
 
 
 // ===== IPC: 角色管理（动态角色系统） =====
+
+ipcMain.handle('session:clear', async (event, role) => {
+  const key = role || 'dami';
+  delete _activeSessions[key];
+  return { success: true };
+});
 
 ipcMain.handle('roles:list', async () => {
   return loadRoles();
@@ -2253,10 +2306,9 @@ ipcMain.handle('auth:logout', async (event, token) => {
 // 打开外部链接
 
 ipcMain.handle('shell:open', async (event, url) => {
-  if (!url || (!url.startsWith('https://') && !url.startsWith('http://'))) {
-    return false;
-  }
+
   require('electron').shell.openExternal(url);
+
   return true;
 
 });
