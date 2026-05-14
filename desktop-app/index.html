@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hergent · 你的数字员工</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="window">
+  <!-- 标题栏 -->
+  <div class="titlebar">
+    <div class="traffic-lights">
+      <span class="close" onclick="window.close()"></span>
+      <span class="minimize" onclick="window.minimize()"></span>
+      <span class="zoom" onclick="window.maximize()"></span>
+    </div>
+    <div class="title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Hergent
+      <span class="credits-badge" id="creditsBadge" title="剩余积分"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg> <span id="creditsText">...</span></span>
+    </div>
+  </div>
+
+  <!-- 主布局：侧边栏 + 右侧面板 -->
+  <div class="main-body">
+
+            <!-- ========== 侧边栏 ========== -->
+    <div class="sidebar">
+      <!-- 动态角色列表（由 renderSidebar() 渲染） -->
+      <div id="sidebarRoles"></div>
+
+      <div class="sidebar-spacer"></div>
+
+      <!-- 页面 -->
+      <div class="sidebar-section">
+        <button class="sidebar-item page-item" data-page="pageTasks" onclick="switchPage(&apos;pageTasks&apos;)">
+          <span class="si-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span class="si-label">定时任务</span>
+        </button>
+        <button class="sidebar-item page-item" data-page="pageChannels" onclick="switchPage(&apos;pageChannels&apos;)">
+          <span class="si-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg></span><span class="si-label">连接手机</span>
+        </button>
+        <button class="sidebar-item page-item" data-page="pageReports" onclick="switchPage(&apos;pageReports&apos;)">
+          <span class="si-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span class="si-label">我的成果</span>
+        </button>
+        <button class="sidebar-item page-item" data-page="pageSettings" onclick="switchPage(&apos;pageSettings&apos;)">
+          <span class="si-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="si-label">设置</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ========== 右侧面板 ========== -->
+    <div class="right-panel">
+
+      <!-- 页面1: 主页（对话面板填满）-->
+      <div class="page active" id="pageHome">
+        <div class="chat-panel" id="chatPanel">
+          <div class="drop-overlay" id="dropOverlay"><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 释放文件</div>
+          <div class="chat-history" id="chatHistory">
+            <div class="chat-empty">
+            <div class="home-scene-cards">
+              <div class="scene-card" onclick="handleSceneCard('dami','帮我把这个PDF总结成3个要点')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span><span class="scene-text">把PDF总结成要点</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+              <div class="scene-card" onclick="handleSceneCard('dami','帮我写一份这周的工作周报')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span><span class="scene-text">写一份工作周报</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+              <div class="scene-card" onclick="handleSceneCard('accountant','帮我分析这个Excel表格的数据')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span><span class="scene-text">分析Excel表格数据</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+              <div class="scene-card" onclick="handleSceneCard('dami','帮我搜一下最近AI行业的新动态')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><span class="scene-text">搜索最新行业动态</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+              <div class="scene-card" onclick="handleSceneCard('dami','帮我起草一份租房合同')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span><span class="scene-text">起草一份租房合同</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+              <div class="scene-card" onclick="handleSceneCard('health','帮我规划下周的健身和饮食计划')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span><span class="scene-text">规划健身饮食计划</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
+              <div class="home-hint">或直接打字，说说你想做什么</div>
+            </div>
+            </div>
+          </div>
+          <div class="conn-banner" id="connBanner">
+            <span class="conn-banner-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+            <span class="conn-banner-text" id="connBannerText"></span>
+            <span class="conn-banner-close" onclick="hideConnBanner()">×</span>
+          </div>
+          <div class="chat-files" id="chatFiles"></div>
+          <div class="chat-input-area">
+            <textarea class="chat-input" id="chatInput" placeholder="跟 Hermes 说点什么…" rows="2" autofocus onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+            <div class="chat-input-bar" id="chatInputBar">
+              <button class="chat-file-btn" id="chatFileBtn" title="选择文件" onclick="handleFileSelect()"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              <button class="chat-file-btn" title="设置提醒" onclick="quickReminder()"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
+              <button class="role-indicator" id="roleIndicator" onclick="toggleRoleSwitcher()" title="切换数字员工">
+                <img class="ri-avatar" src="avatar://dami.png" alt="" />
+                <span class="ri-name">我的大秘</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="input-bar-spacer"></div>
+              <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" title="发送"><svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+              <button class="chat-cancel-btn" id="chatCancelBtn" onclick="cancelStream()" style="display:none;" title="停止"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
+            </div>
+          </div>
+          <div class="chat-disclaimer">Hergent 可能会出错，重要信息请核实</div>
+        </div>
+      </div>
+
+      <!-- 页面2: 定时任务 -->
+      <div class="page" id="pageTasks">
+        <div class="page-header">
+          <h2><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>定时任务</h2>
+          <button class="btn" onclick="showAddTask()">+ 新建</button>
+        </div>
+        <div class="task-templates-section" id="taskTemplatesSection">
+          <div class="task-templates-label">快速创建</div>
+          <div class="task-templates-grid" id="taskTemplatesGrid"></div>
+        </div>
+        <div class="task-list" id="taskList">
+          <div class="loading"><div class="spinner"></div>加载中...</div>
+        </div>
+      </div>
+
+      <!-- 页面3: 连接手机 -->
+      <div class="page" id="pageChannels">
+        <div class="page-header">
+          <h2><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>连接手机</h2>
+        </div>
+        <p class="page-desc">连上聊天软件，定时任务结果自动推送到手机</p>
+        <div class="channel-cards-grid" id="channelCardsGrid"></div>
+      </div>
+
+      <!-- 页面4: 我的成果 -->
+      <div class="page" id="pageReports">
+        <div class="page-header">
+          <h2><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>我的成果</h2>
+        </div>
+        <div class="results-grid" id="reportsGrid">
+          <div class="result-card" data-folder="业务报表">
+            <div class="result-card-body">
+              <div class="result-card-header">
+                <span class="result-card-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+                <span class="result-card-title">业务报表</span>
+                <span class="result-card-count" id="cnt_biz">0</span>
+              </div>
+              <div class="result-card-files" id="files_biz">
+                <div class="result-empty">对话中生成的报表、数据分析等</div>
+              </div>
+            </div>
+          </div>
+          <div class="result-card" data-folder="我的创作">
+            <div class="result-card-body">
+              <div class="result-card-header">
+                <span class="result-card-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+                <span class="result-card-title">我的创作</span>
+                <span class="result-card-count" id="cnt_creative">0</span>
+              </div>
+              <div class="result-card-files" id="files_creative">
+                <div class="result-empty">帮你写的文案、方案、邮件等创作内容</div>
+              </div>
+            </div>
+          </div>
+          <div class="result-card" data-folder="我的工具">
+            <div class="result-card-body">
+              <div class="result-card-header">
+                <span class="result-card-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+                <span class="result-card-title">我的工具</span>
+                <span class="result-card-count" id="cnt_tools">0</span>
+              </div>
+              <div class="result-card-files" id="files_tools">
+                <div class="result-empty">帮你做的App、脚本、自动化工具等</div>
+              </div>
+            </div>
+          </div>
+        </div><!-- /results-grid -->
+      </div><!-- /pageReports -->
+
+      <!-- 页面5: 设置 -->
+      <div class="page" id="pageSettings">
+        <div class="page-header">
+          <h2><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</h2>
+        </div>
+        <div class="settings-content">
+          <div class="settings-section">
+            <div class="settings-section-title">外观</div>
+            <div class="theme-switcher" id="themeSwitcher">
+              <button class="theme-option active" data-theme="system" onclick="setTheme('system')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> 跟随系统</button>
+              <button class="theme-option" data-theme="light" onclick="setTheme('light')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> 浅色</button>
+              <button class="theme-option" data-theme="dark" onclick="setTheme('dark')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> 深色</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">积分</div>
+            <div class="settings-row"><span>当前余额</span><span class="settings-val" id="setCredits" style="font-weight:600;color:var(--brand-500);">--</span></div>
+            <button class="settings-btn" style="margin-top:4px;" onclick="showActivationDialog()">充值</button>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">备份</div>
+            <button class="settings-btn" onclick="exportChat()">导出当前对话</button>
+          </div>
+          <div class="settings-section" style="border-bottom:none;">
+            <div class="settings-row"><span>版本</span><span class="settings-val" id="setVersion">v1.0.0</span></div>
+          </div>
+          <div class="settings-section" style="border-bottom:none;margin-bottom:0;padding-bottom:0;">
+            <button class="settings-btn danger" onclick="clearAllData()" style="margin-bottom:4px;">清除所有数据</button>
+            <button class="settings-btn" onclick="logout()">退出登录</button>
+          </div>
+        </div>
+      </div><!-- /pageSettings -->
+
+    </div><!-- /right-panel -->
+  </div><!-- /main-body -->
+</div><!-- /window -->
+
+<!-- ===== 模态弹窗（新建定时任务） ===== -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">新建定时任务</h3>
+
+    <!-- 频率选择 -->
+    <div class="freq-label">执行频率</div>
+    <div class="freq-chips" id="freqChips">
+      <span class="freq-chip active" data-freq="daily" onclick="selectFreq('daily')">每天</span>
+      <span class="freq-chip" data-freq="altdaily" onclick="selectFreq('altdaily')">隔天</span>
+      <span class="freq-chip" data-freq="weekly" onclick="selectFreq('weekly')">每周</span>
+      <span class="freq-chip" data-freq="altweekly" onclick="selectFreq('altweekly')">隔周</span>
+      <span class="freq-chip" data-freq="biweekly" onclick="selectFreq('biweekly')">每周两次</span>
+      <span class="freq-chip" data-freq="monthly" onclick="selectFreq('monthly')">每月</span>
+      <span class="freq-chip" data-freq="altmonthly" onclick="selectFreq('altmonthly')">隔月</span>
+      <span class="freq-chip" data-freq="quarterly" onclick="selectFreq('quarterly')">每季</span>
+      <span class="freq-chip" data-freq="custom" onclick="selectFreq('custom')">自定义</span>
+    </div>
+
+    <!-- 条件字段 -->
+    <div class="cond-fields">
+      <div class="cond-field" id="condWeekday">
+        <label>星期</label>
+        <select id="weekdaySelect">
+          <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
+          <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="0">周日</option>
+        </select>
+      </div>
+      <div class="cond-field" id="condDaysOfWeek">
+        <label>星期</label>
+        <select id="daysOfWeekSelect" multiple>
+          <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
+          <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="0">周日</option>
+        </select>
+      </div>
+      <div class="cond-field" id="condDay">
+        <label>日期</label>
+        <select id="daySelect"></select>
+      </div>
+      <div class="cond-field" id="condQuarter">
+        <label>起始月</label>
+        <select id="quarterMonth" onchange="updateQuarterDay()">
+          <option value="1">1月</option><option value="4">4月</option><option value="7">7月</option><option value="10">10月</option>
+        </select>
+        <label>日期</label>
+        <select id="quarterDay"></select>
+      </div>
+      <div class="cond-field" id="condCron">
+        <label>Cron</label>
+        <input id="cronInput" placeholder="0 8 * * *" />
+      </div>
+    </div>
+
+    <input id="taskNameInput" placeholder="任务名称" />
+    <input id="taskTimeInput" placeholder="08:00" />
+
+    <textarea id="taskPromptInput" placeholder="做什么（比如：每天早上推送天气和新闻到飞书）"></textarea>
+
+    <div class="modal-btn-row">
+      <button class="btn secondary" onclick="hideAddTask()">取消</button>
+      <button class="btn" onclick="createTask()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 状态弹窗 ===== -->
+<div class="dialog-overlay" id="dialogOverlay">
+  <div class="dialog">
+    <div class="dialog-icon" id="dialogIcon">✅</div>
+    <div class="dialog-msg" id="dialogMsg"></div>
+    <div class="dialog-btns" id="dialogBtns">
+        <button id="dialogBtnCancel" class="dialog-btn secondary" style="display:none;" onclick="closeDialog()">取消</button>
+        <button id="dialogBtnOk" class="dialog-btn" onclick="closeDialog()">知道了</button>
+      </div>
+  </div>
+</div>
+
+<!-- ===== 登录覆盖层 ===== -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="login-tabs">
+      <button class="login-tab active" data-tab="phone" onclick="switchLoginTab('phone')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg> 手机登录</button>
+      <button class="login-tab" data-tab="wechat" onclick="switchLoginTab('wechat')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 微信登录</button>
+    </div>
+    <div class="login-body">
+      <div class="login-tab-panel active" id="panelPhone">
+        <h3>手机号登录</h3>
+        <p class="subtitle">新用户自动送200积分</p>
+        <div class="login-field">
+          <label>手机号</label>
+          <div class="sms-row">
+            <input type="tel" id="phoneInput" placeholder="输入11位手机号" maxlength="11" autocomplete="tel">
+            <button class="sms-btn" id="sendCodeBtn" onclick="sendSmsCode()">获取验证码</button>
+          </div>
+        </div>
+        <div class="login-field">
+          <label>验证码</label>
+          <input type="text" id="codeInput" placeholder="输入6位验证码" maxlength="6" autocomplete="one-time-code" inputmode="numeric">
+        </div>
+        <button class="login-btn" id="loginBtn" onclick="verifySmsCode()">登录</button>
+        <div class="login-error" id="loginError"></div>
+      </div>
+
+      <div class="login-tab-panel" id="panelWechat">
+        <h3>微信扫码登录</h3>
+        <p class="subtitle">打开微信扫一扫</p>
+        <div class="qr-container">
+          <div id="wechatQR"><canvas width="200" height="200"></canvas></div>
+          <p class="qr-hint" id="qrHint"></p>
+        </div>
+        <div class="login-error" id="wechatError"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 角色切换弹出菜单 ===== -->
+<div class="role-switcher" id="roleSwitcher">
+  <div class="rs-list" id="rsList"></div>
+</div>
+
+<!-- ===== 首启安装引导 ===== -->
+<div class="bootstrap-overlay" id="bootstrapOverlay">
+  <div class="bootstrap-card">
+    <div class="bootstrap-logo"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+    <h2>欢迎使用 Hergent</h2>
+    <p class="bootstrap-subtitle">首次启动需要安装 AI 引擎，大约 3-5 分钟</p>
+    <div class="bootstrap-progress-bar">
+      <div class="bootstrap-progress-fill" id="bootProgressFill"></div>
+    </div>
+    <p class="bootstrap-status" id="bootStatus">准备中...</p>
+    <button class="bootstrap-skip-btn" id="bootSkipBtn" onclick="skipBootstrap()" style="display:none;">跳过，使用基础模式</button>
+  </div>
+</div>
+
+<!-- ===== 渠道角色配置弹窗 ===== -->
+<div class="modal-overlay" id="channelRoleModal">
+  <div class="modal" style="max-width:420px;">
+    <h3 id="crModalTitle">配置机器人</h3>
+    <div class="csc-field">
+      <label>选择角色</label>
+      <div class="role-select-grid" id="crRoleGrid"></div>
+    </div>
+    <div id="crFields"></div>
+    <div class="modal-btn-row">
+      <button class="btn secondary" onclick="closeChannelRoleModal()">取消</button>
+      <button class="btn" onclick="saveChannelRole()">保存</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== 角色编辑弹窗 ===== -->
+<div class="modal-overlay" id="roleEditorOverlay">
+  <div class="modal" style="max-width:440px;">
+    <h3 id="reTitle">新建角色</h3>
+
+    <div class="re-field">
+      <label>预设头像</label>
+      <div class="re-avatar-grid" id="reAvatarGrid"></div>
+    </div>
+
+    <div class="re-separator"><span>或选择颜色</span></div>
+
+    <div class="re-field">
+      <div class="re-color-grid" id="reColorGrid"></div>
+    </div>
+
+    <div class="re-field">
+      <label>角色名称</label>
+      <input id="reName" placeholder="如：我的会计2号" maxlength="20" />
+    </div>
+
+    <div class="re-field">
+      <label>专长描述（选填）</label>
+      <textarea id="rePrompt" placeholder="如：擅长制造业成本核算，懂增值税和出口退税..." rows="3"></textarea>
+    </div>
+
+    <div class="modal-btn-row">
+      <button class="btn danger" id="reDeleteBtn" style="margin-right:auto;display:none;" onclick="deleteRole()">删除角色</button>
+      <button class="btn secondary" onclick="closeRoleEditor()">取消</button>
+      <button class="btn" onclick="saveRole()">保存</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
