@@ -1787,7 +1787,7 @@ ipcMain.handle('roles:delete', async (event, roleId) => {
   const roles = loadRoles();
   const target = roles.find(r => r.id === roleId);
   if (!target) return { success: false, error: '员工不存在' };
-  if (target.builtIn) return { success: false, error: '默认员工不可删除' };
+  if (target.builtIn === true) return { success: false, error: '默认员工不可删除' };
   const filtered = roles.filter(r => r.id !== roleId);
   saveRoles(filtered);
   return { success: true };

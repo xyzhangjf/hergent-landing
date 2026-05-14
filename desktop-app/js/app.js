@@ -1579,9 +1579,9 @@
       avatarGrid.dataset.selected = currentPreset;
     }
 
-    // 删除按钮：仅非内置角色可删
+    // 删除按钮：新建时隐藏，编辑非内置员工时显示
     if (deleteBtn) {
-      deleteBtn.style.display = (role && !role.builtIn) ? '' : 'none';
+      deleteBtn.style.display = (role && role.builtIn !== true) ? '' : 'none';
     }
 
     // 存储当前编辑的角色 ID
@@ -1638,7 +1638,7 @@
     const roleId = overlay.dataset.roleId;
     const role = _rolesList.find(r => r.id === roleId);
     if (!role) return;
-    if (role.builtIn) { showDialog('⚠️', '默认员工不可删除'); return; }
+    if (role.builtIn === true) { showDialog('⚠️', '默认员工不可删除'); return; }
     const confirmed = await showDialog('⚠️', `确定删除「${role.name}」？删除后无法恢复。`, true);
     if (!confirmed) return;
     try {
