@@ -1145,17 +1145,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
 
     try {
 
-      const st = fs.statSync(target);
-
-      if (st.isDirectory()) {
-
-        shell.openPath(target);
-
-      } else {
-
-        shell.openPath(target);
-
-      }
+      shell.openPath(target);
 
       return { success: true };
 
@@ -2319,7 +2309,7 @@ ipcMain.handle('shell:open', async (event, url) => {
 // ===== 窗口控制 =====
 
 ipcMain.on('window:minimize', () => mainWindow.minimize());
-
+ipcMain.on('window:maximize', () => { mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(); });
 ipcMain.on('window:close', () => mainWindow.hide());
 
 ipcMain.on('window:drag', (event, { deltaX, deltaY }) => {

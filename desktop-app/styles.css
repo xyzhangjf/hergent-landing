@@ -191,27 +191,6 @@
     .chn-setup-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
 
     /* === 渠道角色嵌套 === */
-    .channel-card-new {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      padding: 16px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      margin-bottom: 10px;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .channel-card-new:hover { border-color: var(--border-default); box-shadow: var(--shadow-sm); }
-    .chn-icon-wrap {
-      width: 42px; height: 42px;
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-    .chn-icon-wrap svg { width: 42px; height: 42px; display: block; }
-    .chn-body { flex: 1; min-width: 80px; }
-    .chn-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
     .chn-roles-wrapper { width: 100%; }
     .chn-role-row {
       display: flex;

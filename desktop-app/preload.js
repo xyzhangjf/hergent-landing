@@ -13,6 +13,7 @@ const SERVER_URL = process.env.HERMES_SERVER_URL || 'http://localhost:8765';
 contextBridge.exposeInMainWorld('hermes', {
   execute: (action, args) => ipcRenderer.invoke('hermes:execute', { action, args }),
   minimize: () => ipcRenderer.send('window:minimize'),
+  maximize: () => ipcRenderer.send('window:maximize'),
   close: () => ipcRenderer.send('window:close'),
   drag: (deltaX, deltaY) => ipcRenderer.send('window:drag', { deltaX, deltaY }),
 
