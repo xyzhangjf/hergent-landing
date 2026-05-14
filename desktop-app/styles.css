@@ -1,3 +1,19 @@
+    /* 侧边栏积分 */
+    .sidebar-credits {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      margin: 0 8px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      transition: all var(--dur-fast) var(--ease-smooth);
+    }
+    .sidebar-credits:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); }
+    .sidebar-credits svg { flex-shrink: 0; }
+    :root.dark .sidebar-credits:hover { background: rgba(255,255,255,0.05); }
+
         /* ===== Design Tokens ===== */
     :root {
       /* Surface layers (deep -> elevated) */
@@ -399,6 +415,22 @@
       padding: 12px 0;
       overflow-y: auto;
     }
+    /* 侧边栏积分 */
+    .sidebar-credits {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      margin: 0 8px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      transition: all var(--dur-fast) var(--ease-smooth);
+    }
+    .sidebar-credits:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); }
+    .sidebar-credits svg { flex-shrink: 0; }
+    :root.dark .sidebar-credits:hover { background: rgba(255,255,255,0.05); }
+
     .sidebar-section { padding: 0 8px; }
     .sidebar-label {
       font-size: 10px;

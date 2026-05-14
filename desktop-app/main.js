@@ -150,9 +150,8 @@ function createWindow() {
 
     resizable: true,
 
-    frame: false,
-
-    transparent: true,
+    frame: true,
+    titleBarStyle: 'hiddenInset',
 
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#101014' : '#e8ecf1',
 
@@ -2409,38 +2408,6 @@ app.whenReady().then(() => {
 
   // 启动平台消息轮询（飞书/企微消息 → App 同步）
   startGatewayPolling();
-
-  // frameless 窗口在 macOS 上必须手动配 Edit 菜单，否则 Cmd+C/V/A 不生效
-
-  if (process.platform === 'darwin') {
-
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{
-
-      label: 'Edit',
-
-      submenu: [
-
-        { role: 'undo' },
-
-        { role: 'redo' },
-
-        { type: 'separator' },
-
-        { role: 'cut' },
-
-        { role: 'copy' },
-
-        { role: 'paste' },
-
-        { role: 'pasteAndMatchStyle' },
-
-        { role: 'selectAll' }
-
-      ]
-
-    }]));
-
-  }
 
 });
 
