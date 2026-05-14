@@ -778,7 +778,7 @@
     _crRole = role || null;
     const card = CHANNEL_CARDS.find(c => c.key === channel);
     if (!card) return;
-    document.getElementById('crModalTitle').textContent = role ? `配置 ${ROLES[role]?.name || role} · ${card.label}` : `添加角色 · ${card.label}`;
+    document.getElementById('crModalTitle').textContent = role ? `配置 ${ROLES[role]?.name || role} · ${card.label}` : `添加员工 · ${card.label}`;
 
     // 渲染角色选择网格（使用动态角色列表）
     const roleGrid = document.getElementById('crRoleGrid');
@@ -909,7 +909,7 @@
               <button class="chn-role-del" onclick="removeChannelRole('${c.key}','${role}')" title="移除">×</button>
             </div>`;
           }).join('')
-        : '<div class="chn-role-empty">暂无配置，点击下方添加角色</div>';
+        : '<div class="chn-role-empty">暂无配置，点击下方添加员工</div>';
 
       return `<div class="channel-card-new" id="chCard_${c.key}">
         <div class="chn-icon-wrap"><img src="avatar://${c.icon}.png" alt="${c.label}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;" /></div>
@@ -918,7 +918,7 @@
         </div>
         <div class="chn-roles-wrapper">${roleRows}</div>
         <button class="chn-add-role-btn" onclick="openChannelRoleModal('${c.key}')">
-          + 添加角色
+          + 添加员工
         </button>
       </div>`;
     }).join('');
@@ -1518,10 +1518,10 @@
     html += '<div class="sidebar-section"><div class="sidebar-label">我的团队</div>';
     others.forEach(r => { html += renderRoleItem(r); });
     html += '</div>';
-    // 添加角色按钮
-    html += `<button class="sidebar-add-role-btn" onclick="openRoleEditor()" title="添加角色">
+    // 添加员工按钮
+    html += `<button class="sidebar-add-role-btn" onclick="openRoleEditor()" title="添加员工">
       <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      <span>添加角色</span>
+      <span>添加员工</span>
     </button>`;
     container.innerHTML = html;
     // 高亮当前选中
@@ -1538,7 +1538,7 @@
       <span class="unread-badge" data-role="${r.id}"></span>
       ${avatarHTML}
       <span class="si-label">${r.name}</span>
-      <span class="si-edit-btn" onclick="event.stopPropagation();openRoleEditor('${r.id}')" title="编辑角色">
+      <span class="si-edit-btn" onclick="event.stopPropagation();openRoleEditor('${r.id}')" title="编辑员工">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </span>
     </button>`;
@@ -1564,7 +1564,7 @@
       role = _rolesList.find(r => r.id === roleId);
     }
 
-    if (title) title.textContent = role ? '编辑角色' : '新建角色';
+    if (title) title.textContent = role ? '编辑员工' : '新建员工';
     if (nameInput) nameInput.value = role ? role.name : '';
     if (promptInput) promptInput.value = role ? (role.systemPrompt || '') : '';
 
@@ -1613,7 +1613,7 @@
     const systemPrompt = document.getElementById('rePrompt')?.value?.trim();
     const avatarPreset = overlay.dataset.avatarPreset || AVATAR_PRESETS[0];
 
-    if (!name) { showDialog('⚠️', '请输入角色名称'); return; }
+    if (!name) { showDialog('⚠️', '请输入员工名称'); return; }
 
     try {
       if (roleId) {
@@ -1638,7 +1638,7 @@
     const roleId = overlay.dataset.roleId;
     const role = _rolesList.find(r => r.id === roleId);
     if (!role) return;
-    if (role.builtIn) { showDialog('⚠️', '默认角色不可删除'); return; }
+    if (role.builtIn) { showDialog('⚠️', '默认员工不可删除'); return; }
     const confirmed = await showDialog('⚠️', `确定删除「${role.name}」？删除后无法恢复。`, true);
     if (!confirmed) return;
     try {

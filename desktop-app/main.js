@@ -1807,8 +1807,8 @@ ipcMain.handle('roles:add', async (event, roleData) => {
 ipcMain.handle('roles:delete', async (event, roleId) => {
   const roles = loadRoles();
   const target = roles.find(r => r.id === roleId);
-  if (!target) return { success: false, error: '角色不存在' };
-  if (target.builtIn) return { success: false, error: '默认角色不可删除' };
+  if (!target) return { success: false, error: '员工不存在' };
+  if (target.builtIn) return { success: false, error: '默认员工不可删除' };
   const filtered = roles.filter(r => r.id !== roleId);
   saveRoles(filtered);
   return { success: true };
@@ -1817,7 +1817,7 @@ ipcMain.handle('roles:delete', async (event, roleId) => {
 ipcMain.handle('roles:update', async (event, roleId, updates) => {
   const roles = loadRoles();
   const target = roles.find(r => r.id === roleId);
-  if (!target) return { success: false, error: '角色不存在' };
+  if (!target) return { success: false, error: '员工不存在' };
   if (updates.name !== undefined) target.name = updates.name;
   if (updates.systemPrompt !== undefined) target.systemPrompt = updates.systemPrompt;
   if (updates.avatarColor !== undefined) target.avatarColor = updates.avatarColor;
