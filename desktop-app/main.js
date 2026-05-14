@@ -918,6 +918,46 @@ ipcMain.handle('hermes:execute', async (event, params) => {
 
               if (_activeChild === child) _activeChild = null;
 
+              // --continue 在没有历史会话时会失败，自动回退重试
+              if (code !== 0 && stderr.includes('No previous CLI session')) {
+                const retryArgs = spawnArgs.filter(a => a !== '--continue');
+                const retryChild = spawn(HERMES_BIN, retryArgs);
+                _activeChild = retryChild;
+                let retryStdout = '';
+                let retryStderr = '';
+                let retryFinalLines = [];
+                let retryInBanner = true;
+                let retryInBox = false;
+                const retryTimer = setTimeout(() => { retryChild.kill(); reject(new Error('执行超时（600秒）')); }, 600000);
+                retryChild.stdout.on('data', (d) => {
+                  const chunk = d.toString();
+                  retryStdout += chunk;
+                  const lines = chunk.split('\n');
+                  for (const raw of lines) {
+                    const line = raw.trim();
+                    if (!line) continue;
+                    if (retryInBanner) { if (line.startsWith('Query:')) retryInBanner = false; continue; }
+                    if (line.includes('╭─') || line.startsWith('│')) { retryInBox = true; continue; }
+                    if (retryInBox) {
+                      if (line.startsWith('╰─')) { retryInBox = false; continue; }
+                      retryFinalLines.push(line);
+                      try { event.sender.send('hermes:stream', { text: line, type: 'response' }); } catch(_) {}
+                      continue;
+                    }
+                    if (line.startsWith('┊')) { try { event.sender.send('hermes:stream', { text: line }); } catch(_) {} }
+                  }
+                });
+                retryChild.stderr.on('data', (d) => { retryStderr += d.toString(); });
+                retryChild.on('close', (retryCode) => {
+                  clearTimeout(retryTimer);
+                  if (_activeChild === retryChild) _activeChild = null;
+                  if (retryCode === 0) resolve({ stdout: retryStdout, stderr: retryStderr, finalLines: retryFinalLines });
+                  else reject(new Error(retryStderr || `退出码 ${retryCode}`));
+                });
+                retryChild.on('error', (e) => { clearTimeout(retryTimer); if (_activeChild === retryChild) _activeChild = null; reject(e); });
+                return;
+              }
+
               if (code === 0) resolve({ stdout, stderr, finalLines });
 
               else reject(new Error(stderr || `退出码 ${code}`));
