@@ -1486,6 +1486,29 @@
     }
   }
 
+  // ===== 角色快捷操作芯片 =====
+  const QUICK_ACTIONS = {
+    dami:         ['总结文件要点', '写工作周报', '起草一份合同'],
+    accountant:   ['分析这个Excel', '对账本月收支', '做利润分析表'],
+    programmer:   ['写个网页爬虫', '批量重命名文件', '做一个记账App'],
+    writer:       ['写个小说开头', '写篇行业分析', '润色这段文字'],
+    screenwriter: ['写短视频脚本', '写品牌文案', '写一篇演讲稿'],
+    tutor:        ['解释这个概念', '出几道练习题', '帮我复习知识点'],
+    health:       ['分析我的饮食', '制定运动计划', '看看这份体检报告'],
+    investor:     ['分析市场行情', '评估投资风险', '看看这份财报'],
+  };
+
+  function renderQuickActions() {
+    const container = document.getElementById('quickActions');
+    if (!container) return;
+    const role = currentAction || 'dami';
+    const actions = QUICK_ACTIONS[role] || QUICK_ACTIONS['dami'];
+    // 也支持动态添加的自定义角色：fallback 用大秘的
+    container.innerHTML = actions.map(text =>
+      `<button class="quick-action-chip" onclick="event.stopPropagation();var inp=document.getElementById('chatInput');if(inp){inp.value='${text.replace(/'/g, "\\'")}';inp.focus();}">${text}</button>`
+    ).join('');
+  }
+
   function updateToolbarTitle(title) {
     const el = document.getElementById('chatToolbarTitle');
     if (el && title) el.textContent = title;
