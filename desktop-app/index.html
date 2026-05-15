@@ -66,6 +66,10 @@
             <span class="conn-banner-text" id="connBannerText"></span>
             <span class="conn-banner-close" onclick="hideConnBanner()">×</span>
           </div>
+          <div class="conn-status" id="connStatus" title="服务器连接状态">
+            <span class="conn-dot" id="connDot"></span>
+            <span class="conn-label" id="connLabel">检测中...</span>
+          </div>
           <div class="chat-files" id="chatFiles"></div>
           <div class="chat-input-area">
             <textarea class="chat-input" id="chatInput" placeholder="说说你想做什么…" rows="2" autofocus onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>

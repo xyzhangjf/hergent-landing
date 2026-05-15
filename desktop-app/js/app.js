@@ -186,19 +186,26 @@
 
   // 心跳检测后端是否可用
   async function checkConnectionHealth() {
+    const dot = document.getElementById('connDot');
+    const label = document.getElementById('connLabel');
     try {
       await window.hermes.getCredits();
       _connFailed = 0;
       hideConnBanner();
+      if (dot) dot.className = 'conn-dot online';
+      if (label) label.textContent = '在线';
     } catch (e) {
       _connFailed++;
+      if (dot) dot.className = 'conn-dot offline';
+      if (label) label.textContent = '离线';
       if (_connFailed >= 2) {
-        showConnBanner('后端服务连接异常，请稍候…正在自动重连', true);
+        showConnBanner('服务器连接异常，已切换离线模式', true);
       }
     }
   }
   function startConnMonitor() {
     if (_connCheckTimer) return;
+    checkConnectionHealth();
     _connCheckTimer = setInterval(checkConnectionHealth, 15000);
   }
 

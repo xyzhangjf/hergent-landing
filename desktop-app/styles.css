@@ -1047,6 +1047,25 @@
       background: rgba(217,119,6,0.1);
       border-color: rgba(217,119,6,0.2);
     }
+
+    /* 连接状态指示灯 */
+    .conn-status {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 14px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .conn-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #9ca3af;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .conn-dot.online { background: #22c55e; }
+    .conn-dot.offline { background: #ef4444; }
     .credits-badge {
       cursor: pointer;
       display: inline-flex;
