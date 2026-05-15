@@ -23,13 +23,22 @@
 
     // 监听进度
     window.hermes.onBootProgress((msg) => {
-      const [type, text] = (msg || '准备中...').split('|');
-      if (status) status.textContent = text || type;
-      if (type === 'venv' && fill) fill.style.width = '15%';
-      if (type === 'pip' && fill) fill.style.width = '50%';
+      const [type, text] = (msg || '检查环境…').split('|');
+      const messages = {
+        check: '检查系统环境…',
+        venv: '配置运行环境…',
+        pip: '安装 AI 引擎（需要联网）…',
+        done: '准备就绪！',
+        error: '安装遇到问题'
+      };
+      if (status) status.textContent = messages[type] || text || type;
+      if (type === 'check' && fill) fill.style.width = '10%';
+      if (type === 'venv' && fill) fill.style.width = '30%';
+      if (type === 'pip' && fill) fill.style.width = '70%';
       if (type === 'done' && fill) fill.style.width = '100%';
       if (type === 'error') {
         fill.style.background = '#ef4444';
+        if (status) status.textContent = text || '安装遇到问题';
         if (skipBtn) skipBtn.style.display = '';
       }
       if (type === 'done') {
@@ -1469,6 +1478,7 @@
       if (input) { input.value = ''; input.focus(); }
       updateToolbarTitle(getRoleTitle(role));
       updateRoleIndicator(role);
+      renderQuickActions();
     } finally {
       _switchingRole = false;
     }
