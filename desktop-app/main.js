@@ -1469,7 +1469,9 @@ ipcMain.handle('channels:remove', async (event, channel, role) => {
     if (Object.keys(data[channel]).length === 0) delete data[channel];
     saveChannels(data);
   }
-  try { hermesCLI(`--profile ${role} config unset ${channel}`, 5000); } catch (_) {}
+  try { hermesCLI(['--profile', role, 'config', 'unset', channel], 5000); } catch (_) {}
+  // 强制杀掉旧 gateway 进程再重启
+  try { execSync(`pkill -f "hermes.*--profile ${role}.*gateway" || true`, { timeout: 3000 }); } catch (_) {}
   try { await restartGateway(role); } catch (_) {}
   return { success: true };
 });

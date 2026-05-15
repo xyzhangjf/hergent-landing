@@ -191,7 +191,11 @@
     .chn-setup-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
 
     /* === 渠道角色嵌套 === */
-    .chn-roles-wrapper { width: 100%; }
+    .chn-roles-wrapper {
+      width: 100%;
+      max-height: 200px;
+      overflow-y: auto;
+    }
     .chn-role-row {
       display: flex;
       align-items: center;
