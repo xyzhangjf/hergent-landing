@@ -219,9 +219,9 @@ async def call_hermes_chat(user_message: str, system_prompt: str = "") -> str:
         response_lines = [l for l in lines if not l.startswith("session_id:")]
         return "\n".join(response_lines)
     except _asyncio.TimeoutError:
-        raise HTTPException(status_code=504, detail="Hermes 处理超时")
+        raise HTTPException(504, "Hermes 处理超时")
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="Hermes CLI 未安装")
+        raise HTTPException(500, "Hermes CLI 未安装")
 
 @app.on_event("startup")
 async def startup():
@@ -685,12 +685,6 @@ async def auth_logout(request: Request):
 # ============================================================
 if __name__ == "__main__":
     import sys, os
-    host = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HERMES_HOST", "0.0.0.0")
+    host = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HERMES_HOST", "127.0.0.1")
     port = int(os.environ.get("HERMES_PORT", "8765"))
-    print(f"🚀 Hergent 积分服务 v2.0.0")
-    print(f"   监听: {host}:{port}")
-    print(f"   DeepSeek: {'✅ 已配置' if DEEPSEEK_API_KEY else '⚠️  未配置（仅管理积分）'}")
-    print(f"   Hermes CLI: {'✅ 可用' if HERMES_AVAILABLE else '⚠️  未安装（走 DeepSeek 直连）'}")
-    print(f"   SMS 模式: {os.environ.get('HERMES_SMS_MODE', 'dev')}")
-    print(f"   数据库: {DB_PATH}")
     uvicorn.run(app, host=host, port=port, log_level="info")

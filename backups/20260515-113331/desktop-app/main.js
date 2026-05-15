@@ -135,8 +135,7 @@ let mainWindow;
 let tray = null;
 let isQuitting = false;
 
-let _activeChild = null; // 当前正在运行的 hermes CLI 进程（cron 等非聊天命令仍用）
-let _activeReq = null;   // 当前正在进行的 HTTP 请求（聊天走服务器 API）
+let _activeChild = null; // 当前正在运行的 hermes CLI 进程
 let _activeSessions = {}; // 每个角色当前活跃的 session ID，保证同一角色对话连续
 
 
@@ -798,154 +797,285 @@ ipcMain.handle('hermes:execute', async (event, params) => {
 
 
 
-        // --- 构造消息，走服务器 API 代理（DeepSeek Key 在服务端，自动扣积分）---
+        // --- 查找活跃会话：app 内已建立的会话优先，否则交给 --continue 自动找最近的 ---
         const roleKey = role || 'dami';
+        const activeSessionId = _activeSessions[roleKey] || null;
         if (role && role !== 'dami') ensureRoleProfile(role);
 
-        // 获取角色的 system prompt
-        const roles = loadRoles();
-        const roleData = roles.find(r => r.id === roleKey);
-        const systemPrompt = (roleData && roleData.systemPrompt) || '你是 Hergent 数字员工。说人话、不啰嗦。';
-
-        // 构造 OpenAI 格式消息
-        const chatMessages = [{ role: 'system', content: systemPrompt }];
-        let userText = fullText;
-        if (savedFiles.length > 0) {
-          userText += '\n\n[已上传文件: ' + savedFiles.join(', ') + ']';
-        }
-        chatMessages.push({ role: 'user', content: userText });
-
-        fs.appendFileSync(logFile, `[${new Date().toISOString()}] chat→server API\n`);
+        // --- 调用本地 Hermes CLI ---
 
         try {
-          const apiResult = await new Promise((resolve, reject) => {
-            const postData = JSON.stringify({
-              model: 'deepseek-chat',
-              messages: chatMessages,
-              stream: true,
-              max_tokens: 4096
-            });
 
-            const apiUrl = new URL(SERVER_URL + '/v1/chat/completions');
-            const reqOptions = {
-              hostname: apiUrl.hostname,
-              port: apiUrl.port || (apiUrl.protocol === 'https:' ? 443 : 80),
-              path: apiUrl.pathname,
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(postData),
-                'User-Agent': 'Hergent-Desktop/1.0',
-                'Accept-Language': 'zh-CN,zh;q=0.9'
-              },
-              timeout: 600000
-            };
-            const lib = apiUrl.protocol === 'https:' ? https : http;
+          const result = await new Promise((resolve, reject) => {
 
-            _activeReq = lib.request(reqOptions, (res) => {
-              // 402 = 积分不足
-              if (res.statusCode === 402) {
-                let body = '';
-                res.on('data', c => body += c);
-                res.on('end', () => {
-                  try {
-                    const err = JSON.parse(body);
-                    reject(new Error(err.detail?.message || err.message || '积分不足，请充值'));
-                  } catch { reject(new Error('积分不足，请充值')); }
-                });
-                return;
-              }
-              if (res.statusCode !== 200) {
-                let body = '';
-                res.on('data', c => body += c);
-                res.on('end', () => {
-                  reject(new Error(`服务器错误(${res.statusCode})，请稍后重试`));
-                });
-                return;
-              }
+            const spawnArgs = activeSessionId
+              ? ['chat', '--resume', activeSessionId, '-q', fullText, '--max-turns', '60', '--source', 'tool']
+              : ['chat', '--continue', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
+            if (role && role !== 'dami') {
+              spawnArgs.unshift('--profile', role);
+            }
+            const child = spawn(HERMES_BIN, spawnArgs);
 
-              let buffer = '';
-              let fullResponse = '';
+            _activeChild = child;
 
-              res.on('data', (chunk) => {
-                buffer += chunk.toString();
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
+            let stdout = '';
 
-                for (const line of lines) {
-                  const sseData = line.startsWith('data: ') ? line.slice(6) : null;
-                  if (!sseData || sseData === '[DONE]') continue;
-                  try {
-                    const parsed = JSON.parse(sseData);
-                    const delta = parsed.choices?.[0]?.delta?.content;
-                    if (delta) {
-                      fullResponse += delta;
-                      try {
-                        event.sender.send('hermes:stream', { text: delta, type: 'response' });
-                      } catch (_) {}
-                    }
-                  } catch (_) {}
+            let stderr = '';
+
+            let inBanner = true;           // 跳过前面的 banner
+
+            let inResponseBox = false;     // 是否已进入最终回复框
+
+            let finalLines = [];           // 最终回复的行
+
+            const timer = setTimeout(() => { child.kill(); reject(new Error('回复时间较长，请重试')); }, 600000);
+
+            child.stdout.on('data', (d) => {
+
+              const chunk = d.toString();
+
+              stdout += chunk;
+
+              // 逐行解析，推送实时步骤到前端
+
+              const lines = chunk.split('\n');
+
+              for (const raw of lines) {
+
+                const line = raw.trim();
+
+                if (!line) continue;
+
+                // 跳过 banner（Query: 之前的所有输出）
+
+                if (inBanner) {
+
+                  if (line.startsWith('Query:')) { inBanner = false; }
+
+                  continue;
+
                 }
-              });
 
-              res.on('end', () => {
-                if (_activeReq === req) _activeReq = null;
-                // 再查询一次积分余额（服务端已自动扣减）
-                let finalBalance = currentCredits;
-                try {
-                  const creditsUrl = new URL(SERVER_URL + '/api/credits');
-                  const cReq = (creditsUrl.protocol === 'https:' ? https : http).get(
-                    creditsUrl.href, { timeout: 5000 }, (cRes) => {
-                      let cBody = '';
-                      cRes.on('data', c => cBody += c);
-                      cRes.on('end', () => {
-                        try {
-                          const cData = JSON.parse(cBody);
-                          finalBalance = cData.credits || 0;
-                        } catch (_) {}
-                        resolve({ success: true, responseText: fullResponse.trim(), balance: finalBalance });
-                      });
-                    }
-                  );
-                  cReq.on('error', () => resolve({ success: true, responseText: fullResponse.trim(), balance: currentCredits }));
-                  cReq.on('timeout', () => { cReq.destroy(); resolve({ success: true, responseText: fullResponse.trim(), balance: currentCredits }); });
-                } catch (_) {
-                  resolve({ success: true, responseText: fullResponse.trim(), balance: currentCredits });
+                // 检测最终回复框的开始
+
+                if (line.includes('╭─') || line.startsWith('│')) {
+
+                  inResponseBox = true;
+
+                  continue;
+
                 }
-              });
 
-              res.on('error', (e) => {
-                if (_activeReq === req) _activeReq = null;
-                reject(new Error('连接中断，请重试'));
-              });
+                if (inResponseBox) {
+
+                  if (line.startsWith('╰─')) { inResponseBox = false; continue; }
+
+                  finalLines.push(line);
+
+                  // 流式推送响应内容到前端
+
+                  try { event.sender.send('hermes:stream', { text: line, type: 'response' }); } catch(_) {}
+
+                  continue;
+
+                }
+
+                // 工具执行步骤（┊ 开头）
+
+                if (line.startsWith('┊')) {
+
+                  try { event.sender.send('hermes:stream', { text: line }); } catch(_) {}
+
+                }
+
+              }
+
             });
 
-            _activeReq = req;
-            req.on('error', (e) => {
-              if (_activeReq === req) _activeReq = null;
-              reject(new Error(`无法连接服务器：${e.message}`));
+            child.stderr.on('data', (d) => { stderr += d.toString(); });
+
+            child.on('close', (code) => {
+
+              clearTimeout(timer);
+
+              if (_activeChild === child) _activeChild = null;
+
+              // --resume 或 --continue 失败时自动回退重试
+              const hasSessionFlag = spawnArgs.includes('--resume') || spawnArgs.includes('--continue');
+              if (code !== 0 && hasSessionFlag) {
+                const retryArgs = spawnArgs.filter(a => a !== '--continue' && a !== '--resume' && a !== (spawnArgs[spawnArgs.indexOf('--resume') + 1] || ''));
+                // 清理掉 --resume <id> 对
+                const resumeIdx = retryArgs.indexOf('--resume');
+                if (resumeIdx >= 0) retryArgs.splice(resumeIdx, 2);
+                const continueIdx = retryArgs.indexOf('--continue');
+                if (continueIdx >= 0) retryArgs.splice(continueIdx, 1);
+                if (retryArgs.length < spawnArgs.length) {
+                  _activeSessions[roleKey] = null; // 旧会话失效，清除
+                  const retryChild = spawn(HERMES_BIN, retryArgs);
+                  _activeChild = retryChild;
+                  let retryOut = '';
+                  let retryErr = '';
+                  let retryLines = [];
+                  let retryInBanner = true, retryInBox = false;
+                  const retryTimer = setTimeout(() => { retryChild.kill(); reject(new Error('回复时间较长，请重试')); }, 600000);
+                  retryChild.stdout.on('data', (d) => {
+                    const chunk = d.toString(); retryOut += chunk;
+                    chunk.split('\n').forEach(raw => {
+                      const line = raw.trim(); if (!line) return;
+                      if (retryInBanner) { if (line.startsWith('Query:')) retryInBanner = false; return; }
+                      if (line.includes('╭─') || line.startsWith('│')) { retryInBox = true; return; }
+                      if (retryInBox) { if (line.startsWith('╰─')) { retryInBox = false; return; } retryLines.push(line); try { event.sender.send('hermes:stream', { text: line, type: 'response' }); } catch(_) {} return; }
+                      if (line.startsWith('┊')) { try { event.sender.send('hermes:stream', { text: line }); } catch(_) {} }
+                    });
+                  });
+                  retryChild.stderr.on('data', (d) => { retryErr += d.toString(); });
+                  retryChild.on('close', (rc) => {
+                    clearTimeout(retryTimer);
+                    if (_activeChild === retryChild) _activeChild = null;
+                    if (rc === 0) resolve({ stdout: retryOut, stderr: retryErr, finalLines: retryLines });
+                    else reject(new Error(retryErr || "AI 处理失败，请重试"));
+                  });
+                  retryChild.on('error', (e) => { clearTimeout(retryTimer); if (_activeChild === retryChild) _activeChild = null; reject(e); });
+                  return;
+                }
+              }
+
+              if (code === 0) resolve({ stdout, stderr, finalLines });
+
+              else reject(new Error(stderr || "AI 处理失败，请重试"));
+
             });
-            req.on('timeout', () => {
-              if (_activeReq === req) _activeReq = null;
-              req.destroy();
-              reject(new Error('请求超时，请重试'));
+
+            child.on('error', (e) => {
+
+              clearTimeout(timer);
+
+              if (_activeChild === child) _activeChild = null;
+
+              reject(e);
+
             });
-            req.write(postData);
-            req.end();
+
           });
 
-          fs.appendFileSync(logFile, `[${new Date().toISOString()}] api done: ${apiResult.responseText.length} chars\n`);
+
+
+          // 从 stdout 中提取 AI 回复文本（两种策略）
+          let responseText = '';
+          // 策略1: 正则提取 Hermes 响应框内的内容（兼容 default 和 --profile 两种格式）
+          const boxMatch = result.stdout.match(/Hermes[^\n]*\n([\s\S]*?)\n\s*[╰─][─\s]*(?:╯)?\s*\n/);
+          if (boxMatch) {
+            responseText = boxMatch[1].split('\n')
+              .map(l => l.trim()).filter(Boolean).join('\n').trim();
+          }
+          // 策略2: fallback 到逐行解析的 finalLines
+          if (!responseText && result.finalLines && result.finalLines.length > 0) {
+            responseText = result.finalLines.join('\n').trim();
+          }
+          // 策略3: 最后兜底，去掉已知噪音行
+          if (!responseText) {
+            responseText = result.stdout.split('\n')
+              .filter(l => {
+                const t = l.trim();
+                return t && !t.startsWith('Query:') && !t.startsWith('Initializing')
+                  && !t.startsWith('session_id:') && !t.startsWith('─')
+                  && !t.startsWith('┊') && !t.startsWith('↻')
+                  && !t.includes('╭') && !t.includes('╰')
+                  && !t.startsWith('Resume this session')
+                  && !t.startsWith('hermes --resume')
+                  && !t.startsWith('Session:') && !t.startsWith('Duration:')
+                  && !t.startsWith('Messages:') && !t.startsWith('⚠');
+              })
+              .map(l => l.trim()).join('\n').trim();
+          }
+
+
+
+          // 提取会话 ID，存入活跃会话表，保证下一轮对话连续
+          const sidMatch = result.stdout.match(/Session:\s+(\S+)/);
+          if (sidMatch) {
+            _activeSessions[roleKey] = sidMatch[1];
+
+            // --- 自动打通飞书/App 消息（首次发消息后自动 handoff 当前会话）---
+            if (!_activeSessions._handoffDone) _activeSessions._handoffDone = {};
+            if (!_activeSessions._handoffDone[roleKey]) {
+              try {
+                const channels = loadChannels();
+                if (channels.feishu && channels.feishu[roleKey]) {
+                  const channelDir = path.join(hermDir, 'channel_directory.json');
+                  if (fs.existsSync(channelDir)) {
+                    const dir = JSON.parse(fs.readFileSync(channelDir, 'utf-8'));
+                    const feishuChannels = dir.platforms?.feishu || [];
+                    if (feishuChannels.length > 0) {
+                      const homeId = feishuChannels[0].id;
+                      const setCmd = (roleKey === 'dami')
+                        ? `config set feishu.home_channel "${homeId}"`
+                        : `--profile ${roleKey} config set feishu.home_channel "${homeId}"`;
+                      execSync(`${HERMES_CLI} ${setCmd}`, { timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] });
+                      const dbPath = (roleKey === 'dami')
+                        ? path.join(hermDir, 'state.db')
+                        : path.join(hermDir, 'profiles', roleKey, 'state.db');
+                      if (fs.existsSync(dbPath)) {
+                        const pythonBin = fs.existsSync(VENV_PYTHON) ? VENV_PYTHON : pythonCmd;
+                        spawnSync(pythonBin, ['-c',
+                          `import sqlite3;db=sqlite3.connect('${dbPath}');sid='${sidMatch[1]}';db.execute("UPDATE sessions SET handoff_state='pending',handoff_platform='feishu' WHERE id=? AND handoff_state IS NULL",(sid,));db.commit();db.close()`
+                        ], { timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'] });
+                      }
+                      _activeSessions._handoffDone[roleKey] = true; // 成功后才标记，失败下次重试
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+
+          fs.appendFileSync(logFile, `[${new Date().toISOString()}] hermes done: ${responseText.length} chars\n`);
+
+
+
+          // 估算积分消耗（按字符数粗略估算，1分≈500字符）
+
+          const charsTotal = fullText.length + responseText.length;
+
+          const creditsUsed = Math.max(1, Math.min(Math.ceil(charsTotal / 500), currentCredits));
+
+          const newBalance = currentCredits - creditsUsed;
+
+
+
+          // 扣减积分（失败不返回结果，防止绕过付费）
+          let deductOK = false;
+          try {
+            await httpPost(`${SERVER_URL}/api/credits/deduct`,
+              JSON.stringify({ credits: creditsUsed, model: 'hermes', requestId }),
+              { timeout: 5000, headers: { 'User-Agent': 'Hergent-Desktop/1.0', 'Accept-Language': 'zh-CN,zh;q=0.9' } }
+            );
+            deductOK = true;
+          } catch (de) {
+            fs.appendFileSync(logFile, `[${new Date().toISOString()}] deduct failed: ${de.message}\n`);
+          }
+          if (!deductOK) {
+            return { requestId, success: false, output: '积分扣减失败，请检查网络后重试' };
+          }
+
+
 
           return {
-            requestId,
-            success: true,
-            output: apiResult.responseText.slice(0, 8000),
-            cost: 0,  // 服务端自动扣减，此处不再重复计算
-            balance: apiResult.balance || 0
+
+            requestId, success: true,
+
+            output: responseText.slice(0, 8000),
+
+            cost: creditsUsed, balance: newBalance
+
           };
+
         } catch (e) {
-          fs.appendFileSync(logFile, `[${new Date().toISOString()}] api error: ${e.message}\n`);
-          return { requestId, success: false, output: `请求失败：${e.message}` };
+
+          fs.appendFileSync(logFile, `[${new Date().toISOString()}] hermes error: ${e.message}\n`);
+
+          return { requestId, success: false, output: `执行失败：${e.message}` };
+
         }
 
       }
@@ -1143,16 +1273,19 @@ ipcMain.handle('avatar:get', async (event, role) => {
 // ===== IPC: 取消流式生成 =====
 
 ipcMain.handle('hermes:cancel', async () => {
-  if (_activeReq) {
-    try { _activeReq.destroy(); } catch(e) {}
-    _activeReq = null;
-  }
+
   if (_activeChild) {
+
     try { _activeChild.kill('SIGTERM'); } catch(e) {}
+
     _activeChild = null;
+
     return { cancelled: true };
+
   }
-  return { cancelled: !!_activeReq };
+
+  return { cancelled: false };
+
 });
 
 

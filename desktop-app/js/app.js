@@ -412,9 +412,9 @@
     if (empty) empty.style.display = 'none';
     const msg = document.createElement('div');
     msg.className = 'chat-msg hermes';
-    msg.innerHTML = '你好！我是 Hergent，你的 AI 数字员工团队 👋<br><br>左边是 8 位伙伴，选一个直接聊。<br>想人不在时也能用？去 <b>📱 连接手机</b> 配飞书/企微，我就能在手机上回复你。<span class="time">' + new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) + '</span>';
+    msg.innerHTML = '你好！我是 Hergent，基于 Hermes 开源内核的 AI 数字员工 👋<br><br>左边是 8 位伙伴，各有所长。选一个直接聊。<br><b>💡 小提示：</b>连上 📱 飞书/企微，人不在电脑前也能用。<span class="time">' + new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) + '</span>';
     history.appendChild(msg);
-    const msgs = [{ role: 'hermes', text: '你好！我是 Hergent，你的数字员工 👋\n\n我能帮你：\n📄 读文件 — PDF/Word/Excel 拖进来就能分析\n✍️ 写东西 — 周报、邮件、方案、合同\n🔍 搜信息 — 全网搜索帮你整理\n⏰ 定时干活 — 设好时间自动执行\n📱 手机遥控 — 连飞书/企微，人不在也能用\n\n💡 第一步：左边选一个数字员工\n💡 第二步：点「📱 连接手机」配飞书，手机上也能用\n\n选一个试试？或者直接跟我说你想做什么。', time: new Date().toISOString() }];
+    const msgs = [{ role: 'hermes', text: '你好！我是 Hergent，基于 Hermes 开源内核的 AI 数字员工 👋\n\n我能帮你：\n📄 读文件分析 — PDF/Word/Excel 拖进来\n✍️ 写各种文档 — 周报、邮件、方案、合同\n🔍 搜信息整理 — 全网搜索，比你翻网页快\n⏰ 定时自动干活 — 设好时间就不用管了\n📱 手机远程遥控 — 连飞书/企微，人在外面也能用\n🧠 越用越懂你 — 记住你的偏好和习惯\n\n💡 第一步：左边选一个数字员工\n💡 第二步：去「📱 连接手机」配飞书\n💡 第三步：多用多聊，它会越来越了解你\n\n选一个试试？或者直接跟我说你想做什么。', time: new Date().toISOString() }];
     localStorage.setItem('hermes_chat', JSON.stringify(msgs));
     scrollChat();
   }
