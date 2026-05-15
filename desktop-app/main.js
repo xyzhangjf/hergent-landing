@@ -945,6 +945,55 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           };
         } catch (e) {
           fs.appendFileSync(logFile, `[${new Date().toISOString()}] api error: ${e.message}\n`);
+
+          // 服务器不可达 → 降级到本地 Hermes CLI
+          const errMsg = e.message || '';
+          if (errMsg.includes('无法连接') || errMsg.includes('ECONN') || errMsg.includes('超时') || errMsg.includes('ENOTFOUND')) {
+            fs.appendFileSync(logFile, `[${new Date().toISOString()}] falling back to local Hermes CLI\n`);
+            try { event.sender.send('hermes:stream', { text: '⚡ 离线模式 · 本地引擎', type: 'system' }); } catch(_) {}
+
+            try {
+              const localResult = await new Promise((resolve, reject) => {
+                const cliArgs = role && role !== 'dami'
+                  ? ['--profile', role, 'chat', '-q', fullText, '--max-turns', '10']
+                  : ['chat', '-q', fullText, '--max-turns', '10'];
+                const child = spawn(HERMES_BIN, cliArgs);
+                _activeChild = child;
+                let out = '';
+                const timer = setTimeout(() => { child.kill(); reject(new Error('超时')); }, 300000);
+
+                child.stdout.on('data', (d) => {
+                  const chunk = d.toString();
+                  out += chunk;
+                  chunk.split('\n').forEach(line => {
+                    const t = line.trim();
+                    if (!t || t.startsWith('Query:') || t.includes('╭') || t.includes('╰') || t.startsWith('session_id:')) return;
+                    try { event.sender.send('hermes:stream', { text: t, type: 'response' }); } catch(_) {}
+                  });
+                });
+
+                child.stderr.on('data', (d) => { out += d.toString(); });
+                child.on('close', (code) => {
+                  clearTimeout(timer);
+                  if (_activeChild === child) _activeChild = null;
+                  // 提取干净回复
+                  let text = out.split('\n').filter(l => {
+                    const t = l.trim();
+                    return t && !t.startsWith('Query:') && !t.startsWith('─') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:');
+                  }).map(l => l.trim()).join('\n').trim();
+                  if (code === 0 && text) resolve({ responseText: text });
+                  else reject(new Error('本地引擎返回空或异常'));
+                });
+                child.on('error', (e) => { clearTimeout(timer); reject(e); });
+              });
+
+              return { requestId, success: true, output: localResult.responseText.slice(0, 8000), cost: 0, balance: currentCredits, offline: true };
+            } catch (le) {
+              fs.appendFileSync(logFile, `[${new Date().toISOString()}] local CLI also failed: ${le.message}\n`);
+              return { requestId, success: false, output: `服务器不可达，本地引擎也失败了：${le.message}` };
+            }
+          }
+
           return { requestId, success: false, output: `请求失败：${e.message}` };
         }
 

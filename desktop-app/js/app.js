@@ -2135,7 +2135,10 @@
   function _renderSuccess(loadingMsg, cleanText, result) {
     const cost = (result && result.cost) ? result.cost : 0;
     const balance = (result && result.balance != null) ? result.balance : null;
-    const costLine = cost > 0 ? `\n\n<span class="cost-tag">消耗 ${cost} 积分${balance != null ? ' · 剩余 ' + balance : ''}</span>` : '';
+    const isOffline = result && result.offline;
+    const costLine = isOffline
+      ? '\n\n<span class="cost-tag offline">⚡ 离线模式 · 本地引擎</span>'
+      : (cost > 0 ? `\n\n<span class="cost-tag">消耗 ${cost} 积分${balance != null ? ' · 剩余 ' + balance : ''}</span>` : '');
 
     // 思考耗时指示
     let durHTML = '';
