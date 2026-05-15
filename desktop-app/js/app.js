@@ -535,6 +535,42 @@
     document.querySelectorAll('.theme-option').forEach(o => {
       o.classList.toggle('active', o.getAttribute('data-theme') === currentTheme);
     });
+    // 加载记忆
+    loadMemories();
+  }
+
+  async function loadMemories() {
+    const list = document.getElementById('memoryList');
+    const empty = document.getElementById('memoryEmpty');
+    if (!list) return;
+    try {
+      const { memories } = await window.hermes.listMemories();
+      if (!memories || memories.length === 0) {
+        list.innerHTML = '';
+        list.appendChild(empty || document.createElement('div'));
+        return;
+      }
+      const now = Date.now();
+      list.innerHTML = memories.map(m => {
+        const ms = now - new Date(m.updated).getTime();
+        const ago = ms < 60000 ? '刚刚' : ms < 3600000 ? Math.floor(ms/60000)+'分钟前' :
+                    ms < 86400000 ? Math.floor(ms/3600000)+'小时前' : Math.floor(ms/86400000)+'天前';
+        return `<div class="memory-item">
+          <div class="memory-item-title">${escapeHtml(m.title)}</div>
+          ${m.preview ? '<div class="memory-item-preview">'+escapeHtml(m.preview)+'</div>' : ''}
+          <div class="memory-item-time">${ago}</div>
+          <button class="memory-item-del" onclick="deleteMemory('${m.id}')" title="删除">×</button>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      list.innerHTML = '<div class="memory-empty">加载失败</div>';
+    }
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
   }
 
   async function clearAllData() {
@@ -547,6 +583,15 @@
     keys.forEach(k => localStorage.removeItem(k));
     showDialog('✅', '已清除所有数据\n\n应用将刷新');
     setTimeout(() => location.reload(), 1500);
+  }
+
+  async function deleteMemory(id) {
+    try {
+      await window.hermes.deleteMemory(id);
+      loadMemories();
+    } catch (e) {
+      showDialog('⚠️', '删除失败: ' + (e.message || ''));
+    }
   }
 
   // ===== 定时任务 =====

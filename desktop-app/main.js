@@ -1932,13 +1932,35 @@ ipcMain.handle('memory:list', async () => {
     const files = fs.readdirSync(memDir).filter(f => f.endsWith('.md'));
     const items = [];
     for (const file of files.slice(0, 20)) {
-      const content = fs.readFileSync(path.join(memDir, file), 'utf8');
+      const fp = path.join(memDir, file);
+      const stat = fs.statSync(fp);
+      const content = fs.readFileSync(fp, 'utf8');
       const title = content.split('\n')[0].replace(/^#\s*/, '').trim() || file.replace('.md', '');
-      items.push({ id: file.replace('.md', ''), title: title.slice(0, 60) });
+      // 取前150字作为预览，跳过标题行
+      const bodyLines = content.split('\n').slice(1).join(' ').trim();
+      const preview = bodyLines.slice(0, 150);
+      items.push({
+        id: file.replace('.md', ''),
+        title: title.slice(0, 60),
+        preview,
+        updated: stat.mtime.toISOString()
+      });
     }
+    // 按更新时间倒序
+    items.sort((a, b) => new Date(b.updated) - new Date(a.updated));
     return { memories: items };
   } catch (e) {
     return { memories: [], error: e.message };
+  }
+});
+
+ipcMain.handle('memory:delete', async (event, id) => {
+  const fp = path.join(process.env.HOME, '.hermes', 'memories', `${id}.md`);
+  try {
+    if (fs.existsSync(fp)) { fs.unlinkSync(fp); return { success: true }; }
+    return { success: false, error: '文件不存在' };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 });
 

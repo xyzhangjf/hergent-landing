@@ -173,6 +173,13 @@
             <button class="settings-btn" style="margin-top:4px;" onclick="showActivationDialog()">充值</button>
           </div>
           <div class="settings-section">
+            <div class="settings-section-title">我的记忆 🧠</div>
+            <p class="settings-hint" style="font-size:12px;color:var(--text-tertiary);margin:4px 0 0;">Hermes 在对话中记住关于你的事，越用越懂你</p>
+            <div id="memoryList" class="memory-list">
+              <div class="memory-empty" id="memoryEmpty">还没有记忆。多聊聊，Hermes 会慢慢了解你。</div>
+            </div>
+          </div>
+          <div class="settings-section">
             <div class="settings-section-title">备份</div>
             <button class="settings-btn" onclick="exportChat()">导出当前对话</button>
           </div>
