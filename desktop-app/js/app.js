@@ -1579,9 +1579,9 @@
       avatarGrid.dataset.selected = currentPreset;
     }
 
-    // 删除按钮：新建时隐藏，编辑非内置员工时显示
+    // 删除按钮：新建时隐藏，编辑时始终显示（后端拦截不可删的）
     if (deleteBtn) {
-      deleteBtn.style.display = (role && role.builtIn !== true) ? '' : 'none';
+      deleteBtn.style.display = role ? '' : 'none';
     }
 
     // 存储当前编辑的角色 ID
