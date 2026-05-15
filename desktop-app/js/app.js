@@ -921,9 +921,11 @@
         : '<div class="chn-role-empty">暂无配置，点击下方添加员工</div>';
 
       return `<div class="channel-card-new" id="chCard_${c.key}">
-        <div class="chn-icon-wrap"><img src="avatar://${c.icon}.png" alt="${c.label}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;" /></div>
-        <div class="chn-body">
-          <div class="chn-name">${c.label}</div>
+        <div class="chn-card-top">
+          <div class="chn-icon-wrap"><img src="avatar://${c.icon}.png" alt="${c.label}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;" /></div>
+          <div class="chn-body">
+            <div class="chn-name">${c.label}</div>
+          </div>
         </div>
         <div class="chn-roles-wrapper">${roleRows}</div>
         <button class="chn-add-role-btn" onclick="openChannelRoleModal('${c.key}')">

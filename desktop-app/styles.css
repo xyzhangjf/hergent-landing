@@ -145,7 +145,7 @@
 
     .channel-card-new {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 14px;
       padding: 16px;
       background: var(--bg-elevated);
@@ -156,6 +156,13 @@
       transition: border-color 0.15s, box-shadow 0.15s;
     }
     .channel-card-new:hover { border-color: var(--border-default); box-shadow: var(--shadow-sm); }
+    .chn-card-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      min-height: 42px;
+    }
     .chn-icon-wrap {
       width: 42px; height: 42px;
       border-radius: var(--radius-md);
