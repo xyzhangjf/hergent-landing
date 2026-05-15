@@ -1066,6 +1066,44 @@
     }
     .conn-dot.online { background: #22c55e; }
     .conn-dot.offline { background: #ef4444; }
+
+    /* 流式响应 */
+    .stream-response {
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .stream-response p { margin: 0 0 8px; }
+    .stream-response p:last-child { margin-bottom: 0; }
+    .stream-typing {
+      display: inline-block;
+      color: var(--brand-500);
+      font-size: 14px;
+      animation: typing-blink 0.8s infinite;
+      margin-left: 2px;
+    }
+    @keyframes typing-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .stream-steps {
+      background: var(--bg-input);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .stream-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 0;
+      color: var(--text-secondary);
+    }
+    .stream-step.done { color: var(--text-tertiary); }
+    .stream-step.active { color: var(--text-primary); }
+    .stream-step-dot { flex-shrink: 0; font-size: 8px; }
+    .stream-step.done .stream-step-dot { color: #22c55e; }
+    .stream-step.active .stream-step-dot { color: var(--brand-500); }
     .credits-badge {
       cursor: pointer;
       display: inline-flex;

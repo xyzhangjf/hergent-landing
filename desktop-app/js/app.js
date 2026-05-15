@@ -2013,22 +2013,38 @@
   let _streamSteps = [];
   let _streamStepEl = null;
   let _streamStartTime = 0;
+  let _streamRespText = '';  // 流式回复累积文本
 
   // 接收后端流式推送的实时步骤
   window.hermes_on.stream((data) => {
     if (!_streamActive || !_streamTarget || _switchingRole) return;
-    // 只处理当前角色的流，忽略旧角色的残留数据
     if (_streamRole && _streamRole !== (currentAction || 'chat')) return;
     const step = (data && data.text) ? data.text.trim() : '';
     if (!step || step.startsWith('│') || step.startsWith('╭') || step.startsWith('╰')) return;
 
+    // 回复内容 → 逐字累积显示
+    if (data.type === 'response') {
+      _streamRespText += step;
+      if (_streamTarget) {
+        _streamTarget.innerHTML = '<div class="stream-response">' + renderMarkdown(_streamRespText) + '</div><span class="stream-typing">●</span>';
+        if (_streamStepEl) _streamStepEl.style.display = 'none';
+      }
+      scrollChat();
+      return;
+    }
+
+    // 系统消息（离线模式等）→ 跳过
+    if (data.type === 'system') return;
+
+    // 工具步骤 → 显示步骤列表
     _streamSteps.push(step);
     _renderStreamSteps();
   });
 
   function _renderStreamSteps() {
     if (!_streamStepEl || !_streamTarget) return;
-    const steps = _streamSteps.slice(-5); // 只显示最近 5 步
+    _streamStepEl.style.display = '';
+    const steps = _streamSteps.slice(-5);
     _streamStepEl.innerHTML = steps.map((s, i) => {
       const isLast = i === steps.length - 1;
       return `<div class="stream-step ${isLast ? 'active' : 'done'}">
@@ -2040,6 +2056,7 @@
 
   function _initStreamSteps(loadingMsg) {
     _streamSteps = [];
+    _streamRespText = '';
     _streamStartTime = Date.now();
     _streamStepEl = document.createElement('div');
     _streamStepEl.className = 'stream-steps';
