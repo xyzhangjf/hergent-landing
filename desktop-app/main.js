@@ -55,7 +55,7 @@ const SERVER_URL = (() => {
 
   } catch (_) {}
 
-  return 'https://api.hergent.io';  // 默认远程地址，部署后替换
+  return 'http://47.113.224.140';  // 服务器 IP（可改为 https://api.hergent.io 配好域名后）
 
 })();
 
