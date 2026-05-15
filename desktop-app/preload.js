@@ -79,6 +79,9 @@ contextBridge.exposeInMainWorld('hermes', {
   listMemories: () => ipcRenderer.invoke('memory:list'),
   deleteMemory: (id) => ipcRenderer.invoke('memory:delete', id),
 
+  // 技能系统
+  listSkills: () => ipcRenderer.invoke('skills:list'),
+
   // 动态角色管理
   rolesList: () => ipcRenderer.invoke('roles:list'),
   rolesSave: (roles) => ipcRenderer.invoke('roles:save', roles),

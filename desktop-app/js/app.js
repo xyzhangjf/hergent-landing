@@ -500,6 +500,7 @@
     if (pageId === 'pageChannels') refreshChannels();
     if (pageId === 'pageReports') refreshReports();
     if (pageId === 'pageSettings') refreshSettings();
+    if (pageId === 'pageSkills') loadSkills();
   }
 
   async function getServerUrl() {
@@ -571,6 +572,41 @@
     const d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
+  }
+
+  async function loadSkills() {
+    const grid = document.getElementById('skillsGrid');
+    const total = document.getElementById('skillsTotal');
+    if (!grid) return;
+    try {
+      const { categories } = await window.hermes.listSkills();
+      if (!categories || categories.length === 0) {
+        grid.innerHTML = '<div class="memory-empty">尚未加载技能</div>';
+        return;
+      }
+      let totalCount = 0;
+      const icons = { apple:'🍎','autonomous-ai-agents':'🤖','creative':'🎨','data-science':'📊','devops':'⚙️','diagramming':'📐','dogfood':'🐶','domain':'🌐','email':'📧','finance':'💰','gaming':'🎮','gifs':'🖼️','github':'🔧','inference-sh':'⚡','mcp':'🔌','media':'🎬','mlops':'🧠','note-taking':'📝','productivity':'📋','red-teaming':'🔴','research':'🔬','smart-home':'🏠','social-media':'📱','software-development':'💻','yuanbao':'元宝' };
+      grid.innerHTML = categories.map(cat => {
+        totalCount += cat.skills.length;
+        const icon = icons[cat.name] || '📦';
+        return `<div class="skill-category" onclick="this.classList.toggle('open')">
+          <div class="skill-cat-header">
+            <span class="skill-cat-icon">${icon}</span>
+            <div class="skill-cat-info">
+              <div class="skill-cat-name">${cat.name}</div>
+              <div class="skill-cat-desc">${escapeHtml(cat.description)}</div>
+            </div>
+            <span class="skill-cat-count">${cat.skills.length}</span>
+          </div>
+          <div class="skill-cat-body">
+            ${cat.skills.map(s => `<div class="skill-item"><span class="skill-item-dot"></span>${escapeHtml(s.name)}${s.description ? ' — '+escapeHtml(s.description) : ''}</div>`).join('')}
+          </div>
+        </div>`;
+      }).join('');
+      if (total) total.textContent = `共 ${totalCount} 项技能 · ${categories.length} 个分类`;
+    } catch (e) {
+      grid.innerHTML = '<div class="memory-empty">加载失败: ' + (e.message || '') + '</div>';
+    }
   }
 
   async function clearAllData() {

@@ -1964,6 +1964,44 @@ ipcMain.handle('memory:delete', async (event, id) => {
   }
 });
 
+// ===== IPC: 技能系统 =====
+ipcMain.handle('skills:list', async (event, role) => {
+  const skillsDir = path.join(process.env.HOME, '.hermes', 'skills');
+  try {
+    if (!fs.existsSync(skillsDir)) return { categories: [] };
+    const categories = [];
+    for (const cat of fs.readdirSync(skillsDir)) {
+      const catPath = path.join(skillsDir, cat);
+      if (!fs.statSync(catPath).isDirectory()) continue;
+      const skills = [];
+      // 读 DESCRIPTION.md
+      let catDesc = '';
+      const descPath = path.join(catPath, 'DESCRIPTION.md');
+      if (fs.existsSync(descPath)) {
+        const descContent = fs.readFileSync(descPath, 'utf8');
+        const m = descContent.match(/description:\s*(.+)/);
+        if (m) catDesc = m[1].trim();
+      }
+      for (const entry of fs.readdirSync(catPath)) {
+        const skillPath = path.join(catPath, entry);
+        if (!fs.statSync(skillPath).isDirectory()) continue;
+        const mdPath = path.join(skillPath, 'SKILL.md');
+        if (!fs.existsSync(mdPath)) continue;
+        try {
+          const content = fs.readFileSync(mdPath, 'utf8');
+          const name = (content.match(/^name:\s*(.+)/m) || [])[1]?.trim() || entry;
+          const desc = (content.match(/^description:\s*["\']?(.+?)["\']?\s*$/m) || [])[1]?.trim() || '';
+          skills.push({ name, description: desc.slice(0, 80) });
+        } catch (_) {}
+      }
+      if (skills.length > 0) categories.push({ name: cat, description: catDesc || cat, skills });
+    }
+    return { categories };
+  } catch (e) {
+    return { categories: [], error: e.message };
+  }
+});
+
 // ===== IPC: 积分查询 =====
 
 ipcMain.handle('activation:status', async () => {
