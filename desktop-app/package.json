@@ -59,7 +59,7 @@
       "gatekeeperAssess": false
     },
     "win": {
-      "icon": "../assets/icon.png",
+      "icon": "icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -76,21 +76,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
     },
-    "dmg": {
-      "title": "Hergent",
-      "icon": "../assets/icon.png",
-      "contents": [
-        {
-          "x": 130,
-          "y": 220
-        },
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ]
+    "publish": {
+      "provider": "generic",
+      "url": "https://api.hergent.cn/updates/"
     }
   },
   "author": "Hergent",
@@ -98,5 +86,8 @@
     "electron": "^42.0.1",
     "electron-builder": "^25.1.8",
     "sharp": "^0.34.5"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   }
 }

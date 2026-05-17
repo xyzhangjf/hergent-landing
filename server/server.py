@@ -39,6 +39,18 @@ DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 if not DEEPSEEK_API_KEY:
     print("⚠️  DEEPSEEK_API_KEY 未设置。API 代理功能禁用，仅 hermes CLI 模式可用。")
 
+# 管理密钥（用于充值接口验证）
+ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "")
+_USER_HERMES_JWT_SECRET = os.environ.get("HERMES_JWT_SECRET", "")
+if not ADMIN_SECRET and _USER_HERMES_JWT_SECRET:
+    # 如果没单独配 ADMIN_SECRET，用 JWT_SECRET 作为管理密钥
+    ADMIN_SECRET = _USER_HERMES_JWT_SECRET
+if not ADMIN_SECRET:
+    print("⚠️  ADMIN_SECRET 未设置。充值接口将被锁定，仅支付回调可用。")
+
+# 面包多配置（支付回调需要）
+MIANBAODUO_SECRET = os.environ.get("MIANBAODUO_SECRET", "")  # 面包多 webhook secret key
+
 # 充值档位: {金额(元): 积分}
 RECHARGE_TIERS = {
     10: 1000,
@@ -278,10 +290,66 @@ async def deduct_credits(request: Request):
         new_balance = user["credits"] - credits
         return {"success": True, "credits_remaining": new_balance, "credits_used": credits}
 
-# ---- 充值 ----
+# ---- 用量明细 ----
+@app.get("/api/usage/history")
+async def usage_history(request: Request, limit: int = 20):
+    """查询用户近期用量：GET /api/usage/history?limit=20"""
+    device_id = get_device_fingerprint(request)
+    with get_db() as db:
+        user = db.execute("SELECT id, credits FROM users WHERE device_id=?", (device_id,)).fetchone()
+        if not user:
+            return {"records": [], "balance": 0}
+        
+        rows = db.execute("""
+            SELECT timestamp, model, prompt_tokens, completion_tokens, credits_deducted
+            FROM usage_log WHERE user_id=? ORDER BY id DESC LIMIT ?
+        """, (user["id"], min(limit, 100))).fetchall()
+        
+        records = []
+        for r in rows:
+            records.append({
+                "time": r["timestamp"],
+                "model": r["model"],
+                "prompt_tokens": r["prompt_tokens"],
+                "completion_tokens": r["completion_tokens"],
+                "credits": r["credits_deducted"]
+            })
+        
+        return {"records": records, "balance": user["credits"]}
+
+# ---- 充值（需管理密钥） ----
+def _verify_admin(request: Request):
+    """验证管理密钥"""
+    if not ADMIN_SECRET:
+        raise HTTPException(403, "管理密钥未配置，充值接口已锁定")
+    secret = request.headers.get("X-Admin-Secret", "")
+    if not secret or secret != ADMIN_SECRET:
+        raise HTTPException(403, "管理密钥无效")
+
+def _add_credits(db, user_id: str, amount: int, credits: int, payment_ref: str = "", remark: str = ""):
+    """添加积分（内部函数，充值和管理操作共用）"""
+    db.execute("""
+        UPDATE users SET credits = credits + ?, total_recharged = total_recharged + ?
+        WHERE id = ?
+    """, (credits, credits, user_id))
+    db.execute("""
+        INSERT INTO recharge_log (user_id, timestamp, amount_yuan, credits_added, payment_ref)
+        VALUES (?, ?, ?, ?, ?)
+    """, (user_id, datetime.now().isoformat(), amount, credits, payment_ref))
+    db.commit()
+    user = dict(db.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone())
+    return {
+        "success": True,
+        "amount": amount,
+        "credits_added": credits,
+        "balance": user["credits"],
+        "message": f"充值成功！到账 {credits} 积分，余额 {user['credits']}"
+    }
+
 @app.post("/api/recharge")
 async def recharge(request: Request):
-    """充值接口：{ "amount": 10 } → 返回充值结果"""
+    """管理充值接口：{ "amount": 10, "device_id": "xxx" } → 需 X-Admin-Secret"""
+    _verify_admin(request)
     body = await request.json()
     amount = body.get("amount", 0)
 
@@ -290,28 +358,119 @@ async def recharge(request: Request):
         raise HTTPException(400, f"无效充值金额。可选: {valid}")
 
     credits = RECHARGE_TIERS[amount]
-    device_id = get_device_fingerprint(request)
+    target_device = body.get("device_id") or get_device_fingerprint(request)
 
     with get_db() as db:
-        user = get_or_create_user(db, device_id)
-        db.execute("""
-            UPDATE users SET credits = credits + ?, total_recharged = total_recharged + ?
-            WHERE id = ?
-        """, (credits, credits, user["id"]))
-        db.execute("""
-            INSERT INTO recharge_log (user_id, timestamp, amount_yuan, credits_added)
-            VALUES (?, ?, ?, ?)
-        """, (user["id"], datetime.now().isoformat(), amount, credits))
-        db.commit()
+        user = get_or_create_user(db, target_device)
+        return _add_credits(db, user["id"], amount, credits,
+                           payment_ref=f"admin:{datetime.now().strftime('%Y%m%d%H%M%S')}")
 
-        new_credits = user["credits"] + credits
-        return {
-            "success": True,
-            "amount": amount,
-            "credits_added": credits,
-            "balance": new_credits,
-            "message": f"充值成功！到账 {credits} 积分，余额 {new_credits}"
-        }
+# ---- 面包多支付回调 ----
+def _mbd_verify_sign(params: dict, secret: str) -> str:
+    """面包多签名验证：按 ASCII 排序 → join &key=secret → MD5"""
+    # 排除 sign 字段本身，只取非空值
+    flat = {}
+    for k, v in sorted(params.items()):
+        if k == "sign" or v is None or v == "":
+            continue
+        flat[k] = v if not isinstance(v, (dict, list)) else json.dumps(v, separators=(",", ":"), ensure_ascii=False)
+    sign_str = "&".join(f"{k}={flat[k]}" for k in sorted(flat.keys()))
+    sign_str += f"&key={secret}"
+    return hashlib.md5(sign_str.encode()).hexdigest()
+
+@app.post("/api/payment/callback")
+async def payment_callback(request: Request):
+    """面包多Pay webhook 回调 → 自动充值积分
+
+    面包多Pay webhook POST JSON:
+    {
+      "type": "charge_succeeded",          // 通知类型
+      "data": {
+        "description": "10元=1000积分",     // 商品描述
+        "out_trade_no": "device_xxx|10",   // 商户订单号
+        "amount": 1000,                     // 金额(分)
+        "charge_id": "wx_xxx",              // 支付流水号
+        "payway": 1                         // 1=微信 2=支付宝
+      },
+      "sign": "md5签名"                      // 可选，MIANBAODUO_SECRET 配置后开启验证
+    }
+    """
+    body = await request.json()
+
+    # 签名验证（如已配置 MIANBAODUO_SECRET）
+    if MIANBAODUO_SECRET:
+        sign = body.get("sign", "")
+        expected = _mbd_verify_sign(body, MIANBAODUO_SECRET)
+        if not sign or sign != expected:
+            raise HTTPException(403, "签名验证失败")
+
+    # 处理支付成功通知
+    notif_type = body.get("type", "")
+    if notif_type == "complaint":
+        # 投诉通知：记录日志
+        data = body.get("data", {})
+        print(f"[PAYMENT] 投诉通知: {data.get('out_trade_no')} - {data.get('complaint_detail', '')}")
+        return {"success": True, "message": "投诉已记录"}
+
+    if notif_type != "charge_succeeded":
+        return {"success": True, "message": f"忽略类型: {notif_type}"}
+
+    data = body.get("data", {})
+    out_trade_no = data.get("out_trade_no", "")
+    charge_id = data.get("charge_id", out_trade_no)  # 支付流水号
+    amount_fen = int(data.get("amount", 0))
+
+    # 解析 out_trade_no: "device_xxx|10" 格式
+    try:
+        parts = dict(p.split("_", 1) for p in out_trade_no.split("|") if "_" in p)
+        device_id = parts.get("device", "")
+        amount_yuan = int(parts.get("amount", "0"))
+    except Exception:
+        raise HTTPException(400, f"out_trade_no 格式错误: {out_trade_no}")
+
+    if amount_yuan not in RECHARGE_TIERS:
+        raise HTTPException(400, f"无效充值金额: {amount_yuan} 元")
+
+    credits = RECHARGE_TIERS[amount_yuan]
+
+    # 防重
+    with get_db() as db:
+        existing = db.execute(
+            "SELECT id FROM recharge_log WHERE payment_ref=?",
+            (charge_id,)
+        ).fetchone()
+        if existing:
+            return {"success": True, "message": "已处理", "duplicate": True}
+
+        user = get_or_create_user(db, device_id)
+        result = _add_credits(db, user["id"], amount_yuan, credits, payment_ref=charge_id)
+
+        print(f"[PAYMENT] ✅ 充值成功: device={device_id[:8]}... +{credits}分 (¥{amount_yuan})")
+        return result
+
+# ---- 生成支付链接 ----
+@app.get("/api/payment/url")
+async def get_payment_url(amount: int = 10, device_id: str = ""):
+    """生成面包多支付链接（用户扫码支付后，webhook 自动充值）
+
+    前置条件：需在面包多后台创建对应金额的商品，并配置 webhook URL
+    返回支付链接，App 打开此链接让用户支付
+
+    参数:
+        amount: 充值金额(元), 10/30/50
+        device_id: 用户设备ID（用于回调时识别用户）
+    """
+    if amount not in RECHARGE_TIERS:
+        raise HTTPException(400, f"无效金额，可选: {list(RECHARGE_TIERS.keys())}")
+
+    out_trade_no = f"device_{device_id}|amount_{amount}"
+
+    return {
+        "amount_yuan": amount,
+        "credits": RECHARGE_TIERS[amount],
+        "out_trade_no": out_trade_no,
+        "tip": "请在面包多后台创建商品后，使用产品链接跳转支付。out_trade_no 会随 webhook 回调返回。"
+    }
 
 # ---- 充值档位查询（App 展示用）----
 @app.get("/api/recharge/tiers")

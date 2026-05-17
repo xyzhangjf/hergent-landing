@@ -26,15 +26,22 @@
       const [type, text] = (msg || '检查环境…').split('|');
       const messages = {
         check: '检查系统环境…',
+        'python-dl': '正在下载 Python 运行环境（首次使用需等待）…',
+        'python-extract': '正在安装 Python 运行环境…',
+        'python-ok': 'Python 运行环境就绪 ✓',
+        mkdir: '创建安装目录…',
         venv: '配置运行环境…',
-        pip: '安装 AI 引擎（需要联网）…',
+        pip: '安装 AI 引擎（约 3-5 分钟）…',
         done: '准备就绪！',
         error: '安装遇到问题'
       };
       if (status) status.textContent = messages[type] || text || type;
-      if (type === 'check' && fill) fill.style.width = '10%';
-      if (type === 'venv' && fill) fill.style.width = '30%';
-      if (type === 'pip' && fill) fill.style.width = '70%';
+      if (type === 'check' && fill) fill.style.width = '5%';
+      if ((type === 'python-dl' || type === 'python-ok') && fill) fill.style.width = '10%';
+      if (type === 'python-extract' && fill) fill.style.width = '15%';
+      if (type === 'mkdir' && fill) fill.style.width = '20%';
+      if (type === 'venv' && fill) fill.style.width = '40%';
+      if (type === 'pip' && fill) fill.style.width = '75%';
       if (type === 'done' && fill) fill.style.width = '100%';
       if (type === 'error') {
         fill.style.background = '#ef4444';
@@ -145,6 +152,7 @@
       if (top === 'dialogOverlay') { closeDialog(); return; }
       if (top === 'loginOverlay') { return; }
       if (top === 'modalOverlay') { hideAddTask(); return; }
+      if (top === 'rechargeOverlay') { closeRecharge(); return; }
       if (_streamActive) { cancelStream(); return; }
     }
   });
@@ -428,9 +436,32 @@
     if (empty) empty.style.display = 'none';
     const msg = document.createElement('div');
     msg.className = 'chat-msg hermes';
-    msg.innerHTML = '你好！我是 Hergent，基于 Hermes 开源内核的 AI 数字员工 👋<br><br>左边是 8 位伙伴，各有所长。选一个直接聊。<br><b>💡 小提示：</b>连上 📱 飞书/企微，人不在电脑前也能用。<span class="time">' + new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) + '</span>';
+    msg.setAttribute('data-text', '你好！我是 Hergent，你的 AI 数字员工 👋');
+    msg.innerHTML = `<div class="onboarding-welcome">
+      <div class="ow-header">👋 你好！我是 <strong>Hergent</strong></div>
+      <div class="ow-subtitle">你的 AI 数字员工，左边有 8 位伙伴随时待命</div>
+      <div class="ow-cards">
+        <div class="ow-card">
+          <span class="ow-card-icon">📄</span>
+          <span>拖文件进来<br><small>PDF · Excel · Word</small></span>
+        </div>
+        <div class="ow-card">
+          <span class="ow-card-icon">✍️</span>
+          <span>写各种文档<br><small>周报 · 邮件 · 方案</small></span>
+        </div>
+        <div class="ow-card">
+          <span class="ow-card-icon">🔍</span>
+          <span>搜信息整理<br><small>比翻网页快</small></span>
+        </div>
+        <div class="ow-card">
+          <span class="ow-card-icon">📱</span>
+          <span>手机遥控<br><small>飞书 · 企微 · 钉钉</small></span>
+        </div>
+      </div>
+      <div class="ow-tip">💡 选个左边的人，或者直接跟我说你想做什么</div>
+    </div><span class="time">${new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span>`;
     history.appendChild(msg);
-    const msgs = [{ role: 'hermes', text: '你好！我是 Hergent，基于 Hermes 开源内核的 AI 数字员工 👋\n\n我能帮你：\n📄 读文件分析 — PDF/Word/Excel 拖进来\n✍️ 写各种文档 — 周报、邮件、方案、合同\n🔍 搜信息整理 — 全网搜索，比你翻网页快\n⏰ 定时自动干活 — 设好时间就不用管了\n📱 手机远程遥控 — 连飞书/企微，人在外面也能用\n🧠 越用越懂你 — 记住你的偏好和习惯\n\n💡 第一步：左边选一个数字员工\n💡 第二步：去「📱 连接手机」配飞书\n💡 第三步：多用多聊，它会越来越了解你\n\n选一个试试？或者直接跟我说你想做什么。', time: new Date().toISOString() }];
+    const msgs = [{ role: 'hermes', text: '你好！我是 Hergent，你的 AI 数字员工 👋\n\n我能帮你：\n📄 读文件分析 — PDF/Word/Excel 拖进来\n✍️ 写各种文档 — 周报、邮件、方案、合同\n🔍 搜信息整理 — 全网搜索\n📱 手机远程控制 — 连飞书/企微\n\n💡 选个左边的人，或者直接跟我说你想做什么', time: new Date().toISOString() }];
     localStorage.setItem('hermes_chat', JSON.stringify(msgs));
     scrollChat();
   }
@@ -442,22 +473,39 @@
     const badge = document.getElementById('creditsBadge');
     if (!badge) return;
     let b = authState?.user?.credits || 0;
+    let errMsg = '';
     try {
       const cred = await hermes.getCredits();
       if (cred && cred.credits != null) {
         b = cred.credits;
         if (authState) authState.user = { ...authState.user, credits: b };
       }
-    } catch (e) {}
+      if (cred && cred.message && cred.message.includes('无法连接')) {
+        errMsg = cred.message;
+      }
+    } catch (e) {
+      errMsg = '网络异常: ' + (e.message || '');
+    }
     badge.style.display = 'inline-block';
     if (b > 0) {
       document.getElementById('creditsText').textContent = b + ' 积分';
-      badge.className = b < 500 ? 'credits-badge low' : 'credits-badge';
-      badge.onclick = () => showCreditsDetail(b);
+      if (b < 50) {
+        badge.className = 'credits-badge critical';
+        badge.title = '积分即将用完，请尽快充值';
+      } else if (b < 200) {
+        badge.className = 'credits-badge low';
+        badge.title = '积分偏低，建议充值';
+      } else {
+        badge.className = 'credits-badge';
+        badge.title = '剩余积分：' + b;
+      }
+      badge.onclick = () => switchPage('pageSettings');
     } else {
-      document.getElementById('creditsText').textContent = '0 积分';
-      badge.className = 'credits-badge low';
-      badge.onclick = () => showDialog('🪙', '积分已用完，请充值\n\n10元起充，用多少充多少', true).then(ok => { if (ok) switchPage('pageSettings'); });
+      const msg = errMsg || '积分已用完';
+      document.getElementById('creditsText').textContent = msg;
+      badge.className = 'credits-badge critical';
+      badge.title = msg;
+      badge.onclick = () => showRecharge();
     }
   }
 
@@ -469,16 +517,70 @@
     updateCreditsBadge();
   }
 
+  // ===== 充值 =====
+  let _selectedRechargeAmount = 10;
+
   function showCreditsDetail(credits) {
-    const daysEst = credits > 0 ? Math.max(1, Math.round(credits / 30)) : 0;
-    const msg = `剩余积分：${credits} 分\n预计可用 ${daysEst} 天（按日常使用估算）\n\n每次对话消耗约 1-3 积分\n文件处理约 3-5 积分\n\n充值档位：\n10元=1000分  30元=3000分\n50元=5500分(送500)\n\n自定义金额任意充`;
-    showDialog('🪙', msg);
-  }
-  function showActivationDialog() {
-    if (!authState?.user) return;
-    showCreditsDetail(authState.user.credits || 0);
+    showRecharge();
   }
 
+  function showActivationDialog() {
+    showRecharge();
+  }
+
+  function showRecharge() {
+    _selectedRechargeAmount = 10;
+    document.getElementById('rechargePrice').textContent = '10';
+    document.getElementById('rechargeCredits').textContent = '1,000';
+    document.getElementById('rechargeError').textContent = '';
+    document.getElementById('rechargeSuccess').style.display = 'none';
+    document.getElementById('rechargeSubmitBtn').style.display = '';
+    document.querySelectorAll('.recharge-tier').forEach(t => t.classList.remove('selected'));
+    document.querySelector('.recharge-tier[data-amount="10"]').classList.add('selected');
+    showOverlay('rechargeOverlay');
+  }
+
+  function selectRechargeTier(amount) {
+    _selectedRechargeAmount = parseInt(amount);
+    document.querySelectorAll('.recharge-tier').forEach(t => t.classList.remove('selected'));
+    document.querySelector(`.recharge-tier[data-amount="${amount}"]`).classList.add('selected');
+    const tiers = { 10: ['1,000', '10'], 30: ['3,000', '30'], 50: ['5,500', '50'] };
+    document.getElementById('rechargeCredits').textContent = tiers[amount][0];
+    document.getElementById('rechargePrice').textContent = tiers[amount][1];
+    document.getElementById('rechargeError').textContent = '';
+  }
+
+  function closeRecharge() {
+    hideOverlay('rechargeOverlay');
+    refreshCredits();
+  }
+
+  async function submitRecharge() {
+    const btn = document.getElementById('rechargeSubmitBtn');
+    const errEl = document.getElementById('rechargeError');
+    btn.disabled = true;
+    btn.textContent = '充值中...';
+    errEl.textContent = '';
+
+    try {
+      const result = await hermes.recharge(_selectedRechargeAmount);
+      if (result.success) {
+        document.getElementById('rechargeSubmitBtn').style.display = 'none';
+        document.getElementById('rechargeSuccess').style.display = '';
+        document.getElementById('rechargeSuccessDetail').textContent =
+          `到账 ${result.credits_added} 积分 · 余额 ${result.balance} 分`;
+        if (authState) authState.user = { ...authState.user, credits: result.balance };
+        updateCreditsBadge();
+        setTimeout(() => { closeRecharge(); }, 2000);
+      } else {
+        errEl.textContent = result.message || '充值失败，请稍后重试';
+      }
+    } catch (e) {
+      errEl.textContent = '网络错误，请检查连接后重试';
+    }
+    btn.disabled = false;
+    btn.textContent = '确认充值';
+  }
   async function checkCreditsBeforeSend() {
     try {
       const cred = await hermes.getCredits();
@@ -545,6 +647,37 @@
     });
     // 加载记忆
     loadMemories();
+    // 加载用量明细
+    loadUsageHistory();
+  }
+
+  async function loadUsageHistory() {
+    const container = document.getElementById('usageHistory');
+    if (!container) return;
+    try {
+      const data = await hermes.usageHistory(20);
+      if (!data.records || data.records.length === 0) {
+        container.innerHTML = '<div class="usage-empty">暂无使用记录</div>';
+        return;
+      }
+      container.innerHTML = data.records.map(r => {
+        const d = new Date(r.time);
+        const timeStr = d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const desc = r.model === 'hermes-cli' ? 'AI对话' : (r.model || 'AI对话');
+        const tokens = (r.prompt_tokens || r.completion_tokens) 
+          ? `${(r.prompt_tokens + r.completion_tokens)}+ tokens` 
+          : '';
+        return `<div class="usage-item">
+          <div class="usage-item-left">
+            <span>${desc}</span>
+            <span class="usage-item-time">${timeStr}${tokens ? ' · ' + tokens : ''}</span>
+          </div>
+          <span class="usage-item-credits">-${r.credits} 分</span>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      container.innerHTML = '<div class="usage-empty">加载失败</div>';
+    }
   }
 
   async function loadMemories() {
@@ -706,6 +839,12 @@
     }
   }
 
+  
+  // 快速创建任务（从新手引导卡片）
+  function quickCreateTask(freq, time, prompt) {
+    showAddTask({ name: '', freq: freq, time: time, prompt: prompt });
+  }
+
   function showAddTask(template) {
     prefilledTemplate = template || null;
     document.getElementById('modalTitle').textContent = template ? '从模板创建' : '新建定时任务';
@@ -822,7 +961,7 @@
     try {
       const tasks = await window.hermes.cronList();
       if (!tasks || tasks.length === 0) {
-        listEl.innerHTML = '<div class="empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div class="empty-state-title">还没有定时任务</div><div class="empty-state-desc">创建提醒或定时报告，让 Hermes 帮你自动干活</div><button class="btn" onclick="showAddTask()" style="margin-top:12px;">创建第一个任务</button></div>';
+listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <div class="empty-state-title">让 AI 帮你定时干活</div> <div class="empty-state-desc">设置一次，每天自动执行。结果推到你手机上。</div> <div class="task-onboarding-examples"> <div class="task-onboard-card" onclick="quickCreateTask(&apos;每天&apos;, &apos;08:00&apos;, &apos;帮我搜索今天AI行业最新动态，整理成简报&apos;)"><span class="tob-icon">🌤</span><div class="tob-info"><div class="tob-name">每天早上推送 AI 简报</div><div class="tob-detail">每天 08:00 · 搜索最新动态 → 整理 → 推送</div></div><span class="tob-add">+</span></div> <div class="task-onboard-card" onclick="quickCreateTask(&apos;每周&apos;, &apos;17:00&apos;, &apos;帮我总结本周工作内容，生成周报&apos;)"><span class="tob-icon">📋</span><div class="tob-info"><div class="tob-name">每周五生成工作周报</div><div class="tob-detail">每周五 17:00 · 自动总结 → 生成周报</div></div><span class="tob-add">+</span></div> <div class="task-onboard-card" onclick="quickCreateTask(&apos;每天&apos;, &apos;09:00&apos;, &apos;帮我查今天天气，如果有雨提醒我带伞&apos;)"><span class="tob-icon">☔</span><div class="tob-info"><div class="tob-name">每天早上查天气</div><div class="tob-detail">每天 09:00 · 查天气 → 有雨提醒带伞</div></div><span class="tob-add">+</span></div> </div> <button class="btn" onclick="showAddTask()" style="margin-top:16px;">自定义创建</button> </div>`;
         return;
       }
       let html = '';
@@ -990,37 +1129,45 @@
 
     gridEl.innerHTML = CHANNEL_CARDS.map(c => {
       const platformRoles = channels[c.key] || {};
-      // 只取真正的角色配置（排除 _connected 等内部标记）
       const roleKeys = Object.keys(platformRoles).filter(k => !k.startsWith('_'));
+      const isFeishu = c.key === 'feishu';
 
-      const roleRows = roleKeys.length > 0
-        ? roleKeys.map(role => {
+      const connectedRoles = roleKeys.filter(r => platformRoles[r].connected === true);
+      const roleTags = connectedRoles.length > 0
+        ? connectedRoles.map(r => `<span class="chp-role-tag"><img src="avatar://${r}.png" onerror="this.style.display='none'" style="width:16px;height:16px;border-radius:50%;object-fit:cover;" /> ${ROLES[r]?.name || r}</span>`).join('')
+        : '';
+
+      return `<div class="channel-platform-card" id="chCard_${c.key}" onclick="openChannelRoleModal('${c.key}')">
+        <div class="chp-top">
+          <div class="chp-icon-wrap">
+            <img src="avatar://${c.icon}.png" alt="${c.label}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />
+            ${isFeishu ? '<span class="chp-recommend">推荐</span>' : ''}
+          </div>
+          <div class="chp-name">${c.label}</div>
+          <div class="chp-desc">${c.desc}</div>
+        </div>
+        <div class="chp-status">
+          ${connectedRoles.length > 0
+            ? '<span class="chp-connected">\u{1F7E2} 已连 ' + connectedRoles.length + ' 位员工</span>' + roleTags
+            : '<span class="chp-empty">点击添加员工</span>'}
+        </div>
+        <div class="chp-roles">
+          ${roleKeys.map(role => {
             const cfg = platformRoles[role] || {};
             const isConnected = cfg.connected === true;
-            return `<div class="chn-role-row">
-              <img class="chn-role-avatar" src="avatar://${role}.png" alt="" onerror="this.style.display='none'" />
-              <span class="chn-role-name">${ROLES[role]?.name || role}</span>
-              <span class="chn-role-status ${isConnected ? 'online' : 'saved'}">${isConnected ? '已连接' : '已保存'}</span>
-              <button class="chn-role-edit" onclick="openChannelRoleModal('${c.key}','${role}')" title="编辑">编辑</button>
-              <button class="chn-role-pair" onclick="promptPairingCode('${c.key}','${role}')" title="审批配对"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></button>
-              <button class="chn-role-del" onclick="removeChannelRole('${c.key}','${role}')" title="移除">×</button>
-            </div>`;
+            return '<div class="chp-role-row" onclick="event.stopPropagation();openChannelRoleModal(\'' + c.key + '\',\'' + role + '\')">' +
+              '<img class="chp-role-avatar" src="avatar://' + role + '.png" onerror="this.style.display=\'none\'" />' +
+              '<span class="chp-role-name">' + (ROLES[role]?.name || role) + '</span>' +
+              '<span class="chp-role-status ' + (isConnected ? 'online' : 'saved') + '">' + (isConnected ? '已连接' : '已保存') + '</span>' +
+              '<button class="chp-role-del" onclick="event.stopPropagation();removeChannelRole(\'' + c.key + '\',\'' + role + '\')" title="移除">×</button>' +
+              '</div>';
           }).join('')
-        : '<div class="chn-role-empty">暂无配置，点击下方添加员工</div>';
-
-      return `<div class="channel-card-new" id="chCard_${c.key}">
-        <div class="chn-card-top">
-          <div class="chn-icon-wrap"><img src="avatar://${c.icon}.png" alt="${c.label}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;" /></div>
-          <div class="chn-body">
-            <div class="chn-name">${c.label}</div>
-          </div>
+            || '<div class="chp-role-empty">点击上方卡片添加第一位员工</div>'}
         </div>
-        <div class="chn-roles-wrapper">${roleRows}</div>
-        <button class="chn-add-role-btn" onclick="openChannelRoleModal('${c.key}')">
-          + 添加员工
-        </button>
       </div>`;
     }).join('');
+
+    checkGatewayStatus();
   }
 
   function toggleChannelSetup(key) {} // 不再需要，保留空函数避免报错
@@ -1821,20 +1968,115 @@
     updateRoleIndicator(role);
   }
 
-  // 场景卡片 HTML
+  // 场景卡片 HTML — 每个角色有专属推荐
+  const ROLE_SCENES = {
+    dami: [
+      { icon: '📄', text: '把PDF总结成要点', prompt: '帮我把这个PDF总结成3个要点' },
+      { icon: '✍️', text: '写一份工作周报', prompt: '帮我写一份这周的工作周报' },
+      { icon: '🔍', text: '搜索最新行业动态', prompt: '帮我搜一下最近AI行业的新动态' },
+      { icon: '📝', text: '起草一份合同', prompt: '帮我起草一份租房合同' },
+      { icon: '📧', text: '回复客户邮件', prompt: '帮我写一封回复客户的邮件' },
+      { icon: '📋', text: '整理会议纪要', prompt: '帮我把这段会议录音整理成纪要' },
+    ],
+    accountant: [
+      { icon: '📊', text: '分析Excel表格', prompt: '帮我分析这个Excel表格的数据' },
+      { icon: '💰', text: '对账银行流水', prompt: '帮我对一下这个月的银行流水' },
+      { icon: '📈', text: '做利润分析表', prompt: '帮我把这些数据做成利润分析表' },
+      { icon: '🧾', text: '整理发票报销', prompt: '帮我整理这些发票按类别汇总' },
+      { icon: '📉', text: '成本核算分析', prompt: '帮我做一份成本核算分析' },
+      { icon: '💳', text: '算个税社保', prompt: '帮我算一下这个月的个税和社保' },
+    ],
+    programmer: [
+      { icon: '🐍', text: '写Python脚本', prompt: '帮我写个批量重命名文件的Python脚本' },
+      { icon: '🔧', text: '写自动化工具', prompt: '帮我写个自动备份文件夹的脚本' },
+      { icon: '🐛', text: 'Debug代码', prompt: '帮我看看这段代码为什么报错' },
+      { icon: '🌐', text: '写个网页应用', prompt: '帮我写一个简单的记账网页' },
+      { icon: '📦', text: '处理数据文件', prompt: '帮我写个脚本批量处理CSV数据' },
+      { icon: '⚡', text: '优化代码性能', prompt: '帮我优化一下这段代码的性能' },
+    ],
+    writer: [
+      { icon: '📖', text: '写一篇公众号文章', prompt: '帮我写一篇关于创业经历的公众号文章' },
+      { icon: '✍️', text: '润色一篇文章', prompt: '帮我润色这篇文章，让文字更有感染力' },
+      { icon: '📚', text: '整理经验写电子书', prompt: '帮我把行业经验整理成一本电子书' },
+      { icon: '🎤', text: '写演讲稿', prompt: '帮我写一篇年会上的演讲稿' },
+      { icon: '📝', text: '写品牌故事', prompt: '帮我写一个品牌故事' },
+      { icon: '💌', text: '写一封走心的信', prompt: '帮我写一封给合作伙伴的感谢信' },
+    ],
+    screenwriter: [
+      { icon: '🎬', text: '写短视频脚本', prompt: '帮我写一个15秒的带货短视频脚本' },
+      { icon: '📱', text: '写小红书文案', prompt: '帮我写一篇小红书种草文案' },
+      { icon: '🎯', text: '写广告标语', prompt: '帮我写几个品牌广告语' },
+      { icon: '📺', text: '写直播话术', prompt: '帮我写一段直播带货的话术' },
+      { icon: '🎭', text: '写剧情脚本', prompt: '帮我写一个3分钟的情景短剧脚本' },
+      { icon: '💡', text: '想营销创意', prompt: '帮我想几个新品上市的营销创意' },
+    ],
+    tutor: [
+      { icon: '🧮', text: '讲解数学概念', prompt: '帮我讲一下概率论的基础概念' },
+      { icon: '💻', text: '教Python编程', prompt: 'Python爬虫怎么学' },
+      { icon: '📝', text: '辅导写作文', prompt: '帮孩子辅导一下这篇作文' },
+      { icon: '🌍', text: '练英语口语', prompt: '帮我准备一段英语面试自我介绍' },
+      { icon: '📚', text: '制定学习计划', prompt: '帮我制定一个30天考雅思的计划' },
+      { icon: '❓', text: '解答疑问', prompt: '为什么天空是蓝色的' },
+    ],
+    health: [
+      { icon: '🥗', text: '规划饮食计划', prompt: '帮我规划下周的健康饮食计划' },
+      { icon: '🏃', text: '制定运动方案', prompt: '帮我制定一个适合久坐族的运动计划' },
+      { icon: '😴', text: '改善睡眠质量', prompt: '最近睡眠不好，帮我分析一下原因' },
+      { icon: '🩺', text: '看体检报告', prompt: '帮我看一下这份体检报告' },
+      { icon: '🧘', text: '缓解工作压力', prompt: '工作压力大，有什么放松的方法' },
+      { icon: '💊', text: '营养补充建议', prompt: '日常需要补充哪些维生素' },
+    ],
+    investor: [
+      { icon: '📈', text: '分析市场行情', prompt: '帮我分析一下最近的A股市场行情' },
+      { icon: '💰', text: '做资产配置', prompt: '我有10万闲钱，低风险的怎么配' },
+      { icon: '🏠', text: '分析房产投资', prompt: '现在适合买房投资吗' },
+      { icon: '📊', text: '看基金表现', prompt: '帮我分析一下这几只基金的表现' },
+      { icon: '💡', text: '学习理财知识', prompt: '新手怎么开始理财' },
+      { icon: '🔍', text: '研究公司财报', prompt: '帮我解读一下这份公司财报' },
+    ],
+  };
+
+  function updateWelcomeGreeting() {
+    const hour = new Date().getHours();
+    let greeting, icon;
+    if (hour < 12) { greeting = '早上好'; icon = '🌅'; }
+    else if (hour < 18) { greeting = '下午好'; icon = '☀️'; }
+    else { greeting = '晚上好'; icon = '🌙'; }
+    
+    const iconEl = document.getElementById('welcomeIcon');
+    const textEl = document.getElementById('welcomeText');
+    if (iconEl) iconEl.textContent = icon;
+    if (textEl) textEl.textContent = greeting;
+    
+    const r = currentAction || 'dami';
+    const roleName = (ROLES[r] && ROLES[r].name) || '大秘';
+    const preset = ((ROLES[r] && ROLES[r].avatarPreset) || r || 'dami');
+    
+    const avatarEl = document.getElementById('welcomeAvatar');
+    const nameEl = document.getElementById('welcomeRoleName');
+    if (avatarEl) avatarEl.src = `avatar://${preset}.png`;
+    if (nameEl) nameEl.textContent = roleName;
+  }
+
   function getSceneCardsHTML() {
     const r = currentAction || 'dami';
-    const name = (ROLES[r] && ROLES[r].name) || '大秘';
-    return `<div class="home-scene-cards">
-      <div class="scene-cards-role-hint">${name} 可以帮你——</div>
-      <div class="scene-card" onclick="handleSceneCard('${r}','帮我把这个PDF总结成3个要点')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span><span class="scene-text">把PDF总结成要点</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
-      <div class="scene-card" onclick="handleSceneCard('${r}','帮我写一份这周的工作周报')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span><span class="scene-text">写一份工作周报</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
-      <div class="scene-card" onclick="handleSceneCard('${r}','帮我分析这个Excel表格的数据')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span><span class="scene-text">分析Excel表格数据</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
-      <div class="scene-card" onclick="handleSceneCard('${r}','帮我搜一下最近AI行业的新动态')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><span class="scene-text">搜索最新行业动态</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
-      <div class="scene-card" onclick="handleSceneCard('${r}','帮我起草一份租房合同')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span><span class="scene-text">起草一份租房合同</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
-      <div class="scene-card" onclick="handleSceneCard('${r}','帮我规划下周的健身和饮食计划')"><span class="scene-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span><span class="scene-text">规划健身饮食计划</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>
-      <div class="home-hint">或直接打字，说说你想做什么</div>
-    </div>`;
+    const scenes = ROLE_SCENES[r] || ROLE_SCENES['dami'];
+    
+    let html = '';
+    scenes.forEach(s => {
+      html += `<div class="scene-card" onclick="handleSceneCard('${r}','${s.prompt.replace(/'/g, "\\'")}')"><span class="scene-icon">${s.icon}</span><span class="scene-text">${s.text}</span><span class="scene-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div>`;
+    });
+    html += '<div class="home-hint">或直接打字，说说你想做什么</div>';
+    return html;
+  }
+
+  // 渲染空状态（带问候语）
+  function renderEmptyState() {
+    updateWelcomeGreeting();
+    const cardsEl = document.getElementById('homeSceneCards');
+    if (cardsEl) {
+      cardsEl.innerHTML = getSceneCardsHTML();
+    }
   }
 
   function handleSceneCard(role, text) {
@@ -1872,10 +2114,16 @@
     updateToolbarTitle('我的大秘');
     _switchingRole = false;
     if (document.getElementById('chatHistory').querySelectorAll('.chat-msg').length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'chat-empty';
-      empty.innerHTML = getSceneCardsHTML();
-      document.getElementById('chatHistory').appendChild(empty);
+      let empty = document.getElementById('chatEmpty');
+      if (!empty) {
+        empty = document.createElement('div');
+        empty.className = 'chat-empty';
+        empty.id = 'chatEmpty';
+        empty.innerHTML = '<div class="welcome-area"><div class="welcome-greeting"><span class="welcome-greeting-icon" id="welcomeIcon">☀️</span><span class="welcome-greeting-text" id="welcomeText">下午好</span></div><div class="welcome-intro"><img class="welcome-avatar" id="welcomeAvatar" src="avatar://dami.png" alt="" /><span>我是你的<strong id="welcomeRoleName">大秘</strong>，能动手的 AI 员工</span></div><div class="welcome-capabilities" id="welcomeCapabilities"><span class="wcap-pill"><span>📂</span> 读文件分析</span><span class="wcap-pill"><span>⏰</span> 定时干活</span><span class="wcap-pill"><span>🌐</span> 搜索整理</span><span class="wcap-pill"><span>📱</span> 手机遥控</span></div><div class="welcome-privacy"><span class="wprivacy-icon">🔒</span> 所有数据都在你的电脑上处理，不出本地</div></div><div class="home-scene-cards" id="homeSceneCards"></div>';
+        document.getElementById('chatHistory').appendChild(empty);
+      }
+      empty.style.display = '';
+      renderEmptyState();
     }
   }
 
@@ -1992,9 +2240,15 @@
     // 清空对话历史
     const hist = document.getElementById('chatHistory');
     hist.innerHTML = '';
-    const empty = document.createElement('div');
-    empty.className = 'chat-empty';
-    empty.innerHTML = getSceneCardsHTML();
+    let empty = document.getElementById('chatEmpty');
+    if (!empty) {
+      empty = document.createElement('div');
+      empty.className = 'chat-empty';
+      empty.id = 'chatEmpty';
+      empty.innerHTML = '<div class="welcome-area"><div class="welcome-greeting"><span class="welcome-greeting-icon" id="welcomeIcon">☀️</span><span class="welcome-greeting-text" id="welcomeText">下午好</span></div><div class="welcome-intro"><img class="welcome-avatar" id="welcomeAvatar" src="avatar://dami.png" alt="" /><span>我是你的<strong id="welcomeRoleName">大秘</strong>，能动手的 AI 员工</span></div><div class="welcome-capabilities" id="welcomeCapabilities"><span class="wcap-pill"><span>📂</span> 读文件分析</span><span class="wcap-pill"><span>⏰</span> 定时干活</span><span class="wcap-pill"><span>🌐</span> 搜索整理</span><span class="wcap-pill"><span>📱</span> 手机遥控</span></div><div class="welcome-privacy"><span class="wprivacy-icon">🔒</span> 所有数据都在你的电脑上处理，不出本地</div></div><div class="home-scene-cards" id="homeSceneCards"></div>';
+    }
+    empty.style.display = '';
+    renderEmptyState();
     hist.appendChild(empty);
     localStorage.removeItem(chatStorageKey());
     document.getElementById('chatInput').value = '';
@@ -2068,6 +2322,33 @@
     const empty = history.querySelector('.chat-empty');
     if (empty) empty.style.display = 'none';
 
+    // 创建消息行容器
+    const row = document.createElement('div');
+    row.className = `msg-row ${role === 'user' ? 'user-row' : 'hermes-row'}`;
+
+    // AI 消息加头像
+    if (role === 'hermes') {
+      const avatar = document.createElement('img');
+      avatar.className = 'msg-avatar';
+      // 获取当前角色头像
+      const activeRole = _rolesList.find(r => r.id === currentAction);
+      const preset = (activeRole && activeRole.avatarPreset) || currentAction || 'dami';
+      avatar.src = `avatar://${preset}.png`;
+      avatar.alt = (activeRole && activeRole.name) || 'AI';
+      avatar.onerror = function() {
+        this.style.display = 'none';
+        const ph = document.createElement('div');
+        ph.className = 'msg-avatar-placeholder';
+        ph.textContent = ((activeRole && activeRole.name) || 'AI').charAt(0);
+        this.parentNode.insertBefore(ph, this);
+      };
+      row.appendChild(avatar);
+    }
+
+    // 消息体
+    const body = document.createElement('div');
+    body.className = 'msg-body';
+
     const div = document.createElement('div');
     div.className = `chat-msg ${role}`;
 
@@ -2086,6 +2367,15 @@
 
     div.setAttribute('data-text', text);
     div.innerHTML = inner;
+    body.appendChild(div);
+
+    // 用户消息加编辑按钮
+    if (role === 'user') {
+      const actions = document.createElement('div');
+      actions.className = 'msg-actions';
+      actions.innerHTML = '<button class="msg-action-btn msg-edit-btn" title="编辑" onclick="event.stopPropagation();editUserMsg(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
+      body.appendChild(actions);
+    }
     // Hermes 回复加操作栏
     if (role === 'hermes' && text !== '思考中') {
       const actions = document.createElement('div');
@@ -2094,15 +2384,32 @@
         '<button class="msg-action-btn" title="重新生成" onclick="event.stopPropagation();retryMsg(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>' +
         '<button class="msg-action-btn feedback-btn" title="有用" onclick="event.stopPropagation();feedbackMsg(this,\'up\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/></svg></button>' +
         '<button class="msg-action-btn feedback-btn" title="没用" onclick="event.stopPropagation();feedbackMsg(this,\'down\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V4H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/></svg></button>';
-      div.appendChild(actions);
+      body.appendChild(actions);
     }
-    history.appendChild(div);
+
+    row.appendChild(body);
+    history.appendChild(row);
     scrollChat();
 
     return div;
   }
 
   // ===== 消息快捷操作 =====
+  function editUserMsg(btn) {
+    const msg = btn.closest('.chat-msg');
+    if (!msg) return;
+    const text = msg.getAttribute('data-text') || '';
+    const input = document.getElementById('chatInput');
+    if (input) {
+      input.value = text.trim();
+      input.focus();
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+      // 滚动到输入框
+      input.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }
+
   function copyMsgReply(btn) {
     const msg = btn.closest('.chat-msg');
     const text = msg ? msg.getAttribute('data-text') || msg.textContent : '';
@@ -2117,9 +2424,11 @@
   function retryMsg(btn) {
     const msg = btn.closest('.chat-msg');
     if (!msg) return;
-    // 找到这条回复之前的用户消息
-    const userMsg = msg.previousElementSibling;
-    if (userMsg && userMsg.classList.contains('user')) {
+    // 找到这条回复所在的 row，再找前一个 row 中的用户消息
+    const row = msg.closest('.msg-row');
+    const prevRow = row ? row.previousElementSibling : null;
+    const userMsg = prevRow ? prevRow.querySelector('.chat-msg.user') : null;
+    if (userMsg) {
       const input = document.getElementById('chatInput');
       const userText = userMsg.getAttribute('data-text') || userMsg.textContent || '';
       if (userText && input) {
@@ -2161,18 +2470,48 @@
     const balance = (result && result.balance != null) ? result.balance : null;
     const isOffline = result && result.offline;
     const costLine = isOffline
-      ? '\n\n<span class="cost-tag offline">⚡ 离线模式 · 本地引擎</span>'
-      : (cost > 0 ? `\n\n<span class="cost-tag">消耗 ${cost} 积分${balance != null ? ' · 剩余 ' + balance : ''}</span>` : '');
+      ? '<span class="cost-tag offline">⚡ 本地模式 · Hermes CLI</span>'
+      : (cost > 0 ? `<span class="cost-tag">消耗 ${cost} 积分${balance != null ? ' · 剩余 ' + balance : ''}</span>` : '');
 
-    // 思考耗时指示
+    // 思考耗时
     let durHTML = '';
     if (_streamStartTime > 0) {
       const dur = Math.round((Date.now() - _streamStartTime) / 1000);
       durHTML = `<span class="duration-tag">${dur}秒</span>`;
     }
-
     const timeStr = new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
-    loadingMsg.innerHTML = renderFinal(cleanText) + costLine + `<span class="time">${durHTML} ${timeStr}</span>`;
+
+    // 思考过程折叠面板
+    let thinkingHTML = '';
+    if (_streamSteps.length > 0 && _streamStartTime > 0) {
+      const thinkingId = 'thinking_' + Date.now();
+      const totalDur = Math.round((Date.now() - _streamStartTime) / 1000);
+      thinkingHTML = `
+        <details class="thinking-panel">
+          <summary class="thinking-summary">
+            <span class="thinking-icon">🧠</span>
+            <span class="thinking-label">思考过程</span>
+            <span class="thinking-count">${_streamSteps.length} 步</span>
+            <span class="thinking-dur">${totalDur}秒</span>
+            <svg class="thinking-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <div class="thinking-body">
+            ${_streamSteps.map((s, i) => {
+              const tag = s.match(/^\[([^\]]+)\]/)?.[1] || '';
+              const clean = s.replace(/^\[[^\]]+\]\s*/, '');
+              const emoji = tag.includes('工具') ? '🔧' : tag.includes('搜索') ? '🔍' : tag.includes('文件') ? '📄' : tag.includes('分析') ? '📊' : tag.includes('完成') ? '✅' : '💭';
+              return `<div class="thinking-step">
+                <span class="thinking-step-num">${i + 1}</span>
+                <span class="thinking-step-emoji">${emoji}</span>
+                <span class="thinking-step-text">${escapeHTML(clean)}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </details>`;
+    }
+
+    const footerHTML = `<div class="msg-footer">${costLine}${durHTML} <span class="time">${timeStr}</span></div>`;
+    loadingMsg.innerHTML = thinkingHTML + renderFinal(cleanText) + footerHTML;
     loadingMsg.removeAttribute('data-pending');
     scrollChat();
     updateCreditsBadge();
@@ -2278,6 +2617,7 @@ ${questionnaireHistory}`;
         const resp = ((result && result.output) ? result.output : '✅ 已提交处理')
           .replace(/^session_id:.*\n?/gm, '').replace(/\n{2,}/g, '\n');
         _renderSuccess(loadingMsg, resp, result);
+        updateCreditsBadge(); // 聊天后刷新积分显示
 
         const roleTitle = ROLES[sendingRole] ? ROLES[sendingRole].name : '大秘';
         notifyIfAway(`${roleTitle} 的回复`, resp.slice(0, 80) + (resp.length > 80 ? '...' : ''));
@@ -2437,9 +2777,15 @@ ${questionnaireHistory}`;
     localStorage.removeItem(chatStorageKey());
     window.hermes.sessionClear(currentAction || 'dami'); // 清除 main.js 缓存的旧会话
     document.getElementById('chatHistory').innerHTML = '';
-    const empty = document.createElement('div');
-    empty.className = 'chat-empty';
-    empty.innerHTML = getSceneCardsHTML();
+    let empty = document.getElementById('chatEmpty');
+    if (!empty) {
+      empty = document.createElement('div');
+      empty.className = 'chat-empty';
+      empty.id = 'chatEmpty';
+      empty.innerHTML = '<div class="welcome-area"><div class="welcome-greeting"><span class="welcome-greeting-icon" id="welcomeIcon">☀️</span><span class="welcome-greeting-text" id="welcomeText">下午好</span></div><div class="welcome-intro"><img class="welcome-avatar" id="welcomeAvatar" src="avatar://dami.png" alt="" /><span>我是你的<strong id="welcomeRoleName">大秘</strong>，能动手的 AI 员工</span></div><div class="welcome-capabilities" id="welcomeCapabilities"><span class="wcap-pill"><span>📂</span> 读文件分析</span><span class="wcap-pill"><span>⏰</span> 定时干活</span><span class="wcap-pill"><span>🌐</span> 搜索整理</span><span class="wcap-pill"><span>📱</span> 手机遥控</span></div><div class="welcome-privacy"><span class="wprivacy-icon">🔒</span> 所有数据都在你的电脑上处理，不出本地</div></div><div class="home-scene-cards" id="homeSceneCards"></div>';
+    }
+    empty.style.display = '';
+    renderEmptyState();
     document.getElementById('chatHistory').appendChild(empty);
     document.getElementById('chatInput').value = '';
     document.getElementById('chatInput').focus();

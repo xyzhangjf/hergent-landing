@@ -103,6 +103,17 @@ contextBridge.exposeInMainWorld('hermes', {
 
   // 清除角色活跃会话（新建对话时调用）
   sessionClear: (role) => ipcRenderer.invoke('session:clear', role),
+
+  // 自动更新
+  updateCheck: () => ipcRenderer.invoke('update:check'),
+  updateInstall: () => ipcRenderer.invoke('update:install'),
+  updateQuitAndInstall: () => ipcRenderer.invoke('update:quit-and-install'),
+
+  // 充值
+  recharge: (amount) => ipcRenderer.invoke('recharge:request', amount),
+
+  // 用量明细
+  usageHistory: (limit) => ipcRenderer.invoke('usage:history', limit),
 });
 
 
@@ -111,5 +122,6 @@ contextBridge.exposeInMainWorld('hermes_on', {
   result: (callback) => ipcRenderer.on('hermes:result', (event, data) => callback(data)),
   stream: (callback) => ipcRenderer.on('hermes:stream', (event, data) => callback(data)),
   themeChanged: (callback) => ipcRenderer.on('theme:changed', (event, isDark) => callback(isDark)),
-  gatewayMessage: (callback) => ipcRenderer.on('hermes:gateway-message', (event, data) => callback(data))
+  gatewayMessage: (callback) => ipcRenderer.on('hermes:gateway-message', (event, data) => callback(data)),
+  updateStatus: (callback) => ipcRenderer.on('update:status', (event, data) => callback(data))
 });
