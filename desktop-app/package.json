@@ -27,10 +27,6 @@
     ],
     "extraResources": [
       {
-        "from": "../server/server.py",
-        "to": "server.py"
-      },
-      {
         "from": "avatars",
         "to": "avatars"
       }
