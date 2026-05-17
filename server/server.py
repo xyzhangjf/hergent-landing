@@ -143,7 +143,15 @@ def init_db():
 # 设备指纹
 # ============================================================
 def get_device_fingerprint(request: Request) -> str:
-    """从请求头提取设备指纹"""
+    """从请求参数或请求头提取设备指纹。
+    优先使用客户端显式传递的 device_id（支持 query param 和 X-Device-ID header），
+    回退到 User-Agent + Accept-Language 指纹。
+    """
+    # 显式 device_id（客户端传递）
+    device_id = request.query_params.get("device_id") or request.headers.get("X-Device-ID")
+    if device_id:
+        return device_id[:32]  # 截断防止过长
+    # 回退：UA 指纹
     ua = request.headers.get("User-Agent", "")
     lang = request.headers.get("Accept-Language", "")
     raw = f"{ua}|{lang}"
