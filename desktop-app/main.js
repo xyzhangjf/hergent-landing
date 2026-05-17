@@ -530,10 +530,32 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           return { requestId, success: false, output: creditsMsg };
         }
 
-        // === 调本地 Hermes Gateway（持久进程，无 Windows 控制台问题）===
+        // === 优先走本地 Hermes Gateway，未就绪则 fallback 到 CLI ===
         const gatewayReady = await isGatewayRunning();
         if (!gatewayReady) {
-          return { requestId, success: false, output: 'Hermes Gateway 未就绪，请稍后重试' };
+          // Fallback: 直接用 hermes chat -q（不依赖 gateway）
+          try { execSync(`${HERMES_BIN} --version`, { timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] }); } catch(_) {
+            return { requestId, success: false, output: 'Hermes 引擎未安装，请先在设置中安装' };
+          }
+            try {
+              const child = spawn(HERMES_BIN, ['chat', '-q', fullText, '--max-turns', '60', '--source', 'tool']);
+              const result = await new Promise((resolve, reject) => {
+                let stdout = '', stderr = '';
+                const timer = setTimeout(() => { child.kill(); reject(new Error('回复时间较长，请重试')); }, 600000);
+                child.stdout.on('data', d => { stdout += d.toString(); });
+                child.stderr.on('data', d => { stderr += d.toString(); });
+                child.on('close', code => { clearTimeout(timer); code === 0 ? resolve({ stdout, stderr }) : reject(new Error(stderr || 'AI 处理失败，请重试')); });
+                child.on('error', e => { clearTimeout(timer); reject(e); });
+              });
+              const boxMatch = result.stdout.match(/Hermes[^\n]*\n([\s\S]*?)\n\s*[╰─][─\s]*(?:╯)?\s*\n/);
+              let responseText = boxMatch ? boxMatch[1].split('\n').map(l => l.trim()).filter(Boolean).join('\n').trim() : '';
+              if (!responseText) responseText = result.stdout.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
+              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true };
+            } catch (e) {
+              return { requestId, success: false, output: `执行失败：${e.message}` };
+            }
+          }
+          return { requestId, success: false, output: 'Hermes 引擎未安装，请先在设置中安装' };
         }
 
         try {
