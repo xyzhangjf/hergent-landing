@@ -1,0 +1,8 @@
+{
+  "platform": "darwin",
+  "arch": "arm64",
+  "bundled_python_version": "3.11.10",
+  "bundled_python_flavor": "python-build-standalone",
+  "hermes_version": "0.14.0",
+  "build_time": "2026-05-18T13:56:25Z"
+}

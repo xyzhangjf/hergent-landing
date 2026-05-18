@@ -38,44 +38,152 @@ async function waitForGateway(maxWaitMs = 30000) {
 }
 
 async function startHermesGateway() {
+  const gf = path.join(homeDir, '.hermes', 'app_debug.log');
+  const glog = (msg) => { try { fs.appendFileSync(gf, `[${new Date().toISOString()}] GW: ${msg}\n`); } catch(_) {} };
+
+  glog(`startHermesGateway called, HERMES_BIN=${HERMES_BIN}, isWindows=${isWindows}`);
   if (!fs.existsSync(HERMES_BIN)) {
-    console.log('[gateway] HERMES_BIN not found, skipping');
+    glog('HERMES_BIN not found');
     return false;
   }
 
   if (await isGatewayRunning()) {
-    console.log('[gateway] Already running');
+    glog('Already running');
     return true;
   }
 
-  // 确保独立配置存在
+  // 确保独立配置存在（Gateway 用）
   const hergentConfigPath = path.join(homeDir, '.hermes', 'hergent-config.yaml');
+  glog(`config path: ${hergentConfigPath}`);
   if (!fs.existsSync(hergentConfigPath)) {
+    glog('writing fresh hergent config');
     fs.writeFileSync(hergentConfigPath, [
-      'model: deepseek-chat',
+      'model:',
+      '  default: deepseek-chat',
+      '  provider: hergent',
+      'platforms:',
+      '  api_server:',
+      '    enabled: true',
+      '    port: 18765',
+      'gateway:',
+      '  port: 0',
+      'api_server:',
+      '  enabled: true',
+      '  port: 18765',
       'custom_providers:',
-      '  hergent:',
-      `    url: ${SERVER_URL}/v1`,
+      '  - name: hergent',
+      `    base_url: ${SERVER_URL}/v1`,
       '    key: hergent-desktop',
       ''
     ].join('\n'));
   }
 
-  console.log('[gateway] Starting Hermes Gateway...');
-  gatewayProcess = spawn(HERMES_BIN, ['gateway', 'run', '--port', GATEWAY_PORT.toString()], {
-    env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir, HERMES_CONFIG_PATH: hergentConfigPath },
-    stdio: 'pipe'
-  });
+  // 预写有效的主 config.yaml，防止 Hermes 自动配置写坏格式
+  const mainConfigPath = path.join(homeDir, '.hermes', 'config.yaml');
+  if (!fs.existsSync(mainConfigPath)) {
+    glog('writing fresh main config.yaml');
+    fs.mkdirSync(path.dirname(mainConfigPath), { recursive: true });
+    fs.writeFileSync(mainConfigPath, [
+      'model:',
+      '  default: deepseek-chat',
+      '  provider: hergent',
+      'platforms:',
+      '  api_server:',
+      '    enabled: true',
+      '    port: 18765',
+      'gateway:',
+      '  port: 0',
+      'api_server:',
+      '  enabled: true',
+      '  port: 18765',
+      'custom_providers:',
+      '  - name: hergent',
+      `    base_url: ${SERVER_URL}/v1`,
+      '    key: hergent-desktop',
+      ''
+    ].join('\n'));
+  }
 
-  gatewayProcess.stdout.on('data', (d) => console.log('[gateway]', d.toString().slice(0, 200)));
-  gatewayProcess.stderr.on('data', (d) => console.error('[gateway-err]', d.toString().slice(0, 200)));
+  // Windows: spawn 直接调 hermes.exe（不用 cmd.exe 管道，避免中文路径问题）
+  // stderr 用 Node.js pipe 写入文件
+  if (isWindows) {
+    const gatewayLogFile = path.join(homeDir, '.hermes', 'gateway_stderr.log');
+    glog(`Windows: spawning: ${HERMES_BIN} gateway run`);
+    try {
+      gatewayProcess = spawn(HERMES_BIN, ['gateway', 'run'], {
+        env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir, HERMES_CONFIG_PATH: hergentConfigPath },
+        stdio: ['ignore', 'ignore', 'pipe'],
+        windowsHide: true
+      });
+      // Pipe stderr to log file
+      const stderrStream = fs.createWriteStream(gatewayLogFile, { flags: 'a' });
+      gatewayProcess.stderr.pipe(stderrStream);
+      gatewayProcess.unref();
+      gatewayProcess.on('error', (err) => { glog('SPAWN ERROR: ' + err.message); });
+      gatewayProcess.on('exit', (code, sig) => {
+        glog(`process exited code=${code} sig=${sig}`);
+        // Read stderr log and append to debug log
+        try {
+          stderrStream.end();
+          setTimeout(() => {
+            try {
+              if (fs.existsSync(gatewayLogFile)) {
+                const stderrContent = fs.readFileSync(gatewayLogFile, 'utf8').trim().slice(0, 2000);
+                if (stderrContent) glog(`STDERR: ${stderrContent}`);
+              }
+            } catch(_) {}
+          }, 500);
+        } catch(_) {}
+      });
+    } catch(e) {
+      glog('spawn exception: ' + e.message);
+      return false;
+    }
+  } else {
+    // macOS/Linux: 使用 venv Python 直接启动
+    const pythonBin = path.join(path.dirname(HERMES_BIN), 'python3');
+    glog(`macOS/Linux: python path: ${pythonBin}, exists: ${fs.existsSync(pythonBin)}`);
+    if (fs.existsSync(pythonBin)) {
+      glog(`spawning via Python: ${pythonBin} -m hermes gateway run`);
+      try {
+        gatewayProcess = spawn(pythonBin, ['-m', 'hermes', 'gateway', 'run'], {
+          env: { ...process.env, HOME: homeDir, HERMES_CONFIG_PATH: hergentConfigPath },
+          stdio: 'ignore',
+          detached: true
+        });
+        gatewayProcess.unref();
+        gatewayProcess.on('error', (err) => { glog('SPAWN ERROR: ' + err.message); });
+        gatewayProcess.on('exit', (code, sig) => { glog(`process exited code=${code} sig=${sig}`); });
+      } catch(e) {
+        glog('spawn exception: ' + e.message);
+        return false;
+      }
+    } else {
+      glog(`Fallback spawning: ${HERMES_BIN} gateway run`);
+      try {
+        gatewayProcess = spawn(HERMES_BIN, ['gateway', 'run'], {
+          env: { ...process.env, HOME: homeDir, HERMES_CONFIG_PATH: hergentConfigPath },
+          stdio: 'ignore',
+          detached: true
+        });
+        gatewayProcess.unref();
+        gatewayProcess.on('error', (err) => { glog('SPAWN ERROR: ' + err.message); });
+        gatewayProcess.on('exit', (code, sig) => { glog(`process exited code=${code} sig=${sig}`); });
+      } catch(e) {
+        glog('spawn exception: ' + e.message);
+        return false;
+      }
+    }
+  }
 
+  glog('waiting for health check...');
   const ready = await waitForGateway();
+  glog('health check result: ' + ready);
   if (ready) {
-    console.log('[gateway] Ready on', GATEWAY_URL);
+    glog('Gateway ready on ' + GATEWAY_URL);
     return true;
   }
-  console.error('[gateway] Failed to start');
+  glog('Gateway failed to start within timeout');
   return false;
 }
 
@@ -168,37 +276,61 @@ if (!SYSTEM_PROMPT) {
 // Hermes CLI 路径检测
 const isWindows = process.platform === 'win32';
 const HERMES_CMD = isWindows ? 'hermes.exe' : 'hermes';
-const VENV_BIN_SUBDIR = isWindows ? path.join('venv', 'Scripts') : path.join('venv', 'bin');
 let HERMES_BIN = HERMES_CMD;
 
+// ===== 引擎自解压（首次启动自动展开 hermes.tar.gz）=====
+function getEngineDir() {
+  return path.join(app.getPath('userData'), 'hermes-engine');
+}
+
+function extractBundledEngine() {
+  const engineDir = getEngineDir();
+  const versionFile = path.join(engineDir, '.extracted-version');
+  const tarballPath = path.join(__dirname, '..', 'hermes.tar.gz');
+  if (!fs.existsSync(tarballPath)) return false;
+
+  const currentVersion = CURRENT_VERSION + '|' + (fs.statSync(tarballPath).size || 0);
+  try {
+    if (fs.existsSync(versionFile)) {
+      const extracted = fs.readFileSync(versionFile, 'utf8').trim();
+      if (extracted === currentVersion) return true;
+    }
+  } catch (_) {}
+
+  try {
+    if (!fs.existsSync(engineDir)) fs.mkdirSync(engineDir, { recursive: true });
+    const cmd = isWindows
+      ? `tar xzf "${tarballPath}" -C "${engineDir}"`
+      : `tar xzf "${tarballPath}" -C "${engineDir}"`;
+    execSync(cmd, { timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] });
+    fs.writeFileSync(versionFile, currentVersion);
+    console.log('[engine] Extracted to', engineDir);
+    return true;
+  } catch (e) {
+    console.error('[engine] Extraction failed:', e.message);
+    return false;
+  }
+}
+
 function resolveHermesPath() {
-  // 1. 检查自动安装位置
-  const venvBase = path.join(homeDir, '.hermes', 'hermes-agent', VENV_BIN_SUBDIR, HERMES_CMD);
-  if (fs.existsSync(venvBase)) return venvBase;
-  if (isWindows) {
-    const venvCmd = venvBase.replace('.exe', '.cmd');
-    if (fs.existsSync(venvCmd)) return venvCmd;
+  // 1. 优先用 App 自带的引擎（首次启动自动解压）
+  if (extractBundledEngine()) {
+    const engineDir = getEngineDir();
+    const bundled = path.join(engineDir, isWindows ? 'hermes.exe' : 'run.sh');
+    if (fs.existsSync(bundled)) return bundled;
   }
 
-  // 2. 用 which/where 找系统 PATH 中的 hermes
+  // 2. 检查 pip 安装位置（兼容旧版）
+  const venvBase = path.join(homeDir, '.hermes', 'hermes-agent', isWindows ? path.join('venv', 'Scripts', HERMES_CMD) : path.join('venv', 'bin', HERMES_CMD));
+  if (fs.existsSync(venvBase)) return venvBase;
+
+  // 3. PATH 中查找
   try {
     const whichCmd = isWindows ? `where ${HERMES_CMD}` : `which ${HERMES_CMD}`;
-    const result = execSync(whichCmd, { timeout: 5000, windowsHide: true }).toString().trim();
+    const result = execSync(whichCmd, { timeout: 5000 }).toString().trim();
     const lines = result.split('\n');
     if (lines[0] && fs.existsSync(lines[0])) return lines[0];
-  } catch(e) {}
-
-  // 3. 常见手动安装路径
-  const extraPaths = isWindows ? [] : [
-    '/usr/local/bin/hermes',
-    path.join(homeDir, '.local', 'bin', 'hermes'),
-    path.join(homeDir, 'Library', 'Python', '3.11', 'bin', 'hermes'),
-    path.join(homeDir, 'Library', 'Python', '3.12', 'bin', 'hermes'),
-    path.join(homeDir, 'Library', 'Python', '3.13', 'bin', 'hermes'),
-  ];
-  for (const p of extraPaths) {
-    if (fs.existsSync(p)) return p;
-  }
+  } catch (_) {}
 
   return null;
 }
@@ -530,32 +662,41 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           return { requestId, success: false, output: creditsMsg };
         }
 
-        // === 优先走本地 Hermes Gateway，未就绪则 fallback 到 CLI ===
-        const gatewayReady = await isGatewayRunning();
+        // === 优先走本地 Hermes Gateway，未就绪则重试启动 ===
+        let gatewayReady = await isGatewayRunning();
         if (!gatewayReady) {
-          // Fallback: 直接用 hermes chat -q（不依赖 gateway）
-          try { execSync(`${HERMES_BIN} --version`, { timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] }); } catch(_) {
+          // 尝试启动 Gateway（可能 bootstrap 才完成，app.whenReady() 时 HERMES_BIN 不存在）
+          fs.appendFileSync(logFile, `[${new Date().toISOString()}] Gateway not ready, attempting restart\\n`);
+          gatewayReady = await startHermesGateway();
+        }
+        if (!gatewayReady) {
+          // Windows: CLI 回退不可用（prompt_toolkit 需要 Win32 控制台）
+          if (isWindows) {
+            // Gateway 已通过 detached 方式在后台启动，等 health check 通过即可
+            return { requestId, success: false, output: 'AI 引擎正在启动中，请稍后重试…（约需 10-20 秒）' };
+          }
+          // macOS/Linux Fallback: 直接用 hermes chat -q（不依赖 gateway）
+          fs.appendFileSync(logFile, `[${new Date().toISOString()}] Gateway still not ready, falling back to CLI\\n`);
+          try { execSync(`"${HERMES_BIN}" --version`, { timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] }); } catch(_) {
             return { requestId, success: false, output: 'Hermes 引擎未安装，请先在设置中安装' };
           }
-            try {
+          try {
               const child = spawn(HERMES_BIN, ['chat', '-q', fullText, '--max-turns', '60', '--source', 'tool']);
-              const result = await new Promise((resolve, reject) => {
+              const cliResult = await new Promise((resolve, reject) => {
                 let stdout = '', stderr = '';
-                const timer = setTimeout(() => { child.kill(); reject(new Error('回复时间较长，请重试')); }, 600000);
+                const timer = setTimeout(() => { child.kill(); reject(new Error('回复超时')); }, 600000);
                 child.stdout.on('data', d => { stdout += d.toString(); });
                 child.stderr.on('data', d => { stderr += d.toString(); });
-                child.on('close', code => { clearTimeout(timer); code === 0 ? resolve({ stdout, stderr }) : reject(new Error(stderr || 'AI 处理失败，请重试')); });
+                child.on('close', code => { clearTimeout(timer); code === 0 ? resolve({ stdout, stderr }) : reject(new Error(stderr || 'AI 处理失败')); });
                 child.on('error', e => { clearTimeout(timer); reject(e); });
               });
-              const boxMatch = result.stdout.match(/Hermes[^\n]*\n([\s\S]*?)\n\s*[╰─][─\s]*(?:╯)?\s*\n/);
-              let responseText = boxMatch ? boxMatch[1].split('\n').map(l => l.trim()).filter(Boolean).join('\n').trim() : '';
-              if (!responseText) responseText = result.stdout.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
+              const boxMatch = cliResult.stdout.match(/Hermes[^\\n]*\\n([\\s\\S]*?)\\n\\s*[╰─][─\\s]*(?:╯)?\\s*\\n/);
+              let responseText = boxMatch ? boxMatch[1].split('\\n').map(l => l.trim()).filter(Boolean).join('\\n').trim() : '';
+              if (!responseText) responseText = cliResult.stdout.split('\\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\\n').trim();
               return { requestId, success: true, output: responseText.slice(0, 8000), offline: true };
             } catch (e) {
               return { requestId, success: false, output: `执行失败：${e.message}` };
             }
-          }
-          return { requestId, success: false, output: 'Hermes 引擎未安装，请先在设置中安装' };
         }
 
         try {
@@ -1241,7 +1382,7 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
   // Step 3: pip install hermes-agent
   send('pip|安装 Hermes Agent（首次约需 1-2 分钟）…');
   try {
-    execSync(`"${venvPython}" -m pip install --quiet -i https://pypi.tuna.tsinghua.edu.cn/simple hermes-agent 2>&1 || "${venvPython}" -m pip install --quiet hermes-agent 2>&1`,
+    execSync(`"${venvPython}" -m pip install --quiet -i https://pypi.tuna.tsinghua.edu.cn/simple hermes-agent aiohttp 2>&1 || "${venvPython}" -m pip install --quiet hermes-agent aiohttp 2>&1`,
       { timeout: 300000, windowsHide: true });
   } catch(e) {
     log('pip failed: ' + e.message);
@@ -1260,23 +1401,61 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
   HERMES_BIN = foundBin;
   log('bootstrap complete, HERMES_BIN=' + HERMES_BIN);
 
-  // Step 5: 写独立配置文件（不碰用户 config.yaml）
+  // Step 5: 写配置文件（Gateway 用 + 主配置）
   send('config|配置 Hermes…');
   try {
     const hergentConfigPath = path.join(homeDir, '.hermes', 'hergent-config.yaml');
     fs.writeFileSync(hergentConfigPath, [
-      'model: deepseek-chat',
+      'model:',
+      '  default: deepseek-chat',
+      '  provider: hergent',
+      'platforms:',
+      '  api_server:',
+      '    enabled: true',
+      '    port: 18765',
+      'gateway:',
+      '  port: 0',
+      'api_server:',
+      '  enabled: true',
+      '  port: 18765',
       'max_turns: 60',
       'custom_providers:',
-      '  hergent:',
-      `    url: ${SERVER_URL}/v1`,
+      '  - name: hergent',
+      `    base_url: ${SERVER_URL}/v1`,
       '    key: hergent-desktop',
       ''
     ].join('\n'));
+    // 同时写主 config.yaml，防止 Hermes 自动配置写坏格式
+    const mainConfigPath = path.join(homeDir, '.hermes', 'config.yaml');
+    if (!fs.existsSync(mainConfigPath)) {
+      fs.writeFileSync(mainConfigPath, [
+        'model:',
+        '  default: deepseek-chat',
+        '  provider: hergent',
+        'gateway:',
+        '  port: 0',
+        'api_server:',
+        '  enabled: true',
+        '  port: 18765',
+        'max_turns: 60',
+        'custom_providers:',
+        '  - name: hergent',
+        `    base_url: ${SERVER_URL}/v1`,
+        '    key: hergent-desktop',
+        ''
+      ].join('\n'));
+    }
     log('config written: ' + hergentConfigPath);
   } catch(e) {
     log('config write warning: ' + e.message);
   }
+
+  // Step 6: 启动 Hermes Gateway（bootstrap 前 HERMES_BIN 不存在，此时重启）
+  send('gateway|启动 AI 引擎…');
+  log('post-bootstrap: restarting gateway');
+  startHermesGateway().then(ok => {
+    log('post-bootstrap gateway: ' + (ok ? 'OK' : 'FAILED'));
+  });
 
   send('done|准备就绪！');
   return { success: true, message: 'Hermes ready', path: HERMES_BIN };

@@ -144,13 +144,19 @@ def init_db():
 # ============================================================
 def get_device_fingerprint(request: Request) -> str:
     """从请求参数或请求头提取设备指纹。
-    优先使用客户端显式传递的 device_id（支持 query param 和 X-Device-ID header），
-    回退到 User-Agent + Accept-Language 指纹。
+    优先级：query param > X-Device-ID header > Authorization Bearer > UA 指纹
     """
     # 显式 device_id（客户端传递）
     device_id = request.query_params.get("device_id") or request.headers.get("X-Device-ID")
     if device_id:
-        return device_id[:32]  # 截断防止过长
+        return device_id[:32]
+
+    # Hermes CLI 客户端：从 Authorization header 提取 device_id
+    # 客户端设置 api_key = "hermes_<device_id>"，服务端反向解析
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer hermes_"):
+        return auth[len("Bearer hermes_"):]
+
     # 回退：UA 指纹
     ua = request.headers.get("User-Agent", "")
     lang = request.headers.get("Accept-Language", "")
@@ -507,59 +513,7 @@ async def chat_completions(request: Request):
 
         body = await request.json()
 
-        # 优先走 Hermes CLI（工具增强），降级到直调 DeepSeek
-        if HERMES_AVAILABLE:
-            messages = body.get("messages", [])
-            system_prompt = ""
-            user_msgs = []
-            for m in messages:
-                if m.get("role") == "system":
-                    system_prompt = m.get("content", "")
-                elif m.get("role") == "user":
-                    user_msgs.append(m.get("content", ""))
-            user_message = "\n".join(user_msgs)
-            
-            CREDITS_PER_HERMES_CALL = 3
-            if user["credits"] < CREDITS_PER_HERMES_CALL:
-                raise HTTPException(402, {
-                    "error": "积分不足",
-                    "credits": user["credits"],
-                    "needed": CREDITS_PER_HERMES_CALL,
-                    "message": f"Hermes 需要 {CREDITS_PER_HERMES_CALL} 积分，余额 {user['credits']}"
-                })
-            
-            try:
-                response_text = await call_hermes_chat(user_message, system_prompt)
-            except HTTPException:
-                raise
-            except Exception:
-                # Hermes 失败，降级到 DeepSeek 直调
-                pass
-            else:
-                # Hermes 成功
-                db.execute("UPDATE users SET credits = credits - ?, total_used = total_used + ? WHERE id = ?",
-                      (CREDITS_PER_HERMES_CALL, CREDITS_PER_HERMES_CALL, user["id"]))
-                db.execute("""
-                    INSERT INTO usage_log (user_id, timestamp, model, prompt_tokens, completion_tokens, credits_deducted, cost_fen)
-                    VALUES (?, ?, 'hermes-cli', 0, 0, ?, 0)
-                """, (user["id"], datetime.now().isoformat(), CREDITS_PER_HERMES_CALL))
-                db.commit()
-            
-                new_balance = user["credits"] - CREDITS_PER_HERMES_CALL
-            
-                if body.get("stream", False):
-                    async def stream_hermes():
-                        import json as _json
-                        yield f"data: {_json.dumps({'choices': [{'delta': {'content': response_text}}]})}\n\n"
-                        yield "data: [DONE]\n\n"
-                    return StreamingResponse(stream_hermes(), media_type="text/event-stream")
-                else:
-                    import json as _json2
-                    return JSONResponse({
-                        "choices": [{"message": {"role": "assistant", "content": response_text}}],
-                        "_hermes": {"credits_remaining": new_balance, "credits_used": CREDITS_PER_HERMES_CALL}
-                    })
-
+        # ---- 直接代理到 DeepSeek（客户端 Hermes CLI 负责 Agent 逻辑）----
         model = body.get("model", "deepseek-chat")
         stream = body.get("stream", False)
 
