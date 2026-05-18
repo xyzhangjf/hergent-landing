@@ -29,6 +29,10 @@
       {
         "from": "avatars",
         "to": "avatars"
+      },
+      {
+        "from": "hermes.tar.gz",
+        "to": "hermes.tar.gz"
       }
     ],
     "mac": {
@@ -82,8 +86,5 @@
     "electron": "^42.0.1",
     "electron-builder": "^25.1.8",
     "sharp": "^0.34.5"
-  },
-  "dependencies": {
-    "electron-updater": "^6.3.9"
   }
 }
