@@ -1,7 +1,8 @@
 {
-  "version": "1.0.0",
-  "release_date": "2026-05-12",
-  "release_notes": "HerAgent v1.0 正式发布！\n\n你的第一个AI数字员工：\n- 💬 自由对话：写文章、回邮件、做PPT大纲\n- 📄 读文件：PDF/Word/Excel/图片拖进去就能分析\n- 🔍 搜信息：联网搜索+整理\n- ⏰ 定时任务：设好了自动干活\n- 📱 手机远程控制：连飞书/企微，人不在电脑前也能指挥\n- 🎁 新用户送200积分\n\n系统要求：macOS 12+ · Apple Silicon & Intel\n\n下载：https://your-domain.com/download/HerAgent.dmg",
-  "download_url": "https://your-domain.com/download/HerAgent.dmg",
+  "version": "1.0.4",
+  "release_date": "2026-05-21",
+  "release_notes": "Hergent v1.0.4 更新\n\n- 🔧 修复模型名：deepseek-chat → deepseek-v4-pro\n- 🔧 修复 Gateway 配置格式：api_server 包入 platforms 段\n- 🔧 custom_providers 补充 model 字段\n- 🔧 顶层初始化移入 app.whenReady() 守护\n\n系统要求：\n- macOS 12+ · Apple Silicon & Intel\n- Windows 10+ · x64",
+  "download_url_mac": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.4/Hergent-1.0.4-mac-arm64.dmg",
+  "download_url_win": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.4/Hergent-1.0.4-setup.exe",
   "checksum": ""
 }
