@@ -5,7 +5,6 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
-
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
 const VERSION_URL = 'https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.4/version.json';
@@ -87,7 +86,7 @@ async function startHermesGateway() {
       configContent = fs.readFileSync(mainConfigPath, 'utf8');
     }
     // 检查端口是否已设置为 GATEWAY_PORT
-    const portMatch = configContent.match(/^api_server:\s*\n(\s+port:\s*(\d+))?/m);
+    const portMatch = configContent.match(/^\s*api_server:\s*\n(\s+port:\s*(\d+))?/m);
     if (!portMatch || !portMatch[2] || parseInt(portMatch[2]) !== GATEWAY_PORT) {
       glog('updating api_server.port in config');
       const lines = configContent.split('\n');
@@ -95,12 +94,16 @@ async function startHermesGateway() {
       let inApiServer = false, portWritten = false, keyWritten = false;
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (/^api_server:\s*$/.test(line)) {
+        if (/^\s*api_server:\s*$/.test(line)) {
           inApiServer = true;
-          newLines.push('api_server:');
-          newLines.push('  enabled: true');
-          newLines.push(`  port: ${GATEWAY_PORT}`);
-          newLines.push(`  key: ${GATEWAY_API_KEY}`);
+          // 只在 platforms 段不存在时写入 platforms 头
+          if (!newLines.some(l => /^platforms:\s*$/.test(l))) {
+            newLines.push('platforms:');
+          }
+          newLines.push('  api_server:');
+          newLines.push('    enabled: true');
+          newLines.push(`    port: ${GATEWAY_PORT}`);
+          newLines.push(`    key: ${GATEWAY_API_KEY}`);
           portWritten = true;
           keyWritten = true;
           // 跳过旧的 api_server 子项
@@ -110,10 +113,13 @@ async function startHermesGateway() {
         newLines.push(line);
       }
       if (!portWritten) {
-        newLines.push('api_server:');
-        newLines.push('  enabled: true');
-        newLines.push(`  port: ${GATEWAY_PORT}`);
-        newLines.push(`  key: ${GATEWAY_API_KEY}`);
+        if (!newLines.some(l => /^platforms:\s*$/.test(l))) {
+          newLines.push('platforms:');
+        }
+        newLines.push('  api_server:');
+        newLines.push('    enabled: true');
+        newLines.push(`    port: ${GATEWAY_PORT}`);
+        newLines.push(`    key: ${GATEWAY_API_KEY}`);
       }
       fs.writeFileSync(mainConfigPath, newLines.join('\n'));
     }
@@ -123,16 +129,18 @@ async function startHermesGateway() {
     const deviceId = getDeviceId();
     const configYaml = [
       'model:',
-      '  default: deepseek-chat',
+      '  name: deepseek-v4-pro',
       '  provider: hergent',
-      'api_server:',
-      '  enabled: true',
-      `  port: ${GATEWAY_PORT}`,
-      `  key: ${GATEWAY_API_KEY}`,
+      'platforms:',
+      '  api_server:',
+      '    enabled: true',
+      `    port: ${GATEWAY_PORT}`,
+      `    key: ${GATEWAY_API_KEY}`,
       'custom_providers:',
       '  - name: hergent',
       `    base_url: ${SERVER_URL}/v1`,
       `    api_key: hermes_${deviceId}`,
+      '    model: deepseek-v4-pro',
       'memory:',
       '  memory_enabled: true',
       '  memory_char_limit: 12000',
@@ -383,16 +391,18 @@ function ensureEngineConfig() {
   const deviceId = getDeviceId();
   const configYaml = [
     'model:',
-    '  default: deepseek-chat',
+    '  name: deepseek-v4-pro',
     '  provider: hergent',
-    'api_server:',
-    '  enabled: true',
-    `  port: ${GATEWAY_PORT}`,
-    `  key: ${GATEWAY_API_KEY}`,
+    'platforms:',
+    '  api_server:',
+    '    enabled: true',
+    `    port: ${GATEWAY_PORT}`,
+    `    key: ${GATEWAY_API_KEY}`,
     'custom_providers:',
     '  - name: hergent',
     `    base_url: ${SERVER_URL}/v1`,
     `    api_key: hermes_${deviceId}`,
+    '    model: deepseek-v4-pro',
     'memory:',
     '  memory_enabled: true',
     '  memory_char_limit: 12000',
@@ -495,12 +505,13 @@ function ensureRoleConfigs() {
       try {
         const roleConfigYaml = [
           'model:',
-          '  default: deepseek-chat',
+          '  name: deepseek-v4-pro',
           '  provider: hergent',
           'custom_providers:',
           '  - name: hergent',
           `    base_url: ${SERVER_URL}/v1`,
           `    api_key: hermes_${getDeviceId()}`,
+          '    model: deepseek-v4-pro',
           `system_prompt_file: ${soulPath}`,
           `system_prompt: "${(role.systemPrompt || '').replace(/"/g, '\\"')}"`,
           'memory:',
@@ -629,12 +640,15 @@ const DEFAULT_ROLES = {
 const resolvedPath = resolveHermesPath();
 if (resolvedPath) HERMES_BIN = resolvedPath;
 
-if (HERMES_BIN) {
-  ensureEngineConfig();
-  ensureBuiltinSkills();
-  ensureRoleConfigs();
-  markEngineReady();
-}
+// Delay init that needs userData path until app is ready
+app.whenReady().then(() => {
+  if (HERMES_BIN) {
+    ensureEngineConfig();
+    ensureBuiltinSkills();
+    ensureRoleConfigs();
+    markEngineReady();
+  }
+});
 
 function loadRoles() {
   try {
@@ -878,7 +892,7 @@ async function chatViaGateway(roleId, userMessage, eventSender) {
   ];
 
   return new Promise((resolve, reject) => {
-    const postData = JSON.stringify({ model: 'deepseek-chat', messages: chatMessages, stream: true, max_tokens: 4096 });
+    const postData = JSON.stringify({ model: 'deepseek-v4-pro', messages: chatMessages, stream: true, max_tokens: 4096 });
     const request = net.request({
       method: 'POST',
       url: `${GATEWAY_URL}/v1/chat/completions`
@@ -1060,7 +1074,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               { role: 'system', content: currentRole.systemPrompt || '你是 Hergent 数字员工，运行在用户的电脑上。你可以读写文件、执行代码、操控系统。说人话、不啰嗦。' },
               { role: 'user', content: fullText }
             ];
-            const postData = JSON.stringify({ model: 'deepseek-chat', messages: chatMessages, stream: true, max_tokens: 4096 });
+            const postData = JSON.stringify({ model: 'deepseek-v4-pro', messages: chatMessages, stream: true, max_tokens: 4096 });
             const request = net.request({
               method: 'POST',
               url: `${GATEWAY_URL}/v1/chat/completions`
@@ -1857,14 +1871,14 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
   try {
     const cfgEnv = { ...process.env, HERMES_HOME: path.join(homeDir, '.hermes') };
     const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
-    set('model.default', 'deepseek-chat');
+    set('model.name', 'deepseek-v4-pro');
     set('model.provider', 'hergent');
-    set('api_server.enabled', 'true');
-    set('api_server.port', '18765');
+    set('platforms.api_server.enabled', 'true');
+    set('platforms.api_server.port', '18765');
     set('max_turns', '60');
     set('custom_providers.0.name', 'hergent');
     set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
-    set('custom_providers.0.key', `hermes_${getDeviceId()}`);
+    set('custom_providers.0.api_key', `hermes_${getDeviceId()}`);
     log('config written via hermes config set');
   } catch(e) {
     log('config write warning: ' + e.message);
