@@ -329,6 +329,7 @@ if (!SYSTEM_PROMPT) {
 const isWindows = process.platform === 'win32';
 const HERMES_CMD = isWindows ? 'hermes.exe' : 'hermes';
 let HERMES_BIN = HERMES_CMD;
+let _cancelFn = null; // 当前活跃操作的取消函数，hermes:cancel 调用时触发
 
 // ===== 引擎自解压（首次启动自动展开 hermes.tar.gz）=====
 function getEngineDir() {
@@ -745,7 +746,7 @@ function saveChannels(data) {
 // ===== 网关控制 =====
 async function restartGateway() {
   return new Promise((resolve) => {
-    const cmd = `${HERMES_CLI} gateway restart 2>&1`;
+    const cmd = `${HERMES_BIN} gateway restart 2>&1`;
     exec(cmd, { timeout: 30000 }, (err, stdout, stderr) => {
       const output = (stdout || '') + (stderr || '');
       if (err) {
@@ -758,10 +759,9 @@ async function restartGateway() {
 }
 
 // ===== Hermes CLI 帮助函数 =====
-const HERMES_CLI = HERMES_BIN;
 
 function hermesCLI(args, timeout = 30000) {
-  const cmd = `${HERMES_CLI} ${args}`;
+  const cmd = `${HERMES_BIN} ${args}`;
   const result = execSync(cmd, { timeout, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
   return result.trim();
 }
@@ -897,12 +897,13 @@ async function chatViaGateway(roleId, userMessage, eventSender) {
       method: 'POST',
       url: `${GATEWAY_URL}/v1/chat/completions`
     });
+    _cancelFn = () => { try { request.abort(); } catch (_) {} };
     request.setHeader('Content-Type', 'application/json');
     request.setHeader('User-Agent', 'Hergent-Desktop/1.0');
     request.on('response', (res) => {
       if (res.statusCode !== 200) {
         let b = ''; res.on('data', c => b += c);
-        res.on('end', () => reject(new Error(`Gateway ${res.statusCode}`)));
+        res.on('end', () => { _cancelFn = null; reject(new Error(`Gateway ${res.statusCode}`)); });
         return;
       }
       let buffer = '', fullResponse = '';
@@ -921,9 +922,9 @@ async function chatViaGateway(roleId, userMessage, eventSender) {
           } catch (_) {}
         }
       });
-      res.on('end', () => resolve(fullResponse));
+      res.on('end', () => { _cancelFn = null; resolve(fullResponse); });
     });
-    request.on('error', reject);
+    request.on('error', (e) => { _cancelFn = null; reject(e); });
     request.write(postData);
     request.end();
   });
@@ -1014,13 +1015,14 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               const child = spawn(winPython, [winHermes, 'chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'], {
                 env: { ...process.env, PYTHONPATH: path.join(engineDir, 'libs'), PYTHONHOME: '', HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') }
               });
+              _cancelFn = () => { try { child.kill(); } catch (_) {} };
               const cliResult = await new Promise((resolve, reject) => {
                 let stdout = '', stderr = '';
                 const timer = setTimeout(() => { child.kill(); reject(new Error('回复超时')); }, 600000);
                 child.stdout.on('data', d => { stdout += d.toString(); });
                 child.stderr.on('data', d => { stderr += d.toString(); });
-                child.on('close', code => { clearTimeout(timer); code === 0 ? resolve({ stdout, stderr }) : reject(new Error(stderr || 'AI 处理失败')); });
-                child.on('error', e => { clearTimeout(timer); reject(e); });
+                child.on('close', code => { clearTimeout(timer); _cancelFn = null; code === 0 ? resolve({ stdout, stderr }) : reject(new Error(stderr || 'AI 处理失败')); });
+                child.on('error', e => { clearTimeout(timer); _cancelFn = null; reject(e); });
               });
               let responseText = cliResult.stdout.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
@@ -1045,13 +1047,14 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               const child = spawn(HERMES_BIN, ['chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'], {
                 env: { ...process.env, HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') }
               });
+              _cancelFn = () => { try { child.kill(); } catch (_) {} };
               const cliResult = await new Promise((resolve, reject) => {
                 let stdout = '', stderr = '';
                 const timer = setTimeout(() => { child.kill(); reject(new Error('回复超时')); }, 600000);
                 child.stdout.on('data', d => { stdout += d.toString(); });
                 child.stderr.on('data', d => { stderr += d.toString(); });
-                child.on('close', code => { clearTimeout(timer); code === 0 ? resolve({ stdout, stderr }) : reject(new Error(stderr || 'AI 处理失败')); });
-                child.on('error', e => { clearTimeout(timer); reject(e); });
+                child.on('close', code => { clearTimeout(timer); _cancelFn = null; code === 0 ? resolve({ stdout, stderr }) : reject(new Error(stderr || 'AI 处理失败')); });
+                child.on('error', e => { clearTimeout(timer); _cancelFn = null; reject(e); });
               });
               const boxMatch = cliResult.stdout.match(/Hermes[^\n]*\n([\s\S]*?)\n\s*[╰─][─\s]*(?:╯)?\s*\n/);
               let responseText = boxMatch ? boxMatch[1].split('\n').map(l => l.trim()).filter(Boolean).join('\n').trim() : '';
@@ -1079,6 +1082,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               method: 'POST',
               url: `${GATEWAY_URL}/v1/chat/completions`
             });
+            _cancelFn = () => { try { request.abort(); } catch (_) {} };
             request.setHeader('Content-Type', 'application/json');
             request.setHeader('User-Agent', 'Hergent-Desktop/1.0');
             request.setHeader('Authorization', `Bearer ${GATEWAY_API_KEY}`);
@@ -1088,7 +1092,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             request.on('response', (res) => {
               if (res.statusCode !== 200) {
                 let b = ''; res.on('data', c => b += c);
-                res.on('end', () => reject(new Error(`Gateway ${res.statusCode}`)));
+                res.on('end', () => { _cancelFn = null; reject(new Error(`Gateway ${res.statusCode}`)); });
                 return;
               }
               // 捕获会话 ID，后续请求复用
@@ -1110,9 +1114,9 @@ ipcMain.handle('hermes:execute', async (event, params) => {
                   } catch (_) {}
                 }
               });
-              res.on('end', () => resolve({ finalLines: [fullResponse] }));
+              res.on('end', () => { _cancelFn = null; resolve({ finalLines: [fullResponse] }); });
             });
-            request.on('error', reject);
+            request.on('error', (e) => { _cancelFn = null; reject(e); });
             request.write(postData);
             request.end();
           });
@@ -1170,13 +1174,14 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           const child = spawn(HERMES_BIN, ['chat', '-q', fullPrompt, '--max-turns', '60', '--source', 'tool'], {
             env: { ...process.env, HERMES_HOME: path.join(engineDir, '.hermes', 'agents', stepRole) }
           });
+          _cancelFn = () => { try { child.kill(); } catch (_) {} };
           const cliResult = await new Promise((resolve, reject) => {
             let stdout = '', stderr = '';
             const timer = setTimeout(() => { child.kill(); reject(new Error('回复超时')); }, 600000);
             child.stdout.on('data', d => { stdout += d.toString(); });
             child.stderr.on('data', d => { stderr += d.toString(); });
-            child.on('close', code => { clearTimeout(timer); code === 0 ? resolve(stdout) : reject(new Error(stderr || 'AI 处理失败')); });
-            child.on('error', e => { clearTimeout(timer); reject(e); });
+            child.on('close', code => { clearTimeout(timer); _cancelFn = null; code === 0 ? resolve(stdout) : reject(new Error(stderr || 'AI 处理失败')); });
+            child.on('error', e => { clearTimeout(timer); _cancelFn = null; reject(e); });
           });
           stepOutput = cliResult.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
         }
@@ -1640,46 +1645,7 @@ ipcMain.handle('activation:activate', async (event, { code }) => {
   };
 });
 
-// ===== IPC: 服务器端激活（调用 Hermes Server API）=====
-ipcMain.handle('activation:server-activate', async (event, { code }) => {
-  const deviceId = getDeviceId();
-  return new Promise((resolve) => {
-    const postData = JSON.stringify({ code, device_id: deviceId });
-    const req = http.request({
-      hostname: 'localhost', port: 8765, path: '/api/activate',
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
-      timeout: 10000,
-    }, (res) => {
-      let body = '';
-      res.on('data', chunk => body += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(body);
-          if (json.success) {
-            // 激活成功 → 更新本地 license
-            const lic = loadLicense();
-            const now = new Date();
-            const expireDate = new Date(now.getTime() + LICENSE_DAYS * 24 * 60 * 60 * 1000);
-            lic.activated = true;
-            lic.activationCode = code;
-            lic.activateDate = now.toISOString();
-            lic.expireDate = expireDate.toISOString();
-            lic.credits = json.credits || 0;
-            saveLicense(lic);
-          }
-          resolve(json);
-        } catch (e) {
-          resolve({ success: false, message: '服务器返回异常' });
-        }
-      });
-    });
-    req.on('error', (e) => resolve({ success: false, message: '无法连接服务器，请确认服务已启动' }));
-    req.on('timeout', () => { req.destroy(); resolve({ success: false, message: '服务器响应超时' }); });
-    req.write(postData);
-    req.end();
-  });
-});
+// activation:server-activate 已移除 — 产品改为积分制，激活/鉴权走 /api/credits + deviceId
 
 // ===== IPC: 查询积分余额（调用 Hermes Server API）=====
 ipcMain.handle('activation:credits', async () => {
@@ -1699,6 +1665,9 @@ ipcMain.handle('shell:open', async (event, url) => {
 
 // ===== 窗口控制 =====
 ipcMain.on('window:minimize', () => mainWindow.minimize());
+ipcMain.on('window:maximize', () => {
+  mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
+});
 ipcMain.on('window:close', () => mainWindow.close());
 ipcMain.on('window:drag', (event, { deltaX, deltaY }) => {
   const [x, y] = mainWindow.getPosition();
@@ -2002,6 +1971,10 @@ ipcMain.handle('hermes:update-engine', async () => {
   }
 });
 ipcMain.handle('hermes:cancel', async () => {
+  if (_cancelFn) {
+    try { _cancelFn(); } catch (_) {}
+    _cancelFn = null;
+  }
   return { success: true };
 });
 ipcMain.handle('session:clear', async (event, role) => {

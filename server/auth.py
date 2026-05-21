@@ -26,7 +26,7 @@ if not JWT_SECRET:
     print(f"⚠️  HERMES_JWT_SECRET 未设置，已生成随机密钥。服务重启后所有 session 将失效。")
 
 # 短信配置
-SMS_MODE = os.environ.get("HERMES_SMS_MODE", "dev")  # dev | tencent
+SMS_MODE = os.environ.get("HERMES_SMS_MODE", "")  # tencent | 空=未配置
 SMS_PROVIDER = None  # 延迟初始化
 
 # 微信配置（需要 微信开放平台 账号）
@@ -43,19 +43,11 @@ CODE_LENGTH = 6
 
 def send_sms(phone: str, code: str) -> bool:
     """
-    发送短信验证码。dev 模式打印到控制台，production 走腾讯云。
+    发送短信验证码。生产环境走腾讯云。
     """
-    if SMS_MODE == "dev":
-        print(f"\n{'='*40}")
-        print(f"  📱 短信验证码（DEV模式 — 仅供开发测试）")
-        print(f"  手机号: {phone}")
-        print(f"  验证码: {code}")
-        print(f"  有效期: {CODE_TTL//60}分钟")
-        print(f"  ⚠️  生产环境请设置 HERMES_SMS_MODE=tencent")
-        print(f"{'='*40}\n")
-        return True
+    if not SMS_MODE:
+        raise RuntimeError("SMS 未配置：请设置 HERMES_SMS_MODE=tencent 并配置腾讯云密钥")
 
-    # 腾讯云短信（后续接入）
     if SMS_MODE == "tencent":
         try:
             from tencentcloud.common import credential
@@ -82,7 +74,7 @@ def send_sms(phone: str, code: str) -> bool:
             print(f"⚠️ 短信发送失败: {e}")
             return False
 
-    return False
+    raise RuntimeError(f"未知的 SMS_MODE: {SMS_MODE}，请设置为 tencent")
 
 # ============================================================
 # JWT
@@ -199,7 +191,7 @@ _codes = {}  # {phone: {"code": "123456", "expires_at": 1234567890}}
 
 def store_code(phone: str) -> str:
     """生成并存储验证码"""
-    code = str(random.randint(100000, 999999)) if SMS_MODE != "dev" else "123456"
+    code = str(random.randint(100000, 999999))
     _codes[phone] = {
         "code": code,
         "expires_at": time.time() + CODE_TTL,
