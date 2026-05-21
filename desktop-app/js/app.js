@@ -199,9 +199,18 @@
     try {
       await window.hermes.getCredits();
       _connFailed = 0;
-      hideConnBanner();
       if (dot) dot.className = 'conn-dot online';
       if (label) label.textContent = '在线';
+
+      // 检查网关 + 引擎就绪状态
+      try {
+        const gw = await window.hermes.gatewayStatus();
+        if (gw && gw.running && !gw.ready) {
+          showConnBanner('AI 引擎准备中，请稍候...');
+        } else {
+          hideConnBanner();
+        }
+      } catch (_) {}
     } catch (e) {
       _connFailed++;
       if (dot) dot.className = 'conn-dot offline';
@@ -649,6 +658,66 @@
     loadMemories();
     // 加载用量明细
     loadUsageHistory();
+    // 检查引擎更新
+    checkEngineUpdate();
+  }
+
+  async function checkEngineUpdate() {
+    const el = document.getElementById('setEngineVersion');
+    const row = document.getElementById('engineUpdateRow');
+    const btn = document.getElementById('engineUpdateBtn');
+    if (!el) return;
+
+    try {
+      // 快速获取版本号
+      const info = await window.hermes.checkCli();
+      if (info.available && info.version) {
+        el.textContent = info.version;
+        el.style.color = '';
+        // 异步检查更新（git fetch 可能比较慢）
+        try {
+          const up = await window.hermes.checkEngineUpdate();
+          if (up.updateAvailable && up.commitsBehind > 0) {
+            el.textContent = info.version + ' (落后 ' + up.commitsBehind + ' 个提交)';
+            el.style.color = 'var(--warning, #f59e0b)';
+            if (row) row.style.display = '';
+            if (btn) { btn.textContent = '更新引擎 (' + up.commitsBehind + ' commits)'; btn.disabled = false; }
+          } else {
+            if (row) row.style.display = 'none';
+          }
+        } catch (_) {}
+      } else {
+        el.textContent = '未安装';
+      }
+    } catch (_) {
+      el.textContent = '--';
+    }
+  }
+
+  async function updateEngine() {
+    const btn = document.getElementById('engineUpdateBtn');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = '更新中...';
+    try {
+      const result = await window.hermes.updateEngine();
+      if (result.success) {
+        btn.textContent = '已更新';
+        btn.style.background = 'var(--brand-500, #06b6d4)';
+        btn.style.color = '#fff';
+        setTimeout(() => checkEngineUpdate(), 2000);
+      } else {
+        btn.textContent = '更新失败: ' + (result.error || '未知错误');
+        btn.style.background = 'var(--danger, #ef4444)';
+        btn.style.color = '#fff';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      btn.textContent = '更新失败';
+      btn.style.background = 'var(--danger, #ef4444)';
+      btn.style.color = '#fff';
+      btn.disabled = false;
+    }
   }
 
   async function loadUsageHistory() {
@@ -685,7 +754,7 @@
     const empty = document.getElementById('memoryEmpty');
     if (!list) return;
     try {
-      const { memories } = await window.hermes.listMemories();
+      const { memories } = await window.hermes.listMemories(currentAction || 'dami');
       if (!memories || memories.length === 0) {
         list.innerHTML = '';
         list.appendChild(empty || document.createElement('div'));
@@ -700,7 +769,7 @@
           <div class="memory-item-title">${escapeHtml(m.title)}</div>
           ${m.preview ? '<div class="memory-item-preview">'+escapeHtml(m.preview)+'</div>' : ''}
           <div class="memory-item-time">${ago}</div>
-          <button class="memory-item-del" onclick="deleteMemory('${m.id}')" title="删除">×</button>
+          <button class="memory-item-del" onclick="deleteMemory('${m.id}', '${currentAction || "dami"}')" title="删除">×</button>
         </div>`;
       }).join('');
     } catch (e) {
@@ -719,33 +788,34 @@
     const total = document.getElementById('skillsTotal');
     if (!grid) return;
     try {
-      const { categories } = await window.hermes.listSkills();
-      if (!categories || categories.length === 0) {
-        grid.innerHTML = '<div class="memory-empty">尚未加载技能</div>';
+      // 从 Hermes skills 目录加载真实技能列表
+      let data = { categories: [], total: 0 };
+      if (window.hermes && window.hermes.listSkills) {
+        data = await window.hermes.listSkills();
+      }
+
+      if (!data.categories || data.categories.length === 0) {
+        grid.innerHTML = '<div class="memory-empty">技能目录为空，请检查 Hermes 安装</div>';
         return;
       }
-      let totalCount = 0;
-      const icons = { apple:'🍎','autonomous-ai-agents':'🤖','creative':'🎨','data-science':'📊','devops':'⚙️','diagramming':'📐','dogfood':'🐶','domain':'🌐','email':'📧','finance':'💰','gaming':'🎮','gifs':'🖼️','github':'🔧','inference-sh':'⚡','mcp':'🔌','media':'🎬','mlops':'🧠','note-taking':'📝','productivity':'📋','red-teaming':'🔴','research':'🔬','smart-home':'🏠','social-media':'📱','software-development':'💻','yuanbao':'元宝' };
-      grid.innerHTML = categories.map(cat => {
-        totalCount += cat.skills.length;
-        const icon = icons[cat.name] || '📦';
-        return `<div class="skill-category" onclick="this.classList.toggle('open')">
-          <div class="skill-cat-header">
-            <span class="skill-cat-icon">${icon}</span>
-            <div class="skill-cat-info">
-              <div class="skill-cat-name">${cat.name}</div>
-              <div class="skill-cat-desc">${escapeHtml(cat.description)}</div>
-            </div>
-            <span class="skill-cat-count">${cat.skills.length}</span>
+
+      // 按字母排序
+      data.categories.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+
+      grid.innerHTML = data.categories.map(s => {
+        return `<div class="skill-item" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border-subtle);cursor:default;">
+          <span class="skill-item-dot" style="width:8px;height:8px;border-radius:50%;background:var(--brand-400);flex-shrink:0;"></span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:14px;color:var(--text-primary);">${escapeHtml(s.name)}</div>
+            ${s.description ? `<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.description)}</div>` : ''}
           </div>
-          <div class="skill-cat-body">
-            ${cat.skills.map(s => `<div class="skill-item"><span class="skill-item-dot"></span>${escapeHtml(s.name)}${s.description ? ' — '+escapeHtml(s.description) : ''}</div>`).join('')}
-          </div>
+          <code style="font-size:11px;color:var(--text-tertiary);background:var(--bg-secondary);padding:2px 6px;border-radius:4px;">${escapeHtml(s.slug)}</code>
         </div>`;
       }).join('');
-      if (total) total.textContent = `共 ${totalCount} 项技能 · ${categories.length} 个分类`;
+
+      if (total) total.textContent = `共 ${data.total} 项技能`;
     } catch (e) {
-      grid.innerHTML = '<div class="memory-empty">加载失败: ' + (e.message || '') + '</div>';
+      grid.innerHTML = '<div class="memory-empty">加载失败</div>';
     }
   }
 
@@ -763,7 +833,7 @@
 
   async function deleteMemory(id) {
     try {
-      await window.hermes.deleteMemory(id);
+      await window.hermes.deleteMemory(id, currentAction || 'dami');
       loadMemories();
     } catch (e) {
       showDialog('⚠️', '删除失败: ' + (e.message || ''));
@@ -2268,10 +2338,23 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   let _streamStepEl = null;
   let _streamStartTime = 0;
   let _streamRespText = '';  // 流式回复累积文本
+  let _pipelineEl = null;    // pipeline 进度条容器
 
   // 接收后端流式推送的实时步骤
   window.hermes_on.stream((data) => {
     if (!_streamActive || !_streamTarget || _switchingRole) return;
+
+    // —— pipeline 步骤进度 ——
+    if (data.type === 'pipeline-step') {
+      if (!_pipelineEl && _streamTarget) {
+        _pipelineEl = document.createElement('div');
+        _pipelineEl.className = 'pipeline-steps';
+        _streamTarget.appendChild(_pipelineEl);
+      }
+      _renderPipelineStep(data);
+      return;
+    }
+
     if (_streamRole && _streamRole !== (currentAction || 'chat')) return;
     const step = (data && data.text) ? data.text.trim() : '';
     if (!step || step.startsWith('│') || step.startsWith('╭') || step.startsWith('╰')) return;
@@ -2294,6 +2377,25 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     _streamSteps.push(step);
     _renderStreamSteps();
   });
+
+  function _renderPipelineStep(data) {
+    if (!_pipelineEl || !_streamTarget) return;
+    // 保持已有步骤状态，追加或更新当前步骤
+    let html = '';
+    for (let i = 1; i <= data.total; i++) {
+      let cls = 'pending', dot = '○', label = '';
+      if (i < data.step) { cls = 'done'; dot = '✓'; }
+      else if (i === data.step) {
+        cls = data.status === 'error' ? 'error' : (data.status === 'done' ? 'done' : 'active');
+        dot = data.status === 'error' ? '✗' : (data.status === 'done' ? '✓' : '●');
+      }
+      if (i === data.step && data.status === 'running') label = ' 处理中...';
+      else if (i === data.step && data.status === 'error') label = ' ' + (data.error || '失败');
+      html += `<div class="pipeline-step ${cls}"><span class="pipeline-dot">${dot}</span> ${escapeHtml(data.role || '')}${label}</div>`;
+    }
+    _pipelineEl.innerHTML = html;
+    if (_streamStepEl) _streamStepEl.style.display = 'none';
+  }
 
   function _renderStreamSteps() {
     if (!_streamStepEl || !_streamTarget) return;
@@ -2460,6 +2562,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   // 重置流式状态
   function _resetStreamState() {
     _streamActive = false;
+    _pipelineEl = null;
     toggleCancelButton(false);
     localStorage.removeItem('hermes_streaming');
   }
@@ -2608,7 +2711,7 @@ ${questionnaireHistory}`;
       }
 
       try {
-        const result = await window.hermes.execute('chat:send', { action: 'chat', text: fullPrompt, files: sendPaths });
+        const result = await window.hermes.execute('chat:send', { action: 'chat', text: fullPrompt, files: sendPaths, role: sendingRole });
         if (result && result.requestId) loadingMsg.setAttribute('data-reqid', result.requestId);
         _resetStreamState();
 

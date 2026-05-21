@@ -1,6 +1,6 @@
 {
   "name": "hergent",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "Hergent · 你的数字员工",
   "main": "main.js",
   "scripts": {
@@ -23,7 +23,8 @@
       "styles.css",
       "js/config.js",
       "js/app.js",
-      "package.json"
+      "package.json",
+      "skills/"
     ],
     "extraResources": [
       {
@@ -37,7 +38,7 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "../assets/icon.png",
+      "icon": "icon.icns",
       "target": [
         {
           "target": "dmg",
@@ -82,8 +83,11 @@
     }
   },
   "author": "Hergent",
+  "dependencies": {
+    "electron-updater": "^6.8.3"
+  },
   "devDependencies": {
-    "electron": "^42.0.1",
+    "electron": "^39.8.8",
     "electron-builder": "^25.1.8",
     "sharp": "^0.34.5"
   }

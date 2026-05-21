@@ -59,7 +59,7 @@ RECHARGE_TIERS = {
 }
 
 # 新用户赠送积分（总额，不限时）
-WELCOME_CREDITS = 500
+WELCOME_CREDITS = 2000
 
 # DeepSeek 实际定价 (元/百万token)
 PRICING = {
@@ -69,7 +69,10 @@ PRICING = {
 }
 
 # 积分消耗倍数（含毛利）
-CREDIT_MULTIPLIER = 1.5  # 用户消耗 = API实际成本 × 1.5
+# Hermes agent 每次用户消息会调用多次模型(思考→工具→处理→回复)，
+# 加上系统提示词注入所有技能描述(~17,500 tokens)，单轮API成本约1.79分。
+# 1.2x = 每用户消息约扣9积分，利润率约40%
+CREDIT_MULTIPLIER = 1.2
 
 # ============================================================
 # 数据库

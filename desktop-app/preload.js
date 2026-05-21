@@ -37,7 +37,7 @@ contextBridge.exposeInMainWorld('hermes', {
 
   // 连接手机（Bot模式：保存 { channel, data: {app_id, app_secret} }）
   getChannels: () => ipcRenderer.invoke('channels:get'),
-  saveChannel: (channel, role, data) => ipcRenderer.invoke('channels:save', channel, role, data),
+  saveChannel: (channel, role, data) => ipcRenderer.invoke('channels:save', channel, data),
   removeChannel: (channel, role) => ipcRenderer.invoke('channels:remove', channel, role),
   approvePairing: (channel, role, code) => ipcRenderer.invoke('channels:pairing-approve', channel, role, code),
 
@@ -64,6 +64,8 @@ contextBridge.exposeInMainWorld('hermes', {
   // Hermes CLI 引导安装
   checkCli: () => ipcRenderer.invoke('hermes:check-cli'),
   bootstrapHermes: () => ipcRenderer.invoke('hermes:bootstrap'),
+  checkEngineUpdate: () => ipcRenderer.invoke('hermes:check-engine-update'),
+  updateEngine: () => ipcRenderer.invoke('hermes:update-engine'),
   onBootProgress: (callback) => {
     ipcRenderer.on('hermes:boot-progress', (event, msg) => callback(msg));
   },
@@ -75,9 +77,9 @@ contextBridge.exposeInMainWorld('hermes', {
   getTheme: () => ipcRenderer.invoke('theme:get'),
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
 
-  // 记忆系统
-  listMemories: () => ipcRenderer.invoke('memory:list'),
-  deleteMemory: (id) => ipcRenderer.invoke('memory:delete', id),
+  // 记忆系统 (按角色隔离)
+  listMemories: (role) => ipcRenderer.invoke('memory:list', role),
+  deleteMemory: (id, role) => ipcRenderer.invoke('memory:delete', id, role),
 
   // 技能系统
   listSkills: () => ipcRenderer.invoke('skills:list'),
