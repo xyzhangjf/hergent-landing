@@ -552,7 +552,13 @@
       errMsg = '网络异常: ' + (e.message || '');
     }
     badge.style.display = 'inline-block';
-    if (b > 0) {
+    if (errMsg) {
+      // 服务器连接异常时，显示错误信息
+      document.getElementById('creditsText').textContent = errMsg;
+      badge.className = 'credits-badge critical';
+      badge.title = errMsg;
+      badge.onclick = () => showRecharge();
+    } else if (b > 0) {
       document.getElementById('creditsText').textContent = b + ' 积分';
       if (b < 50) {
         badge.className = 'credits-badge critical';
@@ -564,12 +570,11 @@
         badge.className = 'credits-badge';
         badge.title = '剩余积分：' + b;
       }
-      badge.onclick = () => switchPage('pageSettings');
+      badge.onclick = () => showRecharge();
     } else {
-      const msg = errMsg || '积分已用完';
-      document.getElementById('creditsText').textContent = msg;
+      document.getElementById('creditsText').textContent = '积分已用完';
       badge.className = 'credits-badge critical';
-      badge.title = msg;
+      badge.title = '积分已用完，请充值';
       badge.onclick = () => showRecharge();
     }
     updateCostEstimate();
