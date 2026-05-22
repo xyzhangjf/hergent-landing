@@ -94,11 +94,19 @@
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div class="input-bar-spacer"></div>
+              <button class="pipeline-toggle" id="pipelineToggle" onclick="togglePipelineMode()" title="工作组协作模式">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </button>
               <span class="cost-estimate" id="costEstimate" title="本条消息预估消耗">≈<span id="costEstimateNum">2-5</span>分</span>
               <span class="credits-badge" id="creditsBadge" onclick="switchPage('pageSettings')" title="剩余积分">🪙 <span id="creditsText">--</span></span>
               <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" title="发送"><svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
               <button class="chat-cancel-btn" id="chatCancelBtn" onclick="cancelStream()" style="display:none;" title="停止"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
             </div>
+          </div>
+          <div class="pipeline-roles-bar" id="pipelineRolesBar" style="display:none;">
+            <span class="prb-label">🤝 工作组：</span>
+            <div class="prb-roles" id="prbRoles"></div>
+            <button class="prb-config-btn" onclick="showPipelineConfig()" title="调整工作组">⚙</button>
           </div>
           <div class="quick-actions" id="quickActions"></div>
           <div class="chat-disclaimer">Hergent 可能会出错，重要信息请核实</div>
@@ -577,6 +585,20 @@
   </div>
 </div>
 
+
+<!-- 工作组配置弹窗 -->
+<div class="modal-overlay" id="pipelineConfigOverlay">
+  <div class="modal" style="max-width:420px;">
+    <h3>🤝 配置工作组</h3>
+    <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 12px;">选择 2-4 个角色，按顺序协作完成任务。前一个角色的输出会传给下一个。</p>
+    <div class="pipeline-config-roles" id="pipelineConfigRoles"></div>
+    <p style="font-size:11px;color:var(--text-tertiary);margin:8px 0 0;">点击角色调整顺序，勾选参与协作</p>
+    <div class="modal-btn-row" style="margin-top:12px;">
+      <button class="btn secondary" onclick="closePipelineConfig()">取消</button>
+      <button class="btn" onclick="applyPipelineConfig()">确认</button>
+    </div>
+  </div>
+</div>
 
 <!-- 记忆编辑弹窗 -->
 <div class="modal-overlay" id="memoryEditorOverlay">

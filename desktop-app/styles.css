@@ -1993,6 +1993,299 @@
       animation: pendingPulse 1.2s ease-in-out infinite;
       color: var(--brand-500);
     }
+
+    /* ===== 工作组 Pipeline 模式 ===== */
+    /* 输入栏切换按钮 */
+    .pipeline-toggle {
+      width: 30px; height: 30px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-input);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-tertiary);
+      transition: all var(--dur-fast);
+      flex-shrink: 0;
+    }
+    .pipeline-toggle:hover { color: var(--brand-500); border-color: var(--brand-300); }
+    .pipeline-toggle.active {
+      color: #fff;
+      background: var(--brand-500);
+      border-color: var(--brand-500);
+    }
+
+    /* 工作组角色条 */
+    .pipeline-roles-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px 2px;
+      font-size: 12px;
+    }
+    .prb-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .prb-roles {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex: 1;
+      overflow-x: auto;
+    }
+    .prb-role-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 6px;
+      border-radius: 14px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      font-size: 11px;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+    .prb-avatar {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .prb-arrow {
+      color: var(--brand-400);
+      font-size: 10px;
+      margin: 0 1px;
+    }
+    .prb-config-btn {
+      font-size: 13px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-tertiary);
+      padding: 2px 4px;
+    }
+    .prb-config-btn:hover { color: var(--text-primary); }
+
+    /* 工作组配置弹窗 */
+    .pipeline-config-roles {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .pcr-role {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: all var(--dur-fast);
+      font-size: 13px;
+    }
+    .pcr-role:hover { border-color: var(--brand-300); background: var(--bg-elevated); }
+    .pcr-role.checked {
+      border-color: var(--brand-400);
+      background: var(--brand-50);
+    }
+    :root.dark .pcr-role.checked { background: rgba(75,143,217,0.08); }
+    .pcr-check {
+      font-size: 16px;
+      color: var(--text-tertiary);
+      width: 20px;
+      text-align: center;
+    }
+    .pcr-role.checked .pcr-check { color: var(--brand-500); }
+    .pcr-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .pcr-name { flex: 1; color: var(--text-primary); }
+    .pcr-order {
+      font-size: 11px;
+      color: var(--brand-500);
+      font-weight: 500;
+      background: var(--brand-100);
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+    .pcr-hint {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 4px;
+    }
+
+    /* Pipeline 进度面板（增强版） */
+    .pipeline-steps {
+      margin: 10px 0;
+      padding: 12px 14px;
+      background: var(--bg-input);
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      font-size: 13px;
+    }
+    .pipeline-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .pipeline-steps-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .pipeline-step-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+    }
+    .pipeline-step-card.active {
+      border-color: var(--brand-300);
+      background: var(--brand-50);
+    }
+    :root.dark .pipeline-step-card.active { background: rgba(75,143,217,0.06); }
+    .pipeline-step-card.done {
+      border-color: rgba(74,222,128,0.3);
+      background: rgba(74,222,128,0.04);
+    }
+    .pipeline-step-card.error {
+      border-color: rgba(239,68,68,0.3);
+      background: rgba(239,68,68,0.04);
+    }
+    .psc-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .psc-body { flex: 1; min-width: 0; }
+    .psc-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .psc-dot {
+      font-size: 10px;
+      margin-left: 4px;
+    }
+    .pipeline-step-card.active .psc-dot {
+      color: var(--brand-500);
+      animation: pendingPulse 1.2s ease-in-out infinite;
+    }
+    .pipeline-step-card.done .psc-dot { color: #4ade80; }
+    .pipeline-step-card.error .psc-dot { color: #ef4444; }
+    .psc-status {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .pipeline-step-card.active .psc-status { color: var(--brand-500); }
+    .pipeline-step-preview {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: var(--bg-surface);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      max-height: 80px;
+      overflow: hidden;
+    }
+
+    /* Pipeline 结果展示 */
+    .pipeline-result {
+      margin-top: 4px;
+    }
+    .pp-intro {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .pp-result {
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      overflow: hidden;
+    }
+    .pp-result.error {
+      border-color: rgba(239,68,68,0.2);
+    }
+    .ppr-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--bg-elevated);
+      cursor: pointer;
+      user-select: none;
+    }
+    .ppr-header:hover { background: var(--bg-input); }
+    .ppr-avatar {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .ppr-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .ppr-status { font-size: 14px; }
+    .ppr-chevron {
+      color: var(--text-tertiary);
+      transition: transform 0.2s ease;
+    }
+    .pp-result.collapsed .ppr-chevron {
+      transform: rotate(-90deg);
+    }
+    .pp-result.collapsed .ppr-body {
+      display: none;
+    }
+    .ppr-body {
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .pp-rerun {
+      font-size: 12px;
+      color: var(--brand-500);
+      background: none;
+      border: 1px solid var(--brand-300);
+      border-radius: var(--radius-sm);
+      padding: 4px 12px;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: all var(--dur-fast);
+    }
+    .pp-rerun:hover { background: var(--brand-400); color: #fff; }
+
+    /* 工作组头像堆叠 */
+    .msg-avatar-group {
+      display: flex;
+      flex-shrink: 0;
+      margin-right: 8px;
+    }
+    .msg-avatar-stacked {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--bg-app);
+      margin-right: -8px;
+    }
+
     .chat-msg.expanding {
       max-height: 80px;
       overflow: hidden;
