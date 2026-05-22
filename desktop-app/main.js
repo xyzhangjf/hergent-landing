@@ -265,7 +265,7 @@ function stopCreditsServer() {
 const ACTIVATION_KEY = 'hermes-fmcg-activation-2026'; // HMAC 签名密钥（生成/校验共用）
 const TRIAL_DAYS = 7;  // 免费试用天数
 const LICENSE_DAYS = 365;  // 激活后有效期
-const SERVER_URL = 'http://47.113.224.140';  // 备案完成后改为 https://api.hergent.cn
+const SERVER_URL = 'http://localhost:8765';
 let SYSTEM_PROMPT = '';
 try {
   SYSTEM_PROMPT = fs.readFileSync(path.join(homeDir, '.hermes', 'SOUL.md'), 'utf8').trim();
