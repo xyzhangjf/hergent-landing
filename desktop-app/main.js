@@ -1171,9 +1171,35 @@ ipcMain.handle('hermes:execute', async (event, params) => {
 
   if (action === 'fs:list') {
     const dir = (args && args.dir) || path.join(homeDir, 'Documents');
+    const withMeta = !!(args && args.meta);
     try {
       const names = fs.readdirSync(dir);
-      return { files: names };
+      if (!withMeta) return { files: names };
+      const files = names.map(name => {
+        try {
+          const fullPath = path.join(dir, name);
+          const st = fs.statSync(fullPath);
+          const ext = path.extname(name).toLowerCase();
+          let type = 'other';
+          if (['.md', '.txt', '.markdown'].includes(ext)) type = 'markdown';
+          else if (['.csv'].includes(ext)) type = 'csv';
+          else if (['.xlsx', '.xls'].includes(ext)) type = 'excel';
+          else if (['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'].includes(ext)) type = 'image';
+          else if (['.pdf'].includes(ext)) type = 'pdf';
+          else if (['.py', '.js', '.ts', '.sh', '.html', '.css', '.json'].includes(ext)) type = 'code';
+          return {
+            name,
+            size: st.size,
+            mtime: st.mtime.toISOString(),
+            ext,
+            type,
+            isDirectory: st.isDirectory()
+          };
+        } catch (_) {
+          return { name, size: 0, mtime: null, ext: '', type: 'other', isDirectory: false };
+        }
+      });
+      return { files };
     } catch (e) {
       return { files: [], error: e.message };
     }

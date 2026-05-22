@@ -586,6 +586,24 @@
 </div>
 
 
+<!-- 文件预览弹窗 -->
+<div class="modal-overlay" id="filePreviewOverlay">
+  <div class="modal" style="max-width:660px;max-height:80vh;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h3 id="fpTitle" style="margin:0;">文件预览</h3>
+      <div style="display:flex;gap:6px;">
+        <button class="btn secondary" style="font-size:12px;padding:4px 10px;" onclick="regenerateReport()" title="让 AI 生成类似的">🔄 重新生成</button>
+        <button class="btn secondary" style="font-size:12px;padding:4px 10px;" id="fpOpenBtn" onclick="openReportInFolder()">📂 在 Finder 中打开</button>
+        <button class="btn secondary" style="font-size:12px;padding:4px 10px;" onclick="closeFilePreview()">✕</button>
+      </div>
+    </div>
+    <div class="fp-meta" id="fpMeta" style="font-size:11px;color:var(--text-tertiary);margin-bottom:8px;"></div>
+    <div class="fp-content" id="fpContent" style="max-height:55vh;overflow-y:auto;">
+      <div class="loading">加载中...</div>
+    </div>
+  </div>
+</div>
+
 <!-- 工作组配置弹窗 -->
 <div class="modal-overlay" id="pipelineConfigOverlay">
   <div class="modal" style="max-width:420px;">
