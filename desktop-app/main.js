@@ -77,78 +77,28 @@ async function startHermesGateway() {
     return true;
   }
 
-  // 确保 Gateway 配置的 api_server.port 正确
+  // 确保 Gateway 配置正确（通过 hermes config set）
   const mainConfigPath = path.join(gwHome, 'config.yaml');
   try {
-    let configContent = '';
-    if (fs.existsSync(mainConfigPath)) {
-      configContent = fs.readFileSync(mainConfigPath, 'utf8');
-    }
-    // 检查端口是否已设置为 GATEWAY_PORT
-    const portMatch = configContent.match(/^\s*api_server:\s*\n(\s+port:\s*(\d+))?/m);
-    if (!portMatch || !portMatch[2] || parseInt(portMatch[2]) !== GATEWAY_PORT) {
-      glog('updating api_server.port in config');
-      const lines = configContent.split('\n');
-      const newLines = [];
-      let inApiServer = false, portWritten = false, keyWritten = false;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (/^\s*api_server:\s*$/.test(line)) {
-          inApiServer = true;
-          // 只在 platforms 段不存在时写入 platforms 头
-          if (!newLines.some(l => /^platforms:\s*$/.test(l))) {
-            newLines.push('platforms:');
-          }
-          newLines.push('  api_server:');
-          newLines.push('    enabled: true');
-          newLines.push(`    port: ${GATEWAY_PORT}`);
-          newLines.push(`    key: ${GATEWAY_API_KEY}`);
-          portWritten = true;
-          keyWritten = true;
-          // 跳过旧的 api_server 子项
-          while (i + 1 < lines.length && /^\s+\w/.test(lines[i + 1])) i++;
-          continue;
-        }
-        newLines.push(line);
-      }
-      if (!portWritten) {
-        if (!newLines.some(l => /^platforms:\s*$/.test(l))) {
-          newLines.push('platforms:');
-        }
-        newLines.push('  api_server:');
-        newLines.push('    enabled: true');
-        newLines.push(`    port: ${GATEWAY_PORT}`);
-        newLines.push(`    key: ${GATEWAY_API_KEY}`);
-      }
-      fs.writeFileSync(mainConfigPath, newLines.join('\n'));
-    }
+    const deviceId = getDeviceId();
+    const cfgEnv = { ...process.env, HERMES_HOME: gwHome };
+    const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
+    set('model.name', 'deepseek-v4-pro');
+    set('model.provider', 'hergent');
+    set('platforms.api_server.enabled', 'true');
+    set('platforms.api_server.port', String(GATEWAY_PORT));
+    set('platforms.api_server.key', GATEWAY_API_KEY);
+    set('custom_providers.0.name', 'hergent');
+    set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
+    set('custom_providers.0.api_key', `hermes_${deviceId}`);
+    set('custom_providers.0.model', 'deepseek-v4-pro');
+    set('memory.memory_enabled', 'true');
+    set('memory.memory_char_limit', '12000');
+    set('memory.user_char_limit', '8000');
+    set('memory.flush_min_turns', '6');
+    set('memory.nudge_interval', '10');
   } catch(e) {
     glog('config update error: ' + e.message);
-    // 兜底：直接写入完整配置
-    const deviceId = getDeviceId();
-    const configYaml = [
-      'model:',
-      '  name: deepseek-v4-pro',
-      '  provider: hergent',
-      'platforms:',
-      '  api_server:',
-      '    enabled: true',
-      `    port: ${GATEWAY_PORT}`,
-      `    key: ${GATEWAY_API_KEY}`,
-      'custom_providers:',
-      '  - name: hergent',
-      `    base_url: ${SERVER_URL}/v1`,
-      `    api_key: hermes_${deviceId}`,
-      '    model: deepseek-v4-pro',
-      'memory:',
-      '  memory_enabled: true',
-      '  memory_char_limit: 12000',
-      '  user_char_limit: 8000',
-      '  flush_min_turns: 6',
-      '  nudge_interval: 10',
-      '',
-    ].join('\n');
-    fs.writeFileSync(mainConfigPath, configYaml);
   }
 
   // Windows: hermes.bat 需要通过 shell 启动（cmd.exe /c）
@@ -376,7 +326,7 @@ function extractBundledEngine() {
   }
 }
 
-// 每次启动都确保引擎配置正确（独立于解压，解决升级后 config 不更新的问题）
+// 每次启动都确保引擎配置正确（通过 hermes config set）
 function ensureEngineConfig() {
   const engineDir = getEngineDir();
   const hermesHome = path.join(engineDir, '.hermes');
@@ -387,31 +337,23 @@ function ensureEngineConfig() {
 
   if (!fs.existsSync(hermesHome)) fs.mkdirSync(hermesHome, { recursive: true });
 
-  // 直接写 YAML，避免 hermes config set 把 custom_providers 写成 dict
   const deviceId = getDeviceId();
-  const configYaml = [
-    'model:',
-    '  name: deepseek-v4-pro',
-    '  provider: hergent',
-    'platforms:',
-    '  api_server:',
-    '    enabled: true',
-    `    port: ${GATEWAY_PORT}`,
-    `    key: ${GATEWAY_API_KEY}`,
-    'custom_providers:',
-    '  - name: hergent',
-    `    base_url: ${SERVER_URL}/v1`,
-    `    api_key: hermes_${deviceId}`,
-    '    model: deepseek-v4-pro',
-    'memory:',
-    '  memory_enabled: true',
-    '  memory_char_limit: 12000',
-    '  user_char_limit: 8000',
-    '  flush_min_turns: 6',
-    '  nudge_interval: 10',
-    '',
-  ].join('\n');
-  fs.writeFileSync(configPath, configYaml);
+  const cfgEnv = { ...process.env, HERMES_HOME: hermesHome };
+  const set = (k, v) => { try { spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv }); } catch (_) {} };
+  set('model.name', 'deepseek-v4-pro');
+  set('model.provider', 'hergent');
+  set('platforms.api_server.enabled', 'true');
+  set('platforms.api_server.port', String(GATEWAY_PORT));
+  set('platforms.api_server.key', GATEWAY_API_KEY);
+  set('custom_providers.0.name', 'hergent');
+  set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
+  set('custom_providers.0.api_key', `hermes_${deviceId}`);
+  set('custom_providers.0.model', 'deepseek-v4-pro');
+  set('memory.memory_enabled', 'true');
+  set('memory.memory_char_limit', '12000');
+  set('memory.user_char_limit', '8000');
+  set('memory.flush_min_turns', '6');
+  set('memory.nudge_interval', '10');
 }
 
 // 将引擎的 memories/ 和 skills/ 链接到用户 ~/.hermes/，共享长期记忆和全部技能
