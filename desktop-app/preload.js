@@ -77,9 +77,12 @@ contextBridge.exposeInMainWorld('hermes', {
   getTheme: () => ipcRenderer.invoke('theme:get'),
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
 
-  // 记忆系统 (按角色隔离)
+  // 记忆系统 (按角色隔离，支持 CRUD + 统计)
   listMemories: (role) => ipcRenderer.invoke('memory:list', role),
+  addMemory: (role, title, content, type) => ipcRenderer.invoke('memory:add', role, title, content, type),
+  updateMemory: (role, id, title, content, type) => ipcRenderer.invoke('memory:update', role, id, title, content, type),
   deleteMemory: (id, role) => ipcRenderer.invoke('memory:delete', id, role),
+  memoryStats: (role) => ipcRenderer.invoke('memory:stats', role),
 
   // 技能系统
   listSkills: () => ipcRenderer.invoke('skills:list'),
