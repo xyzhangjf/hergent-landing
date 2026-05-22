@@ -1,8 +1,8 @@
 {
-  "version": "1.0.2",
-  "release_date": "2026-05-20",
-  "release_notes": "Hergent v1.0.2 更新\n\n- ✅ 修复积分余额显示错误（设备隔离查询）\n- ✅ 角色增删改持久化到本地文件\n- ✅ 用量明细对接服务端 API\n- ✅ 技能列表扫描引擎目录\n- ✅ 聊天导出为 Markdown 文件\n- ✅ 系统通知支持\n- ✅ 启用 Hermes 记忆系统\n\n系统要求：\n- macOS 12+ · Apple Silicon & Intel\n- Windows 10+ · x64",
-  "download_url_mac": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.2/Hergent-1.0.2-mac-arm64.dmg",
-  "download_url_win": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.2/Hergent-1.0.2-setup.exe",
+  "version": "1.0.4",
+  "release_date": "2026-05-21",
+  "release_notes": "Hergent v1.0.4 更新\n\n- 🔧 修复模型名：deepseek-chat → deepseek-v4-pro\n- 🔧 修复 Gateway 配置格式：api_server 包入 platforms 段\n- 🔧 custom_providers 补充 model 字段\n- 🔧 顶层初始化移入 app.whenReady() 守护\n\n系统要求：\n- macOS 12+ · Apple Silicon & Intel\n- Windows 10+ · x64",
+  "download_url_mac": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.4/Hergent-1.0.4-mac-arm64.dmg",
+  "download_url_win": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.4/Hergent-1.0.4-setup.exe",
   "checksum": ""
 }
