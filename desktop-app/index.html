@@ -216,6 +216,40 @@
             </div>
           </div>
           <div class="settings-section">
+            <div class="settings-section-title">模型配置 🧠</div>
+            <div class="settings-row"><span>当前模型</span><span class="settings-val" id="setModelName" style="font-weight:600;color:var(--brand-500);">--</span></div>
+            <div class="model-options" id="modelOptions">
+              <button class="model-option active" data-model="deepseek-v4-pro" onclick="selectModel('deepseek-v4-pro')">
+                <div class="mo-name">DeepSeek V4 Pro</div>
+                <div class="mo-desc">最强推理能力，适合复杂任务</div>
+              </button>
+              <button class="model-option" data-model="deepseek-v4-flash" onclick="selectModel('deepseek-v4-flash')">
+                <div class="mo-name">DeepSeek V4 Flash</div>
+                <div class="mo-desc">快速响应，成本更低</div>
+              </button>
+              <button class="model-option" data-model="custom" onclick="selectModel('custom')">
+                <div class="mo-name">自定义模型</div>
+                <div class="mo-desc">使用自己的 API Key 和地址</div>
+              </button>
+            </div>
+            <div class="custom-model-form" id="customModelForm" style="display:none;">
+              <div style="margin-top:8px;">
+                <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:2px;">API Base URL</label>
+                <input class="settings-input" id="customBaseUrl" type="text" placeholder="https://api.openai.com/v1" style="width:100%;" />
+              </div>
+              <div style="margin-top:8px;">
+                <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:2px;">API Key</label>
+                <input class="settings-input" id="customApiKey" type="password" placeholder="sk-..." style="width:100%;" />
+              </div>
+              <div style="margin-top:8px;">
+                <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:2px;">模型名</label>
+                <input class="settings-input" id="customModelName" type="text" placeholder="gpt-4o" style="width:100%;" />
+              </div>
+              <button class="settings-btn" style="margin-top:8px;" id="saveCustomModelBtn" onclick="saveCustomModel()">保存并应用</button>
+              <span class="settings-msg" id="modelMsg"></span>
+            </div>
+          </div>
+          <div class="settings-section">
             <div class="settings-section-title">积分</div>
             <div class="settings-row"><span>当前余额</span><span class="settings-val" id="setCredits" style="font-weight:600;color:var(--brand-500);">--</span></div>
             <button class="settings-btn" style="margin-top:4px;" onclick="showRecharge()">充值</button>
