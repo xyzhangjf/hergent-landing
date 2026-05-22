@@ -516,6 +516,7 @@
       badge.title = msg;
       badge.onclick = () => showRecharge();
     }
+    updateCostEstimate();
   }
 
   async function refreshLicense() {
@@ -599,6 +600,40 @@
       return { ok: b > 0, credits: b };
     } catch (e) {
       return { ok: true, credits: -1 };
+    }
+  }
+
+  // 费用预估：基于历史消息的平均消耗
+  function _recordMessageCost(cost) {
+    if (!cost || cost <= 0) return;
+    try {
+      const costs = JSON.parse(localStorage.getItem('hermes_msg_costs') || '[]');
+      costs.push(cost);
+      if (costs.length > 50) costs.shift();
+      localStorage.setItem('hermes_msg_costs', JSON.stringify(costs));
+    } catch (_) {}
+  }
+
+  function _getAvgCost() {
+    try {
+      const costs = JSON.parse(localStorage.getItem('hermes_msg_costs') || '[]');
+      if (costs.length === 0) return null;
+      const avg = costs.reduce((a, b) => a + b, 0) / costs.length;
+      const low = Math.max(1, Math.floor(avg * 0.4));
+      const high = Math.max(2, Math.ceil(avg * 1.6));
+      return { low, high };
+    } catch (_) { return null; }
+  }
+
+  function updateCostEstimate() {
+    const el = document.getElementById('costEstimate');
+    if (!el) return;
+    const avg = _getAvgCost();
+    if (avg) {
+      document.getElementById('costEstimateNum').textContent = `${avg.low}-${avg.high}`;
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
     }
   }
 
@@ -783,12 +818,15 @@
     return d.innerHTML;
   }
 
+  let _allSkills = [];
+
   async function loadSkills() {
     const grid = document.getElementById('skillsGrid');
     const total = document.getElementById('skillsTotal');
+    const searchInput = document.getElementById('skillsSearch');
+    const categoriesEl = document.getElementById('skillsCategories');
     if (!grid) return;
     try {
-      // 从 Hermes skills 目录加载真实技能列表
       let data = { categories: [], total: 0 };
       if (window.hermes && window.hermes.listSkills) {
         data = await window.hermes.listSkills();
@@ -796,27 +834,103 @@
 
       if (!data.categories || data.categories.length === 0) {
         grid.innerHTML = '<div class="memory-empty">技能目录为空，请检查 Hermes 安装</div>';
+        if (categoriesEl) categoriesEl.innerHTML = '';
         return;
       }
 
-      // 按字母排序
-      data.categories.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
-
-      grid.innerHTML = data.categories.map(s => {
-        return `<div class="skill-item" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border-subtle);cursor:default;">
-          <span class="skill-item-dot" style="width:8px;height:8px;border-radius:50%;background:var(--brand-400);flex-shrink:0;"></span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-weight:600;font-size:14px;color:var(--text-primary);">${escapeHtml(s.name)}</div>
-            ${s.description ? `<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.description)}</div>` : ''}
-          </div>
-          <code style="font-size:11px;color:var(--text-tertiary);background:var(--bg-secondary);padding:2px 6px;border-radius:4px;">${escapeHtml(s.slug)}</code>
-        </div>`;
-      }).join('');
+      // 缓存原始数据
+      _allSkills = data.categories;
+      if (searchInput) searchInput.value = '';
 
       if (total) total.textContent = `共 ${data.total} 项技能`;
+      _renderSkills(_allSkills);
     } catch (e) {
       grid.innerHTML = '<div class="memory-empty">加载失败</div>';
     }
+  }
+
+  function filterSkills() {
+    const q = (document.getElementById('skillsSearch')?.value || '').toLowerCase().trim();
+    if (!q) { _renderSkills(_allSkills); return; }
+    const filtered = _allSkills.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      (s.description || '').toLowerCase().includes(q) ||
+      (s.slug || '').toLowerCase().includes(q)
+    );
+    _renderSkills(filtered, q);
+  }
+
+  function _renderSkills(skills, query) {
+    const grid = document.getElementById('skillsGrid');
+    const categoriesEl = document.getElementById('skillsCategories');
+    if (!grid) return;
+
+    if (skills.length === 0) {
+      grid.innerHTML = query
+        ? `<div class="memory-empty">没有匹配 "${escapeHtml(query)}" 的技能</div>`
+        : '<div class="memory-empty">暂无技能</div>';
+      if (categoriesEl) categoriesEl.innerHTML = '';
+      return;
+    }
+
+    // 按分类分组
+    const groups = {};
+    for (const s of skills) {
+      const cat = s.category || '其他';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(s);
+    }
+
+    // 渲染分类标签
+    if (categoriesEl) {
+      const allCats = [...new Set(_allSkills.map(s => s.category || '其他'))].filter(Boolean);
+      categoriesEl.innerHTML = allCats.map(c =>
+        `<span class="skill-cat-chip${query ? '' : ' active'}" onclick="event.stopPropagation();_filterByCategory('${escapeHtml(c)}')">${escapeHtml(c)}</span>`
+      ).join('');
+    }
+
+    // 渲染技能列表（按分类分组）
+    let html = '';
+    const catNames = Object.keys(groups);
+    // 如果有搜索词就不分组显示，否则分组
+    if (query || catNames.length <= 1) {
+      skills.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+      html = skills.map(s => _skillItemHTML(s)).join('');
+    } else {
+      // 分组显示：每个分类一个区块
+      for (const [cat, items] of Object.entries(groups)) {
+        items.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+        html += `<div class="skill-cat-group"><div class="skill-cat-title">${escapeHtml(cat)}</div>`;
+        html += items.map(s => _skillItemHTML(s)).join('');
+        html += '</div>';
+      }
+    }
+
+    grid.innerHTML = html;
+  }
+
+  function _skillItemHTML(s) {
+    const usages = JSON.parse(localStorage.getItem('hermes_skill_usages') || '{}');
+    const count = usages[s.slug] || 0;
+    return `<div class="skill-item" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border-subtle);cursor:default;">
+      <span class="skill-item-dot" style="width:8px;height:8px;border-radius:50%;background:var(--brand-400);flex-shrink:0;"></span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:14px;color:var(--text-primary);">${escapeHtml(s.name)}</div>
+        ${s.description ? `<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.description)}</div>` : ''}
+      </div>
+      ${count > 0 ? `<span style="font-size:10px;color:var(--text-tertiary);background:var(--bg-secondary);padding:2px 6px;border-radius:10px;">${count}次</span>` : ''}
+      <code style="font-size:11px;color:var(--text-tertiary);background:var(--bg-secondary);padding:2px 6px;border-radius:4px;">${escapeHtml(s.slug)}</code>
+    </div>`;
+  }
+
+  function _filterByCategory(cat) {
+    const input = document.getElementById('skillsSearch');
+    if (input) input.value = cat;
+    filterSkills();
+    // 高亮对应分类标签
+    document.querySelectorAll('.skill-cat-chip').forEach(c => {
+      c.classList.toggle('active', c.textContent === cat);
+    });
   }
 
   async function clearAllData() {
@@ -1781,6 +1895,8 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         const opening = rd.systemPrompt ? `我是${rd.name}。${rd.systemPrompt.replace(/你是"|"/g, '').split('。')[0]}。\n\n有什么需要帮忙的？` : `我是${rd.name}，有什么需要帮忙的？`;
         addChatMessage('hermes', opening);
       }
+      // 首次使用该角色时显示快速上手指引
+      _showRoleFirstVisit(role);
       const input = document.getElementById('chatInput');
       if (input) { input.value = ''; input.focus(); }
       updateToolbarTitle(getRoleTitle(role));
@@ -1802,6 +1918,27 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     health:       ['分析我的饮食', '制定运动计划', '看看这份体检报告'],
     investor:     ['分析市场行情', '评估投资风险', '看看这份财报'],
   };
+
+  function _showRoleFirstVisit(role) {
+    const key = `hermes_role_visited_${role}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+    const actions = QUICK_ACTIONS[role] || QUICK_ACTIONS['dami'];
+    const rd = _rolesList.find(r => r.id === role) || ROLES[role];
+    const name = rd?.name || role;
+    const chips = actions.map(a =>
+      `<button class="role-tip-chip" onclick="event.stopPropagation();var inp=document.getElementById('chatInput');if(inp){inp.value='${a.replace(/'/g, "\\'")}';inp.focus();}">${a}</button>`
+    ).join('');
+    const msg = document.createElement('div');
+    msg.className = 'chat-msg hermes role-first-visit';
+    msg.innerHTML = `<div class="role-tip-banner">
+      <div class="rtb-title">💡 试试让「${escapeHtml(name)}」帮你：</div>
+      <div class="rtb-chips">${chips}</div>
+      <div class="rtb-hint">点击上方指令可直接发送，或自己在输入框输入任何任务</div>
+    </div>`;
+    const history = document.getElementById('chatHistory');
+    if (history) { history.appendChild(msg); scrollChat(); }
+  }
 
   function renderQuickActions() {
     const container = document.getElementById('quickActions');
@@ -2403,11 +2540,45 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     const steps = _streamSteps.slice(-5);
     _streamStepEl.innerHTML = steps.map((s, i) => {
       const isLast = i === steps.length - 1;
+      const clean = s.replace(/^┊\s*/, '');
+      const icon = _toolIcon(clean);
       return `<div class="stream-step ${isLast ? 'active' : 'done'}">
         <span class="stream-step-dot">${isLast ? '●' : '✓'}</span>
-        <span class="stream-step-text">${s.replace(/^┊\s*/, '')}</span>
+        <span class="stream-step-icon">${icon}</span>
+        <span class="stream-step-text">${clean}</span>
       </div>`;
     }).join('');
+
+    // 同步更新 loading 消息下方的工具标签
+    const existing = _streamTarget.querySelector('.tool-tags');
+    if (existing) existing.remove();
+    if (steps.length > 0) {
+      const tags = document.createElement('div');
+      tags.className = 'tool-tags';
+      const seen = new Set();
+      const icons = [];
+      for (const s of [...steps].reverse()) {
+        const clean = s.replace(/^┊\s*/, '');
+        const icon = _toolIcon(clean);
+        if (!seen.has(icon)) { seen.add(icon); icons.push(icon); }
+        if (icons.length >= 4) break;
+      }
+      tags.innerHTML = icons.map(i => `<span class="tool-tag">${i}</span>`).join('');
+      _streamTarget.appendChild(tags);
+    }
+  }
+
+  function _toolIcon(text) {
+    const t = text.toLowerCase();
+    if (/search|搜索|检索|搜索中|查询|查找|bing|google|web/i.test(t)) return '🔍';
+    if (/read|读取|读|打开|查看|浏览.*文件|file|cat /i.test(t)) return '📂';
+    if (/write|写入|写|保存|生成.*文件|create|touch /i.test(t)) return '✍️';
+    if (/code|代码|执行|运行|python|bash|shell|terminal|exec|run/i.test(t)) return '💻';
+    if (/browser|浏览器|打开.*网页|navigate|click|screenshot/i.test(t)) return '🌐';
+    if (/think|思考|分析|推理|reason|plan|规划/i.test(t)) return '🧠';
+    if (/fetch|http|api|request|curl|下载|download/i.test(t)) return '📡';
+    if (/extract|解析|提取|parse|convert|转换/i.test(t)) return '🔧';
+    return '⚡';
   }
 
   function _initStreamSteps(loadingMsg) {
@@ -2600,9 +2771,8 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
           </summary>
           <div class="thinking-body">
             ${_streamSteps.map((s, i) => {
-              const tag = s.match(/^\[([^\]]+)\]/)?.[1] || '';
-              const clean = s.replace(/^\[[^\]]+\]\s*/, '');
-              const emoji = tag.includes('工具') ? '🔧' : tag.includes('搜索') ? '🔍' : tag.includes('文件') ? '📄' : tag.includes('分析') ? '📊' : tag.includes('完成') ? '✅' : '💭';
+              const clean = s.replace(/^\[[^\]]+\]\s*/, '').replace(/^┊\s*/, '');
+              const emoji = _toolIcon(clean);
               return `<div class="thinking-step">
                 <span class="thinking-step-num">${i + 1}</span>
                 <span class="thinking-step-emoji">${emoji}</span>
@@ -2614,10 +2784,28 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     }
 
     const footerHTML = `<div class="msg-footer">${costLine}${durHTML} <span class="time">${timeStr}</span></div>`;
-    loadingMsg.innerHTML = thinkingHTML + renderFinal(cleanText) + footerHTML;
+    // 记录消息消耗用于费用预估
+    if (cost > 0) _recordMessageCost(cost);
+    // 工具使用摘要（始终可见）
+    let toolSummaryHTML = '';
+    if (_streamSteps.length > 0) {
+      const seen = new Set();
+      const icons = [];
+      for (const s of [..._streamSteps].reverse()) {
+        const clean = s.replace(/^┊\s*/, '');
+        const icon = _toolIcon(clean);
+        if (!seen.has(icon)) { seen.add(icon); icons.push(icon); }
+        if (icons.length >= 5) break;
+      }
+      if (icons.length > 0) {
+        toolSummaryHTML = `<div class="tool-summary">${icons.join(' ')}</div>`;
+      }
+    }
+    loadingMsg.innerHTML = thinkingHTML + toolSummaryHTML + renderFinal(cleanText) + footerHTML;
     loadingMsg.removeAttribute('data-pending');
     scrollChat();
     updateCreditsBadge();
+    updateCostEstimate();
   }
 
   // 渲染失败响应到 loading 消息
