@@ -154,6 +154,7 @@
       if (top === 'modalOverlay') { hideAddTask(); return; }
       if (top === 'rechargeOverlay') { closeRecharge(); return; }
       if (top === 'memoryEditorOverlay') { closeMemoryEditor(); return; }
+      if (top === 'pipelineConfigOverlay') { closePipelineConfig(); return; }
       if (_streamActive) { cancelStream(); return; }
     }
   });
@@ -1052,11 +1053,11 @@
       if (typeSel) typeSel.value = 'fact';
       if (contentInput) contentInput.value = '';
     }
-    overlay.style.display = '';
+    showOverlay('memoryEditorOverlay');
   }
 
   function closeMemoryEditor() {
-    document.getElementById('memoryEditorOverlay').style.display = 'none';
+    hideOverlay('memoryEditorOverlay');
     _editingMemoryId = null;
   }
 
@@ -2754,8 +2755,102 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   let _streamStartTime = 0;
   let _streamRespText = '';  // 流式回复累积文本
   let _pipelineEl = null;    // pipeline 进度条容器
+  let _pipelineMode = false; // 工作组协作模式
+  let _pipelineRoles = [];   // 工作组角色列表
+  let _pipelineResults = null; // 当前 pipeline 各步骤结果
 
-  // 接收后端流式推送的实时步骤
+  // ===== 工作组 Pipeline 模式 =====
+  function togglePipelineMode() {
+    _pipelineMode = !_pipelineMode;
+    const toggle = document.getElementById('pipelineToggle');
+    const bar = document.getElementById('pipelineRolesBar');
+    const input = document.getElementById('chatInput');
+
+    if (_pipelineMode) {
+      if (!_pipelineRoles.length) {
+        _pipelineRoles = [currentAction || 'dami'];
+      }
+      if (_pipelineRoles.length < 2) {
+        // 默认加入一个推荐角色
+        const all = _rolesList.map(r => r.id);
+        const other = all.find(id => id !== _pipelineRoles[0]) || 'programmer';
+        _pipelineRoles.push(other);
+      }
+      if (toggle) toggle.classList.add('active');
+      if (bar) bar.style.display = '';
+      if (input) input.placeholder = '描述任务，工作组将按顺序协作完成...';
+      _renderPipelineRolesBar();
+    } else {
+      if (toggle) toggle.classList.remove('active');
+      if (bar) bar.style.display = 'none';
+      if (input) input.placeholder = '说说你想做什么…';
+    }
+  }
+
+  function _renderPipelineRolesBar() {
+    const container = document.getElementById('prbRoles');
+    if (!container) return;
+    container.innerHTML = _pipelineRoles.map((rid, i) => {
+      const rd = _rolesList.find(r => r.id === rid) || {};
+      const name = rd.name || rid;
+      const preset = rd.avatarPreset || rid;
+      return `<span class="prb-role-chip">
+        <img class="prb-avatar" src="avatar://${preset}.png" alt="" />
+        <span>${escapeHtml(name)}</span>
+        ${i < _pipelineRoles.length - 1 ? '<span class="prb-arrow">→</span>' : ''}
+      </span>`;
+    }).join('');
+  }
+
+  function showPipelineConfig() {
+    const overlay = document.getElementById('pipelineConfigOverlay');
+    const container = document.getElementById('pipelineConfigRoles');
+    if (!overlay || !container) return;
+    showOverlay('pipelineConfigOverlay');
+    const allRoles = _rolesList.map(r => ({ id: r.id, name: r.name, preset: r.avatarPreset || r.id }));
+    const selected = new Set(_pipelineRoles);
+    container.innerHTML = allRoles.map((r, i) => {
+      const checked = selected.has(r.id);
+      return `<div class="pcr-role ${checked ? 'checked' : ''}" data-role="${r.id}" onclick="togglePipelineRole('${r.id}')">
+        <span class="pcr-check">${checked ? '☑' : '☐'}</span>
+        <img class="pcr-avatar" src="avatar://${r.preset}.png" alt="" />
+        <span class="pcr-name">${escapeHtml(r.name)}</span>
+        ${checked ? `<span class="pcr-order">第${_pipelineRoles.indexOf(r.id) + 1}步</span>` : ''}
+      </div>`;
+    }).join('');
+    // 提示最少2个
+    if (_pipelineRoles.length < 2) {
+      container.insertAdjacentHTML('beforeend', '<p class="pcr-hint">请至少选择 2 个角色组成工作组</p>');
+    }
+  }
+
+  function togglePipelineRole(roleId) {
+    const idx = _pipelineRoles.indexOf(roleId);
+    if (idx >= 0) {
+      _pipelineRoles.splice(idx, 1);
+    } else {
+      if (_pipelineRoles.length >= 4) return; // 最多4个
+      _pipelineRoles.push(roleId);
+    }
+    showPipelineConfig(); // 刷新弹窗
+  }
+
+  function closePipelineConfig() {
+    hideOverlay('pipelineConfigOverlay');
+  }
+
+  function applyPipelineConfig() {
+    if (_pipelineRoles.length < 2) {
+      _pipelineRoles = [currentAction || 'dami'];
+      const all = _rolesList.map(r => r.id);
+      const other = all.find(id => id !== _pipelineRoles[0]) || 'programmer';
+      _pipelineRoles.push(other);
+    }
+    _renderPipelineRolesBar();
+    closePipelineConfig();
+    // 确保 pipeline 模式开启
+    if (!_pipelineMode) togglePipelineMode();
+  }
   window.hermes_on.stream((data) => {
     if (!_streamActive || !_streamTarget || _switchingRole) return;
 
@@ -2796,17 +2891,32 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   function _renderPipelineStep(data) {
     if (!_pipelineEl || !_streamTarget) return;
     // 保持已有步骤状态，追加或更新当前步骤
-    let html = '';
-    for (let i = 1; i <= data.total; i++) {
-      let cls = 'pending', dot = '○', label = '';
-      if (i < data.step) { cls = 'done'; dot = '✓'; }
-      else if (i === data.step) {
-        cls = data.status === 'error' ? 'error' : (data.status === 'done' ? 'done' : 'active');
-        dot = data.status === 'error' ? '✗' : (data.status === 'done' ? '✓' : '●');
+    let html = '<div class="pipeline-header">🤝 工作组协作中...</div><div class="pipeline-steps-inner">';
+    const allRoles = _pipelineRoles.length > 0 ? _pipelineRoles : [data.role || 'dami'];
+    for (let i = 0; i < data.total; i++) {
+      const rid = allRoles[i] || data.role || 'dami';
+      const rd = _rolesList.find(r => r.id === rid) || {};
+      const name = rd.name || rid;
+      const preset = rd.avatarPreset || rid;
+      let cls = 'pending', dot = '○', statusText = '等待中';
+      if (i + 1 < data.step) { cls = 'done'; dot = '✓'; statusText = '已完成'; }
+      else if (i + 1 === data.step) {
+        if (data.status === 'error') { cls = 'error'; dot = '✗'; statusText = data.error || '失败'; }
+        else if (data.status === 'done') { cls = 'done'; dot = '✓'; statusText = '已完成'; }
+        else { cls = 'active'; dot = '●'; statusText = '处理中...'; }
       }
-      if (i === data.step && data.status === 'running') label = ' 处理中...';
-      else if (i === data.step && data.status === 'error') label = ' ' + (data.error || '失败');
-      html += `<div class="pipeline-step ${cls}"><span class="pipeline-dot">${dot}</span> ${escapeHtml(data.role || '')}${label}</div>`;
+      html += `<div class="pipeline-step-card ${cls}">
+        <img class="psc-avatar" src="avatar://${preset}.png" alt="" />
+        <div class="psc-body">
+          <div class="psc-name">${escapeHtml(name)} <span class="psc-dot">${dot}</span></div>
+          <div class="psc-status">${statusText}</div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+    // 当前步骤的输出预览
+    if (data.status === 'done' && data.preview) {
+      html += `<div class="pipeline-step-preview">${escapeHtml(data.preview).slice(0, 200)}</div>`;
     }
     _pipelineEl.innerHTML = html;
     if (_streamStepEl) _streamStepEl.style.display = 'none';
@@ -2868,7 +2978,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     loadingMsg.appendChild(_streamStepEl);
   }
 
-  function addChatMessage(role, text, fileNames, msgTime, platform) {
+  function addChatMessage(role, text, fileNames, msgTime, platform, pipeline) {
     const history = document.getElementById('chatHistory');
     const empty = history.querySelector('.chat-empty');
     if (empty) empty.style.display = 'none';
@@ -2877,8 +2987,23 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     const row = document.createElement('div');
     row.className = `msg-row ${role === 'user' ? 'user-row' : 'hermes-row'}`;
 
-    // AI 消息加头像
-    if (role === 'hermes') {
+    // Pipeline 消息：工作组头像
+    if (role === 'hermes' && pipeline && pipeline.length > 0) {
+      const avatarGroup = document.createElement('div');
+      avatarGroup.className = 'msg-avatar-group';
+      pipeline.forEach((r, i) => {
+        const rd = _rolesList.find(rr => rr.id === r.role) || {};
+        const preset = rd.avatarPreset || r.role || 'dami';
+        const img = document.createElement('img');
+        img.className = 'msg-avatar msg-avatar-stacked';
+        img.src = `avatar://${preset}.png`;
+        img.alt = rd.name || r.role;
+        img.style.zIndex = pipeline.length - i;
+        img.onerror = function() { this.style.display = 'none'; };
+        avatarGroup.appendChild(img);
+      });
+      row.appendChild(avatarGroup);
+    } else if (role === 'hermes') {
       const avatar = document.createElement('img');
       avatar.className = 'msg-avatar';
       // 获取当前角色头像
@@ -2910,7 +3035,33 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     if (platform) {
       inner += `<span class="platform-badge">📱 来自${platform}</span> `;
     }
-    inner += renderMarkdown(text);
+
+    // Pipeline 结果：渲染可折叠的 per-role 区块
+    if (pipeline && pipeline.length > 0) {
+      inner += `<div class="pipeline-result">
+        <div class="pp-intro">🤝 工作组协作 — ${pipeline.length} 位角色</div>`;
+      pipeline.forEach((r, i) => {
+        const rid = r.role || 'dami';
+        const rd = _rolesList.find(rr => rr.id === rid) || {};
+        const name = rd.name || rid;
+        const preset = rd.avatarPreset || rid;
+        const isError = r.output && r.output.startsWith('[错误]');
+        inner += `<div class="pp-result ${isError ? 'error' : ''}">
+          <div class="ppr-header" onclick="this.parentElement.classList.toggle('collapsed')">
+            <img class="ppr-avatar" src="avatar://${preset}.png" alt="" />
+            <span class="ppr-name">第${i+1}步：${escapeHtml(name)}</span>
+            <span class="ppr-status">${isError ? '❌' : '✅'}</span>
+            <svg class="ppr-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="ppr-body">${renderMarkdown(r.output.replace(/^\[错误\]\s*/, ''))}</div>
+        </div>`;
+      });
+      inner += `<button class="pp-rerun" onclick="rerunPipeline()">🔄 重新执行</button>`;
+      inner += '</div>';
+    } else {
+      inner += renderMarkdown(text);
+    }
+
     if (fileNames && fileNames.length > 0) {
       fileNames.forEach(f => { inner += `<br><span class="files-badge">📎 ${f}</span>`; });
     }
@@ -2928,7 +3079,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       body.appendChild(actions);
     }
     // Hermes 回复加操作栏
-    if (role === 'hermes' && text !== '思考中') {
+    if (role === 'hermes' && text !== '思考中' && text !== '工作组协作中...') {
       const actions = document.createElement('div');
       actions.className = 'msg-actions';
       actions.innerHTML = '<button class="msg-action-btn" title="复制" onclick="event.stopPropagation();copyMsgReply(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' +
@@ -3012,6 +3163,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   function _resetStreamState() {
     _streamActive = false;
     _pipelineEl = null;
+    _pipelineResults = null;
     toggleCancelButton(false);
     localStorage.removeItem('hermes_streaming');
   }
@@ -3095,6 +3247,44 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     saveResponseToRole(sendingRole, `❌ 发送失败：${errMsg}`);
   }
 
+  function _renderPipelineResult(loadingMsg, result) {
+    const results = result.pipeline || _pipelineResults || [];
+    if (!results.length) {
+      loadingMsg.innerHTML = '<div class="stream-response">' + renderMarkdown(result.output || '') + '</div>';
+      return;
+    }
+    const sections = results.map((r, i) => {
+      const roleId = r.role || 'dami';
+      const rd = _rolesList.find(rr => rr.id === roleId) || {};
+      const name = rd.name || roleId;
+      const preset = rd.avatarPreset || roleId;
+      const isError = r.output && r.output.startsWith('[错误]');
+      return `<div class="pp-result ${isError ? 'error' : ''}">
+        <div class="ppr-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <img class="ppr-avatar" src="avatar://${preset}.png" alt="" />
+          <span class="ppr-name">第${i+1}步：${escapeHtml(name)}</span>
+          <span class="ppr-status">${isError ? '❌' : '✅'}</span>
+          <svg class="ppr-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="ppr-body">${renderMarkdown(r.output.replace(/^\[错误\]\s*/, ''))}</div>
+      </div>`;
+    }).join('');
+    loadingMsg.innerHTML = `<div class="pipeline-result">
+      <div class="pp-intro">🤝 工作组完成 — ${results.length} 位角色协作</div>
+      ${sections}
+      <button class="pp-rerun" onclick="rerunPipeline()">🔄 重新执行</button>
+      <span class="time">${new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span>
+    </div>`;
+  }
+
+  function rerunPipeline() {
+    const input = document.getElementById('chatInput');
+    if (input) input.focus();
+    if (_pipelineMode && _pipelineRoles.length >= 2) {
+      sendMessage(); // Re-sends the last input if still available
+    }
+  }
+
   async function sendMessage() {
     // 防重复发送
     if (_streamActive) return;
@@ -3129,6 +3319,58 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     input.value = '';
     chatFilePaths.length = 0;
     document.getElementById('chatFiles').innerHTML = '';
+
+    // === 工作组 Pipeline 模式 ===
+    if (_pipelineMode && _pipelineRoles.length >= 2 && text) {
+      const steps = _pipelineRoles.map(rid => ({ role: rid, text: text }));
+      const loadingMsg = addChatMessage('hermes', '工作组协作中...');
+      _initStreamSteps(loadingMsg);
+      loadingMsg.setAttribute('data-pending', 'true');
+      _streamTarget = loadingMsg;
+      _streamActive = true;
+      _streamRole = null; // pipeline 不绑定单角色
+      _pipelineResults = [];
+      toggleCancelButton(true);
+      _startPendingTimer(loadingMsg);
+      _streamKey = chatStorageKey();
+      localStorage.setItem('hermes_streaming', 'pipeline');
+
+      try {
+        const result = await window.hermes.execute('pipeline:run', { steps, context: '' });
+        _resetStreamState();
+
+        if (result && result.pipeline) {
+          _pipelineResults = result.pipeline;
+          _renderPipelineResult(loadingMsg, result);
+        } else if (result && result.output) {
+          loadingMsg.innerHTML = '<div class="stream-response">' + renderMarkdown(result.output) + '</div>';
+        } else {
+          loadingMsg.innerHTML = '❌ 工作组执行失败';
+        }
+
+        updateCreditsBadge();
+        updateCostEstimate();
+        // 持久化
+        const msgs = JSON.parse(localStorage.getItem(_streamKey) || '[]');
+        const last = msgs[msgs.length - 1];
+        const respText = loadingMsg.textContent.replace(/\d{2}:\d{2}$/, '').trim();
+        if (last && last.text === '工作组协作中...') { last.text = respText; last.time = new Date().toISOString(); last.pipeline = _pipelineResults; }
+        else { msgs.push({ role: 'hermes', text: respText, time: new Date().toISOString(), pipeline: _pipelineResults }); }
+        localStorage.setItem(_streamKey, JSON.stringify(msgs));
+        if (!loadingMsg.isConnected) loadChatHistory();
+      } catch (e) {
+        _resetStreamState();
+        _renderError(loadingMsg, e, 'pipeline');
+        const msgs = JSON.parse(localStorage.getItem(_streamKey) || '[]');
+        const last = msgs[msgs.length - 1];
+        const errText = '❌ 工作组执行失败: ' + (e.message || '');
+        if (last && last.text === '工作组协作中...') { last.text = errText; last.time = new Date().toISOString(); }
+        else { msgs.push({ role: 'hermes', text: errText, time: new Date().toISOString() }); }
+        localStorage.setItem(_streamKey, JSON.stringify(msgs));
+        if (!loadingMsg.isConnected) loadChatHistory();
+      }
+      return;
+    }
 
     const effectiveAction = currentAction || 'chat';
     const sendingRole = effectiveAction;
@@ -3430,7 +3672,7 @@ ${questionnaireHistory}`;
       try {
         _loadingHistory = true;
         const msgs = JSON.parse(saved);
-        msgs.forEach(m => addChatMessage(m.role, m.text, m.files, m.time));
+        msgs.forEach(m => addChatMessage(m.role, m.text, m.files, m.time, m.platform, m.pipeline));
         _loadingHistory = false;
       } catch {
         _loadingHistory = false;
