@@ -153,6 +153,7 @@
       if (top === 'loginOverlay') { return; }
       if (top === 'modalOverlay') { hideAddTask(); return; }
       if (top === 'rechargeOverlay') { closeRecharge(); return; }
+      if (top === 'memoryEditorOverlay') { closeMemoryEditor(); return; }
       if (_streamActive) { cancelStream(); return; }
     }
   });
@@ -874,31 +875,214 @@
     }
   }
 
+  // ===== 记忆系统 =====
+  let _memories = [];
+  let _memoryFilterType = 'all';
+  const MEMORY_TYPE_INFO = {
+    preference: { label: '偏好习惯', icon: '💝', order: 1 },
+    fact:       { label: '重要事实', icon: '📌', order: 2 },
+    pattern:    { label: '工作模式', icon: '🔄', order: 3 },
+    style:      { label: '个人风格', icon: '🎨', order: 4 },
+  };
+
+  function _trackMemoryGrowth(total) {
+    try {
+      const history = JSON.parse(localStorage.getItem('hermes_memory_growth') || '[]');
+      const now = Date.now();
+      // 每天最多记录一个点
+      const today = new Date().toISOString().slice(0, 10);
+      const last = history[history.length - 1];
+      if (!last || last.date !== today) {
+        history.push({ date: today, count: total });
+        if (history.length > 60) history.shift();
+        localStorage.setItem('hermes_memory_growth', JSON.stringify(history));
+      } else if (last.count !== total) {
+        last.count = total;
+        localStorage.setItem('hermes_memory_growth', JSON.stringify(history));
+      }
+      return history;
+    } catch (_) { return []; }
+  }
+
+  function _renderMemoryTimeline(history) {
+    const container = document.getElementById('memoryTimeline');
+    const bars = document.getElementById('mtBars');
+    if (!container || !bars) return;
+    if (history.length < 2) { container.style.display = 'none'; return; }
+    container.style.display = '';
+    // 取最近 14 个数据点
+    const recent = history.slice(-14);
+    const maxCount = Math.max(1, ...recent.map(p => p.count));
+    bars.innerHTML = recent.map(p => {
+      const h = Math.round((p.count / maxCount) * 100);
+      const label = p.date.slice(5); // MM-DD
+      return `<div class="mt-bar-col">
+        <div class="mt-bar-val">${p.count}</div>
+        <div class="mt-bar" style="height:${Math.max(h, 4)}%;"></div>
+        <div class="mt-bar-label">${label}</div>
+      </div>`;
+    }).join('');
+  }
+
   async function loadMemories() {
     const list = document.getElementById('memoryList');
     const empty = document.getElementById('memoryEmpty');
     if (!list) return;
+    const role = currentAction || 'dami';
     try {
-      const { memories } = await window.hermes.listMemories(currentAction || 'dami');
-      if (!memories || memories.length === 0) {
-        list.innerHTML = '';
-        list.appendChild(empty || document.createElement('div'));
-        return;
+      const resp = await window.hermes.listMemories(role);
+      _memories = resp.memories || [];
+      const stats = resp.stats || { total: 0, byType: {}, mtime: null };
+
+      // 了解程度
+      _renderMemoryLevel(stats.total);
+
+      // 统计行
+      document.getElementById('memCount').textContent = `共 ${stats.total} 条`;
+      const mtimeEl = document.getElementById('memMtime');
+      if (mtimeEl && stats.mtime) {
+        const ms = Date.now() - new Date(stats.mtime).getTime();
+        const ago = ms < 60000 ? '刚刚更新' : ms < 3600000 ? Math.floor(ms/60000)+'分钟前更新' :
+                    ms < 86400000 ? Math.floor(ms/3600000)+'小时前更新' : Math.floor(ms/86400000)+'天前更新';
+        mtimeEl.textContent = ago;
       }
-      const now = Date.now();
-      list.innerHTML = memories.map(m => {
-        const ms = now - new Date(m.updated).getTime();
-        const ago = ms < 60000 ? '刚刚' : ms < 3600000 ? Math.floor(ms/60000)+'分钟前' :
-                    ms < 86400000 ? Math.floor(ms/3600000)+'小时前' : Math.floor(ms/86400000)+'天前';
-        return `<div class="memory-item">
-          <div class="memory-item-title">${escapeHtml(m.title)}</div>
-          ${m.preview ? '<div class="memory-item-preview">'+escapeHtml(m.preview)+'</div>' : ''}
-          <div class="memory-item-time">${ago}</div>
-          <button class="memory-item-del" onclick="deleteMemory('${m.id}', '${currentAction || "dami"}')" title="删除">×</button>
-        </div>`;
-      }).join('');
+
+      // 类型筛选芯片上的数量
+      const chips = document.querySelectorAll('#memoryTypeFilters .mem-type-chip');
+      chips.forEach(c => {
+        const t = c.dataset.type;
+        const cnt = t === 'all' ? stats.total : (stats.byType && stats.byType[t]) || 0;
+        // 更新芯片上的数字
+        const label = c.textContent.replace(/\d+$/, '').trim();
+        c.textContent = cnt > 0 ? `${label} ${cnt}` : label;
+      });
+
+      // 成长时间线
+      const history = _trackMemoryGrowth(stats.total);
+      _renderMemoryTimeline(history);
+
+      // 渲染记忆列表
+      _renderMemoryList();
     } catch (e) {
       list.innerHTML = '<div class="memory-empty">加载失败</div>';
+    }
+  }
+
+  function _renderMemoryLevel(total) {
+    let level = 0, levelLabel = '初始';
+    if (total >= 31) { level = 4; levelLabel = '非常了解'; }
+    else if (total >= 16) { level = 3; levelLabel = '比较熟悉'; }
+    else if (total >= 6) { level = 2; levelLabel = '逐渐了解'; }
+    else if (total >= 1) { level = 1; levelLabel = '初步认识'; }
+    document.getElementById('mlLevelName').textContent = levelLabel;
+    const pct = Math.min(100, Math.round((total / 30) * 100));
+    document.getElementById('mlBarFill').style.width = pct + '%';
+    // 高亮当前阶段
+    document.querySelectorAll('.ml-stage').forEach(s => {
+      s.classList.toggle('active', parseInt(s.dataset.lv) === level);
+    });
+  }
+
+  function _renderMemoryList() {
+    const list = document.getElementById('memoryList');
+    const empty = document.getElementById('memoryEmpty');
+    if (!list) return;
+    const filtered = _memoryFilterType === 'all'
+      ? _memories
+      : _memories.filter(m => m.type === _memoryFilterType);
+    if (filtered.length === 0) {
+      list.innerHTML = '';
+      const msg = _memoryFilterType === 'all'
+        ? '还没有记忆。多聊聊，Hermes 会慢慢了解你。'
+        : '该类型下暂无记忆';
+      const el = empty ? empty.cloneNode(true) : document.createElement('div');
+      el.className = 'memory-empty';
+      el.textContent = msg;
+      list.appendChild(el);
+      return;
+    }
+    const now = Date.now();
+    list.innerHTML = filtered.map(m => {
+      const ms = now - new Date(m.updated).getTime();
+      const ago = ms < 60000 ? '刚刚' : ms < 3600000 ? Math.floor(ms/60000)+'分钟前' :
+                  ms < 86400000 ? Math.floor(ms/3600000)+'小时前' : Math.floor(ms/86400000)+'天前';
+      const ti = MEMORY_TYPE_INFO[m.type] || MEMORY_TYPE_INFO['fact'];
+      return `<div class="memory-item">
+        <span class="mem-type-badge" data-type="${m.type}">${ti.icon} ${ti.label}</span>
+        <div class="memory-item-title">${escapeHtml(m.title)}</div>
+        ${m.preview ? '<div class="memory-item-preview">'+escapeHtml(m.preview)+'</div>' : ''}
+        <div class="memory-item-time">${ago}</div>
+        <div class="memory-item-actions">
+          <button class="mem-item-btn" onclick="openMemoryEditor('${m.id}')" title="编辑">✎</button>
+          <button class="mem-item-btn mem-item-del" onclick="deleteMemory('${m.id}')" title="删除">×</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function filterMemoriesByType(type) {
+    _memoryFilterType = type;
+    document.querySelectorAll('#memoryTypeFilters .mem-type-chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.type === type);
+    });
+    _renderMemoryList();
+  }
+
+  let _editingMemoryId = null;
+
+  function openMemoryEditor(id) {
+    _editingMemoryId = id || null;
+    const overlay = document.getElementById('memoryEditorOverlay');
+    const titleEl = document.getElementById('memEditorTitle');
+    const titleInput = document.getElementById('memEditorTitleInput');
+    const typeSel = document.getElementById('memEditorType');
+    const contentInput = document.getElementById('memEditorContent');
+    const msg = document.getElementById('memEditorMsg');
+    if (!overlay) return;
+    if (msg) msg.textContent = '';
+    if (id) {
+      const m = _memories.find(mem => mem.id === id);
+      if (titleEl) titleEl.textContent = '编辑记忆';
+      if (titleInput) titleInput.value = m ? m.title : '';
+      if (typeSel) typeSel.value = m ? m.type : 'fact';
+      if (contentInput) contentInput.value = m ? (m.preview || '') : '';
+    } else {
+      if (titleEl) titleEl.textContent = '添加记忆';
+      if (titleInput) titleInput.value = '';
+      if (typeSel) typeSel.value = 'fact';
+      if (contentInput) contentInput.value = '';
+    }
+    overlay.style.display = '';
+  }
+
+  function closeMemoryEditor() {
+    document.getElementById('memoryEditorOverlay').style.display = 'none';
+    _editingMemoryId = null;
+  }
+
+  async function saveMemory() {
+    const title = (document.getElementById('memEditorTitleInput').value || '').trim();
+    const type = document.getElementById('memEditorType').value;
+    const content = (document.getElementById('memEditorContent').value || '').trim();
+    const msg = document.getElementById('memEditorMsg');
+    if (!title) { if (msg) msg.textContent = '请输入标题'; return; }
+    if (!content) { if (msg) msg.textContent = '请输入内容'; return; }
+    const role = currentAction || 'dami';
+    try {
+      let resp;
+      if (_editingMemoryId) {
+        resp = await window.hermes.updateMemory(role, _editingMemoryId, title, content, type);
+      } else {
+        resp = await window.hermes.addMemory(role, title, content, type);
+      }
+      if (resp && resp.success) {
+        closeMemoryEditor();
+        loadMemories();
+      } else if (msg) {
+        msg.textContent = '保存失败：' + ((resp && resp.error) || '未知错误');
+      }
+    } catch (e) {
+      if (msg) msg.textContent = '保存失败：' + (e.message || '');
     }
   }
 

@@ -1952,6 +1952,23 @@ nativeTheme.on('updated', () => {
   if (win) win.webContents.send('theme:changed', nativeTheme.shouldUseDarkColors);
 });
 // ---- 记忆系统 (按角色隔离) ----
+// ---- 记忆系统（CRUD + 类型推断 + 统计）----
+function _inferMemoryType(title, preview) {
+  const t = (title + ' ' + (preview || '')).toLowerCase();
+  if (/习惯|偏好|喜欢|常用|经常|总是|爱|讨厌|不喜欢|介意/i.test(t)) return 'preference';
+  if (/姓名|名字|电话|邮箱|住址|公司|职位|年龄|生日|毕业于|来自|住在/i.test(t)) return 'fact';
+  if (/工作|开会|周报|项目|任务|流程|上班|加班|协作|团队/i.test(t)) return 'pattern';
+  if (/风格|简洁|详细|正式|幽默|严谨|语气|语气词|回复方式/i.test(t)) return 'style';
+  return 'fact'; // 默认归类为事实
+}
+
+const MEMORY_TYPES = {
+  preference: { label: '偏好习惯', icon: '💝', order: 1 },
+  fact:       { label: '重要事实', icon: '📌', order: 2 },
+  pattern:    { label: '工作模式', icon: '🔄', order: 3 },
+  style:      { label: '个人风格', icon: '🎨', order: 4 },
+};
+
 function getRoleMemoryPath(roleId) {
   const engineDir = getEngineDir();
   // 优先用角色独立记忆路径，不存在则回退到共享路径
@@ -1964,19 +1981,61 @@ ipcMain.handle('memory:list', async (event, role) => {
   try {
     const roleId = role || 'dami';
     const memoryPath = getRoleMemoryPath(roleId);
-    if (!fs.existsSync(memoryPath)) return { memories: [] };
+    if (!fs.existsSync(memoryPath)) return { memories: [], stats: { total: 0, byType: {}, mtime: null } };
     const content = fs.readFileSync(memoryPath, 'utf8');
+    const stat = fs.statSync(memoryPath);
     const sections = content.split(/^§/m).filter(s => s.trim());
     const memories = sections.map((sec, i) => {
       const lines = sec.trim().split('\n');
       const title = (lines[0] || '').replace(/^#+\s*/, '').trim() || '记忆片段';
       const preview = lines.slice(1).join(' ').replace(/\s+/g, ' ').trim().slice(0, 80);
       const id = crypto.createHash('md5').update(sec).digest('hex').slice(0, 8);
-      return { id, title, preview, updated: new Date().toISOString() };
+      const type = _inferMemoryType(title, preview);
+      return { id, title, preview, type, updated: stat.mtime.toISOString() };
     });
-    return { memories };
-  } catch (_) { return { memories: [] }; }
+    // 按类型分组统计
+    const byType = {};
+    memories.forEach(m => { byType[m.type] = (byType[m.type] || 0) + 1; });
+    return { memories, stats: { total: memories.length, byType, mtime: stat.mtime.toISOString() } };
+  } catch (_) { return { memories: [], stats: { total: 0, byType: {}, mtime: null } }; }
 });
+
+ipcMain.handle('memory:add', async (event, role, title, content, type) => {
+  try {
+    const roleId = role || 'dami';
+    const memoryPath = getRoleMemoryPath(roleId);
+    const dir = path.dirname(memoryPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const typeLabel = MEMORY_TYPES[type] ? MEMORY_TYPES[type].label : '重要事实';
+    const entry = `\n§ ## ${title}\n> 类型: ${typeLabel}\n\n${content}\n`;
+    fs.appendFileSync(memoryPath, entry);
+    return { success: true };
+  } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('memory:update', async (event, role, id, title, content, type) => {
+  try {
+    const roleId = role || 'dami';
+    const memoryPath = getRoleMemoryPath(roleId);
+    if (!fs.existsSync(memoryPath)) return { success: false, error: '记忆文件不存在' };
+    const oldContent = fs.readFileSync(memoryPath, 'utf8');
+    const sections = oldContent.split(/^§/m);
+    let found = false;
+    const updated = sections.map(sec => {
+      const sid = crypto.createHash('md5').update(sec).digest('hex').slice(0, 8);
+      if (sid === id) {
+        found = true;
+        const typeLabel = MEMORY_TYPES[type] ? MEMORY_TYPES[type].label : '重要事实';
+        return `§ ## ${title}\n> 类型: ${typeLabel}\n\n${content}\n`;
+      }
+      return sec;
+    });
+    if (!found) return { success: false, error: '未找到该记忆' };
+    fs.writeFileSync(memoryPath, updated.join('').trim() + '\n');
+    return { success: true };
+  } catch (e) { return { success: false, error: e.message }; }
+});
+
 ipcMain.handle('memory:delete', async (event, id, role) => {
   try {
     const roleId = role || 'dami';
@@ -1991,6 +2050,32 @@ ipcMain.handle('memory:delete', async (event, id, role) => {
     fs.writeFileSync(memoryPath, kept.join('').trim() + '\n');
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('memory:stats', async (event, role) => {
+  try {
+    const roleId = role || 'dami';
+    const memoryPath = getRoleMemoryPath(roleId);
+    if (!fs.existsSync(memoryPath)) return { total: 0, byType: {}, mtime: null, level: 0, levelLabel: '初始' };
+    const content = fs.readFileSync(memoryPath, 'utf8');
+    const stat = fs.statSync(memoryPath);
+    const sections = content.split(/^§/m).filter(s => s.trim());
+    const byType = {};
+    sections.forEach(sec => {
+      const lines = sec.trim().split('\n');
+      const title = (lines[0] || '').replace(/^#+\s*/, '').trim();
+      const preview = lines.slice(1).join(' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+      const t = _inferMemoryType(title, preview);
+      byType[t] = (byType[t] || 0) + 1;
+    });
+    const total = sections.length;
+    let level = 0, levelLabel = '初始';
+    if (total >= 31) { level = 4; levelLabel = '非常了解'; }
+    else if (total >= 16) { level = 3; levelLabel = '比较熟悉'; }
+    else if (total >= 6) { level = 2; levelLabel = '逐渐了解'; }
+    else if (total >= 1) { level = 1; levelLabel = '初步认识'; }
+    return { total, byType, mtime: stat.mtime.toISOString(), level, levelLabel };
+  } catch (_) { return { total: 0, byType: {}, mtime: null, level: 0, levelLabel: '初始' }; }
 });
 // ---- 技能列表 ----
 ipcMain.handle('skills:list', async () => {

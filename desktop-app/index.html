@@ -284,6 +284,42 @@
           <div class="settings-section">
             <div class="settings-section-title">我的记忆 🧠</div>
             <p class="settings-hint" style="font-size:12px;color:var(--text-tertiary);margin:4px 0 0;">Hermes 在对话中记住关于你的事，越用越懂你</p>
+            <!-- 了解程度条 -->
+            <div class="memory-level" id="memoryLevel">
+              <div class="ml-header">
+                <span class="ml-label">AI 对你的了解</span>
+                <span class="ml-level-name" id="mlLevelName">初始</span>
+              </div>
+              <div class="ml-bar-track">
+                <div class="ml-bar-fill" id="mlBarFill" style="width:0%;"></div>
+              </div>
+              <div class="ml-stages">
+                <span class="ml-stage" data-lv="0">初始</span>
+                <span class="ml-stage" data-lv="1">初步认识</span>
+                <span class="ml-stage" data-lv="2">逐渐了解</span>
+                <span class="ml-stage" data-lv="3">比较熟悉</span>
+                <span class="ml-stage" data-lv="4">非常了解</span>
+              </div>
+            </div>
+            <!-- 统计 + 操作行 -->
+            <div class="memory-toolbar">
+              <span class="mem-count" id="memCount">共 0 条</span>
+              <span class="mem-mtime" id="memMtime"></span>
+              <button class="mem-add-btn" onclick="openMemoryEditor()">+ 添加记忆</button>
+            </div>
+            <!-- 类型筛选 -->
+            <div class="memory-type-filters" id="memoryTypeFilters">
+              <button class="mem-type-chip active" data-type="all" onclick="filterMemoriesByType('all')">全部</button>
+              <button class="mem-type-chip" data-type="preference" onclick="filterMemoriesByType('preference')">💝 偏好习惯</button>
+              <button class="mem-type-chip" data-type="fact" onclick="filterMemoriesByType('fact')">📌 重要事实</button>
+              <button class="mem-type-chip" data-type="pattern" onclick="filterMemoriesByType('pattern')">🔄 工作模式</button>
+              <button class="mem-type-chip" data-type="style" onclick="filterMemoriesByType('style')">🎨 个人风格</button>
+            </div>
+            <!-- 成长时间线 -->
+            <div class="memory-timeline" id="memoryTimeline" style="display:none;">
+              <div class="mt-title">📈 记忆成长</div>
+              <div class="mt-bars" id="mtBars"></div>
+            </div>
             <div id="memoryList" class="memory-list">
               <div class="memory-empty" id="memoryEmpty">还没有记忆。多聊聊，Hermes 会慢慢了解你。</div>
             </div>
@@ -541,6 +577,30 @@
   </div>
 </div>
 
+
+<!-- 记忆编辑弹窗 -->
+<div class="modal-overlay" id="memoryEditorOverlay">
+  <div class="modal" style="max-width:480px;">
+    <h3 id="memEditorTitle">添加记忆</h3>
+    <input id="memEditorTitleInput" placeholder="记忆标题" style="width:100%;margin-bottom:8px;padding:8px 10px;border:1px solid var(--border-default);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text-primary);" />
+    <div class="mem-type-select" style="margin-bottom:8px;">
+      <span style="font-size:12px;color:var(--text-secondary);margin-right:8px;">类型</span>
+      <select id="memEditorType" style="padding:6px 8px;border:1px solid var(--border-default);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text-primary);">
+        <option value="preference">💝 偏好习惯</option>
+        <option value="fact">📌 重要事实</option>
+        <option value="pattern">🔄 工作模式</option>
+        <option value="style">🎨 个人风格</option>
+      </select>
+    </div>
+    <textarea id="memEditorContent" placeholder="记忆内容..." rows="4" style="width:100%;padding:8px 10px;border:1px solid var(--border-default);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text-primary);resize:vertical;"></textarea>
+    <p class="settings-hint" style="font-size:11px;color:var(--text-tertiary);margin:6px 0 0;">手动添加的记忆可能会在 AI 自动整理时被覆盖</p>
+    <div class="modal-btn-row" style="margin-top:12px;">
+      <button class="btn secondary" onclick="closeMemoryEditor()">取消</button>
+      <button class="btn" id="memEditorSaveBtn" onclick="saveMemory()">保存</button>
+    </div>
+    <span class="settings-msg" id="memEditorMsg"></span>
+  </div>
+</div>
 
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
