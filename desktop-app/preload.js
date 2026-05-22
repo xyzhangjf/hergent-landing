@@ -121,7 +121,6 @@ contextBridge.exposeInMainWorld('hermes', {
 
 // 接收后端推送的结果
 contextBridge.exposeInMainWorld('hermes_on', {
-  result: (callback) => ipcRenderer.on('hermes:result', (event, data) => callback(data)),
   stream: (callback) => ipcRenderer.on('hermes:stream', (event, data) => callback(data)),
   themeChanged: (callback) => ipcRenderer.on('theme:changed', (event, isDark) => callback(isDark)),
   gatewayMessage: (callback) => ipcRenderer.on('hermes:gateway-message', (event, data) => callback(data)),

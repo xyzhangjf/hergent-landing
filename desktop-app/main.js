@@ -7,7 +7,6 @@ const http = require('http');
 const crypto = require('crypto');
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-const VERSION_URL = 'https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.4/version.json';
 const CURRENT_VERSION = '1.0.4';
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
@@ -446,7 +445,7 @@ function ensureSharedState() {
               if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
               fs.writeFileSync(dst, fs.readFileSync(src));
             }
-          } catch (_) {}
+          } catch (e) { log('skill copy error: ' + (e.message || e)); }
         }
       }
     }
@@ -458,7 +457,7 @@ function ensureSharedState() {
         else fs.rmSync(enginePath, { recursive: true, force: true });
       }
       fs.symlinkSync(userPath, enginePath);
-    } catch (_) {}
+    } catch (e) { log('shared state symlink error: ' + (e.message || e)); }
   }
 }
 
@@ -498,7 +497,7 @@ function ensureRoleConfigs() {
     try {
       const existingSoul = fs.existsSync(soulPath) ? fs.readFileSync(soulPath, 'utf8') : '';
       if (existingSoul !== soulContent) fs.writeFileSync(soulPath, soulContent);
-    } catch (_) {}
+    } catch (e) { log(`SOUL.md write error for ${roleId}: ` + (e.message || e)); }
 
     // 写入角色专属 config.yaml — 直接写 YAML 避免 custom_providers 变 dict
     const roleConfigPath = path.join(roleHome, 'config.yaml');
@@ -525,7 +524,7 @@ function ensureRoleConfigs() {
           '',
         ].join('\n');
         fs.writeFileSync(roleConfigPath, roleConfigYaml);
-      } catch (_) {}
+      } catch (e) { log(`config.yaml write error for ${roleId}: ` + (e.message || e)); }
     }
   }
 }
@@ -673,8 +672,17 @@ function getDeviceId() {
   // 首次：基于 userData 路径 + 随机数生成唯一 ID
   const raw = app.getPath('userData') + '|' + crypto.randomBytes(8).toString('hex');
   const id = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 12);
-  if (lic) { lic.deviceId = id; saveLicense(lic); }
-  else saveLicense({ firstRunDate: new Date().toISOString(), activated: false, credits: 0, deviceId: id });
+  if (lic) {
+    lic.deviceId = id; saveLicense(lic);
+    log('warn: license.json 存在但缺少 deviceId，已补充');
+  } else {
+    // license.json 丢失 — 可能是数据损坏或首次安装
+    const engineDir = getEngineDir();
+    if (fs.existsSync(path.join(engineDir, '.extracted-version'))) {
+      log('warn: license.json 丢失，生成新 deviceId，服务端积分/激活状态可能丢失');
+    }
+    saveLicense({ firstRunDate: new Date().toISOString(), activated: false, credits: 0, deviceId: id });
+  }
   return id;
 }
 
@@ -1552,33 +1560,13 @@ ipcMain.handle('shell:openFolder', async (event, filePath) => {
   }
 });
 
-// ===== IPC: 更新 =====
-ipcMain.handle('check:update', async () => {
-  return new Promise((resolve) => {
-    https.get(VERSION_URL, { timeout: 8000 }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const info = JSON.parse(data);
-          const hasUpdate = info.version !== CURRENT_VERSION;
-          resolve({ hasUpdate, info, currentVersion: CURRENT_VERSION });
-        } catch {
-          resolve({ hasUpdate: false, error: '解析更新信息失败', currentVersion: CURRENT_VERSION });
-        }
-      });
-    }).on('error', (err) => {
-      resolve({ hasUpdate: false, error: err.message, currentVersion: CURRENT_VERSION });
-    });
-  });
-});
-
+// ===== IPC: 引擎更新 =====
 ipcMain.handle('execute:update', async (event, { downloadUrl }) => {
-  const tmpFile = `/tmp/dairy-pack-update.tar.gz`;
+  const tmpFile = `/tmp/hergent-update.tar.gz`;
   try {
     await downloadFile(downloadUrl, tmpFile);
     const result = execSync(
-      `hermes profile import ${tmpFile} --profile dairy-pack`,
+      `${HERMES_BIN} profile import ${tmpFile} --profile hergent`,
       { timeout: 30000, encoding: 'utf-8' }
     );
     fs.unlinkSync(tmpFile);
