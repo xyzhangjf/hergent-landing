@@ -155,6 +155,7 @@
       if (top === 'rechargeOverlay') { closeRecharge(); return; }
       if (top === 'memoryEditorOverlay') { closeMemoryEditor(); return; }
       if (top === 'pipelineConfigOverlay') { closePipelineConfig(); return; }
+      if (top === 'filePreviewOverlay') { closeFilePreview(); return; }
       if (_streamActive) { cancelStream(); return; }
     }
   });
@@ -3681,39 +3682,95 @@ ${questionnaireHistory}`;
     }
   }
 
-  // 我的成果：加载三列卡片
+  // ===== 我的成果（智能分类 + 预览 + 重新生成） =====
+  let _previewFilePath = null;
+  let _previewFileFolder = null;
+
   async function refreshReports() {
     const baseDir = window.hermes.reportsDir;
     const categories = [
-      { folder: '业务报表', id: 'biz', empty: '对话中生成的报表、<br>数据分析等' },
-      { folder: '我的创作', id: 'creative', empty: '帮你写的文案、方案、<br>邮件等创作内容' },
-      { folder: '我的工具', id: 'tools', empty: '帮你做的App、脚本、<br>自动化工具等' }
+      { folder: '业务报表', id: 'biz', empty: '对话中生成的报表、<br>数据分析等', icon: '📊', rePrompt: '帮我生成一份业务报表，分析' },
+      { folder: '我的创作', id: 'creative', empty: '帮你写的文案、方案、<br>邮件等创作内容', icon: '✍️', rePrompt: '帮我写一份文档，主题是' },
+      { folder: '我的工具', id: 'tools', empty: '帮你做的App、脚本、<br>自动化工具等', icon: '🔧', rePrompt: '帮我做一个工具，功能是' },
     ];
 
     const results = await Promise.all(categories.map(cat =>
-      window.hermes.execute('fs:list', { dir: `${baseDir}/${cat.folder}` }).catch(() => ({ files: [] }))
+      window.hermes.execute('fs:list', { dir: `${baseDir}/${cat.folder}`, meta: true }).catch(() => ({ files: [] }))
     ));
 
     let totalFiles = 0;
+    let totalSize = 0;
     categories.forEach((cat, i) => {
       const res = results[i];
-      const files = (res && res.files || []).filter(f => f.endsWith('.md') || f.endsWith('.csv') || f.endsWith('.xlsx'));
+      let files = (res && res.files || []).filter(f => !f.isDirectory);
+      // 按修改时间降序排列
+      files.sort((a, b) => new Date(b.mtime || 0) - new Date(a.mtime || 0));
       totalFiles += files.length;
+      files.forEach(f => { totalSize += f.size || 0; });
+
+      const card = document.querySelector(`.result-card[data-folder="${cat.folder}"]`);
       const cntEl = document.getElementById(`cnt_${cat.id}`);
       const fileDiv = document.getElementById(`files_${cat.id}`);
 
       if (cntEl) cntEl.textContent = files.length;
 
       if (files.length === 0) {
-        fileDiv.innerHTML = `<div class="result-empty">${cat.empty}</div>`;
+        if (fileDiv) fileDiv.innerHTML = `<div class="result-empty">${cat.empty}</div>`;
       } else {
-        const sorted = files.sort().reverse().slice(0, 5);
-        fileDiv.innerHTML = sorted.map(f => {
-          const safe = f.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-          return `<div class="result-file-item" onclick="openReportFile('${cat.folder}/${safe}')" title="${f}"><span class="result-file-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>${f}</div>`;
-        }).join('');
+        // 时间分组
+        const now = Date.now();
+        const groups = [
+          { label: '今天', max: now - (now % 86400000), files: [] },
+          { label: '本周', max: now - (now % 86400000) - 86400000, files: [] },
+          { label: '本月', max: now - (now % 86400000) - 7 * 86400000, files: [] },
+          { label: '更早', max: 0, files: [] },
+        ];
+        files.forEach(f => {
+          const mtime = new Date(f.mtime || 0).getTime();
+          const todayStart = new Date().setHours(0, 0, 0, 0);
+          const weekAgo = todayStart - 7 * 86400000;
+          const monthAgo = todayStart - 30 * 86400000;
+          if (mtime >= todayStart) groups[0].files.push(f);
+          else if (mtime >= weekAgo) groups[1].files.push(f);
+          else if (mtime >= monthAgo) groups[2].files.push(f);
+          else groups[3].files.push(f);
+        });
+
+        let html = '';
+        groups.forEach(g => {
+          if (g.files.length === 0) return;
+          html += `<div class="result-time-group">${g.label}</div>`;
+          g.files.forEach(f => {
+            const safeName = f.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const safeFolder = cat.folder.replace(/'/g, "\\'");
+            const typeIcon = _fileTypeIcon(f.type);
+            const sizeStr = f.size > 1024 * 1024 ? (f.size / 1024 / 1024).toFixed(1) + 'MB'
+              : f.size > 1024 ? (f.size / 1024).toFixed(0) + 'KB' : f.size + 'B';
+            const agoStr = _timeAgo(new Date(f.mtime || 0));
+            html += `<div class="result-file-item" onclick="previewReportFile('${safeFolder}', '${safeName}')" title="${f.name} · ${sizeStr} · ${agoStr}">
+              <span class="result-file-icon">${typeIcon}</span>
+              <span class="rfi-name">${f.name}</span>
+              <span class="rfi-meta">${sizeStr} · ${agoStr}</span>
+            </div>`;
+          });
+        });
+        if (fileDiv) fileDiv.innerHTML = html;
       }
     });
+
+    // 更新头部统计
+    const headerEl = document.querySelector('#pageReports .page-header');
+    const existingStats = document.getElementById('reportsStats');
+    if (existingStats) existingStats.remove();
+    if (totalFiles > 0 && headerEl) {
+      const sizeStr = totalSize > 1024 * 1024 ? (totalSize / 1024 / 1024).toFixed(1) + ' MB'
+        : totalSize > 1024 ? (totalSize / 1024).toFixed(0) + ' KB' : totalSize + ' B';
+      const statsEl = document.createElement('span');
+      statsEl.id = 'reportsStats';
+      statsEl.style.cssText = 'font-size:12px;color:var(--text-tertiary);font-weight:400;margin-left:auto;';
+      statsEl.textContent = `${totalFiles} 个文件 · ${sizeStr}`;
+      headerEl.appendChild(statsEl);
+    }
 
     // 整体空状态
     const gridEl = document.getElementById('reportsGrid');
@@ -3722,14 +3779,112 @@ ${questionnaireHistory}`;
     }
   }
 
-  // 打开成果文件
+  function _fileTypeIcon(type) {
+    const map = {
+      markdown: '📝', csv: '📊', excel: '📈', image: '🖼️', pdf: '📕',
+      code: '💻', other: '📄'
+    };
+    return map[type] || '📄';
+  }
+
+  function _timeAgo(date) {
+    const ms = Date.now() - date.getTime();
+    if (ms < 60000) return '刚刚';
+    if (ms < 3600000) return Math.floor(ms / 60000) + '分钟前';
+    if (ms < 86400000) return Math.floor(ms / 3600000) + '小时前';
+    if (ms < 2592000000) return Math.floor(ms / 86400000) + '天前';
+    return date.toLocaleDateString('zh-CN');
+  }
+
+  async function previewReportFile(folder, fileName) {
+    const fullPath = `${window.hermes.reportsDir}/${folder}/${fileName}`;
+    _previewFilePath = fullPath;
+    _previewFileFolder = folder;
+    const overlay = document.getElementById('filePreviewOverlay');
+    const titleEl = document.getElementById('fpTitle');
+    const metaEl = document.getElementById('fpMeta');
+    const contentEl = document.getElementById('fpContent');
+    const openBtn = document.getElementById('fpOpenBtn');
+    if (!overlay) return;
+
+    showOverlay('filePreviewOverlay');
+    if (titleEl) titleEl.textContent = fileName;
+    if (metaEl) metaEl.textContent = `${folder} · 加载中...`;
+    if (contentEl) contentEl.innerHTML = '<div class="loading"><div class="spinner"></div>加载中...</div>';
+    if (openBtn) openBtn.onclick = () => {
+      window.hermes.execute('shell:open', { path: fullPath }).catch(() => {});
+    };
+
+    try {
+      const resp = await window.hermes.execute('fs:read', { path: fullPath });
+      const content = (resp && resp.content) || '';
+      const ext = (fileName || '').toLowerCase().split('.').pop();
+      const st = await window.hermes.execute('fs:list', { dir: `${window.hermes.reportsDir}/${folder}`, meta: true })
+        .then(r => (r && r.files || []).find(f => f.name === fileName))
+        .catch(() => null);
+      const sizeStr = st && st.size
+        ? (st.size > 1024 * 1024 ? (st.size / 1024 / 1024).toFixed(1) + ' MB' : st.size > 1024 ? (st.size / 1024).toFixed(0) + ' KB' : st.size + ' B')
+        : '';
+      const mtimeStr = st && st.mtime ? _timeAgo(new Date(st.mtime)) : '';
+      if (metaEl) metaEl.textContent = `${folder}${sizeStr ? ' · ' + sizeStr : ''}${mtimeStr ? ' · ' + mtimeStr : ''}`;
+
+      if (['md', 'markdown', 'txt'].includes(ext)) {
+        contentEl.innerHTML = `<div class="fp-md">${renderMarkdown(content)}</div>`;
+      } else if (ext === 'csv') {
+        const lines = content.trim().split('\n').slice(0, 200);
+        if (lines.length === 0) {
+          contentEl.innerHTML = '<div class="result-empty">空文件</div>';
+        } else {
+          const headers = lines[0].split(',');
+          const rows = lines.slice(1);
+          contentEl.innerHTML = `<div class="fp-csv-wrap"><table class="fp-csv-table">
+            <thead><tr>${headers.map(h => `<th>${escapeHtml(h.trim())}</th>`).join('')}</tr></thead>
+            <tbody>${rows.map(r => `<tr>${r.split(',').map(c => `<td>${escapeHtml(c.trim())}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table>${lines.length >= 200 ? '<p style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">仅显示前 200 行</p>' : ''}</div>`;
+        }
+      } else if (['xlsx', 'xls'].includes(ext)) {
+        contentEl.innerHTML = '<div class="result-empty" style="padding:40px;">📊 Excel 文件暂不支持在线预览<br><small>请点击右上角"在 Finder 中打开"查看</small></div>';
+      } else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) {
+        contentEl.innerHTML = `<img src="file://${fullPath}" style="max-width:100%;max-height:50vh;border-radius:8px;" onerror="this.parentElement.innerHTML='<div class=\\'result-empty\\'>图片加载失败</div>'" />`;
+      } else {
+        contentEl.innerHTML = `<pre class="fp-code">${escapeHtml(content.slice(0, 5000))}</pre>`;
+      }
+    } catch (e) {
+      if (contentEl) contentEl.innerHTML = `<div class="result-empty">加载失败：${escapeHtml(e.message || '')}</div>`;
+    }
+  }
+
+  function closeFilePreview() {
+    hideOverlay('filePreviewOverlay');
+    _previewFilePath = null;
+    _previewFileFolder = null;
+  }
+
+  function regenerateReport() {
+    const fileName = _previewFilePath ? _previewFilePath.split('/').pop().replace(/\.[^.]+$/, '') : '';
+    const folder = _previewFileFolder || '';
+    closeFilePreview();
+    switchPage('pageHome');
+    const input = document.getElementById('chatInput');
+    if (input) {
+      input.value = `帮我重新生成一份${folder ? '「' + folder + '」相关的' : ''}内容，类似之前的"${fileName || '这个文件'}"`;
+      input.focus();
+    }
+  }
+
+  function openReportInFolder() {
+    if (_previewFilePath) {
+      window.hermes.openFolder(_previewFilePath).catch(() => {});
+    }
+  }
+
+  // 兼容旧接口
   async function openReportFile(relPath) {
     const fullPath = `${window.hermes.reportsDir}/${relPath}`;
-    try {
-      await window.hermes.execute('shell:open', { path: fullPath });
-    } catch(e) {
-      showDialog('❌', '无法打开文件：' + e.message);
-    }
+    const parts = relPath.split('/');
+    const folder = parts.length > 1 ? parts[0] : '';
+    const fileName = parts.length > 1 ? parts.slice(1).join('/') : parts[0];
+    previewReportFile(folder, fileName);
   }
 
   // 格式化实时步骤（保留图标，提取可读文本）
