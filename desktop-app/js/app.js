@@ -423,6 +423,8 @@
   }
 
   // ===== 新手引导 =====
+  let _onboardingStep = 0;
+
   function restoreLastState() {
     const lastPage = localStorage.getItem('hermes_last_page');
     const lastRole = localStorage.getItem('hermes_last_role');
@@ -433,46 +435,97 @@
   function initOnboarding() {
     if (!currentAction) currentAction = 'dami';
     if (!localStorage.getItem('hermes_onboarding_done')) {
-      localStorage.setItem('hermes_onboarding', '1');
-      const existing = localStorage.getItem('hermes_chat');
-      if (!existing || existing === '[]') injectOnboardingWelcome();
+      _onboardingStep = 0;
+      _renderOnboardingStep(0);
     }
   }
 
-  function injectOnboardingWelcome() {
-    const history = document.getElementById('chatHistory');
-    const empty = history.querySelector('.chat-empty');
-    if (empty) empty.style.display = 'none';
-    const msg = document.createElement('div');
-    msg.className = 'chat-msg hermes';
-    msg.setAttribute('data-text', '你好！我是 Hergent，你的 AI 数字员工 👋');
-    msg.innerHTML = `<div class="onboarding-welcome">
-      <div class="ow-header">👋 你好！我是 <strong>Hergent</strong></div>
-      <div class="ow-subtitle">你的 AI 数字员工，左边有 8 位伙伴随时待命</div>
-      <div class="ow-cards">
-        <div class="ow-card">
-          <span class="ow-card-icon">📄</span>
-          <span>拖文件进来<br><small>PDF · Excel · Word</small></span>
+  function _renderOnboardingStep(step) {
+    const guide = document.getElementById('onboardingGuide');
+    if (!guide) return;
+    _onboardingStep = step;
+
+    const steps = [
+      { icon: '👥', title: '选择一位数字员工', desc: '左侧有不同的 AI 角色，每位都有专属技能。点击头像切换，找到最适合你任务的那位。', btn: '选好了，下一步 →' },
+      { icon: '💬', title: '直接告诉 AI 你想做什么', desc: '像跟同事说话一样，把任务发给它就行。', btn: '知道了，下一步 →', chips: true },
+      { icon: '🚀', title: '还有更多玩法', desc: '', btn: '开始使用 🎉', features: true },
+    ];
+
+    const s = steps[step];
+    const dots = [0, 1, 2].map(i =>
+      `<span class="og-dot${i === step ? ' active' : i < step ? ' done' : ''}"></span>`
+    ).join('');
+
+    let extra = '';
+    if (s.chips) {
+      const role = currentAction || 'dami';
+      const actions = QUICK_ACTIONS[role] || QUICK_ACTIONS['dami'];
+      extra = `<div class="og-chips">${actions.map(a =>
+        `<button class="og-chip" onclick="event.stopPropagation();var inp=document.getElementById('chatInput');if(inp){inp.value='${a.replace(/'/g, "\\'")}';inp.focus();}">${a}</button>`
+      ).join('')}</div>`;
+    }
+    if (s.features) {
+      extra = `<div class="og-features">
+        <div class="og-feat" onclick="skipOnboarding();switchPage('pageTasks')">
+          <span class="og-feat-icon">⏰</span>
+          <span class="og-feat-name">定时任务</span>
+          <span class="og-feat-desc">让 AI 定时帮你查数据、发消息</span>
         </div>
-        <div class="ow-card">
-          <span class="ow-card-icon">✍️</span>
-          <span>写各种文档<br><small>周报 · 邮件 · 方案</small></span>
+        <div class="og-feat" onclick="skipOnboarding();switchPage('pageChannels')">
+          <span class="og-feat-icon">📱</span>
+          <span class="og-feat-name">连接手机</span>
+          <span class="og-feat-desc">连飞书/企微，手机遥控 AI</span>
         </div>
-        <div class="ow-card">
-          <span class="ow-card-icon">🔍</span>
-          <span>搜信息整理<br><small>比翻网页快</small></span>
+        <div class="og-feat" onclick="skipOnboarding();switchPage('pageReports')">
+          <span class="og-feat-icon">📂</span>
+          <span class="og-feat-name">我的成果</span>
+          <span class="og-feat-desc">查看 AI 帮你生成的文件</span>
         </div>
-        <div class="ow-card">
-          <span class="ow-card-icon">📱</span>
-          <span>手机遥控<br><small>飞书 · 企微 · 钉钉</small></span>
-        </div>
+      </div>`;
+    }
+
+    guide.innerHTML = `<div class="og-card">
+      <div class="og-steps">${dots}</div>
+      <div class="og-icon">${s.icon}</div>
+      <div class="og-title">${s.title}</div>
+      <div class="og-desc">${s.desc}</div>
+      ${extra}
+      <div class="og-actions">
+        <button class="og-skip" onclick="skipOnboarding()">跳过引导</button>
+        <button class="og-next" onclick="nextOnboardingStep()">${s.btn}</button>
       </div>
-      <div class="ow-tip">💡 选个左边的人，或者直接跟我说你想做什么</div>
-    </div><span class="time">${new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span>`;
-    history.appendChild(msg);
-    const msgs = [{ role: 'hermes', text: '你好！我是 Hergent，你的 AI 数字员工 👋\n\n我能帮你：\n📄 读文件分析 — PDF/Word/Excel 拖进来\n✍️ 写各种文档 — 周报、邮件、方案、合同\n🔍 搜信息整理 — 全网搜索\n📱 手机远程控制 — 连飞书/企微\n\n💡 选个左边的人，或者直接跟我说你想做什么', time: new Date().toISOString() }];
-    localStorage.setItem('hermes_chat', JSON.stringify(msgs));
-    scrollChat();
+    </div>`;
+    guide.style.display = '';
+
+    // Step 0: highlight sidebar
+    const sidebar = document.getElementById('sidebarRoles');
+    if (sidebar) sidebar.classList.toggle('onboarding-highlight', step === 0);
+
+    // Hide empty state
+    const empty = document.querySelector('#chatHistory .chat-empty');
+    if (empty) empty.style.display = 'none';
+  }
+
+  function nextOnboardingStep() {
+    if (_onboardingStep >= 2) {
+      skipOnboarding();
+      return;
+    }
+    _renderOnboardingStep(_onboardingStep + 1);
+  }
+
+  function skipOnboarding() {
+    localStorage.setItem('hermes_onboarding_done', '1');
+    const guide = document.getElementById('onboardingGuide');
+    if (guide) { guide.style.display = 'none'; guide.innerHTML = ''; }
+    const sidebar = document.getElementById('sidebarRoles');
+    if (sidebar) sidebar.classList.remove('onboarding-highlight');
+    // Restore empty state if no messages
+    const history = document.getElementById('chatHistory');
+    if (history && history.querySelectorAll('.chat-msg').length === 0) {
+      const empty = history.querySelector('.chat-empty');
+      if (empty) empty.style.display = '';
+    }
   }
 
   // ===== 积分 =====
@@ -649,11 +702,46 @@
     // 记住最后页面
     localStorage.setItem('hermes_last_page', pageId);
 
+    // 首次进入页面显示提示
+    _checkPageTip(pageId);
+
     if (pageId === 'pageTasks') refreshTasks();
     if (pageId === 'pageChannels') refreshChannels();
     if (pageId === 'pageReports') refreshReports();
     if (pageId === 'pageSettings') refreshSettings();
     if (pageId === 'pageSkills') loadSkills();
+  }
+
+  function _checkPageTip(pageId) {
+    // 主页不需要提示
+    if (pageId === 'pageHome' || pageId === 'pageSettings') return;
+    const key = `hermes_page_tip_done_${pageId}`;
+    if (localStorage.getItem(key)) return;
+    const tipMap = {
+      pageTasks: 'tipTasks',
+      pageChannels: 'tipChannels',
+      pageReports: 'tipReports',
+      pageSkills: 'tipSkills',
+    };
+    const tipId = tipMap[pageId];
+    if (!tipId) return;
+    const tip = document.getElementById(tipId);
+    if (tip) tip.style.display = '';
+  }
+
+  function dismissPageTip(pageId) {
+    localStorage.setItem(`hermes_page_tip_done_${pageId}`, '1');
+    const tipMap = {
+      pageTasks: 'tipTasks',
+      pageChannels: 'tipChannels',
+      pageReports: 'tipReports',
+      pageSkills: 'tipSkills',
+    };
+    const tipId = tipMap[pageId];
+    if (tipId) {
+      const tip = document.getElementById(tipId);
+      if (tip) tip.style.display = 'none';
+    }
   }
 
   async function getServerUrl() {
@@ -1899,6 +1987,10 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       }
       // 首次使用该角色时显示快速上手指引
       _showRoleFirstVisit(role);
+      // 若正在新手引导中：切换角色即完成 Step 0，推进到 Step 1
+      if (!localStorage.getItem('hermes_onboarding_done') && _onboardingStep === 0) {
+        _renderOnboardingStep(1);
+      }
       const input = document.getElementById('chatInput');
       if (input) { input.value = ''; input.focus(); }
       updateToolbarTitle(getRoleTitle(role));
