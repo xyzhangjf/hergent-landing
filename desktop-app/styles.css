@@ -1663,6 +1663,197 @@
     }
     :root.dark .ow-tip { color: var(--brand-400); }
 
+    /* ===== 三步引导面板 ===== */
+    .onboarding-guide {
+      padding: 0 16px 12px;
+    }
+    .og-card {
+      background: linear-gradient(135deg, var(--brand-50) 0%, rgba(6,182,212,0.06) 100%);
+      border: 1px solid var(--brand-200);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      text-align: center;
+      animation: fadeIn 0.3s ease;
+    }
+    :root.dark .og-card {
+      background: linear-gradient(135deg, rgba(75,143,217,0.08) 0%, rgba(6,182,212,0.05) 100%);
+      border-color: rgba(75,143,217,0.2);
+    }
+    .og-steps {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .og-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border-default);
+      transition: all var(--dur-fast);
+    }
+    .og-dot.active {
+      background: var(--brand-500);
+      width: 24px;
+      border-radius: 12px;
+    }
+    .og-dot.done {
+      background: var(--brand-400);
+    }
+    .og-icon {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+    .og-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      letter-spacing: -0.3px;
+    }
+    .og-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .og-chips {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .og-chip {
+      font-size: 13px;
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--brand-300);
+      color: var(--brand-500);
+      background: transparent;
+      cursor: pointer;
+      transition: all var(--dur-fast);
+    }
+    .og-chip:hover {
+      background: var(--brand-400);
+      color: #fff;
+      border-color: var(--brand-400);
+    }
+    :root.dark .og-chip { color: var(--brand-300); border-color: var(--brand-300); }
+    :root.dark .og-chip:hover { background: var(--brand-300); color: #000; }
+
+    .og-features {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .og-feat {
+      flex: 1;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 10px;
+      cursor: pointer;
+      transition: all var(--dur-fast);
+      text-align: center;
+    }
+    .og-feat:hover {
+      border-color: var(--brand-300);
+      background: var(--bg-elevated);
+    }
+    .og-feat-icon {
+      font-size: 24px;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .og-feat-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: block;
+    }
+    .og-feat-desc {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      display: block;
+      margin-top: 2px;
+    }
+    .og-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+    .og-skip {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px 12px;
+      transition: color var(--dur-fast);
+    }
+    .og-skip:hover { color: var(--text-secondary); }
+    .og-next {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--brand-500);
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 8px 20px;
+      cursor: pointer;
+      transition: all var(--dur-fast);
+    }
+    .og-next:hover { background: var(--brand-600); }
+
+    /* 侧边栏引导高亮 */
+    .onboarding-highlight {
+      position: relative;
+      border-radius: var(--radius-md);
+      box-shadow: 0 0 0 3px var(--brand-400), 0 0 20px rgba(75,143,217,0.25);
+      animation: pulseHighlight 2s ease-in-out infinite;
+    }
+    @keyframes pulseHighlight {
+      0%, 100% { box-shadow: 0 0 0 3px var(--brand-400), 0 0 20px rgba(75,143,217,0.25); }
+      50% { box-shadow: 0 0 0 5px var(--brand-400), 0 0 30px rgba(75,143,217,0.35); }
+    }
+
+    /* ===== 页面首次提示条 ===== */
+    .page-tip-banner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      margin: 0 20px 12px;
+      background: var(--brand-50);
+      border: 1px solid var(--brand-200);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: var(--text-primary);
+      animation: slideDown 0.25s ease;
+    }
+    :root.dark .page-tip-banner {
+      background: rgba(75,143,217,0.06);
+      border-color: rgba(75,143,217,0.15);
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .ptb-icon { font-size: 16px; flex-shrink: 0; }
+    .ptb-close {
+      margin-left: auto;
+      flex-shrink: 0;
+      font-size: 12px;
+      color: var(--brand-500);
+      background: none;
+      border: 1px solid var(--brand-300);
+      border-radius: var(--radius-sm);
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: all var(--dur-fast);
+    }
+    .ptb-close:hover { background: var(--brand-400); color: #fff; border-color: var(--brand-400); }
+
     /* 用户消息编辑按钮 */
     .user-row .msg-actions {
       justify-content: flex-end;

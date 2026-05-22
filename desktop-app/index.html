@@ -48,6 +48,7 @@
       <div class="page active" id="pageHome">
         <div class="chat-panel" id="chatPanel">
           <div class="drop-overlay" id="dropOverlay"><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 释放文件</div>
+          <div class="onboarding-guide" id="onboardingGuide" style="display:none;"></div>
           <div class="chat-history" id="chatHistory">
             <div class="chat-empty" id="chatEmpty">
             <div class="welcome-area">
@@ -106,6 +107,11 @@
 
       <!-- 页面2: 定时任务 -->
       <div class="page" id="pageTasks">
+        <div class="page-tip-banner" id="tipTasks">
+          <span class="ptb-icon">⏰</span>
+          <span>让 AI 按计划自动执行任务——每天定时帮你查数据、发消息、写报告</span>
+          <button class="ptb-close" onclick="dismissPageTip('pageTasks')">知道了</button>
+        </div>
         <div class="page-header">
           <h2><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>定时任务</h2>
           <button class="btn" onclick="showAddTask()">+ 新建</button>
@@ -121,6 +127,11 @@
 
       <!-- 页面3: 连接手机 -->
       <div class="page" id="pageChannels">
+        <div class="page-tip-banner" id="tipChannels">
+          <span class="ptb-icon">📱</span>
+          <span>连上飞书/企微/钉钉，AI 干完活直接推送到你手机上</span>
+          <button class="ptb-close" onclick="dismissPageTip('pageChannels')">知道了</button>
+        </div>
         <div class="page-header">
           <h2><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>连接手机</h2>
         </div>
@@ -142,6 +153,11 @@
 
       <!-- 页面4: 我的成果 -->
       <div class="page" id="pageReports">
+        <div class="page-tip-banner" id="tipReports">
+          <span class="ptb-icon">📂</span>
+          <span>AI 帮你生成的文件都在这——报表、文档、工具，按类型自动归类</span>
+          <button class="ptb-close" onclick="dismissPageTip('pageReports')">知道了</button>
+        </div>
         <div class="page-header">
           <h2><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>我的成果</h2>
         </div>
@@ -187,6 +203,11 @@
 
       <!-- 页面: 我的技能 -->
       <div class="page" id="pageSkills">
+        <div class="page-tip-banner" id="tipSkills">
+          <span class="ptb-icon">⚡</span>
+          <span>Hermes 越用越聪明——从对话经验中自动学习的能力，也可以手动添加技能</span>
+          <button class="ptb-close" onclick="dismissPageTip('pageSkills')">知道了</button>
+        </div>
         <div class="page-header">
           <h2><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>我的技能</h2>
           <span class="skills-total" id="skillsTotal" style="font-size:12px;color:var(--text-tertiary);"></span>
