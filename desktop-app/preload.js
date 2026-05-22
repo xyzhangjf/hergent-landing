@@ -95,6 +95,10 @@ contextBridge.exposeInMainWorld('hermes', {
   getServerUrl: () => ipcRenderer.invoke('server:get-url'),
   saveServerUrl: (url) => ipcRenderer.invoke('server:save-url', url),
 
+  // 模型配置
+  getModelConfig: () => ipcRenderer.invoke('config:get-model'),
+  setModelConfig: (opts) => ipcRenderer.invoke('config:set-model', opts),
+
   // 认证登录
   serverUrl: SERVER_URL,
   authMe: (token) => ipcRenderer.invoke('auth:me', token),

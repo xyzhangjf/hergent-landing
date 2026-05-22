@@ -2093,6 +2093,59 @@ ipcMain.handle('server:save-url', async (event, url) => {
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 });
+// ---- 模型配置（通过 hermes config set 切换）----
+ipcMain.handle('config:get-model', async () => {
+  try {
+    const engineDir = getEngineDir();
+    const configPath = path.join(engineDir, '.hermes', 'config.yaml');
+    if (!fs.existsSync(configPath)) return { model: 'deepseek-v4-pro', provider: 'hergent' };
+    const yaml = fs.readFileSync(configPath, 'utf8');
+    const result = { model: '', provider: '' };
+    const modelMatch = yaml.match(/^model:\s*\n(?:\s+name:\s*(.+)\s*\n\s+provider:\s*(.+)|)/m);
+    if (modelMatch) {
+      result.model = (modelMatch[1] || 'deepseek-v4-pro').trim();
+      result.provider = (modelMatch[2] || 'hergent').trim();
+    }
+    const cpSection = yaml.match(/^custom_providers:\s*\n([\s\S]*?)(?:^\w|\Z)/m);
+    if (cpSection) {
+      const providers = [];
+      const entries = cpSection[1].split(/(?:^|\n)\s*- /);
+      for (const entry of entries) {
+        const name = entry.match(/^\s*name:\s*(.+)/m);
+        const baseUrl = entry.match(/^\s*base_url:\s*(.+)/m);
+        const apiKey = entry.match(/^\s*api_key:\s*(.+)/m);
+        const model = entry.match(/^\s*model:\s*(.+)/m);
+        if (name) providers.push({
+          name: name[1].trim(),
+          base_url: (baseUrl && baseUrl[1]) ? baseUrl[1].trim() : '',
+          api_key: (apiKey && apiKey[1]) ? apiKey[1].trim().replace(/^hermes_/, '') : '',
+          model: (model && model[1]) ? model[1].trim() : 'deepseek-v4-pro',
+        });
+      }
+      result.custom_providers = providers;
+    }
+    return result;
+  } catch (e) { return { model: 'deepseek-v4-pro', provider: 'hergent', error: e.message }; }
+});
+
+ipcMain.handle('config:set-model', async (event, opts) => {
+  try {
+    const engineDir = getEngineDir();
+    const hermesHome = path.join(engineDir, '.hermes');
+    const cfgEnv = { ...process.env, HERMES_HOME: hermesHome };
+    const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
+    if (opts.model) set('model.name', opts.model);
+    if (opts.provider) set('model.provider', opts.provider);
+    if (opts.custom_base_url) {
+      set('custom_providers.0.name', opts.provider || 'custom');
+      set('custom_providers.0.base_url', opts.custom_base_url);
+      set('custom_providers.0.api_key', opts.custom_api_key || '');
+      set('custom_providers.0.model', opts.model || 'deepseek-v4-pro');
+    }
+    return { success: true };
+  } catch (e) { return { success: false, error: e.message }; }
+});
+
 // ---- 认证（对接服务端）----
 ipcMain.handle('auth:me', async (event, token) => {
   try {

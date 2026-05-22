@@ -693,6 +693,8 @@
     loadMemories();
     // 加载用量明细
     loadUsageHistory();
+    // 加载模型配置
+    loadModelConfig();
     // 检查引擎更新
     checkEngineUpdate();
   }
@@ -3492,6 +3494,98 @@ async function setTheme(mode) {
   opts.forEach(o => {
     o.classList.toggle('active', o.getAttribute('data-theme') === mode);
   });
+}
+
+// ===== 模型配置 =====
+let _currentModel = 'deepseek-v4-pro';
+let _currentProvider = 'hergent';
+
+async function loadModelConfig() {
+  try {
+    const cfg = await window.hermes.getModelConfig();
+    _currentModel = cfg.model || 'deepseek-v4-pro';
+    _currentProvider = cfg.provider || 'hergent';
+    const labelMap = { 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash' };
+    const setModel = document.getElementById('setModelName');
+    if (setModel) setModel.textContent = labelMap[_currentModel] || _currentModel;
+    const isCustom = !['deepseek-v4-pro', 'deepseek-v4-flash'].includes(_currentModel);
+    document.querySelectorAll('.model-option').forEach(o => {
+      o.classList.toggle('active', isCustom ? o.dataset.model === 'custom' : o.dataset.model === _currentModel);
+    });
+    if (isCustom && cfg.custom_providers && cfg.custom_providers.length > 0) {
+      const cp = cfg.custom_providers[0];
+      document.getElementById('customBaseUrl').value = cp.base_url || '';
+      document.getElementById('customApiKey').value = cp.api_key || '';
+      document.getElementById('customModelName').value = cp.model || _currentModel;
+      document.getElementById('customModelForm').style.display = '';
+    }
+  } catch (_) {}
+}
+
+function selectModel(model) {
+  document.querySelectorAll('.model-option').forEach(o => o.classList.remove('active'));
+  document.querySelector(`.model-option[data-model="${model}"]`)?.classList.add('active');
+  const form = document.getElementById('customModelForm');
+  const msg = document.getElementById('modelMsg');
+  if (model === 'custom') {
+    form.style.display = '';
+  } else {
+    form.style.display = 'none';
+    msg.textContent = '';
+    _saveModelPreset(model);
+  }
+}
+
+async function _saveModelPreset(model) {
+  const msg = document.getElementById('modelMsg');
+  msg.textContent = '应用模型中...';
+  msg.style.color = 'var(--text-tertiary)';
+  try {
+    const result = await window.hermes.setModelConfig({ model, provider: 'hergent' });
+    if (result.success) {
+      _currentModel = model;
+      const labelMap = { 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash' };
+      document.getElementById('setModelName').textContent = labelMap[model] || model;
+      msg.textContent = '模型已切换，Gateway 重启中...';
+      setTimeout(() => { msg.textContent = '模型已生效 ✓'; msg.style.color = '#22c55e'; }, 3000);
+    } else {
+      msg.textContent = '切换失败: ' + (result.error || '未知错误');
+      msg.style.color = '#ef4444';
+    }
+  } catch (e) {
+    msg.textContent = '切换失败: ' + (e.message || '网络错误');
+    msg.style.color = '#ef4444';
+  }
+}
+
+async function saveCustomModel() {
+  const baseUrl = document.getElementById('customBaseUrl').value.trim();
+  const apiKey = document.getElementById('customApiKey').value.trim();
+  const modelName = document.getElementById('customModelName').value.trim() || 'deepseek-v4-pro';
+  const msg = document.getElementById('modelMsg');
+  if (!baseUrl) { msg.textContent = '请输入 API Base URL'; msg.style.color = '#ef4444'; return; }
+  msg.textContent = '应用自定义模型中...';
+  msg.style.color = 'var(--text-tertiary)';
+  try {
+    const result = await window.hermes.setModelConfig({
+      model: modelName,
+      provider: 'custom',
+      custom_base_url: baseUrl,
+      custom_api_key: apiKey,
+    });
+    if (result.success) {
+      _currentModel = modelName;
+      document.getElementById('setModelName').textContent = modelName + ' (自定义)';
+      msg.textContent = '自定义模型已生效 ✓';
+      msg.style.color = '#22c55e';
+    } else {
+      msg.textContent = '保存失败: ' + (result.error || '未知错误');
+      msg.style.color = '#ef4444';
+    }
+  } catch (e) {
+    msg.textContent = '保存失败: ' + (e.message || '网络错误');
+    msg.style.color = '#ef4444';
+  }
 }
 
 // Phase 2: Register DOM event listeners

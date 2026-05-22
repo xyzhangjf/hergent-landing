@@ -2684,6 +2684,66 @@
   border-color: var(--red);
 }
 
+/* ===== 模型配置 ===== */
+.model-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.model-option {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-default);
+  background: var(--bg-input);
+  cursor: pointer;
+  transition: all var(--dur-fast);
+  text-align: left;
+}
+.model-option:hover {
+  border-color: var(--brand-400);
+  background: var(--bg-surface);
+}
+.model-option.active {
+  border-color: var(--brand-400);
+  background: rgba(6,182,212,0.06);
+}
+.mo-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.mo-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+:root.dark .model-option.active {
+  background: rgba(6,182,212,0.10);
+}
+.custom-model-form {
+  margin-top: 4px;
+  padding-top: 8px;
+}
+.settings-msg {
+  display: inline-block;
+  font-size: 12px;
+  margin-left: 8px;
+}
+.settings-input {
+  padding: 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--dur-fast);
+}
+.settings-input:focus { border-color: var(--brand-400); }
+
 /* Form specifics */
 #daysOfWeekSelect { height: 60px; font-size: 12px; }
 #codeInput { text-align: center; letter-spacing: 4px; font-size: 18px; font-family: monospace; }
