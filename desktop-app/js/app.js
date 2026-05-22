@@ -3340,13 +3340,34 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         const result = await window.hermes.execute('pipeline:run', { steps, context: '' });
         _resetStreamState();
 
+        let respText = '';
         if (result && result.pipeline) {
           _pipelineResults = result.pipeline;
           _renderPipelineResult(loadingMsg, result);
+          respText = '🤝 工作组协作完成 — ' + result.pipeline.length + ' 位角色协作';
         } else if (result && result.output) {
           loadingMsg.innerHTML = '<div class="stream-response">' + renderMarkdown(result.output) + '</div>';
+          respText = result.output;
         } else {
           loadingMsg.innerHTML = '❌ 工作组执行失败';
+          respText = '❌ 工作组执行失败';
+        }
+
+        // 更新 data-text 属性（用于复制功能）
+        loadingMsg.setAttribute('data-text', respText);
+
+        // 为 pipeline 结果补加操作栏（初始渲染时因 text='工作组协作中...' 被跳过了）
+        if (result && result.pipeline) {
+          const body = loadingMsg.parentElement;
+          if (body && !body.querySelector('.msg-actions')) {
+            const actions = document.createElement('div');
+            actions.className = 'msg-actions';
+            actions.innerHTML = '<button class="msg-action-btn" title="复制" onclick="event.stopPropagation();copyMsgReply(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' +
+              '<button class="msg-action-btn" title="重新执行" onclick="event.stopPropagation();rerunPipeline()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>' +
+              '<button class="msg-action-btn feedback-btn" title="有用" onclick="event.stopPropagation();feedbackMsg(this,\'up\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/></svg></button>' +
+              '<button class="msg-action-btn feedback-btn" title="没用" onclick="event.stopPropagation();feedbackMsg(this,\'down\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V4H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/></svg></button>';
+            body.appendChild(actions);
+          }
         }
 
         updateCreditsBadge();
@@ -3354,7 +3375,6 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         // 持久化
         const msgs = JSON.parse(localStorage.getItem(_streamKey) || '[]');
         const last = msgs[msgs.length - 1];
-        const respText = loadingMsg.textContent.replace(/\d{2}:\d{2}$/, '').trim();
         if (last && last.text === '工作组协作中...') { last.text = respText; last.time = new Date().toISOString(); last.pipeline = _pipelineResults; }
         else { msgs.push({ role: 'hermes', text: respText, time: new Date().toISOString(), pipeline: _pipelineResults }); }
         localStorage.setItem(_streamKey, JSON.stringify(msgs));
@@ -3362,9 +3382,10 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       } catch (e) {
         _resetStreamState();
         _renderError(loadingMsg, e, 'pipeline');
+        const errText = '❌ 工作组执行失败: ' + (e.message || '');
+        loadingMsg.setAttribute('data-text', errText);
         const msgs = JSON.parse(localStorage.getItem(_streamKey) || '[]');
         const last = msgs[msgs.length - 1];
-        const errText = '❌ 工作组执行失败: ' + (e.message || '');
         if (last && last.text === '工作组协作中...') { last.text = errText; last.time = new Date().toISOString(); }
         else { msgs.push({ role: 'hermes', text: errText, time: new Date().toISOString() }); }
         localStorage.setItem(_streamKey, JSON.stringify(msgs));
