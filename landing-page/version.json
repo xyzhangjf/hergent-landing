@@ -1,8 +1,8 @@
 {
-  "version": "1.0.5",
-  "release_date": "2026-05-22",
-  "release_notes": "Hergent v1.0.5 更新\n\n🎯 引导式 Onboarding：3步引导新用户快速上手\n🧠 记忆系统养成化：类型分类 + 了解程度等级 + 成长时间线\n🔗 多角色协作 Pipeline：工作组模式，2-4角色串行协作\n📂 成果智能分类：时间分组 + 文件类型图标 + 在线预览\n\n系统要求：\n- macOS 12+ · Apple Silicon & Intel\n- Windows 10+ · x64",
-  "download_url_mac": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.5/Hergent-1.0.5-mac-arm64.dmg",
-  "download_url_win": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.5/Hergent-1.0.5-setup.exe",
+  "version": "1.0.7",
+  "release_date": "2026-05-23",
+  "release_notes": "Hergent v1.0.7 更新\n\n🖥️ 技能页重设计：两栏布局 + 卡片网格 + 分类导航 + 来源标签\n⚡ 工具执行可视化：三态动画 + 14种工具图标 + hover详情\n🎨 UI/UX 抛光：CSS变量统一 + 系统通知 + 反馈上报\n🪙 积分/充值优化：低余额横幅 + 消费记录 + 档位优化\n\n系统要求：\n- macOS 12+ · Apple Silicon & Intel\n- Windows 10+ · x64",
+  "download_url_mac": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.7/Hergent-1.0.7-mac-arm64.dmg",
+  "download_url_win": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.7/Hergent-1.0.7-setup.exe",
   "checksum": ""
 }
