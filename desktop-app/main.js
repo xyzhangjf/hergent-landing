@@ -7,7 +7,7 @@ const http = require('http');
 const crypto = require('crypto');
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-const CURRENT_VERSION = '1.0.5';
+const CURRENT_VERSION = '1.0.7';
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
 
@@ -1325,6 +1325,14 @@ ipcMain.handle('hermes:execute', async (event, params) => {
     } catch (e) {
       return { success: false, error: e.message };
     }
+  } else if (action === 'feedback:send') {
+    // 记录用户反馈到本地日志
+    const { type, requestId, text, timestamp } = args || {};
+    const feedbackDir = path.join(homeDir, '.hermes', 'feedback');
+    fs.mkdirSync(feedbackDir, { recursive: true });
+    const entry = `${new Date(timestamp || Date.now()).toISOString()} type=${type} req=${requestId || '-'} text=${(text || '').slice(0, 200)}\n`;
+    fs.appendFileSync(path.join(feedbackDir, 'feedback.log'), entry);
+    return { success: true };
   }
   } catch (e) {
     return { success: false, output: e.stderr || e.message };
@@ -2238,13 +2246,14 @@ ipcMain.handle('skills:list', async () => {
       if (!e.isDirectory()) continue;
       // 1. 顶层技能: skillsDir/name/SKILL.md
       const direct = parseSkill(path.join(skillsDir, e.name), e.name);
-      if (direct) { categories.push(direct); continue; }
+      if (direct) { categories.push({ ...direct, category: '其他' }); continue; }
       // 2. 分类目录: skillsDir/category/skillName/SKILL.md
+      const categoryName = e.name;
       const subEntries = fs.readdirSync(path.join(skillsDir, e.name), { withFileTypes: true });
       for (const se of subEntries) {
         if (!se.isDirectory()) continue;
         const skill = parseSkill(path.join(skillsDir, e.name, se.name), se.name);
-        if (skill) categories.push(skill);
+        if (skill) categories.push({ ...skill, category: categoryName });
       }
     }
     return { categories, total: categories.length };
