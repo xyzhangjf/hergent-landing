@@ -59,7 +59,7 @@ RECHARGE_TIERS = {
 }
 
 # 新用户赠送积分（总额，不限时）
-WELCOME_CREDITS = 2000
+WELCOME_CREDITS = 500
 
 # DeepSeek 实际定价 (元/百万token)
 PRICING = {

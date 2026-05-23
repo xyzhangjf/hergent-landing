@@ -34,6 +34,14 @@
       {
         "from": "hermes.tar.gz",
         "to": "hermes.tar.gz"
+      },
+      {
+        "from": "../server/server.py",
+        "to": "server.py"
+      },
+      {
+        "from": "../server/auth.py",
+        "to": "auth.py"
       }
     ],
     "mac": {

@@ -7,7 +7,7 @@ const http = require('http');
 const crypto = require('crypto');
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-const CURRENT_VERSION = '1.0.4';
+const CURRENT_VERSION = '1.0.5';
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
 
@@ -83,14 +83,16 @@ async function startHermesGateway() {
     const deviceId = getDeviceId();
     const cfgEnv = { ...process.env, HERMES_HOME: gwHome };
     const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
+    const dsKey = getDeepSeekApiKey();
     set('model.name', 'deepseek-v4-pro');
     set('model.provider', 'hergent');
     set('platforms.api_server.enabled', 'true');
     set('platforms.api_server.port', String(GATEWAY_PORT));
     set('platforms.api_server.key', GATEWAY_API_KEY);
+    // DeepSeek 原生 provider: Gateway 自带 base_url，custom_providers 提供 API key
     set('custom_providers.0.name', 'hergent');
     set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
-    set('custom_providers.0.api_key', `hermes_${deviceId}`);
+    set('custom_providers.0.api_key', dsKey);
     set('custom_providers.0.model', 'deepseek-v4-pro');
     set('memory.memory_enabled', 'true');
     set('memory.memory_char_limit', '12000');
@@ -144,10 +146,11 @@ async function startHermesGateway() {
     const pythonBin = pythonCandidates.find(p => fs.existsSync(p));
     glog(`macOS/Linux: python path: ${pythonBin || 'not found'}`);
     if (pythonBin) {
-      glog(`spawning via Python: ${pythonBin} -m hermes_cli.main gateway run`);
+      const libsDir = path.join(binDir, 'libs');
+      glog(`spawning via Python: ${pythonBin} -m hermes_cli.main gateway run, PYTHONPATH=${libsDir}`);
       try {
         gatewayProcess = spawn(pythonBin, ['-m', 'hermes_cli.main', 'gateway', 'run', '--replace'], {
-          env: { ...process.env, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
+          env: { ...process.env, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true', PYTHONPATH: libsDir, PYTHONHOME: '' },
           stdio: 'ignore',
           detached: true
         });
@@ -218,25 +221,27 @@ function startCreditsServer() {
     return;
   }
 
-  // 优先用 .app 内置 venv（一键安装零依赖）
-  const bundledVenv = process.platform === 'darwin'
-    ? path.join(__dirname, 'python', 'venv', 'bin', 'python3')
-    : null;
-  const hermesVenv = process.platform === 'darwin'
-    ? path.join(app.getPath('home'), '.hermes', 'hermes-agent', 'venv', 'bin', 'python3')
-    : null;
+  // 优先用 Hermes Agent 自带的 Python（libs 里有 fastapi/uvicorn/httpx 等全套依赖）
+  const home = app.getPath('home');
+  const agentPython = path.join(home, '.hermes', 'hermes-agent', 'python', 'bin', 'python3.11');
+  const enginePython = path.join(home, '.hermes', 'hermes-engine', 'python', 'bin', 'python3.11');
+  const agentLibs = path.join(home, '.hermes', 'hermes-agent', 'libs');
+  const engineLibs = path.join(home, '.hermes', 'hermes-engine', 'libs');
   let pythonPath = 'python3';
-  if (bundledVenv && fs.existsSync(bundledVenv)) {
-    pythonPath = bundledVenv;
-  } else if (hermesVenv && fs.existsSync(hermesVenv)) {
-    pythonPath = hermesVenv;
+  let pythonLibs = null;
+  if (fs.existsSync(agentPython)) {
+    pythonPath = agentPython;
+    pythonLibs = agentLibs;
+  } else if (fs.existsSync(enginePython)) {
+    pythonPath = enginePython;
+    pythonLibs = engineLibs;
   }
-  console.log(`[credits-server] Python: ${pythonPath}`);
+  console.log(`[credits-server] Python: ${pythonPath}, libs: ${pythonLibs || 'none'}`);
 
   // 从 auth.json 读取 DeepSeek API Key
   let deepseekKey = '';
   try {
-    const authPath = path.join(app.getPath('home'), '.hermes', 'auth.json');
+    const authPath = path.join(home, '.hermes', 'auth.json');
     const authData = JSON.parse(fs.readFileSync(authPath, 'utf8'));
     const pool = authData.credential_pool || {};
     const keys = pool.deepseek || [];
@@ -244,9 +249,12 @@ function startCreditsServer() {
   } catch (e) { /* ignore */ }
 
   console.log(`[credits-server] Starting: ${pythonPath} ${scriptPath}`);
-  serverProcess = spawn(pythonPath, [scriptPath], {
-    env: { ...process.env, PYTHONUNBUFFERED: '1', DEEPSEEK_API_KEY: deepseekKey }
-  });
+  const spawnEnv = { ...process.env, PYTHONUNBUFFERED: '1', DEEPSEEK_API_KEY: deepseekKey };
+  if (pythonLibs) {
+    spawnEnv.PYTHONPATH = pythonLibs;
+    spawnEnv.PYTHONHOME = '';
+  }
+  serverProcess = spawn(pythonPath, [scriptPath], { env: spawnEnv });
   serverProcess.on('error', (err) => {
     console.error(`[credits-server] spawn error: ${err.message}`);
   });
@@ -337,9 +345,9 @@ function ensureEngineConfig() {
 
   if (!fs.existsSync(hermesHome)) fs.mkdirSync(hermesHome, { recursive: true });
 
-  const deviceId = getDeviceId();
   const cfgEnv = { ...process.env, HERMES_HOME: hermesHome };
   const set = (k, v) => { try { spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv }); } catch (_) {} };
+  const dsKey = getDeepSeekApiKey();
   set('model.name', 'deepseek-v4-pro');
   set('model.provider', 'hergent');
   set('platforms.api_server.enabled', 'true');
@@ -347,7 +355,7 @@ function ensureEngineConfig() {
   set('platforms.api_server.key', GATEWAY_API_KEY);
   set('custom_providers.0.name', 'hergent');
   set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
-  set('custom_providers.0.api_key', `hermes_${deviceId}`);
+  set('custom_providers.0.api_key', dsKey);
   set('custom_providers.0.model', 'deepseek-v4-pro');
   set('memory.memory_enabled', 'true');
   set('memory.memory_char_limit', '12000');
@@ -387,7 +395,7 @@ function ensureSharedState() {
               if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
               fs.writeFileSync(dst, fs.readFileSync(src));
             }
-          } catch (e) { log('skill copy error: ' + (e.message || e)); }
+          } catch (e) { console.log('skill copy error: ' + (e.message || e)); }
         }
       }
     }
@@ -399,7 +407,7 @@ function ensureSharedState() {
         else fs.rmSync(enginePath, { recursive: true, force: true });
       }
       fs.symlinkSync(userPath, enginePath);
-    } catch (e) { log('shared state symlink error: ' + (e.message || e)); }
+    } catch (e) { console.log('shared state symlink error: ' + (e.message || e)); }
   }
 }
 
@@ -439,7 +447,7 @@ function ensureRoleConfigs() {
     try {
       const existingSoul = fs.existsSync(soulPath) ? fs.readFileSync(soulPath, 'utf8') : '';
       if (existingSoul !== soulContent) fs.writeFileSync(soulPath, soulContent);
-    } catch (e) { log(`SOUL.md write error for ${roleId}: ` + (e.message || e)); }
+    } catch (e) { console.log(`SOUL.md write error for ${roleId}: ` + (e.message || e)); }
 
     // 写入角色专属 config.yaml — 直接写 YAML 避免 custom_providers 变 dict
     const roleConfigPath = path.join(roleHome, 'config.yaml');
@@ -452,7 +460,7 @@ function ensureRoleConfigs() {
           'custom_providers:',
           '  - name: hergent',
           `    base_url: ${SERVER_URL}/v1`,
-          `    api_key: hermes_${getDeviceId()}`,
+          `    api_key: ${getDeepSeekApiKey()}`,
           '    model: deepseek-v4-pro',
           `system_prompt_file: ${soulPath}`,
           `system_prompt: "${(role.systemPrompt || '').replace(/"/g, '\\"')}"`,
@@ -466,7 +474,7 @@ function ensureRoleConfigs() {
           '',
         ].join('\n');
         fs.writeFileSync(roleConfigPath, roleConfigYaml);
-      } catch (e) { log(`config.yaml write error for ${roleId}: ` + (e.message || e)); }
+      } catch (e) { console.log(`config.yaml write error for ${roleId}: ` + (e.message || e)); }
     }
   }
 }
@@ -616,16 +624,28 @@ function getDeviceId() {
   const id = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 12);
   if (lic) {
     lic.deviceId = id; saveLicense(lic);
-    log('warn: license.json 存在但缺少 deviceId，已补充');
+    console.log('warn: license.json 存在但缺少 deviceId，已补充');
   } else {
     // license.json 丢失 — 可能是数据损坏或首次安装
     const engineDir = getEngineDir();
     if (fs.existsSync(path.join(engineDir, '.extracted-version'))) {
-      log('warn: license.json 丢失，生成新 deviceId，服务端积分/激活状态可能丢失');
+      console.log('warn: license.json 丢失，生成新 deviceId，服务端积分/激活状态可能丢失');
     }
     saveLicense({ firstRunDate: new Date().toISOString(), activated: false, credits: 0, deviceId: id });
   }
   return id;
+}
+
+function getDeepSeekApiKey() {
+  try {
+    const authPath = path.join(homeDir, '.hermes', 'auth.json');
+    if (fs.existsSync(authPath)) {
+      const auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+      const pool = auth.credential_pool?.deepseek;
+      if (pool && pool.length > 0) return pool[0].access_token;
+    }
+  } catch (_) {}
+  return process.env.DEEPSEEK_API_KEY || '';
 }
 
 // 获取试用/激活状态
@@ -942,18 +962,11 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           return { requestId, success: false, output: creditsMsg };
         }
 
-        // === 优先走本地 Hermes Gateway，未就绪则重试启动 ===
-        let gatewayReady = await isGatewayRunning();
-        if (!gatewayReady) {
-          // 尝试启动 Gateway（可能 bootstrap 才完成，app.whenReady() 时 HERMES_BIN 不存在）
-          fs.appendFileSync(logFile, `[${new Date().toISOString()}] Gateway not ready, attempting restart\\n`);
-          gatewayReady = await startHermesGateway();
-        }
-        if (!gatewayReady) {
-          // CLI Fallback: 直接用 hermes chat -q（不依赖 gateway）
-          fs.appendFileSync(logFile, `[${new Date().toISOString()}] Gateway still not ready, falling back to CLI\\n`);
-          // Windows: 用 python.exe 直接调 hermes 脚本
-          // macOS: 用 run.sh + hermes chat -q
+        // === 使用 Hermes CLI（完整工具支持：文件/浏览器/代码执行） ===
+        // Gateway 暂不用于 chat: v4-pro 流式响应解析兼容性问题
+        // CLI 路径已验证：工具调用正常，响应完整
+        {
+          // macOS/Linux: 直接用 hermes chat -q
           if (isWindows) {
             const engineDir = getEngineDir();
             const winPython = path.join(engineDir, 'python', 'python.exe');
@@ -962,7 +975,10 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               return { requestId, success: false, output: 'Hermes 引擎未安装，请先在设置中安装' };
             }
             try {
-              const child = spawn(winPython, [winHermes, 'chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'], {
+              const winRoleId = role || 'dami';
+              const winArgs = [winHermes, 'chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
+              if (ROLE_SESSIONS[winRoleId]) { winArgs.push('--resume', ROLE_SESSIONS[winRoleId]); }
+              const child = spawn(winPython, winArgs, {
                 env: { ...process.env, PYTHONPATH: path.join(engineDir, 'libs'), PYTHONHOME: '', HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') }
               });
               _cancelFn = () => { try { child.kill(); } catch (_) {} };
@@ -974,29 +990,52 @@ ipcMain.handle('hermes:execute', async (event, params) => {
                 child.on('close', code => { clearTimeout(timer); _cancelFn = null; code === 0 ? resolve({ stdout, stderr }) : reject(new Error(stderr || 'AI 处理失败')); });
                 child.on('error', e => { clearTimeout(timer); _cancelFn = null; reject(e); });
               });
-              let responseText = cliResult.stdout.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
+              const allBoxes = [...cliResult.stdout.matchAll(/Hermes[^\n]*\n([\s\S]*?)\n\s*[╰─][─\s]*(?:╯)?\s*\n/g)];
+              const lastBox = allBoxes.length > 0 ? allBoxes[allBoxes.length - 1] : null;
+              let responseText = lastBox ? lastBox[1].split('\n').map(l => l.trim()).filter(Boolean).join('\n').trim() : '';
+              if (!responseText) responseText = cliResult.stdout.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
+              const sidMatch = cliResult.stdout.match(/Session:\s+(\S+)/);
+              if (sidMatch) ROLE_SESSIONS[winRoleId] = sidMatch[1];
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
-              // 积分由服务端 /v1/chat/completions 按实际 token 用量扣减，客户端不重复扣
+              try {
+                await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
+                  JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-pro' }));
+              } catch (_) { /* 积分报告失败不影响主流程 */ }
               return { requestId, success: true, output: responseText.slice(0, 8000), offline: true };
             } catch (e) {
               return { requestId, success: false, output: `执行失败：${e.message}` };
             }
           }
-          // macOS/Linux Fallback
+          // macOS/Linux: 使用 Agent Python + PYTHONPATH 确保依赖齐全
           if (!isWindows) {
             const engineDir = getEngineDir();
             const pyDir = path.join(engineDir, 'python');
             if (fs.existsSync(pyDir)) { spawnSync('/usr/bin/xattr', ['-cr', pyDir], { timeout: 10000 }); }
-          }
-          const versionCheck = spawnSync(HERMES_BIN, ['--version'], { timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
-          if (versionCheck.status !== 0) {
-            return { requestId, success: false, output: 'Hermes 引擎未安装，请先在设置中安装' };
-          }
-          try {
-              const engineDir = getEngineDir();
-              const child = spawn(HERMES_BIN, ['chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'], {
-                env: { ...process.env, HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') }
-              });
+            // 查找可用的 Python（agent Python 优先，引擎 Python 备选）
+            const agentPython = path.join(homeDir, '.hermes', 'hermes-agent', 'python', 'bin', 'python3.11');
+            const agentLibs = path.join(homeDir, '.hermes', 'hermes-agent', 'libs');
+            const enginePython = path.join(engineDir, 'python', 'bin', 'python3.11');
+            const engineLibs = path.join(engineDir, 'libs');
+            let pythonBin = 'python3';
+            let pythonLibs = null;
+            if (fs.existsSync(agentPython)) { pythonBin = agentPython; pythonLibs = agentLibs; }
+            else if (fs.existsSync(enginePython)) { pythonBin = enginePython; pythonLibs = engineLibs; }
+            const roleId = role || 'dami';
+            const hermesScript = path.join(homeDir, '.hermes', 'hermes-agent', 'hermes');
+            const baseArgs = [hermesScript, 'chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
+            if (!fs.existsSync(hermesScript)) {
+              baseArgs[0] = '-m';
+              baseArgs[1] = 'hermes_cli.main';
+            }
+            // 会话续接：保持同一角色的上下文连续性
+            if (ROLE_SESSIONS[roleId]) {
+              baseArgs.push('--resume', ROLE_SESSIONS[roleId]);
+            }
+            const spawnArgs = baseArgs;
+            const spawnEnv = { ...process.env, HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') };
+            if (pythonLibs) { spawnEnv.PYTHONPATH = pythonLibs; spawnEnv.PYTHONHOME = ''; }
+            try {
+              const child = spawn(pythonBin, spawnArgs, { env: spawnEnv });
               _cancelFn = () => { try { child.kill(); } catch (_) {} };
               const cliResult = await new Promise((resolve, reject) => {
                 let stdout = '', stderr = '';
@@ -1006,15 +1045,23 @@ ipcMain.handle('hermes:execute', async (event, params) => {
                 child.on('close', code => { clearTimeout(timer); _cancelFn = null; code === 0 ? resolve({ stdout, stderr }) : reject(new Error(stderr || 'AI 处理失败')); });
                 child.on('error', e => { clearTimeout(timer); _cancelFn = null; reject(e); });
               });
-              const boxMatch = cliResult.stdout.match(/Hermes[^\n]*\n([\s\S]*?)\n\s*[╰─][─\s]*(?:╯)?\s*\n/);
-              let responseText = boxMatch ? boxMatch[1].split('\n').map(l => l.trim()).filter(Boolean).join('\n').trim() : '';
+              const allBoxes = [...cliResult.stdout.matchAll(/Hermes[^\n]*\n([\s\S]*?)\n\s*[╰─][─\s]*(?:╯)?\s*\n/g)];
+              const lastBox = allBoxes.length > 0 ? allBoxes[allBoxes.length - 1] : null;
+              let responseText = lastBox ? lastBox[1].split('\n').map(l => l.trim()).filter(Boolean).join('\n').trim() : '';
               if (!responseText) responseText = cliResult.stdout.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
+              // 提取会话 ID，下次同一角色续接上下文
+              const sidMatch = cliResult.stdout.match(/Session:\s+(\S+)/);
+              if (sidMatch) ROLE_SESSIONS[roleId] = sidMatch[1];
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
-              // 积分由服务端 /v1/chat/completions 按实际 token 用量扣减，客户端不重复扣
+              try {
+                await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
+                  JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-pro' }));
+              } catch (_) { /* 积分报告失败不影响主流程 */ }
               return { requestId, success: true, output: responseText.slice(0, 8000), offline: true };
             } catch (e) {
               return { requestId, success: false, output: `执行失败：${e.message}` };
             }
+        }
         }
 
         const roleId = role || 'dami';
@@ -1056,10 +1103,14 @@ ipcMain.handle('hermes:execute', async (event, params) => {
                   const sse = line.startsWith('data: ') ? line.slice(6) : null;
                   if (!sse || sse === '[DONE]') continue;
                   try {
-                    const d = JSON.parse(sse).choices?.[0]?.delta?.content;
+                    const delta = JSON.parse(sse).choices?.[0]?.delta;
+                    const d = delta?.content || delta?.reasoning_content;
                     if (d) {
                       fullResponse += d;
                       try { event.sender.send('hermes:stream', { text: d, type: 'response' }); } catch (_) {}
+                    }
+                    if (delta?.tool_calls) {
+                      try { event.sender.send('hermes:stream', { text: '🔧 正在使用工具...', type: 'tool' }); } catch (_) {}
                     }
                   } catch (_) {}
                 }
@@ -1071,7 +1122,12 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             request.end();
           });
           const gwResponseText = result.finalLines.join('');
-          // 积分由服务端 /v1/chat/completions 按实际 token 用量扣减，客户端不重复扣
+          // 积分扣减：Gateway 直连 DeepSeek，需主动报告用量
+          const estimatedCredits = Math.max(1, Math.ceil((fullText.length + gwResponseText.length) / 500));
+          try {
+            await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
+              JSON.stringify({ credits: estimatedCredits, model: 'deepseek-v4-pro' }));
+          } catch (_) { /* 积分报告失败不影响主流程 */ }
           return { requestId, success: true, output: gwResponseText, offline: false };
         } catch (e) {
           return { requestId, success: false, output: `执行失败：${e.message}` };
@@ -1609,6 +1665,7 @@ ipcMain.handle('activation:credits', async () => {
     const body = await httpGet(`${SERVER_URL}/api/credits?device_id=${getDeviceId()}`);
     return JSON.parse(body);
   } catch (e) {
+    console.error(`[credits] error: ${e.message}`);
     return { credits: 0, message: '无法连接服务' };
   }
 });
@@ -1796,6 +1853,7 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
   try {
     const cfgEnv = { ...process.env, HERMES_HOME: path.join(homeDir, '.hermes') };
     const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
+    const dsKey = getDeepSeekApiKey();
     set('model.name', 'deepseek-v4-pro');
     set('model.provider', 'hergent');
     set('platforms.api_server.enabled', 'true');
@@ -1803,7 +1861,7 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
     set('max_turns', '60');
     set('custom_providers.0.name', 'hergent');
     set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
-    set('custom_providers.0.api_key', `hermes_${getDeviceId()}`);
+    set('custom_providers.0.api_key', dsKey);
     log('config written via hermes config set');
   } catch(e) {
     log('config write warning: ' + e.message);
