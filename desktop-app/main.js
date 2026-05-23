@@ -398,6 +398,51 @@ function ensureSharedState() {
           } catch (e) { console.log('skill copy error: ' + (e.message || e)); }
         }
       }
+
+      // 从 Hermes 官方仓库同步技能（git pull + 增量复制）
+      const skillsCache = path.join(homeDir, '.hermes', 'hermes-skills-cache');
+      if (fs.existsSync(skillsCache)) {
+        try {
+          const gitPull = spawnSync('git', ['-C', skillsCache, 'pull', '--ff-only'], { timeout: 10000 });
+          if (gitPull.status === 0) { console.log('[skills-sync] git pull OK'); }
+        } catch (_) { /* 网络不可用跳过 */ }
+
+        // Hergent 自有技能名，不被上游覆盖
+        const hergentNames = new Set();
+        const bundledSkills = path.join(__dirname, 'skills');
+        if (fs.existsSync(bundledSkills)) {
+          for (const e of fs.readdirSync(bundledSkills, { withFileTypes: true })) {
+            if (e.isDirectory()) hergentNames.add(e.name);
+          }
+        }
+
+        for (const srcDir of ['skills', 'optional-skills']) {
+          const srcRoot = path.join(skillsCache, srcDir);
+          if (!fs.existsSync(srcRoot)) continue;
+          for (const cat of fs.readdirSync(srcRoot, { withFileTypes: true })) {
+            if (!cat.isDirectory() || cat.name === 'index-cache') continue;
+            const catPath = path.join(srcRoot, cat.name);
+            for (const sk of fs.readdirSync(catPath, { withFileTypes: true })) {
+              if (!sk.isDirectory()) continue;
+              if (hergentNames.has(sk.name)) continue;
+              const skillMdSrc = path.join(catPath, sk.name, 'SKILL.md');
+              if (!fs.existsSync(skillMdSrc)) continue;
+              const dstDir = path.join(userPath, sk.name);
+              const dst = path.join(dstDir, 'SKILL.md');
+              try {
+                if (!fs.existsSync(dst) || fs.readFileSync(dst, 'utf8') !== fs.readFileSync(skillMdSrc, 'utf8')) {
+                  if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
+                  for (const entry of fs.readdirSync(path.join(catPath, sk.name), { withFileTypes: true })) {
+                    const s = path.join(catPath, sk.name, entry.name);
+                    const d = path.join(dstDir, entry.name);
+                    entry.isDirectory() ? fs.cpSync(s, d, { recursive: true }) : fs.copyFileSync(s, d);
+                  }
+                }
+              } catch (e2) { /* 单个技能失败不影响其他 */ }
+            }
+          }
+        }
+      }
     }
 
     try {
