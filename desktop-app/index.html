@@ -49,6 +49,12 @@
         <div class="chat-panel" id="chatPanel">
           <div class="drop-overlay" id="dropOverlay"><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 释放文件</div>
           <div class="onboarding-guide" id="onboardingGuide" style="display:none;"></div>
+          <div class="low-credits-banner" id="lowCreditsBanner" style="display:none;">
+            <span class="lcb-icon">⚠️</span>
+            <span class="lcb-text" id="lcbText"></span>
+            <button class="lcb-btn" onclick="showRecharge()">立即充值</button>
+            <button class="lcb-close" onclick="document.getElementById('lowCreditsBanner').style.display='none'">×</button>
+          </div>
           <div class="chat-history" id="chatHistory">
             <div class="chat-empty" id="chatEmpty">
             <div class="welcome-area">
@@ -213,20 +219,25 @@
       <div class="page" id="pageSkills">
         <div class="page-tip-banner" id="tipSkills">
           <span class="ptb-icon">⚡</span>
-          <span>Hermes 越用越聪明——从对话经验中自动学习的能力，也可以手动添加技能</span>
+          <span>167 项技能已就绪 — 涵盖开发、数据分析、创意、效率等场景</span>
           <button class="ptb-close" onclick="dismissPageTip('pageSkills')">知道了</button>
         </div>
         <div class="page-header">
           <h2><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>我的技能</h2>
-          <span class="skills-total" id="skillsTotal" style="font-size:12px;color:var(--text-tertiary);"></span>
+          <span class="skills-total" id="skillsTotal"></span>
         </div>
-        <p class="page-desc">Hermes 越用越聪明——从对话经验中自动学习的能力</p>
-        <div class="skills-search-wrap">
-          <input class="skills-search" id="skillsSearch" type="text" placeholder="搜索技能..." oninput="filterSkills()" />
-        </div>
-        <div class="skills-categories" id="skillsCategories"></div>
-        <div class="skills-grid" id="skillsGrid">
-          <div class="loading"><div class="spinner"></div>加载中...</div>
+        <div class="skills-layout">
+          <div class="skills-sidebar" id="skillsSidebar">
+            <div class="skills-sidebar-search">
+              <input class="skills-search" id="skillsSearch" type="text" placeholder="搜索技能..." oninput="filterSkills()" />
+            </div>
+            <div class="skills-sidebar-nav" id="skillsSidebarNav"></div>
+          </div>
+          <div class="skills-main">
+            <div class="skills-grid" id="skillsGrid">
+              <div class="loading"><div class="spinner"></div>加载中...</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -551,17 +562,18 @@
       </div>
       <div class="recharge-tier" data-amount="30" onclick="selectRechargeTier('30')">
         <div class="rt-amount">30<span class="rt-unit">元</span></div>
-        <div class="rt-credits">= 3,000 积分</div>
-        <div class="rt-tag">推荐</div>
+        <div class="rt-credits">= 3,200 积分</div>
+        <div class="rt-tag">推荐 · 多送200</div>
         <div class="rt-check">✓</div>
       </div>
       <div class="recharge-tier" data-amount="50" onclick="selectRechargeTier('50')">
         <div class="rt-amount">50<span class="rt-unit">元</span></div>
-        <div class="rt-credits">= 5,500 积分</div>
-        <div class="rt-tag">超值 · 送500</div>
+        <div class="rt-credits">= 6,000 积分</div>
+        <div class="rt-tag">超值 · 多送1000</div>
         <div class="rt-check">✓</div>
       </div>
     </div>
+    <div class="recharge-tier-hint" id="rechargeTierHint"></div>
 
     <div class="recharge-total">
       <span>应付金额</span>
@@ -581,6 +593,14 @@
       <div class="rs-icon">✅</div>
       <div class="rs-text">充值成功！</div>
       <div class="rs-detail" id="rechargeSuccessDetail"></div>
+    </div>
+
+    <!-- 消费记录 -->
+    <div class="usage-section" id="rechargeUsageSection">
+      <div class="usage-section-title">📋 最近消费</div>
+      <div class="usage-list" id="rechargeUsageList">
+        <div class="usage-empty">暂无消费记录</div>
+      </div>
     </div>
   </div>
 </div>

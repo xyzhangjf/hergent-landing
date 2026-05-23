@@ -379,7 +379,7 @@
         hintEl.textContent = '微信登录暂不可用（需配置微信开放平台）';
       }
     } catch (e) {
-      document.getElementById('wechatQR').innerHTML = '<p style="color:#999;font-size:13px">微信登录需要服务器支持<br>请使用手机号登录</p>';
+      document.getElementById('wechatQR').innerHTML = '<p style="color:var(--text-tertiary);font-size:13px">微信登录需要服务器支持<br>请使用手机号登录</p>';
     }
   }
 
@@ -391,7 +391,7 @@
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#f5f5f5';
     ctx.fillRect(0, 0, 200, 200);
-    ctx.fillStyle = '#999';
+    ctx.fillStyle = '#9ca3b0';
     ctx.font = '12px system-ui';
     ctx.textAlign = 'center';
     ctx.fillText('微信登录', 100, 70);
@@ -578,6 +578,25 @@
       badge.onclick = () => showRecharge();
     }
     updateCostEstimate();
+    // 控制低余额横幅
+    const banner = document.getElementById('lowCreditsBanner');
+    if (banner) {
+      if (b <= 0) {
+        banner.style.display = 'flex';
+        banner.className = 'low-credits-banner';
+        document.getElementById('lcbText').textContent = '积分已用完，请充值后继续使用';
+      } else if (b < 50) {
+        banner.style.display = 'flex';
+        banner.className = 'low-credits-banner';
+        document.getElementById('lcbText').textContent = `积分仅剩 ${b} 分，建议立即充值`;
+      } else if (b < 200) {
+        banner.style.display = 'flex';
+        banner.className = 'low-credits-banner warn';
+        document.getElementById('lcbText').textContent = `积分偏低（${b} 分），建议充值`;
+      } else {
+        banner.style.display = 'none';
+      }
+    }
   }
 
   async function refreshLicense() {
@@ -591,6 +610,12 @@
   // ===== 充值 =====
   let _selectedRechargeAmount = 10;
 
+  const RECHARGE_TIERS = {
+    10: { credits: 1000, label: '1,000' },
+    30: { credits: 3200, label: '3,200' },
+    50: { credits: 6000, label: '6,000' }
+  };
+
   function showCreditsDetail(credits) {
     showRecharge();
   }
@@ -601,24 +626,67 @@
 
   function showRecharge() {
     _selectedRechargeAmount = 10;
+    const tier = RECHARGE_TIERS[10];
     document.getElementById('rechargePrice').textContent = '10';
-    document.getElementById('rechargeCredits').textContent = '1,000';
+    document.getElementById('rechargeCredits').textContent = tier.label;
     document.getElementById('rechargeError').textContent = '';
     document.getElementById('rechargeSuccess').style.display = 'none';
     document.getElementById('rechargeSubmitBtn').style.display = '';
     document.querySelectorAll('.recharge-tier').forEach(t => t.classList.remove('selected'));
     document.querySelector('.recharge-tier[data-amount="10"]').classList.add('selected');
+    _updateTierHint(10);
+    _renderUsageHistory();
     showOverlay('rechargeOverlay');
+  }
+
+  function _updateTierHint(amount) {
+    const el = document.getElementById('rechargeTierHint');
+    if (!el) return;
+    const avg = _getAvgCost();
+    if (avg) {
+      const approx = Math.floor(RECHARGE_TIERS[amount].credits / avg.high);
+      el.textContent = `约可进行 ${approx} 次对话（基于近期平均消耗）`;
+      el.style.display = '';
+    } else {
+      el.textContent = '使用越多，预估越准确';
+      el.style.display = '';
+    }
   }
 
   function selectRechargeTier(amount) {
     _selectedRechargeAmount = parseInt(amount);
     document.querySelectorAll('.recharge-tier').forEach(t => t.classList.remove('selected'));
     document.querySelector(`.recharge-tier[data-amount="${amount}"]`).classList.add('selected');
-    const tiers = { 10: ['1,000', '10'], 30: ['3,000', '30'], 50: ['5,500', '50'] };
-    document.getElementById('rechargeCredits').textContent = tiers[amount][0];
-    document.getElementById('rechargePrice').textContent = tiers[amount][1];
+    const tier = RECHARGE_TIERS[amount];
+    document.getElementById('rechargeCredits').textContent = tier.label;
+    document.getElementById('rechargePrice').textContent = amount;
     document.getElementById('rechargeError').textContent = '';
+    _updateTierHint(amount);
+  }
+
+  function _renderUsageHistory() {
+    const list = document.getElementById('rechargeUsageList');
+    if (!list) return;
+    try {
+      const records = JSON.parse(localStorage.getItem('hermes_cost_records') || '[]');
+      if (records.length === 0) {
+        list.innerHTML = '<div class="usage-empty">暂无消费记录</div>';
+        return;
+      }
+      const recent = records.slice(-20).reverse();
+      list.innerHTML = recent.map(r => {
+        const d = new Date(r.time);
+        const ts = `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+        return `<div class="usage-item">
+          <div class="usage-item-left">
+            <span>${ts} · ${r.model || 'deepseek'}</span>
+          </div>
+          <span class="usage-item-credits">-${r.cost} 分</span>
+        </div>`;
+      }).join('');
+    } catch (_) {
+      list.innerHTML = '<div class="usage-empty">暂无消费记录</div>';
+    }
   }
 
   function closeRecharge() {
@@ -658,16 +726,23 @@
       const b = cred && cred.credits != null ? cred.credits : 0;
       if (authState) authState.user = { ...authState.user, credits: b };
       updateCreditsBadge();
-      return { ok: b > 0, credits: b };
+      const avg = _getAvgCost();
+      const avgHigh = avg ? avg.high : 5;
+      return { ok: b >= 10, credits: b, low: b < avgHigh, avgCost: avgHigh };
     } catch (e) {
       return { ok: true, credits: -1 };
     }
   }
 
   // 费用预估：基于历史消息的平均消耗
-  function _recordMessageCost(cost) {
+  function _recordMessageCost(cost, model) {
     if (!cost || cost <= 0) return;
     try {
+      const records = JSON.parse(localStorage.getItem('hermes_cost_records') || '[]');
+      records.push({ cost, model: model || 'deepseek-v4-pro', time: Date.now() });
+      if (records.length > 100) records.splice(0, records.length - 100);
+      localStorage.setItem('hermes_cost_records', JSON.stringify(records));
+      // 同时维护简单数组用于平均计算
       const costs = JSON.parse(localStorage.getItem('hermes_msg_costs') || '[]');
       costs.push(cost);
       if (costs.length > 50) costs.shift();
@@ -1100,12 +1175,14 @@
   }
 
   let _allSkills = [];
+  let _activeCategory = null;
+  let _hergentSkills = new Set();
 
   async function loadSkills() {
     const grid = document.getElementById('skillsGrid');
     const total = document.getElementById('skillsTotal');
     const searchInput = document.getElementById('skillsSearch');
-    const categoriesEl = document.getElementById('skillsCategories');
+    const sidebarNav = document.getElementById('skillsSidebarNav');
     if (!grid) return;
     try {
       let data = { categories: [], total: 0 };
@@ -1115,42 +1192,81 @@
 
       if (!data.categories || data.categories.length === 0) {
         grid.innerHTML = '<div class="memory-empty">技能目录为空，请检查 Hermes 安装</div>';
-        if (categoriesEl) categoriesEl.innerHTML = '';
+        if (sidebarNav) sidebarNav.innerHTML = '';
         return;
       }
 
-      // 缓存原始数据
+      // 识别 Hergent 自研技能（通过 slug 匹配）
+      const hergentSlugs = new Set([
+        'wechat-miniprogram', 'chinese-content-tools', 'chinese-writing',
+        'xiaohongshu-content', 'douyin-content', 'wechat-official-account',
+        'chinese-marketing', 'chinese-social-media', 'chinese-ecommerce',
+        'chinese-education', 'chinese-enterprise'
+      ]);
+      _hergentSkills = new Set();
+      for (const s of data.categories) {
+        if (hergentSlugs.has(s.slug)) _hergentSkills.add(s.slug);
+      }
+
       _allSkills = data.categories;
       if (searchInput) searchInput.value = '';
+      _activeCategory = null;
 
-      if (total) total.textContent = `共 ${data.total} 项技能`;
+      const hergentCount = _hergentSkills.size;
+      const hermesCount = data.total - hergentCount;
+      if (total) total.textContent = `共 ${data.total} 项技能 · ${hergentCount} 项自研 · ${hermesCount} 项社区`;
+
+      _renderSkillSidebar();
       _renderSkills(_allSkills);
     } catch (e) {
       grid.innerHTML = '<div class="memory-empty">加载失败</div>';
     }
   }
 
+  function _renderSkillSidebar() {
+    const nav = document.getElementById('skillsSidebarNav');
+    if (!nav) return;
+    const allCats = [...new Set(_allSkills.map(s => s.category || '其他'))].filter(Boolean);
+    allCats.sort((a, b) => a.localeCompare(b, 'zh'));
+    let html = `<div class="skill-nav-item${!_activeCategory ? ' active' : ''}" data-cat="" onclick="_selectCategory('')">
+      <span class="skill-nav-icon">📁</span><span class="skill-nav-label">全部</span><span class="skill-nav-count">${_allSkills.length}</span>
+    </div>`;
+    for (const cat of allCats) {
+      const cnt = _allSkills.filter(s => (s.category || '其他') === cat).length;
+      html += `<div class="skill-nav-item${_activeCategory === cat ? ' active' : ''}" data-cat="${escapeHtml(cat)}" onclick="_selectCategory('${escapeHtml(cat)}')">
+        <span class="skill-nav-icon">📁</span><span class="skill-nav-label">${escapeHtml(cat)}</span><span class="skill-nav-count">${cnt}</span>
+      </div>`;
+    }
+    nav.innerHTML = html;
+  }
+
+  function _selectCategory(cat) {
+    _activeCategory = cat || null;
+    _renderSkillSidebar();
+    const skills = cat ? _allSkills.filter(s => (s.category || '其他') === cat) : _allSkills;
+    _renderSkills(skills, !!cat ? cat : undefined);
+  }
+
   function filterSkills() {
     const q = (document.getElementById('skillsSearch')?.value || '').toLowerCase().trim();
-    if (!q) { _renderSkills(_allSkills); return; }
+    if (!q) { _selectCategory(_activeCategory || ''); return; }
     const filtered = _allSkills.filter(s =>
       s.name.toLowerCase().includes(q) ||
       (s.description || '').toLowerCase().includes(q) ||
       (s.slug || '').toLowerCase().includes(q)
     );
     _renderSkills(filtered, q);
+    _renderSkillSidebar(); // keep sidebar visible
   }
 
   function _renderSkills(skills, query) {
     const grid = document.getElementById('skillsGrid');
-    const categoriesEl = document.getElementById('skillsCategories');
     if (!grid) return;
 
     if (skills.length === 0) {
       grid.innerHTML = query
-        ? `<div class="memory-empty">没有匹配 "${escapeHtml(query)}" 的技能</div>`
-        : '<div class="memory-empty">暂无技能</div>';
-      if (categoriesEl) categoriesEl.innerHTML = '';
+        ? `<div class="empty-msg">没有匹配 "${escapeHtml(query)}" 的技能</div>`
+        : '<div class="empty-msg">暂无技能</div>';
       return;
     }
 
@@ -1162,27 +1278,16 @@
       groups[cat].push(s);
     }
 
-    // 渲染分类标签
-    if (categoriesEl) {
-      const allCats = [...new Set(_allSkills.map(s => s.category || '其他'))].filter(Boolean);
-      categoriesEl.innerHTML = allCats.map(c =>
-        `<span class="skill-cat-chip${query ? '' : ' active'}" onclick="event.stopPropagation();_filterByCategory('${escapeHtml(c)}')">${escapeHtml(c)}</span>`
-      ).join('');
-    }
-
-    // 渲染技能列表（按分类分组）
     let html = '';
     const catNames = Object.keys(groups);
-    // 如果有搜索词就不分组显示，否则分组
     if (query || catNames.length <= 1) {
       skills.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
-      html = skills.map(s => _skillItemHTML(s)).join('');
+      html = `<div class="skill-card-grid">${skills.map(s => _skillCardHTML(s)).join('')}</div>`;
     } else {
-      // 分组显示：每个分类一个区块
       for (const [cat, items] of Object.entries(groups)) {
         items.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
-        html += `<div class="skill-cat-group"><div class="skill-cat-title">${escapeHtml(cat)}</div>`;
-        html += items.map(s => _skillItemHTML(s)).join('');
+        html += `<div class="skill-cat-group"><div class="skill-cat-title">${escapeHtml(cat)} <span class="skill-cat-cnt">${items.length} 项</span></div>`;
+        html += `<div class="skill-card-grid">${items.map(s => _skillCardHTML(s)).join('')}</div>`;
         html += '</div>';
       }
     }
@@ -1190,28 +1295,21 @@
     grid.innerHTML = html;
   }
 
-  function _skillItemHTML(s) {
+  function _skillCardHTML(s) {
     const usages = JSON.parse(localStorage.getItem('hermes_skill_usages') || '{}');
     const count = usages[s.slug] || 0;
-    return `<div class="skill-item" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border-subtle);cursor:default;">
-      <span class="skill-item-dot" style="width:8px;height:8px;border-radius:50%;background:var(--brand-400);flex-shrink:0;"></span>
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:600;font-size:14px;color:var(--text-primary);">${escapeHtml(s.name)}</div>
-        ${s.description ? `<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.description)}</div>` : ''}
+    const isHergent = _hergentSkills.has(s.slug);
+    return `<div class="skill-card">
+      <div class="skill-card-icon">${isHergent ? '⚡' : '📦'}</div>
+      <div class="skill-card-body">
+        <div class="skill-card-name">${escapeHtml(s.name)}</div>
+        ${s.description ? `<div class="skill-card-desc">${escapeHtml(s.description)}</div>` : ''}
+        <div class="skill-card-meta">
+          <span class="skill-source-tag${isHergent ? ' hergent' : ''}">${isHergent ? 'Hergent' : 'Hermes'}</span>
+          ${count > 0 ? `<span class="skill-usage-count">${count}次</span>` : ''}
+        </div>
       </div>
-      ${count > 0 ? `<span style="font-size:10px;color:var(--text-tertiary);background:var(--bg-secondary);padding:2px 6px;border-radius:10px;">${count}次</span>` : ''}
-      <code style="font-size:11px;color:var(--text-tertiary);background:var(--bg-secondary);padding:2px 6px;border-radius:4px;">${escapeHtml(s.slug)}</code>
     </div>`;
-  }
-
-  function _filterByCategory(cat) {
-    const input = document.getElementById('skillsSearch');
-    if (input) input.value = cat;
-    filterSkills();
-    // 高亮对应分类标签
-    document.querySelectorAll('.skill-cat-chip').forEach(c => {
-      c.classList.toggle('active', c.textContent === cat);
-    });
   }
 
   async function clearAllData() {
@@ -1412,7 +1510,7 @@
     grid.innerHTML = TASK_TEMPLATES.map(t => {
       const freqLabel = FREQ_LABELS[t.freq] || t.freq;
       return `<div class="task-template-card" onclick="showAddTask(${JSON.stringify(t).replace(/"/g, '&quot;')})" title="${t.desc}">
-        <span class="tpl-ico">${t.ico}</span>${t.name}<span style="color:#aaa;font-size:10px;">${freqLabel}</span>
+        <span class="tpl-ico">${t.ico}</span>${t.name}<span style="color:var(--text-tertiary);font-size:10px;">${freqLabel}</span>
       </div>`;
     }).join('');
   }
@@ -1788,16 +1886,13 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
 
   // ➕按钮：通过 electron dialog 选文件
   async function handleFileSelect() {
-    console.log('[handleFileSelect] called');
     try {
       const result = await window.hermes.selectFile();
-      console.log('[handleFileSelect] result:', JSON.stringify(result));
       if (!result.canceled && result.filePath) {
         chatFilePaths.push({ name: result.filePath.split('/').pop(), path: result.filePath });
         addFileTag(result.filePath.split('/').pop());
       }
     } catch(err) {
-      console.error('[handleFileSelect] error:', err);
       showDialog('❌', '文件选择失败：' + (err.message || err));
     }
   }
@@ -1933,7 +2028,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     const pathRegex = /(\/(?:Users|tmp|var|etc|opt|usr|Library|Applications|System|Volumes|private|\.hermes)\/[^\s<>"]+|~\/[^\s<>"]+)/g;
     const linked = html.replace(pathRegex, (match) => {
       const escaped = match.replace(/'/g, "\\'");
-      return `<a href="#" onclick="event.preventDefault();window.hermes.openFolder('${escaped}')" style="color:#3370FF;text-decoration:underline;cursor:pointer;" title="在 Finder 中打开">${match}</a>`;
+      return `<a href="#" onclick="event.preventDefault();window.hermes.openFolder('${escaped}')" style="color:var(--brand-500);text-decoration:underline;cursor:pointer;" title="在 Finder 中打开">${match}</a>`;
     });
     return linked;
   }
@@ -2864,7 +2959,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     if (data.type === 'pipeline-step') {
       if (!_pipelineEl && _streamTarget) {
         _pipelineEl = document.createElement('div');
-        _pipelineEl.className = 'pipeline-steps';
+        _pipelineEl.className = 'pipeline-steps has-cards';
         _streamTarget.appendChild(_pipelineEl);
       }
       _renderPipelineStep(data);
@@ -2964,14 +3059,19 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
 
   function _toolIcon(text) {
     const t = text.toLowerCase();
-    if (/search|搜索|检索|搜索中|查询|查找|bing|google|web/i.test(t)) return '🔍';
-    if (/read|读取|读|打开|查看|浏览.*文件|file|cat /i.test(t)) return '📂';
-    if (/write|写入|写|保存|生成.*文件|create|touch /i.test(t)) return '✍️';
-    if (/code|代码|执行|运行|python|bash|shell|terminal|exec|run/i.test(t)) return '💻';
-    if (/browser|浏览器|打开.*网页|navigate|click|screenshot/i.test(t)) return '🌐';
-    if (/think|思考|分析|推理|reason|plan|规划/i.test(t)) return '🧠';
-    if (/fetch|http|api|request|curl|下载|download/i.test(t)) return '📡';
-    if (/extract|解析|提取|parse|convert|转换/i.test(t)) return '🔧';
+    if (/search|搜索|检索|查询|查找|bing|google|web|arxiv|wiki/i.test(t)) return '🔍';
+    if (/read|读取|读|打开.*文件|查看.*文件|file|cat |head |tail |less /i.test(t)) return '📄';
+    if (/write|写入|写|保存|创建.*文件|生成.*文件|create|touch |mkdir|new file/i.test(t)) return '✏️';
+    if (/code|代码|编程|执行.*代码|python|bash|shell|terminal|exec|run|compile/i.test(t)) return '💻';
+    if (/browser|浏览器|打开.*网页|navigate|click|screenshot|playwright|selenium/i.test(t)) return '🌐';
+    if (/think|思考|分析|推理|reason|plan|规划|reflect|evaluate/i.test(t)) return '🧠';
+    if (/fetch|http|api|request|curl|下载|download|upload|上传/i.test(t)) return '📡';
+    if (/extract|解析|提取|parse|convert|转换|transform|process|处理/i.test(t)) return '🔧';
+    if (/image|图片|图像|画|生成.*图|dalle|midjourney|stable/i.test(t)) return '🎨';
+    if (/memory|记忆|recall|remember|store|memorize|save.*context/i.test(t)) return '💾';
+    if (/edit|编辑|修改|change|update|replace|diff|patch/i.test(t)) return '📝';
+    if (/git|commit|push|pull|branch|merge|repo/i.test(t)) return '🔀';
+    if (/deploy|部署|publish|发布|release|build/i.test(t)) return '🚀';
     return '⚡';
   }
 
@@ -3149,10 +3249,18 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
 
   function feedbackMsg(btn, type) {
     const wasActive = btn.classList.contains('active');
-    // 清除同组其他按钮状态
     btn.parentElement.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove('active'));
-    if (!wasActive) btn.classList.add('active');
-    // TODO: 上报反馈数据
+    if (!wasActive) {
+      btn.classList.add('active');
+      // 上报反馈数据到本地日志
+      const msgEl = btn.closest('.chat-msg');
+      const reqId = msgEl ? msgEl.closest('[data-reqid]')?.getAttribute('data-reqid') : null;
+      try {
+        if (window.hermes && window.hermes.execute) {
+          window.hermes.execute('feedback:send', { type, requestId: reqId || '', text: msgEl?.textContent?.slice(0, 200) || '', timestamp: Date.now() }).catch(() => {});
+        }
+      } catch (_) {}
+    }
   }
 
   // 聊天区域点击链接 → 用系统浏览器打开
@@ -3221,7 +3329,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
 
     const footerHTML = `<div class="msg-footer">${costLine}${durHTML} <span class="time">${timeStr}</span></div>`;
     // 记录消息消耗用于费用预估
-    if (cost > 0) _recordMessageCost(cost);
+    if (cost > 0) _recordMessageCost(cost, _currentModel);
     // 工具使用摘要（始终可见）
     let toolSummaryHTML = '';
     if (_streamSteps.length > 0) {
@@ -3242,6 +3350,10 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     scrollChat();
     updateCreditsBadge();
     updateCostEstimate();
+    // 窗口不在前台时发送系统通知
+    if (!document.hasFocus() && cleanText) {
+      notifyIfAway('Hergent 回复了', cleanText.slice(0, 100));
+    }
   }
 
   // 渲染失败响应到 loading 消息
@@ -3312,11 +3424,15 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     // 积分预检查
     const creditsCheck = await checkCreditsBeforeSend();
     if (!creditsCheck.ok) {
-      addChatMessage('hermes', '🪙 积分不足，请充值后继续使用。\n\n当前余额：' + creditsCheck.credits + ' 分');
+      addChatMessage('hermes', `🪙 积分不足（剩余 ${creditsCheck.credits} 分），请充值后继续使用`);
       input.value = text;
       input.focus();
       showActivationDialog();
       return;
+    }
+    // 低余额提醒（允许继续但提示）
+    if (creditsCheck.low && creditsCheck.credits > 0) {
+      addChatMessage('hermes', `⚠️ 剩余积分较少（${creditsCheck.credits} 分），本次对话约需 ${creditsCheck.avgCost} 分，建议尽快充值`);
     }
 
     // 保存文件路径，清空 UI
@@ -3474,7 +3590,6 @@ ${questionnaireHistory}`;
           if (!loadingMsg.isConnected) loadChatHistory();
         })();
       } catch (e) {
-        localStorage.setItem('_dbg_qerr', e.message + '|' + (e.stack||'').slice(0,100));
         _resetStreamState();
         if (sendingRole !== (currentAction || 'chat') || !document.getElementById('pageHome').classList.contains('active')) bumpUnread(sendingRole);
         _renderError(loadingMsg, e, sendingRole);
@@ -3537,7 +3652,6 @@ ${questionnaireHistory}`;
       }
       if (!loadingMsg.isConnected) loadChatHistory();
     } catch (e) {
-      localStorage.setItem('_dbg_err', e.message + '|' + (e.stack||'').slice(0,100));
       _resetStreamState();
       _renderError(loadingMsg, e, sendingRole);
       if (!loadingMsg.isConnected) loadChatHistory();
@@ -4026,7 +4140,7 @@ ${questionnaireHistory}`;
       if (acc) {
         _streamTarget.innerHTML = '<div class="stream-response">' +
           wrapResponse(acc.replace(/\n/g, '<br>')) +
-          '<br><span style="color:#999;font-size:11px;">（已停止生成）</span>' +
+          '<br><span style="color:var(--text-tertiary);font-size:11px;">（已停止生成）</span>' +
           '</div><span class="time">' + new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) + '</span>';
         const saveKey = _streamKey || chatStorageKey();
         const msgs = JSON.parse(localStorage.getItem(saveKey) || '[]');
