@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hergent · 装在电脑里的 AI 员工，不是只会聊天</title>
   <meta name="description" content="Hergent 不是聊天机器人。基于 Hermes 开源内核，能操控电脑、读写文件、打开浏览器、定时自主干活。数据不出本地，越用越聪明。" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230f172a'/><polygon points='16,4 6,18 15,18 14,28 26,14 17,14 18,4' fill='%2306b6d4'/></svg>" />
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -247,19 +248,12 @@
     .usecase-info h3 { font-size: 17px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.34px; }
     .usecase-info p { font-size: 14px; color: var(--text-tertiary); line-height: 1.6; }
 
-    /* Testimonials */
-    .testimonial-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-    .testimonial-card {
-      background: #fff; padding: 36px 28px; border-radius: var(--radius-lg);
-      border: 1px solid var(--border-light); transition: all 0.3s;
+    /* App Preview responsive */
+    @media (max-width: 768px) {
+      .app-preview > div:last-child { flex-direction: column !important; height: auto !important; }
+      .app-preview > div:last-child > div:first-child,
+      .app-preview > div:last-child > div:last-child { width: 100% !important; }
     }
-    .testimonial-card:hover { border-color: rgba(6,182,212,0.15); box-shadow: var(--shadow-sm); }
-    .testimonial-stars { color: #f59e0b; font-size: 14px; margin-bottom: 16px; letter-spacing: 1px; }
-    .testimonial-text { font-size: 15px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 20px; font-style: italic; }
-    .testimonial-author { display: flex; align-items: center; gap: 10px; }
-    .testimonial-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #0f172a, #334155); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 600; }
-    .testimonial-name { font-size: 14px; font-weight: 600; }
-    .testimonial-role { font-size: 12px; color: var(--text-tertiary); }
 
     /* Pricing */
     .pricing-card {
@@ -344,7 +338,7 @@
       .section h2 { letter-spacing: -1.2px; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .roles-grid { grid-template-columns: repeat(2, 1fr); }
-      .diff-grid, .features-grid, .usecases-grid, .testimonial-grid { grid-template-columns: 1fr; }
+      .diff-grid, .features-grid, .usecases-grid { grid-template-columns: 1fr; }
       .pricing-card { padding: 40px 28px; }
       .pricing-card .price { font-size: 56px; }
       .compare-header, .compare-body { grid-template-columns: 1fr; }
@@ -402,21 +396,21 @@
       <div class="hero-pills">
         <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>数据不出本地</span>
         <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>操控电脑干活</span>
-        <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>96项技能</span>
+        <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>167项技能</span>
         <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>定时自动干活</span>
       </div>
       <div class="hero-actions">
-        <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.5/Hergent-1.0.5-mac-arm64.dmg" class="btn-primary dl-mac">
+        <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.7/Hergent-1.0.7-mac-arm64.dmg" class="btn-primary dl-mac">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           下载 macOS 版
         </a>
-        <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.5/Hergent-1.0.5-setup.exe" class="btn-outline dl-win">
+        <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.7/Hergent-1.0.7-setup.exe" class="btn-outline dl-win">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           下载 Windows 版
         </a>
       </div>
-      <p class="hero-install-hint" style="font-size:12px;color:#6b7280;margin-top:8px;">首次打开提示无法验证？右键点击 App → 打开，或在系统设置 → 隐私与安全性中允许</p>
-      <p class="hero-meta"><span class="ver-tag">v1.0.5</span> · macOS 12+ / Windows 10+ · Apple Silicon & Intel · 开源内核 · 3 分钟上手</p>
+      <p class="hero-install-hint" style="font-size:12px;color:#6b7280;margin-top:8px;">Mac 首次打开提示无法验证？右键点击 App → 打开。Windows 用户直接安装即可。</p>
+      <p class="hero-meta"><span class="ver-tag">v1.0.7</span> · macOS 12+ / Windows 10+ · Apple Silicon & Intel · 开源内核 · 3 分钟上手</p>
     </div>
   </div>
 </section>
@@ -428,7 +422,7 @@
       <div class="stat-card"><div class="stat-value">96</div><div class="stat-label">内置技能</div><div class="stat-note">读文件 · 搜网页 · 写代码 · 发飞书</div></div>
       <div class="stat-card"><div class="stat-value">8</div><div class="stat-label">专业数字员工</div><div class="stat-note">各有所长 · 随时切换</div></div>
       <div class="stat-card"><div class="stat-value">24/7</div><div class="stat-label">全天候待命</div><div class="stat-note">设好时间 · 自动干活</div></div>
-      <div class="stat-card"><div class="stat-value">0¥</div><div class="stat-label">无月费</div><div class="stat-note">按量充值 · 永不过期</div></div>
+      <div class="stat-card"><div class="stat-value">10<span style="font-size:24px;font-weight:500;">元起</span></div><div class="stat-label">按量充值</div><div class="stat-note">积分永不过期</div></div>
     </div>
   </div>
 </section>
@@ -628,42 +622,60 @@
   </div>
 </section>
 
-<!-- Testimonials -->
-<section class="section">
-  <div class="section-inner">
-    <span class="section-label reveal">Testimonials</span>
-    <h2 class="reveal">他们都在用 Hergent</h2>
-    <p class="section-sub reveal">听听真实用户的反馈。</p>
-    <div class="testimonial-grid">
-      <div class="testimonial-card reveal reveal-delay-1">
-        <div class="testimonial-stars">★★★★★</div>
-        <p class="testimonial-text">"以前写周报要花半小时回忆这周干了什么，现在跟大秘说一声，2 分钟出稿。关键是它真的会去读我的文件和历史记录。"</p>
-        <div class="testimonial-author">
-          <div class="testimonial-avatar">李</div>
-          <div><div class="testimonial-name">李总</div><div class="testimonial-role">贸易公司经理</div></div>
+<!-- App Preview -->
+    <section class="section">
+      <div class="section-inner">
+        <span class="section-label reveal">Preview</span>
+        <h2 class="reveal">长什么样？一眼看懂</h2>
+        <p class="section-sub reveal">简洁的桌面应用界面，8位数字员工随时切换，聊天即工作。</p>
+        <div class="app-preview reveal" style="max-width:900px;margin:0 auto;background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden;border:1px solid var(--border-light);">
+          <!-- Fake title bar -->
+          <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#f0f3f8;border-bottom:1px solid var(--border-light);">
+            <span style="width:12px;height:12px;border-radius:50%;background:#ef4444;"></span>
+            <span style="width:12px;height:12px;border-radius:50%;background:#f59e0b;"></span>
+            <span style="width:12px;height:12px;border-radius:50%;background:#22c55e;"></span>
+            <span style="font-size:12px;color:#737373;margin-left:8px;font-family:&apos;Geist Mono&apos;,monospace;">Hergent — 我的大秘</span>
+          </div>
+          <!-- App layout mock -->
+          <div style="display:flex;height:400px;">
+            <!-- Sidebar -->
+            <div style="width:200px;background:#f8f9fb;border-right:1px solid var(--border-light);padding:16px 12px;display:flex;flex-direction:column;gap:4px;">
+              <div style="font-size:11px;font-weight:600;color:#9ca3b0;text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;">场景</div>
+              <div style="padding:8px 10px;border-radius:8px;background:var(--brand-light);color:var(--brand-dark);font-size:13px;font-weight:600;">💬 聊天</div>
+              <div style="padding:8px 10px;border-radius:8px;color:#737373;font-size:13px;">📋 定时任务</div>
+              <div style="padding:8px 10px;border-radius:8px;color:#737373;font-size:13px;">📊 成果</div>
+              <div style="padding:8px 10px;border-radius:8px;color:#737373;font-size:13px;">⚡ 技能</div>
+              <div style="margin-top:auto;border-top:1px solid var(--border-light);padding-top:12px;">
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;">
+                  <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#0891b2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;">大</div>
+                  <span style="font-size:13px;font-weight:500;">我的大秘</span>
+                </div>
+              </div>
+            </div>
+            <!-- Chat area -->
+            <div style="flex:1;display:flex;flex-direction:column;padding:16px 20px;gap:12px;">
+              <div style="align-self:flex-start;max-width:75%;background:#f0f4f8;border-radius:14px 14px 14px 4px;padding:10px 14px;font-size:13px;color:#171717;line-height:1.5;">帮我把这个文件夹里的500张图片压缩到1MB以内</div>
+              <div style="align-self:flex-end;max-width:75%;background:linear-gradient(135deg,#06b6d4,#0891b2);border-radius:14px 14px 4px 14px;padding:10px 14px;font-size:13px;color:#fff;line-height:1.5;">🛠️ 正在扫描文件夹...<br>📁 487张图片，预计2分钟<br>✅ 已完成：126/487</div>
+              <div style="align-self:flex-start;max-width:75%;background:#f0f4f8;border-radius:14px 14px 14px 4px;padding:10px 14px;font-size:13px;color:#171717;line-height:1.5;">✅ 全部完成！<br>📦 原图备份在 backup/ 目录<br>📊 压缩率 68%，无质量损失</div>
+            </div>
+            <!-- Right panel: tool status -->
+            <div style="width:220px;background:#fafafa;border-left:1px solid var(--border-light);padding:16px;font-size:12px;">
+              <div style="font-weight:600;color:#171717;margin-bottom:12px;">工具执行中</div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;background:#f0fdf4;color:#16a34a;">✅ 扫描文件</div>
+                <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;background:#ecfeff;color:#0891b2;font-weight:500;">⏳ 压缩图片</div>
+                <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;color:#9ca3b0;">⬜ 生成报告</div>
+              </div>
+              <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-light);color:#9ca3b0;font-size:11px;">
+                消耗 5 积分 · 剩余 495
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="testimonial-card reveal reveal-delay-2">
-        <div class="testimonial-stars">★★★★★</div>
-        <p class="testimonial-text">"我是会计出身，Hergent 的会计角色帮我对账比我快多了。以前半天对完的账，现在拖入文件 10 分钟搞定。"</p>
-        <div class="testimonial-author">
-          <div class="testimonial-avatar">王</div>
-          <div><div class="testimonial-name">王姐</div><div class="testimonial-role">财务主管</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card reveal reveal-delay-3">
-        <div class="testimonial-stars">★★★★★</div>
-        <p class="testimonial-text">"定时任务是最惊喜的功能——设好每天早上推送行业动态到飞书，从没断过。这才是真正的自动化。"</p>
-        <div class="testimonial-author">
-          <div class="testimonial-avatar">陈</div>
-          <div><div class="testimonial-name">陈工</div><div class="testimonial-role">独立开发者</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- Pricing -->
+    <!-- Pricing -->
 <section class="section section-alt" id="pricing">
   <div class="section-inner">
     <span class="section-label reveal">Pricing</span>
@@ -674,9 +686,9 @@
       <div class="price">10 <small>元起</small></div>
       <div class="price-label">充值制 · 积分永不过期</div>
       <ul>
-        <li>10 元 = 1,000 积分（约 200 次对话）</li>
-        <li>30 元 = 3,000 积分</li>
-        <li>50 元 = 5,500 积分（多送 500）</li>
+        <li>10 元 = 1,000 积分</li>
+        <li>30 元 = 3,200 积分（多送 200）</li>
+        <li>50 元 = 6,000 积分（多送 1,000）</li>
         <li>无月费 · 无年费 · 无订阅</li>
       </ul>
     </div>
@@ -688,18 +700,18 @@
 <section class="cta-section" id="download">
   <div class="cta-inner reveal">
     <h2>不是聊天 AI，是能动手的数字员工</h2>
-    <p>基于 Hermes 开源内核 · 96项技能 · 数据不出本地 · 3 分钟上手</p>
+    <p>基于 Hermes 开源内核 · 167项技能 · 数据不出本地 · 3 分钟上手</p>
     <div class="cta-downloads">
-      <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.5/Hergent-1.0.5-mac-arm64.dmg" class="btn-light dl-mac">
+      <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.7/Hergent-1.0.7-mac-arm64.dmg" class="btn-light dl-mac">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         下载 macOS 版
       </a>
-      <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.5/Hergent-1.0.5-setup.exe" class="btn-light dl-win">
+      <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.7/Hergent-1.0.7-setup.exe" class="btn-light dl-win">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         下载 Windows 版
       </a>
     </div>
-    <p class="cta-meta"><span class="ver-tag">v1.0.5</span> · macOS 12+ · Apple Silicon & Intel · Hermes Agent 内核 · MIT 开源</p>
+    <p class="cta-meta"><span class="ver-tag">v1.0.7</span> · macOS 12+ · Apple Silicon & Intel · Hermes Agent 内核 · MIT 开源</p>
   </div>
 </section>
 
