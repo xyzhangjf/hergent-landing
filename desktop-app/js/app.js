@@ -3630,7 +3630,7 @@ ${questionnaireHistory}`;
       const isOnboarding = localStorage.getItem('hermes_onboarding') === '1';
       let sendText = text;
       if (isRole) {
-        sendText = `[系统指令：${isRole.systemPrompt} 你现在以"${isRole.name}"的身份回复用户。]\n\n${text}`;
+        sendText = `${isRole.systemPrompt}\n\n用户消息：${text}`;
       }
       if (isOnboarding) {
         sendText = `[引导模式——用户第一次使用Hergent。请回复：先友好地问候，然后问用户"你平时主要做什么工作/学什么？"，根据回复推荐1-2个合适的数字员工角色。简洁自然，像朋友聊天。]\n\n[用户消息]${text}`;
