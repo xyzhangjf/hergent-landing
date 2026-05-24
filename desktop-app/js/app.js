@@ -1689,6 +1689,8 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     gridEl.innerHTML = '<div class="empty-msg"><div class="spinner"></div>加载中...</div>';
 
     const channels = await getChannels();
+    // 缓存到 localStorage 供 getFeishuRole 等函数使用
+    try { localStorage.setItem('hermes_channels_cache', JSON.stringify(channels)); } catch (_) {}
 
     gridEl.innerHTML = CHANNEL_CARDS.map(c => {
       const platformRoles = channels[c.key] || {};
@@ -1781,6 +1783,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         dot.style.background = '#52c41a';
         msg.textContent = '网关运行中 — ' + (status.message || '');
         btn.style.display = 'inline-block';
+        startFeishuPolling(); // 网关就绪后开始轮询飞书消息
         // 检查各平台连接
         if (status.platforms) {
           const conn = Object.entries(status.platforms).filter(([k,v]) => v.state === 'connected').map(([k]) => k);
@@ -1798,6 +1801,55 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       msg.textContent = '状态检查失败: ' + (e.message || '');
       btn.style.display = 'inline-block';
     }
+  }
+
+  // ===== 飞书消息轮询 =====
+  let _feishuPollTimer = null;
+  let _feishuLastMsgTime = null;
+
+  function startFeishuPolling() {
+    if (_feishuPollTimer) return;
+    _feishuPollTimer = setInterval(pollFeishuMessages, 4000);
+    pollFeishuMessages(); // 立即执行一次
+  }
+
+  async function pollFeishuMessages() {
+    if (!window.hermes || !window.hermes.pollFeishuMessages) return;
+    try {
+      const result = await window.hermes.pollFeishuMessages();
+      if (!result.messages || result.messages.length === 0) return;
+
+      for (const msg of result.messages) {
+        // 避免重复显示
+        const msgKey = msg.time + msg.text.slice(0, 30);
+        if (msgKey === _feishuLastMsgTime) continue;
+        _feishuLastMsgTime = msgKey;
+
+        // 显示在聊天面板
+        const role = getFeishuRole();
+        if (msg.role === 'user') {
+          addChatMessage('user', `📱 来自飞书: ${msg.text}`, null, null, '飞书');
+        } else {
+          addChatMessage('hermes', msg.text, null, null, '飞书');
+        }
+        // 如果当前不在看聊天，加未读
+        if (!document.getElementById('pageHome').classList.contains('active')) {
+          bumpUnread(role);
+        }
+      }
+    } catch (_) {}
+  }
+
+  function getFeishuRole() {
+    // 从 channels.json 找飞书配置对应的角色
+    try {
+      const channels = JSON.parse(localStorage.getItem('hermes_channels_cache') || '{}');
+      if (channels.feishu) {
+        const roles = Object.keys(channels.feishu).filter(k => !k.startsWith('_'));
+        if (roles.length > 0) return roles[0];
+      }
+    } catch (_) {}
+    return currentAction || 'dami';
   }
 
   async function restartGatewayFromUI(silent) {
