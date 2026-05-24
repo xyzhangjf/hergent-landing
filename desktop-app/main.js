@@ -1769,25 +1769,38 @@ ipcMain.handle('channels:gateway-restart', async () => {
 ipcMain.handle('chat:inject-message', async (event, roleId, message) => {
   try {
     const engineDir = getEngineDir();
-    const sessionsDir = path.join(engineDir, '.hermes', 'agents', roleId, 'sessions');
-    const indexPath = path.join(sessionsDir, 'sessions.json');
-    if (!fs.existsSync(indexPath)) return { success: false, error: 'No session found' };
+    const hermesHome = path.join(engineDir, '.hermes');
 
-    // 找最新的 CLI session（非 feishu/lark/platform）
-    const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+    // CLI 会话使用主 HERMES_HOME 运行，不在 role 目录
+    // 找最新的 CLI session
     let latestCli = null;
-    for (const [key, meta] of Object.entries(index)) {
-      if (meta.platform === 'cli') {
-        if (!latestCli || meta.updated_at > latestCli.updated_at) {
-          latestCli = { sessionId: meta.session_id, updated: meta.updated_at };
+    const searchDirs = [
+      path.join(hermesHome, 'sessions'),
+      path.join(hermesHome, 'agents', roleId, 'sessions'),
+    ];
+
+    for (const sessionsDir of searchDirs) {
+      const indexPath = path.join(sessionsDir, 'sessions.json');
+      if (!fs.existsSync(indexPath)) continue;
+      const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+      for (const [key, meta] of Object.entries(index)) {
+        if (meta.platform === 'cli' || meta.platform === 'api_server') {
+          if (!latestCli || meta.updated_at > latestCli.updated_at) {
+            latestCli = { sessionId: meta.session_id, updated: meta.updated_at, dir: sessionsDir };
+          }
         }
       }
     }
-    if (!latestCli) return { success: false, error: 'No CLI session found' };
 
     // 后台运行 hermes chat 注入消息（不等待结果）
-    const hermesHome = path.join(engineDir, '.hermes', 'agents', roleId);
-    const cmd = `${HERMES_BIN} chat -q "${message.replace(/"/g, '\\"')}" --resume ${latestCli.sessionId} --max-turns 1 --source tool`;
+    const escaped = message.replace(/"/g, '\\"').replace(/\n/g, ' ').slice(0, 500);
+    let cmd;
+    if (latestCli) {
+      cmd = `${HERMES_BIN} chat -q "${escaped}" --resume ${latestCli.sessionId} --max-turns 1 --source tool`;
+    } else {
+      // 没有 CLI 会话，新建一个（消息会被处理，后续 app 发消息可以 resume 它）
+      cmd = `${HERMES_BIN} chat -q "${escaped}" --max-turns 1 --source tool`;
+    }
     spawn('/bin/sh', ['-c', cmd], {
       env: { ...process.env, HERMES_HOME: hermesHome },
       stdio: 'ignore',
