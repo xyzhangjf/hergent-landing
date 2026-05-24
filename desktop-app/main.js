@@ -1765,6 +1765,41 @@ ipcMain.handle('channels:gateway-restart', async () => {
   }
 });
 
+// ===== 消息注入到 CLI 会话 =====
+ipcMain.handle('chat:inject-message', async (event, roleId, message) => {
+  try {
+    const engineDir = getEngineDir();
+    const sessionsDir = path.join(engineDir, '.hermes', 'agents', roleId, 'sessions');
+    const indexPath = path.join(sessionsDir, 'sessions.json');
+    if (!fs.existsSync(indexPath)) return { success: false, error: 'No session found' };
+
+    // 找最新的 CLI session（非 feishu/lark/platform）
+    const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+    let latestCli = null;
+    for (const [key, meta] of Object.entries(index)) {
+      if (meta.platform === 'cli') {
+        if (!latestCli || meta.updated_at > latestCli.updated_at) {
+          latestCli = { sessionId: meta.session_id, updated: meta.updated_at };
+        }
+      }
+    }
+    if (!latestCli) return { success: false, error: 'No CLI session found' };
+
+    // 后台运行 hermes chat 注入消息（不等待结果）
+    const hermesHome = path.join(engineDir, '.hermes', 'agents', roleId);
+    const cmd = `${HERMES_BIN} chat -q "${message.replace(/"/g, '\\"')}" --resume ${latestCli.sessionId} --max-turns 1 --source tool`;
+    spawn('/bin/sh', ['-c', cmd], {
+      env: { ...process.env, HERMES_HOME: hermesHome },
+      stdio: 'ignore',
+      detached: true
+    }).unref();
+
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
 // ===== 飞书消息同步 =====
 let _feishuLastSeen = {}; // sessionKey -> last message index
 

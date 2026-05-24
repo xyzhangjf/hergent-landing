@@ -1852,7 +1852,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         const rd = ROLES[msgRole] || {};
         const roleName = rd.name || msgRole;
         const displayText = msg.role === 'user'
-          ? `📱 飞书→${roleName}: ${msg.text}`
+          ? `📱 ${msg.platform || '飞书'}→${roleName}: ${msg.text}`
           : msg.text;
 
         // 保存到正确的角色聊天记录（而非当前查看的角色）
@@ -1860,12 +1860,17 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         try {
           currentAction = msgRole; // 临时切换到目标角色
           if (msg.role === 'user') {
-            addChatMessage('user', displayText, null, msg.time || null, '飞书');
+            addChatMessage('user', displayText, null, msg.time || null, msg.platform || '飞书');
           } else {
-            addChatMessage('hermes', displayText, null, msg.time || null, '飞书');
+            addChatMessage('hermes', displayText, null, msg.time || null, msg.platform || '飞书');
           }
         } finally {
           currentAction = prevAction; // 恢复当前角色
+        }
+
+        // 如果是用户的飞书消息，同步注入到 CLI 会话让 Hermes 也能看到
+        if (msg.role === 'user') {
+          injectFeishuToCLI(msgRole, msg.text, msg.platform || '飞书').catch(() => {});
         }
 
         // 如果当前不在看该角色的聊天，加未读
@@ -1877,6 +1882,15 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         if (prevAction === msgRole && document.getElementById('pageHome').classList.contains('active')) {
           loadChatHistory();
         }
+      }
+    } catch (_) {}
+  }
+
+  async function injectFeishuToCLI(roleId, text, platform) {
+    try {
+      // 通过 IPC 后台注入消息到 CLI 会话
+      if (window.hermes && window.hermes.injectMessage) {
+        await window.hermes.injectMessage(roleId, `[来自${platform}的消息] ${text}`);
       }
     } catch (_) {}
   }
