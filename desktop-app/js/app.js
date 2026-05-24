@@ -1868,7 +1868,13 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
           currentAction = prevAction; // 恢复当前角色
         }
 
-        // 飞书消息已由 Gateway 写入共享 Session，App 聊天直接 resume 即可，无需额外注入
+        // 将飞书用户消息注入到 App CLI Session（写JSON，不触发AI处理）
+        if (msg.role === 'user') {
+          const cliSessionId = localStorage.getItem('hermes_session_' + msgRole);
+          if (cliSessionId && window.hermes && window.hermes.injectMessage) {
+            window.hermes.injectMessage(msgRole, msg.text, cliSessionId).catch(() => {});
+          }
+        }
 
         // 如果当前不在看该角色的聊天，加未读
         if (!document.getElementById('pageHome').classList.contains('active') || prevAction !== msgRole) {
