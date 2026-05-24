@@ -7,7 +7,7 @@ const http = require('http');
 const crypto = require('crypto');
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-const CURRENT_VERSION = '1.0.13';
+const CURRENT_VERSION = '1.0.14';
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
 
@@ -58,70 +58,63 @@ async function waitForGateway(maxWaitMs = 30000) {
 }
 
 
-// 从 channels.json 读取非飞书平台凭证，转换为 Gateway 环境变量
-// 飞书每角色独立 Gateway，不在这里处理
+// 所有平台都走角色独立 Gateway，主 Gateway 不再直接处理任何平台连接
 function getPlatformEnvVars() {
-  const env = {};
-  try {
-    const cp = getConfigPath();
-    if (fs.existsSync(cp)) {
-      const channels = JSON.parse(fs.readFileSync(cp, 'utf8'));
-      // 企微
-      const getWecomCreds = () => {
-        if (!channels.wecom) return null;
-        for (const key of Object.keys(channels.wecom)) {
-          if (key.startsWith('_')) continue;
-          return channels.wecom[key];
-        }
-        return null;
-      };
-      const wecom = getWecomCreds();
-      if (wecom && wecom.bot_id) { env.WECOM_BOT_ID = wecom.bot_id; env.WECOM_SECRET = wecom.secret || ''; }
-      // 钉钉
-      const getDingtalkCreds = () => {
-        if (!channels.dingtalk) return null;
-        for (const key of Object.keys(channels.dingtalk)) { if (key.startsWith('_')) continue; return channels.dingtalk[key]; }
-        return null;
-      };
-      const dingtalk = getDingtalkCreds();
-      if (dingtalk && dingtalk.client_id) { env.DINGTALK_CLIENT_ID = dingtalk.client_id; env.DINGTALK_CLIENT_SECRET = dingtalk.client_secret || ''; }
-      // QQ
-      const getQQCreds = () => {
-        if (!channels.qq) return null;
-        for (const key of Object.keys(channels.qq)) { if (key.startsWith('_')) continue; return channels.qq[key]; }
-        return null;
-      };
-      const qq = getQQCreds();
-      if (qq && qq.app_id) { env.QQ_APP_ID = qq.app_id; env.QQ_APP_SECRET = qq.app_secret || ''; }
-    }
-  } catch (_) {}
-  return env;
+  return {};
 }
 
-// 从 channels.json 读取飞书每角色配置，返回 [{roleId, appId, appSecret, name}]
-function getFeishuRoleConfigs() {
+// 平台定义: { key, envVars: {fieldName -> envName}, credField: 凭证标识字段 }
+const PLATFORM_DEFS = {
+  feishu:    { label: '飞书',  credField: 'app_id', envVars: { app_id: 'FEISHU_APP_ID', app_secret: 'FEISHU_APP_SECRET' } },
+  wecom:     { label: '企微',  credField: 'bot_id', envVars: { bot_id: 'WECOM_BOT_ID', secret: 'WECOM_SECRET' } },
+  dingtalk:  { label: '钉钉',  credField: 'client_id', envVars: { client_id: 'DINGTALK_CLIENT_ID', client_secret: 'DINGTALK_CLIENT_SECRET' } },
+  qq:        { label: 'QQ',    credField: 'app_id', envVars: { app_id: 'QQ_APP_ID', app_secret: 'QQ_APP_SECRET' } },
+};
+
+// 从 channels.json 读取所有平台每角色配置
+// 返回 [{ platform, roleId, name, creds: {app_id, app_secret, ...}, envVars: {FEISHU_APP_ID: ..., ...} }]
+function getPlatformRoleConfigs() {
   const configs = [];
   try {
     const cp = getConfigPath();
-    if (fs.existsSync(cp)) {
-      const channels = JSON.parse(fs.readFileSync(cp, 'utf8'));
-      if (channels.feishu) {
-        for (const [roleId, cfg] of Object.entries(channels.feishu)) {
-          if (roleId.startsWith('_') || !cfg.app_id) continue;
-          const roles = loadRoles();
-          configs.push({ roleId, appId: cfg.app_id, appSecret: cfg.app_secret || '', name: (roles[roleId] && roles[roleId].name) || roleId });
+    if (!fs.existsSync(cp)) return configs;
+    const channels = JSON.parse(fs.readFileSync(cp, 'utf8'));
+    const roles = loadRoles();
+    for (const [platformKey, platformDef] of Object.entries(PLATFORM_DEFS)) {
+      const platformData = channels[platformKey];
+      if (!platformData) continue;
+      for (const [roleId, cfg] of Object.entries(platformData)) {
+        if (roleId.startsWith('_')) continue;
+        const credField = platformDef.credField;
+        if (!cfg[credField]) continue;
+        const envVars = {};
+        for (const [fieldName, envName] of Object.entries(platformDef.envVars)) {
+          envVars[envName] = cfg[fieldName] || '';
         }
+        configs.push({
+          platform: platformKey,
+          roleId,
+          name: (roles[roleId] && roles[roleId].name) || roleId,
+          creds: cfg,
+          envVars,
+          label: platformDef.label
+        });
       }
     }
   } catch (_) {}
   return configs;
 }
 
+// 向后兼容别名
+function getFeishuRoleConfigs() {
+  return getPlatformRoleConfigs().filter(c => c.platform === 'feishu');
+}
 
-// 为每个有飞书配置的角色启动独立 Gateway 进程
+
+// 为每个有平台配置的角色启动独立 Gateway 进程（飞书/企微/钉钉/QQ）
 function spawnRoleGateways(pythonBin, libsDir, glog) {
-  const feishuConfigs = getFeishuRoleConfigs();
-  if (feishuConfigs.length === 0) { glog('No Feishu role configs found, skipping role gateways'); return; }
+  const configs = getPlatformRoleConfigs();
+  if (configs.length === 0) { glog('No platform role configs found, skipping role gateways'); return; }
 
   // 先停掉旧的角色 Gateway
   for (const rg of _roleGateways) {
@@ -131,7 +124,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
 
   const engineDir = getEngineDir();
 
-  for (const cfg of feishuConfigs) {
+  for (const cfg of configs) {
     const roleHome = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
     if (!fs.existsSync(roleHome)) { fs.mkdirSync(roleHome, { recursive: true }); }
 
@@ -148,23 +141,23 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
     rset('custom_providers.0.api_key', getDeepSeekApiKey());
     rset('custom_providers.0.model', 'deepseek-v4-pro');
 
-    glog(`Starting Feishu gateway for role ${cfg.roleId} (${cfg.name})...`);
+    glog(`Starting ${cfg.label} gateway for role ${cfg.roleId} (${cfg.name})...`);
     try {
       const roleProc = spawn(pythonBin, ['-m', 'hermes_cli.main', 'gateway', 'run', '--replace'], {
         env: { ...process.env, HOME: homeDir, HERMES_HOME: roleHome, HERMES_CONFIG_PATH: roleConfigPath,
-               FEISHU_APP_ID: cfg.appId, FEISHU_APP_SECRET: cfg.appSecret,
+               ...cfg.envVars,
                API_SERVER_ENABLED: 'false', GATEWAY_ALLOW_ALL_USERS: 'true',
                PYTHONPATH: libsDir, PYTHONHOME: '' },
         stdio: 'ignore',
         detached: true
       });
       roleProc.unref();
-      roleProc.on('error', (err) => { glog(`Role GW ${cfg.roleId} SPAWN ERROR: ` + err.message); });
-      roleProc.on('exit', (code, sig) => { glog(`Role GW ${cfg.roleId} exited code=${code} sig=${sig}`); });
-      _roleGateways.push({ roleId: cfg.roleId, process: roleProc, home: roleHome });
-      glog(`Role GW ${cfg.roleId} spawned OK`);
+      roleProc.on('error', (err) => { glog(`Role GW ${cfg.roleId}/${cfg.platform} SPAWN ERROR: ` + err.message); });
+      roleProc.on('exit', (code, sig) => { glog(`Role GW ${cfg.roleId}/${cfg.platform} exited code=${code} sig=${sig}`); });
+      _roleGateways.push({ roleId: cfg.roleId, platform: cfg.platform, process: roleProc, home: roleHome });
+      glog(`Role GW ${cfg.roleId}/${cfg.platform} spawned OK`);
     } catch(e) {
-      glog(`Role GW ${cfg.roleId} spawn exception: ` + e.message);
+      glog(`Role GW ${cfg.roleId}/${cfg.platform} spawn exception: ` + e.message);
     }
   }
 }
