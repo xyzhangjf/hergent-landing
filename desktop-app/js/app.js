@@ -4352,22 +4352,27 @@ function selectModel(model) {
 
 async function _saveModelPreset(model) {
   const msg = document.getElementById('modelMsg');
-  msg.textContent = '应用模型中...';
-  msg.style.color = 'var(--text-tertiary)';
+  const label = document.getElementById('miLabel');
+  if (msg) { msg.textContent = '应用模型中...'; msg.style.color = 'var(--text-tertiary)'; }
+  if (label) { label.textContent = '切换中...'; }
   try {
     const result = await window.hermes.setModelConfig({ model, provider: 'hergent' });
     if (result.success) {
       _currentModel = model;
       updateModelIndicator(model);
-      msg.textContent = '模型已切换，Gateway 重启中...';
-      setTimeout(() => { msg.textContent = '模型已生效 ✓'; msg.style.color = '#22c55e'; }, 3000);
+      if (msg) { msg.textContent = '模型已切换，Gateway 重启中...'; }
+      if (label) { label.textContent = '已生效 ✓'; }
+      setTimeout(() => {
+        if (msg) { msg.textContent = '模型已生效 ✓'; msg.style.color = '#22c55e'; }
+        updateModelIndicator(model);
+      }, 2000);
     } else {
-      msg.textContent = '切换失败: ' + (result.error || '未知错误');
-      msg.style.color = '#ef4444';
+      if (msg) { msg.textContent = '切换失败: ' + (result.error || '未知错误'); msg.style.color = '#ef4444'; }
+      if (label) updateModelIndicator(model);
     }
   } catch (e) {
-    msg.textContent = '切换失败: ' + (e.message || '网络错误');
-    msg.style.color = '#ef4444';
+    if (msg) { msg.textContent = '切换失败: ' + (e.message || '网络错误'); msg.style.color = '#ef4444'; }
+    if (label) updateModelIndicator(model);
   }
 }
 

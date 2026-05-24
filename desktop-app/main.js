@@ -7,7 +7,7 @@ const http = require('http');
 const crypto = require('crypto');
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-const CURRENT_VERSION = '1.0.9';
+const CURRENT_VERSION = '1.0.10';
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
 
@@ -1503,10 +1503,16 @@ ipcMain.handle('channels:get', async () => {
       if (state.platforms) {
         for (const [key, platform] of Object.entries(state.platforms)) {
           if (platform.state === 'connected') {
-            if (channels[key]) {
+            if (!channels[key] || typeof channels[key].app_id === 'string') {
+              // 旧扁平数据或不存在，设置平台级 _connected
+              if (!channels[key]) channels[key] = {};
               channels[key]._connected = true;
-            } else {
-              channels[key] = { _connected: true };
+            }
+            // 将连接状态传播到该平台下每个角色
+            for (const [subKey, subVal] of Object.entries(channels[key] || {})) {
+              if (!subKey.startsWith('_') && typeof subVal === 'object') {
+                subVal.connected = true;
+              }
             }
           }
         }
@@ -1516,12 +1522,19 @@ ipcMain.handle('channels:get', async () => {
   return channels;
 });
 
-ipcMain.handle('channels:save', async (event, channel, config) => {
+ipcMain.handle('channels:save', async (event, channel, role, config) => {
+  // 向后兼容：如果第三个参数是对象（旧调用方式），则 role 其实是 config
+  if (typeof role === 'object' && !config) {
+    config = role;
+    role = 'dami';
+  }
+  role = role || 'dami';
+
   // 1. 写入 Hermes config.yaml（通过 hermes config set）
   try {
     for (const [key, value] of Object.entries(config)) {
       if (!value) continue;
-      const escaped = value.replaceAll('"', '\\"');
+      const escaped = String(value).replaceAll('"', '\\"');
       hermesCLI(`config set ${channel}.${key} "${escaped}"`, 5000);
     }
     // 确保启用该通道
@@ -1530,9 +1543,16 @@ ipcMain.handle('channels:save', async (event, channel, config) => {
     console.error('hermes config set failed:', e.message);
   }
 
-  // 2. 保存到 channels.json
+  // 2. 保存到 channels.json（按平台→角色嵌套存储）
   const data = loadChannels();
-  data[channel] = config;
+  if (!data[channel] || typeof data[channel].app_id === 'string') {
+    // 旧数据是扁平的，迁移为嵌套结构
+    const oldFlat = data[channel] || {};
+    data[channel] = { _flat_migrated: true };
+    if (oldFlat.app_id) data[channel][role] = config;
+  } else {
+    data[channel][role] = config;
+  }
   saveChannels(data);
 
   // 3. 重启网关使新配置生效
@@ -2365,7 +2385,12 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       set('custom_providers.0.api_key', opts.custom_api_key || '');
       set('custom_providers.0.model', opts.model || 'deepseek-v4-pro');
     }
-    return { success: true };
+    // 重启 Gateway 使模型变更生效
+    stopHermesGateway();
+    await new Promise(r => setTimeout(r, 1500)); // 等待旧进程退出
+    await startHermesGateway();
+    const ready = await waitForGateway(15000);
+    return { success: ready };
   } catch (e) { return { success: false, error: e.message }; }
 });
 
@@ -2406,7 +2431,18 @@ ipcMain.handle('channels:remove', async (event, channel, role) => {
     const cp = getConfigPath();
     if (fs.existsSync(cp)) {
       const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
-      delete cfg[channel];
+      if (role) {
+        // 按角色删除：只移除该角色在该平台的配置
+        if (cfg[channel] && cfg[channel][role]) {
+          delete cfg[channel][role];
+          // 如果该平台下没有角色了，删除整个平台
+          const remaining = Object.keys(cfg[channel]).filter(k => !k.startsWith('_'));
+          if (remaining.length === 0) delete cfg[channel];
+        }
+      } else {
+        // 没有指定角色，删除整个平台
+        delete cfg[channel];
+      }
       fs.writeFileSync(cp, JSON.stringify(cfg, null, 2));
     }
     return { success: true };
