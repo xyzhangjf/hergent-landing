@@ -177,6 +177,10 @@
     if (/退出码|exit code/i.test(msg)) return 'AI 引擎异常，请重试';
     if (/EPIPE|broken pipe/i.test(msg)) return '连接中断，请重试';
     if (/ENOENT|not found/i.test(msg)) return '未找到所需程序，请确认安装完整';
+    if (/429|rate.?limit/i.test(msg)) return '请求太频繁，请稍后重试';
+    if (/401|unauthorized/i.test(msg)) return '登录已过期，请重新登录';
+    if (/500|internal.?server/i.test(msg)) return '服务器异常，请稍后重试';
+    if (/503|service.?unavailable/i.test(msg)) return '服务暂不可用，请稍后重试';
     return (e && e.message) || '未知错误，请重试';
   }
 
@@ -266,7 +270,7 @@
           startFeishuPolling(); // 启动后立即开始轮询飞书消息
           return;
         }
-      } catch (e) {}
+      } catch (e) { console.error("auth check failed:", e.message); }
       localStorage.removeItem('hermes_auth');
       authState = null;
     }
@@ -380,8 +384,10 @@
       } else {
         hintEl.textContent = '微信登录暂不可用（需配置微信开放平台）';
       }
-    } catch (e) {
-      document.getElementById('wechatQR').innerHTML = '<p style="color:var(--text-tertiary);font-size:13px">微信登录需要服务器支持<br>请使用手机号登录</p>';
+    } catch (e) { console.error("wechat QR failed:", e.message);
+      // 微信不可用时隐藏微信登录标签页
+      const wechatTab = document.querySelector('.login-tab[onclick*="wechat"]');
+      if (wechatTab) wechatTab.style.display = 'none';
     }
   }
 
@@ -536,6 +542,18 @@
   // ===== 积分 =====
   function updateTrialBadge() { updateCreditsBadge(); }
 
+  let _lowCreditsDismissTimer = null;
+  function dismissLowCreditsBanner() {
+    const banner = document.getElementById('lowCreditsBanner');
+    if (banner) banner.style.display = 'none';
+    // 5分钟后自动恢复显示
+    if (_lowCreditsDismissTimer) clearTimeout(_lowCreditsDismissTimer);
+    _lowCreditsDismissTimer = setTimeout(() => {
+      _lowCreditsDismissTimer = null;
+      updateCreditsBadge(); // 重新检查并显示横幅
+    }, 300000);
+  }
+
   async function updateCreditsBadge() {
     const badge = document.getElementById('creditsBadge');
     if (!badge) return;
@@ -580,19 +598,21 @@
       badge.onclick = () => showRecharge();
     }
     updateCostEstimate();
-    // 控制低余额横幅
+    // 控制低余额横幅（如果用户手动关闭了，5分钟内不重复显示，积分=0时除外）
     const banner = document.getElementById('lowCreditsBanner');
     if (banner) {
       if (b <= 0) {
         banner.style.display = 'flex';
         banner.className = 'low-credits-banner';
         document.getElementById('lcbText').textContent = '积分已用完，请充值后继续使用';
+        // 积分用完时清除dismiss计时器，强制显示
+        if (_lowCreditsDismissTimer) { clearTimeout(_lowCreditsDismissTimer); _lowCreditsDismissTimer = null; }
       } else if (b < 50) {
-        banner.style.display = 'flex';
+        if (!_lowCreditsDismissTimer) banner.style.display = 'flex';
         banner.className = 'low-credits-banner';
         document.getElementById('lcbText').textContent = `积分仅剩 ${b} 分，建议立即充值`;
       } else if (b < 200) {
-        banner.style.display = 'flex';
+        if (!_lowCreditsDismissTimer) banner.style.display = 'flex';
         banner.className = 'low-credits-banner warn';
         document.getElementById('lcbText').textContent = `积分偏低（${b} 分），建议充值`;
       } else {
@@ -1704,7 +1724,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   }
 
   async function getChannels() {
-    try { return await window.hermes.getChannels(); } catch(_) { return {}; }
+    try { return await window.hermes.getChannels(); } catch(_) { console.error("getChannels failed"); return {}; }
   }
 
   async function refreshChannels() {
@@ -4429,7 +4449,7 @@ async function loadModelConfig() {
       document.getElementById('customModelName').value = cp.model || _currentModel;
       document.getElementById('customModelForm').style.display = '';
     }
-  } catch (_) {}
+  } catch (_) { console.error("loadModelConfig failed"); }
 }
 
 function selectModel(model) {
