@@ -7,7 +7,7 @@ const http = require('http');
 const crypto = require('crypto');
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-const CURRENT_VERSION = '1.0.10';
+const CURRENT_VERSION = '1.0.11';
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
 
@@ -56,7 +56,77 @@ async function waitForGateway(maxWaitMs = 30000) {
   return false;
 }
 
+
+// 从 channels.json 读取平台凭证，转换为 Gateway 环境变量
+function getPlatformEnvVars() {
+  const env = {};
+  try {
+    const cp = getConfigPath();
+    if (fs.existsSync(cp)) {
+      const channels = JSON.parse(fs.readFileSync(cp, 'utf8'));
+      // 飞书
+      const getFeishuCreds = () => {
+        if (!channels.feishu) return null;
+        for (const key of Object.keys(channels.feishu)) {
+          if (key.startsWith('_')) continue;
+          return channels.feishu[key]; // 返回第一个角色的配置
+        }
+        return null;
+      };
+      const feishu = getFeishuCreds();
+      if (feishu && feishu.app_id) {
+        env.FEISHU_APP_ID = feishu.app_id;
+        env.FEISHU_APP_SECRET = feishu.app_secret || '';
+      }
+      // 企微
+      const getWecomCreds = () => {
+        if (!channels.wecom) return null;
+        for (const key of Object.keys(channels.wecom)) {
+          if (key.startsWith('_')) continue;
+          return channels.wecom[key];
+        }
+        return null;
+      };
+      const wecom = getWecomCreds();
+      if (wecom && wecom.bot_id) {
+        env.WECOM_BOT_ID = wecom.bot_id;
+        env.WECOM_SECRET = wecom.secret || '';
+      }
+      // 钉钉
+      const getDingtalkCreds = () => {
+        if (!channels.dingtalk) return null;
+        for (const key of Object.keys(channels.dingtalk)) {
+          if (key.startsWith('_')) continue;
+          return channels.dingtalk[key];
+        }
+        return null;
+      };
+      const dingtalk = getDingtalkCreds();
+      if (dingtalk && dingtalk.client_id) {
+        env.DINGTALK_CLIENT_ID = dingtalk.client_id;
+        env.DINGTALK_CLIENT_SECRET = dingtalk.client_secret || '';
+      }
+      // QQ
+      const getQQCreds = () => {
+        if (!channels.qq) return null;
+        for (const key of Object.keys(channels.qq)) {
+          if (key.startsWith('_')) continue;
+          return channels.qq[key];
+        }
+        return null;
+      };
+      const qq = getQQCreds();
+      if (qq && qq.app_id) {
+        env.QQ_APP_ID = qq.app_id;
+        env.QQ_APP_SECRET = qq.app_secret || '';
+      }
+    }
+  } catch (_) {}
+  return env;
+}
+
 async function startHermesGateway() {
+
   const engineDir = getEngineDir();
   const gwHome = path.join(engineDir, '.hermes');
   const gf = path.join(gwHome, 'app_debug.log');
@@ -109,7 +179,7 @@ async function startHermesGateway() {
     glog(`Windows: spawning: ${HERMES_BIN} gateway run`);
     try {
       gatewayProcess = spawn(HERMES_BIN, ['gateway', 'run', '--replace'], {
-        env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
+        env: { ...process.env, ...platformEnv, HOME: homeDir, USERPROFILE: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
         stdio: ['ignore', 'ignore', 'pipe'],
         shell: true,
         windowsHide: true
@@ -150,7 +220,7 @@ async function startHermesGateway() {
       glog(`spawning via Python: ${pythonBin} -m hermes_cli.main gateway run, PYTHONPATH=${libsDir}`);
       try {
         gatewayProcess = spawn(pythonBin, ['-m', 'hermes_cli.main', 'gateway', 'run', '--replace'], {
-          env: { ...process.env, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true', PYTHONPATH: libsDir, PYTHONHOME: '' },
+          env: { ...process.env, ...platformEnv, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true', PYTHONPATH: libsDir, PYTHONHOME: '' },
           stdio: 'ignore',
           detached: true
         });
@@ -165,7 +235,7 @@ async function startHermesGateway() {
       glog(`Fallback spawning: ${HERMES_BIN} gateway run`);
       try {
         gatewayProcess = spawn(HERMES_BIN, ['gateway', 'run', '--replace'], {
-          env: { ...process.env, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
+          env: { ...process.env, ...platformEnv, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
           stdio: 'ignore',
           detached: true
         });
@@ -760,24 +830,18 @@ function saveChannels(data) {
 
 // ===== 网关控制 =====
 async function restartGateway() {
-  return new Promise((resolve) => {
-    const cmd = `${HERMES_BIN} gateway restart 2>&1`;
-    exec(cmd, { timeout: 30000 }, (err, stdout, stderr) => {
-      const output = (stdout || '') + (stderr || '');
-      if (err) {
-        resolve({ success: false, output: output || err.message });
-      } else {
-        resolve({ success: true, output: output.trim() });
-      }
-    });
-  });
+  stopHermesGateway();
+  await new Promise(r => setTimeout(r, 1500));
+  const ok = await startHermesGateway();
+  return { success: ok, output: ok ? 'Gateway restarted' : 'Gateway restart failed' };
 }
 
 // ===== Hermes CLI 帮助函数 =====
 
 function hermesCLI(args, timeout = 30000) {
   const cmd = `${HERMES_BIN} ${args}`;
-  const result = execSync(cmd, { timeout, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+  const hermesHome = path.join(getEngineDir(), '.hermes');
+  const result = execSync(cmd, { timeout, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, HERMES_HOME: hermesHome } });
   return result.trim();
 }
 
