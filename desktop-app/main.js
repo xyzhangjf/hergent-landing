@@ -71,6 +71,25 @@ const PLATFORM_DEFS = {
   qq:        { label: 'QQ',    credField: 'app_id', envVars: { app_id: 'QQ_APP_ID', app_secret: 'QQ_APP_SECRET' } },
 };
 
+// 获取角色最近的平台 session ID（飞书等），用于 App 聊天与平台共享上下文
+function getLatestPlatformSession(roleId) {
+  try {
+    const engineDir = getEngineDir();
+    const sessionsDir = path.join(engineDir, '.hermes', 'agents', roleId, 'sessions');
+    const indexPath = path.join(sessionsDir, 'sessions.json');
+    if (!fs.existsSync(indexPath)) return null;
+    const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+    let latest = null;
+    for (const [key, meta] of Object.entries(index)) {
+      if (meta.platform === 'cli' || meta.platform === 'api_server') continue;
+      if (!latest || meta.updated_at > latest.updated_at) {
+        latest = { sessionId: meta.session_id, updated: meta.updated_at };
+      }
+    }
+    return latest ? latest.sessionId : null;
+  } catch (_) { return null; }
+}
+
 // 从 channels.json 读取所有平台每角色配置
 // 返回 [{ platform, roleId, name, creds: {app_id, app_secret, ...}, envVars: {FEISHU_APP_ID: ..., ...} }]
 function getPlatformRoleConfigs() {
@@ -1144,7 +1163,8 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             try {
               const winRoleId = role || 'dami';
               const winArgs = [winHermes, 'chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
-              if (ROLE_SESSIONS[winRoleId]) { winArgs.push('--resume', ROLE_SESSIONS[winRoleId]); }
+              const winPlatformSid = getLatestPlatformSession(winRoleId);
+              if (winPlatformSid || ROLE_SESSIONS[winRoleId]) { winArgs.push('--resume', winPlatformSid || ROLE_SESSIONS[winRoleId]); }
               const child = spawn(winPython, winArgs, {
                 env: { ...process.env, PYTHONPATH: path.join(engineDir, 'libs'), PYTHONHOME: '', HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') }
               });
@@ -1194,9 +1214,11 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               baseArgs[0] = '-m';
               baseArgs[1] = 'hermes_cli.main';
             }
-            // 会话续接：保持同一角色的上下文连续性
-            if (ROLE_SESSIONS[roleId]) {
-              baseArgs.push('--resume', ROLE_SESSIONS[roleId]);
+            // 会话续接：优先用飞书等平台的活跃 session，否则用 CLI session
+            const platformSessionId = getLatestPlatformSession(roleId);
+            const resumeId = platformSessionId || ROLE_SESSIONS[roleId];
+            if (resumeId) {
+              baseArgs.push('--resume', resumeId);
             }
             const spawnArgs = baseArgs;
             const spawnEnv = { ...process.env, HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') };
@@ -1765,47 +1787,29 @@ ipcMain.handle('channels:gateway-restart', async () => {
   }
 });
 
-// ===== 消息注入到 CLI 会话 =====
+// ===== 消息注入到平台会话（飞书等）=====
 ipcMain.handle('chat:inject-message', async (event, roleId, message) => {
   try {
     const engineDir = getEngineDir();
-    const hermesHome = path.join(engineDir, '.hermes');
+    const sessionsDir = path.join(engineDir, '.hermes', 'agents', roleId, 'sessions');
 
-    // CLI 会话使用主 HERMES_HOME 运行，不在 role 目录
-    // 找最新的 CLI session
-    let latestCli = null;
-    const searchDirs = [
-      path.join(hermesHome, 'sessions'),
-      path.join(hermesHome, 'agents', roleId, 'sessions'),
-    ];
-
-    for (const sessionsDir of searchDirs) {
-      const indexPath = path.join(sessionsDir, 'sessions.json');
-      if (!fs.existsSync(indexPath)) continue;
-      const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-      for (const [key, meta] of Object.entries(index)) {
-        if (meta.platform === 'cli' || meta.platform === 'api_server') {
-          if (!latestCli || meta.updated_at > latestCli.updated_at) {
-            latestCli = { sessionId: meta.session_id, updated: meta.updated_at, dir: sessionsDir };
-          }
-        }
-      }
+    // 找到该角色的平台 session（飞书等），直接往 JSON 里追加用户消息
+    let sessionId = getLatestPlatformSession(roleId);
+    let sessionFile = null;
+    if (sessionId) {
+      sessionFile = path.join(sessionsDir, `session_${sessionId}.json`);
+      if (!fs.existsSync(sessionFile)) sessionFile = null;
     }
 
-    // 后台运行 hermes chat 注入消息（不等待结果）
-    const escaped = message.replace(/"/g, '\\"').replace(/\n/g, ' ').slice(0, 500);
-    let cmd;
-    if (latestCli) {
-      cmd = `${HERMES_BIN} chat -q "${escaped}" --resume ${latestCli.sessionId} --max-turns 1 --source tool`;
-    } else {
-      // 没有 CLI 会话，新建一个（消息会被处理，后续 app 发消息可以 resume 它）
-      cmd = `${HERMES_BIN} chat -q "${escaped}" --max-turns 1 --source tool`;
+    if (sessionFile) {
+      // 直接写 JSON：追加用户消息到 messages 数组
+      const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+      session.messages = session.messages || [];
+      session.messages.push({ role: 'user', content: message });
+      session.last_updated = new Date().toISOString();
+      session.message_count = session.messages.length;
+      fs.writeFileSync(sessionFile, JSON.stringify(session, null, 2));
     }
-    spawn('/bin/sh', ['-c', cmd], {
-      env: { ...process.env, HERMES_HOME: hermesHome },
-      stdio: 'ignore',
-      detached: true
-    }).unref();
 
     return { success: true };
   } catch (e) {
