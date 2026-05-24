@@ -37,7 +37,7 @@ contextBridge.exposeInMainWorld('hermes', {
 
   // 连接手机（Bot模式：保存 { channel, data: {app_id, app_secret} }）
   getChannels: () => ipcRenderer.invoke('channels:get'),
-  saveChannel: (channel, role, data) => ipcRenderer.invoke('channels:save', channel, data),
+  saveChannel: (channel, role, data) => ipcRenderer.invoke('channels:save', channel, role, data),
   removeChannel: (channel, role) => ipcRenderer.invoke('channels:remove', channel, role),
   approvePairing: (channel, role, code) => ipcRenderer.invoke('channels:pairing-approve', channel, role, code),
 
