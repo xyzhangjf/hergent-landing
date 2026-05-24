@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('hermes', {
   gatewayStatus: () => ipcRenderer.invoke('channels:gateway-status'),
   gatewayRestart: () => ipcRenderer.invoke('channels:gateway-restart'),
   pollFeishuMessages: () => ipcRenderer.invoke('feishu:poll-messages'),
+  injectMessage: (roleId, text) => ipcRenderer.invoke('chat:inject-message', roleId, text),
 
   // 在 Finder 中打开文件所在文件夹
   openFolder: (path) => ipcRenderer.invoke('shell:openFolder', path),
