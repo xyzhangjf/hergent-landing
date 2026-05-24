@@ -1868,13 +1868,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
           currentAction = prevAction; // 恢复当前角色
         }
 
-        // 将飞书用户消息注入到 App CLI Session（写JSON，不触发AI处理）
-        if (msg.role === 'user') {
-          const cliSessionId = localStorage.getItem('hermes_session_' + msgRole);
-          if (cliSessionId && window.hermes && window.hermes.injectMessage) {
-            window.hermes.injectMessage(msgRole, msg.text, cliSessionId).catch(() => {});
-          }
-        }
+        // App 和飞书共用同一 Session，无需注入
 
         // 如果当前不在看该角色的聊天，加未读
         if (!document.getElementById('pageHome').classList.contains('active') || prevAction !== msgRole) {

@@ -1163,7 +1163,8 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             try {
               const winRoleId = role || 'dami';
               const winArgs = [winHermes, 'chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
-              if (ROLE_SESSIONS[winRoleId]) { winArgs.push('--resume', ROLE_SESSIONS[winRoleId]); }
+              const winPlatformSid = getLatestPlatformSession(winRoleId);
+              if (winPlatformSid || ROLE_SESSIONS[winRoleId]) { winArgs.push('--resume', winPlatformSid || ROLE_SESSIONS[winRoleId]); }
               const child = spawn(winPython, winArgs, {
                 env: { ...process.env, PYTHONPATH: path.join(engineDir, 'libs'), PYTHONHOME: '', HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') }
               });
@@ -1213,9 +1214,11 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               baseArgs[0] = '-m';
               baseArgs[1] = 'hermes_cli.main';
             }
-            // 会话续接：用 CLI session（App聊天独立Session，飞书消息通过JSON注入共享上下文）
-            if (ROLE_SESSIONS[roleId]) {
-              baseArgs.push('--resume', ROLE_SESSIONS[roleId]);
+            // 会话续接：优先用平台Session（飞书等），App和飞书共享同一上下文
+            const platformSessionId = getLatestPlatformSession(roleId);
+            const resumeId = platformSessionId || ROLE_SESSIONS[roleId];
+            if (resumeId) {
+              baseArgs.push('--resume', resumeId);
             }
             const spawnArgs = baseArgs;
             const spawnEnv = { ...process.env, HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') };
