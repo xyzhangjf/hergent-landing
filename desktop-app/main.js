@@ -236,7 +236,7 @@ async function startHermesGateway() {
     glog(`Windows: spawning: ${HERMES_BIN} gateway run`);
     try {
       gatewayProcess = spawn(HERMES_BIN, ['gateway', 'run', '--replace'], {
-        env: { ...process.env, ...platformEnv, HOME: homeDir, USERPROFILE: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
+        env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
         stdio: ['ignore', 'ignore', 'pipe'],
         shell: true,
         windowsHide: true
@@ -277,7 +277,7 @@ async function startHermesGateway() {
       glog(`spawning via Python: ${pythonBin} -m hermes_cli.main gateway run, PYTHONPATH=${libsDir}`);
       try {
         gatewayProcess = spawn(pythonBin, ['-m', 'hermes_cli.main', 'gateway', 'run', '--replace'], {
-          env: { ...process.env, ...platformEnv, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true', PYTHONPATH: libsDir, PYTHONHOME: '' },
+          env: { ...process.env, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true', PYTHONPATH: libsDir, PYTHONHOME: '' },
           stdio: 'ignore',
           detached: true
         });
@@ -292,7 +292,7 @@ async function startHermesGateway() {
       glog(`Fallback spawning: ${HERMES_BIN} gateway run`);
       try {
         gatewayProcess = spawn(HERMES_BIN, ['gateway', 'run', '--replace'], {
-          env: { ...process.env, ...platformEnv, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
+          env: { ...process.env, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
           stdio: 'ignore',
           detached: true
         });
