@@ -1,8 +1,1 @@
-{
-  "version": "1.0.4",
-  "release_date": "2026-05-21",
-  "release_notes": "Hergent v1.0.4 更新\n\n- 🔧 修复模型名：deepseek-chat → deepseek-v4-pro\n- 🔧 修复 Gateway 配置格式：api_server 包入 platforms 段\n- 🔧 custom_providers 补充 model 字段\n- 🔧 顶层初始化移入 app.whenReady() 守护\n\n系统要求：\n- macOS 12+ · Apple Silicon & Intel\n- Windows 10+ · x64",
-  "download_url_mac": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.4/Hergent-1.0.4-mac-arm64.dmg",
-  "download_url_win": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.4/Hergent-1.0.4-setup.exe",
-  "checksum": ""
-}
+{"version":"1.0.13","release_date":"2026-05-24","release_notes":"Hergent v1.0.13\n\n📱 多Gateway实例：飞书每角色独立连接，互不干扰\n⚡ 模型快速切换 + Gateway自动重启\n🔧 飞书消息同步到App聊天面板\n\n系统要求:\n- macOS 12+ · Apple Silicon & Intel\n- Windows 10+ · x64","download_url_mac":"https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.13/Hergent-1.0.13-mac-arm64.dmg","download_url_win":"https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.13/Hergent-1.0.13-setup.exe","checksum":""}
