@@ -295,8 +295,23 @@ async function startHermesGateway() {
   }
   } // end if (!isRunning)
 
+  // 启动飞书每角色独立 Gateway（无论主Gateway是否已运行）
+  const binDir2 = path.dirname(HERMES_BIN);
+  const pythonCandidates2 = [
+    path.join(binDir2, 'python', 'bin', 'python3.11'),
+    path.join(binDir2, 'python3.11'),
+    path.join(binDir2, 'python3'),
+  ];
+  const pythonBin2 = pythonCandidates2.find(p => fs.existsSync(p));
+  if (pythonBin2) {
+    const libsDir2 = path.join(binDir2, 'libs');
+    spawnRoleGateways(pythonBin2, libsDir2, glog);
+  } else {
+    glog('Role GW: no python binary found for role gateways');
+  }
+
   glog('waiting for health check...');
-  const ready = await waitForGateway();
+  const ready = isRunning || await waitForGateway();
   glog('health check result: ' + ready);
   if (ready) {
     glog('Gateway ready on ' + GATEWAY_URL);
