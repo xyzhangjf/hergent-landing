@@ -263,6 +263,7 @@
           renderSidebar();
           initOnboarding();
           restoreLastState();
+          startFeishuPolling(); // 启动后立即开始轮询飞书消息
           return;
         }
       } catch (e) {}
@@ -278,6 +279,7 @@
     renderSidebar();
     initOnboarding();
     restoreLastState();
+    startFeishuPolling(); // 启动后立即开始轮询飞书消息
   }
 
   function saveAuth() {
