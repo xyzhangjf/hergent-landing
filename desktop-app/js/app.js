@@ -1868,10 +1868,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
           currentAction = prevAction; // 恢复当前角色
         }
 
-        // 如果是用户的飞书消息，同步注入到 CLI 会话让 Hermes 也能看到
-        if (msg.role === 'user') {
-          injectFeishuToCLI(msgRole, msg.text, msg.platform || '飞书').catch(() => {});
-        }
+        // 飞书消息已由 Gateway 写入共享 Session，App 聊天直接 resume 即可，无需额外注入
 
         // 如果当前不在看该角色的聊天，加未读
         if (!document.getElementById('pageHome').classList.contains('active') || prevAction !== msgRole) {
@@ -1882,16 +1879,6 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         if (prevAction === msgRole && document.getElementById('pageHome').classList.contains('active')) {
           loadChatHistory();
         }
-      }
-    } catch (_) {}
-  }
-
-  async function injectFeishuToCLI(roleId, text, platform) {
-    try {
-      if (window.hermes && window.hermes.injectMessage) {
-        // 找到该角色当前活跃的 CLI session ID
-        const sessionId = localStorage.getItem(`hermes_session_${roleId}`);
-        await window.hermes.injectMessage(roleId, `[来自${platform}的消息] ${text}`, sessionId || null);
       }
     } catch (_) {}
   }
