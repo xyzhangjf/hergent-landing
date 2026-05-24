@@ -144,8 +144,8 @@
       if (_rolesList[idx]) handleRole(_rolesList[idx].id);
       return;
     }
-    // Cmd+J: 弹出角色切换菜单
-    if (mod && e.key === 'j') { e.preventDefault(); toggleRoleSwitcher(); return; }
+    // Cmd+M: 弹出模型切换菜单
+    if (mod && e.key === 'm') { e.preventDefault(); toggleModelSwitcher(); return; }
 
     if (e.key === 'Escape') {
       const top = topOverlay();
@@ -2280,7 +2280,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       const input = document.getElementById('chatInput');
       if (input) { input.value = ''; input.focus(); }
       updateToolbarTitle(getRoleTitle(role));
-      updateRoleIndicator(role);
+
       renderQuickActions();
     } finally {
       _switchingRole = false;
@@ -2337,26 +2337,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   }
 
   // ===== 角色指示器 & 切换弹出菜单 =====
-  function updateRoleIndicator(role) {
-    const r = ROLES[role];
-    if (!r) return;
-    const indicator = document.getElementById('roleIndicator');
-    if (!indicator) return;
-    indicator.querySelector('.ri-name').textContent = r.name;
-    const avatar = indicator.querySelector('.ri-avatar');
-    // 优先使用 avatarPreset
-    const preset = r.avatarPreset || '';
-    avatar.src = preset ? `avatar://${preset}.png?t=${Date.now()}` : `avatar://${role}.png?t=${Date.now()}`;
-    avatar.alt = r.name;
-    avatar.style.display = '';
-    // 移除旧 fallback
-    const fb = indicator.querySelector('.ri-avatar-fb');
-    if (fb) fb.remove();
-    // onerror fallback: 隐藏图片，显示颜色圆形
-    avatar.onerror = function() {
-      avatar.src = 'avatar://dami.png'; // fallback to dami
-    };
-  }
+  // 角色指示器已移至侧边栏，输入栏不再显示当前角色
 
   // ===== 动态侧边栏渲染 =====
   function renderSidebar() {
@@ -2512,36 +2493,40 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     }
   }
 
-  function toggleRoleSwitcher() {
-    const popup = document.getElementById('roleSwitcher');
+  function toggleModelSwitcher() {
+    const popup = document.getElementById('modelSwitcher');
     const isOpen = popup.classList.contains('show');
     if (isOpen) { popup.classList.remove('show'); return; }
 
-    // 构建角色列表（使用动态角色）
-    const list = document.getElementById('rsList');
-    list.innerHTML = _rolesList.map(r => {
-      const preset = r.avatarPreset || r.id;
-      const avatarHTML = `<img src="avatar://${preset}.png" alt="${r.name}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`;
-      return `<button class="rs-item${currentAction === r.id ? ' active' : ''}" onclick="event.stopPropagation();switchRole('${r.id}')">
-        ${avatarHTML}
-        <span>${r.name}</span>
-      </button>`;
-    }).join('');
+    const models = [
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', desc: '最强推理能力 · 约5-8分/次' },
+      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', desc: '快速响应 · 约1-3分/次' },
+    ];
+    const list = document.getElementById('msList');
+    list.innerHTML = models.map(m => `
+      <button class="ms-item${_currentModel === m.id ? ' active' : ''}" onclick="event.stopPropagation();switchModel('${m.id}')">
+        <span class="ms-item-name">${m.name}</span>
+        <span class="ms-item-desc">${m.desc}</span>
+      </button>
+    `).join('')
+    + `<div class="ms-divider"></div>
+    <button class="ms-item" onclick="event.stopPropagation();switchPage('pageSettings');document.getElementById('modelSwitcher').classList.remove('show');">
+      <span class="ms-item-name">⚙ 自定义模型…</span>
+      <span class="ms-item-desc">使用自己的 API Key 和地址</span>
+    </button>`;
 
-    // 定位在角色指示器上方
-    const btn = document.getElementById('roleIndicator');
+    const btn = document.getElementById('modelIndicator');
     const rect = btn.getBoundingClientRect();
     popup.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
     popup.style.left = (rect.left - 6) + 'px';
     popup.classList.add('show');
 
-    // 点击外部关闭（先移除旧监听防止泄漏）
     if (popup._closeHandler) document.removeEventListener('click', popup._closeHandler);
     setTimeout(() => {
-      popup._closeHandler = function closeRS(e) {
+      popup._closeHandler = function closeMS(e) {
         if (!popup.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
           popup.classList.remove('show');
-          document.removeEventListener('click', closeRS);
+          document.removeEventListener('click', closeMS);
           popup._closeHandler = null;
         }
       };
@@ -2549,10 +2534,26 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     }, 10);
   }
 
+  function switchModel(model) {
+    document.getElementById('modelSwitcher').classList.remove('show');
+    if (model === _currentModel) return;
+    _saveModelPreset(model);
+    updateModelIndicator(model);
+  }
+
+  function updateModelIndicator(model) {
+    const label = document.getElementById('miLabel');
+    if (!label) return;
+    const names = { 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash' };
+    label.textContent = names[model || _currentModel] || (model || _currentModel);
+    // 更新设置页
+    const setModel = document.getElementById('setModelName');
+    if (setModel) setModel.textContent = names[model || _currentModel] || (model || _currentModel);
+  }
+
   function switchRole(role) {
-    document.getElementById('roleSwitcher').classList.remove('show');
+    document.getElementById('modelSwitcher')?.classList.remove('show');
     handleRole(role);
-    updateRoleIndicator(role);
   }
 
   // 场景卡片 HTML — 每个角色有专属推荐
@@ -4357,8 +4358,7 @@ async function _saveModelPreset(model) {
     const result = await window.hermes.setModelConfig({ model, provider: 'hergent' });
     if (result.success) {
       _currentModel = model;
-      const labelMap = { 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash' };
-      document.getElementById('setModelName').textContent = labelMap[model] || model;
+      updateModelIndicator(model);
       msg.textContent = '模型已切换，Gateway 重启中...';
       setTimeout(() => { msg.textContent = '模型已生效 ✓'; msg.style.color = '#22c55e'; }, 3000);
     } else {
@@ -4388,7 +4388,7 @@ async function saveCustomModel() {
     });
     if (result.success) {
       _currentModel = modelName;
-      document.getElementById('setModelName').textContent = modelName + ' (自定义)';
+      updateModelIndicator(modelName + ' (自定义)');
       msg.textContent = '自定义模型已生效 ✓';
       msg.style.color = '#22c55e';
     } else {
