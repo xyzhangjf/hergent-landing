@@ -7,7 +7,7 @@ const http = require('http');
 const crypto = require('crypto');
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-const CURRENT_VERSION = '1.0.12';
+const CURRENT_VERSION = '1.0.13';
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
 
@@ -35,6 +35,7 @@ const GATEWAY_PORT = 18765;
 const GATEWAY_URL = `http://127.0.0.1:${GATEWAY_PORT}`;
 const GATEWAY_API_KEY = 'hergent-local-gateway-key-2026';
 let gatewayProcess = null;
+const _roleGateways = []; // { roleId, process, home } — 飞书每角色独立Gateway
 const ROLE_SESSIONS = {}; // roleId -> sessionId, 保持会话连续性
 
 function isGatewayRunning() {
@@ -57,27 +58,14 @@ async function waitForGateway(maxWaitMs = 30000) {
 }
 
 
-// 从 channels.json 读取平台凭证，转换为 Gateway 环境变量
+// 从 channels.json 读取非飞书平台凭证，转换为 Gateway 环境变量
+// 飞书每角色独立 Gateway，不在这里处理
 function getPlatformEnvVars() {
   const env = {};
   try {
     const cp = getConfigPath();
     if (fs.existsSync(cp)) {
       const channels = JSON.parse(fs.readFileSync(cp, 'utf8'));
-      // 飞书
-      const getFeishuCreds = () => {
-        if (!channels.feishu) return null;
-        for (const key of Object.keys(channels.feishu)) {
-          if (key.startsWith('_')) continue;
-          return channels.feishu[key]; // 返回第一个角色的配置
-        }
-        return null;
-      };
-      const feishu = getFeishuCreds();
-      if (feishu && feishu.app_id) {
-        env.FEISHU_APP_ID = feishu.app_id;
-        env.FEISHU_APP_SECRET = feishu.app_secret || '';
-      }
       // 企微
       const getWecomCreds = () => {
         if (!channels.wecom) return null;
@@ -88,42 +76,99 @@ function getPlatformEnvVars() {
         return null;
       };
       const wecom = getWecomCreds();
-      if (wecom && wecom.bot_id) {
-        env.WECOM_BOT_ID = wecom.bot_id;
-        env.WECOM_SECRET = wecom.secret || '';
-      }
+      if (wecom && wecom.bot_id) { env.WECOM_BOT_ID = wecom.bot_id; env.WECOM_SECRET = wecom.secret || ''; }
       // 钉钉
       const getDingtalkCreds = () => {
         if (!channels.dingtalk) return null;
-        for (const key of Object.keys(channels.dingtalk)) {
-          if (key.startsWith('_')) continue;
-          return channels.dingtalk[key];
-        }
+        for (const key of Object.keys(channels.dingtalk)) { if (key.startsWith('_')) continue; return channels.dingtalk[key]; }
         return null;
       };
       const dingtalk = getDingtalkCreds();
-      if (dingtalk && dingtalk.client_id) {
-        env.DINGTALK_CLIENT_ID = dingtalk.client_id;
-        env.DINGTALK_CLIENT_SECRET = dingtalk.client_secret || '';
-      }
+      if (dingtalk && dingtalk.client_id) { env.DINGTALK_CLIENT_ID = dingtalk.client_id; env.DINGTALK_CLIENT_SECRET = dingtalk.client_secret || ''; }
       // QQ
       const getQQCreds = () => {
         if (!channels.qq) return null;
-        for (const key of Object.keys(channels.qq)) {
-          if (key.startsWith('_')) continue;
-          return channels.qq[key];
-        }
+        for (const key of Object.keys(channels.qq)) { if (key.startsWith('_')) continue; return channels.qq[key]; }
         return null;
       };
       const qq = getQQCreds();
-      if (qq && qq.app_id) {
-        env.QQ_APP_ID = qq.app_id;
-        env.QQ_APP_SECRET = qq.app_secret || '';
-      }
+      if (qq && qq.app_id) { env.QQ_APP_ID = qq.app_id; env.QQ_APP_SECRET = qq.app_secret || ''; }
     }
   } catch (_) {}
   return env;
 }
+
+// 从 channels.json 读取飞书每角色配置，返回 [{roleId, appId, appSecret, name}]
+function getFeishuRoleConfigs() {
+  const configs = [];
+  try {
+    const cp = getConfigPath();
+    if (fs.existsSync(cp)) {
+      const channels = JSON.parse(fs.readFileSync(cp, 'utf8'));
+      if (channels.feishu) {
+        for (const [roleId, cfg] of Object.entries(channels.feishu)) {
+          if (roleId.startsWith('_') || !cfg.app_id) continue;
+          const roles = loadRoles();
+          configs.push({ roleId, appId: cfg.app_id, appSecret: cfg.app_secret || '', name: (roles[roleId] && roles[roleId].name) || roleId });
+        }
+      }
+    }
+  } catch (_) {}
+  return configs;
+}
+
+
+// 为每个有飞书配置的角色启动独立 Gateway 进程
+function spawnRoleGateways(pythonBin, libsDir, glog) {
+  const feishuConfigs = getFeishuRoleConfigs();
+  if (feishuConfigs.length === 0) { glog('No Feishu role configs found, skipping role gateways'); return; }
+
+  // 先停掉旧的角色 Gateway
+  for (const rg of _roleGateways) {
+    try { rg.process.kill(); } catch (_) {}
+  }
+  _roleGateways.length = 0;
+
+  const engineDir = getEngineDir();
+
+  for (const cfg of feishuConfigs) {
+    const roleHome = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
+    if (!fs.existsSync(roleHome)) { fs.mkdirSync(roleHome, { recursive: true }); }
+
+    // 确保角色 Gateway 有自己的 config.yaml（写模型配置）
+    const roleConfigPath = path.join(roleHome, 'config.yaml');
+    const roleConfigEnv = { ...process.env, HERMES_HOME: roleHome };
+    const rset = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: roleConfigEnv });
+    rset('model.name', 'deepseek-v4-pro');
+    rset('model.provider', 'hergent');
+    rset('model.base_url', 'http://localhost:8765/v1');
+    rset('model.default', 'deepseek-v4-pro');
+    rset('custom_providers.0.name', 'hergent');
+    rset('custom_providers.0.base_url', 'http://localhost:8765/v1');
+    rset('custom_providers.0.api_key', getDeepSeekApiKey());
+    rset('custom_providers.0.model', 'deepseek-v4-pro');
+
+    glog(`Starting Feishu gateway for role ${cfg.roleId} (${cfg.name})...`);
+    try {
+      const roleProc = spawn(pythonBin, ['-m', 'hermes_cli.main', 'gateway', 'run', '--replace'], {
+        env: { ...process.env, HOME: homeDir, HERMES_HOME: roleHome, HERMES_CONFIG_PATH: roleConfigPath,
+               FEISHU_APP_ID: cfg.appId, FEISHU_APP_SECRET: cfg.appSecret,
+               API_SERVER_ENABLED: 'false', GATEWAY_ALLOW_ALL_USERS: 'true',
+               PYTHONPATH: libsDir, PYTHONHOME: '' },
+        stdio: 'ignore',
+        detached: true
+      });
+      roleProc.unref();
+      roleProc.on('error', (err) => { glog(`Role GW ${cfg.roleId} SPAWN ERROR: ` + err.message); });
+      roleProc.on('exit', (code, sig) => { glog(`Role GW ${cfg.roleId} exited code=${code} sig=${sig}`); });
+      _roleGateways.push({ roleId: cfg.roleId, process: roleProc, home: roleHome });
+      glog(`Role GW ${cfg.roleId} spawned OK`);
+    } catch(e) {
+      glog(`Role GW ${cfg.roleId} spawn exception: ` + e.message);
+    }
+  }
+}
+
 
 async function startHermesGateway() {
 
@@ -156,6 +201,8 @@ async function startHermesGateway() {
     const dsKey = getDeepSeekApiKey();
     set('model.name', 'deepseek-v4-pro');
     set('model.provider', 'hergent');
+    set('model.base_url', `${SERVER_URL}/v1`);
+    set('model.default', 'deepseek-v4-pro');
     set('platforms.api_server.enabled', 'true');
     set('platforms.api_server.port', String(GATEWAY_PORT));
     set('platforms.api_server.key', GATEWAY_API_KEY);
@@ -231,6 +278,8 @@ async function startHermesGateway() {
         glog('spawn exception: ' + e.message);
         return false;
       }
+      // 启动飞书每角色独立 Gateway
+      spawnRoleGateways(pythonBin, libsDir, glog);
     } else {
       glog(`Fallback spawning: ${HERMES_BIN} gateway run`);
       try {
@@ -265,6 +314,10 @@ function stopHermesGateway() {
     gatewayProcess.kill();
     gatewayProcess = null;
   }
+  for (const rg of _roleGateways) {
+    try { rg.process.kill(); } catch (_) {}
+  }
+  _roleGateways.length = 0;
 }
 
 // 网关 ready 后通过 IPC 通知渲染进程
@@ -831,7 +884,7 @@ function saveChannels(data) {
 // ===== 网关控制 =====
 async function restartGateway() {
   stopHermesGateway();
-  await new Promise(r => setTimeout(r, 1500));
+  await new Promise(r => setTimeout(r, 2000));
   const ok = await startHermesGateway();
   return { success: ok, output: ok ? 'Gateway restarted' : 'Gateway restart failed' };
 }
@@ -1713,34 +1766,48 @@ let _feishuLastSeen = {}; // sessionKey -> last message index
 ipcMain.handle('feishu:poll-messages', async () => {
   try {
     const engineDir = getEngineDir();
-    const sessionsDir = path.join(engineDir, '.hermes', 'sessions');
-    const indexPath = path.join(sessionsDir, 'sessions.json');
-    if (!fs.existsSync(indexPath)) return { messages: [] };
-
-    const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
     const messages = [];
 
-    for (const [sessionKey, meta] of Object.entries(index)) {
-      if (meta.platform !== 'feishu' && meta.platform !== 'lark') continue;
+    // 检查所有可能的 sessions 目录：主 Gateway + 每个角色 Gateway
+    const sessionDirs = [path.join(engineDir, '.hermes', 'sessions')];
+    const feishuConfigs = getFeishuRoleConfigs();
+    for (const cfg of feishuConfigs) {
+      sessionDirs.push(path.join(engineDir, '.hermes', 'agents', cfg.roleId, 'sessions'));
+    }
 
-      const sessionFile = path.join(sessionsDir, `session_${meta.session_id}.json`);
-      if (!fs.existsSync(sessionFile)) continue;
+    for (const sessionsDir of sessionDirs) {
+      const indexPath = path.join(sessionsDir, 'sessions.json');
+      if (!fs.existsSync(indexPath)) continue;
 
-      const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
-      const lastIdx = _feishuLastSeen[sessionKey] || -1;
-      const newMsgs = (session.messages || []).slice(lastIdx + 1);
+      const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+      for (const [sessionKey, meta] of Object.entries(index)) {
+        if (meta.platform !== 'feishu' && meta.platform !== 'lark') continue;
 
-      if (newMsgs.length > 0) {
-        _feishuLastSeen[sessionKey] = (session.messages || []).length - 1;
-        for (const msg of newMsgs) {
-          messages.push({
-            role: msg.role === 'user' ? 'user' : 'hermes',
-            text: (msg.content || '').slice(0, 1000),
-            time: session.last_updated || new Date().toISOString(),
-            platform: '飞书',
-            sessionKey,
-            chatName: meta.display_name || meta.origin?.user_name || '飞书用户'
-          });
+        const sessionFile = path.join(sessionsDir, `session_${meta.session_id}.json`);
+        if (!fs.existsSync(sessionFile)) continue;
+
+        const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+        const lastIdx = _feishuLastSeen[sessionKey] || -1;
+        const newMsgs = (session.messages || []).slice(lastIdx + 1);
+
+        if (newMsgs.length > 0) {
+          _feishuLastSeen[sessionKey] = (session.messages || []).length - 1;
+          // 从 sessionKey 或目录路径推断角色
+          let roleId = 'dami';
+          for (const cfg of feishuConfigs) {
+            if (sessionsDir.includes(cfg.roleId)) { roleId = cfg.roleId; break; }
+          }
+          for (const msg of newMsgs) {
+            messages.push({
+              role: msg.role === 'user' ? 'user' : 'hermes',
+              text: (msg.content || '').slice(0, 1000),
+              time: session.last_updated || new Date().toISOString(),
+              platform: '飞书',
+              sessionKey,
+              roleId,
+              chatName: meta.display_name || meta.origin?.user_name || '飞书用户'
+            });
+          }
         }
       }
     }

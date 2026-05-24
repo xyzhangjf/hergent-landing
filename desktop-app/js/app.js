@@ -1825,23 +1825,25 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         if (msgKey === _feishuLastMsgTime) continue;
         _feishuLastMsgTime = msgKey;
 
-        // 显示在聊天面板
-        const role = getFeishuRole();
+        // 每条消息带角色归属，显示在对应角色面板
+        const msgRole = msg.roleId || getFeishuRole();
+        const rd = ROLES[msgRole] || {};
+        const roleName = rd.name || msgRole;
+
         if (msg.role === 'user') {
-          addChatMessage('user', `📱 来自飞书: ${msg.text}`, null, null, '飞书');
+          addChatMessage('user', `📱 飞书→${roleName}: ${msg.text}`, null, null, '飞书');
         } else {
           addChatMessage('hermes', msg.text, null, null, '飞书');
         }
-        // 如果当前不在看聊天，加未读
-        if (!document.getElementById('pageHome').classList.contains('active')) {
-          bumpUnread(role);
+        // 如果当前不在看聊天，给对应角色加未读
+        if (!document.getElementById('pageHome').classList.contains('active') || currentAction !== msgRole) {
+          bumpUnread(msgRole);
         }
       }
     } catch (_) {}
   }
 
   function getFeishuRole() {
-    // 从 channels.json 找飞书配置对应的角色
     try {
       const channels = JSON.parse(localStorage.getItem('hermes_channels_cache') || '{}');
       if (channels.feishu) {
