@@ -1848,9 +1848,16 @@ ipcMain.handle('feishu:poll-messages', async () => {
             if (sessionsDir.includes(cfg.roleId)) { roleId = cfg.roleId; break; }
           }
           for (const msg of newMsgs) {
+            let content = (msg.content || '').trim();
+            if (!content) continue;
+            // 跳过纯系统提示词消息
+            if (content.length > 100 && content.includes('你是') && content.includes('擅长') && content.includes('风格')) continue;
+            // 如果消息是 "系统提示词\n\n用户消息：xxx" 格式，只取用户消息部分
+            const userMsgMatch = content.match(/用户消息[：:]\s*(.+)$/s);
+            if (userMsgMatch) content = userMsgMatch[1].trim().slice(0, 1000);
             messages.push({
               role: msg.role === 'user' ? 'user' : 'hermes',
-              text: (msg.content || '').slice(0, 1000),
+              text: content.slice(0, 1000),
               time: session.last_updated || new Date().toISOString(),
               platform: '飞书',
               sessionKey,
