@@ -187,11 +187,9 @@ async function startHermesGateway() {
   ensureRoleConfigs();
   markEngineReady();
 
-  if (await isGatewayRunning()) {
-    glog('Already running');
-    return true;
-  }
+  const isRunning = await isGatewayRunning();
 
+  if (!isRunning) {
   // 确保 Gateway 配置正确（通过 hermes config set）
   const mainConfigPath = path.join(gwHome, 'config.yaml');
   try {
@@ -278,8 +276,6 @@ async function startHermesGateway() {
         glog('spawn exception: ' + e.message);
         return false;
       }
-      // 启动飞书每角色独立 Gateway
-      spawnRoleGateways(pythonBin, libsDir, glog);
     } else {
       glog(`Fallback spawning: ${HERMES_BIN} gateway run`);
       try {
@@ -297,6 +293,7 @@ async function startHermesGateway() {
       }
     }
   }
+  } // end if (!isRunning)
 
   glog('waiting for health check...');
   const ready = await waitForGateway();
