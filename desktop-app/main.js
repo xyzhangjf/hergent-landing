@@ -335,7 +335,7 @@ async function startHermesGateway() {
 
 function stopHermesGateway() {
   if (gatewayProcess) {
-    gatewayProcess.kill();
+    try { gatewayProcess.kill(); } catch (_) {}
     gatewayProcess = null;
   }
   for (const rg of _roleGateways) {
