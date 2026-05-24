@@ -7,7 +7,7 @@ const http = require('http');
 const crypto = require('crypto');
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-const CURRENT_VERSION = '1.0.11';
+const CURRENT_VERSION = '1.0.12';
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
 
@@ -1704,6 +1704,50 @@ ipcMain.handle('channels:gateway-restart', async () => {
     return result;
   } catch (e) {
     return { success: false, output: e.message };
+  }
+});
+
+// ===== 飞书消息同步 =====
+let _feishuLastSeen = {}; // sessionKey -> last message index
+
+ipcMain.handle('feishu:poll-messages', async () => {
+  try {
+    const engineDir = getEngineDir();
+    const sessionsDir = path.join(engineDir, '.hermes', 'sessions');
+    const indexPath = path.join(sessionsDir, 'sessions.json');
+    if (!fs.existsSync(indexPath)) return { messages: [] };
+
+    const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+    const messages = [];
+
+    for (const [sessionKey, meta] of Object.entries(index)) {
+      if (meta.platform !== 'feishu' && meta.platform !== 'lark') continue;
+
+      const sessionFile = path.join(sessionsDir, `session_${meta.session_id}.json`);
+      if (!fs.existsSync(sessionFile)) continue;
+
+      const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+      const lastIdx = _feishuLastSeen[sessionKey] || -1;
+      const newMsgs = (session.messages || []).slice(lastIdx + 1);
+
+      if (newMsgs.length > 0) {
+        _feishuLastSeen[sessionKey] = (session.messages || []).length - 1;
+        for (const msg of newMsgs) {
+          messages.push({
+            role: msg.role === 'user' ? 'user' : 'hermes',
+            text: (msg.content || '').slice(0, 1000),
+            time: session.last_updated || new Date().toISOString(),
+            platform: '飞书',
+            sessionKey,
+            chatName: meta.display_name || meta.origin?.user_name || '飞书用户'
+          });
+        }
+      }
+    }
+
+    return { messages };
+  } catch (e) {
+    return { messages: [], error: e.message };
   }
 });
 
