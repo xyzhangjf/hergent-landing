@@ -1827,19 +1827,34 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         if (msgKey === _feishuLastMsgTime) continue;
         _feishuLastMsgTime = msgKey;
 
-        // 每条消息带角色归属，显示在对应角色面板
         const msgRole = msg.roleId || getFeishuRole();
         const rd = ROLES[msgRole] || {};
         const roleName = rd.name || msgRole;
+        const displayText = msg.role === 'user'
+          ? `📱 飞书→${roleName}: ${msg.text}`
+          : msg.text;
 
-        if (msg.role === 'user') {
-          addChatMessage('user', `📱 飞书→${roleName}: ${msg.text}`, null, null, '飞书');
-        } else {
-          addChatMessage('hermes', msg.text, null, null, '飞书');
+        // 保存到正确的角色聊天记录（而非当前查看的角色）
+        const prevAction = currentAction;
+        try {
+          currentAction = msgRole; // 临时切换到目标角色
+          if (msg.role === 'user') {
+            addChatMessage('user', displayText, null, msg.time || null, '飞书');
+          } else {
+            addChatMessage('hermes', displayText, null, msg.time || null, '飞书');
+          }
+        } finally {
+          currentAction = prevAction; // 恢复当前角色
         }
-        // 如果当前不在看聊天，给对应角色加未读
-        if (!document.getElementById('pageHome').classList.contains('active') || currentAction !== msgRole) {
+
+        // 如果当前不在看该角色的聊天，加未读
+        if (!document.getElementById('pageHome').classList.contains('active') || prevAction !== msgRole) {
           bumpUnread(msgRole);
+        }
+
+        // 如果当前正在看该角色的聊天，刷新显示
+        if (prevAction === msgRole && document.getElementById('pageHome').classList.contains('active')) {
+          loadChatHistory();
         }
       }
     } catch (_) {}
