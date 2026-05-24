@@ -1888,9 +1888,10 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
 
   async function injectFeishuToCLI(roleId, text, platform) {
     try {
-      // 通过 IPC 后台注入消息到 CLI 会话
       if (window.hermes && window.hermes.injectMessage) {
-        await window.hermes.injectMessage(roleId, `[来自${platform}的消息] ${text}`);
+        // 找到该角色当前活跃的 CLI session ID
+        const sessionId = localStorage.getItem(`hermes_session_${roleId}`);
+        await window.hermes.injectMessage(roleId, `[来自${platform}的消息] ${text}`, sessionId || null);
       }
     } catch (_) {}
   }
@@ -3671,6 +3672,7 @@ ${questionnaireHistory}`;
       try {
         const result = await window.hermes.execute('chat:send', { action: 'chat', text: fullPrompt, files: sendPaths, role: sendingRole });
         if (result && result.requestId) loadingMsg.setAttribute('data-reqid', result.requestId);
+        if (result && result.sessionId) localStorage.setItem('hermes_session_' + (sendingRole || 'chat'), result.sessionId);
         _resetStreamState();
 
         if (sendingRole !== (currentAction || 'chat') || !document.getElementById('pageHome').classList.contains('active')) bumpUnread(sendingRole);
@@ -3745,6 +3747,7 @@ ${questionnaireHistory}`;
 
       const result = await window.hermes.execute('chat:send', { action: isRole ? 'chat' : effectiveAction, text: sendText, files: sendPaths, role: sendingRole });
       if (result && result.requestId) loadingMsg.setAttribute('data-reqid', result.requestId);
+      if (result && result.sessionId) localStorage.setItem('hermes_session_' + (sendingRole || 'chat'), result.sessionId);
       _resetStreamState();
 
       const outClean = ((result && result.output) ? result.output : '✅ 已提交处理')

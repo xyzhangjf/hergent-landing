@@ -1126,7 +1126,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           fs.appendFileSync(logFile, `[${new Date().toISOString()}] credits check failed: ${e.message}\n`);
         }
         if (!creditsOK) {
-          return { requestId, success: false, output: creditsMsg };
+          return { requestId, success: false, output: creditsMsg, sessionId: null };
         }
 
         // === 使用 Hermes CLI（完整工具支持：文件/浏览器/代码执行） ===
@@ -1139,7 +1139,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             const winPython = path.join(engineDir, 'python', 'python.exe');
             const winHermes = path.join(engineDir, 'hermes');
             if (!fs.existsSync(winPython) || !fs.existsSync(winHermes)) {
-              return { requestId, success: false, output: 'Hermes 引擎未安装，请先在设置中安装' };
+              return { requestId, success: false, output: 'Hermes 引擎未安装，请先在设置中安装', sessionId: null };
             }
             try {
               const winRoleId = role || 'dami';
@@ -1168,9 +1168,9 @@ ipcMain.handle('hermes:execute', async (event, params) => {
                 await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
                   JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-pro' }));
               } catch (_) { /* 积分报告失败不影响主流程 */ }
-              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true };
+              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: ROLE_SESSIONS[roleId] || null };
             } catch (e) {
-              return { requestId, success: false, output: `执行失败：${e.message}` };
+              return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: ROLE_SESSIONS[roleId] || null };
             }
           }
           // macOS/Linux: 使用 Agent Python + PYTHONPATH 确保依赖齐全
@@ -1224,9 +1224,9 @@ ipcMain.handle('hermes:execute', async (event, params) => {
                 await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
                   JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-pro' }));
               } catch (_) { /* 积分报告失败不影响主流程 */ }
-              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true };
+              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: ROLE_SESSIONS[roleId] || null };
             } catch (e) {
-              return { requestId, success: false, output: `执行失败：${e.message}` };
+              return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: ROLE_SESSIONS[roleId] || null };
             }
         }
         }
@@ -1295,9 +1295,9 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
               JSON.stringify({ credits: estimatedCredits, model: 'deepseek-v4-pro' }));
           } catch (_) { /* 积分报告失败不影响主流程 */ }
-          return { requestId, success: true, output: gwResponseText, offline: false };
+          return { requestId, success: true, output: gwResponseText, offline: false, sessionId: ROLE_SESSIONS[roleId] || null };
         } catch (e) {
-          return { requestId, success: false, output: `执行失败：${e.message}` };
+          return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: ROLE_SESSIONS[roleId] || null };
         }
       }
     }
@@ -1306,7 +1306,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
   if (action === 'pipeline:run') {
     const { steps, context } = args || {};
     if (!steps || !Array.isArray(steps) || steps.length === 0) {
-      return { requestId: 'req_' + Date.now(), success: false, output: 'pipeline steps 为空' };
+      return { requestId: 'req_' + Date.now(), success: false, output: 'pipeline steps 为空', sessionId: null };
     }
 
     let accumulatedContext = context || '';
@@ -1389,7 +1389,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
       return `### ${roleName}\n${r.output}`;
     }).join('\n\n---\n\n');
 
-    return { requestId: 'req_' + Date.now(), success: true, output: finalOutput, pipeline: results };
+    return { requestId: 'req_' + Date.now(), success: true, output: finalOutput, pipeline: results, sessionId: ROLE_SESSIONS[roleId] || null };
   }
 
   if (action === 'fs:list') {
