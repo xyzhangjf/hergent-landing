@@ -1636,11 +1636,32 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     });
     if (empty) { showDialog('⚠️', '请填写凭据信息'); return; }
 
+    const roleName = ROLES[_crRole]?.name || _crRole;
+    const platformName = card.label;
     try {
-      await window.hermes.saveChannel(_crChannel, _crRole, data);
+      showDialog('⏳', `正在保存 ${roleName}·${platformName} 配置...`);
+      const result = await window.hermes.saveChannel(_crChannel, _crRole, data);
       closeChannelRoleModal();
-      showDialog('✅', `${ROLES[_crRole]?.name || _crRole} · ${card.label} 已保存`);
       refreshChannels();
+
+      if (result && result.gatewayRestarted) {
+        showDialog('🔄', `${roleName}·${platformName} 已保存\nGateway 重启中，约10秒后生效...`);
+        // 等10秒后检查连接状态
+        setTimeout(async () => {
+          try {
+            const status = await window.hermes.gatewayStatus();
+            if (status && status.running) {
+              showDialog('✅', `${roleName}·${platformName} 配置完成\nGateway 已就绪，去${platformName}发消息试试吧`);
+            } else {
+              showDialog('⚠️', `${roleName}·${platformName} 已保存\nGateway 仍在启动中，请稍候...`);
+            }
+          } catch(_) {
+            showDialog('✅', `${roleName}·${platformName} 已保存\nGateway 重启中，稍后生效`);
+          }
+        }, 10000);
+      } else {
+        showDialog('✅', `${roleName}·${platformName} 已保存`);
+      }
     } catch(e) { showDialog('❌', '保存失败: ' + (e.message || '')); }
   }
 
