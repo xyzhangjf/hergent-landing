@@ -94,9 +94,8 @@
             <div class="chat-input-bar" id="chatInputBar">
               <button class="chat-file-btn" id="chatFileBtn" title="选择文件" onclick="handleFileSelect()"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
               <button class="chat-file-btn" title="设置提醒" onclick="quickReminder()"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
-              <button class="role-indicator" id="roleIndicator" onclick="toggleRoleSwitcher()" title="切换数字员工">
-                <img class="ri-avatar" src="avatar://dami.png" alt="" />
-                <span class="ri-name">我的大秘</span>
+              <button class="model-indicator" id="modelIndicator" onclick="toggleModelSwitcher()" title="切换模型">
+                <span class="mi-label" id="miLabel">DeepSeek V4 Pro</span>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div class="input-bar-spacer"></div>
@@ -483,9 +482,9 @@
   </div>
 </div>
 
-<!-- ===== 角色切换弹出菜单 ===== -->
-<div class="role-switcher" id="roleSwitcher">
-  <div class="rs-list" id="rsList"></div>
+<!-- ===== 模型切换弹出菜单 ===== -->
+<div class="model-switcher" id="modelSwitcher">
+  <div class="ms-list" id="msList"></div>
 </div>
 
 <!-- ===== 首启安装引导 ===== -->

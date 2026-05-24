@@ -2452,11 +2452,11 @@
     }
 
     /* ===== 角色指示器 ===== */
-    .role-indicator {
+    .model-indicator {
       display: flex;
       align-items: center;
       gap: 5px;
-      padding: 4px 8px 4px 4px;
+      padding: 4px 8px 4px 8px;
       border: none;
       background: var(--bg-input);
       border-radius: 8px;
@@ -2468,16 +2468,11 @@
       flex-shrink: 0;
       transition: background 0.15s;
     }
-    .role-indicator:hover { background: rgba(0,0,0,0.04); }
-    .ri-avatar {
-      width: 22px; height: 22px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    .ri-name { font-weight: 500; }
+    .model-indicator:hover { background: rgba(0,0,0,0.04); }
+    .mi-label { font-weight: 500; }
 
-    /* ===== 角色切换弹出菜单 ===== */
-    .role-switcher {
+    /* ===== 模型切换弹出菜单 ===== */
+    .model-switcher {
       display: none;
       position: fixed;
       z-index: 500;
@@ -2486,14 +2481,15 @@
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-lg);
       padding: 6px;
-      min-width: 180px;
+      min-width: 240px;
     }
-    .role-switcher.show { display: block; }
-    .rs-item {
+    .model-switcher.show { display: block; }
+    .ms-item {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      padding: 10px 12px;
       border-radius: 8px;
       cursor: pointer;
       font-size: 13px;
@@ -2505,14 +2501,18 @@
       text-align: left;
       transition: background 0.1s;
     }
-    .rs-item:hover { background: var(--bg-input); }
-    .rs-item.active { background: rgba(75,143,217,0.08); color: var(--brand-700); font-weight: 600; }
-    .rs-item img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+    .ms-item:hover { background: var(--bg-input); }
+    .ms-item.active { background: rgba(75,143,217,0.08); color: var(--brand-700); }
+    .ms-item-name { font-weight: 600; font-size: 12px; }
+    .ms-item-desc { font-size: 11px; color: var(--text-tertiary); }
+    .ms-item.active .ms-item-desc { color: var(--brand-600); }
+    .ms-divider { height: 1px; background: var(--border-subtle); margin: 4px 8px; }
 
-    :root.dark .role-indicator:hover { background: rgba(255,255,255,0.04); }
-    :root.dark .role-switcher { border-color: var(--border-strong); }
-    :root.dark .rs-item:hover { background: rgba(255,255,255,0.04); }
-    :root.dark .rs-item.active { background: rgba(93,158,223,0.12); color: var(--brand-400); }
+    :root.dark .model-indicator:hover { background: rgba(255,255,255,0.04); }
+    :root.dark .model-switcher { border-color: var(--border-strong); }
+    :root.dark .ms-item:hover { background: rgba(255,255,255,0.04); }
+    :root.dark .ms-item.active { background: rgba(93,158,223,0.12); color: var(--brand-400); }
+    :root.dark .ms-item.active .ms-item-desc { color: var(--brand-400); }
 
     .chat-file-btn {
       width: 32px; height: 32px;
