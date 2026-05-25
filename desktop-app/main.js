@@ -1547,31 +1547,42 @@ ipcMain.handle('avatar:get', async (event, role) => {
 // ===== IPC: 定时任务管理（直接走 hermes cron list/create/remove） =====
 ipcMain.handle('cron:list', async () => {
   try {
-    const result = hermesCLI('cron list', 5000);
-    // 解析格式化输出：每个任务由 hex id + [active/disabled] 开头，后面是缩进的 Key: Value 行
-    const tasks = [];
-    const lines = result.split('\n');
-    let current = null;
-    for (const line of lines) {
-      const hexMatch = line.match(/^\s+([a-f0-9]{8,})\s+\[(active|disabled)\]/);
-      if (hexMatch) {
-        if (current) tasks.push(current);
-        current = { id: hexMatch[1], status: hexMatch[2], name: '', schedule: '', nextRun: '', lastRun: '', deliver: '' };
-      } else if (current) {
-        const kv = line.match(/^\s+(\w[\w\s]*?):\s+(.+)/);
-        if (kv) {
-          const key = kv[1].trim().toLowerCase();
-          const val = kv[2].trim();
-          if (key === 'name') current.name = val;
-          else if (key === 'schedule') current.schedule = val;
-          else if (key === 'next run') current.nextRun = val;
-          else if (key === 'last run') current.lastRun = val;
-          else if (key === 'deliver') current.deliver = val;
-        }
-      }
+    const allTasks = [];
+    // 查询主引擎 + 所有角色 Gateway 的定时任务
+    const hermesHomes = [path.join(getEngineDir(), '.hermes')];
+    const roleConfigs = getPlatformRoleConfigs();
+    for (const cfg of roleConfigs) {
+      hermesHomes.push(path.join(getEngineDir(), '.hermes', 'agents', cfg.roleId));
     }
-    if (current) tasks.push(current);
-    return tasks;
+
+    for (const hh of hermesHomes) {
+      try {
+        const roleId = hh.includes('/agents/') ? hh.split('/agents/')[1] : 'main';
+        const result = execSync(`${HERMES_BIN} cron list`, { timeout: 5000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, HERMES_HOME: hh } });
+        const lines = result.split('\n');
+        let current = null;
+        for (const line of lines) {
+          const hexMatch = line.match(/^\s+([a-f0-9]{8,})\s+\[(active|disabled)\]/);
+          if (hexMatch) {
+            if (current) { current.roleId = roleId; allTasks.push(current); }
+            current = { id: hexMatch[1], status: hexMatch[2], name: '', schedule: '', nextRun: '', lastRun: '', deliver: '', roleId: roleId };
+          } else if (current) {
+            const kv = line.match(/^\s+(\w[\w\s]*?):\s+(.+)/);
+            if (kv) {
+              const key = kv[1].trim().toLowerCase();
+              const val = kv[2].trim();
+              if (key === 'name') current.name = val;
+              else if (key === 'schedule') current.schedule = val;
+              else if (key === 'next run') current.nextRun = val;
+              else if (key === 'last run') current.lastRun = val;
+              else if (key === 'deliver') current.deliver = val;
+            }
+          }
+        }
+        if (current) { current.roleId = roleId; allTasks.push(current); }
+      } catch (_) {}
+    }
+    return allTasks;
   } catch (e) {
     return [];
   }

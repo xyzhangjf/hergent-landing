@@ -1557,9 +1557,10 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         const nextRun = t.nextRun ? t.nextRun.replace('T', ' ').slice(0, 16) : '';
         const lastRun = t.lastRun ? t.lastRun.replace('T', ' ').slice(0, 16) : '';
 
+        const roleLabel = t.roleId && t.roleId !== 'main' ? (ROLES[t.roleId]?.name || t.roleId) : '';
         html += `<div class="task-card">
           <div class="task-info">
-            <strong>${escapeHTML(name)}</strong>
+            <strong>${escapeHTML(name)}${roleLabel ? ` <span style="font-size:10px;color:var(--brand-500);background:var(--brand-light);padding:1px 6px;border-radius:4px;">${escapeHTML(roleLabel)}</span>` : ''}</strong>
             <span class="task-schedule">${escapeHTML(schedule)}</span>
             ${nextRun ? `<span class="task-schedule">下次: ${escapeHTML(nextRun)}</span>` : ''}
             ${lastRun ? `<span class="task-schedule">上次: ${escapeHTML(lastRun)}</span>` : ''}
