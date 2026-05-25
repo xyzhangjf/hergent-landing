@@ -2662,11 +2662,10 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   function updateModelIndicator(model) {
     const label = document.getElementById('miLabel');
     if (!label) return;
-    const names = { 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash', 'qwen3-max': 'Qwen3 Max', 'qwen3.6-flash': 'Qwen3.6 Flash', 'qwen3.7-max': 'Qwen3.7 Max' };
-    label.textContent = names[model || _currentModel] || (model || _currentModel);
+    label.textContent = MODEL_LABELS[model || _currentModel] || (model || _currentModel);
     // 更新设置页
     const setModel = document.getElementById('setModelName');
-    if (setModel) setModel.textContent = names[model || _currentModel] || (model || _currentModel);
+    if (setModel) setModel.textContent = MODEL_LABELS[model || _currentModel] || (model || _currentModel);
   }
 
   function switchRole(role) {
@@ -4434,19 +4433,23 @@ async function setTheme(mode) {
 let _currentModel = 'deepseek-v4-pro';
 let _currentProvider = 'hergent';
 
+const PRESET_MODELS = ['deepseek-v4-pro', 'deepseek-v4-flash', 'qwen3-max', 'qwen3.6-flash', 'qwen3.7-max'];
+const MODEL_LABELS = { 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash', 'qwen3-max': 'Qwen3 Max', 'qwen3.6-flash': 'Qwen3.6 Flash', 'qwen3.7-max': 'Qwen3.7 Max' };
+const MODEL_PROVIDERS = { 'deepseek-v4-pro': 'hergent', 'deepseek-v4-flash': 'hergent', 'qwen3-max': 'bailian', 'qwen3.6-flash': 'bailian', 'qwen3.7-max': 'bailian' };
+
 async function loadModelConfig() {
   try {
     const cfg = await window.hermes.getModelConfig();
     _currentModel = cfg.model || 'deepseek-v4-pro';
     _currentProvider = cfg.provider || 'hergent';
-    const labelMap = { 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash' };
+    updateModelIndicator(_currentModel);
     const setModel = document.getElementById('setModelName');
-    if (setModel) setModel.textContent = labelMap[_currentModel] || _currentModel;
-    const isCustom = !['deepseek-v4-pro', 'deepseek-v4-flash'].includes(_currentModel);
+    if (setModel) setModel.textContent = MODEL_LABELS[_currentModel] || _currentModel;
+    const isPreset = PRESET_MODELS.includes(_currentModel);
     document.querySelectorAll('.model-option').forEach(o => {
-      o.classList.toggle('active', isCustom ? o.dataset.model === 'custom' : o.dataset.model === _currentModel);
+      o.classList.toggle('active', isPreset ? o.dataset.model === _currentModel : o.dataset.model === 'custom');
     });
-    if (isCustom && cfg.custom_providers && cfg.custom_providers.length > 0) {
+    if (!isPreset && cfg.custom_providers && cfg.custom_providers.length > 0) {
       const cp = cfg.custom_providers[0];
       document.getElementById('customBaseUrl').value = cp.base_url || '';
       document.getElementById('customApiKey').value = cp.api_key || '';
@@ -4466,7 +4469,7 @@ function selectModel(model) {
   } else {
     form.style.display = 'none';
     msg.textContent = '';
-    _saveModelPreset(model);
+    _saveModelPreset(model, MODEL_PROVIDERS[model] || 'hergent');
   }
 }
 
