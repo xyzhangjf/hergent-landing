@@ -56,8 +56,8 @@ MIANBAODUO_SECRET = os.environ.get("MIANBAODUO_SECRET", "")  # 面包多 webhook
 # 充值档位: {金额(元): 积分}
 RECHARGE_TIERS = {
     10: 1000,
-    30: 3000,
-    50: 5500,   # 送500
+    30: 3200,   # 多送200
+    50: 6000,   # 多送1000
 }
 
 # 新用户赠送积分（总额，不限时）
