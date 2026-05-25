@@ -37,7 +37,7 @@ DB_PATH = os.path.expanduser("~/Library/Application Support/hergent-credits/cred
 DEEPSEEK_BASE = "https://api.deepseek.com"
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 BAILIAN_BASE = "https://dashscope.aliyuncs.com/compatible-mode"
-BAILIAN_API_KEY = os.environ.get("BAILIAN_API_KEY", "sk-5065e1a611f14703a8591202bd5409a4")
+BAILIAN_API_KEY = os.environ.get("BAILIAN_API_KEY") or "sk-5065e1a611f14703a8591202bd5409a4"
 if not DEEPSEEK_API_KEY:
     print("⚠️  DEEPSEEK_API_KEY 未设置。API 代理功能禁用，仅 hermes CLI 模式可用。")
 
