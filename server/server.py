@@ -36,6 +36,8 @@ HERMES_AVAILABLE = os.path.exists(HERMES_CLI)
 DB_PATH = os.path.expanduser("~/Library/Application Support/hergent-credits/credits.db")
 DEEPSEEK_BASE = "https://api.deepseek.com"
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+BAILIAN_BASE = "https://dashscope.aliyuncs.com/compatible-mode"
+BAILIAN_API_KEY = os.environ.get("BAILIAN_API_KEY", "sk-5065e1a611f14703a8591202bd5409a4")
 if not DEEPSEEK_API_KEY:
     print("⚠️  DEEPSEEK_API_KEY 未设置。API 代理功能禁用，仅 hermes CLI 模式可用。")
 
@@ -63,11 +65,16 @@ WELCOME_CREDITS = 500
 
 # DeepSeek 实际定价 (元/百万token)
 PRICING = {
+    # DeepSeek
     "deepseek-v4-pro":   {"input": 2.0, "output": 8.0},
     "deepseek-v4-flash": {"input": 0.5, "output": 1.0},
     "deepseek-chat":     {"input": 1.0, "output": 2.0},
     "deepseek-reasoner": {"input": 4.0, "output": 16.0},
     "deepseek-v3":       {"input": 1.0, "output": 2.0},
+    # 阿里百炼 Qwen
+    "qwen3-max":         {"input": 2.5, "output": 10.0},
+    "qwen3.6-flash":     {"input": 1.2, "output": 7.2},
+    "qwen3.7-max":       {"input": 5.0, "output": 20.0},
 }
 
 # 积分消耗倍数（含毛利）
@@ -518,12 +525,20 @@ async def chat_completions(request: Request):
 
         body = await request.json()
 
-        # ---- 直接代理到 DeepSeek（客户端 Hermes CLI 负责 Agent 逻辑）----
+        # ---- 根据模型路由到不同后端 ----
         model = body.get("model", "deepseek-chat")
         stream = body.get("stream", False)
 
+        # Qwen 模型 → 阿里百炼，其他 → DeepSeek
+        if model.startswith("qwen"):
+            api_base = BAILIAN_BASE
+            api_key = BAILIAN_API_KEY
+        else:
+            api_base = DEEPSEEK_BASE
+            api_key = DEEPSEEK_API_KEY
+
         headers = {
-            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
 
@@ -533,7 +548,7 @@ async def chat_completions(request: Request):
                 total_prompt = 0
                 total_completion = 0
                 async with httpx.AsyncClient(timeout=120.0) as client:
-                    async with client.stream("POST", f"{DEEPSEEK_BASE}/v1/chat/completions",
+                    async with client.stream("POST", f"{api_base}/v1/chat/completions",
                                               json=body, headers=headers) as resp:
                         if resp.status_code != 200:
                             err = await resp.aread()
@@ -569,7 +584,7 @@ async def chat_completions(request: Request):
 
         else:
             # 非流式
-            resp = await http_client.post(f"{DEEPSEEK_BASE}/v1/chat/completions",
+            resp = await http_client.post(f"{api_base}/v1/chat/completions",
                                            json=body, headers=headers)
             if resp.status_code != 200:
                 raise HTTPException(resp.status_code, detail=resp.text[:500])
