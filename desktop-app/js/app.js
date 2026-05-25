@@ -2614,12 +2614,15 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     if (isOpen) { popup.classList.remove('show'); return; }
 
     const models = [
-      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', desc: '最强推理能力 · 约5-8分/次' },
-      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', desc: '快速响应 · 约1-3分/次' },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', desc: '最强推理 · 约8-10分/次', provider: 'hergent' },
+      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', desc: '快速响应 · 约2-3分/次', provider: 'hergent' },
+      { id: 'qwen3-max', name: 'Qwen3 Max', desc: '阿里旗舰 · 258K上下文 · 约5-8分/次', provider: 'bailian' },
+      { id: 'qwen3.6-flash', name: 'Qwen3.6 Flash', desc: '百万上下文 · 快速便宜 · 约1-2分/次', provider: 'bailian' },
+      { id: 'qwen3.7-max', name: 'Qwen3.7 Max', desc: '最新Agent模型 · 超强工具调用', provider: 'bailian' },
     ];
     const list = document.getElementById('msList');
     list.innerHTML = models.map(m => `
-      <button class="ms-item${_currentModel === m.id ? ' active' : ''}" onclick="event.stopPropagation();switchModel('${m.id}')">
+      <button class="ms-item${_currentModel === m.id ? ' active' : ''}" onclick="event.stopPropagation();switchModel('${m.id}','${m.provider || 'hergent'}')">
         <span class="ms-item-name">${m.name}</span>
         <span class="ms-item-desc">${m.desc}</span>
       </button>
@@ -2649,17 +2652,17 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     }, 10);
   }
 
-  function switchModel(model) {
+  function switchModel(model, provider) {
     document.getElementById('modelSwitcher').classList.remove('show');
     if (model === _currentModel) return;
-    _saveModelPreset(model);
+    _saveModelPreset(model, provider || 'hergent');
     updateModelIndicator(model);
   }
 
   function updateModelIndicator(model) {
     const label = document.getElementById('miLabel');
     if (!label) return;
-    const names = { 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash' };
+    const names = { 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash', 'qwen3-max': 'Qwen3 Max', 'qwen3.6-flash': 'Qwen3.6 Flash', 'qwen3.7-max': 'Qwen3.7 Max' };
     label.textContent = names[model || _currentModel] || (model || _currentModel);
     // 更新设置页
     const setModel = document.getElementById('setModelName');
@@ -4467,13 +4470,14 @@ function selectModel(model) {
   }
 }
 
-async function _saveModelPreset(model) {
+async function _saveModelPreset(model, provider) {
+  provider = provider || 'hergent';
   const msg = document.getElementById('modelMsg');
   const label = document.getElementById('miLabel');
   if (msg) { msg.textContent = '应用模型中...'; msg.style.color = 'var(--text-tertiary)'; }
   if (label) { label.textContent = '切换中...'; }
   try {
-    const result = await window.hermes.setModelConfig({ model, provider: 'hergent' });
+    const result = await window.hermes.setModelConfig({ model, provider });
     if (result.success) {
       _currentModel = model;
       updateModelIndicator(model);
