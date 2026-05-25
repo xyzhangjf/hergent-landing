@@ -63,16 +63,18 @@ WELCOME_CREDITS = 500
 
 # DeepSeek 实际定价 (元/百万token)
 PRICING = {
+    "deepseek-v4-pro":   {"input": 2.0, "output": 8.0},
+    "deepseek-v4-flash": {"input": 0.5, "output": 1.0},
     "deepseek-chat":     {"input": 1.0, "output": 2.0},
     "deepseek-reasoner": {"input": 4.0, "output": 16.0},
     "deepseek-v3":       {"input": 1.0, "output": 2.0},
 }
 
 # 积分消耗倍数（含毛利）
-# Hermes agent 每次用户消息会调用多次模型(思考→工具→处理→回复)，
-# 加上系统提示词注入所有技能描述(~17,500 tokens)，单轮API成本约1.79分。
-# 1.2x = 每用户消息约扣9积分，利润率约40%
-CREDIT_MULTIPLIER = 1.2
+# 典型消息 (10K入+1K出) 用 V4 Pro: API成本=(10K/1M*2+1K/1M*8)=0.028元=2.8分
+# 3x = 扣8积分, 用户成本¥0.067~0.08, 利润率~60%
+# 短消息最小扣1积分, 主要利润来源
+CREDIT_MULTIPLIER = 3.0
 
 # ============================================================
 # 数据库
