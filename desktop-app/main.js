@@ -155,6 +155,23 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
     rset('model.provider', 'hergent');
     rset('model.base_url', 'http://localhost:8765/v1');
     rset('model.default', 'deepseek-v4-pro');
+    // 从主引擎配置读取当前模型和 provider
+    const mainConfigPath = path.join(engineDir, '.hermes', 'config.yaml');
+    let currentModel = 'deepseek-v4-pro';
+    let currentProvider = 'hergent';
+    try {
+      if (fs.existsSync(mainConfigPath)) {
+        const mainCfg = fs.readFileSync(mainConfigPath, 'utf8');
+        const mn = mainCfg.match(/^model:\s*\n\s+name:\s*(.+)/m);
+        const mp = mainCfg.match(/^model:\s*\n\s+provider:\s*(.+)/m);
+        if (mn) currentModel = mn[1].trim();
+        if (mp) currentProvider = mp[1].trim();
+      }
+    } catch (_) {}
+    rset('model.name', currentModel);
+    rset('model.provider', currentProvider);
+    rset('model.base_url', 'http://localhost:8765/v1');
+    rset('model.default', currentModel);
     rset('custom_providers.0.name', 'hergent');
     rset('custom_providers.0.base_url', 'http://localhost:8765/v1');
     rset('custom_providers.0.api_key', getDeepSeekApiKey());
@@ -2629,7 +2646,12 @@ ipcMain.handle('config:set-model', async (event, opts) => {
     const hermesHome = path.join(engineDir, '.hermes');
     const cfgEnv = { ...process.env, HERMES_HOME: hermesHome };
     const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
-    if (opts.model) set('model.name', opts.model);
+    if (opts.model) {
+      set('model.name', opts.model);
+      // 同步更新对应 provider 的 custom_providers model
+      const providerIdx = opts.provider === 'bailian' ? '1' : '0';
+      set(`custom_providers.${providerIdx}.model`, opts.model);
+    }
     if (opts.provider) set('model.provider', opts.provider);
     if (opts.custom_base_url) {
       set('custom_providers.0.name', opts.provider || 'custom');
@@ -2637,9 +2659,18 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       set('custom_providers.0.api_key', opts.custom_api_key || '');
       set('custom_providers.0.model', opts.model || 'deepseek-v4-pro');
     }
+    // 同步模型到所有角色 Gateway config
+    const roleConfigs = getPlatformRoleConfigs();
+    for (const cfg of roleConfigs) {
+      const roleHome = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
+      const roleEnv = { ...process.env, HERMES_HOME: roleHome };
+      const rset = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: roleEnv });
+      if (opts.model) rset('model.name', opts.model);
+      if (opts.provider) rset('model.provider', opts.provider);
+    }
     // 重启 Gateway 使模型变更生效
     stopHermesGateway();
-    await new Promise(r => setTimeout(r, 1500)); // 等待旧进程退出
+    await new Promise(r => setTimeout(r, 1500));
     await startHermesGateway();
     const ready = await waitForGateway(15000);
     return { success: ready };
