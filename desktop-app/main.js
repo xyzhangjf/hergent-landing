@@ -368,6 +368,12 @@ function stopHermesGateway() {
     try { rg.process.kill(); } catch (_) {}
   }
   _roleGateways.length = 0;
+  // 清理所有 Hergent 残留 gateway 进程
+  if (process.platform === 'darwin' || process.platform === 'linux') {
+    try { execSync('pkill -f "hergent.*gateway run"', { timeout: 5000 }); } catch (_) {}
+  } else {
+    try { execSync('taskkill /F /IM python3.11.exe /FI "WINDOWTITLE eq gateway run"', { timeout: 5000 }); } catch (_) {}
+  }
 }
 
 // 网关 ready 后通过 IPC 通知渲染进程
