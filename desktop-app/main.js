@@ -405,7 +405,7 @@ function startCreditsServer() {
   } catch (e) { /* ignore */ }
 
   console.log(`[credits-server] Starting: ${pythonPath} ${scriptPath}`);
-  const spawnEnv = { ...process.env, PYTHONUNBUFFERED: '1', DEEPSEEK_API_KEY: deepseekKey };
+  const spawnEnv = { ...process.env, PYTHONUNBUFFERED: '1', DEEPSEEK_API_KEY: deepseekKey, BAILIAN_API_KEY: 'sk-5065e1a611f14703a8591202bd5409a4' };
   if (pythonLibs) {
     spawnEnv.PYTHONPATH = pythonLibs;
     spawnEnv.PYTHONHOME = '';
