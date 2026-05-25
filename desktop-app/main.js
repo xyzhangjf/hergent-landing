@@ -175,11 +175,11 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
     rset('custom_providers.0.name', 'hergent');
     rset('custom_providers.0.base_url', 'http://localhost:8765/v1');
     rset('custom_providers.0.api_key', getDeepSeekApiKey());
-    rset('custom_providers.0.model', 'deepseek-v4-pro');
+    rset('custom_providers.0.model', currentModel);
     rset('custom_providers.1.name', 'bailian');
     rset('custom_providers.1.base_url', 'http://localhost:8765/v1');
     rset('custom_providers.1.api_key', getDeepSeekApiKey());
-    rset('custom_providers.1.model', 'qwen3-max');
+    rset('custom_providers.1.model', currentProvider === 'bailian' ? currentModel : 'qwen3-max');
 
     glog(`Starting ${cfg.label} gateway for role ${cfg.roleId} (${cfg.name})...`);
     try {
