@@ -1198,7 +1198,20 @@
 
   let _allSkills = [];
   let _activeCategory = null;
+  let _activeRole = null;
   let _hergentSkills = new Set();
+
+  // 角色→技能关联（展示用，技能本身全局可用）
+  const ROLE_SKILLS = {
+    dami: ['zhoupu-order-import', 'contract-writing', 'wechat-writing'],
+    accountant: ['bank-reconciliation', 'accounting-reports', 'excel-data'],
+    programmer: ['python-coding', 'website-builder', 'karpathy-coding'],
+    writer: [],
+    screenwriter: ['video-scripting'],
+    tutor: ['exam-tutoring'],
+    health: ['health-analysis'],
+    investor: ['investment-research'],
+  };
 
   async function loadSkills() {
     const grid = document.getElementById('skillsGrid');
@@ -1233,6 +1246,7 @@
       _allSkills = data.categories;
       if (searchInput) searchInput.value = '';
       _activeCategory = null;
+      _activeRole = null;
 
       const hergentCount = _hergentSkills.size;
       const hermesCount = data.total - hergentCount;
@@ -1248,10 +1262,25 @@
   function _renderSkillSidebar() {
     const nav = document.getElementById('skillsSidebarNav');
     if (!nav) return;
+    // 按角色
+    let html = `<div class="skill-nav-section-title">按角色</div>`;
+    html += `<div class="skill-nav-item${!_activeRole && !_activeCategory ? ' active' : ''}" data-role="" onclick="_selectRole('')">
+      <span class="skill-nav-icon">👤</span><span class="skill-nav-label">全部角色</span><span class="skill-nav-count">${_allSkills.length}</span>
+    </div>`;
+    for (const [roleId, slugs] of Object.entries(ROLE_SKILLS)) {
+      if (slugs.length === 0) continue;
+      const rd = ROLES[roleId] || {};
+      const name = rd.name || roleId;
+      html += `<div class="skill-nav-item${_activeRole === roleId ? ' active' : ''}" data-role="${roleId}" onclick="_selectRole('${roleId}')">
+        <span class="skill-nav-icon">👤</span><span class="skill-nav-label">${escapeHtml(name)}</span><span class="skill-nav-count">${slugs.length}</span>
+      </div>`;
+    }
+    // 按分类
+    html += `<div class="skill-nav-section-title" style="margin-top:12px;">按分类</div>`;
     const allCats = [...new Set(_allSkills.map(s => s.category || '其他'))].filter(Boolean);
     allCats.sort((a, b) => a.localeCompare(b, 'zh'));
-    let html = `<div class="skill-nav-item${!_activeCategory ? ' active' : ''}" data-cat="" onclick="_selectCategory('')">
-      <span class="skill-nav-icon">📁</span><span class="skill-nav-label">全部</span><span class="skill-nav-count">${_allSkills.length}</span>
+    html += `<div class="skill-nav-item${!_activeCategory && !_activeRole ? ' active' : ''}" data-cat="" onclick="_selectCategory('')">
+      <span class="skill-nav-icon">📁</span><span class="skill-nav-label">全部分类</span><span class="skill-nav-count">${_allSkills.length}</span>
     </div>`;
     for (const cat of allCats) {
       const cnt = _allSkills.filter(s => (s.category || '其他') === cat).length;
@@ -1262,8 +1291,21 @@
     nav.innerHTML = html;
   }
 
+  function _selectRole(roleId) {
+    _activeRole = roleId || null;
+    _activeCategory = null;
+    _renderSkillSidebar();
+    let skills = _allSkills;
+    if (roleId) {
+      const roleSlugs = ROLE_SKILLS[roleId] || [];
+      skills = _allSkills.filter(s => roleSlugs.includes(s.slug));
+    }
+    _renderSkills(skills, roleId ? (ROLES[roleId]?.name || roleId) : undefined);
+  }
+
   function _selectCategory(cat) {
     _activeCategory = cat || null;
+    _activeRole = null;
     _renderSkillSidebar();
     const skills = cat ? _allSkills.filter(s => (s.category || '其他') === cat) : _allSkills;
     _renderSkills(skills, !!cat ? cat : undefined);

@@ -3410,6 +3410,14 @@
   overflow-y: auto;
   flex: 1;
 }
+.skill-nav-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 10px 4px;
+}
 .skill-nav-item {
   display: flex;
   align-items: center;
