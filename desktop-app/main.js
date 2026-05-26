@@ -7,7 +7,7 @@ const http = require('http');
 const crypto = require('crypto');
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-const CURRENT_VERSION = '1.0.16';
+const CURRENT_VERSION = '1.0.17';
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
 
@@ -2657,9 +2657,18 @@ ipcMain.handle('config:set-model', async (event, opts) => {
     if (opts.provider) set('model.provider', opts.provider);
     if (opts.custom_base_url) {
       set('custom_providers.0.name', opts.provider || 'custom');
-      set('custom_providers.0.base_url', opts.custom_base_url);
+      // 自定义模型走积分代理（localhost:8765/v1），真 API 地址存到积分服务
+      set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
       set('custom_providers.0.api_key', opts.custom_api_key || '');
       set('custom_providers.0.model', opts.model || 'deepseek-v4-pro');
+      // 同步自定义 API 信息到积分服务
+      try {
+        const http = require('http');
+        const postData = JSON.stringify({ base_url: opts.custom_base_url, api_key: opts.custom_api_key || '', model_name: opts.model || '' });
+        const req = http.request({ hostname: 'localhost', port: 8765, path: '/api/custom-model/config', method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        req.write(postData);
+        req.end();
+      } catch (_) {}
     }
     // 同步模型到所有角色 Gateway config
     const roleConfigs = getPlatformRoleConfigs();

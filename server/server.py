@@ -132,6 +132,14 @@ def init_db():
                 payment_ref TEXT  -- 支付流水号
             );
 
+            CREATE TABLE IF NOT EXISTS custom_models (
+                device_id TEXT PRIMARY KEY,
+                base_url TEXT NOT NULL,
+                api_key TEXT NOT NULL DEFAULT '',
+                model_name TEXT NOT NULL DEFAULT 'gpt-4o',
+                updated_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS usage_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -506,6 +514,24 @@ async def get_tiers():
         "welcome_credits": WELCOME_CREDITS
     }
 
+# ---- 自定义模型配置 ----
+@app.post("/api/custom-model/config")
+async def save_custom_model(request: Request):
+    """保存用户自定义模型配置：{ base_url, api_key, model_name }"""
+    body = await request.json()
+    device_id = get_device_fingerprint(request)
+    base_url = (body.get("base_url") or "").strip()
+    api_key = (body.get("api_key") or "").strip()
+    model_name = (body.get("model_name") or "").strip()
+    if not base_url:
+        raise HTTPException(400, "base_url 不能为空")
+    with get_db() as db:
+        db.execute("""INSERT OR REPLACE INTO custom_models (device_id, base_url, api_key, model_name, updated_at)
+                      VALUES (?, ?, ?, ?, ?)""",
+                   (device_id, base_url, api_key, model_name, datetime.now().isoformat()))
+        db.commit()
+    return {"success": True, "message": "自定义模型已保存"}
+
 # ---- OpenAI兼容代理 ----
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):
@@ -528,14 +554,28 @@ async def chat_completions(request: Request):
         # ---- 根据模型路由到不同后端 ----
         model = body.get("model", "deepseek-chat")
         stream = body.get("stream", False)
+        is_custom = model not in PRICING
 
-        # Qwen 模型 → 阿里百炼，其他 → DeepSeek
-        if model.startswith("qwen"):
+        if is_custom:
+            # 自定义模型：查用户配置，固定 1 分平台费
+            row = db.execute("SELECT base_url, api_key, model_name FROM custom_models WHERE device_id=?",
+                            (device_id,)).fetchone()
+            if not row:
+                raise HTTPException(400, "未配置自定义模型，请先在设置中填写 API 地址和密钥")
+            api_base = row["base_url"].rstrip("/")
+            api_key = row["api_key"]
+            if not model or model == "custom":
+                model = row["model_name"] or "gpt-4o"
+                body["model"] = model
+            credits = 1  # 固定 1 分平台费
+        elif model.startswith("qwen"):
             api_base = BAILIAN_BASE
             api_key = BAILIAN_API_KEY
+            credits = None  # 稍后按 token 计算
         else:
             api_base = DEEPSEEK_BASE
             api_key = DEEPSEEK_API_KEY
+            credits = None  # 稍后按 token 计算
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -569,15 +609,15 @@ async def chat_completions(request: Request):
                                 pass
 
                 # 流结束后扣费
-                if total_prompt or total_completion:
-                    credits = calculate_credits(model, total_prompt, total_completion)
+                final_credits = credits if credits is not None else (calculate_credits(model, total_prompt, total_completion) if (total_prompt or total_completion) else 0)
+                if final_credits > 0:
                     with get_db() as db2:
                         db2.execute("UPDATE users SET credits = MAX(0, credits - ?), total_used = total_used + ? WHERE id = ?",
-                                   (credits, credits, user["id"]))
+                                   (final_credits, final_credits, user["id"]))
                         db2.execute("""
                             INSERT INTO usage_log (user_id, timestamp, model, prompt_tokens, completion_tokens, credits_deducted)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        """, (user["id"], datetime.now().isoformat(), model, total_prompt, total_completion, credits))
+                        """, (user["id"], datetime.now().isoformat(), model, total_prompt, total_completion, final_credits))
                         db2.commit()
 
             return StreamingResponse(stream_proxy(), media_type="text/event-stream")
@@ -594,26 +634,26 @@ async def chat_completions(request: Request):
             prompt_tokens = usage.get("prompt_tokens", 0)
             completion_tokens = usage.get("completion_tokens", 0)
 
-            credits = calculate_credits(model, prompt_tokens, completion_tokens)
+            final_credits = credits if credits is not None else calculate_credits(model, prompt_tokens, completion_tokens)
 
-            if user["credits"] < credits:
+            if user["credits"] < final_credits:
                 raise HTTPException(402, {
                     "error": "积分不足",
                     "credits": user["credits"],
-                    "needed": credits,
-                    "message": f"本次需要 {credits} 积分，余额 {user['credits']}"
+                    "needed": final_credits,
+                    "message": f"本次需要 {final_credits} 积分，余额 {user['credits']}"
                 })
 
             db.execute("UPDATE users SET credits = credits - ?, total_used = total_used + ? WHERE id = ?",
-                      (credits, credits, user["id"]))
+                      (final_credits, final_credits, user["id"]))
             db.execute("""
                 INSERT INTO usage_log (user_id, timestamp, model, prompt_tokens, completion_tokens, credits_deducted)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (user["id"], datetime.now().isoformat(), model, prompt_tokens, completion_tokens, credits))
+            """, (user["id"], datetime.now().isoformat(), model, prompt_tokens, completion_tokens, final_credits))
             db.commit()
 
-            new_balance = user["credits"] - credits
-            result["_hermes"] = {"credits_remaining": new_balance, "credits_used": credits}
+            new_balance = user["credits"] - final_credits
+            result["_hermes"] = {"credits_remaining": new_balance, "credits_used": final_credits}
             return JSONResponse(result)
 
 # ---- 健康检查 ----
