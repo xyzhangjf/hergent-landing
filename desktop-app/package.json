@@ -86,8 +86,9 @@
       "createDesktopShortcut": true
     },
     "publish": {
-      "provider": "generic",
-      "url": "https://api.hergent.cn/updates/"
+      "provider": "github",
+      "owner": "xyzhangjf",
+      "repo": "hergent-landing"
     }
   },
   "author": "Hergent",

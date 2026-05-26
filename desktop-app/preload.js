@@ -133,5 +133,6 @@ contextBridge.exposeInMainWorld('hermes_on', {
   stream: (callback) => ipcRenderer.on('hermes:stream', (event, data) => callback(data)),
   themeChanged: (callback) => ipcRenderer.on('theme:changed', (event, isDark) => callback(isDark)),
   gatewayMessage: (callback) => ipcRenderer.on('hermes:gateway-message', (event, data) => callback(data)),
+  updateStatus: (callback) => ipcRenderer.on('update:status', (event, data) => callback(data)),
   updateStatus: (callback) => ipcRenderer.on('update:status', (event, data) => callback(data))
 });
