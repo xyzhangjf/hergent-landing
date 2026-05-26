@@ -1800,7 +1800,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         <div class="chp-status">
           ${connectedRoles.length > 0
             ? '<span class="chp-connected">\u{1F7E2} 已连 ' + connectedRoles.length + ' 位员工</span>' + roleTags
-            : '<span class="chp-empty">点击添加员工</span>'}
+            : (roleKeys.length > 0 ? '<span class="chp-disconnected">🔴 未连接</span>' : '<span class="chp-empty">点击添加员工</span>')}
         </div>
         <div class="chp-roles">
           ${roleKeys.map(role => {

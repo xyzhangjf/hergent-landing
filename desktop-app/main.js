@@ -1683,25 +1683,20 @@ ipcMain.handle('cron:run', async (event, id) => {
 // ===== IPC: 通道配置（Bot模式） =====
 ipcMain.handle('channels:get', async () => {
   const channels = loadChannels();
-  // 合并 Hermes 网关真实连接状态
-  const gatewayPath = path.join(homeDir, '.hermes', 'gateway_state.json');
+  // 合并各角色 Gateway 的真实连接状态
   try {
-    if (fs.existsSync(gatewayPath)) {
-      const state = JSON.parse(fs.readFileSync(gatewayPath, 'utf-8'));
-      if (state.platforms) {
-        for (const [key, platform] of Object.entries(state.platforms)) {
-          if (platform.state === 'connected') {
-            if (!channels[key] || typeof channels[key].app_id === 'string') {
-              // 旧扁平数据或不存在，设置平台级 _connected
-              if (!channels[key]) channels[key] = {};
-              channels[key]._connected = true;
-            }
-            // 将连接状态传播到该平台下每个角色
-            for (const [subKey, subVal] of Object.entries(channels[key] || {})) {
-              if (!subKey.startsWith('_') && typeof subVal === 'object') {
-                subVal.connected = true;
-              }
-            }
+    const engineDir = getEngineDir();
+    for (const [platformKey, platformData] of Object.entries(channels)) {
+      if (typeof platformData !== 'object') continue;
+      for (const roleId of Object.keys(platformData)) {
+        if (roleId.startsWith('_')) continue;
+        // 检查该角色的 Gateway 状态文件
+        const roleStatePath = path.join(engineDir, '.hermes', 'agents', roleId, 'gateway_state.json');
+        if (fs.existsSync(roleStatePath)) {
+          const state = JSON.parse(fs.readFileSync(roleStatePath, 'utf-8'));
+          const platform = state.platforms && state.platforms[platformKey];
+          if (platform && platform.state === 'connected') {
+            platformData[roleId].connected = true;
           }
         }
       }
