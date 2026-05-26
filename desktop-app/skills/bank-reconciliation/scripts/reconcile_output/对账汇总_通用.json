@@ -1,0 +1,15 @@
+{
+  "month": "",
+  "bank_total": 150,
+  "finance_total": 381,
+  "matched": 104,
+  "match_rate": "69.3%",
+  "direct_match": 97,
+  "t1_fee_match": 7,
+  "fee_rate": 0.002791,
+  "bank_only_count": 46,
+  "bank_only_total": 369801.09,
+  "finance_only_count": 277,
+  "finance_only_total": 1329649.14,
+  "report_file": "./reconcile_output/对账报告_通用.xlsx"
+}
