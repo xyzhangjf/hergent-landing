@@ -881,7 +881,7 @@ function getDeepSeekApiKey() {
       if (pool && pool.length > 0) return pool[0].access_token;
     }
   } catch (_) {}
-  return process.env.DEEPSEEK_API_KEY || '';
+  return process.env.DEEPSEEK_API_KEY || 'hermes-local-proxy';
 }
 
 // 获取试用/激活状态
