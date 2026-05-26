@@ -429,15 +429,32 @@ function startCreditsServer() {
     } catch (_) {}
   }
 
-  // 从 auth.json 读取 DeepSeek API Key
+  // 从多处读取 DeepSeek API Key
   let deepseekKey = '';
   try {
     const authPath = path.join(home, '.hermes', 'auth.json');
-    const authData = JSON.parse(fs.readFileSync(authPath, 'utf8'));
-    const pool = authData.credential_pool || {};
-    const keys = pool.deepseek || [];
-    if (keys.length > 0) deepseekKey = keys[0].access_token || '';
+    if (fs.existsSync(authPath)) {
+      const authData = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+      const pool = authData.credential_pool || {};
+      const keys = pool.deepseek || [];
+      if (keys.length > 0) deepseekKey = keys[0].access_token || '';
+    }
   } catch (e) { /* ignore */ }
+  // 兜底: 从引擎 config.yaml 读取
+  if (!deepseekKey) {
+    try {
+      const cfgPath = path.join(engineDir, 'config.yaml');
+      if (fs.existsSync(cfgPath)) {
+        const cfg = fs.readFileSync(cfgPath, 'utf8');
+        const keyMatch = cfg.match(/api_key:\s*(\S+)/);
+        if (keyMatch && keyMatch[1] && keyMatch[1] !== "''" && keyMatch[1] !== '""') {
+          deepseekKey = keyMatch[1];
+        }
+      }
+    } catch (_) {}
+  }
+  // 最终兜底
+  if (!deepseekKey || deepseekKey === 'hermes-local-proxy') deepseekKey = 'sk-1e5cab7058234b538ddb161ccaf65c58';
 
   console.log(`[credits-server] Starting: ${pythonPath} ${scriptPath}`);
   const spawnEnv = { ...process.env, PYTHONUNBUFFERED: '1', DEEPSEEK_API_KEY: deepseekKey, BAILIAN_API_KEY: 'sk-5065e1a611f14703a8591202bd5409a4' };
