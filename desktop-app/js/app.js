@@ -2425,7 +2425,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       loadChatHistory();
       const rd = ROLES[role];
       if (rd && chatHistory && chatHistory.querySelectorAll('.chat-msg').length === 0) {
-        const opening = rd.systemPrompt ? `我是${rd.name}。${rd.systemPrompt.replace(/你是"|"/g, '').split('。')[0]}。\n\n有什么需要帮忙的？` : `我是${rd.name}，有什么需要帮忙的？`;
+        const opening = `你好，我是${rd.name.replace('我的', '你的')}。有什么需要帮忙的？`;
         addChatMessage('hermes', opening);
       }
       // 首次使用该角色时显示快速上手指引
