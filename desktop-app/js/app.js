@@ -4342,6 +4342,21 @@ ${questionnaireHistory}`;
     });
   }
 
+  // 监听更新通知
+  if (window.hermes_on && window.hermes_on.updateStatus) {
+    window.hermes_on.updateStatus((data) => {
+      if (data.event === 'available') {
+        showDialog('🔄', `发现新版本 v${data.version}，是否下载更新？`, true).then(ok => {
+          if (ok) window.hermes.execute('update:install', {}).catch(() => {});
+        });
+      } else if (data.event === 'downloaded') {
+        showDialog('✅', `v${data.version} 已下载，重启后生效`, true).then(ok => {
+          if (ok) window.hermes.execute('update:quit-and-install', {}).catch(() => {});
+        });
+      }
+    });
+  }
+
   // 监听后端推送的处理结果
   if (window.hermes_on && window.hermes_on.result) {
     window.hermes_on.result((data) => {
