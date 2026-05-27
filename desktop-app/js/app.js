@@ -72,7 +72,7 @@
 
   function skipBootstrap() {
     _bootDone = true;
-    document.getElementById('bootstrapOverlay').style.display = 'none';
+    // 不隐藏overlay——waitForEngineReady 会接着用同一个进度条
     initAuth();
   }
 
@@ -305,7 +305,7 @@
       isFirstLaunch = !(cli && cli.available);
     } catch (_) {}
 
-    if (overlay) { overlay.style.display = 'flex'; }
+    if (overlay && overlay.style.display !== 'flex') { overlay.style.display = 'flex'; }
     if (skipBtn) { skipBtn.style.display = 'none'; skipBtn.textContent = '跳过等待'; }
     let fallbackShown = false;
 

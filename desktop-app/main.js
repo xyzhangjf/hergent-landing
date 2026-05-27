@@ -404,17 +404,22 @@ function startCreditsServer() {
   const home = app.getPath('home');
   const engineDir = getEngineDir(); // ~/Library/Application Support/hergent/hermes-engine
   const agentPython = path.join(home, '.hermes', 'hermes-agent', 'python', 'bin', 'python3.11');
+  const agentVenvPython = path.join(home, '.hermes', 'hermes-agent', 'venv', 'bin', 'python3.11');
   const enginePython = path.join(engineDir, 'python', 'bin', 'python3.11');
   const agentLibs = path.join(home, '.hermes', 'hermes-agent', 'libs');
   const engineLibs = path.join(engineDir, 'libs');
   let pythonPath = 'python3';
   let pythonLibs = null;
-  if (fs.existsSync(agentPython)) {
-    pythonPath = agentPython;
-    pythonLibs = agentLibs;
-  } else if (fs.existsSync(enginePython)) {
+  // 引擎 Python 优先（已预装 fastapi/uvicorn/httpx），Agent Python 兜底
+  if (fs.existsSync(enginePython)) {
     pythonPath = enginePython;
     pythonLibs = engineLibs;
+  } else if (fs.existsSync(agentVenvPython)) {
+    pythonPath = agentVenvPython;
+    pythonLibs = agentLibs;
+  } else if (fs.existsSync(agentPython)) {
+    pythonPath = agentPython;
+    pythonLibs = agentLibs;
   }
   console.log(`[credits-server] Python: ${pythonPath}, libs: ${pythonLibs || 'none'}`);
 
