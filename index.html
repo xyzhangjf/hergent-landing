@@ -22,9 +22,9 @@
       --text: #171717; --text-secondary: #4d4d4d; --text-tertiary: #737373;
       --border: rgba(0,0,0,0.07); --border-light: rgba(0,0,0,0.04);
       --surface: #fff; --surface-alt: #f8f9fb;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
-      --shadow-md: 0 4px 24px rgba(0,0,0,0.06);
-      --shadow-lg: 0 12px 48px rgba(0,0,0,0.08);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.01);
+      --shadow-md: 0 8px 32px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02);
+      --shadow-lg: 0 20px 60px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
       --radius-sm: 8px; --radius: 12px; --radius-lg: 20px; --radius-xl: 28px;
       --green: #22c55e; --green-bg: rgba(34,197,94,0.08);
     }
@@ -40,7 +40,7 @@
       transition: background 0.3s, backdrop-filter 0.3s;
     }
     .nav-wrapper.scrolled {
-      background: rgba(255,255,255,0.82); backdrop-filter: blur(24px);
+      background: rgba(255,255,255,0.72); backdrop-filter: blur(32px) saturate(180%); -webkit-backdrop-filter: blur(32px) saturate(180%);
       box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.04);
     }
     nav {
@@ -58,7 +58,7 @@
     /* Hero */
     .hero-section {
       position: relative; overflow: hidden;
-      background: linear-gradient(180deg, #fafafa 0%, #f0f9ff 40%, #e0f2fe 100%);
+      background: linear-gradient(180deg, #f8fafc 0%, #eff6ff 30%, #e0f2fe 70%, #f0f9ff 100%);
       padding: 160px 24px 120px;
     }
     .hero-glow {
@@ -75,7 +75,7 @@
     .hero-content { text-align: center; margin-bottom: 64px; }
     .hero-badge {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(255,255,255,0.7); backdrop-filter: blur(12px);
+      background: rgba(255,255,255,0.6); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
       border: 1px solid rgba(0,0,0,0.06);
       font-size: 13px; font-weight: 500; padding: 6px 18px; border-radius: 9999px;
       margin-bottom: 28px; letter-spacing: -0.13px; color: var(--text-secondary);
@@ -105,7 +105,7 @@
     .btn-primary:hover { background: #1e293b; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(15,23,42,0.2); }
     .btn-outline {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(255,255,255,0.7); backdrop-filter: blur(12px);
+      background: rgba(255,255,255,0.6); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
       color: var(--text); font-size: 15px; font-weight: 500;
       padding: 13px 28px; border-radius: 10px; transition: all 0.25s;
       border: 1px solid rgba(0,0,0,0.1); letter-spacing: -0.3px;
@@ -126,7 +126,7 @@
     /* Comparison spotlight */
     .hero-compare {
       max-width: 700px; margin: 0 auto 0;
-      background: #fff; border-radius: var(--radius-lg); overflow: hidden;
+      background: rgba(255,255,255,0.8); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border-radius: var(--radius-lg); overflow: hidden;
       box-shadow: var(--shadow-lg); border: 1px solid var(--border-light);
     }
     .compare-header {
@@ -159,7 +159,7 @@
 
     /* Sections */
     .section { padding: 120px 24px; }
-    .section-alt { background: #fff; }
+    .section-alt { background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(240,249,255,0.3) 100%); }
     .section-inner { max-width: 1200px; margin: 0 auto; }
     .section-label {
       font-family: 'Geist Mono', ui-monospace, monospace;
@@ -180,6 +180,7 @@
     /* Diff Cards */
     .diff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .diff-card {
+      background: rgba(255,255,255,0.7); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
       background: #fff; padding: 44px 32px; border-radius: var(--radius-lg);
       border: 1px solid var(--border-light); transition: all 0.35s; position: relative; overflow: hidden;
     }
@@ -199,7 +200,7 @@
     /* Roles Grid */
     .roles-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border-light); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
     .role-card { text-align: center; padding: 32px 16px 28px; background: #fff; transition: all 0.3s; position: relative; cursor: default; }
-    .role-card:hover { background: linear-gradient(180deg, #fff 0%, #f0f9ff 100%); transform: translateY(-4px); z-index: 2; box-shadow: var(--shadow-lg); }
+    .role-card:hover { background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(240,249,255,0.8) 100%); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transform: translateY(-4px); z-index: 2; box-shadow: var(--shadow-lg); }
     .role-avatar { width: 64px; height: 64px; border-radius: 50%; margin-bottom: 16px; display: block; margin-left: auto; margin-right: auto; transition: transform 0.3s, box-shadow 0.3s; object-fit: cover; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
     .role-card:hover .role-avatar { transform: scale(1.08); box-shadow: 0 4px 20px rgba(6,182,212,0.2); }
     .role-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.32px; }
@@ -208,6 +209,7 @@
     /* Features */
     .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .feature-card {
+      background: rgba(255,255,255,0.7); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
       background: #fff; padding: 40px 32px; border-radius: var(--radius-lg);
       border: 1px solid var(--border-light); transition: all 0.35s; position: relative; overflow: hidden;
     }
@@ -225,6 +227,7 @@
     /* Use Cases */
     .usecases-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .usecase-card {
+      background: rgba(255,255,255,0.7); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
       background: #fff; border-radius: var(--radius-lg); overflow: hidden;
       border: 1px solid var(--border-light); transition: all 0.35s;
     }
@@ -257,7 +260,7 @@
 
     /* Pricing */
     .pricing-card {
-      background: #fff; border-radius: var(--radius-xl); padding: 56px;
+      background: rgba(255,255,255,0.8); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-radius: var(--radius-xl); padding: 56px;
       text-align: center; max-width: 500px; margin: 0 auto;
       border: 1px solid var(--border-light); box-shadow: var(--shadow-md);
       position: relative; overflow: hidden;
@@ -289,7 +292,7 @@
     /* CTA */
     .cta-section {
       position: relative; overflow: hidden;
-      background: linear-gradient(135deg, #0f172a 0%, #0c1929 40%, #0e2942 100%);
+      background: linear-gradient(135deg, #0a0f1e 0%, #0c1a2d 30%, #0e2542 60%, #0a1628 100%);
       color: #fff; text-align: center; padding: 120px 24px;
     }
     .cta-section::before {
@@ -410,7 +413,7 @@
           下载 Windows 版
         </a>
       </div>
-      <p class="hero-install-hint" style="font-size:12px;color:#6b7280;margin-top:8px;">Mac 首次打开提示无法验证？右键点击 App → 打开。Windows 用户直接安装即可。</p>
+      <p class="hero-install-hint" style="font-size:12px;color:rgba(0,0,0,0.4);margin-top:8px;letter-spacing:0.2px;">Mac 首次打开提示无法验证？右键点击 App → 打开。Windows 用户直接安装即可。</p>
       <p class="hero-meta"><span class="ver-tag">v1.0.17</span> · macOS 12+ / Windows 10+ · Apple Silicon & Intel · 开源内核 · 3 分钟上手</p>
     </div>
   </div>
@@ -629,7 +632,7 @@
         <span class="section-label reveal">Preview</span>
         <h2 class="reveal">长什么样？一眼看懂</h2>
         <p class="section-sub reveal">简洁的桌面应用界面，8位数字员工随时切换，聊天即工作。</p>
-        <div class="app-preview reveal" style="max-width:900px;margin:0 auto;background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden;border:1px solid var(--border-light);">
+        <div class="app-preview reveal" style="max-width:900px;margin:0 auto;background:rgba(255,255,255,0.85);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-radius:var(--radius-lg);box-shadow:0 25px 80px rgba(0,0,0,0.06),0 0 0 1px rgba(0,0,0,0.04);overflow:hidden;">
           <!-- Fake title bar -->
           <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#f0f3f8;border-bottom:1px solid var(--border-light);">
             <span style="width:12px;height:12px;border-radius:50%;background:#ef4444;"></span>
