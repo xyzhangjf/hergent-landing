@@ -292,19 +292,38 @@
   }
 
   async function waitForEngineReady() {
-    const maxWait = 180000; // 最多等3分钟
+    // 显示初始化进度条
+    const overlay = document.getElementById('bootstrapOverlay');
+    const status = document.getElementById('bootStatus');
+    const fill = document.getElementById('bootProgressFill');
+    const skipBtn = document.getElementById('bootSkipBtn');
+    if (overlay) { overlay.style.display = 'flex'; }
+    if (skipBtn) { skipBtn.style.display = 'none'; }
+    if (fill) { fill.classList.add('indeterminate'); }
+
+    const maxWait = 180000;
     const start = Date.now();
+    let dots = 0;
     while (Date.now() - start < maxWait) {
       try {
-        const status = await window.hermes.gatewayStatus();
-        if (status && status.running) {
-          // 网关就绪后额外等3秒，确保role config全部写完
+        if (status) {
+          dots = (dots + 1) % 4;
+          status.textContent = '正在初始化引擎' + '.'.repeat(dots) + '  首次启动约需1-2分钟';
+        }
+        const s = await window.hermes.gatewayStatus();
+        if (s && s.running) {
+          if (status) status.textContent = '引擎就绪，正在加载...';
           await new Promise(r => setTimeout(r, 3000));
+          if (overlay) overlay.style.display = 'none';
+          if (fill) fill.classList.remove('indeterminate');
           return;
         }
       } catch (_) {}
       await new Promise(r => setTimeout(r, 3000));
     }
+    // 超时
+    if (status) status.textContent = '初始化超时，请重启应用';
+    if (skipBtn) { skipBtn.style.display = ''; skipBtn.textContent = '跳过（不推荐）'; }
   }
 
   function saveAuth() {
