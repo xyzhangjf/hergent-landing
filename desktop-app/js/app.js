@@ -262,12 +262,14 @@
         const meResp = await hermes.authMe(authState.token);
         if (meResp && meResp.id) {
           authState.user = meResp;
+          await waitForEngineReady();
           updateCreditsBadge();
           await loadRolesFromIPC();
           renderSidebar();
+          loadSkills();
           initOnboarding();
           restoreLastState();
-          startFeishuPolling(); // 启动后立即开始轮询飞书消息
+          startFeishuPolling();
           return;
         }
       } catch (e) { console.error("auth check failed:", e.message); }
@@ -290,12 +292,16 @@
   }
 
   async function waitForEngineReady() {
-    const maxWait = 120000; // 最多等2分钟
+    const maxWait = 180000; // 最多等3分钟
     const start = Date.now();
     while (Date.now() - start < maxWait) {
       try {
         const status = await window.hermes.gatewayStatus();
-        if (status && status.running) return;
+        if (status && status.running) {
+          // 网关就绪后额外等3秒，确保role config全部写完
+          await new Promise(r => setTimeout(r, 3000));
+          return;
+        }
       } catch (_) {}
       await new Promise(r => setTimeout(r, 3000));
     }
