@@ -48,7 +48,7 @@ function isGatewayRunning() {
   });
 }
 
-async function waitForGateway(maxWaitMs = 30000) {
+async function waitForGateway(maxWaitMs = 90000) {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
     if (await isGatewayRunning()) return true;
@@ -2712,7 +2712,7 @@ ipcMain.handle('config:set-model', async (event, opts) => {
     stopHermesGateway();
     await new Promise(r => setTimeout(r, 1500));
     await startHermesGateway();
-    const ready = await waitForGateway(15000);
+    const ready = await waitForGateway(60000);
     return { success: ready };
   } catch (e) { return { success: false, error: e.message }; }
 });
