@@ -1273,8 +1273,8 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             const hermesScript = path.join(homeDir, '.hermes', 'hermes-agent', 'hermes');
             const baseArgs = [hermesScript, 'chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
             if (!fs.existsSync(hermesScript)) {
-              baseArgs[0] = '-m';
-              baseArgs[1] = 'hermes_cli.main';
+              baseArgs[0] = 'hermes_cli.main';
+              baseArgs.unshift('-m');
             }
             // 会话续接：优先用平台Session（飞书等），App和飞书共享同一上下文
             const platformSessionId = getLatestPlatformSession(roleId);
