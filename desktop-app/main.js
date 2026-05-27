@@ -2043,6 +2043,13 @@ ipcMain.handle('activation:credits', async () => {
   }
 });
 
+ipcMain.handle('billing:history', async () => {
+  try {
+    const body = await httpGet(`${SERVER_URL}/api/billing/history?device_id=${getDeviceId()}`);
+    return JSON.parse(body);
+  } catch (e) { return { recharges: [], usage: [], balance: 0 }; }
+});
+
 // 打开外部链接
 ipcMain.handle('shell:open', async (event, url) => {
   require('electron').shell.openExternal(url);

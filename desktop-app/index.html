@@ -617,9 +617,27 @@
         <div class="usage-empty">暂无消费记录</div>
       </div>
     </div>
+    <div style="text-align:center;margin-top:19px;">
+      <button class="btn secondary" onclick="showBillingHistory()">📋 查看账单</button>
+    </div>
   </div>
 </div>
 
+<!-- 账单弹窗 -->
+<div class="modal-overlay" id="billingOverlay">
+  <div class="modal" style="max-width:480px;">
+    <h3 id="billingTitle">📋 我的账单</h3>
+    <div class="billing-summary" id="billingSummary"></div>
+    <div class="billing-tabs">
+      <button class="billing-tab active" onclick="switchBillingTab('recharge')">充值记录</button>
+      <button class="billing-tab" onclick="switchBillingTab('usage')">消费记录</button>
+    </div>
+    <div class="billing-list" id="billingList" style="max-height:300px;overflow-y:auto;"></div>
+    <div class="modal-btn-row" style="margin-top:12px;">
+      <button class="btn secondary" onclick="closeBillingHistory()">关闭</button>
+    </div>
+  </div>
+</div>
 
 <!-- 文件预览弹窗 -->
 <div class="modal-overlay" id="filePreviewOverlay">

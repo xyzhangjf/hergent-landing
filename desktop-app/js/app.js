@@ -731,7 +731,6 @@
     document.querySelectorAll('.recharge-tier').forEach(t => t.classList.remove('selected'));
     document.querySelector('.recharge-tier[data-amount="10"]').classList.add('selected');
     _updateTierHint(10);
-    _renderUsageHistory();
     showOverlay('rechargeOverlay');
   }
 
@@ -788,6 +787,65 @@
   function closeRecharge() {
     hideOverlay('rechargeOverlay');
     refreshCredits();
+  }
+
+  // ===== 账单 =====
+  let _billingTab = 'recharge';
+
+  async function showBillingHistory() {
+    hideOverlay('rechargeOverlay');
+    showOverlay('billingOverlay');
+    _billingTab = 'recharge';
+    document.querySelectorAll('.billing-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+    await loadBillingData();
+  }
+
+  function closeBillingHistory() {
+    hideOverlay('billingOverlay');
+  }
+
+  function switchBillingTab(tab) {
+    _billingTab = tab;
+    document.querySelectorAll('.billing-tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && tab === 'recharge') || (i === 1 && tab === 'usage'));
+    });
+    loadBillingData();
+  }
+
+  async function loadBillingData() {
+    const list = document.getElementById('billingList');
+    const summary = document.getElementById('billingSummary');
+    if (!list) return;
+    list.innerHTML = '<div class="loading"><div class="spinner"></div>加载中...</div>';
+
+    try {
+      const data = await (window.hermes.getBillingHistory ? window.hermes.getBillingHistory() : { recharges: [], usage: [], balance: 0 });
+      if (summary) {
+        summary.innerHTML = `余额 <b>${data.balance || 0}</b> 分 · 累计充值 <b>${data.total_recharged || 0}</b> 分 · 累计消费 <b>${data.total_used || 0}</b> 分`;
+      }
+
+      if (_billingTab === 'recharge') {
+        if (!data.recharges || data.recharges.length === 0) {
+          list.innerHTML = '<div class="usage-empty">暂无充值记录</div>';
+          return;
+        }
+        list.innerHTML = data.recharges.map(r => {
+          const d = new Date(r.time); const ts = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          return `<div class="usage-item"><div class="usage-item-left"><span>${ts} · 充值</span></div><span class="usage-item-credits" style="color:#22c55e;">+${r.credits} 分</span></div>`;
+        }).join('');
+      } else {
+        if (!data.usage || data.usage.length === 0) {
+          list.innerHTML = '<div class="usage-empty">暂无消费记录</div>';
+          return;
+        }
+        list.innerHTML = data.usage.map(r => {
+          const d = new Date(r.time); const ts = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          return `<div class="usage-item"><div class="usage-item-left"><span>${ts} · ${r.model || 'AI对话'}</span></div><span class="usage-item-credits">-${r.credits} 分</span></div>`;
+        }).join('');
+      }
+    } catch (_) {
+      list.innerHTML = '<div class="usage-empty">加载失败</div>';
+    }
   }
 
   async function submitRecharge() {

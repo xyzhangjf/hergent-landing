@@ -351,6 +351,35 @@ async def usage_history(request: Request, limit: int = 20):
         
         return {"records": records, "balance": user["credits"]}
 
+@app.get("/api/billing/history")
+async def billing_history(request: Request, limit: int = 50):
+    """查询用户账单（充值+消费）：GET /api/billing/history?limit=50"""
+    device_id = get_device_fingerprint(request)
+    with get_db() as db:
+        user = db.execute("SELECT id, credits, total_used, total_recharged FROM users WHERE device_id=?", (device_id,)).fetchone()
+        if not user:
+            return {"recharges": [], "usage": [], "balance": 0, "total_used": 0, "total_recharged": 0}
+
+        # 充值记录
+        recharges = db.execute("""
+            SELECT timestamp, amount_yuan, credits_added FROM recharge_log
+            WHERE user_id=? ORDER BY id DESC LIMIT ?
+        """, (user["id"], limit)).fetchall()
+
+        # 消费记录
+        usage = db.execute("""
+            SELECT timestamp, model, credits_deducted FROM usage_log
+            WHERE user_id=? ORDER BY id DESC LIMIT ?
+        """, (user["id"], limit)).fetchall()
+
+        return {
+            "recharges": [{"time": r["timestamp"], "amount_yuan": r["amount_yuan"], "credits": r["credits_added"]} for r in recharges],
+            "usage": [{"time": r["timestamp"], "model": r["model"], "credits": r["credits_deducted"]} for r in usage],
+            "balance": user["credits"],
+            "total_used": user["total_used"],
+            "total_recharged": user["total_recharged"]
+        }
+
 # ---- 充值（需管理密钥） ----
 def _verify_admin(request: Request):
     """验证管理密钥"""

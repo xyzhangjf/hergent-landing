@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('hermes', {
 
   // 积分查询
   getCredits: () => ipcRenderer.invoke('activation:credits'),
+  getBillingHistory: () => ipcRenderer.invoke('billing:history'),
   openExternal: (url) => ipcRenderer.invoke('shell:open', url),
 
   // 右键菜单
