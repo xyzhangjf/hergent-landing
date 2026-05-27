@@ -1265,15 +1265,17 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             const engineDir = getEngineDir();
             const pyDir = path.join(engineDir, 'python');
             if (fs.existsSync(pyDir)) { spawnSync('/usr/bin/xattr', ['-cr', pyDir], { timeout: 10000 }); }
-            // 查找可用的 Python（agent Python 优先，引擎 Python 备选）
+            // 查找可用的 Python（引擎优先，agent venv 备选，agent 直接兜底）
             const agentPython = path.join(homeDir, '.hermes', 'hermes-agent', 'python', 'bin', 'python3.11');
+            const agentVenvPython = path.join(homeDir, '.hermes', 'hermes-agent', 'venv', 'bin', 'python3.11');
             const agentLibs = path.join(homeDir, '.hermes', 'hermes-agent', 'libs');
             const enginePython = path.join(engineDir, 'python', 'bin', 'python3.11');
             const engineLibs = path.join(engineDir, 'libs');
             let pythonBin = 'python3';
             let pythonLibs = null;
-            if (fs.existsSync(agentPython)) { pythonBin = agentPython; pythonLibs = agentLibs; }
-            else if (fs.existsSync(enginePython)) { pythonBin = enginePython; pythonLibs = engineLibs; }
+            if (fs.existsSync(enginePython)) { pythonBin = enginePython; pythonLibs = engineLibs; }
+            else if (fs.existsSync(agentVenvPython)) { pythonBin = agentVenvPython; pythonLibs = agentLibs; }
+            else if (fs.existsSync(agentPython)) { pythonBin = agentPython; pythonLibs = agentLibs; }
             const roleId = role || 'dami';
             const hermesScript = path.join(homeDir, '.hermes', 'hermes-agent', 'hermes');
             const baseArgs = [hermesScript, 'chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
