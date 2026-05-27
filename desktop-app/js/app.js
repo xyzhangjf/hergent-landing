@@ -278,12 +278,27 @@
     authState = { token: 'dev-token', user: { id: 'dev', name: '开发者' } };
     saveAuth();
     hideLogin();
+    // 等待引擎就绪（首次启动需要解压+安装依赖，约1-2分钟）
+    await waitForEngineReady();
     updateCreditsBadge();
     await loadRolesFromIPC();
     renderSidebar();
+    loadSkills(); // 引擎就绪后重新加载技能
     initOnboarding();
     restoreLastState();
-    startFeishuPolling(); // 启动后立即开始轮询飞书消息
+    startFeishuPolling();
+  }
+
+  async function waitForEngineReady() {
+    const maxWait = 120000; // 最多等2分钟
+    const start = Date.now();
+    while (Date.now() - start < maxWait) {
+      try {
+        const status = await window.hermes.gatewayStatus();
+        if (status && status.running) return;
+      } catch (_) {}
+      await new Promise(r => setTimeout(r, 3000));
+    }
   }
 
   function saveAuth() {
