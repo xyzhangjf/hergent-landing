@@ -292,36 +292,70 @@
   }
 
   async function waitForEngineReady() {
-    // 显示初始化进度条
     const overlay = document.getElementById('bootstrapOverlay');
     const status = document.getElementById('bootStatus');
     const fill = document.getElementById('bootProgressFill');
     const skipBtn = document.getElementById('bootSkipBtn');
+    const subtitle = document.querySelector('.bootstrap-subtitle');
+
+    // 判断是否首次启动
+    let isFirstLaunch = true;
+    try {
+      const cli = await window.hermes.checkCli();
+      isFirstLaunch = !(cli && cli.available);
+    } catch (_) {}
+
     if (overlay) { overlay.style.display = 'flex'; }
     if (skipBtn) { skipBtn.style.display = 'none'; }
-    if (fill) { fill.classList.add('indeterminate'); }
+
+    const steps = isFirstLaunch
+      ? [
+          { pct: 20, msg: '正在解压 Hermes 引擎...' },
+          { pct: 40, msg: '正在安装 Python 依赖...' },
+          { pct: 60, msg: '正在配置网关...' },
+          { pct: 80, msg: '正在启动网关...' },
+          { pct: 95, msg: '引擎就绪，加载中...' },
+        ]
+      : [
+          { pct: 30, msg: '正在启动引擎...' },
+          { pct: 70, msg: '引擎就绪，加载中...' },
+        ];
+
+    if (subtitle) subtitle.textContent = isFirstLaunch ? '首次启动约需1-2分钟' : '';
 
     const maxWait = 180000;
     const start = Date.now();
-    let dots = 0;
+    let stepIdx = 0;
+
     while (Date.now() - start < maxWait) {
+      // 根据已用时间推进进度
+      const elapsed = (Date.now() - start) / maxWait;
+      while (stepIdx < steps.length && elapsed >= steps[stepIdx].pct / 100) {
+        if (status) status.textContent = steps[stepIdx].msg;
+        if (fill) fill.style.width = steps[stepIdx].pct + '%';
+        stepIdx++;
+      }
+      // 平滑过渡
+      if (stepIdx < steps.length && fill) {
+        const prevPct = stepIdx > 0 ? steps[stepIdx - 1].pct : 0;
+        const nextPct = steps[stepIdx].pct;
+        const segElapsed = (elapsed - prevPct / 100) / ((nextPct - prevPct) / 100);
+        fill.style.width = (prevPct + segElapsed * (nextPct - prevPct)) + '%';
+      }
+
       try {
-        if (status) {
-          dots = (dots + 1) % 4;
-          status.textContent = '正在初始化引擎' + '.'.repeat(dots) + '  首次启动约需1-2分钟';
-        }
         const s = await window.hermes.gatewayStatus();
         if (s && s.running) {
-          if (status) status.textContent = '引擎就绪，正在加载...';
-          await new Promise(r => setTimeout(r, 3000));
+          if (status) status.textContent = steps[steps.length - 1].msg;
+          if (fill) fill.style.width = '100%';
+          await new Promise(r => setTimeout(r, 2000));
           if (overlay) overlay.style.display = 'none';
-          if (fill) fill.classList.remove('indeterminate');
+          if (fill) fill.style.width = '5%';
           return;
         }
       } catch (_) {}
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 2000));
     }
-    // 超时
     if (status) status.textContent = '初始化超时，请重启应用';
     if (skipBtn) { skipBtn.style.display = ''; skipBtn.textContent = '跳过（不推荐）'; }
   }
