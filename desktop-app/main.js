@@ -975,7 +975,8 @@ function saveChannels(data) {
 // ===== 网关控制 =====
 async function restartGateway() {
   stopHermesGateway();
-  await new Promise(r => setTimeout(r, 2000));
+  try { execSync('pkill -9 -f "gateway run"', { timeout: 5000 }); } catch (_) {}
+  await new Promise(r => setTimeout(r, 3000));
   const ok = await startHermesGateway();
   return { success: ok, output: ok ? 'Gateway restarted' : 'Gateway restart failed' };
 }
@@ -2728,11 +2729,13 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       if (opts.model) rset('model.name', opts.model);
       if (opts.provider) rset('model.provider', opts.provider);
     }
-    // 重启 Gateway 使模型变更生效
+    // 强制重启 Gateway 使模型变更生效
     stopHermesGateway();
-    await new Promise(r => setTimeout(r, 1500));
+    // 兜底：杀干净所有残留 gateway 进程
+    try { execSync('pkill -9 -f "gateway run"', { timeout: 5000 }); } catch (_) {}
+    await new Promise(r => setTimeout(r, 3000));
     await startHermesGateway();
-    const ready = await waitForGateway(60000);
+    const ready = await waitForGateway(90000);
     return { success: ready };
   } catch (e) { return { success: false, error: e.message }; }
 });
