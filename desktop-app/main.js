@@ -2688,9 +2688,14 @@ ipcMain.handle('config:get-model', async () => {
 ipcMain.handle('config:set-model', async (event, opts) => {
   try {
     const engineDir = getEngineDir();
-    const hermesHome = path.join(engineDir, '.hermes');
-    const cfgEnv = { ...process.env, HERMES_HOME: hermesHome };
-    const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
+    const engineHermesHome = path.join(engineDir, '.hermes');
+    const agentHermesHome = path.join(homeDir, '.hermes');
+
+    // 同时更新引擎和 Agent 的 config（取决于 Gateway 实际用哪个）
+    for (const hh of [engineHermesHome, agentHermesHome]) {
+      if (!fs.existsSync(path.join(hh, 'config.yaml'))) continue;
+      const cfgEnv = { ...process.env, HERMES_HOME: hh };
+      const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
     if (opts.model) {
       set('model.name', opts.model);
       // 同步更新对应 provider 的 custom_providers model
@@ -2712,6 +2717,7 @@ ipcMain.handle('config:set-model', async (event, opts) => {
         req.write(postData);
         req.end();
       } catch (_) {}
+    }
     }
     // 同步模型到所有角色 Gateway config
     const roleConfigs = getPlatformRoleConfigs();
