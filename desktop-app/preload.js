@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('hermes', {
   // 头像上传 — 存到 Resources/avatars/，不依赖 localStorage
   avatarsPath: AVATARS_PATH,
   reportsDir: REPORTS_DIR,
+  getVersion: () => ipcRenderer.invoke('app:version'),
   uploadAvatar: (role) => ipcRenderer.invoke('avatar:upload', role),
   getCustomAvatar: (role) => ipcRenderer.invoke('avatar:get', role),
   removeAvatar: (role) => ipcRenderer.invoke('avatar:remove', role),
