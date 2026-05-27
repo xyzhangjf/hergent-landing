@@ -871,7 +871,10 @@
   }
 
   async function refreshSettings() {
-    document.getElementById('setVersion').textContent = 'v1.0.0';
+    try {
+      const v = await window.hermes.getVersion();
+      document.getElementById('setVersion').textContent = 'Hergent v' + v;
+    } catch (_) {}
     if (authState && authState.user && authState.user.credits != null) {
       document.getElementById('setCredits').textContent = authState.user.credits + ' 分';
     } else {

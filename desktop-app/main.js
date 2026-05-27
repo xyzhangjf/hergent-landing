@@ -2920,5 +2920,6 @@ app.whenReady().then(() => {
   }
 });
 
+ipcMain.handle('app:version', () => CURRENT_VERSION);
 app.on('window-all-closed', () => { stopCreditsServer(); stopHermesGateway(); app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
