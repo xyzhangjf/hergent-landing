@@ -2835,6 +2835,13 @@ app.whenReady().then(() => {
   createWindow();
   startHermesGateway().then(ok => console.log('[gateway] startup:', ok ? 'OK' : 'FAILED'));
 
+  // 确保成果目录存在
+  const reportsDir = path.join(app.getPath('documents'), 'Hergent', '成果');
+  for (const sub of ['业务报表', '我的创作', '我的工具']) {
+    const d = path.join(reportsDir, sub);
+    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+  }
+
   // 更新检查 — 必须在 app.whenReady() 后初始化（electron-updater 依赖 app 模块）
   const { autoUpdater } = require('electron-updater');
   autoUpdater.autoDownload = false;
