@@ -323,24 +323,25 @@
 
     if (subtitle) subtitle.textContent = isFirstLaunch ? '首次启动约需1-2分钟' : '';
 
-    const maxWait = 180000;
+    const estSeconds = isFirstLaunch ? 120 : 30; // 预计时间
     const start = Date.now();
     let stepIdx = 0;
 
-    while (Date.now() - start < maxWait) {
-      // 根据已用时间推进进度
-      const elapsed = (Date.now() - start) / maxWait;
+    while (true) {
+      // 根据已用时间推进进度（基于预估时间）
+      const elapsed = (Date.now() - start) / (estSeconds * 1000);
       while (stepIdx < steps.length && elapsed >= steps[stepIdx].pct / 100) {
         if (status) status.textContent = steps[stepIdx].msg;
         if (fill) fill.style.width = steps[stepIdx].pct + '%';
         stepIdx++;
       }
-      // 平滑过渡
+      // 平滑过渡（上限95%，就绪后才到100%）
       if (stepIdx < steps.length && fill) {
         const prevPct = stepIdx > 0 ? steps[stepIdx - 1].pct : 0;
         const nextPct = steps[stepIdx].pct;
         const segElapsed = (elapsed - prevPct / 100) / ((nextPct - prevPct) / 100);
-        fill.style.width = (prevPct + segElapsed * (nextPct - prevPct)) + '%';
+        const rawPct = prevPct + segElapsed * (nextPct - prevPct);
+        fill.style.width = Math.min(rawPct, 95) + '%';
       }
 
       try {
@@ -356,8 +357,7 @@
       } catch (_) {}
       await new Promise(r => setTimeout(r, 2000));
     }
-    if (status) status.textContent = '初始化超时，请重启应用';
-    if (skipBtn) { skipBtn.style.display = ''; skipBtn.textContent = '跳过（不推荐）'; }
+    // 不会到这里——while(true) 直到引擎就绪才 return
   }
 
   function saveAuth() {
