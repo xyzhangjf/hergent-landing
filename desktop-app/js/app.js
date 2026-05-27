@@ -279,9 +279,9 @@
     // DEV 模式：跳过登录直接进入
     authState = { token: 'dev-token', user: { id: 'dev', name: '开发者' } };
     saveAuth();
-    hideLogin();
-    // 等待引擎就绪（首次启动需要解压+安装依赖，约1-2分钟）
+    // 等待引擎就绪再显示界面，避免闪现
     await waitForEngineReady();
+    hideLogin();
     updateCreditsBadge();
     await loadRolesFromIPC();
     renderSidebar();
