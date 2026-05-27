@@ -2810,12 +2810,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         <span class="ms-item-name">${m.name}</span>
         <span class="ms-item-desc">${m.desc}</span>
       </button>
-    `).join('')
-    + `<div class="ms-divider"></div>
-    <button class="ms-item" onclick="event.stopPropagation();switchPage('pageSettings');document.getElementById('modelSwitcher').classList.remove('show');">
-      <span class="ms-item-name">⚙ 自定义模型…</span>
-      <span class="ms-item-desc">使用自己的 API Key 和地址</span>
-    </button>`;
+    `).join('');
 
     const btn = document.getElementById('modelIndicator');
     const rect = btn.getBoundingClientRect();
