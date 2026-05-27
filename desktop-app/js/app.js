@@ -4126,6 +4126,15 @@ ${questionnaireHistory}`;
   let _previewFileFolder = null;
 
   async function refreshReports() {
+    // 确保卡片可见（兜底：如果DOM丢失则重建）
+    const grid = document.getElementById('reportsGrid');
+    if (grid && !grid.querySelector('.result-card')) {
+      grid.innerHTML = `
+        <div class="result-card" data-folder="业务报表"><div class="result-card-body"><div class="result-card-header"><span class="result-card-icon">📊</span><span class="result-card-title">业务报表</span><span class="result-card-count" id="cnt_biz">0</span></div><div class="result-card-files" id="files_biz"><div class="result-empty">对话中生成的报表、数据分析等</div></div></div></div>
+        <div class="result-card" data-folder="我的创作"><div class="result-card-body"><div class="result-card-header"><span class="result-card-icon">✍️</span><span class="result-card-title">我的创作</span><span class="result-card-count" id="cnt_creative">0</span></div><div class="result-card-files" id="files_creative"><div class="result-empty">帮你写的文案、方案、邮件等创作内容</div></div></div></div>
+        <div class="result-card" data-folder="我的工具"><div class="result-card-body"><div class="result-card-header"><span class="result-card-icon">🔧</span><span class="result-card-title">我的工具</span><span class="result-card-count" id="cnt_tools">0</span></div><div class="result-card-files" id="files_tools"><div class="result-empty">帮你做的App、脚本、自动化工具等</div></div></div></div>`;
+    }
+
     const baseDir = window.hermes.reportsDir;
     const categories = [
       { folder: '业务报表', id: 'biz', empty: '对话中生成的报表、<br>数据分析等', icon: '📊', rePrompt: '帮我生成一份业务报表，分析' },
