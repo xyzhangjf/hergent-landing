@@ -306,7 +306,8 @@
     } catch (_) {}
 
     if (overlay) { overlay.style.display = 'flex'; }
-    if (skipBtn) { skipBtn.style.display = 'none'; }
+    if (skipBtn) { skipBtn.style.display = 'none'; skipBtn.textContent = '跳过等待'; }
+    let fallbackShown = false;
 
     const steps = isFirstLaunch
       ? [
@@ -355,6 +356,12 @@
           return;
         }
       } catch (_) {}
+      // 3分钟后还没就绪，显示跳过按钮
+      if (!fallbackShown && Date.now() - start > 180000) {
+        fallbackShown = true;
+        if (status) status.textContent = '启动较慢，可跳过等待（引擎后台继续初始化）';
+        if (skipBtn) { skipBtn.style.display = ''; skipBtn.onclick = () => { if (overlay) overlay.style.display = 'none'; }; }
+      }
       await new Promise(r => setTimeout(r, 2000));
     }
     // 不会到这里——while(true) 直到引擎就绪才 return
