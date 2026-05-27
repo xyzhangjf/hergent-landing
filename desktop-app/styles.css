@@ -4311,6 +4311,18 @@
       white-space: nowrap;
     }
 
+    /* 账单弹窗 */
+    .billing-summary {
+      font-size: 13px; color: var(--text-secondary);
+      padding: 8px 0 12px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 12px;
+    }
+    .billing-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .billing-tab {
+      padding: 6px 14px; border: none; background: var(--bg-input); color: var(--text-tertiary);
+      border-radius: 6px; cursor: pointer; font-size: 12px; font-family: inherit; transition: all 0.15s;
+    }
+    .billing-tab.active { background: var(--brand-500); color: #fff; }
+
 :root.dark .wcap-pill { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.08); color: var(--text-secondary); }
 :root.dark .wcap-pill:hover { background: rgba(6,182,212,0.1); border-color: rgba(6,182,212,0.25); color: var(--brand-400); }
 :root.dark .welcome-privacy { color: var(--text-tertiary); }
