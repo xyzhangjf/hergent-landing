@@ -70,6 +70,7 @@
     .bootstrap-logo {
       font-size: 48px;
       margin-bottom: 16px;
+      color: var(--brand-500);
       animation: bounceIn 0.6s var(--ease-spring);
     }
     @keyframes bounceIn {
