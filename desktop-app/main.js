@@ -603,16 +603,12 @@ function ensureSharedState() {
         const entries = fs.readdirSync(bundledSkills, { withFileTypes: true });
         for (const e of entries) {
           if (!e.isDirectory()) continue;
-          const src = path.join(bundledSkills, e.name, 'SKILL.md');
-          if (!fs.existsSync(src)) continue;
+          const srcDir = path.join(bundledSkills, e.name);
           const dstDir = path.join(userPath, e.name);
-          const dst = path.join(dstDir, 'SKILL.md');
           try {
-            if (!fs.existsSync(dst) || fs.readFileSync(dst, 'utf8') !== fs.readFileSync(src, 'utf8')) {
-              if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
-              fs.writeFileSync(dst, fs.readFileSync(src));
-            }
-          } catch (e) { console.log('skill copy error: ' + (e.message || e)); }
+            // 复制整个技能目录（含 scripts/ 等子目录），不只 SKILL.md
+            fs.cpSync(srcDir, dstDir, { recursive: true, force: true });
+          } catch (e2) { console.log('skill copy error: ' + (e2.message || e2)); }
         }
       }
 
@@ -707,6 +703,16 @@ function syncRoleSkills() {
 function ensureRoleConfigs() {
   const engineDir = getEngineDir();
   const roles = loadRoles();
+  // 读取主引擎模型配置，用于同步到所有角色
+  const mainConfigPath = path.join(engineDir, '.hermes', 'config.yaml');
+  let mainModel = 'deepseek-v4-pro', mainProvider = 'hergent';
+  try {
+    const mc = fs.readFileSync(mainConfigPath, 'utf8');
+    const mm = mc.match(/^model:\s*\n\s+name:\s*(.+)/m);
+    const mp = mc.match(/^model:\s*\n(?:.+\n)*?\s+provider:\s*(.+)/m);
+    if (mm) mainModel = mm[1].trim();
+    if (mp) mainProvider = mp[1].trim();
+  } catch (_) {}
   for (const [roleId, role] of Object.entries(roles)) {
     const roleHome = path.join(engineDir, '.hermes', 'agents', roleId);
     const roleWorkspace = path.join(roleHome, 'workspace');
@@ -768,6 +774,11 @@ function ensureRoleConfigs() {
         fs.writeFileSync(roleConfigPath, roleConfigYaml);
       } catch (e) { console.log(`config.yaml write error for ${roleId}: ` + (e.message || e)); }
     }
+    // 同步主引擎模型到该角色
+    const roleEnv = { ...process.env, HERMES_HOME: roleHome };
+    const rset = (k, v) => { try { spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: roleEnv }); } catch (_) {} };
+    rset('model.name', mainModel);
+    rset('model.provider', mainProvider);
   }
   syncRoleSkills();
 }
@@ -2767,10 +2778,11 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       } catch (_) {}
     }
     }
-    // 同步模型到所有角色 Gateway config
-    const roleConfigs = getPlatformRoleConfigs();
-    for (const cfg of roleConfigs) {
-      const roleHome = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
+    // 同步模型到所有角色 config（不只是有平台频道的角色）
+    const allRoles = loadRoles();
+    for (const [roleId] of Object.entries(allRoles)) {
+      const roleHome = path.join(engineDir, '.hermes', 'agents', roleId);
+      if (!fs.existsSync(path.join(roleHome, 'config.yaml'))) continue;
       const roleEnv = { ...process.env, HERMES_HOME: roleHome };
       const rset = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: roleEnv });
       if (opts.model) rset('model.name', opts.model);
