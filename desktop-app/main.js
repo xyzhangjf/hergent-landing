@@ -237,6 +237,8 @@ async function startHermesGateway() {
       set('model.provider', 'hergent');
       set('model.base_url', `${SERVER_URL}/v1`);
       set('model.default', 'deepseek-v4-pro');
+      set('custom_providers.0.model', 'deepseek-v4-pro');
+      set('custom_providers.1.model', 'qwen3-max');
     }
     set('platforms.api_server.enabled', 'true');
     set('platforms.api_server.port', String(GATEWAY_PORT));
@@ -245,12 +247,10 @@ async function startHermesGateway() {
     set('custom_providers.0.name', 'hergent');
     set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
     set('custom_providers.0.api_key', dsKey);
-    set('custom_providers.0.model', 'deepseek-v4-pro');
     // 阿里云百炼 provider（通过积分服务代理）
     set('custom_providers.1.name', 'bailian');
     set('custom_providers.1.base_url', `${SERVER_URL}/v1`);
     set('custom_providers.1.api_key', dsKey);
-    set('custom_providers.1.model', 'qwen3-max');
     set('memory.memory_enabled', 'true');
     set('memory.memory_char_limit', '12000');
     set('memory.user_char_limit', '8000');
