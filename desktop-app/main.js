@@ -760,6 +760,10 @@ function ensureRoleConfigs() {
           `    base_url: ${SERVER_URL}/v1`,
           `    api_key: ${getDeepSeekApiKey()}`,
           '    model: deepseek-v4-pro',
+          '  - name: bailian',
+          `    base_url: ${SERVER_URL}/v1`,
+          `    api_key: ${getDeepSeekApiKey()}`,
+          '    model: qwen3-max',
           `system_prompt_file: ${soulPath}`,
           `system_prompt: "${(role.systemPrompt || '').replace(/"/g, '\\"')}"`,
           'memory:',
@@ -774,11 +778,17 @@ function ensureRoleConfigs() {
         fs.writeFileSync(roleConfigPath, roleConfigYaml);
       } catch (e) { console.log(`config.yaml write error for ${roleId}: ` + (e.message || e)); }
     }
-    // 同步主引擎模型到该角色
+    // 同步主引擎模型到该角色（含 custom_providers 确保两个 provider 都存在）
     const roleEnv = { ...process.env, HERMES_HOME: roleHome };
     const rset = (k, v) => { try { spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: roleEnv }); } catch (_) {} };
     rset('model.name', mainModel);
     rset('model.provider', mainProvider);
+    rset('custom_providers.0.name', 'hergent');
+    rset('custom_providers.0.base_url', `${SERVER_URL}/v1`);
+    rset('custom_providers.0.api_key', getDeepSeekApiKey());
+    rset('custom_providers.1.name', 'bailian');
+    rset('custom_providers.1.base_url', `${SERVER_URL}/v1`);
+    rset('custom_providers.1.api_key', getDeepSeekApiKey());
   }
   syncRoleSkills();
 }
@@ -2787,6 +2797,13 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       const rset = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: roleEnv });
       if (opts.model) rset('model.name', opts.model);
       if (opts.provider) rset('model.provider', opts.provider);
+      // 确保两个 provider 都存在
+      rset('custom_providers.0.name', 'hergent');
+      rset('custom_providers.0.base_url', `${SERVER_URL}/v1`);
+      rset('custom_providers.0.api_key', getDeepSeekApiKey());
+      rset('custom_providers.1.name', 'bailian');
+      rset('custom_providers.1.base_url', `${SERVER_URL}/v1`);
+      rset('custom_providers.1.api_key', getDeepSeekApiKey());
     }
     // 强制重启 Gateway 使模型变更生效
     stopHermesGateway();
