@@ -22,9 +22,9 @@
       --text: #171717; --text-secondary: #4d4d4d; --text-tertiary: #737373;
       --border: rgba(0,0,0,0.07); --border-light: rgba(0,0,0,0.04);
       --surface: #fff; --surface-alt: #f8f9fb;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
-      --shadow-md: 0 4px 24px rgba(0,0,0,0.06);
-      --shadow-lg: 0 12px 48px rgba(0,0,0,0.08);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.01);
+      --shadow-md: 0 8px 32px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02);
+      --shadow-lg: 0 20px 60px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
       --radius-sm: 8px; --radius: 12px; --radius-lg: 20px; --radius-xl: 28px;
       --green: #22c55e; --green-bg: rgba(34,197,94,0.08);
     }
@@ -40,7 +40,7 @@
       transition: background 0.3s, backdrop-filter 0.3s;
     }
     .nav-wrapper.scrolled {
-      background: rgba(255,255,255,0.82); backdrop-filter: blur(24px);
+      background: rgba(255,255,255,0.72); backdrop-filter: blur(32px) saturate(180%); -webkit-backdrop-filter: blur(32px) saturate(180%);
       box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.04);
     }
     nav {
@@ -58,7 +58,7 @@
     /* Hero */
     .hero-section {
       position: relative; overflow: hidden;
-      background: linear-gradient(180deg, #fafafa 0%, #f0f9ff 40%, #e0f2fe 100%);
+      background: linear-gradient(180deg, #f8fafc 0%, #eff6ff 30%, #e0f2fe 70%, #f0f9ff 100%);
       padding: 160px 24px 120px;
     }
     .hero-glow {
@@ -75,7 +75,7 @@
     .hero-content { text-align: center; margin-bottom: 64px; }
     .hero-badge {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(255,255,255,0.7); backdrop-filter: blur(12px);
+      background: rgba(255,255,255,0.6); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
       border: 1px solid rgba(0,0,0,0.06);
       font-size: 13px; font-weight: 500; padding: 6px 18px; border-radius: 9999px;
       margin-bottom: 28px; letter-spacing: -0.13px; color: var(--text-secondary);
@@ -105,7 +105,7 @@
     .btn-primary:hover { background: #1e293b; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(15,23,42,0.2); }
     .btn-outline {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(255,255,255,0.7); backdrop-filter: blur(12px);
+      background: rgba(255,255,255,0.6); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
       color: var(--text); font-size: 15px; font-weight: 500;
       padding: 13px 28px; border-radius: 10px; transition: all 0.25s;
       border: 1px solid rgba(0,0,0,0.1); letter-spacing: -0.3px;
@@ -126,7 +126,7 @@
     /* Comparison spotlight */
     .hero-compare {
       max-width: 700px; margin: 0 auto 0;
-      background: #fff; border-radius: var(--radius-lg); overflow: hidden;
+      background: rgba(255,255,255,0.8); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border-radius: var(--radius-lg); overflow: hidden;
       box-shadow: var(--shadow-lg); border: 1px solid var(--border-light);
     }
     .compare-header {
@@ -159,7 +159,7 @@
 
     /* Sections */
     .section { padding: 120px 24px; }
-    .section-alt { background: #fff; }
+    .section-alt { background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(240,249,255,0.3) 100%); }
     .section-inner { max-width: 1200px; margin: 0 auto; }
     .section-label {
       font-family: 'Geist Mono', ui-monospace, monospace;
@@ -180,6 +180,7 @@
     /* Diff Cards */
     .diff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .diff-card {
+      background: rgba(255,255,255,0.7); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
       background: #fff; padding: 44px 32px; border-radius: var(--radius-lg);
       border: 1px solid var(--border-light); transition: all 0.35s; position: relative; overflow: hidden;
     }
@@ -199,7 +200,7 @@
     /* Roles Grid */
     .roles-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border-light); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
     .role-card { text-align: center; padding: 32px 16px 28px; background: #fff; transition: all 0.3s; position: relative; cursor: default; }
-    .role-card:hover { background: linear-gradient(180deg, #fff 0%, #f0f9ff 100%); transform: translateY(-4px); z-index: 2; box-shadow: var(--shadow-lg); }
+    .role-card:hover { background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(240,249,255,0.8) 100%); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transform: translateY(-4px); z-index: 2; box-shadow: var(--shadow-lg); }
     .role-avatar { width: 64px; height: 64px; border-radius: 50%; margin-bottom: 16px; display: block; margin-left: auto; margin-right: auto; transition: transform 0.3s, box-shadow 0.3s; object-fit: cover; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
     .role-card:hover .role-avatar { transform: scale(1.08); box-shadow: 0 4px 20px rgba(6,182,212,0.2); }
     .role-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.32px; }
@@ -208,6 +209,7 @@
     /* Features */
     .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .feature-card {
+      background: rgba(255,255,255,0.7); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
       background: #fff; padding: 40px 32px; border-radius: var(--radius-lg);
       border: 1px solid var(--border-light); transition: all 0.35s; position: relative; overflow: hidden;
     }
@@ -225,6 +227,7 @@
     /* Use Cases */
     .usecases-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .usecase-card {
+      background: rgba(255,255,255,0.7); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
       background: #fff; border-radius: var(--radius-lg); overflow: hidden;
       border: 1px solid var(--border-light); transition: all 0.35s;
     }
@@ -257,7 +260,7 @@
 
     /* Pricing */
     .pricing-card {
-      background: #fff; border-radius: var(--radius-xl); padding: 56px;
+      background: rgba(255,255,255,0.8); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-radius: var(--radius-xl); padding: 56px;
       text-align: center; max-width: 500px; margin: 0 auto;
       border: 1px solid var(--border-light); box-shadow: var(--shadow-md);
       position: relative; overflow: hidden;
@@ -289,7 +292,7 @@
     /* CTA */
     .cta-section {
       position: relative; overflow: hidden;
-      background: linear-gradient(135deg, #0f172a 0%, #0c1929 40%, #0e2942 100%);
+      background: linear-gradient(135deg, #0a0f1e 0%, #0c1a2d 30%, #0e2542 60%, #0a1628 100%);
       color: #fff; text-align: center; padding: 120px 24px;
     }
     .cta-section::before {
@@ -396,7 +399,7 @@
       <div class="hero-pills">
         <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>数据不出本地</span>
         <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>操控电脑干活</span>
-        <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>236项技能</span>
+        <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>200+项实战技能</span>
         <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>定时自动干活</span>
         <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>5种模型可选</span>
       </div>
@@ -410,7 +413,7 @@
           下载 Windows 版
         </a>
       </div>
-      <p class="hero-install-hint" style="font-size:12px;color:#6b7280;margin-top:8px;">Mac 首次打开提示无法验证？右键点击 App → 打开。Windows 用户直接安装即可。</p>
+      <p class="hero-install-hint" style="font-size:12px;color:rgba(0,0,0,0.4);margin-top:8px;letter-spacing:0.2px;">Mac 首次打开提示无法验证？右键点击 App → 打开。Windows 用户直接安装即可。</p>
       <p class="hero-meta"><span class="ver-tag">v1.0.17</span> · macOS 12+ / Windows 10+ · Apple Silicon & Intel · 开源内核 · 3 分钟上手</p>
     </div>
   </div>
@@ -420,7 +423,7 @@
 <section class="section section-alt">
   <div class="section-inner">
     <div class="stats-grid reveal">
-      <div class="stat-card"><div class="stat-value">247</div><div class="stat-label">内置技能</div><div class="stat-note">读文件 · 搜网页 · 写代码 · 发飞书</div></div>
+      <div class="stat-card"><div class="stat-value">200+</div><div class="stat-label">内置技能</div><div class="stat-note">读文件 · 搜网页 · 写代码 · 发飞书</div></div>
       <div class="stat-card"><div class="stat-value">8</div><div class="stat-label">专业数字员工</div><div class="stat-note">各有所长 · 随时切换</div></div>
       <div class="stat-card"><div class="stat-value">24/7</div><div class="stat-label">全天候待命</div><div class="stat-note">设好时间 · 自动干活</div></div>
       <div class="stat-card"><div class="stat-value">10<span style="font-size:24px;font-weight:500;">元起</span></div><div class="stat-label">按量充值</div><div class="stat-note">积分永不过期</div></div>
@@ -508,7 +511,7 @@
 <section class="section" id="features">
   <div class="section-inner">
     <span class="section-label reveal">Capabilities</span>
-    <h2 class="reveal">236 项技能，不只是动嘴</h2>
+    <h2 class="reveal">200+ 项实战技能，不只是动嘴</h2>
     <p class="section-sub reveal">打开文件、搜网页、写代码、发飞书……它能干的远比你想象的多。</p>
     <div class="features-grid">
       <div class="feature-card reveal reveal-delay-1">
@@ -629,7 +632,7 @@
         <span class="section-label reveal">Preview</span>
         <h2 class="reveal">长什么样？一眼看懂</h2>
         <p class="section-sub reveal">简洁的桌面应用界面，8位数字员工随时切换，聊天即工作。</p>
-        <div class="app-preview reveal" style="max-width:900px;margin:0 auto;background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden;border:1px solid var(--border-light);">
+        <div class="app-preview reveal" style="max-width:900px;margin:0 auto;background:rgba(255,255,255,0.85);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-radius:var(--radius-lg);box-shadow:0 25px 80px rgba(0,0,0,0.06),0 0 0 1px rgba(0,0,0,0.04);overflow:hidden;">
           <!-- Fake title bar -->
           <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#f0f3f8;border-bottom:1px solid var(--border-light);">
             <span style="width:12px;height:12px;border-radius:50%;background:#ef4444;"></span>
@@ -701,7 +704,7 @@
 <section class="cta-section" id="download">
   <div class="cta-inner reveal">
     <h2>不是聊天 AI，是能动手的数字员工</h2>
-    <p>基于 Hermes 开源内核 · 236项技能 · 数据不出本地 · 3 分钟上手</p>
+    <p>基于 Hermes 开源内核 · 200+项实战技能 · 数据不出本地 · 3 分钟上手</p>
     <div class="cta-downloads">
       <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.17/Hergent-1.0.17-mac-arm64.dmg" class="btn-light dl-mac">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
