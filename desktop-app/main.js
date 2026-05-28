@@ -778,17 +778,22 @@ function ensureRoleConfigs() {
         fs.writeFileSync(roleConfigPath, roleConfigYaml);
       } catch (e) { console.log(`config.yaml write error for ${roleId}: ` + (e.message || e)); }
     }
-    // 同步主引擎模型到该角色（含 custom_providers 确保两个 provider 都存在）
-    const roleEnv = { ...process.env, HERMES_HOME: roleHome };
-    const rset = (k, v) => { try { spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: roleEnv }); } catch (_) {} };
-    rset('model.name', mainModel);
-    rset('model.provider', mainProvider);
-    rset('custom_providers.0.name', 'hergent');
-    rset('custom_providers.0.base_url', `${SERVER_URL}/v1`);
-    rset('custom_providers.0.api_key', getDeepSeekApiKey());
-    rset('custom_providers.1.name', 'bailian');
-    rset('custom_providers.1.base_url', `${SERVER_URL}/v1`);
-    rset('custom_providers.1.api_key', getDeepSeekApiKey());
+    // 同步主引擎模型到该角色 — 直接写 YAML，避免 spawnSync 开销
+    try {
+      let roleCfg = fs.readFileSync(roleConfigPath, 'utf8');
+      roleCfg = roleCfg.replace(/^(  name: ).+/m, '$1' + mainModel);
+      roleCfg = roleCfg.replace(/^(  provider: ).+/m, '$1' + mainProvider);
+      // 确保 custom_providers 第1条 model 同步
+      roleCfg = roleCfg.replace(/^(    model: ).+/m, '$1' + mainModel);
+      // 确保存在两个 provider（bailian 可能缺失）
+      if (!roleCfg.includes('- name: bailian')) {
+        roleCfg = roleCfg.replace(
+          /(  - name: hergent\n    base_url: .+\n    api_key: .+\n    model: .+)/,
+          '$1\n  - name: bailian\n    base_url: ' + `${SERVER_URL}/v1` + '\n    api_key: ' + getDeepSeekApiKey() + '\n    model: qwen3-max'
+        );
+      }
+      fs.writeFileSync(roleConfigPath, roleCfg);
+    } catch (_) {}
   }
   syncRoleSkills();
 }
@@ -2788,22 +2793,27 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       } catch (_) {}
     }
     }
-    // 同步模型到所有角色 config（不只是有平台频道的角色）
+    // 同步模型到所有角色 config（直接写文件，避免 spawnSync 开销）
     const allRoles = loadRoles();
     for (const [roleId] of Object.entries(allRoles)) {
-      const roleHome = path.join(engineDir, '.hermes', 'agents', roleId);
-      if (!fs.existsSync(path.join(roleHome, 'config.yaml'))) continue;
-      const roleEnv = { ...process.env, HERMES_HOME: roleHome };
-      const rset = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: roleEnv });
-      if (opts.model) rset('model.name', opts.model);
-      if (opts.provider) rset('model.provider', opts.provider);
-      // 确保两个 provider 都存在
-      rset('custom_providers.0.name', 'hergent');
-      rset('custom_providers.0.base_url', `${SERVER_URL}/v1`);
-      rset('custom_providers.0.api_key', getDeepSeekApiKey());
-      rset('custom_providers.1.name', 'bailian');
-      rset('custom_providers.1.base_url', `${SERVER_URL}/v1`);
-      rset('custom_providers.1.api_key', getDeepSeekApiKey());
+      const roleCfgPath = path.join(engineDir, '.hermes', 'agents', roleId, 'config.yaml');
+      if (!fs.existsSync(roleCfgPath)) continue;
+      try {
+        let rc = fs.readFileSync(roleCfgPath, 'utf8');
+        if (opts.model) {
+          rc = rc.replace(/^(  name: ).+/m, '$1' + opts.model);
+          rc = rc.replace(/^(    model: ).+/m, '$1' + opts.model);
+        }
+        if (opts.provider) rc = rc.replace(/^(  provider: ).+/m, '$1' + opts.provider);
+        // 确保存在两个 provider
+        if (!rc.includes('- name: bailian')) {
+          rc = rc.replace(
+            /(  - name: hergent\n    base_url: .+\n    api_key: .+\n    model: .+)/,
+            '$1\n  - name: bailian\n    base_url: ' + `${SERVER_URL}/v1` + '\n    api_key: ' + getDeepSeekApiKey() + '\n    model: qwen3-max'
+          );
+        }
+        fs.writeFileSync(roleCfgPath, rc);
+      } catch (_) {}
     }
     // 强制重启 Gateway 使模型变更生效
     stopHermesGateway();
