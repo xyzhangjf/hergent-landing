@@ -671,9 +671,39 @@ function ensureSharedState() {
       fs.symlinkSync(userPath, enginePath);
     } catch (e) { console.log('shared state symlink error: ' + (e.message || e)); }
   }
+  // 将新同步的技能传播到各角色
+  try { syncRoleSkills(); } catch (_) {}
 }
 
 // 为每个角色创建独立的 Hermes Home（独立 workspace + skills + config + memory + persona）
+// 将共享技能目录中的角色专属技能 symlink 到各角色的 skills/ 目录
+function syncRoleSkills() {
+  const engineDir = getEngineDir();
+  const sharedSkills = path.join(engineDir, '.hermes', 'skills');
+  if (!fs.existsSync(sharedSkills)) return;
+  const roles = loadRoles();
+  for (const [roleId] of Object.entries(roles)) {
+    const roleSkills = path.join(engineDir, '.hermes', 'agents', roleId, 'skills');
+    if (!fs.existsSync(roleSkills)) fs.mkdirSync(roleSkills, { recursive: true });
+    const wanted = ROLE_SKILLS[roleId] || [];
+    // 清除旧 symlink
+    try {
+      for (const entry of fs.readdirSync(roleSkills, { withFileTypes: true })) {
+        try { fs.rmSync(path.join(roleSkills, entry.name), { recursive: true }); } catch (_) {}
+      }
+    } catch (_) {}
+    // Symlink 角色专属技能
+    for (const slug of wanted) {
+      const src = path.join(sharedSkills, slug);
+      const dst = path.join(roleSkills, slug);
+      try {
+        if (fs.existsSync(dst)) fs.rmSync(dst, { recursive: true });
+        if (fs.existsSync(src)) fs.symlinkSync(src, dst, 'dir');
+      } catch (_) {}
+    }
+  }
+}
+
 function ensureRoleConfigs() {
   const engineDir = getEngineDir();
   const roles = loadRoles();
@@ -739,6 +769,7 @@ function ensureRoleConfigs() {
       } catch (e) { console.log(`config.yaml write error for ${roleId}: ` + (e.message || e)); }
     }
   }
+  syncRoleSkills();
 }
 
 // 写标记文件，表示引擎完全就绪（配置 + skills + 角色全部到位）
@@ -838,6 +869,18 @@ function verifyActivationCode(code, deviceId) {
 
 // ===== 角色持久化 =====
 function getRolesPath() { return path.join(app.getPath('userData'), 'roles.json'); }
+
+// 角色技能映射 — 与 app.js ROLE_SKILLS 保持一致
+const ROLE_SKILLS = {
+  dami: ['zhoupu-order-import', 'contract-writing', 'wechat-writing'],
+  accountant: ['bank-reconciliation', 'accounting-reports', 'excel-data'],
+  programmer: ['python-coding', 'website-builder', 'karpathy-coding'],
+  writer: [],
+  screenwriter: ['video-scripting'],
+  tutor: ['exam-tutoring'],
+  health: ['health-analysis'],
+  investor: ['investment-research'],
+};
 
 const DEFAULT_ROLES = {
   dami: { name: '我的大秘', systemPrompt: '你是用户的得力助手"大秘"，你叫大秘。擅长写文档（合同/邮件/方案）、搜资料、设提醒、处理文件。你的风格是高效、靠谱、考虑周全。用户说什么你就帮忙做什么，主动帮用户省时间。直接开始工作，不要说你是什么角色。', opening: '我是你的大秘，文书、搜索、提醒都归我。\n\n**我能做什么**\n写合同、回邮件、做方案、搜资料、设提醒——你不想动手的都交给我。\n\n**数据怎么来**\n- 直接告诉我需求，网上能查到的我帮你查\n- 也可以发文件给我，我帮你整理提炼\n\n试试说一句：\n- 「帮我写一份供货合同」\n- 「搜一下最近AI行业的新动态」', builtIn: true },
