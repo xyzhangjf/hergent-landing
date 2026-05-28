@@ -4310,6 +4310,8 @@
       color: var(--text-secondary);
       white-space: nowrap;
     }
+    :root.dark .usage-item { color: var(--text-secondary); }
+    :root.dark .usage-item-model { color: var(--text-secondary); }
 
     /* 账单弹窗 */
     .billing-summary {
