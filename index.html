@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hergent · 装在电脑里的 AI 员工，不是只会聊天</title>
+  <meta name="description" content="Hergent 不是聊天机器人。基于 Hermes 开源内核，能操控电脑、读写文件、打开浏览器、定时自主干活。数据不出本地，越用越聪明。" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230f172a'/><polygon points='16,4 6,18 15,18 14,28 26,14 17,14 18,4' fill='%2306b6d4'/></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-feature-settings: "liga"; }
+    body {
+      font-family: 'Geist', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+      color: #171717; background: #fafafa; line-height: 1.6;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    }
+    a { text-decoration: none; color: inherit; }
+    :root {
+      --brand: #06b6d4; --brand-dark: #0891b2; --brand-deeper: #0e7490;
+      --brand-light: rgba(6,182,212,0.08); --brand-glow: rgba(6,182,212,0.15);
+      --text: #171717; --text-secondary: #4d4d4d; --text-tertiary: #737373;
+      --border: rgba(0,0,0,0.07); --border-light: rgba(0,0,0,0.04);
+      --surface: #fff; --surface-alt: #f8f9fb;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.01);
+      --shadow-md: 0 8px 32px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02);
+      --shadow-lg: 0 20px 60px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+      --radius-sm: 8px; --radius: 12px; --radius-lg: 20px; --radius-xl: 28px;
+      --green: #22c55e; --green-bg: rgba(34,197,94,0.08);
+    }
+    .reveal { opacity: 0; transform: translateY(32px); transition: opacity 0.8s ease, transform 0.8s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+
+    /* Navigation */
+    .nav-wrapper {
+      position: fixed; top: 0; width: 100%; z-index: 100; padding: 0 24px;
+      transition: background 0.3s, backdrop-filter 0.3s;
+    }
+    .nav-wrapper.scrolled {
+      background: rgba(255,255,255,0.72); backdrop-filter: blur(32px) saturate(180%); -webkit-backdrop-filter: blur(32px) saturate(180%);
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.04);
+    }
+    nav {
+      max-width: 1280px; margin: 0 auto; height: 60px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    nav .logo { font-size: 18px; font-weight: 700; letter-spacing: -0.36px; display: flex; align-items: center; gap: 8px; }
+    nav .logo svg { color: var(--brand); }
+    .nav-links { display: flex; gap: 4px; align-items: center; }
+    .nav-link { font-size: 14px; font-weight: 500; padding: 6px 14px; border-radius: 6px; color: var(--text-secondary); transition: all 0.2s; letter-spacing: -0.14px; }
+    .nav-link:hover { background: rgba(0,0,0,0.04); color: var(--text); }
+    .nav-cta { background: var(--text); color: #fff !important; font-size: 14px; font-weight: 600; padding: 8px 18px; border-radius: 8px; transition: all 0.2s; letter-spacing: -0.14px; margin-left: 6px; }
+    .nav-cta:hover { background: #333; transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+    /* Hero */
+    .hero-section {
+      position: relative; overflow: hidden;
+      background: linear-gradient(180deg, #f8fafc 0%, #eff6ff 30%, #e0f2fe 70%, #f0f9ff 100%);
+      padding: 160px 24px 120px;
+    }
+    .hero-glow {
+      position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.5; pointer-events: none;
+    }
+    .hero-glow-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(6,182,212,0.18) 0%, transparent 70%); top: -100px; right: -100px; }
+    .hero-glow-2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(14,116,144,0.12) 0%, transparent 70%); bottom: -50px; left: -50px; }
+    .hero-grid-bg {
+      position: absolute; inset: 0; opacity: 0.03;
+      background-image: linear-gradient(rgba(0,0,0,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.4) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+    .hero-inner { max-width: 1100px; margin: 0 auto; position: relative; z-index: 1; }
+    .hero-content { text-align: center; margin-bottom: 64px; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.6); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(0,0,0,0.06);
+      font-size: 13px; font-weight: 500; padding: 6px 18px; border-radius: 9999px;
+      margin-bottom: 28px; letter-spacing: -0.13px; color: var(--text-secondary);
+      box-shadow: var(--shadow-sm);
+    }
+    .hero-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; animation: pulse-dot 2s infinite; }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .hero h1 {
+      font-size: clamp(40px, 7vw, 68px); font-weight: 700;
+      line-height: 1.08; letter-spacing: -2.8px; margin-bottom: 12px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #0e7490 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero h1 .brand { -webkit-text-fill-color: #06b6d4; }
+    .hero .subtitle {
+      font-size: clamp(18px, 2.8vw, 24px); font-weight: 400;
+      color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px; letter-spacing: -0.48px;
+    }
+    .hero .desc { font-size: 17px; color: var(--text-tertiary); max-width: 580px; margin: 0 auto 36px; line-height: 1.7; }
+    .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #0f172a; color: #fff; font-size: 15px; font-weight: 600;
+      padding: 13px 28px; border-radius: 10px; transition: all 0.25s; letter-spacing: -0.3px;
+      box-shadow: 0 2px 12px rgba(15,23,42,0.15);
+    }
+    .btn-primary:hover { background: #1e293b; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(15,23,42,0.2); }
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.6); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+      color: var(--text); font-size: 15px; font-weight: 500;
+      padding: 13px 28px; border-radius: 10px; transition: all 0.25s;
+      border: 1px solid rgba(0,0,0,0.1); letter-spacing: -0.3px;
+    }
+    .btn-outline:hover { border-color: rgba(0,0,0,0.18); background: #fff; transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+    .hero-meta { margin-top: 16px; font-size: 13px; color: var(--text-tertiary); }
+
+    /* Hero tagline pills */
+    .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 40px; }
+    .hero-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 500; padding: 8px 16px;
+      border-radius: 8px; background: #fff; border: 1px solid var(--border);
+      color: var(--text-secondary); box-shadow: var(--shadow-sm);
+    }
+    .hero-pill svg { color: var(--brand-dark); }
+
+    /* Comparison spotlight */
+    .hero-compare {
+      max-width: 700px; margin: 0 auto 0;
+      background: rgba(255,255,255,0.8); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border-radius: var(--radius-lg); overflow: hidden;
+      box-shadow: var(--shadow-lg); border: 1px solid var(--border-light);
+    }
+    .compare-header {
+      display: grid; grid-template-columns: 1fr 1fr;
+      font-size: 13px; font-weight: 600; text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .compare-col {
+      padding: 14px 20px;
+    }
+    .compare-col.left {
+      background: linear-gradient(135deg, #f8f9fb, #f0f4f8);
+      border-right: 1px solid var(--border);
+      color: var(--text-tertiary);
+    }
+    .compare-col.right {
+      background: linear-gradient(135deg, rgba(6,182,212,0.04), rgba(6,182,212,0.01));
+      color: var(--brand-dark);
+    }
+    .compare-body { display: grid; grid-template-columns: 1fr 1fr; }
+    .compare-items { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+    .compare-items.right { border-left: 1px solid var(--border); }
+    .compare-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 13px; line-height: 1.5;
+    }
+    .compare-item.left { color: var(--text-tertiary); }
+    .compare-item.right { color: var(--text); font-weight: 500; }
+    .compare-item .ci-icon { flex-shrink: 0; margin-top: 1px; font-size: 16px; }
+
+    /* Sections */
+    .section { padding: 120px 24px; }
+    .section-alt { background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(240,249,255,0.3) 100%); }
+    .section-inner { max-width: 1200px; margin: 0 auto; }
+    .section-label {
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-size: 12px; font-weight: 500; text-transform: uppercase;
+      letter-spacing: 1.2px; color: var(--brand-dark); margin-bottom: 16px; display: block; text-align: center;
+    }
+    .section h2 { text-align: center; font-size: clamp(32px, 5vw, 44px); font-weight: 700; line-height: 1.12; letter-spacing: -1.6px; margin-bottom: 14px; }
+    .section .section-sub { text-align: center; font-size: 18px; color: var(--text-tertiary); margin-bottom: 64px; line-height: 1.7; max-width: 560px; margin-left: auto; margin-right: auto; }
+
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border-light); border-radius: var(--radius-lg); overflow: hidden; }
+    .stat-card { text-align: center; padding: 48px 24px; background: #fff; transition: background 0.2s; }
+    .stat-card:hover { background: var(--surface-alt); }
+    .stat-value { font-size: 48px; font-weight: 700; letter-spacing: -2px; line-height: 1; margin-bottom: 8px; background: linear-gradient(135deg, #0f172a, #0e7490); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .stat-label { font-size: 14px; color: var(--text-tertiary); font-weight: 500; }
+    .stat-note { font-size: 12px; color: var(--text-tertiary); opacity: 0.7; margin-top: 4px; }
+
+    /* Diff Cards */
+    .diff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .diff-card {
+      background: rgba(255,255,255,0.7); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: #fff; padding: 44px 32px; border-radius: var(--radius-lg);
+      border: 1px solid var(--border-light); transition: all 0.35s; position: relative; overflow: hidden;
+    }
+    .diff-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--brand), #06b6d4);
+    }
+    .diff-card:hover { border-color: rgba(6,182,212,0.2); box-shadow: var(--shadow-md); transform: translateY(-4px); }
+    .diff-icon { font-size: 40px; margin-bottom: 20px; display: block; }
+    .diff-card h3 { font-size: 22px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.4px; }
+    .diff-card p { font-size: 15px; color: var(--text-secondary); line-height: 1.7; }
+    .diff-card .diff-tag {
+      display: inline-block; margin-top: 16px; font-size: 11px; font-weight: 600;
+      padding: 4px 10px; border-radius: 5px; background: var(--green-bg); color: #16a34a;
+    }
+
+    /* Roles Grid */
+    .roles-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border-light); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+    .role-card { text-align: center; padding: 32px 16px 28px; background: #fff; transition: all 0.3s; position: relative; cursor: default; }
+    .role-card:hover { background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(240,249,255,0.8) 100%); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transform: translateY(-4px); z-index: 2; box-shadow: var(--shadow-lg); }
+    .role-avatar { width: 64px; height: 64px; border-radius: 50%; margin-bottom: 16px; display: block; margin-left: auto; margin-right: auto; transition: transform 0.3s, box-shadow 0.3s; object-fit: cover; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .role-card:hover .role-avatar { transform: scale(1.08); box-shadow: 0 4px 20px rgba(6,182,212,0.2); }
+    .role-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.32px; }
+    .role-card p { font-size: 13px; color: var(--text-tertiary); }
+
+    /* Features */
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .feature-card {
+      background: rgba(255,255,255,0.7); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: #fff; padding: 40px 32px; border-radius: var(--radius-lg);
+      border: 1px solid var(--border-light); transition: all 0.35s; position: relative; overflow: hidden;
+    }
+    .feature-card:hover { border-color: rgba(6,182,212,0.15); box-shadow: var(--shadow-md); transform: translateY(-4px); }
+    .fc-tag {
+      display: inline-block; font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 6px;
+      background: var(--brand-light); color: var(--brand-dark); margin-bottom: 20px;
+      letter-spacing: 0.3px; text-transform: uppercase;
+    }
+    .fc-icon { font-size: 32px; margin-bottom: 18px; display: block; transition: transform 0.3s; }
+    .feature-card:hover .fc-icon { transform: scale(1.1); }
+    .feature-card h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; letter-spacing: -0.4px; }
+    .feature-card p { font-size: 14px; color: var(--text-tertiary); line-height: 1.7; }
+
+    /* Use Cases */
+    .usecases-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .usecase-card {
+      background: rgba(255,255,255,0.7); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: #fff; border-radius: var(--radius-lg); overflow: hidden;
+      border: 1px solid var(--border-light); transition: all 0.35s;
+    }
+    .usecase-card:hover { border-color: rgba(6,182,212,0.15); box-shadow: var(--shadow-md); transform: translateY(-4px); }
+    .usecase-chat {
+      background: linear-gradient(135deg, #f0f4f8 0%, #e8f0f8 100%);
+      padding: 28px 20px 24px; display: flex; flex-direction: column; gap: 14px; min-height: 160px;
+    }
+    .chat-msg {
+      font-size: 13px; line-height: 1.55; padding: 10px 14px; border-radius: 14px; max-width: 82%;
+    }
+    .chat-msg.user { background: linear-gradient(135deg, #06b6d4, #0891b2); color: #fff; align-self: flex-end; border-bottom-right-radius: 5px; box-shadow: 0 2px 8px rgba(6,182,212,0.25); }
+    .chat-msg.ai { background: #fff; color: var(--text); align-self: flex-start; border-bottom-left-radius: 5px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .chat-typing { align-self: flex-start; display: flex; gap: 4px; padding: 6px 0; }
+    .chat-typing span { width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; animation: typing-bounce 1.4s infinite; }
+    .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+    .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing-bounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+    .usecase-info { padding: 24px 22px; }
+    .usecase-info .uc-icon { font-size: 22px; margin-bottom: 10px; display: inline-block; }
+    .usecase-info h3 { font-size: 17px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.34px; }
+    .usecase-info p { font-size: 14px; color: var(--text-tertiary); line-height: 1.6; }
+
+    /* App Preview responsive */
+    @media (max-width: 768px) {
+      .app-preview > div:last-child { flex-direction: column !important; height: auto !important; }
+      .app-preview > div:last-child > div:first-child,
+      .app-preview > div:last-child > div:last-child { width: 100% !important; }
+    }
+
+    /* Pricing */
+    .pricing-card {
+      background: rgba(255,255,255,0.8); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-radius: var(--radius-xl); padding: 56px;
+      text-align: center; max-width: 500px; margin: 0 auto;
+      border: 1px solid var(--border-light); box-shadow: var(--shadow-md);
+      position: relative; overflow: hidden;
+    }
+    .pricing-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+      background: linear-gradient(90deg, var(--brand), #06b6d4);
+    }
+    .pricing-card .badge {
+      display: inline-block; background: linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.05));
+      color: #16a34a; font-size: 14px; font-weight: 600; padding: 6px 20px; border-radius: 9999px;
+      margin-bottom: 28px; border: 1px solid rgba(34,197,94,0.15);
+    }
+    .pricing-card .price { font-size: 72px; font-weight: 700; letter-spacing: -3px; line-height: 1; margin-bottom: 6px; }
+    .pricing-card .price small { font-size: 22px; font-weight: 500; color: var(--text-tertiary); letter-spacing: normal; }
+    .pricing-card .price-label { font-size: 16px; color: var(--text-tertiary); margin-bottom: 32px; font-weight: 500; }
+    .pricing-card ul { text-align: left; max-width: 280px; margin: 0 auto 8px; list-style: none; }
+    .pricing-card ul li {
+      font-size: 14px; color: var(--text-secondary); padding: 10px 0;
+      display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border-light);
+    }
+    .pricing-card ul li:last-child { border-bottom: none; }
+    .pricing-card ul li::before {
+      content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--brand); flex-shrink: 0;
+    }
+    .pricing-note { text-align: center; color: var(--text-tertiary); font-size: 14px; margin-top: 24px; }
+
+    /* CTA */
+    .cta-section {
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, #0a0f1e 0%, #0c1a2d 30%, #0e2542 60%, #0a1628 100%);
+      color: #fff; text-align: center; padding: 120px 24px;
+    }
+    .cta-section::before {
+      content: ''; position: absolute; top: -200px; right: -200px; width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(6,182,212,0.12) 0%, transparent 70%); border-radius: 50%;
+    }
+    .cta-section::after {
+      content: ''; position: absolute; bottom: -150px; left: -150px; width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(6,182,212,0.08) 0%, transparent 70%); border-radius: 50%;
+    }
+    .cta-inner { position: relative; z-index: 1; }
+    .cta-section h2 { font-size: clamp(32px, 5vw, 48px); font-weight: 700; letter-spacing: -2px; margin-bottom: 16px; }
+    .cta-section p { font-size: 18px; opacity: 0.65; margin-bottom: 40px; line-height: 1.7; max-width: 520px; margin-left: auto; margin-right: auto; }
+    .cta-downloads { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; align-items: center; }
+    .btn-light {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: #fff; color: #0f172a; font-size: 16px; font-weight: 600;
+      padding: 14px 36px; border-radius: 10px; transition: all 0.25s;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .btn-light:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: rgba(255,255,255,0.75); font-size: 15px; font-weight: 500;
+      padding: 14px 36px; border-radius: 10px; transition: all 0.25s;
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+    .btn-ghost:hover { color: #fff; border-color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.05); }
+    .cta-meta { margin-top: 20px; font-size: 13px; opacity: 0.4; }
+
+    /* Footer */
+    footer {
+      background: #0a101c; color: rgba(255,255,255,0.45);
+      padding: 48px 24px; text-align: center; font-size: 13px;
+    }
+    footer .footer-inner { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+    footer a { color: rgba(255,255,255,0.55); transition: color 0.2s; }
+    footer a:hover { color: rgba(255,255,255,0.8); }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .nav-link { display: none; }
+      .hero-section { padding: 140px 20px 80px; }
+      .hero h1 { letter-spacing: -1.5px; }
+      .section { padding: 80px 20px; }
+      .section h2 { letter-spacing: -1.2px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .roles-grid { grid-template-columns: repeat(2, 1fr); }
+      .diff-grid, .features-grid, .usecases-grid { grid-template-columns: 1fr; }
+      .pricing-card { padding: 40px 28px; }
+      .pricing-card .price { font-size: 56px; }
+      .compare-header, .compare-body { grid-template-columns: 1fr; }
+      .compare-col.left { border-right: none; }
+      .compare-items.right { border-left: none; }
+      .hero-pills { gap: 6px; }
+      .hero-pill { font-size: 11px; padding: 6px 10px; }
+      footer .footer-inner { flex-direction: column; }
+    }
+
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .roles-grid { grid-template-columns: 1fr 1fr; }
+      .hero h1 { font-size: 36px; }
+      .hero-actions { flex-direction: column; width: 100%; }
+      .hero-actions > * { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<div class="nav-wrapper" id="navbar">
+  <nav>
+    <div class="logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+      Hergent
+    </div>
+    <div class="nav-links">
+      <a href="#diff" class="nav-link">为什么不同</a>
+      <a href="#roles" class="nav-link">数字员工</a>
+      <a href="#features" class="nav-link">能力</a>
+      <a href="#usecases" class="nav-link">场景</a>
+      <a href="#pricing" class="nav-link">价格</a>
+      <a href="#download" class="nav-cta">下载</a>
+    </div>
+  </nav>
+</div>
+
+<!-- Hero -->
+<section class="hero-section" id="hero">
+  <div class="hero-glow hero-glow-1"></div>
+  <div class="hero-glow hero-glow-2"></div>
+  <div class="hero-grid-bg"></div>
+  <div class="hero-inner">
+    <div class="hero-content reveal">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span> 基于 Hermes 开源内核 · 不是聊天机器人
+      </div>
+      <h1>装在你电脑里的<br><span class="brand">AI 员工</span>，不是只会聊天</h1>
+      <p class="subtitle">它能操控电脑、读写文件、打开浏览器、定时自主干活。</p>
+      <p class="desc">你见过哪个聊天 AI 能打开你的 Excel、填你的网页表单、帮你跑 Python 脚本？Hergent 可以。</p>
+      <div class="hero-pills">
+        <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>数据不出本地</span>
+        <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>操控电脑干活</span>
+        <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>200+项实战技能</span>
+        <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>定时自动干活</span>
+        <span class="hero-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>5种模型可选</span>
+      </div>
+      <div class="hero-actions">
+        <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.17/Hergent-1.0.17-mac-arm64.dmg" class="btn-primary dl-mac">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          下载 macOS 版
+        </a>
+        <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.17/Hergent-1.0.17-setup.exe" class="btn-outline dl-win">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          下载 Windows 版
+        </a>
+      </div>
+      <p class="hero-install-hint" style="font-size:12px;color:rgba(0,0,0,0.4);margin-top:8px;letter-spacing:0.2px;">Mac 首次打开提示无法验证？右键点击 App → 打开。Windows 用户直接安装即可。</p>
+      <p class="hero-meta"><span class="ver-tag">v1.0.17</span> · macOS 12+ / Windows 10+ · Apple Silicon & Intel · 开源内核 · 3 分钟上手</p>
+    </div>
+  </div>
+</section>
+
+<!-- Stats -->
+<section class="section section-alt">
+  <div class="section-inner">
+    <div class="stats-grid reveal">
+      <div class="stat-card"><div class="stat-value">200+</div><div class="stat-label">内置技能</div><div class="stat-note">读文件 · 搜网页 · 写代码 · 发飞书</div></div>
+      <div class="stat-card"><div class="stat-value">8</div><div class="stat-label">专业数字员工</div><div class="stat-note">各有所长 · 随时切换</div></div>
+      <div class="stat-card"><div class="stat-value">24/7</div><div class="stat-label">全天候待命</div><div class="stat-note">设好时间 · 自动干活</div></div>
+      <div class="stat-card"><div class="stat-value">10<span style="font-size:24px;font-weight:500;">元起</span></div><div class="stat-label">按量充值</div><div class="stat-note">积分永不过期</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- Why Different -->
+<section class="section" id="diff">
+  <div class="section-inner">
+    <span class="section-label reveal">Why Different</span>
+    <h2 class="reveal">它跟聊天 AI 到底哪里不一样</h2>
+    <p class="section-sub reveal">豆包、DeepSeek、ChatGPT 只会聊天。Hergent 能动手。</p>
+    <div class="diff-grid">
+      <div class="diff-card reveal reveal-delay-1">
+        <span class="diff-icon">🔒</span>
+        <h3>数据不出你的电脑</h3>
+        <p>装在你自己的电脑上，所有数据本地处理。不需要上传到云端，不需要担心隐私泄露。银行级别的数据安全。</p>
+        <span class="diff-tag">✓ 本地部署</span>
+      </div>
+      <div class="diff-card reveal reveal-delay-2">
+        <span class="diff-icon">🖥️</span>
+        <h3>真的能操控电脑</h3>
+        <p>打开浏览器填表、读写你的文件、执行终端命令——不是"生成一段代码让你自己跑"，是它自己动手干。基于 Hermes 真实沙箱环境，安全隔离。</p>
+        <span class="diff-tag">✓ Computer Use</span>
+      </div>
+      <div class="diff-card reveal reveal-delay-3">
+        <span class="diff-icon">🧠</span>
+        <h3>越用越聪明</h3>
+        <p>持久记忆你的偏好和项目背景。从每次成功经验中自动学习新技能。用得越久，它越懂你——这不是比喻，是真的会积累。</p>
+        <span class="diff-tag">✓ 自学习</span>
+      </div>
+    </div>
+
+    <!-- Direct comparison -->
+    <div class="hero-compare reveal reveal-delay-2" style="margin-top: 48px;">
+      <div class="compare-header">
+        <div class="compare-col left">聊天 AI（豆包 · DeepSeek · ChatGPT）</div>
+        <div class="compare-col right">Hergent（AI Agent）</div>
+      </div>
+      <div class="compare-body">
+        <div class="compare-items left">
+          <div class="compare-item left"><span class="ci-icon">✗</span>核心能力是对话和文字生成</div>
+          <div class="compare-item left"><span class="ci-icon">✗</span>记忆有限，不会从经验中自动学习</div>
+          <div class="compare-item left"><span class="ci-icon">✗</span>不能操作你的电脑桌面和应用</div>
+          <div class="compare-item left"><span class="ci-icon">✗</span>只能读你手动上传的文件</div>
+          <div class="compare-item left"><span class="ci-icon">✗</span>不能设定时任务自主执行</div>
+          <div class="compare-item left"><span class="ci-icon">✗</span>不支持多平台消息主动推送</div>
+          <div class="compare-item left"><span class="ci-icon">✗</span>数据需上传云端处理</div>
+        </div>
+        <div class="compare-items right">
+          <div class="compare-item right"><span class="ci-icon">✓</span>操控电脑、读写文件、执行命令</div>
+          <div class="compare-item right"><span class="ci-icon">✓</span>持久记忆，越用越懂你</div>
+          <div class="compare-item right"><span class="ci-icon">✓</span>打开浏览器、填表、自动化操作</div>
+          <div class="compare-item right"><span class="ci-icon">✓</span>拖入 PDF/Excel 直接分析</div>
+          <div class="compare-item right"><span class="ci-icon">✓</span>自然语言设定时任务，无人值守</div>
+          <div class="compare-item right"><span class="ci-icon">✓</span>飞书/微信/钉钉/QQ 统一推送</div>
+          <div class="compare-item right"><span class="ci-icon">✓</span>数据不出本地，隐私安全</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Roles -->
+<section class="section section-alt" id="roles">
+  <div class="section-inner">
+    <span class="section-label reveal">Your AI Team</span>
+    <h2 class="reveal">8 位数字员工，各有所长</h2>
+    <p class="section-sub reveal">每个角色有专属技能和性格。随时切换，一个 App 顶一个团队。</p>
+    <div class="roles-grid reveal">
+      <div class="role-card"><img class="role-avatar" src="avatars/dami.png" alt="大秘" /><h3>大秘</h3><p>文书、搜索、提醒、安排</p></div>
+      <div class="role-card"><img class="role-avatar" src="avatars/accountant.png" alt="会计" /><h3>会计</h3><p>对账、做表、算税、分析</p></div>
+      <div class="role-card"><img class="role-avatar" src="avatars/programmer.png" alt="程序员" /><h3>程序员</h3><p>写代码、Debug、自动化</p></div>
+      <div class="role-card"><img class="role-avatar" src="avatars/writer.png" alt="作家" /><h3>作家</h3><p>写文章、润色、写书</p></div>
+      <div class="role-card"><img class="role-avatar" src="avatars/screenwriter.png" alt="编剧" /><h3>编剧</h3><p>短视频脚本、营销文案</p></div>
+      <div class="role-card"><img class="role-avatar" src="avatars/tutor.png" alt="私教" /><h3>私教</h3><p>解题、教学、备课、答疑</p></div>
+      <div class="role-card"><img class="role-avatar" src="avatars/health.png" alt="健康顾问" /><h3>健康顾问</h3><p>饮食、运动、体检建议</p></div>
+      <div class="role-card"><img class="role-avatar" src="avatars/investor.png" alt="投资顾问" /><h3>投资顾问</h3><p>市场分析、资产配置</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section" id="features">
+  <div class="section-inner">
+    <span class="section-label reveal">Capabilities</span>
+    <h2 class="reveal">200+ 项实战技能，不只是动嘴</h2>
+    <p class="section-sub reveal">打开文件、搜网页、写代码、发飞书……它能干的远比你想象的多。</p>
+    <div class="features-grid">
+      <div class="feature-card reveal reveal-delay-1">
+        <span class="fc-tag">Computer Use</span>
+        <span class="fc-icon">🖥️</span>
+        <h3>操控电脑干活</h3>
+        <p>后台打开浏览器填表、读取屏幕内容、操作桌面应用。不抢鼠标不切屏，你继续用你的电脑。</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <span class="fc-tag">Browser</span>
+        <span class="fc-icon">🌐</span>
+        <h3>浏览器自动化</h3>
+        <p>自动浏览网页、填表单、抓数据、截屏分析。不是模拟，是真实浏览器操作。</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <span class="fc-tag">File System</span>
+        <span class="fc-icon">📂</span>
+        <h3>读写本地文件</h3>
+        <p>读取 PDF、Word、Excel、图片，分析内容、提取数据、生成报告。直接操作你电脑上的文件。</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <span class="fc-tag">Terminal</span>
+        <span class="fc-icon">💻</span>
+        <h3>执行命令和脚本</h3>
+        <p>运行 Python 脚本、安装软件、管理系统。你给需求，它写代码、测试、部署一条龙。</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <span class="fc-tag">Automation</span>
+        <span class="fc-icon">⏰</span>
+        <h3>定时自主干活</h3>
+        <p>"每天早上推送天气到飞书"、"每周五生成周报"——自然语言设好，到点自动执行，结果推到你手机上。</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <span class="fc-tag">Multi-Platform</span>
+        <span class="fc-icon">📱</span>
+        <h3>多平台远程操控</h3>
+        <p>连飞书、微信、钉钉、QQ。人在外面用手机发消息，电脑上的 Hergent 照样干活，结果推回你手机。</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <span class="fc-tag">Learning</span>
+        <span class="fc-icon">🧠</span>
+        <h3>持续学习记忆</h3>
+        <p>记住你的偏好、项目背景、工作习惯。从每次任务中自动积累经验，用得越久越聪明。</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <span class="fc-tag">Delegation</span>
+        <span class="fc-icon">👥</span>
+        <h3>多 Agent 协作</h3>
+        <p>复杂任务自动拆解，派生子 Agent 并行处理。不是一个人在战斗，是一个 AI 团队在干活。</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <span class="fc-tag">Sandbox</span>
+        <span class="fc-icon">🛡️</span>
+        <h3>真实沙箱安全</h3>
+        <p>所有操作在隔离沙箱中执行。让 AI 帮你干活，但不担心它碰到不该碰的东西。多后端支持，容器级隔离。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Use Cases -->
+<section class="section section-alt" id="usecases">
+  <div class="section-inner">
+    <span class="section-label reveal">Use Cases</span>
+    <h2 class="reveal">不只是聊天，是真干活</h2>
+    <p class="section-sub reveal">看看实际能做什么——这些豆包和 DeepSeek 都做不到。</p>
+    <div class="usecases-grid">
+      <div class="usecase-card reveal reveal-delay-1">
+        <div class="usecase-chat">
+          <div class="chat-msg user">帮我把这个文件夹里 500 张图片压缩到 1MB 以内，保留原图备份</div>
+          <div class="chat-typing"><span></span><span></span><span></span></div>
+          <div class="chat-msg ai">🛠 正在处理…<br>📁 扫描到 487 张图片<br>✅ 已压缩 487/487<br>📦 原图备份在 backup/ 目录<br>全部完成！</div>
+        </div>
+        <div class="usecase-info"><span class="uc-icon">💻</span><h3>批量处理文件</h3><p>不是给你一段代码让你自己跑，是它直接在你的电脑上操作文件系统，处理完告诉你结果。</p></div>
+      </div>
+      <div class="usecase-card reveal reveal-delay-2">
+        <div class="usecase-chat">
+          <div class="chat-msg user">帮我对一下这个月的收支，把我银行导出的流水和 Excel 账本对比</div>
+          <div class="chat-msg ai">📊 正在读取银行流水和 Excel…<br>✅ 收入：12笔，¥86,400（匹配）<br>⚠️ 3笔差异：邮储有但 Excel 无 +¥2,350<br>📄 差异明细表已生成</div>
+        </div>
+        <div class="usecase-info"><span class="uc-icon">💰</span><h3>读文件自动对账</h3><p>拖入多个文件，自动读取内容、对比差异、生成报告。不用你一个个打开看。</p></div>
+      </div>
+      <div class="usecase-card reveal reveal-delay-3">
+        <div class="usecase-chat">
+          <div class="chat-msg user">每天早上8点搜 AI 最新动态，整理成简报发到我的飞书</div>
+          <div class="chat-msg ai">✅ 已设置每日简报任务<br>⏰ 每天 8:00 自动执行<br>📋 搜索 → 整理 → 发飞书<br>全自动，不需要你管</div>
+        </div>
+        <div class="usecase-info"><span class="uc-icon">⏰</span><h3>定时推送、自动简报</h3><p>设好时间和内容，每天自动搜索最新信息、整理成你要的格式、推送到你手机上。</p></div>
+      </div>
+      <div class="usecase-card reveal reveal-delay-1">
+        <div class="usecase-chat">
+          <div class="chat-msg user">帮我在这个网站上填 200 条客户信息，Excel 里的数据都准备好了</div>
+          <div class="chat-msg ai">🌐 正在打开浏览器…<br>📋 读取 Excel 完成，200条记录<br>⌨️ 正在逐条填写…<br>✅ 200/200 填写完成！</div>
+        </div>
+        <div class="usecase-info"><span class="uc-icon">🖥️</span><h3>打开浏览器自动填表</h3><p>真实的 Computer Use——打开浏览器、定位表单、逐条填入数据。不是虚拟操作，是真浏览器。</p></div>
+      </div>
+      <div class="usecase-card reveal reveal-delay-2">
+        <div class="usecase-chat">
+          <div class="chat-msg user">帮我把三年的餐饮经验整理成一本电子书，10章，面向餐饮老板</div>
+          <div class="chat-msg ai">📚 大纲已生成（10章）<br>✅ 第1章初稿完成<br>→ "选址避坑：90%的餐饮老板都踩过的8个坑"<br>要继续第2章吗？</div>
+        </div>
+        <div class="usecase-info"><span class="uc-icon">✍️</span><h3>写书、写文章、出稿</h3><p>搭框架、分章节、持续输出。你说方向给素材，它帮你完成整本书。</p></div>
+      </div>
+      <div class="usecase-card reveal reveal-delay-3">
+        <div class="usecase-chat">
+          <div class="chat-msg user">帮我在 GitHub 上搜几个开源的财务记账项目，把它们的优缺点整理成对比表</div>
+          <div class="chat-msg ai">🔍 正在搜索 GitHub…<br>📊 找到 4 个高星项目<br>📄 对比表已生成（功能/文档/维护/社区）<br>✅ 推荐：Akaunting（功能最全）</div>
+        </div>
+        <div class="usecase-info"><span class="uc-icon">🔍</span><h3>联网搜 + 自动整理</h3><p>搜索网页、GitHub、文档——然后自动阅读、对比、整理成你要的格式。一步到位。</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- App Preview -->
+    <section class="section">
+      <div class="section-inner">
+        <span class="section-label reveal">Preview</span>
+        <h2 class="reveal">长什么样？一眼看懂</h2>
+        <p class="section-sub reveal">简洁的桌面应用界面，8位数字员工随时切换，聊天即工作。</p>
+        <div class="app-preview reveal" style="max-width:900px;margin:0 auto;background:rgba(255,255,255,0.85);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-radius:var(--radius-lg);box-shadow:0 25px 80px rgba(0,0,0,0.06),0 0 0 1px rgba(0,0,0,0.04);overflow:hidden;">
+          <!-- Fake title bar -->
+          <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#f0f3f8;border-bottom:1px solid var(--border-light);">
+            <span style="width:12px;height:12px;border-radius:50%;background:#ef4444;"></span>
+            <span style="width:12px;height:12px;border-radius:50%;background:#f59e0b;"></span>
+            <span style="width:12px;height:12px;border-radius:50%;background:#22c55e;"></span>
+            <span style="font-size:12px;color:#737373;margin-left:8px;font-family:&apos;Geist Mono&apos;,monospace;">Hergent — 我的大秘</span>
+          </div>
+          <!-- App layout mock -->
+          <div style="display:flex;height:400px;">
+            <!-- Sidebar -->
+            <div style="width:200px;background:#f8f9fb;border-right:1px solid var(--border-light);padding:16px 12px;display:flex;flex-direction:column;gap:4px;">
+              <div style="font-size:11px;font-weight:600;color:#9ca3b0;text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;">场景</div>
+              <div style="padding:8px 10px;border-radius:8px;background:var(--brand-light);color:var(--brand-dark);font-size:13px;font-weight:600;">💬 聊天</div>
+              <div style="padding:8px 10px;border-radius:8px;color:#737373;font-size:13px;">📋 定时任务</div>
+              <div style="padding:8px 10px;border-radius:8px;color:#737373;font-size:13px;">📊 成果</div>
+              <div style="padding:8px 10px;border-radius:8px;color:#737373;font-size:13px;">⚡ 技能</div>
+              <div style="margin-top:auto;border-top:1px solid var(--border-light);padding-top:12px;">
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;">
+                  <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#0891b2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;">大</div>
+                  <span style="font-size:13px;font-weight:500;">我的大秘</span>
+                </div>
+              </div>
+            </div>
+            <!-- Chat area -->
+            <div style="flex:1;display:flex;flex-direction:column;padding:16px 20px;gap:12px;">
+              <div style="align-self:flex-start;max-width:75%;background:#f0f4f8;border-radius:14px 14px 14px 4px;padding:10px 14px;font-size:13px;color:#171717;line-height:1.5;">帮我把这个文件夹里的500张图片压缩到1MB以内</div>
+              <div style="align-self:flex-end;max-width:75%;background:linear-gradient(135deg,#06b6d4,#0891b2);border-radius:14px 14px 4px 14px;padding:10px 14px;font-size:13px;color:#fff;line-height:1.5;">🛠️ 正在扫描文件夹...<br>📁 487张图片，预计2分钟<br>✅ 已完成：126/487</div>
+              <div style="align-self:flex-start;max-width:75%;background:#f0f4f8;border-radius:14px 14px 14px 4px;padding:10px 14px;font-size:13px;color:#171717;line-height:1.5;">✅ 全部完成！<br>📦 原图备份在 backup/ 目录<br>📊 压缩率 68%，无质量损失</div>
+            </div>
+            <!-- Right panel: tool status -->
+            <div style="width:220px;background:#fafafa;border-left:1px solid var(--border-light);padding:16px;font-size:12px;">
+              <div style="font-weight:600;color:#171717;margin-bottom:12px;">工具执行中</div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;background:#f0fdf4;color:#16a34a;">✅ 扫描文件</div>
+                <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;background:#ecfeff;color:#0891b2;font-weight:500;">⏳ 压缩图片</div>
+                <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;color:#9ca3b0;">⬜ 生成报告</div>
+              </div>
+              <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-light);color:#9ca3b0;font-size:11px;">
+                消耗 5 积分 · 剩余 495
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing -->
+<section class="section section-alt" id="pricing">
+  <div class="section-inner">
+    <span class="section-label reveal">Pricing</span>
+    <h2 class="reveal">按量充值，没有月费</h2>
+    <p class="section-sub reveal">不用纠结订阅和套餐，用多少充多少。积分永不过期。</p>
+    <div class="pricing-card reveal">
+      <div class="badge">💎 新用户送 500 积分</div>
+      <div class="price">10 <small>元起</small></div>
+      <div class="price-label">充值制 · 积分永不过期</div>
+      <ul>
+        <li>10 元 = 1,000 积分</li>
+        <li>30 元 = 3,200 积分（多送 200）</li>
+        <li>50 元 = 6,000 积分（多送 1,000）</li>
+        <li>无月费 · 无年费 · 无订阅</li>
+      </ul>
+    </div>
+    <p class="pricing-note reveal">一次普通聊天约 1–3 积分。不用不花钱，永不过期。</p>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="download">
+  <div class="cta-inner reveal">
+    <h2>不是聊天 AI，是能动手的数字员工</h2>
+    <p>基于 Hermes 开源内核 · 200+项实战技能 · 数据不出本地 · 3 分钟上手</p>
+    <div class="cta-downloads">
+      <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.17/Hergent-1.0.17-mac-arm64.dmg" class="btn-light dl-mac">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下载 macOS 版
+      </a>
+      <a href="https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.17/Hergent-1.0.17-setup.exe" class="btn-light dl-win">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        下载 Windows 版
+      </a>
+    </div>
+    <p class="cta-meta"><span class="ver-tag">v1.0.17</span> · macOS 12+ · Apple Silicon & Intel · Hermes Agent 内核 · MIT 开源</p>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <p>Hergent · 基于 <a href="https://hermes-agent.nousresearch.com/">Hermes Agent</a> 开源内核构建 · MIT License</p>
+    <p><a href="mailto:xyzhangjf@gmail.com">联系我们</a></p>
+  </div>
+</footer>
+
+<script>
+  // Fetch version.json and update download links + version numbers
+  // Cache-buster prevents stale cached version.json from pointing to deleted releases
+  fetch('version.json?v=' + Date.now())
+    .then(r => r.json())
+    .then(data => {
+      document.querySelectorAll('.dl-mac').forEach(el => el.href = data.download_url_mac);
+      document.querySelectorAll('.dl-win').forEach(el => el.href = data.download_url_win);
+      document.querySelectorAll('.ver-tag').forEach(el => el.textContent = 'v' + data.version);
+    })
+    .catch(() => {}); // Silently use fallback hrefs in HTML
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) entry.target.classList.add('visible');
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    navbar.classList.toggle('scrolled', window.scrollY > 60);
+  });
+
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function(e) {
+      const target = document.querySelector(this.getAttribute('href'));
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+  });
+</script>
+</body>
+</html>
