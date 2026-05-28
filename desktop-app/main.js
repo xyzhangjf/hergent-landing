@@ -230,10 +230,14 @@ async function startHermesGateway() {
     const cfgEnv = { ...process.env, HERMES_HOME: gwHome };
     const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
     const dsKey = getDeepSeekApiKey();
-    set('model.name', 'deepseek-v4-pro');
-    set('model.provider', 'hergent');
-    set('model.base_url', `${SERVER_URL}/v1`);
-    set('model.default', 'deepseek-v4-pro');
+    // 仅在首次配置时写入默认模型，后续保留用户选择
+    const existingModel = (() => { try { const c = fs.readFileSync(mainConfigPath, 'utf8'); const m = c.match(/^model:\s*\n\s+name:\s*(.+)/m); return m ? m[1].trim() : null; } catch(_) { return null; } })();
+    if (!existingModel) {
+      set('model.name', 'deepseek-v4-pro');
+      set('model.provider', 'hergent');
+      set('model.base_url', `${SERVER_URL}/v1`);
+      set('model.default', 'deepseek-v4-pro');
+    }
     set('platforms.api_server.enabled', 'true');
     set('platforms.api_server.port', String(GATEWAY_PORT));
     set('platforms.api_server.key', GATEWAY_API_KEY);
