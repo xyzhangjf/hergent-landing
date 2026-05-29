@@ -785,14 +785,15 @@ function ensureRoleConfigs() {
         /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
         'model:\n  name: ' + mainModel + '\n  provider: ' + mainProvider + '\n'
       );
-      // 同时更新 custom_providers 中 hergent provider 的 model 名 + appKey
+      // 同时更新 custom_providers 中 hergent provider 的 model 名 + apiKey
+      // 兼容 YAML 列表格式 "- name:" 和普通格式 "name:"
       roleCfg = roleCfg.replace(
-        /^(\s*name: hergent\n\s+base_url: .+\n\s+)api_key: .+(\n\s+model: ).+/m,
+        /^(\s*-?\s*name: hergent\n\s+base_url: .+\n\s+)api_key: .+(\n\s+model: ).+/m,
         '$1api_key: hermes_' + getDeviceId() + '$2' + mainModel
       );
       // 确保 bailian provider 的 api_key 也统一
       roleCfg = roleCfg.replace(
-        /^(\s*name: bailian\n\s+base_url: .+\n\s+)api_key: .+/m,
+        /^(\s*-?\s*name: bailian\n\s+base_url: .+\n\s+)api_key: .+/m,
         '$1api_key: hermes_' + getDeviceId()
       );
       // 确保存在 bailian provider
@@ -2822,11 +2823,11 @@ ipcMain.handle('config:set-model', async (event, opts) => {
             'model:\n  name: ' + newModel + '\n  provider: ' + newProvider + '\n'
           );
           rc = rc.replace(
-            /^(\s*name: hergent\n\s+base_url: .+\n\s+)api_key: .+(\n\s+model: ).+/m,
+            /^(\s*-?\s*name: hergent\n\s+base_url: .+\n\s+)api_key: .+(\n\s+model: ).+/m,
             '$1api_key: hermes_' + getDeviceId() + '$2' + newModel
           );
           rc = rc.replace(
-            /^(\s*name: bailian\n\s+base_url: .+\n\s+)api_key: .+/m,
+            /^(\s*-?\s*name: bailian\n\s+base_url: .+\n\s+)api_key: .+/m,
             '$1api_key: hermes_' + getDeviceId()
           );
         }
