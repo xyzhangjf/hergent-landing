@@ -758,11 +758,11 @@ function ensureRoleConfigs() {
           'custom_providers:',
           '  - name: hergent',
           `    base_url: ${SERVER_URL}/v1`,
-          `    api_key: ${getDeepSeekApiKey()}`,
+          `    api_key: hermes_${getDeviceId()}`,
           '    model: deepseek-v4-pro',
           '  - name: bailian',
           `    base_url: ${SERVER_URL}/v1`,
-          `    api_key: ${getDeepSeekApiKey()}`,
+          `    api_key: hermes_${getDeviceId()}`,
           '    model: qwen3-max',
           `system_prompt_file: ${soulPath}`,
           `system_prompt: "${(role.systemPrompt || '').replace(/"/g, '\\"')}"`,
@@ -778,18 +778,23 @@ function ensureRoleConfigs() {
         fs.writeFileSync(roleConfigPath, roleConfigYaml);
       } catch (e) { console.log(`config.yaml write error for ${roleId}: ` + (e.message || e)); }
     }
-    // 同步主引擎模型到该角色 — 直接写 YAML，避免 spawnSync 开销
+    // 同步主引擎模型到该角色 — 整段替换 model section
     try {
       let roleCfg = fs.readFileSync(roleConfigPath, 'utf8');
-      roleCfg = roleCfg.replace(/^(  name: ).+/m, '$1' + mainModel);
-      roleCfg = roleCfg.replace(/^(  provider: ).+/m, '$1' + mainProvider);
-      // 确保 custom_providers 第1条 model 同步
-      roleCfg = roleCfg.replace(/^(    model: ).+/m, '$1' + mainModel);
-      // 确保存在两个 provider（bailian 可能缺失）
+      roleCfg = roleCfg.replace(
+        /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
+        'model:\n  name: ' + mainModel + '\n  provider: ' + mainProvider + '\n'
+      );
+      // 同时更新 custom_providers 中 hergent provider 的 model 名
+      roleCfg = roleCfg.replace(
+        /^(\s*name: hergent\n\s+base_url: .+\n\s+api_key: .+\n\s+model: ).+/m,
+        '$1' + mainModel
+      );
+      // 确保存在 bailian provider
       if (!roleCfg.includes('- name: bailian')) {
         roleCfg = roleCfg.replace(
           /(  - name: hergent\n    base_url: .+\n    api_key: .+\n    model: .+)/,
-          '$1\n  - name: bailian\n    base_url: ' + `${SERVER_URL}/v1` + '\n    api_key: ' + getDeepSeekApiKey() + '\n    model: qwen3-max'
+          '$1\n  - name: bailian\n    base_url: ' + `${SERVER_URL}/v1` + '\n    api_key: hermes_' + getDeviceId() + '\n    model: qwen3-max'
         );
       }
       fs.writeFileSync(roleConfigPath, roleCfg);
@@ -2793,7 +2798,7 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       } catch (_) {}
     }
     }
-    // 同步模型到所有角色 config（直接写文件，避免 spawnSync 开销）
+    // 同步模型到所有角色 config（整段替换 model section）
     const allRoles = loadRoles();
     for (const [roleId] of Object.entries(allRoles)) {
       const roleCfgPath = path.join(engineDir, '.hermes', 'agents', roleId, 'config.yaml');
@@ -2801,15 +2806,25 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       try {
         let rc = fs.readFileSync(roleCfgPath, 'utf8');
         if (opts.model) {
-          rc = rc.replace(/^(  name: ).+/m, '$1' + opts.model);
-          rc = rc.replace(/^(    model: ).+/m, '$1' + opts.model);
+          const m = rc.match(/^  name:\s*(.+)/m);  // 读取当前 name
+          const p = rc.match(/^  provider:\s*(.+)/m);  // 读取当前 provider
+          const curModel = (m && m[1]) ? m[1].trim() : 'deepseek-v4-pro';
+          const curProvider = (p && p[1]) ? p[1].trim() : 'hergent';
+          const newModel = opts.model;
+          const newProvider = opts.provider || curProvider;
+          rc = rc.replace(
+            /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
+            'model:\n  name: ' + newModel + '\n  provider: ' + newProvider + '\n'
+          );
+          rc = rc.replace(
+            /^(\s*name: hergent\n\s+base_url: .+\n\s+api_key: .+\n\s+model: ).+/m,
+            '$1' + newModel
+          );
         }
-        if (opts.provider) rc = rc.replace(/^(  provider: ).+/m, '$1' + opts.provider);
-        // 确保存在两个 provider
         if (!rc.includes('- name: bailian')) {
           rc = rc.replace(
             /(  - name: hergent\n    base_url: .+\n    api_key: .+\n    model: .+)/,
-            '$1\n  - name: bailian\n    base_url: ' + `${SERVER_URL}/v1` + '\n    api_key: ' + getDeepSeekApiKey() + '\n    model: qwen3-max'
+            '$1\n  - name: bailian\n    base_url: ' + `${SERVER_URL}/v1` + '\n    api_key: hermes_' + getDeviceId() + '\n    model: qwen3-max'
           );
         }
         fs.writeFileSync(roleCfgPath, rc);
