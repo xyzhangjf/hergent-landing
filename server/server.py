@@ -637,8 +637,8 @@ async def chat_completions(request: Request):
                             except:
                                 pass
 
-                # 流结束后扣费
-                final_credits = credits if credits is not None else (calculate_credits(model, total_prompt, total_completion) if (total_prompt or total_completion) else 0)
+                # 流结束后扣费（至少1分，即使token解析失败）
+                final_credits = credits if credits is not None else calculate_credits(model, total_prompt, total_completion)
                 if final_credits > 0:
                     with get_db() as db2:
                         db2.execute("UPDATE users SET credits = MAX(0, credits - ?), total_used = total_used + ? WHERE id = ?",
