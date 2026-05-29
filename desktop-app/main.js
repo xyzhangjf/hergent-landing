@@ -1852,11 +1852,15 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
   if (!data[channel] || typeof data[channel].app_id === 'string') {
     // 旧数据是扁平的，迁移为嵌套结构
     const oldFlat = data[channel] || {};
-    data[channel] = { _flat_migrated: true };
-    if (oldFlat.app_id) data[channel][role] = config;
-  } else {
-    data[channel][role] = config;
+    // 迁移旧字段
+    if (oldFlat.app_id) {
+      data[channel] = { _flat_migrated: true };
+      data[channel][role] = { ...oldFlat };
+    } else {
+      data[channel] = { _flat_migrated: true };
+    }
   }
+  data[channel][role] = config;
   saveChannels(data);
 
   // 3. 重启网关使新配置生效
