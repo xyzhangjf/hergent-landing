@@ -524,7 +524,7 @@
       --bg-input:     rgba(28,28,42,0.8);
       --text-primary:    #e8e8f0;
       --text-secondary:  #a8a8ba;
-      --text-tertiary:   #686878;
+      --text-tertiary:   #9090a8;
       --text-inverse:    #12121e;
       /* Gray scale — light values in dark mode for visibility */
       --gray-100: #1c1c2a; --gray-200: #28283a; --gray-300: #34344c;
@@ -4340,4 +4340,37 @@
 :root.dark .skill-card:hover { border-color: var(--border-strong); }
 :root.dark .skill-card-icon { background: rgba(255,255,255,0.06); }
 :root.dark .skill-source-tag.hergent { background: rgba(6,182,212,0.15); color: var(--brand-400); }
+
+/* Dark mode: 定时任务卡片 */
+:root.dark .task-card { background: var(--bg-elevated); border-color: var(--border-subtle); }
+:root.dark .task-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+:root.dark .task-name { color: var(--text-primary); }
+:root.dark .task-info strong { color: var(--text-primary); }
+:root.dark .task-schedule { color: var(--text-secondary); }
+:root.dark .task-status { color: var(--text-secondary); }
+:root.dark .task-status.active { color: var(--green); }
+:root.dark .task-template-card { background: var(--bg-surface); color: var(--text-secondary); border-color: var(--border-default); }
+:root.dark .task-template-card:hover { background: rgba(6,182,212,0.08); color: var(--brand-400); border-color: var(--brand-500); }
+:root.dark .task-templates-label { color: var(--text-tertiary); }
+:root.dark .freq-chip { background: var(--bg-surface); color: var(--text-secondary); }
+:root.dark .freq-chip.active { background: var(--brand-500); color: #fff; }
+:root.dark .btn-task-toggle { color: var(--text-secondary); border-color: var(--border-default); }
+:root.dark .btn-task-del { color: var(--text-secondary); border-color: var(--border-default); }
+
+/* Dark mode: 设置/表单通用 */
+:root.dark .settings-val { color: var(--text-secondary); }
+:root.dark .settings-row { color: var(--text-primary); }
+:root.dark .settings-section-title { color: var(--text-secondary); }
+:root.dark .modal-overlay { background: rgba(0,0,0,0.5); }
+:root.dark .modal { background: var(--bg-elevated); }
+:root.dark .cron-preset { background: var(--bg-surface); color: var(--text-secondary); border-color: var(--border-default); }
+:root.dark .cron-preset:hover { border-color: var(--brand-500); color: var(--brand-400); }
+:root.dark #cronInput { background: var(--bg-input); color: var(--text-primary); border-color: var(--border-default); }
+:root.dark .task-onboard-card { background: var(--bg-surface); border-color: var(--border-subtle); }
+:root.dark .task-onboard-card:hover { border-color: var(--brand-500); }
+
+/* Dark mode: 渠道连接页 */
+:root.dark .chn-btn { color: var(--text-secondary); }
+:root.dark .channel-guide-step { color: var(--text-primary); }
+:root.dark .cgs-num { background: rgba(255,255,255,0.1); color: var(--text-primary); }
 
