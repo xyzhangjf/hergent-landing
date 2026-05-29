@@ -231,6 +231,7 @@
     if (_connCheckTimer) return;
     checkConnectionHealth();
     _connCheckTimer = setInterval(checkConnectionHealth, 15000);
+    setInterval(updateCreditsBadge, 300000); // 每5分钟刷新积分
   }
 
   // 初始化：检查本地 token（DEV 模式跳过登录）
@@ -2085,6 +2086,8 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
           loadChatHistory();
         }
       }
+      // 飞书消息处理完后刷新积分显示
+      updateCreditsBadge();
     } catch (_) {}
   }
 
