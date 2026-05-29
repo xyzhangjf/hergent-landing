@@ -57,7 +57,7 @@
           "arch": ["arm64"]
         }
       ],
-      "artifactName": "Hergent-${version}-mac-${arch}.${ext}",
+      "artifactName": "Hergent-${version}-mac-arm64.${ext}",
       "hardenedRuntime": false,
       "gatekeeperAssess": false
     },
