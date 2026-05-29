@@ -1867,20 +1867,23 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
     gatewayResult = { success: false, output: e.message };
   }
 
-  // 4. 等2秒让网关初始化，再查连接状态
+  // 4. 轮询等待网关初始化并完成平台连接（飞书连接是异步的，需要几秒）
   let connectStatus = null;
   if (gatewayResult.success) {
-    await new Promise(r => setTimeout(r, 3000));
-    try {
-      const gatewayPath = path.join(homeDir, '.hermes', 'gateway_state.json');
-      if (fs.existsSync(gatewayPath)) {
-        const state = JSON.parse(fs.readFileSync(gatewayPath, 'utf-8'));
-        const platform = state.platforms && state.platforms[channel];
-        if (platform && platform.state === 'connected') {
-          connectStatus = 'connected';
+    const gatewayPath = path.join(homeDir, '.hermes', 'gateway_state.json');
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        if (fs.existsSync(gatewayPath)) {
+          const state = JSON.parse(fs.readFileSync(gatewayPath, 'utf-8'));
+          const platform = state.platforms && state.platforms[channel];
+          if (platform && platform.state === 'connected') {
+            connectStatus = 'connected';
+            break;
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
   }
 
   return {
