@@ -4109,6 +4109,14 @@ ${questionnaireHistory}`;
 
   // 加载历史对话（按当前角色）
   function loadChatHistory() {
+    const history = document.getElementById('chatHistory');
+    // 清除现有消息，避免重复追加
+    if (history) {
+      while (history.firstChild) {
+        if (history.firstChild.classList && history.firstChild.classList.contains('chat-empty')) break;
+        history.removeChild(history.firstChild);
+      }
+    }
     const key = chatStorageKey();
     const saved = localStorage.getItem(key);
     if (saved) {
