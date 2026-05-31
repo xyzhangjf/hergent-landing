@@ -4915,6 +4915,64 @@ if (window.hermes_on && window.hermes_on.gatewayMessage) {
   });
 }
 
+// Phase 3: Ctrl+K global search
+document.addEventListener('keydown', function(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    showGlobalSearch();
+  }
+  if (e.key === 'Escape') { hideOverlay('globalSearchOverlay'); }
+});
+
+function showGlobalSearch() {
+  const overlay = document.getElementById('globalSearchOverlay');
+  const input = document.getElementById('gsInput');
+  const results = document.getElementById('gsResults');
+  overlay.style.display = 'flex';
+  input.value = '';
+  results.innerHTML = '<div class="gs-empty">输入关键词搜索...</div>';
+  input.focus();
+
+  input.oninput = function() {
+    const q = input.value.trim().toLowerCase();
+    if (!q) { results.innerHTML = '<div class="gs-empty">输入关键词搜索...</div>'; return; }
+    const items = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('hermes_chat_')) continue;
+      try {
+        const roleId = key.replace('hermes_chat_', '');
+        const rd = ROLES[roleId] || {};
+        const msgs = JSON.parse(localStorage.getItem(key) || '[]');
+        msgs.forEach(function(m, idx) {
+          const text = (m.text || '').toLowerCase();
+          if (text.includes(q)) {
+            items.push({ roleId: roleId, roleName: rd.name || roleId, text: m.text.slice(0, 80), idx: idx });
+          }
+        });
+      } catch(_) {}
+    }
+    if (items.length === 0) {
+      results.innerHTML = '<div class="gs-empty">未找到匹配的对话</div>';
+      return;
+    }
+    const hl = function(t) { return t.replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'), '<mark class="gs-item-hl">$1</mark>'); };
+    results.innerHTML = items.slice(0, 30).map(function(it) {
+      return '<div class="gs-item" onclick="_gsJump(\'' + it.roleId + '\')">' +
+        '<span class="gs-item-role">' + escapeHTML(it.roleName) + '</span>' +
+        '<span class="gs-item-text">' + hl(escapeHTML(it.text)) + '</span>' +
+      '</div>';
+    }).join('');
+  };
+}
+
+window._gsJump = function(roleId) {
+  hideOverlay('globalSearchOverlay');
+  switchPage('pageHome');
+  currentAction = roleId;
+  handleRole(roleId);
+};
+
 // Phase 4: Auth check
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initAuth);

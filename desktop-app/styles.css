@@ -4406,3 +4406,59 @@
 :root.dark .channel-guide-step { color: var(--text-primary); }
 :root.dark .cgs-num { background: rgba(255,255,255,0.1); color: var(--text-primary); }
 
+/* ===== Ctrl+K 全局搜索 ===== */
+.global-search-modal {
+  background: var(--bg-elevated);
+  border-radius: 16px;
+  width: 520px; max-width: 90vw;
+  max-height: 70vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px var(--border-default);
+}
+.gs-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.gs-input {
+  flex: 1; border: none; background: var(--bg-input);
+  font-size: 15px; padding: 10px 14px;
+  border-radius: 10px; color: var(--text-primary);
+  font-family: inherit; outline: none;
+}
+.gs-input::placeholder { color: var(--text-tertiary); }
+.gs-close {
+  background: none; border: none; padding: 6px; cursor: pointer;
+  color: var(--text-tertiary); border-radius: 6px;
+}
+.gs-close:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.gs-results {
+  overflow-y: auto; flex: 1; padding: 8px;
+}
+.gs-empty {
+  padding: 24px; text-align: center;
+  color: var(--text-tertiary); font-size: 13px;
+}
+.gs-item {
+  padding: 10px 14px; border-radius: 10px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 4px;
+  transition: background 0.12s;
+}
+.gs-item:hover { background: var(--bg-secondary); }
+.gs-item-role { font-size: 11px; color: var(--brand-500); font-weight: 600; }
+.gs-item-text {
+  font-size: 13px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gs-item-hl { background: rgba(245,158,11,0.25); border-radius: 2px; padding: 0 1px; }
+.gs-footer {
+  padding: 8px 14px; border-top: 1px solid var(--border-subtle);
+  font-size: 11px; color: var(--text-tertiary);
+  display: flex; justify-content: space-between;
+}
+.gs-hint kbd {
+  background: var(--bg-secondary); border: 1px solid var(--border-default);
+  padding: 1px 5px; border-radius: 4px; font-size: 10px;
+  font-family: inherit;
+}
+
