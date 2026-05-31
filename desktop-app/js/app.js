@@ -4961,7 +4961,7 @@ document.addEventListener('keydown', function(e) {
     e.preventDefault();
     showGlobalSearch();
   }
-  if (e.key === 'Escape') { hideOverlay('globalSearchOverlay'); }
+  if (e.key === 'Escape') { _hideGlobalSearch(); }
 });
 
 function showGlobalSearch() {
@@ -5007,10 +5007,14 @@ function showGlobalSearch() {
 }
 
 window._gsJump = function(roleId) {
-  hideOverlay('globalSearchOverlay');
+  _hideGlobalSearch();
   switchPage('pageHome');
   currentAction = roleId;
   handleRole(roleId);
+};
+
+window._hideGlobalSearch = function() {
+  document.getElementById('globalSearchOverlay').style.display = 'none';
 };
 
 // Phase 4: Auth check
