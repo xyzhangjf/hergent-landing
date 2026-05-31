@@ -3052,6 +3052,13 @@ app.whenReady().then(() => {
     }
   });
 
+  // 启动 15 秒后自动检查更新（窗口+网关初始化完成后）
+  setTimeout(() => {
+    if (app.isPackaged) {
+      try { autoUpdater.checkForUpdates(); } catch (_) {}
+    }
+  }, 15000);
+
   // frameless 窗口在 macOS 上必须手动配 Edit 菜单，否则 Cmd+C/V/A 不生效
   if (process.platform === 'darwin') {
     Menu.setApplicationMenu(Menu.buildFromTemplate([{
