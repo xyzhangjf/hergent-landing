@@ -3147,9 +3147,33 @@
 }
 
 /* ===== 设置页 ===== */
-.settings-content {
-  padding: 8px 16px 24px;
+.settings-layout {
+  display: flex; gap: 0;
+  height: calc(100% - 54px); /* page-header height */
+  overflow: hidden;
+}
+.settings-sidebar {
+  width: 180px; flex-shrink: 0;
+  border-right: 1px solid var(--border-subtle);
+  padding: 12px 8px;
   overflow-y: auto;
+}
+.settings-sidebar-nav {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.settings-nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; color: var(--text-secondary);
+  border: none; background: none; width: 100%; text-align: left;
+  font-family: inherit; transition: all 0.15s;
+}
+.settings-nav-item:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); }
+.settings-nav-item.active { background: var(--brand-100, rgba(6,182,212,0.1)); color: var(--brand-700, #0e7490); font-weight: 600; }
+.settings-nav-icon { font-size: 16px; flex-shrink: 0; width: 22px; text-align: center; }
+.settings-main {
+  flex: 1; overflow-y: auto; min-width: 0;
+  padding: 4px 20px 24px;
 }
 .settings-section {
   margin-bottom: 20px;
@@ -3157,6 +3181,8 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 .settings-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.settings-section[data-settings-category] { display: none; }
+.settings-section[data-settings-category].active { display: block; }
 
 /* ===== 记忆系统 ===== */
 /* 了解程度条 */
@@ -4356,6 +4382,12 @@
 :root.dark .freq-chip.active { background: var(--brand-500); color: #fff; }
 :root.dark .btn-task-toggle { color: var(--text-secondary); border-color: var(--border-default); }
 :root.dark .btn-task-del { color: var(--text-secondary); border-color: var(--border-default); }
+
+/* Dark mode: 设置侧边栏 */
+:root.dark .settings-sidebar { border-color: var(--border-subtle); }
+:root.dark .settings-nav-item { color: var(--text-secondary); }
+:root.dark .settings-nav-item:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+:root.dark .settings-nav-item.active { background: rgba(6,182,212,0.12); color: var(--brand-400); }
 
 /* Dark mode: 设置/表单通用 */
 :root.dark .settings-val { color: var(--text-secondary); }
