@@ -715,7 +715,8 @@ function ensureRoleConfigs() {
   } catch (_) {}
   for (const [roleId, role] of Object.entries(roles)) {
     const roleHome = path.join(engineDir, '.hermes', 'agents', roleId);
-    const roleWorkspace = path.join(roleHome, 'workspace');
+    const reportsBase = path.join(app.getPath('documents'), 'Hergent', '成果');
+    const roleWorkspace = reportsBase; // Hermes 生成的文件直接存到"我的成果"目录
     const roleSkills = path.join(roleHome, 'skills');
     const roleMemories = path.join(roleHome, 'memories');
     if (!fs.existsSync(roleHome)) fs.mkdirSync(roleHome, { recursive: true });
@@ -1602,6 +1603,14 @@ ipcMain.handle('hermes:execute', async (event, params) => {
     } catch (e) {
       return { files: [], error: e.message };
     }
+  } else if (action === 'fs:move') {
+    const { src, dst } = args || {};
+    try {
+      const dstDir = path.dirname(dst);
+      if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
+      fs.renameSync(src, dst);
+      return { success: true };
+    } catch (e) { return { success: false, error: e.message }; }
   } else if (action === 'fs:read') {
     const filePath = (args && args.path) || '';
     try {
