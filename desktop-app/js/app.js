@@ -4147,6 +4147,22 @@ ${questionnaireHistory}`;
     }
 
     const baseDir = window.hermes.reportsDir;
+
+    // 自动归类根目录下的文件到对应分类文件夹
+    try {
+      const rootList = await window.hermes.execute('fs:list', { dir: baseDir, meta: true }).catch(() => ({ files: [] }));
+      const rootFiles = (rootList.files || []).filter(f => !f.isDirectory);
+      for (const f of rootFiles) {
+        const ext = (f.name || '').split('.').pop().toLowerCase();
+        let targetFolder = '我的创作'; // 默认归入创作
+        if (['xlsx','xls','csv','numbers'].includes(ext)) targetFolder = '业务报表';
+        else if (['py','sh','js','ts','jsx','tsx','html','css','bat','ps1'].includes(ext)) targetFolder = '我的工具';
+        const srcPath = `${baseDir}/${f.name}`;
+        const dstPath = `${baseDir}/${targetFolder}/${f.name}`;
+        try { await window.hermes.execute('fs:move', { src: srcPath, dst: dstPath }); } catch (_) {}
+      }
+    } catch (_) {}
+
     const categories = [
       { folder: '业务报表', id: 'biz', empty: '对话中生成的报表、<br>数据分析等', icon: '📊', rePrompt: '帮我生成一份业务报表，分析' },
       { folder: '我的创作', id: 'creative', empty: '帮你写的文案、方案、<br>邮件等创作内容', icon: '✍️', rePrompt: '帮我写一份文档，主题是' },
