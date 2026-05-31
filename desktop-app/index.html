@@ -245,95 +245,102 @@
         <div class="page-header">
           <h2><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</h2>
         </div>
-        <div class="settings-content">
-          <div class="settings-section" id="settingsVersionSection">
-            <div class="settings-row"><span>版本</span><span class="settings-val" id="setVersion">Hergent v1.0.14</span></div>
-            <div class="settings-row"><span>内核</span><span class="settings-val">Hermes Agent v0.14.0</span></div>
+        <div class="settings-layout">
+          <div class="settings-sidebar">
+            <div class="settings-sidebar-nav" id="settingsSidebarNav"></div>
           </div>
-          <div class="settings-section">
-            <div class="settings-section-title">外观</div>
-            <div class="theme-switcher" id="themeSwitcher">
-              <button class="theme-option active" data-theme="system" onclick="setTheme('system')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> 跟随系统</button>
-              <button class="theme-option" data-theme="light" onclick="setTheme('light')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> 浅色</button>
-              <button class="theme-option" data-theme="dark" onclick="setTheme('dark')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> 深色</button>
-            </div>
-          </div>
-          <div class="settings-section">
-            <div class="settings-section-title">模型配置 🧠</div>
-            <div class="settings-row"><span>当前模型</span><span class="settings-val" id="setModelName" style="font-weight:600;color:var(--brand-500);">--</span></div>
-            <p style="font-size:12px;color:var(--text-tertiary);margin:-4px 0 8px;">在输入栏切换模型，当前模型自动同步显示</p>
-          </div>
-          <div class="settings-section">
-            <div class="settings-section-title">积分</div>
-            <div class="settings-row"><span>当前余额</span><span class="settings-val" id="setCredits" style="font-weight:600;color:var(--brand-500);">--</span></div>
-            <button class="settings-btn" style="margin-top:4px;" onclick="showRecharge()">充值</button>
-          </div>
-          <div class="settings-section">
-            <div class="settings-section-title">用量明细</div>
-            <div id="usageHistory" class="usage-list">
-              <div class="usage-empty">加载中...</div>
-            </div>
-          </div>
-          <div class="settings-section">
-            <div class="settings-section-title">我的记忆 🧠</div>
-            <p class="settings-hint" style="font-size:12px;color:var(--text-tertiary);margin:4px 0 0;">Hermes 在对话中记住关于你的事，越用越懂你</p>
-            <!-- 了解程度条 -->
-            <div class="memory-level" id="memoryLevel">
-              <div class="ml-header">
-                <span class="ml-label">AI 对你的了解</span>
-                <span class="ml-level-name" id="mlLevelName">初始</span>
-              </div>
-              <div class="ml-bar-track">
-                <div class="ml-bar-fill" id="mlBarFill" style="width:0%;"></div>
-              </div>
-              <div class="ml-stages">
-                <span class="ml-stage" data-lv="0">初始</span>
-                <span class="ml-stage" data-lv="1">初步认识</span>
-                <span class="ml-stage" data-lv="2">逐渐了解</span>
-                <span class="ml-stage" data-lv="3">比较熟悉</span>
-                <span class="ml-stage" data-lv="4">非常了解</span>
+          <div class="settings-main" id="settingsMain">
+            <!-- 通用设置 -->
+            <div class="settings-section" data-settings-category="general">
+              <div class="settings-section-title">外观</div>
+              <div class="theme-switcher" id="themeSwitcher">
+                <button class="theme-option active" data-theme="system" onclick="setTheme('system')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> 跟随系统</button>
+                <button class="theme-option" data-theme="light" onclick="setTheme('light')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> 浅色</button>
+                <button class="theme-option" data-theme="dark" onclick="setTheme('dark')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> 深色</button>
               </div>
             </div>
-            <!-- 统计 + 操作行 -->
-            <div class="memory-toolbar">
-              <span class="mem-count" id="memCount">共 0 条</span>
-              <span class="mem-mtime" id="memMtime"></span>
-              <button class="mem-add-btn" onclick="openMemoryEditor()">+ 添加记忆</button>
+            <div class="settings-section" data-settings-category="general">
+              <div class="settings-section-title">模型配置</div>
+              <div class="settings-row"><span>当前模型</span><span class="settings-val" id="setModelName" style="font-weight:600;color:var(--brand-500);">--</span></div>
+              <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 4px;">在输入栏切换模型，当前模型自动同步显示</p>
             </div>
-            <!-- 类型筛选 -->
-            <div class="memory-type-filters" id="memoryTypeFilters">
-              <button class="mem-type-chip active" data-type="all" onclick="filterMemoriesByType('all')">全部</button>
-              <button class="mem-type-chip" data-type="preference" onclick="filterMemoriesByType('preference')">💝 偏好习惯</button>
-              <button class="mem-type-chip" data-type="fact" onclick="filterMemoriesByType('fact')">📌 重要事实</button>
-              <button class="mem-type-chip" data-type="pattern" onclick="filterMemoriesByType('pattern')">🔄 工作模式</button>
-              <button class="mem-type-chip" data-type="style" onclick="filterMemoriesByType('style')">🎨 个人风格</button>
+            <div class="settings-section" data-settings-category="general">
+              <div class="settings-section-title">我的记忆</div>
+              <p class="settings-hint" style="font-size:12px;color:var(--text-tertiary);margin:4px 0 0;">Hermes 在对话中记住关于你的事，越用越懂你</p>
+              <div class="memory-level" id="memoryLevel">
+                <div class="ml-header">
+                  <span class="ml-label">AI 对你的了解</span>
+                  <span class="ml-level-name" id="mlLevelName">初始</span>
+                </div>
+                <div class="ml-bar-track">
+                  <div class="ml-bar-fill" id="mlBarFill" style="width:0%;"></div>
+                </div>
+                <div class="ml-stages">
+                  <span class="ml-stage" data-lv="0">初始</span>
+                  <span class="ml-stage" data-lv="1">初步认识</span>
+                  <span class="ml-stage" data-lv="2">逐渐了解</span>
+                  <span class="ml-stage" data-lv="3">比较熟悉</span>
+                  <span class="ml-stage" data-lv="4">非常了解</span>
+                </div>
+              </div>
+              <div class="memory-toolbar">
+                <span class="mem-count" id="memCount">共 0 条</span>
+                <span class="mem-mtime" id="memMtime"></span>
+                <button class="mem-add-btn" onclick="openMemoryEditor()">+ 添加记忆</button>
+              </div>
+              <div class="memory-type-filters" id="memoryTypeFilters">
+                <button class="mem-type-chip active" data-type="all" onclick="filterMemoriesByType('all')">全部</button>
+                <button class="mem-type-chip" data-type="preference" onclick="filterMemoriesByType('preference')">💝 偏好习惯</button>
+                <button class="mem-type-chip" data-type="fact" onclick="filterMemoriesByType('fact')">📌 重要事实</button>
+                <button class="mem-type-chip" data-type="pattern" onclick="filterMemoriesByType('pattern')">🔄 工作模式</button>
+                <button class="mem-type-chip" data-type="style" onclick="filterMemoriesByType('style')">🎨 个人风格</button>
+              </div>
+              <div class="memory-timeline" id="memoryTimeline" style="display:none;">
+                <div class="mt-title">📈 记忆成长</div>
+                <div class="mt-bars" id="mtBars"></div>
+              </div>
+              <div id="memoryList" class="memory-list">
+                <div class="memory-empty" id="memoryEmpty">还没有记忆。多聊聊，Hermes 会慢慢了解你。</div>
+              </div>
             </div>
-            <!-- 成长时间线 -->
-            <div class="memory-timeline" id="memoryTimeline" style="display:none;">
-              <div class="mt-title">📈 记忆成长</div>
-              <div class="mt-bars" id="mtBars"></div>
+
+            <!-- 用量统计 -->
+            <div class="settings-section" data-settings-category="usage">
+              <div class="settings-section-title">积分</div>
+              <div class="settings-row"><span>当前余额</span><span class="settings-val" id="setCredits" style="font-weight:600;color:var(--brand-500);">--</span></div>
+              <button class="settings-btn" style="margin-top:4px;" onclick="showRecharge()">充值</button>
             </div>
-            <div id="memoryList" class="memory-list">
-              <div class="memory-empty" id="memoryEmpty">还没有记忆。多聊聊，Hermes 会慢慢了解你。</div>
+            <div class="settings-section" data-settings-category="usage">
+              <div class="settings-section-title">用量明细</div>
+              <div id="usageHistory" class="usage-list">
+                <div class="usage-empty">加载中...</div>
+              </div>
             </div>
-          </div>
-          <div class="settings-section">
-            <div class="settings-section-title">备份</div>
-            <button class="settings-btn" onclick="exportChat()">导出当前对话</button>
-          </div>
-          <div class="settings-section" style="border-bottom:none;">
-            <div class="settings-row"><span>Hermes 引擎</span><span class="settings-val" id="setEngineVersion">--</span></div>
-            <div class="settings-row" id="engineUpdateRow" style="display:none;">
-              <span></span>
-              <button class="settings-btn" id="engineUpdateBtn" onclick="updateEngine()" style="font-size:12px;padding:4px 12px;">更新引擎</button>
+
+            <!-- 备份与迁移 -->
+            <div class="settings-section" data-settings-category="backup">
+              <div class="settings-section-title">备份</div>
+              <button class="settings-btn" onclick="exportChat()">导出当前对话</button>
             </div>
-            <div class="settings-row" style="font-size:12px;color:var(--text-tertiary);">Powered by <span style="cursor:pointer;color:var(--brand-500);" onclick="window.hermes.openExternal('https://hermes-agent.nousresearch.com/')">Hermes Agent</span> · MIT License · Nous Research</div>
-          </div>
-          <div class="settings-section" style="border-bottom:none;margin-bottom:0;padding-bottom:0;">
-            <button class="settings-btn danger" onclick="clearAllData()" style="margin-bottom:4px;">清除所有数据</button>
-            <button class="settings-btn" onclick="logout()">退出登录</button>
-          </div>
-        </div>
+            <div class="settings-section" data-settings-category="backup">
+              <button class="settings-btn danger" onclick="clearAllData()" style="margin-bottom:4px;">清除所有数据</button>
+              <button class="settings-btn" onclick="logout()">退出登录</button>
+            </div>
+
+            <!-- 关于 -->
+            <div class="settings-section" data-settings-category="about">
+              <div class="settings-section-title">关于</div>
+              <div class="settings-row"><span>Hergent</span><span class="settings-val" id="setVersion">v1.0.14</span></div>
+              <div class="settings-row"><span>内核</span><span class="settings-val">Hermes Agent v0.14.0</span></div>
+              <div class="settings-row"><span>引擎</span><span class="settings-val" id="setEngineVersion">--</span></div>
+              <div class="settings-row" id="engineUpdateRow" style="display:none;">
+                <span></span>
+                <button class="settings-btn" id="engineUpdateBtn" onclick="updateEngine()" style="font-size:12px;padding:4px 12px;">更新引擎</button>
+              </div>
+              <div class="settings-row" style="font-size:12px;color:var(--text-tertiary);">Powered by <span style="cursor:pointer;color:var(--brand-500);" onclick="window.hermes.openExternal('https://hermes-agent.nousresearch.com/')">Hermes Agent</span> · MIT License · Nous Research</div>
+            </div>
+          </div><!-- /settings-main -->
+        </div><!-- /settings-layout -->
       </div><!-- /pageSettings -->
 
     </div><!-- /right-panel -->

@@ -1010,7 +1010,36 @@
     } catch(e) { showDialog('❌', '保存失败：' + (e.message || '')); }
   }
 
+  let _settingsActiveTab = 'general';
+
+  function _renderSettingsSidebar() {
+    const nav = document.getElementById('settingsSidebarNav');
+    if (!nav) return;
+    const cats = [
+      { id: 'general', icon: '⚙️', label: '通用设置' },
+      { id: 'usage', icon: '📊', label: '用量统计' },
+      { id: 'backup', icon: '📦', label: '备份与迁移' },
+      { id: 'about', icon: 'ℹ️', label: '关于' },
+    ];
+    nav.innerHTML = cats.map(c =>
+      `<button class="settings-nav-item${_settingsActiveTab === c.id ? ' active' : ''}" onclick="_selectSettingsTab('${c.id}')">
+        <span class="settings-nav-icon">${c.icon}</span><span>${c.label}</span>
+      </button>`
+    ).join('');
+    _selectSettingsTab(_settingsActiveTab);
+  }
+
+  window._selectSettingsTab = function(cat) {
+    _settingsActiveTab = cat;
+    document.querySelectorAll('.settings-nav-item').forEach(el => el.classList.remove('active'));
+    const btn = document.querySelector(`.settings-nav-item[onclick*="${cat}"]`);
+    if (btn) btn.classList.add('active');
+    document.querySelectorAll('.settings-section[data-settings-category]').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll(`.settings-section[data-settings-category="${cat}"]`).forEach(el => el.classList.add('active'));
+  };
+
   async function refreshSettings() {
+    _renderSettingsSidebar();
     try {
       const v = await window.hermes.getVersion();
       document.getElementById('setVersion').textContent = 'Hergent v' + v;
