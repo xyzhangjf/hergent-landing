@@ -4615,10 +4615,10 @@ ${questionnaireHistory}`;
     const prog = document.getElementById('updateProgress');
     if (btns) btns.innerHTML = '';
     if (prog) { prog.style.display = 'block'; document.getElementById('updateProgressFill').style.width = '0%'; }
-    window.hermes.execute('update:install', {}).catch(function() {});
+    window.hermes.updateInstall().catch(function() {});
   };
   window._installUpdate = function() {
-    window.hermes.execute('update:quit-and-install', {}).catch(function() {});
+    window.hermes.updateQuitAndInstall().catch(function() {});
   };
   window._dismissUpdateBanner = function() {
     document.getElementById('updateBanner').style.display = 'none';
