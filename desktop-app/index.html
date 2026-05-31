@@ -50,10 +50,10 @@
           <div class="drop-overlay" id="dropOverlay"><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 释放文件</div>
           <div class="onboarding-guide" id="onboardingGuide" style="display:none;"></div>
           <div class="low-credits-banner" id="lowCreditsBanner" style="display:none;">
-            <span class="lcb-icon">⚠️</span>
+            <span class="lcb-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
             <span class="lcb-text" id="lcbText"></span>
             <button class="lcb-btn" onclick="showRecharge()">立即充值</button>
-            <button class="lcb-close" onclick="dismissLowCreditsBanner()">×</button>
+            <button class="lcb-close" onclick="dismissLowCreditsBanner()"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </div>
           <div class="chat-history" id="chatHistory">
             <div class="chat-empty" id="chatEmpty">
@@ -103,13 +103,13 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </button>
               <span class="cost-estimate" id="costEstimate" title="本条消息预估消耗">≈<span id="costEstimateNum">2-5</span>分</span>
-              <span class="credits-badge" id="creditsBadge" onclick="switchPage('pageSettings')" title="剩余积分">🪙 <span id="creditsText">--</span></span>
+              <span class="credits-badge" id="creditsBadge" onclick="switchPage('pageSettings')" title="剩余积分"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> <span id="creditsText">--</span></span>
               <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" title="发送"><svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
               <button class="chat-cancel-btn" id="chatCancelBtn" onclick="cancelStream()" style="display:none;" title="停止"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
             </div>
           </div>
           <div class="pipeline-roles-bar" id="pipelineRolesBar" style="display:none;">
-            <span class="prb-label">🤝 工作组：</span>
+            <span class="prb-label"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 工作组：</span>
             <div class="prb-roles" id="prbRoles"></div>
             <button class="prb-config-btn" onclick="showPipelineConfig()" title="调整工作组">⚙</button>
           </div>
@@ -121,7 +121,7 @@
       <!-- 页面2: 定时任务 -->
       <div class="page" id="pageTasks">
         <div class="page-tip-banner" id="tipTasks">
-          <span class="ptb-icon">⏰</span>
+          <span class="ptb-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
           <span>让 AI 按计划自动执行任务——每天定时帮你查数据、发消息、写报告</span>
           <button class="ptb-close" onclick="dismissPageTip('pageTasks')">知道了</button>
         </div>
@@ -141,7 +141,7 @@
       <!-- 页面3: 连接手机 -->
       <div class="page" id="pageChannels">
         <div class="page-tip-banner" id="tipChannels">
-          <span class="ptb-icon">📱</span>
+          <span class="ptb-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg></span>
           <span>连上飞书/企微/钉钉，AI 干完活直接推送到你手机上</span>
           <button class="ptb-close" onclick="dismissPageTip('pageChannels')">知道了</button>
         </div>
@@ -167,7 +167,7 @@
       <!-- 页面4: 我的成果 -->
       <div class="page" id="pageReports">
         <div class="page-tip-banner" id="tipReports">
-          <span class="ptb-icon">📂</span>
+          <span class="ptb-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
           <span>AI 帮你生成的文件都在这——报表、文档、工具，按类型自动归类</span>
           <button class="ptb-close" onclick="dismissPageTip('pageReports')">知道了</button>
         </div>
@@ -217,7 +217,7 @@
       <!-- 页面: 我的技能 -->
       <div class="page" id="pageSkills">
         <div class="page-tip-banner" id="tipSkills">
-          <span class="ptb-icon">⚡</span>
+          <span class="ptb-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
           <span>167 项技能已就绪 — 涵盖开发、数据分析、创意、效率等场景</span>
           <button class="ptb-close" onclick="dismissPageTip('pageSkills')">知道了</button>
         </div>
@@ -530,7 +530,7 @@
 <!-- ===== 充值弹窗 ===== -->
 <div class="modal-overlay" id="rechargeOverlay">
   <div class="modal recharge-modal">
-    <h3>🪙 充值积分</h3>
+    <h3><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> 充值积分</h3>
     <p class="recharge-subtitle">用多少充多少，随时补充</p>
 
     <div class="recharge-tiers" id="rechargeTiers">
