@@ -1,7 +1,6 @@
   // ===== 首启安装引导 =====
-  // Feather SVG Icons（统一图标风格，替代 Emoji）
   const ICONS = {
-    settings: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+    settings: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
     chart: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
     package: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
     info: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
@@ -10,31 +9,21 @@
     zap: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
     edit: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
     tool: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+    users: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    heart: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+    bookmark: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+    refresh: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    palette: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.5-4.5-10-10-10z"/></svg>',
+    dotGreen: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="#22c55e" stroke="none"><circle cx="12" cy="12" r="6"/></svg>',
+    dotRed: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="#ef4444" stroke="none"><circle cx="12" cy="12" r="6"/></svg>',
     clock: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
     phone: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>',
     globe: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
     lock: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
     file: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
-    heart: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
-    bookmark: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
-    refresh: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
-    palette: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.5-4.5-10-10-10z"/></svg>',
-    checkCircle: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-    xCircle: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-    alertTriangle: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-    messageSquare: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
     coin: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg>',
-    trendingUp: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
-    plusCircle: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
     xi: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
-    users: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-    check_d: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
-    dot: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="5"/></svg>',
-    circle: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>',
-    dotGreen: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="#22c55e" stroke="none"><circle cx="12" cy="12" r="6"/></svg>',
-    dotRed: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="#ef4444" stroke="none"><circle cx="12" cy="12" r="6"/></svg>',
   };
-  function _icon(id) { return ICONS[id] || ''; }
 
   let _bootDone = false;
   async function runBootstrap() {
@@ -576,9 +565,9 @@
     _onboardingStep = step;
 
     const steps = [
-      { icon: ICONS.users, title: '选择一位数字员工', desc: '左侧有不同的 AI 角色，每位都有专属技能。点击头像切换，找到最适合你任务的那位。', btn: '选好了，下一步 →' },
-      { icon: ICONS.messageSquare, title: '直接告诉 AI 你想做什么', desc: '像跟同事说话一样，把任务发给它就行。', btn: '知道了，下一步 →', chips: true },
-      { icon: ICONS.zap, title: '还有更多玩法', desc: '', btn: '开始使用', features: true },
+      { icon: '👥', title: '选择一位数字员工', desc: '左侧有不同的 AI 角色，每位都有专属技能。点击头像切换，找到最适合你任务的那位。', btn: '选好了，下一步 →' },
+      { icon: '💬', title: '直接告诉 AI 你想做什么', desc: '像跟同事说话一样，把任务发给它就行。', btn: '知道了，下一步 →', chips: true },
+      { icon: '🚀', title: '还有更多玩法', desc: '', btn: '开始使用 🎉', features: true },
     ];
 
     const s = steps[step];
@@ -597,17 +586,17 @@
     if (s.features) {
       extra = `<div class="og-features">
         <div class="og-feat" onclick="skipOnboarding();switchPage('pageTasks')">
-          <span class="og-feat-icon">${ICONS.clock}</span>
+          <span class="og-feat-icon">⏰</span>
           <span class="og-feat-name">定时任务</span>
           <span class="og-feat-desc">让 AI 定时帮你查数据、发消息</span>
         </div>
         <div class="og-feat" onclick="skipOnboarding();switchPage('pageChannels')">
-          <span class="og-feat-icon">${ICONS.phone}</span>
+          <span class="og-feat-icon">📱</span>
           <span class="og-feat-name">连接手机</span>
           <span class="og-feat-desc">连飞书/企微，手机遥控 AI</span>
         </div>
         <div class="og-feat" onclick="skipOnboarding();switchPage('pageReports')">
-          <span class="og-feat-icon">${ICONS.file}</span>
+          <span class="og-feat-icon">📂</span>
           <span class="og-feat-name">我的成果</span>
           <span class="og-feat-desc">查看 AI 帮你生成的文件</span>
         </div>
@@ -1036,15 +1025,15 @@
   async function saveServerUrl() {
     const input = document.getElementById('setServerUrl');
     const url = (input.value || '').trim();
-    if (!url) { showDialog(ICONS.alertTriangle, '请输入服务器地址'); return; }
+    if (!url) { showDialog('⚠️', '请输入服务器地址'); return; }
     try {
       const r = await window.hermes.saveServerUrl(url);
       if (r && r.success) {
-        showDialog(ICONS.checkCircle, '服务器地址已保存，重启后生效');
+        showDialog('✅', '服务器地址已保存，重启后生效');
       } else {
-        showDialog(ICONS.xCircle, '保存失败：' + ((r && r.error) || ''));
+        showDialog('❌', '保存失败：' + ((r && r.error) || ''));
       }
-    } catch(e) { showDialog(ICONS.xCircle, '保存失败：' + (e.message || '')); }
+    } catch(e) { showDialog('❌', '保存失败：' + (e.message || '')); }
   }
 
   let _settingsActiveTab = 'general';
@@ -1586,14 +1575,14 @@
   }
 
   async function clearAllData() {
-    const confirmed = await showDialog(ICONS.alertTriangle, '确定清除所有数据？\n\n包括聊天记录、未读数、登录状态等', true);
+    const confirmed = await showDialog('⚠️', '确定清除所有数据？\n\n包括聊天记录、未读数、登录状态等', true);
     if (!confirmed) return;
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       keys.push(localStorage.key(i));
     }
     keys.forEach(k => localStorage.removeItem(k));
-    showDialog(ICONS.checkCircle, '已清除所有数据\n\n应用将刷新');
+    showDialog('✅', '已清除所有数据\n\n应用将刷新');
     setTimeout(() => location.reload(), 1500);
   }
 
@@ -1602,7 +1591,7 @@
       await window.hermes.deleteMemory(id, currentAction || 'dami');
       loadMemories();
     } catch (e) {
-      showDialog(ICONS.alertTriangle, '删除失败: ' + (e.message || ''));
+      showDialog('⚠️', '删除失败: ' + (e.message || ''));
     }
   }
 
@@ -1717,11 +1706,11 @@
     const timeStr = document.getElementById('taskTimeInput').value.trim();
     const customPrompt = document.getElementById('taskPromptInput').value.trim();
 
-    if (!name) { showDialog(ICONS.alertTriangle, '请输入任务名称'); return; }
-    if (!timeStr || !timeStr.includes(':')) { showDialog(ICONS.alertTriangle, '请输入正确的时间，如 08:00'); return; }
+    if (!name) { showDialog('⚠️', '请输入任务名称'); return; }
+    if (!timeStr || !timeStr.includes(':')) { showDialog('⚠️', '请输入正确的时间，如 08:00'); return; }
 
     const schedule = buildSchedule();
-    if (!schedule) { showDialog(ICONS.alertTriangle, '时间格式不对，比如 08:00'); return; }
+    if (!schedule) { showDialog('⚠️', '时间格式不对，比如 08:00'); return; }
 
     hideAddTask();
 
@@ -1731,25 +1720,25 @@
     try {
       const result = await window.hermes.cronCreate({ name: name, action: prompt, schedule });
       if (result && result.success) {
-        showDialog(ICONS.checkCircle, `定时任务「${name}」创建成功！${desc} 自动执行`);
+        showDialog('✅', `定时任务「${name}」创建成功！${desc} 自动执行`);
         refreshTasks();
       } else {
-        showDialog(ICONS.xCircle, '创建失败: ' + ((result && result.output) || '请重试'));
+        showDialog('❌', '创建失败: ' + ((result && result.output) || '请重试'));
       }
     } catch (e) {
-      showDialog(ICONS.xCircle, '创建失败: ' + (e.message || '未知错误'));
+      showDialog('❌', '创建失败: ' + (e.message || '未知错误'));
     }
   }
 
   async function deleteTask(id) {
-    const confirmed = await showDialog(ICONS.alertTriangle, '确定删除这个定时任务？', true);
+    const confirmed = await showDialog('⚠️', '确定删除这个定时任务？', true);
     if (!confirmed) return;
     try {
       await window.hermes.cronRemove({ id });
-      showDialog(ICONS.checkCircle, '已删除');
+      showDialog('✅', '已删除');
       refreshTasks();
     } catch (e) {
-      showDialog(ICONS.xCircle, '删除失败: ' + (e.message || '未知错误'));
+      showDialog('❌', '删除失败: ' + (e.message || '未知错误'));
     }
   }
 
@@ -1762,7 +1751,7 @@
       }
       refreshTasks();
     } catch (e) {
-      showDialog(ICONS.xCircle, '操作失败: ' + (e.message || '未知错误'));
+      showDialog('❌', '操作失败: ' + (e.message || '未知错误'));
     }
   }
 
@@ -1771,9 +1760,9 @@
     if (!confirmed) return;
     try {
       await window.hermes.cronRun(id);
-      showDialog(ICONS.checkCircle, '任务已触发，稍后查看结果');
+      showDialog('✅', '任务已触发，稍后查看结果');
     } catch (e) {
-      showDialog(ICONS.xCircle, '执行失败: ' + (e.message || '未知错误'));
+      showDialog('❌', '执行失败: ' + (e.message || '未知错误'));
     }
   }
 
@@ -1896,7 +1885,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   }
 
   async function saveChannelRole() {
-    if (!_crChannel || !_crRole) { showDialog(ICONS.alertTriangle, '请选择角色'); return; }
+    if (!_crChannel || !_crRole) { showDialog('⚠️', '请选择角色'); return; }
     const card = CHANNEL_CARDS.find(c => c.key === _crChannel);
     if (!card || !card.fields) return;
 
@@ -1906,7 +1895,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       const el = document.getElementById('cr_field_' + f.id);
       if (el) { const v = el.value.trim(); if (v) empty = false; data[f.id] = v; }
     });
-    if (empty) { showDialog(ICONS.alertTriangle, '请填写凭据信息'); return; }
+    if (empty) { showDialog('⚠️', '请填写凭据信息'); return; }
 
     const roleName = ROLES[_crRole]?.name || _crRole;
     const platformName = card.label;
@@ -1917,31 +1906,31 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       refreshChannels();
 
       if (result && result.gatewayRestarted) {
-        showDialog(ICONS.refresh, `${roleName}·${platformName} 已保存\nGateway 重启中，约10秒后生效...`);
+        showDialog('🔄', `${roleName}·${platformName} 已保存\nGateway 重启中，约10秒后生效...`);
         // 等10秒后检查连接状态
         setTimeout(async () => {
           try {
             const status = await window.hermes.gatewayStatus();
             if (status && status.running) {
-              showDialog(ICONS.checkCircle, `${roleName}·${platformName} 配置完成\nGateway 已就绪，去${platformName}发消息试试吧`);
+              showDialog('✅', `${roleName}·${platformName} 配置完成\nGateway 已就绪，去${platformName}发消息试试吧`);
             } else {
-              showDialog(ICONS.alertTriangle, `${roleName}·${platformName} 已保存\nGateway 仍在启动中，请稍候...`);
+              showDialog('⚠️', `${roleName}·${platformName} 已保存\nGateway 仍在启动中，请稍候...`);
             }
           } catch(_) {
-            showDialog(ICONS.checkCircle, `${roleName}·${platformName} 已保存\nGateway 重启中，稍后生效`);
+            showDialog('✅', `${roleName}·${platformName} 已保存\nGateway 重启中，稍后生效`);
           }
         }, 10000);
       } else {
-        showDialog(ICONS.checkCircle, `${roleName}·${platformName} 已保存`);
+        showDialog('✅', `${roleName}·${platformName} 已保存`);
       }
-    } catch(e) { showDialog(ICONS.xCircle, '保存失败: ' + (e.message || '')); }
+    } catch(e) { showDialog('❌', '保存失败: ' + (e.message || '')); }
   }
 
   async function promptPairingCode(channel, role) {
     const rName = ROLES[role]?.name || role;
     // 创建一个带输入框的对话框
     const overlay = document.getElementById('dialogOverlay');
-    document.getElementById('dialogIcon').innerHTML = DIALOG_ICONS.messageSquare;
+    document.getElementById('dialogIcon').innerHTML = DIALOG_ICONS['💭'];
     document.getElementById('dialogMsg').innerHTML = `输入 ${rName} 的配对码：<br><input id="pairingCodeInput" type="text" placeholder="如 9TN42MXA" style="margin-top:8px;width:100%;padding:8px 10px;border:1px solid var(--border-default);border-radius:6px;font-size:14px;text-align:center;letter-spacing:2px;background:var(--bg-input);color:var(--text-primary);" />`;
     const cancelBtn = document.getElementById('dialogBtnCancel');
     const okBtn = document.getElementById('dialogBtnOk');
@@ -1956,23 +1945,23 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       try {
         const result = await window.hermes.approvePairing(channel, role, code);
         if (result && result.success) {
-          showDialog(ICONS.checkCircle, `${rName} 审批成功`);
+          showDialog('✅', `${rName} 审批成功`);
         } else {
-          showDialog(ICONS.xCircle, '审批失败: ' + ((result && result.output) || '未知错误'));
+          showDialog('❌', '审批失败: ' + ((result && result.output) || '未知错误'));
         }
-      } catch(e) { showDialog(ICONS.xCircle, '审批失败: ' + (e.message || '')); }
+      } catch(e) { showDialog('❌', '审批失败: ' + (e.message || '')); }
     };
     cancelBtn.onclick = () => { overlay.classList.remove('show'); };
   }
 
   async function removeChannelRole(channel, role) {
-    const confirmed = await showDialog(ICONS.alertTriangle, `确定移除 ${ROLES[role]?.name || role} 在 ${channel} 的配置？`, true);
+    const confirmed = await showDialog('⚠️', `确定移除 ${ROLES[role]?.name || role} 在 ${channel} 的配置？`, true);
     if (!confirmed) return;
     try {
       await window.hermes.removeChannel(channel, role);
-      showDialog(ICONS.checkCircle, '已移除');
+      showDialog('✅', '已移除');
       refreshChannels();
-    } catch(e) { showDialog(ICONS.xCircle, '移除失败: ' + (e.message || '')); }
+    } catch(e) { showDialog('❌', '移除失败: ' + (e.message || '')); }
   }
 
   async function getChannels() {
@@ -2009,7 +1998,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         <div class="chp-status">
           ${connectedRoles.length > 0
             ? '<span class="chp-connected">\u{1F7E2} 已连 ' + connectedRoles.length + ' 位员工</span>' + roleTags
-            : (roleKeys.length > 0 ? '<span class="chp-disconnected">ICONS.dotRed + ' 未连接</span>' : '<span class="chp-empty">点击添加员工</span>')}
+            : (roleKeys.length > 0 ? '<span class="chp-disconnected">🔴 未连接</span>' : '<span class="chp-empty">点击添加员工</span>')}
         </div>
         <div class="chp-roles">
           ${roleKeys.map(role => {
@@ -2019,7 +2008,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
               '<img class="chp-role-avatar" src="avatar://' + role + '.png" onerror="this.style.display=\'none\'" />' +
               '<span class="chp-role-name">' + (ROLES[role]?.name || role) + '</span>' +
               '<span class="chp-role-status ' + (isConnected ? 'online' : 'saved') + '">' + (isConnected ? '已连接' : '已保存') + '</span>' +
-              '<button class="chp-role-del" onclick="event.stopPropagation();removeChannelRole(\'' + c.key + '\',\'' + role + '\')" title="移除">${ICONS.xi}</button>' +
+              '<button class="chp-role-del" onclick="event.stopPropagation();removeChannelRole(\'' + c.key + '\',\'' + role + '\')" title="移除">×</button>' +
               '</div>';
           }).join('')
             || '<div class="chp-role-empty">点击上方卡片添加第一位员工</div>'}
@@ -2037,15 +2026,15 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
 
   async function testChannel(channel) {
     try {
-      showDialog(ICONS.messageSquare, '正在测试连接...');
+      showDialog('💭', '正在测试连接...');
       const result = await window.hermes.testChannel(channel);
       if (result && result.success) {
-        showDialog(ICONS.checkCircle, channel + ' 连接正常！');
+        showDialog('✅', channel + ' 连接正常！');
       } else {
-        showDialog(ICONS.xCircle, '连接失败: ' + ((result && result.output) || '请检查配置'));
+        showDialog('❌', '连接失败: ' + ((result && result.output) || '请检查配置'));
       }
     } catch (e) {
-      showDialog(ICONS.xCircle, '测试出错: ' + (e.message || '未知错误'));
+      showDialog('❌', '测试出错: ' + (e.message || '未知错误'));
     }
   }
 
@@ -2171,18 +2160,18 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   async function restartGatewayFromUI(silent) {
     const msg = document.getElementById('gwMsg');
     const btn = document.getElementById('gwRestartBtn');
-    if (!silent) showDialog(ICONS.messageSquare, '正在重启网关...');
+    if (!silent) showDialog('💭', '正在重启网关...');
     try {
       msg.textContent = '🔄 正在重启网关...';
       btn.style.display = 'none';
       const result = await window.hermes.gatewayRestart();
       if (result.success) {
-        if (!silent) showDialog(ICONS.checkCircle, '网关已重启');
+        if (!silent) showDialog('✅', '网关已重启');
       } else {
-        if (!silent) showDialog(ICONS.alertTriangle, '重启结果: ' + (result.output || '未知'));
+        if (!silent) showDialog('⚠️', '重启结果: ' + (result.output || '未知'));
       }
     } catch (e) {
-      if (!silent) showDialog(ICONS.xCircle, '重启失败: ' + (e.message || ''));
+      if (!silent) showDialog('❌', '重启失败: ' + (e.message || ''));
     }
     // 等2秒再检查状态
     await new Promise(r => setTimeout(r, 2000));
@@ -2201,7 +2190,6 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   };
   let _dialogResolve = null;
   function showDialog(icon, msg, confirmMode) {
-    // DIALOG_ICONS maps ICONS.xxx → large 32px SVG; falls back to small SVG if not matched
     document.getElementById('dialogIcon').innerHTML = DIALOG_ICONS[icon] || icon;
     document.getElementById('dialogMsg').textContent = msg;
     const cancelBtn = document.getElementById('dialogBtnCancel');
@@ -2262,7 +2250,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         addFileTag(result.filePath.split('/').pop());
       }
     } catch(err) {
-      showDialog(ICONS.xCircle, '文件选择失败：' + (err.message || err));
+      showDialog('❌', '文件选择失败：' + (err.message || err));
     }
   }
 
@@ -2820,7 +2808,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     const systemPrompt = document.getElementById('rePrompt')?.value?.trim();
     const avatarPreset = overlay.dataset.avatarPreset || AVATAR_PRESETS[0];
 
-    if (!name) { showDialog(ICONS.alertTriangle, '请输入员工名称'); return; }
+    if (!name) { showDialog('⚠️', '请输入员工名称'); return; }
 
     try {
       if (roleId) {
@@ -2835,7 +2823,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       renderSidebar();
       closeRoleEditor();
     } catch (e) {
-      showDialog(ICONS.alertTriangle, '保存失败: ' + (e.message || ''));
+      showDialog('⚠️', '保存失败: ' + (e.message || ''));
     }
   }
 
@@ -2845,8 +2833,8 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     const roleId = overlay.dataset.roleId;
     const role = _rolesList.find(r => r.id === roleId);
     if (!role) return;
-    if (role.builtIn === true) { showDialog(ICONS.alertTriangle, '默认员工不可删除'); return; }
-    const confirmed = await showDialog(ICONS.alertTriangle, `确定删除「${role.name}」？删除后无法恢复。`, true);
+    if (role.builtIn === true) { showDialog('⚠️', '默认员工不可删除'); return; }
+    const confirmed = await showDialog('⚠️', `确定删除「${role.name}」？删除后无法恢复。`, true);
     if (!confirmed) return;
     try {
       await window.hermes.rolesDelete(roleId);
@@ -2858,7 +2846,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       renderSidebar();
       closeRoleEditor();
     } catch (e) {
-      showDialog(ICONS.alertTriangle, '删除失败: ' + (e.message || ''));
+      showDialog('⚠️', '删除失败: ' + (e.message || ''));
     }
   }
 
@@ -3073,7 +3061,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         empty = document.createElement('div');
         empty.className = 'chat-empty';
         empty.id = 'chatEmpty';
-        empty.innerHTML = '<div class="welcome-area"><div class="welcome-greeting"><span class="welcome-greeting-icon" id="welcomeIcon">☀️</span><span class="welcome-greeting-text" id="welcomeText">下午好</span></div><div class="welcome-intro"><img class="welcome-avatar" id="welcomeAvatar" src="avatar://dami.png" alt="" /><span>我是你的<strong id="welcomeRoleName">大秘</strong>，能动手的 AI 员工</span></div><div class="welcome-capabilities" id="welcomeCapabilities"><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/></svg></span> 读文件分析</span><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg></span> 定时干活</span><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><line x1='2' y1='12' x2='22' y2='12'/><path d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/></svg></span> 搜索整理</span><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='5' y='2' width='14' height='20' rx='3'/><line x1='12' y1='18' x2='12' y2='18.01'/></svg></span> 手机遥控</span></div><div class="welcome-privacy"><span class='wprivacy-icon'><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='11' width='18' height='11' rx='2'/><path d='M7 11V7a5 5 0 0 1 10 0v4'/></svg></span> 所有数据都在你的电脑上处理，不出本地</div></div><div class="home-scene-cards" id="homeSceneCards"></div>';
+        empty.innerHTML = '<div class="welcome-area"><div class="welcome-greeting"><span class="welcome-greeting-icon" id="welcomeIcon">☀️</span><span class="welcome-greeting-text" id="welcomeText">下午好</span></div><div class="welcome-intro"><img class="welcome-avatar" id="welcomeAvatar" src="avatar://dami.png" alt="" /><span>我是你的<strong id="welcomeRoleName">大秘</strong>，能动手的 AI 员工</span></div><div class="welcome-capabilities" id="welcomeCapabilities"><span class="wcap-pill"><span>📂</span> 读文件分析</span><span class="wcap-pill"><span>⏰</span> 定时干活</span><span class="wcap-pill"><span>🌐</span> 搜索整理</span><span class="wcap-pill"><span>📱</span> 手机遥控</span></div><div class="welcome-privacy"><span class="wprivacy-icon">🔒</span> 所有数据都在你的电脑上处理，不出本地</div></div><div class="home-scene-cards" id="homeSceneCards"></div>';
         document.getElementById('chatHistory').appendChild(empty);
       }
       empty.style.display = '';
@@ -3089,7 +3077,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     try {
       const res = await window.hermes.uploadAvatar(role);
       if (!res.success) {
-        if (res.reason !== 'canceled') showDialog(ICONS.xCircle, '上传失败：' + (res.reason || '未知错误'));
+        if (res.reason !== 'canceled') showDialog('❌', '上传失败：' + (res.reason || '未知错误'));
         return;
       }
       if (img) {
@@ -3097,7 +3085,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         img.src = `avatar://${role}.png?t=${Date.now()}`;
       }
     } catch (e) {
-      showDialog(ICONS.xCircle, '上传失败：' + (e.message || '网络错误'));
+      showDialog('❌', '上传失败：' + (e.message || '网络错误'));
     } finally {
       if (img) img.style.opacity = '1';
     }
@@ -3199,7 +3187,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       empty = document.createElement('div');
       empty.className = 'chat-empty';
       empty.id = 'chatEmpty';
-      empty.innerHTML = '<div class="welcome-area"><div class="welcome-greeting"><span class="welcome-greeting-icon" id="welcomeIcon">☀️</span><span class="welcome-greeting-text" id="welcomeText">下午好</span></div><div class="welcome-intro"><img class="welcome-avatar" id="welcomeAvatar" src="avatar://dami.png" alt="" /><span>我是你的<strong id="welcomeRoleName">大秘</strong>，能动手的 AI 员工</span></div><div class="welcome-capabilities" id="welcomeCapabilities"><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/></svg></span> 读文件分析</span><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg></span> 定时干活</span><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><line x1='2' y1='12' x2='22' y2='12'/><path d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/></svg></span> 搜索整理</span><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='5' y='2' width='14' height='20' rx='3'/><line x1='12' y1='18' x2='12' y2='18.01'/></svg></span> 手机遥控</span></div><div class="welcome-privacy"><span class='wprivacy-icon'><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='11' width='18' height='11' rx='2'/><path d='M7 11V7a5 5 0 0 1 10 0v4'/></svg></span> 所有数据都在你的电脑上处理，不出本地</div></div><div class="home-scene-cards" id="homeSceneCards"></div>';
+      empty.innerHTML = '<div class="welcome-area"><div class="welcome-greeting"><span class="welcome-greeting-icon" id="welcomeIcon">☀️</span><span class="welcome-greeting-text" id="welcomeText">下午好</span></div><div class="welcome-intro"><img class="welcome-avatar" id="welcomeAvatar" src="avatar://dami.png" alt="" /><span>我是你的<strong id="welcomeRoleName">大秘</strong>，能动手的 AI 员工</span></div><div class="welcome-capabilities" id="welcomeCapabilities"><span class="wcap-pill"><span>📂</span> 读文件分析</span><span class="wcap-pill"><span>⏰</span> 定时干活</span><span class="wcap-pill"><span>🌐</span> 搜索整理</span><span class="wcap-pill"><span>📱</span> 手机遥控</span></div><div class="welcome-privacy"><span class="wprivacy-icon">🔒</span> 所有数据都在你的电脑上处理，不出本地</div></div><div class="home-scene-cards" id="homeSceneCards"></div>';
     }
     empty.style.display = '';
     renderEmptyState();
@@ -3359,7 +3347,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   function _renderPipelineStep(data) {
     if (!_pipelineEl || !_streamTarget) return;
     // 保持已有步骤状态，追加或更新当前步骤
-    let html = '<div class="pipeline-header"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 工作组协作中...</div><div class="pipeline-steps-inner">';
+    let html = '<div class="pipeline-header">🤝 工作组协作中...</div><div class="pipeline-steps-inner">';
     const allRoles = _pipelineRoles.length > 0 ? _pipelineRoles : [data.role || 'dami'];
     for (let i = 0; i < data.total; i++) {
       const rid = allRoles[i] || data.role || 'dami';
@@ -3512,7 +3500,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     // Pipeline 结果：渲染可折叠的 per-role 区块
     if (pipeline && pipeline.length > 0) {
       inner += `<div class="pipeline-result">
-        <div class="pp-intro"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 工作组协作 — ${pipeline.length} 位角色</div>`;
+        <div class="pp-intro">🤝 工作组协作 — ${pipeline.length} 位角色</div>`;
       pipeline.forEach((r, i) => {
         const rid = r.role || 'dami';
         const rd = _rolesList.find(rr => rr.id === rid) || {};
@@ -3529,7 +3517,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
           <div class="ppr-body">${renderMarkdown(r.output.replace(/^\[错误\]\s*/, ''))}</div>
         </div>`;
       });
-      inner += `<button class="pp-rerun" onclick="rerunPipeline()">${ICONS.refresh} 重新执行</button>`;
+      inner += `<button class="pp-rerun" onclick="rerunPipeline()">🔄 重新执行</button>`;
       inner += '</div>';
     } else {
       inner += renderMarkdown(text);
@@ -3757,7 +3745,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     loadingMsg.innerHTML = `<div class="pipeline-result">
       <div class="pp-intro">🤝 工作组完成 — ${results.length} 位角色协作</div>
       ${sections}
-      <button class="pp-rerun" onclick="rerunPipeline()">${ICONS.refresh} 重新执行</button>
+      <button class="pp-rerun" onclick="rerunPipeline()">🔄 重新执行</button>
       <span class="time">${new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span>
     </div>`;
   }
@@ -4090,7 +4078,7 @@ ${questionnaireHistory}`;
   async function newConversation() {
     const msgs = document.querySelectorAll('#chatHistory .chat-msg');
     if (msgs.length > 0) {
-      const confirmed = await showDialog(ICONS.messageSquare, '新建对话会清空当前聊天记录\nHermes 对你的了解不会丢失', true);
+      const confirmed = await showDialog('💭', '新建对话会清空当前聊天记录\nHermes 对你的了解不会丢失', true);
       if (!confirmed) return;
     }
     _switchingRole = true;
@@ -4103,7 +4091,7 @@ ${questionnaireHistory}`;
       empty = document.createElement('div');
       empty.className = 'chat-empty';
       empty.id = 'chatEmpty';
-      empty.innerHTML = '<div class="welcome-area"><div class="welcome-greeting"><span class="welcome-greeting-icon" id="welcomeIcon">☀️</span><span class="welcome-greeting-text" id="welcomeText">下午好</span></div><div class="welcome-intro"><img class="welcome-avatar" id="welcomeAvatar" src="avatar://dami.png" alt="" /><span>我是你的<strong id="welcomeRoleName">大秘</strong>，能动手的 AI 员工</span></div><div class="welcome-capabilities" id="welcomeCapabilities"><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/></svg></span> 读文件分析</span><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg></span> 定时干活</span><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><line x1='2' y1='12' x2='22' y2='12'/><path d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/></svg></span> 搜索整理</span><span class="wcap-pill"><span><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='5' y='2' width='14' height='20' rx='3'/><line x1='12' y1='18' x2='12' y2='18.01'/></svg></span> 手机遥控</span></div><div class="welcome-privacy"><span class='wprivacy-icon'><svg width='1em' height='1em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='11' width='18' height='11' rx='2'/><path d='M7 11V7a5 5 0 0 1 10 0v4'/></svg></span> 所有数据都在你的电脑上处理，不出本地</div></div><div class="home-scene-cards" id="homeSceneCards"></div>';
+      empty.innerHTML = '<div class="welcome-area"><div class="welcome-greeting"><span class="welcome-greeting-icon" id="welcomeIcon">☀️</span><span class="welcome-greeting-text" id="welcomeText">下午好</span></div><div class="welcome-intro"><img class="welcome-avatar" id="welcomeAvatar" src="avatar://dami.png" alt="" /><span>我是你的<strong id="welcomeRoleName">大秘</strong>，能动手的 AI 员工</span></div><div class="welcome-capabilities" id="welcomeCapabilities"><span class="wcap-pill"><span>📂</span> 读文件分析</span><span class="wcap-pill"><span>⏰</span> 定时干活</span><span class="wcap-pill"><span>🌐</span> 搜索整理</span><span class="wcap-pill"><span>📱</span> 手机遥控</span></div><div class="welcome-privacy"><span class="wprivacy-icon">🔒</span> 所有数据都在你的电脑上处理，不出本地</div></div><div class="home-scene-cards" id="homeSceneCards"></div>';
     }
     empty.style.display = '';
     renderEmptyState();
@@ -4138,12 +4126,12 @@ ${questionnaireHistory}`;
     try {
       const result = await window.hermes.exportChat({ content: md, defaultName: 'chat_export_' + dateStr + '.md' });
       if (result.success) {
-        showDialog(ICONS.checkCircle, '已导出到：\n' + result.filePath);
+        showDialog('✅', '已导出到：\n' + result.filePath);
       } else if (!result.cancelled) {
-        showDialog(ICONS.xCircle, '导出失败：' + (result.error || '未知错误'));
+        showDialog('❌', '导出失败：' + (result.error || '未知错误'));
       }
     } catch (e) {
-      showDialog(ICONS.xCircle, '导出失败：' + e.message);
+      showDialog('❌', '导出失败：' + e.message);
     }
   }
 
@@ -4586,11 +4574,11 @@ ${questionnaireHistory}`;
   if (window.hermes_on && window.hermes_on.updateStatus) {
     window.hermes_on.updateStatus((data) => {
       if (data.event === 'available') {
-        showDialog(ICONS.refresh, `发现新版本 v${data.version}，是否下载更新？`, true).then(ok => {
+        showDialog('🔄', `发现新版本 v${data.version}，是否下载更新？`, true).then(ok => {
           if (ok) window.hermes.execute('update:install', {}).catch(() => {});
         });
       } else if (data.event === 'downloaded') {
-        showDialog(ICONS.checkCircle, `v${data.version} 已下载，重启后生效`, true).then(ok => {
+        showDialog('✅', `v${data.version} 已下载，重启后生效`, true).then(ok => {
           if (ok) window.hermes.execute('update:quit-and-install', {}).catch(() => {});
         });
       }
