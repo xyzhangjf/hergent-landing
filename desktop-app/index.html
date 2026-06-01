@@ -471,6 +471,7 @@
         <button class="login-btn" id="loginBtn" onclick="verifySmsCode()">登录</button>
         <div class="login-error" id="loginError"></div>
         <p class="login-legal">登录即表示同意 <a href="#" onclick="event.preventDefault();showOverlay('privacyOverlay')">隐私政策</a> 和 <a href="#" onclick="event.preventDefault();showOverlay('termsOverlay')">用户协议</a></p>
+        <p class="login-skip"><a href="#" onclick="event.preventDefault();skipLogin()">跳过登录，先体验</a></p>
       </div>
 
       <div class="login-tab-panel" id="panelWechat">
