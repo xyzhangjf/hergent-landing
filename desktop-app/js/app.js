@@ -401,6 +401,18 @@
     hideOverlay('loginOverlay');
   }
 
+  async function skipLogin() {
+    authState = { token: 'guest-token', user: { id: 'guest', name: '访客' } };
+    saveAuth();
+    hideLogin();
+    updateCreditsBadge();
+    await loadRolesFromIPC();
+    renderSidebar();
+    restoreLastState();
+    startFeishuPolling();
+    initOnboarding();
+  }
+
   function switchLoginTab(tab) {
     document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
     document.querySelector('[data-tab="' + tab + '"]').classList.add('active');

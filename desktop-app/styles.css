@@ -4558,3 +4558,6 @@
   font-size: 11px; color: var(--text-tertiary); text-align: center; margin-top: 12px;
 }
 .login-legal a { color: var(--brand-500); text-decoration: underline; }
+.login-skip { text-align: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+.login-skip a { font-size: 13px; color: var(--text-tertiary); transition: color 0.15s; }
+.login-skip a:hover { color: var(--brand-500); }
