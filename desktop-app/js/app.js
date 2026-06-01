@@ -4646,6 +4646,7 @@ ${questionnaireHistory}`;
 
   // 监听更新通知
   let _updateDownloading = false;
+  let _updateReadyTimer = null;
   if (window.hermes_on && window.hermes_on.updateStatus) {
     window.hermes_on.updateStatus((data) => {
       if (data.event === 'available') {
@@ -4656,14 +4657,17 @@ ${questionnaireHistory}`;
         if (bar) bar.style.width = data.percent + '%';
         if (pct) pct.textContent = data.percent + '%';
         _updateDownloading = true;
+        // 进度到 100% 时，如果 2 秒内没收到 downloaded 事件则自动降级为"已就绪"
+        clearTimeout(_updateReadyTimer);
+        if (data.percent >= 100) {
+          _updateReadyTimer = setTimeout(function() {
+            _showUpdateReady('已下载完毕');
+          }, 2000);
+        }
       } else if (data.event === 'downloaded') {
+        clearTimeout(_updateReadyTimer);
         _updateDownloading = false;
-        const banner = document.getElementById('updateBanner');
-        const btns = document.getElementById('updateBannerBtns');
-        const msg = document.getElementById('updateBannerMsg');
-        if (banner) banner.style.display = 'flex';
-        if (btns) btns.innerHTML = '<button class="up-btn up-btn-primary" onclick="_installUpdate()">立即重启安装</button>';
-        if (msg) msg.innerHTML = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> v' + data.version + ' 已下载完毕，重启后生效';
+        _showUpdateReady(data.version);
       } else if (data.event === 'error') {
         _updateDownloading = false;
         const b = document.getElementById('updateBanner');
@@ -4694,6 +4698,17 @@ ${questionnaireHistory}`;
   window._installUpdate = function() {
     window.hermes.updateQuitAndInstall().catch(function() {});
   };
+  function _showUpdateReady(ver) {
+    const banner = document.getElementById('updateBanner');
+    const btns = document.getElementById('updateBannerBtns');
+    const msg = document.getElementById('updateBannerMsg');
+    const prog = document.getElementById('updateProgress');
+    if (banner) banner.style.display = 'flex';
+    if (btns) btns.innerHTML = '<button class="up-btn up-btn-primary" onclick="_installUpdate()">打开安装包</button>';
+    if (msg) msg.innerHTML = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> v' + (ver || '') + ' 下载完毕，点击打开安装包';
+    if (prog) prog.style.display = 'none';
+  }
+
   window._dismissUpdateBanner = function() {
     document.getElementById('updateBanner').style.display = 'none';
     _updateDownloading = false;
