@@ -1161,8 +1161,8 @@
         const d = new Date(r.time);
         const timeStr = d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const desc = r.model === 'hermes-cli' ? 'AI对话' : (r.model || 'AI对话');
-        const tokens = (r.prompt_tokens || r.completion_tokens) 
-          ? `${(r.prompt_tokens + r.completion_tokens)}+ tokens` 
+        const tokens = (r.prompt_tokens || r.completion_tokens)
+          ? `${(r.prompt_tokens + r.completion_tokens)}+ tokens`
           : '';
         return `<div class="usage-item">
           <div class="usage-item-left">
@@ -1172,9 +1172,83 @@
           <span class="usage-item-credits">-${r.credits} 分</span>
         </div>`;
       }).join('');
+      _drawUsageChart(data.records);
     } catch (e) {
       container.innerHTML = '<div class="usage-empty">加载失败</div>';
     }
+  }
+
+  function _drawUsageChart(records) {
+    const canvas = document.getElementById('usageChart');
+    if (!canvas) return;
+    // Build last 7 days data
+    const days = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      days.push({ date: d, label: (d.getMonth()+1)+'/'+d.getDate(), credits: 0 });
+    }
+    // Sum records by day
+    for (const r of records) {
+      const d = new Date(r.time);
+      for (const day of days) {
+        if (d.toDateString() === day.date.toDateString()) { day.credits += (r.credits || 0); break; }
+      }
+    }
+    const maxVal = Math.max(1, ...days.map(function(d){return d.credits;}));
+    const w = canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
+    const h = canvas.height = canvas.clientHeight * (window.devicePixelRatio || 1);
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+    const cw = canvas.clientWidth, ch = canvas.clientHeight;
+    const pad = { top: 10, right: 16, bottom: 24, left: 10 };
+    const bw = (cw - pad.left - pad.right) / 7 - 8;
+    const chartH = ch - pad.top - pad.bottom;
+    // Get computed style for colors
+    const cs = getComputedStyle(document.body);
+    const barColor = cs.getPropertyValue('--brand-500').trim() || '#06b6d4';
+    const barEmpty = cs.getPropertyValue('--border-subtle').trim() || 'rgba(0,0,0,0.06)';
+    const textColor = cs.getPropertyValue('--text-tertiary').trim() || '#999';
+    const isDark = document.body.classList.contains('dark');
+    // Bars
+    days.forEach(function(day, i) {
+      const x = pad.left + i * (bw + 8) + 4;
+      const barH = (day.credits / maxVal) * chartH;
+      const y = ch - pad.bottom - barH;
+      // Grid line
+      ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
+      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(cw - pad.right, y); ctx.stroke();
+      // Bar
+      ctx.fillStyle = day.credits > 0 ? barColor : barEmpty;
+      _roundRect(ctx, x, y, bw, Math.max(barH, 2), 3);
+      ctx.fill();
+      // Value on top
+      if (day.credits > 0) {
+        ctx.fillStyle = textColor;
+        ctx.font = '10px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(day.credits + '分', x + bw/2, y - 4);
+      }
+      // Day label
+      ctx.fillStyle = textColor;
+      ctx.fillText(day.label, x + bw/2, ch - 6);
+    });
+    canvas.style.display = 'block';
+  }
+
+  function _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
   }
 
   // ===== 记忆系统 =====

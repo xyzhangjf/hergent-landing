@@ -4505,3 +4505,10 @@
 .up-progress-pct {
   font-size: 11px; color: rgba(255,255,255,0.85); min-width: 30px;
 }
+
+/* ===== 用量图表 ===== */
+.usage-chart {
+  width: 100%; height: 140px;
+  margin-bottom: 12px; border-radius: 10px;
+  background: var(--bg-input);
+}
