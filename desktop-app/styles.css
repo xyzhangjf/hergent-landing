@@ -4512,3 +4512,24 @@
   margin-bottom: 12px; border-radius: 10px;
   background: var(--bg-input);
 }
+
+/* ===== 工具调用面板 ===== */
+.tool-calls-panel {
+  margin-top: 6px; padding: 6px 12px;
+  border-radius: 8px; cursor: pointer;
+  font-size: 12px; color: var(--text-tertiary);
+  background: var(--bg-input);
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; transition: all 0.15s;
+  user-select: none;
+}
+.tool-calls-panel:hover { background: var(--bg-secondary); color: var(--text-secondary); }
+.tcp-toggle { display: flex; align-items: center; gap: 4px; }
+.tcp-toggle svg { transition: transform 0.15s; }
+.tool-calls-panel.expanded .tcp-toggle svg { transform: rotate(180deg); }
+.tcp-chip {
+  display: none; align-items: center; gap: 4px;
+  background: var(--bg-elevated); border: 1px solid var(--border-default);
+  border-radius: 6px; padding: 2px 8px; font-size: 11px;
+}
+.tool-calls-panel.expanded .tcp-chip { display: inline-flex; }
