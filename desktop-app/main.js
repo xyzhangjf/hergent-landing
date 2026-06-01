@@ -7,7 +7,7 @@ const http = require('http');
 const crypto = require('crypto');
 const PROFILE = 'hermes-desktop';
 const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-const CURRENT_VERSION = '1.0.17';
+const CURRENT_VERSION = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version; } catch (_) { return '1.0.0'; } })();
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
 
