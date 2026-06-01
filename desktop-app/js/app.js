@@ -303,19 +303,13 @@
       localStorage.removeItem('hermes_auth');
       authState = null;
     }
-    // DEV 模式：跳过登录直接进入
-    authState = { token: 'dev-token', user: { id: 'dev', name: '开发者' } };
-    saveAuth();
-    // 等待引擎就绪再显示界面，避免闪现
-    await waitForEngineReady();
-    hideLogin();
-    updateCreditsBadge();
-    await loadRolesFromIPC();
-    renderSidebar();
-    loadSkills(); // 引擎就绪后重新加载技能
+    // 未登录：显示登录页 + 后台启动引擎
+    authState = null;
+    showLogin();
+    waitForEngineReady(); // 引擎后台启动，不等用户
+    loadRolesFromIPC();
+    loadSkills();
     initOnboarding();
-    restoreLastState();
-    startFeishuPolling();
   }
 
   async function waitForEngineReady() {
@@ -469,6 +463,10 @@
         saveAuth();
         updateCreditsBadge();
         hideLogin();
+        await loadRolesFromIPC();
+        renderSidebar();
+        restoreLastState();
+        startFeishuPolling();
         initOnboarding();
       } else {
         errEl.textContent = data.detail || data.message || '验证码错误';
@@ -518,12 +516,16 @@
   window.addEventListener('message', (e) => {
     if (e.data?.type === 'wechat_login' && e.data?.token) {
       authState = { token: e.data.token };
-      hermes.authMe(e.data.token).then(user => {
+      hermes.authMe(e.data.token).then(async user => {
         if (user && user.id) {
           authState.user = user;
           saveAuth();
           updateCreditsBadge();
           hideLogin();
+          await loadRolesFromIPC();
+          renderSidebar();
+          restoreLastState();
+          startFeishuPolling();
           initOnboarding();
         }
       }).catch(() => {});
