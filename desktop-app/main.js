@@ -147,15 +147,8 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
     const roleHome = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
     if (!fs.existsSync(roleHome)) { fs.mkdirSync(roleHome, { recursive: true }); }
 
-    // 确保角色 Gateway 有自己的 config.yaml（写模型配置）
+    // 确保角色 Gateway 有正确格式的 config.yaml（直接写 YAML，v0.15.x 要求列表格式）
     const roleConfigPath = path.join(roleHome, 'config.yaml');
-    const roleConfigEnv = { ...process.env, HERMES_HOME: roleHome };
-    const rset = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: roleConfigEnv });
-    rset('model.name', 'deepseek-v4-pro');
-    rset('model.provider', 'hergent');
-    rset('model.base_url', 'http://localhost:8765/v1');
-    rset('model.default', 'deepseek-v4-pro');
-    // 从主引擎配置读取当前模型和 provider
     const mainConfigPath = path.join(engineDir, '.hermes', 'config.yaml');
     let currentModel = 'deepseek-v4-pro';
     let currentProvider = 'hergent';
@@ -168,18 +161,32 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
         if (mp) currentProvider = mp[1].trim();
       }
     } catch (_) {}
-    rset('model.name', currentModel);
-    rset('model.provider', currentProvider);
-    rset('model.base_url', 'http://localhost:8765/v1');
-    rset('model.default', currentModel);
-    rset('custom_providers.0.name', 'hergent');
-    rset('custom_providers.0.base_url', 'http://localhost:8765/v1');
-    rset('custom_providers.0.api_key', 'hermes_' + getDeviceId());
-    rset('custom_providers.0.model', currentModel);
-    rset('custom_providers.1.name', 'bailian');
-    rset('custom_providers.1.base_url', 'http://localhost:8765/v1');
-    rset('custom_providers.1.api_key', 'hermes_' + getDeviceId());
-    rset('custom_providers.1.model', currentProvider === 'bailian' ? currentModel : 'qwen3-max');
+    const deviceId = getDeviceId();
+    const roleYaml = [
+      'model:',
+      '  name: ' + currentModel,
+      '  provider: ' + currentProvider,
+      'custom_providers:',
+      '  - name: hergent',
+      '    base_url: ' + SERVER_URL + '/v1',
+      '    api_key: hermes_' + deviceId,
+      '    model: ' + currentModel,
+      '  - name: bailian',
+      '    base_url: ' + SERVER_URL + '/v1',
+      '    api_key: hermes_' + deviceId,
+      '    model: ' + (currentProvider === 'bailian' ? currentModel : 'qwen3-max'),
+      'memory:',
+      '  memory_enabled: true',
+      `  memory_dir: ${path.join(roleHome, 'memories')}`,
+      'session:',
+      `  sessions_dir: ${path.join(roleHome, 'sessions')}`,
+      'terminal:',
+      `  cwd: ${path.join(roleHome, 'workspace')}`,
+      '',
+    ].join('\n');
+    try {
+      fs.writeFileSync(roleConfigPath, roleYaml);
+    } catch (_) {}
 
     glog(`Starting ${cfg.label} gateway for role ${cfg.roleId} (${cfg.name})...`);
     try {
@@ -223,41 +230,65 @@ async function startHermesGateway() {
   const isRunning = await isGatewayRunning();
 
   if (!isRunning) {
-  // 确保 Gateway 配置正确（通过 hermes config set）
+  // 直接写 YAML（v0.15.x 要求 custom_providers 必须为列表格式，hermes config set 却写字典格式）
   const mainConfigPath = path.join(gwHome, 'config.yaml');
   try {
     const deviceId = getDeviceId();
-    const cfgEnv = { ...process.env, HERMES_HOME: gwHome };
-    const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
     const dsKey = getDeepSeekApiKey();
-    // 仅在首次配置时写入默认模型，后续保留用户选择
     const existingModel = (() => { try { const c = fs.readFileSync(mainConfigPath, 'utf8'); const m = c.match(/^model:\s*\n\s+name:\s*(.+)/m); return m ? m[1].trim() : null; } catch(_) { return null; } })();
-    if (!existingModel) {
-      set('model.name', 'deepseek-v4-pro');
-      set('model.provider', 'hergent');
-      set('model.base_url', `${SERVER_URL}/v1`);
-      set('model.default', 'deepseek-v4-pro');
-      set('custom_providers.0.model', 'deepseek-v4-pro');
-      set('custom_providers.1.model', 'qwen3-max');
-    }
-    set('platforms.api_server.enabled', 'true');
-    set('platforms.api_server.port', String(GATEWAY_PORT));
-    set('platforms.api_server.key', GATEWAY_API_KEY);
-    // DeepSeek 原生 provider: Gateway 自带 base_url，custom_providers 提供 API key
-    set('custom_providers.0.name', 'hergent');
-    set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
-    set('custom_providers.0.api_key', dsKey);
-    // 阿里云百炼 provider（通过积分服务代理）
-    set('custom_providers.1.name', 'bailian');
-    set('custom_providers.1.base_url', `${SERVER_URL}/v1`);
-    set('custom_providers.1.api_key', dsKey);
-    set('memory.memory_enabled', 'true');
-    set('memory.memory_char_limit', '12000');
-    set('memory.user_char_limit', '8000');
-    set('memory.flush_min_turns', '6');
-    set('memory.nudge_interval', '10');
+    const modelName = existingModel || 'deepseek-v4-pro';
+    const provider = 'hergent';
+    const apiKeyId = 'hermes_' + deviceId;
+    const configYaml = [
+      'model:',
+      '  name: ' + modelName,
+      '  provider: ' + provider,
+      'platforms:',
+      '  api_server:',
+      '    enabled: true',
+      '    port: ' + GATEWAY_PORT,
+      '    key: ' + GATEWAY_API_KEY,
+      'custom_providers:',
+      '  - name: hergent',
+      '    base_url: ' + SERVER_URL + '/v1',
+      '    api_key: ' + apiKeyId,
+      '    model: ' + modelName,
+      '  - name: bailian',
+      '    base_url: ' + SERVER_URL + '/v1',
+      '    api_key: ' + apiKeyId,
+      '    model: qwen3-max',
+      'memory:',
+      '  memory_enabled: true',
+      '  memory_char_limit: 12000',
+      '  user_char_limit: 8000',
+      '  flush_min_turns: 6',
+      '  nudge_interval: 10',
+      '',
+    ].join('\n');
+    // 如果已有配置，仅更新 model.name/provider 和 custom_providers，保留其他
+    let finalYaml = configYaml;
+    try {
+      if (fs.existsSync(mainConfigPath)) {
+        let existing = fs.readFileSync(mainConfigPath, 'utf8');
+        // 只替换 model section 和 custom_providers section，保留 platforms/memory 等
+        existing = existing.replace(
+          /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
+          'model:\n  name: ' + modelName + '\n  provider: ' + provider + '\n'
+        );
+        // 确保 custom_providers 是列表格式（修复 v0.14 的字典格式遗留）
+        if (existing.includes("  '0':") || existing.includes('  "0":')) {
+          // 旧字典格式 → 替换为列表格式
+          existing = existing.replace(
+            /custom_providers:\n(?:  ['"]\d['"]:\n    \S+: .+\n)+/gm,
+            'custom_providers:\n  - name: hergent\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + modelName + '\n  - name: bailian\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: qwen3-max'
+          );
+        }
+        finalYaml = existing;
+      }
+    } catch (_) {}
+    fs.writeFileSync(mainConfigPath, finalYaml);
   } catch(e) {
-    glog('config update error: ' + e.message);
+    glog('config write error: ' + e.message);
   }
 
   // Windows: hermes.bat 需要通过 shell 启动（cmd.exe /c）
