@@ -3513,6 +3513,13 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     loadingMsg.appendChild(_streamStepEl);
   }
 
+  function _extractTools(text) {
+    const tools = [];
+    const map = [['skills_list','技能列表'],['skill_view','技能详情'],['read_file','读取文件'],['write_file','写入文件'],['web_search','网络搜索'],['web_fetch','网页抓取'],['browser','浏览器'],['bash','命令行'],['python','Python'],['search_files','搜索文件'],['grep','文本搜索']];
+    map.forEach(function(p) { if (text.toLowerCase().includes(p[0].toLowerCase())) tools.push(p[1]); });
+    return [...new Set(tools)].slice(0, 6);
+  }
+
   function addChatMessage(role, text, fileNames, msgTime, platform, pipeline) {
     const history = document.getElementById('chatHistory');
     const empty = history.querySelector('.chat-empty');
@@ -3613,7 +3620,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       actions.innerHTML = '<button class="msg-action-btn msg-edit-btn" title="编辑" onclick="event.stopPropagation();editUserMsg(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
       body.appendChild(actions);
     }
-    // Hermes 回复加操作栏
+    // Hermes 回复加操作栏 + 工具调用面板
     if (role === 'hermes' && text !== '思考中' && text !== '工作组协作中...') {
       const actions = document.createElement('div');
       actions.className = 'msg-actions';
@@ -3622,6 +3629,19 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         '<button class="msg-action-btn feedback-btn" title="有用" onclick="event.stopPropagation();feedbackMsg(this,\'up\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/></svg></button>' +
         '<button class="msg-action-btn feedback-btn" title="没用" onclick="event.stopPropagation();feedbackMsg(this,\'down\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V4H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/></svg></button>';
       body.appendChild(actions);
+
+      // 工具调用可视化：提取文本中的工具使用信息
+      const toolsUsed = _extractTools(text);
+      if (toolsUsed.length > 0) {
+        const panel = document.createElement('div');
+        panel.className = 'tool-calls-panel';
+        panel.innerHTML = '<span class="tcp-toggle"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg> ' + toolsUsed.length + ' 个工具被调用</span>' +
+          toolsUsed.map(function(t) {
+            return '<span class="tcp-chip"><span class="tcp-icon">' + _toolIcon(t) + '</span>' + escapeHtml(t) + '</span>';
+          }).join('');
+        panel.onclick = function() { this.classList.toggle('expanded'); };
+        body.appendChild(panel);
+      }
     }
 
     row.appendChild(body);
