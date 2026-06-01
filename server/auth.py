@@ -48,6 +48,10 @@ def send_sms(phone: str, code: str) -> bool:
     if not SMS_MODE:
         raise RuntimeError("SMS 未配置：请设置 HERMES_SMS_MODE=tencent 并配置腾讯云密钥")
 
+    if SMS_MODE == "dev":
+        print(f"[DEV-SMS] 验证码 {code} → {phone}")
+        return True
+
     if SMS_MODE == "tencent":
         try:
             from tencentcloud.common import credential
@@ -200,6 +204,9 @@ def store_code(phone: str) -> str:
 
 def verify_code(phone: str, code: str) -> bool:
     """验证短信码是否正确"""
+    # Dev 模式：000000 为万能验证码
+    if SMS_MODE == "dev" and code == "000000":
+        return True
     entry = _codes.get(phone)
     if not entry:
         return False
