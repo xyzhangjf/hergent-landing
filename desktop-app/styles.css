@@ -4533,3 +4533,28 @@
   border-radius: 6px; padding: 2px 8px; font-size: 11px;
 }
 .tool-calls-panel.expanded .tcp-chip { display: inline-flex; }
+
+/* ===== 隐私政策/用户协议弹窗 ===== */
+.legal-content {
+  background: var(--bg-elevated); border-radius: 16px;
+  width: 600px; max-width: 90vw; max-height: 75vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px var(--border-default);
+}
+.legal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);
+}
+.legal-header h3 { font-size: 17px; font-weight: 600; }
+.legal-body {
+  padding: 16px 20px 24px; overflow-y: auto; flex: 1;
+  font-size: 13px; line-height: 1.8; color: var(--text-secondary);
+}
+.legal-body h4 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 16px 0 6px; }
+.legal-body p { margin-bottom: 6px; }
+
+/* ===== 登录页法律声明 ===== */
+.login-legal {
+  font-size: 11px; color: var(--text-tertiary); text-align: center; margin-top: 12px;
+}
+.login-legal a { color: var(--brand-500); text-decoration: underline; }

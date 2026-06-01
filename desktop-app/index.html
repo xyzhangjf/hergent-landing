@@ -352,7 +352,14 @@
                 <span></span>
                 <button class="settings-btn" id="engineUpdateBtn" onclick="updateEngine()" style="font-size:12px;padding:4px 12px;">更新引擎</button>
               </div>
-              <div class="settings-row" style="font-size:12px;color:var(--text-tertiary);">Powered by <span style="cursor:pointer;color:var(--brand-500);" onclick="window.hermes.openExternal('https://hermes-agent.nousresearch.com/')">Hermes Agent</span> · MIT License · Nous Research</div>
+              <div class="settings-section-title" style="margin-top:12px;">公司信息</div>
+              <div class="settings-row"><span>公司</span><span class="settings-val">湖北省小赫智体数字科技有限公司</span></div>
+              <div class="settings-row"><span>官网</span><span class="settings-val" style="cursor:pointer;color:var(--brand-500);" onclick="window.hermes.openExternal('https://her-agent.com')">her-agent.com</span></div>
+              <div class="settings-row"><span>邮箱</span><span class="settings-val">admin@her-agent.com</span></div>
+              <div class="settings-section-title" style="margin-top:12px;">法律信息</div>
+              <button class="settings-btn" onclick="showOverlay('privacyOverlay')" style="margin-bottom:4px;">隐私政策</button>
+              <button class="settings-btn" onclick="showOverlay('termsOverlay')">用户服务协议</button>
+              <div class="settings-row" style="font-size:12px;color:var(--text-tertiary);margin-top:8px;">Powered by <span style="cursor:pointer;color:var(--brand-500);" onclick="window.hermes.openExternal('https://hermes-agent.nousresearch.com/')">Hermes Agent</span> · MIT License · Nous Research</div>
             </div>
           </div><!-- /settings-main -->
         </div><!-- /settings-layout -->
@@ -463,6 +470,7 @@
         </div>
         <button class="login-btn" id="loginBtn" onclick="verifySmsCode()">登录</button>
         <div class="login-error" id="loginError"></div>
+        <p class="login-legal">登录即表示同意 <a href="#" onclick="event.preventDefault();showOverlay('privacyOverlay')">隐私政策</a> 和 <a href="#" onclick="event.preventDefault();showOverlay('termsOverlay')">用户协议</a></p>
       </div>
 
       <div class="login-tab-panel" id="panelWechat">
@@ -684,6 +692,77 @@
     </div>
     <div class="gs-results" id="gsResults">
       <div class="gs-empty">输入关键词搜索...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 隐私政策 ===== -->
+<div class="modal-overlay" id="privacyOverlay">
+  <div class="legal-content">
+    <div class="legal-header">
+      <h3>隐私政策</h3>
+      <button class="gs-close" onclick="hideOverlay('privacyOverlay')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="legal-body">
+      <p>更新日期：2026年6月1日</p>
+      <p>湖北省小赫智体数字科技有限公司（以下简称"我们"）深知个人信息对您的重要性。本隐私政策旨在向您说明我们如何收集、使用和保护您的个人信息。</p>
+      <h4>1. 我们收集的信息</h4>
+      <p>• 账号信息：手机号码（用于登录和身份验证）</p>
+      <p>• 使用数据：AI对话内容、积分使用记录、定时任务配置</p>
+      <p>• 设备信息：设备标识符（用于积分账户关联）</p>
+      <h4>2. 信息的使用</h4>
+      <p>• 提供AI助理服务和积分计费</p>
+      <p>• 改善服务质量和个人化体验</p>
+      <p>• 向您发送重要通知（如积分余额提醒）</p>
+      <h4>3. 信息的存储</h4>
+      <p>• 对话数据和技能配置本地存储于您的设备</p>
+      <p>• 账号和积分数据存储于阿里云服务器（中国北京）</p>
+      <p>• 我们采用加密传输和访问控制保护您的数据</p>
+      <h4>4. 信息的共享</h4>
+      <p>• 未经您的明确同意，我们不会向第三方共享您的个人信息</p>
+      <p>• 法律法规要求披露的除外</p>
+      <h4>5. 您的权利</h4>
+      <p>• 您可以随时查看和删除自己的对话数据</p>
+      <p>• 您可以通过设置页清除所有本地数据</p>
+      <p>• 您可以联系 admin@her-agent.com 注销账号</p>
+      <h4>6. 联系我们</h4>
+      <p>邮箱：admin@her-agent.com</p>
+      <p>地址：湖北省襄阳市樊城区王寨街道松鹤路社区创业路5号</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 用户协议 ===== -->
+<div class="modal-overlay" id="termsOverlay">
+  <div class="legal-content">
+    <div class="legal-header">
+      <h3>用户服务协议</h3>
+      <button class="gs-close" onclick="hideOverlay('termsOverlay')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="legal-body">
+      <p>更新日期：2026年6月1日</p>
+      <h4>1. 服务说明</h4>
+      <p>Hergent（赫金特）是一款桌面端AI办公助手应用，由湖北省小赫智体数字科技有限公司开发运营。本软件基于开源Hermes Agent框架，提供AI对话、文件处理、定时任务、多平台消息连接等功能。</p>
+      <h4>2. 账号管理</h4>
+      <p>• 您需使用手机号注册账号</p>
+      <p>• 请妥善保管您的账号信息，因账号泄露导致的损失由您自行承担</p>
+      <p>• 我们保留对违反本协议的用户暂停或终止服务的权利</p>
+      <h4>3. 积分与充值</h4>
+      <p>• 新用户注册赠送500积分</p>
+      <p>• 积分按AI模型调用量消耗，不同模型消耗速率不同</p>
+      <p>• 充值金额不可退款（法律法规另有规定的除外）</p>
+      <p>• 积分长期有效，不会过期</p>
+      <h4>4. 使用规范</h4>
+      <p>• 不得使用本服务从事违法违规活动</p>
+      <p>• 不得利用本服务生成违法、侵权、色情、暴力等内容</p>
+      <p>• 不得对服务进行反向工程、破解或滥用</p>
+      <h4>5. 免责声明</h4>
+      <p>• AI生成的内容仅供参考，不构成专业建议（法律、医疗、金融等）</p>
+      <p>• 因不可抗力、网络故障等导致的服务中断，我们不承担责任</p>
+      <p>• 本软件按"现状"提供，不提供任何明示或暗示的保证</p>
+      <h4>6. 协议修改</h4>
+      <p>我们可能不时更新本协议，更新后的协议将在App内公布。继续使用即表示同意修改后的条款。</p>
+      <p>邮箱：admin@her-agent.com</p>
     </div>
   </div>
 </div>
