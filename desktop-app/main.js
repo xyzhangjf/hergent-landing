@@ -3044,9 +3044,26 @@ app.whenReady().then(() => {
     }
   });
   ipcMain.handle('update:quit-and-install', async () => {
+    if (!app.isPackaged) return { success: false, error: 'dev mode' };
+    // 未签名 App 不能用 quitAndInstall，改为打开下载的 DMG 让用户手动拖入
     try {
-      autoUpdater.quitAndInstall(false, true);
-      return { success: true };
+      // 找到 electron-updater 下载的 DMG
+      const pendingDir = path.join(app.getPath('userData'), '..', 'Caches', app.getName() + '-updater', 'pending');
+      if (fs.existsSync(pendingDir)) {
+        const files = fs.readdirSync(pendingDir).filter(f => f.endsWith('.dmg'));
+        if (files.length > 0) {
+          const dmg = path.join(pendingDir, files[0]);
+          const downloadsDmg = path.join(app.getPath('home'), 'Downloads', files[0]);
+          // 复制到 Downloads 避免被清理
+          try { fs.copyFileSync(dmg, downloadsDmg); } catch(_) {}
+          // 在 Finder 中打开 + 弹出 DMG
+          spawn('open', ['-R', dmg]);
+          // 等 Finder 打开后退出 App
+          setTimeout(() => { app.quit(); }, 2000);
+          return { success: true };
+        }
+      }
+      return { success: false, error: '找不到下载的更新文件' };
     } catch (e) {
       return { success: false, error: e.message };
     }
