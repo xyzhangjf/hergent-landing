@@ -1077,22 +1077,23 @@ function getLicenseStatus() {
 let mainWindow;
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  const winOpts = {
     width: 900,
     height: 700,
     resizable: true,
-    frame: false,
-    titleBarStyle: 'hidden',
-    transparent: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
     },
-    icon: path.join(__dirname, process.platform === 'darwin' ? 'icon.icns' : 'icon.png'),
-  });
-
+  };
+  if (!isWindows) {
+    winOpts.frame = false;
+    winOpts.titleBarStyle = 'hidden';
+    winOpts.transparent = true;
+  }
+  mainWindow = new BrowserWindow(winOpts);
   mainWindow.loadFile('index.html');
   mainWindow.center();
 }
