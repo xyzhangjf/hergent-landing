@@ -24,10 +24,15 @@ function hergentLog(level, category, message) {
 
 // 全局异常兜底
 process.on('uncaughtException', (err) => {
-  hergentLog('ERROR', 'process', `uncaughtException: ${err.message}\n${err.stack || ''}`);
+  try {
+    fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'), `[${new Date().toISOString()}] uncaughtException: ${err.message}\n${err.stack || ''}\n\n`);
+  } catch (_) {}
+  hergentLog('ERROR', 'process', `uncaughtException: ${err.message}`);
+  dialog.showErrorBox('Hergent Error', `Application crashed:\n${err.message}\n\nCrash log saved to:\n${app.getPath('userData')}/crash.log`);
+  process.exit(1);
 });
 process.on('unhandledRejection', (reason) => {
-  hergentLog('ERROR', 'process', `unhandledRejection: ${reason}`);
+  hergentLog('ERROR', 'process', `unhandledRejection: ${JSON.stringify(reason)}`);
 });
 
 // ===== Hermes Gateway 管理 =====
@@ -1096,7 +1101,11 @@ function saveChannels(data) {
 // ===== 网关控制 =====
 async function restartGateway() {
   stopHermesGateway();
-  try { execSync('pkill -9 -f "gateway run"', { timeout: 5000 }); } catch (_) {}
+  if (isWindows) {
+    try { execSync('taskkill /F /IM python.exe /FI "WINDOWTITLE eq gateway run" 2>nul', { timeout: 5000 }); } catch (_) {}
+  } else {
+    try { execSync('pkill -9 -f "gateway run"', { timeout: 5000 }); } catch (_) {}
+  }
   await new Promise(r => setTimeout(r, 3000));
   const ok = await startHermesGateway();
   return { success: ok, output: ok ? 'Gateway restarted' : 'Gateway restart failed' };
@@ -2900,7 +2909,11 @@ ipcMain.handle('config:set-model', async (event, opts) => {
     // 强制重启 Gateway 使模型变更生效
     stopHermesGateway();
     // 兜底：杀干净所有残留 gateway 进程
-    try { execSync('pkill -9 -f "gateway run"', { timeout: 5000 }); } catch (_) {}
+    if (isWindows) {
+      try { execSync('taskkill /F /IM python.exe /FI "MEMUSAGE gt 0" 2>nul', { timeout: 5000 }); } catch (_) {}
+    } else {
+      try { execSync('pkill -9 -f "gateway run"', { timeout: 5000 }); } catch (_) {}
+    }
     await new Promise(r => setTimeout(r, 3000));
     await startHermesGateway();
     const ready = await waitForGateway(90000);
