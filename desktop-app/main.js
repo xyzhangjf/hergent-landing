@@ -828,6 +828,11 @@ function ensureRoleConfigs() {
         /^(\s*-?\s*name: bailian\n\s+base_url: .+\n\s+)api_key: .+/m,
         '$1api_key: hermes_' + getDeviceId()
       );
+      // 同步更新 bailian 的 model
+      roleCfg = roleCfg.replace(
+        /^(\s*-?\s*name: bailian\n\s+base_url: .+\n\s+api_key: .+\n\s+model: ).+/m,
+        '$1' + mainModel
+      );
       // 确保存在 bailian provider
       if (!roleCfg.includes('- name: bailian')) {
         roleCfg = roleCfg.replace(
@@ -2876,6 +2881,11 @@ ipcMain.handle('config:set-model', async (event, opts) => {
           rc = rc.replace(
             /^(\s*-?\s*name: bailian\n\s+base_url: .+\n\s+)api_key: .+/m,
             '$1api_key: hermes_' + getDeviceId()
+          );
+          // 同步更新 bailian 的 model（之前只更新了 hergent 的 model）
+          rc = rc.replace(
+            /^(\s*-?\s*name: bailian\n\s+base_url: .+\n\s+api_key: .+\n\s+model: ).+/m,
+            '$1' + newModel
           );
         }
         if (!rc.includes('- name: bailian')) {
