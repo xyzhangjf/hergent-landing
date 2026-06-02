@@ -297,6 +297,9 @@
           initOnboarding();
           restoreLastState();
           startFeishuPolling();
+          // 显示主界面
+          var rp = document.getElementById('rightPanel');
+          if (rp) rp.style.visibility = 'visible';
           return;
         }
       } catch (e) { console.error("auth check failed:", e.message); }
@@ -399,6 +402,9 @@
 
   function hideLogin() {
     hideOverlay('loginOverlay');
+    // 显示主界面（初始隐藏避免闪现）
+    var rp = document.getElementById('rightPanel');
+    if (rp) rp.style.visibility = 'visible';
   }
 
   async function skipLogin() {
