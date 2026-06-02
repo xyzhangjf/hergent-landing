@@ -590,7 +590,11 @@ async def chat_completions(request: Request):
             row = db.execute("SELECT base_url, api_key, model_name FROM custom_models WHERE device_id=?",
                             (device_id,)).fetchone()
             if not row:
-                raise HTTPException(400, "未配置自定义模型，请先在设置中填写 API 地址和密钥")
+                # 兜底：未知模型名回退到 DeepSeek V4 Pro，避免网关报错
+                api_base = DEEPSEEK_BASE
+                api_key = DEEPSEEK_API_KEY
+                credits = None
+                body["model"] = "deepseek-v4-pro"
             api_base = row["base_url"].rstrip("/")
             api_key = row["api_key"]
             if not model or model == "custom":
