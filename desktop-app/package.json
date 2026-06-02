@@ -1,6 +1,6 @@
 {
   "name": "hergent",
-  "version": "1.0.52",
+  "version": "1.0.53",
   "description": "Hergent · 你的数字员工",
   "main": "main.js",
   "scripts": {
@@ -24,7 +24,9 @@
       "js/config.js",
       "js/app.js",
       "package.json",
-      "skills/"
+      "skills/",
+      "!node_modules/electron/**",
+      "!node_modules/electron-builder/**"
     ],
     "extraResources": [
       {
@@ -34,6 +36,14 @@
       {
         "from": "hermes.tar.gz",
         "to": "hermes.tar.gz"
+      },
+      {
+        "from": "vcruntime140.dll",
+        "to": "vcruntime140.dll"
+      },
+      {
+        "from": "vcruntime140_1.dll",
+        "to": "vcruntime140_1.dll"
       },
       {
         "from": "../server/server.py",
