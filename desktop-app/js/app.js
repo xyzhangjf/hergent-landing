@@ -1498,8 +1498,8 @@
     writer: [],
     screenwriter: ['video-scripting'],
     tutor: ['exam-tutoring'],
-    health: ['health-analysis'],
-    investor: ['investment-research'],
+    'ops-manager': [],
+    'cs-helper': [],
   };
 
   async function loadSkills() {
@@ -2756,8 +2756,8 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     writer:       ['写个小说开头', '写篇行业分析', '润色这段文字'],
     screenwriter: ['写短视频脚本', '写品牌文案', '写一篇演讲稿'],
     tutor:        ['解释这个概念', '出几道练习题', '帮我复习知识点'],
-    health:       ['分析我的饮食', '制定运动计划', '看看这份体检报告'],
-    investor:     ['分析市场行情', '评估投资风险', '看看这份财报'],
+    'ops-manager': ['分析本月销售趋势', '查看库存周转情况', '帮我做巡店排班'],
+    'cs-helper':   ['经销商嫌价格高怎么回', '客户投诉怎么处理', '帮我整理常见FAQ'],
   };
 
   function _showRoleFirstVisit(role) {
@@ -3114,21 +3114,21 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       { icon: '📚', text: '制定学习计划', prompt: '帮我制定一个30天考雅思的计划' },
       { icon: '❓', text: '解答疑问', prompt: '为什么天空是蓝色的' },
     ],
-    health: [
-      { icon: '🥗', text: '规划饮食计划', prompt: '帮我规划下周的健康饮食计划' },
-      { icon: '🏃', text: '制定运动方案', prompt: '帮我制定一个适合久坐族的运动计划' },
-      { icon: '😴', text: '改善睡眠质量', prompt: '最近睡眠不好，帮我分析一下原因' },
-      { icon: '🩺', text: '看体检报告', prompt: '帮我看一下这份体检报告' },
-      { icon: '🧘', text: '缓解工作压力', prompt: '工作压力大，有什么放松的方法' },
-      { icon: '💊', text: '营养补充建议', prompt: '日常需要补充哪些维生素' },
+    'ops-manager': [
+      { icon: '📊', text: '分析销售趋势', prompt: '帮我分析这个月的销售数据趋势' },
+      { icon: '📦', text: '库存周转分析', prompt: '这几个SKU库存周转慢怎么优化' },
+      { icon: '📋', text: '巡店排班', prompt: '帮我做一个巡店排班表' },
+      { icon: '📈', text: '促销效果评估', prompt: '帮我评估这次促销活动的效果' },
+      { icon: '🔍', text: '竞品动态追踪', prompt: '帮我整理竞品最近的活动动态' },
+      { icon: '👥', text: '员工绩效对比', prompt: '帮我做一下业务员绩效对比分析' },
     ],
-    investor: [
-      { icon: '📈', text: '分析市场行情', prompt: '帮我分析一下最近的A股市场行情' },
-      { icon: '💰', text: '做资产配置', prompt: '我有10万闲钱，低风险的怎么配' },
-      { icon: '🏠', text: '分析房产投资', prompt: '现在适合买房投资吗' },
-      { icon: '📊', text: '看基金表现', prompt: '帮我分析一下这几只基金的表现' },
-      { icon: '💡', text: '学习理财知识', prompt: '新手怎么开始理财' },
-      { icon: '🔍', text: '研究公司财报', prompt: '帮我解读一下这份公司财报' },
+    'cs-helper': [
+      { icon: '💬', text: '投诉处理方案', prompt: '客户投诉产品有质量问题怎么处理' },
+      { icon: '📝', text: '回复话术生成', prompt: '经销商嫌价格高帮我写个回复话术' },
+      { icon: '📋', text: '整理常见FAQ', prompt: '帮我整理一份客户常见问题回复模板' },
+      { icon: '📧', text: '客户跟进邮件', prompt: '帮我写一封客户回访邮件' },
+      { icon: '🔧', text: '售后处理流程', prompt: '帮我梳理一下售后处理的标准流程' },
+      { icon: '💡', text: '客户分类管理', prompt: '帮我给客户分个类，制定跟进策略' },
     ],
   };
 
