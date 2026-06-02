@@ -77,7 +77,7 @@
       if (type === 'done') {
         setTimeout(() => {
           _bootDone = true;
-          overlay.style.display = 'none';
+          // 不隐藏 bootstrap overlay — initAuth 会显示登录页或进入主界面后隐藏
           initAuth();
         }, 800);
       }
@@ -405,6 +405,7 @@
     authState = { token: 'guest-token', user: { id: 'guest', name: '访客' } };
     saveAuth();
     hideLogin();
+    document.getElementById('bootstrapOverlay').style.display = 'none';
     updateCreditsBadge();
     await loadRolesFromIPC();
     renderSidebar();
@@ -475,6 +476,7 @@
         saveAuth();
         updateCreditsBadge();
         hideLogin();
+        document.getElementById('bootstrapOverlay').style.display = 'none';
         await loadRolesFromIPC();
         renderSidebar();
         restoreLastState();
@@ -534,6 +536,7 @@
           saveAuth();
           updateCreditsBadge();
           hideLogin();
+          document.getElementById('bootstrapOverlay').style.display = 'none';
           await loadRolesFromIPC();
           renderSidebar();
           restoreLastState();
