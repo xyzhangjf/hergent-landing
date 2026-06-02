@@ -1,3 +1,8 @@
+/*
+ * Hergent Desktop — Main Process
+ * Electron 39 + Hermes Agent Gateway
+ */
+
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, protocol, net, nativeTheme } = require('electron');
 const path = require('path');
 const { execSync, exec, spawn, spawnSync } = require('child_process');
@@ -5,8 +10,15 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
+
+// 启动标记：尽快写日志确认进程已启动
+try {
+  const startupDir = process.env.APPDATA || require('os').tmpdir();
+  fs.appendFileSync(path.join(startupDir, 'Hergent', 'startup.log'), `[${new Date().toISOString()}] main.js loaded, platform=${process.platform}, electron=${process.versions.electron}\n`);
+} catch (_) {}
+
 const PROFILE = 'hermes-desktop';
-const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+const homeDir = require('os').homedir();
 const CURRENT_VERSION = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version; } catch (_) { return '1.0.0'; } })();
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
 function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
@@ -25,10 +37,10 @@ function hergentLog(level, category, message) {
 // 全局异常兜底
 process.on('uncaughtException', (err) => {
   try {
-    fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'), `[${new Date().toISOString()}] uncaughtException: ${err.message}\n${err.stack || ''}\n\n`);
+    const logDir = app.isReady() ? app.getPath('userData') : require('os').tmpdir();
+    fs.appendFileSync(path.join(logDir, 'hergent-crash.log'), `[${new Date().toISOString()}] ${err.message}\n${err.stack || ''}\n`);
   } catch (_) {}
-  hergentLog('ERROR', 'process', `uncaughtException: ${err.message}`);
-  dialog.showErrorBox('Hergent Error', `Application crashed:\n${err.message}\n\nCrash log saved to:\n${app.getPath('userData')}/crash.log`);
+  try { dialog.showErrorBox('Hergent 启动失败', `错误详情：\n${err.message}\n\n请将以下路径的日志发送给技术支持：\n${require('os').tmpdir()}/hergent-crash.log`); } catch (_) {}
   process.exit(1);
 });
 process.on('unhandledRejection', (reason) => {
