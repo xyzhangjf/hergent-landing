@@ -1494,12 +1494,12 @@
   const ROLE_SKILLS = {
     dami: ['zhoupu-order-import', 'contract-writing', 'wechat-writing'],
     accountant: ['bank-reconciliation', 'accounting-reports', 'excel-data'],
+    'ops-manager': [],
+    'cs-helper': [],
     programmer: ['python-coding', 'website-builder', 'karpathy-coding'],
     writer: [],
     screenwriter: ['video-scripting'],
     tutor: ['exam-tutoring'],
-    'ops-manager': [],
-    'cs-helper': [],
   };
 
   async function loadSkills() {
@@ -2752,12 +2752,12 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   const QUICK_ACTIONS = {
     dami:         ['总结文件要点', '写工作周报', '起草一份合同'],
     accountant:   ['分析这个Excel', '对账本月收支', '做利润分析表'],
+    'ops-manager': ['分析本月销售趋势', '查看库存周转情况', '帮我做巡店排班'],
+    'cs-helper':   ['经销商嫌价格高怎么回', '客户投诉怎么处理', '帮我整理常见FAQ'],
     programmer:   ['写个网页爬虫', '批量重命名文件', '做一个记账App'],
     writer:       ['写个小说开头', '写篇行业分析', '润色这段文字'],
     screenwriter: ['写短视频脚本', '写品牌文案', '写一篇演讲稿'],
     tutor:        ['解释这个概念', '出几道练习题', '帮我复习知识点'],
-    'ops-manager': ['分析本月销售趋势', '查看库存周转情况', '帮我做巡店排班'],
-    'cs-helper':   ['经销商嫌价格高怎么回', '客户投诉怎么处理', '帮我整理常见FAQ'],
   };
 
   function _showRoleFirstVisit(role) {
