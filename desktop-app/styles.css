@@ -4561,3 +4561,20 @@
 .login-skip { text-align: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
 .login-skip a { font-size: 13px; color: var(--text-tertiary); transition: color 0.15s; }
 .login-skip a:hover { color: var(--brand-500); }
+
+/* ===== 渠道连接状态提示条 ===== */
+.channel-toast {
+  margin-top: 10px; padding: 10px 14px;
+  background: var(--brand-500); border-radius: 10px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: #fff; font-weight: 500;
+  animation: ctSlideIn 0.3s ease;
+}
+@keyframes ctSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.channel-toast.success { background: var(--green); }
+.channel-toast.warning { background: var(--amber); color: #1a1a1a; }
+.channel-toast .ct-icon { flex-shrink: 0; display: flex; }
+.channel-toast .ct-icon svg { animation: ctSpin 1.5s linear infinite; }
+@keyframes ctSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.channel-toast.success .ct-icon svg,
+.channel-toast.warning .ct-icon svg { animation: none; }

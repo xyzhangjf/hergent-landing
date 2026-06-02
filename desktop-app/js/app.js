@@ -1990,31 +1990,44 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
 
     const roleName = ROLES[_crRole]?.name || _crRole;
     const platformName = card.label;
+    const toast = document.getElementById('channelToast');
+    const ctText = document.getElementById('ctText');
+    function _showToast(cls, msg) {
+      if (toast) { toast.className = 'channel-toast ' + (cls||''); toast.style.display = 'flex'; }
+      if (ctText) ctText.textContent = msg;
+    }
     try {
-      showDialog('⏳', `正在保存 ${roleName}·${platformName} 配置...`);
+      _showToast('', '正在保存 ' + roleName + '·' + platformName + ' 配置...');
       const result = await window.hermes.saveChannel(_crChannel, _crRole, data);
       closeChannelRoleModal();
       refreshChannels();
 
       if (result && result.gatewayRestarted) {
-        showDialog('🔄', `${roleName}·${platformName} 已保存\nGateway 重启中，约10秒后生效...`);
-        // 等10秒后检查连接状态
-        setTimeout(async () => {
+        _showToast('', 'Gateway 重启中，约 10 秒后完成连接...');
+        // 轮询检查连接状态
+        var attempts = 0;
+        var checkInterval = setInterval(async function() {
+          attempts++;
           try {
-            const status = await window.hermes.gatewayStatus();
+            var status = await window.hermes.gatewayStatus();
             if (status && status.running) {
-              showDialog('✅', `${roleName}·${platformName} 配置完成\nGateway 已就绪，去${platformName}发消息试试吧`);
-            } else {
-              showDialog('⚠️', `${roleName}·${platformName} 已保存\nGateway 仍在启动中，请稍候...`);
+              clearInterval(checkInterval);
+              _showToast('success', roleName + '·' + platformName + ' 连接成功 ✓ Gateway 已就绪');
+              setTimeout(function() { if (toast) toast.style.display = 'none'; }, 5000);
+            } else if (attempts >= 8) {
+              clearInterval(checkInterval);
+              _showToast('warning', roleName + '·' + platformName + ' 已保存，Gateway 仍在启动中，稍后自动连接');
+              setTimeout(function() { if (toast) toast.style.display = 'none'; }, 8000);
             }
           } catch(_) {
-            showDialog('✅', `${roleName}·${platformName} 已保存\nGateway 重启中，稍后生效`);
+            if (attempts >= 5) { clearInterval(checkInterval); if (toast) toast.style.display = 'none'; }
           }
-        }, 10000);
+        }, 3000);
       } else {
-        showDialog('✅', `${roleName}·${platformName} 已保存`);
+        _showToast('success', roleName + '·' + platformName + ' 已保存');
+        setTimeout(function() { if (toast) toast.style.display = 'none'; }, 3000);
       }
-    } catch(e) { showDialog('❌', '保存失败: ' + (e.message || '')); }
+    } catch(e) { _showToast('warning', '保存失败: ' + (e.message || '')); }
   }
 
   async function promptPairingCode(channel, role) {
