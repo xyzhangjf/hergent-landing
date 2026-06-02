@@ -2982,7 +2982,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   function switchModel(model, provider) {
     var popup = document.getElementById('modelSwitcher');
     if (popup) popup.classList.remove('show');
-    if (model === 'custom') { showCustomModelDialog(); return; }
+    if (model === 'custom') { showCustomModelForm(); return; }
     if (model === 'auto') { _tmpAutoMode = true; _currentModel = 'auto'; updateModelIndicator('auto'); return; }
     _tmpAutoMode = false;
     if (model === _currentModel) return;
@@ -3000,55 +3000,39 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     return { model: 'deepseek-v4-flash', provider: 'hergent' }; // 默认快速模型
   }
 
-  function showCustomModelDialog() {
-    var apiKey = '';
-    var baseUrl = '';
-    var modelName = '';
-    // 用简单的多步 dialog 替代 prompt
-    var overlay = document.getElementById('dialogOverlay');
-    var icon = document.getElementById('dialogIcon');
-    var msg = document.getElementById('dialogMsg');
-    var ok = document.getElementById('dialogBtnOk');
-    var cancel = document.getElementById('dialogBtnCancel');
-    var input = document.createElement('input');
-    input.type = 'text'; input.style.cssText = 'width:100%;padding:8px 12px;border:1px solid var(--border-default);border-radius:8px;font-size:13px;margin-top:8px;background:var(--bg-input);color:var(--text-primary);outline:none';
-
-    function step1() {
-      icon.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--brand-500)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>';
-      msg.textContent = '请输入 API Key';
-      input.value = '';
-      input.placeholder = 'sk-...';
-      msg.appendChild(input);
-      input.focus();
-      cancel.style.display = 'none';
-      ok.onclick = function() { apiKey = input.value.trim(); if (!apiKey) return; step2(); };
-      overlay.style.display = 'flex';
+  function showCustomModelForm() {
+    var o = document.getElementById('customModelOverlay');
+    if (!o) {
+      // 兜底：旧版用 prompt
+      var m = prompt('请依次输入：模型名 API地址 API密钥（用空格分隔，例：gpt-4o https://api.openai.com sk-xxx）');
+      if (!m) return;
+      var parts = m.split(' '); if (parts.length < 3) return;
+      _currentModel = parts[0]; _currentProvider = 'custom';
+      updateModelIndicator(parts[0] + ' (自定义)');
+      window.hermes.setModelConfig({ model: parts[0], provider: 'custom', custom_base_url: parts[1], custom_api_key: parts[2] })
+        .then(function(r) { if (r.success) updateModelIndicator(parts[0] + ' ✓'); });
+      return;
     }
-    function step2() {
-      msg.textContent = '请输入 API 地址';
-      input.value = 'https://api.openai.com';
-      msg.appendChild(input);
-      input.focus();
-      ok.onclick = function() { baseUrl = input.value.trim(); if (!baseUrl) return; step3(); };
-    }
-    function step3() {
-      msg.textContent = '请输入模型名称';
-      input.value = 'gpt-4o';
-      msg.appendChild(input);
-      input.focus();
-      ok.onclick = function() { modelName = input.value.trim(); if (!modelName) return; done(); };
-    }
-    function done() {
-      overlay.style.display = 'none'; msg.removeChild(input);
-      _currentModel = modelName; _currentProvider = 'custom';
-      updateModelIndicator(modelName + ' (自定义)');
-      window.hermes.setModelConfig({
-        model: modelName, provider: 'custom',
-        custom_base_url: baseUrl, custom_api_key: apiKey,
-      }).then(function(r) { if (r.success) updateModelIndicator(modelName + ' ✓'); });
-    }
-    step1();
+    showOverlay('customModelOverlay');
+    document.getElementById('cmApiKey').value = '';
+    document.getElementById('cmBaseUrl').value = 'https://api.openai.com/v1';
+    document.getElementById('cmModelName').value = 'gpt-4o';
+    document.getElementById('cmApiKey').focus();
   }
+
+  window._saveCustomModel = function() {
+    var key = document.getElementById('cmApiKey').value.trim();
+    var url = document.getElementById('cmBaseUrl').value.trim();
+    var name = document.getElementById('cmModelName').value.trim();
+    if (!key || !url || !name) return;
+    hideOverlay('customModelOverlay');
+    _currentModel = name; _currentProvider = 'custom';
+    updateModelIndicator(name + ' (自定义)');
+    window.hermes.setModelConfig({
+      model: name, provider: 'custom',
+      custom_base_url: url, custom_api_key: key,
+    }).then(function(r) { if (r.success) updateModelIndicator(name + ' ✓'); });
+  };
 
   function updateModelIndicator(model) {
     const label = document.getElementById('miLabel');
