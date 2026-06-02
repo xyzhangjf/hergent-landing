@@ -2944,7 +2944,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     if (isOpen) { popup.classList.remove('show'); return; }
 
     const models = [
-      { id: 'auto', name: '智能推荐', desc: '根据任务自动选择最佳模型', provider: 'auto' },
+      { id: 'auto', name: 'Auto', desc: '根据任务自动选择最佳模型', provider: 'auto' },
       { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', desc: '最强推理 · 约8-10分/次', provider: 'hergent' },
       { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', desc: '快速响应 · 约2-3分/次', provider: 'hergent' },
       { id: 'qwen3-max', name: 'Qwen3 Max', desc: '阿里旗舰 · 258K上下文 · 约5-8分/次', provider: 'bailian' },
@@ -2986,8 +2986,8 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     if (model === 'auto') { _tmpAutoMode = true; _currentModel = 'auto'; updateModelIndicator('auto'); return; }
     _tmpAutoMode = false;
     if (model === _currentModel) return;
+    // _saveModelPreset 内部会处理 indicator（切换中→已生效✓→模型名），不额外覆盖
     _saveModelPreset(model, provider || 'hergent');
-    updateModelIndicator(model);
   }
 
   function _autoPickModel(text) {
@@ -3001,21 +3001,53 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   }
 
   function showCustomModelDialog() {
-    var apiKey = prompt('请输入自定义模型的 API Key：');
-    if (!apiKey) return;
-    var baseUrl = prompt('请输入自定义模型的 API 地址（例如 https://api.openai.com）：', 'https://api.openai.com');
-    if (!baseUrl) return;
-    var modelName = prompt('请输入模型名称（例如 gpt-4o）：', 'gpt-4o');
-    if (!modelName) return;
-    _currentModel = modelName;
-    _currentProvider = 'custom';
-    updateModelIndicator(modelName + ' (自定义)');
-    window.hermes.setModelConfig({
-      model: modelName,
-      provider: 'custom',
-      custom_base_url: baseUrl,
-      custom_api_key: apiKey,
-    }).then(function(r) { if (r.success) updateModelIndicator(modelName + ' ✓'); });
+    var apiKey = '';
+    var baseUrl = '';
+    var modelName = '';
+    // 用简单的多步 dialog 替代 prompt
+    var overlay = document.getElementById('dialogOverlay');
+    var icon = document.getElementById('dialogIcon');
+    var msg = document.getElementById('dialogMsg');
+    var ok = document.getElementById('dialogBtnOk');
+    var cancel = document.getElementById('dialogBtnCancel');
+    var input = document.createElement('input');
+    input.type = 'text'; input.style.cssText = 'width:100%;padding:8px 12px;border:1px solid var(--border-default);border-radius:8px;font-size:13px;margin-top:8px;background:var(--bg-input);color:var(--text-primary);outline:none';
+
+    function step1() {
+      icon.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--brand-500)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>';
+      msg.textContent = '请输入 API Key';
+      input.value = '';
+      input.placeholder = 'sk-...';
+      msg.appendChild(input);
+      input.focus();
+      cancel.style.display = 'none';
+      ok.onclick = function() { apiKey = input.value.trim(); if (!apiKey) return; step2(); };
+      overlay.style.display = 'flex';
+    }
+    function step2() {
+      msg.textContent = '请输入 API 地址';
+      input.value = 'https://api.openai.com';
+      msg.appendChild(input);
+      input.focus();
+      ok.onclick = function() { baseUrl = input.value.trim(); if (!baseUrl) return; step3(); };
+    }
+    function step3() {
+      msg.textContent = '请输入模型名称';
+      input.value = 'gpt-4o';
+      msg.appendChild(input);
+      input.focus();
+      ok.onclick = function() { modelName = input.value.trim(); if (!modelName) return; done(); };
+    }
+    function done() {
+      overlay.style.display = 'none'; msg.removeChild(input);
+      _currentModel = modelName; _currentProvider = 'custom';
+      updateModelIndicator(modelName + ' (自定义)');
+      window.hermes.setModelConfig({
+        model: modelName, provider: 'custom',
+        custom_base_url: baseUrl, custom_api_key: apiKey,
+      }).then(function(r) { if (r.success) updateModelIndicator(modelName + ' ✓'); });
+    }
+    step1();
   }
 
   function updateModelIndicator(model) {
@@ -4926,7 +4958,7 @@ let _currentModel = 'deepseek-v4-pro';
 let _currentProvider = 'hergent';
 
 const PRESET_MODELS = ['deepseek-v4-pro', 'deepseek-v4-flash', 'qwen3-max', 'qwen3.6-flash', 'qwen3.7-max'];
-const MODEL_LABELS = { 'auto': '智能推荐', 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash', 'qwen3-max': 'Qwen3 Max', 'qwen3.6-flash': 'Qwen3.6 Flash', 'qwen3.7-max': 'Qwen3.7 Max' };
+const MODEL_LABELS = { 'auto': 'Auto', 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash', 'qwen3-max': 'Qwen3 Max', 'qwen3.6-flash': 'Qwen3.6 Flash', 'qwen3.7-max': 'Qwen3.7 Max' };
 const MODEL_PROVIDERS = { 'deepseek-v4-pro': 'hergent', 'deepseek-v4-flash': 'hergent', 'qwen3-max': 'bailian', 'qwen3.6-flash': 'bailian', 'qwen3.7-max': 'bailian' };
 
 async function loadModelConfig() {
