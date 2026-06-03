@@ -582,6 +582,9 @@ async def chat_completions(request: Request):
 
         # ---- 根据模型路由到不同后端 ----
         model = body.get("model", "deepseek-chat")
+        if not model or not model.strip():
+            model = "deepseek-v4-pro"
+            body["model"] = model
         stream = body.get("stream", False)
         is_custom = model not in PRICING
 
