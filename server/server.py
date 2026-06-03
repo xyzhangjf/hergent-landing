@@ -187,7 +187,7 @@ def get_device_fingerprint(request: Request) -> str:
 # 用户管理
 # ============================================================
 def get_or_create_user(db, device_id: str) -> dict:
-    """获取或创建用户（首次自动送200积分）"""
+    """获取或创建用户（首次自动送500积分）"""
     cur = db.execute("SELECT * FROM users WHERE device_id=?", (device_id,))
     row = cur.fetchone()
     if row:
@@ -196,7 +196,7 @@ def get_or_create_user(db, device_id: str) -> dict:
         db.commit()
         return dict(row)
 
-    # 新用户：送200积分
+    # 新用户：送500积分
     uid = uuid.uuid4().hex[:16]
     now = datetime.now().isoformat()
     db.execute("""
@@ -763,7 +763,7 @@ async def auth_verify_code(request: Request):
             db.execute("UPDATE users SET device_id=?, last_active=?, nickname=COALESCE(nickname, ?) WHERE id=?",
                       (device_id, datetime.now().isoformat(), f"用户{phone[-4:]}", uid))
         else:
-            # 新用户：创建并送200积分
+            # 新用户：创建并送500积分
             uid = uuid.uuid4().hex[:16]
             now = datetime.now().isoformat()
             db.execute("""
