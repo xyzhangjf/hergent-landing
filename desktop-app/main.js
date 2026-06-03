@@ -168,7 +168,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
     const roleConfigPath = path.join(roleHome, 'config.yaml');
     const mainConfigPath = path.join(engineDir, '.hermes', 'config.yaml');
     let currentModel = 'deepseek-v4-pro';
-    let currentProvider = 'hergent';
+    let currentProvider = 'openai';
     try {
       if (fs.existsSync(mainConfigPath)) {
         const mainCfg = fs.readFileSync(mainConfigPath, 'utf8');
@@ -184,11 +184,11 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
       '  name: ' + currentModel,
       '  provider: ' + currentProvider,
       'custom_providers:',
-      '  - name: hergent',
+      '  - name: openai',
       '    base_url: ' + SERVER_URL + '/v1',
       '    api_key: hermes_' + deviceId,
       '    model: ' + currentModel,
-      '  - name: bailian',
+      '  - name: openai',
       '    base_url: ' + SERVER_URL + '/v1',
       '    api_key: hermes_' + deviceId,
       '    model: ' + (currentProvider === 'bailian' ? currentModel : 'qwen3-max'),
@@ -254,7 +254,7 @@ async function startHermesGateway() {
     const dsKey = getDeepSeekApiKey();
     const existingModel = (() => { try { const c = fs.readFileSync(mainConfigPath, 'utf8'); const m = c.match(/^model:\s*\n\s+name:\s*(.+)/m); return m ? m[1].trim() : null; } catch(_) { return null; } })();
     const modelName = existingModel || 'deepseek-v4-pro';
-    const provider = 'hergent';
+    const provider = 'openai';
     const apiKeyId = 'hermes_' + deviceId;
     const configYaml = [
       'model:',
@@ -266,11 +266,11 @@ async function startHermesGateway() {
       '    port: ' + GATEWAY_PORT,
       '    key: ' + GATEWAY_API_KEY,
       'custom_providers:',
-      '  - name: hergent',
+      '  - name: openai',
       '    base_url: ' + SERVER_URL + '/v1',
       '    api_key: ' + apiKeyId,
       '    model: ' + modelName,
-      '  - name: bailian',
+      '  - name: openai',
       '    base_url: ' + SERVER_URL + '/v1',
       '    api_key: ' + apiKeyId,
       '    model: qwen3-max',
@@ -297,7 +297,7 @@ async function startHermesGateway() {
           // 旧字典格式 → 替换为列表格式
           existing = existing.replace(
             /custom_providers:\n(?:  ['"]\d['"]:\n    \S+: .+\n)+/gm,
-            'custom_providers:\n  - name: hergent\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + modelName + '\n  - name: bailian\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: qwen3-max'
+            'custom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + modelName + '\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: qwen3-max'
           );
         }
         finalYaml = existing;
@@ -614,11 +614,11 @@ function ensureEngineConfig() {
   const set = (k, v) => { try { spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv }); } catch (_) {} };
   const dsKey = getDeepSeekApiKey();
   set('model.name', 'deepseek-v4-pro');
-  set('model.provider', 'hergent');
+  set('model.provider', 'openai');
   set('platforms.api_server.enabled', 'true');
   set('platforms.api_server.port', String(GATEWAY_PORT));
   set('platforms.api_server.key', GATEWAY_API_KEY);
-  set('custom_providers.0.name', 'hergent');
+  set('custom_providers.0.name', 'openai');
   set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
   set('custom_providers.0.api_key', dsKey);
   set('custom_providers.0.model', 'deepseek-v4-pro');
@@ -753,7 +753,7 @@ function ensureRoleConfigs() {
   const roles = loadRoles();
   // 读取主引擎模型配置，用于同步到所有角色
   const mainConfigPath = path.join(engineDir, '.hermes', 'config.yaml');
-  let mainModel = 'deepseek-v4-pro', mainProvider = 'hergent';
+  let mainModel = 'deepseek-v4-pro', mainProvider = 'openai';
   try {
     const mc = fs.readFileSync(mainConfigPath, 'utf8');
     const mm = mc.match(/^model:\s*\n\s+name:\s*(.+)/m);
@@ -803,13 +803,13 @@ function ensureRoleConfigs() {
         const roleConfigYaml = [
           'model:',
           '  name: deepseek-v4-pro',
-          '  provider: hergent',
+          '  provider: openai',
           'custom_providers:',
-          '  - name: hergent',
+          '  - name: openai',
           `    base_url: ${SERVER_URL}/v1`,
           `    api_key: hermes_${getDeviceId()}`,
           '    model: deepseek-v4-pro',
-          '  - name: bailian',
+          '  - name: openai',
           `    base_url: ${SERVER_URL}/v1`,
           `    api_key: hermes_${getDeviceId()}`,
           '    model: qwen3-max',
@@ -837,24 +837,24 @@ function ensureRoleConfigs() {
       // 同时更新 custom_providers 中 hergent provider 的 model 名 + apiKey
       // 兼容 YAML 列表格式 "- name:" 和普通格式 "name:"
       roleCfg = roleCfg.replace(
-        /^(\s*-?\s*name: hergent\n\s+base_url: .+\n\s+)api_key: .+(\n\s+model: ).+/m,
+        /^(\s*-?\s*name: openai\n\s+base_url: .+\n\s+)api_key: .+(\n\s+model: ).+/m,
         '$1api_key: hermes_' + getDeviceId() + '$2' + mainModel
       );
       // 确保 bailian provider 的 api_key 也统一
       roleCfg = roleCfg.replace(
-        /^(\s*-?\s*name: bailian\n\s+base_url: .+\n\s+)api_key: .+/m,
+        /^(\s*-?\s*name: openai\n\s+base_url: .+\n\s+)api_key: .+/m,
         '$1api_key: hermes_' + getDeviceId()
       );
       // 同步更新 bailian 的 model
       roleCfg = roleCfg.replace(
-        /^(\s*-?\s*name: bailian\n\s+base_url: .+\n\s+api_key: .+\n\s+model: ).+/m,
+        /^(\s*-?\s*name: openai\n\s+base_url: .+\n\s+api_key: .+\n\s+model: ).+/m,
         '$1' + mainModel
       );
       // 确保存在 bailian provider
-      if (!roleCfg.includes('- name: bailian')) {
+      if (!roleCfg.includes('- name: openai')) {
         roleCfg = roleCfg.replace(
-          /(  - name: hergent\n    base_url: .+\n    api_key: .+\n    model: .+)/,
-          '$1\n  - name: bailian\n    base_url: ' + `${SERVER_URL}/v1` + '\n    api_key: hermes_' + getDeviceId() + '\n    model: qwen3-max'
+          /(  - name: openai\n    base_url: .+\n    api_key: .+\n    model: .+)/,
+          '$1\n  - name: openai\n    base_url: ' + `${SERVER_URL}/v1` + '\n    api_key: hermes_' + getDeviceId() + '\n    model: qwen3-max'
         );
       }
       fs.writeFileSync(roleConfigPath, roleCfg);
@@ -2401,11 +2401,11 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
     const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
     const dsKey = getDeepSeekApiKey();
     set('model.name', 'deepseek-v4-pro');
-    set('model.provider', 'hergent');
+    set('model.provider', 'openai');
     set('platforms.api_server.enabled', 'true');
     set('platforms.api_server.port', '18765');
     set('max_turns', '60');
-    set('custom_providers.0.name', 'hergent');
+    set('custom_providers.0.name', 'openai');
     set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
     set('custom_providers.0.api_key', dsKey);
     log('config written via hermes config set');
@@ -2814,13 +2814,13 @@ ipcMain.handle('config:get-model', async () => {
   try {
     const engineDir = getEngineDir();
     const configPath = path.join(engineDir, '.hermes', 'config.yaml');
-    if (!fs.existsSync(configPath)) return { model: 'deepseek-v4-pro', provider: 'hergent' };
+    if (!fs.existsSync(configPath)) return { model: 'deepseek-v4-pro', provider: 'openai' };
     const yaml = fs.readFileSync(configPath, 'utf8');
     const result = { model: '', provider: '' };
     const modelMatch = yaml.match(/^model:\s*\n(?:\s+name:\s*(.+)\s*\n\s+provider:\s*(.+)|)/m);
     if (modelMatch) {
       result.model = (modelMatch[1] || 'deepseek-v4-pro').trim();
-      result.provider = (modelMatch[2] || 'hergent').trim();
+      result.provider = (modelMatch[2] || 'openai').trim();
     }
     const cpSection = yaml.match(/^custom_providers:\s*\n([\s\S]*?)(?:^\w|\Z)/m);
     if (cpSection) {
@@ -2841,7 +2841,7 @@ ipcMain.handle('config:get-model', async () => {
       result.custom_providers = providers;
     }
     return result;
-  } catch (e) { return { model: 'deepseek-v4-pro', provider: 'hergent', error: e.message }; }
+  } catch (e) { return { model: 'deepseek-v4-pro', provider: 'openai', error: e.message }; }
 });
 
 ipcMain.handle('config:set-model', async (event, opts) => {
@@ -2889,7 +2889,7 @@ ipcMain.handle('config:set-model', async (event, opts) => {
           const m = rc.match(/^  name:\s*(.+)/m);  // 读取当前 name
           const p = rc.match(/^  provider:\s*(.+)/m);  // 读取当前 provider
           const curModel = (m && m[1]) ? m[1].trim() : 'deepseek-v4-pro';
-          const curProvider = (p && p[1]) ? p[1].trim() : 'hergent';
+          const curProvider = (p && p[1]) ? p[1].trim() : 'openai';
           const newModel = opts.model;
           const newProvider = opts.provider || curProvider;
           rc = rc.replace(
@@ -2897,23 +2897,23 @@ ipcMain.handle('config:set-model', async (event, opts) => {
             'model:\n  name: ' + newModel + '\n  provider: ' + newProvider + '\n'
           );
           rc = rc.replace(
-            /^(\s*-?\s*name: hergent\n\s+base_url: .+\n\s+)api_key: .+(\n\s+model: ).+/m,
+            /^(\s*-?\s*name: openai\n\s+base_url: .+\n\s+)api_key: .+(\n\s+model: ).+/m,
             '$1api_key: hermes_' + getDeviceId() + '$2' + newModel
           );
           rc = rc.replace(
-            /^(\s*-?\s*name: bailian\n\s+base_url: .+\n\s+)api_key: .+/m,
+            /^(\s*-?\s*name: openai\n\s+base_url: .+\n\s+)api_key: .+/m,
             '$1api_key: hermes_' + getDeviceId()
           );
           // 同步更新 bailian 的 model（之前只更新了 hergent 的 model）
           rc = rc.replace(
-            /^(\s*-?\s*name: bailian\n\s+base_url: .+\n\s+api_key: .+\n\s+model: ).+/m,
+            /^(\s*-?\s*name: openai\n\s+base_url: .+\n\s+api_key: .+\n\s+model: ).+/m,
             '$1' + newModel
           );
         }
-        if (!rc.includes('- name: bailian')) {
+        if (!rc.includes('- name: openai')) {
           rc = rc.replace(
-            /(  - name: hergent\n    base_url: .+\n    api_key: .+\n    model: .+)/,
-            '$1\n  - name: bailian\n    base_url: ' + `${SERVER_URL}/v1` + '\n    api_key: hermes_' + getDeviceId() + '\n    model: qwen3-max'
+            /(  - name: openai\n    base_url: .+\n    api_key: .+\n    model: .+)/,
+            '$1\n  - name: openai\n    base_url: ' + `${SERVER_URL}/v1` + '\n    api_key: hermes_' + getDeviceId() + '\n    model: qwen3-max'
           );
         }
         fs.writeFileSync(roleCfgPath, rc);
