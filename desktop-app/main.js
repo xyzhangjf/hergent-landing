@@ -203,6 +203,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
     ].join('\n');
     try {
       fs.writeFileSync(roleConfigPath, roleYaml);
+      fs.writeFileSync(path.join(roleHome, '.env'), 'OPENAI_API_KEY=hermes-local-proxy\n');
     } catch (_) {}
 
     glog(`Starting ${cfg.label} gateway for role ${cfg.roleId} (${cfg.name})...`);
@@ -304,6 +305,8 @@ async function startHermesGateway() {
       }
     } catch (_) {}
     fs.writeFileSync(mainConfigPath, finalYaml);
+    // v0.15.x requires OPENAI_API_KEY in .env for openai provider
+    try { fs.writeFileSync(path.join(gwHome, '.env'), 'OPENAI_API_KEY=hermes-local-proxy\n'); } catch (_) {}
   } catch(e) {
     glog('config write error: ' + e.message);
   }
@@ -858,6 +861,8 @@ function ensureRoleConfigs() {
         );
       }
       fs.writeFileSync(roleConfigPath, roleCfg);
+      // v0.15.x requires OPENAI_API_KEY for openai provider
+      try { fs.writeFileSync(path.join(roleHome, '.env'), 'OPENAI_API_KEY=hermes-local-proxy\n'); } catch (_) {}
     } catch (_) {}
   }
   syncRoleSkills();
