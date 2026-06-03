@@ -330,6 +330,8 @@
     } catch (_) {}
 
     if (overlay && overlay.style.display !== 'flex') { overlay.style.display = 'flex'; }
+    // 隐藏登录页，避免闪现
+    hideLogin();
     if (skipBtn) { skipBtn.style.display = 'none'; skipBtn.textContent = '跳过等待'; }
     let fallbackShown = false;
 
