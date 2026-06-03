@@ -2040,13 +2040,16 @@ ipcMain.handle('feishu:poll-messages', async () => {
       if (!fs.existsSync(dbPath)) continue;
 
       try {
-        const { DatabaseSync } = require('node:sqlite');
-        const db = new DatabaseSync(dbPath);
+        const engineDir = getEngineDir();
+        const sqliteBin = path.join(engineDir, 'python', 'bin', 'sqlite3');
+        const sqlite3 = fs.existsSync(sqliteBin) ? sqliteBin : 'sqlite3';
 
         // 读取所有 feishu/lark 平台的 session
-        const sessions = db.prepare(
-          "SELECT id, source, message_count FROM sessions WHERE source LIKE 'feishu%' OR source LIKE 'lark%' OR source LIKE '%:feishu:%' OR source LIKE '%:lark:%'"
-        ).all();
+        const sessionRows = execSync(
+          `${sqlite3} -json "${dbPath}" "SELECT id, source, message_count FROM sessions WHERE source LIKE '%feishu%' OR source LIKE '%lark%'"`,
+          { timeout: 5000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }
+        ).toString().trim();
+        const sessions = sessionRows ? JSON.parse(sessionRows) : [];
 
         // 也读 sessions.json 兼容旧格式
         const sessionsJsonPath = path.join(dbDir, 'sessions', 'sessions.json');
@@ -2063,9 +2066,12 @@ ipcMain.handle('feishu:poll-messages', async () => {
 
         for (const session of sessions) {
           const lastIdx = _feishuLastSeen[session.id] || -1;
-          const rows = db.prepare(
-            "SELECT role, content, timestamp FROM messages WHERE session_id=? ORDER BY id"
-          ).all(session.id);
+          const escapedId = session.id.replace(/'/g, "''");
+          const msgRows = execSync(
+            `${sqlite3} -json "${dbPath}" "SELECT role, content, timestamp FROM messages WHERE session_id='${escapedId}' ORDER BY id"`,
+            { timeout: 5000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }
+          ).toString().trim();
+          const rows = msgRows ? JSON.parse(msgRows) : [];
 
           const newMsgs = rows.slice(lastIdx + 1);
 
@@ -2093,9 +2099,7 @@ ipcMain.handle('feishu:poll-messages', async () => {
             }
           }
         }
-
-        db.close();
-      } catch (e) { /* 缺少 better-sqlite3 或读取失败，跳过 */ }
+      } catch (e) { /* 读取SQLite失败，跳过 */ }
     }
 
     return { messages };
