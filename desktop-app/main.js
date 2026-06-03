@@ -280,18 +280,24 @@ async function startHermesGateway() {
     try {
       if (fs.existsSync(mainConfigPath)) {
         let existing = fs.readFileSync(mainConfigPath, 'utf8');
-        // 只替换 model section 和 custom_providers section，保留 platforms/memory 等
-        existing = existing.replace(
-          /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
-          'model:\n  name: ' + modelName + '\n  provider: ' + provider + '\n'
-        );
-        // 确保 custom_providers 是列表格式（修复 v0.14 的字典格式遗留）
-        if (existing.includes("  '0':") || existing.includes('  "0":')) {
-          // 旧字典格式 → 替换为列表格式
+        // 替换或插入 model section
+        if (existing.match(/^model:/m)) {
           existing = existing.replace(
-            /custom_providers:\n(?:  ['"]\d['"]:\n    \S+: .+\n)+/gm,
-            'custom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + modelName
+            /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
+            'model:\n  name: ' + modelName + '\n  provider: ' + provider + '\n'
           );
+        } else {
+          // 没有 model section → 在开头插入
+          existing = 'model:\n  name: ' + modelName + '\n  provider: ' + provider + '\n' + existing;
+        }
+        // 替换或插入 custom_providers
+        if (existing.match(/^custom_providers:/m)) {
+          existing = existing.replace(
+            /^custom_providers:\n(?:  - name: .+\n    base_url: .+\n    api_key: .+\n    model: .+\n?)*/m,
+            'custom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + modelName + '\n'
+          );
+        } else {
+          existing += '\ncustom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + modelName + '\n';
         }
         finalYaml = existing;
       }
@@ -818,13 +824,21 @@ function ensureRoleConfigs() {
         fs.writeFileSync(roleConfigPath, roleConfigYaml);
       } catch (e) { console.log(`config.yaml write error for ${roleId}: ` + (e.message || e)); }
     }
-    // 同步主引擎模型到该角色 — 整段替换 model section
+    // 同步主引擎模型到该角色 — 整段替换 model section（不存在则插入）
     try {
       let roleCfg = fs.readFileSync(roleConfigPath, 'utf8');
-      roleCfg = roleCfg.replace(
-        /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
-        'model:\n  name: ' + mainModel + '\n  provider: ' + mainProvider + '\n'
-      );
+      if (roleCfg.match(/^model:/m)) {
+        roleCfg = roleCfg.replace(
+          /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
+          'model:\n  name: ' + mainModel + '\n  provider: ' + mainProvider + '\n'
+        );
+      } else {
+        roleCfg = 'model:\n  name: ' + mainModel + '\n  provider: ' + mainProvider + '\n' + roleCfg;
+      }
+      // 确保有 custom_providers
+      if (!roleCfg.match(/^custom_providers:/m)) {
+        roleCfg += '\ncustom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: hermes_' + getDeviceId() + '\n    model: ' + mainModel + '\n';
+      }
       // 同时更新 custom_providers 中 hergent provider 的 model 名 + apiKey
       // 兼容 YAML 列表格式 "- name:" 和普通格式 "name:"
       roleCfg = roleCfg.replace(
