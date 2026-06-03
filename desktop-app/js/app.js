@@ -2967,11 +2967,11 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
 
     const models = [
       { id: 'auto', name: 'Auto', desc: '根据任务自动选择最佳模型', provider: 'auto' },
-      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', desc: '最强推理 · 约8-10分/次', provider: 'hergent' },
-      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', desc: '快速响应 · 约2-3分/次', provider: 'hergent' },
-      { id: 'qwen3-max', name: 'Qwen3 Max', desc: '阿里旗舰 · 258K上下文 · 约5-8分/次', provider: 'bailian' },
-      { id: 'qwen3.6-flash', name: 'Qwen3.6 Flash', desc: '百万上下文 · 快速便宜 · 约1-2分/次', provider: 'bailian' },
-      { id: 'qwen3.7-max', name: 'Qwen3.7 Max', desc: '最新Agent模型 · 超强工具调用', provider: 'bailian' },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', desc: '最强推理 · 约8-10分/次', provider: 'openai' },
+      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', desc: '快速响应 · 约2-3分/次', provider: 'openai' },
+      { id: 'qwen3-max', name: 'Qwen3 Max', desc: '阿里旗舰 · 258K上下文 · 约5-8分/次', provider: 'openai' },
+      { id: 'qwen3.6-flash', name: 'Qwen3.6 Flash', desc: '百万上下文 · 快速便宜 · 约1-2分/次', provider: 'openai' },
+      { id: 'qwen3.7-max', name: 'Qwen3.7 Max', desc: '最新Agent模型 · 超强工具调用', provider: 'openai' },
       { id: 'custom', name: '自定义模型', desc: '填写你自己的 API 地址和密钥', provider: 'custom' },
     ];
     const list = document.getElementById('msList');
@@ -3014,12 +3014,12 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
 
   function _autoPickModel(text) {
     var t = text.toLowerCase();
-    if (/写代码|编程|debug|脚本|python|函数|算法|bug|修复|优化.*代码/i.test(t)) return { model: 'deepseek-v4-pro', provider: 'hergent' };
-    if (/翻译|3\..*flash|快.*回答|简单.*问题|查.*天气|几点|今天.*几号/i.test(t)) return { model: 'qwen3.6-flash', provider: 'bailian' };
-    if (/合同|周报|文案|方案|邮件|写.*文章|润色|摘要|总结/i.test(t)) return { model: 'qwen3-max', provider: 'bailian' };
-    if (/爬虫|自动化|工具|脚本.*批量|批量.*处理|生成.*模板|订单.*导入/i.test(t)) return { model: 'qwen3.7-max', provider: 'bailian' };
-    if (/搜索|查.*资料|分析.*报告|报表|对账|算.*税|数据分析/i.test(t)) return { model: 'deepseek-v4-pro', provider: 'hergent' };
-    return { model: 'deepseek-v4-flash', provider: 'hergent' }; // 默认快速模型
+    if (/写代码|编程|debug|脚本|python|函数|算法|bug|修复|优化.*代码/i.test(t)) return { model: 'deepseek-v4-pro', provider: 'openai' };
+    if (/翻译|3\..*flash|快.*回答|简单.*问题|查.*天气|几点|今天.*几号/i.test(t)) return { model: 'qwen3.6-flash', provider: 'openai' };
+    if (/合同|周报|文案|方案|邮件|写.*文章|润色|摘要|总结/i.test(t)) return { model: 'qwen3-max', provider: 'openai' };
+    if (/爬虫|自动化|工具|脚本.*批量|批量.*处理|生成.*模板|订单.*导入/i.test(t)) return { model: 'qwen3.7-max', provider: 'openai' };
+    if (/搜索|查.*资料|分析.*报告|报表|对账|算.*税|数据分析/i.test(t)) return { model: 'deepseek-v4-pro', provider: 'openai' };
+    return { model: 'deepseek-v4-flash', provider: 'openai' }; // 默认快速模型
   }
 
   function showCustomModelForm() {
@@ -4965,7 +4965,7 @@ let _currentProvider = 'hergent';
 
 const PRESET_MODELS = ['deepseek-v4-pro', 'deepseek-v4-flash', 'qwen3-max', 'qwen3.6-flash', 'qwen3.7-max'];
 const MODEL_LABELS = { 'auto': 'Auto', 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash', 'qwen3-max': 'Qwen3 Max', 'qwen3.6-flash': 'Qwen3.6 Flash', 'qwen3.7-max': 'Qwen3.7 Max' };
-const MODEL_PROVIDERS = { 'deepseek-v4-pro': 'hergent', 'deepseek-v4-flash': 'hergent', 'qwen3-max': 'bailian', 'qwen3.6-flash': 'bailian', 'qwen3.7-max': 'bailian' };
+const MODEL_PROVIDERS = { 'deepseek-v4-pro': 'openai', 'deepseek-v4-flash': 'openai', 'qwen3-max': 'openai', 'qwen3.6-flash': 'openai', 'qwen3.7-max': 'openai' };
 
 async function loadModelConfig() {
   try {
