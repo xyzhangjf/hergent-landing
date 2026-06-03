@@ -77,7 +77,7 @@
       if (type === 'done') {
         setTimeout(() => {
           _bootDone = true;
-          overlay.style.display = 'none';
+          // 不隐藏 bootstrap overlay — initAuth 会显示登录页或进入主界面后隐藏
           initAuth();
         }, 800);
       }
@@ -297,25 +297,22 @@
           initOnboarding();
           restoreLastState();
           startFeishuPolling();
+          // 显示主界面
+          var rp = document.getElementById('rightPanel');
+          if (rp) rp.style.visibility = 'visible';
           return;
         }
       } catch (e) { console.error("auth check failed:", e.message); }
       localStorage.removeItem('hermes_auth');
       authState = null;
     }
-    // DEV 模式：跳过登录直接进入
-    authState = { token: 'dev-token', user: { id: 'dev', name: '开发者' } };
-    saveAuth();
-    // 等待引擎就绪再显示界面，避免闪现
-    await waitForEngineReady();
-    hideLogin();
-    updateCreditsBadge();
-    await loadRolesFromIPC();
-    renderSidebar();
-    loadSkills(); // 引擎就绪后重新加载技能
+    // 未登录：显示登录页 + 后台启动引擎
+    authState = null;
+    showLogin();
+    waitForEngineReady(); // 引擎后台启动，不等用户
+    loadRolesFromIPC();
+    loadSkills();
     initOnboarding();
-    restoreLastState();
-    startFeishuPolling();
   }
 
   async function waitForEngineReady() {
@@ -405,6 +402,22 @@
 
   function hideLogin() {
     hideOverlay('loginOverlay');
+    // 显示主界面（初始隐藏避免闪现）
+    var rp = document.getElementById('rightPanel');
+    if (rp) rp.style.visibility = 'visible';
+  }
+
+  async function skipLogin() {
+    authState = { token: 'guest-token', user: { id: 'guest', name: '访客' } };
+    saveAuth();
+    hideLogin();
+    document.getElementById('bootstrapOverlay').style.display = 'none';
+    updateCreditsBadge();
+    await loadRolesFromIPC();
+    renderSidebar();
+    restoreLastState();
+    startFeishuPolling();
+    initOnboarding();
   }
 
   function switchLoginTab(tab) {
@@ -469,6 +482,11 @@
         saveAuth();
         updateCreditsBadge();
         hideLogin();
+        document.getElementById('bootstrapOverlay').style.display = 'none';
+        await loadRolesFromIPC();
+        renderSidebar();
+        restoreLastState();
+        startFeishuPolling();
         initOnboarding();
       } else {
         errEl.textContent = data.detail || data.message || '验证码错误';
@@ -518,12 +536,17 @@
   window.addEventListener('message', (e) => {
     if (e.data?.type === 'wechat_login' && e.data?.token) {
       authState = { token: e.data.token };
-      hermes.authMe(e.data.token).then(user => {
+      hermes.authMe(e.data.token).then(async user => {
         if (user && user.id) {
           authState.user = user;
           saveAuth();
           updateCreditsBadge();
           hideLogin();
+          document.getElementById('bootstrapOverlay').style.display = 'none';
+          await loadRolesFromIPC();
+          renderSidebar();
+          restoreLastState();
+          startFeishuPolling();
           initOnboarding();
         }
       }).catch(() => {});
@@ -1477,12 +1500,12 @@
   const ROLE_SKILLS = {
     dami: ['zhoupu-order-import', 'contract-writing', 'wechat-writing'],
     accountant: ['bank-reconciliation', 'accounting-reports', 'excel-data'],
+    'ops-manager': [],
+    'cs-helper': [],
     programmer: ['python-coding', 'website-builder', 'karpathy-coding'],
     writer: [],
     screenwriter: ['video-scripting'],
     tutor: ['exam-tutoring'],
-    health: ['health-analysis'],
-    investor: ['investment-research'],
   };
 
   async function loadSkills() {
@@ -1973,31 +1996,44 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
 
     const roleName = ROLES[_crRole]?.name || _crRole;
     const platformName = card.label;
+    const toast = document.getElementById('channelToast');
+    const ctText = document.getElementById('ctText');
+    function _showToast(cls, msg) {
+      if (toast) { toast.className = 'channel-toast ' + (cls||''); toast.style.display = 'flex'; }
+      if (ctText) ctText.textContent = msg;
+    }
     try {
-      showDialog('⏳', `正在保存 ${roleName}·${platformName} 配置...`);
+      _showToast('', '正在保存 ' + roleName + '·' + platformName + ' 配置...');
       const result = await window.hermes.saveChannel(_crChannel, _crRole, data);
       closeChannelRoleModal();
       refreshChannels();
 
       if (result && result.gatewayRestarted) {
-        showDialog('🔄', `${roleName}·${platformName} 已保存\nGateway 重启中，约10秒后生效...`);
-        // 等10秒后检查连接状态
-        setTimeout(async () => {
+        _showToast('', 'Gateway 重启中，约 10 秒后完成连接...');
+        // 轮询检查连接状态
+        var attempts = 0;
+        var checkInterval = setInterval(async function() {
+          attempts++;
           try {
-            const status = await window.hermes.gatewayStatus();
+            var status = await window.hermes.gatewayStatus();
             if (status && status.running) {
-              showDialog('✅', `${roleName}·${platformName} 配置完成\nGateway 已就绪，去${platformName}发消息试试吧`);
-            } else {
-              showDialog('⚠️', `${roleName}·${platformName} 已保存\nGateway 仍在启动中，请稍候...`);
+              clearInterval(checkInterval);
+              _showToast('success', roleName + '·' + platformName + ' 连接成功 ✓ Gateway 已就绪');
+              setTimeout(function() { if (toast) toast.style.display = 'none'; }, 5000);
+            } else if (attempts >= 8) {
+              clearInterval(checkInterval);
+              _showToast('warning', roleName + '·' + platformName + ' 已保存，Gateway 仍在启动中，稍后自动连接');
+              setTimeout(function() { if (toast) toast.style.display = 'none'; }, 8000);
             }
           } catch(_) {
-            showDialog('✅', `${roleName}·${platformName} 已保存\nGateway 重启中，稍后生效`);
+            if (attempts >= 5) { clearInterval(checkInterval); if (toast) toast.style.display = 'none'; }
           }
-        }, 10000);
+        }, 3000);
       } else {
-        showDialog('✅', `${roleName}·${platformName} 已保存`);
+        _showToast('success', roleName + '·' + platformName + ' 已保存');
+        setTimeout(function() { if (toast) toast.style.display = 'none'; }, 3000);
       }
-    } catch(e) { showDialog('❌', '保存失败: ' + (e.message || '')); }
+    } catch(e) { _showToast('warning', '保存失败: ' + (e.message || '')); }
   }
 
   async function promptPairingCode(channel, role) {
@@ -2699,7 +2735,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       loadChatHistory();
       const rd = ROLES[role];
       if (rd && chatHistory && chatHistory.querySelectorAll('.chat-msg').length === 0) {
-        const opening = `你好，我是${rd.name.replace('我的', '你的')}。有什么需要帮忙的？`;
+        const opening = `你好，我是${rd.name || '大秘'}。有什么需要帮忙的？`;
         addChatMessage('hermes', opening);
       }
       // 首次使用该角色时显示快速上手指引
@@ -2722,12 +2758,12 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   const QUICK_ACTIONS = {
     dami:         ['总结文件要点', '写工作周报', '起草一份合同'],
     accountant:   ['分析这个Excel', '对账本月收支', '做利润分析表'],
+    'ops-manager': ['分析本月销售趋势', '查看库存周转情况', '帮我做巡店排班'],
+    'cs-helper':   ['经销商嫌价格高怎么回', '客户投诉怎么处理', '帮我整理常见FAQ'],
     programmer:   ['写个网页爬虫', '批量重命名文件', '做一个记账App'],
     writer:       ['写个小说开头', '写篇行业分析', '润色这段文字'],
     screenwriter: ['写短视频脚本', '写品牌文案', '写一篇演讲稿'],
     tutor:        ['解释这个概念', '出几道练习题', '帮我复习知识点'],
-    health:       ['分析我的饮食', '制定运动计划', '看看这份体检报告'],
-    investor:     ['分析市场行情', '评估投资风险', '看看这份财报'],
   };
 
   function _showRoleFirstVisit(role) {
@@ -2930,11 +2966,13 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     if (isOpen) { popup.classList.remove('show'); return; }
 
     const models = [
-      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', desc: '最强推理 · 约8-10分/次', provider: 'hergent' },
-      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', desc: '快速响应 · 约2-3分/次', provider: 'hergent' },
-      { id: 'qwen3-max', name: 'Qwen3 Max', desc: '阿里旗舰 · 258K上下文 · 约5-8分/次', provider: 'bailian' },
-      { id: 'qwen3.6-flash', name: 'Qwen3.6 Flash', desc: '百万上下文 · 快速便宜 · 约1-2分/次', provider: 'bailian' },
-      { id: 'qwen3.7-max', name: 'Qwen3.7 Max', desc: '最新Agent模型 · 超强工具调用', provider: 'bailian' },
+      { id: 'auto', name: 'Auto', desc: '根据任务自动选择最佳模型', provider: 'auto' },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', desc: '最强推理 · 约8-10分/次', provider: 'openai' },
+      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', desc: '快速响应 · 约2-3分/次', provider: 'openai' },
+      { id: 'qwen3-max', name: 'Qwen3 Max', desc: '阿里旗舰 · 258K上下文 · 约5-8分/次', provider: 'openai' },
+      { id: 'qwen3.6-flash', name: 'Qwen3.6 Flash', desc: '百万上下文 · 快速便宜 · 约1-2分/次', provider: 'openai' },
+      { id: 'qwen3.7-max', name: 'Qwen3.7 Max', desc: '最新Agent模型 · 超强工具调用', provider: 'openai' },
+      { id: 'custom', name: '自定义模型', desc: '填写你自己的 API 地址和密钥', provider: 'custom' },
     ];
     const list = document.getElementById('msList');
     list.innerHTML = models.map(m => `
@@ -2964,11 +3002,59 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
   }
 
   function switchModel(model, provider) {
-    document.getElementById('modelSwitcher').classList.remove('show');
+    var popup = document.getElementById('modelSwitcher');
+    if (popup) popup.classList.remove('show');
+    if (model === 'custom') { showCustomModelForm(); return; }
+    if (model === 'auto') { _tmpAutoMode = true; _currentModel = 'auto'; updateModelIndicator('auto'); return; }
+    _tmpAutoMode = false;
     if (model === _currentModel) return;
+    // _saveModelPreset 内部会处理 indicator（切换中→已生效✓→模型名），不额外覆盖
     _saveModelPreset(model, provider || 'hergent');
-    updateModelIndicator(model);
   }
+
+  function _autoPickModel(text) {
+    var t = text.toLowerCase();
+    if (/写代码|编程|debug|脚本|python|函数|算法|bug|修复|优化.*代码/i.test(t)) return { model: 'deepseek-v4-pro', provider: 'openai' };
+    if (/翻译|3\..*flash|快.*回答|简单.*问题|查.*天气|几点|今天.*几号/i.test(t)) return { model: 'qwen3.6-flash', provider: 'openai' };
+    if (/合同|周报|文案|方案|邮件|写.*文章|润色|摘要|总结/i.test(t)) return { model: 'qwen3-max', provider: 'openai' };
+    if (/爬虫|自动化|工具|脚本.*批量|批量.*处理|生成.*模板|订单.*导入/i.test(t)) return { model: 'qwen3.7-max', provider: 'openai' };
+    if (/搜索|查.*资料|分析.*报告|报表|对账|算.*税|数据分析/i.test(t)) return { model: 'deepseek-v4-pro', provider: 'openai' };
+    return { model: 'deepseek-v4-flash', provider: 'openai' }; // 默认快速模型
+  }
+
+  function showCustomModelForm() {
+    var o = document.getElementById('customModelOverlay');
+    if (!o) {
+      // 兜底：旧版用 prompt
+      var m = prompt('请依次输入：模型名 API地址 API密钥（用空格分隔，例：gpt-4o https://api.openai.com sk-xxx）');
+      if (!m) return;
+      var parts = m.split(' '); if (parts.length < 3) return;
+      _currentModel = parts[0]; _currentProvider = 'custom';
+      updateModelIndicator(parts[0] + ' (自定义)');
+      window.hermes.setModelConfig({ model: parts[0], provider: 'custom', custom_base_url: parts[1], custom_api_key: parts[2] })
+        .then(function(r) { if (r.success) updateModelIndicator(parts[0] + ' ✓'); });
+      return;
+    }
+    showOverlay('customModelOverlay');
+    document.getElementById('cmApiKey').value = '';
+    document.getElementById('cmBaseUrl').value = 'https://api.openai.com/v1';
+    document.getElementById('cmModelName').value = 'gpt-4o';
+    document.getElementById('cmApiKey').focus();
+  }
+
+  window._saveCustomModel = function() {
+    var key = document.getElementById('cmApiKey').value.trim();
+    var url = document.getElementById('cmBaseUrl').value.trim();
+    var name = document.getElementById('cmModelName').value.trim();
+    if (!key || !url || !name) return;
+    hideOverlay('customModelOverlay');
+    _currentModel = name; _currentProvider = 'custom';
+    updateModelIndicator(name + ' (自定义)');
+    window.hermes.setModelConfig({
+      model: name, provider: 'custom',
+      custom_base_url: url, custom_api_key: key,
+    }).then(function(r) { if (r.success) updateModelIndicator(name + ' ✓'); });
+  };
 
   function updateModelIndicator(model) {
     const label = document.getElementById('miLabel');
@@ -3034,21 +3120,21 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       { icon: '📚', text: '制定学习计划', prompt: '帮我制定一个30天考雅思的计划' },
       { icon: '❓', text: '解答疑问', prompt: '为什么天空是蓝色的' },
     ],
-    health: [
-      { icon: '🥗', text: '规划饮食计划', prompt: '帮我规划下周的健康饮食计划' },
-      { icon: '🏃', text: '制定运动方案', prompt: '帮我制定一个适合久坐族的运动计划' },
-      { icon: '😴', text: '改善睡眠质量', prompt: '最近睡眠不好，帮我分析一下原因' },
-      { icon: '🩺', text: '看体检报告', prompt: '帮我看一下这份体检报告' },
-      { icon: '🧘', text: '缓解工作压力', prompt: '工作压力大，有什么放松的方法' },
-      { icon: '💊', text: '营养补充建议', prompt: '日常需要补充哪些维生素' },
+    'ops-manager': [
+      { icon: '📊', text: '分析销售趋势', prompt: '帮我分析这个月的销售数据趋势' },
+      { icon: '📦', text: '库存周转分析', prompt: '这几个SKU库存周转慢怎么优化' },
+      { icon: '📋', text: '巡店排班', prompt: '帮我做一个巡店排班表' },
+      { icon: '📈', text: '促销效果评估', prompt: '帮我评估这次促销活动的效果' },
+      { icon: '🔍', text: '竞品动态追踪', prompt: '帮我整理竞品最近的活动动态' },
+      { icon: '👥', text: '员工绩效对比', prompt: '帮我做一下业务员绩效对比分析' },
     ],
-    investor: [
-      { icon: '📈', text: '分析市场行情', prompt: '帮我分析一下最近的A股市场行情' },
-      { icon: '💰', text: '做资产配置', prompt: '我有10万闲钱，低风险的怎么配' },
-      { icon: '🏠', text: '分析房产投资', prompt: '现在适合买房投资吗' },
-      { icon: '📊', text: '看基金表现', prompt: '帮我分析一下这几只基金的表现' },
-      { icon: '💡', text: '学习理财知识', prompt: '新手怎么开始理财' },
-      { icon: '🔍', text: '研究公司财报', prompt: '帮我解读一下这份公司财报' },
+    'cs-helper': [
+      { icon: '💬', text: '投诉处理方案', prompt: '客户投诉产品有质量问题怎么处理' },
+      { icon: '📝', text: '回复话术生成', prompt: '经销商嫌价格高帮我写个回复话术' },
+      { icon: '📋', text: '整理常见FAQ', prompt: '帮我整理一份客户常见问题回复模板' },
+      { icon: '📧', text: '客户跟进邮件', prompt: '帮我写一封客户回访邮件' },
+      { icon: '🔧', text: '售后处理流程', prompt: '帮我梳理一下售后处理的标准流程' },
+      { icon: '💡', text: '客户分类管理', prompt: '帮我给客户分个类，制定跟进策略' },
     ],
   };
 
@@ -3513,6 +3599,13 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     loadingMsg.appendChild(_streamStepEl);
   }
 
+  function _extractTools(text) {
+    const tools = [];
+    const map = [['skills_list','技能列表'],['skill_view','技能详情'],['read_file','读取文件'],['write_file','写入文件'],['web_search','网络搜索'],['web_fetch','网页抓取'],['browser','浏览器'],['bash','命令行'],['python','Python'],['search_files','搜索文件'],['grep','文本搜索']];
+    map.forEach(function(p) { if (text.toLowerCase().includes(p[0].toLowerCase())) tools.push(p[1]); });
+    return [...new Set(tools)].slice(0, 6);
+  }
+
   function addChatMessage(role, text, fileNames, msgTime, platform, pipeline) {
     const history = document.getElementById('chatHistory');
     const empty = history.querySelector('.chat-empty');
@@ -3613,7 +3706,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       actions.innerHTML = '<button class="msg-action-btn msg-edit-btn" title="编辑" onclick="event.stopPropagation();editUserMsg(this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
       body.appendChild(actions);
     }
-    // Hermes 回复加操作栏
+    // Hermes 回复加操作栏 + 工具调用面板
     if (role === 'hermes' && text !== '思考中' && text !== '工作组协作中...') {
       const actions = document.createElement('div');
       actions.className = 'msg-actions';
@@ -3622,6 +3715,19 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         '<button class="msg-action-btn feedback-btn" title="有用" onclick="event.stopPropagation();feedbackMsg(this,\'up\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/></svg></button>' +
         '<button class="msg-action-btn feedback-btn" title="没用" onclick="event.stopPropagation();feedbackMsg(this,\'down\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V4H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/></svg></button>';
       body.appendChild(actions);
+
+      // 工具调用可视化：提取文本中的工具使用信息
+      const toolsUsed = _extractTools(text);
+      if (toolsUsed.length > 0) {
+        const panel = document.createElement('div');
+        panel.className = 'tool-calls-panel';
+        panel.innerHTML = '<span class="tcp-toggle"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg> ' + toolsUsed.length + ' 个工具被调用</span>' +
+          toolsUsed.map(function(t) {
+            return '<span class="tcp-chip"><span class="tcp-icon">' + _toolIcon(t) + '</span>' + escapeHtml(t) + '</span>';
+          }).join('');
+        panel.onclick = function() { this.classList.toggle('expanded'); };
+        body.appendChild(panel);
+      }
     }
 
     row.appendChild(body);
@@ -3832,6 +3938,8 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     }
   }
 
+  var _tmpAutoMode = false;
+
   async function sendMessage() {
     // 防重复发送
     if (_streamActive) return;
@@ -3843,6 +3951,14 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
     const fileNames = chatFilePaths.map(f => f.name);
 
     if (!text && fileNames.length === 0) return;
+
+    // 智能推荐模式：根据输入内容自动选模型
+    if (_currentModel === 'auto') {
+      var picked = _autoPickModel(text);
+      _tmpAutoMode = true;
+      _saveModelPreset(picked.model, picked.provider);
+      updateModelIndicator(picked.model + ' ⚡');
+    }
 
     // 防御：IPC 桥丢失
     if (!window.hermes || !window.hermes.execute) {
@@ -4848,8 +4964,8 @@ let _currentModel = 'deepseek-v4-pro';
 let _currentProvider = 'hergent';
 
 const PRESET_MODELS = ['deepseek-v4-pro', 'deepseek-v4-flash', 'qwen3-max', 'qwen3.6-flash', 'qwen3.7-max'];
-const MODEL_LABELS = { 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash', 'qwen3-max': 'Qwen3 Max', 'qwen3.6-flash': 'Qwen3.6 Flash', 'qwen3.7-max': 'Qwen3.7 Max' };
-const MODEL_PROVIDERS = { 'deepseek-v4-pro': 'hergent', 'deepseek-v4-flash': 'hergent', 'qwen3-max': 'bailian', 'qwen3.6-flash': 'bailian', 'qwen3.7-max': 'bailian' };
+const MODEL_LABELS = { 'auto': 'Auto', 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'deepseek-v4-flash': 'DeepSeek V4 Flash', 'qwen3-max': 'Qwen3 Max', 'qwen3.6-flash': 'Qwen3.6 Flash', 'qwen3.7-max': 'Qwen3.7 Max' };
+const MODEL_PROVIDERS = { 'deepseek-v4-pro': 'openai', 'deepseek-v4-flash': 'openai', 'qwen3-max': 'openai', 'qwen3.6-flash': 'openai', 'qwen3.7-max': 'openai' };
 
 async function loadModelConfig() {
   try {
