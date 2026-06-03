@@ -2028,55 +2028,74 @@ ipcMain.handle('feishu:poll-messages', async () => {
     const engineDir = getEngineDir();
     const messages = [];
 
-    // 检查所有可能的 sessions 目录：主 Gateway + 每个角色 Gateway
-    const sessionDirs = [path.join(engineDir, '.hermes', 'sessions')];
+    // v0.15.x: sessions 存储在 state.db (SQLite)，不再用 JSON 文件
+    const dbDirs = [path.join(engineDir, '.hermes')];
     const feishuConfigs = getFeishuRoleConfigs();
     for (const cfg of feishuConfigs) {
-      sessionDirs.push(path.join(engineDir, '.hermes', 'agents', cfg.roleId, 'sessions'));
+      dbDirs.push(path.join(engineDir, '.hermes', 'agents', cfg.roleId));
     }
 
-    for (const sessionsDir of sessionDirs) {
-      const indexPath = path.join(sessionsDir, 'sessions.json');
-      if (!fs.existsSync(indexPath)) continue;
+    for (const dbDir of dbDirs) {
+      const dbPath = path.join(dbDir, 'state.db');
+      if (!fs.existsSync(dbPath)) continue;
 
-      const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-      for (const [sessionKey, meta] of Object.entries(index)) {
-        if (meta.platform !== 'feishu' && meta.platform !== 'lark') continue;
+      try {
+        const { DatabaseSync } = require('node:sqlite');
+        const db = new DatabaseSync(dbPath);
 
-        const sessionFile = path.join(sessionsDir, `session_${meta.session_id}.json`);
-        if (!fs.existsSync(sessionFile)) continue;
+        // 读取所有 feishu/lark 平台的 session
+        const sessions = db.prepare(
+          "SELECT id, source, message_count FROM sessions WHERE source LIKE 'feishu%' OR source LIKE 'lark%' OR source LIKE '%:feishu:%' OR source LIKE '%:lark:%'"
+        ).all();
 
-        const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
-        const lastIdx = _feishuLastSeen[sessionKey] || -1;
-        const newMsgs = (session.messages || []).slice(lastIdx + 1);
-
-        if (newMsgs.length > 0) {
-          _feishuLastSeen[sessionKey] = (session.messages || []).length - 1;
-          // 从 sessionKey 或目录路径推断角色
-          let roleId = 'dami';
-          for (const cfg of feishuConfigs) {
-            if (sessionsDir.includes(cfg.roleId)) { roleId = cfg.roleId; break; }
-          }
-          for (const msg of newMsgs) {
-            let content = (msg.content || '').trim();
-            if (!content) continue;
-            // 跳过纯系统提示词消息
-            if (content.length > 100 && content.includes('你是') && content.includes('擅长') && content.includes('风格')) continue;
-            // 如果消息是 "系统提示词\n\n用户消息：xxx" 格式，只取用户消息部分
-            const userMsgMatch = content.match(/用户消息[：:]\s*(.+)$/s);
-            if (userMsgMatch) content = userMsgMatch[1].trim().slice(0, 1000);
-            messages.push({
-              role: msg.role === 'user' ? 'user' : 'hermes',
-              text: content.slice(0, 1000),
-              time: session.last_updated || new Date().toISOString(),
-              platform: '飞书',
-              sessionKey,
-              roleId,
-              chatName: meta.display_name || meta.origin?.user_name || '飞书用户'
-            });
+        // 也读 sessions.json 兼容旧格式
+        const sessionsJsonPath = path.join(dbDir, 'sessions', 'sessions.json');
+        if (fs.existsSync(sessionsJsonPath)) {
+          const index = JSON.parse(fs.readFileSync(sessionsJsonPath, 'utf8'));
+          for (const [sessionKey, meta] of Object.entries(index)) {
+            if (meta.platform !== 'feishu' && meta.platform !== 'lark') continue;
+            const sid = meta.session_id;
+            if (!sessions.find(s => s.id === sid)) {
+              sessions.push({ id: sid, source: 'feishu', message_count: 0 });
+            }
           }
         }
-      }
+
+        for (const session of sessions) {
+          const lastIdx = _feishuLastSeen[session.id] || -1;
+          const rows = db.prepare(
+            "SELECT role, content, timestamp FROM messages WHERE session_id=? ORDER BY id"
+          ).all(session.id);
+
+          const newMsgs = rows.slice(lastIdx + 1);
+
+          if (newMsgs.length > 0) {
+            _feishuLastSeen[session.id] = rows.length - 1;
+            let roleId = 'dami';
+            for (const cfg of feishuConfigs) {
+              if (dbDir.includes(cfg.roleId)) { roleId = cfg.roleId; break; }
+            }
+            for (const msg of newMsgs) {
+              const content = (msg.content || '').trim();
+              if (!content || content === 'session_meta') continue;
+              // 跳过纯系统提示词消息
+              if (content.length > 100 && content.includes('你是') && content.includes('擅长') && content.includes('风格')) continue;
+              const userMsgMatch = content.match(/用户消息[：:]\s*(.+)$/s);
+              let text = userMsgMatch ? userMsgMatch[1].trim() : content;
+              messages.push({
+                role: msg.role === 'user' ? 'user' : 'hermes',
+                text: text.slice(0, 1000),
+                time: new Date(msg.timestamp * 1000).toISOString(),
+                platform: '飞书',
+                sessionKey: session.id,
+                roleId
+              });
+            }
+          }
+        }
+
+        db.close();
+      } catch (e) { /* 缺少 better-sqlite3 或读取失败，跳过 */ }
     }
 
     return { messages };
