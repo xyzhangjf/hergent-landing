@@ -2859,58 +2859,61 @@ ipcMain.handle('config:set-model', async (event, opts) => {
     const engineHermesHome = path.join(engineDir, '.hermes');
     const agentHermesHome = path.join(homeDir, '.hermes');
 
-    // 同时更新引擎和 Agent 的 config（取决于 Gateway 实际用哪个）
-    for (const hh of [engineHermesHome, agentHermesHome]) {
-      if (!fs.existsSync(path.join(hh, 'config.yaml'))) continue;
-      const cfgEnv = { ...process.env, HERMES_HOME: hh };
-      const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
-    if (opts.model) {
-      set('model.name', opts.model);
-      // 同步更新对应 provider 的 custom_providers model
-      const providerIdx = opts.provider === 'bailian' ? '1' : '0';
-      set(`custom_providers.${providerIdx}.model`, opts.model);
-    }
-    if (opts.provider) set('model.provider', opts.provider);
-    if (opts.custom_base_url) {
-      set('custom_providers.0.name', opts.provider || 'custom');
-      // 自定义模型走积分代理（localhost:8765/v1），真 API 地址存到积分服务
-      set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
-      set('custom_providers.0.api_key', opts.custom_api_key || '');
-      set('custom_providers.0.model', opts.model || 'deepseek-v4-pro');
-      // 同步自定义 API 信息到积分服务
-      try {
-        const http = require('http');
-        const postData = JSON.stringify({ base_url: opts.custom_base_url, api_key: opts.custom_api_key || '', model_name: opts.model || '' });
-        const req = http.request({ hostname: 'localhost', port: 8765, path: '/api/custom-model/config', method: 'POST', headers: { 'Content-Type': 'application/json' } });
-        req.write(postData);
-        req.end();
-      } catch (_) {}
-    }
-    }
-    // 同步模型到所有角色 config（整段替换 model section）
+    // 直接写 YAML，避免 v0.15.x hermes config set 写出字典格式
+    const newModel = opts.model || 'deepseek-v4-pro';
+    const newProvider = opts.provider || 'openai';
+    const apiKeyId = 'hermes_' + getDeviceId();
+
+    // 更新主引擎 config
+    const mainCfgPath = path.join(engineDir, '.hermes', 'config.yaml');
+    try {
+      let mc = fs.existsSync(mainCfgPath) ? fs.readFileSync(mainCfgPath, 'utf8') : '';
+      if (mc.match(/^model:/m)) {
+        mc = mc.replace(/^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
+          'model:\n  name: ' + newModel + '\n  provider: ' + newProvider + '\n');
+      } else {
+        mc = 'model:\n  name: ' + newModel + '\n  provider: ' + newProvider + '\n' + mc;
+      }
+      if (mc.match(/^custom_providers:/m)) {
+        mc = mc.replace(/^custom_providers:\n(?:  - name: .+\n    base_url: .+\n    api_key: .+\n    model: .+\n?)*/m,
+          'custom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + newModel + '\n');
+      } else {
+        mc += '\ncustom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + newModel + '\n';
+      }
+      fs.writeFileSync(mainCfgPath, mc);
+    } catch (_) {}
+
+    // 同步模型到所有角色 config
     const allRoles = loadRoles();
     for (const [roleId] of Object.entries(allRoles)) {
       const roleCfgPath = path.join(engineDir, '.hermes', 'agents', roleId, 'config.yaml');
       if (!fs.existsSync(roleCfgPath)) continue;
       try {
         let rc = fs.readFileSync(roleCfgPath, 'utf8');
-        if (opts.model) {
-          const m = rc.match(/^  name:\s*(.+)/m);  // 读取当前 name
-          const p = rc.match(/^  provider:\s*(.+)/m);  // 读取当前 provider
-          const curModel = (m && m[1]) ? m[1].trim() : 'deepseek-v4-pro';
-          const curProvider = (p && p[1]) ? p[1].trim() : 'openai';
-          const newModel = opts.model;
-          const newProvider = opts.provider || curProvider;
-          rc = rc.replace(
-            /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
-            'model:\n  name: ' + newModel + '\n  provider: ' + newProvider + '\n'
-          );
-          rc = rc.replace(
-            /^(\s*-?\s*name: openai\n\s+base_url: .+\n\s+)api_key: .+(\n\s+model: ).+/m,
-            '$1api_key: hermes_' + getDeviceId() + '$2' + newModel
-          );
+        if (rc.match(/^model:/m)) {
+          rc = rc.replace(/^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
+            'model:\n  name: ' + newModel + '\n  provider: ' + newProvider + '\n');
+        } else {
+          rc = 'model:\n  name: ' + newModel + '\n  provider: ' + newProvider + '\n' + rc;
+        }
+        if (rc.match(/^custom_providers:/m)) {
+          rc = rc.replace(/^custom_providers:\n(?:  - name: .+\n    base_url: .+\n    api_key: .+\n    model: .+\n?)*/m,
+            'custom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + newModel + '\n');
+        } else {
+          rc += '\ncustom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + newModel + '\n';
         }
         fs.writeFileSync(roleCfgPath, rc);
+      } catch (_) {}
+    }
+
+    // 自定义模型额外操作
+    if (opts.custom_base_url) {
+      try {
+        const http = require('http');
+        const postData = JSON.stringify({ base_url: opts.custom_base_url, api_key: opts.custom_api_key || '', model_name: opts.model || '' });
+        const req = http.request({ hostname: 'localhost', port: 8765, path: '/api/custom-model/config', method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        req.write(postData);
+        req.end();
       } catch (_) {}
     }
     // 强制重启 Gateway 使模型变更生效
