@@ -212,4 +212,32 @@ desktop-app/
 - 禁止空 `catch (_) {}` — 至少记录日志
 
 ### ESLint 状态
-- 0 errors, ~151 warnings（Phase 4 前降为 warn，Phase 4 后全面收紧）
+- 0 errors, ~258 warnings（Phase 4 前降为 warn，Phase 4 后全面收紧）
+
+## Phase 2 重构：app.js renderer 模块化（2026-06-21）
+
+### 新增模块结构
+
+```
+desktop-app/
+  js/app.js                        5194行（重构中，原5533行）
+  src/renderer/
+    icons.js                         28行  SVG图标常量 (ICONS)
+    utils.js                         25行  friendlyError + notifyIfAway
+    dialog.js                        64行  overlay栈 + showDialog/closeDialog
+    cost-tracker.js                  43行  消息消耗预估 (_recordMessageCost)
+    onboarding.js                   109行  新手引导三步走
+    activate.js                      40行  激活码弹窗
+    conn-monitor.js                  52行  连接心跳监控
+```
+
+### index.html 加载顺序
+```
+config.js → icons.js → utils.js → dialog.js → cost-tracker.js
+→ onboarding.js → activate.js → conn-monitor.js → app.js → erp.js
+```
+
+### 总计模块
+- src/main/: 11 个 (Phase 1)
+- src/renderer/: 7 个 (Phase 2)
+- 总计: 18 个模块, app.js 5533→5194 行 (-6%)
