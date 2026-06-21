@@ -1,3 +1,5 @@
+/// <reference path="../types.d.ts" />
+// @ts-check
 // Hergent Desktop — Global Keyboard Shortcuts
 // Extracted from app.js Phase 2
 // ===== 全局键盘快捷键 =====

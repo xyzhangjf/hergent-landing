@@ -1,3 +1,5 @@
+/// <reference path="../types.d.ts" />
+// @ts-check
 // Hergent Desktop — Onboarding Guide
 // Extracted from app.js Phase 2
 // ===== 新手引导 =====

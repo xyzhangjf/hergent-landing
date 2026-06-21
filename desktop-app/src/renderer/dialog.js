@@ -1,3 +1,5 @@
+/// <reference path="../types.d.ts" />
+// @ts-check
 // Hergent Desktop — Overlay & Dialog Management
 // Extracted from app.js Phase 2
 // ===== 覆盖层栈管理 =====

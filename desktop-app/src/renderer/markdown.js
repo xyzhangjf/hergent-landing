@@ -1,3 +1,5 @@
+/// <reference path="../types.d.ts" />
+// @ts-check
 // Hergent Desktop — Markdown Renderer (zero-dependency)
 // Extracted from app.js Phase 2
 

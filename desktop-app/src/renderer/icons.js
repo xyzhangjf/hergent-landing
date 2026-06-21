@@ -1,3 +1,5 @@
+/// <reference path="../types.d.ts" />
+// @ts-check
 // Hergent Desktop — SVG Icons
 // Extracted from app.js Phase 2
 const ICONS = {

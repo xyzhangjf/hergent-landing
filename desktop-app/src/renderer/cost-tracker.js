@@ -1,3 +1,5 @@
+/// <reference path="../types.d.ts" />
+// @ts-check
 // Hergent Desktop — Cost Tracking
 // Extracted from app.js Phase 2
 // 费用预估：基于历史消息的平均消耗

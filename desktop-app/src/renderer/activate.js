@@ -1,3 +1,5 @@
+/// <reference path="../types.d.ts" />
+// @ts-check
 // Hergent Desktop — Activation Code
 // Extracted from app.js Phase 2
 // ===== 激活码 =====

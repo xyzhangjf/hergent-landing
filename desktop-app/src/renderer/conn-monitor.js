@@ -1,3 +1,5 @@
+/// <reference path="../types.d.ts" />
+// @ts-check
 // Hergent Desktop — Connection Monitor
 // Extracted from app.js Phase 2
 // 连接状态提示条
