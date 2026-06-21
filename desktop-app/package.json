@@ -14,14 +14,22 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "node --check main.js && node --check preload.js && node --check js/app.js",
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "audit": "npm audit --omit=dev",
     "verify": "npm run format:check && npm run lint && npm run check && npm run audit",
     "prepare": "echo 'skip husky (managed at repo root)'"
   },
   "lint-staged": {
-    "*.js": ["prettier --write", "eslint --fix", "node --check"],
-    "*.{json,md,css,html}": ["prettier --write"]
+    "*.js": [
+      "prettier --write",
+      "eslint --fix",
+      "node --check"
+    ],
+    "*.{json,md,css,html}": [
+      "prettier --write"
+    ]
   },
   "build": {
     "appId": "com.hergent.app",
@@ -156,6 +164,7 @@
     "electron-builder": "^25.1.8",
     "eslint": "^10.5.0",
     "husky": "^9.1.7",
+    "jest": "^30.4.2",
     "lint-staged": "^17.0.8",
     "prettier": "^3.8.4",
     "sharp": "^0.34.5",
