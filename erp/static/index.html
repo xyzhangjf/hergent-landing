@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Hergent ERP</title>
+<style>
+:root{
+  --g0:#fff; --g50:#f7f8fa; --g100:#eef0f3; --g200:#dde1e6; --g300:#c3c9d1; --g400:#8e96a1; --g500:#5f6977; --g600:#3d4552; --g700:#252b34; --g800:#161a20; --g900:#0b0e11;
+  --b50:#edf6ff; --b100:#d0e5ff; --b500:#2490ef; --b600:#1a6fc4; --b700:#13509a;
+  --r50:#fff0f0; --r500:#e74c3c;
+  --gn50:#eafaf1; --gn500:#27ae60; --gn600:#1e8449;
+  --a50:#fef9e7; --a500:#f39c12;
+  --rad:6px; --rad-lg:10px; --sh:0 1px 4px rgba(0,0,0,.06);
+  --fs:13px; --fs-sm:12px; --fs-lg:15px; --fs-xl:18px; --fs-2xl:22px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif;background:var(--g50);color:var(--g700);font-size:var(--fs);line-height:1.5;-webkit-font-smoothing:antialiased}
+input,select,textarea{font:inherit;padding:7px 11px;border:1px solid var(--g200);border-radius:var(--rad);background:var(--g0);color:var(--g700);transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{outline:none;border-color:var(--b500);box-shadow:0 0 0 3px rgba(36,144,239,.1)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:1px solid var(--g200);border-radius:var(--rad);background:var(--g0);color:var(--g600);font-size:var(--fs-sm);font-weight:500;cursor:pointer;white-space:nowrap;transition:all .12s;line-height:1.3}
+.btn:hover{background:var(--g50);border-color:var(--g300)}
+.btn-p{background:var(--b500);border-color:var(--b500);color:#fff}.btn-p:hover{background:var(--b600);border-color:var(--b600)}
+.btn-d{background:var(--r500);border-color:var(--r500);color:#fff}.btn-d:hover{opacity:.9}
+.btn-s{padding:4px 9px;font-size:11px}.btn-g{border:none;background:none;color:var(--g400);padding:4px 6px}.btn-g:hover{color:var(--g600);background:var(--g50)}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.bg-dr{background:var(--g100);color:var(--g500)}.bg-act{background:var(--b50);color:var(--b600)}.bg-ok{background:var(--gn50);color:var(--gn600)}
+.bg-war{background:var(--a50);color:var(--a500)}.bg-err{background:var(--r50);color:var(--r500)}.bg-inf{background:var(--b50);color:var(--b600)}
+
+.login-page{display:flex;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(160deg,#f0f5fa 0%,#e8f0f8 50%,#f5f7fa 100%)}
+.login-card{width:400px;padding:44px 40px;background:var(--g0);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04)}
+.login-card h1{font-size:20px;font-weight:700;color:var(--g800);text-align:center;margin-bottom:6px}
+.login-card .sub{font-size:var(--fs-sm);color:var(--g400);text-align:center;margin-bottom:28px}
+.login-card .fld{margin-bottom:14px}.login-card .fld label{display:block;font-size:var(--fs-sm);font-weight:600;color:var(--g500);margin-bottom:4px}
+.login-card .fld input{width:100%;padding:10px 12px}.login-card .btn{width:100%;padding:10px;justify-content:center;font-size:var(--fs)}.login-err{font-size:var(--fs-sm);color:var(--r500);text-align:center;margin-top:10px;display:none}
+
+.app{display:none;flex-direction:column;height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;height:50px;padding:0 18px;background:var(--g0);border-bottom:1px solid var(--g100);flex-shrink:0;z-index:10}
+.topbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:var(--fs-lg);color:var(--g800)}
+.topbar .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--b500)}
+.topbar .user{display:flex;align-items:center;gap:10px;font-size:var(--fs-sm);color:var(--g500)}
+.topbar .user .av{width:30px;height:30px;border-radius:50%;background:var(--b50);color:var(--b600);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.app-body{display:flex;flex:1;overflow:hidden}
+
+/* Sidebar — ERPNext Desk style */
+.sidebar{width:210px;min-width:210px;background:var(--g0);border-right:1px solid var(--g100);overflow-y:auto;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar .mod{padding:2px 0}
+.sidebar .mod-title{display:flex;align-items:center;gap:6px;padding:9px 16px 5px;font-size:10px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.6px;cursor:pointer}
+.sidebar .mod-title:hover{color:var(--g600)}
+.sidebar .mod-title .arr{font-size:8px;transition:transform .15s;color:var(--g300)}
+.sidebar .mod.collapsed .mod-title .arr{transform:rotate(-90deg)}
+.sidebar .mod.collapsed .mod-body{display:none}
+.sidebar .mi{display:flex;align-items:center;gap:8px;padding:6px 16px 6px 28px;font-size:var(--fs-sm);color:var(--g500);cursor:pointer;transition:all .08s;border-left:2px solid transparent}
+.sidebar .mi:hover{background:var(--g50);color:var(--g700)}
+.sidebar .mi.active{background:var(--b50);color:var(--b600);font-weight:600;border-left-color:var(--b500)}
+.sidebar .mi .mi-count{font-size:10px;background:var(--r500);color:#fff;padding:0 5px;border-radius:8px;margin-left:auto}
+
+.main{flex:1;overflow-y:auto;background:var(--g50)}
+.main-inner{padding:20px 24px;max-width:1400px}
+
+.phead{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.phead h2{font-size:var(--fs-xl);font-weight:700;color:var(--g800)}
+.pactions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* Stat cards */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.stat{background:var(--g0);border:1px solid var(--g100);border-radius:var(--rad-lg);padding:16px 18px;box-shadow:var(--sh)}
+.stat .sl{font-size:var(--fs-sm);color:var(--g400);font-weight:500;margin-bottom:6px}
+.stat .sv{font-size:24px;font-weight:700;color:var(--g800);line-height:1.1}
+.stat.income .sv{color:var(--gn600)}.stat.expense .sv{color:var(--r500)}.stat.ar .sv{color:var(--a500)}.stat.ap .sv{color:var(--b600)}
+
+.accts{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.accts .ac{flex:1;min-width:120px;background:var(--g0);border:1px solid var(--g100);border-radius:var(--rad-lg);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-sm)}
+.accts .ac .an{color:var(--g400)}.accts .ac .ab{font-weight:700;font-size:var(--fs-lg)}
+
+/* Table */
+.tbl{background:var(--g0);border:1px solid var(--g100);border-radius:var(--rad-lg);overflow:hidden}
+.tbl .tbar{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--g100);background:var(--g50)}
+.tbl .tbar input{flex:1;max-width:280px;background:var(--g50);font-size:var(--fs-sm)}
+.tbl .tbar select{background:var(--g50);font-size:var(--fs-sm)}
+.tbl table{width:100%;border-collapse:collapse}
+.tbl th{padding:8px 14px;font-size:11px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--g100);background:var(--g50);text-align:left;position:sticky;top:0}
+.tbl td{padding:9px 14px;font-size:var(--fs-sm);border-bottom:1px solid var(--g50);color:var(--g600);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}.tbl tbody tr:hover td{background:var(--b50)}
+.tbl .r{text-align:right}.tbl .mono{font-family:"SF Mono","Fira Code",monospace;font-size:11px;color:var(--g400)}.tbl .b{font-weight:600}
+.tbl tbody tr{cursor:pointer}.empty{text-align:center;padding:56px 20px;color:var(--g300);font-size:var(--fs-sm)}.empty .em{font-size:36px;margin-bottom:8px}
+
+/* Form */
+.form{background:var(--g0);border:1px solid var(--g100);border-radius:var(--rad-lg);max-width:800px}
+.form .fh{padding:14px 18px;border-bottom:1px solid var(--g100);font-weight:700;font-size:var(--fs);display:flex;align-items:center;gap:8px;color:var(--g800)}
+.form .fb{padding:18px}.form .fg{margin-bottom:14px}.form .fg label{display:block;font-size:var(--fs-sm);font-weight:600;color:var(--g400);margin-bottom:4px}
+.form .fg input,.form .fg select{width:100%}.form .fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form .fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.form .fa{padding-top:12px;display:flex;gap:8px;border-top:1px solid var(--g50)}
+.items-head{display:grid;grid-template-columns:2fr 1fr 1fr 36px;gap:8px;margin-bottom:6px;font-size:10px;font-weight:700;color:var(--g300);text-transform:uppercase}
+.item-row{display:grid;grid-template-columns:2fr 1fr 1fr 36px;gap:8px;margin-bottom:6px;align-items:start}
+
+/* Detail */
+.detail{background:var(--g0);border:1px solid var(--g100);border-radius:var(--rad-lg);max-width:850px}
+.detail .dh{padding:14px 18px;border-bottom:1px solid var(--g100);display:flex;justify-content:space-between;align-items:center}
+.detail .dh .dht{font-weight:700;font-size:var(--fs)}.detail .db{padding:18px}
+.detail .dm{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:18px}
+.detail .dm .mi .ml{font-size:10px;color:var(--g300);text-transform:uppercase;letter-spacing:.3px}.detail .dm .mi .mv{font-weight:600;margin-top:2px}
+.detail table{width:100%;border-collapse:collapse;margin-bottom:16px}.detail td{padding:8px 0;border-bottom:1px solid var(--g50);font-size:var(--fs-sm)}
+.detail table th{text-align:left;font-size:10px;color:var(--g400);text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--g100)}
+
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:20px;font-size:var(--fs-sm);font-weight:600;z-index:9999;opacity:0;transition:opacity .2s;box-shadow:0 4px 16px rgba(0,0,0,.12)}.toast.on{opacity:1}.toast.ok{background:var(--g800);color:#fff}.toast.er{background:var(--r500);color:#fff}
+
+@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.sidebar{width:56px;min-width:56px}.sidebar .mod-title span,.sidebar .mi span,.sidebar .mi-count,.sidebar .mod-title .arr{display:none}.sidebar .mi{justify-content:center;padding:8px}.detail .dm{grid-template-columns:1fr 1fr}.form .fr,.form .fr3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage" class="login-page">
+  <div class="login-card">
+    <h1>Hergent ERP</h1>
+    <div class="sub">进销存管理系统</div>
+    <div class="fld"><label>用户名</label><input id="loginUser" autocomplete="username" placeholder="admin"></div>
+    <div class="fld"><label>密码</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="admin123"></div>
+    <button class="btn btn-p" onclick="doLogin()" id="loginBtn">登 录</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="appPage">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> Hergent ERP</div>
+    <div class="user" style="cursor:pointer" onclick="doLogout()"><span id="appUser"></span><span class="av" id="appAv"></span></div>
+  </div>
+  <div class="app-body">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="main"><div class="main-inner" id="mainContent"></div></main>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+let T='', U=null, tab='dashboard';
+const S={draft:'草稿',received:'已入库',delivered:'已出库',signed:'已签收',settled:'已结清',cancelled:'已取消',unpaid:'未结',partial:'部分结',paid:'已结',pending:'待交',submitted:'已交',confirmed:'已确认'};
+const ICO={dashboard:'📊',sale:'📝',purchase:'📦',inventory:'🏪',payments:'💳',prepay:'🏦',expense:'📋',writeoff:'🔄',settlement:'📮',contacts:'👥',bills:'💰',users:'⚙️'};
+const MODULES=[
+  {title:'业务管理',open:true,items:[
+    {id:'dashboard',label:'经营看板'},
+    {id:'sale',label:'销售管理'},
+    {id:'purchase',label:'采购管理'},
+    {id:'inventory',label:'库存管理'},
+  ]},
+  {title:'资金管理',open:true,items:[
+    {id:'payments',label:'收付款记录'},
+    {id:'prepay',label:'预收预付款'},
+    {id:'expense',label:'费用管理'},
+    {id:'writeoff',label:'核销管理'},
+    {id:'settlement',label:'员工交账'},
+  ]},
+  {title:'基础资料',open:true,items:[
+    {id:'contacts',label:'客户供应商'},
+    {id:'bills',label:'应收应付'},
+  ]},
+];
+if(U?.role==='admin') MODULES.push({title:'系统设置',open:true,items:[{id:'users',label:'用户管理'}]});
+
+function Y(v){return '¥'+(parseFloat(v)||0).toFixed(2)}
+
+// ============================================================
+async function api(p,o={}){
+  const h={'Content-Type':'application/json'}; if(T) h['Authorization']='Bearer '+T;
+  try{const r=await fetch('/api'+p,{headers:h,...o,body:o.body?JSON.stringify(o.body):undefined});if(r.status===401){T='';localStorage.removeItem('erp_token');location.reload();return null}return r.json()}catch(e){return null}
+}
+function toast(m,t){const e=document.getElementById('toast');e.textContent=m;e.className='toast '+(t||'ok')+' on';setTimeout(()=>e.classList.remove('on'),2200)}
+
+// ============================================================
+async function doLogin(){
+  const u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPass').value.trim();
+  if(!u||!p)return;
+  const btn=document.getElementById('loginBtn');btn.textContent='登录中...';btn.disabled=true;
+  const errEl=document.getElementById('loginErr');errEl.style.display='none';
+  try{
+    const resp=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const r=await resp.json();
+    if(r.success){T=r.token;U=r.user;localStorage.setItem('erp_token',T);initApp()}else{errEl.textContent=r.detail||'用户名或密码错误';errEl.style.display='block'}
+  }catch(e){errEl.textContent='网络错误，请重试';errEl.style.display='block'}
+  btn.textContent='登 录';btn.disabled=false;
+}
+
+async function initApp(){
+  document.getElementById('loginPage').style.display='none';document.getElementById('appPage').style.display='flex';
+  document.getElementById('appUser').textContent=U.display_name||U.username;
+  document.getElementById('appAv').textContent=(U.display_name||U.username)[0];
+  // 管理员加系统设置模块
+  if(U.role==='admin'&&!MODULES.find(m=>m.title==='系统设置'))MODULES.push({title:'系统设置',open:true,items:[{id:'users',label:'用户管理'}]});
+  renderSidebar();navigate('dashboard');
+}
+
+function renderSidebar(){
+  document.getElementById('sidebar').innerHTML=MODULES.map(m=>`
+    <div class="mod${m.open?'':' collapsed'}">
+      <div class="mod-title" onclick="this.parentElement.classList.toggle('collapsed')"><span class="arr">▼</span><span>${m.title}</span></div>
+      <div class="mod-body">${m.items.map(i=>`<div class="mi${tab===i.id?' active':''}" onclick="navigate('${i.id}')">${ICO[i.id]||''} <span>${i.label}</span></div>`).join('')}</div>
+    </div>`).join('');
+  document.getElementById('sidebar').insertAdjacentHTML('beforeend',`<div style="margin-top:auto;padding:6px 0;border-top:1px solid var(--g100)"><div class="mi" onclick="doLogout()" style="color:var(--g400)">🚪 <span>退出登录</span></div></div>`);
+}
+
+function navigate(t){tab=t;renderSidebar();Pages[t]?Pages[t]():navigate('dashboard')}
+
+// ============================================================
+const Pages={
+  dashboard:async()=>{
+    const d=await api('/dashboard');if(!d)return;
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>经营看板</h2></div>
+      <div class="stats"><div class="stat income"><div class="sl">今日收入</div><div class="sv">${Y(d.today_income)}</div></div>
+      <div class="stat expense"><div class="sl">今日支出</div><div class="sv">${Y(d.today_expense)}</div></div>
+      <div class="stat ar"><div class="sl">应收总额</div><div class="sv">${Y(d.total_ar)}</div></div>
+      <div class="stat ap"><div class="sl">应付总额</div><div class="sv">${Y(d.total_ap)}</div></div></div>
+      <div class="phead"><h3 style="font-size:var(--fs-lg);color:var(--g600)">账户余额</h3></div>
+      <div class="accts">${(d.accounts||[]).map(a=>`<div class="ac"><span class="an">${a.name}</span><span class="ab">${Y(a.current_balance)}</span></div>`).join('')}</div>`;
+  },
+
+  sale:async()=>{
+    const d=await api('/sale-orders?limit=300');const os=d?.orders||[];
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>销售管理</h2><div class="pactions"><button class="btn btn-p" onclick="saleForm()">+ 开销售单</button></div></div>
+      <div class="tbl"><div class="tbar"><input placeholder="搜索订单号 / 客户..." oninput="ft(this)"></div><table><thead><tr><th>订单号</th><th>客户</th><th>日期</th><th class="r">金额</th><th class="r">已收</th><th>状态</th></tr></thead><tbody>${os.map(o=>`<tr onclick="saleDetail(${o.id})"><td class="mono">${o.order_no}</td><td>${o.customer_name||'-'}</td><td>${o.order_date?.slice(0,10)}</td><td class="r b">${Y(o.total_amount)}</td><td class="r b">${Y(o.received_amount)}</td><td><span class="badge ${o.status==='draft'?'bg-dr':o.status==='delivered'?'bg-act':o.status==='cancelled'?'bg-err':'bg-ok'}">${S[o.status]}</span></td></tr>`).join('')||`<tr><td colspan="6"><div class="empty"><div class="em">📝</div><p>暂无销售单</p></div></td></tr>`}</tbody></table></div>`;
+  },
+
+  purchase:async()=>{
+    const d=await api('/purchase-orders?limit=300');const os=d?.orders||[];
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>采购管理</h2><div class="pactions"><button class="btn btn-p" onclick="purForm()">+ 采购入库</button></div></div>
+      <div class="tbl"><table><thead><tr><th>订单号</th><th>供应商</th><th>日期</th><th class="r">金额</th><th class="r">已付</th><th>状态</th></tr></thead><tbody>${os.map(o=>`<tr onclick="purDetail(${o.id})"><td class="mono">${o.order_no}</td><td>${o.supplier_name||'-'}</td><td>${o.order_date?.slice(0,10)}</td><td class="r b">${Y(o.total_amount)}</td><td class="r b">${Y(o.paid_amount)}</td><td><span class="badge ${o.status==='draft'?'bg-dr':'bg-ok'}">${S[o.status]}</span></td></tr>`).join('')||`<tr><td colspan="6"><div class="empty"><div class="em">📦</div><p>暂无采购单</p></div></td></tr>`}</tbody></table></div>`;
+  },
+
+  inventory:async()=>{
+    const d=await api('/inventory');const inv=Array.isArray(d)?d:[];
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>库存管理</h2><div class="pactions"><button class="btn btn-p" onclick="prodForm()">+ 商品</button></div></div>
+      <div class="tbl"><table><thead><tr><th>商品</th><th>规格</th><th>品牌/分类</th><th class="r">进价</th><th class="r">售价</th><th class="r">库存</th></tr></thead><tbody>${inv.map(v=>`<tr style="${v.quantity<=v.safety_stock&&v.safety_stock>0?'background:var(--r50)':''}"><td><strong>${v.name}</strong>${v.quantity<=v.safety_stock&&v.safety_stock>0?' <span class="badge bg-err">低库存</span>':''}</td><td>${v.spec||'-'} / ${v.unit}</td><td>${v.brand||'-'} · ${v.category||'-'}</td><td class="r b">${Y(v.purchase_price)}</td><td class="r b">${Y(v.sale_price)}</td><td class="r b" style="color:${v.quantity<=v.safety_stock?'var(--r500)':'inherit'}">${v.quantity}</td></tr>`).join('')||`<tr><td colspan="6"><div class="empty"><div class="em">🏪</div><p>请先添加商品</p></div></td></tr>`}</tbody></table></div>`;
+  },
+
+  contacts:async()=>{
+    const d=await api('/contacts');const cs=Array.isArray(d)?d:[];
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>客户供应商</h2><div class="pactions"><button class="btn btn-p" onclick="contactForm()">+ 新增</button></div></div>
+      <div class="tbl"><table><thead><tr><th>名称</th><th>类型</th><th>电话</th><th>结算方式</th><th class="r">欠款</th></tr></thead><tbody>${cs.map(c=>`<tr onclick="contactDetail(${c.id})"><td><strong>${c.name}</strong></td><td><span class="badge ${c.type==='supplier'?'bg-act':'bg-inf'}">${c.type==='supplier'?'供应商':c.type==='both'?'客户/供应商':'客户'}</span></td><td>${c.phone||'-'}</td><td>${c.settlement_method}${c.credit_days?' '+c.credit_days+'天':''}</td><td class="r b" style="color:var(--a500)" id="debt${c.id}">-</td></tr>`).join('')||`<tr><td colspan="5"><div class="empty"><div class="em">👥</div><p>暂无联系人</p></div></td></tr>`}</tbody></table></div>`;
+    // async load debts
+    cs.forEach(async c=>{const r=await api('/contacts/'+c.id);const e=document.getElementById('debt'+c.id);if(e&&r?.receivable)e.textContent=Y(r.receivable.balance)});
+  },
+
+  bills:async()=>{
+    const d=await api('/receivables?limit=500');const bs=d?.receivables||[];
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>应收应付</h2><div class="pactions">
+        <select onchange="fb(this)" style="font-size:var(--fs-sm)"><option value="">全部类型</option><option value="ar">应收</option><option value="ap">应付</option></select>
+        <select onchange="fs(this)" style="font-size:var(--fs-sm)"><option value="">全部状态</option><option value="unpaid">未结</option><option value="partial">部分结</option><option value="paid">已结</option></select></div></div>
+      <div class="tbl"><table><thead><tr><th>类型</th><th>往来方</th><th>来源</th><th>日期</th><th class="r">金额</th><th class="r">已结</th><th>状态</th></tr></thead><tbody id="billBody">${bs.map(r=>`<tr data-t="${r.type}" data-s="${r.status}"><td><span class="badge ${r.type==='ar'?'bg-war':'bg-inf'}">${r.type==='ar'?'应收':'应付'}</span></td><td>${r.contact_name||'-'}</td><td>${r.ref_type}</td><td>${r.created_at?.slice(0,10)}</td><td class="r b">${Y(r.amount)}</td><td class="r b">${Y(r.paid_amount)}</td><td><span class="badge ${r.status==='paid'?'bg-ok':r.status==='partial'?'bg-act':'bg-war'}">${S[r.status]}</span></td></tr>`).join('')||`<tr><td colspan="7"><div class="empty"><div class="em">💰</div><p>暂无账单</p></div></td></tr>`}</tbody></table></div>`;
+  },
+
+  payments:async()=>{
+    const d=await api('/payments?limit=300');const ps=d?.items||[];
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>收付款记录</h2><div class="pactions"><button class="btn btn-p" onclick="payModal()">+ 收款/付款</button></div></div>
+      <div class="tbl"><table><thead><tr><th>时间</th><th>类型</th><th>账户</th><th>分类</th><th class="r">金额</th><th class="r">余额</th><th>备注</th></tr></thead><tbody>${ps.map(p=>`<tr><td>${p.created_at?.slice(0,16)}</td><td><span class="badge ${p.type==='income'?'bg-ok':'bg-err'}">${p.type==='income'?'收入':'支出'}</span></td><td>${p.account}</td><td>${p.category||'-'}</td><td class="r b" style="color:${p.type==='income'?'var(--gn600)':'var(--r500)'}">${p.type==='income'?'+':'-'}${Y(p.amount)}</td><td class="r">${Y(p.balance_after)}</td><td>${p.note||'-'}</td></tr>`).join('')||`<tr><td colspan="7"><div class="empty"><div class="em">💳</div><p>暂无记录</p></div></td></tr>`}</tbody></table></div>`;
+  },
+
+  prepay:async()=>{
+    const d=await api('/prepayments');const ps=Array.isArray(d)?d:[];
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>预收预付款</h2><div class="pactions"><button class="btn btn-p" onclick="ppForm()">+ 新建</button></div></div>
+      <div class="tbl"><table><thead><tr><th>类型</th><th>往来方</th><th class="r">金额</th><th class="r">已用</th><th class="r">可用</th><th>日期</th><th>备注</th></tr></thead><tbody>${ps.map(p=>`<tr><td><span class="badge ${p.type==='ar'?'bg-war':'bg-inf'}">${p.type==='ar'?'预收款':'预付款'}</span></td><td>${p.contact_name||'-'}</td><td class="r b">${Y(p.amount)}</td><td class="r b">${Y(p.used_amount)}</td><td class="r b">${Y(p.amount-p.used_amount)}</td><td>${p.created_at?.slice(0,10)}</td><td>${p.note||'-'}</td></tr>`).join('')||`<tr><td colspan="7"><div class="empty"><div class="em">🏦</div><p>暂无记录</p></div></td></tr>`}</tbody></table></div>`;
+  },
+
+  expense:async()=>{
+    const d=await api('/expense-orders');const es=Array.isArray(d)?d:[];
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>费用管理</h2><div class="pactions"><button class="btn btn-p" onclick="expForm()">+ 费用单</button></div></div>
+      <div class="tbl"><table><thead><tr><th>单号</th><th>类型</th><th>往来方</th><th>分类</th><th class="r">金额</th><th class="r">已付</th><th>日期</th><th>状态</th></tr></thead><tbody>${es.map(e=>`<tr><td class="mono">${e.order_no}</td><td><span class="badge ${e.type==='customer'?'bg-war':e.type==='supplier'?'bg-act':'bg-dr'}">${e.type==='customer'?'客户费用':e.type==='supplier'?'供应商费用':'内部费用'}</span></td><td>${e.contact_name||'-'}</td><td>${e.category_name||'-'}</td><td class="r b">${Y(e.amount)}</td><td class="r b">${Y(e.paid_amount)}</td><td>${e.order_date?.slice(0,10)}</td><td><span class="badge ${e.paid_amount>=e.amount?'bg-ok':'bg-war'}">${e.paid_amount>=e.amount?'已付':'未付'}</span></td></tr>`).join('')||`<tr><td colspan="8"><div class="empty"><div class="em">📋</div><p>暂无费用单</p></div></td></tr>`}</tbody></table></div>`;
+  },
+
+  writeoff:async()=>{
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>核销管理</h2><div class="pactions"><button class="btn btn-p" onclick="woForm()">+ 核销单</button></div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:8px">
+        ${[{t:'预收冲应收',d:'客户有预收款，用预收款抵扣应收欠款',c:'bg-war'},{t:'预付冲应付',d:'供应商有预付款，用预付款抵扣应付货款',c:'bg-inf'},{t:'应收冲应收',d:'同一客户应收正负相抵',c:'bg-act'},{t:'应付冲应付',d:'同一供应商应付正负相抵',c:'bg-dr'}].map(w=>`<div class="form" style="max-width:none"><div class="fh"><span class="badge ${w.c}" style="margin-right:6px">核销</span>${w.t}</div><div class="fb" style="font-size:var(--fs-sm);color:var(--g500)">${w.d}</div></div>`).join('')}
+      </div>`;
+  },
+
+  settlement:async()=>{
+    const d=await api('/settlements');const ss=Array.isArray(d)?d:[];
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>员工交账</h2><div class="pactions"><button class="btn btn-p" onclick="alert('请在具体单据页面操作交账')">+ 交账</button></div></div>
+      <div class="tbl"><table><thead><tr><th>ID</th><th>员工</th><th>日期</th><th>状态</th><th>操作</th></tr></thead><tbody>${ss.map(s=>`<tr><td>${s.id}</td><td>${s.employee_id}</td><td>${s.settle_date}</td><td><span class="badge ${s.status==='confirmed'?'bg-ok':s.status==='submitted'?'bg-act':'bg-dr'}">${S[s.status]}</span></td><td>${s.status==='pending'?`<button class="btn btn-s" onclick="stSubmit(${s.id})">交单</button>`:s.status==='submitted'?`<button class="btn btn-s btn-p" onclick="stConfirm(${s.id})">确认</button>`:''}</td></tr>`).join('')||`<tr><td colspan="5"><div class="empty"><div class="em">📮</div><p>暂无交账记录</p></div></td></tr>`}</tbody></table></div>`;
+  },
+
+  users:async()=>{
+    const d=await api('/users');const us=Array.isArray(d)?d:[];
+    document.getElementById('mainContent').innerHTML=`
+      <div class="phead"><h2>用户管理</h2><div class="pactions"><button class="btn btn-p" onclick="userForm()">+ 用户</button></div></div>
+      <div class="tbl"><table><thead><tr><th>用户名</th><th>姓名</th><th>角色</th><th>状态</th></tr></thead><tbody>${us.map(u=>`<tr><td>${u.username}</td><td>${u.display_name||'-'}</td><td><span class="badge ${u.role==='admin'?'bg-war':'bg-inf'}">${u.role==='admin'?'管理员':u.role==='driver'?'司机':'普通用户'}</span></td><td><span class="badge ${u.is_active?'bg-ok':'bg-dr'}">${u.is_active?'正常':'停用'}</span></td></tr>`).join('')}</tbody></table></div>`;
+  }
+};
+
+// ============================================================
+// Forms
+// ============================================================
+async function saleForm(){
+  const [p,c]=await Promise.all([api('/products'),api('/contacts?type=customer')]);const ps=Array.isArray(p)?p:[],cs=Array.isArray(c)?c:[];
+  document.getElementById('mainContent').innerHTML=`
+    <div class="phead"><h2>开销售单</h2></div><div class="form"><div class="fh">📝 新建销售单</div><div class="fb">
+      <div class="fr"><div class="fg"><label>客户</label><select id="fCust">${cs.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</select></div><div class="fg"><label>折扣 (¥)</label><input id="fDisc" type="number" value="0" step="0.01"></div></div>
+      <div class="fg"><label>备注</label><input id="fNote"></div>
+      <div class="items-head"><span>商品</span><span>数量</span><span>单价</span><span></span></div>
+      <div id="saleItems"><div class="item-row"><select class="ip"><option value="">选择商品</option>${ps.map(p=>`<option value="${p.id}">${p.name} ${p.spec||''}</option>`).join('')}</select><input class="iq" type="number" value="1" min="1"><input class="ipr" type="number" step="0.01"><button class="btn btn-s btn-g" onclick="addRow('saleItems')">+</button></div></div>
+      <div class="fa"><button class="btn" onclick="navigate('sale')">取消</button><button class="btn btn-p" onclick="subSale()">保存草稿</button></div></div></div>`;
+}
+function addRow(id){const r=document.querySelector('#'+id+' .item-row');const c=r.cloneNode(true);c.querySelectorAll('input').forEach(i=>i.value=i.type==='number'?'1':'');c.querySelector('button').textContent='-';c.querySelector('button').onclick=function(){this.parentElement.remove()};document.getElementById(id).appendChild(c)}
+async function subSale(){
+  const cid=parseInt(document.getElementById('fCust').value);const items=[];
+  document.querySelectorAll('#saleItems .item-row').forEach(r=>{const pid=parseInt(r.querySelector('.ip')?.value),qty=parseInt(r.querySelector('.iq')?.value)||0,price=parseFloat(r.querySelector('.ipr')?.value)||0;if(pid&&qty>0&&price>0)items.push({product_id:pid,quantity:qty,unit_price:price})});
+  if(!cid||!items.length)return toast('请完善信息','er');
+  const r=await api('/sale-orders',{method:'POST',body:{customer_id:cid,items,discount:parseFloat(document.getElementById('fDisc')?.value)||0,note:document.getElementById('fNote')?.value}});
+  r?.success?(navigate('sale'),toast('创建成功','ok')):toast(r?.detail||'失败','er')
+}
+async function saleDetail(id){
+  const d=await api('/sale-orders/'+id);if(!d?.order)return;const o=d.order,is=d.items||[];
+  let ac=o.status==='draft'?`<button class="btn btn-p" onclick="delSO(${o.id})">确认出库</button>`:o.status==='delivered'?`<button class="btn btn-p" onclick="sigSO(${o.id})">确认签收</button> <button class="btn" onclick="pm('ar','sale',${o.id},${o.customer_id},${o.total_amount-o.received_amount})">收款</button>`:o.status==='signed'?`<button class="btn" onclick="pm('ar','sale',${o.id},${o.customer_id},${o.total_amount-o.received_amount})">收款</button>`:'';
+  document.getElementById('mainContent').innerHTML=`<button class="btn btn-g" onclick="navigate('sale')" style="margin-bottom:10px">← 返回列表</button><div class="detail"><div class="dh"><span class="dht">${o.order_no}</span><span class="badge ${o.status==='draft'?'bg-dr':o.status==='delivered'?'bg-act':'bg-ok'}">${S[o.status]}</span></div><div class="db"><div class="dm"><div class="mi"><div class="ml">客户</div><div class="mv">${o.customer_name}</div></div><div class="mi"><div class="ml">日期</div><div class="mv">${o.order_date?.slice(0,10)}</div></div><div class="mi"><div class="ml">金额</div><div class="mv">${Y(o.total_amount)}</div></div><div class="mi"><div class="ml">已收</div><div class="mv">${Y(o.received_amount)}</div></div></div><table><tr><th>商品</th><th class="r">数量</th><th class="r">单价</th><th class="r">金额</th></tr>${is.map(i=>`<tr><td>${i.product_name} ${i.spec||''}</td><td class="r">${i.quantity}${i.unit||''}</td><td class="r">${Y(i.unit_price)}</td><td class="r"><strong>${Y(i.amount)}</strong></td></tr>`).join('')}</table><div class="fa">${ac}</div></div></div>`;
+}
+async function delSO(id){const r=await api('/sale-orders/'+id+'/deliver',{method:'POST'});r?.success?(toast('已出库','ok'),saleDetail(id)):toast(r?.detail,'er')}
+async function sigSO(id){const r=await api('/sale-orders/'+id+'/sign',{method:'POST'});r?.success?(toast('已签收','ok'),saleDetail(id)):toast(r?.detail,'er')}
+
+async function purForm(){
+  const [p,c]=await Promise.all([api('/products'),api('/contacts?type=supplier')]);const ps=Array.isArray(p)?p:[],cs=Array.isArray(c)?c:[];
+  document.getElementById('mainContent').innerHTML=`
+    <div class="phead"><h2>采购入库</h2></div><div class="form"><div class="fh">📦 新建采购单</div><div class="fb">
+      <div class="fr"><div class="fg"><label>供应商</label><select id="fSupp">${cs.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</select></div></div>
+      <div class="fg"><label>备注</label><input id="fNote"></div>
+      <div class="items-head"><span>商品</span><span>数量</span><span>进价</span><span></span></div>
+      <div id="purItems"><div class="item-row"><select class="ip"><option value="">选择商品</option>${ps.map(p=>`<option value="${p.id}">${p.name} ${p.spec||''}</option>`).join('')}</select><input class="iq" type="number" value="1" min="1"><input class="ipr" type="number" step="0.01"><button class="btn btn-s btn-g" onclick="addRow('purItems')">+</button></div></div>
+      <div class="fa"><button class="btn" onclick="navigate('purchase')">取消</button><button class="btn btn-p" onclick="subPur()">保存并入库</button></div></div></div>`;
+}
+async function subPur(){
+  const sid=parseInt(document.getElementById('fSupp').value);const items=[];
+  document.querySelectorAll('#purItems .item-row').forEach(r=>{const pid=parseInt(r.querySelector('.ip')?.value),qty=parseInt(r.querySelector('.iq')?.value)||0,price=parseFloat(r.querySelector('.ipr')?.value)||0;if(pid&&qty>0&&price>0)items.push({product_id:pid,quantity:qty,unit_price:price})});
+  if(!sid||!items.length)return toast('请完善信息','er');
+  const r=await api('/purchase-orders',{method:'POST',body:{supplier_id:sid,items,note:document.getElementById('fNote')?.value}});
+  if(r?.success){await api('/purchase-orders/'+r.order_id+'/confirm',{method:'POST'});navigate('purchase');toast('入库成功','ok')}else toast(r?.detail||'失败','er')
+}
+async function purDetail(id){
+  const d=await api('/purchase-orders/'+id);if(!d?.order)return;const o=d.order,is=d.items||[];
+  document.getElementById('mainContent').innerHTML=`<button class="btn btn-g" onclick="navigate('purchase')" style="margin-bottom:10px">← 返回列表</button><div class="detail"><div class="dh"><span class="dht">${o.order_no}</span><span class="badge bg-ok">${S[o.status]}</span></div><div class="db"><div class="dm"><div class="mi"><div class="ml">供应商</div><div class="mv">${o.supplier_name}</div></div><div class="mi"><div class="ml">日期</div><div class="mv">${o.order_date?.slice(0,10)}</div></div><div class="mi"><div class="ml">金额</div><div class="mv">${Y(o.total_amount)}</div></div><div class="mi"><div class="ml">已付</div><div class="mv">${Y(o.paid_amount)}</div></div></div><table><tr><th>商品</th><th class="r">数量</th><th class="r">单价</th><th class="r">金额</th></tr>${is.map(i=>`<tr><td>${i.product_name} ${i.spec||''}</td><td class="r">${i.quantity}${i.unit||''}</td><td class="r">${Y(i.unit_price)}</td><td class="r"><strong>${Y(i.amount)}</strong></td></tr>`).join('')}</table>${o.status==='draft'?`<div class="fa"><button class="btn btn-p" onclick="confirmPO(${o.id});setTimeout(()=>navigate('purchase'),500)">确认入库</button></div>`:o.paid_amount<o.total_amount?`<div class="fa"><button class="btn" onclick="pm('ap','purchase',${o.id},${o.supplier_id},${o.total_amount-o.paid_amount})">付款</button></div>`:''}</div></div>`;
+}
+async function confirmPO(id){const r=await api('/purchase-orders/'+id+'/confirm',{method:'POST'});r?.success?toast('已入库','ok'):toast(r?.detail,'er')}
+
+function prodForm(){
+  document.getElementById('mainContent').innerHTML=`<div class="phead"><h2>新增商品</h2></div><div class="form"><div class="fh">🏪 商品信息</div><div class="fb">
+    <div class="fr"><div class="fg"><label>名称 *</label><input id="pName"></div><div class="fg"><label>条码</label><input id="pBC"></div></div>
+    <div class="fr3"><div class="fg"><label>规格</label><input id="pSpec"></div><div class="fg"><label>单位</label><input id="pUnit" value="件"></div><div class="fg"><label>保质期(天)</label><input id="pExp" type="number" value="0"></div></div>
+    <div class="fr"><div class="fg"><label>品牌</label><input id="pBrand"></div><div class="fg"><label>分类</label><input id="pCat"></div></div>
+    <div class="fr"><div class="fg"><label>进价</label><input id="pPri" type="number" step="0.01"></div><div class="fg"><label>售价</label><input id="pSale" type="number" step="0.01"></div></div>
+    <div class="fg"><label>安全库存</label><input id="pStk" type="number" value="0" style="max-width:160px"></div>
+    <div class="fa"><button class="btn" onclick="navigate('inventory')">取消</button><button class="btn btn-p" onclick="subProd()">保存</button></div></div></div>`;
+}
+async function subProd(){
+  const d={name:document.getElementById('pName').value,barcode:document.getElementById('pBC').value,spec:document.getElementById('pSpec').value,unit:document.getElementById('pUnit').value||'件',brand:document.getElementById('pBrand').value,category:document.getElementById('pCat').value,purchase_price:parseFloat(document.getElementById('pPri').value)||0,sale_price:parseFloat(document.getElementById('pSale').value)||0,safety_stock:parseInt(document.getElementById('pStk').value)||0,expiry_days:parseInt(document.getElementById('pExp').value)||0};
+  if(!d.name)return toast('请输入名称','er');
+  (await api('/products',{method:'POST',body:d}))?.success?(navigate('inventory'),toast('创建成功','ok')):toast('失败','er')
+}
+
+function contactForm(){
+  document.getElementById('mainContent').innerHTML=`<div class="phead"><h2>新增联系人</h2></div><div class="form"><div class="fh">👥 基本信息</div><div class="fb">
+    <div class="fr"><div class="fg"><label>类型</label><select id="cT"><option value="customer">客户</option><option value="supplier">供应商</option><option value="both">两者都是</option></select></div><div class="fg"><label>名称 *</label><input id="cN"></div></div>
+    <div class="fr"><div class="fg"><label>电话</label><input id="cP"></div><div class="fg"><label>地址</label><input id="cA"></div></div>
+    <div class="fr"><div class="fg"><label>结算方式</label><select id="cS"><option value="现结">现结</option><option value="赊账">赊账</option><option value="账期">账期</option></select></div><div class="fg"><label>账期(天)</label><input id="cD" type="number" value="0"></div></div>
+    <div class="fa"><button class="btn" onclick="navigate('contacts')">取消</button><button class="btn btn-p" onclick="subContact()">保存</button></div></div></div>`;
+}
+async function subContact(){
+  const d={name:document.getElementById('cN').value,type:document.getElementById('cT').value,phone:document.getElementById('cP').value,address:document.getElementById('cA').value,settlement_method:document.getElementById('cS').value,credit_days:parseInt(document.getElementById('cD').value)||0};
+  if(!d.name)return toast('请输入名称','er');
+  (await api('/contacts',{method:'POST',body:d}))?.success?(navigate('contacts'),toast('创建成功','ok')):toast('失败','er')
+}
+async function contactDetail(id){
+  const c=await api('/contacts/'+id);if(!c?.id)return;
+  document.getElementById('mainContent').innerHTML=`<button class="btn btn-g" onclick="navigate('contacts')" style="margin-bottom:10px">← 返回列表</button><div class="detail"><div class="dh"><span class="dht">${c.name}</span><span class="badge ${c.type==='supplier'?'bg-act':'bg-inf'}">${c.type==='supplier'?'供应商':c.type==='both'?'客户/供应商':'客户'}</span></div><div class="db"><div class="dm"><div class="mi"><div class="ml">电话</div><div class="mv">${c.phone||'-'}</div></div><div class="mi"><div class="ml">地址</div><div class="mv">${c.address||'-'}</div></div><div class="mi"><div class="ml">结算</div><div class="mv">${c.settlement_method}${c.credit_days?' '+c.credit_days+'天':''}</div></div><div class="mi"><div class="ml">欠款</div><div class="mv" style="color:var(--a500)">${Y(c.receivable?.balance)}</div></div></div></div></div>`;
+}
+
+function ppForm(){
+  document.getElementById('mainContent').innerHTML=`<div class="phead"><h2>新建预收/预付</h2></div><div class="form"><div class="fh">🏦 预收/预付</div><div class="fb">
+    <div class="fr"><div class="fg"><label>类型</label><select id="ppT"><option value="ar">预收款（客户预交）</option><option value="ap">预付款（预付供应商）</option></select></div><div class="fg"><label>往来方</label><select id="ppC"></select></div></div>
+    <div class="fr"><div class="fg"><label>金额</label><input id="ppA" type="number" step="0.01"></div><div class="fg"><label>备注</label><input id="ppN"></div></div>
+    <div class="fa"><button class="btn" onclick="navigate('prepay')">取消</button><button class="btn btn-p" onclick="subPP()">保存</button></div></div></div>`;
+  api('/contacts').then(cs=>{const s=document.getElementById('ppC');(Array.isArray(cs)?cs:[]).forEach(c=>{s.innerHTML+=`<option value="${c.id}">${c.name}</option>`})});
+}
+async function subPP(){
+  const t=document.getElementById('ppT').value,cid=parseInt(document.getElementById('ppC').value),a=parseFloat(document.getElementById('ppA').value)||0;
+  if(!cid||!a)return toast('请完善','er');
+  (await api('/prepayments',{method:'POST',body:{type:t,contact_id:cid,amount:a,note:document.getElementById('ppN').value}}))?.success?(navigate('prepay'),toast('创建成功','ok')):toast('失败','er')
+}
+
+function expForm(){
+  api('/contacts').then(cs=>{
+    document.getElementById('mainContent').innerHTML=`<div class="phead"><h2>新建费用单</h2></div><div class="form"><div class="fh">📋 费用单</div><div class="fb">
+      <div class="fr"><div class="fg"><label>类型</label><select id="eT" onchange="expTypeChange()"><option value="customer">客户费用</option><option value="supplier">供应商费用</option><option value="internal">内部费用</option></select></div><div class="fg"><label>往来方</label><select id="eC">${(Array.isArray(cs)?cs:[]).map(c=>`<option value="${c.id}">${c.name} (${c.type})</option>`).join('')}</select></div></div>
+      <div class="fr"><div class="fg"><label>金额</label><input id="eA" type="number" step="0.01"></div><div class="fg"><label>分类</label><select id="eCat"></select></div></div>
+      <div class="fg"><label>备注</label><input id="eN"></div>
+      <div class="fa"><button class="btn" onclick="navigate('expense')">取消</button><button class="btn btn-p" onclick="subExp()">保存</button></div></div></div>`;expTypeChange();
+  });
+}
+async function expTypeChange(){const t=document.getElementById('eT')?.value||'customer';const d=await api('/expense-categories?type='+t);const s=document.getElementById('eCat');if(s){s.innerHTML='';(Array.isArray(d)?d:[]).forEach(c=>{s.innerHTML+=`<option value="${c.id}">${c.name}</option>`})}}
+async function subExp(){
+  const t=document.getElementById('eT').value,cid=parseInt(document.getElementById('eC').value),a=parseFloat(document.getElementById('eA').value)||0;
+  if(!cid||!a)return toast('请完善','er');
+  (await api('/expense-orders',{method:'POST',body:{type:t,contact_id:cid,amount:a,category_id:parseInt(document.getElementById('eCat')?.value)||0,note:document.getElementById('eN').value}}))?.success?(navigate('expense'),toast('创建成功','ok')):toast('失败','er')
+}
+
+function woForm(){document.getElementById('mainContent').innerHTML=`<div class="phead"><h2>新建核销单</h2></div><div class="form"><div class="fh">🔄 核销</div><div class="fb"><div class="fg"><label>核销类型</label><select id="wT"><option value="ar_ar">应收冲应收</option><option value="ap_ap">应付冲应付</option><option value="pre_ar">预收冲应收</option><option value="pre_ap">预付冲应付</option></select></div><div class="fg"><label>往来方</label><select id="wC"></select></div><div class="fg"><label>备注</label><input id="wN"></div><div class="fa"><button class="btn" onclick="navigate('writeoff')">取消</button><button class="btn btn-p" onclick="alert('请选择具体单据进行核销')">下一步</button></div></div></div>`;api('/contacts').then(cs=>{const s=document.getElementById('wC');(Array.isArray(cs)?cs:[]).forEach(c=>{s.innerHTML+=`<option value="${c.id}">${c.name}</option>`})})}
+
+function userForm(){
+  document.getElementById('mainContent').innerHTML=`<div class="phead"><h2>新增用户</h2></div><div class="form"><div class="fh">⚙️ 用户</div><div class="fb">
+    <div class="fr"><div class="fg"><label>用户名 *</label><input id="uN"></div><div class="fg"><label>密码 *</label><input id="uP" type="password"></div></div>
+    <div class="fr"><div class="fg"><label>姓名</label><input id="uD"></div><div class="fg"><label>角色</label><select id="uR"><option value="user">普通用户</option><option value="driver">司机</option><option value="admin">管理员</option></select></div></div>
+    <div class="fa"><button class="btn" onclick="navigate('users')">取消</button><button class="btn btn-p" onclick="subUser()">保存</button></div></div></div>`;
+}
+async function subUser(){
+  const d={username:document.getElementById('uN').value,password:document.getElementById('uP').value,display_name:document.getElementById('uD').value,role:document.getElementById('uR').value};
+  if(!d.username||!d.password)return toast('请填写用户名和密码','er');
+  (await api('/users',{method:'POST',body:d}))?.success?(navigate('users'),toast('创建成功','ok')):toast('失败','er')
+}
+
+function pm(type,refType,refId,cid,max){
+  api('/contacts/'+cid).then(c=>{const a=prompt(`${type==='ar'?'收款':'付款'} - ${c?.name||''}\n最大 ${Y(max)}`,max?.toFixed(2));if(!a)return;
+  api('/payments',{method:'POST',body:{contact_id:cid,amount:parseFloat(a),pay_type:type,ref_type:refType,ref_id:refId}}).then(r=>{if(r?.success){navigate(tab);toast('操作成功','ok')}else toast(r?.detail,'er')})});
+}
+
+async function stSubmit(id){await api('/settlements/'+id+'/submit',{method:'POST'});navigate('settlement')}
+async function stConfirm(id){await api('/settlements/'+id+'/confirm',{method:'POST'});navigate('settlement')}
+
+function ft(el){const q=el.value.toLowerCase();document.querySelectorAll('.tbl tbody tr').forEach(r=>{if(!r.querySelector('.empty'))r.style.display=q&&!r.textContent.toLowerCase().includes(q)?'none':''})}
+function fb(el){const v=el.value;document.querySelectorAll('#billBody tr[data-t]').forEach(r=>r.style.display=v&&r.dataset.t!==v?'none':'')}
+function fs(el){const v=el.value;document.querySelectorAll('#billBody tr[data-s]').forEach(r=>r.style.display=v&&r.dataset.s!==v?'none':'')}
+async function doLogout(){await api('/auth/logout',{method:'POST'});T='';U=null;localStorage.removeItem('erp_token');location.reload()}
+
+// Init
+document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+T=localStorage.getItem('erp_token')||'';
+if(T){api('/auth/me').then(u=>{if(u?.id){U=u;initApp()}else{T='';localStorage.removeItem('erp_token')}})}
+</script>
+</body>
+</html>

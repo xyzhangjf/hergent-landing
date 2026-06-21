@@ -1,0 +1,8 @@
+{
+  "version": "1.0.1",
+  "release_date": "2026-05-19",
+  "release_notes": "Hergent v1.0.1 更新\n\n- ✅ 新增 Windows 版，支持 Win10/11 x64\n- ✅ 修复 Gatekeeper 隔离属性导致的引擎无法启动问题\n- ✅ 引擎完整性双重验证，防止解压不完整\n- ✅ 积分系统按设备隔离\n- ✅ 新用户送 500 积分\n\n系统要求：\n- macOS 12+ · Apple Silicon & Intel\n- Windows 10+ · x64",
+  "download_url_mac": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.1/Hergent-1.0.0-mac-arm64.dmg",
+  "download_url_win": "https://github.com/xyzhangjf/hergent-landing/releases/download/v1.0.1/Hergent-1.0.0-setup.exe",
+  "checksum": ""
+}

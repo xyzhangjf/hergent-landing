@@ -4,14 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hergent · 你的数字员工</title>
-  <link rel="icon" href="avatar://icon.png" />
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="window">
-  <!-- 标题栏：仅作拖拽手柄，红绿灯由 macOS 原生绘制 -->
-  <div class="titlebar"></div>
-
   <!-- 主布局：侧边栏 + 右侧面板 -->
   <div class="main-body">
 
@@ -35,9 +31,6 @@
         </button>
         <button class="sidebar-item page-item" data-page="pageSkills" onclick="switchPage(&apos;pageSkills&apos;)">
           <span class="si-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><span class="si-label">我的技能</span>
-        </button>
-        <button class="sidebar-item page-item" data-page="pageErp" onclick="openErp()" style="margin-top:8px;border-top:1px solid var(--border-subtle);padding-top:10px;">
-          <span class="si-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><span class="si-label">进销存</span>
         </button>
         <button class="sidebar-item page-item" data-page="pageSettings" onclick="switchPage(&apos;pageSettings&apos;)">
           <span class="si-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="si-label">设置</span>
@@ -63,7 +56,7 @@
       </div>
     </div>
 
-    <div class="right-panel" id="rightPanel" style="visibility:hidden;">
+    <div class="right-panel">
 
       <!-- 页面1: 主页（对话面板填满）-->
       <div class="page active" id="pageHome">
@@ -124,8 +117,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </button>
               <span class="cost-estimate" id="costEstimate" title="本条消息预估消耗">≈<span id="costEstimateNum">2-5</span>分</span>
-              <span class="credits-badge" id="creditsBadge" onclick="switchPage('pageSettings')" title="点击查看积分明细"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> <span id="creditsText">--</span></span>
-              <button class="chat-file-btn" id="feishuBtn" onclick="pushToFeishu()" title="推送到飞书"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><path d="M4.93 4.93l4.24 4.24"/><path d="M14.83 14.83l4.24 4.24"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l4.24-4.24"/><path d="M14.83 9.17l4.24-4.24"/></svg></button>
+              <span class="credits-badge" id="creditsBadge" onclick="switchPage('pageSettings')" title="剩余积分"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> <span id="creditsText">--</span></span>
               <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" title="发送"><svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
               <button class="chat-cancel-btn" id="chatCancelBtn" onclick="cancelStream()" style="display:none;" title="停止"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
             </div>
@@ -136,7 +128,7 @@
             <button class="prb-config-btn" onclick="showPipelineConfig()" title="调整工作组">⚙</button>
           </div>
           <div class="quick-actions" id="quickActions"></div>
-          <div class="chat-disclaimer">AI 生成内容仅供参考</div>
+          <div class="chat-disclaimer">Hergent 可能会出错，重要信息请核实</div>
         </div>
       </div>
 
@@ -184,7 +176,7 @@
           <span class="gw-text" id="gwMsg">检测中...</span>
           <button class="gw-btn" id="gwRestartBtn" onclick="restartGatewayFromUI(true)" style="display:none;">重启网关</button>
         </div>
-      </div><!-- /pageChannels -->
+      </div>
 
       <!-- 页面4: 我的成果 -->
       <div class="page" id="pageReports">
@@ -334,7 +326,6 @@
             </div>
             <div class="settings-section" data-settings-category="usage">
               <div class="settings-section-title">用量明细</div>
-              <canvas id="usageChart" class="usage-chart" width="600" height="140" style="display:none;"></canvas>
               <div id="usageHistory" class="usage-list">
                 <div class="usage-empty">加载中...</div>
               </div>
@@ -342,36 +333,25 @@
 
             <!-- 备份与迁移 -->
             <div class="settings-section" data-settings-category="backup">
-              <div class="settings-section-title">备份与迁移</div>
-              <button class="settings-btn" onclick="exportChat()">📥 导出当前对话 (Markdown)</button>
-              <button class="settings-btn" onclick="exportSettings()">⚙️ 导出设置 (JSON)</button>
-              <button class="settings-btn" onclick="importSettings()">📤 导入设置</button>
+              <div class="settings-section-title">备份</div>
+              <button class="settings-btn" onclick="exportChat()">导出当前对话</button>
             </div>
             <div class="settings-section" data-settings-category="backup">
-              <button class="settings-btn danger" onclick="clearAllData()" style="margin-bottom:4px;">🗑 清除所有数据</button>
+              <button class="settings-btn danger" onclick="clearAllData()" style="margin-bottom:4px;">清除所有数据</button>
               <button class="settings-btn" onclick="logout()">退出登录</button>
             </div>
 
             <!-- 关于 -->
             <div class="settings-section" data-settings-category="about">
               <div class="settings-section-title">关于</div>
-              <div class="settings-row"><span>Hergent</span><span class="settings-val" id="setVersion">v1.0.105</span></div>
-              <button class="settings-btn" onclick="_manualCheckUpdate()" style="margin-top:8px">🔍 检查更新</button>
+              <div class="settings-row"><span>Hergent</span><span class="settings-val" id="setVersion">v1.0.14</span></div>
               <div class="settings-row"><span>内核</span><span class="settings-val">Hermes Agent v0.14.0</span></div>
               <div class="settings-row"><span>引擎</span><span class="settings-val" id="setEngineVersion">--</span></div>
               <div class="settings-row" id="engineUpdateRow" style="display:none;">
                 <span></span>
                 <button class="settings-btn" id="engineUpdateBtn" onclick="updateEngine()" style="font-size:12px;padding:4px 12px;">更新引擎</button>
               </div>
-              <div class="settings-section-title" style="margin-top:12px;">公司信息</div>
-              <div class="settings-row"><span>公司</span><span class="settings-val">湖北省小赫智体数字科技有限公司</span></div>
-              <div class="settings-row"><span>官网</span><span class="settings-val" style="cursor:pointer;color:var(--brand-500);" onclick="window.hermes.openExternal('https://hergent.cn')">hergent.cn</span></div>
-              <div class="settings-row"><span>邮箱</span><span class="settings-val">admin@hergent.cn</span></div>
-              <div class="settings-row"><span>ICP备案</span><span class="settings-val">鄂ICP备2026027973号</span></div>
-              <div class="settings-section-title" style="margin-top:12px;">法律信息</div>
-              <button class="settings-btn" onclick="showOverlay('privacyOverlay')" style="margin-bottom:4px;">隐私政策</button>
-              <button class="settings-btn" onclick="showOverlay('termsOverlay')">用户服务协议</button>
-              <div class="settings-row" style="font-size:12px;color:var(--text-tertiary);margin-top:8px;">Powered by <span style="cursor:pointer;color:var(--brand-500);" onclick="window.hermes.openExternal('https://hermes-agent.nousresearch.com/')">Hermes Agent</span> · MIT License · Nous Research</div>
+              <div class="settings-row" style="font-size:12px;color:var(--text-tertiary);">Powered by <span style="cursor:pointer;color:var(--brand-500);" onclick="window.hermes.openExternal('https://hermes-agent.nousresearch.com/')">Hermes Agent</span> · MIT License · Nous Research</div>
             </div>
           </div><!-- /settings-main -->
         </div><!-- /settings-layout -->
@@ -379,13 +359,6 @@
 
     </div><!-- /right-panel -->
   </div><!-- /main-body -->
-
-<!-- ===== 全局状态提示条（飞书连接等） ===== -->
-<div class="channel-toast" id="channelToast" style="display:none;">
-  <span class="ct-icon" id="ctIcon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-  <span class="ct-text" id="ctText"></span>
-</div>
-
 </div><!-- /window -->
 
 <!-- ===== 模态弹窗（新建定时任务） ===== -->
@@ -475,7 +448,7 @@
     <div class="login-body">
       <div class="login-tab-panel active" id="panelPhone">
         <h3>手机号登录</h3>
-        <p class="subtitle">新用户自动送 500 积分</p>
+        <p class="subtitle">新用户自动送200积分</p>
         <div class="login-field">
           <label>手机号</label>
           <div class="sms-row">
@@ -489,8 +462,6 @@
         </div>
         <button class="login-btn" id="loginBtn" onclick="verifySmsCode()">登录</button>
         <div class="login-error" id="loginError"></div>
-        <p class="login-legal">登录即表示同意 <a href="#" onclick="event.preventDefault();showOverlay('privacyOverlay')">隐私政策</a> 和 <a href="#" onclick="event.preventDefault();showOverlay('termsOverlay')">用户协议</a></p>
-        <p class="login-skip"><a href="#" onclick="event.preventDefault();skipLogin()">跳过登录，先体验</a></p>
       </div>
 
       <div class="login-tab-panel" id="panelWechat">
@@ -514,7 +485,7 @@
 <!-- ===== 首启安装引导 ===== -->
 <div class="bootstrap-overlay" id="bootstrapOverlay">
   <div class="bootstrap-card">
-    <div class="bootstrap-logo"><img src="avatar://icon.png" width="64" height="64" style="border-radius:12px;" alt="Hergent" /></div>
+    <div class="bootstrap-logo"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
     <h2>正在准备你的 AI 团队</h2>
     <p class="bootstrap-subtitle">基于 Hermes 开源内核 · 只需一次 · 约 2-3 分钟</p>
     <div class="bootstrap-progress-bar">
@@ -522,25 +493,6 @@
     </div>
     <p class="bootstrap-status" id="bootStatus">检查环境…</p>
     <button class="bootstrap-skip-btn" id="bootSkipBtn" onclick="skipBootstrap()" style="display:none;">跳过安装</button>
-  </div>
-</div>
-
-<!-- ===== 激活码弹窗 ===== -->
-<div class="modal-overlay" id="activationOverlay">
-  <div class="modal" style="max-width:380px;text-align:center;">
-    <h3>欢迎使用 Hergent</h3>
-    <p class="activation-desc">输入激活码即可开始使用<br>去 <a href="https://hergent.cn" target="_blank" style="color:var(--brand-500);">hergent.cn</a> 申请内测资格</p>
-    <div class="activation-input-row">
-      <input type="text" class="activation-input" id="activationCodeInput" placeholder="粘贴激活码" maxlength="20" autofocus autocomplete="off" />
-    </div>
-    <div class="activation-error" id="activationError"></div>
-    <div class="recharge-info" id="activationInfo" style="display:none;">
-      <span></span><span class="recharge-credits-count"><span id="activationCredits">500</span> 奖励积分</span>
-    </div>
-    <div class="modal-btn-row" style="justify-content:center;">
-      <button class="btn" id="activationBtn" onclick="activateDevice()">激活并开始使用</button>
-    </div>
-    <p class="activation-hint">Alpha 阶段邀请制 · 每人送 500 积分</p>
   </div>
 </div>
 
@@ -592,102 +544,60 @@
 <!-- ===== 充值弹窗 ===== -->
 <div class="modal-overlay" id="rechargeOverlay">
   <div class="modal recharge-modal">
-    <h3><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> <span id="rechargeTitle">充值积分</span></h3>
-    <p class="recharge-subtitle" id="rechargeSubtitle">用多少充多少，随时补充</p>
+    <h3><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> 充值积分</h3>
+    <p class="recharge-subtitle">用多少充多少，随时补充</p>
 
-    <!-- Step 1: 选择充值档位 -->
-    <div id="rechargeStep1">
-      <div class="recharge-tiers" id="rechargeTiers">
-        <div class="recharge-tier selected" data-amount="10" onclick="selectRechargeTier('10')">
-          <div class="rt-amount">10<span class="rt-unit">元</span></div>
-          <div class="rt-credits">= 1,000 积分</div>
-          <div class="rt-tag">入门</div>
-          <div class="rt-check">✓</div>
-        </div>
-        <div class="recharge-tier" data-amount="30" onclick="selectRechargeTier('30')">
-          <div class="rt-amount">30<span class="rt-unit">元</span></div>
-          <div class="rt-credits">= 3,200 积分</div>
-          <div class="rt-tag">推荐 · 多送200</div>
-          <div class="rt-check">✓</div>
-        </div>
-        <div class="recharge-tier" data-amount="50" onclick="selectRechargeTier('50')">
-          <div class="rt-amount">50<span class="rt-unit">元</span></div>
-          <div class="rt-credits">= 6,000 积分</div>
-          <div class="rt-tag">超值 · 多送1000</div>
-          <div class="rt-check">✓</div>
-        </div>
+    <div class="recharge-tiers" id="rechargeTiers">
+      <div class="recharge-tier selected" data-amount="10" onclick="selectRechargeTier('10')">
+        <div class="rt-amount">10<span class="rt-unit">元</span></div>
+        <div class="rt-credits">= 1,000 积分</div>
+        <div class="rt-tag">入门</div>
+        <div class="rt-check">✓</div>
       </div>
-      <div class="recharge-tier-hint" id="rechargeTierHint"></div>
+      <div class="recharge-tier" data-amount="30" onclick="selectRechargeTier('30')">
+        <div class="rt-amount">30<span class="rt-unit">元</span></div>
+        <div class="rt-credits">= 3,200 积分</div>
+        <div class="rt-tag">推荐 · 多送200</div>
+        <div class="rt-check">✓</div>
+      </div>
+      <div class="recharge-tier" data-amount="50" onclick="selectRechargeTier('50')">
+        <div class="rt-amount">50<span class="rt-unit">元</span></div>
+        <div class="rt-credits">= 6,000 积分</div>
+        <div class="rt-tag">超值 · 多送1000</div>
+        <div class="rt-check">✓</div>
+      </div>
+    </div>
+    <div class="recharge-tier-hint" id="rechargeTierHint"></div>
 
-      <!-- 自定义金额（测试用） -->
-      <div class="recharge-custom">
-        <input type="number" class="recharge-custom-input" id="rechargeCustomAmount" placeholder="自定义金额（元）" min="1" oninput="selectCustomAmount(this.value)" />
-      </div>
-
-      <div class="recharge-total">
-        <span>应付金额</span>
-        <span class="recharge-price">¥<span id="rechargePrice">10</span></span>
-      </div>
-      <div class="recharge-info">
-        <span>到账积分</span>
-        <span class="recharge-credits-count"><span id="rechargeCredits">1,000</span> 分</span>
-      </div>
-
-      <div class="recharge-payment-methods">
-        <div class="rpm-label">选择支付方式</div>
-        <div class="rpm-buttons">
-          <button class="rpm-btn rpm-alipay" onclick="submitRecharge('alipay')">
-            <div class="rpm-name">支付宝</div>
-            <div class="rpm-desc">浏览器打开 · 手机扫码支付</div>
-          </button>
-          <button class="rpm-btn rpm-wechat rpm-disabled" disabled onclick="submitRecharge('wechat')">
-            <div class="rpm-name">微信支付</div>
-            <div class="rpm-desc">即将上线</div>
-          </button>
-        </div>
-      </div>
-
-      <div class="modal-btn-row">
-        <button class="btn secondary" onclick="closeRecharge()">取消</button>
-      </div>
-      <div class="recharge-error" id="rechargeError"></div>
+    <div class="recharge-total">
+      <span>应付金额</span>
+      <span class="recharge-price">¥<span id="rechargePrice">10</span></span>
+    </div>
+    <div class="recharge-info">
+      <span>到账积分</span>
+      <span class="recharge-credits-count"><span id="rechargeCredits">1,000</span> 分</span>
     </div>
 
-    <!-- Step 2: 扫码支付 -->
-    <div id="rechargeStep2" style="display:none;">
-      <div class="qr-container">
-        <div class="qr-wrapper">
-          <img class="qr-image" id="qrImage" src="" alt="支付二维码" />
-          <div class="qr-expired-overlay" id="qrExpiredOverlay" style="display:none;">
-            <span>二维码已过期</span>
-            <button class="btn small" onclick="refreshQR()">刷新</button>
-          </div>
-        </div>
-      </div>
-      <div class="qr-tip">
-        <span id="qrTipText">请使用微信或支付宝扫码支付</span>
-      </div>
-      <div class="qr-amount-bar">
-        <span>支付 ¥<span id="qrAmount">10</span> · 到账 <span id="qrCredits">1,000</span> 分</span>
-      </div>
-      <div class="qr-status" id="qrStatus">
-        <span class="qr-spinner"></span> 等待支付中...
-      </div>
-      <div class="qr-success" id="qrSuccess" style="display:none;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        <span class="qr-success-text" id="qrSuccessText">充值成功！</span>
-      </div>
-      <div class="modal-btn-row" style="margin-top:8px;">
-        <button class="btn secondary" onclick="cancelPayment()">取消支付</button>
-        <button class="btn recharge-submit-btn" id="qrOpenBrowserBtn" onclick="openPaymentInBrowser()" style="display:none;">在浏览器中打开</button>
-      </div>
+    <div class="modal-btn-row">
+      <button class="btn secondary" onclick="closeRecharge()">取消</button>
+      <button class="btn recharge-submit-btn" id="rechargeSubmitBtn" onclick="submitRecharge()">确认充值</button>
+    </div>
+    <div class="recharge-error" id="rechargeError"></div>
+    <div class="recharge-success" id="rechargeSuccess" style="display:none;">
+      <div class="rs-icon">✅</div>
+      <div class="rs-text">充值成功！</div>
+      <div class="rs-detail" id="rechargeSuccessDetail"></div>
     </div>
 
     <!-- 消费记录 -->
-    <div class="usage-section" id="rechargeUsageSection" style="display:none;"></div>
-  </div>
-  <div style="text-align:center;margin-top:16px;">
-    <button class="btn secondary" onclick="showBillingHistory()">查看账单</button>
+    <div class="usage-section" id="rechargeUsageSection">
+      <div class="usage-section-title">📋 最近消费</div>
+      <div class="usage-list" id="rechargeUsageList">
+        <div class="usage-empty">暂无消费记录</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:19px;">
+      <button class="btn secondary" onclick="showBillingHistory()">📋 查看账单</button>
     </div>
   </div>
 </div>
@@ -777,220 +687,7 @@
   </div>
 </div>
 
-<!-- ===== 隐私政策 ===== -->
-<div class="modal-overlay" id="privacyOverlay">
-  <div class="legal-content">
-    <div class="legal-header">
-      <h3>隐私政策</h3>
-      <button class="gs-close" onclick="hideOverlay('privacyOverlay')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div class="legal-body">
-      <p>更新日期：2026年6月11日</p>
-      <p>生效日期：2026年6月11日</p>
-
-      <h4>导言</h4>
-      <p>湖北省小赫智体数字科技有限公司（注册地址：湖北省襄阳市樊城区王寨街道松鹤路社区创业路5号，以下简称"我们"或"小赫智体"）深知个人信息对您的重要性。我们致力于保护您的个人信息安全，恪守权责一致、目的明确、选择同意、最少够用、确保安全、主体参与、公开透明的原则，依法开展个人信息处理活动。</p>
-      <p>本《隐私政策》（以下简称"本政策"）适用于Hergent（含Windows版、macOS版，以下简称"Hergent"或"本软件"）所提供的全部产品与服务。请您在使用本软件前仔细阅读并理解本政策的全部内容。</p>
-      <p><strong>特别提示：本软件是一款桌面端AI办公助手产品，核心数据处理在您的本地设备上完成。我们仅在提供积分计费、账号管理等必要服务时收集有限的个人信息。</strong></p>
-
-      <h4>1. 我们如何收集和使用您的个人信息</h4>
-      <p>在您使用本软件的过程中，我们会在以下场景收集您的相关个人信息：</p>
-      <p><strong>1.1 账号注册与登录</strong></p>
-      <p>当您注册Hergent账号时，我们需要收集您的手机号码用于身份验证和账号绑定。如您不提供上述信息，将无法完成账号注册并使用积分计费相关服务。您也可以通过"跳过登录"方式以游客身份体验本软件的部分功能。</p>
-      <p><strong>1.2 积分与充值服务</strong></p>
-      <p>当您使用积分充值功能时，我们会收集您的充值记录、消费记录和积分余额信息，以便为您提供积分管理服务及开具发票（如需要）。支付环节通过支付宝等第三方支付服务商完成，我们不会收集您的银行账户、支付密码等敏感支付信息。</p>
-      <p><strong>1.3 AI对话服务</strong></p>
-      <p>您在使用AI对话功能时输入的文本、上传的文件以及AI模型生成的回复内容，均<strong>默认存储于您的本地设备</strong>，不会上传至我们的服务器。对话数据完全由您自行控制，您可以随时在软件内查看、导出或删除。</p>
-      <p>当您使用需要联网的AI模型（如DeepSeek、通义千问等第三方模型API）时，您的对话内容会经由我们的代理服务器转发至相应模型服务商，我们不会存储或分析您的对话内容。</p>
-      <p><strong>1.4 多平台消息连接</strong></p>
-      <p>当您使用飞书、企业微信、钉钉、QQ等平台连接功能时，我们会收集您提供的对应平台的App ID、App Secret等连接凭据。上述凭据加密存储于您的本地设备，仅用于建立与对应平台的安全连接，不会离开您的设备。</p>
-      <p><strong>1.5 设备信息</strong></p>
-      <p>为区分不同设备上的积分账户、管理软件授权及提供版本更新服务，我们会收集您的设备标识符（由设备硬件信息经哈希算法生成的匿名标识）。该标识符不包含您的个人身份信息。</p>
-      <p><strong>1.6 定时任务</strong></p>
-      <p>当您创建定时任务时，任务配置信息（任务名称、执行时间、对话指令等）存储于您的本地设备。我们不获取或监控您的任务内容。</p>
-      <p><strong>1.7 日志信息</strong></p>
-      <p>在您使用本软件的过程中，为排查故障和优化性能，本软件会在本地生成运行日志。日志文件存储于您的设备，仅在您主动反馈问题时经您同意后提供给我们进行分析。</p>
-
-      <h4>2. 个人信息的存储</h4>
-      <p><strong>2.1 存储地点</strong></p>
-      <p>您的对话数据、技能配置、角色设定、本地文件等核心数据存储于您的个人设备。账号信息、积分余额、充值记录等必要的服务数据存储于阿里云计算有限公司的服务器（位于中华人民共和国北京市）。我们严格遵守中华人民共和国关于数据存储的法律法规。</p>
-      <p><strong>2.2 存储期限</strong></p>
-      <p>本地数据由您自行管理，卸载软件时将一并删除。服务器端数据将在您注销账号后60日内删除或匿名化处理，法律法规另有要求的除外。</p>
-      <p><strong>2.3 安全措施</strong></p>
-      <p>我们采用业界通行的安全保护措施保护您的个人信息：传输层使用HTTPS/TLS加密通信、服务器端部署访问控制与防火墙、本地敏感凭据加密存储。但请您理解，没有任何安全措施是绝对完美的，我们会持续改进安全防护能力。</p>
-
-      <h4>3. 第三方服务</h4>
-      <p><strong>3.1 AI模型服务商</strong></p>
-      <p>本软件支持调用DeepSeek、通义千问等第三方AI模型服务。当您选择使用特定模型时，对话内容会发送至对应的模型服务商以生成回复。各服务商对其处理数据的行为负责，我们建议您同时关注对应服务商的隐私政策。</p>
-      <p><strong>3.2 支付服务商</strong></p>
-      <p>积分充值通过支付宝等第三方支付平台完成。支付环节中您提供的信息受支付服务商的隐私政策约束。</p>
-      <p><strong>3.3 平台连接服务</strong></p>
-      <p>飞书、企业微信、钉钉、QQ等平台连接功能涉及与对应平台的数据交互。使用该等功能时，请同时遵守对应平台的隐私政策与服务条款。</p>
-
-      <h4>4. 个人信息的共享、转让与公开披露</h4>
-      <p><strong>4.1 共享</strong></p>
-      <p>我们不会向任何第三方出售您的个人信息。除本政策第1条、第3条所述的必要场景外，未经您的明确授权同意，我们不会与第三方共享您的个人信息。以下情形除外：(a) 与您协商并获得您的明确同意；(b) 根据法律法规、行政或司法机关的强制性要求；(c) 为保护我们或公众的人身、财产安全免遭损害所合理必需的。</p>
-      <p><strong>4.2 转让</strong></p>
-      <p>我们不会将您的个人信息转让给任何第三方。如因公司合并、收购或破产清算等原因确需转让，我们将提前告知您并取得您的同意，且要求受让方继续履行本政策。</p>
-      <p><strong>4.3 公开披露</strong></p>
-      <p>我们不会公开披露您的个人信息，法律法规另有规定的除外。</p>
-
-      <h4>5. 您的权利</h4>
-      <p>根据适用的个人信息保护法律法规，您享有以下权利：</p>
-      <p><strong>5.1 查阅与更正</strong> — 您可以在软件设置页面查看您的账号信息，并通过客服渠道申请更正不准确的信息。</p>
-      <p><strong>5.2 删除</strong> — 您可以在软件内删除对话记录；在设置页面清除所有本地数据；卸载软件将自动删除全部本地存储数据。</p>
-      <p><strong>5.3 注销账号</strong> — 您可以通过联系admin@hergent.cn申请注销账号。我们将在收到申请后15个工作日内完成处理。账号注销后，您的服务器端数据将在60日内删除。</p>
-      <p><strong>5.4 撤回同意</strong> — 您可以通过关闭特定功能来撤回相关权限授权。撤回同意不影响此前基于您的同意已进行的个人信息处理活动的合法性。</p>
-      <p><strong>5.5 投诉举报</strong> — 如您认为我们的个人信息处理行为侵犯了您的合法权益，可通过本政策第9条所述联系方式向我们投诉，或向相关监管机构投诉举报。</p>
-
-      <h4>6. 未成年人保护</h4>
-      <p>本软件主要面向成年人提供服务。如您是未满14周岁的未成年人，请在监护人陪同下阅读本政策并经监护人同意后使用本软件。如您是未满18周岁的未成年人，请在监护人指导下使用本软件。如果我们发现我们在未事先获得可证实的监护人同意的情况下收集了未成年人的个人信息，我们将尽快删除相关数据。</p>
-
-      <h4>7. 本政策的更新</h4>
-      <p>我们可能适时修订本政策。当本政策发生重大变更时，我们将在软件内通过弹窗或通知的方式向您告知，并在更新后的政策中标注生效日期。重大变更包括但不限于：(a) 个人信息收集范围或处理目的发生重大变化；(b) 数据存储地点发生变更；(c) 您的权利发生实质性改变。如您继续使用本软件，即表示您同意接受修订后的政策。</p>
-
-      <h4>8. 适用范围</h4>
-      <p>本政策适用于Hergent Windows版及macOS版。本软件可能包含指向第三方网站或服务的链接，该等第三方的隐私政策不适用本政策，我们建议您在使用前阅读其隐私政策。</p>
-
-      <h4>9. 联系我们</h4>
-      <p>如您对本政策有任何疑问、意见或建议，请通过以下方式与我们联系：</p>
-      <p>运营主体：湖北省小赫智体数字科技有限公司</p>
-      <p>联系邮箱：admin@hergent.cn</p>
-      <p>联系地址：湖北省襄阳市樊城区王寨街道松鹤路社区创业路5号 邮编：441000</p>
-      <p>我们将在收到您的请求后15个工作日内予以回复。</p>
-      <p style="margin-top:16px;font-size:12px;color:var(--text-tertiary);">ICP备案号：鄂ICP备2026027973号</p>
-    </div>
-  </div>
-</div>
-
-<!-- ===== 用户协议 ===== -->
-<div class="modal-overlay" id="termsOverlay">
-  <div class="legal-content">
-    <div class="legal-header">
-      <h3>Hergent 用户服务协议</h3>
-      <button class="gs-close" onclick="hideOverlay('termsOverlay')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div class="legal-body">
-      <p>更新日期：2026年6月11日</p>
-      <p>生效日期：2026年6月11日</p>
-
-      <h4>导言</h4>
-      <p>欢迎使用Hergent！</p>
-      <p>本《Hergent用户服务协议》（以下简称"本协议"）是您（以下简称"您"或"用户"）与湖北省小赫智体数字科技有限公司（注册地址：湖北省襄阳市樊城区王寨街道松鹤路社区创业路5号，以下简称"我们"、"小赫智体"或"公司"）之间关于您下载、安装、使用Hergent桌面端应用软件（含Windows版及macOS版，以下简称"Hergent"或"本软件"）所订立的协议。</p>
-      <p>请您在开始使用本软件之前务必审慎阅读、充分理解本协议各条款内容，特别是以<strong>加粗</strong>形式标注的限制或免除责任的条款、法律适用和争议解决条款。如您对本协议有任何疑问，请通过本协议第12条所述联系方式联系我们。</p>
-      <p>您通过点击"同意"按钮、或在登录页面勾选"同意用户协议和隐私政策"、或以任何方式使用本软件的全部或部分功能，即表示您已阅读、理解并同意接受本协议的全部内容。如您不同意本协议的任何条款，请勿安装或使用本软件。</p>
-
-      <h4>1. 服务说明</h4>
-      <p>1.1 Hergent是一款基于开源Hermes Agent框架开发的桌面端AI办公助手应用，主要功能包括但不限于：AI智能对话、文件处理与分析、多角色数字员工、定时任务、多平台消息连接（飞书/企业微信/钉钉/QQ）、积分计费等（以下简称"本服务"）。</p>
-      <p>1.2 本软件支持Windows和macOS操作系统。不同操作系统版本的功能可能存在差异，以各版本实际提供的功能为准。</p>
-      <p>1.3 本软件部分功能的实现依赖于第三方服务（包括但不限于AI模型服务商、支付服务商、即时通讯平台等），您使用该等功能时应同时遵守相关第三方的服务条款。</p>
-      <p>1.4 <strong>我们保留根据业务发展需要对本软件功能进行调整、升级、修改或暂停部分功能的权利，但应提前在软件内或以其他合理方式通知您。</strong></p>
-
-      <h4>2. 账号注册与管理</h4>
-      <p>2.1 您可通过手机号码注册Hergent账号。注册时您应提供真实、准确、完整的个人信息，并在信息变更时及时更新。</p>
-      <p>2.2 您对您账号下的所有活动承担全部责任。请妥善保管您的账号及验证码等安全信息，<strong>因您自身原因导致账号被盗用或泄露而造成的损失，由您自行承担。</strong></p>
-      <p>2.3 您可以选择"跳过登录"以游客身份体验本软件的部分功能（与登录无关的功能）。游客模式下您无法使用积分计费、多设备同步等需要账号体系的功能。</p>
-      <p>2.4 我们有权对违反法律法规或本协议规定的用户采取警示、限制功能、暂停服务、终止账号等措施，并保留追究法律责任的权利。</p>
-
-      <h4>3. 积分与充值服务</h4>
-      <p>3.1 积分是Hergent平台内用于计量AI模型调用消耗的虚拟计量单位。积分不具有货币价值，不可兑换现金，不可在用户之间转让（本协议另有约定或经我们明确同意的除外）。</p>
-      <p>3.2 新用户首次注册可获得平台赠送的500积分（具体赠送金额以注册时的活动规则为准）。平台可能根据运营需要调整赠送政策，调整前的用户不受影响。</p>
-      <p>3.3 积分消耗规则：不同AI模型消耗积分的速率不同，具体消耗标准以模型选择界面或充值页面公示的费率为准。我们可能根据模型服务商价格的变动适时调整积分消耗标准，调整前将以合理方式通知您。</p>
-      <p>3.4 积分充值：您可通过本软件内的充值功能购买积分，支付通过支付宝等第三方支付服务商完成。充值金额对应的积分数量、赠送政策以充值页面公示为准。</p>
-      <p>3.5 <strong>退款政策：积分充值完成后，原则上不支持退款，但法律法规另有强制性规定或本协议另有约定的除外。</strong>如因本软件重大服务故障导致您无法正常使用已购买的积分，您可在故障发生之日起7个工作日内联系客服申请退款。</p>
-      <p>3.6 积分有效期：积分长期有效。但如您的账号连续超过24个月未登录使用，我们有权对长期闲置账号内的积分进行清零处理，清零前30日将通过您注册时提供的联系方式进行通知。</p>
-
-      <h4>4. 用户行为规范</h4>
-      <p>4.1 您承诺在使用本软件过程中遵守中华人民共和国法律法规、社会主义制度、国家利益、公民合法权益、社会公共秩序、道德风尚和信息真实性。</p>
-      <p>4.2 您不得利用本软件从事以下活动（包括但不限于）：</p>
-      <p>(a) 生成、传播或存储违反法律法规的内容，包括但不限于危害国家安全、破坏国家统一、煽动民族仇恨、宣扬恐怖主义、散布谣言、扰乱社会秩序的内容；</p>
-      <p>(b) 生成、传播或存储侵害他人合法权益的内容，包括但不限于侵犯他人知识产权、肖像权、名誉权、隐私权的信息，以及侮辱、诽谤、威胁、骚扰他人的内容；</p>
-      <p>(c) 生成、传播或存储色情、淫秽、低俗、赌博、暴力、凶杀、恐怖或者教唆犯罪的内容；</p>
-      <p>(d) 利用本软件从事网络诈骗、虚假宣传、传销、非法集资等违法活动；</p>
-      <p>(e) 对软件进行反向工程、反编译、反汇编、破解或以其他方式试图获取软件源代码；</p>
-      <p>(f) 利用自动化工具（如爬虫、脚本）恶意批量调用本服务，或通过任何技术手段干扰、破坏本软件的正常运行；</p>
-      <p>(g) 未经授权访问或试图访问本软件的服务器系统，或利用本软件从事任何危害网络安全的活动；</p>
-      <p>(h) 其他违反法律法规、公序良俗或本协议规定的行为。</p>
-      <p>4.3 如我们发现您从事上述违规行为，有权独立判断并采取以下一项或多项措施：(a) 删除违规内容；(b) 限制部分或全部功能的使用；(c) 暂停或终止您的账号；(d) 依法向有关部门报告；(e) 保留相关证据并追究您的法律责任。</p>
-
-      <h4>5. 内容权利与知识产权</h4>
-      <p>5.1 您在使用本软件过程中输入的内容（包括文字、文件、图片等）的知识产权归您或原权利人所有。</p>
-      <p>5.2 AI模型基于您输入内容生成的回复（以下简称"生成内容"），因生成内容受模型训练数据、算法随机性等因素影响，其权利归属由适用的AI模型服务商的协议约定。在适用法律允许的范围内，我们不对生成内容的独创性、准确性和权利归属做出任何保证。</p>
-      <p>5.3 您授予我们在提供服务所需范围内的、免费的、非独占的使用权，以接收、处理、传输您在本软件中提交的内容。此项授权仅用于向您提供本服务，不涉及对您内容的任何其他商业利用。</p>
-      <p>5.4 本软件本身（包括但不限于程序代码、UI设计、图标、文档、品牌标识）的知识产权归小赫智体或其许可方所有，受中华人民共和国著作权法、商标法等法律法规的保护。未经我们书面许可，您不得以任何形式复制、修改、发行、出租、出售或以其他方式使用本软件的知识产权。</p>
-
-      <h4>6. 隐私保护</h4>
-      <p>6.1 我们重视您的隐私保护。关于我们如何收集、使用、存储和保护您的个人信息，请参见《Hergent隐私政策》（即本软件"设置—法律信息—隐私政策"中的内容）。</p>
-      <p>6.2 本协议中的相关约定如与《Hergent隐私政策》存在冲突，以《Hergent隐私政策》为准。</p>
-
-      <h4>7. 免责声明</h4>
-      <p>7.1 <strong>AI生成内容免责：</strong>本软件的AI对话功能基于第三方大语言模型提供，生成的内容由AI模型自主产生，不代表我们的立场、观点或建议。AI生成内容仅供参考，不构成任何形式的专业建议（包括但不限于法律建议、医疗建议、金融投资建议等）。如您需要专业指导，请咨询具备相应资质的专业人士。因依赖AI生成内容而产生的任何损失或损害，我们概不负责，但法律法规另有规定的除外。</p>
-      <p>7.2 <strong>服务可用性：</strong>我们致力于保障服务的稳定运行，但以下情形导致的服务中断或不可用，我们不承担责任：(a) 不可抗力事件，包括但不限于自然灾害、战争、政府行为、法律法规变更等；(b) 因第三方服务故障（包括但不限于AI模型服务商、支付服务商、网络运营商、云服务提供商等）导致的服务中断；(c) 因您的设备故障、网络问题、软件环境不兼容等非我们控制范围内的原因导致的服务异常；(d) 我们为系统维护、升级而进行的计划性停机（我们将提前通知）。</p>
-      <p>7.3 <strong>"按现状"提供：</strong>本软件按"现状"（AS IS）和"可用"（AS AVAILABLE）的基础提供，在法律允许的最大范围内，我们不提供任何明示或默示的保证，包括但不限于适销性、适用于特定目的、不侵权的默示保证。我们不保证本软件完全无错误、无中断，也不保证所有缺陷均会被修复。</p>
-      <p>7.4 <strong>第三方服务风险：</strong>您通过本软件连接飞书、企业微信、钉钉、QQ等第三方平台时，第三方平台的服务质量、数据安全、政策变更等风险由您自行评估和承担。</p>
-      <p>7.5 <strong>责任限制：</strong>在适用法律允许的最大范围内，因使用或无法使用本软件所产生的任何间接损失、附带损失、特殊损失、惩罚性赔偿或期待利益损失（包括但不限于利润损失、数据丢失、商誉损失），我们不承担赔偿责任，即使我们已被告知此类损失的可能性。我们对任何索赔的总赔偿责任不超过您在过去12个月内因使用本服务向我们实际支付的金额。</p>
-
-      <h4>8. 服务的变更与终止</h4>
-      <p>8.1 <strong>服务变更：</strong>我们有权根据业务发展和用户体验对服务内容进行调整，包括增加或删除功能模块、修改积分规则等。重大变更将在实施前以软件内通知、弹窗等方式告知您。</p>
-      <p>8.2 <strong>用户终止：</strong>您可以随时停止使用本软件并卸载。如需注销账号，请联系admin@hergent.cn。</p>
-      <p>8.3 <strong>我们终止：</strong>如您严重违反本协议，我们有权中止或终止向您提供全部或部分服务，并保留追究您违约责任的权利。终止服务时，我们将尽量提前通知您。如因您严重违规导致账号被终止，您账号内的剩余积分将不予退还。</p>
-      <p>8.4 <strong>终止后的处理：</strong>服务终止后，您将无法继续使用本软件中需要账号的功能。您本地存储的数据不受影响。服务器端的账号数据将按照《Hergent隐私政策》第2.2条处理。</p>
-
-      <h4>9. 违约责任</h4>
-      <p>9.1 如您违反本协议的任何条款，您应承担由此产生的全部法律责任，并赔偿我们因此遭受的全部损失（包括但不限于直接经济损失、商誉损失、向第三方支付的赔偿金、以及为处理违约事件所支出的合理费用，包括律师费、诉讼费、公证费等）。</p>
-      <p>9.2 您同意，如您的行为导致我们被第三方主张权利或索赔，您应负责解决并承担全部费用；如我们因此遭受任何损失，您应予以全额赔偿。</p>
-
-      <h4>10. 法律适用与争议解决</h4>
-      <p>10.1 本协议的订立、执行、解释及争议解决均适用中华人民共和国法律（仅为本协议之目的，不包括香港特别行政区、澳门特别行政区和台湾地区的法律）。</p>
-      <p>10.2 因本协议引起的或与本协议有关的任何争议，双方应首先友好协商解决。协商不成的，任何一方均可向公司住所地（即湖北省襄阳市樊城区）有管辖权的人民法院提起诉讼。</p>
-
-      <h4>11. 协议修改</h4>
-      <p>11.1 我们可能根据法律法规变化、业务发展需要等因素不时修订本协议。修订后的协议将在本软件内发布更新，并以合理方式通知您（包括但不限于弹窗通知、软件内公告等）。</p>
-      <p>11.2 如修订内容涉及您的重大权益（包括但不限于积分规则的重大变更、责任限制条款的修改等），我们将在协议生效前以更加显著的方式征求您的同意。</p>
-      <p>11.3 如您不同意修订后的协议，您应停止使用本软件。修订后的协议生效后，您继续使用本软件即视为您已接受修订后的协议。</p>
-
-      <h4>12. 联系我们</h4>
-      <p>如您对本协议有任何疑问、意见或建议，或需要投诉举报，请通过以下方式联系我们：</p>
-      <p>运营主体：湖北省小赫智体数字科技有限公司</p>
-      <p>联系邮箱：admin@hergent.cn</p>
-      <p>联系地址：湖北省襄阳市樊城区王寨街道松鹤路社区创业路5号 邮编：441000</p>
-      <p>我们将在收到您的反馈后15个工作日内予以回复。</p>
-      <p style="margin-top:16px;font-size:12px;color:var(--text-tertiary);">ICP备案号：鄂ICP备2026027973号</p>
-    </div>
-  </div>
-</div>
-
-<!-- ===== 自定义模型配置 ===== -->
-<div class="modal-overlay" id="customModelOverlay">
-  <div class="modal" style="max-width:460px;">
-    <h3 style="display:flex;align-items:center;gap:8px;">
-      <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      自定义模型
-    </h3>
-    <div class="login-field">
-      <label>API 地址</label>
-      <input type="text" id="cmBaseUrl" placeholder="https://api.openai.com/v1">
-    </div>
-    <div class="login-field">
-      <label>API Key</label>
-      <input type="password" id="cmApiKey" placeholder="sk-...">
-    </div>
-    <div class="login-field">
-      <label>模型名称</label>
-      <input type="text" id="cmModelName" placeholder="gpt-4o">
-    </div>
-    <p style="font-size:11px;color:var(--text-tertiary);margin:4px 0 8px;">
-      使用自己的 API Key，模型调用仍走本地加密通道。扣 1 积分/次，支持任何兼容 OpenAI 接口的模型（含本地 Ollama）。
-    </p>
-    <div class="modal-btn-row" style="margin-top:12px;">
-      <button class="btn secondary" onclick="hideOverlay('customModelOverlay')">取消</button>
-      <button class="btn" onclick="_saveCustomModel()" style="background:var(--brand-500);color:#fff;border:none;">保存</button>
-    </div>
-  </div>
-</div>
-
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
-<script src="js/erp.js"></script>
 </body>
 </html>

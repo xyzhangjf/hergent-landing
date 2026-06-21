@@ -1,0 +1,90 @@
+{
+  "name": "hergent",
+  "version": "1.0.0",
+  "description": "Hergent · 你的数字员工",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.hergent.app",
+    "productName": "Hergent",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "styles.css",
+      "js/config.js",
+      "js/app.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "avatars",
+        "to": "avatars"
+      },
+      {
+        "from": "hermes.tar.gz",
+        "to": "hermes.tar.gz"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "../assets/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Hergent-${version}-mac-arm64.${ext}",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Hergent-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "https://api.hergent.cn/updates/"
+    }
+  },
+  "author": "Hergent",
+  "devDependencies": {
+    "electron": "^42.0.1",
+    "electron-builder": "^25.1.8",
+    "sharp": "^0.34.5"
+  }
+}

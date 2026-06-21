@@ -2,30 +2,23 @@
  * Hergent Desktop — Main Process
  * Electron 39 + Hermes Agent Gateway
  */
+
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, protocol, net, nativeTheme, safeStorage } = require("electron");
-const path = require('path');
-const { execSync, exec, spawn, spawnSync } = require('child_process');
-const fs = require('fs');
-const https = require('https');
-const http = require('http');
+const path = require("path");
+const { execSync, exec, spawn, spawnSync } = require("child_process");
+const fs = require("fs");
+const https = require("https");
+const http = require("http");
 const crypto = require("crypto");
-// ===== Phase 1: Extracted modules =====
+
+// ===== Phase 1: 常量模块 ====
 const {
   PROFILE, homeDir, CURRENT_VERSION, GATEWAY_PORT, GATEWAY_URL,
   isWindows, HERMES_CMD, _isDev, _tlsReject,
   ACTIVATION_KEY, TRIAL_DAYS, LICENSE_DAYS, SERVER_URL,
   PLATFORM_DEFS, DEFAULT_ROLES, ROLE_SKILLS,
 } = require("./src/main/constants");
-const logger = require("./src/main/logger");
-const httpClient = require("./src/main/http-client");
-const rolesMgr = require("./src/main/roles");
-const licenses = require("./src/main/license");
-const engine = require("./src/main/engine");
-const feishu = require("./src/main/feishu");
-const wecom = require("./src/main/wecom");
-const creditsSrv = require("./src/main/credits-server");
-engine.init(GATEWAY_API_KEY, HERMES_BIN);
-creditsSrv.init(engine.getEngineDir);
+
 // ===== Sentry 错误监控（可选，通过 SENTRY_DSN 环境变量启用）=====
 let Sentry = null;
 try {
@@ -36,16 +29,16 @@ try {
       release: CURRENT_VERSION,
       environment: process.env.NODE_ENV || "production",
     });
-    logger.startup("Sentry initialized");
+    startupLog("Sentry initialized");
   }
 } catch (e) {
   // Sentry 仅在 Electron 运行时可用，命令行 node 测试时跳过
-  logger.startup("Sentry init skipped: " + (e.message || "unknown"));
+  startupLog("Sentry init skipped: " + (e.message || "unknown"));
 }
-logger.init(app, Sentry, _isDev);
-httpClient.init(_tlsReject);
+
 // ===== 安全存储：平台凭据加密（macOS Keychain / Windows DPAPI）=====
 const SECURE_STORE_PATH = () => path.join(app.getPath("userData"), "secure-store.json");
+
 function _safeEncrypt(plaintext) {
   if (!plaintext) return "";
   if (safeStorage.isEncryptionAvailable()) {
@@ -53,12 +46,13 @@ function _safeEncrypt(plaintext) {
   }
   // 回退：当 safeStorage 不可用时（部分 Linux），用设备 ID 做简单混淆
   // 这不是真正的加密，但比明文存储好
-  const key = crypto.createHash("sha256").update(licenses.getDeviceId() + "hergent-secure-v1").digest();
+  const key = crypto.createHash("sha256").update(getDeviceId() + "hergent-secure-v1").digest();
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
   const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   return Buffer.concat([iv, encrypted]).toString("base64");
 }
+
 function _safeDecrypt(encoded) {
   if (!encoded) return "";
   try {
@@ -69,13 +63,14 @@ function _safeDecrypt(encoded) {
     const data = Buffer.from(encoded, "base64");
     const iv = data.subarray(0, 16);
     const encrypted = data.subarray(16);
-    const key = crypto.createHash("sha256").update(licenses.getDeviceId() + "hergent-secure-v1").digest();
+    const key = crypto.createHash("sha256").update(getDeviceId() + "hergent-secure-v1").digest();
     const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
   } catch (_) {
     return ""; // 解密失败返回空字符串
   }
 }
+
 // 加密写入单个凭据字段
 function _encryptChannelSecrets(channelData) {
   if (!channelData) return channelData;
@@ -93,9 +88,9 @@ function _encryptChannelSecrets(channelData) {
   }
   return encrypted;
 }
+
 // 解密单个凭据字段
-function _decryptChannelSecrets(channelData) {
-  if (!channelData) return channelData;
+function _decryptChannelSecrets(channelData) {  if (!channelData) return channelData;
   const decrypted = {};
   for (const [roleId, cfg] of Object.entries(channelData)) {
     if (roleId.startsWith("_")) { decrypted[roleId] = cfg; continue; }
@@ -109,12 +104,62 @@ function _decryptChannelSecrets(channelData) {
   }
   return decrypted;
 }
+
+// 启动标记：尽快写日志确认进程已启动
 try {
   const startupDir = process.env.APPDATA || require('os').tmpdir();
+  fs.appendFileSync(path.join(startupDir, 'Hergent', 'startup.log'), `[${new Date().toISOString()}] main.js loaded, platform=${process.platform}, electron=${process.versions.electron}\n`);
 } catch (_) {}
+
 // getConfigPath() is lazy — app.getPath() must be called after app.whenReady()
-function getConfigPath() { return path.join(app.getPath('userData'), 'channels.json'); }
-logger.startup(`main.js loaded, platform=${process.platform}, electron=${process.versions.electron}, version=${CURRENT_VERSION}`);
+function getConfigPath() { return path.join(app.getPath("userData"), "channels.json"); }
+
+// ===== 集中日志系统 =====
+const ERROR_HISTORY = []; // 内存中保留最近 20 条错误
+
+function hergentLog(level, category, message) {
+  if (level === "ERROR") {
+    const ts = new Date().toISOString();
+    ERROR_HISTORY.unshift({ ts, category, message });
+    if (ERROR_HISTORY.length > 20) ERROR_HISTORY.pop();
+    // 上报到 Sentry（作为面包屑，用于 crash 时上下文重建）
+    try { if (Sentry) Sentry.addBreadcrumb({ category, message, level: "error", timestamp: Date.now() / 1000 }); } catch (_) {}
+  }
+}
+
+// 关键路径错误上报：记录本地日志 + Sentry + 远程 crash 端点
+function _reportCriticalError(component, err, extraContext) {
+  const msg = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error ? (err.stack || "") : "";
+  hergentLog("ERROR", component, msg);
+  try {
+    const logDir = app.isReady() ? app.getPath("userData") : require("os").tmpdir();
+    fs.appendFileSync(path.join(logDir, "hergent-crash.log"),
+      `[${new Date().toISOString()}] [${component}] ${msg}\n${stack}\n${extraContext ? JSON.stringify(extraContext) : ""}\n`);
+  } catch (_) {}
+  try { if (Sentry) Sentry.captureException(err instanceof Error ? err : new Error(msg)); } catch (_) {}
+}
+
+// 非关键路径错误：仅记录日志，不上报到 Sentry（避免噪音），但在 dev 模式打印 warning
+function _reportNonCritical(component, message) {
+  hergentLog("WARN", component, message);
+  if (_isDev) console.warn(`[${component}]`, message);
+}
+
+// 启动阶段日志（写到 userData/startup.log，每次启动覆盖）
+function startupLog(msg) {
+  try {
+    const logDir = (() => {
+      try { return app.isReady() ? app.getPath('userData') : path.join(require('os').homedir(), 'AppData', 'Roaming', 'Hergent'); }
+      catch (_) { return require('os').tmpdir(); }
+    })();
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(path.join(logDir, 'startup.log'), `[${new Date().toISOString()}] ${msg}\n`);
+  } catch (_) {}
+}
+startupLog(`main.js loaded, platform=${process.platform}, electron=${process.versions.electron}, version=${CURRENT_VERSION}`);
+
+// 全局异常兜底
 process.on("uncaughtException", (err) => {
   try {
     const logDir = app.isReady() ? app.getPath("userData") : require("os").tmpdir();
@@ -135,10 +180,12 @@ process.on("uncaughtException", (err) => {
   try { dialog.showErrorBox("Hergent 启动失败", `错误详情：\n${err.message}\n\n请将以下路径的日志发送给技术支持：\n${require("os").tmpdir()}/hergent-crash.log`); } catch (_) {}
   process.exit(1);
 });
+
 // 未捕获的 Promise 拒绝 — 记录日志 + Sentry + 上报远程（不退出进程）
 process.on("unhandledRejection", (reason) => {
   const msg = reason instanceof Error ? reason.message : String(reason);
   const stack = reason instanceof Error ? (reason.stack || "") : "";
+  hergentLog("ERROR", "process", `unhandledRejection: ${msg}`);
   try { if (Sentry) Sentry.captureException(reason instanceof Error ? reason : new Error(msg)); } catch (_) {}
   try {
     const logDir = app.isReady() ? app.getPath("userData") : require("os").tmpdir();
@@ -154,13 +201,14 @@ process.on("unhandledRejection", (reason) => {
     req.write(body); req.end();
   } catch (_) {}
 });
+
 // ===== Hermes Gateway 管理 =====
 // Gateway API Key 每次启动动态生成（仅本机 localhost 使用，无需持久化）
 const GATEWAY_API_KEY = crypto.randomBytes(32).toString("hex");
-// Dev 模式允许跳过 TLS 证书验证（通过环境变量 HERGENT_DEV=1 启用）
 let gatewayProcess = null;
 const _roleGateways = []; // { roleId, process, home } — 飞书每角色独立Gateway
 const ROLE_SESSIONS = {}; // roleId -> sessionId, 保持会话连续性
+
 function isGatewayRunning() {
   return new Promise((resolve) => {
     const req = net.request({ method: 'GET', url: `${GATEWAY_URL}/health` });
@@ -170,6 +218,7 @@ function isGatewayRunning() {
     req.end();
   });
 }
+
 async function waitForGateway(maxWaitMs = 90000) {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
@@ -178,14 +227,17 @@ async function waitForGateway(maxWaitMs = 90000) {
   }
   return false;
 }
+
+
 // 所有平台都走角色独立 Gateway，主 Gateway 不再直接处理任何平台连接
 function getPlatformEnvVars() {
   return {};
 }
+
 // 获取角色最近的平台 session ID（飞书等），用于 App 聊天与平台共享上下文
 function getLatestPlatformSession(roleId) {
   try {
-    const engineDir = engine.getEngineDir();
+    const engineDir = getEngineDir();
     const sessionsDir = path.join(engineDir, '.hermes', 'agents', roleId, 'sessions');
     const indexPath = path.join(sessionsDir, 'sessions.json');
     if (!fs.existsSync(indexPath)) return null;
@@ -200,6 +252,7 @@ function getLatestPlatformSession(roleId) {
     return latest ? latest.sessionId : null;
   } catch (_) { return null; }
 }
+
 // 从 channels.json 读取所有平台每角色配置
 // 返回 [{ platform, roleId, name, creds: {app_id, app_secret, ...}, envVars: {FEISHU_APP_ID: ..., ...} }]
 function getPlatformRoleConfigs() {
@@ -208,7 +261,7 @@ function getPlatformRoleConfigs() {
     const cp = getConfigPath();
     if (!fs.existsSync(cp)) return configs;
     const channels = JSON.parse(fs.readFileSync(cp, 'utf8'));
-    const roles = rolesMgr.loadRoles();
+    const roles = loadRoles();
     for (const [platformKey, platformDef] of Object.entries(PLATFORM_DEFS)) {
       const platformData = channels[platformKey];
       if (!platformData) continue;
@@ -233,23 +286,30 @@ function getPlatformRoleConfigs() {
   } catch (_) {}
   return configs;
 }
+
 // 向后兼容别名
 function getFeishuRoleConfigs() {
   return getPlatformRoleConfigs().filter(c => c.platform === 'feishu');
 }
+
+
 // 为每个有平台配置的角色启动独立 Gateway 进程（飞书/企微/钉钉/QQ）
 function spawnRoleGateways(pythonBin, libsDir, glog) {
   const configs = getPlatformRoleConfigs();
   if (configs.length === 0) { glog('No platform role configs found, skipping role gateways'); return; }
+
   // 先停掉旧的角色 Gateway（内存追踪 + 进程名精确匹配）
   for (const rg of _roleGateways) {
     try { rg.process.kill(); } catch (_) {}
   }
   _roleGateways.length = 0;
-  const engineDir = engine.getEngineDir();
+
+  const engineDir = getEngineDir();
+
   for (const cfg of configs) {
     const roleHome = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
     if (!fs.existsSync(roleHome)) { fs.mkdirSync(roleHome, { recursive: true }); }
+
     // 确保角色 Gateway 有正确格式的 config.yaml（直接写 YAML，v0.15.x 要求列表格式）
     const roleConfigPath = path.join(roleHome, 'config.yaml');
     const mainConfigPath = path.join(engineDir, '.hermes', 'config.yaml');
@@ -264,7 +324,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
         if (mp) currentProvider = mp[1].trim();
       }
     } catch (_) {}
-    const deviceId = licenses.getDeviceId();
+    const deviceId = getDeviceId();
     const roleYamlLines = [
       'model:',
       '  name: ' + currentModel,
@@ -307,6 +367,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
       fs.writeFileSync(roleConfigPath, roleYaml);
       fs.writeFileSync(path.join(roleHome, '.env'), 'OPENAI_API_KEY=hermes-local-proxy\n');
     } catch (_) {}
+
     glog(`Starting ${cfg.label} gateway for role ${cfg.roleId} (${cfg.name})...`);
     try {
       // Windows/macOS 统一用 python -m hermes_cli.main 启动角色 Gateway
@@ -326,7 +387,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
         windowsHide: true
       });
       roleProc.unref();
-      roleProc.on("error", (err) => { glog(`Role GW ${cfg.roleId}/${cfg.platform} SPAWN ERROR: ` + err.message); logger.reportCriticalError("gateway-roles", err, { roleId: cfg.roleId, platform: cfg.platform }); });
+      roleProc.on("error", (err) => { glog(`Role GW ${cfg.roleId}/${cfg.platform} SPAWN ERROR: ` + err.message); _reportCriticalError("gateway-roles", err, { roleId: cfg.roleId, platform: cfg.platform }); });
       roleProc.on('exit', (code, sig) => { glog(`Role GW ${cfg.roleId}/${cfg.platform} exited code=${code} sig=${sig}`); });
       _roleGateways.push({ roleId: cfg.roleId, platform: cfg.platform, process: roleProc, home: roleHome });
       glog(`Role GW ${cfg.roleId}/${cfg.platform} spawned OK`);
@@ -335,26 +396,33 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
     }
   }
 }
+
+
 async function startHermesGateway() {
-  const engineDir = engine.getEngineDir();
+
+  const engineDir = getEngineDir();
   const gwHome = path.join(engineDir, '.hermes');
   const gf = path.join(gwHome, 'app_debug.log');
   const glog = (msg) => { try { fs.appendFileSync(gf, `[${new Date().toISOString()}] GW: ${msg}\n`); } catch(_) {} };
+
   glog(`startHermesGateway called, HERMES_BIN=${HERMES_BIN}, isWindows=${isWindows}`);
   if (!fs.existsSync(HERMES_BIN)) {
     glog('HERMES_BIN not found');
     return false;
   }
-  engine.ensureSharedState();
-  engine.ensureRoleConfigs();
-  engine.markEngineReady();
+
+  ensureSharedState();
+  ensureRoleConfigs();
+  markEngineReady();
+
   const isRunning = await isGatewayRunning();
+
   if (!isRunning) {
   // 直接写 YAML（v0.15.x 要求 custom_providers 必须为列表格式，hermes config set 却写字典格式）
   const mainConfigPath = path.join(gwHome, 'config.yaml');
   try {
-    const deviceId = licenses.getDeviceId();
-    const dsKey = licenses.getDeepSeekApiKey();
+    const deviceId = getDeviceId();
+    const dsKey = getDeepSeekApiKey();
     const existingModel = (() => { try { const c = fs.readFileSync(mainConfigPath, 'utf8'); const m = c.match(/^model:\s*\n\s+name:\s*(.+)/m); return m ? m[1].trim() : null; } catch(_) { return null; } })();
     const modelName = existingModel || 'deepseek-v4-flash';
     const provider = 'openai';
@@ -419,6 +487,7 @@ async function startHermesGateway() {
   } catch(e) {
     glog('config write error: ' + e.message);
   }
+
   // Windows: hermes.bat 需要通过 shell 启动（cmd.exe /c）
   if (isWindows) {
     const gatewayLogFile = path.join(gwHome, 'gateway_stderr.log');
@@ -433,7 +502,7 @@ async function startHermesGateway() {
       const stderrStream = fs.createWriteStream(gatewayLogFile, { flags: 'a' });
       gatewayProcess.stderr.pipe(stderrStream);
       gatewayProcess.unref();
-      gatewayProcess.on("error", (err) => { glog("SPAWN ERROR: " + err.message); logger.reportCriticalError("gateway", err, { platform: process.platform }); });
+      gatewayProcess.on("error", (err) => { glog("SPAWN ERROR: " + err.message); _reportCriticalError("gateway", err, { platform: process.platform }); });
       gatewayProcess.on('exit', (code, sig) => {
         glog(`process exited code=${code} sig=${sig}`);
         try {
@@ -471,7 +540,7 @@ async function startHermesGateway() {
           detached: true
         });
         gatewayProcess.unref();
-        gatewayProcess.on("error", (err) => { glog("SPAWN ERROR: " + err.message); logger.reportCriticalError("gateway", err, { platform: process.platform }); });
+        gatewayProcess.on("error", (err) => { glog("SPAWN ERROR: " + err.message); _reportCriticalError("gateway", err, { platform: process.platform }); });
         gatewayProcess.on('exit', (code, sig) => { glog(`process exited code=${code} sig=${sig}`); });
       } catch(e) {
         glog('spawn exception: ' + e.message);
@@ -486,7 +555,7 @@ async function startHermesGateway() {
           detached: true
         });
         gatewayProcess.unref();
-        gatewayProcess.on("error", (err) => { glog("SPAWN ERROR: " + err.message); logger.reportCriticalError("gateway", err, { platform: process.platform }); });
+        gatewayProcess.on("error", (err) => { glog("SPAWN ERROR: " + err.message); _reportCriticalError("gateway", err, { platform: process.platform }); });
         gatewayProcess.on('exit', (code, sig) => { glog(`process exited code=${code} sig=${sig}`); });
       } catch(e) {
         glog('spawn exception: ' + e.message);
@@ -495,6 +564,7 @@ async function startHermesGateway() {
     }
   }
   } // end if (!isRunning)
+
   // 启动飞书每角色独立 Gateway（无论主Gateway是否已运行）
   const binDir2 = path.dirname(HERMES_BIN);
   const pythonCandidates2 = isWindows
@@ -511,6 +581,7 @@ async function startHermesGateway() {
   } else {
     glog('Role GW: no python binary found for role gateways');
   }
+
   glog('waiting for health check...');
   const ready = isRunning || await waitForGateway();
   glog('health check result: ' + ready);
@@ -521,6 +592,7 @@ async function startHermesGateway() {
   glog('Gateway failed to start within timeout');
   return false;
 }
+
 function stopHermesGateway() {
   if (gatewayProcess) {
     try { gatewayProcess.kill(); } catch (_) {}
@@ -531,7 +603,7 @@ function stopHermesGateway() {
   }
   _roleGateways.length = 0;
   // 清理所有使用本引擎目录的 gateway 进程（精确匹配引擎路径，避免误杀 QClaw 等）
-  const engineDir = engine.getEngineDir();
+  const engineDir = getEngineDir();
   if (process.platform === 'darwin' || process.platform === 'linux') {
     // 精确匹配：只杀使用本机当前用户引擎 Python 的 gateway 进程（不误伤其他用户/QClaw）
     try { execSync(`pkill -f "${engineDir}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
@@ -539,14 +611,16 @@ function stopHermesGateway() {
     try { execSync('taskkill /F /IM python3.11.exe /FI "WINDOWTITLE eq gateway run"', { timeout: 5000 }); } catch (_) {}
   }
 }
+
 // 网关 ready 后通过 IPC 通知渲染进程
 ipcMain.handle('gateway:status', async () => {
   const running = await isGatewayRunning();
-  const ready = engine.isEngineReady();
+  const ready = isEngineReady();
   return { running, ready, url: running ? GATEWAY_URL : null };
 });
 let serverProcess = null;
 const SERVER_SCRIPT = path.join(__dirname, '..', '..', '..', 'server', 'server.py');
+
 function startCreditsServer() {
   // 优先从同目录找 server.py，否则从开发路径找
   const candidates = [
@@ -558,14 +632,15 @@ function startCreditsServer() {
     if (fs.existsSync(c)) { scriptPath = c; break; }
   }
   if (!scriptPath) {
-    logger.startup('startCreditsServer: server.py NOT FOUND, skipping');
+    startupLog('startCreditsServer: server.py NOT FOUND, skipping');
     console.log('[credits-server] server.py not found, skipping');
     return;
   }
-  logger.startup(`startCreditsServer: found server.py at ${scriptPath}`);
+  startupLog(`startCreditsServer: found server.py at ${scriptPath}`);
+
   // 优先用引擎自带的 Python（libs 里有 fastapi/uvicorn/httpx 等全套依赖）
   const home = app.getPath('home');
-  const engineDir = engine.getEngineDir(); // ~/Library/Application Support/hergent/hermes-engine
+  const engineDir = getEngineDir(); // ~/Library/Application Support/hergent/hermes-engine
   const agentPython = isWindows
     ? path.join(home, '.hermes', 'hermes-agent', 'venv', 'Scripts', 'python.exe')
     : path.join(home, '.hermes', 'hermes-agent', 'python', 'bin', 'python3.11');
@@ -591,6 +666,7 @@ function startCreditsServer() {
     pythonLibs = agentLibs;
   }
   console.log(`[credits-server] Python: ${pythonPath}, libs: ${pythonLibs || 'none'}`);
+
   // 确保引擎 Python 有 fastapi/uvicorn（引擎打包时可能不含）
   if (pythonPath !== 'python3') {
     try {
@@ -601,6 +677,7 @@ function startCreditsServer() {
       }
     } catch (_) {}
   }
+
   // 从多处读取 DeepSeek API Key
   let deepseekKey = '';
   try {
@@ -627,6 +704,7 @@ function startCreditsServer() {
   }
   // 最终兜底
   if (!deepseekKey || deepseekKey === 'hermes-local-proxy') deepseekKey = '';
+
   console.log(`[credits-server] Starting: ${pythonPath} ${scriptPath}`);
   const spawnEnv = { ...process.env, PYTHONUNBUFFERED: '1', DEEPSEEK_API_KEY: deepseekKey, BAILIAN_API_KEY: '' };
   if (pythonLibs) {
@@ -634,13 +712,15 @@ function startCreditsServer() {
     spawnEnv.PYTHONHOME = '';
   }
   serverProcess = spawn(pythonPath, [scriptPath], { env: spawnEnv });
-  logger.startup(`startCreditsServer: spawned, pid=${serverProcess.pid}, python=${pythonPath}`);
+  startupLog(`startCreditsServer: spawned, pid=${serverProcess.pid}, python=${pythonPath}`);
   serverProcess.on("error", (err) => {
-    logger.reportCriticalError("credits-server", err, { pythonPath });
+    _reportCriticalError("credits-server", err, { pythonPath });
   });
+
   serverProcess.stdout?.on('data', d => console.log(`[credits-server] ${d.toString().trim()}`));
   serverProcess.stderr?.on('data', d => console.error(`[credits-server] ${d.toString().trim()}`));
 }
+
 function stopCreditsServer() {
   if (serverProcess) {
     serverProcess.kill();
@@ -648,47 +728,621 @@ function stopCreditsServer() {
     console.log('[credits-server] stopped');
   }
 }
-let SYSTEM_PROMPT = '';
+let SYSTEM_PROMPT = "";
 try {
   SYSTEM_PROMPT = fs.readFileSync(path.join(homeDir, '.hermes', 'SOUL.md'), 'utf8').trim();
 } catch (e) { /* 文件不存在时用内置精简版 */ }
 if (!SYSTEM_PROMPT) {
   SYSTEM_PROMPT = '你是 Hermes AI，一个靠谱的AI助手。说人话、结论先行、不啰嗦。';
 }
+
 // Hermes CLI 路径检测
 let HERMES_BIN = HERMES_CMD;
 let _cancelFn = null; // 当前活跃操作的取消函数，hermes:cancel 调用时触发
+
 // ===== 引擎自解压（首次启动自动展开 hermes.tar.gz）=====
+function getEngineDir() {
+  return path.join(app.getPath('userData'), 'hermes-engine');
+}
+
 // 递归合并目录（不覆盖已存在的文件）
+function _mergeDir(src, dst) {
+  if (!fs.existsSync(dst)) { fs.mkdirSync(dst, { recursive: true }); }
+  for (const f of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, f.name);
+    const d = path.join(dst, f.name);
+    if (f.isDirectory()) {
+      _mergeDir(s, d);
+    } else if (!fs.existsSync(d)) {
+      fs.copyFileSync(s, d);
+    }
+  }
+}
+
+function extractBundledEngine() {
+  const engineDir = getEngineDir();
+  const versionFile = path.join(engineDir, '.extracted-version');
+  const tarballPath = path.join(__dirname, '..', 'hermes.tar.gz');
+  startupLog(`extractBundledEngine: engineDir=${engineDir}, tarball=${fs.existsSync(tarballPath) ? 'found' : 'NOT FOUND'}`);
+  if (!fs.existsSync(tarballPath)) return false;
+
+  const currentVersion = CURRENT_VERSION + '|' + (fs.statSync(tarballPath).size || 0);
+  // 验证关键文件是否存在（防止 sentinel 存在但解压不完整的情况，如 Gatekeeper 删除了 dylib）
+  const criticalFiles = isWindows
+    ? [path.join(engineDir, 'python', 'python.exe')]
+    : [path.join(engineDir, 'python', 'bin', 'python3.11'), path.join(engineDir, 'python', 'lib', 'libpython3.11.dylib')];
+  try {
+    if (fs.existsSync(versionFile) && criticalFiles.every(f => fs.existsSync(f))) {
+      const extracted = fs.readFileSync(versionFile, 'utf8').trim();
+      if (extracted === currentVersion) {
+        startupLog('extractBundledEngine: already extracted, version matches');
+        return true;
+      }
+      startupLog(`extractBundledEngine: version mismatch, re-extracting (${extracted.slice(0,30)} vs ${currentVersion.slice(0,30)})`);
+    }
+  } catch (_) {}
+
+  try {
+    if (!fs.existsSync(engineDir)) fs.mkdirSync(engineDir, { recursive: true });
+    // 清除 tarball 自身的隔离属性，防止提取出的文件继承 quarantine
+    if (!isWindows) {
+      try { spawnSync('/usr/bin/xattr', ['-cr', tarballPath], { timeout: 5000 }); } catch (_) {}
+    }
+    const cmd = isWindows
+      ? `tar xzf "${tarballPath}" -C "${engineDir}"`
+      : `tar xzf "${tarballPath}" -C "${engineDir}"`;
+    startupLog(`extractBundledEngine: running tar extract, tarball=${fs.statSync(tarballPath).size} bytes`);
+    execSync(cmd, { timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] });
+    // 提取后立即清除所有文件的隔离属性，防止 Gatekeeper 拦截二进制/dylib
+    if (!isWindows) {
+      try { spawnSync('/usr/bin/xattr', ['-cr', engineDir], { timeout: 10000 }); } catch (_) {}
+    }
+    // Windows: 应用引擎补丁（缺失模块、常量函数等）
+    if (isWindows) {
+      const patchesDir = path.join(process.resourcesPath, 'win-patches');
+      startupLog(`extractBundledEngine: Windows patches dir ${fs.existsSync(patchesDir) ? 'found' : 'NOT FOUND'} at ${patchesDir}`);
+      if (fs.existsSync(patchesDir)) {
+        try {
+          for (const f of fs.readdirSync(patchesDir, { withFileTypes: true })) {
+            const src = path.join(patchesDir, f.name);
+            const dst = path.join(engineDir, f.name);
+            if (f.isDirectory()) {
+              _mergeDir(src, dst);
+            } else if (f.name.endsWith('.py') && fs.existsSync(dst)) {
+              // 追加补丁内容到引擎已有文件（不读取原文件，避免 GBK 编码错误）
+              const patchBuf = fs.readFileSync(src);
+              fs.appendFileSync(dst, '\n' + patchBuf.toString('utf8'));
+            } else if (!fs.existsSync(dst)) {
+              fs.copyFileSync(src, dst);
+            }
+          }
+          console.log('[engine] Windows patches applied from', patchesDir);
+        } catch (e2) { console.log('[engine] Windows patch error:', e2.message); }
+      }
+    }
+    // 复制支付宝证书到用户目录（支付必需）
+    try {
+      const bundledCerts = path.join(process.resourcesPath || path.join(__dirname, '..'), 'certs');
+      const userCerts = path.join(homeDir, '.hermes', 'certs');
+      if (fs.existsSync(bundledCerts)) {
+        _mergeDir(bundledCerts, userCerts);
+        console.log('[engine] Certs copied to', userCerts);
+      }
+    } catch (_) {}
+    fs.writeFileSync(versionFile, currentVersion);
+    startupLog(`extractBundledEngine: extraction complete, engineDir=${engineDir}`);
+    console.log('[engine] Extracted to', engineDir);
+    return true;
+  } catch (e) {
+    _reportCriticalError("engine", e, { phase: "extraction", engineDir, version: CURRENT_VERSION });
+    return false;
+  }
+}
+
 // 每次启动都确保引擎配置正确（通过 hermes config set）
+function ensureEngineConfig() {
+  const engineDir = getEngineDir();
+  const hermesHome = path.join(engineDir, '.hermes');
+  const configPath = path.join(hermesHome, 'config.yaml');
+
+  // 已配置则跳过
+  if (fs.existsSync(configPath)) return;
+
+  if (!fs.existsSync(hermesHome)) fs.mkdirSync(hermesHome, { recursive: true });
+
+  const cfgEnv = { ...process.env, HERMES_HOME: hermesHome };
+  const set = (k, v) => { try { spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv }); } catch (_) {} };
+  const dsKey = getDeepSeekApiKey();
+  set('model.name', 'deepseek-v4-flash');
+  set('model.provider', 'openai');
+  set('platforms.api_server.enabled', 'true');
+  set('platforms.api_server.port', String(GATEWAY_PORT));
+  set('platforms.api_server.key', GATEWAY_API_KEY);
+  set('custom_providers.0.name', 'openai');
+  set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
+  set('custom_providers.0.api_key', dsKey);
+  set('custom_providers.0.model', 'deepseek-v4-flash');
+  set('memory.memory_enabled', 'true');
+  set('memory.memory_char_limit', '12000');
+  set('memory.user_char_limit', '8000');
+  set('memory.flush_min_turns', '6');
+  set('memory.nudge_interval', '10');
+}
+
 // 从 asar 安全复制目录（asar 不支持 cpSync，需逐文件处理）
+function copyDirFromAsar(srcDir, dstDir) {
+  if (!fs.existsSync(srcDir)) return;
+  fs.mkdirSync(dstDir, { recursive: true });
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const src = path.join(srcDir, entry.name);
+    const dst = path.join(dstDir, entry.name);
+    if (entry.isDirectory()) {
+      copyDirFromAsar(src, dst);
+    } else if (entry.isSymbolicLink && entry.isSymbolicLink()) {
+      // asar 中不应有 symlink，但安全处理
+      try { fs.copyFileSync(src, dst); } catch (_) {}
+    } else {
+      try {
+        const content = fs.readFileSync(src);
+        fs.mkdirSync(path.dirname(dst), { recursive: true });
+        fs.writeFileSync(dst, content);
+      } catch (e) { /* skip individual file errors */ }
+    }
+  }
+}
+
 // 将引擎的 memories/ 和 skills/ 链接到用户 ~/.hermes/，共享长期记忆和全部技能
+function ensureSharedState() {
+  const engineDir = getEngineDir();
+  const hermesHome = path.join(engineDir, '.hermes');
+  const userHermes = path.join(homeDir, '.hermes');
+
+  const linkDirs = ['memories', 'skills'];
+  for (const dir of linkDirs) {
+    const enginePath = path.join(hermesHome, dir);
+    const userPath = path.join(userHermes, dir);
+
+    try { if (fs.lstatSync(enginePath).isSymbolicLink()) continue; } catch (_) {}
+
+    if (!fs.existsSync(userPath)) {
+      fs.mkdirSync(userPath, { recursive: true });
+    }
+
+    // skills: 从 Resources/skills/（磁盘，非 asar）复制到用户目录
+    if (dir === 'skills') {
+      const bundledSkills = path.join(process.resourcesPath, 'skills');
+      if (fs.existsSync(bundledSkills)) {
+        const entries = fs.readdirSync(bundledSkills, { withFileTypes: true });
+        for (const e of entries) {
+          if (!e.isDirectory()) continue;
+          const srcDir = path.join(bundledSkills, e.name);
+          const dstDir = path.join(userPath, e.name);
+          try {
+            _mergeDir(srcDir, dstDir);
+          } catch (e2) { console.log('skill copy error: ' + (e2.message || e2)); }
+        }
+      }
+
+      // 从 Hermes 官方仓库同步技能（git pull + 增量复制）
+      const skillsCache = path.join(homeDir, '.hermes', 'hermes-skills-cache');
+      if (fs.existsSync(skillsCache)) {
+        try {
+          const gitPull = spawnSync('git', ['-C', skillsCache, 'pull', '--ff-only'], { timeout: 10000 });
+          if (gitPull.status === 0) { console.log('[skills-sync] git pull OK'); }
+        } catch (_) { /* 网络不可用跳过 */ }
+
+        // Hergent 自有技能名，不被上游覆盖
+        const hergentNames = new Set();
+        const bundledSkills = path.join(__dirname, 'skills');
+        if (fs.existsSync(bundledSkills)) {
+          for (const e of fs.readdirSync(bundledSkills, { withFileTypes: true })) {
+            if (e.isDirectory()) hergentNames.add(e.name);
+          }
+        }
+
+        for (const srcDir of ['skills', 'optional-skills']) {
+          const srcRoot = path.join(skillsCache, srcDir);
+          if (!fs.existsSync(srcRoot)) continue;
+          for (const cat of fs.readdirSync(srcRoot, { withFileTypes: true })) {
+            if (!cat.isDirectory() || cat.name === 'index-cache') continue;
+            const catPath = path.join(srcRoot, cat.name);
+            for (const sk of fs.readdirSync(catPath, { withFileTypes: true })) {
+              if (!sk.isDirectory()) continue;
+              if (hergentNames.has(sk.name)) continue;
+              const skillMdSrc = path.join(catPath, sk.name, 'SKILL.md');
+              if (!fs.existsSync(skillMdSrc)) continue;
+              const dstDir = path.join(userPath, sk.name);
+              const dst = path.join(dstDir, 'SKILL.md');
+              try {
+                if (!fs.existsSync(dst) || fs.readFileSync(dst, 'utf8') !== fs.readFileSync(skillMdSrc, 'utf8')) {
+                  if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
+                  for (const entry of fs.readdirSync(path.join(catPath, sk.name), { withFileTypes: true })) {
+                    const s = path.join(catPath, sk.name, entry.name);
+                    const d = path.join(dstDir, entry.name);
+                    entry.isDirectory() ? copyDirFromAsar(s, d) : fs.copyFileSync(s, d);
+                  }
+                }
+              } catch (e2) { /* 单个技能失败不影响其他 */ }
+            }
+          }
+        }
+      }
+    }
+
+    try {
+      if (fs.existsSync(enginePath)) {
+        const bak = enginePath + '.empty';
+        if (!fs.existsSync(bak)) fs.renameSync(enginePath, bak);
+        else fs.rmSync(enginePath, { recursive: true, force: true });
+      }
+      // Windows 普通权限不支持默认 symlink，需用 junction（目录联接）
+      if (isWindows) {
+        fs.symlinkSync(userPath, enginePath, 'junction');
+      } else {
+        fs.symlinkSync(userPath, enginePath);
+      }
+    } catch (e) { console.log('shared state symlink error: ' + (e.message || e)); }
+  }
+  // 将新同步的技能传播到各角色
+  try { syncRoleSkills(); } catch (_) {}
+}
+
 // 为每个角色创建独立的 Hermes Home（独立 workspace + skills + config + memory + persona）
 // 将共享技能目录中的角色专属技能 symlink 到各角色的 skills/ 目录
+function syncRoleSkills() {
+  const engineDir = getEngineDir();
+  const sharedSkills = path.join(engineDir, '.hermes', 'skills');
+  if (!fs.existsSync(sharedSkills)) return;
+  const roles = loadRoles();
+  for (const [roleId] of Object.entries(roles)) {
+    const roleSkills = path.join(engineDir, '.hermes', 'agents', roleId, 'skills');
+    if (!fs.existsSync(roleSkills)) fs.mkdirSync(roleSkills, { recursive: true });
+    const wanted = ROLE_SKILLS[roleId] || [];
+    // 清除旧 symlink
+    try {
+      for (const entry of fs.readdirSync(roleSkills, { withFileTypes: true })) {
+        try { fs.rmSync(path.join(roleSkills, entry.name), { recursive: true }); } catch (_) {}
+      }
+    } catch (_) {}
+    // Symlink 角色专属技能
+    for (const slug of wanted) {
+      const src = path.join(sharedSkills, slug);
+      const dst = path.join(roleSkills, slug);
+      try {
+        if (fs.existsSync(dst)) fs.rmSync(dst, { recursive: true });
+        if (fs.existsSync(src)) fs.symlinkSync(src, dst, isWindows ? 'junction' : 'dir');
+      } catch (_) {}
+    }
+  }
+}
+
+function ensureRoleConfigs() {
+  const engineDir = getEngineDir();
+  const roles = loadRoles();
+  // 读取主引擎模型配置，用于同步到所有角色
+  const mainConfigPath = path.join(engineDir, '.hermes', 'config.yaml');
+  let mainModel = 'deepseek-v4-flash', mainProvider = 'openai';
+  try {
+    const mc = fs.readFileSync(mainConfigPath, 'utf8');
+    const mm = mc.match(/^model:\s*\n\s+name:\s*(.+)/m);
+    const mp = mc.match(/^model:\s*\n(?:.+\n)*?\s+provider:\s*(.+)/m);
+    if (mm) mainModel = mm[1].trim();
+    if (mp) mainProvider = mp[1].trim();
+  } catch (_) {}
+  for (const [roleId, role] of Object.entries(roles)) {
+    const roleHome = path.join(engineDir, '.hermes', 'agents', roleId);
+    const reportsBase = path.join(app.getPath('documents'), 'Hergent', '成果');
+    const roleWorkspace = reportsBase; // Hermes 生成的文件直接存到"我的成果"目录
+    const roleSkills = path.join(roleHome, 'skills');
+    const roleMemories = path.join(roleHome, 'memories');
+    if (!fs.existsSync(roleHome)) fs.mkdirSync(roleHome, { recursive: true });
+    if (!fs.existsSync(roleWorkspace)) fs.mkdirSync(roleWorkspace, { recursive: true });
+    if (!fs.existsSync(roleSkills)) fs.mkdirSync(roleSkills, { recursive: true });
+    if (!fs.existsSync(roleMemories)) fs.mkdirSync(roleMemories, { recursive: true });
+
+    // 写入角色专属 SOUL.md (persona 文件)
+    const soulPath = path.join(roleHome, 'SOUL.md');
+    const soulContent = [
+      '# ' + (role.name || roleId),
+      '',
+      (role.systemPrompt || '你是 Hergent 数字员工。'),
+      '',
+      '## 核心能力',
+      '',
+      role.opening || '高效、靠谱、考虑周全。',
+      '',
+      '## 行为准则',
+      '',
+      '- 说人话、结论先行、不啰嗦',
+      '- 主动帮用户省时间',
+      '- 不确定的事先核实再说',
+      '- 如果有更简单的方法，主动提出来',
+      ''
+    ].join('\n');
+    try {
+      const existingSoul = fs.existsSync(soulPath) ? fs.readFileSync(soulPath, 'utf8') : '';
+      if (existingSoul !== soulContent) fs.writeFileSync(soulPath, soulContent);
+    } catch (e) { console.log(`SOUL.md write error for ${roleId}: ` + (e.message || e)); }
+
+    // 写入角色专属 config.yaml — 直接写 YAML 避免 custom_providers 变 dict
+    const roleConfigPath = path.join(roleHome, 'config.yaml');
+    if (!fs.existsSync(roleConfigPath)) {
+      try {
+        const roleConfigYaml = [
+          'model:',
+          '  name: deepseek-v4-flash',
+          '  provider: openai',
+          'custom_providers:',
+          '  - name: openai',
+          `    base_url: ${SERVER_URL}/v1`,
+          `    api_key: hermes_${getDeviceId()}`,
+          '    model: deepseek-v4-flash',
+          `system_prompt_file: ${soulPath}`,
+          `system_prompt: "${(role.systemPrompt || '').replace(/"/g, '\\"')}"`,
+          'memory:',
+          '  memory_enabled: true',
+          `  memory_dir: ${roleMemories}`,
+          'session:',
+          `  sessions_dir: ${path.join(roleHome, 'sessions')}`,
+          'terminal:',
+          `  cwd: ${roleWorkspace}`,
+          '',
+        ].join('\n');
+        fs.writeFileSync(roleConfigPath, roleConfigYaml);
+      } catch (e) { console.log(`config.yaml write error for ${roleId}: ` + (e.message || e)); }
+    }
+    // 同步主引擎模型到该角色 — 整段替换 model section（不存在则插入）
+    try {
+      let roleCfg = fs.readFileSync(roleConfigPath, 'utf8');
+      if (roleCfg.match(/^model:/m)) {
+        roleCfg = roleCfg.replace(
+          /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
+          'model:\n  name: ' + mainModel + '\n  provider: ' + mainProvider + '\n'
+        );
+      } else {
+        roleCfg = 'model:\n  name: ' + mainModel + '\n  provider: ' + mainProvider + '\n' + roleCfg;
+      }
+      // 确保有 custom_providers
+      if (!roleCfg.match(/^custom_providers:/m)) {
+        roleCfg += '\ncustom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: hermes_' + getDeviceId() + '\n    model: ' + mainModel + '\n';
+      }
+      // 同时更新 custom_providers 中 hergent provider 的 model 名 + apiKey
+      // 兼容 YAML 列表格式 "- name:" 和普通格式 "name:"
+      roleCfg = roleCfg.replace(
+        /^(\s*-?\s*name: openai\n\s+base_url: .+\n\s+)api_key: .+(\n\s+model: ).+/m,
+        '$1api_key: hermes_' + getDeviceId() + '$2' + mainModel
+      );
+      fs.writeFileSync(roleConfigPath, roleCfg);
+      // v0.15.x requires OPENAI_API_KEY for openai provider
+      try { fs.writeFileSync(path.join(roleHome, '.env'), 'OPENAI_API_KEY=hermes-local-proxy\n'); } catch (_) {}
+    } catch (_) {}
+  }
+  syncRoleSkills();
+}
+
 // 写标记文件，表示引擎完全就绪（配置 + skills + 角色全部到位）
+function markEngineReady() {
+  const engineDir = getEngineDir();
+  fs.writeFileSync(path.join(engineDir, '.hermes', '.hermes-ready'), new Date().toISOString());
+}
+
+function isEngineReady() {
+  // 放宽条件：只要有 .extracted-version 就认为引擎已解压
+  const engineDir = getEngineDir();
+  return fs.existsSync(path.join(engineDir, '.extracted-version')) ||
+         fs.existsSync(path.join(engineDir, '.hermes', '.hermes-ready'));
+}
+
 // 确保技能就位 — skills/ 已通过 ensureSharedState 链接到 ~/.hermes/skills/
-const resolvedPath = engine.resolveHermesPath();
-if (resolvedPath) { HERMES_BIN = resolvedPath; engine.init(GATEWAY_API_KEY, HERMES_BIN); }
-creditsSrv.init(engine.getEngineDir);
-logger.startup(`resolveHermesPath done, HERMES_BIN=${HERMES_BIN || 'NOT FOUND'}, isWindows=${isWindows}`);
+function ensureBuiltinSkills() {
+  ensureSharedState();
+}
+
+function resolveHermesPath() {
+  // 1. 优先用 App 自带的引擎（首次启动自动解压）
+  if (extractBundledEngine()) {
+    const engineDir = getEngineDir();
+    // 清除引擎二进制的隔离属性（递归清理 python/ 目录，包含 dylib 等）避免 Gatekeeper 拦截
+    if (!isWindows) {
+      ['python', 'run.sh', 'hermes'].forEach(p => {
+        const full = path.join(engineDir, p);
+        if (fs.existsSync(full)) {
+          const r = spawnSync('/usr/bin/xattr', ['-cr', full], { timeout: 10000 });
+          if (r.status !== 0) console.log('[engine] xattr failed for', p, 'status', r.status);
+        }
+      });
+    }
+    const bundled = path.join(engineDir, isWindows ? 'hermes.bat' : 'run.sh');
+    if (fs.existsSync(bundled)) return bundled;
+  }
+
+  // 2. 检查 pip 安装位置（兼容旧版）
+  const venvBase = path.join(homeDir, '.hermes', 'hermes-agent', isWindows ? path.join('venv', 'Scripts', HERMES_CMD) : path.join('venv', 'bin', HERMES_CMD));
+  if (fs.existsSync(venvBase)) return venvBase;
+
+  // 3. PATH 中查找
+  try {
+    const whichCmd = isWindows ? `where ${HERMES_CMD}` : `which ${HERMES_CMD}`;
+    const result = execSync(whichCmd, { timeout: 5000 }).toString().trim();
+    const lines = result.split('\n');
+    if (lines[0] && fs.existsSync(lines[0])) return lines[0];
+  } catch (_) {}
+
+  return null;
+}
+
+
+function getLicensePath() {
+  return path.join(app.getPath('userData'), 'license.json');
+}
+
+function loadLicense() {
+  try {
+    const p = getLicensePath();
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf-8'));
+  } catch {}
+  return null;
+}
+
+function saveLicense(data) {
+  fs.writeFileSync(getLicensePath(), JSON.stringify(data, null, 2));
+}
+
+// 首次运行：记录 firstRunDate；已激活：不覆盖
+function ensureLicenseInit() {
+  const lic = loadLicense();
+  if (!lic) {
+    // 全新安装 — 记录首次运行时间，开始7天试用
+    const now = new Date().toISOString();
+    saveLicense({ firstRunDate: now, activated: false, credits: 0, activationCode: null, activateDate: null, expireDate: null });
+    return { firstRunDate: now, activated: false, credits: 0 };
+  }
+  if (!lic.firstRunDate) {
+    lic.firstRunDate = new Date().toISOString();
+    saveLicense(lic);
+  }
+  return lic;
+}
+
+// 生成激活码（Hermes 在用户支付后调用）
+function generateActivationCode(deviceId) {
+  const payload = `${deviceId}|${ACTIVATION_KEY}`;
+  const hmac = crypto.createHmac("sha256", ACTIVATION_KEY).update(payload).digest("hex");
+  return "HERMES-" + hmac.toUpperCase();
+}
+
+// 校验激活码（兼容旧版 16 字符短码和新版 64 字符全码）
+function verifyActivationCode(code, deviceId) {
+  if (!code || !code.startsWith("HERMES-")) return false;
+  const expected = generateActivationCode(deviceId);
+  // 新版: 完整 64 字符 HMAC
+  if (code.toUpperCase() === expected) return true;
+  // 旧版兼容: 前 16 字符 HMAC 短码 ("HERMES-" + 16 hex = 23 字符)
+  if (code.toUpperCase() === expected.slice(0, 23)) return true;
+  return false;
+}
+
+// ===== 角色持久化 =====
+function getRolesPath() { return path.join(app.getPath('userData'), 'roles.json'); }
+
+// ROLE_SKILLS 已移入 src/main/constants.js
+  accountant: ['bank-reconciliation', 'accounting-reports', 'excel-data'],
+  programmer: ['python-coding', 'website-builder', 'karpathy-coding'],
+  writer: [],
+  screenwriter: ['video-scripting'],
+  tutor: ['exam-tutoring'],
+  'ops-manager': [],
+  'cs-helper': [],
+};
+
+const DEFAULT_ROLES = {
+  dami: { name: '大秘', systemPrompt: '你是用户的得力助手"大秘"，你叫大秘。擅长写文档（合同/邮件/方案）、搜资料、设提醒、处理文件。你的风格是高效、靠谱、考虑周全。用户说什么你就帮忙做什么，主动帮用户省时间。直接开始工作，不要说你是什么角色。', opening: '我是你的大秘，文书、搜索、提醒都归我。\n\n**我能做什么**\n写合同、回邮件、做方案、搜资料、设提醒——你不想动手的都交给我。\n\n**数据怎么来**\n- 直接告诉我需求，网上能查到的我帮你查\n- 也可以发文件给我，我帮你整理提炼\n\n试试说一句：\n- 「帮我写一份供货合同」\n- 「搜一下最近AI行业的新动态」', builtIn: true },
+  accountant: { name: '会计', systemPrompt: '你是用户的私人会计。你叫"会计"，精通财务数据处理：对账、做表、算税、分析收支、Excel操作。你的风格是严谨、数字敏感、细致。看到数据先核实，发现问题主动指出。每笔账都要算清楚。直接开始工作，不要说你是什么角色。', opening: '我是你的会计，财务上的事交给我。\n\n**我能做什么**\n对账、做表、算税、分析收支——跟钱有关的我都管。\n\n**数据怎么来**\n- 把银行流水、发票、账单文件发给我\n- 或者直接告诉我需求，我帮你整理\n\n试试发一句：\n- 「帮我对一下这个月的收支」\n- 「把这个Excel表做成利润分析」', builtIn: true },
+  'ops-manager': { name: '运营主管', systemPrompt: '你是用户的运营主管。你擅长快消品运营管理：销售数据分析、库存周转优化、巡店排班、员工绩效考核、竞品动态追踪。你的风格是数据驱动、结果导向、接地气。看到异常数据直接指出，给可执行的改进方案。熟悉蒙牛低温奶的渠道特点和促销节奏。直接开始工作，不要说你是什么角色。', opening: '我是你的运营主管，生意上的事我帮你盯着。\n\n**我能做什么**\n销售日报分析、库存预警、巡店计划、促销效果评估、竞品动态追踪——跟生意有关的数据我都管。\n\n**数据怎么来**\n- 把ERP报表、销售数据、库存表发给我\n- 也可以直接告诉我关注什么指标\n\n试试说一句：\n- 「帮我分析一下这个月的销售趋势」\n- 「这几个SKU库存积压了怎么办」', builtIn: true, avatarPreset: 'manager' },
+  'cs-helper': { name: '客服助手', systemPrompt: '你是用户的客服助手。你擅长客户沟通：回复话术生成、投诉处理方案、客户分类跟进、常见问题FAQ维护。你懂快消品行业客户特点（经销商、门店、消费者三类客户的不同话术）。风格耐心、专业、情商高，帮用户把客户关系打理好。直接开始工作，不要说你是什么角色。', opening: '我是你的客服助手，客户的事交给我。\n\n**我能做什么**\n回复话术、投诉处理、客户跟进、FAQ整理——让你面对客户永远有话可说。\n\n**数据怎么来**\n- 把客户消息或需求发给我，我帮你回\n- 也可以告诉我客户类型和场景\n\n试试说一句：\n- 「经销商嫌价格高怎么回复」\n- 「帮我整理一下常见客户问题的回复模板」', builtIn: true, avatarPreset: 'secretary' },
+  programmer: { name: '程序员', systemPrompt: '你是用户的私人程序员。你精通写代码：Python脚本、网页应用、自动化工具、bug修复。你的风格是逻辑清晰、直奔主题。直接给出可运行的代码并说明用法，不解释基础概念除非用户问。直接开始工作，不要说你是什么角色。', opening: '我是你的程序员，写代码做应用。\n\n**我能做什么**\n写脚本、做App、改bug、搭网站——技术活你说需求我来实现。\n\n**数据怎么来**\n- 说清楚要做什么，我直接从零开始写\n- 也可以发代码文件给我改\n\n试试说一句：\n- 「帮我写个批量重命名文件的脚本」\n- 「我想做个简单的记账App」', builtIn: true },
+  writer: { name: '作家', systemPrompt: '你是用户的私人作家。你擅长写长文：小说、传记、公众号文章、经验总结。你的风格是有文采但不矫情，有深度但好读。帮用户搭框架、理思路、出章节，文字要有感染力。直接开始工作，不要说你是什么角色。', opening: '我是你的作家，帮你写东西。\n\n**我能做什么**\n小说、传记、公众号文章、经验总结——你说方向给素材，我帮你写出来。\n\n**数据怎么来**\n- 跟我聊想法，我帮你搭框架、写章节\n- 也可以发素材、提纲、录音给我\n\n试试说一句：\n- 「我想把我的行业经验整理成一本电子书」\n- 「帮我写个小说开头，主角是个年轻的创业者」', builtIn: true },
+  screenwriter: { name: '编剧', systemPrompt: '你是用户的私人编剧。你擅长短内容创作：短视频脚本、广告文案、品牌故事、演讲稿。你的风格是抓眼球、有节奏感、懂平台调性。先问平台和时长，再给创意，文案要能直接用。直接开始工作，不要说你是什么角色。', opening: '我是你的编剧，内容创作我来。\n\n**我能做什么**\n短视频脚本、广告文案、品牌故事、演讲稿——什么类型都行。\n\n**数据怎么来**\n- 告诉我平台和风格，我直接写\n- 也可以发参考案例给我模仿\n\n试试说一句：\n- 「帮我写个15秒的短视频带货脚本」\n- 「帮我写个品牌故事，温情路线的」', builtIn: true },
+  tutor: { name: '私教', systemPrompt: '你是用户的私人教师。你擅长教学：把复杂知识讲简单，用类比和例子帮助理解。你的风格是耐心、循序渐进、鼓励式。先判断用户水平，再讲核心概念，最后举例。用户懂了才往下走。直接开始教学，不要说你是什么角色。', opening: '我是你的私教，想学什么直接问。\n\n**我能做什么**\n编程、数学、考试辅导——不懂就问，我讲到你懂为止。\n\n**数据怎么来**\n- 直接发题目或知识点，我讲给你听\n- 也可以发教材截图或笔记\n\n试试问一句：\n- 「Python爬虫怎么学」\n- 「帮我讲一下概率论的基础概念」', builtIn: true },
+};
+const resolvedPath = resolveHermesPath();
+if (resolvedPath) HERMES_BIN = resolvedPath;
+startupLog(`resolveHermesPath done, HERMES_BIN=${HERMES_BIN || 'NOT FOUND'}, isWindows=${isWindows}`);
+
 // Delay init that needs userData path until app is ready
 app.whenReady().then(() => {
-  rolesMgr.init(app);
-  licenses.init(app);
   if (HERMES_BIN) {
-    logger.startup('first app.whenReady: init engine config...');
-    engine.ensureEngineConfig();
-    engine.ensureBuiltinSkills();
-    engine.ensureRoleConfigs();
-    engine.markEngineReady();
-    logger.startup('engine config init done');
+    startupLog('first app.whenReady: init engine config...');
+    ensureEngineConfig();
+    ensureBuiltinSkills();
+    ensureRoleConfigs();
+    markEngineReady();
+    startupLog('engine config init done');
   } else {
-    logger.startup('first app.whenReady: HERMES_BIN not found, skipping engine config init');
+    startupLog('first app.whenReady: HERMES_BIN not found, skipping engine config init');
   }
 });
+
+function loadRoles() {
+  try {
+    const rp = getRolesPath();
+    if (fs.existsSync(rp)) {
+      const data = JSON.parse(fs.readFileSync(rp, 'utf8'));
+      if (typeof data === 'object' && !Array.isArray(data)) return data;
+    }
+  } catch (_) {}
+  return { ...DEFAULT_ROLES };
+}
+
+function saveRoles(roles) {
+  fs.writeFileSync(getRolesPath(), JSON.stringify(roles, null, 2));
+}
+
 // 获取设备ID（基于 UUID v4，首次生成后持久化到 license.json）
+function getDeviceId() {
+  const lic = loadLicense();
+  if (lic && lic.deviceId) return lic.deviceId;
+  // 首次：使用 crypto.randomUUID() 生成 128 位唯一 ID
+  const id = crypto.randomUUID();
+  if (lic) {
+    lic.deviceId = id; saveLicense(lic);
+    console.log('warn: license.json 存在但缺少 deviceId，已补充');
+  } else {
+    // license.json 丢失 — 可能是数据损坏或首次安装
+    const engineDir = getEngineDir();
+    if (fs.existsSync(path.join(engineDir, '.extracted-version'))) {
+      console.log('warn: license.json 丢失，生成新 deviceId，服务端积分/激活状态可能丢失');
+    }
+    saveLicense({ firstRunDate: new Date().toISOString(), activated: false, credits: 0, deviceId: id });
+  }
+  return id;
+}
+
+function getDeepSeekApiKey() {
+  try {
+    const authPath = path.join(homeDir, '.hermes', 'auth.json');
+    if (fs.existsSync(authPath)) {
+      const auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+      const pool = auth.credential_pool?.deepseek;
+      if (pool && pool.length > 0) return pool[0].access_token;
+    }
+  } catch (_) {}
+  return process.env.DEEPSEEK_API_KEY || 'hermes-local-proxy';
+}
+
 // 获取试用/激活状态
+function getLicenseStatus() {
+  const lic = ensureLicenseInit();
+  const now = new Date();
+
+  if (lic.activated && lic.expireDate) {
+    const expire = new Date(lic.expireDate);
+    const remaining = Math.ceil((expire - now) / (1000 * 60 * 60 * 24));
+    if (remaining <= 0) {
+      // 激活已过期
+      lic.activated = false;
+      saveLicense(lic);
+      return { status: 'expired', trialDays: 0, remainingDays: 0, credits: 0, message: '激活已过期，请续费' };
+    }
+    return { status: 'activated', trialDays: TRIAL_DAYS, remainingDays: remaining, credits: lic.credits || 0, message: `已激活，剩余 ${remaining} 天` };
+  }
+
+  // 未激活 — 检查试用期
+  const firstRun = new Date(lic.firstRunDate);
+  const usedDays = Math.ceil((now - firstRun) / (1000 * 60 * 60 * 24));
+  const remaining = Math.max(0, TRIAL_DAYS - usedDays);
+
+  if (remaining <= 0) {
+    return { status: 'trial_expired', trialDays: TRIAL_DAYS, remainingDays: 0, credits: lic.credits || 0, usedDays, message: `7天试用已到期，请激活继续使用` };
+  }
+
+  return { status: "trial", trialDays: TRIAL_DAYS, remainingDays: remaining, usedDays, credits: lic.credits || 0, message: `试用第 ${usedDays} 天，剩余 ${remaining} 天` };
+}
+
+
 let mainWindow;
+
 function createWindow() {
   const winOpts = {
     width: 900,
@@ -710,6 +1364,7 @@ function createWindow() {
   mainWindow.loadFile('index.html');
   mainWindow.center();
 }
+
 // ===== 通道配置读写 =====
 function loadChannels() {
   try {
@@ -724,21 +1379,24 @@ function saveChannels(data) {
   const encrypted = _encryptChannelSecrets(data);
   fs.writeFileSync(getConfigPath(), JSON.stringify(encrypted, null, 2));
 }
+
 // ===== 网关控制 =====
 async function restartGateway() {
   stopHermesGateway();
   if (isWindows) {
     try { execSync('taskkill /F /IM python.exe /FI "WINDOWTITLE eq gateway run" 2>nul', { timeout: 5000 }); } catch (_) {}
   } else {
-    try { const ed = engine.getEngineDir(); execSync(`pkill -f "${ed}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
+    try { const ed = getEngineDir(); execSync(`pkill -f "${ed}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
   }
   await new Promise(r => setTimeout(r, 3000));
   const ok = await startHermesGateway();
   return { success: ok, output: ok ? 'Gateway restarted' : 'Gateway restart failed' };
 }
+
 // ===== Hermes CLI 帮助函数 =====
+
 function hermesCLI(args, timeout = 30000) {
-  const engineDir = engine.getEngineDir();
+  const engineDir = getEngineDir();
   const hermesHome = path.join(engineDir, '.hermes');
   const libsDir = path.join(engineDir, 'libs');
   const pythonBin = isWindows
@@ -749,6 +1407,7 @@ function hermesCLI(args, timeout = 30000) {
   const result = execSync(cmd, { timeout, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, env: { ...process.env, HERMES_HOME: hermesHome, PYTHONPATH: libsDir, PYTHONHOME: '' } });
   return result.trim();
 }
+
 // ===== HTTP 帮助函数 =====
 function httpGet(url, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -816,6 +1475,7 @@ function httpPost(url, bodyStr, opts = {}) {
     request.end();
   });
 }
+
 // ===== 飞书 Bot API =====
 async function getFeishuToken(appId, appSecret) {
   return new Promise((resolve, reject) => {
@@ -842,6 +1502,7 @@ async function getFeishuToken(appId, appSecret) {
     req.end();
   });
 }
+
 async function sendFeishuBotMessage(token, text) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
@@ -874,6 +1535,7 @@ async function sendFeishuBotMessage(token, text) {
     req.end();
   });
 }
+
 // ===== 企微 Bot API =====
 async function getWecomToken(corpId, corpSecret) {
   return new Promise((resolve, reject) => {
@@ -893,14 +1555,16 @@ async function getWecomToken(corpId, corpSecret) {
     ).on('error', reject);
   });
 }
+
 // ===== Gateway 对话帮助函数（可复用，供 chat 和 pipeline 共享） =====
 async function chatViaGateway(roleId, userMessage, eventSender) {
-  const roles = rolesMgr.loadRoles();
+  const roles = loadRoles();
   const currentRole = roles[roleId] || roles['dami'];
   const chatMessages = [
     { role: 'system', content: currentRole.systemPrompt || '你是 Hergent 数字员工，运行在用户的电脑上。你可以读写文件、执行代码、操控系统。说人话、不啰嗦。' },
     { role: 'user', content: userMessage }
   ];
+
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({ model: 'deepseek-v4-flash', messages: chatMessages, stream: true, max_tokens: 4096 });
     const request = net.request({
@@ -939,6 +1603,7 @@ async function chatViaGateway(roleId, userMessage, eventSender) {
     request.end();
   });
 }
+
 // ===== IPC: 执行功能（直接走 hermes CLI send） =====
 ipcMain.handle('hermes:execute', async (event, params) => {
   const { action, args } = params || {};
@@ -970,7 +1635,9 @@ ipcMain.handle('hermes:execute', async (event, params) => {
         promptContent += '\n附件:\n' + savedFiles.join('\n');
       }
       fs.writeFileSync(promptFile, promptContent);
+
       // 后台运行 Hermes，结果推回渲染进程
+
       // === 直接对话模式（不点按钮直接打字） ===
       if (action === 'chat' || !action) {
         fs.appendFileSync(logFile, `[${new Date().toISOString()}] chat→hermes CLI\n`);
@@ -979,12 +1646,13 @@ ipcMain.handle('hermes:execute', async (event, params) => {
         if (savedFiles.length > 0) {
           fullText += '\n\n以下是我上传的文件，请读取并处理：\n' + savedFiles.join('\n');
         }
+
         // --- 积分检查 ---
         let creditsOK = true;
         let creditsMsg = '';
         let currentCredits = 0;
         try {
-          const creditsRes = await httpGet(`${SERVER_URL}/api/credits?device_id=${licenses.getDeviceId()}`);
+          const creditsRes = await httpGet(`${SERVER_URL}/api/credits?device_id=${getDeviceId()}`);
           const creditsData = JSON.parse(creditsRes);
           currentCredits = creditsData.credits;
           if (currentCredits <= 0) {
@@ -997,13 +1665,14 @@ ipcMain.handle('hermes:execute', async (event, params) => {
         if (!creditsOK) {
           return { requestId, success: false, output: creditsMsg, sessionId: null };
         }
+
         // === 使用 Hermes CLI（完整工具支持：文件/浏览器/代码执行） ===
         // Gateway 暂不用于 chat: v4-pro 流式响应解析兼容性问题
         // CLI 路径已验证：工具调用正常，响应完整
         {
           // macOS/Linux: 直接用 hermes chat -q
           if (isWindows) {
-            const engineDir = engine.getEngineDir();
+            const engineDir = getEngineDir();
             const winPython = path.join(engineDir, 'python', 'python.exe');
             const winHermes = path.join(engineDir, 'hermes');
             if (!fs.existsSync(winPython) || !fs.existsSync(winHermes)) {
@@ -1034,7 +1703,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               if (sidMatch) ROLE_SESSIONS[winRoleId] = sidMatch[1];
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
               try {
-                await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
+                await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
                   JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-flash' }));
               } catch (_) { /* 积分报告失败不影响主流程 */ }
               return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: ROLE_SESSIONS[winRoleId] || null };
@@ -1044,7 +1713,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           }
           // macOS/Linux: 使用 Agent Python + PYTHONPATH 确保依赖齐全
           if (!isWindows) {
-            const engineDir = engine.getEngineDir();
+            const engineDir = getEngineDir();
             const pyDir = path.join(engineDir, 'python');
             if (fs.existsSync(pyDir)) { spawnSync('/usr/bin/xattr', ['-cr', pyDir], { timeout: 10000 }); }
             // 查找可用的 Python（引擎优先，agent venv 备选，agent 直接兜底）
@@ -1094,7 +1763,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               if (sidMatch) ROLE_SESSIONS[roleId] = sidMatch[1];
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
               try {
-                await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
+                await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
                   JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-flash' }));
               } catch (_) { /* 积分报告失败不影响主流程 */ }
               return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: ROLE_SESSIONS[roleId] || null };
@@ -1103,8 +1772,9 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             }
         }
         }
+
         const roleId = role || 'dami';
-        const roles = rolesMgr.loadRoles();
+        const roles = loadRoles();
         const currentRole = roles[roleId] || roles['dami'];
         try {
           const sessionId = ROLE_SESSIONS[roleId] || null;
@@ -1164,7 +1834,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           // 积分扣减：Gateway 直连 DeepSeek，需主动报告用量
           const estimatedCredits = Math.max(1, Math.ceil((fullText.length + gwResponseText.length) / 500));
           try {
-            await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
+            await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
               JSON.stringify({ credits: estimatedCredits, model: 'deepseek-v4-flash' }));
           } catch (_) { /* 积分报告失败不影响主流程 */ }
           return { requestId, success: true, output: gwResponseText, offline: false, sessionId: ROLE_SESSIONS[roleId] || null };
@@ -1173,17 +1843,22 @@ ipcMain.handle('hermes:execute', async (event, params) => {
         }
       }
     }
+
+  
   if (action === 'pipeline:run') {
     const { steps, context } = args || {};
     if (!steps || !Array.isArray(steps) || steps.length === 0) {
       return { requestId: 'req_' + Date.now(), success: false, output: 'pipeline steps 为空', sessionId: null };
     }
+
     let accumulatedContext = context || '';
     const results = [];
+
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       const stepRole = step.role || 'dami';
       const stepPrompt = step.text || '';
+
       // 通知前端步骤开始
       event.sender.send('hermes:stream', {
         type: 'pipeline-step',
@@ -1193,9 +1868,11 @@ ipcMain.handle('hermes:execute', async (event, params) => {
         status: 'running',
         preview: stepPrompt.slice(0, 100)
       });
+
       const fullPrompt = accumulatedContext
         ? `前面步骤的输出结果：\n${accumulatedContext.slice(-2000)}\n\n现在需要完成的任务：\n${stepPrompt}`
         : stepPrompt;
+
       try {
         // 确保 gateway 就绪
         let gatewayReady = await isGatewayRunning();
@@ -1203,6 +1880,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           fs.appendFileSync(logFile, `[${new Date().toISOString()}] pipeline step ${i+1}: gateway not ready, starting...\n`);
           gatewayReady = await startHermesGateway();
         }
+
         let stepOutput = '';
         if (gatewayReady) {
           stepOutput = await chatViaGateway(stepRole, fullPrompt, event.sender);
@@ -1222,8 +1900,10 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           });
           stepOutput = cliResult.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
         }
+
         results.push({ role: stepRole, output: stepOutput });
         accumulatedContext += '\n\n' + stepOutput;
+
         event.sender.send('hermes:stream', {
           type: 'pipeline-step',
           step: i + 1,
@@ -1245,12 +1925,15 @@ ipcMain.handle('hermes:execute', async (event, params) => {
         results.push({ role: stepRole, output: `[错误] ${e.message}` });
       }
     }
+
     const finalOutput = results.map((r, i) => {
-      const roleName = (rolesMgr.loadRoles()[r.role] || {}).name || r.role;
+      const roleName = (loadRoles()[r.role] || {}).name || r.role;
       return `### ${roleName}\n${r.output}`;
     }).join('\n\n---\n\n');
+
     return { requestId: 'req_' + Date.now(), success: true, output: finalOutput, pipeline: results, sessionId: ROLE_SESSIONS[roleId] || null };
   }
+
   if (action === 'fs:list') {
     const dir = (args && args.dir) || path.join(homeDir, 'Documents');
     const withMeta = !!(args && args.meta);
@@ -1327,6 +2010,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
     return { success: false, output: e.stderr || e.message };
   }
 });
+
 // ===== IPC: 文件选择 =====
 ipcMain.handle('file:select', async (event, opts) => {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -1342,17 +2026,20 @@ ipcMain.handle('file:select', async (event, opts) => {
   }
   return { canceled: false, filePath: result.filePaths[0] };
 });
+
 // ===== 头像上传 — 存到 Resources/avatars/，锁死到 App 内 =====
 const AVATARS_DIR = (() => {
   const devDir = path.join(__dirname, 'avatars');
   if (fs.existsSync(devDir)) return devDir;
   return path.join(__dirname, '..', 'avatars');
 })();
+
 function ensureAvatarsDir() {
   if (!fs.existsSync(AVATARS_DIR)) {
     fs.mkdirSync(AVATARS_DIR, { recursive: true });
   }
 }
+
 ipcMain.handle('avatar:upload', async (event, role) => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: `选择「${role}」的头像`,
@@ -1386,6 +2073,7 @@ ipcMain.handle('avatar:upload', async (event, role) => {
     return { success: false, reason: e.message };
   }
 });
+
 ipcMain.handle('avatar:get', async (event, role) => {
   const p = path.join(AVATARS_DIR, `${role}.png`);
   if (fs.existsSync(p)) {
@@ -1394,16 +2082,18 @@ ipcMain.handle('avatar:get', async (event, role) => {
   }
   return { exists: false };
 });
+
 // ===== IPC: 定时任务管理（直接走 hermes cron list/create/remove） =====
 ipcMain.handle('cron:list', async () => {
   try {
     const allTasks = [];
     // 查询主引擎 + 所有角色 Gateway 的定时任务
-    const hermesHomes = [path.join(engine.getEngineDir(), '.hermes')];
+    const hermesHomes = [path.join(getEngineDir(), '.hermes')];
     const roleConfigs = getPlatformRoleConfigs();
     for (const cfg of roleConfigs) {
-      hermesHomes.push(path.join(engine.getEngineDir(), '.hermes', 'agents', cfg.roleId));
+      hermesHomes.push(path.join(getEngineDir(), '.hermes', 'agents', cfg.roleId));
     }
+
     for (const hh of hermesHomes) {
       try {
         const roleId = hh.includes('/agents/') ? hh.split('/agents/')[1] : 'main';
@@ -1436,6 +2126,7 @@ ipcMain.handle('cron:list', async () => {
     return [];
   }
 });
+
 ipcMain.handle('cron:create', async (event, opts) => {
   const { name, action, schedule } = opts || {};
   const prompts = {
@@ -1457,6 +2148,7 @@ ipcMain.handle('cron:create', async (event, opts) => {
     return { success: false, output: e.stderr || e.message };
   }
 });
+
 ipcMain.handle('cron:remove', async (event, params) => {
   const { id } = params || {};
   try {
@@ -1466,6 +2158,7 @@ ipcMain.handle('cron:remove', async (event, params) => {
     return { success: false, output: e.message };
   }
 });
+
 ipcMain.handle('cron:pause', async (event, id) => {
   try {
     hermesCLI(`cron pause ${id}`, 5000);
@@ -1474,6 +2167,7 @@ ipcMain.handle('cron:pause', async (event, id) => {
     return { success: false, output: e.message };
   }
 });
+
 ipcMain.handle('cron:resume', async (event, id) => {
   try {
     hermesCLI(`cron resume ${id}`, 5000);
@@ -1482,6 +2176,7 @@ ipcMain.handle('cron:resume', async (event, id) => {
     return { success: false, output: e.message };
   }
 });
+
 ipcMain.handle('cron:run', async (event, id) => {
   try {
     hermesCLI(`cron run ${id}`, 15000);
@@ -1490,12 +2185,13 @@ ipcMain.handle('cron:run', async (event, id) => {
     return { success: false, output: e.message };
   }
 });
+
 // ===== IPC: 通道配置（Bot模式） =====
 ipcMain.handle('channels:get', async () => {
   const channels = loadChannels();
   // 合并各角色 Gateway 的真实连接状态
   try {
-    const engineDir = engine.getEngineDir();
+    const engineDir = getEngineDir();
     for (const [platformKey, platformData] of Object.entries(channels)) {
       if (typeof platformData !== 'object') continue;
       for (const roleId of Object.keys(platformData)) {
@@ -1514,6 +2210,7 @@ ipcMain.handle('channels:get', async () => {
   } catch {}
   return channels;
 });
+
 ipcMain.handle('channels:save', async (event, channel, role, config) => {
   // 向后兼容：如果第三个参数是对象（旧调用方式），则 role 其实是 config
   if (typeof role === 'object' && !config) {
@@ -1521,6 +2218,7 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
     role = 'dami';
   }
   role = role || 'dami';
+
   // 1. 写入 Hermes config.yaml（通过 hermes config set）
   try {
     for (const [key, value] of Object.entries(config)) {
@@ -1533,6 +2231,7 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
   } catch (e) {
     console.error('hermes config set failed:', e.message);
   }
+
   // 2. 保存到 channels.json（按平台→角色嵌套存储）
   const data = loadChannels();
   if (!data[channel] || typeof data[channel].app_id === 'string') {
@@ -1548,6 +2247,7 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
   }
   data[channel][role] = config;
   saveChannels(data);
+
   // 3. 重启网关使新配置生效
   let gatewayResult = { success: false, output: '' };
   try {
@@ -1555,10 +2255,11 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
   } catch (e) {
     gatewayResult = { success: false, output: e.message };
   }
+
   // 4. 轮询等待网关初始化并完成平台连接（飞书连接是异步的，需要几秒）
   let connectStatus = null;
   if (gatewayResult.success) {
-    const engineDir = engine.getEngineDir();
+    const engineDir = getEngineDir();
     // 优先检查角色独立 Gateway 的状态文件（飞书/企微/钉钉/QQ 由角色Gateway处理，不是主Gateway）
     const roleGatewayPath = path.join(engineDir, '.hermes', 'agents', role, 'gateway_state.json');
     const mainGatewayPath = path.join(engineDir, '.hermes', 'gateway_state.json');
@@ -1580,6 +2281,7 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
       } catch {}
     }
   }
+
   return {
     success: true,
     gatewayRestarted: gatewayResult.success,
@@ -1587,9 +2289,10 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
     connected: connectStatus === 'connected'
   };
 });
+
 ipcMain.handle('channels:test', async (event, params) => {
   const { channel } = params || {};
-  const engineDir = engine.getEngineDir();
+  const engineDir = getEngineDir();
   // 网关状态文件可能存在于多个位置：角色独立Gateway（优先）或主Gateway（兜底）
   function _readPlatformState(gp) {
     try {
@@ -1613,6 +2316,7 @@ ipcMain.handle('channels:test', async (event, params) => {
   statePaths.push(path.join(engineDir, '.hermes', 'gateway_state.json'));
   // 旧路径兼容
   statePaths.push(path.join(homeDir, '.hermes', 'gateway_state.json'));
+
   try {
     // 1. 检查是否有任何状态文件存在
     const anyExists = statePaths.some(p => fs.existsSync(p));
@@ -1625,10 +2329,12 @@ ipcMain.handle('channels:test', async (event, params) => {
       // 等3秒让网关初始化
       await new Promise(r => setTimeout(r, 3000));
     }
+
     // 2. 按优先级读取网关状态
     for (const gp of statePaths) {
       const platform = _readPlatformState(gp);
       if (!platform) continue;
+
       if (platform.state === 'connected') {
         return { success: true, output: `${channel} 已连接 ✅` };
       } else if (platform.state === 'retrying') {
@@ -1642,16 +2348,18 @@ ipcMain.handle('channels:test', async (event, params) => {
     return { success: false, output: `读取网关状态失败: ${e.message}` };
   }
 });
+
 // ===== IPC: 网关控制 =====
 ipcMain.handle('channels:gateway-status', async () => {
   try {
     const running = await isGatewayRunning();
-    const ready = engine.isEngineReady();
+    const ready = isEngineReady();
     return { running, ready, url: running ? GATEWAY_URL : null, message: ready ? '引擎就绪' : (running ? '引擎准备中' : '网关未启动') };
   } catch (e) {
     return { running: false, ready: false, message: `读取状态失败: ${e.message}` };
   }
 });
+
 ipcMain.handle('channels:gateway-restart', async () => {
   try {
     const result = await restartGateway();
@@ -1660,14 +2368,16 @@ ipcMain.handle('channels:gateway-restart', async () => {
     return { success: false, output: e.message };
   }
 });
+
 // ===== 飞书消息注入到 CLI 会话（共享上下文）=====
 ipcMain.handle('chat:inject-message', async (event, roleId, message, cliSessionId) => {
   try {
     if (!cliSessionId) return { success: false, error: 'No CLI session ID' };
-    const engineDir = engine.getEngineDir();
+    const engineDir = getEngineDir();
     const sessionsDir = path.join(engineDir, '.hermes', 'agents', roleId, 'sessions');
     const sessionFile = path.join(sessionsDir, `session_${cliSessionId}.json`);
     if (!fs.existsSync(sessionFile)) return { success: false, error: 'Session file not found' };
+
     // 直接写 JSON：追加用户消息到 messages 数组（不触发AI处理）
     const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
     session.messages = session.messages || [];
@@ -1675,17 +2385,21 @@ ipcMain.handle('chat:inject-message', async (event, roleId, message, cliSessionI
     session.last_updated = new Date().toISOString();
     session.message_count = session.messages.length;
     fs.writeFileSync(sessionFile, JSON.stringify(session, null, 2));
+
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
   }
 });
+
 // ===== 飞书消息同步 =====
 let _feishuLastSeen = {}; // sessionKey -> last message index
+
 ipcMain.handle('feishu:poll-messages', async () => {
   try {
-    const engineDir = engine.getEngineDir();
+    const engineDir = getEngineDir();
     const messages = [];
+
     // v0.15.x: sessions 存储在 state.db (SQLite)，不再用 JSON 文件
     const dbDirs = [path.join(engineDir, '.hermes')];
     const platformConfigs = getPlatformRoleConfigs();
@@ -1694,9 +2408,11 @@ ipcMain.handle('feishu:poll-messages', async () => {
       const d = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
       if (!seenDirs.has(d)) { seenDirs.add(d); dbDirs.push(d); }
     }
+
     for (const dbDir of dbDirs) {
       const dbPath = path.join(dbDir, 'state.db');
       if (!fs.existsSync(dbPath)) continue;
+
       try {
         let db;
         try {
@@ -1707,11 +2423,13 @@ ipcMain.handle('feishu:poll-messages', async () => {
           // Fallback: use sqlite3 CLI via execSync
           db = null; // mark for CLI mode
         }
+
         if (db) {
           // Native mode: use node:sqlite DatabaseSync
           const sessions = db.prepare(
             "SELECT id, source, message_count FROM sessions WHERE source LIKE 'feishu%' OR source LIKE 'lark%' OR source LIKE 'wecom%' OR source LIKE '%:feishu:%' OR source LIKE '%:lark:%' OR source LIKE '%:wecom:%'"
           ).all();
+
           // 也读 sessions.json 兼容旧格式
           const sessionsJsonPath = path.join(dbDir, 'sessions', 'sessions.json');
           if (fs.existsSync(sessionsJsonPath)) {
@@ -1724,12 +2442,15 @@ ipcMain.handle('feishu:poll-messages', async () => {
               }
             }
           }
+
           for (const session of sessions) {
             const lastIdx = _feishuLastSeen[session.id] || -1;
             const rows = db.prepare(
               "SELECT role, content, timestamp FROM messages WHERE session_id=? ORDER BY id"
             ).all(session.id);
+
             const newMsgs = rows.slice(lastIdx + 1);
+
             if (newMsgs.length > 0) {
               _feishuLastSeen[session.id] = rows.length - 1;
               let roleId = 'dami';
@@ -1793,11 +2514,13 @@ ipcMain.handle('feishu:poll-messages', async () => {
         }
       } catch (e) { /* state.db 读取失败，跳过 */ }
     }
+
     return { messages };
   } catch (e) {
     return { messages: [], error: e.message };
   }
 });
+
 // ===== IPC: 在 Finder 中打开文件/文件夹 =====
 ipcMain.handle('shell:openFolder', async (event, filePath) => {
   try {
@@ -1811,6 +2534,7 @@ ipcMain.handle('shell:openFolder', async (event, filePath) => {
     return { success: false, error: e.message };
   }
 });
+
 // ===== IPC: 引擎更新 =====
 ipcMain.handle('execute:update', async (event, { downloadUrl }) => {
   const tmpFile = path.join(require('os').tmpdir(), 'hergent-update.tar.gz');
@@ -1826,6 +2550,7 @@ ipcMain.handle('execute:update', async (event, { downloadUrl }) => {
     return { success: false, output: e.message };
   }
 });
+
 // ===== IPC: 状态 =====
 ipcMain.handle('get:status', async () => {
   const profileDir = path.join(homeDir, '.hermes', 'profiles', PROFILE);
@@ -1837,74 +2562,87 @@ ipcMain.handle('get:status', async () => {
     channels,
     version: CURRENT_VERSION,
     profile: PROFILE,
-    license: licenses.getLicenseStatus(),
+    license: getLicenseStatus(),
   };
 });
+
 ipcMain.handle('get:errors', async () => {
   return ERROR_HISTORY;
 });
+
+
 // ===== IPC: 激活码 & 试用 =====
 ipcMain.handle('activation:status', async () => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/credits?device_id=${licenses.getDeviceId()}`);
+    const body = await httpGet(`${SERVER_URL}/api/credits?device_id=${getDeviceId()}`);
     const data = JSON.parse(body);
     return { credits: data.credits || 0 };
   } catch (e) {
     return { credits: 0, message: '无法连接服务' };
   }
 });
+
 ipcMain.handle('activation:device-id', async () => {
-  return licenses.getDeviceId();
+  return getDeviceId();
 });
+
 ipcMain.handle('activation:activate', async (event, { code }) => {
-  const deviceId = licenses.getDeviceId();
-  if (!licenses.verifyActivationCode(code, deviceId)) {
+  const deviceId = getDeviceId();
+  if (!verifyActivationCode(code, deviceId)) {
     return { success: false, message: '激活码无效，请核对后重试' };
   }
-  const lic = licenses.loadLicense();
+
+  const lic = loadLicense();
   const now = new Date();
   const expireDate = new Date(now.getTime() + LICENSE_DAYS * 24 * 60 * 60 * 1000);
   lic.activated = true;
   lic.activationCode = code;
   lic.activateDate = now.toISOString();
   lic.expireDate = expireDate.toISOString();
-  licenses.saveLicense(lic);
+  saveLicense(lic);
+
   return {
     success: true,
     message: `激活成功！有效期至 ${expireDate.toLocaleDateString('zh-CN')}（${LICENSE_DAYS}天）`,
     expireDate: expireDate.toISOString(),
   };
 });
+
 // Alpha 激活码验证 — 调用远程服务器
 ipcMain.handle('activation:verify', async (event, code) => {
   try {
     var body = await nodeHttpPost('https://api.hergent.cn/api/auth/activate',
-      JSON.stringify({ code: code, device: licenses.getDeviceId() }));
+      JSON.stringify({ code: code, device: getDeviceId() }));
     return JSON.parse(body);
   } catch (e) { return { ok: false, message: '网络错误，请检查连接' }; }
 });
+
 // activation:server-activate 已移除 — 产品改为积分制，激活/鉴权走 /api/credits + deviceId
+
 // ===== IPC: 查询积分余额（调用 Hermes Server API）=====
 ipcMain.handle('activation:credits', async () => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/credits?device_id=${licenses.getDeviceId()}`);
+    const body = await httpGet(`${SERVER_URL}/api/credits?device_id=${getDeviceId()}`);
     return JSON.parse(body);
   } catch (e) {
     console.error(`[credits] error: ${e.message}`);
     return { credits: 0, message: '无法连接服务' };
   }
 });
+
 ipcMain.handle('billing:history', async () => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/billing/history?device_id=${licenses.getDeviceId()}`);
+    const body = await httpGet(`${SERVER_URL}/api/billing/history?device_id=${getDeviceId()}`);
     return JSON.parse(body);
   } catch (e) { return { recharges: [], usage: [], balance: 0 }; }
 });
+
 // 打开外部链接
 ipcMain.handle('shell:open', async (event, url) => {
   require('electron').shell.openExternal(url);
   return true;
 });
+
 // ===== 窗口控制 =====
 ipcMain.on('window:minimize', () => mainWindow.minimize());
 ipcMain.on('window:maximize', () => {
@@ -1915,6 +2653,7 @@ ipcMain.on('window:drag', (event, { deltaX, deltaY }) => {
   const [x, y] = mainWindow.getPosition();
   mainWindow.setPosition(x + deltaX, y + deltaY);
 });
+
 // ===== 右键菜单 =====
 ipcMain.on('show-context-menu', (event) => {
   const { Menu, clipboard } = require('electron');
@@ -1928,6 +2667,8 @@ ipcMain.on('show-context-menu', (event) => {
   ]);
   menu.popup({ window: win });
 });
+
+
 // ===== 真正的 Hermes CLI 自动安装 =====
 function findHermesInVenv(venvDir) {
   const candidates = isWindows ? ['hermes.exe', 'hermes.cmd'] : ['hermes'];
@@ -1938,6 +2679,7 @@ function findHermesInVenv(venvDir) {
   }
   return null;
 }
+
 function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
     const request = net.request({ method: 'GET', url: url });
@@ -1953,6 +2695,7 @@ function downloadFile(url, dest) {
     request.end();
   });
 }
+
 async function ensurePython(send) {
   // 1. 检查系统 Python 3.11+
   try {
@@ -1964,6 +2707,7 @@ async function ensurePython(send) {
       return sysPython;
     }
   } catch(e) {}
+
   // 2. 检查已下载的便携 Python
   const portableDir = path.join(homeDir, '.hermes', 'python');
   const portablePython = isWindows
@@ -1973,6 +2717,7 @@ async function ensurePython(send) {
     send('python-ok|便携 Python 已就绪');
     return portablePython;
   }
+
   // 3. 下载便携 Python
   send('python-dl|下载 Python 运行环境（约 18-40MB）…');
   const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64';
@@ -1986,6 +2731,7 @@ async function ensurePython(send) {
     send('error|Python 下载失败: ' + e.message);
     return null;
   }
+
   // 4. 解压
   send('python-extract|解压 Python…');
   fs.mkdirSync(portableDir, { recursive: true });
@@ -1996,6 +2742,7 @@ async function ensurePython(send) {
     send('error|Python 解压失败: ' + e.message);
     return null;
   }
+
   if (fs.existsSync(portablePython)) {
     send('python-ok|Python 安装完成');
     return portablePython;
@@ -2003,30 +2750,36 @@ async function ensurePython(send) {
   send('error|Python 安装后未找到可执行文件');
   return null;
 }
+
 ipcMain.handle('hermes:bootstrap', async (event) => {
   const send = (msg) => { try { event.sender.send('hermes:boot-progress', msg); } catch(_) {} };
   const log = (msg) => {
     const lf = path.join(homeDir, '.hermes', 'app_debug.log');
     try { fs.appendFileSync(lf, `[${new Date().toISOString()}] BOOT: ${msg}\n`); } catch(_) {}
   };
+
   // 如果已经装好了，快速通过
   if (HERMES_BIN !== HERMES_CMD && fs.existsSync(HERMES_BIN)) {
     send('check|检查环境…');
     send('done|准备就绪！');
     return { success: true, message: 'Hermes ready', path: HERMES_BIN };
   }
+
   send('check|检查环境…');
   log('bootstrap starting');
+
   // Step 1: Python
   const pythonPath = await ensurePython(send);
   if (!pythonPath) {
     send('error|Python 环境安装失败，请检查网络连接后重试');
     return { success: false, message: 'Python 安装失败' };
   }
+
   // Step 2: 创建目录和虚拟环境
   send('mkdir|创建虚拟环境…');
   const venvDir = path.join(homeDir, '.hermes', 'hermes-agent');
   fs.mkdirSync(venvDir, { recursive: true });
+
   send('venv|创建虚拟环境…');
   try {
     execSync(`"${pythonPath}" -m venv "${path.join(venvDir, 'venv')}"`, { timeout: 120000, windowsHide: true });
@@ -2035,9 +2788,11 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
     send('error|虚拟环境创建失败');
     return { success: false, message: '虚拟环境创建失败' };
   }
+
   const venvPython = isWindows
     ? path.join(venvDir, 'venv', 'Scripts', 'python.exe')
     : path.join(venvDir, 'venv', 'bin', 'python3');
+
   // Step 3: pip install hermes-agent
   send('pip|安装 Hermes Agent（首次约需 1-2 分钟）…');
   try {
@@ -2052,21 +2807,24 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
     send('error|Hermes Agent 安装失败，请检查网络连接');
     return { success: false, message: 'Hermes Agent 安装失败' };
   }
+
   // Step 4: 找到 hermes 可执行文件
   const foundBin = findHermesInVenv(venvDir);
   if (!foundBin || !fs.existsSync(foundBin)) {
     send('error|未找到 Hermes 可执行文件');
     return { success: false, message: '未找到 Hermes' };
   }
+
   // 更新全局 HERMES_BIN
   HERMES_BIN = foundBin;
   log('bootstrap complete, HERMES_BIN=' + HERMES_BIN);
+
   // Step 5: 写 Gateway 配置 — 委托给 Hermes CLI
   send('config|配置 Hermes…');
   try {
     const cfgEnv = { ...process.env, HERMES_HOME: path.join(homeDir, '.hermes') };
     const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
-    const dsKey = licenses.getDeepSeekApiKey();
+    const dsKey = getDeepSeekApiKey();
     set('model.name', 'deepseek-v4-flash');
     set('model.provider', 'openai');
     set('platforms.api_server.enabled', 'true');
@@ -2079,12 +2837,14 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
   } catch(e) {
     log('config write warning: ' + e.message);
   }
+
   // Step 6: 启动 Hermes Gateway（bootstrap 前 HERMES_BIN 不存在，此时重启）
   send('gateway|启动 AI 引擎…');
   log('post-bootstrap: restarting gateway');
   startHermesGateway().then(ok => {
     log('post-bootstrap gateway: ' + (ok ? 'OK' : 'FAILED'));
   });
+
   send('done|准备就绪！');
   return { success: true, message: 'Hermes ready', path: HERMES_BIN };
 });
@@ -2103,13 +2863,15 @@ function findHermesRepo() {
   const defaultRepo = path.join(homeDir, '.hermes', 'hermes-agent');
   if (fs.existsSync(path.join(defaultRepo, '.git'))) return defaultRepo;
   // 3. 引擎解压位置
-  const engineDir = engine.getEngineDir();
+  const engineDir = getEngineDir();
   if (fs.existsSync(path.join(engineDir, '.git'))) return engineDir;
   return null;
 }
+
 ipcMain.handle('hermes:check-cli', async () => {
   const exists = fs.existsSync(HERMES_BIN);
   if (!exists) return { available: false, version: null, updateAvailable: false };
+
   let version = '';
   try {
     const ver = spawnSync(HERMES_BIN, ['--version'], {
@@ -2121,13 +2883,16 @@ ipcMain.handle('hermes:check-cli', async () => {
       version = m ? m[1] : ver.stdout.trim().split('\n')[0];
     }
   } catch (_) {}
+
   return { available: true, version: version || 'unknown', updateAvailable: false, commitsBehind: 0 };
 });
+
 ipcMain.handle('hermes:check-engine-update', async () => {
   let updateAvailable = false;
   let commitsBehind = 0;
   const repo = findHermesRepo();
   if (!repo) return { updateAvailable: false, commitsBehind: 0, repo: null };
+
   try {
     spawnSync('git', ['fetch', 'origin'], {
       cwd: repo, timeout: 15000,
@@ -2143,11 +2908,14 @@ ipcMain.handle('hermes:check-engine-update', async () => {
       updateAvailable = commitsBehind > 0;
     }
   } catch (_) {}
+
   return { updateAvailable, commitsBehind, repo };
 });
+
 ipcMain.handle('hermes:update-engine', async () => {
   const repo = findHermesRepo();
   if (!repo) return { success: false, error: '未找到 Hermes 引擎目录' };
+
   try {
     // Step 1: git pull
     const pull = spawnSync('git', ['pull', 'origin', 'main'], {
@@ -2158,6 +2926,7 @@ ipcMain.handle('hermes:update-engine', async () => {
     if (pull.status !== 0) {
       return { success: false, error: pull.stderr || 'git pull 失败' };
     }
+
     // Step 2: 引擎更新后重启 gateway
     try {
       if (HERMES_BIN && fs.existsSync(HERMES_BIN)) {
@@ -2167,6 +2936,7 @@ ipcMain.handle('hermes:update-engine', async () => {
         });
       }
     } catch (_) {}
+
     // Step 3: 重新读取版本
     let version = '';
     try {
@@ -2179,6 +2949,7 @@ ipcMain.handle('hermes:update-engine', async () => {
         version = m ? m[1] : ver.stdout.trim().split('\n')[0];
       }
     } catch (_) {}
+
     return { success: true, version: version || 'updated', message: pull.stdout || '更新完成' };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2194,7 +2965,7 @@ ipcMain.handle('hermes:cancel', async () => {
 ipcMain.handle('session:clear', async (event, role) => {
   const roleId = role || 'dami';
   try {
-    const engineDir = engine.getEngineDir();
+    const engineDir = getEngineDir();
     const roleHome = path.join(engineDir, '.hermes', 'agents', roleId);
     const opts = { timeout: 5000, env: { ...process.env, HERMES_HOME: roleHome } };
     if (isWindows) {
@@ -2245,19 +3016,22 @@ function _inferMemoryType(title, preview) {
   if (/风格|简洁|详细|正式|幽默|严谨|语气|语气词|回复方式/i.test(t)) return 'style';
   return 'fact'; // 默认归类为事实
 }
+
 const MEMORY_TYPES = {
   preference: { label: '偏好习惯', icon: '💝', order: 1 },
   fact:       { label: '重要事实', icon: '📌', order: 2 },
   pattern:    { label: '工作模式', icon: '🔄', order: 3 },
   style:      { label: '个人风格', icon: '🎨', order: 4 },
 };
+
 function getRoleMemoryPath(roleId) {
-  const engineDir = engine.getEngineDir();
+  const engineDir = getEngineDir();
   // 优先用角色独立记忆路径，不存在则回退到共享路径
   const roleMemPath = path.join(engineDir, '.hermes', 'agents', roleId || 'dami', 'memories', 'MEMORY.md');
   if (fs.existsSync(roleMemPath)) return roleMemPath;
   return path.join(engineDir, '.hermes', 'memories', 'MEMORY.md');
 }
+
 ipcMain.handle('memory:list', async (event, role) => {
   try {
     const roleId = role || 'dami';
@@ -2280,6 +3054,7 @@ ipcMain.handle('memory:list', async (event, role) => {
     return { memories, stats: { total: memories.length, byType, mtime: stat.mtime.toISOString() } };
   } catch (_) { return { memories: [], stats: { total: 0, byType: {}, mtime: null } }; }
 });
+
 ipcMain.handle('memory:add', async (event, role, title, content, type) => {
   try {
     const roleId = role || 'dami';
@@ -2292,6 +3067,7 @@ ipcMain.handle('memory:add', async (event, role, title, content, type) => {
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 });
+
 ipcMain.handle('memory:update', async (event, role, id, title, content, type) => {
   try {
     const roleId = role || 'dami';
@@ -2314,6 +3090,7 @@ ipcMain.handle('memory:update', async (event, role, id, title, content, type) =>
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 });
+
 ipcMain.handle('memory:delete', async (event, id, role) => {
   try {
     const roleId = role || 'dami';
@@ -2329,6 +3106,7 @@ ipcMain.handle('memory:delete', async (event, id, role) => {
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 });
+
 ipcMain.handle('memory:stats', async (event, role) => {
   try {
     const roleId = role || 'dami';
@@ -2357,10 +3135,11 @@ ipcMain.handle('memory:stats', async (event, role) => {
 // ---- 技能列表 ----
 ipcMain.handle('skills:list', async () => {
   try {
-    engine.ensureSharedState(); // 确保技能已从 bundle 同步
-    const engineDir = engine.getEngineDir();
+    ensureSharedState(); // 确保技能已从 bundle 同步
+    const engineDir = getEngineDir();
     const skillsDir = path.join(engineDir, '.hermes', 'skills');
     if (!fs.existsSync(skillsDir)) return { categories: [], total: 0 };
+
     function parseSkill(skillDir, slug) {
       const skillMd = path.join(skillDir, 'SKILL.md');
       if (!fs.existsSync(skillMd)) return null;
@@ -2379,6 +3158,7 @@ ipcMain.handle('skills:list', async () => {
       }
       return { name, slug, description };
     }
+
     const categories = [];
     const topEntries = fs.readdirSync(skillsDir, { withFileTypes: true });
     for (const e of topEntries) {
@@ -2399,14 +3179,14 @@ ipcMain.handle('skills:list', async () => {
   } catch (_) { return { categories: [], total: 0 }; }
 });
 ipcMain.handle('roles:list', async () => {
-  const roles = rolesMgr.loadRoles();
+  const roles = loadRoles();
   return Object.entries(roles).map(([id, r]) => ({ id, ...r }));
 });
 // ---- 角色 CRUD ----
 ipcMain.handle('roles:save', async (event, roles) => {
   try {
     if (typeof roles === 'object' && !Array.isArray(roles)) {
-      rolesMgr.saveRoles(roles);
+      saveRoles(roles);
       return { success: true };
     }
     return { success: false, error: '格式错误' };
@@ -2414,30 +3194,30 @@ ipcMain.handle('roles:save', async (event, roles) => {
 });
 ipcMain.handle('roles:add', async (event, roleData) => {
   try {
-    const roles = rolesMgr.loadRoles();
+    const roles = loadRoles();
     let id = (roleData.name || '新角色').replace(/[^a-zA-Z0-9一-鿿]/g, '').slice(0, 12) || 'custom';
     if (roles[id]) id = id + '_' + Date.now().toString(36);
     roles[id] = { name: roleData.name || '新角色', systemPrompt: roleData.systemPrompt || '', opening: roleData.opening || '', builtIn: false };
-    rolesMgr.saveRoles(roles);
+    saveRoles(roles);
     return { success: true, id, role: { id, ...roles[id] } };
   } catch (e) { return { success: false, error: e.message }; }
 });
 ipcMain.handle('roles:delete', async (event, roleId) => {
   try {
-    const roles = rolesMgr.loadRoles();
+    const roles = loadRoles();
     if (!roles[roleId]) return { success: false, error: '角色不存在' };
     if (roles[roleId].builtIn) return { success: false, error: '内置角色不可删除' };
     delete roles[roleId];
-    rolesMgr.saveRoles(roles);
+    saveRoles(roles);
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 });
 ipcMain.handle('roles:update', async (event, roleId, updates) => {
   try {
-    const roles = rolesMgr.loadRoles();
+    const roles = loadRoles();
     if (!roles[roleId]) return { success: false, error: '角色不存在' };
     if (updates && typeof updates === 'object') Object.assign(roles[roleId], updates);
-    rolesMgr.saveRoles(roles);
+    saveRoles(roles);
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 });
@@ -2458,7 +3238,7 @@ ipcMain.handle('server:save-url', async (event, url) => {
 // ---- 模型配置（通过 hermes config set 切换）----
 ipcMain.handle('config:get-model', async () => {
   try {
-    const engineDir = engine.getEngineDir();
+    const engineDir = getEngineDir();
     const configPath = path.join(engineDir, '.hermes', 'config.yaml');
     if (!fs.existsSync(configPath)) return { model: 'deepseek-v4-flash', provider: 'openai' };
     const yaml = fs.readFileSync(configPath, 'utf8');
@@ -2489,15 +3269,18 @@ ipcMain.handle('config:get-model', async () => {
     return result;
   } catch (e) { return { model: 'deepseek-v4-flash', provider: 'openai', error: e.message }; }
 });
+
 ipcMain.handle('config:set-model', async (event, opts) => {
   try {
-    const engineDir = engine.getEngineDir();
+    const engineDir = getEngineDir();
     const engineHermesHome = path.join(engineDir, '.hermes');
     const agentHermesHome = path.join(homeDir, '.hermes');
+
     // 直接写 YAML，避免 v0.15.x hermes config set 写出字典格式
     const newModel = opts.model || 'deepseek-v4-flash';
     const newProvider = opts.provider || 'openai';
-    const apiKeyId = 'hermes_' + licenses.getDeviceId();
+    const apiKeyId = 'hermes_' + getDeviceId();
+
     // 更新主引擎 config
     const mainCfgPath = path.join(engineDir, '.hermes', 'config.yaml');
     try {
@@ -2516,8 +3299,9 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       }
       fs.writeFileSync(mainCfgPath, mc);
     } catch (_) {}
+
     // 同步模型到所有角色 config
-    const allRoles = rolesMgr.loadRoles();
+    const allRoles = loadRoles();
     for (const [roleId] of Object.entries(allRoles)) {
       const roleCfgPath = path.join(engineDir, '.hermes', 'agents', roleId, 'config.yaml');
       if (!fs.existsSync(roleCfgPath)) continue;
@@ -2538,6 +3322,7 @@ ipcMain.handle('config:set-model', async (event, opts) => {
         fs.writeFileSync(roleCfgPath, rc);
       } catch (_) {}
     }
+
     // 自定义模型额外操作
     if (opts.custom_base_url) {
       try {
@@ -2554,7 +3339,7 @@ ipcMain.handle('config:set-model', async (event, opts) => {
     if (isWindows) {
       try { execSync('taskkill /F /IM python.exe /FI "MEMUSAGE gt 0" 2>nul', { timeout: 5000 }); } catch (_) {}
     } else {
-      try { const ed = engine.getEngineDir(); execSync(`pkill -f "${ed}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
+      try { const ed = getEngineDir(); execSync(`pkill -f "${ed}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
     }
     await new Promise(r => setTimeout(r, 3000));
     await startHermesGateway();
@@ -2562,6 +3347,7 @@ ipcMain.handle('config:set-model', async (event, opts) => {
     return { success: ready };
   } catch (e) { return { success: false, error: e.message }; }
 });
+
 // ---- 认证（对接服务端）----
 ipcMain.handle('auth:me', async (event, token) => {
   try {
@@ -2619,7 +3405,7 @@ ipcMain.handle('channels:remove', async (event, channel, role) => {
 // 配对审批 — 委托给 Hermes 原生命令
 ipcMain.handle('channels:pairing-approve', async (event, channel, role, code) => {
   try {
-    const engineDir = engine.getEngineDir();
+    const engineDir = getEngineDir();
     const result = spawnSync(HERMES_BIN, ['pairing', 'approve', code], {
       timeout: 15000,
       env: { ...process.env, HERMES_HOME: path.join(engineDir, '.hermes') },
@@ -2657,18 +3443,18 @@ ipcMain.handle('avatar:remove', async (event, role) => {
 // ---- 充值 ----
 ipcMain.handle('recharge:request', async (event, amount) => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/payment/url?amount=${amount}&device_id=${licenses.getDeviceId()}`);
+    const body = await httpGet(`${SERVER_URL}/api/payment/url?amount=${amount}&device_id=${getDeviceId()}`);
     return JSON.parse(body);
   } catch (e) { return { success: false, error: '充值服务暂不可用' }; }
 });
 ipcMain.handle('payment:create', async (event, amount) => {
   // 本机 server.py 直接调支付宝 API（不需要公网回调）
-  var url = 'http://localhost:8765/api/payment/url?amount=' + amount + '&device_id=' + licenses.getDeviceId();
+  var url = 'http://localhost:8765/api/payment/url?amount=' + amount + '&device_id=' + getDeviceId();
   try {
     var body = await nodeHttpGet(url);
     return JSON.parse(body);
   } catch (e) {
-    logger.reportCriticalError("payment", e, { action: "create" });
+    _reportCriticalError("payment", e, { action: "create" });
     return { success: false, error: "创建支付订单失败: " + e.message };
   }
 });
@@ -2678,48 +3464,50 @@ ipcMain.handle('payment:check', async (event, orderId) => {
     var body = await nodeHttpGet('http://localhost:8765/api/payment/status?order_id=' + orderId);
     return JSON.parse(body);
   } catch (e) {
-    logger.reportCriticalError("payment", e, { action: "check", orderId });
+    _reportCriticalError("payment", e, { action: "check", orderId });
     return { paid: false, error: e.message };
   }
 });
 ipcMain.handle("payment:dev-pay", async (event, { orderId, deviceId, amount }) => {
   try {
-    var realDeviceId = licenses.getDeviceId();
+    var realDeviceId = getDeviceId();
     var res = await nodeHttpPost("http://localhost:8765/api/payment/dev-pay?order_id=" + orderId + "&device_id=" + realDeviceId + "&amount=" + amount, "{}");
     return JSON.parse(res);
   } catch (e) {
-    logger.reportCriticalError("payment", e, { action: "dev-pay", orderId });
+    _reportCriticalError("payment", e, { action: "dev-pay", orderId });
     return { success: false, error: "DEV充值失败: " + e.message };
   }
 });
 // ---- 用量明细 ----
 ipcMain.handle('usage:history', async (event, limit) => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/usage/history?limit=${limit || 20}&device_id=${licenses.getDeviceId()}`);
+    const body = await httpGet(`${SERVER_URL}/api/usage/history?limit=${limit || 20}&device_id=${getDeviceId()}`);
     return JSON.parse(body);
   } catch (e) { return { records: [] }; }
 });
 app.whenReady().then(() => {
-  logger.startup('app.whenReady fired, starting services...');
+  startupLog('app.whenReady fired, starting services...');
   // 自定义协议：avatar:// — 从 Resources/avatars/ 加载头像（锁死在 App 目录）
   protocol.handle('avatar', (request) => {
     const fileName = request.url.replace('avatar://', '');
     const filePath = path.join(AVATARS_DIR, fileName);
     return net.fetch(`file://${filePath}`);
   });
-  logger.startup('calling startCreditsServer...');
+
+  startupLog('calling startCreditsServer...');
   startCreditsServer();
-  logger.startup('calling createWindow...');
+  startupLog('calling createWindow...');
   createWindow();
-  logger.startup('window created, calling startHermesGateway...');
+  startupLog('window created, calling startHermesGateway...');
   startHermesGateway().then(ok => {
-    logger.startup('startHermesGateway result: ' + (ok ? 'OK' : 'FAILED'));
+    startupLog('startHermesGateway result: ' + (ok ? 'OK' : 'FAILED'));
     console.log('[gateway] startup:', ok ? 'OK' : 'FAILED');
   });
+
   // 匿名日活心跳（不收集个人信息，仅用于统计活跃设备数）
   function _telemetryPing() {
     try {
-      const body = JSON.stringify({ device: licenses.getDeviceId().slice(0, 16), version: CURRENT_VERSION, platform: process.platform });
+      const body = JSON.stringify({ device: getDeviceId().slice(0, 16), version: CURRENT_VERSION, platform: process.platform });
       const u = new URL('https://api.hergent.cn/api/telemetry/ping');
       const mod = u.protocol === 'https:' ? https : http;
       const req = mod.request({ hostname: u.hostname, port: 443, path: u.pathname, method: 'POST', timeout: 5000,
@@ -2731,12 +3519,14 @@ app.whenReady().then(() => {
   }
   _telemetryPing();
   setInterval(_telemetryPing, 30 * 60 * 1000); // 每 30 分钟
+
   // 确保成果目录存在
   const reportsDir = path.join(app.getPath('documents'), 'Hergent', '成果');
   for (const sub of ['业务报表', '我的创作', '我的工具']) {
     const d = path.join(reportsDir, sub);
     if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
   }
+
   // 更新检查 — 必须在 app.whenReady() 后初始化（electron-updater 依赖 app 模块）
   const { autoUpdater } = require('electron-updater');
   autoUpdater.autoDownload = false;
@@ -2764,6 +3554,7 @@ app.whenReady().then(() => {
   autoUpdater.on('error', (err) => {
     try { mainWindow?.webContents?.send('update:status', { event: 'error', message: err.message }); } catch(_) {}
   });
+
   ipcMain.handle('update:check', async () => {
     if (!app.isPackaged) {
       return { updateAvailable: false, reason: 'dev-mode' };
@@ -2801,12 +3592,14 @@ app.whenReady().then(() => {
       return { success: false, error: e.message };
     }
   });
+
   // 启动 15 秒后自动检查更新（窗口+网关初始化完成后）
   setTimeout(() => {
     if (app.isPackaged) {
       try { autoUpdater.checkForUpdates(); } catch (_) {}
     }
   }, 15000);
+
   // frameless 窗口在 macOS 上必须手动配 Edit 菜单，否则 Cmd+C/V/A 不生效
   if (process.platform === 'darwin') {
     Menu.setApplicationMenu(Menu.buildFromTemplate([{
@@ -2827,6 +3620,7 @@ app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
   }
 });
+
 ipcMain.handle('app:version', () => CURRENT_VERSION);
 app.on('window-all-closed', () => { stopCreditsServer(); stopHermesGateway(); app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

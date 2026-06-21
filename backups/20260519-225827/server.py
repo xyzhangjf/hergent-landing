@@ -1,5 +1,3 @@
-import math
-from typing import Optional
 """
 Hergent — 积分计费服务端
 OpenAI兼容API转发 + 充值制积分管理
@@ -15,7 +13,6 @@ import uuid
 import hashlib
 import subprocess
 import shutil
-import base64
 from datetime import datetime
 from contextlib import contextmanager
 
@@ -38,9 +35,7 @@ HERMES_AVAILABLE = os.path.exists(HERMES_CLI)
 # ============================================================
 DB_PATH = os.path.expanduser("~/Library/Application Support/hergent-credits/credits.db")
 DEEPSEEK_BASE = "https://api.deepseek.com"
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "") or ""
-BAILIAN_BASE = "https://dashscope.aliyuncs.com/compatible-mode"
-BAILIAN_API_KEY = os.environ.get("BAILIAN_API_KEY") or ""
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 if not DEEPSEEK_API_KEY:
     print("⚠️  DEEPSEEK_API_KEY 未设置。API 代理功能禁用，仅 hermes CLI 模式可用。")
 
@@ -56,30 +51,11 @@ if not ADMIN_SECRET:
 # 面包多配置（支付回调需要）
 MIANBAODUO_SECRET = os.environ.get("MIANBAODUO_SECRET", "")  # 面包多 webhook secret key
 
-# 支付宝当面付
-import sys as _sys
-# alipay_patch.py 和 server.py 在同目录（开发路径：server/，打包后：Resources/）
-_hergent_dir = os.path.dirname(os.path.abspath(__file__))
-if _hergent_dir not in _sys.path:
-    _sys.path.insert(0, _hergent_dir)
-# 也尝试服务器路径兼容
-_server_dir = "/opt/hergent/server"
-if _server_dir not in _sys.path:
-    _sys.path.append(_server_dir)
-try:
-    from alipay_patch import alipay_sign, alipay_verify_sign, alipay_page_pay, ALIPAY_ENABLED as _ALIPAY_PATCH_FLAG; ALIPAY_ENABLED = True
-except ImportError as _e:
-    import traceback
-    print(f"[ALIPAY] ImportError: {_e}")
-    traceback.print_exc()
-    ALIPAY_ENABLED = False
-
 # 充值档位: {金额(元): 积分}
 RECHARGE_TIERS = {
-    1: 100,
     10: 1000,
-    30: 3200,   # 多送200
-    50: 6000,   # 多送1000
+    30: 3000,
+    50: 5500,   # 送500
 }
 
 # 新用户赠送积分（总额，不限时）
@@ -87,37 +63,13 @@ WELCOME_CREDITS = 500
 
 # DeepSeek 实际定价 (元/百万token)
 PRICING = {
-    # DeepSeek V4 系列（2026年5月永久降价，2.5折）https://api-docs.deepseek.com/zh-cn/quick_start/pricing/
-    "deepseek-v4-pro":   {"input": 3.0, "output": 6.0},
-    "deepseek-v4-flash": {"input": 1.0, "output": 2.0},
-    # 旧模型名映射（2026年7月24日弃用，期间仍计费）
-    "deepseek-chat":     {"input": 1.0, "output": 2.0},     # → v4-flash
-    "deepseek-reasoner": {"input": 1.0, "output": 2.0},     # → v4-flash 思考模式
-    "deepseek-v3":       {"input": 2.0, "output": 4.0},
-    # 阿里百炼 Qwen（百炼官方定价）
-    "qwen3-max":         {"input": 2.5, "output": 10.0},
-    "qwen3.6-flash":     {"input": 1.2, "output": 7.2},
-    "qwen3.7-max":       {"input": 5.0, "output": 20.0},
+    "deepseek-chat":     {"input": 1.0, "output": 2.0},
+    "deepseek-reasoner": {"input": 4.0, "output": 16.0},
+    "deepseek-v3":       {"input": 1.0, "output": 2.0},
 }
 
-# 充值后台上报（fire-and-forget）
-def _report_recharge(device_id, amount_yuan, credits, order_id):
-    try:
-        import threading, urllib.request
-        def _send():
-            try:
-                data = json.dumps({"device": (device_id or "unknown")[:16], "amount": amount_yuan, "credits": credits, "ref": (order_id or "unknown")[:64]}).encode()
-                req = urllib.request.Request("https://api.hergent.cn/api/telemetry/recharge", data=data, headers={"Content-Type": "application/json"}, method="POST")
-                urllib.request.urlopen(req, timeout=5)
-            except: pass
-        threading.Thread(target=_send, daemon=True).start()
-    except: pass
-
 # 积分消耗倍数（含毛利）
-# 典型消息 (10K入+1K出) 用 V4 Pro: API成本=(10K/1M*3+1K/1M*6)=0.036元=3.6分
-# 2x = ceil(7.2) = 扣8积分, 用户成本¥0.08, 利润率~55%
-# 短消息最小扣1积分, 主要利润来源
-CREDIT_MULTIPLIER = 1.5
+CREDIT_MULTIPLIER = 1.5  # 用户消耗 = API实际成本 × 1.5
 
 # ============================================================
 # 数据库
@@ -168,14 +120,6 @@ def init_db():
                 payment_ref TEXT  -- 支付流水号
             );
 
-            CREATE TABLE IF NOT EXISTS custom_models (
-                device_id TEXT PRIMARY KEY,
-                base_url TEXT NOT NULL,
-                api_key TEXT NOT NULL DEFAULT '',
-                model_name TEXT NOT NULL DEFAULT 'gpt-4o',
-                updated_at TEXT NOT NULL
-            );
-
             CREATE TABLE IF NOT EXISTS usage_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -223,7 +167,7 @@ def get_device_fingerprint(request: Request) -> str:
 # 用户管理
 # ============================================================
 def get_or_create_user(db, device_id: str) -> dict:
-    """获取或创建用户（首次自动送500积分）"""
+    """获取或创建用户（首次自动送200积分）"""
     cur = db.execute("SELECT * FROM users WHERE device_id=?", (device_id,))
     row = cur.fetchone()
     if row:
@@ -232,7 +176,7 @@ def get_or_create_user(db, device_id: str) -> dict:
         db.commit()
         return dict(row)
 
-    # 新用户：送500积分
+    # 新用户：送200积分
     uid = uuid.uuid4().hex[:16]
     now = datetime.now().isoformat()
     db.execute("""
@@ -246,40 +190,14 @@ def get_or_create_user(db, device_id: str) -> dict:
 # ============================================================
 # 积分计算
 # ============================================================
-def calculate_credits(model: str, prompt_tokens: int, completion_tokens: int,
-                      cache_hit_tokens: int = 0, cache_miss_tokens: int = 0) -> int:
-    """计算积分消耗（区分缓存命中/未命中，匹配DeepSeek实际计价）
-
-    DeepSeek V4-Pro定价:
-      - 输入(缓存命中): ¥0.025/M
-      - 输入(缓存未命中): ¥3.0/M
-      - 输出: ¥6.0/M
-
-    99.7%的agent调用是缓存命中，所以有效成本极低。
-    """
-    if not cache_hit_tokens and not cache_miss_tokens:
-        # 老方式：假设全部未命中（向后兼容）
-        cache_miss_tokens = prompt_tokens
-        cache_hit_tokens = 0
-
-    if cache_hit_tokens + cache_miss_tokens < prompt_tokens:
-        # 有部分token没被分类，视为未命中
-        cache_miss_tokens = prompt_tokens - cache_hit_tokens
-
+def calculate_credits(model: str, prompt_tokens: int, completion_tokens: int) -> int:
+    """计算积分消耗（API成本 × 倍数，向上取整）"""
     pricing = PRICING.get(model, PRICING["deepseek-chat"])
-    cost_yuan = 0
-    # 缓存命中: 极低价
-    if cache_hit_tokens > 0:
-        cost_yuan += (cache_hit_tokens / 1_000_000) * 0.025  # ¥0.025/M
-    # 缓存未命中: 标准价
-    if cache_miss_tokens > 0:
-        cost_yuan += (cache_miss_tokens / 1_000_000) * pricing["input"]
-    # 输出: 标准价
-    cost_yuan += (completion_tokens / 1_000_000) * pricing["output"]
-
-    cost_fen = cost_yuan * 100
-    credits = math.ceil(cost_fen * CREDIT_MULTIPLIER)
-    return max(1, credits)
+    cost_yuan = (prompt_tokens / 1_000_000) * pricing["input"] + \
+                (completion_tokens / 1_000_000) * pricing["output"]
+    cost_fen = cost_yuan * 100  # API实际成本(分)
+    credits = int(cost_fen * CREDIT_MULTIPLIER + 0.9999)
+    return max(1, credits)  # 最低1积分
 
 # ============================================================
 # FastAPI 应用
@@ -287,14 +205,6 @@ def calculate_credits(model: str, prompt_tokens: int, completion_tokens: int,
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Hergent - 积分服务", version="2.0.0")
-
-# ERP 模块（进销存）
-try:
-    from erp_api import erp_router
-    app.include_router(erp_router)
-    print("[ERP] 进销存模块已加载")
-except ImportError as e:
-    print(f"[ERP] 进销存模块未加载: {e}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -421,35 +331,6 @@ async def usage_history(request: Request, limit: int = 20):
         
         return {"records": records, "balance": user["credits"]}
 
-@app.get("/api/billing/history")
-async def billing_history(request: Request, limit: int = 50):
-    """查询用户账单（充值+消费）：GET /api/billing/history?limit=50"""
-    device_id = get_device_fingerprint(request)
-    with get_db() as db:
-        user = db.execute("SELECT id, credits, total_used, total_recharged FROM users WHERE device_id=?", (device_id,)).fetchone()
-        if not user:
-            return {"recharges": [], "usage": [], "balance": 0, "total_used": 0, "total_recharged": 0}
-
-        # 充值记录
-        recharges = db.execute("""
-            SELECT timestamp, amount_yuan, credits_added FROM recharge_log
-            WHERE user_id=? ORDER BY id DESC LIMIT ?
-        """, (user["id"], limit)).fetchall()
-
-        # 消费记录
-        usage = db.execute("""
-            SELECT timestamp, model, credits_deducted FROM usage_log
-            WHERE user_id=? ORDER BY id DESC LIMIT ?
-        """, (user["id"], limit)).fetchall()
-
-        return {
-            "recharges": [{"time": r["timestamp"], "amount_yuan": r["amount_yuan"], "credits": r["credits_added"]} for r in recharges],
-            "usage": [{"time": r["timestamp"], "model": r["model"], "credits": r["credits_deducted"]} for r in usage],
-            "balance": user["credits"],
-            "total_used": user["total_used"],
-            "total_recharged": user["total_recharged"]
-        }
-
 # ---- 充值（需管理密钥） ----
 def _verify_admin(request: Request):
     """验证管理密钥"""
@@ -564,7 +445,7 @@ async def payment_callback(request: Request):
     if amount_yuan not in RECHARGE_TIERS:
         raise HTTPException(400, f"无效充值金额: {amount_yuan} 元")
 
-    credits = RECHARGE_TIERS.get(amount_yuan, amount_yuan * 100)
+    credits = RECHARGE_TIERS[amount_yuan]
 
     # 防重
     with get_db() as db:
@@ -584,153 +465,27 @@ async def payment_callback(request: Request):
 # ---- 生成支付链接 ----
 @app.get("/api/payment/url")
 async def get_payment_url(amount: int = 10, device_id: str = ""):
-    """生成支付二维码（支付宝当面付 / DEV 降级）"""
-    if not (1 <= amount <= 999):
-        raise HTTPException(400, "金额需在1-999元之间")
-    credits = RECHARGE_TIERS.get(amount, amount * 100)
-    order_id = f"HG{device_id[:12]}_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    """生成面包多支付链接（用户扫码支付后，webhook 自动充值）
 
-    print(f"[ALIPAY] ENABLED={ALIPAY_ENABLED}")
-    if ALIPAY_ENABLED:
-        try:
-            result = alipay_page_pay(order_id, amount, f"{amount}元={credits}积分", device_id)
-            if result.get("success") and result.get("pay_url"):
-                return {"success": True, "pay_url": result["pay_url"],
-                        "order_id": order_id, "amount_yuan": amount, "credits": credits}
-            else:
-                print(f"[ALIPAY] 下单失败: {result}")
-        except Exception as e:
-            print(f"[ALIPAY] API异常: {e}")
+    前置条件：需在面包多后台创建对应金额的商品，并配置 webhook URL
+    返回支付链接，App 打开此链接让用户支付
 
-    return {"success": True,
-            "pay_url": f"https://api.hergent.cn/api/payment/dev-pay?order_id={order_id}&device_id={device_id}&amount={amount}",
-            "order_id": order_id, "amount_yuan": amount, "credits": credits, "dev_mode": True}
+    参数:
+        amount: 充值金额(元), 10/30/50
+        device_id: 用户设备ID（用于回调时识别用户）
+    """
+    if amount not in RECHARGE_TIERS:
+        raise HTTPException(400, f"无效金额，可选: {list(RECHARGE_TIERS.keys())}")
 
+    out_trade_no = f"device_{device_id}|amount_{amount}"
 
-# ---- 支付宝异步通知 ----
-@app.post("/api/payment/alipay/notify")
-async def alipay_notify(request: Request):
-    from urllib.parse import unquote_plus
-    body = await request.body()
-    body_str = body.decode()
-    # Parse params, keeping raw values for sign verification
-    params_raw = {}
-    for pair in body_str.split("&"):
-        if "=" in pair:
-            k, v = pair.split("=", 1)
-            params_raw[k] = v
-    sign = params_raw.pop("sign", "")
-    params_raw.pop("sign_type", None)
-    # Verify sign against raw params
-    if not alipay_verify_sign(params_raw, sign):
-        print("[ALIPAY] 验签失败, params=" + str(list(params_raw.keys())))
-        return "fail"
-    # URL-decode all values
-    params = {}
-    for k, v in params_raw.items():
-        params[k] = unquote_plus(v)
-    trade_status = params.get("trade_status", "")
-    print(f"[ALIPAY] notify received: trade_status={trade_status}, out_trade_no={params.get('out_trade_no','')}, amount={params.get('total_amount','')}")
-    if trade_status != "TRADE_SUCCESS":
-        return "success"
-    out_trade_no = params.get("out_trade_no", "")
-    total_amount = params.get("total_amount", "0")
-    try: amount_yuan = int(float(total_amount))
-    except ValueError: return "fail"
-    # Accept any payment amount, calculate credits proportionally at 100 credits/yuan
-    credits = RECHARGE_TIERS.get(amount_yuan, amount_yuan * 100)
-    device_id = ""
-    body_field = params.get("body", "")
-    if body_field and "device:" in body_field:
-        device_id = body_field.split("device:",1)[1].strip()
-    if not device_id:
-        parts = out_trade_no.split("_")
-        if len(parts) >= 2:
-            device_id = parts[0][2:]
-    if not device_id:
-        print(f"[ALIPAY] cannot extract device_id from out_trade_no={out_trade_no}")
-        return "fail"
-    with get_db() as db:
-        if db.execute("SELECT id FROM recharge_log WHERE payment_ref=?", (out_trade_no,)).fetchone():
-            print("[ALIPAY] duplicate recharge, skipped")
-            return "success"
-        user = get_or_create_user(db, device_id)
-        _add_credits(db, user["id"], amount_yuan, credits, payment_ref=out_trade_no)
-        _report_recharge(device_id, amount_yuan, credits, out_trade_no)
-        print(f"[ALIPAY] ✔ 充值成功: device={device_id[:8]}... +{credits}分 (¥{amount_yuan})")
-    return "success"
+    return {
+        "amount_yuan": amount,
+        "credits": RECHARGE_TIERS[amount],
+        "out_trade_no": out_trade_no,
+        "tip": "请在面包多后台创建商品后，使用产品链接跳转支付。out_trade_no 会随 webhook 回调返回。"
+    }
 
-
-# ---- DEV 模式一键充值 ----
-@app.post("/api/payment/dev-pay")
-async def dev_pay(request: Request):
-    body = await request.json() if await request.body() else {}
-    order_id = body.get("order_id") or request.query_params.get("order_id", "")
-    device_id = body.get("device_id") or request.query_params.get("device_id", "")
-    amount = int(body.get("amount") or request.query_params.get("amount", "10"))
-    if not (1 <= amount <= 999): raise HTTPException(400, "金额需在1-999元之间")
-    credits = RECHARGE_TIERS.get(amount, amount * 100)
-    with get_db() as db:
-        if db.execute("SELECT id FROM recharge_log WHERE payment_ref=?", (order_id,)).fetchone():
-            return {"success": True, "message": "已处理"}
-        user = get_or_create_user(db, device_id)
-        _add_credits(db, user["id"], amount, credits, payment_ref=order_id)
-        _report_recharge(device_id, amount, credits, order_id)
-        return {"success": True, "credits_added": credits}
-
-
-@app.get("/api/payment/status")
-async def payment_status(order_id: str = ""):
-    if not order_id:
-        return {"paid": False}
-
-    with get_db() as db:
-        row = db.execute("SELECT credits_added, amount_yuan FROM recharge_log WHERE payment_ref=?", (order_id,)).fetchone()
-        if row:
-            return {"paid": True, "credits_added": row["credits_added"], "amount_yuan": row["amount_yuan"]}
-
-    # 本地无记录 → 主动查询支付宝订单状态
-    if ALIPAY_ENABLED and order_id.startswith("HG"):
-        try:
-            import urllib.parse as _up
-            from alipay_patch import alipay_sign, ALIPAY_APP_ID
-            params = {
-                "app_id": ALIPAY_APP_ID,
-                "method": "alipay.trade.query",
-                "format": "JSON",
-                "charset": "utf-8",
-                "sign_type": "RSA2",
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "version": "1.0",
-                "biz_content": json.dumps({"out_trade_no": order_id}, ensure_ascii=False),
-            }
-            params["sign"] = alipay_sign(params)
-            body_str = _up.urlencode(params, quote_via=_up.quote)
-            resp = httpx.post("https://openapi.alipay.com/gateway.do",
-                content=body_str.encode("utf-8"),
-                headers={"Content-Type": "application/x-www-form-urlencoded; charset=utf-8"},
-                timeout=15)
-            data = resp.json()
-            resp_data = data.get("alipay_trade_query_response", {})
-            if resp_data.get("code") == "10000" and resp_data.get("trade_status") == "TRADE_SUCCESS":
-                total_amount = resp_data.get("total_amount", "0")
-                try: amount_yuan = int(float(total_amount))
-                except: return {"paid": False}
-                credits = RECHARGE_TIERS.get(amount_yuan, amount_yuan * 100)
-                # 从 order_id 提取 device_id
-                parts = order_id.split("_")
-                device_id = parts[0][2:] if len(parts) >= 2 else ""
-                if device_id:
-                    with get_db() as db2:
-                        user = get_or_create_user(db2, device_id)
-                        _add_credits(db2, user["id"], amount_yuan, credits, payment_ref=order_id)
-                    print("[ALIPAY] 主动查询到账: device=" + device_id[:8] + "... +" + str(credits) + "分 (¥" + str(amount_yuan) + ")")
-                    _report_recharge(device_id, amount_yuan, credits, order_id)
-                    return {"paid": True, "credits_added": credits, "amount_yuan": amount_yuan}
-        except Exception as e:
-            print("[ALIPAY] 主动查询失败: " + str(e)[:100])
-
-    return {"paid": False}
 # ---- 充值档位查询（App 展示用）----
 @app.get("/api/recharge/tiers")
 async def get_tiers():
@@ -738,24 +493,6 @@ async def get_tiers():
         "tiers": [{"amount_yuan": k, "credits": v} for k, v in RECHARGE_TIERS.items()],
         "welcome_credits": WELCOME_CREDITS
     }
-
-# ---- 自定义模型配置 ----
-@app.post("/api/custom-model/config")
-async def save_custom_model(request: Request):
-    """保存用户自定义模型配置：{ base_url, api_key, model_name }"""
-    body = await request.json()
-    device_id = get_device_fingerprint(request)
-    base_url = (body.get("base_url") or "").strip()
-    api_key = (body.get("api_key") or "").strip()
-    model_name = (body.get("model_name") or "").strip()
-    if not base_url:
-        raise HTTPException(400, "base_url 不能为空")
-    with get_db() as db:
-        db.execute("""INSERT OR REPLACE INTO custom_models (device_id, base_url, api_key, model_name, updated_at)
-                      VALUES (?, ?, ?, ?, ?)""",
-                   (device_id, base_url, api_key, model_name, datetime.now().isoformat()))
-        db.commit()
-    return {"success": True, "message": "自定义模型已保存"}
 
 # ---- OpenAI兼容代理 ----
 @app.post("/v1/chat/completions")
@@ -776,50 +513,22 @@ async def chat_completions(request: Request):
 
         body = await request.json()
 
-        # ---- 根据模型路由到不同后端 ----
+        # ---- 直接代理到 DeepSeek（客户端 Hermes CLI 负责 Agent 逻辑）----
         model = body.get("model", "deepseek-chat")
-        if not model or not model.strip() or model == "hermes-agent":
-            model = "deepseek-v4-pro"
-            body["model"] = model
         stream = body.get("stream", False)
-        is_custom = model not in PRICING
-
-        if is_custom:
-            # 自定义模型：查用户配置，固定 1 分平台费
-            row = db.execute("SELECT base_url, api_key, model_name FROM custom_models WHERE device_id=?",
-                            (device_id,)).fetchone()
-            if not row:
-                # 兜底：未知模型名回退到 DeepSeek V4 Pro，避免网关报错
-                api_base = DEEPSEEK_BASE
-                api_key = DEEPSEEK_API_KEY
-                credits = None
-                body["model"] = "deepseek-v4-pro"
-            api_base = row["base_url"].rstrip("/")
-            api_key = row["api_key"]
-            if not model or model == "custom":
-                model = row["model_name"] or "gpt-4o"
-                body["model"] = model
-            credits = 1  # 固定 1 分平台费
-        elif model.startswith("qwen"):
-            api_base = BAILIAN_BASE
-            api_key = BAILIAN_API_KEY
-            credits = None  # 稍后按 token 计算
-        else:
-            api_base = DEEPSEEK_BASE
-            api_key = DEEPSEEK_API_KEY
-            credits = None  # 稍后按 token 计算
 
         headers = {
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
             "Content-Type": "application/json"
         }
 
         if stream:
             # 流式转发
             async def stream_proxy():
-                total_prompt = total_completion = _cache_hit = _cache_miss = 0
+                total_prompt = 0
+                total_completion = 0
                 async with httpx.AsyncClient(timeout=120.0) as client:
-                    async with client.stream("POST", f"{api_base}/v1/chat/completions",
+                    async with client.stream("POST", f"{DEEPSEEK_BASE}/v1/chat/completions",
                                               json=body, headers=headers) as resp:
                         if resp.status_code != 200:
                             err = await resp.aread()
@@ -836,29 +545,26 @@ async def chat_completions(request: Request):
                                             usage = data.get("usage", {})
                                             total_prompt = usage.get("prompt_tokens", 0)
                                             total_completion = usage.get("completion_tokens", 0)
-                                            _cache_hit = usage.get("prompt_cache_hit_tokens", 0)
-                                            _cache_miss = usage.get("prompt_cache_miss_tokens", 0)
                             except:
                                 pass
 
-                # 流结束后扣费（用缓存命中区分计价）
-                final_credits = credits if credits is not None else calculate_credits(
-                    model, total_prompt, total_completion, _cache_hit, _cache_miss)
-                if final_credits > 0:
+                # 流结束后扣费
+                if total_prompt or total_completion:
+                    credits = calculate_credits(model, total_prompt, total_completion)
                     with get_db() as db2:
                         db2.execute("UPDATE users SET credits = MAX(0, credits - ?), total_used = total_used + ? WHERE id = ?",
-                                   (final_credits, final_credits, user["id"]))
+                                   (credits, credits, user["id"]))
                         db2.execute("""
                             INSERT INTO usage_log (user_id, timestamp, model, prompt_tokens, completion_tokens, credits_deducted)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        """, (user["id"], datetime.now().isoformat(), model, total_prompt, total_completion, final_credits))
+                        """, (user["id"], datetime.now().isoformat(), model, total_prompt, total_completion, credits))
                         db2.commit()
 
             return StreamingResponse(stream_proxy(), media_type="text/event-stream")
 
         else:
             # 非流式
-            resp = await http_client.post(f"{api_base}/v1/chat/completions",
+            resp = await http_client.post(f"{DEEPSEEK_BASE}/v1/chat/completions",
                                            json=body, headers=headers)
             if resp.status_code != 200:
                 raise HTTPException(resp.status_code, detail=resp.text[:500])
@@ -867,111 +573,30 @@ async def chat_completions(request: Request):
             usage = result.get("usage", {})
             prompt_tokens = usage.get("prompt_tokens", 0)
             completion_tokens = usage.get("completion_tokens", 0)
-            _cache_hit = usage.get("prompt_cache_hit_tokens", 0)
-            _cache_miss = usage.get("prompt_cache_miss_tokens", 0)
 
-            final_credits = credits if credits is not None else calculate_credits(
-                model, prompt_tokens, completion_tokens, _cache_hit, _cache_miss)
+            credits = calculate_credits(model, prompt_tokens, completion_tokens)
 
-            if user["credits"] < final_credits:
+            if user["credits"] < credits:
                 raise HTTPException(402, {
                     "error": "积分不足",
                     "credits": user["credits"],
-                    "needed": final_credits,
-                    "message": f"本次需要 {final_credits} 积分，余额 {user['credits']}"
+                    "needed": credits,
+                    "message": f"本次需要 {credits} 积分，余额 {user['credits']}"
                 })
 
             db.execute("UPDATE users SET credits = credits - ?, total_used = total_used + ? WHERE id = ?",
-                      (final_credits, final_credits, user["id"]))
+                      (credits, credits, user["id"]))
             db.execute("""
                 INSERT INTO usage_log (user_id, timestamp, model, prompt_tokens, completion_tokens, credits_deducted)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (user["id"], datetime.now().isoformat(), model, prompt_tokens, completion_tokens, final_credits))
+            """, (user["id"], datetime.now().isoformat(), model, prompt_tokens, completion_tokens, credits))
             db.commit()
 
-            new_balance = user["credits"] - final_credits
-            result["_hermes"] = {"credits_remaining": new_balance, "credits_used": final_credits}
+            new_balance = user["credits"] - credits
+            result["_hermes"] = {"credits_remaining": new_balance, "credits_used": credits}
             return JSONResponse(result)
 
 # ---- 健康检查 ----
-
-# === 飞书推送 ===
-@app.post("/api/feishu/push")
-async def feishu_push(request: Request):
-    """接收桌面端推送请求，通过飞书 Bot 发送消息"""
-    d = await request.json()
-    role = d.get("role", "大秘")
-    content = d.get("content", "")
-    device_id = d.get("device_id", "unknown")
-    if not content:
-        raise HTTPException(400, "content required")
-    # 通过飞书 Bot Webhook 发送
-    webhook_url = os.environ.get("FEISHU_BOT_WEBHOOK", "")
-    if webhook_url:
-        try:
-            body = json.dumps({
-                "msg_type": "interactive",
-                "card": {
-                    "header": {"title": {"tag": "plain_text", "content": f"🤖 {role} 报告"}},
-                    "elements": [
-                        {"tag": "markdown", "content": content[:3000]},
-                        {"tag": "note", "elements": [{"tag": "plain_text", "content": f"来自 Hergent · 设备 {device_id[:8]}"}]}
-                    ]
-                }
-            }).encode()
-            req = urllib.request.Request(webhook_url, data=body, headers={"Content-Type": "application/json"})
-            urllib.request.urlopen(req, timeout=10)
-            return {"success": True, "message": "已推送到飞书"}
-        except Exception as e:
-            raise HTTPException(500, f"飞书推送失败: {str(e)}")
-    return {"success": False, "message": "飞书 Webhook 未配置"}
-
-
-
-# === 飞书日报推送（供 cron 定时调用）===
-@app.post("/api/feishu/daily-report")
-async def feishu_daily_report(request: Request):
-    """生成 AI 日报并推送到飞书。供定时任务调用。"""
-    d = await request.json()
-    role = d.get("role", "运营主管")
-    webhook_url = os.environ.get("FEISHU_BOT_WEBHOOK", "")
-    device_id = d.get("device_id", "cron")
-    # 生成日报内容
-    from datetime import datetime as dt
-    today = dt.now().strftime("%Y-%m-%d")
-    current_hour = dt.now().hour
-    greeting = "早上好" if current_hour < 12 else "下午好" if current_hour < 18 else "晚上好"
-    report = f"{greeting}！以下是 {today} 的经营日报：\n\n"
-    # 如果有 ERP 数据库，尝试查真实数据
-    try:
-        sys.path.insert(0, os.path.dirname(__file__))
-        import erp_db as erp
-        import ai_tools
-        ai_report = ai_tools.tool_generate_daily_report()
-        report += ai_report.get("report", "暂无经营数据")
-    except:
-        report += "📊 经营数据暂不可用\n请确保 ERP 系统正常运行"
-    # 推送
-    if webhook_url:
-        try:
-            body = json.dumps({
-                "msg_type": "interactive",
-                "card": {
-                    "header": {"title": {"tag": "plain_text", "content": f"📊 Hergent 经营日报 | {today}"}},
-                    "elements": [
-                        {"tag": "markdown", "content": report[:3000]},
-                        {"tag": "note", "elements": [{"tag": "plain_text", "content": f"由 {role} 自动生成 · {today}"}]}
-                    ]
-                }
-            }).encode()
-            req = urllib.request.Request(webhook_url, data=body, headers={"Content-Type": "application/json"})
-            urllib.request.urlopen(req, timeout=10)
-            return {"success": True, "message": "日报已推送到飞书", "report": report[:500]}
-        except Exception as e:
-            raise HTTPException(500, f"飞书推送失败: {str(e)}")
-    return {"success": True, "message": "日报已生成（飞书未配置）", "report": report[:500]}
-
-
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "2.0.0"}
@@ -981,7 +606,7 @@ async def health():
 # 认证 API
 # ============================================================
 
-def get_user_from_token(request: Request) -> Optional[dict]:
+def get_user_from_token(request: Request) -> dict | None:
     """从请求头 X-Hermes-Token 中获取用户"""
     token = request.headers.get("X-Hermes-Token") or request.headers.get("Authorization", "").removeprefix("Bearer ")
     if not token:
@@ -1045,7 +670,7 @@ async def auth_verify_code(request: Request):
             db.execute("UPDATE users SET device_id=?, last_active=?, nickname=COALESCE(nickname, ?) WHERE id=?",
                       (device_id, datetime.now().isoformat(), f"用户{phone[-4:]}", uid))
         else:
-            # 新用户：创建并送500积分
+            # 新用户：创建并送200积分
             uid = uuid.uuid4().hex[:16]
             now = datetime.now().isoformat()
             db.execute("""

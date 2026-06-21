@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hergent · AI 桌面办公助手</title>
+  <meta name="description" content="Hergent 是一款桌面端 AI 办公助手软件，基于开源 Hermes Agent 框架，提供智能文档处理、数据分析、定时任务等功能。数据不出本地，保护隐私安全。" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230f172a'/><rect x='7' y='6' width='5' height='20' rx='2.5' fill='%2306b6d4'/><rect x='20' y='6' width='5' height='20' rx='2.5' fill='%2306b6d4'/><rect x='7' y='13.5' width='18' height='5' rx='2.5' fill='%2306b6d4'/></svg>" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      color: #171717; background: #fafafa; line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { text-decoration: none; color: inherit; }
+    nav {
+      max-width: 1200px; margin: 0 auto; padding: 20px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    nav .logo { font-size: 20px; font-weight: 700; color: #06b6d4; display: flex; align-items: center; gap: 8px; }
+    .nav-links { display: flex; gap: 24px; }
+    .nav-links a { font-size: 14px; color: #6b7180; font-weight: 500; }
+    .nav-links a:hover { color: #171717; }
+    .hero {
+      text-align: center; padding: 100px 24px 80px;
+      background: linear-gradient(180deg, #f8fafc 0%, #eff6ff 50%, #f0f9ff 100%);
+    }
+    .hero h1 { font-size: clamp(36px, 6vw, 56px); font-weight: 700; letter-spacing: -1.5px; margin-bottom: 16px; }
+    .hero h1 span { color: #06b6d4; }
+    .hero p { font-size: 20px; color: #6b7180; max-width: 600px; margin: 0 auto 32px; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #0f172a; color: #fff; font-size: 15px; font-weight: 600;
+      padding: 13px 28px; border-radius: 10px; transition: all 0.25s;
+      box-shadow: 0 2px 12px rgba(15,23,42,0.15);
+    }
+    .btn-primary:hover { background: #1e293b; transform: translateY(-2px); }
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #fff; color: #171717; font-size: 15px; font-weight: 500;
+      padding: 13px 28px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.1); transition: all 0.25s;
+    }
+    .btn-outline:hover { border-color: rgba(0,0,0,0.2); transform: translateY(-2px); }
+    section { padding: 80px 24px; }
+    section .inner { max-width: 1100px; margin: 0 auto; }
+    section h2 { font-size: 32px; font-weight: 700; letter-spacing: -0.8px; margin-bottom: 12px; }
+    section .desc { color: #6b7180; font-size: 17px; margin-bottom: 48px; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+    .feature-card {
+      background: #fff; border-radius: 16px; padding: 28px;
+      border: 1px solid rgba(0,0,0,0.06);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+    }
+    .feature-card h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: #6b7180; }
+    .roles-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .role-card {
+      background: #fff; border-radius: 12px; padding: 20px;
+      border: 1px solid rgba(0,0,0,0.06); text-align: center;
+    }
+    .role-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .role-card p { font-size: 13px; color: #6b7180; }
+    footer {
+      text-align: center; padding: 40px 24px;
+      border-top: 1px solid rgba(0,0,0,0.06);
+      font-size: 13px; color: #9ca3b0;
+    }
+    .footer-links { margin-bottom: 12px; }
+    .footer-links a { margin: 0 10px; color: #06b6d4; }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo"><svg width="24" height="24" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0f172a"/><rect x="7" y="6" width="5" height="20" rx="2.5" fill="#06b6d4"/><rect x="20" y="6" width="5" height="20" rx="2.5" fill="#06b6d4"/><rect x="7" y="13.5" width="18" height="5" rx="2.5" fill="#06b6d4"/></svg> Hergent</div>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#roles">角色</a>
+      <a href="#download">下载</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <h1>装在电脑里的<span> AI 员工</span></h1>
+    <p>基于开源 Hermes Agent 框架，能读写文件、搜索整理、定时干活。数据不出本地，越用越聪明。</p>
+    <a href="#download" class="btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      下载使用
+    </a>
+  </div>
+
+  <section id="features">
+    <div class="inner">
+      <h2>核心功能</h2>
+      <p class="desc">不止聊天——能动手、会干活、可协作</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <h3>200+ 项实战技能</h3>
+          <p>合同起草、数据分析、代码编写、周报生成、银行对账……内置行业专用技能，拿来就用。</p>
+        </div>
+        <div class="feature-card">
+          <h3>读写文件 & 处理数据</h3>
+          <p>读取 PDF、Excel、Word、图片等多种格式，分析处理后生成报告、图表、代码文件。</p>
+        </div>
+        <div class="feature-card">
+          <h3>连接飞书 & 企微</h3>
+          <p>AI 完成任务后直接把结果推送到您的手机上，支持飞书、企业微信、钉钉、QQ 等平台。</p>
+        </div>
+        <div class="feature-card">
+          <h3>定时自动干活</h3>
+          <p>设置定时任务，AI 每天按时执行——发日报、查数据、生成报表，省心省力。</p>
+        </div>
+        <div class="feature-card">
+          <h3>5 种模型可选</h3>
+          <p>支持 DeepSeek V4 Pro/Flash、阿里云通义千问 Qwen3 等多个大模型，按任务灵活切换。</p>
+        </div>
+        <div class="feature-card">
+          <h3>数据不出本地</h3>
+          <p>所有数据在您的电脑上处理，不上传云端。基于开源 Hermes Agent 框架，安全透明。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="roles" style="background:#f8fafc;">
+    <div class="inner" style="text-align:center;">
+      <h2>8 位 AI 数字员工</h2>
+      <p class="desc">每位都有专属技能，各司其职</p>
+      <div class="roles-grid">
+        <div class="role-card"><h3>大秘</h3><p>文书、搜索、提醒、安排</p></div>
+        <div class="role-card"><h3>会计</h3><p>对账、做表、算税、分析</p></div>
+        <div class="role-card"><h3>程序员</h3><p>写代码、Debug、自动化</p></div>
+        <div class="role-card"><h3>作家</h3><p>写文章、润色、写书</p></div>
+        <div class="role-card"><h3>编剧</h3><p>短视频脚本、营销文案</p></div>
+        <div class="role-card"><h3>私教</h3><p>解题、教学、备课、答疑</p></div>
+        <div class="role-card"><h3>健康顾问</h3><p>饮食、运动、体检建议</p></div>
+        <div class="role-card"><h3>投资顾问</h3><p>市场分析、资产配置</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="download" style="text-align:center;">
+    <div class="inner">
+      <h2>下载 Hergent</h2>
+      <p class="desc">免费使用 · macOS 12+ · Windows 10+</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <a href="https://github.com/xyzhangjf/hergent-landing/releases/latest" class="btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          下载 macOS 版
+        </a>
+        <a href="https://github.com/xyzhangjf/hergent-landing/releases/latest" class="btn-outline">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          下载 Windows 版
+        </a>
+      </div>
+      <p style="font-size:12px;color:#9ca3b0;margin-top:12px;">macOS 首次打开提示无法验证？按住 Control 键点按 App 图标 → 选"打开"即可</p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-links">
+      <a href="https://her-agent.com">公司官网</a>
+      <a href="mailto:admin@her-agent.com">联系我们</a>
+    </div>
+    <p>© 2026 湖北省小赫智体数字科技有限公司</p>
+    <p>鄂ICP备XXXXXXXX号-1（备案中）</p>
+  </footer>
+</body>
+</html>

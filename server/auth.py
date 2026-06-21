@@ -1,3 +1,4 @@
+from typing import Optional
 """
 auth.py — 用户认证模块
 - 手机号 + 短信验证码登录
@@ -104,7 +105,7 @@ def make_jwt(payload: dict, expires_in: int = 86400 * 30) -> str:
 
     return f"{header}.{body}.{sig_b64}"
 
-def verify_jwt(token: str) -> dict | None:
+def verify_jwt(token: str) -> Optional[dict]:
     """验证 JWT token，返回 payload 或 None"""
     try:
         parts = token.split(".")
@@ -147,7 +148,7 @@ def get_wechat_login_url() -> str:
     }
     return f"https://open.weixin.qq.com/connect/qrconnect?{urlencode(params)}#wechat_redirect"
 
-def get_wechat_user_info(code: str) -> dict | None:
+def get_wechat_user_info(code: str) -> Optional[dict]:
     """用 code 换取微信用户信息"""
     if not WECHAT_APP_ID or not WECHAT_APP_SECRET:
         return None

@@ -125,7 +125,6 @@
               </button>
               <span class="cost-estimate" id="costEstimate" title="本条消息预估消耗">≈<span id="costEstimateNum">2-5</span>分</span>
               <span class="credits-badge" id="creditsBadge" onclick="switchPage('pageSettings')" title="点击查看积分明细"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> <span id="creditsText">--</span></span>
-              <button class="chat-file-btn" id="feishuBtn" onclick="pushToFeishu()" title="推送到飞书"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><path d="M4.93 4.93l4.24 4.24"/><path d="M14.83 14.83l4.24 4.24"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l4.24-4.24"/><path d="M14.83 9.17l4.24-4.24"/></svg></button>
               <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" title="发送"><svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
               <button class="chat-cancel-btn" id="chatCancelBtn" onclick="cancelStream()" style="display:none;" title="停止"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
             </div>
@@ -342,21 +341,18 @@
 
             <!-- 备份与迁移 -->
             <div class="settings-section" data-settings-category="backup">
-              <div class="settings-section-title">备份与迁移</div>
-              <button class="settings-btn" onclick="exportChat()">📥 导出当前对话 (Markdown)</button>
-              <button class="settings-btn" onclick="exportSettings()">⚙️ 导出设置 (JSON)</button>
-              <button class="settings-btn" onclick="importSettings()">📤 导入设置</button>
+              <div class="settings-section-title">备份</div>
+              <button class="settings-btn" onclick="exportChat()">导出当前对话</button>
             </div>
             <div class="settings-section" data-settings-category="backup">
-              <button class="settings-btn danger" onclick="clearAllData()" style="margin-bottom:4px;">🗑 清除所有数据</button>
+              <button class="settings-btn danger" onclick="clearAllData()" style="margin-bottom:4px;">清除所有数据</button>
               <button class="settings-btn" onclick="logout()">退出登录</button>
             </div>
 
             <!-- 关于 -->
             <div class="settings-section" data-settings-category="about">
               <div class="settings-section-title">关于</div>
-              <div class="settings-row"><span>Hergent</span><span class="settings-val" id="setVersion">v1.0.105</span></div>
-              <button class="settings-btn" onclick="_manualCheckUpdate()" style="margin-top:8px">🔍 检查更新</button>
+              <div class="settings-row"><span>Hergent</span><span class="settings-val" id="setVersion">v1.0.14</span></div>
               <div class="settings-row"><span>内核</span><span class="settings-val">Hermes Agent v0.14.0</span></div>
               <div class="settings-row"><span>引擎</span><span class="settings-val" id="setEngineVersion">--</span></div>
               <div class="settings-row" id="engineUpdateRow" style="display:none;">
@@ -674,7 +670,7 @@
         <span class="qr-spinner"></span> 等待支付中...
       </div>
       <div class="qr-success" id="qrSuccess" style="display:none;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         <span class="qr-success-text" id="qrSuccessText">充值成功！</span>
       </div>
       <div class="modal-btn-row" style="margin-top:8px;">
