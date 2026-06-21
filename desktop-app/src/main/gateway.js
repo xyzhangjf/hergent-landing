@@ -55,7 +55,7 @@ function getPlatformEnvVars() {
 // 获取角色最近的平台 session ID（飞书等），用于 App 聊天与平台共享上下文
 function getLatestPlatformSession(roleId) {
   try {
-    const engineDir = engine._engine.getEngineDir();
+    const engineDir = _engine.getEngineDir();
     const sessionsDir = path.join(engineDir, '.hermes', 'agents', roleId, 'sessions');
     const indexPath = path.join(sessionsDir, 'sessions.json');
     if (!fs.existsSync(indexPath)) return null;
@@ -116,7 +116,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
     try { rg.process.kill(); } catch (_) {}
   }
   _roleGateways.length = 0;
-  const engineDir = engine._engine.getEngineDir();
+  const engineDir = _engine.getEngineDir();
   for (const cfg of configs) {
     const roleHome = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
     if (!fs.existsSync(roleHome)) { fs.mkdirSync(roleHome, { recursive: true }); }
@@ -206,7 +206,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
   }
 }
 async function startHermesGateway() {
-  const engineDir = engine._engine.getEngineDir();
+  const engineDir = _engine.getEngineDir();
   const gwHome = path.join(engineDir, '.hermes');
   const gf = path.join(gwHome, 'app_debug.log');
   const glog = (msg) => { try { fs.appendFileSync(gf, `[${new Date().toISOString()}] GW: ${msg}\n`); } catch(_) {} };
@@ -215,9 +215,9 @@ async function startHermesGateway() {
     glog('HERMES_BIN not found');
     return false;
   }
-  engine.ensureSharedState();
-  engine.ensureRoleConfigs();
-  engine.markEngineReady();
+  _engine.ensureSharedState();
+  _engine.ensureRoleConfigs();
+  _engine.markEngineReady();
   const isRunning = await isGatewayRunning();
   if (!isRunning) {
   // 直接写 YAML（v0.15.x 要求 custom_providers 必须为列表格式，hermes config set 却写字典格式）
@@ -401,12 +401,79 @@ function stopHermesGateway() {
   }
   _roleGateways.length = 0;
   // 清理所有使用本引擎目录的 gateway 进程（精确匹配引擎路径，避免误杀 QClaw 等）
-  const engineDir = engine._engine.getEngineDir();
+  const engineDir = _engine.getEngineDir();
   if (process.platform === 'darwin' || process.platform === 'linux') {
     // 精确匹配：只杀使用本机当前用户引擎 Python 的 gateway 进程（不误伤其他用户/QClaw）
     try { execSync(`pkill -f "${engineDir}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
   } else {
     try { execSync('taskkill /F /IM python3.11.exe /FI "WINDOWTITLE eq gateway run"', { timeout: 5000 }); } catch (_) {}
+  }
+}
+
+// ===== Health Monitor & Auto-Restart =====
+const GW_STATUS = { STOPPED: "stopped", STARTING: "starting", RUNNING: "running", UNHEALTHY: "unhealthy", RESTARTING: "restarting" };
+let _gwStatus = GW_STATUS.STOPPED;
+let _healthTimer = null;
+let _consecutiveFailures = 0;
+let _totalRestarts = 0;
+const MAX_FAILURES = 3;
+const MAX_RESTARTS = 5;
+const HEALTH_INTERVAL_MS = 30000;
+
+function getGatewayStatus() { return _gwStatus; }
+function getRestartCount() { return _totalRestarts; }
+
+async function checkHealth() {
+  const running = await isGatewayRunning();
+  if (!running) {
+    _consecutiveFailures++;
+    logger.reportNonCritical("gateway-health", "Gateway not running, failure " + _consecutiveFailures + "/" + MAX_FAILURES);
+    if (_consecutiveFailures >= MAX_FAILURES) {
+      _gwStatus = GW_STATUS.UNHEALTHY;
+      if (_totalRestarts < MAX_RESTARTS) {
+        _gwStatus = GW_STATUS.RESTARTING;
+        _totalRestarts++;
+        logger.reportNonCritical("gateway-health", "Auto-restarting gateway (attempt " + _totalRestarts + "/" + MAX_RESTARTS + ")");
+        try {
+          stopHermesGateway();
+          await new Promise(r => setTimeout(r, 2000));
+          const ok = await startHermesGateway();
+          if (ok) {
+            _gwStatus = GW_STATUS.RUNNING;
+            _consecutiveFailures = 0;
+            logger.reportNonCritical("gateway-health", "Gateway auto-restart successful");
+          } else {
+            logger.reportCriticalError("gateway-health", new Error("Gateway restart failed"));
+          }
+        } catch (e) {
+          logger.reportCriticalError("gateway-health", e, { attempt: _totalRestarts });
+        }
+      } else {
+        logger.reportCriticalError("gateway-health", new Error("Gateway restart limit reached (" + MAX_RESTARTS + "), giving up"));
+      }
+    }
+  } else {
+    _consecutiveFailures = 0;
+    if (_gwStatus !== GW_STATUS.RESTARTING) {
+      _gwStatus = GW_STATUS.RUNNING;
+    }
+  }
+}
+
+function startHealthMonitor() {
+  _gwStatus = GW_STATUS.STARTING;
+  _consecutiveFailures = 0;
+  stopHealthMonitor(); // clear any existing timer
+  checkHealth(); // immediate first check
+  _healthTimer = setInterval(checkHealth, HEALTH_INTERVAL_MS);
+  // Prevent timer from keeping process alive
+  if (_healthTimer && _healthTimer.unref) _healthTimer.unref();
+}
+
+function stopHealthMonitor() {
+  if (_healthTimer) {
+    clearInterval(_healthTimer);
+    _healthTimer = null;
   }
 }
 
@@ -419,4 +486,7 @@ module.exports = {
   getPlatformEnvVars, getLatestPlatformSession,
   getPlatformRoleConfigs, getFeishuRoleConfigs,
   spawnRoleGateways, startHermesGateway, stopHermesGateway,
+  // Health monitoring
+  GW_STATUS, getGatewayStatus, getRestartCount,
+  checkHealth, startHealthMonitor, stopHealthMonitor,
 };

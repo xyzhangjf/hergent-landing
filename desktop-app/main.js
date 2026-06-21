@@ -156,500 +156,20 @@ process.on("unhandledRejection", (reason) => {
     req.write(body); req.end();
   } catch (_) {}
 });
-// ===== Hermes Gateway 管理 =====
 // Gateway API Key 每次启动动态生成（仅本机 localhost 使用，无需持久化）
 const GATEWAY_API_KEY = crypto.randomBytes(32).toString("hex");
 // Dev 模式允许跳过 TLS 证书验证（通过环境变量 HERGENT_DEV=1 启用）
-let gatewayProcess = null;
-const _roleGateways = []; // { roleId, process, home } — 飞书每角色独立Gateway
-const ROLE_SESSIONS = {}; // roleId -> sessionId, 保持会话连续性
-function isGatewayRunning() {
-  return new Promise((resolve) => {
-    const req = net.request({ method: 'GET', url: `${GATEWAY_URL}/health` });
-    req.setHeader('User-Agent', 'Hergent-Desktop/1.0');
-    req.on('response', (res) => resolve(res.statusCode === 200));
-    req.on('error', () => resolve(false));
-    req.end();
-  });
-}
-async function waitForGateway(maxWaitMs = 90000) {
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
-    if (await gateway.isGatewayRunning()) return true;
-    await new Promise(r => setTimeout(r, 1000));
-  }
-  return false;
-}
 // 所有平台都走角色独立 Gateway，主 Gateway 不再直接处理任何平台连接
-function getPlatformEnvVars() {
-  return {};
-}
 // 获取角色最近的平台 session ID（飞书等），用于 App 聊天与平台共享上下文
-function getLatestPlatformSession(roleId) {
-  try {
-    const engineDir = engine.getEngineDir();
-    const sessionsDir = path.join(engineDir, '.hermes', 'agents', roleId, 'sessions');
-    const indexPath = path.join(sessionsDir, 'sessions.json');
-    if (!fs.existsSync(indexPath)) return null;
-    const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-    let latest = null;
-    for (const [key, meta] of Object.entries(index)) {
-      if (meta.platform === 'cli' || meta.platform === 'api_server') continue;
-      if (!latest || meta.updated_at > latest.updated_at) {
-        latest = { sessionId: meta.session_id, updated: meta.updated_at };
-      }
-    }
-    return latest ? latest.sessionId : null;
-  } catch (_) { return null; }
-}
 // 从 channels.json 读取所有平台每角色配置
 // 返回 [{ platform, roleId, name, creds: {app_id, app_secret, ...}, envVars: {FEISHU_APP_ID: ..., ...} }]
-function getPlatformRoleConfigs() {
-  const configs = [];
-  try {
-    const cp = getConfigPath();
-    if (!fs.existsSync(cp)) return configs;
-    const channels = JSON.parse(fs.readFileSync(cp, 'utf8'));
-    const roles = rolesMgr.loadRoles();
-    for (const [platformKey, platformDef] of Object.entries(PLATFORM_DEFS)) {
-      const platformData = channels[platformKey];
-      if (!platformData) continue;
-      for (const [roleId, cfg] of Object.entries(platformData)) {
-        if (roleId.startsWith('_')) continue;
-        const credField = platformDef.credField;
-        if (!cfg[credField]) continue;
-        const envVars = {};
-        for (const [fieldName, envName] of Object.entries(platformDef.envVars)) {
-          envVars[envName] = cfg[fieldName] || '';
-        }
-        configs.push({
-          platform: platformKey,
-          roleId,
-          name: (roles[roleId] && roles[roleId].name) || roleId,
-          creds: cfg,
-          envVars,
-          label: platformDef.label
-        });
-      }
-    }
-  } catch (_) {}
-  return configs;
-}
 // 向后兼容别名
-function getFeishuRoleConfigs() {
-  return getPlatformRoleConfigs().filter(c => c.platform === 'feishu');
-}
 // 为每个有平台配置的角色启动独立 Gateway 进程（飞书/企微/钉钉/QQ）
-function spawnRoleGateways(pythonBin, libsDir, glog) {
-  const configs = getPlatformRoleConfigs();
-  if (configs.length === 0) { glog('No platform role configs found, skipping role gateways'); return; }
-  // 先停掉旧的角色 Gateway（内存追踪 + 进程名精确匹配）
-  for (const rg of _roleGateways) {
-    try { rg.process.kill(); } catch (_) {}
-  }
-  _roleGateways.length = 0;
-  const engineDir = engine.getEngineDir();
-  for (const cfg of configs) {
-    const roleHome = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
-    if (!fs.existsSync(roleHome)) { fs.mkdirSync(roleHome, { recursive: true }); }
-    // 确保角色 Gateway 有正确格式的 config.yaml（直接写 YAML，v0.15.x 要求列表格式）
-    const roleConfigPath = path.join(roleHome, 'config.yaml');
-    const mainConfigPath = path.join(engineDir, '.hermes', 'config.yaml');
-    let currentModel = 'deepseek-v4-flash';
-    let currentProvider = 'openai';
-    try {
-      if (fs.existsSync(mainConfigPath)) {
-        const mainCfg = fs.readFileSync(mainConfigPath, 'utf8');
-        const mn = mainCfg.match(/^model:\s*\n\s+name:\s*(.+)/m);
-        const mp = mainCfg.match(/^model:\s*\n\s+provider:\s*(.+)/m);
-        if (mn) currentModel = mn[1].trim();
-        if (mp) currentProvider = mp[1].trim();
-      }
-    } catch (_) {}
-    const deviceId = licenses.getDeviceId();
-    const roleYamlLines = [
-      'model:',
-      '  name: ' + currentModel,
-      '  provider: openai',
-    ];
-    // 将平台凭据写入 config YAML（飞书/企微/钉钉/QQ 都需要 YAML 中有对应 section）
-    if (cfg.platform === 'feishu' && cfg.creds.app_id) {
-      roleYamlLines.push(
-        'feishu:',
-        '  app_id: ' + cfg.creds.app_id,
-        '  app_secret: ' + cfg.creds.app_secret,
-        '  enabled: true'
-      );
-    }
-    if (cfg.platform === 'wecom' && cfg.creds.bot_id) {
-      roleYamlLines.push(
-        'wecom:',
-        '  bot_id: ' + cfg.creds.bot_id,
-        '  secret: ' + cfg.creds.secret,
-        '  enabled: true'
-      );
-    }
-    roleYamlLines.push(
-      'custom_providers:',
-      '  - name: openai',
-      '    base_url: ' + SERVER_URL + '/v1',
-      '    api_key: hermes_' + deviceId,
-      '    model: ' + currentModel,
-      'memory:',
-      '  memory_enabled: true',
-      `  memory_dir: ${path.join(roleHome, 'memories')}`,
-      'session:',
-      `  sessions_dir: ${path.join(roleHome, 'sessions')}`,
-      'terminal:',
-      `  cwd: ${path.join(roleHome, 'workspace')}`,
-      '',
-    );
-    const roleYaml = roleYamlLines.join('\n');
-    try {
-      fs.writeFileSync(roleConfigPath, roleYaml);
-      fs.writeFileSync(path.join(roleHome, '.env'), 'OPENAI_API_KEY=hermes-local-proxy\n');
-    } catch (_) {}
-    glog(`Starting ${cfg.label} gateway for role ${cfg.roleId} (${cfg.name})...`);
-    try {
-      // Windows/macOS 统一用 python -m hermes_cli.main 启动角色 Gateway
-      // Windows 需要把 python/ 目录加到 PATH 中，确保 python.exe 能找到其 DLL 依赖
-      const roleEnv = { ...process.env, HOME: homeDir, HERMES_HOME: roleHome, HERMES_CONFIG_PATH: roleConfigPath,
-             ...cfg.envVars,
-             API_SERVER_ENABLED: 'false', GATEWAY_ALLOW_ALL_USERS: 'true',
-             PYTHONPATH: libsDir, PYTHONHOME: '' };
-      if (isWindows) {
-        roleEnv.PATH = `${path.dirname(pythonBin)};${path.join(path.dirname(pythonBin), 'Scripts')};${process.env.PATH || ''}`;
-        roleEnv.PYTHONUTF8 = '1';
-      }
-      const roleProc = spawn(pythonBin, ['-m', 'hermes_cli.main', 'gateway', 'run', '--replace'], {
-        env: roleEnv,
-        stdio: 'ignore',
-        detached: true,
-        windowsHide: true
-      });
-      roleProc.unref();
-      roleProc.on("error", (err) => { glog(`Role GW ${cfg.roleId}/${cfg.platform} SPAWN ERROR: ` + err.message); logger.reportCriticalError("gateway-roles", err, { roleId: cfg.roleId, platform: cfg.platform }); });
-      roleProc.on('exit', (code, sig) => { glog(`Role GW ${cfg.roleId}/${cfg.platform} exited code=${code} sig=${sig}`); });
-      _roleGateways.push({ roleId: cfg.roleId, platform: cfg.platform, process: roleProc, home: roleHome });
-      glog(`Role GW ${cfg.roleId}/${cfg.platform} spawned OK`);
-    } catch(e) {
-      glog(`Role GW ${cfg.roleId}/${cfg.platform} spawn exception: ` + e.message);
-    }
-  }
-}
-async function startHermesGateway() {
-  const engineDir = engine.getEngineDir();
-  const gwHome = path.join(engineDir, '.hermes');
-  const gf = path.join(gwHome, 'app_debug.log');
-  const glog = (msg) => { try { fs.appendFileSync(gf, `[${new Date().toISOString()}] GW: ${msg}\n`); } catch(_) {} };
-  glog(`startHermesGateway called, HERMES_BIN=${HERMES_BIN}, isWindows=${isWindows}`);
-  if (!fs.existsSync(HERMES_BIN)) {
-    glog('HERMES_BIN not found');
-    return false;
-  }
-  engine.ensureSharedState();
-  engine.ensureRoleConfigs();
-  engine.markEngineReady();
-  const isRunning = await gateway.isGatewayRunning();
-  if (!isRunning) {
-  // 直接写 YAML（v0.15.x 要求 custom_providers 必须为列表格式，hermes config set 却写字典格式）
-  const mainConfigPath = path.join(gwHome, 'config.yaml');
-  try {
-    const deviceId = licenses.getDeviceId();
-    const dsKey = licenses.getDeepSeekApiKey();
-    const existingModel = (() => { try { const c = fs.readFileSync(mainConfigPath, 'utf8'); const m = c.match(/^model:\s*\n\s+name:\s*(.+)/m); return m ? m[1].trim() : null; } catch(_) { return null; } })();
-    const modelName = existingModel || 'deepseek-v4-flash';
-    const provider = 'openai';
-    const apiKeyId = 'hermes_' + deviceId;
-    const configYaml = [
-      'model:',
-      '  name: ' + modelName,
-      '  provider: ' + provider,
-      'platforms:',
-      '  api_server:',
-      '    enabled: true',
-      '    port: ' + GATEWAY_PORT,
-      '    key: ' + GATEWAY_API_KEY,
-      'custom_providers:',
-      '  - name: openai',
-      '    base_url: ' + SERVER_URL + '/v1',
-      '    api_key: ' + apiKeyId,
-      '    model: ' + modelName,
-      'memory:',
-      '  memory_enabled: true',
-      '  memory_char_limit: 12000',
-      '  user_char_limit: 8000',
-      '  flush_min_turns: 6',
-      '  nudge_interval: 10',
-      '',
-    ].join('\n');
-    // 如果已有配置，仅更新 model.name/provider 和 custom_providers，保留其他
-    let finalYaml = configYaml;
-    try {
-      if (fs.existsSync(mainConfigPath)) {
-        let existing = fs.readFileSync(mainConfigPath, 'utf8');
-        // 替换或插入 model section
-        if (existing.match(/^model:/m)) {
-          existing = existing.replace(
-            /^model:\n(\s+name: .+\n)(\s+provider: .+\n)?(\s+base_url: .+\n)?(\s+default: .+\n)?/m,
-            'model:\n  name: ' + modelName + '\n  provider: ' + provider + '\n'
-          );
-        } else {
-          // 没有 model section → 在开头插入
-          existing = 'model:\n  name: ' + modelName + '\n  provider: ' + provider + '\n' + existing;
-        }
-        // 替换或插入 custom_providers
-        if (existing.match(/^custom_providers:/m)) {
-          existing = existing.replace(
-            /^custom_providers:\n(?:  - name: .+\n    base_url: .+\n    api_key: .+\n    model: .+\n?)*/m,
-            'custom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + modelName + '\n'
-          );
-        } else {
-          existing += '\ncustom_providers:\n  - name: openai\n    base_url: ' + SERVER_URL + '/v1\n    api_key: ' + apiKeyId + '\n    model: ' + modelName + '\n';
-        }
-        finalYaml = existing;
-      }
-    } catch (_) {}
-    // 移除平台相关配置（飞书/企微/钉钉/QQ等），这些由角色独立 Gateway 处理
-    // 主 Gateway 只负责 API Server + 模型代理，否则平台消息会被重复回复
-    finalYaml = finalYaml
-      .replace(/^(feishu|wecom|wecom_bot|dingtalk|qq|telegram|discord|slack|whatsapp|signal|teams|line):[\s\S]*?(?=^\w+:|^\Z)/gm, '')
-      .replace(/^\s*\n/gm, '');
-    fs.writeFileSync(mainConfigPath, finalYaml);
-    // v0.15.x requires OPENAI_API_KEY in .env for openai provider
-    try { fs.writeFileSync(path.join(gwHome, '.env'), 'OPENAI_API_KEY=hermes-local-proxy\n'); } catch (_) {}
-  } catch(e) {
-    glog('config write error: ' + e.message);
-  }
-  // Windows: hermes.bat 需要通过 shell 启动（cmd.exe /c）
-  if (isWindows) {
-    const gatewayLogFile = path.join(gwHome, 'gateway_stderr.log');
-    glog(`Windows: spawning: ${HERMES_BIN} gateway run`);
-    try {
-      gatewayProcess = spawn(HERMES_BIN, ['gateway', 'run', '--replace'], {
-        env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir, PYTHONUTF8: '1', HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
-        stdio: ['ignore', 'ignore', 'pipe'],
-        shell: true,
-        windowsHide: true
-      });
-      const stderrStream = fs.createWriteStream(gatewayLogFile, { flags: 'a' });
-      gatewayProcess.stderr.pipe(stderrStream);
-      gatewayProcess.unref();
-      gatewayProcess.on("error", (err) => { glog("SPAWN ERROR: " + err.message); logger.reportCriticalError("gateway", err, { platform: process.platform }); });
-      gatewayProcess.on('exit', (code, sig) => {
-        glog(`process exited code=${code} sig=${sig}`);
-        try {
-          stderrStream.end();
-          setTimeout(() => {
-            try {
-              if (fs.existsSync(gatewayLogFile)) {
-                const stderrContent = fs.readFileSync(gatewayLogFile, 'utf8').trim().slice(0, 2000);
-                if (stderrContent) glog(`STDERR: ${stderrContent}`);
-              }
-            } catch(_) {}
-          }, 500);
-        } catch(_) {}
-      });
-    } catch(e) {
-      glog('spawn exception: ' + e.message);
-      return false;
-    }
-  } else {
-    const binDir = path.dirname(HERMES_BIN);
-    const pythonCandidates = [
-      path.join(binDir, 'python', 'bin', 'python3.11'),
-      path.join(binDir, 'python3.11'),
-      path.join(binDir, 'python3'),
-    ];
-    const pythonBin = pythonCandidates.find(p => fs.existsSync(p));
-    glog(`macOS/Linux: python path: ${pythonBin || 'not found'}`);
-    if (pythonBin) {
-      const libsDir = path.join(binDir, 'libs');
-      glog(`spawning via Python: ${pythonBin} -m hermes_cli.main gateway run, PYTHONPATH=${libsDir}`);
-      try {
-        gatewayProcess = spawn(pythonBin, ['-m', 'hermes_cli.main', 'gateway', 'run', '--replace'], {
-          env: { ...process.env, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true', PYTHONPATH: libsDir, PYTHONHOME: '' },
-          stdio: 'ignore',
-          detached: true
-        });
-        gatewayProcess.unref();
-        gatewayProcess.on("error", (err) => { glog("SPAWN ERROR: " + err.message); logger.reportCriticalError("gateway", err, { platform: process.platform }); });
-        gatewayProcess.on('exit', (code, sig) => { glog(`process exited code=${code} sig=${sig}`); });
-      } catch(e) {
-        glog('spawn exception: ' + e.message);
-        return false;
-      }
-    } else {
-      glog(`Fallback spawning: ${HERMES_BIN} gateway run`);
-      try {
-        gatewayProcess = spawn(HERMES_BIN, ['gateway', 'run', '--replace'], {
-          env: { ...process.env, HOME: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
-          stdio: 'ignore',
-          detached: true
-        });
-        gatewayProcess.unref();
-        gatewayProcess.on("error", (err) => { glog("SPAWN ERROR: " + err.message); logger.reportCriticalError("gateway", err, { platform: process.platform }); });
-        gatewayProcess.on('exit', (code, sig) => { glog(`process exited code=${code} sig=${sig}`); });
-      } catch(e) {
-        glog('spawn exception: ' + e.message);
-        return false;
-      }
-    }
-  }
-  } // end if (!isRunning)
-  // 启动飞书每角色独立 Gateway（无论主Gateway是否已运行）
-  const binDir2 = path.dirname(HERMES_BIN);
-  const pythonCandidates2 = isWindows
-    ? [path.join(binDir2, 'python', 'python.exe')]
-    : [
-        path.join(binDir2, 'python', 'bin', 'python3.11'),
-        path.join(binDir2, 'python3.11'),
-        path.join(binDir2, 'python3'),
-      ];
-  const pythonBin2 = pythonCandidates2.find(p => fs.existsSync(p));
-  if (pythonBin2) {
-    const libsDir2 = path.join(binDir2, 'libs');
-    gateway.spawnRoleGateways(pythonBin2, libsDir2, glog);
-  } else {
-    glog('Role GW: no python binary found for role gateways');
-  }
-  glog('waiting for health check...');
-  const ready = isRunning || await gateway.waitForGateway();
-  glog('health check result: ' + ready);
-  if (ready) {
-    glog('Gateway ready on ' + GATEWAY_URL);
-    return true;
-  }
-  glog('Gateway failed to start within timeout');
-  return false;
-}
-function stopHermesGateway() {
-  if (gatewayProcess) {
-    try { gatewayProcess.kill(); } catch (_) {}
-    gatewayProcess = null;
-  }
-  for (const rg of _roleGateways) {
-    try { rg.process.kill(); } catch (_) {}
-  }
-  _roleGateways.length = 0;
-  // 清理所有使用本引擎目录的 gateway 进程（精确匹配引擎路径，避免误杀 QClaw 等）
-  const engineDir = engine.getEngineDir();
-  if (process.platform === 'darwin' || process.platform === 'linux') {
-    // 精确匹配：只杀使用本机当前用户引擎 Python 的 gateway 进程（不误伤其他用户/QClaw）
-    try { execSync(`pkill -f "${engineDir}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
-  } else {
-    try { execSync('taskkill /F /IM python3.11.exe /FI "WINDOWTITLE eq gateway run"', { timeout: 5000 }); } catch (_) {}
-  }
-}
-// 网关 ready 后通过 IPC 通知渲染进程
 ipcMain.handle('gateway:status', async () => {
   const running = await gateway.isGatewayRunning();
   const ready = engine.isEngineReady();
   return { running, ready, url: running ? GATEWAY_URL : null };
 });
-let serverProcess = null;
-const SERVER_SCRIPT = path.join(__dirname, '..', '..', '..', 'server', 'server.py');
-function startCreditsServer() {
-  // 优先从同目录找 server.py，否则从开发路径找
-  const candidates = [
-    path.join(__dirname, '..', 'server.py'),       // .app/Contents/Resources/server.py
-    path.join(app.getPath('home'), 'Documents', 'laozhangai-product', 'server', 'server.py'),
-  ];
-  let scriptPath = null;
-  for (const c of candidates) {
-    if (fs.existsSync(c)) { scriptPath = c; break; }
-  }
-  if (!scriptPath) {
-    logger.startup('startCreditsServer: server.py NOT FOUND, skipping');
-    console.log('[credits-server] server.py not found, skipping');
-    return;
-  }
-  logger.startup(`startCreditsServer: found server.py at ${scriptPath}`);
-  // 优先用引擎自带的 Python（libs 里有 fastapi/uvicorn/httpx 等全套依赖）
-  const home = app.getPath('home');
-  const engineDir = engine.getEngineDir(); // ~/Library/Application Support/hergent/hermes-engine
-  const agentPython = isWindows
-    ? path.join(home, '.hermes', 'hermes-agent', 'venv', 'Scripts', 'python.exe')
-    : path.join(home, '.hermes', 'hermes-agent', 'python', 'bin', 'python3.11');
-  const agentVenvPython = isWindows
-    ? path.join(home, '.hermes', 'hermes-agent', 'venv', 'Scripts', 'python.exe')
-    : path.join(home, '.hermes', 'hermes-agent', 'venv', 'bin', 'python3.11');
-  const enginePython = isWindows
-    ? path.join(engineDir, 'python', 'python.exe')
-    : path.join(engineDir, 'python', 'bin', 'python3.11');
-  const agentLibs = path.join(home, '.hermes', 'hermes-agent', 'libs');
-  const engineLibs = path.join(engineDir, 'libs');
-  let pythonPath = isWindows ? 'python' : 'python3';
-  let pythonLibs = null;
-  // 引擎 Python 优先（已预装 fastapi/uvicorn/httpx），Agent Python 兜底
-  if (fs.existsSync(enginePython)) {
-    pythonPath = enginePython;
-    pythonLibs = engineLibs;
-  } else if (fs.existsSync(agentVenvPython)) {
-    pythonPath = agentVenvPython;
-    pythonLibs = agentLibs;
-  } else if (fs.existsSync(agentPython)) {
-    pythonPath = agentPython;
-    pythonLibs = agentLibs;
-  }
-  console.log(`[credits-server] Python: ${pythonPath}, libs: ${pythonLibs || 'none'}`);
-  // 确保引擎 Python 有 fastapi/uvicorn（引擎打包时可能不含）
-  if (pythonPath !== 'python3') {
-    try {
-      const checkFastapi = spawnSync(pythonPath, ['-c', 'import fastapi, uvicorn'], { timeout: 5000 });
-      if (checkFastapi.status !== 0) {
-        console.log('[credits-server] Installing fastapi/uvicorn...');
-        spawnSync(pythonPath, ['-m', 'pip', 'install', 'fastapi', 'uvicorn', '--quiet'], { timeout: 60000 });
-      }
-    } catch (_) {}
-  }
-  // 从多处读取 DeepSeek API Key
-  let deepseekKey = '';
-  try {
-    const authPath = path.join(home, '.hermes', 'auth.json');
-    if (fs.existsSync(authPath)) {
-      const authData = JSON.parse(fs.readFileSync(authPath, 'utf8'));
-      const pool = authData.credential_pool || {};
-      const keys = pool.deepseek || [];
-      if (keys.length > 0) deepseekKey = keys[0].access_token || '';
-    }
-  } catch (e) { /* ignore */ }
-  // 兜底: 从引擎 config.yaml 读取
-  if (!deepseekKey) {
-    try {
-      const cfgPath = path.join(engineDir, 'config.yaml');
-      if (fs.existsSync(cfgPath)) {
-        const cfg = fs.readFileSync(cfgPath, 'utf8');
-        const keyMatch = cfg.match(/api_key:\s*(\S+)/);
-        if (keyMatch && keyMatch[1] && keyMatch[1] !== "''" && keyMatch[1] !== '""') {
-          deepseekKey = keyMatch[1];
-        }
-      }
-    } catch (_) {}
-  }
-  // 最终兜底
-  if (!deepseekKey || deepseekKey === 'hermes-local-proxy') deepseekKey = '';
-  console.log(`[credits-server] Starting: ${pythonPath} ${scriptPath}`);
-  const spawnEnv = { ...process.env, PYTHONUNBUFFERED: '1', DEEPSEEK_API_KEY: deepseekKey, BAILIAN_API_KEY: '' };
-  if (pythonLibs) {
-    spawnEnv.PYTHONPATH = pythonLibs;
-    spawnEnv.PYTHONHOME = '';
-  }
-  serverProcess = spawn(pythonPath, [scriptPath], { env: spawnEnv });
-  logger.startup(`startCreditsServer: spawned, pid=${serverProcess.pid}, python=${pythonPath}`);
-  serverProcess.on("error", (err) => {
-    logger.reportCriticalError("credits-server", err, { pythonPath });
-  });
-  serverProcess.stdout?.on('data', d => console.log(`[credits-server] ${d.toString().trim()}`));
-  serverProcess.stderr?.on('data', d => console.error(`[credits-server] ${d.toString().trim()}`));
-}
-function stopCreditsServer() {
-  if (serverProcess) {
-    serverProcess.kill();
-    serverProcess = null;
-    console.log('[credits-server] stopped');
-  }
-}
 let SYSTEM_PROMPT = '';
 try {
   SYSTEM_PROMPT = fs.readFileSync(path.join(homeDir, '.hermes', 'SOUL.md'), 'utf8').trim();
@@ -658,8 +178,6 @@ if (!SYSTEM_PROMPT) {
   SYSTEM_PROMPT = '你是 Hermes AI，一个靠谱的AI助手。说人话、结论先行、不啰嗦。';
 }
 // Hermes CLI 路径检测
-let HERMES_BIN = HERMES_CMD;
-let _cancelFn = null; // 当前活跃操作的取消函数，hermes:cancel 调用时触发
 // ===== 引擎自解压（首次启动自动展开 hermes.tar.gz）=====
 // 递归合并目录（不覆盖已存在的文件）
 // 每次启动都确保引擎配置正确（通过 hermes config set）
@@ -690,28 +208,6 @@ app.whenReady().then(() => {
 });
 // 获取设备ID（基于 UUID v4，首次生成后持久化到 license.json）
 // 获取试用/激活状态
-// let mainWindow; → managed by src/main/window.js
-function createWindow() {
-  const winOpts = {
-    width: 900,
-    height: 700,
-    resizable: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-    },
-  };
-  if (!isWindows) {
-    winOpts.frame = false;
-    winOpts.titleBarStyle = 'hidden';
-    winOpts.transparent = true;
-  }
-  // mainWindow → window.js; new BrowserWindow(winOpts);
-  win.getMainWindow().loadFile('index.html');
-  win.getMainWindow().center();
-}
 // ===== 通道配置读写 =====
 function loadChannels() {
   try {
@@ -726,9 +222,8 @@ function saveChannels(data) {
   const encrypted = _encryptChannelSecrets(data);
   fs.writeFileSync(getConfigPath(), JSON.stringify(encrypted, null, 2));
 }
-// ===== 网关控制 =====
 async function restartGateway() {
-  stopHermesGateway();
+  gateway.stopHermesGateway();
   if (isWindows) {
     try { execSync('taskkill /F /IM python.exe /FI "WINDOWTITLE eq gateway run" 2>nul', { timeout: 5000 }); } catch (_) {}
   } else {
@@ -736,7 +231,8 @@ async function restartGateway() {
   }
   await new Promise(r => setTimeout(r, 3000));
   const ok = await gateway.startHermesGateway();
-  return { success: ok, output: ok ? 'Gateway restarted' : 'Gateway restart failed' };
+  if (ok) gateway.startHealthMonitor();
+  return { success: ok, output: ok ? "Gateway restarted" : "Gateway restart failed" };
 }
 // ===== Hermes CLI 帮助函数 =====
 function hermesCLI(args, timeout = 30000) {
@@ -750,150 +246,6 @@ function hermesCLI(args, timeout = 30000) {
   const cmd = `"${pythonBin}" -m hermes_cli.main ${args}`;
   const result = execSync(cmd, { timeout, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, env: { ...process.env, HERMES_HOME: hermesHome, PYTHONPATH: libsDir, PYTHONHOME: '' } });
   return result.trim();
-}
-// ===== HTTP 帮助函数 =====
-function httpGet(url, headers = {}) {
-  return new Promise((resolve, reject) => {
-    const request = net.request({ method: 'GET', url: url });
-    request.setHeader('User-Agent', 'HermesAI-Desktop/1.0');
-    request.setHeader('Accept-Language', 'zh-CN,zh;q=0.9');
-    Object.entries(headers).forEach(([k, v]) => request.setHeader(k, v));
-    request.on('response', (response) => {
-      let data = '';
-      response.on('data', chunk => data += chunk);
-      response.on('end', () => resolve(data));
-    });
-    request.on('error', reject);
-    request.end();
-  });
-}
-// Node http fallback — 用 Node 原生 http 模块（避免 Electron net.request 偶发兼容问题）
-function nodeHttpGet(urlStr) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(urlStr);
-    const isHttps = u.protocol === 'https:';
-    const mod = isHttps ? https : http;
-    const opts = { hostname: u.hostname, port: u.port || (isHttps ? 443 : 80), path: u.pathname + u.search, method: 'GET', timeout: 10000,
-      rejectUnauthorized: _tlsReject };
-    const req = mod.request(opts, (res) => {
-      let d = ''; res.on('data', c => d += c);
-      res.on('end', () => resolve(d));
-    });
-    req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('request timeout')); });
-    req.end();
-  });
-}
-function nodeHttpPost(urlStr, bodyStr) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(urlStr);
-    const isHttps = u.protocol === 'https:';
-    const mod = isHttps ? https : http;
-    const opts = { hostname: u.hostname, port: u.port || (isHttps ? 443 : 80), path: u.pathname + u.search, method: 'POST', timeout: 10000,
-      rejectUnauthorized: _tlsReject,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) } };
-    const req = mod.request(opts, (res) => {
-      let d = ''; res.on('data', c => d += c);
-      res.on('end', () => resolve(d));
-    });
-    req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('request timeout')); });
-    req.write(bodyStr); req.end();
-  });
-}
-function httpPost(url, bodyStr, opts = {}) {
-  return new Promise((resolve, reject) => {
-    const request = net.request({ method: 'POST', url: url });
-    request.setHeader('Content-Type', 'application/json');
-    request.setHeader('User-Agent', 'HermesAI-Desktop/1.0');
-    request.setHeader('Accept-Language', 'zh-CN,zh;q=0.9');
-    if (opts.headers) {
-      Object.entries(opts.headers).forEach(([k, v]) => request.setHeader(k, v));
-    }
-    request.on('response', (response) => {
-      let data = '';
-      response.on('data', chunk => data += chunk);
-      response.on('end', () => resolve(data));
-    });
-    request.on('error', reject);
-    request.write(bodyStr);
-    request.end();
-  });
-}
-// ===== 飞书 Bot API =====
-async function getFeishuToken(appId, appSecret) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ app_id: appId, app_secret: appSecret });
-    const options = {
-      hostname: 'open.feishu.cn',
-      path: '/open-apis/auth/v3/tenant_access_token/internal',
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    };
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (json.code === 0) resolve(json.tenant_access_token);
-          else reject(new Error(`飞书API错误: ${json.code} ${json.msg}`));
-        } catch { reject(new Error(`解析响应失败: ${data}`)); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-async function sendFeishuBotMessage(token, text) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({
-      receive_id: 'all',
-      msg_type: 'text',
-      content: JSON.stringify({ text }),
-    });
-    const options = {
-      hostname: 'open.feishu.cn',
-      path: '/open-apis/im/v1/messages?receive_id_type=open_id',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': `Bearer ${token}`,
-      },
-    };
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (json.code === 0) resolve(json);
-          else reject(new Error(`发送消息失败: ${json.code} ${json.msg}`));
-        } catch { reject(new Error(`解析响应失败: ${data}`)); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-// ===== 企微 Bot API =====
-async function getWecomToken(corpId, corpSecret) {
-  return new Promise((resolve, reject) => {
-    https.get(
-      `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${corpId}&corpsecret=${corpSecret}`,
-      (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            const json = JSON.parse(data);
-            if (json.errcode === 0) resolve(json.access_token);
-            else reject(new Error(`企微API错误: ${json.errcode} ${json.errmsg}`));
-          } catch { reject(new Error(`解析响应失败: ${data}`)); }
-        });
-      }
-    ).on('error', reject);
-  });
 }
 // ===== Gateway 对话帮助函数（可复用，供 chat 和 pipeline 共享） =====
 async function chatViaGateway(roleId, userMessage, eventSender) {
@@ -2717,6 +2069,7 @@ app.whenReady().then(() => {
   gateway.startHermesGateway().then(ok => {
     logger.startup('startHermesGateway result: ' + (ok ? 'OK' : 'FAILED'));
     console.log('[gateway] startup:', ok ? 'OK' : 'FAILED');
+    if (ok) gateway.startHealthMonitor();
   });
   // 匿名日活心跳（不收集个人信息，仅用于统计活跃设备数）
   function _telemetryPing() {
@@ -2830,5 +2183,5 @@ app.whenReady().then(() => {
   }
 });
 ipcMain.handle('app:version', () => CURRENT_VERSION);
-app.on('window-all-closed', () => { creditsSrv.stopCreditsServer(); stopHermesGateway(); app.quit(); });
+app.on("window-all-closed", () => { gateway.stopHealthMonitor(); creditsSrv.stopCreditsServer(); gateway.stopHermesGateway(); app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) win.createWindow(isWindows, path.join(__dirname, "preload.js")); });
