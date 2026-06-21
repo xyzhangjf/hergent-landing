@@ -115,8 +115,9 @@ module.exports = [
     },
   },
   {
-    // Jest test files
+    // Jest test files (Jest globals + relaxed rules)
     files: ["tests/**/*.js", "tests/**/*.ts"],
+    rules: { "no-unused-vars": "off", "no-unassigned-vars": "off", "no-redeclare": "warn" },
     languageOptions: {
       ecmaVersion: 2024,
       sourceType: "commonjs",
@@ -141,6 +142,8 @@ module.exports = [
         setInterval: "readonly",
         clearInterval: "readonly",
         global: "writable",
+        btoa: "readonly",
+        atob: "readonly",
       },
     },
   },
