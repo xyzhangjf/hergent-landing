@@ -98,7 +98,13 @@
 
   function skipBootstrap() {
     _bootDone = true;
-    // 不隐藏overlay——waitForEngineReady 会接着用同一个进度条
+    document.getElementById('bootstrapOverlay').style.display = 'none';
+    // 直接进激活流程，跳过引擎安装等待
+    var activated = localStorage.getItem('hermes_activated');
+    if (!activated) {
+      showActivationOverlay();
+      return;
+    }
     initAuth();
   }
 
@@ -117,6 +123,11 @@
     document.addEventListener('DOMContentLoaded', runBootstrap);
   } else {
     runBootstrap();
+  }
+
+  // 平台 CSS class（Windows 用原生窗口边框，不需要圆角）
+  if (window.hermes && window.hermes.platform) {
+    document.documentElement.classList.add('is-' + window.hermes.platform);
   }
 
   // ===== 登录认证 & 新手引导 =====
@@ -177,6 +188,7 @@
       const top = topOverlay();
       if (top === 'dialogOverlay') { closeDialog(); return; }
       if (top === 'loginOverlay') { return; }
+      if (top === 'activationOverlay') { return; }
       if (top === 'modalOverlay') { hideAddTask(); return; }
       if (top === 'rechargeOverlay') { closeRecharge(); return; }
       if (top === 'memoryEditorOverlay') { closeMemoryEditor(); return; }
@@ -209,6 +221,43 @@
     if (/503|service.?unavailable/i.test(msg)) return '服务暂不可用，请稍后重试';
     return (e && e.message) || '未知错误，请重试';
   }
+
+  // ===== 激活码 =====
+  function showActivationOverlay() {
+    showOverlay('activationOverlay');
+    document.getElementById('activationError').textContent = '';
+    document.getElementById('activationInfo').style.display = 'none';
+    document.getElementById('activationBtn').disabled = false;
+    document.getElementById('activationCodeInput').value = '';
+  }
+
+  window.activateDevice = async function() {
+    var input = document.getElementById('activationCodeInput');
+    var btn = document.getElementById('activationBtn');
+    var err = document.getElementById('activationError');
+    var code = input.value.trim().toUpperCase();
+    if (!code) { err.textContent = '请输入激活码'; return; }
+    btn.disabled = true; btn.textContent = '验证中...'; err.textContent = '';
+    try {
+      var result = await hermes.activate(code);
+      if (result.ok) {
+        err.textContent = '';
+        btn.textContent = '激活成功！';
+        // 关闭激活窗口 + 进入主界面
+        hideOverlay('activationOverlay');
+        localStorage.setItem('hermes_activated', code);
+        localStorage.setItem('hermes_activation_tier', result.tier || '内测用户');
+        // 激活成功后重新走 initAuth
+        setTimeout(function() { initAuth(); }, 800);
+      } else {
+        err.textContent = result.message || '激活失败';
+        btn.disabled = false; btn.textContent = '激活并开始使用';
+      }
+    } catch (e) {
+      err.textContent = '网络错误，请检查连接后重试';
+      btn.disabled = false; btn.textContent = '激活并开始使用';
+    }
+  };
 
   // 连接状态提示条
   function showConnBanner(msg, isError) {
@@ -282,37 +331,39 @@
 
   async function initAuth() {
     localStorage.removeItem('hermes_streaming');
-    const saved = localStorage.getItem('hermes_auth');
-    if (saved) {
+
+    // 先检查是否已激活（Alpha阶段必须）
+    var activated = localStorage.getItem('hermes_activated');
+    if (!activated) {
+      // 不等待引擎，直接显示激活码页面
+      showActivationOverlay();
+      return;
+    }
+
+    // 已激活：直接用本地保存的 token 进入
+    var saved = localStorage.getItem('hermes_auth');
+    if (!saved) {
+      authState = { token: 'alpha-token', user: { id: activated, name: '内测用户' } };
+      saveAuth();
+    } else {
       try {
         authState = JSON.parse(saved);
-        const meResp = await hermes.authMe(authState.token);
-        if (meResp && meResp.id) {
-          authState.user = meResp;
-          await waitForEngineReady();
-          updateCreditsBadge();
-          await loadRolesFromIPC();
-          renderSidebar();
-          loadSkills();
-          initOnboarding();
-          restoreLastState();
-          startFeishuPolling();
-          // 显示主界面
-          var rp = document.getElementById('rightPanel');
-          if (rp) rp.style.visibility = 'visible';
-          return;
-        }
-      } catch (e) { console.error("auth check failed:", e.message); }
-      localStorage.removeItem('hermes_auth');
-      authState = null;
+      } catch (e) { authState = null; }
     }
-    // 未登录：显示登录页 + 后台启动引擎
-    authState = null;
-    showLogin();
-    waitForEngineReady(); // 引擎后台启动，不等用户
-    loadRolesFromIPC();
+
+    // 进入主界面
+    hideLogin();
+    await waitForEngineReady();
+    updateCreditsBadge();
+    await loadRolesFromIPC();
+    renderSidebar();
     loadSkills();
     initOnboarding();
+    restoreLastState();
+    startFeishuPolling();
+    var rp = document.getElementById('rightPanel');
+    if (rp) rp.style.visibility = 'visible';
+    return;
   }
 
   async function waitForEngineReady() {
@@ -373,20 +424,21 @@
 
       try {
         const s = await window.hermes.gatewayStatus();
-        if (s && s.running) {
+        // 引擎已就绪 或 gateway 在运行 → 可以进了
+        if (s && (s.ready || s.running)) {
           if (status) status.textContent = steps[steps.length - 1].msg;
           if (fill) fill.style.width = '100%';
-          await new Promise(r => setTimeout(r, 2000));
+          await new Promise(r => setTimeout(r, 800));
           if (overlay) overlay.style.display = 'none';
           if (fill) fill.style.width = '5%';
           return;
         }
       } catch (_) {}
-      // 3分钟后还没就绪，显示跳过按钮
-      if (!fallbackShown && Date.now() - start > 180000) {
+      // 引擎已解压但 gateway 没起来 → 60秒就显示跳过
+      if (!fallbackShown && Date.now() - start > 60000) {
         fallbackShown = true;
         if (status) status.textContent = '启动较慢，可跳过等待（引擎后台继续初始化）';
-        if (skipBtn) { skipBtn.style.display = ''; skipBtn.onclick = () => { if (overlay) overlay.style.display = 'none'; }; }
+        if (skipBtn) { skipBtn.style.display = ''; skipBtn.onclick = function() { skipBootstrap(); }; }
       }
       await new Promise(r => setTimeout(r, 2000));
     }
@@ -764,6 +816,9 @@
 
   // ===== 充值 =====
   let _selectedRechargeAmount = 10;
+  let _currentPaymentOrderId = '';
+  let _currentPaymentUrl = '';
+  let _paymentPollTimer = null;
 
   const RECHARGE_TIERS = {
     10: { credits: 1000, label: '1,000' },
@@ -782,14 +837,25 @@
   function showRecharge() {
     _selectedRechargeAmount = 10;
     const tier = RECHARGE_TIERS[10];
+    // Reset to Step 1
+    document.getElementById('rechargeStep1').style.display = '';
+    document.getElementById('rechargeStep2').style.display = 'none';
+    document.getElementById('rechargeTitle').textContent = '充值积分';
+    document.getElementById('rechargeSubtitle').style.display = '';
     document.getElementById('rechargePrice').textContent = '10';
     document.getElementById('rechargeCredits').textContent = tier.label;
     document.getElementById('rechargeError').textContent = '';
-    document.getElementById('rechargeSuccess').style.display = 'none';
-    document.getElementById('rechargeSubmitBtn').style.display = '';
-    document.querySelectorAll('.recharge-tier').forEach(t => t.classList.remove('selected'));
-    document.querySelector('.recharge-tier[data-amount="10"]').classList.add('selected');
+    document.querySelectorAll('.recharge-tier').forEach(function(t) { t.classList.remove('selected'); });
+    var tier10 = document.querySelector('.recharge-tier[data-amount="10"]');
+    if (tier10) tier10.classList.add('selected');
     _updateTierHint(10);
+    // Reset QR
+    _stopPaymentPoll();
+    document.getElementById('qrImage').src = '';
+    document.getElementById('qrStatus').style.display = '';
+    document.getElementById('qrSuccess').style.display = 'none';
+    document.getElementById('qrOpenBrowserBtn').style.display = 'none';
+    document.getElementById('rechargeUsageSection').style.display = 'none';
     showOverlay('rechargeOverlay');
   }
 
@@ -809,13 +875,26 @@
 
   function selectRechargeTier(amount) {
     _selectedRechargeAmount = parseInt(amount);
-    document.querySelectorAll('.recharge-tier').forEach(t => t.classList.remove('selected'));
-    document.querySelector(`.recharge-tier[data-amount="${amount}"]`).classList.add('selected');
+    document.querySelectorAll('.recharge-tier').forEach(function(t) { t.classList.remove('selected'); });
+    var el = document.querySelector('.recharge-tier[data-amount="' + amount + '"]');
+    if (el) el.classList.add('selected');
     const tier = RECHARGE_TIERS[amount];
     document.getElementById('rechargeCredits').textContent = tier.label;
     document.getElementById('rechargePrice').textContent = amount;
     document.getElementById('rechargeError').textContent = '';
     _updateTierHint(amount);
+  }
+
+  // 自定义金额（测试用，1-999元，1元=100分）
+  function selectCustomAmount(val) {
+    var n = parseInt(val);
+    if (n >= 1 && n <= 999) {
+      _selectedRechargeAmount = n;
+      document.querySelectorAll('.recharge-tier').forEach(function(t) { t.classList.remove('selected'); });
+      document.getElementById('rechargePrice').textContent = n;
+      document.getElementById('rechargeCredits').textContent = (n * 100).toLocaleString();
+      document.getElementById('rechargeError').textContent = '';
+    }
   }
 
   function _renderUsageHistory() {
@@ -844,8 +923,168 @@
   }
 
   function closeRecharge() {
+    _stopPaymentPoll();
     hideOverlay('rechargeOverlay');
     refreshCredits();
+  }
+
+  // ===== 支付工具方法 =====
+  function _stopPaymentPoll() {
+    if (_paymentPollTimer) { clearInterval(_paymentPollTimer); _paymentPollTimer = null; }
+  }
+
+  // ===== 创建支付订单 → 打开浏览器 =====
+  async function submitRecharge(method) {
+    var amount = _selectedRechargeAmount;
+    var tier = RECHARGE_TIERS[amount];
+    var credits = tier ? tier.credits : amount * 100;
+    var label = tier ? tier.label : (amount * 100).toLocaleString();
+
+    // 微信支付暂未开通
+    if (method === 'wechat') {
+      showDialog('微信支付即将上线', '微信支付正在接入中，请先用支付宝支付');
+      return;
+    }
+
+    var errEl = document.getElementById('rechargeError');
+    errEl.textContent = '';
+
+    // 禁用支付按钮，显示加载状态
+    var aliBtn = document.querySelector('.rpm-alipay');
+    if (aliBtn) { aliBtn.disabled = true; aliBtn.style.opacity = '0.5'; }
+
+    try {
+      var result = await hermes.createPayment(amount);
+      if (result && result.success && result.pay_url) {
+        _currentPaymentOrderId = result.order_id;
+        _currentPaymentUrl = result.pay_url;
+
+        // DEV 模式：直接加积分
+        if (result.dev_mode) {
+          document.getElementById('rechargeStep1').style.display = '';
+          document.getElementById('rechargeStep2').style.display = 'none';
+          document.getElementById('rechargeError').textContent = '';
+          if (aliBtn) { aliBtn.disabled = false; aliBtn.style.opacity = ''; }
+          // DEV 模式一键到账
+          try {
+            var devResult = await hermes.devPay(_currentPaymentOrderId, '', amount);
+            if (devResult.success || devResult.duplicate) {
+              document.getElementById('rechargeSuccess').style.display = '';
+              document.getElementById('rechargeSuccessDetail').textContent = '到账 ' + label + ' 积分';
+              updateCreditsBadge();
+              setTimeout(function() { closeRecharge(); }, 2000);
+            }
+          } catch(_) {}
+          return;
+        }
+
+        // 正式支付：直接打开浏览器跳转支付宝付款页
+        window.hermes.openExternal(result.pay_url);
+
+        // 简化等待界面
+        document.getElementById('rechargeStep1').style.display = 'none';
+        document.getElementById('rechargeStep2').style.display = '';
+        document.getElementById('rechargeTitle').textContent = '等待支付';
+        document.getElementById('rechargeSubtitle').style.display = 'none';
+        document.getElementById('qrAmount').textContent = amount;
+        document.getElementById('qrCredits').textContent = label;
+        document.getElementById('qrImage').style.display = 'none';
+        document.getElementById('qrStatus').style.display = '';
+        document.getElementById('qrSuccess').style.display = 'none';
+        document.getElementById('qrOpenBrowserBtn').style.display = 'none';
+        document.getElementById('qrTipText').textContent = '已打开支付宝付款页，请用手机扫码完成支付';
+
+        // Start polling payment status
+        _startPaymentPoll();
+      } else {
+        errEl.textContent = result.error || '创建支付订单失败，请稍后重试';
+        if (aliBtn) { aliBtn.disabled = false; aliBtn.style.opacity = ''; }
+      }
+    } catch (e) {
+      errEl.textContent = '网络错误，请检查连接后重试';
+      if (aliBtn) { aliBtn.disabled = false; aliBtn.style.opacity = ''; }
+    }
+  }
+
+  // ===== 支付状态轮询 =====
+  function _startPaymentPoll() {
+    _stopPaymentPoll();
+    var count = 0;
+    var maxCount = 150; // 5 minutes at 2s interval
+
+    _paymentPollTimer = setInterval(async function() {
+      count++;
+      if (count >= maxCount) {
+        _stopPaymentPoll();
+        document.getElementById('qrStatus').innerHTML = '<span style="color:var(--text-tertiary);">支付超时，请重新下单</span>';
+        return;
+      }
+
+      try {
+        var status = await hermes.checkPayment(_currentPaymentOrderId);
+        if (status.paid) {
+          _stopPaymentPoll();
+          document.getElementById('qrStatus').style.display = 'none';
+          document.getElementById('qrSuccess').style.display = '';
+          document.getElementById('qrSuccessText').textContent =
+            '充值成功！到账 ' + status.credits_added + ' 积分';
+          updateCreditsBadge();
+          setTimeout(function() { closeRecharge(); }, 2000);
+        }
+      } catch (_) { /* continue polling */ }
+    }, 2000);
+  }
+
+  // ===== 取消支付 =====
+  function cancelPayment() {
+    _stopPaymentPoll();
+    document.getElementById('rechargeStep1').style.display = '';
+    document.getElementById('rechargeStep2').style.display = 'none';
+    document.getElementById('rechargeTitle').textContent = '充值积分';
+    document.getElementById('rechargeSubtitle').style.display = '';
+    var aliBtn = document.querySelector('.rpm-alipay');
+    if (aliBtn) { aliBtn.disabled = false; aliBtn.style.opacity = ''; }
+  }
+
+  // ===== 浏览器支付 / DEV一键充值 =====
+  async function openPaymentInBrowser() {
+    var btn = document.getElementById('qrOpenBrowserBtn');
+    btn.disabled = true;
+
+    // Check if already paid
+    try {
+      var s = await hermes.checkPayment(_currentPaymentOrderId);
+      if (s.paid) return;
+    } catch (_) {}
+
+    if (_currentPaymentUrl.indexOf('dev-pay') !== -1) {
+      btn.textContent = '充值中...';
+      try {
+        var amount = _selectedRechargeAmount;
+        var result = await hermes.devPay(_currentPaymentOrderId, (authState && authState.user && authState.user.id) || '', amount);
+        if (result.success) {
+          _stopPaymentPoll();
+          document.getElementById('qrStatus').style.display = 'none';
+          document.getElementById('qrSuccess').style.display = '';
+          var tierCredits = RECHARGE_TIERS[amount] ? RECHARGE_TIERS[amount].label : (amount * 100).toLocaleString();
+          document.getElementById('qrSuccessText').textContent =
+            '充值成功！到账 ' + tierCredits + ' 积分';
+          updateCreditsBadge();
+          setTimeout(function() { closeRecharge(); }, 2000);
+        }
+      } catch (_) {}
+      btn.disabled = false;
+      btn.textContent = '一键充值（测试）';
+    } else {
+      // Open Mianbaoduo pay URL in browser
+      window.hermes.openExternal(_currentPaymentUrl);
+      btn.disabled = false;
+    }
+  }
+
+  // ===== 刷新二维码 =====
+  function refreshQR() {
+    showRecharge();
   }
 
   // ===== 账单 =====
@@ -907,32 +1146,6 @@
     }
   }
 
-  async function submitRecharge() {
-    const btn = document.getElementById('rechargeSubmitBtn');
-    const errEl = document.getElementById('rechargeError');
-    btn.disabled = true;
-    btn.textContent = '充值中...';
-    errEl.textContent = '';
-
-    try {
-      const result = await hermes.recharge(_selectedRechargeAmount);
-      if (result.success) {
-        document.getElementById('rechargeSubmitBtn').style.display = 'none';
-        document.getElementById('rechargeSuccess').style.display = '';
-        document.getElementById('rechargeSuccessDetail').textContent =
-          `到账 ${result.credits_added} 积分 · 余额 ${result.balance} 分`;
-        if (authState) authState.user = { ...authState.user, credits: result.balance };
-        updateCreditsBadge();
-        setTimeout(() => { closeRecharge(); }, 2000);
-      } else {
-        errEl.textContent = result.message || '充值失败，请稍后重试';
-      }
-    } catch (e) {
-      errEl.textContent = '网络错误，请检查连接后重试';
-    }
-    btn.disabled = false;
-    btn.textContent = '确认充值';
-  }
   async function checkCreditsBeforeSend() {
     try {
       const cred = await hermes.getCredits();
@@ -952,7 +1165,7 @@
     if (!cost || cost <= 0) return;
     try {
       const records = JSON.parse(localStorage.getItem('hermes_cost_records') || '[]');
-      records.push({ cost, model: model || 'deepseek-v4-pro', time: Date.now() });
+      records.push({ cost, model: model || 'deepseek-v4-flash', time: Date.now() });
       if (records.length > 100) records.splice(0, records.length - 100);
       localStorage.setItem('hermes_cost_records', JSON.stringify(records));
       // 同时维护简单数组用于平均计算
@@ -1885,7 +2098,7 @@
     try {
       const tasks = await window.hermes.cronList();
       if (!tasks || tasks.length === 0) {
-listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <div class="empty-state-title">让 AI 帮你定时干活</div> <div class="empty-state-desc">设置一次，每天自动执行。结果推到你手机上。</div> <div class="task-onboarding-examples"> <div class="task-onboard-card" onclick="quickCreateTask(&apos;每天&apos;, &apos;08:00&apos;, &apos;帮我搜索今天AI行业最新动态，整理成简报&apos;)"><span class="tob-icon">🌤</span><div class="tob-info"><div class="tob-name">每天早上推送 AI 简报</div><div class="tob-detail">每天 08:00 · 搜索最新动态 → 整理 → 推送</div></div><span class="tob-add">+</span></div> <div class="task-onboard-card" onclick="quickCreateTask(&apos;每周&apos;, &apos;17:00&apos;, &apos;帮我总结本周工作内容，生成周报&apos;)"><span class="tob-icon">📋</span><div class="tob-info"><div class="tob-name">每周五生成工作周报</div><div class="tob-detail">每周五 17:00 · 自动总结 → 生成周报</div></div><span class="tob-add">+</span></div> <div class="task-onboard-card" onclick="quickCreateTask(&apos;每天&apos;, &apos;09:00&apos;, &apos;帮我查今天天气，如果有雨提醒我带伞&apos;)"><span class="tob-icon">☔</span><div class="tob-info"><div class="tob-name">每天早上查天气</div><div class="tob-detail">每天 09:00 · 查天气 → 有雨提醒带伞</div></div><span class="tob-add">+</span></div> </div> <button class="btn" onclick="showAddTask()" style="margin-top:16px;">自定义创建</button> </div>`;
+listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <div class="empty-state-title">让 AI 帮你定时干活</div> <div class="empty-state-desc">设置一次，每天自动执行。结果推到你手机上。</div> <div class="task-onboarding-examples"> <div class="task-onboard-card" onclick="quickCreateTask(&apos;每天&apos;, &apos;08:00&apos;, &apos;帮我搜索今天AI行业最新动态，整理成简报&apos;)"><span class="tob-icon">🌤</span><div class="tob-info"><div class="tob-name">每天早上推送 AI 简报</div><div class="tob-detail">每天 08:00 · 搜索最新动态 → 整理 → 推送</div></div><span class="tob-add">+</span></div> <div class="task-onboard-card" onclick="quickCreateTask(&apos;每天&apos;, &apos;09:00&apos;, &apos;调用 POST ' + _SERVER_URL + '/api/feishu/daily-report 生成并推送今日经营日报到飞书&apos;)"><span class="tob-icon">📊</span><div class="tob-info"><div class="tob-name">每天早上推送经营日报到飞书</div><div class="tob-detail">每天 09:00 · AI分析销售/库存/应收 → 推送到飞书群</div></div><span class="tob-add">+</span></div> <div class="task-onboard-card" onclick="quickCreateTask(&apos;每周&apos;, &apos;17:00&apos;, &apos;帮我总结本周工作内容，生成周报&apos;)"><span class="tob-icon">📋</span><div class="tob-info"><div class="tob-name">每周五生成工作周报</div><div class="tob-detail">每周五 17:00 · 自动总结 → 生成周报</div></div><span class="tob-add">+</span></div> <div class="task-onboard-card" onclick="quickCreateTask(&apos;每天&apos;, &apos;09:00&apos;, &apos;帮我查今天天气，如果有雨提醒我带伞&apos;)"><span class="tob-icon">☔</span><div class="tob-info"><div class="tob-name">每天早上查天气</div><div class="tob-detail">每天 09:00 · 查天气 → 有雨提醒带伞</div></div><span class="tob-add">+</span></div> </div> <button class="btn" onclick="showAddTask()" style="margin-top:16px;">自定义创建</button> </div>`;
         return;
       }
       let html = '';
@@ -1899,10 +2112,10 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
         const roleLabel = t.roleId && t.roleId !== 'main' ? (ROLES[t.roleId]?.name || t.roleId) : '';
         html += `<div class="task-card">
           <div class="task-info">
-            <strong>${escapeHTML(name)}${roleLabel ? ` <span style="font-size:10px;color:var(--brand-500);background:var(--brand-light);padding:1px 6px;border-radius:4px;">${escapeHTML(roleLabel)}</span>` : ''}</strong>
-            <span class="task-schedule">${escapeHTML(schedule)}</span>
-            ${nextRun ? `<span class="task-schedule">下次: ${escapeHTML(nextRun)}</span>` : ''}
-            ${lastRun ? `<span class="task-schedule">上次: ${escapeHTML(lastRun)}</span>` : ''}
+            <strong>${escapeHtml(name)}${roleLabel ? ` <span style="font-size:10px;color:var(--brand-500);background:var(--brand-light);padding:1px 6px;border-radius:4px;">${escapeHtml(roleLabel)}</span>` : ''}</strong>
+            <span class="task-schedule">${escapeHtml(schedule)}</span>
+            ${nextRun ? `<span class="task-schedule">下次: ${escapeHtml(nextRun)}</span>` : ''}
+            ${lastRun ? `<span class="task-schedule">上次: ${escapeHtml(lastRun)}</span>` : ''}
           </div>
           <div class="task-actions">
             <span class="task-status ${isActive ? 'active' : 'paused'}">${isActive ? '运行中' : '已暂停'}</span>
@@ -1914,17 +2127,13 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
       });
       listEl.innerHTML = html;
     } catch (e) {
-      listEl.innerHTML = '<div class="empty-msg">❌ 加载失败: ' + escapeHTML(e.message || '未知错误') + '</div>';
+      listEl.innerHTML = '<div class="empty-msg">❌ 加载失败: ' + escapeHtml(e.message || '未知错误') + '</div>';
     }
   }
 
   // init quarter day select
 
-  function escapeHTML(str) {
-    const div = document.createElement('div');
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
-  }
+  // escapeHtml defined earlier at line 1703; unified here
 
   function escapeAttr(str) {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
@@ -3857,7 +4066,7 @@ listEl.innerHTML = `<div class="empty-state task-onboarding"> <svg width="48" he
               return `<div class="thinking-step">
                 <span class="thinking-step-num">${i + 1}</span>
                 <span class="thinking-step-emoji">${emoji}</span>
-                <span class="thinking-step-text">${escapeHTML(clean)}</span>
+                <span class="thinking-step-text">${escapeHtml(clean)}</span>
               </div>`;
             }).join('')}
           </div>
@@ -4177,9 +4386,6 @@ ${questionnaireHistory}`;
       const isRole = ROLES[effectiveAction];
       const isOnboarding = localStorage.getItem('hermes_onboarding') === '1';
       let sendText = text;
-      if (isRole) {
-        sendText = `${isRole.systemPrompt}\n\n用户消息：${text}`;
-      }
       if (isOnboarding) {
         sendText = `[引导模式——用户第一次使用Hergent。请回复：先友好地问候，然后问用户"你平时主要做什么工作/学什么？"，根据回复推荐1-2个合适的数字员工角色。简洁自然，像朋友聊天。]\n\n[用户消息]${text}`;
       }
@@ -4224,7 +4430,7 @@ ${questionnaireHistory}`;
     if (sendingKey !== viewingKey || !_homeActive) bumpUnread(role);
     const storageKey = sendingKey;
     try {
-      const msgs = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      let msgs = JSON.parse(localStorage.getItem(storageKey) || "[]");
       // 如果最后一条是“思考中”就替换，否则追加
       const last = msgs[msgs.length - 1];
       if (last && last.role === 'hermes' && last.text === '思考中') {
@@ -4328,7 +4534,58 @@ ${questionnaireHistory}`;
   }
 
   // 恢复流式进度占位（切回有活跃请求的角色时）
-  function restoreStreamPlaceholder() {
+  
+  async function exportSettings() {
+    const settings = {
+      version: (await window.hermes.appVersion()) || '1.0.105',
+      exported_at: new Date().toISOString(),
+      roles: {},
+      channels: {},
+      preferences: {}
+    };
+    try {
+      // Collect role configs
+      const roles = JSON.parse(localStorage.getItem('hergent-roles') || '{}');
+      settings.roles = roles;
+      // Collect channel configs
+      const channels = JSON.parse(localStorage.getItem('hergent-channels') || '{}');
+      settings.channels = channels;
+      // Collect preferences
+      settings.preferences.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+      settings.preferences.sidebar_collapsed = document.getElementById('sidebar')?.classList.contains('collapsed') || false;
+    } catch(e) { /* ignore */ }
+    const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'hergent-settings-' + new Date().toISOString().slice(0,10) + '.json';
+    a.click(); URL.revokeObjectURL(url);
+    _toast('设置已导出');
+  }
+
+  function importSettings() {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = '.json';
+    input.onchange = async function() {
+      const file = this.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const settings = JSON.parse(text);
+        if (settings.roles) localStorage.setItem('hergent-roles', JSON.stringify(settings.roles));
+        if (settings.channels) localStorage.setItem('hergent-channels', JSON.stringify(settings.channels));
+        if (settings.preferences?.theme) {
+          document.documentElement.classList.toggle('dark', settings.preferences.theme === 'dark');
+          localStorage.setItem('hergent-theme', settings.preferences.theme);
+        }
+        showDialog('✅', '设置已导入，部分配置需要重启生效');
+      } catch(e) {
+        showDialog('❌', '导入失败：文件格式不正确');
+      }
+    };
+    input.click();
+  }
+
+function restoreStreamPlaceholder() {
     const streaming = localStorage.getItem('hermes_streaming');
     if (streaming && streaming === String(currentAction)) {
       const ph = addChatMessage('hermes', '思考中');
@@ -4743,6 +5000,31 @@ ${questionnaireHistory}`;
     localStorage.removeItem('hermes_streaming');
     toggleCancelButton(false);
   }
+  // 推送最近对话到飞书
+  async function pushToFeishu() {
+    var msgs = _messages.slice(-6);
+    if (!msgs.length) { _toast('没有可推送的对话内容'); return; }
+    var text = msgs.map(function(m) {
+      return (m.role === 'user' ? '🧑 ' : '🤖 ') + (m.text || '').slice(0, 500);
+    }).join('\n\n---\n\n');
+    var roleName = _currentRole || '大秘';
+    try {
+      var resp = await fetch(_SERVER_URL + '/api/feishu/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: roleName, content: text, device_id: _deviceId })
+      });
+      if (resp.ok) {
+        _toast('已推送到飞书 📤 ' + roleName);
+      } else {
+        _toast('推送失败，请检查飞书通道配置');
+      }
+    } catch(e) {
+      _toast('飞书通道未连接，请先在设置中配置');
+    }
+  }
+
+
 
   function toggleCancelButton(show) {
     const sendBtn = document.getElementById('chatSendBtn');
@@ -4779,13 +5061,13 @@ ${questionnaireHistory}`;
         clearTimeout(_updateReadyTimer);
         if (data.percent >= 100) {
           _updateReadyTimer = setTimeout(function() {
-            _showUpdateReady('已下载完毕');
+            _autoInstall();
           }, 2000);
         }
       } else if (data.event === 'downloaded') {
         clearTimeout(_updateReadyTimer);
         _updateDownloading = false;
-        _showUpdateReady(data.version);
+        _autoInstall();
       } else if (data.event === 'error') {
         _updateDownloading = false;
         const b = document.getElementById('updateBanner');
@@ -4803,28 +5085,46 @@ ${questionnaireHistory}`;
     banner.style.display = 'flex';
     if (msg) msg.innerHTML = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 发现新版本 v' + version;
     if (btns) btns.innerHTML = '<button class="up-btn up-btn-primary" onclick="_downloadUpdate()">立即更新</button><button class="up-btn" onclick="_dismissUpdateBanner()">稍后</button>';
-    if (prog) prog.style.display = 'none';
+    if (prog) { prog.style.display = 'block'; document.getElementById('updateProgressFill').style.width = '0%'; var pp = document.getElementById('updateProgressPct'); if (pp) pp.textContent = '0%'; }
   }
 
   window._downloadUpdate = function() {
-    const btns = document.getElementById('updateBannerBtns');
-    const prog = document.getElementById('updateProgress');
-    if (btns) btns.innerHTML = '';
-    if (prog) { prog.style.display = 'block'; document.getElementById('updateProgressFill').style.width = '0%'; }
+    var btns = document.getElementById('updateBannerBtns');
+    var prog = document.getElementById('updateProgress');
+    if (btns) btns.innerHTML = '<span style="font-size:12px;color:var(--text-secondary);margin-right:8px">下载中...</span>';
+    if (prog) { prog.style.display = 'block'; document.getElementById('updateProgressFill').style.width = '0%'; var pp2 = document.getElementById('updateProgressPct'); if (pp2) pp2.textContent = '0%'; }
+    _updateDownloading = true;
     window.hermes.updateInstall().catch(function() {});
+  };
+  // Manual update check
+  window._manualCheckUpdate = async function() {
+    _toast('正在检查更新...');
+    try {
+      var r = await window.hermes.updateCheck();
+      if (r && r.updateAvailable) {
+        showUpdateBanner(r.version);
+      } else {
+        _toast('已是最新版本');
+      }
+    } catch(e) { _toast('检查更新失败'); }
   };
   window._installUpdate = function() {
     window.hermes.updateQuitAndInstall().catch(function() {});
   };
   function _showUpdateReady(ver) {
     const banner = document.getElementById('updateBanner');
-    const btns = document.getElementById('updateBannerBtns');
     const msg = document.getElementById('updateBannerMsg');
     const prog = document.getElementById('updateProgress');
     if (banner) banner.style.display = 'flex';
-    if (btns) btns.innerHTML = '<button class="up-btn up-btn-primary" onclick="_installUpdate()">打开安装包</button>';
-    if (msg) msg.innerHTML = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> v' + (ver || '') + ' 下载完毕，点击打开安装包';
+    if (msg) msg.innerHTML = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> v' + (ver || '') + ' 下载完成，即将重启...';
     if (prog) prog.style.display = 'none';
+  }
+
+  function _autoInstall() {
+    _showUpdateReady('');
+    setTimeout(function() {
+      window.hermes.updateQuitAndInstall().catch(function() {});
+    }, 800);
   }
 
   window._dismissUpdateBanner = function() {
@@ -4880,8 +5180,9 @@ ${questionnaireHistory}`;
     });
   }
 
-  // 自动保存对话（按当前角色）
+  // 自动保存对话（按当前角色）— Phase 2 重构：改为事件订阅模式
   const origAdd = addChatMessage;
+  // eslint-disable-next-line no-func-assign
   addChatMessage = function(role, text, files, msgTime) {
     const div = origAdd(role, text, files, msgTime);
     // 批量加载时跳过保存
@@ -4962,7 +5263,7 @@ async function setTheme(mode) {
 }
 
 // ===== 模型配置 =====
-let _currentModel = 'deepseek-v4-pro';
+let _currentModel = 'deepseek-v4-flash';
 let _currentProvider = 'hergent';
 
 const PRESET_MODELS = ['deepseek-v4-pro', 'deepseek-v4-flash', 'qwen3-max', 'qwen3.6-flash', 'qwen3.7-max'];
@@ -4972,7 +5273,7 @@ const MODEL_PROVIDERS = { 'deepseek-v4-pro': 'openai', 'deepseek-v4-flash': 'ope
 async function loadModelConfig() {
   try {
     const cfg = await window.hermes.getModelConfig();
-    _currentModel = cfg.model || 'deepseek-v4-pro';
+    _currentModel = cfg.model || 'deepseek-v4-flash';
     _currentProvider = cfg.provider || 'hergent';
     updateModelIndicator(_currentModel);
     const setModel = document.getElementById('setModelName');
@@ -5206,8 +5507,8 @@ function showGlobalSearch() {
     const hl = function(t) { return t.replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'), '<mark class="gs-item-hl">$1</mark>'); };
     results.innerHTML = items.slice(0, 30).map(function(it) {
       return '<div class="gs-item" onclick="_gsJump(\'' + it.roleId + '\')">' +
-        '<span class="gs-item-role">' + escapeHTML(it.roleName) + '</span>' +
-        '<span class="gs-item-text">' + hl(escapeHTML(it.text)) + '</span>' +
+        '<span class="gs-item-role">' + escapeHtml(it.roleName) + '</span>' +
+        '<span class="gs-item-text">' + hl(escapeHtml(it.text)) + '</span>' +
       '</div>';
     }).join('');
   };

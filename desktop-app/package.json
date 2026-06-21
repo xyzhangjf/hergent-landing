@@ -1,6 +1,6 @@
 {
   "name": "hergent",
-  "version": "1.0.74",
+  "version": "1.0.105",
   "description": "Hergent · 你的数字员工",
   "main": "main.js",
   "scripts": {
@@ -8,7 +8,20 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win",
+    "lint": "eslint main.js preload.js js/",
+    "lint:fix": "eslint --fix main.js preload.js js/",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "node --check main.js && node --check preload.js && node --check js/app.js",
+    "typecheck": "tsc --noEmit",
+    "audit": "npm audit --omit=dev",
+    "verify": "npm run format:check && npm run lint && npm run check && npm run audit",
+    "prepare": "echo 'skip husky (managed at repo root)'"
+  },
+  "lint-staged": {
+    "*.js": ["prettier --write", "eslint --fix", "node --check"],
+    "*.{json,md,css,html}": ["prettier --write"]
   },
   "build": {
     "appId": "com.hergent.app",
@@ -34,6 +47,22 @@
         "to": "avatars"
       },
       {
+        "from": "skills",
+        "to": "skills"
+      },
+      {
+        "from": "certs",
+        "to": "certs"
+      },
+      {
+        "from": "icon.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "win-patches",
+        "to": "win-patches"
+      },
+      {
         "from": "hermes.tar.gz",
         "to": "hermes.tar.gz"
       },
@@ -52,6 +81,18 @@
       {
         "from": "../server/auth.py",
         "to": "auth.py"
+      },
+      {
+        "from": "../server/erp_db.py",
+        "to": "erp_db.py"
+      },
+      {
+        "from": "../server/erp_api.py",
+        "to": "erp_api.py"
+      },
+      {
+        "from": "../server/alipay_patch.py",
+        "to": "alipay_patch.py"
       }
     ],
     "mac": {
@@ -60,16 +101,22 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         }
       ],
       "artifactName": "Hergent-${version}-mac-arm64.${ext}",
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "hardenedRuntime": true,
+      "gatekeeperAssess": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
       "icon": "icon.ico",
@@ -90,9 +137,9 @@
       "createDesktopShortcut": true
     },
     "publish": {
-      "provider": "github",
-      "owner": "xyzhangjf",
-      "repo": "hergent-landing"
+      "provider": "generic",
+      "url": "https://api.hergent.cn/updates",
+      "channel": "latest"
     }
   },
   "author": "Hergent",
@@ -100,8 +147,15 @@
     "electron-updater": "^6.8.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@sentry/electron": "^7.13.0",
     "electron": "^39.8.8",
     "electron-builder": "^25.1.8",
-    "sharp": "^0.34.5"
+    "eslint": "^10.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.8.4",
+    "sharp": "^0.34.5",
+    "typescript": "^6.0.3"
   }
 }

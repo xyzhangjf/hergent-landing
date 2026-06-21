@@ -1,0 +1,2 @@
+cd "$(git rev-parse --show-toplevel)/desktop-app"
+npx lint-staged

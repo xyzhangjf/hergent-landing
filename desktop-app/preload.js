@@ -11,6 +11,7 @@ const REPORTS_DIR = path.join(require('os').homedir(), 'Documents', 'Hergent', '
 const SERVER_URL = process.env.HERMES_SERVER_URL || 'http://localhost:8765';
 
 contextBridge.exposeInMainWorld('hermes', {
+  platform: process.platform,
   execute: (action, args) => ipcRenderer.invoke('hermes:execute', { action, args }),
   minimize: () => ipcRenderer.send('window:minimize'),
   maximize: () => ipcRenderer.send('window:maximize'),
@@ -50,6 +51,9 @@ contextBridge.exposeInMainWorld('hermes', {
 
   // 在 Finder 中打开文件所在文件夹
   openFolder: (path) => ipcRenderer.invoke('shell:openFolder', path),
+
+  // 激活码
+  activate: (code) => ipcRenderer.invoke('activation:verify', code),
 
   // 积分查询
   getCredits: () => ipcRenderer.invoke('activation:credits'),
@@ -124,6 +128,9 @@ contextBridge.exposeInMainWorld('hermes', {
 
   // 充值
   recharge: (amount) => ipcRenderer.invoke('recharge:request', amount),
+  createPayment: (amount) => ipcRenderer.invoke('payment:create', amount),
+  checkPayment: (orderId) => ipcRenderer.invoke('payment:check', orderId),
+  devPay: (orderId, deviceId, amount) => ipcRenderer.invoke('payment:dev-pay', { orderId, deviceId, amount }),
 
   // 用量明细
   usageHistory: (limit) => ipcRenderer.invoke('usage:history', limit),
@@ -136,5 +143,6 @@ contextBridge.exposeInMainWorld('hermes_on', {
   themeChanged: (callback) => ipcRenderer.on('theme:changed', (event, isDark) => callback(isDark)),
   gatewayMessage: (callback) => ipcRenderer.on('hermes:gateway-message', (event, data) => callback(data)),
   updateStatus: (callback) => ipcRenderer.on('update:status', (event, data) => callback(data)),
-  updateStatus: (callback) => ipcRenderer.on('update:status', (event, data) => callback(data))
+  bootProgress: (callback) => ipcRenderer.on('hermes:boot-progress', (event, data) => callback(data)),
+  rolesChanged: (callback) => ipcRenderer.on('roles:changed', (event, data) => callback(data)),
 });
