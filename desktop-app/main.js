@@ -34,17 +34,58 @@ function hergentLog(level, category, message) {
   }
 }
 
+// 启动阶段日志（写到 userData/startup.log，每次启动覆盖）
+function startupLog(msg) {
+  try {
+    const logDir = (() => {
+      try { return app.isReady() ? app.getPath('userData') : path.join(require('os').homedir(), 'AppData', 'Roaming', 'Hergent'); }
+      catch (_) { return require('os').tmpdir(); }
+    })();
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(path.join(logDir, 'startup.log'), `[${new Date().toISOString()}] ${msg}\n`);
+  } catch (_) {}
+}
+startupLog(`main.js loaded, platform=${process.platform}, electron=${process.versions.electron}, version=${CURRENT_VERSION}`);
+
 // 全局异常兜底
 process.on('uncaughtException', (err) => {
   try {
     const logDir = app.isReady() ? app.getPath('userData') : require('os').tmpdir();
     fs.appendFileSync(path.join(logDir, 'hergent-crash.log'), `[${new Date().toISOString()}] ${err.message}\n${err.stack || ''}\n`);
   } catch (_) {}
+  // Fire-and-forget 上报到远程服务器
+  try {
+    const body = JSON.stringify({ message: err.message.slice(0, 500), stack: (err.stack || '').slice(0, 2000), version: CURRENT_VERSION, platform: process.platform });
+    const u = new URL('https://api.hergent.cn/api/telemetry/crash');
+    const mod = u.protocol === 'https:' ? https : http;
+    const req = mod.request({ hostname: u.hostname, port: 443, path: u.pathname, method: 'POST', timeout: 3000,
+      rejectUnauthorized: false, headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } }, (res) => { res.resume(); });
+    req.on('error', () => {});
+    req.write(body); req.end();
+  } catch (_) {}
   try { dialog.showErrorBox('Hergent 启动失败', `错误详情：\n${err.message}\n\n请将以下路径的日志发送给技术支持：\n${require('os').tmpdir()}/hergent-crash.log`); } catch (_) {}
   process.exit(1);
 });
+
+// 未捕获的 Promise 拒绝也要上报（不退出，记录后继续运行）
+// 未捕获的 Promise 拒绝 — 记录日志 + 上报远程（不退出进程）
 process.on('unhandledRejection', (reason) => {
-  hergentLog('ERROR', 'process', `unhandledRejection: ${JSON.stringify(reason)}`);
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? (reason.stack || '') : '';
+  hergentLog('ERROR', 'process', `unhandledRejection: ${msg}`);
+  try {
+    const logDir = app.isReady() ? app.getPath('userData') : require('os').tmpdir();
+    fs.appendFileSync(path.join(logDir, 'hergent-crash.log'), `[${new Date().toISOString()}] [UnhandledRejection] ${msg}\n${stack}\n`);
+  } catch (_) {}
+  try {
+    const body = JSON.stringify({ message: msg.slice(0, 500), stack: stack.slice(0, 2000), version: CURRENT_VERSION, platform: process.platform, type: 'unhandledRejection' });
+    const u = new URL('https://api.hergent.cn/api/telemetry/crash');
+    const mod = u.protocol === 'https:' ? https : http;
+    const req = mod.request({ hostname: u.hostname, port: 443, path: u.pathname, method: 'POST', timeout: 3000,
+      rejectUnauthorized: false, headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } }, (res) => { res.resume(); });
+    req.on('error', () => {});
+    req.write(body); req.end();
+  } catch (_) {}
 });
 
 // ===== Hermes Gateway 管理 =====
@@ -152,7 +193,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
   const configs = getPlatformRoleConfigs();
   if (configs.length === 0) { glog('No platform role configs found, skipping role gateways'); return; }
 
-  // 先停掉旧的角色 Gateway
+  // 先停掉旧的角色 Gateway（内存追踪 + 进程名精确匹配）
   for (const rg of _roleGateways) {
     try { rg.process.kill(); } catch (_) {}
   }
@@ -167,7 +208,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
     // 确保角色 Gateway 有正确格式的 config.yaml（直接写 YAML，v0.15.x 要求列表格式）
     const roleConfigPath = path.join(roleHome, 'config.yaml');
     const mainConfigPath = path.join(engineDir, '.hermes', 'config.yaml');
-    let currentModel = 'deepseek-v4-pro';
+    let currentModel = 'deepseek-v4-flash';
     let currentProvider = 'openai';
     try {
       if (fs.existsSync(mainConfigPath)) {
@@ -179,10 +220,29 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
       }
     } catch (_) {}
     const deviceId = getDeviceId();
-    const roleYaml = [
+    const roleYamlLines = [
       'model:',
       '  name: ' + currentModel,
       '  provider: openai',
+    ];
+    // 将平台凭据写入 config YAML（飞书/企微/钉钉/QQ 都需要 YAML 中有对应 section）
+    if (cfg.platform === 'feishu' && cfg.creds.app_id) {
+      roleYamlLines.push(
+        'feishu:',
+        '  app_id: ' + cfg.creds.app_id,
+        '  app_secret: ' + cfg.creds.app_secret,
+        '  enabled: true'
+      );
+    }
+    if (cfg.platform === 'wecom' && cfg.creds.bot_id) {
+      roleYamlLines.push(
+        'wecom:',
+        '  bot_id: ' + cfg.creds.bot_id,
+        '  secret: ' + cfg.creds.secret,
+        '  enabled: true'
+      );
+    }
+    roleYamlLines.push(
       'custom_providers:',
       '  - name: openai',
       '    base_url: ' + SERVER_URL + '/v1',
@@ -196,7 +256,8 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
       'terminal:',
       `  cwd: ${path.join(roleHome, 'workspace')}`,
       '',
-    ].join('\n');
+    );
+    const roleYaml = roleYamlLines.join('\n');
     try {
       fs.writeFileSync(roleConfigPath, roleYaml);
       fs.writeFileSync(path.join(roleHome, '.env'), 'OPENAI_API_KEY=hermes-local-proxy\n');
@@ -204,13 +265,21 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
 
     glog(`Starting ${cfg.label} gateway for role ${cfg.roleId} (${cfg.name})...`);
     try {
+      // Windows/macOS 统一用 python -m hermes_cli.main 启动角色 Gateway
+      // Windows 需要把 python/ 目录加到 PATH 中，确保 python.exe 能找到其 DLL 依赖
+      const roleEnv = { ...process.env, HOME: homeDir, HERMES_HOME: roleHome, HERMES_CONFIG_PATH: roleConfigPath,
+             ...cfg.envVars,
+             API_SERVER_ENABLED: 'false', GATEWAY_ALLOW_ALL_USERS: 'true',
+             PYTHONPATH: libsDir, PYTHONHOME: '' };
+      if (isWindows) {
+        roleEnv.PATH = `${path.dirname(pythonBin)};${path.join(path.dirname(pythonBin), 'Scripts')};${process.env.PATH || ''}`;
+        roleEnv.PYTHONUTF8 = '1';
+      }
       const roleProc = spawn(pythonBin, ['-m', 'hermes_cli.main', 'gateway', 'run', '--replace'], {
-        env: { ...process.env, HOME: homeDir, HERMES_HOME: roleHome, HERMES_CONFIG_PATH: roleConfigPath,
-               ...cfg.envVars,
-               API_SERVER_ENABLED: 'false', GATEWAY_ALLOW_ALL_USERS: 'true',
-               PYTHONPATH: libsDir, PYTHONHOME: '' },
+        env: roleEnv,
         stdio: 'ignore',
-        detached: true
+        detached: true,
+        windowsHide: true
       });
       roleProc.unref();
       roleProc.on('error', (err) => { glog(`Role GW ${cfg.roleId}/${cfg.platform} SPAWN ERROR: ` + err.message); });
@@ -250,7 +319,7 @@ async function startHermesGateway() {
     const deviceId = getDeviceId();
     const dsKey = getDeepSeekApiKey();
     const existingModel = (() => { try { const c = fs.readFileSync(mainConfigPath, 'utf8'); const m = c.match(/^model:\s*\n\s+name:\s*(.+)/m); return m ? m[1].trim() : null; } catch(_) { return null; } })();
-    const modelName = existingModel || 'deepseek-v4-pro';
+    const modelName = existingModel || 'deepseek-v4-flash';
     const provider = 'openai';
     const apiKeyId = 'hermes_' + deviceId;
     const configYaml = [
@@ -302,6 +371,11 @@ async function startHermesGateway() {
         finalYaml = existing;
       }
     } catch (_) {}
+    // 移除平台相关配置（飞书/企微/钉钉/QQ等），这些由角色独立 Gateway 处理
+    // 主 Gateway 只负责 API Server + 模型代理，否则平台消息会被重复回复
+    finalYaml = finalYaml
+      .replace(/^(feishu|wecom|wecom_bot|dingtalk|qq|telegram|discord|slack|whatsapp|signal|teams|line):[\s\S]*?(?=^\w+:|^\Z)/gm, '')
+      .replace(/^\s*\n/gm, '');
     fs.writeFileSync(mainConfigPath, finalYaml);
     // v0.15.x requires OPENAI_API_KEY in .env for openai provider
     try { fs.writeFileSync(path.join(gwHome, '.env'), 'OPENAI_API_KEY=hermes-local-proxy\n'); } catch (_) {}
@@ -315,7 +389,7 @@ async function startHermesGateway() {
     glog(`Windows: spawning: ${HERMES_BIN} gateway run`);
     try {
       gatewayProcess = spawn(HERMES_BIN, ['gateway', 'run', '--replace'], {
-        env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir, HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
+        env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir, PYTHONUTF8: '1', HERMES_HOME: gwHome, HERMES_CONFIG_PATH: mainConfigPath, API_SERVER_PORT: String(GATEWAY_PORT), API_SERVER_ENABLED: 'true', API_SERVER_KEY: GATEWAY_API_KEY, GATEWAY_ALLOW_ALL_USERS: 'true' },
         stdio: ['ignore', 'ignore', 'pipe'],
         shell: true,
         windowsHide: true
@@ -388,11 +462,13 @@ async function startHermesGateway() {
 
   // 启动飞书每角色独立 Gateway（无论主Gateway是否已运行）
   const binDir2 = path.dirname(HERMES_BIN);
-  const pythonCandidates2 = [
-    path.join(binDir2, 'python', 'bin', 'python3.11'),
-    path.join(binDir2, 'python3.11'),
-    path.join(binDir2, 'python3'),
-  ];
+  const pythonCandidates2 = isWindows
+    ? [path.join(binDir2, 'python', 'python.exe')]
+    : [
+        path.join(binDir2, 'python', 'bin', 'python3.11'),
+        path.join(binDir2, 'python3.11'),
+        path.join(binDir2, 'python3'),
+      ];
   const pythonBin2 = pythonCandidates2.find(p => fs.existsSync(p));
   if (pythonBin2) {
     const libsDir2 = path.join(binDir2, 'libs');
@@ -421,9 +497,11 @@ function stopHermesGateway() {
     try { rg.process.kill(); } catch (_) {}
   }
   _roleGateways.length = 0;
-  // 清理所有 Hergent 残留 gateway 进程
+  // 清理所有使用本引擎目录的 gateway 进程（精确匹配引擎路径，避免误杀 QClaw 等）
+  const engineDir = getEngineDir();
   if (process.platform === 'darwin' || process.platform === 'linux') {
-    try { execSync('pkill -f "hergent.*gateway run"', { timeout: 5000 }); } catch (_) {}
+    // 精确匹配：只杀使用本机当前用户引擎 Python 的 gateway 进程（不误伤其他用户/QClaw）
+    try { execSync(`pkill -f "${engineDir}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
   } else {
     try { execSync('taskkill /F /IM python3.11.exe /FI "WINDOWTITLE eq gateway run"', { timeout: 5000 }); } catch (_) {}
   }
@@ -449,19 +527,27 @@ function startCreditsServer() {
     if (fs.existsSync(c)) { scriptPath = c; break; }
   }
   if (!scriptPath) {
+    startupLog('startCreditsServer: server.py NOT FOUND, skipping');
     console.log('[credits-server] server.py not found, skipping');
     return;
   }
+  startupLog(`startCreditsServer: found server.py at ${scriptPath}`);
 
   // 优先用引擎自带的 Python（libs 里有 fastapi/uvicorn/httpx 等全套依赖）
   const home = app.getPath('home');
   const engineDir = getEngineDir(); // ~/Library/Application Support/hergent/hermes-engine
-  const agentPython = path.join(home, '.hermes', 'hermes-agent', 'python', 'bin', 'python3.11');
-  const agentVenvPython = path.join(home, '.hermes', 'hermes-agent', 'venv', 'bin', 'python3.11');
-  const enginePython = path.join(engineDir, 'python', 'bin', 'python3.11');
+  const agentPython = isWindows
+    ? path.join(home, '.hermes', 'hermes-agent', 'venv', 'Scripts', 'python.exe')
+    : path.join(home, '.hermes', 'hermes-agent', 'python', 'bin', 'python3.11');
+  const agentVenvPython = isWindows
+    ? path.join(home, '.hermes', 'hermes-agent', 'venv', 'Scripts', 'python.exe')
+    : path.join(home, '.hermes', 'hermes-agent', 'venv', 'bin', 'python3.11');
+  const enginePython = isWindows
+    ? path.join(engineDir, 'python', 'python.exe')
+    : path.join(engineDir, 'python', 'bin', 'python3.11');
   const agentLibs = path.join(home, '.hermes', 'hermes-agent', 'libs');
   const engineLibs = path.join(engineDir, 'libs');
-  let pythonPath = 'python3';
+  let pythonPath = isWindows ? 'python' : 'python3';
   let pythonLibs = null;
   // 引擎 Python 优先（已预装 fastapi/uvicorn/httpx），Agent Python 兜底
   if (fs.existsSync(enginePython)) {
@@ -512,16 +598,18 @@ function startCreditsServer() {
     } catch (_) {}
   }
   // 最终兜底
-  if (!deepseekKey || deepseekKey === 'hermes-local-proxy') deepseekKey = 'sk-1e5cab7058234b538ddb161ccaf65c58';
+  if (!deepseekKey || deepseekKey === 'hermes-local-proxy') deepseekKey = '';
 
   console.log(`[credits-server] Starting: ${pythonPath} ${scriptPath}`);
-  const spawnEnv = { ...process.env, PYTHONUNBUFFERED: '1', DEEPSEEK_API_KEY: deepseekKey, BAILIAN_API_KEY: 'sk-5065e1a611f14703a8591202bd5409a4' };
+  const spawnEnv = { ...process.env, PYTHONUNBUFFERED: '1', DEEPSEEK_API_KEY: deepseekKey, BAILIAN_API_KEY: '' };
   if (pythonLibs) {
     spawnEnv.PYTHONPATH = pythonLibs;
     spawnEnv.PYTHONHOME = '';
   }
   serverProcess = spawn(pythonPath, [scriptPath], { env: spawnEnv });
+  startupLog(`startCreditsServer: spawned, pid=${serverProcess.pid}, python=${pythonPath}`);
   serverProcess.on('error', (err) => {
+    startupLog(`startCreditsServer: SPAWN ERROR - ${err.message}`);
     console.error(`[credits-server] spawn error: ${err.message}`);
   });
 
@@ -539,7 +627,7 @@ function stopCreditsServer() {
 const ACTIVATION_KEY = 'hermes-fmcg-activation-2026'; // HMAC 签名密钥（生成/校验共用）
 const TRIAL_DAYS = 7;  // 免费试用天数
 const LICENSE_DAYS = 365;  // 激活后有效期
-const SERVER_URL = 'http://localhost:8765';
+const SERVER_URL = process.platform === 'win32' ? 'https://api.hergent.cn' : 'http://localhost:8765';
 let SYSTEM_PROMPT = '';
 try {
   SYSTEM_PROMPT = fs.readFileSync(path.join(homeDir, '.hermes', 'SOUL.md'), 'utf8').trim();
@@ -559,10 +647,25 @@ function getEngineDir() {
   return path.join(app.getPath('userData'), 'hermes-engine');
 }
 
+// 递归合并目录（不覆盖已存在的文件）
+function _mergeDir(src, dst) {
+  if (!fs.existsSync(dst)) { fs.mkdirSync(dst, { recursive: true }); }
+  for (const f of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, f.name);
+    const d = path.join(dst, f.name);
+    if (f.isDirectory()) {
+      _mergeDir(s, d);
+    } else if (!fs.existsSync(d)) {
+      fs.copyFileSync(s, d);
+    }
+  }
+}
+
 function extractBundledEngine() {
   const engineDir = getEngineDir();
   const versionFile = path.join(engineDir, '.extracted-version');
   const tarballPath = path.join(__dirname, '..', 'hermes.tar.gz');
+  startupLog(`extractBundledEngine: engineDir=${engineDir}, tarball=${fs.existsSync(tarballPath) ? 'found' : 'NOT FOUND'}`);
   if (!fs.existsSync(tarballPath)) return false;
 
   const currentVersion = CURRENT_VERSION + '|' + (fs.statSync(tarballPath).size || 0);
@@ -573,7 +676,11 @@ function extractBundledEngine() {
   try {
     if (fs.existsSync(versionFile) && criticalFiles.every(f => fs.existsSync(f))) {
       const extracted = fs.readFileSync(versionFile, 'utf8').trim();
-      if (extracted === currentVersion) return true;
+      if (extracted === currentVersion) {
+        startupLog('extractBundledEngine: already extracted, version matches');
+        return true;
+      }
+      startupLog(`extractBundledEngine: version mismatch, re-extracting (${extracted.slice(0,30)} vs ${currentVersion.slice(0,30)})`);
     }
   } catch (_) {}
 
@@ -586,15 +693,50 @@ function extractBundledEngine() {
     const cmd = isWindows
       ? `tar xzf "${tarballPath}" -C "${engineDir}"`
       : `tar xzf "${tarballPath}" -C "${engineDir}"`;
+    startupLog(`extractBundledEngine: running tar extract, tarball=${fs.statSync(tarballPath).size} bytes`);
     execSync(cmd, { timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] });
     // 提取后立即清除所有文件的隔离属性，防止 Gatekeeper 拦截二进制/dylib
     if (!isWindows) {
       try { spawnSync('/usr/bin/xattr', ['-cr', engineDir], { timeout: 10000 }); } catch (_) {}
     }
+    // Windows: 应用引擎补丁（缺失模块、常量函数等）
+    if (isWindows) {
+      const patchesDir = path.join(process.resourcesPath, 'win-patches');
+      startupLog(`extractBundledEngine: Windows patches dir ${fs.existsSync(patchesDir) ? 'found' : 'NOT FOUND'} at ${patchesDir}`);
+      if (fs.existsSync(patchesDir)) {
+        try {
+          for (const f of fs.readdirSync(patchesDir, { withFileTypes: true })) {
+            const src = path.join(patchesDir, f.name);
+            const dst = path.join(engineDir, f.name);
+            if (f.isDirectory()) {
+              _mergeDir(src, dst);
+            } else if (f.name.endsWith('.py') && fs.existsSync(dst)) {
+              // 追加补丁内容到引擎已有文件（不读取原文件，避免 GBK 编码错误）
+              const patchBuf = fs.readFileSync(src);
+              fs.appendFileSync(dst, '\n' + patchBuf.toString('utf8'));
+            } else if (!fs.existsSync(dst)) {
+              fs.copyFileSync(src, dst);
+            }
+          }
+          console.log('[engine] Windows patches applied from', patchesDir);
+        } catch (e2) { console.log('[engine] Windows patch error:', e2.message); }
+      }
+    }
+    // 复制支付宝证书到用户目录（支付必需）
+    try {
+      const bundledCerts = path.join(process.resourcesPath || path.join(__dirname, '..'), 'certs');
+      const userCerts = path.join(homeDir, '.hermes', 'certs');
+      if (fs.existsSync(bundledCerts)) {
+        _mergeDir(bundledCerts, userCerts);
+        console.log('[engine] Certs copied to', userCerts);
+      }
+    } catch (_) {}
     fs.writeFileSync(versionFile, currentVersion);
+    startupLog(`extractBundledEngine: extraction complete, engineDir=${engineDir}`);
     console.log('[engine] Extracted to', engineDir);
     return true;
   } catch (e) {
+    startupLog(`extractBundledEngine: EXTRACTION FAILED - ${e.message}`);
     console.error('[engine] Extraction failed:', e.message);
     return false;
   }
@@ -614,7 +756,7 @@ function ensureEngineConfig() {
   const cfgEnv = { ...process.env, HERMES_HOME: hermesHome };
   const set = (k, v) => { try { spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv }); } catch (_) {} };
   const dsKey = getDeepSeekApiKey();
-  set('model.name', 'deepseek-v4-pro');
+  set('model.name', 'deepseek-v4-flash');
   set('model.provider', 'openai');
   set('platforms.api_server.enabled', 'true');
   set('platforms.api_server.port', String(GATEWAY_PORT));
@@ -622,12 +764,35 @@ function ensureEngineConfig() {
   set('custom_providers.0.name', 'openai');
   set('custom_providers.0.base_url', `${SERVER_URL}/v1`);
   set('custom_providers.0.api_key', dsKey);
-  set('custom_providers.0.model', 'deepseek-v4-pro');
+  set('custom_providers.0.model', 'deepseek-v4-flash');
   set('memory.memory_enabled', 'true');
   set('memory.memory_char_limit', '12000');
   set('memory.user_char_limit', '8000');
   set('memory.flush_min_turns', '6');
   set('memory.nudge_interval', '10');
+}
+
+// 从 asar 安全复制目录（asar 不支持 cpSync，需逐文件处理）
+function copyDirFromAsar(srcDir, dstDir) {
+  if (!fs.existsSync(srcDir)) return;
+  fs.mkdirSync(dstDir, { recursive: true });
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const src = path.join(srcDir, entry.name);
+    const dst = path.join(dstDir, entry.name);
+    if (entry.isDirectory()) {
+      copyDirFromAsar(src, dst);
+    } else if (entry.isSymbolicLink && entry.isSymbolicLink()) {
+      // asar 中不应有 symlink，但安全处理
+      try { fs.copyFileSync(src, dst); } catch (_) {}
+    } else {
+      try {
+        const content = fs.readFileSync(src);
+        fs.mkdirSync(path.dirname(dst), { recursive: true });
+        fs.writeFileSync(dst, content);
+      } catch (e) { /* skip individual file errors */ }
+    }
+  }
 }
 
 // 将引擎的 memories/ 和 skills/ 链接到用户 ~/.hermes/，共享长期记忆和全部技能
@@ -643,11 +808,13 @@ function ensureSharedState() {
 
     try { if (fs.lstatSync(enginePath).isSymbolicLink()) continue; } catch (_) {}
 
-    if (!fs.existsSync(userPath)) continue;
+    if (!fs.existsSync(userPath)) {
+      fs.mkdirSync(userPath, { recursive: true });
+    }
 
-    // skills: 先将 Hergent 独有技能合并到用户目录
+    // skills: 从 Resources/skills/（磁盘，非 asar）复制到用户目录
     if (dir === 'skills') {
-      const bundledSkills = path.join(__dirname, 'skills');
+      const bundledSkills = path.join(process.resourcesPath, 'skills');
       if (fs.existsSync(bundledSkills)) {
         const entries = fs.readdirSync(bundledSkills, { withFileTypes: true });
         for (const e of entries) {
@@ -655,8 +822,7 @@ function ensureSharedState() {
           const srcDir = path.join(bundledSkills, e.name);
           const dstDir = path.join(userPath, e.name);
           try {
-            // 复制整个技能目录（含 scripts/ 等子目录），不只 SKILL.md
-            fs.cpSync(srcDir, dstDir, { recursive: true, force: true });
+            _mergeDir(srcDir, dstDir);
           } catch (e2) { console.log('skill copy error: ' + (e2.message || e2)); }
         }
       }
@@ -697,7 +863,7 @@ function ensureSharedState() {
                   for (const entry of fs.readdirSync(path.join(catPath, sk.name), { withFileTypes: true })) {
                     const s = path.join(catPath, sk.name, entry.name);
                     const d = path.join(dstDir, entry.name);
-                    entry.isDirectory() ? fs.cpSync(s, d, { recursive: true }) : fs.copyFileSync(s, d);
+                    entry.isDirectory() ? copyDirFromAsar(s, d) : fs.copyFileSync(s, d);
                   }
                 }
               } catch (e2) { /* 单个技能失败不影响其他 */ }
@@ -713,7 +879,12 @@ function ensureSharedState() {
         if (!fs.existsSync(bak)) fs.renameSync(enginePath, bak);
         else fs.rmSync(enginePath, { recursive: true, force: true });
       }
-      fs.symlinkSync(userPath, enginePath);
+      // Windows 普通权限不支持默认 symlink，需用 junction（目录联接）
+      if (isWindows) {
+        fs.symlinkSync(userPath, enginePath, 'junction');
+      } else {
+        fs.symlinkSync(userPath, enginePath);
+      }
     } catch (e) { console.log('shared state symlink error: ' + (e.message || e)); }
   }
   // 将新同步的技能传播到各角色
@@ -743,7 +914,7 @@ function syncRoleSkills() {
       const dst = path.join(roleSkills, slug);
       try {
         if (fs.existsSync(dst)) fs.rmSync(dst, { recursive: true });
-        if (fs.existsSync(src)) fs.symlinkSync(src, dst, 'dir');
+        if (fs.existsSync(src)) fs.symlinkSync(src, dst, isWindows ? 'junction' : 'dir');
       } catch (_) {}
     }
   }
@@ -754,7 +925,7 @@ function ensureRoleConfigs() {
   const roles = loadRoles();
   // 读取主引擎模型配置，用于同步到所有角色
   const mainConfigPath = path.join(engineDir, '.hermes', 'config.yaml');
-  let mainModel = 'deepseek-v4-pro', mainProvider = 'openai';
+  let mainModel = 'deepseek-v4-flash', mainProvider = 'openai';
   try {
     const mc = fs.readFileSync(mainConfigPath, 'utf8');
     const mm = mc.match(/^model:\s*\n\s+name:\s*(.+)/m);
@@ -803,13 +974,13 @@ function ensureRoleConfigs() {
       try {
         const roleConfigYaml = [
           'model:',
-          '  name: deepseek-v4-pro',
+          '  name: deepseek-v4-flash',
           '  provider: openai',
           'custom_providers:',
           '  - name: openai',
           `    base_url: ${SERVER_URL}/v1`,
           `    api_key: hermes_${getDeviceId()}`,
-          '    model: deepseek-v4-pro',
+          '    model: deepseek-v4-flash',
           `system_prompt_file: ${soulPath}`,
           `system_prompt: "${(role.systemPrompt || '').replace(/"/g, '\\"')}"`,
           'memory:',
@@ -860,7 +1031,10 @@ function markEngineReady() {
 }
 
 function isEngineReady() {
-  return fs.existsSync(path.join(getEngineDir(), '.hermes', '.hermes-ready'));
+  // 放宽条件：只要有 .extracted-version 就认为引擎已解压
+  const engineDir = getEngineDir();
+  return fs.existsSync(path.join(engineDir, '.extracted-version')) ||
+         fs.existsSync(path.join(engineDir, '.hermes', '.hermes-ready'));
 }
 
 // 确保技能就位 — skills/ 已通过 ensureSharedState 链接到 ~/.hermes/skills/
@@ -975,14 +1149,19 @@ const DEFAULT_ROLES = {
 };
 const resolvedPath = resolveHermesPath();
 if (resolvedPath) HERMES_BIN = resolvedPath;
+startupLog(`resolveHermesPath done, HERMES_BIN=${HERMES_BIN || 'NOT FOUND'}, isWindows=${isWindows}`);
 
 // Delay init that needs userData path until app is ready
 app.whenReady().then(() => {
   if (HERMES_BIN) {
+    startupLog('first app.whenReady: init engine config...');
     ensureEngineConfig();
     ensureBuiltinSkills();
     ensureRoleConfigs();
     markEngineReady();
+    startupLog('engine config init done');
+  } else {
+    startupLog('first app.whenReady: HERMES_BIN not found, skipping engine config init');
   }
 });
 
@@ -1107,7 +1286,7 @@ async function restartGateway() {
   if (isWindows) {
     try { execSync('taskkill /F /IM python.exe /FI "WINDOWTITLE eq gateway run" 2>nul', { timeout: 5000 }); } catch (_) {}
   } else {
-    try { execSync('pkill -9 -f "gateway run"', { timeout: 5000 }); } catch (_) {}
+    try { const ed = getEngineDir(); execSync(`pkill -f "${ed}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
   }
   await new Promise(r => setTimeout(r, 3000));
   const ok = await startHermesGateway();
@@ -1117,9 +1296,15 @@ async function restartGateway() {
 // ===== Hermes CLI 帮助函数 =====
 
 function hermesCLI(args, timeout = 30000) {
-  const cmd = `${HERMES_BIN} ${args}`;
-  const hermesHome = path.join(getEngineDir(), '.hermes');
-  const result = execSync(cmd, { timeout, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, HERMES_HOME: hermesHome } });
+  const engineDir = getEngineDir();
+  const hermesHome = path.join(engineDir, '.hermes');
+  const libsDir = path.join(engineDir, 'libs');
+  const pythonBin = isWindows
+    ? path.join(engineDir, 'python', 'python.exe')
+    : path.join(engineDir, 'python', 'bin', 'python3.11');
+  // 直接调 python -m hermes_cli.main，绕过 run.sh/hermes.bat（run.sh 把 bash 脚本当 Python 传会导致 SyntaxError）
+  const cmd = `"${pythonBin}" -m hermes_cli.main ${args}`;
+  const result = execSync(cmd, { timeout, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, env: { ...process.env, HERMES_HOME: hermesHome, PYTHONPATH: libsDir, PYTHONHOME: '' } });
   return result.trim();
 }
 
@@ -1137,6 +1322,38 @@ function httpGet(url, headers = {}) {
     });
     request.on('error', reject);
     request.end();
+  });
+}
+// Node http fallback — 用 Node 原生 http 模块（避免 Electron net.request 偶发兼容问题）
+function nodeHttpGet(urlStr) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlStr);
+    const isHttps = u.protocol === 'https:';
+    const mod = isHttps ? https : http;
+    const opts = { hostname: u.hostname, port: u.port || (isHttps ? 443 : 80), path: u.pathname + u.search, method: 'GET', timeout: 10000,
+      rejectUnauthorized: false };
+    const req = mod.request(opts, (res) => {
+      let d = ''; res.on('data', c => d += c);
+      res.on('end', () => resolve(d));
+    });
+    req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('request timeout')); });
+    req.end();
+  });
+}
+function nodeHttpPost(urlStr, bodyStr) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlStr);
+    const isHttps = u.protocol === 'https:';
+    const mod = isHttps ? https : http;
+    const opts = { hostname: u.hostname, port: u.port || (isHttps ? 443 : 80), path: u.pathname + u.search, method: 'POST', timeout: 10000,
+      rejectUnauthorized: false,
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) } };
+    const req = mod.request(opts, (res) => {
+      let d = ''; res.on('data', c => d += c);
+      res.on('end', () => resolve(d));
+    });
+    req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('request timeout')); });
+    req.write(bodyStr); req.end();
   });
 }
 function httpPost(url, bodyStr, opts = {}) {
@@ -1249,7 +1466,7 @@ async function chatViaGateway(roleId, userMessage, eventSender) {
   ];
 
   return new Promise((resolve, reject) => {
-    const postData = JSON.stringify({ model: 'deepseek-v4-pro', messages: chatMessages, stream: true, max_tokens: 4096 });
+    const postData = JSON.stringify({ model: 'deepseek-v4-flash', messages: chatMessages, stream: true, max_tokens: 4096 });
     const request = net.request({
       method: 'POST',
       url: `${GATEWAY_URL}/v1/chat/completions`
@@ -1361,13 +1578,13 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             if (!fs.existsSync(winPython) || !fs.existsSync(winHermes)) {
               return { requestId, success: false, output: 'Hermes 引擎未安装，请先在设置中安装', sessionId: null };
             }
+            const winRoleId = role || 'dami';
             try {
-              const winRoleId = role || 'dami';
               const winArgs = [winHermes, 'chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
               const winPlatformSid = getLatestPlatformSession(winRoleId);
               if (winPlatformSid || ROLE_SESSIONS[winRoleId]) { winArgs.push('--resume', winPlatformSid || ROLE_SESSIONS[winRoleId]); }
               const child = spawn(winPython, winArgs, {
-                env: { ...process.env, PYTHONPATH: path.join(engineDir, 'libs'), PYTHONHOME: '', HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') }
+                env: { ...process.env, PYTHONPATH: path.join(engineDir, 'libs'), PYTHONHOME: '', PYTHONUTF8: '1', HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') }
               });
               _cancelFn = () => { try { child.kill(); } catch (_) {} };
               const cliResult = await new Promise((resolve, reject) => {
@@ -1387,11 +1604,11 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
               try {
                 await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
-                  JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-pro' }));
+                  JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-flash' }));
               } catch (_) { /* 积分报告失败不影响主流程 */ }
-              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: ROLE_SESSIONS[roleId] || null };
+              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: ROLE_SESSIONS[winRoleId] || null };
             } catch (e) {
-              return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: ROLE_SESSIONS[roleId] || null };
+              return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: ROLE_SESSIONS[winRoleId] || null };
             }
           }
           // macOS/Linux: 使用 Agent Python + PYTHONPATH 确保依赖齐全
@@ -1447,7 +1664,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
               try {
                 await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
-                  JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-pro' }));
+                  JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-flash' }));
               } catch (_) { /* 积分报告失败不影响主流程 */ }
               return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: ROLE_SESSIONS[roleId] || null };
             } catch (e) {
@@ -1466,7 +1683,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               { role: 'system', content: currentRole.systemPrompt || '你是 Hergent 数字员工，运行在用户的电脑上。你可以读写文件、执行代码、操控系统。说人话、不啰嗦。' },
               { role: 'user', content: fullText }
             ];
-            const postData = JSON.stringify({ model: 'deepseek-v4-pro', messages: chatMessages, stream: true, max_tokens: 4096 });
+            const postData = JSON.stringify({ model: 'deepseek-v4-flash', messages: chatMessages, stream: true, max_tokens: 4096 });
             const request = net.request({
               method: 'POST',
               url: `${GATEWAY_URL}/v1/chat/completions`
@@ -1518,7 +1735,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           const estimatedCredits = Math.max(1, Math.ceil((fullText.length + gwResponseText.length) / 500));
           try {
             await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${getDeviceId()}`,
-              JSON.stringify({ credits: estimatedCredits, model: 'deepseek-v4-pro' }));
+              JSON.stringify({ credits: estimatedCredits, model: 'deepseek-v4-flash' }));
           } catch (_) { /* 积分报告失败不影响主流程 */ }
           return { requestId, success: true, output: gwResponseText, offline: false, sessionId: ROLE_SESSIONS[roleId] || null };
         } catch (e) {
@@ -1736,8 +1953,19 @@ ipcMain.handle('avatar:upload', async (event, role) => {
   ensureAvatarsDir();
   const dstPath = path.join(AVATARS_DIR, `${role}.png`);
   try {
-    // 用 sips 裁剪为正方形并缩放到 256x256
-    execSync(`sips -Z 256 --cropToHeightWidth 256 256 "${srcPath}" --out "${dstPath}" 2>/dev/null || sips -Z 256 "${srcPath}" --out "${dstPath}"`, { timeout: 5000 });
+    // 裁剪为正方形并缩放到 256x256
+    // macOS: use built-in sips; Windows/Linux: use sharp (if available) or copy directly
+    if (process.platform === 'darwin') {
+      execSync(`sips -Z 256 --cropToHeightWidth 256 256 "${srcPath}" --out "${dstPath}" 2>/dev/null || sips -Z 256 "${srcPath}" --out "${dstPath}"`, { timeout: 5000 });
+    } else {
+      try {
+        const sharp = require('sharp');
+        sharp(srcPath).resize(256, 256, { fit: 'cover' }).png().toFile(dstPath);
+      } catch (_) {
+        // sharp not available, copy file directly
+        fs.copyFileSync(srcPath, dstPath);
+      }
+    }
     const buf = fs.readFileSync(dstPath);
     const dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
     return { success: true, dataUrl };
@@ -1931,18 +2159,25 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
   // 4. 轮询等待网关初始化并完成平台连接（飞书连接是异步的，需要几秒）
   let connectStatus = null;
   if (gatewayResult.success) {
-    const gatewayPath = path.join(homeDir, '.hermes', 'gateway_state.json');
+    const engineDir = getEngineDir();
+    // 优先检查角色独立 Gateway 的状态文件（飞书/企微/钉钉/QQ 由角色Gateway处理，不是主Gateway）
+    const roleGatewayPath = path.join(engineDir, '.hermes', 'agents', role, 'gateway_state.json');
+    const mainGatewayPath = path.join(engineDir, '.hermes', 'gateway_state.json');
     for (let i = 0; i < 15; i++) {
       await new Promise(r => setTimeout(r, 2000));
       try {
-        if (fs.existsSync(gatewayPath)) {
-          const state = JSON.parse(fs.readFileSync(gatewayPath, 'utf-8'));
-          const platform = state.platforms && state.platforms[channel];
-          if (platform && platform.state === 'connected') {
-            connectStatus = 'connected';
-            break;
+        // 先检查角色Gateway（优先），再检查主Gateway（兜底）
+        for (const gp of [roleGatewayPath, mainGatewayPath]) {
+          if (fs.existsSync(gp)) {
+            const state = JSON.parse(fs.readFileSync(gp, 'utf-8'));
+            const platform = state.platforms && state.platforms[channel];
+            if (platform && platform.state === 'connected') {
+              connectStatus = 'connected';
+              break;
+            }
           }
         }
+        if (connectStatus === 'connected') break;
       } catch {}
     }
   }
@@ -1957,11 +2192,35 @@ ipcMain.handle('channels:save', async (event, channel, role, config) => {
 
 ipcMain.handle('channels:test', async (event, params) => {
   const { channel } = params || {};
-  const gatewayPath = path.join(homeDir, '.hermes', 'gateway_state.json');
+  const engineDir = getEngineDir();
+  // 网关状态文件可能存在于多个位置：角色独立Gateway（优先）或主Gateway（兜底）
+  function _readPlatformState(gp) {
+    try {
+      if (!fs.existsSync(gp)) return null;
+      const state = JSON.parse(fs.readFileSync(gp, 'utf-8'));
+      return (state.platforms && state.platforms[channel]) || null;
+    } catch (_) { return null; }
+  }
+  // 收集所有可能的 gateway_state.json 路径
+  const statePaths = [];
+  // 角色独立 Gateway（优先）
+  try {
+    const cfg = loadChannels();
+    const platformData = cfg[channel] || {};
+    for (const roleId of Object.keys(platformData)) {
+      if (roleId.startsWith('_')) continue;
+      statePaths.push(path.join(engineDir, '.hermes', 'agents', roleId, 'gateway_state.json'));
+    }
+  } catch (_) {}
+  // 主 Gateway（兜底）
+  statePaths.push(path.join(engineDir, '.hermes', 'gateway_state.json'));
+  // 旧路径兼容
+  statePaths.push(path.join(homeDir, '.hermes', 'gateway_state.json'));
 
   try {
-    // 1. 检查网关状态文件是否存在
-    if (!fs.existsSync(gatewayPath)) {
+    // 1. 检查是否有任何状态文件存在
+    const anyExists = statePaths.some(p => fs.existsSync(p));
+    if (!anyExists) {
       // 网关可能未启动，尝试重启
       const restartResult = await restartGateway();
       if (!restartResult.success) {
@@ -1971,21 +2230,20 @@ ipcMain.handle('channels:test', async (event, params) => {
       await new Promise(r => setTimeout(r, 3000));
     }
 
-    // 2. 读取网关状态
-    const state = JSON.parse(fs.readFileSync(gatewayPath, 'utf-8'));
-    const platform = state.platforms && state.platforms[channel];
+    // 2. 按优先级读取网关状态
+    for (const gp of statePaths) {
+      const platform = _readPlatformState(gp);
+      if (!platform) continue;
 
-    if (!platform) {
-      return { success: false, output: `${channel} 尚未在网关中注册，请先保存配置并重启网关` };
+      if (platform.state === 'connected') {
+        return { success: true, output: `${channel} 已连接 ✅` };
+      } else if (platform.state === 'retrying') {
+        return { success: false, output: `${channel} 连接中...当前状态：重试中。请检查 App ID/Secret 是否正确` };
+      } else {
+        return { success: false, output: `${channel} 状态: ${platform.state}${platform.error_message ? ' — ' + platform.error_message : '。请检查配置是否正确'}` };
+      }
     }
-
-    if (platform.state === 'connected') {
-      return { success: true, output: `${channel} 已连接 ✅` };
-    } else if (platform.state === 'retrying') {
-      return { success: false, output: `${channel} 连接中...当前状态：重试中。请检查 App ID/Secret 是否正确` };
-    } else {
-      return { success: false, output: `${channel} 状态: ${platform.state}${platform.error_message ? ' — ' + platform.error_message : '。请检查配置是否正确'}` };
-    }
+    return { success: false, output: `${channel} 尚未在网关中注册，请先保存配置并重启网关` };
   } catch (e) {
     return { success: false, output: `读取网关状态失败: ${e.message}` };
   }
@@ -2023,7 +2281,7 @@ ipcMain.handle('chat:inject-message', async (event, roleId, message, cliSessionI
     // 直接写 JSON：追加用户消息到 messages 数组（不触发AI处理）
     const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
     session.messages = session.messages || [];
-    session.messages.push({ role: 'user', content: `📱 来自飞书: ${message}` });
+    session.messages.push({ role: 'user', content: `📱 来自平台消息: ${message}` });
     session.last_updated = new Date().toISOString();
     session.message_count = session.messages.length;
     fs.writeFileSync(sessionFile, JSON.stringify(session, null, 2));
@@ -2044,9 +2302,11 @@ ipcMain.handle('feishu:poll-messages', async () => {
 
     // v0.15.x: sessions 存储在 state.db (SQLite)，不再用 JSON 文件
     const dbDirs = [path.join(engineDir, '.hermes')];
-    const feishuConfigs = getFeishuRoleConfigs();
-    for (const cfg of feishuConfigs) {
-      dbDirs.push(path.join(engineDir, '.hermes', 'agents', cfg.roleId));
+    const platformConfigs = getPlatformRoleConfigs();
+    const seenDirs = new Set();
+    for (const cfg of platformConfigs) {
+      const d = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
+      if (!seenDirs.has(d)) { seenDirs.add(d); dbDirs.push(d); }
     }
 
     for (const dbDir of dbDirs) {
@@ -2054,62 +2314,105 @@ ipcMain.handle('feishu:poll-messages', async () => {
       if (!fs.existsSync(dbPath)) continue;
 
       try {
-        const { DatabaseSync } = require('node:sqlite');
-        const db = new DatabaseSync(dbPath);
-
-        // 读取所有 feishu/lark 平台的 session
-        const sessions = db.prepare(
-          "SELECT id, source, message_count FROM sessions WHERE source LIKE 'feishu%' OR source LIKE 'lark%' OR source LIKE '%:feishu:%' OR source LIKE '%:lark:%'"
-        ).all();
-
-        // 也读 sessions.json 兼容旧格式
-        const sessionsJsonPath = path.join(dbDir, 'sessions', 'sessions.json');
-        if (fs.existsSync(sessionsJsonPath)) {
-          const index = JSON.parse(fs.readFileSync(sessionsJsonPath, 'utf8'));
-          for (const [sessionKey, meta] of Object.entries(index)) {
-            if (meta.platform !== 'feishu' && meta.platform !== 'lark') continue;
-            const sid = meta.session_id;
-            if (!sessions.find(s => s.id === sid)) {
-              sessions.push({ id: sid, source: 'feishu', message_count: 0 });
-            }
-          }
+        let db;
+        try {
+          // Electron 39: node:sqlite may be disabled, fall back to sqlite3 CLI
+          const { DatabaseSync } = require('node:sqlite');
+          db = new DatabaseSync(dbPath);
+        } catch (_) {
+          // Fallback: use sqlite3 CLI via execSync
+          db = null; // mark for CLI mode
         }
 
-        for (const session of sessions) {
-          const lastIdx = _feishuLastSeen[session.id] || -1;
-          const rows = db.prepare(
-            "SELECT role, content, timestamp FROM messages WHERE session_id=? ORDER BY id"
-          ).all(session.id);
+        if (db) {
+          // Native mode: use node:sqlite DatabaseSync
+          const sessions = db.prepare(
+            "SELECT id, source, message_count FROM sessions WHERE source LIKE 'feishu%' OR source LIKE 'lark%' OR source LIKE 'wecom%' OR source LIKE '%:feishu:%' OR source LIKE '%:lark:%' OR source LIKE '%:wecom:%'"
+          ).all();
 
-          const newMsgs = rows.slice(lastIdx + 1);
-
-          if (newMsgs.length > 0) {
-            _feishuLastSeen[session.id] = rows.length - 1;
-            let roleId = 'dami';
-            for (const cfg of feishuConfigs) {
-              if (dbDir.includes(cfg.roleId)) { roleId = cfg.roleId; break; }
-            }
-            for (const msg of newMsgs) {
-              const content = (msg.content || '').trim();
-              if (!content || content === 'session_meta') continue;
-              // 跳过纯系统提示词消息
-              if (content.length > 100 && content.includes('你是') && content.includes('擅长') && content.includes('风格')) continue;
-              const userMsgMatch = content.match(/用户消息[：:]\s*(.+)$/s);
-              let text = userMsgMatch ? userMsgMatch[1].trim() : content;
-              messages.push({
-                role: msg.role === 'user' ? 'user' : 'hermes',
-                text: text.slice(0, 1000),
-                time: new Date(msg.timestamp * 1000).toISOString(),
-                platform: '飞书',
-                sessionKey: session.id,
-                roleId
-              });
+          // 也读 sessions.json 兼容旧格式
+          const sessionsJsonPath = path.join(dbDir, 'sessions', 'sessions.json');
+          if (fs.existsSync(sessionsJsonPath)) {
+            const index = JSON.parse(fs.readFileSync(sessionsJsonPath, 'utf8'));
+            for (const [sessionKey, meta] of Object.entries(index)) {
+              if (meta.platform !== 'feishu' && meta.platform !== 'lark' && meta.platform !== 'wecom') continue;
+              const sid = meta.session_id;
+              if (!sessions.find(s => s.id === sid)) {
+                sessions.push({ id: sid, source: meta.platform || 'feishu', message_count: 0 });
+              }
             }
           }
-        }
 
-        db.close();
-      } catch (e) { /* 缺少 better-sqlite3 或读取失败，跳过 */ }
+          for (const session of sessions) {
+            const lastIdx = _feishuLastSeen[session.id] || -1;
+            const rows = db.prepare(
+              "SELECT role, content, timestamp FROM messages WHERE session_id=? ORDER BY id"
+            ).all(session.id);
+
+            const newMsgs = rows.slice(lastIdx + 1);
+
+            if (newMsgs.length > 0) {
+              _feishuLastSeen[session.id] = rows.length - 1;
+              let roleId = 'dami';
+              for (const cfg of platformConfigs) {
+                if (dbDir.includes(cfg.roleId)) { roleId = cfg.roleId; break; }
+              }
+              const sessionSource = (session.source || '').toLowerCase();
+              let platformLabel = '飞书';
+              if (sessionSource.includes('wecom')) platformLabel = '企业微信';
+              else if (sessionSource.includes('feishu') || sessionSource.includes('lark')) platformLabel = '飞书';
+              for (const msg of newMsgs) {
+                const content = (msg.content || '').trim();
+                if (!content || content === 'session_meta') continue;
+                if (content.length > 100 && content.includes('你是') && content.includes('擅长') && content.includes('风格')) continue;
+                const userMsgMatch = content.match(/用户消息[：:]\s*(.+)$/s);
+                let text = userMsgMatch ? userMsgMatch[1].trim() : content;
+                messages.push({
+                  role: msg.role === 'user' ? 'user' : 'hermes',
+                  text: text.slice(0, 1000),
+                  time: new Date(msg.timestamp * 1000).toISOString(),
+                  platform: platformLabel,
+                  sessionKey: session.id,
+                  roleId
+                });
+              }
+            }
+          }
+          db.close();
+        } else {
+          // CLI fallback: use sqlite3 command-line tool
+          try {
+            const sessionJson = execSync(`sqlite3 -json "${dbPath}" "SELECT id, source, message_count FROM sessions WHERE source LIKE '%feishu%' OR source LIKE '%lark%' OR source LIKE '%wecom%'" 2>/dev/null || echo '[]'`, { encoding: 'utf8', timeout: 5000 });
+            const sessions = JSON.parse(sessionJson || '[]');
+            for (const session of sessions) {
+              const lastIdx = _feishuLastSeen[session.id] || -1;
+              const msgJson = execSync(`sqlite3 -json "${dbPath}" "SELECT role, content, timestamp FROM messages WHERE session_id='${session.id}' ORDER BY id" 2>/dev/null || echo '[]'`, { encoding: 'utf8', timeout: 5000 });
+              const rows = JSON.parse(msgJson || '[]');
+              const newMsgs = rows.slice(lastIdx + 1);
+              if (newMsgs.length > 0) {
+                _feishuLastSeen[session.id] = rows.length - 1;
+                const sessionSource = (session.source || '').toLowerCase();
+                let platformLabel = '飞书';
+                if (sessionSource.includes('wecom')) platformLabel = '企业微信';
+                for (const msg of newMsgs) {
+                  const content = (msg.content || '').trim();
+                  if (!content || content === 'session_meta') continue;
+                  const userMsgMatch = content.match(/用户消息[：:]\s*(.+)$/s);
+                  let text = userMsgMatch ? userMsgMatch[1].trim() : content;
+                  messages.push({
+                    role: msg.role === 'user' ? 'user' : 'hermes',
+                    text: text.slice(0, 1000),
+                    time: new Date(msg.timestamp * 1000).toISOString(),
+                    platform: platformLabel,
+                    sessionKey: session.id,
+                    roleId: 'dami'
+                  });
+                }
+              }
+            }
+          } catch (cliErr) { /* sqlite3 CLI unavailable, skip */ }
+        }
+      } catch (e) { /* state.db 读取失败，跳过 */ }
     }
 
     return { messages };
@@ -2134,7 +2437,7 @@ ipcMain.handle('shell:openFolder', async (event, filePath) => {
 
 // ===== IPC: 引擎更新 =====
 ipcMain.handle('execute:update', async (event, { downloadUrl }) => {
-  const tmpFile = `/tmp/hergent-update.tar.gz`;
+  const tmpFile = path.join(require('os').tmpdir(), 'hergent-update.tar.gz');
   try {
     await downloadFile(downloadUrl, tmpFile);
     const result = execSync(
@@ -2203,6 +2506,15 @@ ipcMain.handle('activation:activate', async (event, { code }) => {
     message: `激活成功！有效期至 ${expireDate.toLocaleDateString('zh-CN')}（${LICENSE_DAYS}天）`,
     expireDate: expireDate.toISOString(),
   };
+});
+
+// Alpha 激活码验证 — 调用远程服务器
+ipcMain.handle('activation:verify', async (event, code) => {
+  try {
+    var body = await nodeHttpPost('https://api.hergent.cn/api/auth/activate',
+      JSON.stringify({ code: code, device: getDeviceId() }));
+    return JSON.parse(body);
+  } catch (e) { return { ok: false, message: '网络错误，请检查连接' }; }
 });
 
 // activation:server-activate 已移除 — 产品改为积分制，激活/鉴权走 /api/credits + deviceId
@@ -2384,8 +2696,12 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
   // Step 3: pip install hermes-agent
   send('pip|安装 Hermes Agent（首次约需 1-2 分钟）…');
   try {
-    execSync(`"${venvPython}" -m pip install --quiet -i https://pypi.tuna.tsinghua.edu.cn/simple hermes-agent aiohttp 2>&1 || "${venvPython}" -m pip install --quiet hermes-agent aiohttp 2>&1`,
-      { timeout: 300000, windowsHide: true });
+    // Try Tsinghua mirror first, fallback to PyPI
+    try {
+      execSync(`"${venvPython}" -m pip install --quiet -i https://pypi.tuna.tsinghua.edu.cn/simple hermes-agent aiohttp`, { timeout: 300000, windowsHide: true });
+    } catch(_) {
+      execSync(`"${venvPython}" -m pip install --quiet hermes-agent aiohttp`, { timeout: 300000, windowsHide: true });
+    }
   } catch(e) {
     log('pip failed: ' + e.message);
     send('error|Hermes Agent 安装失败，请检查网络连接');
@@ -2409,7 +2725,7 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
     const cfgEnv = { ...process.env, HERMES_HOME: path.join(homeDir, '.hermes') };
     const set = (k, v) => spawnSync(HERMES_BIN, ['config', 'set', k, v], { timeout: 5000, env: cfgEnv });
     const dsKey = getDeepSeekApiKey();
-    set('model.name', 'deepseek-v4-pro');
+    set('model.name', 'deepseek-v4-flash');
     set('model.provider', 'openai');
     set('platforms.api_server.enabled', 'true');
     set('platforms.api_server.port', '18765');
@@ -2719,6 +3035,7 @@ ipcMain.handle('memory:stats', async (event, role) => {
 // ---- 技能列表 ----
 ipcMain.handle('skills:list', async () => {
   try {
+    ensureSharedState(); // 确保技能已从 bundle 同步
     const engineDir = getEngineDir();
     const skillsDir = path.join(engineDir, '.hermes', 'skills');
     if (!fs.existsSync(skillsDir)) return { categories: [], total: 0 };
@@ -2823,12 +3140,12 @@ ipcMain.handle('config:get-model', async () => {
   try {
     const engineDir = getEngineDir();
     const configPath = path.join(engineDir, '.hermes', 'config.yaml');
-    if (!fs.existsSync(configPath)) return { model: 'deepseek-v4-pro', provider: 'openai' };
+    if (!fs.existsSync(configPath)) return { model: 'deepseek-v4-flash', provider: 'openai' };
     const yaml = fs.readFileSync(configPath, 'utf8');
     const result = { model: '', provider: '' };
     const modelMatch = yaml.match(/^model:\s*\n(?:\s+name:\s*(.+)\s*\n\s+provider:\s*(.+)|)/m);
     if (modelMatch) {
-      result.model = (modelMatch[1] || 'deepseek-v4-pro').trim();
+      result.model = (modelMatch[1] || 'deepseek-v4-flash').trim();
       result.provider = (modelMatch[2] || 'openai').trim();
     }
     const cpSection = yaml.match(/^custom_providers:\s*\n([\s\S]*?)(?:^\w|\Z)/m);
@@ -2844,13 +3161,13 @@ ipcMain.handle('config:get-model', async () => {
           name: name[1].trim(),
           base_url: (baseUrl && baseUrl[1]) ? baseUrl[1].trim() : '',
           api_key: (apiKey && apiKey[1]) ? apiKey[1].trim().replace(/^hermes_/, '') : '',
-          model: (model && model[1]) ? model[1].trim() : 'deepseek-v4-pro',
+          model: (model && model[1]) ? model[1].trim() : 'deepseek-v4-flash',
         });
       }
       result.custom_providers = providers;
     }
     return result;
-  } catch (e) { return { model: 'deepseek-v4-pro', provider: 'openai', error: e.message }; }
+  } catch (e) { return { model: 'deepseek-v4-flash', provider: 'openai', error: e.message }; }
 });
 
 ipcMain.handle('config:set-model', async (event, opts) => {
@@ -2860,7 +3177,7 @@ ipcMain.handle('config:set-model', async (event, opts) => {
     const agentHermesHome = path.join(homeDir, '.hermes');
 
     // 直接写 YAML，避免 v0.15.x hermes config set 写出字典格式
-    const newModel = opts.model || 'deepseek-v4-pro';
+    const newModel = opts.model || 'deepseek-v4-flash';
     const newProvider = opts.provider || 'openai';
     const apiKeyId = 'hermes_' + getDeviceId();
 
@@ -2922,7 +3239,7 @@ ipcMain.handle('config:set-model', async (event, opts) => {
     if (isWindows) {
       try { execSync('taskkill /F /IM python.exe /FI "MEMUSAGE gt 0" 2>nul', { timeout: 5000 }); } catch (_) {}
     } else {
-      try { execSync('pkill -9 -f "gateway run"', { timeout: 5000 }); } catch (_) {}
+      try { const ed = getEngineDir(); execSync(`pkill -f "${ed}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
     }
     await new Promise(r => setTimeout(r, 3000));
     await startHermesGateway();
@@ -3030,6 +3347,37 @@ ipcMain.handle('recharge:request', async (event, amount) => {
     return JSON.parse(body);
   } catch (e) { return { success: false, error: '充值服务暂不可用' }; }
 });
+ipcMain.handle('payment:create', async (event, amount) => {
+  // 本机 server.py 直接调支付宝 API（不需要公网回调）
+  var url = 'http://localhost:8765/api/payment/url?amount=' + amount + '&device_id=' + getDeviceId();
+  try {
+    var body = await nodeHttpGet(url);
+    return JSON.parse(body);
+  } catch (e) {
+    try { fs.appendFileSync(path.join(homeDir, '.hermes', 'payment.log'), '[' + new Date().toISOString() + '] create error: ' + e.message + '\n'); } catch (_) {}
+    return { success: false, error: '创建支付订单失败: ' + e.message };
+  }
+});
+ipcMain.handle('payment:check', async (event, orderId) => {
+  try {
+    // 本机 server.py 查询支付宝订单状态（主动查，不等回调）
+    var body = await nodeHttpGet('http://localhost:8765/api/payment/status?order_id=' + orderId);
+    return JSON.parse(body);
+  } catch (e) {
+    try { fs.appendFileSync(path.join(homeDir, '.hermes', 'payment.log'), '[' + new Date().toISOString() + '] check error: ' + e.message + '\n'); } catch (_) {}
+    return { paid: false, error: e.message };
+  }
+});
+ipcMain.handle('payment:dev-pay', async (event, { orderId, deviceId, amount }) => {
+  try {
+    var realDeviceId = getDeviceId();
+    var res = await nodeHttpPost('http://localhost:8765/api/payment/dev-pay?order_id=' + orderId + '&device_id=' + realDeviceId + '&amount=' + amount, '{}');
+    return JSON.parse(res);
+  } catch (e) {
+    try { fs.appendFileSync(path.join(homeDir, '.hermes', 'payment.log'), '[' + new Date().toISOString() + '] dev-pay error: ' + e.message + '\n'); } catch (_) {}
+    return { success: false, error: 'DEV充值失败: ' + e.message };
+  }
+});
 // ---- 用量明细 ----
 ipcMain.handle('usage:history', async (event, limit) => {
   try {
@@ -3038,6 +3386,7 @@ ipcMain.handle('usage:history', async (event, limit) => {
   } catch (e) { return { records: [] }; }
 });
 app.whenReady().then(() => {
+  startupLog('app.whenReady fired, starting services...');
   // 自定义协议：avatar:// — 从 Resources/avatars/ 加载头像（锁死在 App 目录）
   protocol.handle('avatar', (request) => {
     const fileName = request.url.replace('avatar://', '');
@@ -3045,9 +3394,31 @@ app.whenReady().then(() => {
     return net.fetch(`file://${filePath}`);
   });
 
+  startupLog('calling startCreditsServer...');
   startCreditsServer();
+  startupLog('calling createWindow...');
   createWindow();
-  startHermesGateway().then(ok => console.log('[gateway] startup:', ok ? 'OK' : 'FAILED'));
+  startupLog('window created, calling startHermesGateway...');
+  startHermesGateway().then(ok => {
+    startupLog('startHermesGateway result: ' + (ok ? 'OK' : 'FAILED'));
+    console.log('[gateway] startup:', ok ? 'OK' : 'FAILED');
+  });
+
+  // 匿名日活心跳（不收集个人信息，仅用于统计活跃设备数）
+  function _telemetryPing() {
+    try {
+      const body = JSON.stringify({ device: getDeviceId().slice(0, 16), version: CURRENT_VERSION, platform: process.platform });
+      const u = new URL('https://api.hergent.cn/api/telemetry/ping');
+      const mod = u.protocol === 'https:' ? https : http;
+      const req = mod.request({ hostname: u.hostname, port: 443, path: u.pathname, method: 'POST', timeout: 5000,
+        rejectUnauthorized: false,
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } }, (res) => { res.resume(); });
+      req.on('error', () => {});  // 静默失败，不影响用户体验
+      req.write(body); req.end();
+    } catch (_) {}
+  }
+  _telemetryPing();
+  setInterval(_telemetryPing, 30 * 60 * 1000); // 每 30 分钟
 
   // 确保成果目录存在
   const reportsDir = path.join(app.getPath('documents'), 'Hergent', '成果');
@@ -3109,25 +3480,14 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('update:quit-and-install', async () => {
     if (!app.isPackaged) return { success: false, error: 'dev mode' };
-    // 未签名 App 不能用 quitAndInstall，改为打开下载的 DMG 让用户手动拖入
     try {
-      // 找到 electron-updater 下载的 DMG
-      const pendingDir = path.join(app.getPath('userData'), '..', 'Caches', app.getName() + '-updater', 'pending');
-      if (fs.existsSync(pendingDir)) {
-        const files = fs.readdirSync(pendingDir).filter(f => f.endsWith('.dmg'));
-        if (files.length > 0) {
-          const dmg = path.join(pendingDir, files[0]);
-          const downloadsDmg = path.join(app.getPath('home'), 'Downloads', files[0]);
-          // 复制到 Downloads 避免被清理
-          try { fs.copyFileSync(dmg, downloadsDmg); } catch(_) {}
-          // 在 Finder 中打开 + 弹出 DMG
-          spawn('open', ['-R', dmg]);
-          // 等 Finder 打开后退出 App
-          setTimeout(() => { app.quit(); }, 2000);
-          return { success: true };
-        }
-      }
-      return { success: false, error: '找不到下载的更新文件' };
+      // 先停掉 Gateway 和服务，确保干净退出
+      stopHermesGateway();
+      stopCreditsServer();
+      // macOS 需要 isSilent=false 才能正常触发重启
+      const isSilent = process.platform !== 'darwin';
+      autoUpdater.quitAndInstall(true, isSilent);
+      return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
     }
@@ -3155,6 +3515,9 @@ app.whenReady().then(() => {
         { role: 'selectAll' }
       ]
     }]));
+  } else {
+    // Windows: 隐藏默认菜单栏（File/Edit/View/Window/Help）
+    Menu.setApplicationMenu(null);
   }
 });
 
