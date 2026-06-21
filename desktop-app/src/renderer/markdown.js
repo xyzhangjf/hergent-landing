@@ -1,172 +1,126 @@
-// Hergent Desktop — Markdown Renderer
+// Hergent Desktop — Markdown Renderer (zero-dependency)
 // Extracted from app.js Phase 2
-// ===== 通道凭据保存（从卡片输入框读取） =====
-async function testChannelConnection(channel) {
-  // 已弃用，保留空函数
-}
 
-// ===== 网关状态 & 控制 =====
-async function checkGatewayStatus() {
-  const dot = document.getElementById('gwDot');
-  const msg = document.getElementById('gwMsg');
-  const btn = document.getElementById('gwRestartBtn');
-  try {
-    const status = await window.hermes.gatewayStatus();
-    if (status.running) {
-      dot.style.background = '#52c41a';
-      msg.textContent = '网关运行中 — ' + (status.message || '');
-      btn.style.display = 'inline-block';
-      startFeishuPolling(); // 网关就绪后开始轮询飞书消息
-      // 检查各平台连接
-      if (status.platforms) {
-        const conn = Object.entries(status.platforms).filter(([k,v]) => v.state === 'connected').map(([k]) => k);
-        const fail = Object.entries(status.platforms).filter(([k,v]) => v.state !== 'connected');
-        if (conn.length > 0) msg.textContent += ' | 已连: ' + conn.join(', ');
-        if (fail.length > 0) msg.textContent += ' | 待连: ' + fail.map(([k]) => k).join(', ');
-      }
-    } else {
-      dot.style.background = '#faad14';
-      msg.textContent = status.message || '网关未运行';
-      btn.style.display = 'inline-block';
-    }
-  } catch (e) {
-    dot.style.background = '#ff4d4f';
-    msg.textContent = '状态检查失败: ' + (e.message || '');
-    btn.style.display = 'inline-block';
-  }
-}
+function renderMarkdown(text) {
+  if (!text) return "";
+  // 1. Escape HTML
+  var html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// ===== 飞书消息轮询 =====
-let _feishuPollTimer = null;
-let _feishuLastMsgTime = null;
+  // 2. Extract code blocks → placeholders
+  var codeBlocks = [];
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
+    var idx = codeBlocks.length;
+    codeBlocks.push('<pre><code class="language-' + (lang || "") + '">' + code.replace(/\n+$/, "").replace(/^\n+/, "") + "</code></pre>");
+    return "\x00CB" + idx + "\x00";
+  });
 
-function startFeishuPolling() {
-  if (_feishuPollTimer) return;
-  _feishuPollTimer = setInterval(pollFeishuMessages, 4000);
-  pollFeishuMessages(); // 立即执行一次
-}
+  // 3. Block-level processing
+  var lines = html.split("\n");
+  var result = [];
+  var i = 0;
+  var inList = null, inTable = false, tableHtml = [];
 
-async function pollFeishuMessages() {
-  if (!window.hermes || !window.hermes.pollFeishuMessages) return;
-  try {
-    const result = await window.hermes.pollFeishuMessages();
-    if (!result.messages || result.messages.length === 0) return;
+  while (i < lines.length) {
+    var raw = lines[i];
+    var line = raw.trim();
 
-    for (const msg of result.messages) {
-      // 避免重复显示
-      const msgKey = msg.time + msg.text.slice(0, 30);
-      if (msgKey === _feishuLastMsgTime) continue;
-      _feishuLastMsgTime = msgKey;
-
-      const msgRole = msg.roleId || getFeishuRole();
-      const rd = ROLES[msgRole] || {};
-      const roleName = rd.name || msgRole;
-      const displayText = msg.role === 'user'
-        ? `📱 ${msg.platform || '飞书'}→${roleName}: ${msg.text}`
-        : msg.text;
-
-      // 保存到正确的角色聊天记录（而非当前查看的角色）
-      const prevAction = currentAction;
-      try {
-        currentAction = msgRole; // 临时切换到目标角色
-        if (msg.role === 'user') {
-          addChatMessage('user', displayText, null, msg.time || null, msg.platform || '飞书');
-        } else {
-          addChatMessage('hermes', displayText, null, msg.time || null, msg.platform || '飞书');
+    // Table detection
+    if (inTable) {
+      if (line.indexOf("|") === 0 && line.lastIndexOf("|") === line.length - 1) {
+        if (!/^\|[\s\-:]+\|$/.test(line)) {
+          var cells = line.split("|").slice(1, -1).map(function(c) { return "<td>" + c.trim() + "</td>"; }).join("");
+          tableHtml.push("<tr>" + cells + "</tr>");
         }
-      } finally {
-        currentAction = prevAction; // 恢复当前角色
-      }
-
-      // App 和飞书共用同一 Session，无需注入
-
-      // 如果当前不在看该角色的聊天，加未读
-      if (!document.getElementById('pageHome').classList.contains('active') || prevAction !== msgRole) {
-        bumpUnread(msgRole);
-      }
-
-      // 如果当前正在看该角色的聊天，刷新显示
-      if (prevAction === msgRole && document.getElementById('pageHome').classList.contains('active')) {
-        loadChatHistory();
+        i++; continue;
+      } else {
+        result.push("<table>" + tableHtml.join("") + "</table>");
+        inTable = false; tableHtml = [];
+        continue;
       }
     }
-    // 飞书消息处理完后刷新积分显示
-    updateCreditsBadge();
-  } catch (_) {}
-}
-
-function getFeishuRole() {
-  try {
-    const channels = JSON.parse(localStorage.getItem('hermes_channels_cache') || '{}');
-    if (channels.feishu) {
-      const roles = Object.keys(channels.feishu).filter(k => !k.startsWith('_'));
-      if (roles.length > 0) return roles[0];
+    if (line.indexOf("|") === 0 && line.lastIndexOf("|") === line.length - 1 && raw.indexOf("|") !== raw.lastIndexOf("|")) {
+      var hcells = line.split("|").slice(1, -1).map(function(c) { return "<th>" + c.trim() + "</th>"; }).join("");
+      tableHtml.push("<tr>" + hcells + "</tr>");
+      var nextLine = (lines[i+1] || "").trim();
+      if (nextLine.indexOf("|") === 0 && /^\|[\s\-:]+\|$/.test(nextLine)) {
+        inTable = true; i += 2; continue;
+      } else { tableHtml = []; }
     }
-  } catch (_) {}
-  return currentAction || 'dami';
-}
 
-async function restartGatewayFromUI(silent) {
-  const msg = document.getElementById('gwMsg');
-  const btn = document.getElementById('gwRestartBtn');
-  if (!silent) showDialog('💭', '正在重启网关...');
-  try {
-    msg.textContent = '🔄 正在重启网关...';
-    btn.style.display = 'none';
-    const result = await window.hermes.gatewayRestart();
-    if (result.success) {
-      if (!silent) showDialog('✅', '网关已重启');
-    } else {
-      if (!silent) showDialog('⚠️', '重启结果: ' + (result.output || '未知'));
+    // Headings
+    if (/^#{1,4}\s/.test(line)) {
+      if (inList) { result.push(inList === "ul" ? "</ul>" : "</ol>"); inList = null; }
+      var m = line.match(/^(#{1,4})\s+(.+)/);
+      result.push("<h" + m[1].length + ">" + m[2] + "</h" + m[1].length + ">");
+      i++; continue;
     }
-  } catch (e) {
-    if (!silent) showDialog('❌', '重启失败: ' + (e.message || ''));
+
+    // Blockquote
+    if (raw.indexOf(">") === 0) {
+      if (inList) { result.push(inList === "ul" ? "</ul>" : "</ol>"); inList = null; }
+      result.push("<blockquote>" + raw.replace(/^>\s?/, "") + "</blockquote>");
+      i++; continue;
+    }
+
+    // Horizontal rule
+    if (/^[-*_]{3,}$/.test(line)) {
+      if (inList) { result.push(inList === "ul" ? "</ul>" : "</ol>"); inList = null; }
+      result.push("<hr>");
+      i++; continue;
+    }
+
+    // Unordered list
+    if (/^[-*]\s/.test(raw)) {
+      if (inList !== "ul") {
+        if (inList) result.push("</ol>");
+        result.push("<ul>");
+        inList = "ul";
+      }
+      result.push("<li>" + raw.replace(/^[-*]\s+/, "") + "</li>");
+      i++; continue;
+    }
+
+    // Ordered list
+    if (/^\d+\.\s/.test(raw)) {
+      if (inList !== "ol") {
+        if (inList) result.push("</ul>");
+        result.push("<ol>");
+        inList = "ol";
+      }
+      result.push("<li>" + raw.replace(/^\d+\.\s+/, "") + "</li>");
+      i++; continue;
+    }
+
+    // Exit list
+    if (inList) { result.push(inList === "ul" ? "</ul>" : "</ol>"); inList = null; }
+
+    // Empty line → paragraph break
+    if (line === "") { result.push("<br>"); i++; continue; }
+
+    // Normal paragraph
+    result.push("<p>" + line + "</p>");
+    i++;
   }
-  // 等2秒再检查状态
-  await new Promise(r => setTimeout(r, 2000));
-  await checkGatewayStatus();
-  refreshChannels();
+  if (inList) { result.push(inList === "ul" ? "</ul>" : "</ol>"); }
+  if (inTable && tableHtml.length) { result.push("<table>" + tableHtml.join("") + "</table>"); }
+
+  html = result.join("\n");
+
+  // 4. Inline formatting
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/(?<!\w)_(.+?)_(?!\w)/g, "<em>$1</em>");
+  html = html.replace(/(?<!\*)\*(.+?)\*(?!\*)/g, "<em>$1</em>");
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  html = html.replace(/~~(.+?)~~/g, "<del>$1</del>");
+
+  // 5. Links [text](url)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="chat-link" target="_blank">$1</a>');
+
+  // 6. Auto-link bare URLs
+  html = html.replace(/(https?:\/\/[^\s<>\[\]()]+)/g, '<a href="$1" class="chat-link" target="_blank">$1</a>');
+
+  // 7. Restore code blocks
+  html = html.replace(/\x00CB(\d+)\x00/g, function(_, idx) { return codeBlocks[parseInt(idx)]; });
+
+  return html;
 }
-
-// ===== 状态弹窗 =====
-const DIALOG_ICONS = {
-  '✅': '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-  '❌': '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-  '⚠️': '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-  '💭': '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--brand-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-  '🪙': '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--brand-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>',
-  '🔄': '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--brand-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
-};
-let _dialogResolve = null;
-function showDialog(icon, msg, confirmMode) {
-  document.getElementById('dialogIcon').innerHTML = DIALOG_ICONS[icon] || icon;
-  document.getElementById('dialogMsg').textContent = msg;
-  const cancelBtn = document.getElementById('dialogBtnCancel');
-  const okBtn = document.getElementById('dialogBtnOk');
-  if (confirmMode) {
-    cancelBtn.style.display = '';
-    okBtn.textContent = '确定';
-    return new Promise((resolve) => {
-      _dialogResolve = resolve;
-      okBtn.onclick = () => { hideOverlay('dialogOverlay'); _dialogResolve = null; resolve(true); };
-      cancelBtn.onclick = () => { hideOverlay('dialogOverlay'); _dialogResolve = null; resolve(false); };
-      showOverlay('dialogOverlay');
-    });
-  }
-  cancelBtn.style.display = 'none';
-  okBtn.textContent = '知道了';
-  okBtn.onclick = closeDialog;
-  _dialogResolve = null;
-  showOverlay('dialogOverlay');
-}
-function closeDialog() {
-  hideOverlay('dialogOverlay');
-  _dialogResolve = null;
-}
-
-
-
-// 问卷调查状态
-let questionnaireHistory = '';  // 累积的对话历史
-
-
