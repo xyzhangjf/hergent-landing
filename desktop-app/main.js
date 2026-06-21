@@ -25,6 +25,7 @@ const feishu = require("./src/main/feishu");
 const wecom = require("./src/main/wecom");
 const creditsSrv = require("./src/main/credits-server");
 const gateway = require("./src/main/gateway");
+gateway.init(GATEWAY_API_KEY, engine, rolesMgr, licenses);
 engine.init(GATEWAY_API_KEY, HERMES_BIN);
 creditsSrv.init(engine.getEngineDir);
 // ===== Sentry 错误监控（可选，通过 SENTRY_DSN 环境变量启用）=====
@@ -174,7 +175,7 @@ function isGatewayRunning() {
 async function waitForGateway(maxWaitMs = 90000) {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
-    if (await isGatewayRunning()) return true;
+    if (await gateway.isGatewayRunning()) return true;
     await new Promise(r => setTimeout(r, 1000));
   }
   return false;
@@ -349,7 +350,7 @@ async function startHermesGateway() {
   engine.ensureSharedState();
   engine.ensureRoleConfigs();
   engine.markEngineReady();
-  const isRunning = await isGatewayRunning();
+  const isRunning = await gateway.isGatewayRunning();
   if (!isRunning) {
   // 直接写 YAML（v0.15.x 要求 custom_providers 必须为列表格式，hermes config set 却写字典格式）
   const mainConfigPath = path.join(gwHome, 'config.yaml');
@@ -508,12 +509,12 @@ async function startHermesGateway() {
   const pythonBin2 = pythonCandidates2.find(p => fs.existsSync(p));
   if (pythonBin2) {
     const libsDir2 = path.join(binDir2, 'libs');
-    spawnRoleGateways(pythonBin2, libsDir2, glog);
+    gateway.spawnRoleGateways(pythonBin2, libsDir2, glog);
   } else {
     glog('Role GW: no python binary found for role gateways');
   }
   glog('waiting for health check...');
-  const ready = isRunning || await waitForGateway();
+  const ready = isRunning || await gateway.waitForGateway();
   glog('health check result: ' + ready);
   if (ready) {
     glog('Gateway ready on ' + GATEWAY_URL);
@@ -542,7 +543,7 @@ function stopHermesGateway() {
 }
 // 网关 ready 后通过 IPC 通知渲染进程
 ipcMain.handle('gateway:status', async () => {
-  const running = await isGatewayRunning();
+  const running = await gateway.isGatewayRunning();
   const ready = engine.isEngineReady();
   return { running, ready, url: running ? GATEWAY_URL : null };
 });
@@ -689,7 +690,7 @@ app.whenReady().then(() => {
 });
 // 获取设备ID（基于 UUID v4，首次生成后持久化到 license.json）
 // 获取试用/激活状态
-let mainWindow;
+// let mainWindow; → managed by src/main/window.js
 function createWindow() {
   const winOpts = {
     width: 900,
@@ -707,9 +708,9 @@ function createWindow() {
     winOpts.titleBarStyle = 'hidden';
     winOpts.transparent = true;
   }
-  mainWindow = new BrowserWindow(winOpts);
-  mainWindow.loadFile('index.html');
-  mainWindow.center();
+  // mainWindow → window.js; new BrowserWindow(winOpts);
+  win.getMainWindow().loadFile('index.html');
+  win.getMainWindow().center();
 }
 // ===== 通道配置读写 =====
 function loadChannels() {
@@ -734,7 +735,7 @@ async function restartGateway() {
     try { const ed = engine.getEngineDir(); execSync(`pkill -f "${ed}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
   }
   await new Promise(r => setTimeout(r, 3000));
-  const ok = await startHermesGateway();
+  const ok = await gateway.startHermesGateway();
   return { success: ok, output: ok ? 'Gateway restarted' : 'Gateway restart failed' };
 }
 // ===== Hermes CLI 帮助函数 =====
@@ -1199,10 +1200,10 @@ ipcMain.handle('hermes:execute', async (event, params) => {
         : stepPrompt;
       try {
         // 确保 gateway 就绪
-        let gatewayReady = await isGatewayRunning();
+        let gatewayReady = await gateway.isGatewayRunning();
         if (!gatewayReady) {
           fs.appendFileSync(logFile, `[${new Date().toISOString()}] pipeline step ${i+1}: gateway not ready, starting...\n`);
-          gatewayReady = await startHermesGateway();
+          gatewayReady = await gateway.startHermesGateway();
         }
         let stepOutput = '';
         if (gatewayReady) {
@@ -1401,7 +1402,7 @@ ipcMain.handle('cron:list', async () => {
     const allTasks = [];
     // 查询主引擎 + 所有角色 Gateway 的定时任务
     const hermesHomes = [path.join(engine.getEngineDir(), '.hermes')];
-    const roleConfigs = getPlatformRoleConfigs();
+    const roleConfigs = gateway.getPlatformRoleConfigs();
     for (const cfg of roleConfigs) {
       hermesHomes.push(path.join(engine.getEngineDir(), '.hermes', 'agents', cfg.roleId));
     }
@@ -1646,7 +1647,7 @@ ipcMain.handle('channels:test', async (event, params) => {
 // ===== IPC: 网关控制 =====
 ipcMain.handle('channels:gateway-status', async () => {
   try {
-    const running = await isGatewayRunning();
+    const running = await gateway.isGatewayRunning();
     const ready = engine.isEngineReady();
     return { running, ready, url: running ? GATEWAY_URL : null, message: ready ? '引擎就绪' : (running ? '引擎准备中' : '网关未启动') };
   } catch (e) {
@@ -1689,7 +1690,7 @@ ipcMain.handle('feishu:poll-messages', async () => {
     const messages = [];
     // v0.15.x: sessions 存储在 state.db (SQLite)，不再用 JSON 文件
     const dbDirs = [path.join(engineDir, '.hermes')];
-    const platformConfigs = getPlatformRoleConfigs();
+    const platformConfigs = gateway.getPlatformRoleConfigs();
     const seenDirs = new Set();
     for (const cfg of platformConfigs) {
       const d = path.join(engineDir, '.hermes', 'agents', cfg.roleId);
@@ -1907,14 +1908,14 @@ ipcMain.handle('shell:open', async (event, url) => {
   return true;
 });
 // ===== 窗口控制 =====
-ipcMain.on('window:minimize', () => mainWindow.minimize());
+ipcMain.on('window:minimize', () => win.getMainWindow().minimize());
 ipcMain.on('window:maximize', () => {
-  mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
+  win.getMainWindow().isMaximized() ? win.getMainWindow().unmaximize() : win.getMainWindow().maximize();
 });
-ipcMain.on('window:close', () => mainWindow.close());
+ipcMain.on('window:close', () => win.getMainWindow().close());
 ipcMain.on('window:drag', (event, { deltaX, deltaY }) => {
-  const [x, y] = mainWindow.getPosition();
-  mainWindow.setPosition(x + deltaX, y + deltaY);
+  const [x, y] = win.getMainWindow().getPosition();
+  win.getMainWindow().setPosition(x + deltaX, y + deltaY);
 });
 // ===== 右键菜单 =====
 ipcMain.on('show-context-menu', (event) => {
@@ -2083,7 +2084,7 @@ ipcMain.handle('hermes:bootstrap', async (event) => {
   // Step 6: 启动 Hermes Gateway（bootstrap 前 HERMES_BIN 不存在，此时重启）
   send('gateway|启动 AI 引擎…');
   log('post-bootstrap: restarting gateway');
-  startHermesGateway().then(ok => {
+  gateway.startHermesGateway().then(ok => {
     log('post-bootstrap gateway: ' + (ok ? 'OK' : 'FAILED'));
   });
   send('done|准备就绪！');
@@ -2550,7 +2551,7 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       } catch (_) {}
     }
     // 强制重启 Gateway 使模型变更生效
-    stopHermesGateway();
+    gateway.stopHermesGateway();
     // 兜底：杀干净所有残留 gateway 进程
     if (isWindows) {
       try { execSync('taskkill /F /IM python.exe /FI "MEMUSAGE gt 0" 2>nul', { timeout: 5000 }); } catch (_) {}
@@ -2558,8 +2559,8 @@ ipcMain.handle('config:set-model', async (event, opts) => {
       try { const ed = engine.getEngineDir(); execSync(`pkill -f "${ed}/python/bin/python3.11.*gateway run"`, { timeout: 5000 }); } catch (_) {}
     }
     await new Promise(r => setTimeout(r, 3000));
-    await startHermesGateway();
-    const ready = await waitForGateway(90000);
+    await gateway.startHermesGateway();
+    const ready = await gateway.waitForGateway(90000);
     return { success: ready };
   } catch (e) { return { success: false, error: e.message }; }
 });
@@ -2709,11 +2710,11 @@ app.whenReady().then(() => {
     return net.fetch(`file://${filePath}`);
   });
   logger.startup('calling startCreditsServer...');
-  startCreditsServer();
+  creditsSrv.startCreditsServer(app);
   logger.startup('calling createWindow...');
-  createWindow();
+  win.createWindow(isWindows, path.join(__dirname, "preload.js"));
   logger.startup('window created, calling startHermesGateway...');
-  startHermesGateway().then(ok => {
+  gateway.startHermesGateway().then(ok => {
     logger.startup('startHermesGateway result: ' + (ok ? 'OK' : 'FAILED'));
     console.log('[gateway] startup:', ok ? 'OK' : 'FAILED');
   });
@@ -2748,22 +2749,22 @@ app.whenReady().then(() => {
     error: (msg) => { try { fs.appendFileSync(path.join(homeDir, '.hermes', 'updater.log'), `[ERROR] ${msg}\n`); } catch(_) {} },
   };
   autoUpdater.on('checking-for-update', () => {
-    try { mainWindow?.webContents?.send('update:status', { event: 'checking' }); } catch(_) {}
+    try { win.getMainWindow()?.webContents?.send('update:status', { event: 'checking' }); } catch(_) {}
   });
   autoUpdater.on('update-available', (info) => {
-    try { mainWindow?.webContents?.send('update:status', { event: 'available', version: info.version }); } catch(_) {}
+    try { win.getMainWindow()?.webContents?.send('update:status', { event: 'available', version: info.version }); } catch(_) {}
   });
   autoUpdater.on('update-not-available', () => {
-    try { mainWindow?.webContents?.send('update:status', { event: 'not-available' }); } catch(_) {}
+    try { win.getMainWindow()?.webContents?.send('update:status', { event: 'not-available' }); } catch(_) {}
   });
   autoUpdater.on('download-progress', (progress) => {
-    try { mainWindow?.webContents?.send('update:status', { event: 'progress', percent: Math.round(progress.percent) }); } catch(_) {}
+    try { win.getMainWindow()?.webContents?.send('update:status', { event: 'progress', percent: Math.round(progress.percent) }); } catch(_) {}
   });
   autoUpdater.on('update-downloaded', (info) => {
-    try { mainWindow?.webContents?.send('update:status', { event: 'downloaded', version: info.version }); } catch(_) {}
+    try { win.getMainWindow()?.webContents?.send('update:status', { event: 'downloaded', version: info.version }); } catch(_) {}
   });
   autoUpdater.on('error', (err) => {
-    try { mainWindow?.webContents?.send('update:status', { event: 'error', message: err.message }); } catch(_) {}
+    try { win.getMainWindow()?.webContents?.send('update:status', { event: 'error', message: err.message }); } catch(_) {}
   });
   ipcMain.handle('update:check', async () => {
     if (!app.isPackaged) {
@@ -2792,8 +2793,8 @@ app.whenReady().then(() => {
     if (!app.isPackaged) return { success: false, error: 'dev mode' };
     try {
       // 先停掉 Gateway 和服务，确保干净退出
-      stopHermesGateway();
-      stopCreditsServer();
+      gateway.stopHermesGateway();
+      creditsSrv.stopCreditsServer();
       // macOS 需要 isSilent=false 才能正常触发重启
       const isSilent = process.platform !== 'darwin';
       autoUpdater.quitAndInstall(true, isSilent);
@@ -2829,5 +2830,5 @@ app.whenReady().then(() => {
   }
 });
 ipcMain.handle('app:version', () => CURRENT_VERSION);
-app.on('window-all-closed', () => { stopCreditsServer(); stopHermesGateway(); app.quit(); });
-app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+app.on('window-all-closed', () => { creditsSrv.stopCreditsServer(); stopHermesGateway(); app.quit(); });
+app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) win.createWindow(isWindows, path.join(__dirname, "preload.js")); });
