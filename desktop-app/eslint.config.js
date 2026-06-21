@@ -115,6 +115,36 @@ module.exports = [
     },
   },
   {
+    // Jest test files
+    files: ["tests/**/*.js", "tests/**/*.ts"],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: "commonjs",
+      globals: {
+        describe: "readonly",
+        test: "readonly",
+        it: "readonly",
+        expect: "readonly",
+        jest: "readonly",
+        beforeEach: "readonly",
+        afterEach: "readonly",
+        beforeAll: "readonly",
+        afterAll: "readonly",
+        require: "readonly",
+        module: "readonly",
+        __dirname: "readonly",
+        process: "readonly",
+        console: "readonly",
+        Buffer: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+        global: "writable",
+      },
+    },
+  },
+  {
     ignores: [
       "node_modules/**",
       "release/**",

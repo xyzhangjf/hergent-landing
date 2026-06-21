@@ -46,8 +46,8 @@
       else { bytes.push(0xE0 | (code >> 12), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F)); }
     }
     var result = "";
-    for (var i = 0; i < bytes.length; i++) {
-      result += String.fromCharCode(bytes[i] ^ ((i % 31) + 1));
+    for (var j = 0; j < bytes.length; j++) {
+      result += String.fromCharCode(bytes[j] ^ ((j % 31) + 1));
     }
     return btoa(result);
   }
