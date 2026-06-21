@@ -1,14 +1,14 @@
 // Hergent Desktop — Utility Functions
 // Extracted from app.js Phase 2
-
 function notifyIfAway(title, body) {
   if (document.hidden && window.hermes.notify) {
     window.hermes.notify(title, body);
   }
 }
 
+// 转换技术错误为友好中文提示
 function friendlyError(e) {
-  var msg = (e && (e.message || String(e))) || '';
+  const msg = (e && (e.message || String(e))) || '';
   if (/failed to fetch|networkerror|fetch error/i.test(msg)) return '无法连接服务，请检查网络';
   if (/timeout|timed ?out/i.test(msg)) return '响应超时，请稍后重试';
   if (/ECONNREFUSED|connection refused/i.test(msg)) return 'AI 引擎未就绪，请稍后重试';
@@ -22,3 +22,4 @@ function friendlyError(e) {
   if (/503|service.?unavailable/i.test(msg)) return '服务暂不可用，请稍后重试';
   return (e && e.message) || '未知错误，请重试';
 }
+
