@@ -24,6 +24,7 @@ const engine = require("./src/main/engine");
 const feishu = require("./src/main/feishu");
 const wecom = require("./src/main/wecom");
 const creditsSrv = require("./src/main/credits-server");
+const gateway = require("./src/main/gateway");
 engine.init(GATEWAY_API_KEY, HERMES_BIN);
 creditsSrv.init(engine.getEngineDir);
 // ===== Sentry 错误监控（可选，通过 SENTRY_DSN 环境变量启用）=====
