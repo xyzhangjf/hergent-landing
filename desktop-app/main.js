@@ -366,8 +366,8 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             const winRoleId = role || 'dami';
             try {
               const winArgs = [winHermes, 'chat', '-q', fullText, '--max-turns', '60', '--source', 'tool'];
-              const winPlatformSid = getLatestPlatformSession(winRoleId);
-              if (winPlatformSid || ROLE_SESSIONS[winRoleId]) { winArgs.push('--resume', winPlatformSid || ROLE_SESSIONS[winRoleId]); }
+              const winPlatformSid = gateway.getLatestPlatformSession(winRoleId);
+              if (winPlatformSid || gateway.getRoleSessions()[winRoleId]) { winArgs.push('--resume', winPlatformSid || gateway.getRoleSessions()[winRoleId]); }
               const child = spawn(winPython, winArgs, {
                 env: { ...process.env, PYTHONPATH: path.join(engineDir, 'libs'), PYTHONHOME: '', PYTHONUTF8: '1', HERMES_HOME: path.join(engineDir, '.hermes', 'agents', role || 'dami') }
               });
@@ -385,15 +385,15 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               let responseText = lastBox ? lastBox[1].split('\n').map(l => l.trim()).filter(Boolean).join('\n').trim() : '';
               if (!responseText) responseText = cliResult.stdout.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
               const sidMatch = cliResult.stdout.match(/Session:\s+(\S+)/);
-              if (sidMatch) ROLE_SESSIONS[winRoleId] = sidMatch[1];
+              if (sidMatch) gateway.getRoleSessions()[winRoleId] = sidMatch[1];
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
               try {
                 await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
                   JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-flash' }));
               } catch (_) { /* 积分报告失败不影响主流程 */ }
-              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: ROLE_SESSIONS[winRoleId] || null };
+              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: gateway.getRoleSessions()[winRoleId] || null };
             } catch (e) {
-              return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: ROLE_SESSIONS[winRoleId] || null };
+              return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: gateway.getRoleSessions()[winRoleId] || null };
             }
           }
           // macOS/Linux: 使用 Agent Python + PYTHONPATH 确保依赖齐全
@@ -420,8 +420,8 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               baseArgs.unshift('-m');
             }
             // 会话续接：优先用平台Session（飞书等），App和飞书共享同一上下文
-            const platformSessionId = getLatestPlatformSession(roleId);
-            const resumeId = platformSessionId || ROLE_SESSIONS[roleId];
+            const platformSessionId = gateway.getLatestPlatformSession(roleId);
+            const resumeId = platformSessionId || gateway.getRoleSessions()[roleId];
             if (resumeId) {
               baseArgs.push('--resume', resumeId);
             }
@@ -445,15 +445,15 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               if (!responseText) responseText = cliResult.stdout.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
               // 提取会话 ID，下次同一角色续接上下文
               const sidMatch = cliResult.stdout.match(/Session:\s+(\S+)/);
-              if (sidMatch) ROLE_SESSIONS[roleId] = sidMatch[1];
+              if (sidMatch) gateway.getRoleSessions()[roleId] = sidMatch[1];
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
               try {
                 await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
                   JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-flash' }));
               } catch (_) { /* 积分报告失败不影响主流程 */ }
-              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: ROLE_SESSIONS[roleId] || null };
+              return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: gateway.getRoleSessions()[roleId] || null };
             } catch (e) {
-              return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: ROLE_SESSIONS[roleId] || null };
+              return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: gateway.getRoleSessions()[roleId] || null };
             }
         }
         }
@@ -461,7 +461,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
         const roles = rolesMgr.loadRoles();
         const currentRole = roles[roleId] || roles['dami'];
         try {
-          const sessionId = ROLE_SESSIONS[roleId] || null;
+          const sessionId = gateway.getRoleSessions()[roleId] || null;
           const result = await new Promise((resolve, reject) => {
             const chatMessages = [
               { role: 'system', content: currentRole.systemPrompt || '你是 Hergent 数字员工，运行在用户的电脑上。你可以读写文件、执行代码、操控系统。说人话、不啰嗦。' },
@@ -487,7 +487,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               }
               // 捕获会话 ID，后续请求复用
               const sid = res.headers['x-hermes-session-id'];
-              if (sid) ROLE_SESSIONS[roleId] = sid;
+              if (sid) gateway.getRoleSessions()[roleId] = sid;
               let buffer = '', fullResponse = '';
               res.on('data', (chunk) => {
                 buffer += chunk.toString();
@@ -521,9 +521,9 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
               JSON.stringify({ credits: estimatedCredits, model: 'deepseek-v4-flash' }));
           } catch (_) { /* 积分报告失败不影响主流程 */ }
-          return { requestId, success: true, output: gwResponseText, offline: false, sessionId: ROLE_SESSIONS[roleId] || null };
+          return { requestId, success: true, output: gwResponseText, offline: false, sessionId: gateway.getRoleSessions()[roleId] || null };
         } catch (e) {
-          return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: ROLE_SESSIONS[roleId] || null };
+          return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: gateway.getRoleSessions()[roleId] || null };
         }
       }
     }
@@ -603,7 +603,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
       const roleName = (rolesMgr.loadRoles()[r.role] || {}).name || r.role;
       return `### ${roleName}\n${r.output}`;
     }).join('\n\n---\n\n');
-    return { requestId: 'req_' + Date.now(), success: true, output: finalOutput, pipeline: results, sessionId: ROLE_SESSIONS[roleId] || null };
+    return { requestId: 'req_' + Date.now(), success: true, output: finalOutput, pipeline: results, sessionId: gateway.getRoleSessions()[roleId] || null };
   }
   if (action === 'fs:list') {
     const dir = (args && args.dir) || path.join(homeDir, 'Documents');
@@ -649,8 +649,15 @@ ipcMain.handle('hermes:execute', async (event, params) => {
     } catch (e) { return { success: false, error: e.message }; }
   } else if (action === 'fs:read') {
     const filePath = (args && args.path) || '';
+    // Security: restrict reads to homeDir and app resources only
+    const resolved = path.resolve(filePath);
+    const allowedRoots = [homeDir, app.getAppPath(), app.getPath('userData')];
+    const allowed = allowedRoots.some(function(root) { return resolved.startsWith(root + path.sep) || resolved === root; });
+    if (!allowed) {
+      return { content: '', error: 'Access denied: path outside allowed directories' };
+    }
     try {
-      const content = fs.readFileSync(filePath, 'utf8');
+      const content = fs.readFileSync(resolved, 'utf8');
       return { content };
     } catch (e) {
       return { content: '', error: e.message };

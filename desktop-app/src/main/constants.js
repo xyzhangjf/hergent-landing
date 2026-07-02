@@ -27,7 +27,7 @@ const _isDev = process.env.HERGENT_DEV === "1" || process.env.NODE_ENV === "deve
 const _tlsReject = !_isDev;
 
 // ===== Activation & Licensing =====
-const ACTIVATION_KEY = "hermes-fmcg-activation-2026";
+const ACTIVATION_KEY = process.env.HERGENT_ACTIVATION_KEY || "hermes-fmcg-activation-2026";
 const TRIAL_DAYS = 7;
 const LICENSE_DAYS = 365;
 

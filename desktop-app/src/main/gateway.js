@@ -175,6 +175,7 @@ function spawnRoleGateways(pythonBin, libsDir, glog) {
     const roleYaml = roleYamlLines.join('\n');
     try {
       fs.writeFileSync(roleConfigPath, roleYaml);
+      try { fs.chmodSync(roleConfigPath, 0o600); } catch (_) {}  // Restrict: secrets inside
       fs.writeFileSync(path.join(roleHome, '.env'), 'OPENAI_API_KEY=hermes-local-proxy\n');
     } catch (_) {}
     glog(`Starting ${cfg.label} gateway for role ${cfg.roleId} (${cfg.name})...`);
@@ -223,8 +224,8 @@ async function startHermesGateway() {
   // 直接写 YAML（v0.15.x 要求 custom_providers 必须为列表格式，hermes config set 却写字典格式）
   const mainConfigPath = path.join(gwHome, 'config.yaml');
   try {
-    const deviceId = licenses._licenses.getDeviceId();
-    const dsKey = licenses._licenses.getDeepSeekApiKey();
+    const deviceId = licenses.getDeviceId();
+    const dsKey = licenses.getDeepSeekApiKey();
     const existingModel = (() => { try { const c = fs.readFileSync(mainConfigPath, 'utf8'); const m = c.match(/^model:\s*\n\s+name:\s*(.+)/m); return m ? m[1].trim() : null; } catch(_) { return null; } })();
     const modelName = existingModel || 'deepseek-v4-flash';
     const provider = 'openai';

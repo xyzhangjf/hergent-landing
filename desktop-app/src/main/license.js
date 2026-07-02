@@ -73,6 +73,19 @@ function getDeviceId() {
   return id;
 }
 
+function getDeepSeekApiKey() {
+  try {
+    const homeDir = _app.getPath("home");
+    const authPath = path.join(homeDir, ".hermes", "auth.json");
+    if (fs.existsSync(authPath)) {
+      const auth = JSON.parse(fs.readFileSync(authPath, "utf8"));
+      const pool = auth.credential_pool?.deepseek;
+      if (pool && pool.length > 0) return pool[0].access_token;
+    }
+  } catch (_) {}
+  return process.env.DEEPSEEK_API_KEY || "hermes-local-proxy";
+}
+
 function getLicenseStatus() {
   const lic = ensureLicenseInit();
   const now = new Date();
@@ -99,4 +112,4 @@ function getLicenseStatus() {
   return { status: "trial", trialDays: TRIAL_DAYS, remainingDays: remaining, usedDays, credits: lic.credits || 0, message: "试用第 " + usedDays + " 天，剩余 " + remaining + " 天" };
 }
 
-module.exports = { init, getLicensePath, loadLicense, saveLicense, ensureLicenseInit, generateActivationCode, verifyActivationCode, getDeviceId, getLicenseStatus };
+module.exports = { init, getLicensePath, loadLicense, saveLicense, ensureLicenseInit, generateActivationCode, verifyActivationCode, getDeviceId, getDeepSeekApiKey, getLicenseStatus };
