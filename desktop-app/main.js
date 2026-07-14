@@ -2113,6 +2113,13 @@ app.whenReady().then(() => {
   });
   autoUpdater.on('update-available', (info) => {
     try { win.getMainWindow()?.webContents?.send('update:status', { event: 'available', version: info.version }); } catch(_) {}
+    // 桌面通知：新版本可用
+    try {
+      const { Notification } = require('electron');
+      if (Notification.isSupported()) {
+        new Notification({ title: 'Hergent 新版本', body: 'v' + (info.version || '?') + ' 可用，点击底部横幅更新' }).show();
+      }
+    } catch(_) {}
   });
   autoUpdater.on('update-not-available', () => {
     try { win.getMainWindow()?.webContents?.send('update:status', { event: 'not-available' }); } catch(_) {}
@@ -2122,21 +2129,28 @@ app.whenReady().then(() => {
   });
   autoUpdater.on('update-downloaded', (info) => {
     try { win.getMainWindow()?.webContents?.send('update:status', { event: 'downloaded', version: info.version }); } catch(_) {}
+    // 桌面通知：下载完成
+    try {
+      const { Notification } = require('electron');
+      if (Notification.isSupported()) {
+        new Notification({ title: 'Hergent 更新就绪', body: 'v' + (info.version || '') + ' 已下载，即将重启安装' }).show();
+      }
+    } catch(_) {}
   });
   autoUpdater.on('error', (err) => {
     try { win.getMainWindow()?.webContents?.send('update:status', { event: 'error', message: err.message }); } catch(_) {}
   });
   ipcMain.handle('update:check', async () => {
     if (!app.isPackaged) {
-      return { updateAvailable: false, reason: 'dev-mode' };
+      return { updateAvailable: false, currentVersion: CURRENT_VERSION, reason: 'dev-mode' };
     }
     try {
       const result = await autoUpdater.checkForUpdates();
       if (result && result.updateInfo && result.updateInfo.version !== CURRENT_VERSION) {
-        return { updateAvailable: true, version: result.updateInfo.version, releaseNotes: result.updateInfo.releaseNotes };
+        return { updateAvailable: true, version: result.updateInfo.version, currentVersion: CURRENT_VERSION, releaseNotes: result.updateInfo.releaseNotes };
       }
     } catch (_) {}
-    return { updateAvailable: false };
+    return { updateAvailable: false, currentVersion: CURRENT_VERSION };
   });
   ipcMain.handle('update:install', async () => {
     if (!app.isPackaged) {

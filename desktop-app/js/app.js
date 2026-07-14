@@ -3780,92 +3780,152 @@ function restoreStreamPlaceholder() {
     });
   }
 
-  // 监听更新通知
-  let _updateDownloading = false;
-  let _updateReadyTimer = null;
+  // ===== 自动更新 UI（增强版：横幅 + 进度 + 确认弹窗 + 重启后版本提示）=====
+  var _updateDownloading = false;
+  var _updateNewVersion = '';
+  var _updateCheckTimer = null;
+
+  // 重启后显示“已更新”提示
+  (function() {
+    try {
+      var lastVer = localStorage.getItem('hermes_updated_from');
+      if (lastVer) {
+        localStorage.removeItem('hermes_updated_from');
+        setTimeout(function() {
+          var v = window.hermes.getVersion ? window.hermes.getVersion() : Promise.resolve('');
+          if (v && v.then) {
+            v.then(function(ver) { _toast('已更新到 v' + ver); });
+          } else {
+            _toast('更新完成');
+          }
+        }, 2000);
+      }
+    } catch(_) {}
+  })();
+
+  // 启动后 10 分钟自动检查更新（避免阻塞启动流程）
+  _updateCheckTimer = setTimeout(function() {
+    try { window.hermes.updateCheck().catch(function() {}); } catch(_) {}
+  }, 600000);
+
   if (window.hermes_on && window.hermes_on.updateStatus) {
-    window.hermes_on.updateStatus((data) => {
+    window.hermes_on.updateStatus(function(data) {
       if (data.event === 'available') {
-        showUpdateBanner(data.version);
+        // 新版本可用：显示醒目的黄色横幅
+        _updateNewVersion = data.version || '';
+        _showUpdateAvailableBanner(_updateNewVersion);
       } else if (data.event === 'progress') {
-        const bar = document.getElementById('updateProgressFill');
-        const pct = document.getElementById('updateProgressPct');
+        // 下载进度
+        var bar = document.getElementById('updateProgressFill');
+        var pct = document.getElementById('updateProgressPct');
+        var progWrp = document.getElementById('updateProgress');
+        if (progWrp) progWrp.style.display = '';
         if (bar) bar.style.width = data.percent + '%';
         if (pct) pct.textContent = data.percent + '%';
         _updateDownloading = true;
-        // 进度到 100% 时，如果 2 秒内没收到 downloaded 事件则自动降级为"已就绪"
-        clearTimeout(_updateReadyTimer);
-        if (data.percent >= 100) {
-          _updateReadyTimer = setTimeout(function() {
-            _autoInstall();
-          }, 2000);
-        }
       } else if (data.event === 'downloaded') {
-        clearTimeout(_updateReadyTimer);
+        // 下载完成：显示确认弹窗，等用户点击后再重启
         _updateDownloading = false;
-        _autoInstall();
+        _showUpdateReadyBanner(_updateNewVersion || data.version || '');
+      } else if (data.event === 'not-available') {
+        // 静默：后台自动检查没有更新时不打扰用户
       } else if (data.event === 'error') {
-        _updateDownloading = false;
-        const b = document.getElementById('updateBanner');
-        if (b) b.style.display = 'none';
+        if (_updateDownloading) {
+          _updateDownloading = false;
+          var b = document.getElementById('updateBanner');
+          if (b) b.style.display = 'none';
+        }
       }
     });
   }
 
-  function showUpdateBanner(version) {
-    const banner = document.getElementById('updateBanner');
-    const msg = document.getElementById('updateBannerMsg');
-    const btns = document.getElementById('updateBannerBtns');
-    const prog = document.getElementById('updateProgress');
+  // ---- 横幅：新版本可用（黄色醒目） ----
+  function _showUpdateAvailableBanner(version) {
+    var banner = document.getElementById('updateBanner');
+    var msg = document.getElementById('updateBannerMsg');
+    var btns = document.getElementById('updateBannerBtns');
+    var prog = document.getElementById('updateProgress');
     if (!banner) return;
     banner.style.display = 'flex';
-    if (msg) msg.innerHTML = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 发现新版本 v' + version;
-    if (btns) btns.innerHTML = '<button class="up-btn up-btn-primary" onclick="_downloadUpdate()">立即更新</button><button class="up-btn" onclick="_dismissUpdateBanner()">稍后</button>';
-    if (prog) { prog.style.display = 'block'; document.getElementById('updateProgressFill').style.width = '0%'; var pp = document.getElementById('updateProgressPct'); if (pp) pp.textContent = '0%'; }
+    banner.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+    banner.style.color = '#fff';
+    if (msg) msg.innerHTML = '\u{1F4E6} Hergent v' + version + ' 已发布';
+    if (btns) btns.innerHTML = '<button class="up-btn up-btn-primary" onclick="_downloadUpdate()">立即下载</button><button class="up-btn" style="color:#fff;border-color:rgba(255,255,255,0.5)" onclick="_dismissUpdateBanner()">稍后</button>';
+    if (prog) { prog.style.display = 'none'; document.getElementById('updateProgressFill').style.width = '0%'; var pp = document.getElementById('updateProgressPct'); if (pp) pp.textContent = '0%'; }
+    _toast('发现新版本 v' + version);
   }
 
   window._downloadUpdate = function() {
     var btns = document.getElementById('updateBannerBtns');
     var prog = document.getElementById('updateProgress');
-    if (btns) btns.innerHTML = '<span style="font-size:12px;color:var(--text-secondary);margin-right:8px">下载中...</span>';
-    if (prog) { prog.style.display = 'block'; document.getElementById('updateProgressFill').style.width = '0%'; var pp2 = document.getElementById('updateProgressPct'); if (pp2) pp2.textContent = '0%'; }
+    var msg = document.getElementById('updateBannerMsg');
+    if (msg) msg.innerHTML = '⬇️ 正在下载 v' + _updateNewVersion + '...';
+    if (btns) btns.innerHTML = '<span class="up-status-text">下载中</span>';
+    if (prog) { prog.style.display = ''; document.getElementById('updateProgressFill').style.width = '0%'; var pp2 = document.getElementById('updateProgressPct'); if (pp2) pp2.textContent = '0%'; }
     _updateDownloading = true;
-    window.hermes.updateInstall().catch(function() {});
+    window.hermes.updateInstall().catch(function() {
+      var b = document.getElementById('updateBanner');
+      if (b) b.style.display = 'none';
+      _toast('下载失败，请稍后重试');
+    });
   };
-  // Manual update check
+
+  // ---- 横幅：下载完成，显示重启按钮（绿色醒目） ----
+  function _showUpdateReadyBanner(ver) {
+    var banner = document.getElementById('updateBanner');
+    var msg = document.getElementById('updateBannerMsg');
+    var btns = document.getElementById('updateBannerBtns');
+    var prog = document.getElementById('updateProgress');
+    if (!banner) return;
+    banner.style.display = 'flex';
+    banner.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+    banner.style.color = '#fff';
+    if (msg) msg.innerHTML = '✅ v' + (ver || '') + ' 下载完成';
+    if (prog) prog.style.display = 'none';
+    if (btns) btns.innerHTML = '<button class="up-btn" style="background:#fff;color:#059669;font-weight:600" onclick="_installUpdateNow()">立即重启安装</button><button class="up-btn" style="color:#fff;border-color:rgba(255,255,255,0.5);margin-left:8px" onclick="_dismissUpdateBanner()">稍后</button>';
+  }
+
+  window._installUpdateNow = function() {
+    var ver = _updateNewVersion || '';
+    // 标记更新前的版本，重启后显示提示
+    try { localStorage.setItem('hermes_updated_from', ver); } catch(_) {}
+    // 显示 "重启中" 横幅
+    var msg = document.getElementById('updateBannerMsg');
+    if (msg) msg.innerHTML = '\u{1F504} 正在重启安装...';
+    var btns = document.getElementById('updateBannerBtns');
+    if (btns) btns.innerHTML = '';
+    setTimeout(function() {
+      window.hermes.updateQuitAndInstall().catch(function() {});
+    }, 600);
+  };
+
+  window._dismissUpdateBanner = function() {
+    var b = document.getElementById('updateBanner');
+    if (b) {
+      b.style.display = 'none';
+      b.style.background = ''; // 重置背景色
+      b.style.color = '';
+    }
+    _updateDownloading = false;
+  };
+
+  // Manual update check（设置页"检查更新"按钮）
   window._manualCheckUpdate = async function() {
+    // 先检查是否已在后台自动发现了更新
+    var banner = document.getElementById('updateBanner');
+    if (banner && banner.style.display !== 'none' && _updateNewVersion) {
+      _toast('新版本 v' + _updateNewVersion + ' 已可用，点击横幅更新');
+      return;
+    }
     _toast('正在检查更新...');
     try {
       var r = await window.hermes.updateCheck();
       if (r && r.updateAvailable) {
-        showUpdateBanner(r.version);
+        _showUpdateAvailableBanner(r.version);
       } else {
-        _toast('已是最新版本');
+        _toast('已是最新版本 v' + (r && r.currentVersion || ''));
       }
-    } catch(e) { _toast('检查更新失败'); }
-  };
-  window._installUpdate = function() {
-    window.hermes.updateQuitAndInstall().catch(function() {});
-  };
-  function _showUpdateReady(ver) {
-    const banner = document.getElementById('updateBanner');
-    const msg = document.getElementById('updateBannerMsg');
-    const prog = document.getElementById('updateProgress');
-    if (banner) banner.style.display = 'flex';
-    if (msg) msg.innerHTML = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> v' + (ver || '') + ' 下载完成，即将重启...';
-    if (prog) prog.style.display = 'none';
-  }
-
-  function _autoInstall() {
-    _showUpdateReady('');
-    setTimeout(function() {
-      window.hermes.updateQuitAndInstall().catch(function() {});
-    }, 800);
-  }
-
-  window._dismissUpdateBanner = function() {
-    document.getElementById('updateBanner').style.display = 'none';
-    _updateDownloading = false;
+    } catch(e) { _toast('检查更新失败：' + (e.message || '网络异常')); }
   };
 
   // 监听后端推送的处理结果
