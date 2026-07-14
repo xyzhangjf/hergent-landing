@@ -40,7 +40,10 @@ async function initAuth() {
   // 已激活：直接用本地保存的 token 进入
   var saved = localStorage.getItem('hermes_auth');
   if (!saved) {
-    authState = { token: 'alpha-token', user: { id: activated, name: '内测用户' } };
+    // Check if this is the dev machine
+var isDevMachine = (localStorage.getItem('hermes_activated') === 'dev-admin-zhang');
+var welcomeCredits = isDevMachine ? 99999 : 500;
+authState = { token: 'alpha-token', user: { id: activated, name: '内测用户', credits: welcomeCredits } };
     saveAuth();
   } else {
     try {

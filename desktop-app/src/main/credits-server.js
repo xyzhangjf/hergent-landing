@@ -114,4 +114,4 @@ function stopCreditsServer() {
   }
 }
 
-module.exports = { startCreditsServer, stopCreditsServer, getServerProcess };
+module.exports = { init, startCreditsServer, stopCreditsServer, getServerProcess };

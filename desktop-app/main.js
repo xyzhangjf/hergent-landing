@@ -24,7 +24,10 @@ const engine = require("./src/main/engine");
 const feishu = require("./src/main/feishu");
 const wecom = require("./src/main/wecom");
 const creditsSrv = require("./src/main/credits-server");
+const win = require("./src/main/window");
 const gateway = require("./src/main/gateway");
+const GATEWAY_API_KEY = crypto.randomBytes(32).toString("hex");
+let HERMES_BIN;
 gateway.init(GATEWAY_API_KEY, engine, rolesMgr, licenses);
 engine.init(GATEWAY_API_KEY, HERMES_BIN);
 creditsSrv.init(engine.getEngineDir);
@@ -157,7 +160,7 @@ process.on("unhandledRejection", (reason) => {
   } catch (_) {}
 });
 // Gateway API Key 每次启动动态生成（仅本机 localhost 使用，无需持久化）
-const GATEWAY_API_KEY = crypto.randomBytes(32).toString("hex");
+
 // Dev 模式允许跳过 TLS 证书验证（通过环境变量 HERGENT_DEV=1 启用）
 // 所有平台都走角色独立 Gateway，主 Gateway 不再直接处理任何平台连接
 // 获取角色最近的平台 session ID（飞书等），用于 App 聊天与平台共享上下文
@@ -338,7 +341,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
         let creditsMsg = '';
         let currentCredits = 0;
         try {
-          const creditsRes = await httpGet(`${SERVER_URL}/api/credits?device_id=${licenses.getDeviceId()}`);
+          const creditsRes = await httpClient.httpGet(`${SERVER_URL}/api/credits?device_id=${licenses.getDeviceId()}`);
           const creditsData = JSON.parse(creditsRes);
           currentCredits = creditsData.credits;
           if (currentCredits <= 0) {
@@ -390,7 +393,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               if (sidMatch) gateway.getRoleSessions()[winRoleId] = sidMatch[1];
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
               try {
-                await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
+                await httpClient.httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
                   JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-flash' }));
               } catch (_) { /* 积分报告失败不影响主流程 */ }
               return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: gateway.getRoleSessions()[winRoleId] || null };
@@ -452,7 +455,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               if (sidMatch) gateway.getRoleSessions()[roleId] = sidMatch[1];
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
               try {
-                await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
+                await httpClient.httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
                   JSON.stringify({ credits: cliCreditsUsed, model: 'deepseek-v4-flash' }));
               } catch (_) { /* 积分报告失败不影响主流程 */ }
               return { requestId, success: true, output: responseText.slice(0, 8000), offline: true, sessionId: gateway.getRoleSessions()[roleId] || null };
@@ -524,7 +527,7 @@ ipcMain.handle('hermes:execute', async (event, params) => {
           // 积分扣减：Gateway 直连 DeepSeek，需主动报告用量
           const estimatedCredits = Math.max(1, Math.ceil((fullText.length + gwResponseText.length) / 500));
           try {
-            await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
+            await httpClient.httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
               JSON.stringify({ credits: estimatedCredits, model: 'deepseek-v4-flash' }));
           } catch (_) { /* 积分报告失败不影响主流程 */ }
           return { requestId, success: true, output: gwClean, offline: false, sessionId: gateway.getRoleSessions()[roleId] || null };
@@ -1213,7 +1216,7 @@ ipcMain.handle('get:errors', async () => {
 // ===== IPC: 激活码 & 试用 =====
 ipcMain.handle('activation:status', async () => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/credits?device_id=${licenses.getDeviceId()}`);
+    const body = await httpClient.httpGet(`${SERVER_URL}/api/credits?device_id=${licenses.getDeviceId()}`);
     const data = JSON.parse(body);
     return { credits: data.credits || 0 };
   } catch (e) {
@@ -1245,7 +1248,7 @@ ipcMain.handle('activation:activate', async (event, { code }) => {
 // Alpha 激活码验证 — 调用远程服务器
 ipcMain.handle('activation:verify', async (event, code) => {
   try {
-    var body = await nodeHttpPost('https://api.hergent.cn/api/auth/activate',
+    var body = await httpClient.nodeHttpPost('https://api.hergent.cn/api/auth/activate',
       JSON.stringify({ code: code, device: licenses.getDeviceId() }));
     return JSON.parse(body);
   } catch (e) { return { ok: false, message: '网络错误，请检查连接' }; }
@@ -1254,7 +1257,7 @@ ipcMain.handle('activation:verify', async (event, code) => {
 // ===== IPC: 查询积分余额（调用 Hermes Server API）=====
 ipcMain.handle('activation:credits', async () => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/credits?device_id=${licenses.getDeviceId()}`);
+    const body = await httpClient.httpGet(`${SERVER_URL}/api/credits?device_id=${licenses.getDeviceId()}`);
     return JSON.parse(body);
   } catch (e) {
     console.error(`[credits] error: ${e.message}`);
@@ -1263,7 +1266,7 @@ ipcMain.handle('activation:credits', async () => {
 });
 ipcMain.handle('billing:history', async () => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/billing/history?device_id=${licenses.getDeviceId()}`);
+    const body = await httpClient.httpGet(`${SERVER_URL}/api/billing/history?device_id=${licenses.getDeviceId()}`);
     return JSON.parse(body);
   } catch (e) { return { recharges: [], usage: [], balance: 0 }; }
 });
@@ -1932,31 +1935,31 @@ ipcMain.handle('config:set-model', async (event, opts) => {
 // ---- 认证（对接服务端）----
 ipcMain.handle('auth:me', async (event, token) => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/auth/me`, { 'X-Hermes-Token': token });
+    const body = await httpClient.httpGet(`${SERVER_URL}/api/auth/me`, { 'X-Hermes-Token': token });
     return JSON.parse(body);
   } catch (e) { return { user: null, error: 'auth not configured' }; }
 });
 ipcMain.handle('auth:send-code', async (event, phone) => {
   try {
-    const body = await httpPost(`${SERVER_URL}/api/auth/send-code`, JSON.stringify({ phone }));
+    const body = await httpClient.httpPost(`${SERVER_URL}/api/auth/send-code`, JSON.stringify({ phone }));
     return JSON.parse(body);
   } catch (e) { return { success: false, error: 'auth not configured' }; }
 });
 ipcMain.handle('auth:verify-code', async (event, phone, code) => {
   try {
-    const body = await httpPost(`${SERVER_URL}/api/auth/verify-code`, JSON.stringify({ phone, code }));
+    const body = await httpClient.httpPost(`${SERVER_URL}/api/auth/verify-code`, JSON.stringify({ phone, code }));
     return JSON.parse(body);
   } catch (e) { return { success: false, error: 'auth not configured' }; }
 });
 ipcMain.handle('auth:wechat-url', async () => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/auth/wechat/login-url`);
+    const body = await httpClient.httpGet(`${SERVER_URL}/api/auth/wechat/login-url`);
     return JSON.parse(body);
   } catch (e) { return { url: '', error: 'auth not configured' }; }
 });
 ipcMain.handle('auth:logout', async (event, token) => {
   try {
-    await httpPost(`${SERVER_URL}/api/auth/logout`, JSON.stringify({}), { headers: { 'X-Hermes-Token': token } });
+    await httpClient.httpPost(`${SERVER_URL}/api/auth/logout`, JSON.stringify({}), { headers: { 'X-Hermes-Token': token } });
   } catch (_) {}
   return { success: true };
 });
@@ -2024,7 +2027,7 @@ ipcMain.handle('avatar:remove', async (event, role) => {
 // ---- 充值 ----
 ipcMain.handle('recharge:request', async (event, amount) => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/payment/url?amount=${amount}&device_id=${licenses.getDeviceId()}`);
+    const body = await httpClient.httpGet(`${SERVER_URL}/api/payment/url?amount=${amount}&device_id=${licenses.getDeviceId()}`);
     return JSON.parse(body);
   } catch (e) { return { success: false, error: '充值服务暂不可用' }; }
 });
@@ -2032,7 +2035,7 @@ ipcMain.handle('payment:create', async (event, amount) => {
   // 本机 server.py 直接调支付宝 API（不需要公网回调）
   var url = 'http://localhost:8765/api/payment/url?amount=' + amount + '&device_id=' + licenses.getDeviceId();
   try {
-    var body = await nodeHttpGet(url);
+    var body = await httpClient.nodeHttpGet(url);
     return JSON.parse(body);
   } catch (e) {
     logger.reportCriticalError("payment", e, { action: "create" });
@@ -2042,7 +2045,7 @@ ipcMain.handle('payment:create', async (event, amount) => {
 ipcMain.handle('payment:check', async (event, orderId) => {
   try {
     // 本机 server.py 查询支付宝订单状态（主动查，不等回调）
-    var body = await nodeHttpGet('http://localhost:8765/api/payment/status?order_id=' + orderId);
+    var body = await httpClient.nodeHttpGet('http://localhost:8765/api/payment/status?order_id=' + orderId);
     return JSON.parse(body);
   } catch (e) {
     logger.reportCriticalError("payment", e, { action: "check", orderId });
@@ -2052,7 +2055,7 @@ ipcMain.handle('payment:check', async (event, orderId) => {
 ipcMain.handle("payment:dev-pay", async (event, { orderId, deviceId, amount }) => {
   try {
     var realDeviceId = licenses.getDeviceId();
-    var res = await nodeHttpPost("http://localhost:8765/api/payment/dev-pay?order_id=" + orderId + "&device_id=" + realDeviceId + "&amount=" + amount, "{}");
+    var res = await httpClient.nodeHttpPost("http://localhost:8765/api/payment/dev-pay?order_id=" + orderId + "&device_id=" + realDeviceId + "&amount=" + amount, "{}");
     return JSON.parse(res);
   } catch (e) {
     logger.reportCriticalError("payment", e, { action: "dev-pay", orderId });
@@ -2062,7 +2065,7 @@ ipcMain.handle("payment:dev-pay", async (event, { orderId, deviceId, amount }) =
 // ---- 用量明细 ----
 ipcMain.handle('usage:history', async (event, limit) => {
   try {
-    const body = await httpGet(`${SERVER_URL}/api/usage/history?limit=${limit || 20}&device_id=${licenses.getDeviceId()}`);
+    const body = await httpClient.httpGet(`${SERVER_URL}/api/usage/history?limit=${limit || 20}&device_id=${licenses.getDeviceId()}`);
     return JSON.parse(body);
   } catch (e) { return { records: [] }; }
 });
