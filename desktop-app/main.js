@@ -384,6 +384,8 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               const lastBox = allBoxes.length > 0 ? allBoxes[allBoxes.length - 1] : null;
               let responseText = lastBox ? lastBox[1].split('\n').map(l => l.trim()).filter(Boolean).join('\n').trim() : '';
               if (!responseText) responseText = cliResult.stdout.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
+              // Convert Hermes engine "(empty)" sentinel to user-friendly message
+              if (!responseText || responseText === "(empty)") responseText = "处理完成了，但模型没有生成文字回复。请尝试重新发送或换个说法。";
               const sidMatch = cliResult.stdout.match(/Session:\s+(\S+)/);
               if (sidMatch) gateway.getRoleSessions()[winRoleId] = sidMatch[1];
               const cliCreditsUsed = Math.max(1, Math.ceil((fullText.length + responseText.length) / 500));
@@ -443,6 +445,8 @@ ipcMain.handle('hermes:execute', async (event, params) => {
               const lastBox = allBoxes.length > 0 ? allBoxes[allBoxes.length - 1] : null;
               let responseText = lastBox ? lastBox[1].split('\n').map(l => l.trim()).filter(Boolean).join('\n').trim() : '';
               if (!responseText) responseText = cliResult.stdout.split('\n').filter(l => { const t = l.trim(); return t && !t.startsWith('Query:') && !t.startsWith('Initializing') && !t.startsWith('─') && !t.startsWith('session_id:') && !t.startsWith('┊') && !t.startsWith('↻') && !t.includes('╭') && !t.includes('╰') && !t.startsWith('Resume this session') && !t.startsWith('hermes --resume') && !t.startsWith('Session:') && !t.startsWith('Duration:') && !t.startsWith('Messages:') && !t.startsWith('⚠'); }).map(l => l.trim()).join('\n').trim();
+              // Convert Hermes engine "(empty)" sentinel to user-friendly message
+              if (!responseText || responseText === "(empty)") responseText = "处理完成了，但模型没有生成文字回复。请尝试重新发送或换个说法。";
               // 提取会话 ID，下次同一角色续接上下文
               const sidMatch = cliResult.stdout.match(/Session:\s+(\S+)/);
               if (sidMatch) gateway.getRoleSessions()[roleId] = sidMatch[1];
@@ -515,13 +519,15 @@ ipcMain.handle('hermes:execute', async (event, params) => {
             request.end();
           });
           const gwResponseText = result.finalLines.join('');
+          // Gateway already converts "(empty)" to a friendly message, but defense-in-depth:
+          const gwClean = (!gwResponseText || gwResponseText === "(empty)") ? "处理完成了，但模型没有生成文字回复。请尝试重新发送或换个说法。" : gwResponseText;
           // 积分扣减：Gateway 直连 DeepSeek，需主动报告用量
           const estimatedCredits = Math.max(1, Math.ceil((fullText.length + gwResponseText.length) / 500));
           try {
             await httpPost(`${SERVER_URL}/api/credits/deduct?device_id=${licenses.getDeviceId()}`,
               JSON.stringify({ credits: estimatedCredits, model: 'deepseek-v4-flash' }));
           } catch (_) { /* 积分报告失败不影响主流程 */ }
-          return { requestId, success: true, output: gwResponseText, offline: false, sessionId: gateway.getRoleSessions()[roleId] || null };
+          return { requestId, success: true, output: gwClean, offline: false, sessionId: gateway.getRoleSessions()[roleId] || null };
         } catch (e) {
           return { requestId, success: false, output: `执行失败：${e.message}`, sessionId: gateway.getRoleSessions()[roleId] || null };
         }
