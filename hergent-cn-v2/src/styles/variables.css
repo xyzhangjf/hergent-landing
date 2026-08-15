@@ -1,0 +1,200 @@
+/* ============================================================
+   Hergent v2 — 蓝图设计令牌（浅色默认 + 深色）
+   对齐《hergent-cn-ui改造蓝图-优化版》：品牌青 #06b6d4
+   ============================================================ */
+
+:root{
+  /* 品牌主色（青） */
+  --p:#06b6d4;            /* 品牌青 — 装饰/高亮 */
+  --p-dark:#0891b2;       /* 主交互（白字可读） */
+  --p-deep:#0e7490;       /* hover/按下 */
+  --p-rgb:8,145,178;
+  --p-bg:rgba(6,182,212,.06);
+  --p-border:rgba(6,182,212,.28);
+
+  /* 语义色 */
+  --suc:#34c759; --suc-rgb:52,199,89;
+  --dan:#ff3b30; --dan-rgb:255,59,48;
+  --war:#ff9f0a; --war-rgb:255,159,10;
+
+  /* 中性面 */
+  --bg:#ffffff;        /* 页面底 */
+  --bg2:#f5f5f7;       /* 卡片/分区底（苹果风） */
+  --bg3:#fafafa;       /* 输入底 */
+  --bg4:#f0f0f2;       /* 悬浮底 */
+  --t1:#1d1d1f;        /* 主文字 */
+  --t2:#6e6e73;        /* 次要文字 */
+  --t3:#a1a1a6;        /* 提示文字 */
+  --bd:#e5e5ea;        /* 边框 */
+  --border-subtle:#ececee;
+
+  /* 阴影（苹果风轻阴影） */
+  --shadow-sm:0 1px 2px rgba(0,0,0,.04),0 1px 6px rgba(0,0,0,.04);
+  --shadow-md:0 4px 16px rgba(0,0,0,.06),0 2px 6px rgba(0,0,0,.04);
+  --shadow-lg:0 12px 40px rgba(0,0,0,.10);
+
+  /* 圆角 */
+  --radius-sm:8px;
+  --radius-md:12px;
+  --radius-lg:16px;
+  --radius-xl:22px;
+
+  /* 布局 */
+  --sidebar-w:248px;
+  --topbar-h:56px;
+  --ai-bar-h:58px;
+
+  /* 字体（苹果风） */
+  --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro SC","SF Pro Text","PingFang SC","Helvetica Neue",Helvetica,Arial,sans-serif;
+
+  /* 玻璃（克制版磨砂，仅用于导航外壳/悬浮层） */
+  --glass-bg:rgba(255,255,255,0.72);
+  --glass-bg-strong:rgba(255,255,255,0.85);
+  --glass-blur:saturate(180%) blur(20px);
+  --glass-border:rgba(0,0,0,0.06);
+}
+
+:root.dark{
+  --p:#22d3ee;            /* 深色下品牌青提亮 */
+  --p-dark:#06b6d4;
+  --p-deep:#0891b2;
+  --p-rgb:34,211,238;
+  --p-bg:rgba(6,182,212,.10);
+  --p-border:rgba(34,211,238,.30);
+
+  --suc:#30d158; --suc-rgb:48,209,88;
+  --dan:#ff453a; --dan-rgb:255,69,58;
+  --war:#ff9f0a; --war-rgb:255,159,10;
+
+  --bg:#1c1c1e;        /* 页面底（苹果深色） */
+  --bg2:#2c2c2e;       /* 卡片底 */
+  --bg3:#3a3a3c;       /* 输入底 */
+  --bg4:#444446;       /* 悬浮底 */
+  --t1:#f5f5f7;
+  --t2:#aeaeb2;
+  --t3:#8e8e93;
+  --bd:#3a3a3c;
+  --border-subtle:#333336;
+
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --shadow-md:0 4px 16px rgba(0,0,0,.4);
+  --shadow-lg:0 12px 40px rgba(0,0,0,.5);
+
+  --glass-bg:rgba(28,28,30,0.72);
+  --glass-bg-strong:rgba(28,28,30,0.85);
+  --glass-border:rgba(255,255,255,0.08);
+}
+
+/* 基础 */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--font-sans);
+  font-size:14px;
+  line-height:1.6;
+  color:var(--t1);
+  background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* 通用按钮 */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:36px;padding:0 16px;border:none;border-radius:var(--radius-md);
+  font-size:14px;font-weight:500;transition:all .15s;
+}
+.btn-primary{background:var(--p-dark);color:#fff}
+.btn-primary:hover{background:var(--p-deep)}
+.btn-ghost{background:transparent;color:var(--t1);border:1px solid var(--bd)}
+.btn-ghost:hover{background:var(--bg2)}
+.btn-block{width:100%}
+
+/* 通用卡片 */
+.card{
+  background:var(--bg);
+  border:1px solid var(--border-subtle);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-sm);
+  transition:box-shadow .18s ease,border-color .18s ease;
+}
+.card:hover{box-shadow:var(--shadow-md);border-color:var(--bd)}
+
+/* 输入 */
+.input{
+  width:100%;height:40px;padding:0 14px;
+  border:1px solid var(--bd);border-radius:var(--radius-md);
+  background:var(--bg3);outline:none;transition:border-color .2s,box-shadow .2s;
+}
+.input:focus{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
+.input::placeholder{color:var(--t3)}
+
+/* 骨架屏 */
+.skeleton{
+  background:var(--bg4);border-radius:var(--radius-md);
+  animation:pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* 徽章 */
+.badge{
+  display:inline-flex;align-items:center;height:20px;padding:0 8px;
+  border-radius:10px;font-size:12px;font-weight:500;
+}
+.badge-green{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
+.badge-red{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
+.badge-amber{background:rgba(var(--war-rgb),.15);color:var(--war)}
+.badge-blue{background:var(--p-bg);color:var(--p-dark)}
+
+/* 进度条 */
+.progress{height:8px;border-radius:99px;background:var(--bg4);overflow:hidden}
+.progress>i{display:block;height:100%;border-radius:99px;background:var(--p-dark);transition:width .5s}
+.progress.green>i{background:var(--suc)}
+.progress.amber>i{background:var(--war)}
+
+/* 空/错态 */
+.state-empty,.state-error{padding:48px 20px;text-align:center;color:var(--t3);font-size:13px}
+
+/* 表格 */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-subtle)}
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+table.tbl th{
+  text-align:left;padding:10px 14px;font-weight:500;color:var(--t3);
+  background:var(--bg2);border-bottom:1px solid var(--border-subtle);white-space:nowrap;
+}
+table.tbl td{padding:10px 14px;border-bottom:1px solid var(--border-subtle);color:var(--t1)}
+table.tbl tr:last-child td{border-bottom:none}
+table.tbl tbody tr:hover{background:var(--bg2)}
+table.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* 标签行 */
+.tag-row{display:flex;gap:6px;flex-wrap:wrap}
+.tag{
+  display:inline-flex;align-items:center;height:22px;padding:0 8px;
+  border-radius:6px;font-size:12px;font-weight:500;background:var(--bg4);color:var(--t2);
+}
+.tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
+.tag.warn{background:rgba(var(--war-rgb),.15);color:var(--war)}
+.tag.bad{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
+.tag.info{background:var(--p-bg);color:var(--p-dark)}
+
+/* 面板标题行 */
+.panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.panel-hd b{font-size:14px;font-weight:500}
+
+/* 空态 */
+.state-empty{padding:48px 20px;text-align:center;color:var(--t3);font-size:13px}
+.state-empty .se-ic{width:48px;height:48px;border-radius:14px;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+
+/* 加载骨架 */
+.skel-line{height:14px;border-radius:4px;background:var(--bg4);animation:pulse 1.4s ease-in-out infinite}
+
+/* 移动端基础 */
+@media(max-width:768px){
+  body{font-size:15px}
+}

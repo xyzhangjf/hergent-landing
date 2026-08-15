@@ -1,0 +1,5 @@
+# 构建产物（由 vite build 生成，部署时 rsync 到服务器，不入库）
+dist/
+
+# 依赖（根 .gitignore 已忽略，这里再保险一层）
+node_modules/
