@@ -18,3 +18,9 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+
+# 大体积运行时/安装包快照（2026-08-15 从 git 历史移除，不再入库）
+engines/
+snapshots/
+desktop-app/*.tar.gz
+*.dmg
