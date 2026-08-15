@@ -66,3 +66,19 @@ export const reconciliationApi = {
   customerMatch: (body) => api('/api/reconciliation/customer-match', { method: 'POST', body }),
   customerConfirm: (body) => api('/api/reconciliation/customer-confirm', { method: 'POST', body }),
 }
+
+/* ---- 货损工作流（模板 + 中文表单 + 配方存储） ---- */
+export const lossApi = {
+  getRecipe: () => api('/api/loss/recipe'),
+  saveRecipe: (recipe) => api('/api/loss/recipe', { method: 'PUT', body: recipe }),
+  run: (recipe = {}) => api('/api/loss/run', { method: 'POST', body: recipe }),
+}
+
+/* ---- 算工资工作流（模板 + 中文表单 + 配方存储） ---- */
+export const payrollApi = {
+  getRecipe: () => api('/api/payroll-workflow/recipe'),
+  saveRecipe: (recipe) => api('/api/payroll-workflow/recipe', { method: 'PUT', body: recipe }),
+  run: (body = {}) => api('/api/payroll-workflow/run', { method: 'POST', body }),
+  confirm: (month = '') => api('/api/payroll/confirm', { method: 'POST', body: { month } }),
+  history: (month = '') => api(`/api/payroll-workflow/history?month=${month}`),
+}

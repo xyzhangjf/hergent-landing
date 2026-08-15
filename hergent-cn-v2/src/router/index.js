@@ -11,6 +11,8 @@ import Rebate from '../pages/Rebate.vue'
 import Dashboard from '../pages/Dashboard.vue'
 import ConnectCenter from '../pages/ConnectCenter.vue'
 import Reconciliation from '../pages/Reconciliation.vue'
+import LossWorkflow from '../pages/LossWorkflow.vue'
+import PayrollWorkflow from '../pages/PayrollWorkflow.vue'
 import Settings from '../pages/Settings.vue'
 import CronJobs from '../pages/CronJobs.vue'
 
@@ -29,6 +31,8 @@ export const router = createRouter({
         { path: 'dashboard', component: Dashboard, meta: { title: '数据看板' } },
         { path: 'connect', component: ConnectCenter, meta: { title: '连接中心' } },
         { path: 'reconciliation', component: Reconciliation, meta: { title: '对账工作流' } },
+        { path: 'loss', component: LossWorkflow, meta: { title: '货损计算工作流' } },
+        { path: 'payroll', component: PayrollWorkflow, meta: { title: '算工资工作流' } },
         { path: 'cron', component: CronJobs, meta: { title: '定时任务' } },
         { path: 'settings', component: Settings, meta: { title: '设置' } }
       ]

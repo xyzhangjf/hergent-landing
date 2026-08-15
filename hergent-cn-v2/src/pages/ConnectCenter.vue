@@ -160,8 +160,8 @@ const tab = ref('connector')
 const workflows = [
   { name: '预报订货工作流', icon: '订', desc: '查库存、算日均销，AI 给建议下单量', steps: ['查库存', '算日均销', '算可销天数', 'AI 审核', '生成订货单'], ready: true, path: '/forecast' },
   { name: '对账工作流', icon: '账', desc: '读应收、匹配客户声称金额，标出差异', steps: ['读应收', '匹配差异', '生成对账单'], ready: true, path: '/reconciliation' },
-  { name: '算工资工作流', icon: '薪', desc: '考勤 + 提成自动算工资', steps: ['读考勤', '算提成', '扣社保', '生成工资条'], ready: false },
-  { name: '货损预警工作流', icon: '损', desc: '扫效期、算损耗，生成处理单', steps: ['扫效期', '标临期', '算损耗', '生成处理单'], ready: false },
+  { name: '算工资工作流', icon: '薪', desc: '按你的算法自动算工资，核对后一键确认', steps: ['配算法', '读销售额', '算工资', '确认入账'], ready: true, path: '/payroll' },
+  { name: '货损预警工作流', icon: '损', desc: '按你的算法扫效期、算损耗，一键出结果', steps: ['配算法', '扫效期', '算损耗', '看结果'], ready: true, path: '/loss' },
 ]
 
 function openWorkflow(w) {
