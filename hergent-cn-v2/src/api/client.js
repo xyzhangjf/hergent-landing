@@ -44,6 +44,16 @@ export async function register(company, phone, password, code = '888888') {
   return data
 }
 
+export async function demoLogin() {
+  const res = await fetch('/api/auth/demo-login', { method: 'POST' })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.detail || data.message || '演示入口暂不可用')
+  auth.token = data.token || ''
+  auth.user = data.user || null
+  auth.demo = !!data.demo
+  return data
+}
+
 /* 统一 api()：带 Bearer + CSRF、错误信封、超时 */
 export async function api(path, opts = {}) {
   const { method = 'GET', body, timeout = 20000, raw = false } = opts

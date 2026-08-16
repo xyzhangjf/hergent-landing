@@ -21,6 +21,9 @@
         <button class="btn btn-primary btn-block" :disabled="loading">
           {{ loading ? '登录中…' : '登 录' }}
         </button>
+        <button type="button" class="btn btn-ghost btn-block demo-btn" :disabled="demoLoading" @click="doDemo">
+          {{ demoLoading ? '进入演示中…' : '先看看演示效果（免注册）' }}
+        </button>
       </form>
 
       <!-- 注册（自注册 → 建租户 → 引导上传数据激活） -->
@@ -67,7 +70,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { login, register } from '../api/client'
+import { login, register, demoLogin } from '../api/client'
 import { importApi } from '../api/modules'
 import { store } from '../store'
 
@@ -77,6 +80,7 @@ const username = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+const demoLoading = ref(false)
 
 const regCompany = ref('')
 const regPhone = ref('')
@@ -99,6 +103,21 @@ async function doLogin() {
     error.value = e.message || '登录失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function doDemo() {
+  error.value = ''
+  demoLoading.value = true
+  try {
+    const data = await demoLogin()
+    store.user.name = data.user?.display_name || '演示用户'
+    store.demo = true
+    router.push('/workbench')
+  } catch (e) {
+    error.value = e.message || '演示入口暂不可用'
+  } finally {
+    demoLoading.value = false
   }
 }
 
@@ -163,6 +182,7 @@ form{display:flex;flex-direction:column;gap:12px}
 .login-tip{font-size:11px;color:var(--t3);text-align:center;margin-top:20px}
 .login-note{font-size:11px;color:var(--t3);text-align:center;margin:0}
 .lg-tabs{display:flex;gap:8px;margin-bottom:18px;background:var(--bg2);border-radius:10px;padding:4px}
+.demo-btn{color:var(--p-dark);border-color:rgba(6,182,212,.35);margin-top:2px}
 .lg-tab{flex:1;border:none;background:none;padding:8px;border-radius:8px;font-size:13px;color:var(--t3);cursor:pointer;transition:all .15s}
 .lg-tab.on{background:var(--bg);color:var(--p-dark);font-weight:500;box-shadow:var(--shadow-sm)}
 /* 激活引导弹窗 */
