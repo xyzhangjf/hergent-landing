@@ -30,6 +30,20 @@ export async function login(username, password) {
   return data
 }
 
+export async function register(company, phone, password, code = '888888') {
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ company, phone, password, code })
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.detail || data.message || '注册失败')
+  auth.token = data.token || ''
+  auth.user = data.user || null
+  if (data.csrf_token) localStorage.setItem('hergent_v2_csrf', data.csrf_token)
+  return data
+}
+
 /* 统一 api()：带 Bearer + CSRF、错误信封、超时 */
 export async function api(path, opts = {}) {
   const { method = 'GET', body, timeout = 20000, raw = false } = opts
