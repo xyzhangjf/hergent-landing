@@ -8,6 +8,28 @@
       <button class="btn btn-primary" @click="openCreate">新建任务</button>
     </div>
 
+    <!-- 推送配置状态 -->
+    <div class="card push-card" :class="pushConfigured ? 'on' : ''">
+      <div class="push-row">
+        <span class="push-ic">{{ pushConfigured ? '📨' : '🔕' }}</span>
+        <div>
+          <b>{{ pushConfigured ? '企微推送已配置' : '任务结果未配置推送' }}</b>
+          <p class="sub">{{ pushConfigured ? `今日已推 ${pushCount} 次 · 最近：${pushLast || '—'}` : '配置企业微信群机器人 webhook，任务执行后结果自动发到你微信' }}</p>
+        </div>
+        <button v-if="!pushConfigured" class="btn btn-ghost btn-sm" @click="showPushHelp = !showPushHelp">如何配置</button>
+        <button v-else class="btn btn-ghost btn-sm" @click="testPush">发测试消息</button>
+      </div>
+      <div v-if="showPushHelp && !pushConfigured" class="push-help">
+        <p><b>配置步骤（1 分钟）：</b></p>
+        <ol>
+          <li>企业微信 → 群聊 → 右上角 → 群机器人 → 添加机器人</li>
+          <li>复制 webhook 地址（https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...）</li>
+          <li>把地址发给开发者配置到系统（或联系微信 <b>180xxxx</b> 开通）</li>
+        </ol>
+      </div>
+      <div v-if="pushTestResult" class="push-test" :class="{ err: pushTestErr }">{{ pushTestResult }}</div>
+    </div>
+
     <div v-if="loading" class="skel-line" style="margin-bottom:12px"></div>
     <div v-else-if="error" class="state-error">{{ error }}</div>
     <div v-else-if="!jobs.length" class="state-empty">
@@ -86,6 +108,36 @@ const showCreate = ref(false)
 const creating = ref(false)
 const form = ref({ name: '', schedule: '0 6 * * *', prompt: '' })
 
+/* 推送状态 */
+const pushConfigured = ref(false)
+const pushCount = ref(0)
+const pushLast = ref('')
+const showPushHelp = ref(false)
+const pushTestResult = ref('')
+const pushTestErr = ref(false)
+
+async function loadPush() {
+  try {
+    const r = await api('/api/notify/wecom/status')
+    pushConfigured.value = !!r.configured
+    pushCount.value = r.push_count_today || 0
+    pushLast.value = r.last_push ? (r.last_push.time || r.last_push.created_at || '') : ''
+  } catch (e) { /* 静默 */ }
+}
+
+async function testPush() {
+  pushTestResult.value = '发送中…'
+  pushTestErr.value = false
+  try {
+    const r = await api('/api/notify/wecom/test', { method: 'POST' })
+    pushTestResult.value = r.success ? '✅ 测试消息已发送，请查收企业微信' : (r.error || '发送失败')
+    pushTestErr.value = !r.success
+  } catch (e) {
+    pushTestResult.value = e.message || '发送失败'
+    pushTestErr.value = true
+  }
+}
+
 const presets = [
   { label: '每天 6:00', cron: '0 6 * * *' },
   { label: '每天 8:00', cron: '0 8 * * *' },
@@ -157,7 +209,7 @@ async function remove(j) {
   }
 }
 
-onMounted(load)
+onMounted(() => { load(); loadPush() })
 </script>
 
 <style scoped>
@@ -176,4 +228,15 @@ onMounted(load)
 .chip.on{background:var(--p-bg);border-color:var(--p-dark);color:var(--p-dark);font-weight:500}
 .fade-enter-active,.fade-leave-active{transition:opacity .2s}
 .fade-enter-from,.fade-leave-to{opacity:0}
+/* 推送状态卡 */
+.push-card{margin-bottom:16px;padding:16px 18px}
+.push-card.on{border-color:rgba(52,199,89,.35)}
+.push-row{display:flex;align-items:center;gap:12px}
+.push-ic{font-size:20px}
+.push-row b{font-size:14px;color:var(--t1)}
+.push-row .btn{margin-left:auto;flex-shrink:0}
+.push-help{margin-top:12px;background:var(--bg2);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--t2);line-height:1.8}
+.push-help ol{margin:4px 0 0;padding-left:18px}
+.push-test{margin-top:10px;font-size:12px;color:#2f9e44;font-weight:500}
+.push-test.err{color:#d0342c}
 </style>

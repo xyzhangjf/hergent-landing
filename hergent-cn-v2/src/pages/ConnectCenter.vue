@@ -1,8 +1,8 @@
 <template>
   <div class="page">
     <div class="page-hd">
-      <h2>连接中心</h2>
-      <span class="page-sub">连接消息通道与第三方服务，让 AI 副驾能力外延</span>
+      <h2>能力中心</h2>
+      <span class="page-sub">AI 副驾的能力中枢：连接器 / AI 技能 / 工作流</span>
     </div>
 
     <!-- Tab 栏 -->
@@ -10,7 +10,54 @@
       <button class="cc-tab" :class="{ active: tab === 'connector' }" @click="tab = 'connector'">连接器</button>
       <button class="cc-tab" :class="{ active: tab === 'expert' }" @click="tab = 'expert'">专家</button>
       <button class="cc-tab" :class="{ active: tab === 'skill' }" @click="tab = 'skill'">技能</button>
+      <button class="cc-tab" :class="{ active: tab === 'evolution' }" @click="tab = 'evolution'; loadEvolution()">进化日志</button>
     </div>
+
+    <!-- ===== 进化日志 Tab（AI 自进化可见化）===== -->
+    <template v-if="tab === 'evolution'">
+      <div class="cc-section">
+        <div class="panel-hd">
+          <b>AI 进化日志</b>
+          <span class="page-sub">AI 副驾每周自我审查、持续进化——这是它最近做的事</span>
+        </div>
+
+        <!-- 总览 -->
+        <div class="ev-stats">
+          <div class="ev-stat"><b>{{ evSkills.total }}</b><span>行业技能</span></div>
+          <div class="ev-stat"><b>{{ evRuns.length }}</b><span>进化轮次</span></div>
+          <div class="ev-stat"><b>{{ evLastAt || '—' }}</b><span>最近进化</span></div>
+        </div>
+
+        <!-- 技能库 -->
+        <div class="ev-skills" v-if="evSkills.items && evSkills.items.length">
+          <div class="ev-sk-hd"><b>技能库（AI 的"行业经验"）</b><span class="page-sub">{{ evSkills.items.length }} 个已启用</span></div>
+          <div class="ev-sk-grid">
+            <div v-for="s in evSkills.items" :key="s.name" class="ev-sk">
+              <span class="ev-sk-ic">🧠</span>
+              <div>
+                <div class="ev-sk-name">{{ s.title || s.name }}</div>
+                <div class="ev-sk-sub">{{ s.name }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 进化记录 -->
+        <div class="ev-runs" v-if="evRuns.length">
+          <div class="ev-sk-hd"><b>最近进化记录</b></div>
+          <div v-for="(r, i) in evRuns" :key="i" class="ev-run">
+            <div class="ev-run-hd">
+              <b>{{ fmtEvTime(r.started_at) }}</b>
+              <span class="tag info">时长 {{ r.duration_seconds }}s</span>
+              <span class="tag ok">技能 {{ r.counts?.before || 0 }} → {{ r.counts?.after || 0 }}</span>
+            </div>
+            <div class="ev-run-body" v-if="r.summary">{{ r.summary }}</div>
+            <div class="ev-run-empty" v-else>本次进化未产生变化（AI 审查通过，无需改动）</div>
+          </div>
+        </div>
+        <div v-else class="state-empty">暂无进化记录</div>
+      </div>
+    </template>
 
     <!-- ===== 连接器 Tab ===== -->
     <template v-if="tab === 'connector'">
@@ -83,31 +130,110 @@
 
     <!-- ===== 技能 Tab ===== -->
     <template v-else>
-      <div class="wf-intro">
-        <p>把高频经营活封装成「工作流」，一键跑通。这是 AI 副驾随叫随到的能力。</p>
-      </div>
-      <div class="wf-grid">
-        <div v-for="w in workflows" :key="w.name" class="card wf-card" :class="{ disabled: !w.ready }" @click="openWorkflow(w)">
-          <div class="wf-top">
-            <span class="wf-icon">{{ w.icon }}</span>
-            <div class="wf-name-wrap">
-              <div class="wf-name">{{ w.name }}</div>
-              <span class="wf-state" :class="w.ready ? 'on' : ''">{{ w.ready ? '可用' : '筹备中' }}</span>
+      <!-- AI 技能库：预置行业技能 + AI 自进化沉淀 -->
+      <div class="cc-section">
+        <div class="panel-hd">
+          <b>AI 技能库</b>
+          <span class="page-sub">行业规则预置 + AI 从使用中自进化沉淀</span>
+        </div>
+
+        <div v-if="skillLoading" class="state-empty">加载技能中…</div>
+        <div v-else-if="!aiSkills.length" class="state-empty">Hermes 技能未连接，请检查 Hermes API server。</div>
+
+        <template v-else>
+          <!-- AI 自进化技能 -->
+          <div v-if="generatedSkills.length" class="sk-sec">
+            <div class="sk-sec-hd">
+              <b>✨ AI 自进化技能</b>
+              <span class="tag warn">{{ generatedSkills.length }} 个 · 从你的使用中自动沉淀</span>
+            </div>
+            <div class="sk-grid">
+              <div v-for="s in generatedSkills" :key="s.name" class="card sk-card">
+                <div class="sk-name">{{ s.name }}</div>
+                <div class="sk-desc">{{ s.description || 'AI 在工作中沉淀的经验' }}</div>
+              </div>
             </div>
           </div>
-          <div class="wf-desc">{{ w.desc }}</div>
-          <div class="wf-steps">
-            <template v-for="(s, i) in w.steps" :key="i">
-              <span class="wf-step">{{ s }}</span>
-              <span v-if="i < w.steps.length - 1" class="wf-arrow">→</span>
-            </template>
+
+          <!-- 预置行业技能 -->
+          <div class="sk-sec">
+            <div class="sk-sec-hd">
+              <b>📦 预置行业技能</b>
+              <span class="tag info">{{ prebuiltSkills.length }} 个 · 低温奶行业经验</span>
+            </div>
+            <div class="sk-grid">
+              <div v-for="s in prebuiltSkills" :key="s.name" class="card sk-card">
+                <div class="sk-name">{{ s.name }}</div>
+                <div class="sk-desc">{{ s.description || '行业规则' }}</div>
+              </div>
+            </div>
           </div>
-          <div class="wf-foot">
-            <span class="wf-count">{{ w.steps.length }} 步</span>
-            <span class="wf-action" :class="w.ready ? 'go' : ''">{{ w.ready ? '去使用 →' : '即将上线' }}</span>
+        </template>
+      </div>
+
+      <!-- 工作流 -->
+      <div class="cc-section">
+        <div class="panel-hd">
+          <b>工作流</b>
+          <span class="page-sub">把高频经营活封装成「工作流」，一键跑通</span>
+          <button class="btn btn-ghost btn-sm" @click="manageOpen = true">⚙️ 管理工作流</button>
+        </div>
+        <div class="wf-grid">
+          <div v-for="w in workflows" :key="w.key || w.name" class="card wf-card" :class="{ disabled: !w.ready }" @click="openWorkflow(w)">
+            <div class="wf-top">
+              <span class="wf-icon">{{ w.icon }}</span>
+              <div class="wf-name-wrap">
+                <div class="wf-name">{{ w.name }}</div>
+                <span class="wf-state" :class="w.ready ? 'on' : ''">{{ w.ready ? '可用' : '未开通' }}</span>
+              </div>
+            </div>
+            <div class="wf-desc">{{ w.desc }}</div>
+            <div class="wf-steps">
+              <template v-for="(s, i) in w.steps" :key="i">
+                <span class="wf-step">{{ s }}</span>
+                <span v-if="i < w.steps.length - 1" class="wf-arrow">→</span>
+              </template>
+            </div>
+            <div class="wf-foot">
+              <span class="wf-count">{{ w.steps.length }} 步</span>
+              <span class="wf-action" :class="w.ready ? 'go' : ''">{{ w.ready ? '去使用 →' : '联系开通' }}</span>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- 管理工作流弹窗 -->
+      <Teleport to="body">
+        <Transition name="fade">
+          <div v-if="manageOpen" class="cc-overlay" @click="manageOpen = false"></div>
+        </Transition>
+        <Transition name="pop">
+          <div v-if="manageOpen" class="cc-modal">
+            <div class="cc-modal-hd">
+              <b>管理工作流</b>
+              <button class="cc-x" @click="manageOpen = false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div class="cc-modal-body">
+              <p class="cc-modal-tip">开通/停用工作流，未开通的不会出现在卡片里。不同客户可以开不同组合。</p>
+              <div v-for="w in workflows" :key="w.key" class="mg-row">
+                <div class="mg-info">
+                  <span class="wf-icon" style="width:26px;height:26px;font-size:13px">{{ w.icon }}</span>
+                  <div>
+                    <div class="mg-name">{{ w.name }}</div>
+                    <div class="mg-desc">{{ w.desc }}</div>
+                  </div>
+                </div>
+                <label class="switch" :class="{ on: w.ready }">
+                  <input type="checkbox" :checked="w.ready" @change="toggleWorkflow(w)">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
     </template>
 
     <!-- 企微配置弹窗 -->
@@ -149,24 +275,80 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../store'
+import { workflowApi, aiSkillsApi } from '../api/modules'
+import { api } from '../api/client'
 
 const router = useRouter()
 const tab = ref('connector')
 
-/* 工作流模板库（对标 ComfyUI 工作流，后续可后端化） */
-const workflows = [
-  { name: '预报订货工作流', icon: '订', desc: '查库存、算日均销，AI 给建议下单量', steps: ['查库存', '算日均销', '算可销天数', 'AI 审核', '生成订货单'], ready: true, path: '/forecast' },
-  { name: '对账工作流', icon: '账', desc: '读应收、匹配客户声称金额，标出差异', steps: ['读应收', '匹配差异', '生成对账单'], ready: true, path: '/reconciliation' },
-  { name: '算工资工作流', icon: '薪', desc: '按你的算法自动算工资，核对后一键确认', steps: ['配算法', '读销售额', '算工资', '确认入账'], ready: true, path: '/payroll' },
-  { name: '货损预警工作流', icon: '损', desc: '按你的算法扫效期、算损耗，一键出结果', steps: ['配算法', '扫效期', '算损耗', '看结果'], ready: true, path: '/loss' },
-]
+/* ---- AI 进化日志 ---- */
+const evSkills = ref({ total: 0, items: [] })
+const evRuns = ref([])
+const evLastAt = ref('')
+
+async function loadEvolution() {
+  try {
+    const r = await api('/api/ai/evolution')
+    evRuns.value = (r && r.curator && r.curator.runs) || []
+    evSkills.value = (r && r.skills) || { total: 0, items: [] }
+    evLastAt.value = r ? (r.last_run_at || '').slice(0, 16).replace('T', ' ') : ''
+  } catch (e) { /* 静默 */ }
+}
+
+function fmtEvTime(t) {
+  if (!t) return '—'
+  return String(t).slice(0, 16).replace('T', ' ')
+}
+
+/* ---- AI 技能库（预置 + AI 自进化） ---- */
+const aiSkills = ref([])
+const skillLoading = ref(false)
+const prebuiltSkills = computed(() => aiSkills.value.filter(s => s.source === 'prebuilt'))
+const generatedSkills = computed(() => aiSkills.value.filter(s => s.source === 'generated'))
+
+async function loadAiSkills() {
+  skillLoading.value = true
+  try {
+    const d = await aiSkillsApi.list()
+    aiSkills.value = d.skills || []
+  } catch (e) {
+    aiSkills.value = []
+    toast(e.message || '技能加载失败', 'err')
+  } finally {
+    skillLoading.value = false
+  }
+}
+
+/* 工作流插件清单（后端化，客户按需开通） */
+const workflows = ref([])
+const manageOpen = ref(false)
+
+async function loadWorkflows() {
+  try {
+    const d = await workflowApi.list(0)
+    workflows.value = (d.workflows || []).map(w => ({ ...w, ready: !!w.enabled }))
+  } catch (e) {
+    toast(e.message || '加载工作流失败', 'err')
+  }
+}
+
+async function toggleWorkflow(w) {
+  const next = !w.ready
+  try {
+    await workflowApi.toggle(w.key, next)
+    w.ready = next
+    toast((next ? '已开通：' : '已停用：') + w.name, 'ok')
+  } catch (e) {
+    toast(e.message || '操作失败', 'err')
+  }
+}
 
 function openWorkflow(w) {
   if (w.ready && w.path) router.push(w.path)
-  else toast(w.name + ' 筹备中', 'info')
+  else toast(w.name + ' 未开通', 'info')
 }
 
 /* 企微配置（暂存 localStorage，后端推送接口就绪后落库） */
@@ -199,6 +381,8 @@ function saveWecom() {
 
 onMounted(() => {
   wecom.linked = !!loadWecom()
+  loadWorkflows()
+  loadAiSkills()
 })
 </script>
 
@@ -244,10 +428,32 @@ onMounted(() => {
 .cc-empty-desc{font-size:13px;color:var(--t3);line-height:1.8}
 
 /* 工作流卡片 */
-.wf-intro{font-size:13px;color:var(--t2);margin-bottom:16px}
+.wf-intro{font-size:13px;color:var(--t2);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .wf-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .wf-card{padding:18px;cursor:pointer;display:flex;flex-direction:column;gap:12px;transition:transform .18s ease,box-shadow .18s ease}
 .wf-card:hover:not(.disabled){transform:translateY(-2px);box-shadow:var(--shadow-md)}
+
+/* 技能库 */
+.sk-sec{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+.sk-sec-hd{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.sk-card{padding:14px;display:flex;flex-direction:column;gap:6px}
+.sk-name{font-size:13px;font-weight:500;color:var(--p-dark);font-family:var(--font-mono,monospace)}
+.sk-desc{font-size:12px;color:var(--t2);line-height:1.6}
+@media(max-width:768px){.sk-grid{grid-template-columns:1fr}}
+
+/* 管理工作流弹窗 */
+.mg-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-subtle)}
+.mg-row:last-child{border-bottom:none}
+.mg-info{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.mg-name{font-size:13.5px;font-weight:500;color:var(--t1)}
+.mg-desc{font-size:12px;color:var(--t3);margin-top:2px}
+.switch{position:relative;width:40px;height:22px;flex-shrink:0;cursor:pointer}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;border-radius:11px;background:var(--bg3);transition:background .2s}
+.switch .slider::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.switch.on .slider{background:var(--p)}
+.switch.on .slider::before{transform:translateX(18px)}
 .wf-card.disabled{cursor:default;opacity:.65}
 .wf-top{display:flex;align-items:center;gap:12px}
 .wf-icon{width:40px;height:40px;border-radius:10px;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;flex-shrink:0}
@@ -287,4 +493,23 @@ onMounted(() => {
   .cc-grid{grid-template-columns:1fr}
   .wf-grid{grid-template-columns:1fr}
 }
+/* AI 进化日志 */
+.ev-stats{display:flex;gap:12px;margin:14px 0;flex-wrap:wrap}
+.ev-stat{display:flex;flex-direction:column;align-items:center;background:var(--bg2);border-radius:12px;padding:12px 22px;min-width:90px}
+.ev-stat b{font-size:18px;font-weight:500;color:var(--t1)}
+.ev-stat span{font-size:11px;color:var(--t3);margin-top:2px}
+.ev-skills{margin-bottom:18px}
+.ev-sk-hd{display:flex;align-items:center;gap:10px;margin:14px 0 10px}
+.ev-sk-hd b{font-size:13px;color:var(--t1)}
+.ev-sk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.ev-sk{display:flex;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
+.ev-sk-ic{font-size:16px}
+.ev-sk-name{font-size:12.5px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-sk-sub{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.ev-runs{display:flex;flex-direction:column;gap:10px}
+.ev-run{border:1px solid var(--bd);border-radius:12px;padding:12px 14px}
+.ev-run-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ev-run-hd b{font-size:13px;color:var(--t1)}
+.ev-run-body{font-size:12px;color:var(--t2);line-height:1.7;margin-top:8px;white-space:pre-wrap;background:var(--bg2);border-radius:8px;padding:10px 12px}
+.ev-run-empty{font-size:12px;color:var(--t3);margin-top:8px}
 </style>
