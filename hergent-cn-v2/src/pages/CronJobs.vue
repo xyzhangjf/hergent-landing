@@ -16,15 +16,20 @@
           <b>{{ pushConfigured ? '企微推送已配置' : '任务结果未配置推送' }}</b>
           <p class="sub">{{ pushConfigured ? `今日已推 ${pushCount} 次 · 最近：${pushLast || '—'}` : '配置企业微信群机器人 webhook，任务执行后结果自动发到你微信' }}</p>
         </div>
-        <button v-if="!pushConfigured" class="btn btn-ghost btn-sm" @click="showPushHelp = !showPushHelp">如何配置</button>
-        <button v-else class="btn btn-ghost btn-sm" @click="testPush">发测试消息</button>
+        <button v-if="pushConfigured" class="btn btn-ghost btn-sm" @click="testPush">发测试消息</button>
+        <button v-else class="btn btn-ghost btn-sm" @click="showPushHelp = !showPushHelp">如何配置</button>
+      </div>
+      <!-- 未配置：自助填入 webhook -->
+      <div v-if="!pushConfigured" class="push-set">
+        <input v-model="webhookInput" class="input" placeholder="粘贴企业微信群机器人 webhook 地址" :disabled="savingWebhook">
+        <button class="btn btn-primary btn-sm" :disabled="savingWebhook || !webhookInput.trim()" @click="saveWebhook">{{ savingWebhook ? '保存中…' : '保存并启用' }}</button>
       </div>
       <div v-if="showPushHelp && !pushConfigured" class="push-help">
         <p><b>配置步骤（1 分钟）：</b></p>
         <ol>
-          <li>企业微信 → 群聊 → 右上角 → 群机器人 → 添加机器人</li>
+          <li>企业微信 → 群聊 → 右上角「…」→ 群机器人 → 添加机器人</li>
           <li>复制 webhook 地址（https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...）</li>
-          <li>把地址发给开发者配置到系统（或联系微信 <b>180xxxx</b> 开通）</li>
+          <li>把地址粘贴到上方输入框，点「保存并启用」即可</li>
         </ol>
       </div>
       <div v-if="pushTestResult" class="push-test" :class="{ err: pushTestErr }">{{ pushTestResult }}</div>
@@ -115,6 +120,33 @@ const pushLast = ref('')
 const showPushHelp = ref(false)
 const pushTestResult = ref('')
 const pushTestErr = ref(false)
+const webhookInput = ref('')
+const savingWebhook = ref(false)
+
+async function saveWebhook() {
+  const url = webhookInput.value.trim()
+  if (!url) return
+  savingWebhook.value = true
+  pushTestResult.value = ''
+  try {
+    const r = await api('/api/notify/wecom/config', { method: 'POST', body: { webhook_url: url } })
+    if (r.success) {
+      pushConfigured.value = r.configured
+      pushTestResult.value = r.message || '已保存'
+      pushTestErr.value = false
+      webhookInput.value = ''
+      toast('企微推送已启用', 'success')
+    } else {
+      pushTestResult.value = r.error || '保存失败'
+      pushTestErr.value = true
+    }
+  } catch (e) {
+    pushTestResult.value = e.message || '保存失败'
+    pushTestErr.value = true
+  } finally {
+    savingWebhook.value = false
+  }
+}
 
 async function loadPush() {
   try {
@@ -237,6 +269,8 @@ onMounted(() => { load(); loadPush() })
 .push-row .btn{margin-left:auto;flex-shrink:0}
 .push-help{margin-top:12px;background:var(--bg2);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--t2);line-height:1.8}
 .push-help ol{margin:4px 0 0;padding-left:18px}
+.push-set{display:flex;gap:8px;margin-top:12px}
+.push-set .input{flex:1;height:34px;padding:0 12px;font-size:13px}
 .push-test{margin-top:10px;font-size:12px;color:#2f9e44;font-weight:500}
 .push-test.err{color:#d0342c}
 </style>
