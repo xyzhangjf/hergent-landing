@@ -286,6 +286,9 @@
               <span class="tag" :class="c.settled ? '' : 'ok'">{{ c.settled ? '已结算' : '进行中' }}</span>
               <span class="tag warn">{{ contractTypeText(c) }}</span>
               <span class="cc-actions">
+                <button class="btn btn-ghost btn-xs" @click="openTierForm(c)">阶梯设置</button>
+                <button v-if="!c.settled" class="btn btn-ghost btn-xs" @click="openAccrueMonth(c)">计提本月</button>
+                <button v-if="!c.settled" class="btn btn-primary btn-xs" @click="settleContract(c)">结算</button>
                 <button class="btn btn-ghost btn-xs" @click="openEditContract(c)">编辑</button>
                 <button class="btn btn-ghost btn-xs danger" @click="deleteContract(c)">删除</button>
               </span>
@@ -293,6 +296,10 @@
             <div class="cc-grid">
               <div class="cc-item"><span class="cc-l">目标额</span><span class="cc-v">¥{{ fmt(c.target_amount) }}</span></div>
               <div class="cc-item"><span class="cc-l">返利比例</span><span class="cc-v">{{ rebatePctText(c.rebate_pct) }}</span></div>
+              <div class="cc-item"><span class="cc-l">当年达成</span><span class="cc-v">¥{{ fmt(c.achieved) }}</span></div>
+              <div class="cc-item"><span class="cc-l">进度</span><span class="cc-v">{{ c.progress_pct != null ? c.progress_pct + '%' : '—' }}</span></div>
+              <div class="cc-item"><span class="cc-l">预计返利</span><span class="cc-v">¥{{ fmt(c.expected_rebate) }}</span></div>
+              <div class="cc-item" v-if="c.rule_count != null"><span class="cc-l">挂载规则</span><span class="cc-v">{{ c.rule_count }} 条</span></div>
               <div class="cc-item" v-if="c.settled"><span class="cc-l">已返金额</span><span class="cc-v">¥{{ fmt(c.settled_amount) }}</span></div>
               <div class="cc-item" v-if="c.settled && c.settled_date"><span class="cc-l">结算日期</span><span class="cc-v">{{ c.settled_date }}</span></div>
             </div>
@@ -307,6 +314,73 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <!-- v111: 月度构成（年度合同按月分解） -->
+            <div class="cc-mo">
+              <button class="cc-mo-toggle" @click="toggleMonths(c)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :style="{transform: (expandedMonths[c.id] ? 'rotate(90deg)' : '')}"><path d="M9 18l6-6-6-6"/></svg>
+                月度构成（按 1~12 月分解目标 / 达成 / 计提）
+              </button>
+              <div v-if="expandedMonths[c.id]" class="cc-months">
+                <div v-if="moLoading[c.id]" class="state-empty" style="padding:10px">加载月度明细…</div>
+                <template v-else-if="moError[c.id]">
+                  <div class="dt-note" style="margin-top:0">{{ moError[c.id] }}</div>
+                </template>
+                <template v-else-if="moData[c.id]">
+                  <div class="cc-months-save">
+                    <span class="cc-ms-tip">月度目标之和 = 合同年度目标（保存后自动回写）</span>
+                    <button class="btn btn-primary btn-xs" :disabled="moSaving[c.id]" @click="saveMonths(c)">{{ moSaving[c.id] ? '保存中…' : '保存月度目标' }}</button>
+                  </div>
+                  <div class="cc-mtable-wrap">
+                    <table class="dt-tier cc-mtable">
+                      <thead>
+                        <tr>
+                          <th>月份</th><th>月度目标</th><th>达成</th><th>达成率</th>
+                          <th>试算返利</th><th>已计提</th><th>累计计提</th><th>状态</th><th>操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="m in moData[c.id].months" :key="m.month">
+                          <td class="cc-m-label">{{ m.label }}</td>
+                          <td><input v-model.number="moEdits[c.id][m.month]" class="input cc-m-input" type="number" min="0" step="1000" placeholder="0" /></td>
+                          <td>¥{{ fmt(m.achieved) }}</td>
+                          <td :class="m.achievement_pct != null ? (m.achievement_pct >= 1 ? 'dt-ok' : '') : ''">{{ m.achievement_pct != null ? (m.achievement_pct * 100).toFixed(1) + '%' : '—' }}</td>
+                          <td>¥{{ fmt(m.est_rebate) }}</td>
+                          <td>¥{{ fmt(m.accrued_rebate) }}</td>
+                          <td>¥{{ fmt(m.cum_accrued) }}</td>
+                          <td>
+                            <span v-if="m.settled" class="tag">已结算</span>
+                            <span v-else-if="m.accrued_rebate > 0" class="tag ok">已计提</span>
+                            <span v-else-if="m.has_achievement" class="tag warn">待计提</span>
+                            <span v-else class="tag">—</span>
+                          </td>
+                          <td>
+                            <button class="btn btn-ghost btn-xs" :disabled="m.settled || accrueLoading[c.id+'-'+m.month]" @click="accrueMonth(c, m)">
+                              {{ m.settled ? '已结算' : (accrueLoading[c.id+'-'+m.month] ? '计提中…' : '计提') }}
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="cc-mtotals">
+                    <span>目标 ¥{{ fmt(moData[c.id].totals.target) }}</span>
+                    <span>达成 ¥{{ fmt(moData[c.id].totals.achieved) }}</span>
+                    <span>预计返利 ¥{{ fmt(moData[c.id].totals.est_rebate) }}</span>
+                    <span>已计提 ¥{{ fmt(moData[c.id].totals.accrued) }}</span>
+                    <span class="cc-mtotals-p" :class="moData[c.id].totals.progress_pct >= 100 ? 'ok' : ''">进度 {{ moData[c.id].totals.progress_pct }}%</span>
+                  </div>
+                  <div v-if="accrueResult[c.id]" class="dt-note" style="margin-top:10px">
+                    <b>{{ accrueResult[c.id].month }} 计提完成：</b>达成 ¥{{ fmt(accrueResult[c.id].achieved) }} → 返利 ¥{{ fmt(accrueResult[c.id].rebate) }}
+                    <ul style="margin:6px 0 0 18px;padding:0">
+                      <li v-for="(dd, di) in (accrueResult[c.id].details || [])" :key="di" :style="{color: dd.triggered ? 'var(--suc)' : 'var(--t3)'}">
+                        {{ dd.scope }}：达成 ¥{{ fmt(dd.achieved) }} → ¥{{ fmt(dd.rebate) }}（{{ dd.detail }}）
+                      </li>
+                    </ul>
+                  </div>
+                </template>
+              </div>
             </div>
           </div>
         </div>
@@ -557,9 +631,21 @@
             </div>
             <div class="form-grid2">
               <div class="form-row"><label>年度</label><input v-model="contractForm.year" class="input" placeholder="如 2026"></div>
-              <div class="form-row"><label>目标额（元）</label><input v-model.number="contractForm.target_amount" class="input" type="number" min="0" placeholder="0"></div>
+              <div class="form-row"><label>返利比例</label><input v-model.number="contractForm.rebate_pct" class="input" type="number" min="0" step="0.01" placeholder="如 3 表示 3%"></div>
             </div>
-            <div class="form-row"><label>返利比例</label><input v-model.number="contractForm.rebate_pct" class="input" type="number" min="0" step="0.01" placeholder="如 3 表示 3%"></div>
+            <div class="form-row" style="margin-top:2px">
+              <label>月度目标（元）<span class="cf-mo-hint">可留空 · 空与 0 均视为无目标</span></label>
+            </div>
+            <div class="cf-mo-grid">
+              <div v-for="i in 12" :key="i" class="cf-mo-cell">
+                <label>{{ i }}月</label>
+                <input v-model.number="contractForm.months[monthKey(i)]" class="input" type="number" min="0" placeholder="0">
+              </div>
+            </div>
+            <div class="cf-mo-sum">
+              <span>全年目标（自动汇总）</span>
+              <b>¥{{ fmt(contractYearSum) }}</b>
+            </div>
           </div>
           <div class="modal-ft">
             <button class="btn btn-ghost" @click="contractFormOpen=false">取消</button>
@@ -569,11 +655,45 @@
       </Transition>
     </Teleport>
 
+    <!-- v111: 阶梯设置弹窗（年度合同 tiers_json 编辑） -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="tierFormOpen" class="modal-overlay" @click.self="tierFormOpen=false"></div>
+      </Transition>
+      <Transition name="modal">
+        <div v-if="tierFormOpen" class="modal-card">
+          <div class="modal-hd">
+            <b>阶梯设置 · {{ tierFormContract ? contractName(tierFormContract) : '' }} {{ tierFormContract ? tierFormContract.year : '' }}</b>
+            <button class="btn-close" @click="tierFormOpen=false">✕</button>
+          </div>
+          <div class="modal-body">
+            <p class="cf-tip">按<b>累计达成额</b>累进计算返利，比例按<b>百分点</b>填（3 = 3%）。未设阶梯时用合同的单一返利比例。</p>
+            <table class="dt-tier" style="margin-top:8px">
+              <thead><tr><th>下限（元）</th><th>上限（元，0=以上）</th><th>返利 %</th><th></th></tr></thead>
+              <tbody>
+                <tr v-for="(t, i) in tierFormTiers" :key="i">
+                  <td><input v-model.number="t.min_amount" class="input cc-ti" type="number" min="0" placeholder="0"></td>
+                  <td><input v-model.number="t.max_amount" class="input cc-ti" type="number" min="0" placeholder="0=以上"></td>
+                  <td><input v-model.number="t.pct" class="input cc-ti" type="number" min="0" step="0.1" placeholder="3"></td>
+                  <td><button class="btn btn-ghost btn-xs danger" @click="tierFormTiers.splice(i,1)">删除</button></td>
+                </tr>
+              </tbody>
+            </table>
+            <button class="btn btn-ghost btn-sm" style="margin-top:8px" @click="tierFormTiers.push({min_amount:0,max_amount:0,pct:0})">+ 加一档</button>
+          </div>
+          <div class="modal-ft">
+            <button class="btn btn-ghost" @click="tierFormOpen=false">取消</button>
+            <button class="btn btn-primary" :disabled="tierSaving" @click="saveTiers">{{ tierSaving ? '保存中…' : '保存阶梯' }}</button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { toast } from '../store'
 import { rebateApi } from '../api/modules'
 import { api } from '../api/client.js'
@@ -1048,17 +1168,25 @@ const contracts = ref([])
 const contractLoading = ref(false)
 const contractFormOpen = ref(false)
 const editingContractId = ref(null)
-const contractForm = ref({ contact_id: '', contact_name: '', byName: false, year: String(new Date().getFullYear()), target_amount: 0, rebate_pct: 0 })
+const contractForm = ref({ contact_id: '', contact_name: '', byName: false, year: String(new Date().getFullYear()), months: {}, rebate_pct: 0, orig_target: 0 })
 const contactOptions = ref([])
 
 async function loadContracts() {
   contractLoading.value = true
   try {
-    const list = await api('/api/rebate-contracts')
+    // 用 /api/rebate-summary：除合同基础信息外还带达成/进度/预计返利/挂载规则数，
+    // 且同样 LEFT JOIN contact_name，按名称直录的合同不会丢。
+    const list = await api('/api/rebate-summary')
     contracts.value = Array.isArray(list) ? list : (list.data || [])
   } catch (e) {
-    contracts.value = []
-    toast('合同返利加载失败: ' + (e.message || ''), 'error')
+    // 兜底退回基础合同列表（老后端无 summary 字段时）
+    try {
+      const list = await api('/api/rebate-contracts')
+      contracts.value = Array.isArray(list) ? list : (list.data || [])
+    } catch (e2) {
+      contracts.value = []
+      toast('合同返利加载失败: ' + (e2.message || ''), 'error')
+    }
   } finally {
     contractLoading.value = false
   }
@@ -1069,22 +1197,73 @@ async function loadContactOptions() {
     contactOptions.value = Array.isArray(list) ? list : (list.data || [])
   } catch (e) {}
 }
+/* ---- 录入年度合同：按月录入 + 全年自动汇总 ---- */
+function buildMonthsMap(year) {
+  const m = {}
+  for (let i = 1; i <= 12; i++) m[`${year}-${String(i).padStart(2, '0')}`] = null
+  return m
+}
+function monthKey(i) {
+  const y = String(contractForm.value.year || new Date().getFullYear()).trim()
+  return `${y}-${String(i).padStart(2, '0')}`
+}
+// 年度变更时把已填的月份值迁移到新年份 key（如 2026 → 2027），不丢输入
+watch(() => contractForm.value.year, (ny, oy) => {
+  const f = contractForm.value
+  if (!f.months || !oy) return
+  const sy = String(oy).trim()
+  const ty = String(ny || sy).trim()
+  if (!ty || sy === ty) return
+  const nm = buildMonthsMap(ty)
+  for (let i = 1; i <= 12; i++) {
+    const ok = `${sy}-${String(i).padStart(2, '0')}`
+    const nk = `${ty}-${String(i).padStart(2, '0')}`
+    const v = f.months[ok]
+    if (v !== null && v !== undefined && v !== '') nm[nk] = v
+  }
+  f.months = nm
+})
+// 全年目标 = 12 个月求和（空/非法按 0），驱动汇总条实时刷新
+const contractYearSum = computed(() => {
+  const f = contractForm.value
+  let s = 0
+  for (const k in (f.months || {})) {
+    const v = Number(f.months[k])
+    if (Number.isFinite(v) && v > 0) s += v
+  }
+  return s
+})
 function openCreateContract() {
-  contractForm.value = { contact_id: '', contact_name: '', byName: false, year: String(new Date().getFullYear()), target_amount: 0, rebate_pct: 0 }
+  const year = String(new Date().getFullYear())
+  contractForm.value = { contact_id: '', contact_name: '', byName: false, year, months: buildMonthsMap(year), rebate_pct: 0, orig_target: 0 }
   editingContractId.value = null
   contractFormOpen.value = true
 }
-function openEditContract(c) {
+async function openEditContract(c) {
+  const year = String(c.year || new Date().getFullYear())
   contractForm.value = {
     contact_id: c.contact_id || '',
     contact_name: c.contact_name || '',
     byName: !!(c.contact_name && String(c.contact_name).trim()),
-    year: String(c.year || ''),
-    target_amount: Number(c.target_amount) || 0,
+    year,
+    months: buildMonthsMap(year),
     rebate_pct: Number(c.rebate_pct) || 0,
+    orig_target: Number(c.target_amount) || 0,
   }
   editingContractId.value = c.id
   contractFormOpen.value = true
+  // 预填月度分解：已设置过的月份回填数值，未设置的保持空（可编辑）
+  try {
+    const d = await api('/api/rebate-contracts/' + c.id + '/months')
+    if (d && d.success) {
+      const m = { ...contractForm.value.months }
+      for (const row of d.months || []) {
+        if (row.saved) m[row.month] = Number(row.target_amount) || 0
+        else if (Number(row.target_amount) > 0) m[row.month] = Number(row.target_amount)
+      }
+      contractForm.value.months = m
+    }
+  } catch (e) { /* 月度预填失败不阻塞编辑 */ }
 }
 async function saveContract() {
   const f = contractForm.value
@@ -1094,24 +1273,48 @@ async function saveContract() {
   } else {
     if (!f.contact_id) { toast('请选择合作方', 'error'); return }
   }
-  const body = {
-    year: String(f.year),
-    target_amount: Number(f.target_amount) || 0,
-    rebate_pct: Number(f.rebate_pct) || 0,
+  const y = String(f.year).trim()
+  const months = []
+  let sum = 0
+  for (let i = 1; i <= 12; i++) {
+    const key = `${y}-${String(i).padStart(2, '0')}`
+    const raw = f.months[key]
+    let v = 0
+    if (raw !== null && raw !== undefined && raw !== '') {
+      v = Number(raw)
+      if (!Number.isFinite(v)) { toast(`「${i}月」目标必须是数字`, 'error'); return }
+      if (v < 0) { toast(`「${i}月」目标不能为负数`, 'error'); return }
+    }
+    months.push({ month: key, target_amount: v })
+    sum += v
   }
+  // 编辑老合同防误清零：全部月空/0 且原目标 >0 → 保留原全年目标，不写月度分解
+  const hasPositive = months.some(m => m.target_amount > 0)
+  const keepOldTarget = !!editingContractId.value && sum === 0 && !hasPositive && (Number(f.orig_target) || 0) > 0
+  const targetAmount = keepOldTarget ? Number(f.orig_target) : sum
+  const body = { year: y, target_amount: targetAmount, rebate_pct: Number(f.rebate_pct) || 0 }
   if (f.byName) { body.contact_name = String(f.contact_name).trim(); body.contact_id = 0 }
   else { body.contact_id = Number(f.contact_id) }
   try {
-    if (editingContractId.value) {
-      await api('/api/rebate-contracts/' + editingContractId.value, { method: 'PUT', body })
-      toast('已更新年度合同', 'success')
+    let cid = editingContractId.value
+    if (cid) {
+      await api('/api/rebate-contracts/' + cid, { method: 'PUT', body })
     } else {
-      await api('/api/rebate-contracts', { method: 'POST', body })
-      toast('已录入年度合同', 'success')
+      const r = await api('/api/rebate-contracts', { method: 'POST', body })
+      cid = (r && r.id) || null
+    }
+    if (!cid) throw new Error('未拿到合同 id')
+    // 第二步：写月度目标（全 12 个月，含显式 0，保证后端回写 = 用户所见之和）
+    if (hasPositive) {
+      const mr = await api('/api/rebate-contracts/' + cid + '/months', { method: 'PUT', body: { months } })
+      if (mr && mr.success && mr.contract_target != null) sum = Number(mr.contract_target)
     }
     contractFormOpen.value = false
     editingContractId.value = null
     await loadContracts()
+    if (keepOldTarget) toast('已保存，该合同无月度分解，全年目标沿用原值 ¥' + fmt(targetAmount), 'success')
+    else if (sum === 0) toast('已保存（未填写月度目标，全年目标为 ¥0）', 'success')
+    else toast('已保存，全年目标自动汇总为 ¥' + fmt(sum), 'success')
   } catch (e) {
     toast('保存失败: ' + (e.message || ''), 'error')
   }
@@ -1126,8 +1329,147 @@ async function deleteContract(c) {
     toast('删除失败: ' + (e.message || ''), 'error')
   }
 }
+
+/* ---- v111: 月度构成（12 个月目标分解）---- */
+const expandedMonths = ref({})
+const moData = ref({})      // cid -> overview 结构
+const moLoading = ref({})
+const moError = ref({})
+const moSaving = ref({})
+const moEdits = ref({})     // cid -> { '2026-01': number, ... }
+const accrueLoading = ref({})
+const accrueResult = ref({})
+
+async function toggleMonths(c) {
+  if (expandedMonths.value[c.id]) { expandedMonths.value[c.id] = false; return }
+  expandedMonths.value[c.id] = true
+  if (!moData.value[c.id]) await loadMonths(c)
+}
+async function loadMonths(c) {
+  moLoading.value[c.id] = true
+  moError.value[c.id] = ''
+  try {
+    const d = await api('/api/rebate-contracts/' + c.id + '/overview')
+    if (!d || !d.success) throw new Error((d && d.error) || '加载失败')
+    moData.value[c.id] = d
+    const edits = {}
+    for (const m of d.months || []) edits[m.month] = m.target_amount
+    moEdits.value[c.id] = edits
+  } catch (e) {
+    moError.value[c.id] = '月度明细加载失败: ' + (e.message || '')
+  } finally {
+    moLoading.value[c.id] = false
+  }
+}
+async function saveMonths(c) {
+  const months = []
+  const edits = moEdits.value[c.id] || {}
+  for (const m of (moData.value[c.id] || {}).months || []) {
+    months.push({ month: m.month, target_amount: Number(edits[m.month]) || 0, note: m.note || '' })
+  }
+  moSaving.value[c.id] = true
+  try {
+    const r = await api('/api/rebate-contracts/' + c.id + '/months', { method: 'PUT', body: { months } })
+    if (r && r.success) {
+      toast('月度目标已保存，年度目标自动更新为 ¥' + fmt(r.contract_target), 'success')
+      await Promise.all([loadMonths(c), loadContracts()])
+    } else {
+      toast('保存失败: ' + ((r && r.error) || ''), 'error')
+    }
+  } catch (e) {
+    toast('保存失败: ' + (e.message || ''), 'error')
+  } finally {
+    moSaving.value[c.id] = false
+  }
+}
+async function accrueMonth(c, m) {
+  const key = c.id + '-' + m.month
+  if (m.settled) { toast(m.month + ' 已结算，不能重复计提', 'error'); return }
+  accrueLoading.value[key] = true
+  try {
+    const r = await api('/api/rebate-contracts/' + c.id + '/accrue', { method: 'POST', body: { month: m.month } })
+    if (r && r.success) {
+      accrueResult.value[c.id] = r
+      toast(m.month + ' 计提完成：返利 ¥' + fmt(r.rebate), 'success')
+      await Promise.all([loadMonths(c), loadContracts()])
+    } else {
+      toast('计提失败: ' + ((r && r.error) || ''), 'error')
+    }
+  } catch (e) {
+    toast('计提失败: ' + (e.message || ''), 'error')
+  } finally {
+    accrueLoading.value[key] = false
+  }
+}
+/* 计提本月：默认取当前月份；若合同年度与当前月不符则提示 */
+function openAccrueMonth(c) {
+  const now = new Date()
+  const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0')
+  const year = String(c.year || now.getFullYear())
+  if (year !== String(now.getFullYear())) {
+    toast('合同年度 ' + year + ' 与当前年份不符，请展开「月度构成」按月计提', 'error')
+    return
+  }
+  // 展开月度表并直接对该月计提
+  if (!expandedMonths.value[c.id]) {
+    expandedMonths.value[c.id] = true
+    if (!moData.value[c.id]) {
+      loadMonths(c).then(() => { accrueMonth(c, { month: ym, settled: false }) })
+      return
+    }
+  }
+  accrueMonth(c, { month: ym, settled: false })
+}
+async function settleContract(c) {
+  if (!window.confirm('确定结算「' + contractName(c) + ' ' + c.year + ' 年度」？将把未结算的计提汇总生成一张应收单（厂家欠你方）。')) return
+  try {
+    const r = await api('/api/rebate-contracts/' + c.id + '/settle', { method: 'POST' })
+    if (r && r.success) {
+      toast('结算完成：应收单 #' + r.receivable_id + ' ¥' + fmt(r.settled_amount), 'success')
+      await Promise.all([loadContracts()].concat(expandedMonths.value[c.id] ? [loadMonths(c)] : []))
+    } else {
+      toast('结算失败: ' + ((r && r.error) || ''), 'error')
+    }
+  } catch (e) {
+    toast('结算失败: ' + (e.message || ''), 'error')
+  }
+}
+
+/* ---- v111: 阶梯设置 ---- */
+const tierFormOpen = ref(false)
+const tierFormContract = ref(null)
+const tierFormTiers = ref([])
+const tierSaving = ref(false)
+function openTierForm(c) {
+  tierFormContract.value = c
+  tierFormTiers.value = tierList(c).length ? tierList(c).map(t => ({ min_amount: Number(t.min_amount) || 0, max_amount: Number(t.max_amount) || 0, pct: Number(t.pct) || 0 })) : []
+  tierFormOpen.value = true
+}
+async function saveTiers() {
+  const c = tierFormContract.value
+  const tiers = tierFormTiers.value
+    .filter(t => !(t.min_amount === 0 && t.max_amount === 0 && t.pct === 0))
+    .map(t => ({ min_amount: Number(t.min_amount) || 0, max_amount: Number(t.max_amount) || 0, pct: Number(t.pct) || 0 }))
+  tiers.sort((a, b) => a.min_amount - b.min_amount)
+  tierSaving.value = true
+  try {
+    const r = await api('/api/rebate-contracts/' + c.id + '/tiers', { method: 'PUT', body: { tiers } })
+    if (r && r.success) {
+      toast('阶梯已保存', 'success')
+      tierFormOpen.value = false
+      await loadContracts()
+    } else {
+      toast('保存失败: ' + ((r && r.error) || ''), 'error')
+    }
+  } catch (e) {
+    toast('保存失败: ' + (e.message || ''), 'error')
+  } finally {
+    tierSaving.value = false
+  }
+}
 function contractName(c) {
   if (c.contact_name && String(c.contact_name).trim()) return c.contact_name
+  if (c.contact_ref_name && String(c.contact_ref_name).trim()) return c.contact_ref_name
   if (c.customer_name && String(c.customer_name).trim()) return c.customer_name
   return '合作方 #' + (c.contact_id || '?')
 }
@@ -1318,6 +1660,23 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadAchievements(dashMonth.va
 .cc-tier{margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle)}
 .cc-tier-h{font-size:12.5px;font-weight:600;color:var(--t2);margin-bottom:6px}
 
+/* v111: 月度构成 */
+.cc-mo{margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle)}
+.cc-mo-toggle{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--p-dark);font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 0}
+.cc-mo-toggle svg{transition:transform .15s}
+.cc-months{margin-top:10px}
+.cc-months-save{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.cc-ms-tip{font-size:12px;color:var(--t3)}
+.cc-mtable-wrap{overflow-x:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
+.cc-mtable{margin-top:0;min-width:640px}
+.cc-mtable th,.cc-mtable td{padding:5px 8px;white-space:nowrap}
+.cc-m-label{font-weight:600;color:var(--t2)}
+.cc-m-input{width:96px;padding:3px 6px;font-size:12px;text-align:right}
+.cc-mtotals{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--t2)}
+.cc-mtotals .cc-mtotals-p{font-weight:600}
+.cc-mtotals .cc-mtotals-p.ok{color:var(--suc)}
+.cc-ti{width:90px;padding:3px 6px;font-size:12px}
+
 
 @media(max-width:768px){
   .toolbar{flex-direction:column;align-items:stretch}
@@ -1336,6 +1695,12 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadAchievements(dashMonth.va
 
 /* 冲突弹窗（409 规则冲突） */
 .cf-tip{font-size:13px;color:var(--t2);line-height:1.6;margin:0 0 12px}
+.cf-mo-hint{font-size:12px;color:var(--t3);font-weight:400;margin-left:6px}
+.cf-mo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+.cf-mo-cell label{display:block;font-size:12px;color:var(--t2);margin-bottom:3px}
+.cf-mo-sum{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:10px 14px;background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.18);border-radius:8px}
+.cf-mo-sum span{font-size:13px;color:var(--p-dark)}
+.cf-mo-sum b{font-size:18px;color:var(--p);font-weight:600}
 .cf-tip b{color:var(--t1)}
 .cf-tbl{width:100%;margin-bottom:12px}
 .cf-tbl td.cf-period{white-space:nowrap;color:var(--t2);font-variant-numeric:tabular-nums}
