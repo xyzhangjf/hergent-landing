@@ -268,7 +268,7 @@ import { importApi } from '../api/modules'
 import { chatAttachmentApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
 import ProgressSteps from './ProgressSteps.vue'
-import { useCardTrigger, extractCard, demoCard, REVIEW_RE, REVIEW_STEPS } from '../composables/useCardTrigger'
+import { useCardTrigger, extractCard, extractCardIntent, stripIntentFence, DENY_RE, demoCard } from '../composables/useCardTrigger'
 import { useVoiceInput } from '../composables/useVoiceInput'
 import { renderMd } from '../utils/md'
 
@@ -486,7 +486,7 @@ const {
   fetchRebateCard,
   fetchForecastCard,
   triggerCards,
-  runReviewPipeline
+  fireCards
 } = useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRoleReply, getRoleId })
 
 /* ---- M5 语音输入（A6 拆分至 composables/useVoiceInput） ---- */
@@ -710,6 +710,8 @@ async function streamReply(payload) {
   const replyIndex = store.chat.messages.length - 1
   store.chat.streaming = true
   scrollBottom()
+  // AI 自主判断的卡片意图（```cards 围栏）；null = AI 未输出意图，走弱兜底
+  let cardIntent = null
 
   try {
     // 分级超时（P1）：对账/复盘/汇总/报表等长任务放宽到 5 分钟，普通对话 3 分钟
@@ -722,11 +724,13 @@ async function streamReply(payload) {
         onDelta: (d, full) => {
           const last = store.chat.messages[replyIndex]
           if (!last) return
-          if (last.card) { last.content = full }            // 已抽到卡片，继续累积纯文本
+          if (!cardIntent) cardIntent = extractCardIntent(full)
+          const clean = stripIntentFence(full)
+          if (last.card) { last.content = clean }            // 已抽到卡片，继续累积纯文本（意图围栏已剥离）
           else {
-            const ex = extractCard(full)
+            const ex = extractCard(clean)
             if (ex) { last.card = ex.card; last.content = ex.content }
-            else last.content = full
+            else last.content = clean
           }
           scrollBottom()
         }
@@ -766,17 +770,13 @@ async function streamReply(payload) {
   if (reply && currentRole.value && currentRole.value.role_id) {
     pushRoleReply(currentRole.value.role_id, reply, (currentRole.value.name || 'AI 经营副驾'))
   }
-  if (REVIEW_RE.test(q)) {
-    const progressMsg = {
-      role: 'assistant',
-      content: '正在为你生成经营复盘，分步核算中：',
-      progress: { steps: REVIEW_STEPS.map(s => ({ label: s.label, status: 'todo' })) }
-    }
-    store.chat.messages.push(progressMsg)
-    scrollBottom(); saveCurrentSession()
-    runReviewPipeline(q, progressMsg)
-  } else {
-    Promise.all([fetchLossCard(q), fetchPayrollCard(q), fetchRebateCard(q), fetchForecastCard(q)])
+  // 是否补经营卡 = AI 自主判断（老板无需知道"卡片"）：
+  //   ① AI 输出了 ```cards 意图围栏 → 完全按 AI 的 show 执行（show:[] 即纯文字一张不补）
+  //   ② AI 未输出（模型漏标/旧会话）→ 单卡正则弱兜底，且尊重显式否定词
+  if (cardIntent) {
+    if (cardIntent.show && cardIntent.show.length) fireCards(cardIntent.show, q)
+  } else if (!DENY_RE.test(q)) {
+    triggerCards(q)
   }
   saveCurrentSession()
 }

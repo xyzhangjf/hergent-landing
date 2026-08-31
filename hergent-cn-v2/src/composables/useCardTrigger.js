@@ -10,28 +10,41 @@ import { api } from '../api/client'
 
 /* ---- M4 后端卡片协议：从 Hermes 输出抽 ```card 围栏 JSON（前端零改造消费） ---- */
 export function extractCard(text) {
-  const m = text.match(/```card\s*([\s\S]*?)```/i)
+  const m = text.match(/```card(?!s)\s*([\s\S]*?)```/i)
   if (!m) return null
   try {
     const card = JSON.parse(m[1].trim())
-    const content = text.replace(/```card\s*[\s\S]*?```/i, '').replace(/^\n+/, '').trim()
+    const content = text.replace(/```card(?!s)\s*[\s\S]*?```/i, '').replace(/^\n+/, '').trim()
     return { card, content }
   } catch (e) { return null }
 }
 
-/* ---- 意图正则 ---- */
+/* ---- AI 自主判断：```cards 意图围栏（隐藏控制信号，不出现在界面） ----
+   协议：AI 在回复末尾输出 ```cards {"show":["loss","wage","rebate","forecast"]} ```
+   - show 数组 = 要触发的经营卡；show:[] = 纯文字回复不出卡
+   - 无该围栏 = AI 未判断 → 由前端弱正则兜底
+   老板不需要知道"卡片"，是否出卡完全由 AI 依据问题语义决定。 */
+export const CARD_INTENT_RE = /```cards\s*\n?\s*(\{[\s\S]*?\})\s*```/i
+// 显式否定（兜底层用）：用户明确要纯文字/不要图表时，即使无意图围栏也不补卡
+export const DENY_RE = /(不|别|无需|不用|免|不要).{0,6}(卡片?|图表|卡)|只要(文字|文本|正文|段落)|纯(文字|文本|正文)/i
+
+export function extractCardIntent(text) {
+  const m = (text || '').match(CARD_INTENT_RE)
+  if (!m) return null
+  try {
+    const intent = JSON.parse(m[1].trim())
+    return { show: Array.isArray(intent.show) ? intent.show : [] }
+  } catch (e) { return null }
+}
+export function stripIntentFence(text) {
+  return (text || '').replace(CARD_INTENT_RE, '').replace(/^\n+/, '').trim()
+}
+
+/* ---- 意图正则（仅作 AI 未输出意图围栏时的弱兜底） ---- */
 export const LOSS_RE = /货损|报损|损耗|临期|过期|破损|报废|损失|近效期|效期|保质期|坏品|烂货/i
 export const PAYROLL_RE = /工资|提成|算工资|算提成|发工资|佣金|薪酬|业绩提成|员.?工.?工资/i
 export const REBATE_RE = /返利|算返利|返点|返佣|厂家返利|供应商返利|季度返利|年终返利/i
 export const FORECAST_RE = /预报|报单|谁没报|还差.*报|订了多少|订货量|下单量|订单汇总|报单进度|催单|订货进度/i
-export const REVIEW_RE = /复盘|经营分析|经营简报|综合分析|整体经营|经营总览|经营盘点|月度复盘|月度分析|本月经营|经营汇报|数据总览|经营总况/i
-
-export const REVIEW_STEPS = [
-  { label: '货损卡', ep: '/api/ai/loss-card', lead: '顺手把这段时间的真实货损核算拉出来了：' },
-  { label: '工资卡', ep: '/api/ai/payroll-card', lead: '顺手把本月工资提成核算拉出来了：' },
-  { label: '返利卡', ep: '/api/ai/rebate-card', lead: '顺手把当前的返利进度拉出来了：' },
-  { label: '汇总报告', ep: '' }
-]
 
 /**
  * @param {object} deps
@@ -80,32 +93,21 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
   const fetchRebateCard = makeFetcher(REBATE_RE, '/api/ai/rebate-card', '顺手把当前的返利进度拉出来了：')
   const fetchForecastCard = makeFetcher(FORECAST_RE, '/api/ai/forecast-card', '顺手把这期的预报订单进度拉出来了：')
 
-  /* ---- 经营复盘：多卡意图顺序跑三卡 + 进度条 ---- */
-  function setStep(progressMsg, i, status) {
-    if (!progressMsg || !progressMsg.progress) return
-    const steps = progressMsg.progress.steps
-    if (steps[i]) steps[i].status = status
-    if (status === 'done' && steps[i + 1]) steps[i + 1].status = 'active'
-    progressMsg.progress = { steps: steps.map(s => ({ ...s })) }
+  /* 按 AI 意图名单触卡：show:["loss","wage","rebate","forecast"] */
+  const CARD_MAP = {
+    loss: fetchLossCard, wastage: fetchLossCard,
+    wage: fetchPayrollCard, payroll: fetchPayrollCard,
+    rebate: fetchRebateCard, forecast: fetchForecastCard
+  }
+  function fireCards(list, q) {
+    const jobs = (list || []).map(k => {
+      const f = CARD_MAP[k]
+      return f ? f(q) : Promise.resolve()
+    })
+    return Promise.all(jobs)
   }
 
-  function runReviewPipeline(q, progressMsg) {
-    return REVIEW_STEPS.reduce((chain, step, i) => {
-      return chain.then(() => {
-        setStep(progressMsg, i, 'active')
-        if (!step.ep) return Promise.resolve().then(() => setStep(progressMsg, i, 'done'))
-        return api(step.ep)
-          .then(res => {
-            const card = res && res.card
-            if (card) pushCard(step.lead, card)
-          })
-          .catch(() => { /* 静默降级，绝不阻断进度条 */ })
-          .then(() => setStep(progressMsg, i, 'done'))
-      })
-    }, Promise.resolve())
-  }
-
-  /* 触发所有非复盘卡片（send 完成后调用） */
+  /* 触发所有非复盘卡片（send 完成后调用；AI 未给意图围栏时的弱兜底） */
   function triggerCards(q) {
     return Promise.all([fetchLossCard(q), fetchPayrollCard(q), fetchRebateCard(q), fetchForecastCard(q)])
   }
@@ -117,9 +119,7 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
     fetchRebateCard,
     fetchForecastCard,
     triggerCards,
-    runReviewPipeline,
-    REVIEW_RE,
-    REVIEW_STEPS
+    fireCards
   }
 }
 
