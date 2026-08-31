@@ -2,7 +2,7 @@
   <div class="login">
     <div class="login-card">
       <div class="login-logo">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--p-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M5 12H3M21 12h-3M6 6l-2-2M20 20l-2-2M6 18l-2 2M20 4l-2 2"/><circle cx="12" cy="12" r="4"/></svg>
+        <img src="/favicon.svg" alt="Hergent" />
       </div>
       <h1>Hergent · AI 经营副驾</h1>
       <p class="login-sub">低温奶经销商的经营好帮手</p>
@@ -175,6 +175,7 @@ function goWorkbench() {
 .login{height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg2);padding:20px}
 .login-card{width:360px;max-width:100%;background:var(--bg);border-radius:20px;padding:40px 32px;box-shadow:var(--shadow-lg);border:1px solid var(--border-subtle)}
 .login-logo{display:flex;justify-content:center;margin-bottom:14px}
+.login-logo img{width:48px;height:48px;border-radius:10px;box-shadow:0 4px 12px rgba(13,148,136,.18)}
 h1{font-size:20px;font-weight:600;text-align:center;margin-bottom:4px}
 .login-sub{font-size:13px;color:var(--t3);text-align:center;margin-bottom:24px}
 form{display:flex;flex-direction:column;gap:12px}

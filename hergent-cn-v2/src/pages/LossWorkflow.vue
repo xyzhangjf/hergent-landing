@@ -127,7 +127,8 @@
         </div>
         <div v-else class="state-empty">
           <p>按当前配方没有命中临期/过期库存。</p>
-          <p style="margin-top:6px;color:var(--t3)">如果库存里有数据却没结果，多半是库存缺批次/效期信息（见下方提示）。</p>
+          <p style="margin-top:6px;color:var(--t3)">如果库存里有数据却没结果，多半是库存缺批次/效期信息。</p>
+          <button class="btn btn-primary btn-sm" style="margin-top:12px" @click="goDataFill">去补录库存效期 →</button>
         </div>
       </div>
 
@@ -160,14 +161,44 @@
         <button class="btn btn-ghost" @click="backToConfig">← 改算法再算</button>
         <span v-if="result.scan_date" class="lf-footnote">数据截止 {{ result.scan_date }} · AI 只算不执行，报损仍需人工确认</span>
       </div>
+
+      <!-- AI 留痕记录 -->
+      <div class="card lf-panel" style="margin-top:14px">
+        <button class="lf-adv-toggle" @click="showAdvice = !showAdvice">
+          <span>🧾 AI 留痕记录</span>
+          <span class="tag" :class="advicePending ? 'warn' : 'info'">{{ advicePending ? advicePending + ' 待确认' : '查看历史' }}</span>
+        </button>
+        <div v-if="showAdvice" style="margin-top:14px">
+          <AdvicePanel :key="adviceKey" @confirmed="refreshAdviceBadge" />
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from '../store'
-import { lossApi } from '../api/modules'
+import { lossApi, adviceApi } from '../api/modules'
+import AdvicePanel from '../components/AdvicePanel.vue'
+
+const router = useRouter()
+
+function goDataFill() {
+  router.push('/data-fill')
+}
+
+const showAdvice = ref(false)
+const adviceKey = ref(0)
+const advicePending = ref(0)
+
+async function refreshAdviceBadge() {
+  try {
+    const d = await adviceApi.list(30)
+    advicePending.value = (d.records || []).filter(r => r.status === 'pending').length
+  } catch { /* ignore */ }
+}
 
 const step = ref(1)
 const running = ref(false)
@@ -218,8 +249,10 @@ async function runAndShow() {
     const res = await lossApi.run({})
     result.value = res
     step.value = 2
-    if (res.summary?.total_items > 0) toast('计算完成，共命中 ' + res.summary.total_items + ' 批', 'ok')
+    if (res.summary?.total_items > 0) toast('计算完成，共命中 ' + res.summary.total_items + ' 批，已留痕', 'ok')
     else toast('计算完成，当前无命中批次', 'info')
+    adviceKey.value++
+    refreshAdviceBadge()
   } catch (e) {
     toast(e.message || '计算失败', 'err')
   } finally {
@@ -255,6 +288,7 @@ onMounted(async () => {
 .lf-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--border-subtle)}
 .lf-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
 .lf-arrow{color:var(--t3);font-size:12px}
+.lf-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--t1);padding:0}
 
 .lf-panel{padding:20px}
 .lf-tip{font-size:12.5px;color:var(--t2);margin:4px 0 16px;line-height:1.6}

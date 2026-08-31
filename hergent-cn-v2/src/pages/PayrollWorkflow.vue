@@ -155,6 +155,7 @@
         </div>
         <div v-else class="state-empty">
           <p>{{ result.note || '暂无数据' }}</p>
+          <button v-if="!result.results?.length" class="btn btn-primary btn-sm" style="margin-top:12px" @click="goDataFill">去补录员工档案 →</button>
         </div>
       </div>
 
@@ -166,14 +167,44 @@
         </div>
       </div>
       <div v-if="confirmed" class="pr-confirm-ok">✅ {{ confirmed }} 人已确认，已生成工资台账与银行文件数据</div>
+
+      <!-- AI 留痕记录 -->
+      <div class="card pr-panel" style="margin-top:14px">
+        <button class="pr-adv-toggle" @click="showAdvice = !showAdvice">
+          <span>🧾 AI 留痕记录</span>
+          <span class="tag" :class="advicePending ? 'warn' : 'info'">{{ advicePending ? advicePending + ' 待确认' : '查看历史' }}</span>
+        </button>
+        <div v-if="showAdvice" style="margin-top:14px">
+          <AdvicePanel :key="adviceKey" @confirmed="refreshAdviceBadge" />
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from '../store'
-import { payrollApi } from '../api/modules'
+import { payrollApi, adviceApi } from '../api/modules'
+import AdvicePanel from '../components/AdvicePanel.vue'
+
+const router = useRouter()
+
+function goDataFill() {
+  router.push('/data-fill')
+}
+
+const showAdvice = ref(false)
+const adviceKey = ref(0)
+const advicePending = ref(0)
+
+async function refreshAdviceBadge() {
+  try {
+    const d = await adviceApi.list(30)
+    advicePending.value = (d.records || []).filter(r => r.status === 'pending').length
+  } catch { /* ignore */ }
+}
 
 const step = ref(1)
 const running = ref(false)
@@ -227,8 +258,10 @@ async function runAndShow() {
     result.value = res
     step.value = 2
     confirmed.value = ''
-    if (res.employees > 0) toast('已为 ' + res.employees + ' 人计算工资（草稿，待确认）', 'ok')
+    if (res.employees > 0) toast('已为 ' + res.employees + ' 人计算工资（草稿，已留痕待确认）', 'ok')
     else toast(res.note || '计算完成', 'info')
+    adviceKey.value++
+    refreshAdviceBadge()
   } catch (e) {
     toast(e.message || '计算失败', 'err')
   } finally {
@@ -277,6 +310,7 @@ onMounted(async () => {
 .pr-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--border-subtle)}
 .pr-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
 .pr-arrow{color:var(--t3);font-size:12px}
+.pr-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--t1);padding:0}
 
 .pr-panel{padding:20px}
 .pr-tip{font-size:12.5px;color:var(--t2);margin:4px 0 16px;line-height:1.6}

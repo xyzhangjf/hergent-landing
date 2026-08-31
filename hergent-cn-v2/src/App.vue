@@ -1,5 +1,7 @@
 <template>
-  <router-view />
+  <ErrorBoundary>
+    <router-view />
+  </ErrorBoundary>
   <Transition name="toast">
     <div v-if="store.ui.toast" class="toast" :class="store.ui.toast.type">
       {{ store.ui.toast.msg }}
@@ -9,6 +11,7 @@
 
 <script setup>
 import { store } from './store'
+import ErrorBoundary from './components/ErrorBoundary.vue'
 </script>
 
 <style scoped>

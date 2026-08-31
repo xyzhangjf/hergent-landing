@@ -1,10 +1,5 @@
 <template>
   <div class="page">
-    <div class="page-hd">
-      <h2>经营工作台</h2>
-      <span class="page-sub">{{ todayStr }} · AI 晨报</span>
-    </div>
-
     <!-- Bento 布局 -->
     <div class="bento">
       <!-- KPI 横条（顶部紧凑统计带） -->
@@ -13,6 +8,25 @@
           <div class="kpi-label">{{ k.label }}</div>
           <div class="kpi-val" :class="k.cls">{{ k.val }}</div>
           <div class="kpi-sub">{{ k.sub }}</div>
+        </div>
+      </div>
+
+      <!-- 今日待办（AI 替你盯着的，等你拍板） -->
+      <div class="card todo-panel" v-if="todoItems.length">
+        <div class="panel-hd">
+          <b>今日待办</b>
+          <span class="badge badge-blue">等你拍板</span>
+          <span v-if="todoLoading" class="page-sub">加载中…</span>
+        </div>
+        <div class="todo-list">
+          <div v-for="(t, i) in todoItems" :key="i" class="todo-item" :class="'prio-' + t.prio" @click="goTodo(t)">
+            <span class="todo-ic">{{ t.icon }}</span>
+            <div class="todo-main">
+              <div class="todo-title">{{ t.title }}</div>
+              <div class="todo-sub">{{ t.sub }}</div>
+            </div>
+            <span class="todo-go">去处理 →</span>
+          </div>
         </div>
       </div>
 
@@ -95,7 +109,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { toast } from '../store'
 import { hermesChat } from '../api/client'
-import { dashboardApi, expiryApi, todayApi } from '../api/modules'
+import { dashboardApi, expiryApi, todayApi, collectionsApi } from '../api/modules'
 
 /* ---- 日期 ---- */
 const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
@@ -221,7 +235,57 @@ async function loadData() {
     const t = await todayApi.get()
     todayData.value = t
   } catch (e) { /* 静默 */ }
+  loadTodo()
 }
+
+/* ---- 今日待办：审批 + 催收 + 临期（AI 替你盯着的） ---- */
+const todoItems = ref([])
+const todoLoading = ref(false)
+
+async function loadTodo() {
+  todoLoading.value = true
+  const items = []
+  try {
+    const [col] = await Promise.all([
+      collectionsApi.queue().catch(() => null),
+    ])
+    const cols = (col && col.items) || []
+    const disputed = cols.filter(c => c.status === 'disputed')
+    const overdueBig = cols.filter(c => c.escalated && c.age_days > 0).slice(0, 1)
+    if (disputed.length || overdueBig.length) {
+      const first = disputed[0] || overdueBig[0]
+      const extra = disputed.length + overdueBig.length - 1
+      items.push({
+        icon: '账',
+        title: `催收：${first.contact_name} ${fmtNum(first.amount)} 元`,
+        sub: first.status === 'disputed' ? '客户提出争议，需要你处理' : `逾期 ${first.age_days} 天` + (extra > 0 ? ` · 另有 ${extra} 笔需跟进` : ''),
+        prio: 'amber', path: '/reconciliation',
+      })
+    }
+  } catch (e) { /* 静默 */ }
+  // 临期预警
+  const exp = expiryData.value || []
+  const near = exp.filter(x => x.status === 'near' || x.is_near)
+  if (near.length) {
+    items.push({
+      icon: '临',
+      title: `${near.length} 个 SKU 临近效期`,
+      sub: '需尽快处置，避免过期报损',
+      prio: 'amber', path: '/loss',
+    })
+  }
+  items.push({ icon: '聊', title: '问问 AI 今天该做什么', sub: '打开对话，AI 副驾随时待命', prio: 'blue', path: '/chat' })
+  todoItems.value = items.slice(0, 5)
+  todoLoading.value = false
+}
+
+function goTodo(t) {
+  if (t.path === '/chat') return
+  // hash 路由跳转
+  window.location.hash = '#' + t.path
+}
+
+function fmtNum(n) { return Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
 
 onMounted(loadData)
 </script>
@@ -234,6 +298,18 @@ onMounted(loadData)
 
 /* KPI 横条（顶部紧凑统计带） */
 .kpi-strip{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);padding:6px 0}
+.todo-panel{grid-column:1/-1;padding:16px}
+.todo-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.todo-item{display:flex;align-items:center;gap:12px;border:1px solid var(--bd);border-radius:12px;padding:12px 14px;cursor:pointer;transition:background .15s}
+.todo-item:hover{background:var(--bg2)}
+.todo-item.prio-red{border-color:rgba(255,59,48,.35);background:rgba(255,59,48,.04)}
+.todo-item.prio-amber{border-color:rgba(255,149,0,.3)}
+.todo-item.prio-blue{border-color:rgba(6,182,212,.25)}
+.todo-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
+.todo-main{flex:1;min-width:0}
+.todo-title{font-size:14px;font-weight:500;color:var(--t1)}
+.todo-sub{font-size:12px;color:var(--t3);margin-top:2px}
+.todo-go{font-size:12px;color:var(--p-dark);flex-shrink:0}
 .kpi-strip .kpi{padding:8px 18px;border-right:1px solid var(--border-subtle);transition:background .15s}
 .kpi-strip .kpi:first-child{padding-left:20px}
 .kpi-strip .kpi:last-child{border-right:none}

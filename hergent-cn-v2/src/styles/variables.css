@@ -15,6 +15,7 @@
   /* 语义色 */
   --suc:#34c759; --suc-rgb:52,199,89;
   --dan:#ff3b30; --dan-rgb:255,59,48;
+  --dan-bg:rgba(255,59,48,.10);  /* 删除/危险 hover 浅红底 */
   --war:#ff9f0a; --war-rgb:255,159,10;
 
   /* 中性面 */
@@ -64,6 +65,7 @@
 
   --suc:#30d158; --suc-rgb:48,209,88;
   --dan:#ff453a; --dan-rgb:255,69,58;
+  --dan-bg:rgba(255,69,58,.16);
   --war:#ff9f0a; --war-rgb:255,159,10;
 
   --bg:#1c1c1e;        /* 页面底（苹果深色） */
@@ -115,6 +117,26 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .btn-ghost:hover{background:var(--bg2)}
 .btn-block{width:100%}
 
+/* ============================================================
+   工具栏统一组件标准（可复用）
+   对齐《toolbar-standard.md》：线性图标、统一圆角8、色板走 token
+   ============================================================ */
+.tb{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;flex-wrap:wrap}
+.tb-compact{padding:8px 12px}
+.tb-group{display:inline-flex;align-items:center;gap:8px}
+.tb-sep{width:1px;height:20px;background:var(--bd);flex:0 0 auto;margin:0 2px}
+.btn-sm{height:32px;padding:0 12px;font-size:13px;font-weight:500;border-radius:var(--radius-sm)}
+.btn-icon{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
+.btn-icon svg{width:16px;height:16px}
+.btn-icon:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
+.btn-icon:disabled{opacity:.35;cursor:default}
+.fld{height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:13px;font-family:inherit}
+.fld:focus{outline:none;border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.chip:hover{border-color:var(--p)}
+.chip.on{background:var(--p);color:#fff;border-color:var(--p)}
+.ico{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+
 /* 通用卡片 */
 .card{
   background:var(--bg);
@@ -152,7 +174,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .badge-blue{background:var(--p-bg);color:var(--p-dark)}
 
 /* 进度条 */
-.progress{height:8px;border-radius:99px;background:var(--bg4);overflow:hidden}
+.progress{height:6px;border-radius:99px;background:var(--bg4);overflow:hidden}
 .progress>i{display:block;height:100%;border-radius:99px;background:var(--p-dark);transition:width .5s}
 .progress.green>i{background:var(--suc)}
 .progress.amber>i{background:var(--war)}

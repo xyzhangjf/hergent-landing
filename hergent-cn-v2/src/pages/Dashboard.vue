@@ -1,10 +1,5 @@
 <template>
   <div class="page">
-    <div class="page-hd">
-      <h2>数据看板</h2>
-      <span class="page-sub">深度分析 · 趋势对比 · 返利核销（今日经营概况见「经营工作台」）</span>
-    </div>
-
     <!-- 趋势图 -->
     <div class="card chart-card">
       <div class="panel-hd">
@@ -35,61 +30,14 @@
       <div v-else class="state-empty"><div class="skel-line" style="width:80%;margin:20px auto"></div></div>
     </div>
 
-    <div class="dual-grid">
-      <!-- 返利达成环形图 -->
-      <div class="card chart-card">
-        <div class="panel-hd"><b>厂家返利达成</b><span class="tag info">{{ rebateData.length }} 个</span></div>
-        <div v-if="rebateData.length" class="donut-area">
-          <svg viewBox="0 0 200 200" class="donut-svg">
-            <circle cx="100" cy="100" r="70" fill="none" stroke="var(--bg4)" stroke-width="20"/>
-            <circle v-for="(r,i) in donutSegments" :key="i"
-              cx="100" cy="100" r="70" fill="none"
-              :stroke="r.color" stroke-width="20"
-              :stroke-dasharray="r.dash"
-              :stroke-dashoffset="r.offset"
-              transform="rotate(-90 100 100)"
-              style="transition:stroke-dasharray .5s"/>
-            <text x="100" y="95" text-anchor="middle" fill="var(--t1)" font-size="24" font-weight="700">{{ avgAch }}%</text>
-            <text x="100" y="115" text-anchor="middle" fill="var(--t3)" font-size="11">平均达成</text>
-          </svg>
-        </div>
-        <div class="donut-legend" v-if="rebateData.length">
-          <div v-for="(r,i) in rebateData.slice(0,6)" :key="r.contract_id" class="dl-item">
-            <i class="dl-dot" :style="{background: donutColors[i % donutColors.length]}"></i>
-            <span class="dl-name">{{ r.contact_name || '供应商#' + r.contact_id }}</span>
-            <b>{{ r.achievement != null ? Math.round(r.achievement * 100) + '%' : '—' }}</b>
-          </div>
-        </div>
-        <div v-else class="state-empty"><p>暂无返利数据</p></div>
-      </div>
-
-      <!-- 供应商返利明细 -->
-      <div class="card chart-card">
-        <div class="panel-hd"><b>返利进度明细</b><span class="tag info">{{ rebateData.length }} 家</span></div>
-        <div class="rebate-list" v-if="rebateData.length">
-          <div v-for="(r,i) in rebateData" :key="r.contract_id" class="rebate-row">
-            <div class="rr-name">
-              <i class="dl-dot" :style="{background: donutColors[i % donutColors.length]}"></i>
-              {{ r.contact_name || ('供应商#' + r.contact_id) }}
-            </div>
-            <div class="rr-bar-wrap">
-              <div class="rr-bar" :style="{width: (r.achievement != null ? Math.min(100, r.achievement * 100) : 0) + '%', background: donutColors[i % donutColors.length]}"></div>
-            </div>
-            <div class="rr-val">{{ r.achievement != null ? Math.round(r.achievement * 100) + '%' : '—' }}</div>
-          </div>
-        </div>
-        <div v-else class="state-empty"><p>暂无返利数据</p></div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { dashboardApi, auditApi } from '../api/modules'
+import { dashboardApi } from '../api/modules'
 
 const dashData = ref(null)
-const rebateData = ref([])
 
 // 图表常量
 const chartW = 680
@@ -126,26 +74,6 @@ function yLabel(i) {
   return Math.round(v)
 }
 
-// 返利环形图
-const donutColors = ['#06b6d4', '#34c759', '#ff9f0a', '#ff3b30', '#5856d6', '#af52de']
-const avgAch = computed(() => {
-  const items = rebateData.value.filter(r => r.achievement != null)
-  if (!items.length) return '—'
-  return Math.round(items.reduce((s, r) => s + r.achievement, 0) / items.length * 100)
-})
-const donutSegments = computed(() => {
-  const items = rebateData.value.slice(0, 6)
-  const circumference = 2 * Math.PI * 70
-  let offset = 0
-  return items.map((r, i) => {
-    const ach = Math.min(1, r.achievement || 0)
-    const len = (ach / items.length) * circumference
-    const seg = { color: donutColors[i % donutColors.length], dash: `${len} ${circumference}`, offset: -offset }
-    offset += len
-    return seg
-  })
-})
-
 function fmt(n) {
   if (n == null) return '—'
   return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 })
@@ -154,10 +82,6 @@ function fmt(n) {
 async function loadData() {
   try {
     dashData.value = await dashboardApi.todayProfit()
-  } catch (e) { /* 静默 */ }
-  try {
-    const d = await auditApi.rebateSummary()
-    rebateData.value = d.data || d || []
   } catch (e) { /* 静默 */ }
 }
 
@@ -177,22 +101,6 @@ onMounted(loadData)
 .chart-area{width:100%}
 .trend-svg{width:100%;height:240px}
 .dual-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.donut-area{display:flex;justify-content:center;padding:10px}
-.donut-svg{width:180px;height:180px}
-.donut-legend{display:flex;flex-direction:column;gap:6px;padding:0 8px}
-.dl-item{display:flex;align-items:center;gap:8px;font-size:12px}
-.dl-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
-.dl-name{flex:1;color:var(--t2)}
-.dl-item b{color:var(--t1);font-variant-numeric:tabular-nums}
-
-/* 返利进度明细 */
-.rebate-list{display:flex;flex-direction:column;gap:12px;padding:6px 2px}
-.rebate-row{display:flex;align-items:center;gap:10px}
-.rr-name{width:96px;flex-shrink:0;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rr-bar-wrap{flex:1;height:8px;border-radius:4px;background:var(--bg4);overflow:hidden}
-.rr-bar{height:100%;border-radius:4px;transition:width .5s}
-.rr-val{width:46px;text-align:right;font-size:12px;font-weight:600;color:var(--t1);font-variant-numeric:tabular-nums}
-
 @media(max-width:1200px){.dual-grid{grid-template-columns:1fr}}
 @media(max-width:768px){.trend-svg{height:180px}}
 </style>
