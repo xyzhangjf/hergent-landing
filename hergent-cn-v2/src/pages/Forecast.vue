@@ -1833,7 +1833,7 @@ function riskText(r) {
   const w = rowWarn(r); if (w === 'low') parts.push('低于安全库存'); else if (w === 'short') parts.push('短保≤7天')
   const l = lossWarn(r); if (l) parts.push('货损风险')
   const rt = rtBadge(r); if (rt) parts.push('库存预警')
-  if (gapSet.has(r.product_id)) parts.push('缺批次/到期')
+  if (gapSet.value.has(r.product_id)) parts.push('缺批次/到期')
   if (hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60) parts.push('数据健康偏低')
   return parts.length ? parts.join('、') : '正常'
 }
@@ -4399,7 +4399,7 @@ function namePadStyle(r) {
   if (lossWarn(r)) n++
   if (rtBadge(r)) n++
   if (rowNote(r)) n++
-  if (gapSet.has(r.product_id)) n++
+  if (gapSet.value.has(r.product_id)) n++
   if (hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60) n++
   return n ? `padding-right:${n * 18 + 8}px` : 'padding-right:6px'
 }
