@@ -613,7 +613,7 @@
                 <td class="td seq-cell" :data-r="ri"><span class="seq-num">{{ ri + 1 }}</span></td>
                 <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:0;min-width:200px' : (c.key === frozenExtra ? 'left:200px;min-width:200px' : '')" :data-r="ri" :data-c="ci" :title="cellErrMsg(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
                   <template v-if="c.key === 'name'">
-                    <input v-model="r.name" class="cell-input cell-name" placeholder="商品名称" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)">
+                    <input v-model="r.name" class="cell-input cell-name" placeholder="商品名称" :style="namePadStyle(r)" :title="r.name || ''" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)">
                     <div class="name-badges">
                       <span v-if="rowWarn(r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
                       <span v-else-if="rowWarn(r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）"><Icon name="alert-triangle"/></span>
@@ -4392,6 +4392,17 @@ const notesMap = reactive({})
 function loadNotes() { try { Object.assign(notesMap, JSON.parse(localStorage.getItem(NOTE_KEY()) || '{}')) } catch (e) {} }
 function saveNotes() { localStorage.setItem(NOTE_KEY(), JSON.stringify(notesMap)) }
 function rowNote(r) { return notesMap[r.product_id] || '' }
+// 商品名输入框右 padding：仅当该行有右侧告警徽标时按数量预留空间，无徽标行文字可用满整框
+function namePadStyle(r) {
+  let n = 0
+  if (rowWarn(r)) n++
+  if (lossWarn(r)) n++
+  if (rtBadge(r)) n++
+  if (rowNote(r)) n++
+  if (gapSet.has(r.product_id)) n++
+  if (hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60) n++
+  return n ? `padding-right:${n * 18 + 8}px` : 'padding-right:6px'
+}
 function setRowNote(ri) {
   const r = cross.value.rows[ri]; if (!r) return
   const t = window.prompt('批注（商品行备注）：', rowNote(r))
@@ -6199,7 +6210,7 @@ th.sortable:hover{color:var(--p-dark)}
 .cust-hd{display:flex;align-items:center;gap:4px}
 .cell-input{height:26px;padding:0 6px;border:1px solid var(--bd);border-radius:5px;background:var(--bg);color:var(--t1);font-size:12px;outline:none;display:block;width:100%;min-width:0;box-sizing:border-box;text-align:center}
 .cell-input:focus{border-color:var(--p)}
-.cell-name{text-align:left;font-weight:500;padding-right:42px}
+.cell-name{text-align:left;font-weight:500}
 .cell-wide{text-align:left}
 .cell-cust{}
 .cell-spec{text-align:left}
