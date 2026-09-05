@@ -34,6 +34,33 @@ export const forecastApi = {
   payCompute: (body) => api('/api/forecast/payments/compute', { method: 'POST', body }),
   payConfirm: (body) => api('/api/forecast/payments/confirm', { method: 'POST', body }),
   zhoupuTemplate: (body) => api('/api/forecast/zhoupu-template', { method: 'POST', body }),
+  // 舟谱订单导入模板附件下载（确定性生成不依赖 LLM）：tid=zhoupu-pickup/transfer/all；窗口=当前期次 order_start~order_end
+  zhoupuGenerate: async (tid, { start, end }) => {
+    const token = localStorage.getItem('hergent_v2_token') || ''
+    const csrf = localStorage.getItem('hergent_v2_csrf') || ''
+    const res = await fetch(`/api/forecast/import-templates/${tid}/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+      },
+      body: JSON.stringify({ start, end }),
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      throw new Error(d.detail || d.message || '生成失败')
+    }
+    const blob = await res.blob()
+    let fname = ''
+    const cd = res.headers.get('Content-Disposition') || ''
+    const m = cd.match(/filename\*=UTF-8''([^;]+)/i)
+    if (m) fname = decodeURIComponent(m[1])
+    else { const m2 = cd.match(/filename="?([^";]+)"?/i); if (m2) fname = m2[1] }
+    let warnings = ''
+    try { warnings = decodeURIComponent(res.headers.get('X-Template-Warnings') || '') } catch (e) { warnings = '' }
+    return { blob, fname, rows: res.headers.get('X-Template-Rows') || '', warnings }
+  },
   rebateGap: (body) => api('/api/forecast/rebate-gap', { method: 'POST', body }),
   push: (body) => api('/api/forecast/push', { method: 'POST', body }),
   // P8-2 实时库存临期/缺货预警
@@ -108,16 +135,49 @@ export const auditApi = {
   adoptAudit: (body) => api('/api/forecast-audit/audit-period/adopt', { method: 'POST', body }),
 }
 
-/* ---- 返利规则 ---- */
+/* ---- 返利规则 ----
+ * v112 R5：list 默认含停用（停用/启用三态生命周期管理需要看到已停用规则并恢复）；
+ * delete 支持 hard=1 物理删除（前端"删除"按钮明确物理删，停用走 update is_active=0）。
+ */
 export const rebateApi = {
-  list: () => api('/api/rebate-rules'),
+  list: (includeInactive = 1) => api('/api/rebate-rules?include_inactive=' + (includeInactive ? 1 : 0)),
   get: (id) => api(`/api/rebate-rules/${id}`),
   create: (body) => api('/api/rebate-rules', { method: 'POST', body }),
   update: (id, body) => api(`/api/rebate-rules/${id}`, { method: 'PUT', body }),
-  delete: (id) => api(`/api/rebate-rules/${id}`, { method: 'DELETE' }),
+  delete: (id, hard = 0) => api(`/api/rebate-rules/${id}` + (hard ? '?hard=1' : ''), { method: 'DELETE' }),
   validate: (body) => api('/api/rebate-rules/validate', { method: 'POST', body }),
   simulate: (body) => api('/api/rebate-rules/simulate', { method: 'POST', body }),
   conflicts: () => api('/api/rebate-rules/conflicts'),
+  // v113：批量试算（算法唯一留在后端，前端只渲染 steps[] / tiers[]）
+  simulateBatch: (body) => api('/api/rebate-rules/simulate-batch', { method: 'POST', body }),
+  // v113：枚举元信息（计法 / 舍入等下拉候选）
+  meta: () => api('/api/rebate-rules/meta'),
+}
+
+/* ---- 年度返利合同（v113：计法 / 舍入 / 算式链） ---- */
+export const rebateContractApi = {
+  list: () => api('/api/rebate-contracts'),
+  create: (body) => api('/api/rebate-contracts', { method: 'POST', body }),
+  update: (id, body) => api(`/api/rebate-contracts/${id}`, { method: 'PUT', body }),
+  remove: (id) => api(`/api/rebate-contracts/${id}`, { method: 'DELETE' }),
+  months: (id) => api(`/api/rebate-contracts/${id}/months`),
+  saveMonths: (id, months) => api(`/api/rebate-contracts/${id}/months`, { method: 'PUT', body: { months } }),
+  tiers: (id) => api(`/api/rebate-contracts/${id}/tiers`),
+  saveTiers: (id, tiers) => api(`/api/rebate-contracts/${id}/tiers`, { method: 'PUT', body: { tiers } }),
+  overview: (id) => api(`/api/rebate-contracts/${id}/overview`),
+  accruals: (id) => api(`/api/rebate-contracts/${id}/accruals`),
+  accrue: (id, month) => api(`/api/rebate-contracts/${id}/accrue`, { method: 'POST', body: { month } }),
+  // v113：合同算式链（透明化面板 / 试算器）
+  calcDetail: (id, params = {}) => {
+    const q = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== '') q.set(k, String(v))
+    }
+    const qs = q.toString()
+    return api(`/api/rebate-contracts/${id}/calc-detail` + (qs ? '?' + qs : ''))
+  },
+  // v113：合同 What-if 试算（用合同快照算，不落库）
+  simulate: (body) => api('/api/rebate-contracts/simulate', { method: 'POST', body }),
 }
 
 /* ---- 今日要务 ---- */

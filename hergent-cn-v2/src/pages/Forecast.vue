@@ -1,9 +1,9 @@
 <template>
   <div class="page">
-    <!-- 模块级标签页：本期预报 / 历史预报 -->
+    <!-- 模块级标签页：本期预报 / 历史期次（历史分析工具改在汇总表工具箱「对比分析」组，见下） -->
     <div class="module-tabs">
       <button :class="{ on: activeTab === 'summary' }" @click="activeTab = 'summary'">本期预报</button>
-      <button :class="{ on: activeTab === 'history' }" @click="activeTab = 'history'">历史预报</button>
+      <button :class="{ on: activeTab === 'history' }" @click="activeTab = 'history'">历史期次</button>
       <button :class="{ on: activeTab === 'config' }" @click="activeTab = 'config'">报单配置</button>
     </div>
 
@@ -13,10 +13,18 @@
       <div class="tb-group">
         <select v-model="curPeriod" class="input sel-period" @change="onPeriodChange">
           <option value="0">— 选择期次 —</option>
-          <option v-for="p in periods" :key="p.id" :value="p.id">{{ p.name }}（{{ p.order_start }} ~ {{ p.order_end }}）</option>
+          <option v-for="p in periods" :key="p.id" :value="p.id" :title="p.order_start + ' ~ ' + p.order_end">{{ p.name }}</option>
         </select>
-        <button v-if="currentPeriod && currentPeriod.status === 'open'" class="btn btn-sm btn-ghost" @click="askClose(currentPeriod)" title="关闭当前期次（关闭后不可再编辑，仅可删除）">关闭期次</button>
-        <button v-if="currentPeriod && currentPeriod.status === 'closed'" class="btn btn-sm btn-ghost danger" @click="askDelete(currentPeriod)" title="删除当前期次（仅已关闭期次可删）">删除期次</button>
+        <!-- P1-4：关闭/删除互斥，合并进「⋯」溢出菜单，省出一个按钮位 -->
+        <div v-if="currentPeriod" class="tb-pop">
+          <button ref="periodBtn" class="btn btn-sm btn-ghost tb-more" :class="{on:periodMenuOpen}" @click="toggleTbPop('period')" title="更多期次操作" aria-label="更多期次操作">⋯</button>
+          <Teleport to="body">
+          <div v-if="periodMenuOpen" class="tb-pop-panel" :style="popStyle" @click.stop>
+            <button v-if="currentPeriod.status === 'open'" class="grp-btn" @click="askClose(currentPeriod); periodMenuOpen=false" title="关闭后不可再编辑，仅可删除">关闭期次</button>
+            <button v-if="currentPeriod.status === 'closed'" class="grp-btn danger" @click="askDelete(currentPeriod); periodMenuOpen=false" title="连同其全部报单、订单、审核定稿一并删除，且不可恢复">删除期次</button>
+          </div>
+          </Teleport>
+        </div>
         <button class="btn btn-sm btn-ghost" @click="openNewPeriod"><Icon name="plus"/> 新建期次</button>
       </div>
       <div class="tb-group tb-right">
@@ -26,58 +34,79 @@
         </div>
         <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
         <span class="tb-sep"></span>
-        <button class="btn btn-sm btn-ghost" @click="openImport"><Icon name="import"/> 导入</button>
-        <span class="tb-sep"></span>
-        <button v-if="!editMode" class="btn btn-sm btn-ghost" @click="enterEdit"><Icon name="edit"/> 编辑</button>
-        <button v-if="editMode" class="btn btn-sm btn-ghost" @click="exitEdit">取消</button>
-        <button v-if="editMode" class="btn btn-sm btn-primary" @click="saveEdits">{{ savingEdit ? '保存中…' : '保存' }}</button>
-        <span class="tb-sep"></span>
-        <button class="btn btn-sm btn-primary" :disabled="!cross.period" @click="onSuggest">智能建议</button>
-        <span class="tb-sep"></span>
-        <!-- 表格设置：只读视图的网格显示选项（分组/冻结/单价口径/显示AI建议） -->
-        <div v-if="!editMode" class="tb-pop">
-          <button ref="settingsBtn" class="btn btn-sm btn-ghost" :class="{on:tbSettingsOpen}" @click="toggleTbPop('settings')"><Icon name="settings"/> 表格设置 ▾</button>
+        <button class="btn btn-sm btn-ghost" @click="openImport" title="从 Excel 导入预报订单汇总表"><Icon name="upload"/> 导入</button>
+        <div class="tb-pop">
+          <button ref="exportBtn" class="btn btn-sm btn-ghost" :class="{on:exportMenuOpen}" @click="toggleTbPop('export')" title="导出：全部 / 选中行 / 差异"><Icon name="download"/> 导出 <Icon name="chevron-down"/></button>
           <Teleport to="body">
-          <div v-if="tbSettingsOpen" class="tb-pop-panel" :style="popStyle" @click.stop>
-            <label class="basis-toggle">分组
-              <select v-model="groupBy" aria-label="分组方式">
-                <option value="none">不分组</option>
-                <option value="category">按品类</option>
-                <option value="brand">按品牌</option>
-                <option value="product_code">按厂家编码</option>
-                <option value="unit">按单位</option>
-                <option value="spec">按规格</option>
-              </select>
-            </label>
-            <label class="basis-toggle">冻结列
-              <select v-model="frozenKey" aria-label="冻结列">
-                <option value="name">商品名称</option>
-                <option value="product_code">厂家编码</option>
-                <option value="none">不冻结</option>
-              </select>
-            </label>
-            <label class="basis-toggle">单价口径
-              <select v-model="priceBasis" aria-label="单价口径">
-                <option value="dist">分销价</option>
-                <option value="sale">标准售价</option>
-              </select>
-            </label>
-            <label class="basis-toggle"><input type="checkbox" v-model="showSuggest"> 显示AI建议</label>
+          <div v-if="exportMenuOpen" class="tb-pop-panel" :style="popStyle" @click.stop>
+            <button class="grp-btn" @click="exportAllXlsx(); exportMenuOpen=false"><Icon name="download"/> 导出全部（当前汇总表）</button>
+            <button class="grp-btn" @click="ctxExportSel(); exportMenuOpen=false"><Icon name="download"/> 导出选中行</button>
+            <button class="grp-btn" :disabled="!snapCompare" title="需先在快照对比中选两个期次" @click="exportDiffXlsx(); exportMenuOpen=false"><Icon name="download"/> 导出差异（快照对比）</button>
+            <div class="zp-sep"></div>
+            <div class="zp-hd">舟谱导入模板<span class="zp-hd-sub">· 按当前期次已导入的下单</span></div>
+            <button class="grp-btn" :disabled="!currentPeriod || !!zhoupuBusy" title="生成可直接导入舟谱的自提订单 xlsx（直营/分销客户）" @click="zhoupuGen('zhoupu-pickup')"><Icon name="download"/> 自提订单模板</button>
+            <button class="grp-btn" :disabled="!currentPeriod || !!zhoupuBusy" title="生成可直接导入舟谱的调拨订单 xlsx（车销业务员，总仓→业务员仓）" @click="zhoupuGen('zhoupu-transfer')"><Icon name="download"/> 调拨订单模板</button>
+            <button class="grp-btn" :disabled="!currentPeriod || !!zhoupuBusy" title="自提+调拨两份打包为 zip，一次下载" @click="zhoupuGen('zhoupu-all')"><Icon name="package"/> 合并包（自提+调拨 zip）</button>
           </div>
           </Teleport>
         </div>
-        <!-- 编辑态：高级工具（审批/推送/打印 + 数据质量/销量预测/协同闭环/更多工具） -->
+        <div class="tb-pop">
+          <button ref="copyBtn" class="btn btn-sm btn-ghost" :class="{on:copyMenuOpen}" @click="toggleCopyMenu" title="复制本期期次报单：厂家编码 / 最终下单数量（分开复制，粘贴到厂家系统下单）"><Icon name="copy"/> 复制报单 <Icon name="chevron-down"/></button>
+          <Teleport to="body">
+          <div v-if="copyMenuOpen" class="tb-pop-panel copy-pop" :style="popStyle" @click.stop>
+            <div class="cp-title">复制本期报单<span v-if="copyUnitName" class="cp-title-sub"> · {{ copyUnitName }}</span></div>
+            <p v-if="brandSel.length" class="cp-tip">已按品牌筛选：{{ brandSel.join('、') }}（只复制这些品牌）</p>
+            <p class="cp-tip">有报单 = 「最终下单」列有数量（合计 + 加单）；行序与表格一致</p>
+            <div class="cp-unit-btns">
+              <button class="grp-btn cp-act" :disabled="!copyCount" title="复制厂家编码（有报单，按行序）" @click="doCopyCodes"><Icon name="barcode"/> 厂家编码</button>
+              <button class="grp-btn cp-act" :disabled="!copyCount" title="复制最终下单数量（与编码行序一致）" @click="doCopyQty"><Icon name="hash"/> 下单数量</button>
+            </div>
+            <p v-if="copyCount" class="cp-tip ok">共 <b>{{ copyCount }}</b> 个 SKU 有最终下单可复制</p>
+            <p v-else class="cp-empty">本期没有「最终下单」有数量的 SKU</p>
+          </div>
+          </Teleport>
+        </div>
+        <span class="tb-sep"></span>
+        <!-- Q12/Q30：编辑按钮带载入态与权限提示；Q25：校验按钮带待修正角标；Q27：失败后按钮变「重试保存」 -->
+        <button v-if="!editMode" class="btn btn-sm btn-primary" :disabled="loadingEdit"
+                :title="entryRoleWarn ? '当前角色（' + (ROLE_LABELS[bizRole] || bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'"
+                @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
+        <button v-if="editMode" class="btn btn-sm btn-ghost" @click="exitEdit">取消</button>
+        <button v-if="editMode" class="btn btn-sm btn-ghost" :disabled="!lastSavedSnap" title="放弃保存后的改动，回到上次保存的版本" @click="undoToLastSaved">回退</button>
+        <button v-if="editMode" class="btn btn-sm btn-ghost" title="全表录入查错：列出类型/必填/上限/条码重复等错误（可点击跳转）" @click="openErrList">
+          查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
+        </button>
+        <button v-if="editMode" class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
+        <button v-if="editMode" class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+        <span class="tb-sep"></span>
+        <button class="btn btn-sm btn-ghost" :disabled="!cross.period" @click="onSuggest" title="按体检/货损/返利/起订量生成建议并打开审核"><Icon name="sparkle"/> AI智能建议</button>
+        <span class="tb-sep"></span>
+        <div class="tb-pop">
+          <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
+          <Teleport to="body">
+          <div v-if="brandPopOpen" class="tb-pop-panel brand-pop" :style="popStyle" @click.stop>
+            <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><button class="link-btn" @click="brandSel = brandCandidates.slice()">全选</button><button class="link-btn" @click="brandSel = []">清空</button></div></div>
+            <div class="bp-list">
+              <label v-for="b in brandCandidates" :key="b" class="bp-item"><input type="checkbox" :value="b" v-model="brandSel"> {{ b }}</label>
+              <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
+            </div>
+            <p class="bp-tip">只勾选要报单的品牌：表格将只显示这些品牌，复制厂家编码/数量也只针对它们（多品牌合并报单时先勾选再复制）。</p>
+          </div>
+          </Teleport>
+        </div>
+        <!-- 编辑态：高级工具（审批/推送/打印 + 健康体检/AI工具/协同闭环/更多工具） -->
         <div v-if="editMode" class="tb-pop">
-          <button ref="advBtn" class="btn btn-sm btn-ghost" :class="{on:advToolsOpen}" @click="toggleTbPop('adv')">高级 ▾</button>
+          <button ref="advBtn" class="btn btn-sm btn-ghost" :class="{on:advToolsOpen}" @click="toggleTbPop('adv')">工具箱 <Icon name="chevron-down"/></button>
           <Teleport to="body">
           <div v-if="advToolsOpen" class="tb-pop-panel" :style="popStyle" @click.stop>
             <button class="grp-btn" @click="subOpen=!subOpen"><Icon name="approve"/> 审批流</button>
             <button class="grp-btn" @click="pushForecast" :disabled="pushing"><Icon name="upload"/> 推送企微审批</button>
-            <button class="grp-btn" @click="printGrid"><Icon name="print"/> 打印/PDF</button>
+            <button class="grp-btn" @click="printGrid"><Icon name="print"/> 打印</button>
             <div class="tb-pop-sep"></div>
-            <button class="grp-btn" :class="{on:openGroup==='quality'}" @click="openGroup=openGroup==='quality'?null:'quality'">数据质量</button>
-            <button class="grp-btn" :class="{on:openGroup==='smart'}" @click="openGroup=openGroup==='smart'?null:'smart'">销量预测</button>
-            <button class="grp-btn" :class="{on:openGroup==='collab'}" @click="openGroup=openGroup==='collab'?null:'collab'">协同闭环</button>
+            <button class="grp-btn" :class="{on:openGroup==='quality'}" @click="openGroup=openGroup==='quality'?null:'quality'">健康体检</button>
+            <button class="grp-btn" :class="{on:openGroup==='smart'}" @click="openGroup=openGroup==='smart'?null:'smart'">AI工具</button>
+            <button class="grp-btn" :class="{on:openGroup==='collab'}" @click="openGroup=openGroup==='collab'?null:'collab'">协同通知</button>
+            <button class="grp-btn" :class="{on:openGroup==='hist'}" @click="openGroup=openGroup==='hist'?null:'hist'" title="对当期汇总表做对比分析：近6期趋势 / 去年同期 / 任选对比期（结果以列形式加进汇总表）">对比分析</button>
             <button class="grp-btn" :class="{on:openGroup==='more'}" @click="openGroup=openGroup==='more'?null:'more'">更多工具</button>
           </div>
           </Teleport>
@@ -85,10 +114,10 @@
       </div>
       <div class="tb-status-row">
         <span v-if="confirmInfo" class="confirm-badge ok"><Icon name="check" /> 已确认{{ confirmInfo.by ? ' · ' + confirmInfo.by : '' }}</span>
-        <span v-else class="confirm-badge draft">草稿 · 待经理确认</span>
+        <span v-else class="confirm-badge draft">待审核</span>
         <span v-if="hideZeroReport" class="confirm-badge filter"><Icon name="filter" /> 已隐藏 {{ zeroReportCount }} 个零报单</span>
       </div>
-      <div v-if="(tbSettingsOpen && !editMode) || (advToolsOpen && editMode)" class="pop-overlay" @click="tbSettingsOpen=false; advToolsOpen=false"></div>
+      <div v-if="(advToolsOpen && editMode) || periodMenuOpen || exportMenuOpen || brandPopOpen || copyMenuOpen" class="pop-overlay" @click="advToolsOpen=false; periodMenuOpen=false; exportMenuOpen=false; brandPopOpen=false; copyMenuOpen=false"></div>
     </div>
 
     <!-- 新建期次表单（紧贴工具条，随时可点，不依赖视图） -->
@@ -172,9 +201,9 @@
               <div class="pf-item"><span>到货天数</span><b>{{ fmt(prodProfile.lead_days) }}</b></div>
               <div class="pf-item"><span>保质期天</span><b>{{ fmt(prodProfile.expiry_days) }}</b></div>
               <div class="pf-item"><span>标准售价</span><b>{{ prodProfile.sale_price != null ? fmt(prodProfile.sale_price) : '—' }}</b></div>
-              <div class="pf-item"><span>进价</span><b>{{ prodProfile.purchase_price != null ? fmt(prodProfile.purchase_price) : '—' }}</b></div>
+              <div class="pf-item"><span>进价</span><b>{{ prodProfile.purchase_price != null ? Number(prodProfile.purchase_price).toFixed(2) : '—' }}</b></div>
               <div class="pf-item"><span>分销价</span><b>{{ prodProfile.dist_price != null ? fmt(prodProfile.dist_price) : '—' }}</b></div>
-              <div class="pf-item"><span>数据健康分</span><b :class="healthClass(prodProfile.product_id)">{{ hsMap[prodProfile.product_id] != null ? hsMap[prodProfile.product_id] : '—' }}</b></div>
+              <div class="pf-item"><span>健康分</span><b :class="healthClass(prodProfile.product_id)">{{ hsMap[prodProfile.product_id] != null ? hsMap[prodProfile.product_id] : '—' }}</b></div>
               <div class="pf-item"><span>批次资料</span><b :class="gapSet.has(prodProfile.product_id) ? 'pf-warn' : 'pf-ok'">{{ gapSet.has(prodProfile.product_id) ? '缺批次/到期' : '完整' }}</b></div>
               <div class="pf-item pf-note"><span>备注</span><b>{{ notesMap[prodProfile.product_id] || '—' }}</b></div>
             </div>
@@ -190,7 +219,7 @@
           <div class="imp-hd"><b>智能建议本周期 · {{ cross.period?.name || '' }}</b><button class="imp-x" @click="auditOpen = false"><Icon name="close"/></button></div>
           <div class="imp-body">
             <div v-if="!erpLinked" class="imp-tip warn-text audit-erp-note">
-              <b>⚠ 当前未连接 ERP（畅捷通 / 金蝶）。</b>本功能的智能建议需以实时库存与销量为依据；未连接时建议量缺少数据支撑、仅供参考。你可手动核对报单量后直接「确认定稿」，或前往 <button class="link-btn" @click="goConnect">能力中心</button> 连接 ERP，建议才会准确。
+              <b><Icon name="alert-triangle"/> 当前未连接 ERP（畅捷通 / 金蝶）。</b>本功能的智能建议需以实时库存与销量为依据；未连接时建议量缺少数据支撑、仅供参考。你可手动核对报单量后直接「确认定稿」，或前往 <button class="link-btn" @click="goConnect">能力中心</button> 连接 ERP，建议才会准确。
             </div>
             <p v-if="auditState === 'loading'" class="imp-tip">正在按「日均销量 × 覆盖天数 − 当前库存」逐 SKU 计算建议量…</p>
             <template v-else-if="auditState === 'done'">
@@ -233,35 +262,104 @@
       </Transition>
     </Teleport>
 
-    <!-- 本期预报子视图切换：导入汇总（交叉表）/ 草稿填报（搜索商品加入草稿） -->
-    <div class="view-seg" v-if="!editMode">
-      <button :class="{ on: viewMode === 'cross' }" @click="switchView('cross')">导入汇总</button>
-      <button :class="{ on: viewMode === 'list' }" @click="switchView('list')">草稿填报</button>
+    <!-- 返利冲刺看板（前置到本期预报顶部：选完期次第一眼即看目标达成/缺口/均单建议；有期次即显示，不绑子视图） -->
+    <div v-if="cross.period" class="card sprint-card is-pinned">
+      <div class="panel-hd">
+        <b><Icon name="bar-chart"/> 返利冲刺看板</b>
+        <span class="tag hot">副驾建议</span>
+        <span class="tag info" v-if="cross.period">本期 · {{ cross.period.name }}</span>
+        <button class="imp-x" style="margin-left:auto" @click="rebateSprintOpen = !rebateSprintOpen"><Icon :name="rebateSprintOpen ? 'chevron-up' : 'chevron-down'"/></button>
+      </div>
+      <div v-show="rebateSprintOpen" class="panel-body">
+        <template v-if="rebateSprint.length">
+          <p class="sprint-sum">
+            本期（返利周期截止 <b>{{ rebateCampaignEnd || (cross.period && cross.period.order_end) }}</b>）按默认到货周期（每 {{ rebateGlobalCadence }} 天）约剩 <b>{{ rebateSprintOrders }}</b> 次到货机会；各品牌到货周期不同，下表按各自周期算「建议均单追加」。
+            要补齐以下返利目标缺口，<b>均单需额外 ¥{{ fmt(sprintTotalGapPerOrder) }}</b>（按默认周期估算）。
+            <span class="muted">（达成按到货月份归属 = 已填报达成 + 本期预报贡献；未填报可在「目标与返利 → 达成填报」补录或 Excel 导入）</span>
+          </p>
+          <div class="table-wrap">
+            <table class="tbl">
+              <thead>
+                <tr><th>维度</th><th>目标对象</th><th>到货周期</th><th class="num">目标</th><th class="num">已达成(填报)</th><th class="num">本期预报贡献</th><th class="num">距目标还差</th><th class="num">建议均单追加</th><th>进度</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in rebateSprint" :key="s.key">
+                  <td>{{ s.dimLabel }}</td>
+                  <td>{{ s.name }}</td>
+                  <td>{{ s.cadenceLabel }}</td>
+                  <td class="num">¥{{ fmt(s.target) }}<template v-if="s.targetType === 'quantity'"> / 件</template></td>
+                  <td class="num">{{ s.reported > 0 ? '¥' + fmt(s.reported) : '—' }}</td>
+                  <td class="num">¥{{ fmt(s.contrib) }}</td>
+                  <td class="num"><b :class="s.gap > 0 ? 'val-warn' : 'val-ok'">{{ s.gap > 0 ? fmt(s.gap) : '已达成' }}</b></td>
+                  <td class="num" v-if="s.gap > 0">¥{{ fmt(s.perOrder) }}</td>
+                  <td class="num" v-else>—</td>
+                  <td style="min-width:100px"><div class="progress" :class="achProgressClass(s.ach)"><i :style="{width: Math.min(100, s.ach * 100) + '%'}"></i></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="sprint-suggest" v-if="rebateSprintOrders > 0">
+            <b>系统建议：</b>
+            <ul>
+              <template v-for="s in rebateSprint" :key="'sg' + s.key">
+                <li v-if="s.gap > 0">
+                  为「{{ s.name }}」补齐返利，剩余 <b>{{ s.orders }}</b> 次到货（{{ s.cadenceLabel }}）中每单多加 <b>¥{{ fmt(s.perOrder) }}</b>；优先加单：
+                  <template v-if="!s.topEmpty"><span v-for="p in s.top" :key="p.name" class="sprint-prod">{{ p.name }}（本期已报 ¥{{ fmt(p.contrib) }}）</span></template>
+                  <span v-else class="sprint-prod-empty">本期该品牌尚未报单，暂无可推荐加单（先报单或补全商品进货价后再生成建议）</span>
+                </li>
+              </template>
+            </ul>
+          </div>
+        </template>
+        <p v-else class="hint">尚未配置品牌 / 商品返利目标。去「目标与返利」页创建目标后，这里会在你下单时实时显示达成率、缺口与均单追加建议；实际达成可在「达成填报」补录或 Excel 导入。</p>
+      </div>
+    </div>
+
+    <!-- 本期预报子视图切换：汇总表（交叉表）/ 逐单补录（搜索商品加入草稿） -->
+    <!-- Q1：两条填报路径此前无任何场景说明，用户不知该用哪个入口 -->
+    <div class="view-seg-row" v-if="!editMode">
+      <div class="view-seg">
+        <button :class="{ on: viewMode === 'cross' }" @click="switchView('cross')">汇总表</button>
+        <button :class="{ on: viewMode === 'list' }" @click="switchView('list')">逐单补录</button>
+      </div>
+      <span class="view-seg-tip">批量粘贴 · 整表改量 · 增删商品 → 用「汇总表」再点「改单」；少量补录 · 按商品搜索加购 → 用「逐单补录」</span>
     </div>
 
     <!-- 交叉表视图（P0-1）：行=商品 × 列=报单单元（透视小程序报单 sources） -->
     <div v-if="viewMode === 'cross'" class="cross-area">
-      <div v-if="cross.period" class="sop">
-        <b>SOP · {{ cross.period.name }}</b>
-        <span class="sep">│</span>
-        <span>下单 {{ cross.period.order_start }} ~ {{ cross.period.order_end }}</span>
-        <span class="sep">│</span>
-        <span>预计到货 {{ cross.period.arrival_date || cross.period.arrival || '—' }}</span>
-        <span class="sep">│</span>
-        <span>报单单元自动汇总 · 到货前 1 天 AI 副驾自动生成导入模板</span>
-      </div>
       <div class="card cross-card">
         <!-- 列配置条 -->
           <div class="col-config-bar">
             <div v-if="showColMenu && !editMode" class="col-menu-overlay" @click="showColMenu=false"></div>
             <div v-if="showColMenu && !editMode" class="col-menu" @click.stop>
-              <div class="col-menu-hd"><span>显示列（拖拽排序，✓ 显示）</span><button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button></div>
+              <div class="col-menu-hd"><span>显示列（拖拽排序，<Icon name="check"/> 显示）</span><button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button></div>
+              <div class="col-menu-view">
+                <label class="basis-toggle">分组
+                  <select v-model="groupBy" aria-label="分组方式">
+                    <option value="none">不分组</option>
+                    <option value="category">按品类</option>
+                    <option value="brand">按品牌</option>
+                    <option value="product_code">按厂家编码</option>
+                    <option value="unit">按单位</option>
+                    <option value="spec">按规格</option>
+                  </select>
+                </label>
+                <label class="basis-toggle">冻结列
+                  <select v-model="frozenKey" aria-label="冻结列">
+                    <option value="name">商品名称</option>
+                    <option value="product_code">厂家编码</option>
+                    <option value="none">不冻结</option>
+                  </select>
+                </label>
+              </div>
               <ul class="col-menu-list">
-                <li v-for="(c, ci) in colOrder" :key="c.key" v-if="canSeeCol(c.key)" :class="{ locked: c.fixed, hidden: colVis[c.key] === false }" :draggable="!c.fixed" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
-                  <span class="drag">⠿</span>
-                  <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="c.fixed" @click.prevent="toggleCol(c.key)"> {{ c.label }}</label>
-                  <button v-if="!c.fixed && c.deletable" class="col-menu-del" @click="deleteMasterCol(c.key)" title="删除该列"><Icon name="close"/></button>
-                </li>
+                <template v-for="(c, ci) in colOrder" :key="c.key">
+                  <li v-if="canSeeCol(c.key)" :class="{ locked: c.fixed, hidden: colVis[c.key] === false }" :draggable="!c.fixed" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
+                    <span class="drag">⠿</span>
+                    <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="c.fixed" @click.prevent="toggleCol(c.key)"> {{ c.label }}</label>
+                    <button v-if="!c.fixed && c.deletable" class="col-menu-del" @click="deleteMasterCol(c.key)" title="删除该列"><Icon name="close"/></button>
+                  </li>
+                </template>
               </ul>
               <div class="col-menu-add">
                 <span class="cm-label"><Icon name="plus"/> 添加主档列</span>
@@ -273,8 +371,14 @@
                   <option value="">选择方案…</option>
                   <option v-for="s in schemes" :key="s.name" :value="s.name">{{ s.name }}</option>
                 </select>
-                <button class="btn btn-ghost btn-xs" @click="saveScheme">保存当前</button>
-                <button class="btn btn-ghost btn-xs" :disabled="!schemeName" @click="delScheme(schemeName)" title="删除所选方案">删除</button>
+                <div class="scheme-row">
+                  <input class="scheme-name-ipt" v-model="schemeSaveName" placeholder="输入方案名" @keyup.enter="saveScheme">
+                  <button class="btn btn-ghost btn-xs scheme-btn" @click="saveScheme">保存当前</button>
+                  <button class="btn btn-ghost btn-xs scheme-btn" :disabled="!schemeName" @click="delScheme(schemeName)" title="删除所选方案">删除</button>
+                </div>
+              </div>
+              <div class="col-menu-reset">
+                <button class="btn btn-ghost btn-xs" @click="resetColWidths" title="清除本地列宽记忆，恢复默认列宽">重置列宽</button>
               </div>
             </div>
           </div>
@@ -284,31 +388,25 @@
           <div class="sk-row" v-for="n in 8" :key="n"><span class="sk-bar" v-for="m in 6" :key="m"></span></div>
         </div>
         <div v-else-if="!editMode && (!cross.rows.length || !cross.rows.some(r => !r._deleted))" class="tbl-state tbl-empty">
-          <div class="empty-ico">📭</div>
+          <div class="empty-ico"><Icon name="inbox"/></div>
           <div class="empty-t">暂无预报数据</div>
-          <div class="empty-s">当前期次没有报单记录，可在编辑模式补录商品，或刷新重新载入</div>
+          <div class="empty-s">当前期次没有报单记录，可点「改单」进入编辑模式补录商品，或刷新重新载入</div>
           <div class="empty-ops">
-              <button class="btn btn-primary btn-sm" @click="editMode = true; addRow()"><Icon name="plus"/> 编辑补录商品</button>
+              <button class="btn btn-primary btn-sm" @click="enterEdit"><Icon name="edit"/> 改单</button>
               <button class="btn btn-ghost btn-sm" @click="loadCross()"><Icon name="refresh"/> 刷新</button>
           </div>
         </div>
         <div v-else-if="!editMode" class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
-            <div class="zoom-group">
-              <span class="zb-label">缩放</span>
-              <button class="zb-btn" type="button" :disabled="gridZoom<=50" @click="zoomOut" title="缩小" aria-label="缩小">－</button>
-              <input class="zb-range" type="range" min="50" max="200" step="10" v-model.number="gridZoom" aria-label="缩放比例">
-              <span class="zb-val">{{ gridZoom }}%</span>
-              <button class="zb-btn" type="button" :disabled="gridZoom>=200" @click="zoomIn" title="放大" aria-label="放大">＋</button>
-              <button class="zb-btn zb-reset" type="button" :disabled="gridZoom===100" @click="zoomReset" title="重置 100%" aria-label="重置缩放">⟲</button>
-            </div>
+            <GridZoomCtl v-model="gridZoom"/>
           </div>
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
           </button>
           <div class="filter-row" v-if="colFilter || colFilterSet">
-            <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选">✕</button></span>
-            <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选">✕</button></span>
+            <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选"><Icon name="close"/></button></span>
+            <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选"><Icon name="close"/></button></span>
+            <span v-if="brandSel.length" class="filter-chip" :title="'按品牌（供货方）筛选'">品牌 ∈ {{ brandSel.length }} 个 <button class="chip-x" @click="brandSel = []" aria-label="清除品牌筛选"><Icon name="close"/></button></span>
           </div>
           <div class="table-wrap cross-viewport" ref="scrollEl" @scroll="onScroll">
             <table class="tbl cross-tbl" role="grid" :aria-rowcount="flatItems.length" :aria-colcount="colOrderList.length" :style="{ zoom: gridZoom + '%' }">
@@ -323,8 +421,7 @@
                       <button class="col-cfg gear" @click.stop="showColMenu = !showColMenu" title="列设置"><Icon name="settings"/></button>
                     </template>
                     <template v-else>
-                      <span>{{ col.label }}<span v-if="canSort(col)" class="sort-ind">{{ sortInd(col.key) }}</span></span>
-                      <button v-if="col.type === 'qty'" class="col-copy" :title="'复制该客户下单文本'" @click.stop="copyColumn(col.key)"><Icon name="copy"/></button>
+                      <span>{{ col.label }}<span v-if="canSort(col)" class="sort-ind"><Icon v-if="sortInd(col.key)" :name="sortInd(col.key)"/></span></span>
                     </template>
                   </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, col.key)" @click.stop></span>
@@ -336,7 +433,7 @@
               <template v-for="(it, wi) in vsWindow.items" :key="rowKey(it)">
                 <tr v-if="it.kind === 'group'" class="grp-head" @click="toggleGroup(it.key)" role="row">
                   <td :colspan="colOrderList.length" @click.stop="toggleGroup(it.key)">
-                    <span class="grp-toggle">{{ openGroups[it.key] ? '▼' : '▶' }}</span>
+                    <span class="grp-toggle"><Icon :name="openGroups[it.key] ? 'chevron-down' : 'chevron-right'"/></span>
                     <b>{{ it.label }}</b>
                     <span class="grp-sub-info">小计 {{ fmt(it.subtotal.qty) }} 件 · ¥{{ fmt(it.subtotal.amount) }}</span>
                   </td>
@@ -356,21 +453,21 @@
                       @keydown="onBodyKey">
                     <template v-if="col.type === 'seq'"><span class="seq-num">{{ it.seq }}</span></template>
                     <template v-else-if="col.type === 'master' && col.key === 'name'">
-                      <span class="exp-chev" @click.stop="toggleExpand(it.r.product_id)" :title="isExpanded(it.r.product_id) ? '收起明细' : '展开明细'">{{ isExpanded(it.r.product_id) ? '▼' : '▶' }}</span>
+                      <span class="exp-chev" @click.stop="toggleExpand(it.r.product_id)" :title="isExpanded(it.r.product_id) ? '收起明细' : '展开明细'"><Icon :name="isExpanded(it.r.product_id) ? 'chevron-down' : 'chevron-right'"/></span>
                       <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-' + it.r.ordering_entity">{{ it.r.ordering_entity }}</span></div>
                       <div class="pspec">{{ it.r.spec || '—' }} · {{ it.r.unit }}<span v-if="it.r.people"> · {{ it.r.people }} 人报</span></div>
                       <div v-if="it.r.ai != null" class="ai-hint">AI 建议 {{ fmt(it.r.ai) }}{{ it.r.unit }}<span v-if="it.r.aiMethod" class="hint">（{{ it.r.aiMethod }}）</span></div>
-                      <span v-if="rowWarn(it.r) === 'low'" class="warn-badge" title="低于安全库存">⚠</span>
-                      <span v-else-if="rowWarn(it.r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）">⚠</span>
-                      <span v-if="lossWarn(it.r)" class="loss-badge" :class="lossWarn(it.r)" :title="lossTip(it.r)">🔥</span>
-                      <span v-if="rtBadge(it.r)" class="rt-badge" :class="rtBadge(it.r)" :title="rtBadgeTip(it.r)">🔔</span>
-                      <span v-if="rowNote(it.r)" class="note-badge" :title="rowNote(it.r)" @click.stop="setRowNote(cross.rows.indexOf(it.r))">💬</span>
-                      <span v-if="gapSet.has(it.r.product_id)" class="gap-badge" title="缺批次/到期资料，需补录">⚠️</span>
-                      <span v-if="hsMap[it.r.product_id] !== undefined && hsMap[it.r.product_id] < 60" class="hs-badge" :title="'数据健康分 ' + hsMap[it.r.product_id] + '（偏低，需补全资料）'">💡</span>
+                      <span v-if="rowWarn(it.r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
+                      <span v-else-if="rowWarn(it.r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）"><Icon name="alert-triangle"/></span>
+                      <span v-if="lossWarn(it.r)" class="loss-badge" :class="lossWarn(it.r)" :title="lossTip(it.r)"><Icon name="flame"/></span>
+                      <span v-if="rtBadge(it.r)" class="rt-badge" :class="rtBadge(it.r)" :title="rtBadgeTip(it.r)"><Icon name="bell"/></span>
+                      <span v-if="rowNote(it.r)" class="note-badge" :title="rowNote(it.r)" @click.stop="setRowNote(cross.rows.indexOf(it.r))"><Icon name="message"/></span>
+                      <span v-if="gapSet.has(it.r.product_id)" class="gap-badge" title="缺批次/到期资料，需补录"><Icon name="alert-triangle"/></span>
+                      <span v-if="hsMap[it.r.product_id] !== undefined && hsMap[it.r.product_id] < 60" class="hs-badge" :title="'健康分 ' + hsMap[it.r.product_id] + '（偏低，需补全资料）'"><Icon name="lightbulb"/></span>
                       <span class="row-ops">
-                        <button class="rop" @click.stop="viewRow(it.r.product_id)" title="查看/展开明细">🔍</button>
-                        <button class="rop" @click.stop="editRow(it.r.product_id)" title="编辑该行">✎</button>
-                        <button class="rop danger" @click.stop="delRowSoft(it.r.product_id)" title="删除该行">🗑</button>
+                        <button class="rop" @click.stop="viewRow(it.r.product_id)" title="查看/展开明细"><Icon name="search"/></button>
+                        <button class="rop" @click.stop="editRow(it.r.product_id)" title="改单"><Icon name="edit"/></button>
+                        <button class="rop danger" @click.stop="delRowSoft(it.r.product_id)" title="删除该行"><Icon name="trash"/></button>
                       </span>
                     </template>
                     <template v-else-if="col.type === 'master'">{{ masterVal(it.r, col) }}</template>
@@ -410,7 +507,8 @@
             </tbody>
             </table>
           </div>
-          <table class="tbl cross-tbl col-total-bar" ref="crossFoot" :style="{ zoom: gridZoom + '%' }">
+          <div ref="crossFoot" class="col-total-bar">
+          <table class="tbl cross-tbl" :style="{ zoom: gridZoom + '%' }">
             <colgroup>
               <col v-for="col in colOrderList" :key="'cfg' + col.key" :style="{ width: colW(col.key) + 'px' }"></col>
             </colgroup>
@@ -427,30 +525,25 @@
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
 
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
         <div v-else class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
-            <div class="zoom-group">
-              <span class="zb-label">缩放</span>
-              <button class="zb-btn" type="button" :disabled="gridZoom<=50" @click="zoomOut" title="缩小" aria-label="缩小">－</button>
-              <input class="zb-range" type="range" min="50" max="200" step="10" v-model.number="gridZoom" aria-label="缩放比例">
-              <span class="zb-val">{{ gridZoom }}%</span>
-              <button class="zb-btn" type="button" :disabled="gridZoom>=200" @click="zoomIn" title="放大" aria-label="放大">＋</button>
-              <button class="zb-btn zb-reset" type="button" :disabled="gridZoom===100" @click="zoomReset" title="重置 100%" aria-label="重置缩放">⟲</button>
-            </div>
+            <GridZoomCtl v-model="gridZoom"/>
           </div>
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
           </button>
           <div class="filter-row" v-if="colFilter || colFilterSet">
-            <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选">✕</button></span>
-            <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选">✕</button></span>
+            <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选"><Icon name="close"/></button></span>
+            <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选"><Icon name="close"/></button></span>
+            <span v-if="brandSel.length" class="filter-chip" :title="'按品牌（供货方）筛选'">品牌 ∈ {{ brandSel.length }} 个 <button class="chip-x" @click="brandSel = []" aria-label="清除品牌筛选"><Icon name="close"/></button></span>
           </div>
           <div v-if="showColMenu" class="col-menu-overlay" @click="showColMenu=false"></div>
           <div v-if="showColMenu" class="col-menu edit-col-menu" @click.stop>
-            <div class="col-menu-hd"><span>显示列（拖拽排序，✓ 显示）</span><button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button></div>
+            <div class="col-menu-hd"><span>显示列（拖拽排序，<Icon name="check"/> 显示）</span><button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button></div>
             <ul class="col-menu-list">
               <li v-for="(c, ci) in colOrder" :key="c.key" :class="{ locked: c.fixed, hidden: colVis[c.key] === false }" :draggable="!c.fixed" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
                 <span class="drag">⠿</span>
@@ -471,9 +564,12 @@
               <button class="btn btn-ghost btn-xs" @click="saveScheme">保存当前</button>
               <button class="btn btn-ghost btn-xs" @click="delScheme(schemeName)" :disabled="!schemeName" title="删除所选方案">删除</button>
             </div>
+            <div class="col-menu-reset">
+              <button class="btn btn-ghost btn-xs" @click="resetColWidths" title="清除本地列宽记忆，恢复默认列宽">重置列宽</button>
+            </div>
           </div>
           <div class="table-wrap edit-grid-wrap" @scroll="onEditScroll">
-          <table class="tbl cross-tbl edit-tbl" :class="{ dragging }" @paste="onPaste" @keydown="onGridKey" :style="{ zoom: gridZoom + '%' }">
+          <table class="tbl cross-tbl edit-tbl" :class="{ dragging }" @paste="onPaste" @keydown="onGridKey" @contextmenu.prevent="onTbCtx" :style="{ zoom: gridZoom + '%' }">
             <colgroup>
               <col v-for="(k, i) in editColKeys" :key="'eg' + k + i" :style="{ width: colW(k) + 'px' }"></col>
             </colgroup>
@@ -513,19 +609,19 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'sel-row': selected.r === ri, 'cond-warn': condWarnOn && rowWarn(r) === 'low' }" v-show="rowShown(ri)">
-                <td class="td seq-cell"><span class="seq-num">{{ ri + 1 }}</span></td>
-                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:0;min-width:200px' : (c.key === frozenExtra ? 'left:200px;min-width:200px' : '')" :data-r="ri" :data-c="ci" :title="cellErrMsg(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)" @contextmenu.prevent="openCtx($event, ri, ci, 'master')">
+              <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'sel-row': selected.r === ri, 'cond-warn': condWarnOn && rowWarn(r) === 'low', 'new-row': r._new }" v-show="rowShown(ri)">
+                <td class="td seq-cell" :data-r="ri"><span class="seq-num">{{ ri + 1 }}</span></td>
+                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:0;min-width:200px' : (c.key === frozenExtra ? 'left:200px;min-width:200px' : '')" :data-r="ri" :data-c="ci" :title="cellErrMsg(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
                   <template v-if="c.key === 'name'">
                     <input v-model="r.name" class="cell-input cell-name" placeholder="商品名称" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)">
                     <div class="name-badges">
-                      <span v-if="rowWarn(r) === 'low'" class="warn-badge" title="低于安全库存">⚠</span>
-                      <span v-else-if="rowWarn(r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）">⚠</span>
-                      <span v-if="lossWarn(r)" class="loss-badge" :class="lossWarn(r)" :title="lossTip(r)">🔥</span>
-                      <span v-if="rtBadge(r)" class="rt-badge" :class="rtBadge(r)" :title="rtBadgeTip(r)">🔔</span>
-                      <span v-if="rowNote(r)" class="note-badge" :title="rowNote(r)" @click="setRowNote(ri)">💬</span>
-                      <span v-if="gapSet.has(r.product_id)" class="gap-badge" title="缺批次/到期资料，需补录">⚠️</span>
-                      <span v-if="hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60" class="hs-badge" :title="'数据健康分 '+hsMap[r.product_id]+'（偏低，需补全资料）'">💡</span>
+                      <span v-if="rowWarn(r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
+                      <span v-else-if="rowWarn(r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）"><Icon name="alert-triangle"/></span>
+                      <span v-if="lossWarn(r)" class="loss-badge" :class="lossWarn(r)" :title="lossTip(r)"><Icon name="flame"/></span>
+                      <span v-if="rtBadge(r)" class="rt-badge" :class="rtBadge(r)" :title="rtBadgeTip(r)"><Icon name="bell"/></span>
+                      <span v-if="rowNote(r)" class="note-badge" :title="rowNote(r)" @click="setRowNote(ri)"><Icon name="message"/></span>
+                      <span v-if="gapSet.has(r.product_id)" class="gap-badge" title="缺批次/到期资料，需补录"><Icon name="alert-triangle"/></span>
+                      <span v-if="hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60" class="hs-badge" :title="'健康分 '+hsMap[r.product_id]+'（偏低，需补全资料）'"><Icon name="lightbulb"/></span>
                     </div>
                   </template>
                   <template v-else-if="c.edit === 'text' && c.options && c.options.length">
@@ -543,29 +639,30 @@
                   </template>
                   <span v-if="selected.r === ri && selected.c === ci" class="fill-handle" @mousedown.prevent.stop="startFill(ri, ci, $event)" title="拖拽填充"></span>
                 </td>
-                <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellInvalid(ri, visibleCols.length + ui), 'warn-low': rowWarn(r) === 'low', 'warn-short': rowWarn(r) === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0 }" :style="heatStyle(r, u.name)" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellErrMsg(ri, visibleCols.length + ui) || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)" @contextmenu.prevent="openCtx($event, ri, visibleCols.length + ui, 'qty')">
+                <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellInvalid(ri, visibleCols.length + ui), 'warn-low': rowWarn(r) === 'low', 'warn-short': rowWarn(r) === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0 }" :style="heatStyle(r, u.name)" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellErrMsg(ri, visibleCols.length + ui) || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
                   <input v-model.number="r.qtyByUnit[u.name]" class="cell-input cell-qty" type="number" min="0" placeholder="0" :data-r="ri" :data-c="visibleCols.length + ui" @focus="onFocusCell(ri, visibleCols.length + ui)" @change="onCellChange">
                   <span v-if="selected.r === ri && selected.c === visibleCols.length + ui" class="fill-handle" @mousedown.prevent.stop="startFill(ri, visibleCols.length + ui, $event)" title="拖拽填充"></span>
                 </td>
-                <td class="num calc extra"><input v-model.number="r.extraQty" class="cell-input cell-qty" type="number" min="0" placeholder="0" :data-r="ri" :data-c="visibleCols.length + cross.units.length" @focus="onFocusCell(ri, visibleCols.length + cross.units.length)" @change="onCellChange"></td>
-                <td class="num calc amount">{{ fmt(rowAmount(r)) }}</td>
-                <td v-if="showSuggest" class="num calc suggest">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
-                <td v-if="compareOn" class="num calc">{{ prevQty(r) != null ? fmt(prevQty(r)) : '—' }}</td>
-                <td v-if="compareOn" class="num calc delta" :class="deltaClass(r)">{{ deltaQty(r) == null ? '—' : (deltaQty(r) > 0 ? '+' : '') + fmt(deltaQty(r)) }}</td>
-                <td v-if="showSpark" class="spark-td">
+                <td class="num calc extra" :data-r="ri"><input v-model.number="r.extraQty" class="cell-input cell-qty" type="number" min="0" placeholder="0" :data-r="ri" :data-c="visibleCols.length + cross.units.length" @focus="onFocusCell(ri, visibleCols.length + cross.units.length)" @change="onCellChange"></td>
+                <td class="num calc amount" :data-r="ri">{{ fmt(rowAmount(r)) }}</td>
+                <td v-if="showSuggest" class="num calc suggest" :data-r="ri">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
+                <td v-if="compareOn" class="num calc" :data-r="ri">{{ prevQty(r) != null ? fmt(prevQty(r)) : '—' }}</td>
+                <td v-if="compareOn" class="num calc delta" :class="deltaClass(r)" :data-r="ri">{{ deltaQty(r) == null ? '—' : (deltaQty(r) > 0 ? '+' : '') + fmt(deltaQty(r)) }}</td>
+                <td v-if="showSpark" class="spark-td" :data-r="ri">
                   <svg v-if="(r.history || []).length >= 2" width="84" height="18"><polyline :points="sparkPoints(r)" fill="none" :stroke="sparkColor(r)" stroke-width="1.5"/></svg>
                   <span v-else class="muted">—</span>
                 </td>
-                <td v-if="yoyOn" class="num calc">{{ yoyQty(r) != null ? fmt(yoyQty(r)) : '—' }}</td>
-                <td v-if="yoyOn" class="num calc delta" :class="yoyPct(r) > 0 ? 'up' : (yoyPct(r) < 0 ? 'down' : '')">{{ yoyPct(r) == null ? '—' : (yoyPct(r) > 0 ? '+' : '') + yoyPct(r) + '%' }}</td>
-                <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']">{{ fmt(rowSum(r)) }}</td>
-                <td class="td spacer"></td>
-                <td class="op-th"><button class="btn-del" @click="delRow(ri)" title="删除该商品行"><Icon name="close"/></button></td>
+                <td v-if="yoyOn" class="num calc" :data-r="ri">{{ yoyQty(r) != null ? fmt(yoyQty(r)) : '—' }}</td>
+                <td v-if="yoyOn" class="num calc delta" :class="yoyPct(r) > 0 ? 'up' : (yoyPct(r) < 0 ? 'down' : '')" :data-r="ri">{{ yoyPct(r) == null ? '—' : (yoyPct(r) > 0 ? '+' : '') + yoyPct(r) + '%' }}</td>
+                <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri">{{ fmt(rowSum(r)) }}</td>
+                <td class="td spacer" :data-r="ri"></td>
+                <td class="op-th" :data-r="ri"><button class="btn-del" @click="delRow(ri)" title="删除该商品行"><Icon name="close"/></button></td>
               </tr>
             </tbody>
             </table>
           </div>
-          <table class="tbl cross-tbl edit-tbl col-total-bar" ref="editFoot">
+          <div ref="editFoot" class="col-total-bar">
+          <table class="tbl cross-tbl edit-tbl">
             <colgroup>
               <col v-for="(k, i) in editColKeys" :key="'efg' + k + i" :style="{ width: colW(k) + 'px' }"></col>
             </colgroup>
@@ -588,59 +685,62 @@
               </tr>
             </tbody>
           </table>
+          </div>
           <div v-if="selStats" class="sel-stat">
             <span class="sel-stat-label">选区统计</span>
             <span>计数 <b>{{ selStats.count }}</b></span>
             <span>求和 <b>{{ fmt(selStats.sum) }}</b></span>
             <span>平均 <b>{{ fmt(selStats.avg) }}</b></span>
-            <button class="sel-stat-x" @click="selRange = null" title="清除选区">✕</button>
+            <button class="sel-stat-x" @click="selRange = null" title="清除选区"><Icon name="close"/></button>
           </div>
           <div v-if="openGroup" class="grp-row">
             <template v-if="openGroup==='quality'">
-              <button class="btn btn-ghost btn-sm" @click="gapOpen=!gapOpen" :disabled="gapLoading">⚠️ 缺口补录</button>
-              <button class="btn btn-ghost btn-sm" @click="safetyOpen=!safetyOpen" :disabled="safetyLoading">🛡 安全库存</button>
-              <button class="btn btn-ghost btn-sm" @click="rollingOn=!rollingOn">🗓 滚动预报</button>
-              <button class="btn btn-ghost btn-sm" @click="loadVariance" :disabled="varLoading">📉 偏差归因</button>
-              <button class="btn btn-ghost btn-sm" @click="healthOpen=!healthOpen">🩺 体检</button>
-              <button class="btn btn-ghost btn-sm" @click="loadHealthScore" :disabled="hsLoading">💡 数据健康分</button>
+              <button class="btn btn-ghost btn-sm" @click="gapOpen=!gapOpen" :disabled="gapLoading"><Icon name="alert-triangle"/> 补录批次资料</button>
+              <button class="btn btn-ghost btn-sm" @click="safetyOpen=!safetyOpen" :disabled="safetyLoading"><Icon name="shield"/> 安全库存</button>
+              <button class="btn btn-ghost btn-sm" @click="rollingOn=!rollingOn"><Icon name="calendar"/> 滚动预报</button>
+              <button class="btn btn-ghost btn-sm" @click="loadVariance" :disabled="varLoading"><Icon name="trending-down"/> 偏差归因</button>
+              <button class="btn btn-ghost btn-sm" @click="healthOpen=!healthOpen"><Icon name="activity"/> 体检</button>
+              <button class="btn btn-ghost btn-sm" @click="loadHealthScore" :disabled="hsLoading"><Icon name="lightbulb"/> 健康分</button>
             </template>
             <template v-else-if="openGroup==='smart'">
-              <button class="btn btn-ghost btn-sm" @click="loadTs" :disabled="tsLoading">🤖 运行预测</button>
-              <button class="btn btn-ghost btn-sm" @click="openCal">📆 日历因子</button>
-              <button class="btn btn-ghost btn-sm" @click="nlOpen=!nlOpen">💬 自然语言改单</button>
-              <button class="btn btn-ghost btn-sm" @click="topupOpen=!topupOpen">🧮 一键凑单达返利</button>
+              <button class="btn btn-ghost btn-sm" @click="loadTs" :disabled="tsLoading"><Icon name="bot"/> 运行预测</button>
+              <button class="btn btn-ghost btn-sm" @click="openCal"><Icon name="calendar"/> 日历因子</button>
+              <button class="btn btn-ghost btn-sm" @click="nlOpen=!nlOpen"><Icon name="message"/> 自然语言改单</button>
+              <button class="btn btn-ghost btn-sm" @click="topupOpen=!topupOpen"><Icon name="sparkle"/> 凑单达返利</button>
             </template>
             <template v-else-if="openGroup==='collab'">
-              <button class="btn btn-ghost btn-sm" @click="poOpen=!poOpen">📦 供应商PO</button>
-              <button class="btn btn-ghost btn-sm" @click="loadPo2" :disabled="po2Loading">🧾 采购直发</button>
-              <button class="btn btn-ghost btn-sm" @click="loadHeal" :disabled="healLoading">🛠 异常自愈</button>
-              <button class="btn btn-ghost btn-sm" @click="miniInputOpen=!miniInputOpen">📱 移动端录单</button>
-              <button class="btn btn-ghost btn-sm" @click="rtWarnOpen=!rtWarnOpen" :disabled="rtWarnLoading">🔔 库存预警</button>
+              <button class="btn btn-ghost btn-sm" @click="poOpen=!poOpen"><Icon name="package"/> 供应商订单</button>
+              <button class="btn btn-ghost btn-sm" @click="loadPo2" :disabled="po2Loading"><Icon name="receipt"/> 采购直发</button>
+              <button class="btn btn-ghost btn-sm" @click="loadHeal" :disabled="healLoading"><Icon name="settings"/> 异常修复</button>
+              <button class="btn btn-ghost btn-sm" @click="miniInputOpen=!miniInputOpen"><Icon name="smartphone"/> 小程序录单</button>
+              <button class="btn btn-ghost btn-sm" @click="miniOpen=!miniOpen"><Icon name="smartphone"/> 小程序审批</button>
+              <button class="btn btn-ghost btn-sm" @click="rtWarnOpen=!rtWarnOpen" :disabled="rtWarnLoading"><Icon name="bell"/> 库存预警</button>
               <label class="basis-toggle"><input type="checkbox" v-model="autoAlertOn" @change="maybeAutoAlert"> 主动预警</label>
             </template>
-            <template v-else-if="openGroup==='more'">
+            <template v-else-if="openGroup==='hist'">
               <label class="basis-toggle">对比期
                 <select v-model="compareBaseId" @change="loadComparePeriod(compareBaseId)">
                   <option value="">任选…</option>
                   <option v-for="p in compareablePeriods" :key="p.id" :value="p.id">{{ p.name }}</option>
                 </select>
               </label>
-              <button v-if="compareOn" class="btn btn-ghost btn-xs" @click="clearCompare">清除对比</button>
-              <button class="btn btn-ghost btn-sm" @click="loadHistory" :disabled="historyLoading">📈 载入趋势</button>
-              <button class="btn btn-ghost btn-sm" @click="batchMode=!batchMode">▦ 批量编辑</button>
-              <button class="btn btn-ghost btn-sm" @click="saveSnap">⎘ 存快照</button>
-              <button class="btn btn-ghost btn-sm" @click="loadRebatePush" :disabled="rebatePushLoading">💰 返利缺口查</button>
-              <button class="btn btn-ghost btn-sm" @click="showMoq=!showMoq">📦 MOQ</button>
-              <button class="btn btn-ghost btn-sm" @click="loadYoY" :disabled="historyLoading">📅 去年同期</button>
-              <button class="btn btn-ghost btn-sm" @click="genSuggestBook" :disabled="suggestBookLoading">📝 下单说明</button>
-              <button class="btn btn-ghost btn-sm" @click="loadAccuracy" :disabled="accLoading">🎯 准确率</button>
-              <button class="btn btn-ghost btn-sm" @click="trailOpen=!trailOpen">📜 审计</button>
-              <button class="btn btn-ghost btn-sm" @click="loadTemplates" :disabled="tmplLoading">📚 行业模板</button>
-              <button class="btn btn-ghost btn-sm" @click="loadBI" :disabled="biLoading">📊 经营看板</button>
-              <button class="btn btn-ghost btn-sm" @click="miniOpen=!miniOpen">📱 小程序端审批</button>
-              <button class="btn btn-ghost btn-sm" @click="loadMarket" :disabled="marketLoading">🏪 配方市场</button>
-              <button class="btn btn-ghost btn-sm" @click="suggestPanel=!suggestPanel"><Icon name="settings"/> 建议配方</button>
-              <button class="btn btn-ghost btn-sm" @click="pagingOn=!pagingOn">📄 分页</button>
+              <button v-if="compareOn" class="btn btn-ghost btn-xs" @click="clearCompare">清除期次对比</button>
+              <button class="btn btn-ghost btn-sm" @click="loadHistory" :disabled="historyLoading" title="载入近 6 期趋势，在汇总表加「趋势」迷你图列"><Icon name="trending-up"/> 近6期趋势</button>
+              <button class="btn btn-ghost btn-sm" @click="loadYoY" :disabled="historyLoading"><Icon name="calendar"/> 去年同期</button>
+            </template>
+            <template v-else-if="openGroup==='more'">
+              <button class="btn btn-ghost btn-sm" @click="batchMode=!batchMode"><Icon name="grid"/> 批量编辑</button>
+              <button class="btn btn-ghost btn-sm" @click="saveSnap"><Icon name="save"/> 保存快照</button>
+              <button class="btn btn-ghost btn-sm" @click="loadRebatePush" :disabled="rebatePushLoading"><Icon name="coins"/> 返利缺口</button>
+              <button class="btn btn-ghost btn-sm" @click="showMoq=!showMoq"><Icon name="package"/> 起订量</button>
+              <button class="btn btn-ghost btn-sm" @click="genSuggestBook" :disabled="suggestBookLoading"><Icon name="file-text"/> 生成下单说明</button>
+              <button class="btn btn-ghost btn-sm" @click="loadAccuracy" :disabled="accLoading"><Icon name="target"/> 预报准确率</button>
+              <button class="btn btn-ghost btn-sm" @click="trailOpen=!trailOpen"><Icon name="list"/> 审计</button>
+              <button class="btn btn-ghost btn-sm" @click="loadTemplates" :disabled="tmplLoading"><Icon name="book"/> 行业模板</button>
+              <button class="btn btn-ghost btn-sm" @click="loadBI" :disabled="biLoading"><Icon name="bar-chart"/> 经营看板</button>
+              <button class="btn btn-ghost btn-sm" @click="loadMarket" :disabled="marketLoading"><Icon name="store"/> 配方市场</button>
+              <button class="btn btn-ghost btn-sm" @click="suggestPanel=!suggestPanel"><Icon name="settings"/> 建议算法</button>
+              <button class="btn btn-ghost btn-sm" @click="pagingOn=!pagingOn"><Icon name="file"/> 分页模式</button>
             </template>
           </div>
           <div v-if="suggestPanel" class="recipe-panel">
@@ -681,11 +781,11 @@
           <div v-if="snaps.length" class="snap-bar">
             <span>快照对比：</span>
             <button v-for="s in snaps" :key="s.name" class="btn btn-ghost btn-xs" @click="diffSnap(s.name)">对比 {{ s.name }}</button>
-            <button class="btn btn-ghost btn-xs" @click="snapCompare = null">清除对比</button>
+            <button class="btn btn-ghost btn-xs" @click="snapCompare = null">清除快照对比</button>
             <button v-if="snapCompare" class="btn btn-primary btn-xs" @click="exportDiffXlsx"><Icon name="download"/> 导出差异</button>
           </div>
           <div v-if="rebatePushOpen" class="info-panel">
-            <div class="panel-hd"><b>💰 返利缺口提示</b><button class="imp-x" @click="rebatePushOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="payment"/> 返利缺口提示</b><button class="imp-x" @click="rebatePushOpen=false"><Icon name="close"/></button></div>
             <div v-if="rebatePushLoading" class="hint">加载中…</div>
             <div v-else-if="!rebatePushList.length" class="hint">暂无未结冲档空间（均已达最高档或未配置合同）</div>
             <ul v-else class="push-list">
@@ -693,7 +793,7 @@
             </ul>
           </div>
           <div v-if="healthOpen" class="info-panel">
-            <div class="panel-hd"><b>🩺 提交前体检</b><span class="tag" :class="healthIssues.length ? 'warn' : 'ok'">{{ healthIssues.length }} 项</span><button class="imp-x" @click="healthOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="activity"/> 体检</b><span class="tag" :class="healthIssues.length ? 'warn' : 'ok'">{{ healthIssues.length }} 项</span><button class="imp-x" @click="healthOpen=false"><Icon name="close"/></button></div>
             <div v-if="!healthIssues.length" class="hint">未发现明显异常，可放心提交</div>
             <ul v-else class="health-list">
               <li v-for="(it, i) in healthIssues" :key="i" :class="'sev-'+it.sev" @click="jumpToRow(it.ri)"><span class="sev-dot"></span>{{ it.msg }}</li>
@@ -703,18 +803,19 @@
             <button class="btn btn-ghost btn-xs" :disabled="curPage<=0" @click="pageGo(-1)">← 上一页</button>
             <span class="pager-info">第 {{ curPage+1 }} / {{ totalPages }} 页 · 每页 {{ pageSize }} 行 · 共 {{ cross.rows.length }} SKU</span>
             <button class="btn btn-ghost btn-xs" :disabled="curPage>=totalPages-1" @click="pageGo(1)">下一页 →</button>
+            <button class="btn btn-ghost btn-xs" @click="pagingOn=false" title="关闭分页，显示全部行">显示全部</button>
           </div>
 
           <!-- P8-1 下单说明文档 -->
           <div v-if="suggestBookOpen" class="info-panel">
-            <div class="panel-hd"><b>📝 下单说明文档</b><button class="imp-x" @click="suggestBookOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="file-text"/> 下单说明文档</b><button class="imp-x" @click="suggestBookOpen=false"><Icon name="close"/></button></div>
             <textarea class="book-area" v-model="suggestBookText" rows="10"></textarea>
             <div class="imp-ft"><button class="btn btn-primary btn-sm" :disabled="pushing" @click="sendSuggestBook"><Icon name="upload"/> 推送企微审批</button><span class="hint">AI 据体检/货损/MOQ 自动生成，可手改</span></div>
           </div>
 
           <!-- P8-2 实时库存预警 -->
           <div v-if="rtWarnOpen" class="info-panel">
-            <div class="panel-hd"><b>🔔 实时库存预警</b><span class="tag warn">{{ Object.keys(rtWarnMap).length }} 项</span><button class="imp-x" @click="rtWarnOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="bell"/> 实时库存预警</b><span class="tag warn">{{ Object.keys(rtWarnMap).length }} 项</span><button class="imp-x" @click="rtWarnOpen=false"><Icon name="close"/></button></div>
             <div v-if="rtWarnLoading" class="hint">加载中…</div>
             <ul v-else-if="Object.keys(rtWarnMap).length" class="push-list">
               <li v-for="(it,pid) in rtWarnMap" :key="pid"><b>{{ it.name }}</b>：{{ it.msg }}</li>
@@ -724,7 +825,7 @@
 
           <!-- P8-3 预测准确率 -->
           <div v-if="accOpen" class="info-panel">
-            <div class="panel-hd"><b>🎯 预测准确率</b><span class="tag" :class="accData&&accData.hit_rate!=null?'ok':'warn'">{{ accData? (accData.hit_rate!=null? accData.hit_rate+'%':'数据不足') : '…' }}</span><button class="imp-x" @click="accOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="target"/> 预测准确率</b><span class="tag" :class="accData&&accData.hit_rate!=null?'ok':'warn'">{{ accData? (accData.hit_rate!=null? accData.hit_rate+'%':'数据不足') : '…' }}</span><button class="imp-x" @click="accOpen=false"><Icon name="close"/></button></div>
             <div v-if="accLoading" class="hint">加载中…</div>
             <div v-else-if="accData">
               <div v-if="accData.note" class="imp-tip">{{ accData.note }}</div>
@@ -734,7 +835,7 @@
                   <tr v-for="(it,i) in accData.items.slice(0,30)" :key="i">
                     <td>{{ it.product }}</td><td class="num">{{ fmt(it.forecast) }}</td><td class="num">{{ fmt(it.actual) }}</td>
                     <td class="num" :class="it.diff>0?'up':(it.diff<0?'down':'')">{{ it.diff>0?'+':'' }}{{ fmt(it.diff) }}</td>
-                    <td>{{ it.hit ? '✓' : '✗' }}</td>
+                    <td><Icon :name="it.hit ? 'check' : 'close'"/></td>
                   </tr>
                 </tbody>
               </table>
@@ -743,13 +844,13 @@
 
           <!-- P9-4 审批流状态机 -->
           <div v-if="subOpen" class="info-panel">
-            <div class="panel-hd"><b>✅ 审批流（状态机）</b><span class="tag" :class="'st-'+subStatus">{{ SUB_LABEL[subStatus] }}</span><button class="imp-x" @click="subOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="approve"/> 审批流（状态机）</b><span class="tag" :class="'st-'+subStatus">{{ SUB_LABEL[subStatus] }}</span><button class="imp-x" @click="subOpen=false"><Icon name="close"/></button></div>
             <div class="sub-bar">
               <button class="btn btn-sm" :disabled="subStatus!=='draft'&&subStatus!=='revised'" @click="doSubmit">提交审批</button>
               <button class="btn btn-primary btn-sm" :disabled="subStatus!=='submitted'" @click="doApprove">通过</button>
               <button class="btn btn-sm" :disabled="subStatus!=='submitted'" @click="doReject">驳回</button>
               <button class="btn btn-sm" :disabled="subStatus!=='approved'&&subStatus!=='rejected'" @click="doRevise">退回修改</button>
-              <button class="btn btn-sm" :disabled="subStatus!=='approved'" @click="doWriteback">🔗 回写ERP</button>
+              <button class="btn btn-sm" :disabled="subStatus!=='approved'" @click="doWriteback"><Icon name="link"/> 回写ERP</button>
             </div>
             <div v-if="subBy" class="hint">操作人 {{ subBy }} · {{ subAt }}</div>
             <div v-if="subReason" class="imp-warn">驳回原因：{{ subReason }}</div>
@@ -757,7 +858,7 @@
 
           <!-- P9-6 改动留痕审计 -->
           <div v-if="trailOpen" class="info-panel">
-            <div class="panel-hd"><b>📜 改动留痕审计</b><span class="tag info">{{ auditTrail.length }} 条</span><button class="imp-x" @click="trailOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="list"/> 改动留痕审计</b><span class="tag info">{{ auditTrail.length }} 条</span><button class="imp-x" @click="trailOpen=false"><Icon name="close"/></button></div>
             <ul v-if="auditTrail.length" class="health-list">
               <li v-for="(a,i) in auditTrail" :key="i" class="sev-info"><span class="sev-dot"></span>{{ a.at }} · {{ a.action }} · {{ a.detail }}</li>
             </ul>
@@ -766,7 +867,7 @@
 
           <!-- P10-7 配方行业模板库 -->
           <div v-if="tmplOpen" class="info-panel">
-            <div class="panel-hd"><b>📚 配方行业模板库</b><button class="imp-x" @click="tmplOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="book"/> 配方行业模板库</b><button class="imp-x" @click="tmplOpen=false"><Icon name="close"/></button></div>
             <div v-if="tmplLoading" class="hint">加载中…</div>
             <div v-else>
               <ul v-if="tmplList.length" class="push-list">
@@ -784,7 +885,7 @@
 
           <!-- P10-8 经营看板 BI -->
           <div v-if="biOpen" class="info-panel bi-panel">
-            <div class="panel-hd"><b>📊 经营看板 BI</b><button class="imp-x" @click="biOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="bar-chart"/> 经营看板 BI</b><button class="imp-x" @click="biOpen=false"><Icon name="close"/></button></div>
             <div v-if="biLoading" class="hint">加载中…</div>
             <div v-else-if="biData" class="bi-grid">
               <div class="bi-card"><div class="bi-num">¥{{ fmt(biData.rebate_target||0) }}</div><div class="bi-lbl">返利目标（{{ biData.rebate_contracts||0 }} 合同）</div></div>
@@ -796,13 +897,13 @@
 
           <!-- P10-10 小程序端审批契约 -->
           <div v-if="miniOpen" class="info-panel">
-            <div class="panel-hd"><b>📱 小程序端审批契约</b><button class="imp-x" @click="miniOpen=false"><Icon name="close"/></button></div>
-            <div class="imp-tip">老板可在 <b>forecast-order-miniprogram</b> 手机端批单。契约：小程序调 <code>GET /api/forecast/submission?period_id=</code> 取状态，调 <code>POST /api/forecast/submission</code> 执行 approve/reject（复用本页状态机）。本页「✅ 审批」通过的操作，小程序实时可见。</div>
+            <div class="panel-hd"><b><Icon name="smartphone"/> 小程序审批契约</b><button class="imp-x" @click="miniOpen=false"><Icon name="close"/></button></div>
+            <div class="imp-tip">老板可在 <b>forecast-order-miniprogram</b> 手机端批单。契约：小程序调 <code>GET /api/forecast/submission?period_id=</code> 取状态，调 <code>POST /api/forecast/submission</code> 执行 approve/reject（复用本页状态机）。本页「<Icon name="check"/> 审批」通过的操作，小程序实时可见。</div>
           </div>
 
           <!-- P11-1 数据缺口补录 -->
           <div v-if="gapOpen" class="info-panel">
-            <div class="panel-hd"><b>⚠️ 数据缺口补录</b><span class="tag warn">{{ gapList.length }} 项缺批次/到期</span><button class="imp-x" @click="gapOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="alert-triangle"/> 补录批次资料</b><span class="tag warn">{{ gapList.length }} 项缺批次/到期</span><button class="imp-x" @click="gapOpen=false"><Icon name="close"/></button></div>
             <div v-if="gapLoading" class="hint">加载中…</div>
             <ul v-else-if="gapList.length" class="push-list">
               <li v-for="g in gapList" :key="g.product_id">
@@ -816,12 +917,12 @@
                 </div>
               </li>
             </ul>
-            <div v-else class="hint">全部商品资料完整 🎉（无缺口）</div>
+            <div v-else class="hint">全部商品资料完整 （无缺口）</div>
           </div>
 
           <!-- P11-2 安全库存 AI 建议 -->
           <div v-if="safetyOpen" class="info-panel">
-            <div class="panel-hd"><b>🛡 安全库存 AI 建议</b><button class="imp-x" @click="safetyOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="shield"/> 安全库存 AI 建议</b><button class="imp-x" @click="safetyOpen=false"><Icon name="close"/></button></div>
             <div v-if="safetyLoading" class="hint">测算中…</div>
             <ul v-else-if="safetyItems.length" class="push-list">
               <li v-for="s in safetyItems" :key="s.product_id">
@@ -836,7 +937,7 @@
 
           <!-- P11-3 多期滚动预报 -->
           <div v-if="rollingOn" class="info-panel">
-            <div class="panel-hd"><b>🗓 多期滚动预报</b><span class="tag info">未来 {{ rollingN }} 期</span><button class="imp-x" @click="rollingOn=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="calendar"/> 多期滚动预报</b><span class="tag info">未来 {{ rollingN }} 期</span><button class="imp-x" @click="rollingOn=false"><Icon name="close"/></button></div>
             <div class="rolling-chips">
               <button v-for="p in rollingPeriods" :key="p.id" class="btn btn-ghost btn-xs" :class="{on: p.id===curPeriod}" @click="gotoPeriod(p.id)">{{ p.name }}</button>
             </div>
@@ -845,7 +946,7 @@
 
           <!-- P12-4 偏差归因复盘 -->
           <div v-if="varOpen" class="info-panel">
-            <div class="panel-hd"><b>📉 偏差归因复盘</b><span class="tag" :class="varData&&varData.hit_rate!=null?'ok':'warn'">{{ varData? (varData.hit_rate!=null? varData.hit_rate+'%':'数据不足'):'…' }}</span><button class="imp-x" @click="varOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="trending-down"/> 偏差归因复盘</b><span class="tag" :class="varData&&varData.hit_rate!=null?'ok':'warn'">{{ varData? (varData.hit_rate!=null? varData.hit_rate+'%':'数据不足'):'…' }}</span><button class="imp-x" @click="varOpen=false"><Icon name="close"/></button></div>
             <div v-if="varLoading" class="hint">加载中…</div>
             <div v-else-if="varData">
               <div v-if="varData.note" class="imp-tip">{{ varData.note }}</div>
@@ -867,7 +968,7 @@
 
           <!-- P12-5 自然语言改单 -->
           <div v-if="nlOpen" class="info-panel">
-            <div class="panel-hd"><b>💬 自然语言改单</b><button class="imp-x" @click="nlOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="message"/> 自然语言改单</b><button class="imp-x" @click="nlOpen=false"><Icon name="close"/></button></div>
             <div class="nl-row">
               <input class="input" v-model="nlText" placeholder="如：A产品减10箱，因为竞品促销" style="flex:1" @keydown.enter="runNlEdit">
               <button class="btn btn-primary btn-sm" :disabled="nlLoading" @click="runNlEdit">解析</button>
@@ -880,16 +981,16 @@
 
           <!-- P12-6 一键凑单达返利 -->
           <div v-if="topupOpen" class="info-panel">
-            <div class="panel-hd"><b>🧮 一键凑单达返利</b><button class="btn btn-primary btn-xs" :disabled="!topupPlan.length" @click="applyTopup">一键凑单</button><button class="imp-x" @click="topupOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="sparkle"/> 凑单达返利</b><button class="btn btn-primary btn-xs" :disabled="!topupPlan.length" @click="applyTopup">一键凑单</button><button class="imp-x" @click="topupOpen=false"><Icon name="close"/></button></div>
             <ul v-if="topupPlan.length" class="push-list">
               <li v-for="t in topupPlan" :key="t.name"><b>{{ t.name }}</b> 差 ¥{{ fmt(t.gap) }} → 建议 +{{ t.add }} 箱 @¥{{ fmt(t.price) }}</li>
             </ul>
-            <div v-else class="hint">无可达返利阈值的凑单项（先点「💰 返利缺口查」算缺口）</div>
+            <div v-else class="hint">无可达返利阈值的凑单项（先点「返利缺口」算缺口）</div>
           </div>
 
           <!-- P12-7 what-if 配方模拟 -->
           <div v-if="cmp2Open" class="info-panel">
-            <div class="panel-hd"><b>🔬 what-if 配方模拟</b><button class="imp-x" @click="cmp2Open=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="wizard"/> what-if 配方模拟</b><button class="imp-x" @click="cmp2Open=false"><Icon name="close"/></button></div>
             <div class="nl-row">
               <select class="input" v-model="cmpA"><option value="">配方A…</option><option v-for="t in tmplList" :key="t.name" :value="t.name">{{ t.name }}</option></select>
               <select class="input" v-model="cmpB"><option value="">配方B…</option><option v-for="t in tmplList" :key="t.name" :value="t.name">{{ t.name }}</option></select>
@@ -904,7 +1005,7 @@
 
           <!-- P13-8 供应商 PO 聚合 -->
           <div v-if="poOpen" class="info-panel">
-            <div class="panel-hd"><b>📦 供应商PO聚合</b><button class="btn btn-primary btn-xs" :disabled="poLoading" @click="loadPo">聚合</button><button class="btn btn-ghost btn-xs" :disabled="!poData" @click="poWriteback">🔗 回写ERP</button><button class="imp-x" @click="poOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="package"/> 供应商订单聚合</b><button class="btn btn-primary btn-xs" :disabled="poLoading" @click="loadPo">聚合</button><button class="btn btn-ghost btn-xs" :disabled="!poData" @click="poWriteback"><Icon name="link"/> 回写ERP</button><button class="imp-x" @click="poOpen=false"><Icon name="close"/></button></div>
             <div v-if="poLoading" class="hint">聚合中…</div>
             <div v-else-if="poData">
               <div v-for="g in poData.pos" :key="g.brand" class="var-cat">
@@ -918,8 +1019,8 @@
 
           <!-- P16-10 移动端预报录入（Web 侧闭环，复用 submitOrder） -->
           <div v-if="miniInputOpen" class="info-panel">
-            <div class="panel-hd"><b>📲 移动端预报录入（Web 侧闭环）</b><button class="imp-x" @click="miniInputOpen=false"><Icon name="close"/></button></div>
-            <div class="imp-tip">销售现场录单：选商品 + 数量，提交即写 <code>forecast_orders</code>，Web 端「✅ 审批」实时可见。小程序工程另立（契约见交付文档）。</div>
+            <div class="panel-hd"><b><Icon name="smartphone"/> 小程序录单（Web 侧闭环）</b><button class="imp-x" @click="miniInputOpen=false"><Icon name="close"/></button></div>
+            <div class="imp-tip">销售现场录单：选商品 + 数量，提交即写 <code>forecast_orders</code>，Web 端「<Icon name="check"/> 审批」实时可见。小程序工程另立（契约见交付文档）。</div>
             <div class="mini-form">
               <select v-model="miniPid" class="input"><option value="">选商品…</option><option v-for="r in cross.rows" :key="r.product_id" :value="r.product_id">{{ r.name }}</option></select>
               <input v-model.number="miniQty" type="number" min="0" class="input" placeholder="数量(箱)" style="width:90px">
@@ -932,7 +1033,7 @@
 
           <!-- P14-1/2 时间序列预测 + 置信区间 -->
           <div v-if="tsOpen" class="info-panel">
-            <div class="panel-hd"><b>🤖 销量预测（时间序列 + 置信区间）</b><button class="imp-x" @click="tsOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="sparkle"/> 销量预测（时间序列 + 置信区间）</b><button class="imp-x" @click="tsOpen=false"><Icon name="close"/></button></div>
             <div v-if="tsLoading" class="imp-tip">预测中…</div>
             <div v-else-if="!tsItems.length" class="imp-tip">无历史销量，暂无法预测（需先产生实际销售数据）</div>
             <template v-else>
@@ -954,7 +1055,7 @@
 
           <!-- P14-3 节假日/促销日历因子 -->
           <div v-if="calOpen" class="info-panel">
-            <div class="panel-hd"><b>📆 节假日/促销日历因子</b><button class="imp-x" @click="calOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="calendar"/> 节假日/促销日历因子</b><button class="imp-x" @click="calOpen=false"><Icon name="close"/></button></div>
             <div class="imp-tip">为节令/促销设置销量放大因子，一键叠加到当前网格预报量。</div>
             <div class="mini-form">
               <select v-model="calFactors.selected" class="input"><option value="">选因子…</option><option v-for="p in calPresets" :key="p" :value="p">{{ p }}</option></select>
@@ -967,7 +1068,7 @@
 
           <!-- P14-4 滞销/临期反向预警 -->
           <div v-if="slowOpen" class="info-panel">
-            <div class="panel-hd"><b>🔻 滞销/临期反向预警（去库存）</b><button class="imp-x" @click="slowOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="trending-down"/> 滞销/临期反向预警（去库存）</b><button class="imp-x" @click="slowOpen=false"><Icon name="close"/></button></div>
             <div v-if="slowLoading" class="imp-tip">分析中…</div>
             <div v-else-if="!slowItems.length" class="imp-tip">未发现明显滞销/临期商品</div>
             <template v-else>
@@ -986,7 +1087,7 @@
 
           <!-- P15-5 采购单直发 -->
           <div v-if="po2Open" class="info-panel">
-            <div class="panel-hd"><b>🧾 采购单直发</b><button class="imp-x" @click="po2Open=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="receipt"/> 采购单直发</b><button class="imp-x" @click="po2Open=false"><Icon name="close"/></button></div>
             <div v-if="po2Loading" class="imp-tip">生成中…</div>
             <template v-else>
               <div v-if="po2Data" class="imp-tip">采购单 #{{ po2Data.id }} · 状态：{{ po2Data.status }} · {{ po2Data.total_lines }} 行</div>
@@ -1005,7 +1106,7 @@
 
           <!-- P15-6 异常自愈闭环 -->
           <div v-if="healOpen" class="info-panel">
-            <div class="panel-hd"><b>🛠 异常自愈闭环</b><button class="imp-x" @click="healOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="settings"/> 异常修复闭环</b><button class="imp-x" @click="healOpen=false"><Icon name="close"/></button></div>
             <div v-if="healLoading" class="imp-tip">加载异常…</div>
             <div v-else-if="!healIssues.length" class="imp-tip">当前无待处理异常</div>
             <template v-else>
@@ -1023,7 +1124,7 @@
 
           <!-- P15-7 Hermes 深度联动 -->
           <div v-if="hermesOpen" class="info-panel">
-            <div class="panel-hd"><b>🧠 Hermes 深度联动（异常根因分析）</b><button class="imp-x" @click="hermesOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="sparkle"/> Hermes 深度联动（异常根因分析）</b><button class="imp-x" @click="hermesOpen=false"><Icon name="close"/></button></div>
             <textarea v-model="hermesCtx" class="book-area" placeholder="描述预报/库存/销售异常，例如：A商品连续3周预测偏高20%，B商品临期积压…"></textarea>
             <div class="mini-form">
               <button class="btn btn-primary btn-sm" :disabled="hermesLoading" @click="runHermes">{{ hermesLoading ? '分析中…' : '让 Hermes 分析' }}</button>
@@ -1033,7 +1134,7 @@
 
           <!-- 列统计弹层 -->
           <div v-if="statsOpen" class="info-panel">
-            <div class="panel-hd"><b>📊 列统计 · {{ colStats && colStats.label }}</b><button class="imp-x" @click="statsOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="bar-chart"/> 列统计 · {{ colStats && colStats.label }}</b><button class="imp-x" @click="statsOpen=false"><Icon name="close"/></button></div>
             <div v-if="colStats" class="stats-body">
               <template v-if="colStats.numeric">
                 <div class="stat-row"><span>合计</span><b>{{ fmt(colStats.sum) }}</b></div>
@@ -1054,7 +1155,7 @@
 
           <!-- P16-8 配方市场 -->
           <div v-if="marketOpen" class="info-panel">
-            <div class="panel-hd"><b>🏪 配方市场（行业配方可交易资产）</b><button class="imp-x" @click="marketOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="store"/> 配方市场（行业配方可交易资产）</b><button class="imp-x" @click="marketOpen=false"><Icon name="close"/></button></div>
             <div v-if="marketLoading" class="imp-tip">加载中…</div>
             <template v-else>
               <div class="imp-tip">发布当前配方到市场：</div>
@@ -1075,10 +1176,10 @@
 
           <!-- P16-9 数据健康分 -->
           <div v-if="hsOpen" class="info-panel">
-            <div class="panel-hd"><b>💡 数据健康分（每 SKU 评分）</b><button class="imp-x" @click="hsOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="lightbulb"/> 健康分（每 SKU 评分）</b><button class="imp-x" @click="hsOpen=false"><Icon name="close"/></button></div>
             <div v-if="hsLoading" class="imp-tip">评分中…</div>
             <template v-else>
-              <div class="imp-tip">平均数据健康分：<b>{{ hsAvg != null ? hsAvg : '—' }}</b>（网格中分&lt;60 的商品已标 💡）</div>
+              <div class="imp-tip">平均健康分：<b>{{ hsAvg != null ? hsAvg : '—' }}</b>（网格中分&lt;60 的商品已标“健康分”图标）</div>
               <table class="acc-tbl">
                 <thead><tr><th>商品</th><th class="num">健康分</th><th>缺失项</th></tr></thead>
                 <tbody>
@@ -1094,40 +1195,44 @@
 
           <!-- 右键上下文菜单 -->
           <div v-if="ctx.show" class="ctx-overlay" @click="closeCtx" @contextmenu.prevent="closeCtx"></div>
-          <div v-if="ctx.show" class="ctx-menu" :style="ctxMenuStyle">
+          <div v-if="ctx.show" class="ctx-menu" :style="ctxMenuStyle" ref="ctxMenuEl">
+            <button @click="ctxSelectAll" title="选中全部可编辑单元格（商品档案 + 各报单单元数量），之后可复制 / 清空 / 批量填充（或按 Ctrl+A）"><Icon name="check"/> 全选编辑区域</button>
+            <div class="ctx-sep"></div>
             <button class="ctx-paste" @click="ctxPaste"><Icon name="paste"/> 粘贴</button>
             <button @click="ctxCopy"><Icon name="copy"/> 复制选区</button>
             <button @click="ctxAskAi"><Icon name="sparkle"/> 让 AI 分析这行</button>
-            <button @click="ctxColStats"><Icon name="list"/> 此列统计</button>
+            <button v-if="ctx.type !== 'body'" @click="ctxColStats"><Icon name="list"/> 此列统计</button>
             <button v-if="ctxNumCell" @click="ctxFillSafety"><Icon name="sparkle"/> 按安全库存补齐</button>
             <button v-if="ctx.type === 'master' && ctx.key === 'name'" @click="ctxViewProfile"><Icon name="list"/> 查看商品档案</button>
             <div class="ctx-sep"></div>
             <button @click="ctxInsertRow(true)">↑ 在上方插入行</button>
             <button @click="ctxInsertRow(false)">↓ 在下方插入行</button>
-            <button @click="ctxFillDown">↓ 向下填充</button>
-            <button @click="ctxFillRight">→ 向右填充</button>
-            <button class="danger" @click="ctxDeleteRow">🗑 删除此行</button>
+            <button v-if="ctx.type !== 'body'" @click="ctxFillDown">↓ 向下填充</button>
+            <button v-if="ctx.type !== 'body'" @click="ctxFillRight">→ 向右填充</button>
+            <button class="danger" @click="ctxDeleteRow"><Icon name="trash"/> 删除此行</button>
+            <template v-if="ctx.type !== 'body'">
             <div class="ctx-sep"></div>
             <template v-if="ctx.type === 'qty'">
               <button @click="ctxInsertCol(true)">← 在左侧插入列</button>
               <button @click="ctxInsertCol(false)">→ 在右侧插入列</button>
-              <button class="danger" @click="ctxDeleteCol">🗑 删除此列</button>
+              <button class="danger" @click="ctxDeleteCol"><Icon name="trash"/> 删除此列</button>
             </template>
             <template v-else-if="ctx.type === 'master' && ctx.deletable">
-              <button class="danger" @click="ctxDeleteCol">🗑 删除此列</button>
+              <button class="danger" @click="ctxDeleteCol"><Icon name="trash"/> 删除此列</button>
             </template>
             <template v-else-if="ctx.type === 'master' && !ctx.deletable">
               <div class="ctx-note">该主档列不可删除（可经列配置隐藏）</div>
             </template>
+            </template>
             <div class="ctx-sep"></div>
-            <button @click="ctxClearCell">⌫ 清空此单元格</button>
+            <button @click="ctxClear"><Icon name="backspace"/> {{ ctxClearLabel }}<kbd v-if="ctxHasRangeSel">Delete</kbd></button>
             <button @click="ctxSetNote"><Icon name="edit"/> 本行加备注</button>
             <button @click="ctxCopyRow"><Icon name="copy"/> 复制此行到下方</button>
             <button @click="ctxCopyCsv"><Icon name="copy"/> 复制为 CSV</button>
             <button @click="ctxCopyMd"><Icon name="copy"/> 复制为 Markdown</button>
             <button @click="ctxExportSel"><Icon name="download"/> 导出选中行</button>
             <div class="ctx-sep"></div>
-            <button :class="{ 'ctx-on': condWarnOn }" @click="toggleCondWarn">🔴 {{ condWarnOn ? '✓ ' : '' }}高亮库存&lt;安全库存</button>
+            <button :class="{ 'ctx-on': condWarnOn }" @click="toggleCondWarn"><span class="st-dot"></span><Icon v-if="condWarnOn" name="check"/> 高亮库存&lt;安全库存</button>
             <div class="ctx-sep"></div>
             <button :disabled="!canUndo" @click="undo"><Icon name="undo"/> 撤销</button>
             <button :disabled="!canRedo" @click="redo"><Icon name="redo"/> 重做</button>
@@ -1238,9 +1343,43 @@
           <span class="mini">下单金额 <b>¥{{ fmt(cross.grand.amount) }}</b></span>
           <span class="mini">{{ cross.grand.sku }} 个商品 · {{ cross.reportedUnits }} 个报单单元</span>
         </div>
+        <!-- Q12：进入编辑要拉全量商品主档，原实现期间白屏无反馈 -->
+        <div v-if="editMode && loadingEdit" class="tbl-state tbl-skeleton" aria-busy="true" aria-label="编辑网格加载中">
+          <div class="sk-row" v-for="n in 8" :key="n"><span class="sk-bar" v-for="m in 6" :key="m"></span></div>
+        </div>
         <div v-if="editMode" class="edit-hint">
           <div class="edit-summary">合计 <b>{{ fmt(editTotalQty) }}</b> 件 · 金额 <b>¥{{ fmt(editTotalAmount) }}</b></div>
-          <div v-if="draftRestored" class="draft-banner">⚠️ 已从本地草稿恢复未完成数据（{{ cross.rows.length }} 行），「保存」后自动清除；或 <button class="link-btn" @click="clearDraft">放弃草稿</button></div>
+          <!-- Q14：如实写明恢复范围，不再笼统称「已恢复未完成数据」（原实现只恢复数量，用户被误导以为全保住了） -->
+          <div v-if="draftRestored" class="draft-banner">
+            <Icon name="alert-triangle"/> 已从本地草稿恢复：数量 <b>{{ (draftRestoreInfo && draftRestoreInfo.qty) || 0 }}</b> 行 ·
+            商品资料改动 <b>{{ (draftRestoreInfo && draftRestoreInfo.master) || 0 }}</b> 行 ·
+            本地新增 <b>{{ (draftRestoreInfo && draftRestoreInfo.added) || 0 }}</b> 行（共 {{ cross.rows.length }} 行），「保存」后自动清除；
+            <button class="link-btn" @click="clearDraft()">放弃草稿</button>
+          </div>
+          <!-- Q26/Q27：保存失败分流提示 + 部分成功告知 + 重试入口 -->
+          <div v-if="saveFailed" class="save-fail-banner">
+            <b><Icon name="alert-triangle"/> 上次保存失败（{{ saveFailed.kind }}）</b>
+            <span v-if="saveFailed.prodDone" class="sf-partial">商品资料已保存，数量未保存，请重试</span>
+            <span class="sf-msg">{{ saveFailed.msg }}</span>
+            <span class="sf-time">{{ saveFailed.at }}</span>
+            <button class="btn btn-xs btn-primary" @click="saveEdits">重试保存</button>
+          </div>
+          <!-- Q28：P5-P7 做了大量能力但埋没，用户只会最笨的逐格手输 -->
+          <div class="kbd-help">
+            <button class="link-btn" @click="toggleKbdHelp">{{ kbdHelpOpen ? '收起快捷键' : '键盘快捷键' }} <Icon :name="kbdHelpOpen ? 'chevron-up' : 'chevron-down'"/></button>
+            <div v-if="kbdHelpOpen" class="kbd-grid">
+              <span><kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴（Excel 区块 / 客户交叉表）</span>
+              <span><kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd> 复制 / 剪切选区</span>
+              <span><kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> 撤销 / 重做</span>
+              <span><kbd>Ctrl</kbd>+<kbd>D</kbd> 向下填充</span>
+              <span><kbd>Ctrl</kbd>+<kbd>A</kbd> 全选 · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 选区批量填充</span>
+              <span><kbd>Enter</kbd>/<kbd>Tab</kbd> 下一格（格内按左右键可移动光标改数）</span>
+              <span><kbd>Home</kbd>/<kbd>End</kbd> 行首 / 行尾 · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> 翻页</span>
+              <span><kbd>Ctrl</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> 跳到本列连续数据首尾</span>
+              <span><kbd>Delete</kbd> 清空选区 · 拖单元格右下角圆点填充</span>
+              <span>右键：全选 / 复制 / 清空 / 插入删除行列 / 按安全库存补齐</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1250,7 +1389,10 @@
       <div class="panel-hd"><b>报单草稿</b><span class="tag info">{{ draft.length }} 个商品</span>
         <span class="ph-actions">
           <button class="btn btn-sm btn-primary" :disabled="!draft.length || auditing" @click="runAudit">{{ auditing ? '审核中…' : '智能审核' }}</button>
-          <button class="btn btn-sm btn-ghost" :disabled="!auditResults.length" @click="saveDraft">保存草稿</button>
+          <!-- Q15：去掉无说明的 disabled，改为点击后引导 -->
+          <button class="btn btn-sm btn-ghost" @click="saveDraft" :title="auditResults.length ? '保存草稿' : '请先点「智能审核」'">保存草稿</button>
+          <!-- Q1：草稿 → 编辑网格 的单向同步入口 -->
+          <button class="btn btn-sm btn-ghost" :disabled="!draft.length" @click="syncDraftToGrid" title="把草稿商品带入编辑网格，继续分配到各客户">带入编辑网格</button>
         </span>
       </div>
 
@@ -1343,55 +1485,7 @@
       </div>
     </div>
 
-    <!-- 返利冲刺看板（前置：下单时即可看目标达成/缺口/均单建议；有期次即显示，不绑子视图） -->
-    <div v-if="cross.period" class="card sprint-card" style="margin-top:14px">
-      <div class="panel-hd">
-        <b>📊 返利冲刺看板</b>
-        <span class="tag info" v-if="cross.period">本期 · {{ cross.period.name }}</span>
-        <button class="imp-x" style="margin-left:auto" @click="rebateSprintOpen = !rebateSprintOpen"><Icon :name="rebateSprintOpen ? 'chevron-up' : 'chevron-down'"/></button>
-      </div>
-      <div v-show="rebateSprintOpen" class="panel-body">
-        <template v-if="rebateSprint.length">
-          <p class="sprint-sum">
-            本期（下单截止 <b>{{ cross.period && cross.period.order_end }}</b>）还剩 <b>{{ rebateSprintOrders }}</b> 次下单机会（按每 {{ REBATE_CADENCE_DAYS }} 天一单估算）。
-            要补齐以下返利目标缺口，<b>均单需额外 ¥{{ fmt(sprintTotalGapPerOrder) }}</b>。
-            <span class="muted">（达成 = 已填报达成 + 本期预报贡献；未填报的部分可在「目标与返利 → 达成填报」补录或 Excel 导入）</span>
-          </p>
-          <div class="table-wrap">
-            <table class="tbl">
-              <thead>
-                <tr><th>维度</th><th>目标对象</th><th class="num">目标</th><th class="num">已达成(填报)</th><th class="num">本期预报贡献</th><th class="num">距目标还差</th><th class="num">建议均单追加</th><th>进度</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="s in rebateSprint" :key="s.key">
-                  <td>{{ s.dimLabel }}</td>
-                  <td>{{ s.name }}</td>
-                  <td class="num">¥{{ fmt(s.target) }}<template v-if="s.targetType === 'quantity'"> / 件</template></td>
-                  <td class="num">{{ s.reported > 0 ? '¥' + fmt(s.reported) : '—' }}</td>
-                  <td class="num">¥{{ fmt(s.contrib) }}</td>
-                  <td class="num"><b :class="s.gap > 0 ? 'val-warn' : 'val-ok'">{{ s.gap > 0 ? fmt(s.gap) : '已达成' }}</b></td>
-                  <td class="num" v-if="s.gap > 0">¥{{ fmt(s.perOrder) }}</td>
-                  <td class="num" v-else>—</td>
-                  <td style="min-width:100px"><div class="progress" :class="achProgressClass(s.ach)"><i :style="{width: Math.min(100, s.ach * 100) + '%'}"></i></div></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="sprint-suggest" v-if="rebateSprintOrders > 0">
-            <b>系统建议：</b>
-            <ul>
-              <template v-for="s in rebateSprint" :key="'sg' + s.key">
-                <li v-if="s.gap > 0">
-                  为「{{ s.name }}」补齐返利，剩余 {{ rebateSprintOrders }} 次下单中<b>每单多加 ¥{{ fmt(s.perOrder) }}</b>；优先加单：
-                  <span v-for="p in s.top" :key="p.name" class="sprint-prod">{{ p.name }}（本期已报 ¥{{ fmt(p.contrib) }}）</span>
-                </li>
-              </template>
-            </ul>
-          </div>
-        </template>
-        <p v-else class="hint">尚未配置品牌 / 商品返利目标。去「目标与返利」页创建目标后，这里会在你下单时实时显示达成率、缺口与均单追加建议；实际达成可在「达成填报」补录或 Excel 导入。</p>
-      </div>
-    </div>
+    <!-- 返利冲刺看板已前置到本期预报顶部（view-seg 之前） -->
 
     <!-- 返利达成汇总 -->
     <div class="card rebate-section" style="margin-top:14px" v-if="rebateSummary.length">
@@ -1472,6 +1566,7 @@ import { store, toast } from '../store'
 import { auth, api } from '../api/client.js'
 import { forecastApi, auditApi, forecastApproveApi, importApi, productsApi, forecastRecipeApi, columnSchemeApi } from '../api/modules'
 import Icon from '../components/Icon.vue'
+import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ForecastHistory from './ForecastHistory.vue'
 import ReportMapping from './ReportMapping.vue'
 
@@ -1485,7 +1580,9 @@ const activeTab = ref('summary') // 'summary' | 'history' | 'config'
 /* ---- P0-1 交叉表视图 ---- */
 const viewMode = ref('cross')
 const cross = ref({ period: null, units: [], rows: [], colTotals: [], grand: { sku: 0, qty: 0, amount: 0 }, reportedUnits: 0 })
-const editMode = ref(true)
+// B1 修复 (2026-07-24)：默认只读模式——进入页面先看汇总表，需编辑再点「编辑」
+// （原默认 true 直接进入编辑网格，改数量/粘贴/删除等编辑能力对非录入员暴露过早）
+const editMode = ref(false)
 
 /* ---- 表体优化（P1/P2/P3）：分组/热力图/排序/筛选/风险徽标 ---- */
 const prodMeta = ref({})            // pid -> {category, brand}，loadCross 填充
@@ -1500,6 +1597,7 @@ function rowVisible(r) {
   if (f && !(r && (r.name || '').toLowerCase().includes(f))) return false
   if (hideZeroReport.value && rowSum(r) <= 0) return false
   if (!passColFilter(r)) return false
+  if (brandSel.value.length && !brandSel.value.includes(rowBrand(r))) return false
   return true
 }
 const maxQty = computed(() => {
@@ -1511,12 +1609,13 @@ function heatStyle(r, uname) {
   const v = parseInt(r.qtyByUnit[uname]) || 0
   if (!v) return {}
   const t = Math.min(1, v / maxQty.value)
-  let bg = '#E1F5EE', color = '#04342C'
-  if (t >= 0.85) { bg = '#1D9E75'; color = '#fff' }
-  else if (t >= 0.6) { bg = '#5DCAA5'; color = '#04342C' }
-  else if (t >= 0.35) { bg = '#9FE1CB'; color = '#04342C' }
-  else if (t >= 0.15) { bg = '#C0DD97'; color = '#173404' }
-  return { background: bg, color }
+  // C1 修复 (2026-07-24)：硬编码 7 色 → variables.css --heat-* 令牌（inline style 中
+  // var() 合法，深色模式自动适配，无需在 JS 里做主题分支）
+  if (t >= 0.85) return { background: 'var(--heat-4-bg)', color: 'var(--heat-4-txt)' }
+  if (t >= 0.6) return { background: 'var(--heat-3-bg)', color: 'var(--heat-3-txt)' }
+  if (t >= 0.35) return { background: 'var(--heat-2-bg)', color: 'var(--heat-2-txt)' }
+  if (t >= 0.15) return { background: 'var(--heat-1-bg)', color: 'var(--heat-1-txt)' }
+  return { background: 'var(--heat-0-bg)', color: 'var(--heat-0-txt)' }
 }
 const sortedRows = computed(() => {
   const rows = cross.value.rows
@@ -1562,7 +1661,7 @@ function onSort(key) {
   if (sortKey.value === key) { sortDir.value = sortDir.value === 'desc' ? 'asc' : 'desc' }
   else { sortKey.value = key; sortDir.value = 'desc' }
 }
-function sortInd(key) { return sortKey.value === key ? (sortDir.value === 'asc' ? ' ▲' : ' ▼') : '' }
+function sortInd(key) { return sortKey.value === key ? (sortDir.value === 'asc' ? 'arrow-up' : 'arrow-down') : '' }
 
 /* ============ 表体工程化增强（T1-T8）：选中/内联编辑/展开/虚拟滚动/行状态/行操作/冻结列/空加载态/键盘a11y ============ */
 const crossLoading = ref(false)
@@ -1604,10 +1703,12 @@ function editRow(pid) {
   nextTick(() => { selectCell(idx, 0, false) })
 }
 function delRowSoft(pid) {
-  if (!window.confirm('确认删除该商品行？（仅从当前视图移除，重新载入可恢复）')) return
+  // B2 修复 (2026-07-24)：不再只是「视图内隐藏」——标记进入删除清单，
+  // saveEdits 保存时随矩阵提交过滤，后端幂等重建即物理删除（保存后重新载入不再出现）。
+  if (!window.confirm('确认将该商品行从本期预报中删除？保存后生效（不保存可点「取消」放弃）')) return
   const r = cross.value.rows.find(x => x.product_id === pid)
   if (r) { r._deleted = true; if (selectedPid.value === pid) selectedPid.value = null; recomputeTotals() }
-  toast('已删除该行', 'ok')
+  toast('已加入删除清单，点「保存」生效', 'ok')
 }
 function editCell(pid, uname) { editingCell.value = { pid, uname } }
 function commitCell(pid, uname, val) {
@@ -1668,6 +1769,11 @@ const COL_DEFAULTS = { seq: 46, name: 210, product_code: 120, category: 90, bran
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
 function loadColWidths() { try { const s = localStorage.getItem('hergent-forecast-col-widths'); if (s) colWidths.value = JSON.parse(s) || {} } catch (e) {} }
+function resetColWidths() {
+  try { localStorage.removeItem('hergent-forecast-col-widths') } catch (e) {}
+  colWidths.value = {}
+  toast('已恢复默认列宽', 'ok')
+}
 function startResize(e, key) {
   e.preventDefault(); e.stopPropagation()
   const startX = e.clientX
@@ -1714,7 +1820,7 @@ function cellText(r, col) {
   if (col.key === 'extra') return fmt(r.extra_qty || 0)
   if (col.key === 'final') return fmt((r.total || 0) + (r.extra_qty || 0))
   if (col.key === 'ai') return r.ai != null ? fmt(r.ai) : '—'
-  if (col.key === 'price') return r.purchase_price != null ? fmt(r.purchase_price) : '—'
+  if (col.key === 'price') return r.purchase_price != null ? Number(r.purchase_price).toFixed(2) : '—'
   if (col.key === 'amount') { const fq = (r.total || 0) + (r.extra_qty || 0); return r.purchase_price != null ? fmt(fq * r.purchase_price) : '缺价' }
   return ''
 }
@@ -1757,8 +1863,8 @@ const vsWindow = computed(() => {
   while (end < arr.length && acc2 < scrollTop.value + viewportH.value + OVER * ROW_H) { acc2 += arr[end].h || ROW_H; end++ }
   return { items: arr.slice(start, end), top: offsetOf(start), bottom: Math.max(0, total - offsetOf(end)) }
 })
-function onScroll(e) { scrollTop.value = e.target.scrollTop; if (scrollEl.value) viewportH.value = scrollEl.value.clientHeight; if (crossFoot.value) crossFoot.value.scrollLeft = e.target.scrollLeft }
-function onEditScroll(e) { if (editFoot.value) editFoot.value.scrollLeft = e.target.scrollLeft }
+function onScroll(e) { scrollTop.value = e.target.scrollTop; if (scrollEl.value) viewportH.value = scrollEl.value.clientHeight; const sl = e.target.scrollLeft; if (crossFoot.value) crossFoot.value.style.setProperty('--foot-sl', -sl + 'px') }
+function onEditScroll(e) { const sl = e.target.scrollLeft; if (editFoot.value) editFoot.value.style.setProperty('--foot-sl', -sl + 'px') }
 function scrollToIndex(ri) {
   if (!vScrollOn.value || !scrollEl.value) return
   const off = offsetOf(ri)
@@ -1808,7 +1914,7 @@ const MASTER_COL_DEFS = [
   { key: 'spec', label: '规格', cls: 'fc-text', edit: 'text', deletable: true },
   { key: 'unit', label: '单位', cls: 'fc-text', edit: 'text', deletable: true, options: ['件', '箱', '提', '杯', '袋', '瓶', '盒', '托', '板', '根'] },
   { key: 'sale_price', label: '标准售价', cls: 'fc-num', edit: 'num', deletable: false, fmt: r => r.sale_price ? r.sale_price.toFixed(2) : '—' },
-  { key: 'purchase_price', label: '进价', cls: 'fc-num', edit: 'num', deletable: true },
+  { key: 'purchase_price', label: '进价', cls: 'fc-num', edit: 'num', deletable: true, fmt: r => r.purchase_price ? Number(r.purchase_price).toFixed(2) : '—' },
   { key: 'dist_price', label: '分销价', cls: 'fc-num', edit: 'num', deletable: false, fmt: r => r.dist_price ? r.dist_price.toFixed(2) : '—' },
   { key: 'product_code', label: '厂家编码', cls: 'fc-code', edit: 'text', deletable: false },
   { key: 'safety_stock', label: '安全库存', cls: 'fc-num', edit: 'num', num: 'int', deletable: true },
@@ -1946,11 +2052,28 @@ function onColDrop(ci) {
 
 
 /* ---- 交叉表编辑（改数量/改名/增删行列 → 保存重写本期导入数据） ---- */
+// Q12：进入编辑要拉全量商品主档 + 期次汇总，原实现期间按钮无禁用、无骨架屏，
+// 大数据量下白屏等待，用户会重复点击。
+const loadingEdit = ref(false)
+/* Q30：填报权限前置提示。可填报角色白名单（与列级权限同一套角色体系）。
+   其余角色不硬禁用（避免误伤有后端权限的账号），改为点击时二次确认 + 说明。 */
+const ENTRY_ROLES = ['owner', 'finance', 'sales', 'dealer']
+const entryRoleWarn = computed(() => !ENTRY_ROLES.includes(String(bizRole.value || 'owner')))
 async function enterEdit() {
+  // Q30：角色不在填报白名单时前置告知（不阻断，避免误伤）
+  if (entryRoleWarn.value) {
+    const ok = window.confirm(`当前角色「${ROLE_LABELS[bizRole.value] || bizRole.value}」可能没有填报权限，保存时可能被服务器拒绝。\n\n仍要进入编辑吗？`)
+    if (!ok) return
+  }
+  if (loadingEdit.value) return
   // 编辑网格渲染在交叉表区域内，无论从哪个视图点进来都先切到交叉表视图
   viewMode.value = 'cross'
   editMode.value = true
-  await loadEditGrid()
+  initKbdHelp()          // Q28：首次进入编辑自动展开一次快捷键说明
+  loadingEdit.value = true
+  try { await loadEditGrid() } finally { loadingEdit.value = false }
+  // 进编辑态即自动跑一次全表校验，让「待修正」角标立即显示，无需手动点「查错」
+  errCount.value = validateAll().length
 }
 
 async function loadEditGrid() {
@@ -2020,16 +2143,54 @@ async function loadEditGrid() {
         const nm = du && du.name ? du.name : du
         if (nm && !_seenUnit.has(nm)) { _seenUnit.add(nm); units.push({ name: nm, role: (du && du.role) || '' }) }
       })
-      // 2) 用草稿单元格值覆盖（草稿是用户最新未提交编辑），按列名对齐到服务端列集
+      /* 2) 用草稿值覆盖（草稿 = 用户最新未提交编辑），按列名对齐到服务端列集。
+         Q14：原实现只恢复 qtyByUnit 数量，主档字段（名称/规格/价格…）的本地编辑与
+         粘贴/新增的商品行在刷新后全部丢失，但横幅却宣称「已恢复未完成数据」→ 误导。
+         现补充：① 恢复主档字段；② 草稿里有、服务端商品库没有的新增行追加回来。 */
+      const DRAFT_MASTER_KEYS = ['name', 'barcode', 'spec', 'unit', 'sale_price', 'purchase_price',
+        'safety_stock', 'expiry_days', 'product_code', 'dist_price', 'brand', 'moq', 'lead_days', 'extraQty']
       const draftByPid = {}
-      ;(dr.rows || []).forEach(r => { draftByPid[r.product_id] = r.qtyByUnit || {} })
+      const draftByKey = {}
+      ;(dr.rows || []).forEach(r => {
+        if (r && r.product_id) draftByPid[r.product_id] = r
+        const k = String((r && r.name) || '') + '|' + String((r && r.barcode) || '')
+        if (!draftByKey[k]) draftByKey[k] = r
+      })
+      let restoredQty = 0, restoredMaster = 0
       rows.forEach(r => {
-        const dq = draftByPid[r.product_id]
+        const d = draftByPid[r.product_id] || draftByKey[String(r.name || '') + '|' + String(r.barcode || '')] || null
+        const dq = d ? (d.qtyByUnit || {}) : {}
         const merged = {}
         units.forEach(u => {
-          merged[u.name] = (dq && dq[u.name] !== undefined) ? dq[u.name] : (r.qtyByUnit[u.name] || 0)
+          const v = (dq[u.name] !== undefined) ? dq[u.name] : (r.qtyByUnit[u.name] || 0)
+          merged[u.name] = v
         })
         r.qtyByUnit = merged
+        if (d) {
+          if (Object.values(merged).some(v => Number(v) > 0)) restoredQty++
+          let touched = false
+          DRAFT_MASTER_KEYS.forEach(k => {
+            if (d[k] !== undefined && d[k] !== '' && String(d[k]) !== String(r[k])) { r[k] = d[k]; touched = true }
+          })
+          if (touched) restoredMaster++
+        }
+      })
+      // 3) 草稿里有、但服务端商品主档里没有的行（粘贴/新增未保存）补回来
+      const haveKeys = new Set(rows.map(r => String(r.product_id || '') + '|' + String(r.name || '') + '|' + String(r.barcode || '')))
+      let restoredAdded = 0
+      ;(dr.rows || []).forEach(d => {
+        if (!d) return
+        const k = String(d.product_id || '') + '|' + String(d.name || '') + '|' + String(d.barcode || '')
+        if (haveKeys.has(k)) return
+        if (!String(d.name || '').trim() && !String(d.barcode || '').trim()) return
+        const nr = { ...blankRow(), ...d }
+        const q = {}
+        units.forEach(u => { q[u.name] = (d.qtyByUnit && d.qtyByUnit[u.name] !== undefined) ? d.qtyByUnit[u.name] : 0 })
+        nr.qtyByUnit = q
+        nr._new = true
+        rows.push(nr)
+        haveKeys.add(k)
+        restoredAdded++
       })
       colTotals = units.map(u => rows.reduce((s, r) => s + (Number(r.qtyByUnit[u.name]) || 0), 0))
       cross.value = {
@@ -2038,6 +2199,7 @@ async function loadEditGrid() {
         reportedUnits: units.length,
       }
       draftRestored.value = true
+      draftRestoreInfo.value = { qty: restoredQty, master: restoredMaster, added: restoredAdded }
       _ignoreNextWatch = 1
     } else {
       _ignoreNextWatch = 1
@@ -2057,14 +2219,24 @@ async function loadEditGrid() {
     loadGaps()
     loadSafety()
     _alertedThisLoad = false
-    pagingOn.value = false; curPage.value = 0; findIdx.value = -1
+    /* Q7：编辑态默认分页。原实现强制 pagingOn=false → 全量商品主档（428 行）每行渲染
+       约 30 个 input ≈ 1.2 万节点，首屏卡顿、每次输入掉帧。现默认分页（可在分页条切「显示全部」）。 */
+    pagingOn.value = true; curPage.value = 0; findIdx.value = -1
   } catch (e) {
     toast('商品清单加载失败: ' + (e.message || ''), 'error')
   }
 }
 
 function exitEdit() {
+  // Q2：有未保存改动时二次确认，避免误点「取消」让长时间录入白费
+  const dirty = undoStack.value.length > 0 || draftRestored.value
+  if (dirty) {
+    const ok = window.confirm('放弃本次编辑？\n\n未保存的改动将不会提交。\n已录入的数量仍存于本地草稿，再次点「编辑」可恢复。')
+    if (!ok) return
+  }
   editMode.value = false
+  loadingEdit.value = false
+  pagingOn.value = false   // Q7：退出编辑复位分页，read-only 表恢复全量渲染原行为
   loadCross()  // 放弃修改，回到只读
 }
 
@@ -2074,10 +2246,24 @@ function rowSum(r) {
 
 function addRow() {
   snapshot()
-  cross.value.rows.push(blankRow())
+  const nr = blankRow()
+  nr._new = true                       // Q9：新增行标识（保存后清除）
+  cross.value.rows.push(nr)
+  const ri = cross.value.rows.length - 1
+  /* Q4：原实现把新行 push 到 428 行末尾却既不滚动也不聚焦，
+     若开着「仅显示有报单」新行 rowSum=0 还会被直接隐藏 → 用户以为功能坏了。 */
+  gotoRowPage(ri)
+  nextTick(() => { selectCell(ri, 0); focusCell(ri, 0, { select: true }); scrollRowIntoView(ri) })
+  if (hideZeroReport.value) toast('新行已添加（当前开启「仅显示有报单」，填入数量前它属于零报单行）', 'warn')
 }
 
 function delRow(ri) {
+  const r = cross.value.rows[ri]
+  // Q3：原实现无确认直接 splice，误点即丢一行（虽有撤销但用户常不知道）
+  if (r && (String(r.name || '').trim() || rowSum(r) > 0)) {
+    const ok = window.confirm(`删除商品行「${String(r.name || '').trim() || '（未命名）'}」？\n\n该行的报单数量会一并删除，可用 Ctrl+Z 撤销。`)
+    if (!ok) return
+  }
   snapshot()
   cross.value.rows.splice(ri, 1)
 }
@@ -2085,7 +2271,12 @@ function delRow(ri) {
 function addCol(ev) {
   const v = (ev.target.value || '').trim()
   if (!v) return
-  if (cross.value.units.find(u => u.name === v)) return
+  if (cross.value.units.find(u => u.name === v)) {
+    // Q3：重名原为静默 return，界面毫无反应，用户以为没点上、反复输入
+    toast(`客户列「${v}」已存在`, 'warn')
+    if (ev && ev.target) ev.target.select()
+    return
+  }
   snapshot()
   cross.value.units.push({ name: v, role: '' })
   cross.value.rows.forEach(r => { if (!(v in r.qtyByUnit)) r.qtyByUnit[v] = 0 })
@@ -2093,12 +2284,17 @@ function addCol(ev) {
 }
 
 function renameCol(ui, newName) {
-  snapshot()
   const u = cross.value.units[ui]
-  const oldName = u.name
+  const oldName = u ? u.name : ''
   const v = String(newName || '').trim()
   if (!v || v === oldName) return
-  if (cross.value.units.find(x => x.name === v)) return
+  if (cross.value.units.find(x => x.name === v)) {
+    // Q3：重名静默 return → 用户以为改名没生效
+    toast(`客户列「${v}」已存在，改名未生效`, 'warn')
+    return
+  }
+  // 校验通过后才入撤销栈，避免「无变化也产生一条撤销记录」
+  snapshot()
   cross.value.rows.forEach(r => {
     if (oldName in r.qtyByUnit) {
       r.qtyByUnit[v] = r.qtyByUnit[oldName]
@@ -2115,39 +2311,113 @@ function delCol(ui) {
   cross.value.rows.forEach(r => { delete r.qtyByUnit[u.name] })
 }
 
+/* ---- Q16 / Q25：全量校验 + 可点击跳转的错误清单 ----
+   原实现保存拦截时只报「存在 N 个单元格录入不合法」，428 行里用肉眼找 N 个红框
+   几乎不可能，错误原因还要逐个悬停才看得到。 */
+const QTY_MAX = 999999          // 单格数量上限（防误输入 9999999 之类脏数据）
+const errListOpen = ref(false)
+const errList = ref([])
+const saveFailed = ref(null)    // Q26/Q27：{ kind, msg, prodDone, at }
+/* Q25：待修正数量角标。全表校验是 428×30≈1.3 万次判断，不能每次输入都算，
+   因此在草稿 watch 里以 1.5s 节流更新（与本地草稿同一次 deep watch，不新增 watcher）。 */
+const errCount = ref(0)
+let _errTimer = null
+// Q28：快捷键说明（首次进入编辑自动展开一次，之后记住用户选择）
+const KBD_HELP_SEEN_KEY = 'forecast_kbd_help_seen'
+const kbdHelpOpen = ref(false)
+function toggleKbdHelp() {
+  kbdHelpOpen.value = !kbdHelpOpen.value
+  try { localStorage.setItem(KBD_HELP_SEEN_KEY, '1') } catch (e) {}
+}
+function initKbdHelp() {
+  let seen = false
+  try { seen = localStorage.getItem(KBD_HELP_SEEN_KEY) === '1' } catch (e) {}
+  kbdHelpOpen.value = !seen
+}
+function colNameOf(ci) {
+  if (ci < visibleCols.value.length) return (visibleCols.value[ci] || {}).label || ''
+  const ui = ci - visibleCols.value.length
+  return cross.value.units[ui] ? cross.value.units[ui].name : ''
+}
+function validateAll() {
+  const list = []
+  const nc = visibleCols.value.length
+  const nu = cross.value.units.length
+  cross.value.rows.forEach((r, ri) => {
+    for (let ci = 0; ci < nc + nu; ci++) {
+      const msg = cellErrMsg(ri, ci)
+      if (msg) list.push({ ri, ci, row: ri + 1, col: colNameOf(ci), name: r.name || '', msg })
+    }
+  })
+  // 条码重复：同一条码被多行使用 → 保存后按条码匹配商品会串档
+  const bcIdx = visibleCols.value.findIndex(c => c.key === 'barcode')
+  if (bcIdx >= 0) {
+    const seen = new Map()
+    cross.value.rows.forEach((r, ri) => {
+      const bc = String(r.barcode || '').trim()
+      if (!bc) return
+      if (seen.has(bc)) list.push({ ri, ci: bcIdx, row: ri + 1, col: colNameOf(bcIdx), name: r.name || '', msg: `条码重复（第 ${seen.get(bc) + 1} 行已使用该条码）` })
+      else seen.set(bc, ri)
+    })
+  }
+  return list
+}
+function gotoErr(it) {
+  errListOpen.value = false
+  gotoRowPage(it.ri)
+  nextTick(() => { selectCell(it.ri, it.ci); focusCell(it.ri, it.ci, { select: true }); scrollRowIntoView(it.ri) })
+}
+function openErrList() {
+  const list = validateAll()
+  if (!list.length) { toast('当前没有需要修正的录入', 'ok'); return }
+  errList.value = list.slice(0, 200)
+  errListOpen.value = true
+}
+
 async function saveEdits() {
   const p = cross.value.period
   if (!p) return
-  // 提交前校验：列类型非法（负数/非数字/非整数）拦截
-  let bad = 0
-  cross.value.rows.forEach((r, ri) => {
-    const nc = visibleCols.value.length
-    for (let ci = 0; ci < nc + cross.value.units.length; ci++) if (cellInvalid(ri, ci)) bad++
-  })
-  if (bad) { toast(`存在 ${bad} 个单元格录入不合法，请先修正再保存`, 'err'); return }
+  // Q25：全量校验（单元格类型 + 名称必填 + 数量上限 + 条码重复），失败直接弹清单
+  const list = validateAll()
+  if (list.length) {
+    errList.value = list.slice(0, 200)
+    errListOpen.value = true
+    toast(`存在 ${list.length} 处需要修正，已列出清单（可点击跳转）`, 'err')
+    return
+  }
+  /* Q17：商品主档与数量矩阵必须用「同一份过滤结果」。
+     原实现商品侧 .filter(r => r.name || r.barcode)，矩阵侧用未过滤的全量 rows ——
+     无名行的商品不建、数量却写进矩阵（或反之），产生孤儿数量 / 数据错位。 */
+  const kept = cross.value.rows.filter(r => !r._deleted)
+  const usable = kept.filter(r => Number(r.product_id) > 0 || String(r.name || '').trim() || String(r.barcode || '').trim())
+  const ignored = kept.length - usable.length
+  if (ignored > 0) {
+    const ok = window.confirm(`有 ${ignored} 行缺少商品名称/条码，保存时将被忽略（其数量也不会写入）。\n\n继续保存其余 ${usable.length} 行？`)
+    if (!ok) return
+  }
   savingEdit.value = true
+  let prodDone = false
   try {
     // 1) 商品主档（网格直编 / 粘贴）—— 先落商品，再落数量矩阵
-    const prodRows = cross.value.rows
-      .map(r => ({
-        name: r.name || '', barcode: r.barcode || '', spec: r.spec || '', unit: r.unit || '件',
-        sale_price: r.sale_price || 0, purchase_price: r.purchase_price || 0,
-        safety_stock: r.safety_stock || 0, expiry_days: r.expiry_days || 0,
-        product_code: r.product_code || '', dist_price: r.dist_price || 0,
-        brand: r.brand || '',
-        moq: r.moq || 0, lead_days: r.lead_days || 0,
-      }))
-      .filter(r => r.name || r.barcode)
+    const prodRows = usable.map(r => ({
+      name: r.name || '', barcode: r.barcode || '', spec: r.spec || '', unit: r.unit || '件',
+      sale_price: r.sale_price || 0, purchase_price: r.purchase_price || 0,
+      safety_stock: r.safety_stock || 0, expiry_days: r.expiry_days || 0,
+      product_code: r.product_code || '', dist_price: r.dist_price || 0,
+      brand: r.brand || '',
+      moq: r.moq || 0, lead_days: r.lead_days || 0,
+    }))
     let prodMsg = ''
     if (prodRows.length) {
       const pr = await productsApi.bulkUpsert(prodRows)
       prodMsg = ` · 商品 ${pr.inserted} 新增 / ${pr.updated} 更新`
+      prodDone = true
     }
     // 2) 数量矩阵（保持原 save_matrix 语义：幂等覆盖本期『导入』数据）
     const payload = {
       start: p.order_start, end: p.order_end,
       customers: cross.value.units.map(u => u.name),
-      rows: cross.value.rows.map(r => ({
+      rows: usable.map(r => ({
         product_id: r.product_id || 0, product_name: r.name || '', spec: r.spec || '',
         unit: r.unit || '件', price: r.sale_price || 0, qty_by_unit: r.qtyByUnit || {},
         extra_qty: Number(r.extraQty) || 0,
@@ -2159,16 +2429,71 @@ async function saveEdits() {
     saveCloudNotes()
     recordAudit('save_changes', `保存预报单调整（${r.saved_customers} 客户 / ${r.saved_items} 明细）`)
     toast(`已保存：${r.saved_customers} 个客户 · ${r.saved_items} 条商品明细${prodMsg}`, 'ok')
-    clearDraft()
+    clearDraft(true)          // Q11：静默清除草稿，不再弹「已放弃草稿」
     collectCustVals()
-    undoStack.value = []; redoStack.value = []
+    usable.forEach(rw => { delete rw._new })   // Q9：保存后清除「新增行」标识
+    saveFailed.value = null
     // 保持编辑态并刷新（粘贴/新增的商品留在表里可见）
     await loadEditGrid()
+    // Q5：不再清空撤销栈；改为记录「上次保存基线」，保存后仍可 Ctrl+Z / 一键回退
+    lastSavedSnap.value = clone(cross.value)
   } catch (e) {
-    toast('保存失败: ' + (e.message || ''), 'err')
+    // Q26：按错误类型分流，并明确告知「商品已落库、数量未保存」的部分成功状态
+    const msg = String((e && e.message) || '')
+    let kind = '网络或服务器异常'
+    if (/403|权限|forbidden|未授权|无权限/i.test(msg)) kind = '无权限'
+    else if (/超时|timeout|network|fetch/i.test(msg)) kind = '网络超时'
+    else if (/不合法|校验|invalid/i.test(msg)) kind = '数据校验未通过'
+    saveFailed.value = { kind, msg, prodDone, at: new Date().toLocaleTimeString('zh-CN') }
+    toast(`保存失败（${kind}）` + (prodDone ? '：商品资料已保存，数量未保存' : '') + (msg ? ` · ${msg}` : ''), 'err')
   } finally {
     savingEdit.value = false
   }
+}
+
+/* Q23：粘贴「商品 × 客户」交叉表。
+   原实现 onPaste 只映射商品主档列（名称/条码/规格…），从 Excel 复制的交叉表
+   （首列商品名 + 后续各客户数量）粘进来只会建商品主档，数量整块不写入客户列。
+   本函数先尝试按「列名 = 客户列」建立映射，命中则按行匹配商品名后写入数量；
+   未命中返回 false，由 onPaste 回退到主档粘贴逻辑。 */
+function tryPasteCross(block) {
+  if (!block.length || block[0].length < 2) return false
+  const head = block[0]
+  const nameIdx = head.findIndex(h => /名称|品名|货品|商品/.test(String(h == null ? '' : h).trim()))
+  if (nameIdx < 0) return false
+  const map = []
+  head.forEach((h, bi) => {
+    if (bi === nameIdx) return
+    const key = String(h == null ? '' : h).trim()
+    if (!key) return
+    const ui = cross.value.units.findIndex(u => u.name === key)
+    if (ui >= 0) map.push({ bi, c: visibleCols.value.length + ui })
+  })
+  if (!map.length) return false
+  const dataRows = block.slice(1)
+  if (!dataRows.length) return false
+  snapshot()
+  let added = 0, updated = 0, bad = 0, skipped = 0
+  dataRows.forEach(cells => {
+    const nm = String(cells[nameIdx] == null ? '' : cells[nameIdx]).trim()
+    if (!nm) { skipped++; return }
+    let ri = cross.value.rows.findIndex(r => String(r.name || '').trim() === nm)
+    if (ri < 0) {
+      cross.value.rows.push({ ...blankRow(), name: nm, _new: true })
+      ri = cross.value.rows.length - 1
+      added++
+    } else updated++
+    map.forEach(({ bi, c }) => {
+      writeCellVal(ri, c, cells[bi])
+      if (cellInvalid(ri, c)) bad++
+    })
+  })
+  gotoRowPage(cross.value.rows.length - 1)
+  toast(`已按客户列粘贴：新增 ${added} 个商品 · 更新 ${updated} 个商品`
+    + (skipped ? ` · 跳过 ${skipped} 行（无商品名称）` : '')
+    + (bad ? ` · ${bad} 格不合法（已标红）` : '')
+    + '（改完点「保存」落库）', bad || skipped ? 'warn' : 'ok')
+  return true
 }
 
 function onPaste(e) {
@@ -2182,8 +2507,16 @@ function onPaste(e) {
     return
   }
   e.preventDefault()
+  // B3 修复 (2026-07-24)：只读视图不允许粘贴新增商品行——原实现会静默 push 进
+  // cross.rows 但保存按钮不可见、loadCross 重载即丢失，用户以为粘贴失败。
+  if (!editMode.value) {
+    toast('当前为只读视图，请先点「改单」再粘贴数据', 'warn')
+    return
+  }
   const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim().length)
   if (!lines.length) return
+  // Q23：先尝试按「商品 × 客户」交叉表粘贴，命中则直接返回
+  if (tryPasteCross(lines.map(l => l.split('\t').map(s => s.trim())))) return
   const HEADER_KEYS = {
     '名称': 'name', '商品名称': 'name', '货品': 'name', '条码': 'barcode', '条形码': 'barcode',
     '厂家编码': 'product_code', '永辉代码': 'product_code', '客户代码': 'product_code', '产品编码': 'product_code', '货号': 'product_code',
@@ -2195,31 +2528,40 @@ function onPaste(e) {
   const first = lines[0].split('\t').map(s => s.trim())
   let headerMap = null, startIdx = 0
   const known = first.filter(h => HEADER_KEYS[h]).length
-  if (known >= 2) {
+  /* Q20：表头识别阈值收紧。原 `known >= 2` 过于宽松——若首行数据恰好含 2 个表头词
+     （例如某商品就叫「规格」），整行会被误当表头丢弃。现要求：
+     命中 ≥3 个，或「首行非空单元格全部都能映射到已知表头」。 */
+  const nonEmpty = first.filter(h => h).length
+  if (known >= 3 || (known >= 2 && nonEmpty > 0 && known === nonEmpty)) {
     headerMap = first.map(h => HEADER_KEYS[h] || null)
     startIdx = 1
   } else {
     // 无表头：默认顺序 名称/条码/规格/单位/售价/分销价/厂家编码/进价/安全库存/保质期
     headerMap = ['name', 'barcode', 'spec', 'unit', 'sale_price', 'dist_price', 'product_code', 'purchase_price', 'safety_stock', 'expiry_days']
   }
-  let added = 0
+  let added = 0, skipped = 0
   snapshot()
   for (let i = startIdx; i < lines.length; i++) {
     const cells = lines[i].split('\t')
     const row = { product_id: 0, name: '', barcode: '', spec: '', unit: '件',
       sale_price: 0, purchase_price: 0, safety_stock: 0, expiry_days: 0, product_code: '', dist_price: 0,
-      price: 0, qtyByUnit: {}, ai: null }
+      price: 0, qtyByUnit: {}, ai: null, _new: true }
     headerMap.forEach((key, ci) => {
       if (!key) return
       const v = (cells[ci] || '').trim()
-      if (key === 'sale_price' || key === 'purchase_price' || key === 'safety_stock' || key === 'expiry_days' || key === 'dist_price') row[key] = parseFloat(v) || 0
+      if (key === 'sale_price' || key === 'purchase_price' || key === 'safety_stock' || key === 'expiry_days' || key === 'dist_price') row[key] = parseNumInput(v)
       else row[key] = v
     })
-    if (!row.name && !row.barcode) continue
+    // Q19：跳过行必须显式计数并告知，原实现静默 continue → 用户粘 50 行只进 43 行却不知原因
+    if (!row.name && !row.barcode) { skipped++; continue }
     cross.value.rows.push(row)
     added++
   }
-  if (added) toast(`已从 Excel 粘贴 ${added} 行商品（改完点「保存」落库）`, 'ok')
+  gotoRowPage(cross.value.rows.length - 1)
+  if (added || skipped)
+    toast(`已从 Excel 粘贴 ${added} 行商品`
+      + (skipped ? `，跳过 ${skipped} 行（缺少商品名称或条码）` : '')
+      + '（改完点「保存」落库）', skipped ? 'warn' : 'ok')
 }
 const savingEdit = ref(false)
 const confirmInfo = ref(null)  // 2026-08-27：期次确认（经理保存汇总表=审批定稿）状态，老板进汇总表一眼看出是否已定稿
@@ -2227,20 +2569,49 @@ const confirmInfo = ref(null)  // 2026-08-27：期次确认（经理保存汇总
 /* ---- Excel 式交互（单元格选中 / 方向键导航 / 右键行列菜单 / 填充柄） ---- */
 // 选中单元格坐标：r=行索引, c=统一列索引（主档列 0..n-1，客户列 n..n+m-1；操作列不参与导航）
 const selected = ref({ r: -1, c: -1 })
-const ctx = ref({ show: false, x: 0, y: 0, r: -1, c: -1, type: '', key: '', ui: -1, deletable: false })
+const ctx = ref({ show: false, x: 0, y: 0, top: 0, r: -1, c: -1, type: '', key: '', ui: -1, deletable: false })
+const ctxMenuEl = ref(null)
 const fillEnd = ref({ r: -1, c: -1 })
 let _fillStart = null
 const ctxMenuStyle = computed(() => {
-  const wh = typeof window !== 'undefined' ? window.innerHeight : 800
   const ww = typeof window !== 'undefined' ? window.innerWidth : 400
-  return { top: Math.min(ctx.value.y, wh - 230) + 'px', left: Math.min(ctx.value.x, ww - 190) + 'px' }
+  const top = ctx.value.top != null ? ctx.value.top : ctx.value.y
+  return { top: top + 'px', left: Math.min(ctx.value.x, ww - 190) + 'px' }
 })
+// 右键菜单越界翻转：菜单渲染后测真实高度，若向下溢出视口底部则向上弹，仍不够则贴底留 8px
+// （菜单项数量动态，硬编码估算高度会漏算，必须在挂载后按真实 DOM 高度修正）
+function fitCtxMenu() {
+  nextTick(() => {
+    const el = ctxMenuEl.value
+    if (!el || !ctx.value.show) return
+    const h = el.getBoundingClientRect().height
+    const wh = window.innerHeight
+    if (ctx.value.y + 6 + h > wh - 8) {
+      let t = ctx.value.y - h - 6
+      if (t < 8) t = Math.max(8, wh - h - 8)
+      ctx.value.top = t
+    }
+  })
+}
 // 右键菜单：当前单元格是否为数字列（用于「按安全库存补齐」显隐）
 const ctxNumCell = computed(() => {
   const v = ctx.value
   if (v.type === 'qty') return true
   if (v.type === 'master') { const col = visibleCols.value[v.c]; return !!(col && col.edit === 'num') }
   return false
+})
+// 右键是否落在当前选区上（决定「清空」作用于整片还是单格 / 是否提示 Delete）
+const ctxHasRangeSel = computed(() => {
+  const sr = selRange.value
+  if (!sr) return false
+  const { r, c } = ctx.value
+  return c >= 0 && r >= sr.r0 && r <= sr.r1 && c >= sr.c0 && c <= sr.c1
+})
+// 「清空」按钮文案：选区内右键=清空选区；表体空白右键=作用于当前选中/提示先全选；否则=清空单格
+const ctxClearLabel = computed(() => {
+  if (ctxHasRangeSel.value) return '清空选区'
+  if (ctx.value.type === 'body') return selRange.value ? '清空选区' : '清空当前选中'
+  return '清空此单元格'
 })
 // 表头右键菜单状态（隐藏/冻结/排序）
 const hdrCtx = ref({ show: false, x: 0, y: 0, key: '', type: 'master', ui: -1, mode: 'menu' })
@@ -2253,6 +2624,14 @@ const frozenExtra = ref('')   // 商品名称之外额外冻结的列 key（会�
 // 表头右键「筛选」：按某一列的值过滤行（与全局搜索 findText 叠加生效）
 const colFilter = ref(null)        // { key, type, ui, val } | null（包含筛选）
 const colFilterSet = ref(null)     // { key, type, ui, values:[...] } | null（唯一值筛选：命中集合）
+// 品牌（供货方）多选筛选：空数组=不过滤；非空时同时作用于表格显示(rowVisible)与复制动作
+const brandSel = ref([])
+function rowBrand(r) { const m = prodMeta.value[r && r.product_id]; return (m && m.brand) || (r && r.brand) || '' }
+const brandCandidates = computed(() => {
+  const s = new Set()
+  cross.value.rows.forEach(r => { const b = rowBrand(r); if (b) s.add(b) })
+  return [...s].sort((a, b) => a.localeCompare(b, 'zh'))
+})
 const hdrFilterVal = ref('')
 const hdrFilterInput = ref(null)
 // 取某行在指定列上的「显示值」用于筛选（复用只读表渲染逻辑 cellText，兼容 master/qty/calc/计算列）
@@ -2416,16 +2795,36 @@ function selectCell(r, c, shift) {
   }
   selected.value = { r, c }
 }
-function focusCell(r, c) {
+function focusCell(r, c, opts) {
+  const doSelect = !opts || opts.select !== false
   nextTick(() => {
     const el = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`)
-    if (el) { el.focus(); if (el.select) { try { el.select() } catch (e) {} } }
+    if (el) {
+      el.focus()
+      if (doSelect && el.select) { try { el.select() } catch (e) {} }
+    }
   })
+}
+// 判断按键是否发生在正在编辑的输入框内（决定该放行给浏览器还是被表格导航拦截）
+function isEditingInput(e) {
+  const tag = e && e.target && e.target.tagName
+  return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'
 }
 // 键盘导航：Enter 下移 / Shift+Enter 上移 / Tab 右移(到头换下一行) / Shift+Tab 左移 / Esc 取消选中
 function onGridKey(e) {
   if (!editMode.value) return
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAll(); return }
+  const editing = isEditingInput(e)
+  /* Q21：方向键 / Home / End / Ctrl+方向键 在输入框内一律放行。
+     原实现只对 Delete/Backspace 做了 tag 判断（L2479），方向键没有——
+     导致用户跳格后内容被全选，想按左右键在数字中间改一位，结果直接跳到相邻格
+     且新格又被全选，只能整格重输。这是最违背 Excel 心智的手感问题。 */
+  if (editing && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight'
+    || e.key === 'Home' || e.key === 'End' || e.key === 'PageUp' || e.key === 'PageDown')) return
+  // Ctrl+A 在输入框内放行（选中本格文本），非编辑态才是「全选表格」
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+    if (editing) return
+    e.preventDefault(); selectAll(); return
+  }
   const maxC = visibleCols.value.length + cross.value.units.length - 1
   const maxR = cross.value.rows.length - 1
   let { r, c } = selected.value
@@ -2442,9 +2841,30 @@ function onGridKey(e) {
     const src = readCellVal(sr, sc)
     let er = sr
     if (selRange.value) er = selRange.value.r1
+    else {
+      /* Q6：无选区时原实现 er = sr，循环 `ri from sr+1 to sr` 不执行 → 按 Ctrl+D 毫无反应。
+         现按 Excel 双击填充柄的行为：向下填到「下一个非空行」之前。 */
+      let e2 = sr
+      while (e2 + 1 <= maxR) {
+        const nv = readCellVal(e2 + 1, sc)
+        if (nv === '' || nv === null || nv === undefined || Number(nv) === 0) break
+        e2++
+      }
+      er = e2
+    }
+    if (er === sr) { toast('请先框选填充范围，或确保下方有连续数据可填充', 'warn'); return }
     snapshot()
     for (let ri = sr + 1; ri <= er; ri++) writeCellVal(ri, sc, src)
-    toast('已向下填充', 'ok')
+    toast(`已向下填充 ${er - sr} 格`, 'ok')
+    return
+  }
+  // Q22：Ctrl/Cmd+X 剪切选区（复制后清空），Excel 基本操作
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+    if (editing) return
+    if (selected.value.r < 0) return
+    e.preventDefault()
+    copyRegion()
+    clearRange()
     return
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -2478,9 +2898,38 @@ function onGridKey(e) {
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault(); c = Math.max(0, c - 1); selectCell(r, c); focusCell(r, c)
   } else if (e.key === 'F2') {
-    e.preventDefault(); focusCell(r, c)
+    e.preventDefault(); focusCell(r, c, { select: true })
   } else if (e.key === 'Escape') {
+    if (errListOpen.value) { errListOpen.value = false; return }
     selected.value = { r: -1, c: -1 }
+  /* ---- Q22：补齐大表定位快捷键（428 行只靠滚轮找商品效率极低） ---- */
+  } else if (e.key === 'Home') {
+    e.preventDefault(); c = 0; selectCell(r, c); focusCell(r, c)
+  } else if (e.key === 'End') {
+    e.preventDefault(); c = maxC; selectCell(r, c); focusCell(r, c)
+  } else if (e.key === 'PageDown') {
+    e.preventDefault(); r = Math.min(maxR, r + 20); selectCell(r, c); focusCell(r, c); gotoRowPage(r)
+  } else if (e.key === 'PageUp') {
+    e.preventDefault(); r = Math.max(0, r - 20); selectCell(r, c); focusCell(r, c); gotoRowPage(r)
+  } else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowDown') {
+    // 跳到当前列连续数据的最后一行（遇空行停），Excel 同款
+    e.preventDefault()
+    let nr = r
+    while (nr + 1 <= maxR) {
+      const nv = readCellVal(nr + 1, c)
+      if (nv === '' || nv === null || nv === undefined || Number(nv) === 0) break
+      nr++
+    }
+    selectCell(nr, c); focusCell(nr, c); gotoRowPage(nr)
+  } else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') {
+    e.preventDefault()
+    let nr = r
+    while (nr - 1 >= 0) {
+      const nv = readCellVal(nr - 1, c)
+      if (nv === '' || nv === null || nv === undefined || Number(nv) === 0) break
+      nr--
+    }
+    selectCell(nr, c); focusCell(nr, c); gotoRowPage(nr)
   }
 }
 // 右键上下文菜单（插入/删除行、插入/删除列、清空内容）
@@ -2496,9 +2945,38 @@ function openCtx(e, r, c, type) {
   } else if (type === 'qty') {
     ui = c - visibleCols.value.length
   }
-  ctx.value = { show: true, x: e.clientX, y: e.clientY, r, c, type, key, ui, deletable }
+  ctx.value = { show: true, x: e.clientX, y: e.clientY, top: e.clientY, r, c, type, key, ui, deletable }
+  fitCtxMenu()
 }
 function closeCtx() { ctx.value.show = false }
+// 表体任意位置右键统一入口（table 级冒泡）：
+//  - 数据格（td[data-r][data-c]）→ 单元格菜单（master/qty）
+//  - 行号 / 只读计算列 / 操作列（仅 data-r）→ 表体菜单（保留当前选中，供全选/复制/清空选区）
+function onTbCtx(e) {
+  if (!editMode.value) return
+  const t = e.target
+  const td = t && t.closest ? t.closest('td') : null
+  if (!td) return
+  const tr = td.parentElement
+  if (!tr || !tr.parentElement || tr.parentElement.tagName !== 'TBODY') return  // 表头/合计行走 hdrCtx 或忽略
+  const rAttr = td.getAttribute('data-r')
+  if (rAttr == null) return
+  const ri = parseInt(rAttr, 10)
+  if (Number.isNaN(ri) || !cross.value.rows[ri]) return
+  const cAttr = td.getAttribute('data-c')
+  if (cAttr != null) {
+    const ci = parseInt(cAttr, 10)
+    openCtx(e, ri, ci, ci < visibleCols.value.length ? 'master' : 'qty')
+    return
+  }
+  openBodyCtx(e, ri)
+}
+// 表体空白（行号/只读列/操作列）右键：保留当前选中与选区，弹表体级菜单
+function openBodyCtx(e, r) {
+  hdrCtx.value.show = false
+  ctx.value = { show: true, x: e.clientX, y: e.clientY, top: e.clientY, r, c: -1, type: 'body', key: '', ui: -1, deletable: false }
+  fitCtxMenu()
+}
 // 右键菜单「复制选区」：关闭菜单后复制当前选区（保留拖选区域）
 function ctxCopy() { closeCtx(); copyRegion() }
 // 右键菜单「粘贴」：以右键单元格为锚点，读取系统剪贴板并区块填充（自动进撤销栈）
@@ -2544,15 +3022,30 @@ function ctxDeleteCol() {
   else if (ctx.value.type === 'master' && ctx.value.deletable) { snapshot(); deleteMasterCol(ctx.value.key) }
   closeCtx()
 }
-function ctxClearCell() {
-  snapshot()
+// 右键「清空」：右键落在现有选区上（或表体空白且已有选区）→ 清空整个选区；否则清空该单元格
+function ctxClear() {
   const { r, c, type, key, ui } = ctx.value
+  closeCtx()
+  const sr = selRange.value
+  const inSel = !!(sr && c >= 0 && r >= sr.r0 && r <= sr.r1 && c >= sr.c0 && c <= sr.c1)
+  if (sr && (inSel || type === 'body')) { clearRange(); return }   // clearRange 自带 snapshot + 撤销
+  if (type === 'body') { toast('请先框选区域或点「全选编辑区域」，再执行清空', 'warn'); return }
+  if (r < 0) return
+  snapshot()
   const rw = cross.value.rows[r]
   if (rw) {
     if (type === 'qty') rw.qtyByUnit[cross.value.units[ui].name] = 0
     else if (type === 'master') rw[key] = (visibleCols.value[c] && visibleCols.value[c].edit === 'num') ? 0 : ''
   }
+}
+// 右键「全选编辑区域」：选中主档可编辑列 + 各报单单元数量列的整块矩形（等价 Ctrl+A）
+function ctxSelectAll() {
   closeCtx()
+  const mr = cross.value.rows.length - 1
+  const mc = visibleCols.value.length + cross.value.units.length - 1
+  if (mr < 0 || mc < 0) { toast('表格暂无数据，可先「补录商品」或粘贴导入', 'warn'); return }
+  selectAll()
+  toast(`已全选 ${mr + 1} 行 × ${mc + 1} 列编辑区 — 可 Ctrl+C 复制 / Delete 清空，或在本菜单选「复制选区 / 清空选区」`, 'ok')
 }
 // 右键「按安全库存补齐」：把当前数字格填到该商品的安全库存
 function ctxFillSafety() {
@@ -2597,6 +3090,37 @@ function ctxExportSel() {
   if (!rows.length) { toast('没有可导出的行', 'warn'); return }
   buildXlsx(rows, `${(cross.value.period && cross.value.period.name) || '预报单'}_选中${rows.length}行`)
   toast('已导出选中行', 'ok')
+}
+// 工具栏「导出」：导出当前预报订单汇总表全部行（受筛选影响，沿用 buildXlsx 口径）
+function exportAllXlsx() {
+  const rows = cross.value.rows || []
+  if (!rows.length) { toast('没有可导出的数据', 'warn'); return }
+  buildXlsx(rows, `${(cross.value.period && cross.value.period.name) || '预报单'}_汇总`)
+  toast('已导出预报订单汇总表', 'ok')
+}
+// 舟谱导入模板生成下载（导出下拉三项）：窗口=当前选中期次 order_start~order_end，后端确定性生成（不依赖 LLM）
+const zhoupuBusy = ref('')
+async function zhoupuGen(tid) {
+  const p = currentPeriod.value
+  if (!p) { toast('请先在期次下拉选择要导出的报单期次', 'warn'); return }
+  const LAB = { 'zhoupu-pickup': '自提订单', 'zhoupu-transfer': '调拨订单', 'zhoupu-all': '合并包' }
+  const lab = LAB[tid] || tid
+  zhoupuBusy.value = tid
+  try {
+    const r = await forecastApi.zhoupuGenerate(tid, { start: p.order_start || '', end: p.order_end || '' })
+    const url = URL.createObjectURL(r.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = r.fname || `舟谱${lab}导入模板.xlsx`
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+    const info = tid === 'zhoupu-all' ? (r.rows || '') : (r.rows ? `${r.rows} 行` : '')
+    toast(`已下载${lab}导入文件${info ? '（' + info + '）' : ''}`, 'ok')
+    if (r.warnings) toast(`提示：${r.warnings}`, 'warn')
+    exportMenuOpen.value = false
+  } catch (e) {
+    toast(e.message || `生成${lab}导入文件失败`, 'err')
+  } finally { zhoupuBusy.value = '' }
 }
 // 表头右键：打开列操作菜单
 function openHdrCtx(e, key, type, ui = -1) {
@@ -2928,14 +3452,25 @@ function readCellVal(r, c) {
   if (ui < cross.value.units.length) return rw.qtyByUnit[cross.value.units[ui].name] || 0
   return ''
 }
+/* Q18：数值解析不再静默归 0。原实现 `parseFloat(v) || 0` 会把「12箱」「1,234」「abc」
+   全部变成 0，用户以为粘上了实际是 0 → 漏订货。现改为：
+   - 支持千分位逗号（1,234 → 1234）
+   - 解析失败时保留原始字符串 → cellErrMsg 报「必须是数字」并标红，保存时拦截
+   - 空串仍按 0 处理（=未填） */
+function parseNumInput(v) {
+  const s = String(v == null ? '' : v).trim().replace(/,/g, '')
+  if (s === '') return 0
+  const n = Number(s)
+  return Number.isNaN(n) ? String(v == null ? '' : v).trim() : n
+}
 function writeCellVal(r, c, v) {
   const rw = cross.value.rows[r]; if (!rw) return
   if (c < visibleCols.value.length) {
     const col = visibleCols.value[c]
-    rw[col.key] = col.edit === 'num' ? (parseFloat(v) || 0) : (v == null ? '' : String(v))
+    rw[col.key] = col.edit === 'num' ? parseNumInput(v) : (v == null ? '' : String(v))
   } else {
     const ui = c - visibleCols.value.length
-    if (ui < cross.value.units.length) rw.qtyByUnit[cross.value.units[ui].name] = parseFloat(v) || 0
+    if (ui < cross.value.units.length) rw.qtyByUnit[cross.value.units[ui].name] = parseNumInput(v)
   }
 }
 function startFill(r, c, e) {
@@ -3013,16 +3548,37 @@ function fallbackCopy(text, done) {
   try { document.execCommand('copy'); done() } catch (e) { toast('复制失败，请手动选择', 'err') }
   document.body.removeChild(ta)
 }
-function copyColumn(unitName) {
+// 复制厂家编码（仅含「最终下单」有数量的行；若勾选品牌则只限选中品牌）
+function copyCodes() {
   const lines = []
   cross.value.rows.forEach(r => {
-    const q = parseInt(r.qtyByUnit[unitName] || 0)
-    if (!q) return
+    const q = rowFinalQty(r)
+    if (q <= 0) return                       // ① 「最终下单」无数量 = 无报单，不复制
+    const b = rowBrand(r)
+    if (brandSel.value.length && !brandSel.value.includes(b)) return
     const code = _rowCode(r)
     if (!code) return
-    lines.push(`${code}\t${q}`)
+    lines.push(code)
   })
-  _copyText(lines.join('\n'), `「${unitName}」${lines.length} 行`)
+  if (!lines.length) { toast(brandSel.value.length ? '筛选品牌后本期没有可复制的厂家编码' : '本期没有可复制的厂家编码（最终下单为空）', 'warn'); return }
+  const tail = brandSel.value.length ? `（品牌：${brandSel.value.join('、')}）` : ''
+  _copyText(lines.join('\n'), 'codes', `已复制 ${lines.length} 个厂家编码${tail}`)
+}
+// 复制下单数量（与编码列表行序一致：同样跳过无厂家编码的行；数值 = 最终下单，便于分别粘贴到厂家系统不同字段）
+function copyQty() {
+  const lines = []
+  cross.value.rows.forEach(r => {
+    const q = rowFinalQty(r)
+    if (q <= 0) return
+    const b = rowBrand(r)
+    if (brandSel.value.length && !brandSel.value.includes(b)) return
+    const code = _rowCode(r)
+    if (!code) return
+    lines.push(String(q))
+  })
+  if (!lines.length) { toast(brandSel.value.length ? '筛选品牌后本期没有可复制的下单数量' : '本期没有可复制的下单数量（最终下单为空）', 'warn'); return }
+  const tail = brandSel.value.length ? `（品牌：${brandSel.value.join('、')}）` : ''
+  _copyText(lines.join('\n'), 'qty', `已复制 ${lines.length} 条下单数量${tail}`)
 }
 
 /* ---- 增强：撤销/重做 · 校验 · 区域复制 · 金额 · 草稿 · 筛选 · 口径 · 导出 ---- */
@@ -3072,24 +3628,58 @@ let _pendingSnap = null
 const selAnchor = ref({ r: -1, c: -1 })
 const selRange = ref(null)
 function clone(o) { return JSON.parse(JSON.stringify(o)) }
+/* Q24：撤销栈由「全量深拷贝」改为「结构性操作用全量 + 单元格编辑用增量补丁」。
+   原实现每次单元格聚焦都 clone(cross) 全表（428 行 × 30 列 ≈ 1.2 万字段），
+   change 时再 clone 一次并 JSON.stringify 全量比较 —— 每点一格两次全表序列化。
+   现改为：单格编辑只记录 {r, c, old, new}，撤销时反向写回该格，零深拷贝。
+   行/列增删、粘贴、填充等结构性变更仍需全量快照（{ t:'full' }）。 */
+const UNDO_LIMIT = 100
 function snapshot() {
-  undoStack.value.push(clone(cross.value))
-  if (undoStack.value.length > 200) undoStack.value.shift()
+  undoStack.value.push({ t: 'full', data: clone(cross.value) })
+  if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
+  redoStack.value = []
+}
+function pushCellSnap(r, c, oldVal, newVal) {
+  undoStack.value.push({ t: 'cell', r, c, old: oldVal, new: newVal })
+  if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
   redoStack.value = []
 }
 function undo() {
-  if (!undoStack.value.length) return
-  redoStack.value.push(clone(cross.value))
-  cross.value = undoStack.value.pop()
+  const s = undoStack.value.pop()
+  if (!s) return
+  if (s.t === 'cell') {
+    redoStack.value.push({ t: 'cell', r: s.r, c: s.c, old: s.old, new: s.new })
+    writeCellVal(s.r, s.c, s.old)
+  } else {
+    redoStack.value.push({ t: 'full', data: clone(cross.value) })
+    cross.value = s.data
+  }
   clampSelection()
   toast('已撤销', 'ok')
 }
 function redo() {
-  if (!redoStack.value.length) return
-  undoStack.value.push(clone(cross.value))
-  cross.value = redoStack.value.pop()
+  const s = redoStack.value.pop()
+  if (!s) return
+  if (s.t === 'cell') {
+    undoStack.value.push({ t: 'cell', r: s.r, c: s.c, old: s.old, new: s.new })
+    writeCellVal(s.r, s.c, s.new)
+  } else {
+    undoStack.value.push({ t: 'full', data: clone(cross.value) })
+    cross.value = s.data
+  }
   clampSelection()
   toast('已重做', 'ok')
+}
+// Q5：保存成功后不再清空撤销栈（原实现保存后无法 Ctrl+Z 回退）。
+// 改为记录「上次保存基线」，并提供「回退到上次保存」入口，避免用户保存后误改无法还原。
+const lastSavedSnap = ref(null)
+function undoToLastSaved() {
+  if (!lastSavedSnap.value) return
+  if (!window.confirm('回退到上次保存的版本？当前未保存的改动将被丢弃（可用 Ctrl+Z 再撤销回来）。')) return
+  snapshot()
+  cross.value = clone(lastSavedSnap.value)
+  clampSelection()
+  toast('已回退到上次保存的版本', 'ok')
 }
 function clampSelection() {
   const nr = Math.max(0, cross.value.rows.length - 1)
@@ -3106,20 +3696,20 @@ function inRange(r, c) {
   const { r0, c0, r1, c1 } = selRange.value
   return r >= r0 && r <= r1 && c >= c0 && c <= c1
 }
-// 单元格聚焦时记录编辑前快照；change 时入栈（驱动撤销）
+/* Q24：单元格聚焦只记录「这一格的旧值」（O(1)），change 时若值有变则入增量补丁。
+   不再 clone/stringify 整表。 */
+let _pendingCell = null
 function onFocusCell(r, c) {
   selectCell(r, c)
-  if (!_pendingSnap) _pendingSnap = clone(cross.value)
+  if (!_pendingCell) _pendingCell = { r, c, old: readCellVal(r, c) }
 }
 function onCellChange() {
-  if (!_pendingSnap) return
-  const cur = clone(cross.value)
-  if (JSON.stringify(cur) !== JSON.stringify(_pendingSnap)) {
-    undoStack.value.push(_pendingSnap)
-    if (undoStack.value.length > 200) undoStack.value.shift()
-    redoStack.value = []
-  }
-  _pendingSnap = null
+  const p = _pendingCell
+  _pendingCell = null
+  if (!p) return
+  const cur = readCellVal(p.r, p.c)
+  if (String(cur) === String(p.old)) return
+  pushCellSnap(p.r, p.c, p.old, cur)
 }
 // 区域复制（TSV，可直接粘 Excel/厂家系统）
 function copyRegion() {
@@ -3188,6 +3778,20 @@ function parseTSV(text) {
   while (lines.length && lines[lines.length - 1].trim() === '') lines.pop()
   return lines.map(l => l.split('\t').map(s => s.trim()))
 }
+// Q7 配套：编辑态开启分页后，任何按行索引定位的操作（粘贴/新增行/错误跳转）都需先翻到目标行所在页
+function gotoRowPage(ri) {
+  if (!pagingOn.value) return
+  const pp = Math.floor(ri / (pageSize.value || 50))
+  const maxP = Math.max(0, Math.ceil(cross.value.rows.length / (pageSize.value || 50)) - 1)
+  curPage.value = Math.max(0, Math.min(maxP, pp))
+}
+// 把某一行滚动到可视区（新增行/错误跳转后定位）
+function scrollRowIntoView(ri) {
+  nextTick(() => {
+    const el = document.querySelector(`td[data-r="${ri}"]`)
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'nearest' })
+  })
+}
 // 区块单元格粘贴：从选中格（或选区左上角）起逐格写入，行超界自动补空商品行、列超界截断
 function pasteRegion(text) {
   const block = parseTSV(text)
@@ -3203,10 +3807,16 @@ function pasteRegion(text) {
   const needRows = sr + rows
   while (cross.value.rows.length < needRows) cross.value.rows.push(blankRow())
   snapshot()
+  // Q13：粘贴后立即统计非法格，不再等到「保存」才告诉用户埋了雷
+  let bad = 0
   for (let i = 0; i < rows; i++)
-    for (let j = 0; j < useCols; j++)
+    for (let j = 0; j < useCols; j++) {
       writeCellVal(sr + i, sc + j, block[i][j])
-  toast(`已粘贴 ${rows}×${useCols}` + (truncated ? '（右侧列超出表格已截断）' : ''), 'ok')
+      if (cellInvalid(sr + i, sc + j)) bad++
+    }
+  gotoRowPage(sr)
+  toast(`已粘贴 ${rows}×${useCols}` + (truncated ? '（右侧列超出表格已截断）' : '')
+    + (bad ? `，其中 ${bad} 格不合法（已标红，需修正后才能保存）` : ''), bad ? 'warn' : 'ok')
 }
 onMounted(() => { window.addEventListener('mouseup', onCellUp) })
 onBeforeUnmount(() => { window.removeEventListener('mouseup', onCellUp) })
@@ -3218,6 +3828,9 @@ function cellErrMsg(r, c) {
     const col = visibleCols.value[c]
     if (col.edit !== 'num') {
       raw = rw[col.key]
+      // Q16：商品名称「有数量才必填」——该行已填报单数量却没名字，保存后会变成无名商品/孤儿数量
+      if (col.key === 'name' && !String(raw == null ? '' : raw).trim() && rowSum(rw) > 0)
+        return '商品名称必填（该行已填报数量）'
       // options 仅作输入候选提示（datalist 下拉），不强制校验；如需强制枚举约束的列，设 enforceOptions:true
       if (col.options && col.options.length && col.enforceOptions && raw !== '' && raw != null && raw !== undefined && !col.options.includes(String(raw)))
         return '应为：' + col.options.join('/') + ' 之一'
@@ -3233,10 +3846,12 @@ function cellErrMsg(r, c) {
     raw = rw.qtyByUnit[k]
   }
   if (raw === '' || raw === null || raw === undefined) return ''   // 空=未填=合法(0)
-  const n = typeof raw === 'number' ? raw : parseFloat(raw)
-  if (Number.isNaN(n)) return '必须是数字'
+  const n = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/,/g, ''))
+  if (Number.isNaN(n)) return '必须是数字（当前值无法识别，如「12箱」请改为 12）'
   if (n < 0) return '不能为负数'
   if (isInt && !Number.isInteger(n)) return '必须为整数'
+  // Q16：数量上限（原实现可填 9999999 之类脏数据，无任何拦截）
+  if (n > QTY_MAX) return `数量过大（上限 ${QTY_MAX}）`
   return ''
 }
 function cellInvalid(r, c) { return cellErrMsg(r, c) !== '' }
@@ -3247,15 +3862,19 @@ const editTotalAmount = computed(() => cross.value.rows.reduce((s, r) => s + row
 
 // 本地草稿：未提交前自动缓存，刷新可恢复；保存后清除
 const draftRestored = ref(false)
+// Q14：如实记录草稿恢复范围（数量 / 商品资料 / 新增行），横幅按实际范围展示，不再笼统称「已恢复未完成数据」
+const draftRestoreInfo = ref(null)   // { qty: n, master: n, added: n }
 const DRAFT_KEY = () => 'forecast_draft_' + (cross.value.period ? cross.value.period.id : 'default')
 let _ignoreNextWatch = 0
 function saveDraftNow() {
   try { localStorage.setItem(DRAFT_KEY(), JSON.stringify(cross.value)) } catch (e) {}
 }
-function clearDraft() {
+// Q11：保存成功路径调用 clearDraft(true) —— 静默清除，避免「已保存」后紧跟「已放弃草稿」的矛盾提示
+function clearDraft(silent) {
   try { localStorage.removeItem(DRAFT_KEY()) } catch (e) {}
   draftRestored.value = false
-  toast('已放弃草稿', 'ok')
+  draftRestoreInfo.value = null
+  if (!silent) toast('已放弃草稿', 'ok')
 }
 function loadDraft() {
   try {
@@ -3269,6 +3888,9 @@ let _draftTimer = null
 watch(() => cross.value, () => {
   if (_ignoreNextWatch > 0) { _ignoreNextWatch--; return }
   clearTimeout(_draftTimer); _draftTimer = setTimeout(saveDraftNow, 800)
+  // Q25：节流更新「待修正」角标（见 errCount 注释）
+  clearTimeout(_errTimer)
+  _errTimer = setTimeout(() => { errCount.value = editMode.value ? validateAll().length : 0 }, 1500)
 }, { deep: true })
 
 // 导出 Excel（.xlsx）
@@ -3340,7 +3962,7 @@ async function genSuggestions() {
   const needHist = recipe.strategy !== 'safety'
   if (needHist && !cross.value.rows.every(r => (r.history || []).length >= 2)) {
     const ok = await fetchHistory()
-    if (!ok) { toast('历史不足，无法用「' + recipeLabel(recipe.strategy) + '」计算（先点「载入趋势」）', 'warn'); return }
+    if (!ok) { toast('历史不足，无法用「' + recipeLabel(recipe.strategy) + '」计算（先点「历史趋势」）', 'warn'); return }
   }
   snapshot()
   cross.value.rows.forEach(r => { r.suggest = computeSuggestion(r, recipe) })
@@ -3627,6 +4249,7 @@ function printGrid() { window.print() }
 const SCHEME_KEY = () => 'forecast_col_schemes_' + (auth.user?.id || 'default')
 const schemes = ref([])
 const schemeName = ref('')
+const schemeSaveName = ref('')    // 「保存当前」时输入的新方案名（独立于下拉选中的 schemeName）
 async function loadSchemes() {
   try {
     const d = await columnSchemeApi.list()           // 后端随租户配方下发（跨设备同步）
@@ -3635,12 +4258,14 @@ async function loadSchemes() {
   try { schemes.value = JSON.parse(localStorage.getItem(SCHEME_KEY()) || '[]') } catch (e) { schemes.value = [] }
 }
 async function saveScheme() {
-  const n = (schemeName.value || '').trim(); if (!n) { toast('输入方案名', 'warn'); return }
+  const n = (schemeSaveName.value || '').trim(); if (!n) { toast('请输入方案名', 'warn'); return }
   const item = { name: n, order: clone(colOrder.value), vis: clone(colVis.value) }
   const i = schemes.value.findIndex(x => x.name === n); if (i >= 0) schemes.value[i] = item; else schemes.value.push(item)
   localStorage.setItem(SCHEME_KEY(), JSON.stringify(schemes.value))   // 本地兜底
   try { await columnSchemeApi.save(schemes.value) } catch (e) {}       // 云端同步（静默）
-  toast('已保存列方案', 'ok')
+  schemeName.value = n          // 保存后下拉自动选中刚保存的方案
+  schemeSaveName.value = ''     // 清空输入框
+  toast('已保存列方案「' + n + '」', 'ok')
 }
 function applyScheme(name) {
   const s = schemes.value.find(x => x.name === name); if (!s) return
@@ -3802,9 +4427,6 @@ function onGlobalFind(e) {
 const gridFullscreen = ref(false)
 // 全屏缩放：按比例放大/缩小汇总表，便于查看数据（仅全屏时显示控制条）
 const gridZoom = ref(100)
-function zoomIn() { gridZoom.value = Math.min(200, gridZoom.value + 10) }
-function zoomOut() { gridZoom.value = Math.max(50, gridZoom.value - 10) }
-function zoomReset() { gridZoom.value = 100 }
 function toggleGridFullscreen() { gridFullscreen.value = !gridFullscreen.value; if (!gridFullscreen.value) gridZoom.value = 100 }
 function onFsKey(e) { if (e.key === 'Escape' && gridFullscreen.value) gridFullscreen.value = false }
 onMounted(() => { window.addEventListener('keydown', onFsKey) })
@@ -3909,7 +4531,7 @@ async function loadAccuracy() {
     const p = cross.value.period
     const r = await forecastApi.accuracyByPeriod(p ? p.id : 0)
     accData.value = r; accOpen.value = true
-  } catch (e) { toast('准确率载入失败', 'err') } finally { accLoading.value = false }
+  } catch (e) { toast('预报准确率载入失败', 'err') } finally { accLoading.value = false }
 }
 
 // P9-4 审批流回写（预报单状态机）
@@ -4028,11 +4650,66 @@ async function doWriteback() {
 const miniOpen = ref(false)
 const openGroup = ref(null)
 const advToolsOpen = ref(false)   // 高级工具抽屉（编辑模式下收起/展开 4 个分组 + 审批/推送/打印）
-const tbSettingsOpen = ref(false) // 主工具栏「表格设置」弹层（只读视图网格显示选项）
-// 主工具栏弹层（表格设置/高级）改为 Teleport+fixed，脱离 .toolbar{overflow:auto} 裁切；用触发按钮坐标定位
+const periodMenuOpen = ref(false)  // P1-4：期次「⋯」溢出菜单（关闭/删除互斥，合并收纳）
+const exportMenuOpen = ref(false)  // ★导出统一菜单：全部/选中行/差异 收进一个下拉，主栏只留一个「导出」
+// 主工具栏弹层（高级）改为 Teleport+fixed，脱离 .toolbar{overflow:auto} 裁切；用触发按钮坐标定位
 const popStyle = reactive({ top: '0px', left: '0px' })
-const settingsBtn = ref(null)
 const advBtn = ref(null)
+const periodBtn = ref(null)
+const exportBtn = ref(null)
+// 品牌筛选下拉
+const brandBtn = ref(null)
+const brandPopOpen = ref(false)
+// 主工具栏各下拉互斥：只允许同时开一个（共享 popStyle 定位 + 一个透明遮罩）。
+// 触发按钮已提层(z1120 > overlay z1100)，弹层开着时可直接点其它触发按钮做互斥切换，
+// 避免用户“先选品牌、再点复制报单”时第一次点击被遮罩吃掉（只关面板不开新面板）。
+function _closePopPanes(except) {
+  if (except !== 'adv') advToolsOpen.value = false
+  if (except !== 'period') periodMenuOpen.value = false
+  if (except !== 'export') exportMenuOpen.value = false
+  if (except !== 'brand') brandPopOpen.value = false
+  if (except !== 'copy') copyMenuOpen.value = false
+}
+function toggleBrandPop() {
+  const open = !brandPopOpen.value
+  _closePopPanes(open ? 'brand' : '')
+  brandPopOpen.value = open
+  if (open) nextTick(() => positionTbPop(brandBtn.value))
+}
+// 工具栏「复制」下拉：列出所有期次列，复制该列厂家编码 / 下单数量（分开复制）
+const copyBtn = ref(null)
+const copyMenuOpen = ref(false)
+function toggleCopyMenu() {
+  const open = !copyMenuOpen.value
+  _closePopPanes(open ? 'copy' : '')
+  copyMenuOpen.value = open
+  if (open) nextTick(() => positionTbPop(copyBtn.value))
+}
+// 复制只针对「本期期次」（不按报单单元列拆选）
+const copyUnitName = computed(() => (cross.value.period && cross.value.period.name) ? cross.value.period.name : (cross.value.units && cross.value.units[0] ? cross.value.units[0].name : '本期'))
+// 有报单 = 「最终下单」列有数量（定稿量 final_qty，未定稿取 total+extra_qty/extraQty）；且含厂家编码 + 通过品牌筛选，与复制动作口径一致
+// 有报单 = 「最终下单」列有数量：
+//  - 只读主表行带 decided：已定稿取 final_qty；未定稿(待定稿)视为无最终下单 → 0
+//  - 编辑态草稿行无 decided：取 合计 qtyByUnit + 加单 extraQty（old 按列口径的兜底，保证编辑态复制仍可用）
+const rowFinalQty = (r) => {
+  if (r.decided !== undefined) return r.decided ? (Number(r.final_qty) || 0) : 0
+  const base = rowSum(r)
+  const ex = r.extra_qty != null ? (Number(r.extra_qty) || 0) : (Number(r.extraQty) || 0)
+  return base + ex
+}
+const copyCount = computed(() => {
+  let n = 0
+  cross.value.rows.forEach(r => {
+    if (rowFinalQty(r) <= 0) return
+    const b = rowBrand(r)
+    if (brandSel.value.length && !brandSel.value.includes(b)) return
+    if (!_rowCode(r)) return
+    n++
+  })
+  return n
+})
+function doCopyCodes() { copyMenuOpen.value = false; copyCodes() }
+function doCopyQty() { copyMenuOpen.value = false; copyQty() }
 function positionTbPop(btnEl) {
   if (!btnEl) return
   const r = btnEl.getBoundingClientRect()
@@ -4047,12 +4724,19 @@ function positionTbPop(btnEl) {
   popStyle.left = left + 'px'
 }
 function toggleTbPop(which) {
-  if (which === 'settings') {
-    tbSettingsOpen.value = !tbSettingsOpen.value
-    if (tbSettingsOpen.value) nextTick(() => positionTbPop(settingsBtn.value))
+  const own = (which === 'adv') ? 'adv' : (which === 'export' ? 'export' : 'period')
+  const curOpen = which === 'adv' ? advToolsOpen.value : (which === 'export' ? exportMenuOpen.value : periodMenuOpen.value)
+  const open = !curOpen
+  _closePopPanes(open ? own : '')
+  if (which === 'adv') {
+    advToolsOpen.value = open
+    if (open) nextTick(() => positionTbPop(advBtn.value))
+  } else if (which === 'export') {
+    exportMenuOpen.value = open
+    if (open) nextTick(() => positionTbPop(exportBtn.value))
   } else {
-    advToolsOpen.value = !advToolsOpen.value
-    if (advToolsOpen.value) nextTick(() => positionTbPop(advBtn.value))
+    periodMenuOpen.value = open
+    if (open) nextTick(() => positionTbPop(periodBtn.value))
   }
 }
 
@@ -4607,7 +5291,16 @@ async function doAdopt() {
 }
 
 /* ---- 返利冲刺看板（前置：下单时实时看品牌/商品目标达成、缺口、均单建议） ---- */
-const REBATE_CADENCE_DAYS = 2   // 下单节奏：每 2 天一单（低温奶行业经验值，可调）
+// v116 (L2)：全局默认到货周期（天）—— 规则未单独设到货周期时沿用；可在「目标与返利」设置里改，默认 2 天。
+const rebateGlobalCadence = ref(2)
+async function loadTenantParams() {
+  try {
+    const r = await api('/api/params')
+    const d = (r && r.data) ? r.data : {}
+    const c = parseInt(d.default_arrival_cadence_days, 10)
+    rebateGlobalCadence.value = (Number.isFinite(c) && c > 0) ? c : 2
+  } catch (e) { /* 取默认 2 */ }
+}
 const rebateRules = ref([])     // 活跃返利目标规则（品牌/商品维度）
 const rebateSprintOpen = ref(true)
 
@@ -4622,7 +5315,16 @@ async function loadRebateRules() {
 // 填报的达成数据（无 API / 手动上传客户在「目标与返利 → 达成填报」录入或 Excel 导入）
 // 此前看板只按"本期预报"当达成，漏算已达成部分导致缺口偏大 —— 这里并入真实填报值。
 const rebateAchievements = ref([])
-const sprintAchvMonth = ref(new Date().toISOString().slice(0, 7))
+
+// v116 (L1)：达成按「到货」归属 —— 冲刺月份取当前期次的到货月(arrival_date)，而非下单月(order_start)。
+// 返利按实际到货月份统计，预报贡献也计入到货月，避免"下单月≠到货月"导致达成错位。
+const rebateSprintMonth = computed(() => {
+  const p0 = cross.value.period
+  const base0 = (p0 && (p0.arrival_date || p0.order_start || p0.name)) || ''
+  const m = (base0 || '').slice(0, 7)
+  return /^\d{4}-\d{2}$/.test(m) ? m : new Date().toISOString().slice(0, 7)
+})
+const sprintAchvMonth = computed(() => rebateSprintMonth.value)
 
 async function loadRebateAchievements() {
   try {
@@ -4630,24 +5332,88 @@ async function loadRebateAchievements() {
     rebateAchievements.value = Array.isArray(list) ? list : []
   } catch (e) { rebateAchievements.value = [] }
 }
+// 期次切换导致到货月变化时，重新拉取该月填报达成（竞态由 loadAchievements 的 seq 机制同理保护）
+watch(rebateSprintMonth, () => { loadRebateAchievements() })
 
-// 本期还剩几次下单机会（下单截止日 - 今天，按每 CADENCE 天一单）
-const rebateSprintOrders = computed(() => {
+// 返利活动/合同截止日：取当前冲刺所纳入规则的生效期末日最大值（而非单个报单期次的 order_end）。
+// 修复：原先误用 cross.period.order_end（当前这一单报单期次的下单截止，如 2026-09-03），
+// 导致窗口只剩不足 1 天 → 兜底成 1 次下单、均单被放大到 108 万。正确口径应到返利目标生效期截止。
+const rebateCampaignEnd = computed(() => {
+  const rules = (rebateRules.value || []).filter(x => x.is_active !== 0 && x.effective_end)
+  if (rules.length) {
+    return rules.map(r => String(r.effective_end)).sort().slice(-1)[0]
+  }
   const p = cross.value.period
-  if (!p || !p.order_end) return 1
-  const end = new Date(p.order_end + 'T23:59:59')
+  return p && p.order_end ? p.order_end : null
+})
+
+// 本期还剩几次到货机会（按全局默认到货周期估算，供表头概览；各品牌精确值见 rebateSprint 每行）
+const rebateSprintOrders = computed(() => {
+  const endStr = rebateCampaignEnd.value
+  if (!endStr) return 1
+  const end = new Date(endStr + 'T23:59:59')
   const daysLeft = Math.ceil((end - new Date()) / 86400000)
   if (daysLeft <= 0) return 1
-  return Math.max(1, Math.ceil(daysLeft / REBATE_CADENCE_DAYS))
+  return Math.max(1, Math.ceil(daysLeft / rebateGlobalCadence.value))
 })
+
+// 规则是否在指定月份（YYYY-MM）生效：生效期缺省=长期有效；与仪表盘后端口径一致
+function ruleEffectiveInMonth(rule, m) {
+  if (!m) return true
+  const s = rule.effective_start ? String(rule.effective_start).slice(0, 7) : ''
+  const e = rule.effective_end ? String(rule.effective_end).slice(0, 7) : ''
+  if (s && s > m) return false
+  if (e && e < m) return false
+  return true
+}
+
+// v118 (L2细化)：到货模式感知的星期解析与剩余窗口计数
+// 与后端 domain/arrival_schedule.py 同一契约：arrival_weekdays 存 "2,6"，1=周一..7=周日
+const ARR_WEEKDAY_CN = { 1: '一', 2: '二', 3: '三', 4: '四', 5: '五', 6: '六', 7: '日' }
+function parseArrivalWeekdays(raw) {
+  if (!raw) return []
+  const items = Array.isArray(raw) ? raw : String(raw).split(',').map(s => s.trim()).filter(Boolean)
+  const out = []
+  for (const it of items) {
+    const v = parseInt(it, 10)
+    if (!isNaN(v) && v >= 1 && v <= 7 && out.indexOf(v) === -1) out.push(v)
+  }
+  return out.sort((a, b) => a - b)
+}
+// 统计 [今天, endStr] 闭区间内命中到货星期的天数（JS getDay: 0=周日..6=周六 → 存值 1=周一..7=周日）
+function countWeekdayArrivalsInWindow(weekdays, endStr) {
+  if (!weekdays.length || !endStr) return 0
+  const set = new Set(weekdays)
+  const end = new Date(endStr + 'T23:59:59')
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  let cnt = 0
+  for (let d = new Date(now); d <= end; d.setDate(d.getDate() + 1)) {
+    const jsDow = d.getDay()
+    const stored = jsDow === 0 ? 7 : jsDow
+    if (set.has(stored)) cnt++
+  }
+  return cnt
+}
 
 // 按「填报达成 + 本期预报贡献」聚合各规则的实际达成、缺口、建议均单追加
 const rebateSprint = computed(() => {
-  const rules = rebateRules.value || []
+  // v116 (L1)：本期月份按「到货月」归属（arrival_date 优先），而非下单月；与 sprintAchvMonth 一致
+  const p0 = cross.value.period
+  const base0 = (p0 && (p0.arrival_date || p0.order_start || p0.name)) || ''
+  const sprintMonth = /^\d{4}-\d{2}$/.test((base0 || '').slice(0, 7)) ? base0.slice(0, 7) : new Date().toISOString().slice(0, 7)
+  // 仅纳入生效期覆盖本期月份的启用规则（与仪表盘一致，避免"没设当月目标却显示"）
+  const rules = (rebateRules.value || []).filter(x => x.is_active !== 0 && ruleEffectiveInMonth(x, sprintMonth))
   const rows = cross.value.rows || []
   const meta = prodMeta.value || {}
-  const orders = rebateSprintOrders.value
-  // 填报达成查表：维度 + 作用对象 → 达成记录
+  // 到货截止日 → 剩余天数（用于按各品牌到货周期算剩余到货次数）
+  const endStr = rebateCampaignEnd.value
+  const daysLeft = (() => {
+    if (!endStr) return 0
+    const d = Math.ceil((new Date(endStr + 'T23:59:59') - new Date()) / 86400000)
+    return d
+  })()
+  // 填报达成查表：维度 + 作用对象 → 达成记录（已按到货月加载）
   const achvMap = new Map()
   for (const a of (rebateAchievements.value || [])) {
     achvMap.set(`${a.dimension}::${String(a.scope_key ?? '')}`, a)
@@ -4679,17 +5445,35 @@ const rebateSprint = computed(() => {
       ? (rule.target_type === 'quantity' ? (Number(av.actual_qty) || 0) : (Number(av.actual_amount) || 0))
       : 0
     const target = Number(rule.target_value) || 0
-    const achieved = reported + contrib            // 达成 = 已填报 + 本期预报贡献
+    const achieved = reported + contrib            // 达成 = 已填报 + 本期预报贡献（均按到货月归属）
     const gap = Math.max(0, target - achieved)
+    // v118 (L2细化)：尊重 arrival_mode —— 按间隔天数 / 按固定星期 分别计算剩余到货次数与均单追加
+    const mode = rule.arrival_mode || 'interval'
+    let cadenceLabel, orders
+    if (mode === 'weekday') {
+      const wds = parseArrivalWeekdays(rule.arrival_weekdays)
+      orders = wds.length
+        ? Math.max(1, countWeekdayArrivalsInWindow(wds, endStr))
+        : (daysLeft > 0 ? Math.max(1, Math.ceil(daysLeft / (rebateGlobalCadence.value || 2))) : 1)
+      cadenceLabel = wds.length ? `每周 ${wds.length} 次（${wds.map(w => '周' + ARR_WEEKDAY_CN[w]).join('、')}）` : '未设星期'
+    } else {
+      const cadence = (Number(rule.arrival_cadence_days) > 0) ? Number(rule.arrival_cadence_days) : rebateGlobalCadence.value
+      orders = daysLeft > 0 ? Math.max(1, Math.ceil(daysLeft / cadence)) : 1
+      cadenceLabel = `${cadence} 天/次`
+    }
     const perOrder = orders > 0 ? gap / orders : gap
     const ach = target > 0 ? achieved / target : 0
-    const top = products.slice().sort((a, b) => b.contrib - a.contrib).slice(0, 3)
+    // A+C：优先加单按"本期贡献额"降序取前 3，但先过滤掉 contrib===0 的无效项
+    // （无报单或缺失进货价 → 推¥0 无意义且误导）；若匹配品全无有效贡献，top 为空 → 模板显"本期尚未报单"提示
+    const top = products.filter(p => p.contrib > 0).sort((a, b) => b.contrib - a.contrib).slice(0, 3)
+    const topEmpty = top.length === 0
     out.push({
       key: rule.id,
       dimLabel: dim === 'brand' ? '品牌' : '商品',
       name: rule.scope_name || scope,
       target, targetType: rule.target_type,
-      reported, contrib, achieved, gap, perOrder, ach, top
+      reported, contrib, achieved, gap, perOrder, ach, top, topEmpty,
+      cadenceLabel, orders
     })
   }
   return out
@@ -4735,6 +5519,8 @@ function onHistoryDelete(row) {
 async function confirmDelete() {
   const row = delTarget.value
   if (!row) return
+  // A6 防御：合成行（id<0）无真实期次，禁止删除
+  if (Number(row.id) <= 0) { delOpen.value = false; delTarget.value = null; toast('合成报单行不可删除', 'warn'); return }
   deleting.value = true
   try {
     await forecastApi.deletePeriod(row.id)
@@ -4770,6 +5556,8 @@ function onHistoryClose(row) {
 async function confirmClose() {
   const row = closeTarget.value
   if (!row) return
+  // A6 防御：合成行（id<0）无真实期次记录，关闭会 UPDATE 0 行伪成功
+  if (Number(row.id) <= 0) { closeOpen.value = false; closeTarget.value = null; toast('合成报单行不可关闭', 'warn'); return }
   closing.value = true
   try {
     await forecastApi.closePeriod(row.id)
@@ -4915,8 +5703,37 @@ async function doSearch() {
   if (!q) { searchResults.value = []; return }
   try {
     const data = await auditApi.searchProducts(q)
-    searchResults.value = data.products || data.data || data || []
+    // D11 (2026-07-24)：后端改为 {items, total} 结构（total 供分页计数），兼容旧数组形态
+    searchResults.value = data.items || data.products || data.data || data || []
   } catch (e) { /* 静默 */ }
+}
+
+/* Q1：逐单补录与编辑网格此前完全割裂——草稿里加的商品切到编辑网格后「消失」，
+   用户以为数据丢了。这里提供显式的单向同步入口（不自动同步，避免意外覆盖）。 */
+async function syncDraftToGrid() {
+  if (!draft.value.length) { toast('草稿为空，先搜索加入商品', 'warn'); return }
+  const ok = window.confirm(`把草稿中的 ${draft.value.length} 个商品带入编辑网格？\n\n`
+    + '说明：草稿不区分客户（只有一个总需求量），带入后数量会填入「加单」列，'
+    + '你需要在网格里再分配到各客户列，最后点「保存」。')
+  if (!ok) return
+  if (!editMode.value) {
+    await enterEdit()
+    if (!editMode.value) return
+  }
+  snapshot()
+  let added = 0, updated = 0
+  draft.value.forEach(d => {
+    let r = cross.value.rows.find(x => Number(x.product_id) === Number(d.product_id) && d.product_id)
+    if (!r) {
+      r = { ...blankRow(), product_id: d.product_id || 0, name: d.name || '', spec: d.spec || '', unit: d.unit || '件', _new: true }
+      cross.value.rows.push(r)
+      added++
+    } else updated++
+    const q = Number(d.requested_qty || d.suggested_qty || 0) || 0
+    if (q > 0) r.extraQty = (Number(r.extraQty) || 0) + q
+  })
+  gotoRowPage(cross.value.rows.length - 1)
+  toast(`已带入编辑网格：新增 ${added} 个 · 更新 ${updated} 个（数量已填入「加单」列，请在网格内分配到各客户后保存）`, 'ok')
 }
 
 function addToDraft(p) {
@@ -4971,6 +5788,12 @@ async function runAudit() {
 }
 
 async function saveDraft() {
+  // Q15：按钮原为 :disabled="!auditResults.length" 且无任何说明，
+  // 用户填完数量发现按钮点不动、不知道要先审核。改为可点击 + 明确引导。
+  if (!auditResults.value.length) {
+    toast('请先点「智能审核」，审核通过后再保存草稿', 'warn')
+    return
+  }
   try {
     const items = draft.value.map(d => ({ product_id: d.product_id, requested_qty: d.requested_qty }))
     await auditApi.save({ submitter_name: store.user.name || '系统', items })
@@ -5129,6 +5952,7 @@ onMounted(async () => {
   loadBrandOptions()
   loadRebate()
   loadRebateRules()
+  loadTenantParams()
   loadRebateAchievements()
   probeErp()
   await loadPeriods()
@@ -5151,33 +5975,28 @@ onMounted(async () => {
 .page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
 .page-hd h2{font-size:20px;font-weight:600}
 .page-sub{font-size:12px;color:var(--t3)}
-.toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.toolbar::-webkit-scrollbar{height:6px}
-.toolbar::-webkit-scrollbar-thumb{background:var(--bd);border-radius:99px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:12px}
 .tb-left,.tb-right,.toolbar>.tb-group{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .tb-left .btn,.tb-right .btn,.toolbar>.tb-group .btn{flex:0 0 auto;white-space:nowrap}
-.sel-period{width:auto;max-width:100%;flex-shrink:0}
+.sel-period{width:auto;max-width:220px;height:32px;padding:0 8px;flex-shrink:0;appearance:auto;-webkit-appearance:auto;cursor:pointer;position:relative;z-index:2}
 
 /* ---- P0-1 交叉表视图 ---- */
-/* 本期预报子视图切换：导入汇总 / 草稿填报（移出工具栏，内容区干净分段） */
+/* 本期预报子视图切换：汇总表 / 逐单补录（移出工具栏，内容区干净分段） */
 .view-seg{display:inline-flex;gap:4px;background:var(--bg3);border-radius:8px;padding:3px;margin-bottom:12px}
 .view-seg button{border:none;background:transparent;padding:5px 16px;border-radius:6px;font-size:13px;color:var(--t2);cursor:pointer}
-.view-seg button.on{background:#fff;color:var(--p-dark);box-shadow:var(--shadow-sm);font-weight:500}
+.view-seg button.on{background:var(--bg4);color:var(--p-dark);box-shadow:var(--shadow-sm);font-weight:500}
 .ph-actions{margin-left:auto;display:inline-flex;gap:8px}
 /* 2026-08-27 期次确认徽标（经理保存汇总表=审批定稿） */
 .confirm-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 10px;border-radius:8px;font-weight:500;white-space:nowrap}
-.confirm-badge.ok{background:rgba(52,199,89,.14);color:#2f9e44}
+.confirm-badge.ok{background:rgba(var(--suc-rgb),.14);color:var(--confirm-green)}
 .confirm-badge.draft{background:var(--bg3);color:var(--t3)}
-.confirm-badge.filter{background:rgba(6,182,212,.14);color:#0e7490}
+.confirm-badge.filter{background:var(--p-bg);color:var(--p-deep)}
 /* P0-1 工具栏语义分隔条（筛选/数据/编辑/AI/设置 五簇） */
 .tb-sep{display:inline-block;width:1px;height:20px;background:var(--bd);margin:0 5px;flex:0 0 auto;opacity:.65;align-self:center}
 /* P0-2 状态徽标移出按钮行，独立状态行（不与操作按钮争横向空间） */
-.tb-status-row{flex:0 0 100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.tb-status-row{flex:0 0 100%;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:10px}
 .cross-area{margin-bottom:14px}
-.sop{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:rgba(var(--war-rgb),.10);border:1px solid rgba(var(--war-rgb),.30);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--war);margin-bottom:12px}
-.sop b{color:var(--war)}
-.sop .sep{color:var(--t3)}
-.cross-card{padding:0 14px 14px}
+.cross-card{padding:0 14px 14px;overflow:hidden}
 .cross-tbl{min-width:100%;font-size:12px}
 .cross-tbl thead th{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--bd);font-weight:500;color:var(--t2);padding:8px 7px;white-space:nowrap}
 .cross-tbl .frozen{position:sticky;left:0;background:var(--bg);z-index:6;min-width:200px;box-shadow:1px 0 0 var(--bd)}
@@ -5186,8 +6005,6 @@ onMounted(async () => {
 .fc-num{min-width:72px;text-align:right;font-variant-numeric:tabular-nums;color:var(--t2)}
 .fc-text{min-width:70px;color:var(--t2)}
 .fc-name{min-width:200px}
-.col-copy{border:none;background:transparent;color:var(--t3);cursor:pointer;font-size:13px;padding:0 2px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
-.col-copy:hover{color:var(--p-dark)}
 .btn-copy{border-color:var(--bd);color:var(--t1)}
 .btn-copy:hover{background:var(--bg2)}
 
@@ -5196,6 +6013,10 @@ onMounted(async () => {
 .btn-xs{padding:3px 9px;font-size:12px;border-radius:var(--radius-sm)}
 .col-menu{position:absolute;top:38px;left:0;z-index:1101;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:10px 12px;min-width:300px;max-height:70vh;overflow:auto}
 .col-menu-hd{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.col-menu-view{margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--bd);display:flex;flex-direction:column;gap:6px;width:72%}
+.col-menu-view .basis-toggle{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:8px}
+.col-menu-view select{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:2px 6px;font-size:12px;background:var(--bg);color:var(--t1);width:100%}
+.col-menu select:focus{border-color:var(--p);outline:2px solid var(--p);outline-offset:-2px}
 .col-menu-x{border:none;background:transparent;color:var(--t3);cursor:pointer;font-size:13px;line-height:1;padding:2px 4px;border-radius:var(--radius-sm);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 .col-menu-x:hover{background:var(--bg3);color:var(--p-dark)}
 .col-menu-overlay{position:fixed;inset:0;z-index:1100}
@@ -5207,14 +6028,21 @@ onMounted(async () => {
 .col-menu-list li .drag{cursor:grab;color:var(--t3);font-size:12px;user-select:none}
 .col-menu-list li.locked .drag{visibility:hidden}
 .col-menu-list label{display:flex;align-items:center;gap:5px;flex:1;cursor:pointer}
+.col-menu-list input[type=checkbox]{accent-color:var(--p);width:14px;height:14px;cursor:pointer}
 .col-menu-del{border:none;background:none;color:var(--t3);cursor:pointer;font-size:11px;padding:1px 4px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center}
 .col-menu-del:hover{color:var(--dan);background:var(--dan-bg)}
 .col-menu-del:hover{color:var(--dan);background:var(--dan-bg,rgba(239,68,68,.1))}
 .col-menu-add{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .col-menu-add .cm-label{font-size:11px;color:var(--t3);margin-right:2px}
-.col-menu-schemes{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.col-menu-schemes select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--bg);color:var(--t1)}
+.col-menu-schemes{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;flex-direction:column;gap:6px}
+.col-menu-schemes .cm-label{font-size:11px;color:var(--t3);margin-right:2px}
+.col-menu-schemes select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--bg);color:var(--t1);width:100%}
+.col-menu-schemes .scheme-row{display:flex;gap:6px}
+.col-menu-schemes .scheme-name-ipt{flex:1;min-width:0;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:3px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
+.col-menu-schemes .scheme-name-ipt:focus{border-color:var(--p);outline:2px solid var(--p);outline-offset:-2px}
+.col-menu-schemes .scheme-btn{flex:1;justify-content:center}
 .edit-col-menu{position:absolute;top:38px;left:0;z-index:1102;max-width:420px}
+.col-menu-reset{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;justify-content:flex-end}
 .th-in{display:flex;align-items:center;gap:5px;justify-content:space-between}
 .col-cfg{border:none;background:transparent;color:var(--t3);cursor:pointer;font-size:11px;padding:0 2px;line-height:1;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 .col-cfg:hover{color:var(--p-dark)}
@@ -5224,7 +6052,7 @@ onMounted(async () => {
 .qty-cell{text-align:center;color:var(--t3)}
 .qty-cell.has{color:var(--t1);font-weight:500}
 .calc-th{text-align:right}
-.calc-th.sum{background:#fffbeb;color:#92400e}
+.calc-th.sum{background:var(--sum-bg);color:var(--sum-txt)}
 .calc-th.final{background:var(--p-bg);color:var(--p-dark)}
 .calc-th.final .th-sub{font-weight:400;font-size:10px;opacity:.7}
 .decided-badge{display:inline-block;margin-left:4px;padding:0 5px;font-size:10px;line-height:15px;border-radius:999px;background:var(--suc);color:#fff;vertical-align:1px}
@@ -5263,29 +6091,30 @@ th.sortable:hover{color:var(--p-dark)}
 .cross-tbl,.edit-tbl{border-collapse:separate;border-spacing:0;table-layout:fixed}
 .cross-tbl>tbody>tr>td,.edit-tbl>tbody>tr>td{position:relative}
 .col-resizer{position:absolute;top:0;right:-3px;width:9px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
-.col-resizer::after{content:'';position:absolute;right:3px;top:8%;height:84%;width:2px;border-radius:2px;background:#cbd5e1}
-.col-resizer:hover::after,.col-resizer.active::after{background:#06b6d4}
+.col-resizer::after{content:'';position:absolute;right:3px;top:8%;height:84%;width:2px;border-radius:2px;background:var(--resizer-bg)}
+.col-resizer:hover::after,.col-resizer.active::after{background:var(--p)}
 .table-wrap.edit-grid-wrap{flex:1 1 auto;min-height:0;max-height:72vh;overflow:auto;max-width:100%}
 .seq-th{width:42px;min-width:42px;text-align:center;padding:8px 4px;vertical-align:middle}
 .seq-cell{width:42px;min-width:42px;text-align:center;padding:6px 4px;vertical-align:middle;color:var(--t3);font-size:12px}
 .seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
 .gear{padding:2px 4px;border:none;background:transparent;cursor:pointer;font-size:14px;line-height:1;color:var(--t3);border-radius:4px}
 .gear:hover{background:var(--bg3);color:var(--p-dark)}
-.col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:2px solid var(--bd);flex:0 0 auto;width:100%;overflow:hidden;box-shadow:0 -2px 5px rgba(15,23,42,.06)}
+.col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:2px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden;box-shadow:0 -2px 5px rgba(15,23,42,.06)}
+.col-total-bar>table{transform:translateX(var(--foot-sl,0));will-change:transform}
 .col-total-bar .frozen{background:var(--bg3)}
 .pending-final{color:var(--t3);font-size:12px}
-.miss-price{color:#dc2626;font-weight:500}
+.miss-price{color:var(--danger-txt);font-weight:500}
 .calc-th.amount{min-width:80px}
 .calc{text-align:right;font-variant-numeric:tabular-nums}
-.calc.sum{background:#fffbeb;color:#92400e;font-weight:500}
+.calc.sum{background:var(--sum-bg);color:var(--sum-txt);font-weight:500}
 .calc.final{background:var(--p-bg);color:var(--p-dark);font-weight:600}
 .calc.amount{font-weight:600}
 .col-total td{background:var(--bg3);font-weight:600;border-top:2px solid var(--bd)}
-.col-total .calc.sum{background:#fef3c7}
-.col-total .calc.final{background:#cffafe}
+.col-total .calc.sum{background:var(--sum-col-bg)}
+.col-total .calc.final{background:var(--final-bg)}
 
 /* ---- 表体工程化增强（T1-T8：虚拟滚动/选中/展开/行状态/行操作/空加载态/键盘a11y） ---- */
-.cross-viewport{flex:1 1 auto;min-height:0;max-height:72vh;overflow:auto;position:relative}
+.cross-viewport{flex:1 1 auto;min-height:0;min-width:0;max-height:72vh;overflow:auto;position:relative}
 /* 表体全屏按钮：尺寸/图标/颜色/圆角/悬停态与 AI 副驾 .cp-icon-btn 全屏按钮完全对齐 */
 .grid-area{position:relative;display:flex;flex-direction:column;gap:10px}
 .grid-area.is-fs{position:fixed;inset:0;z-index:1000;background:var(--bg);padding:12px;display:flex;flex-direction:column;gap:10px}
@@ -5301,28 +6130,15 @@ th.sortable:hover{color:var(--p-dark)}
 .grid-fs-btn:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .grid-fs-btn:disabled{opacity:.35;cursor:default}
 .grid-area.is-fs .grid-fs-btn{top:14px;right:14px}
-/* 表内工具栏弱化为次级浅色条，降低视觉干扰（核心筛选操作保留，分组/冻结/口径为次级） */
-.tbl-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius-sm);margin-bottom:10px}
-.tbl-toolbar .tb-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-/* 缩放条：常驻（非全屏/全屏均显示），内联于控制条右侧，不再 floating 覆盖表格 */
-.zoom-group{align-items:center;gap:6px;margin-left:0;font-size:12px}
-.zoom-group .zb-label{color:var(--t2);white-space:nowrap;font-size:12px}
-.zoom-group .zb-btn{
-  width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
-  border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:8px;cursor:pointer;
-  font-size:15px;line-height:1;padding:0;
-}
-.zoom-group .zb-btn:hover:not(:disabled){background:var(--bg2);color:var(--p)}
-.zoom-group .zb-btn:disabled{opacity:.35;cursor:default}
-.zoom-group .zb-reset{font-size:14px}
-.zoom-group .zb-range{width:100px;accent-color:var(--p);cursor:pointer}
-.zoom-group .zb-val{min-width:38px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:var(--t1)}
 /* 主工具栏整合：搜索框 / 表格设置&高级工具 弹层 / 活动筛选行 */
 .tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);flex:0 0 auto}
 .tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px}
 .tb-search .fld::placeholder{color:var(--t3)}
-.tb-pop{position:relative;display:inline-flex}
+.tb-pop{position:relative;display:inline-flex;z-index:1120}/* z 高于 .pop-overlay(1100)：弹层开着时仍可直接点触发按钮做互斥切换 */
 .tb-pop-panel{position:fixed;z-index:1101;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:220px}
+.zp-sep{height:1px;background:var(--bd);margin:2px 0}
+.zp-hd{font-size:12px;font-weight:600;color:var(--t3);margin-top:2px}
+.zp-hd-sub{font-weight:400;color:var(--t3);margin-left:5px}
 .pop-overlay{position:fixed;inset:0;z-index:1100}
 .tb-pop-sep{height:1px;background:var(--bd);margin:2px 0}
 .filter-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
@@ -5333,9 +6149,9 @@ th.sortable:hover{color:var(--p-dark)}
 .cross-tbl td.cell-active{outline:2px solid var(--p);outline-offset:-2px;background:var(--p-bg);z-index:4}
 .cross-tbl td:focus{outline:2px solid var(--p);outline-offset:-2px}
 .cross-tbl tr.data-row.row-loading{opacity:.6}
-.cross-tbl tr.data-row.row-loading .pname::after{content:' ⏳';font-size:11px}
-.cross-tbl tr.data-row.row-error{background:#fef2f2}
-.cross-tbl tr.data-row.row-error .pname{color:#dc2626}
+.cross-tbl tr.data-row.row-loading .pname::after{content:' 加载中…';font-size:11px}
+.cross-tbl tr.data-row.row-error{background:var(--danger-bg)}
+.cross-tbl tr.data-row.row-error .pname{color:var(--danger-txt)}
 .cross-tbl tr.data-row.row-disabled{opacity:.45;filter:grayscale(.6)}
 .exp-chev{cursor:pointer;color:var(--p-dark);display:inline-block;width:14px;user-select:none;margin-right:2px}
 .row-ops{position:absolute;top:2px;right:4px;display:none;gap:2px;z-index:5}
@@ -5396,7 +6212,6 @@ th.sortable:hover{color:var(--p-dark)}
 .col-del:hover{color:var(--dan);background:var(--dan-bg)}
 .col-del:hover{color:var(--dan)}
 .op-th{text-align:center;min-width:34px}
-.edit-ops{display:flex;align-items:center;gap:12px;padding:10px 4px 2px;flex-wrap:wrap}
 .edit-hint{font-size:12px;color:var(--t3);margin-top:10px;line-height:1.7;border-top:1px dashed var(--bd);padding-top:8px}
 
 /* ---- Excel 式交互视觉（选中/行列高亮/填充柄/右键菜单） ---- */
@@ -5408,11 +6223,12 @@ th.sortable:hover{color:var(--p-dark)}
 .fill-handle{position:absolute;right:-4px;bottom:-4px;width:9px;height:9px;background:var(--p);border:1.5px solid #fff;border-radius:2px;cursor:crosshair;z-index:9;box-shadow:0 1px 2px rgba(0,0,0,.25)}
 .fill-handle:hover{background:var(--p-dark)}
 .ctx-overlay{position:fixed;inset:0;z-index:1090}
-.ctx-menu{position:fixed;z-index:1091;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:5px;min-width:172px;font-size:12.5px}
+.ctx-menu{position:fixed;z-index:1091;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:5px;min-width:172px;font-size:12.5px;max-height:calc(100vh - 16px);overflow-y:auto}
 .ctx-menu button{display:flex;width:100%;align-items:center;gap:8px;padding:7px 10px;border:none;background:none;color:var(--t1);cursor:pointer;text-align:left;border-radius:6px;font-size:12.5px}
 .ctx-menu button:hover{background:var(--bg3)}
 .ctx-menu button:disabled{opacity:.4;cursor:default}
 .ctx-menu button.danger:hover{background:var(--dan-bg,rgba(239,68,68,.1));color:var(--dan)}
+.ctx-menu kbd{margin-left:auto;padding:0 5px;border:1px solid var(--bd);border-bottom-width:2px;border-radius:4px;background:var(--bg2);font-family:var(--mono,ui-monospace,monospace);font-size:10px;color:var(--t2);font-weight:400}
 .ctx-menu .ctx-sep{height:1px;background:var(--border-subtle);margin:4px 2px}
 .ctx-menu .ctx-note{padding:6px 10px;color:var(--t3);font-size:11px}
 .ctx-menu .ctx-ipt-row{display:flex;gap:6px;padding:6px 8px}
@@ -5501,12 +6317,12 @@ th.sortable:hover{color:var(--p-dark)}
 /* ---- P1-4 下单主体徽标 ---- */
 .oe-badge{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:999px;font-size:10.5px;margin-left:6px;vertical-align:1px}
 .oe-恒滋{background:var(--p-bg);color:var(--p-dark)}
-.oe-福宝{background:#f3e8ff;color:#7c3aed}
+.oe-福宝{background:var(--violet-bg);color:var(--violet)}
 
-.new-period{padding:16px;margin-bottom:14px}
+.new-period{margin-bottom:14px}
 .np-row{display:flex;gap:10px;flex-wrap:wrap}
 .np-row .input{flex:1;min-width:140px}
-.draft-section{padding:16px}
+.draft-section{}
 .search-row{display:flex;gap:8px;position:relative}
 .search-dropdown{position:absolute;top:42px;left:0;right:60px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-md);max-height:280px;overflow-y:auto;z-index:100}
 .sd-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px}
@@ -5531,8 +6347,11 @@ th.sortable:hover{color:var(--p-dark)}
 .btn-del{border:none;background:none;color:var(--t3);font-size:14px;cursor:pointer;padding:4px 8px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center}
 .btn-del:hover{color:var(--dan);background:var(--dan-bg)}
 .btn-del:hover{background:rgba(var(--dan-rgb),.1);color:var(--dan)}
-.rebate-section{padding:16px}
-.sprint-card{padding:16px}
+.rebate-section{}
+.sprint-card{}
+.sprint-card.is-pinned{margin:14px 0 4px;border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
+.sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:10px;margin-bottom:0}
+.tag.hot{background:linear-gradient(135deg,#ff7a45,#ff4d4f);color:#fff;font-weight:600}
 .sprint-card .panel-body{padding-top:10px}
 .sprint-sum{margin:0 0 12px;font-size:13px;color:var(--t2);line-height:1.7}
 .sprint-sum b{color:var(--t1)}
@@ -5541,6 +6360,7 @@ th.sortable:hover{color:var(--p-dark)}
 .sprint-suggest ul{margin:6px 0 0;padding-left:18px}
 .sprint-suggest li{margin:4px 0}
 .sprint-prod{display:inline-block;margin:0 8px 0 4px;padding:1px 8px;background:var(--bg3);border-radius:10px;font-size:12px;color:var(--t2)}
+.sprint-prod-empty{margin-left:4px;padding:1px 8px;font-size:12px;color:var(--warn,#b45309);background:color-mix(in srgb,var(--warn,#b45309) 10%,transparent);border-radius:10px}
 .val-ok{color:var(--suc)}
 .val-warn{color:var(--war)}
 .val-bad{color:var(--dan)}
@@ -5568,12 +6388,12 @@ th.sortable:hover{color:var(--p-dark)}
 }
 
 /* ---- 增强：校验/选区/口径/筛选/草稿 ---- */
-.cell-input.invalid, .qty-cell.invalid input, td.invalid input{border-color:#dc2626 !important;background:#fef2f2}
+.cell-input.invalid, .qty-cell.invalid input, td.invalid input{border-color:var(--danger-txt) !important;background:var(--danger-bg)}
 .cell-input.invalid, .cell-input:focus{border-color:var(--p)}
-.range-sel{background:#e0f2fe !important}
+.range-sel{background:var(--p-bg) !important}
 .cross-tbl.dragging, .cross-tbl.dragging *{user-select:none}
 .fc-num.invalid, .fc-code.invalid, .fc-text.invalid{border-radius:6px}
-td.invalid{background:#fef2f2}
+td.invalid{background:var(--danger-bg)}
 .basis-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)}
 .tb-toggle{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--t1);background:var(--bg3);border:1px solid var(--bd);border-radius:8px;height:32px;padding:0 10px;white-space:nowrap;cursor:pointer;user-select:none;flex:0 0 auto}
 .tb-toggle input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
@@ -5585,27 +6405,29 @@ td.invalid{background:#fef2f2}
 .link-btn{border:none;background:none;color:#b45309;text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
 
 /* ---- P3-P4 增强样式 ---- */
-.warn-low{background:#fef2f2 !important}
-.warn-short{background:#fffbeb !important}
+.warn-low{background:var(--danger-bg) !important}
+.warn-short{background:var(--sum-bg) !important}
 .name-badges{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:2px;pointer-events:none}
 .name-badges>span{margin-left:0;pointer-events:auto}
-.warn-badge{display:inline-block;margin-left:3px;font-size:11px;color:#dc2626;vertical-align:middle}
+.warn-badge{display:inline-block;margin-left:3px;font-size:11px;color:var(--danger-txt);vertical-align:middle}
 .warn-badge.short{color:#d97706}
 .diff-chg{outline:2px solid #2563eb;outline-offset:-2px}
 .mini-btn{margin-left:4px;font-size:11px;padding:1px 6px;border:1px solid var(--p);color:var(--p-dark);background:transparent;border-radius:6px;cursor:pointer}
 .mini-btn:disabled{opacity:.4;cursor:default}
 .suggest{color:var(--p-dark);font-weight:500}
 .delta.up{color:#16a34a}
-.delta.down{color:#dc2626}
+.delta.down{color:var(--danger-txt)}
 .spark-td{text-align:center}
 .spark-td .muted{color:var(--t3);font-size:11px}
 .spacer{background:transparent}
 .foot-row td{background:var(--bg3);font-weight:500;border-top:2px solid var(--bd)}
 .foot-row td.frozen{background:var(--bg3);z-index:6}
-.enh-panels{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
 .grp-btn{font-size:12px;padding:5px 12px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;white-space:nowrap}
 .grp-btn:hover{border-color:var(--p)}
 .grp-btn.on{background:var(--p);color:#fff;border-color:var(--p)}
+.grp-btn.danger{color:var(--dan);border-color:rgba(var(--dan-rgb),.4)}
+.grp-btn.danger:hover{border-color:var(--dan)}
+.tb-more{min-width:32px;padding:0 9px;font-size:15px;line-height:1}
 .grp-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg2);border:0.5px solid var(--bd);border-radius:var(--radius-md)}
 .batch-panel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:12px}
 .batch-val{width:84px;border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
@@ -5614,38 +6436,38 @@ td.invalid{background:#fef2f2}
 .recipe-panel>span{display:inline-flex;align-items:center;gap:4px;color:var(--t2)}
 .recipe-val{width:64px;border:1px solid var(--bd);border-radius:6px;padding:3px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
 .loss-badge{cursor:help;font-size:11px;margin-left:2px}
-.loss-badge.risk{color:#A32D2D}
-.loss-badge.watch{color:#BA7517}
+.loss-badge.risk{color:var(--sev-risk)}
+.loss-badge.watch{color:var(--sev-warn)}
 .note-badge{cursor:pointer;font-size:11px;margin-left:2px;opacity:.65}
 .note-badge:hover{opacity:1}
-.moq-below{background:rgba(163,45,45,.12);color:#A32D2D;font-weight:500}
+.moq-below{background:var(--sev-risk-bg);color:var(--sev-risk);font-weight:500}
 .info-panel{margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;font-size:12px}
 .info-panel .panel-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .info-panel .imp-x{margin-left:auto;border:none;background:none;cursor:pointer;color:var(--t2);font-size:14px;line-height:1}
 .push-list,.health-list{margin:0;padding-left:18px;line-height:1.8}
 .health-list li{cursor:pointer;display:flex;align-items:center;gap:6px}
 .health-list li:hover{text-decoration:underline}
-.sev-risk{color:#A32D2D}.sev-warn{color:#BA7517}.sev-info{color:var(--t2)}
+.sev-risk{color:var(--sev-risk)}.sev-warn{color:var(--sev-warn)}.sev-info{color:var(--sev-info)}
 .sev-dot{width:7px;height:7px;border-radius:50%;flex:none;display:inline-block}
-.sev-risk .sev-dot{background:#A32D2D}.sev-warn .sev-dot{background:#BA7517}.sev-info .sev-dot{background:var(--t3)}
+.sev-risk .sev-dot{background:var(--sev-risk)}.sev-warn .sev-dot{background:var(--sev-warn)}.sev-info .sev-dot{background:var(--sev-info)}
 .pager{display:flex;gap:10px;align-items:center;margin-top:10px;font-size:12px}
 .pager-info{color:var(--t2)}
 /* P8/P9/P10 新增强样式 */
 .panel-sep{width:1px;height:18px;background:var(--bd);margin:0 2px;display:inline-block}
 .rt-badge{cursor:help;font-size:11px;margin-left:2px}
-.rt-badge.stockout{color:#A32D2D}.rt-badge.low{color:#BA7517}.rt-badge.expiry{color:#9A6B00}.rt-badge.expired{color:#7A1F1F}
+.rt-badge.stockout{color:var(--sev-risk)}.rt-badge.low{color:var(--sev-warn)}.rt-badge.expiry{color:var(--sev-info)}.rt-badge.expired{color:var(--sev-expired)}
 .book-area{width:100%;box-sizing:border-box;font-family:inherit;font-size:12px;line-height:1.6;padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t1);resize:vertical;margin-top:4px}
 .acc-tbl{margin-top:6px;font-size:12px}
 .acc-tbl td.num,.acc-tbl th.num{text-align:right}
 .sub-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
-.tag.st-draft{background:#eee;color:#555}.tag.st-submitted{background:#FFF3D6;color:#9A6B00}
-.tag.st-approved{background:#DDF5E7;color:#0F6E56}.tag.st-rejected{background:#FBE0E0;color:#A32D2D}.tag.st-revised{background:#E6EAF2;color:#37517E}
+.tag.st-draft{background:var(--st-draft-bg);color:var(--st-draft-txt)}.tag.st-submitted{background:var(--st-submitted-bg);color:var(--st-submitted-txt)}
+.tag.st-approved{background:var(--st-approved-bg);color:var(--st-approved-txt)}.tag.st-rejected{background:var(--st-rejected-bg);color:var(--st-rejected-txt)}.tag.st-revised{background:var(--st-revised-bg);color:var(--st-revised-txt)}
 .tmpl-form{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
 .tmpl-form .input{width:auto;flex:1;min-width:120px}
 .bi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:6px}
 .bi-card{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;text-align:center}
 .bi-num{font-size:20px;font-weight:700;color:var(--p)}
-.bi-num.warn{color:#A32D2D}
+.bi-num.warn{color:var(--sev-risk)}
 .bi-lbl{font-size:11px;color:var(--t2);margin-top:2px}
 /* P11-P13 第四轮增强样式 */
 .gap-badge{cursor:help;font-size:11px;margin-left:2px}
@@ -5655,23 +6477,77 @@ td.invalid{background:#fef2f2}
 .var-cat{margin-top:8px;border-top:1px dashed var(--bd);padding-top:6px}
 .var-cat-hd{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:4px}
 .nl-row{display:flex;gap:8px;align-items:center;margin-top:6px}
-.tag.ok{background:#DDF5E7;color:#0F6E56}
-.tag.info{background:#E6F1FB;color:#185FA5}
-.tag.warn{background:#FBEEDA;color:#854F0B}
+.tag.ok{background:var(--ok-green-bg);color:var(--ok-green)}
+.tag.info{background:var(--info-blue-bg);color:var(--info-blue)}
+.tag.warn{background:var(--warn-amber-bg);color:var(--warn-amber)}
 /* P14-P16 第五轮增强样式 */
 .hs-badge{cursor:help;font-size:11px;margin-left:2px;color:#185FA5}
 .mini-form{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
 .mini-form .input{flex:1;min-width:90px}
-.mini-msg{margin-top:6px;font-size:12px;color:#0F6E56}
+.mini-msg{margin-top:6px;font-size:12px;color:var(--ok-green)}
 .heal-row{border:1px solid var(--bd);border-radius:8px;padding:8px 10px;margin-top:8px;background:var(--bg)}
-.heal-row.risk{border-left:3px solid #A32D2D}
-.heal-row.warn{border-left:3px solid #BA7517}
+.heal-row.risk{border-left:3px solid var(--sev-risk)}
+.heal-row.warn{border-left:3px solid var(--sev-warn)}
 @media print{
   body *{visibility:hidden}
   .table-wrap,.table-wrap *{visibility:visible}
   .table-wrap{position:absolute;left:0;top:0;width:100%;overflow:visible}
   .edit-tbl{width:100%}
-  .tbl-toolbar,.edit-ops,.enh-panels,.batch-panel,.snap-bar,.edit-hint,.col-config-bar,.draft-banner,.ctx-menu,.ctx-overlay{display:none !important}
+  .batch-panel,.snap-bar,.edit-hint,.col-config-bar,.draft-banner,.ctx-menu,.ctx-overlay{display:none !important}
 }
+/* Q9：编辑态新增行标识（左侧品牌色竖条 + 轻微底色，保存后随 _new 清除） */
+.cross-tbl.edit-tbl tbody tr.new-row > td,
+.edit-tbl tbody tr.new-row > td{box-shadow:inset 3px 0 0 var(--p);background:color-mix(in srgb,var(--p) 9%,var(--bg))}
+.cross-tbl.edit-tbl tbody tr.new-row:hover > td,
+.edit-tbl tbody tr.new-row:hover > td{background:color-mix(in srgb,var(--p) 14%,var(--bg))}
+/* Q14：草稿恢复范围说明条 */
+.draft-banner{margin:6px 0;padding:6px 10px;border-radius:8px;background:color-mix(in srgb,var(--warn,#f59e0b) 14%,var(--bg));color:var(--t1);font-size:12px;line-height:1.6}
+.draft-banner .link-btn{margin-left:4px}
+/* Q26/Q27：保存失败分流条 + 重试入口 */
+.save-fail-banner{margin:6px 0;padding:6px 10px;border-radius:8px;background:color-mix(in srgb,var(--dan,#ef4444) 14%,var(--bg));color:var(--t1);font-size:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.save-fail-banner .sf-partial{color:var(--warn,#f59e0b);font-weight:600}
+.save-fail-banner .sf-msg{color:var(--t2)}
+.save-fail-banner .sf-time{color:var(--t2);opacity:.7}
+/* Q28：快捷键说明面板 */
+.kbd-help{margin-top:6px}
+.kbd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 18px;padding:8px 12px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--t2);line-height:1.9}
+.kbd-grid kbd{display:inline-block;padding:0 5px;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;background:var(--bg);font-family:var(--mono,ui-monospace,monospace);font-size:11px;color:var(--t1)}
+
+.panel-hd svg.ico{width:16px;height:16px;vertical-align:-3px;margin-right:5px}
+.sprint-card.is-pinned .panel-hd svg.ico{vertical-align:-3px}
+/* ---- emoji → Icon 组件后的尺寸/对齐统一（设计规范：只用线性 SVG，不用 emoji） ---- */
+.ico{vertical-align:middle}
+.btn svg.ico{width:14px;height:14px;vertical-align:-2px;margin-right:4px}
+.btn-primary svg.ico,.btn-ghost svg.ico{vertical-align:-2px}
+.rop svg.ico{width:14px;height:14px;vertical-align:middle}
+.grp-toggle svg.ico,.exp-chev svg.ico{width:14px;height:14px;vertical-align:middle}
+.name-badges svg.ico{width:12px;height:12px;vertical-align:middle;margin-left:2px}
+.filter-chip .chip-x svg.ico{width:12px;height:12px;vertical-align:middle}
+.col-menu-hd svg.ico{width:13px;height:13px;vertical-align:-2px}
+.empty-ico svg.ico{width:40px;height:40px;opacity:.35}
+.ctx-menu button svg.ico{width:14px;height:14px;vertical-align:-2px;margin-right:6px}
+.link-btn svg.ico{width:14px;height:14px;vertical-align:-2px}
+.st-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:5px;vertical-align:middle}
+.sort-ind svg.ico{width:12px;height:12px;vertical-align:middle;margin-left:3px}
+.zb-btn svg.ico{width:14px;height:14px;vertical-align:middle}
+/* 品牌筛选下拉 + 期次复制弹窗 */
+.brand-pop{min-width:240px;max-height:62vh;overflow:auto}
+.brand-pop .bp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:600;color:var(--t1)}
+.brand-pop .bp-acts{display:flex;gap:6px}
+.brand-pop .bp-list{display:flex;flex-direction:column;gap:4px;max-height:42vh;overflow:auto;padding:2px 0}
+.brand-pop .bp-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);cursor:pointer;padding:2px 2px}
+.brand-pop .bp-item:hover{background:var(--bg2)}
+.brand-pop .bp-empty{color:var(--t3);font-size:12px;margin:4px 0}
+.brand-pop .bp-tip{font-size:12px;color:var(--t3);margin:0;line-height:1.5}
+.copy-pop{min-width:246px;max-width:320px}
+.copy-pop .cp-title{font-weight:600;color:var(--t1);font-size:13px}
+.copy-pop .cp-title-sub{font-weight:400;color:var(--t3);font-size:12px}
+.copy-pop .cp-tip{font-size:12px;color:var(--t3);margin:2px 0 0;line-height:1.5}
+.copy-pop .cp-tip.ok{color:var(--t2);margin-top:6px}
+.copy-pop .cp-tip.ok b{color:var(--p-dark)}
+.copy-pop .cp-unit-btns{display:flex;gap:6px;margin-top:8px}
+.copy-pop .cp-act{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 6px}
+.copy-pop .cp-act:disabled{opacity:.45;cursor:not-allowed}
+.copy-pop .cp-empty{font-size:12px;color:var(--t3);margin:8px 0 0;text-align:center}
 </style>
 
