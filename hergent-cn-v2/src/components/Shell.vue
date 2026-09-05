@@ -1,5 +1,5 @@
 <template>
-  <div class="shell">
+  <div class="shell" :class="{resizing:resizing}">
     <!-- 顶部栏 -->
     <header class="topbar">
       <div class="tb-brand">
@@ -11,9 +11,9 @@
         <WeatherWidget />
         <button class="tb-copilot" @click="openCopilot">
           <span class="tb-cp-ic">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M5 12H3M21 12h-3M6 6l-2-2M20 20l-2-2M6 18l-2 2M20 4l-2 2"/><circle cx="12" cy="12" r="4"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
           </span>
-          <span class="tb-cp-txt">问 AI 副驾</span>
+          <span class="tb-cp-txt">AI</span>
           <span class="tb-cp-k">⌘K</span>
         </button>
       </div>
@@ -38,16 +38,19 @@
         <nav class="sb-nav">
           <router-link to="/workbench" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>经营工作台</span></router-link>
           <router-link to="/forecast" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg><span>预报订货管理</span></router-link>
-          <router-link to="/rebate" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>目标与返利</span></router-link>
-          <router-link to="/dashboard" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>经营趋势</span></router-link>
+          <router-link to="/rebate" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span>目标与返利</span></router-link>
 
           <router-link to="/archive" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span>档案管理</span></router-link>
           <router-link to="/connect" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg><span>能力中心</span></router-link>
+          <router-link to="/bid-radar" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg><span>招投标雷达</span></router-link>
 
           <router-link to="/cron" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>定时任务</span></router-link>
           <router-link to="/settings" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l-.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>设置</span></router-link>
         </nav>
       </aside>
+
+      <!-- 侧栏拖拽手柄（桌面、展开时可见） -->
+      <div v-show="store.ui.sidebarOpen" class="sb-resizer" :class="{active:resizing}" @mousedown.prevent="startResize" title="拖动调整侧栏宽度"></div>
 
       <!-- 内容区 -->
       <main class="content">
@@ -63,8 +66,7 @@
     <nav class="mnav">
       <router-link to="/workbench" class="mnav-item" @click="store.ui.mobileDrawer=false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>工作台</span></router-link>
       <router-link to="/forecast" class="mnav-item" @click="store.ui.mobileDrawer=false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg><span>预报</span></router-link>
-      <router-link to="/rebate" class="mnav-item" @click="store.ui.mobileDrawer=false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>政策</span></router-link>
-      <router-link to="/dashboard" class="mnav-item" @click="store.ui.mobileDrawer=false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>趋势</span></router-link>
+      <router-link to="/rebate" class="mnav-item" @click="store.ui.mobileDrawer=false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span>目标与返利</span></router-link>
       <button class="mnav-item" @click="store.ui.mobileDrawer=!store.ui.mobileDrawer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span>更多</span></button>
     </nav>
 
@@ -80,6 +82,7 @@
           <router-link to="/cron" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>定时任务</router-link>
           <router-link to="/settings" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>设置</router-link>
           <router-link to="/archive" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>档案管理</router-link>
+          <router-link to="/bid-radar" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>招投标雷达</router-link>
         </div>
       </Transition>
     </Teleport>
@@ -113,10 +116,10 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { store, toast, setTheme } from '../store'
-import { auth, api } from '../api/client'
+import { auth, api, resetTenantContext } from '../api/client'
 import CopilotDrawer from './CopilotDrawer.vue'
 import WeatherWidget from './WeatherWidget.vue'
 
@@ -127,6 +130,7 @@ function toggleTheme() {
 }
 
 function logout() {
+  resetTenantContext()   // 清本地 tenant_id + hergent_tenant cookie，避免污染下一次登录
   auth.token = ''
   auth.user = null
   router.push('/login')
@@ -191,7 +195,58 @@ function onKeydown(e) {
 onMounted(() => {
   if (auth.user) store.user.name = auth.user.display_name || auth.user.name || auth.user.username || '我'
   window.addEventListener('keydown', onKeydown)
+  /* 恢复用户上次拖拽保存的侧栏宽度 */
+  try {
+    const saved = parseFloat(localStorage.getItem('hergent_sidebar_w'))
+    if (!isNaN(saved) && saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) {
+      document.documentElement.style.setProperty('--sidebar-w', saved + 'px')
+    }
+  } catch (_) {}
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('mousemove', onResizeMove)
+  document.removeEventListener('mouseup', stopResize)
+})
+
+/* ---- 侧栏拖拽调宽 ---- */
+const SIDEBAR_MIN = 180
+const SIDEBAR_MAX = 420
+const resizing = ref(false)
+let _startX = 0
+let _startW = 0
+
+function _sidebarW() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w')
+  const n = parseFloat(v)
+  return isNaN(n) ? 248 : n
+}
+function startResize(e) {
+  if (!store.ui.sidebarOpen) return
+  resizing.value = true
+  _startX = e.clientX
+  _startW = _sidebarW()
+  document.addEventListener('mousemove', onResizeMove)
+  document.addEventListener('mouseup', stopResize)
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+}
+function onResizeMove(e) {
+  let w = _startW + (e.clientX - _startX)
+  if (w < SIDEBAR_MIN) w = SIDEBAR_MIN
+  if (w > SIDEBAR_MAX) w = SIDEBAR_MAX
+  document.documentElement.style.setProperty('--sidebar-w', w + 'px')
+}
+function stopResize() {
+  if (!resizing.value) return
+  resizing.value = false
+  document.removeEventListener('mousemove', onResizeMove)
+  document.removeEventListener('mouseup', stopResize)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  try { localStorage.setItem('hergent_sidebar_w', getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w')) } catch (_) {}
+}
 </script>
 
 <style scoped>
@@ -208,13 +263,18 @@ onMounted(() => {
 .tb-user{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer}
 
 .tb-ai{display:flex;align-items:center;gap:12px}
-.tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 7px 0 11px;border:1px solid var(--p);border-radius:18px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 7px 0 11px;border:1px solid transparent;border-radius:18px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
 .tb-copilot:hover{background:var(--p);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .tb-cp-ic{display:flex;align-items:center;justify-content:center}
 .tb-cp-k{padding:2px 7px;border-radius:8px;background:rgba(6,182,212,.14);font-size:11px;font-weight:500}
 
-.body{flex:1;display:flex;overflow:hidden}
+.body{flex:1;display:flex;overflow:hidden;position:relative}
 .sidebar{width:var(--sidebar-w);flex-shrink:0;display:flex;flex-direction:column;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-right:1px solid var(--glass-border);transition:width .2s}
+/* 拖拽时关闭过渡，保证实时跟手 */
+.shell.resizing .sidebar{transition:none}
+.sb-resizer{position:absolute;top:0;bottom:0;left:var(--sidebar-w);width:8px;margin-left:-4px;cursor:col-resize;z-index:12}
+.sb-resizer::after{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);background:transparent;transition:background .15s}
+.sb-resizer:hover::after,.sb-resizer.active::after{background:var(--p)}
 .sb-nav{flex:1;overflow-y:auto;padding:12px 10px}
 .sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;color:var(--t2);text-decoration:none;font-size:13px;transition:all .15s}
 .sb-item:hover{background:var(--bg);color:var(--t1)}
@@ -266,6 +326,7 @@ onMounted(() => {
 
 @media(max-width:768px){
   .sidebar{display:none}
+  .sb-resizer{display:none}
   .tb-sub{display:none}
   .tb-cp-k{display:none}
   .wx{display:none}

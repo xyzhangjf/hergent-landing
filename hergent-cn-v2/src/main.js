@@ -2,10 +2,14 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import { router } from './router'
 import { pinia, setTheme } from './store'
+import { bootstrapTenantContext } from './api/client'
 import './styles/variables.css'
 
 // 恢复主题
 setTheme(localStorage.getItem('hergent_theme') === 'dark' ? 'dark' : 'light')
+
+// 启动时清理可能失效的租户 cookie（老会话/演示残留会让所有业务接口 403）
+bootstrapTenantContext()
 
 const app = createApp(App)
 
