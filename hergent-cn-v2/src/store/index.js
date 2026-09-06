@@ -65,8 +65,34 @@ export const useAppStore = defineStore('app', () => {
   function loadSessions() {
     try {
       const raw = localStorage.getItem(CHAT_KEY)
-      if (raw) chat.sessions = JSON.parse(raw)
+      if (raw) { chat.sessions = JSON.parse(raw); return }
     } catch { chat.sessions = [] }
+    // 本地空 → 跨设备/清缓存后从服务端拉会话列表（第三期 P1-③）
+    loadSessionsFromServer()
+  }
+
+  /* 服务端会话同步（第三期 P1-③）：本地优先，服务端兜底 + 双写。
+     静默失败，绝不因网络/未登录干扰副驾本地使用。 */
+  function syncSessionToServer(s) {
+    if (!s || !s.id) return
+    try {
+      api('/api/ai/sessions', {
+        method: 'POST', silent401: true,
+        body: { session_id: s.id, title: s.title || '', messages: s.messages || [] }
+      }).catch(() => {})
+    } catch (_) {}
+  }
+
+  async function loadSessionsFromServer() {
+    try {
+      const d = await api('/api/ai/sessions', { silent401: true })
+      const list = d && d.sessions
+      if (Array.isArray(list) && list.length) {
+        chat.sessions = list.map(s => ({
+          id: s.session_id, title: s.title || '', messages: [], updated_at: s.updated_at || ''
+        }))
+      }
+    } catch (_) {}
   }
 
   function saveCurrentSession() {
@@ -89,6 +115,7 @@ export const useAppStore = defineStore('app', () => {
       })
     }
     saveSessions()
+    syncSessionToServer(chat.sessions.find(x => x.id === chat.currentId))
   }
 
   function newChatSession() {
@@ -102,9 +129,23 @@ export const useAppStore = defineStore('app', () => {
     saveCurrentSession()
     const s = chat.sessions.find(x => x.id === id)
     if (!s) return
-    chat.messages = s.messages.map(m => ({ ...m }))
     chat.currentId = id
     chat.error = ''
+    if (s.messages && s.messages.length) {
+      chat.messages = s.messages.map(m => ({ ...m }))
+    } else {
+      // 服务端会话（本地无全文，如换设备）→ 拉完整 messages
+      chat.messages = []
+      try {
+        api(`/api/ai/sessions/${id}`, { silent401: true }).then(d => {
+          const msgs = d && d.session && d.session.messages
+          if (Array.isArray(msgs)) {
+            chat.messages = msgs.map(m => ({ ...m }))
+            s.messages = msgs
+          }
+        }).catch(() => {})
+      } catch (_) {}
+    }
   }
 
   function deleteChatSession(id) {
@@ -114,6 +155,9 @@ export const useAppStore = defineStore('app', () => {
       chat.messages = []
     }
     saveSessions()
+    try {
+      api(`/api/ai/sessions/${id}`, { method: 'DELETE', silent401: true }).catch(() => {})
+    } catch (_) {}
   }
 
   /* ---- AI 团队（角色定位）多租户配置 ---- */

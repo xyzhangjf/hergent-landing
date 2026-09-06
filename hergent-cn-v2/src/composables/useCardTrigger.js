@@ -100,6 +100,30 @@ export function stripProposalFence(text) {
   return (text || '').replace(PROPOSAL_RE, '').replace(/^\n+/, '').trim()
 }
 
+/* ---- AI 待办提醒：```reminder 围栏（第三期 P0-②：AI 识别「要记得/要提醒」→ 结构化落库） ----
+   协议：AI 在对话中识别到老板要「记住某件事 / 到点提醒」时，末尾输出
+   ```reminder {"title":"周三提醒补货","remind_at":"2026-09-09 09:00","repeat":""} ```
+   - title = 提醒内容；remind_at = 到点时间（YYYY-MM-DD HH:MM）；repeat = 空(一次性)/daily/weekly/monthly
+   前端渲染成「已记下提醒」卡片，围栏本身不出现在正文。 */
+export const REMINDER_RE = /```reminder\s*\n?\s*(\{[\s\S]*?\})\s*```/i
+const REMINDER_REPEATS = ['', 'daily', 'weekly', 'monthly']
+
+export function extractReminder(text) {
+  const m = (text || '').match(REMINDER_RE)
+  if (!m) return null
+  try {
+    const r = JSON.parse(m[1].trim())
+    const title = typeof r.title === 'string' ? r.title.trim() : ''
+    const remind_at = typeof r.remind_at === 'string' ? r.remind_at.trim() : ''
+    if (!title || !/^\d{4}-\d{2}-\d{2}/.test(remind_at)) return null
+    const repeat = REMINDER_REPEATS.includes(r.repeat) ? r.repeat : ''
+    return { title, remind_at, repeat }
+  } catch (e) { return null }
+}
+export function stripReminderFence(text) {
+  return (text || '').replace(REMINDER_RE, '').replace(/^\n+/, '').trim()
+}
+
 /* ---- 意图正则（仅作 AI 未输出意图围栏时的弱兜底） ---- */
 export const LOSS_RE = /货损|报损|损耗|临期|过期|破损|报废|损失|近效期|效期|保质期|坏品|烂货/i
 export const PAYROLL_RE = /工资|提成|算工资|算提成|发工资|佣金|薪酬|业绩提成|员.?工.?工资/i

@@ -40,7 +40,17 @@
             <b>历史会话</b>
             <button class="btn btn-primary btn-sm" @click="newSession">＋ 新对话</button>
           </div>
-          <div v-if="!store.chat.sessions.length" class="state-empty">还没有历史会话</div>
+          <!-- 跨会话检索（P2-⑤：搜历史对话） -->
+          <div class="cp-hist-search">
+            <input v-model="histQuery" class="cp-hist-q" placeholder="搜索历史对话…" @input="onHistSearch">
+          </div>
+          <div v-if="histHits.length" class="cp-hist-hits">
+            <div v-for="h in histHits" :key="h.session_id" class="cp-hist-hit" @click="openSession(h.session_id)">
+              <div class="cp-hist-title">{{ h.title || '（无标题）' }}</div>
+              <div v-for="(sn, si) in h.snippets" :key="si" class="cp-hist-snippet">{{ sn }}</div>
+            </div>
+          </div>
+          <div v-if="!store.chat.sessions.length && !histHits.length" class="state-empty">还没有历史会话</div>
           <div v-else class="cp-hist-list">
             <div v-for="s in store.chat.sessions" :key="s.id" class="cp-hist-item" :class="{ on: s.id === store.chat.currentId }" @click="openSession(s.id)">
               <div class="cp-hist-title">{{ s.title }}</div>
@@ -150,6 +160,37 @@
                   <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   {{ m.proposalStatus === 'accepted' ? '已采纳，口径已写入配方并同步给 AI' : '已忽略此建议' }}
                 </div>
+              </div>
+
+              <!-- AI 待办提醒（P0-②：AI 识别「要记得/提醒」→ 记下，到点推送） -->
+              <div v-if="m.reminder" class="cp-reminder" :class="m.reminderStatus">
+                <div class="cp-rem-hd">
+                  <svg class="cp-rem-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  <span class="cp-rem-title">{{ m.reminder.title }}</span>
+                  <span class="cp-rem-time">{{ m.reminder.remind_at }}{{ m.reminder.repeat ? ' · 重复' : '' }}</span>
+                </div>
+                <div v-if="!m.reminderStatus" class="cp-prop-ops">
+                  <button class="cp-prop-btn ghost" @click="applyReminder(m, 'cancel')">不用记</button>
+                  <button class="cp-prop-btn primary" @click="applyReminder(m, 'save')">记下提醒</button>
+                </div>
+                <div v-else-if="m.reminderStatus === 'saved'" class="cp-prop-done">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  已记下提醒，到点会推送给你
+                </div>
+              </div>
+
+              <!-- 反馈纠错（P0-①：对/错，错可填纠正 → 记忆自进化） -->
+              <div v-if="m.role === 'assistant' && m.content && !store.chat.streaming" class="cp-feedback">
+                <span v-if="m.feedback === 'good'" class="cp-fb-done">✓ 有帮助</span>
+                <span v-else-if="m.feedback === 'bad'" class="cp-fb-done">已记下，下次改进</span>
+                <template v-else>
+                  <button class="cp-fb-btn" title="有帮助" @click="submitFeedback(m, 'good')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                  </button>
+                  <button class="cp-fb-btn" title="说错了" @click="submitFeedback(m, 'bad')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
+                  </button>
+                </template>
               </div>
             </div>
           </div>
@@ -331,7 +372,7 @@ import { importApi } from '../api/modules'
 import { chatAttachmentApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
 import ProgressSteps from './ProgressSteps.vue'
-import { useCardTrigger, extractCard, extractCardIntent, stripIntentFence, extractClarify, stripClarifyFence, extractProposal, stripProposalFence, DENY_RE, demoCard } from '../composables/useCardTrigger'
+import { useCardTrigger, extractCard, extractCardIntent, stripIntentFence, extractClarify, stripClarifyFence, extractProposal, stripProposalFence, extractReminder, stripReminderFence, DENY_RE, demoCard } from '../composables/useCardTrigger'
 import { useVoiceInput } from '../composables/useVoiceInput'
 import { renderMd } from '../utils/md'
 
@@ -454,6 +495,22 @@ function openSession(id) {
 
 function delSession(id) {
   deleteChatSession(id)
+}
+
+/* ---- P2-⑤ 跨会话检索：搜索历史对话，命中会话 + 片段预览 ---- */
+const histQuery = ref('')
+const histHits = ref([])
+let histTimer = null
+function onHistSearch() {
+  clearTimeout(histTimer)
+  const q = histQuery.value.trim()
+  if (!q) { histHits.value = []; return }
+  histTimer = setTimeout(async () => {
+    try {
+      const d = await api(`/api/ai/search-chat?q=${encodeURIComponent(q)}`, { silent401: true })
+      histHits.value = (d && d.hits) || []
+    } catch (_) { histHits.value = [] }
+  }, 300)
 }
 
 const suggestions = ['今天该订什么货？', '算一下这个月货损', '哪些客户该催款了？', '核对我该拿多少返利']
@@ -629,6 +686,49 @@ async function applyProposal(m, action) {
     store.chat.error = '配方提案处理失败：' + e.message
   } finally {
     m.propBusy = false
+  }
+}
+
+/* ---- P0-① 反馈纠错：对/错 → 落 memory（错可填纠正） ---- */
+async function submitFeedback(m, type) {
+  if (m.feedback) return
+  let correction = ''
+  if (type === 'bad') {
+    correction = (window.prompt('哪里不对？（可选填，帮 AI 记住）', '') || '').trim()
+  }
+  const idx = store.chat.messages.indexOf(m)
+  let original = ''
+  for (let k = idx - 1; k >= 0; k--) {
+    if (store.chat.messages[k].role === 'user') { original = store.chat.messages[k].content; break }
+  }
+  try {
+    await api('/api/ai/feedback', {
+      method: 'POST',
+      body: { original_input: original, ai_result: m.content, feedback: type, correction }
+    })
+    m.feedback = type
+    if (type === 'bad' && correction) store.toast('已记下纠正，下次改进')
+    else if (type === 'good') store.toast('感谢反馈')
+    else store.toast('已记录')
+  } catch (e) {
+    console.warn('[copilot] feedback failed:', e.message)
+  }
+}
+
+/* ---- P0-② AI 待办提醒：记下 → 落 ai_reminders，scheduler 到点推送 ---- */
+async function applyReminder(m, action) {
+  if (m.reminderStatus) return
+  if (action === 'cancel') { m.reminderStatus = 'cancelled'; saveCurrentSession(); return }
+  try {
+    await api('/api/ai/reminders', {
+      method: 'POST',
+      body: { title: m.reminder.title, remind_at: m.reminder.remind_at, repeat_rule: m.reminder.repeat }
+    })
+    m.reminderStatus = 'saved'
+    saveCurrentSession()
+  } catch (e) {
+    console.warn('[copilot] save reminder failed:', e.message)
+    store.toast('提醒保存失败，请重试')
   }
 }
 
@@ -932,6 +1032,9 @@ async function streamReply(payload) {
           // 配方自进化提案：```proposal 围栏 → 渲染采纳/忽略卡片，围栏不出现在正文
           const prop = extractProposal(clean)
           if (prop && !last.proposal) { last.proposal = prop; clean = stripProposalFence(clean) }
+          // AI 待办提醒：```reminder 围栏 → 渲染「已记下提醒」卡片，围栏不出现在正文
+          const rem = extractReminder(clean)
+          if (rem && !last.reminder) { last.reminder = rem; clean = stripReminderFence(clean) }
           if (last.card) { last.content = clean }            // 已抽到卡片，继续累积纯文本（意图围栏已剥离）
           else {
             const ex = extractCard(clean)
@@ -985,6 +1088,18 @@ async function streamReply(payload) {
     triggerCards(q)
   }
   saveCurrentSession()
+  reportUsage(content, reply)
+}
+
+/* P2-⑥ 用量归因：副驾每次成功回复上报字符量，落主库 ai_usage（支撑 B 端分层定价）。
+   fail-closed：计量失败绝不干扰主对话。 */
+function reportUsage(input, output) {
+  try {
+    api('/api/ai/usage', {
+      method: 'POST',
+      body: { model: 'hermes-agent', kind: 'chat', input_chars: (input || '').length, output_chars: (output || '').length }
+    }).catch(() => {})
+  } catch (_) { /* 静默 */ }
 }
 
 function retryLast() {
@@ -1119,6 +1234,13 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-hist-meta{font-size:11px;color:var(--t3);margin-top:3px}
 .cp-hist-del{position:absolute;top:8px;right:8px;width:22px;height:22px;border:none;background:none;border-radius:6px;color:var(--t3);cursor:pointer;font-size:11px}
 .cp-hist-del:hover{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
+.cp-hist-search{margin:8px 0}
+.cp-hist-q{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg2);font-size:12.5px;color:var(--t1);outline:none}
+.cp-hist-q:focus{border-color:var(--p)}
+.cp-hist-hits{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.cp-hist-hit{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);cursor:pointer;transition:all .15s}
+.cp-hist-hit:hover{border-color:var(--p);background:var(--p-bg)}
+.cp-hist-snippet{font-size:11.5px;color:var(--t3);margin-top:4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .cp-welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
 .cp-w-ic{width:56px;height:56px;border-radius:18px;background:var(--p-bg);display:flex;align-items:center;justify-content:center;margin-bottom:14px}
 .cp-w-title{font-size:15px;font-weight:500;color:var(--t1);margin:0 0 4px}
@@ -1240,6 +1362,20 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-prop-done{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--suc)}
 .cp-prop-done svg{flex-shrink:0}
 .cp-prop-done.rej{color:var(--t3)}
+
+/* P0-② AI 待办提醒卡片 */
+.cp-reminder{margin-top:8px;padding:11px 12px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);border-left:3px solid var(--p)}
+.cp-reminder.cancelled{opacity:.65}
+.cp-rem-hd{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--t1)}
+.cp-rem-ic{color:var(--p-dark);flex-shrink:0}
+.cp-rem-title{font-weight:600}
+.cp-rem-time{margin-left:auto;font-size:11px;color:var(--t3);flex-shrink:0}
+
+/* P0-① 反馈纠错（对/错） */
+.cp-feedback{display:flex;align-items:center;gap:4px;margin-top:6px}
+.cp-fb-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border-subtle);border-radius:8px;background:transparent;color:var(--t3);cursor:pointer;transition:all .15s}
+.cp-fb-btn:hover{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
+.cp-fb-done{font-size:11px;color:var(--t3)}
 
 /* M3 任务进度容器 */
 .msg-progress{width:100%;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px}

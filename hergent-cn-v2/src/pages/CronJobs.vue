@@ -90,6 +90,9 @@
               <input v-model="form.schedule" class="input" placeholder="分 时 日 月 星期，如 0 6 * * *">
             </div>
             <div class="field">
+              <label class="chk-label"><input type="checkbox" v-model="form.once"><span>仅执行一次（一次性提醒/任务，跑完自动停）</span></label>
+            </div>
+            <div class="field">
               <label>任务指令（让 AI 副驾做什么）</label>
               <textarea v-model="form.prompt" class="input" rows="4" placeholder="例如：生成今日经营要务，综合库存预警、应收逾期、流失风险，用中文汇报"></textarea>
             </div>
@@ -112,7 +115,7 @@ const loading = ref(true)
 const error = ref('')
 const showCreate = ref(false)
 const creating = ref(false)
-const form = ref({ name: '', schedule: '0 6 * * *', prompt: '' })
+const form = ref({ name: '', schedule: '0 6 * * *', prompt: '', once: false })
 
 /* 推送状态 */
 const pushConfigured = ref(false)
@@ -254,6 +257,8 @@ onMounted(() => { load(); loadPush() })
 .cron-modal{width:440px;max-width:100%;background:var(--bg);border-radius:16px;padding:20px 22px;box-shadow:var(--shadow-lg)}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px}
+.field label.chk-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--t1)}
+.field label.chk-label input{accent-color:var(--p)}
 .field textarea{height:auto;resize:vertical;padding:10px 14px;line-height:1.6}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .chip{padding:6px 12px;border:1px solid var(--bd);border-radius:16px;background:var(--bg3);color:var(--t2);font-size:12px;cursor:pointer;transition:all .15s}
