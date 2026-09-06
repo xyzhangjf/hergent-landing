@@ -90,6 +90,9 @@
     <!-- AI 副驾全局抽屉 -->
     <CopilotDrawer />
 
+    <!-- 命令面板（⌘Shift+K） -->
+    <CommandPalette v-model="cmdOpen" />
+
     <!-- 修改资料弹窗 -->
     <div v-if="profileOpen" class="pf-mask" @click.self="profileOpen=false">
       <div class="pf-modal">
@@ -121,6 +124,7 @@ import { useRouter } from 'vue-router'
 import { store, toast, setTheme } from '../store'
 import { auth, api, resetTenantContext } from '../api/client'
 import CopilotDrawer from './CopilotDrawer.vue'
+import CommandPalette from './CommandPalette.vue'
 import WeatherWidget from './WeatherWidget.vue'
 
 const router = useRouter()
@@ -181,14 +185,17 @@ function openCopilot() {
   store.ui.copilotOpen = true
 }
 
-/* ⌘K / Ctrl+K 唤起 AI 副驾（对输入框豁免） */
+const cmdOpen = ref(false)
+
+/* 快捷键：⌘K / Ctrl+K 唤起 AI 副驾；⌘Shift+K / Ctrl+Shift+K 唤起命令面板（均对输入框豁免） */
 function onKeydown(e) {
   if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
     const t = e.target
     const tag = t && t.tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (t && t.isContentEditable)) return
     e.preventDefault()
-    store.ui.copilotOpen = !store.ui.copilotOpen
+    if (e.shiftKey) cmdOpen.value = true
+    else store.ui.copilotOpen = !store.ui.copilotOpen
   }
 }
 
