@@ -40,13 +40,32 @@
       </div>
     </div>
 
-    <!-- 迷你趋势图（M3） -->
+    <!-- 图表（P1-⑤ 按 chart.kind 自动选型：mini 折线 / bar 柱状 / donut 环形） -->
     <div v-if="card.chart && !props.compact" class="rc-chart">
-      <svg v-if="chartPoints" class="rc-spark" viewBox="0 0 200 48" preserveAspectRatio="none">
+      <svg v-if="chartKind === 'mini' && chartPoints" class="rc-spark" viewBox="0 0 200 48" preserveAspectRatio="none">
         <polyline :points="chartPoints" fill="none" stroke="var(--p-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <circle :cx="lastX" :cy="lastY" r="3" fill="var(--p-dark)"/>
       </svg>
-      <div v-else class="rc-chart-empty">暂无趋势数据</div>
+      <svg v-else-if="chartKind === 'bar' && barGeom" class="rc-spark" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <g v-for="(b, i) in barGeom" :key="i">
+          <rect :x="b.x" :y="b.y" :width="b.w" :height="b.h" rx="2" fill="var(--p-dark)" opacity="0.85">
+            <title>{{ b.label }}{{ b.label ? '：' : '' }}¥{{ b.value.toLocaleString() }}</title>
+          </rect>
+        </g>
+      </svg>
+      <svg v-else-if="chartKind === 'donut' && donutSegs" class="rc-donut" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="18" fill="none" stroke="var(--bg2)" stroke-width="8"/>
+        <circle v-for="(seg, i) in donutSegs" :key="i" cx="24" cy="24" r="18" fill="none"
+          :stroke="seg.color" stroke-width="8"
+          :stroke-dasharray="`${seg.dash} ${2 * Math.PI * 18 - seg.dash}`"
+          :stroke-dashoffset="seg.offset" transform="rotate(-90 24 24)"/>
+      </svg>
+      <div v-else class="rc-chart-empty">暂无数据</div>
+      <div v-if="chartKind === 'donut' && donutSegs && card.chart.segments" class="rc-donut-legend">
+        <span v-for="(s, i) in card.chart.segments" :key="i" class="rc-donut-lg">
+          <i :style="{ background: (donutSegs[i] && donutSegs[i].color) || 'var(--p)' }"></i>{{ s.label }}
+        </span>
+      </div>
       <div class="rc-chart-cap" v-if="chartCaption">{{ chartCaption }}</div>
     </div>
     <div v-else-if="card.chart && card.chart.url" class="rc-chart">
@@ -133,6 +152,49 @@ const chartGeom = computed(() => {
 const chartPoints = computed(() => chartGeom.value ? chartGeom.value.poly : null)
 const lastX = computed(() => chartGeom.value ? chartGeom.value.lx : 0)
 const lastY = computed(() => chartGeom.value ? chartGeom.value.ly : 0)
+
+/* ---- P1-⑤ 可视化意图路由：按 chart.kind 自动选图（零依赖自绘 SVG） ----
+   mini=折线(sparkline) / bar=柱状对比 / donut=环形占比 */
+const chartKind = computed(() => (props.card.chart && props.card.chart.kind) || 'mini')
+
+const barGeom = computed(() => {
+  if (chartKind.value !== 'bar') return null
+  const s = chartSeries.value
+  if (!s || !s.length) return null
+  const labels = (props.card.chart && props.card.chart.labels) || []
+  const max = Math.max(...s) || 1
+  const W = 200, H = 60, pad = 4, top = 8
+  const n = s.length
+  const gap = (W - pad * 2) / n
+  const bw = gap * 0.6
+  return s.map((v, i) => {
+    const h = Math.max((v / max) * (H - pad - top), v > 0 ? 2 : 0)
+    const x = pad + i * gap + (gap - bw) / 2
+    const y = H - pad - h
+    return { x, y, w: bw, h, label: labels[i] || '', value: v }
+  })
+})
+
+const DONUT_PALETTE = ['var(--p)', 'var(--suc)', 'var(--war)', 'var(--dan)', 'var(--t3)']
+const donutSegs = computed(() => {
+  if (chartKind.value !== 'donut') return null
+  const segs = props.card.chart.segments
+  if (!segs || !segs.length) return null
+  const total = segs.reduce((a, s) => a + (s.value || 0), 0) || 1
+  const C = 2 * Math.PI * 18
+  let acc = 0
+  return segs.map((s, i) => {
+    const frac = (s.value || 0) / total
+    const dash = frac * C
+    const offset = -acc * C
+    acc += frac
+    return { dash, offset, color: s.color || DONUT_PALETTE[i % DONUT_PALETTE.length] }
+  })
+})
+const donutTotal = computed(() => {
+  const segs = (props.card.chart && props.card.chart.segments) || []
+  return segs.reduce((a, s) => a + (s.value || 0), 0)
+})
 </script>
 
 <style scoped>
@@ -192,6 +254,10 @@ const lastY = computed(() => chartGeom.value ? chartGeom.value.ly : 0)
 .rc-spark{width:100%;height:48px;display:block}
 .rc-chart-cap{font-size:11px;color:var(--t3);margin-top:4px;text-align:right}
 .rc-chart-empty{font-size:11px;color:var(--t3);padding:10px 0;text-align:center;background:var(--bg2);border-radius:var(--radius-md)}
+.rc-donut{width:48px;height:48px;display:block;margin:0 auto}
+.rc-donut-legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:6px;justify-content:center}
+.rc-donut-lg{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t2)}
+.rc-donut-lg i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .rc-chart-img{width:100%;border-radius:var(--radius-md);display:block}
 .rc-source{font-size:11px;color:var(--t3);line-height:1.5;border-top:1px dashed var(--border-subtle);padding-top:7px;margin-top:2px}
 .rc.compact .rc-source{font-size:10.5px;padding-top:5px}
