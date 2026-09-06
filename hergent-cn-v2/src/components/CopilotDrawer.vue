@@ -458,6 +458,36 @@ function clear() {
 
 function ask(s) { draft.value = s; send() }
 
+/* ---- P0-② 时间锚点识别：老板问「昨天/上周」时，把每日经营日志注入 AI 上下文 ---- */
+const TIME_ANCHOR_RULES = [
+  { re: /昨天|昨日/, days: 2 },
+  { re: /前天|前日/, days: 3 },
+  { re: /上周|上礼拜|上星期|上一周/, days: 14 },
+  { re: /上月|上个月|上一月/, days: 60 },
+]
+const TIME_ANCHOR_N_RE = /近(\d{1,2})天|最近(\d{1,2})天|过去(\d{1,2})天|这(\d{1,2})天/
+const METRIC_LABELS = {
+  loss_amount: '货损金额', loss_risk_value: '临期风险', loss_risk_items: '临期SKU数',
+  payroll_commission: '提成合计', payroll_headcount: '核算人数', payroll_sales: '关联销售',
+  rebate_open: '未结合同', rebate_achieved: '已达成销售', rebate_est: '预计返利',
+}
+function timeAnchorDays(q) {
+  for (const t of TIME_ANCHOR_RULES) { if (t.re.test(q)) return t.days }
+  const m = (q || '').match(TIME_ANCHOR_N_RE)
+  if (m) { const n = parseInt(m[1] || m[2] || m[3] || m[4], 10); if (n > 0 && n <= 90) return n }
+  return null
+}
+function formatDailyLogForAI(logs) {
+  if (!logs || !logs.length) return ''
+  const byDate = {}
+  for (const l of logs) { const d = (l.log_date || '').slice(5); (byDate[d] = byDate[d] || []).push(l) }
+  const lines = Object.keys(byDate).sort().map(d => {
+    const items = byDate[d].map(l => `${METRIC_LABELS[l.metric] || l.metric}¥${Math.round(l.value || 0)}`).join('，')
+    return `- ${d}：${items}`
+  })
+  return `【这家店最近几天的经营记录（每日简报快照，供你回忆历史真实数字，勿编造）】\n${lines.join('\n')}`
+}
+
 function showDemo() {
   store.chat.messages.push({
     role: 'assistant',
@@ -699,7 +729,7 @@ function spreadsheetSoftHint(tableFiles) {
 
 let lastPayload = null   // 最近一次发送载荷，供「重试」使用（含表格软提示）
 
-function send() {
+async function send() {
   const q = draft.value.trim()
   if ((!q && !attachments.value.length) || store.chat.streaming) return
   draft.value = ''
@@ -724,6 +754,17 @@ function send() {
   // 系统提示：角色人设 + （若有上传表）表格计算工具指令
   let sys = currentRole.value ? currentRole.value.system_prompt : ''
   if (tableFiles.length) sys = (sys ? sys + '\n' : '') + spreadsheetSoftHint(tableFiles)
+
+  // P0-② 时间锚点：老板问「昨天/上周」时，把每日经营日志注入 AI 上下文（静默，失败不阻断）
+  const anchorDays = timeAnchorDays(q)
+  if (anchorDays) {
+    try {
+      const res = await api(`/api/ai/daily-log?days=${anchorDays}`)
+      const logs = (res && res.logs) || []
+      const ctx = formatDailyLogForAI(logs)
+      if (ctx) sys = (sys ? sys + '\n\n' : '') + ctx
+    } catch (_) { /* 静默降级，不阻断主对话 */ }
+  }
 
   lastPayload = { content, sys, q, tableFiles: [...tableFiles] }
   streamReply(lastPayload)
