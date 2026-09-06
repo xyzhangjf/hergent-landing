@@ -513,6 +513,20 @@ function toggleAiGuard() {
 }
 const AI_GUARD_HINT = '【AI 权限】你当前处于「只建议」模式：任何下单、收款、付款、采购、删除、修改等写操作，一律只给建议和步骤，绝不擅自执行。'
 
+/* ---- P1-⑥ 经营画像：让副驾"开口就懂这家客户"（缓存 10 分钟，静默失败不阻断） ---- */
+const tenantProfile = ref('')
+let profileLoadedAt = 0
+async function ensureProfile() {
+  const now = Date.now()
+  if (tenantProfile.value && now - profileLoadedAt < 10 * 60 * 1000) return tenantProfile.value
+  try {
+    const res = await api('/api/ai/profile')
+    const p = (res && res.profile) || ''
+    if (p) { tenantProfile.value = p; profileLoadedAt = now }
+    return p
+  } catch (_) { return tenantProfile.value }
+}
+
 function showDemo() {
   store.chat.messages.push({
     role: 'assistant',
@@ -799,6 +813,12 @@ async function send() {
       if (ctx) sys = (sys ? sys + '\n\n' : '') + ctx
     } catch (_) { /* 静默降级，不阻断主对话 */ }
   }
+
+  // P1-⑥ 经营画像：让副驾"开口就懂这家客户"（缓存 10 分钟，静默失败不阻断）
+  try {
+    const profile = await ensureProfile()
+    if (profile) sys = (sys ? sys + '\n\n' : '') + `【这家店的经营画像】${profile}（回答时自然参考，勿逐字复述）`
+  } catch (_) { /* 静默降级 */ }
 
   // P0-③ 动作分级护栏：只建议档显式注入行为边界（信任透明化 + 未来写能力护栏）
   if (aiGuard.value === 'advise') {
