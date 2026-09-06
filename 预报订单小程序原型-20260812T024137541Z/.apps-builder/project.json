@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "projectId": "48deb894-78a3-4fa3-9480-7317a9511982",
+  "lineageId": "48deb894-78a3-4fa3-9480-7317a9511982",
+  "semanticName": "预报订单小程序原型",
+  "createdAt": "2026-08-12T02:41:37.541Z",
+  "updatedAt": "2026-08-12T02:41:37.541Z",
+  "entryFile": null,
+  "status": "workspace_ready",
+  "operationId": "forecast-order-proto-20260812-001"
+}

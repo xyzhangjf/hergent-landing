@@ -18,6 +18,41 @@
   --dan-bg:rgba(255,59,48,.10);  /* 删除/危险 hover 浅红底 */
   --war:#ff9f0a; --war-rgb:255,159,10;
 
+  /* 扩展语义色（C2：ReportMapping 等组件特有对象类型色，全局化供复用） */
+  --purple:#7c77dd; --purple-rgb:124,119,221;   /* 客户 */
+  --teal:#1d9e75; --teal-rgb:29,158,117;        /* 本人仓 */
+
+  /* 汇总表热力色（C1 令牌化：heatStyle 数量强度 5 档，浅色系） */
+  --heat-0-bg:#E1F5EE; --heat-0-txt:#04342C;   /* 低值 */
+  --heat-1-bg:#C0DD97; --heat-1-txt:#173404;   /* ≥0.15 */
+  --heat-2-bg:#9FE1CB; --heat-2-txt:#04342C;   /* ≥0.35 */
+  --heat-3-bg:#5DCAA5; --heat-3-txt:#04342C;   /* ≥0.60 */
+  --heat-4-bg:#1D9E75; --heat-4-txt:#ffffff;   /* ≥0.85 高值 */
+
+  /* 计算列/校验态强调（C3 令牌化：合计/列合计/最终下单/错误/列宽手柄） */
+  --sum-bg:#fffbeb; --sum-txt:#92400e;         /* 合计行暖黄底 */
+  --sum-col-bg:#fef3c7;                         /* 列合计加深 */
+  --final-bg:#cffafe;                           /* 最终下单列浅青 */
+  --danger-bg:#fef2f2;                          /* 错误/危险浅红底 */
+  --danger-txt:#dc2626;                         /* 危险文字 */
+  --resizer-bg:#cbd5e1;                         /* 列宽调节手柄 */
+
+  /* 严重度 / 报单状态语义色（C4/C5 令牌化：替代散点硬编码 #A32D2D/#BA7517/#9A6B00/#FBEEDA/#7C3AED/#F3E8FF 与 .tag.st-* 状态色） */
+  --sev-risk:#A32D2D; --sev-risk-bg:rgba(163,45,45,.12);   /* 高风险/缺货/驳回 */
+  --sev-warn:#BA7517; --sev-warn-bg:rgba(186,117,23,.12);  /* 警告/偏低 */
+  --sev-info:#9A6B00; --sev-info-bg:rgba(154,107,0,.12);   /* 到期/待处理金 */
+  --sev-expired:#7A1F1F;                                    /* 已过期 */
+  --violet:#7c3aed; --violet-bg:#f3e8ff;                   /* 客户紫/福宝 */
+  --st-draft-bg:#eeeeee; --st-draft-txt:#555555;            /* 草稿 */
+  --st-submitted-bg:#FFF3D6; --st-submitted-txt:#9A6B00;    /* 已提交 */
+  --st-approved-bg:#DDF5E7; --st-approved-txt:#0F6E56;      /* 已通过 */
+  --st-rejected-bg:#FBE0E0; --st-rejected-txt:#A32D2D;      /* 已驳回 */
+  --st-revised-bg:#E6EAF2; --st-revised-txt:#37517E;       /* 已修订 */
+  --ok-green:#0F6E56; --ok-green-bg:#DDF5E7;               /* 通用成功绿 */
+  --info-blue:#185FA5; --info-blue-bg:#E6F1FB;             /* 通用信息蓝 */
+  --warn-amber:#854F0B; --warn-amber-bg:#FBEEDA;           /* 通用警告琥珀 */
+  --confirm-green:#2f9e44;                                 /* 确认徽章绿 */
+
   /* 中性面 */
   --bg:#ffffff;        /* 页面底 */
   --bg2:#f5f5f7;       /* 卡片/分区底（苹果风） */
@@ -67,6 +102,41 @@
   --dan:#ff453a; --dan-rgb:255,69,58;
   --dan-bg:rgba(255,69,58,.16);
   --war:#ff9f0a; --war-rgb:255,159,10;
+
+  /* 扩展语义色（深色提亮） */
+  --purple:#a5a0f0; --purple-rgb:165,160,240;
+  --teal:#2bbf8f; --teal-rgb:43,191,143;
+
+  /* 汇总表热力色（深色适配：背景加深、文字提亮保证可读） */
+  --heat-0-bg:#12352C; --heat-0-txt:#9fd8c0;
+  --heat-1-bg:#2E4A1D; --heat-1-txt:#c9e0a0;
+  --heat-2-bg:#1D5C4A; --heat-2-txt:#9fd8c0;
+  --heat-3-bg:#127A5F; --heat-3-txt:#eafff6;
+  --heat-4-bg:#0E8F6C; --heat-4-txt:#ffffff;
+
+  /* 计算列/校验态强调（深色适配） */
+  --sum-bg:#3B2F14; --sum-txt:#f5c56b;
+  --sum-col-bg:#463A1A;
+  --final-bg:#0E3A47;
+  --danger-bg:#4A2326;
+  --danger-txt:#f87171;
+  --resizer-bg:#64748b;
+
+  /* 严重度 / 报单状态语义色（深色适配：背景加深、文字提亮保证可读） */
+  --sev-risk:#f0908a; --sev-risk-bg:rgba(240,144,138,.14);
+  --sev-warn:#e2b274; --sev-warn-bg:rgba(226,178,116,.14);
+  --sev-info:#d8b86e; --sev-info-bg:rgba(216,184,110,.14);
+  --sev-expired:#e88282;
+  --violet:#c4a3f5; --violet-bg:rgba(124,58,237,.18);
+  --st-draft-bg:#3a3a3c; --st-draft-txt:#aeaeb2;
+  --st-submitted-bg:#3a3220; --st-submitted-txt:#e2c27c;
+  --st-approved-bg:#163a2e; --st-approved-txt:#7fd6ad;
+  --st-rejected-bg:#3a2224; --st-rejected-txt:#f0908a;
+  --st-revised-bg:#2a2e3a; --st-revised-txt:#aab6e2;
+  --ok-green:#7fd6ad; --ok-green-bg:rgba(15,110,86,.30);
+  --info-blue:#7fb8ef; --info-blue-bg:rgba(24,95,165,.22);
+  --warn-amber:#e2b274; --warn-amber-bg:rgba(186,117,23,.16);
+  --confirm-green:#66d68f;
 
   --bg:#1c1c1e;        /* 页面底（苹果深色） */
   --bg2:#2c2c2e;       /* 卡片底 */
@@ -138,7 +208,14 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .ico{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
 
 /* 通用卡片 */
+/* 内距 18px 为全站默认值（基线统计：18px 占 18/33，为绝对主流）。
+   此前 .card 不含内距，每个页面都得靠自己的具体类补（.cc-card/.df-panel/.dash-card…），
+   一旦新页面裸用 .card 就会漏掉内距、文字贴边（设置模块即因此出过 bug）。
+   注意：padding 是「覆盖」不是「叠加」——页面 scoped 选择器（.cc-card[data-v-xxx]，
+   特异性 0,2,0）高于本规则（0,1,0），因此已自带内距的卡片全部保持原值，不受影响；
+   本规则只作为兜底，保证任何裸用 .card 的元素都有内距。 */
 .card{
+  padding:18px;
   background:var(--bg);
   border:1px solid var(--border-subtle);
   border-radius:var(--radius-lg);

@@ -1,0 +1,54 @@
+<view class="page">
+  <view class="user-hd">
+    <view class="avatar">{{(user.display_name || user.username || '员')[0]}}</view>
+    <view class="user-info">
+      <view class="user-name">{{user.display_name || user.username || '员工'}}</view>
+      <view class="user-role">{{user.role || ''}}</view>
+    </view>
+    <button class="logout" bindtap="logout">退出</button>
+  </view>
+
+  <!-- 审批入口：仅管理员/老板/督导可见 -->
+  <view class="entry" wx:if="{{user.role === 'admin' || user.role === 'boss' || user.role === 'accountant' || user.role === 'supervisor'}}" bindtap="goApproval">
+    <view class="entry-ic">审</view>
+    <view class="entry-main">
+      <view class="entry-title">审批预报单</view>
+      <view class="entry-sub">查看并提交员工预报审批</view>
+    </view>
+    <view class="entry-arrow">›</view>
+  </view>
+
+  <!-- 汇总入口：仅管理员/老板/督导可见。原挂在全局 tabBar，销售点进去会被后端 403 拒绝 -->
+  <view class="entry" wx:if="{{user.role === 'admin' || user.role === 'boss' || user.role === 'accountant' || user.role === 'supervisor'}}" bindtap="goSummary">
+    <view class="entry-ic">总</view>
+    <view class="entry-main">
+      <view class="entry-title">汇总总表</view>
+      <view class="entry-sub">跨门店汇总、明细来源与复制</view>
+    </view>
+    <view class="entry-arrow">›</view>
+  </view>
+
+  <view class="sec-title">我的预报提交</view>
+  <view class="list" wx:if="{{records.length}}">
+    <view class="rec" wx:for="{{records}}" wx:key="id">
+      <view class="rec-hd" bindtap="toggleExpand" data-id="{{item.id}}">
+        <text class="rec-store">{{item.store_name}}</text>
+        <text class="rec-date">{{item.order_date}}</text>
+        <text class="rec-status status-{{item.status}}">{{item.statusText}}</text>
+      </view>
+      <view class="rec-items" wx:if="{{expandedId === item.id}}">
+        <view class="rec-item" wx:for="{{item.items}}" wx:for-item="it" wx:key="index">
+          <text class="it-name">{{it.product_name}} {{it.spec}}</text>
+          <text class="it-qty">{{it.quantity}} {{it.unit}}</text>
+        </view>
+      </view>
+      <view class="rec-ft">
+        <text class="rec-total">共 {{item.total_qty}} 件</text>
+        <button class="recall-btn" wx:if="{{item.status === 'pending'}}" size="mini" loading="{{recalling}}" bindtap="recall" data-id="{{item.id}}">撤回</button>
+        <text class="rec-expand" wx:if="{{expandedId !== item.id}}" bindtap="toggleExpand" data-id="{{item.id}}">展开</text>
+        <text class="rec-expand" wx:else bindtap="toggleExpand" data-id="{{item.id}}">收起</text>
+      </view>
+    </view>
+  </view>
+  <view class="empty" wx:else>还没有提交记录</view>
+</view>

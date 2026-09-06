@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "projectId": "4fc2cd4f-8961-4854-8d14-223e0b61f9bf",
+  "lineageId": "4fc2cd4f-8961-4854-8d14-223e0b61f9bf",
+  "semanticName": "预报订单汇总表-整合原型",
+  "createdAt": "2026-08-12T05:09:16.632Z",
+  "updatedAt": "2026-08-12T05:09:16.632Z",
+  "entryFile": null,
+  "status": "workspace_ready",
+  "operationId": "integrated-forecast-20260812-001"
+}

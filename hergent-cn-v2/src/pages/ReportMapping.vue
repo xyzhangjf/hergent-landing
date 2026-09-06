@@ -14,7 +14,7 @@
         配置体检：<b>{{ health.unmapped_count }}</b> 个门店/客户未配置 · <b>{{ health.alias_conflicts.length }}</b> 个别名冲突 · <b>{{ health.unassigned_count }}</b> 名员工未分配
         <span class="hb-toggle">{{ healthOpen ? '收起' : '展开' }}</span>
       </template>
-      <template v-else>配置体检：全部正常 ✓</template>
+      <template v-else>配置体检：全部正常</template>
     </div>
 
     <!-- 体检详情 -->
@@ -78,7 +78,7 @@
         <div v-if="editOpen" class="df-modal edit-modal">
           <div class="df-modal-hd">
             <b>{{ editId ? '编辑配置' : '新建配置' }}</b>
-            <button class="df-x" @click="editOpen = false">✕</button>
+            <button class="df-x" @click="editOpen = false"><Icon name="close"/></button>
           </div>
           <div class="df-modal-body">
             <div class="field">
@@ -108,7 +108,7 @@
                   @keydown.enter.prevent="objEnter"
                   @keydown.esc="objOpen = false"
                 />
-                <span v-if="!objKeyword" class="combo-caret">▾</span>
+                <span v-if="!objKeyword" class="combo-caret"><Icon name="chevron-down"/></span>
                 <div v-show="objOpen" class="combo-panel">
                   <div
                     v-for="(c, i) in objFiltered"
@@ -117,7 +117,7 @@
                     :class="{ on: i === objHi, sel: c.id === Number(form.counterparty_id) }"
                     @mousedown.prevent="pickObj(c)"
                     @mouseenter="objHi = i"
-                  >{{ c.name }}<span v-if="c.id === Number(form.counterparty_id)" class="combo-sel">✓</span></div>
+                  >{{ c.name }}<span v-if="c.id === Number(form.counterparty_id)" class="combo-sel"><Icon name="check"/></span></div>
                   <div v-if="!objFiltered.length" class="combo-empty">无匹配结果</div>
                 </div>
               </div>
@@ -162,7 +162,7 @@
       <Transition name="fade"><div v-if="disableOpen" class="df-overlay" @click="disableOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="disableOpen" class="df-modal">
-          <div class="df-modal-hd"><b>停用配置</b><button class="df-x" @click="disableOpen = false">✕</button></div>
+          <div class="df-modal-hd"><b>停用配置</b><button class="df-x" @click="disableOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
             <p class="warn-text">停用后该对象不再出现在员工报单下拉中，且不计入报单汇总。已落库的历史报单不受影响。</p>
           </div>
@@ -179,7 +179,7 @@
       <Transition name="fade"><div v-if="importOpen" class="df-overlay" @click="importOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="importOpen" class="df-modal">
-          <div class="df-modal-hd"><b>Excel 批量导入配置</b><button class="df-x" @click="importOpen = false">✕</button></div>
+          <div class="df-modal-hd"><b>Excel 批量导入配置</b><button class="df-x" @click="importOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
             <p class="hint">模板表头（7 列）：员工 / 对象类型 / 对象全称 / 简称(列头) / 单型 / 源仓 / 目标仓。对象类型填 store / customer / self_warehouse。</p>
             <label class="upload-btn">选择 Excel 文件
@@ -200,6 +200,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { reportMappingApi } from '../api/modules'
 import { api } from '../api/client'
@@ -421,7 +422,7 @@ onMounted(() => { loadRefs(); loadAll() })
 .page-hd h2{font-size:20px;font-weight:600}
 .page-sub{font-size:12px;color:var(--t3)}
 
-.health-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:rgba(var(--war-rgb),.10);border:1px solid rgba(var(--war-rgb),.35);padding:9px 14px;border-radius:10px;margin-bottom:12px;cursor:pointer}
+.health-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:rgba(var(--war-rgb),.10);border:1px solid rgba(var(--war-rgb),.35);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:12px;cursor:pointer}
 .health-bar.ok{background:rgba(var(--suc-rgb),.10);border-color:rgba(var(--suc-rgb),.35)}
 .hb-dot{width:8px;height:8px;border-radius:50%;background:var(--war);flex-shrink:0}
 .health-bar.ok .hb-dot{background:var(--suc)}
@@ -436,8 +437,8 @@ onMounted(() => { loadRefs(); loadAll() })
 
 .toolbar{display:flex;gap:10px;margin-bottom:12px}
 
-.card{background:var(--bg);border:1px solid var(--border-subtle);border-radius:14px}
-.table-wrap{padding:6px 4px;overflow-x:auto}
+.card{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
+.table-wrap{padding:6px 4px;overflow-x:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{text-align:left;padding:10px 12px;color:var(--t3);font-weight:500;border-bottom:1px solid var(--border-subtle)}
 .tbl td{padding:10px 12px;border-bottom:1px solid var(--border-subtle);color:var(--t1)}
@@ -446,23 +447,24 @@ onMounted(() => { loadRefs(); loadAll() })
 .empty{text-align:center;color:var(--t3);padding:28px}
 
 .tag{font-size:11.5px;padding:2px 9px;border-radius:9px;background:var(--bg2);color:var(--t2)}
-.tag.info{background:rgba(var(--p-rgb),.12);color:var(--p)}
-.tag.purple{background:rgba(124,119,221,.14);color:#7c77dd}
-.tag.teal{background:rgba(29,158,117,.14);color:#1d9e75}
+.tag.info{background:var(--p-bg);color:var(--p-dark)}
+.tag.purple{background:rgba(var(--purple-rgb),.14);color:var(--purple)}
+.tag.teal{background:rgba(var(--teal-rgb),.14);color:var(--teal)}
 .tag.suc{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .tag.danger{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
 .num{font-variant-numeric:tabular-nums}
 
-.btn{border:1px solid var(--border-subtle);background:var(--bg);border-radius:9px;padding:7px 13px;font-size:13px;color:var(--t1);cursor:pointer}
-.btn-sm{padding:5px 10px;font-size:12px}
-.btn-primary{background:var(--p);border-color:var(--p);color:#fff}
+/* C2：按钮对齐全局令牌（.btn/.btn-sm/.btn-primary/.btn-ghost/.btn-danger 为 scoped 复刻，尺寸/圆角与 variables.css 保持一致） */
+.btn{border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-md);padding:7px 13px;font-size:13px;color:var(--t1);cursor:pointer}
+.btn-sm{height:32px;padding:0 12px;font-size:13px;border-radius:var(--radius-sm)}
+.btn-primary{background:var(--p-dark);border-color:var(--p-dark);color:#fff}
 .btn-ghost{background:transparent}
 .btn-danger{background:var(--dan);border-color:var(--dan);color:#fff}
 .btn.danger{color:var(--dan)}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 
 .df-overlay{position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:980}
-.df-modal{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);width:min(460px,92vw);background:var(--bg);border-radius:16px;z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.18)}
+.df-modal{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);width:min(460px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:990;box-shadow:var(--shadow-lg)}
 .edit-modal{width:min(520px,94vw)}
 .df-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--border-subtle)}
 .df-modal-hd b{font-size:15px;color:var(--t1)}
@@ -473,28 +475,28 @@ onMounted(() => { loadRefs(); loadAll() })
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:2px}
 .field label{font-size:12.5px;color:var(--t2)}
 .field .req{color:var(--dan)}
-.field input, .field select{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:9px;padding:0 11px;font-size:13px;background:var(--bg);color:var(--t1)}
+.field input, .field select{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 11px;font-size:13px;background:var(--bg);color:var(--t1)}
 .field .hint{font-size:11.5px;color:var(--t3);line-height:1.5}
 .seg{display:flex;gap:6px}
-.seg-btn{flex:1;height:34px;border:1px solid var(--border-subtle);background:var(--bg);border-radius:9px;font-size:13px;color:var(--t2);cursor:pointer}
+.seg-btn{flex:1;height:34px;border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-sm);font-size:13px;color:var(--t2);cursor:pointer}
 .seg-btn.on{background:var(--p);border-color:var(--p);color:#fff}
 
 .warn-text{font-size:13px;color:var(--war);line-height:1.7}
-.ro-box{display:flex;align-items:center;gap:8px;height:36px;padding:0 11px;border:1px solid var(--border-subtle);border-radius:9px;background:var(--bg2);font-size:13px}
+.ro-box{display:flex;align-items:center;gap:8px;height:36px;padding:0 11px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg2);font-size:13px}
 .ro-name{font-weight:600;color:var(--t1)}
-.ro-tag{font-size:11px;color:var(--teal,#0ea5a4);background:rgba(14,165,164,.12);padding:2px 8px;border-radius:6px}
+.ro-tag{font-size:11px;color:var(--teal);background:rgba(var(--teal-rgb),.12);padding:2px 8px;border-radius:6px}
 .ro-warn{color:var(--war);font-size:12px}
 .combo{position:relative;width:100%}
-.combo-input{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:9px;padding:0 28px 0 11px;font-size:13px;background:var(--bg);color:var(--t1)}
+.combo-input{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 28px 0 11px;font-size:13px;background:var(--bg);color:var(--t1)}
 .combo-input:focus{outline:none;border-color:var(--p)}
 .combo-caret{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:11px;pointer-events:none}
-.combo-panel{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--border-subtle);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:4px}
+.combo-panel{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:4px}
 .combo-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .combo-item.on{background:var(--bg2)}
 .combo-item.sel{color:var(--p);font-weight:600}
 .combo-sel{color:var(--p);font-size:12px;flex:none}
 .combo-empty{padding:10px;text-align:center;font-size:12px;color:var(--t3)}
-.upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:10px;padding:14px 18px;font-size:13px;color:var(--p);cursor:pointer;text-align:center}
+.upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:14px 18px;font-size:13px;color:var(--p);cursor:pointer;text-align:center}
 .imp-result{font-size:13px;color:var(--t1);margin-top:6px}
 .imp-result .suc{color:var(--suc)} .imp-result .dan{color:var(--dan)}
 .imp-result ul{margin:8px 0 0;padding-left:18px;color:var(--t2);font-size:12px;line-height:1.7}

@@ -1,0 +1,90 @@
+<view class="page">
+  <!-- 门店选择 -->
+  <view class="store-bar">
+    <picker mode="selector" range="{{stores}}" range-key="name" value="{{storeIdx}}" bindchange="onStoreChange">
+      <view class="store-sel">
+        <text class="store-name">{{store.name || '选择门店'}}</text>
+        <text class="store-arrow">▾</text>
+      </view>
+    </picker>
+    <view class="store-count">{{cartCount}} 项</view>
+  </view>
+
+  <!-- A 方案：报单周期选择（按名称选，对齐到货窗口） -->
+  <view class="store-bar">
+    <picker mode="selector" range="{{periods}}" range-key="name" value="{{periodIdx}}" bindchange="onPeriodChange">
+      <view class="store-sel">
+        <text class="store-name">{{period.name || '选择报单周期'}}</text>
+        <text class="store-arrow">▾</text>
+      </view>
+    </picker>
+    <text class="store-count" wx:if="{{period.arrival_date}}">到货 {{period.arrival_date}}</text>
+  </view>
+  <view class="reported-note" wx:if="{{!periods.length}}">当前没有可报单的期次，请联系管理员建期次</view>
+
+  <!-- M10: 最近报单门店快捷入口 -->
+  <view class="recent-stores" wx:if="{{recentStores.length}}">
+    <text class="recent-label">最近报单</text>
+    <view class="recent-chip" wx:for="{{recentStores}}" wx:key="name" data-name="{{item.name}}" bindtap="pickRecent">{{item.name}}</view>
+  </view>
+
+  <!-- M11: 离线/失败草稿一键补传横幅 -->
+  <view class="draft-banner" wx:if="{{pendingSubmit && cartCount}}">
+    <text class="draft-txt">有未提交草稿（{{cartCount}} 项），联网后可补传</text>
+    <view class="draft-acts">
+      <text class="draft-go" bindtap="resumeDraft">提交</text>
+      <text class="draft-clear" bindtap="clearCart">清空</text>
+    </view>
+  </view>
+
+  <!-- M9: 今日已报回执 -->
+  <view class="reported-note" wx:if="{{lastReported && !cartCount}}">{{lastReported}}</view>
+
+  <!-- 搜索 -->
+  <view class="search-bar">
+    <input class="search-ipt" placeholder="搜索商品名称 / 条码" value="{{kw}}" bindinput="onSearch" focus="{{autoFocus}}" />
+  </view>
+
+  <!-- 常用品 -->
+  <scroll-view class="hot-scroll" scroll-x wx:if="{{hot.length}}">
+    <view class="hot-row">
+      <view class="hot-chip" wx:for="{{hot}}" wx:key="id" data-i="{{index}}" bindtap="quickAdd">{{item.name}}</view>
+    </view>
+  </scroll-view>
+
+  <!-- 搜索结果 -->
+  <view class="prod-list" wx:if="{{kw}}">
+    <view class="prod-row" wx:for="{{results}}" wx:key="id" data-i="{{index}}" bindtap="addProd">
+      <view class="prod-info">
+        <view class="prod-name">{{item.name}}</view>
+        <view class="prod-spec">{{item.spec || ''}} · {{item.unit || '件'}}</view>
+      </view>
+      <view class="prod-add">+</view>
+    </view>
+    <view class="empty" wx:if="{{!results.length}}">没有找到商品，试试其他关键词</view>
+  </view>
+
+  <!-- 已选商品 -->
+  <view class="cart-title">本次预报（{{cartCount}} 项）</view>
+  <view class="cart-list">
+    <view class="cart-row" wx:for="{{cart}}" wx:key="key">
+      <view class="cart-info">
+        <view class="cart-name">{{item.name}}</view>
+        <view class="cart-spec">{{item.spec || ''}}</view>
+      </view>
+      <view class="cart-qty">
+        <view class="qty-btn" data-key="{{item.key}}" bindtap="minus">−</view>
+        <view class="qty-val">{{item.qty}} {{item.unit}}</view>
+        <view class="qty-btn" data-key="{{item.key}}" bindtap="plus">+</view>
+      </view>
+      <view class="cart-del" data-key="{{item.key}}" bindtap="removeItem">✕</view>
+    </view>
+    <view class="empty" wx:if="{{!cart.length}}">还没有添加商品，搜一下或点常用品</view>
+  </view>
+
+  <!-- 提交 -->
+  <view class="submit-bar">
+    <view class="submit-total">{{cartCount}} 项 · {{store.name || '未选门店'}}</view>
+    <button class="submit-btn" disabled="{{!cart.length || !store.id || !period.id || submitting}}" bindtap="submit">{{submitting ? '提交中…' : '提交预报'}}</button>
+  </view>
+</view>

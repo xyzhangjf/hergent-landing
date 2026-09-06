@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hergent · AI 经营副驾 · 产品 UI 原型</title>
+<style>
+  /* ============ 设计令牌（Design Tokens）============
+     来源：项目记忆「前端规范 · 苹果化」 
+     - 背景 #f5f5f7 / 卡片 #fff / 品牌青 #06b6d4
+     - 系统色：绿#34c759(好) 红#ff3b30(亏/预警) 橙#ff9f0a(待关注)
+     - 圆角 12px(卡片) / 10px(按钮) / 8px(输入)
+     - 字体 SF Pro 栈 + 苹方；间距 8px 栅格 ；分层阴影 */
+  :root{
+    --bg:#f5f5f7; --card:#ffffff; --p:#06b6d4; --p-d:#0891b2;
+    --green:#34c759; --red:#ff3b30; --orange:#ff9f0a;
+    --text:#1d1d1f; --text2:#6e6e73; --text3:#aeaeb2;
+    --border:#e5e5ea; --border2:#f0f0f2;
+    --r-card:12px; --r-btn:10px; --r-in:8px;
+    --sh-1:0 1px 3px rgba(0,0,0,.06); --sh-2:0 4px 16px rgba(0,0,0,.05);
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);
+       font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+
+  /* ============ 外壳布局 ============ */
+  .app{display:flex;min-height:100vh;}
+  .sidebar{width:236px;background:var(--card);border-right:1px solid var(--border);
+           display:flex;flex-direction:column;padding:16px 12px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 16px;}
+  .brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--p),var(--p-d));
+               display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:17px;}
+  .brand .name{font-size:16px;font-weight:700;letter-spacing:.3px;}
+  .brand .tag{font-size:11px;color:var(--text2);font-weight:500;}
+  .nav-group{font-size:11px;color:var(--text3);font-weight:600;padding:14px 10px 6px;letter-spacing:.5px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:var(--r-btn);
+            color:var(--text);cursor:pointer;font-size:14px;font-weight:500;margin-bottom:2px;transition:.12s;}
+  .nav-item:hover{background:var(--bg);}
+  .nav-item.active{background:rgba(6,182,212,.12);color:var(--p-d);font-weight:600;}
+  .nav-item .ic{width:18px;height:18px;flex:0 0 18px;color:currentColor;}
+  .nav-item .badge{margin-left:auto;background:var(--red);color:#fff;font-size:11px;font-weight:700;
+                   min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 5px;}
+  .side-foot{margin-top:auto;padding:10px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:10px;}
+  .side-foot .av{width:32px;height:32px;border-radius:50%;background:#d6f3f8;color:var(--p-d);
+                 display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;}
+  .side-foot .u{font-size:13px;font-weight:600;} .side-foot .r{font-size:11px;color:var(--text2);}
+
+  .main{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .topbar{height:60px;background:rgba(255,255,255,.8);backdrop-filter:saturate(180%) blur(12px);
+          border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 24px;position:sticky;top:0;z-index:5;}
+  .topbar .page-title{font-size:17px;font-weight:700;}
+  .topbar .search{flex:1;max-width:420px;margin:0 auto;background:var(--bg);border:1px solid var(--border);
+                  border-radius:20px;padding:8px 16px;color:var(--text2);font-size:13px;display:flex;align-items:center;gap:8px;}
+  .topbar .wx{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--green);font-weight:600;
+              background:rgba(52,199,89,.1);padding:6px 12px;border-radius:20px;}
+  .content{padding:24px;max-width:1240px;width:100%;}
+
+  /* ============ 通用组件 ============ */
+  .page{display:none;} .page.active{display:block;animation:fade .18s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  .row{display:flex;gap:16px;flex-wrap:wrap;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-card);
+        box-shadow:var(--sh-1);padding:18px;}
+  .card h3{font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .card .sub{font-size:12px;color:var(--text2);font-weight:500;}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--r-card);
+       box-shadow:var(--sh-1);padding:16px 18px;flex:1;min-width:200px;}
+  .kpi .lab{font-size:12px;color:var(--text2);font-weight:600;}
+  .kpi .val{font-size:26px;font-weight:700;margin:6px 0 2px;letter-spacing:-.5px;}
+  .kpi .delta{font-size:12px;font-weight:600;}
+  .up{color:var(--green);} .down{color:var(--red);} .warn{color:var(--orange);}
+  .btn{background:var(--p);color:#fff;border:none;border-radius:var(--r-btn);padding:9px 16px;
+       font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);transition:.12s;}
+  .btn:hover{background:var(--p-d);} .btn.ghost{background:var(--bg);color:var(--text);border:1px solid var(--border);}
+  .btn.ghost:hover{background:#ececef;}
+  .inp{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-in);
+       padding:10px 12px;font-size:14px;font-family:var(--font);color:var(--text);}
+  .inp:focus{outline:none;border-color:var(--p);background:#fff;}
+  label.fl{font-size:12px;font-weight:600;color:var(--text2);display:block;margin:12px 0 6px;}
+  .seg{display:flex;background:var(--bg);border-radius:var(--r-btn);padding:3px;gap:3px;}
+  .seg button{flex:1;border:none;background:transparent;border-radius:8px;padding:7px;font-size:13px;
+              font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);}
+  .seg button.on{background:#fff;color:var(--text);box-shadow:var(--sh-1);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border2);}
+  th{font-size:12px;color:var(--text2);font-weight:600;}
+  td .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;}
+  .pill.r{background:rgba(255,59,48,.12);color:var(--red);}
+  .pill.g{background:rgba(52,199,89,.12);color:var(--green);}
+  .pill.o{background:rgba(255,159,10,.14);color:var(--orange);}
+  .pill.b{background:rgba(6,182,212,.12);color:var(--p-d);}
+  .bar{height:8px;background:var(--bg);border-radius:6px;overflow:hidden;}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--p),var(--p-d));border-radius:6px;}
+
+  /* AI 对话面板 */
+  .chat{background:var(--card);border:1px solid var(--border);border-radius:var(--r-card);
+        box-shadow:var(--sh-2);display:flex;flex-direction:column;height:420px;overflow:hidden;}
+  .chat .hd{padding:14px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px;}
+  .chat .hd .dot{width:9px;height:9px;border-radius:50%;background:var(--green);}
+  .chat .hd .t{font-weight:700;font-size:14px;} .chat .hd .s{font-size:11px;color:var(--text2);}
+  .chat .body{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;}
+  .msg{max-width:82%;padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.55;}
+  .msg.ai{align-self:flex-start;background:var(--bg);border:1px solid var(--border2);border-bottom-left-radius:4px;}
+  .msg.me{align-self:flex-end;background:var(--p);color:#fff;border-bottom-right-radius:4px;}
+  .msg.ai .qk{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .msg.ai .qk span{background:#fff;border:1px solid var(--border);border-radius:14px;padding:4px 10px;font-size:12px;color:var(--p-d);cursor:pointer;}
+  .chat .ft{padding:12px 14px;border-top:1px solid var(--border2);display:flex;gap:8px;align-items:center;}
+  .chat .ft .inp{flex:1;} .chat .ft .mic{width:38px;height:38px;border-radius:50%;background:var(--bg);
+               border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+
+  .hint{background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.2);border-radius:var(--r-card);
+        padding:12px 14px;font-size:12.5px;color:var(--p-d);line-height:1.6;margin-bottom:16px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;} @media(max-width:900px){.grid2{grid-template-columns:1fr;}}
+  .muted{color:var(--text2);font-size:12px;}
+  .divider{height:1px;background:var(--border2);margin:16px 0;}
+  .chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .chip{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--text2);}
+  .chip.on{background:var(--p);color:#fff;border-color:var(--p);}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ 侧边导航 ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">H</div>
+      <div><div class="name">Hergent</div><div class="tag">AI 经营副驾</div></div>
+    </div>
+    <div class="nav-group">经营</div>
+    <div class="nav-item active" data-page="dashboard">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      经营工作台</div>
+    <div class="nav-item" data-page="review">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      智能审核大脑</div>
+
+    <div class="nav-group">AI 工具</div>
+    <div class="nav-item" data-page="forecast">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+      预报订单</div>
+    <div class="nav-item" data-page="loss">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      算货损</div>
+    <div class="nav-item" data-page="payroll">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
+      算工资</div>
+    <div class="nav-item" data-page="recon">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M3 12h18"/></svg>
+      对账</div>
+    <div class="nav-item" data-page="kpi">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/></svg>
+      指标达成</div>
+    <div class="nav-item" data-page="rebate">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 010-4h12v4"/><path d="M4 6v12a2 2 0 002 2h12v-4"/><path d="M18 12a2 2 0 100 4 2 2 0 000-4z"/></svg>
+      返利测算</div>
+
+    <div class="nav-group">Hermes 中枢</div>
+    <div class="nav-item" data-page="chat">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      AI 对话</div>
+    <div class="nav-item" data-page="connectors">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+      连接器</div>
+    <div class="nav-item" data-page="cron">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      定时任务</div>
+
+    <div class="nav-group">系统</div>
+    <div class="nav-item" data-page="settings">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      厂家与规则设置</div>
+
+    <div class="side-foot">
+      <div class="av">张</div>
+      <div><div class="u">张总 · 蒙牛低温</div><div class="r">老板 · 管理员</div></div>
+    </div>
+  </aside>
+
+  <!-- ============ 主区 ============ -->
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="ptitle">经营工作台</div>
+      <div class="search">🔍  问 AI：本月哪家店回款最差？明天哪些 SKU 临期？</div>
+      <div class="wx">💬 微信推送：已连接</div>
+    </div>
+    <div class="content">
+
+      <!-- ===== 工作台 ===== -->
+      <section class="page active" id="dashboard">
+        <div class="hint">👋 早上好，张总。Hermes 已为你盯了一夜：今天有 <b>3 项</b>需关注，临期预警已推送到微信群。</div>
+        <div class="row" style="margin-bottom:16px;">
+          <div class="kpi"><div class="lab">本月预估盈亏</div><div class="val up">+¥128,400</div><div class="delta up">▲ 较上月 +6.2%</div></div>
+          <div class="kpi"><div class="lab">临期 / 货损预警</div><div class="val warn">¥9,860</div><div class="delta warn">⚠ 12 个 SKU 需处理</div></div>
+          <div class="kpi"><div class="lab">待回收款</div><div class="val down">¥246,300</div><div class="delta down">▼ 超期 ¥52,000</div></div>
+          <div class="kpi"><div class="lab">待审厂家订单</div><div class="val">2 单</div><div class="delta">金额 ¥86,500</div></div>
+        </div>
+        <div class="grid2">
+          <div class="chat">
+            <div class="hd"><span class="dot"></span><div><div class="t">Hermes · AI 经营副驾</div><div class="s">随时用大白话问经营问题</div></div></div>
+            <div class="body">
+              <div class="msg.ai">你好张总，我是你的 AI 经营副驾。我可以帮你盯临期、算回款、看指标、解释订单。试试问我：
+                <div class="qk"><span>本月毛利多少？</span><span>哪些店回款差？</span><span>明天该进多少货？</span></div>
+              </div>
+              <div class="msg.me">这个月纯利大概多少？和上月比怎么样？</div>
+              <div class="msg.ai">本月预估纯利 <b>¥128,400</b>，毛利率 <b>18.6%</b>，较上月 +6.2%。主要拉动来自单品「蒙牛纯牛奶 250ml」销量回升 + 临期损耗下降 14%。需要我拆到每个业务员或每个 SKU 吗？</div>
+            </div>
+            <div class="ft"><input class="inp" placeholder="输入问题，或点麦克风语音…" /><div class="mic">🎙️</div><button class="btn">发送</button></div>
+          </div>
+          <div>
+            <div class="card" style="margin-bottom:16px;">
+              <h3>🔔 今日待办 <span class="sub">（AI 自动生成）</span></h3>
+              <div class="row" style="flex-direction:column;gap:10px;">
+                <div style="display:flex;gap:10px;align-items:center;"><span class="pill r">紧急</span><div style="flex:1;font-size:13px;">纯牛奶 250ml 有 6 箱明日临期，建议今日特价清货</div></div>
+                <div style="display:flex;gap:10px;align-items:center;"><span class="pill o">待审</span><div style="flex:1;font-size:13px;">2 张厂家订单待审核（关联返利档，见智能审核）</div></div>
+                <div style="display:flex;gap:10px;align-items:center;"><span class="pill b">回款</span><div style="flex:1;font-size:13px;">旺达便利店超期 32 天未回款 ¥18,000</div></div>
+                <div style="display:flex;gap:10px;align-items:center;"><span class="pill g">工资</span><div style="flex:1;font-size:13px;">7 月工资已可测算，司机提成待确认</div></div>
+              </div>
+              <button class="btn ghost" style="margin-top:14px;width:100%;">查看全部待办 →</button>
+            </div>
+            <div class="card">
+              <h3>📊 近 7 日盈亏走势</h3>
+              <div style="display:flex;align-items:flex-end;gap:10px;height:120px;padding:8px 0;">
+                <div style="flex:1;background:var(--p);border-radius:6px 6px 0 0;height:55%;"></div>
+                <div style="flex:1;background:var(--p);border-radius:6px 6px 0 0;height:48%;"></div>
+                <div style="flex:1;background:var(--p);border-radius:6px 6px 0 0;height:70%;"></div>
+                <div style="flex:1;background:var(--p);border-radius:6px 6px 0 0;height:62%;"></div>
+                <div style="flex:1;background:var(--p);border-radius:6px 6px 0 0;height:80%;"></div>
+                <div style="flex:1;background:var(--p);border-radius:6px 6px 0 0;height:74%;"></div>
+                <div style="flex:1;background:var(--green);border-radius:6px 6px 0 0;height:92%;"></div>
+              </div>
+              <div class="muted" style="display:flex;justify-content:space-between;"><span>周一</span><span>今天</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 智能审核大脑 ===== -->
+      <section class="page" id="review">
+        <div class="hint">🧠 这是报单流程的<b>价值高地</b>：把「指标达成 + 返利 + 库存」三因子合成一份<b>建议最终订单</b>。AI 只建议，绝不擅自向厂家下单。</div>
+        <div class="card" style="margin-bottom:16px;">
+          <h3>📝 预报订单输入</h3>
+          <div class="grid2">
+            <div><label class="fl">下单周期</label>
+              <div class="seg"><button class="on">常规（每 2 天到货）</button><button>加单</button><button>紧急</button></div>
+              <label class="fl">覆盖线路 / 客户</label>
+              <input class="inp" value="全部 7 条线路 · 38 家核心门店" />
+            </div>
+            <div><label class="fl">预报来源</label>
+              <div class="chip-row"><span class="chip on">业务员企微填报</span><span class="chip">促销员</span><span class="chip">导购</span><span class="chip">分销商</span></div>
+              <label class="fl">基础预测量</label>
+              <input class="inp" value="系统按历史销量 + 效期自动预判（见预报订单页）" />
+            </div>
+          </div>
+          <button class="btn" style="margin-top:14px;">⚡ 生成智能审核建议</button>
+        </div>
+        <div class="grid2">
+          <div class="card">
+            <h3>① 指标达成 <span class="sub">厂家总指标 / 单品指标</span></h3>
+            <div style="margin-bottom:12px;"><div class="muted" style="display:flex;justify-content:space-between;"><span>本月总指标达成</span><b>82%</b></div><div class="bar" style="margin-top:6px;"><i style="width:82%"></i></div></div>
+            <table><thead><tr><th>单品</th><th>达成</th><th>状态</th></tr></thead>
+              <tbody>
+                <tr><td>纯牛奶 250ml</td><td>91%</td><td><span class="pill g">达标</span></td></tr>
+                <tr><td>风味酸奶 90g</td><td>63%</td><td><span class="pill r">缺口大</span></td></tr>
+                <tr><td>真果粒 250ml</td><td>78%</td><td><span class="pill o">待冲刺</span></td></tr>
+              </tbody></table>
+          </div>
+          <div class="card">
+            <h3>② 返利测算 <span class="sub">阶梯 / 搭赠</span></h3>
+            <div class="hint" style="margin-bottom:12px;">💡 再订 <b>风味酸奶 90g 420 箱</b> 即可解锁下一返利档，预计多返 <b>¥3,360</b>，扣除压货成本净赚 <b>¥1,980</b>。</div>
+            <table><thead><tr><th>返利档</th><th>门槛</th><th>当前</th></tr></thead>
+              <tbody>
+                <tr><td>总达成 100%</td><td>¥1,200,000</td><td><span class="pill o">差 ¥58k</span></td></tr>
+                <tr><td>单品冲刺奖</td><td>风味 500 箱</td><td><span class="pill r">差 420</span></td></tr>
+              </tbody></table>
+          </div>
+          <div class="card">
+            <h3>③ 库存与效期 <span class="sub">FEFO 引擎</span></h3>
+            <table><thead><tr><th>SKU</th><th>库存</th><th>建议</th></tr></thead>
+              <tbody>
+                <tr><td>纯牛奶 250ml</td><td>充足</td><td><span class="pill g">可少订</span></td></tr>
+                <tr><td>风味酸奶 90g</td><td>偏低</td><td><span class="pill r">必补</span></td></tr>
+                <tr><td>冠益乳 100g</td><td>临期 4 天</td><td><span class="pill o">先清不订</span></td></tr>
+              </tbody></table>
+          </div>
+          <div class="card" style="border-color:var(--p);box-shadow:0 4px 20px rgba(6,182,212,.12);">
+            <h3>✅ AI 建议最终订单 <span class="pill b">待你确认</span></h3>
+            <div class="val" style="font-size:20px;font-weight:700;margin:4px 0 8px;">合计 ¥86,500 · 11 个 SKU</div>
+            <div class="muted" style="line-height:1.7;">• 风味酸奶 90g 追加 <b>420 箱</b>（冲单品奖 + 补库存缺口）<br>• 纯牛奶 250ml 减量 <b>30 箱</b>（库存充足）<br>• 冠益乳 100g <b>0 订</b>（先清临期）<br>• 其余按基础预判量</div>
+            <div class="divider"></div>
+            <div class="muted" style="line-height:1.6;">🤖 Hermes 解释：本单在补齐风味酸奶缺口的同时顺手解锁 ¥3,360 返利，净收益为正；纯牛奶与冠益乳主动控量避免压货损耗。</div>
+            <div class="row" style="margin-top:14px;">
+              <button class="btn">采纳并送审文员</button>
+              <button class="btn ghost">调整数量</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 预报订单 ===== -->
+      <section class="page" id="forecast">
+        <div class="hint">📦 业务员/促销员通过企微填报预报，系统按历史销量 + 效期自动预判，替代文员导出 Excel。</div>
+        <div class="grid2">
+          <div class="card">
+            <h3>🔮 智能预报</h3>
+            <label class="fl">选择线路</label>
+            <div class="seg"><button class="on">线路 A</button><button>线路 B</button><button>线路 C</button><button>全部</button></div>
+            <label class="fl">预报周期</label>
+            <input class="inp" value="未来 4 天（提前 4 天下单）" />
+            <label class="fl">参考依据</label>
+            <div class="chip-row"><span class="chip on">历史销量</span><span class="chip on">效期 FEFO</span><span class="chip on">节假日因子</span><span class="chip">促销计划</span></div>
+            <button class="btn" style="margin-top:16px;width:100%;">生成预报单</button>
+          </div>
+          <div class="card">
+            <h3>📋 预报结果（系统预判）</h3>
+            <table><thead><tr><th>SKU</th><th>预估销量</th><th>建议订量</th><th>依据</th></tr></thead>
+              <tbody>
+                <tr><td>纯牛奶 250ml</td><td>1,200</td><td>1,050</td><td><span class="pill g">平稳</span></td></tr>
+                <tr><td>风味酸奶 90g</td><td>680</td><td>720</td><td><span class="pill r">缺口</span></td></tr>
+                <tr><td>冠益乳 100g</td><td>340</td><td>300</td><td><span class="pill o">临期控量</span></td></tr>
+                <tr><td>真果粒 250ml</td><td>510</td><td>480</td><td><span class="pill b">促销</span></td></tr>
+              </tbody></table>
+            <div class="muted" style="margin-top:10px;">填报人：12 人已提交 · 3 人待填（微信已提醒）</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 算货损 ===== -->
+      <section class="page" id="loss">
+        <div class="hint">🧊 低温奶命门。基于 FEFO 效期引擎算出临期/破损/退换损耗，主动推微信，替代人工每天盯。</div>
+        <div class="row" style="margin-bottom:16px;">
+          <div class="kpi"><div class="lab">今日货损金额</div><div class="val warn">¥486</div><div class="delta warn">▲ 较昨日 +12%</div></div>
+          <div class="kpi"><div class="lab">本月累计损耗</div><div class="val warn">¥9,860</div><div class="delta">占销售额 0.8%</div></div>
+          <div class="kpi"><div class="lab">临期预警 SKU</div><div class="val">12</div><div class="delta down">需 24h 内处理</div></div>
+        </div>
+        <div class="card">
+          <h3>⏰ 临期预警清单（按效期倒序）</h3>
+          <table><thead><tr><th>SKU</th><th>批号</th><th>数量</th><th>到期</th><th>建议动作</th><th>预估损失</th></tr></thead>
+            <tbody>
+              <tr><td>纯牛奶 250ml</td><td>260812</td><td>6 箱</td><td><span class="pill r">明日</span></td><td>特价清货 / 调拨</td><td>¥312</td></tr>
+              <tr><td>冠益乳 100g</td><td>260810</td><td>3 箱</td><td><span class="pill r">后日</span></td><td>捆绑促销</td><td>¥118</td></tr>
+              <tr><td>风味酸奶 90g</td><td>260815</td><td>4 箱</td><td><span class="pill o">4 天后</span></td><td>正常周转</td><td>¥56</td></tr>
+            </tbody></table>
+          <div class="row" style="margin-top:14px;">
+            <button class="btn">推送到微信群</button>
+            <button class="btn ghost">生成调拨单</button>
+            <button class="btn ghost">导出损耗日报</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 算工资 ===== -->
+      <section class="page" id="payroll">
+        <div class="hint">💰 司机/业务/装卸提成工资确定性计算（按件/按线路/底薪），结果可复现，不再靠表格手算。</div>
+        <div class="grid2">
+          <div class="card">
+            <h3>⚙️ 工资规则（一次性配置）</h3>
+            <label class="fl">司机提成</label>
+            <div class="seg"><button class="on">按线路固定</button><button>按件</button><button>底薪+提成</button></div>
+            <label class="fl">业务员提成口径</label>
+            <input class="inp" value="按回款额 1.5% + 单品冲刺奖" />
+            <label class="fl">计算月份</label>
+            <input class="inp" value="2026 年 7 月" />
+            <button class="btn" style="margin-top:14px;width:100%;">计算工资</button>
+          </div>
+          <div class="card">
+            <h3>👥 工资明细</h3>
+            <table><thead><tr><th>姓名</th><th>岗位</th><th>底薪</th><th>提成</th><th>合计</th></tr></thead>
+              <tbody>
+                <tr><td>老王</td><td>司机</td><td>¥4,500</td><td>¥2,100</td><td><b>¥6,600</b></td></tr>
+                <tr><td>小李</td><td>业务</td><td>¥3,000</td><td>¥3,420</td><td><b>¥6,420</b></td></tr>
+                <tr><td>阿强</td><td>装卸</td><td>¥3,800</td><td>¥900</td><td><b>¥4,700</b></td></tr>
+              </tbody></table>
+            <div class="muted" style="margin-top:10px;">合计支出 ¥17,720 · 提成基于 7 月回款数据自动归集</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 对账 ===== -->
+      <section class="page" id="recon">
+        <div class="hint">🧾 银行流水 vs 应收应付自动匹配，差异高亮，替代人工逐笔对账。</div>
+        <div class="row" style="margin-bottom:16px;">
+          <div class="kpi"><div class="lab">应收总额</div><div class="val">¥582,100</div></div>
+          <div class="kpi"><div class="lab">已回款</div><div class="val up">¥335,800</div></div>
+          <div class="kpi"><div class="lab">差异 / 待核</div><div class="val warn">¥3,240</div><div class="delta warn">4 笔待确认</div></div>
+        </div>
+        <div class="card">
+          <h3>🔍 对账明细（自动匹配）</h3>
+          <table><thead><tr><th>客户</th><th>应收</th><th>银行到账</th><th>差异</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td>旺达便利店</td><td>¥18,000</td><td>¥18,000</td><td>¥0</td><td><span class="pill g">已平</span></td></tr>
+              <tr><td>天天鲜超市</td><td>¥9,600</td><td>¥9,600</td><td>¥0</td><td><span class="pill g">已平</span></td></tr>
+              <tr><td>社区团购 A</td><td>¥6,200</td><td>¥3,000</td><td><span class="pill r">¥3,200</span></td><td><span class="pill o">部分到账</span></td></tr>
+              <tr><td>未知来款</td><td>—</td><td>¥40</td><td><span class="pill r">¥40</span></td><td><span class="pill r">待认领</span></td></tr>
+            </tbody></table>
+          <button class="btn" style="margin-top:14px;">推送未回款清单给业务员</button>
+        </div>
+      </section>
+
+      <!-- ===== 指标达成 ===== -->
+      <section class="page" id="kpi">
+        <div class="hint">🎯 厂家总指标 + 单品指标（合同录入，是你的 IP），实时追踪达成，驱动返利与审核。</div>
+        <div class="card" style="margin-bottom:16px;">
+          <h3>📈 本月厂家总指标</h3>
+          <div style="display:flex;align-items:center;gap:20px;">
+            <div style="flex:1;"><div class="muted" style="display:flex;justify-content:space-between;"><span>达成率</span><b style="font-size:18px;">82%</b></div><div class="bar" style="height:14px;margin-top:8px;"><i style="width:82%"></i></div></div>
+            <div style="text-align:right;"><div class="muted">实际 / 目标</div><div style="font-size:18px;font-weight:700;">¥986k / ¥1.2M</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>🏷️ 单品指标达成</h3>
+          <table><thead><tr><th>单品</th><th>目标</th><th>实际</th><th>达成</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td>纯牛奶 250ml</td><td>1,500 箱</td><td>1,365</td><td>91%</td><td><span class="pill g">达标</span></td></tr>
+              <tr><td>风味酸奶 90g</td><td>500 箱</td><td>318</td><td>63%</td><td><span class="pill r">缺口 182</span></td></tr>
+              <tr><td>真果粒 250ml</td><td>600 箱</td><td>468</td><td>78%</td><td><span class="pill o">待冲刺</span></td></tr>
+              <tr><td>冠益乳 100g</td><td>400 箱</td><td>412</td><td>103%</td><td><span class="pill g">超标</span></td></tr>
+            </tbody></table>
+        </div>
+      </section>
+
+      <!-- ===== 返利测算 ===== -->
+      <section class="page" id="rebate">
+        <div class="hint">💸 录入蒙牛返利条款（阶梯/搭赠），模拟「再订 X 箱解锁下一档」，把隐性的钱算清楚——这是你的护城河。</div>
+        <div class="grid2">
+          <div class="card">
+            <h3>📜 返利条款（合同录入）</h3>
+            <label class="fl">总达成返利</label>
+            <input class="inp" value="月总达成 ≥100% 返 3% ；≥110% 返 4%" />
+            <label class="fl">单品冲刺奖</label>
+            <input class="inp" value="风味酸奶 90g 满 500 箱，每箱额外返 ¥0.8" />
+            <label class="fl">搭赠政策</label>
+            <input class="inp" value="纯牛奶每满 100 箱搭赠 3 箱" />
+          </div>
+          <div class="card" style="border-color:var(--p);box-shadow:0 4px 20px rgba(6,182,212,.12);">
+            <h3>🧮 模拟测算</h3>
+            <div class="hint" style="margin-bottom:12px;">当前总达成 82%，距 100% 档还差 <b>¥58,000</b>。若补充风味酸奶 420 箱：</div>
+            <table><tbody>
+              <tr><td>解锁单品奖</td><td><b class="up">+¥336</b></td></tr>
+              <tr><td>拉动总达成</td><td>→ 约 89%</td></tr>
+              <tr><td>压货成本（42 天周转）</td><td class="down">-¥1,380</td></tr>
+              <tr><td><b>净收益</b></td><td><b class="up">+¥1,980</b></td></tr>
+            </tbody></table>
+            <div class="muted" style="margin-top:10px;line-height:1.6;">🤖 Hermes：建议本轮优先补风味酸奶至 500 箱，单品奖确定性高；总达成 100% 档仍需其他单品协同，不宜为冲档盲目压货。</div>
+            <button class="btn" style="margin-top:12px;width:100%;">同步到智能审核</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 设置 ===== -->
+      <section class="page" id="settings">
+        <div class="hint">⚙️ 一次性录入厂家指标与返利条款——这些信息是你的领域 IP，也是 AI 能算准的前提。</div>
+        <div class="grid2">
+          <div class="card">
+            <h3>🏭 厂家与账号</h3>
+            <label class="fl">合作厂家</label><input class="inp" value="蒙牛低温奶（常温+冷链）" />
+            <label class="fl">厂家系统余额查询</label>
+            <div class="seg"><button>文员手动填</button><button class="on">暂无 API·模板辅助</button></div>
+            <label class="fl">微信推送群</label><input class="inp" value="张总经营群（已连接）" />
+          </div>
+          <div class="card">
+            <h3>📋 规则库</h3>
+            <div class="chip-row"><span class="chip on">厂家总指标</span><span class="chip on">单品指标</span><span class="chip on">返利条款</span><span class="chip on">工资提成规则</span><span class="chip on">损耗/退换货口径</span><span class="chip">账期规则</span></div>
+            <div class="muted" style="margin-top:12px;line-height:1.6;">这些规则由你（一线经销商）定义，固化进引擎后 AI 才能给出确定、可复现的结果。建议逐项补全，尤其是<b>返利条款</b>与<b>损耗口径</b>。</div>
+            <button class="btn ghost" style="margin-top:12px;">+ 新增规则</button>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <h3>🔌 数据来源</h3>
+          <div class="muted" style="line-height:1.7;">• <b>预报订单</b>：业务员企微智能表填报（已接入）<br>• <b>销量 / 库存</b>：舟谱导出 Excel 喂入（最务实路径）或 Hergent 录入<br>• <b>银行流水</b>：网银导出 CSV 导入<br>• <b>厂家系统 / 舟谱</b>：无开放 API，Hergent 生成<b>格式精确的粘贴/导入模板</b>，由文员执行，不承诺自动直连。</div>
+        </div>
+      </section>
+
+      <!-- ===== AI 对话 ===== -->
+      <section class="page" id="chat">
+        <div class="hint">💬 Hermes 对话工作台。所有需要 AI 的交互都从这里发起：问经营问题、解释报表、跑工具、调起审核。支持语音与微信接力。</div>
+        <div class="grid2" style="align-items:start;">
+          <div class="chat" style="height:560px;">
+            <div class="hd"><span class="dot"></span><div><div class="t">Hermes · AI 对话</div><div class="s">已连接 · 模型 DeepSeek / Qwen / Kimi 可切换</div></div></div>
+            <div class="body">
+              <div class="msg.ai">张总你好，今天帮你盯了三件事：临期预警、回款缺口、还有一张厂家订单待审。你想先从哪件聊起？
+                <div class="qk"><span>分析本月毛利</span><span>跑一下货损预警</span><span>生成今日报单建议</span><span>7 月工资算了吗</span></div>
+              </div>
+              <div class="msg.me">把临期那几箱的处理建议发我微信</div>
+              <div class="msg.ai">已推送到「张总经营群」📲：纯牛奶 250ml 有 6 箱明日到期，建议门店特价清货，预估止损 ¥312。需要我顺手生成调拨单吗？</div>
+            </div>
+            <div class="ft"><input class="inp" placeholder="输入问题，或点麦克风语音…" /><div class="mic">🎙️</div><button class="btn">发送</button></div>
+          </div>
+          <div>
+            <div class="card" style="margin-bottom:16px;">
+              <h3>⚡ 常用指令</h3>
+              <div class="row" style="flex-direction:column;gap:10px;">
+                <div style="display:flex;gap:10px;align-items:center;"><span class="pill b">经营</span><div style="flex:1;font-size:13px;">本月盈亏 / 毛利率 / 与上月对比</div></div>
+                <div style="display:flex;gap:10px;align-items:center;"><span class="pill b">预警</span><div style="flex:1;font-size:13px;">临期 SKU / 货损日报 / 回款缺口</div></div>
+                <div style="display:flex;gap:10px;align-items:center;"><span class="pill b">工具</span><div style="flex:1;font-size:13px;">算货损 / 算工资 / 对账 / 返利测算</div></div>
+                <div style="display:flex;gap:10px;align-items:center;"><span class="pill b">报单</span><div style="flex:1;font-size:13px;">生成智能审核建议订单</div></div>
+              </div>
+            </div>
+            <div class="card">
+              <h3>🔗 当前连接</h3>
+              <div class="muted" style="line-height:1.8;">微信推送：<b style="color:var(--green)">已连接</b><br>钉钉 / 飞书：未连接<br>模型：DeepSeek（可切 Qwen / Kimi）<br>MCP 连接器：2 个已启用</div>
+              <button class="btn ghost" style="margin-top:12px;width:100%;">前往连接器设置 →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 连接器 ===== -->
+      <section class="page" id="connectors">
+        <div class="hint">🔌 Hermes 自带两大连接能力：<b>多平台网关</b>（连手机 / 微信 / 钉钉 / 飞书，让 AI 直接进群服务你）与 <b>MCP</b>（把外部系统 / 工具变成 AI 可调用的标准能力）。</div>
+        <div class="nav-group" style="padding-left:0;">多平台网关 · 连接手机</div>
+        <div class="row" style="margin-bottom:20px;">
+          <div class="card" style="flex:1;min-width:220px;">
+            <h3>💬 微信 <span class="pill g">已连接</span></h3>
+            <div class="sub">张总经营群 · 接收每日盈亏 / 临期推送</div>
+            <div class="row" style="margin-top:14px;"><button class="btn ghost" style="flex:1;">断开</button><button class="btn" style="flex:1;">管理群</button></div>
+          </div>
+          <div class="card" style="flex:1;min-width:220px;">
+            <h3>📱 钉钉 <span class="pill o">未连接</span></h3>
+            <div class="sub">适合有钉钉的团队接收 AI 提醒</div>
+            <div class="row" style="margin-top:14px;"><button class="btn" style="flex:1;">去连接</button></div>
+          </div>
+          <div class="card" style="flex:1;min-width:220px;">
+            <h3>🟢 飞书 <span class="pill o">未连接</span></h3>
+            <div class="sub">适合用飞书文档 / 多维表的团队</div>
+            <div class="row" style="margin-top:14px;"><button class="btn" style="flex:1;">去连接</button></div>
+          </div>
+        </div>
+        <div class="nav-group" style="padding-left:0;">MCP 连接器</div>
+        <div class="card">
+          <div class="row" style="flex-direction:column;gap:12px;">
+            <div style="display:flex;gap:12px;align-items:center;"><span class="pill g">已启用</span><div style="flex:1;"><b>企业微信智能表格</b><div class="sub">预报订单填报入口</div></div><button class="btn ghost">配置</button></div>
+            <div style="display:flex;gap:12px;align-items:center;"><span class="pill g">已启用</span><div style="flex:1;"><b>网银流水（CSV）</b><div class="sub">对账数据源</div></div><button class="btn ghost">配置</button></div>
+            <div style="display:flex;gap:12px;align-items:center;"><span class="pill o">未连接</span><div style="flex:1;"><b>舟谱导出（Excel）</b><div class="sub">销量 / 库存喂入（计划）</div></div><button class="btn">连接</button></div>
+          </div>
+          <div class="divider"></div>
+          <button class="btn">+ 添加 MCP 连接器</button>
+          <div class="muted" style="margin-top:10px;line-height:1.6;">MCP 是开放协议，任何暴露 API / CLI / 数据库的系统都能接成 AI 可调用能力。你不需要是那个系统的开发者——按官方 SDK 写个适配层即可（见前面讨论的舟谱连接器思路）。</div>
+        </div>
+      </section>
+
+      <!-- ===== 定时任务 ===== -->
+      <section class="page" id="cron">
+        <div class="hint">⏰ Hermes 自带 Cron 调度。把「每天盯盘、到点推送」交给 AI 自动跑，不用你记得。新增任务可触发任意工具或推送到微信。</div>
+        <div class="row" style="margin-bottom:16px;">
+          <div class="kpi"><div class="lab">已启用任务</div><div class="val">4</div></div>
+          <div class="kpi"><div class="lab">今日已执行</div><div class="val up">2</div></div>
+          <div class="kpi"><div class="lab">下次触发</div><div class="val">08:00</div><div class="delta">每日盈亏推送</div></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <h3>📋 任务列表</h3>
+          <table><thead><tr><th>任务</th><th>频率</th><th>时间</th><th>动作</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td>每日盈亏推送</td><td>每天</td><td>08:00</td><td>推微信 · 经营群</td><td><span class="pill g">启用</span></td></tr>
+              <tr><td>临期预警</td><td>每天</td><td>17:00</td><td>推微信 + 生成清单</td><td><span class="pill g">启用</span></td></tr>
+              <tr><td>月度工资测算</td><td>每月 1 日</td><td>09:00</td><td>运行算工资</td><td><span class="pill g">启用</span></td></tr>
+              <tr><td>返利档冲刺提醒</td><td>每月 25 日</td><td>10:00</td><td>推微信 · 审核建议</td><td><span class="pill g">启用</span></td></tr>
+              <tr><td>库存周报</td><td>每周一</td><td>20:00</td><td>生成报表</td><td><span class="pill o">已暂停</span></td></tr>
+            </tbody></table>
+        </div>
+        <div class="card" style="border-color:var(--p);box-shadow:0 4px 20px rgba(6,182,212,.1);">
+          <h3>➕ 新建定时任务</h3>
+          <div class="grid2">
+            <div><label class="fl">任务名称</label><input class="inp" placeholder="如：每周客户回款汇总" />
+              <label class="fl">触发频率</label>
+              <div class="seg"><button class="on">每天</button><button>每周</button><button>每月</button><button>自定义</button></div>
+            </div>
+            <div><label class="fl">执行时间</label><input class="inp" value="08:30" />
+              <label class="fl">执行动作</label>
+              <div class="chip-row"><span class="chip on">推微信</span><span class="chip">运行工具</span><span class="chip">生成报表</span><span class="chip">发邮件</span></div>
+            </div>
+          </div>
+          <div class="row" style="margin-top:14px;"><button class="btn">创建任务</button><button class="btn ghost">保存到草稿</button></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const items = document.querySelectorAll('.nav-item');
+  const pages = document.querySelectorAll('.page');
+  const title = document.getElementById('ptitle');
+  const titles = {dashboard:'经营工作台',review:'智能审核大脑',forecast:'预报订单',loss:'算货损',
+                  payroll:'算工资',recon:'对账',kpi:'指标达成',rebate:'返利测算',
+                  chat:'AI 对话',connectors:'连接器',cron:'定时任务',settings:'厂家与规则设置'};
+  items.forEach(it=>{
+    it.addEventListener('click',()=>{
+      items.forEach(x=>x.classList.remove('active'));
+      pages.forEach(p=>p.classList.remove('active'));
+      it.classList.add('active');
+      const p = it.dataset.page;
+      document.getElementById(p).classList.add('active');
+      title.textContent = titles[p];
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+  });
+  // 段控件
+  document.querySelectorAll('.seg').forEach(seg=>{
+    seg.addEventListener('click',e=>{
+      if(e.target.tagName==='BUTTON'){seg.querySelectorAll('button').forEach(b=>b.classList.remove('on'));e.target.classList.add('on');}
+    });
+  });
+</script>
+</body>
+</html>

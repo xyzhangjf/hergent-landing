@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "projectId": "de3cbbdf-c622-496c-8c9a-08caac84a3d3",
+  "lineageId": "de3cbbdf-c622-496c-8c9a-08caac84a3d3",
+  "semanticName": "forecast-order-miniprogram",
+  "createdAt": "2026-08-12T02:34:19.087Z",
+  "updatedAt": "2026-08-12T02:34:19.087Z",
+  "entryFile": null,
+  "status": "workspace_ready",
+  "operationId": "forecast-order-miniprogram-20260812-1"
+}

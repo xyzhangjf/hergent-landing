@@ -1,0 +1,93 @@
+[
+  {
+    "id": "qqmail",
+    "name": "QQ邮箱",
+    "desc": "AI 自动发邮件、读邮件",
+    "icon": "qqmail",
+    "recommend": false,
+    "scopes": ["mail.send", "mail.read"],
+    "tools": ["send_email", "list_emails", "read_email", "search_emails"],
+    "auth_fields": [
+      {
+        "id": "imap_host",
+        "label": "IMAP 服务器",
+        "type": "text",
+        "placeholder": "imap.qq.com",
+        "required": false,
+        "hint": "默认 smtp.qq.com（SSL 465）。一般无需修改。"
+      },
+      {
+        "id": "email",
+        "label": "邮箱账号",
+        "type": "text",
+        "placeholder": "xxx@qq.com",
+        "required": true
+      },
+      {
+        "id": "auth_code",
+        "label": "授权码",
+        "type": "password",
+        "placeholder": "邮箱授权码（非登录密码）",
+        "required": true,
+        "hint": "QQ邮箱 → 设置 → 账户 → 开启 IMAP/SMTP，生成授权码"
+      }
+    ]
+  },
+  {
+    "id": "wecom",
+    "name": "企业微信",
+    "desc": "AI 自动推送消息到同事 / 客户",
+    "icon": "wecom",
+    "recommend": false,
+    "scopes": ["message.send", "contact.read"],
+    "tools": ["send_message", "send_group_message", "get_contacts", "create_webhook_robot"],
+    "auth_fields": [
+      {
+        "id": "corpid",
+        "label": "企业 ID",
+        "type": "text",
+        "placeholder": "ww...",
+        "required": true
+      },
+      {
+        "id": "agentid",
+        "label": "应用 AgentId",
+        "type": "text",
+        "placeholder": "1000002",
+        "required": true
+      },
+      {
+        "id": "secret",
+        "label": "应用 Secret",
+        "type": "password",
+        "placeholder": "应用 Secret",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "feishu",
+    "name": "飞书",
+    "desc": "AI 自动发消息、建文档",
+    "icon": "feishu",
+    "recommend": true,
+    "scopes": ["message.send", "doc.create", "calendar.read"],
+    "tools": ["send_message", "upload_file", "create_doc", "get_events"],
+    "auth_fields": [
+      {
+        "id": "app_id",
+        "label": "App ID",
+        "type": "text",
+        "placeholder": "cli_...",
+        "required": true
+      },
+      {
+        "id": "app_secret",
+        "label": "App Secret",
+        "type": "password",
+        "placeholder": "App Secret",
+        "required": true
+      }
+    ]
+  }
+]

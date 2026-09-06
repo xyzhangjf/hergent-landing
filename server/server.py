@@ -20,6 +20,7 @@ from datetime import datetime
 from contextlib import contextmanager
 
 import httpx
+import re
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 import uvicorn
@@ -73,6 +74,15 @@ except ImportError as _e:
     print(f"[ALIPAY] ImportError: {_e}")
     traceback.print_exc()
     ALIPAY_ENABLED = False
+
+# ============================================================
+# 运行环境判定 —— 决定是否开放"开发期免单充值"后门
+# 生产环境（默认）一律禁用；仅显式设置 HERGENT_ENV=development 时开放
+# ============================================================
+HERGENT_ENV = os.environ.get("HERGENT_ENV", "production").strip().lower()
+DEV_MODE_ALLOWED = (HERGENT_ENV == "development")
+if not DEV_MODE_ALLOWED:
+    print("[SECURITY] dev-pay（免单充值）在生产环境已禁用。")
 
 # 充值档位: {金额(元): 积分}
 RECHARGE_TIERS = {
@@ -339,6 +349,102 @@ async def call_hermes_chat(user_message: str, system_prompt: str = "") -> str:
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="Hermes CLI 未安装")
 
+# ---- 提示词增强（Prompt Enhancement）----
+# 不扣积分：属于发送前的预处理，提升用户提示词质量。
+ENHANCE_ROLE_TONE = {
+    "accountant": "你是一名资深低温奶经销商会计，关注成本、毛利、税费与现金流。",
+    "order_clerk": "你是一名低温奶订单文员，关注客户、商品、专属价、批次与交付时效。",
+    "ops_manager": "你是一名运营主管，关注库存周转、临期损耗、动销与促销效果。",
+    "secretary": "你是一名大秘（总经理助理），关注经营全局、待办与跨模块协调。",
+}
+ENHANCE_SYSTEM = (
+    "你是提示词优化引擎。用户会给出一条原始提示词。"
+    "请在不改变用户真实意图的前提下，将其扩写为结构清晰、具体、可执行的增强版提示词。"
+    "必须严格只输出一个 JSON 对象，格式："
+    '{"enhanced":"增强后的完整提示词文本",'
+    '"sections":{"goal":"目标","context":"补充的上下文","constraints":"约束条件",'
+    '"output_format":"输出格式要求","steps":"执行步骤（可选）"},'
+    '"intent_preserved":true}'
+    "不要输出任何 JSON 以外的文字，不要使用 markdown 代码块。"
+)
+
+def _extract_json(text):
+    if not text:
+        return None
+    t = text.strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```[a-zA-Z]*\n?", "", t)
+        t = re.sub(r"\n?```$", "", t)
+    try:
+        return json.loads(t)
+    except Exception:
+        pass
+    s = t.find("{"); e = t.rfind("}")
+    if s != -1 and e != -1 and e > s:
+        try:
+            return json.loads(t[s:e + 1])
+        except Exception:
+            return None
+    return None
+
+def _template_enhance(raw, role_id):
+    tone = ENHANCE_ROLE_TONE.get(role_id, "你是一名低温奶经销商的 AI 数字员工。")
+    enhanced = (
+        f"【目标】{raw}\n"
+        f"【上下文】基于当前经销商经营数据（订单/客户/商品/专属价/库存/效期），"
+        f"结合低温奶行业特点（短保、临期折扣、按客户专属定价、批次效期管理）。\n"
+        f"【约束】结论需可执行；涉及金额保留两位小数；不确定处明确标注。\n"
+        f"【输出格式】先给一句话结论，再用要点或表格展开；如有多选项给出推荐项。\n"
+        f"【角色口吻】{tone}"
+    )
+    return {
+        "enhanced": enhanced,
+        "sections": {
+            "goal": raw,
+            "context": "当前经销商经营数据 + 低温奶短保/专属价/批次效期行业背景",
+            "constraints": "结论可执行；金额 2 位小数；不确定处标注",
+            "output_format": "一句话结论 + 要点/表格展开",
+            "steps": "",
+        },
+        "intent_preserved": True,
+    }
+
+@app.post("/api/prompt/enhance")
+async def prompt_enhance(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    raw = (data.get("raw_prompt") or "").strip()
+    role_id = (data.get("role_id") or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="raw_prompt 不能为空")
+    system = ENHANCE_SYSTEM
+    if role_id in ENHANCE_ROLE_TONE:
+        system += "\n用户角色背景：" + ENHANCE_ROLE_TONE[role_id]
+    try:
+        out = await call_hermes_chat(raw, system)
+        parsed = _extract_json(out)
+        if parsed and "enhanced" in parsed:
+            return {
+                "original": raw,
+                "enhanced": parsed.get("enhanced", raw),
+                "sections": parsed.get("sections", {}) or {},
+                "intent_preserved": parsed.get("intent_preserved", True),
+                "source": "llm",
+            }
+    except Exception:
+        pass
+    tpl = _template_enhance(raw, role_id)
+    return {
+        "original": raw,
+        "enhanced": tpl["enhanced"],
+        "sections": tpl["sections"],
+        "intent_preserved": True,
+        "source": "template",
+    }
+
+
 @app.on_event("startup")
 async def startup():
     init_db()
@@ -602,9 +708,10 @@ async def get_payment_url(amount: int = 10, device_id: str = ""):
         except Exception as e:
             print(f"[ALIPAY] API异常: {e}")
 
-    return {"success": True,
-            "pay_url": f"https://api.hergent.cn/api/payment/dev-pay?order_id={order_id}&device_id={device_id}&amount={amount}",
-            "order_id": order_id, "amount_yuan": amount, "credits": credits, "dev_mode": True}
+    # 支付宝未配置：不再回退到"免单充值"链接（安全后门），明确告知用户
+    return {"success": False,
+            "error": "支付网关尚未启用，暂不支持在线充值，请联系管理员开通",
+            "dev_mode": False}
 
 
 # ---- 支付宝异步通知 ----
@@ -664,6 +771,9 @@ async def alipay_notify(request: Request):
 # ---- DEV 模式一键充值 ----
 @app.post("/api/payment/dev-pay")
 async def dev_pay(request: Request):
+    # 🔒 安全：免单后门仅开发环境可用，生产环境一律拒绝凭空加积分
+    if not DEV_MODE_ALLOWED:
+        raise HTTPException(403, "dev-pay 已禁用")
     body = await request.json() if await request.body() else {}
     order_id = body.get("order_id") or request.query_params.get("order_id", "")
     device_id = body.get("device_id") or request.query_params.get("device_id", "")
@@ -1179,6 +1289,15 @@ async def auth_logout(request: Request):
 # ============================================================
 # 启动
 # ============================================================
+# ---- MCP 连接器后端（动态注册 / 直连接口，见 server/connectors/） ----
+try:
+    from connectors.api import register_connector_routes
+    register_connector_routes(app)
+    print("✅ MCP 连接器路由已挂载 (/api/connectors)")
+except Exception as _ce:
+    print(f"⚠️  MCP 连接器路由挂载失败: {_ce}")
+
+
 if __name__ == "__main__":
     import sys, os
     host = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HERMES_HOST", "0.0.0.0")

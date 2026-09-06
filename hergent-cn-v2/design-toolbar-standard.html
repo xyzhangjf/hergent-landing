@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hergent 工具栏统一组件标准 · 参考实现</title>
+<style>
+/* ============================================================
+   设计令牌（与 src/styles/variables.css 逐字对齐，保证同源）
+   ============================================================ */
+:root{
+  --p:#06b6d4; --p-dark:#0891b2; --p-deep:#0e7490; --p-rgb:8,145,178;
+  --p-bg:rgba(6,182,212,.06);
+  --suc:#34c759; --suc-rgb:52,199,89;
+  --dan:#ff3b30; --dan-rgb:255,59,48; --dan-bg:rgba(255,59,48,.10);
+  --war:#ff9f0a; --war-rgb:255,159,10;
+  --bg:#ffffff; --bg2:#f5f5f7; --bg3:#fafafa; --bg4:#f0f0f2;
+  --t1:#1d1d1f; --t2:#6e6e73; --t3:#a1a1a6;
+  --bd:#e5e5ea; --border-subtle:#ececee;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.04),0 1px 6px rgba(0,0,0,.04);
+  --shadow-md:0 4px 16px rgba(0,0,0,.06),0 2px 6px rgba(0,0,0,.04);
+  --shadow-lg:0 12px 40px rgba(0,0,0,.10);
+  --radius-sm:8px; --radius-md:12px; --radius-lg:16px;
+  --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro SC","PingFang SC","Helvetica Neue",Arial,sans-serif;
+}
+:root.dark{
+  --p:#22d3ee; --p-dark:#06b6d4; --p-deep:#0891b2;
+  --p-bg:rgba(6,182,212,.10);
+  --suc:#30d158; --dan:#ff453a; --war:#ff9f0a;
+  --bg:#1c1c1e; --bg2:#2c2c2e; --bg3:#3a3a3c; --bg4:#444446;
+  --t1:#f5f5f7; --t2:#aeaeb2; --t3:#8e8e93;
+  --bd:#3a3a3c; --border-subtle:#333336;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --shadow-md:0 4px 16px rgba(0,0,0,.4);
+  --shadow-lg:0 12px 40px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:14px;line-height:1.6;color:var(--t1);background:var(--bg);-webkit-font-smoothing:antialiased;padding:32px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:20px;font-weight:600;margin-bottom:4px}
+h2{font-size:15px;font-weight:600;margin:32px 0 12px;padding-left:10px;border-left:3px solid var(--p)}
+p.lead{color:var(--t2);font-size:13px;margin-bottom:8px}
+.note{font-size:12px;color:var(--t3);margin:6px 0 0}
+.card{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:18px;margin-bottom:18px}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+
+/* ============================================================
+   1. 工具栏容器 & 分组（统一标准）
+   ============================================================ */
+.tb{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding:12px 16px;flex-wrap:wrap;
+}
+.tb-group{display:inline-flex;align-items:center;gap:8px}
+.tb-sep{width:1px;height:20px;background:var(--bd);flex:0 0 auto}
+
+/* ============================================================
+   2. 按钮变体（统一尺寸/圆角/过渡）
+   ============================================================ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:36px;padding:0 14px;border:none;border-radius:var(--radius-sm);
+  font-size:13px;font-weight:500;line-height:1;cursor:pointer;
+  transition:background .15s ease,color .15s ease,border-color .15s ease,opacity .15s ease;
+}
+.btn svg{width:16px;height:16px;display:block}
+.btn-sm{height:32px;padding:0 12px;font-size:13px;border-radius:var(--radius-sm)}
+.btn:disabled{opacity:.4;cursor:default}
+/* 主操作：唯一 CTA，实心品牌青 */
+.btn-primary{background:var(--p-dark);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--p-deep)}
+/* 次要/常规：幽灵描边 */
+.btn-ghost{background:transparent;color:var(--t1);border:1px solid var(--bd)}
+.btn-ghost:hover:not(:disabled){background:var(--bg2)}
+/* 危险：仅删除类，克制红字+浅红底 */
+.btn-danger{background:transparent;color:var(--dan);border:1px solid transparent}
+.btn-danger:hover:not(:disabled){background:var(--dan-bg)}
+/* 图标按钮：纯图标，无边框，与 AI 副驾 .cp-icon-btn 对齐 */
+.btn-icon{
+  width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+  border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;
+  transition:background .15s ease,color .15s ease;
+}
+.btn-icon svg{width:16px;height:16px}
+.btn-icon:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
+.btn-icon:disabled{opacity:.35;cursor:default}
+/* 中性 chips（视图切换/分组） */
+.chip{
+  display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
+  border:1px solid transparent;border-radius:var(--radius-sm);
+  background:var(--bg2);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;
+}
+.chip svg{width:16px;height:16px}
+.chip:hover{border-color:var(--p)}
+.chip.on{background:var(--p);color:#fff;border-color:var(--p)}
+
+/* 输入框（筛选/下拉）统一 8px 圆角 */
+.fld{
+  height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);
+  background:var(--bg);color:var(--t1);font-size:13px;font-family:inherit;
+}
+.fld:focus{outline:none;border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
+
+/* 辅助文字 */
+.hint{font-size:12px;font-weight:400;color:var(--t3)}
+
+/* ============================================================
+   3. 图标库（统一线性风格 16px，stroke=currentColor）
+   ============================================================ */
+.ico{width:16px;height:16px;display:inline-block;flex:0 0 auto;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.gitem{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);font-size:11px;color:var(--t2)}
+.gitem svg{width:20px;height:20px;stroke:var(--p-dark);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* 字体层级样本 */
+.type-t1{font-size:14px;font-weight:600;color:var(--t1)}
+.type-t2{font-size:13px;font-weight:500;color:var(--t1)}
+.type-t3{font-size:12px;font-weight:400;color:var(--t2)}
+
+/* Do / Don't */
+.dodont{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.dodont .col{padding:14px;border-radius:var(--radius-sm)}
+.do{border:1px solid var(--suc);background:rgba(52,199,89,.06)}
+.dont{border:1px solid var(--dan);background:rgba(255,59,48,.06)}
+.dodont h3{font-size:13px;font-weight:600;margin-bottom:10px}
+.do h3{color:var(--suc)} .dont h3{color:var(--dan)}
+.dodont ul{list-style:none;font-size:12px;color:var(--t2)}
+.dodont li{margin:6px 0;padding-left:18px;position:relative}
+.do li::before{content:"✓";position:absolute;left:0;color:var(--suc);font-weight:600}
+.dont li::before{content:"✕";position:absolute;left:0;color:var(--dan);font-weight:600}
+.theme-toggle{position:fixed;top:14px;right:14px}
+</style>
+</head>
+<body>
+<button class="btn btn-ghost btn-sm theme-toggle" onclick="document.documentElement.classList.toggle('dark')">切换深色</button>
+<div class="wrap">
+  <h1>Hergent 工具栏统一组件标准</h1>
+  <p class="lead">面向「预报订货管理」等所有列表/表体工具栏。对齐 variables.css 设计令牌、AI 副驾 .cp-icon-btn 与苹果风视觉。下列即为可直接复用的参考实现。</p>
+
+  <!-- 标杆示例 -->
+  <h2>① 标杆工具栏（推荐形态）</h2>
+  <div class="card">
+    <div class="tb">
+      <div class="tb-group">
+        <input class="fld" placeholder="筛选商品名…" style="width:150px">
+        <div class="tb-sep"></div>
+        <button class="chip on"><svg class="ico" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>交叉表</button>
+        <button class="chip"><svg class="ico" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>列表</button>
+      </div>
+      <div class="tb-group">
+        <button class="btn btn-ghost"><svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 5v12"/></svg>导入 Excel</button>
+        <button class="btn btn-ghost"><svg class="ico" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M7 10l5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>导出</button>
+        <button class="btn btn-ghost"><svg class="ico" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>刷新</button>
+        <div class="tb-sep"></div>
+        <button class="btn btn-icon" title="列设置"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></button>
+        <button class="btn btn-icon" title="全屏"><svg class="ico" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+        <div class="tb-sep"></div>
+        <button class="btn btn-primary"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg>AI 审核本周期</button>
+      </div>
+    </div>
+    <p class="note">左组：筛选 + 视图切换 chip；右组：常规动作（幽灵）→ 图标按钮（列设置/全屏）→ 唯一主 CTA（实心青）。组间用 .tb-sep 分隔，组内间距 8px。</p>
+  </div>
+
+  <!-- 按钮变体 -->
+  <h2>② 按钮变体 & 间距</h2>
+  <div class="card">
+    <div class="row">
+      <button class="btn btn-primary">主操作 Primary</button>
+      <button class="btn btn-ghost">次要 Ghost</button>
+      <button class="btn btn-ghost" disabled>禁用态</button>
+      <button class="btn btn-danger">删除 Danger</button>
+      <button class="btn btn-icon" title="全屏"><svg class="ico" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+      <button class="chip on">视图 On</button>
+      <button class="chip">视图 Off</button>
+    </div>
+    <p class="note">高度：默认 36px / 紧凑 .btn-sm 32px / 图标按钮 30px。圆角统一 --radius-sm(8px)。过渡 .15s。禁用态 opacity:.4。</p>
+  </div>
+
+  <!-- 图标库 -->
+  <h2>③ 统一线性图标库（16px · stroke=currentColor）</h2>
+  <div class="card">
+    <div class="gallery">
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>edit 编辑</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>refresh 刷新</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M9 9h10v10H9z"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy 复制</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>download 导出</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/></svg>import 导入</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M11 5h10"/><path d="M11 9h7"/><path d="M11 13h4"/><path d="M3 17l3 3 3-3"/><path d="M6 4v16"/></svg>sort 排序</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>fullscreen 全屏</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>settings 列设置</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>plus 新增</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>undo 撤销</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg>redo 重做</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>close 关闭</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg>audit 审核</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M2 5h20v14H2z"/><path d="M2 10h20"/></svg>payment 付款</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>template 模板</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>wizard 向导</div>
+      <div class="gitem"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>search 筛选</div>
+    </div>
+    <p class="note">全部采用线性图标（Lucide 风格），统一 16px、stroke-width 2、圆角端点、fill=none、颜色=currentColor。禁止 emoji（✏️ ⧉ ⬇ ↶ ↷）混入功能按钮。</p>
+  </div>
+
+  <!-- 字体层级 -->
+  <h2>④ 字体 / 字号 / 字重层级</h2>
+  <div class="card">
+    <div class="row" style="align-items:flex-start;gap:24px">
+      <div><div class="type-t1">T1 区块标题 14px / 600</div><div class="type-t2" style="margin-top:8px">T2 按钮文字 13px / 500</div><div class="type-t3" style="margin-top:8px">T3 辅助提示 12px / 400</div></div>
+      <div class="hint" style="max-width:420px">字重仅用 400 / 500 / 600 三档（设计体系无 700）。工具栏文字统一 13px/500；提示与占位 12px/400；区块标题 14px/600。数字一律 <code style="font-variant-numeric:tabular-nums">tabular-nums</code> 对齐。</div>
+    </div>
+  </div>
+
+  <!-- Do / Don't -->
+  <h2>⑤ 对照：统一前 vs 统一后</h2>
+  <div class="dodont">
+    <div class="col do">
+      <h3>统一后（标准）</h3>
+      <ul>
+        <li>主 CTA 唯一、实心品牌青；其余幽灵描边</li>
+        <li>图标全线性 16px、currentColor、同源图标库</li>
+        <li>图标按钮 30×30、圆角 8、hover 浅底</li>
+        <li>组内间距 8px、组间 12px / .tb-sep</li>
+        <li>圆角统一 8px；颜色全部走 CSS 变量</li>
+        <li>字号 13/12 两档，字重 400/500/600</li>
+      </ul>
+    </div>
+    <div class="col dont">
+      <h3>统一前（问题）</h3>
+      <ul>
+        <li>.btn-sm 未定义 → 高度/字号漂移</li>
+        <li>emoji（✏️⧉⬇）与 SVG 混用，风格割裂</li>
+        <li>.btn-copy 等各自彩色边框，背景杂乱</li>
+        <li>间距 8/10/12 混用，.tb-toolbar/.edit-ops 不一致</li>
+        <li>圆角 6/8/12 混用，硬编码阴影</li>
+        <li>字号 11/12/13/14，字重无层级</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:24px">应用建议：将本页 .tb / .btn-* / .chip / .fld / .ico 与图标库沉淀为全局组件（如 Toolbar.vue + Icon.vue），预报模块三处工具栏（顶部 .toolbar、交叉 .tb-toolbar、编辑 .edit-ops）直接复用，即可一次性消除现有错乱。</p>
+</div>
+</body>
+</html>

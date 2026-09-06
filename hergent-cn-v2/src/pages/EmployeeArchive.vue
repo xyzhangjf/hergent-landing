@@ -65,7 +65,7 @@
       <Transition name="fade"><div v-if="storeOpen" class="df-overlay" @click="storeOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="storeOpen" class="df-modal">
-          <div class="df-modal-hd"><b>分配门店 · {{ storeEmp?.name }}</b><button class="df-x" @click="storeOpen = false">✕</button></div>
+          <div class="df-modal-hd"><b>分配门店 · {{ storeEmp?.name }}</b><button class="df-x" @click="storeOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
             <p class="df-tip">员工登录后只能看到并填报这些门店。</p>
             <div class="df-store-list">
@@ -113,7 +113,7 @@
       <Transition name="fade"><div v-if="editOpen" class="df-overlay" @click="editOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="editOpen" class="df-modal edit-modal">
-          <div class="df-modal-hd"><b>{{ isCreate ? '新建员工' : ('编辑员工 · ' + (editTarget?.name || '')) }}</b><button class="df-x" @click="editOpen = false">✕</button></div>
+          <div class="df-modal-hd"><b>{{ isCreate ? '新建员工' : ('编辑员工 · ' + (editTarget?.name || '')) }}</b><button class="df-x" @click="editOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body df-edit-body">
 
             <!-- 基本信息 -->
@@ -192,7 +192,7 @@
       <Transition name="fade"><div v-if="disableOpen" class="df-overlay" @click="disableOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="disableOpen" class="df-modal">
-          <div class="df-modal-hd"><b>停用员工</b><button class="df-x" @click="disableOpen = false">✕</button></div>
+          <div class="df-modal-hd"><b>停用员工</b><button class="df-x" @click="disableOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
             <p class="df-tip warn-text">确认停用「{{ disableTarget?.name }}」？<br>停用后该员工不再计入工资核算，其小程序登录账号也会被禁用（可随时「启用」恢复）。</p>
           </div>
@@ -207,7 +207,7 @@
       <Transition name="fade"><div v-if="transferOpen" class="df-overlay" @click="transferOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="transferOpen" class="df-modal">
-          <div class="df-modal-hd"><b>交接报单配置</b><button class="df-x" @click="transferOpen = false">✕</button></div>
+          <div class="df-modal-hd"><b>交接报单配置</b><button class="df-x" @click="transferOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
             <p class="df-tip warn-text">
               「{{ transferEmp?.name }}」名下还有 <b>{{ transferCount }}</b> 个报单配置（门店 / 客户）。<br>
@@ -238,7 +238,7 @@
       <Transition name="fade"><div v-if="remindOpen" class="df-overlay" @click="remindOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="remindOpen" class="df-modal">
-          <div class="df-modal-hd"><b>尚未连接 ERP</b><button class="df-x" @click="remindOpen = false">✕</button></div>
+          <div class="df-modal-hd"><b>尚未连接 ERP</b><button class="df-x" @click="remindOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
             <p class="df-tip">「同步」需要先把你的 ERP（畅捷通 / 金蝶）接入 Hergent。</p>
             <p class="df-tip">请前往 <b>能力中心</b> 完成授权连接后，再来点「同步」。</p>
@@ -254,6 +254,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/client'

@@ -166,12 +166,12 @@
           <button class="btn btn-primary" :disabled="!result.results?.length" @click="confirmMonth">确认本月工资（写入台账）</button>
         </div>
       </div>
-      <div v-if="confirmed" class="pr-confirm-ok">✅ {{ confirmed }} 人已确认，已生成工资台账与银行文件数据</div>
+      <div v-if="confirmed" class="pr-confirm-ok"><Icon name="check"/> {{ confirmed }} 人已确认，已生成工资台账与银行文件数据</div>
 
       <!-- AI 留痕记录 -->
       <div class="card pr-panel" style="margin-top:14px">
         <button class="pr-adv-toggle" @click="showAdvice = !showAdvice">
-          <span>🧾 AI 留痕记录</span>
+          <span><Icon name="receipt"/> AI 留痕记录</span>
           <span class="tag" :class="advicePending ? 'warn' : 'info'">{{ advicePending ? advicePending + ' 待确认' : '查看历史' }}</span>
         </button>
         <div v-if="showAdvice" style="margin-top:14px">
@@ -183,6 +183,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../store'
@@ -312,7 +313,7 @@ onMounted(async () => {
 .pr-arrow{color:var(--t3);font-size:12px}
 .pr-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--t1);padding:0}
 
-.pr-panel{padding:20px}
+.pr-panel{}
 .pr-tip{font-size:12.5px;color:var(--t2);margin:4px 0 16px;line-height:1.6}
 .pr-form{display:flex;flex-direction:column;gap:18px}
 .pr-field{display:flex;flex-direction:column;gap:8px}

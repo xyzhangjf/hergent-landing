@@ -85,7 +85,7 @@
           </div>
         </div>
       </div>
-      <div v-else class="state-empty">待审队列为空 ✓</div>
+      <div v-else class="state-empty">待审队列为空</div>
     </div>
 
     <!-- 新建/编辑品牌弹窗 -->
@@ -93,7 +93,7 @@
       <Transition name="fade"><div v-if="formOpen" class="ba-overlay" @click="formOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="formOpen" class="ba-modal">
-          <div class="ba-modal-hd"><b>{{ formMode === 'create' ? '新建品牌' : ('编辑品牌 · ' + editTarget?.name) }}</b><button class="ba-x" @click="formOpen = false">✕</button></div>
+          <div class="ba-modal-hd"><b>{{ formMode === 'create' ? '新建品牌' : ('编辑品牌 · ' + editTarget?.name) }}</b><button class="ba-x" @click="formOpen = false"><Icon name="close"/></button></div>
           <div class="ba-modal-body">
             <label class="ba-field"><span>品牌名称 *</span><input v-model="editForm.name" class="input" placeholder="必填，如 蒙牛 / 伊利"></label>
             <label class="ba-field"><span>厂商</span><input v-model="editForm.manufacturer" class="input"></label>
@@ -116,7 +116,7 @@
       <Transition name="fade"><div v-if="disableOpen" class="ba-overlay" @click="disableOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="disableOpen" class="ba-modal">
-          <div class="ba-modal-hd"><b>停用品牌</b><button class="ba-x" @click="disableOpen = false">✕</button></div>
+          <div class="ba-modal-hd"><b>停用品牌</b><button class="ba-x" @click="disableOpen = false"><Icon name="close"/></button></div>
           <div class="ba-modal-body">
             <p class="ba-tip warn-text">确认停用「{{ disableTarget?.name }}」？<br>停用后该品牌仍保留在历史商品记录里，只是不再作为可选规范品牌。</p>
           </div>
@@ -131,6 +131,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/client'
 import { toast } from '../store'

@@ -1,0 +1,30 @@
+<view class="login-page">
+  <view class="brand">
+    <view class="brand-ic">预</view>
+    <view class="brand-name">Hergent 预报订单</view>
+    <view class="brand-sub">员工预报 · 汇总总表 · 一键订货</view>
+  </view>
+
+  <view class="card">
+    <input class="ipt" placeholder="手机号 / 账号" value="{{username}}" bindinput="onUsername" />
+    <input class="ipt" placeholder="密码" password value="{{password}}" bindinput="onPassword" />
+    <button class="btn" loading="{{loading}}" disabled="{{loading}}" bindtap="login">登 录</button>
+    <view class="err" wx:if="{{error}}">{{error}}</view>
+  </view>
+
+  <view class="tip">账号由老板在 Hergent 后台开通 · 首次登录请修改密码</view>
+
+  <!-- A3: 隐私同意弹窗（首次启动未同意时覆盖展示） -->
+  <view class="privacy-mask" wx:if="{{showPrivacy}}" catchtap="onDisagreePrivacy">
+    <view class="privacy-box" catchtap="noop">
+      <view class="privacy-title">隐私保护指引</view>
+      <scroll-view class="privacy-body" scroll-y="true">
+        <text>欢迎使用 Hergent 预报订单。我们将收集你的手机号/账号、密码、姓名角色、所属门店、填报的预报商品与数量、报单期次，以及微信 OpenID、设备与崩溃日志。\n\n用途：身份验证、生成与汇总预报订单、按门店/期次/角色聚合展示、保障服务稳定。数据存放于 hergent.cn 服务器（HTTPS 加密、密码加盐哈希），我们不会向任何第三方出售或交换你的个人信息。\n\n你有权查询、更正个人资料，并可要求删除账号与预报记录（联系 privacy@hergent.cn）。\n\n点击「同意并继续」即表示你已阅读并同意上述说明。</text>
+      </scroll-view>
+      <view class="privacy-actions">
+        <button class="p-btn disagree" bindtap="onDisagreePrivacy">暂不同意</button>
+        <button class="p-btn agree" bindtap="onAgreePrivacy">同意并继续</button>
+      </view>
+    </view>
+  </view>
+</view>

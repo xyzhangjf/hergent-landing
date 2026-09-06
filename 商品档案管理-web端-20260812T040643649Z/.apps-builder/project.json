@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "projectId": "adc49fd2-4eb5-4e6c-be8b-bd91147d3429",
+  "lineageId": "adc49fd2-4eb5-4e6c-be8b-bd91147d3429",
+  "semanticName": "商品档案管理-web端",
+  "createdAt": "2026-08-12T04:06:43.649Z",
+  "updatedAt": "2026-08-12T04:06:43.649Z",
+  "entryFile": null,
+  "status": "workspace_ready",
+  "operationId": "web-product-admin-20260812-001"
+}

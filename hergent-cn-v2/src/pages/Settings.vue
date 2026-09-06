@@ -44,7 +44,7 @@
 
       <div class="card">
         <p class="pm-tip">
-          ⚠️ 为防止把自己锁在门外，<b>老板</b> 与 <b>管理员</b> 的「员工管理」「档案管理」为必选、不可取消 —— 本设置页本身依赖这两个模块。
+          <Icon name="alert-triangle"/> 为防止把自己锁在门外，<b>老板</b> 与 <b>管理员</b> 的「员工管理」「档案管理」为必选、不可取消 —— 本设置页本身依赖这两个模块。
         </p>
 
         <div v-if="permLoading" class="state-empty"><div class="skel-line" style="width:40%;margin:0 auto"></div></div>
@@ -114,7 +114,7 @@
           <div v-if="!memUser.length" class="mem-empty">AI 还没记住你的偏好，试着在对话里说「记住：催款要礼貌」。</div>
           <div v-for="(m, i) in memUser" :key="'u' + i" class="mem-item">
             <span class="mem-text">{{ m }}</span>
-            <button class="mem-del" @click="removeMemory('user', i)" title="删除">✕</button>
+            <button class="mem-del" @click="removeMemory('user', i)" title="删除"><Icon name="close"/></button>
           </div>
         </div>
 
@@ -123,7 +123,7 @@
           <div v-if="!memAgent.length" class="mem-empty">AI 还没有自己的笔记，它会随着使用自动沉淀行业规则。</div>
           <div v-for="(m, i) in memAgent" :key="'a' + i" class="mem-item">
             <span class="mem-text">{{ m }}</span>
-            <button class="mem-del" @click="removeMemory('memory', i)" title="删除">✕</button>
+            <button class="mem-del" @click="removeMemory('memory', i)" title="删除"><Icon name="close"/></button>
           </div>
         </div>
 
@@ -190,9 +190,9 @@ async function test() {
     // 走统一 Hermes REST 封装，复用同一套 Key 鉴权（不再裸 fetch）
     const res = await hermesRequest('/hermes/v1/models')
     testOk.value = res.ok
-    testResult.value = res.ok ? '✅ Hermes 连接成功' : `❌ ${res.status}（请检查 Key / 服务）`
+    testResult.value = res.ok ? 'Hermes 连接成功' : `${res.status}（请检查 Key / 服务）`
   } catch (e) {
-    testResult.value = '❌ 无法连接 Hermes API server'
+    testResult.value = '无法连接 Hermes API server'
   }
 }
 
@@ -356,6 +356,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 卡片内距由全局 .card{padding:18px} 兜底（见 variables.css「通用卡片」），
+   本页不再重复定义；下方 .toolbar 的 14px 16px 为工具栏专用紧凑间距，特异性更高、保持覆盖。 */
+
 /* 模块级标签页：与「预报订单管理」module-tabs 保持一致 */
 .module-tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--bd);padding-bottom:2px}
 .module-tabs button{border:none;background:transparent;color:var(--t2);font-size:14px;font-weight:500;padding:8px 14px;border-radius:var(--radius-sm) var(--radius-sm) 0 0;cursor:pointer;position:relative}
@@ -371,13 +374,24 @@ onMounted(() => {
 .tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px}
 .tb-search .fld::placeholder{color:var(--t3)}
 
-/* 通用行 / 描述 */
-.set-row{display:flex;align-items:center;gap:10px;padding:8px 0}
+/* 全局无定义的类，本页补齐（沿用各页面统一口径） */
+.page-sub{font-size:12px;color:var(--t3)}
+.btn-mini{border:1px solid var(--bd);background:none;border-radius:6px;padding:3px 10px;font-size:12px;color:var(--t2);cursor:pointer}
+.btn-mini:hover{border-color:var(--p);color:var(--p-dark)}
+
+/* 通用行 / 描述：允许换行 + 子项可收缩，避免长文本/输入框顶破卡片 */
+.set-row{display:flex;align-items:center;gap:10px;padding:8px 0;flex-wrap:wrap}
+.set-row>.input{flex:1 1 240px;width:auto;min-width:0}
+.set-row>.set-desc{flex:1 1 260px;min-width:0}
 .set-lb{display:inline-block;min-width:88px;font-size:13px;color:var(--t2)}
-.set-desc{font-size:12px;color:var(--t3);margin:0}
+.set-desc{font-size:12px;color:var(--t3);margin:0;line-height:1.7}
 .set-result{font-size:12.5px}
 .set-result.ok{color:var(--suc)}
 .set-result.bad{color:var(--dan)}
+
+/* 卡片头：标题与副标题分列两端，长副标题时允许换行而不是撑破 */
+.panel-hd{gap:10px;flex-wrap:wrap}
+.panel-hd>.page-sub{min-width:0;text-align:right}
 
 /* 权限矩阵 */
 .pm-tip{font-size:12.5px;color:var(--t2);margin:0 0 12px;padding:8px 12px;border-radius:var(--radius-md);background:var(--bg3)}
@@ -400,7 +414,7 @@ onMounted(() => {
 .mem-count{font-size:11.5px;color:var(--t3)}
 .mem-empty{font-size:12px;color:var(--t3);padding:8px 0}
 .mem-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--radius-sm);background:var(--bg2);margin-bottom:6px}
-.mem-text{flex:1;font-size:12.5px;color:var(--t1)}
+.mem-text{flex:1;min-width:0;font-size:12.5px;color:var(--t1);line-height:1.6;word-break:break-word}
 .mem-del{border:none;background:none;color:var(--t3);cursor:pointer;font-size:13px}
 .mem-del:hover{color:var(--dan)}
 .mem-danger{color:var(--dan)}

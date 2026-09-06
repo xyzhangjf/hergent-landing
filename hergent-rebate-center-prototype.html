@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hergent · 厂家返利中心（UI 实现预览）</title>
+<style>
+/* ===== Hergent 设计令牌（浅色，来源 variables.css :root，原样照搬） ===== */
+:root{
+  --p:#1f4e79; --pl:#2563eb; --pd:#16375a; --p-rgb:31,78,121;
+  --suc:#34c759; --dan:#ff3b30; --war:#ff9f0a;
+  --red-rgb:255,59,48; --amber-rgb:255,159,10; --green-rgb:52,199,89;
+  --white:#fff; --black:#000;
+  --bg:#ececf0; --bg2:#ffffff; --bg3:#fbfbfd; --bg4:#ececf0;
+  --t1:rgba(0,0,0,.92); --t2:rgba(0,0,0,.68); --t3:rgba(0,0,0,.55);
+  --bd:rgba(0,0,0,.10); --border-default:rgba(0,0,0,.08); --border-subtle:rgba(0,0,0,.04);
+  --pb:rgba(31,78,121,.10);
+  --surface:#fff; --hover-strong:rgba(0,0,0,.07); --bg-secondary:rgba(0,0,0,.04); --bg-input:rgba(242,242,247,.95);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.08);
+  --shadow-md:0 4px 14px rgba(0,0,0,.10),0 2px 4px rgba(0,0,0,.06);
+  --shadow-lg:0 12px 40px rgba(0,0,0,.25),0 1px 3px rgba(0,0,0,.12);
+  --radius-sm:8px; --radius-md:12px; --radius-lg:16px;
+  --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","PingFang SC","Microsoft YaHei","Segoe UI",Roboto,sans-serif;
+  --sw:208px;
+}
+/* 深色（来源 variables.css :root.dark，原样照搬） */
+:root.dark{
+  --p:#60a5fa; --pl:#2563eb; --pd:#3b6fb0; --p-rgb:96,165,250;
+  --suc:#34c759; --dan:#ff3b30; --war:#ff9f0a;
+  --red-rgb:255,59,48; --amber-rgb:255,159,10; --green-rgb:52,199,89;
+  --bg:#000; --bg2:#1c1c1e; --bg3:#2c2c2e; --bg4:#3a3a3c;
+  --t1:rgba(255,255,255,.94); --t2:rgba(255,255,255,.72); --t3:rgba(255,255,255,.52);
+  --bd:rgba(255,255,255,.10); --border-default:rgba(255,255,255,.10); --border-subtle:rgba(255,255,255,.05);
+  --pb:rgba(37,99,235,.16);
+  --surface:#1c1c1e; --hover-strong:rgba(255,255,255,.10); --bg-secondary:rgba(255,255,255,.06); --bg-input:rgba(44,44,46,.90);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.4); --shadow-md:0 4px 14px rgba(0,0,0,.5); --shadow-lg:0 12px 40px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--t1);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;transition:background-color .35s ease,color .35s ease}
+button{font-family:inherit}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+
+/* ===== 布局 ===== */
+#app{display:flex;min-height:100vh}
+/* 侧边栏 */
+#sidebar{width:var(--sw);flex:0 0 var(--sw);background:var(--bg3);border-right:1px solid var(--bd);
+  padding:14px 10px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;transition:background-color .35s}
+.logo{display:flex;align-items:center;gap:10px;padding:6px 10px 14px}
+.logo-mark{width:30px;height:30px;border-radius:8px;background:var(--p);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.logo-txt b{font-size:15px;font-weight:700;letter-spacing:-.02em;display:block;color:var(--t1)}
+.logo-txt span{font-size:11px;color:var(--t3)}
+.sb-group{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin:14px 10px 6px}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;color:var(--t2);cursor:pointer;
+  font-size:13px;font-weight:500;margin-bottom:2px;transition:all .15s}
+.sb-item svg{width:18px;height:18px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.8}
+.sb-item:hover{background:var(--bg-secondary);color:var(--t1)}
+.sb-item.active{background:var(--pb);color:var(--p);font-weight:600}
+.sb-item .tag{margin-left:auto;font-size:10px;background:var(--hover-strong);color:var(--t2);padding:1px 7px;border-radius:8px;font-weight:600}
+.sb-spacer{flex:1}
+.sb-foot{font-size:11px;color:var(--t3);padding:10px;text-align:center;border-top:1px solid var(--bd)}
+
+/* 主区 */
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#topbar{height:52px;flex:0 0 52px;display:flex;align-items:center;gap:14px;padding:0 20px;
+  background:var(--bg3);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:20}
+#topbar::after{content:"";position:absolute;bottom:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,transparent,rgba(var(--p-rgb),.2),transparent)}
+.tb-search{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;background:var(--bg-input);border:1px solid var(--border-default);
+  border-radius:10px;padding:7px 12px;color:var(--t3);font-size:13px}
+.tb-spacer{flex:1}
+.tb-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);position:relative}
+.tb-ico:hover{background:var(--bg-secondary)}
+.tb-ico .dot{position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--dan);border:1.5px solid var(--bg3)}
+.tb-user{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--t1);cursor:pointer;padding:4px 8px;border-radius:9px}
+.tb-user:hover{background:var(--bg-secondary)}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--pb);color:var(--p);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+
+.page-inner{padding:20px 24px 32px;max-width:1280px;width:100%;margin:0 auto}
+.page{display:none;animation:fade .25s ease}
+.page.show{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ===== 通用组件（与 styles.css 真实值一致） ===== */
+.page-hd{font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--t1);margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--t3);margin-bottom:18px}
+.section-title{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin:22px 0 12px;display:flex;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;font-weight:500;border-radius:12px;cursor:pointer;border:none;transition:all .2s;font-family:inherit}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--p);border:1px solid var(--p);color:#fff;box-shadow:0 2px 8px rgba(var(--p-rgb),.30)}
+.btn-primary:hover{background:var(--pd);border-color:var(--pd)}
+.btn-outline{background:transparent;color:var(--t1);border:1px solid var(--border-default)}
+.btn-outline:hover{background:var(--bg-secondary);border-color:var(--border-default)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-xs{padding:4px 10px;font-size:11px;border-radius:8px}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.bg-draft{background:var(--hover-strong);color:var(--t2)}
+.bg-confirmed{background:var(--pb);color:var(--p)}
+.bg-paid{background:rgba(var(--green-rgb),.1);color:var(--suc)}
+.bg-warn{background:rgba(var(--amber-rgb),.12);color:var(--war)}
+
+.tbl-wrap{background:var(--bg2);border-radius:14px;border:1px solid var(--bd);overflow:hidden;box-shadow:var(--shadow-sm)}
+.tbl-toolbar{padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--bd);background:var(--bg3);flex-wrap:wrap}
+.tbl-toolbar input,.tbl-toolbar select{padding:6px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;outline:none;background:var(--bg-input);color:var(--t1)}
+.tbl-toolbar input:focus,.tbl-toolbar select:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(var(--p-rgb),.12)}
+.tbl-toolbar .spacer{flex:1}
+table{width:100%;border-collapse:collapse}
+thead th{text-align:left;padding:10px 14px;font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;background:var(--bg3);border-bottom:1px solid var(--border-subtle)}
+tbody td{padding:11px 14px;font-size:13px;color:var(--t1);border-bottom:1px solid var(--border-subtle)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--bg3)}
+.muted{color:var(--t3)}
+
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:8px}
+.stat-card{background:var(--surface);padding:18px 20px;border-radius:16px;border:1px solid var(--border-subtle);box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
+.stat-card::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;opacity:.7}
+.sc-blue::before{background:var(--p)} .sc-green::before{background:var(--suc)} .sc-amber::before{background:var(--war)} .sc-red::before{background:var(--dan)}
+.stat-label{font-size:12px;color:var(--t2);font-weight:600;margin-bottom:8px}
+.stat-val{font-size:28px;font-weight:700;letter-spacing:-.02em;color:var(--t1);font-variant-numeric:tabular-nums}
+.stat-sub{font-size:11px;color:var(--t3);margin-top:5px}
+
+.chart-card{background:var(--surface);border-radius:16px;border:1px solid var(--border-subtle);box-shadow:var(--shadow-sm);padding:18px 20px}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-title{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:4px}
+.chart-hint{font-size:11px;color:var(--t3);margin-bottom:10px}
+.bar-col{transition:opacity .15s;cursor:pointer}
+.bar-col:hover{opacity:.8}
+
+/* AI 解读卡 */
+.ai-card{background:var(--pb);border:1px solid rgba(var(--p-rgb),.18);border-radius:16px;padding:16px 18px;margin-bottom:18px;display:flex;gap:14px;align-items:flex-start}
+.ai-card .ai-bar{width:4px;align-self:stretch;border-radius:4px;background:var(--p)}
+.ai-card h4{font-size:13px;font-weight:600;color:var(--p);margin-bottom:6px}
+.ai-card p{font-size:13px;color:var(--t1);line-height:1.6}
+.ai-card .ai-ico{width:34px;height:34px;border-radius:10px;background:var(--p);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+
+/* 冲突 banner */
+.conflict-banner{background:rgba(var(--red-rgb),.07);border:1px solid rgba(var(--red-rgb),.2);color:var(--dan);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13px}
+
+/* 上传 / 导入页 */
+.up-card{background:var(--surface);border:1px solid var(--border-subtle);border-radius:16px;padding:20px;box-shadow:var(--shadow-sm);margin-bottom:16px}
+.upload-zone{border:2px dashed var(--bd);border-radius:14px;padding:34px;text-align:center;color:var(--t2);cursor:pointer;transition:all .15s;background:var(--bg3)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--p);background:var(--pb)}
+.upload-zone .uz-ico{width:44px;height:44px;border-radius:12px;background:var(--pb);color:var(--p);display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}
+.field-hint{font-size:11px;color:var(--t3);margin-top:4px}
+.tpl-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
+.tpl-table th,.tpl-table td{border:1px solid var(--bd);padding:7px 10px;text-align:left}
+.tpl-table th{background:var(--bg3);color:var(--t2);font-weight:600}
+.check-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);margin-top:8px}
+
+/* 筛选 chips */
+.filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.fchip{font-size:12px;font-weight:500;color:var(--t2);padding:6px 14px;border:1px solid var(--border-default);background:var(--bg2);border-radius:999px;cursor:pointer;transition:all .15s}
+.fchip:hover{border-color:var(--p);color:var(--t1)}
+.fchip.active{background:var(--pb);border-color:var(--p);color:var(--p);font-weight:600}
+
+/* 手机预览 */
+.phone{width:150px;border:1px solid var(--bd);border-radius:22px;padding:10px;background:var(--bg2);box-shadow:var(--shadow-md)}
+.phone .notch{width:46px;height:5px;border-radius:3px;background:var(--bd);margin:2px auto 10px}
+.phone .p-label{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
+.phone .p-val{font-size:22px;font-weight:700;color:var(--p);font-variant-numeric:tabular-nums}
+.phone .p-sub{font-size:10px;color:var(--t2);margin-top:3px}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);display:none;align-items:center;justify-content:center;z-index:9998}
+.modal-overlay.show{display:flex;animation:fade .25s ease}
+.modal{background:var(--surface);border-radius:20px;padding:28px 30px;border:1px solid var(--border-default);box-shadow:0 25px 60px rgba(0,0,0,.3);width:560px;max-width:92vw;max-height:88vh;overflow-y:auto}
+.modal h3{font-size:18px;font-weight:700;margin-bottom:16px;color:var(--t1)}
+.form-section{margin-bottom:16px}
+.modal-field{margin-bottom:13px}
+.modal-field label{display:block;font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;margin-bottom:5px;letter-spacing:.03em}
+.modal-field input,.modal-field select{width:100%;padding:10px 13px;border:1px solid var(--border-default);border-radius:12px;font-size:13px;outline:none;background:var(--bg-input);color:var(--t1);font-family:inherit}
+.modal-field input:focus,.modal-field select:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(var(--p-rgb),.12)}
+.modal-row{display:flex;gap:10px}.modal-row .modal-field{flex:1}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.validate-box{margin-top:8px;font-size:12px;min-height:16px}
+.validate-box.ok{color:var(--suc)} .validate-box.err{color:var(--dan)}
+.tier-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.tier-row input{width:84px;padding:7px 9px;border:1px solid var(--border-default);border-radius:8px;font-size:13px;background:var(--bg-input);color:var(--t1)}
+.tier-row span{color:var(--t3);font-size:12px}
+
+/* Toast */
+#toast{position:fixed;top:18px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--surface);border:1px solid var(--border-default);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:500;color:var(--t1);box-shadow:var(--shadow-lg);animation:fade .2s ease}
+
+.spinner{width:26px;height:26px;border:2px solid var(--bd);border-top-color:var(--p);border-radius:50%;animation:spin .6s linear infinite;margin:30px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 响应式 */
+@media(max-width:1024px){#sidebar{width:56px;flex-basis:56px}.sb-item span,.sb-group,.logo-txt,.sb-item .tag{display:none}.sb-item{justify-content:center}.stat-grid{grid-template-columns:repeat(2,1fr)}.chart-row{grid-template-columns:1fr}}
+@media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr)}.chart-row{grid-template-columns:1fr}.tb-search{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ 侧边栏 ============ -->
+  <aside id="sidebar">
+    <div class="logo">
+      <div class="logo-mark">H</div>
+      <div class="logo-txt"><b>Hergent</b><span>经营副驾 · ERP</span></div>
+    </div>
+
+    <div class="sb-group">经营业务</div>
+    <div class="sb-item" onclick="nav('dash')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+      <span>经营工作台</span>
+    </div>
+    <div class="sb-item" onclick="nav('forecast')">
+      <svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 3 7-8"/><path d="M3 21h18"/></svg>
+      <span>预报汇总表</span>
+    </div>
+
+    <div class="sb-group">财务工具</div>
+    <div class="sb-item" onclick="nav('rules')">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      <span>返利规则</span><span class="tag">并入</span>
+    </div>
+    <div class="sb-item"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg><span>工资核算</span></div>
+    <div class="sb-item"><svg viewBox="0 0 24 24"><path d="M3 12a9 3 0 0 0 18 0a9 3 0 0 0-18 0"/><path d="M3 12v6a9 3 0 0 0 18 0v-6"/></svg><span>对账中心</span></div>
+
+    <div class="sb-group">厂家返利中心</div>
+    <div class="sb-item" data-page="rules" onclick="nav('rules')">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="M8 10h8M8 14h5"/></svg>
+      <span>规则配置</span>
+    </div>
+    <div class="sb-item" data-page="import" onclick="nav('import')">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+      <span>实际数据导入</span>
+    </div>
+    <div class="sb-item" data-page="board" onclick="nav('board')">
+      <svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l3-4 3 2 4-6"/></svg>
+      <span>达成&返利看板</span>
+    </div>
+
+    <div class="sb-spacer"></div>
+    <div class="sb-foot">v108 · 蓝图优化预览</div>
+  </aside>
+
+  <!-- ============ 主区 ============ -->
+  <div id="main">
+    <header id="topbar">
+      <div class="tb-search">🔍 搜索商品 / 客户 / 规则…</div>
+      <div class="tb-spacer"></div>
+      <div class="tb-ico" title="通知"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></div>
+      <div class="tb-ico" onclick="toggleTheme()" title="切换浅/深主题"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg></div>
+      <div class="tb-user"><div class="avatar">张</div>张总</div>
+    </header>
+
+    <div class="page-inner">
+      <!-- ====== 页面1：规则配置 ====== -->
+      <section class="page" id="page-rules">
+        <div class="page-hd">规则配置</div>
+        <div class="page-sub">自定义厂家给你的返利 / 指标达成规则，支持多规则并存、优先级与冲突检测。下方为「厂家返利中心」的规则配置（原「财务工具 → 返利规则」已并入此处）。</div>
+
+        <div class="conflict-banner" id="conflictBanner" style="display:none"></div>
+
+        <div class="tbl-wrap">
+          <div class="tbl-toolbar">
+            <input type="text" placeholder="搜索名称 / 作用对象" id="rrSearch" oninput="renderRules()">
+            <select id="rrDim" onchange="renderRules()">
+              <option value="">全部维度</option><option value="brand">品牌</option><option value="product">单品</option>
+            </select>
+            <div class="spacer"></div>
+            <button class="btn btn-primary btn-sm" onclick="openRuleModal()">+ 新增规则</button>
+            <button class="btn btn-outline btn-sm" onclick="toast('返利试算面板（演示）')">返利试算</button>
+          </div>
+          <table>
+            <thead><tr>
+              <th style="width:6%">优先级</th><th style="width:16%">规则名称</th><th style="width:10%">维度/度量</th>
+              <th style="width:12%">作用对象</th><th style="width:8%">周期</th><th style="width:12%">目标值</th>
+              <th style="width:12%">触发/返利</th><th style="width:13%">生效区间</th><th style="width:7%">状态</th><th style="width:14%">操作</th>
+            </tr></thead>
+            <tbody id="rrBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ====== 页面2：实际数据导入 ====== -->
+      <section class="page" id="page-import">
+        <div class="page-hd">实际数据导入</div>
+        <div class="page-sub">上传每期实际达成（发货实绩），用于计算达成率与返利。双通道：主通道 = Excel 导入；兜底 = 手动补录。舟谱优先、手动兜底、不叠加、留来源记录。</div>
+
+        <div class="chart-row">
+          <div class="up-card">
+            <div class="section-title" style="margin-top:0">① 下载模板</div>
+            <p style="font-size:13px;color:var(--t2);margin-bottom:12px">通用 Excel 模板（含示例行与列说明）。已内置「舟谱采购入库单」列映射预设，其他 ERP 也可自定义映射。</p>
+            <button class="btn btn-outline btn-sm" onclick="toast('已开始下载模板（演示）')">⬇ 下载 Excel 模板</button>
+            <table class="tpl-table">
+              <thead><tr><th>期间</th><th>维度</th><th>厂家品牌</th><th>单品</th><th>发货箱数</th><th>发货金额(元)</th></tr></thead>
+              <tbody><tr><td>2026-08</td><td>品牌</td><td>蒙牛</td><td>—</td><td>—</td><td>1,280,000</td></tr>
+              <tr><td>2026-08</td><td>单品</td><td>蒙牛</td><td>特仑苏</td><td>3,200</td><td>416,000</td></tr></tbody>
+            </table>
+            <div class="field-hint">注：维度选「品牌」时，发货箱数列自动置灰（品牌只按金额算，与规则一致）。</div>
+          </div>
+
+          <div class="up-card">
+            <div class="section-title" style="margin-top:0">② 上传文件</div>
+            <div class="upload-zone" id="uploadZone" onclick="toast('选择文件（演示）')">
+              <div class="uz-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg></div>
+              <div style="font-weight:600;color:var(--t1)">点击或拖拽 Excel 到此处</div>
+              <div style="font-size:12px;color:var(--t3);margin-top:4px">.xlsx / .xls，单文件 ≤ 10MB</div>
+            </div>
+            <div class="check-row">✓ 上传后逐行校验，出错行标红并可下载「错误报告」</div>
+            <div class="check-row">✓ 每条记录带来源字段（舟谱 / 手动），覆盖时留日志</div>
+          </div>
+        </div>
+
+        <div class="up-card">
+          <div class="section-title" style="margin-top:0">③ 手动补录（兜底）</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="modal-field" style="flex:1;min-width:120px"><label>期间</label><input value="2026-08"></div>
+            <div class="modal-field" style="flex:1;min-width:120px"><label>维度</label><select><option>品牌</option><option>单品</option></select></div>
+            <div class="modal-field" style="flex:1;min-width:120px"><label>厂家品牌</label><input value="蒙牛"></div>
+            <div class="modal-field" style="flex:1;min-width:120px"><label>单品</label><input placeholder="品牌维度留空"></div>
+            <div class="modal-field" style="flex:1;min-width:110px"><label>发货箱数</label><input type="number" placeholder="品牌留空"></div>
+            <div class="modal-field" style="flex:1;min-width:120px"><label>发货金额(元)</label><input type="number" value="1280000"></div>
+            <button class="btn btn-primary btn-sm" style="margin-bottom:13px" onclick="toast('已保存补录（演示）')">保存</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== 页面3：达成&返利看板 ====== -->
+      <section class="page" id="page-board">
+        <div class="page-hd">达成 &amp; 返利看板</div>
+        <div class="page-sub">厂家返利收入视角：目标多少、实际多少、返利多少、钱到没到。数据为示例演示。</div>
+
+        <div class="filter-bar">
+          <span style="font-size:12px;color:var(--t2);font-weight:600">期间</span>
+          <div class="fchip active" onclick="chip(this,'period')">2026-08（月）</div>
+          <div class="fchip" onclick="chip(this,'period')">2026-Q3（季）</div>
+          <div class="fchip" onclick="chip(this,'period')">2026（年）</div>
+          <span style="font-size:12px;color:var(--t2);font-weight:600;margin-left:8px">维度</span>
+          <div class="fchip active" onclick="chip(this,'dim')">品牌</div>
+          <div class="fchip" onclick="chip(this,'dim')">单品</div>
+          <span style="font-size:12px;color:var(--t2);font-weight:600;margin-left:8px">计量</span>
+          <div class="fchip active" onclick="chip(this,'measure')">金额</div>
+          <div class="fchip" onclick="chip(this,'measure')">箱数</div>
+        </div>
+
+        <div class="ai-card">
+          <div class="ai-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"/><path d="M18 15l.7 1.8L20 17.5l-1.3.7L18 20l-.7-1.8L16 17.5l1.3-.7z"/></svg></div>
+          <div class="ai-bar"></div>
+          <div>
+            <h4>AI 经营解读</h4>
+            <p>蒙牛 8 月达成 <b>92%</b>，差 <b>¥8 万</b> 到下一档（3%→5%）。建议下周重点压 <b>特仑苏 + 纯甄</b>，可多返约 <b>¥1,800</b>。预计本月厂家返利 <b>¥3,600</b>，同比 +15%；其中 2 笔共 ¥1,200 已确认到账，其余待核销。</p>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card sc-blue"><div class="stat-label">总达成率</div><div class="stat-val">92%</div><div class="stat-sub">目标 ¥110 万 · 实销 ¥101.2 万</div></div>
+          <div class="stat-card sc-green"><div class="stat-label">本月预计返利</div><div class="stat-val">¥3,600</div><div class="stat-sub">同比 +15%</div></div>
+          <div class="stat-card sc-amber"><div class="stat-label">待核销</div><div class="stat-val">¥2,400</div><div class="stat-sub">已确认到账 ¥1,200</div></div>
+          <div class="stat-card sc-blue"><div class="stat-label">年返累计</div><div class="stat-val">65%</div><div class="stat-sub">剩余 4 个月</div></div>
+        </div>
+
+        <div class="chart-row">
+          <!-- 图1 月度趋势 -->
+          <div class="chart-card">
+            <div class="chart-title">月度趋势（实际 vs 目标）</div>
+            <div class="chart-hint">柱=实际销售额 · 折线=目标线</div>
+            <svg viewBox="0 0 320 170" width="100%">
+              <line x1="30" y1="140" x2="310" y2="140" stroke="var(--bd)"/>
+              <g class="bar-col"><rect x="40" y="78" width="22" height="62" rx="3" fill="rgba(var(--p-rgb),.55)"/><rect x="42" y="74" width="18" height="4" rx="2" fill="var(--p)"/></g>
+              <g class="bar-col"><rect x="80" y="60" width="22" height="80" rx="3" fill="rgba(var(--p-rgb),.55)"/></g>
+              <g class="bar-col"><rect x="120" y="92" width="22" height="48" rx="3" fill="rgba(var(--p-rgb),.55)"/></g>
+              <g class="bar-col"><rect x="160" y="48" width="22" height="92" rx="3" fill="rgba(var(--p-rgb),.55)"/></g>
+              <g class="bar-col"><rect x="200" y="70" width="22" height="70" rx="3" fill="rgba(var(--p-rgb),.55)"/></g>
+              <g class="bar-col"><rect x="240" y="56" width="22" height="84" rx="3" fill="rgba(var(--p-rgb),.55)"/></g>
+              <g class="bar-col"><rect x="280" y="64" width="22" height="76" rx="3" fill="rgba(var(--p-rgb),.55)"/></g>
+              <polyline points="51,70 91,58 131,82 171,46 211,64 251,54 291,60" fill="none" stroke="var(--dan)" stroke-width="2"/>
+              <polyline points="51,70 91,58 131,82 171,46 211,64 251,54 291,60" fill="none" stroke="var(--dan)" stroke-width="2" stroke-dasharray="0"/>
+              <text x="40" y="156" font-size="9" fill="var(--t3)">2月</text><text x="160" y="156" font-size="9" fill="var(--t3)">5月</text><text x="282" y="156" font-size="9" fill="var(--t3)">8月</text>
+            </svg>
+          </div>
+
+          <!-- 图2 品牌达成率对比（可下钻） -->
+          <div class="chart-card">
+            <div class="chart-title">各品牌达成率（可下钻）</div>
+            <div class="chart-hint">点击柱条查看该品牌月度趋势与返利阶梯</div>
+            <svg viewBox="0 0 320 170" width="100%">
+              <line x1="30" y1="140" x2="310" y2="140" stroke="var(--bd)"/>
+              <g class="bar-col" onclick="toast('下钻：蒙牛 达成率 92%')"><rect x="44" y="36" width="34" height="104" rx="4" fill="var(--suc)"/><text x="61" y="156" font-size="9" fill="var(--t3)" text-anchor="middle">蒙牛</text><text x="61" y="30" font-size="10" fill="var(--t1)" text-anchor="middle" font-weight="600">92%</text></g>
+              <g class="bar-col" onclick="toast('下钻：伊利 达成率 78%')"><rect x="104" y="69" width="34" height="71" rx="4" fill="var(--war)"/><text x="121" y="156" font-size="9" fill="var(--t3)" text-anchor="middle">伊利</text><text x="121" y="63" font-size="10" fill="var(--t1)" text-anchor="middle" font-weight="600">78%</text></g>
+              <g class="bar-col" onclick="toast('下钻：光明 达成率 64%')"><rect x="164" y="100" width="34" height="40" rx="4" fill="var(--dan)"/><text x="181" y="156" font-size="9" fill="var(--t3)" text-anchor="middle">光明</text><text x="181" y="94" font-size="10" fill="var(--t1)" text-anchor="middle" font-weight="600">64%</text></g>
+              <g class="bar-col" onclick="toast('下钻：君乐宝 达成率 95%')"><rect x="224" y="28" width="34" height="112" rx="4" fill="var(--suc)"/><text x="241" y="156" font-size="9" fill="var(--t3)" text-anchor="middle">君乐宝</text><text x="241" y="22" font-size="10" fill="var(--t1)" text-anchor="middle" font-weight="600">95%</text></g>
+            </svg>
+          </div>
+
+          <!-- 图3 核销状态环形 -->
+          <div class="chart-card">
+            <div class="chart-title">核销状态（厂家返利收入）</div>
+            <div class="chart-hint">应返 / 已确认 / 待核销</div>
+            <svg viewBox="0 0 320 170" width="100%">
+              <circle cx="90" cy="85" r="46" fill="none" stroke="var(--bd)" stroke-width="14"/>
+              <circle cx="90" cy="85" r="46" fill="none" stroke="var(--suc)" stroke-width="14" stroke-dasharray="115 174" stroke-dashoffset="0"/>
+              <circle cx="90" cy="85" r="46" fill="none" stroke="var(--war)" stroke-width="14" stroke-dasharray="101 188" stroke-dashoffset="-115"/>
+              <circle cx="90" cy="85" r="46" fill="none" stroke="var(--dan)" stroke-width="14" stroke-dasharray="72 217" stroke-dashoffset="-216"/>
+              <text x="90" y="80" font-size="18" fill="var(--t1)" text-anchor="middle" font-weight="700">¥3,600</text>
+              <text x="90" y="98" font-size="10" fill="var(--t3)" text-anchor="middle">本月应返</text>
+              <g font-size="12">
+                <rect x="170" y="44" width="12" height="12" rx="3" fill="var(--suc)"/><text x="190" y="54" fill="var(--t1)">已确认 40% · ¥1,200</text>
+                <rect x="170" y="72" width="12" height="12" rx="3" fill="var(--war)"/><text x="190" y="82" fill="var(--t1)">待核销 35% · ¥1,260</text>
+                <rect x="170" y="100" width="12" height="12" rx="3" fill="var(--dan)"/><text x="190" y="110" fill="var(--t1)">应返未计 25% · ¥900</text>
+              </g>
+            </svg>
+          </div>
+
+          <!-- 图4 年返进度 -->
+          <div class="chart-card">
+            <div class="chart-title">年返进度（独立于月返）</div>
+            <div class="chart-hint">年度累计 · 剩余月份</div>
+            <svg viewBox="0 0 320 170" width="100%">
+              <text x="20" y="40" font-size="12" fill="var(--t2)" font-weight="600">年度累计达成 65%</text>
+              <rect x="20" y="52" width="280" height="18" rx="9" fill="var(--bg4)"/>
+              <rect x="20" y="52" width="182" height="18" rx="9" fill="var(--p)"/>
+              <text x="208" y="66" font-size="12" fill="var(--t1)" font-weight="600">65%</text>
+              <text x="20" y="100" font-size="12" fill="var(--t2)">剩余 4 个月 · 目标 ¥1,200 万</text>
+              <text x="20" y="130" font-size="11" fill="var(--t3)">预计年终返利 ¥36 万（年返 3%）</text>
+              <text x="20" y="150" font-size="11" fill="var(--t3)">当前已确认年返 ¥18 万</text>
+            </svg>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:16px;align-items:center;margin-top:18px">
+          <div class="phone">
+            <div class="notch"></div>
+            <div class="p-label">总达成率</div>
+            <div class="p-val">92%</div>
+            <div class="p-label" style="margin-top:8px">本月返利</div>
+            <div class="p-sub" style="font-size:14px;font-weight:600;color:var(--suc)">¥3,600</div>
+          </div>
+          <div style="font-size:13px;color:var(--t2);max-width:420px">响应式：核心数字（总达成率、本月返利）在手机上一屏看完，老板在外也能随时掌握返利进度。</div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- 规则 Modal -->
+<div class="modal-overlay" id="ruleModal">
+  <div class="modal">
+    <h3>新增返利规则</h3>
+    <div class="form-section">
+      <div class="modal-field"><label>规则名称 *</label><input id="m_name" placeholder="例：蒙牛纯牛奶月度返利"></div>
+      <div class="modal-row">
+        <div class="modal-field"><label>计算维度</label><select id="m_dim" onchange="syncModal()"><option value="brand">品牌</option><option value="product">单品</option></select></div>
+        <div class="modal-field"><label>目标度量</label><select id="m_type" onchange="syncModal()"><option value="amount">金额</option><option value="quantity">数量</option></select></div>
+      </div>
+      <div class="modal-field"><label>作用对象（品牌名 / 商品名，留空=全部通用）</label><input id="m_scope" placeholder="例：蒙牛 或 商品ID" oninput="validateRule()"></div>
+      <div class="modal-row">
+        <div class="modal-field"><label>周期口径</label><select id="m_period"><option>月度</option><option>季度</option><option>年度</option><option>自定义</option></select></div>
+        <div class="modal-field"><label id="m_tv_label">目标金额(元)</label><input id="m_target" type="number" oninput="validateRule()"></div>
+      </div>
+      <div class="modal-row">
+        <div class="modal-field"><label>触发条件</label><select id="m_trigger" onchange="syncModal()"><option value="on_target">达成即返</option><option value="tiered">阶梯</option></select></div>
+        <div class="modal-field"><label>返利形式</label><select id="m_basis" onchange="syncModal()"><option value="rate">比例</option><option value="fixed">固定金额</option></select></div>
+      </div>
+      <div class="modal-row" id="m_rate_row">
+        <div class="modal-field"><label id="m_r_label">返利比例 (0~1)</label><input id="m_rate" type="number" step="0.001" placeholder="0.03 = 3%" oninput="validateRule()"></div>
+        <div class="modal-field"><label>达成门槛 (0~1)</label><input id="m_thr" type="number" step="0.01" value="1" oninput="validateRule()"></div>
+      </div>
+      <div class="modal-field" id="m_tier_field" style="display:none">
+        <label>阶梯设置（达成率区间 → 返利比例）</label>
+        <div id="m_tiers"></div>
+        <button class="btn btn-outline btn-sm" type="button" onclick="addTier()">+ 添加阶梯</button>
+      </div>
+      <div class="modal-row">
+        <div class="modal-field"><label>生效开始</label><input id="m_eff_s" type="date"></div>
+        <div class="modal-field"><label>生效结束</label><input id="m_eff_e" type="date"></div>
+      </div>
+      <div class="validate-box" id="m_validate"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeRuleModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveRule()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ===== 示例规则数据 ===== */
+var RULES = [
+  {id:1,priority:10,name:'蒙牛纯牛奶月度返利',dimension:'brand',target_type:'amount',scope:'蒙牛',period:'月度',target:1000000,trigger:'on_target',basis:'rate',rate:0.03,eff_s:'2026-01-01',eff_e:'2026-12-31',active:1},
+  {id:2,priority:9,name:'特仑苏单品阶梯返利',dimension:'product',target_type:'amount',scope:'特仑苏',period:'月度',target:400000,trigger:'tiered',basis:'rate',rate:0,eff_s:'2026-01-01',eff_e:'2026-12-31',active:1},
+  {id:3,priority:8,name:'伊利品牌年返',dimension:'brand',target_type:'amount',scope:'伊利',period:'年度',target:12000000,trigger:'on_target',basis:'rate',rate:0.02,eff_s:'2026-01-01',eff_e:'2026-12-31',active:0}
+];
+var TIERS = [{from:0.8,to:1.0,rate:0.03},{from:1.0,to:1.2,rate:0.05}];
+
+function dimLabel(d){return d==='brand'?'品牌':'单品';}
+function typeLabel(t){return t==='amount'?'金额':'数量';}
+function periodLabel(p){return ({'月度':'月度','季度':'季度','年度':'年度','自定义':'自定义'})[p]||p;}
+function triggerLabel(m){return m==='on_target'?'达成即返':'阶梯';}
+function basisLabel(b){return b==='rate'?'比例':'固定';}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ===== 导航 ===== */
+function nav(page){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('show');});
+  var map={dash:'rules',forecast:'rules',rules:'rules',import:'import',board:'board'};
+  document.getElementById('page-'+(map[page]||page)).classList.add('show');
+  document.querySelectorAll('.sb-item[data-page]').forEach(function(el){
+    el.classList.toggle('active', el.getAttribute('data-page')===page || (page==='dash'&&el.getAttribute('data-page')==='rules'));
+  });
+  if(map[page]==='rules' && page!=='rules'){ /* 陪衬项无独立页，停留在规则演示 */ }
+}
+// 初始显示看板（最直接展示图表价值）
+nav('board');
+
+/* ===== 规则表 ===== */
+function renderRules(){
+  var q=(document.getElementById('rrSearch').value||'').toLowerCase();
+  var dim=document.getElementById('rrDim').value;
+  var rows=RULES.filter(function(x){
+    if(dim && x.dimension!==dim) return false;
+    if(q){var h=(x.name+' '+x.scope).toLowerCase(); if(h.indexOf(q)<0) return false;}
+    return true;
+  });
+  var html='';
+  if(!rows.length){html='<tr><td colspan="10" style="padding:36px;text-align:center;color:var(--t3)">暂无规则，点击「+ 新增规则」开始配置</td></tr>';}
+  rows.forEach(function(x){
+    html+='<tr>'
+      +'<td class="mono">'+x.priority+'</td>'
+      +'<td style="font-weight:500">'+esc(x.name)+'</td>'
+      +'<td>'+dimLabel(x.dimension)+' / '+typeLabel(x.target_type)+'</td>'
+      +'<td>'+(x.scope?esc(x.scope):'<span class="muted">全部通用</span>')+'</td>'
+      +'<td>'+periodLabel(x.period)+'</td>'
+      +'<td class="mono">'+(x.target_type==='amount'?'¥'+x.target.toLocaleString():x.target+' 件')+'</td>'
+      +'<td>'+triggerLabel(x.trigger)+' · '+basisLabel(x.basis)+'</td>'
+      +'<td style="font-size:11px;color:var(--t3)">'+x.eff_s+' ~ '+x.eff_e+'</td>'
+      +'<td><span class="badge '+(x.active?'bg-confirmed':'bg-draft')+'">'+(x.active?'启用':'停用')+'</span></td>'
+      +'<td><button class="btn btn-outline btn-xs" style="margin-right:4px" onclick="toast(\'编辑（演示）\')">编辑</button>'
+      +'<button class="btn btn-outline btn-xs" style="color:var(--dan)" onclick="toast(\'删除（演示）\')">删除</button></td>'
+      +'</tr>';
+  });
+  document.getElementById('rrBody').innerHTML=html;
+}
+renderRules();
+
+/* ===== 规则 Modal ===== */
+function openRuleModal(){syncModal();renderTiers();validateRule();document.getElementById('ruleModal').classList.add('show');}
+function closeRuleModal(){document.getElementById('ruleModal').classList.remove('show');}
+document.getElementById('ruleModal').addEventListener('click',function(e){if(e.target===this)closeRuleModal();});
+
+function syncModal(){
+  var dim=document.getElementById('m_dim').value;
+  var tt=document.getElementById('m_type');
+  if(dim==='brand'){tt.value='amount';tt.disabled=true;} else {tt.disabled=false;}
+  var type=tt.value;
+  document.getElementById('m_tv_label').textContent= type==='quantity'?'目标数量(件)':'目标金额(元)';
+  var trig=document.getElementById('m_trigger').value;
+  var basis=document.getElementById('m_basis').value;
+  document.getElementById('m_rate_row').style.display = trig==='on_target'?'flex':'none';
+  document.getElementById('m_r_label').textContent = basis==='rate'?'返利比例 (0~1)':'返利固定金额(¥)';
+  document.getElementById('m_tier_field').style.display = trig==='tiered'?'block':'none';
+}
+function addTier(){
+  TIERS.push({from:0,to:0,rate:0});renderTiers();validateRule();
+}
+function renderTiers(){
+  var basis=document.getElementById('m_basis').value;
+  var html='';
+  TIERS.forEach(function(t,i){
+    html+='<div class="tier-row"><input placeholder="从(0.8)" value="'+t.from+'" oninput="TIERS['+i+'].from=parseFloat(this.value)||0;validateRule()">'
+      +'<span>~</span><input placeholder="至(1.0)" value="'+t.to+'" oninput="TIERS['+i+'].to=parseFloat(this.value)||0;validateRule()">'
+      +(basis==='rate'?'<input placeholder="比例" value="'+t.rate+'" oninput="TIERS['+i+'].rate=parseFloat(this.value)||0;validateRule()">'
+                    :'<input placeholder="金额¥" value="'+t.rate+'" oninput="TIERS['+i+'].rate=parseFloat(this.value)||0;validateRule()">')
+      +'<button class="btn btn-outline btn-xs" style="color:var(--dan)" onclick="TIERS.splice('+i+',1);renderTiers();validateRule()">−</button></div>';
+  });
+  document.getElementById('m_tiers').innerHTML=html;
+}
+function validateRule(){
+  var box=document.getElementById('m_validate');
+  var errs=[];
+  if(!document.getElementById('m_name').value.trim()) errs.push('规则名称为必填');
+  var dim=document.getElementById('m_dim').value;
+  if(dim==='brand' && document.getElementById('m_type').value!=='amount') errs.push('品牌维度只能按金额');
+  var tv=parseFloat(document.getElementById('m_target').value)||0;
+  if(tv<=0) errs.push('目标值必须大于 0');
+  if(document.getElementById('m_trigger').value==='on_target' && document.getElementById('m_basis').value==='rate'){
+    var r=parseFloat(document.getElementById('m_rate').value)||0;
+    if(r<=0||r>1) errs.push('返利比例须在 0~1 之间（如 0.03=3%）');
+  }
+  var es=document.getElementById('m_eff_s').value, ee=document.getElementById('m_eff_e').value;
+  if(es&&ee&&es>ee) errs.push('生效日期不能倒挂');
+  if(errs.length){box.className='validate-box err';box.innerHTML=errs.map(function(e){return '• '+e;}).join('<br>');}
+  else{box.className='validate-box ok';box.innerHTML='✓ 校验通过（含冲突检测）';}
+}
+function saveRule(){validateRule();var box=document.getElementById('m_validate');if(box.className.indexOf('err')>=0){toast('请修正上方错误');return;}toast('已保存规则（演示）');closeRuleModal();}
+
+/* ===== 筛选 chips ===== */
+function chip(el,group){
+  el.parentNode.querySelectorAll('.fchip').forEach(function(c){c.classList.remove('active');});
+  el.classList.add('active');
+  toast('筛选：'+el.textContent.trim());
+}
+
+/* ===== 上传拖拽 ===== */
+(function(){
+  var z=document.getElementById('uploadZone');
+  ['dragenter','dragover'].forEach(function(ev){z.addEventListener(ev,function(e){e.preventDefault();z.classList.add('drag');});});
+  ['dragleave','drop'].forEach(function(ev){z.addEventListener(ev,function(e){e.preventDefault();z.classList.remove('drag');});});
+  z.addEventListener('drop',function(){toast('已接收文件，开始解析（演示）');});
+})();
+
+/* ===== 主题切换 ===== */
+function toggleTheme(){document.documentElement.classList.toggle('dark');}
+
+/* ===== Toast ===== */
+function toast(msg){
+  var c=document.getElementById('toast');
+  var t=document.createElement('div');t.className='toast';t.textContent=msg;
+  c.appendChild(t);setTimeout(function(){t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(function(){t.remove();},300);},1800);
+}
+</script>
+</body>
+</html>

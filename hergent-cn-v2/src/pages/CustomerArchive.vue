@@ -33,7 +33,7 @@
       <Transition name="fade"><div v-if="remindOpen" class="df-overlay" @click="remindOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="remindOpen" class="df-modal">
-          <div class="df-modal-hd"><b>尚未连接 ERP</b><button class="df-x" @click="remindOpen = false">✕</button></div>
+          <div class="df-modal-hd"><b>尚未连接 ERP</b><button class="df-x" @click="remindOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
             <p class="df-tip">「同步」需要先把你的 ERP（畅捷通 / 金蝶）接入 Hergent。</p>
             <p class="df-tip">请前往 <b>能力中心</b> 完成授权连接后，再来点「同步」。</p>
@@ -49,6 +49,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/client'

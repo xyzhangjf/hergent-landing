@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "projectId": "1b5ed682-79a4-4cf7-8f67-bf639d3ef9d4",
+  "lineageId": "1b5ed682-79a4-4cf7-8f67-bf639d3ef9d4",
+  "semanticName": "hergent-cn-ui改造蓝图",
+  "createdAt": "2026-08-12T07:15:53.784Z",
+  "updatedAt": "2026-08-12T07:15:53.784Z",
+  "entryFile": null,
+  "status": "workspace_ready",
+  "operationId": "hergent-ui-blueprint-20260812-001"
+}

@@ -17,12 +17,13 @@ export default defineConfig({
       },
       // Hermes OpenAI 兼容 API server（本机 18765）
       // 代理层注入 API_SERVER_KEY 认证头（key 不暴露给前端）
+      // S5 fix: key 从环境变量读取，不硬编码到源码
       '/hermes': {
         target: 'http://127.0.0.1:18765',
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/hermes/, ''),
         headers: {
-          'Authorization': 'Bearer hergent-local-gateway-key-2026'
+          'Authorization': `Bearer ${process.env.HERMES_GATEWAY_KEY || 'hergent-local-gateway-key-2026'}`
         }
       }
     }

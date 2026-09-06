@@ -1,0 +1,47 @@
+.page{min-height:100vh;background:#f5f5f7;padding-bottom:180rpx}
+.store-bar{display:flex;align-items:center;justify-content:space-between;background:#fff;padding:24rpx 32rpx;border-bottom:1rpx solid #e5e5ea}
+.store-sel{display:flex;align-items:center}
+.store-name{font-size:32rpx;font-weight:600;color:#1d1d1f}
+.store-arrow{font-size:24rpx;color:#06b6d4;margin-left:12rpx}
+.store-count{font-size:26rpx;color:#86868b}
+.search-bar{padding:24rpx 32rpx 0}
+.search-ipt{background:#fff;border-radius:16rpx;height:88rpx;padding:0 28rpx;font-size:30rpx;border:1rpx solid #e5e5ea}
+.hot-scroll{white-space:nowrap;padding:20rpx 32rpx 0}
+.hot-row{display:inline-flex;gap:16rpx}
+.hot-chip{display:inline-block;background:#e6f7fb;color:#0e7490;font-size:26rpx;padding:12rpx 28rpx;border-radius:32rpx;margin-right:16rpx}
+.prod-list{padding:24rpx 32rpx 0}
+.prod-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:16rpx;padding:24rpx 28rpx;margin-bottom:16rpx}
+.prod-name{font-size:30rpx;color:#1d1d1f;font-weight:500}
+.prod-spec{font-size:24rpx;color:#86868b;margin-top:6rpx}
+.prod-add{width:56rpx;height:56rpx;border-radius:50%;background:#06b6d4;color:#fff;font-size:40rpx;display:flex;align-items:center;justify-content:center}
+.cart-title{font-size:28rpx;color:#1d1d1f;font-weight:600;padding:32rpx 32rpx 16rpx}
+.cart-list{padding:0 32rpx}
+.cart-row{display:flex;align-items:center;background:#fff;border-radius:16rpx;padding:20rpx 24rpx;margin-bottom:16rpx;position:relative}
+.cart-info{flex:1;min-width:0}
+.cart-name{font-size:28rpx;color:#1d1d1f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cart-spec{font-size:22rpx;color:#86868b;margin-top:4rpx}
+.cart-qty{display:flex;align-items:center;gap:16rpx}
+.qty-btn{width:56rpx;height:56rpx;border-radius:12rpx;background:#f2f2f7;color:#06b6d4;font-size:36rpx;display:flex;align-items:center;justify-content:center}
+.qty-val{font-size:28rpx;color:#1d1d1f;min-width:90rpx;text-align:center}
+.cart-del{position:absolute;top:-14rpx;right:-10rpx;width:44rpx;height:44rpx;border-radius:50%;background:#ff3b30;color:#fff;font-size:24rpx;display:flex;align-items:center;justify-content:center;opacity:.9}
+.empty{text-align:center;color:#86868b;font-size:26rpx;padding:40rpx 0}
+.submit-bar{position:fixed;left:0;right:0;bottom:0;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));border-top:1rpx solid #e5e5ea;z-index:10}
+.submit-total{font-size:28rpx;color:#1d1d1f}
+.total-num{font-size:40rpx;color:#ff9500;font-weight:700}
+.submit-btn{background:#06b6d4;color:#fff;font-size:32rpx;border-radius:16rpx;padding:0 64rpx;height:88rpx;line-height:88rpx}
+.submit-btn[disabled]{opacity:.5}
+
+/* M10: 最近报单门店快捷入口 */
+.recent-stores{display:flex;align-items:center;flex-wrap:wrap;gap:14rpx;padding:16rpx 32rpx 0}
+.recent-label{font-size:24rpx;color:#86868b}
+.recent-chip{background:#eef2ff;color:#4338ca;font-size:24rpx;padding:8rpx 22rpx;border-radius:28rpx}
+
+/* M11: 离线草稿补传横幅 */
+.draft-banner{display:flex;align-items:center;justify-content:space-between;margin:16rpx 32rpx 0;background:#fff7ed;border:1rpx solid #fed7aa;border-radius:14rpx;padding:18rpx 24rpx}
+.draft-txt{font-size:24rpx;color:#9a3412;flex:1}
+.draft-acts{display:flex;align-items:center;gap:24rpx}
+.draft-go{font-size:26rpx;color:#06b6d4;font-weight:600}
+.draft-clear{font-size:26rpx;color:#86868b}
+
+/* M9: 今日已报回执 */
+.reported-note{margin:16rpx 32rpx 0;background:#ecfdf5;border:1rpx solid #a7f3d0;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#047857}

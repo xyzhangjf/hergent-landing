@@ -2,7 +2,7 @@
   <div class="rc" :class="['rc-' + (card.type || 'kpi'), { compact: props.compact }]">
     <!-- 头部：图标 + 标题 + 场景徽标 -->
     <div class="rc-head">
-      <span class="rc-ic">{{ icon }}</span>
+      <span class="rc-ic"><Icon :name="icon"/></span>
       <div class="rc-title">{{ card.title }}</div>
       <span class="rc-badge" :class="badgeCls">{{ badgeLabel }}</span>
     </div>
@@ -41,11 +41,12 @@
     </div>
 
     <!-- 迷你趋势图（M3） -->
-    <div v-if="chartPoints && !props.compact" class="rc-chart">
-      <svg class="rc-spark" viewBox="0 0 200 48" preserveAspectRatio="none">
+    <div v-if="card.chart && !props.compact" class="rc-chart">
+      <svg v-if="chartPoints" class="rc-spark" viewBox="0 0 200 48" preserveAspectRatio="none">
         <polyline :points="chartPoints" fill="none" stroke="var(--p-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <circle :cx="lastX" :cy="lastY" r="3" fill="var(--p-dark)"/>
       </svg>
+      <div v-else class="rc-chart-empty">暂无趋势数据</div>
       <div class="rc-chart-cap" v-if="chartCaption">{{ chartCaption }}</div>
     </div>
     <div v-else-if="card.chart && card.chart.url" class="rc-chart">
@@ -53,11 +54,12 @@
     </div>
 
     <!-- 数据溯源：增强非技术老板信任（P1-6） -->
-    <div v-if="card.source" class="rc-source">📎 {{ card.source }}</div>
+    <div v-if="card.source" class="rc-source"><Icon name="paperclip"/> {{ card.source }}</div>
   </div>
 </template>
 
 <script setup>
+import Icon from './Icon.vue'
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -67,12 +69,12 @@ const props = defineProps({
 const emit = defineEmits(['action'])
 
 const SCENE = {
-  loss:      { label: '货损', icon: '📉', badge: 'badge-red' },
-  rebate:    { label: '返利', icon: '💰', badge: 'badge-blue' },
-  forecast:  { label: '预报', icon: '📦', badge: 'badge-blue' },
-  reconcile: { label: '对账', icon: '🔍', badge: 'badge-amber' },
-  payroll:   { label: '工资', icon: '👥', badge: 'badge-blue' },
-  kpi:       { label: '指标', icon: '📊', badge: 'badge-green' }
+  loss:      { label: '货损', icon: 'trending-down', badge: 'badge-red' },
+  rebate:    { label: '返利', icon: 'coins', badge: 'badge-blue' },
+  forecast:  { label: '预报', icon: 'package', badge: 'badge-blue' },
+  reconcile: { label: '对账', icon: 'search', badge: 'badge-amber' },
+  payroll:   { label: '工资', icon: 'users', badge: 'badge-blue' },
+  kpi:       { label: '指标', icon: 'bar-chart', badge: 'badge-green' }
 }
 
 const STATUS = {
@@ -107,6 +109,8 @@ const chartSeries = computed(() => {
 const chartCaption = computed(() => {
   const c = props.card.chart
   if (!c) return ''
+  // 无趋势数据时不再回退默认文案，避免误导
+  if (!chartSeries.value || chartSeries.value.length < 2) return c.caption || ''
   return c.caption || (c.kind === 'mini' ? '近 7 日趋势' : '')
 })
 const chartGeom = computed(() => {
@@ -187,6 +191,7 @@ const lastY = computed(() => chartGeom.value ? chartGeom.value.ly : 0)
 .rc-chart{margin-top:2px}
 .rc-spark{width:100%;height:48px;display:block}
 .rc-chart-cap{font-size:11px;color:var(--t3);margin-top:4px;text-align:right}
+.rc-chart-empty{font-size:11px;color:var(--t3);padding:10px 0;text-align:center;background:var(--bg2);border-radius:var(--radius-md)}
 .rc-chart-img{width:100%;border-radius:var(--radius-md);display:block}
 .rc-source{font-size:11px;color:var(--t3);line-height:1.5;border-top:1px dashed var(--border-subtle);padding-top:7px;margin-top:2px}
 .rc.compact .rc-source{font-size:10.5px;padding-top:5px}

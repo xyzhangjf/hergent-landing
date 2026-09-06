@@ -51,7 +51,6 @@ module.exports = [
         newConversation: "readonly",
         exportChat: "readonly",
         initAuth: "readonly",
-        openErp: "readonly",
         refreshCredits: "readonly",
         refreshTasks: "readonly",
         refreshChannels: "readonly",

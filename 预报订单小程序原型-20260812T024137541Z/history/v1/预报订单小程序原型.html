@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>预报订单小程序原型 · Hergent</title>
+<style>
+:root{
+  --brand:#06b6d4; --brand-dark:#0891b2; --brand-light:rgba(6,182,212,.08);
+  --bg:#f6f7f9; --card:#ffffff; --line:#eceef1;
+  --t1:#171717; --t2:#4d4d4d; --t3:#8a8f98;
+  --green:#16a34a; --red:#ef4444; --amber:#d97706;
+  --radius:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  background:#e9edf1; color:var(--t1);
+  display:flex; align-items:center; justify-content:center; min-height:100vh; padding:16px;
+}
+/* 手机壳 */
+.phone{
+  width:420px; max-width:100%; height:min(880px,100vh-32px);
+  background:var(--bg); border-radius:32px; overflow:hidden;
+  box-shadow:0 24px 64px rgba(15,23,42,.28), 0 0 0 1px rgba(15,23,42,.06);
+  display:flex; flex-direction:column; position:relative;
+}
+@media (max-width:480px){
+  body{padding:0;}
+  .phone{width:100%; height:100vh; height:100dvh; border-radius:0; box-shadow:none;}
+}
+/* 微信导航栏 */
+.wx-nav{
+  height:46px; flex:0 0 46px; background:#fff; display:flex; align-items:center;
+  padding:0 12px; position:relative; border-bottom:1px solid var(--line);
+}
+.wx-nav .title{position:absolute; left:50%; transform:translateX(-50%); font-size:16px; font-weight:600;}
+.capsule{
+  margin-left:auto; display:flex; align-items:center; gap:0;
+  border:1px solid rgba(0,0,0,.12); border-radius:20px; padding:4px 10px;
+  font-size:12px; color:var(--t2); background:rgba(255,255,255,.9);
+}
+.capsule .sep{width:1px; height:12px; background:rgba(0,0,0,.12); margin:0 8px;}
+/* 身份栏 */
+.identity{
+  background:#fff; padding:9px 12px; display:flex; gap:8px; align-items:center;
+  border-bottom:1px solid var(--line); flex:0 0 auto;
+}
+.identity label{font-size:12px; color:var(--t3); flex:0 0 auto;}
+.identity select{
+  flex:1; min-width:0; font-size:13px; padding:6px 8px; border:1px solid var(--line);
+  border-radius:8px; background:#fafbfc; color:var(--t1); outline:none;
+}
+/* 批次卡 */
+.batch{
+  margin:12px; border-radius:var(--radius); padding:14px 16px; color:#fff;
+  background:linear-gradient(135deg,#0e7490,var(--brand)); flex:0 0 auto;
+  box-shadow:0 8px 20px rgba(6,182,212,.22);
+}
+.batch.closed{background:linear-gradient(135deg,#475569,#64748b); box-shadow:none;}
+.batch .row1{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+.batch .no{font-size:14px; font-weight:700; letter-spacing:.3px;}
+.batch .state{font-size:11px; padding:3px 10px; border-radius:99px; background:rgba(255,255,255,.22);}
+.batch .row2{display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12px; opacity:.95;}
+.batch .cd{font-variant-numeric:tabular-nums; font-weight:700; color:#fff;}
+.batch .toggle{
+  margin-top:10px; font-size:11px; color:rgba(255,255,255,.9); background:rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.35); border-radius:8px; padding:4px 10px; cursor:pointer;
+}
+/* 主区域 */
+main{flex:1; overflow-y:auto; padding:0 12px 16px; -webkit-overflow-scrolling:touch;}
+.panel{background:var(--card); border-radius:var(--radius); padding:14px; margin-top:12px;}
+.panel h3{font-size:14px; font-weight:600; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;}
+.panel h3 .sub{font-size:11px; color:var(--t3); font-weight:400;}
+/* 搜索 */
+.search{display:flex; align-items:center; gap:8px; background:#f3f4f6; border-radius:99px; padding:9px 14px;}
+.search input{flex:1; border:none; background:none; outline:none; font-size:14px; color:var(--t1);}
+.search svg{flex:0 0 auto; color:var(--t3);}
+/* 常订 */
+.fav-row{display:flex; gap:8px; overflow-x:auto; padding:10px 2px 2px; scrollbar-width:none;}
+.fav-row::-webkit-scrollbar{display:none;}
+.fav{
+  flex:0 0 auto; font-size:12px; padding:6px 12px; border-radius:99px; cursor:pointer;
+  background:var(--brand-light); color:var(--brand-dark); border:1px solid rgba(6,182,212,.25);
+}
+.fav:active{transform:scale(.96);}
+/* 商品行 */
+.sku{display:flex; gap:10px; padding:12px 0; border-bottom:1px solid var(--line); align-items:flex-start;}
+.sku:last-child{border-bottom:none; padding-bottom:2px;}
+.sku .emoji{
+  width:42px; height:42px; border-radius:10px; background:var(--brand-light);
+  display:flex; align-items:center; justify-content:center; font-size:22px; flex:0 0 auto;
+}
+.sku .info{flex:1; min-width:0;}
+.sku .name{font-size:14px; font-weight:600; line-height:1.3;}
+.sku .alias{
+  display:inline-block; font-size:11px; color:var(--brand-dark); background:var(--brand-light);
+  border-radius:4px; padding:1px 6px; margin-left:6px; vertical-align:1px;
+}
+.sku .spec{font-size:11.5px; color:var(--t3); margin-top:3px;}
+.sku .ctrl{flex:0 0 auto; text-align:right;}
+.units{display:flex; gap:5px; justify-content:flex-end; margin-bottom:7px;}
+.unit{
+  font-size:11px; padding:3px 9px; border-radius:99px; border:1px solid var(--line);
+  color:var(--t2); background:#fff; cursor:pointer; white-space:nowrap;
+}
+.unit.on{background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600;}
+.step{display:inline-flex; align-items:center; border:1px solid var(--line); border-radius:99px; overflow:hidden; background:#fff;}
+.step button{width:28px; height:28px; border:none; background:none; font-size:16px; color:var(--t2); cursor:pointer; line-height:1;}
+.step button:active{background:#f3f4f6;}
+.step .q{min-width:30px; text-align:center; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums;}
+/* 购物车行 */
+.cart-item{display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--line);}
+.cart-item:last-child{border-bottom:none;}
+.cart-item .ci-name{flex:1; min-width:0; font-size:13px; font-weight:600;}
+.cart-item .ci-sub{font-size:11px; color:var(--t3); margin-top:2px; font-weight:400;}
+.cart-item .amt{font-size:13px; font-weight:700; color:var(--brand-dark); flex:0 0 auto; min-width:64px; text-align:right;}
+.cart-item .del{
+  flex:0 0 auto; width:24px; height:24px; border:none; border-radius:50%; background:#fef2f2;
+  color:var(--red); font-size:13px; cursor:pointer;
+}
+/* 底部合计条 */
+.total-bar{
+  position:sticky; bottom:0; margin-top:12px; background:#fff; border-radius:var(--radius);
+  padding:12px 14px; display:flex; align-items:center; gap:10px;
+  box-shadow:0 -4px 16px rgba(15,23,42,.08), 0 0 0 1px var(--line);
+}
+.total-bar .t{flex:1; font-size:13px; color:var(--t2);}
+.total-bar .t b{font-size:18px; color:var(--red); margin-left:4px; font-variant-numeric:tabular-nums;}
+.btn-primary{
+  background:var(--brand); color:#fff; border:none; border-radius:99px; padding:11px 26px;
+  font-size:15px; font-weight:600; cursor:pointer;
+}
+.btn-primary:active{background:var(--brand-dark);}
+.btn-primary:disabled{background:#cbd5e1; color:#fff; cursor:not-allowed;}
+/* 截止横幅 */
+.closed-banner{
+  margin-top:12px; background:#fff7e8; color:var(--amber); border:1px solid #fde6c8;
+  border-radius:10px; padding:10px 12px; font-size:12.5px;
+}
+/* 我的提交 */
+.sub-card{border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:10px;}
+.sub-card .head{display:flex; justify-content:space-between; align-items:center; font-size:13px;}
+.sub-card .chip{font-size:11px; padding:2px 8px; border-radius:99px; background:rgba(22,163,74,.1); color:var(--green);}
+.sub-card .meta{font-size:11.5px; color:var(--t3); margin-top:6px;}
+.sub-card .items{font-size:12.5px; margin-top:8px; line-height:1.8;}
+.sub-card .items b{color:var(--brand-dark);}
+/* 汇总 */
+.stats{display:flex; gap:8px; margin-top:12px;}
+.stat{flex:1; background:#fff; border-radius:12px; padding:12px 6px; text-align:center;}
+.stat .v{font-size:18px; font-weight:800; color:var(--brand-dark); font-variant-numeric:tabular-nums;}
+.stat .k{font-size:11px; color:var(--t3); margin-top:2px;}
+.sum-row{border-bottom:1px solid var(--line);}
+.sum-row:last-child{border-bottom:none;}
+.sum-head{display:flex; align-items:center; gap:8px; padding:12px 0; cursor:pointer;}
+.sum-head .nm{flex:1; min-width:0;}
+.sum-head .nm b{font-size:13.5px;}
+.sum-head .nm .u{font-size:11px; color:var(--brand-dark); background:var(--brand-light); border-radius:4px; padding:1px 6px; margin-left:6px;}
+.sum-head .nm .sub{display:block; font-size:11px; color:var(--t3); margin-top:2px;}
+.sum-head .qty{font-size:14px; font-weight:700; text-align:right; flex:0 0 auto;}
+.sum-head .qty small{display:block; font-weight:400; color:var(--t3); font-size:11px;}
+.sum-head .arrow{color:var(--t3); font-size:11px; transition:transform .2s; flex:0 0 auto;}
+.sum-row.open .arrow{transform:rotate(90deg);}
+.sources{display:none; background:#fafbfc; border-radius:10px; padding:8px 12px; margin-bottom:10px;}
+.sum-row.open .sources{display:block;}
+.sources .s{display:flex; justify-content:space-between; font-size:12px; padding:4px 0; color:var(--t2);}
+.sources .s b{color:var(--t1);}
+.toolbar{display:flex; gap:8px; align-items:center;}
+.btn-ghost{
+  font-size:12px; color:var(--brand-dark); background:#fff; border:1px solid rgba(6,182,212,.4);
+  border-radius:8px; padding:6px 12px; cursor:pointer;
+}
+.btn-ghost:active{background:var(--brand-light);}
+.link-reset{font-size:11px; color:var(--t3); background:none; border:none; cursor:pointer; text-decoration:underline;}
+/* 空态 */
+.empty{text-align:center; padding:40px 0; color:var(--t3);}
+.empty .big{font-size:40px; margin-bottom:8px;}
+.empty p{font-size:13px;}
+/* 底部导航 */
+.tabbar{
+  flex:0 0 auto; background:#fff; border-top:1px solid var(--line);
+  display:flex; padding:6px 0 calc(8px + env(safe-area-inset-bottom));
+}
+.tabbar button{
+  flex:1; border:none; background:none; cursor:pointer; color:var(--t3);
+  display:flex; flex-direction:column; align-items:center; gap:2px; font-size:10.5px; position:relative;
+}
+.tabbar button.active{color:var(--brand-dark); font-weight:600;}
+.tabbar .badge{
+  position:absolute; top:-3px; right:calc(50% - 20px); background:var(--red); color:#fff;
+  font-size:10px; min-width:16px; height:16px; border-radius:99px; display:flex;
+  align-items:center; justify-content:center; padding:0 4px;
+}
+/* Toast */
+.toast{
+  position:absolute; left:50%; bottom:96px; transform:translateX(-50%) translateY(8px);
+  background:rgba(23,23,23,.92); color:#fff; font-size:13px; padding:10px 18px;
+  border-radius:99px; opacity:0; pointer-events:none; transition:all .25s; max-width:80%;
+  text-align:center; z-index:60;
+}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+/* 弹窗 */
+.mask{
+  position:absolute; inset:0; background:rgba(15,23,42,.45); z-index:50;
+  display:none; align-items:center; justify-content:center; padding:24px;
+}
+.mask.show{display:flex;}
+.modal{
+  background:#fff; border-radius:18px; padding:26px 22px; width:100%; max-width:320px;
+  text-align:center; animation:pop .22s ease;
+}
+@keyframes pop{from{transform:scale(.9); opacity:0;} to{transform:scale(1); opacity:1;}}
+.modal .ok{
+  width:52px; height:52px; border-radius:50%; background:rgba(22,163,74,.12); color:var(--green);
+  display:flex; align-items:center; justify-content:center; margin:0 auto 12px; font-size:26px;
+}
+.modal h4{font-size:17px; margin-bottom:6px;}
+.modal p{font-size:12.5px; color:var(--t2); line-height:1.8;}
+.modal .btn-primary{margin-top:16px; width:100%;}
+.foot-note{text-align:center; font-size:10.5px; color:var(--t3); padding:14px 0 4px;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <!-- 微信导航栏 -->
+  <div class="wx-nav">
+    <div class="title">预报订单</div>
+    <div class="capsule"><span>···</span><span class="sep"></span><span>◉</span></div>
+  </div>
+
+  <!-- 身份栏 -->
+  <div class="identity">
+    <label>身份</label>
+    <select id="personSel"></select>
+    <select id="storeSel"></select>
+  </div>
+
+  <!-- 批次卡 -->
+  <div class="batch" id="batchCard"></div>
+
+  <!-- 主内容 -->
+  <main id="view"></main>
+
+  <!-- 底部导航 -->
+  <div class="tabbar" id="tabbar">
+    <button data-view="fill" class="active">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+      填报<span class="badge" id="cartBadge" style="display:none"></span>
+    </button>
+    <button data-view="mine">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 19c.8-3 3.4-4.5 6.5-4.5s5.7 1.5 6.5 4.5"/></svg>
+      我的提交
+    </button>
+    <button data-view="summary">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V9M10 20V4M16 20v-8M21 20H3"/></svg>
+      汇总总表
+    </button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="mask" id="mask"></div>
+</div>
+
+<script>
+'use strict';
+/* ============ 演示数据（虚构） ============ */
+const PEOPLE = [
+  {id:'zhang', name:'张俊峰', role:'业务员', stores:['永辉超市东金店','万华超市广场店','鑫源便利店']},
+  {id:'liting', name:'李婷', role:'促销员', stores:['万华超市广场店']},
+  {id:'wangfang', name:'王芳', role:'导购员', stores:['鑫源便利店','好又多超市']},
+  {id:'hongfa', name:'郑州宏发商贸', role:'分销商', stores:['分销仓 · 覆盖32家终端']}
+];
+const PRODUCTS = [
+  {id:'p1', name:'蒙牛单果粒黄桃酸奶', alias:'单黄', spec:'250ml×12瓶/板', emoji:'🥛',
+    units:[{key:'small',label:'瓶',price:3.2},{key:'medium',label:'提',price:36},{key:'large',label:'板',price:70}]},
+  {id:'p2', name:'蒙牛单果粒草莓酸奶', alias:'单草', spec:'250ml×12瓶/板', emoji:'🍓',
+    units:[{key:'small',label:'瓶',price:3.2},{key:'medium',label:'提',price:36},{key:'large',label:'板',price:70}]},
+  {id:'p3', name:'蒙牛纯甄风味酸奶', alias:'纯甄', spec:'200g×12杯/板', emoji:'🍮',
+    units:[{key:'small',label:'杯',price:3.5},{key:'medium',label:'提',price:40},{key:'large',label:'板',price:78}]},
+  {id:'p4', name:'蒙牛优益C乳酸菌', alias:'优益', spec:'340ml×6瓶/箱', emoji:'🧃',
+    units:[{key:'small',label:'瓶',price:5.5},{key:'medium',label:'箱',price:31},{key:'large',label:'板',price:60}]},
+  {id:'p5', name:'蒙牛冠益乳风味发酵乳', alias:'冠润', spec:'100g×8杯/板', emoji:'🍶',
+    units:[{key:'small',label:'杯',price:3.0},{key:'medium',label:'提',price:22.5},{key:'large',label:'板',price:44}]},
+  {id:'p6', name:'蒙牛每日鲜语鲜牛奶', alias:'鲜语', spec:'250ml×16盒/箱', emoji:'🐄',
+    units:[{key:'small',label:'盒',price:2.8},{key:'medium',label:'箱',price:42},{key:'large',label:'板',price:82}]}
+];
+const FAV = ['p1','p2','p3','p6'];
+const BATCH = {no:'YB-20260812-01', arrive:'8月14日（周四）到货', rule:'每2天到货 · 提前4天下单'};
+
+function seedSubmissions(){
+  return [
+    {id:'s1', personId:'liting', person:'李婷', role:'促销员', store:'万华超市广场店', time:'今日 09:12', status:'预报中',
+      items:[{pid:'p1',unit:'large',qty:2},{pid:'p2',unit:'large',qty:1},{pid:'p6',unit:'medium',qty:3}]},
+    {id:'s2', personId:'wangfang', person:'王芳', role:'导购员', store:'鑫源便利店', time:'今日 09:47', status:'预报中',
+      items:[{pid:'p3',unit:'large',qty:1},{pid:'p4',unit:'medium',qty:2}]},
+    {id:'s3', personId:'hongfa', person:'郑州宏发商贸', role:'分销商', store:'分销仓 · 覆盖32家终端', time:'今日 10:05', status:'预报中',
+      items:[{pid:'p1',unit:'large',qty:10},{pid:'p2',unit:'large',qty:8},{pid:'p6',unit:'large',qty:5},{pid:'p5',unit:'large',qty:4}]}
+  ];
+}
+
+/* ============ 状态 ============ */
+const LS_KEY = 'hergent-forecast-proto-v1';
+function initState(){
+  return {
+    personId:'zhang', storeIdx:0, view:'fill',
+    closed:false, deadline: Date.now() + (5*3600 + 23*60) * 1000,
+    cart:[], ui:{}, submissions:seedSubmissions()
+  };
+}
+function load(){
+  try{ const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+let state = load() || initState();
+function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
+
+const $ = s => document.querySelector(s);
+const productOf = id => PRODUCTS.find(p=>p.id===id);
+const personOf = id => PEOPLE.find(p=>p.id===id);
+const fmt = n => '¥' + n.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2});
+const unitOf = (p,key) => p.units.find(u=>u.key===key);
+
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+/* ============ 渲染：身份栏 ============ */
+function renderIdentity(){
+  const ps = $('#personSel');
+  ps.innerHTML = PEOPLE.map(p=>`<option value="${p.id}" ${p.id===state.personId?'selected':''}>${p.name} · ${p.role}</option>`).join('');
+  const person = personOf(state.personId);
+  const ss = $('#storeSel');
+  ss.innerHTML = person.stores.map((s,i)=>`<option value="${i}" ${i===state.storeIdx?'selected':''}>${s}</option>`).join('');
+}
+
+/* ============ 渲染：批次卡 ============ */
+function renderBatch(){
+  const el = $('#batchCard');
+  el.classList.toggle('closed', state.closed);
+  el.innerHTML = `
+    <div class="row1">
+      <span class="no">预报批次 ${BATCH.no}</span>
+      <span class="state">${state.closed?'已截止':'预报中'}</span>
+    </div>
+    <div class="row2">
+      <span>⏰ 截止：<span class="cd" id="cd">--</span></span>
+      <span>🚚 ${BATCH.arrive}</span>
+      <span>📌 ${BATCH.rule}</span>
+    </div>
+    <button class="toggle" data-act="toggle-closed">${state.closed?'模拟重新开放批次':'模拟批次截止'}</button>`;
+}
+function tickCountdown(){
+  const cd = $('#cd'); if(!cd) return;
+  if(state.closed){ cd.textContent = '已截止'; return; }
+  const diff = state.deadline - Date.now();
+  if(diff <= 0){ state.closed = true; save(); renderBatch(); renderView(); return; }
+  const h = Math.floor(diff/3600000), m = Math.floor(diff%3600000/60000), s = Math.floor(diff%60000/1000);
+  cd.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+setInterval(tickCountdown, 1000);
+
+/* ============ 渲染：填报视图 ============ */
+function skuUI(id){
+  if(!state.ui[id]) state.ui[id] = {unit:'large', qty:1};
+  return state.ui[id];
+}
+function renderFill(){
+  const kw = (state._kw||'').trim().toLowerCase();
+  const list = kw ? PRODUCTS.filter(p =>
+    p.name.toLowerCase().includes(kw) || p.alias.toLowerCase().includes(kw)) : PRODUCTS;
+
+  const favHtml = `
+    <div class="panel" style="margin-top:12px;">
+      <h3>常订商品 <span class="sub">点击直接加入清单（默认大单位×1）</span></h3>
+      <div class="fav-row">
+        ${FAV.map(id=>{const p=productOf(id);return `<span class="fav" data-act="fav-add" data-id="${id}">${p.alias} · ${p.name.slice(2,6)}</span>`;}).join('')}
+      </div>
+    </div>`;
+
+  const skuHtml = `
+    <div class="panel">
+      <h3>选择商品 <span class="sub">${list.length} 个 · 支持"单黄"等缩写搜索</span></h3>
+      ${list.length ? list.map(p=>{
+        const ui = skuUI(p.id);
+        return `
+        <div class="sku">
+          <div class="emoji">${p.emoji}</div>
+          <div class="info">
+            <div class="name">${p.name}<span class="alias">${p.alias}</span></div>
+            <div class="spec">${p.spec} · ${p.units.map(u=>`${u.label}${fmt(u.price)}`).join(' / ')}</div>
+          </div>
+          <div class="ctrl">
+            <div class="units">
+              ${p.units.map(u=>`<span class="unit ${ui.unit===u.key?'on':''}" data-act="sku-unit" data-id="${p.id}" data-u="${u.key}">${u.label}</span>`).join('')}
+            </div>
+            <div class="step">
+              <button data-act="sku-dec" data-id="${p.id}">−</button>
+              <span class="q">${ui.qty}</span>
+              <button data-act="sku-inc" data-id="${p.id}">＋</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('') : `<div class="empty"><div class="big">🔍</div><p>没有找到「${state._kw}」相关商品</p></div>`}
+    </div>`;
+
+  const cartHtml = state.cart.length ? `
+    <div class="panel">
+      <h3>预报清单 <span class="sub">${state.cart.length} 项</span></h3>
+      ${state.cart.map((c,i)=>{
+        const p = productOf(c.pid), u = unitOf(p,c.unit);
+        return `
+        <div class="cart-item">
+          <div class="ci-name">
+            ${p.name}
+            <div class="ci-sub">
+              ${p.units.map(x=>`<span class="unit ${x.key===c.unit?'on':''}" style="margin-right:4px;" data-act="cart-unit" data-i="${i}" data-u="${x.key}">${x.label}</span>`).join('')}
+            </div>
+          </div>
+          <div class="step">
+            <button data-act="cart-dec" data-i="${i}">−</button>
+            <span class="q">${c.qty}</span>
+            <button data-act="cart-inc" data-i="${i}">＋</button>
+          </div>
+          <div class="amt">${fmt(u.price*c.qty)}</div>
+          <button class="del" data-act="cart-del" data-i="${i}">✕</button>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  const total = state.cart.reduce((s,c)=> s + unitOf(productOf(c.pid),c.unit).price*c.qty, 0);
+  const barHtml = `
+    <div class="total-bar">
+      <div class="t">共 ${state.cart.length} 项 合计<b>${fmt(total)}</b></div>
+      <button class="btn-primary" data-act="submit" data-primary-action ${(!state.cart.length||state.closed)?'disabled':''}>
+        ${state.closed?'批次已截止':'提交预报'}
+      </button>
+    </div>`;
+
+  return `
+    <div class="panel" style="margin-top:0;">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="kw" placeholder="搜索商品名称或缩写，如：单黄" value="${state._kw||''}">
+      </div>
+    </div>
+    ${state.closed?'<div class="closed-banner">⚠️ 本批次已截止，预报已锁定。下一批次将于明日 08:00 开放。</div>':''}
+    ${favHtml}
+    ${skuHtml}
+    ${cartHtml}
+    ${barHtml}`;
+}
+
+/* ============ 渲染：我的提交 ============ */
+function renderMine(){
+  const mine = state.submissions.filter(s=>s.personId===state.personId);
+  if(!mine.length) return `<div class="empty" style="margin-top:60px;"><div class="big">📭</div><p>当前身份还没有提交过预报<br>去「填报」页选几件常订商品试试</p></div>`;
+  return `
+    <div class="panel" style="margin-top:0;">
+      <h3>我的预报记录 <span class="sub">${personOf(state.personId).name} · ${mine.length} 条</span></h3>
+      ${mine.map(s=>`
+        <div class="sub-card">
+          <div class="head"><b>${BATCH.no}</b><span class="chip">${s.status}</span></div>
+          <div class="meta">${s.store} · ${s.time} 提交</div>
+          <div class="items">
+            ${s.items.map(it=>{const p=productOf(it.pid),u=unitOf(p,it.unit);
+              return `${p.alias} <b>${it.qty}${u.label}</b>（${fmt(u.price*it.qty)}）`;}).join('　')}
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+/* ============ 渲染：汇总总表（文员视角） ============ */
+function aggregate(){
+  const map = {};
+  state.submissions.forEach(s=>{
+    s.items.forEach(it=>{
+      const key = it.pid + '|' + it.unit;
+      if(!map[key]) map[key] = {pid:it.pid, unit:it.unit, qty:0, amt:0, sources:[]};
+      const p = productOf(it.pid), u = unitOf(p,it.unit);
+      map[key].qty += it.qty;
+      map[key].amt += it.qty * u.price;
+      map[key].sources.push({person:s.person, role:s.role, store:s.store, qty:it.qty});
+    });
+  });
+  return Object.values(map).sort((a,b)=> b.amt - a.amt);
+}
+function renderSummary(){
+  const rows = aggregate();
+  const people = new Set(state.submissions.map(s=>s.person)).size;
+  const totalAmt = rows.reduce((s,r)=>s+r.amt,0);
+  if(!rows.length) return `<div class="empty" style="margin-top:60px;"><div class="big">📋</div><p>本批次暂无预报数据</p></div>`;
+  return `
+    <div class="stats">
+      <div class="stat"><div class="v">${fmt(totalAmt)}</div><div class="k">预报总金额</div></div>
+      <div class="stat"><div class="v">${rows.length}</div><div class="k">SKU×单位项</div></div>
+      <div class="stat"><div class="v">${people} 人</div><div class="k">已提交</div></div>
+    </div>
+    <div class="panel">
+      <h3>按 SKU + 单位自动汇总
+        <span class="toolbar">
+          <button class="btn-ghost" data-act="copy-tsv" data-primary-action>复制表格</button>
+          <button class="link-reset" data-act="reset">重置演示数据</button>
+        </span>
+      </h3>
+      ${rows.map((r,i)=>{
+        const p = productOf(r.pid), u = unitOf(p,r.unit);
+        return `
+        <div class="sum-row ${state._open&&state._open[i]?'open':''}" data-act="sum-row" data-i="${i}">
+          <div class="sum-head">
+            <div class="nm">
+              <b>${p.name}</b><span class="u">按「${u.label}」汇总</span>
+              <span class="sub">${p.alias} · 单价 ${fmt(u.price)}/${u.label} · ${r.sources.length} 人预报</span>
+            </div>
+            <div class="qty">${r.qty}${u.label}<small>${fmt(r.amt)}</small></div>
+            <span class="arrow">▶</span>
+          </div>
+          <div class="sources">
+            ${r.sources.map(x=>`<div class="s"><span>${x.person}（${x.role}）· ${x.store}</span><b>${x.qty}${u.label}</b></div>`).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="foot-note">汇总数据由所有人提交实时聚合，无需文员导出 Excel 手工粘贴 · 演示原型</div>`;
+}
+function buildTSV(){
+  const rows = aggregate();
+  let tsv = '商品名称\t简称\t单位\t预报数量\t单价(元)\t金额(元)\t来源人数\t来源明细\n';
+  rows.forEach(r=>{
+    const p = productOf(r.pid), u = unitOf(p,r.unit);
+    tsv += [p.name, p.alias, u.label, r.qty, u.price.toFixed(2), r.amt.toFixed(2),
+      r.sources.length, r.sources.map(x=>`${x.person}(${x.qty})`).join('、')].join('\t') + '\n';
+  });
+  return tsv;
+}
+
+/* ============ 视图调度 ============ */
+function renderView(){
+  const v = $('#view');
+  if(state.view==='fill') v.innerHTML = renderFill();
+  else if(state.view==='mine') v.innerHTML = renderMine();
+  else v.innerHTML = renderSummary();
+  // 角标
+  const badge = $('#cartBadge');
+  const n = state.cart.reduce((s,c)=>s+c.qty,0);
+  badge.style.display = n ? 'flex' : 'none';
+  badge.textContent = n;
+  // tab 高亮
+  document.querySelectorAll('#tabbar button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.view===state.view);
+  });
+  // 搜索框焦点保持
+  if(state.view==='fill'){
+    const kw = $('#kw');
+    if(kw){
+      kw.addEventListener('input', e=>{ state._kw = e.target.value; renderView();
+        const el = $('#kw'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); });
+    }
+  }
+}
+
+/* ============ 事件 ============ */
+$('#personSel').addEventListener('change', e=>{
+  state.personId = e.target.value; state.storeIdx = 0; save();
+  renderIdentity(); renderView();
+});
+$('#storeSel').addEventListener('change', e=>{
+  state.storeIdx = +e.target.value; save();
+});
+$('#tabbar').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-view]'); if(!btn) return;
+  state.view = btn.dataset.view; save(); renderView();
+  $('#view').scrollTop = 0;
+});
+
+document.querySelector('.phone').addEventListener('click', e=>{
+  const el = e.target.closest('[data-act]'); if(!el) return;
+  const act = el.dataset.act;
+
+  if(act==='toggle-closed'){
+    state.closed = !state.closed; save(); renderBatch(); tickCountdown(); renderView();
+    toast(state.closed?'已模拟批次截止':'批次已重新开放');
+    return;
+  }
+  if(act==='fav-add'){
+    addToCart(el.dataset.id, 'large', 1); return;
+  }
+  if(act==='sku-unit'){ skuUI(el.dataset.id).unit = el.dataset.u; save(); renderView(); return; }
+  if(act==='sku-inc'){ const ui=skuUI(el.dataset.id); ui.qty=Math.min(999,ui.qty+1); save(); renderView(); return; }
+  if(act==='sku-dec'){ const ui=skuUI(el.dataset.id); ui.qty=Math.max(1,ui.qty-1); save(); renderView(); return; }
+
+  if(act==='cart-unit'){ state.cart[+el.dataset.i].unit = el.dataset.u; save(); renderView(); return; }
+  if(act==='cart-inc'){ state.cart[+el.dataset.i].qty=Math.min(999,state.cart[+el.dataset.i].qty+1); save(); renderView(); return; }
+  if(act==='cart-dec'){ const c=state.cart[+el.dataset.i]; c.qty=Math.max(1,c.qty-1); save(); renderView(); return; }
+  if(act==='cart-del'){ state.cart.splice(+el.dataset.i,1); save(); renderView(); return; }
+
+  if(act==='submit'){ doSubmit(); return; }
+  if(act==='sum-row'){
+    state._open = state._open || {};
+    state._open[el.dataset.i] = !state._open[el.dataset.i];
+    el.classList.toggle('open');
+    return;
+  }
+  if(act==='copy-tsv'){
+    const tsv = buildTSV();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(tsv).then(()=>toast('已复制，可直接粘贴到 Excel')).catch(()=>fallbackCopy(tsv));
+    } else fallbackCopy(tsv);
+    return;
+  }
+  if(act==='reset'){
+    if(confirm('重置演示数据？将清空本地保存的所有提交记录。')){
+      localStorage.removeItem(LS_KEY); state = initState(); save();
+      renderIdentity(); renderBatch(); renderView(); toast('演示数据已重置');
+    }
+    return;
+  }
+  if(act==='modal-close'){ hideModal(); state.view='mine'; save(); renderView(); return; }
+});
+
+function fallbackCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); toast('已复制，可直接粘贴到 Excel'); }
+  catch(err){ toast('复制失败，请手动复制'); }
+  document.body.removeChild(ta);
+}
+
+function addToCart(pid, unit, qty){
+  if(state.closed){ toast('本批次已截止，无法加入预报'); return; }
+  const found = state.cart.find(c=>c.pid===pid && c.unit===unit);
+  if(found) found.qty = Math.min(999, found.qty + qty);
+  else state.cart.push({pid, unit, qty});
+  save(); renderView();
+  const p = productOf(pid), u = unitOf(p,unit);
+  toast(`已加入：${p.alias} × ${qty}${u.label}`);
+}
+
+function doSubmit(){
+  if(state.closed){ toast('本批次已截止'); return; }
+  if(!state.cart.length){ toast('请先选择商品'); return; }
+  const person = personOf(state.personId);
+  const store = person.stores[state.storeIdx] || person.stores[0];
+  const now = new Date();
+  const sub = {
+    id:'s'+Date.now(), personId:person.id, person:person.name, role:person.role,
+    store, time:`今日 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+    status:'预报中',
+    items: state.cart.map(c=>({pid:c.pid, unit:c.unit, qty:c.qty}))
+  };
+  state.submissions.push(sub);
+  const total = sub.items.reduce((s,it)=> s + unitOf(productOf(it.pid),it.unit).price*it.qty, 0);
+  state.cart = []; save();
+  renderView();
+  showModal(`
+    <div class="ok">✓</div>
+    <h4>预报提交成功</h4>
+    <p>
+      <b>${store}</b><br>
+      ${sub.items.length} 项商品 · 合计 ${fmt(total)}<br>
+      已进入汇总总表，审核同事将结合<br>指标达成与库存情况确定最终订单
+    </p>
+    <button class="btn-primary" data-act="modal-close">查看我的提交</button>`);
+}
+function showModal(html){ const m=$('#mask'); m.innerHTML = `<div class="modal">${html}</div>`; m.classList.add('show'); }
+function hideModal(){ const m=$('#mask'); m.classList.remove('show'); m.innerHTML=''; }
+
+/* ============ 启动 ============ */
+renderIdentity(); renderBatch(); renderView(); tickCountdown();
+</script>
+</body>
+</html>

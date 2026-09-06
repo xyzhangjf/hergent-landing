@@ -28,7 +28,7 @@
           <div class="ev-sk-hd"><b>技能库（AI 的"行业经验"）</b><span class="page-sub">{{ aiSkills.length }} 个已启用</span></div>
           <div class="ev-sk-grid">
             <div v-for="s in aiSkills" :key="s.name" class="ev-sk" :class="{ internal: skillMeta(s).internal }">
-              <span class="ev-sk-ic">{{ skillMeta(s).icon || '🧠' }}</span>
+              <span class="ev-sk-ic"><Icon :name="skillMeta(s).icon || 'brain'"/></span>
               <div>
                 <div class="ev-sk-name">{{ skillMeta(s).title || s.name }}</div>
                 <div class="ev-sk-sub">{{ skillMeta(s).what || s.description || '' }}</div>
@@ -59,7 +59,7 @@
       <div class="cc-section">
         <!-- 对齐桌面「连接手机」：顶部提示条 -->
         <div class="cc-tip-banner" v-if="!ccTipDismissed">
-          <span class="ctb-icon">📱</span>
+          <span class="ctb-icon"><Icon name="smartphone"/></span>
           <span class="ctb-txt">连上飞书 / 企微 / 钉钉，AI 干完活直接推送到你手机上</span>
           <button class="ctb-close" @click="dismissCcTip">知道了</button>
         </div>
@@ -230,13 +230,13 @@
           <!-- AI 自进化技能 -->
           <div v-if="generatedSkills.length" class="sk-sec">
             <div class="sk-sec-hd">
-              <b>✨ AI 自进化技能</b>
+              <b><Icon name="sparkle"/> AI 自进化技能</b>
               <span class="tag warn">{{ generatedSkills.length }} 个 · 从你的使用中自动沉淀</span>
             </div>
             <div class="sk-grid">
               <div v-for="s in generatedSkills" :key="s.name" class="card sk-card gen">
                 <div class="sk-top">
-                  <span class="sk-ic">✨</span>
+                  <span class="sk-ic"><Icon name="sparkle"/></span>
                   <div class="sk-id">
                     <div class="sk-title">{{ s.name }}</div>
                   </div>
@@ -249,13 +249,13 @@
           <!-- 预置行业技能 -->
           <div class="sk-sec">
             <div class="sk-sec-hd">
-              <b>📦 低温奶行业 AI 技能</b>
+              <b><Icon name="package"/> 低温奶行业 AI 技能</b>
               <span class="tag info">{{ prebuiltSkills.length }} 个 · 你的护城河</span>
             </div>
             <div class="sk-grid">
               <div v-for="s in prebuiltSkills" :key="s.name" class="card sk-card" :class="{ internal: skillMeta(s).internal }">
                 <div class="sk-top">
-                  <span class="sk-ic">{{ skillMeta(s).icon || '🧠' }}</span>
+                  <span class="sk-ic"><Icon :name="skillMeta(s).icon || 'brain'"/></span>
                   <div class="sk-id">
                     <div class="sk-title">{{ skillMeta(s).title || s.name }}</div>
                     <div class="sk-name">{{ s.name }}</div>
@@ -263,7 +263,7 @@
                   <span v-if="skillMeta(s).internal" class="sk-badge">系统</span>
                 </div>
                 <div class="sk-what">{{ skillMeta(s).what || s.description || '行业规则' }}</div>
-                <div v-if="skillMeta(s).when" class="sk-when">⏱ {{ skillMeta(s).when }}</div>
+                <div v-if="skillMeta(s).when" class="sk-when"><Icon name="clock"/> {{ skillMeta(s).when }}</div>
               </div>
             </div>
           </div>
@@ -275,7 +275,7 @@
         <div class="panel-hd">
           <b>工作流</b>
           <span class="page-sub">把高频经营活封装成「工作流」，一键跑通</span>
-          <button class="btn btn-ghost btn-sm" @click="manageOpen = true">⚙️ 管理工作流</button>
+          <button class="btn btn-ghost btn-sm" @click="manageOpen = true"><Icon name="settings"/> 管理工作流</button>
         </div>
         <div class="wf-grid">
           <div v-for="w in workflows" :key="w.key || w.name" class="card wf-card" :class="{ disabled: !w.ready }" @click="openWorkflow(w)">
@@ -539,6 +539,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { reactive, ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../store'
@@ -576,14 +577,14 @@ const generatedSkills = computed(() => aiSkills.value.filter(s => s.source === '
 
 /* 技能展示富化：把机器名 + 技术描述 → 老板可懂的「图标 + 中文名 + 能干嘛 + 何时触发」 */
 const SKILL_META = {
-  'hergent-milk-forecast':   { icon: '🔮', title: '智能预报订货', what: '算可销天数、判断断货风险、给出建议下单量', when: '你问"该进多少货""会不会断货""还能卖几天"' },
-  'hergent-milk-expiry':     { icon: '⏳', title: '临期与货损',   what: '判定几天算临期、过期怎么计损、临期库存分级处置', when: '你问"这批快到期怎么办""货损怎么算""过期损失多少"' },
-  'hergent-milk-commission': { icon: '💰', title: '提成与工资',   what: '按回款/开单算提成、阶梯提成、扣社保个税后的实发', when: '你问"这个月工资多少""提成怎么算""给业务员算提成"' },
-  'hergent-milk-rebate':     { icon: '🎁', title: '厂家返利',     what: '目标达成率、返利基数、核销注意事项', when: '你问"返利怎么算""达成多少""能拿多少返利"' },
-  'hergent-collections':     { icon: '📞', title: '智能催收',     what: '查应收逾期、生成分级催收清单和话术', when: '你问"谁还欠钱""该催谁了""逾期多少钱"' },
-  'hergent-erp-tools':       { icon: '🧰', title: 'ERP 工具集',   what: '28 个业务工具：开单 / 查库存 / 收付款 / 出报表 / 预警', when: '日常开单、查库存、对账等高频操作' },
-  'hergent-architecture':    { icon: '🏗️', title: '系统架构', internal: true, what: '数据库表结构、API 路由、前端模块（开发维护用）', when: '系统开发 / 维护时' },
-  'hergent-erp-diagnostics': { icon: '🔧', title: '排障诊断', internal: true, what: 'API 调用、端口 / token 获取、工具直调（开发排障用）', when: '系统异常排查时' },
+  'hergent-milk-forecast':   { icon: 'sparkle', title: '智能预报订货', what: '算可销天数、判断断货风险、给出建议下单量', when: '你问"该进多少货""会不会断货""还能卖几天"' },
+  'hergent-milk-expiry':     { icon: 'loader', title: '临期与货损',   what: '判定几天算临期、过期怎么计损、临期库存分级处置', when: '你问"这批快到期怎么办""货损怎么算""过期损失多少"' },
+  'hergent-milk-commission': { icon: 'coins', title: '提成与工资',   what: '按回款/开单算提成、阶梯提成、扣社保个税后的实发', when: '你问"这个月工资多少""提成怎么算""给业务员算提成"' },
+  'hergent-milk-rebate':     { icon: 'gift', title: '厂家返利',     what: '目标达成率、返利基数、核销注意事项', when: '你问"返利怎么算""达成多少""能拿多少返利"' },
+  'hergent-collections':     { icon: 'phone', title: '智能催收',     what: '查应收逾期、生成分级催收清单和话术', when: '你问"谁还欠钱""该催谁了""逾期多少钱"' },
+  'hergent-erp-tools':       { icon: 'toolbox', title: 'ERP 工具集',   what: '28 个业务工具：开单 / 查库存 / 收付款 / 出报表 / 预警', when: '日常开单、查库存、对账等高频操作' },
+  'hergent-architecture':    { icon: 'building', title: '系统架构', internal: true, what: '数据库表结构、API 路由、前端模块（开发维护用）', when: '系统开发 / 维护时' },
+  'hergent-erp-diagnostics': { icon: 'wrench', title: '排障诊断', internal: true, what: 'API 调用、端口 / token 获取、工具直调（开发排障用）', when: '系统异常排查时' },
 }
 function skillMeta(s) {
   return SKILL_META[s.name] || {}
@@ -1208,8 +1209,8 @@ onMounted(() => {
 .cc-tip-banner{display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:16px;background:var(--p-bg);border:1px solid transparent;border-radius:12px;font-size:13px;color:var(--p-dark)}
 .ctb-icon{flex-shrink:0;font-size:15px}
 .ctb-txt{flex:1;line-height:1.5}
-.ctb-close{flex-shrink:0;border:none;background:rgba(255,255,255,.55);color:var(--p-dark);font-size:12px;padding:4px 10px;border-radius:8px;cursor:pointer}
-.ctb-close:hover{background:#fff}
+.ctb-close{flex-shrink:0;border:none;background:var(--bg4);color:var(--p-dark);font-size:12px;padding:4px 10px;border-radius:8px;cursor:pointer}
+.ctb-close:hover{background:var(--bg4)}
 
 /* 三步引导条 */
 .cc-guide{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}

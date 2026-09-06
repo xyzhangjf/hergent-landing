@@ -33,8 +33,10 @@
             <td><span class="tag" :class="row.finalized ? 'ok' : 'info'">{{ row.finalized ? '已定稿' : '未定稿' }}</span></td>
             <td>
               <button class="btn btn-sm btn-ghost" @click="$emit('view', row)">查看</button>
-              <button v-if="row.status === 'open'" class="btn btn-sm btn-ghost" @click="$emit('close', row)">关闭</button>
-              <button v-if="row.status !== 'open'" class="btn btn-sm btn-ghost danger" @click="$emit('delete', row)">删除</button>
+              <!-- A6 修复 (2026-07-24)：合成行（id<0，如「2026-07-24 报单」）无真实期次记录，
+                   关闭/删除会打到无效 id（UPDATE 0 行或误触数据），故屏蔽 -->
+              <button v-if="row.status === 'open' && Number(row.id) > 0" class="btn btn-sm btn-ghost" @click="$emit('close', row)">关闭</button>
+              <button v-if="row.status !== 'open' && Number(row.id) > 0" class="btn btn-sm btn-ghost danger" @click="$emit('delete', row)">删除</button>
             </td>
           </tr>
         </tbody>
@@ -78,7 +80,7 @@ onMounted(load)
 .history-hd .hint { font-size: 12px; color: var(--t3); }
 .history-loading, .history-empty { color: var(--t3); padding: 40px 0; text-align: center; font-size: 13px; }
 .history-tbl { min-width: 900px; }
-.history-tbl tbody tr.active { background: rgba(6, 182, 212, 0.04); }
+.history-tbl tbody tr.active { background: var(--p-bg); }
 .history-tbl td { font-size: 13px; }
 .history-tbl th { font-size: 12px; color: var(--t2); font-weight: 500; }
 .history-tbl .danger { color: var(--dan); }

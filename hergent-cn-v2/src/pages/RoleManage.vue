@@ -52,7 +52,7 @@
     <div v-if="showForm" class="rm-modal" @click.self="closeForm">
       <div class="rm-form">
         <div class="rm-form-hd">{{ editing ? '编辑团队' : '新建团队' }}
-          <button class="rm-x" @click="closeForm">✕</button>
+          <button class="rm-x" @click="closeForm"><Icon name="close"/></button>
         </div>
 
         <label class="rm-fld">名称 <span class="rm-req">*</span>
@@ -96,7 +96,7 @@
     <div v-if="bindOpen" class="rm-modal" @click.self="closeBind">
       <div class="rm-form">
         <div class="rm-form-hd">{{ (bindRole && bindRole.name) || '' }} · 连接渠道
-          <button class="rm-x" @click="closeBind">✕</button>
+          <button class="rm-x" @click="closeBind"><Icon name="close"/></button>
         </div>
         <p class="rm-bind-tip">勾选该角色要推送到的渠道。保存后，这个 AI 角色的回复会推到对应手机。</p>
         <label class="rm-bind-row">
@@ -143,6 +143,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { ref, computed, reactive, onMounted } from 'vue'
 import { store, toast } from '../store'
 import { api } from '../api/client'

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P0-1 预报订单交叉表视图 · UI Mock</title>
+<style>
+  /* === 深色主题（匹配 Hergent / hergent.cn） === */
+  :root{
+    --p:#22d3ee; --p-dark:#06b6d4; --p-bg:rgba(34,211,238,.12);
+    --suc:#34d399; --suc-bg:rgba(52,211,153,.12);
+    --dan:#f87171; --dan-bg:rgba(248,113,113,.12);
+    --war:#fbbf24; --war-bg:rgba(251,191,36,.12);
+    --bg:#0b1020;        /* 页面底（很深的海军蓝） */
+    --bg2:#131a2e;       /* 卡片表面 */
+    --bg3:#1c2540;       /* 抬起层/tab 容器 */
+    --t1:#e6edf7;        /* 主文字 */
+    --t2:#94a3b8;        /* 次文字 */
+    --t3:#64748b;        /* 提示文字 */
+    --bd:#1f2942;        /* 边框 */
+    --bd-sub:#182037;     /* 内分隔线 */
+    --radius-lg:14px; --radius-md:10px; --radius-sm:6px;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);font-size:13px;line-height:1.55;padding:20px}
+  .mock-note{max-width:1280px;margin:0 auto 14px;background:var(--p-bg);border:1px solid rgba(34,211,238,.35);color:var(--p);border-radius:var(--radius-md);padding:8px 14px;font-size:12px}
+  .page{max-width:1280px;margin:0 auto}
+  .page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+  .page-hd h2{font-size:18px;font-weight:500;color:var(--t1)}
+  .page-sub{color:var(--t3);font-size:12px}
+  .card{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:14px;margin-bottom:14px}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .tb-left,.tb-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .input{height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:13px;background:var(--bg3);color:var(--t1);outline:none}
+  .input:focus{border-color:var(--p)}
+  .btn{height:32px;padding:0 14px;border-radius:var(--radius-sm);border:1px solid var(--bd);background:var(--bg3);color:var(--t1);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:border-color .15s,color .15s,background .15s}
+  .btn:hover{border-color:var(--p);color:var(--p)}
+  .btn-primary{background:var(--p);border-color:var(--p);color:#0b1020;font-weight:500}
+  .btn-primary:hover{background:var(--p-dark);color:#0b1020;border-color:var(--p-dark)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-sm{height:26px;padding:0 10px;font-size:12px}
+  .tag{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 9px;border-radius:999px;font-size:12px;background:var(--bg3);color:var(--t2)}
+  .tag.blue{background:var(--p-bg);color:var(--p)}
+  .tag.green{background:var(--suc-bg);color:var(--suc)}
+  .tag.amber{background:var(--war-bg);color:var(--war)}
+  .tag.red{background:var(--dan-bg);color:var(--dan)}
+  .view-tabs{display:flex;gap:4px;background:var(--bg3);border-radius:var(--radius-sm);padding:3px}
+  .view-tabs button{border:none;background:transparent;padding:5px 14px;border-radius:5px;font-size:13px;color:var(--t2);cursor:pointer}
+  .view-tabs button.on{background:var(--bg2);color:var(--p);box-shadow:0 1px 3px rgba(0,0,0,.3);font-weight:500}
+  .sop{display:flex;gap:10px;align-items:center;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:var(--radius-md);padding:8px 12px;font-size:12px;color:var(--war);margin-bottom:14px;flex-wrap:wrap}
+  .sop b{color:#fde68a}
+  .sop .sep{color:rgba(251,191,36,.4)}
+  .table-wrap{overflow:auto;max-height:520px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
+  table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px}
+  thead th{position:sticky;top:0;background:var(--bg3);z-index:5;font-weight:500;color:var(--t2);border-bottom:1px solid var(--bd);padding:7px 8px;white-space:nowrap;text-align:left}
+  thead th.grp{top:0;background:#0f1729;color:var(--t3);text-align:center;font-size:11px}
+  thead th.grp.person{background:rgba(251,191,36,.15);color:#fde68a}
+  thead th.grp.store{background:rgba(248,113,113,.15);color:#fecaca}
+  tbody td{border-bottom:1px solid var(--bd-sub);padding:6px 8px;white-space:nowrap;color:var(--t1)}
+  .frozen{position:sticky;left:0;background:var(--bg2);z-index:3}
+  th.frozen{left:0;z-index:6;background:var(--bg3)}
+  th.frozen2{left:150px;z-index:6;background:var(--bg3)}
+  td.frozen2{left:150px;z-index:2;background:var(--bg2)}
+  .frozen-group{box-shadow:1px 0 0 var(--bd)}
+  .pname{font-weight:500;color:var(--t1);max-width:190px;overflow:hidden;text-overflow:ellipsis}
+  .pspec{color:var(--t3);font-size:11px;margin-top:1px}
+  .sub{color:var(--t3);font-size:11px}
+  .barcode{font-family:ui-monospace,monospace;color:var(--t3);font-size:11px}
+  .qty{text-align:center;color:var(--t2);border-left:1px solid var(--bd-sub)}
+  .qty.has{color:var(--t1);font-weight:500}
+  .qty.hot{background:rgba(251,191,36,.08)}
+  .calc{text-align:right;font-variant-numeric:tabular-nums}
+  .calc.sum{background:rgba(251,191,36,.1);color:#fde68a;font-weight:500}
+  .calc.boxes{color:var(--t2)}
+  .calc.final{background:var(--p-bg);color:var(--p);font-weight:600}
+  .calc.price{color:var(--t2)}
+  .calc.amount{font-weight:600;color:var(--t1)}
+  .calc.ai{color:var(--p);background:rgba(34,211,238,.08)}
+  tr.off td{color:var(--t3)}
+  tr.off .pname{text-decoration:line-through;color:var(--t3)}
+  tr.off .qty{color:var(--t3)}
+  .grow{color:var(--suc);font-size:11px;font-weight:500}
+  .drop{color:var(--dan);font-size:11px}
+  .col-total td{background:var(--bg3);font-weight:600;border-top:2px solid var(--bd)}
+  .col-total .calc.sum{background:rgba(251,191,36,.18)}
+  .col-total .calc.final{background:rgba(34,211,238,.18)}
+  .tip-wrap{position:relative}
+  .tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#0f172a;color:#e6edf7;border:1px solid var(--bd);font-size:11px;padding:7px 10px;border-radius:6px;white-space:nowrap;z-index:20;box-shadow:0 8px 20px rgba(0,0,0,.45)}
+  .tip b{color:var(--p)}
+  .tip-wrap:hover .tip{display:block}
+  .pin{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;border-top:1px solid var(--bd);padding-top:12px;flex-wrap:wrap}
+  .pin .left{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+  .pin .big{font-size:20px;font-weight:500;color:var(--t1)}
+  .pin .big b{color:var(--p)}
+  .pin .mini{font-size:12px;color:var(--t2)}
+  .pin .mini b{color:var(--dan);font-weight:500}
+  .g-a{display:inline-flex;width:16px;height:16px;border-radius:4px;background:var(--war);color:#0b1020;font-size:10px;align-items:center;justify-content:center;font-weight:600;margin-left:4px;vertical-align:1px}
+  .g-b{display:inline-flex;width:16px;height:16px;border-radius:4px;background:#94a3b8;color:#0b1020;font-size:10px;align-items:center;justify-content:center;font-weight:600;margin-left:4px;vertical-align:1px}
+  .ai-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--p);background:var(--p-bg);border:1px solid rgba(34,211,238,.35);border-radius:999px;padding:2px 8px}
+  .ai-badge .dot{width:5px;height:5px;border-radius:50%;background:var(--p)}
+  .missing{display:inline-flex;align-items:center;gap:5px;color:var(--dan);font-size:12px}
+  .data-panel{display:none}
+  .data-panel.on{display:block}
+  .json-block{background:#020617;color:#a5f3fc;border-radius:var(--radius-md);padding:16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.7;overflow:auto;max-height:480px;white-space:pre}
+  .json-key{color:#93c5fd}.json-str{color:#86efac}.json-num{color:#fbbf24}
+  .ds-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--t2);margin:10px 0}
+  .ds-legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .note-line{font-size:12px;color:var(--t2);margin-top:10px;line-height:1.8}
+  .note-line b{color:var(--t1)}
+  .hint{color:var(--t3);font-size:11px}
+</style>
+</head>
+<body>
+<div class="mock-note">P0-1 交叉表视图 · UI Mock（深色主题版，匹配 hergent.cn 实际环境）— 现在可与你的生产页面对照精确提红框；非最终实现，表单字段不可编辑</div>
+
+<div class="page">
+<div id="view-ui">
+  <div class="page-hd">
+    <h2>预报订货管理</h2>
+    <span class="page-sub">报单汇总 · 智能审核大脑</span>
+    <span class="tag blue">P0-1 交叉表视图</span>
+  </div>
+
+  <div class="card toolbar">
+    <div class="tb-left">
+      <select class="input sel-period">
+        <option>8月14报单 - 8月18到货（当前）</option>
+        <option>8月8报单 - 8月12到货</option>
+        <option>8月2报单 - 8月6到货</option>
+      </select>
+      <button class="btn btn-ghost btn-sm">+ 新建期次</button>
+      <span class="tag amber">报单中 · 截止 8.16 18:00</span>
+      <span class="hint">还差 3 人未报</span>
+    </div>
+    <div class="tb-right">
+      <div class="view-tabs">
+        <button class="on">界面效果</button>
+        <button>数据结构</button>
+      </div>
+      <button class="btn btn-sm">导入 Excel</button>
+      <button class="btn btn-sm">催未报者</button>
+      <button class="btn btn-primary btn-sm" disabled>一键生成下游订单</button>
+    </div>
+  </div>
+
+  <div class="sop">
+    <b>SOP · 8.14 报单 / 8.18 到货</b>
+    <span class="sep">│</span>
+    <span>蒙牛恒滋 1900048473 · 福宝 1900048369</span>
+    <span class="sep">│</span>
+    <span>小品项单号下单 · 大品项双号下单</span>
+    <span class="sep">│</span>
+    <span>提前 4 天锁定 · 到货前 1 天出舟谱导入模板</span>
+  </div>
+
+  <div class="card" style="padding:0 14px 14px">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="frozen frozen-group" style="min-width:150px">商品</th>
+            <th class="frozen2 frozen-group" style="min-width:104px">条码 / 规格</th>
+            <th class="grp person frozen" style="left:262px" colspan="10">业务员 / 导购</th>
+            <th class="grp store" colspan="5">门店 / 渠道</th>
+            <th class="grp">计算列</th>
+          </tr>
+          <tr>
+            <th class="frozen frozen-group">简称（含下单主体）</th>
+            <th class="frozen2 frozen-group">条码 / 规格</th>
+            <th>唐成</th><th>黄家伟</th><th>易胜琳</th><th>胡奎奎</th><th>朱青峰</th>
+            <th>刘正宝</th><th>王琴</th><th>程欢欢</th><th>刘善涛</th><th>毛辉</th>
+            <th>周运潘</th><th>田顺达</th><th>刘小顶</th><th>谢总</th><th>吾悦</th>
+            <th>民发</th><th>沃尔玛</th><th>美联檀溪</th><th>汴河</th>
+            <th class="num calc" style="background:#fffbeb">合计</th>
+            <th class="num calc">件数</th>
+            <th class="num calc">最终下单</th>
+            <th class="num calc">单价</th>
+            <th class="num calc" style="min-width:84px">下单金额</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="frozen frozen-group"><div class="pname">红桶（恒滋下单）<span class="g-a">A</span></div><div class="pspec">10 件/箱 · 到货 +3</div></td>
+            <td class="frozen2 frozen-group"><div class="barcode">6934665094026</div><div class="sub">10 件/箱</div></td>
+            <td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty has"></td><td class="qty has tip-wrap">10<span class="tip">¥990 · 返利档 3%<br><b>距 4% 档还差 40 件</b></span></td><td class="qty has">20</td><td class="qty has">10</td><td class="qty"></td>
+            <td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="calc sum">40</td><td class="calc boxes">4</td><td class="calc final">4</td><td class="calc price">99</td><td class="calc amount">396</td>
+          </tr>
+          <tr>
+            <td class="frozen frozen-group"><div class="pname">低脂高钙（恒滋下单）</div><div class="pspec">到货 +4 · 双号下单</div></td>
+            <td class="frozen2 frozen-group"><div class="barcode">6934665094033</div><div class="sub">6 件/箱</div></td>
+            <td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty"></td><td class="qty"></td><td class="qty has tip-wrap">60<span class="tip">¥4,716 · 返利档 3%<br><b>本单 A 类客户重点</b></span></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty has">6</td><td class="qty has">18</td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="calc sum">84</td><td class="calc boxes">14</td><td class="calc final">80</td><td class="calc price">78.6</td><td class="calc amount">6,288</td>
+          </tr>
+          <tr>
+            <td class="frozen frozen-group"><div class="pname">每日鲜酪蓝莓（福宝下单）</div><div class="pspec">到货 +4</div></td>
+            <td class="frozen2 frozen-group"><div class="barcode">6934665094118</div><div class="sub">8 杯/盒</div></td>
+            <td class="qty has">8</td><td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty has">5</td>
+            <td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty"></td><td class="qty"></td><td class="qty has">12</td><td class="qty"></td><td class="qty has tip-wrap">12<span class="tip">¥1,044 · 返利档 2%<br><b>门店渠道合计 12</b></span></td>
+            <td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="calc sum">37</td><td class="calc boxes">5</td><td class="calc final">37</td><td class="calc price">87</td><td class="calc amount">3,219</td>
+          </tr>
+          <tr>
+            <td class="frozen frozen-group"><div class="pname">4.0 小鲜语 450ml（恒滋下单）</div><div class="pspec">到货 +3 · 单号下单</div></td>
+            <td class="frozen2 frozen-group"><div class="barcode">6934665094408</div><div class="sub">12 瓶/箱</div></td>
+            <td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty has">12</td><td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty has">6</td>
+            <td class="qty has">6</td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="calc sum">24</td><td class="calc boxes">2</td><td class="calc final">2</td><td class="calc price">87.6</td><td class="calc amount">175.2</td>
+          </tr>
+          <tr>
+            <td class="frozen frozen-group"><div class="pname">嚼酸奶 草莓（福宝下单）</div><div class="pspec">到货 +5 · 分开单独下单</div></td>
+            <td class="frozen2 frozen-group"><div class="barcode">6934665094767</div><div class="sub">4 件/箱</div></td>
+            <td class="qty has">6</td><td class="qty has">4</td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty"></td><td class="qty has">8</td><td class="qty"></td><td class="qty"></td><td class="qty has">10</td>
+            <td class="qty"></td><td class="qty"></td><td class="qty has tip-wrap">15<span class="tip">¥1,305 · 返利档 3%</span></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty has">9</td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="calc sum">52</td><td class="calc boxes">13</td><td class="calc final">52</td><td class="calc price">87</td><td class="calc amount">4,524</td>
+          </tr>
+          <tr>
+            <td class="frozen frozen-group"><div class="pname">每日鲜奶 1000ml（恒滋下单）</div><div class="pspec">到货 +4</div></td>
+            <td class="frozen2 frozen-group"><div class="barcode">6934665094903</div><div class="sub">6 瓶/箱</div></td>
+            <td class="qty has tip-wrap">20<span class="tip">¥1,740 · 返利档 4%<br><b>距 5% 档还差 60 件</b></span></td><td class="qty has">12</td><td class="qty"></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty has">9</td><td class="qty"></td><td class="qty"></td><td class="qty"></td><td class="qty has">7</td>
+            <td class="qty"></td><td class="qty has">15</td><td class="qty has tip-wrap">18<span class="tip">¥1,566 · 返利档 4%</span></td><td class="qty"></td><td class="qty"></td>
+            <td class="qty"></td><td class="qty has">10</td><td class="qty"></td><td class="qty"></td>
+            <td class="calc sum">91</td><td class="calc boxes">15</td><td class="calc final">91</td><td class="calc price">87</td><td class="calc amount">7,917</td>
+          </tr>
+          <tr>
+            <td class="frozen frozen-group"><div class="pname">每日鲜酪 原味（恒滋下单）</div><div class="pspec">到货 +3</div></td>
+            <td class="frozen2 frozen-group"><div class="barcode">6934665095119</div><div class="sub">8 杯/盒</div></td>
+            <td class="qty has">14</td><td class="qty"></td><td class="qty has">6</td><td class="qty has">9</td><td class="qty"></td>
+            <td class="qty"></td><td class="qty has">11</td><td class="qty"></td><td class="qty"></td><td class="qty has">8</td>
+            <td class="qty"></td><td class="qty"></td><td class="qty has">10</td><td class="qty"></td><td class="qty has">6</td>
+            <td class="qty"></td><td class="qty has">12</td><td class="qty"></td><td class="qty"></td>
+            <td class="calc sum">76</td><td class="calc boxes">10</td><td class="calc final">76</td><td class="calc price">83.5</td><td class="calc amount">6,346</td>
+          </tr>
+          <tr class="off">
+            <td class="frozen frozen-group"><div class="pname">黄桃 16 杯（恒滋下单）</div><div class="pspec">已下市</div></td>
+            <td class="frozen2 frozen-group"><div class="barcode">6934665095287</div><div class="sub">16 杯/箱</div></td>
+            <td class="qty" colspan="10">—</td>
+            <td class="qty" colspan="5">—</td>
+            <td class="calc sum">0</td><td class="calc boxes">0</td><td class="calc final">0</td><td class="calc price">93</td><td class="calc amount">0</td>
+          </tr>
+          <tr class="col-total">
+            <td class="frozen frozen-group">列小计</td>
+            <td class="frozen2 frozen-group">—</td>
+            <td class="qty">48</td><td class="qty">16</td><td class="qty">6</td><td class="qty">9</td><td class="qty">5</td>
+            <td class="qty">9</td><td class="qty">19</td><td class="qty">60</td><td class="qty">0</td><td class="qty">25</td>
+            <td class="qty">18</td><td class="qty">43</td><td class="qty">75</td><td class="qty">10</td><td class="qty">12</td>
+            <td class="qty">15</td><td class="qty">22</td><td class="qty">0</td><td class="qty">0</td>
+            <td class="calc sum">404</td><td class="calc boxes">63</td><td class="calc final">342</td><td class="calc price">—</td><td class="calc amount">28,865</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pin">
+      <div class="left">
+        <span class="big">今日总订量 <b>¥28,865</b></span>
+        <span class="mini">404 件 · 342 箱 · 7 SKU</span>
+        <span class="mini">较上期 <span style="color:var(--suc)">↗ +12%</span></span>
+        <span class="ai-badge"><span class="dot"></span>AI 已算好 2 项差异：红桶建议 +2 箱（库存临期）</span>
+      </div>
+      <div class="right">
+        <span class="missing">● 还差 3 人未报：唐成 · 胡奎奎 · 吾悦</span>
+        <button class="btn btn-sm" style="margin-left:10px">催未报者</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="view-data" class="card" style="display:none">
+  <div class="page-hd">
+    <h2>数据结构设计</h2>
+    <span class="page-sub">交叉表视图 = 现有汇总接口的「透视」产物 · 前端零后端改动先上线</span>
+  </div>
+  <div class="ds-legend">
+    <span><span class="sw" style="background:#0ea5e9"></span>period 周期实体（已有 forecast_periods 表）</span>
+    <span><span class="sw" style="background:#f59e0b"></span>units 报单单元=动态列（contacts 主数据）</span>
+    <span><span class="sw" style="background:#06b6d4"></span>rows 行=商品×下单主体</span>
+    <span><span class="sw" style="background:#8b5cf6"></span>totals 行/列小计+总额</span>
+  </div>
+  <div class="json-block">{
+  "period": {
+    "id": 87,
+    "name": "8月14报单-8月18到货",
+    "order_start": "2026-08-14",
+    "order_end": "2026-08-16 18:00",
+    "arrival_date": "2026-08-18",
+    "status": "open"
+  },
+  "units": [
+    { "id": 201, "name": "唐成",   "type": "person", "group": "业务员", "grade": "B", "reported": false },
+    { "id": 207, "name": "王琴",   "type": "person", "group": "业务员", "grade": "A", "reported": true },
+    { "id": 305, "name": "吾悦",   "type": "store",  "group": "门店",   "grade": "B", "reported": false }
+  ],
+  "rows": [
+    {
+      "product_id": 130,
+      "name": "红桶",
+      "ordering_entity": "恒滋",        <span class="json-key">// 下单主体：恒滋/福宝（拆独立字段）</span>
+      "spec": "10件/箱",
+      "barcode": "6934665094026",
+      "unit": "件",
+      "qty_by_unit": { "201": 0, "207": 10, "305": 10 },   <span class="json-key">// 透视 sources 得到</span>
+      "total_qty": 40, "boxes": 4, "final_qty": 4,
+      "price": 99, "amount": 396,
+      "ai_suggested": 5, "ai_note": "库存临期，建议+1箱",
+      "status": "active"
+    }
+  ],
+  "totals": {
+    "col": { "207": 60 },
+    "grand": { "qty": 404, "boxes": 63, "final": 342, "amount": 28865 }
+  }
+}</div>
+  <div class="note-line">
+    <b>① 数据从哪来（零后端改动先上线）</b>：现有 <code>GET /api/forecast-submissions/summary</code> 返回的
+    <code>rows[].sources</code> 已含 <code>store_name / role / user_id / qty</code> —— 前端透视成
+    <code>qty_by_unit</code>（商品 × 报单单元矩阵），即可渲染交叉表。<br>
+    <b>② 量大了再补后端</b>：每期 ~160 商品 × ~21 单元，前端透视足够；如需服务端直出，
+    加 <code>GET /api/forecast-submissions/cross?period_id=</code> 返回矩阵，前端零计算。<br>
+    <b>③ 列 = 报单单元（动态维度）</b>：默认映射 <code>store</code>（客户/门店，来自 contacts 主数据），
+    可一键切换"按业务员(user)"；<code>reported</code> 由该单元本期是否已提交判定 → "还差 X 人未报/催单"由此派生。<br>
+    <b>④ 计算列公式对齐你的 Excel</b>：合计=Σ各单元；件数=合计÷规格；最终下单=件数+加单(AC)；金额=最终下单×单价。<br>
+    <b>⑤ 客户分级</b>：<code>grade</code>(A/B/C) 来自客户主数据或按历史订货量自动分，决定列底色。<br>
+    <b>⑥ 状态</b>：<code>off</code>=下市（对应你 Excel AH 列"下市"），行整行置灰删除线。
+  </div>
+</div>
+</div>
+
+<script>
+document.querySelectorAll('.view-tabs button').forEach(function(b){
+  b.onclick=function(){
+    this.parentNode.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});
+    this.classList.add('on');
+    var on=document.querySelector('.view-tabs button.on').textContent;
+    document.getElementById('view-ui').style.display=(on==='界面效果')?'':'none';
+    document.getElementById('view-data').style.display=(on==='数据结构')?'':'none';
+  }
+});
+</script>
+</body>
+</html>

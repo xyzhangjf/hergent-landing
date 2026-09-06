@@ -204,7 +204,7 @@ export function setHermesKey(k) { hermesKey = k }
 export const CHAT_TIMEOUT_NORMAL = 180000
 export const CHAT_TIMEOUT_LONG = 300000
 
-export async function hermesChat(messages, { onDelta, model, system, timeout = 300000 } = {}) {
+export async function hermesChat(messages, { onDelta, onTool, model, system, timeout = 300000 } = {}) {
   const key = hermesKey || localStorage.getItem('hermes_v2_key') || ''
   const ctrl = new AbortController()
   // 长任务（复杂对账/报表）会让 Hermes 工具循环跑数分钟；120s 硬杀会中途断流
@@ -246,6 +246,7 @@ export async function hermesChat(messages, { onDelta, model, system, timeout = 3
     const decoder = new TextDecoder()
     let buf = ''
     let full = ''
+    let pendingEvent = ''   // 跟踪上一行的 event: 类型（OpenAI Responses 风格）
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -254,14 +255,33 @@ export async function hermesChat(messages, { onDelta, model, system, timeout = 3
       buf = lines.pop() || ''
       for (const line of lines) {
         const t = line.trim()
+        if (t.startsWith('event:')) { pendingEvent = t.slice(6).trim(); continue }
         if (!t.startsWith('data:')) continue
         const payload = t.slice(5).trim()
         if (payload === '[DONE]') continue
         try {
           const j = JSON.parse(payload)
+          // 文本增量（Chat Completions 格式，既有链路，保持不变）
           const delta = j.choices?.[0]?.delta?.content || ''
-          if (delta) { full += delta; onDelta(delta, full) }
+          if (delta) { full += delta; onDelta && onDelta(delta, full) }
+          // 工具调用生命周期（OpenAI Responses 风格 event:）
+          if (onTool && pendingEvent === 'response.output_item.added') {
+            const item = j.item
+            if (item && item.type === 'function_call') {
+              if (item.status === 'in_progress')
+                onTool({ phase: 'start', name: item.name || '', args: item.arguments || '' })
+              else if (item.status === 'completed')
+                onTool({ phase: 'done', name: item.name || '' })
+            } else if (item && item.type === 'function_call_output') {
+              onTool({ phase: 'result', name: item.name || '', result: item.output || '' })
+            }
+          } else if (onTool && pendingEvent === 'response.output_item.done') {
+            const item = j.item
+            if (item && item.type === 'function_call' && item.status === 'completed')
+              onTool({ phase: 'done', name: item.name || '' })
+          }
         } catch { /* 忽略不完整行 */ }
+        pendingEvent = ''   // 一条 data 消费后清空，避免误用到下一帧
       }
     }
     return full

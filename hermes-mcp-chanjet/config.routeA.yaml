@@ -1,0 +1,41 @@
+# 路线 A 配置片段模板：畅捷通官方 CJTMSP-MCP（HTTP / streamable-http）
+#
+# 来源：MCP 市场 https://mcphub-admin.static.chanjet.com/marketplace
+#       搜 CJTMSP-MCP → 生成配置 → 勾选产品 + 客户 OAuth 授权 → 复制 JSON
+#
+# 把下面这段合并进 ~/.hermes/config.yaml 的 mcp_servers: 下即可（或用 setup_chanjet_mcp.py 注入）。
+# 注意：MCP Key 来自市场生成配置时的客户授权，写入 ~/.hermes/.env 的 CHANJET_MCP_KEY=，不要明文落盘。
+
+mcp_servers:
+  chanjet:                                   # 多租户时改名 chanjet_<客户>，每个客户一个
+    url: "https://mcphub-admin.static.chanjet.com/REPLACE_WITH_YOUR_MCP_PATH/mcp"
+    headers:
+      Authorization: "Bearer ${CHANJET_MCP_KEY}"   # 从 ~/.hermes/.env 读，避免明文
+    tools:
+      exclude:                               # 默认只放行读工具，避免 MCP 误触发写/删/提交
+        - create
+        - add
+        - new
+        - insert
+        - save
+        - update
+        - edit
+        - modify
+        - submit
+        - audit
+        - approve
+        - delete
+        - remove
+        - cancel
+        - void
+        - revoke
+        - post
+        - book
+        - push
+        - sync
+        - send
+        - transfer
+        - pay
+        - refund
+        - close
+        - import

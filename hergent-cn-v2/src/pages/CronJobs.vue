@@ -11,7 +11,7 @@
     <!-- 推送配置状态 -->
     <div class="card push-card" :class="pushConfigured ? 'on' : ''">
       <div class="push-row">
-        <span class="push-ic">{{ pushConfigured ? '📨' : '🔕' }}</span>
+        <span class="push-ic"><Icon :name="pushConfigured ? 'mail' : 'bell-off'"/></span>
         <div>
           <b>{{ pushConfigured ? '企微推送已配置' : '任务结果未配置推送' }}</b>
           <p class="sub">{{ pushConfigured ? `今日已推 ${pushCount} 次 · 最近：${pushLast || '—'}` : '配置企业微信群机器人 webhook，任务执行后结果自动发到你微信' }}</p>
@@ -74,7 +74,7 @@
       <Transition name="fade">
         <div v-if="showCreate" class="cron-overlay" @click.self="showCreate=false">
           <div class="cron-modal">
-            <div class="panel-hd"><b>新建定时任务</b><button class="tb-btn" @click="showCreate=false">✕</button></div>
+            <div class="panel-hd"><b>新建定时任务</b><button class="tb-btn" @click="showCreate=false"><Icon name="close"/></button></div>
             <div class="field">
               <label>任务名称</label>
               <input v-model="form.name" class="input" placeholder="例如：每日经营晨报">
@@ -102,6 +102,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { ref, onMounted } from 'vue'
 import { api } from '../api/client'
 import { toast } from '../store'
@@ -162,7 +163,7 @@ async function testPush() {
   pushTestErr.value = false
   try {
     const r = await api('/api/notify/wecom/test', { method: 'POST' })
-    pushTestResult.value = r.success ? '✅ 测试消息已发送，请查收企业微信' : (r.error || '发送失败')
+    pushTestResult.value = r.success ? '测试消息已发送，请查收企业微信' : (r.error || '发送失败')
     pushTestErr.value = !r.success
   } catch (e) {
     pushTestResult.value = e.message || '发送失败'
@@ -261,7 +262,7 @@ onMounted(() => { load(); loadPush() })
 .fade-enter-active,.fade-leave-active{transition:opacity .2s}
 .fade-enter-from,.fade-leave-to{opacity:0}
 /* 推送状态卡 */
-.push-card{margin-bottom:16px;padding:16px 18px}
+.push-card{margin-bottom:16px}
 .push-card.on{border-color:rgba(52,199,89,.35)}
 .push-row{display:flex;align-items:center;gap:12px}
 .push-ic{font-size:20px}

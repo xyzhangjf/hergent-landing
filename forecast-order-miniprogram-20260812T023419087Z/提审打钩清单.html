@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>预报订单小程序 · 提审打钩清单</title>
+<style>
+  :root{
+    --p:#06b6d4; --bd:#e5e7eb; --t1:#111827; --t2:#4b5563; --t3:#9ca3af;
+    --ok:#10b981; --warn:#f59e0b; --bg:#ffffff; --bg2:#f9fafb;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:32px 20px 64px;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--t1); background:var(--bg); line-height:1.6;
+    max-width:860px; margin:0 auto;
+  }
+  header{border-bottom:2px solid var(--p); padding-bottom:14px; margin-bottom:8px}
+  h1{font-size:22px; margin:0 0 6px; letter-spacing:.5px}
+  .sub{color:var(--t2); font-size:13px}
+  .meta{display:flex; gap:16px; flex-wrap:wrap; margin-top:10px; font-size:12px; color:var(--t3)}
+
+  .bar{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    background:var(--bg2); border:1px solid var(--bd); border-radius:10px;
+    padding:12px 14px; margin:18px 0 22px;
+  }
+  .prog{flex:1; min-width:200px; height:8px; background:#e5e7eb; border-radius:99px; overflow:hidden}
+  .prog>i{display:block; height:100%; width:0; background:var(--p); transition:width .25s}
+  .pct{font-size:13px; font-weight:600; color:var(--t2); white-space:nowrap}
+  .btn{
+    border:1px solid var(--bd); background:#fff; color:var(--t1);
+    border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer;
+  }
+  .btn:hover{border-color:var(--p); color:var(--p)}
+  .btn.primary{background:var(--p); border-color:var(--p); color:#fff}
+  .btn.primary:hover{opacity:.88; color:#fff}
+
+  h2{
+    font-size:15px; margin:26px 0 10px; padding:7px 11px;
+    background:var(--bg2); border-left:3px solid var(--p); border-radius:0 6px 6px 0;
+  }
+  h2 small{font-weight:400; color:var(--t3); font-size:12px; margin-left:8px}
+  ul{list-style:none; margin:0; padding:0}
+  li{
+    display:flex; gap:10px; align-items:flex-start;
+    padding:9px 4px; border-bottom:1px dashed var(--bd);
+    break-inside:avoid;
+  }
+  li:last-child{border-bottom:none}
+  input[type=checkbox]{
+    width:17px; height:17px; margin-top:3px; flex:0 0 auto;
+    accent-color:var(--p); cursor:pointer;
+  }
+  .txt{flex:1; font-size:14px}
+  .txt.done{color:var(--t3); text-decoration:line-through}
+  .path{display:block; font-size:12px; color:var(--t3); margin-top:2px}
+  .tag{
+    display:inline-block; font-size:11px; padding:1px 7px; border-radius:99px;
+    border:1px solid var(--bd); color:var(--t2); margin-left:6px; white-space:nowrap;
+  }
+  .tag.me{background:#ecfeff; border-color:#a5f3fc; color:#0e7490}
+  .tag.ai{background:#f0fdf4; border-color:#bbf7d0; color:#15803d}
+
+  .card{
+    border:1px solid var(--bd); border-radius:10px; padding:14px 16px; margin:14px 0;
+  }
+  .card h3{margin:0 0 10px; font-size:14px}
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th,td{border:1px solid var(--bd); padding:7px 9px; text-align:left}
+  th{background:var(--bg2); font-weight:600}
+  code{
+    background:var(--bg2); border:1px solid var(--bd); border-radius:4px;
+    padding:1px 5px; font-size:12px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  .warn{
+    background:#fffbeb; border:1px solid #fde68a; border-radius:8px;
+    padding:11px 13px; font-size:13px; margin:14px 0;
+  }
+  .warn b{color:#92400e}
+
+  @media print{
+    body{padding:0; max-width:none}
+    .bar,.btn,.noprint{display:none !important}
+    h2{background:none; border-left:3px solid #000}
+    li{border-bottom:1px solid #ddd}
+    .card,.warn{border-color:#999}
+    th{background:#f0f0f0}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>预报订单小程序 · 提审打钩清单</h1>
+  <div class="sub">从注册主体到提交审核，逐项打钩。<b>标「我」= 需你本人在微信平台/开发者工具操作；标「AI」= 已完成，仅供确认。</b></div>
+  <div class="meta">
+    <span>项目目录：<code>forecast-order-miniprogram-20260812T023419087Z/</code></span>
+    <span>后端：hergent.cn（已部署）</span>
+    <span>制表：2026-08-30</span>
+  </div>
+</header>
+
+<div class="bar">
+  <div class="prog"><i id="bar"></i></div>
+  <span class="pct" id="pct">0 / 0（0%）</span>
+  <button class="btn primary" onclick="window.print()">打印 / 存为 PDF</button>
+  <button class="btn" onclick="resetAll()">全部清空</button>
+</div>
+
+<!-- 速查 -->
+<div class="card">
+  <h3>速查 · 提审要填的关键信息</h3>
+  <table>
+    <tr><th style="width:88px">项</th><th>内容</th></tr>
+    <tr><td>测试账号①</td><td>销售 <code>mptest</code> / <code>Mptest@1</code> —— 填报、我的提交、撤回</td></tr>
+    <tr><td>测试账号②</td><td>主管 <code>mptestsp</code> / <code>Mpsup@1</code> —— 审批通过 / 驳回</td></tr>
+    <tr><td>合法域名</td><td><code>https://hergent.cn</code></td></tr>
+    <tr><td>appid 位置</td><td><code>miniprogram/project.config.json</code> 第 47 行，把 <code>touristappid</code> 换成真实 AppID</td></tr>
+    <tr><td>建议类目</td><td><b>工具 → 效率</b>（首选，与你证照经营范围「软件开发/信息技术咨询」契合，不需食品证）</td></tr>
+    <tr><td>隐私勾选</td><td>仅【剪切板】+【账号信息】，其余一律不勾</td></tr>
+  </table>
+  <div class="warn" style="margin-bottom:0">
+    <b>密码限制：</b>本系统密码最长 <b>8 个字符</b>（bcrypt 72 字节被 64 位密钥挤占），给审核员改密码时不要设更长，否则 500。
+  </div>
+</div>
+
+<h2>阶段 0 · 主体与资质 <small>你操作 · 1–3 天（整条链路的瓶颈，建议今天就启动）</small></h2>
+<ul>
+  <li><input type="checkbox" data-k="s0-1"><span class="txt">准备营业执照扫描件<span class="path">企业或个体工商户主体；个人主体做不了商业订货类</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s0-2"><span class="txt">准备《食品经营许可证》扫描件（备用）<span class="path">只有选「食品」类目才需要，先备着</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s0-3"><span class="txt">注册小程序账号<span class="path">mp.weixin.qq.com → 立即注册 → 小程序 → 邮箱注册 → 选主体 → 填执照</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s0-4"><span class="txt">完成主体验证<span class="path">法人扫码或对公打款，1–3 个工作日</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s0-5"><span class="txt">复制 AppID<span class="path">开发管理 → 开发设置 → AppID</span></span><span class="tag me">我</span></li>
+</ul>
+
+<h2>阶段 1 · 代码侧改 appid <small>你操作 · 5 分钟</small></h2>
+<ul>
+  <li><input type="checkbox" data-k="s1-1"><span class="txt">替换 <code>project.config.json</code> 第 47 行的 <code>touristappid</code><span class="path">文件路径：miniprogram/project.config.json</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s1-2"><span class="txt">微信开发者工具重新打开项目，确认右上角 AppID 已变<span class="path">务必打开目录：forecast-order-miniprogram-20260812T023419087Z/</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s1-3"><span class="txt">（已完成）隐私弹窗 / 埋点 / 我的提交+撤回 / 移动审批 代码就位<span class="path">含后端 recall 端点，已部署生产并实测通过</span></span><span class="tag ai">AI</span></li>
+  <li><input type="checkbox" data-k="s1-4"><span class="txt">（已完成）生产建好两个测试账号 + 门店/期次/权限打通<span class="path">提交→审批→撤回 全链路 curl 实测通过</span></span><span class="tag ai">AI</span></li>
+</ul>
+
+<h2>阶段 2 · 平台配置 <small>你操作 · 30 分钟（隐私指引生效需等数小时）</small></h2>
+<ul>
+  <li><input type="checkbox" data-k="s2-1"><span class="txt">配置 request 合法域名 <code>https://hergent.cn</code><span class="path">开发管理 → 开发设置 → 服务器域名 → request 合法域名</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s2-2"><span class="txt">添加服务类目「电商平台 → 商家自营」<span class="path">设置 → 基本设置 → 服务类目；一次只加一个</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s2-3"><span class="txt">隐私保护指引勾选【剪切板】<span class="path">设置 → 服务内容声明 → 隐私保护指引 → 更新</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s2-4"><span class="txt">隐私保护指引勾选【账号信息】<span class="path">用途写「用于销售/督导登录本企业订货系统，验证身份并区分门店权限」</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s2-5"><span class="txt">确认其余项<b>一律不勾</b>（位置/相册/手机号/蓝牙/通讯录）<span class="path">代码已核实未调用这些接口，多勾反而增加审核风险</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s2-6"><span class="txt">生成隐私指引并等待生效<span class="path">几分钟到数小时；生效后 wx.requirePrivacyAuthorize 才会弹系统窗</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s2-7"><span class="txt">填小程序名称 / 简介 / 头像<span class="path">⚠️ 名称与简介里不要出现「蒙牛」等品牌词（触发商标审核）</span></span><span class="tag me">我</span></li>
+</ul>
+
+<h2>阶段 3 · 上传体验版 <small>你操作 · 微信开发者工具</small></h2>
+<ul>
+  <li><input type="checkbox" data-k="s3-1"><span class="txt">点「上传」，填版本号与项目备注<span class="path">备注建议：预报订单首版（含隐私同意、提交、撤回、审批）</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s3-2"><span class="txt">生成体验版，内部人员扫码安装<span class="path">你 + 文员 + 督导</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s3-3"><span class="txt">真机跑通 E2E（E1–E12）<span class="path">详见《真机E2E测试清单.md》，重点：隐私弹窗拦截、提交、撤回、审批</span></span><span class="tag me">我</span></li>
+</ul>
+
+<h2>阶段 4 · 提交审核 <small>你操作 · 微信公众平台</small></h2>
+<ul>
+  <li><input type="checkbox" data-k="s4-1"><span class="txt">填写测试账号（两组都要）<span class="path">mptest / Mptest@1（销售）；mptestsp / Mpsup@1（主管）</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s4-2"><span class="txt">填功能页面路径（5 条）<span class="path">login / fill / mine / approval / summary</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s4-3"><span class="txt">粘贴补充说明模板<span class="path">《微信提审材料清单.md》第 6.3 节可直接复制</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s4-4"><span class="txt">上传 3–5 张真实数据截图<span class="path">忌出现 touristappid、test 假数据、红色报错 toast</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s4-5"><span class="txt">提交审核<span class="path">企业主体一般 1–3 天出结果</span></span><span class="tag me">我</span></li>
+</ul>
+
+<h2>阶段 5 · 审核通过后收尾 <small>⚠️ 别漏，否则账号与数据留隐患</small></h2>
+<ul>
+  <li><input type="checkbox" data-k="s5-1"><span class="txt">禁用两个测试账号<span class="path">UPDATE users SET is_active=0 WHERE username IN ('mptest','mptestsp'); → 重启服务</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s5-2"><span class="txt">处理提审期次 id=9（「9月提审期-开放填报」）<span class="path">按真实节奏重建，或直接删除；Web 端期次管理可操作</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s5-3"><span class="txt">分阶段灰度：1% → 10% → 50% → 100%<span class="path">每阶段观察 ≥24h；详见《灰度与回滚方案.md》</span></span><span class="tag me">我</span></li>
+  <li><input type="checkbox" data-k="s5-4"><span class="txt">灰度期盯监控指标<span class="path">API 错误率 / 登录转化 / 提交成功率 / 崩溃；触发条件见灰度文档第五节</span></span><span class="tag me">我</span></li>
+</ul>
+
+<div class="warn">
+  <b>配套文档（同目录）：</b>
+  《微信提审材料清单.md》（类目、隐私指引逐项、截图要点、常见驳回应对）、
+  《真机E2E测试清单.md》（E1–E12 + 边界用例）、
+  《灰度与回滚方案.md》（放量节奏、回滚触发条件）、
+  《隐私保护指引.md》（提交给平台的指引文本）。
+</div>
+
+<script>
+(function(){
+  var KEY='hergent_mp_checklist_v1';
+  var boxes=[].slice.call(document.querySelectorAll('input[type=checkbox][data-k]'));
+  var saved={};
+  try{ saved=JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ saved={}; }
+
+  function paint(){
+    var done=0;
+    boxes.forEach(function(b){
+      var on=b.checked;
+      if(on) done++;
+      var t=b.parentNode.querySelector('.txt');
+      if(t) t.classList.toggle('done',on);
+      saved[b.dataset.k]=on;
+    });
+    var pct=boxes.length? Math.round(done/boxes.length*100):0;
+    document.getElementById('bar').style.width=pct+'%';
+    document.getElementById('pct').textContent=done+' / '+boxes.length+'（'+pct+'%）';
+    try{ localStorage.setItem(KEY,JSON.stringify(saved)); }catch(e){}
+  }
+  boxes.forEach(function(b){
+    if(saved[b.dataset.k]) b.checked=true;
+    b.addEventListener('change',paint);
+  });
+  window.resetAll=function(){
+    if(!confirm('清空所有勾选？')) return;
+    boxes.forEach(function(b){ b.checked=false; });
+    saved={}; paint();
+  };
+  paint();
+})();
+</script>
+</body>
+</html>

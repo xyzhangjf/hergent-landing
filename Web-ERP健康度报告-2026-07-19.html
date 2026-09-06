@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hergent Web ERP 真实健康度报告 · 2026-07-19</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f7f6f3;
+    --surface2: #f1efe8;
+    --text: #2c2c2a;
+    --text2: #5f5e5a;
+    --text3: #888780;
+    --border: #e4e2dc;
+    --teal: #0f6e56;
+    --teal-bg: #e1f5ee;
+    --red: #a32d2d;
+    --red-bg: #fcebeb;
+    --amber: #854f0b;
+    --amber-bg: #faeeda;
+    --blue: #185fa5;
+    --blue-bg: #e6f1fb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 14px; padding: 40px 20px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  h2 { font-size: 17px; font-weight: 600; margin: 32px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; color: var(--text2); }
+  .subtitle { font-size: 13px; color: var(--text3); margin-bottom: 24px; }
+  .lead { font-size: 15px; color: var(--text2); margin: 16px 0 24px; padding: 16px; background: var(--surface); border-radius: 8px; border-left: 3px solid var(--blue); }
+  .lead strong { color: var(--text); }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 24px; }
+  .metric { border-radius: 8px; padding: 14px; }
+  .metric .label { font-size: 12px; font-weight: 500; margin-bottom: 4px; }
+  .metric .num { font-size: 24px; font-weight: 600; }
+  .metric .sub { font-size: 11px; margin-top: 2px; }
+  .m-good { background: var(--teal-bg); } .m-good .label, .m-good .sub { color: var(--teal); } .m-good .num { color: #04342c; }
+  .m-bad { background: var(--red-bg); } .m-bad .label, .m-bad .sub { color: var(--red); } .m-bad .num { color: #501313; }
+  .m-warn { background: var(--amber-bg); } .m-warn .label, .m-warn .sub { color: var(--amber); } .m-warn .num { color: #412402; }
+  .m-info { background: var(--blue-bg); } .m-info .label, .m-info .sub { color: var(--blue); } .m-info .num { color: #042c53; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-weight: 600; color: var(--text2); background: var(--surface); font-size: 12px; }
+  td.num { font-family: "SF Mono", Menlo, monospace; }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+  .tag-ok { background: var(--teal-bg); color: var(--teal); }
+  .tag-warn { background: var(--amber-bg); color: var(--amber); }
+  .tag-bad { background: var(--red-bg); color: var(--red); }
+  .tag-info { background: var(--blue-bg); color: var(--blue); }
+  .finding { margin: 14px 0; padding: 14px 16px; border-radius: 8px; border: 1px solid var(--border); }
+  .finding.bad { border-left: 3px solid var(--red); }
+  .finding.warn { border-left: 3px solid var(--amber); }
+  .finding.ok { border-left: 3px solid var(--teal); }
+  .finding .ftitle { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .finding p { font-size: 13px; color: var(--text2); }
+  .finding code { background: var(--surface2); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  .chart-wrap { position: relative; width: 100%; height: 260px; margin: 16px 0; }
+  .legend { display: flex; gap: 16px; margin-bottom: 8px; font-size: 12px; color: var(--text2); }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .risk-list { margin: 12px 0; }
+  .risk-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .risk-item:last-child { border-bottom: none; }
+  .risk-level { flex-shrink: 0; width: 56px; text-align: center; }
+  .risk-item.p0 .risk-level { color: var(--red); font-weight: 600; }
+  .risk-item.p1 .risk-level { color: var(--amber); font-weight: 600; }
+  .risk-item.p2 .risk-level { color: var(--blue); font-weight: 600; }
+  .risk-desc { font-size: 13px; }
+  .risk-desc strong { color: var(--text); }
+  .risk-desc .detail { color: var(--text3); font-size: 12px; margin-top: 2px; }
+  .action-list { margin: 12px 0; }
+  .action-group { margin: 16px 0; }
+  .action-group h4 { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+  .action-group ol { padding-left: 20px; }
+  .action-group li { font-size: 13px; color: var(--text2); margin: 6px 0; }
+  .action-group li strong { color: var(--text); }
+  .action-group li code { background: var(--surface2); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text3); }
+  .diff-up { color: var(--red); } .diff-down { color: var(--teal); } .diff-same { color: var(--text3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Hergent Web ERP 真实健康度报告</h1>
+<p class="subtitle">摸底日期：2026-07-19 · 代码路径：<code>/Users/zhangjunfeng/Documents/hergent-erp/</code> · 对比交接文档（2026-06-30 v89）</p>
+
+<div class="lead">
+  <strong>一句话结论：</strong>代码本身质量不差——163 测试全过、审计问题大多已修。但<strong>v89 的 35 个文件改动全部未提交 git</strong>，且 <strong>requirements.txt 缺 4 个依赖</strong>导致 clone 后测试根本跑不起来。这是当前最紧迫的两个问题：不是功能问题，是"工作做完了但没落地"的问题。
+</div>
+
+<div class="metrics">
+  <div class="metric m-good">
+    <div class="label">测试通过</div>
+    <div class="num">163</div>
+    <div class="sub">28 skipped · 0 failed</div>
+  </div>
+  <div class="metric m-bad">
+    <div class="label">v89 未提交</div>
+    <div class="num">35</div>
+    <div class="sub">+3417 / -939 行</div>
+  </div>
+  <div class="metric m-warn">
+    <div class="label">erp_db.py</div>
+    <div class="num">10,368</div>
+    <div class="sub">674 函数 · 最大技术债</div>
+  </div>
+  <div class="metric m-bad">
+    <div class="label">缺失依赖</div>
+    <div class="num">4</div>
+    <div class="sub">新人无法跑通环境</div>
+  </div>
+</div>
+
+<h2>一、实测 vs 文档：关键指标对比</h2>
+<table>
+  <thead><tr><th>指标</th><th>文档(6-30)</th><th>实测(7-19)</th><th>差异</th></tr></thead>
+  <tbody>
+    <tr><td>代码总行数</td><td class="num">~47,500</td><td class="num">~58,100</td><td><span class="diff-up">+22% (Python 34.5K + JS 23.6K)</span></td></tr>
+    <tr><td>DB 表数量</td><td class="num">~210</td><td class="num">251</td><td><span class="diff-up">+41</span></td></tr>
+    <tr><td>routers 数量</td><td class="num">61</td><td class="num">63</td><td><span class="diff-up">+2</span></td></tr>
+    <tr><td>JS 模块数量</td><td class="num">82</td><td class="num">未逐一核对</td><td><span class="diff-same">—</span></td></tr>
+    <tr><td>测试 passed</td><td class="num">163</td><td class="num">163</td><td><span class="diff-same">一致 ✓</span></td></tr>
+    <tr><td>测试 failed</td><td class="num">0</td><td class="num">0</td><td><span class="diff-same">一致 ✓</span></td></tr>
+    <tr><td>测试 skipped</td><td class="num">未提及</td><td class="num">28</td><td><span class="diff-warn">文档未标注</span></td></tr>
+    <tr><td>erp_db.py 行数</td><td class="num">~10,000</td><td class="num">10,368</td><td><span class="diff-same">基本一致</span></td></tr>
+    <tr><td>app.js 行数</td><td class="num">~7,000</td><td class="num">7,466</td><td><span class="diff-same">基本一致</span></td></tr>
+    <tr><td>git 状态</td><td class="num">—</td><td class="num">35 文件未提交</td><td><span class="diff-warn">v89 工作未入库</span></td></tr>
+  </tbody>
+</table>
+
+<div class="legend">
+  <span><i style="background:#b4b2a9;"></i>文档(6-30)</span>
+  <span><i style="background:#1d9e75;"></i>实测(7-19)</span>
+</div>
+<div class="chart-wrap">
+  <canvas id="cmp" role="img" aria-label="文档与实测关键指标对比">文档与实测对比柱状图</canvas>
+</div>
+
+<h2>二、五个维度的真实发现</h2>
+
+<h3>1. Git 状态 — v89 全部未提交</h3>
+<div class="finding bad">
+  <div class="ftitle">35 个文件改动停在暂存区，git HEAD 还在 v88</div>
+  <p>当前分支 <code>upgrade/v84-international</code>，最近提交是 <code>841e792 docs: v88 handbook update</code>。v89 的所有代码改动（<code>server/core.py</code>、<code>erp_db.py</code>、<code>main.py</code>、<code>db/connection.py</code>、<code>db/queries/*</code>、<code>Dockerfile</code> 等）都在工作区里，<strong>没 commit</strong>。</p>
+  <p><strong>风险：</strong>任何 <code>git checkout</code> / <code>git stash</code> / 分支切换都可能丢失这批工作。服务器上跑的是不是这版代码也不确定——本地源码和线上版本可能已经分叉。</p>
+</div>
+
+<h3>2. 测试 — 全过，但环境装不起来</h3>
+<div class="finding ok">
+  <div class="ftitle">163 passed / 28 skipped / 0 failed（14 秒跑完）</div>
+  <p>测试本身健康，conftest 用临时 DB 自包含，不依赖真实数据。但首次按 <code>requirements.txt</code> 装依赖跑测试，<strong>直接 ImportError</strong>——缺 <code>cryptography</code>。补装后 14 个 CSRF/tenant 测试又因缺 <code>python-multipart</code> 失败。全部补齐后才跑通。</p>
+</div>
+<div class="finding bad">
+  <div class="ftitle">requirements.txt 缺 4 个运行时依赖</div>
+  <p>审计报告(8.7)早已指出，到 v89 仍未修：</p>
+  <table>
+    <thead><tr><th>缺失依赖</th><th>被谁引用</th></tr></thead>
+    <tbody>
+      <tr><td><code>cryptography</code></td><td>crypto_utils.py（加密联系人字段）</td></tr>
+      <tr><td><code>python-multipart</code></td><td>FastAPI form data（登录/上传）</td></tr>
+      <tr><td><code>pypinyin</code></td><td>拼音搜索</td></tr>
+      <tr><td><code>ldap3</code></td><td>SSO/LDAP 集成</td></tr>
+    </tbody>
+  </table>
+  <p><strong>影响：</strong>新人 clone 后 <code>pip install -r requirements.txt</code> 跑测试直接崩。这不是"缺文档"问题，是"按官方步骤走不通"问题。</p>
+</div>
+
+<h3>3. 数据库 — 本地是空壳，真实数据在服务器</h3>
+<div class="finding warn">
+  <div class="ftitle">251 张表，但本地 erp.db 几乎没有业务数据</div>
+  <p>交接文档说"舟谱真实数据已导入：371 商品 + 672 客户 + 38 供应商 + 525 订单"。实测本地 <code>server/erp.db</code>：<code>products</code> 仅 6 条、<code>journal_entries</code> 0 条、最大的业务表是 <code>chart_of_accounts</code>(25 行)。舟谱数据<strong>在服务器 47.113.224.140 上，不在仓库里</strong>。</p>
+  <p>另有 8 个 <code>tenant_*.db</code>（多租户架构），本地也都是空的。本地开发时看不到真实业务数据，只能靠测试 fixture。</p>
+</div>
+
+<h3>4. 技术债 — erp_db.py 是最大的一笔</h3>
+<div class="finding warn">
+  <div class="ftitle">erp_db.py：10,368 行 / 674 个函数，单体文件</div>
+  <p>平均 15 行/函数，但总量已经大到难以维护。<code>db/queries/</code> 目录已拆出 11 个查询模块（contacts/products/sales/purchases/finance/journal/coa/gl 等），<strong>但 erp_db.py 本体还没拆</strong>。交接文档把拆分列为"中期"——建议提前，每加一个功能都是在加深这笔债。</p>
+</div>
+<div class="finding warn">
+  <div class="ftitle">28 个 skipped 测试</div>
+  <p>测试虽然 0 failed，但有 28 个 skip。交接文档"后续路线图"提到"测试 skip 恢复"但还没做。skip 的测试是定时炸弹——覆盖面有缺口。</p>
+</div>
+<div class="finding warn">
+  <div class="ftitle">迁移机制有健壮性问题</div>
+  <p>跑测试时看到大量 <code>[Migration] FAILED</code> 日志：<code>duplicate column name</code>、<code>no such table</code>、<code>UNIQUE constraint failed: _migrations.name</code>。<code>_safe_migrate</code> 容错兜住了，但说明迁移记录/顺序管理有问题，升级时可能踩坑。</p>
+</div>
+
+<h3>5. 审计验证 — 关键问题源码里已修，但没提交</h3>
+<div class="finding ok">
+  <div class="ftitle">DEEP_AUDIT(6-30) 的 4 个关键项在源码中均已修复</div>
+  <table>
+    <thead><tr><th>审计项</th><th>状态</th><th>验证</th></tr></thead>
+    <tbody>
+      <tr><td>缺少 .gitignore</td><td><span class="tag tag-ok">已修</span></td><td>根目录 .gitignore 已存在(6-30 22:29)</td></tr>
+      <tr><td>app.js 两处 eval()</td><td><span class="tag tag-ok">已修</span></td><td>已替换为 Safe dispatch，无 eval() 调用</td></tr>
+      <tr><td>alert_rule_list_active 缺失</td><td><span class="tag tag-ok">已修</span></td><td>erp_db.py:7552 已定义</td></tr>
+      <tr><td>getDeepSeekApiKey 未导出</td><td><span class="tag tag-ok">已修</span></td><td>license.js:115 已导出</td></tr>
+    </tbody>
+  </table>
+  <p><strong>但是：</strong>这些修复都在未提交的 35 个文件里。git 历史里看不到，服务器上不一定有。</p>
+</div>
+
+<h2>三、风险矩阵</h2>
+<div class="risk-list">
+  <div class="risk-item p0">
+    <div class="risk-level">P0</div>
+    <div class="risk-desc"><strong>v89 改动未提交 git（35 文件）</strong>
+      <div class="detail">一次误操作就可能丢失几周工作量。最高优先级：立刻 commit + push。</div>
+    </div>
+  </div>
+  <div class="risk-item p0">
+    <div class="risk-level">P0</div>
+    <div class="risk-desc"><strong>服务器磁盘 99% 已满（审计 7.1，仅剩 639MB）</strong>
+      <div class="detail">这是审计(6-30)发现的最紧急运维问题，需确认是否已清理。未清理则随时宕机。</div>
+    </div>
+  </div>
+  <div class="risk-item p1">
+    <div class="risk-level">P1</div>
+    <div class="risk-desc"><strong>requirements.txt 缺 4 个依赖</strong>
+      <div class="detail">新人/新环境无法按官方步骤跑通。补全 + 锁版本即可，30 分钟的事。</div>
+    </div>
+  </div>
+  <div class="risk-item p1">
+    <div class="risk-level">P1</div>
+    <div class="risk-desc"><strong>本地与服务器数据/代码一致性未知</strong>
+      <div class="detail">本地 erp.db 空壳，服务器跑的代码版本不确定。需要确认线上到底是哪版。</div>
+    </div>
+  </div>
+  <div class="risk-item p1">
+    <div class="risk-level">P1</div>
+    <div class="risk-desc"><strong>备份不完整 + 同盘存储（审计 7.2/7.3）</strong>
+      <div class="detail">只备份 erp.db，tenant 库不备份；备份与生产同盘。需确认是否已配 S3 异地备份。</div>
+    </div>
+  </div>
+  <div class="risk-item p2">
+    <div class="risk-level">P2</div>
+    <div class="risk-desc"><strong>erp_db.py 10368 行单体未拆</strong>
+      <div class="detail">技术债最大头，每加功能都在加深。建议尽快启动拆分。</div>
+    </div>
+  </div>
+  <div class="risk-item p2">
+    <div class="risk-level">P2</div>
+    <div class="risk-desc"><strong>28 个 skipped 测试 + 迁移报错</strong>
+      <div class="detail">覆盖缺口 + 迁移健壮性，不影响当前运行但留有隐患。</div>
+    </div>
+  </div>
+</div>
+
+<h2>四、优先行动建议</h2>
+
+<div class="action-group">
+  <h4>立即（今天）</h4>
+  <ol>
+    <li><strong>把 v89 的 35 个文件 commit + push</strong> — 这是守住已有工作的底线。先跑一遍测试确认绿，然后 <code>git add -A && git commit</code>。</li>
+    <li><strong>确认服务器磁盘是否已清理</strong> — 审计说仅剩 639MB，清理 <code>/var/www/hergent-updates/</code> 旧安装包(12G) + <code>/tmp</code> 旧备份(2.5G)。</li>
+    <li><strong>确认服务器跑的代码版本</strong> — SSH 上去看 <code>git log</code> 和进程启动时间，对齐线上与本地。</li>
+  </ol>
+</div>
+
+<div class="action-group">
+  <h4>本周</h4>
+  <ol>
+    <li><strong>补全 requirements.txt</strong> — 加入 <code>cryptography</code>、<code>python-multipart</code>、<code>pypinyin</code>、<code>ldap3</code>，并把所有 <code>&gt;=</code> 锁成 <code>==</code>，生成 <code>requirements.lock</code>。</li>
+    <li><strong>配 UptimeRobot 健康检查</strong> — 15 分钟，监控 <code>erp.hergent.cn:8700/health</code>。</li>
+    <li><strong>配 S3 异地备份</strong> — 包含所有 DB（erp.db + tenant_*.db + dami_memory.db），<code>backup.py</code> 已有代码，配 credentials 即可。</li>
+    <li><strong>把 28 个 skipped 测试逐个排查</strong> — 能恢复的恢复，不能的标注原因。</li>
+  </ol>
+</div>
+
+<div class="action-group">
+  <h4>本月</h4>
+  <ol>
+    <li><strong>启动 erp_db.py 拆分</strong> — 按业务域拆到 <code>db/queries/</code>，目标把 erp_db.py 从 10368 行降到 2000 行以内。分批迁，每批跑测试。</li>
+    <li><strong>迁移报错修复</strong> — 清理 <code>_migrations</code> 重复记录，修正迁移顺序。</li>
+    <li><strong>服务器安全加固</strong> — 非 root 运行、杀重复进程、收紧 CSP（审计 6.1/7.5/7.6）。</li>
+    <li><strong>验证真实用户</strong> — 这不是技术项，但最关键：当前有几个真实付费用户？他们在用哪些模块？答案决定后续所有功能优先级。</li>
+  </ol>
+</div>
+
+<footer>
+  报告生成方式：实地 clone 代码、装依赖、跑测试、查数据库、验证审计项。测试环境：Python 3.13.12 + pytest，临时 venv 不污染项目。临时 venv (<code>.venv-test/</code>) 留在 hergent-erp 目录下，可手动删除。
+</footer>
+
+</div>
+
+<script>
+new Chart(document.getElementById('cmp'), {
+  type: 'bar',
+  data: {
+    labels: ['代码行数(K)', 'DB表', 'routers', '测试passed', '测试skipped'],
+    datasets: [
+      { label: '文档', data: [47.5, 210, 61, 163, 0], backgroundColor: '#b4b2a9', borderRadius: 3, barPercentage: 0.7 },
+      { label: '实测', data: [58.1, 251, 63, 163, 28], backgroundColor: '#1d9e75', borderRadius: 3, barPercentage: 0.7 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { color: '#5f5e5a', font: { size: 11 } } },
+      x: { grid: { display: false }, ticks: { color: '#444441', font: { size: 11 } } }
+    }
+  }
+});
+</script>
+</body>
+</html>

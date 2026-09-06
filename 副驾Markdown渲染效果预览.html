@@ -1,0 +1,33 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>副驾 Markdown 渲染效果预览</title>
+<style>
+body{background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;margin:0;padding:24px;color:#1d1d1f}
+h0{font-size:15px}
+.wrap{max-width:760px;margin:0 auto;background:#fff;border-radius:14px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.hd{font-size:15px;font-weight:600;margin-bottom:4px}
+.sub{font-size:12px;color:#86868b;margin-bottom:18px}
+.row{display:flex;gap:10px;margin-bottom:22px}
+.ava{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.bubble{background:#f3f4f6;border-radius:4px 14px 14px 14px;padding:12px 14px;max-width:640px}
+.md{font-size:13px;line-height:1.65;word-break:break-word;color:#1d1d1f}
+.md p{margin:0 0 6px}.md p:last-child{margin-bottom:0}
+.md h1,.md h2,.md h3{margin:8px 0 4px;font-weight:600;line-height:1.3;color:#1d1d1f}
+.md-h1{font-size:1.05em}.md-h2{font-size:1em}.md-h3{font-size:.94em}
+.md ul,.md ol{margin:4px 0;padding-left:20px}.md li{margin:2px 0}
+.md table{border-collapse:collapse;margin:6px 0;font-size:.9em;width:100%}
+.md th,.md td{border:1px solid #e5e7eb;padding:4px 8px;text-align:left;vertical-align:top}
+.md th{background:#f3f4f6;font-weight:600}
+.md blockquote{margin:6px 0;padding:4px 10px;border-left:3px solid #06b6d4;background:rgba(6,182,212,.06);color:#475569;border-radius:0 6px 6px 0}
+.md hr{border:none;border-top:1px solid #e5e7eb;margin:8px 0}
+.md code{background:#f3f4f6;padding:1px 4px;border-radius:4px;font-size:.9em;font-family:ui-monospace,Menlo,monospace}
+.md pre{background:#f3f4f6;padding:8px;border-radius:6px;overflow-x:auto;margin:6px 0}
+.md pre code{background:none;padding:0}
+.cap{font-size:11px;color:#86868b;margin:14px 0 6px;font-weight:600}
+</style></head><body><div class="wrap">
+<div class="hd">副驾回复 Markdown 渲染效果预览</div>
+<div class="sub">B 层落地验证 · 渲染器 src/utils/md.js · 深色为真实副驾气泡样式</div>
+<div class="cap">样例一：数据型回复（结论先行 + 表格 + 引用 + 加粗）</div>
+<div class="row"><div class="ava">AI</div><div class="bubble"><div class="md"><p>今天货损 <b>32 元</b>，比昨天少 8 元。主要是 A 仓临期品没及时折价。</p><h2 class="md-h md-h2">关键结论</h2><ul><li>临期品占货损 <b>60%</b>，是最主要的口子</li><li>A 仓占比 62%，B 仓 38%</li><li>按当前节奏，本月货损预计 960 元</li></ul><h2 class="md-h md-h2">明细</h2><table class="md-table"><thead><tr><th>仓库</th><th>货损金额</th><th>占比</th><th>主因</th></tr></thead><tbody><tr><td>A 仓</td><td>20 元</td><td>62%</td><td>临期未折价</td></tr><tr><td>B 仓</td><td>12 元</td><td>38%</td><td>破损</td></tr></tbody></table><blockquote class="md-quote">风险提示：B 仓有 3 个批次效期只剩 5 天。</blockquote><p><b>建议下一步</b>：先处理 A 仓临期品，我可以帮你生成折价单。</p></div></div></div>
+<div class="row"><div class="ava">AI</div><div class="bubble"><div class="md"><p>本周经营情况如下：</p><ol><li>销售额 <b>12.4 万</b>，环比涨 6%</li><li>毛利率 18.2%，比上周低 0.4 个点</li><li>货损 218 元，控制在正常范围</li></ol><p>需要注意：毛利率下滑主因是促销品占比上升。</p><hr class="md-hr"><p>要不要我拉一下促销品的明细，看看是哪几个单品拉低的？</p></div></div></div>
+<div class="cap" style="margin-top:18px">XSS 防护验证（下方应显示为纯文本，不执行脚本）</div>
+<div class="row"><div class="ava">AI</div><div class="bubble"><div class="md"><p>用户输入测试：&lt;script&gt;alert(1)&lt;/script&gt; 与 &lt;img src=x onerror=alert(2)&gt; 应被转义为可见文本。</p></div></div></div>
+</div></body></html>

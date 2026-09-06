@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hergent ERP 代码审查报告 — 2026-07-19</title>
+<style>
+  :root {
+    --bg: #f8f9fb;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #1a202c;
+    --text-muted: #64748b;
+    --text-light: #94a3b8;
+    --p0: #dc2626;
+    --p0-bg: #fef2f2;
+    --p0-border: #fecaca;
+    --p1: #ea580c;
+    --p1-bg: #fff7ed;
+    --p1-border: #fed7aa;
+    --p2: #ca8a04;
+    --p2-bg: #fefce8;
+    --p2-border: #fef08a;
+    --p3: #2563eb;
+    --p3-bg: #eff6ff;
+    --p3-border: #bfdbfe;
+    --green: #16a34a;
+    --green-bg: #f0fdf4;
+    --code-bg: #f1f5f9;
+    --code-text: #334155;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Header */
+  .report-header {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: white;
+    padding: 48px 40px;
+    border-radius: 16px;
+    margin-bottom: 32px;
+  }
+  .report-header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .report-header .meta { display: flex; gap: 24px; flex-wrap: wrap; font-size: 14px; opacity: 0.8; margin-top: 16px; }
+  .report-header .meta span { display: flex; align-items: center; gap: 6px; }
+  .report-header .summary {
+    margin-top: 24px;
+    padding: 20px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  /* Stats Dashboard */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .stat-card .number { font-size: 36px; font-weight: 800; line-height: 1.2; }
+  .stat-card .label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+  .stat-card.p0 .number { color: var(--p0); }
+  .stat-card.p1 .number { color: var(--p1); }
+  .stat-card.p2 .number { color: var(--p2); }
+  .stat-card.p3 .number { color: var(--p3); }
+  .stat-card.total .number { color: var(--text); }
+
+  /* Section */
+  section { margin-bottom: 48px; }
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2 .badge {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    color: white;
+  }
+  h3 { font-size: 17px; font-weight: 600; margin: 24px 0 12px; }
+
+  /* Issue Card */
+  .issue {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .issue.p0 { border-left: 4px solid var(--p0); background: var(--p0-bg); }
+  .issue.p1 { border-left: 4px solid var(--p1); background: var(--p1-bg); }
+  .issue.p2 { border-left: 4px solid var(--p2); background: var(--p2-bg); }
+  .issue.p3 { border-left: 4px solid var(--p3); background: var(--p3-bg); }
+  .issue-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .issue-title { font-size: 16px; font-weight: 700; flex: 1; }
+  .issue-tag {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    color: white;
+  }
+  .issue-tag.p0 { background: var(--p0); }
+  .issue-tag.p1 { background: var(--p1); }
+  .issue-tag.p2 { background: var(--p2); }
+  .issue-tag.p3 { background: var(--p3); }
+  .issue-body { font-size: 14px; }
+  .issue-body p { margin-bottom: 8px; }
+  .issue-body strong { color: var(--text); }
+  .issue-meta { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+  .issue-meta code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--code-text); }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 10px 0;
+    color: var(--code-text);
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  }
+  code { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+
+  .fix-box {
+    background: var(--green-bg);
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  .fix-box::before { content: "修复建议 → "; font-weight: 700; color: var(--green); }
+
+  .attack-box {
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  .attack-box::before { content: "攻击场景 → "; font-weight: 700; color: var(--p0); }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+    background: var(--surface);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  th { background: #f1f5f9; padding: 12px 16px; text-align: left; font-weight: 600; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 12px 16px; border-top: 1px solid var(--border); }
+  tr:hover td { background: #f8fafc; }
+
+  /* Roadmap */
+  .roadmap-phase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .roadmap-phase .phase-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .roadmap-phase .phase-num {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px;
+    color: white;
+  }
+  .roadmap-phase.urgent .phase-num { background: var(--p0); }
+  .roadmap-phase.short .phase-num { background: var(--p1); }
+  .roadmap-phase.mid .phase-num { background: var(--p2); }
+  .roadmap-phase.long .phase-num { background: var(--p3); }
+  .roadmap-phase .phase-title { font-size: 17px; font-weight: 700; }
+  .roadmap-phase .phase-desc { font-size: 13px; color: var(--text-muted); }
+  .roadmap-phase ul { list-style: none; padding-left: 0; }
+  .roadmap-phase li {
+    padding: 8px 0 8px 24px;
+    position: relative;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .roadmap-phase li:last-child { border-bottom: none; }
+  .roadmap-phase li::before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: var(--text-muted);
+  }
+  .roadmap-phase li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+  /* Callout */
+  .callout {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border: 1px solid var(--p3-border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 24px 0;
+  }
+  .callout-title { font-weight: 700; font-size: 16px; margin-bottom: 8px; color: var(--p3); }
+
+  /* Team Growth */
+  .growth-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .growth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .growth-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .growth-card .icon { font-size: 20px; }
+  .growth-card ul { list-style: disc; padding-left: 20px; font-size: 14px; }
+  .growth-card li { margin-bottom: 6px; }
+
+  .footer {
+    text-align: center;
+    padding: 32px 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+
+  @media (max-width: 768px) {
+    .container { padding: 20px 16px 60px; }
+    .report-header { padding: 32px 24px; }
+    .report-header h1 { font-size: 22px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Header -->
+<div class="report-header">
+  <h1>Hergent ERP 代码审查报告</h1>
+  <div class="meta">
+    <span>审查日期：2026-07-19</span>
+    <span>代码版本：v89</span>
+    <span>审查范围：Web 版 ERP（hergent-erp）</span>
+    <span>审查人：Senior Developer</span>
+  </div>
+  <div class="summary">
+    本次审查覆盖后端 Python（~38,531 行）、前端 JavaScript（~23,620 行）、安全性、测试与工程化四大维度。
+    代码库功能完整度已追平中端 ERP 水平，工程化基础（CI、Docker、pre-commit、Alembic）已搭建，
+    但<strong>安全漏洞和工程债务正在加速累积</strong>——发现 <strong>14 个 P0 级安全问题</strong>需立即处置，
+    前端 XSS 防护存在系统性缺陷，后端上帝文件（erp_db.py 10,368 行）已成为可维护性瓶颈。
+  </div>
+</div>
+
+<!-- Stats Dashboard -->
+<div class="stats-grid">
+  <div class="stat-card total"><div class="number">59</div><div class="label">问题总数</div></div>
+  <div class="stat-card p0"><div class="number">14</div><div class="label">P0 CRITICAL</div></div>
+  <div class="stat-card p1"><div class="number">15</div><div class="label">P1 HIGH</div></div>
+  <div class="stat-card p2"><div class="number">19</div><div class="label">P2 MEDIUM</div></div>
+  <div class="stat-card p3"><div class="number">11</div><div class="label">P3 LOW</div></div>
+</div>
+
+<!-- Executive Summary -->
+<section>
+  <h2>执行摘要</h2>
+  <div class="callout">
+    <div class="callout-title">核心判断</div>
+    <p>Hergent ERP 的<strong>业务功能深度已达到中端 ERP 水平</strong>（财务 IFRS 15、多 GAAP、税务引擎、WMS、CRM、AI 能力），
+    但<strong>工程质量和安全防护严重滞后于功能增长</strong>。v83→v89 期间模块数翻倍，但前端无构建工具、无 TypeScript、无 ESLint、无前端测试，
+    后端上帝文件持续膨胀（erp_db.py 从 6,700 行增长到 10,368 行），安全方面存在多个可直接利用的漏洞。</p>
+    <p style="margin-top:12px"><strong>建议立即进入"工程质量回补"阶段</strong>——暂停新功能开发，集中清除 P0/P1 级问题，建立工程化基线后再恢复功能迭代。</p>
+  </div>
+
+  <h3>代码库规模</h3>
+  <table>
+    <tr><th>指标</th><th>数值</th><th>风险信号</th></tr>
+    <tr><td>Python 总行数</td><td>~38,531 行</td><td>erp_db.py 单文件 10,368 行（上帝文件）</td></tr>
+    <tr><td>JavaScript 总行数</td><td>~23,620 行</td><td>app.js 单文件 7,466 行（上帝文件）</td></tr>
+    <tr><td>后端路由文件</td><td>65+ 个</td><td>7 个路由器未注册（写了代码没接线）</td></tr>
+    <tr><td>前端模块文件</td><td>80+ 个</td><td>100+ 个同步 script 标签，无构建工具</td></tr>
+    <tr><td>测试代码</td><td>2,541 行 / 23 文件</td><td>前端零测试，CI 覆盖率门槛仅 40%</td></tr>
+    <tr><td>innerHTML 使用</td><td>500+ 处</td><td>esc() 转义函数在 25 个文件中重复定义且实现不一致</td></tr>
+    <tr><td>裸 except: pass</td><td>120+ 处</td><td>核心业务逻辑中大量异常被静默吞没</td></tr>
+  </table>
+</section>
+
+<!-- P0 Issues -->
+<section>
+  <h2>P0 — CRITICAL（安全漏洞 / 崩溃风险）<span class="badge" style="background:var(--p0)">14 项</span></h2>
+  <p style="margin-bottom:16px;color:var(--text-muted)">这些问题可被直接利用导致数据泄露、身份伪造或系统被接管，<strong>必须在 24-48 小时内修复</strong>。</p>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-1 未认证数据库下载 — 任何人可下载完整数据库</div>
+      <span class="issue-tag p0">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/routers/platform.py:138-143</code></div>
+    <div class="issue-body">
+      <p><code>/api/backup/download</code> 端点<strong>没有任何认证调用</strong>（无 <code>_auth()</code>、无 <code>_admin()</code>），同时路径在 <code>_PUBLIC_PATHS</code> 白名单中绕过了 RBAC 中间件。</p>
+      <pre>curl https://erp.hergent.cn/api/backup/download -o stolen.db
+sqlite3 stolen.db "SELECT username, password_hash FROM users"</pre>
+      <div class="fix-box">立即添加 <code>_admin(request)</code> 认证，并从 <code>_PUBLIC_PATHS</code> 中移除 <code>/api/backup</code>。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-2 SAML 断言签名未验证 — 可伪造任意用户身份登录</div>
+      <span class="issue-tag p0">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/routers/sso.py:292-369</code></div>
+    <div class="issue-body">
+      <p>SAML ACS 端点用正则表达式提取 NameID，但<strong>从不验证 XML 签名</strong>。攻击者可构造未签名的 SAML Response 声称是任意邮箱用户，直接获得该用户会话。</p>
+      <div class="fix-box">使用 <code>xmlsec</code> 或 <code>python3-saml</code> 库验证签名。在验证通过前不得提取任何身份信息。无法引入签名验证则禁用 SAML ACS 端点。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-3 platform.py 中 13+ 个端点缺少认证</div>
+      <span class="issue-tag p0">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/routers/platform.py</code> 多处</div>
+    <div class="issue-body">
+      <p>以下端点<strong>均无认证调用</strong>且路径匹配 <code>_PUBLIC_PATHS</code> 绕过 RBAC：</p>
+      <table>
+        <tr><th>端点</th><th>风险</th></tr>
+        <tr><td><code>POST /api/tenants</code></td><td>任何人可创建租户</td></tr>
+        <tr><td><code>POST /api/tenants/switch</code></td><td>任何人可切换租户上下文</td></tr>
+        <tr><td><code>POST /api/webhooks</code></td><td>任何人可注册 Webhook（SSRF）</td></tr>
+        <tr><td><code>GET /api/audit-logs</code></td><td>任何人可搜索审计日志</td></tr>
+        <tr><td><code>POST /api/backup/schedule</code></td><td>任何人可修改备份计划</td></tr>
+        <tr><td><code>GET /api/backup/download</code></td><td>任何人可下载数据库（见 P0-1）</td></tr>
+      </table>
+      <div class="fix-box">为所有端点添加适当认证：管理类操作用 <code>_admin(request)</code>，读取类用 <code>_auth(request)</code>。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-4 数据库文件已提交到 Git 仓库</div>
+      <span class="issue-tag p0">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：Git 仓库 <code>server/tenant_*.db</code>、<code>server/erp.db-wal</code> 等</div>
+    <div class="issue-body">
+      <p>以下文件在 <code>.gitignore</code> 创建前就被提交，Git 继续跟踪：</p>
+      <pre>server/backups/erp_20260618_234505.db   (864KB — 完整数据库备份)
+server/tenant_0.db ~ tenant_8.db          (各 ~724KB)
+server/erp.db-shm, server/erp.db-wal
+static/app.js.broken2, .deployed, .offlinebak, .serverbak</pre>
+      <p>这些数据库包含用户密码哈希、客户 PII 数据、业务数据、会话 token。</p>
+      <div class="attack-box">任何能访问 Git 仓库的人都可以下载并提取所有敏感数据。</div>
+      <div class="fix-box">1. <code>git filter-branch</code> 或 BFG Repo-Cleaner 从历史中彻底清除；2. 轮换所有用户密码和 API token；3. <code>git rm --cached server/*.db</code> 停止跟踪；4. 如仓库曾公开，视为数据泄露事件处理。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-5 esc() 转义不完整 — 全项目级 XSS 根因</div>
+      <span class="issue-tag p0">前端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/js/core/utils.js:2</code> 及 25 个重复定义</div>
+    <div class="issue-body">
+      <p><code>esc()</code> 只转义 <code>&amp;</code> <code>&lt;</code> <code>&gt;</code> 三个字符，<strong>未转义双引号和单引号</strong>。当返回值放入 HTML 属性上下文时，攻击者可通过引号逃逸注入任意事件处理器。</p>
+      <pre>function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+
+// 属性上下文中使用：
+html += '&lt;input data-name="'+esc(p.name)+'"&gt;'
+// 若 p.name = '" onmouseover="alert(1)'，esc 不转义引号 → XSS</pre>
+      <p>同一项目存在 <strong>25 处重复定义</strong>，实现分为三派（转义引号/不转义引号/只转义&amp;&lt;），开发者无法判断当前文件的 <code>esc()</code> 是否安全。</p>
+      <div class="fix-box">统一 <code>esc()</code> 实现到 <code>utils.js</code>，必须转义 <code>&amp; &lt; &gt; " '</code> 五个字符，删除所有重复定义。区分 <code>escapeHtml()</code>（文本上下文）和 <code>escapeAttr()</code>（属性上下文）。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-6 document.write 写入未转义的服务端内容</div>
+      <span class="issue-tag p0">前端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/js/modules/ai-assistant/forecast.js:189</code>、<code>static/app.js:3043</code></div>
+    <div class="issue-body">
+      <p>服务端返回的 HTML 被直接 <code>document.write</code> 到新窗口，完全信任服务端数据。若预报订单中包含用户输入字段且服务端未严格转义，将导致 XSS。新窗口脚本可访问 <code>opener</code> 影响主应用。</p>
+      <div class="fix-box">使用 <code>DOMParser</code> 或 <code>iframe srcdoc</code> 替代 <code>document.write</code>，对内容进行 HTML 转义。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-7 onclick 拼接函数体字符串 — 代码注入</div>
+      <span class="issue-tag p0">前端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/app.js:3065, 3226, 3261</code></div>
+    <div class="issue-body">
+      <p>右键菜单、最近操作、最近访问中，将函数调用字符串直接拼接到 <code>onclick</code> 属性。值来自表格单元格文本，若包含引号可逃逸字符串字面量注入代码。</p>
+      <pre>_ctxMenu.innerHTML = actions.map(function(a){
+  return '&lt;div onclick="('+a.a+')();..."&gt;'+a.l+'&lt;/div&gt;'
+}).join("")</pre>
+      <div class="fix-box">改用 <code>addEventListener</code> + <code>dataset</code>，或对值进行 JS 字符串转义。彻底消除内联 <code>onclick</code>。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-8 contacts-v2.js 联系人渲染完全未转义</div>
+      <span class="issue-tag p0">前端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/js/modules/contacts-v2.js:33-44</code></div>
+    <div class="issue-body">
+      <p><code>c.name</code>、<code>c.role</code>、<code>c.phone</code>、<code>c.channel</code> 直接拼接进 innerHTML，无任何 HTML 转义。<code>c.id</code> 在 onclick 中仅用 <code>escapeJs</code>（只转义单引号），不转义 HTML 字符。</p>
+      <div class="fix-box">对所有用户数据字段调用统一的 <code>esc()</code> 函数进行 HTML 转义。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-9 8 处 **d 参数注入 — 请求体直接展开为函数参数</div>
+      <span class="issue-tag p0">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/routers/</code> 多处</div>
+    <div class="issue-body">
+      <p>多个路由端点将 <code>await request.json()</code> 的结果用 <code>**d</code> 直接展开为数据库函数参数，攻击者可注入非预期参数名覆盖默认值或触发意外行为。</p>
+      <pre>d = await request.json()
+result = db.some_function(**d)  # d 中的任意 key 都会成为函数参数</pre>
+      <div class="fix-box">显式提取参数：<code>db.some_function(name=d.get("name"), qty=d.get("qty"))</code>，禁止 <code>**d</code> 展开。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-10 3 处 SQL 注入风险</div>
+      <span class="issue-tag p0">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/erp_db.py</code> — get_expiring_soon, employee_list, get_churn_risk</div>
+    <div class="issue-body">
+      <p>三处函数使用 f-string 或字符串拼接构建 SQL，将用户可控参数直接嵌入查询语句。</p>
+      <div class="fix-box">全部改为参数化查询：<code>cursor.execute("SELECT ... WHERE col=?", (value,))</code>。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-11 密码策略逻辑 bug — 纯数字或纯字母可通过</div>
+      <span class="issue-tag p0">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/core.py:43-49</code></div>
+    <div class="issue-body">
+      <pre>def _validate_password(pw):
+    if not pw or len(pw) < 8:
+        return False, "密码至少需要8位"
+    if not (any(c.isdigit() for c in pw) or any(c.isalpha() for c in pw)):
+        #         ^^^^ or ^^^^ — 应该是 and！
+        return False, "密码需要包含至少一个数字或字母"</pre>
+      <p>使用 <code>or</code> 意味着 <code>aaaaaaaa</code> 或 <code>12345678</code> 都能通过验证。</p>
+      <div class="fix-box">改为 <code>and</code>，并增强策略：至少 10 位，必须同时包含大小写字母和数字，检查常见弱密码字典。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-12 _safeExec 仍存在动态求值风险</div>
+      <span class="issue-tag p0">前端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/app.js:5-12</code></div>
+    <div class="issue-body">
+      <p>注释声称"replaces eval()"，但 <code>JSON.parse('['+m[2]+']')</code> 本质上仍是对用户输入的动态求值。白名单机制不完善，若 <code>fn</code> 是危险函数（如 <code>window.open</code>），可构造 <code>open('javascript:alert(1)')</code> 类调用。</p>
+      <div class="fix-box">建立严格的函数白名单 + 参数类型校验，或改用事件委托 + dataset 完全消除动态函数调用。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-13 renderTasks / AI 洞察中部分字段未转义</div>
+      <span class="issue-tag p0">前端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/app.js:6067, 1112, 342</code></div>
+    <div class="issue-body">
+      <p><code>t.freq</code>、<code>t.run_time</code>、<code>n.msg</code>、<code>p.name</code>（来自 API）等字段在 innerHTML 拼接中完全未转义。</p>
+      <div class="fix-box">所有 innerHTML 拼接中的动态数据必须经过 <code>esc()</code> 转义，无一例外。</div>
+    </div>
+  </div>
+
+  <div class="issue p0">
+    <div class="issue-header">
+      <div class="issue-title">P0-14 静态文件服务路径遍历</div>
+      <span class="issue-tag p0">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/server.py:2457-2460</code></div>
+    <div class="issue-body">
+      <p><code>path</code> 直接来自 URL，未经清洗就与 <code>STATIC</code> 拼接。攻击者可使用 <code>../</code> 或 URL 编码的 <code>%2e%2e%2f</code> 遍历到服务器任意文件。</p>
+      <div class="fix-box">使用 <code>os.path.normpath</code> + <code>startswith</code> 校验路径在 STATIC 目录内。</div>
+    </div>
+  </div>
+</section>
+
+<!-- P1 Issues -->
+<section>
+  <h2>P1 — HIGH（严重质量问题）<span class="badge" style="background:var(--p1)">15 项</span></h2>
+  <p style="margin-bottom:16px;color:var(--text-muted)">这些问题严重影响可维护性、安全防护深度和系统稳定性，<strong>建议在本周内修复</strong>。</p>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-1 120+ 处裸 except: pass 静默吞异常</div>
+      <span class="issue-tag p1">后端质量</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/erp_db.py</code> 及全后端</div>
+    <div class="issue-body">
+      <p>核心业务逻辑中大量使用 <code>except: pass</code> 或 <code>except Exception: pass</code>，异常被完全静默。这导致：数据库操作失败无人知晓、事务可能在不一致状态下提交、问题排查极其困难。</p>
+      <div class="fix-box">至少改为 <code>except Exception as e: logging.getLogger("hergent").warning(f"...: {e}")</code>。对关键路径（财务、库存）的异常应向上传播而非吞没。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-2 erp_db.py 10,368 行上帝文件</div>
+      <span class="issue-tag p1">后端架构</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/erp_db.py</code></div>
+    <div class="issue-body">
+      <p>单一文件包含几乎所有数据库操作（用户、商品、订单、库存、财务、CRM、HR...）。v83→v89 从 6,700 行增长到 10,368 行，持续膨胀。任何修改都有 side effect 风险，无法独立测试，多人协作冲突严重。</p>
+      <div class="fix-box"><code>db/queries/</code> 目录已有 11 个按领域拆分的文件，继续推进迁移。目标：erp_db.py 仅保留 init/migrate，业务逻辑全部移入 <code>db/queries/{domain}.py</code>。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-3 app.js 7,466 行上帝文件</div>
+      <span class="issue-tag p1">前端架构</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/app.js</code></div>
+    <div class="issue-body">
+      <p>单一文件包含登录认证、API 封装、离线队列、路由导航、所有业务页面渲染、表单处理、右键菜单、打印、剪贴板等数十个职责。60+ 处 <code>window.xxx</code> 全局变量赋值。</p>
+      <div class="fix-box">按业务域拆分（auth、sales、stock、reports 等），逐步迁移到 <code>js/modules/</code>。全局变量迁移到已有的 <code>HergentStore</code>。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-4 4 种 API 调用模式并存</div>
+      <span class="issue-tag p1">前端质量</span>
+    </div>
+    <div class="issue-meta">文件：全前端模块</div>
+    <div class="issue-body">
+      <p>存在 4 种 API 调用模式：<code>window.api()</code>、<code>ApiClient.get/post</code>、直接 <code>fetch()</code>、模块自定义 <code>_api()</code>/<code>A(p,o)</code>。token 读取逻辑重复 30+ 次，错误处理不一致，401 处理不统一。<code>api-client.js</code> 虽然是规范实现但注释自述"Legacy bridge"，实际使用率低。</p>
+      <div class="fix-box">强制所有模块使用 <code>ApiClient</code>，删除所有 <code>apiGet/apiPost/A(p,o)/_api</code> 重复封装。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-5 未设置 Content-Security-Policy</div>
+      <span class="issue-tag p1">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/server.py:158-167</code></div>
+    <div class="issue-body">
+      <p>服务器设置了 6 个安全响应头（X-Content-Type-Options、X-Frame-Options、HSTS 等），但<strong>完全没有 CSP</strong>。XSS 攻击没有第二道防线。</p>
+      <div class="fix-box">先以 <code>Content-Security-Policy-Report-Only</code> 模式收集违规，逐步收紧到 <code>default-src 'self'; script-src 'self'</code>。需配合消除内联 script/onclick。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-6 会话 token 生成方式不一致</div>
+      <span class="issue-tag p1">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>auth.py:185</code>, <code>mfa.py:205</code>, <code>sso.py:182,356</code></div>
+    <div class="issue-body">
+      <p>正常登录用 <code>secrets.token_urlsafe(32)</code>（256 位），但注册、MFA、OAuth、SAML 登录用 <code>uuid.uuid4()</code>（仅 122 位有效熵），且格式可被识别为 UUID。</p>
+      <div class="fix-box">统一使用 <code>secrets.token_urlsafe(32)</code> 生成所有会话 token。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-7 Dockerfile 默认密钥可预测</div>
+      <span class="issue-tag p1">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>Dockerfile:18</code></div>
+    <div class="issue-body">
+      <p><code>ENV ERP_SECRET=change-me-in-production</code> — 若直接 <code>docker run</code> 不覆盖环境变量，密码哈希加盐和 PII 加密密钥将使用硬编码弱默认值。</p>
+      <div class="fix-box">从 Dockerfile 中移除该行，让应用在缺少密钥时直接拒绝启动（<code>core.py:11-12</code> 已有此逻辑）。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-8 微信 OAuth 密钥在 URL 查询参数中</div>
+      <span class="issue-tag p1">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/routers/sso.py:130</code>（上次审计已指出，仍未修复）</div>
+    <div class="issue-body">
+      <p><code>OAUTH_WECHAT_SECRET</code> 拼在 URL query string 中，会被 nginx 日志、浏览器历史、Referer 头记录。</p>
+      <div class="fix-box">改为 POST 请求发送 OAuth code exchange。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-9 change_password cookie 名称不匹配</div>
+      <span class="issue-tag p1">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/routers/auth.py:120</code></div>
+    <div class="issue-body">
+      <p>读取 <code>hergent_token</code>（不存在），实际 cookie 名是 <code>erp_token</code>。导致修改密码后 <code>current_token</code> 为空，<code>DELETE FROM sessions WHERE user_id=? AND token!=?</code> 会删除该用户<strong>所有</strong>会话（包括当前），强制重新登录。</p>
+      <div class="fix-box">将 <code>hergent_token</code> 改为 <code>erp_token</code>。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-10 测试凭证泄露在 HTML 中</div>
+      <span class="issue-tag p1">前端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/index.html:36,39</code></div>
+    <div class="issue-body">
+      <p>HTML 仍显示 <code>placeholder="admin123"</code> 和 "测试账号 admin / admin123"。虽然 <code>core.py</code> 已改为随机生成密码，但 HTML 会误导用户使用弱密码。</p>
+      <div class="fix-box">移除 placeholder 和测试账号提示文字。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-11 事件监听器无清理（内存泄漏风险）</div>
+      <span class="issue-tag p1">前端质量</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/app.js</code> 多处</div>
+    <div class="issue-body">
+      <p><code>addEventListener</code> 出现 103 次，<code>removeEventListener</code> 仅 10 次。document 级事件用匿名函数绑定，未来引入热重载或组件化时无法移除。</p>
+      <div class="fix-box">重要事件监听器使用具名函数引用，在模块销毁时移除。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-12 Store 和 Router 核心模块未被使用（死代码）</div>
+      <span class="issue-tag p1">前端架构</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/js/core/store.js</code>, <code>static/js/core/router.js</code></div>
+    <div class="issue-body">
+      <p>两个核心模块已实现但 app.js 完全未使用。状态管理仍用 <code>window._pg</code> 等全局变量，路由仍用 <code>navTo</code> 函数。重构未完成，核心模块形同虚设。</p>
+      <div class="fix-box">制定迁移计划，逐步将全局变量迁入 <code>HergentStore</code>，路由迁入 <code>HergentRouter</code>。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-13 Webhook SSRF — 未认证用户可注册任意 URL</div>
+      <span class="issue-tag p1">后端安全</span>
+    </div>
+    <div class="issue-meta">文件：<code>server/routers/platform.py:98-102</code></div>
+    <div class="issue-body">
+      <p>无认证、无 URL 校验。攻击者可注册指向内部服务的 Webhook（如 <code>http://169.254.169.254/latest/meta-data/</code>），业务事件触发时实现 SSRF。</p>
+      <div class="fix-box">移除 platform.py 中的 Webhook 端点（使用 webhook.py 中的认证版本），添加 URL 白名单校验。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-14 错误处理不一致，未捕获 Promise</div>
+      <span class="issue-tag p1">前端质量</span>
+    </div>
+    <div class="issue-meta">文件：<code>static/app.js</code> 及各模块</div>
+    <div class="issue-body">
+      <p><code>api()</code> 在非 200 时返回 null，调用方常只写 <code>if(r)</code> 导致 <code>r.success===false</code> 被当作成功。各模块 <code>fetch().then(r=>r.json())</code> 不检查 <code>r.ok</code>，无 <code>.catch()</code>。</p>
+      <div class="fix-box">统一 API 层错误处理，添加全局 <code>unhandledrejection</code> 处理器。</div>
+    </div>
+  </div>
+
+  <div class="issue p1">
+    <div class="issue-header">
+      <div class="issue-title">P1-15 7 个路由器未注册（写了代码没接线）</div>
+      <span class="issue-tag p1">后端质量</span>
+    </div>
+    <div class="issue-meta">文件：<code>datasources_v2.py</code>, <code>route_optimizer.py</code>, <code>trade_fair.py</code>, <code>invoice_auto_voucher.py</code>, <code>zhoupu_gap.py</code>, <code>ai_learning.py</code>, <code>gl_dimensions.py</code></div>
+    <div class="issue-body">
+      <p>7 个路由文件已编写但未在 server.py 中注册 include_router，代码完全不生效。</p>
+      <div class="fix-box">要么注册，要么归档删除。写了不接线的代码是浪费且增加维护负担。</div>
+    </div>
+  </div>
+</section>
+
+<!-- P2 Issues -->
+<section>
+  <h2>P2 — MEDIUM（中等风险）<span class="badge" style="background:var(--p2)">19 项</span></h2>
+  <p style="margin-bottom:16px;color:var(--text-muted)">这些问题影响代码健壮性和可维护性，建议在本月内修复。</p>
+
+  <table>
+    <tr><th>#</th><th>问题</th><th>文件 / 位置</th><th>建议</th></tr>
+    <tr><td>P2-1</td><td>密码策略过弱（8位+数字或字母）</td><td><code>core.py:43-49</code></td><td>至少10位，必须含大小写+数字</td></tr>
+    <tr><td>P2-2</td><td>OAuth state 存进程内存且无过期</td><td><code>sso.py:49-54</code></td><td>迁入 Redis，设 10 分钟 TTL</td></tr>
+    <tr><td>P2-3</td><td>CORS 配置过于宽松</td><td><code>server.py:137-138</code></td><td>明确指定 methods 和 headers</td></tr>
+    <tr><td>P2-4</td><td>Python 依赖未锁定版本（全 >=）</td><td><code>requirements.txt</code></td><td>用 pip-compile 锁定 + hash 校验</td></tr>
+    <tr><td>P2-5</td><td>Portal token 生成可预测</td><td><code>portal_api.py:22-23</code></td><td>用 secrets.token_urlsafe(32)</td></tr>
+    <tr><td>P2-6</td><td>LDAP bind 密码明文存储</td><td><code>sso.py:441</code></td><td>用 crypto_utils Fernet 加密</td></tr>
+    <tr><td>P2-7</td><td>SCP/rsync 禁用主机密钥验证</td><td><code>backup.py:104,117</code></td><td>预配置 known_hosts</td></tr>
+    <tr><td>P2-8</td><td>innerHTML 500+ 处，esc 分散不统一</td><td>全前端</td><td>统一 esc()，逐步用 textContent 替代</td></tr>
+    <tr><td>P2-9</td><td>输入校验不足 — 仅 2 个 Pydantic 模型</td><td>全后端路由</td><td>为所有端点创建 Pydantic 模型</td></tr>
+    <tr><td>P2-10</td><td>CSP 配置完全缺失（前端）</td><td><code>index.html</code></td><td>配合后端 CSP 头一起配置</td></tr>
+    <tr><td>P2-11</td><td>100+ 个同步 script 标签</td><td><code>index.html:322-429</code></td><td>引入 Vite 打包合并</td></tr>
+    <tr><td>P2-12</td><td>index.html 内联大量 JS 和 SVG</td><td><code>index.html</code></td><td>提取到外部文件</td></tr>
+    <tr><td>P2-13</td><td>window.onerror 实现简陋</td><td><code>index.html:16</code></td><td>添加错误上报和堆栈记录</td></tr>
+    <tr><td>P2-14</td><td>localStorage 存离线队列（含敏感数据）</td><td><code>app.js:120-122</code></td><td>限制队列大小，不存敏感数据</td></tr>
+    <tr><td>P2-15</td><td>serviceWorker 注册与注销矛盾</td><td><code>index.html:6</code> vs <code>app.js:181</code></td><td>统一 SW 策略</td></tr>
+    <tr><td>P2-16</td><td>通知面板 n.msg 未转义</td><td><code>app.js:342</code></td><td>转义后拼接</td></tr>
+    <tr><td>P2-17</td><td>AI 洞察 top_products 名称未转义</td><td><code>app.js:1112</code></td><td>转义后拼接</td></tr>
+    <tr><td>P2-18</td><td>contacts-v2.js onerror 内联复杂逻辑</td><td><code>contacts-v2.js:36</code></td><td>提取为具名函数</td></tr>
+    <tr><td>P2-19</td><td>module-registry.js 轮询初始化竞态</td><td><code>module-registry.js:51-55</code></td><td>改用事件驱动初始化</td></tr>
+  </table>
+</section>
+
+<!-- P3 Issues -->
+<section>
+  <h2>P3 — LOW（改进建议）<span class="badge" style="background:var(--p3)">11 项</span></h2>
+  <table>
+    <tr><th>#</th><th>问题</th><th>建议</th></tr>
+    <tr><td>P3-1</td><td>遗留 SHA-256 密码哈希仍被支持</td><td>设定迁移截止日期，强制重置密码</td></tr>
+    <tr><td>P3-2</td><td>OAuth redirect_uri 用 request.base_url</td><td>使用配置的固定 redirect_uri</td></tr>
+    <tr><td>P3-3</td><td>会话空闲超时未强制执行</td><td>在 _get_user() 中检查 last_activity</td></tr>
+    <tr><td>P3-4</td><td>无前端构建工具</td><td>引入 Vite 或 esbuild</td></tr>
+    <tr><td>P3-5</td><td>无 TypeScript / 完整 JSDoc</td><td>渐进式迁移 TS，先补 JSDoc + @ts-check</td></tr>
+    <tr><td>P3-6</td><td>无前端测试</td><td>引入 Vitest + Playwright</td></tr>
+    <tr><td>P3-7</td><td>无 ESLint / Prettier</td><td>配置 eslint:recommended + security 插件</td></tr>
+    <tr><td>P3-8</td><td>var 大量使用（app.js 中 ~1469 次）</td><td>逐步替换为 const/let</td></tr>
+    <tr><td>P3-9</td><td>版本号管理混乱（?v=88 到 ?v=200）</td><td>构建工具自动生成 content hash</td></tr>
+    <tr><td>P3-10</td><td>CI 覆盖率门槛仅 40%</td><td>逐步提升到 70%+</td></tr>
+    <tr><td>P3-11</td><td>无 'use strict'</td><td>添加 'use strict' 或迁移 ES Module</td></tr>
+  </table>
+</section>
+
+<!-- Roadmap -->
+<section>
+  <h2>修复优先级路线图</h2>
+
+  <div class="roadmap-phase urgent">
+    <div class="phase-header">
+      <div class="phase-num">1</div>
+      <div>
+        <div class="phase-title">紧急处置（24-48 小时）— 堵住安全漏洞</div>
+        <div class="phase-desc">这些问题可被直接利用，必须在上线前修复</div>
+      </div>
+    </div>
+    <ul>
+      <li><strong>P0-1</strong> 给 <code>/api/backup/download</code> 和 platform.py 所有端点添加认证</li>
+      <li><strong>P0-4</strong> 从 Git 历史清除数据库文件，轮换所有密码和 token</li>
+      <li><strong>P0-5</strong> 统一 <code>esc()</code> 函数，必须转义引号，删除 25 处重复定义</li>
+      <li><strong>P0-10</strong> 修复 3 处 SQL 注入，改为参数化查询</li>
+      <li><strong>P0-11</strong> 修复密码策略 bug（<code>or</code> → <code>and</code>）</li>
+      <li><strong>P0-14</strong> 修复静态文件路径遍历</li>
+      <li><strong>P1-7</strong> 移除 Dockerfile 中的默认 <code>ERP_SECRET</code></li>
+      <li><strong>P1-9</strong> 修复 cookie 名称 <code>hergent_token</code> → <code>erp_token</code></li>
+      <li><strong>P1-10</strong> 移除 HTML 中的测试凭证提示</li>
+    </ul>
+  </div>
+
+  <div class="roadmap-phase short">
+    <div class="phase-header">
+      <div class="phase-num">2</div>
+      <div>
+        <div class="phase-title">本周修复 — 消除高风险问题</div>
+        <div class="phase-desc">安全防护深度 + 代码质量基线</div>
+      </div>
+    </div>
+    <ul>
+      <li><strong>P0-2</strong> 实现 SAML 签名验证或禁用 SAML ACS</li>
+      <li><strong>P0-6/7/8/13</strong> 消除前端 document.write / onclick 拼接 / 未转义字段</li>
+      <li><strong>P0-9</strong> 消除所有 <code>**d</code> 参数注入，显式提取参数</li>
+      <li><strong>P1-1</strong> 将 120+ 处裸 except: pass 改为至少记录日志</li>
+      <li><strong>P1-5</strong> 添加 CSP（先 Report-Only 模式）</li>
+      <li><strong>P1-6</strong> 统一会话 token 生成方式</li>
+      <li><strong>P1-8</strong> 微信 OAuth 改为 POST 请求</li>
+      <li><strong>P1-13</strong> 修复 Webhook SSRF</li>
+      <li><strong>P1-15</strong> 注册或归档 7 个未接线路由器</li>
+    </ul>
+  </div>
+
+  <div class="roadmap-phase mid">
+    <div class="phase-header">
+      <div class="phase-num">3</div>
+      <div>
+        <div class="phase-title">本月改进 — 工程化基线建设</div>
+        <div class="phase-desc">建立可持续的质量保障体系</div>
+      </div>
+    </div>
+    <ul>
+      <li><strong>P1-3/4</strong> 前端引入 Vite 构建 + ES Module，消除 100+ script 标签</li>
+      <li><strong>P1-4</strong> 统一 API 调用层，强制使用 ApiClient</li>
+      <li><strong>P1-12</strong> 启用 Store 和 Router 替代全局变量</li>
+      <li><strong>P2-4</strong> Python 依赖锁定版本 + hash 校验</li>
+      <li><strong>P2-9</strong> 为所有 API 端点添加 Pydantic 输入校验模型</li>
+      <li><strong>P3-7</strong> 配置 ESLint + Prettier，加入 CI</li>
+      <li><strong>P3-10</strong> CI 覆盖率门槛从 40% 提升到 60%</li>
+      <li>引入前端测试框架（Vitest + Playwright）</li>
+    </ul>
+  </div>
+
+  <div class="roadmap-phase long">
+    <div class="phase-header">
+      <div class="phase-num">4</div>
+      <div>
+        <div class="phase-title">季度演进 — 架构升级</div>
+        <div class="phase-desc">解决上帝文件，建立现代前端工程体系</div>
+      </div>
+    </div>
+    <ul>
+      <li><strong>P1-2</strong> erp_db.py 拆分：10,368 行 → 按领域拆入 db/queries/</li>
+      <li><strong>P1-3</strong> app.js 拆分：7,466 行 → 按业务域拆入 js/modules/</li>
+      <li><strong>P3-5</strong> 渐进式迁移 TypeScript</li>
+      <li><strong>P3-8</strong> var → const/let 全面替换</li>
+      <li>引入分布式任务队列（Celery/RQ）替代单线程调度器</li>
+      <li>建立 Code Review 流程和 PR 模板</li>
+    </ul>
+  </div>
+</section>
+
+<!-- Team Growth -->
+<section>
+  <h2>团队技术提升建议</h2>
+  <p>代码审查不仅是发现问题，更是提升团队整体技术水平的契机。基于本次审查发现的问题模式，以下是针对性的能力建设建议：</p>
+
+  <div class="growth-grid">
+    <div class="growth-card">
+      <h4><span class="icon">🔐</span> 安全意识培训</h4>
+      <ul>
+        <li><strong>OWASP Top 10</strong> 专题培训，结合本项目的真实漏洞案例（SQL注入、XSS、SSRF、未认证端点）</li>
+        <li><strong>安全编码规范</strong>：参数化查询、HTML转义、输入校验、认证授权检查清单</li>
+        <li><strong>威胁建模</strong>：每个新功能上线前做 STRIDE 分析</li>
+        <li>建立<strong>安全 Code Review 清单</strong>，每个 PR 必须过安全检查</li>
+      </ul>
+    </div>
+
+    <div class="growth-card">
+      <h4><span class="icon">🏗️</span> 架构设计能力</h4>
+      <ul>
+        <li><strong>单一职责原则</strong>：erp_db.py 和 app.js 的拆分是最好的反面教材</li>
+        <li><strong>领域驱动设计</strong>：按业务域组织代码（db/queries/ 已有雏形）</li>
+        <li><strong>API 设计规范</strong>：统一响应格式、错误码、输入校验</li>
+        <li><strong>模块化思维</strong>：消除全局变量，建立明确的模块边界</li>
+      </ul>
+    </div>
+
+    <div class="growth-card">
+      <h4><span class="icon">🧪</span> 测试与质量保障</h4>
+      <ul>
+        <li><strong>测试金字塔</strong>：单元测试 → 集成测试 → E2E 测试</li>
+        <li>前端引入 <strong>Vitest + Testing Library</strong></li>
+        <li><strong>TDD 实践</strong>：核心业务逻辑（财务、库存）先写测试</li>
+        <li>建立<strong>覆盖率看板</strong>，每周追踪，逐步提升到 70%+</li>
+      </ul>
+    </div>
+
+    <div class="growth-card">
+      <h4><span class="icon">⚙️</span> 工程化能力</h4>
+      <ul>
+        <li><strong>构建工具</strong>：Vite 打包、代码分割、tree-shaking</li>
+        <li><strong>类型安全</strong>：TypeScript 渐进式迁移</li>
+        <li><strong>代码规范</strong>：ESLint + Prettier + pre-commit hooks</li>
+        <li><strong>CI/CD</strong>：自动化测试、安全扫描、依赖检查</li>
+      </ul>
+    </div>
+
+    <div class="growth-card">
+      <h4><span class="icon">📝</span> Code Review 文化</h4>
+      <ul>
+        <li>建立<strong>PR 模板</strong>：包含变更说明、测试情况、安全检查</li>
+        <li><strong> review 清单</strong>：认证、输入校验、错误处理、SQL安全、XSS防护</li>
+        <li><strong>双人 review</strong>：每个 PR 至少一人 review 后合并</li>
+        <li><strong>知识分享</strong>：每周 review 中发现的好代码和问题代码</li>
+      </ul>
+    </div>
+
+    <div class="growth-card">
+      <h4><span class="icon">📚</span> 知识沉淀</h4>
+      <ul>
+        <li>建立<strong>团队技术 Wiki</strong>：编码规范、最佳实践、常见陷阱</li>
+        <li><strong>事故复盘</strong>：安全问题修复后写 postmortem</li>
+        <li><strong>技术雷达</strong>：定期评估和引入新技术</li>
+        <li><strong>结对编程</strong>：复杂模块拆分时结对进行</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- Positive Findings -->
+<section>
+  <h2>已有的好实践（值得保持）</h2>
+  <div class="callout" style="background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%);border-color:#bbf7d0;">
+    <div class="callout-title" style="color:var(--green);">做得好的地方</div>
+    <p>审查中也发现了很多值得肯定和保持的工程实践：</p>
+    <ul style="margin-top:12px; padding-left:20px; line-height:2;">
+      <li><strong>CI 流水线完善</strong>：GitHub Actions 包含 test + lint + security(bandit) + docker-build 四个 job</li>
+      <li><strong>pre-commit 配置</strong>：ruff + bandit 自动检查</li>
+      <li><strong>Docker 容器安全</strong>：非 root 用户运行、Redis/PostgreSQL 不暴露到 Host</li>
+      <li><strong>密码安全改进</strong>：从硬编码 admin123 改为 secrets.token_urlsafe 随机生成</li>
+      <li><strong>eval() 已移除</strong>：替换为 _safeExec 白名单分发机制（虽有改进空间）</li>
+      <li><strong>CSRF / MFA / RBAC / 租户隔离</strong>：安全体系已有框架</li>
+      <li><strong>PII 加密</strong>：crypto_utils.py 实现 AES-256-GCM 列级加密</li>
+      <li><strong>双数据库引擎</strong>：SQLite/PostgreSQL 自动切换，连接池管理</li>
+      <li><strong>测试覆盖</strong>：163 passed，覆盖安全、财务、租户、税务、支付等核心场景</li>
+      <li><strong>Alembic 迁移</strong>：已引入数据库迁移框架</li>
+    </ul>
+  </div>
+</section>
+
+<div class="footer">
+  <p>Hergent ERP 代码审查报告 — 2026-07-19 | Senior Developer</p>
+  <p style="margin-top:4px;">建议将本报告作为 v90 "工程质量回补" 版本的工作基线</p>
+</div>
+
+</div>
+</body>
+</html>

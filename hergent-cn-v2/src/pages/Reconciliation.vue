@@ -34,7 +34,7 @@
           </tbody>
         </table>
       </div>
-      <div v-else class="state-empty">暂无欠款客户，账目清爽 👍</div>
+      <div v-else class="state-empty">暂无欠款客户，账目清爽</div>
     </div>
 
     <!-- 步骤 2/3：对账详情 -->
@@ -98,7 +98,7 @@
           <div class="rec-result-row">系统算出：<b>¥{{ fmt(matchResult.system_total) }}</b></div>
           <div class="rec-result-row big">
             差异：<b :class="matchResult.difference === 0 ? 'val-ok' : 'val-bad'">¥{{ fmt(matchResult.difference) }}</b>
-            <span v-if="matchResult.difference === 0" class="val-ok"> · 对得上 ✓</span>
+            <span v-if="matchResult.difference === 0" class="val-ok"> · 对得上 <Icon name="check"/></span>
             <span v-else class="val-bad"> · 有差异，需查明</span>
           </div>
           <button class="btn btn-primary" style="margin-top:12px" @click="doConfirm">确认对账（写入台账）</button>
@@ -156,6 +156,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { ref, onMounted } from 'vue'
 import { toast } from '../store'
 import { reconciliationApi, collectionsApi } from '../api/modules'

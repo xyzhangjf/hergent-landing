@@ -2053,14 +2053,8 @@ ipcMain.handle('payment:check', async (event, orderId) => {
   }
 });
 ipcMain.handle("payment:dev-pay", async (event, { orderId, deviceId, amount }) => {
-  try {
-    var realDeviceId = licenses.getDeviceId();
-    var res = await httpClient.nodeHttpPost("http://localhost:8765/api/payment/dev-pay?order_id=" + orderId + "&device_id=" + realDeviceId + "&amount=" + amount, "{}");
-    return JSON.parse(res);
-  } catch (e) {
-    logger.reportCriticalError("payment", e, { action: "dev-pay", orderId });
-    return { success: false, error: "DEV充值失败: " + e.message };
-  }
+  // 🔒 安全：免单充值通道已关闭，生产不再允许凭空加积分（后端 dev_pay 端点已 403 锁死，此为前端兜底）
+  return { success: false, error: "DEV充值通道已关闭" };
 });
 // ---- 用量明细 ----
 ipcMain.handle('usage:history', async (event, limit) => {

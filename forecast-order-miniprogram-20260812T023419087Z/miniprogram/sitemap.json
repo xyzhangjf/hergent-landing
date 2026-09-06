@@ -1,0 +1,4 @@
+{
+  "desc": "预报订单小程序 sitemap",
+  "rules": [{ "action": "allow", "page": "*" }]
+}

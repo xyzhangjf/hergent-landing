@@ -1,0 +1,52 @@
+<view class="page">
+  <view class="hd">
+    <view class="hd-title">预报汇总总表</view>
+    <view class="hd-sub">{{date || '今日'}} · {{rows.length}} 个 SKU</view>
+  </view>
+
+  <view class="actions">
+    <picker mode="date" value="{{date}}" bindchange="onDate">
+      <view class="date-btn">{{date || '选择日期'}} ▾</view>
+    </picker>
+    <button class="copy-btn" bindtap="copyAll">一键复制表格</button>
+  </view>
+
+  <view class="table" wx:if="{{rows.length}}">
+    <view class="tr th">
+      <view class="td w1">商品</view>
+      <view class="td w2">单位</view>
+      <view class="td w3">合计</view>
+      <view class="td w4">AI 建议</view>
+    </view>
+    <view class="tr" wx:for="{{rows}}" wx:key="index">
+      <view class="td w1">
+        <view class="pname">{{item.product_name}}</view>
+        <view class="pspec">{{item.spec || ''}}</view>
+      </view>
+      <view class="td w2">{{item.unit}}</view>
+      <view class="td w3 num">{{item.total_qty}}</view>
+      <view class="td w4">
+        <block wx:if="{{item.ai_suggested_qty !== null && item.ai_suggested_qty !== undefined}}">
+          <view class="ai-num {{item.ai_suggested_qty >= item.total_qty ? 'more' : 'less'}}">{{item.ai_suggested_qty}}</view>
+          <view class="ai-diff" wx:if="{{item.ai_suggested_qty > item.total_qty}}">建议多进 {{item.ai_suggested_qty - item.total_qty}}</view>
+          <view class="ai-diff" wx:elif="{{item.ai_suggested_qty < item.total_qty}}">人工偏多 {{item.total_qty - item.ai_suggested_qty}}</view>
+        </block>
+        <view class="ai-na" wx:else>—</view>
+      </view>
+    </view>
+  </view>
+  <view class="ai-hint" wx:if="{{rows.length}}">AI 建议 = 近 7 天销量预测（未来 7 天），仅供参考</view>
+  <view class="empty" wx:else>今天还没有预报提交</view>
+
+  <!-- 来源明细 -->
+  <view class="src-title">来源明细</view>
+  <view class="src-list" wx:if="{{rows.length}}">
+    <view class="src-group" wx:for="{{rows}}" wx:key="index">
+      <view class="src-gname">{{item.product_name}}（{{item.unit}}）</view>
+      <view class="src-item" wx:for="{{item.sources}}" wx:for-item="s" wx:key="index">
+        <text>{{s.role}} · {{s.store}}</text>
+        <text class="src-qty">{{s.qty}} {{item.unit}}</text>
+      </view>
+    </view>
+  </view>
+</view>

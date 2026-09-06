@@ -130,7 +130,7 @@ contextBridge.exposeInMainWorld('hermes', {
   recharge: (amount) => ipcRenderer.invoke('recharge:request', amount),
   createPayment: (amount) => ipcRenderer.invoke('payment:create', amount),
   checkPayment: (orderId) => ipcRenderer.invoke('payment:check', orderId),
-  devPay: (orderId, deviceId, amount) => ipcRenderer.invoke('payment:dev-pay', { orderId, deviceId, amount }),
+  // 注：devPay（免单充值）桥接已移除——免单后门已封死，不再暴露给渲染层
 
   // 用量明细
   usageHistory: (limit) => ipcRenderer.invoke('usage:history', limit),

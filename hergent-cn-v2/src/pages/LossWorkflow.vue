@@ -165,7 +165,7 @@
       <!-- AI 留痕记录 -->
       <div class="card lf-panel" style="margin-top:14px">
         <button class="lf-adv-toggle" @click="showAdvice = !showAdvice">
-          <span>🧾 AI 留痕记录</span>
+          <span><Icon name="receipt"/> AI 留痕记录</span>
           <span class="tag" :class="advicePending ? 'warn' : 'info'">{{ advicePending ? advicePending + ' 待确认' : '查看历史' }}</span>
         </button>
         <div v-if="showAdvice" style="margin-top:14px">
@@ -177,6 +177,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../store'
@@ -290,7 +291,7 @@ onMounted(async () => {
 .lf-arrow{color:var(--t3);font-size:12px}
 .lf-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--t1);padding:0}
 
-.lf-panel{padding:20px}
+.lf-panel{}
 .lf-tip{font-size:12.5px;color:var(--t2);margin:4px 0 16px;line-height:1.6}
 .lf-form{display:flex;flex-direction:column;gap:18px}
 

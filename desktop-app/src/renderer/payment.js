@@ -235,22 +235,10 @@ async function submitRecharge(method) {
       _currentPaymentOrderId = result.order_id;
       _currentPaymentUrl = result.pay_url;
 
-      // DEV 模式：直接加积分
+      // 防御：后端已移除免单通道，若意外出现 dev_mode 则提示而非自动加积分
       if (result.dev_mode) {
-        document.getElementById('rechargeStep1').style.display = '';
-        document.getElementById('rechargeStep2').style.display = 'none';
-        document.getElementById('rechargeError').textContent = '';
+        errEl.textContent = '当前环境不支持自动充值，请联系管理员';
         if (aliBtn) { aliBtn.disabled = false; aliBtn.style.opacity = ''; }
-        // DEV 模式一键到账
-        try {
-          var devResult = await hermes.devPay(_currentPaymentOrderId, '', amount);
-          if (devResult.success || devResult.duplicate) {
-            document.getElementById('rechargeSuccess').style.display = '';
-            document.getElementById('rechargeSuccessDetail').textContent = '到账 ' + label + ' 积分';
-            updateCreditsBadge();
-            setTimeout(function() { closeRecharge(); }, 2000);
-          }
-        } catch(_) {}
         return;
       }
 
@@ -333,24 +321,11 @@ async function openPaymentInBrowser() {
     if (s.paid) return;
   } catch (_) {}
 
+  // 防御：正常支付链接（支付宝/面包多）才跳转；dev-pay 免单链接已不再生成
   if (_currentPaymentUrl.indexOf('dev-pay') !== -1) {
-    btn.textContent = '充值中...';
-    try {
-      var amount = _selectedRechargeAmount;
-      var result = await hermes.devPay(_currentPaymentOrderId, (authState && authState.user && authState.user.id) || '', amount);
-      if (result.success) {
-        _stopPaymentPoll();
-        document.getElementById('qrStatus').style.display = 'none';
-        document.getElementById('qrSuccess').style.display = '';
-        var tierCredits = RECHARGE_TIERS[amount] ? RECHARGE_TIERS[amount].label : (amount * 100).toLocaleString();
-        document.getElementById('qrSuccessText').textContent =
-          '充值成功！到账 ' + tierCredits + ' 积分';
-        updateCreditsBadge();
-        setTimeout(function() { closeRecharge(); }, 2000);
-      }
-    } catch (_) {}
+    btn.textContent = '该充值方式不可用';
     btn.disabled = false;
-    btn.textContent = '一键充值（测试）';
+    return;
   } else {
     // Open Mianbaoduo pay URL in browser
     window.hermes.openExternal(_currentPaymentUrl);

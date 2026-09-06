@@ -81,7 +81,7 @@
       <Transition name="fade"><div v-if="detailOpen" class="pa-overlay" @click="detailOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="detailOpen" class="pa-modal">
-          <div class="pa-modal-hd"><b>商品详情 · {{ detailTarget?.name }}</b><button class="pa-x" @click="detailOpen = false">✕</button></div>
+          <div class="pa-modal-hd"><b>商品详情 · {{ detailTarget?.name }}</b><button class="pa-x" @click="detailOpen = false"><Icon name="close"/></button></div>
           <div class="pa-modal-body">
             <div class="pa-detail-grid">
               <div class="pa-detail-item"><span>名称</span><b>{{ detailTarget?.name }}</b></div>
@@ -110,7 +110,7 @@
       <Transition name="fade"><div v-if="addOpen" class="pa-overlay" @click="addOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="addOpen" class="pa-modal">
-          <div class="pa-modal-hd"><b>新增商品</b><button class="pa-x" @click="addOpen = false">✕</button></div>
+          <div class="pa-modal-hd"><b>新增商品</b><button class="pa-x" @click="addOpen = false"><Icon name="close"/></button></div>
           <div class="pa-modal-body">
             <p class="pa-tip">名称重复将更新已有商品（其余字段按填写覆盖）。品牌自动归一，未匹配品牌进入待审。</p>
             <div class="pa-form">
@@ -137,7 +137,7 @@
       <Transition name="fade"><div v-if="impOpen" class="pa-overlay" @click="impOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="impOpen" class="pa-modal">
-          <div class="pa-modal-hd"><b>导入商品（Excel）</b><button class="pa-x" @click="impOpen = false">✕</button></div>
+          <div class="pa-modal-hd"><b>导入商品（Excel）</b><button class="pa-x" @click="impOpen = false"><Icon name="close"/></button></div>
           <div class="pa-modal-body">
             <p class="pa-tip">下载模板 → 按列填写 → 选择文件自动识别列并导入。重复名称/条码将更新而非新增。</p>
             <div class="pa-imp-row">
@@ -171,6 +171,7 @@
 </template>
 
 <script setup>
+import Icon from '../components/Icon.vue'
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/client'
 import { productsApi, importApi } from '../api/modules'

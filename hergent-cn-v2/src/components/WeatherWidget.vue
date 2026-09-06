@@ -74,8 +74,11 @@ const searched = ref(false)
 const hoverIdx = ref(-1)
 let searchTimer = null
 
+// 全部追加 U+FE0F（变体选择符）强制走彩色 emoji 渲染，避免 ☀/☁/❄/⛈ 等
+// BMP 符号被浏览器按"文本字形"渲染成单色线稿，跟 🌤/🌧/🌨 等 emoji-default
+// 字形视觉风格不一致。加 VS16 对后者是幂等的，整体统一为 Apple Color Emoji 风格。
 const WMO = {
-  0: ['晴', '☀️'], 1: ['晴间多云', '🌤️'], 2: ['多云', '⛅'], 3: ['阴', '☁️'],
+  0: ['晴', '☀️'], 1: ['晴间多云', '🌤️'], 2: ['多云', '⛅️'], 3: ['阴', '☁️'],
   45: ['雾', '🌫️'], 48: ['雾凇', '🌫️'],
   51: ['毛毛雨', '🌦️'], 53: ['小雨', '🌧️'], 55: ['中雨', '🌧️'],
   56: ['冻雨', '🌧️'], 57: ['冻雨', '🌧️'],
@@ -235,14 +238,14 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .wx{position:relative;display:flex;align-items:center}
-.wx-now{display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;
+.wx-now{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:18px;
   background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
-.wx-now:hover{border-color:var(--p)}
+.wx-now:hover{background:var(--p);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .wx-now.dim{opacity:.6}
 .wx-ic{font-size:16px;line-height:1}
 .wx-temp{font-variant-numeric:tabular-nums}
 .wx-load{opacity:.7}
-.wx-pop{position:absolute;top:38px;left:50%;transform:translateX(-50%);z-index:30;
+.wx-pop{position:absolute;top:42px;left:50%;transform:translateX(-50%);z-index:30;
   display:flex;flex-direction:column;gap:10px;padding:10px 12px;border-radius:12px;width:max-content;max-width:calc(100vw - 20px);
   background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
   border:1px solid var(--glass-border);box-shadow:0 10px 30px rgba(0,0,0,.12)}

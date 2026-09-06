@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<script>/* 仅清理旧SW一次，不触发任何重载 */window.__APP_VER__=202;(function(){localStorage.setItem('_hrt_ver','201');if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(regs){var old=regs.filter(function(r){return r.active&&r.active.scriptURL.indexOf('v=10')===-1});if(old.length){old.forEach(function(r){r.unregister()});navigator.serviceWorker.addEventListener('controllerchange',function(){window.location.reload()})}})};if('caches' in window){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k)})})}})();</script>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#f5f5f7">
+<title>Hergent · 你的AI团队</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.json">
+<script>
+/* 无闪烁主题：在 CSS 加载前确定主题，默认浅色（仓库/车上/阳光下更易读） */
+(function(){
+  var t=localStorage.getItem('hergent_theme');
+  if(t!=='light'&&t!=='dark'){t='light';}
+  var de=document.documentElement;
+  de.classList.remove('light','dark');
+  de.classList.add(t);
+  var mc=document.querySelector('meta[name=theme-color]');
+  if(mc){mc.setAttribute('content', t==='dark'?'#000000':'#f5f5f7');}
+})();
+</script>
+<script>requestIdleCallback=requestIdleCallback||function(cb){return setTimeout(function(){cb({didTimeout:false,timeRemaining:function(){return 50}})},1)};cancelIdleCallback=cancelIdleCallback||function(id){clearTimeout(id)};window.onerror=function(m,u,l,c,e){var el=document.getElementById("jsError");if(!el){el=document.createElement("div");el.id="jsError";el.style.cssText="position:fixed;top:0;left:0;right:0;background:var(--dan);color:var(--white);padding:6px 12px;z-index:999999;font-size:11px;font-family:monospace;text-align:center";document.body.prepend(el)}el.textContent="JS Error: "+m+" (line "+l+":"+c+")";return false};window._eyeOpen='<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>';window._eyeOff='<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24\"/><line x1=\"1\" y1=\"1\" x2=\"23\" y2=\"23\"/></svg>';</script>
+<script src="/vendor/Chart.min.js"></script>
+<script src="/vendor/xlsx.min.js"></script>
+<script src="/vendor/html2canvas.min.js"></script>
+  <script type="module" crossorigin src="/assets/main-CNbz06IW.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/icons-C4dXxxBe.js">
+  <link rel="stylesheet" crossorigin href="/assets/main-BBKgGMim.css">
+</head>
+<body>
+
+<div id="offlineBanner" class="offline-banner" style="display:none"></div>
+<div id="pwaInstallBanner" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:12px 20px;z-index:9999;box-shadow:0 8px 24px rgba(var(--black-rgb),.4);font-size:13px;color:var(--t1);gap:12px;align-items:center">
+  <span>📱 安装为应用，离线也能用</span>
+  <button class="btn btn-primary btn-xs" onclick="installPWA()">安装</button>
+  <button class="btn btn-outline btn-xs" onclick="this.parentElement.style.display='none'">✕</button>
+</div>
+
+<div id="loginOverlay" style="display:none">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:36px"><div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px"><img src="/icon-192.png" alt="Hergent" style="width:36px;height:36px;border-radius:9px;animation:logoGlow 3s ease-in-out infinite"><span style="font-size:28px;font-weight:700;color:var(--white);letter-spacing:-.5px">Hergent</span></div><div class="login-tagline">AI 经营团队</div></div>
+    <div id="loginError" class="login-error" role="alert" aria-live="polite"></div>
+    <div class="mb12"><label>用户名 <span class="required" style="color:var(--dan)">*</span></label><input id="loginUser" placeholder="请输入用户名" autocomplete="username" maxlength="32" autofocus oninput="updateLoginBtn()" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()"></div>
+    <div class="mb12" style="position:relative"><label>密码 <span class="required" style="color:var(--dan)">*</span></label><input id="loginPass" type="password" placeholder="请输入密码" autocomplete="current-password" maxlength="64" oninput="updateLoginBtn()" onkeydown="if(event.key==='Enter')doLogin()"><button type="button" id="togglePwd" aria-label="显示密码" title="显示/隐藏密码" style="position:absolute;right:8px;bottom:8px;background:none;border:none;cursor:pointer;color:var(--t3);padding:4px;border-radius:4px;transition:all .15s;display:flex;align-items:center" onmouseenter="this.style.color='var(--t1)'" onmouseleave="this.style.color='var(--t3)'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+    <button class="login-btn" onclick="doLogin()" id="loginBtn" disabled>登录</button>
+	    <div style="text-align:center;margin-top:14px;font-size:12px"><a href="javascript:showRegister()" style="color:var(--p);text-decoration:none;font-weight:500">还没有账号？立即注册</a><span style="margin:0 8px;color:rgba(255,255,255,.2)">|</span><a href="javascript:toast('请联系管理员重置密码','info')" style="color:rgba(255,255,255,.55);text-decoration:none">忘记密码？</a></div>
+  </div>
+</div>
+
+<div id="appLayout">
+  <div id="topBar">
+    <img src="/icon-192.png" alt="Hergent" style="width:26px;height:26px;border-radius:6px;flex-shrink:0">
+    <span style="font-weight:700;font-size:15px;color:var(--t1);letter-spacing:-.4px;margin-right:4px">Hergent</span>
+    <span id="tbRoleBadge" style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600;background:var(--pb);color:var(--p);margin-right:12px">管理员</span>
+    <div class="tb-search" style="margin-left:auto;margin-right:16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" placeholder="搜索菜单、商品、客户..." id="globalSearch" onkeydown="if(event.key==='Enter')navTo('data')"></div>
+    <button class="tb-btn" onclick="window.showKpiWall&&showKpiWall()" title="数据大屏" style="font-size:11px;font-weight:600;padding:4px 10px;width:auto;gap:4px"><span style="font-size:14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><rect width="20" height="15" x="2" y="7" rx="2"/><polyline points="17 2 12 7 7 2"/></svg></span> 大屏</button>
+    <button class="tb-btn" id="notifBtn" onclick="toggleNotifications()" style="position:relative" title="通知"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--dan)"></span></button>
+<button class="tb-btn" id="themeBtn" onclick="toggleTheme()" title="切换浅色/深色主题" data-theme-icon style="font-size:15px;line-height:1">☀️</button>
+<div class="tb-user" onclick="showPg('pgSettings')" style="flex-shrink:0"><div class="tb-avatar" id="tbAvatar">A</div></div>
+  </div>
+
+  <div style="display:flex;flex:1;overflow:hidden">
+    <div id="sidebar">
+      <div class="sb-nav" id="sidebarNav"></div>
+          <button class="sb-toggle" onclick="toggleSidebar()" title="折叠侧边栏">◀</button>
+    </div>
+
+    <div id="contentArea">
+      <div id="aiInsightCard" style="display:none;margin:0 0 0;padding:10px 28px;background:linear-gradient(135deg,rgba(var(--p-rgb),.08),rgba(var(--p-rgb),.02));border-bottom:1px solid rgba(var(--p-rgb),.08);font-size:13px;color:var(--t2);line-height:1.6;cursor:pointer" onclick="this.style.display='none'">
+        <span style="font-weight:600;color:var(--p);margin-right:6px">💡</span><span id="aiInsightText"></span>
+        <span style="font-size:11px;color:var(--t3);margin-left:8px">(点击关闭)</span>
+      </div>
+      <div class="page" id="pgRefData"><div class="page-inner" id="refContent"><div class="spinner"></div></div></div>
+      <div class="page active" id="pgDashboard"><div class="page-inner" id="dashboardContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgAiTimeline"><div class="page-inner" id="aiTimelineContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgData"><div class="page-inner" id="dataContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgCustomers">
+        <div class="page-inner" id="customersContent">
+          <div class="customers-tabs" id="customersTabs">
+            <button class="customers-tab active" data-tab="contacts">👥 联系人</button>
+            <button class="customers-tab" data-tab="archive">📋 档案</button>
+            <button class="customers-tab" data-tab="trade">🛒 交易</button>
+            <button class="customers-tab" data-tab="analytics">📊 分析</button>
+          </div>
+          <div class="customers-pane" id="customersPaneContacts"></div>
+          <div class="customers-pane" id="customersPaneArchive" style="display:none"></div>
+          <div class="customers-pane" id="customersPaneTrade" style="display:none"></div>
+          <div class="customers-pane" id="customersPaneAnalytics" style="display:none"></div>
+        </div>
+      </div>
+      <div class="page" id="pgTrade"><div class="page-inner" id="tradeContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgSales"><div class="page-inner" id="salesContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgBuying"><div class="page-inner" id="buyingContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgStock"><div class="page-inner" id="stockContent"><div class="spinner"></div></div></div>
+<div class="page" id="pgAccounts"><div class="page-inner" id="accountsContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgFinance"><div class="page-inner" id="financeContent">
+          <div class="finance-tabs" id="financeTabs">
+            <button class="finance-tab active" data-tab="accounts">💵 收付</button>
+            <button class="finance-tab" data-tab="ledger">📑 总账</button>
+            <button class="finance-tab" data-tab="marketing">💸 费用</button>
+            <button class="finance-tab" data-tab="reports">📈 报表</button>
+          </div>
+          <div class="finance-pane" id="financePaneAccounts"></div>
+          <div class="finance-pane" id="financePaneLedger" style="display:none"></div>
+          <div class="finance-pane" id="financePaneMarketing" style="display:none"></div>
+          <div class="finance-pane" id="financePaneReports" style="display:none"></div>
+        </div></div>
+      <div class="page" id="pgCrm"><div class="page-inner" id="crmContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgMarketing"><div class="page-inner" id="marketingContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgHr"><div class="page-inner" id="hrContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgProjects"><div class="page-inner" id="projectsContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgPerf"><div class="page-inner" id="perfContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgGoals"><div class="page-inner" id="goalsContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgLedger"><div class="page-inner" id="ledgerContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgReports"><div class="page-inner" id="reportsContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgAnalytics"><div class="page-inner" id="analyticsContent"><div class="spinner"></div></div></div>
+      <!-- P3 UI: 数据分析/薪酬/发票 -->
+      <div class="page" id="pgBI"><div class="page-inner" id="biContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgSalary"><div class="page-inner" id="salaryContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgEinvoice"><div class="page-inner" id="einvoiceContent"><div class="spinner"></div></div></div>
+      <!-- v84 UI: 关账工作台/会计准则/合并报表 -->
+      <div class="page" id="pgPeriodclose"><div class="page-inner" id="periodcloseContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgGaap"><div class="page-inner" id="gaapContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgConsolidation"><div class="page-inner" id="consolidationContent"><div class="spinner"></div></div></div>
+      <!-- v92: AI Assistant — Today + Data Sources -->
+      <div class="page" id="pgToday"><div class="page-inner" id="todayContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgDataSources"><div class="page-inner" id="datasourcesContent"><div class="spinner"></div></div></div>
+      <!-- v2.0: Contacts page -->
+      <div class="page" id="pgContactsV2"><div class="page-inner" id="contactsV2Content"><div class="spinner"></div></div></div>
+      <div class="page" id="pgForecast"><div class="page-inner" id="forecastContent"><div class="spinner"></div></div></div>
+      <div class="page" id="pgChat">
+        <div class="chat-panel">
+          <div class="chat-history" id="chatHistory">
+            <div class="chat-empty" id="chatEmpty">
+              <div class="welcome-area">
+                <div class="welcome-greeting"><span class="welcome-greeting-icon" id="greetingIcon">☀️</span><span id="greetingText">下午好</span></div>
+                <div class="welcome-intro"><img class="welcome-avatar" id="welcomeAvatar" src="avatars/dami.png" alt="" onerror="this.style.display='none'" /><span>我是你的<strong id="welcomeRole">大秘</strong>，能帮你打理生意</span></div>
+                <div class="welcome-capabilities"><span class="wcap-pill" onclick="document.getElementById('chatInput').value='帮我录个新客户';document.getElementById('chatInput').focus()"><span>📂</span> 管理档案</span><span class="wcap-pill" onclick="document.getElementById('chatInput').value='帮我查一下库存';document.getElementById('chatInput').focus()"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span> 对账收款</span><span class="wcap-pill" onclick="document.getElementById('chatInput').value='今天的经营情况怎么样';document.getElementById('chatInput').focus()"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span> 经营分析</span><span class="wcap-pill" onclick="navTo('channels')"><span>📱</span> 手机遥控</span></div>
+                <div class="welcome-privacy"><span>🔒</span> 数据加密存储，安全可靠</div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-files" id="chatFiles" style="display:none"></div>
+          <div class="chat-input-area">
+            <textarea class="chat-input" id="chatInput" placeholder="说说你想做什么…" rows="2" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+            <div class="chat-input-bar">
+              <button class="chat-file-btn" title="选择文件" onclick="document.getElementById('fileInput').click()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              <input type="file" id="fileInput" style="display:none" onchange="handleFile(this)" multiple accept="image/*,.pdf,.xlsx,.xls,.docx,.csv,.txt">
+              <button class="chat-file-btn" title="设置提醒" onclick="window._c2SwitchRole&&_c2SwitchRole('orders')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
+              <span class="input-bar-spacer"></span>
+              <button class="model-indicator" id="modelIndicator" onclick="toggleModelSwitcher()" title="切换AI模型">
+                <span class="mi-label" id="miLabel">DS V4 Flash</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <button class="chat-send-btn" onclick="sendMessage()" title="发送"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+            </div>
+          </div>
+          <div style="text-align:center;padding:4px 0 12px;font-size:11px;color:var(--t2);opacity:.5">AI生成内容仅供参考</div>
+        </div>
+      </div>
+      <div class="page" id="pgTasks">
+        <div class="page-inner">
+          <div class="page-hd">定时任务</div>
+          <div class="page-tip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 让 AI 按计划自动执行任务</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px">快速创建</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" id="taskTplGrid"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:600">已创建的任务</div>
+            <button class="btn btn-primary btn-sm" onclick="window.showAddTask()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 新建任务</button>
+          </div>
+          <div id="taskList"><div class="spinner"></div></div>
+        </div>
+      </div>
+      <div class="page" id="pgChannels">
+        <div class="page-inner">
+          <div class="page-tip" style="margin:0 0 16px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>连上飞书/企微，AI 干完活直接推送到你手机上</div>
+          <div class="page-hd">连接手机</div>
+          <p style="color:var(--t2);font-size:13px;margin-bottom:20px">连上聊天软件，AI 干完活直接推送到你手机上</p>
+          <div class="channel-guide" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:28px;padding:16px 24px;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r)">
+            <div style="font-size:14px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--p);color:var(--white);font-size:12px;font-weight:700">①</span> 选一个平台</div>
+            <span style="color:var(--t3);font-size:16px">→</span>
+            <div style="font-size:14px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--p);color:var(--white);font-size:12px;font-weight:700">②</span> 填两个信息</div>
+            <span style="color:var(--t3);font-size:16px">→</span>
+            <div style="font-size:14px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--p);color:var(--white);font-size:12px;font-weight:700">③</span> 选个员工</div>
+          </div>
+          <div class="channel-cards-grid" id="channelCardsGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px"></div>
+          <div style="padding:14px;background:var(--bg3);border-radius:var(--r);font-size:12px;color:var(--t2)">
+            <p>飞书 Bot Webhook: <code style="background:var(--bg4);padding:2px 6px;border-radius:4px">https://erp.hergent.cn/api/bot/feishu</code></p>
+            <p>企微 Bot Webhook: <code style="background:var(--bg4);padding:2px 6px;border-radius:4px">https://erp.hergent.cn/api/bot/wecom</code></p>
+          </div>
+        </div>
+      </div>
+      <div class="page" id="pgResults">
+        <div class="page-inner"><div class="page-hd">我的成果</div><div style="color:var(--t2);font-size:13px;margin-bottom:20px">AI 帮你生成的文件都在这——报表、文档、工具，按类型自动归类</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px" id="resultsGrid"><div class="stat-card" style="text-align:center;padding:40px 20px"><div style="font-size:40px;margin-bottom:12px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></div><div style="font-weight:600;margin-bottom:4px">业务报表</div><div style="font-size:12px;color:var(--t3)">对话中生成的报表、数据分析等</div></div><div class="stat-card" style="text-align:center;padding:40px 20px"><div style="font-size:40px;margin-bottom:12px">📄</div><div style="font-weight:600;margin-bottom:4px">文档文件</div><div style="font-size:12px;color:var(--t3)">合同、报价单、对账单等</div></div><div class="stat-card" style="text-align:center;padding:40px 20px"><div style="font-size:40px;margin-bottom:12px">🔧</div><div style="font-weight:600;margin-bottom:4px">实用工具</div><div style="font-size:12px;color:var(--t3)">计算器、转换器、模板等</div></div></div></div>
+      </div>
+      <div class="page" id="pgSkills">
+        <div class="page-inner">
+          <div class="page-hd">我的技能</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div style="color:var(--t2);font-size:13px;flex:1">多项技能已就绪——涵盖开发、数据分析、创意、效率等场景</div>
+            <span id="skillsTotal" style="font-size:12px;font-weight:600;color:var(--p)">--</span>
+          </div>
+          <div class="skills-layout">
+            <div class="skills-sidebar" id="skillsSidebar"></div>
+            <div class="skills-main" id="skillsGrid"></div>
+          </div>
+        </div>
+      </div>
+      <div class="page" id="pgSettings">
+        <div class="page-inner">
+          <div class="page-hd">设置</div>
+          <div class="page-tip" style="margin:0 0 16px;background:rgba(var(--p-rgb,6,182,212),.06);border-color:rgba(var(--p-rgb,6,182,212),.15)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l-.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            集成与工具 — 定时任务 / 连接手机 / 我的技能
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+            <div class="stat-card" style="cursor:pointer" onclick="navTo('tasks')" title="让 AI 按计划自动执行任务">
+              <div style="font-size:24px;margin-bottom:6px">⏰</div>
+              <div style="font-weight:500;font-size:13px">定时任务</div>
+              <div style="font-size:11px;color:var(--t3);margin-top:4px">AI 按计划自动执行</div>
+            </div>
+            <div class="stat-card" style="cursor:pointer" onclick="navTo('channels')" title="AI 干完活直接推送手机">
+              <div style="font-size:24px;margin-bottom:6px">📱</div>
+              <div style="font-weight:500;font-size:13px">连接手机</div>
+              <div style="font-size:11px;color:var(--t3);margin-top:4px">飞书 / 企微 Bot 推送</div>
+            </div>
+            <div class="stat-card" style="cursor:pointer" onclick="navTo('skills')" title="AI 技能市场">
+              <div style="font-size:24px;margin-bottom:6px">✨</div>
+              <div style="font-weight:500;font-size:13px">我的技能</div>
+              <div style="font-size:11px;color:var(--t3);margin-top:4px">AI 技能市场</div>
+            </div>
+          </div>
+          <div class="stat-card" style="max-width:560px;margin-bottom:16px">
+            <div class="section-title" style="font-size:14px">个人信息</div>
+            <div class="modal-row" style="margin-bottom:10px">
+              <div class="modal-field"><label>用户名</label><input value="" id="setUser" disabled style="opacity:.6"></div>
+              <div class="modal-field"><label>显示名</label><input id="setName" placeholder="你的名字"></div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveProfile()">保存</button>
+          </div>
+          <div class="stat-card" style="max-width:560px;margin-bottom:16px">
+            <div class="section-title" style="font-size:14px">修改密码</div>
+            <div class="modal-row" style="margin-bottom:10px">
+              <div class="modal-field"><label>原密码</label><input id="setOldPw" type="password"></div>
+              <div class="modal-field"><label>新密码</label><input id="setNewPw" type="password" placeholder="至少4位"></div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="changePwd()">修改密码</button>
+          </div>
+          <div class="stat-card" style="max-width:560px;margin-bottom:16px">
+            <div class="section-title" style="font-size:14px">外观主题</div>
+            <div style="display:flex;gap:10px;margin-top:8px">
+              <button class="theme-option" data-theme-opt="light" onclick="setTheme('light')">☀️ 浅色</button>
+              <button class="theme-option" data-theme-opt="dark" onclick="setTheme('dark')">🌙 深色</button>
+            </div>
+            <p style="font-size:12px;color:var(--t3);margin-top:8px">浅色更适合仓库、车上、阳光下的手机查看</p>
+          </div>
+          <div class="stat-card" style="max-width:560px;margin-bottom:16px">
+            <div class="section-title" style="font-size:14px">账号信息</div>
+            <p style="font-size:13px;color:var(--t2);margin-bottom:8px">已登录: <span id="settingsUser" style="font-weight:600;color:var(--t1)"></span></p>
+            <p style="font-size:13px;color:var(--t2);margin-bottom:8px">角色: <span id="settingsRole" style="font-weight:600;color:var(--t1)"></span></p>
+            <button class="btn btn-outline btn-sm" onclick="downloadBackup()" style="margin-right:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>备份</button><button class="btn btn-outline btn-sm" onclick="window.showHealth&&showHealth()" style="margin-right:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>健康</button><button class="btn btn-outline btn-sm" onclick="window.showApiTokens&&showApiTokens()" style="margin-right:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>Token</button><button class="btn btn-outline btn-sm" onclick="window.showSystemConfig&&showSystemConfig()" style="margin-right:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> 配置</button><button class="btn btn-outline btn-sm" onclick="showPermissionManager()" style="margin-right:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>权限</button><button class="btn btn-outline" onclick="doLogout()">退出登录</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="nprogress"><div class="bar"></div></div>
+<div id="mobileNav">
+  <div class="mobile-nav-item active" data-mod="dashboard" onclick="mobileNavTo('dashboard',this)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>首页</span></div>
+  <div class="mobile-nav-item" data-mod="work" onclick="toggleMobileWorkMenu()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>工作</span></div>
+  <div class="mobile-nav-item" data-mod="chat" onclick="mobileNavTo('chat',this);showChat()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>AI</span></div>
+  <div class="mobile-nav-item" data-mod="reports" onclick="mobileNavTo('reports',this)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>报表</span></div>
+  <div class="mobile-nav-item" data-mod="settings" onclick="mobileNavTo('settings',this)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>我的</span></div>
+</div>
+
+<!-- Mobile work menu popup -->
+<div id="mobileWorkMenu" style="display:none;position:fixed;bottom:110px;left:50%;transform:translateX(-50%);z-index:999;background:var(--bg3);border:1px solid var(--bd);border-radius:16px;padding:8px;box-shadow:0 8px 32px rgba(var(--black-rgb),.5);min-width:220px;max-height:60vh;overflow-y:auto">
+  <div class="mw-item" onclick="navTo('sales');closeMobileWorkMenu()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--t1);display:flex;align-items:center;gap:10px"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span> 销售开单</div>
+  <div class="mw-item" onclick="navTo('buying');closeMobileWorkMenu()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--t1);display:flex;align-items:center;gap:10px"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><polyline points="12 22.08 12 12"/></svg></span> 采购进货</div>
+  <div class="mw-item" onclick="navTo('stock');closeMobileWorkMenu()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--t1);display:flex;align-items:center;gap:10px"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 12 3 20 7"/><polyline points="4 7 12 11 20 7"/><line x1="12" y1="21" x2="12" y2="11"/></svg></span> 库存管理</div>
+  <div class="mw-item" onclick="navTo('accounts');closeMobileWorkMenu()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--t1);display:flex;align-items:center;gap:10px"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span> 收付款</div>
+  <div class="mw-item" onclick="showSupplierReconciliation();closeMobileWorkMenu()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--t1);display:flex;align-items:center;gap:10px"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> 供应商对账</div>
+  <div class="mw-item" onclick="showCustomerReconciliation();closeMobileWorkMenu()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--t1);display:flex;align-items:center;gap:10px"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> 客户对账</div>
+  <div class="mw-item" onclick="navTo('crm');closeMobileWorkMenu()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--t1);display:flex;align-items:center;gap:10px"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></span> 客户管理</div>
+</div>
+<div id="toastContainer"></div>
+<div id="notifPanel"><div class="notif-empty">暂无通知</div></div>
+<div id="ctxMenu"></div>
+<!-- Finance hover menu -->
+<div id="financeMenu" class="hover-menu"><div style="display:flex;gap:24px">
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> 收支相关</div><div class="archive-col-item" onclick="navTo('accounts');closeAllMenus()">资金流水</div><div class="archive-col-item" onclick="navTo('accounts');closeAllMenus()">收款记录</div><div class="archive-col-item" onclick="navTo('accounts');closeAllMenus()">付款记录</div><div class="archive-col-item" onclick="showSupplierReconciliation();closeAllMenus()">📋 供应商对账</div><div class="archive-col-item" onclick="showCustomerReconciliation();closeAllMenus()">📋 客户对账</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> 往来相关</div><div class="archive-col-item" onclick="navTo('dunning');closeAllMenus()">应收账龄</div><div class="archive-col-item" onclick="navTo('accounts');closeAllMenus()">应付账龄</div><div class="archive-col-item" onclick="navTo('paymentrun');closeAllMenus()">一键付款</div><div class="archive-col-item" onclick="navTo('paymentrun');closeAllMenus()">排款计划</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 报表相关</div><div class="archive-col-item" onclick="switchRptTab('pnl');navTo('reports');closeAllMenus()">利润表</div><div class="archive-col-item" onclick="switchRptTab('bs');navTo('reports');closeAllMenus()">资产负债表</div><div class="archive-col-item" onclick="switchRptTab('cf');navTo('reports');closeAllMenus()">现金流量表</div><div class="archive-col-item" onclick="showTaxReport();closeAllMenus()">税务报表</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> 设置相关</div><div class="archive-col-item" onclick="openRefData('bank_accounts');closeAllMenus()">银行账户</div><div class="archive-col-item" onclick="openRefData('expense_cats');closeAllMenus()">费用类别</div><div class="archive-col-item" onclick="openRefData('income_cats');closeAllMenus()">收入类别</div><div class="archive-col-item" onclick="openRefData('adjustment_types');closeAllMenus()">调账类型</div><div class="archive-col-item" onclick="openRefData('settlement_periods');closeAllMenus()">结账期限</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/></svg> 总账</div><div class="archive-col-item" onclick="_ledgerTab='vouchers';navTo('ledger');closeAllMenus()">会计凭证</div><div class="archive-col-item" onclick="_ledgerTab='tb';navTo('ledger');closeAllMenus()">科目余额表</div><div class="archive-col-item" onclick="_ledgerTab='coa';navTo('ledger');closeAllMenus()">科目表</div><div class="archive-col-item" onclick="navTo('ledger');closeAllMenus()">期末结转</div></div>
+</div></div>
+
+<!-- Warehouse hover menu -->
+<div id="stockMenu" class="hover-menu"><div style="display:flex;gap:24px">
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><polyline points="12 22.08 12 12"/></svg> 库存相关</div><div class="archive-col-item" onclick="navTo('stock');closeAllMenus()">库存查询</div><div class="archive-col-item" onclick="navTo('stock');closeAllMenus()">批次管理</div><div class="archive-col-item" onclick="navTo('stock');closeAllMenus()">库位管理</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> 操作相关</div><div class="archive-col-item" onclick="navTo('stock');closeAllMenus()">库存盘点</div><div class="archive-col-item" onclick="navTo('stock');closeAllMenus()">库存调拨</div><div class="archive-col-item" onclick="navTo('stock');closeAllMenus()">车销装车</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> 分析相关</div><div class="archive-col-item" onclick="navTo('expiry-dashboard');closeAllMenus()">保质期预警</div><div class="archive-col-item" onclick="navTo('wastage');closeAllMenus()">报损管理</div><div class="archive-col-item" onclick="navTo('reports');closeAllMenus()">库存周转分析</div><div class="archive-col-item" onclick="navTo('procurement-console');closeAllMenus()">采购建议</div></div>
+</div></div>
+
+<!-- Sales hover menu -->
+<div id="salesMenu" class="hover-menu"><div style="display:flex;gap:24px">
+<div class="archive-col"><div class="archive-col-title">📋 订单相关</div><div class="archive-col-item" onclick="navTo('sales');closeAllMenus()">销售订单</div><div class="archive-col-item" onclick="navTo('sales');closeAllMenus()">报价单</div><div class="archive-col-item" onclick="navTo('sales');closeAllMenus()">销售退货</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> 价格相关</div><div class="archive-col-item" onclick="openRefData('price_schemes');closeAllMenus()">价格方案</div><div class="archive-col-item" onclick="navTo('data');closeAllMenus()">阶梯折扣</div><div class="archive-col-item" onclick="navTo('data');closeAllMenus()">促销活动</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M5 18H3c-.6 0-1-.4-1-1V7c0-.6.4-1 1-1h10c.6 0 1 .4 1 1v11"/><path d="M14 9h4l4 4v4c0 .6-.4 1-1 1h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg> 配送相关</div><div class="archive-col-item" onclick="navTo('sales');closeAllMenus()">拣货单</div><div class="archive-col-item" onclick="navTo('sales');closeAllMenus()">配送任务</div><div class="archive-col-item" onclick="navTo('sales');closeAllMenus()">配送单打印</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 分析相关</div><div class="archive-col-item" onclick="navTo('reports');closeAllMenus()">销售分析</div><div class="archive-col-item" onclick="navTo('reports');closeAllMenus()">季节性分析</div><div class="archive-col-item" onclick="navTo('reports');closeAllMenus()">交叉报表</div></div>
+</div></div>
+
+
+<div id="crmMenu" class="hover-menu"><div style="display:flex;gap:24px">
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M19 21v-2a4 4 0 00-4-4H9a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> 客户分析</div><div class="archive-col-item" onclick="navTo('crm');closeAllMenus()">客户健康度</div><div class="archive-col-item" onclick="navTo('crm');closeAllMenus()">客户利润排行</div><div class="archive-col-item" onclick="navTo('crm');closeAllMenus()">流失预警</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> 销售外勤</div><div class="archive-col-item" onclick="navTo('crm');closeAllMenus()">拜访记录</div><div class="archive-col-item" onclick="navTo('crm');closeAllMenus()">配送路线</div><div class="archive-col-item" onclick="showVisitForm(0,'');closeAllMenus()">新增拜访</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> 合同返利</div><div class="archive-col-item" onclick="showRebateForm();closeAllMenus()">返利合同</div><div class="archive-col-item" onclick="openRefData('store_tiers');closeAllMenus()">门店分级</div><div class="archive-col-item" onclick="openRefData('payment_terms');closeAllMenus()">付款条件</div></div>
+</div></div>
+
+<div id="marketingMenu" class="hover-menu"><div style="display:flex;gap:24px">
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> 费用管理</div><div class="archive-col-item" onclick="showExpenseForm();closeAllMenus()">+ 新增费用</div><div class="archive-col-item" onclick="navTo('marketing');closeAllMenus()">费用列表</div><div class="archive-col-item" onclick="showBudgetForm();closeAllMenus()">预算设置</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><polyline points="20 12 20 22 4 22 4 12"/><rect width="20" height="5" x="2" y="7"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg> 促销活动</div><div class="archive-col-item" onclick="showPromotionForm();closeAllMenus()">+ 新建促销</div><div class="archive-col-item" onclick="navTo('marketing');closeAllMenus()">促销列表</div><div class="archive-col-item" onclick="showContractForm(0,'');closeAllMenus()">费用合同</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> 设置</div><div class="archive-col-item" onclick="openRefData('expense_cats');closeAllMenus()">费用类别</div><div class="archive-col-item" onclick="openRefData('income_cats');closeAllMenus()">收入类别</div></div>
+</div></div>
+
+<div id="reportsMenu" class="hover-menu"><div style="display:flex;gap:24px">
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 财务报表</div><div class="archive-col-item" onclick="switchRptTab('pnl');navTo('reports');closeAllMenus()">利润表 (P&L)</div><div class="archive-col-item" onclick="switchRptTab('bs');navTo('reports');closeAllMenus()">资产负债表</div><div class="archive-col-item" onclick="switchRptTab('cf');navTo('reports');closeAllMenus()">现金流量表</div><div class="archive-col-item" onclick="showTaxReport();closeAllMenus()">税务报表</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> 经营分析</div><div class="archive-col-item" onclick="navTo('profit-report');closeAllMenus()">每日盈亏快报</div><div class="archive-col-item" onclick="switchRptTab('sales');navTo('reports');closeAllMenus()">销售分析</div><div class="archive-col-item" onclick="switchRptTab('profit');navTo('reports');closeAllMenus()">利润分析</div><div class="archive-col-item" onclick="navTo('pricing-explain');closeAllMenus()">专属价查询</div><div class="archive-col-item" onclick="navTo('reports');closeAllMenus()">客户利润</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M21.21 15.89A10 10 0 118 2.83"/><path d="M22 12A10 10 0 0012 2v10z"/></svg> 运营报表</div><div class="archive-col-item" onclick="navTo('reports');closeAllMenus()">库存周转</div><div class="archive-col-item" onclick="navTo('reports');closeAllMenus()">采购建议</div><div class="archive-col-item" onclick="navTo('reports');closeAllMenus()">季节性分析</div><div class="archive-col-item" onclick="navTo('reports');closeAllMenus()">KPI 看板</div></div>
+</div></div>
+
+<div id="ledgerMenu" class="hover-menu"><div style="display:flex;gap:24px">
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/></svg> 会计凭证</div><div class="archive-col-item" onclick="showJournalEntryForm();closeAllMenus()">+ 录入凭证</div><div class="archive-col-item" onclick="navTo('ledger');closeAllMenus()">凭证列表</div><div class="archive-col-item" onclick="triggerDepreciation();closeAllMenus()">计提折旧</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 总账</div><div class="archive-col-item" onclick="navTo('ledger');switchLedgerTab('tb');closeAllMenus()">科目余额表</div><div class="archive-col-item" onclick="navTo('ledger');switchLedgerTab('coa');closeAllMenus()">科目表</div><div class="archive-col-item" onclick="navTo('ledger');closeAllMenus()">期末结转</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 财务报表</div><div class="archive-col-item" onclick="switchRptTab('pnl');navTo('reports');closeAllMenus()">利润表</div><div class="archive-col-item" onclick="switchRptTab('bs');navTo('reports');closeAllMenus()">资产负债表</div><div class="archive-col-item" onclick="switchRptTab('cf');navTo('reports');closeAllMenus()">现金流量表</div></div>
+</div></div>
+
+<div id="archiveMenu" class="hover-menu"><div style="display:flex;gap:24px">
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><polyline points="12 22.08 12 12"/></svg> 商品相关</div><div class="archive-col-item" onclick="openSingleDataTab('products');closeAllMenus()">商品档案</div><div class="archive-col-item" onclick="showBrandManagement();closeAllMenus()">品牌档案</div><div class="archive-col-item" onclick="openRefData('unit_archive');closeAllMenus()">单位档案</div><div class="archive-col-item" onclick="showCategoryManagement();closeAllMenus()">分类管理</div><div class="archive-col-item" onclick="openRefData('price_schemes');closeAllMenus()">价格方案</div><div class="archive-col-item" onclick="openRefData('product_tags');closeAllMenus()">商品标签</div><div class="archive-col-item" onclick="openRefData('last_sale_prices');closeAllMenus()">上次售价</div><div class="archive-col-item" onclick="openRefData('last_purchase_prices');closeAllMenus()">上次采购价</div><div class="archive-col-item" onclick="openRefData('pricing_settings');closeAllMenus()">价格体系设置</div><div class="archive-col-item" onclick="openRefData('combo_rules');closeAllMenus()">组合规则</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> 往来相关</div><div class="archive-col-item" onclick="openSingleDataTab('customers');closeAllMenus()">客户档案</div><div class="archive-col-item" onclick="openRefData('contact_tags');closeAllMenus()">客户标签</div><div class="archive-col-item" onclick="openRefData('warehouses_full');closeAllMenus()">仓库档案</div><div class="archive-col-item" onclick="openRefData('credit_schemes');closeAllMenus()">信用控制方案</div><div class="archive-col-item" onclick="openSingleDataTab('suppliers');closeAllMenus()">供应商档案</div><div class="archive-col-item" onclick="openRefData('business_types');closeAllMenus()">业务类型</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M19 7V4a1 1 0 00-1-1H5a2 2 0 000 4h15a1 1 0 011 1v4h-3a2 2 0 000 4h3a1 1 0 001-1v-2a1 1 0 00-1-1"/><path d="M15 12a2 2 0 100 4"/></svg> 资金相关</div><div class="archive-col-item" onclick="openRefData('bank_accounts');closeAllMenus()">账户管理</div><div class="archive-col-item" onclick="openRefData('expense_cats');closeAllMenus()">费用类别</div><div class="archive-col-item" onclick="openRefData('income_cats');closeAllMenus()">收入类别</div><div class="archive-col-item" onclick="openRefData('adjustment_types');closeAllMenus()">调账类型</div><div class="archive-col-item" onclick="openRefData('contact_tags');closeAllMenus()">往来标签</div><div class="archive-col-item" onclick="openRefData('settlement_periods');closeAllMenus()">结账期限</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 财务相关</div><div class="archive-col-item" onclick="navTo('ledger');closeAllMenus()">科目</div><div class="archive-col-item" onclick="openRefData('asset_types');closeAllMenus()">资产类型</div><div class="archive-col-item" onclick="openRefData('asset_methods');closeAllMenus()">增减方式</div><div class="archive-col-item" style="margin-top:8px;border-top:1px solid var(--bd);padding-top:8px"><div class="archive-col-title" style="margin-bottom:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> 组织</div></div><div class="archive-col-item" onclick="navTo('hr');closeAllMenus()">员工与部门</div><div class="archive-col-item" onclick="showSettings();closeAllMenus()">角色权限配置</div></div>
+<div class="archive-col"><div class="archive-col-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/></svg> 期初录入</div><div class="archive-col-item" onclick="showOpeningBalance('ar');closeAllMenus()">应收款期初</div><div class="archive-col-item" onclick="showOpeningBalance('ap');closeAllMenus()">应付款期初</div><div class="archive-col-item" onclick="showOpeningBalance('pre_ar');closeAllMenus()">预收款期初</div><div class="archive-col-item" onclick="showOpeningBalance('pre_ap');closeAllMenus()">预付款期初</div><div class="archive-col-item" onclick="showOpeningBalance('account');closeAllMenus()">科目期初</div><div class="archive-col-item" onclick="showOpeningBalance('inventory');closeAllMenus()">库存成本期初</div><div class="archive-col-item" onclick="showOpeningBalance('cashflow');closeAllMenus()">现金流量期初</div><div class="archive-col-item" style="margin-top:8px;border-top:1px solid var(--bd);padding-top:8px"><div class="archive-col-title" style="margin-bottom:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> 自定义</div></div><div class="archive-col-item" onclick="showCustomFields();closeAllMenus()">自定义字段</div></div>
+</div></div>
+
+<div id="peekOverlay" onclick="closePeek()"></div>
+<div id="peekPanel"><div class="peek-body"></div></div>
+
+
+<!-- Shortcuts Panel -->
+<div id="shortcutPanel" onclick="closeShortcuts()">
+  <div class="sh-box" onclick="event.stopPropagation()">
+    <h3>键盘快捷键</h3>
+    <div class="sh-grid" id="shortcutGrid"></div>
+    <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--t3)">按 Esc 或点击外部关闭</div>
+  </div>
+</div>
+
+<!-- Command Palette -->
+
+<div id="cmdPalette" onclick="closeCmdPalette()">
+  <div class="cmd-box" onclick="event.stopPropagation()">
+    <div class="cmd-input"><input type="text" id="cmdInput" placeholder="搜索菜单、功能、数据..." onkeydown="handleCmdKey(event)" oninput="filterCmdItems()"></div>
+    <div class="cmd-results" id="cmdResults"></div>
+  </div>
+</div>
+
+	<!-- v84: financial depth modules -->
+	<!-- v84: payroll/export/filter modules -->
+	<!-- v85 SaaS -->
+	<!-- v85: report designer, GDPR -->
+		<!-- v89 Phase 1: Operation efficiency -->
+			<!-- v89 Phase 2: Financial connectivity -->
+			<!-- v89 Phase 3: Document output -->
+			<!-- v89 Phase 4: Platform enhancement -->
+			<!-- v90: Operations enhancement -->
+				<!-- v2.0: New sidebar + contacts -->
+				<!-- v92: AI Assistant modules -->
+			<!-- v91: AI Timeline -->
+	<script>/* v88: Auto-install module registry after app.js loads */setTimeout(function(){if(window.ModuleRegistry)ModuleRegistry.install()},500)</script>
+<script>
+(function(){
+  var btn = document.getElementById('togglePwd');
+  var inp = document.getElementById('loginPass');
+  if (!btn || !inp) return;
+  btn.onclick = function() {
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      btn.innerHTML = window._eyeOff;
+    } else {
+      inp.type = 'password';
+      btn.innerHTML = window._eyeOpen;
+    }
+  };
+})();
+
+// v85: Self-service registration
+function showRegister(){
+  var html = '<h3>注册账号 <span style="font-size:12px;color:var(--t3);font-weight:400">快速开通Hergent ERP</span></h3>'+
+    '<div class="modal-field"><label>公司名称 <span style="color:var(--dan)">*</span></label><input id="regCompany" placeholder="如: 兴旺商贸有限公司" style="padding:10px 14px;border:1px solid var(--bd);border-radius:6px;background:var(--bg3);color:var(--t1);font-size:13px;font-family:inherit;width:100%;box-sizing:border-box"></div>'+
+    '<div class="modal-field"><label>手机号 <span style="color:var(--dan)">*</span></label><input id="regPhone" placeholder="13812345678" style="padding:10px 14px;border:1px solid var(--bd);border-radius:6px;background:var(--bg3);color:var(--t1);font-size:13px;font-family:inherit;width:100%;box-sizing:border-box"></div>'+
+    '<div class="modal-row"><div class="modal-field"><label>密码 <span style="color:var(--dan)">*</span></label><input id="regPassword" type="password" placeholder="至少8位" style="padding:10px 14px;border:1px solid var(--bd);border-radius:6px;background:var(--bg3);color:var(--t1);font-size:13px;font-family:inherit;width:100%;box-sizing:border-box"></div>'+
+    '<div class="modal-field"><label>确认密码</label><input id="regPassword2" type="password" placeholder="再次输入密码" style="padding:10px 14px;border:1px solid var(--bd);border-radius:6px;background:var(--bg3);color:var(--t1);font-size:13px;font-family:inherit;width:100%;box-sizing:border-box"></div></div>'+
+    '<div class="modal-row" style="margin-top:4px"><div class="modal-field"><label>验证码</label><input id="regCode" placeholder="888888" style="padding:10px 14px;border:1px solid var(--bd);border-radius:6px;background:var(--bg3);color:var(--t1);font-size:13px;font-family:inherit;width:100%;box-sizing:border-box"></div>'+
+    '<div class="modal-field" style="display:flex;align-items:flex-end;padding-bottom:10px"><button class="btn btn-outline btn-sm" onclick="_sendRegCode()" style="width:100%">发送验证码</button></div></div>'+
+    '<div class="modal-actions"><button class="btn btn-primary" onclick="_doRegister()">注册</button><button class="btn btn-outline" data-close>取消</button></div>';
+  window.modalOpen(html);
+  window._sendRegCode = function(){
+    var phone = document.getElementById('regPhone').value.trim();
+    if (!phone) { window.toast('请输入手机号','warn'); return; }
+    ApiClient.post('/auth/send-code', {phone:phone}).then(function(d){
+      if (d && d.dev_code) window.toast('开发模式: 验证码为 '+d.dev_code);
+      else window.toast(d?d.message||'已发送':'发送失败');
+    });
+  };
+  window._doRegister = function(){
+    var company = document.getElementById('regCompany').value.trim();
+    var phone = document.getElementById('regPhone').value.trim();
+    var pw = document.getElementById('regPassword').value;
+    var pw2 = document.getElementById('regPassword2').value;
+    var code = document.getElementById('regCode').value.trim();
+    if (!company || !phone || !pw) { window.toast('请填写所有必填项','warn'); return; }
+    if (pw !== pw2) { window.toast('两次密码不一致','error'); return; }
+    ApiClient.post('/auth/register', {company:company, phone:phone, password:pw, code:code}).then(function(d){
+      if (d && d.success) {
+        window.toast(d.message);
+        localStorage.setItem('hergent_token', d.token);
+        window.closeModal();
+        setTimeout(function(){ location.reload(); }, 800);
+      } else {
+        window.toast((d&&d.error)||'注册失败','error');
+      }
+    }).catch(function(){ window.toast('网络错误','error'); });
+  };
+}
+</script>
+<div class="model-switcher" id="modelSwitcher"><div class="ms-list" id="msList"></div></div>
+</body>
+</html>

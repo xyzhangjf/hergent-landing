@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hergent.cn UI 改造蓝图 · 经营工作台 + 预报汇总表</title>
+<style>
+:root{
+  --brand:#06b6d4;--brand-dark:#0891b2;--brand-deep:#0e7490;--brand-light:rgba(6,182,212,.08);--brand-bg:rgba(6,182,212,.05);
+  --bg:#f6f8fa;--card:#fff;--line:#e9edf1;
+  --t1:#17181c;--t2:#4b5563;--t3:#9aa3ae;
+  --green:#16a34a;--green-bg:#ecfdf3;--red:#dc2626;--red-bg:#fef2f2;--amber:#d97706;--amber-bg:#fffbeb;
+  --radius:14px;
+  --shadow:0 1px 3px rgba(15,23,42,.05),0 0 0 1px rgba(15,23,42,.04);
+  --shadow-md:0 8px 24px rgba(15,23,42,.08),0 0 0 1px rgba(15,23,42,.04);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--t1);font-size:14px;}
+button{font-family:inherit;}
+/* ===== 顶部标注条（蓝图说明） ===== */
+.blueprint-bar{
+  background:#0f172a;color:#fff;padding:9px 20px;font-size:12.5px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;
+  position:sticky;top:0;z-index:300;
+}
+.blueprint-bar b{color:#67e8f9;}
+.blueprint-bar .tag{background:rgba(103,232,249,.15);color:#67e8f9;padding:2px 9px;border-radius:99px;font-size:11px;}
+/* ===== 整体布局 ===== */
+.layout{display:flex;min-height:calc(100vh - 40px);}
+/* ===== 左侧边栏 ===== */
+.sidebar{
+  width:248px;flex:0 0 248px;background:#fff;border-right:1px solid var(--line);
+  display:flex;flex-direction:column;position:sticky;top:40px;height:calc(100vh - 40px);
+}
+.sb-head{padding:16px 16px 12px;display:flex;align-items:center;gap:10px;}
+.sb-head .logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--brand-deep),var(--brand));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex:0 0 auto;}
+.sb-head .tx b{font-size:15px;display:block;letter-spacing:-.3px;}
+.sb-head .tx span{font-size:11px;color:var(--t3);}
+.sb-search{margin:0 14px 8px;display:flex;align-items:center;gap:7px;background:#f3f5f7;border-radius:9px;padding:8px 11px;color:var(--t3);font-size:12.5px;}
+.sb-scroll{flex:1;overflow-y:auto;padding:4px 10px 10px;}
+.sb-group{margin-top:12px;}
+.sb-group .gh{font-size:11px;color:var(--t3);font-weight:600;padding:0 8px 6px;letter-spacing:.5px;}
+.sb-item{
+  display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;
+  font-size:13.5px;color:var(--t2);margin-bottom:2px;border:1px solid transparent;position:relative;
+}
+.sb-item svg{flex:0 0 auto;color:var(--t3);}
+.sb-item:hover{background:#f3f5f7;}
+.sb-item.active{background:var(--brand-light);color:var(--brand-deep);font-weight:600;border-color:rgba(6,182,212,.18);}
+.sb-item.active svg{color:var(--brand-dark);}
+.sb-item .nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:10.5px;min-width:17px;height:17px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 5px;}
+.sb-item .nbadge.cyan{background:var(--brand);;}
+.sb-ai{
+  margin:14px 4px 4px;border:1px solid var(--line);border-radius:12px;padding:11px 12px;cursor:pointer;background:linear-gradient(135deg,rgba(6,182,212,.04),rgba(139,92,246,.04));
+}
+.sb-ai:hover{border-color:rgba(6,182,212,.35);}
+.sb-ai .t{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;}
+.sb-ai .d{font-size:11px;color:var(--t3);margin-top:4px;line-height:1.6;}
+.sb-foot{padding:10px 14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:9px;}
+.sb-foot .av{width:30px;height:30px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;}
+.sb-foot .nm{flex:1;font-size:12.5px;line-height:1.3;}
+.sb-foot .nm b{display:block;font-size:12.5px;}
+.sb-foot .nm span{color:var(--t3);font-size:11px;}
+/* ===== 主区 ===== */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.main-scroll{flex:1;overflow-y:auto;padding:22px 26px 30px;}
+/* ===== 工作台 ===== */
+.greet{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+.greet h1{font-size:21px;font-weight:700;letter-spacing:-.4px;}
+.greet .sub{font-size:13px;color:var(--t2);margin-top:5px;}
+.greet .sub b{color:var(--brand-dark);}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+.kpi{background:#fff;border-radius:var(--radius);padding:16px 18px;border:1px solid var(--line);position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand);border-radius:2px;}
+.kpi.warn::before{background:var(--amber);}
+.kpi.ok::before{background:var(--green);}
+.kpi .k{font-size:12px;color:var(--t2);font-weight:600;display:flex;align-items:center;gap:6px;}
+.kpi .v{font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:7px;font-variant-numeric:tabular-nums;}
+.kpi .v small{font-size:13px;color:var(--t3);font-weight:500;}
+.kpi .d{font-size:11.5px;color:var(--t3);margin-top:4px;}
+.kpi .d b{font-weight:700;}
+.work-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:14px;align-items:start;}
+.wcard{background:#fff;border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;}
+.wcard .wh{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);}
+.wcard .wh h3{font-size:14.5px;font-weight:700;}
+.wcard .wh .more{font-size:12px;color:var(--brand-dark);cursor:pointer;border:none;background:none;}
+.wcard .wb{padding:8px 18px 14px;}
+/* 批次进度 */
+.batch-flow{display:flex;align-items:center;gap:0;margin:14px 0 6px;}
+.bf-step{flex:1;text-align:center;position:relative;padding-top:20px;}
+.bf-step::before{
+  content:'';position:absolute;top:7px;left:calc(50% - 9px);width:18px;height:18px;border-radius:50%;
+  background:#e5e9ee;border:3px solid #fff;box-shadow:0 0 0 1px var(--line);z-index:2;
+}
+.bf-step::after{content:'';position:absolute;top:15px;left:calc(50% + 9px);width:calc(100% - 18px);height:2px;background:#e5e9ee;z-index:1;}
+.bf-step:last-child::after{display:none;}
+.bf-step.done::before{background:var(--green);}
+.bf-step.doing::before{background:var(--brand);box-shadow:0 0 0 4px rgba(6,182,212,.18);}
+.bf-step.doing::after,.bf-step.done::after{background:var(--brand);}
+.bf-step .bn{font-size:12px;font-weight:700;}
+.bf-step .bs{font-size:11px;color:var(--t3);margin-top:2px;}
+.batch-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+.bm{background:#f6f8fa;border-radius:9px;padding:8px 12px;font-size:12px;color:var(--t2);flex:1;min-width:120px;}
+.bm b{display:block;font-size:14px;color:var(--t1);margin-top:2px;font-variant-numeric:tabular-nums;}
+/* 待办 */
+.todo{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);}
+.todo:last-child{border-bottom:none;}
+.todo .dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:0 0 auto;}
+.todo .dot.r{background:var(--red);}
+.todo .dot.a{background:var(--amber);}
+.todo .dot.c{background:var(--brand);}
+.todo .tx{flex:1;font-size:13px;line-height:1.6;}
+.todo .tx .tt{font-weight:600;}
+.todo .tx .ts{font-size:11.5px;color:var(--t3);margin-top:1px;}
+.todo .go{font-size:12px;color:var(--brand-dark);border:none;background:none;cursor:pointer;flex:0 0 auto;align-self:center;}
+/* AI 晨报 */
+.morning{
+  background:linear-gradient(135deg,#0e7490,#06b6d4);border-radius:var(--radius);padding:16px 18px;color:#fff;margin-bottom:14px;
+}
+.morning .mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.morning .mh b{font-size:13.5px;display:flex;align-items:center;gap:7px;}
+.morning .mh span{font-size:11px;opacity:.85;}
+.morning p{font-size:12.5px;line-height:1.85;opacity:.97;}
+.morning p b{color:#fef08a;}
+.morning .ask{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+.morning .ask button{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:99px;padding:5px 13px;font-size:12px;cursor:pointer;}
+.morning .ask button:hover{background:rgba(255,255,255,.28);}
+/* 底部 AI 输入条 */
+.ai-bar{
+  position:sticky;bottom:0;background:rgba(246,248,250,.9);backdrop-filter:blur(10px);
+  padding:12px 26px 16px;border-top:1px solid var(--line);
+}
+.ai-box{
+  background:#fff;border-radius:16px;box-shadow:var(--shadow-md);padding:11px 14px;
+  display:flex;align-items:center;gap:10px;
+}
+.ai-box input{flex:1;border:none;outline:none;font-size:13.5px;background:none;color:var(--t1);}
+.ai-box .chipbtn{border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--t2);font-size:12px;padding:5px 10px;cursor:pointer;display:flex;gap:5px;align-items:center;flex:0 0 auto;}
+.ai-box .chipbtn:hover{border-color:var(--brand);color:var(--brand-dark);}
+.ai-box .send{background:var(--brand);border:none;color:#fff;border-radius:10px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;flex:0 0 auto;}
+.ai-box .send:hover{background:var(--brand-dark);}
+.ai-note{font-size:10.5px;color:var(--t3);text-align:center;margin-top:8px;}
+/* ===== 汇总表页 ===== */
+.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+.page-head h1{font-size:19px;font-weight:700;letter-spacing:-.3px;}
+.page-head .desc{font-size:12.5px;color:var(--t2);margin-top:4px;}
+.page-head .acts{display:flex;gap:8px;flex-wrap:wrap;}
+.btn{border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.btn-primary{background:var(--brand);color:#fff;}
+.btn-primary:hover{background:var(--brand-dark);}
+.btn-dark{background:var(--t1);color:#fff;}
+.btn-dark:hover{background:#333;}
+.btn-outline{background:#fff;border:1px solid var(--line);color:var(--t2);}
+.btn-outline:hover{border-color:var(--brand);color:var(--brand-dark);}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--t2);cursor:pointer;}
+.btn-link{background:none;border:none;color:var(--brand-dark);font-size:12px;cursor:pointer;padding:3px 5px;}
+.btn-link.danger{color:var(--red);}
+.stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.stat{background:#fff;border-radius:var(--radius);padding:12px 16px;border:1px solid var(--line);}
+.stat .v{font-size:19px;font-weight:800;color:var(--brand-dark);font-variant-numeric:tabular-nums;}
+.stat .k{font-size:11.5px;color:var(--t3);margin-top:2px;}
+.tbl-wrap{background:#fff;border-radius:var(--radius);border:1px solid var(--line);overflow:auto;max-height:calc(100vh - 330px);}
+table{border-collapse:collapse;min-width:100%;}
+th,td{border:1px solid var(--line);padding:6px 8px;font-size:12.5px;white-space:nowrap;}
+thead th{background:#fafbfc;position:sticky;top:0;z-index:5;font-weight:600;color:var(--t2);text-align:center;}
+thead th.grp-prod{background:#f0fdff;color:var(--brand-deep);}
+thead th.grp-fill{background:#fffbeb;color:var(--amber);}
+thead th.grp-sum{background:var(--green-bg);color:var(--green);}
+td input{width:100%;border:none;outline:none;font-size:12.5px;text-align:center;background:transparent;font-variant-numeric:tabular-nums;padding:2px 0;}
+td input:focus{background:#f0fdff;border-radius:4px;}
+td.num{text-align:right;font-variant-numeric:tabular-nums;}
+td.qty-cell{background:#fffdf5;min-width:50px;}
+td.calc{background:#f6fef8;text-align:right;font-variant-numeric:tabular-nums;color:var(--t2);}
+td.final-cell{background:var(--green-bg);min-width:62px;}
+td.final-cell input{font-weight:700;color:var(--green);}
+td.amt{background:#f6fef8;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
+tr.disabled td{opacity:.45;background:#fafafa;}
+tr.adding td{background:#f0fdff;}
+tr.adding input{border:1px solid var(--brand);border-radius:6px;padding:4px 6px;background:#fff;}
+.pname{font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;}
+.psub{font-size:10.5px;color:var(--t3);margin-top:1px;}
+tfoot td{background:#fafbfc;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;}
+tfoot td:first-child{text-align:left;}
+.rule-note{font-size:11.5px;color:var(--t2);margin-top:10px;line-height:1.8;}
+.rule-note b{color:var(--amber);}
+/* 数据接入页 */
+.conn-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+.conn-card{background:#fff;border-radius:var(--radius);border:1px solid var(--line);padding:16px 18px;}
+.conn-card h3{font-size:14px;font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:8px;}
+.conn-card .cd{font-size:12px;color:var(--t2);line-height:1.7;margin-bottom:12px;}
+.conn-card .main-conn{border:1.5px solid var(--brand);border-radius:12px;padding:14px;background:var(--brand-bg);margin-bottom:10px;}
+.conn-card .main-conn .mt{font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:space-between;}
+.conn-card .main-conn .ms{font-size:12px;color:var(--t2);margin-top:6px;line-height:1.7;}
+.conn-card .other{border:1px dashed var(--line);border-radius:10px;padding:10px 14px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;opacity:.75;}
+.conn-card .other .ot{font-size:12.5px;color:var(--t2);}
+.conn-card .other .ot span{font-size:10.5px;color:var(--t3);display:block;margin-top:1px;}
+.tagchip{display:inline-block;font-size:10.5px;padding:2px 9px;border-radius:99px;font-weight:600;}
+.tagchip.rec{background:var(--green-bg);color:var(--green);}
+.tagchip.later{background:#f3f5f7;color:var(--t3);}
+/* 弹窗 */
+.mask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:400;display:none;align-items:flex-start;justify-content:center;padding:6vh 18px;overflow-y:auto;}
+.mask.show{display:flex;}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:600px;animation:pop .2s ease;margin-bottom:6vh;box-shadow:var(--shadow-md);}
+@keyframes pop{from{transform:scale(.96);opacity:0;}to{transform:scale(1);opacity:1;}}
+.modal .mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);}
+.modal .mh h3{font-size:15.5px;}
+.modal .mh .x{border:none;background:none;font-size:17px;color:var(--t3);cursor:pointer;}
+.modal .mb{padding:18px 20px;}
+.modal .mf{padding:12px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;}
+.imp-sum{display:flex;gap:10px;margin-bottom:14px;}
+.imp-sum .it{flex:1;background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:11px;text-align:center;}
+.imp-sum .it b{font-size:19px;display:block;font-variant-numeric:tabular-nums;}
+.imp-sum .it.ok b{color:var(--green);}
+.imp-sum .it.dup b{color:var(--amber);}
+.imp-sum .it span{font-size:11px;color:var(--t3);}
+.imp-tbl{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px;}
+.imp-tbl table{min-width:100%;}
+.chip{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap;}
+.chip.hz{background:var(--brand-light);color:var(--brand-deep);}
+.chip.fb{background:rgba(139,92,246,.1);color:#7c3aed;}
+.chip.off{background:#f3f4f6;color:var(--t3);}
+.chip.green{background:var(--green-bg);color:var(--green);}
+.toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(8px);background:rgba(23,23,23,.92);color:#fff;font-size:13px;padding:10px 20px;border-radius:99px;opacity:0;pointer-events:none;transition:all .25s;z-index:500;max-width:85%;text-align:center;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+@media(max-width:1100px){.work-grid{grid-template-columns:1fr;}.kpi-grid{grid-template-columns:repeat(2,1fr);}.conn-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<!-- 蓝图说明条 -->
+<div class="blueprint-bar">
+  <span class="tag">UI 改造蓝图 v1</span>
+  <span>hergent.cn 改造后形态：<b>首屏=经营工作台</b> · <b>预报订货管理=汇总表</b> · 测试遗留已清理 · 金蝶/用友/畅捷通已降级</span>
+  <span style="margin-left:auto;opacity:.7;">视觉语言沿用现有品牌青/大圆角，不重做</span>
+</div>
+
+<div class="layout">
+  <!-- 左侧导航（改造后：业务流程优先） -->
+  <aside class="sidebar">
+    <div class="sb-head">
+      <div class="logo">H</div>
+      <div class="tx"><b>Hergent</b><span>鑫源乳业（襄阳）</span></div>
+    </div>
+    <div class="sb-search">🔍 搜索功能、商品、对话…</div>
+    <div class="sb-scroll">
+      <div class="sb-group">
+        <div class="gh">经营</div>
+        <div class="sb-item active" data-page="workbench">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="10" rx="2"/><rect x="13" y="3" width="8" height="6" rx="2"/><rect x="13" y="11" width="8" height="10" rx="2"/><rect x="3" y="15" width="8" height="6" rx="2"/></svg>
+          经营工作台
+        </div>
+        <div class="sb-item" data-page="forecast">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="2.4"/></svg>
+          预报订货管理 <span class="nbadge cyan">今</span>
+        </div>
+      </div>
+      <div class="sb-group">
+        <div class="gh">数据与连接</div>
+        <div class="sb-item" data-page="data">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5.5" rx="7" ry="2.8"/><path d="M5 5.5v6c0 1.6 3.1 2.8 7 2.8s7-1.2 7-2.8v-6"/><path d="M5 11.5v6c0 1.6 3.1 2.8 7 2.8s7-1.2 7-2.8v-6"/></svg>
+          数据接入中心
+        </div>
+        <div class="sb-item">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.2 2"/></svg>
+          定时任务
+        </div>
+        <div class="sb-item">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3 5 7l4 4"/><path d="M5 7h9a5 5 0 0 1 5 5v1"/><path d="m15 21 4-4-4-4"/><path d="M19 17h-9a5 5 0 0 1-5-5v-1"/></svg>
+          连接中心
+        </div>
+      </div>
+      <div class="sb-group">
+        <div class="gh">其他</div>
+        <div class="sb-item">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><rect x="4" y="17" width="16" height="4" rx="1.5"/></svg>
+          我的成果
+        </div>
+        <div class="sb-item">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2Z"/></svg>
+          设置
+        </div>
+      </div>
+      <!-- AI 入口收纳为单一入口 -->
+      <div class="sb-ai">
+        <div class="t">✨ AI 经营副驾 <span class="tagchip" style="background:var(--green-bg);color:var(--green);font-size:10px;">Hermes</span></div>
+        <div class="d">对话开单、问返利、催报单——大秘/会计/运营主管等角色统一从这里进入</div>
+      </div>
+    </div>
+    <div class="sb-foot">
+      <div class="av">张</div>
+      <div class="nm"><b>张俊峰</b><span>管理员 · 标准版</span></div>
+      <span style="color:var(--t3);font-size:15px;cursor:pointer;">⌄</span>
+    </div>
+  </aside>
+
+  <!-- 主区 -->
+  <div class="main">
+    <div class="main-scroll" id="mainScroll"></div>
+    <!-- 底部 AI 输入条（全局常驻，改造后间距收紧） -->
+    <div class="ai-bar">
+      <div class="ai-box">
+        <input id="aiInput" placeholder="问点什么，如：今天谁还没报单？/ 返利还差多少到下一档？">
+        <button class="chipbtn">📎 文件</button>
+        <button class="chipbtn">⏰ 提醒</button>
+        <button class="send">发送</button>
+      </div>
+      <div class="ai-note">AI 基于本租户经营数据回答 · 计算结果可审计</div>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="mask"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ================= 数据（与 v3 整合原型一致） ================= */
+const BATCH={name:'8月6报单-8月10到货',arrive:'8月10日（周四）到货',rule:'每2天到货 · 提前4天下单',deadline:'今日 18:00'};
+const MEMBERS=[
+  {id:'u1',name:'张俊峰',store:false},{id:'u2',name:'李婷',store:false},
+  {id:'u6',name:'刘正宝',store:false},{id:'u7',name:'王琴',store:false},
+  {id:'u8',name:'程欢欢',store:false},{id:'u9',name:'周运潘',store:false},{id:'u10',name:'田顺达',store:false},
+  {id:'u16',name:'吾悦',store:true},{id:'u17',name:'东津',store:true},{id:'u19',name:'美联檀溪',store:true}
+];
+function seedProducts(){
+  return [
+    {id:'p1',barcode:'6934665094026',name:'红桶',spec:10,channel:'恒滋',price:99,yonghui:'1532413',status:'on'},
+    {id:'p2',barcode:'6934665094026',name:'红桶',spec:10,channel:'福宝',price:99,yonghui:'1532413',status:'on'},
+    {id:'p3',barcode:'6934665093944',name:'低脂高钙',spec:6,channel:'恒滋',price:78.6,yonghui:'1462909',status:'on'},
+    {id:'p4',barcode:'6934665093944',name:'低脂高钙',spec:6,channel:'福宝',price:78.6,yonghui:'1462909',status:'on'},
+    {id:'p5',barcode:'6934665081392',name:'原桶',spec:10,channel:'恒滋',price:110,yonghui:'166512',status:'on'},
+    {id:'p6',barcode:'6934665091254',name:'CD杯（16连）',spec:6,channel:'恒滋',price:81.78,yonghui:'939334',status:'on'},
+    {id:'p7',barcode:'6970618572234',name:'简爱超级顺LGG',spec:12,channel:'恒滋',price:84,yonghui:'',status:'on'},
+    {id:'p8',barcode:'6970618572302',name:'简爱超级桶荔枝杨梅',spec:12,channel:'恒滋',price:85.2,yonghui:'2081310',status:'on'},
+    {id:'p9',barcode:'6970618571015',name:'简爱生牛乳米布丁',spec:24,channel:'福宝',price:93.3,yonghui:'',status:'on'},
+    {id:'p10',barcode:'6970618571961',name:'简爱焦糖牛奶布丁',spec:24,channel:'福宝',price:155.52,yonghui:'',status:'on'},
+    {id:'p11',barcode:'6970618572869',name:'简爱吸吸乐原味',spec:40,channel:'福宝',price:88,yonghui:'',status:'on'}
+  ];
+}
+function seedQty(){
+  return {
+    p4:{u7:80,u8:30,u9:24,u10:18,u6:6,u19:20},
+    p5:{u6:20,u7:80,u8:20,u9:20,u19:30},
+    p6:{u16:150,u17:150},
+    p1:{u9:20,u10:10}
+  };
+}
+const IMPORT_NEW=[
+  {barcode:'6970618572746',name:'简爱超级果蔬草莓甜菜',spec:12,channel:'恒滋',price:91.2},
+  {barcode:'6970618572753',name:'简爱超级果蔬猕猴桃羽衣甘蓝',spec:12,channel:'恒滋',price:91.2},
+  {barcode:'6970618572814',name:'简爱开菲尔凤梨椰子',spec:9,channel:'福宝',price:113.4},
+  {barcode:'6934665094026',name:'红桶',spec:10,channel:'恒滋',price:99,verdict:'dup'}
+];
+
+/* ================= 状态 ================= */
+const $=s=>document.querySelector(s);
+let state={page:'workbench',products:seedProducts(),qty:seedQty(),extra:{},final:{},_adding:false};
+const fmt=n=>'¥'+Number(n).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt0=n=>Number(n).toLocaleString('zh-CN');
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._tm);t._tm=setTimeout(()=>t.classList.remove('show'),2200);}
+function showModal(html){$('#mask').innerHTML=`<div class="modal">${html}</div>`;$('#mask').classList.add('show');}
+function hideModal(){$('#mask').classList.remove('show');$('#mask').innerHTML='';}
+function rowCalc(p){
+  const q=state.qty[p.id]||{};
+  const total=Object.values(q).reduce((s,v)=>s+(Number(v)||0),0);
+  const cases=total/p.spec;
+  const roundCases=Math.ceil(cases);
+  const extra=Number(state.extra[p.id])||0;
+  const final=(p.id in state.final)?Number(state.final[p.id]):roundCases+extra;
+  return {total,cases,roundCases,extra,final,amt:final*p.price};
+}
+function calcAll(){
+  let forecastAmt=0,finalAmt=0,submitted=0;
+  const reported=new Set();
+  state.products.forEach(p=>{
+    const c=rowCalc(p);
+    if(p.status==='on')forecastAmt+=c.total*p.price;
+    finalAmt+=c.amt;
+    Object.keys(state.qty[p.id]||{}).forEach(u=>reported.add(u));
+    submitted+=c.total;
+  });
+  return {forecastAmt,finalAmt,reported,submitted};
+}
+
+/* ================= 工作台页 ================= */
+function renderWorkbench(){
+  const {forecastAmt,finalAmt,reported,submitted}=calcAll();
+  const notReported=MEMBERS.length-reported.size;
+  return `
+  <div class="greet">
+    <div>
+      <h1>早上好，张俊峰</h1>
+      <div class="sub">当前批次 <b>${BATCH.name}</b> · ${BATCH.deadline} 截止 · 到货 ${BATCH.arrive}</div>
+    </div>
+    <div class="acts">
+      <button class="btn btn-outline" data-go="forecast">📋 查看汇总表</button>
+      <button class="btn btn-dark" data-act="urge" data-primary-action>📣 一键催报（企微）</button>
+    </div>
+  </div>
+
+  <!-- AI 晨报（主动汇报，替代"选择数字员工"引导） -->
+  <div class="morning">
+    <div class="mh"><b>☀️ AI 晨报 · 8月6日</b><span>08:00 自动推送</span></div>
+    <p>
+      本批次已收 <b>${reported.size}/${MEMBERS.length}</b> 人预报，合计 <b>${fmt0(submitted)}</b> 件（最小单位），估算金额 ${fmt(forecastAmt)}。<br>
+      低脂高钙（福宝）已报 178 件 ≈ 30 箱，接近上次下单量；红桶（恒滋）还只有 30 件，<b>建议留意是否漏报</b>。<br>
+      8 月单品返利：原桶达成率 82%，<b>再订 40 箱即解锁下一档，预计多返 ¥2,600</b>。
+    </p>
+    <div class="ask">
+      <button data-ask="返利还差多少到下一档？">返利还差多少？</button>
+      <button data-ask="谁还没报单？">谁还没报单？</button>
+      <button data-ask="生成给厂家的整箱下单表">生成整箱下单表</button>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="k">📦 今日预报件数</div>
+      <div class="v">${fmt0(submitted)}<small> 件</small></div>
+      <div class="d">较上批次同期 <b style="color:var(--green);">+12%</b></div>
+    </div>
+    <div class="kpi ok">
+      <div class="k">👥 已提交 / 应报</div>
+      <div class="v">${reported.size}<small> / ${MEMBERS.length} 人</small></div>
+      <div class="d">未报 ${notReported} 人：${MEMBERS.filter(m=>!reported.has(m.id)).slice(0,2).map(m=>m.name).join('、')} 等</div>
+    </div>
+    <div class="kpi warn">
+      <div class="k">💰 最终下单金额</div>
+      <div class="v">${fmt0(finalAmt.toFixed(0))}</div>
+      <div class="d">整箱取整后 · 待经理定稿</div>
+    </div>
+    <div class="kpi">
+      <div class="k">🎯 本月返利进度</div>
+      <div class="v">82<small> %</small></div>
+      <div class="d">距下一档还差 <b style="color:var(--amber);">40 箱</b>（原桶）</div>
+    </div>
+  </div>
+
+  <div class="work-grid">
+    <!-- 批次流程 -->
+    <div class="wcard">
+      <div class="wh"><h3>本批次进度 · ${BATCH.name}</h3><button class="more" data-go="forecast">进入汇总表 →</button></div>
+      <div class="wb">
+        <div class="batch-flow">
+          <div class="bf-step done"><div class="bn">一线预报</div><div class="bs">${reported.size}/${MEMBERS.length} 人已报</div></div>
+          <div class="bf-step doing"><div class="bn">经理审核</div><div class="bs">指标+库存调整中</div></div>
+          <div class="bf-step"><div class="bn">整箱定稿</div><div class="bs">给厂家订单</div></div>
+          <div class="bf-step"><div class="bn">付款下单</div><div class="bs">余额差额通知</div></div>
+          <div class="bf-step"><div class="bn">舟谱入账</div><div class="bs">生成导入模板</div></div>
+        </div>
+        <div class="batch-meta">
+          <div class="bm">预报截止<b>${BATCH.deadline}（倒计时进行中）</b></div>
+          <div class="bm">预计到货<b>${BATCH.arrive}</b></div>
+          <div class="bm">下单通道<b>恒滋 / 福宝 分单</b></div>
+          <div class="bm">厂家余额<b>¥38,400（文员已更新）</b></div>
+        </div>
+      </div>
+    </div>
+    <!-- 待办 -->
+    <div class="wcard">
+      <div class="wh"><h3>待办</h3><span style="font-size:11.5px;color:var(--t3);">来自规则与 AI 检查</span></div>
+      <div class="wb">
+        <div class="todo">
+          <span class="dot r"></span>
+          <div class="tx"><div class="tt">${notReported} 人未提交预报</div><div class="ts">截止 18:00 · 可一键企微催报</div></div>
+          <button class="go" data-act="urge">催报</button>
+        </div>
+        <div class="todo">
+          <span class="dot a"></span>
+          <div class="tx"><div class="tt">红桶（恒滋）预报量异常偏低</div><div class="ts">30 件 vs 上批次 210 件 · 建议核实是否漏报</div></div>
+          <button class="go" data-go="forecast">查看</button>
+        </div>
+        <div class="todo">
+          <span class="dot c"></span>
+          <div class="tx"><div class="tt">原桶距下一档返利差 40 箱</div><div class="ts">本次加单即可解锁 · 预计多返 ¥2,600</div></div>
+          <button class="go" data-go="forecast">去加单</button>
+        </div>
+        <div class="todo">
+          <span class="dot c"></span>
+          <div class="tx"><div class="tt">上批次舟谱导入模板待生成</div><div class="ts">定稿后一键生成 CSV</div></div>
+          <button class="go">生成</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="rule-note" style="margin-top:14px;">
+    <b>改造说明</b>：首屏从"选择数字员工"改为经营工作台——老板打开先看到今日批次状态、谁没报单、返利差多少；AI 晨报主动汇报替代引导卡片；数字员工角色收纳进左侧单一 AI 入口（对话仍可开单/催报/问返利）。
+  </div>`;
+}
+
+/* ================= 预报订货管理（汇总表） ================= */
+function renderForecast(){
+  const prods=state.products;
+  const totals=calcAll();
+  const rows=prods.map(p=>{
+    const c=rowCalc(p);
+    const disabled=p.status==='off';
+    return `<tr class="${disabled?'disabled':''}">
+      <td style="color:var(--t3);font-size:11px;">${p.barcode}</td>
+      <td><div class="pname">${p.name}</div><div class="psub">规格 ${p.spec}件/箱${p.yonghui?' · 永辉'+p.yonghui:''}</div></td>
+      <td style="text-align:center;"><span class="chip ${p.channel==='恒滋'?'hz':'fb'}">${p.channel}下单</span></td>
+      <td class="num">${fmt(p.price)}</td>
+      ${MEMBERS.map(m=>{
+        const v=(state.qty[p.id]||{})[m.id];
+        return `<td class="qty-cell"><input inputmode="numeric" data-cell="${p.id}|${m.id}" value="${v||''}" placeholder="·" ${disabled?'disabled':''}></td>`;
+      }).join('')}
+      <td class="calc">${c.total||''}</td>
+      <td class="calc">${c.total?(Math.round(c.cases*10)/10):''}</td>
+      <td class="calc">${c.total?c.roundCases:''}</td>
+      <td class="qty-cell"><input inputmode="numeric" data-extra="${p.id}" value="${c.extra||''}" placeholder="0" ${disabled?'disabled':''}></td>
+      <td class="final-cell"><input inputmode="numeric" data-final="${p.id}" value="${c.final}" ${disabled?'disabled':''}></td>
+      <td class="amt">${c.final?fmt(c.amt):''}</td>
+      <td style="text-align:center;">${disabled
+        ?`<button class="btn-link" data-enable="${p.id}">启用</button>`
+        :`<button class="btn-link danger" data-disable="${p.id}">停用</button>`}</td>
+    </tr>`;
+  }).join('');
+  const addRow=`<tr class="adding">
+    <td><input id="nBarcode" placeholder="条码"></td>
+    <td><input id="nName" placeholder="简称 *"></td>
+    <td><select id="nChannel" style="border:1px solid var(--brand);border-radius:6px;font-size:12px;padding:3px;"><option>恒滋</option><option>福宝</option></select></td>
+    <td><input id="nPrice" placeholder="单价 *" inputmode="decimal"></td>
+    <td colspan="${MEMBERS.length}" style="text-align:center;color:var(--t3);font-size:12px;">← 新增商品后，报单列自动可用（小程序端同步可见）</td>
+    <td><input id="nSpec" placeholder="每箱件数 *" inputmode="numeric" style="min-width:70px;"></td>
+    <td colspan="5"></td>
+    <td style="text-align:center;"><button class="btn btn-sm btn-primary" data-act="add-row-save">保存</button> <button class="btn-link" data-act="add-row-cancel">取消</button></td>
+  </tr>`;
+  return `
+  <div class="page-head">
+    <div>
+      <h1>预报订货管理 · ${BATCH.name}</h1>
+      <div class="desc">商品管理就在这张表里：上传下单表 Excel 批量导入商品、表内加行新增；小程序端成员提交自动回填报单列</div>
+    </div>
+    <div class="acts">
+      <button class="btn btn-outline" data-act="open-import" data-primary-action>📥 上传下单表 Excel 导入商品</button>
+      <button class="btn btn-dark" data-act="add-row">＋ 加行新增商品</button>
+      <button class="btn btn-primary" data-act="gen-template">📄 生成舟谱导入模板</button>
+    </div>
+  </div>
+  <div class="stat-row">
+    <div class="stat"><div class="v">${prods.filter(p=>p.status==='on').length}<small style="font-size:12px;color:var(--t3);">/${prods.length}</small></div><div class="k">在售 SKU / 全部</div></div>
+    <div class="stat"><div class="v">${fmt0(totals.forecastAmt.toFixed(0))}</div><div class="k">预报合计（估算）</div></div>
+    <div class="stat"><div class="v">${fmt0(totals.finalAmt.toFixed(0))}</div><div class="k">最终下单金额</div></div>
+    <div class="stat"><div class="v">${MEMBERS.filter(m=>!m.store).length} 人 / ${MEMBERS.filter(m=>m.store).length} 店</div><div class="k">报单成员 / 门店</div></div>
+    <div class="stat"><div class="v">恒滋 / 福宝</div><div class="k">下单通道（给厂家分单）</div></div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="grp-prod" rowspan="2" style="min-width:105px;">条码</th>
+          <th class="grp-prod" rowspan="2" style="min-width:150px;">商品（简称）</th>
+          <th class="grp-prod" rowspan="2">下单<br>通道</th>
+          <th class="grp-prod" rowspan="2">单价<br>(元/箱)</th>
+          <th class="grp-fill" colspan="${MEMBERS.length}">报单列（小程序提交自动回填 · 最小单位）</th>
+          <th class="grp-sum" colspan="3">自动汇总</th>
+          <th class="grp-sum" rowspan="2">加单<br>(整箱)</th>
+          <th class="grp-sum" rowspan="2">最终下单<br>(整箱)</th>
+          <th class="grp-sum" rowspan="2">下单金额</th>
+          <th rowspan="2">状态</th>
+        </tr>
+        <tr>
+          ${MEMBERS.map(m=>`<th class="grp-fill" style="min-width:46px;">${m.name}${m.store?'<br><span style="font-size:9px;color:var(--t3);">店</span>':''}</th>`).join('')}
+          <th class="grp-sum">合计<br>(最小)</th>
+          <th class="grp-sum">折箱</th>
+          <th class="grp-sum">整箱<br>建议</th>
+        </tr>
+      </thead>
+      <tbody>${rows}${state._adding?addRow:''}</tbody>
+      <tfoot><tr>
+        <td colspan="4">总合计</td>
+        ${MEMBERS.map(m=>{
+          const s=prods.reduce((t,p)=>t+((state.qty[p.id]||{})[m.id]||0),0);
+          return `<td style="text-align:center;">${s||''}</td>`;
+        }).join('')}
+        <td>${fmt0(prods.reduce((t,p)=>t+rowCalc(p).total,0))}</td>
+        <td></td><td></td>
+        <td>${fmt0(prods.reduce((t,p)=>t+rowCalc(p).extra,0))}</td>
+        <td>${fmt0(prods.reduce((t,p)=>t+rowCalc(p).final,0))}</td>
+        <td>${fmt(totals.finalAmt)}</td>
+        <td></td>
+      </tr></tfoot>
+    </table>
+  </div>
+  <div class="rule-note">
+    <b>业务规则（已内置）</b>：① 报单端不显示任何价格与金额（厂价保密）；② 报单人统一按最小单位报单，系统按"规格件/箱"自动折箱；
+    ③ 给厂家下单取整为整箱——"整箱建议"为向上取整，经理可在"最终下单"列改为任意整箱数；④ 同条码按下单通道（恒滋/福宝）分行，给厂家分单不混淆。
+  </div>`;
+}
+function bindForecastInputs(){
+  document.querySelectorAll('[data-cell]').forEach(inp=>inp.addEventListener('change',e=>{
+    const [pid,uid]=e.target.dataset.cell.split('|');
+    const v=Math.max(0,Math.floor(Number(e.target.value)||0));
+    if(!state.qty[pid])state.qty[pid]={};
+    if(v)state.qty[pid][uid]=v;else delete state.qty[pid][uid];
+    delete state.final[pid];render();
+  }));
+  document.querySelectorAll('[data-extra]').forEach(inp=>inp.addEventListener('change',e=>{
+    const pid=e.target.dataset.extra;
+    const v=Math.max(0,Math.floor(Number(e.target.value)||0));
+    state.extra[pid]=v;delete state.final[pid];render();
+  }));
+  document.querySelectorAll('[data-final]').forEach(inp=>inp.addEventListener('change',e=>{
+    const pid=e.target.dataset.final;
+    const v=Number(e.target.value);
+    if(!Number.isInteger(v)||v<0){toast('最终下单必须是非负整数（整箱）');render();return;}
+    state.final[pid]=v;render();
+  }));
+  document.querySelectorAll('[data-disable]').forEach(b=>b.addEventListener('click',()=>{
+    const p=state.products.find(x=>x.id===b.dataset.disable);p.status='off';render();
+    toast(`「${p.name}（${p.channel}）」已停用，小程序端不再显示`);
+  }));
+  document.querySelectorAll('[data-enable]').forEach(b=>b.addEventListener('click',()=>{
+    const p=state.products.find(x=>x.id===b.dataset.enable);p.status='on';render();toast(`「${p.name}」已重新启用`);
+  }));
+}
+
+/* ================= 数据接入中心（改造后） ================= */
+function renderData(){
+  return `
+  <div class="page-head">
+    <div>
+      <h1>数据接入中心</h1>
+      <div class="desc">舟谱 Excel 为主要数据源（做深）；金蝶/用友/畅捷通保留为展示能力，暂不主推</div>
+    </div>
+  </div>
+  <div class="conn-grid">
+    <div class="conn-card">
+      <h3>📥 Excel 导入</h3>
+      <div class="cd">上传舟谱导出的 Excel，系统自动解析入库。</div>
+      <div class="main-conn">
+        <div class="mt">舟谱 · 下单表商品导入 <span class="tagchip rec">推荐 · 商品档案入口</span></div>
+        <div class="ms">上传「最新26年8月下单表.xlsx」→ 解析商品行（条码/简称/规格/通道/单价）→ 新条码入库、重复跳过。<br><button class="btn btn-sm btn-primary" data-act="open-import" style="margin-top:8px;">上传下单表</button></div>
+      </div>
+      <div class="main-conn" style="border-color:var(--line);background:#fafbfc;">
+        <div class="mt">舟谱 · 发货实绩 / 订单数据 <span class="tagchip rec">已接入</span></div>
+        <div class="ms">上次同步：8月5日 21:30 · 525 订单 · 8024 条专属价<br><button class="btn btn-sm btn-outline" style="margin-top:8px;">立即同步</button></div>
+      </div>
+    </div>
+    <div class="conn-card">
+      <h3>🔌 ERP API 接入</h3>
+      <div class="cd">以下连接器保留能力展示，当前阶段建议以舟谱 Excel 为主。</div>
+      <div class="other"><div class="ot">金蝶云·星空 REST API<span>OAuth2 · 展示中，按需启用</span></div><span class="tagchip later">暂缓</span></div>
+      <div class="other"><div class="ot">用友 U8+ 开放 API<span>展示中，按需启用</span></div><span class="tagchip later">暂缓</span></div>
+      <div class="other"><div class="ot">畅捷通 T+ REST API<span>展示中，按需启用</span></div><span class="tagchip later">暂缓</span></div>
+    </div>
+  </div>
+  <div class="rule-note" style="margin-top:14px;"><b>改造说明</b>：三个通用 ERP 连接器从与舟谱并列改为降级展示（灰化+"暂缓"标签），舟谱下单表导入提升为一级入口并标注"商品档案入口"。</div>`;
+}
+
+/* ================= Excel 导入弹窗 ================= */
+function openImport(){
+  const news=IMPORT_NEW.filter(x=>!x.verdict);
+  showModal(`
+    <div class="mh"><h3>上传下单表 Excel · 解析商品行</h3><button class="x" data-close>✕</button></div>
+    <div class="mb">
+      <div style="border:1.5px dashed var(--line);border-radius:12px;padding:16px;text-align:center;margin-bottom:14px;background:#fafbfc;">
+        <div style="font-size:24px;">📄</div>
+        <div style="font-size:13px;font-weight:600;margin:5px 0 3px;">最新26年8月下单表.xlsx</div>
+        <div style="font-size:11.5px;color:var(--t3);">演示模式：已模拟解析最新工作表「${BATCH.name}」的商品行</div>
+      </div>
+      <div class="imp-sum">
+        <div class="it ok"><b>${news.length}</b><span>新条码 · 将新增入库</span></div>
+        <div class="it dup"><b>${IMPORT_NEW.length-news.length}</b><span>条码+通道已存在 · 跳过</span></div>
+      </div>
+      <div class="imp-tbl"><table>
+        <thead><tr><th>条码</th><th>简称</th><th>每箱件数</th><th>通道</th><th>单价</th><th>结果</th></tr></thead>
+        <tbody>
+          ${IMPORT_NEW.map(x=>`<tr>
+            <td style="color:var(--t3);font-size:11.5px;">${x.barcode}</td>
+            <td style="font-weight:600;">${x.name}</td>
+            <td style="text-align:center;">${x.spec}</td>
+            <td style="text-align:center;"><span class="chip ${x.channel==='恒滋'?'hz':'fb'}">${x.channel}</span></td>
+            <td style="text-align:right;">${fmt(x.price)}</td>
+            <td>${x.verdict?'<span class="chip off">重复跳过</span>':'<span class="chip green">新增</span>'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+      <div style="font-size:11.5px;color:var(--t3);margin-top:10px;">导入即新增商品行，小程序报单端立即可见可报。</div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-outline" data-close>取消</button>
+      <button class="btn btn-primary" data-act="confirm-import" data-primary-action>确认导入 ${news.length} 个新商品</button>
+    </div>`);
+}
+
+/* ================= 渲染调度 ================= */
+function render(){
+  const ms=$('#mainScroll');
+  if(state.page==='workbench')ms.innerHTML=renderWorkbench();
+  else if(state.page==='forecast'){ms.innerHTML=renderForecast();bindForecastInputs();}
+  else if(state.page==='data')ms.innerHTML=renderData();
+  document.querySelectorAll('.sb-item[data-page]').forEach(el=>el.classList.toggle('active',el.dataset.page===state.page));
+  ms.scrollTop=0;
+}
+
+/* ================= 事件 ================= */
+document.querySelectorAll('.sb-item[data-page]').forEach(el=>el.addEventListener('click',()=>{state.page=el.dataset.page;render();}));
+document.addEventListener('click',e=>{
+  const go=e.target.closest('[data-go]');
+  if(go){state.page=go.dataset.go;render();return;}
+  const ask=e.target.closest('[data-ask]');
+  if(ask){$('#aiInput').value=ask.dataset.ask;$('#aiInput').focus();toast('已填入 AI 输入框，真实版将走 Hermes 引擎回答');return;}
+  const el=e.target.closest('[data-act],[data-close]');
+  if(!el)return;
+  if(el.hasAttribute('data-close')){hideModal();return;}
+  const act=el.dataset.act;
+  if(act==='open-import'){openImport();return;}
+  if(act==='confirm-import'){
+    let n=0;
+    IMPORT_NEW.forEach(x=>{
+      if(x.verdict)return;
+      if(state.products.find(p=>p.barcode===x.barcode&&p.channel===x.channel))return;
+      state.products.push({id:'p'+Date.now()+n,barcode:x.barcode,name:x.name,spec:x.spec,channel:x.channel,price:x.price,yonghui:'',status:'on'});
+      n++;
+    });
+    hideModal();render();toast(`导入完成：新增 ${n} 个商品行，小程序端已同步`);return;
+  }
+  if(act==='add-row'){state._adding=true;render();setTimeout(()=>$('#nName')?.focus(),50);return;}
+  if(act==='add-row-cancel'){state._adding=false;render();return;}
+  if(act==='add-row-save'){
+    const name=$('#nName').value.trim(),price=parseFloat($('#nPrice').value),spec=parseInt($('#nSpec').value,10);
+    const barcode=$('#nBarcode').value.trim(),channel=$('#nChannel').value;
+    if(!name){toast('请填写商品简称');return;}
+    if(!(price>0)){toast('请填写单价');return;}
+    if(!(spec>0)){toast('请填写每箱件数（规格）');return;}
+    state.products.push({id:'p'+Date.now(),barcode:barcode||'',name,spec,channel,price,yonghui:'',status:'on'});
+    state._adding=false;render();toast(`已新增「${name}（${channel}下单）」，小程序端同步可见`);return;
+  }
+  if(act==='gen-template'){toast('定稿后一键生成舟谱导入 CSV（确定性模板，字段固定可复现）');return;}
+  if(act==='urge'){toast('已通过企微@未报单成员（演示）：唐成、黄家伟…');return;}
+});
+
+/* ================= 启动 ================= */
+render();
+</script>
+</body>
+</html>

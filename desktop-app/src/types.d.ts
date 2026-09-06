@@ -38,7 +38,7 @@ interface HermesAPI {
   openExternal: (url: string) => void;
   createPayment: (amount: number) => Promise<PaymentResult>;
   checkPayment: (orderId: string) => Promise<{ paid: boolean; credits_added?: number }>;
-  devPay: (orderId: string, deviceId: string, amount: number) => Promise<DevPayResult>;
+  // devPay（免单充值）声明已移除——免单后门已封死
   [key: string]: any;
 }
 

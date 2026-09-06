@@ -1,0 +1,47 @@
+# 路线 B 配置片段模板：自托管 cjt2mcp（Docker，多租户友好）
+#
+# 来源：社区开源 cjt2mcp（glama.ai）—— 畅捷通 OpenAPI → MCP(streamable-http)
+#       每个客户 = 一个畅捷通自建应用，凭据 AES-GCM 加密入库，交付独立 MCP Key。
+#       部署：单 Docker，给客户交付 https://<你的host>/<tenant>/mcp + 独立 MCP Key。
+#
+# 把下面这段合并进 ~/.hermes/config.yaml 的 mcp_servers: 下（或用 setup_chanjet_mcp.py 注入）。
+# 每个客户用独立 server 名 + 独立 MCP Key，天然租户隔离。
+
+mcp_servers:
+  chanjet_acme:                              # 客户 acme 的隔离实例
+    url: "https://mcp.your-host.com/acme/mcp"
+    headers:
+      Authorization: "Bearer ${CHANJET_MCP_KEY_ACME}"   # 各客户独立 env 变量
+    tools:
+      exclude:                               # 同上，默认只读
+        - create
+        - add
+        - new
+        - insert
+        - save
+        - update
+        - edit
+        - modify
+        - submit
+        - audit
+        - approve
+        - delete
+        - remove
+        - cancel
+        - void
+        - revoke
+        - post
+        - book
+        - push
+        - sync
+        - send
+        - transfer
+        - pay
+        - refund
+        - close
+        - import
+
+  # chanjet_other:                          # 第二个客户……复制上面即可
+  #   url: "https://mcp.your-host.com/other/mcp"
+  #   headers:
+  #     Authorization: "Bearer ${CHANJET_MCP_KEY_OTHER}"

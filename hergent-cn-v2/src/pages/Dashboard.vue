@@ -92,7 +92,7 @@ onMounted(loadData)
 .page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
 .page-hd h2{font-size:20px;font-weight:600}
 .page-sub{font-size:12px;color:var(--t3)}
-.chart-card{padding:16px;margin-bottom:14px}
+.chart-card{margin-bottom:14px}
 .legend{display:flex;gap:14px}
 .lg-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)}
 .lg-dot{width:10px;height:10px;border-radius:3px;display:inline-block}

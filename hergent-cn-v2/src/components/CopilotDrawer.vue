@@ -45,7 +45,7 @@
             <div v-for="s in store.chat.sessions" :key="s.id" class="cp-hist-item" :class="{ on: s.id === store.chat.currentId }" @click="openSession(s.id)">
               <div class="cp-hist-title">{{ s.title }}</div>
               <div class="cp-hist-meta">{{ fmtTime(s.updated_at) }} · {{ s.messages.length }} 条</div>
-              <button class="cp-hist-del" title="删除" @click.stop="delSession(s.id)">✕</button>
+              <button class="cp-hist-del" title="删除" @click.stop="delSession(s.id)"><Icon name="close"/></button>
             </div>
           </div>
         </div>
@@ -57,7 +57,7 @@
         <div class="cp-body" ref="cpBody">
           <div v-if="!store.chat.messages.length" class="cp-welcome">
             <div class="cp-w-ic">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--p-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M5 12H3M21 12h-3M6 6l-2-2M20 20l-2-2M6 18l-2 2M20 4l-2 2"/><circle cx="12" cy="12" r="4"/></svg>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--p-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
             </div>
             <p class="cp-w-title">问 AI 副驾任何经营问题</p>
             <p class="cp-w-sub">它会读你的真实数据回答</p>
@@ -102,6 +102,18 @@
               <!-- 结构化经营结果卡 -->
               <ResultCard v-if="m.card" :card="m.card" @action="onCardAction" />
 
+              <!-- AI 调用工具的过程（H2：让推理可见，提升信任） -->
+              <div v-if="m.tools && m.tools.length" class="msg-tools">
+                <div v-for="(t, ti) in m.tools" :key="ti" class="cp-tool" :class="t.status">
+                  <span class="cp-tool-ic">
+                    <svg v-if="t.status === 'running'" class="cp-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>
+                    <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </span>
+                  <span class="cp-tool-name">{{ t.name }}</span>
+                  <span v-if="t.args" class="cp-tool-args">{{ shortArgs(t.args) }}</span>
+                </div>
+              </div>
+
               <!-- 渐进式访谈引导（M2） -->
               <div v-if="m.followups && m.followups.length" class="cp-followups">
                 <button v-for="(f, fi) in m.followups" :key="fi" class="cp-fubtn" @click="askFollowup(f)">{{ f.label || f }}</button>
@@ -120,17 +132,17 @@
           <!-- 待发送附件 -->
           <div v-if="attachments.length" class="cp-atts">
             <div v-for="(a, i) in attachments" :key="i" class="cp-att">
-              <span class="cp-att-ic">{{ a.file_type === 'image' ? '🖼' : '📄' }}</span>
+              <span class="cp-att-ic"><Icon :name="a.file_type === 'image' ? 'image' : 'file'"/></span>
               <span class="cp-att-name">{{ a.file_name }}</span>
               <span v-if="a.rows" class="cp-att-meta">{{ a.rows }} 行</span>
-              <button class="cp-att-x" @click="removeAtt(i)">✕</button>
+              <button class="cp-att-x" @click="removeAtt(i)"><Icon name="close"/></button>
             </div>
           </div>
 
           <!-- 智能导入建议（B 路径：识别到账务文件可一键入库） -->
           <div v-if="smartImport" class="cp-smart">
             <div class="cp-smart-hd">
-              <span class="cp-smart-ic">📥</span>
+              <span class="cp-smart-ic"><Icon name="download"/></span>
               <div>
                 <div class="cp-smart-title">{{ smartImport.message }}</div>
                 <div class="cp-smart-meta">约 {{ smartImport.total_estimate }} 行 · 置信度 {{ smartImport.confidence }}%</div>
@@ -245,13 +257,13 @@
         <div class="cp-fwd" @click.stop>
           <div class="cp-fwd-hd">
             <b>转发到微信</b>
-            <button class="cp-icon-btn" @click="forwardCard = null">✕</button>
+            <button class="cp-icon-btn" @click="forwardCard = null"><Icon name="close"/></button>
           </div>
           <p class="cp-fwd-sub">把下面的经营摘要复制后，发到老板群 / 客户群：</p>
           <textarea class="cp-fwd-text" :value="forwardText" readonly ref="fwdText"></textarea>
           <div class="cp-fwd-ops">
             <button class="btn btn-ghost btn-sm" @click="forwardCard = null">取消</button>
-            <button class="btn btn-primary btn-sm" @click="doCopy">{{ copied ? '已复制 ✓' : '复制摘要' }}</button>
+            <button class="btn btn-primary btn-sm" @click="doCopy">{{ copied ? '已复制 ' : '复制摘要' }}<Icon v-if="copied" name="check"/></button>
             <button v-if="canShare" class="btn btn-primary btn-sm" @click="doShare">直接分享</button>
           </div>
         </div>
@@ -261,6 +273,7 @@
 </template>
 
 <script setup>
+import Icon from './Icon.vue'
 import { ref, nextTick, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { store, loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession, loadAiRoles, setAiRole } from '../store'
 import { hermesChat, api, CHAT_TIMEOUT_NORMAL, CHAT_TIMEOUT_LONG } from '../api/client'
@@ -353,6 +366,11 @@ function onWinResize() {
   if (artWidth.value > maxW) artWidth.value = maxW
 }
 
+function shortArgs(s) {
+  if (!s) return ''
+  const t = String(s).replace(/\s+/g, ' ').trim()
+  return t.length > 80 ? t.slice(0, 80) + '…' : t
+}
 function fmtTime(ts) {
   if (!ts) return ''
   const d = new Date(ts)
@@ -583,7 +601,7 @@ async function doSmartImport() {
     const ex = await importApi.execute(pendingSmartFile, sp.category, sp.mapping || {})
     const ok = ex.success !== false
     smartResultErr.value = !ok
-    smartResult.value = ok ? `✅ 已导入 ${ex.success ?? '完成'} 条（跳过 ${ex.skipped ?? 0}，重复 ${ex.dupes ?? 0}）` : (ex.error || ex.detail || '导入失败')
+    smartResult.value = ok ? `已导入 ${ex.success ?? '完成'} 条（跳过 ${ex.skipped ?? 0}，重复 ${ex.dupes ?? 0}）` : (ex.error || ex.detail || '导入失败')
     if (ok) { smartImport.value = null; pendingSmartFile = null }
   } catch (e) {
     smartResultErr.value = true
@@ -706,7 +724,7 @@ async function streamReply(payload) {
   const { content, sys, q, tableFiles } = payload
   store.chat.error = ''
   store.chat.messages.push({ role: 'user', content })
-  store.chat.messages.push({ role: 'assistant', content: '' })
+  store.chat.messages.push({ role: 'assistant', content: '', tools: [] })
   const replyIndex = store.chat.messages.length - 1
   store.chat.streaming = true
   scrollBottom()
@@ -721,6 +739,19 @@ async function streamReply(payload) {
       {
         system: sys,
         timeout: isHeavy ? CHAT_TIMEOUT_LONG : CHAT_TIMEOUT_NORMAL,
+        onTool: (step) => {
+          const last = store.chat.messages[replyIndex]
+          if (!last || !last.tools) return
+          if (step.phase === 'start') {
+            last.tools.push({ name: step.name, args: step.args, status: 'running' })
+          } else if (step.phase === 'done') {
+            const t = last.tools.find(x => x.name === step.name && x.status === 'running')
+            if (t) t.status = 'done'
+          } else if (step.phase === 'result') {
+            const t = last.tools.find(x => x.name === step.name && x.status === 'running')
+            if (t) { t.status = 'done'; t.result = step.result }
+          }
+        },
         onDelta: (d, full) => {
           const last = store.chat.messages[replyIndex]
           if (!last) return
@@ -991,6 +1022,17 @@ watch(() => store.chat.messages.length, scrollBottom)
 
 /* M3 任务进度容器 */
 .msg-progress{width:100%;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px}
+
+/* H2 AI 工具调用过程可视化 */
+.msg-tools{display:flex;flex-direction:column;gap:4px;margin-top:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
+.cp-tool{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t2);line-height:1.5}
+.cp-tool-ic{display:flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--p-dark);flex-shrink:0}
+.cp-tool.running .cp-tool-ic{color:var(--war)}
+.cp-tool.done .cp-tool-ic{color:var(--suc)}
+.cp-tool-name{font-weight:600;color:var(--t1)}
+.cp-tool-args{color:var(--t3);font-family:var(--mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.cp-spin{animation:cp-spin 0.9s linear infinite}
+@keyframes cp-spin{to{transform:rotate(360deg)}}
 
 /* M5 语音输入按钮 */
 .cp-voice{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0;border:none;background:none}

@@ -298,7 +298,7 @@ onMounted(loadData)
 
 /* KPI 横条（顶部紧凑统计带） */
 .kpi-strip{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);padding:6px 0}
-.todo-panel{grid-column:1/-1;padding:16px}
+.todo-panel{grid-column:1/-1}
 .todo-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .todo-item{display:flex;align-items:center;gap:12px;border:1px solid var(--bd);border-radius:12px;padding:12px 14px;cursor:pointer;transition:background .15s}
 .todo-item:hover{background:var(--bg2)}
@@ -323,9 +323,9 @@ onMounted(loadData)
 
 /* Bento 模块布局 */
 .today-panel{grid-column:span 8;grid-row:span 2;padding:18px;min-height:280px}
-.expiry-card{grid-column:span 4;padding:16px}
-.trend-card{grid-column:span 4;padding:16px}
-.report-panel{grid-column:1/-1;padding:16px}
+.expiry-card{grid-column:span 4}
+.trend-card{grid-column:span 4}
+.report-panel{grid-column:1/-1}
 
 .today-list{display:flex;flex-direction:column;gap:10px}
 .today-card{position:relative;display:flex;align-items:flex-start;gap:12px;padding:14px 16px 14px 18px;border:1px solid var(--border-subtle);border-radius:14px;background:var(--bg);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}

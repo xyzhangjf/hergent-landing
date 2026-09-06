@@ -17,7 +17,15 @@
   <div class="main-body">
 
             <!-- ========== 侧边栏 ========== -->
-    <div class="sidebar">
+    <nav class="sidebar">
+      <!-- 品牌标识 -->
+      <div class="sidebar-brand">
+        <div class="sb-logo">H</div>
+        <div class="sb-text">
+          <span class="sb-name">Hergent</span>
+          <span class="sb-sub">你的数字员工</span>
+        </div>
+      </div>
       <!-- 动态角色列表（由 renderSidebar() 渲染） -->
       <div id="sidebarRoles"></div>
 
@@ -37,14 +45,11 @@
         <button class="sidebar-item page-item" data-page="pageSkills" onclick="switchPage(&apos;pageSkills&apos;)">
           <span class="si-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><span class="si-label">我的技能</span>
         </button>
-        <button class="sidebar-item page-item" data-page="pageErp" onclick="openErp()" style="margin-top:8px;border-top:1px solid var(--border-subtle);padding-top:10px;">
-          <span class="si-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><span class="si-label">进销存</span>
-        </button>
         <button class="sidebar-item page-item" data-page="pageSettings" onclick="switchPage(&apos;pageSettings&apos;)">
           <span class="si-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="si-label">设置</span>
         </button>
       </div>
-    </div>
+    </nav>
 
     <!-- 侧边栏拖拽手柄 -->
     <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
@@ -64,12 +69,12 @@
       </div>
     </div>
 
-    <div class="right-panel" id="rightPanel" style="visibility:hidden;">
+    <main class="right-panel" id="rightPanel" style="visibility:hidden;">
 
       <!-- 页面1: 主页（对话面板填满）-->
       <div class="page active" id="pageHome">
         <div class="chat-panel" id="chatPanel">
-          <div class="drop-overlay" id="dropOverlay"><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 释放文件</div>
+          <div class="drop-overlay" id="dropOverlay"><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="va-middle"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 释放文件</div>
           <div class="onboarding-guide" id="onboardingGuide" style="display:none;"></div>
           <div class="low-credits-banner" id="lowCreditsBanner" style="display:none;">
             <span class="lcb-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
@@ -125,14 +130,14 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </button>
               <span class="cost-estimate" id="costEstimate" title="本条消息预估消耗">≈<span id="costEstimateNum">2-5</span>分</span>
-              <span class="credits-badge" id="creditsBadge" onclick="switchPage('pageSettings')" title="点击查看积分明细"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> <span id="creditsText">--</span></span>
+              <span class="credits-badge" id="creditsBadge" onclick="switchPage('pageSettings')" title="点击查看积分明细"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="va-sub"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> <span id="creditsText">--</span></span>
               <button class="chat-file-btn" id="feishuBtn" onclick="pushToFeishu()" title="推送到飞书"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><path d="M4.93 4.93l4.24 4.24"/><path d="M14.83 14.83l4.24 4.24"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l4.24-4.24"/><path d="M14.83 9.17l4.24-4.24"/></svg></button>
               <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" title="发送"><svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
               <button class="chat-cancel-btn" id="chatCancelBtn" onclick="cancelStream()" style="display:none;" title="停止"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
             </div>
           </div>
           <div class="pipeline-roles-bar" id="pipelineRolesBar" style="display:none;">
-            <span class="prb-label"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 工作组：</span>
+            <span class="prb-label"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="va-sub"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 工作组：</span>
             <div class="prb-roles" id="prbRoles"></div>
             <button class="prb-config-btn" onclick="showPipelineConfig()" title="调整工作组">⚙</button>
           </div>
@@ -277,19 +282,19 @@
             <div class="settings-section" data-settings-category="general">
               <div class="settings-section-title">外观</div>
               <div class="theme-switcher" id="themeSwitcher">
-                <button class="theme-option active" data-theme="system" onclick="setTheme('system')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> 跟随系统</button>
-                <button class="theme-option" data-theme="light" onclick="setTheme('light')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> 浅色</button>
-                <button class="theme-option" data-theme="dark" onclick="setTheme('dark')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> 深色</button>
+                <button class="theme-option active" data-theme="system" onclick="setTheme('system')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="va-middle"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> 跟随系统</button>
+                <button class="theme-option" data-theme="light" onclick="setTheme('light')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="va-middle"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> 浅色</button>
+                <button class="theme-option" data-theme="dark" onclick="setTheme('dark')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="va-middle"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> 深色</button>
               </div>
             </div>
             <div class="settings-section" data-settings-category="general">
               <div class="settings-section-title">模型配置</div>
-              <div class="settings-row"><span>当前模型</span><span class="settings-val" id="setModelName" style="font-weight:600;color:var(--brand-500);">--</span></div>
-              <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 4px;">在输入栏切换模型，当前模型自动同步显示</p>
+              <div class="settings-row"><span>当前模型</span><span class="settings-val val-brand" id="setModelName">--</span></div>
+              <p class="text-tertiary-12 mb-4">在输入栏切换模型，当前模型自动同步显示</p>
             </div>
             <div class="settings-section" data-settings-category="general">
               <div class="settings-section-title">我的记忆</div>
-              <p class="settings-hint" style="font-size:12px;color:var(--text-tertiary);margin:4px 0 0;">Hermes 在对话中记住关于你的事，越用越懂你</p>
+              <p class="settings-hint text-tertiary-12 mt-4">Hermes 在对话中记住关于你的事，越用越懂你</p>
               <div class="memory-level" id="memoryLevel">
                 <div class="ml-header">
                   <span class="ml-label">AI 对你的了解</span>
@@ -330,8 +335,8 @@
             <!-- 用量统计 -->
             <div class="settings-section" data-settings-category="usage">
               <div class="settings-section-title">积分</div>
-              <div class="settings-row"><span>当前余额</span><span class="settings-val" id="setCredits" style="font-weight:600;color:var(--brand-500);">--</span></div>
-              <button class="settings-btn" style="margin-top:4px;" onclick="showRecharge()">充值</button>
+              <div class="settings-row"><span>当前余额</span><span class="settings-val val-brand" id="setCredits">--</span></div>
+              <button class="settings-btn mt-4" onclick="showRecharge()">充值</button>
             </div>
             <div class="settings-section" data-settings-category="usage">
               <div class="settings-section-title">用量明细</div>
@@ -349,7 +354,7 @@
               <button class="settings-btn" onclick="importSettings()">📤 导入设置</button>
             </div>
             <div class="settings-section" data-settings-category="backup">
-              <button class="settings-btn danger" onclick="clearAllData()" style="margin-bottom:4px;">🗑 清除所有数据</button>
+              <button class="settings-btn danger mb-4" onclick="clearAllData()">🗑 清除所有数据</button>
               <button class="settings-btn" onclick="logout()">退出登录</button>
             </div>
 
@@ -357,28 +362,28 @@
             <div class="settings-section" data-settings-category="about">
               <div class="settings-section-title">关于</div>
               <div class="settings-row"><span>Hergent</span><span class="settings-val" id="setVersion">v1.0.105</span></div>
-              <button class="settings-btn" onclick="_manualCheckUpdate()" style="margin-top:8px">🔍 检查更新</button>
+              <button class="settings-btn mt-8" onclick="_manualCheckUpdate()">🔍 检查更新</button>
               <div class="settings-row"><span>内核</span><span class="settings-val">Hermes Agent v0.14.0</span></div>
               <div class="settings-row"><span>引擎</span><span class="settings-val" id="setEngineVersion">--</span></div>
               <div class="settings-row" id="engineUpdateRow" style="display:none;">
                 <span></span>
-                <button class="settings-btn" id="engineUpdateBtn" onclick="updateEngine()" style="font-size:12px;padding:4px 12px;">更新引擎</button>
+                <button class="settings-btn btn-xs" id="engineUpdateBtn" onclick="updateEngine()">更新引擎</button>
               </div>
-              <div class="settings-section-title" style="margin-top:12px;">公司信息</div>
+              <div class="settings-section-title mt-12">公司信息</div>
               <div class="settings-row"><span>公司</span><span class="settings-val">湖北省小赫智体数字科技有限公司</span></div>
-              <div class="settings-row"><span>官网</span><span class="settings-val" style="cursor:pointer;color:var(--brand-500);" onclick="window.hermes.openExternal('https://hergent.cn')">hergent.cn</span></div>
+              <div class="settings-row"><span>官网</span><span class="settings-val link-brand" onclick="window.hermes.openExternal('https://hergent.cn')">hergent.cn</span></div>
               <div class="settings-row"><span>邮箱</span><span class="settings-val">admin@hergent.cn</span></div>
               <div class="settings-row"><span>ICP备案</span><span class="settings-val">鄂ICP备2026027973号</span></div>
-              <div class="settings-section-title" style="margin-top:12px;">法律信息</div>
-              <button class="settings-btn" onclick="showOverlay('privacyOverlay')" style="margin-bottom:4px;">隐私政策</button>
+              <div class="settings-section-title mt-12">法律信息</div>
+              <button class="settings-btn mb-4" onclick="showOverlay('privacyOverlay')">隐私政策</button>
               <button class="settings-btn" onclick="showOverlay('termsOverlay')">用户服务协议</button>
-              <div class="settings-row" style="font-size:12px;color:var(--text-tertiary);margin-top:8px;">Powered by <span style="cursor:pointer;color:var(--brand-500);" onclick="window.hermes.openExternal('https://hermes-agent.nousresearch.com/')">Hermes Agent</span> · MIT License · Nous Research</div>
+              <div class="settings-row text-tertiary-12 mt-8">Powered by <span class="link-brand" onclick="window.hermes.openExternal('https://hermes-agent.nousresearch.com/')">Hermes Agent</span> · MIT License · Nous Research</div>
             </div>
           </div><!-- /settings-main -->
         </div><!-- /settings-layout -->
       </div><!-- /pageSettings -->
 
-    </div><!-- /right-panel -->
+    </main><!-- /right-panel -->
   </div><!-- /main-body -->
 
 <!-- ===== 全局状态提示条（飞书连接等） ===== -->
@@ -474,25 +479,25 @@
       <button class="login-tab" data-tab="wechat" onclick="switchLoginTab('wechat')"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 微信登录</button>
     </div>
     <div class="login-body">
-      <div class="login-tab-panel active" id="panelPhone">
+      <form class="login-tab-panel active" id="panelPhone" onsubmit="event.preventDefault();">
         <h3>手机号登录</h3>
         <p class="subtitle">新用户自动送 500 积分</p>
         <div class="login-field">
           <label>手机号</label>
           <div class="sms-row">
             <input type="tel" id="phoneInput" placeholder="输入11位手机号" maxlength="11" autocomplete="tel">
-            <button class="sms-btn" id="sendCodeBtn" onclick="sendSmsCode()">获取验证码</button>
+            <button type="button" class="sms-btn" id="sendCodeBtn" onclick="sendSmsCode()">获取验证码</button>
           </div>
         </div>
         <div class="login-field">
           <label>验证码</label>
           <input type="text" id="codeInput" placeholder="输入6位验证码" maxlength="6" autocomplete="one-time-code" inputmode="numeric">
         </div>
-        <button class="login-btn" id="loginBtn" onclick="verifySmsCode()">登录</button>
+        <button type="submit" class="login-btn" id="loginBtn" onclick="verifySmsCode()">登录</button>
         <div class="login-error" id="loginError"></div>
         <p class="login-legal">登录即表示同意 <a href="#" onclick="event.preventDefault();showOverlay('privacyOverlay')">隐私政策</a> 和 <a href="#" onclick="event.preventDefault();showOverlay('termsOverlay')">用户协议</a></p>
         <p class="login-skip"><a href="#" onclick="event.preventDefault();skipLogin()">跳过登录，先体验</a></p>
-      </div>
+      </form>
 
       <div class="login-tab-panel" id="panelWechat">
         <h3>微信扫码登录</h3>
@@ -528,9 +533,9 @@
 
 <!-- ===== 激活码弹窗 ===== -->
 <div class="modal-overlay" id="activationOverlay">
-  <div class="modal" style="max-width:380px;text-align:center;">
+  <form class="modal" style="max-width:380px;text-align:center;" onsubmit="event.preventDefault();">
     <h3>欢迎使用 Hergent</h3>
-    <p class="activation-desc">输入激活码即可开始使用<br>去 <a href="https://hergent.cn" target="_blank" style="color:var(--brand-500);">hergent.cn</a> 申请内测资格</p>
+    <p class="activation-desc">输入激活码即可开始使用<br>去 <a href="https://hergent.cn" target="_blank" class="link-brand">hergent.cn</a> 申请内测资格</p>
     <div class="activation-input-row">
       <input type="text" class="activation-input" id="activationCodeInput" placeholder="粘贴激活码" maxlength="20" autofocus autocomplete="off" />
     </div>
@@ -538,11 +543,11 @@
     <div class="recharge-info" id="activationInfo" style="display:none;">
       <span></span><span class="recharge-credits-count"><span id="activationCredits">500</span> 奖励积分</span>
     </div>
-    <div class="modal-btn-row" style="justify-content:center;">
-      <button class="btn" id="activationBtn" onclick="activateDevice()">激活并开始使用</button>
+    <div class="modal-btn-row center">
+      <button type="submit" class="btn" id="activationBtn" onclick="activateDevice()">激活并开始使用</button>
     </div>
     <p class="activation-hint">Alpha 阶段邀请制 · 每人送 500 积分</p>
-  </div>
+  </form>
 </div>
 
 <!-- ===== 渠道角色配置弹窗 ===== -->
@@ -593,7 +598,7 @@
 <!-- ===== 充值弹窗 ===== -->
 <div class="modal-overlay" id="rechargeOverlay">
   <div class="modal recharge-modal">
-    <h3><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> <span id="rechargeTitle">充值积分</span></h3>
+    <h3><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="va-sub-3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a3 3 0 0 0-5 1.5"/><path d="M9 14.5a3 3 0 0 0 5 1.5"/></svg> <span id="rechargeTitle">充值积分</span></h3>
     <p class="recharge-subtitle" id="rechargeSubtitle">用多少充多少，随时补充</p>
 
     <!-- Step 1: 选择充值档位 -->
@@ -678,7 +683,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         <span class="qr-success-text" id="qrSuccessText">充值成功！</span>
       </div>
-      <div class="modal-btn-row" style="margin-top:8px;">
+      <div class="modal-btn-row mt-8">
         <button class="btn secondary" onclick="cancelPayment()">取消支付</button>
         <button class="btn recharge-submit-btn" id="qrOpenBrowserBtn" onclick="openPaymentInBrowser()" style="display:none;">在浏览器中打开</button>
       </div>
@@ -687,7 +692,7 @@
     <!-- 消费记录 -->
     <div class="usage-section" id="rechargeUsageSection" style="display:none;"></div>
   </div>
-  <div style="text-align:center;margin-top:16px;">
+  <div class="center-mt16">
     <button class="btn secondary" onclick="showBillingHistory()">查看账单</button>
     </div>
   </div>
@@ -702,8 +707,8 @@
       <button class="billing-tab active" onclick="switchBillingTab('recharge')">充值记录</button>
       <button class="billing-tab" onclick="switchBillingTab('usage')">消费记录</button>
     </div>
-    <div class="billing-list" id="billingList" style="max-height:300px;overflow-y:auto;"></div>
-    <div class="modal-btn-row" style="margin-top:12px;">
+    <div class="billing-list scroll-300" id="billingList"></div>
+    <div class="modal-btn-row mt-12">
       <button class="btn secondary" onclick="closeBillingHistory()">关闭</button>
     </div>
   </div>
@@ -712,16 +717,16 @@
 <!-- 文件预览弹窗 -->
 <div class="modal-overlay" id="filePreviewOverlay">
   <div class="modal" style="max-width:660px;max-height:80vh;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <h3 id="fpTitle" style="margin:0;">文件预览</h3>
-      <div style="display:flex;gap:6px;">
-        <button class="btn secondary" style="font-size:12px;padding:4px 10px;" onclick="regenerateReport()" title="让 AI 生成类似的">🔄 重新生成</button>
-        <button class="btn secondary" style="font-size:12px;padding:4px 10px;" id="fpOpenBtn" onclick="openReportInFolder()">📂 在 Finder 中打开</button>
-        <button class="btn secondary" style="font-size:12px;padding:4px 10px;" onclick="closeFilePreview()">✕</button>
+    <div class="fp-header">
+      <h3 id="fpTitle" class="m-0">文件预览</h3>
+      <div class="btn-row-gap">
+        <button class="btn secondary btn-xs" onclick="regenerateReport()" title="让 AI 生成类似的">🔄 重新生成</button>
+        <button class="btn secondary btn-xs" id="fpOpenBtn" onclick="openReportInFolder()">📂 在 Finder 中打开</button>
+        <button class="btn secondary btn-xs" onclick="closeFilePreview()">✕</button>
       </div>
     </div>
-    <div class="fp-meta" id="fpMeta" style="font-size:11px;color:var(--text-tertiary);margin-bottom:8px;"></div>
-    <div class="fp-content" id="fpContent" style="max-height:55vh;overflow-y:auto;">
+    <div class="fp-meta text-tertiary-11 mb-8" id="fpMeta"></div>
+    <div class="fp-content scroll-55vh" id="fpContent">
       <div class="loading">加载中...</div>
     </div>
   </div>
@@ -731,10 +736,10 @@
 <div class="modal-overlay" id="pipelineConfigOverlay">
   <div class="modal" style="max-width:420px;">
     <h3>🤝 配置工作组</h3>
-    <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 12px;">选择 2-4 个角色，按顺序协作完成任务。前一个角色的输出会传给下一个。</p>
+    <p class="text-secondary-12 mt-4 mb-12">选择 2-4 个角色，按顺序协作完成任务。前一个角色的输出会传给下一个。</p>
     <div class="pipeline-config-roles" id="pipelineConfigRoles"></div>
-    <p style="font-size:11px;color:var(--text-tertiary);margin:8px 0 0;">点击角色调整顺序，勾选参与协作</p>
-    <div class="modal-btn-row" style="margin-top:12px;">
+    <p class="text-tertiary-11 mt-8">点击角色调整顺序，勾选参与协作</p>
+    <div class="modal-btn-row mt-12">
       <button class="btn secondary" onclick="closePipelineConfig()">取消</button>
       <button class="btn" onclick="applyPipelineConfig()">确认</button>
     </div>
@@ -745,19 +750,19 @@
 <div class="modal-overlay" id="memoryEditorOverlay">
   <div class="modal" style="max-width:480px;">
     <h3 id="memEditorTitle">添加记忆</h3>
-    <input id="memEditorTitleInput" placeholder="记忆标题" style="width:100%;margin-bottom:8px;padding:8px 10px;border:1px solid var(--border-default);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text-primary);" />
-    <div class="mem-type-select" style="margin-bottom:8px;">
-      <span style="font-size:12px;color:var(--text-secondary);margin-right:8px;">类型</span>
-      <select id="memEditorType" style="padding:6px 8px;border:1px solid var(--border-default);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text-primary);">
+    <input id="memEditorTitleInput" placeholder="记忆标题" class="input-styled mb-8" />
+    <div class="mem-type-select mb-8">
+      <span class="hint-12-mr">类型</span>
+      <select id="memEditorType" class="select-styled">
         <option value="preference">💝 偏好习惯</option>
         <option value="fact">📌 重要事实</option>
         <option value="pattern">🔄 工作模式</option>
         <option value="style">🎨 个人风格</option>
       </select>
     </div>
-    <textarea id="memEditorContent" placeholder="记忆内容..." rows="4" style="width:100%;padding:8px 10px;border:1px solid var(--border-default);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text-primary);resize:vertical;"></textarea>
-    <p class="settings-hint" style="font-size:11px;color:var(--text-tertiary);margin:6px 0 0;">手动添加的记忆可能会在 AI 自动整理时被覆盖</p>
-    <div class="modal-btn-row" style="margin-top:12px;">
+    <textarea id="memEditorContent" placeholder="记忆内容..." rows="4" class="textarea-styled"></textarea>
+    <p class="settings-hint text-tertiary-11 mt-4">手动添加的记忆可能会在 AI 自动整理时被覆盖</p>
+    <div class="modal-btn-row mt-12">
       <button class="btn secondary" onclick="closeMemoryEditor()">取消</button>
       <button class="btn" id="memEditorSaveBtn" onclick="saveMemory()">保存</button>
     </div>
@@ -859,7 +864,7 @@
       <p>联系邮箱：admin@hergent.cn</p>
       <p>联系地址：湖北省襄阳市樊城区王寨街道松鹤路社区创业路5号 邮编：441000</p>
       <p>我们将在收到您的请求后15个工作日内予以回复。</p>
-      <p style="margin-top:16px;font-size:12px;color:var(--text-tertiary);">ICP备案号：鄂ICP备2026027973号</p>
+      <p class="icp-note">ICP备案号：鄂ICP备2026027973号</p>
     </div>
   </div>
 </div>
@@ -956,7 +961,7 @@
       <p>联系邮箱：admin@hergent.cn</p>
       <p>联系地址：湖北省襄阳市樊城区王寨街道松鹤路社区创业路5号 邮编：441000</p>
       <p>我们将在收到您的反馈后15个工作日内予以回复。</p>
-      <p style="margin-top:16px;font-size:12px;color:var(--text-tertiary);">ICP备案号：鄂ICP备2026027973号</p>
+      <p class="icp-note">ICP备案号：鄂ICP备2026027973号</p>
     </div>
   </div>
 </div>
@@ -964,7 +969,7 @@
 <!-- ===== 自定义模型配置 ===== -->
 <div class="modal-overlay" id="customModelOverlay">
   <div class="modal" style="max-width:460px;">
-    <h3 style="display:flex;align-items:center;gap:8px;">
+    <h3 class="h-flex-gap">
       <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       自定义模型
     </h3>
@@ -980,12 +985,12 @@
       <label>模型名称</label>
       <input type="text" id="cmModelName" placeholder="gpt-4o">
     </div>
-    <p style="font-size:11px;color:var(--text-tertiary);margin:4px 0 8px;">
+    <p class="text-tertiary-11 mt-4 mb-8">
       使用自己的 API Key，模型调用仍走本地加密通道。扣 1 积分/次，支持任何兼容 OpenAI 接口的模型（含本地 Ollama）。
     </p>
-    <div class="modal-btn-row" style="margin-top:12px;">
+    <div class="modal-btn-row mt-12">
       <button class="btn secondary" onclick="hideOverlay('customModelOverlay')">取消</button>
-      <button class="btn" onclick="_saveCustomModel()" style="background:var(--brand-500);color:#fff;border:none;">保存</button>
+      <button class="btn btn-primary-solid" onclick="_saveCustomModel()">保存</button>
     </div>
   </div>
 </div>
@@ -1004,8 +1009,5 @@
 <script src="src/renderer/auth.js"></script>
 <script src="src/renderer/payment.js"></script>
 <script src="js/app.js"></script>
-<script src="js/erp.js"></script>
-<!-- v85: ERP bot integration -->
-	<script src="js/erp-bot.js"></script>
 </body>
 </html>

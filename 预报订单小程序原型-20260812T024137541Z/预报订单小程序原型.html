@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>低温奶预报单系统 · 多租户原型</title>
+<style>
+:root{
+  --brand:#06b6d4;--brand-dark:#0891b2;--brand-light:rgba(6,182,212,.08);--brand-bg:rgba(6,182,212,.05);
+  --bg:#f6f7f9;--card:#fff;--line:#eceef1;
+  --t1:#171717;--t2:#4d4d4d;--t3:#8a8f98;
+  --green:#16a34a;--red:#ef4444;--amber:#d97706;
+  --radius:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  background:#e9edf1;color:var(--t1);display:flex;align-items:center;justify-content:center;
+  min-height:100vh;padding:16px;
+}
+.phone{
+  width:420px;max-width:100%;height:min(880px,100vh - 32px);
+  background:var(--bg);border-radius:32px;overflow:hidden;
+  box-shadow:0 24px 64px rgba(15,23,42,.28),0 0 0 1px rgba(15,23,42,.06);
+  display:flex;flex-direction:column;position:relative;
+}
+@media(max-width:480px){
+  body{padding:0;}
+  .phone{width:100%;height:100vh;height:100dvh;border-radius:0;box-shadow:none;}
+}
+/* ---- 演示切换器（仅原型） ---- */
+.demo-bar{
+  position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:200;
+  background:rgba(15,23,42,.88);color:#fff;font-size:11px;padding:5px 14px;
+  border-radius:99px;display:flex;gap:8px;align-items:center;max-width:90vw;
+  flex-wrap:wrap;justify-content:center;
+}
+.demo-bar select{
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+  color:#fff;font-size:11px;padding:2px 6px;border-radius:6px;outline:none;
+}
+.demo-bar .sep{opacity:.4;}
+/* ---- 微信导航栏 ---- */
+.wx-nav{
+  height:46px;flex:0 0 46px;background:#fff;display:flex;align-items:center;
+  padding:0 12px;position:relative;border-bottom:1px solid var(--line);
+}
+.wx-nav .title{position:absolute;left:50%;transform:translateX(-50%);font-size:16px;font-weight:600;}
+.wx-nav .back{position:absolute;left:12px;cursor:pointer;font-size:14px;color:var(--brand-dark);z-index:1;}
+.capsule{
+  margin-left:auto;display:flex;align-items:center;gap:0;
+  border:1px solid rgba(0,0,0,.12);border-radius:20px;padding:4px 10px;
+  font-size:12px;color:var(--t2);background:rgba(255,255,255,.9);
+}
+.capsule .sep{width:1px;height:12px;background:rgba(0,0,0,.12);margin:0 8px;}
+/* ---- 顶部用户条 ---- */
+.user-bar{
+  background:#fff;padding:8px 14px;display:flex;gap:8px;align-items:center;
+  border-bottom:1px solid var(--line);flex:0 0 auto;
+}
+.user-bar .avatar{
+  width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex:0 0 auto;
+}
+.user-bar .info{flex:1;min-width:0;}
+.user-bar .info .nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-bar .info .rl{font-size:11px;color:var(--t3);}
+.user-bar .tenant-name{font-size:11px;color:var(--brand-dark);background:var(--brand-light);border-radius:4px;padding:1px 7px;flex:0 0 auto;}
+.user-bar .logout{font-size:11px;color:var(--t3);cursor:pointer;border:none;background:none;}
+/* ---- 主内容 ---- */
+main{flex:1;overflow-y:auto;padding:0 12px 16px;-webkit-overflow-scrolling:touch;}
+/* ---- 批次卡 ---- */
+.batch{
+  margin:12px;border-radius:var(--radius);padding:14px 16px;color:#fff;
+  background:linear-gradient(135deg,#0e7490,var(--brand));flex:0 0 auto;
+  box-shadow:0 8px 20px rgba(6,182,212,.22);
+}
+.batch.closed{background:linear-gradient(135deg,#475569,#64748b);box-shadow:none;}
+.batch .row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.batch .no{font-size:14px;font-weight:700;letter-spacing:.3px;}
+.batch .state{font-size:11px;padding:3px 10px;border-radius:99px;background:rgba(255,255,255,.22);}
+.batch .row2{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;opacity:.95;}
+.batch .cd{font-variant-numeric:tabular-nums;font-weight:700;color:#fff;}
+.batch .toggle{margin-top:10px;font-size:11px;color:rgba(255,255,255,.9);background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:4px 10px;cursor:pointer;}
+.closed-banner{margin-top:12px;background:#fff7e8;color:var(--amber);border:1px solid #fde6c8;border-radius:10px;padding:10px 12px;font-size:12.5px;}
+/* ---- 通用面板 ---- */
+.panel{background:var(--card);border-radius:var(--radius);padding:14px;margin-top:12px;}
+.panel h3{font-size:14px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.panel h3 .sub{font-size:11px;color:var(--t3);font-weight:400;}
+.toolbar{display:flex;gap:6px;align-items:center;flex:0 0 auto;}
+/* ---- 按钮 ---- */
+.btn-primary{
+  background:var(--brand);color:#fff;border:none;border-radius:99px;padding:11px 26px;
+  font-size:15px;font-weight:600;cursor:pointer;width:100%;
+}
+.btn-primary:active{background:var(--brand-dark);}
+.btn-primary:disabled{background:#cbd5e1;color:#fff;cursor:not-allowed;}
+.btn-primary.solid{background:var(--t1);}
+.btn-primary.solid:active{background:#333;}
+.btn-ghost{
+  font-size:12px;color:var(--brand-dark);background:#fff;border:1px solid rgba(6,182,212,.4);
+  border-radius:8px;padding:6px 12px;cursor:pointer;white-space:nowrap;
+}
+.btn-ghost:active{background:var(--brand-light);}
+.btn-sm{font-size:12px;padding:5px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--t2);}
+.btn-sm:active{background:#f3f4f6;}
+.btn-sm.danger{color:var(--red);border-color:rgba(239,68,68,.3);}
+.btn-outline{background:none;border:1.5px solid var(--brand);color:var(--brand-dark);border-radius:99px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;width:100%;}
+.btn-outline:active{background:var(--brand-light);}
+.link-reset{font-size:11px;color:var(--t3);background:none;border:none;cursor:pointer;text-decoration:underline;}
+/* ---- 表单 ---- */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;color:var(--t3);margin-bottom:5px;}
+.field input,.field select{
+  width:100%;font-size:14px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:10px;background:#fafbfc;color:var(--t1);outline:none;
+}
+.field input:focus,.field select:focus{border-color:var(--brand);background:#fff;}
+.sms-row{display:flex;gap:8px;}
+.sms-row input{flex:1;}
+.sms-row button{flex:0 0 auto;white-space:nowrap;}
+.step-indicator{display:flex;gap:4px;margin-bottom:20px;}
+.step-dot{flex:1;height:3px;border-radius:2px;background:var(--line);}
+.step-dot.active{background:var(--brand);}
+/* ---- 商品/预报相关（沿用v1样式） ---- */
+.search{display:flex;align-items:center;gap:8px;background:#f3f4f6;border-radius:99px;padding:9px 14px;}
+.search input{flex:1;border:none;background:none;outline:none;font-size:14px;color:var(--t1);}
+.search svg{flex:0 0 auto;color:var(--t3);}
+.fav-row{display:flex;gap:8px;overflow-x:auto;padding:10px 2px 2px;scrollbar-width:none;}
+.fav-row::-webkit-scrollbar{display:none;}
+.fav{flex:0 0 auto;font-size:12px;padding:6px 12px;border-radius:99px;cursor:pointer;background:var(--brand-light);color:var(--brand-dark);border:1px solid rgba(6,182,212,.25);}
+.fav:active{transform:scale(.96);}
+.sku{display:flex;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);align-items:flex-start;}
+.sku:last-child{border-bottom:none;padding-bottom:2px;}
+.sku .emoji{width:42px;height:42px;border-radius:10px;background:var(--brand-light);display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto;}
+.sku .info{flex:1;min-width:0;}
+.sku .name{font-size:14px;font-weight:600;line-height:1.3;}
+.sku .alias{display:inline-block;font-size:11px;color:var(--brand-dark);background:var(--brand-light);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:1px;}
+.sku .spec{font-size:11.5px;color:var(--t3);margin-top:3px;}
+.sku .ctrl{flex:0 0 auto;text-align:right;}
+.units{display:flex;gap:5px;justify-content:flex-end;margin-bottom:7px;}
+.unit{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--t2);background:#fff;cursor:pointer;white-space:nowrap;}
+.unit.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600;}
+.step{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:#fff;}
+.step button{width:28px;height:28px;border:none;background:none;font-size:16px;color:var(--t2);cursor:pointer;line-height:1;}
+.step button:active{background:#f3f4f6;}
+.step .q{min-width:30px;text-align:center;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;}
+.cart-item{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);}
+.cart-item:last-child{border-bottom:none;}
+.cart-item .ci-name{flex:1;min-width:0;font-size:13px;font-weight:600;}
+.cart-item .ci-sub{font-size:11px;color:var(--t3);margin-top:2px;font-weight:400;}
+.cart-item .amt{font-size:13px;font-weight:700;color:var(--brand-dark);flex:0 0 auto;min-width:64px;text-align:right;}
+.cart-item .del{flex:0 0 auto;width:24px;height:24px;border:none;border-radius:50%;background:#fef2f2;color:var(--red);font-size:13px;cursor:pointer;}
+.total-bar{position:sticky;bottom:0;margin-top:12px;background:#fff;border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 -4px 16px rgba(15,23,42,.08),0 0 0 1px var(--line);}
+.total-bar .t{flex:1;font-size:13px;color:var(--t2);}
+.total-bar .t b{font-size:18px;color:var(--red);margin-left:4px;font-variant-numeric:tabular-nums;}
+.total-bar .btn-primary{width:auto;}
+/* ---- 我的提交 ---- */
+.sub-card{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;}
+.sub-card .head{display:flex;justify-content:space-between;align-items:center;font-size:13px;}
+.sub-card .chip{font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(22,163,74,.1);color:var(--green);}
+.sub-card .meta{font-size:11.5px;color:var(--t3);margin-top:6px;}
+.sub-card .items{font-size:12.5px;margin-top:8px;line-height:1.8;}
+.sub-card .items b{color:var(--brand-dark);}
+/* ---- 汇总 ---- */
+.stats{display:flex;gap:8px;margin-top:12px;}
+.stat{flex:1;background:#fff;border-radius:12px;padding:12px 6px;text-align:center;}
+.stat .v{font-size:18px;font-weight:800;color:var(--brand-dark);font-variant-numeric:tabular-nums;}
+.stat .k{font-size:11px;color:var(--t3);margin-top:2px;}
+.sum-row{border-bottom:1px solid var(--line);}
+.sum-row:last-child{border-bottom:none;}
+.sum-head{display:flex;align-items:center;gap:8px;padding:12px 0;cursor:pointer;}
+.sum-head .nm{flex:1;min-width:0;}
+.sum-head .nm b{font-size:13.5px;}
+.sum-head .nm .u{font-size:11px;color:var(--brand-dark);background:var(--brand-light);border-radius:4px;padding:1px 6px;margin-left:6px;}
+.sum-head .nm .sub{display:block;font-size:11px;color:var(--t3);margin-top:2px;}
+.sum-head .qty{font-size:14px;font-weight:700;text-align:right;flex:0 0 auto;}
+.sum-head .qty small{display:block;font-weight:400;color:var(--t3);font-size:11px;}
+.sum-head .arrow{color:var(--t3);font-size:11px;transition:transform .2s;flex:0 0 auto;}
+.sum-row.open .arrow{transform:rotate(90deg);}
+.sources{display:none;background:#fafbfc;border-radius:10px;padding:8px 12px;margin-bottom:10px;}
+.sum-row.open .sources{display:block;}
+.sources .s{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--t2);}
+.sources .s b{color:var(--t1);}
+/* ---- 成员管理 ---- */
+.member-card{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);}
+.member-card:last-child{border-bottom:none;}
+.member-card .av{width:38px;height:38px;border-radius:50%;background:var(--brand-light);color:var(--brand-dark);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex:0 0 auto;}
+.member-card .mi{flex:1;min-width:0;}
+.member-card .mi .mn{font-size:13.5px;font-weight:600;}
+.member-card .mi .mr{font-size:11px;color:var(--t3);margin-top:2px;}
+.member-card select{font-size:12px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--t1);}
+.member-card .del-m{border:none;background:none;color:var(--t3);font-size:16px;cursor:pointer;padding:4px;}
+.member-card .del-m:hover{color:var(--red);}
+.invite-box{background:var(--brand-bg);border:1.5px dashed rgba(6,182,212,.35);border-radius:12px;padding:14px;margin-top:12px;text-align:center;}
+.invite-box .code{font-size:28px;font-weight:800;letter-spacing:4px;color:var(--brand-dark);margin:8px 0;font-family:monospace;}
+.invite-box .desc{font-size:12px;color:var(--t2);margin-bottom:10px;}
+/* ---- 套餐 ---- */
+.plan-cards{display:flex;gap:8px;margin-top:10px;}
+.plan{flex:1;background:#fff;border:2px solid var(--line);border-radius:14px;padding:14px 10px;text-align:center;transition:all .2s;cursor:pointer;}
+.plan.on{border-color:var(--brand);box-shadow:0 4px 16px rgba(6,182,212,.15);}
+.plan .pn{font-size:14px;font-weight:700;margin-bottom:4px;}
+.plan .pp{font-size:22px;font-weight:800;color:var(--brand-dark);margin:6px 0;}
+.plan .pp small{font-size:11px;font-weight:400;color:var(--t3);}
+.plan .pd{font-size:11px;color:var(--t3);line-height:1.6;text-align:left;margin-top:8px;}
+.plan .tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:99px;background:rgba(22,163,74,.1);color:var(--green);margin-bottom:4px;}
+.usage-bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px;}
+.usage-bar .fill{height:100%;border-radius:3px;background:var(--brand);transition:width .3s;}
+/* ---- 底部导航 ---- */
+.tabbar{flex:0 0 auto;background:#fff;border-top:1px solid var(--line);display:flex;padding:6px 0 calc(8px + env(safe-area-inset-bottom));}
+.tabbar button{flex:1;border:none;background:none;cursor:pointer;color:var(--t3);display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;position:relative;}
+.tabbar button.active{color:var(--brand-dark);font-weight:600;}
+.tabbar .badge{position:absolute;top:-3px;right:calc(50% - 20px);background:var(--red);color:#fff;font-size:10px;min-width:16px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px;}
+/* ---- 空态/Toast/弹窗 ---- */
+.empty{text-align:center;padding:40px 0;color:var(--t3);}
+.empty .big{font-size:40px;margin-bottom:8px;}
+.empty p{font-size:13px;line-height:1.8;}
+.toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%) translateY(8px);background:rgba(23,23,23,.92);color:#fff;font-size:13px;padding:10px 18px;border-radius:99px;opacity:0;pointer-events:none;transition:all .25s;max-width:80%;text-align:center;z-index:60;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.mask{position:absolute;inset:0;background:rgba(15,23,42,.45);z-index:50;display:none;align-items:center;justify-content:center;padding:24px;}
+.mask.show{display:flex;}
+.modal{background:#fff;border-radius:18px;padding:26px 22px;width:100%;max-width:340px;text-align:center;animation:pop .22s ease;}
+@keyframes pop{from{transform:scale(.9);opacity:0;} to{transform:scale(1);opacity:1;}}
+.modal .ok{width:52px;height:52px;border-radius:50%;background:rgba(22,163,74,.12);color:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:26px;}
+.modal h4{font-size:17px;margin-bottom:6px;}
+.modal p{font-size:12.5px;color:var(--t2);line-height:1.8;}
+.modal .btn-primary{margin-top:16px;}
+.foot-note{text-align:center;font-size:10.5px;color:var(--t3);padding:14px 0 4px;}
+/* 登录/注册全屏 */
+.auth-screen{flex:1;display:flex;flex-direction:column;padding:0;overflow-y:auto;}
+.auth-inner{padding:40px 28px 28px;flex:1;}
+.auth-logo{text-align:center;margin-bottom:28px;}
+.auth-logo .icon{font-size:48px;margin-bottom:8px;}
+.auth-logo h2{font-size:22px;font-weight:700;letter-spacing:-.5px;}
+.auth-logo p{font-size:13px;color:var(--t3);margin-top:4px;}
+.auth-footer{text-align:center;padding:12px 0;font-size:11px;color:var(--t3);}
+.auth-footer a{color:var(--brand-dark);}
+.divider{display:flex;align-items:center;gap:10px;margin:20px 0;font-size:12px;color:var(--t3);}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line);}
+.quick-tenant{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+.quick-tenant button{font-size:11.5px;padding:6px 14px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--t2);cursor:pointer;}
+.quick-tenant button:active{background:var(--brand-light);border-color:var(--brand);}
+</style>
+</head>
+<body>
+
+<!-- 演示账号切换器 -->
+<div class="demo-bar">
+  <span>🔄 切换演示账号：</span>
+  <select id="demoSwitch">
+    <option value="u1">张俊峰（鑫源乳业·管理员）</option>
+    <option value="u2">李婷（鑫源乳业·文员）</option>
+    <option value="u3">王芳（鑫源乳业·业务员）</option>
+    <option value="u4">陈明（光明乳业·管理员）</option>
+    <option value="logout">退出登录（看注册流程）</option>
+  </select>
+</div>
+
+<div class="phone">
+  <div class="wx-nav">
+    <span class="back" id="navBack" style="display:none">← 返回</span>
+    <div class="title" id="navTitle">低温奶预报单</div>
+    <div class="capsule"><span>···</span><span class="sep"></span><span>◎</span></div>
+  </div>
+  <div id="userBar"></div>
+  <div class="batch" id="batchCard" style="display:none"></div>
+  <main id="view"></main>
+  <div class="tabbar" id="tabbar" style="display:none"></div>
+  <div class="toast" id="toast"></div>
+  <div class="mask" id="mask"></div>
+</div>
+
+<script>
+'use strict';
+
+/* ========== 常量 ========== */
+const PRODUCTS=[
+  {id:'p1',name:'蒙牛单果粒黄桃酸奶',alias:'单黄',spec:'250ml×12瓶/板',emoji:'🥛',units:[{key:'small',label:'瓶',price:3.2},{key:'medium',label:'提',price:36},{key:'large',label:'板',price:70}]},
+  {id:'p2',name:'蒙牛单果粒草莓酸奶',alias:'单草',spec:'250ml×12瓶/板',emoji:'🍓',units:[{key:'small',label:'瓶',price:3.2},{key:'medium',label:'提',price:36},{key:'large',label:'板',price:70}]},
+  {id:'p3',name:'蒙牛纯甄风味酸奶',alias:'纯甄',spec:'200g×12杯/板',emoji:'🍮',units:[{key:'small',label:'杯',price:3.5},{key:'medium',label:'提',price:40},{key:'large',label:'板',price:78}]},
+  {id:'p4',name:'蒙牛优益C乳酸菌',alias:'优益',spec:'340ml×6瓶/箱',emoji:'🧃',units:[{key:'small',label:'瓶',price:5.5},{key:'medium',label:'箱',price:31},{key:'large',label:'板',price:60}]},
+  {id:'p5',name:'蒙牛冠益乳风味发酵乳',alias:'冠润',spec:'100g×8杯/板',emoji:'🍶',units:[{key:'small',label:'杯',price:3.0},{key:'medium',label:'提',price:22.5},{key:'large',label:'板',price:44}]},
+  {id:'p6',name:'蒙牛每日鲜语鲜牛奶',alias:'鲜语',spec:'250ml×16盒/箱',emoji:'🐄',units:[{key:'small',label:'盒',price:2.8},{key:'medium',label:'箱',price:42},{key:'large',label:'板',price:82}]}
+];
+const FAV=['p1','p2','p3','p6'];
+const PLANS=[
+  {key:'free',name:'体验版',price:0,maxFillers:3,features:['1 管理员 + 3 预报人','基础预报与汇总','批次管理']},
+  {key:'pro',name:'标准版',price:99,maxFillers:15,features:['管理员 + 15 预报人','汇总总表 + 来源明细','企微/微信推送提醒'],tag:'推荐'},
+  {key:'enterprise',name:'旗舰版',price:299,maxFillers:999,features:['不限预报人数','智能审核大脑','指标/返利/库存三因子','舟谱导入模板'],tag:'全功能'}
+];
+const ROLE_LABELS={admin:'管理员',clerk:'文员',filler:'业务员',distributor:'分销商'};
+const ROLE_NAV={
+  admin:['fill','mine','summary','members','settings'],
+  clerk:['fill','mine','summary'],
+  filler:['fill','mine'],
+  distributor:['fill','mine']
+};
+const TAB_META={
+  fill:{label:'填报',icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>'},
+  mine:{label:'我的提交',icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 19c.8-3 3.4-4.5 6.5-4.5s5.7 1.5 6.5 4.5"/></svg>'},
+  summary:{label:'汇总总表',icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V9M10 20V4M16 20v-8M21 20H3"/></svg>'},
+  members:{label:'成员管理',icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3 2.7-5 6-5s6 2 6 5"/><circle cx="17" cy="8" r="2.5"/><path d="M14 20c.5-2.3 2.2-3.5 4-3.5s3 1 3.5 3.5"/></svg>'},
+  settings:{label:'设置',icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>'}
+};
+const BATCH={no:'YB-20260812-01',arrive:'8月14日（周四）到货',rule:'每2天到货 · 提前4天下单'};
+
+/* ========== 预置多租户数据 ========== */
+function seedDB(){
+  return {
+    users:{
+      u1:{id:'u1',name:'张俊峰',phone:'138****8001'},
+      u2:{id:'u2',name:'李婷',phone:'139****6622'},
+      u3:{id:'u3',name:'王芳',phone:'152****3317'},
+      u4:{id:'u4',name:'陈明',phone:'186****5501'}
+    },
+    tenants:{
+      t1:{id:'t1',name:'鑫源乳业（襄阳）',contact:'张俊峰',phone:'138****8001',plan:'pro',inviteCode:'XY8866',
+        members:[
+          {userId:'u1',name:'张俊峰',role:'admin'},
+          {userId:'u2',name:'李婷',role:'clerk'},
+          {userId:'u3',name:'王芳',role:'filler'}
+        ]},
+      t2:{id:'t2',name:'光明乳业（南阳）',contact:'陈明',phone:'186****5501',plan:'free',inviteCode:'GM6601',
+        members:[
+          {userId:'u4',name:'陈明',role:'admin'}
+        ]}
+    },
+    submissions:{
+      t1:[
+        {id:'s1',personId:'u2',person:'李婷',role:'文员',store:'万华超市广场店',time:'今日 09:12',status:'预报中',items:[{pid:'p1',unit:'large',qty:2},{pid:'p2',unit:'large',qty:1},{pid:'p6',unit:'medium',qty:3}]},
+        {id:'s2',personId:'u3',person:'王芳',role:'业务员',store:'鑫源便利店',time:'今日 09:47',status:'预报中',items:[{pid:'p3',unit:'large',qty:1},{pid:'p4',unit:'medium',qty:2}]}
+      ],
+      t2:[]
+    },
+    nextTenantId:3, nextUserId:5
+  };
+}
+
+/* ========== 状态 ========== */
+const LS='hergent-forecast-v2';
+const $=s=>document.querySelector(s);
+const productOf=id=>PRODUCTS.find(p=>p.id===id);
+const unitOf=(p,k)=>p.units.find(u=>u.key===k);
+const fmt=n=>'¥'+n.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+let db, session; // db=全局数据库, session=当前登录会话
+
+function loadAll(){
+  try{
+    const raw=localStorage.getItem(LS);
+    if(raw){
+      const d=JSON.parse(raw);
+      db=d.db||seedDB();
+      session=d.session||null;
+    } else {
+      db=seedDB();
+      session={userId:'u1',tenantId:'t1',view:'fill',cart:[],ui:{},closed:false,deadline:Date.now()+5*3600000+23*60000,_open:{},_regStep:1,_regData:{}};
+    }
+  }catch(e){ db=seedDB(); session=null; }
+}
+function saveAll(){
+  try{localStorage.setItem(LS,JSON.stringify({db,session}));}catch(e){}
+}
+function currentTenant(){ return session?db.tenants[session.tenantId]:null; }
+function currentUser(){ return session?db.users[session.userId]:null; }
+function currentRole(){
+  const t=currentTenant(),u=currentUser();
+  if(!t||!u) return null;
+  const m=t.members.find(m=>m.userId===u.id);
+  return m?m.role:null;
+}
+function tenantSubmissions(){
+  return (db.submissions[session.tenantId]||[]);
+}
+
+/* ========== Toast / Modal ========== */
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._tm);t._tm=setTimeout(()=>t.classList.remove('show'),2000);}
+function showModal(html){const m=$('#mask');m.innerHTML=`<div class="modal">${html}</div>`;m.classList.add('show');}
+function hideModal(){$('#mask').classList.remove('show');$('#mask').innerHTML='';}
+
+/* ========== 渲染入口 ========== */
+function render(){
+  if(!session){ renderAuth(); return; }
+  renderApp();
+}
+
+/* ============================= */
+/*       认证页（登录/注册）       */
+/* ============================= */
+function renderAuth(){
+  $('#userBar').innerHTML='';
+  $('#batchCard').style.display='none';
+  $('#tabbar').style.display='none';
+  $('#navBack').style.display='none';
+  $('#navTitle').textContent='低温奶预报单';
+
+  const reg=(!session && state_auth_screen==='register');
+  if(!reg){
+    // 登录页
+    $('#view').innerHTML=`
+    <div class="auth-screen">
+      <div class="auth-inner">
+        <div class="auth-logo">
+          <div class="icon">🧊</div>
+          <h2>低温奶预报单系统</h2>
+          <p>经销商专属 · 预报提交自动汇总</p>
+        </div>
+        <div class="field">
+          <label>手机号</label>
+          <input id="authPhone" type="tel" placeholder="请输入手机号" maxlength="11" value="13812348001">
+        </div>
+        <div class="field">
+          <label>验证码</label>
+          <div class="sms-row">
+            <input id="authCode" placeholder="请输入验证码" value="888888">
+            <button class="btn-sm" data-act="send-sms">获取验证码</button>
+          </div>
+        </div>
+        <button class="btn-primary" data-act="do-login" data-primary-action style="margin-top:6px;">登录 / 注册</button>
+        <div class="auth-footer">
+          登录即表示同意 <a href="javascript:;">《服务协议》</a> 和 <a href="javascript:;">《隐私政策》</a>
+        </div>
+        <div class="divider">演示快捷入口</div>
+        <p style="text-align:center;font-size:12px;color:var(--t3);margin-bottom:10px;">点击上方登录将以「张俊峰」身份进入鑫源乳业</p>
+        <div class="quick-tenant">
+          <button data-act="quick-login" data-uid="u1">张俊峰（鑫源乳业）</button>
+          <button data-act="quick-login" data-uid="u2">李婷（鑫源乳业）</button>
+          <button data-act="quick-login" data-uid="u4">陈明（光明乳业）</button>
+          <button data-act="show-register">模拟新公司注册 →</button>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    // 注册流程
+    renderRegister();
+  }
+}
+
+let state_auth_screen='login';
+
+function renderRegister(){
+  const step=session_reg_step||1;
+  const d=session_reg_data||{};
+  $('#navTitle').textContent='注册新公司';
+  $('#view').innerHTML=`
+  <div class="auth-screen">
+    <div class="auth-inner">
+      <div class="step-indicator">
+        <div class="step-dot ${step>=1?'active':''}"></div>
+        <div class="step-dot ${step>=2?'active':''}"></div>
+        <div class="step-dot ${step>=3?'active':''}"></div>
+      </div>
+      ${step===1?`
+        <h3 style="font-size:18px;margin-bottom:4px;">验证手机号</h3>
+        <p style="font-size:13px;color:var(--t3);margin-bottom:20px;">注册后你就是公司管理员</p>
+        <div class="field"><label>手机号</label><input id="regPhone" type="tel" placeholder="请输入手机号" maxlength="11" value="${d.phone||''}"></div>
+        <div class="field"><label>验证码</label>
+          <div class="sms-row"><input id="regCode" placeholder="验证码" value="${d.code||''}"><button class="btn-sm" data-act="send-sms">获取验证码</button></div>
+        </div>
+        <button class="btn-primary" data-act="reg-next" data-primary-action>下一步</button>
+      `:''}
+      ${step===2?`
+        <h3 style="font-size:18px;margin-bottom:4px;">创建你的公司</h3>
+        <p style="font-size:13px;color:var(--t3);margin-bottom:20px;">系统会自动创建你的租户空间</p>
+        <div class="field"><label>公司名称</label><input id="regCompany" placeholder="如：鑫源乳业（襄阳）" value="${d.company||''}"></div>
+        <div class="field"><label>联系人姓名</label><input id="regName" placeholder="你的名字" value="${d.name||''}"></div>
+        <div class="field"><label>主营品牌</label>
+          <select id="regBrand">
+            <option value="蒙牛" ${d.brand==='蒙牛'?'selected':''}>蒙牛低温奶</option>
+            <option value="伊利" ${d.brand==='伊利'?'selected':''}>伊利低温奶</option>
+            <option value="光明" ${d.brand==='光明'?'selected':''}>光明低温奶</option>
+            <option value="其他" ${d.brand==='其他'?'selected':''}>其他品牌</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-outline" data-act="reg-prev" style="flex:1;">上一步</button>
+          <button class="btn-primary" data-act="reg-next" data-primary-action style="flex:1;">下一步</button>
+        </div>
+      `:''}
+      ${step===3?`
+        <div style="text-align:center;padding:20px 0;">
+          <div style="font-size:48px;margin-bottom:12px;">🎉</div>
+          <h3 style="font-size:18px;margin-bottom:6px;">注册成功！</h3>
+          <p style="font-size:13px;color:var(--t2);line-height:1.8;">
+            公司 <b>${d.company}</b> 已创建<br>
+            你是管理员，可以邀请员工加入<br>
+            当前套餐：<b>体验版（免费）</b>
+          </p>
+        </div>
+        <div class="panel" style="background:var(--brand-bg);border:1.5px solid rgba(6,182,212,.2);">
+          <h3 style="font-size:13px;">你的邀请码</h3>
+          <div style="font-size:28px;font-weight:800;letter-spacing:4px;color:var(--brand-dark);text-align:center;margin:8px 0;font-family:monospace;">${d.inviteCode||''}</div>
+          <p style="font-size:11.5px;color:var(--t2);text-align:center;">分享给员工，他们在小程序输入即可加入你的公司</p>
+        </div>
+        <button class="btn-primary" data-act="reg-finish" data-primary-action style="margin-top:16px;">开始使用</button>
+      `:''}
+      <div class="auth-footer" style="margin-top:20px;">
+        <button class="link-reset" data-act="back-to-login">返回登录</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+let session_reg_step=1, session_reg_data={};
+
+/* ============================= */
+/*         主应用渲染            */
+/* ============================= */
+function renderApp(){
+  const tenant=currentTenant(), user=currentUser(), role=currentRole();
+  if(!tenant||!user||!role){session=null;saveAll();render();return;}
+
+  // 用户条
+  const initials=user.name.slice(0,1);
+  $('#userBar').innerHTML=`
+    <div class="user-bar">
+      <div class="avatar">${initials}</div>
+      <div class="info"><div class="nm">${user.name}</div><div class="rl">${ROLE_LABELS[role]}</div></div>
+      <span class="tenant-name">${tenant.name}</span>
+      <button class="logout" data-act="logout">退出</button>
+    </div>`;
+
+  // 导航标题
+  const titles={fill:'预报订单',mine:'我的提交',summary:'汇总总表',members:'成员管理',settings:'设置'};
+  $('#navTitle').textContent=titles[session.view]||'低温奶预报单';
+  $('#navBack').style.display='none';
+
+  // 批次卡（仅填报页显示）
+  if(session.view==='fill'){
+    const bc=$('#batchCard');
+    bc.style.display='block';
+    bc.classList.toggle('closed',session.closed);
+    bc.innerHTML=`
+      <div class="row1"><span class="no">预报批次 ${BATCH.no}</span><span class="state">${session.closed?'已截止':'预报中'}</span></div>
+      <div class="row2"><span>⏰ 截止：<span class="cd" id="cd">--</span></span><span>🚚 ${BATCH.arrive}</span><span>📌 ${BATCH.rule}</span></div>
+      <button class="toggle" data-act="toggle-closed">${session.closed?'模拟重新开放':'模拟批次截止'}</button>`;
+  } else {
+    $('#batchCard').style.display='none';
+  }
+
+  // 内容区
+  const v=$('#view');
+  const renderers={fill:renderFill,mine:renderMine,summary:renderSummary,members:renderMembers,settings:renderSettings};
+  v.innerHTML=(renderers[session.view]||renderFill)();
+
+  // tabbar
+  const tabs=ROLE_NAV[role]||['fill','mine'];
+  const tb=$('#tabbar');
+  tb.style.display='flex';
+  tb.innerHTML=tabs.map(t=>{
+    const m=TAB_META[t];
+    const n=t==='fill'?session.cart.reduce((s,c)=>s+c.qty,0):0;
+    return `<button data-view="${t}" class="${session.view===t?'active':''}">
+      ${m.icon}${m.label}${n?`<span class="badge">${n}</span>`:''}
+    </button>`;
+  }).join('');
+
+  // 搜索框焦点
+  if(session.view==='fill'){
+    const kw=$('#kw');
+    if(kw){kw.addEventListener('input',e=>{session._kw=e.target.value;saveAll();renderApp();
+      const el=$('#kw');el.focus();el.setSelectionRange(el.value.length,el.value.length);});}
+  }
+}
+
+/* ---- 填报 ---- */
+function skuUI(id){if(!session.ui[id])session.ui[id]={unit:'large',qty:1};return session.ui[id];}
+function renderFill(){
+  const kw=(session._kw||'').trim().toLowerCase();
+  const list=kw?PRODUCTS.filter(p=>p.name.toLowerCase().includes(kw)||p.alias.toLowerCase().includes(kw)):PRODUCTS;
+  const favHtml=`<div class="panel" style="margin-top:12px;"><h3>常订商品 <span class="sub">点击直接加入（默认大单位×1）</span></h3>
+    <div class="fav-row">${FAV.map(id=>{const p=productOf(id);return `<span class="fav" data-act="fav-add" data-id="${id}">${p.alias} · ${p.name.slice(2,6)}</span>`;}).join('')}</div></div>`;
+  const skuHtml=`<div class="panel"><h3>选择商品 <span class="sub">${list.length} 个 · 支持"单黄"等缩写</span></h3>
+    ${list.length?list.map(p=>{const ui=skuUI(p.id);return `<div class="sku">
+      <div class="emoji">${p.emoji}</div><div class="info">
+        <div class="name">${p.name}<span class="alias">${p.alias}</span></div>
+        <div class="spec">${p.spec} · ${p.units.map(u=>`${u.label}${fmt(u.price)}`).join(' / ')}</div>
+      </div><div class="ctrl"><div class="units">
+        ${p.units.map(u=>`<span class="unit ${ui.unit===u.key?'on':''}" data-act="sku-unit" data-id="${p.id}" data-u="${u.key}">${u.label}</span>`).join('')}
+      </div><div class="step">
+        <button data-act="sku-dec" data-id="${p.id}">−</button><span class="q">${ui.qty}</span>
+        <button data-act="sku-inc" data-id="${p.id}">＋</button>
+      </div></div></div>`;}).join(''):`<div class="empty"><div class="big">🔍</div><p>没有找到「${session._kw}」</p></div>`}
+    </div>`;
+  const cartHtml=session.cart.length?`<div class="panel"><h3>预报清单 <span class="sub">${session.cart.length} 项</span></h3>
+    ${session.cart.map((c,i)=>{const p=productOf(c.pid),u=unitOf(p,c.unit);return `<div class="cart-item">
+      <div class="ci-name">${p.name}<div class="ci-sub">${p.units.map(x=>`<span class="unit ${x.key===c.unit?'on':''}" style="margin-right:4px;" data-act="cart-unit" data-i="${i}" data-u="${x.key}">${x.label}</span>`).join('')}</div></div>
+      <div class="step"><button data-act="cart-dec" data-i="${i}">−</button><span class="q">${c.qty}</span><button data-act="cart-inc" data-i="${i}">＋</button></div>
+      <div class="amt">${fmt(u.price*c.qty)}</div><button class="del" data-act="cart-del" data-i="${i}">✕</button>
+    </div>`;}).join('')}</div>`:'';
+  const total=session.cart.reduce((s,c)=>s+unitOf(productOf(c.pid),c.unit).price*c.qty,0);
+  return `<div class="panel" style="margin-top:0;"><div class="search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="kw" placeholder="搜索商品名称或缩写，如：单黄" value="${session._kw||''}">
+  </div></div>
+  ${session.closed?'<div class="closed-banner">⚠️ 本批次已截止，预报已锁定。</div>':''}
+  ${favHtml}${skuHtml}${cartHtml}
+  <div class="total-bar"><div class="t">共 ${session.cart.length} 项 合计<b>${fmt(total)}</b></div>
+    <button class="btn-primary" style="width:auto;" data-act="submit" data-primary-action ${(!session.cart.length||session.closed)?'disabled':''}>${session.closed?'已截止':'提交预报'}</button>
+  </div>`;
+}
+
+/* ---- 我的提交 ---- */
+function renderMine(){
+  const user=currentUser();
+  const mine=tenantSubmissions().filter(s=>s.personId===user.id);
+  if(!mine.length) return `<div class="empty" style="margin-top:60px;"><div class="big">📭</div><p>你还没有提交过预报<br>去「填报」页选商品试试</p></div>`;
+  return `<div class="panel" style="margin-top:0;"><h3>我的预报记录 <span class="sub">${user.name} · ${mine.length} 条</span></h3>
+    ${mine.map(s=>`<div class="sub-card"><div class="head"><b>${BATCH.no}</b><span class="chip">${s.status}</span></div>
+      <div class="meta">${s.store} · ${s.time} 提交</div>
+      <div class="items">${s.items.map(it=>{const p=productOf(it.pid),u=unitOf(p,it.unit);return `${p.alias} <b>${it.qty}${u.label}</b>（${fmt(u.price*it.qty)}）`;}).join(' ')}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+/* ---- 汇总总表 ---- */
+function aggregate(){
+  const map={};
+  tenantSubmissions().forEach(s=>{s.items.forEach(it=>{
+    const key=it.pid+'|'+it.unit;
+    if(!map[key])map[key]={pid:it.pid,unit:it.unit,qty:0,amt:0,sources:[]};
+    const p=productOf(it.pid),u=unitOf(p,it.unit);
+    map[key].qty+=it.qty; map[key].amt+=it.qty*u.price;
+    map[key].sources.push({person:s.person,role:s.role,store:s.store,qty:it.qty});
+  });});
+  return Object.values(map).sort((a,b)=>b.amt-a.amt);
+}
+function renderSummary(){
+  const rows=aggregate();
+  const people=new Set(tenantSubmissions().map(s=>s.personId)).size;
+  const totalAmt=rows.reduce((s,r)=>s+r.amt,0);
+  if(!rows.length) return `<div class="empty" style="margin-top:60px;"><div class="big">📋</div><p>本批次暂无预报数据</p></div>`;
+  return `<div class="stats">
+    <div class="stat"><div class="v">${fmt(totalAmt)}</div><div class="k">预报总金额</div></div>
+    <div class="stat"><div class="v">${rows.length}</div><div class="k">SKU项数</div></div>
+    <div class="stat"><div class="v">${people}</div><div class="k">已提交</div></div>
+  </div>
+  <div class="panel"><h3>SKU + 单位自动汇总
+    <span class="toolbar"><button class="btn-ghost" data-act="copy-tsv" data-primary-action>复制表格</button></span>
+  </h3>
+  ${rows.map((r,i)=>{const p=productOf(r.pid),u=unitOf(p,r.unit);return `<div class="sum-row ${session._open&&session._open[i]?'open':''}" data-act="sum-row" data-i="${i}">
+    <div class="sum-head"><div class="nm"><b>${p.name}</b><span class="u">按「${u.label}」</span><span class="sub">${p.alias} · ${fmt(u.price)}/${u.label} · ${r.sources.length} 人</span></div>
+    <div class="qty">${r.qty}${u.label}<small>${fmt(r.amt)}</small></div><span class="arrow">▶</span></div>
+    <div class="sources">${r.sources.map(x=>`<div class="s"><span>${x.person}（${x.role}）· ${x.store}</span><b>${x.qty}${u.label}</b></div>`).join('')}</div>
+  </div>`;}).join('')}
+  </div>
+  <div class="foot-note">数据来自 ${currentTenant().name} 所有预报人实时聚合</div>`;
+}
+
+/* ---- 成员管理 ---- */
+function renderMembers(){
+  const tenant=currentTenant();
+  if(!tenant) return '';
+  const members=tenant.members;
+  const plan=PLANS.find(p=>p.key===tenant.plan);
+  const fillerCount=members.filter(m=>m.role!=='admin').length;
+  const limit=plan?plan.maxFillers:999;
+  return `
+  <div class="panel" style="margin-top:0;">
+    <h3>公司成员 <span class="sub">${members.length} 人 · 套餐上限 ${limit===999?'不限':limit+'人'}</span></h3>
+    <div class="usage-bar"><div class="fill" style="width:${Math.min(100,fillerCount/limit*100)}%;${fillerCount>=limit?'background:var(--red)':''}"></div></div>
+    ${members.map((m,i)=>`
+      <div class="member-card">
+        <div class="av">${m.name.slice(0,1)}</div>
+        <div class="mi"><div class="mn">${m.name}${m.userId===session.userId?' <span style="font-size:10px;color:var(--t3);">（我）</span>':''}</div><div class="mr">${db.users[m.userId]?.phone||''}</div></div>
+        ${m.role==='admin'?'<span style="font-size:11px;color:var(--brand-dark);background:var(--brand-light);padding:2px 8px;border-radius:4px;">管理员</span>':
+          `<select data-act="change-role" data-idx="${i}">
+            ${['clerk','filler','distributor'].map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${ROLE_LABELS[r]}</option>`).join('')}
+          </select>`}
+        ${m.userId!==session.userId?`<button class="del-m" data-act="remove-member" data-idx="${i}">✕</button>`:''}
+      </div>`).join('')}
+  </div>
+  <div class="invite-box">
+    <div style="font-size:13px;font-weight:600;">邀请员工加入 ${tenant.name}</div>
+    <div class="desc">分享下方邀请码，员工在小程序首页点击「加入公司」输入即可</div>
+    <div class="code">${tenant.inviteCode}</div>
+    <button class="btn-ghost" data-act="copy-invite">复制邀请码</button>
+    <button class="btn-sm" data-act="add-demo-member" style="margin-left:6px;">+ 模拟添加成员</button>
+  </div>`;
+}
+
+/* ---- 设置（套餐+账号） ---- */
+function renderSettings(){
+  const tenant=currentTenant(), user=currentUser(), role=currentRole();
+  const plan=PLANS.find(p=>p.key===tenant.plan);
+  return `
+  <div class="panel" style="margin-top:0;">
+    <h3>公司设置</h3>
+    <div class="field"><label>公司名称</label><input value="${tenant.name}" disabled style="background:#f3f4f6;"></div>
+    <div class="field"><label>主营品牌</label><input value="蒙牛低温奶" disabled style="background:#f3f4f6;"></div>
+    <div class="field"><label>邀请码</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input value="${tenant.inviteCode}" disabled style="background:#f3f4f6;flex:1;">
+        <button class="btn-sm" data-act="copy-invite">复制</button>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>当前套餐 <span class="sub">${plan?plan.name:''}</span></h3>
+    <div class="plan-cards">
+      ${PLANS.map(p=>`<div class="plan ${tenant.plan===p.key?'on':''}" data-act="select-plan" data-plan="${p.key}">
+        ${p.tag?`<div class="tag">${p.tag}</div>`:''}
+        <div class="pn">${p.name}</div>
+        <div class="pp">${p.price?`¥${p.price}`:'免费'}<small>${p.price?'/月':''}</small></div>
+        <div class="pd">${p.features.map(f=>'· '+f).join('<br>')}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div class="panel">
+    <h3>账号信息</h3>
+    <div class="field"><label>姓名</label><input value="${user.name}" disabled style="background:#f3f4f6;"></div>
+    <div class="field"><label>手机号</label><input value="${user.phone}" disabled style="background:#f3f4f6;"></div>
+    <div class="field"><label>当前角色</label><input value="${ROLE_LABELS[role]}" disabled style="background:#f3f4f6;"></div>
+  </div>
+  <div class="panel" style="text-align:center;">
+    <button class="btn-sm danger" data-act="logout" style="width:100%;padding:10px;">退出登录</button>
+  </div>
+  <div class="panel" style="text-align:center;">
+    <button class="link-reset" data-act="reset-all">重置所有演示数据</button>
+  </div>
+  <div class="foot-note">低温奶预报单系统 · 多租户SaaS原型 · 数据存于当前浏览器</div>`;
+}
+
+/* ========== 倒计时 ========== */
+function tickCountdown(){
+  if(!session||session.view!=='fill') return;
+  const cd=$('#cd'); if(!cd) return;
+  if(session.closed){cd.textContent='已截止';return;}
+  const diff=session.deadline-Date.now();
+  if(diff<=0){session.closed=true;saveAll();renderApp();return;}
+  const h=Math.floor(diff/3600000),m=Math.floor(diff%3600000/60000),s=Math.floor(diff%60000/1000);
+  cd.textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+setInterval(tickCountdown,1000);
+
+/* ========== 事件总线 ========== */
+document.querySelector('.phone').addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;
+  const act=el.dataset.act;
+
+  // ---- 认证 ----
+  if(act==='send-sms'){ toast('演示模式：验证码 888888'); return; }
+  if(act==='do-login'){
+    const phone=$('#authPhone')?.value?.trim();
+    if(!phone||phone.length<11){toast('请输入正确的手机号');return;}
+    // 查找已有用户或创建
+    let uid=null;
+    Object.values(db.users).forEach(u=>{if(u.phone===phone||u.phone.replace(/\*/g,'').slice(-4)===phone.slice(-4)) uid=u.id;});
+    if(!uid){
+      uid='u'+(db.nextUserId++);
+      db.users[uid]={id:uid,name:'用户'+phone.slice(-4),phone:phone.slice(0,3)+'****'+phone.slice(-4)};
+    }
+    // 查找用户所属租户
+    let tid=null;
+    Object.values(db.tenants).forEach(t=>{if(t.members.find(m=>m.userId===uid)) tid=t.id;});
+    if(!tid){
+      // 新用户无租户，引导注册
+      session_reg_step=2;
+      session_reg_data={phone,name:db.users[uid].name,inviteCode:Math.random().toString(36).slice(2,8).toUpperCase()};
+      state_auth_screen='register';
+      toast('未找到所属公司，请注册新公司');
+      render(); return;
+    }
+    session={userId:uid,tenantId:tid,view:'fill',cart:[],ui:{},closed:false,deadline:Date.now()+5*3600000+23*60000,_open:{}};
+    saveAll(); render(); toast(`欢迎回来，${db.users[uid].name}`);
+    return;
+  }
+  if(act==='quick-login'){
+    const uid=el.dataset.uid;
+    let tid=null;
+    Object.values(db.tenants).forEach(t=>{if(t.members.find(m=>m.userId===uid)) tid=t.id;});
+    session={userId:uid,tenantId:tid,view:'fill',cart:[],ui:{},closed:false,deadline:Date.now()+5*3600000+23*60000,_open:{}};
+    saveAll(); render(); toast(`以 ${db.users[uid].name} 身份进入 ${db.tenants[tid].name}`);
+    return;
+  }
+  if(act==='show-register'){
+    state_auth_screen='register'; session_reg_step=1; session_reg_data={}; render(); return;
+  }
+  if(act==='back-to-login'){
+    state_auth_screen='login'; session=null; render(); return;
+  }
+  if(act==='reg-next'){
+    if(session_reg_step===1){
+      const phone=$('#regPhone')?.value?.trim();
+      const code=$('#regCode')?.value?.trim();
+      if(!phone||phone.length<11){toast('请输入正确手机号');return;}
+      if(code!=='888888'){toast('验证码错误（演示：888888）');return;}
+      session_reg_data.phone=phone; session_reg_data.code=code;
+      session_reg_step=2; render(); return;
+    }
+    if(session_reg_step===2){
+      const company=$('#regCompany')?.value?.trim();
+      const name=$('#regName')?.value?.trim();
+      const brand=$('#regBrand')?.value;
+      if(!company){toast('请输入公司名称');return;}
+      if(!name){toast('请输入联系人姓名');return;}
+      const invCode=Math.random().toString(36).slice(2,8).toUpperCase();
+      session_reg_data={...session_reg_data,company,name,brand,inviteCode:invCode};
+      // 创建租户和用户
+      const tid='t'+(db.nextTenantId++);
+      const uid='u'+(db.nextUserId++);
+      db.users[uid]={id:uid,name,phone:session_reg_data.phone.slice(0,3)+'****'+session_reg_data.phone.slice(-4)};
+      db.tenants[tid]={id:tid,name:company,contact:name,phone:session_reg_data.phone,plan:'free',inviteCode:invCode,members:[{userId:uid,name,role:'admin'}]};
+      db.submissions[tid]=[];
+      session_reg_data._newUid=uid; session_reg_data._newTid=tid;
+      session_reg_step=3; render(); return;
+    }
+    return;
+  }
+  if(act==='reg-prev'){ session_reg_step=Math.max(1,session_reg_step-1); render(); return; }
+  if(act==='reg-finish'){
+    const uid=session_reg_data._newUid, tid=session_reg_data._newTid;
+    session={userId:uid,tenantId:tid,view:'fill',cart:[],ui:{},closed:false,deadline:Date.now()+5*3600000+23*60000,_open:{}};
+    state_auth_screen='login'; saveAll(); render();
+    toast(`欢迎！${session_reg_data.company} 已创建`);
+    return;
+  }
+
+  // ---- 主应用 ----
+  if(act==='logout'){session=null;state_auth_screen='login';saveAll();render();return;}
+  if(act==='toggle-closed'){session.closed=!session.closed;saveAll();renderApp();toast(session.closed?'已模拟截止':'批次已开放');return;}
+  if(act==='fav-add'){addToCart(el.dataset.id,'large',1);return;}
+  if(act==='sku-unit'){skuUI(el.dataset.id).unit=el.dataset.u;saveAll();renderApp();return;}
+  if(act==='sku-inc'){const ui=skuUI(el.dataset.id);ui.qty=Math.min(999,ui.qty+1);saveAll();renderApp();return;}
+  if(act==='sku-dec'){const ui=skuUI(el.dataset.id);ui.qty=Math.max(1,ui.qty-1);saveAll();renderApp();return;}
+  if(act==='cart-unit'){session.cart[+el.dataset.i].unit=el.dataset.u;saveAll();renderApp();return;}
+  if(act==='cart-inc'){session.cart[+el.dataset.i].qty=Math.min(999,session.cart[+el.dataset.i].qty+1);saveAll();renderApp();return;}
+  if(act==='cart-dec'){const c=session.cart[+el.dataset.i];c.qty=Math.max(1,c.qty-1);saveAll();renderApp();return;}
+  if(act==='cart-del'){session.cart.splice(+el.dataset.i,1);saveAll();renderApp();return;}
+  if(act==='submit'){doSubmit();return;}
+  if(act==='sum-row'){session._open=session._open||{};session._open[el.dataset.i]=!session._open[el.dataset.i];el.classList.toggle('open');return;}
+  if(act==='copy-tsv'){
+    const tsv=buildTSV();
+    if(navigator.clipboard?.writeText) navigator.clipboard.writeText(tsv).then(()=>toast('已复制，可粘贴到 Excel')).catch(()=>fbCopy(tsv));
+    else fbCopy(tsv);
+    return;
+  }
+  if(act==='copy-invite'){
+    const code=currentTenant()?.inviteCode||'';
+    const text=`我在「${currentTenant()?.name}」使用低温奶预报单系统，输入邀请码 ${code} 即可加入。`;
+    if(navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(()=>toast('邀请文案已复制')).catch(()=>toast('复制失败'));
+    else toast('邀请码：'+code);
+    return;
+  }
+  if(act==='add-demo-member'){
+    const names=['赵磊','孙丽','周洋','吴涛','郑雪','马超'];
+    const roles=['filler','filler','clerk','distributor','filler','filler'];
+    const ti=Math.floor(Math.random()*names.length);
+    const tenant=currentTenant();
+    const plan=PLANS.find(p=>p.key===tenant.plan);
+    const fillerCount=tenant.members.filter(m=>m.role!=='admin').length;
+    if(fillerCount>=plan.maxFillers){toast(`已达${plan.name}上限（${plan.maxFillers}人），请升级套餐`);return;}
+    const uid='u'+(db.nextUserId++);
+    const nm=names[ti];
+    db.users[uid]={id:uid,name:nm,phone:'1'+String(Math.floor(Math.random()*9000000000+1000000000))};
+    tenant.members.push({userId:uid,name:nm,role:roles[ti]});
+    saveAll(); renderApp(); toast(`${nm}（${ROLE_LABELS[roles[ti]]}）已加入`);
+    return;
+  }
+  if(act==='change-role'){
+    const idx=+el.dataset.idx;
+    const tenant=currentTenant();
+    tenant.members[idx].role=el.value;
+    saveAll(); renderApp(); toast(`角色已更新为「${ROLE_LABELS[el.value]}」`);
+    return;
+  }
+  if(act==='remove-member'){
+    if(!confirm('确定移除该成员？')) return;
+    const idx=+el.dataset.idx;
+    currentTenant().members.splice(idx,1);
+    saveAll(); renderApp(); toast('成员已移除');
+    return;
+  }
+  if(act==='select-plan'){
+    const plan=el.dataset.plan;
+    const tenant=currentTenant();
+    if(plan===tenant.plan){toast('当前已是该套餐');return;}
+    const p=PLANS.find(x=>x.key===plan);
+    showModal(`<div class="ok">✓</div><h4>${p.price?'升级':'切换'}到${p.name}</h4>
+      <p>${p.price?`¥${p.price}/月 · ${p.features[0]}`:'切换到免费体验版'}<br>演示模式：直接生效</p>
+      <button class="btn-primary" data-act="confirm-plan" data-plan="${plan}">确认${p.price?'升级':'切换'}</button>`);
+    return;
+  }
+  if(act==='confirm-plan'){
+    currentTenant().plan=el.dataset.plan;
+    hideModal(); saveAll(); renderApp(); toast('套餐已更新');
+    return;
+  }
+  if(act==='reset-all'){
+    if(confirm('重置所有演示数据？')){localStorage.removeItem(LS);location.reload();}
+    return;
+  }
+  if(act==='modal-close'){hideModal();if(session){session.view='mine';saveAll();renderApp();}return;}
+});
+
+// tabbar 切换
+$('#tabbar').addEventListener('click',e=>{
+  const btn=e.target.closest('button[data-view]');if(!btn)return;
+  session.view=btn.dataset.view;saveAll();renderApp();$('#view').scrollTop=0;
+});
+
+// 演示切换器
+$('#demoSwitch').addEventListener('change',e=>{
+  if(e.target.value==='logout'){session=null;state_auth_screen='login';saveAll();render();return;}
+  const uid=e.target.value;
+  let tid=null;
+  Object.values(db.tenants).forEach(t=>{if(t.members.find(m=>m.userId===uid))tid=t.id;});
+  session={userId:uid,tenantId:tid,view:'fill',cart:[],ui:{},closed:false,deadline:Date.now()+5*3600000+23*60000,_open:{}};
+  saveAll();render();
+});
+
+/* ========== 工具函数 ========== */
+function fbCopy(text){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('已复制');}catch(e){toast('复制失败');}document.body.removeChild(ta);}
+
+function addToCart(pid,unit,qty){
+  if(session.closed){toast('本批次已截止');return;}
+  const found=session.cart.find(c=>c.pid===pid&&c.unit===unit);
+  if(found)found.qty=Math.min(999,found.qty+qty);
+  else session.cart.push({pid,unit,qty});
+  saveAll();renderApp();
+  const p=productOf(pid),u=unitOf(p,unit);
+  toast(`已加入：${p.alias} × ${qty}${u.label}`);
+}
+
+function doSubmit(){
+  if(session.closed){toast('本批次已截止');return;}
+  if(!session.cart.length){toast('请先选择商品');return;}
+  const user=currentUser(),role=currentRole(),tenant=currentTenant();
+  const stores=['永辉超市东金店','万华超市广场店','鑫源便利店'];
+  const store=stores[Math.floor(Math.random()*stores.length)];
+  const now=new Date();
+  const sub={
+    id:'s'+Date.now(),personId:user.id,person:user.name,role:ROLE_LABELS[role],
+    store,time:`今日 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+    status:'预报中',items:session.cart.map(c=>({pid:c.pid,unit:c.unit,qty:c.qty}))
+  };
+  if(!db.submissions[session.tenantId])db.submissions[session.tenantId]=[];
+  db.submissions[session.tenantId].push(sub);
+  const total=sub.items.reduce((s,it)=>s+unitOf(productOf(it.pid),it.unit).price*it.qty,0);
+  session.cart=[];saveAll();renderApp();
+  showModal(`<div class="ok">✓</div><h4>预报提交成功</h4>
+    <p><b>${store}</b> · ${tenant.name}<br>${sub.items.length} 项商品 · 合计 ${fmt(total)}<br>已进入汇总总表</p>
+    <button class="btn-primary" data-act="modal-close">查看我的提交</button>`);
+}
+
+function buildTSV(){
+  const rows=aggregate();
+  let tsv='商品名称\t简称\t单位\t预报数量\t单价(元)\t金额(元)\t来源人数\t来源明细\n';
+  rows.forEach(r=>{const p=productOf(r.pid),u=unitOf(p,r.unit);
+    tsv+=[p.name,p.alias,u.label,r.qty,u.price.toFixed(2),r.amt.toFixed(2),r.sources.length,r.sources.map(x=>`${x.person}(${x.qty})`).join('、')].join('\t')+'\n';});
+  return tsv;
+}
+
+/* ========== 启动 ========== */
+loadAll(); render();
+</script>
+</body>
+</html>
