@@ -118,6 +118,17 @@
               <div v-if="m.followups && m.followups.length" class="cp-followups">
                 <button v-for="(f, fi) in m.followups" :key="fi" class="cp-fubtn" @click="askFollowup(f)">{{ f.label || f }}</button>
               </div>
+
+              <!-- 主动澄清（P0-①：信息不足时 AI 反问 + 结构化选项） -->
+              <div v-if="m.clarify && m.clarify.options && m.clarify.options.length" class="cp-clarify">
+                <div class="cp-clarify-ask">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  {{ m.clarify.ask }}
+                </div>
+                <div class="cp-clarify-opts">
+                  <button v-for="(o, oi) in m.clarify.options" :key="oi" class="cp-clarify-opt" @click="askFollowup(o)">{{ o.label }}</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -281,7 +292,7 @@ import { importApi } from '../api/modules'
 import { chatAttachmentApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
 import ProgressSteps from './ProgressSteps.vue'
-import { useCardTrigger, extractCard, extractCardIntent, stripIntentFence, DENY_RE, demoCard } from '../composables/useCardTrigger'
+import { useCardTrigger, extractCard, extractCardIntent, stripIntentFence, extractClarify, stripClarifyFence, DENY_RE, demoCard } from '../composables/useCardTrigger'
 import { useVoiceInput } from '../composables/useVoiceInput'
 import { renderMd } from '../utils/md'
 
@@ -756,7 +767,10 @@ async function streamReply(payload) {
           const last = store.chat.messages[replyIndex]
           if (!last) return
           if (!cardIntent) cardIntent = extractCardIntent(full)
-          const clean = stripIntentFence(full)
+          let clean = stripIntentFence(full)
+          // 主动澄清：```clarify 围栏 → 渲染可点选项，围栏不出现在正文
+          const cl = extractClarify(clean)
+          if (cl && cl.options && cl.options.length) { last.clarify = cl; clean = stripClarifyFence(clean) }
           if (last.card) { last.content = clean }            // 已抽到卡片，继续累积纯文本（意图围栏已剥离）
           else {
             const ex = extractCard(clean)
@@ -1019,6 +1033,14 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-followups{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .cp-fubtn{padding:6px 11px;border:1px solid var(--p);border-radius:14px;background:var(--p-bg);font-size:11.5px;color:var(--p-dark);cursor:pointer;transition:all .15s}
 .cp-fubtn:hover{background:rgba(6,182,212,.16);border-color:var(--p-dark)}
+
+/* P0-① 主动澄清：AI 反问 + 结构化选项 */
+.cp-clarify{margin-top:8px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
+.cp-clarify-ask{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);margin-bottom:8px}
+.cp-clarify-ask svg{color:var(--p-dark);flex-shrink:0}
+.cp-clarify-opts{display:flex;flex-direction:column;gap:6px}
+.cp-clarify-opt{padding:7px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);font-size:12.5px;color:var(--t1);cursor:pointer;text-align:left;transition:all .15s}
+.cp-clarify-opt:hover{border-color:var(--p-dark);background:var(--p-bg)}
 
 /* M3 任务进度容器 */
 .msg-progress{width:100%;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px}

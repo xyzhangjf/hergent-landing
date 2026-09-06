@@ -40,6 +40,33 @@ export function stripIntentFence(text) {
   return (text || '').replace(CARD_INTENT_RE, '').replace(/^\n+/, '').trim()
 }
 
+/* ---- AI 主动澄清：```clarify 围栏（信息不足时反问 + 结构化选项） ----
+   协议：AI 在关键信息缺失或有歧义（客户名匹配到多个、数量/金额缺失、时间范围不清、
+   口径有歧义）时，不硬猜、不编造，末尾输出
+   ```clarify {"ask":"一句话说清要补什么","options":[{"label":"选项A","query":"补全后的完整问法"},{"label":"选项B","query":"..."}]} ```
+   - ask = 要补什么；options = 2~3 个可点选项，第一个放推荐项
+   - query = 老板点选后真正发送的完整问题（已补全缺失信息）
+   前端解析渲染成可点击选项，围栏本身不出现在正文。 */
+export const CLARIFY_RE = /```clarify\s*\n?\s*(\{[\s\S]*?\})\s*```/i
+
+export function extractClarify(text) {
+  const m = (text || '').match(CLARIFY_RE)
+  if (!m) return null
+  try {
+    const c = JSON.parse(m[1].trim())
+    const ask = typeof c.ask === 'string' ? c.ask : ''
+    const options = Array.isArray(c.options)
+      ? c.options
+          .filter(o => o && (o.label || o.query))
+          .map(o => ({ label: o.label || o.query, query: o.query || o.label }))
+      : []
+    return { ask, options }
+  } catch (e) { return null }
+}
+export function stripClarifyFence(text) {
+  return (text || '').replace(CLARIFY_RE, '').replace(/^\n+/, '').trim()
+}
+
 /* ---- 意图正则（仅作 AI 未输出意图围栏时的弱兜底） ---- */
 export const LOSS_RE = /货损|报损|损耗|临期|过期|破损|报废|损失|近效期|效期|保质期|坏品|烂货/i
 export const PAYROLL_RE = /工资|提成|算工资|算提成|发工资|佣金|薪酬|业绩提成|员.?工.?工资/i
