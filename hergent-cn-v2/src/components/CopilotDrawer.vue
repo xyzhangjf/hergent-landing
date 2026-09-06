@@ -129,6 +129,28 @@
                   <button v-for="(o, oi) in m.clarify.options" :key="oi" class="cp-clarify-opt" @click="askFollowup(o)">{{ o.label }}</button>
                 </div>
               </div>
+
+              <!-- 配方自进化提案（P2-⑦：AI 发现新口径 → 老板一键采纳/忽略） -->
+              <div v-if="m.proposal" class="cp-proposal" :class="m.proposalStatus">
+                <div class="cp-prop-hd">
+                  <svg class="cp-prop-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  <span class="cp-prop-title">{{ m.proposal.title || 'AI 建议调整配方' }}</span>
+                  <span class="cp-prop-module">{{ MODULE_LABEL[m.proposal.module] || m.proposal.module }}</span>
+                </div>
+                <div class="cp-prop-changes">
+                  <span v-for="(v, k) in m.proposal.changes" :key="k" class="cp-prop-change">{{ FIELD_LABEL[k] || k }}：{{ v }}</span>
+                </div>
+                <div v-if="m.proposal.rationale" class="cp-prop-rationale">{{ m.proposal.rationale }}</div>
+                <div v-if="!m.proposalStatus" class="cp-prop-ops">
+                  <button class="cp-prop-btn ghost" :disabled="m.propBusy" @click="applyProposal(m, 'reject')">忽略</button>
+                  <button class="cp-prop-btn primary" :disabled="m.propBusy" @click="applyProposal(m, 'accept')">{{ m.propBusy ? '处理中…' : '采纳并写入配方' }}</button>
+                </div>
+                <div v-else class="cp-prop-done" :class="{ rej: m.proposalStatus === 'rejected' }">
+                  <svg v-if="m.proposalStatus === 'accepted'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  {{ m.proposalStatus === 'accepted' ? '已采纳，口径已写入配方并同步给 AI' : '已忽略此建议' }}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -309,7 +331,7 @@ import { importApi } from '../api/modules'
 import { chatAttachmentApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
 import ProgressSteps from './ProgressSteps.vue'
-import { useCardTrigger, extractCard, extractCardIntent, stripIntentFence, extractClarify, stripClarifyFence, DENY_RE, demoCard } from '../composables/useCardTrigger'
+import { useCardTrigger, extractCard, extractCardIntent, stripIntentFence, extractClarify, stripClarifyFence, extractProposal, stripProposalFence, DENY_RE, demoCard } from '../composables/useCardTrigger'
 import { useVoiceInput } from '../composables/useVoiceInput'
 import { renderMd } from '../utils/md'
 
@@ -572,6 +594,42 @@ function askFollowup(f) {
   const q = (typeof f === 'object' && f !== null) ? (f.query || f.label) : f
   draft.value = q
   send()
+}
+
+/* ---- P2-⑦ 配方自进化提案：AI 发现新口径 → 老板一键采纳/忽略 ---- */
+const MODULE_LABEL = { loss: '货损', payroll: '工资', forecast: '预报', rebate: '返利' }
+const FIELD_LABEL = {
+  threshold_days: '临期阈值(天)', pricing: '计价口径', dimension: '计算维度',
+  near_loss_pct: '临期损耗率%', expired_coefficient: '过期损失系数',
+  base_salary: '基本工资', commission_rate: '提成比例%', tax_standard_deduction: '个税起征点',
+  performance: '绩效', bonus: '奖金', allowance: '津贴', deduction_other: '其他扣款',
+  reorder_cycle: '补货周期', safety_factor: '安全系数', lead_time: '提前期',
+  moq: '起订量', safety_days: '安全天数'
+}
+// 采纳/忽略 = 先落一条提案(source=ai)再审批；后端 accept 才会合并进配方并写审计
+async function applyProposal(m, action) {
+  if (!m.proposal || m.proposalStatus) return
+  m.propBusy = true
+  try {
+    const created = await api('/api/ai/recipe-proposals', {
+      method: 'POST',
+      body: {
+        module: m.proposal.module,
+        title: m.proposal.title,
+        changes: m.proposal.changes,
+        rationale: m.proposal.rationale,
+        source: 'ai'
+      }
+    })
+    await api(`/api/ai/recipe-proposals/${created.id}/review`, { method: 'POST', body: { action } })
+    m.proposalStatus = action === 'accept' ? 'accepted' : 'rejected'
+    saveCurrentSession()
+  } catch (e) {
+    console.warn('[copilot] apply proposal failed:', e.message)
+    store.chat.error = '配方提案处理失败：' + e.message
+  } finally {
+    m.propBusy = false
+  }
 }
 
 /* ---- AI 卡片触发器（A6 拆分至 composables/useCardTrigger） ---- */
@@ -871,6 +929,9 @@ async function streamReply(payload) {
           // 主动澄清：```clarify 围栏 → 渲染可点选项，围栏不出现在正文
           const cl = extractClarify(clean)
           if (cl && cl.options && cl.options.length) { last.clarify = cl; clean = stripClarifyFence(clean) }
+          // 配方自进化提案：```proposal 围栏 → 渲染采纳/忽略卡片，围栏不出现在正文
+          const prop = extractProposal(clean)
+          if (prop && !last.proposal) { last.proposal = prop; clean = stripProposalFence(clean) }
           if (last.card) { last.content = clean }            // 已抽到卡片，继续累积纯文本（意图围栏已剥离）
           else {
             const ex = extractCard(clean)
@@ -1157,6 +1218,28 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-clarify-opts{display:flex;flex-direction:column;gap:6px}
 .cp-clarify-opt{padding:7px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);font-size:12.5px;color:var(--t1);cursor:pointer;text-align:left;transition:all .15s}
 .cp-clarify-opt:hover{border-color:var(--p-dark);background:var(--p-bg)}
+
+/* P2-⑦ 配方自进化提案卡片 */
+.cp-proposal{margin-top:8px;padding:11px 12px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);border-left:3px solid var(--p)}
+.cp-proposal.accepted{border-left-color:var(--suc)}
+.cp-proposal.rejected{border-left-color:var(--t3);opacity:.8}
+.cp-prop-hd{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.cp-prop-ic{color:var(--p-dark);flex-shrink:0}
+.cp-prop-title{font-size:12.5px;font-weight:600;color:var(--t1)}
+.cp-prop-module{font-size:10.5px;color:var(--p-dark);background:var(--p-bg);border:1px solid var(--p);border-radius:8px;padding:1px 7px;flex-shrink:0}
+.cp-prop-changes{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
+.cp-prop-change{font-size:11px;color:var(--t2);background:var(--bg);border:1px solid var(--border-subtle);border-radius:8px;padding:2px 8px}
+.cp-prop-rationale{font-size:11.5px;color:var(--t3);line-height:1.55;margin-bottom:9px}
+.cp-prop-ops{display:flex;gap:8px;justify-content:flex-end}
+.cp-prop-btn{font-size:12px;padding:6px 14px;border-radius:9px;cursor:pointer;transition:all .15s;border:1px solid transparent}
+.cp-prop-btn:disabled{opacity:.5;cursor:default}
+.cp-prop-btn.ghost{background:var(--bg);border-color:var(--border-subtle);color:var(--t2)}
+.cp-prop-btn.ghost:hover:not(:disabled){border-color:var(--t3);color:var(--t1)}
+.cp-prop-btn.primary{background:var(--p-dark);color:#fff;box-shadow:var(--shadow-sm)}
+.cp-prop-btn.primary:hover:not(:disabled){background:var(--p-deep)}
+.cp-prop-done{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--suc)}
+.cp-prop-done svg{flex-shrink:0}
+.cp-prop-done.rej{color:var(--t3)}
 
 /* M3 任务进度容器 */
 .msg-progress{width:100%;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px}

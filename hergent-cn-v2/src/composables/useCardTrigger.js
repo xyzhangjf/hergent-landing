@@ -67,6 +67,39 @@ export function stripClarifyFence(text) {
   return (text || '').replace(CLARIFY_RE, '').replace(/^\n+/, '').trim()
 }
 
+/* ---- AI 配方自进化提案：```proposal 围栏（P2-⑦：服务中发现新口径 → 老板审批） ----
+   协议：AI 在对话中发现「某口径该改」时（如某客户临期阈值 7→5 天、返利口径变了），
+   不擅自改，而是末尾输出
+   ```proposal {"module":"loss","title":"临期阈值建议 5 天","changes":{"threshold_days":5},"rationale":"最近多批临期 7 天仍被拒收"} ```
+   - module = loss/payroll/forecast/rebate（配方模块）
+   - changes = 建议改动的字段映射（object）
+   - rationale = 为什么建议（老板判断依据）
+   前端渲染成「采纳/忽略」卡片，围栏本身不出现在正文。采纳走「落提案→审批」，
+   严守「AI 只建议不擅自下单」铁律。 */
+export const PROPOSAL_RE = /```proposal\s*\n?\s*(\{[\s\S]*?\})\s*```/i
+const PROPOSAL_MODULES = ['loss', 'payroll', 'forecast', 'rebate']
+
+export function extractProposal(text) {
+  const m = (text || '').match(PROPOSAL_RE)
+  if (!m) return null
+  try {
+    const p = JSON.parse(m[1].trim())
+    const module = PROPOSAL_MODULES.includes(p.module) ? p.module : null
+    if (!module) return null
+    const changes = (p.changes && typeof p.changes === 'object' && !Array.isArray(p.changes)) ? p.changes : null
+    if (!changes || !Object.keys(changes).length) return null
+    return {
+      module,
+      title: typeof p.title === 'string' ? p.title : '',
+      changes,
+      rationale: typeof p.rationale === 'string' ? p.rationale : ''
+    }
+  } catch (e) { return null }
+}
+export function stripProposalFence(text) {
+  return (text || '').replace(PROPOSAL_RE, '').replace(/^\n+/, '').trim()
+}
+
 /* ---- 意图正则（仅作 AI 未输出意图围栏时的弱兜底） ---- */
 export const LOSS_RE = /货损|报损|损耗|临期|过期|破损|报废|损失|近效期|效期|保质期|坏品|烂货/i
 export const PAYROLL_RE = /工资|提成|算工资|算提成|发工资|佣金|薪酬|业绩提成|员.?工.?工资/i
