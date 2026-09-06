@@ -254,11 +254,21 @@
             </div>
             <div
               v-for="a in artifacts"
-              :key="a.index"
+              :key="a.file ? ('f' + a.file.file_id) : ('c' + a.index)"
               class="cp-art-item"
               @click="jumpTo(a.index)"
             >
-              <ResultCard :card="a.card" :compact="true" @action="onCardAction" />
+              <ResultCard v-if="a.card" :card="a.card" :compact="true" @action="onCardAction" />
+              <a v-else-if="a.file" class="cp-art-file" :href="`/api/chat-attachment/download/${a.file.file_id}`" :download="a.file.file_name" target="_blank" rel="noopener" @click.stop>
+                <span class="cp-art-file-ic">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                </span>
+                <span class="cp-art-file-tx">
+                  <span class="cp-art-file-name">{{ a.file.file_name }}</span>
+                  <span class="cp-art-file-meta">{{ a.file.rows ? a.file.rows + ' 行 · ' : '' }}点击下载</span>
+                </span>
+                <svg class="cp-art-file-dl" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </a>
             </div>
           </div>
         </aside>
@@ -681,7 +691,12 @@ const artifacts = computed(() => {
   const msgs = store.chat.messages
   const list = []
   for (let i = 0; i < msgs.length; i++) {
-    if (msgs[i] && msgs[i].card) list.push({ index: i, card: msgs[i].card })
+    const m = msgs[i]
+    if (!m) continue
+    if (m.card) list.push({ index: i, card: m.card })
+    if (m.files && m.files.length) {
+      for (const f of m.files) if (f && f.file_id) list.push({ index: i, file: f })
+    }
   }
   return list.reverse()
 })
@@ -754,8 +769,12 @@ async function send() {
   // 拼装消息：附件解析文本 + 用户问题
   let content = q
   let tableFiles = []   // 上传的 Excel/CSV 附件（含 file_id），供 Hermes 跨文件/单文件全量表计算引用
+  let files = []        // P1-④ 产物栏文件卡片：附件原文件（file_id 可下载回看）
   if (attachments.value.length) {
     tableFiles = attachments.value.filter(a => a.file_id && /\.(xlsx|csv)$/i.test(a.file_name))
+    files = attachments.value
+      .filter(a => a.file_id)
+      .map(a => ({ file_id: a.file_id, file_name: a.file_name, file_type: a.file_type || 'file', rows: a.rows || 0 }))
     // 静默读取：消息只留轻量引用（文件名+行数，自包含可溯源），不把表格正文 preview 塞进上下文。
     // 全量数据由 Hermes 经 spreadsheet MCP 工具按 file_id 静默读取，避免截断预览误导模型心算。
     const parts = attachments.value.map(a => {
@@ -786,16 +805,16 @@ async function send() {
     sys = (sys ? sys + '\n\n' : '') + AI_GUARD_HINT
   }
 
-  lastPayload = { content, sys, q, tableFiles: [...tableFiles] }
+  lastPayload = { content, sys, q, tableFiles: [...tableFiles], files }
   streamReply(lastPayload)
 }
 
 /* 流式发送核心：成功才触发卡片/推送并落盘；失败（含超时中断）只移除半截气泡、
    给出分级错误，绝不误报「离线」或追发卡片请求（P0 评审炸弹 #4）。 */
 async function streamReply(payload) {
-  const { content, sys, q, tableFiles } = payload
+  const { content, sys, q, tableFiles, files } = payload
   store.chat.error = ''
-  store.chat.messages.push({ role: 'user', content })
+  store.chat.messages.push({ role: 'user', content, files: files || [] })
   store.chat.messages.push({ role: 'assistant', content: '', tools: [] })
   const replyIndex = store.chat.messages.length - 1
   store.chat.streaming = true
@@ -970,6 +989,14 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-art-item{cursor:pointer;transition:transform .12s ease}
 .cp-art-item:hover{transform:translateY(-1px)}
 .cp-art-item .rc{border-color:var(--bd)}
+/* P1-④ 产物栏文件卡片 */
+.cp-art-file{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2);text-decoration:none;transition:border-color .15s}
+.cp-art-file:hover{border-color:var(--p-dark)}
+.cp-art-file-ic{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
+.cp-art-file-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.cp-art-file-name{font-size:13px;color:var(--t1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-art-file-meta{font-size:11px;color:var(--t3)}
+.cp-art-file-dl{color:var(--t3);flex-shrink:0}
 /* 跳转动效 */
 .msg.flash .msg-bubble{animation:cpFlash 1.2s ease}
 @keyframes cpFlash{0%,100%{box-shadow:0 0 0 0 transparent}30%{box-shadow:0 0 0 3px var(--p-bg)}}
