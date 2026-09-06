@@ -71,7 +71,7 @@
 
       <p class="login-legal">
         © 2026 湖北省小赫智体数字科技有限公司<br>
-        <span class="beian">鄂ICP备2026027973号-1</span> · <a href="/legal/terms.html" target="_blank" rel="noopener">用户协议</a> · <a href="/legal/privacy.html" target="_blank" rel="noopener">隐私政策</a>
+        <a class="beian" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">鄂ICP备2026027973号-1</a> · <a href="/legal/terms.html" target="_blank" rel="noopener">用户协议</a> · <a href="/legal/privacy.html" target="_blank" rel="noopener">隐私政策</a>
       </p>
     </div>
 
@@ -268,6 +268,7 @@ form{display:flex;flex-direction:column;gap:12px;flex:1}
 .login-legal .beian{margin-right:6px}
 .login-legal a{color:var(--p-dark);text-decoration:none;margin:0 2px}
 .login-legal a:hover{text-decoration:underline}
+.login-legal a.beian{color:var(--t3)}
 .login-agree{display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--t2);margin:2px 0 0;line-height:1.5}
 .login-agree input{margin-top:2px;accent-color:var(--p);flex:none}
 .login-agree a{color:var(--p-dark);text-decoration:none}
