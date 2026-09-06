@@ -213,6 +213,13 @@
             </button>
           </div>
           <div v-if="uploading" class="cp-uploading">上传解析中…</div>
+          <div class="cp-foot-guard">
+            <button class="cp-guard-btn" :class="{ on: aiGuard === 'execute' }" @click="toggleAiGuard"
+              :title="aiGuard === 'advise' ? 'AI 只给建议，不替你下单/收款/采购。点击切换' : '已允许 AI 执行写操作。点击切换回只建议'">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+              {{ aiGuard === 'advise' ? '只建议 · 不替你下单' : '允许执行写操作' }}
+            </button>
+          </div>
           <div class="cp-foot-hint">Enter 发送 · Shift+Enter 换行 · 支持上传 Excel/CSV/图片</div>
         </footer>
         </div><!-- /cp-chat -->
@@ -487,6 +494,14 @@ function formatDailyLogForAI(logs) {
   })
   return `【这家店最近几天的经营记录（每日简报快照，供你回忆历史真实数字，勿编造）】\n${lines.join('\n')}`
 }
+
+/* ---- P0-③ 动作分级护栏：AI 权限档位（只建议/允许执行），产品化"只建议不擅自下单"铁律 ---- */
+const aiGuard = ref(localStorage.getItem('hergent_ai_guard') || 'advise')  // advise=只建议（默认）/ execute=允许执行
+function toggleAiGuard() {
+  aiGuard.value = aiGuard.value === 'advise' ? 'execute' : 'advise'
+  localStorage.setItem('hergent_ai_guard', aiGuard.value)
+}
+const AI_GUARD_HINT = '【AI 权限】你当前处于「只建议」模式：任何下单、收款、付款、采购、删除、修改等写操作，一律只给建议和步骤，绝不擅自执行。'
 
 function showDemo() {
   store.chat.messages.push({
@@ -764,6 +779,11 @@ async function send() {
       const ctx = formatDailyLogForAI(logs)
       if (ctx) sys = (sys ? sys + '\n\n' : '') + ctx
     } catch (_) { /* 静默降级，不阻断主对话 */ }
+  }
+
+  // P0-③ 动作分级护栏：只建议档显式注入行为边界（信任透明化 + 未来写能力护栏）
+  if (aiGuard.value === 'advise') {
+    sys = (sys ? sys + '\n\n' : '') + AI_GUARD_HINT
   }
 
   lastPayload = { content, sys, q, tableFiles: [...tableFiles] }
@@ -1069,6 +1089,14 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-send:not(:disabled):hover{background:var(--p-deep);transform:translateY(-1px)}
 .cp-send:disabled{opacity:.35;cursor:default}
 .cp-foot-hint{font-size:11px;color:var(--t3);margin-top:7px;text-align:center}
+
+/* P0-③ AI 权限护栏开关 */
+.cp-foot-guard{display:flex;justify-content:center;margin-top:7px}
+.cp-guard-btn{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border:1px solid var(--border-subtle);border-radius:12px;background:var(--bg2);font-size:11px;color:var(--t2);cursor:pointer;transition:all .15s}
+.cp-guard-btn svg{color:var(--suc);flex-shrink:0}
+.cp-guard-btn:hover{border-color:var(--suc);color:var(--t1)}
+.cp-guard-btn.on{border-color:var(--war);background:var(--war-bg,#FAEEDA)}
+.cp-guard-btn.on svg{color:var(--war)}
 
 /* M2 渐进式访谈引导 chips */
 .cp-followups{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
