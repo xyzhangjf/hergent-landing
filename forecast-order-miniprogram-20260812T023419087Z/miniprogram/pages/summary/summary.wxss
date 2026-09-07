@@ -23,6 +23,9 @@
 .ai-na{color:#c7c7cc}
 .ai-hint{font-size:22rpx;color:#86868b;padding:0 40rpx;margin-top:-8rpx}
 .empty{text-align:center;color:#86868b;font-size:26rpx;padding:80rpx 0}
+.noauth{text-align:center;color:#8e8e93;padding:120rpx 0;font-size:28rpx}
+.noauth-ic{font-size:64rpx;margin-bottom:16rpx}
+.noauth-tip{color:#86868b}
 .src-title{font-size:28rpx;font-weight:600;color:#1d1d1f;padding:24rpx 32rpx 12rpx}
 .src-list{padding:0 32rpx}
 .src-group{background:#fff;border-radius:16rpx;padding:20rpx 24rpx;margin-bottom:16rpx}

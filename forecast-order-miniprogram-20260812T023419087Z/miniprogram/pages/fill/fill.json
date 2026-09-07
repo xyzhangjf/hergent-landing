@@ -1,4 +1,5 @@
 {
-  "usingComponents": {},
-  "navigationBarTitleText": "预报填报"
+  "onReachBottomDistance": 120,
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark"
 }

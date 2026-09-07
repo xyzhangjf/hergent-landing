@@ -4,17 +4,34 @@
 .store-name{font-size:32rpx;font-weight:600;color:#1d1d1f}
 .store-arrow{font-size:24rpx;color:#06b6d4;margin-left:12rpx}
 .store-count{font-size:26rpx;color:#86868b}
-.search-bar{padding:24rpx 32rpx 0}
-.search-ipt{background:#fff;border-radius:16rpx;height:88rpx;padding:0 28rpx;font-size:30rpx;border:1rpx solid #e5e5ea}
-.hot-scroll{white-space:nowrap;padding:20rpx 32rpx 0}
-.hot-row{display:inline-flex;gap:16rpx}
-.hot-chip{display:inline-block;background:#e6f7fb;color:#0e7490;font-size:26rpx;padding:12rpx 28rpx;border-radius:32rpx;margin-right:16rpx}
-.prod-list{padding:24rpx 32rpx 0}
-.prod-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:16rpx;padding:24rpx 28rpx;margin-bottom:16rpx}
-.prod-name{font-size:30rpx;color:#1d1d1f;font-weight:500}
+.search-bar{display:flex;align-items:center;gap:16rpx;padding:24rpx 32rpx 0}
+.search-ipt{flex:1;background:#fff;border-radius:16rpx;height:88rpx;padding:0 28rpx;font-size:30rpx;border:1rpx solid #e5e5ea}
+.search-clear{font-size:30rpx;color:#86868b;padding:0 8rpx}
+/* 全量铺开：列表标题 + 分页加载状态 */
+.prod-head{display:flex;align-items:center;justify-content:space-between;padding:24rpx 32rpx 0}
+.prod-head-t{font-size:28rpx;color:#1d1d1f;font-weight:600}
+.prod-head-n{font-size:24rpx;color:#86868b}
+.load-more{text-align:center;color:#86868b;font-size:26rpx;padding:32rpx 0}
+.load-end{text-align:center;color:#c7c7cc;font-size:24rpx;padding:32rpx 0}
+/* 期次已过窗口提示 */
+.period-warn{margin:16rpx 32rpx 0;background:#fef2f2;border:1rpx solid #fecaca;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#b91c1c}
+.prod-list{padding:16rpx 32rpx 0}
+.prod-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:16rpx;padding:20rpx 24rpx;margin-bottom:16rpx;border:2rpx solid transparent}
+.prod-row-on{background:#ecfeff;border-color:#a5f3fc}
+.prod-info{flex:1;min-width:0;padding-right:16rpx}
+.prod-name{font-size:30rpx;color:#1d1d1f;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prod-spec{font-size:24rpx;color:#86868b;margin-top:6rpx}
-.prod-add{width:56rpx;height:56rpx;border-radius:50%;background:#06b6d4;color:#fff;font-size:40rpx;display:flex;align-items:center;justify-content:center}
-.cart-title{font-size:28rpx;color:#1d1d1f;font-weight:600;padding:32rpx 32rpx 16rpx}
+.prod-meta{font-size:22rpx;color:#94a3b8;margin-top:6rpx}
+/* 行内填报：− / 输入框 / +（P2-6: 触控目标 60→76rpx≈38px，减少手抖误触） */
+.qty-ctl{display:flex;align-items:center;gap:12rpx;flex:0 0 auto}
+.qty-ctl .qty-btn{width:76rpx;height:76rpx;font-size:44rpx}
+.qty-btn-off{color:#c7c7cc}
+.qty-btn-add{background:#06b6d4;color:#fff}
+.qty-input{width:112rpx;height:76rpx;text-align:center;background:#f2f2f7;border-radius:12rpx;font-size:30rpx;color:#1d1d1f}
+.qty-input-on{background:#fff;border:1rpx solid #06b6d4;color:#0e7490;font-weight:600}
+.qty-ph{color:#c7c7cc;font-weight:400}
+.cart-title{font-size:28rpx;color:#1d1d1f;font-weight:600;padding:32rpx 32rpx 16rpx;display:flex;align-items:center;justify-content:space-between}
+.cart-arrow{font-size:24rpx;color:#06b6d4;font-weight:400}
 .cart-list{padding:0 32rpx}
 .cart-row{display:flex;align-items:center;background:#fff;border-radius:16rpx;padding:20rpx 24rpx;margin-bottom:16rpx;position:relative}
 .cart-info{flex:1;min-width:0}
@@ -25,8 +42,10 @@
 .qty-val{font-size:28rpx;color:#1d1d1f;min-width:90rpx;text-align:center}
 .cart-del{position:absolute;top:-14rpx;right:-10rpx;width:44rpx;height:44rpx;border-radius:50%;background:#ff3b30;color:#fff;font-size:24rpx;display:flex;align-items:center;justify-content:center;opacity:.9}
 .empty{text-align:center;color:#86868b;font-size:26rpx;padding:40rpx 0}
+.empty-txt{font-size:26rpx;color:#86868b;line-height:1.6;padding:0 60rpx}
+.retry-btn{display:inline-flex;align-items:center;margin-top:20rpx;padding:14rpx 44rpx;font-size:28rpx;color:#06b6d4;border:1rpx solid #06b6d4;border-radius:40rpx;background:#fff}
 .submit-bar{position:fixed;left:0;right:0;bottom:0;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));border-top:1rpx solid #e5e5ea;z-index:10}
-.submit-total{font-size:28rpx;color:#1d1d1f}
+.submit-total{flex:1;min-width:0;font-size:26rpx;color:#1d1d1f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .total-num{font-size:40rpx;color:#ff9500;font-weight:700}
 .submit-btn{background:#06b6d4;color:#fff;font-size:32rpx;border-radius:16rpx;padding:0 64rpx;height:88rpx;line-height:88rpx}
 .submit-btn[disabled]{opacity:.5}
@@ -45,3 +64,17 @@
 
 /* M9: 今日已报回执 */
 .reported-note{margin:16rpx 32rpx 0;background:#ecfdf5;border:1rpx solid #a7f3d0;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#047857}
+
+/* 2026-09-06 跨期次沿用：上次报单快照 / 本期已提交回执 */
+.last-bar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin:16rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx}
+.last-bar-done{background:#ecfdf5;border-color:#a7f3d0}
+.last-txt{font-size:24rpx;color:#0e7490;flex:1;line-height:1.5}
+.last-bar-done .last-txt{color:#047857}
+.last-go{font-size:26rpx;color:#06b6d4;font-weight:600;flex:0 0 auto}
+.last-go-plain{color:#86868b;font-weight:400}
+
+/* P2-3: 断网横幅 */
+.offline-banner{margin:16rpx 32rpx 0;background:#fef3c7;border:1rpx solid #fde68a;border-radius:14rpx;padding:16rpx 24rpx;font-size:26rpx;color:#92400e;text-align:center}
+
+/* P2-7: 回到顶部 */
+.back-top{position:fixed;right:24rpx;bottom:220rpx;width:84rpx;height:84rpx;border-radius:50%;background:rgba(6,182,212,.92);color:#fff;font-size:44rpx;display:flex;align-items:center;justify-content:center;z-index:20}

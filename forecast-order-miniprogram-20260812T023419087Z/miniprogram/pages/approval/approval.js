@@ -9,7 +9,7 @@ Page({
   onShow() {
     pageView('approval')
     const token = app.globalData.token || wx.getStorageSync('fs_token')
-    const role = (app.globalData.user && app.globalData.user.role) || wx.getStorageSync('fs_user').role || ''
+    const role = (app.globalData.user && app.globalData.user.role) || ((wx.getStorageSync('fs_user') || {}).role) || ''
     if (!token) { wx.reLaunch({ url: '/pages/login/login' }); return }
     if (APPROVER_ROLES.indexOf(role) < 0) {
       this.setData({ noAuth: true, list: [] })
@@ -31,6 +31,21 @@ Page({
   async approve(e) {
     const id = +e.currentTarget.dataset.id
     if (this.data.acting) return
+    // P0-4: 通过不可逆——先弹确认并展示单信息，防误触
+    const rec = this.data.list.find(r => String(r.id) === String(id)) || null
+    const n = (rec && rec.items) ? rec.items.length : 0
+    const ok = await new Promise(res => wx.showModal({
+      title: '通过该预报单？',
+      content: rec
+        ? `${rec.store_name} · ${rec.order_date}${rec.user_name ? ' · ' + rec.user_name : ''}\n共 ${n} 项商品，通过后将生成采购申请。`
+        : '确定通过该预报单？',
+      confirmText: '通过',
+      cancelText: '再想想',
+      confirmColor: '#06b6d4',
+      success: m => res(!!m.confirm),
+      fail: () => res(false)
+    }))
+    if (!ok) return
     this.setData({ acting: id })
     try {
       await request(`/api/forecast-submissions/${id}/approve`, 'POST', {})

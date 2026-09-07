@@ -12,7 +12,7 @@
 
   <!-- A 方案：报单周期选择（按名称选，对齐到货窗口） -->
   <view class="store-bar">
-    <picker mode="selector" range="{{periods}}" range-key="name" value="{{periodIdx}}" bindchange="onPeriodChange">
+    <picker mode="selector" range="{{periods}}" range-key="display" value="{{periodIdx}}" bindchange="onPeriodChange">
       <view class="store-sel">
         <text class="store-name">{{period.name || '选择报单周期'}}</text>
         <text class="store-arrow">▾</text>
@@ -21,6 +21,7 @@
     <text class="store-count" wx:if="{{period.arrival_date}}">到货 {{period.arrival_date}}</text>
   </view>
   <view class="reported-note" wx:if="{{!periods.length}}">当前没有可报单的期次，请联系管理员建期次</view>
+  <view class="period-warn" wx:elif="{{period.in_window === false}}">该期次报单窗口（{{period.order_start}} ~ {{period.order_end}}）已过，提交将被拒绝</view>
 
   <!-- M10: 最近报单门店快捷入口 -->
   <view class="recent-stores" wx:if="{{recentStores.length}}">
@@ -37,36 +38,68 @@
     </view>
   </view>
 
+  <!-- 2026-09-06 跨期次沿用：本期已提交回执（绿色） -->
+  <view class="last-bar last-bar-done" wx:if="{{submittedInfo}}">
+    <text class="last-txt">✓ 本期已报 {{submittedInfo.count}} 项 / {{submittedInfo.qty}} 件（{{submittedInfo.at}}）· 内容已保留，可继续修改</text>
+    <text class="last-go" bindtap="goSummary">查看我的报单</text>
+  </view>
+  <!-- 上次报单快照：当前为空 → 一键带入；已有内容 → 提示来源 -->
+  <view class="last-bar" wx:elif="{{lastOrder}}">
+    <text class="last-txt">上次「{{lastOrder.periodName}}」在 {{store.name}} 报了 {{lastOrder.count}} 项 / {{lastOrder.qty}} 件（{{lastOrder.at}}）</text>
+    <text class="last-go" wx:if="{{!cartCount}}" bindtap="applyLastOrder">一键带入</text>
+    <text class="last-go last-go-plain" wx:else bindtap="clearCart">清空重填</text>
+  </view>
+
   <!-- M9: 今日已报回执 -->
   <view class="reported-note" wx:if="{{lastReported && !cartCount}}">{{lastReported}}</view>
 
-  <!-- 搜索 -->
+  <!-- P2-3: 断网横幅 -->
+  <view class="offline-banner" wx:if="{{offline}}">网络已断开，数据已存本机，恢复后自动补传</view>
+
+  <!-- 搜索（仅用于对已铺开列表做过滤定位，不改变原搜索逻辑） -->
   <view class="search-bar">
-    <input class="search-ipt" placeholder="搜索商品名称 / 条码" value="{{kw}}" bindinput="onSearch" focus="{{autoFocus}}" />
+    <input class="search-ipt" placeholder="搜商品名 / 条码（后 4 位也行）" value="{{kw}}" bindinput="onSearch" focus="{{autoFocus}}" />
+    <text class="search-clear" wx:if="{{kw}}" bindtap="clearSearch">✕</text>
   </view>
 
-  <!-- 常用品 -->
-  <scroll-view class="hot-scroll" scroll-x wx:if="{{hot.length}}">
-    <view class="hot-row">
-      <view class="hot-chip" wx:for="{{hot}}" wx:key="id" data-i="{{index}}" bindtap="quickAdd">{{item.name}}</view>
-    </view>
-  </scroll-view>
-
-  <!-- 搜索结果 -->
-  <view class="prod-list" wx:if="{{kw}}">
-    <view class="prod-row" wx:for="{{results}}" wx:key="id" data-i="{{index}}" bindtap="addProd">
+  <!-- 可预报商品：进入即按 Web 端配置全量铺开，滚动到底分页加载 -->
+  <view class="prod-head">
+    <text class="prod-head-t">可预报商品</text>
+    <text class="prod-head-n">{{kw ? '匹配 ' : '共 '}}{{total}} 项</text>
+  </view>
+  <view class="prod-list">
+    <!-- 行内填报：直接在这一行填数量，已填行高亮；库存/日均辅助判断 -->
+    <view class="prod-row {{item.qty ? 'prod-row-on' : ''}}" wx:for="{{products}}" wx:key="id">
       <view class="prod-info">
         <view class="prod-name">{{item.name}}</view>
         <view class="prod-spec">{{item.spec || ''}} · {{item.unit || '件'}}</view>
+        <view class="prod-meta">库存 {{item.current_stock || 0}} · 日均 {{item.avg_daily_sales || 0}}</view>
       </view>
-      <view class="prod-add">+</view>
+      <view class="qty-ctl">
+        <view class="qty-btn {{item.qty ? '' : 'qty-btn-off'}}" data-id="{{item.id}}" bindtap="onQtyMinus">−</view>
+        <input class="qty-input {{item.qty ? 'qty-input-on' : ''}}" type="number" value="{{item.qty || ''}}"
+               placeholder="0" placeholder-class="qty-ph" data-id="{{item.id}}" bindinput="onQtyInput" />
+        <view class="qty-btn qty-btn-add" data-id="{{item.id}}" bindtap="onQtyPlus">+</view>
+      </view>
     </view>
-    <view class="empty" wx:if="{{!results.length}}">没有找到商品，试试其他关键词</view>
+    <!-- P2-2: 首屏加载占位 -->
+    <view class="empty" wx:if="{{initialLoading}}">加载商品中…</view>
+    <!-- P2-5: 首屏加载失败 → 错误视图 + 重试 -->
+    <view class="empty" wx:elif="{{loadError}}">
+      <view class="empty-txt">{{loadError}}</view>
+      <view class="retry-btn" bindtap="reloadProducts">点此重试</view>
+    </view>
+    <view class="empty" wx:elif="{{!products.length && !loadingMore}}">没有找到商品，试试其他关键词</view>
   </view>
+  <view class="load-more" wx:if="{{loadingMore}}">加载中…</view>
+  <view class="load-end" wx:elif="{{!hasMore && products.length}}">已显示全部 {{total}} 项</view>
 
-  <!-- 已选商品 -->
-  <view class="cart-title">本次预报（{{cartCount}} 项）</view>
-  <view class="cart-list">
+  <!-- 已选商品：默认收起，数量已在行内填报，此处仅作总览/删除 -->
+  <view class="cart-title" bindtap="toggleCart">
+    <text>本次预报 {{cartCount}} 项 · 共 {{cartQty}} 件</text>
+    <text class="cart-arrow">{{cartOpen ? '收起 ▴' : '展开 ▾'}}</text>
+  </view>
+  <view class="cart-list" wx:if="{{cartOpen}}">
     <view class="cart-row" wx:for="{{cart}}" wx:key="key">
       <view class="cart-info">
         <view class="cart-name">{{item.name}}</view>
@@ -79,12 +112,15 @@
       </view>
       <view class="cart-del" data-key="{{item.key}}" bindtap="removeItem">✕</view>
     </view>
-    <view class="empty" wx:if="{{!cart.length}}">还没有添加商品，搜一下或点常用品</view>
+    <view class="empty" wx:if="{{!cart.length}}">还没填数量，在上方商品行直接输入即可</view>
   </view>
 
   <!-- 提交 -->
   <view class="submit-bar">
-    <view class="submit-total">{{cartCount}} 项 · {{store.name || '未选门店'}}</view>
+    <view class="submit-total">{{cartCount}} 项 · {{cartQty}} 件 · {{store.name || '未选门店'}}</view>
     <button class="submit-btn" disabled="{{!cart.length || !store.id || !period.id || submitting}}" bindtap="submit">{{submitting ? '提交中…' : '提交预报'}}</button>
   </view>
+
+  <!-- P2-7: 回到顶部（滚动超一屏显示） -->
+  <view class="back-top" wx:if="{{showTop}}" bindtap="backTop">↑</view>
 </view>

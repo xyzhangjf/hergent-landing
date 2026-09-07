@@ -1,10 +1,16 @@
 <view class="page">
-  <view class="hd">
+  <!-- P0-5: 权限前置——无权限直接提示，不再等接口 403 -->
+  <view class="noauth" wx:if="{{noAuth}}">
+    <view class="noauth-ic">🔒</view>
+    <view class="noauth-tip">仅管理员 / 老板 / 督导可查看汇总</view>
+  </view>
+
+  <view class="hd" wx:if="{{!noAuth}}">
     <view class="hd-title">预报汇总总表</view>
     <view class="hd-sub">{{date || '今日'}} · {{rows.length}} 个 SKU</view>
   </view>
 
-  <view class="actions">
+  <view class="actions" wx:if="{{!noAuth}}">
     <picker mode="date" value="{{date}}" bindchange="onDate">
       <view class="date-btn">{{date || '选择日期'}} ▾</view>
     </picker>
@@ -36,10 +42,10 @@
     </view>
   </view>
   <view class="ai-hint" wx:if="{{rows.length}}">AI 建议 = 近 7 天销量预测（未来 7 天），仅供参考</view>
-  <view class="empty" wx:else>今天还没有预报提交</view>
+  <view class="empty" wx:elif="{{!noAuth}}">今天还没有预报提交</view>
 
   <!-- 来源明细 -->
-  <view class="src-title">来源明细</view>
+  <view class="src-title" wx:if="{{!noAuth && rows.length}}">来源明细</view>
   <view class="src-list" wx:if="{{rows.length}}">
     <view class="src-group" wx:for="{{rows}}" wx:key="index">
       <view class="src-gname">{{item.product_name}}（{{item.unit}}）</view>

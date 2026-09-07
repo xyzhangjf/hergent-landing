@@ -1,11 +1,20 @@
 const app = getApp()
 const { request } = require('../../utils/api')
 
+const APPROVER_ROLES = ['admin', 'boss', 'accountant', 'supervisor']
+
 Page({
-  data: { rows: [], date: '' },
+  data: { rows: [], date: '', noAuth: false },
   onShow() {
     const token = app.globalData.token || wx.getStorageSync('fs_token')
     if (!token) { wx.reLaunch({ url: '/pages/login/login' }); return }
+    // P0-5: 权限前置判断，不再依赖后端错误文案匹配
+    const role = (app.globalData.user && app.globalData.user.role) || ((wx.getStorageSync('fs_user') || {}).role) || ''
+    if (APPROVER_ROLES.indexOf(role) < 0) {
+      this.setData({ noAuth: true, rows: [] })
+      return
+    }
+    this.setData({ noAuth: false })
     this.load()
   },
   async load() {
@@ -14,11 +23,7 @@ Page({
       const d = await request('/api/forecast-submissions/summary' + q)
       this.setData({ rows: d.rows || [] })
     } catch (e) {
-      if (e.message && e.message.includes('权限')) {
-        wx.showToast({ title: '仅老板/管理员可看汇总', icon: 'none' })
-      } else {
-        wx.showToast({ title: e.message || '加载失败', icon: 'none' })
-      }
+      wx.showToast({ title: e.message || '加载失败', icon: 'none' })
     }
   },
   onDate(e) {
