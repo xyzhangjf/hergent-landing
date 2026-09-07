@@ -1,8 +1,7 @@
 const app = getApp()
 const { request } = require('../../utils/api')
 const { track, pageView, EVENTS } = require('../../utils/track')
-
-const APPROVER_ROLES = ['admin', 'boss', 'accountant', 'supervisor']
+const { isApprover } = require('../../utils/roles')
 
 Page({
   data: { list: [], loading: false, noAuth: false, acting: 0 },
@@ -11,11 +10,15 @@ Page({
     const token = app.globalData.token || wx.getStorageSync('fs_token')
     const role = (app.globalData.user && app.globalData.user.role) || ((wx.getStorageSync('fs_user') || {}).role) || ''
     if (!token) { wx.reLaunch({ url: '/pages/login/login' }); return }
-    if (APPROVER_ROLES.indexOf(role) < 0) {
+    if (!isApprover(role)) {
       this.setData({ noAuth: true, list: [] })
       return
     }
     this.load()
+  },
+  /* 二期: 下拉刷新审批列表 */
+  onPullDownRefresh() {
+    this.load().finally(() => wx.stopPullDownRefresh())
   },
   async load() {
     this.setData({ loading: true })

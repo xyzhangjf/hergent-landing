@@ -46,8 +46,8 @@ Page({
         if (res.isConnected) {
           // 网络恢复：静默恢复本地购物车（不弹框）；自动补传交给 onShow（页面可见时）
           this._periodWarned = false
-          const cart = wx.getStorageSync('fs_cart') || []
-          if (cart.length && !this.data.cartCount) { this.cartMap = {}; this.restoreCart() }
+          // 二期: restoreCart 内部已按当前门店键恢复（fs_cart_<storeId>）
+          if (!this.data.cartCount) this.restoreCart()
         }
       })
     }
@@ -127,12 +127,24 @@ Page({
   },
   _applyPeriods(periods) {
     const savedId = wx.getStorageSync('fs_period_id')
+    // 二期: 默认选中「未过窗口」的有效期次 —— 用户上次停留在已过期期次时，
+    // 重新进入不应默认选中过期项（否则填完提交必被后端 400 拒绝）
     let idx = 0
     if (savedId !== '' && savedId != null && savedId !== undefined) {
       const found = periods.findIndex(p => String(p.id) === String(savedId))
-      if (found >= 0) idx = found
+      if (found >= 0 && periods[found].in_window !== false) idx = found
+      else {
+        const openIdx = periods.findIndex(p => p.in_window !== false)
+        if (openIdx >= 0) idx = openIdx
+      }
+    } else {
+      const openIdx = periods.findIndex(p => p.in_window !== false)
+      if (openIdx >= 0) idx = openIdx
     }
     this.setData({ periods, period: periods[idx] || {}, periodIdx: idx })
+    // 同步选中值回 Storage，避免下次仍指向旧期次
+    const sel = periods[idx]
+    if (sel && sel.id !== undefined) wx.setStorageSync('fs_period_id', sel.id)
     this.refreshBanners()
   },
 
@@ -140,10 +152,18 @@ Page({
   onPeriodChange(e) {
     const i = +e.detail.value
     const period = this.data.periods[i] || {}
+    const oldId = (this.data.period || {}).id
     this.setData({ period, periodIdx: i })
     wx.setStorageSync('fs_period_id', period.id !== undefined ? period.id : '')
     this.setData({ lastReported: '' })   // 切换期次后清除旧回执
     this.refreshBanners()                // 期次变了，重新判断「本期是否已报」
+    // 二期: 已填数量切到新期次 → 轻提示（数据保留可沿用，但别提交错期次）
+    if (this.data.cartCount > 0 && period.id !== oldId && period.in_window !== false) {
+      wx.showToast({
+        title: `已切到「${period.name || ''}」，已填 ${this.data.cartCount} 项保留，提交前请核对期次`,
+        icon: 'none', duration: 2500
+      })
+    }
     // 已过报单窗口的期次：提前告知（后端提交时仍会二次校验并 400 拒绝）
     if (period.in_window === false) {
       wx.showToast({
@@ -153,15 +173,37 @@ Page({
     }
   },
 
-  /* M8: 购物车持久化到 Storage，页面销毁/重进不丢 */
-  restoreCart() {
+  /* M8 二期: 购物车持久化到 Storage，按门店分键 fs_cart_<storeId>（根治串店）
+     旧版 fs_cart 单份 → 首次进某店时自动迁移到 fs_cart_<storeId> 后删旧键
+     force=true 仅在「主动切店」时用（无条件切到新店的车）；其余场景若已有进行中
+     填报（cartMap 非空）则不覆盖，避免门店列表加载前就开始填报的数据被清掉 */
+  _cartKey() {
+    const s = this.data.store
+    return (s && s.id != null) ? 'fs_cart_' + s.id : null
+  },
+  restoreCart(force) {
+    const key = this._cartKey()
+    // 门店未定（还没加载出列表）时不读写，避免把数据挂到 fs_cart_0 脏键
+    if (!key) return
+    if (!force && (this.data.cartCount || Object.keys(this.cartMap).length)) return
+    let saved = null
     try {
-      const saved = wx.getStorageSync('fs_cart')
+      saved = wx.getStorageSync(key)
+      // 迁移：历史单份版 → 当前店键（仅一次）
+      if (!saved || !saved.length) {
+        const legacy = wx.getStorageSync('fs_cart')
+        if (legacy && legacy.length) {
+          saved = legacy
+          try { wx.setStorageSync(key, legacy); wx.removeStorageSync('fs_cart') } catch (e) { console.warn('[fill] migrate cart failed:', e) }
+        }
+      }
       if (saved && saved.length) {
         this.cartMap = {}
         for (const c of saved) this.cartMap[c.key] = c
-        this.syncCart()
+      } else {
+        this.cartMap = {}
       }
+      this.syncCart()
     } catch (e) { console.warn('[fill] restoreCart failed:', e) }
   },
 
@@ -197,6 +239,8 @@ Page({
       if (found >= 0) idx = found
     }
     this.setData({ stores, store: stores[idx] || {}, storeIdx: idx })
+    // 二期: 门店定案后再恢复该店的购物车（fs_cart_<storeId>，根治串店）
+    this.restoreCart()
     this.refreshBanners()
   },
 
@@ -321,8 +365,11 @@ Page({
     this.loadProducts('', false)
   },
 
-  /* M10: 拉取我的历史报单，提取最近报单门店作为快捷入口 */
+  /* M10: 拉取我的历史报单，提取最近报单门店作为快捷入口
+     二期: 复用 _fsCache 5min 缓存（原每次 onShow 都发请求） */
   async loadRecentStores() {
+    const cached = this._fsCacheGet('recentStores')
+    if (cached) { this.setData({ recentStores: cached }); return }
     try {
       const d = await request('/api/forecast-submissions/my?limit=20')
       const recs = d.records || []
@@ -333,29 +380,35 @@ Page({
         if (nm && names.indexOf(nm) < 0) { names.push(nm); seen.push({ name: nm }) }
         if (seen.length >= 4) break
       }
-      if (seen.length) this.setData({ recentStores: seen })
+      if (seen.length) {
+        this._fsCacheSet('recentStores', seen)
+        this.setData({ recentStores: seen })
+      }
     } catch (e) { console.warn('[fill] loadRecentStores failed:', e && e.message) }
   },
 
   onStoreChange(e) {
     const i = +e.detail.value
+    this._switchStore(i)
+  },
+
+  /* 二期: 切换门店统一入口 —— 先 flush 旧店购物车 → 换店 → 恢复新店购物车（防串店） */
+  _switchStore(i) {
     const store = this.data.stores[i] || {}
-    this.setData({ store, storeIdx: i })
+    if (!store || !store.id) return
+    if (store.id === (this.data.store || {}).id) return
+    this.flushCart()                 // 旧店的已填数量先落盘（fs_cart_<旧id>）
+    this.setData({ store, storeIdx: i, cartOpen: false, pendingSubmit: false, lastReported: '' })
     wx.setStorageSync('fs_store_id', store.id !== undefined ? store.id : '')
-    this.setData({ lastReported: '' })   // 切换门店后清除旧回执
-    this.refreshBanners()                // 门店变了，读该门店的上次报单快照
+    this.restoreCart(true)           // 切店：无条件载入新店的购物车（fs_cart_<新id>）
+    this.refreshBanners()            // 门店变了，读该门店的上次报单快照
   },
 
   /* M10: 点击最近报单门店快捷入口 */
   pickRecent(e) {
     const nm = e.currentTarget.dataset.name
     const i = this.data.stores.findIndex(s => s.name === nm)
-    if (i >= 0) {
-      this.setData({ storeIdx: i, store: this.data.stores[i] })
-      wx.setStorageSync('fs_store_id', this.data.stores[i].id)
-      this.setData({ lastReported: '' })
-      this.refreshBanners()
-    }
+    if (i >= 0) this._switchStore(i)
   },
 
   /* 行内填报（2026-09-06）：直接在铺开的商品行上填数量，无需先加入购物车再改
@@ -443,17 +496,18 @@ Page({
     for (const c of cart) { qtyMap[c.id] = c.qty; cartQty += c.qty }
     this._qtyMap = qtyMap
     this.setData({ cart, cartCount: cart.length, cartQty })
-    this._schedulePersist(cart)
+    this._schedulePersist(cart, this._cartKey())
   },
-  _schedulePersist(cart) {
+  _schedulePersist(cart, key) {
     if (this._persistTimer) clearTimeout(this._persistTimer)
     this._persistTimer = setTimeout(() => {
       this._persistTimer = null
-      this._writeCart(cart)
+      this._writeCart(cart, key)
     }, 300)
   },
-  _writeCart(cart) {
-    try { wx.setStorageSync('fs_cart', cart) } catch (e) { console.warn('[fill] persist cart failed:', e) }
+  _writeCart(cart, key) {
+    if (!key) return
+    try { wx.setStorageSync(key, cart) } catch (e) { console.warn('[fill] persist cart failed:', e) }
   },
   /* 页面切走/销毁前把未落盘的购物车强制写入（防抖窗口内的最后一次不丢） */
   flushCart() {
@@ -462,7 +516,7 @@ Page({
       this._persistTimer = null
     }
     const cart = Object.keys(this.cartMap).map(k => this.cartMap[k])
-    this._writeCart(cart)
+    this._writeCart(cart, this._cartKey())
   },
   onHide() { this.flushCart() },
   onUnload() { this.flushCart() },
@@ -480,6 +534,7 @@ Page({
     }
     // 2026-09-06：同一门店 + 同一期次已报过 —— 先确认，避免"数据留着"导致误重复下单
     const dup = wx.getStorageSync(this._subKey())
+    let confirmed = false
     if (dup && dup.sid) {
       const ok = await new Promise(res => {
         wx.showModal({
@@ -491,6 +546,21 @@ Page({
         })
       })
       if (!ok) { wx.switchTab({ url: '/pages/mine/mine' }); return }
+      confirmed = true
+    }
+    // 二期 Q2: 首次提交也加一次性确认（展示门店/期次/数量摘要，防误触提交）
+    if (!confirmed) {
+      const ok = await new Promise(res => {
+        wx.showModal({
+          title: '确认提交预报？',
+          content: `门店：${store.name}\n期次：${period.name || period.display || ''}\n共 ${cart.length} 项 / ${cartQty} 件`,
+          confirmText: '确认提交', cancelText: '再检查',
+          confirmColor: '#06b6d4',
+          success: (r) => res(!!r.confirm),
+          fail: () => res(false)
+        })
+      })
+      if (!ok) return
     }
     this.setData({ submitting: true, pendingSubmit: false })
     try {

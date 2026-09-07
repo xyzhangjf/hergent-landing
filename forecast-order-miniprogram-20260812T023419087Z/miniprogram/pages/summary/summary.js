@@ -1,7 +1,6 @@
 const app = getApp()
 const { request } = require('../../utils/api')
-
-const APPROVER_ROLES = ['admin', 'boss', 'accountant', 'supervisor']
+const { isApprover } = require('../../utils/roles')
 
 Page({
   data: { rows: [], date: '', noAuth: false },
@@ -10,7 +9,7 @@ Page({
     if (!token) { wx.reLaunch({ url: '/pages/login/login' }); return }
     // P0-5: 权限前置判断，不再依赖后端错误文案匹配
     const role = (app.globalData.user && app.globalData.user.role) || ((wx.getStorageSync('fs_user') || {}).role) || ''
-    if (APPROVER_ROLES.indexOf(role) < 0) {
+    if (!isApprover(role)) {
       this.setData({ noAuth: true, rows: [] })
       return
     }

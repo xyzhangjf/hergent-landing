@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "审批预报单",
-  "usingComponents": {}
+  "usingComponents": {},
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark"
 }

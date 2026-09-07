@@ -1,15 +1,15 @@
 <view class="page">
   <view class="user-hd">
-    <view class="avatar">{{(user.display_name || user.username || '员')[0]}}</view>
+    <view class="avatar">{{avatarChar}}</view>
     <view class="user-info">
       <view class="user-name">{{user.display_name || user.username || '员工'}}</view>
-      <view class="user-role">{{user.role || ''}}</view>
+      <view class="user-role">{{roleName || user.role || ''}}</view>
     </view>
     <button class="logout" bindtap="logout">退出</button>
   </view>
 
-  <!-- 审批入口：仅管理员/老板/督导可见 -->
-  <view class="entry" wx:if="{{user.role === 'admin' || user.role === 'boss' || user.role === 'accountant' || user.role === 'supervisor'}}" bindtap="goApproval">
+  <!-- 审批入口：仅审批角色可见（布尔由 mine.js isApprover 计算，wxml 不硬编码 role） -->
+  <view class="entry" wx:if="{{canManage}}" bindtap="goApproval">
     <view class="entry-ic">审</view>
     <view class="entry-main">
       <view class="entry-title">审批预报单</view>
@@ -18,8 +18,8 @@
     <view class="entry-arrow">›</view>
   </view>
 
-  <!-- 汇总入口：仅管理员/老板/督导可见。原挂在全局 tabBar，销售点进去会被后端 403 拒绝 -->
-  <view class="entry" wx:if="{{user.role === 'admin' || user.role === 'boss' || user.role === 'accountant' || user.role === 'supervisor'}}" bindtap="goSummary">
+  <!-- 汇总入口：仅审批角色可见 -->
+  <view class="entry" wx:if="{{canManage}}" bindtap="goSummary">
     <view class="entry-ic">总</view>
     <view class="entry-main">
       <view class="entry-title">汇总总表</view>
@@ -44,7 +44,7 @@
       </view>
       <view class="rec-ft">
         <text class="rec-total">共 {{item.total_qty}} 件</text>
-        <button class="recall-btn" wx:if="{{item.status === 'pending'}}" size="mini" loading="{{recalling}}" bindtap="recall" data-id="{{item.id}}">撤回</button>
+        <button class="recall-btn" wx:if="{{item.status === 'pending'}}" size="mini" loading="{{recallingId === item.id}}" bindtap="recall" data-id="{{item.id}}">撤回</button>
         <text class="rec-expand" wx:if="{{expandedId !== item.id}}" bindtap="toggleExpand" data-id="{{item.id}}">展开</text>
         <text class="rec-expand" wx:else bindtap="toggleExpand" data-id="{{item.id}}">收起</text>
       </view>
