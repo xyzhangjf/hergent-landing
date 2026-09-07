@@ -8,17 +8,9 @@
     <button class="logout" bindtap="logout">退出</button>
   </view>
 
-  <!-- 审批入口：仅审批角色可见（布尔由 mine.js isApprover 计算，wxml 不硬编码 role） -->
-  <view class="entry" wx:if="{{canManage}}" bindtap="goApproval">
-    <view class="entry-ic">审</view>
-    <view class="entry-main">
-      <view class="entry-title">审批预报单</view>
-      <view class="entry-sub">查看并提交员工预报审批</view>
-    </view>
-    <view class="entry-arrow">›</view>
-  </view>
-
-  <!-- 汇总入口：仅审批角色可见 -->
+  <!-- 汇总入口：仅管理角色可见（布尔由 mine.js 计算，wxml 不硬编码 role）
+       注：原「审批预报单」入口已于 2026-09-07 下线——经销商以经销商为单位向厂家下单，
+       不存在按门店逐单采购；本期定稿/采购统一在 Web 端汇总表做（本期所有门店一起）。 -->
   <view class="entry" wx:if="{{canManage}}" bindtap="goSummary">
     <view class="entry-ic">总</view>
     <view class="entry-main">

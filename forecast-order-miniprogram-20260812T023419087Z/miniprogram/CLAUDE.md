@@ -19,18 +19,20 @@
 - 配置：`utils/` 里的 baseURL（避免硬编码）
 - 后端 11 个共享接口被 Web + 小程序共用 → 改动必须避免破坏性（后端 CLAUDE.md 详）
 
-### 2. 类目选「工具→效率」免食品证
+### 2. 类目选「商业服务→企业管理」免食品证（⚠️ 非「工具→效率」，该类目不存在）
 - 主体公司（湖北省小赫智体数字科技）经营范围**无食品/乳制品**
+- 首选 **商业服务 → 企业管理**（官方适用范围「企业办公工具/办公管理、门店信息管理、展示」，无额外资质）；备选 **工具 → 办公**
+- ⚠️ 「工具 → 效率」是**抖音**小程序类目，微信没有，勿再引用
 - 不能选电商 / 商家自营 → 触发食品证 + 商家自营审核
-- 名称可带"AI"（"效率"类目允许）
+- 名称可带"AI"（经营范围含 AI 软件开发，可背书）
 
 ### 3. 微信小程序基础配置必查
 | 配置项 | 值 | 影响 |
 |---|---|---|
-| appid | **真实账号 appid**（非 touristappid） | 必须 |
+| appid | 真实账号 appid（✅ 已替换 `wxf8ce9b…5693be`，2026-09-06 用户文本确认） | 必须 |
 | request 合法域名 | hergent.cn / *.hergent.cn | 必须配否则线上 wx.request 失败 |
 | 隐私指引 | 必须勾选剪切板权限（wx.setClipboardData） | 否则报单复制粘贴失败 |
-| 类目 | 工具 → 效率 | 免食品证 |
+| 类目 | 商业服务 → 企业管理（备选 工具 → 办公） | 免食品证 |
 
 ### 4. 角色与测试账号（提审用）
 | 角色 | 测试账号 | 密码 | 绑定门店 |
@@ -43,7 +45,7 @@
 ### 5. tabBar 静态限制
 - 微信原生 tabBar **无法按角色隐藏**
 - 角色相关入口迁到 `mine` 页（个人中心门控）
-- 汇总总表入口（supervisor 专属）走 `mine` 页 + 审批门控
+- 汇总总表入口（supervisor 专属）走 `mine` 页 + 角色门控
 
 ### 6. 角色与权限（supervisor 默认无权限！）
 - 后端 `_DEFAULT_PERMS` **没有 supervisor**（历史 bug）
@@ -107,7 +109,7 @@ forecast-order-miniprogram-20260812T023419087Z/miniprogram/
 
 1. ❌ 不绑生产 Hergent 后端（不能用 mock 或 staging 跑线上）
 2. ❌ 选电商/商家自营类目（触发食品证审核）
-3. ❌ 用 touristappid 上体验版（被微信拒）
+3. ❌ 用 touristappid 上体验版（被微信拒）  ← 已修，当前 `project.config.json:47 = "wxf8ce9b…5693be"`（18 位，**2026-09-06 用户文本确认的权威值**；此前 `wxf78ce…5693be` 系误读，20 位非法，已废）
 4. ❌ 不配合法域名（线上 wx.request 直接 fail）
 5. ❌ 不勾选剪切板权限（报单复制粘贴功能失效）
 6. ❌ tabBar 直接挂角色专属入口（静态无法隐藏）
@@ -120,9 +122,32 @@ forecast-order-miniprogram-20260812T023419087Z/miniprogram/
 
 - `laozhangai-product/HANDOFF.md` —— 全产品现状
 - `laozhangai-product/forecast-miniprogram-input-contract.md` —— 小程序入参契约
-- `laozhangai-product/forecast-miniprogram-approval-contract.md` —— 审批流契约
+- `laozhangai-product/forecast-miniprogram-approval-contract.md` —— ~~审批流契约~~ **已作废（2026-09-07）**：小程序审批模块下线，理由见下方「审批模块已下线」
 - `laozhangai-product/.workbuddy/memory/MEMORY.md` —— 跨仓库长期记忆
 - `hergent-erp/CLAUDE.md` —— 后端铁律（共享 11 接口定义在那边）
+
+---
+
+## ⛔ 审批模块已下线（2026-09-07，勿再恢复原样）
+
+**业务事实**：用户是经销商，**采购以「经销商」为单位向厂家下单**。不存在"一个门店一张采购单"，
+要采购也是**本期预报里的所有门店汇总后一起采购**。
+
+**原设计错在哪**：`pages/approval/` 逐店审批，点一次「通过并生成采购申请」= 按门店生成一张
+`purchase_requisitions`（后端 reason 写死"门店：X"）。与真实业务不符。
+
+**已删除**：
+- 小程序 `pages/approval/`（4 文件）、`app.json` 页面注册、`mine` 页审批入口与 `goApproval`
+- 后端 `GET /api/forecast-submissions/pending`、`POST /{sid}/approve`、`POST /{sid}/reject`
+  及 `erp_db.forecast_submission_pending/_approve/_reject`
+
+**保留**：`POST /{sid}/recall`（撤回本人预报，业务成立）；汇总总表入口（只读）。
+
+**正确的定稿/采购链路在 Web 端**：`/api/forecast-audit/audit-period`（**期次维度**，
+取该报单窗口全部门店汇总 → 批量算建议量 → 缺货/积压判定 → `/adopt` 人工定稿）。
+
+**口径**：报单提交后 status=`pending`，**直接计入订单汇总表**，无需任何审批
+（`summary` 仅排除 `rejected`/`recalled`）。pending 在 UI 文案中显示「已提交」，不叫「待审批」。
 
 ---
 

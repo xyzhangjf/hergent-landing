@@ -3,9 +3,10 @@ const { request } = require('../../utils/api')
 const { track, pageView, EVENTS } = require('../../utils/track')
 const { isApprover, roleText } = require('../../utils/roles')
 
+// 2026-09-07：审批模块下线后，pending 不再表示「等人审批」，而是「已提交并计入本期汇总」
 const STATUS_TEXT = {
-  pending: '待审批',
-  approved: '已通过',
+  pending: '已提交',
+  approved: '已定稿',
   rejected: '已驳回',
   recalled: '已撤回'
 }
@@ -23,7 +24,7 @@ Page({
       user: u,
       avatarChar: (name || '员').slice(0, 1),
       roleName: roleText(u.role),          // 二期: 角色中文名（单一事实源 utils/roles.js）
-      canManage: isApprover(u.role)        // 二期: 审批/汇总入口布尔化，wxml 不再硬编码 role
+      canManage: isApprover(u.role)        // 汇总入口布尔化（审批模块已下线），wxml 不再硬编码 role
     })
     this.load()
   },
@@ -39,9 +40,6 @@ Page({
     } catch (e) { wx.showToast({ title: e.message, icon: 'none' }) }
   },
   // 展开/收起明细
-  goApproval() {
-    wx.navigateTo({ url: '/pages/approval/approval' })
-  },
   goSummary() {
     wx.navigateTo({ url: '/pages/summary/summary' })
   },
@@ -55,7 +53,7 @@ Page({
     if (this.data.recallingId) return
     const ok = await new Promise(res => wx.showModal({
       title: '撤回预报单',
-      content: '撤回后该预报单将不再进入汇总与审批，确定撤回？',
+      content: '撤回后该预报单将不再进入本期汇总，确定撤回？',
       confirmText: '撤回', cancelText: '取消',
       success: r => res(r.confirm)
     }))
