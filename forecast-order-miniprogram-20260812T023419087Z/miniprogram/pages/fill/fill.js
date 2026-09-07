@@ -521,9 +521,25 @@ Page({
   onHide() { this.flushCart() },
   onUnload() { this.flushCart() },
 
+  /* 提交入口：外层兜底。此前前端异常（未定义变量等）会静默失败，表现为「点了没反应」，
+     这里统一捕获并给出提示，同时保证 submitting 一定复位，避免按钮永久禁用。 */
   async submit() {
-    const { cart, store, period } = this.data
-    if (!cart.length) return
+    try {
+      await this._doSubmit()
+    } catch (e) {
+      console.error('[fill] submit error:', e)
+      wx.showToast({ title: '提交异常：' + ((e && e.message) ? e.message.slice(0, 30) : '请重试'), icon: 'none' })
+    } finally {
+      if (this.data.submitting) this.setData({ submitting: false })
+    }
+  },
+
+  async _doSubmit() {
+    const { cart, store, period, cartQty } = this.data
+    if (!cart.length) {
+      wx.showToast({ title: '还没填数量，先在商品行填数量', icon: 'none' })
+      return
+    }
     if (!store || !store.id) {
       wx.showToast({ title: '请先选择报单门店', icon: 'none' })
       return

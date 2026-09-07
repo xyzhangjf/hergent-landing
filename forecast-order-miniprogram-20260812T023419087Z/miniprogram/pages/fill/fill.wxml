@@ -118,7 +118,7 @@
   <!-- 提交 -->
   <view class="submit-bar">
     <view class="submit-total">{{cartCount}} 项 · {{cartQty}} 件 · {{store.name || '未选门店'}}</view>
-    <button class="submit-btn" disabled="{{!cart.length || !store.id || !period.id || submitting}}" bindtap="submit">{{submitting ? '提交中…' : '提交预报'}}</button>
+    <button class="submit-btn" disabled="{{submitting}}" bindtap="submit">{{submitting ? '提交中…' : '提交预报'}}</button>
   </view>
 
   <!-- P2-7: 回到顶部（滚动超一屏显示） -->
