@@ -36,7 +36,7 @@
       </div>
 
       <div v-if="days.length" class="wx-days-wrap">
-        <div class="wx-days">
+        <div class="wx-days" ref="daysEl" @scroll="syncTrend">
           <div class="wx-day" v-for="(d, i) in days" :key="i">
             <div class="wx-d-day">{{ dayLabel(d.date).text }}</div>
             <div class="wx-d-date">{{ dayLabel(d.date).date }}</div>
@@ -45,13 +45,58 @@
             <div class="wx-d-pop" v-if="d.pop != null">💧{{ d.pop }}%</div>
           </div>
         </div>
+
+        <!-- 温度趋势线：与上方日卡片行同父容器，宽度/内边距/圆角天然对齐 -->
+        <div v-if="trendGeo" class="wx-trend-wrap" ref="trendWrap">
+          <div class="wx-trend" ref="trendEl" :style="trendW ? { width: trendW + 'px' } : null">
+            <svg class="wx-trend-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="wxTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="var(--p)" stop-opacity=".30" />
+                  <stop offset="100%" stop-color="var(--p)" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <path class="wx-trend-area" :d="areaPath" />
+              <path
+                v-for="s in trendSegs"
+                :key="'s' + s.i"
+                class="wx-trend-line"
+                :class="s.dir"
+                :d="s.d"
+              />
+            </svg>
+
+            <!-- 悬停/点击热区：整列命中，不用精确点中圆点 -->
+            <div
+              v-for="p in trendGeo"
+              :key="'h' + p.i"
+              class="wx-trend-hit"
+              :class="{ on: activePt === p.i }"
+              :style="{ left: (p.i / trendGeo.length * 100) + '%', width: (100 / trendGeo.length) + '%' }"
+              @mouseenter="hoverPt = p.i"
+              @mouseleave="hoverPt = -1"
+              @click="pinPt = pinPt === p.i ? -1 : p.i"
+            ></div>
+
+            <!-- 拐点：降温标「降」、升温橙色圆点（HTML 定位，避免 SVG 拉伸把圆点压成椭圆） -->
+            <span
+              v-for="p in markedPoints"
+              :key="'m' + p.i"
+              class="wx-trend-dot"
+              :class="[p.mark, { last: p.last }]"
+              :style="{ left: p.x + '%', top: p.y + '%' }"
+            ><em v-if="p.mark === 'down'">降</em></span>
+
+            <div v-if="activePt >= 0" class="wx-trend-tip" :class="{ pinned: pinPt >= 0 }" :style="tipStyle">{{ tipText }}</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { api, auth } from '../api/client'
 
 const LS_KEY = 'wx_city'
@@ -212,6 +257,130 @@ async function fetchPref() {
   } catch (e) {}
 }
 
+// ---------------------------------------------------------------------------
+// 温度趋势线：日最高温走势，升温/降温分段着色 + 拐点标记
+// 业务意图：温度直接影响低温奶销量，老板要一眼看出升/降温拐点提前备货。
+// ---------------------------------------------------------------------------
+const daysEl = ref(null)
+const trendWrap = ref(null)
+const trendEl = ref(null)
+const trendW = ref(0)
+const hoverPt = ref(-1) // 悬停态（桌面）
+const pinPt = ref(-1)   // 钉住态（点击/触摸，移开鼠标也不消失）
+const TREND_DELTA = 3 // 明显拐点阈值（°C）
+// 悬停与点击要分开：否则桌面 mouseenter 先置位、click 又把它切回 -1，点了反而消失
+const activePt = computed(() => (pinPt.value >= 0 ? pinPt.value : hoverPt.value))
+
+const _t = (v) => (v == null ? 0 : v)
+
+const trendGeo = computed(() => {
+  const ds = days.value || []
+  if (ds.length < 2) return null
+  const vals = ds.map((d) => _t(d.tmax))
+  const maxT = Math.max(...vals)
+  const minT = Math.min(...vals)
+  const span = maxT - minT || 1
+  const PAD_T = 16
+  const PAD_B = 80 // 底部留白：圆点不贴边，避免被 overflow 裁掉
+  const n = ds.length
+  const pts = ds.map((d, i) => ({
+    i,
+    tmax: d.tmax,
+    tmin: d.tmin,
+    label: dayLabel(d.date).text,
+    x: ((i + 0.5) / n) * 100,
+    y: PAD_T + ((maxT - _t(d.tmax)) / span) * (PAD_B - PAD_T),
+    last: i === n - 1,
+    mark: null,
+  }))
+  // 拐点：与前一天相比，升/降温达阈值即在当天标记
+  for (let i = 1; i < pts.length; i++) {
+    const d = _t(pts[i].tmax) - _t(pts[i - 1].tmax)
+    if (d >= TREND_DELTA) pts[i].mark = 'up'
+    else if (d <= -TREND_DELTA) pts[i].mark = 'down'
+  }
+  return pts
+})
+
+const trendSegs = computed(() => {
+  const pts = trendGeo.value
+  if (!pts) return []
+  return pts.slice(0, -1).map((p, i) => {
+    const q = pts[i + 1]
+    const d = _t(q.tmax) - _t(p.tmax)
+    return {
+      i,
+      dir: d > 0 ? 'up' : d < 0 ? 'down' : 'flat',
+      d: `M ${p.x} ${p.y} L ${q.x} ${q.y}`,
+    }
+  })
+})
+
+const areaPath = computed(() => {
+  const pts = trendGeo.value
+  if (!pts) return ''
+  return (
+    `M ${pts[0].x} 100 ` +
+    pts.map((p) => `L ${p.x} ${p.y}`).join(' ') +
+    ` L ${pts[pts.length - 1].x} 100 Z`
+  )
+})
+
+const markedPoints = computed(() => (trendGeo.value || []).filter((p) => p.mark))
+
+const tipText = computed(() => {
+  const pts = trendGeo.value
+  const idx = activePt.value
+  if (!pts || idx < 0) return ''
+  const p = pts[idx]
+  const prev = pts[idx - 1]
+  let delta = ''
+  if (prev && p.tmax != null && prev.tmax != null) {
+    const d = p.tmax - prev.tmax
+    // 一位小数，避免 33.3-30 这类浮点误差显示成 3.299999999999997
+    const r1 = (v) => Math.round(v * 10) / 10
+    if (d >= TREND_DELTA) delta = ` · 升温 ${r1(d)}°`
+    else if (d <= -TREND_DELTA) delta = ` · 降温 ${r1(-d)}°`
+  }
+  return `${p.label}${delta} · ${p.tmax}°/${p.tmin}°`
+})
+
+const tipStyle = computed(() => {
+  const pts = trendGeo.value
+  const idx = activePt.value
+  if (!pts || idx < 0) return {}
+  const p = pts[idx]
+  // 左右夹住，避免浮层溢出卡片边界；纵向固定在趋势线顶部，不随点位上下溢
+  return { left: Math.min(Math.max(p.x, 22), 78) + '%' }
+})
+
+// 宽度对齐：取日卡片行实际内容宽，横向滚动时同步位移，保证点与日期不错位
+function syncTrend() {
+  if (!daysEl.value) return
+  trendW.value = daysEl.value.scrollWidth
+  if (trendEl.value) trendEl.value.style.transform = `translateX(${-daysEl.value.scrollLeft}px)`
+}
+
+watch(() => days.value, () => {
+  hoverPt.value = -1
+  pinPt.value = -1
+  nextTick(() => { syncTrend(); ensureTrendObserver() })
+})
+watch(() => open.value, (v) => {
+  hoverPt.value = -1
+  pinPt.value = -1
+  if (v) nextTick(syncTrend)
+})
+
+let ro = null
+let roBound = false
+// 趋势线容器是 v-if 懒渲染，数据到位后才存在，需延迟挂载观察
+function ensureTrendObserver() {
+  if (!ro || roBound || !trendWrap.value) return
+  ro.observe(trendWrap.value)
+  roBound = true
+}
+
 const icon = () => wmo(code.value)[1]
 const desc = () => wmo(code.value)[0]
 
@@ -229,10 +398,16 @@ onMounted(() => {
   } catch (e) {}
   load()                       // 先用本地/IP 即时显示
   if (auth.token) fetchPref()  // 再用账户偏好覆盖（跨设备/浏览器生效）
+  // 趋势线宽度跟随容器（弹层展开/窗口变化/窄屏）实时对齐日卡片行
+  if (typeof ResizeObserver !== 'undefined') {
+    ro = new ResizeObserver(() => syncTrend())
+    ensureTrendObserver()
+  }
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onClickOutside)
+  if (ro) { ro.disconnect(); ro = null }
 })
 </script>
 
@@ -275,4 +450,29 @@ onBeforeUnmount(() => {
 .wx-d-ic{font-size:22px;line-height:1}
 .wx-d-t{font-size:11px;color:var(--t1);font-variant-numeric:tabular-nums}
 .wx-d-pop{font-size:11px;color:#2b8a3e}
+
+/* 温度趋势线：与上方日卡片行同父容器，宽度/内边距/圆角一致 */
+.wx-trend-wrap{position:relative;overflow:hidden;margin-top:2px;padding-top:5px;border-top:1px solid var(--glass-border)}
+.wx-trend{position:relative;height:42px}
+.wx-trend-svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
+.wx-trend-area{fill:url(#wxTrendGrad);stroke:none}
+.wx-trend-line{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.wx-trend-line.up{stroke:#f97316}
+.wx-trend-line.down{stroke:#0ea5e9}
+.wx-trend-line.flat{stroke:var(--t3)}
+/* 拐点圆点：HTML 绝对定位，避免 SVG preserveAspectRatio=none 把圆点压成椭圆 */
+.wx-trend-dot{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;
+  background:var(--bg);border:2px solid currentColor;pointer-events:none}
+.wx-trend-dot.up{color:#f97316}
+.wx-trend-dot.down{color:#0ea5e9}
+.wx-trend-dot em{position:absolute;left:9px;top:-5px;font-size:9px;font-style:normal;font-weight:600;
+  line-height:1.3;padding:0 3px;border-radius:4px;background:var(--bg2);color:currentColor;
+  box-shadow:0 0 0 1px var(--glass-border)}
+.wx-trend-dot.last em{left:auto;right:9px}
+.wx-trend-hit{position:absolute;top:0;bottom:0;cursor:pointer;border-radius:6px}
+.wx-trend-hit:hover,.wx-trend-hit.on{background:var(--p-bg);opacity:.55}
+.wx-trend-tip{position:absolute;top:0;transform:translateX(-50%);z-index:2;
+  padding:2px 7px;border-radius:6px;background:var(--t1);color:var(--bg);
+  font-size:11px;font-weight:500;line-height:1.5;white-space:nowrap;pointer-events:none;
+  box-shadow:0 4px 12px rgba(0,0,0,.18)}
 </style>

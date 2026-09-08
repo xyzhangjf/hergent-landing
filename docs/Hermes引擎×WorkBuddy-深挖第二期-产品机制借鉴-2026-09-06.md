@@ -127,3 +127,37 @@ Step 4（季度）⑦ 技能/配方自进化 + 审计
 ---
 
 *本文为增量深挖（2026-09-06 第二期），基于对 hergent 真实代码的逐文件核实。第一期结论中"记忆弱/自动化硬编码"两条已被本期修正。*
+
+---
+
+## 5. 执行记录（2026-09-06 全量落地）
+
+| # | 项 | 状态 | 落点 |
+|---|---|---|---|
+| ① | 主动澄清 + 结构化选项 | ✅ 上线 | `useCardTrigger.js` 新增 ````clarify` 协议解析；`CopilotDrawer.vue` 澄清选项卡；生产 `~/.hermes/SOUL.md` 澄清协议 |
+| ② | 每日经营日志 + 跨会话回忆 | ✅ 上线 | `erp_db.py` `daily_logs` 表 + `log_daily_metric`；`scheduler.py` 简报落日志；`CopilotDrawer.vue` 时间锚点注入；`GET /api/ai/daily-log` |
+| ③ | 动作分级护栏开关 | ✅ 上线 | `CopilotDrawer.vue` `aiGuard` 开关（localStorage 持久化：advise/confirm/auto）|
+| ④ | 结果统一呈现（文件卡片）| ✅ 上线 | `chat_attachment.py` `GET /download/{file_id}`；`CopilotDrawer.vue` 产物文件卡片 |
+| ⑤ | 可视化意图路由 | ✅ 上线 | `ResultCard.vue` mini/bar/donut 三态自绘 SVG；返利卡改柱状 |
+| ⑥ | 长期画像 + 30 天蒸馏 | ✅ 上线 | `GET /api/ai/profile` 画像聚合；`CopilotDrawer.vue` 10 分钟缓存注入 |
+| ⑦ | 技能/配方自进化 + 审计 | ✅ 上线 | `routers/recipe_evolution.py`（提案 + 审计）|
+
+### ⑦ 落地细节（本轮收尾）
+
+**后端新增 `server/routers/recipe_evolution.py`**（commit `78211f4`）：
+- `recipe_proposals` 提案表（租户库）+ `GET/POST /api/ai/recipe-proposals` + `POST /api/ai/recipe-proposals/{id}/review`
+- `record_recipe_audit()`：字段级 diff 写主库 `audit_logs`（module=`recipe`，沿用哈希链防篡改），`ref_id` 编码 `tenant_N:模块`，跨租户可追溯
+- `GET /api/ai/recipe-audit` 只读审计轨迹
+
+**三处配方保存端点接入审计**：货损 `loss_workflow.py` / 工资 `payroll_workflow.py` / 预报 `forecast_config.py`
+
+**审批即合并**：accept → 提案字段 merge 进正式配方（经 `_sanitize_recipe` 边界校验）→ 触发 `recipe_sync` 同步 Hermes 行业 skill 包 → 落审计；reject → 仅标记。严守「AI 只建议不擅自下单」铁律，把「AI 发现口径」与「口径生效」之间加了一道**老板审批门**。
+
+**生产 E2E 验证**（demo 租户 tenant 10，未污染真实租户）：
+- 建提案 → 列表 → accept（threshold_days 7→8 合并进配方）→ reject
+- 审计轨迹正确回显：`[419] demo_boss | 修改货损配方 | ref=tenant_10:loss_recipe | dimension: None→batch；…threshold_days: None→8`
+- 复位后：`[420] … | threshold_days: 8→7`（字段级 diff 精确到「谁改 / 改什么 / 影响哪家」）
+
+---
+
+*执行完毕（2026-09-06）：7 项增量全部上线生产，后端 `78211f4`，服务 health 200。*

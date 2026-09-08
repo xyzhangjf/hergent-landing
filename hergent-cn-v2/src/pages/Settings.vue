@@ -5,7 +5,9 @@
       <button :class="{ on: tab === 'account' }" @click="tab = 'account'">账号与组织</button>
       <button :class="{ on: tab === 'perm' }" @click="switchTab('perm')">权限</button>
       <button :class="{ on: tab === 'ai' }" @click="switchTab('ai')">AI 配置</button>
+      <button :class="{ on: tab === 'aiops' }" @click="tab = 'aiops'">AI 运维</button>
       <button :class="{ on: tab === 'system' }" @click="tab = 'system'">数据与系统</button>
+      <button :class="{ on: tab === 'onboard' }" @click="switchTab('onboard')">客户开通</button>
     </div>
 
     <!-- ==================== 账号与组织 ==================== -->
@@ -138,6 +140,11 @@
       </div>
     </template>
 
+    <!-- ==================== AI 运维（备份/健康/审计/路由/兜底/配方IO） ==================== -->
+    <template v-if="tab === 'aiops'">
+      <AiOps />
+    </template>
+
     <!-- ==================== 数据与系统 ==================== -->
     <template v-if="tab === 'system'">
       <div class="card">
@@ -151,17 +158,73 @@
         </div>
       </div>
     </template>
+
+    <!-- ==================== 客户开通（创始人内部工具） ==================== -->
+    <template v-if="tab === 'onboard'">
+      <div class="card">
+        <div class="panel-hd">
+          <b>开通新客户</b>
+          <span class="page-sub">一键建租户 + 管理员账号，替代 SSH 手工开号</span>
+        </div>
+        <div class="set-form" style="max-width:520px">
+          <div class="set-field">
+            <label>公司名 / 客户名 *</label>
+            <input v-model="ob.company_name" class="input" placeholder="如：永诺旗舰店">
+          </div>
+          <div class="set-field">
+            <label>子域名（可选）</label>
+            <input v-model="ob.subdomain" class="input" placeholder="如：yongnuo">
+          </div>
+          <div class="set-field">
+            <label>管理员账号 *</label>
+            <input v-model="ob.admin_account" class="input" placeholder="如：admin_yongnuo">
+          </div>
+          <div class="set-field">
+            <label>管理员密码 *（最长 8 位，系统限制）</label>
+            <input v-model="ob.admin_password" class="input" type="text" placeholder="≤8 位">
+          </div>
+          <div class="set-row">
+            <div class="set-field" style="flex:1">
+              <label>套餐</label>
+              <select v-model="ob.plan" class="input">
+                <option value="free">免费版</option>
+                <option value="pro">专业版</option>
+                <option value="enterprise">企业版</option>
+              </select>
+            </div>
+            <div class="set-field" style="flex:1">
+              <label>人数上限</label>
+              <input v-model.number="ob.max_users" class="input" type="number" min="1">
+            </div>
+          </div>
+          <div class="set-row" style="margin-top:16px">
+            <button class="btn btn-primary" :disabled="obing" @click="doOnboard">{{ obing ? '开通中…' : '开通客户' }}</button>
+          </div>
+        </div>
+        <div v-if="obResult" class="set-result ok" style="margin-top:16px">
+          <b>开通成功</b>
+          <div style="margin-top:8px;font-size:13px;line-height:1.9">
+            租户 ID：{{ obResult.tenant_id }}<br>
+            账号：<b>{{ obResult.username }}</b><br>
+            密码：<b>{{ obResult.password }}</b>（仅显示一次，请保存）<br>
+            <span style="color:var(--t3)">{{ obResult.note }}</span>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { store, setTheme, toast } from '../store'
 import { api, setHermesKey, hermesRequest } from '../api/client'
 import Icon from '../components/Icon.vue'
+import AiOps from './AiOps.vue'
 
 const router = useRouter()
+const rtab = useRoute()
 
 /* ---- 模块级标签页 ---- */
 const tab = ref('account')
@@ -169,6 +232,25 @@ function switchTab(t) {
   tab.value = t
   if (t === 'perm') loadPerms()
   if (t === 'ai') loadMemory()
+}
+
+/* ---- 客户开通（创始人内部工具） ---- */
+const ob = reactive({ company_name: '', subdomain: '', admin_account: '', admin_password: '', plan: 'free', max_users: 5 })
+const obing = ref(false)
+const obResult = ref(null)
+async function doOnboard() {
+  if (obing.value) return
+  obing.value = true
+  obResult.value = null
+  try {
+    const d = await api('/api/platform/onboard', { method: 'POST', body: { ...ob } })
+    if (d && d.success) obResult.value = d
+    else toast('开通失败', 'error')
+  } catch (e) {
+    toast((e && e.message) || '开通失败', 'error')
+  } finally {
+    obing.value = false
+  }
 }
 
 /* ---- Hermes API ---- */
@@ -352,6 +434,9 @@ function toggleTheme() {
 onMounted(() => {
   key.value = localStorage.getItem('hermes_v2_key') || ''
   loadMemory()
+  // 支持 ?tab=aiops 深链（AI 中心页的「设置 › AI 运维」入口）
+  const q = rtab.query && rtab.query.tab
+  if (q && ['account', 'perm', 'ai', 'aiops', 'system', 'onboard'].includes(q)) switchTab(q)
 })
 </script>
 

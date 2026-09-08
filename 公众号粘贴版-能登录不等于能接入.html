@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="JOtZE0766DyGL8u7TMgexy">
+<head data-page-node-id="6F2OdXgj031dkQ8TTHg7FC">
+<meta charset="utf-8" data-page-node-id="1ICKaGTKvnEtUItb177ufR">
+<meta name="viewport" content="width=device-width,initial-scale=1" data-page-node-id="hIiSsUTCKpd2ZKSTC7WARI">
+<title>公众号粘贴版 · 能登录 ≠ 能接入</title>
+<style>
+  body{margin:0;background:#f2f3f5;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif;color:#3f3f3f;}
+  .bar{position:sticky;top:0;z-index:9;background:#fff;border-bottom:1px solid #e5e6eb;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .bar input{flex:1;min-width:240px;font-size:14px;padding:8px 10px;border:1px solid #dcdfe6;border-radius:6px;color:#303133;}
+  button{font-size:14px;padding:8px 16px;border:0;border-radius:6px;background:#06b6d4;color:#fff;cursor:pointer;}
+  button.alt{background:#fff;color:#06b6d4;border:1px solid #06b6d4;}
+  button:active{opacity:.8;}
+  .tips{background:#fff8e6;color:#8a6d3b;font-size:13px;line-height:1.7;padding:10px 16px;border-bottom:1px solid #f0e2bd;}
+  .wrap{max-width:677px;margin:24px auto 60px;background:#fff;padding:32px 20px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  #toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .25s;}
+</style>
+</head>
+<body data-page-node-id="Ig5t3v5UJPRCh0AwaZ7Uvx">
+
+<div class="bar" data-page-node-id="r0QtlBNNQRzZBnHjta5mPQ">
+  <input id="titleInput" value="能登录 ≠ 能接入：我用 AI 打通 ERP 数据，踩了 3 堵墙" data-page-node-id="uhExqAJLL54xgulhvnAMXh">
+  <button class="alt" onclick="copyTitle()" data-page-node-id="C5KioFzXxFIoL7Ntu02xiq">复制标题</button>
+  <button onclick="copyBody()" data-page-node-id="IfRi3BJ6iCT1JX7hiZ0zvi">复制正文全文</button>
+</div>
+<div class="tips" data-page-node-id="6cOZAgMdihx6IkRFXyTkwY">
+  操作：① 点「复制标题」→ 粘到公众号后台的标题栏；② 点「复制正文全文」→ 在正文编辑区按 Cmd/Ctrl+V。<br data-page-node-id="8bE7y5TgVf3q6xfpCMk8t0">
+  配图占位块（灰色虚线框）是让你手动插图的位置，建议用微信编辑器自带的「图片」按钮插，不要连占位块一起留着。<br data-page-node-id="iCvLe4CZxOzvSedKZzqDC1">
+  若对比表格在微信里变形，就改成插一张图片（配图 4）。
+</div>
+
+<div class="wrap" data-page-node-id="4Wps1DfwtPZAI1ElK2J7dK">
+<div id="content" data-page-node-id="odrYQY6H5XqYkckzYST8du">
+
+  <p style="font-size:14px;color:#8c8c8c;line-height:1.8;margin:0 0 24px 0;" data-page-node-id="l586ruuZRJss30idoLi19E">老张 · 蒙牛低温奶经销商 / 一个不会写代码、但天天跟数据打交道的老板</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="BtQuDDcfwlhOH0W3e2sv5c">一、每天 30 秒，我做了一年多</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="xWFgeZV6miFdz6ML2BEAL3">早上有件事，我做了一年多：打开那套 SaaS ERP，进数据报表，点导出，等 Excel 落下来，再拖进我自己的分析工具，看昨天卖得怎么样、哪些货快临期了。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="T2BNvBJrwsVFDC7leCuIsk">整个过程 <strong style="color:#0891b2;" data-page-node-id="rsb8amau5BVDoSQQ4608HY">30 秒</strong>。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="pg2lwJF0OnfioqHYut5FGA">30 秒不多，但它每天都在。一年就是 180 次。而且它有个更讨厌的地方：<strong style="color:#0891b2;" data-page-node-id="DWmBYQyx88G5CozOYCEmxj">它不产生任何判断，纯粹是体力活</strong>——我明明只想要后面那张分析表，却必须先当 30 秒的人肉搬运工。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="N6uDO7D87TdS6aXo9o0jGm">所以当我看到一个叫 NeoBrowser 的工具时，第一反应是：这不就是我要的吗？</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 16px 0;" data-page-node-id="BFSiF591L32acXYcI5kxzv">它的承诺很短，但每句都戳在我痛点上：</p>
+
+  <p style="font-size:15px;line-height:1.9;color:#3f3f3f;margin:0 0 8px 0;" data-page-node-id="rTCROXBWV2G0h8rl6ED5wT">· 不开无头浏览器，<strong style="color:#0891b2;" data-page-node-id="aTfiQJyGjEzRC6PuoZTLZn">直接驱动你电脑上真实的 Chrome</strong></p>
+  <p style="font-size:15px;line-height:1.9;color:#3f3f3f;margin:0 0 8px 0;" data-page-node-id="dIfYWRCf14jbpKEONhmhAC">· <strong style="color:#0891b2;" data-page-node-id="L0C2LDv1mpWIs62umQGnPF">复用你已经登录的状态</strong>，不用再输一遍账号密码</p>
+  <p style="font-size:15px;line-height:1.9;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="a3Fui5AXnSKUxt3lHuwvnM">· 真指纹、真人鼠标轨迹，过得了机器人检测</p>
+
+  <section style="border:1px dashed #c0c4cc;background:#fafafa;padding:20px 16px;margin:0 0 24px 0;border-radius:4px;" data-page-node-id="JWO4vSheuNoFUiTaMcXuLY">
+    <p style="font-size:13px;color:#909399;line-height:1.7;margin:0;" data-page-node-id="I36UdsHSLYCQt9bXFwxR7q">【配图 1：三条数据接入路线对比图 —— 官方 API（走不通）/ 云端爬取（架构不通）/ 本地采集（可行）】</p>
+  </section>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 16px 0;" data-page-node-id="VSyVaGY9ZYXlDhF3ptwFGB">三天后，我决定不用它了。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="EGgDdhckOGoUnnjyYxSicL">不是它不好。是它让我算清了一笔账。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="aFHQuWWfzPan3JwI3PpcD2">二、开跑：顺得让人以为要成了</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="BO5MuXHqM30yr2nlrgAqFD">安装比想象中干净。它是 Rust 写的单个二进制文件，4MB，不用装 Node，不用配环境。自检全绿：Chrome 找到了，调试通道通了，43 个工具一字排开——打开网页、点击、输入、截图、抓表格、下载文件，该有的都有。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="BZwdjiIZ9cVWlTOGEVVXcB">我让它打开那个 ERP 的登录页，它也乖乖跳过去了。</p>
+
+  <section style="border:1px dashed #c0c4cc;background:#fafafa;padding:20px 16px;margin:0 0 24px 0;border-radius:4px;" data-page-node-id="tjjGUkYgX5J3kvx36tG5iV">
+    <p style="font-size:13px;color:#909399;line-height:1.7;margin:0;" data-page-node-id="kfY8nLIztllooJjalbzTH8">【配图 2：自检通过 + 43 个工具列表的终端截图】</p>
+  </section>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="UCut3Y3EdHA4vCGB4tl7ia">到这儿为止，一切都在暗示：<strong style="color:#0891b2;" data-page-node-id="QTDq0dg1DgFrqc18ImSNkc">这事要成了。</strong></p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="6YJvZFKccub1q0fEYDSdv1">三、第一堵墙：根本没有窗口</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="iDHy7rNoRSHZobETTBVdTS">我等了半天，没看到新窗口弹出来。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 16px 0;" data-page-node-id="AVDlMgCWuYzTxPV32ysR8f">翻它的官方文档，在很不起眼的地方写着一句：</p>
+
+  <section style="border-left:3px solid #06b6d4;background:#f7f9fa;padding:14px 16px;margin:0 0 20px 0;" data-page-node-id="xEnFuP0rmLWXIB0Q7A17G2">
+    <p style="font-size:14px;line-height:1.8;color:#606266;margin:0;" data-page-node-id="N8cMSA7P36LvQWRv6jmnRw">By default NeoBrowser runs its own <strong data-page-node-id="tZRjDuPmVmqGIy0MDUANBp">headless</strong> Chrome under a dedicated profile.</p>
+  </section>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="GWRpGs1NgZKGdP8iq0Y30g">翻译过来：<strong style="color:#0891b2;" data-page-node-id="rpsGx0UTuxRxBcNKDx6exM">它默认跑的是无头 Chrome，压根没有可见窗口。</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="rtWuGuTg6NHZxEv9X7bPyr">这就很尴尬了。我的登录页有<strong style="color:#0891b2;" data-page-node-id="lGdRkBQwq7spTgAqonf5SJ">滑块验证</strong>——那东西必须人手动拖一下。没有窗口，人怎么拖？</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="JXicsJH3C0ALT0eXopcYI2">官方给了另一条路：attach 模式。你自己开一个带调试端口的 Chrome，让它连上来操作。这样窗口是你自己的，看得见摸得着。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="wBQY64IPdaL4uoo1AMu2Nb">听起来完美。于是我开了。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="xI1CtlWSV0AJPnFU7bqsoL">四、第二堵墙：叫不醒一个没有 GUI 的 Chrome</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="PQjq8MT12kj1F2tqFEfYCn">我用一个全新的、独立的 Chrome 配置文件起了第二个实例，调试端口打开，attach 成功，页面也确实跳到了登录页。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 16px 0;" data-page-node-id="Q3ArZAUY6KLWgSHtCFGVZ8">然后我截了张图。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="bnEJMbqLsm4KvzrHEPLLXQ"><strong style="color:#c0392b;" data-page-node-id="Wv71aWAXwqpuU3ACdhX1Ns">全白。</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="gfBr1CGKHi1zXcNRCfJY28">不是报错，不是黑屏，就是一片纯净的白。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="dD9UcYUkzrsfaebkxTjoAH">原因说起来很朴素：我在终端里用命令起的这个 Chrome，<strong style="color:#0891b2;" data-page-node-id="8nm1wihCrZekSYpT041GIb">没有图形界面的上下文</strong>。它在进程里活着，调试端口通着，页面内容我用代码能读到——但它不显示在屏幕上。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="cKNHVAivKSN8cddqmpZkTD">于是出现了这三天里最荒诞的一幕：这个浏览器在进程里活着，调试端口通着，我用代码能读到它的标题和内容，甚至能给它下指令——<strong style="color:#0891b2;" data-page-node-id="uLWpg0C7eN8zNDyJvNorSG">但它不显示在屏幕上，也截不到图</strong>。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="ZYqINrC1VQcF144vnMCmut">我盯着那张全白的截图看了很久。那一刻我意识到：我在跟一个"存在但没有实体"的浏览器较劲。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="bEgC8dCO41DLNnCw70rmmk">五、第三堵墙：登录态存不住</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="mlnHSjcU2oFNxm5JN5XSHc">好不容易走完一遍流程，退出再进——<strong style="color:#c0392b;" data-page-node-id="X7ECiSCuMSQPfC8eUCaTBq">又跳回登录页</strong>。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="vDOvXSsGHNINYVBipNlcG8">查下来：它在进程结束时会把自己开的标签页关掉，所以每次新会话拿到的都是空白页，得重新走一遍。存的 7 条 cookie，没有一条是登录态。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="ZjC3zUdTFrkISKkthKpI5l">到这儿，大半天过去了。</p>
+
+  <section style="border:1px dashed #c0c4cc;background:#fafafa;padding:20px 16px;margin:0 0 24px 0;border-radius:4px;" data-page-node-id="RB9IIr1ZHEsredOc361lM7">
+    <p style="font-size:13px;color:#909399;line-height:1.7;margin:0;" data-page-node-id="n9tpXXP9r1O868NsP69sTE">【配图 3：那张全白的截图 —— 一个能被调试、能被读取、但你看不见的浏览器】</p>
+  </section>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="m11P1AEC4nElScAfics6ly">六、但这趟没白跑，我捞到三个关键信息</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;" data-page-node-id="mh4OXbVzrDJBsqJBfiAk7A"><strong style="color:#0891b2;" data-page-node-id="CLHiU40OCzfzAyMBJsHqZW">1. 登录有滑块</strong> —— 意味着全自动登录<strong data-page-node-id="i1DDahGetDoRtHJzFpau4X">根本不成立</strong>，那一下必须人来拖。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;" data-page-node-id="hjwT6li7NAg95xOP5CaqLc"><strong style="color:#0891b2;" data-page-node-id="Kwk8ckBkR7fV2Uu30U1sYt">2. 但它是 15 天免登录</strong> —— 这两条合起来，直接改写了结论：不是"不能自动化"，而是"每 15 天必须人工续一次"。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;" data-page-node-id="GNymJgC0ka74Pxe6N9F3Ff"><strong style="color:#0891b2;" data-page-node-id="zRyao2oFfWAOESkDeSElT2">3. 数据报表里自带"导出"按钮</strong> —— 这条最关键。只能抓页面表格的话，页面一改版就得重写；但人家本来就给你一个正经的导出按钮，点下去就是标准 Excel。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="FNkb4cR8NvGlqOrWM5Wr1K">第三条，是整件事的分水岭。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="jYOxBqvJ7CZRCwQYaIXZIf">七、算账</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="XJ0JaqyHNDkf2oUXpLbJHD">我把两条路摊在桌上比了一下：</p>
+
+  <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.7;margin:0 0 20px 0;" data-page-node-id="0Kmb6dgyiPsuy19E20RDOO">
+    <thead data-page-node-id="TWiQ7NvMesFsAwfrueNrmQ">
+      <tr style="background:#f2f9fb;" data-page-node-id="bZJOS9GglrHT3SqEFnzP2W">
+        <th style="border:1px solid #dcdfe6;padding:10px;color:#1a1a1a;text-align:left;" data-page-node-id="LM0shja2KTKr2XT2hkkHvm">对比维度</th>
+        <th style="border:1px solid #dcdfe6;padding:10px;color:#1a1a1a;text-align:left;" data-page-node-id="4DH3VAbpVcIueiYqKjKTqc">全自动</th>
+        <th style="border:1px solid #dcdfe6;padding:10px;color:#1a1a1a;text-align:left;" data-page-node-id="8dMiQvwArlq6zSqWw5KEjj">半自动</th>
+      </tr>
+    </thead>
+    <tbody data-page-node-id="e1i9X33TztjFNe8Nz8XNT7">
+      <tr data-page-node-id="ecw6XV1Ov1K3y13FxXks6g"><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="dhXdegUwqAGGaRgS7f04L2">每天人工</td><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="826L0TBsHwVyLAAzy49tqw">0（每 15 天过一次滑块）</td><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="j1oO9BvwAS5HrnDEihzRzQ"><strong data-page-node-id="Aid4xeE3FWlxEM0XSsI2tN">30 秒</strong></td></tr>
+      <tr data-page-node-id="ADCtFHhWyZFTaCUCOYSDOv"><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="oUuHnBtoA8NTpJHGPeZGZa">外部依赖</td><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="GiXtfA1kuNuXTCBwELzvgH">浏览器+调试端口+独立配置</td><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="GkRHEFmfbNpDmJU1U8hUtt"><strong data-page-node-id="abl5nFRL3h3zfuz82p8BCL">无</strong></td></tr>
+      <tr data-page-node-id="V5J8pBcHRLTnIhlX9abAsk"><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="1ekHF6aZ9tnCmOv2DXsbdM">页面改版就断</td><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="WFR5IORKVckIW4jzcNA49a">是，选择器要重写</td><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="ppLso7Jv5EFkRTS2OBvq2l"><strong data-page-node-id="Dt7fueCCGOFm7Xi3BhlwVE">否，只认 Excel 字段</strong></td></tr>
+      <tr data-page-node-id="jE4EMuAR8HSLWpksIVTeMd"><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="VnCxOB4FIHhXDREebi5gBa">账号暴露风险</td><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="AWMayNY4aEkUAv00JGg3Xf">登录态交给第三方进程</td><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="ktjJyvz5pcjqJOHLDC4mEf"><strong data-page-node-id="HiTamIsUtb4wu0z3iHX6aw">零</strong></td></tr>
+      <tr data-page-node-id="WIHL2k00VdDaaNzN8mz3cL"><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="EgaVGp02JECdH5Eyw5QC1x">维护成本</td><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="YxxobLyPjkYAkEDD9W7QGO">高（随便一堵墙就卡半天）</td><td style="border:1px solid #dcdfe6;padding:10px;color:#3f3f3f;" data-page-node-id="zry2kqfq1RyiIiA0FokYtd"><strong data-page-node-id="Id7hcF1Zp0uCy2Y2akHoQa">几乎为零</strong></td></tr>
+    </tbody>
+  </table>
+
+  <section style="border:1px dashed #c0c4cc;background:#fafafa;padding:20px 16px;margin:0 0 24px 0;border-radius:4px;" data-page-node-id="kPGRGKTEKypez2SEW2U5ga">
+    <p style="font-size:13px;color:#909399;line-height:1.7;margin:0;" data-page-node-id="2GDeIsRGAfxQLWuhhf2m9Q">【配图 4：上面这张对比表，做成卡片图（表格变形时用这张替代）】</p>
+  </section>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="jHo5LrVuukGFsiqX8M7dp1"><strong style="color:#c0392b;" data-page-node-id="4wbJVVbRH2IAcQBJAIrlzm">两条路差的，就是那 30 秒。</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="f9auKAUJxGl0girejC6NpN">但全自动那 30 秒，是用"每 15 天过一次滑块 + 三堵墙的维护成本 + 页面改版随时可能崩"换来的。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="y9pbdqfHJ0izhExdMuYsRT">这笔账，怎么算都是亏。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="v5D0rIGCEeOyoqiGxz4dC8">八、能自动化，不等于该自动化</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="uuYlP0H1W3IQFHp8cqsSro">这趟跑下来，我给自己总结了三条判断标准。以后再遇到"这事能不能让 AI 干了"，我就问这三个问题：</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;" data-page-node-id="C8ESfwx0gdx7em2ArJmd4B"><strong style="color:#0891b2;" data-page-node-id="oeE8QaAT7nAPHlGXB1DUDo">1. 断了谁修？</strong><br data-page-node-id="V3M4nKrnTLCvTvNYkD2IDE">
+  如果答案是"我自己半夜爬起来修"或"得花钱请人修"，就要重新算。越依赖别人系统界面的自动化，越脆。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;" data-page-node-id="x0CzUEd8d8CrpyM6q72TQA"><strong style="color:#0891b2;" data-page-node-id="Noy3dkDDi4AdkwfNkXFMV7">2. 省下来的是不是只有"点几下"？</strong><br data-page-node-id="KiD2IOchFCIPwv29ItGs4U">
+  如果只省掉体力活、没省掉判断，那它值不了多少钱。真正值钱的是让 AI 帮你<strong data-page-node-id="p0cDbJNF7GMSQElwmZ33Rd">看数据、给结论</strong>，不是替你点鼠标。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="O5iOG2AEh1ksTllQh1AEDX"><strong style="color:#0891b2;" data-page-node-id="tYf8Gln2Pp23p8hxablPWb">3. 风险转嫁给谁了？</strong><br data-page-node-id="1bmBOmeZEN4Z6rZAbtpDIZ">
+  用脚本登录别人的系统，违反不违反人家服务条款？账号被封谁承担？将来要把这套卖给客户，难道让客户把 ERP 账号交给我托管？——<strong data-page-node-id="TCM5ZYWZrUrfrL9E0F8hqC">想清楚这条，很多"能做"的事就不该做了。</strong></p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="DrB4mEBTWmkxyNBEKJgghZ">九、我最后怎么做的</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="xY1Nu4Az2Jzlqc4DsadKR6">我保留了那 30 秒。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="e11CPmypXfHzGP7aRlbmMl">每天自己点三下导出，文件落到固定目录，后面的事全交给程序：自动识别、自动解析、自动进分析模型、早上八点给我一份简报。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="WQuJ9pD6fie4CHgUymIkQK"><strong style="color:#0891b2;" data-page-node-id="onkER7bMRGj6HmjrGVDFLJ">只有我该干的那一下留给我，剩下的全自动。</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="jNp8KEK1AHxm9ywsxu9CEH">说实话，这个结果比"全自动"让我更踏实。它不脆、不依赖任何第三方工具、不需要我每 15 天惦记着续期、也不会把我的账号暴露给任何进程。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="9wvGQXfK7PbeVq7dpDwrAI">我们这行有句话叫"别把简单的事搞复杂"。以前我以为是说流程，现在发现，<strong style="color:#0891b2;" data-page-node-id="GSyEWVZpCB2TVpUUyADRwV">对自动化也一样</strong>。</p>
+
+  <section style="border-left:3px solid #06b6d4;background:#f7f9fa;padding:18px 16px;margin:0 0 24px 0;" data-page-node-id="iRxMrwfY1dEkHdEJYc7v98">
+    <p style="font-size:15px;line-height:1.9;color:#1a1a1a;margin:0 0 10px 0;" data-page-node-id="QiI2GLcQ9Sa0SOBpoMeMfT"><strong data-page-node-id="WofucmVviszVEXDzxiHGzW">判断一件事该不该自动化，别问"能不能"，问"断了谁修"。</strong></p>
+    <p style="font-size:15px;line-height:1.9;color:#1a1a1a;margin:0;" data-page-node-id="Di39EWeGPnIVEdnwbeCnbS"><strong data-page-node-id="629bFuUFRfv6f2qAKg87Ih">自动化的正确姿势，不是把人挪走，是把人挪到只有人能干的那一步。</strong></p>
+  </section>
+
+  <p style="font-size:14px;color:#8c8c8c;line-height:1.8;margin:0 0 8px 0;" data-page-node-id="m3j7RPm0xHE2SDYMAiHoYo">我是老张，蒙牛低温奶经销商，不会写代码，但一直在用 AI 给自己造工具。</p>
+  <p style="font-size:14px;color:#8c8c8c;line-height:1.8;margin:0;" data-page-node-id="mxAn4poHx7bnsJ4eQjpbYt">如果你也是快消/经销商同行，欢迎聊聊你每天那"30 秒"。</p>
+
+</div>
+</div>
+
+<div id="toast" data-page-node-id="EquSbEgAdpTwQYJQRHRR6t">已复制</div>
+
+<script>
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.style.opacity='1';
+  setTimeout(function(){t.style.opacity='0';},1600);
+}
+function selectNode(el){
+  var range=document.createRange();
+  range.selectNodeContents(el);
+  var sel=window.getSelection();
+  sel.removeAllRanges(); sel.addRange(range);
+  try{document.execCommand('copy');}catch(e){}
+  sel.removeAllRanges();
+}
+function copyTitle(){
+  var i=document.getElementById('titleInput');
+  i.select(); i.setSelectionRange(0,99999);
+  try{document.execCommand('copy');}catch(e){}
+  toast('标题已复制');
+}
+function copyBody(){
+  selectNode(document.getElementById('content'));
+  toast('正文已复制，去公众号后台粘贴');
+}
+</script>
+
+</body>
+</html>

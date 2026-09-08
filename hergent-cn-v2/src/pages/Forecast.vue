@@ -30,7 +30,7 @@
       <div class="tb-group tb-right">
         <div class="tb-search">
           <Icon name="search"/>
-          <input id="gridFind" v-model="findText" @keydown="onFindKey" class="fld" placeholder="搜索商品名…" aria-label="筛选商品名">
+          <input id="gridFind" v-model="findText" @keydown="onFindKey" class="fld" placeholder="搜索商品名 / 条码（后 4 位也行）…" aria-label="筛选商品名或条码">
         </div>
         <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
         <span class="tb-sep"></span>
@@ -1397,7 +1397,7 @@
       </div>
 
       <div class="search-row">
-        <input v-model="searchQ" class="input" placeholder="搜索商品名称/规格/拼音首字母…" @input="onSearch">
+        <input v-model="searchQ" class="input" placeholder="搜索商品名称 / 条码（后 4 位也行）…" @input="onSearch">
         <button class="btn btn-ghost" @click="searchQ=''; searchResults=[]">清空</button>
       </div>
 
@@ -1406,7 +1406,7 @@
         <div v-for="p in searchResults" :key="p.id" class="sd-item">
           <div class="sd-main" @click="addToDraft(p)">
             <div class="sd-name">{{ p.name }} <span class="sd-spec">{{ p.spec || '' }}</span></div>
-            <div class="sd-meta">库存 {{ p.current_stock ?? '—' }}{{ p.unit || '' }} · 日均 {{ p.avg_daily_sales ?? '—' }}{{ p.unit || '' }}/天</div>
+            <div class="sd-meta">库存 {{ p.current_stock ?? '—' }}{{ p.unit || '' }} · 日均 {{ p.avg_daily_sales ?? '—' }}{{ p.unit || '' }}/天<span v-if="p.barcode" class="sd-bc"> · 条码 {{ p.barcode }}</span></div>
           </div>
           <button class="btn btn-ghost btn-sm sd-alias" @click.stop="openAlias(p)" title="设置商品黑话别名（如：纯甄）"><Icon name="edit"/> 别名</button>
         </div>
@@ -1592,9 +1592,20 @@ const sortKey = ref('none')         // none | name | qty | amount
 const sortDir = ref('desc')
 const hideZeroReport = ref(false)   // 仅显示有报单（填报数量>0）的商品行
 const zeroReportCount = computed(() => cross.value.rows.filter(r => rowSum(r) <= 0).length)
+// 统一行匹配：商品名 / 厂家编码 / 条码（含后 4 位末尾片段）
+// 口径与小程序商品搜索、后端 _build_product_search 保持一致：数字输入优先命中条码，>=3 位再放宽到末尾匹配
+function rowMatchText(r, f) {
+  if (!f) return true
+  if (!r) return false
+  if (String(r.name || '').toLowerCase().includes(f)) return true
+  if (String(r.product_code || '').toLowerCase().includes(f)) return true
+  const bc = String(r.barcode || '').toLowerCase()
+  if (bc && (bc.includes(f) || (f.length >= 3 && bc.endsWith(f)))) return true
+  return false
+}
 function rowVisible(r) {
   const f = (filterText.value || findText.value || '').trim().toLowerCase()
-  if (f && !(r && (r.name || '').toLowerCase().includes(f))) return false
+  if (f && !rowMatchText(r, f)) return false
   if (hideZeroReport.value && rowSum(r) <= 0) return false
   if (!passColFilter(r)) return false
   if (brandSel.value.length && !brandSel.value.includes(rowBrand(r))) return false
@@ -3594,7 +3605,7 @@ function rowShown(ri) {
   const f = (filterText.value || findText.value || '').trim().toLowerCase()
   if (f) {
     const r = cross.value.rows[ri]
-    if (!(r && (r.name || '').toLowerCase().includes(f))) return false
+    if (!rowMatchText(r, f)) return false
   }
   if (hideZeroReport.value && rowSum(cross.value.rows[ri]) <= 0) return false
   if (!passColFilter(cross.value.rows[ri])) return false
@@ -3903,7 +3914,7 @@ function exportXlsx() {
 function filteredRowsForExport() {
   const f = (filterText.value || findText.value || '').trim().toLowerCase()
   let rows = cross.value.rows
-  if (f) rows = rows.filter(r => (r.name || '').toLowerCase().includes(f))
+  if (f) rows = rows.filter(r => rowMatchText(r, f))
   if (colFilter.value && colFilter.value.val) {
     const cf = colFilter.value
     const fv = cf.val.trim().toLowerCase()
@@ -4417,7 +4428,7 @@ const findIdx = ref(-1)
 const findHits = computed(() => {
   const f = (findText.value || '').trim().toLowerCase(); if (!f) return []
   const out = []
-  cross.value.rows.forEach((r, i) => { if ((r.name || '').toLowerCase().includes(f)) out.push(i) })
+  cross.value.rows.forEach((r, i) => { if (rowMatchText(r, f)) out.push(i) })
   return out
 })
 function focusFind() { const el = document.getElementById('gridFind'); if (el) el.focus() }
@@ -5455,7 +5466,13 @@ const rebateSprint = computed(() => {
     const reported = av
       ? (rule.target_type === 'quantity' ? (Number(av.actual_qty) || 0) : (Number(av.actual_amount) || 0))
       : 0
-    const target = Number(rule.target_value) || 0
+    // 阶段2: 品牌目标两层结构 —— 规则带 monthly_amounts(月度金额分解)时，当月目标取该月值；
+    // 该月未配置金额 = 该月无目标（跳过行，避免把年框当单月目标误导）；老规则回退 target_value。
+    const mm2 = sprintMonth.slice(5, 7)
+    const isMonthlyRule = !!(rule.monthly_amounts && Object.keys(rule.monthly_amounts).length)
+    if (isMonthlyRule && (rule.monthly_amounts[mm2] == null || Number(rule.monthly_amounts[mm2]) <= 0)) continue
+    const mAmt = isMonthlyRule ? Number(rule.monthly_amounts[mm2]) : null
+    const target = (mAmt != null && mAmt > 0) ? mAmt : (Number(rule.target_value) || 0)
     const achieved = reported + contrib            // 达成 = 已填报 + 本期预报贡献（均按到货月归属）
     const gap = Math.max(0, target - achieved)
     // v118 (L2细化)：尊重 arrival_mode —— 按间隔天数 / 按固定星期 分别计算剩余到货次数与均单追加
@@ -6354,6 +6371,7 @@ th.sortable:hover{color:var(--p-dark)}
 .sd-name{font-size:13px;font-weight:500}
 .sd-spec{font-size:12px;color:var(--t3);margin-left:6px}
 .sd-meta{font-size:12px;color:var(--t3);margin-top:2px}
+.sd-bc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;opacity:.85}
 .qty-input{width:72px;height:30px;padding:0 6px;border:1px solid var(--bd);border-radius:6px;text-align:right;background:var(--bg3);color:var(--t1)}
 .btn-del{border:none;background:none;color:var(--t3);font-size:14px;cursor:pointer;padding:4px 8px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center}
 .btn-del:hover{color:var(--dan);background:var(--dan-bg)}

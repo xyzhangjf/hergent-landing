@@ -70,6 +70,31 @@
       </table>
     </div>
 
+    <!-- ④ cron 执行结果回流 -->
+    <div class="card exec-card">
+      <div class="exec-hd">
+        <div>
+          <b>执行记录</b>
+          <p class="sub">任务到点自动跑后的结果会回流到这里，也可在「AI 中心」回看报告</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" :disabled="execLoading" @click="loadExecutions">{{ execLoading ? '刷新中…' : '刷新' }}</button>
+      </div>
+      <div v-if="execLoading" class="skel-line" style="margin:8px 0"></div>
+      <div v-else-if="!executions.length" class="exec-empty">暂无执行记录。任务到点运行后，结论会自动出现在这里。</div>
+      <ul v-else class="exec-list">
+        <li v-for="e in executions" :key="e.id" class="exec-item">
+          <span class="exec-dot" :class="e.status === 'ok' ? 'ok' : (e.status === 'error' ? 'bad' : '')"></span>
+          <div class="exec-body">
+            <div class="exec-top">
+              <b class="exec-name">{{ e.task_name || '定时任务' }}</b>
+              <span class="exec-time">{{ e.created_at }}</span>
+            </div>
+            <p class="exec-result">{{ e.result || '（无摘要）' }}</p>
+          </div>
+        </li>
+      </ul>
+    </div>
+
     <Teleport to="body">
       <Transition name="fade">
         <div v-if="showCreate" class="cron-overlay" @click.self="showCreate=false">
@@ -117,6 +142,10 @@ const showCreate = ref(false)
 const creating = ref(false)
 const form = ref({ name: '', schedule: '0 6 * * *', prompt: '', once: false })
 
+/* ④ cron 执行结果回流 */
+const executions = ref([])
+const execLoading = ref(false)
+
 /* 推送状态 */
 const pushConfigured = ref(false)
 const pushCount = ref(0)
@@ -149,6 +178,18 @@ async function saveWebhook() {
     pushTestErr.value = true
   } finally {
     savingWebhook.value = false
+  }
+}
+
+async function loadExecutions() {
+  execLoading.value = true
+  try {
+    const r = await api('/api/cron/executions')
+    executions.value = (r && r.executions) || []
+  } catch (e) {
+    executions.value = []
+  } finally {
+    execLoading.value = false
   }
 }
 
@@ -245,7 +286,7 @@ async function remove(j) {
   }
 }
 
-onMounted(() => { load(); loadPush() })
+onMounted(() => { load(); loadPush(); loadExecutions() })
 </script>
 
 <style scoped>
@@ -279,4 +320,19 @@ onMounted(() => { load(); loadPush() })
 .push-set .input{flex:1;height:34px;padding:0 12px;font-size:13px}
 .push-test{margin-top:10px;font-size:12px;color:#2f9e44;font-weight:500}
 .push-test.err{color:#d0342c}
+/* ④ cron 执行结果回流 */
+.exec-card{margin-top:16px}
+.exec-hd{display:flex;align-items:center;gap:12px}
+.exec-hd .btn{margin-left:auto;flex-shrink:0}
+.exec-empty{margin:10px 0 2px;font-size:12.5px;color:var(--t3);line-height:1.7}
+.exec-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.exec-item{display:flex;gap:10px;align-items:flex-start}
+.exec-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--t3);flex-shrink:0}
+.exec-dot.ok{background:#2f9e44}
+.exec-dot.bad{background:#d0342c}
+.exec-body{flex:1;min-width:0}
+.exec-top{display:flex;align-items:baseline;gap:10px}
+.exec-name{font-size:13px;color:var(--t1)}
+.exec-time{font-size:11.5px;color:var(--t3);margin-left:auto;flex-shrink:0}
+.exec-result{margin:3px 0 0;font-size:12.5px;color:var(--t2);line-height:1.6;white-space:pre-wrap;word-break:break-word}
 </style>

@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="zh-CN" data-page-node-id="WDwe6ATUXuLFjHA6fieRCb">
+<head data-page-node-id="ohlG8JFAKTpm9UR7uVnxDu">
+<meta charset="UTF-8" data-page-node-id="T6eSi4DuR9x1XT8uoPFCc0">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="9QqNr8aC0qbfTj2CKtLQHK">
 <title>预报订单小程序 · 提审打钩清单</title>
 <style>
   :root{
@@ -90,96 +90,99 @@
   }
 </style>
 </head>
-<body>
+<body data-page-node-id="REbiaESzzKh9WD7O8NF1FU">
 
-<header>
-  <h1>预报订单小程序 · 提审打钩清单</h1>
-  <div class="sub">从注册主体到提交审核，逐项打钩。<b>标「我」= 需你本人在微信平台/开发者工具操作；标「AI」= 已完成，仅供确认。</b></div>
-  <div class="meta">
-    <span>项目目录：<code>forecast-order-miniprogram-20260812T023419087Z/</code></span>
-    <span>后端：hergent.cn（已部署）</span>
-    <span>制表：2026-08-30</span>
+<header data-page-node-id="fAas3Se0CzHTGSbwHURXZ0">
+  <h1 data-page-node-id="dHhvsYojzKGtn1ZMzSvtZ6">预报订单小程序 · 提审打钩清单</h1>
+  <div class="sub" data-page-node-id="B2WnHSYGyn7HMsLbD9D6ih">从注册主体到提交审核，逐项打钩。<b data-page-node-id="wocvKQfdtdYD00328rohqW">标「我」= 需你本人在微信平台/开发者工具操作；标「AI」= 已完成，仅供确认。</b></div>
+  <div class="meta" data-page-node-id="Q2rAe2Locw5zvmrLDBGMJH">
+    <span data-page-node-id="N9qaKHJijwNakJAf7gXS9E">项目目录：<code data-page-node-id="dOaHHSXSDJh2dNb3yKMhfL">forecast-order-miniprogram-20260812T023419087Z/</code></span>
+    <span data-page-node-id="I08Bu8tzB0FolHX8M36HEG">后端：hergent.cn（已部署）</span>
+    <span data-page-node-id="We7Trb850C6XHDG4WtVW2F">制表：2026-08-30</span>
   </div>
 </header>
 
-<div class="bar">
-  <div class="prog"><i id="bar"></i></div>
-  <span class="pct" id="pct">0 / 0（0%）</span>
-  <button class="btn primary" onclick="window.print()">打印 / 存为 PDF</button>
-  <button class="btn" onclick="resetAll()">全部清空</button>
+<div class="bar" data-page-node-id="xV7NoOgWqFHKWrPlylRg6M">
+  <div class="prog" data-page-node-id="wdPtkGq3ZKuOXtZEwqdZwU"><i id="bar" data-page-node-id="VDBAKmuAlIfnoAlePHGllO"></i></div>
+  <span class="pct" id="pct" data-page-node-id="YAXuL4urxJ4yuPn4jGG6FT">0 / 0（0%）</span>
+  <button class="btn primary" onclick="window.print()" data-page-node-id="2MyVrAFaIq92BTGYo4oM2z">打印 / 存为 PDF</button>
+  <button class="btn" onclick="resetAll()" data-page-node-id="ray75ygbWPK3CSx7f6x4JO">全部清空</button>
 </div>
 
 <!-- 速查 -->
-<div class="card">
-  <h3>速查 · 提审要填的关键信息</h3>
-  <table>
-    <tr><th style="width:88px">项</th><th>内容</th></tr>
-    <tr><td>测试账号①</td><td>销售 <code>mptest</code> / <code>Mptest@1</code> —— 填报、我的提交、撤回</td></tr>
-    <tr><td>测试账号②</td><td>主管 <code>mptestsp</code> / <code>Mpsup@1</code> —— 审批通过 / 驳回</td></tr>
-    <tr><td>合法域名</td><td><code>https://hergent.cn</code></td></tr>
-    <tr><td>appid 位置</td><td><code>miniprogram/project.config.json</code> 第 47 行，把 <code>touristappid</code> 换成真实 AppID</td></tr>
-    <tr><td>建议类目</td><td><b>工具 → 效率</b>（首选，与你证照经营范围「软件开发/信息技术咨询」契合，不需食品证）</td></tr>
-    <tr><td>隐私勾选</td><td>仅【剪切板】+【账号信息】，其余一律不勾</td></tr>
+<div class="card" data-page-node-id="mtorRDq0G9ngLYrZu53FBw">
+  <h3 data-page-node-id="nEBVGB62F2lCyly1D0OSKG">速查 · 提审要填的关键信息</h3>
+  <table data-page-node-id="YUGxUEChcyZ4C0RzvQ4tki">
+    <tr data-page-node-id="LNeCpnUg4FPJgeJzKzmbhh"><th style="width:88px" data-page-node-id="hib50XctFJkwGgPu2YmMvK">项</th><th data-page-node-id="hqxH3J23nODjDmitCcwUFE">内容</th></tr>
+    <tr data-page-node-id="TlZa3jbeKiiPjHobLhNiWq"><td data-page-node-id="N8MDUNXCqqODE0HcyzfWpy">测试账号①</td><td data-page-node-id="XIjKvIH7CyzXJ5Q3XUsXun">销售 <code data-page-node-id="EhPQHxAW5H3k6UlkRw3BUa">mptest</code> / <code data-page-node-id="OoHfIRVIdjsDoa5GW1Bx4W">Mptest@1</code> —— 填报、我的提交、撤回</td></tr>
+    <tr data-page-node-id="IZAAkUM1knNI837cNYtRFx"><td data-page-node-id="qEbcsWF8mDvSxwDalghWC4">测试账号②</td><td data-page-node-id="ZMs74reFKO3sMrB75CnEBW">主管 <code data-page-node-id="cGmcAOcrUzDYj0UKxjbVTx">mptestsp</code> / <code data-page-node-id="80P87gQfG5NBADa1oImJHM">Mpsup@1</code> —— 审批通过 / 驳回</td></tr>
+    <tr data-page-node-id="hS8U49LZelWySFwS6R5CjE"><td data-page-node-id="AF2lKa3F6YpBRMyj4245wd">合法域名</td><td data-page-node-id="AXGxEdPM5AV0uD0R0SdcdH"><code data-page-node-id="m8STXkymuOlTAmAKZCfQ8n">https://hergent.cn</code></td></tr>
+    <tr data-page-node-id="hg32GWAy7Yl7AvFmiYWnJ7"><td data-page-node-id="PWLaP3VPMAt4thu8MtMy67">appid</td><td data-page-node-id="rZYFB7gYBmpia8bSkEfPa5">✅ <b data-page-node-id="9WmJ11F9dWXjBfT2Dxz3k1">已替换</b>（2026-09-06，<code data-page-node-id="gdr5cBDpyIPyHFg5Ak4S6h">project.config.json:47</code> 已是真实值，<code data-page-node-id="NTgvg4ud9gRmpf5duKQgsq">wx</code> 开头）</td></tr>
+    <tr data-page-node-id="hmpBxBGgsYIpma4FQXYf26"><td data-page-node-id="urhM6f4S8Vj4aS6A7ASYNd">小程序名称</td><td data-page-node-id="d6fHrx77eUkr7B6N7K2fQP"><b data-page-node-id="FsTvZnXYyRBBuVPCWGbgMB">小赫 AI 报单助手</b>（微信字符数 16，4–30 区间 ✅）<br data-page-node-id="o2C4ltdsVBQFNMPutjRmHZ">驳回备选：小赫智体报单助手 → 智体报单助手</td></tr>
+    <tr data-page-node-id="ST7xuBO2IMAncYFbLHhth8"><td data-page-node-id="t4MPdk6MDNkZ8M8Kd2saJk">建议类目</td><td data-page-node-id="E8oGufYaHHzqcDiR80jgtK"><b data-page-node-id="ebm3f378Fa67ZvdTNhDPhX">商业服务 → 企业管理</b>（首选，官方适用范围「企业办公工具/办公管理、门店信息管理」，与业务逐字命中，无需额外资质）<br data-page-node-id="a5A08C4T7e6CP3BWR8aFCS">备选：工具 → 办公　⚠️ 原写的「工具→效率」不存在，已更正</td></tr>
+    <tr data-page-node-id="xk5dFbqUSCDircpJcUG3dU"><td data-page-node-id="YETWZSj1ly70Of2fWOJkBj">简介（≤120 字符）</td><td data-page-node-id="pu2tIlRj3yG84lucSdPEBF"><b data-page-node-id="IlGCp3D4aHgm8GyYxQlg2V">本企业内部订货预报工具：销售按门店填报商品需求，主管在线审批后自动汇总生成采购计划。仅限企业员工账号登录，不涉及在线支付、对外销售，不收集任何个人信息。</b>（76 字符）</td></tr>
+    <tr data-page-node-id="r5EYilmARFPANPcd8Jf7z3"><td data-page-node-id="PfVuSOcO9XSKAqyUgagWtA">隐私勾选</td><td data-page-node-id="8Z8RHYNVQp7De7EvanulYt">仅【剪切板】+【账号信息】，其余一律不勾</td></tr>
   </table>
-  <div class="warn" style="margin-bottom:0">
-    <b>密码限制：</b>本系统密码最长 <b>8 个字符</b>（bcrypt 72 字节被 64 位密钥挤占），给审核员改密码时不要设更长，否则 500。
+  <div class="warn" style="margin-bottom:0" data-page-node-id="KP4n3ss0QfUsjD7cVLa1Bn">
+    <b data-page-node-id="PqAFKtTARTPVzYX9KrkMB6">密码限制：</b>本系统密码最长 <b data-page-node-id="vOeZL41KVRpFCUxCEZF8fE">8 个字符</b>（bcrypt 72 字节被 64 位密钥挤占），给审核员改密码时不要设更长，否则 500。
   </div>
 </div>
 
-<h2>阶段 0 · 主体与资质 <small>你操作 · 1–3 天（整条链路的瓶颈，建议今天就启动）</small></h2>
-<ul>
-  <li><input type="checkbox" data-k="s0-1"><span class="txt">准备营业执照扫描件<span class="path">企业或个体工商户主体；个人主体做不了商业订货类</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s0-2"><span class="txt">准备《食品经营许可证》扫描件（备用）<span class="path">只有选「食品」类目才需要，先备着</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s0-3"><span class="txt">注册小程序账号<span class="path">mp.weixin.qq.com → 立即注册 → 小程序 → 邮箱注册 → 选主体 → 填执照</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s0-4"><span class="txt">完成主体验证<span class="path">法人扫码或对公打款，1–3 个工作日</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s0-5"><span class="txt">复制 AppID<span class="path">开发管理 → 开发设置 → AppID</span></span><span class="tag me">我</span></li>
+<h2 data-page-node-id="9t18KHz1wwjFIBeXDcJ1dl">阶段 0 · 主体与资质 <small data-page-node-id="i8aUxD43caPOrc5BCSkDsM">你操作 · 1–3 天（整条链路的瓶颈，建议今天就启动）</small></h2>
+<ul data-page-node-id="owEjzeoAyRAd0R81HbLNFV">
+  <li data-page-node-id="g8HOtYavl4ZjL0Hy93OcpD"><input type="checkbox" data-k="s0-1" data-page-node-id="j83XeuqQtGV2V0NKp3FAHN"><span class="txt" data-page-node-id="Rrmz7GRFqQxFXnmyjm8zUG">准备营业执照扫描件<span class="path" data-page-node-id="EwJDVD2LZ77m1DXGfjBiYZ">企业或个体工商户主体；个人主体做不了商业订货类</span></span><span class="tag me" data-page-node-id="o5AofHbSDVnbVgsHtKwBxS">我</span></li>
+  <li data-page-node-id="EvqDYDxsplDyKzaXCSygJ9"><input type="checkbox" data-k="s0-2" data-page-node-id="TZFKhBP952kUyUK0jrjiki"><span class="txt" data-page-node-id="377ELmBcNkp49OVqsAYZai">准备《食品经营许可证》扫描件（备用）<span class="path" data-page-node-id="w3bdN0NTbp2He9ylzIrhY3">只有选「食品」类目才需要，先备着</span></span><span class="tag me" data-page-node-id="MMCXKGGZUDPRGOkVgUFUnL">我</span></li>
+  <li data-page-node-id="w9MqZAwKqg68rqGRPElNVr"><input type="checkbox" data-k="s0-3" data-page-node-id="sbsVqfBALuuAnCCH5eBSH7"><span class="txt" data-page-node-id="DgDssaA4fr9BGCyRaeR3qL">注册小程序账号<span class="path" data-page-node-id="HG6kv5xrg2NF8ODsmPzHyr">mp.weixin.qq.com → 立即注册 → 小程序 → 邮箱注册 → 选主体 → 填执照</span></span><span class="tag me" data-page-node-id="jzhrPlEIQlP04I9rZWMqFs">我</span></li>
+  <li data-page-node-id="KnDqM5IQuHtMliDfEyxLtD"><input type="checkbox" data-k="s0-4" data-page-node-id="dld1od2s7YBUcxg9CFJrR5"><span class="txt" data-page-node-id="VZUDtfE5RR8D2D6m7917Qw">完成主体验证<span class="path" data-page-node-id="juy8C86B0BVORmH6Nd3oRn">法人扫码或对公打款，1–3 个工作日</span></span><span class="tag me" data-page-node-id="2A8lsIEYSJq0CJmDwfAGTC">我</span></li>
+  <li data-page-node-id="QXaHAN5qLCgx6oR9htapeP"><input type="checkbox" data-k="s0-5" data-page-node-id="ClG2bt42qcfiMeezPrkL64"><span class="txt" data-page-node-id="JngeNrpWa1u1jDaGoaT3e3">复制 AppID<span class="path" data-page-node-id="bAqWCVe9sLICZbnDhCh7nN">开发管理 → 开发设置 → AppID</span></span><span class="tag me" data-page-node-id="VSmecMTDrt1hbXuO624Clj">我</span></li>
 </ul>
 
-<h2>阶段 1 · 代码侧改 appid <small>你操作 · 5 分钟</small></h2>
-<ul>
-  <li><input type="checkbox" data-k="s1-1"><span class="txt">替换 <code>project.config.json</code> 第 47 行的 <code>touristappid</code><span class="path">文件路径：miniprogram/project.config.json</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s1-2"><span class="txt">微信开发者工具重新打开项目，确认右上角 AppID 已变<span class="path">务必打开目录：forecast-order-miniprogram-20260812T023419087Z/</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s1-3"><span class="txt">（已完成）隐私弹窗 / 埋点 / 我的提交+撤回 / 移动审批 代码就位<span class="path">含后端 recall 端点，已部署生产并实测通过</span></span><span class="tag ai">AI</span></li>
-  <li><input type="checkbox" data-k="s1-4"><span class="txt">（已完成）生产建好两个测试账号 + 门店/期次/权限打通<span class="path">提交→审批→撤回 全链路 curl 实测通过</span></span><span class="tag ai">AI</span></li>
+<h2 data-page-node-id="WhJNuyRmec99qmDh2iWj5V">阶段 1 · 代码侧改 appid <small data-page-node-id="eINYzNuvaSCmwFknCTLtFc">你操作 · 5 分钟</small></h2>
+<ul data-page-node-id="YJsgF3NAz0ZGNDWTVOuGcG">
+  <li data-page-node-id="bgnd67CN9a7Eq9yYOyDcDz"><input type="checkbox" data-k="s1-1" checked disabled data-page-node-id="OA9XDqxmQtkHYunWGTkFLE"><span class="txt" data-page-node-id="EAyCRH7vk1neWXtwGcA3b7">✅ <b data-page-node-id="q6KYGDDF7ECuhmKOFSjXZY">已替换</b> <code data-page-node-id="rjQJSD5NEyFEDVy5irzosL">project.config.json</code> 第 47 行（2026-09-06 真实 AppID 已写入）<span class="path" data-page-node-id="8iWdKOJjFQfpzv2fwfglAe">无需操作</span></span><span class="tag me" data-page-node-id="PSHr2bVcVNaiAFk0Lb1hnz">我</span></li>
+  <li data-page-node-id="iHrrAUvlOZ3lxUnKLOfyVs"><input type="checkbox" data-k="s1-1b" data-page-node-id="ScA9B1S1rT5b5YXJt9Bn3w"><span class="txt" data-page-node-id="DZhWHS8S2eFMfglEtwqi6a">⚠️ <b data-page-node-id="uCE5cEYCk1vtCn0ZCt5UIS">把 <code data-page-node-id="KabyORKvlC22d7bGaxHC5q">project.config.json:8</code> 的 <code data-page-node-id="jj1vlQDW4DYJveA1WvxyvE">urlCheck:false</code> 改回 <code data-page-node-id="O6tyCqa22TgIlh4kTbVyxK">true</code></b>（开 urlCheck 才能校验合法域名，避免本地能跑、真机全 400）<span class="path" data-page-node-id="N9GvmdhpBpABj9EabaHkQr">漏改会让"域名已配"的假象蒙混过关</span></span><span class="tag me" data-page-node-id="1z1dFrV6SuGTA9SuHhkZUR">我</span></li>
+  <li data-page-node-id="MYdSvO9mNWAcY9a3L2f91S"><input type="checkbox" data-k="s1-2" data-page-node-id="gLHJjHiuYUE1rLRzTleMDB"><span class="txt" data-page-node-id="0NGQPawP86zICwBpO1236y">微信开发者工具重新打开项目，确认右上角 AppID 已变<span class="path" data-page-node-id="rcBI9ZORUQ0h3mfgxHf6zv">务必打开目录：forecast-order-miniprogram-20260812T023419087Z/</span></span><span class="tag me" data-page-node-id="BvYHehKuQVWQU5zrR4ZPtm">我</span></li>
+  <li data-page-node-id="9Iz5BkPMvd9Q0pFRBM9ehY"><input type="checkbox" data-k="s1-3" data-page-node-id="tvtnkbGser4ml4koQapn36"><span class="txt" data-page-node-id="zVypSFPSADZhlLVQ6q3ZuU">（已完成）隐私弹窗 / 埋点 / 我的提交+撤回 / 移动审批 代码就位<span class="path" data-page-node-id="YUVHMH5m5lKiD3EipY2Nvg">含后端 recall 端点，已部署生产并实测通过</span></span><span class="tag ai" data-page-node-id="1J66AxuT1iFzMdDQ45TTQx">AI</span></li>
+  <li data-page-node-id="mhcZClF6FOhj1LlrYT6fjx"><input type="checkbox" data-k="s1-4" data-page-node-id="wwWKTGNfGySnIPrVNShfHF"><span class="txt" data-page-node-id="X1fpSbhhGycNwXuAYtraYN">（已完成）生产建好两个测试账号 + 门店/期次/权限打通<span class="path" data-page-node-id="nzTdPn7Ht0CfK3ekOnGimU">提交→审批→撤回 全链路 curl 实测通过</span></span><span class="tag ai" data-page-node-id="mW04EYtHCXZMx8IA6AGAp8">AI</span></li>
 </ul>
 
-<h2>阶段 2 · 平台配置 <small>你操作 · 30 分钟（隐私指引生效需等数小时）</small></h2>
-<ul>
-  <li><input type="checkbox" data-k="s2-1"><span class="txt">配置 request 合法域名 <code>https://hergent.cn</code><span class="path">开发管理 → 开发设置 → 服务器域名 → request 合法域名</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s2-2"><span class="txt">添加服务类目「电商平台 → 商家自营」<span class="path">设置 → 基本设置 → 服务类目；一次只加一个</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s2-3"><span class="txt">隐私保护指引勾选【剪切板】<span class="path">设置 → 服务内容声明 → 隐私保护指引 → 更新</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s2-4"><span class="txt">隐私保护指引勾选【账号信息】<span class="path">用途写「用于销售/督导登录本企业订货系统，验证身份并区分门店权限」</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s2-5"><span class="txt">确认其余项<b>一律不勾</b>（位置/相册/手机号/蓝牙/通讯录）<span class="path">代码已核实未调用这些接口，多勾反而增加审核风险</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s2-6"><span class="txt">生成隐私指引并等待生效<span class="path">几分钟到数小时；生效后 wx.requirePrivacyAuthorize 才会弹系统窗</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s2-7"><span class="txt">填小程序名称 / 简介 / 头像<span class="path">⚠️ 名称与简介里不要出现「蒙牛」等品牌词（触发商标审核）</span></span><span class="tag me">我</span></li>
+<h2 data-page-node-id="UXeT6GDZ41x7r7SzrSqyou">阶段 2 · 平台配置 <small data-page-node-id="b1BZBldWSIFX4BDfaSOQbo">你操作 · 30 分钟（隐私指引生效需等数小时）</small></h2>
+<ul data-page-node-id="4pLSXVBogxCneYnWEuWDxy">
+  <li data-page-node-id="edKEasrDC0I7H4aLAffpQY"><input type="checkbox" data-k="s2-1" data-page-node-id="9avQBeF2oQnbqBvzprvmn0"><span class="txt" data-page-node-id="AtHPkZbrJM8cwNApPJbhTn">配置 request 合法域名 <code data-page-node-id="vDKLs9XEywK200bUZhxgN2">https://hergent.cn</code><span class="path" data-page-node-id="iZ3qBjAllWmgxH0L0RWzE6">开发管理 → 开发设置 → 服务器域名 → request 合法域名</span></span><span class="tag me" data-page-node-id="5xFgZhEcwWMIFciMIoQfnf">我</span></li>
+  <li data-page-node-id="GWLPxSAOGvORHHUZpPeLy9"><input type="checkbox" data-k="s2-2" data-page-node-id="EsISIQffWMyTarbBktcFZu"><span class="txt" data-page-node-id="u5PihoPFkrBa9DLEzb3ngA">添加服务类目「电商平台 → 商家自营」<span class="path" data-page-node-id="kKZX0Rh03obwl9xeHsbFCY">设置 → 基本设置 → 服务类目；一次只加一个</span></span><span class="tag me" data-page-node-id="M8f7Ivk1dCmdA4ETZTJCEB">我</span></li>
+  <li data-page-node-id="Yg1m0zB0DRElx90acHyYNQ"><input type="checkbox" data-k="s2-3" data-page-node-id="d8n47xEdiThky8fvEPkXvO"><span class="txt" data-page-node-id="xghyy8QS9sTtC30XH7YbOG">隐私保护指引勾选【剪切板】<span class="path" data-page-node-id="Vn3hEQvaQi2NbuUV0LpXRm">设置 → 服务内容声明 → 隐私保护指引 → 更新</span></span><span class="tag me" data-page-node-id="d0VSRiTeLbcbmhFALYPKgn">我</span></li>
+  <li data-page-node-id="7rzeoz84dBj8mQBrN8IJbP"><input type="checkbox" data-k="s2-4" data-page-node-id="Cu8ZUm9jCHgZZIuFzDfsgO"><span class="txt" data-page-node-id="wSg1996XqqRoihAMGP9C8l">隐私保护指引勾选【账号信息】<span class="path" data-page-node-id="lSA9bK1LgIaw1Tq6ooTcsz">用途写「用于销售/督导登录本企业订货系统，验证身份并区分门店权限」</span></span><span class="tag me" data-page-node-id="9s7PXHKRxCn40CMxH9aW8p">我</span></li>
+  <li data-page-node-id="3WhxYtSmoxgwNylEeADmtt"><input type="checkbox" data-k="s2-5" data-page-node-id="lsugCHbAMHsfa59TutKQwE"><span class="txt" data-page-node-id="datmgMvTJOPYeGx0UtusRD">确认其余项<b data-page-node-id="Jt1p8wTJpsGdb70JLSTn4P">一律不勾</b>（位置/相册/手机号/蓝牙/通讯录）<span class="path" data-page-node-id="VhlDmB0WiSEHC3ZGsNQgPD">代码已核实未调用这些接口，多勾反而增加审核风险</span></span><span class="tag me" data-page-node-id="QP9vvUiqlhoHX1sdTWRYwK">我</span></li>
+  <li data-page-node-id="tXe18PsIUJ6CsY44RxzSqu"><input type="checkbox" data-k="s2-6" data-page-node-id="CaTBkAIE0WA5hkKFxDwSDD"><span class="txt" data-page-node-id="huJIQkAkE3W1R0bZ7qY71q">生成隐私指引并等待生效<span class="path" data-page-node-id="B0WGGj4scHaClfd15qD5Cn">几分钟到数小时；生效后 wx.requirePrivacyAuthorize 才会弹系统窗</span></span><span class="tag me" data-page-node-id="xRyGCnknAZKl6bQVdnRSLd">我</span></li>
+  <li data-page-node-id="dFAYF21gWsev7OTD15JqlB"><input type="checkbox" data-k="s2-7" data-page-node-id="9YG3zrZyCA0tdC9GHAzsl7"><span class="txt" data-page-node-id="hm1KYWzo5KqgRonJEClSXS">填小程序名称 / 简介 / 头像<span class="path" data-page-node-id="vYACZY3SPeEfb83Bi1jvLy">名称已定：<b data-page-node-id="GiKJkDBqultCWfEnkhRy9v">小赫 AI 报单助手</b>；简介 ≤120 字符，速查卡有现成文案。⚠️ 名称与简介不要出现「蒙牛」等品牌词（触发商标审核），也不要写「低温奶/乳业/食品」（引向食品类目需食品证）</span></span><span class="tag me" data-page-node-id="wXg8E3t81Z0s4P0gt4lmn5">我</span></li>
 </ul>
 
-<h2>阶段 3 · 上传体验版 <small>你操作 · 微信开发者工具</small></h2>
-<ul>
-  <li><input type="checkbox" data-k="s3-1"><span class="txt">点「上传」，填版本号与项目备注<span class="path">备注建议：预报订单首版（含隐私同意、提交、撤回、审批）</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s3-2"><span class="txt">生成体验版，内部人员扫码安装<span class="path">你 + 文员 + 督导</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s3-3"><span class="txt">真机跑通 E2E（E1–E12）<span class="path">详见《真机E2E测试清单.md》，重点：隐私弹窗拦截、提交、撤回、审批</span></span><span class="tag me">我</span></li>
+<h2 data-page-node-id="3fRTPEWVyC6W52Q0pIFUrz">阶段 3 · 上传体验版 <small data-page-node-id="fAG5FiVOK4vWU9wa6mGkEH">你操作 · 微信开发者工具</small></h2>
+<ul data-page-node-id="Emng7NSlGYMr3QEIxpSMDz">
+  <li data-page-node-id="WYG73pTGHuZsOsxOC0MqpG"><input type="checkbox" data-k="s3-1" data-page-node-id="XqrB5GYTIt3wnl69AoriZK"><span class="txt" data-page-node-id="27peWTKbCL4EDCRUDN9258">点「上传」，填版本号与项目备注<span class="path" data-page-node-id="ZMyTIUjr4MJxM9n0AqckmX">备注建议：预报订单首版（含隐私同意、提交、撤回、审批）</span></span><span class="tag me" data-page-node-id="ZfCwUAqUaGwSFCeZWmI3MF">我</span></li>
+  <li data-page-node-id="wXHtbP8DyscGq4FhKh0m02"><input type="checkbox" data-k="s3-2" data-page-node-id="r0UwPSJsqBwfThcVJnicWM"><span class="txt" data-page-node-id="H46zH4A8cW6C2iacmZVD0F">生成体验版，内部人员扫码安装<span class="path" data-page-node-id="6EWiyvlDtySR0k8XJtKSnd">你 + 文员 + 督导</span></span><span class="tag me" data-page-node-id="sDW7tdZw3fzkjF1oBATCPJ">我</span></li>
+  <li data-page-node-id="UcgY36HvqssfbbrWEkq7SZ"><input type="checkbox" data-k="s3-3" data-page-node-id="IU0zFD927TSXawqJMnos1w"><span class="txt" data-page-node-id="rJDmIzITW4M1oGa1q21et6">真机跑通 E2E（E1–E12）<span class="path" data-page-node-id="fms4vjvgz6hVhXAgFPJo8q">详见《真机E2E测试清单.md》，重点：隐私弹窗拦截、提交、撤回、审批</span></span><span class="tag me" data-page-node-id="QM8WBzHqySKr4WJzOVK31c">我</span></li>
 </ul>
 
-<h2>阶段 4 · 提交审核 <small>你操作 · 微信公众平台</small></h2>
-<ul>
-  <li><input type="checkbox" data-k="s4-1"><span class="txt">填写测试账号（两组都要）<span class="path">mptest / Mptest@1（销售）；mptestsp / Mpsup@1（主管）</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s4-2"><span class="txt">填功能页面路径（5 条）<span class="path">login / fill / mine / approval / summary</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s4-3"><span class="txt">粘贴补充说明模板<span class="path">《微信提审材料清单.md》第 6.3 节可直接复制</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s4-4"><span class="txt">上传 3–5 张真实数据截图<span class="path">忌出现 touristappid、test 假数据、红色报错 toast</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s4-5"><span class="txt">提交审核<span class="path">企业主体一般 1–3 天出结果</span></span><span class="tag me">我</span></li>
+<h2 data-page-node-id="iJCtDReoEJz7tNqLlMN0Cg">阶段 4 · 提交审核 <small data-page-node-id="Kyx2GZSDQLbELTtNCzc1sl">你操作 · 微信公众平台</small></h2>
+<ul data-page-node-id="yiOfJfNwXSS2yNYBWLO1JM">
+  <li data-page-node-id="w5QqgRRprxFzgAATJjc5eI"><input type="checkbox" data-k="s4-1" data-page-node-id="W7amijTxfYdvvTzzYidfFS"><span class="txt" data-page-node-id="MFkOTOMrLhpzSDmBeL8ofC">填写测试账号（两组都要）<span class="path" data-page-node-id="Ws8P6aDD6Jn9mPGnjTF1bO">mptest / Mptest@1（销售）；mptestsp / Mpsup@1（主管）</span></span><span class="tag me" data-page-node-id="qGTqciI3ezaLaUP4ILVjgw">我</span></li>
+  <li data-page-node-id="cJNs2RxbIBiQZwHr2Qgun6"><input type="checkbox" data-k="s4-2" data-page-node-id="K4a5E0MReNa1HJwze2RdyI"><span class="txt" data-page-node-id="M5L6dNvUrOGKepPGrFf5Sv">填功能页面路径（5 条）<span class="path" data-page-node-id="0Ad3GAPlFHYAIEbgvm6Kdg">login / fill / mine / approval / summary</span></span><span class="tag me" data-page-node-id="MkYTE8dWwCBIte8ntuFQC7">我</span></li>
+  <li data-page-node-id="CWTXdzYhGaC50Xv7xx88gG"><input type="checkbox" data-k="s4-3" data-page-node-id="ybsvBN7z9iKrE49aJPUYcA"><span class="txt" data-page-node-id="4DCzGoGzFysjAXbS6Z2bYR">粘贴补充说明模板<span class="path" data-page-node-id="pZNcNH14w1tV89M1KUFFAe">《微信提审材料清单.md》第 6.3 节可直接复制</span></span><span class="tag me" data-page-node-id="1d5Q8HHeBrSESVhS7RbBXX">我</span></li>
+  <li data-page-node-id="kRx6RE76hXAamlgYpKveNk"><input type="checkbox" data-k="s4-4" data-page-node-id="CSlQhUPW6GQBDb7YpbvD4Y"><span class="txt" data-page-node-id="NJIl1hfE3a44bb1sbmH5xI">上传 3–5 张真实数据截图<span class="path" data-page-node-id="oJhw5dzMvvthUMWiezdjqb">忌出现 wx 开头的真实 AppID（appid 是敏感凭据，截到等于公开）、test 假数据、红色报错 toast</span></span><span class="tag me" data-page-node-id="3mlUVzuDlBEvGjFwDLcrAr">我</span></li>
+  <li data-page-node-id="2kDkuX2hLMlfRTZVZWGwBT"><input type="checkbox" data-k="s4-5" data-page-node-id="hFSoHgH5LO0mIgTx5wJ4IL"><span class="txt" data-page-node-id="euU333cFukuSftDWEmKI7Y">提交审核<span class="path" data-page-node-id="DFMoPp7rQyri3n70siDA16">企业主体一般 1–3 天出结果</span></span><span class="tag me" data-page-node-id="DnBCKCwVeWWDogI9Z4fEMH">我</span></li>
 </ul>
 
-<h2>阶段 5 · 审核通过后收尾 <small>⚠️ 别漏，否则账号与数据留隐患</small></h2>
-<ul>
-  <li><input type="checkbox" data-k="s5-1"><span class="txt">禁用两个测试账号<span class="path">UPDATE users SET is_active=0 WHERE username IN ('mptest','mptestsp'); → 重启服务</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s5-2"><span class="txt">处理提审期次 id=9（「9月提审期-开放填报」）<span class="path">按真实节奏重建，或直接删除；Web 端期次管理可操作</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s5-3"><span class="txt">分阶段灰度：1% → 10% → 50% → 100%<span class="path">每阶段观察 ≥24h；详见《灰度与回滚方案.md》</span></span><span class="tag me">我</span></li>
-  <li><input type="checkbox" data-k="s5-4"><span class="txt">灰度期盯监控指标<span class="path">API 错误率 / 登录转化 / 提交成功率 / 崩溃；触发条件见灰度文档第五节</span></span><span class="tag me">我</span></li>
+<h2 data-page-node-id="5s8JtzwZ8o4SuSinftwI7h">阶段 5 · 审核通过后收尾 <small data-page-node-id="GqENP9E9p14slKuuIf9KKF">⚠️ 别漏，否则账号与数据留隐患</small></h2>
+<ul data-page-node-id="OzX1haiyEBMzeeMMODZ1A5">
+  <li data-page-node-id="5nKprJjOSY6wBqlnXKbFBi"><input type="checkbox" data-k="s5-1" data-page-node-id="xeyTgvxp5XSKV2glOwnmVS"><span class="txt" data-page-node-id="lUHOAGAU3iCZVyPgxssKi0">禁用两个测试账号<span class="path" data-page-node-id="7NyXED3l3ryg83lEPPzmHK">UPDATE users SET is_active=0 WHERE username IN ('mptest','mptestsp'); → 重启服务</span></span><span class="tag me" data-page-node-id="8L48c0gIpkmFTNRAK7lhNG">我</span></li>
+  <li data-page-node-id="6AGgK2F5ti1fmN3D4F992R"><input type="checkbox" data-k="s5-2" data-page-node-id="39Ikvzg3OM7CUZcjZ7o7Vu"><span class="txt" data-page-node-id="IDWWbcDssxXlAeTbpFmsaK">处理提审期次 id=9（「9月提审期-开放填报」）<span class="path" data-page-node-id="dQAaBlxZs0rYqahOVXhHuq">按真实节奏重建，或直接删除；Web 端期次管理可操作</span></span><span class="tag me" data-page-node-id="zJz5hULIq74kKHe0KKDPJP">我</span></li>
+  <li data-page-node-id="dzfgmP3CAKFHXcIehAZWH1"><input type="checkbox" data-k="s5-3" data-page-node-id="xN8Za4Gt80CTNhpdCBbhla"><span class="txt" data-page-node-id="gnTU4uYuS6N9IFf3YtzDae">分阶段灰度：1% → 10% → 50% → 100%<span class="path" data-page-node-id="fhPwzAHsYtiPHowUfEWOyz">每阶段观察 ≥24h；详见《灰度与回滚方案.md》</span></span><span class="tag me" data-page-node-id="79f3E9oWRSH9LiBZscea9A">我</span></li>
+  <li data-page-node-id="iYEbw8OSUJUdQReLHgVBz1"><input type="checkbox" data-k="s5-4" data-page-node-id="LdqzEcAQPGwkyfbbcAxqTg"><span class="txt" data-page-node-id="CFkvs6OzfliJD7Wgf1jebA">灰度期盯监控指标<span class="path" data-page-node-id="ePBFOQsTnYWULm5q2UyKK9">API 错误率 / 登录转化 / 提交成功率 / 崩溃；触发条件见灰度文档第五节</span></span><span class="tag me" data-page-node-id="IiclfBJEWiUgZmw5Mj5srq">我</span></li>
 </ul>
 
-<div class="warn">
-  <b>配套文档（同目录）：</b>
+<div class="warn" data-page-node-id="tLJt6uF7FwJy64VuVSELQs">
+  <b data-page-node-id="GcANR8RP9uLumC16ur0bDG">配套文档（同目录）：</b>
   《微信提审材料清单.md》（类目、隐私指引逐项、截图要点、常见驳回应对）、
   《真机E2E测试清单.md》（E1–E12 + 边界用例）、
   《灰度与回滚方案.md》（放量节奏、回滚触发条件）、

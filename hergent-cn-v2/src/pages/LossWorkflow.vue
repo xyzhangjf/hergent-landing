@@ -83,7 +83,10 @@
     </div>
 
     <!-- 步骤 2/3：结果 -->
-    <div v-else class="lf-result-wrap">
+    <div v-else class="lf-result-wrap" ref="printArea">
+      <div style="text-align:right;margin-bottom:12px">
+        <button class="btn btn-sm btn-ghost" @click="exportPrintable('货损计算')">导出成品</button>
+      </div>
       <!-- 概要 -->
       <div class="lf-summary">
         <div class="card lf-kpi lf-kpi-total">
@@ -183,6 +186,7 @@ import { useRouter } from 'vue-router'
 import { toast } from '../store'
 import { lossApi, adviceApi } from '../api/modules'
 import AdvicePanel from '../components/AdvicePanel.vue'
+import { openPrintable } from '../utils/printable'
 
 const router = useRouter()
 
@@ -263,6 +267,17 @@ async function runAndShow() {
 
 function backToConfig() {
   step.value = 1
+}
+
+const printArea = ref(null)
+function exportPrintable(title) {
+  if (!printArea.value) return
+  openPrintable({
+    title: title + '结果',
+    subtitle: 'Hergent AI 经营副驾 · 货损计算',
+    bodyHtml: printArea.value.innerHTML,
+    filename: title,
+  })
 }
 
 onMounted(async () => {

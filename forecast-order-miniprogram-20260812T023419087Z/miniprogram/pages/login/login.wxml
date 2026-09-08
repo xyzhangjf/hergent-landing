@@ -1,6 +1,6 @@
 <view class="login-page">
   <view class="brand">
-    <view class="brand-ic">预</view>
+    <image class="brand-ic" src="/assets/brand-logo.png" mode="aspectFit" />
     <view class="brand-name">Hergent 预报订单</view>
     <view class="brand-sub">员工预报 · 汇总总表 · 一键订货</view>
   </view>

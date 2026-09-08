@@ -102,7 +102,10 @@
     </div>
 
     <!-- 步骤 2/3：结果 -->
-    <div v-else class="pr-result-wrap">
+    <div v-else class="pr-result-wrap" ref="printArea">
+      <div style="text-align:right;margin-bottom:12px">
+        <button class="btn btn-sm btn-ghost" @click="exportPrintable('算工资')">导出成品</button>
+      </div>
       <!-- 概要 -->
       <div class="pr-summary">
         <div class="card pr-kpi pr-kpi-total">
@@ -189,6 +192,7 @@ import { useRouter } from 'vue-router'
 import { toast } from '../store'
 import { payrollApi, adviceApi } from '../api/modules'
 import AdvicePanel from '../components/AdvicePanel.vue'
+import { openPrintable } from '../utils/printable'
 
 const router = useRouter()
 
@@ -283,6 +287,17 @@ async function confirmMonth() {
 
 function backToConfig() {
   step.value = 1
+}
+
+const printArea = ref(null)
+function exportPrintable(title) {
+  if (!printArea.value) return
+  openPrintable({
+    title: title + '结果',
+    subtitle: 'Hergent AI 经营副驾 · 算工资',
+    bodyHtml: printArea.value.innerHTML,
+    filename: title,
+  })
 }
 
 onMounted(async () => {

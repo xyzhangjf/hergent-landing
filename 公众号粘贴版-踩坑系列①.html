@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>公众号粘贴版 · 踩坑系列①</title>
+<style>
+  body{margin:0;background:#f2f3f5;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif;color:#3f3f3f;}
+  .bar{position:sticky;top:0;z-index:9;background:#fff;border-bottom:1px solid #e5e6eb;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .bar input{flex:1;min-width:240px;font-size:14px;padding:8px 10px;border:1px solid #dcdfe6;border-radius:6px;color:#303133;}
+  button{font-size:14px;padding:8px 16px;border:0;border-radius:6px;background:#06b6d4;color:#fff;cursor:pointer;}
+  button.alt{background:#fff;color:#06b6d4;border:1px solid #06b6d4;}
+  button:active{opacity:.8;}
+  .tips{background:#fff8e6;color:#8a6d3b;font-size:13px;line-height:1.7;padding:10px 16px;border-bottom:1px solid #f0e2bd;}
+  .wrap{max-width:677px;margin:24px auto 60px;background:#fff;padding:32px 20px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  #toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .25s;}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <input id="titleInput" value="我让 AI 帮我导报表，最后还是自己点了那三下">
+  <button class="alt" onclick="copyTitle()">复制标题</button>
+  <button onclick="copyBody()">复制正文全文</button>
+</div>
+<div class="tips">
+  操作：① 点「复制标题」→ 粘到公众号后台标题栏；② 点「复制正文全文」→ 在正文区按 Cmd/Ctrl+V。<br>
+  建议：结尾两句金句可以单独做成一张图插在文末，比文字更容易被截图转发。
+</div>
+
+<div class="wrap">
+<div id="content">
+
+  <p style="font-size:14px;color:#8c8c8c;line-height:1.8;margin:0 0 24px 0;">踩坑系列 ① · 老张，蒙牛低温奶经销商，不会写代码</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;">一件做了 300 次的小事</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">每天早上我要干一件事：打开管货的系统，点导出，等文件下来，再拖进我的分析表，看昨天卖得怎么样。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">30 秒。一周 7 次，一年 300 多次。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">它不累，但它蠢。<strong style="color:#0891b2;">我明明只想要那张分析表，却每天得先当 30 秒搬运工。</strong></p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;">有个工具说能替我干</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 16px 0;">我找到一个工具，它的承诺很短：</p>
+
+  <p style="font-size:15px;line-height:1.9;color:#3f3f3f;margin:0 0 8px 0;">· 不用重新登录，<strong style="color:#0891b2;">用你现在已经登录的状态</strong></p>
+  <p style="font-size:15px;line-height:1.9;color:#3f3f3f;margin:0 0 8px 0;">· 直接操作你电脑上的浏览器，跟真人一样</p>
+  <p style="font-size:15px;line-height:1.9;color:#3f3f3f;margin:0 0 16px 0;">· 过得了网站的机器人检测</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">听起来就是我要的。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;">装上挺顺</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">安装很干净，不用配环境。自检全绿，一堆工具一字排开：点击、输入、截图、下载，该有的都有。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">我让它打开那个系统的登录页，它乖乖跳过去了。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;"><strong style="color:#0891b2;">一切都在暗示：这事要成了。</strong></p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;">坑一：它开的浏览器，你看不见</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">我等了半天，没见新窗口弹出来。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">翻它文档，角落里写着：它默认用的是<strong style="color:#0891b2;">没有窗口的浏览器</strong>。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">这就尴尬了——我的登录页有<strong style="color:#0891b2;">滑块验证</strong>，那东西必须人手动拖一下。窗口都没有，人往哪拖？</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">官方给了另一条路：你自己开一个浏览器，让它连上来操作。听起来完美，我照做了。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;">坑二：截出来一张全白的图</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">浏览器起来了，页面确实跳到了登录页。然后我截了张图。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;"><strong style="color:#c0392b;">全白。</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">不是报错，不是黑屏，就是一片纯净的白。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">原因很朴素：我用命令起的这个浏览器，虽然活着、虽然能读到它的内容，但它<strong style="color:#0891b2;">不在屏幕上</strong>。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">于是出现了最荒诞的一幕：我能通过代码读到它写了什么，甚至能给它下指令，<strong style="color:#0891b2;">但它不显示，也截不到图</strong>。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;">坑三：登录状态存不住</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">好不容易走完一遍，退出再进——<strong style="color:#c0392b;">又回到登录页</strong>。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">查下来：它每次结束会把标签页关掉，存下来的登录凭证没有一条能用。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">到这儿，大半天过去了。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;">但这趟没白跑</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;"><strong style="color:#0891b2;">登录有滑块</strong> → 全自动登录根本不成立，那一下必须人来。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;"><strong style="color:#0891b2;">但它是 15 天免登录</strong> → 拖一次能撑半个月。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;"><strong style="color:#0891b2;">报表自带导出按钮</strong> → 这才是关键。如果要从页面上一点点扒数据，页面一改我就得重写；可人家本来就给了一个正经的导出按钮。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;">算笔账</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;"><strong style="color:#0891b2;">全自动</strong>：省下 30 秒，换来每 15 天过一次滑块 + 三堵墙的维护 + 页面改版随时崩。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;"><strong style="color:#0891b2;">半自动</strong>：我点三下导出，剩下的全自动，什么都不用维护，账号不用交给任何程序。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">两条路差的，就是那 30 秒。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;"><strong style="color:#c0392b;">这笔账，怎么算都是亏。</strong></p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;">我最后怎么做的</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">我留下了那 30 秒。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">每天自己点三下导出，文件落到固定文件夹，后面的事全交给程序：自动识别、自动解析、早上八点给我一份简报。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;"><strong style="color:#0891b2;">只有我该干的那一下留给我，剩下的全自动。</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;">说实话这结果比"全自动"让我踏实：它不脆、不依赖任何第三方工具、不用我惦记续期、也不会把我的账号交给任何程序。</p>
+
+  <section style="border-left:3px solid #06b6d4;background:#f7f9fa;padding:18px 16px;margin:0 0 24px 0;">
+    <p style="font-size:15px;line-height:1.9;color:#1a1a1a;margin:0 0 10px 0;"><strong>判断一件事该不该自动化，别问"能不能"，问"断了谁修"。</strong></p>
+    <p style="font-size:15px;line-height:1.9;color:#1a1a1a;margin:0;"><strong>自动化的正确姿势，不是把人挪走，是把人挪到只有人能干的那一步。</strong></p>
+  </section>
+
+  <p style="font-size:14px;color:#8c8c8c;line-height:1.8;margin:0;">我是老张，蒙牛低温奶经销商。踩坑系列 ②：我想让 AI 帮我发公众号，结果更惨——所有教程都过期了。</p>
+
+</div>
+</div>
+
+<div id="toast">已复制</div>
+
+<script>
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.style.opacity='1';
+  setTimeout(function(){t.style.opacity='0';},1600);
+}
+function selectNode(el){
+  var range=document.createRange();
+  range.selectNodeContents(el);
+  var sel=window.getSelection();
+  sel.removeAllRanges(); sel.addRange(range);
+  try{document.execCommand('copy');}catch(e){}
+  sel.removeAllRanges();
+}
+function copyTitle(){
+  var i=document.getElementById('titleInput');
+  i.select(); i.setSelectionRange(0,99999);
+  try{document.execCommand('copy');}catch(e){}
+  toast('标题已复制');
+}
+function copyBody(){
+  selectNode(document.getElementById('content'));
+  toast('正文已复制，去公众号后台粘贴');
+}
+</script>
+
+</body>
+</html>

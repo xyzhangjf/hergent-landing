@@ -19,6 +19,9 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
               <span v-if="artifacts.length" class="cp-art-badge">{{ artifacts.length }}</span>
             </button>
+            <button class="cp-icon-btn" title="存为报告" :disabled="!hasChat || savingReport" @click="saveAsReport">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6M9 17h6"/></svg>
+            </button>
             <button class="cp-icon-btn" title="历史会话" :disabled="!store.chat.sessions.length && !showHistory" @click="toggleHistory">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><polyline points="12 7 12 12 15 15"/></svg>
             </button>
@@ -392,6 +395,9 @@ function toggleFullscreen() {
 /* 产物区：默认隐藏；系统生成新产物自动弹开；顶部按钮可手动隐藏 / 切换区域全屏 */
 const artOpen = ref(false)
 const artFullscreen = ref(false)
+/* ① 存为报告 */
+const savingReport = ref(false)
+const hasChat = computed(() => store.chat.messages.some(m => m.content))
 function hideArtifacts() {
   artOpen.value = false
   artFullscreen.value = false
@@ -399,6 +405,29 @@ function hideArtifacts() {
 function toggleArtFullscreen() {
   artFullscreen.value = !artFullscreen.value
   if (artFullscreen.value) artOpen.value = true   // 全屏隐含展开
+}
+
+/* ① 存为报告：把当前对话固化为报告落库（AI 中心可回看/导出/转发） */
+function chatToMarkdown() {
+  return store.chat.messages
+    .filter(m => m.content)
+    .map(m => (m.role === 'user' ? '**老板**：' : '**AI 副驾**：') + m.content)
+    .join('\n\n')
+}
+async function saveAsReport() {
+  const content = chatToMarkdown()
+  const first = store.chat.messages.find(m => m.role === 'user' && m.content)
+  const title = first ? first.content.slice(0, 40) : '副驾对话报告'
+  if (!content) return
+  savingReport.value = true
+  try {
+    await api('/api/ai/reports', { method: 'POST', body: { title, content, source: 'copilot' } })
+    store.toast('已存为报告，可在「AI 中心」回看')
+  } catch (e) {
+    store.toast((e && e.message) || '保存失败', 'error')
+  } finally {
+    savingReport.value = false
+  }
 }
 
 /* 双栏可拖拽分割线（鼠标 + 触摸统一用 Pointer Events） */
@@ -634,16 +663,46 @@ function showDemo() {
   saveCurrentSession()
 }
 
-/* 卡片操作：采纳/驳回翻转状态留痕；转发走面板；其余回写对话 */
+/* 卡片操作：采纳/驳回翻转状态留痕 + 落库（环1）；转发走面板；其余回写对话 */
 function onCardAction({ key, card }) {
   if (key === 'forward') { openForward(card); return }
   const verbMap = { adopt: '采纳', detail: '查看明细', forward: '转发', save: '保存', reject: '驳回' }
   const verb = verbMap[key] || key
   if (key === 'adopt' || key === 'reject') {
     if (card && 'status' in card) card.status = (key === 'reject') ? 'rejected' : 'confirmed'
+    logAdviceDecision(card, key)
   }
   draft.value = `${verb}「${card?.title || '该建议'}」`
   send()
+}
+
+/* P0 环1：把采纳/驳回信号落 ai_advice_log，让 AI 价值闭环第一次有数据 */
+async function logAdviceDecision(card, key) {
+  if (!card || card._logged) return
+  card._logged = true
+  try {
+    const decision = key === 'adopt' ? 'adopted' : 'rejected'
+    const created = await api('/api/ai/advice', {
+      method: 'POST',
+      body: { task_type: inferTaskType(card), advice_text: card.title || 'AI 建议', ai_source: 'copilot' }
+    })
+    if (created && created.advice_id) {
+      await api(`/api/ai/advice/${created.advice_id}/decide`, {
+        method: 'POST', body: { decision }
+      })
+    }
+  } catch (e) {
+    console.warn('[copilot] log advice decision failed:', e.message)
+  }
+}
+
+function inferTaskType(card) {
+  const t = (card && card.title ? card.title : '') + ' ' + ((card && card.content) || '')
+  if (/货损|临期|报损|损失|损耗/.test(t)) return 'loss_calc'
+  if (/工资|薪资|提成|个税|绩效/.test(t)) return 'payroll_calc'
+  if (/返利|申领|目标/.test(t)) return 'rebate_calc'
+  if (/预报|订货|下单|缺货|补货/.test(t)) return 'forecast'
+  return 'copilot'
 }
 
 /* ---- M2 渐进式访谈：引导 chips 点击 -> 追加提问 ---- */

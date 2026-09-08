@@ -93,7 +93,10 @@
           <button class="btn btn-primary" :disabled="claimAmount == null || matching" @click="doMatch">{{ matching ? '匹配中…' : '匹配对账' }}</button>
         </div>
 
-        <div v-if="matchResult" class="rec-result" :class="matchResult.difference === 0 ? 'ok' : 'diff'">
+        <div v-if="matchResult" class="rec-result" ref="printArea" :class="matchResult.difference === 0 ? 'ok' : 'diff'">
+          <div style="text-align:right;margin-bottom:10px">
+            <button class="btn btn-sm btn-ghost" @click="exportPrintable('对账')">导出成品</button>
+          </div>
           <div class="rec-result-row">客户声称：<b>¥{{ fmt(matchResult.statement_amount) }}</b></div>
           <div class="rec-result-row">系统算出：<b>¥{{ fmt(matchResult.system_total) }}</b></div>
           <div class="rec-result-row big">
@@ -160,6 +163,7 @@ import Icon from '../components/Icon.vue'
 import { ref, onMounted } from 'vue'
 import { toast } from '../store'
 import { reconciliationApi, collectionsApi } from '../api/modules'
+import { openPrintable } from '../utils/printable'
 
 const step = ref(1)
 const customers = ref([])
@@ -290,6 +294,17 @@ async function doConfirm() {
   } catch (e) {
     toast('确认失败：' + (e.message || ''), 'error')
   }
+}
+
+const printArea = ref(null)
+function exportPrintable(title) {
+  if (!printArea.value) return
+  openPrintable({
+    title: title + '结果 · ' + (cur.value.customer_name || ''),
+    subtitle: 'Hergent AI 经营副驾 · 对账工作流',
+    bodyHtml: printArea.value.innerHTML,
+    filename: title,
+  })
 }
 
 onMounted(() => { loadCustomers(); loadCols() })

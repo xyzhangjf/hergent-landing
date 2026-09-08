@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="tWbX1J0ElwnPnEk1liBgo9">
+<head data-page-node-id="pUthCu0yoylaQGDH3Xm4yy">
+<meta charset="utf-8" data-page-node-id="eialTjdufDPVjqnoilsSJ2">
+<meta name="viewport" content="width=device-width,initial-scale=1" data-page-node-id="3UYZXFI8cm3s6zJ5VSbG8q">
+<title>公众号粘贴版 · 我想让 AI 帮我发公众号</title>
+<style>
+  body{margin:0;background:#f2f3f5;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif;color:#3f3f3f;}
+  .bar{position:sticky;top:0;z-index:9;background:#fff;border-bottom:1px solid #e5e6eb;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .bar input{flex:1;min-width:240px;font-size:14px;padding:8px 10px;border:1px solid #dcdfe6;border-radius:6px;color:#303133;}
+  button{font-size:14px;padding:8px 16px;border:0;border-radius:6px;background:#06b6d4;color:#fff;cursor:pointer;}
+  button.alt{background:#fff;color:#06b6d4;border:1px solid #06b6d4;}
+  button:active{opacity:.8;}
+  .tips{background:#fff8e6;color:#8a6d3b;font-size:13px;line-height:1.7;padding:10px 16px;border-bottom:1px solid #f0e2bd;}
+  .wrap{max-width:677px;margin:24px auto 60px;background:#fff;padding:32px 20px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  #toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .25s;}
+</style>
+</head>
+<body data-page-node-id="vMrTRs9pFOInhFOdYWR60t">
+
+<div class="bar" data-page-node-id="pzZdTQYDzWrFZnuxfZVtu7">
+  <input id="titleInput" value="我想让 AI 帮我发公众号，发现网上所有教程都过期了" data-page-node-id="FEeaA5ftL6UpqJoNLy6Um0">
+  <button class="alt" onclick="copyTitle()" data-page-node-id="GMDdkGU5RBFZXBLtzVn7hB">复制标题</button>
+  <button onclick="copyBody()" data-page-node-id="0Z7nUT703EfAScCUqaJEDc">复制正文全文</button>
+</div>
+<div class="tips" data-page-node-id="DgVX6l0DqzD3H8ne0GmutI">
+  操作：① 点「复制标题」→ 粘到公众号后台的标题栏；② 点「复制正文全文」→ 在正文编辑区按 Cmd/Ctrl+V。<br data-page-node-id="pPDzZ6Y5mQiTyeqGdllZsm">
+  配图占位块（灰色虚线框）是让你手动插图的位置，用编辑器「图片」按钮插，插完记得把占位块删掉。
+</div>
+
+<div class="wrap" data-page-node-id="5GBP8ONdI9TVpriLOqMBAF">
+<div id="content" data-page-node-id="kGdEwQ1dix34pLQKJ8wwFA">
+
+  <p style="font-size:14px;color:#8c8c8c;line-height:1.8;margin:0 0 24px 0;" data-page-node-id="RCkxHxdp6i1Hr6eIMIylAz">老张 · 蒙牛低温奶经销商 / 一个不会写代码、但天天想让自己少干点活的老板</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="evrftrcFWrTWibPHNO5HSD">一、得更懒一点</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="1ganUjOFr7TH2K1sG8Hz2G">昨天那篇发出去之后，我盯着后台看了会儿，脑子里冒出一个很自然的想法：</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="zOmFD9k6HtzhgAdAdxKBcG">文章是 AI 帮我写的初稿，我改了改。那<strong style="color:#0891b2;" data-page-node-id="nbFhBA3ogGbqOd6UB5fcgb">发文章</strong>这一步，是不是也能让它干了？</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="7SMHPy5grSU9XIz9vUgpAv">听起来特别合理。你想，一篇公众号从写到发，真正费劲的是写；点"发表"那一下，最多 30 秒。既然前面都自动化了，最后这 30 秒留着干嘛？</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="lBIHYlwSYkU0H0PJaWOjRp">于是我去搜"AI 自动发布公众号"。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="LGOceHwk6ozq1Vw3jg2jNP">搜出来一大堆，标题一个比一个诱人：《3 分钟搭建公众号自动发布流水线》《每天自动发 100 篇》《零代码实现公众号全自动运营》。教程写得都很详细，接口地址、参数、代码示例，一应俱全。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="VYk0knod8UqHUpUo4qSvEf">我照着做了半小时，然后发现——<strong style="color:#c0392b;" data-page-node-id="mg8n589Za33y18XJ833Apm">这些教程，全都过期了。</strong></p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="jnh0kFZq2h51LF0EnVWb5B">二、四道闸门</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="gOcnKtZoFHv8JfHChBOvGN">先说清楚这条路本身长什么样。要让程序替你发一篇公众号，得过四道闸门：</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;" data-page-node-id="fOFpC0jbjVymhbUkmG4O4X"><strong style="color:#0891b2;" data-page-node-id="99VsrOjjnmwjgqsTrO7xGJ">第一道：拿钥匙。</strong>在公众号后台开一个叫 AppSecret 的东西，相当于给你一把钥匙，程序拿着它才能证明"我是这个号的主人"。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;" data-page-node-id="2rMuphYgIsDMUDBlmt2b1j"><strong style="color:#0891b2;" data-page-node-id="wFY29Z9STh6Lk4iZmwcyXx">第二道：配白名单。</strong>微信只认登记过的 IP 地址。你从哪个网络访问，那个网络的出口 IP 就得写进后台的白名单里。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;" data-page-node-id="s991zZQDWU1X0YIPycI8av"><strong style="color:#0891b2;" data-page-node-id="74tI7HdmbEIu1QVI2FdhXx">第三道：建草稿。</strong>程序把文章和图片传上去，在草稿箱里生成一篇待发的图文。注意，图片不能外链，必须先传成微信自己的地址，否则读者那边根本显示不出来。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="sRe2mB39mFOMS3x5CH0iox"><strong style="color:#0891b2;" data-page-node-id="spP3WAGMuH9CIZlOAEeI8Z">第四道：点发布。</strong>把草稿正式发出去。</p>
+
+  <section style="border:1px dashed #c0c4cc;background:#fafafa;padding:20px 16px;margin:0 0 24px 0;border-radius:4px;" data-page-node-id="dIFIuoLYEfouyRlhr8b4Hg">
+    <p style="font-size:13px;color:#909399;line-height:1.7;margin:0;" data-page-node-id="qIg2zam0v24dhFuUwbYPMW">【配图 1：四道闸门流程图 —— 拿钥匙 → 配白名单 → 建草稿 → 点发布（前三道能过，第四道是墙）】</p>
+  </section>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="3ATlBTqBt7LvavGqzG5Fds">前三道都还算好说，第四道是真正的墙。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="3lbCDta9CguAGCBg0iBH5M">三、那个"悄悄改掉"的规则</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="gOpeuJIlCffqzAHQIbXeKT">我在官方文档里翻到一行小字，大意是：<strong style="color:#c0392b;" data-page-node-id="Llq8q5POTJ0DAFujYQGBNU">从 2025 年 7 月起，个人主体的账号、未认证的企业账号，以及不支持认证的账号，发布接口的权限被回收了。</strong></p>
+
+  <section style="border:1px dashed #c0c4cc;background:#fafafa;padding:20px 16px;margin:0 0 24px 0;border-radius:4px;" data-page-node-id="gtDEGLNtVsgXBoe8CnjxGq">
+    <p style="font-size:13px;color:#909399;line-height:1.7;margin:0;" data-page-node-id="HpxrSFw89tWGD8tLNnmY7B">【配图 2：官方文档那张"适用范围"表的截图 —— 这是全文最有说服力的一张图，建议截下来】</p>
+  </section>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="Ty2lTeSCZNHksmiUuJDzD9">也就是说，这段代码从 2025 年 7 月起，对一半以上的公众号来说，<strong style="color:#0891b2;" data-page-node-id="CGVMUKOddW219eXtuAnQ9N">已经跑不通了</strong>。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="V6l4S1kLzSpvI0sG1M31vW">但你去搜教程，会发现一个诡异的现象：<strong style="color:#0891b2;" data-page-node-id="NVARf3cOIOH8cqIEmfu7uC">没有一篇教程提到这件事。</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="jvrJS93M8zDxPVD67WVDrX">它们照样教你一步一步配接口，照样给你贴完整代码。你照着做，会卡在最后一步，返回一个看不懂的错误码，然后你会以为是自己的问题——是不是参数写错了？是不是 IP 白名单没配对？是不是我操作有问题？</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="RH2aFwWjGjdSO7OW43HSPf">于是你一遍遍检查自己的代码。查两小时，最后才发现：<strong style="color:#0891b2;" data-page-node-id="0v9hSYSqnIDQhQFfARQEtW">不是你的问题，是规则变了。</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="w1lwL7CYFY65wxtwqQFOiM">这才是这类教程最坑的地方。它不是写错了，它是<strong style="color:#c0392b;" data-page-node-id="dbmHCc7CMDEdGTfsAeh5qQ">安静地失效了</strong>。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="cnsDP3B5TlOQV9CrjCMKVB">四、一个反直觉的点</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="234LNAfT8E3Eov2toFE0cQ">我当时想的是：那我去把实名补上，是不是就行了？</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="jU6ka3mPDQ2ckpIA2pSoY9">答案是不行。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="YRAabR2tVaeplRPZOATlbM">这里有个特别容易搞混的地方：平台收回的是<strong style="color:#0891b2;" data-page-node-id="5NfPnRuNk4feUAzW0CWcGn">"个人主体"这一整档</strong>，不是"未认证"这个状态。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="eJ4Ata9SEcDorHHimxNhLh">打个比方：它不是因为你没带工牌才不让你进，而是你所在的<strong style="color:#0891b2;" data-page-node-id="ATFJnZQtzOiFbDDHKBQHH6">公司类别</strong>就不在这张名单上。你把工牌补办了，名单上还是没有你。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="ChHsMODOwQCxw61wDVTwIK">想拿回自动发布的能力，只有一条路：用<strong data-page-node-id="y0IOFZS2lSx2nAz0b77dbb">公司主体重新注册一个公众号</strong>，并且做微信认证。认证不是免费的，一年 300 块，而且每年都要审。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="fWeP0N3RHmSqNHg7Mw8WE1">哦对了，还有个坑差点让我白花钱：<strong style="color:#0891b2;" data-page-node-id="raUHrwg6ym8H9OxXozqCQU">小程序的认证和公众号的认证是两回事</strong>。我小程序那边花 300 认证过了，公众号是另一个号、另一笔钱。这俩不通用。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="VSAiVC6XfTBraFlwTbMLVf">五、那我到底要不要开？</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 16px 0;" data-page-node-id="tP54cejtc7kHMNYLevex9M">我把账摊开算了一遍：</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;" data-page-node-id="9mzlif9A8cuouQwZCfNnJ1"><strong style="color:#0891b2;" data-page-node-id="DrZsRGu7Jg2PVLTYd1AiJR">收益：</strong>每两周发一篇，省下"复制标题 + 粘正文 + 点发表"，大概 90 秒。一年 26 篇，总共省 40 分钟。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 14px 0;" data-page-node-id="Qsv9OGlHGuzyk4tHNNDZ5k"><strong style="color:#0891b2;" data-page-node-id="iRhAqWuxQQhkgUNA0j0fYB">成本：</strong></p>
+
+  <p style="font-size:15px;line-height:1.9;color:#3f3f3f;margin:0 0 6px 0;" data-page-node-id="cLfTCGuv1vMV7vKPzroMZ6">· 每年 300 块认证费</p>
+  <p style="font-size:15px;line-height:1.9;color:#3f3f3f;margin:0 0 6px 0;" data-page-node-id="VasV4q9P8jyIyaYqiFoINp">· 账号主体从"老张个人"变成"某公司官方号"</p>
+  <p style="font-size:15px;line-height:1.9;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="ohFawtvqN0Dv10tZk2of5u">· IP 白名单得维护，换个网络就得重新配</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="justFvpJOc5mSvyStvsUQc">第三条最烦。我是家庭宽带，出口 IP 会变。也就是说这套"自动化"，隔三差五会因为 IP 变了而失效，我还得去后台改配置。<strong style="color:#c0392b;" data-page-node-id="ufLxvZBpKwLNJBkdXpXF2q">一个需要人伺候的自动化，还叫自动化吗？</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="uFIbDyZCNmhTO1EE29I9jN">但真正让我下决心不做的，是第二条。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="gxYt0uaCiBxRGoFPtpy0W5">我这个号叫"老张ai实践记"，读者关注的是<strong style="color:#0891b2;" data-page-node-id="YRbi4X4SGz81CwZdpdZqAh">一个经销商老板在用什么、在想什么</strong>。这东西值钱，是因为它是个人的、是真的。一旦变成"某公司官方号"，同样的内容，可信度直接掉一半。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="CvkItMe6yjeu6cB98t3FCm"><strong style="color:#c0392b;" data-page-node-id="89jwLXBG4oTLlYPdxK2kMy">为了一年省 40 分钟，把最值钱的东西卖掉。这笔账小学生都会算。</strong></p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="hrhf11NWDFAskSb4KekF4P">六、还有一条路，我明确不做</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="jxpz2kTTBI3RL9TuG2VRvc">查资料的时候，我看到有人提供另一种方案：用脚本模拟真人登录公众号后台，自动点按钮发布。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="wqXpJKB9yOGtYSUMdFMRTk">这个技术上能做。而且它还绕开了前面所有限制——不用认证，不用接口，不用白名单。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="jzcXRmPohuj3K6KzjuKU1y"><strong style="color:#c0392b;" data-page-node-id="Aizb2I0HAidODM1AaCCryy">我把它划掉了。</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="kQQxbCu6JYZSyKDUKbcBoy">原因很简单：那是在<strong data-page-node-id="YJWVTNWdpPw3VdnhfJ9Gne">明确违反平台服务协议</strong>的情况下操作。平台的条款里写得很清楚，不允许用自动化程序操作账号。账号是我的命根子，里面是攒下来的同行读者。为了省 90 秒去赌一个封号风险，这不叫提高效率，这叫没数。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="k1eAD4HmCFHZ3VnYxILjgR">而且换个角度想：如果我把这套方法写成教程发出去，有人照着做被封号了，那算谁的？</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="vOTpEYlioA9NE7UbgK2Yoz"><strong style="color:#0891b2;" data-page-node-id="66bP6o3FvpENLVuPAWclTS">有些事不是"能不能做"，是"做完了你还是不是你"。</strong></p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="JZs6Vd4YYxMKCUXvnchtXE">七、这趟我又学到一条</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="VEu1SLJcDdhCGOG0ZubmcW">上一篇文章我写过一句话：判断一件事该不该自动化，别问"能不能"，问"断了谁修"。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="rCcfiwJTFDmiLu9Y38XKXN">这趟补了第二条：</p>
+
+  <section style="border-left:3px solid #06b6d4;background:#f7f9fa;padding:16px 16px;margin:0 0 20px 0;" data-page-node-id="64YZ6TLhitFEi2dFDrwxhD">
+    <p style="font-size:15px;line-height:1.8;color:#1a1a1a;margin:0;" data-page-node-id="p80LSch0yiTQ76VGmxFisW"><strong data-page-node-id="zUCljSA7U9rTm1oGCJBQ3w">先看规则，再看技术。顺序反了，白折腾。</strong></p>
+  </section>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="kZYHzLcE7JSRg48bBeS4WP">我们太容易一头扎进技术细节里：参数对不对、代码哪里写错了、是不是我操作有问题。但真正卡住你的，往往是一个写在文档角落里的、去年改过的规则。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="ccIKi1IcDvYAVr0Hufgjgh">现在我养成一个习惯：动手之前，先去翻官方的"适用范围"和"最近更新"，看看这条路对<strong style="color:#0891b2;" data-page-node-id="uysErK1EUPdyZ2gfDJqz45">我这类账号</strong>到底开不开放。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="eB2XTuBZS3XaBrxLyLmgI7">这五分钟，能省下半天。</p>
+
+  <p style="font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;margin:32px 0 20px 0;" data-page-node-id="sbQBQnWreVA3Xlaeve4bY4">八、我最后怎么做的</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="w7w93ZoVZrlsITHZ5xRBFB">很简单：<strong style="color:#0891b2;" data-page-node-id="LyHCrQL7Gv2lDTFsNhrlqE">我把文章排好版，复制，粘贴，点发表。</strong></p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="R878UlvaJR34Zyfrjqmmy6">全部耗时：大概 90 秒。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="MyDZDilC3DS2QHm7kwB7pV">排版是程序帮我做的——标题、字号、引用框、配图位，一次生成好，我复制粘贴就行，格式一点不乱。真正需要我动手的，就是把内容挪过去，然后点那一下。</p>
+
+  <p style="font-size:15px;line-height:1.75;color:#3f3f3f;margin:0 0 20px 0;" data-page-node-id="nKyuF9a3CH9VUDgHkGKAHC">跟全自动比，我多花了 90 秒。但我没花 300 块，没换主体，没碰平台规则，也没给自己添一个需要伺候的系统。</p>
+
+  <section style="border-left:3px solid #06b6d4;background:#f7f9fa;padding:18px 16px;margin:0 0 24px 0;" data-page-node-id="kz1DD8x5iLyEbYqiFCKwE4">
+    <p style="font-size:15px;line-height:1.9;color:#1a1a1a;margin:0 0 10px 0;" data-page-node-id="HGaGUFAAoE4Zjc1zyGKpNr"><strong data-page-node-id="sWn8clJlkIHEvOXxlK6dTe">教程不会告诉你规则变了，它只会安静地失效。</strong></p>
+    <p style="font-size:15px;line-height:1.9;color:#1a1a1a;margin:0 0 10px 0;" data-page-node-id="WvhD7xcdqrhvoDFjxrGvF0"><strong data-page-node-id="6CsQbK7spmQAed7vwmNX2B">判断一个自动化能不能做，先看规则，再看技术。</strong></p>
+    <p style="font-size:15px;line-height:1.9;color:#1a1a1a;margin:0;" data-page-node-id="cDY8E40fBuA3TBdZs5C7i4"><strong data-page-node-id="kXpj3nV1BwBadiR3MEy8f4">一个需要人伺候的自动化，还叫自动化吗？</strong></p>
+  </section>
+
+  <p style="font-size:14px;color:#8c8c8c;line-height:1.8;margin:0 0 8px 0;" data-page-node-id="QsIH8APlTCjVeypdefLecc">我是老张，蒙牛低温奶经销商，不会写代码，但一直在用 AI 给自己造工具。</p>
+  <p style="font-size:14px;color:#8c8c8c;line-height:1.8;margin:0;" data-page-node-id="7wB6rFbmTJL7qy6P5izf5D">如果你也是快消/经销商同行，欢迎聊聊你踩过的坑。</p>
+
+</div>
+</div>
+
+<div id="toast" data-page-node-id="9ZcuZDggj0ArHxxI4uFWV4">已复制</div>
+
+<script>
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.style.opacity='1';
+  setTimeout(function(){t.style.opacity='0';},1600);
+}
+function selectNode(el){
+  var range=document.createRange();
+  range.selectNodeContents(el);
+  var sel=window.getSelection();
+  sel.removeAllRanges(); sel.addRange(range);
+  try{document.execCommand('copy');}catch(e){}
+  sel.removeAllRanges();
+}
+function copyTitle(){
+  var i=document.getElementById('titleInput');
+  i.select(); i.setSelectionRange(0,99999);
+  try{document.execCommand('copy');}catch(e){}
+  toast('标题已复制');
+}
+function copyBody(){
+  selectNode(document.getElementById('content'));
+  toast('正文已复制，去公众号后台粘贴');
+}
+</script>
+
+</body>
+</html>
