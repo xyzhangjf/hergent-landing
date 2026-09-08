@@ -1,11 +1,11 @@
 <template>
   <div class="page">
-    <!-- 主 Tab：仪表盘 / 目标规则 / 达成填报 -->
+    <!-- 主 Tab：仪表盘 / 目标与返利 / 达成填报 / 返利结算 -->
     <div class="main-tabs">
       <button class="main-tab" :class="{ on: mainTab === 'dashboard' }" @click="switchTab('dashboard')">仪表盘</button>
-      <button class="main-tab" :class="{ on: mainTab === 'rules' }" @click="mainTab = 'rules'">目标规则</button>
+      <button class="main-tab" :class="{ on: mainTab === 'rules' }" @click="mainTab = 'rules'">目标与返利</button>
       <button class="main-tab" :class="{ on: mainTab === 'achv' }" @click="switchTab('achv')">达成填报</button>
-      <button class="main-tab" :class="{ on: mainTab === 'contracts' }" @click="switchTab('contracts')">年度合同</button>
+      <button class="main-tab" :class="{ on: mainTab === 'contracts' }" @click="switchTab('contracts')">返利结算</button>
     </div>
 
     <!-- ===== 仪表盘 Tab（A：返利达成全景 / 档位进度 / 预警，默认落地） ===== -->
@@ -23,9 +23,9 @@
         <div v-if="achvLoading" class="state-empty">加载中…</div>
         <div v-else-if="!dashboardModel || !dashboardModel.items.length" class="state-empty">
           <div class="se-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
-          <p v-if="!rules.length">暂无返利规则，请先在「目标规则」创建品牌 / 商品目标。
+          <p v-if="!rules.length">暂无返利规则，请先在「目标与返利」创建品牌 / 商品目标。
             <!-- v112 R19：空态快捷操作 -->
-            <button class="btn btn-primary btn-sm" style="display:block;margin:10px auto 0" @click="mainTab='rules'">去创建目标规则</button>
+            <button class="btn btn-primary btn-sm" style="display:block;margin:10px auto 0" @click="mainTab='rules'">去创建目标</button>
           </p>
           <p v-else>所选月份（{{ dashMonth }}）没有处于生效期的返利目标。</p>
         </div>
@@ -135,9 +135,6 @@
           <option value="">全部维度</option>
           <option value="brand">品牌维度</option>
           <option value="product">单品维度</option>
-          <option value="category">品类维度</option>
-          <option value="customer">客户维度</option>
-          <option value="channel">渠道维度</option>
         </select>
         <select v-model="filterActive" class="input sel-filter">
           <option value="">全部状态</option>
@@ -206,7 +203,7 @@
             <tr v-for="r in filteredRules" :key="r.id">
               <td>{{ r.rule_name }}</td>
               <td><span class="tag info">{{ dimText(r.dimension) }}</span></td>
-              <td>{{ periodText(r.period_type) }}</td>
+              <td>{{ periodText(r.period_type) }}<span v-if="r.is_monthly" class="tag ok" style="margin-left:6px" title="按 12 个月分解目标与返利">月分解</span></td>
               <td>{{ r.scope_name || '全部' }}</td>
               <td class="num">{{ fmtTarget(r) }}</td>
               <td><span class="tag" :class="r.trigger_mode === 'tiered' ? 'info' : 'ok'">{{ triggerText(r.trigger_mode) }}</span></td>
@@ -270,7 +267,7 @@
 
         <div v-if="achvLoading" class="state-empty">加载中…</div>
         <div v-else-if="!achvRows.length" class="state-empty">
-          <p>本期还没有可填报的行。请先在「目标规则」创建品牌 / 商品目标，或直接「Excel 导入」达成数据。</p>
+          <p>本期还没有可填报的行。请先在「目标与返利」创建品牌 / 商品目标，或直接「Excel 导入」达成数据。</p>
         </div>
         <div v-else class="table-wrap">
           <table class="tbl">
@@ -362,12 +359,12 @@
       </Teleport>
     </template>
 
-    <!-- ===== 年度合同返利 Tab（并入目标与返利：展示 rebate_contracts，含原无入口的年度合同数据） ===== -->
+    <!-- ===== 返利结算 Tab（原年度合同：展示 rebate_contracts，含计提/结算/申领/余额） ===== -->
     <template v-if="mainTab === 'contracts'">
       <div class="card list-card">
         <div class="dash-hd">
-          <b>厂家年度合同返利</b>
-          <span class="page-sub">厂家 / 平台给你的年度合同返利（采购或销售合同），与目标规则的月度品牌返利并列管理 · 数据来自「年度合同（rebate_contracts）」</span>
+          <b>返利结算</b>
+          <span class="page-sub">厂家 / 平台给你的年度返利合同，在此做计提 / 结算 / 申领与余额管理 · 数据来自年度合同（rebate_contracts）</span>
           <!-- v112 R12：合同搜索（名称 / 年度） -->
           <input v-model="contractSearch" class="input" style="width:180px" placeholder="搜索合同名称 / 年度" />
           <button class="btn btn-ghost btn-sm" :disabled="batchAccruing" @click="batchAccrue">{{ batchAccruing ? '计提中…' : '批量计提(本月)' }}</button>
@@ -377,7 +374,7 @@
         <div v-if="contractLoading" class="state-empty">加载中…</div>
         <div v-else-if="!contracts.length" class="state-empty">
           <div class="se-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
-          <p>暂无年度合同返利。点击「录入年度合同」新增（如「蒙牛 2026 年度返利合同」）。</p>
+          <p>暂无返利结算。点击「录入年度合同」新增（如「蒙牛 2026 年度返利合同」）。</p>
         </div>
         <div v-else class="contract-list">
           <div v-for="c in filteredContracts" :key="c.id" class="contract-card">
@@ -549,20 +546,12 @@
             </div>
             <div class="form-grid2">
               <div class="form-row"><label>作用对象</label>
-                <!-- v113 §1.3：作用对象候选按维度切换；渠道用 select，其余用 datalist 候选 -->
-                <select v-if="form.dimension==='channel'" v-model="form.scope_name" class="input">
-                  <option value="">— 选择渠道 —</option>
-                  <option v-for="c in channelOptions" :key="c.value" :value="c.value">{{ c.label }}</option>
-                </select>
-                <template v-else>
-                  <input v-model="form.scope_name" class="input" :list="scopeListId" :placeholder="scopePlaceholder">
-                  <datalist :id="scopeListId">
-                    <option v-for="o in scopeDatalist" :key="o" :value="o"></option>
-                  </datalist>
-                </template>
+                <!-- 作用对象候选（品牌 / 单品） -->
+                <input v-model="form.scope_name" class="input" :list="scopeListId" :placeholder="scopePlaceholder">
+                <datalist :id="scopeListId">
+                  <option v-for="o in scopeDatalist" :key="o" :value="o"></option>
+                </datalist>
                 <span v-if="form.dimension==='brand' && form.scope_name && !brandOptions.includes(form.scope_name)" style="color:var(--dan);font-size:12px;margin-top:4px">该品牌不在档案中，请先在「档案管理 → 品牌档案」创建</span>
-                <span v-else-if="form.dimension==='category' && form.scope_name && !categoryOptions.includes(form.scope_name)" style="color:var(--dan);font-size:12px;margin-top:4px">该品类不在商品档案中</span>
-                <span v-else-if="form.dimension==='customer' && form.scope_name && !customerOptions.includes(form.scope_name)" style="color:var(--dan);font-size:12px;margin-top:4px">该客户不在客户档案中</span>
               </div>
               <div class="form-row"><label>周期口径</label>
                 <select v-model="form.period_type" class="input">
@@ -581,7 +570,7 @@
               <div class="form-row"><label>触发方式</label>
                 <select v-model="form.trigger_mode" class="input">
                   <option value="on_target">达成即返</option>
-                  <option value="tiered">阶梯返利</option>
+                  <option value="tiered" :disabled="monthlyOn">阶梯返利</option>
                 </select>
               </div>
               <!-- v113 §1.3：阶梯「计法」开关（累进 / 全量按档），返利争议最常见的技术根因 -->
@@ -592,7 +581,37 @@
                 </select>
               </div>
             </div>
-            <div class="form-grid2">
+            <!-- 阶段2: 品牌目标两层结构 —— 品牌+金额+年周期时，可展开按月分解「金额层 + 返利层」 -->
+            <div v-if="form.dimension==='brand' && form.target_type==='amount'" class="monthly-block" style="margin:8px 0 4px;border:1px solid var(--bd);border-radius:10px;padding:10px 12px;background:rgba(var(--p-rgb),.04)">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <label class="ck" style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input type="checkbox" v-model="monthlyOn" @change="onMonthlyToggle">
+                  <b>按 12 个月分解（金额层 + 月度返利）</b>
+                </label>
+                <span class="page-sub" style="flex:1;min-width:200px">品牌年度目标：金额按年框基本不变、每月返利率可单独浮动（本月 10%、下月 8%）</span>
+              </div>
+              <div v-if="monthlyOn" class="monthly-grid" style="margin-top:8px">
+                <div class="monthly-grid-hd" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+                  <span class="page-sub">金额单位：<b>万元</b>（与年度总额同口径）；返利率：<b>%</b>（如 10 = 10%）</span>
+                  <span style="flex:1"></span>
+                  <button type="button" class="btn btn-ghost btn-xs" @click="splitAnnualToMonths" title="把年度总额按 12 月均分（余数补 12 月）">金额全年均分</button>
+                  <button type="button" class="btn btn-ghost btn-xs" @click="setAllMonthlyRate" title="把第一个已填月返利复制到全部月份">返利全月相同</button>
+                  <button type="button" class="btn btn-ghost btn-xs" @click="clearMonthly">清空</button>
+                </div>
+                <table class="dt-tier">
+                  <thead><tr><th>月份</th><th>目标金额（万元）</th><th>返利率（%）</th></tr></thead>
+                  <tbody>
+                    <tr v-for="m in monthlyRows" :key="m.mm">
+                      <td style="white-space:nowrap">{{ m.mm }} 月</td>
+                      <td><input v-model.number="m.amtWan" class="input cc-ti" type="number" min="0" step="0.1" placeholder="0"></td>
+                      <td><input v-model.number="m.ratePct" class="input cc-ti" type="number" min="0" max="100" step="0.1" placeholder="如 10"></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p class="cf-tip" style="margin-top:6px">目标金额留空 = 该月无目标（冲刺看板不显示）；返利率留空 = 继承上月 / 顶层返利值。保存时「目标金额」列若留空则以各月金额之和回写年度总额。</p>
+              </div>
+            </div>
+            <div class="form-grid2" v-if="!monthlyOn">
               <div class="form-row"><label>返利形式</label>
                 <select v-model="form.rebate_basis" class="input">
                   <option value="rate">比例</option>
@@ -604,8 +623,8 @@
                   <input v-else v-model.number="form.rebate_amount" class="input" type="number" min="0" placeholder="固定金额">
                 </div>
               </div>
-              <!-- 规则阶梯档位编辑器（达成率分档） -->
-              <div v-if="form.trigger_mode === 'tiered'" class="tier-editor">
+              <!-- 规则阶梯档位编辑器（达成率分档；月度分解=按月比例，与阶梯互斥隐藏） -->
+              <div v-if="form.trigger_mode === 'tiered' && !monthlyOn" class="tier-editor">
                 <div class="te-hd" style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 6px">
                   <b>阶梯档位（按达成率）</b>
                   <button class="btn btn-ghost btn-sm" type="button" @click="ruleTiers.push({from_pct:0,to_pct:0,rebate_rate:0,rebate_amount:0})">+ 加一档</button>
@@ -658,6 +677,78 @@
                 </div>
               </div>
               <p class="cf-tip">到货模式：间隔天数（首单日 + 每 N 天）或固定星期（如简爱每周二、六）。本月到货次数按排程自动算，<b>节假日停单可在「本月到货次数」手动覆盖</b>（留空=自动）。均单 = 目标 ÷ 到货次数，目标以万元录入。二次配置会沿用上次设置并据当前月历重算。</p>
+            </div>
+            <!-- v121 (L2细化)：智能报单表 —— 报单节奏(可配) + 三个时点 + 未来 6 期预览 -->
+            <div class="arrival-block">
+              <div class="form-row"><label>智能创建/关闭报单表</label>
+                <div class="seg">
+                  <button type="button" :class="['seg-btn', !form.auto_period_enabled?'on':'']" @click="form.auto_period_enabled=0">手动建表</button>
+                  <button type="button" :class="['seg-btn', form.auto_period_enabled?'on':'']" @click="form.auto_period_enabled=1">自动建表</button>
+                </div>
+              </div>
+              <div class="form-row"><label>报单模式</label>
+                <div class="seg">
+                  <button type="button" :class="['seg-btn', form.order_mode==='interval'?'on':'']" @click="form.order_mode='interval'">按间隔天数</button>
+                  <button type="button" :class="['seg-btn', form.order_mode==='weekday'?'on':'']" @click="form.order_mode='weekday'">按固定星期</button>
+                </div>
+              </div>
+              <div class="form-grid2" v-if="form.order_mode==='interval'">
+                <div class="form-row"><label>首次报单日</label><input v-model="form.order_first_date" class="input" type="date"></div>
+                <div class="form-row"><label>报单周期(天)</label><input v-model.number="form.order_cadence_days" class="input" type="number" min="1" max="31" placeholder="如 2 = 每2天报单"></div>
+              </div>
+              <div class="form-grid2" v-else>
+                <div class="form-row"><label>首次报单日</label><input v-model="form.order_first_date" class="input" type="date"></div>
+                <div class="form-row"><label>报单星期</label>
+                  <div class="wk-chips">
+                    <button v-for="w in weekdayOptions" :key="w.value" type="button" :class="['wk-chip', isOrderWk(w.value)?'on':'']" @click="toggleOrderWk(w.value)">{{ w.label }}</button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-grid2">
+                <div class="form-row"><label>报单提前天数</label>
+                  <div class="input-affix"><input v-model.number="form.order_lead_days" class="input" type="number" min="0" max="30"><span class="affix">天到货</span></div>
+                </div>
+                <div class="form-row"><label>最多可提前</label>
+                  <div class="input-affix"><input v-model.number="form.order_max_early_days" class="input" type="number" min="0" max="2"><span class="affix">天报单</span></div>
+                </div>
+              </div>
+              <div class="form-grid3">
+                <div class="form-row"><label>开放填报</label><input v-model="form.auto_open_time" class="input" type="time"></div>
+                <div class="form-row"><label>自动关单</label><input v-model="form.auto_close_time" class="input" type="time"></div>
+                <div class="form-row"><label>厂家下单截止</label><input v-model="form.supplier_deadline_time" class="input" type="time"></div>
+              </div>
+              <p class="cf-tip">报单是<b>按品牌方排产节点</b>走的：<b>只能提前、不能延后</b> —— 过了品牌方的报单日就只能下期再报；提前太久报单又不准，所以最多提前 1~2 天。<br>
+                <b>开放填报</b>在报单日<b>前一日</b>这个时刻自动建表，<b>自动关单</b>在报单日当天这个时刻截止；中间到<b>厂家下单截止</b>的这段，是留给经理改单、你付款、款到厂家账上的时间 —— 系统只在该时点提醒，<b>不会替你去厂家系统下单</b>。</p>
+              <div v-if="autoPeriodPreview" class="ap-preview">
+                <div class="ap-head">
+                  <span>未来 {{ autoPeriodPreview.preview.length }} 期</span>
+                  <span v-if="autoPeriodPreview.main_brand">主节奏：{{ autoPeriodPreview.main_brand }} · 每 {{ autoPeriodPreview.main_interval }} 天</span>
+                  <span v-if="autoPeriodPreview.window_hours">填报窗口 {{ autoPeriodPreview.window_hours }} 小时</span>
+                </div>
+                <div v-for="w in (autoPeriodPreview.warnings||[])" :key="w" class="ap-warn">⚠ {{ w }}</div>
+                <div v-if="autoPeriodPreview.suggestion && autoPeriodPreview.suggestion.better" class="ap-warn ap-warn-tip">
+                  首次报单日建议改为 <b>{{ autoPeriodPreview.suggestion.suggested }}</b>
+                  （可避免 {{ autoPeriodPreview.suggestion.current_missed }} 次漏报）
+                  <button type="button" class="ap-adopt" @click="adoptSuggestion">采纳</button>
+                </div>
+                <table class="ap-tbl">
+                  <thead><tr><th>报单日</th><th>开放→关单</th><th>到货</th><th>本期应报</th></tr></thead>
+                  <tbody>
+                    <tr v-for="p in autoPeriodPreview.preview" :key="p.order_date">
+                      <td>{{ p.order_date }}</td>
+                      <td class="ap-dim">{{ p.open_date }} {{ (autoPeriodPreview.times&&autoPeriodPreview.times.open)||'' }} → {{ (autoPeriodPreview.times&&autoPeriodPreview.times.close)||'' }}</td>
+                      <td>{{ p.arrival_date }}</td>
+                      <td>
+                        <span v-for="b in p.brand_detail" :key="b.name" class="ap-brand">{{ b.name }}<i v-if="b.early_days"> 提前{{ b.early_days }}天</i></span>
+                        <span v-if="!p.brand_detail.length" class="ap-dim">—</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-if="(autoPeriodPreview.missed||[]).length" class="ap-warn">
+                  会漏报 {{ autoPeriodPreview.missed.length }} 次：{{ apMissedSummary }}
+                </div>
+              </div>
             </div>
             <div class="form-grid2">
               <div class="form-row"><label>优先级</label><input v-model.number="form.priority" class="input" type="number" placeholder="数值越大越优先"></div>
@@ -831,6 +922,17 @@
                   </tr>
                 </tbody>
               </table>
+              <!-- 阶段2: 月度分解（金额层 + 返利层）明细 -->
+              <table v-if="detailRule.is_monthly" class="dt-tier">
+                <thead><tr><th>月份</th><th>目标金额</th><th>返利率</th></tr></thead>
+                <tbody>
+                  <tr v-for="mm in MONTHS_12" :key="mm">
+                    <td>{{ mm }} 月</td>
+                    <td>{{ detailRule.monthly_amounts && detailRule.monthly_amounts[mm] ? '¥' + fmt(detailRule.monthly_amounts[mm]) : '—' }}</td>
+                    <td class="dt-ok">{{ detailRule.monthly_rates && detailRule.monthly_rates[mm] ? (detailRule.monthly_rates[mm] * 100).toFixed(1) + '%' : '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
             <div class="dt-sec">
               <h4>生效区间</h4>
@@ -893,7 +995,7 @@
             </table>
             <p class="cf-sol">解决方式（任选其一）：<br>
               ① 调整本规则的 <b>生效起止日期</b>，避开与上方规则的重叠区间；<br>
-              ② 或先到「目标规则」<b>停用</b>冲突规则，再创建本规则；<br>
+              ② 或先到「目标与返利」<b>停用</b>冲突规则，再创建本规则；<br>
               ③ 若本规则本就是想替换旧规则，请直接 <b>编辑旧规则</b> 而非新建。</p>
           </div>
           <div class="modal-ft">
@@ -961,7 +1063,7 @@
                 <div class="form-row"><label>年度</label><input v-model="contractForm.year" class="input" placeholder="如 2026"></div>
                 <div class="form-row"><label>返利比例</label><input v-model.number="contractForm.rebate_pct" class="input" type="number" min="0" step="0.1" placeholder="百分点，如 3 = 3%"></div>
               </div>
-              <p class="cf-tip">阶梯 / 档位返利在「目标规则」中按品牌、单品、品类、客户、渠道单独配置；此处填年度整体返利比例基准。</p>
+              <p class="cf-tip">阶梯 / 档位返利在「目标与返利」中按品牌、单品单独配置；此处填年度整体返利比例基准。</p>
             </div>
             <!-- Step 3 月度分解 -->
             <div v-if="contractStep===3">
@@ -1109,6 +1211,63 @@ const editing = ref(false)
 const form = ref({})
 // 规则阶梯档位编辑器（达成率分档，UI 用百分比，落库转小数；to_pct=0 表示无上限→哨兵 999）
 const ruleTiers = ref([])
+// 阶段2: 品牌目标两层结构 —— monthlyOn=开启 12 月分解；monthlyRows 每行 {mm:'01'..'12', amtWan, ratePct}
+const monthlyOn = ref(false)
+const MONTHS_12 = ['01','02','03','04','05','06','07','08','09','10','11','12']
+const monthlyRows = ref([])
+function resetMonthlyRows() {
+  monthlyRows.value = MONTHS_12.map(mm => ({ mm, amtWan: null, ratePct: null }))
+}
+function onMonthlyToggle() {
+  if (!monthlyOn.value) { resetMonthlyRows(); return }
+  // 打开时按当前年度总额均分预填（若已填目标金额）
+  splitAnnualToMonths()
+}
+function splitAnnualToMonths() {
+  const totalWan = Number(targetWan.value) || 0
+  resetMonthlyRows()
+  if (totalWan <= 0) return
+  const base = Math.floor(totalWan * 100 / 12) / 100
+  let used = 0
+  for (let i = 0; i < 12; i++) {
+    const isLast = i === 11
+    const v = isLast ? Math.round((totalWan - used) * 100) / 100 : base
+    monthlyRows.value[i].amtWan = v
+    used = Math.round((used + v) * 100) / 100
+  }
+}
+function setAllMonthlyRate() {
+  const first = monthlyRows.value.find(r => r.ratePct != null && Number(r.ratePct) > 0)
+  const val = first ? first.ratePct : (Number(form.value.rebate_rate) || 0) * 100
+  if (!val) { toast('请先填任意一个月的返利率或顶层返利值', 'warn'); return }
+  monthlyRows.value.forEach(r => { r.ratePct = val })
+}
+function clearMonthly() {
+  resetMonthlyRows()
+}
+// 组装落库 JSON：{ "01": 金额(元), ... } / { "01": 返利小数, ... }（仅填了值的月份）
+function buildMonthlyPayloads() {
+  const amounts = {}
+  const rates = {}
+  for (const r of monthlyRows.value) {
+    if (r.amtWan != null && Number(r.amtWan) > 0) amounts[r.mm] = Math.round(Number(r.amtWan) * 10000)
+    if (r.ratePct != null && Number(r.ratePct) > 0) rates[r.mm] = Math.round(Number(r.ratePct) * 1000) / 100000
+  }
+  return { monthlyAmounts: amounts, monthlyRates: rates }
+}
+// 编辑回填：服务端 monthly_amounts/monthly_rates(对象, 金额元/返利小数) → 万元/%
+function fillMonthlyFromRule(r) {
+  monthlyOn.value = !!(r && r.is_monthly)
+  resetMonthlyRows()
+  if (!monthlyOn.value) return
+  const amts = (r && r.monthly_amounts) || {}
+  const rates = (r && r.monthly_rates) || {}
+  for (const row of monthlyRows.value) {
+    if (amts[row.mm] != null) row.amtWan = Math.round(Number(amts[row.mm]) / 100) / 100
+    if (rates[row.mm] != null) row.ratePct = Math.round(Number(rates[row.mm]) * 100000) / 1000
+  }
+}
+
 function parseRuleTiers(raw) {
   try {
     const a = typeof raw === 'string' ? JSON.parse(raw) : (raw || [])
@@ -1270,6 +1429,62 @@ async function loadArrivalPreview() {
     if (r) arrivalPreview.value = r
   } catch (e) { /* 预览失败不阻断编辑 */ }
 }
+// ---------- v121 智能报单表：未来期次预览（报单语义，跨品牌一起算） ----------
+const autoPeriodPreview = ref(null)
+let _opTimer = null
+async function loadAutoPeriodPreview() {
+  const f = form.value
+  // 未开启开关且未填首次报单日 -> 不打扰用户，不请求
+  if (!f.auto_period_enabled && !f.order_first_date) { autoPeriodPreview.value = null; return }
+  const params = new URLSearchParams()
+  if (editing.value && f.id) params.set('rule_id', f.id)
+  if (f.scope_name) params.set('scope_name', f.scope_name)
+  params.set('order_mode', f.order_mode || 'interval')
+  if (f.order_first_date) params.set('order_first_date', f.order_first_date)
+  params.set('order_cadence_days', f.order_cadence_days ?? 2)
+  if (f.order_weekdays != null) params.set('order_weekdays', f.order_weekdays)
+  params.set('order_lead_days', f.order_lead_days ?? 4)
+  params.set('order_max_early_days', f.order_max_early_days ?? 1)
+  params.set('auto_open_time', f.auto_open_time || '20:00')
+  params.set('auto_close_time', f.auto_close_time || '10:00')
+  params.set('supplier_deadline_time', f.supplier_deadline_time || '12:00')
+  try {
+    const r = await api('/api/rebate-rules/auto-period-preview?' + params.toString())
+    if (r) autoPeriodPreview.value = r   // api() 已解包，r 即 data（含 preview/suggestion/missed）
+  } catch (e) { /* 预览失败不阻断编辑 */ }
+}
+watch(
+  () => [form.value.auto_period_enabled, form.value.order_mode, form.value.order_first_date,
+         form.value.order_cadence_days, form.value.order_weekdays, form.value.order_lead_days,
+         form.value.order_max_early_days, form.value.auto_open_time, form.value.auto_close_time,
+         form.value.supplier_deadline_time, form.value.scope_name],
+  () => {
+    if (_opTimer) clearTimeout(_opTimer)
+    _opTimer = setTimeout(loadAutoPeriodPreview, 300)
+  }
+)
+// 报单星期多选（与「到货星期」同一套 chips 交互，状态独立）
+function isOrderWk(v) {
+  return String(form.value.order_weekdays || '').split(',').map(s => s.trim()).filter(Boolean).includes(String(v))
+}
+function toggleOrderWk(v) {
+  const cur = String(form.value.order_weekdays || '').split(',').map(s => s.trim()).filter(Boolean)
+  const i = cur.indexOf(String(v))
+  if (i >= 0) cur.splice(i, 1); else cur.push(String(v))
+  form.value.order_weekdays = cur.sort((a, b) => Number(a) - Number(b)).join(',')
+}
+// 漏报摘要（预览底部提示，最多列 4 条，避免刷屏）
+const apMissedSummary = computed(() => {
+  const m = (autoPeriodPreview.value && autoPeriodPreview.value.missed) || []
+  if (!m.length) return ''
+  const head = m.slice(0, 4).map(x => `${x.name} ${x.cutoff}`).join('、')
+  return head + (m.length > 4 ? ` 等 ${m.length} 次` : '')
+})
+// 采纳系统推荐的「首次报单日」相位（漏报最少）
+function adoptSuggestion() {
+  const s = autoPeriodPreview.value && autoPeriodPreview.value.suggestion
+  if (s && s.suggested) form.value.order_first_date = s.suggested
+}
 // 表单相关字段变化时实时重算均单（防抖）
 watch(
   () => [form.value.arrival_mode, form.value.arrival_first_dom, form.value.arrival_cadence_days,
@@ -1279,36 +1494,13 @@ watch(
     _apTimer = setTimeout(loadArrivalPreview, 300)
   }
 )
-// 品类候选（来自商品档案 category 去重）
-const categoryOptions = ref([])
-async function loadCategoryOptions() {
-  try {
-    const list = await api('/api/products?include_inactive=1')
-    const arr = Array.isArray(list) ? list : (list.items || list.data || [])
-    const set = new Set()
-    for (const p of arr) if (p && p.category) set.add(String(p.category).trim())
-    categoryOptions.value = [...set].filter(Boolean).sort()
-  } catch (e) {}
-}
-// 客户候选（来自客户档案 contacts type=customer）
-const customerOptions = ref([])
-async function loadCustomerOptions() {
-  try {
-    const list = await api('/api/contacts?limit=300&type=customer')
-    const arr = Array.isArray(list) ? list : (list.items || list.data || [])
-    customerOptions.value = arr.filter(o => o && o.is_active !== 0).map(o => String(o.name || '')).filter(Boolean)
-  } catch (e) {}
-}
-// 渠道候选（来自 meta.channel_options）
-const channelOptions = computed(() => (rebateMeta.value.data && rebateMeta.value.data.channel_options) || [])
 // 维度下拉候选（来自 meta.dimensions；meta 未就绪时给兜底静态列表，避免空下拉）
 const dimensionOptions = computed(() => {
   const ds = rebateMeta.value.data && rebateMeta.value.data.dimensions
-  if (ds && ds.length) return ds
-  return [
+  const src = (ds && ds.length) ? ds : [
     { value: 'brand', label: '品牌' }, { value: 'product', label: '单品' },
-    { value: 'category', label: '品类' }, { value: 'customer', label: '客户' }, { value: 'channel', label: '渠道' },
   ]
+  return src.filter(d => d.value === 'brand' || d.value === 'product')
 })
 // 计法候选（来自 meta.scale_options）
 const scaleOptions = computed(() => (rebateMeta.value.data && rebateMeta.value.data.scale_options) || [
@@ -1322,8 +1514,6 @@ const roundingOptions = computed(() => (rebateMeta.value.data && rebateMeta.valu
 const scopeDatalist = computed(() => {
   const d = form.value.dimension
   if (d === 'brand') return brandOptions.value
-  if (d === 'category') return categoryOptions.value
-  if (d === 'customer') return customerOptions.value
   return []
 })
 const scopeListId = computed(() => 'rebate-scope-' + (form.value.dimension || 'brand'))
@@ -1331,9 +1521,6 @@ const scopePlaceholder = computed(() => {
   const d = form.value.dimension
   if (d === 'brand') return '品牌名（空=全部品牌）'
   if (d === 'product') return '商品 ID 或名称（空=全部单品）'
-  if (d === 'category') return '品类名（来自商品档案，空=全部品类）'
-  if (d === 'customer') return '客户名（来自客户档案，空=全部客户）'
-  if (d === 'channel') return '选择渠道'
   return '作用对象（空=全部）'
 })
 
@@ -1358,10 +1545,17 @@ function openCreate(presetDim) {
     scale_type: 'non_graduated', rounding_mode: 'half_up', rounding_digits: 2,
     arrival_cadence_days: defaultCadence.value || 2, arrival_base_dow: '',
     arrival_mode: 'interval', arrival_first_dom: 1, arrival_weekdays: '', arrival_count_override: null,
+    // v121 智能报单表（报单语义）：默认沿用你的真实节奏 —— 每 2 天报单、提前 4 天到货、
+    // 可提前 1 天；开放 20:00（报单日前一晚）-> 关单 10:00 -> 厂家下单截止 12:00
+    order_mode: 'interval', order_cadence_days: 2, order_weekdays: '', order_first_date: '',
+    order_lead_days: 4, order_max_early_days: 1, auto_period_enabled: 0,
+    auto_open_time: '20:00', auto_close_time: '10:00', supplier_deadline_time: '12:00',
   }
   targetWan.value = 0
   arrivalPreview.value = null
   ruleTiers.value = []
+  monthlyOn.value = false
+  resetMonthlyRows()
   showForm.value = true
   nextTick(() => formNameRef.value && formNameRef.value.focus())
 }
@@ -1372,6 +1566,7 @@ function openEdit(r) {
   ruleTiers.value = parseRuleTiers(r.tiers_json)
   targetWan.value = (Number(r.target_value) || 0) / 10000
   arrivalPreview.value = null
+  fillMonthlyFromRule(r)
   loadArrivalPreview()
   showForm.value = true
   nextTick(() => formNameRef.value && formNameRef.value.focus())
@@ -1394,10 +1589,18 @@ function dup(r) {
     arrival_cadence_days: r.arrival_cadence_days || 0, arrival_base_dow: r.arrival_base_dow || '',
     arrival_mode: r.arrival_mode || 'interval', arrival_first_dom: r.arrival_first_dom || 1,
     arrival_weekdays: r.arrival_weekdays || '', arrival_count_override: r.arrival_count_override ?? null,
+    // v121：读回已存的报单排程（首次打开的老规则为空 -> 走默认值，不静默改写 arrival_*）
+    order_mode: r.order_mode || 'interval', order_cadence_days: r.order_cadence_days || 2,
+    order_weekdays: r.order_weekdays || '', order_first_date: r.order_first_date || '',
+    order_lead_days: r.order_lead_days ?? 4, order_max_early_days: r.order_max_early_days ?? 1,
+    auto_period_enabled: r.auto_period_enabled || 0,
+    auto_open_time: r.auto_open_time || '20:00', auto_close_time: r.auto_close_time || '10:00',
+    supplier_deadline_time: r.supplier_deadline_time || '12:00',
   }
   targetWan.value = (Number(r.target_value) || 0) / 10000
   arrivalPreview.value = null
   ruleTiers.value = parseRuleTiers(r.tiers_json)
+  fillMonthlyFromRule(r)
   showForm.value = true
   nextTick(() => formNameRef.value && formNameRef.value.focus())
 }
@@ -1407,6 +1610,25 @@ async function save() {
   // v118：金额目标以「万元」录入，保存时转回「元」(target_value 单位不变，rebate_calc 口径不动)
   if (f.target_type === 'amount') {
     f.target_value = Math.round((Number(targetWan.value) || 0) * 10000)
+  }
+  // 阶段2: 品牌目标两层结构 —— 组装月度分解（金额元 + 返利小数）；月合计覆盖年框（金额层同源）
+  const monthly = buildMonthlyPayloads()
+  if (monthlyOn.value && Object.keys(monthly.monthlyAmounts).length) {
+    f.monthly_amounts = monthly.monthlyAmounts
+    f.monthly_rates = Object.keys(monthly.monthlyRates).length ? monthly.monthlyRates : {}
+    f.target_value = Object.values(monthly.monthlyAmounts).reduce((s, v) => s + (Number(v) || 0), 0)
+    targetWan.value = f.target_value / 10000
+    f.period_type = 'year'
+    // 月度返利=按月比例（口径：本月 10%、下月 8%），与阶梯/固定金额互斥 → 强制比例达成即返
+    f.trigger_mode = 'on_target'
+    f.rebate_basis = 'rate'
+    f.trigger_threshold = 1
+    f.tiers_json = ''
+    const _r1 = monthlyRows.value.find(r => r.ratePct != null && Number(r.ratePct) > 0)
+    f.rebate_rate = _r1 ? Math.round(Number(_r1.ratePct) * 1000) / 100000 : 0
+  } else {
+    f.monthly_amounts = {}
+    f.monthly_rates = {}
   }
   if (!f.rule_name) { toast('请填写规则名称', 'error'); return }
   if (!f.target_value || f.target_value <= 0) { toast('目标值必须 > 0', 'error'); return }
@@ -1598,7 +1820,7 @@ async function loadRules() {
   }
 }
 
-function dimText(d) { return d === 'brand' ? '品牌' : d === 'product' ? '单品' : d === 'category' ? '品类' : d === 'customer' ? '客户' : d === 'channel' ? '渠道' : d }
+function dimText(d) { return d === 'brand' ? '品牌' : d === 'product' ? '单品' : d }
 function periodText(p) { return { month: '月', quarter: '季', year: '年', custom: '自定义' }[p] || p }
 function triggerText(t) { return t === 'on_target' ? '达成即返' : t === 'tiered' ? '阶梯' : t }
 function rebateText(r) {
@@ -2890,7 +3112,7 @@ function tierPctText(t) {
   return '—'
 }
 
-onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchievements(dashMonth.value); loadContracts(); loadContactOptions(); loadRebateMeta(); loadCategoryOptions(); loadCustomerOptions(); loadConflicts(); loadDefaultCadence() })
+onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchievements(dashMonth.value); loadContracts(); loadContactOptions(); loadRebateMeta(); loadConflicts(); loadDefaultCadence() })
 </script>
 
 <style scoped>
@@ -2962,6 +3184,20 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .form-row{display:flex;flex-direction:column;gap:6px}
 .form-row label{font-size:12px;font-weight:500;color:var(--t2)}
 .form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* v121 智能报单表：三个时点并排 */
+.form-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.ap-preview{margin-top:10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px;background:var(--bg2)}
+.ap-head{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--t3);margin-bottom:8px}
+.ap-warn{font-size:12px;color:var(--danger,#c0392b);background:rgba(192,57,43,.08);border-radius:6px;padding:6px 8px;margin-bottom:6px;line-height:1.5}
+.ap-warn-tip{color:var(--p-dark)}
+.ap-adopt{margin-left:8px;border:1px solid var(--p);background:transparent;color:var(--p-dark);border-radius:6px;padding:1px 10px;font-size:12px;cursor:pointer}
+.ap-adopt:hover{background:var(--p);color:#fff}
+.ap-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.ap-tbl th{text-align:left;color:var(--t3);font-weight:500;padding:4px 6px;border-bottom:1px solid var(--border-subtle)}
+.ap-tbl td{padding:5px 6px;border-bottom:1px solid var(--border-subtle);vertical-align:middle}
+.ap-dim{color:var(--t3);font-size:11px}
+.ap-brand{display:inline-block;background:rgba(6,182,212,.12);color:var(--p-dark);border-radius:4px;padding:1px 6px;margin:1px 4px 1px 0;font-size:11px}
+.ap-brand i{font-style:normal;opacity:.7;margin-left:2px}
 .sim-result{background:var(--bg2);border-radius:var(--radius-md);padding:14px;margin-top:6px}
 .sr-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
 .sr-val{font-size:18px;color:var(--p-dark)}
@@ -3164,6 +3400,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
   .toolbar{flex-direction:column;align-items:stretch}
   .sel-filter{width:100%}
   .form-grid2{grid-template-columns:1fr}
+  .form-grid3{grid-template-columns:1fr}
   .modal-card{width:94vw}
   .entry-row{flex-direction:column}
   .dt-grid{grid-template-columns:1fr}
