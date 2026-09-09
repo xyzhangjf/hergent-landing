@@ -48,5 +48,14 @@
 ## 小程序「小赫 AI 报单助手」
 - AppID=`wxf8ce9b8e4b5693be`；类目「商业服务→企业管理」；提审账号 mptest/Mptest@1(sales)、mptestsp/Mpsup@1(supervisor)。**订单落库 order_date=期次 order_start**（非提交当天）→按期次窗口查。pending=已提交、approved=已定稿；「审批预报单」已下线。报单提交即计入汇总。
 
+## 返利目标判重（v125 铁律）
+- **判重维度 = 覆盖月份集合，不是 period_type**。单期(month)与年度(year) 口径不同但覆盖同月 = 重复目标（会导致目标/达成/返利三处翻倍）。
+- 实现：`server/domain/rebate_period.py::covered_months()`（只依赖标准库，**必须放 domain 层**，放路由模块会被 erp_db 迁移回填触发循环 import）；`detect_conflicts()` 按月份交集判重。
+- DB 兜底：`rebate_rule_month_lock` + `UNIQUE(dimension,target_type,scope_key,ym)`，停用/删除即释放；`IntegrityError → 409`。
+- `POST /api/rebate-rules/precheck` 供前端保存前提示（两入口共用）。
+- ⚠️ `rebate_achievements` **不绑 rule_id**（按 period_month+dimension+scope_key）→ 停用/删除返利规则不影响达成填报；`rebate_tier_versions/calculations` 需先查引用数。
+- ⚠️ 迁移代码里 `tdb` 无 row_factory → 禁止 `dict(row)`，按列下标取值。
+- ⚠️ 前端 `api()` 自带 `JSON.stringify`，body 必须传对象（传字符串＝二次序列化 → 后端「规则必须是对象」）。
+
 ## 事故与凭据
 - 2026-08-22 裸 rsync --delete 删 .env→服务挂；已重建（重生成 ERP_SECRET）并备份 `/root/.hergent-env/.env`。`/opt/hergent-erp/.env` 勿提交 git。
