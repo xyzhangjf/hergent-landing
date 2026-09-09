@@ -34,6 +34,20 @@
             <span v-if="isBrandForm && form.scope_name && !brandOptions.includes(form.scope_name)" style="color:var(--dan);font-size:12px;margin-top:4px">该品牌不在档案中，请先在「档案管理 → 品牌档案」创建</span>
           </div>
 
+          <!-- v125：保存前重复目标预检（年度 / 单期两个入口共用） -->
+          <div v-if="dupWarn.length" class="dup-warn">
+            <Icon name="alert-triangle" />
+            <div>
+              <b>这些月份已经有目标了</b>
+              <p v-for="(c, i) in dupWarn" :key="i">
+                「{{ c.rule_name || ('规则#' + c.id) }}」已占用
+                <b>{{ (c.months || []).join('、') || '相同生效期' }}</b>
+                <template v-if="c.months && c.months.length"> —— 同一品牌同一月份只能有一条目标，否则返利会被重复计算。</template>
+              </p>
+              <p class="dup-tip">请先停用或改期上面那条，再保存本条（停用后月份立即释放）。</p>
+            </div>
+          </div>
+
           <!-- 按维度分流：品牌页 / 商品页 -->
           <BrandTargetForm
             v-if="isBrandForm"
@@ -199,6 +213,67 @@ const annualRatePlaceholder = computed(() => {
 })
 function clearMonthly() { monthlyRows.value = emptyMonthlyRows() }
 function emptyTier() { return { from_pct: 0, to_pct: 0, rebate_rate: 0, rebate_amount: 0 } }
+
+/* ---------------- v125：重复目标预检（不落库） ----------------
+   后端判重口径 = 覆盖月份交集（跨「年度 / 单期」口径），前端只负责提示，不镜像算法。
+   编辑态带 id，后端会排除自身。 */
+const dupWarn = ref([])
+const _dupSeq = ref(0)
+async function runPrecheck() {
+  const f = form.value
+  if (!props.open) { dupWarn.value = []; return }
+  const seq = ++_dupSeq.value
+  const monthly = buildMonthlyPayloads(monthlyRows.value)
+  const payload = {
+    id: editing.value ? f.id : 0,
+    rule_name: f.rule_name || '预检',
+    dimension: f.dimension,
+    target_type: f.target_type,
+    scope_key: f.scope_key || f.scope_name || '',
+    scope_name: f.scope_name || '',
+    period_type: monthlyOn.value ? 'year' : (f.period_type || 'month'),
+    target_value: Number(f.target_value) || 1,
+    target_year: Number(f.target_year) || currentYear,
+    trigger_mode: monthlyOn.value ? 'on_target' : (f.trigger_mode || 'on_target'),
+    trigger_threshold: f.trigger_threshold || 1,
+    rebate_basis: monthlyOn.value ? 'rate' : (f.rebate_basis || 'rate'),
+    rebate_rate: Number(f.rebate_rate) || 0.01,
+    effective_start: f.effective_start || '',
+    effective_end: f.effective_end || '',
+    monthly_amounts: monthlyOn.value ? monthly.monthlyAmounts : {},
+    monthly_rates: monthlyOn.value ? monthly.monthlyRates : {},
+  }
+  // 年度模式未填月度金额时后端按「全年 12 个月」判定（与落库口径一致），故不跳过，
+  // 选完品牌即可提示"这个品牌今年已经有单期目标了"。
+  try {
+    // 注意：api() 会自己 JSON.stringify，这里必须传对象（传字符串会被二次序列化）
+    const d = await api('/api/rebate-rules/precheck', { method: 'POST', body: payload })
+    if (seq !== _dupSeq.value) return  // 丢弃过期响应
+    dupWarn.value = (d && d.success && Array.isArray(d.conflicts)) ? d.conflicts : []
+  } catch (e) {
+    if (seq === _dupSeq.value) dupWarn.value = []
+  }
+}
+let _dupTimer = null
+watch(
+  () => [
+    props.open,
+    form.value.dimension,
+    form.value.target_type,
+    form.value.scope_name,
+    form.value.target_year,
+    form.value.effective_start,
+    form.value.effective_end,
+    brandMode.value,
+    monthlyRows.value.map(r => `${r.amtWan || 0}`).join(','),
+  ],
+  () => {
+    if (!props.open) { dupWarn.value = []; return }
+    clearTimeout(_dupTimer)
+    _dupTimer = setTimeout(runPrecheck, 400)
+  },
+)
+onBeforeUnmount(() => clearTimeout(_dupTimer))
 
 /** 年度 ⇄ 单期切换：不清空月度行，切回来数据还在（保存时才决定写不写月度分解） */
 function switchBrandMode(m) {
@@ -545,6 +620,8 @@ async function save() {
       emit('conflict', {
         dimension: f.dimension,
         scopeName: f.scope_name || f.scope_key || '全部',
+        // v125：冲突月份（跨「年度/单期」口径）
+        monthsText: [...new Set(e.payload.conflicts.flatMap(c => c.months || []))].sort().join('、'),
         conflicts: e.payload.conflicts,
       })
     } else {
@@ -566,6 +643,13 @@ async function save() {
 .form-row label{font-size:12px;font-weight:500;color:var(--t2)}
 .form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .cf-tip{font-size:13px;color:var(--t2);line-height:1.6;margin:0 0 12px}
+/* v125：重复目标预检提示（黄底，与红色硬错误区分：只是提醒，保存仍由后端裁决） */
+.dup-warn{display:flex;gap:8px;align-items:flex-start;margin:2px 0 8px;padding:8px 10px;border-radius:8px;
+  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);font-size:12.5px;color:var(--t2);line-height:1.6}
+.dup-warn svg,.dup-warn .icon{width:15px;height:15px;flex:none;margin-top:2px;color:#b45309}
+.dup-warn b{color:var(--t1)}
+.dup-warn p{margin:2px 0}
+.dup-warn .dup-tip{color:var(--t3)}
 .cf-tbl{width:100%;margin-bottom:12px}
 .cf-sol{font-size:12.5px;color:var(--t3);line-height:1.7;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px;margin:0}
 .cf-sol b{color:var(--t1)}

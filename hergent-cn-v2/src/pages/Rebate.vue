@@ -762,22 +762,24 @@
           <div class="modal-body">
             <p class="cf-tip">
               你正在为「<b>{{ conflictInfo.scopeName }}</b>」（{{ conflictInfo.dimension==='brand'?'品牌':'单品' }}维度）创建规则，<br>
-              与以下 <b>已启用</b> 规则属于「同维度 / 同目标度量 / 同周期 / 同作用对象」且 <b>生效期重叠</b>，系统不允许重复计算，因此被拦截：
+              它在 <b>{{ conflictInfo.monthsText || '相同生效期' }}</b> 与下面这些 <b>已启用</b> 规则撞车了 ——
+              同一品牌同一月份只能有一条目标，否则返利会被<b>重复计算</b>，因此被拦截：
             </p>
             <table class="tbl cf-tbl">
-              <thead><tr><th>冲突规则</th><th>作用对象</th><th>生效期</th></tr></thead>
+              <thead><tr><th>冲突规则</th><th>口径</th><th>冲突月份</th><th>生效期</th></tr></thead>
               <tbody>
                 <tr v-for="c in conflictInfo.conflicts" :key="c.id">
                   <td>{{ c.rule_name }}</td>
-                  <td>{{ conflictInfo.scopeName }}</td>
-                  <td class="cf-period">{{ c.effective_start }} ~ {{ c.effective_end }}</td>
+                  <td>{{ c.period_type === 'year' ? '年度' : (c.period_type === 'month' ? '单期' : (c.period_type || '—')) }}</td>
+                  <td class="cf-period"><b>{{ (c.months || []).join('、') || '—' }}</b></td>
+                  <td class="cf-period">{{ c.effective_start || '不限' }} ~ {{ c.effective_end || '不限' }}</td>
                 </tr>
               </tbody>
             </table>
             <p class="cf-sol">解决方式（任选其一）：<br>
-              ① 调整本规则的 <b>生效起止日期</b>，避开与上方规则的重叠区间；<br>
-              ② 或先到「目标与返利」<b>停用</b>冲突规则，再创建本规则；<br>
-              ③ 若本规则本就是想替换旧规则，请直接 <b>编辑旧规则</b> 而非新建。</p>
+              ① 若新规则是<b>年度总纲</b>：先停用同品牌的各月单期规则，再保存（停用后月份立即释放）；<br>
+              ② 若只想改某个月：直接 <b>编辑旧规则</b>，不要新建；<br>
+              ③ 调整本规则的 <b>生效起止 / 目标年度</b>，避开上面列出的月份。</p>
           </div>
           <div class="modal-ft">
             <button class="btn btn-primary" @click="conflictInfo=null">我知道了</button>
@@ -1187,6 +1189,8 @@ async function toggleActive(r) {
       conflictInfo.value = {
         dimension: r.dimension,
         scopeName: r.scope_name || r.scope_key || '全部',
+        // v125：冲突月份（跨「年度/单期」口径）
+        monthsText: [...new Set((e.payload.conflicts || []).flatMap(c => c.months || []))].sort().join('、'),
         conflicts: e.payload.conflicts
       }
     } else {
@@ -1276,7 +1280,18 @@ const anomalies = computed(() => {
   if (noData.length) list.push({ type: 'nodata', level: 'warn', text: `${noData.length} 个生效目标本月尚未填报达成（进度按 0% 显示）`, items: noData.map(it => it.rule.rule_name) })
   const risk = items.filter(it => it.level === 'risk')
   if (risk.length) list.push({ type: 'risk', level: 'dan', text: `${risk.length} 个目标预计月底不达标，建议补单或催回款`, items: risk.map(it => it.rule.rule_name) })
-  if (conflicts.value.length) list.push({ type: 'conflict', level: 'dan', text: `${conflicts.value.length} 组规则存在生效期重叠冲突（新建会被拦截）`, items: conflicts.value.map(c => c.rule_name || '规则') })
+  // v125：判重口径升级为「覆盖月份交集」——同品牌同月存在两条目标（含"单期 vs 年度"）
+  if (conflicts.value.length) list.push({
+    type: 'conflict', level: 'dan',
+    text: `${conflicts.value.length} 组目标在同一品牌同一月份重复（返利会被重复计算，新建同月目标会被拦截）`,
+    items: conflicts.value.map(c => {
+      // /conflicts 返回「冲突对」{a, b, months}
+      const ms = c.months || []
+      const na = (c.a && c.a.rule_name) || (c.rule_name) || ('规则#' + (c.a && c.a.id))
+      const nb = (c.b && c.b.rule_name) || ('规则#' + (c.b && c.b.id))
+      return `${na} × ${nb}` + (ms.length ? `（${ms.join('、')}）` : '')
+    }),
+  })
   return list
 })
 
