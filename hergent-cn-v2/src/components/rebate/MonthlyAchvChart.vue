@@ -1,5 +1,5 @@
 <template>
-  <div class="mac">
+  <div class="mac" ref="rootEl">
     <div class="mac-hd">
       <div class="mac-ti">
         <b>全年月度达成</b>
@@ -70,7 +70,14 @@
 
     <!-- 图表 -->
     <div v-else class="mac-scroll">
-      <svg :viewBox="`0 0 ${W} ${H}`" class="mac-svg" role="img" @mouseleave="tip = null">
+      <div class="mac-canvas">
+      <svg
+        :viewBox="`0 0 ${W} ${H}`"
+        class="mac-svg"
+        preserveAspectRatio="none"
+        role="img"
+        @mouseleave="tip = null"
+      >
         <text class="ax-ti" :x="PAD.l" :y="16">{{ view === 'rate' ? '销量达成率' : `销量（${unitLeft}）` }}</text>
         <text class="ax-ti" :x="W - PAD.r" :y="16" text-anchor="end">{{ view === 'rate' ? '返利达成率' : '返利（万元）' }}</text>
 
@@ -151,6 +158,7 @@
           <span class="tp-k">{{ r.k }}</span><span class="tp-v">{{ r.v }}</span>
         </div>
       </div>
+      </div>
     </div>
 
     <div v-if="!loading && hasAny" class="mac-ft">
@@ -162,7 +170,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from '../Icon.vue'
 import { rate, niceMax } from './useMonthlyAchv.js'
 
@@ -202,14 +210,39 @@ function selectAll() { emit('update:brandSel', brandNames.value.slice()) }
 function clearSel() { emit('update:brandSel', []) }
 watch(() => props.year, v => { yearVal.value = v })
 
-const W = 720
+// v124：画布宽度跟随容器自适应（viewBox 宽度 = 实际渲染宽度，避免 SVG 等比缩放导致左右大片留白）
+const MIN_W = 680
+const rootEl = ref(null)
+const W = ref(MIN_W)
 const H = 300
 const PAD = { l: 62, r: 66, t: 24, b: 36 }
-const plotW = W - PAD.l - PAD.r
+const plotW = computed(() => W.value - PAD.l - PAD.r)
 const plotH = H - PAD.t - PAD.b
-const GW = plotW / 12
-const BW = 9
+const GW = computed(() => plotW.value / 12)
 const GAP = 2
+// 柱宽随可用月槽宽度放大（8~22px），窄屏退回最小值后由横向滚动兜底
+const BW = computed(() => Math.max(8, Math.min(22, (GW.value - GAP * 3 - 6) / 4)))
+
+function measureW() {
+  const el = rootEl.value
+  if (!el) return
+  const w = Math.round(el.getBoundingClientRect().width)
+  if (w > 0) W.value = Math.max(MIN_W, w)
+}
+let ro = null
+onMounted(() => {
+  measureW()
+  if (typeof ResizeObserver !== 'undefined' && rootEl.value) {
+    ro = new ResizeObserver(measureW)
+    ro.observe(rootEl.value)
+  } else {
+    window.addEventListener('resize', measureW)
+  }
+})
+onBeforeUnmount(() => {
+  if (ro) ro.disconnect()
+  window.removeEventListener('resize', measureW)
+})
 
 const view = ref('bar')
 const tip = ref(null)
@@ -279,9 +312,9 @@ const maxRate = computed(() => {
   return Math.min(2, niceMax(Math.min(mx * 1.1, 2)) || 1.2)
 })
 
-function xGroup(i) { return PAD.l + i * GW }
-function xBar(i, bi) { return xGroup(i) + (GW - (BW * 4 + GAP * 3)) / 2 + bi * (BW + GAP) }
-function xBarR(i, bi) { return xGroup(i) + (GW - (BW * 2 + GAP * 4)) / 2 + bi * (BW + GAP * 2) }
+function xGroup(i) { return PAD.l + i * GW.value }
+function xBar(i, bi) { return xGroup(i) + (GW.value - (BW.value * 4 + GAP * 3)) / 2 + bi * (BW.value + GAP) }
+function xBarR(i, bi) { return xGroup(i) + (GW.value - (BW.value * 2 + GAP * 4)) / 2 + bi * (BW.value + GAP * 2) }
 function yBar(v, axis) {
   const mx = axis === 'l' ? maxLeft.value : maxRight.value
   const d = toDisp(v, axis)
@@ -368,26 +401,26 @@ function onHover(mo, i) {
     extra.push({ k: '距目标差额', v: measure.value === 'quantity' ? qty(Math.max(0, mo.salesTarget - mo.salesAchv)) : money(Math.max(0, mo.salesTarget - mo.salesAchv)) })
     extra.push({ k: '影响返利', v: money(Math.max(0, mo.rebateTarget - mo.rebateAchv)) })
   }
-  const px = ((xGroup(i) + GW / 2) / W) * 100
+  const px = ((xGroup(i) + GW.value / 2) / W.value) * 100
   tip.value = {
     title: `${props.year} 年 ${mo.m} 月`,
     rows,
     extra,
-    x: ((xGroup(i) + GW / 2) / W) * 100 + '%',
+    x: ((xGroup(i) + GW.value / 2) / W.value) * 100 + '%',
     flip: px > 55,
   }
 }
 </script>
 
 <style scoped>
-.mac { display: flex; flex-direction: column; gap: 10px; }
+.mac { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
 .mac-hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .mac-ti { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .mac-ti b { font-size: 14px; font-weight: 500; color: var(--t1); }
 .mac-sub { font-size: 12px; color: var(--t3); }
-.mac-seg { display: inline-flex; border: 1px solid var(--bd)); border-radius: 8px; overflow: hidden; }
+.mac-seg { display: inline-flex; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
 .seg-btn { padding: 4px 12px; font-size: 12px; background: transparent; border: 0; cursor: pointer; color: var(--t2); }
-.seg-btn + .seg-btn { border-left: 1px solid var(--bd)); }
+.seg-btn + .seg-btn { border-left: 1px solid var(--bd); }
 .seg-btn.on { background: var(--p); color: #fff; }
 
 .mac-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -421,11 +454,13 @@ function onHover(mo, i) {
 @keyframes macpulse { 0%, 100% { opacity: .45; } 50% { opacity: .9; } }
 .mac-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--t3); font-size: 13px; }
 
-.mac-scroll { position: relative; overflow-x: auto; overflow-y: hidden; }
-.mac-svg { width: 100%; min-width: 680px; height: 300px; display: block; }
-.grid { stroke: var(--border-subtle)); stroke-width: 1; stroke-dasharray: 3 3; }
+.mac-scroll { position: relative; width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+/* 画布层：宽度＝容器可用宽度，viewBox 与其 1:1 对应；窄屏时锁 680px 由外层横向滚动兜底 */
+.mac-canvas { position: relative; width: 100%; min-width: 680px; }
+.mac-svg { width: 100%; height: 300px; display: block; }
+.grid { stroke: var(--border-subtle); stroke-width: 1; stroke-dasharray: 3 3; }
 .grid.mark { stroke: var(--t3); stroke-dasharray: 4 3; }
-.axis { stroke: var(--bd)); stroke-width: 1; }
+.axis { stroke: var(--bd); stroke-width: 1; }
 .ax-ti { font-size: 12px; fill: var(--t2); }
 .ax-lb { font-size: 11px; fill: var(--t3); }
 .ax-mo { font-size: 11px; fill: var(--t3); }
@@ -434,7 +469,7 @@ function onHover(mo, i) {
 .mac-tip {
   position: absolute; top: 8px; transform: translateX(8px);
   min-width: 210px; padding: 10px 12px; border-radius: 8px; pointer-events: none;
-  background: var(--bg); border: 1px solid var(--bd));
+  background: var(--bg); border: 1px solid var(--bd);
   box-shadow: 0 6px 20px rgba(0, 0, 0, .12); font-size: 12px; z-index: 5;
 }
 .mac-tip.to-left { transform: translateX(calc(-100% - 8px)); }
@@ -444,7 +479,7 @@ function onHover(mo, i) {
 .tp-v { color: var(--t1); font-variant-numeric: tabular-nums; }
 .tp-r { margin-left: auto; color: var(--t2); font-variant-numeric: tabular-nums; }
 .tp-r.warn { color: #dc2626; }
-.tp-ex { display: flex; gap: 8px; line-height: 1.9; border-top: 1px solid var(--border-subtle)); margin-top: 4px; padding-top: 4px; }
+.tp-ex { display: flex; gap: 8px; line-height: 1.9; border-top: 1px solid var(--border-subtle); margin-top: 4px; padding-top: 4px; }
 .tp-ex .tp-v { color: var(--t2); }
 
 .mac-ft { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--t3); }

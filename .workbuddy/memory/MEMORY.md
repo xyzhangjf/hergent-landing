@@ -18,7 +18,9 @@
 - ⭐ 返利目标表单已拆分（v122）：`src/components/rebate/`=`useRebateTargetForm.js`(纯逻辑)+`TargetFormModal.vue`(按 dimension 分流)+`Brand/ProductTargetForm.vue`+`MonthlySplitBlock/ArrivalRhythmBlock/RebateValueBlock.vue`；`Rebate.vue` 退化宿主。子组件依赖走 props/emits，禁复用父页作用域变量。
 - 品牌目标双模式：`brandMode`=年度(12 月分解，按 period_type 有 monthly_* 或 year 回填)/单期(月单值)；`target_year/target_unit` 新列。**到货日不落库**（只存 `order_lead_days` 反推）；日期一律 `Date.UTC`；不跳周末节假日。
 - 统一 Lucide `<Icon>` 线性 SVG（WeatherWidget 例外彩 emoji）；统一 `src/api/client.js` `api()`；**副驾 SSE 前端直连 Hermes** `/hermes/v1/chat/completions` 不经 server.py。
-- ⭐ **前端零图表库**（deps 仅 vue/vue-router/pinia/xlsx）。需要图表一律**纯 SVG 自绘**，不引 ECharts（避免 +330KB gzip，违背轻量 AI 层定位）。
+- ⭐ **前端零图表库**（deps 仅 vue/vue-router/pinia/xlsx）。需要图表一律**纯 SVG 自绘**，不引 ECharts（避免 +330KB gzip，违背轻量 AI 层定位）。v123 已有可复用实现：`components/rebate/MonthlyAchvChart.vue` + `useMonthlyAchv.js`。
+- ⚠️ **`<script setup>` 顶层 `watch([a, b, someRef], fn)` 会 TDZ**：watch 注册时即求数组值，若该 ref 定义在下方 → `Cannot access 'x' before initialization`。一律写 getter `() => x.value`。
+- ⚠️ **vite dev 缓存会制造假象**：改完源码务必 `pkill -f vite && rm -rf node_modules/.vite` 再重启，否则一直跑旧编译产物（曾据此误判"回退基线也报错"）。另：`npm run build` 在 dev server 运行时 emptyDir 会 rmSync 失败，先 pkill。
 - ⚠️ Vue3 `<script setup>` 函数体内必须 `.value`；`reactive` 显式 import；大块删 .vue 用 python 锚点切片勿用行号。
 
 ## 部署真相（每次改动必读）
