@@ -34,3 +34,12 @@
 - v0.21.1 新能力（模块化/启动性能/桌面会话/MCP 授权/cron 修复）90% 桌面向，hergent 增益≈0；新 tag 相对 v0.21.0 无 hergent 需要项 → 维持 A。
 - 安全观察：PyPI 4 条未修复漏洞记录（≤0.12.0+飞书 webhook），v0.19.0 理论安全漂移，暴露面小未达触发标准，入观察。
 - 报告：docs/hermes-update-monitor/2026-09-08.md（目录共 3 份，无需清理）。
+
+## 2026-09-09（例行周检）
+- 结论：**A 无需升级，维持生产 v0.19.0**。
+- 官方最新：GitHub 仍止于 **v2026.9.7 = v0.21.1**（2026-09-07），自 09-08 全量核查后无新 tag；PyPI 仍停 0.19.0（滞后，不作为依据）。
+- 复用 /tmp/hermes-271-src（v2026.9.7 仍存在）做 5 耦合点 grep 复核，结果与 09-08 完全一致：①/v1/chat/completions gateway api_server.py:1522 + openai_routes（兼容）；②/v1/skills api_server.py:1510（兼容）；③ **cron bridge 全仓零命中仍未回归 → 升级=定时任务全挂（否决项）**；④ config_loader.py:157 桥接 port/key/host/cors_origins/model_name 进 extra（软迁移仍需 staging 实测）；⑤ SOUL.md 被 gateway/run_turn_runner.py:849 discovery 原样读取（兼容）。
+- 无新增能力/修复/安全公告需要裁决 → 直接沿用 A，未做新克隆。
+- 报告：docs/hermes-update-monitor/2026-09-09.md（目录共 4 份，无需清理）。
+- 环境备注：GitHub Releases/PyPI WebFetch 均直连成功，无需本机代理。另：项目 MEMORY.md 超限 9389 字符已压缩至 ~3k。
+- 升级触发条件未变：headless/server 发行说明、cron bridge/config 迁移/18765 兼容修复、或波及 v0.19.0 的严重安全公告。

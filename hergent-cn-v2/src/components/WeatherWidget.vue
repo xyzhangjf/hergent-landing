@@ -3,7 +3,7 @@
     <button class="wx-now" @click="open = !open" :title="locText()" :class="{ dim: !ready }">
       <span class="wx-ic">{{ icon() }}</span>
       <span class="wx-city">{{ city }}</span>
-      <span class="wx-temp" v-if="temp != null">{{ temp }}°</span>
+      <span class="wx-temp" v-if="temp != null">{{ tempInt(temp) }}°</span>
       <span class="wx-desc" v-if="desc() && temp != null">{{ desc() }}</span>
       <span v-if="loading" class="wx-load">…</span>
     </button>
@@ -41,7 +41,7 @@
             <div class="wx-d-day">{{ dayLabel(d.date).text }}</div>
             <div class="wx-d-date">{{ dayLabel(d.date).date }}</div>
             <div class="wx-d-ic">{{ wmo(d.code)[1] }}</div>
-            <div class="wx-d-t">{{ d.tmax }}° / {{ d.tmin }}°</div>
+            <div class="wx-d-t">{{ tempInt(d.tmax) }}° / {{ tempInt(d.tmin) }}°</div>
             <div class="wx-d-pop" v-if="d.pop != null">💧{{ d.pop }}%</div>
           </div>
         </div>
@@ -133,6 +133,16 @@ const WMO = {
   80: ['阵雨', '🌦️'], 81: ['阵雨', '🌧️'], 82: ['强阵雨', '⛈️'],
   85: ['阵雪', '🌨️'], 86: ['强阵雪', '❄️'],
   95: ['雷阵雨', '⛈️'], 96: ['雷阵雨伴冰雹', '⛈️'], 99: ['强雷暴', '⛈️'],
+}
+
+// 面板内所有温度的统一格式化入口：四舍五入取整（负数按绝对值四舍五入，-2.5 → -3）
+// 任何温度字段（当前温/最高/最低/多日预报/趋势浮层/升降温差值）都必须走这里，
+// 避免出现同一面板内部分带小数、部分为整数。
+function tempInt(v) {
+  if (v == null || v === '') return null
+  const n = Number(v)
+  if (Number.isNaN(n)) return null
+  return n < 0 ? -Math.round(-n) : Math.round(n)
 }
 
 function wmo(c) {
@@ -276,20 +286,22 @@ const _t = (v) => (v == null ? 0 : v)
 const trendGeo = computed(() => {
   const ds = days.value || []
   if (ds.length < 2) return null
-  const vals = ds.map((d) => _t(d.tmax))
+  // 先取整再参与计算：折线高度、拐点判定、浮层温差都必须与卡片上显示的数字自洽
+  const vals = ds.map((d) => _t(tempInt(d.tmax)))
   const maxT = Math.max(...vals)
   const minT = Math.min(...vals)
-  const span = maxT - minT || 1
+  const span = maxT - minT
   const PAD_T = 16
   const PAD_B = 80 // 底部留白：圆点不贴边，避免被 overflow 裁掉
+  const midY = (PAD_T + PAD_B) / 2
   const n = ds.length
   const pts = ds.map((d, i) => ({
     i,
-    tmax: d.tmax,
-    tmin: d.tmin,
+    tmax: tempInt(d.tmax),
+    tmin: tempInt(d.tmin),
     label: dayLabel(d.date).text,
     x: ((i + 0.5) / n) * 100,
-    y: PAD_T + ((maxT - _t(d.tmax)) / span) * (PAD_B - PAD_T),
+    y: span > 0 ? PAD_T + ((maxT - vals[i]) / span) * (PAD_B - PAD_T) : midY,
     last: i === n - 1,
     mark: null,
   }))
@@ -336,11 +348,9 @@ const tipText = computed(() => {
   const prev = pts[idx - 1]
   let delta = ''
   if (prev && p.tmax != null && prev.tmax != null) {
-    const d = p.tmax - prev.tmax
-    // 一位小数，避免 33.3-30 这类浮点误差显示成 3.299999999999997
-    const r1 = (v) => Math.round(v * 10) / 10
-    if (d >= TREND_DELTA) delta = ` · 升温 ${r1(d)}°`
-    else if (d <= -TREND_DELTA) delta = ` · 降温 ${r1(-d)}°`
+    const d = p.tmax - prev.tmax // 两侧均已取整，整数相减无浮点误差
+    if (d >= TREND_DELTA) delta = ` · 升温 ${d}°`
+    else if (d <= -TREND_DELTA) delta = ` · 降温 ${-d}°`
   }
   return `${p.label}${delta} · ${p.tmax}°/${p.tmin}°`
 })

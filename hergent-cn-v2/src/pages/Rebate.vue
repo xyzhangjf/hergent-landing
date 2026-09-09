@@ -50,6 +50,8 @@
               <span class="kpi-lb">平均达成率</span>
             </div>
           </div>
+          <!-- v123：KPI 回答"我这个月总共能拿多少返利"，必须始终全量，不能被筛选悄悄改掉 -->
+          <div class="dash-kpi-note">以上 KPI 始终统计全部品牌，不随下方图表的品牌筛选变化</div>
 
           <!-- 本月时间进度参照（v112 R22：emoji 统一为 SVG 图标） -->
           <div class="dash-time">
@@ -70,6 +72,25 @@
           </div>
           <div v-if="dashboardModel.summary.noData" class="dash-nodata">本月（{{ dashMonth }}）在「达成填报」里还没有录入数据，进度条按 0% 显示。去「达成填报」录一笔，或把上方「统计月份」切到有数据的月份，进度条就出来了。</div>
 
+          <!-- v123：全年月度达成柱状图（位置＝KPI 之下、预警之上；品牌筛选联动预警区与排行） -->
+          <div class="dash-chart">
+            <MonthlyAchvChart
+              :model="chartMatrix"
+              :loading="chartLoading"
+              :year="chartYear"
+              :year-options="chartYearOptions"
+              :brand-list="chartBrandList"
+              :brand-sel="chartBrandSel"
+              :single-brand="chartBrandSel.length === 1"
+              @update:year="onChartYear"
+              @update:brand-sel="chartBrandSel = $event"
+            >
+              <template #empty-action>
+                <button class="btn btn-primary btn-sm" @click="mainTab='rules'">去创建品牌目标</button>
+              </template>
+            </MonthlyAchvChart>
+          </div>
+
           <!-- #356：异常预警区（规则冲突 / 达成未填 / 预计不达标 聚合） -->
           <div v-if="anomalies.length" class="dash-anom">
             <div class="da-hd"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px"><path d="M12 3L2 20h20L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>待处理异常（{{ anomalies.length }}）</div>
@@ -84,7 +105,7 @@
 
           <!-- 条形排行 -->
           <div class="dash-rank">
-            <div v-for="(it, idx) in dashboardModel.items" :key="it.rule.id" class="rank-row" :class="it.level">
+            <div v-for="(it, idx) in dashItemsFiltered" :key="it.rule.id" class="rank-row" :class="it.level">
               <div class="rr-top">
                 <span class="rr-rank">{{ idx + 1 }}</span>
                 <span class="tag info">{{ it.dimLabel }}</span>
@@ -959,7 +980,12 @@ import { toast } from '../store'
 import { rebateApi } from '../api/modules'
 import { api } from '../api/client.js'
 import TargetFormModal from '../components/rebate/TargetFormModal.vue'
+import MonthlyAchvChart from '../components/rebate/MonthlyAchvChart.vue'
+import { buildYearMatrix, buildSimItems, applySimResults } from '../components/rebate/useMonthlyAchv.js'
 
+// v123：mainTab 提到最前 —— 上方的图表代码（watch/computed）会引用它，
+// 定义靠后时一旦有顶层求值就会触发 TDZ「Cannot access 'mainTab' before initialization」
+const mainTab = ref('dashboard')
 const rules = ref([])
 const loading = ref(false)
 const filterDim = ref('')
@@ -1243,16 +1269,113 @@ async function loadConflicts() {
 }
 // 异常预警区：从仪表盘结构 + 冲突规则聚合
 const anomalies = computed(() => {
-  const m = dashboardModel.value
-  if (!m) return []
+  // v123：按图表品牌筛选收窄（无筛选时等于全量）
+  const items = dashItemsFiltered.value
   const list = []
-  const noData = m.items.filter(it => it.reported === 0 && it.level !== 'done')
+  const noData = items.filter(it => it.reported === 0 && it.level !== 'done')
   if (noData.length) list.push({ type: 'nodata', level: 'warn', text: `${noData.length} 个生效目标本月尚未填报达成（进度按 0% 显示）`, items: noData.map(it => it.rule.rule_name) })
-  const risk = m.items.filter(it => it.level === 'risk')
+  const risk = items.filter(it => it.level === 'risk')
   if (risk.length) list.push({ type: 'risk', level: 'dan', text: `${risk.length} 个目标预计月底不达标，建议补单或催回款`, items: risk.map(it => it.rule.rule_name) })
   if (conflicts.value.length) list.push({ type: 'conflict', level: 'dan', text: `${conflicts.value.length} 组规则存在生效期重叠冲突（新建会被拦截）`, items: conflicts.value.map(c => c.rule_name || '规则') })
   return list
 })
+
+// v123：图表筛选后，预警区与条形排行同步收窄（KPI 卡保持全量，不受影响）
+const dashItemsFiltered = computed(() => {
+  const m = dashboardModel.value
+  if (!m || !Array.isArray(m.items)) return []
+  const sel = (chartBrandSel.value || []).filter(Boolean)
+  if (!sel.length) return m.items
+  const set = new Set(sel)
+  return m.items.filter(it => {
+    const nm = String(it.rule?.scope_name || it.rule?.scope_key || '')
+    return set.has(nm) || set.has(String(it.rule?.scope_key || ''))
+  })
+})
+
+/* ===================== v123：全年月度达成柱状图 =====================
+   口径：销量达成取「达成填报」rebate_achievements；没填的月份就是 0，不插值。
+   返利一律由后端 simulate-batch 产出，前端不镜像算法。                    */
+const chartYear = ref(String(new Date().getFullYear()))
+const chartBrandSel = ref([])      // 空 = 全部品牌
+const yearAchv = ref([])           // 全年达成（与单月 achievements 分开，互不污染）
+const chartLoading = ref(false)
+const chartMatrix = ref(null)
+let _chartSeq = 0
+
+const chartYearOptions = computed(() => {
+  const set = new Set([Number(chartYear.value), new Date().getFullYear()])
+  for (const r of (rules.value || [])) {
+    const y = Number(r.target_year)
+    if (y >= 2000 && y <= 2100) set.add(y)
+    const s = String(r.effective_start || '').slice(0, 4)
+    if (/^\d{4}$/.test(s)) set.add(Number(s))
+  }
+  return [...set].sort((a, b) => b - a)
+})
+
+// 品牌候选 = 品牌档案 ∪ 规则里实际出现的品牌名。
+// 只用档案会漏：历史规则的 scope_name 是自由文本（如「蒙牛低温」），与档案名不一定一致。
+const chartBrandList = computed(() => {
+  const set = new Set()
+  for (const b of (brandList.value || [])) if (b && b.name) set.add(String(b.name))
+  for (const r of (rules.value || [])) {
+    if (r.dimension !== 'brand') continue
+    const nm = String(r.scope_name || r.scope_key || '').trim()
+    if (nm) set.add(nm)
+  }
+  return [...set].map(name => ({ id: name, name }))
+})
+
+const chartBase = computed(() => buildYearMatrix({
+  year: chartYear.value,
+  rules: rules.value || [],
+  achievements: yearAchv.value || [],
+  brandSel: chartBrandSel.value || [],
+}))
+
+async function loadYearAchv() {
+  chartLoading.value = true
+  try {
+    const d = await api('/api/rebate-achievements?year=' + encodeURIComponent(chartYear.value))
+    const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : [])
+    yearAchv.value = list
+  } catch (e) {
+    yearAchv.value = []
+  } finally {
+    chartLoading.value = false
+  }
+}
+
+// 返利试算：每月每条规则两档（目标档 / 达成档），一次请求带 item 级 ref_date
+async function runChartSim() {
+  const base = chartBase.value
+  if (!base || !base.hasAny) { chartMatrix.value = base; return }
+  const seq = ++_chartSeq
+  const { items, keys } = buildSimItems(base)
+  if (!items.length) { chartMatrix.value = base; return }
+  try {
+    const res = await rebateApi.simulateBatch({ items })
+    if (seq !== _chartSeq) return
+    const m = JSON.parse(JSON.stringify(base))
+    applySimResults(m, (res && res.results) || [], keys)
+    chartMatrix.value = m
+  } catch (e) {
+    // 试算失败也要显示销量，返利降为 0，不整块空白
+    if (seq === _chartSeq) chartMatrix.value = base
+  }
+}
+
+let _chartTimer = null
+function scheduleChart() {
+  if (mainTab.value !== 'dashboard') return
+  clearTimeout(_chartTimer)
+  _chartTimer = setTimeout(() => { loadYearAchv(); runChartSim() }, 200)
+}
+function onChartYear(y) { chartYear.value = String(y); scheduleChart() }
+// 注意：mainTab 定义在下方，必须用 getter 惰性取值，直接写 mainTab 会触发 TDZ
+watch([chartYear, chartBrandSel, () => rules.value, () => mainTab.value], scheduleChart)
+watch(yearAchv, runChartSim)
 
 async function loadRules() {
   loading.value = true
@@ -1316,7 +1439,6 @@ function tierList(r) {
 }
 
 /* ---- 达成填报 Tab（v109：无 API / 手动上传客户的达成数据入口） ---- */
-const mainTab = ref('dashboard')
 const achvMonth = ref(new Date().toISOString().slice(0, 7))
 // v112 R2：达成填报支持月/季/年三种周期口径，月份选择器按口径切换键格式（YYYY-MM / YYYY-Qn / YYYY）
 const achvPeriod = ref('month')
@@ -2567,7 +2689,7 @@ function tierPctText(t) {
   return '—'
 }
 
-onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchievements(dashMonth.value); loadContracts(); loadContactOptions(); loadRebateMeta(); loadConflicts(); loadDefaultCadence() })
+onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchievements(dashMonth.value); loadContracts(); loadContactOptions(); loadRebateMeta(); loadConflicts(); loadDefaultCadence(); loadYearAchv() })
 </script>
 
 <style scoped>
@@ -2929,4 +3051,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
   .modal-overlay,.modal-card{position:static;transform:none;box-shadow:none;max-height:none;overflow:visible}
   .rr-bar-mark{display:none}
 }
+/* v123：全年月度达成柱状图 */
+.dash-chart { margin: 4px 0 2px; }
+.dash-kpi-note { font-size: 12px; color: var(--t3); margin: -2px 0 8px; }
 </style>
