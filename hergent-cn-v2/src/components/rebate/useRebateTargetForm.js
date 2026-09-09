@@ -75,9 +75,9 @@ export function fmtWan(n) {
 
 /* ---------------- 12 个月分解 ---------------- */
 
-/** 空表（12 行，金额与返利率均为 null） */
+/** 空表（12 行：金额 / 返利率 / 月级阶梯档位 均为空） */
 export function emptyMonthlyRows() {
-  return MONTHS_12.map(mm => ({ mm, amtWan: null, ratePct: null }))
+  return MONTHS_12.map(mm => ({ mm, amtWan: null, ratePct: null, tiers: [] }))
 }
 
 /** 月合计（万元） */
@@ -86,7 +86,10 @@ export function sumMonthlyWan(rows) {
   return Math.round(s * 100) / 100
 }
 
-/** 全年一次性录入 → 均分 12 个月（余数补 12 月）；只动金额，不动返利率 */
+/**
+ * v126：全年一次性录入 → 均分 12 个月（余数补 12 月）；只动金额，不动返利率。
+ * 这只是**快捷铺开**，不是另一种口径 —— 铺完仍可逐月改。
+ */
 export function splitAnnualToMonths(rows, inputWan) {
   const totalWan = Number(inputWan) || 0
   rows.forEach(r => { r.amtWan = null })
@@ -101,21 +104,36 @@ export function splitAnnualToMonths(rows, inputWan) {
   }
 }
 
-/** 组装落库 JSON：金额(元) / 返利率(小数)，只含有值的月份 */
-export function buildMonthlyPayloads(rows) {
-  const monthlyAmounts = {}
-  const monthlyRates = {}
-  for (const r of (rows || [])) {
-    if (r.amtWan != null && Number(r.amtWan) > 0) monthlyAmounts[r.mm] = Math.round(Number(r.amtWan) * 10000)
-    if (r.ratePct != null && Number(r.ratePct) > 0) monthlyRates[r.mm] = Math.round(Number(r.ratePct) * 1000) / 100000
-  }
-  return { monthlyAmounts, monthlyRates }
+/** v126：全年返利率 → 铺满 12 个月（同样是快捷铺开，可逐月覆盖） */
+export function fillAnnualRateToMonths(rows, inputPct) {
+  const pct = (inputPct === '' || inputPct == null) ? null : Number(inputPct)
+  if (pct == null || Number.isNaN(pct)) return
+  for (const r of (rows || [])) r.ratePct = Math.round(pct * 100) / 100
 }
 
 /**
- * 编辑回填：服务端 monthly_amounts/rates(金额元 / 返利小数) → 万元 / %
- * 同时判定品牌模式（R5-A）：有月度分解 或 本身是年口径 → 年度；否则单期，保留原 period_type 不改口径。
+ * v126：组装落库 JSON —— 金额(元) / 返利率(小数) / 月级阶梯，只含有值的月份。
+ * 三者同构，合起来就是后端那张 12 行的月表。
+ */
+export function buildMonthlyPayloads(rows) {
+  const monthlyAmounts = {}
+  const monthlyRates = {}
+  const monthlyTiers = {}
+  for (const r of (rows || [])) {
+    if (r.amtWan != null && Number(r.amtWan) > 0) monthlyAmounts[r.mm] = Math.round(Number(r.amtWan) * 10000)
+    if (r.ratePct != null && Number(r.ratePct) > 0) monthlyRates[r.mm] = Math.round(Number(r.ratePct) * 1000) / 100000
+    const ts = buildTiersPayload(r.tiers)
+    if (ts.length) monthlyTiers[r.mm] = ts
+  }
+  return { monthlyAmounts, monthlyRates, monthlyTiers }
+}
+
+/**
+ * 编辑回填：服务端 monthly_amounts/rates/tiers → UI（万元 / % / 档位数组）
  * 返回 { mode, notice }；rows 被就地填充。
+ *
+ * v126：单期规则也归一进月表 —— 按生效期所在月落一格。这样「年度」与「单期」
+ * 在 UI 上只是「填了 12 格还是 1 格」，编辑任何一条看到的都是同一张月表。
  */
 export function fillMonthlyFromRule(rows, r, { isBrandMonthly = true } = {}) {
   const out = { mode: 'year', notice: '' }
@@ -123,18 +141,48 @@ export function fillMonthlyFromRule(rows, r, { isBrandMonthly = true } = {}) {
   if (!r) return out
   const amts = r.monthly_amounts || {}
   const rates = r.monthly_rates || {}
+  const tiers = r.monthly_tiers || {}
   const hasMonthly = Object.keys(amts).length > 0
   out.mode = (hasMonthly || r.period_type === 'year') ? 'year' : 'single'
   for (const row of rows) {
     if (amts[row.mm] != null) row.amtWan = Math.round(Number(amts[row.mm]) / 100) / 100
     if (rates[row.mm] != null) row.ratePct = Math.round(Number(rates[row.mm]) * 100000) / 1000
+    if (Array.isArray(tiers[row.mm]) && tiers[row.mm].length) row.tiers = parseRuleTiers(tiers[row.mm])
   }
   const tvWan = (Number(r.target_value) || 0) / 10000
   if (out.mode === 'year' && !hasMonthly && isBrandMonthly && tvWan > 0) splitAnnualToMonths(rows, tvWan)
+  if (out.mode === 'single' && isBrandMonthly && tvWan > 0) {
+    const mm = String(r.effective_start || r.effective_end || '').slice(5, 7)
+    const row = rows.find(x => x.mm === mm)
+    if (row) row.amtWan = Math.round(tvWan * 100) / 100
+  }
   return out
 }
 
 /* ---------------- 阶梯档位 ---------------- */
+
+/** v126：UI 档位（整数百分比）→ 落库档位（小数达成率 + 小数返利率） */
+export function buildTiersPayload(tiers) {
+  return (tiers || []).map(t => ({
+    from_pct: (Number(t.from_pct) || 0) / 100,
+    to_pct: (Number(t.to_pct) || 0) > 0 ? (Number(t.to_pct) || 0) / 100 : 999,
+    rebate_rate: Number(t.rebate_rate) || 0,
+    rebate_amount: Number(t.rebate_amount) || 0,
+  })).filter(t => t.rebate_rate > 0 || t.rebate_amount > 0)
+}
+
+/** v126：档位摘要（月表「档位」列用）—— "80~100%:3% / 100%~:5%" */
+export function tierText(tiers, basis = 'rate') {
+  const ts = (tiers || []).filter(t => basis === 'rate'
+    ? (Number(t.rebate_rate) || 0) > 0 : (Number(t.rebate_amount) || 0) > 0)
+  if (!ts.length) return ''
+  return ts.map(t => {
+    const hi = (Number(t.to_pct) || 0) > 0 ? `${t.to_pct}%` : '以上'
+    const v = basis === 'rate' ? `${Math.round((Number(t.rebate_rate) || 0) * 1000) / 10}%`
+      : `${Math.round(Number(t.rebate_amount) || 0)}元`
+    return `${t.from_pct}~${hi}:${v}`
+  }).join(' / ')
+}
 
 /** 落库 tiers_json（小数达成率）→ UI 档位（整数百分比；to_pct=0 表示无上限） */
 export function parseRuleTiers(raw) {

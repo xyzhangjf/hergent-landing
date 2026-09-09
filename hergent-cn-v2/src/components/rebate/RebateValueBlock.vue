@@ -1,6 +1,6 @@
 <template>
-  <!-- 返利形式 / 返利值：年度月度分解模式下由各月返利率承载，故整体隐藏 -->
-  <div class="form-grid2" v-if="visible">
+  <!-- 返利形式 / 返利值：v126 统一月表下由各月返利率承载，故整体隐藏 -->
+  <div class="form-grid2" v-if="visible && !tiersOnly">
     <div class="form-row"><label>返利形式</label>
       <select v-model="form.rebate_basis" class="input">
         <option value="rate">比例</option>
@@ -13,10 +13,10 @@
     </div>
   </div>
 
-  <!-- 阶梯档位编辑器（达成率分档；月度分解=按月比例，与阶梯互斥隐藏） -->
-  <div v-if="form.trigger_mode === 'tiered' && visible" class="tier-editor">
+  <!-- 阶梯档位编辑器（达成率分档）。v126：ruleTiers 可以是「某一个月」的档位数组 -->
+  <div v-if="form.trigger_mode === 'tiered' && (visible || tiersOnly)" class="tier-editor">
     <div class="te-hd" style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 6px">
-      <b>阶梯档位（按达成率）</b>
+      <b>{{ title }}</b>
       <button class="btn btn-ghost btn-sm" type="button" @click="$emit('add-tier')">+ 加一档</button>
     </div>
     <p class="cf-tip">按<b>达成率（占目标值比例）</b>分档：达成 90% 落入 90%~100% 档、100% 落入 100%~∞ 档。返利比例填小数（<b>0.1 = 10%</b>）；固定金额填元。末档「结束达成率」填 <b>0</b> 表示无上限。</p>
@@ -49,6 +49,10 @@ defineProps({
   scaleOptions: { type: Array, default: () => [] },
   /** 品牌年度月度分解模式下为 false（返利由各月返利率承载） */
   visible: { type: Boolean, default: true },
+  /** v126：只渲染档位表（供月表里「某个月的档位编辑」内联复用） */
+  tiersOnly: { type: Boolean, default: false },
+  /** 档位区标题（月表内联时显示「X 月档位」，顶层显示「默认档位」） */
+  title: { type: String, default: '阶梯档位（按达成率）' },
 })
 defineEmits(['add-tier', 'remove-tier'])
 </script>

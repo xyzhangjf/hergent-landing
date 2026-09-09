@@ -51,19 +51,18 @@
           <!-- 按维度分流：品牌页 / 商品页 -->
           <BrandTargetForm
             v-if="isBrandForm"
-            :form="form" :monthly-rows="monthlyRows" :brand-mode="brandMode" :monthly-on="monthlyOn"
+            :form="form" :monthly-rows="monthlyRows"
             :monthly-sum-wan="monthlySumWan" :annual-target-wan="annualTargetWan" :annual-rate-pct="annualRatePct"
             :annual-rate-placeholder="annualRatePlaceholder" :monthly-filled-count="monthlyFilledCount"
-            :legacy-notice="legacyNotice" :target-wan="targetWan" :rule-tiers="ruleTiers" :scale-options="scaleOptions"
+            :legacy-notice="legacyNotice" :rule-tiers="ruleTiers" :scale-options="scaleOptions"
             :arrival-preview="arrivalPreview" :auto-period-preview="autoPeriodPreview" :ap-missed-summary="apMissedSummary"
             :first-arrival-date="firstArrivalDate" :arrival-weekday="arrivalWeekday" :lead-err="leadErr"
             :lead-valid="leadValid" :is-order-wk="isOrderWk"
-            @switch-mode="switchBrandMode"
             @update:annual-target="v => (annualTargetWan = v)"
             @update:annual-rate="v => (annualRatePct = v)"
             @clear-monthly="clearMonthly"
-            @update:target-wan="v => (targetWan = v)"
             @add-tier="ruleTiers.push(emptyTier())" @remove-tier="i => ruleTiers.splice(i,1)"
+            @add-month-tier="addMonthTier" @remove-month-tier="removeMonthTier"
             @lead-input="onLeadInput" @arrival-change="onArrivalChange"
             @toggle-wk="toggleOrderWk" @adopt="adoptSuggestion" @open-migrate="openMigrate"
           />
@@ -144,8 +143,8 @@ import { rebateApi } from '../../api/modules'
 import { api } from '../../api/client.js'
 import {
   LEAD_MIN, LEAD_MAX, WK_LABEL, _addDaysISO, _diffDaysISO, _weekdayOf, isoLocal,
-  emptyMonthlyRows, sumMonthlyWan, splitAnnualToMonths, buildMonthlyPayloads,
-  fillMonthlyFromRule, parseRuleTiers, defaultForm, duplicateForm,
+  emptyMonthlyRows, sumMonthlyWan, splitAnnualToMonths, fillAnnualRateToMonths,
+  buildMonthlyPayloads, fillMonthlyFromRule, parseRuleTiers, defaultForm, duplicateForm,
 } from './useRebateTargetForm.js'
 
 const props = defineProps({
@@ -181,8 +180,8 @@ const migrateInfo = ref(null)
 
 const isBrandForm = computed(() => !!form.value && form.value.dimension === 'brand')
 const isBrandMonthly = computed(() => isBrandForm.value && form.value.target_type === 'amount')
-/** 品牌 + 年度模式 = 走 12 个月分解 */
-const monthlyOn = computed(() => isBrandMonthly.value && brandMode.value === 'year')
+/** v126：品牌维度恒走月表（年度 = 铺满 12 格，单期 = 只填 1 格），不再有第二种口径 */
+const monthlyOn = computed(() => isBrandMonthly.value)
 const title = computed(() => {
   if (editing.value) return isBrandForm.value ? '编辑品牌目标' : '编辑商品目标'
   return isBrandForm.value ? '创建品牌目标' : '创建商品目标'
@@ -242,6 +241,7 @@ async function runPrecheck() {
     effective_end: f.effective_end || '',
     monthly_amounts: monthlyOn.value ? monthly.monthlyAmounts : {},
     monthly_rates: monthlyOn.value ? monthly.monthlyRates : {},
+    monthly_tiers: monthlyOn.value ? monthly.monthlyTiers : {},
   }
   // 年度模式未填月度金额时后端按「全年 12 个月」判定（与落库口径一致），故不跳过，
   // 选完品牌即可提示"这个品牌今年已经有单期目标了"。
@@ -264,7 +264,6 @@ watch(
     form.value.target_year,
     form.value.effective_start,
     form.value.effective_end,
-    brandMode.value,
     monthlyRows.value.map(r => `${r.amtWan || 0}`).join(','),
   ],
   () => {
@@ -275,17 +274,16 @@ watch(
 )
 onBeforeUnmount(() => clearTimeout(_dupTimer))
 
-/** 年度 ⇄ 单期切换：不清空月度行，切回来数据还在（保存时才决定写不写月度分解） */
-function switchBrandMode(m) {
-  if (m === brandMode.value) return
-  brandMode.value = m
-  if (m === 'year') {
-    form.value.period_type = 'year'
-    if (!form.value.target_year) form.value.target_year = currentYear
-  } else if (form.value.period_type === 'year') {
-    form.value.period_type = 'month'
-    targetWan.value = monthlySumWan.value || targetWan.value
-  }
+/** v126：给某一个月加一档 / 删一档（月级阶梯） */
+function addMonthTier(mm) {
+  const row = monthlyRows.value.find(r => r.mm === mm)
+  if (!row) return
+  row.tiers = Array.isArray(row.tiers) ? row.tiers : []
+  row.tiers.push(emptyTier())
+}
+function removeMonthTier({ mm, i }) {
+  const row = monthlyRows.value.find(r => r.mm === mm)
+  if (row && Array.isArray(row.tiers)) row.tiers.splice(i, 1)
 }
 
 /* ---------------- 报单日 ↔ N ↔ 到货日 ---------------- */
@@ -557,23 +555,35 @@ async function save() {
     if (!Object.keys(monthly.monthlyAmounts).length) {
       toast('请至少填写一个月的目标金额 —— 可以只在「全年目标」填一个数，自动均分到 12 个月', 'error'); return
     }
-    if (!Object.keys(monthly.monthlyRates).length) {
+    if (!Object.keys(monthly.monthlyAmounts).length) {
+      toast('请至少填写一个月的目标金额 —— 可以只在「全年目标」填一个数，自动均分到 12 个月', 'error'); return
+    }
+    // v126：阶梯模式下返利由各月档位承载，不再要求每月返利率
+    if (f.trigger_mode !== 'tiered' && !Object.keys(monthly.monthlyRates).length) {
       toast('请至少填写一个月的返利率 —— 可以只在「全年返利率」填一个数，12 个月统一', 'error'); return
+    }
+    if (f.trigger_mode === 'tiered' && !Object.keys(monthly.monthlyTiers).length
+        && !(ruleTiers.value || []).length) {
+      toast('阶梯模式：请配置「默认档位」，或给某个月单独配档位', 'error'); return
     }
     f.monthly_amounts = monthly.monthlyAmounts
     f.monthly_rates = Object.keys(monthly.monthlyRates).length ? monthly.monthlyRates : {}
+    f.monthly_tiers = Object.keys(monthly.monthlyTiers).length ? monthly.monthlyTiers : {}
     f.target_value = Object.values(monthly.monthlyAmounts).reduce((s, v) => s + (Number(v) || 0), 0)
     targetWan.value = f.target_value / 10000
     f.period_type = 'year'
-    f.trigger_mode = 'on_target'
     f.rebate_basis = 'rate'
-    f.trigger_threshold = 1
-    f.tiers_json = ''
-    const _r1 = monthlyRows.value.find(r => r.ratePct != null && Number(r.ratePct) > 0)
-    f.rebate_rate = _r1 ? Math.round(Number(_r1.ratePct) * 1000) / 100000 : 0
+    if (f.trigger_mode !== 'tiered') {
+      f.trigger_mode = 'on_target'
+      f.trigger_threshold = 1
+      f.tiers_json = ''
+      const _r1 = monthlyRows.value.find(r => r.ratePct != null && Number(r.ratePct) > 0)
+      f.rebate_rate = _r1 ? Math.round(Number(_r1.ratePct) * 1000) / 100000 : 0
+    }
   } else {
     f.monthly_amounts = {}
     f.monthly_rates = {}
+    f.monthly_tiers = {}
   }
   if (!f.rule_name) { toast('请填写规则名称', 'error'); return }
   if (!f.target_value || f.target_value <= 0) { toast('目标值必须 > 0', 'error'); return }
@@ -595,12 +605,19 @@ async function save() {
         rebate_amount: Number(t.rebate_amount) || 0,
       }))
       .sort((a, b) => a.from_pct - b.from_pct)
-    if (!tiers.length) { toast('阶梯模式必须至少配置一档', 'error'); return }
-    for (let i = 0; i < tiers.length; i++) {
-      const t = tiers[i]
-      if (!(t.from_pct < t.to_pct)) { toast('第 ' + (i + 1) + ' 档：起始达成率必须小于结束达成率', 'error'); return }
-      if (f.rebate_basis === 'rate' && !(t.rebate_rate > 0 && t.rebate_rate <= 1)) { toast('第 ' + (i + 1) + ' 档：返利比例须在 (0,1] 之间', 'error'); return }
-      if (f.rebate_basis === 'fixed' && t.rebate_amount <= 0) { toast('第 ' + (i + 1) + ' 档：固定金额须大于 0', 'error'); return }
+    // v126：档位可以全部下沉到月（monthly_tiers），顶层只作「未配月份」的回退，
+    // 因此顶层为空但月表有档位是合法的。
+    const _hasMonthTiers = Object.keys(monthly.monthlyTiers || {}).length > 0
+    if (!tiers.length && !_hasMonthTiers) {
+      toast('阶梯模式：请配置「默认档位」，或给某个月单独配档位', 'error'); return
+    }
+    if (tiers.length) {
+      for (let i = 0; i < tiers.length; i++) {
+        const t = tiers[i]
+        if (!(t.from_pct < t.to_pct)) { toast('第 ' + (i + 1) + ' 档：起始达成率必须小于结束达成率', 'error'); return }
+        if (f.rebate_basis === 'rate' && !(t.rebate_rate > 0 && t.rebate_rate <= 1)) { toast('第 ' + (i + 1) + ' 档：返利比例须在 (0,1] 之间', 'error'); return }
+        if (f.rebate_basis === 'fixed' && t.rebate_amount <= 0) { toast('第 ' + (i + 1) + ' 档：固定金额须大于 0', 'error'); return }
+      }
     }
     f.tiers_json = JSON.stringify(tiers)
   } else {
