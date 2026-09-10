@@ -81,6 +81,12 @@
           <span>当前环境未启用多租户网关（需服务端安装 Hermes）。界面可预览，保存凭证暂不生效。</span>
         </div>
 
+        <!-- 配了渠道却没绑角色 → AI 回复永远推不到手机（后端静默跳过，此前无处可查） -->
+        <div v-if="ccView.supported && ccNoRoleWarn" class="cc-unsupported">
+          <Icon name="alert-triangle"/>
+          <span>渠道已配置，但<b>没有勾选任何 AI 角色</b> → AI 回复不会发到你手机。点下面已配置的卡片，把要跟的角色勾上再保存。</span>
+        </div>
+
         <div class="cc-grid">
           <div v-for="ch in ccOrder" :key="ch" class="card cc-card"
                :class="{ linked: ccState(ch) === 'connected' }" @click="openChannel(ch)">
@@ -356,7 +362,7 @@
             </div>
 
             <div class="cc-roles-pick" v-if="roles.length">
-              <div class="cc-roles-pick-hd">选择 AI 角色<span class="cc-roles-pick-sub">（勾选后该角色回复推送到本渠道）</span></div>
+              <div class="cc-roles-pick-hd">这些角色能把消息发到你手机<span class="cc-roles-pick-sub">（勾选的角色，它的回复会自动发到本渠道；不勾的不会发）</span></div>
               <div class="cc-chips">
                 <button v-for="r in roles" :key="r.role_id" type="button" class="cc-chip" :class="{ on: modalRoles.has(r.role_id) }" @click="toggleModalRole(r.role_id)">
                   <img v-if="r.custom_avatar" :src="avatarUrl(r.role_id)" class="cc-chip-av" />
@@ -364,6 +370,9 @@
                   <span class="cc-chip-name">{{ r.name }}</span>
                 </button>
               </div>
+              <p v-if="!modalRoles.size" class="cc-roles-warn">
+                一个都没勾 → AI 回复不会发到这个渠道，手机收不到消息
+              </p>
             </div>
 
             <label class="cc-field" v-for="f in ccChannel(active.ch).fields" :key="f.key">
@@ -837,7 +846,13 @@ function toggleModalRole(roleId) {
 }
 function loadModalRoles(channel) {
   modalRoles.clear()
-  roles.value.forEach(r => { if (isLinked(r.role_id, channel)) modalRoles.add(r.role_id) })
+  const anyLinked = roles.value.some(r => isLinked(r.role_id, channel))
+  // 该渠道既没绑过角色、也没配过凭证 → 首次配置，默认全选。
+  // 否则老板填完凭证就走，一个角色都没勾，AI 回复永远推不到手机（且全程无提示）。
+  const seedAll = !anyLinked && !(ccChannel(channel) || {}).configured
+  roles.value.forEach(r => {
+    if (seedAll || isLinked(r.role_id, channel)) modalRoles.add(r.role_id)
+  })
 }
 async function applyModalRoles(channel) {
   let bound = 0, unbound = 0
@@ -862,6 +877,14 @@ function avatarUrl(roleId) {
 function linkedRoles(channel) {
   return roles.value.filter(r => isLinked(r.role_id, channel))
 }
+
+/* 已配渠道但一个角色都没绑 → AI 回复推不到手机。
+   后端此时是静默 skip（push_role_channels 返回 pushed:0），用户无从察觉，故在配置页兜底提示。 */
+const ccNoRoleWarn = computed(() => {
+  const ready = ccOrder.value.filter(ch => (ccChannel(ch) || {}).configured)
+  if (!ready.length) return false
+  return !ready.some(ch => linkedRoles(ch).length)
+})
 
 /* 畅捷通 / T+ 数据源连接（走后端 OAuth，前端只负责引导授权 + 检查状态） */
 const chanjet = reactive({
@@ -1081,6 +1104,7 @@ onUnmounted(stopStatusPoll)
 .cc-roles-pick-hd{font-size:13px;font-weight:500;color:var(--t1);margin-bottom:10px}
 .cc-roles-pick-sub{font-weight:400;color:var(--t2);font-size:12px;margin-left:4px}
 .cc-chips{display:flex;flex-wrap:wrap;gap:8px}
+.cc-roles-warn{margin:10px 0 0;font-size:12px;color:#b45309;line-height:1.5}
 .cc-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 6px;border-radius:20px;border:1px solid var(--border-subtle);background:var(--bg);color:var(--t1);cursor:pointer;font-size:12px;transition:.15s;line-height:1}
 .cc-chip:hover{border-color:var(--p)}
 .cc-chip.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark)}
