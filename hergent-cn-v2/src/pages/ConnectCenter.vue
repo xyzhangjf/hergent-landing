@@ -60,104 +60,95 @@
         <!-- 对齐桌面「连接手机」：顶部提示条 -->
         <div class="cc-tip-banner" v-if="!ccTipDismissed">
           <span class="ctb-icon"><Icon name="smartphone"/></span>
-          <span class="ctb-txt">连上飞书 / 企微 / 钉钉，AI 干完活直接推送到你手机上</span>
+          <span class="ctb-txt">连上飞书 / 企业微信 / 钉钉 / QQ，AI 干完活直接推送到你手机上</span>
           <button class="ctb-close" @click="dismissCcTip">知道了</button>
         </div>
         <div class="panel-hd">
           <b>连接手机</b>
-          <span class="page-sub">连上聊天软件，AI 干完活直接推送到你手机上</span>
+          <span class="page-sub">填平台应用凭证，AI 就能在你的聊天软件里收发消息</span>
         </div>
         <!-- 对齐桌面：三步引导 -->
         <div class="cc-guide">
           <div class="cc-guide-step"><span class="cgs-num">①</span> 选一个平台</div>
           <span class="cgs-arrow">→</span>
-          <div class="cc-guide-step"><span class="cgs-num">②</span> 填渠道信息</div>
+          <div class="cc-guide-step"><span class="cgs-num">②</span> 填应用凭证</div>
           <span class="cgs-arrow">→</span>
-          <div class="cc-guide-step"><span class="cgs-num">③</span> 选个 AI 角色</div>
+          <div class="cc-guide-step"><span class="cgs-num">③</span> 审批配对码</div>
         </div>
+
+        <div v-if="!ccView.supported" class="cc-unsupported">
+          <Icon name="shield"/>
+          <span>当前环境未启用多租户网关（需服务端安装 Hermes）。界面可预览，保存凭证暂不生效。</span>
+        </div>
+
         <div class="cc-grid">
-          <!-- 企微 -->
-          <div class="card cc-card" :class="{ linked: channelStatus.wecom.state==='connected' }" @click="openWecom">
+          <div v-for="ch in ccOrder" :key="ch" class="card cc-card"
+               :class="{ linked: ccState(ch) === 'connected' }" @click="openChannel(ch)">
+            <span v-if="ccChannel(ch).tag" class="cc-rec">{{ ccChannel(ch).tag }}</span>
             <div class="cc-card-top">
-              <span class="cc-logo" :class="channelStatus.wecom.state==='connected' ? 'cc-logo-wecom' : ''">企</span>
-              <span class="cc-state" :class="connCls('wecom')">{{ connLabel('wecom') }}</span>
+              <span class="cc-logo" :class="ccState(ch) === 'connected' ? ('cc-logo-' + ch) : ''">{{ ccChannel(ch).short }}</span>
+              <span class="cc-state" :class="connCls(ch)">{{ connLabel(ch) }}</span>
             </div>
-            <div class="cc-name">企业微信</div>
-            <div class="cc-desc">AI 回复直达你的微信（群机器人 Webhook）</div>
-            <div class="cc-roles" v-if="wecomLinkedRoles.length">
-              <span v-for="r in wecomLinkedRoles" :key="r.role_id" class="cc-role-tag" :title="r.name">
+            <div class="cc-name">{{ ccChannel(ch).label }}</div>
+            <div class="cc-desc">{{ ccChannel(ch).desc }}</div>
+            <div class="cc-roles" v-if="linkedRoles(ch).length">
+              <span v-for="r in linkedRoles(ch)" :key="r.role_id" class="cc-role-tag" :title="r.name">
                 <img v-if="r.custom_avatar" :src="avatarUrl(r.role_id)" class="cc-role-av" />
                 <span v-else class="cc-role-av cc-role-av-em">{{ r.avatar }}</span>
               </span>
             </div>
-            <div class="cc-ops" v-if="channelStatus.wecom.state!=='disconnected'">
-              <button class="cc-op" :disabled="wecomBusy" @click.stop="testChannel('wecom')">测试</button>
-              <button class="cc-op" :disabled="wecomBusy" @click.stop="restartChannel('wecom')">重连</button>
+            <div class="cc-ops" v-if="ccChannel(ch).configured">
+              <button class="cc-op" :disabled="ccBusy[ch]" @click.stop="testChannel(ch)">测试连接</button>
+              <button class="cc-op" :disabled="ccBusy[ch]" @click.stop="restartGateway()">重连</button>
             </div>
-            <div class="cc-health" v-if="channelStatus.wecom.last_health_at">
-              最近探活 {{ channelStatus.wecom.last_health_at }}
-              <template v-if="channelStatus.wecom.fail_count"> · 失败{{ channelStatus.wecom.fail_count }}</template>
-              <template v-if="channelStatus.wecom.restart_count"> · 重连{{ channelStatus.wecom.restart_count }}</template>
+            <div class="cc-health" v-if="ccChannel(ch).configured">
+              <template v-if="ccChannel(ch).last_error">⚠ {{ ccChannel(ch).last_error }}</template>
+              <template v-else-if="ccState(ch) === 'connected'">长连接已建立，可以收发消息</template>
+              <template v-else>等待连接…</template>
             </div>
-            <div class="cc-action" :class="channelStatus.wecom.state==='connected' ? 'ghost' : 'primary'" @click.stop="openWecom">{{ channelStatus.wecom.state==='connected' ? '重新配置' : '去连接' }}</div>
-          </div>
-          <!-- 飞书 -->
-          <div class="card cc-card" :class="{ linked: channelStatus.feishu.state==='connected' }" @click="openFeishu">
-            <span class="cc-rec">推荐</span>
-            <div class="cc-card-top">
-              <span class="cc-logo" :class="channelStatus.feishu.state==='connected' ? 'cc-logo-feishu' : ''">飞</span>
-              <span class="cc-state" :class="connCls('feishu')">{{ connLabel('feishu') }}</span>
-            </div>
-            <div class="cc-name">飞书</div>
-            <div class="cc-desc">AI 回复直达飞书（群机器人 Webhook）</div>
-            <div class="cc-roles" v-if="feishuLinkedRoles.length">
-              <span v-for="r in feishuLinkedRoles" :key="r.role_id" class="cc-role-tag" :title="r.name">
-                <img v-if="r.custom_avatar" :src="avatarUrl(r.role_id)" class="cc-role-av" />
-                <span v-else class="cc-role-av cc-role-av-em">{{ r.avatar }}</span>
-              </span>
-            </div>
-            <div class="cc-ops" v-if="channelStatus.feishu.state!=='disconnected'">
-              <button class="cc-op" :disabled="feishuBusy" @click.stop="testChannel('feishu')">测试</button>
-              <button class="cc-op" :disabled="feishuBusy" @click.stop="restartChannel('feishu')">重连</button>
-            </div>
-            <div class="cc-health" v-if="channelStatus.feishu.last_health_at">
-              最近探活 {{ channelStatus.feishu.last_health_at }}
-              <template v-if="channelStatus.feishu.fail_count"> · 失败{{ channelStatus.feishu.fail_count }}</template>
-              <template v-if="channelStatus.feishu.restart_count"> · 重连{{ channelStatus.feishu.restart_count }}</template>
-            </div>
-            <div class="cc-action" :class="channelStatus.feishu.state==='connected' ? 'ghost' : 'primary'" @click.stop="openFeishu">{{ channelStatus.feishu.state==='connected' ? '重新配置' : '去连接' }}</div>
-          </div>
-          <!-- 钉钉 -->
-          <div class="card cc-card" :class="{ linked: channelStatus.dingtalk.state==='connected' }" @click="openDingtalk">
-            <div class="cc-card-top">
-              <span class="cc-logo" :class="channelStatus.dingtalk.state==='connected' ? 'cc-logo-dingtalk' : ''">钉</span>
-              <span class="cc-state" :class="connCls('dingtalk')">{{ connLabel('dingtalk') }}</span>
-            </div>
-            <div class="cc-name">钉钉</div>
-            <div class="cc-desc">AI 回复直达钉钉（群机器人 Webhook，支持加签）</div>
-            <div class="cc-roles" v-if="dingtalkLinkedRoles.length">
-              <span v-for="r in dingtalkLinkedRoles" :key="r.role_id" class="cc-role-tag" :title="r.name">
-                <img v-if="r.custom_avatar" :src="avatarUrl(r.role_id)" class="cc-role-av" />
-                <span v-else class="cc-role-av cc-role-av-em">{{ r.avatar }}</span>
-              </span>
-            </div>
-            <div class="cc-ops" v-if="channelStatus.dingtalk.state!=='disconnected'">
-              <button class="cc-op" :disabled="dingtalkBusy" @click.stop="testChannel('dingtalk')">测试</button>
-              <button class="cc-op" :disabled="dingtalkBusy" @click.stop="restartChannel('dingtalk')">重连</button>
-            </div>
-            <div class="cc-health" v-if="channelStatus.dingtalk.last_health_at">
-              最近探活 {{ channelStatus.dingtalk.last_health_at }}
-              <template v-if="channelStatus.dingtalk.fail_count"> · 失败{{ channelStatus.dingtalk.fail_count }}</template>
-              <template v-if="channelStatus.dingtalk.restart_count"> · 重连{{ channelStatus.dingtalk.restart_count }}</template>
-            </div>
-            <div class="cc-action" :class="channelStatus.dingtalk.state==='connected' ? 'ghost' : 'primary'" @click.stop="openDingtalk">{{ channelStatus.dingtalk.state==='connected' ? '重新配置' : '去连接' }}</div>
+            <div class="cc-action" :class="ccChannel(ch).configured ? 'ghost' : 'primary'"
+                 @click.stop="openChannel(ch)">{{ ccChannel(ch).configured ? '重新配置' : '去连接' }}</div>
           </div>
         </div>
+
         <!-- 对齐桌面：连接状态栏 -->
         <div class="cc-gateway">
           <span class="gw-dot" :class="gwCls"></span>
           <span class="gw-text">{{ gwText }}</span>
           <button class="gw-btn" :disabled="gwBusy" @click="recheckAll">重新检测全部</button>
+        </div>
+
+        <!-- 配对审批：谁可以跟 AI 对话 -->
+        <div class="cc-pair">
+          <div class="cc-pair-hd">
+            <b>谁能跟 AI 对话</b>
+            <span class="page-sub">在聊天软件里给机器人发条消息 → 收到 8 位配对码 → 在这里批准</span>
+            <button class="btn btn-ghost btn-sm" :disabled="pairBusy" @click="loadPairings">刷新</button>
+          </div>
+          <div v-if="pairPending.length" class="cc-pair-pending">
+            <div v-for="(p, i) in pairPending" :key="i" class="cc-pair-row">
+              <span class="cc-pair-ch">{{ ccChannel(p.channel).label || p.channel }}</span>
+              <span class="cc-pair-code">{{ p.code }}</span>
+              <span class="cc-pair-user">{{ p.user_name || p.user_id || '待识别用户' }}</span>
+              <button class="cc-op" :disabled="pairBusy" @click="approvePairing(p)">批准</button>
+            </div>
+          </div>
+          <div v-else class="cc-pair-empty">暂无待审批请求</div>
+          <div class="cc-pair-manual">
+            <input v-model="pairCode" class="input" placeholder="收到配对码后也可在此手填，如 A1B2C3D4" />
+            <select v-model="pairChannel" class="input cc-pair-sel">
+              <option v-for="ch in ccOrder" :key="ch" :value="ch">{{ ccChannel(ch).label }}</option>
+            </select>
+            <button class="btn btn-primary btn-sm" :disabled="pairBusy || !pairCode.trim()" @click="approvePairing({ channel: pairChannel, code: pairCode.trim() })">批准</button>
+          </div>
+          <div v-if="pairApproved.length" class="cc-pair-approved">
+            <div v-for="(u, i) in pairApproved" :key="i" class="cc-pair-row">
+              <span class="cc-pair-ch">{{ ccChannel(u.channel).label || u.channel }}</span>
+              <span class="cc-pair-user">{{ u.user_name || u.user_id }}</span>
+              <span class="tag ok">已授权</span>
+              <button class="cc-op" :disabled="pairBusy" @click="revokePairing(u)">撤销</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -335,67 +326,35 @@
       </Teleport>
     </template>
 
-    <!-- 企微配置弹窗 -->
+    <!-- 渠道配置弹窗（飞书 / 企业微信 / 钉钉 / QQ 共用；引导词复刻桌面版） -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="wecom.open" class="cc-overlay" @click="closeWecom"></div>
+        <div v-if="active.open" class="cc-overlay" @click="closeChannel"></div>
       </Transition>
       <Transition name="pop">
-        <div v-if="wecom.open" class="cc-modal">
+        <div v-if="active.open" class="cc-modal cc-modal-wide">
           <div class="cc-modal-hd">
-            <b>连接企业微信</b>
-            <button class="cc-x" @click="closeWecom">
+            <b>连接{{ ccChannel(active.ch).label }}</b>
+            <button class="cc-x" @click="closeChannel">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
           <div class="cc-modal-body">
-            <p class="cc-modal-tip">在企微群里「添加群机器人」复制 Webhook 地址；如需应用消息可补充企业 ID / 应用 ID。</p>
-            <div class="cc-roles-pick" v-if="roles.length">
-              <div class="cc-roles-pick-hd">选择 AI 角色<span class="cc-roles-pick-sub">（勾选后该角色回复推送到本渠道）</span></div>
-              <div class="cc-chips">
-                <button v-for="r in roles" :key="r.role_id" type="button" class="cc-chip" :class="{ on: modalRoles.has(r.role_id) }" @click="toggleModalRole(r.role_id)">
-                  <img v-if="r.custom_avatar" :src="avatarUrl(r.role_id)" class="cc-chip-av" />
-                  <span v-else class="cc-chip-av cc-chip-av-em">{{ r.avatar }}</span>
-                  <span class="cc-chip-name">{{ r.name }}</span>
-                </button>
+            <!-- 引导词（复刻桌面 desktop-app/js/config.js 的四段取证引导） -->
+            <div class="cc-guide-box">
+              <button class="cc-guide-toggle" @click="active.guideOpen = !active.guideOpen">
+                <Icon name="book"/>
+                <span>{{ active.guideOpen ? '收起取证步骤' : '怎么拿到凭证？点这里看步骤' }}</span>
+                <span class="cc-guide-arrow">{{ active.guideOpen ? '▲' : '▼' }}</span>
+              </button>
+              <div v-if="active.guideOpen" class="cc-guide-body">
+                <div class="cc-guide-intro">{{ ccGuide(active.ch).intro }}</div>
+                <ol class="cc-guide-list">
+                  <li v-for="(it, i) in ccGuide(active.ch).items" :key="i">{{ it }}</li>
+                </ol>
               </div>
             </div>
-            <label class="cc-field">
-              <span>群机器人 Webhook 地址</span>
-              <input v-model="wecom.form.webhookUrl" class="input" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx" />
-            </label>
-            <label class="cc-field">
-              <span>企业 ID（corpId，可选）</span>
-              <input v-model="wecom.form.corpId" class="input" placeholder="企业微信 corpId" />
-            </label>
-            <label class="cc-field">
-              <span>应用 ID（agentId，可选）</span>
-              <input v-model="wecom.form.agentId" class="input" placeholder="自建应用 agentId" />
-            </label>
-          </div>
-          <div class="cc-modal-ft">
-            <button class="btn btn-ghost" @click="closeWecom">取消</button>
-            <button class="btn btn-primary" :disabled="!wecom.form.webhookUrl" @click="saveWecom">保存连接</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
 
-    <!-- 飞书配置弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="feishu.open" class="cc-overlay" @click="closeFeishu"></div>
-      </Transition>
-      <Transition name="pop">
-        <div v-if="feishu.open" class="cc-modal">
-          <div class="cc-modal-hd">
-            <b>连接飞书</b>
-            <button class="cc-x" @click="closeFeishu">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-          <div class="cc-modal-body">
-            <p class="cc-modal-tip">在飞书群里「添加群机器人」复制 Webhook 地址；如需应用消息可补充 App ID / App Secret。</p>
             <div class="cc-roles-pick" v-if="roles.length">
               <div class="cc-roles-pick-hd">选择 AI 角色<span class="cc-roles-pick-sub">（勾选后该角色回复推送到本渠道）</span></div>
               <div class="cc-chips">
@@ -406,64 +365,22 @@
                 </button>
               </div>
             </div>
-            <label class="cc-field">
-              <span>群机器人 Webhook 地址</span>
-              <input v-model="feishu.form.webhookUrl" class="input" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxxx" />
-            </label>
-            <label class="cc-field">
-              <span>App ID（可选）</span>
-              <input v-model="feishu.form.appId" class="input" placeholder="飞书应用 App ID" />
-            </label>
-            <label class="cc-field">
-              <span>App Secret（可选）</span>
-              <input v-model="feishu.form.appSecret" class="input" placeholder="粘贴 App Secret" type="password" />
-            </label>
-          </div>
-          <div class="cc-modal-ft">
-            <button class="btn btn-ghost" @click="closeFeishu">取消</button>
-            <button class="btn btn-primary" :disabled="!feishu.form.webhookUrl" @click="saveFeishu">保存连接</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
 
-    <!-- 钉钉配置弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="dingtalk.open" class="cc-overlay" @click="closeDingtalk"></div>
-      </Transition>
-      <Transition name="pop">
-        <div v-if="dingtalk.open" class="cc-modal">
-          <div class="cc-modal-hd">
-            <b>连接钉钉</b>
-            <button class="cc-x" @click="closeDingtalk">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-          <div class="cc-modal-body">
-            <p class="cc-modal-tip">在钉钉群里「智能群助手 / 自定义机器人」复制 Webhook 地址；若机器人开启「加签」安全设置，请粘贴签名密钥。</p>
-            <div class="cc-roles-pick" v-if="roles.length">
-              <div class="cc-roles-pick-hd">选择 AI 角色<span class="cc-roles-pick-sub">（勾选后该角色回复推送到本渠道）</span></div>
-              <div class="cc-chips">
-                <button v-for="r in roles" :key="r.role_id" type="button" class="cc-chip" :class="{ on: modalRoles.has(r.role_id) }" @click="toggleModalRole(r.role_id)">
-                  <img v-if="r.custom_avatar" :src="avatarUrl(r.role_id)" class="cc-chip-av" />
-                  <span v-else class="cc-chip-av cc-chip-av-em">{{ r.avatar }}</span>
-                  <span class="cc-chip-name">{{ r.name }}</span>
-                </button>
-              </div>
-            </div>
-            <label class="cc-field">
-              <span>群机器人 Webhook 地址</span>
-              <input v-model="dingtalk.form.webhookUrl" class="input" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxxx" />
+            <label class="cc-field" v-for="f in ccChannel(active.ch).fields" :key="f.key">
+              <span>{{ f.label }}<em v-if="f.secret" class="cc-field-hint">（只显示一次，请及时粘贴）</em></span>
+              <input v-model="active.form[f.key]" class="input" :type="f.secret ? 'password' : 'text'"
+                     :placeholder="f.placeholder" autocomplete="off" />
             </label>
-            <label class="cc-field">
-              <span>加签密钥（secret，可选）</span>
-              <input v-model="dingtalk.form.secret" class="input" placeholder="开启加签时填写" type="password" />
-            </label>
+
+            <p class="cc-modal-tip" v-if="ccState(active.ch) === 'connected'">✅ 该渠道已连通，直接改字段后保存即可覆盖。</p>
+            <p class="cc-modal-tip warn" v-else-if="ccChannel(active.ch).last_error">⚠ {{ ccChannel(active.ch).last_error }}</p>
           </div>
           <div class="cc-modal-ft">
-            <button class="btn btn-ghost" @click="closeDingtalk">取消</button>
-            <button class="btn btn-primary" :disabled="!dingtalk.form.webhookUrl" @click="saveDingtalk">保存连接</button>
+            <button v-if="ccChannel(active.ch).configured" class="btn btn-ghost" @click="disconnectChannel">断开</button>
+            <button class="btn btn-ghost" @click="closeChannel">取消</button>
+            <button class="btn btn-primary" :disabled="active.busy || !formReady(active.ch)" @click="saveChannel">
+              {{ active.busy ? '正在连接…' : '保存' }}
+            </button>
           </div>
         </div>
       </Transition>
@@ -540,7 +457,7 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
-import { reactive, ref, computed, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../store'
 import { workflowApi, aiSkillsApi } from '../api/modules'
@@ -632,29 +549,35 @@ function openWorkflow(w) {
   else toast(w.name + ' 未开通', 'info')
 }
 
-/* 渠道凭证（租户级，后端加密持久化，替换 localStorage） */
-const wecom = reactive({ open: false, linked: false, form: { webhookUrl: '', corpId: '', agentId: '' } })
-const feishu = reactive({ open: false, linked: false, form: { webhookUrl: '', appId: '', appSecret: '' } })
-const dingtalk = reactive({ open: false, linked: false, form: { webhookUrl: '', secret: '' } })
-
-/* 连接状态机（每渠道真实连接状态，移植自桌面 gateway.js） */
-const wecomBusy = ref(false)
-const feishuBusy = ref(false)
-const dingtalkBusy = ref(false)
-const channelStatus = reactive({
-  wecom:    { state: 'disconnected', last_health_at: '', fail_count: 0, restart_count: 0, last_error: '' },
-  feishu:   { state: 'disconnected', last_health_at: '', fail_count: 0, restart_count: 0, last_error: '' },
-  dingtalk: { state: 'disconnected', last_health_at: '', fail_count: 0, restart_count: 0, last_error: '' },
+/* ===== 连接手机：Hermes 官方通道（应用凭证 + 长连接 + 配对码审批） =====
+   渠道定义 / 凭证掩码 / 连接态一律由后端 /api/ai/channels/config 下发，
+   前端不再硬编码平台差异，也不再保存任何 Webhook。 */
+const ccView = reactive({
+  supported: true,
+  channels: {},
+  order: ['feishu', 'wecom', 'dingtalk', 'qq'],
+  gateway: {},
 })
+const DEFAULT_ORDER = ['feishu', 'wecom', 'dingtalk', 'qq']
+const ccOrder = computed(() => (ccView.order && ccView.order.length) ? ccView.order : DEFAULT_ORDER)
+function ccChannel(ch) { return ccView.channels[ch] || {} }
+function ccState(ch) { return (ccView.channels[ch] && ccView.channels[ch].state) || 'disconnected' }
+
+const ccBusy = reactive({ feishu: false, wecom: false, dingtalk: false, qq: false })
 
 function connLabel(ch) {
-  const s = (channelStatus[ch] && channelStatus[ch].state) || 'disconnected'
-  return ({ disconnected: '未连接', connecting: '连接中', connected: '已连接', error: '异常', reconnecting: '重连中' })[s] || s
+  const s = ccState(ch)
+  return ({ disconnected: '未连接', connecting: '连接中', connected: '已连接',
+            error: '异常', reconnecting: '重连中', unknown: '未知' })[s] || s
 }
 function connCls(ch) {
-  const s = (channelStatus[ch] && channelStatus[ch].state) || 'disconnected'
-  return ({ disconnected: '', connecting: 'warn', connected: 'on', error: 'err', reconnecting: 'warn' })[s] || ''
+  const s = ccState(ch)
+  return ({ disconnected: '', connecting: 'warn', connected: 'on',
+            error: 'err', reconnecting: 'warn', unknown: '' })[s] || ''
 }
+
+/* 配置弹窗（四平台共用一套字段驱动） */
+const active = reactive({ open: false, ch: 'feishu', form: {}, busy: false, guideOpen: false })
 
 /* 对齐桌面「连接手机」：顶部提示条可关闭（localStorage 记忆） */
 const ccTipDismissed = ref(false)
@@ -664,155 +587,226 @@ function dismissCcTip() {
   try { localStorage.setItem('cc_tip_dismissed', '1') } catch (e) {}
 }
 
-/* 对齐桌面 channel-gateway：底部连接状态栏（聚合三渠道状态机） */
+async function loadChannels() {
+  try {
+    const r = await api('/api/ai/channels/config')
+    ccView.supported = !(r && r.supported === false)
+    ccView.channels = (r && r.channels) || {}
+    ccView.order = (r && r.order) || ccView.order
+    ccView.gateway = (r && r.gateway) || {}
+  } catch (e) { /* 静默：保留上次状态，不阻断页面渲染 */ }
+}
+
+/* 保存凭证 / 重启网关后，长连接要过几秒才鉴权完（桌面版是轮询 gateway_state.json）。
+   这里做有限轮询：每 3s 复查一次，直到没有渠道处于过渡态或超时为止。 */
+let ccPollTimer = null
+const CC_TRANSITION = ['connecting', 'reconnecting']
+function stopStatusPoll() {
+  if (ccPollTimer) { clearInterval(ccPollTimer); ccPollTimer = null }
+}
+function startStatusPoll(maxMs = 48000) {
+  stopStatusPoll()
+  const deadline = Date.now() + maxMs
+  ccPollTimer = setInterval(async () => {
+    await loadChannels()
+    const pending = ccOrder.value.some(ch => CC_TRANSITION.includes(ccState(ch)))
+    if (!pending || Date.now() > deadline) stopStatusPoll()
+  }, 3000)
+}
+
+/* 对齐桌面 channel-gateway：底部连接状态栏（聚合本租户网关与各平台） */
 const gwBusy = ref(false)
 const gwSummary = computed(() => {
-  const st = ['wecom', 'feishu', 'dingtalk'].map(c => (channelStatus[c] && channelStatus[c].state) || 'disconnected')
-  const anyErr = st.includes('error')
-  const anyReconn = st.includes('reconnecting')
-  const anyConn = st.includes('connecting')
-  const allConn = st.every(s => s === 'connected')
-  const noneConn = st.every(s => s === 'disconnected')
-  if (anyErr) return { cls: 'err', text: '部分渠道连接异常，建议点卡片上的「重连」' }
-  if (anyReconn) return { cls: 'warn', text: '正在尝试重连…' }
-  if (anyConn) return { cls: 'warn', text: '正在连接中…' }
-  if (allConn) return { cls: 'on', text: '全部渠道已连接，AI 会推送到你的手机' }
-  if (noneConn) return { cls: '', text: '尚未连接任何渠道' }
+  if (!ccView.supported) return { cls: '', text: '当前环境未启用多租户网关' }
+  const states = ccOrder.value.filter(ch => ccChannel(ch).configured).map(ch => ccState(ch))
+  if (!states.length) return { cls: '', text: '尚未连接任何渠道' }
+  if (states.includes('error')) return { cls: 'err', text: '部分渠道连接异常，点卡片上的「重连」' }
+  if (states.includes('connecting') || states.includes('reconnecting')) return { cls: 'warn', text: '正在连接中…' }
+  if (states.every(s => s === 'connected')) return { cls: 'on', text: '全部渠道已连接，AI 会推送到你的手机' }
   return { cls: '', text: '部分渠道已连接' }
 })
 const gwCls = computed(() => gwSummary.value.cls)
 const gwText = computed(() => gwSummary.value.text)
+
 async function recheckAll() {
   gwBusy.value = true
   try {
-    const proms = ['wecom', 'feishu', 'dingtalk']
-      .filter(c => channelStatus[c] && channelStatus[c].state !== 'disconnected')
-      .map(c => testChannel(c))
-    await Promise.all(proms)
-    await loadChannelStatus()
+    await restartGateway()
     toast('已重新检测全部渠道', 'ok')
   } catch (e) { toast('检测失败', 'err') }
   finally { gwBusy.value = false }
 }
-function setBusy(ch, v) {
-  if (ch === 'wecom') wecomBusy.value = v
-  else if (ch === 'feishu') feishuBusy.value = v
-  else if (ch === 'dingtalk') dingtalkBusy.value = v
-}
-async function loadChannelStatus() {
-  try {
-    const r = await api('/api/ai/channels/status')
-    const list = (r && r.channels) || []
-    list.forEach(c => {
-      if (channelStatus[c.channel]) Object.assign(channelStatus[c.channel], {
-        state: c.conn_state || 'disconnected',
-        last_health_at: c.last_health_at || '',
-        fail_count: c.fail_count || 0,
-        restart_count: c.restart_count || 0,
-        last_error: c.last_error || '',
-      })
-    })
-  } catch (e) { /* 静默 */ }
-}
+
 async function testChannel(ch) {
-  setBusy(ch, true)
+  ccBusy[ch] = true
   try {
     const d = await api('/api/ai/channels/test', { method: 'POST', body: { channel: ch } })
-    if (d && d.success) toast(d.state === 'connected' ? '连通正常' : ('探活结果：' + connLabel(ch)), 'ok')
+    if (d && d.ok) toast('连通正常', 'ok')
     else toast((d && d.msg) || '探活失败', 'err')
-    await loadChannelStatus()
+    await loadChannels()
+    startStatusPoll()
   } catch (e) { toast(e.message || '探活失败', 'err') }
-  finally { setBusy(ch, false) }
+  finally { ccBusy[ch] = false }
 }
-async function restartChannel(ch) {
-  setBusy(ch, true)
+
+async function restartGateway() {
   try {
-    const d = await api('/api/ai/channels/restart', { method: 'POST', body: { channel: ch } })
-    if (d && d.success) toast('已重连：' + connLabel(ch), 'ok')
+    const d = await api('/api/ai/channels/restart', { method: 'POST', body: {} })
+    if (d && d.success && d.ok) toast('已重连', 'ok')
+    else if (d && d.success) toast(d.msg || '网关已重启', 'ok')
     else toast((d && d.msg) || '重连失败', 'err')
-    await loadChannelStatus()
+    await loadChannels()
+    startStatusPoll()
   } catch (e) { toast(e.message || '重连失败', 'err') }
-  finally { setBusy(ch, false) }
-}
-async function loadChannelConfig(channel) {
-  try { return (await api('/api/ai/channels/config?channel=' + channel)) || {} }
-  catch (e) { return {} }
 }
 
-async function openWecom() {
-  const r = await loadChannelConfig('wecom')
-  const cfg = (r && r.config) || {}
-  wecom.form.webhookUrl = cfg.webhookUrl || ''
-  wecom.form.corpId = cfg.corpId || ''
-  wecom.form.agentId = cfg.agentId || ''
-  wecom.linked = !!(r && r.enabled)
-  loadModalRoles('wecom')
-  wecom.open = true
+/* ===== 四段取证引导词 =====
+   逐字复刻桌面版 desktop-app/js/config.js::questionnaires 的 channel_* 四段，
+   不再让老板自己猜「去哪儿点哪个按钮」。 */
+const CHANNEL_GUIDES = {
+  feishu: {
+    name: '连接飞书',
+    intro: '拿到飞书的 App ID 和 App Secret 后，直接去「连接手机」页面找到飞书卡片，填进去点保存就行。没拿到的我带你一步步拿——',
+    items: [
+      '第1步：打开飞书开发者后台 https://open.feishu.cn/app ，登录后在页面最顶部有个很大的图标写着「创建飞书智能体应用」，点它。如果还没注册，点「立即注册」就行，个人用户也能注册，企业名填你自己名字都行。注册登录好了告诉我。',
+      '创建好应用了吗？在应用详情页找到「凭证与基础信息」，把 App ID 复制下来，去「连接手机」页面的飞书卡片里粘贴。App Secret 也在同一个位置，点「查看」复制，🔥 只显示一次！两个都贴好后点「保存」。搞完告诉我。',
+      '接下来开权限：左边菜单点「权限管理」，搜 im:message 并开通。需要开的权限：im:message、im:message.group_at_msg、im:message.p2p_msg、im:resource。搜一个开一个，开完告诉我。',
+      '权限开完后，左边点「应用发布」→「创建版本」填个版本号比如 1.0.0 →「发布」。发布好了告诉我。',
+      '在你的飞书里搜应用名，点进去拉到工作群里。搞完之后，回到「连接手机」页面，点飞书卡片上的「测试连接」，收到消息就说明通啦！',
+    ],
+  },
+  wecom: {
+    name: '连接企业微信',
+    intro: '拿到企微智能机器人的 Bot ID 和 Secret 后，直接去「连接手机」页面找到企业微信卡片，填进去点保存就行。没拿到的我带你拿——',
+    items: [
+      '第1步：打开企业微信 → 点底部「工作台」→ 找到「智能机器人」→ 点「创建智能机器人」。',
+      '点左下角「手动创建」→ 往下拉到最底部，找到「API 模式创建」，点它。',
+      '给机器人起个名字（随便填就行），「可见范围」必填，建议先选你自己。「连接方式」选择「使用长连接」。搞完告诉我。',
+      '这时候 Bot ID 已经默认显示在页面上了，Secret 点「获取」就能看到。⚠️ 只显示一次！把 Bot ID 和 Secret 复制下来，去「连接手机」页面的企业微信卡片里贴好，点「保存」。搞完告诉我。',
+      '继续往下，点击「使用权限」获取文档使用权限 → 再点「授权」→ 最后点「保存」，机器人就创建完成了。保存好了告诉我。',
+      '搞定了！回到「连接手机」页面，点企业微信卡片上的「测试连接」，收到消息就通了。',
+    ],
+  },
+  dingtalk: {
+    name: '连接钉钉',
+    intro: '拿到钉钉的 Client ID 和 Client Secret 后，直接去「连接手机」页面找到钉钉卡片，填进去点保存就行。没拿到的我带你拿——',
+    items: [
+      '第1步：打开钉钉开发者后台 https://open-dev.dingtalk.com ，用管理员账号登录。没注册的话先注册，个人也能创建团队。登录好了告诉我。',
+      '在「应用开发」下点「创建应用」→ 选「机器人」→ 填好名字和简介→「保存」。创建好了告诉我。',
+      '应用详情页「凭证与基础信息」里，Client ID 和 Client Secret 都在。⚠️ Secret 只显示一次！把两个复制下来，去「连接手机」页面的钉钉卡片里贴好，点「保存」。搞完告诉我。',
+      '接下来开权限：左侧菜单「权限管理」，搜索并开通这三个——Card.Streaming.Write、Card.Instance.Write、qyapi_robot_sendmsg。三个都开通了告诉我。',
+      '点页面上方「版本详情」旁的编辑按钮，填个描述（随便写）→「确认发布」。不发布机器人在钉钉里搜不到。发布好了告诉我。',
+      '等几分钟审核通过后，回到「连接手机」页面，点钉钉卡片上的「测试连接」，收到消息就通了。',
+    ],
+  },
+  qq: {
+    name: '连接QQ',
+    intro: '拿到 QQ 机器人的 AppID 和 AppSecret 后，直接去「连接手机」页面找到 QQ 卡片，填进去点保存就行。没拿到的我带你拿——',
+    items: [
+      '第1步：打开 QQ 开放平台 https://q.qq.com ，登录后点「应用管理」→「创建机器人」。起个名字、选个头像就行。创建好了告诉我。',
+      '创建成功后，在应用详情页找到 AppID 和 AppSecret。⚠️ AppSecret 只显示一次！把两个都复制下来，去「连接手机」页面的 QQ 卡片里贴好，点「保存」。搞完告诉我。',
+      '左侧菜单点「权限管理」，确认机器人有收发消息的权限（一般默认就有，看一眼就好）。确认完告诉我。',
+      '回到「连接手机」页面，点 QQ 卡片上的「测试连接」，收到消息就通了。',
+    ],
+  },
 }
-function closeWecom() { wecom.open = false }
+function ccGuide(ch) { return CHANNEL_GUIDES[ch] || { intro: '', items: [] } }
 
-async function saveWecom() {
-  const cfg = { webhookUrl: wecom.form.webhookUrl.trim(), corpId: wecom.form.corpId.trim(), agentId: wecom.form.agentId.trim() }
-  if (!cfg.webhookUrl) { toast('请填写企微群机器人 Webhook 地址', 'err'); return }
+/* 密钥字段回填留空 = 沿用已存值，所以只要每项「有输入 或 后端已存」即可提交 */
+function formReady(ch) {
+  const c = ccChannel(ch)
+  const saved = c.config || {}
+  return (c.fields || []).every(f => (active.form[f.key] || '').trim() || saved[f.key])
+}
+
+function openChannel(ch) {
+  const c = ccChannel(ch)
+  active.ch = ch
+  active.busy = false
+  active.guideOpen = false
+  const form = {}
+  ;(c.fields || []).forEach(f => {
+    const v = (c.config || {})[f.key] || ''
+    form[f.key] = (v === '******') ? '' : v
+  })
+  active.form = form
+  loadModalRoles(ch)
+  active.open = true
+}
+function closeChannel() { active.open = false }
+
+async function saveChannel() {
+  if (!formReady(active.ch)) { toast('请把凭证填完整', 'err'); return }
+  const cfg = {}
+  ;(ccChannel(active.ch).fields || []).forEach(f => { cfg[f.key] = (active.form[f.key] || '').trim() })
+  active.busy = true
   try {
-    await api('/api/ai/channels/config', { method: 'PUT', body: { channel: 'wecom', config: cfg } })
-    wecom.linked = true; wecom.open = false
-    toast('企微连接已保存', 'success')
-    testChannel('wecom')
-    await applyModalRoles('wecom')
+    await api('/api/ai/channels/config', { method: 'PUT', body: { channel: active.ch, config: cfg } })
+    toast(ccChannel(active.ch).label + '已保存，正在建立长连接…', 'success')
+    await applyModalRoles(active.ch)
+    active.open = false
+    await loadChannels()
+    startStatusPoll()
+    setTimeout(loadPairings, 3000)
   } catch (e) { toast(e.message || '保存失败', 'err') }
+  finally { active.busy = false }
 }
 
-async function openFeishu() {
-  const r = await loadChannelConfig('feishu')
-  const cfg = (r && r.config) || {}
-  feishu.form.webhookUrl = cfg.webhookUrl || ''
-  feishu.form.appId = cfg.appId || ''
-  feishu.form.appSecret = cfg.appSecret || ''
-  feishu.linked = !!(r && r.enabled)
-  loadModalRoles('feishu')
-  feishu.open = true
-}
-function closeFeishu() { feishu.open = false }
-
-async function saveFeishu() {
-  const cfg = { webhookUrl: feishu.form.webhookUrl.trim(), appId: feishu.form.appId.trim(), appSecret: feishu.form.appSecret.trim() }
-  if (!cfg.webhookUrl) { toast('请填写飞书群机器人 Webhook 地址', 'err'); return }
+async function disconnectChannel() {
+  const ch = active.ch
+  active.busy = true
   try {
-    await api('/api/ai/channels/config', { method: 'PUT', body: { channel: 'feishu', config: cfg } })
-    feishu.linked = true; feishu.open = false
-    toast('飞书连接已保存', 'success')
-    testChannel('feishu')
-    await applyModalRoles('feishu')
-  } catch (e) { toast(e.message || '保存失败', 'err') }
+    await api('/api/ai/channels/disconnect', { method: 'POST', body: { channel: ch } })
+    toast(ccChannel(ch).label + '已断开', 'ok')
+    active.open = false
+    await loadChannels()
+  } catch (e) { toast(e.message || '断开失败', 'err') }
+  finally { active.busy = false }
 }
 
-async function openDingtalk() {
-  const r = await loadChannelConfig('dingtalk')
-  const cfg = (r && r.config) || {}
-  dingtalk.form.webhookUrl = cfg.webhookUrl || ''
-  dingtalk.form.secret = cfg.secret || ''
-  dingtalk.linked = !!(r && r.enabled)
-  loadModalRoles('dingtalk')
-  dingtalk.open = true
-}
-function closeDingtalk() { dingtalk.open = false }
+/* ===== 配对审批：谁可以跟 AI 对话 ===== */
+const pairPending = ref([])
+const pairApproved = ref([])
+const pairBusy = ref(false)
+const pairCode = ref('')
+const pairChannel = ref('feishu')
 
-async function saveDingtalk() {
-  const cfg = { webhookUrl: dingtalk.form.webhookUrl.trim(), secret: dingtalk.form.secret.trim() }
-  if (!cfg.webhookUrl) { toast('请填写钉钉群机器人 Webhook 地址', 'err'); return }
+async function loadPairings() {
+  pairBusy.value = true
   try {
-    await api('/api/ai/channels/config', { method: 'PUT', body: { channel: 'dingtalk', config: cfg } })
-    dingtalk.linked = true; dingtalk.open = false
-    toast('钉钉连接已保存', 'success')
-    testChannel('dingtalk')
-    await applyModalRoles('dingtalk')
-  } catch (e) { toast(e.message || '保存失败', 'err') }
+    const r = await api('/api/ai/channels/pairings')
+    pairPending.value = (r && r.pending) || []
+    pairApproved.value = (r && r.approved) || []
+  } catch (e) { /* 静默：配对数据缺失不影响主流程 */ }
+  finally { pairBusy.value = false }
+}
+
+async function approvePairing(p) {
+  if (!p || !p.code) return
+  pairBusy.value = true
+  try {
+    await api('/api/ai/channels/pairings/approve', { method: 'POST', body: { channel: p.channel, code: p.code } })
+    toast('已批准，对方现在可以跟 AI 对话了', 'ok')
+    pairCode.value = ''
+    await loadPairings()
+  } catch (e) { toast(e.message || '配对码不正确或已过期', 'err') }
+  finally { pairBusy.value = false }
+}
+
+async function revokePairing(u) {
+  if (!u || !u.user_id) return
+  pairBusy.value = true
+  try {
+    await api('/api/ai/channels/pairings/revoke', { method: 'POST', body: { channel: u.channel, user_id: u.user_id } })
+    toast('已撤销该用户权限', 'ok')
+    await loadPairings()
+  } catch (e) { toast(e.message || '撤销失败', 'err') }
+  finally { pairBusy.value = false }
 }
 
 /* AI 角色与渠道绑定状态（渠道卡片头像标签、弹窗 chip 网格复用） */
 const roles = ref([])
-const roleChannels = reactive({})  // roleId -> { wecom: bool, feishu: bool }
+const roleChannels = reactive({})  // roleId -> { feishu: bool, wecom: bool, ... }
 
 async function loadRoles() {
   try {
@@ -835,8 +829,7 @@ function isLinked(roleId, channel) {
   return !!(roleChannels[roleId] && roleChannels[roleId][channel])
 }
 
-
-/* 连接弹窗内的「选 AI 角色」：chip 多选 + 保存时自动 pair/approve 绑定（对齐桌面 channelRoleModal 角色 chip 区） */
+/* 弹窗内「选 AI 角色」：chip 多选 → 保存时写绑定（推送粒度挂在绑定上） */
 const modalRoles = reactive(new Set())
 function toggleModalRole(roleId) {
   if (modalRoles.has(roleId)) modalRoles.delete(roleId)
@@ -850,24 +843,15 @@ async function applyModalRoles(channel) {
   let bound = 0, unbound = 0
   for (const r of roles.value) {
     const want = modalRoles.has(r.role_id)
-    const has = isLinked(r.role_id, channel)
-    if (want && !has) {
-      try {
-        const p = await api(`/api/ai/roles/${r.role_id}/channels/${channel}/pair`, { method: 'POST', body: {} })
-        if (p && p.success) {
-          const a = await api(`/api/ai/roles/${r.role_id}/channels/${channel}/approve`, { method: 'POST', body: { code: p.code } })
-          if (a && a.success) bound++
-        }
-      } catch (e) {}
-    } else if (!want && has) {
-      try {
-        await api('/api/ai/roles/' + r.role_id + '/channels', { method: 'PUT', body: { items: [{ channel, connected: false }] } })
-        unbound++
-      } catch (e) {}
-    }
+    if (want === isLinked(r.role_id, channel)) continue
+    try {
+      await api('/api/ai/roles/' + r.role_id + '/channels', { method: 'PUT', body: { items: [{ channel, connected: want }] } })
+      if (want) bound++
+      else unbound++
+    } catch (e) { /* 单个角色失败不阻断其余 */ }
   }
   await Promise.all(roles.value.map(loadRoleChannels))
-  if (bound) toast(`已绑定 ${bound} 个 AI 角色到 ${channel}`, 'ok')
+  if (bound) toast(`已绑定 ${bound} 个 AI 角色到该渠道`, 'ok')
   if (unbound) toast(`已解除 ${unbound} 个角色`, 'ok')
 }
 
@@ -875,9 +859,9 @@ function avatarUrl(roleId) {
   return '/api/ai/roles/' + roleId + '/avatar?t=' + Date.now()
 }
 
-const wecomLinkedRoles = computed(() => roles.value.filter(r => isLinked(r.role_id, 'wecom')))
-const feishuLinkedRoles = computed(() => roles.value.filter(r => isLinked(r.role_id, 'feishu')))
-const dingtalkLinkedRoles = computed(() => roles.value.filter(r => isLinked(r.role_id, 'dingtalk')))
+function linkedRoles(channel) {
+  return roles.value.filter(r => isLinked(r.role_id, channel))
+}
 
 /* 畅捷通 / T+ 数据源连接（走后端 OAuth，前端只负责引导授权 + 检查状态） */
 const chanjet = reactive({
@@ -1027,14 +1011,19 @@ async function disconnectKingdee() {
   } finally { kingdee.busy = false }
 }
 
-onMounted(() => {
-  loadChannelStatus()
-  loadRoles()
+onMounted(async () => {
+  await loadChannels()
+  // 进页面时若已有渠道在过渡态（刚保存没刷新就离开过），继续轮询到位
+  if (ccOrder.value.some(ch => CC_TRANSITION.includes(ccState(ch)))) startStatusPoll()
+  await loadRoles()
+  loadPairings()
   refreshChanjetStatus()
   refreshKingdeeStatus()
   loadWorkflows()
   loadAiSkills()
 })
+
+onUnmounted(stopStatusPoll)
 </script>
 
 <style scoped>
@@ -1232,4 +1221,42 @@ onMounted(() => {
 .gw-btn{font-size:12px;padding:5px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer;transition:all .15s}
 .gw-btn:hover:not(:disabled){border-color:var(--p-dark);color:var(--p-dark)}
 .gw-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ===== 连接手机改版：应用凭证 + 引导词 + 配对审批 ===== */
+.cc-logo-qq{background:rgba(18,183,245,.16);color:#12b7f5}
+
+.cc-unsupported{display:flex;align-items:flex-start;gap:8px;padding:12px 14px;margin-bottom:14px;
+  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:12px;
+  font-size:12.5px;color:#b45309;line-height:1.6}
+
+.cc-modal-wide{width:min(560px,94vw)}
+.cc-field-hint{font-style:normal;color:var(--t3);font-size:11px;margin-left:2px}
+.cc-modal-tip.warn{background:rgba(245,158,11,.12);color:#b45309}
+
+/* 取证引导（复刻桌面四段引导词） */
+.cc-guide-box{margin:0 0 16px;border:1px solid var(--border-subtle);border-radius:12px;overflow:hidden;background:var(--bg2)}
+.cc-guide-toggle{display:flex;align-items:center;gap:8px;width:100%;padding:11px 14px;border:none;
+  background:none;color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;text-align:left}
+.cc-guide-toggle:hover{background:var(--p-bg)}
+.cc-guide-toggle span:nth-child(2){flex:1}
+.cc-guide-arrow{font-size:10px;color:var(--t3)}
+.cc-guide-body{padding:0 14px 14px;border-top:1px solid var(--border-subtle)}
+.cc-guide-intro{font-size:12.5px;color:var(--t1);line-height:1.75;padding:12px 0 6px;font-weight:500}
+.cc-guide-list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:9px}
+.cc-guide-list li{font-size:12.5px;color:var(--t2);line-height:1.75}
+
+/* 配对审批 */
+.cc-pair{margin-top:16px;border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+.cc-pair-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px;background:var(--bg2)}
+.cc-pair-hd b{font-size:13.5px;color:var(--t1)}
+.cc-pair-hd .page-sub{flex:1}
+.cc-pair-pending,.cc-pair-approved{display:flex;flex-direction:column}
+.cc-pair-row{display:flex;align-items:center;gap:10px;padding:10px 18px;border-top:1px solid var(--border-subtle);font-size:12.5px}
+.cc-pair-ch{min-width:62px;color:var(--t3)}
+.cc-pair-code{font-family:var(--font-mono,monospace);font-weight:600;color:var(--p-dark);letter-spacing:1px}
+.cc-pair-user{flex:1;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-pair-empty{padding:14px 18px;font-size:12.5px;color:var(--t3);border-top:1px solid var(--border-subtle)}
+.cc-pair-manual{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border-subtle);align-items:center}
+.cc-pair-manual .input{flex:1;min-width:0}
+.cc-pair-sel{flex:0 0 96px !important;width:96px}
 </style>
