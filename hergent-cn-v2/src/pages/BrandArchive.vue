@@ -81,7 +81,7 @@
               <option v-for="b in activeBrands" :key="b.id" :value="b.name">{{ b.name }}</option>
             </select>
             <button class="btn btn-ghost btn-sm" :disabled="!p._mergeTarget" @click="resolve(p, 'merge')">合并</button>
-            <button class="btn btn-ghost btn-sm" @click="resolve(p, 'dismiss')">忽略</button>
+            <button class="btn btn-ghost btn-sm ba-notbrand" title="标记为「不是品牌」：只从待审队列移除，不改动任何商品数据" @click="askDismiss(p)">不是品牌</button>
           </div>
         </div>
       </div>
@@ -117,12 +117,34 @@
       <Transition name="pop">
         <div v-if="disableOpen" class="ba-modal">
           <div class="ba-modal-hd"><b>停用品牌</b><button class="ba-x" @click="disableOpen = false"><Icon name="close"/></button></div>
-          <div class="ba-modal-body">
+          <div class="ba-modal-body ba-body-stack">
             <p class="ba-tip warn-text">确认停用「{{ disableTarget?.name }}」？<br>停用后该品牌仍保留在历史商品记录里，只是不再作为可选规范品牌。</p>
           </div>
           <div class="ba-modal-ft">
             <button class="btn btn-ghost" @click="disableOpen = false">取消</button>
             <button class="btn btn-danger" @click="confirmDisable">确认停用</button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+    <!-- 「不是品牌」确认弹窗（防误点：说清「不改商品数据」这一关键语义） -->
+    <Teleport to="body">
+      <Transition name="fade"><div v-if="dismissOpen" class="ba-overlay" @click="dismissOpen = false"></div></Transition>
+      <Transition name="pop">
+        <div v-if="dismissOpen" class="ba-modal ba-modal-lg">
+          <div class="ba-modal-hd"><b>标记为「不是品牌」</b><button class="ba-x" @click="dismissOpen = false"><Icon name="close"/></button></div>
+          <div class="ba-modal-body ba-body-stack">
+            <p class="ba-tip">确认把「<b>{{ dismissTarget?.raw_name }}</b>」（命中 {{ dismissTarget?.ref_count }} 个商品）标记为<b>不是品牌</b>？</p>
+            <ul class="ba-bullets">
+              <li class="ok-line">这条会从待审队列移除，不再反复提示。</li>
+              <li class="warn-line">它<b>不会</b>改动任何商品的品牌字段 —— 关联商品的品牌名仍是「{{ dismissTarget?.raw_name }}」。</li>
+              <li class="warn-line">若要让这些商品彻底从「本期预报」的品牌筛选里消失，请到<b>商品档案</b>把它们<b>停用</b>（停用可逆，不影响历史订单与统计）。</li>
+            </ul>
+            <p class="ba-tip dim">还拿不准的话，先点「取消」，留着以后再决定。</p>
+          </div>
+          <div class="ba-modal-ft">
+            <button class="btn btn-ghost" @click="dismissOpen = false">取消</button>
+            <button class="btn btn-primary" @click="confirmDismiss">确认不是品牌</button>
           </div>
         </div>
       </Transition>
@@ -152,6 +174,10 @@ const editForm = reactive({ name: '', manufacturer: '', tier: '', credit_code: '
 /* ---- 停用 ---- */
 const disableOpen = ref(false)
 const disableTarget = ref(null)
+
+/* ---- 待审：标记为「不是品牌」 ---- */
+const dismissOpen = ref(false)
+const dismissTarget = ref(null)
 
 function canonicalOf(p) { return (p._canonical || '').trim() || p.raw_name }
 
@@ -239,13 +265,22 @@ async function brandToggle(bid, val) {
 }
 
 /* ---- 待审处理 ---- */
+function askDismiss(p) { dismissTarget.value = p; dismissOpen.value = true }
+async function confirmDismiss() {
+  const p = dismissTarget.value
+  dismissOpen.value = false
+  if (p) await resolve(p, 'dismiss')
+}
+
 async function resolve(p, action) {
   try {
     const body = { action }
     if (action === 'create') body.target_name = canonicalOf(p)
     if (action === 'merge') body.target_name = p._mergeTarget
     const r = await api('/api/brands/pending/' + p.id + '/resolve', { method: 'POST', body })
-    const msg = action === 'dismiss' ? '已忽略' : ('已归一为「' + (r?.canonical || canonicalOf(p)) + '」，商品已改挂')
+    const msg = action === 'dismiss'
+      ? '已标记为「不是品牌」（未改动任何商品数据）'
+      : ('已归一为「' + (r?.canonical || canonicalOf(p)) + '」，商品已改挂')
     toast(msg, 'ok')
     loadPending()
     loadBrands()
@@ -265,6 +300,13 @@ onMounted(() => {
 
 .ba-panel{padding:18px;margin-bottom:14px}
 .ba-tip{font-size:12.5px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
+.ba-tip.dim{color:var(--t3);font-size:12px;margin-bottom:0}
+.ba-bullets{margin:0 0 12px;padding-left:18px;font-size:12.5px;line-height:1.85;color:var(--t2)}
+.ba-bullets li{margin-bottom:6px}
+.ba-bullets .ok-line{color:var(--t2)}
+.ba-bullets .warn-line{color:var(--war)}
+.ba-bullets b{color:var(--t1)}
+.ba-notbrand{color:var(--t3)}
 .tag{font-size:11.5px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .tag.info{background:rgba(var(--p-rgb,6,182,212),.12);color:var(--p)}
 .tag.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
@@ -297,6 +339,9 @@ onMounted(() => {
 .ba-modal-hd b{font-size:15px;color:var(--t1)}
 .ba-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer}
 .ba-modal-body{padding:18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+/* 说明型弹窗正文：单列、通栏（表单弹窗才用两列） */
+.ba-modal-body.ba-body-stack{grid-template-columns:1fr;gap:0}
+.ba-modal.ba-modal-lg{width:min(580px,92vw)}
 .ba-field{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--t2)}
 .ba-field-wide{grid-column:1 / -1}
 .ba-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
