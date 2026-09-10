@@ -191,18 +191,8 @@
       </div>
     </div>
 
-    <!-- v116 (L2)：全局默认到货周期 —— 规则未单独设到货周期时沿用；各品牌可在规则里单独覆盖 -->
-    <div class="card cadence-default-card">
-      <div class="cd-left">
-        <b><Icon name="settings"/> 全局默认到货周期</b>
-        <span class="muted">规则留空时沿用此默认值；蒙牛、简爱等不同品牌可在各自规则里单独设置到货周期覆盖它。</span>
-      </div>
-      <div class="cd-right">
-        <input v-model.number="defaultCadence" class="input cd-input" type="number" min="1" max="30">
-        <span>天到货一次</span>
-        <button class="btn btn-primary btn-sm" :disabled="cdnSaving" @click="saveDefaultCadence">保存</button>
-      </div>
-    </div>
+    <!-- v128：原「全局默认到货周期」卡片已移除 —— 它是运维兜底参数（v121 后仅 Forecast 看板兜底消费，
+         后端计算完全不读，且新建规则的 order_cadence_days 恒为 2 不看它）。节奏一律在每条规则里单独配。 -->
 
     <!-- 规则列表 -->
     <div class="card list-card">
@@ -545,7 +535,7 @@
     <TargetFormModal
       :open="showForm" :mode="formMode" :rule="formRule" :preset-dim="formPresetDim"
       :brand-options="brandOptions" :product-names="productNames" :product-refs="productRefs"
-      :scale-options="scaleOptions" :default-cadence="defaultCadence"
+      :scale-options="scaleOptions"
       :existing-rules="rules"
       @close="showForm=false" @saved="onRuleSaved" @conflict="conflictInfo=$event"
       @load-existing="onLoadExisting"
@@ -1083,30 +1073,7 @@ const rebateMeta = ref({ data: {} })
 async function loadRebateMeta() {
   try { rebateMeta.value = await api('/api/rebate-rules/meta') || { data: {} } } catch (e) {}
 }
-// v116 (L2)：全局默认到货周期（天）—— 规则未单独设到货周期时沿用；各品牌可在规则里单独覆盖
-const defaultCadence = ref(2)
-const cdnSaving = ref(false)
-async function loadDefaultCadence() {
-  try {
-    const r = await api('/api/params')
-    const d = (r && r.data) ? r.data : {}
-    const c = parseInt(d.default_arrival_cadence_days, 10)
-    defaultCadence.value = (Number.isFinite(c) && c > 0) ? c : 2
-  } catch (e) { defaultCadence.value = 2 }
-}
-async function saveDefaultCadence() {
-  const iv = Number(defaultCadence.value)
-  if (!Number.isFinite(iv) || iv < 1 || iv > 30) { toast('到货周期默认天数须为 1-30 的整数', 'error'); return }
-  cdnSaving.value = true
-  try {
-    await api('/api/params', { method: 'PUT', body: { default_arrival_cadence_days: iv } })
-    toast('已保存全局默认到货周期', 'success')
-  } catch (e) {
-    toast('保存失败: ' + (e.message || ''), 'error')
-  } finally {
-    cdnSaving.value = false
-  }
-}
+// v128：全局默认到货周期卡片已移除（/api/params 读写仍在，值冻结为当前 2，Forecast 兜底继续消费）
 
 // v127：计算维度下拉已从创建弹窗移除（维度由入口按钮决定，后端锁定不可改）
 // 计法候选（来自 meta.scale_options）
@@ -2707,7 +2674,7 @@ function tierPctText(t) {
   return '—'
 }
 
-onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchievements(dashMonth.value); loadContracts(); loadContactOptions(); loadRebateMeta(); loadConflicts(); loadDefaultCadence(); loadYearAchv() })
+onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchievements(dashMonth.value); loadContracts(); loadContactOptions(); loadRebateMeta(); loadConflicts(); loadYearAchv() })
 </script>
 
 <style scoped>
@@ -2813,14 +2780,6 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .entry-card h3{font-size:15px;font-weight:600;margin:0}
 .entry-card p{font-size:12.5px;color:var(--t3);line-height:1.55;margin:0;flex:1}
 .entry-card .btn{margin-top:4px;align-self:flex-start}
-/* v116 (L2)：全局默认到货周期设置条 */
-.cadence-default-card{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 16px;margin-bottom:14px;flex-wrap:wrap}
-.cadence-default-card .cd-left{display:flex;flex-direction:column;gap:3px}
-.cadence-default-card .cd-left b{font-size:14px;display:flex;align-items:center;gap:6px}
-.cadence-default-card .cd-left .muted{font-size:12px}
-.cadence-default-card .cd-right{display:flex;align-items:center;gap:8px;white-space:nowrap}
-.cadence-default-card .cd-input{width:72px;text-align:center}
-
 /* P0-3 状态标签（v112 R21：琥珀色统一用 --war 变量，适配暗黑主题） */
 .tag.warn{background:rgba(var(--war-rgb),.12);color:var(--war);border:1px solid rgba(var(--war-rgb),.3)}
 
