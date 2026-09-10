@@ -10,21 +10,16 @@
           <button class="btn-close" @click="close"><Icon name="close"/></button>
         </div>
         <div class="modal-body">
-          <!-- 共用：规则名称 / 计算维度 / 目标度量 / 作用对象 -->
+          <!-- 共用：规则名称 / 目标度量 / 作用对象 -->
+          <!-- v127：移除「计算维度」下拉 —— 维度由入口按钮（新建）或原记录（编辑）决定，
+               不再暴露给用户：① 两个入口已拆分，下拉纯冗余；② 编辑时跨维度切换会被后端
+               _normalize_by_dimension 静默清空 monthly_*（12 个月目标凭空消失）。 -->
           <div class="form-row"><label>规则名称</label><input ref="formNameRef" v-model="form.rule_name" class="input" :placeholder="namePlaceholder"></div>
-          <div class="form-grid2">
-            <div class="form-row"><label>计算维度</label>
-              <select v-model="form.dimension" class="input">
-                <option v-for="d in dimensionOptions" :key="d.value" :value="d.value">{{ d.label }}</option>
-              </select>
-            </div>
-            <!-- v122：品牌目标只能按金额（后端亦强制），隐藏该选择器避免选了被拒 -->
-            <div class="form-row" v-if="!isBrandForm"><label>目标度量</label>
-              <select v-model="form.target_type" class="input">
-                <option value="amount">下单金额（元）</option>
-                <option value="quantity">销售数量（大单位）</option>
-              </select>
-            </div>
+          <div class="form-row" v-if="!isBrandForm"><label>目标度量</label>
+            <select v-model="form.target_type" class="input">
+              <option value="amount">下单金额（元）</option>
+              <option value="quantity">销售数量（大单位）</option>
+            </select>
           </div>
           <div class="form-row"><label>作用对象</label>
             <input v-model="form.scope_name" class="input" :list="scopeListId" :placeholder="scopePlaceholder">
@@ -159,7 +154,6 @@ const props = defineProps({
   /** { byName: Map, byBarcode: Map } —— 商品名 → 商品 ID */
   productRefs: { type: Object, default: () => ({ byName: new Map(), byBarcode: new Map() }) },
   scaleOptions: { type: Array, default: () => [] },
-  dimensionOptions: { type: Array, default: () => [] },
   defaultCadence: { type: Number, default: 2 },
 })
 const emit = defineEmits(['close', 'saved', 'conflict'])

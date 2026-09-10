@@ -545,7 +545,7 @@
     <TargetFormModal
       :open="showForm" :mode="formMode" :rule="formRule" :preset-dim="formPresetDim"
       :brand-options="brandOptions" :product-names="productNames" :product-refs="productRefs"
-      :scale-options="scaleOptions" :dimension-options="dimensionOptions" :default-cadence="defaultCadence"
+      :scale-options="scaleOptions" :default-cadence="defaultCadence"
       @close="showForm=false" @saved="onRuleSaved" @conflict="conflictInfo=$event"
     />
 
@@ -1106,14 +1106,7 @@ async function saveDefaultCadence() {
   }
 }
 
-// 维度下拉候选（来自 meta.dimensions；meta 未就绪时给兜底静态列表，避免空下拉）
-const dimensionOptions = computed(() => {
-  const ds = rebateMeta.value.data && rebateMeta.value.data.dimensions
-  const src = (ds && ds.length) ? ds : [
-    { value: 'brand', label: '品牌' }, { value: 'product', label: '单品' },
-  ]
-  return src.filter(d => d.value === 'brand' || d.value === 'product')
-})
+// v127：计算维度下拉已从创建弹窗移除（维度由入口按钮决定，后端锁定不可改）
 // 计法候选（来自 meta.scale_options）
 const scaleOptions = computed(() => (rebateMeta.value.data && rebateMeta.value.data.scale_options) || [
   { value: 'non_graduated', label: '全量按档' }, { value: 'graduated', label: '累进' },
