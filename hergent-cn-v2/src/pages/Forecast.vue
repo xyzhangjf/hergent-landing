@@ -1,5 +1,6 @@
 <template>
-  <div class="page">
+  <!-- v129：全屏时给根节点挂 grid-fs-on，用于把主工具栏弹层容器降回普通层级（见样式区注释） -->
+  <div class="page" :class="{ 'grid-fs-on': gridFullscreen }">
     <!-- 模块级标签页：本期预报 / 历史期次（历史分析工具改在汇总表工具箱「对比分析」组，见下） -->
     <div class="module-tabs">
       <button :class="{ on: activeTab === 'summary' }" @click="activeTab = 'summary'">本期预报</button>
@@ -4449,7 +4450,13 @@ function onGlobalFind(e) {
 const gridFullscreen = ref(false)
 // 全屏缩放：按比例放大/缩小汇总表，便于查看数据（仅全屏时显示控制条）
 const gridZoom = ref(100)
-function toggleGridFullscreen() { gridFullscreen.value = !gridFullscreen.value; if (!gridFullscreen.value) gridZoom.value = 100 }
+function toggleGridFullscreen() {
+  gridFullscreen.value = !gridFullscreen.value
+  if (!gridFullscreen.value) gridZoom.value = 100
+  // v129：全屏层 z-index:1000 会盖住主工具栏，若此时仍开着下拉（面板 fixed/1101、遮罩 1100 都在全屏层之上）
+  // 会留一个浮在表体上的孤儿弹层，进出全屏一律先收起。
+  _closePopPanes('')
+}
 function onFsKey(e) { if (e.key === 'Escape' && gridFullscreen.value) gridFullscreen.value = false }
 onMounted(() => { window.addEventListener('keydown', onFsKey) })
 onBeforeUnmount(() => { window.removeEventListener('keydown', onFsKey) })
@@ -6158,6 +6165,12 @@ th.sortable:hover{color:var(--p-dark)}
 .grid-fs-btn:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .grid-fs-btn:disabled{opacity:.35;cursor:default}
 .grid-area.is-fs .grid-fs-btn{top:14px;right:14px}
+/* v129 修复：全屏时把主工具栏弹层容器降回普通层级。
+   .tb-pop 常态 z-index:1120（要高于 .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”），
+   但全屏层 .grid-area.is-fs 只有 1000 → 导出/复制报单/品牌 三个按钮会盖在全屏层上，
+   脱离工具栏悬浮在表体中间、遮挡表头与数据行。全屏时置为 auto（< 1000）即可随工具栏一起被覆盖。
+   不动 .tb-pop 常态值，退出全屏后普通模式的互斥点击行为完全不变。 */
+.page.grid-fs-on .tb-pop{z-index:auto}
 /* 主工具栏整合：搜索框 / 表格设置&高级工具 弹层 / 活动筛选行 */
 .tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);flex:0 0 auto}
 .tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px}
