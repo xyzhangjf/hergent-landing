@@ -29,6 +29,26 @@
             <span v-if="isBrandForm && form.scope_name && !brandOptions.includes(form.scope_name)" style="color:var(--dan);font-size:12px;margin-top:4px">该品牌不在档案中，请先在「档案管理 → 品牌档案」创建</span>
           </div>
 
+          <!-- v128：同一年份已有目标 —— 只提示 + 一键跳转编辑，不自动覆盖用户输入 -->
+          <div v-if="yearHitsVisible" class="dup-warn year-hit">
+            <Icon name="alert-triangle" />
+            <div>
+              <b>{{ form.target_year }} 年这个对象已经有目标了</b>
+              <p v-for="r in yearHits" :key="r.id">
+                「{{ r.rule_name || ('规则#' + r.id) }}」
+                <template v-if="r.__summary.filledMonths">已填 {{ r.__summary.filledMonths }} 个月，合计</template>
+                <template v-else>合计</template>
+                <b>{{ fmtWan(r.__summary.totalWan) }} 万元</b>
+              </p>
+              <p class="dup-tip">同一年份、同一对象建议只保留一条目标，否则返利会被重复计算。要改就改原来这条。</p>
+              <div class="yh-act">
+                <button v-if="yearHits.length === 1" class="btn btn-primary btn-sm" @click="goEditExisting(yearHits[0])">编辑这条</button>
+                <button v-for="r in yearHits" v-else :key="'e' + r.id" class="btn btn-sm" @click="goEditExisting(r)">编辑「{{ r.rule_name || ('#' + r.id) }}」</button>
+                <button class="btn btn-ghost btn-sm" @click="dismissYearHits">仍然新建</button>
+              </div>
+            </div>
+          </div>
+
           <!-- v125：保存前重复目标预检（年度 / 单期两个入口共用） -->
           <div v-if="dupWarn.length" class="dup-warn">
             <Icon name="alert-triangle" />
@@ -140,6 +160,7 @@ import {
   LEAD_MIN, LEAD_MAX, WK_LABEL, _addDaysISO, _diffDaysISO, _weekdayOf, isoLocal,
   emptyMonthlyRows, sumMonthlyWan, splitAnnualToMonths, fillAnnualRateToMonths,
   buildMonthlyPayloads, fillMonthlyFromRule, parseRuleTiers, defaultForm, duplicateForm,
+  ruleMonthlySummary, fmtWan,
 } from './useRebateTargetForm.js'
 
 const props = defineProps({
@@ -155,8 +176,10 @@ const props = defineProps({
   productRefs: { type: Object, default: () => ({ byName: new Map(), byBarcode: new Map() }) },
   scaleOptions: { type: Array, default: () => [] },
   defaultCadence: { type: Number, default: 2 },
+  /** v128：当前租户全部规则（父页 rules）—— 用于「该年份已有目标」提示，避免重复创建 */
+  existingRules: { type: Array, default: () => [] },
 })
-const emit = defineEmits(['close', 'saved', 'conflict'])
+const emit = defineEmits(['close', 'saved', 'conflict', 'load-existing'])
 
 const currentYear = new Date().getFullYear()
 const form = ref(defaultForm())
@@ -164,7 +187,6 @@ const editing = ref(false)
 const ruleTiers = ref([])
 const monthlyRows = ref(emptyMonthlyRows())
 const legacyNotice = ref('')
-const brandMode = ref('year')
 const targetWan = ref(0)
 const arrivalPreview = ref(null)
 const autoPeriodPreview = ref(null)
@@ -267,6 +289,36 @@ watch(
   },
 )
 onBeforeUnmount(() => clearTimeout(_dupTimer))
+
+/* ---------------- v128：同一年份已有目标 —— 提示 + 一键编辑（不自动覆盖） ----------------
+   只提示、不灌数据：用户可能确实想给别的品牌再建一条，自动带出会让人以为在新建、实际在改旧的。
+   匹配口径：维度相同 + 年份相同 + 作用对象（scope_key / scope_name 任一命中）+ 只看启用中的规则。 */
+const yearHitDismissed = ref(false)
+const yearHits = computed(() => {
+  if (editing.value) return []          // 编辑/复制态不提示（提示的是自己）
+  const f = form.value
+  const y = Number(f.target_year)
+  if (!y) return []
+  const mine = [f.scope_key, f.scope_name]
+    .map(s => String(s == null ? '' : s).trim()).filter(Boolean)
+  if (!mine.length) return []           // 还没填作用对象 → 无从判断，不打扰
+  return (props.existingRules || []).filter(r => {
+    if (Number(r.is_active) !== 1) return false
+    if (r.dimension !== f.dimension) return false
+    if (Number(r.target_year || 0) !== y) return false
+    const theirs = [r.scope_key, r.scope_name]
+      .map(s => String(s == null ? '' : s).trim()).filter(Boolean)
+    return theirs.some(s => mine.indexOf(s) >= 0)
+  }).map(r => ({ ...r, __summary: ruleMonthlySummary(r) }))
+})
+const yearHitsVisible = computed(() => !yearHitDismissed.value && yearHits.value.length > 0)
+// 换了维度 / 作用对象 / 年份 → 提示条重新生效（否则 dismiss 后换品牌就再也不提示了）
+watch(
+  () => [form.value.dimension, form.value.scope_name, form.value.target_year],
+  () => { yearHitDismissed.value = false },
+)
+function goEditExisting(r) { emit('load-existing', r) }
+function dismissYearHits() { yearHitDismissed.value = true }
 
 /** v126：给某一个月加一档 / 删一档（月级阶梯） */
 function addMonthTier(mm) {
@@ -486,11 +538,14 @@ function resolveProductKey(key) {
 
 /* ---------------- 打开 / 关闭 / 保存 ---------------- */
 watch(() => props.open, (v) => { if (v) init() })
+// v128：弹窗内「编辑这条」会就地切到 edit 模式（open 不变），靠这个 watch 重新初始化
+watch(() => [props.mode, props.rule && props.rule.id], () => { if (props.open) init() })
 
 function init() {
   const r = props.rule
   showMigrate.value = false
   migrateInfo.value = null
+  yearHitDismissed.value = false
   if (props.mode === 'edit' && r) {
     editing.value = true
     form.value = { ...r }
@@ -499,8 +554,7 @@ function init() {
     ruleTiers.value = parseRuleTiers(r.tiers_json)
     targetWan.value = (Number(r.target_value) || 0) / 10000
     arrivalPreview.value = null
-    const { mode, notice } = fillMonthlyFromRule(monthlyRows.value, r, { isBrandMonthly: form.value.dimension === 'brand' && form.value.target_type === 'amount' })
-    brandMode.value = mode
+    const { notice } = fillMonthlyFromRule(monthlyRows.value, r, { isBrandMonthly: form.value.dimension === 'brand' && form.value.target_type === 'amount' })
     legacyNotice.value = notice
     loadArrivalPreview()
   } else if (props.mode === 'dup' && r) {
@@ -509,8 +563,7 @@ function init() {
     targetWan.value = (Number(r.target_value) || 0) / 10000
     arrivalPreview.value = null
     ruleTiers.value = parseRuleTiers(r.tiers_json)
-    const { mode, notice } = fillMonthlyFromRule(monthlyRows.value, r, { isBrandMonthly: form.value.dimension === 'brand' && form.value.target_type === 'amount' })
-    brandMode.value = mode
+    const { notice } = fillMonthlyFromRule(monthlyRows.value, r, { isBrandMonthly: form.value.dimension === 'brand' && form.value.target_type === 'amount' })
     legacyNotice.value = notice
   } else {
     editing.value = false
@@ -519,7 +572,6 @@ function init() {
     arrivalPreview.value = null
     ruleTiers.value = []
     legacyNotice.value = ''
-    brandMode.value = 'year'
     monthlyRows.value = emptyMonthlyRows()
   }
   autoPeriodPreview.value = null
@@ -661,6 +713,10 @@ async function save() {
 .dup-warn b{color:var(--t1)}
 .dup-warn p{margin:2px 0}
 .dup-warn .dup-tip{color:var(--t3)}
+/* v128：同年份已存在提示（蓝底，与「月份被占用」的黄底区分 —— 这个可以一键跳编辑） */
+.year-hit{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.45)}
+.year-hit svg,.year-hit .icon{color:#1d4ed8}
+.yh-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .cf-tbl{width:100%;margin-bottom:12px}
 .cf-sol{font-size:12.5px;color:var(--t3);line-height:1.7;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px;margin:0}
 .cf-sol b{color:var(--t1)}

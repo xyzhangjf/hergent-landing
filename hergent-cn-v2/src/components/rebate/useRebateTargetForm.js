@@ -87,6 +87,28 @@ export function sumMonthlyWan(rows) {
 }
 
 /**
+ * v128：已有规则的月度摘要 —— 「该年份已经有目标了」提示条用。
+ * 优先按 monthly_amounts 统计已填月数与合计金额；没有月表的老规则回退 target_value。
+ */
+export function ruleMonthlySummary(r) {
+  const raw = (r && r.monthly_amounts) || {}
+  let amts = raw
+  if (typeof raw === 'string') {
+    try { amts = JSON.parse(raw || '{}') } catch (e) { amts = {} }
+  }
+  if (!amts || typeof amts !== 'object') amts = {}
+  const months = MONTHS_12.filter(mm => Number(amts[mm]) > 0)
+  const total = months.reduce((a, mm) => a + Number(amts[mm] || 0), 0)
+  return {
+    months,
+    filledMonths: months.length,
+    totalWan: months.length
+      ? Math.round(total / 100) / 100
+      : Math.round((Number((r || {}).target_value) || 0) / 100) / 100,
+  }
+}
+
+/**
  * v126：全年一次性录入 → 均分 12 个月（余数补 12 月）；只动金额，不动返利率。
  * 这只是**快捷铺开**，不是另一种口径 —— 铺完仍可逐月改。
  */

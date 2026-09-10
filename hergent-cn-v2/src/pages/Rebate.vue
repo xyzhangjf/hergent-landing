@@ -546,7 +546,9 @@
       :open="showForm" :mode="formMode" :rule="formRule" :preset-dim="formPresetDim"
       :brand-options="brandOptions" :product-names="productNames" :product-refs="productRefs"
       :scale-options="scaleOptions" :default-cadence="defaultCadence"
+      :existing-rules="rules"
       @close="showForm=false" @saved="onRuleSaved" @conflict="conflictInfo=$event"
+      @load-existing="onLoadExisting"
     />
 
     <!-- 试算弹层 -->
@@ -1134,6 +1136,14 @@ function openCreate(presetDim) {
 }
 
 function openEdit(r) {
+  formMode.value = 'edit'
+  formRule.value = { ...r }
+  showForm.value = true
+}
+
+// v128：创建弹窗里点「编辑这条」—— 就地切到编辑该规则，弹窗不关（关了再开会像新建）
+function onLoadExisting(r) {
+  if (!r || !r.id) return
   formMode.value = 'edit'
   formRule.value = { ...r }
   showForm.value = true
