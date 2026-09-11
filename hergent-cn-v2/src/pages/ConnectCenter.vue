@@ -128,27 +128,42 @@
         <div class="cc-pair">
           <div class="cc-pair-hd">
             <b>谁能跟 AI 对话</b>
-            <span class="page-sub">在聊天软件里给机器人发条消息 → 收到 8 位配对码 → 在这里批准</span>
+            <span class="page-sub">新同事在聊天软件里给机器人发条消息 → 机器人回他一个 8 位配对码 → 他把码发给你，你填在这里批准</span>
             <button class="btn btn-ghost btn-sm" :disabled="pairBusy" @click="loadPairings">刷新</button>
           </div>
+
+          <!-- 渠道被安全锁定：Hermes 连续输错 5 次会锁 1 小时，且锁定期间不签发新码 -->
+          <div v-if="pairLocked.length" class="cc-pair-lock">
+            <Icon name="alert-triangle"/>
+            <span>配对已暂停：{{ pairLocked.map(l => (ccChannel(l.channel).label || l.channel) + ' 约 ' + l.minutes + ' 分钟').join('、') }}后自动解锁。原因：连续填错 5 次配对码（Hermes 安全策略），等待期间请勿再试。</span>
+          </div>
+
           <div v-if="pairPending.length" class="cc-pair-pending">
-            <div v-for="(p, i) in pairPending" :key="i" class="cc-pair-row">
+            <div v-for="p in pairPending" :key="p.entry_id" class="cc-pair-row">
               <span class="cc-pair-ch">{{ ccChannel(p.channel).label || p.channel }}</span>
-              <span class="cc-pair-code">{{ p.code }}</span>
               <span class="cc-pair-user">{{ p.user_name || p.user_id || '待识别用户' }}</span>
-              <button class="cc-op" :disabled="pairBusy" @click="approvePairing(p)">批准</button>
+              <span class="cc-pair-age" :class="{ warn: p.expired }">{{ p.expired ? '码已过期，让对方重新发一条消息' : ('码还剩 ' + p.expires_in_minutes + ' 分钟有效') }}</span>
+              <input v-model="pairCodes[p.entry_id]" class="input cc-pair-codein" maxlength="8"
+                     placeholder="填对方收到的 8 位码" :disabled="pairBusy || p.expired || p.locked_out"
+                     @keyup.enter="approvePairing(p)" />
+              <button class="cc-op"
+                      :disabled="pairBusy || p.expired || p.locked_out || !(pairCodes[p.entry_id] || '').trim()"
+                      @click="approvePairing(p)">批准</button>
             </div>
           </div>
           <div v-else class="cc-pair-empty">暂无待审批请求</div>
+
+          <!-- 兜底：待审条目已被网关清理（过期/重启），但手里还留着码 -->
           <div class="cc-pair-manual">
-            <input v-model="pairCode" class="input" placeholder="收到配对码后也可在此手填，如 A1B2C3D4" />
+            <input v-model="pairCode" class="input" placeholder="也可以直接粘贴配对码，如 A1B2C3D4" @keyup.enter="manualApprove" />
             <select v-model="pairChannel" class="input cc-pair-sel">
               <option v-for="ch in ccOrder" :key="ch" :value="ch">{{ ccChannel(ch).label }}</option>
             </select>
-            <button class="btn btn-primary btn-sm" :disabled="pairBusy || !pairCode.trim()" @click="approvePairing({ channel: pairChannel, code: pairCode.trim() })">批准</button>
+            <button class="btn btn-primary btn-sm" :disabled="pairBusy || !pairCode.trim()" @click="manualApprove">批准</button>
           </div>
+
           <div v-if="pairApproved.length" class="cc-pair-approved">
-            <div v-for="(u, i) in pairApproved" :key="i" class="cc-pair-row">
+            <div v-for="u in pairApproved" :key="u.channel + u.user_id" class="cc-pair-row">
               <span class="cc-pair-ch">{{ ccChannel(u.channel).label || u.channel }}</span>
               <span class="cc-pair-user">{{ u.user_name || u.user_id }}</span>
               <span class="tag ok">已授权</span>
@@ -776,9 +791,15 @@ async function disconnectChannel() {
 /* ===== 配对审批：谁可以跟 AI 对话 ===== */
 const pairPending = ref([])
 const pairApproved = ref([])
+const pairLocked = ref([])
 const pairBusy = ref(false)
 const pairCode = ref('')
 const pairChannel = ref('feishu')
+// 待审条目各自的行内输入框：entry_id → 手填的 8 位码。
+// 后端**不返回**配对码：Hermes 只持久化加盐哈希，明文仅出现在对方收到的那条
+// 机器人回复里，所以必须由管理员向对方索要后手填。
+const pairCodes = reactive({})
+let pairChannelInit = false
 
 async function loadPairings() {
   pairBusy.value = true
@@ -786,21 +807,32 @@ async function loadPairings() {
     const r = await api('/api/ai/channels/pairings')
     pairPending.value = (r && r.pending) || []
     pairApproved.value = (r && r.approved) || []
+    pairLocked.value = (r && r.locked) || []
+    // 首次加载时把手填渠道默认到「已配置」的那个，避免默认飞书却只有企微
+    if (!pairChannelInit) {
+      const configured = ccOrder.value.filter(ch => ccChannel(ch).configured)
+      if (configured.length) { pairChannel.value = configured[0]; pairChannelInit = true }
+    }
   } catch (e) { /* 静默：配对数据缺失不影响主流程 */ }
   finally { pairBusy.value = false }
 }
 
-async function approvePairing(p) {
-  if (!p || !p.code) return
+/** 提交配对码。code 必须是对方收到的那 8 位（字母表已排除 0/O/1/I）。 */
+async function submitPairing(channel, code) {
+  code = String(code || '').trim().toUpperCase()
+  if (!channel || !code) return
   pairBusy.value = true
   try {
-    await api('/api/ai/channels/pairings/approve', { method: 'POST', body: { channel: p.channel, code: p.code } })
+    await api('/api/ai/channels/pairings/approve', { method: 'POST', body: { channel, code } })
     toast('已批准，对方现在可以跟 AI 对话了', 'ok')
     pairCode.value = ''
     await loadPairings()
   } catch (e) { toast(e.message || '配对码不正确或已过期', 'err') }
   finally { pairBusy.value = false }
 }
+
+function approvePairing(p) { return submitPairing(p && p.channel, p && pairCodes[p.entry_id]) }
+function manualApprove() { return submitPairing(pairChannel.value, pairCode.value) }
 
 async function revokePairing(u) {
   if (!u || !u.user_id) return
@@ -1277,7 +1309,11 @@ onUnmounted(stopStatusPoll)
 .cc-pair-pending,.cc-pair-approved{display:flex;flex-direction:column}
 .cc-pair-row{display:flex;align-items:center;gap:10px;padding:10px 18px;border-top:1px solid var(--border-subtle);font-size:12.5px}
 .cc-pair-ch{min-width:62px;color:var(--t3)}
-.cc-pair-code{font-family:var(--font-mono,monospace);font-weight:600;color:var(--p-dark);letter-spacing:1px}
+.cc-pair-codein{flex:0 0 176px;width:176px;text-transform:uppercase;font-family:var(--font-mono,monospace);letter-spacing:1px;text-align:center}
+.cc-pair-age{flex:0 0 auto;color:var(--t3);font-size:12px;white-space:nowrap}
+.cc-pair-age.warn{color:var(--danger-txt)}
+.cc-pair-lock{display:flex;align-items:flex-start;gap:8px;padding:11px 18px;border-top:1px solid var(--border-subtle);background:var(--warn-amber-bg);color:var(--warn-amber);font-size:12.5px;line-height:1.65}
+.cc-pair-lock svg{flex:0 0 15px;margin-top:2px}
 .cc-pair-user{flex:1;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cc-pair-empty{padding:14px 18px;font-size:12.5px;color:var(--t3);border-top:1px solid var(--border-subtle)}
 .cc-pair-manual{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border-subtle);align-items:center}
