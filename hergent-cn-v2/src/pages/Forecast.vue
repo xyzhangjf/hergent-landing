@@ -1,6 +1,7 @@
 <template>
   <!-- v129：全屏时给根节点挂 grid-fs-on，用于把主工具栏弹层容器降回普通层级（见样式区注释） -->
-  <div class="page" :class="{ 'grid-fs-on': gridFullscreen }">
+  <!-- v135：AI 副驾抽屉打开时挂 copilot-on，同理收掉主工具栏弹层的超高 z-index，避免三个触发按钮浮在抽屉之上 -->
+  <div class="page" :class="{ 'grid-fs-on': gridFullscreen, 'copilot-on': store.ui.copilotOpen }">
     <!-- 模块级标签页：本期预报 / 历史期次（历史分析工具改在汇总表工具箱「对比分析」组，见下） -->
     <div class="module-tabs">
       <button :class="{ on: activeTab === 'summary' }" @click="activeTab = 'summary'">本期预报</button>
@@ -6171,6 +6172,16 @@ th.sortable:hover{color:var(--p-dark)}
    脱离工具栏悬浮在表体中间、遮挡表头与数据行。全屏时置为 auto（< 1000）即可随工具栏一起被覆盖。
    不动 .tb-pop 常态值，退出全屏后普通模式的互斥点击行为完全不变。 */
 .page.grid-fs-on .tb-pop{z-index:auto}
+/* v135 修复：AI 副驾全局抽屉（.copilot z-index:950）打开时，主工具栏 .tb-pop 的常态
+   z-index:1120 会浮在抽屉之上——「导出 / 复制报单 / 品牌 / 期次 / 高级工具」五个触发按钮
+   脱离页面悬浮在副驾抽屉上。与全屏层 .grid-fs-on 同构：副驾打开时统一降为 auto（< 950），
+   随页面一起被抽屉遮罩（.cp-overlay 940）覆盖。弹层面板/遮罩一并降级，避免抽屉开着时
+   旧弹层仍浮在上层。不动 .tb-pop 常态值，关闭副驾后互斥点击行为完全不变。 */
+.page.copilot-on .tb-pop,
+.page.copilot-on .tb-pop-panel,
+.page.copilot-on .pop-overlay{z-index:auto}
+/* 全屏表格层（1000）同理：副驾打开时应让位给抽屉，否则整屏表格会盖住 AI 副驾。 */
+.page.copilot-on .grid-area.is-fs{z-index:auto}
 /* 主工具栏整合：搜索框 / 表格设置&高级工具 弹层 / 活动筛选行 */
 .tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);flex:0 0 auto}
 .tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px}
