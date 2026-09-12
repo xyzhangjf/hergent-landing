@@ -15,7 +15,7 @@
           <b>返利达成仪表盘</b>
           <span class="page-sub">本月填报达成全景 · 按风险升序排列，最该操心的排最前 · 含预报贡献的实时达成见预报页「返利冲刺看板」</span>
           <div class="dash-month">
-            <label class="achv-lb">统计月份</label>
+            <label class="achv-lb">统计月份<i class="scope-tag">单月视图</i></label>
             <input type="month" v-model="dashMonth" class="input achv-month" @change="onDashMonth" />
           </div>
         </div>
@@ -24,13 +24,18 @@
         <div v-else-if="!dashboardModel || !dashboardModel.items.length" class="state-empty">
           <div class="se-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
           <p v-if="!rules.length">暂无返利规则，请先在「目标与返利」创建品牌 / 商品目标。
-            <!-- v112 R19：空态快捷操作 -->
-            <button class="btn btn-primary btn-sm" style="display:block;margin:10px auto 0" @click="mainTab='rules'">去创建目标</button>
+            <!-- v132：全页空态唯一入口，直达创建（原「去创建目标」只切 tab，还要再点一次） -->
+            <button class="btn btn-primary btn-sm" style="display:block;margin:10px auto 0" @click="openCreate('brand')">去创建品牌目标</button>
           </p>
           <p v-else>所选月份（{{ dashMonth }}）没有处于生效期的返利目标。</p>
         </div>
         <div v-else>
           <!-- KPI：钱 + 风险 置顶 -->
+          <!-- P2 项11：原独立占一行的 KPI 说明，并入本标题行并弱化为小字（说明"筛选不改 KPI"是设计而非 bug） -->
+          <div class="kpi-hd">
+            <span class="kpi-hd-t">本月关键指标</span>
+            <span class="dash-kpi-note">始终统计全部品牌，不随下方图表的品牌筛选变化</span>
+          </div>
           <div class="dash-kpi">
             <div class="kpi-hero money" :title="'本月预估返利：¥' + fmt(dashboardModel.summary.totalEstRebate)">
               <!-- v112 R25：长金额缩写（≥1万 万 / ≥1亿 亿），悬停看全量 -->
@@ -46,12 +51,13 @@
               <span class="kpi-lb">已达标 / 生效目标</span>
             </div>
             <div class="kpi-sm">
-              <span class="kpi-num">{{ dashboardModel.summary.avgAchPct }}</span>
-              <span class="kpi-lb">平均达成率</span>
+              <span class="kpi-num">{{ dashboardModel.summary.weightedAchPct }}</span>
+              <!-- v132：口径与图表的「达成率」视图统一（Σ达成 ÷ Σ目标），避免同屏两个"达成率"打架 -->
+              <span class="kpi-lb">整体达成率<i class="kpi-sub">按目标加权</i></span>
             </div>
           </div>
-          <!-- v123：KPI 回答"我这个月总共能拿多少返利"，必须始终全量，不能被筛选悄悄改掉 -->
-          <div class="dash-kpi-note">以上 KPI 始终统计全部品牌，不随下方图表的品牌筛选变化</div>
+          <!-- v123：KPI 回答"我这个月总共能拿多少返利"，必须始终全量，不能被筛选悄悄改掉
+               （说明文案已上移进 kpi-hd 标题行，不再单独占行） -->
 
           <!-- 本月时间进度参照（v112 R22：emoji 统一为 SVG 图标） -->
           <div class="dash-time">
@@ -62,15 +68,8 @@
             <span class="dt-v">{{ dashboardModel.summary.timeLabel }}</span>
             <span class="dt-hint">虚线＝时间进度：条形超过虚线＝超前，短于虚线＝落后时间进度</span>
           </div>
-          <!-- 图例 -->
-          <div class="dash-legend">
-            <span><i class="lg done"></i>已达标</span>
-            <span><i class="lg risk"></i>预警</span>
-            <span><i class="lg ontrack"></i>推进中</span>
-            <span><i class="lg time"></i>时间进度（虚线）</span>
-            <span class="dash-legend-note">条形＝达成率（100% 即达标），自上而下风险最高</span>
-          </div>
-          <div v-if="dashboardModel.summary.noData" class="dash-nodata">本月（{{ dashMonth }}）在「达成填报」里还没有录入数据，进度条按 0% 显示。去「达成填报」录一笔，或把上方「统计月份」切到有数据的月份，进度条就出来了。</div>
+          <!-- v132：状态图例已内联到「返利达成排行」标题行（归属明确，不再悬浮在页面中部）；
+               原「本月未填报」长文案已删除，引导值并入下方异常区的可点击条目 -->
 
           <!-- v123：全年月度达成柱状图（位置＝KPI 之下、预警之上；品牌筛选联动预警区与排行） -->
           <div class="dash-chart">
@@ -84,27 +83,36 @@
               :single-brand="chartBrandSel.length === 1"
               @update:year="onChartYear"
               @update:brand-sel="chartBrandSel = $event"
-            >
-              <template #empty-action>
-                <button class="btn btn-primary btn-sm" @click="mainTab='rules'">去创建品牌目标</button>
-              </template>
-            </MonthlyAchvChart>
+            />
           </div>
 
           <!-- #356：异常预警区（规则冲突 / 达成未填 / 预计不达标 聚合） -->
           <div v-if="anomalies.length" class="dash-anom">
             <div class="da-hd"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px"><path d="M12 3L2 20h20L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>待处理异常（{{ anomalies.length }}）</div>
             <ul class="da-list">
-              <li v-for="(a, ai) in anomalies" :key="ai" class="da-item" :class="a.level">
+              <!-- v132：异常条目可点击，按类型分流（未填报→达成填报 / 不达标→定位预警行 / 重复→筛出启用规则） -->
+              <li v-for="(a, ai) in anomalies" :key="ai" class="da-item da-clickable" :class="a.level"
+                  role="button" tabindex="0" @click="onAnomalyClick(a)" @keydown.enter="onAnomalyClick(a)">
                 <span class="da-ic"><Icon :name="a.type === 'conflict' ? 'alert-triangle' : a.type === 'risk' ? 'clock' : 'edit'"/></span>
                 <span class="da-text">{{ a.text }}</span>
                 <span class="da-items">{{ a.items.slice(0, 4).join('、') }}<template v-if="a.items.length > 4"> 等 {{ a.items.length }} 项</template></span>
+                <span class="da-act">{{ a.type === 'nodata' ? '去填报' : a.type === 'risk' ? '看预警' : '看规则' }} →</span>
               </li>
             </ul>
           </div>
 
-          <!-- 条形排行 -->
+          <!-- 条形排行（v132：状态图例内联到本区标题行右侧，明确它只解释排行配色） -->
           <div class="dash-rank">
+            <div class="rank-hd">
+              <span class="rank-hd-t">返利达成排行</span>
+              <span class="dash-legend">
+                <span><i class="lg done"></i>已达标</span>
+                <span><i class="lg risk"></i>预警</span>
+                <span><i class="lg ontrack"></i>推进中</span>
+                <span><i class="lg time"></i>时间进度（虚线）</span>
+                <span class="dash-legend-note">条形＝达成率（100% 即达标；目标与达成同为「所选月份」口径），自上而下风险最高</span>
+              </span>
+            </div>
             <div v-for="(it, idx) in dashItemsFiltered" :key="it.rule.id" class="rank-row" :class="it.level">
               <div class="rr-top">
                 <span class="rr-rank">{{ idx + 1 }}</span>
@@ -113,9 +121,8 @@
                 <span class="rr-scope">{{ it.scope }}</span>
                 <span class="tag" :class="it.level === 'done' ? 'ok' : it.level === 'risk' ? 'risk' : ''">{{ it.levelText }}</span>
                 <span class="rr-ach" :class="it.level === 'risk' ? 'val-warn' : ''">{{ it.achPct }}</span>
-                <!-- #354：点金额/达成率看返利计算算式链 -->
-                <button v-if="it.simReady" class="rr-calc-btn" @click="openCalc(it.simData, it.rule.rule_name)" title="查看返利计算算式">算式</button>
-                <span v-else class="rr-calc-loading">试算中…</span>
+                <!-- v132：算式入口只保留「预计返利」旁的「看算式」（原行内双入口已收敛） -->
+                <span v-if="!it.simReady" class="rr-calc-loading">试算中…</span>
               </div>
               <div class="rr-bar">
                 <div class="rr-bar-fill" :class="it.level" :style="{ width: Math.min(100, it.ach * 100) + '%' }"></div>
@@ -123,24 +130,27 @@
                 <div v-if="dashboardModel.summary.tpShown" class="rr-bar-mark" :style="{ left: dashboardModel.summary.timeProgressPct }"></div>
               </div>
               <div class="rr-meta">
-                <span>目标 <b>{{ it.targetText }}</b></span>
+                <!-- v150：显式写「9月目标」—— 品牌目标是年度框架，真正参与达成的分母是该月分解值 -->
+                <span>{{ it.monthLabel }}目标 <b>{{ it.targetText }}</b></span>
                 <span>已填报 <b>{{ it.reportedText }}</b></span>
                 <span>距目标 <b :class="it.gap > 0 ? 'val-warn' : 'val-ok'">{{ it.gapText }}</b></span>
-                <span>档位 <b>{{ it.curTierPct }} → {{ it.nextTierPct || '满档' }}</b></span>
-                <span v-if="it.nextTierPct != null" class="rr-next">达下一档多赚 <b class="val-ok">¥{{ fmt(it.estRebateNext - it.estRebate) }}</b></span>
+                <!-- P2 项8：原「档位 X→Y」与「达下一档多赚 ¥Z」是同一件事的两面 → 合并为一项（6→5） -->
+                <span class="rr-next">档位 <b>{{ it.curTierPct }} → {{ it.nextTierPct || '满档' }}</b><template v-if="it.nextTierPct != null">，多赚 <b class="val-ok">¥{{ fmt(it.estRebateNext - it.estRebate) }}</b></template></span>
                 <span class="rr-est">预计返利 <b class="val-ok">¥{{ fmt(it.estRebate) }}</b>
                   <button v-if="it.simReady" class="rr-calc-link" @click="openCalc(it.simData, it.rule.rule_name)">看算式</button>
                 </span>
               </div>
-              <div class="rr-vs" :class="it.timeVerdict">
-                <i class="rr-vs-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></i>
-                <template v-if="it.timeVerdict === 'ahead'">超前时间进度 {{ it.vsTimePct }}（进度领先）</template>
-                <template v-else-if="it.timeVerdict === 'behind'">落后时间进度 {{ it.vsTimePct }}（需加速补单 / 催回款）</template>
-                <template v-else>与时间进度基本持平</template>
-              </div>
+              <!-- P2 项9+项10：risk 行原 rr-vs 与 rr-warn 双警告重复 → 合并为一条预判文案；
+                   非 risk 行保留 rr-vs，并按方案去掉与 dt-hint 重复的解释语（只留「超前/落后 X pp」） -->
               <div v-if="it.level === 'risk'" class="rr-warn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M12 3L2 20h20L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>
-                预计月底仅达成 {{ it.predictedPct }}，还差 {{ it.gapText }}，建议尽快补单或催回款
+                预计月底仅达成 {{ it.predictedPct }}，还差 {{ it.gapText }}<template v-if="it.timeVerdict === 'behind'">，落后时间进度 {{ it.vsTimePct }}</template>，建议尽快补单或催回款
+              </div>
+              <div v-else class="rr-vs" :class="it.timeVerdict">
+                <i class="rr-vs-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></i>
+                <template v-if="it.timeVerdict === 'ahead'">超前时间进度 {{ it.vsTimePct }}</template>
+                <template v-else-if="it.timeVerdict === 'behind'">落后时间进度 {{ it.vsTimePct }}</template>
+                <template v-else>与时间进度基本持平</template>
               </div>
             </div>
           </div>
@@ -975,7 +985,7 @@ import { rebateApi } from '../api/modules'
 import { api } from '../api/client.js'
 import TargetFormModal from '../components/rebate/TargetFormModal.vue'
 import MonthlyAchvChart from '../components/rebate/MonthlyAchvChart.vue'
-import { buildYearMatrix, buildSimItems, applySimResults } from '../components/rebate/useMonthlyAchv.js'
+import { buildYearMatrix, buildSimItems, applySimResults, monthTargetOf, monthEndISO } from '../components/rebate/useMonthlyAchv.js'
 
 // v123：mainTab 提到最前 —— 上方的图表代码（watch/computed）会引用它，
 // 定义靠后时一旦有顶层求值就会触发 TDZ「Cannot access 'mainTab' before initialization」
@@ -1264,6 +1274,31 @@ const anomalies = computed(() => {
   })
   return list
 })
+
+// v132：异常条目点击分流 —— 把"只读警告"升级为"可闭环处理"（本次审计投入产出比最高的改进）
+function onAnomalyClick(a) {
+  if (!a) return
+  if (a.type === 'nodata') {
+    // 未填报 → 直达「达成填报」（原 :73 长文案的引导价值在此闭环）
+    switchTab('achv')
+    return
+  }
+  if (a.type === 'risk') {
+    // 预计不达标 → 定位仪表盘排行里第一条预警行（异常区与排行同屏，滚动 + 闪烁提示）
+    const el = document.querySelector('.dash-rank .rank-row.risk')
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('rank-flash')
+    setTimeout(() => el.classList.remove('rank-flash'), 1600)
+    return
+  }
+  if (a.type === 'conflict') {
+    // 目标重复 → 冲突只发生在「已启用」规则之间，故切到目标与返利并只保留启用规则
+    filterActive.value = '1'
+    mainTab.value = 'rules'
+    toast('重复目标只可能出现在「已启用」规则之间，已为你筛出启用规则', 'warn')
+  }
+}
 
 // v123：图表筛选后，预警区与条形排行同步收窄（KPI 卡保持全量，不受影响）
 const dashItemsFiltered = computed(() => {
@@ -1752,13 +1787,18 @@ function simKey(ruleId, tag) { return `${ruleId}::${tag || 'cur'}` }
 async function runDashboardSim() {
   const base = dashBase.value
   if (!base || !base.items.length) { simResults.value = {}; simError.value = ''; return }
+  // v150：每条试算必须带 ref_date（所选月月末）。后端 monthly_view() 会把规则投影到
+  //   「那个月那一格」（目标 / 返利率 / 阶梯）—— 缺 ref_date 就回退「年度总额 + 顶层费率」，
+  //   于是出现「排行达成率按月、预计返利按年」两套口径（年度 868.4 万 → 恒不触发 → 返利 ¥0）。
+  const [yy, mm] = String(dashMonth.value).split('-').map(Number)
+  const refDate = monthEndISO(yy, mm)
   const items = []
   const keys = []
   for (const it of base.items) {
-    items.push({ rule_id: it.rule.id, basis_value: it.reported })
+    items.push({ rule_id: it.rule.id, basis_value: it.reported, ref_date: refDate })
     keys.push(simKey(it.rule.id, 'cur'))
     if (it.nextTierBasis != null) {
-      items.push({ rule_id: it.rule.id, basis_value: it.nextTierBasis })
+      items.push({ rule_id: it.rule.id, basis_value: it.nextTierBasis, ref_date: refDate })
       keys.push(simKey(it.rule.id, 'next'))
     }
   }
@@ -1821,13 +1861,20 @@ const dashBase = computed(() => {
   }
   const activeRules = (rules.value || []).filter(r => ruleActiveInMonth(r, month))
   const items = []
-  let done = 0, risk = 0, achSum = 0
+  let done = 0, risk = 0
+  // v132：达成率改「按目标加权」。金额类与数量类分别累计，绝不跨口径相加（件数+元没有业务含义）
+  let amtTarget = 0, amtReported = 0, qtyTarget = 0, qtyReported = 0
   for (const r of activeRules) {
     const dim = r.dimension
     const scope = String(r.scope_key ?? '')
     const av = achvMap.get(`${dim}::${scope}`)
     const reported = av ? (r.target_type === 'quantity' ? (Number(av.actual_qty) || 0) : (Number(av.actual_amount) || 0)) : 0
-    const target = Number(r.target_value) || 0
+    // v150：目标必须取「所选月份」的月度目标，绝不能用年度总额 target_value 去比月度达成。
+    //   品牌目标规则 period_type=year、target_value=全年总额（如 868.4 万），真实口径在
+    //   monthly_amounts[MM]（如 09=67.4 万）。口径与「全年月度达成」图表同源（monthTargetOf），
+    //   避免同屏两套目标打架；也修复了"年度 868.4 万 vs 月度达成 32.4 万 = 3.7%"的失真排行。
+    const target = monthTargetOf(r, yy, mm)
+    if (!(target > 0)) continue   // 本月无目标分解 → 该月不适用，不进排行/KPI（不臆测均分）
     const ach = target > 0 ? reported / target : 0
     const gap = Math.max(0, target - reported)
     // 时间进度对比：达成率 vs 本月时间进度
@@ -1858,13 +1905,15 @@ const dashBase = computed(() => {
     let level = 'ontrack'
     if (ach >= 1) { level = 'done'; done++ }
     else if (!willHit) { level = 'risk'; risk++ }
-    achSum += ach
+    if (r.target_type === 'quantity') { qtyTarget += target; qtyReported += reported }
+    else { amtTarget += target; amtReported += reported }
     items.push({
       rule: r,
       dimLabel: dimText(r.dimension),
       scope: r.scope_name || scope || '全部',
       target, targetType: r.target_type,
       reported, ach, gap, nextTierBasis,
+      monthLabel: `${mm}月`,   // v150：显性标注目标口径＝单月，避免与年度总额混淆
       targetText: fmtByType(target, r.target_type),
       reportedText: fmtByType(reported, r.target_type),
       gapText: fmtByType(gap, r.target_type),
@@ -1884,10 +1933,14 @@ const dashBase = computed(() => {
   return {
     items,
     summary: {
-      applicable: activeRules.length,
+      // v150：分母改「本月确有目标的规则」（原 activeRules.length 含本月无分解的年度规则，会让"生效目标"虚高）
+      applicable: items.length,
       done, risk,
-      avgAchPct: activeRules.length ? pctText(achSum / activeRules.length) : '—',
-      noData: activeRules.length > 0 && items.every(it => it.reported === 0),
+      // v132：整体达成率 = Σ达成 ÷ Σ目标（金额口径优先，无金额规则时退到数量口径），
+      // 与图表「达成率」视图（合计达成÷合计目标）完全一致，消除同屏两个同名数字。
+      weightedAchPct: (amtTarget > 0) ? pctText(amtReported / amtTarget)
+        : (qtyTarget > 0 ? pctText(qtyReported / qtyTarget) : '—'),
+      noData: items.length > 0 && items.every(it => it.reported === 0),
       timeProgressPct: pctText(timeProgress),
       timeLabel,
       tpShown: timeProgress > 0 && timeProgress < 1,
@@ -2678,9 +2731,6 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 </script>
 
 <style scoped>
-.page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
-.page-hd h2{font-size:20px;font-weight:600}
-.page-sub{font-size:12px;color:var(--t3)}
 .toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:10px}
 .tb-left,.tb-right{display:flex;align-items:center;gap:8px}
 .sel-filter{width:160px}
@@ -2813,9 +2863,14 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .kpi-hero.risk .kpi-num{color:var(--dan)}
 .kpi-unit{font-size:14px;font-weight:500;color:var(--t3);font-style:normal;margin-left:2px}
 .kpi-lb{font-size:12px;color:var(--t3)}
+/* v132：KPI 口径小字（如"按目标加权"），不占独立行 */
+.kpi-sub{display:block;font-style:normal;font-size:10.5px;color:var(--t3);opacity:.85;margin-top:1px}
 
 /* 图例 */
-.dash-legend{display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--t2);margin-bottom:10px}
+/* v132：状态图例内联进排行标题行 —— 小字弱化、靠右，明确只解释排行配色 */
+.dash-legend{display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);margin-left:auto}
+.rank-hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:2px}
+.rank-hd-t{font-size:13px;font-weight:600;color:var(--t1)}
 .dash-legend span{display:inline-flex;align-items:center;gap:5px}
 .lg{width:10px;height:10px;border-radius:3px;display:inline-block}
 .lg.done{background:var(--suc)}
@@ -2828,6 +2883,9 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .rank-row{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:12px 14px;background:var(--bg)}
 .rank-row.risk{border-color:rgba(var(--dan-rgb),.45);background:rgba(var(--dan-rgb),.05)}
 .rank-row.done{border-color:rgba(var(--suc-rgb),.4)}
+/* v132：异常条目点「看预警」时，闪烁定位到对应排行行 */
+.rank-flash{animation:rankFlash 1.6s ease-out}
+@keyframes rankFlash{0%,100%{box-shadow:none}25%,75%{box-shadow:0 0 0 3px rgba(var(--dan-rgb),.35)}}
 .rr-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .rr-rank{width:20px;height:20px;border-radius:50%;background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;font-weight:700;color:var(--t2);display:inline-flex;align-items:center;justify-content:center}
 .rank-row.risk .rr-rank{background:rgba(var(--dan-rgb),.15);border-color:rgba(var(--dan-rgb),.4);color:var(--dan)}
@@ -2837,11 +2895,10 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .rr-ach.val-warn{color:var(--dan)}
 .rr-bar{height:14px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden;position:relative}
 .rr-bar-fill{height:100%;border-radius:8px;transition:width .35s ease;background:var(--p-dark)}
-.dash-nodata{margin:-2px 0 12px;padding:9px 12px;background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.3);border-radius:var(--radius-md);font-size:12.5px;color:var(--p-dark);line-height:1.5}
+/* v132：原 .dash-nodata 长文案已删除（重复且无操作），引导并入异常区可点击条目 */
 
 /* #354：rank-row 算式入口 + 进度条百分比 */
-.rr-calc-btn{margin-left:8px;border:1px solid rgba(var(--p-rgb),.4);background:rgba(6,182,212,.08);color:var(--p-dark);border-radius:6px;padding:2px 9px;font-size:12px;cursor:pointer}
-.rr-calc-btn:hover{background:rgba(6,182,212,.16)}
+/* v132：行内「算式」按钮样式已移除（双入口收敛为「看算式」链接） */
 .rr-calc-link{margin-left:6px;border:none;background:none;color:var(--p-dark);cursor:pointer;font-size:12px;text-decoration:underline;padding:0}
 .rr-calc-link:hover{opacity:.8}
 .rr-calc-loading{margin-left:8px;font-size:12px;color:var(--t3)}
@@ -2854,10 +2911,16 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .da-hd{font-size:13px;font-weight:600;color:var(--dan);margin-bottom:8px;display:flex;align-items:center}
 .da-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
 .da-item{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--t1);line-height:1.5}
+/* v132：异常条目可点击 —— 由只读警告升级为可闭环处理 */
+.da-clickable{cursor:pointer;border-radius:var(--radius-sm);padding:5px 7px;margin:-5px -7px;transition:background .15s}
+.da-clickable:hover{background:rgba(var(--dan-rgb),.07)}
+.da-clickable:focus-visible{outline:2px solid var(--p);outline-offset:1px}
+.da-act{margin-left:auto;flex:0 0 auto;font-size:11.5px;color:var(--p-dark);white-space:nowrap}
+.da-clickable:hover .da-act{text-decoration:underline}
 .da-ic{flex:none;width:18px;text-align:center;color:var(--dan);font-weight:700}
 .da-item.warn .da-ic{color:var(--war)}
 .da-text{flex:none;font-weight:500}
-.da-items{color:var(--t3);font-size:12px}
+.da-items{color:var(--t3);font-size:12px;flex:1;min-width:0}
 
 /* #354：算式链 Modal */
 .calc-card{width:620px}
@@ -3030,5 +3093,10 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 }
 /* v123：全年月度达成柱状图 */
 .dash-chart { margin: 4px 0 2px; }
-.dash-kpi-note { font-size: 12px; color: var(--t3); margin: -2px 0 8px; }
+/* P2 项11：KPI 标题行（说明文案弱化为小字，与标题同行） */
+.kpi-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.kpi-hd-t{font-size:13px;font-weight:600;color:var(--t1)}
+.dash-kpi-note { font-size: 11.5px; color: var(--t3); }
+/* P2 组5：时间控件作用域标签（单月视图 / 全年视图），消除"改月份会不会改图表"的误解 */
+.scope-tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--bg2);border:1px solid var(--border-subtle);font-size:10.5px;font-style:normal;font-weight:400;color:var(--t3)}
 </style>
