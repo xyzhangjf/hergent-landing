@@ -22,20 +22,13 @@
             <option value="0">— 选择期次 —</option>
             <option v-for="p in periods" :key="p.id" :value="p.id" :title="p.order_start + ' ~ ' + p.order_end">{{ p.name }}</option>
           </select>
-          <!-- 期次操作统一收进「⋯」菜单（新建 / 关闭 / 删除）：单行布局下省出 110px。
-               菜单不再依赖 currentPeriod —— 未选期次时也可经它新建（承接原「新建期次」按钮职责），
-               故「⋯」按钮改为常显，title 同步改为「期次操作」。 -->
-          <div class="tb-pop">
-            <button ref="periodBtn" class="btn btn-sm btn-ghost tb-more" :class="{on:periodMenuOpen}" @click="toggleTbPop('period')" title="期次操作：新建 / 关闭 / 删除" aria-label="期次操作">⋯</button>
-            <Teleport to="body">
-            <div v-if="periodMenuOpen" class="tb-pop-panel" :style="popStyle" @click.stop>
-              <button class="grp-btn" @click="openNewPeriod(); periodMenuOpen=false"><Icon name="plus"/> 新建期次</button>
-              <div v-if="currentPeriod" class="tb-pop-sep"></div>
-              <button v-if="currentPeriod && currentPeriod.status === 'open'" class="grp-btn" @click="askClose(currentPeriod); periodMenuOpen=false" title="关闭后不可再编辑，仅可删除">关闭期次</button>
-              <button v-if="currentPeriod && currentPeriod.status === 'closed'" class="grp-btn danger" @click="askDelete(currentPeriod); periodMenuOpen=false" title="连同其全部报单、订单、审核定稿一并删除，且不可恢复">删除期次</button>
-            </div>
-            </Teleport>
-          </div>
+          <!-- 2026-09-12：「新建期次」为高频操作，从原「⋯」溢出菜单中提出，直接以按钮常显在期次选择器右侧
+               （仍在 .tb-ctx 段内，占用原 ⋯ 的位置）。按钮常显、不依赖 currentPeriod —— 未选期次时也能新建。
+               原菜单中的「关闭期次 / 删除期次」属低频且只作用于“当前已选中的那个期次”，
+               已由「历史期次」页每行的「关闭 / 删除」按钮承担（ForecastHistory.vue，同样走 askClose / askDelete），
+               故移除 ⋯ 菜单不损失任何能力。 -->
+          <button class="btn btn-sm btn-ghost" @click="openNewPeriod"
+                  title="新建期次：设置期次名称与下单 / 到货日期" aria-label="新建期次"><Icon name="plus"/> 新建期次</button>
           <!-- 审批状态属于「期次」上下文，紧随期次选择器（原在行1 尾部、与筛选器混排） -->
           <span v-if="confirmInfo" class="confirm-badge ok"><Icon name="check" /> 已确认{{ confirmInfo.by ? ' · ' + confirmInfo.by : '' }}</span>
           <span v-else class="confirm-badge draft">待审核</span>
@@ -114,7 +107,7 @@
         <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
         <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
       </div>
-      <div v-if="(advToolsOpen && editMode) || periodMenuOpen || exportMenuOpen || brandPopOpen || copyMenuOpen" class="pop-overlay" @click="advToolsOpen=false; periodMenuOpen=false; exportMenuOpen=false; brandPopOpen=false; copyMenuOpen=false"></div>
+      <div v-if="(advToolsOpen && editMode) || exportMenuOpen || brandPopOpen || copyMenuOpen" class="pop-overlay" @click="advToolsOpen=false; exportMenuOpen=false; brandPopOpen=false; copyMenuOpen=false"></div>
     </div>
 
     <!-- 新建期次表单（紧贴工具条，随时可点，不依赖视图） -->
@@ -4708,12 +4701,10 @@ async function doWriteback() {
 const miniOpen = ref(false)
 const openGroup = ref(null)
 const advToolsOpen = ref(false)   // 高级工具抽屉（编辑模式下收起/展开 4 个分组 + 审批/推送/打印）
-const periodMenuOpen = ref(false)  // P1-4：期次「⋯」溢出菜单（关闭/删除互斥，合并收纳）
 const exportMenuOpen = ref(false)  // ★导出统一菜单：全部/选中行/差异 收进一个下拉，主栏只留一个「导出」
 // 主工具栏弹层（高级）改为 Teleport+fixed，脱离 .toolbar{overflow:auto} 裁切；用触发按钮坐标定位
 const popStyle = reactive({ top: '0px', left: '0px' })
 const advBtn = ref(null)
-const periodBtn = ref(null)
 const exportBtn = ref(null)
 // 品牌筛选下拉
 const brandBtn = ref(null)
@@ -4723,7 +4714,6 @@ const brandPopOpen = ref(false)
 // 避免用户“先选品牌、再点复制报单”时第一次点击被遮罩吃掉（只关面板不开新面板）。
 function _closePopPanes(except) {
   if (except !== 'adv') advToolsOpen.value = false
-  if (except !== 'period') periodMenuOpen.value = false
   if (except !== 'export') exportMenuOpen.value = false
   if (except !== 'brand') brandPopOpen.value = false
   if (except !== 'copy') copyMenuOpen.value = false
@@ -4781,20 +4771,16 @@ function positionTbPop(btnEl) {
   popStyle.top = top + 'px'
   popStyle.left = left + 'px'
 }
+// 工具栏弹层互斥开关（2026-09-12：'period' 分支已随「⋯」菜单移除，现仅 adv / export 两个触发器）
 function toggleTbPop(which) {
-  const own = (which === 'adv') ? 'adv' : (which === 'export' ? 'export' : 'period')
-  const curOpen = which === 'adv' ? advToolsOpen.value : (which === 'export' ? exportMenuOpen.value : periodMenuOpen.value)
-  const open = !curOpen
-  _closePopPanes(open ? own : '')
+  const open = which === 'adv' ? !advToolsOpen.value : !exportMenuOpen.value
+  _closePopPanes(open ? which : '')
   if (which === 'adv') {
     advToolsOpen.value = open
     if (open) nextTick(() => positionTbPop(advBtn.value))
-  } else if (which === 'export') {
+  } else {
     exportMenuOpen.value = open
     if (open) nextTick(() => positionTbPop(exportBtn.value))
-  } else {
-    periodMenuOpen.value = open
-    if (open) nextTick(() => positionTbPop(periodBtn.value))
   }
 }
 
@@ -6040,7 +6026,7 @@ onMounted(async () => {
 .tb-left,.tb-right,.toolbar>.tb-group{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .tb-left .btn,.tb-right .btn,.toolbar>.tb-group .btn{flex:0 0 auto;white-space:nowrap}
 /* 工具栏单行布局（2026-09-12）：分三段，段间以 .tb-sep 分隔、段内 gap 8
-   段1 .tb-ctx  期次上下文（期次选择 / ⋯ / 新建期次 / 审批状态徽标）
+   段1 .tb-ctx  期次上下文（期次选择 / 新建期次 / 审批状态徽标）
    段2 .tb-data 搜索与数据进出（搜索框 / 导入 / 导出 / 复制报单）
    段3 .tb-act  决策与编辑（AI智能建议 / 改单 / 编辑态工具箱）
    实测（1440×900 / 侧栏 248）：单行内容 916px < 可用 1150px；1280 视口（可用 990px）亦单行。
@@ -6536,7 +6522,6 @@ td.invalid{background:var(--danger-bg)}
 .grp-btn.on{background:var(--p);color:#fff;border-color:var(--p)}
 .grp-btn.danger{color:var(--dan);border-color:rgba(var(--dan-rgb),.4)}
 .grp-btn.danger:hover{border-color:var(--dan)}
-.tb-more{min-width:32px;padding:0 9px;font-size:15px;line-height:1}
 .grp-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg2);border:0.5px solid var(--bd);border-radius:var(--radius-md)}
 .batch-panel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:12px}
 .batch-val{width:84px;border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
