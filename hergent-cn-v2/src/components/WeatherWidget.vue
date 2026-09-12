@@ -119,7 +119,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { api, auth } from '../api/client'
 import { store } from '../store'
-import { cnHoliday } from '../utils/cnHolidays'
+import { cnHoliday, loadRemoteHolidays } from '../utils/cnHolidays'
 import Icon from './Icon.vue'
 
 const LS_KEY = 'wx_city'
@@ -510,6 +510,8 @@ onMounted(() => {
     if (raw) sel.value = JSON.parse(raw)
   } catch (e) {}
   load()                       // 先用本地/IP 即时显示
+  // 节假日表：走后端接口（每年自动更新）；失败时静默回落到内置静态表，不阻塞天气渲染
+  loadRemoteHolidays()
   if (auth.token) fetchPref()  // 再用账户偏好覆盖（跨设备/浏览器生效）
   // 趋势线宽度跟随容器（弹层展开/窗口变化/窄屏）实时对齐日卡片行
   if (typeof ResizeObserver !== 'undefined') {
