@@ -6029,7 +6029,8 @@ onMounted(async () => {
    段1 .tb-ctx  期次上下文（期次选择 / 新建期次 / 审批状态徽标）
    段2 .tb-data 搜索与数据进出（搜索框 / 导入 / 导出 / 复制报单）
    段3 .tb-act  决策与编辑（AI智能建议 / 改单 / 编辑态工具箱）
-   实测（1440×900 / 侧栏 248）：单行内容 916px < 可用 1150px；1280 视口（可用 990px）亦单行。
+   容量实测（「新建期次」提为常显按钮后，最坏态＝期次名撑满选择器限宽；余量＝可用内容宽 − 所需内容宽）：
+     1440 → +43px（真实态 +67）  1366 → +60   1512 → +115   1680 → +283   1920 → +523   1280 → +8（见 <1360 档）
    表格级筛选器（仅显示有报单 / 品牌）已下移到表格卡片顶部的 .grid-ctl-row。
    编辑态多出的 6 个编辑按钮交由 .tb-edit-group 独占第二行，故 toolbar 保留 flex-wrap 作窄屏兜底。
    注：类名用 .tb-dense 而非 .tb-compact —— 后者是 variables.css 的全局类（Toolbar.vue 在用），避免命名碰撞。 */
@@ -6039,17 +6040,29 @@ onMounted(async () => {
 .toolbar>.tb-edit-group>.btn{flex:0 0 auto;white-space:nowrap}
 .toolbar.tb-dense,.toolbar.tb-dense>.tb-edit-group{gap:6px}
 .toolbar.tb-dense .tb-sep{margin:0 3px}
-/* 窄屏（<1440）：收紧段间距、AI 按钮只留图标、期次选择器限宽 → 单行在 1280/1366 依然成立。
-   1440 及以上保留完整文案与 8px 间距。
-   ⚠️ 限宽必须写成 .toolbar .sel-period：下方通用 .sel-period{max-width:220px} 源序更后且特异性相同，
-   否则会覆盖本条（曾实测 1280 下 select 仍为 220px，导致折行）。 */
+/* 窄屏（<1440）：收紧段间距、AI 按钮只留图标 → 单行在 1366 及以上依然成立（1366 最坏态余量 +60px）。
+   1440 及以上保留完整文案与 8px 间距。 */
 @media(max-width:1439px){
   .toolbar,.toolbar>.tb-group,.toolbar>.tb-edit-group{gap:6px}
   .toolbar .tb-sep{margin:0 3px}
   .tb-ai-txt{display:none}
-  .toolbar .sel-period{max-width:150px}
 }
-.sel-period{width:auto;max-width:220px;height:32px;padding:0 8px;flex-shrink:0;appearance:auto;-webkit-appearance:auto;cursor:pointer;position:relative;z-index:2}
+/* 1280 档（<1360）：唯一放不下的一档 —— 「新建期次」提为常显按钮后，段1 由 226px 涨到 296px，
+   1280 可用内容宽仅 958px，而真实所需 962px（含分隔条左右外边距）→ 折行。三条收紧共省 58px：
+   ① 隐藏两条 .tb-sep 装饰分隔条 —— 不丢任何信息/控件，仅少掉 1px 竖线（省 2px 宽 + 12px 外边距 + 2 个 gap）；
+   ② 段间距 6 → 5（1px，肉眼不可辨；编辑态第一行多一个 89px 的「工具箱」按钮，靠它压住不折行）；
+   ③ 期次选择器收到 126px —— 正好是占位文案「— 选择期次 —」的自然宽（再窄连占位都会被截断）。
+   1360 及以上完全不动（1366 非编辑态余量 +48px），避免无谓地压缩更宽视口。 */
+@media(max-width:1359px){
+  .toolbar>.tb-sep{display:none}
+  .toolbar,.toolbar>.tb-group,.toolbar>.tb-edit-group{gap:5px}
+  .toolbar .sel-period{max-width:126px}
+}
+/* 期次选择器限宽 150：段1 原来是「选择器(≤220) + ⋯(32)」＝252px 占地，
+   2026-09-12 起 ⋯ 换成常显的「新建期次」按钮（102px），故选择器上限收到 150px
+   （150 + 102 = 252）以保持段1 占地不变 —— 否则 1440 最坏情况下主工具栏会折行。
+   全宽统一 150 也让选择器宽度在任何视口下一致（此前 ≥1440 为 220、<1440 为 150 会跳变）。 */
+.sel-period{width:auto;max-width:150px;height:32px;padding:0 8px;flex-shrink:0;appearance:auto;-webkit-appearance:auto;cursor:pointer;position:relative;z-index:2}
 
 /* ---- P0-1 交叉表视图 ---- */
 /* 本期预报子视图切换：汇总表 / 逐单补录（移出工具栏，内容区干净分段） */
