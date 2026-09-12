@@ -11,6 +11,26 @@
         </div>
       </div>
 
+      <!-- 空账套引导：KPI 全 0 且无任何业务信号时出现（新注册租户 / 尚未导入数据）。
+           上传能力与注册后的「上传第一份数据」弹窗**同一个接口**（importApi.oneShot），
+           避免出现两套导入入口。 -->
+      <div class="card import-guide" v-if="isEmptyTenant">
+        <div class="ig-ic">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 9 12 4 17 9"/><line x1="12" y1="4" x2="12" y2="16"/></svg>
+        </div>
+        <div class="ig-txt">
+          <div class="ig-title">还没有数据？先导入一份 Excel</div>
+          <div class="ig-sub">从舟谱或你现在的系统导出（应收、商品、订单都可以），选文件后 AI 自动识别入库，马上就能看到经营分析。</div>
+        </div>
+        <div class="ig-acts">
+          <label class="btn btn-primary ig-pick" :class="{ busy: igBusy }">
+            <input type="file" accept=".xlsx,.xls,.csv" style="display:none" @change="igFile">
+            {{ igBusy ? 'AI 识别中…' : '选择 Excel 文件' }}
+          </label>
+          <span v-if="igMsg" class="ig-msg" :class="{ ok: igOk }">{{ igMsg }}</span>
+        </div>
+      </div>
+
       <!-- 今日待办（AI 替你盯着的，等你拍板） -->
       <div class="card todo-panel" v-if="todoItems.length">
         <div class="panel-hd">
@@ -109,7 +129,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { toast } from '../store'
 import { hermesChat } from '../api/client'
-import { dashboardApi, expiryApi, todayApi, collectionsApi } from '../api/modules'
+import { dashboardApi, expiryApi, todayApi, collectionsApi, importApi } from '../api/modules'
 
 /* ---- 日期 ---- */
 const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
@@ -221,6 +241,49 @@ async function loadMorning() {
 
 /* ---- 初始化加载 ---- */
 async function loadData() {
+/* ---- 空账套引导 ---- */
+const recentActions = ref([])
+const igBusy = ref(false)
+const igMsg = ref('')
+const igOk = ref(false)
+
+/* 判据：今日 KPI 全 0 **且** 无任何业务信号（无待办卡片、无效期预警、无历史业务动作）。
+   刻意不用「客户/商品数为 0」——那要多打一次档案接口；这四条同时成立已足以区分
+   「空账套」与「今天恰好没开单」（后者会有历史动作或效期数据）。
+   ⚠️ recentActions 必须已在加载时剔除 auth 动作，否则新用户一注册就被判成"有数据"。
+   dashData 未加载完时返回 false，避免引导卡闪烁。 */
+const isEmptyTenant = computed(() => {
+  const d = dashData.value
+  if (!d) return false
+  const flat = !Number(d.sales) && !Number(d.orders) && !Number(d.payment) && !Number(d.profit)
+  return flat && !expiryData.value.length && !todayCards.value.length && !recentActions.value.length
+})
+
+async function igFile(ev) {
+  const f = ev.target.files?.[0]
+  ev.target.value = ''
+  if (!f) return
+  igBusy.value = true
+  igMsg.value = ''
+  try {
+    const r = await importApi.oneShot(f)
+    if (r && r.success) {
+      const label = { receivables: '应收', products: '商品', orders: '订单' }[r.category] || '数据'
+      igOk.value = true
+      igMsg.value = `${label}已识别 · ${r.success} 条入库`
+      await loadData()   // 拉回真实数据：引导卡会因 KPI 不再全 0 而自行消失
+    } else {
+      igOk.value = false
+      igMsg.value = (r && r.message) || '未能自动识别，请确认表头含商品/客户名称与数量或金额'
+    }
+  } catch (e) {
+    igOk.value = false
+    igMsg.value = e.message || '导入失败，请稍后重试'
+  } finally {
+    igBusy.value = false
+  }
+}
+
   try {
     const d = await dashboardApi.todayProfit()
     dashData.value = d
@@ -237,6 +300,15 @@ async function loadData() {
   } catch (e) { /* 静默 */ }
   loadTodo()
 }
+  try {
+    // 仅用于判定「是否空账套」：有历史**业务**动作 = 用户已经开始用系统，不该显示导入引导。
+    // ⚠️ 必须排除 module==='auth' —— 注册/登录本身就会写一条动作记录（实测新注册租户的
+    // recent-actions 恰好就是「自助注册: XXX」），不过滤会把每个新用户都判成"有数据"，
+    // 引导卡永远不出现。limit 取大一些，避免连续登录把业务动作挤出窗口。
+    const ra = await dashboardApi.recentActions(20)
+    const arr = Array.isArray(ra) ? ra : (ra?.items || ra?.data || [])
+    recentActions.value = arr.filter(a => a && a.module !== 'auth')
+  } catch (e) { recentActions.value = [] }
 
 /* ---- 今日待办：审批 + 催收 + 临期（AI 替你盯着的） ---- */
 const todoItems = ref([])
@@ -313,6 +385,18 @@ onMounted(loadData)
 .kpi-strip .kpi{padding:8px 18px;border-right:1px solid var(--border-subtle);transition:background .15s}
 .kpi-strip .kpi:first-child{padding-left:20px}
 .kpi-strip .kpi:last-child{border-right:none}
+/* 空账套导入引导 —— 占整行，横向三段：图标 / 文案 / 操作 */
+.import-guide{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px dashed var(--bd)}
+.ig-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
+.ig-txt{flex:1;min-width:220px}
+.ig-title{font-size:14px;font-weight:500;color:var(--t1)}
+.ig-sub{font-size:12.5px;color:var(--t3);margin-top:3px;line-height:1.55}
+.ig-acts{display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.ig-pick{display:inline-flex;align-items:center;cursor:pointer}
+.ig-pick.busy{opacity:.7;cursor:default}
+.ig-msg{font-size:12px;color:var(--dan)}
+.ig-msg.ok{color:var(--p-dark)}
+
 .kpi-strip .kpi:hover{background:var(--bg2)}
 .kpi-label{font-size:12px;color:var(--t3);margin-bottom:6px}
 .kpi-val{font-size:22px;font-weight:600;margin-bottom:2px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
