@@ -1,13 +1,21 @@
 <template>
   <div class="wx" ref="root">
-    <button class="wx-now" @click="open = !open" :title="locText()" :class="{ dim: !ready }">
+    <!-- 收起态：只留 天气图标 + 温度（扫一眼即可读的两个量）。位置与实况描述迁入展开面板首行 -->
+    <button class="wx-now" @click="open = !open" :title="locText()" :aria-label="locText()" :class="{ dim: !ready }">
       <span class="wx-ic">{{ icon() }}</span>
-      <span class="wx-city">{{ city }}</span>
       <span class="wx-temp" v-if="temp != null">{{ tempInt(temp) }}°</span>
-      <span class="wx-desc" v-if="desc() && temp != null">{{ desc() }}</span>
       <span v-if="loading" class="wx-load">…</span>
     </button>
     <div v-if="open" class="wx-pop">
+      <!-- 位置上下文行（面板首行）：收起态按钮上的「城市名 / 天气描述」迁到这里，
+           成为面板的阅读起点 —— 先确认「这是哪儿」，再看未来趋势。
+           左起连续排列：位置（图标 + 城市名 + 定位来源）→ 分隔点 → 当前实况（描述 + 温度）。 -->
+      <div class="wx-where">
+        <Icon name="map-pin" :size="14" class="wx-where-ic" />
+        <span class="wx-where-city">{{ city }}</span>
+        <span class="wx-where-tag">{{ sel ? '已选城市' : '自动定位' }}</span>
+        <span v-if="desc() && temp != null" class="wx-where-desc">{{ desc() }} {{ tempInt(temp) }}°</span>
+      </div>
       <div class="wx-search">
         <input
           class="wx-input"
@@ -98,6 +106,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { api, auth } from '../api/client'
+import Icon from './Icon.vue'
 
 const LS_KEY = 'wx_city'
 
@@ -430,6 +439,17 @@ onBeforeUnmount(() => {
 .wx-ic{font-size:16px;line-height:1}
 .wx-temp{font-variant-numeric:tabular-nums}
 .wx-load{opacity:.7}
+
+/* 位置上下文行（2026-09-12）：收起态按钮瘦身成「图标 + 温度」后，城市名与实况描述迁到面板首行。
+   布局 = 左起连续的一条「位置 → 实况」阅读线：📍图标 → 城市名 → 定位来源徽标 → · → 描述 + 当前温度。
+   ⚠️ 不要用 space-between / margin-left:auto 把实况推到右端：面板宽度由下方 14 天卡片行撑开
+   （实测 922px），两端对齐会在中间留下约 800px 空洞。左对齐与同面板内搜索框的行为一致。 */
+.wx-where{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--t2)}
+.wx-where-ic{color:var(--p);flex:0 0 auto}
+.wx-where-city{font-size:13px;font-weight:600;color:var(--t1)}
+.wx-where-tag{flex:0 0 auto;padding:1px 6px;border-radius:6px;background:var(--p-bg);color:var(--p-dark);font-size:10px;line-height:1.6}
+.wx-where-desc{font-variant-numeric:tabular-nums;white-space:nowrap}
+.wx-where-desc::before{content:'·';margin-right:6px;color:var(--t3)}
 .wx-pop{position:absolute;top:42px;left:50%;transform:translateX(-50%);z-index:30;
   display:flex;flex-direction:column;gap:10px;padding:10px 12px;border-radius:12px;width:max-content;max-width:calc(100vw - 20px);
   background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
