@@ -7,7 +7,7 @@
       <button :class="{ on: tab === 'ai' }" @click="switchTab('ai')">AI 配置</button>
       <button :class="{ on: tab === 'aiops' }" @click="tab = 'aiops'">AI 运维</button>
       <button :class="{ on: tab === 'system' }" @click="tab = 'system'">数据与系统</button>
-      <button :class="{ on: tab === 'onboard' }" @click="switchTab('onboard')">客户开通</button>
+      <button v-if="isPlatformAdmin" :class="{ on: tab === 'onboard' }" @click="switchTab('onboard')">客户开通</button>
     </div>
 
     <!-- ==================== 账号与组织 ==================== -->
@@ -211,6 +211,99 @@
           </div>
         </div>
       </div>
+
+      <!-- ==================== 邀请码 ====================
+           注册链路目前是邀请制（REGISTER_MODE=invite，见后端 invite_codes.py）：
+           客户在登录页「免费注册」填邀请码自助注册，这里负责发码、看谁来注册了。
+           接真短信后本卡片只是不再需要，不影响其它功能。 -->
+      <div class="card">
+        <div class="panel-hd">
+          <b>邀请码</b>
+          <span class="page-sub">
+            发给客户自助注册用 —— 谁能注册、注册了几个、从哪张码来的，都在这里
+            <template v-if="icStats">（共 {{ icStats.codes }} 张 · 可用 {{ icStats.codes_active }} 张 · 已注册 {{ icStats.registrations }} 家）</template>
+          </span>
+        </div>
+
+        <div class="set-form" style="max-width:560px">
+          <div class="set-row">
+            <div class="set-field" style="flex:1.4">
+              <label>备注（发给谁 / 哪个渠道）</label>
+              <input v-model="icForm.label" class="input" placeholder="如：永诺旗舰店 / 8月展会加的微信">
+            </div>
+            <div class="set-field" style="flex:.8">
+              <label>可用次数</label>
+              <input v-model.number="icForm.max_uses" class="input" type="number" min="0" placeholder="1">
+            </div>
+            <div class="set-field" style="flex:1">
+              <label>有效期至（可选）</label>
+              <input v-model="icForm.expires_at" class="input" type="date">
+            </div>
+          </div>
+          <div class="set-row" style="margin-top:12px;align-items:center">
+            <button class="btn btn-primary" :disabled="icBusy" @click="doCreateCode">{{ icBusy ? '生成中…' : '生成邀请码' }}</button>
+            <span style="font-size:12px;color:var(--t3)">次数填 0 = 不限次；有效期留空 = 不过期</span>
+          </div>
+        </div>
+
+        <div v-if="icNew" class="set-result ok" style="margin-top:14px">
+          <b>已生成</b>
+          <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <code class="ic-code">{{ icNew }}</code>
+            <button class="btn btn-sm btn-ghost" @click="copyCode(icNew)">复制</button>
+          </div>
+        </div>
+
+        <!-- 码列表 -->
+        <div class="ic-table-wrap">
+          <table class="ic-table">
+            <thead>
+              <tr><th>邀请码</th><th>备注</th><th>用量</th><th>有效期</th><th>状态</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="c in icCodes" :key="c.id">
+                <td>
+                  <code class="ic-code">{{ c.code }}</code>
+                  <button class="ic-mini" title="复制" @click="copyCode(c.code)">复制</button>
+                </td>
+                <td>{{ c.label || '—' }}</td>
+                <td>{{ c.used_count }} / {{ c.unlimited ? '不限' : c.max_uses }}</td>
+                <td>{{ c.expires_at ? String(c.expires_at).slice(0, 10) : '不过期' }}</td>
+                <td><span class="ic-st" :class="'ic-st-' + c.status">{{ c.status_text }}</span></td>
+                <td>
+                  <button class="ic-mini" @click="toggleCode(c)">{{ c.is_active ? '停用' : '启用' }}</button>
+                  <button class="ic-mini dan" @click="removeCode(c)">删除</button>
+                </td>
+              </tr>
+              <tr v-if="!icCodes.length"><td colspan="6" class="ic-empty">还没有邀请码 —— 在上面生成一张</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 注册流水 -->
+        <div class="panel-hd" style="margin-top:18px">
+          <b>注册流水</b>
+          <span class="page-sub">谁、用哪张码、什么时候、从哪个 IP 注册的</span>
+        </div>
+        <div class="ic-table-wrap">
+          <table class="ic-table">
+            <thead>
+              <tr><th>时间</th><th>公司</th><th>租户</th><th>邀请码</th><th>手机号</th><th>来源 IP</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in icUses" :key="r.id">
+                <td>{{ r.created_at }}</td>
+                <td>{{ r.company || r.tenant_name || '—' }}</td>
+                <td>{{ r.tenant_id || '—' }}</td>
+                <td><code class="ic-code">{{ r.code }}</code> <span style="color:var(--t3)">{{ r.code_label || '' }}</span></td>
+                <td>{{ r.phone || '—' }}</td>
+                <td>{{ r.client_ip || '—' }}</td>
+              </tr>
+              <tr v-if="!icUses.length"><td colspan="6" class="ic-empty">还没有人通过邀请码注册</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -232,6 +325,7 @@ function switchTab(t) {
   tab.value = t
   if (t === 'perm') loadPerms()
   if (t === 'ai') loadMemory()
+  if (t === 'onboard') { loadCodes(); loadWhoami() }
 }
 
 /* ---- 客户开通（创始人内部工具） ---- */
@@ -251,6 +345,92 @@ async function doOnboard() {
   } finally {
     obing.value = false
   }
+}
+
+/* ---- 邀请码 ---- */
+const icForm = reactive({ label: '', max_uses: 1, expires_at: '' })
+const icCodes = ref([])
+const icUses = ref([])
+const icStats = ref(null)
+const icBusy = ref(false)
+const icNew = ref('')
+
+/* 平台管理员判定：只用来决定「客户开通」标签页是否出现。
+   不做面板级的 v-if —— 深链 ?tab=onboard 进来时 whoami 还没回来，会把内容闪掉；
+   真越权由后端 _platform_admin 403 兜住（前端挡不住也不该由前端挡）。 */
+const isPlatformAdmin = ref(false)
+async function loadWhoami() {
+  try {
+    const d = await api('/api/platform/whoami')
+    isPlatformAdmin.value = !!(d && d.platform_admin)
+  } catch (e) { isPlatformAdmin.value = false }
+}
+
+async function loadCodes() {
+  try {
+    const d = await api('/api/platform/invite-codes')
+    icCodes.value = (d && d.codes) || []
+    icStats.value = (d && d.stats) || null
+  } catch (e) {
+    // 非平台管理员会 403 —— 静默即可，标签页本身不该出现在他的界面上
+    icCodes.value = []
+  }
+  try {
+    const r = await api('/api/platform/registrations')
+    icUses.value = (r && r.registrations) || []
+  } catch (e) { icUses.value = [] }
+}
+
+async function doCreateCode() {
+  if (icBusy.value) return
+  icBusy.value = true
+  icNew.value = ''
+  try {
+    const d = await api('/api/platform/invite-codes', {
+      method: 'POST',
+      body: { label: icForm.label, max_uses: Number(icForm.max_uses) || 0, expires_at: icForm.expires_at || '' },
+    })
+    if (d && d.success) {
+      icNew.value = d.code.code
+      toast('邀请码已生成', 'ok')
+      icForm.label = ''
+      loadCodes()
+    } else toast('生成失败', 'error')
+  } catch (e) {
+    toast((e && e.message) || '生成失败', 'error')
+  } finally {
+    icBusy.value = false
+  }
+}
+
+async function toggleCode(c) {
+  try {
+    await api('/api/platform/invite-codes/status', { method: 'POST', body: { code_or_id: String(c.id), active: !c.is_active } })
+    toast(c.is_active ? '已停用' : '已启用', 'ok')
+    loadCodes()
+  } catch (e) { toast((e && e.message) || '操作失败', 'error') }
+}
+
+async function removeCode(c) {
+  if (!confirm(`删除邀请码 ${c.code}？已注册的流水会保留。`)) return
+  try {
+    await api('/api/platform/invite-codes/' + c.id, { method: 'DELETE' })
+    toast('已删除', 'ok')
+    loadCodes()
+  } catch (e) { toast((e && e.message) || '删除失败', 'error') }
+}
+
+function copyCode(code) {
+  const done = () => toast('已复制 ' + code, 'ok')
+  try {
+    if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(code).then(done); return }
+  } catch (e) {}
+  const ta = document.createElement('textarea')
+  ta.value = code
+  ta.style.position = 'fixed'; ta.style.opacity = '0'
+  document.body.appendChild(ta); ta.select()
+  try { document.execCommand('copy'); done() } catch (e) { toast('复制失败，请手工抄写', 'error') }
+  document.body.removeChild(ta)
 }
 
 /* ---- Hermes API ---- */
@@ -434,6 +614,7 @@ function toggleTheme() {
 onMounted(() => {
   key.value = localStorage.getItem('hermes_v2_key') || ''
   loadMemory()
+  loadWhoami()
   // 支持 ?tab=aiops 深链（AI 中心页的「设置 › AI 运维」入口）
   const q = rtab.query && rtab.query.tab
   if (q && ['account', 'perm', 'ai', 'aiops', 'system', 'onboard'].includes(q)) switchTab(q)
@@ -503,4 +684,21 @@ onMounted(() => {
 .mem-del{border:none;background:none;color:var(--t3);cursor:pointer;font-size:13px}
 .mem-del:hover{color:var(--dan)}
 .mem-danger{color:var(--dan)}
+
+/* ---- 邀请码（客户开通 › 邀请码卡片）---- */
+.ic-table-wrap{margin-top:10px;overflow-x:auto}
+.ic-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.ic-table th{text-align:left;font-weight:500;color:var(--t3);padding:6px 10px;border-bottom:1px solid var(--bd);white-space:nowrap}
+.ic-table td{padding:7px 10px;border-bottom:1px solid var(--bd);color:var(--t1);vertical-align:middle}
+.ic-table tr:hover td{background:var(--bg2)}
+.ic-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;letter-spacing:.4px;
+  background:var(--p-bg);color:var(--p-dark);padding:2px 7px;border-radius:var(--radius-sm);white-space:nowrap}
+.ic-mini{margin-left:6px;border:none;background:none;color:var(--t3);cursor:pointer;font-size:11.5px;padding:2px 4px;border-radius:var(--radius-sm)}
+.ic-mini:hover{color:var(--p-dark);background:var(--bg2)}
+.ic-mini.dan:hover{color:var(--dan)}
+.ic-st{font-size:11px;padding:1px 7px;border-radius:9px;white-space:nowrap}
+.ic-st-active{background:var(--p-bg);color:var(--p-dark)}
+.ic-st-exhausted,.ic-st-expired{background:var(--bg3);color:var(--t2)}
+.ic-st-disabled{background:var(--bg3);color:var(--t3)}
+.ic-empty{color:var(--t3);text-align:center;padding:14px 0}
 </style>

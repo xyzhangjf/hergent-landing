@@ -13,7 +13,8 @@
         <button class="lg-tab" :class="{ on: mode === 'register' }" @click="setMode('register')">免费注册</button>
       </div>
 
-<!-- 登录 / 注册 切换：card 高度由 min-height:548px 锁定，两 form 直接 v-if/v-else 瞬切，无过渡动画也无跳变 -->
+<!-- 登录 / 注册 切换：card 高度由 min-height:620px 锁定（取较高一侧＝注册表单），
+     两 form 直接 v-if/v-else 瞬切，无过渡动画也无跳变 -->
 <form v-if="mode === 'login'" key="login" @submit.prevent="doLogin">
         <div class="field">
           <label class="field-label">用户名</label>
@@ -49,6 +50,28 @@
           <label class="field-label">手机号</label>
           <input v-model="regPhone" class="input" placeholder="手机号" autocomplete="tel" required>
         </div>
+        <!-- 邀请码：内测阶段（REGISTER_MODE=invite）的注册闸门。日后切真短信时，
+             后端 /api/auth/register-mode 下发 mode=sms，这里自动换成短信验证码输入框，
+             前端无需改代码。 -->
+        <template v-if="regMode.need_invite">
+          <div class="field">
+            <label class="field-label">邀请码</label>
+            <input v-model="regInvite" class="input" placeholder="如 HG7K2M4P9X" required
+                   autocapitalize="characters" autocomplete="off" spellcheck="false">
+          </div>
+          <p class="field-hint">内测阶段，请填写发码人给你的邀请码</p>
+        </template>
+        <template v-else-if="regMode.need_sms">
+          <div class="field">
+            <label class="field-label">验证码</label>
+            <div class="code-row">
+              <input v-model="regSmsCode" class="input" placeholder="6 位验证码" inputmode="numeric" autocomplete="one-time-code" required>
+              <button type="button" class="btn btn-ghost code-send" :disabled="codeSent || !regPhone" @click="doSendCode">
+                {{ codeSent ? codeLeft + 's' : '获取验证码' }}
+              </button>
+            </div>
+          </div>
+        </template>
         <div class="field">
           <label class="field-label">密码</label>
           <div class="pw-wrap">
@@ -113,13 +136,47 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 首次登录强制改密（后端返回 require_password_change=true 时弹出，不可跳过） -->
+    <Teleport to="body">
+      <div v-if="pwdOpen" class="forgot-mask"></div>
+      <div v-if="pwdOpen" class="forgot-modal">
+        <div class="forgot-hd"><b>请设置新密码</b></div>
+        <div class="forgot-body">
+          <p class="forgot-tip">为了账号安全，首次登录需要修改初始密码后才能开始使用。</p>
+          <div class="pw-form">
+            <div class="field">
+              <label class="field-label">新密码</label>
+              <div class="pw-wrap">
+                <input v-model="newPw" :type="pwShow ? 'text' : 'password'" class="input" placeholder="至少 8 位，含数字和字母" autocomplete="new-password">
+                <button type="button" class="pw-eye" :aria-label="pwShow ? '隐藏密码' : '显示密码'" @click="pwShow = !pwShow">
+                  <svg v-if="!pwShow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">确认</label>
+              <input v-model="newPw2" :type="pwShow ? 'text' : 'password'" class="input" placeholder="再次输入新密码" autocomplete="new-password">
+            </div>
+          </div>
+          <p v-if="pwErr" class="login-error">{{ pwErr }}</p>
+          <div class="pw-actions">
+            <button class="btn btn-primary btn-block" :disabled="pwSaving" @click="doChangePw">
+              {{ pwSaving ? '保存中…' : '保存并进入系统' }}
+            </button>
+            <button type="button" class="btn btn-ghost btn-block" :disabled="pwSaving" @click="abortChangePw">暂不修改，退出登录</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { login, register, demoLogin } from '../api/client'
+import { login, register, demoLogin, changePassword, auth, fetchRegisterMode, sendCode } from '../api/client'
 import { importApi } from '../api/modules'
 import { store } from '../store'
 
@@ -142,12 +199,39 @@ onMounted(() => {   // 回填上次登录成功的用户名
     const saved = localStorage.getItem('hergent_last_username')
     if (saved) username.value = saved
   } catch (e) {}
+  // 取当前注册校验方式（邀请码 / 短信）—— 失败时静默回落到邀请码，不影响注册表单可用性
+  fetchRegisterMode().then(m => { regMode.value = m })
 })
+onBeforeUnmount(() => { if (codeTimer) clearInterval(codeTimer) })
 
 const regCompany = ref('')
 const regPhone = ref('')
 const regPassword = ref('')
 const agreed = ref(false)   // 注册前须勾选同意协议（PIPL 明确同意）
+
+/* 注册校验方式（后端下发，前端不硬编码 —— 切真短信时前端零改动自动换输入框） */
+const regMode = ref({ mode: 'invite', need_invite: true, need_sms: false, hint: '' })
+const regInvite = ref('')    // 邀请码（内测阶段）
+const regSmsCode = ref('')   // 短信验证码（REGISTER_MODE=sms 时）
+const codeSent = ref(false)
+const codeLeft = ref(0)
+let codeTimer = null
+
+async function doSendCode() {
+  if (!regPhone.value || regPhone.value.trim().length < 10) { error.value = '请先填写有效的手机号'; return }
+  error.value = ''
+  try {
+    await sendCode(regPhone.value.trim())
+    codeSent.value = true
+    codeLeft.value = 60
+    codeTimer = setInterval(() => {
+      codeLeft.value -= 1
+      if (codeLeft.value <= 0) { clearInterval(codeTimer); codeTimer = null; codeSent.value = false }
+    }, 1000)
+  } catch (e) {
+    error.value = e.message || '验证码发送失败'
+  }
+}
 
 /* 激活引导 */
 const actOpen = ref(false)
@@ -187,9 +271,15 @@ async function doDemo() {
 
 async function doRegister() {
   error.value = ''
+  // 前端先挡一道，省一次必然失败的往返（后端仍会再校验）
+  if (regMode.value.need_invite && !regInvite.value.trim()) { error.value = '请填写邀请码'; return }
+  if (regMode.value.need_sms && !regSmsCode.value.trim()) { error.value = '请填写短信验证码'; return }
   loading.value = true
   try {
-    const data = await register(regCompany.value.trim(), regPhone.value.trim(), regPassword.value)
+    const data = await register(regCompany.value.trim(), regPhone.value.trim(), regPassword.value, {
+      inviteCode: regInvite.value.trim(),
+      smsCode: regSmsCode.value.trim(),
+    })
     store.user.name = data.user?.display_name || regCompany.value.trim()
     // 注册成功 → 弹激活引导
     actOpen.value = true
@@ -237,7 +327,11 @@ function goWorkbench() {
 
 <style scoped>
 .login{height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg2);padding:20px}
-.login-card{width:360px;max-width:100%;background:var(--bg);border-radius:20px;padding:40px 32px;box-shadow:var(--shadow-lg);border:1px solid var(--border-subtle);min-height:548px;display:flex;flex-direction:column}
+/* 548 → 620（2026-09-12）：注册表单新增「邀请码」一行（输入框 32px + form gap 12px
+   + 说明文案 15px，负外边距吃掉 10px ≈ +49px，实测注册卡自然高 620px）。
+   若不放宽锁定值，两表单瞬切时登录卡 548 → 注册卡 620 会**跳高 72px**，
+   这正是当初把高度锁死要避免的 —— 锁定值必须 ≥ 较高的那一侧。 */
+.login-card{width:360px;max-width:100%;background:var(--bg);border-radius:20px;padding:40px 32px;box-shadow:var(--shadow-lg);border:1px solid var(--border-subtle);min-height:620px;display:flex;flex-direction:column}
 .login-logo{display:flex;justify-content:center;margin-bottom:14px}
 .login-logo img{width:48px;height:48px;border-radius:10px;box-shadow:0 4px 12px rgba(13,148,136,.18)}
 h1{font-size:20px;font-weight:600;text-align:center;margin-bottom:4px}
@@ -252,6 +346,12 @@ form{display:flex;flex-direction:column;gap:12px;flex:1}
 .field-label{font-size:12px;font-weight:500;color:var(--t2);width:52px;flex-shrink:0;text-align:left}
 .field .input,.field .pw-wrap{flex:1;min-width:0}
 .field .input{padding-right:42px}
+/* 邀请码下方的一行说明：与输入框左边界对齐（52px 标签 + 10px gap），
+   用负外边距吃掉 form 的 12px gap，避免注册表单被多撑高一行。 */
+.field-hint{font-size:11px;color:var(--t3);margin:-7px 0 -3px 62px;line-height:1.4}
+/* 短信验证码（REGISTER_MODE=sms 分支）：输入框 + 「获取验证码」按钮同行 */
+.code-row{flex:1;min-width:0;display:flex;gap:8px}
+.code-send{flex-shrink:0;font-size:12px;padding:0 10px;white-space:nowrap}
 .login-legal{font-size:11px;color:var(--t3);text-align:center;margin-top:auto;line-height:1.9}
 .login-forgot{font-size:12px;color:var(--t3);text-align:right;display:block;margin:-6px 2px 0;cursor:pointer}
 .login-forgot:hover{color:var(--p-dark)}

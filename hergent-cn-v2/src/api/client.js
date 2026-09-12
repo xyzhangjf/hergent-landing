@@ -69,14 +69,28 @@ export async function login(username, password) {
   return data
 }
 
-export async function register(company, phone, password, code = '888888') {
+/** 当前注册校验方式：invite（邀请码，内测）/ sms（短信）/ open（免验证）。
+ *  由后端 /api/auth/register-mode 下发，前端不硬编码 —— 日后切真短信时前端零改动。 */
+export async function fetchRegisterMode() {
+  const fallback = { mode: 'invite', need_invite: true, need_sms: false, hint: '' }
+  try {
+    const res = await fetch('/api/auth/register-mode')
+    if (!res.ok) return fallback
+    const d = await res.json().catch(() => ({}))
+    return d && d.mode ? d : fallback
+  } catch (e) {
+    return fallback
+  }
+}
+
+export async function register(company, phone, password, { inviteCode = '', smsCode = '' } = {}) {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ company, phone, password, code })
+    body: JSON.stringify({ company, phone, password, invite_code: inviteCode, code: smsCode })
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.detail || data.message || '注册失败')
+  if (!res.ok) throw new Error(_authErrText(res, data, '注册失败'))
   auth.token = data.token || ''
   auth.user = data.user || null
   if (data.tenant_id) auth.tenant = data.tenant_id
@@ -84,10 +98,42 @@ export async function register(company, phone, password, code = '888888') {
   return data
 }
 
+/** 发送短信验证码（仅 REGISTER_MODE=sms 时可用；invite 模式下后端会明确拒绝）。 */
+export async function sendCode(phone) {
+  const res = await fetch('/api/auth/send-code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone })
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(_authErrText(res, data, '验证码发送失败'))
+  return data
+}
+
+/* 修改密码（首次登录强制改密 与 设置页改密 共用）
+   POST /api/auth/password，body { old_password, new_password }。
+   成功后后端会置 password_changed=1，并删除该用户其它会话（保留当前会话）。 */
+export async function changePassword(oldPassword, newPassword) {
+  const csrf = localStorage.getItem('hergent_v2_csrf') || ''
+  const res = await fetch('/api/auth/password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
+      ...(auth.tenant ? { 'X-Tenant-Id': String(auth.tenant) } : {}),
+      ...(csrf ? { 'X-CSRF-Token': csrf } : {})
+    },
+    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(_authErrText(res, data, '修改密码失败'))
+  return data
+}
+
 export async function demoLogin() {
   const res = await fetch('/api/auth/demo-login', { method: 'POST' })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.detail || data.message || '演示入口暂不可用')
+  if (!res.ok) throw new Error(_authErrText(res, data, '演示入口暂不可用'))
   auth.token = data.token || ''
   auth.user = data.user || null
   auth.demo = !!data.demo
