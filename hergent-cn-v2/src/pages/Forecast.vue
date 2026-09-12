@@ -6023,11 +6023,9 @@ onMounted(async () => {
 /* 行1 三段紧凑（2026-09-12 重做）：期次上下文 → 搜索/筛选 → 状态，统一 12px 组间距、组内 8px。
    原设计在 .tb-search 与 .tb-status-row 上各挂一个 margin-left:auto 做左右分区，
    剩余空间被切成两段空洞（新建期次↔搜索框、仅显示有报单↔待审核）。
-   现改为左起连续排列，并把横向余量交给搜索框弹性吸收（200–460px）：
-   既消除空洞，又让 placeholder「搜索商品名 / 条码（后 4 位也行）」完整可见（原 150px 被截断），
-   同时把行尾余量从 275px 压到 ~195px（1440 屏），使整行视觉更饱满。 */
-.toolbar>.tb-head .tb-search{flex:1 1 200px;min-width:180px;max-width:460px;margin-left:0}
-.toolbar>.tb-head .tb-search .fld{width:100%;min-width:0}
+   现改为左起连续排列，搜索框维持原有固定宽度（不弹性拉伸），横向余量留在行尾。
+   ⚠️ 2026-09-12 二次修订：曾把搜索框弹性拉到 200–460px 去吸收行尾余量，
+   但老板判定「完全没必要这么宽，之前的宽度刚刚好」→ 恢复固定宽度。 */
 .toolbar>.tb-right{flex:0 0 100%;flex-wrap:wrap}
 .toolbar.tb-dense>.tb-right{gap:6px}
 .toolbar.tb-dense .tb-sep{margin:0 3px}
