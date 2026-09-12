@@ -6017,12 +6017,17 @@ onMounted(async () => {
 /* 工具栏双行布局（2026-09-12）：行1 = .tb-head（期次 + 搜索 + 筛选 + 状态徽标）；行2 = .tb-right 动作组强制独占一行。
    实测（1440×900 / 侧栏 248）：三行 153px → 两行 108px；编辑态行2 仅余 20px，故编辑态挂 .tb-dense 收紧间距。
    注：类名用 .tb-dense 而非 .tb-compact —— 后者是 variables.css 的全局类（Toolbar.vue 在用），避免命名碰撞。 */
-.toolbar>.tb-head{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;flex-wrap:wrap}
+.toolbar>.tb-head{display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0;flex-wrap:wrap}
 .toolbar>.tb-head .tb-group,.toolbar>.tb-head .tb-search,.toolbar>.tb-head .tb-toggle,
 .toolbar>.tb-head .sel-period,.toolbar>.tb-head .tb-pop,.toolbar>.tb-head .btn{flex:0 0 auto;white-space:nowrap}
-.toolbar>.tb-head .tb-status-row{margin-left:auto}
-/* 行1 语义分区：左 = 期次上下文，右 = 作用于表格的筛选 + 状态（避免中间留大片空档） */
-.toolbar>.tb-head .tb-search{margin-left:auto}
+/* 行1 三段紧凑（2026-09-12 重做）：期次上下文 → 搜索/筛选 → 状态，统一 12px 组间距、组内 8px。
+   原设计在 .tb-search 与 .tb-status-row 上各挂一个 margin-left:auto 做左右分区，
+   剩余空间被切成两段空洞（新建期次↔搜索框、仅显示有报单↔待审核）。
+   现改为左起连续排列，并把横向余量交给搜索框弹性吸收（200–460px）：
+   既消除空洞，又让 placeholder「搜索商品名 / 条码（后 4 位也行）」完整可见（原 150px 被截断），
+   同时把行尾余量从 275px 压到 ~195px（1440 屏），使整行视觉更饱满。 */
+.toolbar>.tb-head .tb-search{flex:1 1 200px;min-width:180px;max-width:460px;margin-left:0}
+.toolbar>.tb-head .tb-search .fld{width:100%;min-width:0}
 .toolbar>.tb-right{flex:0 0 100%;flex-wrap:wrap}
 .toolbar.tb-dense>.tb-right{gap:6px}
 .toolbar.tb-dense .tb-sep{margin:0 3px}
@@ -6042,8 +6047,8 @@ onMounted(async () => {
 /* P0-1 工具栏语义分隔条（筛选/数据/编辑/AI/设置 五簇） */
 .tb-sep{display:inline-block;width:1px;height:20px;background:var(--bd);margin:0 5px;flex:0 0 auto;opacity:.65;align-self:center}
 /* P0-2 状态徽标移出按钮行，独立状态行（不与操作按钮争横向空间） */
-/* P0-2 状态徽标：随行1 右对齐（原为独占整行，双行布局后并入 .tb-head，省掉一整行） */
-.tb-status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:0 0 auto;margin-left:auto}
+/* P0-2 状态徽标：紧接筛选组之后（不再 margin-left:auto 右浮，避免与「仅显示有报单」之间出现空洞） */
+.tb-status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:0 0 auto}
 .cross-area{margin-bottom:14px}
 .cross-card{padding:0 14px 14px;overflow:hidden}
 .cross-tbl{min-width:100%;font-size:12px}
