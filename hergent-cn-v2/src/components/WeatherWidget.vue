@@ -6,7 +6,12 @@
       <span class="wx-temp" v-if="temp != null">{{ tempInt(temp) }}°</span>
       <span v-if="loading" class="wx-load">…</span>
     </button>
-    <div v-if="open" class="wx-pop">
+    <!-- 展开面板 Teleport 到 <body>：顶栏 .topbar 同时带 z-index:10 与 backdrop-filter，
+         双重创建 stacking context → 面板的 z-index 无论设多高都被困在顶栏内（等效全局 10），
+         会被预报页工具栏的 .tb-pop（z-index:1120）压住。只有脱离该 context 才能参与全局层叠。
+         v-if 首帧隐藏（.pre）避免出现「先落在静态位置、再跳到按钮下方」的闪烁。 -->
+    <Teleport to="body">
+    <div v-if="open" ref="popEl" class="wx-pop" :class="{ pre: !popPlaced }" :style="popStyle">
       <!-- 位置上下文行（面板首行）：收起态按钮上的「城市名 / 天气描述」迁到这里，
            成为面板的阅读起点 —— 先确认「这是哪儿」，再看未来趋势。
            左起连续排列：位置（图标 + 城市名 + 定位来源）→ 分隔点 → 当前实况（描述 + 温度）。 -->
@@ -100,12 +105,14 @@
         </div>
       </div>
     </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { api, auth } from '../api/client'
+import { store } from '../store'
 import Icon from './Icon.vue'
 
 const LS_KEY = 'wx_city'
@@ -118,6 +125,17 @@ const loading = ref(true)
 const open = ref(false)
 const ready = ref(false)
 const root = ref(null)
+
+// ---- 展开面板定位（Teleport 到 body 后需按视口坐标自行定位，原因见模板注释） ----
+const popEl = ref(null)          // 面板根节点：脱离 .wx 后 onClickOutside 需单独判定是否在面板内
+const popPos = ref({})           // placePop() 写入的 { left, top }
+const popPlaced = ref(false)     // 首帧未定位前置隐藏，避免「先落在静态位置、再跳到按钮下方」的闪烁
+// 层级：常态须高于页面内最高的浮层 .tb-pop（z-index:1120）；副驾抽屉（.copilot z-index:950）
+// 打开时让位，避免天气面板压住抽屉。
+const popStyle = computed(() => ({
+  ...popPos.value,
+  zIndex: store.ui && store.ui.copilotOpen ? '900' : '1121',
+}))
 
 // 用户已选城市 {name, lat, lon}，存 localStorage；为空表示按 IP 自动定位
 const sel = ref(null)
@@ -183,6 +201,39 @@ function dayLabel(dateStr) {
 function locText() {
   if (sel.value) return '已选城市：' + sel.value.name + '（点击查看未来几天 / 切换城市）'
   return '按 IP 自动定位：' + city.value + '（点击可切换城市）'
+}
+
+// 面板以 position:fixed 挂在 body 上，需按触发按钮的视口矩形自行定位：
+// 水平对齐按钮中心并夹住视口两侧（窄屏面板被 max-width 收窄时仍不溢出），垂直落在按钮下沿 8px。
+function placePop() {
+  const btn = root.value && root.value.querySelector('.wx-now')
+  const el = popEl.value
+  if (!btn || !el) return
+  const b = btn.getBoundingClientRect()
+  const vw = document.documentElement.clientWidth
+  const vh = document.documentElement.clientHeight
+  const pad = 10
+  const w = el.offsetWidth
+  const h = el.offsetHeight
+  const left = Math.max(pad, Math.min(b.left + b.width / 2 - w / 2, vw - w - pad))
+  const top = Math.min(b.bottom + 8, Math.max(pad, vh - h - pad))
+  popPos.value = { left: Math.round(left) + 'px', top: Math.round(top) + 'px' }
+  popPlaced.value = true
+}
+
+// 面板宽度由内容决定（14 天卡片行最宽）—— 数据到位 / 城市名变长 / 窄屏 max-width 生效时宽度会变，
+// 变化后必须按新宽度重新居中，否则面板会停在旧宽度算出的位置上。
+let popRo = null
+function observePop() {
+  if (typeof ResizeObserver === 'undefined' || !popEl.value) return
+  if (popRo) popRo.disconnect()
+  popRo = new ResizeObserver(() => placePop())
+  popRo.observe(popEl.value)
+}
+
+// 视口尺寸变化（窗口缩放 / 移动端横竖屏）→ 按钮位置与 max-width 都会变，需重新定位
+function onWinResize() {
+  if (open.value) placePop()
 }
 
 async function load() {
@@ -388,7 +439,15 @@ watch(() => days.value, () => {
 watch(() => open.value, (v) => {
   hoverPt.value = -1
   pinPt.value = -1
-  if (v) nextTick(syncTrend)
+  if (!v) return
+  // 首次打开时 popPos 为空 → 先隐藏，等 placePop() 算出坐标再显示；
+  // 之后沿用上次坐标（宽度通常不变），不隐藏以免闪一下，偏差由随后的 placePop() 抹平。
+  if (!popPos.value.left) popPlaced.value = false
+  nextTick(() => {
+    placePop()
+    observePop()
+    syncTrend()
+  })
 })
 
 let ro = null
@@ -404,13 +463,18 @@ const icon = () => wmo(code.value)[1]
 const desc = () => wmo(code.value)[0]
 
 function onClickOutside(e) {
-  if (open.value && root.value && !root.value.contains(e.target)) {
-    open.value = false
-  }
+  if (!open.value) return
+  const t = e.target
+  if (root.value && root.value.contains(t)) return
+  // 面板已 Teleport 到 body，不再位于 .wx 之内 → 必须单独判定，
+  // 否则点击面板内部（搜索框、日卡片）都会被当成「点外部」而把面板关掉。
+  if (popEl.value && popEl.value.contains(t)) return
+  open.value = false
 }
 
 onMounted(() => {
   document.addEventListener('click', onClickOutside)
+  window.addEventListener('resize', onWinResize)
   try {
     const raw = localStorage.getItem(LS_KEY)
     if (raw) sel.value = JSON.parse(raw)
@@ -426,7 +490,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onClickOutside)
+  window.removeEventListener('resize', onWinResize)
   if (ro) { ro.disconnect(); ro = null }
+  if (popRo) { popRo.disconnect(); popRo = null }
 })
 </script>
 
@@ -450,10 +516,16 @@ onBeforeUnmount(() => {
 .wx-where-tag{flex:0 0 auto;padding:1px 6px;border-radius:6px;background:var(--p-bg);color:var(--p-dark);font-size:10px;line-height:1.6}
 .wx-where-desc{font-variant-numeric:tabular-nums;white-space:nowrap}
 .wx-where-desc::before{content:'·';margin-right:6px;color:var(--t3)}
-.wx-pop{position:absolute;top:42px;left:50%;transform:translateX(-50%);z-index:30;
+/* 面板由 Teleport 挂在 <body> 上、position:fixed，坐标由 placePop() 写入。
+   ⚠️ 不能回到「留在顶栏内 + position:absolute」的写法：顶栏 .topbar 同时带 z-index:10 与
+   backdrop-filter，双重创建 stacking context，面板 z-index 设多高都会被困在顶栏内（等效全局 10），
+   会被预报页工具栏的 .tb-pop（z-index:1120）压住。1121 即为此定：高于页面内所有下拉浮层。 */
+.wx-pop{position:fixed;z-index:1121;
   display:flex;flex-direction:column;gap:10px;padding:10px 12px;border-radius:12px;width:max-content;max-width:calc(100vw - 20px);
   background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
   border:1px solid var(--glass-border);box-shadow:0 10px 30px rgba(0,0,0,.12)}
+/* 首帧未定位前隐藏：避免先出现在静态位置、再跳到按钮下方 */
+.wx-pop.pre{visibility:hidden}
 .wx-search{display:flex;gap:6px;align-items:center;width:260px}
 .wx-input{flex:1;min-width:0;height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--glass-border);
   background:var(--bg);color:var(--t1);font-size:13px;outline:none}
