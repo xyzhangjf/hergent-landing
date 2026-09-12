@@ -50,12 +50,18 @@
 
       <div v-if="days.length" class="wx-days-wrap">
         <div class="wx-days" ref="daysEl" @scroll="syncTrend">
-          <div class="wx-day" v-for="(d, i) in days" :key="i">
-            <div class="wx-d-day">{{ dayLabel(d.date).text }}</div>
-            <div class="wx-d-date">{{ dayLabel(d.date).date }}</div>
-            <div class="wx-d-ic">{{ wmo(d.code)[1] }}</div>
-            <div class="wx-d-t">{{ tempInt(d.tmax) }}° / {{ tempInt(d.tmin) }}°</div>
-            <div class="wx-d-pop" v-if="d.pop != null">💧{{ d.pop }}%</div>
+          <!-- 日卡片：法定节假日当天用节日名替换日期并标「休」，连休日标「休」，调休上班日标「班」。
+               低温柔性奶销售受节假日影响大，老板扫一眼这一行就能看到假期与补班，
+               提前安排备货与送货。节假日数据见 src/utils/cnHolidays.js（静态表，每年更新一次）。 -->
+          <div class="wx-day" v-for="(r, i) in dayRows" :key="i" :title="r.tip">
+            <div class="wx-d-day">{{ r.lab.text }}</div>
+            <div class="wx-d-date">
+              <span class="wx-d-dt" :class="{ 'is-name': !!r.hdName }">{{ r.hdName || r.lab.date }}<span
+                v-if="r.badge" class="wx-hb" :class="r.badge === '班' ? 'work' : 'off'">{{ r.badge }}</span></span>
+            </div>
+            <div class="wx-d-ic">{{ wmo(r.code)[1] }}</div>
+            <div class="wx-d-t">{{ tempInt(r.tmax) }}° / {{ tempInt(r.tmin) }}°</div>
+            <div class="wx-d-pop" v-if="r.pop != null">💧{{ r.pop }}%</div>
           </div>
         </div>
 
@@ -113,6 +119,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { api, auth } from '../api/client'
 import { store } from '../store'
+import { cnHoliday } from '../utils/cnHolidays'
 import Icon from './Icon.vue'
 
 const LS_KEY = 'wx_city'
@@ -195,8 +202,31 @@ function dayLabel(dateStr) {
   else if (diff === 1) text = '明天'
   else text = '周' + names[d.getDay()]
 
-  return { text, date: mm + '/' + dd }
+  // full/week 供悬停提示使用：日卡片在节假日会把「MM/DD」换成节日名，日期本身不能丢
+  return { text, date: mm + '/' + dd, full: d.getMonth() + 1 + '月' + d.getDate() + '日', week: '周' + names[d.getDay()] }
 }
+
+// 日卡片的渲染数据：把「日期标签 + 节假日属性」合并算一次，
+// 避免模板里对同一张卡片重复调用 dayLabel()/cnHoliday()（16 张卡 × 3 次调用）。
+const dayRows = computed(() => (days.value || []).map((d) => {
+  const lab = dayLabel(d.date)
+  const hd = cnHoliday(d.date)
+  // 只有法定节假日当天（showName）才用节日名替换日期；连休日保留日期、仅加「休」徽标
+  const name = hd && hd.showName ? hd.name : ''
+  const suffix = hd ? ' · ' + hd.period + (hd.work ? '调休上班' : '假期') : ''
+  return {
+    date: d.date,
+    code: d.code,
+    tmax: d.tmax,
+    tmin: d.tmin,
+    pop: d.pop,
+    lab,
+    hd,
+    hdName: name,
+    badge: hd ? (hd.work ? '班' : '休') : '',
+    tip: lab.full + ' ' + lab.week + suffix,
+  }
+}))
 
 function locText() {
   if (sel.value) return '已选城市：' + sel.value.name + '（点击查看未来几天 / 切换城市）'
@@ -546,9 +576,32 @@ onBeforeUnmount(() => {
 .wx-days{display:flex;gap:4px;padding-bottom:2px;overflow-x:auto;max-width:none}
 .wx-days::-webkit-scrollbar{height:5px}
 .wx-days::-webkit-scrollbar-thumb{background:var(--glass-border);border-radius:3px}
-.wx-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:42px;padding:4px 2px;flex:1 0 auto}
+/* min-width 52px（原 42px）：要放得下 3 字节日名（11px 字号 ≈33px）与右上角徽标。
+   卡片在桌面端实测已是 52.3px（由「29° / 21°」这类内容撑开），提到 52px 不会加宽面板；
+   只在窄屏 max-width 生效时阻止卡片被压到 42px —— 那时节日名会与徽标重叠。
+   窄屏改为横向滚动（.wx-days 本就是 overflow-x:auto），信息仍完整可读。 */
+.wx-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;padding:4px 2px;flex:1 0 auto}
 .wx-d-day{font-size:12px;color:var(--t1);font-weight:500}
-.wx-d-date{font-size:10px;color:var(--t2)}
+.wx-d-date{font-size:10px;color:var(--t2);line-height:15px}
+/* 日期 / 节日名 = 徽标的定位锚（inline-block + relative，宽度即文字宽度，
+   不随卡片宽度变化；徽标作为其内联子元素绝对定位，绝不影响行内布局与居中）。 */
+.wx-d-dt{display:inline-block;position:relative}
+/* 节日名：比日期大一号、加粗、节庆红 —— 扫这一行时节日要第一个跳出来 */
+.wx-d-dt.is-name{font-size:11px;font-weight:600;color:var(--hd-name)}
+/* 休 / 班 徽标：贴在日期或节日名的右上角（文字之右、略微上提），不遮字。
+   定位取值依据（卡片内容区 48px，实测卡片 52.3px，日期 10px 字号 ≈26px 宽、节日名 11px ≈33px 宽）：
+     · right:-10px + 宽 11px → 徽标左缘正好落在文字右缘（26px 文字时右缘 center+23、
+       33px 文字时 center+26.5），与文字仅 0~1px 交叠，不会压住末字。
+     · top:-6px → 徽标纵向落在文字上方的空隙里：其下缘距日期字形还有 ~2px，
+       上缘距「周X」字形 0.4px，两边都不碰。
+     · 最宽情形（3 字节日名）徽标右缘超出卡片 0.35px，落在卡片间 4px 间隙内，
+       不裁切、不压到相邻卡片（第一版曾把徽标做成 13px 并挂卡片右上角，
+       那会落在「周X」同一行、"周日 班" 会被读成周日的属性，已改掉）。 */
+.wx-hb{position:absolute;top:-6px;right:-10px;min-width:11px;height:11px;box-sizing:border-box;
+  padding:0 1px;border-radius:5.5px;font-size:8px;font-weight:600;line-height:11px;text-align:center;
+  color:#fff;font-style:normal;pointer-events:none}
+.wx-hb.off{background:var(--hd-off)}
+.wx-hb.work{background:var(--hd-work)}
 .wx-d-ic{font-size:22px;line-height:1}
 .wx-d-t{font-size:11px;color:var(--t1);font-variant-numeric:tabular-nums}
 .wx-d-pop{font-size:11px;color:#2b8a3e}
