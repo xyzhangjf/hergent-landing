@@ -12,38 +12,40 @@
     <template v-if="activeTab === 'summary'">
     <!-- 报单期次选择 -->
     <div class="card toolbar" :class="{ 'tb-dense': editMode }">
-      <!-- 工具栏双行布局（2026-09-12）：行1 = .tb-head（期次 + 搜索 + 筛选 + 状态徽标）；行2 = .tb-right 动作组（强制独占一行） -->
-      <div class="tb-head">
-        <div class="tb-group">
+      <!-- 工具栏单行布局（2026-09-12）：期次上下文 | 搜索与数据进出 | 决策与编辑，三段以 .tb-sep 分隔。
+           原双行结构（.tb-head 行1 / .tb-right 行2）合并为一行；表格级筛选器（仅显示有报单 / 品牌）
+           下移到表格卡片顶部的 .grid-ctl-row，贴近其作用的表格。
+           搜索框留在工具栏：findText 跨视图生效（汇总表 / 逐单补录 / 编辑态 / 导出），属全局检索。
+           编辑态多出 6 个编辑按钮，故编辑控制组 .tb-edit-group 独占第二行（flex:0 0 100%）。 -->
+      <div class="tb-group tb-ctx">
           <select v-model="curPeriod" class="input sel-period" @change="onPeriodChange">
             <option value="0">— 选择期次 —</option>
             <option v-for="p in periods" :key="p.id" :value="p.id" :title="p.order_start + ' ~ ' + p.order_end">{{ p.name }}</option>
           </select>
-          <!-- P1-4：关闭/删除互斥，合并进「⋯」溢出菜单，省出一个按钮位 -->
-          <div v-if="currentPeriod" class="tb-pop">
-            <button ref="periodBtn" class="btn btn-sm btn-ghost tb-more" :class="{on:periodMenuOpen}" @click="toggleTbPop('period')" title="更多期次操作" aria-label="更多期次操作">⋯</button>
+          <!-- 期次操作统一收进「⋯」菜单（新建 / 关闭 / 删除）：单行布局下省出 110px。
+               菜单不再依赖 currentPeriod —— 未选期次时也可经它新建（承接原「新建期次」按钮职责），
+               故「⋯」按钮改为常显，title 同步改为「期次操作」。 -->
+          <div class="tb-pop">
+            <button ref="periodBtn" class="btn btn-sm btn-ghost tb-more" :class="{on:periodMenuOpen}" @click="toggleTbPop('period')" title="期次操作：新建 / 关闭 / 删除" aria-label="期次操作">⋯</button>
             <Teleport to="body">
             <div v-if="periodMenuOpen" class="tb-pop-panel" :style="popStyle" @click.stop>
-              <button v-if="currentPeriod.status === 'open'" class="grp-btn" @click="askClose(currentPeriod); periodMenuOpen=false" title="关闭后不可再编辑，仅可删除">关闭期次</button>
-              <button v-if="currentPeriod.status === 'closed'" class="grp-btn danger" @click="askDelete(currentPeriod); periodMenuOpen=false" title="连同其全部报单、订单、审核定稿一并删除，且不可恢复">删除期次</button>
+              <button class="grp-btn" @click="openNewPeriod(); periodMenuOpen=false"><Icon name="plus"/> 新建期次</button>
+              <div v-if="currentPeriod" class="tb-pop-sep"></div>
+              <button v-if="currentPeriod && currentPeriod.status === 'open'" class="grp-btn" @click="askClose(currentPeriod); periodMenuOpen=false" title="关闭后不可再编辑，仅可删除">关闭期次</button>
+              <button v-if="currentPeriod && currentPeriod.status === 'closed'" class="grp-btn danger" @click="askDelete(currentPeriod); periodMenuOpen=false" title="连同其全部报单、订单、审核定稿一并删除，且不可恢复">删除期次</button>
             </div>
             </Teleport>
           </div>
-          <button class="btn btn-sm btn-ghost" @click="openNewPeriod"><Icon name="plus"/> 新建期次</button>
-        </div>
+          <!-- 审批状态属于「期次」上下文，紧随期次选择器（原在行1 尾部、与筛选器混排） -->
+          <span v-if="confirmInfo" class="confirm-badge ok"><Icon name="check" /> 已确认{{ confirmInfo.by ? ' · ' + confirmInfo.by : '' }}</span>
+          <span v-else class="confirm-badge draft">待审核</span>
+      </div>
+      <span class="tb-sep"></span>
+      <div class="tb-group tb-data">
         <div class="tb-search">
           <Icon name="search"/>
           <input id="gridFind" v-model="findText" @keydown="onFindKey" class="fld" placeholder="搜索商品名 / 条码（后 4 位也行）…" aria-label="筛选商品名或条码">
         </div>
-        <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
-        <span class="tb-sep"></span>
-        <div class="tb-status-row">
-          <span v-if="confirmInfo" class="confirm-badge ok"><Icon name="check" /> 已确认{{ confirmInfo.by ? ' · ' + confirmInfo.by : '' }}</span>
-          <span v-else class="confirm-badge draft">待审核</span>
-          <span v-if="hideZeroReport" class="confirm-badge filter"><Icon name="filter" /> 已隐藏 {{ zeroReportCount }} 个零报单</span>
-        </div>
-      </div>
-      <div class="tb-group tb-right">
         <button class="btn btn-sm btn-ghost" @click="openImport" title="从 Excel 导入预报订单汇总表"><Icon name="upload"/> 导入</button>
         <div class="tb-pop">
           <button ref="exportBtn" class="btn btn-sm btn-ghost" :class="{on:exportMenuOpen}" @click="toggleTbPop('export')" title="导出：全部 / 选中行 / 差异"><Icon name="download"/> 导出 <Icon name="chevron-down"/></button>
@@ -76,34 +78,13 @@
           </div>
           </Teleport>
         </div>
-        <span class="tb-sep"></span>
-        <!-- Q12/Q30：编辑按钮带载入态与权限提示；Q25：校验按钮带待修正角标；Q27：失败后按钮变「重试保存」 -->
+      </div>
+      <span class="tb-sep"></span>
+      <div class="tb-group tb-act">
+        <button class="btn btn-sm btn-ghost" :disabled="!cross.period" @click="onSuggest" title="按体检/货损/返利/起订量生成建议并打开审核"><Icon name="sparkle"/> <span class="tb-ai-txt">AI智能建议</span></button>
         <button v-if="!editMode" class="btn btn-sm btn-primary" :disabled="loadingEdit"
                 :title="entryRoleWarn ? '当前角色（' + (ROLE_LABELS[bizRole] || bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'"
                 @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
-        <button v-if="editMode" class="btn btn-sm btn-ghost" @click="exitEdit">取消</button>
-        <button v-if="editMode" class="btn btn-sm btn-ghost" :disabled="!lastSavedSnap" title="放弃保存后的改动，回到上次保存的版本" @click="undoToLastSaved">回退</button>
-        <button v-if="editMode" class="btn btn-sm btn-ghost" title="全表录入查错：列出类型/必填/上限/条码重复等错误（可点击跳转）" @click="openErrList">
-          查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
-        </button>
-        <button v-if="editMode" class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
-        <button v-if="editMode" class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
-        <span class="tb-sep"></span>
-        <button class="btn btn-sm btn-ghost" :disabled="!cross.period" @click="onSuggest" title="按体检/货损/返利/起订量生成建议并打开审核"><Icon name="sparkle"/> AI智能建议</button>
-        <span class="tb-sep"></span>
-        <div class="tb-pop">
-          <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
-          <Teleport to="body">
-          <div v-if="brandPopOpen" class="tb-pop-panel brand-pop" :style="popStyle" @click.stop>
-            <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><button class="link-btn" @click="brandSel = brandCandidates.slice()">全选</button><button class="link-btn" @click="brandSel = []">清空</button></div></div>
-            <div class="bp-list">
-              <label v-for="b in brandCandidates" :key="b" class="bp-item"><input type="checkbox" :value="b" v-model="brandSel"> {{ b }}</label>
-              <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
-            </div>
-            <p class="bp-tip">只勾选要报单的品牌：表格将只显示这些品牌，复制厂家编码/数量也只针对它们（多品牌合并报单时先勾选再复制）。</p>
-          </div>
-          </Teleport>
-        </div>
         <!-- 编辑态：高级工具（审批/推送/打印 + 健康体检/AI工具/协同闭环/更多工具） -->
         <div v-if="editMode" class="tb-pop">
           <button ref="advBtn" class="btn btn-sm btn-ghost" :class="{on:advToolsOpen}" @click="toggleTbPop('adv')">工具箱 <Icon name="chevron-down"/></button>
@@ -121,6 +102,17 @@
           </div>
           </Teleport>
         </div>
+      </div>
+      <!-- 编辑控制组：编辑态 6 个按钮独占第二行，紧贴下方表格（视线与鼠标行程最短） -->
+      <div v-if="editMode" class="tb-edit-group">
+        <!-- Q12/Q30：编辑按钮带载入态与权限提示；Q25：校验按钮带待修正角标；Q27：失败后按钮变「重试保存」 -->
+        <button class="btn btn-sm btn-ghost" @click="exitEdit">取消</button>
+        <button class="btn btn-sm btn-ghost" :disabled="!lastSavedSnap" title="放弃保存后的改动，回到上次保存的版本" @click="undoToLastSaved">回退</button>
+        <button class="btn btn-sm btn-ghost" title="全表录入查错：列出类型/必填/上限/条码重复等错误（可点击跳转）" @click="openErrList">
+          查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
+        </button>
+        <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
+        <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
       </div>
       <div v-if="(advToolsOpen && editMode) || periodMenuOpen || exportMenuOpen || brandPopOpen || copyMenuOpen" class="pop-overlay" @click="advToolsOpen=false; periodMenuOpen=false; exportMenuOpen=false; brandPopOpen=false; copyMenuOpen=false"></div>
     </div>
@@ -404,6 +396,23 @@
         <div v-else-if="!editMode" class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
             <GridZoomCtl v-model="gridZoom"/>
+            <span class="tb-sep"></span>
+            <!-- 表格级筛选器（原在主工具栏）：作用于本交叉表，下移到表格工具行，缩短「控件—作用对象」距离 -->
+            <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
+            <span v-if="hideZeroReport" class="confirm-badge filter"><Icon name="filter" /> 已隐藏 {{ zeroReportCount }} 个零报单</span>
+            <div class="tb-pop">
+              <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
+              <Teleport to="body">
+              <div v-if="brandPopOpen" class="tb-pop-panel brand-pop" :style="popStyle" @click.stop>
+                <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><button class="link-btn" @click="brandSel = brandCandidates.slice()">全选</button><button class="link-btn" @click="brandSel = []">清空</button></div></div>
+                <div class="bp-list">
+                  <label v-for="b in brandCandidates" :key="b" class="bp-item"><input type="checkbox" :value="b" v-model="brandSel"> {{ b }}</label>
+                  <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
+                </div>
+                <p class="bp-tip">只勾选要报单的品牌：表格将只显示这些品牌，复制厂家编码/数量也只针对它们（多品牌合并报单时先勾选再复制）。</p>
+              </div>
+              </Teleport>
+            </div>
           </div>
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
@@ -537,6 +546,22 @@
         <div v-else class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
             <GridZoomCtl v-model="gridZoom"/>
+            <span class="tb-sep"></span>
+            <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
+            <span v-if="hideZeroReport" class="confirm-badge filter"><Icon name="filter" /> 已隐藏 {{ zeroReportCount }} 个零报单</span>
+            <div class="tb-pop">
+              <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
+              <Teleport to="body">
+              <div v-if="brandPopOpen" class="tb-pop-panel brand-pop" :style="popStyle" @click.stop>
+                <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><button class="link-btn" @click="brandSel = brandCandidates.slice()">全选</button><button class="link-btn" @click="brandSel = []">清空</button></div></div>
+                <div class="bp-list">
+                  <label v-for="b in brandCandidates" :key="b" class="bp-item"><input type="checkbox" :value="b" v-model="brandSel"> {{ b }}</label>
+                  <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
+                </div>
+                <p class="bp-tip">只勾选要报单的品牌：表格将只显示这些品牌，复制厂家编码/数量也只针对它们（多品牌合并报单时先勾选再复制）。</p>
+              </div>
+              </Teleport>
+            </div>
           </div>
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
@@ -6011,24 +6036,33 @@ onMounted(async () => {
 /* 报单配置嵌入为标签页时，去掉其自身 .page 包裹的内边距，并隐藏与标签重复的小标题（独立深链页不受影响） */
 .config-panel :deep(.page){padding:0;margin:0}
 .config-panel :deep(.page-hd){display:none}
-.toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:12px}
+.toolbar{display:flex;align-items:center;justify-content:flex-start;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:8px}
 .tb-left,.tb-right,.toolbar>.tb-group{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .tb-left .btn,.tb-right .btn,.toolbar>.tb-group .btn{flex:0 0 auto;white-space:nowrap}
-/* 工具栏双行布局（2026-09-12）：行1 = .tb-head（期次 + 搜索 + 筛选 + 状态徽标）；行2 = .tb-right 动作组强制独占一行。
-   实测（1440×900 / 侧栏 248）：三行 153px → 两行 108px；编辑态行2 仅余 20px，故编辑态挂 .tb-dense 收紧间距。
+/* 工具栏单行布局（2026-09-12）：分三段，段间以 .tb-sep 分隔、段内 gap 8
+   段1 .tb-ctx  期次上下文（期次选择 / ⋯ / 新建期次 / 审批状态徽标）
+   段2 .tb-data 搜索与数据进出（搜索框 / 导入 / 导出 / 复制报单）
+   段3 .tb-act  决策与编辑（AI智能建议 / 改单 / 编辑态工具箱）
+   实测（1440×900 / 侧栏 248）：单行内容 916px < 可用 1150px；1280 视口（可用 990px）亦单行。
+   表格级筛选器（仅显示有报单 / 品牌）已下移到表格卡片顶部的 .grid-ctl-row。
+   编辑态多出的 6 个编辑按钮交由 .tb-edit-group 独占第二行，故 toolbar 保留 flex-wrap 作窄屏兜底。
    注：类名用 .tb-dense 而非 .tb-compact —— 后者是 variables.css 的全局类（Toolbar.vue 在用），避免命名碰撞。 */
-.toolbar>.tb-head{display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0;flex-wrap:wrap}
-.toolbar>.tb-head .tb-group,.toolbar>.tb-head .tb-search,.toolbar>.tb-head .tb-toggle,
-.toolbar>.tb-head .sel-period,.toolbar>.tb-head .tb-pop,.toolbar>.tb-head .btn{flex:0 0 auto;white-space:nowrap}
-/* 行1 三段紧凑（2026-09-12 重做）：期次上下文 → 搜索/筛选 → 状态，统一 12px 组间距、组内 8px。
-   原设计在 .tb-search 与 .tb-status-row 上各挂一个 margin-left:auto 做左右分区，
-   剩余空间被切成两段空洞（新建期次↔搜索框、仅显示有报单↔待审核）。
-   现改为左起连续排列，搜索框维持原有固定宽度（不弹性拉伸），横向余量留在行尾。
-   ⚠️ 2026-09-12 二次修订：曾把搜索框弹性拉到 200–460px 去吸收行尾余量，
-   但老板判定「完全没必要这么宽，之前的宽度刚刚好」→ 恢复固定宽度。 */
-.toolbar>.tb-right{flex:0 0 100%;flex-wrap:wrap}
-.toolbar.tb-dense>.tb-right{gap:6px}
+.toolbar>.tb-group>*{flex:0 0 auto;white-space:nowrap}
+/* 编辑控制组：编辑态独占整行（flex-basis 100% 强制换行），且位于工具栏最末 → 最贴近下方表格 */
+.toolbar>.tb-edit-group{display:flex;align-items:center;gap:8px;flex:0 0 100%;flex-wrap:wrap}
+.toolbar>.tb-edit-group>.btn{flex:0 0 auto;white-space:nowrap}
+.toolbar.tb-dense,.toolbar.tb-dense>.tb-edit-group{gap:6px}
 .toolbar.tb-dense .tb-sep{margin:0 3px}
+/* 窄屏（<1440）：收紧段间距、AI 按钮只留图标、期次选择器限宽 → 单行在 1280/1366 依然成立。
+   1440 及以上保留完整文案与 8px 间距。
+   ⚠️ 限宽必须写成 .toolbar .sel-period：下方通用 .sel-period{max-width:220px} 源序更后且特异性相同，
+   否则会覆盖本条（曾实测 1280 下 select 仍为 220px，导致折行）。 */
+@media(max-width:1439px){
+  .toolbar,.toolbar>.tb-group,.toolbar>.tb-edit-group{gap:6px}
+  .toolbar .tb-sep{margin:0 3px}
+  .tb-ai-txt{display:none}
+  .toolbar .sel-period{max-width:150px}
+}
 .sel-period{width:auto;max-width:220px;height:32px;padding:0 8px;flex-shrink:0;appearance:auto;-webkit-appearance:auto;cursor:pointer;position:relative;z-index:2}
 
 /* ---- P0-1 交叉表视图 ---- */
@@ -6044,9 +6078,7 @@ onMounted(async () => {
 .confirm-badge.filter{background:var(--p-bg);color:var(--p-deep)}
 /* P0-1 工具栏语义分隔条（筛选/数据/编辑/AI/设置 五簇） */
 .tb-sep{display:inline-block;width:1px;height:20px;background:var(--bd);margin:0 5px;flex:0 0 auto;opacity:.65;align-self:center}
-/* P0-2 状态徽标移出按钮行，独立状态行（不与操作按钮争横向空间） */
-/* P0-2 状态徽标：紧接筛选组之后（不再 margin-left:auto 右浮，避免与「仅显示有报单」之间出现空洞） */
-.tb-status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:0 0 auto}
+/* P0-2 状态徽标曾独立成行（.tb-status-row 已废弃：现直接挂在 .tb-ctx 段内，紧随期次选择器） */
 .cross-area{margin-bottom:14px}
 .cross-card{padding:0 14px 14px;overflow:hidden}
 .cross-tbl{min-width:100%;font-size:12px}
@@ -6173,7 +6205,7 @@ th.sortable:hover{color:var(--p-dark)}
 .grid-area.is-fs .cross-viewport,
 .grid-area.is-fs .edit-grid-wrap{flex:1 1 auto;min-height:0;max-height:none}
 /* 表体控制条：全屏按钮 + 缩放条整合为一行，置于表体上方（flex 流），与表格主体保持间距、互不遮挡（非全屏/全屏均成立） */
-.grid-ctl-row{display:flex;align-items:center;min-height:30px;padding:1px 0}
+.grid-ctl-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-height:30px;padding:1px 0}
 .grid-fs-btn{
   position:absolute;top:8px;right:8px;z-index:30;
   width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
@@ -6458,9 +6490,9 @@ th.sortable:hover{color:var(--p-dark)}
 .why-result{color:var(--p-dark);font-weight:500;margin-top:3px;padding-top:3px;border-top:1px solid var(--border-subtle)}
 
 @media(max-width:768px){
-  .toolbar{padding:10px 12px;gap:8px}
-  .tb-right{flex-wrap:wrap;justify-content:flex-start}
-  .toolbar>.tb-head{gap:6px}
+  .toolbar{padding:10px 12px;gap:6px}
+  .toolbar>.tb-edit-group{gap:6px}
+  .grid-ctl-row{gap:6px}
   .search-dropdown{right:0}
 }
 
