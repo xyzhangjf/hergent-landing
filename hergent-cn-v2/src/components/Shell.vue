@@ -304,8 +304,12 @@ function stopResize() {
 .page-leave-to{opacity:0}
 
 .mnav{display:none}
-.md-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:900}
-.md-sheet{position:fixed;left:0;right:0;bottom:0;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:16px 16px 0 0;padding:8px 0 calc(12px + env(safe-area-inset-bottom));z-index:901}
+/* v136 全局模态层基准：遮罩 1125 / 内容 1130。
+   必须高于页面内浮层上限（.tb-pop 1120、.wx-pop 1121），否则在预报页这类带工具栏
+   下拉的页面里，触发按钮会浮在模态之上、可点穿（实测 3/3 按钮遮挡）。
+   仍低于系统级：空闲超时 9998 / toast 9999 / ErrorBoundary 99999。 */
+.md-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1125}
+.md-sheet{position:fixed;left:0;right:0;bottom:0;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:16px 16px 0 0;padding:8px 0 calc(12px + env(safe-area-inset-bottom));z-index:1130}
 .md-grab{width:36px;height:4px;border-radius:2px;background:var(--bd);margin:6px auto 10px}
 .md-item{display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;border:none;background:none;font-size:15px;color:var(--t1);text-align:left}
 .md-item:active{background:var(--bg4)}
@@ -321,7 +325,10 @@ function stopResize() {
 .tb-menu-item:hover{background:var(--bg2)}
 .tb-menu-item.danger{color:var(--dan)}
 
-.pf-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+/* v136：全局模态层基准 1130（同 .md-sheet）。原 1000 低于预报页 .tb-pop(1120)，
+   于是「修改资料」打开时工具栏的导出/复制报单/品牌三个按钮浮在遮罩之上、可点穿。
+   本元素非 Teleport（在 .shell 内），而 .shell 无 stacking context，改值即生效。 */
+.pf-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:1130;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .pf-modal{width:380px;max-width:92vw;background:var(--bg);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
 .pf-hd{padding:16px 20px;font-size:15px;font-weight:600;color:var(--t1);border-bottom:1px solid var(--border-subtle)}
 .pf-bd{padding:18px 20px;display:flex;flex-direction:column;gap:14px}

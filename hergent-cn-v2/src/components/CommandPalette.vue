@@ -126,7 +126,9 @@ watch(q, () => { activeIndex.value = 0 })
 </script>
 
 <style scoped>
-.cmd-mask{position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh}
+/* v136：全局模态层基准 1130。原 1000 低于预报页 .tb-pop(1120)，命令面板打开时
+   工具栏按钮浮在其上、可点穿（同 .pf-mask / .md-sheet 同批修正）。 */
+.cmd-mask{position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:1130;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh}
 .cmd-panel{width:min(560px,92vw);background:var(--bg);border:1px solid var(--border-subtle);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.28);overflow:hidden;display:flex;flex-direction:column}
 .cmd-input-wrap{display:flex;align-items:center;gap:9px;padding:13px 15px;border-bottom:1px solid var(--border-subtle)}
 .cmd-search-ic{color:var(--t3);display:flex}
