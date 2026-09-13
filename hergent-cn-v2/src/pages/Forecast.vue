@@ -1517,9 +1517,12 @@
 
     <!-- 返利冲刺看板已前置到本期预报顶部（view-seg 之前） -->
 
-    <!-- 返利达成汇总 -->
+    <!-- 厂家返利汇总（v160：标题原「厂家返利达成」→「厂家返利」。本表数据来自 rebate_contracts
+         + purchase_orders（目标额 / 已采额 / 达成率），是**合同采购进度**，不是「达成填报」里
+         人工或 Hermes 回写的实际返利金额 —— 叫「实际返利」会指鹿为马，故只去掉与全站重名的
+         「达成」二字，「达成率」列按指标名保留。 -->
     <div class="card rebate-section" style="margin-top:14px" v-if="rebateSummary.length">
-      <div class="panel-hd"><b>厂家返利达成</b><span class="tag info">{{ rebateSummary.length }} 个合同</span></div>
+      <div class="panel-hd"><b>厂家返利</b><span class="tag info">{{ rebateSummary.length }} 个合同</span></div>
       <div class="table-wrap">
         <table class="tbl">
           <thead>
@@ -6510,7 +6513,7 @@ th.sortable:hover{color:var(--p-dark)}
 .sprint-card .sprint-tp b{color:var(--war);font-size:13.5px;font-variant-numeric:tabular-nums}
 .sp-bar{position:relative}
 /* 仅冲刺面板加高到 12px：让时间进度虚线可读（实测行高 41px 由文字行盒决定，加高不改变行高）；
-   仪表盘参照为 16px，此表更紧凑故取 12px。不波及「厂家返利达成」表（仍 6px） */
+   仪表盘参照为 16px，此表更紧凑故取 12px。不波及「厂家返利」表（仍 6px） */
 .sprint-card .progress{height:12px}
 .sp-bar-mark{position:absolute;top:-3px;bottom:-3px;width:0;border-left:2px dashed var(--war);z-index:2;pointer-events:none}
 /* 时间语义着色：达成未达时间进度=红，已超前=绿（复用全局 .progress>i 的绿/琥珀范式） */

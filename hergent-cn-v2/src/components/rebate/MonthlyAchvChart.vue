@@ -3,7 +3,7 @@
     <div class="mac-hd">
       <div class="mac-ti">
         <b>全年月度达成</b>
-        <span class="mac-sub">柱高＝达成率，灰轨道顶＝100% 目标；返利为按规则预估应返，非实际到账</span>
+        <span class="mac-sub">柱高＝达成率，灰轨道顶＝100% 目标；返利柱为「达成填报」录入的实际返利</span>
       </div>
       <div class="mac-ctl">
         <!-- v154 P2-A：品牌筛选已提升为页面级（`BrandFilter.vue`，与页面「统计月份」并排，一处筛选统管
@@ -19,7 +19,7 @@
          故不再提供点击隐藏；改为解释柱子的两段结构（轨道 / 填充 / 超额段）与本月红绿规则 -->
     <div class="mac-legend">
       <span class="lg-item"><i :style="{ background: C.sales.fill }"></i>销量达成</span>
-      <span class="lg-item"><i :style="{ background: C.rebate.fill }"></i>返利达成</span>
+      <span class="lg-item"><i :style="{ background: C.rebate.fill }"></i>实际返利</span>
       <span class="lg-item"><i class="lg-track"></i>灰轨道＝目标 / 预估应返</span>
       <span class="lg-item">
         <i :style="{ background: C.ahead.deep }"></i>
@@ -151,7 +151,7 @@
     <div v-if="!loading && hasAny && ftText" class="mac-ft">
       <!-- v154 E4：原三条并列脚注读起来像"bug 列表"，本质是同一件事：本图的统计范围 → 合并为一句；
            「去达成填报补录」的动作指引下沉到 hover title（需要时才有，不占常驻版面） -->
-      <span :title="emptyMonths ? '灰色轨道＝该月尚未填报达成，可去「达成填报」补录' : ''">{{ ftText }}</span>
+      <span :title="(emptyMonths || emptyRebateMonths) ? '灰色轨道＝该月尚未填报销量达成或实际返利，可去「达成填报」补录' : ''">{{ ftText }}</span>
     </div>
   </div>
 </template>
@@ -225,6 +225,8 @@ const excluded = computed(() => props.model?.excluded || { nonBrand: 0, crossUni
 const measure = computed(() => props.model?.measure || 'amount')
 const hasAny = computed(() => !!props.model?.hasAny)
 const emptyMonths = computed(() => months.value.some(m => m.salesTarget > 0 && !m.salesAchv))
+/** v160：有返利目标（灰轨道＝预估应返）却还没录实际返利的月份 —— 与未填销量达成分开算，合并成一句提示 */
+const emptyRebateMonths = computed(() => months.value.some(m => m.rebateTarget > 0 && !m.actualRebate))
 
 const curKey = computed(() => {
   const d = new Date()
@@ -243,7 +245,11 @@ const timeProgress = computed(() => {
 // v154 E4：三条并列脚注合并为一句（同一件事＝本图的统计范围），且仅在确有内容时出现
 const ftText = computed(() => {
   const parts = []
-  if (emptyMonths.value) parts.push('灰色月份尚未填报达成')
+  // v160：销量达成与实际返利是两件各自可缺的事，合成一句时按缺哪样动态列名
+  const miss = []
+  if (emptyMonths.value) miss.push('销量达成')
+  if (emptyRebateMonths.value) miss.push('实际返利')
+  if (miss.length) parts.push(`灰色月份尚未填报${miss.join(' / ')}`)
   const ex = []
   if (excluded.value.nonBrand) ex.push(`${excluded.value.nonBrand} 条非品牌维度`)
   if (excluded.value.crossUnit) ex.push(`${excluded.value.crossUnit} 条${measure.value === 'amount' ? '数量' : '金额'}口径`)
@@ -264,7 +270,7 @@ const RATE_STEPS = [1.2, 1.5, 2]
 const maxRate = computed(() => {
   let mx = 0
   for (const m of months.value) {
-    for (const [t, a] of [[m.salesTarget, m.salesAchv], [m.rebateTarget, m.rebateAchv]]) {
+    for (const [t, a] of [[m.salesTarget, m.salesAchv], [m.rebateTarget, m.actualRebate]]) {
       const r = rate(a, t)
       if (r != null) mx = Math.max(mx, r)
     }
@@ -291,13 +297,15 @@ const gridRate = computed(() => {
 })
 
 /**
- * 合并柱：一根柱同时承载「目标 / 预估应返」（灰轨道）与「达成」（彩色填充）
+ * 合并柱：一根柱同时承载「参照值」（灰轨道）与「实际值」（彩色填充）
+ *   销量柱：轨道＝月度目标，填充＝销量达成
+ *   返利柱：轨道＝预估应返（按 100% 目标档试算），填充＝**实际返利**（达成填报录入）
  * @returns {Array} [销量柱, 返利柱]
  */
 function barsOf(mo) {
   return [
     mkBar(mo, 'sales', mo.salesTarget, mo.salesAchv, C.sales),
-    mkBar(mo, 'rebate', mo.rebateTarget, mo.rebateAchv, C.rebate),
+    mkBar(mo, 'rebate', mo.rebateTarget, mo.actualRebate, C.rebate),
   ]
 }
 function mkBar(mo, kind, target, achv, base) {
@@ -351,6 +359,13 @@ function money(v) {
   if (Math.abs(n) >= 10000) return '¥' + (n / 10000).toFixed(1) + '万'
   return '¥' + n.toLocaleString('zh-CN', { maximumFractionDigits: 0 })
 }
+/** v160：金额（元）专用格式化 —— 实际返利 / 预估应返恒为元，不能跟着图表的 amount/quantity
+ *  量纲开关走（否则切到「按数量」时返利会丢掉 ¥ 号，被读成件数）。 */
+function yuan(v) {
+  const n = Number(v) || 0
+  if (Math.abs(n) >= 10000) return '¥' + (n / 10000).toFixed(1) + '万'
+  return '¥' + n.toLocaleString('zh-CN', { maximumFractionDigits: 0 })
+}
 function qty(v) {
   const n = Number(v) || 0
   return n.toLocaleString('zh-CN', { maximumFractionDigits: 0 }) + ' 件'
@@ -365,8 +380,8 @@ function onHover(mo, i) {
   const rows = [
     { k: '销量目标', v: measure.value === 'quantity' ? qty(mo.salesTarget) : money(mo.salesTarget), r: '' },
     { k: '销量达成', v: measure.value === 'quantity' ? qty(mo.salesAchv) : money(mo.salesAchv), r: pct(s.noTarget ? null : s.r), warn: !s.noTarget && s.r < 1 },
-    { k: '返利预估', v: money(mo.rebateTarget), r: '' },
-    { k: '返利达成', v: money(mo.rebateAchv), r: pct(rb.noTarget ? null : rb.r), warn: !rb.noTarget && rb.r < 1 },
+    { k: '返利预估', v: yuan(mo.rebateTarget), r: '' },
+    { k: '实际返利', v: yuan(mo.actualRebate), r: pct(rb.noTarget ? null : rb.r), warn: !rb.noTarget && rb.r < 1 },
   ]
   const extra = []
   if (paceIdx.value === i && timeProgress.value != null) {
@@ -374,7 +389,9 @@ function onHover(mo, i) {
   }
   if (props.singleBrand) {
     extra.push({ k: '距目标差额', v: measure.value === 'quantity' ? qty(Math.max(0, mo.salesTarget - mo.salesAchv)) : money(Math.max(0, mo.salesTarget - mo.salesAchv)) })
-    extra.push({ k: '影响返利', v: money(Math.max(0, mo.rebateTarget - mo.rebateAchv)) })
+    // v160：原「影响返利」是「按目标档应返 − 按达成档应返」，两档都来自推算；现在减数换成了
+    //   人工录入的实际返利，语义变成「还差多少返利没拿到」→ 标签同步改为「返利缺口」，否则会误导。
+    extra.push({ k: '返利缺口', v: yuan(Math.max(0, mo.rebateTarget - mo.actualRebate)) })
   }
   const px = ((xGroup(i) + GW.value / 2) / W.value) * 100
   tip.value = {

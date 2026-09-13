@@ -2,12 +2,15 @@
  * 全年月度达成柱状图 · 纯逻辑层（无副作用，可单测）
  *
  * v123：仪表盘「全年月度达成」图表的数据组装。
- * 铁律：本层**不计算任何返利金额** —— 返利一律由后端 simulate-batch 产出，
- *       这里只负责「攒参数」和「回填结果」，杜绝前端镜像算法。
+ * 铁律：本层**不计算任何返利金额** —— 这里只负责「攒参数」和「回填结果」，杜绝前端镜像算法。
  *
- * 口径（2026-09-09 用户拍板）：
+ * 口径（v160 更新）：
  *   ① 销量达成取「达成填报」rebate_achievements，不接销售订单 API；
  *   ② 目标没填的月份就是 0，不做任何插值/均分，用户自己会去填。
+ *   ③ **返利柱＝实际返利**（rebate_achievements.actual_rebate，人工填报 / Excel /
+ *      Hermes 经 API·MCP 回写三源同字段），不再用「按达成率推算的预估返利」。
+ *      灰轨道（返利柱的目标位）仍是后端 simulate-batch 按 100% 目标档推算的「预估应返」，
+ *      于是返利柱的达成率 = 实际返利 ÷ 预估应返 —— 分母仍是后端算法，前端不碰。
  */
 
 export const MONTH_KEYS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
@@ -109,12 +112,12 @@ export function buildYearMatrix({ year, rules = [], achievements = [], brandSel 
 
   const months = []
   let hasAny = false
-  let tSalesTarget = 0, tSalesAchv = 0
+  let tSalesTarget = 0, tSalesAchv = 0, tActualRebate = 0
 
   for (let m = 1; m <= 12; m++) {
     const mm = String(m).padStart(2, '0')
     const mk = monthKey(y, m)
-    let salesTarget = 0, salesAchv = 0
+    let salesTarget = 0, salesAchv = 0, actualRebate = 0
     const byBrand = {}
     const hitRules = []
     // 每条规则自己的 (目标, 达成) —— 试算必须按规则取值，
@@ -130,16 +133,21 @@ export function buildYearMatrix({ year, rules = [], achievements = [], brandSel 
       const nm = String(r.scope_name || r.scope_key || '')
       const a = achvMap.get(`${mk}::brand::${String(r.scope_key ?? '')}`)
       const v = a ? (measure === 'quantity' ? (Number(a.actual_qty) || 0) : (Number(a.actual_amount) || 0)) : 0
+      // v160：实际返利与度量无关（永远是元），不受 amount/quantity 口径切换影响
+      const ar = a ? (Number(a.actual_rebate) || 0) : 0
       salesAchv += v
-      if (!byBrand[nm]) byBrand[nm] = { target: 0, achv: 0 }
+      actualRebate += ar
+      if (!byBrand[nm]) byBrand[nm] = { target: 0, achv: 0, actualRebate: 0 }
       byBrand[nm].target += t
       byBrand[nm].achv += v
+      byBrand[nm].actualRebate += ar
       ruleVals[r.id] = { target: t, achv: v }
     }
 
-    if (salesTarget > 0 || salesAchv > 0) hasAny = true
+    if (salesTarget > 0 || salesAchv > 0 || actualRebate > 0) hasAny = true
     tSalesTarget += salesTarget
     tSalesAchv += salesAchv
+    tActualRebate += actualRebate
 
     months.push({
       m,
@@ -148,8 +156,8 @@ export function buildYearMatrix({ year, rules = [], achievements = [], brandSel 
       label: `${m}月`,
       salesTarget,
       salesAchv,
-      rebateTarget: 0,   // 由 applySimResults 回填
-      rebateAchv: 0,
+      actualRebate,
+      rebateTarget: 0,   // 由 applySimResults 回填（100% 目标档的预估应返）
       byBrand,
       rules: hitRules,
       ruleVals,
@@ -162,13 +170,17 @@ export function buildYearMatrix({ year, rules = [], achievements = [], brandSel 
     measure,
     months,
     hasAny,
-    totals: { salesTarget: tSalesTarget, salesAchv: tSalesAchv, rebateTarget: 0, rebateAchv: 0 },
+    totals: { salesTarget: tSalesTarget, salesAchv: tSalesAchv, rebateTarget: 0, actualRebate: tActualRebate },
     excluded: { nonBrand, crossUnit },
   }
 }
 
 /**
- * 生成 simulate-batch 入参：每月每条规则两个试算（目标档 / 达成档）
+ * 生成 simulate-batch 入参：每月每条规则一次试算（**只算目标档**）
+ *
+ * v160：达成档的试算没用了 —— 返利柱的填充值已改成「实际返利」（人工/Excel/Hermes 录入），
+ * 不再由「按达成率推算的预估返利」充当。试算只用于产出返利柱的灰轨道（100% 目标档预估应返）。
+ * 请求量随之减半。
  * @returns {{ items: Array, keys: Array }} keys 与 items 同序，形如 'r12:m08:target'
  */
 export function buildSimItems(matrix) {
@@ -179,15 +191,13 @@ export function buildSimItems(matrix) {
       const rv = (mo.ruleVals || {})[r.id] || {}
       items.push({ rule_id: r.id, basis_value: Number(rv.target) || 0, ref_date: mo.refDate })
       keys.push(`r${r.id}:m${mo.mm}:target`)
-      items.push({ rule_id: r.id, basis_value: Number(rv.achv) || 0, ref_date: mo.refDate })
-      keys.push(`r${r.id}:m${mo.mm}:achv`)
     }
   }
   return { items, keys }
 }
 
 /**
- * 把后端试算结果回填进矩阵（唯一写入返利金额的地方）
+ * 把后端试算结果回填进矩阵（本图**唯一**写入返利金额的地方，且只写灰轨道）
  * @param {object} matrix  buildYearMatrix 的产物（会被就地修改）
  * @param {Array}  results simulate-batch 的 results（与 keys 同序）
  * @param {Array}  keys    buildSimItems 产出的 keys
@@ -200,20 +210,16 @@ export function applySimResults(matrix, results = [], keys = []) {
     if (!k || !r || r.ok === false) return
     reb[k] = Number(r.rebate) || 0
   })
-  let tTarget = 0, tAchv = 0
+  let tTarget = 0
   for (const mo of matrix.months) {
-    let rt = 0, ra = 0
+    let rt = 0
     for (const r of (mo.rules || [])) {
       rt += reb[`r${r.id}:m${mo.mm}:target`] || 0
-      ra += reb[`r${r.id}:m${mo.mm}:achv`] || 0
     }
     mo.rebateTarget = rt
-    mo.rebateAchv = ra
     tTarget += rt
-    tAchv += ra
   }
   matrix.totals.rebateTarget = tTarget
-  matrix.totals.rebateAchv = tAchv
   return matrix
 }
 

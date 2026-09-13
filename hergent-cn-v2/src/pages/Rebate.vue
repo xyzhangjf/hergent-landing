@@ -8,11 +8,13 @@
       <button class="main-tab" :class="{ on: mainTab === 'contracts' }" @click="switchTab('contracts')">返利结算</button>
     </div>
 
-    <!-- ===== 仪表盘 Tab（A：返利达成全景 / 档位进度 / 预警，默认落地） ===== -->
+    <!-- ===== 仪表盘 Tab（A：实际返利全景 / 档位进度 / 预警，默认落地） ===== -->
     <template v-if="mainTab === 'dashboard'">
       <div class="card dash-card">
         <div class="dash-hd">
-          <b>返利达成仪表盘</b>
+          <!-- v160：原「返利达成仪表盘」→「实际返利仪表盘」。本图表的返利柱已改吃「达成填报」
+               录入的实际返利（人工 / Excel / Hermes 回写），不再是用预估应返充数，标题同步改名。 -->
+          <b>实际返利仪表盘</b>
           <!-- v154 A1：原副标题 3 个分句（实测 573px）瘦身为 1 句 —— 页头只回答"我在哪"；
                「按风险升序…」与列表图例重复，已删；「含预报贡献的实时达成见冲刺看板」是跨页导航，
                已下沉到达成列表标题行（需要它的那一刻在那里） -->
@@ -112,7 +114,9 @@
           <!-- v151：本区标题「返利达成排行」→「返利目标达成」。原「排行」暗示按指标降序、第一名最优，
                但本区实际按风险优先（risk→ontrack→done，同级达成率升序、越危险越靠前），且混排品牌/商品、
                金额/数量口径的目标，不构成同质可排名集合；「返利」也易被读成"返利金额"。详见
-               outputs 的《返利目标达成-区块标题评估-2026-09-12.md》。 -->
+               outputs 的《返利目标达成-区块标题评估-2026-09-12.md》。
+               v160：本区标题**保留**未改 —— 它讲的是「月度目标 vs 已填报」的对比（带达成率进度条），
+               改成「实际返利」会丢掉「目标」这一半语义；实际返利金额已单列在「达成填报」页与图表返利柱。 -->
           <!-- 条形达成列表（v132：状态图例内联到本区标题行右侧，明确它只解释条形配色） -->
           <div class="dash-rank">
             <div class="rank-hd">
@@ -279,7 +283,7 @@
       <div class="card achv-card">
         <div class="panel-hd">
           <b>达成填报</b>
-          <span class="page-sub">无 API / 手动上传客户在此填报实际达成 · 预报页「返利冲刺看板」达成 = 填报达成 + 本期预报贡献</span>
+          <span class="page-sub">在此填报实际达成与实际返利 · 实际返利供仪表盘「全年月度达成」返利柱使用 · 支持人工录入 / Excel 导入 / AI 自动回填</span>
         </div>
 
         <div class="achv-bar">
@@ -316,6 +320,7 @@
             <thead>
               <tr>
                 <th>维度</th><th>作用对象</th><th class="num">目标值</th>
+                <th class="num">实际返利（元）</th>
                 <th class="num">实际达成金额</th><th class="num">实际达成数量</th>
                 <th class="num">达成率</th><th>来源</th><th></th>
               </tr>
@@ -336,11 +341,20 @@
                          :placeholder="row.target_type === 'quantity' ? '填数量' : '—'"
                          :disabled="achvSaving[row.key]"
                          @change="saveAchv(row)" />
+                <!-- v160：实际返利（元）—— 始终可填（不像金额/数量受 target_type 限制），
+                     它是人工/Excel/AI 回写的业务事实，与目标是什么口径无关 -->
+                <td class="num">
+                  <input class="input num-input" type="number" v-model.number="row.achRebate" placeholder="填返利"
+                         :disabled="achvSaving[row.key]"
+                         @change="saveAchv(row)" />
+                </td>
                 </td>
                 <td class="num"><span :class="achvRateCls(row)">{{ achvRateText(row) }}</span></td>
+                  <!-- v160：来源增列「AI 自动回填」—— Hermes 经 API / MCP 与 ERP 对接后写入的是 source='api'，
+                       此前会被并进「手工」，看不出这条数是人填的还是机器回的 -->
                 <td>
                   <span class="tag" :class="row.achId ? 'ok' : ''">
-                    {{ row.achId ? (row.source === 'excel' ? 'Excel' : '手工') : '未填报' }}
+                    {{ row.achId ? achvSourceText(row.source) : '未填报' }}
                   </span>
                   <!-- v112 R14：行级保存状态（防抖期间 / 请求中 / 失败待重试） -->
                   <span v-if="achvSaving[row.key]" class="achv-saving">保存中…</span>
@@ -365,7 +379,10 @@
               <button class="btn-close" @click="achvImpOpen = false"><Icon name="close"/></button>
             </div>
             <div class="modal-body">
-              <p class="achv-tip">列顺序：<code>月份 / 维度 / 作用对象 / 实际达成金额 / 实际达成数量 / 备注</code>。首次使用请先「下载模板」。</p>
+              <p class="achv-tip">列顺序：<code>月份 / 维度 / 作用对象 / 实际达成金额 / 实际达成数量 / 实际返利 / 备注</code>。首次使用请先「下载模板」。</p>
+              <!-- v160：三源共存（人工 / Excel / Hermes 回写）后的关键约定 —— 只覆盖文件里真有的列，
+                   否则拿一份「只有达成额」的老模板重导，会把人工填的实际返利悄悄清零 -->
+              <p class="achv-tip">只覆盖<b>表里出现的列</b>：表格没写「实际返利」列就不会动已填的实际返利，反之只导实际返利也不会抹掉达成额。</p>
               <p class="achv-tip">同一「月份 + 维度 + 作用对象」重复导入将<b>覆盖</b>旧值，可放心重导。商品维度按名称或条码匹配商品档案，匹配不到按原文导入并在结果中提示。</p>
               <p class="achv-tip">月份列留空时，按上方选择的 <b>{{ achvMonth }}</b> 归入。</p>
               <input type="file" accept=".xlsx,.xls,.csv" @change="onAchvFile" />
@@ -1546,7 +1563,7 @@ function buildAchvRows() {
       scope_name: r.scope_name || r.scope_key || '全部',
       target_type: r.target_type,
       target_value: r.target_value,
-      achId: null, achAmount: null, achQty: null, source: '', note: '',
+      achId: null, achAmount: null, achQty: null, achRebate: null, source: '', note: '',
     })
   }
   for (const a of achievements.value) {
@@ -1558,6 +1575,7 @@ function buildAchvRows() {
     if (hit) {
       hit.achId = a.id
       hit.achAmount = a.actual_amount
+      hit.achRebate = a.actual_rebate
       hit.achQty = a.actual_qty
       hit.source = a.source
       hit.note = a.note || ''
@@ -1566,7 +1584,7 @@ function buildAchvRows() {
         key, dimension: a.dimension, scope_key: sk,
         scope_name: a.scope_name || sk,
         target_type: '', target_value: 0,
-        achId: a.id, achAmount: a.actual_amount, achQty: a.actual_qty,
+        achId: a.id, achAmount: a.actual_amount, achQty: a.actual_qty, achRebate: a.actual_rebate,
         source: a.source, note: a.note || '',
       })
     }
@@ -1614,19 +1632,25 @@ const achvTimers = {}
 const achvSaving = ref({})
 const achvFail = ref({})
 async function saveAchv(row) {
-  // v112 R45：显式 0 视为有效达成（用户可能想记录"本月为 0"），仅双输入都为 null/空才不落库
-  if (!row.achId && row.achAmount == null && row.achQty == null) { row.__orig = null; row.__pending = null; return }
+  // v112 R45：显式 0 视为有效达成（用户可能想记录"本月为 0"），仅三个输入都为 null/空才不落库
+  // v160：判空必须带上 achRebate —— 否则「只填实际返利」的新行会被判为无内容、整个输入被丢掉
+  if (!row.achId && row.achAmount == null && row.achQty == null && row.achRebate == null) {
+    row.__orig = null; row.__pending = null; return
+  }
   // 首次编辑该行时记录原值快照（失败还原基准），已有快照则保留
-  if (row.__orig == null) row.__orig = { achAmount: row.achAmount, achQty: row.achQty }
-  row.__pending = { achAmount: row.achAmount, achQty: row.achQty }
+  if (row.__orig == null) row.__orig = { achAmount: row.achAmount, achQty: row.achQty, achRebate: row.achRebate }
+  row.__pending = { achAmount: row.achAmount, achQty: row.achQty, achRebate: row.achRebate }
   delete achvFail.value[row.key]
   clearTimeout(achvTimers[row.key])
   achvTimers[row.key] = setTimeout(() => doSaveAchv(row), 300)
 }
 async function doSaveAchv(row) {
-  const p = row.__pending || { achAmount: row.achAmount, achQty: row.achQty }
-  if (!row.achId && p.achAmount == null && p.achQty == null) { row.__orig = null; row.__pending = null; return }
+  const p = row.__pending || { achAmount: row.achAmount, achQty: row.achQty, achRebate: row.achRebate }
+  if (!row.achId && p.achAmount == null && p.achQty == null && p.achRebate == null) {
+    row.__orig = null; row.__pending = null; return
+  }
   const amount = Number(p.achAmount) || 0
+  const rebate = Number(p.achRebate) || 0
   const qty = Number(p.achQty) || 0
   achvSaving.value[row.key] = true
   try {
@@ -1638,6 +1662,7 @@ async function doSaveAchv(row) {
         scope_key: row.scope_key,
         scope_name: row.scope_name,
         actual_amount: amount,
+        actual_rebate: rebate,
         actual_qty: qty,
         source: 'manual',
         note: row.note || '',
@@ -1646,6 +1671,7 @@ async function doSaveAchv(row) {
     if (r && r.item) { row.achId = r.item.id; row.source = r.item.source }
     // 保存成功：把最终落库值写回行（含重试场景，input 显示最终值）
     row.achAmount = amount
+    row.achRebate = rebate
     row.achQty = qty
     row.__orig = null
     row.__pending = null
@@ -1653,7 +1679,7 @@ async function doSaveAchv(row) {
     toast('已保存', 'success')
   } catch (e) {
     // 失败还原原值；用户改过的新值保留在 __pending，点「点击重试」用新值再发
-    if (row.__orig) { row.achAmount = row.__orig.achAmount; row.achQty = row.__orig.achQty }
+    if (row.__orig) { row.achAmount = row.__orig.achAmount; row.achQty = row.__orig.achQty; row.achRebate = row.__orig.achRebate }
     achvFail.value[row.key] = true
     toast('保存失败: ' + (e.message || ''), 'error')
   } finally {
@@ -1662,21 +1688,23 @@ async function doSaveAchv(row) {
 }
 // 失败后点击重试：以 __pending（用户改过的新值）再次提交
 function retryAchv(row) {
-  if (row.__orig == null && row.__pending == null) row.__pending = { achAmount: row.achAmount, achQty: row.achQty }
+  if (row.__orig == null && row.__pending == null) {
+    row.__pending = { achAmount: row.achAmount, achQty: row.achQty, achRebate: row.achRebate }
+  }
   doSaveAchv(row)
 }
 
 async function delAchv(row) {
   if (!row.achId) return
-  // v112 R20：统一确认弹窗
+  // v112 R20：统一确认弹窗。v160：文案涵盖实际返利 —— 清除是整行删除，会一并带走返利金额。
   openConfirm({
-    title: '清除达成数据',
-    message: `确认清除「${row.scope_name}」${achvMonth.value} 的达成数据？\n清除后该行恢复为未填报。`,
+    title: '清除达成与实际返利',
+    message: `确认清除「${row.scope_name}」${achvMonth.value} 的达成与实际返利数据？\n清除后该行恢复为未填报（实际返利会从仪表盘返利柱上消失）。`,
     okText: '清除', danger: true,
     onOk: async () => {
       try {
         await api('/api/rebate-achievements/' + row.achId, { method: 'DELETE' })
-        row.achId = null; row.achAmount = null; row.achQty = null; row.source = ''
+        row.achId = null; row.achAmount = null; row.achQty = null; row.achRebate = null; row.source = ''
         delete achvFail.value[row.key]
         toast('已清除', 'success')
       } catch (e) {
@@ -1739,16 +1767,24 @@ async function runAchvImport() {
 }
 
 function downloadAchvTemplate() {
-  const header = ['月份', '维度', '作用对象', '实际达成金额', '实际达成数量', '备注']
-  const sample = [achvMonth.value, '品牌', '蒙牛', '120000', '', '示例行，导入前请删除']
+  // v160：模板增列「实际返利」—— 它是仪表盘返利柱的唯一数据来源，必须能整月批量导入，
+  //   否则只能一行行手填（Hermes 回写走 API，不走这张表）。
+  const header = ['月份', '维度', '作用对象', '实际达成金额', '实际达成数量', '实际返利', '备注']
+  const sample = [achvMonth.value, '品牌', '蒙牛', '120000', '', '8800', '示例行，导入前请删除']
   const csv = header.join(',') + '\n' + sample.join(',') + '\n'
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = '达成数据导入模板.csv'
+  a.download = '达成与实际返利导入模板.csv'
   a.click()
   URL.revokeObjectURL(a.href)
 }
+/** v160：来源标签统一映射。「AI 自动回填」= Hermes 经 API / MCP 与 ERP 对接后写入
+ *  （source='api'）；此前被并入「手工」，用户分不清一条数是人填的还是机器回填的。 */
+function achvSourceText(s) {
+  return { manual: '手工', excel: 'Excel', api: 'AI 自动回填' }[s] || '手工'
+}
+
 
 function achvRateText(row) {
   if (!row.target_type || !row.target_value) return '—'
@@ -1765,7 +1801,7 @@ function achvRateCls(row) {
   return ''
 }
 
-/* ---- 仪表盘 Tab（A：返利达成全景 / 档位进度 / 预警，复用填报达成，不依赖预报） ---- */
+/* ---- 仪表盘 Tab（A：实际返利全景 / 档位进度 / 预警，复用填报达成，不依赖预报） ---- */
 function ruleActiveInMonth(r, month) {
   if (r.is_active === 0) return false
   const [yy, mm] = String(month).split('-').map(Number)
@@ -3143,6 +3179,6 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .kpi-hd-t{font-size:13px;font-weight:600;color:var(--t1)}
 /* v154 B1：原 .dash-kpi-note（KPI 说明）已删 —— 品牌筛选提到页头后不再需要解释作用域 */
 /* v154 A2：原 P2 组5 的时间控件作用域标签（.scope-tag「单月视图」/ 图表侧「全年视图」）已全部删除 ——
-   两处徽标本是为互相消歧而打的补丁；「返利达成仪表盘 / 统计月份」与图表「全年月度达成」自身已表达时间维度，
+   两处徽标本是为互相消歧而打的补丁；「实际返利仪表盘 / 统计月份」与图表「全年月度达成」自身已表达时间维度，
    且样式不一反而让两个维度的层级关系更乱 */
 </style>
