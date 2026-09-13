@@ -23,18 +23,10 @@
           <div class="ev-stat"><b>{{ evLastAt || '—' }}</b><span>最近进化</span></div>
         </div>
 
-        <!-- 技能库（与技能 Tab 同源：走 Hermes 代理，根治直接读 /root/.hermes 的权限坑） -->
-        <div class="ev-skills" v-if="aiSkills.length">
-          <div class="ev-sk-hd"><b>技能库（AI 的"行业经验"）</b><span class="page-sub">{{ aiSkills.length }} 个已启用</span></div>
-          <div class="ev-sk-grid">
-            <div v-for="s in aiSkills" :key="s.name" class="ev-sk" :class="{ internal: skillMeta(s).internal }">
-              <span class="ev-sk-ic"><Icon :name="skillMeta(s).icon || 'brain'"/></span>
-              <div>
-                <div class="ev-sk-name">{{ skillMeta(s).title || s.name }}</div>
-                <div class="ev-sk-sub">{{ skillMeta(s).what || s.description || '' }}</div>
-              </div>
-            </div>
-          </div>
+        <!-- v2026-09-13：技能库全量展示下移到「技能」tab，此处仅做引导跳转，消除两页重复展示 -->
+        <div class="ev-jump" @click="tab='skill'">
+          <span class="ev-jump-txt">已沉淀 <b>{{ evSkills.total || aiSkills.length || 0 }}</b> 个行业技能</span>
+          <span class="ev-jump-go">去技能页查看 →</span>
         </div>
 
         <!-- 进化记录 -->
@@ -1082,10 +1074,6 @@ onUnmounted(stopStatusPoll)
 </script>
 
 <style scoped>
-.page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
-.page-hd h2{font-size:20px;font-weight:600}
-.page-sub{font-size:12px;color:var(--t3)}
-
 .cc-tabs{display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:0}
 .cc-tab{padding:10px 18px;border:none;background:none;font-size:14px;color:var(--t2);cursor:pointer;position:relative;font-weight:500}
 .cc-tab.active{color:var(--p-dark)}
@@ -1235,14 +1223,12 @@ onUnmounted(stopStatusPoll)
 .ev-stat{display:flex;flex-direction:column;align-items:center;background:var(--bg2);border-radius:12px;padding:12px 22px;min-width:90px}
 .ev-stat b{font-size:18px;font-weight:500;color:var(--t1)}
 .ev-stat span{font-size:11px;color:var(--t3);margin-top:2px}
-.ev-skills{margin-bottom:18px}
 .ev-sk-hd{display:flex;align-items:center;gap:10px;margin:14px 0 10px}
 .ev-sk-hd b{font-size:13px;color:var(--t1)}
-.ev-sk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
-.ev-sk{display:flex;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
-.ev-sk-ic{font-size:16px}
-.ev-sk-name{font-size:12.5px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ev-sk-sub{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.ev-jump{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 4px;padding:11px 14px;border:1px dashed var(--bd);border-radius:10px;background:var(--bg2);cursor:pointer}
+.ev-jump:hover{border-color:#3b6cff;background:#f5f9ff}
+.ev-jump-txt{font-size:13px;color:var(--t1)}
+.ev-jump-go{font-size:13px;font-weight:500;color:#3b6cff;white-space:nowrap}
 .ev-runs{display:flex;flex-direction:column;gap:10px}
 .ev-run{border:1px solid var(--bd);border-radius:12px;padding:12px 14px}
 .ev-run-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
