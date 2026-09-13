@@ -13,10 +13,21 @@
       <div class="card dash-card">
         <div class="dash-hd">
           <b>返利达成仪表盘</b>
-          <span class="page-sub">本月填报达成全景 · 按风险升序排列，最该操心的排最前 · 含预报贡献的实时达成见预报页「返利冲刺看板」</span>
-          <div class="dash-month">
-            <label class="achv-lb">统计月份<i class="scope-tag">单月视图</i></label>
-            <input type="month" v-model="dashMonth" class="input achv-month" @change="onDashMonth" />
+          <!-- v154 A1：原副标题 3 个分句（实测 573px）瘦身为 1 句 —— 页头只回答"我在哪"；
+               「按风险升序…」与列表图例重复，已删；「含预报贡献的实时达成见冲刺看板」是跨页导航，
+               已下沉到达成列表标题行（需要它的那一刻在那里） -->
+          <span class="page-sub">本月填报达成全景</span>
+          <div class="dash-ctl">
+            <!-- v154 P2-A：品牌筛选从图表卡内部提升到页面级 —— 它本来就作用于图表 + 异常区 + 达成列表，
+                 长在图表里才导致必须写一句"不随筛选变化"来解释 KPI；现在一处筛选统管全页，位置即说明 -->
+            <BrandFilter :list="chartBrandList" v-model="chartBrandSel"
+                         scope-tip="作用于下方图表与「返利目标达成」列表（顶部 KPI 始终为全部品牌合计）。" />
+            <div class="dash-month">
+              <!-- v154 A2：原「单月视图」scope 徽标随图表侧「全年视图」一并删除 ——
+                   两处徽标本是互相消歧的补丁，标题与「统计月份」自身已表达时间维度 -->
+              <label class="achv-lb">统计月份</label>
+              <input type="month" v-model="dashMonth" class="input achv-month" @change="onDashMonth" />
+            </div>
           </div>
         </div>
 
@@ -34,7 +45,9 @@
           <!-- P2 项11：原独立占一行的 KPI 说明，并入本标题行并弱化为小字（说明"筛选不改 KPI"是设计而非 bug） -->
           <div class="kpi-hd">
             <span class="kpi-hd-t">本月关键指标</span>
-            <span class="dash-kpi-note">始终统计全部品牌，不随下方图表的品牌筛选变化</span>
+            <!-- v154 B1：原「始终统计全部品牌，不随下方图表的品牌筛选变化」已删 ——
+                 它存在的唯一原因是品牌筛选控件长在图表卡里、作用范围不可见（说明性文案的数量 = 交互不直观的数量）；
+                 筛选提级到页头后，该说明移到筛选弹层内（用户点开筛选的那一刻才需要知道作用域） -->
           </div>
           <div class="dash-kpi">
             <div class="kpi-hero money" :title="'本月预估返利：¥' + fmt(dashboardModel.summary.totalEstRebate)">
@@ -55,102 +68,110 @@
               <!-- v132：口径与图表的「达成率」视图统一（Σ达成 ÷ Σ目标），避免同屏两个"达成率"打架 -->
               <span class="kpi-lb">整体达成率<i class="kpi-sub">按目标加权</i></span>
             </div>
+            <!-- v154 P0-C：原独占 44px 琥珀横幅的「本月时间进度」并入 KPI 行第 5 张卡 ——
+                 它是判读达成率好坏的参照物，与其它指标同级最合理；dt-hint 说明已删
+                 （与达成列表图例逐字重复，同一视觉编码不必讲两遍） -->
+            <div class="kpi-sm">
+              <span class="kpi-num">{{ dashboardModel.summary.timeProgressPct }}</span>
+              <span class="kpi-lb">本月时间进度<i class="kpi-sub">{{ dashboardModel.summary.timeLabel }}</i></span>
+            </div>
           </div>
-          <!-- v123：KPI 回答"我这个月总共能拿多少返利"，必须始终全量，不能被筛选悄悄改掉
-               （说明文案已上移进 kpi-hd 标题行，不再单独占行） -->
+          <!-- v123：KPI 回答"我这个月总共能拿多少返利"，必须始终全量，不能被筛选悄悄改掉 -->
 
-          <!-- 本月时间进度参照（v112 R22：emoji 统一为 SVG 图标） -->
-          <div class="dash-time">
-            <span class="dt-k">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
-              本月时间进度 <b>{{ dashboardModel.summary.timeProgressPct }}</b>
-            </span>
-            <span class="dt-v">{{ dashboardModel.summary.timeLabel }}</span>
-            <span class="dt-hint">虚线＝时间进度：条形超过虚线＝超前，短于虚线＝落后时间进度</span>
-          </div>
-          <!-- v132：状态图例已内联到「返利达成排行」标题行（归属明确，不再悬浮在页面中部）；
-               原「本月未填报」长文案已删除，引导值并入下方异常区的可点击条目 -->
+          <!-- v132：状态图例已内联到「返利目标达成」标题行（归属明确，不再悬浮在页面中部）；
+               原「本月未填报」长文案已删除。v153：异常区收窄为只报「列表里看不出来的」问题后，
+               未填报的发现路径 = 达成列表的 0% 行 + KPI 生效目标数（本页不再有独立引导文案） -->
 
-          <!-- v123：全年月度达成柱状图（位置＝KPI 之下、预警之上；品牌筛选联动预警区与排行） -->
+          <!-- v123：全年月度达成柱状图（位置＝KPI 之下、预警之上；品牌筛选联动预警区与达成列表） -->
           <div class="dash-chart">
             <MonthlyAchvChart
               :model="chartMatrix"
               :loading="chartLoading"
               :year="chartYear"
               :year-options="chartYearOptions"
-              :brand-list="chartBrandList"
-              :brand-sel="chartBrandSel"
               :single-brand="chartBrandSel.length === 1"
               @update:year="onChartYear"
-              @update:brand-sel="chartBrandSel = $event"
             />
           </div>
 
-          <!-- #356：异常预警区（规则冲突 / 达成未填 / 预计不达标 聚合） -->
+          <!-- #356：异常预警区（v153：只聚合「列表里看不出来的」问题 —— 现仅规则重复一类） -->
           <div v-if="anomalies.length" class="dash-anom">
             <div class="da-hd"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px"><path d="M12 3L2 20h20L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>待处理异常（{{ anomalies.length }}）</div>
             <ul class="da-list">
-              <!-- v132：异常条目可点击，按类型分流（未填报→达成填报 / 不达标→定位预警行 / 重复→筛出启用规则） -->
+              <!-- v132：条目可点击 → 把"只读警告"升级为"可闭环处理"；v153 只剩规则重复一类，故图标与动作固定 -->
               <li v-for="(a, ai) in anomalies" :key="ai" class="da-item da-clickable" :class="a.level"
                   role="button" tabindex="0" @click="onAnomalyClick(a)" @keydown.enter="onAnomalyClick(a)">
-                <span class="da-ic"><Icon :name="a.type === 'conflict' ? 'alert-triangle' : a.type === 'risk' ? 'clock' : 'edit'"/></span>
+                <span class="da-ic"><Icon name="alert-triangle"/></span>
                 <span class="da-text">{{ a.text }}</span>
                 <span class="da-items">{{ a.items.slice(0, 4).join('、') }}<template v-if="a.items.length > 4"> 等 {{ a.items.length }} 项</template></span>
-                <span class="da-act">{{ a.type === 'nodata' ? '去填报' : a.type === 'risk' ? '看预警' : '看规则' }} →</span>
+                <span class="da-act">看规则 →</span>
               </li>
             </ul>
           </div>
 
-          <!-- 条形排行（v132：状态图例内联到本区标题行右侧，明确它只解释排行配色） -->
+          <!-- v151：本区标题「返利达成排行」→「返利目标达成」。原「排行」暗示按指标降序、第一名最优，
+               但本区实际按风险优先（risk→ontrack→done，同级达成率升序、越危险越靠前），且混排品牌/商品、
+               金额/数量口径的目标，不构成同质可排名集合；「返利」也易被读成"返利金额"。详见
+               outputs 的《返利目标达成-区块标题评估-2026-09-12.md》。 -->
+          <!-- 条形达成列表（v132：状态图例内联到本区标题行右侧，明确它只解释条形配色） -->
           <div class="dash-rank">
             <div class="rank-hd">
-              <span class="rank-hd-t">返利达成排行</span>
+              <span class="rank-hd-t">返利目标达成</span>
               <span class="dash-legend">
-                <span><i class="lg done"></i>已达标</span>
-                <span><i class="lg risk"></i>预警</span>
-                <span><i class="lg ontrack"></i>推进中</span>
+                <span><i class="lg ahead"></i>超前时间进度</span>
+                <span><i class="lg behind"></i>落后时间进度</span>
                 <span><i class="lg time"></i>时间进度（虚线）</span>
-                <span class="dash-legend-note">条形＝达成率（100% 即达标；目标与达成同为「所选月份」口径），自上而下风险最高</span>
+                <!-- v154 G8：原 note 4 个分句（实测 442px）拆解归属 ——
+                     「100% 即达标」已由行内「已达标 / 预警」标签承载；「所选月份口径」归页头月份控件；
+                     图例只保留"条形讲什么"这一件它该讲的事 -->
+                <span class="dash-legend-note">条形＝达成率 · 风险优先</span>
               </span>
+              <!-- v154 A1：原页头副标题的跨页导航句下沉到此处（本区讲填报达成，冲刺看板讲含预报贡献的达成，同源对照） -->
+              <a class="rank-hd-link" href="#/forecast" @click.prevent="goSprint"
+                 title="直达预报页「返利冲刺看板」：达成 = 填报达成 + 本期预报贡献">实时达成（含预报贡献）→</a>
             </div>
             <div v-for="(it, idx) in dashItemsFiltered" :key="it.rule.id" class="rank-row" :class="it.level">
               <div class="rr-top">
                 <span class="rr-rank">{{ idx + 1 }}</span>
-                <span class="tag info">{{ it.dimLabel }}</span>
+                <!-- v154 G6：「品牌 / 蒙牛」是同义叠加 → 有具体对象时只留对象名，仅在对象为「全部」时才用维度标签表达 -->
+                <span v-if="it.scopeAll" class="tag info">{{ it.dimLabel }}</span>
                 <b class="rr-name">{{ it.rule.rule_name }}</b>
-                <span class="rr-scope">{{ it.scope }}</span>
+                <span v-if="!it.scopeAll" class="rr-scope">{{ it.scope }}</span>
                 <span class="tag" :class="it.level === 'done' ? 'ok' : it.level === 'risk' ? 'risk' : ''">{{ it.levelText }}</span>
+                <!-- v156：时间进度判语 chip 整块删除。理由：条形颜色（pace-ahead / pace-behind）已经
+                     表达了超前还是落后，上方图例又写明了两色含义，行内再挂一枚「超前 70 个百分点」是
+                     同一件事的第三次表达；何况这个差值可由同屏两个数字（右侧达成率、KPI 卡时间进度）相减得到。
+                     信息不丢：完整句「达成率 X%，本月时间进度 Y%，超前/落后 Z 个百分点」下沉为条形 hover 提示，
+                     同时对色觉障碍用户保留文字可读路径（不再只靠颜色）。 -->
                 <span class="rr-ach" :class="it.level === 'risk' ? 'val-warn' : ''">{{ it.achPct }}</span>
                 <!-- v132：算式入口只保留「预计返利」旁的「看算式」（原行内双入口已收敛） -->
                 <span v-if="!it.simReady" class="rr-calc-loading">试算中…</span>
               </div>
-              <div class="rr-bar">
-                <div class="rr-bar-fill" :class="it.level" :style="{ width: Math.min(100, it.ach * 100) + '%' }"></div>
-                <span class="rr-bar-pct">{{ (Math.min(100, it.ach * 100)).toFixed(0) }}%</span>
+              <div class="rr-bar" :title="it.paceTitle">
+                <div class="rr-bar-fill" :class="it.paceCls" :style="{ width: Math.min(100, it.ach * 100) + '%' }"></div>
                 <div v-if="dashboardModel.summary.tpShown" class="rr-bar-mark" :style="{ left: dashboardModel.summary.timeProgressPct }"></div>
               </div>
               <div class="rr-meta">
                 <!-- v150：显式写「9月目标」—— 品牌目标是年度框架，真正参与达成的分母是该月分解值 -->
                 <span>{{ it.monthLabel }}目标 <b>{{ it.targetText }}</b></span>
                 <span>已填报 <b>{{ it.reportedText }}</b></span>
-                <span>距目标 <b :class="it.gap > 0 ? 'val-warn' : 'val-ok'">{{ it.gapText }}</b></span>
-                <!-- P2 项8：原「档位 X→Y」与「达下一档多赚 ¥Z」是同一件事的两面 → 合并为一项（6→5） -->
-                <span class="rr-next">档位 <b>{{ it.curTierPct }} → {{ it.nextTierPct || '满档' }}</b><template v-if="it.nextTierPct != null">，多赚 <b class="val-ok">¥{{ fmt(it.estRebateNext - it.estRebate) }}</b></template></span>
+                <!-- v154 G5：已达标行的「距目标 ¥0」是无信息量占位 → 换成「超出 ¥X」（继续冲量的真实增量） -->
+                <span>{{ it.gapLabel }} <b :class="it.gap > 0 ? 'val-warn' : 'val-ok'">{{ it.gapLabel === '超出' ? it.overText : it.gapText }}</b></span>
+                <!-- v153：按返利模式分述 —— 阶梯规则讲「档位 X → Y，多赚 ¥Z」；非阶梯规则（达标即返）无档位概念，
+                     改述「达标可得 ¥X」；已达标且无剩余档位时该段整段不渲染（无门槛、无缺口，且返利金额
+                     已在右侧「预计返利」呈现，此处再印一次会在同一行重复同一个数字）。 -->
+                <span v-if="it.hasTiers" class="rr-next">档位 <b>{{ it.curTierText }} → {{ it.nextTierPct || '满档' }}</b><template v-if="it.nextGain > 0">，多赚 <b class="val-ok">¥{{ fmt(it.nextGain) }}</b></template></span>
+                <span v-else-if="it.level !== 'done'" class="rr-next">达标可得 <b class="val-ok">¥{{ fmt(it.estRebateNext) }}</b></span>
                 <span class="rr-est">预计返利 <b class="val-ok">¥{{ fmt(it.estRebate) }}</b>
-                  <button v-if="it.simReady" class="rr-calc-link" @click="openCalc(it.simData, it.rule.rule_name)">看算式</button>
+                  <!-- v154 G10：预计返利为 0 时「看算式」降为次级（hover 才显形），避免 ¥0 与入口并排的矛盾感 -->
+                  <button v-if="it.simReady" class="rr-calc-link" :class="{ dim: !(it.estRebate > 0) }" @click="openCalc(it.simData, it.rule.rule_name)">看算式</button>
                 </span>
-              </div>
-              <!-- P2 项9+项10：risk 行原 rr-vs 与 rr-warn 双警告重复 → 合并为一条预判文案；
-                   非 risk 行保留 rr-vs，并按方案去掉与 dt-hint 重复的解释语（只留「超前/落后 X pp」） -->
-              <div v-if="it.level === 'risk'" class="rr-warn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M12 3L2 20h20L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>
-                预计月底仅达成 {{ it.predictedPct }}，还差 {{ it.gapText }}<template v-if="it.timeVerdict === 'behind'">，落后时间进度 {{ it.vsTimePct }}</template>，建议尽快补单或催回款
-              </div>
-              <div v-else class="rr-vs" :class="it.timeVerdict">
-                <i class="rr-vs-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></i>
-                <template v-if="it.timeVerdict === 'ahead'">超前时间进度 {{ it.vsTimePct }}</template>
-                <template v-else-if="it.timeVerdict === 'behind'">落后时间进度 {{ it.vsTimePct }}</template>
-                <template v-else>与时间进度基本持平</template>
+                <!-- v154 G2+G3+G7：risk 行的预判文案（含唯一不可从别处推断的「预计月底仅达成 X%」）并入指标行，
+                     去掉与「距目标」重复的「还差 ¥X」；原独占 38px 的红底横幅已删，红色梯度归还给标签与进度条 -->
+                <span v-if="it.level === 'risk'" class="rr-riskchip">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:3px"><path d="M12 3L2 20h20L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>
+                  预计月底仅达成 {{ it.predictedPct }}，建议补单/催款
+                </span>
               </div>
             </div>
           </div>
@@ -985,6 +1006,7 @@ import { rebateApi } from '../api/modules'
 import { api } from '../api/client.js'
 import TargetFormModal from '../components/rebate/TargetFormModal.vue'
 import MonthlyAchvChart from '../components/rebate/MonthlyAchvChart.vue'
+import BrandFilter from '../components/rebate/BrandFilter.vue'
 import { buildYearMatrix, buildSimItems, applySimResults, monthTargetOf, monthEndISO } from '../components/rebate/useMonthlyAchv.js'
 
 // v123：mainTab 提到最前 —— 上方的图表代码（watch/computed）会引用它，
@@ -1251,15 +1273,13 @@ async function loadConflicts() {
       : []
   } catch (e) { conflicts.value = [] }
 }
-// 异常预警区：从仪表盘结构 + 冲突规则聚合
+// 异常预警区：只聚合「列表里看不出来的」问题
+// v153：删掉原「未填报」「预计不达标」两类 —— 它们在 KPI（预警规则数 / 生效目标数）与达成列表
+//   （0% 行 + 红色预警行）里已各自表达过一次，异常区再复述只是**需要用户二次核对的摘要**；
+//   而摘要与明细一旦不一致，用户会开始怀疑数据。留下的只有规则重复：两条同月目标在列表里
+//   看起来都正常，正文任何位置都看不出来 → 这才是异常区不可替代的职责。
 const anomalies = computed(() => {
-  // v123：按图表品牌筛选收窄（无筛选时等于全量）
-  const items = dashItemsFiltered.value
   const list = []
-  const noData = items.filter(it => it.reported === 0 && it.level !== 'done')
-  if (noData.length) list.push({ type: 'nodata', level: 'warn', text: `${noData.length} 个生效目标本月尚未填报达成（进度按 0% 显示）`, items: noData.map(it => it.rule.rule_name) })
-  const risk = items.filter(it => it.level === 'risk')
-  if (risk.length) list.push({ type: 'risk', level: 'dan', text: `${risk.length} 个目标预计月底不达标，建议补单或催回款`, items: risk.map(it => it.rule.rule_name) })
   // v125：判重口径升级为「覆盖月份交集」——同品牌同月存在两条目标（含"单期 vs 年度"）
   if (conflicts.value.length) list.push({
     type: 'conflict', level: 'dan',
@@ -1277,30 +1297,15 @@ const anomalies = computed(() => {
 
 // v132：异常条目点击分流 —— 把"只读警告"升级为"可闭环处理"（本次审计投入产出比最高的改进）
 function onAnomalyClick(a) {
-  if (!a) return
-  if (a.type === 'nodata') {
-    // 未填报 → 直达「达成填报」（原 :73 长文案的引导价值在此闭环）
-    switchTab('achv')
-    return
-  }
-  if (a.type === 'risk') {
-    // 预计不达标 → 定位仪表盘排行里第一条预警行（异常区与排行同屏，滚动 + 闪烁提示）
-    const el = document.querySelector('.dash-rank .rank-row.risk')
-    if (!el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    el.classList.add('rank-flash')
-    setTimeout(() => el.classList.remove('rank-flash'), 1600)
-    return
-  }
-  if (a.type === 'conflict') {
-    // 目标重复 → 冲突只发生在「已启用」规则之间，故切到目标与返利并只保留启用规则
-    filterActive.value = '1'
-    mainTab.value = 'rules'
-    toast('重复目标只可能出现在「已启用」规则之间，已为你筛出启用规则', 'warn')
-  }
+  // v153：异常区现只剩「规则重复」一类，分流简化为单分支
+  if (!a || a.type !== 'conflict') return
+  // 目标重复 → 冲突只发生在「已启用」规则之间，故切到目标与返利并只保留启用规则
+  filterActive.value = '1'
+  mainTab.value = 'rules'
+  toast('重复目标只可能出现在「已启用」规则之间，已为你筛出启用规则', 'warn')
 }
 
-// v123：图表筛选后，预警区与条形排行同步收窄（KPI 卡保持全量，不受影响）
+// v123：图表筛选后，预警区与达成列表同步收窄（KPI 卡保持全量，不受影响）
 const dashItemsFiltered = computed(() => {
   const m = dashboardModel.value
   if (!m || !Array.isArray(m.items)) return []
@@ -1880,21 +1885,39 @@ const dashBase = computed(() => {
     // 时间进度对比：达成率 vs 本月时间进度
     const vsTime = ach - timeProgress
     const timeVerdict = vsTime >= 0.01 ? 'ahead' : vsTime <= -0.01 ? 'behind' : 'even'
-    const vsTimePct = (Math.abs(vsTime) * 100).toFixed(1) + ' 个百分点'
+    // v155：单位写中文「个百分点」而非 pp；整数不带小数点（显示「70 个百分点」），非整数保留一位。
+    // v156：chip 已删，本串现为 hover 文案（paceTitle）的专属来源。故意不用「%」代替「个百分点」——
+    // 40% 到 110% 跨 70 格是两个百分数相减，写成「超前 70%」会被读成「超额完成 70%」（=170% 达成）
+    // 或「相对超出 70%」（=68% 达成），同一句话能差出上百个百分点，对账会出错。
+    const vsTimePct = (Math.abs(vsTime) * 100).toFixed(1).replace(/\.0$/, '') + ' 个百分点'
+    // v151：条形着色改「时间进度语义」—— 与预报·返利冲刺看板的进度条完全同口径（≥时间进度=绿 / <时间进度=红）。
+    //   原「已达标绿 / 预警红 / 推进中青」三态改由行内 tag + 行边框表达，条形只讲节奏，两处色义不再打架。
+    //   所选月份尚未开始时（timeProgress<=0）不着色，保持中性青，避免"0 达成也判绿"。
+    const paceCls = timeProgress > 0 ? (ach >= timeProgress ? 'pace-ahead' : 'pace-behind') : ''
     // 档位进度（纯结构性，不涉及金额）
-    let curTierPct = 0, nextTierPct = null, toNextGap = 0
-    if (r.trigger_mode === 'tiered') {
-      const tiers = tierList(r).slice().sort((a, b) => (Number(a.from_pct) || 0) - (Number(b.from_pct) || 0))
-      let cur = null
-      for (const t of tiers) { if (ach >= (Number(t.from_pct) || 0)) cur = t }
-      const idx = cur ? tiers.indexOf(cur) : -1
-      const nxt = idx >= 0 && idx + 1 < tiers.length ? tiers[idx + 1] : null
-      curTierPct = cur ? (Number(cur.from_pct) || 0) : 0
-      if (nxt) { nextTierPct = Number(nxt.from_pct) || 0; toNextGap = Math.max(0, nextTierPct - ach) }
+    // v153 修缺陷：非阶梯规则（on_target，达标即返）本无「档位」概念，但原代码在 else 分支**不更新 curTierPct**
+    //   （它被初始化为 0 后一直不变）→ 任何非阶梯规则都显示成「档位 0.0% → 100.0%」，0% 档是凭空捏造的。
+    //   改为按模式分述：阶梯规则讲档位，非阶梯规则只讲达标门槛（模板据 hasTiers 决定渲不渲染档位段）。
+    const isTiered = r.trigger_mode === 'tiered'
+    const tiers = isTiered ? tierList(r).slice().sort((a, b) => (Number(a.from_pct) || 0) - (Number(b.from_pct) || 0)) : []
+    // 阶梯规则但档位没配（tiers_json 空）→ 退回非阶梯口径渲染，避免出现「未达首档 → 满档」这种无意义文案
+    const hasTiers = tiers.length > 0
+    let curTierPct = 0, curTierText = '', nextTierPct = null
+    if (hasTiers) {
+      let curIdx = -1
+      for (let i = 0; i < tiers.length; i++) { if (ach >= (Number(tiers[i].from_pct) || 0)) curIdx = i }
+      // 未达任何档时「下一档」= 首档。原实现 idx=-1 → nxt=null → 文案落到「未达首档 → 满档」，
+      // 把首档整个跳过了（满档是终点，不是下一个里程碑）。
+      const nxt = curIdx >= 0
+        ? (curIdx + 1 < tiers.length ? tiers[curIdx + 1] : null)
+        : tiers[0]
+      curTierPct = curIdx >= 0 ? (Number(tiers[curIdx].from_pct) || 0) : 0
+      // 一档都没够到时别冒充「0% 档」（最低档的 from_pct 未必是 0）→ 如实说未达首档
+      curTierText = curIdx >= 0 ? pctText(curTierPct) : '未达首档'
+      if (nxt) { nextTierPct = Number(nxt.from_pct) || 0 }
     } else {
       const threshold = Number(r.trigger_threshold) || 1.0
       nextTierPct = threshold
-      toNextGap = Math.max(0, threshold - ach)
     }
     // 达下一档所需的达成基数（交给后端试算「下一档能拿多少」）
     const nextTierBasis = nextTierPct != null ? target * nextTierPct : null
@@ -1911,17 +1934,29 @@ const dashBase = computed(() => {
       rule: r,
       dimLabel: dimText(r.dimension),
       scope: r.scope_name || scope || '全部',
+      // v154 G6：对象为空即「全部」→ 此时才需要维度标签（「品牌」隐含全部品牌），有具体对象时标签是重复信息
+      scopeAll: !String(r.scope_name || scope || '').trim(),
       target, targetType: r.target_type,
       reported, ach, gap, nextTierBasis,
       monthLabel: `${mm}月`,   // v150：显性标注目标口径＝单月，避免与年度总额混淆
       targetText: fmtByType(target, r.target_type),
       reportedText: fmtByType(reported, r.target_type),
       gapText: fmtByType(gap, r.target_type),
+      // v154 G5：gap=0 只可能是「已达/超目标」，此处换口径展示超出量（原「距目标 ¥0」无信息量）
+      gapLabel: gap > 0 ? '距目标' : '超出',
+      overText: fmtByType(Math.max(0, reported - target), r.target_type),
       achPct: pctText(ach),
-      curTierPct: pctText(curTierPct),
+      hasTiers,
+      curTierText,
       nextTierPct: nextTierPct != null ? pctText(nextTierPct) : null,
-      toNextGapPct: (toNextGap * 100).toFixed(1) + ' 个百分点',
-      timeVerdict, vsTimePct,
+      // v155：原 toNextGapPct / item 版 curTierPct 的死字段已删 —— v154 把整行判语降级为 chip 后，
+      // 唯一读它们的 .rr-vs / .rr-warn 已不存在（模板只读 curTierText）。当前档位百分比由 curTierText 承载。
+      // v156：chip 删除后 timeVerdict / vsTimePct 不再需要透传进 item —— 模板只读 paceCls（条形着色）
+      //   与 paceTitle（条形 hover）。两者仍是本函数内的局部变量，分别供判色与成句。
+      paceCls,
+      paceTitle: timeVerdict === 'even'
+        ? `达成率 ${pctText(ach)}，与本月时间进度 ${pctText(timeProgress)} 基本持平`
+        : `达成率 ${pctText(ach)}，本月时间进度 ${pctText(timeProgress)}，${timeVerdict === 'ahead' ? '超前' : '落后'} ${vsTimePct}`,
       level,
       levelText: level === 'done' ? '已达标' : level === 'risk' ? '预警' : '推进中',
       predictedPct: pctText(target > 0 ? predicted / target : 1),
@@ -1958,10 +1993,14 @@ const dashboardModel = computed(() => {
     const nxt = simResults.value[simKey(it.rule.id, 'next')] || null
     const estRebate = cur ? (cur.rebate || 0) : 0
     const estRebateNext = nxt ? (nxt.rebate || 0) : estRebate
+    // v153：负数兜底 —— 已达标时「下一档」试算值会低于当前值，原样相减会算出「多赚 ¥-2,400」，
+    //   还被 val-ok 染成绿色（语义彻底反了）。差值恒钳到 ≥0，等于 0 时模板不渲染该段。
+    const nextGain = Math.max(0, estRebateNext - estRebate)
     return {
       ...it,
       estRebate,
       estRebateNext,
+      nextGain,
       simReady: !!cur,
       simData: cur,
       triggered: cur ? !!cur.triggered : false,
@@ -1981,6 +2020,9 @@ const dashboardModel = computed(() => {
 })
 
 async function onDashMonth() { await loadAchievements(dashMonth.value) }
+
+// v154 A1：达成列表标题行的跨页导航（原页头副标题第 3 分句）—— 用 hash 跳转，与 Forecast.vue 的 goConnect 同法
+function goSprint() { location.hash = '#/forecast' }
 
 /* ---- 年度合同返利（rebate_contracts）并入目标与返利：展示 + 录入 ---- */
 const contracts = ref([])
@@ -2847,11 +2889,13 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .dt-ok{color:var(--p-dark);font-weight:600}
 .dt-note{background:rgba(var(--war-rgb),.1);border:1px solid rgba(var(--war-rgb),.3);color:var(--war);border-radius:var(--radius-md);padding:9px 12px;font-size:12.5px;margin-top:12px;line-height:1.5}
 
-/* 仪表盘 Tab（方案 A：KPI 置顶 + 条形排行） */
+/* 仪表盘 Tab（方案 A：KPI 置顶 + 条形达成列表） */
 .dash-card{}
 .dash-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .dash-hd b{font-size:16px}
-.dash-month{margin-left:auto;display:flex;align-items:center;gap:6px}
+/* v154 P2-A：页头右侧控件组（品牌筛选 + 统计月份）—— 品牌筛选原在图表卡内部，现与月份并排、统管全页 */
+.dash-ctl{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dash-month{display:flex;align-items:center;gap:6px}
 
 /* KPI */
 .dash-kpi{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -2867,25 +2911,29 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .kpi-sub{display:block;font-style:normal;font-size:10.5px;color:var(--t3);opacity:.85;margin-top:1px}
 
 /* 图例 */
-/* v132：状态图例内联进排行标题行 —— 小字弱化、靠右，明确只解释排行配色 */
+/* v132：状态图例内联进达成列表标题行 —— 小字弱化、靠右，明确只解释条形配色 */
 .dash-legend{display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);margin-left:auto}
 .rank-hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:2px}
 .rank-hd-t{font-size:13px;font-weight:600;color:var(--t1)}
 .dash-legend span{display:inline-flex;align-items:center;gap:5px}
 .lg{width:10px;height:10px;border-radius:3px;display:inline-block}
-.lg.done{background:var(--suc)}
-.lg.risk{background:var(--dan)}
-.lg.ontrack{background:var(--p-dark)}
+.lg.ahead{background:var(--suc)}
+.lg.behind{background:var(--dan)}
 .dash-legend-note{margin-left:auto;color:var(--t3)}
+/* v154 A1：达成列表标题行的跨页导航（原页头副标题第 3 分句下沉至此） */
+.rank-hd-link{font-size:11.5px;color:var(--p-dark);text-decoration:none;white-space:nowrap}
+.rank-hd-link:hover{text-decoration:underline}
 
-/* 条形排行 */
+/* 条形达成列表 */
 .dash-rank{display:flex;flex-direction:column;gap:12px}
 .rank-row{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:12px 14px;background:var(--bg)}
 .rank-row.risk{border-color:rgba(var(--dan-rgb),.45);background:rgba(var(--dan-rgb),.05)}
 .rank-row.done{border-color:rgba(var(--suc-rgb),.4)}
-/* v132：异常条目点「看预警」时，闪烁定位到对应排行行 */
-.rank-flash{animation:rankFlash 1.6s ease-out}
-@keyframes rankFlash{0%,100%{box-shadow:none}25%,75%{box-shadow:0 0 0 3px rgba(var(--dan-rgb),.35)}}
+/* v132：原 .dash-nodata 长文案已删除（重复且无操作）
+   v153：异常区只报「列表里看不出来的」问题，未填报不再进异常区 → 「本月尚未填报达成」的发现
+   责任交由达成列表的 0% 行 + KPI「生效目标」数承担，本页不再有独立的长文案提示 */
+/* v153：原 .rank-flash 闪烁定位样式已删 —— 它只服务于异常区「看预警 → 闪烁定位达成行」，
+   异常区收窄为只报规则重复后该入口不存在（死 CSS 一并清理） */
 .rr-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .rr-rank{width:20px;height:20px;border-radius:50%;background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;font-weight:700;color:var(--t2);display:inline-flex;align-items:center;justify-content:center}
 .rank-row.risk .rr-rank{background:rgba(var(--dan-rgb),.15);border-color:rgba(var(--dan-rgb),.4);color:var(--dan)}
@@ -2893,18 +2941,21 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .rr-scope{font-size:12px;color:var(--t3)}
 .rr-ach{margin-left:auto;font-size:15px;font-weight:700;color:var(--p-dark)}
 .rr-ach.val-warn{color:var(--dan)}
-.rr-bar{height:14px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden;position:relative}
+.rr-bar{height:14px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden;position:relative;cursor:help}
 .rr-bar-fill{height:100%;border-radius:8px;transition:width .35s ease;background:var(--p-dark)}
-/* v132：原 .dash-nodata 长文案已删除（重复且无操作），引导并入异常区可点击条目 */
 
 /* #354：rank-row 算式入口 + 进度条百分比 */
 /* v132：行内「算式」按钮样式已移除（双入口收敛为「看算式」链接） */
 .rr-calc-link{margin-left:6px;border:none;background:none;color:var(--p-dark);cursor:pointer;font-size:12px;text-decoration:underline;padding:0}
 .rr-calc-link:hover{opacity:.8}
+/* v154 G10：预计返利为 0 时「看算式」降为次级 —— 保持占位（不跳动），仅在行 hover 时显形 */
+.rr-calc-link.dim{opacity:0;pointer-events:none}
+.rank-row:hover .rr-calc-link.dim{opacity:.55;pointer-events:auto}
 .rr-calc-loading{margin-left:8px;font-size:12px;color:var(--t3)}
 .rr-est{display:inline-flex;align-items:center;gap:6px}
 .rr-bar{height:16px}
-.rr-bar-pct{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:var(--t1);text-shadow:0 0 3px rgba(255,255,255,.6);pointer-events:none}
+/* v154 G1：条形内的百分比已删 —— 它与右上角达成率同指标不同值（被 min(100) 截断），
+   同排两个数字且已达标行两者不等（110% vs 100%），用户必然追问"哪个对"；条形长度本身已表达比例 */
 
 /* #356：异常预警区 */
 .dash-anom{margin-bottom:14px;border:1px solid rgba(var(--dan-rgb),.35);background:rgba(var(--dan-rgb),.06);border-radius:var(--radius-md);padding:12px 14px}
@@ -2918,7 +2969,6 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .da-act{margin-left:auto;flex:0 0 auto;font-size:11.5px;color:var(--p-dark);white-space:nowrap}
 .da-clickable:hover .da-act{text-decoration:underline}
 .da-ic{flex:none;width:18px;text-align:center;color:var(--dan);font-weight:700}
-.da-item.warn .da-ic{color:var(--war)}
 .da-text{flex:none;font-weight:500}
 .da-items{color:var(--t3);font-size:12px;flex:1;min-width:0}
 
@@ -2946,26 +2996,21 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .sim-calc-btn{margin-top:10px}
 .sr-flag{font-size:12px;color:var(--war);margin-top:8px;padding:6px 10px;background:rgba(var(--war-rgb),.1);border-radius:var(--radius-sm)}
 
-/* 本月时间进度参照条 */
-.dash-time{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;padding:9px 12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:var(--radius-md);font-size:12.5px;color:var(--t2)}
-.dash-time .dt-k{font-weight:600;color:var(--t1)}
-.dash-time .dt-k b{color:var(--war);font-size:15px}
-.dash-time .dt-v{color:var(--t3)}
-.dash-time .dt-hint{margin-left:auto;color:var(--t3)}
+/* v154 P0-C：本月时间进度参照条（44px 独占横幅）已并入 KPI 行第 5 张卡；
+   其 dt-hint「虚线＝时间进度：条形超过虚线＝超前…」与达成列表图例逐字重复，一并删除 */
 .lg.time{width:0;height:12px;border-radius:0;background:transparent;border-left:2px dashed var(--war)}
 
 /* 条形上的时间进度虚线标记 */
 .rr-bar-mark{position:absolute;top:-3px;bottom:-3px;width:0;border-left:2px dashed var(--war);z-index:2;pointer-events:none}
-.rr-vs{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12.5px;border-radius:var(--radius-md);padding:6px 10px}
-.rr-vs-ic{font-style:normal}
-.rr-vs.ahead{background:rgba(var(--suc-rgb),.1);border:1px solid rgba(var(--suc-rgb),.35);color:var(--suc)}
-.rr-vs.behind{background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.4);color:var(--war)}
-.rr-vs.even{background:var(--bg2);border:1px solid var(--border-subtle);color:var(--t2)}
-.rr-bar-fill.risk{background:var(--dan)}
-.rr-bar-fill.done{background:var(--suc)}
-.rr-meta{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--t2);margin-top:8px}
+/* v156：.rr-pace 判语 chip（含 .ahead/.behind/.even 三态）随模板整块删除 ——
+   条形颜色已表达超前/落后，完整句改为条形的 hover 提示（cursor:help 随之移到 .rr-bar） */
+/* v151：条形改由「时间进度语义」着色（与预报·返利冲刺看板同口径） */
+.rr-bar-fill.pace-ahead{background:var(--suc)}
+.rr-bar-fill.pace-behind{background:var(--dan)}
+.rr-meta{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--t2);margin-top:8px;align-items:baseline}
 .rr-next{color:var(--t3)}
-.rr-warn{margin-top:8px;padding:8px 10px;background:rgba(var(--dan-rgb),.08);border:1px solid rgba(var(--dan-rgb),.3);border-radius:var(--radius-md);font-size:12.5px;color:var(--dan)}
+/* v154 G2/G3：risk 行的预判并入指标行尾的小 chip（原 38px 红底横幅已删，红色梯度归还标签与进度条） */
+.rr-riskchip{display:inline-flex;align-items:center;font-size:12px;color:var(--dan)}
 .tag.risk{background:rgba(var(--dan-rgb),.12);color:var(--dan);border:1px solid rgba(var(--dan-rgb),.3)}
 
 /* 年度合同返利（并入目标与返利） */
@@ -3096,7 +3141,8 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 /* P2 项11：KPI 标题行（说明文案弱化为小字，与标题同行） */
 .kpi-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .kpi-hd-t{font-size:13px;font-weight:600;color:var(--t1)}
-.dash-kpi-note { font-size: 11.5px; color: var(--t3); }
-/* P2 组5：时间控件作用域标签（单月视图 / 全年视图），消除"改月份会不会改图表"的误解 */
-.scope-tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--bg2);border:1px solid var(--border-subtle);font-size:10.5px;font-style:normal;font-weight:400;color:var(--t3)}
+/* v154 B1：原 .dash-kpi-note（KPI 说明）已删 —— 品牌筛选提到页头后不再需要解释作用域 */
+/* v154 A2：原 P2 组5 的时间控件作用域标签（.scope-tag「单月视图」/ 图表侧「全年视图」）已全部删除 ——
+   两处徽标本是为互相消歧而打的补丁；「返利达成仪表盘 / 统计月份」与图表「全年月度达成」自身已表达时间维度，
+   且样式不一反而让两个维度的层级关系更乱 */
 </style>

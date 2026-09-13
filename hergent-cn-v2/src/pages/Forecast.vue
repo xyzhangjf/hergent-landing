@@ -258,19 +258,21 @@
         <b><Icon name="bar-chart"/> 返利冲刺看板</b>
         <span class="tag hot">副驾建议</span>
         <span class="tag info" v-if="cross.period">本期 · {{ cross.period.name }}</span>
-        <button class="imp-x" style="margin-left:auto" @click="rebateSprintOpen = !rebateSprintOpen"><Icon :name="rebateSprintOpen ? 'chevron-up' : 'chevron-down'"/></button>
+        <!-- 时间进度：与下方进度条的虚线标记同源（口径＝本期到货月），右对齐到本行最右侧 -->
+        <span class="sprint-tp" v-if="rebateSprint.length" :title="sprintTimeProgress.shown ? '虚线＝时间进度：进度条超过虚线＝超前，短于虚线＝落后时间进度' : ''">本月时间进度：<b>{{ sprintTimeProgress.pct }}%</b></span>
+        <button class="imp-x" :style="rebateSprint.length ? null : 'margin-left:auto'" @click="rebateSprintOpen = !rebateSprintOpen"><Icon :name="rebateSprintOpen ? 'chevron-up' : 'chevron-down'"/></button>
       </div>
       <div v-show="rebateSprintOpen" class="panel-body">
         <template v-if="rebateSprint.length">
           <p class="sprint-sum">
-            本期（返利周期截止 <b>{{ rebateCampaignEnd || (cross.period && cross.period.order_end) }}</b>）按默认到货周期（每 {{ rebateGlobalCadence }} 天）约剩 <b>{{ rebateSprintOrders }}</b> 次到货机会；各品牌到货周期不同，下表按各自周期算「建议均单追加」。
+            本期（返利周期截止 <b>{{ rebateCampaignEnd || (cross.period && cross.period.order_end) }}</b>）按默认到货周期（每 {{ rebateGlobalCadence }} 天）约剩 <b>{{ rebateSprintOrders }}</b> 次到货机会；各品牌到货周期不同，下表按各自周期算「建议均单」。
             要补齐以下返利目标缺口，<b>均单需额外 ¥{{ fmt(sprintTotalGapPerOrder) }}</b>（按默认周期估算）。
             <span class="muted">（达成按到货月份归属 = 已填报达成 + 本期预报贡献；未填报可在「目标与返利 → 达成填报」补录或 Excel 导入）</span>
           </p>
           <div class="table-wrap">
             <table class="tbl">
               <thead>
-                <tr><th>维度</th><th>目标对象</th><th>到货周期</th><th class="num">目标</th><th class="num">已达成(填报)</th><th class="num">本期预报贡献</th><th class="num">距目标还差</th><th class="num">建议均单追加</th><th>进度</th></tr>
+                <tr><th>维度</th><th>目标对象</th><th>到货周期</th><th class="num">目标</th><th class="num">已达成(填报)</th><th class="num">本期预报贡献</th><th class="num">距目标还差</th><th class="num">建议均单</th><th>进度</th></tr>
               </thead>
               <tbody>
                 <tr v-for="s in rebateSprint" :key="s.key">
@@ -283,7 +285,12 @@
                   <td class="num"><b :class="s.gap > 0 ? 'val-warn' : 'val-ok'">{{ s.gap > 0 ? fmt(s.gap) : '已达成' }}</b></td>
                   <td class="num" v-if="s.gap > 0">¥{{ fmt(s.perOrder) }}</td>
                   <td class="num" v-else>—</td>
-                  <td style="min-width:100px"><div class="progress" :class="achProgressClass(s.ach)"><i :style="{width: Math.min(100, s.ach * 100) + '%'}"></i></div></td>
+                  <td style="min-width:110px">
+                    <div class="sp-bar">
+                      <div class="progress" :class="sprintBarClass(s.ach)"><i :style="{width: Math.min(100, s.ach * 100) + '%'}"></i></div>
+                      <span v-if="sprintTimeProgress.shown" class="sp-bar-mark" :style="{left: (sprintTimeProgress.frac * 100) + '%'}" title="时间进度"></span>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -301,7 +308,7 @@
             </ul>
           </div>
         </template>
-        <p v-else class="hint">尚未配置品牌 / 商品返利目标。去「目标与返利」页创建目标后，这里会在你下单时实时显示达成率、缺口与均单追加建议；实际达成可在「达成填报」补录或 Excel 导入。</p>
+        <p v-else class="hint">尚未配置品牌 / 商品返利目标。去「目标与返利」页创建目标后，这里会在你下单时实时显示达成率、缺口与建议均单；实际达成可在「达成填报」补录或 Excel 导入。</p>
       </div>
     </div>
 
@@ -2122,7 +2129,7 @@ async function loadEditGrid() {
   try {
     const [prods, d] = await Promise.all([
       productsApi.grid(),
-      forecastApproveApi.summary('', p.order_start || '', p.order_end || ''),
+      forecastApproveApi.summary('', p.order_start || '', p.order_end || '', p.id || 0),
     ])
     confirmInfo.value = (d.confirmed || null)
     const srcByPid = {}
@@ -4074,7 +4081,7 @@ async function loadComparePeriod(pid) {
   if (!base) { toast('请选择对比期', 'warn'); return }
   prevPeriodName.value = base.name
   try {
-    const d = await forecastApproveApi.summary('', base.order_start || '', base.order_end || '')
+    const d = await forecastApproveApi.summary('', base.order_start || '', base.order_end || '', base.id || 0)
     const m = {}
     ;(d.rows || []).forEach(r => {
       const name = r.product_name || r.name
@@ -4122,7 +4129,7 @@ async function fetchHistory() {
   if (!prevs.length) return false
   const series = {}
   for (const pp of prevs) {
-    const d = await forecastApproveApi.summary('', pp.order_start || '', pp.order_end || '')
+    const d = await forecastApproveApi.summary('', pp.order_start || '', pp.order_end || '', pp.id || 0)
     ;(d.rows || []).forEach(r => {
       const name = r.product_name || r.name
       const total = (r.sources || []).reduce((s, x) => s + (parseInt(x.qty) || 0), 0)
@@ -4384,7 +4391,7 @@ async function loadYoY() {
   if (!yoy) { toast('无去年同期期次（需同名月份期次）', 'warn'); return }
   yoyPeriodName.value = yoy.name
   try {
-    const d = await forecastApproveApi.summary('', yoy.order_start || '', yoy.order_end || '')
+    const d = await forecastApproveApi.summary('', yoy.order_start || '', yoy.order_end || '', yoy.id || 0)
     const m = {}
     ;(d.rows || []).forEach(r => { const name = r.product_name || r.name; const total = (r.sources || []).reduce((s, x) => s + (parseInt(x.qty) || 0), 0); m[name] = (m[name] || 0) + total })
     yoyMap.value = m; yoyOn.value = true
@@ -5291,7 +5298,7 @@ async function openAudit() {
   auditPage.value = 1
   try {
     const p = cross.value.period
-    const r = await auditApi.auditPeriod({ start: p.order_start, end: p.order_end })
+    const r = await auditApi.auditPeriod({ start: p.order_start, end: p.order_end, period_id: p.id || 0 })
     if (!r.success) { toast(r.error || '审核失败', 'err'); auditOpen.value = false; return }
     ;(r.items || []).forEach(a => { if (a.suggested_qty != null && a.final_qty == null) a.final_qty = a.suggested_qty })
     auditData.value = r
@@ -5440,7 +5447,7 @@ function countWeekdayArrivalsInWindow(weekdays, endStr) {
   return cnt
 }
 
-// 按「填报达成 + 本期预报贡献」聚合各规则的实际达成、缺口、建议均单追加
+// 按「填报达成 + 本期预报贡献」聚合各规则的实际达成、缺口、建议均单
 const rebateSprint = computed(() => {
   // v116 (L1)：本期月份按「到货月」归属（arrival_date 优先），而非下单月；与 sprintAchvMonth 一致
   const p0 = cross.value.period
@@ -5497,7 +5504,7 @@ const rebateSprint = computed(() => {
     const target = (mAmt != null && mAmt > 0) ? mAmt : (Number(rule.target_value) || 0)
     const achieved = reported + contrib            // 达成 = 已填报 + 本期预报贡献（均按到货月归属）
     const gap = Math.max(0, target - achieved)
-    // v118 (L2细化)：尊重 arrival_mode —— 按间隔天数 / 按固定星期 分别计算剩余到货次数与均单追加
+    // v118 (L2细化)：尊重 arrival_mode —— 按间隔天数 / 按固定星期 分别计算剩余到货次数与建议均单
     const mode = rule.arrival_mode || 'interval'
     let cadenceLabel, orders
     if (mode === 'weekday') {
@@ -5531,6 +5538,31 @@ const rebateSprint = computed(() => {
 
 const sprintTotalGap = computed(() => rebateSprint.value.reduce((s, x) => s + x.gap, 0))
 const sprintTotalGapPerOrder = computed(() => rebateSprintOrders.value > 0 ? sprintTotalGap.value / rebateSprintOrders.value : 0)
+
+// 冲刺看板：时间进度（口径＝本期「到货月」，与 rebateSprintMonth / 后端达成归属完全一致）
+// 算法与「目标与返利 → 仪表盘」timeProgress 同源：过去月=100% / 未来月=0% / 当月=今日 ÷ 该月总天数
+const sprintTimeProgress = computed(() => {
+  const [yy, mm] = String(sprintAchvMonth.value || '').split('-').map(Number)
+  if (!yy || !mm) return { frac: 0, pct: 0, shown: false }
+  const totalDays = new Date(yy, mm, 0).getDate()          // 该月总天数（mm 为 1-based）
+  const now = new Date()
+  const curY = now.getFullYear(), curM = now.getMonth() + 1
+  let frac
+  if (yy < curY || (yy === curY && mm < curM)) frac = 1
+  else if (yy > curY || (yy === curY && mm > curM)) frac = 0
+  else frac = Math.min(1, now.getDate() / totalDays)
+  return { frac, pct: Math.round(frac * 100), shown: frac > 0 && frac < 1 }   // 虚线只在当月有意义
+})
+
+// 冲刺进度条着色：达成 ≥ 时间进度 → 绿（超前时间进度）；未达 → 红（落后时间进度）
+// 与「目标与返利 → 仪表盘 → 返利目标达成」的 paceCls 同口径（v151 起两处统一）
+// 到货月尚未开始时（frac<=0）→ 返回空，走中性青，不做"0 达成也判绿"的误判
+function sprintBarClass(ach) {
+  if (ach == null) return ''
+  const tp = sprintTimeProgress.value
+  if (!(tp.frac > 0)) return ''
+  return ach >= tp.frac ? 'green' : 'red'
+}
 
 function onPeriodChange() {
   viewPeriod.value = null
@@ -5643,7 +5675,7 @@ async function loadCross() {
     selectedPid.value = null
     scrollTop.value = 0
     const [d, prods] = await Promise.all([
-      forecastApproveApi.summary('', p.order_start || '', p.order_end || ''),
+      forecastApproveApi.summary('', p.order_start || '', p.order_end || '', p.id || 0),
       productsApi.grid(),
     ])
     confirmInfo.value = (d.confirmed || null)
@@ -6461,6 +6493,17 @@ th.sortable:hover{color:var(--p-dark)}
 .sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:10px;margin-bottom:0}
 .tag.hot{background:linear-gradient(135deg,#ff7a45,#ff4d4f);color:#fff;font-weight:600}
 .sprint-card .panel-body{padding-top:10px}
+/* 冲刺看板：行内时间进度（右对齐到页头行最右侧）+ 进度条上的时间进度虚线标记
+   （虚线范式与仪表盘 .rr-bar-mark 一致：橙色 2px dashed，超出条形上下各 3px） */
+.sprint-card .sprint-tp{margin-left:auto;margin-right:2px;font-size:12.5px;color:var(--t3);white-space:nowrap}
+.sprint-card .sprint-tp b{color:var(--war);font-size:13.5px;font-variant-numeric:tabular-nums}
+.sp-bar{position:relative}
+/* 仅冲刺面板加高到 12px：让时间进度虚线可读（实测行高 41px 由文字行盒决定，加高不改变行高）；
+   仪表盘参照为 16px，此表更紧凑故取 12px。不波及「厂家返利达成」表（仍 6px） */
+.sprint-card .progress{height:12px}
+.sp-bar-mark{position:absolute;top:-3px;bottom:-3px;width:0;border-left:2px dashed var(--war);z-index:2;pointer-events:none}
+/* 时间语义着色：达成未达时间进度=红，已超前=绿（复用全局 .progress>i 的绿/琥珀范式） */
+.sprint-card .progress.red>i{background:var(--dan)}
 .sprint-sum{margin:0 0 12px;font-size:13px;color:var(--t2);line-height:1.7}
 .sprint-sum b{color:var(--t1)}
 .sprint-sum .muted{color:var(--t3);font-size:11.5px}

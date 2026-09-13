@@ -6,32 +6,12 @@
         <span class="mac-sub">返利为按规则预估应返，非实际到账</span>
       </div>
       <div class="mac-ctl">
+        <!-- v154 P2-A：品牌筛选已提升为页面级（`BrandFilter.vue`，与页面「统计月份」并排，一处筛选统管
+             图表 + 异常区 + 达成列表）；原「全年视图」scope 徽标一并删除 —— 标题「全年月度达成」已表达该语义，
+             且它与页头「单月视图」样式不一，两个时间维度的层级关系反而更乱 -->
         <select v-model="yearVal" class="input sel-year" @change="emit('update:year', yearVal)">
           <option v-for="y in yearOptions" :key="y" :value="y">{{ y }} 年</option>
         </select>
-        <div class="ctl-pop">
-          <div v-if="brandOpen" class="bp-mask" @click="brandOpen = false"></div>
-          <button class="btn btn-sm btn-ghost" :class="{ on: brandOpen }" @click="brandOpen = !brandOpen">
-            <Icon name="filter" /> {{ brandLabel }} <Icon name="chevron-down" />
-          </button>
-          <div v-if="brandOpen" class="bp-pop" @click.stop>
-            <div class="bp-head">
-              <span>按品牌筛选</span>
-              <div class="bp-acts">
-                <button class="link-btn" @click="selectAll">全选</button>
-                <button class="link-btn" @click="clearSel">清空</button>
-              </div>
-            </div>
-            <input v-model="brandQuery" class="input bp-search" type="text" placeholder="搜索品牌" />
-            <div class="bp-list">
-              <label v-for="b in filteredBrands" :key="b" class="bp-item">
-                <input type="checkbox" :value="b" :checked="brandSel.includes(b)" @change="toggleBrand(b)" /> {{ b }}
-              </label>
-              <p v-if="!filteredBrands.length" class="bp-empty">没有匹配的品牌</p>
-            </div>
-            <p class="bp-tip">不勾选 = 全部品牌合计。达成率按加权计算（合计达成 ÷ 合计目标）。</p>
-          </div>
-        </div>
         <div class="mac-seg">
           <button class="seg-btn" :class="{ on: view === 'bar' }" @click="view = 'bar'">四柱同屏</button>
           <button class="seg-btn" :class="{ on: view === 'rate' }" @click="view = 'rate'">达成率</button>
@@ -49,7 +29,9 @@
       >
         <i :style="{ background: s.fill, borderColor: s.stroke || s.fill }"></i>{{ s.t }}
       </button>
-      <span class="lg-note">达成率 = 合计达成 ÷ 合计目标</span>
+      <!-- v154 E2：原行末「达成率 = 合计达成 ÷ 合计目标」已删 ——
+           与品牌筛选弹层的 tip「达成率按加权计算（合计达成 ÷ 合计目标）」逐字重复；
+           口径说明只该出现在"需要它的那一刻"（用户去筛品牌时），不该常驻 -->
     </div>
 
     <!-- 加载态：骨架屏 -->
@@ -161,17 +143,16 @@
       </div>
     </div>
 
-    <div v-if="!loading && hasAny" class="mac-ft">
-      <span v-if="emptyMonths">灰色月份尚未填报达成，去「达成填报」补录</span>
-      <span v-if="excluded.nonBrand">另有 {{ excluded.nonBrand }} 条非品牌维度目标未计入本图</span>
-      <span v-if="excluded.crossUnit">另有 {{ excluded.crossUnit }} 条{{ measure === 'amount' ? '数量' : '金额' }}口径规则因单位不同未计入</span>
+    <div v-if="!loading && hasAny && ftText" class="mac-ft">
+      <!-- v154 E4：原三条并列脚注读起来像"bug 列表"，本质是同一件事：本图的统计范围 → 合并为一句；
+           「去达成填报补录」的动作指引下沉到 hover title（需要时才有，不占常驻版面） -->
+      <span :title="emptyMonths ? '灰色柱＝该月尚未填报达成，可去「达成填报」补录' : ''">{{ ftText }}</span>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import Icon from '../Icon.vue'
 import { rate, niceMax } from './useMonthlyAchv.js'
 
 const props = defineProps({
@@ -179,35 +160,12 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   year: { type: [Number, String], default: '' },
   yearOptions: { type: Array, default: () => [] },
-  brandList: { type: Array, default: () => [] },
-  brandSel: { type: Array, default: () => [] },
+  // v154 P2-A：品牌筛选已提到页面级，本组件不再承载筛选控件；singleBrand 仍用于 tooltip 的差额行
   singleBrand: { type: Boolean, default: false },
 })
-const emit = defineEmits(['update:year', 'update:brandSel'])
+const emit = defineEmits(['update:year'])
 
-// 品牌筛选下拉
-const brandOpen = ref(false)
-const brandQuery = ref('')
 const yearVal = ref(props.year)
-const brandNames = computed(() => (props.brandList || []).map(b => b.name || b).filter(Boolean))
-const filteredBrands = computed(() => {
-  const q = String(brandQuery.value || '').trim()
-  return q ? brandNames.value.filter(n => n.includes(q)) : brandNames.value
-})
-const brandLabel = computed(() => {
-  const n = (props.brandSel || []).length
-  if (!n) return '全部品牌'
-  return n === 1 ? props.brandSel[0] : `已选 ${n} 个品牌`
-})
-function toggleBrand(b) {
-  const cur = (props.brandSel || []).slice()
-  const i = cur.indexOf(b)
-  if (i >= 0) cur.splice(i, 1)
-  else cur.push(b)
-  emit('update:brandSel', cur)
-}
-function selectAll() { emit('update:brandSel', brandNames.value.slice()) }
-function clearSel() { emit('update:brandSel', []) }
 watch(() => props.year, v => { yearVal.value = v })
 
 // v124：画布宽度跟随容器自适应（viewBox 宽度 = 实际渲染宽度，避免 SVG 等比缩放导致左右大片留白）
@@ -273,6 +231,16 @@ const curKey = computed(() => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 })
 const emptyMonths = computed(() => months.value.some(m => m.salesTarget > 0 && !m.salesAchv))
+// v154 E4：三条并列脚注合并为一句（同一件事＝本图的统计范围），且仅在确有内容时出现
+const ftText = computed(() => {
+  const parts = []
+  if (emptyMonths.value) parts.push('灰色月份尚未填报达成')
+  const ex = []
+  if (excluded.value.nonBrand) ex.push(`${excluded.value.nonBrand} 条非品牌维度`)
+  if (excluded.value.crossUnit) ex.push(`${excluded.value.crossUnit} 条${measure.value === 'amount' ? '数量' : '金额'}口径`)
+  if (ex.length) parts.push(`本图仅计品牌维度，另有 ${ex.join('、')}目标未计入`)
+  return parts.join('；')
+})
 const emptyText = computed(() => {
   if (!props.model) return '暂无数据'
   if (excluded.value.nonBrand && !months.value.some(m => m.salesTarget > 0)) {
@@ -425,27 +393,13 @@ function onHover(mo, i) {
 
 .mac-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sel-year { height: 26px; padding: 0 6px; font-size: 12px; width: auto; }
-.ctl-pop { position: relative; z-index: 41; }
-.bp-mask { position: fixed; inset: 0; z-index: 40; }
-.bp-pop {
-  position: absolute; right: 0; top: calc(100% + 6px); z-index: 42;
-  width: 240px; padding: 10px 12px; border-radius: var(--radius-sm, 8px);
-  background: var(--bg); border: 1px solid var(--bd); box-shadow: var(--shadow-md);
-}
-.bp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; color: var(--t1); }
-.bp-acts { display: flex; gap: 8px; }
-.bp-search { width: 100%; height: 26px; font-size: 12px; margin: 8px 0 4px; }
-.bp-list { display: flex; flex-direction: column; gap: 2px; max-height: 200px; overflow: auto; }
-.bp-item { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--t1); cursor: pointer; padding: 2px; }
-.bp-item:hover { background: var(--bg2); }
-.bp-empty { color: var(--t3); font-size: 12px; margin: 4px 0; }
-.bp-tip { font-size: 12px; color: var(--t3); margin: 8px 0 0; line-height: 1.5; }
+/* v154 P2-A：品牌筛选控件（原 .ctl-pop / .bp-* 一套）与作用域徽标（.mac-scope）已随控件上移至页面级
+   （`BrandFilter.vue`，与「统计月份」并排）→ 这里的相关样式整体移除，不留死 CSS */
 
 .mac-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .lg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--t2); background: none; border: 0; padding: 0; cursor: pointer; }
 .lg-item.off { opacity: .38; text-decoration: line-through; }
 .lg-item i { width: 10px; height: 10px; border-radius: 2px; border: 1px solid transparent; display: inline-block; }
-.lg-note { font-size: 12px; color: var(--t3); margin-left: auto; }
 
 .mac-body { height: 240px; }
 .mac-skel { display: flex; align-items: flex-end; gap: 6px; padding: 10px 0; }
