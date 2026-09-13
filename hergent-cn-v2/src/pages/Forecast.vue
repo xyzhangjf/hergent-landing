@@ -6408,8 +6408,17 @@ th.sortable:hover{color:var(--p-dark)}
 .filter-chip .chip-x:hover{background:color-mix(in srgb,var(--p) 22%,var(--bg));color:var(--p)}
 
 /* ---- P0-2 Excel 导入弹窗 ---- */
-.imp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:980}
-.imp-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(560px,94vw);background:var(--bg);border-radius:var(--radius-lg);z-index:990;box-shadow:var(--shadow-lg);max-height:86vh;display:flex;flex-direction:column}
+/* v136 修复：模态层必须高于「页面内所有浮层」，原先的 980/990 排在工具栏下拉之下。
+   成因：本弹窗与遮罩都 Teleport 到 body，而 .page/.card/.toolbar/.grid-ctl-row 祖先链
+   无 position+transform/filter/backdrop-filter，均不创建 stacking context ——
+   于是工具栏 .tb-pop 的常态 1120 直接在根层与这里的 990 比较，1120 > 990，
+   只要两者矩形重叠（实测视口高 >= 1040px 时品牌按钮即落入弹窗矩形），
+   品牌/导出/复制报单三个按钮就浮在弹窗之上；遮罩 980 同样失效（品牌按钮仍可点穿）。
+   取值：页面内浮层天花板 = 天气面板 .wx-pop 1121（注释「高于页面内所有下拉浮层」），
+   故模态取 1125/1130 压过它，且远低于 toast 9999 / 空闲超时 9998。
+   不要再改回 < 1121，也不要为此抬高 .tb-pop（会破坏「弹层开着直接点别的触发按钮」）。 */
+.imp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:1125}
+.imp-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(560px,94vw);background:var(--bg);border-radius:var(--radius-lg);z-index:1130;box-shadow:var(--shadow-lg);max-height:86vh;display:flex;flex-direction:column}
 .imp-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle)}
 .imp-hd b{font-size:14px}
 .imp-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
@@ -6468,8 +6477,10 @@ th.sortable:hover{color:var(--p-dark)}
 .sd-item:hover{background:var(--bg2)}
 .sd-main{flex:1;min-width:0}
 .sd-alias{flex-shrink:0}
-.al-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:980}
-.al-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(400px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:990;box-shadow:var(--shadow-lg)}
+/* v136 修复：别名弹窗同属模态层，与 .imp-* 同因（Teleport 到 body、祖先无 stacking context）
+   → 一并提到 1125/1130，否则商品别名弹窗同样会被工具栏 .tb-pop 1120 遮挡。 */
+.al-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:1125}
+.al-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(400px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:1130;box-shadow:var(--shadow-lg)}
 .al-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle)}
 .al-hd b{font-size:14px}
 .al-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
