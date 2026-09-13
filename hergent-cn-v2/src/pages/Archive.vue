@@ -73,7 +73,13 @@ function goTab(t) {
   background: var(--p);
   border-radius: 2px;
 }
-/* 嵌入时隐藏子页面各自标题（独立深链页不受影响），避免与父级标题重复 */
 .archive-panel :deep(.page) { padding: 0; margin: 0; }
+/* 嵌入时隐藏子页面各自标题，避免与父级 tab 重复。
+   ⚠️ 2026-09-13 真机 E2E 修正：原规则 `.page-hd{display:none}` 把**整块**页头藏了，
+   而各子页面的**操作按钮**恰好就在 `.page-hd`（.split 变体）里面 ——
+   于是 商品档案的「补厂价 / 新增 / 导入 / 导出」、员工与客户档案的「同步」全都点不到
+   （`Archive.vue` 自 2026-08-31 引入 tab 壳起一直如此）。改法：只藏标题块，保留工具条并右对齐。 */
 .archive-panel :deep(.page-hd) { display: none; }
+.archive-panel :deep(.page-hd.split) { display: flex; justify-content: flex-end; margin: 0 0 12px; }
+.archive-panel :deep(.page-hd.split > div:first-child) { display: none; }
 </style>

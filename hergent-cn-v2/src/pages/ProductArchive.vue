@@ -7,7 +7,7 @@
       </div>
       <div class="pa-actions">
         <button v-if="missingFactoryCount > 0" class="btn btn-ghost btn-sm pa-fp-btn" @click="openBatchFp"
-                title="未录厂价的商品在报单导入时会被拒收，这里可以批量补上">
+                title="厂价 = 厂家跟你结算的价，用于算「本期需付款」。这里可以逐行填或用清单批量补">
           <Icon name="edit"/> 补厂价<span class="pa-fp-n">{{ missingFactoryCount }}</span>
         </button>
         <span class="pa-stat" v-if="total !== null"><b>{{ total }}</b>&nbsp;个商品</span>
@@ -183,9 +183,27 @@
           </div>
           <div class="pa-modal-body">
             <p class="pa-tip">
-              <b>厂价</b> = 厂家跟你结算的价（既不是标准售价，也不是进价）。<b>没录厂价的商品，在「本期预报」导入报单时那几行会被拒收</b>，所以先在这里补上。<br>
-              两种填法任选：① 直接在下表逐行填；② 点「导出待补清单」到 Excel 里填好，再点「导入回填」（<b>以条码为准</b>，不会认错商品）。
+              <b>厂价</b> = 厂家跟你结算的价（既不是标准售价，也不是进价）。它用于算「本期需付款 = 定稿量 × 厂价」。<br>
+              两种填法任选：① 直接在下表逐行填；② 点「导出待补清单」到 Excel 里填好，再点「导入回填」——
+              回填按 <b>商品编号</b> 定位（编号缺失才退回条码），所以<b>没有条码的商品也能补</b>，前两列请勿改动。
             </p>
+            <!-- v158 厂价闸门：文案按开关实际状态陈述。此前 8 处文案无条件写「会被拒收」，
+                 而代码里根本没有拒收逻辑 —— 开关存在就是为了让文案与行为都能说真话。 -->
+            <div class="pa-fp-gate" :class="{ on: fpGate }">
+              <label class="pa-fp-switch">
+                <input type="checkbox" :checked="fpGate" :disabled="fpGateBusy" @change="toggleFpGate">
+                <span><b>厂价必填</b>（报单时拒收没录厂价的商品）</span>
+              </label>
+              <span class="pa-fp-gate-hint">
+                <template v-if="fpGate">
+                  已开启：没录厂价的商品在<b>报单导入</b>与<b>小程序报单</b>时都会被拒收。<b v-if="fpGateMissing">当前还有 {{ fpGateMissing }} 个没补，建议先补完再保持开启。</b>
+                </template>
+                <template v-else>
+                  未开启：缺厂价现在也能正常报单，只是<b>「本期需付款」会按标准售价估算（偏大）</b>。<span v-if="fpGateMissing"> 还有 {{ fpGateMissing }} 个商品没补厂价。</span>
+                </template>
+              </span>
+            </div>
+
 
             <div class="pa-fp-filters">
               <select v-model="fpBrand" class="input">
@@ -230,11 +248,13 @@
               <button class="btn btn-ghost btn-sm" @click="exportFpList">导出待补清单</button>
               <label class="btn btn-ghost btn-sm pa-file-btn">
                 导入回填
-                <input type="file" accept=".xlsx,.xls,.csv" style="display:none" @change="onFpFile">
+                <input type="file" accept=".xlsx" style="display:none" @change="onFpFile">
               </label>
             </div>
 
-            <div v-if="fpResult" class="pa-imp-result" :class="fpResult.skipped?.length ? 'warn' : 'ok'">
+            <div v-if="fpResult" class="pa-imp-result" :class="(fpResult.skipped?.length || fpResult.nokey) ? 'warn' : 'ok'">
+              <template v-if="fpResult.unfilled">· {{ fpResult.unfilled }} 行厂价留空（不算错）</template>
+              <template v-if="fpResult.nokey">· {{ fpResult.nokey }} 行既没编号也没条码、认不出商品</template>
               已更新 {{ fpResult.updated }} 个商品
               <template v-if="fpResult.skipped?.length">· 跳过 {{ fpResult.skipped.length }} 个（{{ fpResult.skipped.slice(0, 3).map(s => (s.barcode || s.id) + '：' + s.reason).join('；') }}）</template>
             </div>
@@ -275,9 +295,11 @@ const brandFilter = ref('')
 const categoryFilter = ref('')
 const includeInactive = ref(false)
 const brandOptions = ref([])
+
 const categoryOptions = ref([])
 // ---- v157 厂价（出厂价）----
-// 厂价是厂家结算口径，与「标准售价 / 进价」都不是一回事；未录厂价的商品在报单导入时会被拒收。
+// 厂价是厂家结算口径，与「标准售价 / 进价」都不是一回事；缺厂价时「本期需付款」会按标准售价
+// 回退估算（偏大），**闸门开启后**才会在报单导入 / 小程序报单时被拒收。
 const allProducts = ref([])           // 全量商品索引（含停用），供补厂价面板与分类候选共用
 const missingFactoryCount = ref(0)    // 启用商品中「未录厂价」的数量 → 为 0 时工具栏入口自动隐藏
 const editingFpId = ref(null)
@@ -289,6 +311,12 @@ const fpCategory = ref('')
 const fpSaving = ref(false)
 const fpResult = ref(null)
 const fpShowLimit = 200               // 面板内一次渲染上限（其余走「导出待补清单」）
+// v158 厂价闸门：开启后「报单导入」与「小程序报单」都会拒收没录厂价的商品行；**默认关闭**。
+// 关闭时缺厂价也能照常报单，但付款金额会按标准售价回退估算（偏大）—— 文案必须如实说清，
+// 不能无条件写「会被拒收」（此前 8 处文案都这么写，而代码里根本没有拒收逻辑）。
+const fpGate = ref(false)
+const fpGateBusy = ref(false)
+const fpGateMissing = ref(0)          // 后端权威的「未录厂价」计数
 
 
 const totalPages = computed(() => Math.max(1, Math.ceil((total.value || 0) / pageSize.value)))
@@ -430,58 +458,80 @@ function openBatchFp() {
   fpCategory.value = ''
   fpResult.value = null
   fpSaving.value = false
+  loadFpGate()
+}
+
+/* ---- v158 厂价闸门：读状态 / 开与关 ---- */
+async function loadFpGate() {
+  try {
+    const g = await productsApi.factoryPriceGate()
+    fpGate.value = !!g.enabled
+    fpGateMissing.value = Number(g.missing_count || 0)
+  } catch (e) { /* 读不到不影响面板正常使用，保持默认「未开启」 */ }
+}
+
+async function toggleFpGate() {
+  const next = !fpGate.value
+  fpGateBusy.value = true
+  try {
+    const g = await productsApi.setFactoryPriceGate(next)
+    fpGate.value = !!g.enabled
+    fpGateMissing.value = Number(g.missing_count || 0)
+    toast(next
+      ? `已开启厂价必填：没录厂价的商品在报单导入 / 小程序报单时会被拒收（当前还有 ${g.missing_count} 个没补）`
+      : '已关闭厂价必填：不再拦缺厂价的商品（缺厂价时付款金额会按标准售价估算）',
+      next ? 'warn' : 'ok')
+  } catch (e) { toast(e.message || '开关失败', 'err') }
+  finally { fpGateBusy.value = false }
   fpOpen.value = true
 }
 
 function fpSelectAll(v) { fpViewRows.value.forEach(r => { r._ck = v }) }
 
-// 导出待补清单：只带「条码 + 名称 + 规格 + 单位 + 空厂价 + 参考分销价」，
-// 刻意**不含内部 id** —— 回填以条码为准（与报单导入同一把钥匙），避免用户误改 id 列。
-function exportFpList() {
-  const rows = fpFiltered.value.map(r => ({
-    '商品条码': r.barcode || '', '商品名称': r.name || '', '规格': r.spec || '', '单位': r.unit || '',
-    '厂价': '', '参考：分销价': Number(r.dist_price) > 0 ? r.dist_price : '',
-  }))
-  const ws = XLSX.utils.json_to_sheet(rows)
-  ws['!cols'] = [{ wch: 16 }, { wch: 28 }, { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 12 }]
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, '待补厂价')
-  XLSX.writeFile(wb, `待补厂价清单_${new Date().toISOString().slice(0, 10)}.xlsx`)
-  toast(`已导出 ${rows.length} 条，填好「厂价」列后点「导入回填」`, 'ok')
+// 导出待补清单：**走后端生成**（后端那份带「商品编号」列作导回钥匙）。
+// 为什么不在前端用 SheetJS 造：钥匙规则必须在唯一一处实现 —— 实测前端那版只有条码，
+// 而本域存在「无条码商品」（演示租户 11 个待补商品全部无条码）与「共码商品」
+// （恒滋/福宝共用条码），只认条码 → 前者永远补不回去、后者会把厂价写到错的商品上。
+async function exportFpList() {
+  try {
+    const blob = await importApi.factoryPriceTemplate({ brand: fpBrand.value, category: fpCategory.value })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `待补厂价清单_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    toast(`已导出 ${fpFiltered.value.length} 条，填好「厂价」列后点「导入回填」`, 'ok')
+  } catch (e) { toast(e.message || '导出失败', 'err') }
 }
+// 导回填价结果：走后端 /factory-price-apply（编号优先、条码兜底；逐条回报跳过原因）。
 
 async function onFpFile(ev) {
   const f = ev.target.files && ev.target.files[0]
   ev.target.value = ''
   if (!f) return
-  if (!/\.(xlsx|xls|csv)$/i.test(f.name)) { toast('仅支持 Excel/CSV 文件', 'err'); return }
+  if (!/\.xlsx$/i.test(f.name)) { toast('请上传 .xlsx（用「导出待补清单」下载的文件填写，另存为 .xlsx）', 'err'); return }
   fpSaving.value = true
   try {
-    const buf = await f.arrayBuffer()
-    const wb = XLSX.read(buf, { type: 'array' })
-    const ws = wb.Sheets[wb.SheetNames[0]]
-    const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false })
-    const items = []
-    let filledNoKey = 0
-    for (const r of json) {
-      const bc = String(r['商品条码'] ?? r['条码'] ?? '').trim()
-      const fp = String(r['厂价'] ?? r['出厂价'] ?? '').trim()
-      if (!fp) continue                       // 没填价的跳过（允许只填一部分）
-      if (!bc) { filledNoKey++; continue }    // 填了价却没有条码 → 无法定位，计入提示
-      items.push({ barcode: bc, factory_price: fp })
-    }
-    if (!items.length) {
-      toast(filledNoKey ? `${filledNoKey} 行填了厂价但缺「商品条码」，无法回填` : '没读到可回填的行（需「商品条码」+「厂价」两列）', 'warn')
-      return
-    }
-    const r = await productsApi.batchFactoryPrice(items)
+    const r = await importApi.factoryPriceApply(f)
     await refreshProductIndex()
     loadProducts()
     _rebuildFpRows()
-    fpResult.value = r
-    toast(`回填完成：更新 ${r.updated} 个${r.skipped?.length ? '，跳过 ' + r.skipped.length + ' 个' : ''}`,
-      r.skipped?.length ? 'warn' : 'ok')
-    if (!r.skipped?.length) fpOpen.value = false
+    fpResult.value = {
+      updated: r.updated || 0, skipped: r.skipped || [],
+      unfilled: r.unfilled || 0, nokey: r.nokey || 0,
+    }
+    await loadFpGate()
+    const bits = []
+    if (r.unfilled) bits.push(`${r.unfilled} 行厂价留空（不算错）`)
+    if (r.nokey) bits.push(`${r.nokey} 行既没编号也没条码、认不出是哪个商品`)
+    toast(`回填完成：更新 ${r.updated} 个`
+      + `${r.skipped?.length ? '，跳过 ' + r.skipped.length + ' 个' : ''}`
+      + `${bits.length ? '（' + bits.join('；') + '）' : ''}`,
+      (r.skipped?.length || r.nokey) ? 'warn' : 'ok')
+    if (!r.skipped?.length && !r.nokey) fpOpen.value = false
   } catch (e) { toast(e.message || '回填失败', 'err') }
   finally { fpSaving.value = false }
 }
@@ -700,7 +750,15 @@ tr.pa-row-off td{opacity:.5}
 .pa-fp-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
 .pa-fp-count{font-size:12.5px;color:var(--t2);margin-right:auto}
 .pa-fp-count b{color:var(--t1)}
-
+/* v158 厂价闸门开关：默认（未开启）走中性底色，开启后转成功色 —— 开关状态一眼可辨 */
+.pa-fp-gate{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd);font-size:12.5px;line-height:1.6}
+.pa-fp-gate.on{background:rgba(var(--suc-rgb),.08);border-color:rgba(var(--suc-rgb),.35)}
+.pa-fp-switch{display:inline-flex;align-items:center;gap:7px;cursor:pointer;color:var(--t1);white-space:nowrap;user-select:none}
+.pa-fp-switch input{width:15px;height:15px;margin:0;cursor:pointer;accent-color:var(--suc)}
+.pa-fp-switch input:disabled{cursor:not-allowed;opacity:.5}
+.pa-fp-gate.on .pa-fp-switch b{color:var(--suc)}
+.pa-fp-gate-hint{flex:1 1 320px;min-width:0;color:var(--t2)}
+.pa-fp-gate-hint b{color:var(--war)}
 
 .state-empty{font-size:13px;color:var(--t3);text-align:center;padding:22px 0}
 </style>

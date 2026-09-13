@@ -307,6 +307,11 @@ export const productsApi = {
   // v157 存量商品批量补厂价：items = [{id, factory_price}] 或 [{barcode, factory_price}]（导出回填走条码）
   batchFactoryPrice: (items) => api('/api/products/batch-factory-price', { method: 'POST', body: { items } }),
   bulkUpsert: (rows) => api('/api/products/bulk-upsert', { method: 'POST', body: { rows } }),
+  // v158 厂价闸门（per-tenant 开关，**默认关闭**）：开启后两条上报路径都会拒收「没录厂价」的商品行。
+  // 判据在后端 db.factory_price_verdict 一处；本接口只读写开关值 + 回报还有多少没补。
+  factoryPriceGate: () => api('/api/forecast/factory-price-gate'),
+  setFactoryPriceGate: (enabled) =>
+    api('/api/forecast/factory-price-gate', { method: 'PUT', body: { enabled } }),
 }
 
 /* ---- 预报建议配方（后端就绪；前端 localStorage 兜底，随租户配方下发） ---- */
@@ -323,6 +328,36 @@ export const columnSchemeApi = {
 
 /* ---- Excel 导入（FormData，走统一 api 封装） ---- */
 export const importApi = {
+  /* v158 待补厂价清单导出（后端生成 xlsx，含「商品编号」列作导回钥匙）。
+     为什么走后端而不在前端用 SheetJS 造：钥匙规则（编号优先/条码兜底、共码与无条码商品）
+     必须在**唯一一处**实现，否则前端一份、后端一份 → 静默漂移（v158 实测两者的行为已经不一致）。 */
+  factoryPriceTemplate: async ({ brand = '', category = '' } = {}) => {
+    const token = localStorage.getItem('hergent_v2_token') || ''
+    const csrf = localStorage.getItem('hergent_v2_csrf') || ''
+    const tenant = localStorage.getItem('hergent_v2_tenant') || ''
+    const qs = new URLSearchParams()
+    if (brand) qs.set('brand', brand)
+    if (category) qs.set('category', category)
+    const url = '/api/import/factory-price-template' + (qs.toString() ? `?${qs}` : '')
+    const res = await fetch(url, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(tenant ? { 'X-Tenant-Id': String(tenant) } : {}),
+        ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+      },
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      throw new Error(d.detail || d.message || '导出失败')
+    }
+    return res.blob()
+  },
+  /* v158 导回填好厂价的清单：按「商品编号」优先、条码兜底回写（只改 factory_price 一列）。 */
+  factoryPriceApply: (file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api('/api/import/factory-price-apply', { method: 'POST', body: fd, timeout: 60000 })
+  },
   template: (category) => api(`/api/import/template/${category}`),
   templateFile: async (category) => {
     const token = localStorage.getItem('hergent_v2_token') || ''

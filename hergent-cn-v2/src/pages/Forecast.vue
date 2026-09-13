@@ -142,7 +142,7 @@
               <div class="imp-ident-row"><span>条码列</span><b>{{ impCross.identity.barcode != null ? impHeaders[impCross.identity.barcode] : '（未识别）' }}</b></div>
               <div class="imp-ident-row"><span>规格列</span><b>{{ impCross.identity.spec != null ? impHeaders[impCross.identity.spec] : '（未识别）' }}</b></div>
               <div class="imp-ident-row"><span>单位列</span><b>{{ impCross.identity.unit != null ? impHeaders[impCross.identity.unit] : '（未识别）' }}</b></div>
-              <!-- 厂价是本模版的「条件必填」列：未录厂价的行会被拒收，故这里必须显式回显识别结果 -->
+              <!-- 厂价是本模版的「条件必填」列：闸门开启时缺厂价的行会被拒收，故这里必须显式回显识别结果 -->
               <div class="imp-ident-row"><span>厂价列</span><b :class="{ 'imp-miss': impCross.identity.factory == null && impCross.identity.price == null }">{{ impCross.identity.factory != null ? impHeaders[impCross.identity.factory] : (impCross.identity.price != null ? impHeaders[impCross.identity.price] + '（按单价）' : '（未识别）') }}</b></div>
               <div class="imp-ident-row"><span>客户列（{{ impCross.customers.length }} 个）</span><b class="imp-customers">{{ impCross.customers.map(c => c.name).join('、') }}</b></div>
             </div>
@@ -168,6 +168,7 @@
             <div v-else>
               <p class="imp-warn">导入完成，但有 {{ impResult?.results?.errors?.length || 0 }} 处异常：</p>
               <ul class="imp-errs"><li v-for="(e, i) in (impResult?.results?.errors || []).slice(0, 8)" :key="i">{{ e.msg }}</li></ul>
+            </div>
             <!-- v157: 零档案建档结果（后端已回传 products_created_count / reused / unmatched / conflicts） -->
             <div v-if="impArchive" class="imp-arch">
               <div class="imp-arch-hd">商品档案</div>
@@ -197,6 +198,22 @@
                 已记入「条码冲突」台账，请人工确认后处理。
               </p>
             </div>
+            <!-- v158 厂价闸门：缺厂价被拒的行 —— 「整行不进报单」是硬结果，必须给补价入口指引。
+                 闸门关闭时后端回传 factory_price_gate_on=false → 此块不渲染。 -->
+            <div v-if="impFpRejected" class="imp-arch">
+              <div class="imp-arch-hd">厂价必填（已开启）</div>
+              <template v-if="impFpRejected.count">
+                <p class="imp-arch-note bad">
+                  有 <b>{{ impFpRejected.count }}</b> 个商品因为<u>没录厂价</u>被拒收，这些行的数量<u>没有</u>进本次报单：
+                </p>
+                <ul class="imp-arch-list">
+                  <li v-for="(n, i) in impFpRejected.names.slice(0, 8)" :key="i">{{ n }}</li>
+                </ul>
+                <p class="imp-arch-note">
+                  厂价是厂家跟你结算的价。请到 <b>商品档案 → 补厂价</b> 补上（可「导出待补清单」批量填好再导回），补完重新导入本文件即可。
+                </p>
+              </template>
+              <p v-else class="imp-arch-note">本次导入的商品都已录厂价，没有行被拒收。</p>
             </div>
             <div class="imp-ft">
               <button class="btn btn-primary" @click="closeImportAndReload">完成，刷新交叉表</button>
@@ -5249,6 +5266,16 @@ const impArchive = computed(() => {
   return { created, reused, backfilled, unmatched, conflicts, createdNames, backfilledNames }
 })
 
+// v158 厂价闸门：后端在 results 里回传 products_rejected_no_factory(_count) 与 factory_price_gate_on。
+// 只在**闸门开启**时渲染（关闭时两个字段为 0/false → 返回 null，不显示空块）。
+// 为什么单列一块：被拒的行是「整行没进报单」，用户最容易误以为「导入成功了」→ 必须点名到商品。
+const impFpRejected = computed(() => {
+  const rs = impResult.value?.results
+  if (!rs || !rs.factory_price_gate_on) return null
+  const names = Array.isArray(rs.products_rejected_no_factory) ? rs.products_rejected_no_factory : []
+  return { count: Number(rs.products_rejected_no_factory_count || names.length || 0), names }
+})
+
 function openImport() { impOpen.value = true; impState.value = null; impResult.value = null }
 function pickFile() { impFileInput.value && impFileInput.value.click() }
 
@@ -6513,6 +6540,8 @@ th.sortable:hover{color:var(--p-dark)}
 .imp-arch-list{margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.75}
 .imp-arch-note{margin:10px 0 0;font-size:12.5px;line-height:1.7;color:var(--t2)}
 .imp-arch-note.warn{color:var(--war)}
+.imp-arch-note.bad{color:var(--dan)}
+.imp-arch-note.bad b{color:var(--dan)}
 .imp-errs{margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.8}
 
 /* ---- P1-1 周期级 AI 审核台 ---- */
@@ -6777,4 +6806,3 @@ td.invalid{background:var(--danger-bg)}
 .copy-pop .cp-act:disabled{opacity:.45;cursor:not-allowed}
 .copy-pop .cp-empty{font-size:12px;color:var(--t3);margin:8px 0 0;text-align:center}
 </style>
-
