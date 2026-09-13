@@ -3,7 +3,7 @@
     <div class="mac-hd">
       <div class="mac-ti">
         <b>全年月度达成</b>
-        <span class="mac-sub">柱高＝金额（销量柱读左轴、返利柱读右轴）；灰轨道＝目标 / 预估应返，深色段＝超出部分</span>
+        <span class="mac-sub">柱高＝金额；上下两张图各用自己的量程，柱高不可跨图比较。灰轨道＝目标 / 预估应返，深色段＝超出部分</span>
       </div>
       <div class="mac-ctl">
         <!-- v154 P2-A：品牌筛选已提升为页面级（`BrandFilter.vue`，与页面「统计月份」并排，一处筛选统管
@@ -15,13 +15,11 @@
       </div>
     </div>
 
-    <!-- v159：图例改为「口径说明」——每月两根合并柱后，目标与达成不再是可独立开关的两个系列，
-         故不再提供点击隐藏；改为解释柱子的两段结构（轨道 / 填充 / 超额段）与本月红绿规则 -->
+    <!-- v159：图例改为「口径说明」——每月合并柱后，目标与达成不再是可独立开关的两个系列，
+         故不再提供点击隐藏；改为解释柱子的两段结构（轨道 / 填充 / 超额段）与本月红绿规则。
+         v162：拆成上下两张单轴图后，系列名与单位已由每张图的小标题承担（不必再来回找归属）→
+         图例只留「怎么读这根柱」的四条共性说明 -->
     <div class="mac-legend">
-      <!-- v161：把轴单位写进图例 —— 两根柱各自量程（销量差返利 1~2 个数量级），
-           "数值小却柱子高"是双轴图的固有观感，必须让读者随时知道每根柱读哪根轴、单位是什么 -->
-      <span class="lg-item"><i :style="{ background: C.sales.fill }"></i>销量达成（左轴 · {{ salesUnit || '—' }}）</span>
-      <span class="lg-item"><i :style="{ background: C.rebate.fill }"></i>实际返利（右轴 · {{ rebateUnit }}）</span>
       <span class="lg-item"><i class="lg-track"></i>灰轨道＝目标 / 预估应返</span>
       <span class="lg-item">
         <i :style="{ background: C.ahead.deep }"></i>
@@ -46,121 +44,115 @@
       <slot name="empty-action" />
     </div>
 
-    <!-- 图表 -->
+    <!-- 图表：上下两张单轴图，共享同一套 x 轴几何 → 月份列严格对齐 -->
     <div v-else class="mac-scroll">
       <div class="mac-canvas">
-      <svg
-        :viewBox="`0 0 ${W} ${H}`"
-        class="mac-svg"
-        preserveAspectRatio="none"
-        role="img"
-        @mouseleave="tip = null"
-      >
-        <!-- v161：纵轴＝金额（柱高 ∝ 金额）。销量与返利量级不可比 → 各自独立量程：
-             左轴读销量（万元 / 件），右轴读返利（元）。网格线只按左轴刻度画，右轴另标短线 -->
-        <line
-          v-for="g in gridLines" :key="'g' + g.v"
-          :x1="PAD.l" :x2="W - PAD.r" :y1="g.y" :y2="g.y"
-          class="grid"
-        />
-        <text
-          v-for="g in gridSales" :key="'gl' + g.v"
-          class="ax-lb ax-sales" :x="PAD.l - 8" :y="g.y + 4" text-anchor="end"
-        >{{ axNum(g.v, salesUnit) }}</text>
-        <line
-          v-for="g in gridRebate" :key="'rt' + g.v"
-          :x1="W - PAD.r" :x2="W - PAD.r + 4" :y1="g.y" :y2="g.y"
-          class="ax-tick"
-        />
-        <text
-          v-for="g in gridRebate" :key="'gr' + g.v"
-          class="ax-lb ax-rebate" :x="W - PAD.r + 8" :y="g.y + 4" text-anchor="start"
-        >{{ axNum(g.v, rebateUnit) }}</text>
-        <text
-          v-if="gridSales.length" class="ax-unit ax-sales"
-          :x="PAD.l - 8" :y="PAD.t - 12" text-anchor="end"
-        >{{ salesUnit }}</text>
-        <text
-          v-if="gridRebate.length" class="ax-unit ax-rebate"
-          :x="W - PAD.r + 8" :y="PAD.t - 12" text-anchor="start"
-        >{{ rebateUnit }}</text>
+        <div v-for="sec in sections" :key="sec.key" class="mac-sec">
+          <div class="sec-hd">
+            <b>{{ sec.title }}</b>
+            <span v-if="sec.unit" class="sec-u">{{ sec.unit }}</span>
+            <span class="sec-note">{{ sec.note }}</span>
+          </div>
 
-        <g v-for="(mo, i) in months" :key="mo.key">
-          <template v-for="(b, bi) in barsOf(mo)" :key="mo.key + bi">
-            <!-- 目标轨道：从 0 长到「该月目标金额」，高度 ∝ 目标值
-                 （v161 前它恒为 100% 的等高灰柱，是"所有柱子一样高"的根源） -->
-            <rect
-              v-if="b.trackH > 0"
-              :x="xBar(i, bi)" :y="b.yTrack"
-              :width="BW" :height="b.trackH"
-              class="track" rx="1.5"
-            />
-            <!-- 达成填充：0 → min(达成金额, 目标金额) -->
-            <rect
-              v-if="b.fillH > 0"
-              :x="xBar(i, bi)" :y="b.yFill"
-              :width="BW" :height="b.fillH"
-              :fill="b.fill" rx="1.5"
-            />
-            <!-- 超额段：目标金额 → 达成金额，用同色加深，超额一眼可见且不引入新色相 -->
-            <rect
-              v-if="b.deepH > 0"
-              :x="xBar(i, bi)" :y="b.yDeep"
-              :width="BW" :height="b.deepH"
-              :fill="b.deep" rx="1.5"
-            />
-          </template>
+          <!-- 该系列整年无数据：占位等高，避免两张图高度不一造成上下错位 -->
+          <div v-if="!(sec.max > 0)" class="sec-empty" :style="{ height: SH + 'px' }">本年无{{ sec.title }}数据</div>
 
-          <!-- 柱顶数值：竖排「金额·达成率」（12 月 × 2 柱横排放不下，竖排最清晰且逐柱一一对应）；
-               单位不在标签里重复，由左右轴轴名（万元 / 件 / 元）与 tooltip 交代，标签只写数字保持干净 -->
-          <text
-            v-for="(b, bi) in barsOf(mo)" :key="mo.key + 'lb' + bi"
-            v-show="b.show && Number(b.achv) > 0"
-            class="bar-lb"
-            :x="xBar(i, bi) + BW / 2 + 3.2" :y="b.yLbl"
-            text-anchor="start"
-            :fill="b.lbl"
-            :transform="`rotate(-90 ${xBar(i, bi) + BW / 2 + 3.2} ${b.yLbl})`"
-          >{{ barLabelOf(b) }}</text>
-
-          <text class="ax-mo" :x="xGroup(i) + GW / 2" :y="H - PAD.b + 20" text-anchor="middle">
-            {{ mo.m }}月
-          </text>
-          <circle v-if="mo.key === curKey" :cx="xGroup(i) + GW / 2" :cy="H - PAD.b + 30" r="2.5" class="cur-dot" />
-          <rect
-            :x="xGroup(i)" :y="PAD.t" :width="GW" :height="plotH"
-            fill="transparent" @mouseenter="onHover(mo, i)" @mousemove="onHover(mo, i)"
-          />
-        </g>
-
-        <!-- 本月时间进度（与 KPI 卡同口径）：只标当前月。柱高改成金额后，"时间进度"在金额轴上
-             ＝「该月目标 × 时间进度」，故每根柱各画一段自己量程的短线（销量/返利量程不同）。
-             柱顶过线＝超前（绿），未过线＝落后（红）—— 与改造前"达成率 ≥ 时间进度"完全等价。 -->
-        <g v-if="paceIdx >= 0">
-          <template v-for="(b, bi) in paceBars" :key="'pace' + bi">
+          <svg
+            v-else
+            :viewBox="`0 0 ${W} ${SH}`"
+            class="mac-svg"
+            preserveAspectRatio="none"
+            role="img"
+            @mouseleave="tip = null"
+          >
+            <!-- 横向网格线 + 纵轴刻度：本图自成一把尺子，量程 = 全年 max(目标, 达成) 取整 -->
+            <!-- v162：单轴图，刻度数字用本系列的深色（销量青 / 返利琥珀），与本图柱子同色系 -->
             <line
-              v-if="b.trackH > 0"
-              :x1="xBar(paceIdx, bi)" :x2="xBar(paceIdx, bi) + BW"
-              :y1="yAmt(b.target * timeProgress, b.max)" :y2="yAmt(b.target * timeProgress, b.max)"
-              class="pace-line"
+              v-for="g in sec.ticks" :key="sec.key + 'g' + g.v"
+              :x1="PAD.l" :x2="W - PAD.r" :y1="g.y" :y2="g.y"
+              class="grid"
             />
-          </template>
-        </g>
+            <text
+              v-for="g in sec.ticks" :key="sec.key + 'l' + g.v"
+              class="ax-lb" :style="{ fill: sec.axisColor }"
+              :x="PAD.l - 8" :y="g.y + 4" text-anchor="end"
+            >{{ axNum(g.v, sec.unit) }}</text>
+            <!-- v162：单位只在小标题（.sec-u）出现一次 —— 轴顶再标一遍与它相隔仅 20 余像素，纯冗余 -->
 
-        <line :x1="PAD.l" :x2="W - PAD.r" :y1="plotBase" :y2="plotBase" class="axis" />
-      </svg>
+            <g v-for="r in sec.rows" :key="sec.key + r.mo.key">
+              <!-- 目标轨道：从 0 长到「该月目标金额」，高度 ∝ 目标值
+                   （v161 前它恒为 100%，是"所有柱子一样高"的根源） -->
+              <rect
+                v-if="r.trackH > 0"
+                :x="xBar(r.i)" :y="r.yTrack"
+                :width="BW" :height="r.trackH"
+                class="track" rx="1.5"
+              />
+              <!-- 达成填充：0 → min(达成金额, 目标金额) -->
+              <rect
+                v-if="r.fillH > 0"
+                :x="xBar(r.i)" :y="r.yFill"
+                :width="BW" :height="r.fillH"
+                :fill="r.fill" rx="1.5"
+              />
+              <!-- 超额段：目标金额 → 达成金额，用同色加深，超额一眼可见且不引入新色相 -->
+              <rect
+                v-if="r.deepH > 0"
+                :x="xBar(r.i)" :y="r.yDeep"
+                :width="BW" :height="r.deepH"
+                :fill="r.deep" rx="1.5"
+              />
 
-      <div v-if="tip" class="mac-tip" :class="{ 'to-left': tip.flip }" :style="{ left: tip.x }">
-        <b>{{ tip.title }}</b>
-        <div class="tp-row" v-for="r in tip.rows" :key="r.k">
-          <span class="tp-k">{{ r.k }}</span>
-          <span class="tp-v">{{ r.v }}</span>
-          <span class="tp-r" :class="{ warn: r.warn }">{{ r.r }}</span>
+              <!-- 柱顶数值：竖排「金额·达成率」（12 月横排放不下，竖排最清晰且逐柱一一对应）；
+                   单位已由本图小标题与纵轴交代，标签只写数字保持干净 -->
+              <text
+                v-if="r.show && Number(r.achv) > 0"
+                class="bar-lb"
+                :x="xBar(r.i) + BW / 2 + 3.2" :y="r.yLbl"
+                text-anchor="start"
+                :fill="r.lbl"
+                :transform="`rotate(-90 ${xBar(r.i) + BW / 2 + 3.2} ${r.yLbl})`"
+              >{{ barLabelOf(r) }}</text>
+
+              <!-- 本月时间进度（与 KPI 卡同口径）：柱高改成金额后，"时间进度"在金额轴上
+                   ＝「该月目标 × 时间进度」；柱顶过线＝超前（绿），未过线＝落后（红） -->
+              <line
+                v-if="r.i === paceIdx && r.paceY != null"
+                :x1="xBar(r.i)" :x2="xBar(r.i) + BW"
+                :y1="r.paceY" :y2="r.paceY"
+                class="pace-line"
+              />
+
+              <!-- 月份标签：只在最后一张图显示（两图 x 轴严格对齐，读者自然按列对应），省一份重复文字 -->
+              <template v-if="sec.showMonths">
+                <text class="ax-mo" :x="xGroup(r.i) + GW / 2" :y="SH - PAD.b + 18" text-anchor="middle">
+                  {{ r.mo.m }}月
+                </text>
+                <circle v-if="r.mo.key === curKey" :cx="xGroup(r.i) + GW / 2" :cy="SH - PAD.b + 26" r="2.5" class="cur-dot" />
+              </template>
+
+              <rect
+                :x="xGroup(r.i)" :y="PAD.t" :width="GW" :height="plotH"
+                fill="transparent"
+                @mouseenter="onHover(r.mo, r.i, sec.key)" @mousemove="onHover(r.mo, r.i, sec.key)"
+              />
+            </g>
+
+            <line :x1="PAD.l" :x2="W - PAD.r" :y1="plotBase" :y2="plotBase" class="axis" />
+          </svg>
         </div>
-        <div class="tp-ex" v-for="r in tip.extra" :key="r.k">
-          <span class="tp-k">{{ r.k }}</span><span class="tp-v">{{ r.v }}</span>
+
+        <div v-if="tip" class="mac-tip" :class="{ 'to-left': tip.flip }" :style="{ left: tip.x, top: tip.top }">
+          <b>{{ tip.title }}</b>
+          <div class="tp-row" v-for="r in tip.rows" :key="r.k">
+            <span class="tp-k">{{ r.k }}</span>
+            <span class="tp-v">{{ r.v }}</span>
+            <span class="tp-r" :class="{ warn: r.warn }">{{ r.r }}</span>
+          </div>
+          <div class="tp-ex" v-for="r in tip.extra" :key="r.k">
+            <span class="tp-k">{{ r.k }}</span><span class="tp-v">{{ r.v }}</span>
+          </div>
         </div>
-      </div>
       </div>
     </div>
 
@@ -193,16 +185,30 @@ watch(() => props.year, v => { yearVal.value = v })
 const MIN_W = 600
 const rootEl = ref(null)
 const W = ref(MIN_W)
-const H = 300
-// v159：合并柱后右轴曾一度取消；v161 柱高改为金额后销量与返利量级不可比 → 恢复右轴（返利金额），
-//        右侧标签区需要净空 → r 18→64（够 "150万" ≈ 4 字 11px 文本 + 8px 间距）
-const PAD = { l: 52, r: 64, t: 34, b: 34 }
+
+// ── v162 布局：上下两张**单轴**图 ──────────────────────────────────────────────
+// v161 曾把销量与返利合并进一张双轴图（左轴销量、右轴返利）。问题：两根柱各读各的轴，
+// 「金额小却柱子高」是双轴图的固有观感（8 月销量 42.3 万 vs 返利 13.5 万，返利柱反而更高），
+// 同屏的柱高不可互比。v162 按用户选择拆为上下两张单轴图：
+//   · 每张图自成一把尺子 → 柱高可直接跨月比高矮，零歧义；
+//   · 每张图自带小标题与单位 → 读者不必在两条轴之间找归属；
+//   · 两图共享同一套 x 轴几何（PAD / GW 完全一致）→ 月份列严格上下对齐。
+// 代价：图表高度由 300px 增至两张共约 460px（用户已确认接受）。
+const SH = 200                       // 单张图高度
+const PAD = { l: 52, r: 18, t: 34, b: 30 }
 const plotW = computed(() => W.value - PAD.l - PAD.r)
-const plotH = H - PAD.t - PAD.b
+const plotH = SH - PAD.t - PAD.b     // 136
+const plotBase = PAD.t + plotH       // 170 ＝ 0 刻度线（柱底）
 const GW = computed(() => plotW.value / 12)
-// 每月两根柱：左右外边距 = 柱间间隔 = GAP
-const GAP = computed(() => Math.max(4, Math.min(10, GW.value * 0.14)))
-const BW = computed(() => Math.max(9, Math.min(30, (GW.value - GAP.value * 3) / 2)))
+// v162：改为每月单柱 → 柱宽由「半月槽」放宽到「近整月槽」，视觉重量回到单张图的正中
+const GAP = computed(() => Math.max(4, Math.min(12, GW.value * 0.16)))
+const BW = computed(() => Math.max(12, Math.min(44, GW.value - GAP.value * 2)))
+
+// 小标题行与两图间距（tooltip 要按 hover 的是哪张图定位，故这几个值必须与 CSS 逐字一致：
+//   SEC_HD 26 = .sec-hd 行高 22px + .mac-sec 的 4px gap；SEC_GAP 16 = .mac-sec + .mac-sec 的 margin-top）
+const SEC_HD = 26
+const SEC_GAP = 16
+const SEC_TOP = { sales: 0, rebate: SEC_HD + SH + SEC_GAP }
 
 function measureW() {
   const el = rootEl.value
@@ -227,7 +233,7 @@ onBeforeUnmount(() => {
 
 const tip = ref(null)
 
-// v159 色板：fill = 达成填充（历史月＝品牌色）；deep = 超额段（同色相加深）；
+// v159 色板：fill = 达成填充（历史月＝系列色）；deep = 超额段（同色相加深）；
 //        ahead/behind = 本月「超前/落后时间进度」；neutral = 无目标时的中性灰（不判红绿）
 const C = {
   sales: { fill: '#06b6d4', deep: '#0e7490', lbl: '#0e7490' },
@@ -281,16 +287,12 @@ const emptyText = computed(() => {
   return `${props.year} 年还没有品牌目标或达成数据`
 })
 
-// ── v161 量程：柱高 ∝ 金额 ─────────────────────────────────────────────────────
+// ── v161 量程：柱高 ∝ 金额（v162 拆图后每张图各有一个量程）───────────────────
 // 改造前：纵轴＝达成率，灰轨道恒为 100% → 每月柱子一样高，"无法体现数值差异"。
-// 改造后：纵轴＝金额，柱高 = 该柱金额 ÷ 该系列量程 × 绘图区高，严格等比。
-//   · 销量柱读左轴（万元 / 件），返利柱读右轴（元）—— 两者量级通常差 1~2 个数量级，
-//     且切「按数量」口径时销量是"件"、返利是"元"，物理上无法共用一条轴。
+// 改造后：纵轴＝金额，柱高 = 该柱金额 ÷ **本图**量程 × 绘图区高，严格等比。
 //   · 量程 = 全年 max(目标, 达成) 向上取整到好看刻度（niceMax），刻度均分 5 段。
 //   · 达成率不再决定柱高，改由「柱顶标签 / tooltip 里的百分比」与
 //     「彩色填充 vs 灰轨道 的相对高矮」承载 —— 柱顶没到轨道顶＝未达标。
-const plotBase = PAD.t + plotH
-
 const salesMax = computed(() => {
   let mx = 0
   for (const m of months.value) mx = Math.max(mx, Number(m.salesTarget) || 0, Number(m.salesAchv) || 0)
@@ -302,9 +304,11 @@ const rebateMax = computed(() => {
   return mx > 0 ? niceMax(mx) : 0
 })
 
-/** 柱顶竖排标签的最低锚点 y —— 标签从锚点向上排约 60px（"1235万·129%" 量级），
- *  柱高改成金额后柱子可能顶到量程上限（yTop = PAD.t = 34），不兜底会把标签顶出画布 */
-const LBL_TOP = 64
+/** 柱顶竖排标签的最低锚点 y。
+ *  标签形如「1235万·129%」＝最长约 11 个字符：数字/符号 4.7px、汉字 8.5px（8.5px 字号）
+ *  → 约 51px，再算上 2px 白色描边 ≈ 53px。柱高改成金额后柱子能顶到量程上限（yTop = PAD.t = 34），
+ *  不兜底就会把标签顶出画布（实测返利图 "13.5万·120%" 曾被裁）。取 58 留 5px 净空。 */
+const LBL_TOP = 58
 
 /** 金额 → 像素高度（等比；min 截断只是防御，量程本就涵盖全部数值） */
 function hAmt(v, max) {
@@ -316,7 +320,8 @@ function hAmt(v, max) {
 function yAmt(v, max) { return plotBase - hAmt(v, max) }
 
 function xGroup(i) { return PAD.l + i * GW.value }
-function xBar(i, bi) { return xGroup(i) + GAP.value + bi * (BW.value + GAP.value) }
+/** v162：每月单柱 → 在月槽内水平居中 */
+function xBar(i) { return xGroup(i) + (GW.value - BW.value) / 2 }
 
 /** 轴刻度：量程均分 5 段 —— niceMax 的基数 k∈{1,1.5,2,3,5,7.5,10}，除 5 后仍是整洁数值 */
 function axisTicks(max) {
@@ -326,10 +331,6 @@ function axisTicks(max) {
     return { v, y: yAmt(v, max) }
   })
 }
-const gridSales = computed(() => axisTicks(salesMax.value))
-const gridRebate = computed(() => axisTicks(rebateMax.value))
-/** 网格线只按主系列（销量）刻度画；销量整年无数据时退回返利刻度，避免只剩一张空网格 */
-const gridLines = computed(() => (gridSales.value.length ? gridSales.value : gridRebate.value))
 
 const salesUnit = computed(() => {
   if (!(salesMax.value > 0)) return ''
@@ -351,18 +352,13 @@ function axNum(v, unit) {
 
 /**
  * 合并柱：一根柱同时承载「参照值」（灰轨道）与「实际值」（彩色填充）
- *   销量柱：轨道＝月度目标，填充＝销量达成
- *   返利柱：轨道＝预估应返（按 100% 目标档试算），填充＝**实际返利**（达成填报录入）
- * @returns {Array} [销量柱, 返利柱]
+ *   销量图：轨道＝月度目标，填充＝销量达成
+ *   返利图：轨道＝预估应返（按 100% 目标档试算），填充＝**实际返利**（达成填报录入）
  */
-function barsOf(mo) {
-  return [
-    mkBar(mo, 'sales', mo.salesTarget, mo.salesAchv, C.sales),
-    mkBar(mo, 'rebate', mo.rebateTarget, mo.actualRebate, C.rebate),
-  ]
-}
-function mkBar(mo, kind, target, achv, base) {
-  const max = (kind === 'rebate' ? rebateMax.value : salesMax.value)
+function barOf(cfg, mo) {
+  const target = cfg.tgt(mo)
+  const achv = cfg.achv(mo)
+  const max = cfg.max
   const hasTarget = Number(target) > 0
   const hasAchv = Number(achv) > 0
   const rRaw = rate(achv, target)        // target ≤ 0 → null（没有目标就无所谓达成率）
@@ -378,10 +374,10 @@ function mkBar(mo, kind, target, achv, base) {
     const c = ahead ? C.ahead : C.behind
     fill = c.fill; deep = c.deep; lbl = c.lbl
   } else {
-    fill = base.fill; deep = base.deep; lbl = base.lbl
+    fill = cfg.color.fill; deep = cfg.color.deep; lbl = cfg.color.lbl
   }
 
-  // v161 几何：整根彩色柱高 ∝ 达成金额（在该系列量程内等比）；
+  // v161 几何：整根彩色柱高 ∝ 达成金额（在本图量程内等比）；
   //   0 → 目标 为常规色段，目标 → 达成 为深色超额段。
   //   无目标但有达成 → 整根都算填充（中性灰），不再"硬画到 100% 位"。
   const hTotal = hAmt(achv, max)
@@ -389,8 +385,11 @@ function mkBar(mo, kind, target, achv, base) {
   const fillH = hasTarget ? Math.min(hTotal, trackH) : hTotal
   const deepH = Math.max(0, hTotal - fillH)
   return {
-    kind, r: rRaw, noTarget, target, achv, max, fill, deep, lbl,
-    show: hasTarget || hasAchv,
+    kind: cfg.key,                      // amtLabel 用它判断是否走「按数量」口径（销量图才可能）
+    target, achv, max,                  // 原值（tooltip / 标签用）
+    noTarget, r: rRaw,                  // r ＝ 达成率（tooltip 的百分比列）
+    fill, deep, lbl,                    // 三段配色
+    show: hasTarget || hasAchv,         // 有目标或有达成 → 该月这一列有东西可画
     trackH, fillH, deepH,
     yTrack: plotBase - trackH,          // 轨道顶 ＝ 目标金额的高度
     yFill: plotBase - fillH,            // 填充段顶
@@ -398,14 +397,44 @@ function mkBar(mo, kind, target, achv, base) {
     yTop: plotBase - hTotal,            // 柱顶 ＝ 达成金额的高度
     // 标签锚点：正常贴在柱顶上方 4px；柱子过高（顶到量程上限）时下压到 LBL_TOP，保证不被画布裁掉
     yLbl: Math.max(plotBase - hTotal - 4, LBL_TOP),
+    // 时间进度线（仅当月）：金额轴上 ＝「该月目标 × 时间进度」；该月无目标（轨道高 0）则不画
+    paceY: (isCur && timeProgress.value != null && trackH > 0)
+      ? yAmt(target * timeProgress.value, max)
+      : null,
   }
 }
 
-/** 当前月两根柱的几何 —— 时间进度线要按各自量程换算 y */
-const paceBars = computed(() => {
-  const mo = paceIdx.value >= 0 ? months.value[paceIdx.value] : null
-  return mo ? barsOf(mo) : []
+/**
+ * v162：两张图的**唯一**渲染描述 —— 模板对 sections 做 v-for，杜绝"两张图各写一遍渲染逻辑"
+ * 造成的静默漂移（改了一张忘另一张，代码不报错、只有真机上数字不对）。
+ * 数组顺序＝上下顺序：销量在前（主指标），返利在后（并携带月份标签）。
+ */
+const sections = computed(() => {
+  const mk = (cfg) => {
+    const rows = months.value.map((mo, i) => Object.assign({ mo, i }, barOf(cfg, mo)))
+    return Object.assign({}, cfg, { rows, ticks: axisTicks(cfg.max) })
+  }
+  return [
+    mk({
+      key: 'sales', title: '销量达成', note: '柱高＝实际销量',
+      unit: salesUnit.value, axisColor: C.sales.deep, showMonths: false,
+      max: salesMax.value, color: C.sales,
+      tgt: m => m.salesTarget, achv: m => m.salesAchv,
+    }),
+    mk({
+      key: 'rebate', title: '实际返利', note: '柱高＝实际返利金额',
+      unit: rebateUnit.value, axisColor: C.rebate.deep, showMonths: true,
+      max: rebateMax.value, color: C.rebate,
+      tgt: m => m.rebateTarget, achv: m => m.actualRebate,
+    }),
+  ]
 })
+
+/** hover 某个系列某个月 → 取该系列该月的几何（如该系列整年无数据则返回 null） */
+function rowOf(key, i) {
+  const sec = sections.value.find(s => s.key === key)
+  return sec ? (sec.rows[i] || null) : null
+}
 
 // 柱顶标签文本：金额 + 达成率双段（金额回答"多少"，百分比回答"超没超"）
 function amtLabel(v, kind) {
@@ -418,10 +447,10 @@ function amtLabel(v, kind) {
   const s = d >= 100 ? String(Math.round(d)) : d.toFixed(1)
   return s.replace(/\.0$/, '') + '万'
 }
-function barLabelOf(b) {
-  const amt = amtLabel(b.achv, b.kind)
-  if (b.noTarget) return amt
-  return amt + '·' + Math.round(b.r * 100) + '%'
+function barLabelOf(r) {
+  const amt = amtLabel(r.achv, r.kind)
+  if (r.noTarget) return amt
+  return amt + '·' + Math.round(r.r * 100) + '%'
 }
 
 function money(v) {
@@ -446,13 +475,14 @@ function pct(v) {
   return (v * 100).toFixed(1) + '%'
 }
 
-function onHover(mo, i) {
-  const [s, rb] = barsOf(mo)
+function onHover(mo, i, key) {
+  const s = rowOf('sales', i)
+  const rb = rowOf('rebate', i)
   const rows = [
     { k: '销量目标', v: measure.value === 'quantity' ? qty(mo.salesTarget) : money(mo.salesTarget), r: '' },
-    { k: '销量达成', v: measure.value === 'quantity' ? qty(mo.salesAchv) : money(mo.salesAchv), r: pct(s.noTarget ? null : s.r), warn: !s.noTarget && s.r < 1 },
+    { k: '销量达成', v: measure.value === 'quantity' ? qty(mo.salesAchv) : money(mo.salesAchv), r: pct(s && !s.noTarget ? s.r : null), warn: !!s && !s.noTarget && s.r < 1 },
     { k: '返利预估', v: yuan(mo.rebateTarget), r: '' },
-    { k: '实际返利', v: yuan(mo.actualRebate), r: pct(rb.noTarget ? null : rb.r), warn: !rb.noTarget && rb.r < 1 },
+    { k: '实际返利', v: yuan(mo.actualRebate), r: pct(rb && !rb.noTarget ? rb.r : null), warn: !!rb && !rb.noTarget && rb.r < 1 },
   ]
   const extra = []
   if (paceIdx.value === i && timeProgress.value != null) {
@@ -471,6 +501,8 @@ function onHover(mo, i) {
     extra,
     x: ((xGroup(i) + GW.value / 2) / W.value) * 100 + '%',
     flip: px > 55,
+    // tooltip 贴在被 hover 的那张图上（两图相距 200px+，固定贴顶会让鼠标在下图时视线跳远）
+    top: (SEC_TOP[key] || 0) + SEC_HD + 6 + 'px',
   }
 }
 </script>
@@ -500,7 +532,8 @@ function onHover(mo, i) {
 .lg-line { width: 12px !important; height: 0 !important; border: 0 !important; border-top: 1px dashed #d97706 !important; border-radius: 0 !important; }
 .lg-deep { background: linear-gradient(180deg, #0e7490 0%, #0e7490 50%, #06b6d4 50%, #06b6d4 100%); }
 
-.mac-body { height: 240px; }
+/* 与两张图的实际高度一致：26 + 200 + 16 + 26 + 200 = 468（骨架屏/空态不跳动） */
+.mac-body { height: 468px; }
 .mac-skel { display: flex; align-items: flex-end; gap: 6px; padding: 10px 0; }
 .sk-col { flex: 1; display: flex; align-items: flex-end; gap: 2px; height: 100%; }
 .sk-col span { flex: 1; background: var(--border-subtle, #e2e8f0); border-radius: 2px; animation: macpulse 1.2s ease-in-out infinite; }
@@ -510,16 +543,21 @@ function onHover(mo, i) {
 .mac-scroll { position: relative; width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; }
 /* 画布层：宽度＝容器可用宽度，viewBox 与其 1:1 对应；窄屏时锁 600px 由外层横向滚动兜底 */
 .mac-canvas { position: relative; width: 100%; min-width: 600px; }
-.mac-svg { width: 100%; height: 300px; display: block; }
+
+/* v162：上下两张单轴图。标题行高（22px）＋列间距（4px）＋图间距（16px）是 tooltip 定位的基准，
+   改动这三处必须同步 script 里的 SEC_HD / SEC_GAP */
+.mac-sec { display: flex; flex-direction: column; gap: 4px; }
+.mac-sec + .mac-sec { margin-top: 16px; }
+.sec-hd { display: flex; align-items: baseline; gap: 8px; height: 22px; }
+.sec-hd b { font-size: 12px; font-weight: 500; color: var(--t1); }
+.sec-u { font-size: 11px; color: var(--t3); }
+.sec-note { font-size: 11px; color: var(--t3); }
+.sec-empty { display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--t3); }
+
+.mac-svg { width: 100%; height: 200px; display: block; }
 .grid { stroke: var(--border-subtle, #e2e8f0); stroke-width: 1; stroke-dasharray: 3 3; }
-/* v161 右轴刻度短线：返利量程与销量量程不同，网格线只按左轴画，右轴另标 4px 短线 */
-.ax-tick { stroke: var(--border-subtle, #e2e8f0); stroke-width: 1; }
 .axis { stroke: var(--bd); stroke-width: 1; }
-.ax-lb { font-size: 11px; fill: var(--t3); }
-/* v161 双轴：轴刻度与轴名用「对应的柱色」上色 —— 一眼知道哪根柱读哪根轴 */
-.ax-sales { fill: #0e7490; }
-.ax-rebate { fill: #b45309; }
-.ax-unit { font-size: 10px; opacity: .85; }
+.ax-lb { font-size: 11px; }
 .ax-mo { font-size: 11px; fill: var(--t3); }
 /* v159 柱两段：轨道（目标）+ 填充（达成）+ 超额加深段。
    两处文字均加白色描边（paint-order）—— 柱顶标签可能压到相邻更高的柱、时间进度线文字会横跨当月柱身，
