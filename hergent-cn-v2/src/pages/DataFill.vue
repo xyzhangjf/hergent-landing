@@ -110,7 +110,13 @@ async function importInventory() {
 async function loadInvStats() {
   try {
     const scan = await expiryApi.scan()
-    invStats.value = { undated: scan.total_items > 0 ? 0 : 428 }
+    // v157：未录效期的批次数由后端直接给（unscanned_batches，v156 起就有）。
+    //   旧版拿 total_items 反推、还没数据时硬编码 428 —— 两个都不是「未纳统量」。
+    //   后端未升级（无该字段）时回退旧行为，避免显示 NaN。
+    const undated = (typeof scan.unscanned_batches === 'number')
+      ? scan.unscanned_batches
+      : (scan.total_items > 0 ? 0 : 428)
+    invStats.value = { undated }
   } catch { invStats.value = { undated: '?' } }
 }
 
@@ -120,10 +126,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
-.page-hd h2{font-size:20px;font-weight:600}
-.page-sub{font-size:12px;color:var(--t3)}
-
 .df-panel{padding:18px;margin-bottom:14px}
 .df-tip{font-size:12.5px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
 .df-tip code{background:var(--bg2);padding:1px 6px;border-radius:5px;font-size:12px}

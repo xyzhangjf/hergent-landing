@@ -129,6 +129,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { toast } from '../store'
 import { hermesChat } from '../api/client'
+import { stripAllFences } from '../composables/useCardTrigger'
 import { dashboardApi, expiryApi, todayApi, collectionsApi, importApi } from '../api/modules'
 
 /* ---- 日期 ---- */
@@ -214,7 +215,8 @@ const aiLoading = ref(false)
 const mdText = ref('')
 
 function renderMd(t) {
-  return t
+  // 晨报同样是 Hermes 输出，可能附带 ```card / ```cards 控制标记 —— 先剥干净再渲染
+  return stripAllFences(t)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
     .replace(/^- /gm, '<span style="color:var(--p-dark)">•</span> ')
@@ -239,8 +241,6 @@ async function loadMorning() {
   }
 }
 
-/* ---- 初始化加载 ---- */
-async function loadData() {
 /* ---- 空账套引导 ---- */
 const recentActions = ref([])
 const igBusy = ref(false)
@@ -284,22 +284,25 @@ async function igFile(ev) {
   }
 }
 
+/* ---- 初始化加载 ---- */
+async function loadData() {
   try {
     const d = await dashboardApi.todayProfit()
     dashData.value = d
   } catch (e) { /* 后端未启动时静默 */ }
   try {
     const e = await expiryApi.scan()
-    // expiry-scan 返回 {expired:[], near:[], safe:[]} 或 {items:[]}
-    const items = e.items || [...(e.expired||[]), ...(e.near||[]), ...(e.warning||[])]
-    expiryData.value = items
+    // v157：后端 items 含**全部档位**（含正常档）。「近效期预警」只认需要动手的三档
+    //   已过期/红/橙（口径 = 货损配方 threshold_days）；yellow 是「仅关注」，不计入。
+    //   旧版把全量 items 直接塞进来，效期一录全就会显示「预警 54 条」——把正常批次
+    //   也算成了预警（同屏口径不同源的又一例）。
+    const RISK_TIERS = ['expired', 'red', 'orange']
+    expiryData.value = (e.items || []).filter(it => it && RISK_TIERS.includes(it.tier))
   } catch (e) { /* 静默 */ }
   try {
     const t = await todayApi.get()
     todayData.value = t
   } catch (e) { /* 静默 */ }
-  loadTodo()
-}
   try {
     // 仅用于判定「是否空账套」：有历史**业务**动作 = 用户已经开始用系统，不该显示导入引导。
     // ⚠️ 必须排除 module==='auth' —— 注册/登录本身就会写一条动作记录（实测新注册租户的
@@ -309,6 +312,8 @@ async function igFile(ev) {
     const arr = Array.isArray(ra) ? ra : (ra?.items || ra?.data || [])
     recentActions.value = arr.filter(a => a && a.module !== 'auth')
   } catch (e) { recentActions.value = [] }
+  loadTodo()
+}
 
 /* ---- 今日待办：审批 + 催收 + 临期（AI 替你盯着的） ---- */
 const todoItems = ref([])
@@ -335,13 +340,19 @@ async function loadTodo() {
       })
     }
   } catch (e) { /* 静默 */ }
-  // 临期预警
-  const exp = expiryData.value || []
-  const near = exp.filter(x => x.status === 'near' || x.is_near)
+  // 临期预警 —— expiryData 已是风险档（已过期/红/橙，口径 = 配方阈值），
+  //   旧版按后端从不返回的 status/is_near 过滤，导致这条待办永远不出现。
+  const near = expiryData.value || []
   if (near.length) {
+    // 措辞按实际数据分：这批里可能全是「已过期」，笼统说「临近效期」会让老板低估紧迫度。
+    const expiredCnt = near.filter(x => (x.days_left ?? 0) < 0).length
+    const expiringCnt = near.length - expiredCnt
+    const title = expiredCnt && expiringCnt
+      ? `${expiredCnt} 批已过期 · ${expiringCnt} 批临近效期`
+      : (expiredCnt ? `${expiredCnt} 批已过期，需立即处置` : `${expiringCnt} 批临近效期`)
     items.push({
       icon: '临',
-      title: `${near.length} 个 SKU 临近效期`,
+      title,
       sub: '需尽快处置，避免过期报损',
       prio: 'amber', path: '/loss',
     })
@@ -363,13 +374,8 @@ onMounted(loadData)
 </script>
 
 <style scoped>
-.page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
-.page-hd h2{font-size:20px;font-weight:600}
-.page-sub{font-size:12px;color:var(--t3)}
-.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;grid-auto-flow:dense}
-
-/* KPI 横条（顶部紧凑统计带） */
-.kpi-strip{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);padding:6px 0}
+/* .bento / .kpi-strip 及 KPI 子元素样式已上提全局层（src/styles/variables.css），
+   此处只保留本页模块占位与局部组件。 */
 .todo-panel{grid-column:1/-1}
 .todo-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .todo-item{display:flex;align-items:center;gap:12px;border:1px solid var(--bd);border-radius:12px;padding:12px 14px;cursor:pointer;transition:background .15s}
@@ -382,9 +388,12 @@ onMounted(loadData)
 .todo-title{font-size:14px;font-weight:500;color:var(--t1)}
 .todo-sub{font-size:12px;color:var(--t3);margin-top:2px}
 .todo-go{font-size:12px;color:var(--p-dark);flex-shrink:0}
-.kpi-strip .kpi{padding:8px 18px;border-right:1px solid var(--border-subtle);transition:background .15s}
-.kpi-strip .kpi:first-child{padding-left:20px}
-.kpi-strip .kpi:last-child{border-right:none}
+/* Bento 模块布局 */
+.today-panel{grid-column:span 8;grid-row:span 2;padding:18px;min-height:280px}
+.expiry-card{grid-column:span 4}
+.trend-card{grid-column:span 4}
+.report-panel{grid-column:1/-1}
+
 /* 空账套导入引导 —— 占整行，横向三段：图标 / 文案 / 操作 */
 .import-guide{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px dashed var(--bd)}
 .ig-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
@@ -396,20 +405,6 @@ onMounted(loadData)
 .ig-pick.busy{opacity:.7;cursor:default}
 .ig-msg{font-size:12px;color:var(--dan)}
 .ig-msg.ok{color:var(--p-dark)}
-
-.kpi-strip .kpi:hover{background:var(--bg2)}
-.kpi-label{font-size:12px;color:var(--t3);margin-bottom:6px}
-.kpi-val{font-size:22px;font-weight:600;margin-bottom:2px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
-.kpi-val.val-ok{color:var(--suc)}
-.kpi-val.val-warn{color:var(--war)}
-.kpi-val.val-bad{color:var(--dan)}
-.kpi-sub{font-size:12px;color:var(--t3)}
-
-/* Bento 模块布局 */
-.today-panel{grid-column:span 8;grid-row:span 2;padding:18px;min-height:280px}
-.expiry-card{grid-column:span 4}
-.trend-card{grid-column:span 4}
-.report-panel{grid-column:1/-1}
 
 .today-list{display:flex;flex-direction:column;gap:10px}
 .today-card{position:relative;display:flex;align-items:flex-start;gap:12px;padding:14px 16px 14px 18px;border:1px solid var(--border-subtle);border-radius:14px;background:var(--bg);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
@@ -432,20 +427,12 @@ onMounted(loadData)
 .ai-loading{padding:12px 0}
 
 @media(max-width:1200px){
-  .bento{grid-template-columns:repeat(6,1fr)}
   .today-panel{grid-column:span 6;grid-row:span 1}
   .expiry-card{grid-column:span 3}
   .trend-card{grid-column:span 3}
-  .kpi-strip{grid-template-columns:repeat(3,1fr)}
-  .kpi-strip .kpi:nth-child(3){border-right:none}
 }
 @media(max-width:768px){
-  .bento{grid-template-columns:1fr}
   .today-panel,.expiry-card,.trend-card,.report-panel{grid-column:1/-1;grid-row:auto}
-  .kpi-strip{grid-template-columns:repeat(2,1fr)}
-  .kpi-strip .kpi:nth-child(odd){border-right:1px solid var(--border-subtle)}
-  .kpi-strip .kpi:nth-child(even){border-right:none}
-  .kpi-val{font-size:18px}
   .trend-chart{height:80px}
 }
 </style>
