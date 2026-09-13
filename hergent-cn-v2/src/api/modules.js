@@ -304,6 +304,8 @@ export const forecastApproveApi = {
 /* ---- 商品主档（Web 预报模块网格直编 / 粘贴） ---- */
 export const productsApi = {
   grid: () => api('/api/products/grid'),
+  // v157 存量商品批量补厂价：items = [{id, factory_price}] 或 [{barcode, factory_price}]（导出回填走条码）
+  batchFactoryPrice: (items) => api('/api/products/batch-factory-price', { method: 'POST', body: { items } }),
   bulkUpsert: (rows) => api('/api/products/bulk-upsert', { method: 'POST', body: { rows } }),
 }
 

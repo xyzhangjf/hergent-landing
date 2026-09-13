@@ -140,7 +140,10 @@
             <div v-if="impCross" class="imp-ident">
               <div class="imp-ident-row"><span>商品名称列</span><b>{{ impCross.identity.name != null ? impHeaders[impCross.identity.name] : '（未识别）' }}</b></div>
               <div class="imp-ident-row"><span>条码列</span><b>{{ impCross.identity.barcode != null ? impHeaders[impCross.identity.barcode] : '（未识别）' }}</b></div>
-              <div class="imp-ident-row"><span>单价列</span><b>{{ impCross.identity.price != null ? impHeaders[impCross.identity.price] : '（未识别）' }}</b></div>
+              <div class="imp-ident-row"><span>规格列</span><b>{{ impCross.identity.spec != null ? impHeaders[impCross.identity.spec] : '（未识别）' }}</b></div>
+              <div class="imp-ident-row"><span>单位列</span><b>{{ impCross.identity.unit != null ? impHeaders[impCross.identity.unit] : '（未识别）' }}</b></div>
+              <!-- 厂价是本模版的「条件必填」列：未录厂价的行会被拒收，故这里必须显式回显识别结果 -->
+              <div class="imp-ident-row"><span>厂价列</span><b :class="{ 'imp-miss': impCross.identity.factory == null && impCross.identity.price == null }">{{ impCross.identity.factory != null ? impHeaders[impCross.identity.factory] : (impCross.identity.price != null ? impHeaders[impCross.identity.price] + '（按单价）' : '（未识别）') }}</b></div>
               <div class="imp-ident-row"><span>客户列（{{ impCross.customers.length }} 个）</span><b class="imp-customers">{{ impCross.customers.map(c => c.name).join('、') }}</b></div>
             </div>
             <div v-if="impPreview.length" class="imp-matrix">
@@ -165,6 +168,35 @@
             <div v-else>
               <p class="imp-warn">导入完成，但有 {{ impResult?.results?.errors?.length || 0 }} 处异常：</p>
               <ul class="imp-errs"><li v-for="(e, i) in (impResult?.results?.errors || []).slice(0, 8)" :key="i">{{ e.msg }}</li></ul>
+            <!-- v157: 零档案建档结果（后端已回传 products_created_count / reused / unmatched / conflicts） -->
+            <div v-if="impArchive" class="imp-arch">
+              <div class="imp-arch-hd">商品档案</div>
+              <div class="imp-arch-line">
+                <span class="imp-arch-tag ok">自动建档 <b>{{ impArchive.created }}</b> 个</span>
+                <span class="imp-arch-tag muted">复用已有 <b>{{ impArchive.reused }}</b> 个</span>
+                <!-- v157：命中已有档案时顺带补进去的空字段（最常见的就是老商品没录厂价） -->
+                <span v-if="impArchive.backfilled" class="imp-arch-tag ok">补进已有档案 <b>{{ impArchive.backfilled }}</b> 个</span>
+              </div>
+              <ul v-if="impArchive.backfilledNames.length" class="imp-arch-list">
+                <li v-for="(n, i) in impArchive.backfilledNames" :key="i">补录：{{ n }}</li>
+              </ul>
+              <p v-if="impArchive.backfilled" class="imp-arch-note">
+                只有已有档案里<u>空着</u>的字段才会被补上（多为厂价/规格），档案里已有的值一律不动。
+              </p>
+              <ul v-if="impArchive.createdNames.length" class="imp-arch-list">
+                <li v-for="(n, i) in impArchive.createdNames" :key="i">新建：{{ n }}</li>
+              </ul>
+              <p v-if="impArchive.unmatched.length" class="imp-arch-note warn">
+                有 {{ impArchive.unmatched.length }} 条商品没能建档（缺名称或缺条码），这些行的数量不会计入汇总：
+              </p>
+              <ul v-if="impArchive.unmatched.length" class="imp-arch-list">
+                <li v-for="(n, i) in impArchive.unmatched.slice(0, 5)" :key="i">{{ n }}</li>
+              </ul>
+              <p v-if="impArchive.conflicts.length" class="imp-arch-note warn">
+                有 {{ impArchive.conflicts.length }} 条条码冲突（同一张条码已存在别的商品名下），系统未覆盖任何已有档案，
+                已记入「条码冲突」台账，请人工确认后处理。
+              </p>
+            </div>
             </div>
             <div class="imp-ft">
               <button class="btn btn-primary" @click="closeImportAndReload">完成，刷新交叉表</button>
@@ -5199,7 +5231,25 @@ const importing = ref(false)
 const impCustomerCount = computed(() => (impCross.value?.customers || []).length)
 const impCanExec = computed(() => (impCross.value?.customers || []).length > 0)
 
-function openImport() { impOpen.value = true; impState.value = null }
+// v157 零档案建档结果：后端在 results 里回传 products_created_count / products_reused_count /
+// products_backfilled_count / unmatched_products，并在顶层回传 barcode_conflicts。
+// 没有任何一条时返回 null（不显示空块）。
+const impArchive = computed(() => {
+  const r = impResult.value
+  if (!r) return null
+  const rs = r.results || {}
+  const created = Number(rs.products_created_count || 0)
+  const reused = Number(rs.products_reused_count || 0)
+  const backfilled = Number(rs.products_backfilled_count || 0)
+  const unmatched = Array.isArray(rs.unmatched_products) ? rs.unmatched_products : []
+  const conflicts = Array.isArray(r.barcode_conflicts) ? r.barcode_conflicts : []
+  const createdNames = Array.isArray(rs.products_created) ? rs.products_created.slice(0, 5) : []
+  const backfilledNames = Array.isArray(rs.products_backfilled) ? rs.products_backfilled.slice(0, 5) : []
+  if (!created && !reused && !backfilled && !unmatched.length && !conflicts.length) return null
+  return { created, reused, backfilled, unmatched, conflicts, createdNames, backfilledNames }
+})
+
+function openImport() { impOpen.value = true; impState.value = null; impResult.value = null }
 function pickFile() { impFileInput.value && impFileInput.value.click() }
 
 async function downloadFcTemplate() {
@@ -6450,6 +6500,19 @@ th.sortable:hover{color:var(--p-dark)}
 .imp-ft{display:flex;justify-content:flex-end;gap:10px;padding-top:6px}
 .imp-ok{color:var(--suc);font-size:13px;margin-bottom:12px}
 .imp-warn{color:var(--war);font-size:12.5px;margin-bottom:8px}
+.imp-ident-row .imp-miss{color:var(--war)}
+
+/* v157 零档案建档结果块 */
+.imp-arch{margin-top:12px;padding:12px 14px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
+.imp-arch-hd{font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:8px}
+.imp-arch-line{display:flex;gap:10px;flex-wrap:wrap}
+.imp-arch-tag{font-size:12.5px;color:var(--t2);padding:3px 10px;border-radius:999px;background:var(--bg3)}
+.imp-arch-tag b{color:var(--t1);font-size:14px;margin-left:2px}
+.imp-arch-tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
+.imp-arch-tag.ok b{color:var(--suc)}
+.imp-arch-list{margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.75}
+.imp-arch-note{margin:10px 0 0;font-size:12.5px;line-height:1.7;color:var(--t2)}
+.imp-arch-note.warn{color:var(--war)}
 .imp-errs{margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.8}
 
 /* ---- P1-1 周期级 AI 审核台 ---- */

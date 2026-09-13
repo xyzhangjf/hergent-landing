@@ -3,9 +3,13 @@
     <div class="page-hd">
       <div>
         <h2>商品档案</h2>
-        <span class="page-sub">浏览与轻量维护商品主档 · 点品牌格行内改（自动归一）· 售价/进价/安全库存只读</span>
+        <span class="page-sub">浏览与轻量维护商品主档 · 点品牌格行内改（自动归一）· 点厂价格可直接补价 · 售价/进价/安全库存只读</span>
       </div>
       <div class="pa-actions">
+        <button v-if="missingFactoryCount > 0" class="btn btn-ghost btn-sm pa-fp-btn" @click="openBatchFp"
+                title="未录厂价的商品在报单导入时会被拒收，这里可以批量补上">
+          <Icon name="edit"/> 补厂价<span class="pa-fp-n">{{ missingFactoryCount }}</span>
+        </button>
         <span class="pa-stat" v-if="total !== null"><b>{{ total }}</b>&nbsp;个商品</span>
         <button class="btn btn-primary btn-sm" @click="openAdd">+ 新增</button>
         <button class="btn btn-ghost btn-sm" @click="openImport">导入</button>
@@ -37,7 +41,7 @@
         <table class="tbl">
           <thead><tr>
             <th>名称</th><th>条码</th><th>规格</th><th>单位</th>
-            <th>品牌</th><th class="num">标准售价</th><th class="num">进价</th><th class="num">安全库存</th><th>状态</th><th></th>
+            <th>品牌</th><th class="num">标准售价</th><th class="num">进价</th><th class="num">厂价</th><th class="num">安全库存</th><th>状态</th><th></th>
           </tr></thead>
           <tbody>
             <tr v-for="p in products" :key="p.id" :class="{ stopped: p.is_active === 0 }">
@@ -51,6 +55,12 @@
                 <span v-else class="pa-brand" @click="startEditBrand(p)">{{ p.brand || '—' }}</span>
               </td>
               <td class="num">{{ money(p.sale_price) }}</td>
+              <td class="num pa-fp-cell">
+                <input v-if="editingFpId === p.id" v-model="editFp" class="input pa-fp-input" type="number" min="0" step="0.01"
+                       @keyup.enter="saveFp(p)" @blur="saveFp(p)">
+                <span v-else-if="Number(p.factory_price) > 0" class="pa-fp-val" @click="startEditFp(p)">{{ money(p.factory_price) }}</span>
+                <span v-else class="pa-fp-miss" title="点这里填厂价" @click="startEditFp(p)">未录</span>
+              </td>
               <td class="num">{{ money(p.purchase_price) }}</td>
               <td class="num">{{ p.safety_stock != null ? p.safety_stock : '—' }}</td>
               <td>
@@ -91,6 +101,7 @@
               <div class="pa-detail-item"><span>品牌</span><b>{{ detailTarget?.brand || '—' }}</b></div>
               <div class="pa-detail-item"><span>分类</span><b>{{ detailTarget?.category || '—' }}</b></div>
               <div class="pa-detail-item"><span>标准售价</span><b>{{ money(detailTarget?.sale_price) }}</b></div>
+              <div class="pa-detail-item"><span>厂价<span class="pa-hint">出厂价，付款结算用</span></span><b :class="{ 'pa-fp-miss': !(Number(detailTarget?.factory_price) > 0) }">{{ Number(detailTarget?.factory_price) > 0 ? money(detailTarget.factory_price) : '未录' }}</b></div>
               <div class="pa-detail-item"><span>进价</span><b>{{ money(detailTarget?.purchase_price) }}</b></div>
               <div class="pa-detail-item"><span>分销价</span><b>{{ money(detailTarget?.dist_price) }}</b></div>
               <div class="pa-detail-item"><span>安全库存</span><b>{{ detailTarget?.safety_stock != null ? detailTarget.safety_stock : '—' }}</b></div>
@@ -120,6 +131,7 @@
               <label class="pa-f"><span>单位</span><input v-model="addForm.unit" class="input" placeholder="件（默认）"></label>
               <label class="pa-f"><span>品牌</span><input v-model="addForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
               <label class="pa-f"><span>分类</span><input v-model="addForm.category" class="input" placeholder="如 液态奶"></label>
+              <label class="pa-f"><span>厂价<span class="pa-hint">厂家结算价</span></span><input v-model="addForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               <label class="pa-f"><span>进价</span><input v-model="addForm.purchase_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               <label class="pa-f"><span>售价</span><input v-model="addForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               <label class="pa-f"><span>安全库存</span><input v-model="addForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
@@ -160,6 +172,81 @@
             <button class="btn btn-primary" @click="impOpen = false">关闭</button>
           </div>
         </div>
+
+      <!-- v157 批量补厂价弹窗：默认只列「未录厂价」的启用商品 -->
+      <Transition name="fade"><div v-if="fpOpen" class="pa-overlay" @click="fpOpen = false"></div></Transition>
+      <Transition name="pop">
+        <div v-if="fpOpen" class="pa-modal pa-wide">
+          <div class="pa-modal-hd">
+            <b>批量补厂价 · 还有 {{ fpRows.length }} 个商品未录厂价</b>
+            <button class="pa-x" @click="fpOpen = false"><Icon name="close"/></button>
+          </div>
+          <div class="pa-modal-body">
+            <p class="pa-tip">
+              <b>厂价</b> = 厂家跟你结算的价（既不是标准售价，也不是进价）。<b>没录厂价的商品，在「本期预报」导入报单时那几行会被拒收</b>，所以先在这里补上。<br>
+              两种填法任选：① 直接在下表逐行填；② 点「导出待补清单」到 Excel 里填好，再点「导入回填」（<b>以条码为准</b>，不会认错商品）。
+            </p>
+
+            <div class="pa-fp-filters">
+              <select v-model="fpBrand" class="input">
+                <option value="">全部品牌</option>
+                <option v-for="b in fpBrandOptions" :key="b" :value="b">{{ b }}</option>
+              </select>
+              <select v-model="fpCategory" class="input">
+                <option value="">全部分类</option>
+                <option v-for="c in fpCategoryOptions" :key="c" :value="c">{{ c }}</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" @click="fpSelectAll(true)">全选</button>
+              <button class="btn btn-ghost btn-sm" @click="fpSelectAll(false)">取消全选</button>
+            </div>
+
+            <div v-if="fpViewRows.length" class="pa-fp-wrap">
+              <table class="tbl pa-fp-tbl">
+                <thead><tr>
+                  <th class="pa-fp-ck"></th><th>条码</th><th>名称</th><th>规格</th><th>单位</th>
+                  <th class="num">参考：分销价</th><th class="num">填入厂价</th>
+                </tr></thead>
+                <tbody>
+                  <tr v-for="r in fpViewRows" :key="r.id" :class="{ 'pa-row-off': !r._ck }">
+                    <td class="pa-fp-ck"><input type="checkbox" v-model="r._ck"></td>
+                    <td class="pa-mono">{{ r.barcode || '—' }}</td>
+                    <td class="pa-name">{{ r.name }}</td>
+                    <td>{{ r.spec || '—' }}</td>
+                    <td>{{ r.unit || '—' }}</td>
+                    <td class="num pa-fp-ref">{{ Number(r.dist_price) > 0 ? money(r.dist_price) : '—' }}</td>
+                    <td class="num"><input v-model="r._fp" class="input pa-fp-input" type="number" min="0" step="0.01" placeholder="0.00"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p v-else class="state-empty">当前筛选下没有缺厂价的商品 —— 都补好了</p>
+
+            <p v-if="fpFiltered.length > fpShowLimit" class="pa-fp-more">
+              表内只显示前 {{ fpShowLimit }} 个，另有 {{ fpFiltered.length - fpShowLimit }} 个请用「导出待补清单」批量处理
+            </p>
+
+            <div class="pa-fp-foot">
+              <span class="pa-fp-count">已勾选 <b>{{ fpCheckedCount }}</b> 个 · 已填价 <b>{{ fpFilledCount }}</b> 个</span>
+              <button class="btn btn-ghost btn-sm" @click="exportFpList">导出待补清单</button>
+              <label class="btn btn-ghost btn-sm pa-file-btn">
+                导入回填
+                <input type="file" accept=".xlsx,.xls,.csv" style="display:none" @change="onFpFile">
+              </label>
+            </div>
+
+            <div v-if="fpResult" class="pa-imp-result" :class="fpResult.skipped?.length ? 'warn' : 'ok'">
+              已更新 {{ fpResult.updated }} 个商品
+              <template v-if="fpResult.skipped?.length">· 跳过 {{ fpResult.skipped.length }} 个（{{ fpResult.skipped.slice(0, 3).map(s => (s.barcode || s.id) + '：' + s.reason).join('；') }}）</template>
+            </div>
+          </div>
+          <div class="pa-modal-ft">
+            <button class="btn btn-ghost" @click="fpOpen = false">关闭</button>
+            <button class="btn btn-primary" :disabled="fpSaving || fpFilledCount === 0" @click="saveFpBatch">
+              {{ fpSaving ? '保存中…' : `保存已填的 ${fpFilledCount} 行` }}
+            </button>
+          </div>
+        </div>
+      </Transition>
       </Transition>
     </Teleport>
 
@@ -189,8 +276,31 @@ const categoryFilter = ref('')
 const includeInactive = ref(false)
 const brandOptions = ref([])
 const categoryOptions = ref([])
+// ---- v157 厂价（出厂价）----
+// 厂价是厂家结算口径，与「标准售价 / 进价」都不是一回事；未录厂价的商品在报单导入时会被拒收。
+const allProducts = ref([])           // 全量商品索引（含停用），供补厂价面板与分类候选共用
+const missingFactoryCount = ref(0)    // 启用商品中「未录厂价」的数量 → 为 0 时工具栏入口自动隐藏
+const editingFpId = ref(null)
+const editFp = ref('')
+const fpOpen = ref(false)
+const fpRows = ref([])                // [{...product, _ck, _fp}]
+const fpBrand = ref('')
+const fpCategory = ref('')
+const fpSaving = ref(false)
+const fpResult = ref(null)
+const fpShowLimit = 200               // 面板内一次渲染上限（其余走「导出待补清单」）
+
 
 const totalPages = computed(() => Math.max(1, Math.ceil((total.value || 0) / pageSize.value)))
+/* ---- v157 批量补厂价：派生视图 ---- */
+const fpBrandOptions = computed(() => [...new Set(fpRows.value.map(r => r.brand).filter(Boolean))].sort())
+const fpCategoryOptions = computed(() => [...new Set(fpRows.value.map(r => r.category).filter(Boolean))].sort())
+const fpFiltered = computed(() => fpRows.value.filter(r =>
+  (!fpBrand.value || r.brand === fpBrand.value) && (!fpCategory.value || r.category === fpCategory.value)))
+const fpViewRows = computed(() => fpFiltered.value.slice(0, fpShowLimit))
+const fpCheckedCount = computed(() => fpViewRows.value.filter(r => r._ck).length)
+const fpFilledCount = computed(() => fpViewRows.value.filter(r => r._ck && Number(r._fp) > 0).length)
+
 
 const editingId = ref(null)
 const editBrand = ref('')
@@ -200,7 +310,7 @@ const detailTarget = ref(null)
 // 新增弹窗
 const addOpen = ref(false)
 const addSaving = ref(false)
-const addForm = ref({ name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', sale_price: '', safety_stock: '', expiry_days: '' })
+const addForm = ref({ name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '' })
 
 // 导入弹窗
 const impOpen = ref(false)
@@ -233,14 +343,22 @@ async function loadBrandOptions() {
   } catch (e) { /* 品牌候选为增强项，失败不影响主流程 */ }
 }
 
-async function loadCategoryOptions() {
+// v157：一次性拉全量商品（含停用）做「商品索引」——
+//   ① 分类筛选候选；② 「缺厂价」计数（决定工具栏补厂价入口显不显示）；③ 批量补厂价面板的数据源。
+// 428 行量级可接受；原先只为分类候选单独拉过一次，此处合并为一份缓存，避免重复请求。
+async function refreshProductIndex() {
   try {
-    // 一次性枚举全量商品分类用于筛选下拉（428 行可接受）
     const d = await api('/api/products?include_inactive=1&limit=5000')
-    const set = new Set()
-    for (const p of (d.items || [])) if (p.category) set.add(p.category)
-    categoryOptions.value = [...set].sort()
-  } catch (e) { /* 分类候选为增强项，失败不影响主流程 */ }
+    allProducts.value = Array.isArray(d.items) ? d.items : []
+    categoryOptions.value = [...new Set(allProducts.value.map(p => p.category).filter(Boolean))].sort()
+    recomputeMissingFactory()
+  } catch (e) { /* 商品索引为增强项，失败不影响主流程 */ }
+}
+
+function recomputeMissingFactory() {
+  missingFactoryCount.value = allProducts.value
+    .filter(p => p.is_active !== 0)
+    .filter(p => !(Number(p.factory_price) > 0)).length
 }
 
 function onFilterChange() { page.value = 1; loadProducts() }
@@ -270,12 +388,128 @@ async function saveBrand(p) {
     toast('品牌已更新（已自动归一）', 'ok')
   } catch (e) { toast(e.message || '保存失败', 'err') }
 }
+/* ---- v157 厂价：行内编辑（沿用品牌的行内改法）---- */
+function startEditFp(p) {
+  editingFpId.value = p.id
+  editFp.value = Number(p.factory_price) > 0 ? String(p.factory_price) : ''
+}
+
+async function saveFp(p) {
+  if (editingFpId.value !== p.id) return  // 已保存过（Enter + blur 重复触发）
+  editingFpId.value = null
+  // ⚠️ 必须 String() 包一层：输入框是 type="number"，Vue 的 v-model 会自动把值转成
+  //    number（2.8 而不是 "2.8"），直接 .trim() 会抛 "trim is not a function" 把整页打崩
+  //    （真机 E2E 抓到；纯逻辑测试抓不到）。品牌那列是 text 才没这问题。
+  const raw = String(editFp.value ?? '').trim()
+  const nv = Number(raw)
+  // 厂价必须为正数：0/空 = 「没打算补」，不作为有效输入提交（后端同样拒绝 <=0）
+  if (!raw || isNaN(nv) || nv <= 0) { toast('厂价请填大于 0 的数字', 'err'); return }
+  if (nv === Number(p.factory_price || 0)) return  // 无变化
+  try {
+    const r = await productsApi.batchFactoryPrice([{ id: p.id, factory_price: nv }])
+    if (!r.updated) { toast(r.skipped?.[0]?.reason || '未更新', 'warn'); return }
+    p.factory_price = nv
+    const hit = allProducts.value.find(x => x.id === p.id)
+    if (hit) hit.factory_price = nv
+    recomputeMissingFactory()
+    toast('厂价已更新', 'ok')
+  } catch (e) { toast(e.message || '保存失败', 'err') }
+}
+
+/* ---- v157 厂价：批量补（存量商品）---- */
+function _rebuildFpRows() {
+  const miss = allProducts.value
+    .filter(p => p.is_active !== 0)
+    .filter(p => !(Number(p.factory_price) > 0))
+  fpRows.value = miss.map(p => ({ ...p, _ck: true, _fp: '' }))
+}
+
+function openBatchFp() {
+  _rebuildFpRows()
+  fpBrand.value = ''
+  fpCategory.value = ''
+  fpResult.value = null
+  fpSaving.value = false
+  fpOpen.value = true
+}
+
+function fpSelectAll(v) { fpViewRows.value.forEach(r => { r._ck = v }) }
+
+// 导出待补清单：只带「条码 + 名称 + 规格 + 单位 + 空厂价 + 参考分销价」，
+// 刻意**不含内部 id** —— 回填以条码为准（与报单导入同一把钥匙），避免用户误改 id 列。
+function exportFpList() {
+  const rows = fpFiltered.value.map(r => ({
+    '商品条码': r.barcode || '', '商品名称': r.name || '', '规格': r.spec || '', '单位': r.unit || '',
+    '厂价': '', '参考：分销价': Number(r.dist_price) > 0 ? r.dist_price : '',
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [{ wch: 16 }, { wch: 28 }, { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 12 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, '待补厂价')
+  XLSX.writeFile(wb, `待补厂价清单_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  toast(`已导出 ${rows.length} 条，填好「厂价」列后点「导入回填」`, 'ok')
+}
+
+async function onFpFile(ev) {
+  const f = ev.target.files && ev.target.files[0]
+  ev.target.value = ''
+  if (!f) return
+  if (!/\.(xlsx|xls|csv)$/i.test(f.name)) { toast('仅支持 Excel/CSV 文件', 'err'); return }
+  fpSaving.value = true
+  try {
+    const buf = await f.arrayBuffer()
+    const wb = XLSX.read(buf, { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false })
+    const items = []
+    let filledNoKey = 0
+    for (const r of json) {
+      const bc = String(r['商品条码'] ?? r['条码'] ?? '').trim()
+      const fp = String(r['厂价'] ?? r['出厂价'] ?? '').trim()
+      if (!fp) continue                       // 没填价的跳过（允许只填一部分）
+      if (!bc) { filledNoKey++; continue }    // 填了价却没有条码 → 无法定位，计入提示
+      items.push({ barcode: bc, factory_price: fp })
+    }
+    if (!items.length) {
+      toast(filledNoKey ? `${filledNoKey} 行填了厂价但缺「商品条码」，无法回填` : '没读到可回填的行（需「商品条码」+「厂价」两列）', 'warn')
+      return
+    }
+    const r = await productsApi.batchFactoryPrice(items)
+    await refreshProductIndex()
+    loadProducts()
+    _rebuildFpRows()
+    fpResult.value = r
+    toast(`回填完成：更新 ${r.updated} 个${r.skipped?.length ? '，跳过 ' + r.skipped.length + ' 个' : ''}`,
+      r.skipped?.length ? 'warn' : 'ok')
+    if (!r.skipped?.length) fpOpen.value = false
+  } catch (e) { toast(e.message || '回填失败', 'err') }
+  finally { fpSaving.value = false }
+}
+
+async function saveFpBatch() {
+  const picked = fpViewRows.value.filter(r => r._ck && Number(r._fp) > 0)
+  if (!picked.length) { toast('请至少勾选一行并填入厂价', 'warn'); return }
+  fpSaving.value = true
+  try {
+    const r = await productsApi.batchFactoryPrice(
+      picked.map(x => ({ id: x.id, factory_price: Number(x._fp) })))
+    await refreshProductIndex()
+    loadProducts()
+    _rebuildFpRows()
+    fpResult.value = r
+    toast(`已更新 ${r.updated} 个商品${r.skipped?.length ? '，跳过 ' + r.skipped.length + ' 个' : ''}`,
+      r.skipped?.length ? 'warn' : 'ok')
+    if (!r.skipped?.length) fpOpen.value = false
+  } catch (e) { toast(e.message || '保存失败', 'err') }
+  finally { fpSaving.value = false }
+}
+
 
 function openDetail(p) { detailTarget.value = p; detailOpen.value = true }
 
 /* ---- 新增商品 ---- */
 function openAdd() {
-  addForm.value = { name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', sale_price: '', safety_stock: '', expiry_days: '' }
+  addForm.value = { name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '' }
   addSaving.value = false
   addOpen.value = true
 }
@@ -292,6 +526,9 @@ async function saveAdd() {
       unit: f.unit.trim() || '件',
       brand: f.brand.trim(),
       category: f.category.trim(), // 显式提供（含空），后端仅当提供时更新
+      // 厂价：空 = 「不动已录的厂价」。本页新增同名商品会走 upsert 覆盖其它字段，
+      // 若把空值当 0 提交，会把用户补好的厂价清零 —— 故只在真填了值时才带上该键。
+      ...(String(f.factory_price).trim() === '' ? {} : { factory_price: _num(f.factory_price) }),
       purchase_price: _num(f.purchase_price),
       sale_price: _num(f.sale_price),
       safety_stock: _num(f.safety_stock),
@@ -300,6 +537,7 @@ async function saveAdd() {
     const r = await productsApi.bulkUpsert([row])
     toast(`已保存（新增 ${r.inserted || 0} / 更新 ${r.updated || 0}）`, 'ok')
     addOpen.value = false
+    refreshProductIndex()
     loadProducts()
   } catch (e) { toast(e.message || '保存失败', 'err') }
   finally { addSaving.value = false }
@@ -351,6 +589,7 @@ async function exportXlsx() {
     const rows = items.map(p => ({
       '商品名称': p.name, '条码': p.barcode || '', '规格': p.spec || '', '单位': p.unit || '',
       '品牌': p.brand || '', '分类': p.category || '',
+      '厂价': p.factory_price || 0, '分销价': p.dist_price || 0,
       '标准售价': p.sale_price || 0, '进价': p.purchase_price || 0,
       '安全库存': p.safety_stock != null ? p.safety_stock : '', '保质期(天)': p.expiry_days != null ? p.expiry_days : '',
       '状态': p.is_active === 0 ? '停用' : '启用',
@@ -366,7 +605,7 @@ async function exportXlsx() {
 onMounted(() => {
   loadProducts()
   loadBrandOptions()
-  loadCategoryOptions()
+  refreshProductIndex()
 })
 </script>
 
@@ -377,6 +616,20 @@ onMounted(() => {
 .pa-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .pa-stat{font-size:13px;color:var(--t2);flex-shrink:0}
 .pa-stat b{color:var(--p);font-size:16px}
+/* v157 「补厂价」入口：仅当有商品未录厂价时出现，补完自动消失（不是常驻按钮） */
+.pa-fp-btn{color:var(--war);border-color:rgba(var(--war-rgb),.35);gap:5px}
+.pa-fp-btn:hover{background:rgba(var(--war-rgb),.1);color:var(--war)}
+.pa-fp-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:rgba(var(--war-rgb),.16);font-size:11.5px;font-weight:600;line-height:16px;text-align:center}
+
+/* v157 厂价列（行内可编） */
+.pa-fp-cell{white-space:nowrap}
+.pa-fp-val{cursor:pointer;border-bottom:1px dashed transparent}
+.pa-fp-val:hover{border-bottom-color:var(--p);color:var(--p)}
+.pa-fp-miss{display:inline-block;padding:1px 8px;border-radius:8px;background:rgba(var(--war-rgb),.14);color:var(--war);font-size:12px;cursor:pointer}
+.pa-fp-miss:hover{background:rgba(var(--war-rgb),.24)}
+.pa-fp-input{width:92px;height:30px;text-align:right;padding:0 8px}
+.pa-hint{font-size:11px;color:var(--t3);font-weight:400;margin-left:4px}
+
 
 .pa-panel{padding:18px;margin-bottom:14px}
 .pa-filters{display:flex;gap:10px;flex-wrap:nowrap;align-items:center;overflow-x:auto;padding-bottom:2px}
@@ -432,6 +685,22 @@ onMounted(() => {
 .pa-imp-result.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
 .pa-errs{display:flex;flex-direction:column;gap:2px;margin-top:6px}
 .pa-err{font-size:12px;color:var(--t2)}
+/* v157 批量补厂价面板 */
+.pa-modal.pa-wide{width:min(880px,96vw)}
+.pa-fp-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.pa-fp-filters select{flex:0 0 140px;width:140px;height:30px}
+.pa-fp-wrap{max-height:46vh;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-md)}
+.pa-fp-tbl{font-size:12.5px;margin:0}
+.pa-fp-tbl thead th{position:sticky;top:0;z-index:1;background:var(--bg3)}
+.pa-fp-tbl td,.pa-fp-tbl th{padding:5px 8px}
+.pa-fp-ck{width:34px;text-align:center}
+.pa-fp-ref{color:var(--t3)}
+tr.pa-row-off td{opacity:.5}
+.pa-fp-more{margin:8px 0 0;font-size:12px;color:var(--t2)}
+.pa-fp-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.pa-fp-count{font-size:12.5px;color:var(--t2);margin-right:auto}
+.pa-fp-count b{color:var(--t1)}
+
 
 .state-empty{font-size:13px;color:var(--t3);text-align:center;padding:22px 0}
 </style>
