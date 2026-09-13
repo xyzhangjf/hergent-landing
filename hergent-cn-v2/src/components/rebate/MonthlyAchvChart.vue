@@ -103,16 +103,26 @@
                 :fill="r.deep" rx="1.5"
               />
 
-              <!-- 柱顶数值：竖排「金额·达成率」（12 月横排放不下，竖排最清晰且逐柱一一对应）；
+              <!-- v164：柱顶数值改为**两行横排** —— 上行金额、下行达成率，均以柱心居中。
+                   旧版是「整体旋转 −90 度」的竖排：单张图绘图区仅 136px 高，一条 53px 的竖排标签吃掉 39%，
+                   12 根柱并排即"竖字墙"，且中文数字混排竖读尤难。
+                   横排后单行最宽 33px（6 位金额「123456万」≈36.7px 仍在界内），
+                   最窄视口（MIN_W=600 → 月槽 44px，半槽 22px）也放得下 → 无需任何降级分支。
                    单位已由本图小标题与纵轴交代，标签只写数字保持干净 -->
               <text
                 v-if="r.show && Number(r.achv) > 0"
                 class="bar-lb"
-                :x="xBar(r.i) + BW / 2 + 3.2" :y="r.yLbl"
-                text-anchor="start"
+                :x="xBar(r.i) + BW / 2" :y="r.yAmtLbl"
+                text-anchor="middle"
                 :fill="r.lbl"
-                :transform="`rotate(-90 ${xBar(r.i) + BW / 2 + 3.2} ${r.yLbl})`"
-              >{{ barLabelOf(r) }}</text>
+              >{{ amtLabel(r.achv, r.kind) }}</text>
+              <text
+                v-if="r.show && Number(r.achv) > 0 && r.rateTxt"
+                class="bar-lb bar-lb-rate"
+                :x="xBar(r.i) + BW / 2" :y="r.yRateLbl"
+                text-anchor="middle"
+                :fill="r.lbl"
+              >{{ r.rateTxt }}</text>
 
               <!-- 本月时间进度（与 KPI 卡同口径）：柱高改成金额后，"时间进度"在金额轴上
                    ＝「该月目标 × 时间进度」；柱顶过线＝超前（绿），未过线＝落后（红） -->
@@ -304,11 +314,13 @@ const rebateMax = computed(() => {
   return mx > 0 ? niceMax(mx) : 0
 })
 
-/** 柱顶竖排标签的最低锚点 y。
- *  标签形如「1235万·129%」＝最长约 11 个字符：数字/符号 4.7px、汉字 8.5px（8.5px 字号）
- *  → 约 51px，再算上 2px 白色描边 ≈ 53px。柱高改成金额后柱子能顶到量程上限（yTop = PAD.t = 34），
- *  不兜底就会把标签顶出画布（实测返利图 "13.5万·120%" 曾被裁）。取 58 留 5px 净空。 */
-const LBL_TOP = 58
+/** v164 柱顶标签（两行横排）的行距常量。
+ *  上行＝金额、下行＝达成率，两行 baseline 相距 12px（8.5px 字号 → 行间净空约 5px）。
+ *  竖向总占位 ≈ 26px（上行字顶 ≈ 锚点 −18 −7，至下行字底 ≈ 锚点 −6 +2）；
+ *  柱顶最高可到 PAD.t = 34 → 上缘 ≈ 9px，净空充足，
+ *  故**不再需要 v162 的「下压锚点」兜底**（旧版竖排标签竖向长达 53px，才必须 LBL_TOP=58 防裁）。 */
+const LBL_DY_RATE = 6    // 下行（达成率）baseline 距柱顶
+const LBL_DY_AMT = 18    // 上行（金额）baseline 距柱顶 ＝ 6 + 12px 行距
 
 /** 金额 → 像素高度（等比；min 截断只是防御，量程本就涵盖全部数值） */
 function hAmt(v, max) {
@@ -395,8 +407,11 @@ function barOf(cfg, mo) {
     yFill: plotBase - fillH,            // 填充段顶
     yDeep: plotBase - fillH - deepH,    // 超额段顶
     yTop: plotBase - hTotal,            // 柱顶 ＝ 达成金额的高度
-    // 标签锚点：正常贴在柱顶上方 4px；柱子过高（顶到量程上限）时下压到 LBL_TOP，保证不被画布裁掉
-    yLbl: Math.max(plotBase - hTotal - 4, LBL_TOP),
+    // v164 柱顶标签锚点（两行横排，均以柱心为 text-anchor=middle 的基准）：
+    //   有目标 → 金额在上行、达成率在下行；无目标（无从算达成率）→ 金额直接贴柱顶，不留空行
+    yAmtLbl: plotBase - hTotal - (noTarget ? LBL_DY_RATE : LBL_DY_AMT),
+    yRateLbl: plotBase - hTotal - LBL_DY_RATE,
+    rateTxt: noTarget ? '' : Math.round(rRaw * 100) + '%',
     // 时间进度线（仅当月）：金额轴上 ＝「该月目标 × 时间进度」；该月无目标（轨道高 0）则不画
     paceY: (isCur && timeProgress.value != null && trackH > 0)
       ? yAmt(target * timeProgress.value, max)
@@ -436,7 +451,8 @@ function rowOf(key, i) {
   return sec ? (sec.rows[i] || null) : null
 }
 
-// 柱顶标签文本：金额 + 达成率双段（金额回答"多少"，百分比回答"超没超"）
+/** 柱顶标签文本 —— v164 拆成两行（上行金额、下行达成率），故不再有「拼成一串」的 barLabelOf：
+ *  金额走这里（回答"多少"），达成率由 barOf 的 rateTxt 直接给出（回答"超没超"）。 */
 function amtLabel(v, kind) {
   const n = Number(v) || 0
   if (kind === 'sales' && measure.value === 'quantity') {
@@ -446,11 +462,6 @@ function amtLabel(v, kind) {
   if (!d) return '0'
   const s = d >= 100 ? String(Math.round(d)) : d.toFixed(1)
   return s.replace(/\.0$/, '') + '万'
-}
-function barLabelOf(r) {
-  const amt = amtLabel(r.achv, r.kind)
-  if (r.noTarget) return amt
-  return amt + '·' + Math.round(r.r * 100) + '%'
 }
 
 function money(v) {
@@ -564,6 +575,8 @@ function onHover(mo, i, key) {
    无描边则与柱色混在一起读不出来 */
 .track { fill: var(--border-subtle, #e2e8f0); }
 .bar-lb { font-size: 8.5px; font-variant-numeric: tabular-nums; pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 2px; stroke-linejoin: round; }
+/* v164：下行达成率略降透明度 → 上行金额先被读到；两行同色系，整柱归属依然清楚 */
+.bar-lb-rate { opacity: .88; }
 .pace-line { stroke: #d97706; stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
 .cur-dot { fill: var(--p); }
 

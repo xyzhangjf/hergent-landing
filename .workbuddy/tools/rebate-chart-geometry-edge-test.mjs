@@ -1,6 +1,6 @@
 /**
  * v162 柱状图边界用例（同样走真实组件 SSR 渲染）—— 上下两张单轴图结构
- *  ① 柱子顶到量程上限时，柱顶竖排标签锚点必须下压（否则被画布裁掉）
+ *  ① 柱子顶到量程上限时，柱顶两行横排标签仍须完整留在画布内，且不得再出现竖排
  *  ② 「按数量」口径：销量图按件换算；**返利图恒为元**（不跟着口径开关走）
  *  ③ 无目标但有达成：整根中性灰填充、不画灰轨道；两图各按自己的量程
  *  ④ 全零数据：两张图都不画 SVG（避免 0/0 的假刻度），各给一句空态
@@ -29,6 +29,8 @@ const PLOT_W = 600 - PAD.l - PAD.r                    // 530（SSR 不跑 onMoun
 const GW = PLOT_W / 12
 const GAP = Math.max(4, Math.min(12, GW * 0.16))
 const BW = Math.max(12, Math.min(44, GW - GAP * 2))
+const LBL_DY_RATE = 6                                 // v164：达成率（下行）baseline 距柱顶
+const LBL_DY_AMT = 18                                 // v164：金额（上行）baseline 距柱顶
 const xBar = i => PAD.l + i * GW + (GW - BW) / 2
 
 let pass = 0, fail = 0
@@ -62,9 +64,14 @@ async function render(model) {
   const html = await renderToString(createSSRApp(mod.default, { model, loading: false, year: 2025, yearOptions: [2025] }))
   const svgs = html.split(/<svg\b/).slice(1)          // [0]=销量图 [1]=返利图（无数据时缺位）
   const bars = svgs.map(s => segsOf(s).filter(r => Math.abs(r.w - BW) < 0.5))
-  // 柱顶标签（v162 起改用 v-if，未显示的不会进 DOM，无需再按 display:none 过滤）
-  const labels = [...html.matchAll(/<text\b([^>]*class="bar-lb"[^>]*)>([^<]*)<\/text>/g)]
-    .map(m => ({ y: +ATTR(m[1])('y'), t: m[2] }))
+  // 柱顶标签（v164 起为两行横排：上行金额 / 下行达成率；v162~163 是 rotate(-90) 竖排）
+  // v162 起改用 v-if，未显示的不会进 DOM，无需再按 display:none 过滤
+  const labels = [...html.matchAll(/<text\b([^>]*class="bar-lb[^"]*"[^>]*)>([^<]*)<\/text>/g)]
+    .map(m => ({
+      y: +ATTR(m[1])('y'), t: m[2],
+      ta: ATTR(m[1])('text-anchor'),
+      hasRotate: /rotate\(/.test(m[1]),
+    }))
   // v162：单位只在小标题出现一次
   const units = [...html.matchAll(/class="sec-u"[^>]*>([^<]*)</g)].map(m => m[1])
   /** 在某张图里取第 i 月的分段 */
@@ -72,20 +79,34 @@ async function render(model) {
   return { html, svgs, bars, labels, units, col }
 }
 
-console.log('\n【①】柱子顶到量程上限 → 标签锚点必须下压（单图高 200，绘图区顶 y=34）')
+console.log('\n【①】柱子顶到量程上限 → 两行横排标签仍须完整留在画布内（单图高 200，绘图区顶 y=34）')
 {
   // 销量：无目标但有达成 100万 → 量程 niceMax(1e6)=1e6 → 柱高吃满 136px，柱顶 y=34
-  const { col, labels } = await render(mk([M(1, 0, 1000000, 0, 0), ...Array.from({ length: 11 }, (_, i) => M(i + 2, 0, 0, 0, 0))]))
-  const seg = col(0, 0).filter(r => !r.cls.includes('track'))
+  const one = await render(mk([M(1, 0, 1000000, 0, 0), ...Array.from({ length: 11 }, (_, i) => M(i + 2, 0, 0, 0, 0))]))
+  const seg = one.col(0, 0).filter(r => !r.cls.includes('track'))
   ok(seg.length === 1 && near(seg[0].h, PLOT_H), `柱高吃满绘图区 ${PLOT_H}px（实测 ${seg[0]?.h}）`)
   ok(near(seg[0].y, PAD.t), `柱顶落在量程上限 y=${PAD.t}`)
-  ok(labels.length === 1, `只有 1 枚柱顶标签（其余月份 achv=0 不渲染），实测 ${labels.length}`)
-  ok(labels[0]?.y === 58, `标签锚点下压到 y=58（不下压会是 y=30，标签将顶出画布），实测 ${labels[0]?.y}`)
-  const est = 58 - (labels[0]?.t.length || 0) * 5.2
-  ok(est >= 0, `按下压后的锚点估算标签仍在画布内（"${labels[0]?.t}" × 5.2px ≈ ${((labels[0]?.t.length || 0) * 5.2).toFixed(0)}px，上缘 ${est.toFixed(0)}）`)
-  // 最坏情况：10 字符长标签「1235万·129%」（9 个数字/符号 + 1 个汉字）也必须留在画布内
-  const worst = 9 * 4.7 + 8.5
-  ok(58 - worst >= 0, `最坏情况「1235万·129%」（约 ${worst.toFixed(0)}px）上缘 = ${(58 - worst).toFixed(0)} ≥ 0，不被裁`)
+  ok(one.labels.length === 1, `无达成率 → 只出「金额」一行（不留空行），实测 ${one.labels.length}`)
+  ok(one.labels[0]?.y === PAD.t - LBL_DY_RATE,
+    `金额锚点 = 柱顶 ${PAD.t} − ${LBL_DY_RATE} = ${PAD.t - LBL_DY_RATE}（旧版竖排必须下压到 58 才不裁），实测 ${one.labels[0]?.y}`)
+  ok(one.labels[0]?.ta === 'middle' && one.labels[0]?.hasRotate === false,
+    `标签以柱心居中（text-anchor=${one.labels[0]?.ta}）且不再带 rotate(-90)：hasRotate=${one.labels[0]?.hasRotate}`)
+
+  // 有目标且有达成 → 两行俱出；目标 50万 = 量程 niceMax(5e5) → 柱顶同样吃满 y=34
+  const html2 = await render(mk([M(1, 500000, 500000, 0, 0), ...Array.from({ length: 11 }, (_, i) => M(i + 2, 0, 0, 0, 0))]))
+  const [amt, rate] = html2.labels
+  ok(html2.labels.length === 2, `有目标 → 两行（上行金额 / 下行达成率），实测 ${html2.labels.length}`)
+  ok(amt?.t === '50万' && rate?.t === '100%', `上行「${amt?.t}」＝金额、下行「${rate?.t}」＝达成率`)
+  ok(amt?.y === PAD.t - LBL_DY_AMT && rate?.y === PAD.t - LBL_DY_RATE,
+    `锚点：金额 ${amt?.y}（柱顶 −${LBL_DY_AMT}）、达成率 ${rate?.y}（柱顶 −${LBL_DY_RATE}），两行相距 ${(rate?.y ?? 0) - (amt?.y ?? 0)}px`)
+  const topEdge = (amt?.y ?? 0) - 7        // 8.5px 字号的字高 ≈ 7px
+  ok(topEdge >= 0, `柱顶顶格时上行字顶 = ${amt?.y} − 7 = ${topEdge} ≥ 0 → 不被画布上缘裁切`)
+  const halfSlot = GW / 2
+  const worst = 6 * 4.7 + 8.5              // 「123456万」＝ 6 位数字 + 1 个汉字
+  ok(worst / 2 <= halfSlot + 0.01,
+    `最坏单行「123456万」（${worst.toFixed(1)}px，半宽 ${(worst / 2).toFixed(1)}px）≤ 半月槽 ${halfSlot.toFixed(1)}px → 最窄视口相邻两柱也不相撞`)
+  // 注意：先剥掉 HTML 注释 —— Vue 开发模式编译会保留模板注释，注释里出现 "rotate(" 会造成假失败
+  ok(!/rotate\(/.test(html2.html.replace(/<!--[\s\S]*?-->/g, '')), '整个 SSR 输出里不再出现 rotate( —— 竖排已彻底移除')
   // 真机另有 getBBox() 实测兜底（见 rebate-chart-allmonths-verify.js【I】）
 }
 

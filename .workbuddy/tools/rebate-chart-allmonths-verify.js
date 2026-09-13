@@ -5,7 +5,8 @@
  *          实际返利从 /api/rebate-achievements 实时拉取。
  *   ② 量程：从每张图自己的轴刻度标签反推（不依赖任何硬编码金额）。
  *   ③ 高度：从 DOM 实测像素。
- * 另验证：两图月份列对齐、每图每月只有一根柱、轴刻度与柱高同源、tooltip 贴在本图顶部。
+ * 另验证：两图月份列对齐、每图每月只有一根柱、轴刻度与柱高同源、tooltip 贴在本图顶部、
+ *        柱顶**两行横排**标签（v164 起）不裁切 / 不重叠 / 无旋转。
  *
  * 运行（cwd 必须是 hergent-cn-v2，脚本要解析项目的 vite）：
  *   cd laozhangai-product/hergent-cn-v2
@@ -344,20 +345,29 @@ const near = (a, b, tol = 0.05) => a != null && b != null && Math.abs(a - b) <= 
     })
   }
 
-  console.log('\n【I】柱顶竖排标签实测不被画布裁切（实测边界框，替代估算）')
+  console.log('\n【I】柱顶两行横排标签实测：不裁切、不重叠、无旋转（实测边界框，替代估算）')
   {
     const boxes = await page.evaluate(() => {
       const out = []
+      let si = 0
       for (const svg of document.querySelectorAll('svg.mac-svg')) {
         const vb = svg.viewBox.baseVal
         const sr = svg.getBoundingClientRect()
         for (const t of svg.querySelectorAll('text.bar-lb')) {
           const r = t.getBoundingClientRect()
           // preserveAspectRatio=none + width:100% → x/y 各自线性映射，故可分别换算回 viewBox 坐标
-          const top = (r.top - sr.top) / sr.height * vb.height
-          const bottom = (r.bottom - sr.top) / sr.height * vb.height
-          out.push({ t: t.textContent.trim(), top: +top.toFixed(2), bottom: +bottom.toFixed(2) })
+          out.push({
+            t: t.textContent.trim(),
+            top: +((r.top - sr.top) / sr.height * vb.height).toFixed(2),
+            bottom: +((r.bottom - sr.top) / sr.height * vb.height).toFixed(2),
+            left: +((r.left - sr.left) / sr.width * vb.width).toFixed(2),
+            right: +((r.right - sr.left) / sr.width * vb.width).toFixed(2),
+            row: t.classList.contains('bar-lb-rate') ? 'rate' : 'amt',
+            si,
+            rot: t.getAttribute('transform'),   // v164 起必须为 null（旧版是 rotate(-90) 竖排）
+          })
         }
+        si++
       }
       return out
     })
@@ -366,13 +376,28 @@ const near = (a, b, tol = 0.05) => a != null && b != null && Math.abs(a - b) <= 
       const cut = boxes.filter(b => b.top < -0.5)
       ok(cut.length === 0, `全部 ${boxes.length} 枚柱顶标签上缘都在画布内（越界 ${cut.length} 枚）` + (cut.length ? ' → ' + JSON.stringify(cut) : ''))
       ok(boxes.every(b => b.bottom <= 200), '标签下缘也未越出画布（单图高 200）')
+      ok(boxes.every(b => b.rot === null), `全部标签均无 transform → 竖排已彻底移除（实测首枚 transform=${JSON.stringify(boxes[0].rot)}）`)
+      // 横排方案唯一的真风险：同一张图、同一行内相邻两柱的标签水平相撞
+      let worstGap = Infinity, hits = 0
+      for (const s of [...new Set(boxes.map(b => b.si))]) {
+        for (const row of ['amt', 'rate']) {
+          const rs = boxes.filter(b => b.si === s && b.row === row).sort((a, b) => a.left - b.left)
+          for (let i = 1; i < rs.length; i++) {
+            const gap = rs[i].left - rs[i - 1].right
+            if (gap < worstGap) worstGap = gap
+            if (gap < -0.5) hits++
+          }
+        }
+      }
+      ok(hits === 0, `同图同行内相邻标签零重叠（最小水平间距 ${Number.isFinite(worstGap) ? worstGap.toFixed(1) + 'px' : '—（该行仅 1 枚）'}，重叠 ${hits} 处）`)
+      console.log(`   两行结构：金额行 ${boxes.filter(b => b.row === 'amt').length} 枚 / 达成率行 ${boxes.filter(b => b.row === 'rate').length} 枚`)
     } else {
       console.log('   （本页无可显示的柱顶标签：选中月份均无达成）')
     }
   }
 
   console.log('\nCONSOLE_ERRORS:', JSON.stringify(errs.filter(e => !/403/.test(e))))
-  await page.screenshot({ path: `/tmp/v162_allmonths_${TAG}.png`, fullPage: true })
+  await page.screenshot({ path: `/tmp/v164_allmonths_${TAG}.png`, fullPage: true })
   const el = await page.$('.mac')
   if (el) await el.screenshot({ path: `/tmp/v162_chart_${TAG}.png` })
   console.log(`\n${'='.repeat(56)}\n逐月验证：${pass} PASS / ${fail} FAIL\n${'='.repeat(56)}`)
