@@ -111,6 +111,28 @@
             :width="BW" :height="Math.max(0, PAD.t + plotH - yRate(b.v))"
             :fill="b.fill" rx="1"
           />
+          <!-- v158：柱顶数值标签——每根柱顶竖排显示该柱对应数值（12 月 × 4 柱横排放不下，竖排最清晰）；
+               单位已在左右轴标题交代（万元/件/%），标签只写数字保持干净；颜色取柱色加深，视觉一一对应 -->
+          <template v-if="view === 'bar'">
+            <text
+              v-for="(b, bi) in barsOf(mo)" :key="mo.key + 'lb' + bi"
+              class="bar-lb"
+              :x="xBar(i, bi) + BW / 2" :y="yBar(b.v, b.axis) - 4"
+              text-anchor="start"
+              :fill="b.lbl"
+              :transform="`rotate(-90 ${xBar(i, bi) + BW / 2} ${yBar(b.v, b.axis) - 4})`"
+            >{{ barLabel(b.v, b.axis) }}</text>
+          </template>
+          <template v-else-if="view === 'rate'">
+            <text
+              v-for="(b, bi) in rateBarsOf(mo)" :key="mo.key + 'rlb' + bi"
+              class="bar-lb"
+              :x="xBarR(i, bi) + BW / 2" :y="yRate(b.v) - 4"
+              text-anchor="start"
+              :fill="b.lbl"
+              :transform="`rotate(-90 ${xBarR(i, bi) + BW / 2} ${yRate(b.v) - 4})`"
+            >{{ (b.v * 100).toFixed(0) + '%' }}</text>
+          </template>
           <circle
             v-if="dotOf(mo)"
             :cx="xGroup(i) + GW / 2" :cy="yBar(Math.max(mo.salesTarget, mo.salesAchv), 'l') - 6"
@@ -173,7 +195,7 @@ const MIN_W = 680
 const rootEl = ref(null)
 const W = ref(MIN_W)
 const H = 300
-const PAD = { l: 62, r: 66, t: 24, b: 36 }
+const PAD = { l: 62, r: 66, t: 30, b: 36 } // v158：t 24→30，柱顶竖排数值标签让位
 const plotW = computed(() => W.value - PAD.l - PAD.r)
 const plotH = H - PAD.t - PAD.b
 const GW = computed(() => plotW.value / 12)
@@ -207,11 +229,11 @@ const tip = ref(null)
 const shown = ref({ st: true, sa: true, rt: true, ra: true })
 
 const C = {
-  st: { fill: '#cbd5e1', stroke: '#94a3b8' },
-  sa: { fill: '#06b6d4' },
-  rt: { fill: '#fde68a', stroke: '#fcd34d' },
-  ra: { fill: '#f59e0b' },
-}
+  st: { fill: '#cbd5e1', stroke: '#94a3b8', lbl: '#64748b' },
+  sa: { fill: '#06b6d4', lbl: '#0e7490' },
+  rt: { fill: '#fde68a', stroke: '#fcd34d', lbl: '#a16207' },
+  ra: { fill: '#f59e0b', lbl: '#b45309' },
+} // v158：lbl = 柱色加深版，用于柱顶数值标签（浅色 fill 在白底上不可读）
 const legend = [
   { k: 'st', t: '销量目标', ...C.st },
   { k: 'sa', t: '销量达成', ...C.sa },
@@ -328,9 +350,21 @@ function barsOf(mo) {
 }
 function rateBarsOf(mo) {
   const out = []
-  if (shown.value.sa) out.push({ v: rate(mo.salesAchv, mo.salesTarget) || 0, fill: C.sa.fill })
-  if (shown.value.ra) out.push({ v: rate(mo.rebateAchv, mo.rebateTarget) || 0, fill: C.ra.fill })
+  if (shown.value.sa) out.push({ v: rate(mo.salesAchv, mo.salesTarget) || 0, fill: C.sa.fill, lbl: C.sa.lbl })
+  if (shown.value.ra) out.push({ v: rate(mo.rebateAchv, mo.rebateTarget) || 0, fill: C.ra.fill, lbl: C.ra.lbl })
   return out
+}
+
+// v158：柱顶标签文本——金额口径统一万元、保留 1 位小数（整数省 .0），数量口径整数、超 1 万缩写为「X.X万」
+function barLabel(v, axis) {
+  const n = Number(v) || 0
+  if (measure.value === 'quantity' && axis === 'l') {
+    return n >= 10000 ? (n / 10000).toFixed(1) + '万' : String(Math.round(n))
+  }
+  const d = n / 10000 // 万元
+  if (!d) return '0'
+  const s = d >= 100 ? String(Math.round(d)) : d.toFixed(1)
+  return s.replace(/\.0$/, '') + '万'
 }
 function dotOf(mo) {
   const r = rate(mo.salesAchv, mo.salesTarget)
@@ -418,6 +452,7 @@ function onHover(mo, i) {
 .ax-ti { font-size: 12px; fill: var(--t2); }
 .ax-lb { font-size: 11px; fill: var(--t3); }
 .ax-mo { font-size: 11px; fill: var(--t3); }
+.bar-lb { font-size: 9px; font-variant-numeric: tabular-nums; pointer-events: none; } /* v158 柱顶竖排数值 */
 .cur-dot { fill: var(--p); }
 
 .mac-tip {
