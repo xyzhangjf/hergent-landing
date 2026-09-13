@@ -152,7 +152,7 @@
           </svg>
         </div>
 
-        <div v-if="tip" class="mac-tip" :class="{ 'to-left': tip.flip }" :style="{ left: tip.x, top: tip.top }">
+        <div v-if="tip" ref="tipEl" class="mac-tip" :class="{ 'to-left': tip.flip }" :style="{ left: tip.x, top: tip.top }">
           <b>{{ tip.title }}</b>
           <div class="tp-row" v-for="r in tip.rows" :key="r.k">
             <span class="tp-k">{{ r.k }}</span>
@@ -175,8 +175,9 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { rate, niceMax } from './useMonthlyAchv.js'
+import { tipAnchor, clampTipAnchor } from './tipPlacement.js'
 
 const props = defineProps({
   model: { type: Object, default: null },
@@ -219,6 +220,8 @@ const BW = computed(() => Math.max(12, Math.min(44, GW.value - GAP.value * 2)))
 const SEC_HD = 26
 const SEC_GAP = 16
 const SEC_TOP = { sales: 0, rebate: SEC_HD + SH + SEC_GAP }
+// 画布总高 = 两图（标题行 + 图 + 间距）再减末尾多余的间距 → 468。常量可算，tooltip 纵向夹取不必读 DOM
+const CANVAS_H = SEC_TOP.rebate + SEC_HD + SH
 
 function measureW() {
   const el = rootEl.value
@@ -242,6 +245,7 @@ onBeforeUnmount(() => {
 })
 
 const tip = ref(null)
+const tipEl = ref(null) // tooltip 元素本身：落位后用它的实测宽高做一次夹取（见 layoutTip）
 
 // v159 色板：fill = 达成填充（历史月＝系列色）；deep = 超额段（同色相加深）；
 //        ahead/behind = 本月「超前/落后时间进度」；neutral = 无目标时的中性灰（不判红绿）
@@ -486,7 +490,22 @@ function pct(v) {
   return (v * 100).toFixed(1) + '%'
 }
 
+/** 用 tooltip 的实测宽高把盒子夹进画布（越界才平移）。
+ *  首帧渲染补丁与本次测量都在同一帧的微任务里跑完 → 用户看到的永远是夹取后的位置，不会跳动。 */
+function layoutTip() {
+  if (!tip.value || !tipEl.value) return
+  const { anchor, top } = clampTipAnchor(
+    { anchor: tip.value.anchor, flip: tip.value.flip, w: tipEl.value.offsetWidth, h: tipEl.value.offsetHeight, top: tip.value.baseTop },
+    { canvasW: W.value, canvasH: CANVAS_H },
+  )
+  tip.value.x = anchor + 'px'
+  tip.value.top = top + 'px'
+}
+
 function onHover(mo, i, key) {
+  const k = key + '#' + i
+  // 同一根柱上 mousemove 会持续触发，而落位只取决于"是哪一根柱" → 重复调用直接返回（省掉重渲染与重测量）
+  if (tip.value && tip.value.k === k) return
   const s = rowOf('sales', i)
   const rb = rowOf('rebate', i)
   const rows = [
@@ -505,16 +524,22 @@ function onHover(mo, i, key) {
     //   人工录入的实际返利，语义变成「还差多少返利没拿到」→ 标签同步改为「返利缺口」，否则会误导。
     extra.push({ k: '返利缺口', v: yuan(Math.max(0, mo.rebateTarget - mo.actualRebate)) })
   }
-  const px = ((xGroup(i) + GW.value / 2) / W.value) * 100
+  // 横向避让：整只盒子挪到被 hover 柱子的**外侧**（贴柱缘留 TIP_GAP 净空）→ 盒子与柱身的 x 区间零交集，
+  // 柱高、柱顶标签、时间进度线全部露出来。纵向无处可让（tooltip 比绘图区 136px 还高，见 tipPlacement.js），
+  // 故仍贴本图顶部起步（两图相距 200px+，固定贴顶会让鼠标在下图时视线跳远）。
+  const { anchor, flip } = tipAnchor(xGroup(i) + GW.value / 2, BW.value / 2, W.value)
+  const baseTop = (SEC_TOP[key] || 0) + SEC_HD + 6
   tip.value = {
+    k,
     title: `${props.year} 年 ${mo.m} 月`,
     rows,
     extra,
-    x: ((xGroup(i) + GW.value / 2) / W.value) * 100 + '%',
-    flip: px > 55,
-    // tooltip 贴在被 hover 的那张图上（两图相距 200px+，固定贴顶会让鼠标在下图时视线跳远）
-    top: (SEC_TOP[key] || 0) + SEC_HD + 6 + 'px',
+    anchor, flip, baseTop,
+    x: anchor + 'px',
+    top: baseTop + 'px',
   }
+  // 先按常量落位（同一帧内可见），再用实测宽高夹进画布；正常情况下夹取不会移动它
+  nextTick(layoutTip)
 }
 </script>
 
@@ -580,13 +605,17 @@ function onHover(mo, i, key) {
 .pace-line { stroke: #d97706; stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
 .cur-dot { fill: var(--p); }
 
+/* v165：left / top 全部由 script 按几何算好（见 tipPlacement.js），CSS 只保留"翻转"这一件事——
+   .to-left 把盒子左移自身 100%，锚点即从**左**缘变**右**缘，与盒子实际宽度无关（任何内容宽度都成立）。
+   与柱身的净空（TIP_GAP=8）已算进锚点，这里不再叠 transform 位移。
+   ⚠️ pointer-events: none 必须保留：盒子挪到柱外侧后会盖住相邻月份的悬停区，一旦吃掉事件就换不了柱。 */
 .mac-tip {
-  position: absolute; top: 8px; transform: translateX(8px);
+  position: absolute;
   min-width: 210px; padding: 10px 12px; border-radius: 8px; pointer-events: none;
   background: var(--bg); border: 1px solid var(--bd);
   box-shadow: 0 6px 20px rgba(0, 0, 0, .12); font-size: 12px; z-index: 5;
 }
-.mac-tip.to-left { transform: translateX(calc(-100% - 8px)); }
+.mac-tip.to-left { transform: translateX(-100%); }
 .mac-tip b { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 500; color: var(--t1); }
 .tp-row { display: flex; align-items: center; gap: 8px; line-height: 1.9; }
 .tp-k { width: 56px; color: var(--t3); flex: none; }

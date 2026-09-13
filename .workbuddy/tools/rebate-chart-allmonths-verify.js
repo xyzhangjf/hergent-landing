@@ -5,7 +5,8 @@
  *          实际返利从 /api/rebate-achievements 实时拉取。
  *   ② 量程：从每张图自己的轴刻度标签反推（不依赖任何硬编码金额）。
  *   ③ 高度：从 DOM 实测像素。
- * 另验证：两图月份列对齐、每图每月只有一根柱、轴刻度与柱高同源、tooltip 贴在本图顶部、
+ * 另验证：两图月份列对齐、每图每月只有一根柱、轴刻度与柱高同源、
+ *        tooltip 贴在本图上且**横向避让被 hover 的柱子**（零遮挡、不出画布、pointer-events:none）、
  *        柱顶**两行横排**标签（v164 起）不裁切 / 不重叠 / 无旋转。
  *
  * 运行（cwd 必须是 hergent-cn-v2，脚本要解析项目的 vite）：
@@ -321,28 +322,100 @@ const near = (a, b, tol = 0.05) => a != null && b != null && Math.abs(a - b) <= 
     ok(a === 0 && b === 12, `上图 ${a} 个、下图 ${b} 个（只在最下方标注一次，避免重复文字）`)
   }
 
-  console.log('\n【H】tooltip 贴在被 hover 的那张图上（验证 SEC_TOP 常量与真实 DOM 一致）')
+  console.log('\n【H】tooltip 落位：贴在被 hover 的那张图上，且与被 hover 的柱子**零遮挡**')
   {
     const r = await page.evaluate(async () => {
+      const R = e => e.getBoundingClientRect()
       const secs = [...document.querySelectorAll('.mac-sec')]
       const out = []
       for (let k = 0; k < secs.length; k++) {
-        const zones = secs[k].querySelectorAll('rect[fill="transparent"]')
-        if (!zones.length) { out.push(null); continue }
-        zones[3].dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
-        // ⚠️ dispatchEvent 是同步的，而 Vue 的 DOM 更新走微任务 —— 不 await 就会读到上一帧（甚至 null）
-        await new Promise(res => setTimeout(res, 60))
-        const tip = document.querySelector('.mac-tip')
-        out.push({ secTop: secs[k].offsetTop, tipTop: tip ? parseFloat(tip.style.top) : null, txt: tip ? tip.textContent.trim().slice(0, 12) : null })
+        const svg = secs[k].querySelector('svg.mac-svg')
+        if (!svg) continue
+        const groups = [...svg.children].filter(e => e.tagName.toLowerCase() === 'g')
+        const months = [...svg.querySelectorAll('.ax-mo')].map(e => e.textContent.trim())
+        for (let i = 0; i < groups.length; i++) {
+          const zone = groups[i].querySelector('rect[fill="transparent"]')
+          if (!zone) continue
+          zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+          // ⚠️ dispatchEvent 是同步的，而 Vue 的 DOM 更新走微任务 —— 不 await 就会读到上一帧（甚至 null）
+          await new Promise(res => setTimeout(res, 40))
+          const tip = document.querySelector('.mac-tip')
+          if (!tip) { out.push({ k, i, noTip: true }); continue }
+          const t = R(tip)
+          const bars = [...groups[i].querySelectorAll('rect')]
+            .filter(x => x.getAttribute('fill') !== 'transparent')
+            .map(R).filter(b => b.width > 0 && b.height > 0)
+          // ⚠️ 该月没有任何柱身（target 与达成都是 0）时不得参与断言：此时 min/max 会算出 ±Infinity，
+          //    而 CDP 的 JSON 序列化把 ±Infinity 变成 null，Math.min(...) 会把它当 0 → 假 FAIL
+          const hasBar = bars.length > 0
+          const bar = hasBar
+            ? { left: Math.min(...bars.map(b => b.left)), right: Math.max(...bars.map(b => b.right)) }
+            : null
+          const ovW = hasBar ? Math.max(0, Math.min(t.right, bar.right) - Math.max(t.left, bar.left)) : null
+          const ovH = hasBar ? Math.max(0, Math.min(t.bottom, bar.bottom) - Math.max(t.top, bar.top)) : null
+          const cr = R(secs[k].parentElement)   // .mac-canvas（tooltip 的 offsetParent）
+          const flipped = tip.classList.contains('to-left')
+          out.push({
+            k, i, mo: months[i] || (i + 1) + '月', hasBar,
+            secTop: secs[k].offsetTop, tipTop: parseFloat(tip.style.top),
+            ovW: ovW == null ? null : +ovW.toFixed(1), ovH: ovH == null ? null : +ovH.toFixed(1),
+            side: flipped ? 'left' : 'right',
+            gap: hasBar ? +(flipped ? bar.left - t.right : t.left - bar.right).toFixed(1) : null,
+            inCanvas: t.left >= cr.left - 1 && t.right <= cr.right + 1 && t.top >= cr.top - 1 && t.bottom <= cr.bottom + 1,
+            pe: getComputedStyle(tip).pointerEvents,
+          })
+        }
       }
       return out
     })
-    ok(r.every(x => x && x.tipTop != null), `两张图 hover 后都出现了 tooltip（实测 ${JSON.stringify(r.map(x => x && x.tipTop))}）`)
-    r.forEach((x, k) => {
-      if (!x || x.tipTop == null) return
-      ok(x.tipTop >= x.secTop && x.tipTop <= x.secTop + 40,
-        `${info.secs[k].title}：tooltip top=${x.tipTop}px 落在本图区间 [${x.secTop}, ${x.secTop + 40}]（标题「${x.txt}…」）`)
+    const svgCount = await page.$$eval('svg.mac-svg', els => els.length)
+    ok(r.length === svgCount * 12, `逐月悬停拿到 ${r.length} 条 tooltip（${svgCount} 张图 × 12 月）`)
+    ok(r.every(x => !x.noTip), `每个被 hover 的月份都弹出了 tooltip（缺 ${r.filter(x => x.noTip).length} 条）`)
+    const live = r.filter(x => !x.noTip)
+    const withBar = live.filter(x => x.hasBar)
+    const cut = withBar.filter(x => x.ovW > 0.5)
+    ok(cut.length === 0, `**被 hover 的柱子零遮挡**（有柱的 ${withBar.length} 个月里，x 区间相交 > 0.5px 的 ${cut.length} 处）` + (cut.length ? ' → ' + JSON.stringify(cut.slice(0, 3)) : ''))
+    const minGap = Math.min(...withBar.map(x => x.gap))
+    ok(minGap >= 7.5, `盒子贴柱缘的净空恒 ≥ 8px（实测最小 ${minGap}px；贴右 ${withBar.filter(x => x.side === 'right').length} 月 / 贴左 ${withBar.filter(x => x.side === 'left').length} 月）`)
+    ok(live.every(x => x.inCanvas), `盒子全部落在画布内（越界 ${live.filter(x => !x.inCanvas).length} 处）`)
+    ok(live.every(x => x.pe === 'none'), `tooltip 全程 pointer-events:none（否则挪到柱外侧会吃掉邻柱的悬停事件，实测 ${JSON.stringify([...new Set(live.map(x => x.pe))])}）`)
+    ok(withBar.length > 0,
+      `至少 1 个月真有柱身可测（否则"零遮挡"就是空断言）；另 ${live.length - withBar.length} 个月无柱，只验证不出画布/不吃事件`)
+    const outOfBand = live.filter(x => !(x.tipTop >= x.secTop && x.tipTop <= x.secTop + 40))
+    ok(outOfBand.length === 0, `每个 tooltip 都贴在自己那张图上（top 落在 [secTop, secTop+40]；越界 ${outOfBand.length} 处）`)
+    console.log('   逐月明细(图·月/遮挡宽/净空/侧):',
+      live.map(x => `${x.k + 1}·${x.mo}(${x.hasBar ? x.ovW : '无柱'}/${x.hasBar ? x.gap + 'px' : '—'}/${x.side === 'left' ? '左' : '右'})`).join(' '))
+  }
+
+  console.log('\n【H2】真实鼠标移动：tooltip 不吃事件，换柱/移出照常（pointer-events:none 的实证）')
+  {
+    const pt = await page.evaluate(() => {
+      const svg = document.querySelectorAll('svg.mac-svg')[0]
+      const groups = [...svg.children].filter(e => e.tagName.toLowerCase() === 'g')
+      const z = i => {
+        const b = groups[i].querySelector('rect[fill="transparent"]').getBoundingClientRect()
+        return { x: b.left + b.width / 2, y: b.top + b.height * 0.8 }
+      }
+      const sb = svg.getBoundingClientRect()
+      return { a: z(7), b: z(9), out: { x: sb.left + sb.width / 2, y: sb.top - 30 } }
     })
+    const title = () => page.evaluate(() => {
+      const t = document.querySelector('.mac-tip')
+      return t ? t.querySelector('b').textContent.trim() : null
+    })
+    await page.mouse.move(pt.a.x, pt.a.y, { steps: 4 })
+    await new Promise(r => setTimeout(r, 200))
+    const t1 = await title()
+    // 8 月的 tooltip 盒子正盖在邻柱（9~11 月）的悬停区上：若它吃掉事件，这里就换不了柱
+    await page.mouse.move(pt.b.x, pt.b.y, { steps: 4 })
+    await new Promise(r => setTimeout(r, 200))
+    const t2 = await title()
+    await page.mouse.move(pt.out.x, pt.out.y, { steps: 4 })
+    await new Promise(r => setTimeout(r, 200))
+    const t3 = await title()
+    ok(/8 月/.test(t1 || ''), `鼠标移到 8 月柱 → tooltip 显示「${t1}」`)
+    ok(/10 月/.test(t2 || ''), `再移到 10 月柱（落点被上一只 tooltip 的盒子盖着）→ 正常切换为「${t2}」`)
+    ok(t3 === null, `鼠标移出图表 → tooltip 消失（读到 ${t3 === null ? 'null' : JSON.stringify(t3)}）`)
   }
 
   console.log('\n【I】柱顶两行横排标签实测：不裁切、不重叠、无旋转（实测边界框，替代估算）')

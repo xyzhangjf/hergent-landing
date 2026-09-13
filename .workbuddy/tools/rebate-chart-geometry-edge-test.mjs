@@ -5,12 +5,14 @@
  *  ③ 无目标但有达成：整根中性灰填充、不画灰轨道；两图各按自己的量程
  *  ④ 全零数据：两张图都不画 SVG（避免 0/0 的假刻度），各给一句空态
  *  ⑤ 只有一个系列有数据：另一张图单独进空态，互不牵连（拆图后的新边界）
+ *  ⑥ tooltip 落位：12 月 × 2 种画布宽 → 盒子与被 hover 的柱子 x 区间零交集、且不越出画布
  * 运行：cd laozhangai-product/hergent-cn-v2 \
  *         && node ../.workbuddy/tools/rebate-chart-geometry-edge-test.mjs
  */
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { join } from 'node:path'
+import { readFile } from 'node:fs/promises'
 
 // 本脚本不在项目内，ESM 会按"脚本所在目录"解析依赖 → 找不到 vite/vue。
 // 故一律以 **cwd（= hergent-cn-v2）** 为基准显式解析，保证脚本可放在仓库任意位置。
@@ -169,6 +171,60 @@ console.log('\n【⑤】只有一个系列有数据：另一张图独立进空�
   ok(b.svgs.length === 1 && b.bars[0].length > 0, '只有返利时：渲染 1 张图，且柱子正常')
   ok(b.html.includes('本年无销量达成数据'), '返利图上方的销量图给出空态占位')
   ok(b.html.includes('>实际返利<'), '返回的这张图标题是「实际返利」')
+}
+
+console.log('\n【⑥】tooltip 横向避让：盒子不许压住被 hover 的柱子，也不许跑出画布')
+{
+  const { tipAnchor, clampTipAnchor, TIP_W, TIP_GAP, TIP_EDGE } = await server.ssrLoadModule('/src/components/rebate/tipPlacement.js')
+  const CANVAS_H = 26 + SH + 16 + 26 + SH           // 468：标题行+图+间距+标题行+图
+  // 两种画布宽：SSR 量宽锁 MIN_W=600（最窄）；1274 = 真机 1600 视口实测的画布宽
+  const cases = [{ w: 600 }, { w: 1274 }]
+  let crosses = 0, outside = 0, wrongFlip = 0, tooClose = 0, rightN = 0, leftN = 0
+  const gaps = []
+  for (const cs of cases) {
+    const gw = (cs.w - PAD.l - PAD.r) / 12
+    const gap = Math.max(4, Math.min(12, gw * 0.16))
+    const bw = Math.max(12, Math.min(44, gw - gap * 2))
+    for (let i = 0; i < 12; i++) {
+      const center = PAD.l + i * gw + gw / 2
+      const half = bw / 2
+      const { anchor, flip } = tipAnchor(center, half, cs.w)
+      const box = { left: flip ? anchor - TIP_W : anchor, right: flip ? anchor : anchor + TIP_W }
+      if (box.right > center - half && box.left < center + half) crosses++
+      if (box.left < TIP_EDGE - 1e-6 || box.right > cs.w - TIP_EDGE + 1e-6) outside++
+      const fitsRight = center + half + TIP_GAP + TIP_W <= cs.w - TIP_EDGE
+      if (fitsRight && flip) wrongFlip++                       // 右侧放得下却翻了左 → 不该发生
+      flip ? leftN++ : rightN++
+      gaps.push(+((flip ? center - half - box.right : box.left - center - half)).toFixed(1))
+    }
+  }
+  ok(crosses === 0, `24 种组合（12 月 × 2 画布宽）盒子与柱身 x 区间**零交集**（实测相交 ${crosses} 处）`)
+  ok(outside === 0, `盒子全部落在画布内（左右各留 ${TIP_EDGE}px 净空；越界 ${outside} 处）`)
+  ok(wrongFlip === 0, `选边正确：右侧放得下就走右，放不下才翻左（规则被违反 ${wrongFlip} 次）`)
+  const minGap = Math.min(...gaps)
+  ok(minGap >= TIP_GAP - 1e-6, `贴柱缘净空恒 ≥ TIP_GAP=${TIP_GAP}px（实测最小 ${minGap}px；右 ${rightN} 次 / 左 ${leftN} 次）`)
+
+  // 内容超宽 → 夹取优先：宁可贴到画布边，也不能被 overflow 裁掉（此时才允许与柱身相交）
+  const half = 22
+  const a = tipAnchor(500, half, 600)
+  // 真机实测的两图基准：上图 top=28、下图 top=274（SEC_TOP + SEC_HD + 6）；tooltip 高 138~170
+  const c1 = clampTipAnchor({ anchor: a.anchor, flip: a.flip, w: 420, h: 170, top: 274 }, { canvasW: 600, canvasH: CANVAS_H })
+  const l1 = a.flip ? c1.anchor - 420 : c1.anchor
+  ok(l1 >= TIP_EDGE && l1 + 420 <= 600 - TIP_EDGE, `内容超宽（420px）时夹取把盒子拉回画布内（left=${l1}）`)
+  ok(c1.top === 274, `真实高度（170px）不越界时 top 原样返回＝274，不产生无谓位移：${c1.top}`)
+  // 纵向越界（下面那张图 + 超高内容）→ 必须上移，否则被 .mac-scroll 的 overflow-y:hidden 裁掉
+  const c2 = clampTipAnchor({ anchor: 80, flip: false, w: 210, h: 300, top: 274 }, { canvasW: 600, canvasH: CANVAS_H })
+  ok(c2.top === CANVAS_H - 300 - TIP_EDGE, `纵向越界时上移到 ${c2.top}px（画布 ${CANVAS_H} − 高 300 − 净空 ${TIP_EDGE}）`)
+
+  // 常量不许与 CSS 漂移：TIP_W 必须等于 .mac-tip 的 min-width；翻转必须靠 translateX(-100%)
+  const src = await readFile(join(process.cwd(), 'src/components/rebate/MonthlyAchvChart.vue'), 'utf8')
+  const blk = /\.mac-tip\s*\{([^}]*)\}/.exec(src)
+  ok(!!blk && TIP_W === 210 && new RegExp(`min-width:\\s*${TIP_W}px`).test(blk[1]),
+    `TIP_W=${TIP_W} 与 .mac-tip 的 min-width 逐字一致（常量与 CSS 不会各自漂移）`)
+  ok(/\.mac-tip\.to-left\s*\{\s*transform:\s*translateX\(-100%\);\s*\}/.test(src),
+    '.to-left 用 translateX(-100%) 翻转锚点（与盒子实际宽度无关，任何内容宽度都成立）')
+  ok(/tipAnchor\(/.test(src) && !/transform:\s*translateX\(8px\)/.test(src),
+    '组件调用 tipAnchor 落位，且旧版"从柱心右移 8px"的 transform 偏移已移除')
 }
 
 await server.close()
