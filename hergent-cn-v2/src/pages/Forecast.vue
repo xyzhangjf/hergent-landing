@@ -142,7 +142,8 @@
               <div class="imp-ident-row"><span>条码列</span><b>{{ impCross.identity.barcode != null ? impHeaders[impCross.identity.barcode] : '（未识别）' }}</b></div>
               <div class="imp-ident-row"><span>规格列</span><b>{{ impCross.identity.spec != null ? impHeaders[impCross.identity.spec] : '（未识别）' }}</b></div>
               <div class="imp-ident-row"><span>单位列</span><b>{{ impCross.identity.unit != null ? impHeaders[impCross.identity.unit] : '（未识别）' }}</b></div>
-              <!-- 厂价是本模版的「条件必填」列：闸门开启时缺厂价的行会被拒收，故这里必须显式回显识别结果 -->
+              <!-- 厂价是本模版的「条件必填」列：闸门开启时缺厂价（且进价也为空）的行会被拒收，
+                   故这里必须显式回显识别结果。v165：厂价 ≡ 进价，档案侧两者任一有值即放行。 -->
               <div class="imp-ident-row"><span>厂价列</span><b :class="{ 'imp-miss': impCross.identity.factory == null && impCross.identity.price == null }">{{ impCross.identity.factory != null ? impHeaders[impCross.identity.factory] : (impCross.identity.price != null ? impHeaders[impCross.identity.price] + '（按单价）' : '（未识别）') }}</b></div>
               <div class="imp-ident-row"><span>客户列（{{ impCross.customers.length }} 个）</span><b class="imp-customers">{{ impCross.customers.map(c => c.name).join('、') }}</b></div>
             </div>
@@ -198,22 +199,23 @@
                 已记入「条码冲突」台账，请人工确认后处理。
               </p>
             </div>
-            <!-- v158 厂价闸门：缺厂价被拒的行 —— 「整行不进报单」是硬结果，必须给补价入口指引。
-                 闸门关闭时后端回传 factory_price_gate_on=false → 此块不渲染。 -->
+            <!-- v158 厂价闸门：厂价与进价都没有的行被拒 —— 「整行不进报单」是硬结果，必须给补价入口指引。
+                 闸门关闭时后端回传 factory_price_gate_on=false → 此块不渲染。
+                 v165：判据口径已改「厂价 → 进价」（厂价 ≡ 进价），故不再只看 factory_price 一列。 -->
             <div v-if="impFpRejected" class="imp-arch">
               <div class="imp-arch-hd">厂价必填（已开启）</div>
               <template v-if="impFpRejected.count">
                 <p class="imp-arch-note bad">
-                  有 <b>{{ impFpRejected.count }}</b> 个商品因为<u>没录厂价</u>被拒收，这些行的数量<u>没有</u>进本次报单：
+                  有 <b>{{ impFpRejected.count }}</b> 个商品因为<u>厂价与进价都没有</u>被拒收，这些行的数量<u>没有</u>进本次报单：
                 </p>
                 <ul class="imp-arch-list">
                   <li v-for="(n, i) in impFpRejected.names.slice(0, 8)" :key="i">{{ n }}</li>
                 </ul>
                 <p class="imp-arch-note">
-                  厂价是厂家跟你结算的价。请到 <b>商品档案 → 补厂价</b> 补上（可「导出待补清单」批量填好再导回），补完重新导入本文件即可。
+                  厂价 ＝ 进价 ＝ 厂家跟你结算的价（同一个量）。请到 <b>商品档案 → 补厂价</b> 补上（可「导出待补清单」批量填好再导回），补完重新导入本文件即可。
                 </p>
               </template>
-              <p v-else class="imp-arch-note">本次导入的商品都已录厂价，没有行被拒收。</p>
+              <p v-else class="imp-arch-note">本次导入的商品都有价（厂价或进价），没有行被拒收。</p>
             </div>
             <div class="imp-ft">
               <button class="btn btn-primary" @click="closeImportAndReload">完成，刷新交叉表</button>

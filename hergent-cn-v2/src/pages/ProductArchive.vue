@@ -3,11 +3,11 @@
     <div class="page-hd">
       <div>
         <h2>商品档案</h2>
-        <span class="page-sub">浏览与轻量维护商品主档 · 点品牌格行内改（自动归一）· 点厂价格可直接补价 · 售价/进价/安全库存只读</span>
+        <span class="page-sub">浏览与轻量维护商品主档 · 点品牌格行内改（自动归一）· 点厂价格可直接补价 · 售价/进价/安全库存只读（厂价 ＝ 进价，进价有值即不必再补）</span>
       </div>
       <div class="pa-actions">
         <button v-if="missingFactoryCount > 0" class="btn btn-ghost btn-sm pa-fp-btn" @click="openBatchFp"
-                title="厂价 = 厂家跟你结算的价，用于算「本期需付款」。这里可以逐行填或用清单批量补">
+                title="厂价 ＝ 进价 ＝ 厂家跟你结算的价（同一个量），用于算「本期需付款」。进价已有值的商品不必再补；这里可逐行填或用清单批量补">
           <Icon name="edit"/> 补厂价<span class="pa-fp-n">{{ missingFactoryCount }}</span>
         </button>
         <span class="pa-stat" v-if="total !== null"><b>{{ total }}</b>&nbsp;个商品</span>
@@ -41,7 +41,7 @@
         <table class="tbl">
           <thead><tr>
             <th>名称</th><th>条码</th><th>规格</th><th>单位</th>
-            <th>品牌</th><th class="num">标准售价</th><th class="num">进价</th><th class="num">厂价</th><th class="num">安全库存</th><th>状态</th><th></th>
+            <th>品牌</th><th class="num">标准售价</th><th class="num">进价</th><th class="num" title="厂价 ＝ 进价 ＝ 厂家结算价（同一个量，可留空按进价取）">厂价</th><th class="num">安全库存</th><th>状态</th><th></th>
           </tr></thead>
           <tbody>
             <tr v-for="p in products" :key="p.id" :class="{ stopped: p.is_active === 0 }">
@@ -58,8 +58,12 @@
               <td class="num pa-fp-cell">
                 <input v-if="editingFpId === p.id" v-model="editFp" class="input pa-fp-input" type="number" min="0" step="0.01"
                        @keyup.enter="saveFp(p)" @blur="saveFp(p)">
-                <span v-else-if="Number(p.factory_price) > 0" class="pa-fp-val" @click="startEditFp(p)">{{ money(p.factory_price) }}</span>
-                <span v-else class="pa-fp-miss" title="点这里填厂价" @click="startEditFp(p)">未录</span>
+                <span v-else-if="fpEff(p).from === 'factory'" class="pa-fp-val" @click="startEditFp(p)">{{ money(fpEff(p).v) }}</span>
+                <!-- v165：厂价 ≡ 进价 ⇒ 未单独录厂价但进价有值时，直接显示口径解析后的价（不显示「未录」，
+                     否则用户会以为要重录一遍，而付款额其实已经在用进价）。 -->
+                <span v-else-if="fpEff(p).from === 'purchase'" class="pa-fp-from" @click="startEditFp(p)"
+                      title="按口径「厂价 ＝ 进价」取自进价；点这里也可单独填厂价">取进价 {{ money(fpEff(p).v) }}</span>
+                <span v-else class="pa-fp-miss" title="点这里填厂价（进价也为空）" @click="startEditFp(p)">未录</span>
               </td>
               <td class="num">{{ money(p.purchase_price) }}</td>
               <td class="num">{{ p.safety_stock != null ? p.safety_stock : '—' }}</td>
@@ -101,8 +105,8 @@
               <div class="pa-detail-item"><span>品牌</span><b>{{ detailTarget?.brand || '—' }}</b></div>
               <div class="pa-detail-item"><span>分类</span><b>{{ detailTarget?.category || '—' }}</b></div>
               <div class="pa-detail-item"><span>标准售价</span><b>{{ money(detailTarget?.sale_price) }}</b></div>
-              <div class="pa-detail-item"><span>厂价<span class="pa-hint">出厂价，付款结算用</span></span><b :class="{ 'pa-fp-miss': !(Number(detailTarget?.factory_price) > 0) }">{{ Number(detailTarget?.factory_price) > 0 ? money(detailTarget.factory_price) : '未录' }}</b></div>
               <div class="pa-detail-item"><span>进价</span><b>{{ money(detailTarget?.purchase_price) }}</b></div>
+              <div class="pa-detail-item"><span>厂价<span class="pa-hint">＝ 进价 ＝ 厂家结算价，付款结算用</span></span><b :class="{ 'pa-fp-miss': fpEff(detailTarget).from === 'none' }">{{ fpEff(detailTarget).from === 'none' ? '未录' : money(fpEff(detailTarget).v) + (fpEff(detailTarget).from === 'purchase' ? '（取进价）' : '') }}</b></div>
               <div class="pa-detail-item"><span>分销价</span><b>{{ money(detailTarget?.dist_price) }}</b></div>
               <div class="pa-detail-item"><span>安全库存</span><b>{{ detailTarget?.safety_stock != null ? detailTarget.safety_stock : '—' }}</b></div>
               <div class="pa-detail-item"><span>保质期(天)</span><b>{{ detailTarget?.expiry_days != null ? detailTarget.expiry_days : '—' }}</b></div>
@@ -131,8 +135,8 @@
               <label class="pa-f"><span>单位</span><input v-model="addForm.unit" class="input" placeholder="件（默认）"></label>
               <label class="pa-f"><span>品牌</span><input v-model="addForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
               <label class="pa-f"><span>分类</span><input v-model="addForm.category" class="input" placeholder="如 液态奶"></label>
-              <label class="pa-f"><span>厂价<span class="pa-hint">厂家结算价</span></span><input v-model="addForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               <label class="pa-f"><span>进价</span><input v-model="addForm.purchase_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
+              <label class="pa-f"><span>厂价<span class="pa-hint">＝ 进价，可留空</span></span><input v-model="addForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               <label class="pa-f"><span>售价</span><input v-model="addForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               <label class="pa-f"><span>安全库存</span><input v-model="addForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
               <label class="pa-f"><span>保质期(天)</span><input v-model="addForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
@@ -178,12 +182,13 @@
       <Transition name="pop">
         <div v-if="fpOpen" class="pa-modal pa-wide">
           <div class="pa-modal-hd">
-            <b>批量补厂价 · 还有 {{ fpRows.length }} 个商品未录厂价</b>
+            <b>批量补厂价 · 还有 {{ fpRows.length }} 个商品厂价与进价都没有</b>
             <button class="pa-x" @click="fpOpen = false"><Icon name="close"/></button>
           </div>
           <div class="pa-modal-body">
             <p class="pa-tip">
-              <b>厂价</b> = 厂家跟你结算的价（既不是标准售价，也不是进价）。它用于算「本期需付款 = 定稿量 × 厂价」。<br>
+              <b>厂价 ＝ 进价 ＝ 厂家跟你结算的价</b>（同一个量，档案里分成两列存）。它用于算「本期需付款 = 定稿量 × 厂价」，
+              取价顺序为 <b>厂价 → 进价 → 标准售价</b>，所以<b>进价已有值的商品不必在这里重录</b>。<br>
               两种填法任选：① 直接在下表逐行填；② 点「导出待补清单」到 Excel 里填好，再点「导入回填」——
               回填按 <b>商品编号</b> 定位（编号缺失才退回条码），所以<b>没有条码的商品也能补</b>，前两列请勿改动。
             </p>
@@ -196,10 +201,10 @@
               </label>
               <span class="pa-fp-gate-hint">
                 <template v-if="fpGate">
-                  已开启：没录厂价的商品在<b>报单导入</b>与<b>小程序报单</b>时都会被拒收。<b v-if="fpGateMissing">当前还有 {{ fpGateMissing }} 个没补，建议先补完再保持开启。</b>
+                  已开启：厂价与进价都没有的商品，在<b>报单导入</b>与<b>小程序报单</b>时都会被拒收。<b v-if="fpGateMissing">当前还有 {{ fpGateMissing }} 个没补，建议先补完再保持开启。</b>
                 </template>
                 <template v-else>
-                  未开启：缺厂价现在也能正常报单，只是<b>「本期需付款」会按标准售价估算（偏大）</b>。<span v-if="fpGateMissing"> 还有 {{ fpGateMissing }} 个商品没补厂价。</span>
+                  未开启：价格没录也能正常报单 —— 有进价的按进价算，<b>厂价与进价都没有的才按标准售价估算（偏大）</b>。<span v-if="fpGateMissing"> 还有 {{ fpGateMissing }} 个商品价格没录。</span>
                 </template>
               </span>
             </div>
@@ -297,11 +302,15 @@ const includeInactive = ref(false)
 const brandOptions = ref([])
 
 const categoryOptions = ref([])
-// ---- v157 厂价（出厂价）----
-// 厂价是厂家结算口径，与「标准售价 / 进价」都不是一回事；缺厂价时「本期需付款」会按标准售价
-// 回退估算（偏大），**闸门开启后**才会在报单导入 / 小程序报单时被拒收。
+
+// ---- v157 厂价（v165 更正口径）----
+// 🔴 厂价 ≡ 进价 ≡ 厂家跟经销商结算的价 —— **同一个量**（用户 2026-09-14 定调原话「厂价就是进价」）。
+// v132 曾把它另建成独立列 `factory_price`，与既有列 `purchase_price`（列头「进价」）同义；
+// 实测真实租户 `factory_price` 269/269 全空、价都在进价里 ⇒ 解析口径 = **厂价优先，缺则取进价**，
+// 两者皆无才回退标准售价（偏大）。闸门开启后，厂价与进价都没有的商品会在报单导入 / 小程序报单时被拒收。
+// 解析的唯一实现：前端 `fpEff()`（本页）/ 后端 `db.factory_price_sql`。改口径请只改这两处。
 const allProducts = ref([])           // 全量商品索引（含停用），供补厂价面板与分类候选共用
-const missingFactoryCount = ref(0)    // 启用商品中「未录厂价」的数量 → 为 0 时工具栏入口自动隐藏
+const missingFactoryCount = ref(0)    // 启用商品中「厂价与进价都没有」的数量 → 为 0 时工具栏入口自动隐藏
 const editingFpId = ref(null)
 const editFp = ref('')
 const fpOpen = ref(false)
@@ -311,13 +320,12 @@ const fpCategory = ref('')
 const fpSaving = ref(false)
 const fpResult = ref(null)
 const fpShowLimit = 200               // 面板内一次渲染上限（其余走「导出待补清单」）
-// v158 厂价闸门：开启后「报单导入」与「小程序报单」都会拒收没录厂价的商品行；**默认关闭**。
-// 关闭时缺厂价也能照常报单，但付款金额会按标准售价回退估算（偏大）—— 文案必须如实说清，
-// 不能无条件写「会被拒收」（此前 8 处文案都这么写，而代码里根本没有拒收逻辑）。
+// v158 厂价闸门：开启后「报单导入」与「小程序报单」都会拒收**厂价与进价都没有**的商品行；**默认关闭**。
+// 关闭时价格没录也能照常报单：有进价的按进价算，只有两者皆无才按标准售价回退估算（偏大）。
+// 文案必须如实说清，不能无条件写「会被拒收」（此前 8 处文案都这么写，而代码里根本没有拒收逻辑）。
 const fpGate = ref(false)
 const fpGateBusy = ref(false)
-const fpGateMissing = ref(0)          // 后端权威的「未录厂价」计数
-
+const fpGateMissing = ref(0)          // 后端权威的「厂价与进价都没有」计数
 
 const totalPages = computed(() => Math.max(1, Math.ceil((total.value || 0) / pageSize.value)))
 /* ---- v157 批量补厂价：派生视图 ---- */
@@ -383,10 +391,24 @@ async function refreshProductIndex() {
   } catch (e) { /* 商品索引为增强项，失败不影响主流程 */ }
 }
 
+// v165 厂价口径：**厂价 ≡ 进价 ≡ 厂家结算价（同一个量）** —— 用户 2026-09-14 定调。
+// v132 曾把厂价另建成独立列 factory_price，实测真实租户 269/269 全空，价其实都在「进价」里。
+// 本函数是前端**唯一**的解析处（与后端 `factory_price_sql` 逐字同规则）：
+//   厂价列有值 → 用它（兼容历史上单独填过的租户）；否则取进价；两者皆无才视为缺价。
+function fpEff(p) {
+  const f = Number(p?.factory_price || 0)
+  if (f > 0) return { v: f, from: 'factory' }
+  const pp = Number(p?.purchase_price || 0)
+  if (pp > 0) return { v: pp, from: 'purchase' }
+  return { v: 0, from: 'none' }
+}
+
 function recomputeMissingFactory() {
+  // 「待补厂价」= 厂价与进价**都没有**的启用商品（改前只看 factory_price ⇒ 真实租户 269 全中，
+  // 会让用户重录一遍已经在「进价」里的数）。
   missingFactoryCount.value = allProducts.value
     .filter(p => p.is_active !== 0)
-    .filter(p => !(Number(p.factory_price) > 0)).length
+    .filter(p => fpEff(p).from === 'none').length
 }
 
 function onFilterChange() { page.value = 1; loadProducts() }
@@ -478,8 +500,8 @@ async function toggleFpGate() {
     fpGate.value = !!g.enabled
     fpGateMissing.value = Number(g.missing_count || 0)
     toast(next
-      ? `已开启厂价必填：没录厂价的商品在报单导入 / 小程序报单时会被拒收（当前还有 ${g.missing_count} 个没补）`
-      : '已关闭厂价必填：不再拦缺厂价的商品（缺厂价时付款金额会按标准售价估算）',
+      ? `已开启厂价必填：厂价与进价都没有的商品在报单导入 / 小程序报单时会被拒收（当前还有 ${g.missing_count} 个没补）`
+      : '已关闭厂价必填：不再拦价格缺失的商品（有进价的按进价算，两者皆无才按标准售价估算）',
       next ? 'warn' : 'ok')
   } catch (e) { toast(e.message || '开关失败', 'err') }
   finally { fpGateBusy.value = false }
@@ -675,6 +697,8 @@ onMounted(() => {
 .pa-fp-cell{white-space:nowrap}
 .pa-fp-val{cursor:pointer;border-bottom:1px dashed transparent}
 .pa-fp-val:hover{border-bottom-color:var(--p);color:var(--p)}
+.pa-fp-from{cursor:pointer;color:var(--txt-3);font-size:12px;border-bottom:1px dashed transparent}
+.pa-fp-from:hover{border-bottom-color:var(--p);color:var(--p)}
 .pa-fp-miss{display:inline-block;padding:1px 8px;border-radius:8px;background:rgba(var(--war-rgb),.14);color:var(--war);font-size:12px;cursor:pointer}
 .pa-fp-miss:hover{background:rgba(var(--war-rgb),.24)}
 .pa-fp-input{width:92px;height:30px;text-align:right;padding:0 8px}
