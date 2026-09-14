@@ -407,3 +407,27 @@ export const messagesApi = {
   markRead: (mid) => api(`/api/messages/${mid}/read`, { method: 'POST' }),
   markAllRead: () => api('/api/messages/read-all', { method: 'POST' }),
 }
+
+/* ---- v159 价格渠道（渠道是**数据**不是代码：客户自行配置，加一条渠道不用改代码）----
+   取价的唯一实现在后端 db/queries/prices.py（resolve_report_channel / resolve_channel_price
+   / resolve_channel_code）。**前端不得另算一份价** —— 试算接口走的就是模板生成同一个函数，
+   保证「界面上看到的」＝「生成时用的」。 */
+export const priceChannelApi = {
+  list: () => api('/api/price-channels'),
+  sources: () => api('/api/price-channels/sources'),
+  create: (data) => api('/api/price-channels', { method: 'POST', body: data }),
+  update: (cid, data) => api(`/api/price-channels/${cid}`, { method: 'PUT', body: data }),
+  remove: (cid) => api(`/api/price-channels/${cid}`, { method: 'DELETE' }),
+  setDefault: (cid) => api(`/api/price-channels/${cid}/default`, { method: 'PUT' }),
+  matrix: (cid, { keyword = '', offset = 0, limit = 50 } = {}) =>
+    api(`/api/price-channels/${cid}/matrix?keyword=${encodeURIComponent(keyword)}&offset=${offset}&limit=${limit}`),
+  saveMatrix: (cid, items) =>
+    api(`/api/price-channels/${cid}/matrix`, { method: 'POST', body: { items } }),
+  summary: (cid) => api(`/api/price-channels/${cid}/summary`),
+  /* 试算：商品 + 报单对象 → 取到哪个渠道的价、来源、是否缺失、缺了会怎么回退 */
+  resolve: ({ productId, mappingId = 0, channelId = 0 }) =>
+    api('/api/price-channels/resolve', {
+      method: 'POST',
+      body: { product_id: productId, mapping_id: mappingId, channel_id: channelId },
+    }),
+}

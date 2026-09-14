@@ -25,6 +25,7 @@ const CronJobs = () => import('../pages/CronJobs.vue')
 const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
 const AiHub = () => import('../pages/AiHub.vue')
+const PriceChannels = () => import('../pages/PriceChannels.vue')
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -52,6 +53,8 @@ export const router = createRouter({
         { path: 'archive/products', component: Archive, meta: { title: '档案管理' } },
         { path: 'cron', component: CronJobs, meta: { title: '定时任务' } },
         { path: 'ai-hub', component: AiHub, meta: { title: 'AI 中心' } },
+        // v159：价格渠道字典 —— 渠道是数据不是代码，客户自行配置（独立一级入口）
+        { path: 'price-channels', component: PriceChannels, meta: { title: '渠道与价格' } },
         { path: 'settings', component: Settings, meta: { title: '设置' } },
         { path: 'bid-radar', component: BidRadar, meta: { title: '招投标雷达' } }
       ]

@@ -45,7 +45,7 @@
         <thead>
           <tr>
             <th>员工</th><th>对象类型</th><th>对象全称</th><th>简称(列头)</th>
-            <th>单型</th><th>仓库(调拨)</th><th>状态</th><th class="ops">操作</th>
+            <th>单型</th><th>取价渠道</th><th>仓库(调拨)</th><th>状态</th><th class="ops">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -55,6 +55,7 @@
             <td>{{ m.counterparty_name || m.system_name || '—' }}</td>
             <td><b>{{ m.report_alias }}</b></td>
             <td>{{ m.order_template || '—' }}</td>
+            <td>{{ channelShow(m) }}</td>
             <td class="num">{{ whShow(m) }}</td>
             <td>
               <span v-if="m.is_active === 0" class="tag danger">已停用</span>
@@ -66,7 +67,7 @@
               <button v-else class="btn btn-ghost btn-sm" @click="toggle(m.id, 1)">启用</button>
             </td>
           </tr>
-          <tr v-if="!list.length"><td colspan="8" class="empty">暂无报单配置，点「新建配置」或「Excel 批量导入」开始</td></tr>
+          <tr v-if="!list.length"><td colspan="9" class="empty">暂无报单配置，点「新建配置」或「Excel 批量导入」开始</td></tr>
         </tbody>
       </table>
     </div>
@@ -138,6 +139,17 @@
               <label>单型 <span class="req">*</span></label>
               <input v-model="form.order_template" placeholder="如：调拨单 / 自提订单 / 访销单（可自定义）" />
             </div>
+            <div v-if="form.counterparty_type !== 'self_warehouse'" class="field">
+              <label>取价渠道</label>
+              <select v-model="form.channel_id">
+                <option :value="0">自动（按客户档案／默认渠道）</option>
+                <option v-for="c in channels" :key="c.id" :value="c.id">{{ c.name }}{{ c.is_default ? '（默认）' : '' }}</option>
+              </select>
+              <span class="hint">
+                默认「自动」＝先看该客户档案上绑的渠道，没绑就落到默认渠道。这里选了就一直用它，覆盖客户档案。
+                调拨不走渠道取价，故不显示。
+              </span>
+            </div>
             <template v-if="form.counterparty_type === 'self_warehouse'">
               <div class="field">
                 <label>源仓</label>
@@ -202,7 +214,7 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
-import { reportMappingApi } from '../api/modules'
+import { reportMappingApi, priceChannelApi } from '../api/modules'
 import { api } from '../api/client'
 import { toast } from '../store'
 
@@ -227,7 +239,22 @@ const types = [
 const form = reactive({
   employee_id: 0, counterparty_type: 'store', counterparty_id: 0,
   system_name: '', report_alias: '', order_template: '', src_wh: 0, dst_wh: 0,
+  channel_id: 0,
 })
+
+// v159（2026-09-14）：取价渠道。渠道是租户自配的数据，这里只做“覆盖位”；
+// 0 = 不覆盖，按客户档案→默认渠道的顺序自动判。
+const channels = ref([])
+const chMap = computed(() => {
+  const m = {}
+  for (const c of channels.value) m[c.id] = c
+  return m
+})
+function channelShow(m) {
+  if (!m.channel_id) return '自动'
+  const c = chMap.value[m.channel_id]
+  return c ? c.name : `#${m.channel_id}（已删除）`
+}
 
 const hasProblem = computed(() => health.value && (
   health.value.unmapped_count > 0 || health.value.alias_conflicts.length > 0 || health.value.unassigned_count > 0
@@ -306,6 +333,10 @@ async function loadAll() {
   try { list.value = await reportMappingApi.list({ include_inactive: 1 }) } catch (e) { toast(e.message || '加载失败', 'err') }
   try { const r = await reportMappingApi.health(); health.value = r } catch {}
 }
+async function loadChannels() {
+  // 渠道字典只用于下拉与列头显示；失败不影响报单配置本身（不弹错、静默降级成「自动」）
+  try { const r = await priceChannelApi.list(); channels.value = r.channels || [] } catch {}
+}
 async function loadRefs() {
   try {
     const r = await api('/api/report-mappings/refs')
@@ -319,6 +350,7 @@ function resetForm() {
   form.employee_id = 0; form.counterparty_type = 'store'; form.counterparty_id = 0
   form.system_name = ''; form.report_alias = ''; form.order_template = ''
   form.src_wh = 0; form.dst_wh = 0
+  form.channel_id = 0
   objKeyword.value = ''; objOpen.value = false
 }
 function onType(t) {
@@ -356,6 +388,7 @@ function openEdit(m) {
   form.order_template = m.order_template || ''
   form.src_wh = m.src_wh || 0
   form.dst_wh = m.dst_wh || 0
+  form.channel_id = m.channel_id || 0
   // 回填对象下拉显示名（本人仓走只读框，无需回填）
   objKeyword.value = ''
   if (m.counterparty_type !== 'self_warehouse') {
@@ -376,6 +409,8 @@ async function save() {
       counterparty_id: Number(form.counterparty_id), system_name: form.system_name,
       report_alias: form.report_alias, order_template: form.order_template,
       src_wh: Number(form.src_wh), dst_wh: Number(form.dst_wh),
+      // ⚠️ 0 是有效值（＝自动/继承），必须原样传，不能被“空值不传”的写法挡掉
+      channel_id: Number(form.channel_id) || 0,
     }
     const res = editId.value
       ? await reportMappingApi.update(editId.value, body)
@@ -414,7 +449,7 @@ async function onFile(e) {
   finally { e.target.value = '' }
 }
 
-onMounted(() => { loadRefs(); loadAll() })
+onMounted(() => { loadRefs(); loadAll(); loadChannels() })
 </script>
 
 <style scoped>
