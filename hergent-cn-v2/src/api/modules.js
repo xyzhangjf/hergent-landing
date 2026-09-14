@@ -112,10 +112,6 @@ export const forecastApi = {
   interventionsPost: (body) => api('/api/forecast/interventions', { method: 'POST', body }),
   // P15-7 Hermes 深度联动
   hermesAnalyze: (body) => api('/api/forecast/hermes-analyze', { method: 'POST', body }),
-  // P16-8 配方市场
-  recipeMarketGet: () => api('/api/forecast/recipe-market'),
-  recipeMarketPublish: (body) => api('/api/forecast/recipe-market', { method: 'POST', body }),
-  recipeMarketAdopt: (body) => api('/api/forecast/recipe-market/adopt', { method: 'POST', body }),
   // P16-9 数据健康分
   dataHealth: () => api('/api/forecast/data-health'),
 }

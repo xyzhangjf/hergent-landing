@@ -266,7 +266,7 @@
               <div class="audit-sum">
                 <span>{{ auditData.summary?.sku_count || 0 }} 个 SKU</span>
                 <span>预报 <b>{{ fmt(auditData.summary?.total_requested) }}</b> 件</span>
-                <span>AI 建议 <b class="audit-sug">{{ fmt(auditData.summary?.total_suggested) }}</b> 件</span>
+                <span>系统建议 <b class="audit-sug">{{ fmt(auditData.summary?.total_suggested) }}</b> 件</span>
                 <span v-if="auditData.summary?.missing_count" class="val-bad">缺货 {{ auditData.summary.missing_count }}</span>
                 <span v-if="auditData.summary?.excess_count" class="val-warn">积压 {{ auditData.summary.excess_count }}</span>
               </div>
@@ -519,7 +519,7 @@
                       <span class="exp-chev" @click.stop="toggleExpand(it.r.product_id)" :title="isExpanded(it.r.product_id) ? '收起明细' : '展开明细'"><Icon :name="isExpanded(it.r.product_id) ? 'chevron-down' : 'chevron-right'"/></span>
                       <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-' + it.r.ordering_entity">{{ it.r.ordering_entity }}</span></div>
                       <div class="pspec">{{ it.r.spec || '—' }} · {{ it.r.unit }}<span v-if="it.r.people"> · {{ it.r.people }} 人报</span></div>
-                      <div v-if="it.r.ai != null" class="ai-hint">AI 建议 {{ fmt(it.r.ai) }}{{ it.r.unit }}<span v-if="it.r.aiMethod" class="hint">（{{ it.r.aiMethod }}）</span></div>
+                      <div v-if="it.r.ai != null" class="ai-hint">系统建议 {{ fmt(it.r.ai) }}{{ it.r.unit }}<span v-if="it.r.aiMethod" class="hint">（{{ it.r.aiMethod }}）</span></div>
                       <span v-if="rowWarn(it.r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
                       <span v-else-if="rowWarn(it.r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）"><Icon name="alert-triangle"/></span>
                       <span v-if="lossWarn(it.r)" class="loss-badge" :class="lossWarn(it.r)" :title="lossTip(it.r)"><Icon name="flame"/></span>
@@ -553,7 +553,7 @@
                     <div class="det-grid">
                       <div class="det-row2"><span>品类</span><b>{{ it.r.category || '—' }}</b></div>
                       <div class="det-row2"><span>品牌</span><b>{{ it.r.brand || '—' }}</b></div>
-                      <div class="det-row2"><span>AI建议</span><b v-if="it.r.ai != null">{{ fmt(it.r.ai) }}{{ it.r.unit }} <i v-if="it.r.aiMethod" class="det-i">{{ it.r.aiMethod }}</i></b><span v-else>—</span></div>
+                      <div class="det-row2"><span>系统建议</span><b v-if="it.r.ai != null">{{ fmt(it.r.ai) }}{{ it.r.unit }} <i v-if="it.r.aiMethod" class="det-i">{{ it.r.aiMethod }}</i></b><span v-else>—</span></div>
                       <div class="det-row2"><span>备注</span><b>{{ rowNote(it.r) || '—' }}</b></div>
                       <div class="det-row2"><span>风险</span><b :class="riskCls(it.r)">{{ riskText(it.r) }}</b></div>
                       <div class="det-row2 det-units-row"><span>各单元</span>
@@ -673,7 +673,7 @@
                 </th>
                 <th class="num calc-th extra">加单<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'extra')" @click.stop></span></th>
                 <th class="num calc-th amount">金额<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'amount')" @click.stop></span></th>
-                <th v-if="showSuggest" class="num calc-th suggest">建议<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'suggest')" @click.stop></span></th>
+                <th v-if="showSuggest" class="num calc-th suggest" title="配方建议：按「建议算法」面板当前策略算出，只受该面板影响">配方建议<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'suggest')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th">上期量<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'comparePrev')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th delta">Δ<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'compareDelta')" @click.stop></span></th>
                 <th v-if="showSpark" class="spark-th">趋势<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'spark')" @click.stop></span></th>
@@ -724,7 +724,7 @@
                 </td>
                 <td class="num calc extra" :data-r="ri"><input v-model.number="r.extraQty" class="cell-input cell-qty" type="number" min="0" placeholder="0" :data-r="ri" :data-c="visibleCols.length + cross.units.length" @focus="onFocusCell(ri, visibleCols.length + cross.units.length)" @change="onCellChange"></td>
                 <td class="num calc amount" :data-r="ri">{{ fmt(rowAmount(r)) }}</td>
-                <td v-if="showSuggest" class="num calc suggest" :data-r="ri">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
+                <td v-if="showSuggest" class="num calc suggest" :data-r="ri" title="配方建议：按「建议算法」面板策略算出">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
                 <td v-if="compareOn" class="num calc" :data-r="ri">{{ prevQty(r) != null ? fmt(prevQty(r)) : '—' }}</td>
                 <td v-if="compareOn" class="num calc delta" :class="deltaClass(r)" :data-r="ri">{{ deltaQty(r) == null ? '—' : (deltaQty(r) > 0 ? '+' : '') + fmt(deltaQty(r)) }}</td>
                 <td v-if="showSpark" class="spark-td" :data-r="ri">
@@ -817,12 +817,12 @@
               <button class="btn btn-ghost btn-sm" @click="trailOpen=!trailOpen"><Icon name="list"/> 审计</button>
               <button class="btn btn-ghost btn-sm" @click="loadTemplates" :disabled="tmplLoading"><Icon name="book"/> 行业模板</button>
               <button class="btn btn-ghost btn-sm" @click="loadBI" :disabled="biLoading"><Icon name="bar-chart"/> 经营看板</button>
-              <button class="btn btn-ghost btn-sm" @click="loadMarket" :disabled="marketLoading"><Icon name="store"/> 配方市场</button>
-              <button class="btn btn-ghost btn-sm" @click="suggestPanel=!suggestPanel"><Icon name="settings"/> 建议算法</button>
+              <button class="btn btn-ghost btn-sm" @click="suggestPanel=!suggestPanel" title="建议量算法：只影响报单汇总表的「配方建议」列，不影响「系统建议」列"><Icon name="settings"/> 建议算法</button>
               <button class="btn btn-ghost btn-sm" @click="pagingOn=!pagingOn"><Icon name="file"/> 分页模式</button>
             </template>
           </div>
           <div v-if="suggestPanel" class="recipe-panel">
+            <span class="hint">只影响「配方建议」列</span>
             <span>策略</span>
             <select v-model="suggRecipe.strategy">
               <option value="safety">安全库存法</option>
@@ -1001,7 +1001,7 @@
 
           <!-- P11-2 安全库存 AI 建议 -->
           <div v-if="safetyOpen" class="info-panel">
-            <div class="panel-hd"><b><Icon name="shield"/> 安全库存 AI 建议</b><button class="imp-x" @click="safetyOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="shield"/> 安全库存建议</b><button class="imp-x" @click="safetyOpen=false"><Icon name="close"/></button></div>
             <div v-if="safetyLoading" class="hint">测算中…</div>
             <ul v-else-if="safetyItems.length" class="push-list">
               <li v-for="s in safetyItems" :key="s.product_id">
@@ -1230,27 +1230,6 @@
                 <div class="stat-row stat-sample"><span>示例</span><b>{{ colStats.sample }}</b></div>
               </template>
             </div>
-          </div>
-
-          <!-- P16-8 配方市场 -->
-          <div v-if="marketOpen" class="info-panel">
-            <div class="panel-hd"><b><Icon name="store"/> 配方市场（行业配方可交易资产）</b><button class="imp-x" @click="marketOpen=false"><Icon name="close"/></button></div>
-            <div v-if="marketLoading" class="imp-tip">加载中…</div>
-            <template v-else>
-              <div class="imp-tip">发布当前配方到市场：</div>
-              <div class="mini-form">
-                <input v-model="marketName" class="input" placeholder="配方名称">
-                <input v-model.number="marketPrice" type="number" min="0" class="input" placeholder="价格(元)" style="width:90px">
-                <input v-model="marketDesc" class="input" placeholder="简介">
-                <button class="btn btn-primary btn-sm" @click="publishMarket">发布</button>
-              </div>
-              <div class="imp-tip">市场配方（{{ marketList.length }}）：</div>
-              <div v-for="m in marketList" :key="m.id" class="heal-row">
-                <div><b>{{ m.name }}</b> · {{ m.price ? ('¥'+m.price) : '免费' }} · {{ m.author }}</div>
-                <div class="imp-tip">{{ m.desc }}</div>
-                <button class="btn btn-ghost btn-xs" @click="adoptMarket(m.id)">采纳到本租户</button>
-              </div>
-            </template>
           </div>
 
           <!-- P16-9 数据健康分 -->
@@ -1838,7 +1817,9 @@ const colOrderList = computed(() => {
   cols.push({ type: 'calc', key: 'boxes', label: '件数' })
   cols.push({ type: 'calc', key: 'extra', label: '加单' })
   cols.push({ type: 'calc', key: 'final', label: '最终下单' })
-  if (showSuggest.value) cols.push({ type: 'calc', key: 'ai', label: 'AI建议' })
+  // ⚠️ 命名纪律（2026-09-14）：本列是**后端固定口径**（routers/forecast_audit.py 的安全库存/到货周期/提前期常量），
+  // 与报单汇总表里受「建议算法」面板控制的「配方建议」列**是两个不同的量**，不得同名。改名前它叫「AI建议」。
+  if (showSuggest.value) cols.push({ type: 'calc', key: 'ai', label: '系统建议' })
   cols.push({ type: 'calc', key: 'price', label: '单价(厂价)' })
   cols.push({ type: 'calc', key: 'amount', label: '下单金额' })
   return cols
@@ -2845,7 +2826,7 @@ function editColDescAt(c) {
   if (yoyOn.value) { extra.push('yoyPrev'); extra.push('yoyDelta') }
   extra.push('sum')
   const key = extra[k]; if (!key) return null
-  const lblMap = { amount: '下单金额', suggest: 'AI建议', comparePrev: '上期量', compareDelta: 'Δ', spark: '趋势', yoyPrev: '去年同期', yoyDelta: '同比', sum: '合计' }
+  const lblMap = { amount: '下单金额', suggest: '配方建议', comparePrev: '上期量', compareDelta: 'Δ', spark: '趋势', yoyPrev: '去年同期', yoyDelta: '同比', sum: '合计' }
   return { type: 'calc', key, label: lblMap[key] || key }
 }
 // 分组小计：仅文本型主档列可分组
@@ -3248,7 +3229,7 @@ function ctxAskAi() {
   let hist = ''
   try { (r.history || []).slice(-4).forEach(h => { hist += ` ${h.period}:${h.qty || h.value || ''}` }) } catch (e) {}
   const units = cross.value.units.map(u => `${u.name}:${r.qtyByUnit[u.name] || 0}`).join('，')
-  hermesCtx.value = `我是低温奶经销商，请基于以下商品分析本期订货建议，重点说明：是否合理、库存/货损风险、可优化点。\n商品：${r.name}（规格 ${r.spec || '—'} ${r.unit || ''}）\n安全库存：${r.safety_stock || 0}　保质期：${r.expiry_days || 0}天\n各报单单元订量：${units || '无'}\n合计：${r.total || 0}${r.unit || ''}　下单金额：¥${fmt(r.amount)}\n系统AI建议：${r.ai != null ? r.ai : '—'}\n历史销量：${hist || '无'}`
+  hermesCtx.value = `我是低温奶经销商，请基于以下商品分析本期订货建议，重点说明：是否合理、库存/货损风险、可优化点。\n商品：${r.name}（规格 ${r.spec || '—'} ${r.unit || ''}）\n安全库存：${r.safety_stock || 0}　保质期：${r.expiry_days || 0}天\n各报单单元订量：${units || '无'}\n合计：${r.total || 0}${r.unit || ''}　下单金额：¥${fmt(r.amount)}\n系统建议：${r.ai != null ? r.ai : '—'}\n历史销量：${hist || '无'}`
   hermesOpen.value = true
   closeCtx()
   runHermes()
@@ -3302,7 +3283,7 @@ function colHeaderAt(c) {
   if (showSpark.value) extra.push('spark')
   if (yoyOn.value) { extra.push('yoyPrev'); extra.push('yoyDelta') }
   extra.push('sum')
-  const m = { amount: '下单金额', suggest: 'AI建议', comparePrev: '上期量', compareDelta: 'Δ', spark: '趋势', yoyPrev: '去年同期', yoyDelta: '同比', sum: '合计' }
+  const m = { amount: '下单金额', suggest: '配方建议', comparePrev: '上期量', compareDelta: 'Δ', spark: '趋势', yoyPrev: '去年同期', yoyDelta: '同比', sum: '合计' }
   return m[extra[k]] || extra[k]
 }
 function regionRect() {
@@ -4589,7 +4570,7 @@ function buildSuggestBook() {
   if (lossN) t += `货损：${lossN} 个短保商品订量超安全库存，建议下调或加快周转。\n`
   const moqN = cross.value.rows.filter(r => moqWarn(r) === 'below').length
   if (moqN) t += `MOQ：${moqN} 个商品未达起订量，建议凑单或调起订量。\n`
-  t += '\n（AI 建议，最终以人定稿为准）'
+  t += '\n（系统建议，最终以人定稿为准）'
   return t
 }
 function genSuggestBook() {
@@ -5157,32 +5138,11 @@ async function runHermes() {
   finally { hermesLoading.value = false }
 }
 
-// ---------- P16-8 配方市场 ----------
-const marketOpen = ref(false)
-const marketLoading = ref(false)
-const marketList = ref([])
-const marketMine = ref([])
-const marketName = ref('')
-const marketPrice = ref(0)
-const marketDesc = ref('')
-async function loadMarket() {
-  marketLoading.value = true; marketOpen.value = true
-  try { const r = await forecastApi.recipeMarketGet(); marketList.value = r.market || []; marketMine.value = r.mine || [] } catch (e) { toast('加载失败：' + (e.message || e), 'err') }
-  finally { marketLoading.value = false }
-}
-async function publishMarket() {
-  if (!marketName.value.trim()) { toast('请填配方名称', 'warn'); return }
-  const recipe = (tmplList.value && tmplList.value[0]) ? (tmplList.value[0].recipe || tmplList.value[0]) : {}
-  try {
-    const r = await forecastApi.recipeMarketPublish({ name: marketName.value, recipe, price: marketPrice.value, desc: marketDesc.value })
-    toast('已发布到配方市场 #' + r.entry.id, 'ok')
-    marketName.value = ''; marketDesc.value = ''
-    loadMarket()
-  } catch (e) { toast('发布失败：' + (e.message || e), 'err') }
-}
-async function adoptMarket(id) {
-  try { await forecastApi.recipeMarketAdopt({ id }); toast('已采纳到本租户模板库', 'ok'); loadMarket() } catch (e) { toast('采纳失败：' + (e.message || e), 'err') }
-}
+// ---------- 配方市场已下线（2026-09-14）----------
+// 原 P16-8「配方市场（行业配方可交易资产）」的按钮/面板/函数已删除：
+// ① 产品定调为「不对外分发共享配方」（见 outputs/Hergent-产品形态再评估-2026-09-14.md）；
+// ② 其存储只是本租户库内 forecast_config[kind=recipe_market]，并非跨租户市场 —— 名不副实。
+// 后端 /api/forecast/recipe-market* 三个端点已无调用方，留待后续一并清理。
 
 // ---------- P16-9 数据健康分 ----------
 const hsOpen = ref(false)
