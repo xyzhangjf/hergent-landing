@@ -513,7 +513,7 @@ function fpSelectAll(v) { fpViewRows.value.forEach(r => { r._ck = v }) }
 // 导出待补清单：**走后端生成**（后端那份带「商品编号」列作导回钥匙）。
 // 为什么不在前端用 SheetJS 造：钥匙规则必须在唯一一处实现 —— 实测前端那版只有条码，
 // 而本域存在「无条码商品」（演示租户 11 个待补商品全部无条码）与「共码商品」
-// （恒滋/福宝共用条码），只认条码 → 前者永远补不回去、后者会把厂价写到错的商品上。
+// （两个下单主体共用同一商品条码），只认条码 → 前者永远补不回去、后者会把厂价写到错的商品上。
 async function exportFpList() {
   try {
     const blob = await importApi.factoryPriceTemplate({ brand: fpBrand.value, category: fpCategory.value })

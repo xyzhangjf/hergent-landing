@@ -42,7 +42,7 @@
   --sev-warn:#BA7517; --sev-warn-bg:rgba(186,117,23,.12);  /* 警告/偏低 */
   --sev-info:#9A6B00; --sev-info-bg:rgba(154,107,0,.12);   /* 到期/待处理金 */
   --sev-expired:#7A1F1F;                                    /* 已过期 */
-  --violet:#7c3aed; --violet-bg:#f3e8ff;                   /* 客户紫/福宝 */
+  --violet:#7c3aed; --violet-bg:#f3e8ff;                   /* 客户紫（下单主体徽标色板之一） */
   --st-draft-bg:#eeeeee; --st-draft-txt:#555555;            /* 草稿 */
   --st-submitted-bg:#FFF3D6; --st-submitted-txt:#9A6B00;    /* 已提交 */
   --st-approved-bg:#DDF5E7; --st-approved-txt:#0F6E56;      /* 已通过 */

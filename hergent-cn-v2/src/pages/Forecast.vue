@@ -519,7 +519,7 @@
                     <template v-if="col.type === 'seq'"><span class="seq-num">{{ it.seq }}</span></template>
                     <template v-else-if="col.type === 'master' && col.key === 'name'">
                       <span class="exp-chev" @click.stop="toggleExpand(it.r.product_id)" :title="isExpanded(it.r.product_id) ? '收起明细' : '展开明细'"><Icon :name="isExpanded(it.r.product_id) ? 'chevron-down' : 'chevron-right'"/></span>
-                      <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-' + it.r.ordering_entity">{{ it.r.ordering_entity }}</span></div>
+                      <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span></div>
                       <div class="pspec">{{ it.r.spec || '—' }} · {{ it.r.unit }}<span v-if="it.r.people"> · {{ it.r.people }} 人报</span></div>
                       <div v-if="it.r.ai != null" class="ai-hint">系统建议 {{ fmt(it.r.ai) }}{{ it.r.unit }}<span v-if="it.r.aiMethod" class="hint">（{{ it.r.aiMethod }}）</span></div>
                       <span v-if="rowWarn(it.r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
@@ -6058,6 +6058,16 @@ function fmt(n) {
   if (n == null) return '—'
   return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 })
 }
+/* P1-4 下单主体徽标配色：把主体名稳定散列到 6 色色板（oe-c0..oe-c5）。
+   不针对任何具体主体名做特判 —— 主体由租户在「报单配置」里自己定义，
+   相同主体恒定同色，不同主体大概率异色。 */
+const OE_COLOR_N = 6
+function oeColorIdx(name) {
+  const s = String(name || '')
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 9973
+  return h % OE_COLOR_N
+}
 function achClass(ach) {
   if (ach == null) return ''
   if (ach >= 1) return 'val-ok'
@@ -6520,9 +6530,17 @@ th.sortable:hover{color:var(--p-dark)}
 .audit-more{display:flex;justify-content:center;padding:8px 0 2px}
 
 /* ---- P1-4 下单主体徽标 ---- */
+/* P1-4 下单主体徽标：按主体名稳定散列到有限色板。
+   原先只写了两个具体户头名的类（`.oe-<户头名>`），后果有二：
+   ① 真实户头名随产品交付到客户机器；② 其它租户的主体徽标匹配不到任何类 → 永远没有配色（只有裸徽标）。
+   现改为通用色板 oe-c0..oe-c5，同名恒定同色，与主体名具体叫什么无关。 */
 .oe-badge{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:999px;font-size:10.5px;margin-left:6px;vertical-align:1px}
-.oe-恒滋{background:var(--p-bg);color:var(--p-dark)}
-.oe-福宝{background:var(--violet-bg);color:var(--violet)}
+.oe-c0{background:var(--p-bg);color:var(--p-dark)}
+.oe-c1{background:var(--violet-bg);color:var(--violet)}
+.oe-c2{background:var(--sev-info-bg);color:var(--sev-info)}
+.oe-c3{background:var(--st-approved-bg);color:var(--st-approved-txt)}
+.oe-c4{background:var(--st-revised-bg);color:var(--st-revised-txt)}
+.oe-c5{background:var(--st-submitted-bg);color:var(--st-submitted-txt)}
 
 .new-period{margin-bottom:14px}
 .np-row{display:flex;gap:10px;flex-wrap:wrap}
