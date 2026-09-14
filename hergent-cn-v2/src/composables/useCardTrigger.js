@@ -8,15 +8,120 @@
  */
 import { api } from '../api/client'
 
-/* ---- M4 后端卡片协议：从 Hermes 输出抽 ```card 围栏 JSON（前端零改造消费） ---- */
-export function extractCard(text) {
-  const m = text.match(/```card(?!s)\s*([\s\S]*?)```/i)
-  if (!m) return null
+/* ---- 协议围栏统一剥离（老板永远不该看见任何控制标记） ----
+   协议围栏共 5 种：```card 经营卡 / ```cards 意图 / ```clarify 澄清 /
+   ```proposal 提案 / ```reminder 提醒。它们都是「给前端看的控制信号」，不是正文。
+   2026-09-11 修：原先只在「本轮首次抽到卡片」时剥离 ```card 围栏，卡片抽到之后的
+   后续流式分片走 `last.content = clean` 分支（clean 未剥 card 围栏）→ 整段卡片 JSON
+   重新出现在正文末尾。现统一走本函数，一处收口。 */
+const PROTOCOL_FENCE_RE = /```(?:cards|card|clarify|proposal|reminder)\s*[\s\S]*?```/gi
+// 流式半截：围栏已开头、闭合 ``` 还没到 → 从标记处截断，避免半截 JSON 闪现在正文
+const OPEN_PROTOCOL_FENCE_RE = /```(?:cards|card|clarify|proposal|reminder)[\s\S]*$/i
+// 任意围栏（语言标签可有可无）：用于识别「模型把 ```card 写成 ```json 或裸 ```」的情况
+const ANY_FENCE_RE = /```[a-zA-Z0-9_-]*[ \t]*\n?([\s\S]*?)```/g
+// 经营卡已知 type（识别兜底用；与 ResultCard 场景表保持一致）
+const CARD_TYPES = ['forecast', 'loss', 'wastage', 'payroll', 'wage', 'rebate', 'reconcile', 'kpi', 'commission']
+
+function asCardJson(body) {
   try {
-    const card = JSON.parse(m[1].trim())
-    const content = text.replace(/```card(?!s)\s*[\s\S]*?```/i, '').replace(/^\n+/, '').trim()
-    return { card, content }
-  } catch (e) { return null }
+    const o = JSON.parse(String(body || '').trim())
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return null
+    return CARD_TYPES.includes(String(o.type || '').toLowerCase()) ? o : null
+  } catch (_) { return null }
+}
+
+export function stripAllFences(text) {
+  let t = String(text || '').replace(PROTOCOL_FENCE_RE, '')
+  // 语言标签写错/漏写的经营卡围栏：内容能解析成经营卡 JSON 才剥，普通 ```json 代码块不动
+  t = t.replace(ANY_FENCE_RE, (full, body) => (asCardJson(body) ? '' : full))
+  t = t.replace(OPEN_PROTOCOL_FENCE_RE, '')
+  // 裸卡片 JSON 兜底：模型漏打围栏时，正文尾部会整段裸着 JSON。
+  // 完整对象 → 整段摘掉；流式半截 → 从对象起点截断（避免半截 JSON 逐字闪现）。
+  // 2026-09-11 补：原先本函数只剥「带围栏」的，裸 JSON 只有 extractCard 会处理，
+  // 而 CopilotDrawer 正文走的是本函数 → 漏围栏时整段 JSON 留在正文，老板直接看到。
+  const bare = findBareCard(t)
+  if (bare) {
+    // 完整 → 精确摘掉 JSON 对象本身，保留其前后正文（模型没把它放末尾时不丢内容）
+    // 半截 → 从对象起点截断到末尾
+    t = bare.open ? t.slice(0, bare.start) : (t.slice(0, bare.start) + t.slice(bare.end))
+  } else {
+    // 更早的半截：连 "type" 都还没成形，只有一个孤立的 `{` 挂在尾部
+    const openStart = findOpenBareStart(t)
+    if (openStart >= 0) t = t.slice(0, openStart)
+  }
+  return t.replace(/\n{3,}/g, '\n\n').trim()
+}
+
+/* 无围栏兜底：正文尾部裸着一段经营卡 JSON（模型漏打围栏）→ 找配对右括号 */
+function matchBrace(text, objStart) {
+  let depth = 0, inStr = false, esc = false
+  for (let i = objStart; i < text.length; i++) {
+    const ch = text[i]
+    if (inStr) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') { inStr = true; continue }
+    if (ch === '{') depth++
+    else if (ch === '}' && --depth === 0) return i
+  }
+  return -1
+}
+
+/* 裸卡片 JSON 定位（模型漏打围栏 / 围栏被上游吃掉）：
+   完整对象 → { card, start, end }；流式半截（有起点、闭合 } 还没到）→ { card:null, start, open:true }。
+   半截也必须返回 start，否则流式过程中 JSON 会一段段闪现在正文里。 */
+function findBareCard(text) {
+  const re = /\{\s*"type"\s*:\s*"([a-zA-Z_-]+)"/g
+  const hits = []
+  let m
+  while ((m = re.exec(text))) hits.push({ start: m.index, type: m[1].toLowerCase() })
+  for (let i = hits.length - 1; i >= 0; i--) {
+    if (!CARD_TYPES.includes(hits[i].type)) continue
+    const end = matchBrace(text, hits[i].start)
+    if (end < 0) return { card: null, start: hits[i].start, end: -1, open: true }
+    const card = asCardJson(text.slice(hits[i].start, end + 1))
+    if (card) return { card, start: hits[i].start, end: end + 1, open: false }
+  }
+  return null
+}
+
+/* 流式刚吐出裸 JSON 的头几个字符（`{` / `{"` / `{"ty`…，type 尚未成形）：
+   此时 findBareCard 还识别不到，但那个 `{` 已经会闪现在正文尾部 → 需一并截断。
+   仅当 `{` 之后的字符**全是 JSON 语法字符**（无中文、无标点）才认定，
+   避免误伤正文里的花括号（如「公式 {a+b}」含 + 与 }，不会命中）。 */
+function findOpenBareStart(text) {
+  const i = text.lastIndexOf('{')
+  if (i < 0) return -1
+  const tail = text.slice(i)
+  if (tail.length > 40) return -1
+  if (tail.includes('}')) return -1
+  if (/[^\s"':,\[\]a-zA-Z0-9_\-{}]/.test(tail)) return -1
+  return i
+}
+
+/* ---- M4 后端卡片协议：从 Hermes 输出抽经营卡 JSON（前端零改造消费） ----
+   正文返回值一律走 stripAllFences：抽到卡片的同时把 JSON 从正文彻底摘干净。 */
+export function extractCard(text) {
+  const src = String(text || '')
+  // ① 标准 ```card 围栏
+  const m = src.match(/```card(?!s)\s*([\s\S]*?)```/i)
+  const fenced = m ? asCardJson(m[1]) : null
+  if (fenced) return { card: fenced, content: stripAllFences(src) }
+  // ② 兜底：任意围栏里其实是经营卡 JSON（模型把语言标签写成了 json / 漏写）
+  ANY_FENCE_RE.lastIndex = 0
+  let g
+  while ((g = ANY_FENCE_RE.exec(src))) {
+    const card = asCardJson(g[1])
+    if (card) return { card, content: stripAllFences(src) }
+  }
+  // ③ 兜底：完全没打围栏，正文尾部裸着一段经营卡 JSON
+  // 正文统一走 stripAllFences（现已能剥裸 JSON），与 ①② 分支口径一致，避免围栏残留
+  const bare = findBareCard(src)
+  if (bare && bare.card) return { card: bare.card, content: stripAllFences(src) }
+  return null
 }
 
 /* ---- AI 自主判断：```cards 意图围栏（隐藏控制信号，不出现在界面） ----
@@ -145,17 +250,12 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
     store.chat.messages.push({ role: 'assistant', content, card })
     scroll()
     save()
-    // P2 推送粒度：经营卡落库后，按角色绑定 push_scope 推送（仅 'card'/'all' 生效）；fail-closed
-    if (pushRoleReply && getRoleId && card) {
-      try {
-        const rid = getRoleId()
-        if (rid) {
-          const ctext = card.summary || card.title || content
-          const ctitle = card.title || '经营卡'
-          pushRoleReply(rid, ctext, ctitle, 'card')
-        }
-      } catch (_) { /* 静默，绝不干扰主对话 */ }
-    }
+    // v156 D：确定性经营卡（后端 /api/ai/*-card 聚合接口产出）**不再推 IM**。
+    //   理由：这类卡只做数值聚合，没有 LLM 主回复那套口径披露。一旦判据把「没数据」
+    //   读成「零风险」，错误结论会直接进老板企微 —— 2026-09-13 实测发生过
+    //   （LLM 主回复说"货损算不出来"，兜底卡却推了「库存健康」到企微）。
+    //   推送只保留给 AI 主回复（带口径披露），由 CopilotDrawer 负责。
+    //   形参 pushRoleReply / getRoleId 保留以兼容既有调用契约，当前不再使用。
   }
 
   /* 通用单卡抓取工厂：regex 命中 → 拉接口 → push 卡片；静默降级 */
