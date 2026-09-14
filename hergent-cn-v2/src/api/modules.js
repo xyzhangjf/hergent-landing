@@ -431,3 +431,12 @@ export const priceChannelApi = {
       body: { product_id: productId, mapping_id: mappingId, channel_id: channelId },
     }),
 }
+
+/* v160 租户业务参数 —— 舟谱模板的「业务员 / 部门 / 仓库」列、自提单号起始序号、
+   商品名内嵌的下单主体清单。原先这些值硬编码在后端代码里、且是**一家客户的值**，
+   多租户下会把别家公司与别人的人名写进模板。读写唯一实现见后端
+   db/queries/business_profile.py，前端不做任何推导。 */
+export const businessProfileApi = {
+  get: () => api('/api/forecast/business-profile'),
+  save: (data) => api('/api/forecast/business-profile', { method: 'PUT', body: data }),
+}

@@ -7,6 +7,47 @@
       </div>
     </div>
 
+    <!-- v160 模板参数：生成舟谱导入模板时写进「业务员 / 部门 / 仓库」列的值（租户级）。
+         原先这些值硬编码在后端代码里，且是**一家客户的值** —— 换一家客户就全错。 -->
+    <div class="card tp-card">
+      <div class="tp-hd" @click="tpOpen = !tpOpen">
+        <b>模板参数</b>
+        <span class="tp-sub">生成舟谱导入模板时，「业务员 / 部门 / 仓库」列写什么</span>
+        <span v-if="profileMissing" class="tp-warn">未设置 · 模板对应列为空</span>
+        <span class="tp-toggle">{{ tpOpen ? '收起' : '展开' }}</span>
+      </div>
+      <div v-if="tpOpen" class="tp-body">
+        <div class="tp-grid">
+          <div class="field">
+            <label>公司名称</label>
+            <input v-model="tp.company_name" placeholder="如：××商贸有限公司" />
+          </div>
+          <div class="field">
+            <label>默认业务员</label>
+            <input v-model="tp.salesman" placeholder="如：张三" />
+          </div>
+          <div class="field">
+            <label>默认仓</label>
+            <input v-model="tp.warehouse" placeholder="如：总仓" />
+          </div>
+          <div class="field">
+            <label>自提单号起始序号</label>
+            <input v-model.number="tp.zt_seq_start" type="number" min="1" max="99" />
+          </div>
+          <div class="field tp-wide">
+            <label>下单主体</label>
+            <input v-model="tpEntities" placeholder="逗号分隔，如：甲户,乙户" />
+            <span class="tp-hint">商品名里写「（×××下单）」时，系统据此识别下单主体。只有一个户头可留空。</span>
+          </div>
+        </div>
+        <div class="tp-actions">
+          <button class="btn btn-primary btn-sm" :disabled="tpSaving" @click="saveProfile">
+            {{ tpSaving ? '保存中…' : '保存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 配置体检红标 -->
     <div v-if="health" class="health-bar" :class="{ ok: !hasProblem }" @click="healthOpen = !healthOpen">
       <span class="hb-dot"></span>
@@ -214,7 +255,7 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
-import { reportMappingApi, priceChannelApi } from '../api/modules'
+import { reportMappingApi, priceChannelApi, businessProfileApi } from '../api/modules'
 import { api } from '../api/client'
 import { toast } from '../store'
 
@@ -241,6 +282,46 @@ const form = reactive({
   system_name: '', report_alias: '', order_template: '', src_wh: 0, dst_wh: 0,
   channel_id: 0,
 })
+
+// v160（2026-09-14）：模板参数 —— 舟谱模板的「业务员 / 部门 / 仓库」列、自提单号起始序号、
+// 下单主体清单。原先硬编码在后端代码里且是**一家客户的值**，现改为租户自配。
+const tpOpen = ref(false)
+const tpSaving = ref(false)
+const tp = reactive({ company_name: '', salesman: '', warehouse: '总仓', zt_seq_start: 21 })
+const tpEntities = ref('')
+const profileMissing = computed(() => !tp.company_name || !tp.salesman)
+
+async function loadProfile() {
+  try {
+    const r = await businessProfileApi.get()
+    const p = r.profile || {}
+    tp.company_name = p.company_name || ''
+    tp.salesman = p.salesman || ''
+    tp.warehouse = p.warehouse || '总仓'
+    tp.zt_seq_start = p.zt_seq_start || 21
+    tpEntities.value = (p.order_entities || []).join(',')
+    if (profileMissing.value) tpOpen.value = true   // 未配置 → 自动展开引导填写
+  } catch { /* 读不到不影响报单配置主流程 */ }
+}
+
+async function saveProfile() {
+  tpSaving.value = true
+  try {
+    await businessProfileApi.save({
+      company_name: tp.company_name,
+      salesman: tp.salesman,
+      warehouse: tp.warehouse,
+      zt_seq_start: Number(tp.zt_seq_start) || 21,
+      order_entities: (tpEntities.value || '').split(/[,，、\s]+/).filter(Boolean),
+    })
+    toast('模板参数已保存')
+    await loadProfile()
+  } catch (e) {
+    toast(e.message || '保存失败', 'err')
+  } finally {
+    tpSaving.value = false
+  }
+}
 
 // v159（2026-09-14）：取价渠道。渠道是租户自配的数据，这里只做“覆盖位”；
 // 0 = 不覆盖，按客户档案→默认渠道的顺序自动判。
@@ -449,14 +530,26 @@ async function onFile(e) {
   finally { e.target.value = '' }
 }
 
-onMounted(() => { loadRefs(); loadAll(); loadChannels() })
+onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile() })
 </script>
 
 <style scoped>
-.page-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
-.page-hd h2{font-size:20px;font-weight:600}
-.page-sub{font-size:12px;color:var(--t3)}
-
+/* v160 模板参数卡片 */
+.tp-card{margin-bottom:12px;padding:0;overflow:hidden}
+.tp-hd{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer}
+.tp-hd b{font-size:13px;color:var(--t1)}
+.tp-sub{font-size:12px;color:var(--t3)}
+.tp-warn{font-size:12px;color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px 8px;border-radius:10px}
+.tp-toggle{margin-left:auto;color:var(--p);font-size:12px}
+.tp-body{padding:0 16px 14px;border-top:1px solid var(--border-subtle)}
+.tp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:14px 0}
+.tp-wide{grid-column:1/-1}
+.tp-body .field{display:flex;flex-direction:column;gap:5px}
+.tp-body .field label{font-size:12px;color:var(--t2)}
+.tp-body .field input{padding:7px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:13px;outline:none}
+.tp-body .field input:focus{border-color:var(--p)}
+.tp-hint{font-size:11px;color:var(--t3)}
+.tp-actions{display:flex;gap:8px}
 .health-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:rgba(var(--war-rgb),.10);border:1px solid rgba(var(--war-rgb),.35);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:12px;cursor:pointer}
 .health-bar.ok{background:rgba(var(--suc-rgb),.10);border-color:rgba(var(--suc-rgb),.35)}
 .hb-dot{width:8px;height:8px;border-radius:50%;background:var(--war);flex-shrink:0}
