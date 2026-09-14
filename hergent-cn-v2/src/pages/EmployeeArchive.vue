@@ -40,7 +40,7 @@
               <td>{{ e.position || '—' }}</td>
               <td class="num">¥{{ fmt(salaryOf(e)) }}</td>
               <td>
-                <span v-if="e.has_account" class="df-acc" :class="{ on: e.is_active !== 0 }" :title="'账号：' + e.account_username">已开通 {{ e.account_username }}</span>
+                <span v-if="e.has_account" class="df-acc" :class="{ on: e.account_active }" :title="'账号：' + e.account_username + (e.account_active ? '（启用中）' : '（已禁用，点「编辑」可重新启用）')">已开通 {{ e.account_username }}</span>
                 <span v-else class="df-acc">未开通</span>
                 <span v-if="e.account_role" class="df-role" :class="['r-' + e.account_role, { stopped: e.is_active === 0 }]">{{ roleName(e.account_role) }}</span>
               </td>
