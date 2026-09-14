@@ -87,6 +87,12 @@
   --topbar-h:56px;
   --ai-bar-h:58px;
 
+  /* 页面宽度档位（L1）：页面按语义挑一档声明，不要各自拍数。
+     实测曾并存 900 / 980 / 1180 / 全宽 四档。 */
+  --page-reading:900px;   /* 阅读·表单型窄栏（当前未启用） */
+  --page-default:1200px;  /* 内容型上限（当前未启用） */
+
+
   /* 字体（苹果风） */
   --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro SC","SF Pro Text","PingFang SC","Helvetica Neue",Helvetica,Arial,sans-serif;
 
@@ -217,6 +223,38 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .chip.on{background:var(--p);color:#fff;border-color:var(--p)}
 .ico{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
 
+/* ============================================================
+   页面容器 / 页头（全局布局层）
+   ------------------------------------------------------------
+   由来：此前本层漏了 .page —— 19 个页面各自写宽度，实测并存
+   900 / 980 / 1180 / 全宽 四档，且「定时任务」只在 scoped 里写了
+   max-width:900px 而漏了居中；.page-hd / .page-sub 也被 16~17 个
+   页面各复制一份（其中 5 处页头样式是模板里根本没有元素的死 CSS）。
+   规范：① 页面容器一律水平居中；② 宽度按档位声明式选择；
+        ③ 页头 / 副标题统一走这里，页面不再重复定义。
+   ============================================================ */
+
+/* ① 页面容器：一律水平居中。
+   未设 max-width 时 width:auto，auto 外边距解析为 0 → 全宽页面无视觉变化。 */
+.page{margin-inline:auto}
+
+/* ② 宽度档位：按语义挑一档，别再各自拍数。
+   默认全宽 —— 表格密集页（预报 / 汇总表 / 四个档案页）与工作台型页面
+   （AI 中心 / 定时任务 / 招投标雷达，2026-09-11 由限宽改为全宽）都不套档位。
+   档位仅留给确属「阅读 / 表单」型、且实测不需要横向空间的页面；目前全站无页面启用。 */
+.page-reading{max-width:var(--page-reading)}
+.page-default{max-width:var(--page-default)}
+
+/* ③ 页头：两种形态由模板结构自动分派，页面无需再自定义。
+   内联式 <h2>标题</h2><span class="page-sub">…</span>  → 同一基线行；
+   堆叠式 <div><h2>标题</h2><span class="page-sub">…</span></div> → 标题在上、副标题在下。
+   两种结构兼容同一套规则；带右侧操作区加 .split；下边距交由父容器 gap 控制时加 .flush。 */
+.page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
+.page-hd h2{font-size:20px;font-weight:600}
+.page-hd.split{align-items:flex-start;justify-content:space-between;gap:12px}
+.page-hd.flush{margin-bottom:0}
+.page-sub{font-size:12px;color:var(--t3)}
+
 /* 通用卡片 */
 /* 内距 18px 为全站默认值（基线统计：18px 占 18/33，为绝对主流）。
    此前 .card 不含内距，每个页面都得靠自己的具体类补（.cc-card/.df-panel/.dash-card…），
@@ -233,6 +271,52 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
   transition:box-shadow .18s ease,border-color .18s ease;
 }
 .card:hover{box-shadow:var(--shadow-md);border-color:var(--bd)}
+
+/* ============================================================
+   Bento 网格 / KPI 概览条（全站复用）
+   ------------------------------------------------------------
+   由来：经营工作台（Workbench.vue）的「12 列自适应网格 + 顶部 KPI 横条」
+   此前只写在页面 scoped 里，其余页面无法复用 → 「AI 中心 / 定时任务 /
+   招投标雷达」三个页面仍是单列窄栏纵向堆叠，实测 1920 视口下占宽仅
+   55% / 55% / 74%，而其余板块全部 100%。
+   规范：① 页面主体一律用 .bento 分栏，模块用 grid-column:span N 声明占宽；
+        ② 顶部概览统计统一用 .kpi-strip，不再各页自造。
+   注意：本段必须排在 .card 之后 —— .kpi-strip 与 .card 特异性同为 0,1,0，
+        靠源顺序才能让 padding:6px 0 覆盖 .card 的 padding:18px。
+   ============================================================ */
+
+/* 12 列自适应网格。grid-auto-flow:dense 允许后方小模块回填前方空洞，减少留白。 */
+.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;grid-auto-flow:dense}
+
+/* 顶部 KPI 概览条：整行铺开，默认 5 项；项数不同用 .cols-N 覆盖。 */
+.kpi-strip{grid-column:1/-1;display:grid;grid-template-columns:repeat(var(--kpi-cols,5),1fr);padding:6px 0}
+.kpi-strip.cols-3{--kpi-cols:3}
+.kpi-strip.cols-4{--kpi-cols:4}
+.kpi-strip.cols-6{--kpi-cols:6}
+.kpi-strip .kpi{padding:8px 18px;border-right:1px solid var(--border-subtle);transition:background .15s}
+.kpi-strip .kpi:first-child{padding-left:20px}
+.kpi-strip .kpi:last-child{border-right:none}
+.kpi-strip .kpi:hover{background:var(--bg2)}
+.kpi-label{font-size:12px;color:var(--t3);margin-bottom:6px}
+.kpi-val{font-size:22px;font-weight:600;margin-bottom:2px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.kpi-val.val-ok{color:var(--suc)}
+.kpi-val.val-warn{color:var(--war)}
+.kpi-val.val-bad{color:var(--dan)}
+.kpi-sub{font-size:12px;color:var(--t3)}
+
+/* 窄屏降级：1200px 下单行放不满 5 项 → 栅格降为 6 列、KPI 降为 3 列。 */
+@media(max-width:1200px){
+  .bento{grid-template-columns:repeat(6,1fr)}
+  .kpi-strip{grid-template-columns:repeat(3,1fr)}
+  .kpi-strip .kpi:nth-child(3n){border-right:none}
+}
+@media(max-width:768px){
+  .bento{grid-template-columns:1fr}
+  .kpi-strip{grid-template-columns:repeat(2,1fr)}
+  .kpi-strip .kpi:nth-child(odd){border-right:1px solid var(--border-subtle)}
+  .kpi-strip .kpi:nth-child(even){border-right:none}
+  .kpi-val{font-size:18px}
+}
 
 /* 输入 */
 .input{
