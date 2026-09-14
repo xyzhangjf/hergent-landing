@@ -146,19 +146,27 @@ import CommandPalette from './CommandPalette.vue'
 import WeatherWidget from './WeatherWidget.vue'
 import Icon from './Icon.vue'
 import { messagesApi } from '../api/modules'
+// 通知偏好（本地）：徽标要扣掉「被你收起的类」，且必须与面板共用同一份规则、同一个算法
+// —— 两边各算一遍 = 同屏两个数字对不上。
+import { badgeFromGroups } from '../composables/useNotiPrefs'
 
 const router = useRouter()
 
-/* 通知中心（P0-1a）：铃铛只拉未读数（limit=1），明细由面板按需拉 ——
-   避免每 2 分钟把 2 万条流水拖下来。 */
+/* 通知中心（P0-1a）：铃铛拉的是**聚合简报**（briefing 按 (event_key,msg_type) 归并后的少量
+   分组，tenant_1 实测只有 7 组），不是流水 —— 明细由面板按需拉，
+   避免每 2 分钟把 2 万条流水拖下来。
+   为什么不用 list({limit:1}) 取 unread_count：那个数扣不掉「按你的设置收起的类」，
+   铃铛会一直红着而面板里空空如也。
+   badgeFromGroups 是**纯函数**，与通知面板头部共用 —— 同一份规则、同一批 groups
+   必然得出同一个数，不会出现「铃铛 3、面板 2」。 */
 const notiOpen = ref(false)
 const notiUnread = ref(0)
 let notiTimer = null
 
 async function loadNotiUnread() {
   try {
-    const r = await messagesApi.list({ limit: 1 })
-    notiUnread.value = r.unread_count || 0
+    const b = await messagesApi.briefing()
+    notiUnread.value = badgeFromGroups(b.groups || [])
   } catch (_) { /* 通知拉取失败不打扰用户，等下一轮重试 */ }
 }
 function toggleNoti() {
