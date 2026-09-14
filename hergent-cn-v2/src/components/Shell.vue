@@ -18,6 +18,10 @@
         </button>
       </div>
       <div class="tb-right">
+        <button class="tb-btn tb-bell" @click="toggleNoti" :title="notiUnread > 0 ? ('通知：' + Number(notiUnread).toLocaleString('zh-CN') + ' 条未读') : '通知'">
+          <Icon name="bell" :size="17" />
+          <span v-if="notiUnread > 0" class="tb-bell-n">{{ notiUnread > 99 ? '99+' : notiUnread }}</span>
+        </button>
         <button class="tb-btn" @click="toggleTheme" title="切换主题">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
         </button>
@@ -98,6 +102,9 @@
     <!-- AI 副驾全局抽屉 -->
     <CopilotDrawer />
 
+    <!-- 通知面板（P0-1a：把只写不读的 message_center 接出来） -->
+    <NotificationPanel :open="notiOpen" @close="notiOpen=false" @unread="notiUnread=$event" />
+
     <!-- 命令面板（⌘Shift+K） -->
     <CommandPalette v-model="cmdOpen" />
 
@@ -132,10 +139,36 @@ import { useRouter } from 'vue-router'
 import { store, toast, setTheme } from '../store'
 import { auth, api, resetTenantContext } from '../api/client'
 import CopilotDrawer from './CopilotDrawer.vue'
+import NotificationPanel from './NotificationPanel.vue'
 import CommandPalette from './CommandPalette.vue'
 import WeatherWidget from './WeatherWidget.vue'
+import Icon from './Icon.vue'
+import { messagesApi } from '../api/modules'
 
 const router = useRouter()
+
+/* 通知中心（P0-1a）：铃铛只拉未读数（limit=1），明细由面板按需拉 ——
+   避免每 2 分钟把 2 万条流水拖下来。 */
+const notiOpen = ref(false)
+const notiUnread = ref(0)
+let notiTimer = null
+
+async function loadNotiUnread() {
+  try {
+    const r = await messagesApi.list({ limit: 1 })
+    notiUnread.value = r.unread_count || 0
+  } catch (_) { /* 通知拉取失败不打扰用户，等下一轮重试 */ }
+}
+function toggleNoti() {
+  userMenuOpen.value = false          // 与用户菜单互斥，避免两个浮层叠在一起
+  notiOpen.value = !notiOpen.value
+  if (notiOpen.value) loadNotiUnread()
+}
+onMounted(() => {
+  loadNotiUnread()
+  notiTimer = setInterval(loadNotiUnread, 120000)   // 2 分钟一次：够及时，又不至于打后端
+})
+onBeforeUnmount(() => { if (notiTimer) clearInterval(notiTimer) })
 
 function toggleTheme() {
   setTheme(store.ui.theme === 'light' ? 'dark' : 'light')
@@ -275,6 +308,9 @@ function stopResize() {
 .tb-right{display:flex;align-items:center;gap:8px}
 .tb-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2)}
 .tb-btn:hover{background:var(--bg2);color:var(--p-dark)}
+/* 通知铃铛：未读数用中文数目直接显示，不用英文缩写 */
+.tb-bell{position:relative}
+.tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--dan);color:#fff;font-size:10px;line-height:15px;text-align:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
 .tb-user{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer}
 
 .tb-ai{display:flex;align-items:center;gap:12px}

@@ -396,3 +396,14 @@ export const importApi = {
     return api('/api/import/execute', { method: 'POST', raw: true, body: fd })
   },
 }
+
+/* ---- 通知中心（P0-1a：把只写不读的 message_center 接出来）----
+   briefing 是「今日该干什么」的收敛视图：按告警种类聚合，并回传 folded（被折叠的条数）。
+   folded 必须展示，否则等于把 2 万条积压抹掉。 */
+export const messagesApi = {
+  list: ({ unreadOnly = false, limit = 30, offset = 0 } = {}) =>
+    api(`/api/messages?unread_only=${unreadOnly ? 1 : 0}&limit=${limit}&offset=${offset}`),
+  briefing: () => api('/api/messages/briefing'),
+  markRead: (mid) => api(`/api/messages/${mid}/read`, { method: 'POST' }),
+  markAllRead: () => api('/api/messages/read-all', { method: 'POST' }),
+}
