@@ -26,10 +26,28 @@
   · 沙箱 id 必须 >= 9997（>= 9997 才算隔离区；tenant_1 / tenant_10 永不触碰）
   · 源租户只允许 1 或 10，且只读（只 shutil.copy2，绝不写）
   · 目标路径必须落在 /opt/hergent-erp 下
+  · 🔴 克隆必须带 -wal / -shm（2026-09-15 修复）：生产库跑在 WAL 模式，
+    未 checkpoint 的改动**只在 -wal 里**。旧实现只 copy 主库文件 ⇒ 沙箱拿到的是
+    过期快照，**生产上的问题在沙箱里复现不出来**（实测 tenant_1：主库 12:02 vs
+    WAL 17:33，症状直接消失）。判断方法：比较 `ls -la tenant_N.db` 与 `tenant_N.db-wal`
+    的 mtime，两者差距大就说明主库落后。
   · down 忘传 --user 也能清干净：三级兜底 meta.user_id → username → tenant_id 反查
     （2026-09-15 实测：down 默认 --user=sbx_verify 与 up 实际值不一致时，旧实现
      静默留下幽灵账号 + user_tenants 绑定，且仍报 ok:true）
   · down 的 ok 现在反映 ZERO_RESIDUE，有残留即 exit 1，不再假装成功
+
+⚠️🔴 沙箱改写了数据 —— 这些验证在沙箱里做等于没做（2026-09-15 实测踩坑）：
+  克隆后脚本会把**全部** forecast_submissions.order_date 改成今天（见下方第 1 步），
+  目的是让克隆来的报单落进「今日报单」窗口。副作用是**任何按期次/日期窗口过滤的行为
+  都会失真**：期次窗口只要含今天，就命中全部报单。
+  实测：期次 9（窗口 8/30~9/15）返回 95 个商品 / 12,713 件 = 全时段数据；
+        而按真实 order_date 手算同一 cond 只有 4 个商品 / 4 件。
+  差点据此误报「后端期次过滤失效」的产品缺陷 —— 根因是沙箱自己改的数据。
+
+  ✅ 沙箱**可以**验证：单行取值、单元格渲染、列统计、筛选、复制、金额计算、
+     布局/容量、交互路径（这些都与 order_date 无关）。
+  ❌ 沙箱**不能**验证：期次归属、跨期不重复计入、时间窗口筛选、达成月归属、
+     任何依赖 order_date 的报表口径 —— 一律去真实库只读手算，或起真实租户对照。
 """
 import argparse, hashlib, json, os, shutil, sqlite3, sys, uuid
 from datetime import date, datetime, timedelta
@@ -121,11 +139,25 @@ def cmd_up(a):
         if os.path.exists(p):
             os.remove(p)
     shutil.copy2(src_db, dst_db)
+    # 🔴 2026-09-15 修复：必须连源库的 -wal / -shm 一起复制。
+    #    生产库长期运行在 WAL 模式，未 checkpoint 的改动**只在 -wal 里**，
+    #    旧实现只 copy 主库文件 ⇒ 克隆出的是过期快照，沙箱复现不出生产问题。
+    #    实测（tenant_1）：主库文件 mtime 12:02、-wal mtime 18:03；
+    #    沙箱拿到的是 12:02 状态（5 条返利目标、年度目标"进行中"），
+    #    而 -wal 里的真实状态是 2 条、且全部已停用 ⇒ 症状在沙箱里消失，极易误判产品无缺陷。
+    for suffix in ("-wal", "-shm"):
+        sp = src_db + suffix
+        if os.path.exists(sp):
+            shutil.copy2(sp, dst_db + suffix)
     os.chmod(dst_db, 0o644)          # 与真实租户一致；属主已是 hergent（脚本以 hergent 跑）
 
     today = date.today().isoformat()
     tc = sqlite3.connect(dst_db)
     # 让数据落进「今日报单」窗口（前端无期次时取 summary(order_start=order_end=今天)）
+    # ⚠️🔴 这一句是本工具最大的副作用：它把**全部**报单的日期改到今天 ⇒ 沙箱里
+    #     「按期次/日期窗口过滤」的行为全部失真（窗口含今天即命中全部报单）。
+    #     2026-09-15 实测：期次 9 返回 95 商品/12,713 件（=全时段），据此差点误报产品缺陷。
+    #     要验证期次归属/窗口筛选，别用沙箱 —— 去真实库只读手算（见文首 ⚠️ 段）。
     moved = tc.execute("SELECT COUNT(*) FROM forecast_submissions").fetchone()[0]
     tc.execute("UPDATE forecast_submissions SET order_date=?", (today,))
     tc.execute("UPDATE forecast_submissions SET created_at=? WHERE created_at IS NULL OR created_at=''",
