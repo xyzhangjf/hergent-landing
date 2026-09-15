@@ -303,6 +303,9 @@ export const productsApi = {
   // v157 存量商品批量补厂价：items = [{id, factory_price}] 或 [{barcode, factory_price}]（导出回填走条码）
   batchFactoryPrice: (items) => api('/api/products/batch-factory-price', { method: 'POST', body: { items } }),
   bulkUpsert: (rows) => api('/api/products/bulk-upsert', { method: 'POST', body: { rows } }),
+  // v161 自定义列的值：批量写（合并写，值为空 = 删该键）。
+  // 后端会按列注册表校验 key —— 未知列/系统列一律 400，绝不静默丢弃。
+  extraValues: (items) => api('/api/products/extra-values', { method: 'POST', body: { items } }),
   // v158 厂价闸门（per-tenant 开关，**默认关闭**）：开启后两条上报路径都会拒收「没录厂价」的商品行。
   // 判据在后端 db.factory_price_verdict 一处；本接口只读写开关值 + 回报还有多少没补。
   factoryPriceGate: () => api('/api/forecast/factory-price-gate'),
@@ -323,6 +326,17 @@ export const columnSchemeApi = {
 }
 
 /* ---- Excel 导入（FormData，走统一 api 封装） ---- */
+/* ---- v161 列注册表（**服务端权威**）----
+   为什么要有它：在此之前"哪些列不可删"是前端 MASTER_COL_DEFS.deletable 说了算，
+   自定义列的定义和值只存 localStorage（换设备即丢、不参与导入导出计算）。
+   现在 system 段是服务端下发的**不可删除列**，custom 段是用户自建列（值走 products.extra-values）。 */
+export const forecastColumnsApi = {
+  list: () => api('/api/forecast/columns'),
+  add: (col) => api('/api/forecast/columns', { method: 'POST', body: col }),
+  update: (key, patch) => api('/api/forecast/columns/' + encodeURIComponent(key), { method: 'PUT', body: patch }),
+  remove: (key) => api('/api/forecast/columns/' + encodeURIComponent(key), { method: 'DELETE' }),
+}
+
 export const importApi = {
   /* v158 待补厂价清单导出（后端生成 xlsx，含「商品编号」列作导回钥匙）。
      为什么走后端而不在前端用 SheetJS 造：钥匙规则（编号优先/条码兜底、共码与无条码商品）

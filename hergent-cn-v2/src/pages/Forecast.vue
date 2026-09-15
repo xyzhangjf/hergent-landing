@@ -1699,7 +1699,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } 
 import * as XLSX from 'xlsx'
 import { store, toast } from '../store'
 import { auth, api } from '../api/client.js'
-import { forecastApi, auditApi, forecastApproveApi, importApi, productsApi, forecastRecipeApi, columnSchemeApi } from '../api/modules'
+import { forecastApi, auditApi, forecastApproveApi, importApi, productsApi, forecastRecipeApi, columnSchemeApi, forecastColumnsApi } from '../api/modules'
 import Icon from '../components/Icon.vue'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ForecastHistory from './ForecastHistory.vue'
@@ -2271,6 +2271,9 @@ async function loadEditGrid() {
         qtyByUnit[name] = (qtyByUnit[name] || 0) + (s.qty || 0)
       })
       return {
+        // v161：自定义列的值随 grid 一起回来（服务端权威，按 product_id）。
+        // 放在最前，便于一眼看出"这些键不是写死的列，而是列注册表里的自定义列"。
+        ...(pd.extra || {}),
         product_id: pd.id, name: pd.name, barcode: pd.barcode || '', spec: pd.spec || '', unit: pd.unit || '件',
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
         safety_stock: pd.safety_stock || 0, expiry_days: pd.expiry_days || 0,
@@ -2354,7 +2357,10 @@ async function loadEditGrid() {
     } else {
       _ignoreNextWatch = 1
     }
-    applyCustVals()
+    // v161：自定义列的值已随 grid 的 extra 字段并入上面的行（服务端权威）。
+    // 这里只处理一次旧数据迁移：把此前存在本机的值推到服务端 —— **必须 await**，
+    // 否则用户紧接着点保存会用空值把刚迁移上去的键删掉（后写覆盖先写）。
+    await migrateLegacyCustVals()
     compareOn.value = false
     snapCompare.value = null
     loadSnaps()
@@ -2589,7 +2595,9 @@ async function saveEdits() {
     recordAudit('save_changes', `${r.saved_customers} 客户 / ${r.saved_items} 条明细${prodMsg}`)
     toast(`已保存：${r.saved_customers} 个客户 · ${r.saved_items} 条商品明细${prodMsg}`, 'ok')
     clearDraft(true)          // Q11：静默清除草稿，不再弹「已放弃草稿」
-    collectCustVals()
+    // v161：自定义列的值写回服务端。**必须 await** —— 失败要能被上面的 try/catch 捕获并提示，
+    // 自定义列没落库属于"静默丢数据"，不能吞。
+    await collectCustVals()
     usable.forEach(rw => { delete rw._new })   // Q9：保存后清除「新增行」标识
     saveFailed.value = null
     // 保持编辑态并刷新（粘贴/新增的商品留在表里可见）
@@ -3464,38 +3472,119 @@ function hdrFreezeCol() {
   closeHdrCtx()
 }
 
-/* ---- 表头右键：修改字段 / 增加列 / 删除列（master 主档列 + qty 报单单元列通用）---- */
-// 主档列是否可删除：自定义列恒可删；其余以 MASTER_COL_DEFS.deletable 为准
+/* ---- v161 列注册表：不可删除列由**服务端**决定，自定义列的定义与值也落服务端 ----
+   改造前：deletable 由前端 MASTER_COL_DEFS 说了算；自定义列定义存 forecast_cols_v1、
+   值存 forecast_customvals_v1（按 `条码::名称` 定位）—— 换设备即丢，商品改名/改条码还会**丢值**。
+   现在：GET /api/forecast/columns 下发 system（不可删除）与 custom（自建），
+        值走 /api/products/extra-values，按 product_id 定位。 */
+const protectedKeys = ref(new Set())   // 服务端下发的不可删除列 key
+const registryColumns = ref([])        // 服务端下发的自定义列 [{key,label,type}]
+const registryOk = ref(false)          // 注册表是否成功加载（失败时降级，并提示而不是静默）
+let _registryWarned = false
+
+async function loadColumnRegistry() {
+  try {
+    const d = await forecastColumnsApi.list()
+    const cols = d && d.columns ? d.columns : {}
+    protectedKeys.value = new Set((cols.system || []).map(c => c.key))
+    registryColumns.value = (cols.custom || []).map(c => ({ key: c.key, label: c.label, type: c.type }))
+    registryOk.value = true
+    reconcileCustomColumns()
+    return true
+  } catch (e) {
+    registryOk.value = false
+    if (!_registryWarned) {
+      _registryWarned = true
+      // 降级但不静默：明确告诉用户"这次用的是本地内置规则"，避免把降级误当正常
+      toast('列配置未能从服务器加载，本次按内置规则显示（新增/删除列不可用）', 'warn')
+    }
+    return false
+  }
+}
+
+// 主档列是否可删除：自定义列恒可删；内置列以**服务端注册表**为准（加载失败才回落 MASTER_COL_DEFS）
 function canDeleteMaster(key) {
   const c = colOrder.value.find(x => x.key === key)
   if (c && c.custom) return true
+  if (registryOk.value) return !protectedKeys.value.has(key)
   const m = MASTER_COL_DEFS.find(x => x.key === key)
   return !!(m && m.deletable)
 }
-// 自定义主档列的值：存 localStorage（按 条码::名称 定位商品），使其跨保存/刷新留存
-const CUSTVAL_KEY = 'forecast_customvals_v1'
-function _loadCustVals() { try { return JSON.parse(localStorage.getItem(CUSTVAL_KEY) || '{}') } catch (e) { return {} } }
-function _saveCustVals(map) { try { localStorage.setItem(CUSTVAL_KEY, JSON.stringify(map)) } catch (e) {} }
-function _prodKeyOf(r) { return (r.barcode || '') + '::' + (r.name || '') }
-function applyCustVals() {
-  const map = _loadCustVals()
-  const custKeys = colOrder.value.filter(c => c.custom).map(c => c.key)
-  if (!custKeys.length || !cross.value.rows) return
-  cross.value.rows.forEach(r => {
-    const m = map[_prodKeyOf(r)]
-    if (m) custKeys.forEach(k => { if (k in m) r[k] = m[k] })
+
+// 把服务端的自定义列并入列顺序：服务端有的补进来；服务端已删的本地列剔除。
+// 本地只保留"顺序/显隐"这类显示偏好，**不再持有列的存在性**。
+function reconcileCustomColumns() {
+  const order = colOrder.value.slice()
+  const serverKeys = new Set(registryColumns.value.map(c => c.key))
+  // ① 服务端已删除的自定义列 → 从本地剔除（数值也一并清）
+  for (let i = order.length - 1; i >= 0; i--) {
+    if (order[i].custom && !serverKeys.has(order[i].key)) order.splice(i, 1)
+  }
+  // ② 服务端有、本地没有的自定义列 → 追加到末尾
+  const have = new Set(order.map(c => c.key))
+  registryColumns.value.forEach(sc => {
+    if (!have.has(sc.key)) {
+      order.push({ key: sc.key, label: sc.label, cls: sc.type === 'number' ? 'fc-num' : 'fc-text', edit: sc.type === 'number' ? 'num' : 'text', deletable: true, custom: true })
+      colVis.value[sc.key] = true
+    }
   })
+  colOrder.value = order
+  _persistCols()
 }
-function collectCustVals() {
-  const map = _loadCustVals()
+
+// 自定义列的值：**服务端**（products.extra_json，按 product_id）。localStorage 仅作一次性迁移来源。
+const CUSTVAL_KEY = 'forecast_customvals_v1'   // ← 仅用于迁移旧数据，迁移后即删
+function _loadLegacyCustVals() { try { return JSON.parse(localStorage.getItem(CUSTVAL_KEY) || '{}') } catch (e) { return {} } }
+function _legacyProdKeyOf(r) { return (r.barcode || '') + '::' + (r.name || '') }
+
+// 一次性迁移：把旧版存在本机的自定义列值推到服务端（只补服务端为空的商品），成功后清掉本地键。
+// 为什么必须迁移：不迁 = 用户此前手工填过的值会**无声消失**（旧键按 条码::名称 定位，服务端对不上）。
+async function migrateLegacyCustVals() {
   const custKeys = colOrder.value.filter(c => c.custom).map(c => c.key)
   if (!custKeys.length || !cross.value.rows) return
+  const map = _loadLegacyCustVals()
+  const keys = Object.keys(map)
+  if (!keys.length) return
+  const items = []
   cross.value.rows.forEach(r => {
-    const pk = _prodKeyOf(r)
-    if (!map[pk]) map[pk] = {}
-    custKeys.forEach(k => { map[pk][k] = r[k] != null ? r[k] : '' })
+    const m = map[_legacyProdKeyOf(r)]
+    if (!m || !r.product_id) return
+    const vals = {}
+    custKeys.forEach(k => { if (k in m && (r[k] === undefined || r[k] === null || r[k] === '')) vals[k] = m[k] })
+    if (Object.keys(vals).length) {
+      items.push({ id: r.product_id, values: vals })
+      custKeys.forEach(k => { if (k in vals) r[k] = vals[k] })   // 同时反映到当前界面，免得看起来"没迁"
+    }
   })
-  _saveCustVals(map)
+  if (!items.length) { try { localStorage.removeItem(CUSTVAL_KEY) } catch (e) {} return }
+  try {
+    const res = await productsApi.extraValues(items)
+    try { localStorage.removeItem(CUSTVAL_KEY) } catch (e) {}
+    toast(`已把本机存的 ${res.updated} 条自定义列数据同步到服务器`, 'ok')
+  } catch (e) { /* 迁移失败就保留本地键，下次进页面再试，绝不静默丢弃 */ }
+}
+
+// 保存：把当前表格里的自定义列值写回服务端（合并写；空值 = 删除该键）
+async function collectCustVals() {
+  const custKeys = colOrder.value.filter(c => c.custom).map(c => c.key)
+  if (!custKeys.length || !cross.value.rows) return
+  const items = []
+  cross.value.rows.forEach(r => {
+    if (!r.product_id) return
+    const vals = {}
+    custKeys.forEach(k => { vals[k] = r[k] != null ? r[k] : '' })
+    items.push({ id: r.product_id, values: vals })
+  })
+  if (!items.length) return
+  try {
+    const res = await productsApi.extraValues(items)
+    if (res && (res.skipped || []).length) {
+      toast(`有 ${res.skipped.length} 行的自定义列未写入（商品已不存在）`, 'warn')
+    }
+  } catch (e) {
+    // 不能吞：自定义列没落库就是**静默丢数据**，必须让用户知道
+    toast('自定义列数据保存失败：' + (e && e.message ? e.message : '请重试'), 'warn')
+  }
 }
 
 // 修改字段：进入内联重命名
@@ -3529,42 +3618,62 @@ function startHdrAdd() {
   hdrCtx.value.mode = 'add'
   nextTick(() => { if (hdrAddInput.value) hdrAddInput.value.focus() })
 }
-function applyHdrAdd() {
+async function applyHdrAdd() {
   const v = (hdrAddName.value || '').trim()
   const { type } = hdrCtx.value
   if (v) {
     // v170：客户列统一走 addUnit()（唯一实现，含重名提示）。
     //   原先此处自带一份 push 逻辑、重名时静默不提示，与表头输入框那份已经漂移。
     if (type === 'qty') addUnit(v)
-    else addCustomMasterCol(v, hdrAddType.value)
+    else await addCustomMasterCol(v, hdrAddType.value)
   }
   closeHdrCtx()
 }
-function addCustomMasterCol(name, editType) {
-  let key = 'cust_' + Date.now().toString(36)
-  while (colOrder.value.find(c => c.key === key)) key = 'cust_' + Math.random().toString(36).slice(2, 8)
+// 自定义列：**先在服务端登记拿稳定 key**，再插进列顺序。
+// 为什么不能像以前那样本地造 key：本地随机 key（cust_xxx）只活在这台浏览器，
+// 服务端引用不到，换设备后这一列连同它上面的数据都会消失（2026-09-15 前的实际行为）。
+async function addCustomMasterCol(name, editType) {
+  if (!registryOk.value) { toast('列配置未从服务器加载，暂时不能新增列', 'warn'); return }
+  let col = null
+  try {
+    const r = await forecastColumnsApi.add({ label: name, type: editType === 'num' ? 'number' : 'text' })
+    col = r && r.column
+  } catch (e) {
+    toast('新增列失败：' + (e && e.message ? e.message : '请重试'), 'warn')
+    return
+  }
+  if (!col || !col.key) { toast('新增列失败：服务端未返回列标识', 'warn'); return }
   snapshot()
-  const newCol = { key, label: name, cls: editType === 'num' ? 'fc-num' : 'fc-text', edit: editType, deletable: true, custom: true }
+  const key = col.key
+  const newCol = { key, label: col.label || name, cls: editType === 'num' ? 'fc-num' : 'fc-text', edit: editType, deletable: true, custom: true }
   const idx = colOrder.value.findIndex(c => c.key === hdrCtx.value.key)
   if (idx >= 0) colOrder.value.splice(idx + 1, 0, newCol)
   else colOrder.value.push(newCol)
   colVis.value[key] = true
+  registryColumns.value = [...registryColumns.value, { key, label: newCol.label, type: col.type || 'text' }]
   const def = editType === 'num' ? 0 : ''
   cross.value.rows.forEach(r => { if (!(key in r)) r[key] = def })
   _persistCols()
 }
 // 删除列
-function hdrDeleteCol() {
+async function hdrDeleteCol() {
   const { key, type } = hdrCtx.value
   if (type === 'qty') {
     const ui = cross.value.units.findIndex(u => u.name === key)
     if (ui >= 0) delCol(ui)
   } else {
-    // 自定义列：同时清掉留存的值映射
+    // 自定义列：先在**服务端**注销该列（后端会在同一事务里清掉所有商品上该列的值），
+    // 成功才动本地 —— 反过来做会出现"本地没了、服务端还留着列和值"的分叉。
     if (colOrder.value.find(c => c.key === key && c.custom)) {
-      const map = _loadCustVals()
-      Object.keys(map).forEach(pk => { delete map[pk][key]; if (!Object.keys(map[pk]).length) delete map[pk] })
-      _saveCustVals(map)
+      if (!registryOk.value) { toast('列配置未从服务器加载，暂时不能删除列', 'warn'); closeHdrCtx(); return }
+      try {
+        const r = await forecastColumnsApi.remove(key)
+        if (r && r.purged_products) toast(`已删除列，并清理了 ${r.purged_products} 个商品上该列的值`, 'ok')
+        registryColumns.value = registryColumns.value.filter(c => c.key !== key)
+      } catch (e) {
+        toast('删除列失败：' + (e && e.message ? e.message : '请重试'), 'warn')
+        closeHdrCtx(); return
+      }
     }
     deleteMasterCol(key)
   }
@@ -6225,6 +6334,9 @@ onMounted(async () => {
   loadTenantParams()
   loadRebateAchievements()
   probeErp()
+  // v161：列注册表要在渲染网格**之前**到位 —— 它决定"哪些列不可删除"以及有哪些自定义列。
+  // 失败不阻断页面（降级到内置规则），但 loadColumnRegistry 内部会提示，不静默。
+  await loadColumnRegistry()
   await loadPeriods()
   // 默认进入交叉表视图：按默认模式加载报单汇总表，避免空白
   if (viewMode.value === 'cross') {
