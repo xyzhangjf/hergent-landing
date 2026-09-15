@@ -672,6 +672,22 @@
               </div>
               </Teleport>
             </div>
+            <!-- v170：「新增客户」入口 —— 承接从表头撤下的那一格（合计右侧，默认在视口外 2475px
+                 且回车在碰过表格后静默失效）。与品牌筛选用完全同构的 .tb-pop + positionTbPop()，
+                 零新增定位代码；面板内回车即可提交，弹层常显故不再有"看不见"的问题。 -->
+            <div class="tb-pop">
+              <button ref="addColBtn" class="btn btn-sm btn-ghost" :class="{on:addColPopOpen}" @click="toggleAddColPop" title="新增客户列（当期新开、从未在报单里出现过的客户/门店）"><Icon name="plus"/> 新增客户 <Icon name="chevron-down"/></button>
+              <Teleport to="body">
+              <div v-if="addColPopOpen" class="tb-pop-panel addcol-pop" :style="popStyle" @click.stop>
+                <div class="ac-head">新增客户列</div>
+                <div class="ac-row">
+                  <input ref="addColInput" v-model="addColName" class="ac-input" placeholder="客户名（如：永辉超市）" @keyup.enter="confirmAddCol">
+                  <button class="btn btn-sm btn-primary" :disabled="!addColName.trim()" @click="confirmAddCol">添加</button>
+                </div>
+                <p class="ac-tip">历史报单出现过的客户已自动成列；此处只用于「当期新开、从未提报」的客户/门店。加完请点右上角「保存」，才会存到后端。</p>
+              </div>
+              </Teleport>
+            </div>
             <!-- v168：编辑态**刻意不提供**「复制报单」——
                  本态矩阵是**未定稿草稿**，rowFinalQty() 走「合计 + 加单」兜底；此时复制出去的
                  是"还没定稿的数"，很容易被当成最终报单直接粘进厂家系统下单 → 数错。
@@ -746,10 +762,11 @@
                 <th v-if="yoyOn" class="num calc-th">去年同期<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'yoyPrev')" @click.stop></span></th>
                 <th v-if="yoyOn" class="num calc-th">同比<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'yoyDelta')" @click.stop></span></th>
                 <th class="num calc-th sum">合计<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'sum')" @click.stop></span></th>
-                <th class="qty-th">
-                  <input class="cell-input cell-cust" placeholder="客户名" @keyup.enter="addCol($event)">
-                  <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'spacer')" @click.stop></span>
-                </th>
+                <!-- v170：此处原为「客户名」输入框（= 新增客户列入口）。撤除原因（真机实测）：
+                     ① 表头总宽 4008px、可视仅 1360px，它默认在视口右界外 2475px，用户基本看不到；
+                     ② 回车静默失效 —— <table @keydown="onGridKey"> 在有选区时会 focusCell()，
+                        焦点在 keydown 阶段就被搬走，输入框自己的 @keyup.enter 永远收不到。
+                     入口已迁到本行工具行的「新增客户」按钮（见上方 .grid-ctl-row），那一列一并撤除。 -->
                 <th class="op-th">操作<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'op')" @click.stop></span></th>
               </tr>
             </thead>
@@ -800,7 +817,6 @@
                 <td v-if="yoyOn" class="num calc" :data-r="ri">{{ yoyQty(r) != null ? fmt(yoyQty(r)) : '—' }}</td>
                 <td v-if="yoyOn" class="num calc delta" :class="yoyPct(r) > 0 ? 'up' : (yoyPct(r) < 0 ? 'down' : '')" :data-r="ri">{{ yoyPct(r) == null ? '—' : (yoyPct(r) > 0 ? '+' : '') + yoyPct(r) + '%' }}</td>
                 <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri">{{ fmt(rowSum(r)) }}</td>
-                <td class="td spacer" :data-r="ri"></td>
                 <td class="op-th" :data-r="ri"><button class="btn-del" @click="delRow(ri)" title="删除该商品行"><Icon name="close"/></button></td>
               </tr>
             </tbody>
@@ -825,7 +841,6 @@
                 <td v-if="yoyOn" class="num calc">—</td>
                 <td v-if="yoyOn" class="num calc delta">—</td>
                 <td class="num calc sum">{{ fmt(foot.qty) }}</td>
-                <td class="td spacer"></td>
                 <td class="op-th"></td>
               </tr>
             </tbody>
@@ -1898,7 +1913,7 @@ function colCls(col) {
 }
 // 列宽拖拽：列宽按关键字存入 colWidths，<colgroup> 据此渲染；拖动右侧手柄实时改宽并存 localStorage
 const colWidths = ref({})
-const COL_DEFAULTS = { seq: 46, name: 210, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, safety_stock: 86, expiry_days: 86, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, spacer: 110, op: 64 }
+const COL_DEFAULTS = { seq: 46, name: 210, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, safety_stock: 86, expiry_days: 86, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
 function loadColWidths() { try { const s = localStorage.getItem('hergent-forecast-col-widths'); if (s) colWidths.value = JSON.parse(s) || {} } catch (e) {} }
@@ -1936,7 +1951,9 @@ const editColKeys = computed(() => {
   if (showSpark.value) keys.push('spark')
   if (yoyOn.value) { keys.push('yoyPrev'); keys.push('yoyDelta') }
   keys.push('sum')
-  keys.push('spacer')
+  // v170：原此处有 keys.push('spacer')（表头「客户名」输入框的占位列）。
+  //   该列唯一用途就是承载那个输入框，入口迁到工具行后列一并撤除。
+  //   ⚠️ 本函数驱动 <colgroup>，改这里必须同步 thead th / tbody td / 表尾 td（三处各减 1），否则整表错位。
   keys.push('op')
   return keys
 })
@@ -2401,19 +2418,23 @@ function delRow(ri) {
   cross.value.rows.splice(ri, 1)
 }
 
-function addCol(ev) {
-  const v = (ev.target.value || '').trim()
-  if (!v) return
+/* 新增客户列 —— 全站唯一实现（v170 收敛）
+   收敛前有两份拷贝：表头「客户名」输入框的 addCol(ev)，与表头右键「增加列」的
+   applyHdrAdd() qty 分支。后者还漏了重名提示（静默 return，用户以为没点上）——
+   正是"第二份拷贝 = 静默漂移"的典型。v170 入口从表头迁到工具行「新增客户」弹层，
+   两处逻辑一并收敛到本函数。返回是否真的加成功。 */
+function addUnit(name) {
+  const v = String(name || '').trim()
+  if (!v) return false
   if (cross.value.units.find(u => u.name === v)) {
     // Q3：重名原为静默 return，界面毫无反应，用户以为没点上、反复输入
     toast(`客户列「${v}」已存在`, 'warn')
-    if (ev && ev.target) ev.target.select()
-    return
+    return false
   }
   snapshot()
   cross.value.units.push({ name: v, role: '' })
   cross.value.rows.forEach(r => { if (!(v in r.qtyByUnit)) r.qtyByUnit[v] = 0 })
-  ev.target.value = ''
+  return true
 }
 
 function renameCol(ui, newName) {
@@ -3512,15 +3533,10 @@ function applyHdrAdd() {
   const v = (hdrAddName.value || '').trim()
   const { type } = hdrCtx.value
   if (v) {
-    if (type === 'qty') {
-      if (!cross.value.units.find(u => u.name === v)) {
-        snapshot()
-        cross.value.units.push({ name: v, role: '' })
-        cross.value.rows.forEach(r => { if (!(v in r.qtyByUnit)) r.qtyByUnit[v] = 0 })
-      }
-    } else {
-      addCustomMasterCol(v, hdrAddType.value)
-    }
+    // v170：客户列统一走 addUnit()（唯一实现，含重名提示）。
+    //   原先此处自带一份 push 逻辑、重名时静默不提示，与表头输入框那份已经漂移。
+    if (type === 'qty') addUnit(v)
+    else addCustomMasterCol(v, hdrAddType.value)
   }
   closeHdrCtx()
 }
@@ -4835,6 +4851,11 @@ const exportBtn = ref(null)
 // 品牌筛选下拉
 const brandBtn = ref(null)
 const brandPopOpen = ref(false)
+// 工具行「新增客户」下拉（v170）：从表头那一格迁来的入口，参与同一套弹层互斥
+const addColBtn = ref(null)
+const addColPopOpen = ref(false)
+const addColName = ref('')
+const addColInput = ref(null)
 // 主工具栏各下拉互斥：只允许同时开一个（共享 popStyle 定位 + 一个透明遮罩）。
 // 触发按钮已提层(z1120 > overlay z1100)，弹层开着时可直接点其它触发按钮做互斥切换，
 // 避免用户“先选品牌、再点复制报单”时第一次点击被遮罩吃掉（只关面板不开新面板）。
@@ -4843,6 +4864,7 @@ function _closePopPanes(except) {
   if (except !== 'export') exportMenuOpen.value = false
   if (except !== 'brand') brandPopOpen.value = false
   if (except !== 'copy') copyMenuOpen.value = false
+  if (except !== 'addcol') addColPopOpen.value = false
 }
 function toggleBrandPop() {
   const open = !brandPopOpen.value
@@ -4858,6 +4880,31 @@ function toggleCopyMenu() {
   _closePopPanes(open ? 'copy' : '')
   copyMenuOpen.value = open
   if (open) nextTick(() => positionTbPop(copyBtn.value))
+}
+// 工具行「新增客户」下拉（v170）—— 与品牌/复制报单共用同一套定位(positionTbPop)与互斥
+function toggleAddColPop() {
+  const open = !addColPopOpen.value
+  _closePopPanes(open ? 'addcol' : '')
+  addColPopOpen.value = open
+  if (open) {
+    nextTick(() => {
+      positionTbPop(addColBtn.value)
+      // 面板 Teleport 到 body，开面板即聚焦，用户可直接敲名字回车
+      const el = addColInput.value || document.querySelector('.addcol-pop .ac-input')
+      if (el) el.focus()
+    })
+  } else {
+    addColName.value = ''
+  }
+}
+function confirmAddCol() {
+  const v = addColName.value.trim()
+  if (!v) return
+  // 重名时 addUnit 已给 toast，此处刻意**不关面板**，让用户直接改名字重试
+  if (addUnit(v)) {
+    addColName.value = ''
+    addColPopOpen.value = false
+  }
 }
 // 复制只针对「本期期次」（不按报单单元列拆选）
 const copyUnitName = computed(() => (cross.value.period && cross.value.period.name) ? cross.value.period.name : (cross.value.units && cross.value.units[0] ? cross.value.units[0].name : '本期'))
@@ -6763,7 +6810,6 @@ td.invalid{background:var(--danger-bg)}
 .delta.down{color:var(--danger-txt)}
 .spark-td{text-align:center}
 .spark-td .muted{color:var(--t3);font-size:11px}
-.spacer{background:transparent}
 .foot-row td{background:var(--bg3);font-weight:500;border-top:2px solid var(--bd)}
 .foot-row td.frozen{background:var(--bg3);z-index:6}
 .grp-btn{font-size:12px;padding:5px 12px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;white-space:nowrap}
@@ -6898,6 +6944,15 @@ td.invalid{background:var(--danger-bg)}
 .brand-pop .bp-item:hover{background:var(--bg2)}
 .brand-pop .bp-empty{color:var(--t3);font-size:12px;margin:4px 0}
 .brand-pop .bp-tip{font-size:12px;color:var(--t3);margin:0;line-height:1.5}
+/* v170：工具行「新增客户」弹层（承接表头撤下的那一格；外壳复用 .tb-pop-panel）
+   ⚠️ max-width 必写：.tb-pop-panel 是 flex column 的 shrink-to-fit，缺它时长 tip 的
+   max-content 会把面板撑到 700px+（真机实测 707.7px，而旁边的品牌面板只有 240px）。 */
+.addcol-pop{min-width:264px;max-width:320px}
+.addcol-pop .ac-head{font-weight:600;color:var(--t1);font-size:13px}
+.addcol-pop .ac-row{display:flex;gap:6px;align-items:center}
+.addcol-pop .ac-input{flex:1;min-width:0;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg3);color:var(--t1);font-size:13px;font-family:inherit}
+.addcol-pop .ac-input:focus{outline:none;border-color:var(--p);background:var(--bg)}
+.addcol-pop .ac-tip{font-size:12px;color:var(--t3);margin:0;line-height:1.5}
 .copy-pop{min-width:246px;max-width:320px}
 .copy-pop .cp-title{font-weight:600;color:var(--t1);font-size:13px}
 .copy-pop .cp-title-sub{font-weight:400;color:var(--t3);font-size:12px}
