@@ -306,6 +306,9 @@
           </template>
           <span class="achv-hint">共 {{ achvRows.length }} 行 · 已填报 {{ achvFilledCount }} 行</span>
           <div class="achv-ops">
+            <!-- v171：修改日志 —— 本页每一次填报/修改/清除/导入都自动留痕（谁·何时·哪一行·哪个字段·改成什么） -->
+            <button class="btn btn-ghost btn-sm" @click="openAchvLog"
+                    title="修改日志：本页每一次填报 / 修改 / 清除 / Excel 导入都会自动留痕，可查谁在什么时候把哪一行的哪个字段改成了什么"><Icon name="list"/> 修改日志</button>
             <button class="btn btn-ghost btn-sm" @click="downloadAchvTemplate">下载模板</button>
             <button class="btn btn-primary btn-sm" @click="achvImpOpen = true">Excel 导入</button>
           </div>
@@ -412,6 +415,84 @@
                   {{ achvImporting ? '导入中…' : '确认导入' }}
                 </button>
               </template>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
+      <!-- v171 修改日志弹窗：字段级留痕（谁 · 何时 · 哪一行 · 哪个字段 · 改成什么）。
+           数据源 = 后端 entity_change_logs（与商品/客户/销售单的「修改记录」同一张表），
+           由本页三条写路径（填报 / 清除 / Excel 导入）在提交后写入。 -->
+      <Teleport to="body">
+        <Transition name="fade">
+          <div v-if="achvLogOpen" class="modal-overlay" @click.self="achvLogOpen = false"></div>
+        </Transition>
+        <Transition name="modal">
+          <div v-if="achvLogOpen" class="modal-card achv-log-card">
+            <div class="modal-hd">
+              <b><Icon name="list"/> 修改日志</b>
+              <button class="btn-close" @click="achvLogOpen = false"><Icon name="close"/></button>
+            </div>
+            <div class="modal-body achv-log-body">
+              <p class="achv-tip">
+                本页每一次<b>填报 / 修改 / 清除 / Excel 导入</b>都会自动留痕：谁、在什么时候、把哪一行的哪个字段改成了什么。
+                只记<b>真实变化</b> —— 点了一下但值没变不会产生记录。
+              </p>
+              <div class="achv-log-bar">
+                <input class="input" v-model.trim="achvLogKeyword"
+                       placeholder="搜索 修改人 / 对象 / 字段 / 数值" @keyup.enter="reloadAchvLog" />
+                <label class="achv-log-chk">
+                  <input type="checkbox" v-model="achvLogThisPeriod" @change="reloadAchvLog" />
+                  只看本期（{{ achvMonth }}）
+                </label>
+                <button class="btn btn-ghost btn-sm" :disabled="achvLogLoading" @click="reloadAchvLog">
+                  {{ achvLogLoading ? '载入中…' : '刷新' }}
+                </button>
+              </div>
+              <div v-if="achvLogLoading && !achvLogItems.length" class="state-empty">载入中…</div>
+              <div v-else-if="!achvLogItems.length" class="state-empty">
+                <p v-if="achvLogKeyword">没有匹配「{{ achvLogKeyword }}」的记录。</p>
+                <p v-else-if="achvLogThisPeriod">本期（{{ achvMonth }}）还没有修改记录。</p>
+                <p v-else>还没有修改记录。本页的填报 / 修改 / 清除 / 导入都会自动记录在这里。</p>
+              </div>
+              <template v-else>
+                <div class="achv-log-count">
+                  共 <b>{{ achvLogTotal }}</b> 条
+                  <span v-if="achvLogThisPeriod">· 已按期次「{{ achvMonth }}」筛选</span>
+                  <span v-if="achvLogItems.length < achvLogTotal">· 当前显示最新 {{ achvLogItems.length }} 条</span>
+                </div>
+                <div class="table-wrap achv-log-wrap">
+                  <table class="tbl">
+                    <thead>
+                      <tr>
+                        <th>时间</th><th>修改人</th><th>动作</th><th>对象</th>
+                        <th>字段</th><th class="num">修改前</th><th class="num">修改后</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="r in achvLogItems" :key="r.id">
+                        <td class="achv-log-at">{{ r.at }}</td>
+                        <td class="achv-log-who">{{ r.user_name || '系统' }}</td>
+                        <td><span class="tag" :class="achvLogActCls(r)">{{ r.action_label }}</span></td>
+                        <td class="achv-log-target" :title="r.target">{{ r.target || '—' }}</td>
+                        <td>{{ r.field_label }}</td>
+                        <td class="num achv-log-old">{{ achvLogVal(r, 'old') }}</td>
+                        <td class="num achv-log-new">
+                          <span v-if="r.action === 'delete'" class="achv-log-cleared">已清除</span>
+                          <template v-else>{{ achvLogVal(r, 'new') }}</template>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+            <div class="modal-ft">
+              <button v-if="achvLogItems.length < achvLogTotal" class="btn btn-ghost"
+                      :disabled="achvLogLoading" @click="loadMoreAchvLog">
+                加载更多（已显示 {{ achvLogItems.length }}/{{ achvLogTotal }}）
+              </button>
+              <button class="btn btn-ghost" @click="achvLogOpen = false">关闭</button>
             </div>
           </div>
         </Transition>
@@ -1766,6 +1847,60 @@ async function runAchvImport() {
   }
 }
 
+// ---- v171：修改日志（达成填报页的字段级留痕）--------------------------------
+// 数据源 = 后端 entity_change_logs（与商品档案/客户档案/销售订单的「修改记录」同一张
+// 表、同一套写入设施），由本页三条写路径（填报 / 清除 / Excel 导入）在事务提交后写入。
+// 故前端**只读**：不在前端造第二条留痕路径，否则同一个「谁改了什么」会有两份答案。
+const ACHV_LOG_PAGE = 200
+const ACHV_LOG_ACT_CLS = { create: 'ok', update: 'info', delete: 'bad', import: 'warn' }
+// 只有数值型字段做千分位美化；备注 / 对象名保持原文（库里存的是原值，好看是展示层的事）
+const ACHV_LOG_NUM_FIELDS = ['actual_amount', 'actual_qty', 'actual_rebate']
+const achvLogOpen = ref(false)
+const achvLogLoading = ref(false)
+const achvLogItems = ref([])
+const achvLogTotal = ref(0)
+const achvLogKeyword = ref('')
+const achvLogThisPeriod = ref(false)
+
+function achvLogActCls(r) { return ACHV_LOG_ACT_CLS[r.action] || '' }
+function achvLogVal(r, which) {
+  const v = String((which === 'old' ? r.old_value : r.new_value) ?? '')
+  if (v === '') return '—'
+  if (ACHV_LOG_NUM_FIELDS.indexOf(r.field) < 0) return v
+  const n = Number(v)
+  return isFinite(n) ? n.toLocaleString('zh-CN') : v
+}
+async function loadAchvLog(append = false) {
+  achvLogLoading.value = true
+  try {
+    const q = ['limit=' + ACHV_LOG_PAGE, 'offset=' + (append ? achvLogItems.value.length : 0)]
+    // 默认**不按期次筛**：追溯时若被页面上当前选中的月份悄悄缩小视野，
+    // 「上个月是谁改的」在自己没注意选了本月时就会永远查不到。
+    if (achvLogThisPeriod.value) q.push('month=' + encodeURIComponent(achvMonth.value || ''))
+    if (achvLogKeyword.value) q.push('keyword=' + encodeURIComponent(achvLogKeyword.value))
+    const r = await api('/api/rebate-achievements/audit?' + q.join('&'))
+    // ⚠️ api() 已解开一层信封（client.js：`data.data !== undefined ? data.data : data`），
+    // 这里拿到的就是 { items, total, limit, offset }。若再读一次 r.data 会恒为 undefined，
+    // 表现为「后端有记录、弹窗却永远空」——v171 首版即踩此坑，勿改回。
+    const d = r || {}
+    const items = d.items || []
+    achvLogItems.value = append ? achvLogItems.value.concat(items) : items
+    achvLogTotal.value = d.total || 0
+  } catch (e) {
+    toast('修改日志载入失败: ' + (e.message || ''), 'error')
+  } finally {
+    achvLogLoading.value = false
+  }
+}
+function openAchvLog() {
+  achvLogOpen.value = true
+  achvLogKeyword.value = ''
+  achvLogThisPeriod.value = false
+  loadAchvLog(false)   // 打开即刷新：别人刚做的改动要当场看得见
+}
+function reloadAchvLog() { loadAchvLog(false) }
+function loadMoreAchvLog() { loadAchvLog(true) }
+
 function downloadAchvTemplate() {
   // v160：模板增列「实际返利」—— 它是仪表盘返利柱的唯一数据来源，必须能整月批量导入，
   //   否则只能一行行手填（Hermes 回写走 API，不走这张表）。
@@ -2871,6 +3006,31 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .btn-close{border:none;background:none;font-size:18px;color:var(--t3);cursor:pointer}
 .modal-body{padding:20px;display:flex;flex-direction:column;gap:14px}
 .modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle);position:sticky;bottom:0;background:var(--bg);z-index:2}
+/* v171：达成填报「修改日志」弹窗 —— 7 列（时间/人/动作/对象/字段/前后值），
+   通用 .modal-card 的 580px 放不下，故加宽；表格区独立滚动 + 表头吸附，
+   长日志下滚时列名不会消失（否则读到一半就分不清哪列是"修改前"）。 */
+/* 7 列 × 全单行 ≈ 990px 的表格自然宽度；920px 会逼出横向滚动条（实测溢出 73px）。
+   故按内容给宽，同时用 calc(100vw - 64px) 兜住窄屏，不让弹窗顶到屏幕边缘。 */
+.achv-log-card{width:min(1040px,calc(100vw - 64px))}
+.achv-log-body{gap:10px}
+.achv-log-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.achv-log-bar .input{flex:1;min-width:180px}
+.achv-log-chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--t2);cursor:pointer;white-space:nowrap}
+.achv-log-count{font-size:12.5px;color:var(--t3)}
+.achv-log-wrap{max-height:min(56vh,520px);overflow:auto}
+.achv-log-wrap .tbl th{position:sticky;top:0;z-index:1;background:var(--bg3)}
+.achv-log-at{white-space:nowrap;color:var(--t2)}
+.achv-log-who{white-space:nowrap}
+/* 日志表每行的语义固定、且单元格文本都很短 ⇒ 一律单行，不许折行。
+   折行的实测后果：动作「Excel 导入」被拆成「Excel 导 / 入」、字段「实际达成金额」被拆成
+   两行，相邻行高参差不齐，一屏能看的记录数还少了一截。
+   对象名可能很长 ⇒ 单独用省略号截断，全文走 title 悬停（见模板 :title）。 */
+.achv-log-wrap .tbl td,.achv-log-wrap .tbl th{white-space:nowrap}
+.achv-log-wrap .tag{white-space:nowrap}
+.achv-log-target{max-width:210px;overflow:hidden;text-overflow:ellipsis}
+.achv-log-old{color:var(--t3)}
+.achv-log-new{font-weight:500}
+.achv-log-cleared{color:var(--dan);font-size:12px;font-weight:400}
 .form-row{display:flex;flex-direction:column;gap:6px}
 .form-row label{font-size:12px;font-weight:500;color:var(--t2)}
 .form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
