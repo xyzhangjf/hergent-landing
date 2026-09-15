@@ -48,6 +48,55 @@ def _assert_isolated(sandbox_id):
         sys.exit("拒绝：沙箱 id %d 小于隔离下限 %d —— tenant_1 / tenant_10 绝不可当沙箱" % (sandbox_id, SANDBOX_MIN))
 
 
+# ── 源库「零污染」判据（v169 修正）──────────────────────────────
+# ⚠️ 为什么不用 sha256 前后一致做判据：源库是**真实租户**，生产后端一直在跑 ——
+#    缓存刷新（today_briefing_cache / ai_profile_cache）、真实用户浏览、定时任务都会
+#    改写主文件，实测一轮下来哈希必变（cdc7cd6c → d447dc46）而业务计数一字未动。
+#    用哈希判据会把「生产正常运行」误报成「沙箱污染了真实库」，方向完全反了。
+# 正确判据：**比对源库的表计数指纹**，并把变化分类 —— 只落在运行时/缓存表即为正常。
+_RUNTIME_TABLES = {
+    "today_briefing_cache", "ai_profile_cache", "ai_advice_log", "ai_fallback_log",
+    "ai_reminders", "chat_sessions", "message_center", "audit_logs", "daily_logs",
+    "_migrations", "sessions",
+}
+
+
+def _table_counts(db):
+    """全表计数指纹（只读打开，绝不触发 checkpoint 之外的写入）"""
+    con = sqlite3.connect("file:%s?mode=ro" % db, uri=True)
+    try:
+        tabs = [r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+        out = {}
+        for t in tabs:
+            try:
+                out[t] = con.execute('SELECT COUNT(*) FROM "%s"' % t).fetchone()[0]
+            except Exception:
+                out[t] = "ERR"
+        return out
+    finally:
+        con.close()
+
+
+def _src_diff(before, after):
+    """对比源库指纹，区分「运行时写入」与「需人工确认的变化」"""
+    if not before or not after:
+        return {"compared": False}
+    changed = sorted(t for t in set(before) | set(after)
+                     if before.get(t) != after.get(t))
+    runtime = [t for t in changed if t in _RUNTIME_TABLES]
+    business = [t for t in changed if t not in _RUNTIME_TABLES]
+    return {
+        "compared": True,
+        "changed_tables": changed,
+        "runtime_tables": runtime,
+        "business_tables": business,
+        # ok        = 变化全落在运行时/缓存表（生产正常运行，非沙箱所致）
+        # review    = 业务表计数也变了 —— 多半是真实用户在操作，须人工确认后再收工
+        "verdict": "ok" if not business else "review",
+    }
+
+
 def cmd_up(a):
     _assert_isolated(a.id)
     src_db = os.path.join(ERP_DIR, "tenant_%d.db" % a.src)
@@ -109,10 +158,19 @@ def cmd_up(a):
         mc.close()
 
     src_after = sha256(src_db)
+    # 记源库指纹供 down 时比对（哈希只作参考：真实租户一直在被生产写）
+    src_fp = _table_counts(src_db)
+    meta_path = "/tmp/sandbox_%d.meta.json" % a.id
+    with open(meta_path, "w") as f:
+        json.dump({"tenant_id": a.id, "src": a.src, "src_db": src_db,
+                   "src_table_counts": src_fp,
+                   "created_at": now.isoformat(timespec="seconds")}, f, ensure_ascii=False)
     print(json.dumps({
         "ok": True, "tenant_id": a.id, "user_id": uid, "token": token,
-        "dst": dst_db, "src": src_db, "src_sha256_before": src_before,
-        "src_sha256_after": src_after, "src_clean": src_before == src_after,
+        "dst": dst_db, "src": src_db,
+        "src_sha256_before": src_before, "src_sha256_after": src_after,
+        "src_hash_unchanged": src_before == src_after,
+        "src_tables_fingerprinted": len(src_fp), "meta": meta_path,
         "submissions_retargeted": moved, "order_date": today, "decisions_seeded": seeded,
     }, ensure_ascii=False))
 
@@ -212,10 +270,24 @@ def cmd_down(a):
     left_files = [os.path.basename(x) for x in stray]
 
     src_after = sha256(src_db) if os.path.exists(src_db) else None
+    # 源库零污染判据 = **表计数指纹比对**，不是哈希（见文件头 _RUNTIME_TABLES 说明）
+    meta_path = "/tmp/sandbox_%d.meta.json" % a.id
+    meta = {}
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path) as f:
+                meta = json.load(f)
+        except Exception:
+            meta = {}
+    src_fp = _table_counts(src_db) if os.path.exists(src_db) else None
+    check = _src_diff(meta.get("src_table_counts"), src_fp)
+    if os.path.exists(meta_path):
+        os.remove(meta_path)
     print(json.dumps({
         "ok": True, "tenant_id": a.id, "removed_master_rows": removed, "left_master_rows": left,
         "left_files": left_files, "ZERO_RESIDUE": (not left_files and all(v == 0 for v in left.values())),
         "src_sha256_after": src_after,
+        "src_business_check": check,
     }, ensure_ascii=False))
 
 

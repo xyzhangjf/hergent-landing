@@ -201,6 +201,13 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .btn-primary:hover{background:var(--p-deep)}
 .btn-ghost{background:transparent;color:var(--t1);border:1px solid var(--bd)}
 .btn-ghost:hover{background:var(--bg2)}
+/* v169 补齐：`.btn.on` 此前**全站没有定义** —— 模板里「导出 / 工具箱 / 修改日志 / 品牌 /
+   复制报单 / 返利·品牌筛选」共 6 处都写了 :class="{on:...}"，但点击前后计算样式逐属性相同
+   （background/color/border/boxShadow 全不变），等于「弹层开着但触发按钮毫无反馈」。
+   视觉语言不新造，直接对齐同页已有的 .view-seg button.on（浅底 + 主色字 + 细阴影），
+   另按 ghost 有边框这一点把边框一并染成主色，使「已展开」在带框按钮上同样成立。
+   置于 .btn-ghost:hover 之后：同特异性（0,2,0）时后者胜，on 态不会被 hover 底色盖掉。 */
+.btn.on{background:var(--bg4);color:var(--p-dark);border-color:var(--p);box-shadow:var(--shadow-sm)}
 .btn-block{width:100%}
 
 /* ============================================================
@@ -212,6 +219,13 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .tb-group{display:inline-flex;align-items:center;gap:8px}
 .tb-sep{width:1px;height:20px;background:var(--bd);flex:0 0 auto;margin:0 2px}
 .btn-sm{height:32px;padding:0 12px;font-size:13px;font-weight:500;border-radius:var(--radius-sm)}
+/* v169 补齐：`.btn-badge` 此前**全站没有定义** —— 「查错」与「品牌」按钮里的计数走的是
+   裸文本节点，实测拿到宿主按钮的全部排印值（13px / 与按钮同色 / 透明底 / 零内边距零圆角），
+   渲染成「品牌 2 ⌄」这种与相邻按钮不同构的排版，且计数与标签之间只靠文本空格分隔。
+   这里给成一个 18px 高的小胶囊：字号降一档以示「这是计数不是标签」，主色系与站内
+   .confirm-badge 同源；高度写死使它在 32px 按钮内不参与撑高。 */
+.btn-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--p-bg);color:var(--p-deep);font-size:11px;font-weight:600;line-height:1;white-space:nowrap}
+.btn-badge.err{background:var(--danger-bg);color:var(--danger-txt)}
 .btn-icon{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
 .btn-icon svg{width:16px;height:16px}
 .btn-icon:hover:not(:disabled){background:var(--bg2);color:var(--t1)}

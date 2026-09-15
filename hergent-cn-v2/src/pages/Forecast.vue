@@ -20,7 +20,8 @@
            这张汇总表生效，本就属表格级动作（原挂在"数据进出"段，见 .tb-data 注释）。下移后同行相邻。
            v168：下移后进一步收敛为**只读态专属** —— 编辑态（改单）撤掉复制入口，因草稿未定稿。
            搜索框留在工具栏：findText 跨视图生效（汇总表 / 逐单补录 / 编辑态 / 导出），属全局检索。
-           编辑态多出 6 个编辑按钮，故编辑控制组 .tb-edit-group 独占第二行（flex:0 0 100%）。 -->
+           编辑态多出 5 个编辑按钮，故编辑控制组 .tb-edit-group 独占第二行（flex:0 0 100%）。
+           v169 校准：原写「6 个」—— v168 撤掉编辑态的「复制报单」后实为 5 个（取消、回退、查错、补录商品、保存）。 -->
       <div class="tb-group tb-ctx">
           <select v-model="curPeriod" class="input sel-period" @change="onPeriodChange">
             <option value="0">— 选择期次 —</option>
@@ -6205,7 +6206,7 @@ onMounted(async () => {
    表格级筛选器（仅显示有报单 / 品牌）已下移到表格卡片顶部的 .grid-ctl-row。
    v167：「复制报单」从段2 下移到同一行 —— 它与品牌筛选是同一条动作链的两步（先勾品牌、再复制那些
    品牌的编码/数量），且只对当前这张汇总表生效；下移后"勾品牌 → 复制"同行相邻，不必走回页头。
-   编辑态多出的 6 个编辑按钮交由 .tb-edit-group 独占第二行，故 toolbar 保留 flex-wrap 作窄屏兜底。
+   编辑态多出的 5 个编辑按钮交由 .tb-edit-group 独占第二行（v169 校准：v168 撤掉编辑态「复制报单」后由 6 个减为 5 个），故 toolbar 保留 flex-wrap 作窄屏兜底。
    注：类名用 .tb-dense 而非 .tb-compact —— 后者是 variables.css 的全局类（Toolbar.vue 在用），避免命名碰撞。 */
 .toolbar>.tb-group>*{flex:0 0 auto;white-space:nowrap}
 /* 编辑控制组：编辑态独占整行（flex-basis 100% 强制换行），且位于工具栏最末 → 最贴近下方表格 */
@@ -6732,7 +6733,14 @@ th.sortable:hover{color:var(--p-dark)}
 .fc-num.invalid, .fc-code.invalid, .fc-text.invalid{border-radius:6px}
 td.invalid{background:var(--danger-bg)}
 .basis-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)}
-.tb-toggle{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--t1);background:var(--bg3);border:1px solid var(--bd);border-radius:8px;height:32px;padding:0 10px;white-space:nowrap;cursor:pointer;user-select:none;flex:0 0 auto}
+/* 表格工具行的「仅显示有报单」开关。
+   v169 规格对齐：它原先自成一派（12px/400/var(--bg3) 底/10px 内边距），与同行的
+   品牌、复制报单（.btn .btn-sm .btn-ghost → 13px/500/透明底/12px 内边距）肉眼可见地
+   不一致（字号与字重有粗细跳变）。此处改为与 .btn-sm.btn-ghost 逐属性同值，
+   使整行三种控件只有一种文字规格。注意本行是页面 scoped 样式，覆盖的是全局
+   .btn-sm 的同名视觉属性，改这里等于把这一个控件的规格「归队」。 */
+.tb-toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--t1);background:transparent;border:1px solid var(--bd);border-radius:var(--radius-sm);height:32px;padding:0 12px;white-space:nowrap;cursor:pointer;user-select:none;flex:0 0 auto}
+.tb-toggle:hover{background:var(--bg2)}
 .tb-toggle input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
 .basis-toggle select{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:2px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
 .filter-input{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:4px 9px;font-size:12px;min-width:150px;background:var(--bg);color:var(--t1)}
