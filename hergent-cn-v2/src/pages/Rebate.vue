@@ -290,23 +290,13 @@
         </div>
 
         <div class="achv-bar">
-          <label class="achv-lb">周期口径</label>
-          <select v-model="achvPeriod" class="input achv-period" @change="onAchvPeriod">
-            <option value="month">按月</option>
-            <option value="quarter">按季</option>
-            <option value="year">按年</option>
-          </select>
-          <template v-if="achvPeriod === 'month'">
-            <input type="month" v-model="achvMonth" class="input achv-month" @change="loadAchievements" />
-          </template>
-          <template v-else-if="achvPeriod === 'quarter'">
-            <input type="text" v-model="achvMonth" class="input achv-month" placeholder="如 2026-Q3"
-                   @change="onAchvPeriodInput" />
-          </template>
-          <template v-else>
-            <input type="text" v-model="achvMonth" class="input achv-month" placeholder="如 2026"
-                   @change="onAchvPeriodInput" />
-          </template>
+          <!-- v173：原来的「周期口径」下拉已删除。它让用户自选写进哪个存储桶
+               （YYYY-MM / YYYY-Qn / YYYY），而三个消费方（仪表盘全年月度对比、
+               预报页返利冲刺看板、返利合同计提）全部按月键读取 —— 选季/年只是把
+               数据写进没人读的桶。达成数据只有一个月度桶，月份之外的口径由
+               每条规则自己的 period_type 决定（下表「周期」列显示，系统自动取值）。 -->
+          <label class="achv-lb">填报月份</label>
+          <input type="month" v-model="achvMonth" class="input achv-month" @change="onAchvMonth" />
           <span class="achv-hint">共 {{ achvRows.length }} 行 · 已填报 {{ achvFilledCount }} 行</span>
           <div class="achv-ops">
             <!-- v171：修改日志（字段级留痕；数据源与写路径见下方弹窗注释） -->
@@ -318,15 +308,19 @@
 
         <div v-if="achvLoading" class="state-empty">加载中…</div>
         <div v-else-if="!achvRows.length" class="state-empty">
-          <p>本期还没有可填报的行。请先在「目标与返利」创建品牌 / 商品目标，或直接「Excel 导入」达成数据。</p>
+          <p>本月还没有可填报的行。请先在「目标与返利」创建品牌 / 商品目标，或直接「Excel 导入」达成数据。</p>
         </div>
         <div v-else class="table-wrap">
           <table class="tbl">
             <thead>
               <tr>
-                <th>维度</th><th>作用对象</th><th class="num">目标值</th>
-                <th class="num">实际返利（元）</th>
+                <!-- v173：列名由「月度目标 / 目标值」统一为「本月目标」。达成数据只有月度桶，
+                     所以这一列永远是「所选那个月的目标」：年度规则取该月的月度分解额
+                     （monthTargetOf → monthly_amounts[MM]），单期规则在生效起始月取整额。
+                     至于是哪一种，由右侧新增的「周期」列显式标出，用户不必再自己选口径。 -->
+                <th>维度</th><th>作用对象</th><th>周期</th><th class="num">本月目标</th>
                 <th class="num">实际达成金额</th><th class="num">实际达成数量</th>
+                <th class="num">实际返利（元）</th>
                 <th class="num">达成率</th><th>来源</th><th></th>
               </tr>
             </thead>
@@ -334,7 +328,14 @@
               <tr v-for="row in achvRows" :key="row.key">
                 <td><span class="tag info">{{ dimText(row.dimension) }}</span></td>
                 <td>{{ row.scope_name || row.scope_key }}</td>
-                <td class="num">{{ row.target_type ? fmtTarget(row) : '—' }}</td>
+                <!-- v173：目标规则的周期口径（读数，不是选项）。它只说明「本月目标」是怎么
+                     来的 —— 年度规则取 monthly_amounts 的当月分解额，单期规则在生效起始月
+                     取整额。系统按规则自身口径自动取值，用户无需（也无法）在这里切换。 -->
+                <td>
+                  <span v-if="row.periodLabel" class="tag" :title="row.periodTitle">{{ row.periodLabel }}</span>
+                  <span v-else :title="row.periodTitle">—</span>
+                </td>
+                <td class="num">{{ row.target_type ? fmtAchvTarget(row) : '—' }}</td>
                 <td class="num">
                   <input class="input num-input" type="number" v-model.number="row.achAmount"
                          :placeholder="row.target_type === 'amount' ? '填金额' : '—'"
@@ -346,6 +347,7 @@
                          :placeholder="row.target_type === 'quantity' ? '填数量' : '—'"
                          :disabled="achvSaving[row.key]"
                          @change="saveAchv(row)" />
+                </td>
                 <!-- v160：实际返利（元）—— 始终可填（不像金额/数量受 target_type 限制），
                      它是人工/Excel/AI 回写的业务事实，与目标是什么口径无关 -->
                 <td class="num">
@@ -353,11 +355,10 @@
                          :disabled="achvSaving[row.key]"
                          @change="saveAchv(row)" />
                 </td>
-                </td>
                 <td class="num"><span :class="achvRateCls(row)">{{ achvRateText(row) }}</span></td>
+                <td>
                   <!-- v160：来源增列「AI 自动回填」—— Hermes 经 API / MCP 与 ERP 对接后写入的是 source='api'，
                        此前会被并进「手工」，看不出这条数是人填的还是机器回的 -->
-                <td>
                   <span class="tag" :class="row.achId ? 'ok' : ''">
                     {{ row.achId ? achvSourceText(row.source) : '未填报' }}
                   </span>
@@ -366,6 +367,38 @@
                   <span v-else-if="achvFail[row.key]" class="achv-fail" @click="retryAchv(row)">保存失败，点击重试</span>
                 </td>
                 <td><button v-if="row.achId" class="btn-mini btn-danger" :disabled="achvSaving[row.key]" @click="delAchv(row)">清除</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- v156：全年月度对比（目标 vs 达成）—— 按月份维度横向对比，满足"各月度同时呈现目标与达成" -->
+      <div class="card achv-year" v-if="yearMonthRows.length">
+        <div class="panel-hd">
+          <b>全年月度对比（目标 vs 达成）</b>
+          <span class="page-sub">{{ currentYear }} 年 · 各月月度目标（取自年度目标的月度分解）与实际达成横向对比，末列附当月实际返利</span>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>月份</th>
+                <th class="num">月度目标</th>
+                <th class="num">实际达成</th>
+                <th class="num">达成率</th>
+                <th class="num">实际返利</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in yearMonthRows" :key="r.m">
+                <td>{{ r.m }} 月</td>
+                <td class="num">{{ r.targetText }}</td>
+                <td class="num">{{ r.achText }}</td>
+                <td class="num"><span :class="r.rateCls">{{ r.rateText }}</span></td>
+                <!-- v160：与仪表盘返利柱同源（rebate_achievements.actual_rebate 按月求和），
+                     独立于左侧的 amount/quantity 口径 —— 返利永远是元 -->
+                <td class="num">{{ r.rebateText }}</td>
               </tr>
             </tbody>
           </table>
@@ -385,11 +418,14 @@
             </div>
             <div class="modal-body">
               <p class="achv-tip">列顺序：<code>月份 / 维度 / 作用对象 / 实际达成金额 / 实际达成数量 / 实际返利 / 备注</code>。首次使用请先「下载模板」。</p>
+              <p class="achv-tip">同一「月份 + 维度 + 作用对象」重复导入将<b>覆盖</b>旧值，可放心重导。商品维度按名称或条码匹配商品档案，匹配不到按原文导入并在结果中提示。</p>
               <!-- v160：三源共存（人工 / Excel / Hermes 回写）后的关键约定 —— 只覆盖文件里真有的列，
                    否则拿一份「只有达成额」的老模板重导，会把人工填的实际返利悄悄清零 -->
               <p class="achv-tip">只覆盖<b>表里出现的列</b>：表格没写「实际返利」列就不会动已填的实际返利，反之只导实际返利也不会抹掉达成额。</p>
-              <p class="achv-tip">同一「月份 + 维度 + 作用对象」重复导入将<b>覆盖</b>旧值，可放心重导。商品维度按名称或条码匹配商品档案，匹配不到按原文导入并在结果中提示。</p>
-              <p class="achv-tip">月份列留空时，按上方选择的 <b>{{ achvMonth }}</b> 归入。</p>
+              <!-- v173：达成数据只按月归集，导入的「月份」列不再接受季 / 年键。
+                   这是格式约束（承载规则），必须写明；只写「填月份」会让沿用旧模板的人
+                   把 2026-Q3 填进来、被后端逐行拒掉还不知道为什么。 -->
+              <p class="achv-tip">月份列留空时，按上方选择的 <b>{{ achvMonth }}</b> 归入；填写时须为「年-月」（如 2026-09），<b>不支持季度 / 年度</b>。</p>
               <input type="file" accept=".xlsx,.xls,.csv" @change="onAchvFile" />
               <p v-if="achvImpFileName" class="achv-file">已选：{{ achvImpFileName }}</p>
               <!-- v112 R34：先预览（干跑校验）再确认导入，避免整表导入后才发现格式问题 -->
@@ -1523,6 +1559,14 @@ function fmtTarget(r) {
   if (r.target_type === 'amount') return '¥' + fmt(r.target_value)
   return r.target_value + ' 件'
 }
+// v156/v173：达成填报「本月目标」列 —— 取 row.monthTarget（由规则自身口径推出的该月目标）。
+//   v173 起页面只有月度口径，原来「其它口径回退年度目标值」的分支已随下拉删除。
+function fmtAchvTarget(row) {
+  const t = row.monthTarget
+  if (t == null || t === '') return '—'
+  if (row.target_type === 'amount') return '¥' + fmt(t)
+  return t + ' 件'
+}
 function fmt(n) {
   if (n == null) return '—'
   return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
@@ -1561,9 +1605,31 @@ function tierList(r) {
 }
 
 /* ---- 达成填报 Tab（v109：无 API / 手动上传客户的达成数据入口） ---- */
+// v173：达成数据**只有一个月度桶**（period_month = YYYY-MM）。
+//   权威口径见后端 domain/rebate_period.py 文首：「两条规则是否重复，不看 period_type，
+//   只看实际覆盖哪些月份」（v125）、「年度与单期不再是两种口径 —— 它们只是月表里占
+//   12 格还是占 1 格的差别」（v126）。三个消费方也全部按月键读：
+//     ① 仪表盘「全年月度对比」→ useMonthlyAchv.buildYearMatrix（achvMap 键含 period_month）
+//     ② 预报页返利冲刺看板   → /api/rebate-achievements?month=YYYY-MM
+//     ③ 返利合同计提         → _contract_year_achieved（本次一并改成按月读）
+//   故此处不再有「周期口径」选择器：写入端恒写月度桶，规则自身的 period_type 只决定
+//   「本月目标」怎么取（见 monthTargetOf），并在表格「周期」列作为**读数**显示。
 const achvMonth = ref(new Date().toISOString().slice(0, 7))
-// v112 R2：达成填报支持月/季/年三种周期口径，月份选择器按口径切换键格式（YYYY-MM / YYYY-Qn / YYYY）
-const achvPeriod = ref('month')
+/** 把任意期次值归一到 YYYY-MM（唯一合法桶键）。历史遗留的季/年键归到该期首月，
+ *  保证即使有外部写入把非月键塞进来，页面也不会把用户再带回非月桶。 */
+function normAchvMonth(v) {
+  const s = String(v ?? '').trim()
+  const m = /^(\d{4})-(\d{1,2})$/.exec(s)
+  if (m) return m[1] + '-' + String(m[2]).padStart(2, '0')
+  const q = /^(\d{4})-?Q([1-4])$/i.exec(s)
+  if (q) return q[1] + '-' + String((Number(q[2]) - 1) * 3 + 1).padStart(2, '0')
+  const y = /^(\d{4})$/.exec(s)
+  if (y) return y[1] + '-' + new Date().toISOString().slice(5, 7)
+  return new Date().toISOString().slice(0, 7)
+}
+// 规则周期口径的中文读数（表格「周期」列）。与 periodText() 的「月/季/年」不同：
+// 这里是要让人一眼看懂「本月目标」的来源，故用双字词。
+const ACHV_PERIOD_LABELS = { month: '月度', quarter: '季度', year: '年度', custom: '自定义' }
 const dashMonth = ref(new Date().toISOString().slice(0, 7))
 const achievements = ref([])
 const achvRows = ref([])
@@ -1574,6 +1640,61 @@ const achvImpFileName = ref('')
 const achvImporting = ref(false)
 // v112 R34：导入干跑预览结果（{imported, skipped, errors}），确认后才真正导入
 const achvPreview = ref(null)
+// v156：全年月度对比（目标 vs 达成）—— 按月份维度横向对比，需要全年 12 月达成数据
+const yearAchievements = ref([])
+// v173：月份口径唯一（YYYY-MM），年份恒取月份键前 4 位；原来「年口径下 achvMonth 本身就是年份」
+//   那条分支随下拉一起删除。
+const currentYear = computed(() => String(achvMonth.value).split('-')[0])
+async function loadYearAchievements() {
+  try {
+    const list = await api('/api/rebate-achievements?year=' + encodeURIComponent(currentYear.value))
+    yearAchievements.value = Array.isArray(list) ? list : []
+  } catch (e) { yearAchievements.value = [] }
+}
+// 对比表口径：存在金额类年度规则→按金额汇总，否则按数量汇总（不跨口径相加）
+const achvMeasure = computed(() => {
+  const rs = rules.value.filter(r => r.is_active && r.period_type === 'year')
+  return rs.some(r => r.target_type === 'amount') ? 'amount' : 'quantity'
+})
+// 全年 1~12 月：月度目标（monthTargetOf 求和）+ 实际达成（yearAchievements 按月份归集）
+const yearMonthRows = computed(() => {
+  const yr = Number(currentYear.value)
+  if (!yr) return []
+  const active = rules.value.filter(r => r.is_active)
+  const measure = achvMeasure.value
+  const out = []
+  for (let m = 1; m <= 12; m++) {
+    let tAmt = 0, tQty = 0
+    for (const r of active) {
+      const t = monthTargetOf(r, yr, m)
+      if (r.target_type === 'quantity') tQty += t; else tAmt += t
+    }
+    const key = yr + '-' + String(m).padStart(2, '0')
+    let aAmt = 0, aQty = 0, aRebate = 0
+    for (const a of yearAchievements.value) {
+      if (String(a.period_month || '').slice(0, 7) === key) {
+        aAmt += Number(a.actual_amount) || 0
+        aQty += Number(a.actual_qty) || 0
+        aRebate += Number(a.actual_rebate) || 0
+      }
+    }
+    const target = measure === 'amount' ? tAmt : tQty
+    const ach = measure === 'amount' ? aAmt : aQty
+    const rate = target > 0 ? (ach / target * 100) : null
+    const fmtT = measure === 'amount' ? ('¥' + fmt(target)) : (fmt(target) + ' 件')
+    const fmtA = measure === 'amount' ? ('¥' + fmt(ach)) : (fmt(ach) + ' 件')
+    out.push({
+      m,
+      targetText: target > 0 ? fmtT : '—',
+      achText: fmtA,
+      rateText: rate == null ? '—' : rate.toFixed(1) + '%',
+      rateCls: rate == null ? '' : (rate >= 100 ? 'val-ok' : rate >= 80 ? 'val-warn' : ''),
+      // v160：实际返利恒为元，不参与上面的 amount/quantity 口径切换；未录入显示「—」而非 ¥0
+      rebateText: aRebate > 0 ? ('¥' + fmt(aRebate)) : '—',
+    })
+  }
+  return out
+})
 
 const achvFilledCount = computed(() => achvRows.value.filter(r => r.achId).length)
 
@@ -1611,11 +1732,13 @@ function resolveProductKey(key) {
 }
 
 async function switchTab(t) {
-  // v112 R16：达成填报 ↔ 仪表盘月份联动（仅月口径同步；季/年键会破坏仪表盘 YYYY-MM 格式，不同步）
-  if (t === 'dashboard' && achvPeriod.value === 'month') dashMonth.value = achvMonth.value
-  else if (t === 'achv' && achvPeriod.value === 'month') achvMonth.value = dashMonth.value
+  // v173：两个月签都用月度键（YYYY-MM），月份恒双向同步。原来「仅月口径同步」的例外
+  //   是季/年键会破坏仪表盘的 YYYY-MM 格式 —— 那个例外本身就是在补偿桶口径不一致，
+  //   现在桶只有一个月度桶，例外随之取消（在达成填报里换了月份，切到仪表盘就是同一个月）。
+  if (t === 'dashboard') dashMonth.value = achvMonth.value
+  else if (t === 'achv') achvMonth.value = normAchvMonth(dashMonth.value)
   mainTab.value = t
-  if (t === 'achv') await loadAchievements(achvMonth.value)
+  if (t === 'achv') { await loadAchievements(achvMonth.value); await loadYearAchievements() }
   else if (t === 'dashboard') await loadAchievements(dashMonth.value)
   else if (t === 'contracts') await loadContracts()
 }
@@ -1630,12 +1753,37 @@ function ruleEffectiveInMonth(rule, m) {
   return true
 }
 
+/** 「周期」列的 hover 说明：讲清「本月目标」这个数是怎么来的 / 为什么为空。
+ *  它承载的是**取数口径**（不是可由页面自证的废话），故必须解释而不可省略。 */
+function achvPeriodTip(pt, ym, hasTarget, hasStart) {
+  const label = ACHV_PERIOD_LABELS[pt] || '—'
+  if (pt === 'year') {
+    return hasTarget ? `年度目标 · 本月目标取自 ${ym} 的月度分解额`
+                     : `年度目标 · ${ym} 没有月度分解额，故本月目标为空（到「目标与返利」补该月分解）`
+  }
+  if (hasTarget) {
+    return hasStart ? `${label}目标 · 整额目标落在生效起始月`
+                    : `${label}目标 · 未设生效期，整额目标按月适用`
+  }
+  return `${label}目标 · ${ym} 不在其生效起始月，故本月目标为空`
+}
+
 /** 把「启用中的目标规则」与「已填报达成」合并成可编辑行。
  *  仅纳入生效期覆盖所选月份的启用规则；无对应规则的达成行（用户已手动录入）仍保留，否则导入数据会"看不见"。 */
 function buildAchvRows() {
   const byKey = new Map()
-  for (const r of rules.value.filter(x => x.is_active && ruleEffectiveInMonth(x, achvMonth.value))) {
+  // v156/v173：本月的「本月目标」必须是「所选月份的月度目标」（monthTargetOf），绝不能用年度总额
+  //   target_value 去比月度达成（否则年度 868 万 vs 月度 32 万 = 3.7% 失真）。口径与仪表盘排行同源。
+  //   v173：取哪一格由**规则自己的 period_type** 决定（年度→monthly_amounts[MM]，单期→生效起始月整额），
+  //   不再由用户选的「周期口径」决定 —— 用户选口径时其实是在选存储桶，那是实现细节。
+  const ym = normAchvMonth(achvMonth.value)
+  const yy = Number(ym.split('-')[0]) || 0
+  const mm = Number(ym.split('-')[1]) || 0
+  for (const r of rules.value.filter(x => x.is_active && ruleEffectiveInMonth(x, ym))) {
     const key = `${r.dimension}::${r.scope_key || ''}`
+    const pt = ACHV_PERIOD_LABELS[r.period_type] ? r.period_type : 'custom'
+    const monthTarget = monthTargetOf(r, yy, mm)
+    const hasTarget = !!r.target_type && (Number(monthTarget) || 0) > 0
     byKey.set(key, {
       key,
       dimension: r.dimension,
@@ -1643,6 +1791,9 @@ function buildAchvRows() {
       scope_name: r.scope_name || r.scope_key || '全部',
       target_type: r.target_type,
       target_value: r.target_value,
+      monthTarget,
+      periodLabel: ACHV_PERIOD_LABELS[pt] || '',
+      periodTitle: achvPeriodTip(pt, ym, hasTarget, !!r.effective_start),
       achId: null, achAmount: null, achQty: null, achRebate: null, source: '', note: '',
     })
   }
@@ -1655,15 +1806,18 @@ function buildAchvRows() {
     if (hit) {
       hit.achId = a.id
       hit.achAmount = a.actual_amount
-      hit.achRebate = a.actual_rebate
       hit.achQty = a.actual_qty
+      hit.achRebate = a.actual_rebate
       hit.source = a.source
       hit.note = a.note || ''
     } else {
+      // 没有对应规则的达成行（历史导入 / 规则已停用或过期）—— 仍要显示，否则用户无法清除它。
+      // 「周期」列留空并说明原因，而不是硬套一个规则口径。
       byKey.set(key, {
         key, dimension: a.dimension, scope_key: sk,
         scope_name: a.scope_name || sk,
-        target_type: '', target_value: 0,
+        target_type: '', target_value: 0, monthTarget: 0,
+        periodLabel: '', periodTitle: '这一行没有对应的目标规则（历史导入，或规则已停用 / 已过期）',
         achId: a.id, achAmount: a.actual_amount, achQty: a.actual_qty, achRebate: a.actual_rebate,
         source: a.source, note: a.note || '',
       })
@@ -1672,17 +1826,12 @@ function buildAchvRows() {
   achvRows.value = [...byKey.values()]
 }
 
-// v112 R2：切换周期口径时重置默认周期键（月=当前月 / 季=当前季度 / 年=当前年）
-function onAchvPeriod() {
-  const d = new Date()
-  if (achvPeriod.value === 'quarter') achvMonth.value = d.getFullYear() + '-Q' + (Math.floor(d.getMonth() / 3) + 1)
-  else if (achvPeriod.value === 'year') achvMonth.value = String(d.getFullYear())
-  else achvMonth.value = d.toISOString().slice(0, 7)
-  loadAchievements()
-}
-// v112 R2：文本输入（季度/年度键）变更后刷新列表；后端 _norm_month 已兼容 2026Q3/2026-Q3/2026
-function onAchvPeriodInput() {
-  loadAchievements()
+// v173：月份变更。唯一合法的桶键是 YYYY-MM，先归一再刷新（<input type="month"> 清空时
+//   v-model 会变成 ''，若直接拿去请求，后端 _norm_month 会回落到当月 —— 前端先补当月，
+//   避免「URL 上是本月、界面显示空」这种两处不一致）。
+function onAchvMonth() {
+  achvMonth.value = normAchvMonth(achvMonth.value)
+  loadAchievements(); loadYearAchievements()
 }
 
 // v112 R15：仪表盘/达成填报切月份竞态保护 —— 旧请求晚返回不覆盖新月份
@@ -1730,8 +1879,8 @@ async function doSaveAchv(row) {
     row.__orig = null; row.__pending = null; return
   }
   const amount = Number(p.achAmount) || 0
-  const rebate = Number(p.achRebate) || 0
   const qty = Number(p.achQty) || 0
+  const rebate = Number(p.achRebate) || 0
   achvSaving.value[row.key] = true
   try {
     const r = await api('/api/rebate-achievements', {
@@ -1742,8 +1891,8 @@ async function doSaveAchv(row) {
         scope_key: row.scope_key,
         scope_name: row.scope_name,
         actual_amount: amount,
-        actual_rebate: rebate,
         actual_qty: qty,
+        actual_rebate: rebate,
         source: 'manual',
         note: row.note || '',
       },
@@ -1751,8 +1900,8 @@ async function doSaveAchv(row) {
     if (r && r.item) { row.achId = r.item.id; row.source = r.item.source }
     // 保存成功：把最终落库值写回行（含重试场景，input 显示最终值）
     row.achAmount = amount
-    row.achRebate = rebate
     row.achQty = qty
+    row.achRebate = rebate
     row.__orig = null
     row.__pending = null
     delete achvFail.value[row.key]
@@ -1937,23 +2086,25 @@ function downloadAchvTemplate() {
   a.click()
   URL.revokeObjectURL(a.href)
 }
+
 /** v160：来源标签统一映射。「AI 自动回填」= Hermes 经 API / MCP 与 ERP 对接后写入
  *  （source='api'）；此前被并入「手工」，用户分不清一条数是人填的还是机器回填的。 */
 function achvSourceText(s) {
   return { manual: '手工', excel: 'Excel', api: 'AI 自动回填' }[s] || '手工'
 }
 
-
 function achvRateText(row) {
-  if (!row.target_type || !row.target_value) return '—'
+  const t = row.monthTarget
+  if (!row.target_type || !t) return '—'
   const ach = row.target_type === 'amount' ? (row.achAmount || 0) : (row.achQty || 0)
   if (!row.achId && !ach) return '—'
-  return (ach / row.target_value * 100).toFixed(1) + '%'
+  return (ach / t * 100).toFixed(1) + '%'
 }
 function achvRateCls(row) {
-  if (!row.target_type || !row.target_value) return ''
+  const t = row.monthTarget
+  if (!row.target_type || !t) return ''
   const ach = row.target_type === 'amount' ? (row.achAmount || 0) : (row.achQty || 0)
-  const pct = ach / row.target_value
+  const pct = ach / t
   if (pct >= 1) return 'val-ok'
   if (pct >= 0.8) return 'val-warn'
   return ''
@@ -2986,12 +3137,18 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 
 /* 达成填报 Tab */
 .achv-card{padding:16px}
+.achv-year{margin-top:16px;padding:16px}
 .achv-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .achv-lb{font-size:12.5px;color:var(--t2)}
 .achv-month{width:150px}
 .achv-hint{font-size:12px;color:var(--t3)}
 .achv-ops{margin-left:auto;display:flex;gap:8px}
 .num-input{width:120px;text-align:right}
+/* v173：达成填报表加了「周期」列后每列变窄，1280 视口下 .tag 里的 2 个汉字会在字间断行
+   （.tag 是 inline-flex + 固定 22px 高，断行后文字挤在两行里）。chip 本就是单行标签，
+   这里锁死不断行 —— 实测 1440/1280 两档下表格均零横向溢出（浏览器从右侧留白列回收宽度，
+   1280 下最右列 76→71px），故不引入滚动条。 */
+.achv-card .tbl .tag{white-space:nowrap}
 .val-ok{color:var(--suc);font-weight:600}
 .val-warn{color:var(--war);font-weight:600}
 .achv-tip{font-size:12.5px;color:var(--t2);margin:0}
