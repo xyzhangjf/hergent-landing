@@ -15,6 +15,9 @@
       <!-- 工具栏单行布局（2026-09-12）：期次上下文 | 搜索与数据进出 | 决策与编辑，三段以 .tb-sep 分隔。
            原双行结构（.tb-head 行1 / .tb-right 行2）合并为一行；表格级筛选器（仅显示有报单 / 品牌）
            下移到表格卡片顶部的 .grid-ctl-row，贴近其作用的表格。
+           v167：「复制报单」随之下移 —— 它与品牌筛选是同一条动作链的两步（先勾品牌，再复制这些品牌的
+           厂家编码 / 最终下单数量），品牌在表体上方、复制却在页头，用户勾完要走回头路；且它只对当前
+           这张汇总表生效，本就属表格级动作（原挂在"数据进出"段，见 .tb-data 注释）。下移后同行相邻。
            搜索框留在工具栏：findText 跨视图生效（汇总表 / 逐单补录 / 编辑态 / 导出），属全局检索。
            编辑态多出 6 个编辑按钮，故编辑控制组 .tb-edit-group 独占第二行（flex:0 0 100%）。 -->
       <div class="tb-group tb-ctx">
@@ -52,22 +55,6 @@
             <button class="grp-btn" :disabled="!currentPeriod || !!zhoupuBusy" title="生成可直接导入舟谱的自提订单 xlsx（直营/分销客户）" @click="zhoupuGen('zhoupu-pickup')"><Icon name="download"/> 自提订单模板</button>
             <button class="grp-btn" :disabled="!currentPeriod || !!zhoupuBusy" title="生成可直接导入舟谱的调拨订单 xlsx（车销业务员，总仓→业务员仓）" @click="zhoupuGen('zhoupu-transfer')"><Icon name="download"/> 调拨订单模板</button>
             <button class="grp-btn" :disabled="!currentPeriod || !!zhoupuBusy" title="自提+调拨两份打包为 zip，一次下载" @click="zhoupuGen('zhoupu-all')"><Icon name="package"/> 合并包（自提+调拨 zip）</button>
-          </div>
-          </Teleport>
-        </div>
-        <div class="tb-pop">
-          <button ref="copyBtn" class="btn btn-sm btn-ghost" :class="{on:copyMenuOpen}" @click="toggleCopyMenu" title="复制本期期次报单：厂家编码 / 最终下单数量（分开复制，粘贴到厂家系统下单）"><Icon name="copy"/> 复制报单 <Icon name="chevron-down"/></button>
-          <Teleport to="body">
-          <div v-if="copyMenuOpen" class="tb-pop-panel copy-pop" :style="popStyle" @click.stop>
-            <div class="cp-title">复制本期报单<span v-if="copyUnitName" class="cp-title-sub"> · {{ copyUnitName }}</span></div>
-            <p v-if="brandSel.length" class="cp-tip">已按品牌筛选：{{ brandSel.join('、') }}（只复制这些品牌）</p>
-            <p class="cp-tip">有报单 = 「最终下单」列有数量（合计 + 加单）；行序与表格一致</p>
-            <div class="cp-unit-btns">
-              <button class="grp-btn cp-act" :disabled="!copyCount" title="复制厂家编码（有报单，按行序）" @click="doCopyCodes"><Icon name="barcode"/> 厂家编码</button>
-              <button class="grp-btn cp-act" :disabled="!copyCount" title="复制最终下单数量（与编码行序一致）" @click="doCopyQty"><Icon name="hash"/> 下单数量</button>
-            </div>
-            <p v-if="copyCount" class="cp-tip ok">共 <b>{{ copyCount }}</b> 个 SKU 有最终下单可复制</p>
-            <p v-else class="cp-empty">本期没有「最终下单」有数量的 SKU</p>
           </div>
           </Teleport>
         </div>
@@ -513,6 +500,26 @@
               </div>
               </Teleport>
             </div>
+            <!-- v167：「复制报单」从主工具栏下移至此，紧邻品牌筛选 —— 用户的动作链是「勾品牌 →
+                 复制那些品牌的编码/数量」，同一行内连续完成，不必回页头。弹层定位走共用的
+                 positionTbPop()（fixed + 按触发按钮坐标），与位置无关；.tb-pop 容器自带
+                 z-index:1120（> .pop-overlay 1100），故与品牌筛选的互斥点击行为完全一致。 -->
+            <div class="tb-pop">
+              <button ref="copyBtn" class="btn btn-sm btn-ghost" :class="{on:copyMenuOpen}" @click="toggleCopyMenu" title="复制本期期次报单：厂家编码 / 最终下单数量（分开复制，粘贴到厂家系统下单）"><Icon name="copy"/> 复制报单 <Icon name="chevron-down"/></button>
+              <Teleport to="body">
+              <div v-if="copyMenuOpen" class="tb-pop-panel copy-pop" :style="popStyle" @click.stop>
+                <div class="cp-title">复制本期报单<span v-if="copyUnitName" class="cp-title-sub"> · {{ copyUnitName }}</span></div>
+                <p v-if="brandSel.length" class="cp-tip">已按品牌筛选：{{ brandSel.join('、') }}（只复制这些品牌）</p>
+                <p class="cp-tip">有报单 = 「最终下单」列有数量（合计 + 加单）；行序与表格一致</p>
+                <div class="cp-unit-btns">
+                  <button class="grp-btn cp-act" :disabled="!copyCount" title="复制厂家编码（有报单，按行序）" @click="doCopyCodes"><Icon name="barcode"/> 厂家编码</button>
+                  <button class="grp-btn cp-act" :disabled="!copyCount" title="复制最终下单数量（与编码行序一致）" @click="doCopyQty"><Icon name="hash"/> 下单数量</button>
+                </div>
+                <p v-if="copyCount" class="cp-tip ok">共 <b>{{ copyCount }}</b> 个 SKU 有最终下单可复制</p>
+                <p v-else class="cp-empty">本期没有「最终下单」有数量的 SKU</p>
+              </div>
+              </Teleport>
+            </div>
           </div>
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
@@ -659,6 +666,24 @@
                   <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
                 </div>
                 <p class="bp-tip">只勾选要报单的品牌：表格将只显示这些品牌，复制厂家编码/数量也只针对它们（多品牌合并报单时先勾选再复制）。</p>
+              </div>
+              </Teleport>
+            </div>
+            <!-- v167：编辑态同样保留「复制报单」——rowFinalQty() 对编辑态草稿行有专门兜底
+                 （无 decided 时取 合计 + 加单），复制在编辑中途仍可用，与品牌筛选同在一行。 -->
+            <div class="tb-pop">
+              <button ref="copyBtn" class="btn btn-sm btn-ghost" :class="{on:copyMenuOpen}" @click="toggleCopyMenu" title="复制本期期次报单：厂家编码 / 最终下单数量（分开复制，粘贴到厂家系统下单）"><Icon name="copy"/> 复制报单 <Icon name="chevron-down"/></button>
+              <Teleport to="body">
+              <div v-if="copyMenuOpen" class="tb-pop-panel copy-pop" :style="popStyle" @click.stop>
+                <div class="cp-title">复制本期报单<span v-if="copyUnitName" class="cp-title-sub"> · {{ copyUnitName }}</span></div>
+                <p v-if="brandSel.length" class="cp-tip">已按品牌筛选：{{ brandSel.join('、') }}（只复制这些品牌）</p>
+                <p class="cp-tip">有报单 = 「最终下单」列有数量（合计 + 加单）；行序与表格一致</p>
+                <div class="cp-unit-btns">
+                  <button class="grp-btn cp-act" :disabled="!copyCount" title="复制厂家编码（有报单，按行序）" @click="doCopyCodes"><Icon name="barcode"/> 厂家编码</button>
+                  <button class="grp-btn cp-act" :disabled="!copyCount" title="复制最终下单数量（与编码行序一致）" @click="doCopyQty"><Icon name="hash"/> 下单数量</button>
+                </div>
+                <p v-if="copyCount" class="cp-tip ok">共 <b>{{ copyCount }}</b> 个 SKU 有最终下单可复制</p>
+                <p v-else class="cp-empty">本期没有「最终下单」有数量的 SKU</p>
               </div>
               </Teleport>
             </div>
@@ -6183,11 +6208,13 @@ onMounted(async () => {
 .tb-left .btn,.tb-right .btn,.toolbar>.tb-group .btn{flex:0 0 auto;white-space:nowrap}
 /* 工具栏单行布局（2026-09-12）：分三段，段间以 .tb-sep 分隔、段内 gap 8
    段1 .tb-ctx  期次上下文（期次选择 / 新建期次 / 审批状态徽标）
-   段2 .tb-data 搜索与数据进出（搜索框 / 导入 / 导出 / 复制报单）
+   段2 .tb-data 搜索与数据进出（搜索框 / 导入 / 导出）  ← v167：复制报单已下移到表格工具行
    段3 .tb-act  决策与编辑（AI智能建议 / 改单 / 编辑态工具箱）
    容量实测（「新建期次」提为常显按钮后，最坏态＝期次名撑满选择器限宽；余量＝可用内容宽 − 所需内容宽）：
      1440 → +43px（真实态 +67）  1366 → +60   1512 → +115   1680 → +283   1920 → +523   1280 → +8（见 <1360 档）
    表格级筛选器（仅显示有报单 / 品牌）已下移到表格卡片顶部的 .grid-ctl-row。
+   v167：「复制报单」从段2 下移到同一行 —— 它与品牌筛选是同一条动作链的两步（先勾品牌、再复制那些
+   品牌的编码/数量），且只对当前这张汇总表生效；下移后"勾品牌 → 复制"同行相邻，不必走回页头。
    编辑态多出的 6 个编辑按钮交由 .tb-edit-group 独占第二行，故 toolbar 保留 flex-wrap 作窄屏兜底。
    注：类名用 .tb-dense 而非 .tb-compact —— 后者是 variables.css 的全局类（Toolbar.vue 在用），避免命名碰撞。 */
 .toolbar>.tb-group>*{flex:0 0 auto;white-space:nowrap}
@@ -6378,9 +6405,11 @@ th.sortable:hover{color:var(--p-dark)}
 .grid-area.is-fs .grid-fs-btn{top:14px;right:14px}
 /* v129 修复：全屏时把主工具栏弹层容器降回普通层级。
    .tb-pop 常态 z-index:1120（要高于 .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”），
-   但全屏层 .grid-area.is-fs 只有 1000 → 导出/复制报单/品牌 三个按钮会盖在全屏层上，
+   但全屏层 .grid-area.is-fs 只有 1000 → 仍在工具栏的「导出」「工具箱」触发器会盖在全屏层上，
    脱离工具栏悬浮在表体中间、遮挡表头与数据行。全屏时置为 auto（< 1000）即可随工具栏一起被覆盖。
-   不动 .tb-pop 常态值，退出全屏后普通模式的互斥点击行为完全不变。 */
+   不动 .tb-pop 常态值，退出全屏后普通模式的互斥点击行为完全不变。
+   v167 校准：品牌筛选（2026-09-12 下移）与复制报单（v167 下移）现已挂在 .grid-ctl-row 上，
+   属全屏层**内部**元素，不再"脱离工具栏悬浮"；本条规则对它们只剩把容器降为 auto 的中性效果。 */
 .page.grid-fs-on .tb-pop{z-index:auto}
 /* v135 修复：AI 副驾全局抽屉（.copilot z-index:950）打开时，主工具栏 .tb-pop 的常态
    z-index:1120 会浮在抽屉之上——「导出 / 复制报单 / 品牌 / 期次 / 高级工具」五个触发按钮
