@@ -18,6 +18,7 @@
            v167：「复制报单」随之下移 —— 它与品牌筛选是同一条动作链的两步（先勾品牌，再复制这些品牌的
            厂家编码 / 最终下单数量），品牌在表体上方、复制却在页头，用户勾完要走回头路；且它只对当前
            这张汇总表生效，本就属表格级动作（原挂在"数据进出"段，见 .tb-data 注释）。下移后同行相邻。
+           v168：下移后进一步收敛为**只读态专属** —— 编辑态（改单）撤掉复制入口，因草稿未定稿。
            搜索框留在工具栏：findText 跨视图生效（汇总表 / 逐单补录 / 编辑态 / 导出），属全局检索。
            编辑态多出 6 个编辑按钮，故编辑控制组 .tb-edit-group 独占第二行（flex:0 0 100%）。 -->
       <div class="tb-group tb-ctx">
@@ -503,7 +504,8 @@
             <!-- v167：「复制报单」从主工具栏下移至此，紧邻品牌筛选 —— 用户的动作链是「勾品牌 →
                  复制那些品牌的编码/数量」，同一行内连续完成，不必回页头。弹层定位走共用的
                  positionTbPop()（fixed + 按触发按钮坐标），与位置无关；.tb-pop 容器自带
-                 z-index:1120（> .pop-overlay 1100），故与品牌筛选的互斥点击行为完全一致。 -->
+                 z-index:1120（> .pop-overlay 1100），故与品牌筛选的互斥点击行为完全一致。
+                 v168：此处是**唯一**入口 —— 编辑态（改单）已刻意撤掉，理由是草稿数据未定稿。 -->
             <div class="tb-pop">
               <button ref="copyBtn" class="btn btn-sm btn-ghost" :class="{on:copyMenuOpen}" @click="toggleCopyMenu" title="复制本期期次报单：厂家编码 / 最终下单数量（分开复制，粘贴到厂家系统下单）"><Icon name="copy"/> 复制报单 <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -669,24 +671,11 @@
               </div>
               </Teleport>
             </div>
-            <!-- v167：编辑态同样保留「复制报单」——rowFinalQty() 对编辑态草稿行有专门兜底
-                 （无 decided 时取 合计 + 加单），复制在编辑中途仍可用，与品牌筛选同在一行。 -->
-            <div class="tb-pop">
-              <button ref="copyBtn" class="btn btn-sm btn-ghost" :class="{on:copyMenuOpen}" @click="toggleCopyMenu" title="复制本期期次报单：厂家编码 / 最终下单数量（分开复制，粘贴到厂家系统下单）"><Icon name="copy"/> 复制报单 <Icon name="chevron-down"/></button>
-              <Teleport to="body">
-              <div v-if="copyMenuOpen" class="tb-pop-panel copy-pop" :style="popStyle" @click.stop>
-                <div class="cp-title">复制本期报单<span v-if="copyUnitName" class="cp-title-sub"> · {{ copyUnitName }}</span></div>
-                <p v-if="brandSel.length" class="cp-tip">已按品牌筛选：{{ brandSel.join('、') }}（只复制这些品牌）</p>
-                <p class="cp-tip">有报单 = 「最终下单」列有数量（合计 + 加单）；行序与表格一致</p>
-                <div class="cp-unit-btns">
-                  <button class="grp-btn cp-act" :disabled="!copyCount" title="复制厂家编码（有报单，按行序）" @click="doCopyCodes"><Icon name="barcode"/> 厂家编码</button>
-                  <button class="grp-btn cp-act" :disabled="!copyCount" title="复制最终下单数量（与编码行序一致）" @click="doCopyQty"><Icon name="hash"/> 下单数量</button>
-                </div>
-                <p v-if="copyCount" class="cp-tip ok">共 <b>{{ copyCount }}</b> 个 SKU 有最终下单可复制</p>
-                <p v-else class="cp-empty">本期没有「最终下单」有数量的 SKU</p>
-              </div>
-              </Teleport>
-            </div>
+            <!-- v168：编辑态**刻意不提供**「复制报单」——
+                 本态矩阵是**未定稿草稿**，rowFinalQty() 走「合计 + 加单」兜底；此时复制出去的
+                 是"还没定稿的数"，很容易被当成最终报单直接粘进厂家系统下单 → 数错。
+                 故复制入口**只在只读汇总表**提供（见上方 .grid-ctl-row）。
+                 品牌筛选两态都留：它同时是**显示过滤**，改单时按品牌收窄视野仍有意义。 -->
           </div>
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
@@ -4870,10 +4859,11 @@ function toggleCopyMenu() {
 }
 // 复制只针对「本期期次」（不按报单单元列拆选）
 const copyUnitName = computed(() => (cross.value.period && cross.value.period.name) ? cross.value.period.name : (cross.value.units && cross.value.units[0] ? cross.value.units[0].name : '本期'))
-// 有报单 = 「最终下单」列有数量（定稿量 final_qty，未定稿取 total+extra_qty/extraQty）；且含厂家编码 + 通过品牌筛选，与复制动作口径一致
-// 有报单 = 「最终下单」列有数量：
-//  - 只读主表行带 decided：已定稿取 final_qty；未定稿(待定稿)视为无最终下单 → 0
-//  - 编辑态草稿行无 decided：取 合计 qtyByUnit + 加单 extraQty（old 按列口径的兜底，保证编辑态复制仍可用）
+// 有报单 = 「最终下单」列有数量，且含厂家编码、通过品牌筛选（与复制动作口径一致）：
+//  - 只读主表行带 decided：已定稿取 final_qty；有 decided 但未定稿(待定稿) → 视为无最终下单，0
+//  - 无 decided 的行（v168 起只会出现在编辑态草稿）：取 合计 qtyByUnit + 加单 extraQty 兜底
+//    ⚠️ v168：复制入口已不在编辑态（草稿数据未定稿，复制出去会被当成最终报单）——此分支只服务于
+//    编辑态内的其它读取方；若将来把复制入口加回编辑态，必须先确认这条兜底仍成立。
 const rowFinalQty = (r) => {
   if (r.decided !== undefined) return r.decided ? (Number(r.final_qty) || 0) : 0
   const base = rowSum(r)
@@ -6409,13 +6399,15 @@ th.sortable:hover{color:var(--p-dark)}
    脱离工具栏悬浮在表体中间、遮挡表头与数据行。全屏时置为 auto（< 1000）即可随工具栏一起被覆盖。
    不动 .tb-pop 常态值，退出全屏后普通模式的互斥点击行为完全不变。
    v167 校准：品牌筛选（2026-09-12 下移）与复制报单（v167 下移）现已挂在 .grid-ctl-row 上，
-   属全屏层**内部**元素，不再"脱离工具栏悬浮"；本条规则对它们只剩把容器降为 auto 的中性效果。 */
+   属全屏层**内部**元素，不再"脱离工具栏悬浮"；本条规则对它们只剩把容器降为 auto 的中性效果。
+   v168 补充：复制报单只挂**只读态**那条 .grid-ctl-row（编辑态已撤），但无论哪条都在全屏层内部，
+   故上面这条结论不变。 */
 .page.grid-fs-on .tb-pop{z-index:auto}
 /* v135 修复：AI 副驾全局抽屉（.copilot z-index:950）打开时，主工具栏 .tb-pop 的常态
-   z-index:1120 会浮在抽屉之上——「导出 / 复制报单 / 品牌 / 期次 / 高级工具」五个触发按钮
-   脱离页面悬浮在副驾抽屉上。与全屏层 .grid-fs-on 同构：副驾打开时统一降为 auto（< 950），
-   随页面一起被抽屉遮罩（.cp-overlay 940）覆盖。弹层面板/遮罩一并降级，避免抽屉开着时
-   旧弹层仍浮在上层。不动 .tb-pop 常态值，关闭副驾后互斥点击行为完全不变。 */
+   z-index:1120 会浮在抽屉之上——触发按钮（工具栏内「导出 / 期次 / 高级工具」，表体工具行内
+   「品牌 / 复制报单」）脱离页面悬浮在副驾抽屉上。与全屏层 .grid-fs-on 同构：副驾打开时统一
+   降为 auto（< 950），随页面一起被抽屉遮罩（.cp-overlay 940）覆盖。弹层面板/遮罩一并降级，
+   避免抽屉开着时旧弹层仍浮在上层。不动 .tb-pop 常态值，关闭副驾后互斥点击行为完全不变。 */
 .page.copilot-on .tb-pop,
 .page.copilot-on .tb-pop-panel,
 .page.copilot-on .pop-overlay{z-index:auto}

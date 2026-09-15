@@ -157,6 +157,41 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
   }
   console.log('  容量：' + cap.join('  |  '))
 
+  // ── F. v168：编辑态（改单）**不得**出现「复制报单」；品牌筛选应仍在 ──
+  await page.setViewport({ width: 1680, height: 950, deviceScaleFactor: 1 })
+  await sleep(400)
+  const enterEdit = await page.evaluate(() => {
+    const t = document.querySelector('.toolbar')
+    const b = [...t.querySelectorAll('button')].find(x => /改单/.test(x.textContent || ''))
+    if (!b) return false
+    b.click(); return true
+  })
+  ok(enterEdit, '已点击工具栏「改单」进入编辑态')
+  await sleep(3500)
+  const edit = await page.evaluate(() => {
+    const areas = [...document.querySelectorAll('.grid-area')]
+    const rows = [...document.querySelectorAll('.grid-ctl-row')]
+    const vis = rows.filter(x => x.getBoundingClientRect().height > 0)
+    const btnTexts = vis.flatMap(r => [...r.querySelectorAll('button')].map(b => (b.textContent || '').trim().replace(/\s+/g, '')))
+    return {
+      editArea: areas.length,
+      visibleRows: vis.length,
+      ctlButtons: btnTexts,
+      hasCopyBtn: btnTexts.some(x => x.includes('复制报单')),
+      hasBrandBtn: btnTexts.some(x => x.includes('品牌')),
+      copyPanelExists: !!document.querySelector('.tb-pop-panel.copy-pop'),
+      brandPanelTelemounted: !!document.querySelector('.tb-pop-panel.brand-pop'),
+      tableRows: document.querySelectorAll('.grid-area table tbody tr').length,
+    }
+  })
+  console.log('  编辑态：', JSON.stringify(edit))
+  ok(edit.visibleRows >= 1, '编辑态工具行已渲染')
+  ok(edit.hasCopyBtn === false, '★ 编辑态**没有**「复制报单」（当前按钮：' + edit.ctlButtons.join(' / ') + '）')
+  ok(edit.hasBrandBtn === true, '编辑态仍保留「品牌」筛选（改单时按品牌收窄视野仍有意义）')
+  ok(edit.copyPanelExists === false, '编辑态 DOM 里也不存在复制面板')
+  ok(edit.tableRows > 0, '编辑态矩阵渲染正常（' + edit.tableRows + ' 行）—— 模板结构未被改动破坏')
+  await page.screenshot({ path: SHOT.replace(/\.png$/, '-edit.png') })
+
   console.log('\nCONSOLE_ERRORS:', JSON.stringify(errs.slice(0, 6)))
   console.log('HTTP>=400:', JSON.stringify(bad.slice(0, 6)))
   ok(errs.length === 0, 'console 无错误')
