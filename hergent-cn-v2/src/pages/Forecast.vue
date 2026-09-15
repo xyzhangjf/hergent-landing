@@ -2534,6 +2534,9 @@ async function saveEdits() {
     // 2) 数量矩阵（保持原 save_matrix 语义：幂等覆盖本期『导入』数据）
     const payload = {
       start: p.order_start, end: p.order_end,
+      // Q28（2026-09-15）：显式传期次号 —— 后端不再靠窗口猜期次
+      // （窗口完全相同的两个期次，靠猜会落到 id 最大的那个，可能不是当前正在编辑的这一期）
+      period_id: p.id || 0,
       customers: cross.value.units.map(u => u.name),
       rows: usable.map(r => ({
         product_id: r.product_id || 0, product_name: r.name || '', spec: r.spec || '',
