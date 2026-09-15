@@ -381,8 +381,7 @@
            ⚠️ 为什么不放主工具栏：实测量过，工具栏 1280 宽仅剩 22px、1440 仅剩 69px 余量，
            任何带字按钮都会把单行挤成两行（工具栏单行是 2026-09-12 专门收敛出来的设计）。
            本行是汇总表区最顶一行的常显行，零工具栏代价，且紧贴它描述的这张表。 -->
-      <button class="btn btn-sm btn-ghost log-btn" :disabled="!cross.period" :class="{ on: trailOpen }" @click="toggleTrail"
-              title="修改日志：本期每一次改动，谁在什么时候改了什么（保存汇总表 / 导入 / 定稿 / 审批 / 关闭期次都会自动留痕）"><Icon name="list"/> 修改日志</button>
+      <button class="btn btn-sm btn-ghost log-btn" :disabled="!cross.period" :class="{ on: trailOpen }" @click="toggleTrail"><Icon name="list"/> 修改日志</button>
     </div>
 
     <!-- P9-6 改动留痕审计 → v166 更名「修改日志」：① 每条加「修改人」；② 交还全局操作；
@@ -405,7 +404,7 @@
           <span class="at-act">{{ auditActionLabel(a.action) }}</span> · {{ a.detail }}
         </li>
       </ul>
-      <div v-else class="hint">本期暂无修改记录（保存汇总表 / 导入 / 定稿 / 审批 / 关闭期次会自动记录）</div>
+      <div v-else class="hint">本期暂无修改记录</div>
       <!-- v166：与期次无关的全局操作（厂价闸门 / 回写 / 采购单推送 / 异常处置 / AI 根因分析 /
            删除期次）原先写完就再也看不到，这里折叠交还；**不揉进本期时间线**，避免被误读成
            「本期汇总表被改过」。删期次的记录留在该期自己的 audit 键里，删完仍可回溯。 -->

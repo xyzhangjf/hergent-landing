@@ -306,9 +306,8 @@
           </template>
           <span class="achv-hint">共 {{ achvRows.length }} 行 · 已填报 {{ achvFilledCount }} 行</span>
           <div class="achv-ops">
-            <!-- v171：修改日志 —— 本页每一次填报/修改/清除/导入都自动留痕（谁·何时·哪一行·哪个字段·改成什么） -->
-            <button class="btn btn-ghost btn-sm" @click="openAchvLog"
-                    title="修改日志：本页每一次填报 / 修改 / 清除 / Excel 导入都会自动留痕，可查谁在什么时候把哪一行的哪个字段改成了什么"><Icon name="list"/> 修改日志</button>
+            <!-- v171：修改日志（字段级留痕；数据源与写路径见下方弹窗注释） -->
+            <button class="btn btn-ghost btn-sm" @click="openAchvLog"><Icon name="list"/> 修改日志</button>
             <button class="btn btn-ghost btn-sm" @click="downloadAchvTemplate">下载模板</button>
             <button class="btn btn-primary btn-sm" @click="achvImpOpen = true">Excel 导入</button>
           </div>
@@ -434,10 +433,6 @@
               <button class="btn-close" @click="achvLogOpen = false"><Icon name="close"/></button>
             </div>
             <div class="modal-body achv-log-body">
-              <p class="achv-tip">
-                本页每一次<b>填报 / 修改 / 清除 / Excel 导入</b>都会自动留痕：谁、在什么时候、把哪一行的哪个字段改成了什么。
-                只记<b>真实变化</b> —— 点了一下但值没变不会产生记录。
-              </p>
               <div class="achv-log-bar">
                 <input class="input" v-model.trim="achvLogKeyword"
                        placeholder="搜索 修改人 / 对象 / 字段 / 数值" @keyup.enter="reloadAchvLog" />
@@ -453,7 +448,7 @@
               <div v-else-if="!achvLogItems.length" class="state-empty">
                 <p v-if="achvLogKeyword">没有匹配「{{ achvLogKeyword }}」的记录。</p>
                 <p v-else-if="achvLogThisPeriod">本期（{{ achvMonth }}）还没有修改记录。</p>
-                <p v-else>还没有修改记录。本页的填报 / 修改 / 清除 / 导入都会自动记录在这里。</p>
+                <p v-else>还没有修改记录。</p>
               </div>
               <template v-else>
                 <div class="achv-log-count">

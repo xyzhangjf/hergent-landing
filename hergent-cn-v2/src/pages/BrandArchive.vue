@@ -17,7 +17,6 @@
       <!-- 新增品牌 -->
       <div class="ba-add-row">
         <button class="btn btn-primary btn-sm" @click="openCreate">+ 添加品牌</button>
-        <span class="ba-add-hint">点击后填写品牌信息（与「编辑」一致，先弹窗）</span>
       </div>
 
       <div v-if="loading" class="state-empty">加载中…</div>

@@ -14,7 +14,7 @@
     <div v-else class="rm-list">
       <div v-for="r in sortedRoles" :key="r.role_id" class="rm-card" :class="{ off: !r.is_active }">
         <div class="rm-av-wrap">
-          <button class="rm-av-btn" :title="r.custom_avatar ? '点击更换头像' : '点击上传头像'" @click="pickFile(r)">
+          <button class="rm-av-btn" :title="r.custom_avatar ? '更换头像' : '上传头像'" @click="pickFile(r)">
             <img v-if="r.custom_avatar" :src="avatarUrl(r)" class="rm-av-img" alt="">
             <span v-else class="rm-av-emoji">{{ r.avatar || '🤖' }}</span>
           </button>
@@ -38,7 +38,7 @@
           <div class="rm-sys">{{ r.system_prompt || '（无团队描述）' }}</div>
         </div>
         <div class="rm-ops">
-          <label class="rm-switch" :title="r.is_active ? '点击停用' : '点击启用'">
+          <label class="rm-switch" :title="r.is_active ? '停用' : '启用'">
             <input type="checkbox" :checked="!!r.is_active" @change="toggleActive(r, $event)">
             <span :class="r.is_active ? 'on' : 'off'">{{ r.is_active ? '启用中' : '已停用' }}</span>
           </label>
