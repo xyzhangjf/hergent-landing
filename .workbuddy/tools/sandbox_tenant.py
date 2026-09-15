@@ -26,6 +26,10 @@
   · 沙箱 id 必须 >= 9997（>= 9997 才算隔离区；tenant_1 / tenant_10 永不触碰）
   · 源租户只允许 1 或 10，且只读（只 shutil.copy2，绝不写）
   · 目标路径必须落在 /opt/hergent-erp 下
+  · down 忘传 --user 也能清干净：三级兜底 meta.user_id → username → tenant_id 反查
+    （2026-09-15 实测：down 默认 --user=sbx_verify 与 up 实际值不一致时，旧实现
+     静默留下幽灵账号 + user_tenants 绑定，且仍报 ok:true）
+  · down 的 ok 现在反映 ZERO_RESIDUE，有残留即 exit 1，不再假装成功
 """
 import argparse, hashlib, json, os, shutil, sqlite3, sys, uuid
 from datetime import date, datetime, timedelta
@@ -163,6 +167,9 @@ def cmd_up(a):
     meta_path = "/tmp/sandbox_%d.meta.json" % a.id
     with open(meta_path, "w") as f:
         json.dump({"tenant_id": a.id, "src": a.src, "src_db": src_db,
+                   # ⚠️ 必须落盘 user/user_id：down 默认 --user=sbx_verify，与 up 实际值不一致时
+                   #    按 username 查不到 → 旧实现静默留下幽灵账号（2026-09-15 实测踩过）
+                   "user": a.user, "user_id": uid,
                    "src_table_counts": src_fp,
                    "created_at": now.isoformat(timespec="seconds")}, f, ensure_ascii=False)
     print(json.dumps({
@@ -227,13 +234,52 @@ def cmd_down(a):
     src_db = os.path.join(ERP_DIR, "tenant_%d.db" % a.src)
 
     # ── 1. 按 user_id 清主库四表（不按 token 删 —— 注册链路会留第二条 session） ──
+    # 先读 up 落盘的 meta（含 user / user_id），供下面兜底
+    meta_path = "/tmp/sandbox_%d.meta.json" % a.id
+    meta = {}
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path) as f:
+                meta = json.load(f)
+        except Exception:
+            meta = {}
+
+    # 🔴 源库必须以 up 时落盘的 meta["src"] 为准（2026-09-15 实测修）。
+    #    旧实现直接取 a.src，而 down 的 --src 默认 10：只给 up 传了 `--src 1`、down 不带
+    #    `--src 1` 时，会拿 **tenant_1 的指纹** 去比 **tenant_10 的计数** ⇒ 稳定假报
+    #    「112 张业务表计数变了」+ verdict=review。实证三步排除真漂移：
+    #      ① 紧邻的 up→down（间隔 4s）同样报 122 张表，期间源库无人写；
+    #      ② 源库 -wal mtime 早于 up 时刻，该窗口 nginx 非 GET 请求数 = 0；
+    #      ③ 同一库连读两次 + JSON 往返，_src_diff 均为 0 —— 指纹函数本身稳定。
+    #    ⚠️ 这道假警报的方向最坏：会把「干净的沙箱」读成「污染了真实库」。
+    if meta.get("src") and int(meta["src"]) != a.src:
+        src_db = os.path.join(ERP_DIR, "tenant_%d.db" % int(meta["src"]))
+
     mc = sqlite3.connect(MASTER)
     mc.row_factory = sqlite3.Row
     removed = {}
     uids = []
+    lookup = None
     try:
-        rows = mc.execute("SELECT id FROM users WHERE username=?", (a.user,)).fetchall()
-        uids = [r["id"] for r in rows]
+        # 三级查找，任一级命中即用 —— 目标：**只要租户清了，账号与绑定关系一定清掉**
+        # ① 首选 up 落盘的 user_id（最可靠，不受 --user 默认值错配影响）
+        if meta.get("user_id"):
+            uids = [meta["user_id"]]
+            lookup = "meta.user_id"
+        # ② 其次按 --user 用户名查
+        if not uids:
+            rows = mc.execute("SELECT id FROM users WHERE username=?", (a.user,)).fetchall()
+            uids = [r["id"] for r in rows]
+            if uids:
+                lookup = "username:%s" % a.user
+        # ③ 兜底：按 tenant_id 反查 user_tenants
+        if not uids:
+            rows = mc.execute("SELECT user_id FROM user_tenants WHERE tenant_id=?", (a.id,)).fetchall()
+            uids = [r["user_id"] for r in rows]
+            if uids:
+                lookup = "user_tenants.tenant_id:%d" % a.id
+        if not uids:
+            lookup = "none"
         for t in ("sessions", "user_tenants"):
             if uids:
                 q = "DELETE FROM %s WHERE user_id IN (%s)" % (t, ",".join("?" * len(uids)))
@@ -271,24 +317,22 @@ def cmd_down(a):
 
     src_after = sha256(src_db) if os.path.exists(src_db) else None
     # 源库零污染判据 = **表计数指纹比对**，不是哈希（见文件头 _RUNTIME_TABLES 说明）
-    meta_path = "/tmp/sandbox_%d.meta.json" % a.id
-    meta = {}
-    if os.path.exists(meta_path):
-        try:
-            with open(meta_path) as f:
-                meta = json.load(f)
-        except Exception:
-            meta = {}
+    # meta 已在 step 1 读过（含 user / user_id / src_table_counts），此处复用，不再重复读
     src_fp = _table_counts(src_db) if os.path.exists(src_db) else None
     check = _src_diff(meta.get("src_table_counts"), src_fp)
     if os.path.exists(meta_path):
         os.remove(meta_path)
+    zero = (not left_files and all(v == 0 for v in left.values()))
     print(json.dumps({
-        "ok": True, "tenant_id": a.id, "removed_master_rows": removed, "left_master_rows": left,
-        "left_files": left_files, "ZERO_RESIDUE": (not left_files and all(v == 0 for v in left.values())),
+        # ⚠️ ok 必须反映 ZERO_RESIDUE：旧实现恒 ok:true，有残留时会被读成「销毁成功」
+        "ok": zero, "tenant_id": a.id, "user_lookup": lookup,
+        "removed_master_rows": removed, "left_master_rows": left,
+        "left_files": left_files, "ZERO_RESIDUE": zero,
         "src_sha256_after": src_after,
         "src_business_check": check,
     }, ensure_ascii=False))
+    if not zero:
+        sys.exit("销毁未达零残留：left_master_rows=%s left_files=%s user_lookup=%s" % (left, left_files, lookup))
 
 
 def main():
@@ -308,7 +352,8 @@ def main():
     dn = sub.add_parser("down", help="销毁沙箱租户（按 user_id 清主库 + 删库与边文件）")
     dn.add_argument("--id", type=int, required=True)
     dn.add_argument("--src", type=int, default=10, help="克隆源（用于复核 sha256）")
-    dn.add_argument("--user", default="sbx_verify", help="与 up 时一致")
+    dn.add_argument("--user", default="sbx_verify",
+                    help="与 up 时一致；即便忘传也有三级兜底（meta.user_id → username → tenant_id 反查 user_tenants）")
     dn.set_defaults(func=cmd_down)
 
     a = ap.parse_args()
