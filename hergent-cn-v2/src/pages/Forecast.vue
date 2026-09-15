@@ -601,10 +601,8 @@
                     </template>
                     <template v-else-if="col.key === 'qty'">{{ fmt(it.r.total) }}</template>
                     <template v-else-if="col.key === 'boxes'">{{ it.r.boxes != null ? fmt(it.r.boxes) : '—' }}</template>
-                    <template v-else-if="col.key === 'final'">
-                      <template v-if="it.r.decided"><b>{{ fmt(it.r.final_qty) }}</b><span class="decided-badge">已定稿</span></template>
-                      <template v-else><span class="pending-final">待定稿</span></template>
-                    </template>
+                    <template v-else-if="col.key === 'extra'">{{ fmt(rowExtraQty(it.r)) }}</template>
+                    <template v-else-if="col.key === 'final'"><b>{{ fmt(rowFinalQty(it.r)) }}</b></template>
                     <template v-else-if="col.key === 'ai'">{{ it.r.ai != null ? fmt(it.r.ai) : '—' }}</template>
                     <template v-else-if="col.key === 'amount'"><span :class="{ 'miss-price': displayPrice(it.r) == null }">{{ displayPrice(it.r) != null ? displayPrice(it.r).toFixed(2) : '缺价' }}</span></template>
                   </td>
@@ -642,7 +640,9 @@
                   <template v-if="col.key === 'name'">合计</template>
                   <template v-else-if="col.type === 'qty'">{{ cross.colTotals[(ci - 1) - visibleCols.length] || '' }}</template>
                   <template v-else-if="col.key === 'qty'">{{ fmt(cross.grand.qty) }}</template>
-                  <template v-else-if="col.key === 'boxes' || col.key === 'final'">—</template>
+                  <template v-else-if="col.key === 'boxes'">—</template>
+                  <template v-else-if="col.key === 'extra'">{{ fmt(cross.rows.reduce((s, r) => s + rowExtraQty(r), 0)) }}</template>
+                  <template v-else-if="col.key === 'final'">{{ fmt(cross.rows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</template>
                   <template v-else-if="col.key === 'amount'">{{ fmt(cross.grand.amount) }}</template>
                   <template v-else>—</template>
                 </td>
@@ -1950,15 +1950,15 @@ function cellText(r, col) {
   if (col.type === 'master') return masterVal(r, col)
   if (col.key === 'qty') return fmt(r.total)
   if (col.key === 'boxes') return r.boxes != null ? fmt(r.boxes) : '—'
-  if (col.key === 'extra') return fmt(r.extra_qty || 0)
-  if (col.key === 'final') return fmt((r.total || 0) + (r.extra_qty || 0))
+  if (col.key === 'extra') return fmt(rowExtraQty(r))
+  if (col.key === 'final') return fmt(rowFinalQty(r))
   if (col.key === 'ai') return r.ai != null ? fmt(r.ai) : '—'
   if (col.key === 'price') return r.purchase_price != null ? Number(r.purchase_price).toFixed(2) : '—'
-  if (col.key === 'amount') { const fq = (r.total || 0) + (r.extra_qty || 0); return r.purchase_price != null ? fmt(fq * r.purchase_price) : '缺价' }
+  if (col.key === 'amount') { const fq = rowFinalQty(r); return r.purchase_price != null ? fmt(fq * r.purchase_price) : '缺价' }
   return ''
 }
 function cellAria(r, col) { if (col.type === 'seq') return '序号：' + (r.seq || '') ; return col.label + '：' + cellText(r, col) }
-function rowAria(r) { const fq = (r.total || 0) + (r.extra_qty || 0); return r.name + '，合计 ' + fmt(r.total) + '，加单 ' + fmt(r.extra_qty || 0) + '，最终下单 ' + fmt(fq) + '，下单金额 ¥' + fmt(fq * (r.purchase_price || 0)) }
+function rowAria(r) { const fq = rowFinalQty(r); return r.name + '，合计 ' + fmt(r.total) + '，加单 ' + fmt(rowExtraQty(r)) + '，最终下单 ' + fmt(fq) + '，下单金额 ¥' + fmt(fq * (r.purchase_price || 0)) }
 function rowKey(it) { return it.kind === 'group' ? 'grp-' + it.key : it.kind === 'row' ? 'row-' + it.r.product_id : 'det-' + it.r.product_id }
 function cellActive(it, ci) { return it.kind === 'row' && it.r.product_id === activeCell.value.pid && ci === activeCell.value.ci }
 function riskText(r) {
@@ -2834,7 +2834,8 @@ function colStatVal(r, desc) {
     case 'amount': return r.amount != null ? Number(r.amount) : null
     case 'qty': return Number(r.total || 0)
     case 'boxes': return r.boxes != null ? Number(r.boxes) : null
-    case 'final': return r.decided ? Number(r.final_qty || 0) : null
+    case 'extra': return rowExtraQty(r)
+    case 'final': return rowFinalQty(r)
     case 'ai': return r.ai != null ? Number(r.ai) : null
     case 'suggest': return Number(r.suggest || 0)
     case 'comparePrev': return prevQty(r)
@@ -4860,16 +4861,16 @@ function toggleCopyMenu() {
 }
 // 复制只针对「本期期次」（不按报单单元列拆选）
 const copyUnitName = computed(() => (cross.value.period && cross.value.period.name) ? cross.value.period.name : (cross.value.units && cross.value.units[0] ? cross.value.units[0].name : '本期'))
-// 有报单 = 「最终下单」列有数量，且含厂家编码、通过品牌筛选（与复制动作口径一致）：
-//  - 只读主表行带 decided：已定稿取 final_qty；有 decided 但未定稿(待定稿) → 视为无最终下单，0
-//  - 无 decided 的行（v168 起只会出现在编辑态草稿）：取 合计 qtyByUnit + 加单 extraQty 兜底
-//    ⚠️ v168：复制入口已不在编辑态（草稿数据未定稿，复制出去会被当成最终报单）——此分支只服务于
-//    编辑态内的其它读取方；若将来把复制入口加回编辑态，必须先确认这条兜底仍成立。
+// 「最终下单」唯一口径（用户口径 2026-09-15 订正）：**报单合计 + 加单**，不区分是否定稿。
+//   - 基准：只读主表行带后端权威 total（=SUM(quantity)）；编辑态草稿行无 total → 回退 rowSum（单元求和）。
+//   - 加单兼容两种存法：只读态 extra_qty（后端 forecast_extra_qty）/ 编辑态 extraQty（本地草稿）。
+//   ⚠️ 本函数是全站唯一实现 —— 模板显示 / 列统计 / 列筛选 / aria / 复制报单 / 下单金额 全部走它。
+//      改口径只改这里一处。（旧实现按「已定稿取 final_qty、未定稿取 0」分支，与显示口径并不一致。）
+const rowExtraQty = (r) => Number(r && (r.extra_qty != null ? r.extra_qty : r.extraQty)) || 0
 const rowFinalQty = (r) => {
-  if (r.decided !== undefined) return r.decided ? (Number(r.final_qty) || 0) : 0
-  const base = rowSum(r)
-  const ex = r.extra_qty != null ? (Number(r.extra_qty) || 0) : (Number(r.extraQty) || 0)
-  return base + ex
+  if (!r) return 0
+  const base = r.total != null ? (Number(r.total) || 0) : rowSum(r)
+  return base + rowExtraQty(r)
 }
 const copyCount = computed(() => {
   let n = 0
@@ -5614,7 +5615,7 @@ const rebateSprint = computed(() => {
         match = String(r.product_id) === scope
       }
       if (!match) continue
-      const fq = (r.total || 0) + (r.extra_qty || 0)
+      const fq = rowFinalQty(r)
       const amt = fq * (r.purchase_price || 0)
       if (rule.target_type === 'quantity') contrib += fq
       else contrib += amt
@@ -5865,7 +5866,7 @@ async function loadCross() {
       grand: {
         sku: matrixRows.length,
         qty: matrixRows.reduce((s, r) => s + r.total, 0),
-        amount: matrixRows.reduce((s, r) => s + ((r.total || 0) + (r.extra_qty || 0)) * (r.purchase_price || 0), 0),
+        amount: matrixRows.reduce((s, r) => s + rowFinalQty(r) * (r.purchase_price || 0), 0),
       },
       reportedUnits: units.length,
     }
@@ -6319,7 +6320,6 @@ onMounted(async () => {
 .calc-th.sum{background:var(--sum-bg);color:var(--sum-txt)}
 .calc-th.final{background:var(--p-bg);color:var(--p-dark)}
 .calc-th.final .th-sub{font-weight:400;font-size:10px;opacity:.7}
-.decided-badge{display:inline-block;margin-left:4px;padding:0 5px;font-size:10px;line-height:15px;border-radius:999px;background:var(--suc);color:#fff;vertical-align:1px}
 /* 表体优化 P1/P2/P3：斑马纹/排序/分组/吸底合计 */
 .tb-toolbar{display:flex;gap:12px;align-items:center;margin:4px 0 8px;flex-wrap:wrap}
 .tb-toolbar .hint{color:var(--t3);font-size:12px}
@@ -6366,7 +6366,6 @@ th.sortable:hover{color:var(--p-dark)}
 .col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:2px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden;box-shadow:0 -2px 5px rgba(15,23,42,.06)}
 .col-total-bar>table{transform:translateX(var(--foot-sl,0));will-change:transform}
 .col-total-bar .frozen{background:var(--bg3)}
-.pending-final{color:var(--t3);font-size:12px}
 .miss-price{color:var(--danger-txt);font-weight:500}
 .calc-th.amount{min-width:80px}
 .calc{text-align:right;font-variant-numeric:tabular-nums}
