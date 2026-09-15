@@ -159,6 +159,23 @@
               <p class="imp-warn">导入完成，但有 {{ impResult?.results?.errors?.length || 0 }} 处异常：</p>
               <ul class="imp-errs"><li v-for="(e, i) in (impResult?.results?.errors || []).slice(0, 8)" :key="i">{{ e.msg }}</li></ul>
             </div>
+            <!-- v163 导入回执：「导入成功了，但下游会出问题」必须显式给出。
+                 判据（用户 2026-09-15）：「导入没有成功要给用户一个回执，说明不成功的原因」。
+                 最典型的一条：报单对象不在「报单配置」里 → 生成舟谱单据时缺「客户全称 / 调拨仓」，
+                 单据无法导入舟谱。旧实现对此**完全静默**（只显示「成功 N 个客户」），
+                 用户要一路做到下单那一步才发现 —— 那时已经不知道是哪一列的问题了。 -->
+            <div v-if="impWarnings.length" class="imp-arch">
+              <div class="imp-arch-hd warn">需要注意</div>
+              <ul class="imp-arch-list warn">
+                <li v-for="(w, i) in impWarnings" :key="i">{{ w }}</li>
+              </ul>
+              <p v-if="impUnmapped.length" class="imp-arch-note">
+                这些 Excel 列（共 {{ impUnmapped.length }} 个）不在「报单配置」里：
+                <template v-for="(o, i) in impUnmapped.slice(0, 12)" :key="i">
+                  <b>{{ o.name }}</b><span v-if="i < Math.min(impUnmapped.length, 12) - 1">、</span>
+                </template><span v-if="impUnmapped.length > 12"> …</span>
+              </p>
+            </div>
             <!-- v157: 零档案建档结果（后端已回传 products_created_count / reused / unmatched / conflicts） -->
             <div v-if="impArchive" class="imp-arch">
               <div class="imp-arch-hd">商品档案</div>
@@ -5490,6 +5507,18 @@ const impFpRejected = computed(() => {
   if (!rs || !rs.factory_price_gate_on) return null
   const names = Array.isArray(rs.products_rejected_no_factory) ? rs.products_rejected_no_factory : []
   return { count: Number(rs.products_rejected_no_factory_count || names.length || 0), names }
+})
+
+// v163 导入回执的「需要注意」：后端 results.warnings（非致命，但下游会出问题）+ 未配置对象清单。
+// 与 errors 分开是有意的 —— errors = 「行根本没进来」，warnings = 「进来了，但你得知道这件事」。
+// 旧实现在「报单对象不在报单配置里」时完全静默，用户以为导入成功，直到生成舟谱单据才发现缺客户全称。
+const impWarnings = computed(() => {
+  const ws = impResult.value?.results?.warnings
+  return Array.isArray(ws) ? ws : []
+})
+const impUnmapped = computed(() => {
+  const us = impResult.value?.results?.report_unmapped
+  return Array.isArray(us) ? us : []
 })
 
 function openImport() { impOpen.value = true; impState.value = null; impResult.value = null }

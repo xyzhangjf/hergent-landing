@@ -39,6 +39,19 @@
             <input v-model="tpEntities" placeholder="逗号分隔，如：甲户,乙户" />
             <span class="tp-hint">商品名里写「（×××下单）」时，系统据此识别下单主体。只有一个户头可留空。</span>
           </div>
+          <!-- v163：每个下单主体对应一个舟谱「部门」。同一商品可被两个户头下单 ⇒ 同一客户
+               会拆出两张单（不合并），每张单的「部门」列按该单的户头取；留空则该单回落用
+               上面的「公司名称」，并在生成模板时给出提示。 -->
+          <div v-if="tpEntityList.length" class="field tp-wide">
+            <label>下单主体对应的舟谱「部门」</label>
+            <div class="tp-depts">
+              <div v-for="e in tpEntityList" :key="e" class="tp-dept-row">
+                <span class="tp-dept-name">{{ e }}</span>
+                <input v-model="tpDepts[e]" :placeholder="tp.company_name || '如：××商贸有限公司'" />
+              </div>
+            </div>
+            <span class="tp-hint">同一商品用两个户头下单时，会<u>分别生成两张单</u>，各写各的部门。留空则该单回落用「公司名称」，并在生成时提示核对。</span>
+          </div>
         </div>
         <div class="tp-actions">
           <button class="btn btn-primary btn-sm" :disabled="tpSaving" @click="saveProfile">
@@ -289,6 +302,9 @@ const tpOpen = ref(false)
 const tpSaving = ref(false)
 const tp = reactive({ company_name: '', salesman: '', warehouse: '总仓', zt_seq_start: 21 })
 const tpEntities = ref('')
+// v163：户头 → 舟谱「部门」列值。键是下单主体名（与 tpEntities 同源）。
+const tpDepts = ref({})
+const tpEntityList = computed(() => (tpEntities.value || '').split(/[,，、\s]+/).filter(Boolean))
 const profileMissing = computed(() => !tp.company_name || !tp.salesman)
 
 async function loadProfile() {
@@ -300,6 +316,7 @@ async function loadProfile() {
     tp.warehouse = p.warehouse || '总仓'
     tp.zt_seq_start = p.zt_seq_start || 21
     tpEntities.value = (p.order_entities || []).join(',')
+    tpDepts.value = { ...(p.entity_departments || {}) }
     if (profileMissing.value) tpOpen.value = true   // 未配置 → 自动展开引导填写
   } catch { /* 读不到不影响报单配置主流程 */ }
 }
@@ -313,6 +330,13 @@ async function saveProfile() {
       warehouse: tp.warehouse,
       zt_seq_start: Number(tp.zt_seq_start) || 21,
       order_entities: (tpEntities.value || '').split(/[,，、\s]+/).filter(Boolean),
+      // v163：只提交**当前户头清单里**且**非空**的部门名 —— 户头被删掉后它的旧部门名一并清掉，
+      // 不留孤儿配置（否则以后重新加回同名户头会悄悄套用一条早已不想要的部门名）。
+      entity_departments: Object.fromEntries(
+        tpEntityList.value
+          .map(e => [e, String(tpDepts.value[e] || '').trim()])
+          .filter(([, d]) => d)
+      ),
     })
     toast('模板参数已保存')
     await loadProfile()
@@ -549,6 +573,11 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile() })
 .tp-body .field input{padding:7px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:13px;outline:none}
 .tp-body .field input:focus{border-color:var(--p)}
 .tp-hint{font-size:11px;color:var(--t3)}
+/* v163：户头 → 部门名行（每行一个户头） */
+.tp-depts{display:flex;flex-direction:column;gap:6px}
+.tp-dept-row{display:flex;align-items:center;gap:8px}
+.tp-dept-name{min-width:76px;font-size:12px;color:var(--t2);flex:0 0 auto}
+.tp-dept-row input{flex:1;min-width:0}
 .tp-actions{display:flex;gap:8px}
 .health-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:rgba(var(--war-rgb),.10);border:1px solid rgba(var(--war-rgb),.35);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:12px;cursor:pointer}
 .health-bar.ok{background:rgba(var(--suc-rgb),.10);border-color:rgba(var(--suc-rgb),.35)}
