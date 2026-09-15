@@ -371,6 +371,55 @@
         <button :class="{ on: viewMode === 'list' }" @click="switchView('list')">逐单补录</button>
       </div>
       <span class="view-seg-tip">批量粘贴 · 整表改量 · 增删商品 → 用「汇总表」再点「改单」；少量补录 · 按商品搜索加购 → 用「逐单补录」</span>
+      <!-- 修改日志（原 P9-6「审计」）：汇总表是文员与业务经理多人共改的，出纠纷时要能答
+           「这一版是谁、什么时候改的」。原按钮埋在 改单 → 工具箱 → 更多工具 三级之下，
+           非编辑态（文员/经理日常看表的默认状态）根本看不到，故 v166 改名并提到这里常显
+           ——业务人员不认识"审计"这个词，而"日志"他们一看就懂。
+           ⚠️ 为什么不放主工具栏：实测量过，工具栏 1280 宽仅剩 22px、1440 仅剩 69px 余量，
+           任何带字按钮都会把单行挤成两行（工具栏单行是 2026-09-12 专门收敛出来的设计）。
+           本行是汇总表区最顶一行的常显行，零工具栏代价，且紧贴它描述的这张表。 -->
+      <button class="btn btn-sm btn-ghost log-btn" :disabled="!cross.period" :class="{ on: trailOpen }" @click="toggleTrail"
+              title="修改日志：本期每一次改动，谁在什么时候改了什么（保存汇总表 / 导入 / 定稿 / 审批 / 关闭期次都会自动留痕）"><Icon name="list"/> 修改日志</button>
+    </div>
+
+    <!-- P9-6 改动留痕审计 → v166 更名「修改日志」：① 每条加「修改人」；② 交还全局操作；
+         ③ **搬出编辑态分支**——原实现挂在 `v-if=editMode` 的网格区内，而非编辑态（文员/经理
+         日常看汇总表的默认状态）里点了按钮什么都不会出现。
+         位置：紧贴「汇总表视图切换行」下方 —— 那行右侧就是常显入口，面板开在触发它的按钮
+         正下方（原先放在工具栏下、隔着返利冲刺看板，触发点在页面下半部，视线要跨过一屏）。
+         本块不依赖 editMode，故两态都能渲染。 -->
+    <div v-if="trailOpen" class="info-panel audit-log-panel">
+      <div class="panel-hd">
+        <b><Icon name="list"/> 修改日志</b>
+        <span class="tag info">{{ auditTrail.length }} 条</span>
+        <button class="imp-x" @click="trailOpen=false"><Icon name="close"/></button>
+      </div>
+      <ul v-if="auditTrail.length" class="health-list at-log">
+        <li v-for="(a,i) in auditTrail" :key="i" class="sev-info">
+          <span class="sev-dot"></span>
+          <span class="at-time">{{ fmtAuditAt(a.at) }}</span> ·
+          <b class="at-who">{{ a.by || '系统' }}</b> ·
+          <span class="at-act">{{ auditActionLabel(a.action) }}</span> · {{ a.detail }}
+        </li>
+      </ul>
+      <div v-else class="hint">本期暂无修改记录（保存汇总表 / 导入 / 定稿 / 审批 / 关闭期次会自动记录）</div>
+      <!-- v166：与期次无关的全局操作（厂价闸门 / 回写 / 采购单推送 / 异常处置 / AI 根因分析 /
+           删除期次）原先写完就再也看不到，这里折叠交还；**不揉进本期时间线**，避免被误读成
+           「本期汇总表被改过」。删期次的记录留在该期自己的 audit 键里，删完仍可回溯。 -->
+      <div v-if="auditGlobal.length" class="at-global">
+        <button class="at-global-hd" @click="atGlobalOpen = !atGlobalOpen">
+          <Icon :name="atGlobalOpen ? 'chevron-down' : 'chevron-right'"/>
+          全局操作 {{ auditGlobal.length }} 条（与期次无关）
+        </button>
+        <ul v-if="atGlobalOpen" class="health-list at-log">
+          <li v-for="(a,i) in auditGlobal" :key="i" class="sev-info">
+            <span class="sev-dot"></span>
+            <span class="at-time">{{ fmtAuditAt(a.at) }}</span> ·
+            <b class="at-who">{{ a.by || '系统' }}</b> ·
+            <span class="at-act">{{ auditActionLabel(a.action) }}</span> · {{ a.detail }}
+          </li>
+        </ul>
+      </div>
     </div>
 
     <!-- 交叉表视图（P0-1）：行=商品 × 列=报单单元（透视小程序报单 sources） -->
@@ -816,7 +865,9 @@
               <button class="btn btn-ghost btn-sm" @click="showMoq=!showMoq"><Icon name="package"/> 起订量</button>
               <button class="btn btn-ghost btn-sm" @click="genSuggestBook" :disabled="suggestBookLoading"><Icon name="file-text"/> 生成下单说明</button>
               <button class="btn btn-ghost btn-sm" @click="loadAccuracy" :disabled="accLoading"><Icon name="target"/> 预报准确率</button>
-              <button class="btn btn-ghost btn-sm" @click="trailOpen=!trailOpen"><Icon name="list"/> 审计</button>
+              <!-- v166：非编辑态的常显入口在「汇总表视图切换行」；编辑态那一行不渲染，故这里
+                   保留同一面板的第二个入口（文案与图标与常显入口逐字一致，避免两条路径说两套话）。 -->
+              <button class="btn btn-ghost btn-sm" :class="{on:trailOpen}" @click="toggleTrail"><Icon name="list"/> 修改日志</button>
               <button class="btn btn-ghost btn-sm" @click="loadTemplates" :disabled="tmplLoading"><Icon name="book"/> 行业模板</button>
               <button class="btn btn-ghost btn-sm" @click="loadBI" :disabled="biLoading"><Icon name="bar-chart"/> 经营看板</button>
               <button class="btn btn-ghost btn-sm" @click="suggestPanel=!suggestPanel" title="建议量算法：只影响报单汇总表的「配方建议」列，不影响「系统建议」列"><Icon name="settings"/> 建议算法</button>
@@ -935,15 +986,6 @@
             </div>
             <div v-if="subBy" class="hint">操作人 {{ subBy }} · {{ subAt }}</div>
             <div v-if="subReason" class="imp-warn">驳回原因：{{ subReason }}</div>
-          </div>
-
-          <!-- P9-6 改动留痕审计 -->
-          <div v-if="trailOpen" class="info-panel">
-            <div class="panel-hd"><b><Icon name="list"/> 改动留痕审计</b><span class="tag info">{{ auditTrail.length }} 条</span><button class="imp-x" @click="trailOpen=false"><Icon name="close"/></button></div>
-            <ul v-if="auditTrail.length" class="health-list">
-              <li v-for="(a,i) in auditTrail" :key="i" class="sev-info"><span class="sev-dot"></span>{{ a.at }} · {{ a.action }} · {{ a.detail }}</li>
-            </ul>
-            <div v-else class="hint">暂无留痕（保存/审批操作会自动记录）</div>
           </div>
 
           <!-- P10-7 配方行业模板库 -->
@@ -2503,7 +2545,9 @@ async function saveEdits() {
     if (!r.success) throw new Error(r.error || '保存失败')
     syncMoq()
     saveCloudNotes()
-    recordAudit('save_changes', `保存预报单调整（${r.saved_customers} 客户 / ${r.saved_items} 明细）`)
+    // v166：明细里补上商品主档的增改数——「改单」同时会落商品档案，只报客户/明细数看不出这层。
+    // 前缀「保存汇总表」由动作列承担，明细不再重复（面板按 时间·修改人·动作·明细 四段渲染）
+    recordAudit('save_changes', `${r.saved_customers} 客户 / ${r.saved_items} 条明细${prodMsg}`)
     toast(`已保存：${r.saved_customers} 个客户 · ${r.saved_items} 条商品明细${prodMsg}`, 'ok')
     clearDraft(true)          // Q11：静默清除草稿，不再弹「已放弃草稿」
     collectCustVals()
@@ -4676,16 +4720,37 @@ async function saveCloudNotes() {
   } catch (e) {}
 }
 
-// P9-6 改动留痕审计（per period 追加）
+// P9-6 改动留痕审计（per period 追加）→ v166 更名「修改日志」：加修改人 + 交还全局操作
 const trailOpen = ref(false)
 const auditTrail = ref([])
+const auditGlobal = ref([])       // 与期次无关的全局操作（后端 audit:0）
+const atGlobalOpen = ref(false)   // 全局区默认折叠，避免喧宾夺主盖过「本期」这条主线
 const auditTrailLoading = ref(false)
+
+// 动作码 → 业务话术：raw 的 'submission.revise' 这类点号码对非技术老板没有意义
+const AUDIT_ACTION_LABEL = {
+  save_changes: '保存汇总表', import: '导入', adopt: '确认定稿', change: '修改',
+  'submission.submit': '提交审批', 'submission.approve': '审批通过',
+  'submission.reject': '审批驳回', 'submission.revise': '退回修改',
+  factory_price_gate: '厂价闸门', connector_writeback: '回写ERP',
+  purchase_order_push: '推送采购单', intervention: '异常处置',
+  hermes_analyze: 'AI根因分析', period_close: '关闭期次', period_delete: '删除期次',
+}
+function auditActionLabel(a) { return AUDIT_ACTION_LABEL[a] || a || '修改' }
+function fmtAuditAt(s) { return String(s || '').replace('T', ' ').slice(0, 16) }
+
 async function loadAuditLog() {
   try {
-    const p = cross.value.period; if (!p) return
+    const p = cross.value.period
+    if (!p) { auditTrail.value = []; auditGlobal.value = []; return }
     const r = await forecastApi.auditGet(p.id)
     auditTrail.value = r.items || []
+    auditGlobal.value = r.global_items || []
   } catch (e) {}
+}
+function toggleTrail() {
+  trailOpen.value = !trailOpen.value
+  if (trailOpen.value) loadAuditLog()   // 打开即刷新：别人刚做的改动要当场看得见
 }
 async function recordAudit(action, detail, ref_id = '') {
   const p = cross.value.period; if (!p) return
@@ -5298,6 +5363,8 @@ async function doImport() {
     const r = await importApi.execute(impFileObj.value, 'forecast_cross', impMapping.value, { order_date: od })
     impResult.value = r
     impState.value = 'done'
+    // v166：导入会直接改写本期「导入」报单（覆盖式先清后建），是对汇总表的实质改动 → 留痕
+    recordAudit('import', `${impFileName.value || '（未命名文件）'}（${r.imported_count || 0} 行 / ${r.results?.success || 0} 个客户）`)
   } catch (e) {
     toast('导入失败: ' + (e.message || ''), 'err')
   } finally {
@@ -5373,6 +5440,8 @@ async function doAdopt() {
       }))
     if (!items.length) { toast('没有可定稿的 SKU（未匹配主档的已跳过）', 'warn'); auditOpen.value = false; return }
     const r = await auditApi.adoptAudit({ start: p.order_start, end: p.order_end, items })
+    // v166：定稿决定「最终下单量」，是本页最重的一次改动（原实现无任何留痕）→ 留痕
+    recordAudit('adopt', `${r.adopted || 0} 个 SKU`)
     toast(`已定稿 ${r.adopted || 0} 个 SKU（AI 只建议，不自动下单）`, 'ok')
     auditOpen.value = false
     loadCross()
@@ -6150,6 +6219,13 @@ onMounted(async () => {
 
 /* ---- P0-1 交叉表视图 ---- */
 /* 本期预报子视图切换：汇总表 / 逐单补录（移出工具栏，内容区干净分段） */
+/* v166：视图切换行改 flex —— 「修改日志」贴右，长提示文字可换行（原本是块级容器 + 行内 span
+   的「自然流」，加了按钮后必须显式分配弹性，否则按钮会被长提示挤到下一行）。行高与下方间距
+   沿用原值（原来是靠 .view-seg 的 margin-bottom 撑开的 12px）。 */
+.view-seg-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.view-seg-row>.view-seg{margin-bottom:0}
+.view-seg-row>.view-seg-tip{flex:1 1 260px;min-width:0}
+.view-seg-row>.log-btn{margin-left:auto;flex:0 0 auto}
 .view-seg{display:inline-flex;gap:4px;background:var(--bg3);border-radius:8px;padding:3px;margin-bottom:12px}
 .view-seg button{border:none;background:transparent;padding:5px 16px;border-radius:6px;font-size:13px;color:var(--t2);cursor:pointer}
 .view-seg button.on{background:var(--bg4);color:var(--p-dark);box-shadow:var(--shadow-sm);font-weight:500}
@@ -6686,6 +6762,22 @@ td.invalid{background:var(--danger-bg)}
 .sev-risk{color:var(--sev-risk)}.sev-warn{color:var(--sev-warn)}.sev-info{color:var(--sev-info)}
 .sev-dot{width:7px;height:7px;border-radius:50%;flex:none;display:inline-block}
 .sev-risk .sev-dot{background:var(--sev-risk)}.sev-warn .sev-dot{background:var(--sev-warn)}.sev-info .sev-dot{background:var(--sev-info)}
+/* v166 修改日志面板：已从编辑态网格区搬到工具栏正下方，成为 .page 的直属元素（不再是卡片内
+   的次级面板），故按 .card 的外观给（白底 / 同半径 / 同边框），免得与其它卡片割裂。 */
+.audit-log-panel{margin:0 0 14px;padding:14px 16px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-lg)}
+/* 后端每期最多留 200 条 → 列表内部滚动，别把汇总表整张顶出屏幕 */
+.audit-log-panel .at-log{max-height:300px;overflow:auto;padding-right:4px}
+/* v166 修改日志：每条是「时间 · 修改人 · 动作 · 明细」，文字长需换行，故不复用 .health-list
+   的「单行 flex 且 hover 下划线」范式——那里隐含着"这一条可以点"，而留痕条只是展示。 */
+.at-log li{cursor:default;display:block;line-height:1.9}
+.at-log li:hover{text-decoration:none}
+.at-log .sev-dot{margin-right:6px;vertical-align:middle}
+.at-time{color:var(--t3);font-variant-numeric:tabular-nums}
+.at-who{color:var(--t1)}
+.at-act{color:var(--t2)}
+.at-global{margin-top:8px;border-top:1px dashed var(--bd);padding-top:8px}
+.at-global-hd{display:flex;align-items:center;gap:6px;border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px;padding:0;margin-bottom:4px}
+.at-global-hd:hover{color:var(--t1)}
 .pager{display:flex;gap:10px;align-items:center;margin-top:10px;font-size:12px}
 .pager-info{color:var(--t2)}
 /* P8/P9/P10 新增强样式 */
