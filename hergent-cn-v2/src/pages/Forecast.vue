@@ -302,11 +302,25 @@
         <span class="sprint-tp" v-if="rebateSprint.length" :title="sprintTimeProgress.shown ? '虚线＝时间进度：进度条超过虚线＝超前，短于虚线＝落后时间进度' : ''">本月时间进度：<b>{{ sprintTimeProgress.pct }}%</b></span>
         <button class="imp-x" :style="rebateSprint.length ? null : 'margin-left:auto'" @click="rebateSprintOpen = !rebateSprintOpen"><Icon :name="rebateSprintOpen ? 'chevron-up' : 'chevron-down'"/></button>
       </div>
+      <!-- 决策横幅（A2）：看板结论的常驻摘要行 —— 折叠/展开都在，明细只在展开时出现。
+           四个数字全部取自既有 computed，且与展开态明细表共用同一个 fmt()（单位同源，勿在摘要上开第二套） -->
+      <div v-if="rebateSprint.length" class="sprint-banner">
+        <template v-if="unmetSprintCount">
+          <b>{{ unmetSprintCount }}</b> 个品牌未达标
+          <span class="sep">·</span>总缺口 <b class="val-warn">¥{{ fmt(sprintTotalGap) }}</b>
+          <span class="sep">·</span>剩 <b>{{ rebateSprintOrders }}</b> 次到货
+          <span class="sep">·</span>均单需报 <b class="val-warn">¥{{ fmt(sprintTotalGapPerOrder) }}</b>
+        </template>
+        <template v-else>
+          <b>{{ rebateSprint.length }}</b> 个品牌目标<span class="val-ok">全部达成</span>
+          <span class="sep">·</span>本月时间进度 <b>{{ sprintTimeProgress.pct }}%</b>
+        </template>
+      </div>
       <div v-show="rebateSprintOpen" class="panel-body">
         <template v-if="rebateSprint.length">
           <p class="sprint-sum">
             本期（返利周期截止 <b>{{ rebateCampaignEnd || (cross.period && cross.period.order_end) }}</b>）按默认到货周期（每 {{ rebateGlobalCadence }} 天）约剩 <b>{{ rebateSprintOrders }}</b> 次到货机会；各品牌到货周期不同，下表按各自周期算「建议均单」。
-            要补齐以下返利目标缺口，<b>均单需额外 ¥{{ fmt(sprintTotalGapPerOrder) }}</b>（按默认周期估算）。
+            要补齐以下返利目标缺口，<b>均单需报 ¥{{ fmt(sprintTotalGapPerOrder) }}</b>（按默认周期估算）。
             <span class="muted">（达成按到货月份归属 = 已填报达成 + 本期预报贡献；未填报可在「目标与返利 → 达成填报」补录或 Excel 导入）</span>
           </p>
           <div class="table-wrap">
@@ -340,7 +354,7 @@
             <ul>
               <template v-for="s in rebateSprint" :key="'sg' + s.key">
                 <li v-if="s.gap > 0">
-                  为「{{ s.name }}」补齐返利，剩余 <b>{{ s.orders }}</b> 次到货（{{ s.cadenceLabel }}）中每单多加 <b>¥{{ fmt(s.perOrder) }}</b>；优先加单：
+                  为「{{ s.name }}」补齐返利，剩余 <b>{{ s.orders }}</b> 次到货（{{ s.cadenceLabel }}）中每单需报 <b>¥{{ fmt(s.perOrder) }}</b>；优先加单：
                   <template v-if="!s.topEmpty"><span v-for="p in s.top" :key="p.name" class="sprint-prod">{{ p.name }}（本期已报 ¥{{ fmt(p.contrib) }}）</span></template>
                   <span v-else class="sprint-prod-empty">本期该品牌尚未报单，暂无可推荐加单（先报单或补全商品进货价后再生成建议）</span>
                 </li>
@@ -5640,7 +5654,10 @@ async function loadTenantParams() {
   } catch (e) { /* 取默认 2 */ }
 }
 const rebateRules = ref([])     // 活跃返利目标规则（品牌/商品维度）
-const rebateSprintOpen = ref(true)
+// 冲刺看板折叠态（A2 决策横幅）：默认折叠 —— 结论已由卡片内常显的「决策横幅」承载，明细按需展开。
+// 编辑态自动折叠：同一块 360px 面板同时挡着「改单」进入点与编辑态「保存」，收起它一次缩短两段距离。
+const rebateSprintOpen = ref(false)
+watch(editMode, (v) => { if (v) rebateSprintOpen.value = false })
 
 async function loadRebateRules() {
   try {
@@ -5825,6 +5842,8 @@ const rebateSprint = computed(() => {
 
 const sprintTotalGap = computed(() => rebateSprint.value.reduce((s, x) => s + x.gap, 0))
 const sprintTotalGapPerOrder = computed(() => rebateSprintOrders.value > 0 ? sprintTotalGap.value / rebateSprintOrders.value : 0)
+// 决策横幅（A2）：未达标对象数 —— 唯一实现，模板里不再重复 filter 表达式
+const unmetSprintCount = computed(() => rebateSprint.value.filter(s => s.gap > 0).length)
 
 // 冲刺看板：时间进度（口径＝本期「到货月」，与 rebateSprintMonth / 后端达成归属完全一致）
 // 算法与「目标与返利 → 仪表盘」timeProgress 同源：过去月=100% / 未来月=0% / 当月=今日 ÷ 该月总天数
@@ -6837,7 +6856,16 @@ th.sortable:hover{color:var(--p-dark)}
 .sprint-card.is-pinned{margin:14px 0 4px;border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
 .sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:10px;margin-bottom:0}
 .tag.hot{background:linear-gradient(135deg,#ff7a45,#ff4d4f);color:#fff;font-weight:600}
-.sprint-card .panel-body{padding-top:10px}
+/* 决策横幅（A2）：一行承载「未达标数 / 总缺口 / 剩余到货机会 / 均单需报」，折叠与展开都常显 */
+.sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:9px 16px;font-size:12.5px;line-height:1.5;color:var(--t2)}
+.sprint-banner b{color:var(--t1);font-variant-numeric:tabular-nums}
+/* 数值状态色复用既有 .val-warn / .val-ok（见本文件 L6799-6800），不另造色类；
+   因 .sprint-banner b 优先级更高，需显式压过，故写成 b.val-warn */
+.sprint-banner b.val-warn{color:var(--war)}
+.sprint-banner .sep{color:var(--t3)}
+/* 虚线挂到明细区自己这一侧（border-top）—— 它能随 v-show 一起隐藏。
+   若改挂在 .sprint-banner 的 border-bottom 上，折叠时会留下一条悬空线。 */
+.sprint-card .panel-body{padding-top:10px;border-top:1px dashed var(--border-subtle)}
 /* 冲刺看板：行内时间进度（右对齐到页头行最右侧）+ 进度条上的时间进度虚线标记
    （虚线范式与仪表盘 .rr-bar-mark 一致：橙色 2px dashed，超出条形上下各 3px） */
 .sprint-card .sprint-tp{margin-left:auto;margin-right:2px;font-size:12.5px;color:var(--t3);white-space:nowrap}
