@@ -204,6 +204,9 @@
         </select>
       </div>
       <div class="tb-right">
+        <!-- v172：本页（品牌 / 商品目标）的修改日志。与「达成填报」共用同一个弹窗与
+             同一套留痕设施，按钮规格与同排的「试算」对齐。 -->
+        <button class="btn btn-ghost" @click="openRuleLog"><Icon name="list"/> 修改日志</button>
         <button class="btn btn-ghost" title="按规则试算返利（也可在规则详情弹窗进入）" @click="showSimulate = !showSimulate">试算</button>
       </div>
     </div>
@@ -422,76 +425,6 @@
       <!-- v171 修改日志弹窗：字段级留痕（谁 · 何时 · 哪一行 · 哪个字段 · 改成什么）。
            数据源 = 后端 entity_change_logs（与商品/客户/销售单的「修改记录」同一张表），
            由本页三条写路径（填报 / 清除 / Excel 导入）在提交后写入。 -->
-      <Teleport to="body">
-        <Transition name="fade">
-          <div v-if="achvLogOpen" class="modal-overlay" @click.self="achvLogOpen = false"></div>
-        </Transition>
-        <Transition name="modal">
-          <div v-if="achvLogOpen" class="modal-card achv-log-card">
-            <div class="modal-hd">
-              <b><Icon name="list"/> 修改日志</b>
-              <button class="btn-close" @click="achvLogOpen = false"><Icon name="close"/></button>
-            </div>
-            <div class="modal-body achv-log-body">
-              <div class="achv-log-bar">
-                <input class="input" v-model.trim="achvLogKeyword"
-                       placeholder="搜索 修改人 / 对象 / 字段 / 数值" @keyup.enter="reloadAchvLog" />
-                <label class="achv-log-chk">
-                  <input type="checkbox" v-model="achvLogThisPeriod" @change="reloadAchvLog" />
-                  只看本期（{{ achvMonth }}）
-                </label>
-                <button class="btn btn-ghost btn-sm" :disabled="achvLogLoading" @click="reloadAchvLog">
-                  {{ achvLogLoading ? '载入中…' : '刷新' }}
-                </button>
-              </div>
-              <div v-if="achvLogLoading && !achvLogItems.length" class="state-empty">载入中…</div>
-              <div v-else-if="!achvLogItems.length" class="state-empty">
-                <p v-if="achvLogKeyword">没有匹配「{{ achvLogKeyword }}」的记录。</p>
-                <p v-else-if="achvLogThisPeriod">本期（{{ achvMonth }}）还没有修改记录。</p>
-                <p v-else>还没有修改记录。</p>
-              </div>
-              <template v-else>
-                <div class="achv-log-count">
-                  共 <b>{{ achvLogTotal }}</b> 条
-                  <span v-if="achvLogThisPeriod">· 已按期次「{{ achvMonth }}」筛选</span>
-                  <span v-if="achvLogItems.length < achvLogTotal">· 当前显示最新 {{ achvLogItems.length }} 条</span>
-                </div>
-                <div class="table-wrap achv-log-wrap">
-                  <table class="tbl">
-                    <thead>
-                      <tr>
-                        <th>时间</th><th>修改人</th><th>动作</th><th>对象</th>
-                        <th>字段</th><th class="num">修改前</th><th class="num">修改后</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="r in achvLogItems" :key="r.id">
-                        <td class="achv-log-at">{{ r.at }}</td>
-                        <td class="achv-log-who">{{ r.user_name || '系统' }}</td>
-                        <td><span class="tag" :class="achvLogActCls(r)">{{ r.action_label }}</span></td>
-                        <td class="achv-log-target" :title="r.target">{{ r.target || '—' }}</td>
-                        <td>{{ r.field_label }}</td>
-                        <td class="num achv-log-old">{{ achvLogVal(r, 'old') }}</td>
-                        <td class="num achv-log-new">
-                          <span v-if="r.action === 'delete'" class="achv-log-cleared">已清除</span>
-                          <template v-else>{{ achvLogVal(r, 'new') }}</template>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </template>
-            </div>
-            <div class="modal-ft">
-              <button v-if="achvLogItems.length < achvLogTotal" class="btn btn-ghost"
-                      :disabled="achvLogLoading" @click="loadMoreAchvLog">
-                加载更多（已显示 {{ achvLogItems.length }}/{{ achvLogTotal }}）
-              </button>
-              <button class="btn btn-ghost" @click="achvLogOpen = false">关闭</button>
-            </div>
-          </div>
-        </Transition>
-      </Teleport>
     </template>
 
     <!-- ===== 返利结算 Tab（原年度合同：展示 rebate_contracts，含计提/结算/申领/余额） ===== -->
@@ -652,6 +585,77 @@
         </div>
       </div>
     </template>
+
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="achvLogOpen" class="modal-overlay" @click.self="achvLogOpen = false"></div>
+      </Transition>
+      <Transition name="modal">
+        <div v-if="achvLogOpen" class="modal-card achv-log-card">
+          <div class="modal-hd">
+            <b><Icon name="list"/> 修改日志</b>
+            <button class="btn-close" @click="achvLogOpen = false"><Icon name="close"/></button>
+          </div>
+          <div class="modal-body achv-log-body">
+            <div class="achv-log-bar">
+              <input class="input" v-model.trim="achvLogKeyword"
+                     placeholder="搜索 修改人 / 对象 / 字段 / 数值" @keyup.enter="reloadAchvLog" />
+              <label v-if="achvLogSource === 'achv'" class="achv-log-chk">
+                <input type="checkbox" v-model="achvLogThisPeriod" @change="reloadAchvLog" />
+                只看本期（{{ achvMonth }}）
+              </label>
+              <button class="btn btn-ghost btn-sm" :disabled="achvLogLoading" @click="reloadAchvLog">
+                {{ achvLogLoading ? '载入中…' : '刷新' }}
+              </button>
+            </div>
+            <div v-if="achvLogLoading && !achvLogItems.length" class="state-empty">载入中…</div>
+            <div v-else-if="!achvLogItems.length" class="state-empty">
+              <p v-if="achvLogKeyword">没有匹配「{{ achvLogKeyword }}」的记录。</p>
+              <p v-else-if="achvLogThisPeriod">本期（{{ achvMonth }}）还没有修改记录。</p>
+              <p v-else>还没有修改记录。</p>
+            </div>
+            <template v-else>
+              <div class="achv-log-count">
+                共 <b>{{ achvLogTotal }}</b> 条
+                <span v-if="achvLogThisPeriod">· 已按期次「{{ achvMonth }}」筛选</span>
+                <span v-if="achvLogItems.length < achvLogTotal">· 当前显示最新 {{ achvLogItems.length }} 条</span>
+              </div>
+              <div class="table-wrap achv-log-wrap">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th>时间</th><th>修改人</th><th>动作</th><th>对象</th>
+                      <th>字段</th><th class="num">修改前</th><th class="num">修改后</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="r in achvLogItems" :key="r.id">
+                      <td class="achv-log-at">{{ r.at }}</td>
+                      <td class="achv-log-who">{{ r.user_name || '系统' }}</td>
+                      <td><span class="tag" :class="achvLogActCls(r)">{{ r.action_label }}</span></td>
+                      <td class="achv-log-target" :title="r.target">{{ r.target || '—' }}</td>
+                      <td>{{ r.field_label }}</td>
+                        <td class="num achv-log-old" :title="achvLogVal(r, 'old')">{{ achvLogVal(r, 'old') }}</td>
+                        <td class="num achv-log-new" :title="achvLogVal(r, 'new')">
+                          <span v-if="r.action === 'delete'" class="achv-log-cleared">已清除</span>
+                          <template v-else>{{ achvLogVal(r, 'new') }}</template>
+                        </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+          </div>
+          <div class="modal-ft">
+            <button v-if="achvLogItems.length < achvLogTotal" class="btn btn-ghost"
+                    :disabled="achvLogLoading" @click="loadMoreAchvLog">
+              加载更多（已显示 {{ achvLogItems.length }}/{{ achvLogTotal }}）
+            </button>
+            <button class="btn btn-ghost" @click="achvLogOpen = false">关闭</button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- 新建/编辑弹层 -->
     <!-- v122 拆分：目标规则表单已抽到 components/rebate/ —— 品牌页 / 商品页各自独立，
@@ -1847,10 +1851,18 @@ async function runAchvImport() {
 // 表、同一套写入设施），由本页三条写路径（填报 / 清除 / Excel 导入）在事务提交后写入。
 // 故前端**只读**：不在前端造第二条留痕路径，否则同一个「谁改了什么」会有两份答案。
 const ACHV_LOG_PAGE = 200
-const ACHV_LOG_ACT_CLS = { create: 'ok', update: 'info', delete: 'bad', import: 'warn' }
-// 只有数值型字段做千分位美化；备注 / 对象名保持原文（库里存的是原值，好看是展示层的事）
-const ACHV_LOG_NUM_FIELDS = ['actual_amount', 'actual_qty', 'actual_rebate']
+// v172：「达成填报」与「目标与返利」两个页签**共用一个弹窗**（同一份模板、同一套渲染），
+// 由 source 切数据源。复制出第二份弹窗意味着以后每改一处渲染都要记得改两遍，早晚漂移。
+const ACHV_LOG_ACT_CLS = {
+  create: 'ok', update: 'info', delete: 'bad', import: 'warn',
+  tier_add: 'warn', tier_del: 'bad',
+}
+const ACHV_LOG_SRC = {
+  achv: '/api/rebate-achievements/audit',   // 达成填报（rebate_achievement）
+  rule: '/api/rebate-rules/audit',          // 目标与返利（rebate_rule）
+}
 const achvLogOpen = ref(false)
+const achvLogSource = ref('achv')
 const achvLogLoading = ref(false)
 const achvLogItems = ref([])
 const achvLogTotal = ref(0)
@@ -1861,7 +1873,9 @@ function achvLogActCls(r) { return ACHV_LOG_ACT_CLS[r.action] || '' }
 function achvLogVal(r, which) {
   const v = String((which === 'old' ? r.old_value : r.new_value) ?? '')
   if (v === '') return '—'
-  if (ACHV_LOG_NUM_FIELDS.indexOf(r.field) < 0) return v
+  // v172：该不该千分位由**后端**告知（numeric 标志）——前端不再维护一份「哪些字段是数字」
+  // 的清单：那种清单必然与后端的字段语义漂移，而且每新增一个金额字段都要改两处。
+  if (!r.numeric) return v
   const n = Number(v)
   return isFinite(n) ? n.toLocaleString('zh-CN') : v
 }
@@ -1871,9 +1885,13 @@ async function loadAchvLog(append = false) {
     const q = ['limit=' + ACHV_LOG_PAGE, 'offset=' + (append ? achvLogItems.value.length : 0)]
     // 默认**不按期次筛**：追溯时若被页面上当前选中的月份悄悄缩小视野，
     // 「上个月是谁改的」在自己没注意选了本月时就会永远查不到。
-    if (achvLogThisPeriod.value) q.push('month=' + encodeURIComponent(achvMonth.value || ''))
+    // 「只看本期」只对达成填报有意义（规则没有期次概念）—— 该页签下复选框本身也不渲染，
+    // 这里再收一道，保证任何调用路径都不会给规则日志带上 month。
+    if (achvLogSource.value === 'achv' && achvLogThisPeriod.value) {
+      q.push('month=' + encodeURIComponent(achvMonth.value || ''))
+    }
     if (achvLogKeyword.value) q.push('keyword=' + encodeURIComponent(achvLogKeyword.value))
-    const r = await api('/api/rebate-achievements/audit?' + q.join('&'))
+    const r = await api(ACHV_LOG_SRC[achvLogSource.value] + '?' + q.join('&'))
     // ⚠️ api() 已解开一层信封（client.js：`data.data !== undefined ? data.data : data`），
     // 这里拿到的就是 { items, total, limit, offset }。若再读一次 r.data 会恒为 undefined，
     // 表现为「后端有记录、弹窗却永远空」——v171 首版即踩此坑，勿改回。
@@ -1888,10 +1906,20 @@ async function loadAchvLog(append = false) {
   }
 }
 function openAchvLog() {
+  achvLogSource.value = 'achv'
   achvLogOpen.value = true
   achvLogKeyword.value = ''
   achvLogThisPeriod.value = false
   loadAchvLog(false)   // 打开即刷新：别人刚做的改动要当场看得见
+}
+// v172：「目标与返利」页（返利规则）的修改日志 —— 同一个弹窗、同一套渲染，
+// 只换数据源；该页签没有「期次」概念，故不显示「只看本期」。
+function openRuleLog() {
+  achvLogSource.value = 'rule'
+  achvLogOpen.value = true
+  achvLogKeyword.value = ''
+  achvLogThisPeriod.value = false
+  loadAchvLog(false)
 }
 function reloadAchvLog() { loadAchvLog(false) }
 function loadMoreAchvLog() { loadAchvLog(true) }
@@ -3006,7 +3034,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
    长日志下滚时列名不会消失（否则读到一半就分不清哪列是"修改前"）。 */
 /* 7 列 × 全单行 ≈ 990px 的表格自然宽度；920px 会逼出横向滚动条（实测溢出 73px）。
    故按内容给宽，同时用 calc(100vw - 64px) 兜住窄屏，不让弹窗顶到屏幕边缘。 */
-.achv-log-card{width:min(1040px,calc(100vw - 64px))}
+.achv-log-card{width:min(1140px,calc(100vw - 48px))}
 .achv-log-body{gap:10px}
 .achv-log-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .achv-log-bar .input{flex:1;min-width:180px}
@@ -3023,6 +3051,9 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .achv-log-wrap .tbl td,.achv-log-wrap .tbl th{white-space:nowrap}
 .achv-log-wrap .tag{white-space:nowrap}
 .achv-log-target{max-width:210px;overflow:hidden;text-overflow:ellipsis}
+/* v172：规则日志的「修改前/后」可能是长摘要（如档位版本「2026-01-01 ~ 不限 · 100%~120% 返 3%」），
+   不封顶会把整张表撑出横向滚动条。超出部分省略，全文走 title（悬停可读）。 */
+.achv-log-old,.achv-log-new{max-width:190px;overflow:hidden;text-overflow:ellipsis}
 .achv-log-old{color:var(--t3)}
 .achv-log-new{font-weight:500}
 .achv-log-cleared{color:var(--dan);font-size:12px;font-weight:400}
