@@ -263,6 +263,110 @@ async function main() {
     ok(!/数量过大/.test(P2.items.map(i => i.text).join('\n')), '「数量过大」已不在清单里')
     ok(P2.groups.length === P.groups.length - 1, '分组也同步少了「数量过大」那一组（' + P2.groups.map(g => g.text).join(' / ') + '）')
     await page.screenshot({ path: OUT + '/v174-查错-修正后.png' })
+
+    /* ── F. v175：出错位置在表格里直接标出（红框 + 红字加粗放大），且与清单精确对应 ── */
+    console.log('\n=== F. 出错位置标记（v175）===')
+    const snapCellMark = () => {
+      const tds = [...document.querySelectorAll('td.invalid')]
+      const cells2 = tds.map(td => {
+        const inp = td.querySelector('input')
+        const cs = inp ? getComputedStyle(inp) : null
+        return {
+          r: +td.dataset.r,
+          c: td.dataset.c == null ? null : +td.dataset.c,
+          title: td.getAttribute('title') || '',
+          color: cs ? cs.color : '', weight: cs ? cs.fontWeight : '',
+          size: cs ? cs.fontSize : '', shadow: cs ? cs.boxShadow : '',
+          bg: cs ? cs.backgroundColor : '',
+          inline: inp ? (inp.getAttribute('style') || '') : '',
+        }
+      })
+      const allTd = [...document.querySelectorAll('td[data-c]')]
+      const okTd = allTd.find(td => !td.classList.contains('invalid') && td.querySelector('input'))
+      const ocs = okTd ? getComputedStyle(okTd.querySelector('input')) : null
+      return {
+        cells: cells2,
+        rowBad: [...document.querySelectorAll('.seq-cell.row-bad')].map(x => +x.dataset.r),
+        allRows: [...new Set(allTd.map(td => +td.dataset.r))],
+        normal: ocs ? { color: ocs.color, weight: ocs.fontWeight, size: ocs.fontSize } : null,
+      }
+    }
+    const isRed = (s) => {
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(s || '')
+      return !!m && +m[1] > 110 && (+m[1] - +m[2] > 45) && (+m[1] - +m[3] > 45)
+    }
+
+    const P3 = await page.evaluate(snapErrPanel)
+    const MK = await page.evaluate(snapCellMark)
+    info('表格里标红的格 ' + MK.cells.length + ' 个 / 行号格标红 ' + JSON.stringify(MK.rowBad) + ' / 当前渲染 ' + MK.allRows.length + ' 行')
+    info('对照正常格: color=' + (MK.normal ? MK.normal.color : '-') + ' weight=' + (MK.normal ? MK.normal.weight : '-') + ' size=' + (MK.normal ? MK.normal.size : '-'))
+
+    // ① 视觉醒目。样本取「第 r1 行的负数格」——D 段改的是 r0，这一格此刻仍是错的
+    const bad = MK.cells.find(x => x.r === cells.r1 && x.c === cells.firstQtyC)
+    ok(!!bad, '★ 出错的那一格在表格里被标出（第 ' + (cells.r1 + 1) + ' 行 · 列 ' + cells.firstQtyC + '）', bad ? '' : JSON.stringify(MK.cells.slice(0, 4)))
+    if (bad) {
+      info('错误格: color=' + bad.color + ' weight=' + bad.weight + ' size=' + bad.size + ' bg=' + bad.bg)
+      info('  内框: ' + (bad.shadow || '').slice(0, 62))
+      info('  该格 inline(热力色): ' + JSON.stringify(bad.inline))
+      ok(isRed(bad.color), '★ 错误格文字为红色 ' + bad.color)
+      ok(bad.weight === '700', '★ 错误格文字加粗 ' + bad.weight)
+      ok(MK.normal ? parseFloat(bad.size) > parseFloat(MK.normal.size) : parseFloat(bad.size) > 12, '★ 错误格文字放大 ' + bad.size + '（正常格 ' + (MK.normal ? MK.normal.size : '?') + '）')
+      ok(/inset/.test(bad.shadow || ''), '★ 错误格有红框（内描边）', (bad.shadow || '').slice(0, 60))
+      ok(!!bad.bg && !/rgba\(0, 0, 0, 0\)/.test(bad.bg), '★ 错误格有警示底色 ' + bad.bg)
+    }
+    ok(MK.rowBad.includes(cells.r1), '★ 出错的行号也标红（第 ' + (cells.r1 + 1) + ' 行）', 'rowBad=' + JSON.stringify(MK.rowBad))
+
+    // ② 位置准确：表格里标红的格 ↔ 清单条目，必须一一对应（本轮修复的核心）
+    const gridSet = new Set(MK.cells.map(x => x.r + '|' + x.title))
+    const panelSet = new Map()
+    ;(P3.items || []).forEach(it => {
+      const r = (+(String(it.loc).match(/第\s*(\d+)\s*行/) || [])[1] || 0) - 1
+      panelSet.set(r + '|' + it.why, it)
+    })
+    const renderable = new Set(MK.allRows)
+    const onlyGrid = [...gridSet].filter(k => !panelSet.has(k))
+    const missGrid = [...panelSet.keys()].filter(k => renderable.has(+k.split('|')[0]) && !gridSet.has(k))
+    info('清单条目 ' + panelSet.size + ' 条 ／ 表格红框 ' + gridSet.size + ' 个')
+    ok(onlyGrid.length === 0, '★ 标红的格在清单里都有说法（不存在「标了却不说什么错」）', onlyGrid.slice(0, 3).join(' / '))
+    ok(missGrid.length === 0, '★ 清单里当前页的条目在表格里都标红了（含「条码重复」这类行级错误）', missGrid.slice(0, 3).join(' / '))
+    if (dupOk) ok(MK.cells.some(x => /条码重复/.test(x.title)),
+      '★ 「条码重复」直接标在条码那一格上（v175 修复点：此前只进清单、格子是干净的）')
+    await page.screenshot({ path: OUT + '/v175-错误格标记.png' })
+
+    // 补一张特写：把「条码重复」那一格滚进视野。这是本轮修复的核心场景 ——
+    // 该错是行级判断，此前只进清单、格子上干干净净。
+    const bcTd = MK.cells.find(x => /条码重复/.test(x.title))
+    if (bcTd) {
+      await page.evaluate((rr, cc) => {
+        const td = document.querySelector(`td[data-r="${rr}"][data-c="${cc}"]`)
+        if (td && td.scrollIntoView) td.scrollIntoView({ block: 'center', inline: 'center' })
+      }, bcTd.r, bcTd.c)
+      await sleep(800)
+      info('条码重复格（第 ' + (bcTd.r + 1) + ' 行 · 列 ' + bcTd.c + '）已滚入视野')
+      await page.screenshot({ path: OUT + '/v175-条码重复标红.png' })
+    }
+
+    // ③ 精确到格：改对一格 → 只那一格复原，同行另一个错仍标红（不是整行一刀切）
+    const bcMarked = MK.cells.some(x => x.r === cells.r1 && /条码重复/.test(x.title))
+    await typeInto(cells.r1, cells.firstQtyC, '0')
+    await sleep(2600)
+    const MK2 = await page.evaluate(snapCellMark)
+    ok(!MK2.cells.some(x => x.r === cells.r1 && x.c === cells.firstQtyC), '★ 改对后该格红框消失')
+    if (bcMarked) ok(MK2.cells.some(x => x.r === cells.r1 && /条码重复/.test(x.title)),
+      '★ 同行另一个错仍标红（标记精确到格，不是整行一刀切）')
+
+    // 复原：清空临时抄来的重复条码，保证探针可复跑（沙箱下次仍需能造出「条码重复」）
+    if (cells.barcodeC >= 0) {
+      await page.click(`input[data-r="${cells.r1}"][data-c="${cells.barcodeC}"]`, { clickCount: 3 })
+      await page.keyboard.press('Backspace')
+      await page.keyboard.press('Tab')
+      await sleep(2400)
+      const gone = await page.evaluate((rr, cc) => {
+        const td = document.querySelector(`td[data-r="${rr}"][data-c="${cc}"]`)
+        return !td || !td.classList.contains('invalid')
+      }, cells.r1, cells.barcodeC)
+      ok(gone, '复原：清空临时填的重复条码后红框消失')
+    }
   }
 
   console.log('\n=== E. 运行期健康 ===')
