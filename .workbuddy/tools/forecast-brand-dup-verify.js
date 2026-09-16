@@ -4,11 +4,12 @@
  * MODE=after  → 验收：不同品牌 → 零告警；同品牌 → 仍报；列宽够 13 位；品牌列不靠草稿
  *
  * 用法: HG_TOKEN=<t> HG_TENANT=9998 MODE=after node forecast-brand-dup-verify.js
+ *      复跑（不想弄脏仓库 outputs/）时用 HG_OUT=/tmp/shots 改输出目录。
  */
 const puppeteer = require('puppeteer-core')
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const BASE = 'https://hergent.cn'
-const OUT = '/Users/zhangjunfeng/Documents/laozhangai-product/outputs'
+const OUT = process.env.HG_OUT || '/Users/zhangjunfeng/Documents/laozhangai-product/outputs'
 const TOKEN = process.env.HG_TOKEN
 const TENANT = process.env.HG_TENANT || '9998'
 const MODE = process.env.MODE || 'after'
