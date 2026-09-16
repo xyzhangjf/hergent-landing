@@ -1979,7 +1979,11 @@ function colCls(col) {
 // 列宽拖拽：列宽按关键字存入 colWidths，<colgroup> 据此渲染；拖动右侧手柄实时改宽并存 localStorage
 const colWidths = ref({})
 // v177：随五列一并移除 safety_stock / expiry_days 的默认列宽（列已不渲染，留着就是死配置）。
-const COL_DEFAULTS = { seq: 46, name: 210, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
+/* v178：补 `barcode` —— 它此前不在这张默认表里 ⇒ colDefault 落到兜底 90px，13 位条码
+   只显示得下 9 位（对账时看不全，且与「条码重复」判定直接相关：看不到全码就无法人工核对）。
+   需要 ~130px 才放得下 13 位数字 + 输入框内边距 + 拖拽手柄。用户若手动拖过该列，
+   colWidths 里已有值、仍以用户所拖为准（本默认只对没拖过的用户生效）。 */
+const COL_DEFAULTS = { seq: 46, name: 210, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
 // v176：序号列已冻结在 left:0，故**其后每个冻结列的 left 必须整体右移「一个序号列宽」**，
@@ -2355,6 +2359,11 @@ async function loadEditGrid() {
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
         safety_stock: pd.safety_stock || 0, expiry_days: pd.expiry_days || 0,
         product_code: pd.product_code || '', dist_price: pd.dist_price || 0,
+        /* v178：品牌/品类是商品档案字段，此前这条行映射里漏了 —— 编辑网格的品牌列**只有「草稿恢复」
+           一条路能拿到值**（草稿是 loadCross 存的整份 cross，行里带 brand），一旦草稿被清
+           （「放弃修改」/换期次/首次使用）品牌列就整列空白。
+           且「条码重复」必须按品牌判定（同产品两个户头不算重复），判据不能建立在本地草稿的残留上。 */
+        category: pd.category || '', brand: pd.brand || '',
         price: pd.sale_price || 0, qtyByUnit, extraQty: extraByPid[pd.id] || 0, ai: null, suggest: 0, history: [],
       }
     })
@@ -2593,7 +2602,7 @@ function colNameOf(ci) {
   return cross.value.units[ui] ? cross.value.units[ui].name : ''
 }
 /* v174：把校验消息归成稳定的「原因类型」，供查错面板分组与筛选。
-   不能直接拿 msg 分组 —— 「数量过大（上限 999999）」「条码重复（第 7 行已使用该条码）」
+   不能直接拿 msg 分组 —— 「数量过大（上限 999999）」「条码重复（第 7 行 同品牌「蒙牛低温」）」
    都带随行变化的括号说明，同一种错会碎成许多组。 */
 const ERR_KINDS = [
   { k: 'over', label: '数量过大', re: /^数量过大/ },
@@ -2915,7 +2924,16 @@ const colFilter = ref(null)        // { key, type, ui, val } | null（包含筛�
 const colFilterSet = ref(null)     // { key, type, ui, values:[...] } | null（唯一值筛选：命中集合）
 // 品牌（供货方）多选筛选：空数组=不过滤；非空时同时作用于表格显示(rowVisible)与复制动作
 const brandSel = ref([])
-function rowBrand(r) { const m = prodMeta.value[r && r.product_id]; return (m && m.brand) || (r && r.brand) || '' }
+/* v178：品牌取「**行内值优先、档案兜底**」。原实现档案优先 ⇒ 编辑网格里刚把品牌改成
+   「蒙牛低温（恒滋）」的那一行，品牌筛选与「条码重复」判据仍按档案值算，用户刚做的改动
+   在判据里不可见（改了却照样报重复）。只读表的行本身就来自档案（loadCross 注入），
+   两种顺序结果相同，故本改动对只读面零影响。 */
+function rowBrand(r) {
+  const own = r && r.brand
+  if (own != null && String(own).trim() !== '') return String(own).trim()
+  const m = prodMeta.value[r && r.product_id]
+  return String((m && m.brand) || '').trim()
+}
 const brandCandidates = computed(() => {
   const s = new Set()
   cross.value.rows.forEach(r => { const b = rowBrand(r); if (b) s.add(b) })
@@ -4247,15 +4265,38 @@ function cellErrMsg(r, c) {
    ⚠️ 条码重复必须用 computed 预建「行号 → 说明」索引：若在 cellErrMsg 里现扫全表，
    模板逐格渲染会退化成 O(N²×M)。 */
 const barcodeColIdx = computed(() => visibleCols.value.findIndex(c => c.key === 'barcode'))
+/* v178：**条码重复只在同品牌下才算重复**。
+   业务事实（用户 2026-09-16 定调）：公司在蒙牛有两个户头（福宝 / 恒滋），同一个产品两个户头
+   都会下单，品牌列分别写作「蒙牛低温（福宝）」「蒙牛低温（恒滋）」—— 两行条码相同是**正常的**，
+   报重复反而是误报。判据：**同条码 + 同品牌**才重复。
+   品牌空白时**仍按重复处理**（fail-closed）：空品牌既可能是"同品牌漏填"、也可能是"另一个户头"，
+   信息不足以区分 ⇒ 宁可让用户把品牌填上（填上且品牌不同，告警立刻消失），
+   不可静默放行 —— 放行的代价是保存后按条码匹配商品串档。
+   比较用归一化键（去空白、全角括号统一），显示值不动。 */
+function brandKeyOf(v) {
+  return String(v == null ? '' : v).trim().replace(/\s+/g, '')
+    .replace(/\(/g, '（').replace(/\)/g, '）')
+}
 const dupBarcodeAt = computed(() => {
   const m = new Map()
   if (barcodeColIdx.value < 0) return m
-  const seen = new Map()
+  const byBc = new Map()   // 条码 → [{ri, key}]（按行序）
   cross.value.rows.forEach((r, ri) => {
     const bc = String((r && r.barcode) || '').trim()
     if (!bc) return
-    if (seen.has(bc)) m.set(ri, `条码重复（第 ${seen.get(bc) + 1} 行已使用该条码）`)
-    else seen.set(bc, ri)
+    const raw = String(rowBrand(r) || '').trim()
+    const key = brandKeyOf(raw)
+    const prev = byBc.get(bc)
+    // 冲突 = 与某条前序行**同品牌**，或**任一方品牌为空**（分不出户头）
+    const hit = prev && prev.find(p => key === '' || p.key === '' || p.key === key)
+    if (hit) {
+      const why = (key && key === hit.key)
+        ? `同品牌「${raw || key}」`
+        : '品牌未填全，无法区分户头'
+      m.set(ri, `条码重复（第 ${hit.ri + 1} 行 ${why}）`)
+    }
+    if (prev) prev.push({ ri, key })
+    else byBc.set(bc, [{ ri, key }])
   })
   return m
 })

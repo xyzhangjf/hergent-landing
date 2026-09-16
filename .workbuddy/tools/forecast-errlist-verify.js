@@ -129,10 +129,12 @@ async function main() {
     const rows = [...new Set(qs.map(x => x.r))].sort((a, b) => a - b)
     const qCols = [...new Set(qs.map(x => x.c))].sort((a, b) => a - b)
     const bc = document.querySelector('input[placeholder="条码"]')
+    const br = document.querySelector('input[placeholder="品牌"]')
     return {
       r0: rows[0], r1: rows[1] || rows[0],
       firstQtyC: qCols[0], maxQtyC: qCols[qCols.length - 1],
       barcodeC: bc ? +bc.dataset.c : -1,
+      brandC: br ? +br.dataset.c : -1,
       qtyCols: qCols.length,
     }
   })
@@ -160,13 +162,32 @@ async function main() {
   const v2 = await readQty(cells.r1, cells.firstQtyC)
   ok(String(v2) === '-5', `已写入负数（第 ${cells.r1 + 1} 行 · 列 ${cells.firstQtyC}）= ${v2}`)
   // ③ 条码重复（第二行抄第一行条码）
+  // v178：判据已改为「**同条码 + 同品牌**才重复」（同产品两个户头不算重复）。
+  // 所以这里必须连**品牌一起抄**，否则构造出的是「不同品牌同条码」—— 那是被放行的合法场景，
+  // 本用例就变成了假用例（D 段会断言清单含条码重复，反而是错的）。
   let dupOk = false
+  let origBrand1 = null
+  let origBc1 = null
   if (cells.barcodeC >= 0) {
     const bc0 = await page.evaluate((rr, cc) => {
       const el = document.querySelector(`input[data-r="${rr}"][data-c="${cc}"]`)
       return el ? String(el.value || '').trim() : ''
     }, cells.r0, cells.barcodeC)
     if (bc0) {
+      // 先记原值，收尾时**逐项还原**（不是「清空」—— r1 本来就有真实条码，
+      // 清空会把沙箱留成脏状态，而且草稿一存就长期生效）
+      const readCell = (rr, cc) => page.evaluate((r2, c2) => {
+        const el = document.querySelector(`input[data-r="${r2}"][data-c="${c2}"]`)
+        return el ? String(el.value || '') : null
+      }, rr, cc)
+      origBc1 = await readCell(cells.r1, cells.barcodeC)
+      if (cells.brandC >= 0) {
+        origBrand1 = await readCell(cells.r1, cells.brandC)
+        const br0 = await readCell(cells.r0, cells.brandC)
+        // 品牌取自档案的行，抄过去后 rowBrand 两侧一致 → 满足「同品牌」
+        await typeInto(cells.r1, cells.brandC, br0)
+        info(`同品牌化：把第 ${cells.r0 + 1} 行品牌「${br0}」也抄到第 ${cells.r1 + 1} 行`)
+      }
       await typeInto(cells.r1, cells.barcodeC, bc0)
       const bc1 = await page.evaluate((rr, cc) => {
         const el = document.querySelector(`input[data-r="${rr}"][data-c="${cc}"]`)
@@ -176,7 +197,7 @@ async function main() {
       info(`条码重复：第 ${cells.r0 + 1} 行「${bc0}」抄到第 ${cells.r1 + 1} 行 → ${bc1}`)
     } else info('⚠ 第 1 行条码为空，跳过条码重复用例')
   }
-  ok(dupOk, '已制造「条码重复」错误', dupOk ? '' : '(条码列为空/未定位，本用例跳过)')
+  ok(dupOk, '已制造「条码重复」错误（同条码 + 同品牌）', dupOk ? '' : '(条码列为空/未定位，本用例跳过)')
 
   await sleep(2600)   // 等角标节流刷新
 
@@ -355,17 +376,22 @@ async function main() {
     if (bcMarked) ok(MK2.cells.some(x => x.r === cells.r1 && /条码重复/.test(x.title)),
       '★ 同行另一个错仍标红（标记精确到格，不是整行一刀切）')
 
-    // 复原：清空临时抄来的重复条码，保证探针可复跑（沙箱下次仍需能造出「条码重复」）
-    if (cells.barcodeC >= 0) {
-      await page.click(`input[data-r="${cells.r1}"][data-c="${cells.barcodeC}"]`, { clickCount: 3 })
-      await page.keyboard.press('Backspace')
-      await page.keyboard.press('Tab')
+    // 复原：把临时抄来的条码与品牌**逐项还原原值**（不是清空 —— 清空会让沙箱留成脏状态，
+    // 且草稿一存就长期生效，下一轮本用例会因 r1 原本就没有条码而失利）
+    if (cells.barcodeC >= 0 && origBc1 !== null) {
+      await typeInto(cells.r1, cells.barcodeC, origBc1)
+      if (cells.brandC >= 0 && origBrand1 !== null) await typeInto(cells.r1, cells.brandC, origBrand1)
       await sleep(2400)
+      const bcBack = await page.evaluate((rr, cc) => {
+        const el = document.querySelector(`input[data-r="${rr}"][data-c="${cc}"]`)
+        return el ? String(el.value || '') : null
+      }, cells.r1, cells.barcodeC)
+      ok(bcBack === origBc1, '复原：第 ' + (cells.r1 + 1) + ' 行条码回到原值「' + origBc1 + '」', 'now=' + bcBack)
       const gone = await page.evaluate((rr, cc) => {
         const td = document.querySelector(`td[data-r="${rr}"][data-c="${cc}"]`)
         return !td || !td.classList.contains('invalid')
       }, cells.r1, cells.barcodeC)
-      ok(gone, '复原：清空临时填的重复条码后红框消失')
+      ok(gone, '复原：条码不再被标红')
     }
   }
 
