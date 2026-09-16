@@ -802,8 +802,8 @@
             </thead>
             <tbody>
               <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'sel-row': selected.r === ri, 'cond-warn': condWarnOn && rowWarn(r) === 'low', 'new-row': r._new }" v-show="rowShown(ri)">
-                <td class="td seq-cell" :data-r="ri"><span class="seq-num">{{ ri + 1 }}</span></td>
-                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:0;min-width:200px' : (c.key === frozenExtra ? 'left:200px;min-width:200px' : '')" :data-r="ri" :data-c="ci" :title="cellErrMsg(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
+                <td class="td seq-cell" :class="{ 'row-bad': errRowSet.has(ri) }" :data-r="ri"><span class="seq-num">{{ ri + 1 }}</span></td>
+                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:0;min-width:200px' : (c.key === frozenExtra ? 'left:200px;min-width:200px' : '')" :data-r="ri" :data-c="ci" :title="cellIssue(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
                   <template v-if="c.key === 'name'">
                     <input v-model="r.name" class="cell-input cell-name" placeholder="商品名称" :style="namePadStyle(r)" :title="r.name || ''" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)">
                     <div class="name-badges">
@@ -2607,23 +2607,14 @@ function validateAll() {
   const list = []
   const nc = visibleCols.value.length
   const nu = cross.value.units.length
+  // v175：不再单独扫一遍条码 —— 「条码重复」已并入 cellIssue，表格红框与清单同源，
+  // 否则又是「清单报了、格子上没标」这种两套规则各自漂移的老毛病
   cross.value.rows.forEach((r, ri) => {
     for (let ci = 0; ci < nc + nu; ci++) {
-      const msg = cellErrMsg(ri, ci)
+      const msg = cellIssue(ri, ci)
       if (msg) pushErr(list, ri, ci, r, msg)
     }
   })
-  // 条码重复：同一条码被多行使用 → 保存后按条码匹配商品会串档
-  const bcIdx = visibleCols.value.findIndex(c => c.key === 'barcode')
-  if (bcIdx >= 0) {
-    const seen = new Map()
-    cross.value.rows.forEach((r, ri) => {
-      const bc = String(r.barcode || '').trim()
-      if (!bc) return
-      if (seen.has(bc)) pushErr(list, ri, bcIdx, r, `条码重复（第 ${seen.get(bc) + 1} 行已使用该条码）`)
-      else seen.set(bc, ri)
-    })
-  }
   return list
 }
 /* v174：点一条错误 → 跳到那一格。
@@ -4237,7 +4228,44 @@ function cellErrMsg(r, c) {
   if (n > QTY_MAX) return `数量过大（上限 ${QTY_MAX}）`
   return ''
 }
-function cellInvalid(r, c) { return cellErrMsg(r, c) !== '' }
+/* v175：把「某一格到底有没有错、错在哪」收敛成唯一权威 —— 红框标记、悬停提示、
+   「查错」清单三处共用同一份判定，不再各写一套。
+   此前「条码重复」是行级判断，只进了清单、没进格子 ⇒ 清单报 7 条重复，表格里那 7 格
+   却干干净净，标记与清单对不上（用户要的正是「标记准确对应错误所在处」）。
+   ⚠️ 条码重复必须用 computed 预建「行号 → 说明」索引：若在 cellErrMsg 里现扫全表，
+   模板逐格渲染会退化成 O(N²×M)。 */
+const barcodeColIdx = computed(() => visibleCols.value.findIndex(c => c.key === 'barcode'))
+const dupBarcodeAt = computed(() => {
+  const m = new Map()
+  if (barcodeColIdx.value < 0) return m
+  const seen = new Map()
+  cross.value.rows.forEach((r, ri) => {
+    const bc = String((r && r.barcode) || '').trim()
+    if (!bc) return
+    if (seen.has(bc)) m.set(ri, `条码重复（第 ${seen.get(bc) + 1} 行已使用该条码）`)
+    else seen.set(bc, ri)
+  })
+  return m
+})
+// 某格的问题说明（空串 = 没问题）。红框、悬停提示、查错清单都走这里
+function cellIssue(ri, ci) {
+  const msg = cellErrMsg(ri, ci)
+  if (msg) return msg
+  if (ci === barcodeColIdx.value) return dupBarcodeAt.value.get(ri) || ''
+  return ''
+}
+function cellInvalid(r, c) { return cellIssue(r, c) !== '' }
+// 有错的行号集合：行号格标红，「一眼定位」先定位到行、再定位到格
+const errRowSet = computed(() => {
+  const s = new Set()
+  const nc = visibleCols.value.length + cross.value.units.length
+  cross.value.rows.forEach((r, ri) => {
+    for (let ci = 0; ci < nc; ci++) {
+      if (cellInvalid(ri, ci)) { s.add(ri); break }
+    }
+  })
+  return s
+})
 // 金额：分销价 × 行总件数
 function rowAmount(r) { return (parseFloat(r.dist_price) || 0) * rowSum(r) }
 const editTotalQty = computed(() => cross.value.rows.reduce((s, r) => s + rowSum(r), 0))
@@ -7036,12 +7064,19 @@ th.sortable:hover{color:var(--p-dark)}
 }
 
 /* ---- 增强：校验/选区/口径/筛选/草稿 ---- */
-.cell-input.invalid, .qty-cell.invalid input, td.invalid input{border-color:var(--danger-txt) !important;background:var(--danger-bg)}
+/* v175：出错位置醒目化 —— 红框 + 红字加粗放大 + 浅红底（三重，保证「一眼定位」）。
+   ⚠️ 数量列（.qty-cell）的底色/字色来自 heatStyle 的 inline style（热力色），
+   inline 优先于类选择器 ⇒ 必须 !important，否则错误格会被热力色盖住看不出异常。
+   错误语义高于热力语义：先让人看见「这里错了」，再看量级。 */
+.cell-input.invalid, .qty-cell.invalid input, td.invalid input{border-color:var(--danger-txt) !important;box-shadow:inset 0 0 0 2px var(--danger-txt);background:var(--danger-bg) !important;color:var(--danger-txt) !important;font-weight:700;font-size:13.5px}
 .cell-input.invalid, .cell-input:focus{border-color:var(--p)}
 .range-sel{background:var(--p-bg) !important}
 .cross-tbl.dragging, .cross-tbl.dragging *{user-select:none}
 .fc-num.invalid, .fc-code.invalid, .fc-text.invalid{border-radius:6px}
-td.invalid{background:var(--danger-bg)}
+td.invalid, .qty-cell.invalid{background:var(--danger-bg) !important}
+/* 行号格标红：长表里先看见「哪一行有问题」，再落到具体格 */
+.td.seq-cell.row-bad{background:var(--danger-bg);color:var(--danger-txt);font-weight:700}
+.td.seq-cell.row-bad .seq-num{color:var(--danger-txt)}
 .basis-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)}
 /* 表格工具行的「仅显示有报单」开关。
    v169 规格对齐：它原先自成一派（12px/400/var(--bg3) 底/10px 内边距），与同行的
