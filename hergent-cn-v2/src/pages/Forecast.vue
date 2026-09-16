@@ -976,6 +976,41 @@
             <button class="btn btn-ghost btn-xs" @click="snapCompare = null">清除快照对比</button>
             <button v-if="snapCompare" class="btn btn-primary btn-xs" @click="exportDiffXlsx"><Icon name="download"/> 导出差异</button>
           </div>
+          <!-- v174：查错结果面板。
+               原实现只把校验结果写进 errList/errListOpen，**模板里没有任何渲染** ⇒
+               点「查错」后界面上什么都不出现（连 toast 都没有），用户只看到角标上有个数字
+               却不知道错在哪里。本面板把结果落到界面：先按原因分组给出总数，再逐条列出
+               「第几行 · 哪个商品 · 哪一列 · 什么错」，点一条即跳到该格。 -->
+          <div v-if="editMode && errListOpen" class="info-panel err-panel">
+            <div class="panel-hd">
+              <b><Icon name="alert-triangle"/> 查错</b>
+              <span class="tag" :class="errList.length ? 'warn' : 'ok'">
+                {{ errList.length ? errList.length + ' 处待修正' : '全部通过' }}
+              </span>
+              <button class="imp-x" @click="errListOpen=false"><Icon name="close"/></button>
+            </div>
+            <template v-if="errList.length">
+              <div class="err-grps">
+                <button class="err-grp" :class="{ on: errKind === '' }" @click="errKind = ''">全部 {{ errList.length }}</button>
+                <button v-for="g in errGroups" :key="g.k" class="err-grp"
+                        :class="{ on: errKind === g.k }" @click="errKind = errKind === g.k ? '' : g.k">
+                  {{ g.label }} {{ g.n }}
+                </button>
+              </div>
+              <div class="err-list-wrap">
+                <ul class="err-list">
+                  <li v-for="it in errShown" :key="it.ri + '_' + it.ci" @click="gotoErr(it)">
+                    <span class="err-loc">第 {{ it.row }} 行 · {{ it.name || '（无名称）' }} · {{ it.col }}</span>
+                    <span class="err-why">{{ it.msg }}</span>
+                  </li>
+                </ul>
+              </div>
+              <div v-if="errShown.length < errFiltered.length" class="err-more">
+                还有 {{ errFiltered.length - errShown.length }} 处未列出
+              </div>
+            </template>
+            <div v-else class="err-empty">已全部修正，可以保存了</div>
+          </div>
           <div v-if="rebatePushOpen" class="info-panel">
             <div class="panel-hd"><b><Icon name="payment"/> 返利缺口提示</b><button class="imp-x" @click="rebatePushOpen=false"><Icon name="close"/></button></div>
             <div v-if="rebatePushLoading" class="hint">加载中…</div>
@@ -2422,6 +2457,7 @@ function exitEdit() {
   }
   editMode.value = false
   loadingEdit.value = false
+  errListOpen.value = false   // v174：退出编辑态收起查错面板（否则下次进入会先闪一屏旧结果）
   pagingOn.value = false   // Q7：退出编辑复位分页，read-only 表恢复全量渲染原行为
   loadCross()  // 放弃修改，回到只读
 }
@@ -2507,6 +2543,21 @@ function delCol(ui) {
 const QTY_MAX = 999999          // 单格数量上限（防误输入 9999999 之类脏数据）
 const errListOpen = ref(false)
 const errList = ref([])
+/* v174：查错面板的筛选与派生数据。
+   errList 存**全量**（不再切 200）—— 分组计数与「还有几处未列出」都要按全量算，
+   只在实际渲染时截断，否则角标说 300 处、分组加起来只有 200 处，用户会对不上账。 */
+const errKind = ref('')            // '' = 全部；否则是 ERR_KINDS 里的 k
+const errFiltered = computed(() => errKind.value ? errList.value.filter(x => x.kind === errKind.value) : errList.value)
+const errShown = computed(() => errFiltered.value.slice(0, 300))
+const errGroups = computed(() => {
+  const m = new Map()
+  errList.value.forEach(x => {
+    const g = m.get(x.kind) || { k: x.kind, label: x.kindLabel, n: 0 }
+    g.n++
+    m.set(x.kind, g)
+  })
+  return [...m.values()].sort((a, b) => b.n - a.n)
+})
 const saveFailed = ref(null)    // Q26/Q27：{ kind, msg, prodDone, at }
 /* Q25：待修正数量角标。全表校验是 428×30≈1.3 万次判断，不能每次输入都算，
    因此在草稿 watch 里以 1.5s 节流更新（与本地草稿同一次 deep watch，不新增 watcher）。 */
@@ -2529,6 +2580,29 @@ function colNameOf(ci) {
   const ui = ci - visibleCols.value.length
   return cross.value.units[ui] ? cross.value.units[ui].name : ''
 }
+/* v174：把校验消息归成稳定的「原因类型」，供查错面板分组与筛选。
+   不能直接拿 msg 分组 —— 「数量过大（上限 999999）」「条码重复（第 7 行已使用该条码）」
+   都带随行变化的括号说明，同一种错会碎成许多组。 */
+const ERR_KINDS = [
+  { k: 'over', label: '数量过大', re: /^数量过大/ },
+  { k: 'neg', label: '负数', re: /^不能为负数/ },
+  { k: 'int', label: '非整数', re: /^必须为整数/ },
+  { k: 'num', label: '非数字', re: /^必须是数字/ },
+  { k: 'name', label: '商品名称必填', re: /^商品名称必填/ },
+  { k: 'dup', label: '条码重复', re: /^条码重复/ },
+  { k: 'enum', label: '取值不在候选中', re: /^应为：/ },
+]
+function errKindOf(msg) {
+  for (const e of ERR_KINDS) if (e.re.test(msg)) return e
+  return { k: 'other', label: '其他' }
+}
+function pushErr(list, ri, ci, r, msg) {
+  const kd = errKindOf(msg)
+  list.push({
+    ri, ci, row: ri + 1, col: colNameOf(ci), name: r.name || '', msg,
+    kind: kd.k, kindLabel: kd.label,
+  })
+}
 function validateAll() {
   const list = []
   const nc = visibleCols.value.length
@@ -2536,7 +2610,7 @@ function validateAll() {
   cross.value.rows.forEach((r, ri) => {
     for (let ci = 0; ci < nc + nu; ci++) {
       const msg = cellErrMsg(ri, ci)
-      if (msg) list.push({ ri, ci, row: ri + 1, col: colNameOf(ci), name: r.name || '', msg })
+      if (msg) pushErr(list, ri, ci, r, msg)
     }
   })
   // 条码重复：同一条码被多行使用 → 保存后按条码匹配商品会串档
@@ -2546,22 +2620,35 @@ function validateAll() {
     cross.value.rows.forEach((r, ri) => {
       const bc = String(r.barcode || '').trim()
       if (!bc) return
-      if (seen.has(bc)) list.push({ ri, ci: bcIdx, row: ri + 1, col: colNameOf(bcIdx), name: r.name || '', msg: `条码重复（第 ${seen.get(bc) + 1} 行已使用该条码）` })
+      if (seen.has(bc)) pushErr(list, ri, bcIdx, r, `条码重复（第 ${seen.get(bc) + 1} 行已使用该条码）`)
       else seen.set(bc, ri)
     })
   }
   return list
 }
+/* v174：点一条错误 → 跳到那一格。
+   原实现先 `errListOpen = false`（那是为居中弹窗准备的：弹窗盖住表格，不关就看不到目标格）。
+   现在的面板内联在表格下方、不遮挡网格，关掉反而丢掉「还剩哪些没改」的上下文 ——
+   保持打开，改对后该条会自己消失。 */
 function gotoErr(it) {
-  errListOpen.value = false
   gotoRowPage(it.ri)
   nextTick(() => { selectCell(it.ri, it.ci); focusCell(it.ri, it.ci, { select: true }); scrollRowIntoView(it.ri) })
 }
+/* v174：把面板滚进视野。面板在表格下方，用户在长表中间点「查错」或保存失败时，
+   结果可能落在视口之外 —— 那样「点了没反应」的观感其实并没真正消除。 */
+function revealErrPanel() {
+  nextTick(() => {
+    const el = document.querySelector('.err-panel')
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' })
+  })
+}
 function openErrList() {
   const list = validateAll()
-  if (!list.length) { toast('当前没有需要修正的录入', 'ok'); return }
-  errList.value = list.slice(0, 200)
+  if (!list.length) { toast('当前没有需要修正的录入', 'ok'); errListOpen.value = false; return }
+  errList.value = list          // 全量存，渲染时才截断（见 errShown）
+  errKind.value = ''            // 每次重新打开回到「全部」
   errListOpen.value = true
+  revealErrPanel()
 }
 
 async function saveEdits() {
@@ -2570,9 +2657,11 @@ async function saveEdits() {
   // Q25：全量校验（单元格类型 + 名称必填 + 数量上限 + 条码重复），失败直接弹清单
   const list = validateAll()
   if (list.length) {
-    errList.value = list.slice(0, 200)
+    errList.value = list
+    errKind.value = ''
     errListOpen.value = true
-    toast(`存在 ${list.length} 处需要修正，已列出清单（可点击跳转）`, 'err')
+    revealErrPanel()
+    toast(`存在 ${list.length} 处需要修正，见表格下方清单`, 'err')
     return
   }
   /* Q17：商品主档与数量矩阵必须用「同一份过滤结果」。
@@ -4183,8 +4272,15 @@ watch(() => cross.value, () => {
   if (_ignoreNextWatch > 0) { _ignoreNextWatch--; return }
   clearTimeout(_draftTimer); _draftTimer = setTimeout(saveDraftNow, 800)
   // Q25：节流更新「待修正」角标（见 errCount 注释）
+  // v174：同一次计算顺带刷新查错面板 —— 面板开着时「改对一条就从清单消失」，
+  //       否则用户改完还得手点一次「查错」才知道还剩几处。
   clearTimeout(_errTimer)
-  _errTimer = setTimeout(() => { errCount.value = editMode.value ? validateAll().length : 0 }, 1500)
+  _errTimer = setTimeout(() => {
+    if (!editMode.value) { errCount.value = 0; errList.value = []; return }
+    const list = validateAll()
+    errCount.value = list.length
+    if (errListOpen.value) errList.value = list
+  }, 1500)
 }, { deep: true })
 
 // 导出 Excel（.xlsx）
@@ -7001,6 +7097,21 @@ td.invalid{background:var(--danger-bg)}
 .info-panel{margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;font-size:12px}
 .info-panel .panel-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .info-panel .imp-x{margin-left:auto;border:none;background:none;cursor:pointer;color:var(--t2);font-size:14px;line-height:1}
+/* v174：查错结果面板 —— 上排是「按原因分组」的总览（点一下只看该类），
+   下面是逐条明细，每条自带「第几行 · 商品 · 列」，点一条跳到那一格。 */
+.err-grps{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.err-grp{border:1px solid var(--bd);background:var(--bg);color:var(--t2);border-radius:999px;padding:2px 9px;font-size:12px;line-height:1.7;cursor:pointer}
+.err-grp:hover{border-color:var(--p);color:var(--t1)}
+.err-grp.on{border-color:var(--p);background:var(--p-bg);color:var(--p-deep);font-weight:600}
+.err-list-wrap{max-height:240px;overflow:auto}
+.err-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+.err-list li{display:flex;gap:10px;align-items:baseline;padding:3px 8px;border-radius:6px;cursor:pointer;line-height:1.7}
+.err-list li:hover{background:color-mix(in srgb,var(--p) 12%,transparent)}
+/* 位置列封顶 + 省略号：客户名/商品名可能很长，不封会把面板撑出横向滚动条 */
+.err-loc{flex:none;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)}
+.err-why{color:var(--danger-txt);font-weight:600}
+.err-more{margin-top:6px;color:var(--t2)}
+.err-empty{color:var(--t2)}
 .push-list,.health-list{margin:0;padding-left:18px;line-height:1.8}
 .health-list li{cursor:pointer;display:flex;align-items:center;gap:6px}
 .health-list li:hover{text-decoration:underline}
