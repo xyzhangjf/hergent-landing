@@ -569,7 +569,7 @@
             </colgroup>
             <thead>
               <tr>
-                <th v-for="(col, ci) in colOrderList" :key="col.key" :class="['th', colCls(col), { frozen: isFrozen(col), sortable: canSort(col) }]" :style="isFrozen(col) ? 'left:0;min-width:200px' : ''" :aria-sort="ariaSort(col)" @click="onHeadClick(col)" @contextmenu.prevent="openHdrCtx($event, col.key, col.type)">
+                <th v-for="(col, ci) in colOrderList" :key="col.key" :class="['th', colCls(col), { frozen: isFrozen(col), sortable: canSort(col) }]" :style="isFrozen(col) ? 'left:' + frozenShift(0) + ';min-width:200px' : ''" :aria-sort="ariaSort(col)" @click="onHeadClick(col)" @contextmenu.prevent="openHdrCtx($event, col.key, col.type)">
                   <div class="th-in">
                     <template v-if="col.type === 'seq'">
                       <button class="col-cfg gear" @click.stop="showColMenu = !showColMenu" title="列设置"><Icon name="settings"/></button>
@@ -597,7 +597,7 @@
                     role="row" :aria-selected="selectedPid === it.r.product_id" :aria-label="rowAria(it.r)">
                   <td v-for="(col, ci) in colOrderList" :key="col.key"
                       :class="['td', colCls(col), { frozen: isFrozen(col), 'cell-active': cellActive(it, ci) }]"
-                      :style="isFrozen(col) ? 'left:0;min-width:200px' : ''"
+                      :style="isFrozen(col) ? 'left:' + frozenShift(0) + ';min-width:200px' : ''"
                       role="gridcell" :tabindex="cellActive(it, ci) ? 0 : -1"
                       :data-cell="ci" :data-pid="it.r.product_id"
                       :aria-label="cellAria(it.r, col)"
@@ -666,7 +666,7 @@
             </colgroup>
             <tbody>
               <tr class="col-total">
-                <td v-for="(col, ci) in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="isFrozen(col) ? 'left:0' : ''">
+                <td v-for="(col, ci) in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="isFrozen(col) ? 'left:' + frozenShift(0) : ''">
                   <template v-if="col.key === 'name'">合计</template>
                   <template v-else-if="col.type === 'qty'">{{ cross.colTotals[(ci - 1) - visibleCols.length] || '' }}</template>
                   <template v-else-if="col.key === 'qty'">{{ fmt(cross.grand.qty) }}</template>
@@ -770,7 +770,7 @@
                   <button class="col-cfg gear" @click.stop="showColMenu = !showColMenu" title="列设置"><Icon name="settings"/></button>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'seq')" @click.stop></span>
                 </th>
-                <th v-for="(c, ci) in visibleCols" :key="c.key" :class="['th', c.cls, { frozen: c.fixed || c.key === frozenExtra, 'sel-col': selected.r >= 0 && selected.c === ci }]" :style="c.fixed ? 'left:0;min-width:200px' : (c.key === frozenExtra ? 'left:200px;min-width:200px' : '')" @contextmenu.prevent="openHdrCtx($event, c.key, 'master')">
+                <th v-for="(c, ci) in visibleCols" :key="c.key" :class="['th', c.cls, { frozen: c.fixed || c.key === frozenExtra, 'sel-col': selected.r >= 0 && selected.c === ci }]" :style="c.fixed ? 'left:' + frozenShift(0) + ';min-width:200px' : (c.key === frozenExtra ? 'left:' + frozenShift(200) + ';min-width:200px' : '')" @contextmenu.prevent="openHdrCtx($event, c.key, 'master')">
                   <div class="th-in">
                     <span>{{ c.label }}</span>
                   </div>
@@ -803,7 +803,7 @@
             <tbody>
               <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'sel-row': selected.r === ri, 'cond-warn': condWarnOn && rowWarn(r) === 'low', 'new-row': r._new }" v-show="rowShown(ri)">
                 <td class="td seq-cell" :class="{ 'row-bad': errRowSet.has(ri) }" :data-r="ri"><span class="seq-num">{{ ri + 1 }}</span></td>
-                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:0;min-width:200px' : (c.key === frozenExtra ? 'left:200px;min-width:200px' : '')" :data-r="ri" :data-c="ci" :title="cellIssue(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
+                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:' + frozenShift(0) + ';min-width:200px' : (c.key === frozenExtra ? 'left:' + frozenShift(200) + ';min-width:200px' : '')" :data-r="ri" :data-c="ci" :title="cellIssue(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
                   <template v-if="c.key === 'name'">
                     <input v-model="r.name" class="cell-input cell-name" placeholder="商品名称" :style="namePadStyle(r)" :title="r.name || ''" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)">
                     <div class="name-badges">
@@ -860,7 +860,7 @@
             <tbody>
               <tr class="foot-row">
                 <td class="seq-cell"></td>
-                <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:0;min-width:200px' : (c.key === frozenExtra ? 'left:200px;min-width:200px' : '')">{{ c.key === 'name' ? '合计' : (c.edit === 'num' ? fmt(foot.masterSum[c.key] || 0) : '') }}</td>
+                <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenShift(0) + ';min-width:200px' : (c.key === frozenExtra ? 'left:' + frozenShift(200) + ';min-width:200px' : '')">{{ c.key === 'name' ? '合计' : (c.edit === 'num' ? fmt(foot.masterSum[c.key] || 0) : '') }}</td>
                 <td v-for="(u, ui) in cross.units" :key="'fu' + u.name" class="num calc">{{ fmt(foot.unitSum[ui] || 0) }}</td>
                 <td class="num calc extra">{{ fmt(cross.rows.reduce((s, r) => s + (Number(r.extraQty) || 0), 0)) }}</td>
                 <td class="num calc amount">{{ fmt(foot.amount) }}</td>
@@ -1981,6 +1981,12 @@ const colWidths = ref({})
 const COL_DEFAULTS = { seq: 46, name: 210, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, safety_stock: 86, expiry_days: 86, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
+// v176：序号列已冻结在 left:0，故**其后每个冻结列的 left 必须整体右移「一个序号列宽」**，
+// 否则冻结列会滑到序号列底下与之重叠（只读表的「商品名称」默认就是冻结列，必撞）。
+// 六个渲染点（只读表 thead/tbody/表尾 + 编辑表 thead/tbody/表尾）共用本函数，避免 6 份内联
+// 表达式各自漂移；序号列宽可被拖拽手柄改（startResize(...,'seq')），故**必须**走 colW('seq')，
+// 硬编码 46 会在用户改宽后错位。base = 既有偏移（0 或 200）。
+function frozenShift(base) { return (colW('seq') + (base || 0)) + 'px' }
 function loadColWidths() { try { const s = localStorage.getItem('hergent-forecast-col-widths'); if (s) colWidths.value = JSON.parse(s) || {} } catch (e) {} }
 function resetColWidths() {
   try { localStorage.removeItem('hergent-forecast-col-widths') } catch (e) {}
@@ -6690,12 +6696,32 @@ th.sortable:hover{color:var(--p-dark)}
 .table-wrap.edit-grid-wrap{flex:1 1 auto;min-height:0;max-height:72vh;overflow:auto;max-width:100%}
 .seq-th{width:42px;min-width:42px;text-align:center;padding:8px 4px;vertical-align:middle}
 .seq-cell{width:42px;min-width:42px;text-align:center;padding:6px 4px;vertical-align:middle;color:var(--t3);font-size:12px}
+/* 序号列冻结（v176）：横向滚动时保持可见 —— 「商品名称」之前这一列不许被滚走。
+   ① 必须 sticky + **不透明**底色：sticky 只改绘制位置，透明底会把滚过来的内容透出来；
+   ② 底色与既有冻结列 .frozen 完全一致（表体 var(--bg) / 表头 var(--bg3) / 表尾 var(--bg3)），
+      让「序号 + 商品名称」读作**一个整体冻结块**，而不是给序号列单染一条色带；
+   ③ 行状态优先级更高、**自动生效无需在此重复**：条件告警行 `.cond-warn>td` 带 !important；
+      错误行 `.td.seq-cell.row-bad`(0,3,0) > 本规则(0,2,0)；键盘选中 `.cross-tbl td.cell-active`(0,2,1) 亦然；
+      两个表尾的底色由下面第 3 行单独兜回 var(--bg3)，否则会被第 1 行（0,2,0 > .col-total td 的 0,1,1）染白；
+   ④ z-index：单元格 6（与 .frozen 同级）、表头 **9** —— 表头必须高于既有 thead th(7) 与 th.frozen(8)，
+      否则横向滚过来的普通表头会盖在序号表头上（同为 sticky，z 相同时后出现者胜）；
+   ⑤ 权威列宽是 <colgroup> 的 colW('seq')（.cross-tbl/.edit-tbl 为 table-layout:fixed），
+      本处的 42px 是陈旧值、不参与布局；冻结列的右移量见 frozenShift()。 */
+.cross-tbl .seq-th,.cross-tbl .seq-cell{position:sticky;left:0;background:var(--bg);z-index:6}
+.cross-tbl thead .seq-th,.cross-tbl thead .seq-cell{background:var(--bg3);z-index:9}
+.cross-tbl .col-total .seq-cell,.cross-tbl .foot-row .seq-cell{background:var(--bg3)}
 .seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
 .gear{padding:2px 4px;border:none;background:transparent;cursor:pointer;font-size:14px;line-height:1;color:var(--t3);border-radius:4px}
 .gear:hover{background:var(--bg3);color:var(--p-dark)}
 .col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:2px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden;box-shadow:0 -2px 5px rgba(15,23,42,.06)}
 .col-total-bar>table{transform:translateX(var(--foot-sl,0));will-change:transform}
 .col-total-bar .frozen{background:var(--bg3)}
+/* 表尾「冻结列」反向同步（v176，与序号列冻结同批）：
+   表尾是**另一张 table**，靠 `--foot-sl` 整体位移跟随表体（它自己不滚动，所以 sticky 在里面无效）。
+   位移对冻结列一视同仁 ⇒ 横向滚动时表尾的「合计」标签会滑出左边界，冻结列下方反而显示**别的列**的表尾格
+   （2026-09-16 实测 scrollLeft=600：冻结列下方是 标准售价 / 进价 / 分销价 三格）。
+   给冻结格反向位移一份即对齐。⚠️ `--foot-sl=0` 时本规则为 **no-op** ⇒ 不滚动时静态外观零变化。 */
+.col-total-bar .frozen,.col-total-bar .seq-cell{transform:translateX(calc(-1 * var(--foot-sl,0px)))}
 .miss-price{color:var(--danger-txt);font-weight:500}
 .calc-th.amount{min-width:80px}
 .calc{text-align:right;font-variant-numeric:tabular-nums}
