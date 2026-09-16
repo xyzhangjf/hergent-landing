@@ -1758,14 +1758,14 @@ function ruleEffectiveInMonth(rule, m) {
 function achvPeriodTip(pt, ym, hasTarget, hasStart) {
   const label = ACHV_PERIOD_LABELS[pt] || '—'
   if (pt === 'year') {
-    return hasTarget ? `年度目标 · 本月目标取自 ${ym} 的月度分解额`
-                     : `年度目标 · ${ym} 没有月度分解额，故本月目标为空（到「目标与返利」补该月分解）`
+    return hasTarget ? `年度目标 · 取自当月分解额`
+                     : `年度目标 · 当月无分解额，故为空`
   }
   if (hasTarget) {
-    return hasStart ? `${label}目标 · 整额目标落在生效起始月`
-                    : `${label}目标 · 未设生效期，整额目标按月适用`
+    return hasStart ? `整额目标落在生效起始月`
+                    : `整额目标按月适用`
   }
-  return `${label}目标 · ${ym} 不在其生效起始月，故本月目标为空`
+  return `当月不在生效起始月，目标为空`
 }
 
 /** 把「启用中的目标规则」与「已填报达成」合并成可编辑行。
@@ -3137,6 +3137,10 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 
 /* 达成填报 Tab */
 .achv-card{padding:16px}
+/* v173b：达成表列较多，窄屏（≤1024）下在卡片内横向滚动而非溢出页面。
+   表格按自身最小内容宽度渲染，滚动条只出现在表格区域，不推宽整页。 */
+.achv-card .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.achv-card .table-wrap .tbl{min-width:920px}
 .achv-year{margin-top:16px;padding:16px}
 .achv-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .achv-lb{font-size:12.5px;color:var(--t2)}

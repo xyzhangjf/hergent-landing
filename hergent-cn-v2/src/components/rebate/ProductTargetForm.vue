@@ -4,7 +4,6 @@
     <div class="form-row"><label>周期口径</label>
       <select v-model="form.period_type" class="input">
         <option value="month">月</option>
-        <option value="quarter">季</option>
         <option value="year">年</option>
         <option value="custom">自定义</option>
       </select>
