@@ -21,6 +21,9 @@ export const forecastApi = {
   periods: () => api('/api/forecast/periods'),
   orderBoard: () => api('/api/forecast/order-board'),
   createPeriod: (body) => api('/api/forecast/periods', { method: 'POST', body }),
+  // 2026-09-16：改名 / 改日期（仅 open 期次）。此前只有 create/close/delete ⇒
+  // 名字打错只能「关闭→删除」，而删除会级联删掉该期全部报单/定稿/付款，不可恢复。
+  updatePeriod: (pid, body) => api(`/api/forecast/periods/${pid}`, { method: 'PATCH', body }),
   closePeriod: (pid) => api(`/api/forecast/periods/${pid}/close`, { method: 'POST' }),
   deletePeriod: (pid) => api(`/api/forecast/periods/${pid}`, { method: 'DELETE' }),
   periodOrders: (periodId) => api(`/api/forecast/orders/${periodId}`),

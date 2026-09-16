@@ -103,11 +103,20 @@
     <div v-if="showNewPeriod" class="card new-period">
       <div class="np-row">
         <input v-model="np.name" class="input" placeholder="期次名称（如 8月25日报单-8月29日到货）" @input="onPeriodNameInput">
-        <input v-model="np.order_start" class="input" type="date" placeholder="下单开始">
-        <input v-model="np.order_end" class="input" type="date" placeholder="下单截止">
-        <input v-model="np.arrival" class="input" type="date" placeholder="预计到货">
+        <!-- v180：手工改过的字段会被标记 —— 名称解析不再静默覆盖它 -->
+        <input v-model="np.order_start" class="input" type="date" placeholder="下单开始" @input="markNpTouched('order_start')">
+        <input v-model="np.order_end" class="input" type="date" placeholder="下单截止" @input="markNpTouched('order_end')">
+        <input v-model="np.arrival" class="input" type="date" placeholder="预计到货" @input="markNpTouched('arrival')">
+        <!-- v180：名称里能识别出日期时才出现。原本「名称 → 日期」是**静默覆盖**，
+             现在拆成「自动只填空字段」+「显式按名称重算」两条路。 -->
+        <button v-if="npNameDates.length" class="btn btn-sm btn-ghost" @click="applyNameDatesNow"
+                title="按名称里的日期重算三个日期（会覆盖你手改过的）"><Icon name="refresh"/> 按名称更新日期</button>
         <button class="btn btn-primary" @click="createPeriod">创建</button>
       </div>
+      <!-- 软警告：同名 / 窗口重叠。硬规则由后端 period_validate 拦截，此处不重复实现 -->
+      <ul v-if="npSoftWarn.length" class="np-warn">
+        <li v-for="(w, i) in npSoftWarn" :key="i">{{ w }}</li>
+      </ul>
     </div>
 
     <input ref="impFileInput" type="file" accept=".xlsx,.xls" style="display:none" @change="onImportFile">
@@ -119,6 +128,21 @@
           <div class="imp-hd"><b>导入预报订单 Excel</b><button class="imp-x" @click="impOpen = false"><Icon name="close"/></button></div>
           <div v-if="!impState" class="imp-body">
             <p class="imp-tip">选择你现有的订单汇总表（行=商品、列=客户、格=数量）。系统自动识别商品列与客户列，导入后即汇总进交叉表。</p>
+            <!-- v180：归属期次前置展示。归到哪个期次是**导入那一刻**由后端定死的，
+                 导入后再命名不会把它挪过去 —— 所以这个问题只能在导之前回答。 -->
+            <p class="imp-own" :class="{ warn: !impOwnedPeriodId }">
+              <template v-if="impOwnedPeriodId">
+                本期归属：<b>{{ impOwnedName }}</b>
+              </template>
+              <template v-else>
+                <b>你现在还没有期次</b> —— 这次导入不会归到任何期次，之后再新建期次它也不会自动跟过去。
+                <button class="btn btn-sm btn-ghost" @click="openNewPeriod()"><Icon name="plus"/> 先建一个期次</button>
+              </template>
+            </p>
+            <p v-if="impViewMismatch" class="imp-own warn">
+              你正在查看的是「{{ impViewedName }}」，但导入会归到「{{ impOwnedName }}」——
+              导入的归属取的是<b>当前进行中的期次</b>，不是你正在看的这一期。
+            </p>
             <div class="imp-actions">
               <button class="btn btn-ghost" @click="downloadFcTemplate"><Icon name="download"/> 下载模板</button>
               <button class="btn btn-primary" @click="pickFile">选择文件…</button>
@@ -172,6 +196,21 @@
               这份文件里没有可导入的内容 —— 既没有识别到商品行（商品名称 / 条码），
               也没有任何客户列填了数量。
             </p>
+            <!-- v180 归属回执：**仅在真的没归到期次时出现**（判据用后端回传的
+                 results.period_id —— 权威值，不用前端预告）。
+                 归属正常（>0）时这里什么都不显示：工具栏已有常显的「新建期次」，
+                 常态再引导一次纯属噪音。也不做成自动弹窗 —— 导入已完成、数据已落库，
+                 弹窗会让人以为「还没结束」而回头重导。 -->
+            <div v-if="impResult && !impResultPeriodId" class="imp-arch">
+              <div class="imp-arch-hd warn">这次导入没有归到任何期次</div>
+              <p class="imp-arch-note">
+                数据已经进来了，但你现在还没有期次 —— <b>之后再新建期次，这批商品和报单不会自动跟过去</b>。
+                要现在建一个吗？
+              </p>
+              <button class="btn btn-sm btn-ghost" @click="closeImportAndReload(); openNewPeriod()">
+                <Icon name="plus"/> 现在新建期次
+              </button>
+            </div>
             <!-- v163 导入回执：「导入成功了，但下游会出问题」必须显式给出。
                  判据（用户 2026-09-15）：「导入没有成功要给用户一个回执，说明不成功的原因」。
                  最典型的一条：报单对象不在「报单配置」里 → 生成舟谱单据时缺「客户全称 / 调拨仓」，
@@ -1735,7 +1774,7 @@
     </div>
     </template>
 
-    <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" />
+    <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" @rename="openPeriodEdit" />
 
     <!-- 报单配置（原档案管理独立页，整合为标签页） -->
     <div v-if="activeTab === 'config'" class="config-panel">
@@ -1775,6 +1814,38 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- v180 改期次弹窗（仅 open 期次可改；入口在「历史期次」页每行 + 未来可复用）
+         为什么需要它：期次此前没有「改名」路径，名字打错只能「关闭 → 删除」，
+         而删除会级联清掉该期全部报单/明细/定稿/付款/订单。 -->
+    <Teleport to="body">
+      <Transition name="fade"><div v-if="peOpen" class="imp-overlay" @click="peOpen = false"></div></Transition>
+      <Transition name="pop">
+        <div v-if="peOpen" class="imp-modal pe-modal">
+          <div class="imp-hd"><b>修改期次</b><button class="imp-x" @click="peOpen = false"><Icon name="close"/></button></div>
+          <div class="imp-body">
+            <p class="imp-tip">只提交你改动过的字段，没动的保持原样。<b>改动期次窗口会改变该期的达成 / 返利归属口径</b>，所以每一次改动都会记入修改日志。</p>
+            <div class="pe-grid">
+              <label>期次名称</label>
+              <input v-model="pe.name" class="input" placeholder="如 8月25日报单-8月29日到货">
+              <label>下单开始</label>
+              <input v-model="pe.order_start" class="input" type="date" @input="markPeTouched('order_start')">
+              <label>下单截止</label>
+              <input v-model="pe.order_end" class="input" type="date" @input="markPeTouched('order_end')">
+              <label>预计到货</label>
+              <input v-model="pe.arrival" class="input" type="date" @input="markPeTouched('arrival')">
+            </div>
+            <ul v-if="peSoftWarn.length" class="np-warn">
+              <li v-for="(w, i) in peSoftWarn" :key="i">{{ w }}</li>
+            </ul>
+            <div class="del-actions">
+              <button class="btn btn-ghost" @click="peOpen = false">取消</button>
+              <button class="btn btn-primary" :disabled="peSaving" @click="savePeriodEdit">{{ peSaving ? '保存中…' : '保存' }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -1792,6 +1863,13 @@ import ReportMapping from './ReportMapping.vue'
 
 const periods = ref([])
 const curPeriod = ref(0)
+// v180：**归属口径**独立于「当前查看的期次」。
+//   curPeriod 会被期次下拉/往期「查看」改写（= 用户正在看哪期），
+//   而导入数据的归属是**后端**定的（import_router: forecast_period_current()
+//   → 兜底 forecast_period_default()），前端只能从 GET /periods 的 `current` 拿到，
+//   且**不可**随下拉漂移。曾把两者用同一个 ref ⇒ 「归属不一致」提示恒不成立（死分支），
+//   且查看往期时会把归属显示成那一期。
+const curOpenPeriodId = ref(0)
 const viewPeriod = ref(null) // 往期预报「查看」回载的期次（真实或合成行）
 const showNewPeriod = ref(false)
 const np = ref({ name: '', order_start: '', order_end: '', arrival: '' })
@@ -5182,6 +5260,7 @@ const AUDIT_ACTION_LABEL = {
   factory_price_gate: '厂价闸门', connector_writeback: '回写ERP',
   purchase_order_push: '推送采购单', intervention: '异常处置',
   hermes_analyze: 'AI根因分析', period_close: '关闭期次', period_delete: '删除期次',
+  period_update: '修改期次',
 }
 function auditActionLabel(a) { return AUDIT_ACTION_LABEL[a] || a || '修改' }
 function fmtAuditAt(s) { return String(s || '').replace('T', ' ').slice(0, 16) }
@@ -5758,6 +5837,28 @@ const impFieldOptions = ref([])
    否则用户在上面把某列改成「不导入」后，按钮仍写着 N 个客户，文案与提交内容两套口径。 */
 const impCustomerCount = computed(() => Object.values(impMapping.value).filter(v => v === 'customer').length)
 const impCanExec = computed(() => impCustomerCount.value > 0)
+
+/* ---- v180 导入的「本期归属」 ----------------------------------------------------
+   归属期次由**后端**在导入那一刻解析（import_router: forecast_period_current() →
+   兜底 forecast_period_default()），前端不接受指定 ⇒ 归属必须**前置展示**，
+   而不是等导入完成后才问用户「要不要命名期次」（那时数据已经落库、归属已定死）。
+   口径对齐：GET /api/forecast/periods 的 `current` 就是同一个 default() ⇒ 前端用
+   **curOpenPeriodId**（只由 current 赋值，不随期次下拉/往期查看漂移）即为归属，
+   而**不是** curPeriod（= 正在查看的期次）—— 查看往期时点「导入」，数据仍会落到
+   当前期次，这个差异要让用户看见（impViewMismatch）。 */
+const impOwnedPeriodId = computed(() => Number(curOpenPeriodId.value || 0))
+const impOwnedPeriod = computed(
+  () => (periods.value || []).find(p => Number(p.id) === impOwnedPeriodId.value) || null
+)
+const impOwnedName = computed(() => impOwnedPeriod.value?.name || (impOwnedPeriodId.value ? `期次 #${impOwnedPeriodId.value}` : ''))
+const impViewMismatch = computed(() => {
+  const viewed = Number(cross.value.period?.id || 0)
+  return impOwnedPeriodId.value > 0 && viewed > 0 && viewed !== impOwnedPeriodId.value
+})
+const impViewedName = computed(() => cross.value.period?.name || '')
+// 回执里「这次导入到底归到哪」用**后端回传的** results.period_id（权威），
+// 不用上面的预告 —— 两者可能因「导入瞬间刚建了期次」而不同。
+const impResultPeriodId = computed(() => Number(impResult.value?.results?.period_id || 0))
 /* 厂价是模版的「条件必填」列：闸门开启时缺厂价（且档案无进价）的行会被整行拒收。
    旧版把这句做成只读回显，用户看到「未识别」也无从下手；现在改成能被改的提示。 */
 const impFactoryMissing = computed(() => !Object.values(impMapping.value).some(v => v === 'factory' || v === 'price'))
@@ -6553,6 +6654,81 @@ async function createPeriod() {
   }
 }
 
+/* ---- v180 (2026-09-16) 软警告：**一处实现，两处（新建 / 改期次）共用** ----
+   硬规则（名称非空 / 窗口不反向 / 到货不早于下单截止）由后端 `period_validate` 拦截并
+   返回中文原因 —— 前端**不再写第二份**（两台实现必然漂移）。此处只提示两件「不拦你、
+   但你得知道」的事：同名、以及与已有期次窗口重叠。 */
+function periodSoftWarn(name, start, end, excludeId) {
+  const out = []
+  const nm = String(name || '').trim()
+  const s = String(start || ''), e = String(end || '')
+  const others = (periods.value || []).filter(p => Number(p.id) !== Number(excludeId || 0))
+  if (nm && others.some(p => String(p.name || '').trim() === nm)) {
+    out.push('已有同名期次 —— 下拉有限宽，两个同名项很难分辨，建议名称里带上日期。')
+  }
+  if (s && e) {
+    const hit = others.find(p => p.order_start && p.order_end && s <= p.order_end && e >= p.order_start)
+    if (hit) out.push(`与「${hit.name}」（${hit.order_start} ~ ${hit.order_end}）窗口重叠 —— 同一笔报单可能被两期同时统计。`)
+  }
+  return out
+}
+const npSoftWarn = computed(() => periodSoftWarn(np.value?.name, np.value?.order_start, np.value?.order_end, 0))
+
+/* ---- v180 改期次（仅 open 期次；走 PATCH /api/forecast/periods/{pid}） ----
+   为什么必须有：此前只有 create / close / delete ⇒ 名字打错唯一修法是「关闭 → 删除」，
+   而删除级联清掉该期全部报单/明细/定稿/付款/订单且不可恢复。 */
+const peOpen = ref(false)
+const peTarget = ref(null)
+const peSaving = ref(false)
+const pe = ref({ name: '', order_start: '', order_end: '', arrival: '' })
+// 改期次表单里手改过的日期字段（同 npTouched，语义一致）
+const peTouched = ref({ order_start: false, order_end: false, arrival: false })
+function markPeTouched(k) { peTouched.value[k] = true }
+
+function openPeriodEdit(row) {
+  if (!row || Number(row.id) <= 0) { toast('这个期次没有可修改的记录', 'warn'); return }
+  if (String(row.status || 'open') !== 'open') { toast('已关闭的期次不能修改，如需调整请新建期次', 'warn'); return }
+  peTarget.value = row
+  pe.value = {
+    name: row.name || '',
+    order_start: row.order_start || '',
+    order_end: row.order_end || '',
+    arrival: row.arrival_date || row.arrival || '',
+  }
+  peTouched.value = { order_start: false, order_end: false, arrival: false }
+  peOpen.value = true
+}
+const peSoftWarn = computed(() => periodSoftWarn(pe.value?.name, pe.value?.order_start, pe.value?.order_end, peTarget.value?.id || 0))
+
+async function savePeriodEdit() {
+  const t = peTarget.value
+  if (!t) return
+  peSaving.value = true
+  try {
+    // 只提交**真的变了**的字段：后端按「同值重提不留痕」处理，这里先收窄可让回执更准
+    const body = {}
+    for (const k of ['name', 'order_start', 'order_end', 'arrival']) {
+      const old = k === 'arrival' ? (t.arrival_date || t.arrival || '') : (t[k] || '')
+      if (String(pe.value[k] || '').trim() !== String(old || '').trim()) body[k] = String(pe.value[k] || '').trim()
+    }
+    if (!Object.keys(body).length) { toast('没有要修改的内容', 'warn'); peSaving.value = false; return }
+    const r = await forecastApi.updatePeriod(t.id, body)
+    const n = Object.keys(r?.changed || {}).length
+    toast(n ? `已保存（改动 ${n} 处）` : '没有要修改的内容', n ? 'success' : 'warn')
+    peOpen.value = false
+    // v180 真机实测补：历史期次列表是在子组件里自己 load() 的，改名后不重挂
+    // ⇒ 弹窗关了、库里也改了，表格却还显示旧名称，用户会以为没保存成功（真机 D6 命中）。
+    if (n) historyKey.value++
+    await loadPeriods()
+    // 改的是当前选中的期次 ⇒ 它的窗口变了，汇总表必须重取（否则同屏新旧口径打架）
+    if (Number(t.id) === Number(curPeriod.value)) { if (editMode.value) loadEditGrid(); else loadCross() }
+  } catch (e) {
+    toast('保存失败: ' + (e.message || e), 'error')
+  } finally {
+    peSaving.value = false
+  }
+}
+
 // ---- 新建期次：日期预填 + 名称解析自动填日期（2026-08-26） ----
 function fmtDate(d) {
   const y = d.getFullYear()
@@ -6573,6 +6749,8 @@ function openNewPeriod() {
   np.value.order_start = fmtDate(t)
   np.value.order_end = fmtDate(t)
   np.value.arrival = fmtDate(arr)
+  // v180：预填值不算「手改」，否则名称解析会被自己的预填挡住
+  resetNpTouched()
 }
 
 // 从名称里提取日期（支持 2026-08-25 / 8月25日 / 8/25 / 8.25 等，年默认今年）
@@ -6597,24 +6775,56 @@ function parsePeriodDates(text) {
   return dedup
 }
 
-// 名称输入时自动把识别到的日期填进表单（第一个=下单日，第二个=到货日）
-function onPeriodNameInput() {
-  const ds = parsePeriodDates(np.value.name)
-  if (ds.length >= 1) {
-    const d0 = fmtDate(new Date(ds[0].year, ds[0].month - 1, ds[0].day))
-    np.value.order_start = d0
-    np.value.order_end = d0
-  }
+// v180 (2026-09-16)：手工改过的日期字段 —— 名称解析不再覆盖它们。
+// 原先 `onPeriodNameInput` **无条件**把 order_start/order_end/arrival 全按名称重算，
+// 用户先手改日期、再回头改名称 ⇒ 手填值被**静默丢掉**（无任何提示）。属「用户输入被丢弃
+// 且无反馈」，与「假旋钮」同族。现在：默认只 **填空字段**；要整体覆盖必须走显式按钮。
+const npTouched = ref({ order_start: false, order_end: false, arrival: false })
+function markNpTouched(k) { npTouched.value[k] = true }
+function resetNpTouched() { npTouched.value = { order_start: false, order_end: false, arrival: false } }
+
+// 名称里能识别出的日期（第一个=下单日、第二个=到货日）——决定「按名称更新日期」按钮是否出现
+const npNameDates = computed(() => parsePeriodDates(np.value?.name))
+
+// 把识别到的日期写进表单。force=true 时无视「手改过」保护（用户主动点按钮才允许）
+function applyPeriodDates(ds, force) {
+  if (!ds || !ds.length) return false
+  const d0 = fmtDate(new Date(ds[0].year, ds[0].month - 1, ds[0].day))
+  if (force || !npTouched.value.order_start) np.value.order_start = d0
+  if (force || !npTouched.value.order_end) np.value.order_end = d0
   if (ds.length >= 2) {
-    np.value.arrival = fmtDate(new Date(ds[1].year, ds[1].month - 1, ds[1].day))
+    const d1 = fmtDate(new Date(ds[1].year, ds[1].month - 1, ds[1].day))
+    if (force || !npTouched.value.arrival) np.value.arrival = d1
   }
+  return true
+}
+
+// 名称输入时自动补日期（**只填空字段**，不覆盖用户手改过的）
+function onPeriodNameInput() { applyPeriodDates(parsePeriodDates(np.value.name), false) }
+
+// 显式「按名称更新日期」：用户主动要求 ⇒ 允许覆盖手填值
+function applyNameDatesNow() {
+  if (!applyPeriodDates(parsePeriodDates(np.value.name), true)) {
+    toast('名称里没有识别到日期（形如「8月25日报单-8月29日到货」）', 'warn')
+    return
+  }
+  resetNpTouched()
+  toast('已按名称更新日期', 'success')
 }
 
 async function loadPeriods() {
   try {
     const d = await forecastApi.periods()
     periods.value = d.periods || []
-    if (d.current) curPeriod.value = d.current.id || 0
+    const cid = d.current ? Number(d.current.id || 0) : 0
+    if (d.current) {
+      curPeriod.value = cid
+      // 归属口径记录（= 后端 forecast_period_default()，与导入落库同源）；
+      // 之后用户切下拉只看不改它。
+    }
+    // ⚠️ 必须**无条件**赋值：期次被全部删掉时 current 变 null，若沿用旧值，
+    //    pick 步会继续显示一个已经不存在的「本期归属」，而导入实际会落 0。
+    curOpenPeriodId.value = cid
   } catch (e) { /* 静默 */ }
 }
 
@@ -7195,6 +7405,18 @@ th.sortable:hover{color:var(--p-dark)}
 .new-period{margin-bottom:14px}
 .np-row{display:flex;gap:10px;flex-wrap:wrap}
 .np-row .input{flex:1;min-width:140px}
+/* v180 期次软警告（同名 / 窗口重叠）—— 非阻塞提示；硬规则由后端 period_validate 拦截 */
+.np-warn{margin:10px 0 0;padding-left:18px;font-size:12.5px;line-height:1.7;color:var(--war)}
+/* v180 导入弹窗「本期归属」行 —— 归属由后端在导入那一刻定死，故必须前置展示 */
+.imp-own{margin:0 0 12px;font-size:12.5px;line-height:1.7;color:var(--t2)}
+.imp-own b{color:var(--t1)}
+.imp-own.warn{color:var(--war)}
+.imp-own.warn b{color:var(--war)}
+.imp-own .btn{margin-left:6px;vertical-align:middle}
+/* v180 改期次弹窗 */
+.pe-modal{width:min(520px,94vw)}
+.pe-grid{display:grid;grid-template-columns:76px 1fr;gap:10px 12px;align-items:center}
+.pe-grid label{font-size:12.5px;color:var(--t2)}
 .draft-section{}
 .search-row{display:flex;gap:8px;position:relative}
 .search-dropdown{position:absolute;top:42px;left:0;right:60px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-md);max-height:280px;overflow-y:auto;z-index:100}

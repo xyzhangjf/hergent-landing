@@ -33,6 +33,9 @@
             <td><span class="tag" :class="row.finalized ? 'ok' : 'info'">{{ row.finalized ? '已定稿' : '未定稿' }}</span></td>
             <td>
               <button class="btn btn-sm btn-ghost" @click="$emit('view', row)">查看</button>
+              <!-- v180：改名 / 改日期。此前没有这条路径 ⇒ 名字打错只能「关闭 → 删除」，
+                   而删除会级联清掉该期全部报单/定稿/付款。仅 open 期次可改（与后端一致）。 -->
+              <button v-if="row.status === 'open' && Number(row.id) > 0" class="btn btn-sm btn-ghost" @click="$emit('rename', row)">修改</button>
               <!-- A6 修复 (2026-07-24)：合成行（id<0，如「2026-07-24 报单」）无真实期次记录，
                    关闭/删除会打到无效 id（UPDATE 0 行或误触数据），故屏蔽 -->
               <button v-if="row.status === 'open' && Number(row.id) > 0" class="btn btn-sm btn-ghost" @click="$emit('close', row)">关闭</button>
@@ -49,7 +52,7 @@
 import { ref, onMounted } from 'vue'
 import { forecastApi } from '../api/modules'
 
-const emit = defineEmits(['view', 'delete', 'close'])
+const emit = defineEmits(['view', 'delete', 'close', 'rename'])
 const list = ref([])
 const loading = ref(false)
 
