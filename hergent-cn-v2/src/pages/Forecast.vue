@@ -147,11 +147,31 @@
             </div>
           </div>
           <div v-else-if="impState === 'done'" class="imp-body">
-            <p v-if="impResult && !(impResult.results?.errors || []).length" class="imp-ok">导入成功：{{ impResult.results?.success || 0 }} 个客户</p>
-            <div v-else>
+            <!-- v179：**四种结局必须分开渲染**。用户 2026-09-16 实测踩中的正是第二格
+                 ——「商品都建档了、但一个客户列都没填数量」被旧文案渲染成绿色的
+                 「导入成功：0 个客户」，他因此以为整个导入都成功了。
+                 判据（有没有建档、有没有生成报单）由后端一次判完（archived_no_qty /
+                 product_rows_count），前端不重推规则 —— 同一规则两处实现必然漂移。 -->
+            <p v-if="impResult && impResult.results?.archived_no_qty" class="imp-none">
+              <b>已建档 / 更新 {{ impResult.results?.products_affected_count || 0 }} 个商品，但没有生成任何报单。</b>
+              原因：这份文件里所有客户列的数量都是空的 —— 数量由业务员从小程序报。
+              如果你是要用这份模版<u>批量建商品档案</u>，这一步已经完成了，明细见下方「商品档案」。
+              <!-- 「行数 ≠ 商品数」必须说清基数，否则用户拿行数对不上会以为漏导：
+                   同条码的两行 = 同一商品的两个户头（见 v163 户头口径），登记按商品去重。 -->
+              <template v-if="(impResult.results?.product_rows_count || 0) > (impResult.results?.products_affected_count || 0)">
+                文件里有 {{ impResult.results?.product_rows_count }} 行商品身份行，
+                其中 {{ impResult.results?.product_rows_count - impResult.results?.products_affected_count }} 行与前面的条码相同（同一商品的两个户头），计为同一个商品。
+              </template>
+            </p>
+            <div v-else-if="(impResult?.results?.errors || []).length">
               <p class="imp-warn">导入完成，但有 {{ impResult?.results?.errors?.length || 0 }} 处异常：</p>
               <ul class="imp-errs"><li v-for="(e, i) in (impResult?.results?.errors || []).slice(0, 8)" :key="i">{{ e.msg }}</li></ul>
             </div>
+            <p v-else-if="(impResult?.results?.success || 0) > 0" class="imp-ok">导入成功：{{ impResult.results?.success || 0 }} 个客户</p>
+            <p v-else class="imp-none">
+              这份文件里没有可导入的内容 —— 既没有识别到商品行（商品名称 / 条码），
+              也没有任何客户列填了数量。
+            </p>
             <!-- v163 导入回执：「导入成功了，但下游会出问题」必须显式给出。
                  判据（用户 2026-09-15）：「导入没有成功要给用户一个回执，说明不成功的原因」。
                  最典型的一条：报单对象不在「报单配置」里 → 生成舟谱单据时缺「客户全称 / 调拨仓」，
@@ -512,6 +532,9 @@
             <!-- 表格级筛选器（原在主工具栏）：作用于本交叉表，下移到表格工具行，缩短「控件—作用对象」距离 -->
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
             <span v-if="hideZeroReport" class="confirm-badge filter"><Icon name="filter" /> 已隐藏 {{ zeroReportCount }} 个零报单</span>
+            <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
+            <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
+            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter"><Icon name="filter" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -601,7 +624,7 @@
                     <template v-if="col.type === 'seq'"><span class="seq-num">{{ it.seq }}</span></template>
                     <template v-else-if="col.type === 'master' && col.key === 'name'">
                       <span class="exp-chev" @click.stop="toggleExpand(it.r.product_id)" :title="isExpanded(it.r.product_id) ? '收起明细' : '展开明细'"><Icon :name="isExpanded(it.r.product_id) ? 'chevron-down' : 'chevron-right'"/></span>
-                      <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span></div>
+                      <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span><span v-if="it.r.imported" class="oe-badge imp-tag" title="这一行是本期导入的商品（来自导入登记）">导入</span><span v-if="it.r.offArchive" class="oe-badge off-tag" title="这个商品在你的「在售商品档案」里已停用或已删除，但本期数据引用了它。要让它回到档案列表，请到「商品档案」重新启用。">已停用</span></div>
                       <div class="pspec">{{ it.r.spec || '—' }} · {{ it.r.unit }}<span v-if="it.r.people"> · {{ it.r.people }} 人报</span></div>
                       <div v-if="it.r.ai != null" class="ai-hint">系统建议 {{ fmt(it.r.ai) }}{{ it.r.unit }}<span v-if="it.r.aiMethod" class="hint">（{{ it.r.aiMethod }}）</span></div>
                       <span v-if="rowWarn(it.r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
@@ -682,6 +705,9 @@
             <span class="tb-sep"></span>
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
             <span v-if="hideZeroReport" class="confirm-badge filter"><Icon name="filter" /> 已隐藏 {{ zeroReportCount }} 个零报单</span>
+            <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
+            <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
+            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter"><Icon name="filter" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -1785,7 +1811,77 @@ const openGroups = ref({})          // 分组折叠状态 key -> true(展开)
 const sortKey = ref('none')         // none | name | qty | amount
 const sortDir = ref('desc')
 const hideZeroReport = ref(false)   // 仅显示有报单（填报数量>0）的商品行
+/* v179（2026-09-16）：行底范围开关。
+   用户原话：「我需要实现的是模版里有多少产品，导入后就只有那么多产品」——
+     他拿预报导入模版**批量建商品档案**（数量由业务员从小程序报），导完 159 行商品后
+     主表却铺出 275 行全量在售档案且全是 0，他无法确认「我这 159 个到底进来没有」。
+   默认（不勾）= 行底只保留「本期导入登记的商品 ∪ 有报单的商品」；
+   勾上 = 回到旧行为（全量在售商品档案），供「翻全量清单挑一个来补报」的场景。
+   ⚠️ 与 `hideZeroReport` 是两层不同的东西：那个过滤**已有行**，这个换**行底来源**。 */
+const showAllProducts = ref(false)
 const zeroReportCount = computed(() => cross.value.rows.filter(r => rowSum(r) <= 0).length)
+// 行底被收窄时隐藏了多少行 —— 数字必须由**同一份 rows** 现算，不另存计数
+// （旧铁律：同屏数字口径必须同源；人工维护的计数必然漂移）。
+// 🔴 2026-09-16 口径修正：文案说的是「**在售**商品未显示」，所以被减数只能是**来自在售档案的行**
+//   （offArchive === false，由 buildRowBase 显式打标），**不能**用 rows.length ——
+//   rows 里还混着两类不属于「在售档案」的行：① 不在在售档案但被本期引用的（实测 5 个：
+//   3 个已停用的导入商品 + 2 个已停用的报单商品）② 用户手工补录的新行（offArchive 为 undefined）。
+//   用 rows.length 会把它们当成在售商品减掉 → 实测少报 5 个（显示 127，真值 132）。
+const hiddenByRowBase = computed(() => {
+  const base = cross.value.rowBaseTotal || 0
+  const fromArchive = (cross.value.rows || []).filter(r => r.offArchive === false).length
+  return Math.max(0, base - fromArchive)
+})
+/* v179：把「本期引用的商品」归一成与 products/grid 行同形的商品行。
+   🔴 为什么必须有这一步：`products/grid` 只返回**在售**商品（实测 285），而本期导入登记与
+   报单里都可能出现**已停用**的商品 —— 实测用户真实文件：154 个导入商品里 3 个已停用，
+   另有 2 个有报单的商品也已停用。行底若只从 grid 里筛，这 5 个会被**静默丢掉**，
+   用户会以为「我导的商品没进来」（正是本轮要修的那个症状）。 */
+function asProdRow(src) {
+  return {
+    id: Number(src.id != null ? src.id : src.product_id) || 0,
+    name: src.name || src.product_name || '',
+    spec: src.spec || '', unit: src.unit || '件',
+    barcode: src.barcode || '', product_code: src.product_code || '',
+    dist_price: src.dist_price || 0, sale_price: src.sale_price || 0,
+    purchase_price: src.purchase_price || 0,
+    safety_stock: src.safety_stock || 0, expiry_days: src.expiry_days || 0,
+    category: src.category || '', brand: src.brand || '',
+    extra: src.extra || {},
+    offArchive: true,   // 不在「在售档案」里（已停用/已删除）—— 表格据此打「已停用」角标
+  }
+}
+/* v179：行底 = 「在售档案中被本期引用到的」∪「不在在售档案但被本期引用到的」。
+   `importedProducts` = summary 的 imported_products（登记台账，含停用商品）；
+   `reportRows` = summary 的 rows（本期有报单的商品，同样可能已停用）。
+   两路都**来自后端**，前端不自己猜哪些算「本期导入」。 */
+function buildRowBase(allProds, importedProducts, reportRows, showAll) {
+  const byId = {}
+  ;(importedProducts || []).forEach(p => { byId[Number(p.id)] = byId[Number(p.id)] || p })
+  const reportById = {}
+  ;(reportRows || []).forEach(r => { if (r && r.product_id) reportById[Number(r.product_id)] = r })
+  const refIds = new Set([...Object.keys(byId).map(Number), ...Object.keys(reportById).map(Number)])
+  const gridIds = new Set(allProds.map(p => Number(p.id)))
+  const off = []
+  refIds.forEach(pid => {
+    if (!pid || gridIds.has(pid)) return
+    off.push(asProdRow(byId[pid] || reportById[pid] || { id: pid }))
+  })
+  const keep = showAll ? allProds : allProds.filter(p => refIds.has(Number(p.id)))
+  // v179：给「确实来自在售档案」的行显式打 offArchive=false —— hiddenByRowBase 靠这个标记把
+  //   「在售档案行」与「档案外的行（true）／用户手工补录行（undefined）」区分开，
+  //   否则「另有 N 个在售商品未显示」会多减掉档案外的行（实测少报 5）。
+  //   ⚠️ allProds 在本函数之后不再被复用（两处调用点均已核对），就地打标无副作用。
+  keep.forEach(p => { p.offArchive = false })
+  return keep.concat(off)
+}
+/* v179：勾选「显示全部商品」必须**立刻**换行底 —— 否则它就是个假旋钮：
+   行底只在 loadCross（查看态）/ loadEditGrid（编辑态）里构建，只改 ref 的话
+   勾选框会选中、表格纹丝不动（真机实测：勾上前 158 行、勾上后仍是 158 行）。
+   查看态直接重载交叉表（纯读）；编辑态先落草稿再重载，保证未提交的改动不丢。 */
+watch(showAllProducts, () => {
+  if (editMode.value) { saveDraftNow(); loadEditGrid() } else loadCross()
+})
 // 统一行匹配：商品名 / 厂家编码 / 条码（含后 4 位末尾片段）
 // 口径与小程序商品搜索、后端 _build_product_search 保持一致：数字输入优先命中条码，>=3 位再放宽到末尾匹配
 function rowMatchText(r, f) {
@@ -2359,11 +2455,16 @@ async function loadEditGrid() {
            且「条码重复」必须按品牌判定（同产品两个户头不算重复），判据不能建立在本地草稿的残留上。 */
         category: pd.category || '', brand: pd.brand || '',
         price: pd.sale_price || 0, qtyByUnit, extraQty: extraByPid[pd.id] || 0, ai: null, suggest: 0, history: [],
+        // v179：本行是否来自「本期导入登记」（表格角标用；来源是后端台账，非前端推测）
+        imported: importedSet.has(Number(pd.id)),
+        // v179：不在「在售档案」里（已停用/已删除）但被本期引用 —— 见 buildRowBase 注释
+        offArchive: !!pd.offArchive,
       }
     })
     let colTotals = units.map(u => rows.reduce((s, r) => s + (r.qtyByUnit[u.name] || 0), 0))
     cross.value = {
       period: p, units, rows, colTotals,
+      rowBaseTotal: allProds.length,   // v179：收窄前行数（= 在售商品档案总数）
       grand: { sku: rows.length, qty: rows.reduce((s, r) => s + Object.values(r.qtyByUnit).reduce((a, b) => a + (parseInt(b) || 0), 0), 0), amount: 0 },
       reportedUnits: units.length,
     }
@@ -2428,6 +2529,7 @@ async function loadEditGrid() {
       colTotals = units.map(u => rows.reduce((s, r) => s + (Number(r.qtyByUnit[u.name]) || 0), 0))
       cross.value = {
         period: p, units, rows, colTotals,
+        rowBaseTotal: allProds.length,   // v179：与上方同源（草稿分支也要带上，否则开关一勾数字会跳）
         grand: { sku: rows.length, qty: rows.reduce((s, r) => s + Object.values(r.qtyByUnit).reduce((a, b) => a + (parseInt(b) || 0), 0), 0), amount: 0 },
         reportedUnits: units.length,
       }
@@ -6203,11 +6305,41 @@ async function loadCross() {
       else if (!unitMap.get(name).role && s.role) unitMap.get(name).role = s.role
     }))
     const units = [...unitMap.values()]
-    // 矩阵行以【全量商品主档】为行底：查看/只读模式也能展开完整商品列表（与编辑一致），
-    // 不再只显示有报单的商品。有报单的商品按 summary 注入数量/金额/AI 等，无报单的商品以 0 占位。
+    // 2026-09-13：后端汇总已把名称/规格/单位对齐商品主档，同一 product_id 正常只返回一行。
+    //   此处仍做「合并而非覆盖」的防御性聚合 —— 此前 sumById[pid]=r 是单键赋值，
+    //   同商品多行时后一行直接覆盖前一行，导致数量静默丢失（实测 pid=1537 的 12 件被 300 件吞掉）。
     const sumById = {}
-    ;(d.rows || []).forEach(r => { sumById[r.product_id] = r })
-    const matrixRows = (prods.items || []).map(pd => {
+    ;(d.rows || []).forEach(r => {
+      const prev = sumById[r.product_id]
+      if (!prev) { sumById[r.product_id] = r; return }
+      sumById[r.product_id] = {
+        ...prev,
+        total_qty: (prev.total_qty || 0) + (r.total_qty || 0),
+        total_amount: (prev.total_amount || 0) + (r.total_amount || 0),
+        people: (prev.people || 0) + (r.people || 0),
+        sources: [...(prev.sources || []), ...(r.sources || [])],
+        extra_qty: (prev.extra_qty || 0) + (r.extra_qty || 0),
+        final_qty: (prev.final_qty != null ? prev.final_qty : r.final_qty),
+        forecast_decided: !!(prev.forecast_decided || r.forecast_decided),
+        ai_suggested_qty: (prev.ai_suggested_qty != null ? prev.ai_suggested_qty : r.ai_suggested_qty),
+        ai_method: prev.ai_method || r.ai_method || '',
+      }
+    })
+    // v179（2026-09-16）**行底改造**：不再是「全量在售商品档案」。
+    // 用户原话「我需要实现的是模版里有多少产品，导入后就只有那么多产品」—— 他拿预报导入
+    //   模版批量建商品档案（数量由业务员从小程序报），导完 159 行商品后主表仍铺 275 行
+    //   全量档案且全是 0，他无法确认「我这 159 个到底进来没有」。
+    // 新行底 = 「本期导入登记的商品」∪「有报单的商品」（含已停用的，见 buildRowBase）；
+    //   勾「显示全部商品」回到旧行为（全量在售档案）。
+    // ⚠️ 两个来源都**来自后端**（imported_products / rows），前端不自己猜：
+    //    「本批导入」这件事只有后端知道（登记台账），前端凭空推导必然与后端漂移。
+    const allProds = prods.items || []
+    const importedProducts = d.imported_products || []
+    const importedSet = new Set(importedProducts.map(p => Number(p.id)))
+    // 第三参传 summary 的**原始 rows**（不是聚合后的 sumById）：要拿它的 name/spec/unit
+    //   给「不在在售档案」的商品补行，聚合后的对象不带 product_name。
+    const rowBase = buildRowBase(allProds, importedProducts, d.rows || [], showAllProducts.value)
+    const matrixRows = rowBase.map(pd => {
       const r = sumById[pd.id]
       const qtyByUnit = {}
       let total = 0, amount = 0, price = null, boxes = null
@@ -6234,6 +6366,12 @@ async function loadCross() {
         category: meta[pd.id] ? (meta[pd.id].category || '') : '', brand: meta[pd.id] ? (meta[pd.id].brand || '') : '',
         qtyByUnit, total, boxes, price, amount,
         ai, aiMethod, people, final_qty, decided, extra_qty,
+        // v179：这一行是不是「本批导入进来的」—— 供表格角标显示（用户要能一眼确认
+        //   他那 159 个商品进来了）。来源是后端登记台账，不是前端推测。
+        imported: importedSet.has(Number(pd.id)),
+        // v179：这一行不在「在售档案」里（已停用/已删除），但本期数据引用了它。
+        //   必须显式标出来 —— 否则用户会以为档案列表少了商品。
+        offArchive: !!pd.offArchive,
       }
     })
     const colTotals = units.map(u => matrixRows.reduce((s, r) => s + (r.qtyByUnit[u.name] || 0), 0))
@@ -6242,6 +6380,9 @@ async function loadCross() {
       units,
       rows: matrixRows,
       colTotals,
+      // v179：收窄前有多少行（= 在售商品档案总数）—— 「另有 N 个未显示」由它与 rows.length
+      //   现算，不另存一份计数（同屏数字口径必须同源）。
+      rowBaseTotal: allProds.length,
       grand: {
         sku: matrixRows.length,
         qty: matrixRows.reduce((s, r) => s + r.total, 0),
@@ -7002,6 +7143,9 @@ th.sortable:hover{color:var(--p-dark)}
 .imp-ft{display:flex;justify-content:flex-end;gap:10px;padding-top:6px}
 .imp-ok{color:var(--suc);font-size:13px;margin-bottom:12px}
 .imp-warn{color:var(--war);font-size:12.5px;margin-bottom:8px}
+/* v179：「建档成功但没有数量」与「真的什么都没有」两个中性结局（信息蓝，不是错误色）。
+   旧实现把前者渲染成绿色的「导入成功：0 个客户」，正是用户误判导入成功的直接原因。 */
+.imp-none{color:var(--info-blue);font-size:13px;line-height:1.75;margin-bottom:12px}
 
 /* v157 零档案建档结果块 */
 .imp-arch{margin-top:12px;padding:12px 14px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
@@ -7037,6 +7181,10 @@ th.sortable:hover{color:var(--p-dark)}
    ① 真实户头名随产品交付到客户机器；② 其它租户的主体徽标匹配不到任何类 → 永远没有配色（只有裸徽标）。
    现改为通用色板 oe-c0..oe-c5，同名恒定同色，与主体名具体叫什么无关。 */
 .oe-badge{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:999px;font-size:10.5px;margin-left:6px;vertical-align:1px}
+/* v179：本批导入角标（信息蓝，与户头徽标的彩色系区分开 —— 户头是"谁下单"，这个是"哪来的"） */
+.imp-tag{background:var(--info-blue-bg);color:var(--info-blue)}
+/* v179：不在「在售档案」里的行（已停用/已删除）—— 琥珀色，与「导入」蓝明确区分 */
+.off-tag{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .oe-c0{background:var(--p-bg);color:var(--p-dark)}
 .oe-c1{background:var(--violet-bg);color:var(--violet)}
 .oe-c2{background:var(--sev-info-bg);color:var(--sev-info)}
