@@ -1978,7 +1978,8 @@ function colCls(col) {
 }
 // 列宽拖拽：列宽按关键字存入 colWidths，<colgroup> 据此渲染；拖动右侧手柄实时改宽并存 localStorage
 const colWidths = ref({})
-const COL_DEFAULTS = { seq: 46, name: 210, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, safety_stock: 86, expiry_days: 86, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
+// v177：随五列一并移除 safety_stock / expiry_days 的默认列宽（列已不渲染，留着就是死配置）。
+const COL_DEFAULTS = { seq: 46, name: 210, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
 // v176：序号列已冻结在 left:0，故**其后每个冻结列的 left 必须整体右移「一个序号列宽」**，
@@ -2129,19 +2130,24 @@ function onBodyKey(e) {
 
 /* ---- 列配置（商品名称固定冻结不可隐藏；其余列可隐藏/删除/拖拽排序，存 localStorage） ---- */
 // 主档字段列元数据（除名称外）。name 列固定且不在此列表（单独处理）。
+/* v177（2026-09-16）：本表移除五列 —— 标准售价(sale_price) / 安全库存(safety_stock) /
+   保质期天(expiry_days) / 起订量(moq) / 到货天数(lead_days)。预报订单场景只需要「报什么、
+   报多少」，这五个字段是**商品档案的属性**，不是报单决策的输入；它们的维护入口在
+   「商品档案」页，不靠报单网格承担。
+   ⚠️ 这里是**唯一**决定「哪些列渲染」的地方（visibleCols / 列设置菜单 / 添加列候选 /
+   表尾合计 / 导出 xlsx 全部由它派生），故删这五行 = 五个面同时收起，无需改别处。
+   ⚠️ **只删显示列，不删数据字段**：行对象仍带 r.safety_stock / r.expiry_days / r.moq /
+   r.lead_days / r.sale_price，商品主档 upsert 载荷(DRAFT_MASTER_KEYS / prodRows)、
+   粘贴与导入的表头映射(HEADER_KEYS)、以及依赖这些数据的功能（低于安全库存告警、
+   短保告警、安全库存建议、AI 分析这一行）一律保持不变。 */
 const MASTER_COL_DEFS = [
   { key: 'brand', label: '品牌', cls: 'fc-text', edit: 'text', deletable: true },
   { key: 'barcode', label: '条码', cls: 'fc-code', edit: 'text', deletable: false },
   { key: 'spec', label: '规格', cls: 'fc-text', edit: 'text', deletable: true },
   { key: 'unit', label: '单位', cls: 'fc-text', edit: 'text', deletable: true, options: ['件', '箱', '提', '杯', '袋', '瓶', '盒', '托', '板', '根'] },
-  { key: 'sale_price', label: '标准售价', cls: 'fc-num', edit: 'num', deletable: false, fmt: r => r.sale_price ? r.sale_price.toFixed(2) : '—' },
   { key: 'purchase_price', label: '进价', cls: 'fc-num', edit: 'num', deletable: true, fmt: r => r.purchase_price ? Number(r.purchase_price).toFixed(2) : '—' },
   { key: 'dist_price', label: '分销价', cls: 'fc-num', edit: 'num', deletable: false, fmt: r => r.dist_price ? r.dist_price.toFixed(2) : '—' },
   { key: 'product_code', label: '厂家编码', cls: 'fc-code', edit: 'text', deletable: false },
-  { key: 'safety_stock', label: '安全库存', cls: 'fc-num', edit: 'num', num: 'int', deletable: true },
-  { key: 'expiry_days', label: '保质期天', cls: 'fc-num', edit: 'num', num: 'int', deletable: true },
-  { key: 'moq', label: '起订量', cls: 'fc-num', edit: 'num', num: 'int', deletable: true },
-  { key: 'lead_days', label: '到货天数', cls: 'fc-num', edit: 'num', num: 'int', deletable: true },
 ]
 const COL_STORAGE_KEY = 'forecast_cols_v1'
 // colOrder: 完整列顺序（含 name）。colVis: key->bool 是否显示。
@@ -2212,7 +2218,7 @@ const ROLE_LABELS = { owner: '老板', finance: '财务', sales: '销售', promo
 const COLUMN_PERMISSIONS = {
   purchase_price: ['owner', 'finance'],                                  // 进价（成本）
   dist_price: ['owner', 'finance'],                                     // 分销价（毛利相关）
-  sale_price: ['owner', 'finance', 'sales', 'supervisor'],              // 标准售价
+  // v177：原 sale_price（标准售价）权限随该列一并移除 —— 列已不渲染，留着是死配置。
 }
 const BIZ_ROLE_KEY = 'hergent_biz_role'
 const bizRole = ref((store.user && store.user.role) || localStorage.getItem(BIZ_ROLE_KEY) || 'owner')
