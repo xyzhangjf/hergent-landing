@@ -95,9 +95,18 @@
           <input type="file" accept=".xlsx,.xls" style="display:none" @change="onInvFile">
         </label>
         <span v-if="invFileName" class="df-fname">{{ invFileName }}</span>
-        <button class="btn btn-primary" :disabled="!invFile || importing" @click="importEmployees">
-          {{ importing ? '导入中…' : '开始导入' }}
+        <button v-if="impStep === 'pick'" class="btn btn-primary" :disabled="!invFile || importing" @click="previewEmployees">
+          {{ importing ? '识别中…' : '下一步' }}
         </button>
+      </div>
+      <div v-if="impStep === 'map'" class="df-map">
+        <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions" />
+        <div class="df-import-row">
+          <button class="btn btn-ghost" :disabled="importing" @click="impStep = 'pick'">返回</button>
+          <button class="btn btn-primary" :disabled="importing" @click="doImportEmployees">
+            {{ importing ? '导入中…' : '确认导入' }}
+          </button>
+        </div>
       </div>
       <div v-if="invResult" class="df-result" :class="invResult.results?.errors?.length ? 'warn' : 'ok'">
         成功 {{ invResult.results?.success }} 条 · 跳过 {{ invResult.results?.skipped }} 条 · 失败 {{ invResult.results?.errors?.length || 0 }} 条
@@ -255,6 +264,7 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import ImportMapping from '../components/ImportMapping.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/client'
@@ -569,6 +579,11 @@ async function saveStores() {
 const invFile = ref(null)
 const invFileName = ref('')
 const invResult = ref(null)
+/* v178 列映射确认：先识别、你看一眼再导入（此前识别结果被直接执行，改不了）。 */
+const impStep = ref('pick')
+const impSuggestions = ref([])
+const impFieldOptions = ref([])
+const impMapping = ref({})
 
 function onInvFile(ev) {
   const f = ev.target.files[0] || null
@@ -580,6 +595,7 @@ function onInvFile(ev) {
   invFile.value = f
   invFileName.value = f?.name || ''
   invResult.value = null
+  impStep.value = 'pick'
 }
 async function downloadEmpTemplate() {
   try {
@@ -593,15 +609,30 @@ async function downloadEmpTemplate() {
     URL.revokeObjectURL(a.href)
   } catch (e) { toast(e.message || '模板下载失败', 'err') }
 }
-async function importEmployees() {
+/* 第一步：只识别，不落库。 */
+async function previewEmployees() {
   if (!invFile.value) return
   importing.value = true
   try {
     const prev = await importApi.preview(invFile.value, 'employees')
-    const mapping = {}
-    for (const s of prev.suggestions) if (s.suggested_field) mapping[s.index] = s.suggested_field
-    const r = await importApi.execute(invFile.value, 'employees', mapping)
+    impSuggestions.value = prev.suggestions || []
+    impFieldOptions.value = prev.field_options || []
+    if (!impSuggestions.value.length) { toast('没读到任何列，请检查文件', 'err'); return }
+    const m = {}
+    for (const s of impSuggestions.value) if (s.suggested_field) m[s.index] = s.suggested_field
+    impMapping.value = m
+    impStep.value = 'map'
+  } catch (e) { toast(e.message || '文件解析失败', 'err') }
+  finally { importing.value = false }
+}
+/* 第二步：按确认过的映射执行。 */
+async function doImportEmployees() {
+  if (!invFile.value) return
+  importing.value = true
+  try {
+    const r = await importApi.execute(invFile.value, 'employees', impMapping.value)
     invResult.value = r
+    impStep.value = 'pick'
     toast(`导入完成：成功 ${r.results?.success || 0} 条`, r.results?.errors?.length ? 'warn' : 'ok')
     loadEmployees()
   } catch (e) { toast(e.message || '导入失败', 'err') }
@@ -636,6 +667,8 @@ onMounted(() => {
 .df-ops .btn{margin-left:6px}
 
 .df-import-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* v178 列映射确认步：表格 + 底部「返回/确认导入」 */
+.df-map{margin-top:12px;display:flex;flex-direction:column;gap:10px}
 .df-file-btn{position:relative;overflow:hidden}
 .df-fname{font-size:12.5px;color:var(--t2)}
 .df-result{margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc)}

@@ -152,10 +152,10 @@
       <!-- 导入弹窗 -->
       <Transition name="fade"><div v-if="impOpen" class="pa-overlay" @click="impOpen = false"></div></Transition>
       <Transition name="pop">
-        <div v-if="impOpen" class="pa-modal">
+        <div v-if="impOpen" class="pa-modal" :class="{ 'pa-map': impStep === 'map' }">
           <div class="pa-modal-hd"><b>导入商品（Excel）</b><button class="pa-x" @click="impOpen = false"><Icon name="close"/></button></div>
           <div class="pa-modal-body">
-            <p class="pa-tip">下载模板 → 按列填写 → 选择文件自动识别列并导入。重复名称/条码将更新而非新增。</p>
+            <p v-if="impStep === 'pick'" class="pa-tip">下载模板 → 按列填写 → 选择文件自动识别列并导入。重复名称/条码将更新而非新增。</p>
             <div class="pa-imp-row">
               <button class="btn btn-ghost" @click="downloadTpl">下载模板</button>
               <label class="btn btn-ghost pa-file-btn">
@@ -163,8 +163,12 @@
                 <input type="file" accept=".xlsx,.xls,.csv" style="display:none" @change="onImpFile">
               </label>
               <span v-if="impFileName" class="pa-fname">{{ impFileName }}</span>
-              <button class="btn btn-primary" :disabled="!impFile || impSaving" @click="runImport">{{ impSaving ? '导入中…' : '开始导入' }}</button>
+              <button v-if="impStep === 'pick'" class="btn btn-primary" :disabled="!impFile || impSaving" @click="previewImport">{{ impSaving ? '识别中…' : '下一步' }}</button>
             </div>
+            <template v-if="impStep === 'map'">
+              <p class="pa-tip">系统按列名猜字段，可能猜错（例如把「厂家商品编码」当成品牌）。核对「识别为」这一列，不对就在下拉里改 —— 标「不导入」的列不会进来。</p>
+              <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions" />
+            </template>
             <div v-if="impResult" class="pa-imp-result" :class="impResult.results?.errors?.length ? 'warn' : 'ok'">
               成功 {{ impResult.results?.success }} 条 · 跳过 {{ impResult.results?.skipped }} 条 · 失败 {{ impResult.results?.errors?.length || 0 }} 条
               <span v-if="impResult.results?.errors?.length" class="pa-errs">
@@ -173,7 +177,11 @@
             </div>
           </div>
           <div class="pa-modal-ft">
-            <button class="btn btn-primary" @click="impOpen = false">关闭</button>
+            <template v-if="impStep === 'map'">
+              <button class="btn btn-ghost" :disabled="impSaving" @click="impStep = 'pick'">返回</button>
+              <button class="btn btn-primary" :disabled="impSaving" @click="doImport">{{ impSaving ? '导入中…' : '确认导入' }}</button>
+            </template>
+            <button v-else class="btn btn-primary" @click="impOpen = false">关闭</button>
           </div>
         </div>
       </Transition>
@@ -284,6 +292,7 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import ImportMapping from '../components/ImportMapping.vue'
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/client'
 import { productsApi, importApi } from '../api/modules'
@@ -353,6 +362,13 @@ const impFile = ref(null)
 const impFileName = ref('')
 const impResult = ref(null)
 const impSaving = ref(false)
+/* v178 列映射确认：导入由「一步」改为「两步」——先识别、让你看清每一列被当成什么，再执行。
+   此前是 preview 的结果直接当 mapping 喂给 execute，中间无人可看：实测把「厂家商品编码」
+   的编码串按关键词「厂家」写进了品牌列（`products.brand`），用户全程无感。 */
+const impStep = ref('pick')          // pick=选文件 | map=确认列映射
+const impSuggestions = ref([])       // /preview 的 suggestions（含样例值）
+const impFieldOptions = ref([])      // 候选字段（**后端给**，前端不自己写一份键→中文）
+const impMapping = ref({})
 
 async function loadProducts() {
   loading.value = true
@@ -615,11 +631,16 @@ async function saveAdd() {
 }
 
 /* ---- 导入商品 ---- */
-function openImport() { impFile.value = null; impFileName.value = ''; impResult.value = null; impSaving.value = false; impOpen.value = true }
+function openImport() {
+  impFile.value = null; impFileName.value = ''; impResult.value = null; impSaving.value = false
+  impStep.value = 'pick'; impSuggestions.value = []; impFieldOptions.value = []; impMapping.value = {}
+  impOpen.value = true
+}
 function onImpFile(ev) {
   const f = ev.target.files[0] || null
   if (f && !/\.(xlsx|xls|csv)$/i.test(f.name)) { toast('仅支持 Excel/CSV 文件', 'err'); ev.target.value = ''; return }
   impFile.value = f; impFileName.value = f?.name || ''; impResult.value = null
+  impStep.value = 'pick'   // 换文件 → 映射作废，回到第一步重识别
 }
 async function downloadTpl() {
   try {
@@ -631,15 +652,32 @@ async function downloadTpl() {
     URL.revokeObjectURL(a.href)
   } catch (e) { toast(e.message || '模板下载失败', 'err') }
 }
-async function runImport() {
+/* 第一步：只识别、不落库。把每一列识别成什么、依据是什么、命中列里有哪几个值，
+   一并摆到界面上（样例值是判断「品牌还是编码」的唯一依据）。 */
+async function previewImport() {
   if (!impFile.value) return
   impSaving.value = true
   try {
     const prev = await importApi.preview(impFile.value, 'products')
-    const mapping = {}
-    for (const s of (prev.suggestions || [])) if (s.suggested_field) mapping[s.index] = s.suggested_field
-    const r = await importApi.execute(impFile.value, 'products', mapping)
+    impSuggestions.value = prev.suggestions || []
+    impFieldOptions.value = prev.field_options || []
+    if (!impSuggestions.value.length) { toast('没读到任何列，请检查文件是否为 Excel/CSV', 'err'); return }
+    const m = {}
+    for (const s of impSuggestions.value) if (s.suggested_field) m[s.index] = s.suggested_field
+    impMapping.value = m
+    impStep.value = 'map'
+  } catch (e) { toast(e.message || '文件解析失败', 'err') }
+  finally { impSaving.value = false }
+}
+/* 第二步：按用户**确认过/改过**的映射执行。mapping 由界面持有 —— 后端本来就照用它，
+   所以"改判"是真生效的，不是只改个显示。 */
+async function doImport() {
+  if (!impFile.value) return
+  impSaving.value = true
+  try {
+    const r = await importApi.execute(impFile.value, 'products', impMapping.value)
     impResult.value = r
+    impStep.value = 'pick'
     toast(`导入完成：成功 ${r.results?.success || 0} 条`, r.results?.errors?.length ? 'warn' : 'ok')
     loadProducts()
   } catch (e) { toast(e.message || '导入失败', 'err') }
@@ -758,6 +796,9 @@ onMounted(() => {
 
 /* v157 批量补厂价面板 */
 .pa-modal.pa-wide{width:min(880px,96vw)}
+/* v178 列映射确认步：表格要横向空间，且行数可能几十行 → 加宽 + 限高内滚（不撑出视口） */
+.pa-modal.pa-map{width:min(880px,96vw);max-height:88vh;display:flex;flex-direction:column}
+.pa-modal.pa-map .pa-modal-body{overflow-y:auto}
 .pa-fp-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .pa-fp-filters select{flex:0 0 140px;width:140px;height:30px}
 .pa-fp-wrap{max-height:46vh;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-md)}

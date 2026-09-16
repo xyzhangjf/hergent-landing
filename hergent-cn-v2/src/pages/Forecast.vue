@@ -115,7 +115,7 @@
     <Teleport to="body">
       <Transition name="fade"><div v-if="impOpen" class="imp-overlay" @click="impOpen = false"></div></Transition>
       <Transition name="pop">
-        <div v-if="impOpen" class="imp-modal">
+        <div v-if="impOpen" class="imp-modal" :class="{ 'imp-wide': impState === 'preview' }">
           <div class="imp-hd"><b>导入预报订单 Excel</b><button class="imp-x" @click="impOpen = false"><Icon name="close"/></button></div>
           <div v-if="!impState" class="imp-body">
             <p class="imp-tip">选择你现有的订单汇总表（行=商品、列=客户、格=数量）。系统自动识别商品列与客户列，导入后即汇总进交叉表。</p>
@@ -126,16 +126,9 @@
             <p v-if="impFileName" class="imp-file">已选择：{{ impFileName }}</p>
           </div>
           <div v-else-if="impState === 'preview'" class="imp-body">
-            <div v-if="impCross" class="imp-ident">
-              <div class="imp-ident-row"><span>商品名称列</span><b>{{ impCross.identity.name != null ? impHeaders[impCross.identity.name] : '（未识别）' }}</b></div>
-              <div class="imp-ident-row"><span>条码列</span><b>{{ impCross.identity.barcode != null ? impHeaders[impCross.identity.barcode] : '（未识别）' }}</b></div>
-              <div class="imp-ident-row"><span>规格列</span><b>{{ impCross.identity.spec != null ? impHeaders[impCross.identity.spec] : '（未识别）' }}</b></div>
-              <div class="imp-ident-row"><span>单位列</span><b>{{ impCross.identity.unit != null ? impHeaders[impCross.identity.unit] : '（未识别）' }}</b></div>
-              <!-- 厂价是本模版的「条件必填」列：闸门开启时缺厂价（且进价也为空）的行会被拒收，
-                   故这里必须显式回显识别结果。v165：厂价 ≡ 进价，档案侧两者任一有值即放行。 -->
-              <div class="imp-ident-row"><span>厂价列</span><b :class="{ 'imp-miss': impCross.identity.factory == null && impCross.identity.price == null }">{{ impCross.identity.factory != null ? impHeaders[impCross.identity.factory] : (impCross.identity.price != null ? impHeaders[impCross.identity.price] + '（按单价）' : '（未识别）') }}</b></div>
-              <div class="imp-ident-row"><span>客户列（{{ impCross.customers.length }} 个）</span><b class="imp-customers">{{ impCross.customers.map(c => c.name).join('、') }}</b></div>
-            </div>
+            <p class="imp-tip">系统按列名猜字段，可能猜错（例如把「合计」当成客户列）。核对「识别为」这一列，不对就在下拉里改 —— 标「不导入」的列不会进来。</p>
+            <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions" />
+            <p v-if="impFactoryMissing" class="imp-gate">没有识别到「厂价」列。厂价闸门开启时，档案里也没有厂价（或进价）的行会被整行拒收 —— 文件里若有厂价列，请在上表把它改成「厂价」。</p>
             <div v-if="impPreview.length" class="imp-matrix">
               <table class="tbl">
                 <thead><tr><th v-for="(h, hi) in impHeaders.slice(0, 12)" :key="hi">{{ h }}</th></tr></thead>
@@ -1766,6 +1759,7 @@ import { store, toast } from '../store'
 import { auth, api } from '../api/client.js'
 import { forecastApi, auditApi, forecastApproveApi, importApi, productsApi, forecastRecipeApi, columnSchemeApi, forecastColumnsApi } from '../api/modules'
 import Icon from '../components/Icon.vue'
+import ImportMapping from '../components/ImportMapping.vue'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ForecastHistory from './ForecastHistory.vue'
 import ReportMapping from './ReportMapping.vue'
@@ -5651,12 +5645,20 @@ const impFileObj = ref(null)
 const impFileName = ref('')
 const impHeaders = ref([])
 const impPreview = ref([])
-const impCross = ref(null)
 const impMapping = ref({})
 const impResult = ref(null)
 const importing = ref(false)
-const impCustomerCount = computed(() => (impCross.value?.customers || []).length)
-const impCanExec = computed(() => (impCross.value?.customers || []).length > 0)
+/* v178 列映射确认：身份列与客户列都可在界面上改判（此前只读回显，改不了）。
+   候选字段由后端 /preview 的 field_options 给 —— 前端不自己写一份键→中文。 */
+const impSuggestions = ref([])
+const impFieldOptions = ref([])
+/* 客户列数从 **实际要提交的 mapping** 派生，不再取后端识别结果 ——
+   否则用户在上面把某列改成「不导入」后，按钮仍写着 N 个客户，文案与提交内容两套口径。 */
+const impCustomerCount = computed(() => Object.values(impMapping.value).filter(v => v === 'customer').length)
+const impCanExec = computed(() => impCustomerCount.value > 0)
+/* 厂价是模版的「条件必填」列：闸门开启时缺厂价（且档案无进价）的行会被整行拒收。
+   旧版把这句做成只读回显，用户看到「未识别」也无从下手；现在改成能被改的提示。 */
+const impFactoryMissing = computed(() => !Object.values(impMapping.value).some(v => v === 'factory' || v === 'price'))
 
 // v157 零档案建档结果：后端在 results 里回传 products_created_count / products_reused_count /
 // products_backfilled_count / unmatched_products，并在顶层回传 barcode_conflicts。
@@ -5698,7 +5700,10 @@ const impUnmapped = computed(() => {
   return Array.isArray(us) ? us : []
 })
 
-function openImport() { impOpen.value = true; impState.value = null; impResult.value = null }
+function openImport() {
+  impOpen.value = true; impState.value = null; impResult.value = null
+  impSuggestions.value = []; impFieldOptions.value = []; impMapping.value = {}
+}
 function pickFile() { impFileInput.value && impFileInput.value.click() }
 
 async function downloadFcTemplate() {
@@ -5727,17 +5732,11 @@ async function onImportFile(ev) {
     const prev = await importApi.preview(f, 'forecast_cross')
     impHeaders.value = prev.headers || []
     impPreview.value = prev.preview || []
-    impCross.value = prev.cross || null
+    impSuggestions.value = prev.suggestions || []
+    impFieldOptions.value = prev.field_options || []
     const mapping = {}
-    for (const s of prev.suggestions || []) {
+    for (const s of impSuggestions.value) {
       if (s.suggested_field) mapping[s.index] = s.suggested_field
-    }
-    // 兜底：非空且非身份列的未映射表头 → 客户列
-    const identityIdx = new Set(Object.values((prev.cross && prev.cross.identity) || {}))
-    for (let i = 0; i < (prev.headers || []).length; i++) {
-      const h = String(prev.headers[i] || '').trim()
-      if (!h || identityIdx.has(i) || mapping[i]) continue
-      mapping[i] = 'customer'
     }
     impMapping.value = mapping
     impState.value = 'preview'
@@ -6990,11 +6989,12 @@ th.sortable:hover{color:var(--p-dark)}
 .btn.danger{color:var(--dan)}
 .btn.danger:hover{filter:brightness(.95)}
 .imp-file{font-size:12px;color:var(--t3);margin-top:10px}
-.imp-ident{background:var(--bg3);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:12px;display:flex;flex-direction:column;gap:6px}
-.imp-ident-row{display:flex;gap:10px;font-size:12.5px}
-.imp-ident-row span{color:var(--t3);flex-shrink:0;width:88px}
-.imp-ident-row b{color:var(--t1);font-weight:500}
-.imp-customers{font-weight:400;color:var(--p-dark);line-height:1.6}
+/* v178：原 `.imp-ident*` / `.imp-customers` / `.imp-miss` 一组样式随只读识别摘要一并移除
+   —— 那组回显已被 ImportMapping 组件的可编辑映射表取代，留着就是死 CSS。 */
+/* 列映射确认步要横向空间（文件列 / 识别为 / 依据 / 样例值四列） */
+.imp-modal.imp-wide{width:min(880px,94vw)}
+/* 厂价列未识别时的提示：不是「说明文字」而是风险提示（闸门开启会整行拒收），且指明了去哪改 */
+.imp-gate{margin:10px 0 12px;padding:8px 12px;border-radius:var(--radius-sm);font-size:12.5px;line-height:1.6;background:var(--warn-amber-bg);color:var(--warn-amber)}
 .imp-matrix{max-height:180px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-md);margin-bottom:12px}
 .imp-matrix table{font-size:11.5px}
 .imp-matrix th,.imp-matrix td{padding:5px 8px;border-bottom:1px solid var(--border-subtle);white-space:nowrap}
@@ -7002,7 +7002,6 @@ th.sortable:hover{color:var(--p-dark)}
 .imp-ft{display:flex;justify-content:flex-end;gap:10px;padding-top:6px}
 .imp-ok{color:var(--suc);font-size:13px;margin-bottom:12px}
 .imp-warn{color:var(--war);font-size:12.5px;margin-bottom:8px}
-.imp-ident-row .imp-miss{color:var(--war)}
 
 /* v157 零档案建档结果块 */
 .imp-arch{margin-top:12px;padding:12px 14px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
