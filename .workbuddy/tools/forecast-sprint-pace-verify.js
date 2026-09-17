@@ -147,7 +147,8 @@ async function main() {
   }
 
   console.log('\n=== B. 文案已渲染（三态之一）===')
-  const RE = /^(落后时间进度|超过时间进度) \d+(\.\d)? 个百分点$|^与时间进度持平$/
+  // v182：文案单位由「个百分点」改为「%」（用户指定）→ 断言随之收紧为必须以 % 结尾
+  const RE = /^(落后时间进度|超过时间进度) \d+(\.\d)?%$|^与时间进度持平$/
   ok(S0.nPace === S0.nRows, '每行都渲染了对比文案节点', `nPace=${S0.nPace} nRows=${S0.nRows}`)
   S0.rows.forEach(r => {
     ok(r.pace && RE.test(r.pace.text), `行${r.i + 1}「${r.obj}」文案格式合规`, r.pace ? r.pace.text : '(无)')
@@ -190,8 +191,8 @@ async function main() {
   const S1 = await page.evaluate(snap)
   info(`压窄后：列宽=${S1.rows[0] ? S1.rows[0].tdW : -1}px · 文案可见 ${S1.rows.filter(r => r.pace && r.pace.visible).length}/${S1.nPace}`)
   ok(S1.rows.every(r => !r.pace || !r.pace.visible), '压窄后所有行文案均隐藏（不再显示半截文字）')
-  ok(S1.rows.some(r => /个百分点|持平/.test(r.barTitle)), '隐藏后进度条挂上了 hover 提示', (S1.rows.find(r => r.barTitle) || {}).barTitle)
-  const hovered = S1.rows.find(r => /个百分点|持平/.test(r.barTitle))
+  ok(S1.rows.some(r => /时间进度|持平/.test(r.barTitle)), '隐藏后进度条挂上了 hover 提示', (S1.rows.find(r => r.barTitle) || {}).barTitle)
+  const hovered = S1.rows.find(r => /时间进度|持平/.test(r.barTitle))
   if (hovered && hovered.pace) ok(hovered.barTitle.indexOf(hovered.pace.text) === 0, 'hover 提示以该行文案开头（口径一致）', hovered.barTitle)
   if (hovered && hovered.pace && hovered.tpFrac != null) {
     const tpShown = S0.tpText ? (S0.tpText.match(/([\d.]+)%/) || [])[1] : null
@@ -208,7 +209,8 @@ async function main() {
   ok(errs.length === 0, '零 console/page 错误', errs.slice(0, 3).join(' | '))
   ok(bad.length === 0, '无 4xx/5xx 资源请求', bad.slice(0, 3).join(' | '))
 
-  await page.screenshot({ path: OUT + '/v181-进度条时间进度对比.png', fullPage: false })
+  require('fs').mkdirSync(OUT, { recursive: true })   // HG_OUT 指向新目录时不必手工建
+  await page.screenshot({ path: OUT + '/v182-进度条时间进度对比.png', fullPage: false })
   console.log('\n结果：PASS ' + results.filter(r => r.pass).length + ' / FAIL ' + results.filter(r => !r.pass).length)
   await browser.close()
 }
