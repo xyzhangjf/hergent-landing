@@ -73,7 +73,7 @@ const COMMANDS = [
   { id: 'connect', group: '页面', icon: 'brain', title: '能力中心', path: '/connect' },
   { id: 'roles', group: '页面', icon: 'users', title: 'AI 团队', path: '/roles' },
   { id: 'reconciliation', group: '页面', icon: 'audit', title: '对账工作流', path: '/reconciliation' },
-  { id: 'loss', group: '页面', icon: 'flame', title: '货损计算工作流', path: '/loss' },
+  { id: 'loss-accounting', group: '页面', icon: 'receipt', title: '货损核算', path: '/loss-accounting' },
   { id: 'payroll', group: '页面', icon: 'coins', title: '算工资工作流', path: '/payroll' },
   { id: 'data-fill', group: '页面', icon: 'package', title: '库存效期补录', path: '/data-fill' },
   { id: 'archive', group: '页面', icon: 'book', title: '档案管理', path: '/archive/employees' },

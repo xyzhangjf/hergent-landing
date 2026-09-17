@@ -62,11 +62,17 @@ function snapBar() {
   return [...bar.querySelectorAll('button')].map(b => (b.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean)
 }
 
-// 浏览器内：侧栏是否有入口
+// 浏览器内：侧栏是否有入口 + 是否残留被删的旧入口
 function snapSidebar() {
-  return [...document.querySelectorAll('a, .nav-item, .side-item, .menu-item, li')]
+  const txt = [...document.querySelectorAll('a, .nav-item, .side-item, .menu-item, li')]
     .map(x => (x.textContent || '').replace(/\s+/g, ' ').trim())
-    .filter(x => x === '货损核算' || x.startsWith('货损核算')).length
+  return {
+    acc: txt.filter(x => x === '货损核算' || x.startsWith('货损核算')).length,
+    // 🔴 v185：侧栏「货损计算」入口已删（仅保留货损核算）。
+    //   这条断言就是那个需求的回归闸 —— 页面正文与侧栏都在 body.innerText 里，
+    //   本页是 /loss-accounting，所以出现「货损计算」即说明旧入口又回来了。
+    calc: txt.filter(x => x === '货损计算' || x.startsWith('货损计算')).length,
+  }
 }
 
 async function main() {
@@ -126,9 +132,16 @@ async function main() {
   ok(bar && bar.includes('手工录入'), '「手工录入」按钮在（第一优先功能）')
   ok(bar && bar.includes('上传数据'), '「上传数据」（导入扩展位）按钮在')
 
-  console.log('\n# 4) 侧栏入口')
-  const nSide = await page.evaluate(snapSidebar)
-  ok(nSide >= 1, '侧栏有「货损核算」入口', nSide + ' 处')
+  console.log('\n# 4) 侧栏入口（仅保留「货损核算」）')
+  const sb = await page.evaluate(snapSidebar)
+  ok(sb.acc >= 1, '侧栏有「货损核算」入口', sb.acc + ' 处')
+  ok(sb.calc === 0, '侧栏已无「货损计算」入口', sb.calc + ' 处')
+  const bodyHas = await page.evaluate(() => {
+    const t = document.body.innerText || ''
+    return { calc: (t.match(/货损计算/g) || []).length, acc: (t.match(/货损核算/g) || []).length }
+  })
+  ok(bodyHas.calc === 0, '整页正文（含导航）不含「货损计算」', 'x' + bodyHas.calc)
+  info('正文「货损核算」出现 ' + bodyHas.acc + ' 次')
 
   console.log('\n# 5) 录入态（只开不写）')
   await page.evaluate(() => {

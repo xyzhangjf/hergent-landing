@@ -774,6 +774,31 @@ SPEC_FE_V184C_DOCS = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# v185 导航收口：侧栏只保留「货损核算」入口（删掉重复的「货损计算」）。
+#   用户原话：「删除侧栏中另一个『货损计算』入口，仅保留『货损核算』入口」。
+#   三处导航出口一起收口 —— 只删侧栏会留半截（⌘K 面板仍能搜到旧页）：
+#     ① Shell.vue 桌面侧栏  ② Shell.vue 移动抽屉  ③ CommandPalette.vue ⌘K 命令面板
+#   ⚠️ **故意不动**的四处，别当漏改：
+#     · router/index.js 的 /loss 路由 —— 保留 ⇒ 旧书签/外链不 404（收的是**入口**，不删能力）
+#     · Workbench.vue:357 待办卡 path:'/loss' —— 那是**批次效期**深链（「N 批已过期」→看批次
+#       清单），改指 /loss-accounting 是错的：核算页按月看流水，没有批次清单
+#     · AdvicePanel.vue TYPE_MAP.loss_calc —— AI 建议卡的**类型标签**，不是导航
+#     · LossWorkflow.vue 页内文案（标题/导出名/打印副标题）—— 页面自身的事
+#   Shell.vue 在本仓库常年有在途改动：此刻 10 个在途 hunk（另一会话在删 ⌘K 角标
+#   tb-cp-k / tb-copilot），本轮只占 old_start=46 与 95（两个**纯删除** hunk）
+#   ⇒ 必须走 exclude_hunks 黑名单，不能用 gfocus（`-U3` 会把相邻改动并进同一 hunk）。
+#   CommandPalette.vue 在 HEAD 干净且本轮 hunk 全是我的 ⇒ keep_all（自证「== 工作区」）。
+#   ⚠️ 「10 hunk」是本刻快照；复跑前重数（本工具自己会断言，不会静默放过）。
+SPEC_FE_V185_NAV = ("fe", [
+    {"file": "hergent-cn-v2/src/components/Shell.vue",
+     "exclude_hunks": [17, 111, 143, 148, 189, 190, 195, 329, 332, 401], "gone": []},
+    {"file": "hergent-cn-v2/src/components/CommandPalette.vue",
+     "keep_all": True, "gone": ["货损计算工作流"]},
+    # 本轮的「需求 → 可复跑断言」：把「侧栏只能有货损核算」钉成回归闸。
+    {"file": ".workbuddy/tools/loss-accounting-prod-verify.js", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -787,7 +812,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v184b2": SPEC_BE_V184B2, "fe-v184b2": SPEC_FE_V184B2,
          "be-v184c": SPEC_BE_V184C, "fe-v184c": SPEC_FE_V184C,
          "fe-v184c-docs": SPEC_FE_V184C_DOCS,
-         "be-loss": SPEC_BE_LOSS, "fe-loss": SPEC_FE_LOSS}
+         "be-loss": SPEC_BE_LOSS, "fe-loss": SPEC_FE_LOSS,
+         "fe-v185-nav": SPEC_FE_V185_NAV}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
