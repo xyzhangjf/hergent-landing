@@ -3,7 +3,7 @@
     <div class="page-hd split">
       <div>
         <h2>商品档案</h2>
-        <span class="page-sub">浏览与轻量维护商品主档 · 点品牌格行内改（自动归一）· 点厂价格可直接补价 · <b>点到货周期格可设「+几天到货」</b> · 售价/进价/安全库存只读（厂价 ＝ 进价，进价有值即不必再补）</span>
+        <span class="page-sub">浏览与维护商品主档 · <b>点行尾「编辑」改名称/规格/价格/描述等（只提交你真的改过的字段）</b> · 品牌、厂价、到货周期三列也支持行内直接点改</span>
       </div>
       <div class="pa-actions">
         <span class="pa-stat" v-if="total !== null"><b>{{ total }}</b>&nbsp;个商品</span>
@@ -93,7 +93,7 @@
               <td>
                 <span class="pa-status" :class="p.is_active === 0 ? 'off' : 'on'">{{ p.is_active === 0 ? '停用' : '启用' }}</span>
               </td>
-              <td class="pa-ops"><button class="btn btn-ghost btn-sm" @click="openDetail(p)">详情</button></td>
+              <td class="pa-ops"><button class="btn btn-ghost btn-sm" @click="openDetail(p)">编辑</button></td>
             </tr>
           </tbody>
         </table>
@@ -113,36 +113,112 @@
       <div v-else class="state-empty">没有匹配的商品，调整筛选条件试试</div>
     </div>
 
-    <!-- 只读详情弹窗 -->
+    <!-- v184c：商品「编辑」弹窗（由原「只读详情」升级而来 —— 入口仍是每行那个按钮，**不新增按钮**）。
+         🔴 三条设计约束（改之前先读）：
+
+         ① **保存只提交「真正改动过的字段」**（diff），而不是把整张表单 PUT 回去。理由三条：
+            · **不留假痕迹** —— 厂价框显示的是 `fpEff()` 解析值（可能是「取进价」的结果），
+              无脑整表回传会把 `factory_price` 从 0 写成那个数，留痕里凭空多一条「厂价 0→3.5」；
+            · **不误清空** —— 表单没渲染到的字段永远不会被覆盖（与 bulk-upsert 那个坑同源）；
+            · **并发更安全** —— 两人同时编辑各改各的字段，后保存的不吃掉先保存的。
+
+         ② **条码 / 厂家编码只读**。条码是唯一索引（`v89_products_barcode_unique`，`WHERE barcode!=''`）
+            且是**至少 5 条链路**的关联键（扫码查询 `routers/barcode.py`、导入匹配 `import_router`、
+            返利达成 `rebate_achievements`、档案弹层 `products.py`、预报配置），改它 = 断链路 ——
+            故此处不给入口，要改得走专门的条码冲突处理流程（`barcode_conflicts`）。
+
+         ③ **「留空 = 清空该字段」**（数值即 0），与「新增商品」弹窗的「留空 = 不改动」**相反**：
+            这里是**定向动作**（你专门点开这一个商品），留空只能是「我要清掉它」；
+            新增那边是同名即更新的批量语义，空格子多半只是「这行没意见」。
+            两者都各自写在界面上（见各字段的 pa-hint 与上面那句 pa-tip）。
+
+         ⚠️ 价格字段的提交会同时触发后端既有的**调价审计**（`routers/data.py::update_product`
+            的 `has_price` 分支 → `db.audit_log`），那是另一套「动作级」日志，与下面「修改记录」
+            （字段级）**不是重复**：前者答「做过调价这个动作」，后者答「哪个字段从多少变成多少」。 -->
     <Teleport to="body">
-      <Transition name="fade"><div v-if="detailOpen" class="pa-overlay" @click="detailOpen = false"></div></Transition>
+      <Transition name="fade"><div v-if="detailOpen" class="pa-overlay" @click="tryCloseEdit()"></div></Transition>
       <Transition name="pop">
-        <div v-if="detailOpen" class="pa-modal">
-          <div class="pa-modal-hd"><b>商品详情 · {{ detailTarget?.name }}</b><button class="pa-x" @click="detailOpen = false"><Icon name="close"/></button></div>
+        <div v-if="detailOpen" class="pa-modal pa-edit">
+          <div class="pa-modal-hd">
+            <b>编辑商品 · {{ detailTarget?.name }}</b>
+            <button class="pa-x" @click="tryCloseEdit()"><Icon name="close"/></button>
+          </div>
           <div class="pa-modal-body">
-            <div class="pa-detail-grid">
-              <div class="pa-detail-item"><span>名称</span><b>{{ detailTarget?.name }}</b></div>
-              <div class="pa-detail-item"><span>条码</span><b>{{ detailTarget?.barcode || '—' }}</b></div>
-              <div class="pa-detail-item"><span>规格</span><b>{{ detailTarget?.spec || '—' }}</b></div>
-              <div class="pa-detail-item"><span>单位</span><b>{{ detailTarget?.unit || '—' }}</b></div>
-              <div class="pa-detail-item"><span>品牌</span><b>{{ detailTarget?.brand || '—' }}</b></div>
-              <div class="pa-detail-item"><span>分类</span><b>{{ detailTarget?.category || '—' }}</b></div>
-              <div class="pa-detail-item"><span>标准售价</span><b>{{ money(detailTarget?.sale_price) }}</b></div>
-              <div class="pa-detail-item"><span>进价</span><b>{{ money(detailTarget?.purchase_price) }}</b></div>
-              <div class="pa-detail-item"><span>厂价<span class="pa-hint">＝ 进价 ＝ 厂家结算价，付款结算用</span></span><b :class="{ 'pa-fp-miss': fpEff(detailTarget).from === 'none' }">{{ fpEff(detailTarget).from === 'none' ? '未录' : money(fpEff(detailTarget).v) + (fpEff(detailTarget).from === 'purchase' ? '（取进价）' : '') }}</b></div>
-              <div class="pa-detail-item"><span>分销价</span><b>{{ money(detailTarget?.dist_price) }}</b></div>
-              <div class="pa-detail-item"><span>安全库存</span><b>{{ detailTarget?.safety_stock != null ? detailTarget.safety_stock : '—' }}</b></div>
-              <div class="pa-detail-item"><span>保质期(天)</span><b>{{ detailTarget?.expiry_days != null ? detailTarget.expiry_days : '—' }}</b></div>
-              <!-- v184b：到货周期。文案走 utils/arrival.js 的同一份实现（与预报主表、列表列同源）——
-                   空/0 在这里显示「—」（弹层是**只读**展示，不承担「点它就能改」的引导）。 -->
-              <div class="pa-detail-item"><span>到货周期</span><b>{{ arrivalCycleText(detailTarget?.arrival_lead_days) }}</b></div>
-              <div class="pa-detail-item"><span>厂家编码</span><b>{{ detailTarget?.product_code || '—' }}</b></div>
-              <div class="pa-detail-item pa-full"><span>别名</span><b>{{ detailTarget?.alias || '—' }}</b></div>
-              <div class="pa-detail-item pa-full"><span>状态</span><b>{{ detailTarget?.is_active === 0 ? '已停用' : '启用' }}</b></div>
+            <p class="pa-tip">改哪个字段就只提交哪个 —— 没动过的字段不会被覆盖，也不会产生多余的修改记录。</p>
+
+            <div class="pa-sec">商品身份</div>
+            <div class="pa-form">
+              <label class="pa-f"><span>商品名称 <i>*</i></span><input v-model="editForm.name" class="input" placeholder="必填"></label>
+              <label class="pa-f"><span>规格</span><input v-model="editForm.spec" class="input" placeholder="如 200g×12"></label>
+              <label class="pa-f"><span>单位</span><input v-model="editForm.unit" class="input" placeholder="件"></label>
+              <label class="pa-f"><span>分类</span><input v-model="editForm.category" class="input" placeholder="如 液态奶"></label>
+              <label class="pa-f"><span>条码<span class="pa-hint">关联键，不可改</span></span><input :value="detailTarget?.barcode || '—'" class="input" disabled></label>
+              <label class="pa-f"><span>厂家编码<span class="pa-hint">不可改</span></span><input :value="detailTarget?.product_code || '—'" class="input" disabled></label>
+            </div>
+
+            <div class="pa-sec">品牌与别名</div>
+            <div class="pa-form">
+              <label class="pa-f"><span>品牌<span class="pa-hint">保存时自动归一</span></span><input v-model="editForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
+              <label class="pa-f"><span>别名<span class="pa-hint">逗号分隔的俗称，用于智能匹配</span></span><input v-model="editForm.alias" class="input" placeholder="如 纯甄,蒙牛纯甄"></label>
+            </div>
+
+            <div class="pa-sec">价格</div>
+            <div class="pa-form">
+              <label class="pa-f"><span>标准售价<span class="pa-hint">导入模版里叫「售价」</span></span><input v-model="editForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
+              <label class="pa-f"><span>进价</span><input v-model="editForm.purchase_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
+              <label class="pa-f"><span>厂价<span class="pa-hint">＝ 进价 ＝ 厂家结算价；留空 = 按进价</span></span><input v-model="editForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="留空 = 按进价"></label>
+              <label class="pa-f"><span>分销价</span><input v-model="editForm.dist_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
+            </div>
+
+            <div class="pa-sec">库存与效期</div>
+            <div class="pa-form">
+              <label class="pa-f"><span>安全库存</span><input v-model="editForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
+              <label class="pa-f"><span>保质期(天)</span><input v-model="editForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
+              <label class="pa-f"><span>到货周期<span class="pa-hint">+几天到货；留空 = 取消设置</span></span><input v-model="editForm.arrival_lead_days" class="input" type="number" min="0" :max="ARRIVAL_MAX" step="1" placeholder="如 3"></label>
+            </div>
+
+            <div class="pa-sec">描述</div>
+            <label class="pa-f pa-f-full"><span>描述<span class="pa-hint">内部备注，不印在单据上；留空 = 清空</span></span>
+              <textarea v-model="editForm.description" class="input pa-ta" rows="3" placeholder="选填"></textarea></label>
+
+            <div class="pa-sec">状态</div>
+            <div class="pa-active">
+              <span class="pa-status" :class="detailTarget?.is_active === 0 ? 'off' : 'on'">{{ detailTarget?.is_active === 0 ? '已停用' : '启用中' }}</span>
+              <span class="pa-hint">停用后该商品不再出现在报单与小程序的可选列表里</span>
+              <!-- 二次确认做成**内联**的（不叠第二层弹窗）：第一次点变成「确认停用」，点「取消」撤销。
+                   停用是有业务后果的动作（商品从报单/小程序可选列表消失），故不给一键直通。 -->
+              <button v-if="!confirmActive" class="btn btn-ghost btn-sm" @click="confirmActive = true">{{ detailTarget?.is_active === 0 ? '启用此商品' : '停用此商品' }}</button>
+              <template v-else>
+                <button class="btn btn-sm btn-danger" :disabled="savingActive" @click="applyActive(detailTarget?.is_active === 0 ? 1 : 0)">确认{{ detailTarget?.is_active === 0 ? '启用' : '停用' }}</button>
+                <button class="btn btn-ghost btn-sm" @click="confirmActive = false">取消</button>
+              </template>
+            </div>
+
+            <!-- 修改记录：后端自 v107.41 起**一直在写**（`product_update` 内部自动留痕），
+                 本区块只是把**早已存在**的查询端点接出来 —— 在此之前前端零入口，
+                 于是「改了但查不到谁改的」。首次展开才请求，不拖慢打开弹窗。 -->
+            <div class="pa-sec pa-sec-click" @click="toggleChanges()">
+              <span>修改记录</span>
+              <span class="pa-hint">{{ changesLoaded ? ('共 ' + changesList.length + ' 条') : '点此展开' }}</span>
+              <span class="pa-caret">{{ showChanges ? '收起' : '展开' }}</span>
+            </div>
+            <div v-if="showChanges" class="pa-log" ref="logBox">
+              <div v-if="changesLoading" class="pa-log-empty">加载中…</div>
+              <div v-else-if="!changesList.length" class="pa-log-empty">该商品还没有修改记录</div>
+              <div v-else class="pa-log-list">
+                <div v-for="(c, i) in changesList" :key="i" class="pa-log-row">
+                  <span class="pa-log-t">{{ (c.created_at || '').slice(0, 16) }}</span>
+                  <span class="pa-log-w">{{ c.user_name || '—' }}</span>
+                  <span class="pa-log-f">{{ FIELD_CN[c.field_name] || c.field_name }}</span>
+                  <span class="pa-log-v"><i>{{ logVal(c.old_value) }}</i> → <b>{{ logVal(c.new_value) }}</b></span>
+                </div>
+              </div>
             </div>
           </div>
           <div class="pa-modal-ft">
-            <button class="btn btn-primary" @click="detailOpen = false">知道了</button>
+            <span class="pa-ft-note" v-if="dirtyCount">{{ dirtyCount }} 个字段已改，未保存</span>
+            <button class="btn btn-ghost" @click="tryCloseEdit()">取消</button>
+            <button class="btn btn-primary" :disabled="saving || !dirtyCount" @click="saveEdit()">{{ saving ? '保存中…' : '保存' }}</button>
           </div>
         </div>
       </Transition>
@@ -323,7 +399,7 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import ImportMapping from '../components/ImportMapping.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { api } from '../api/client'
 import { productsApi, importApi } from '../api/modules'
 import * as XLSX from 'xlsx'
@@ -391,7 +467,96 @@ const editCycle = ref('')
 const detailOpen = ref(false)
 const detailTarget = ref(null)
 
-// 新增弹窗
+/* ========================= v184c 商品编辑（原「只读详情」升级） =========================
+   入口不变（仍是每行那个按钮），变的是弹窗从「只看」变成「可改」。
+
+   🔴 保存走 **diff**：只提交真正改动过的字段，不是整表 PUT。三条理由见模板顶部注释
+      （不留假痕迹 / 不误清空 / 并发更安全）。
+
+   两份数据：
+     · `editForm`     —— 与输入框双向绑定（用户改的是它）
+     · `editBaseline` —— 打开弹窗那一刻的快照，**永不被写**
+   两者归一化后不同 = 有未保存改动；`dirtyCount` 就是差异个数（驱动「保存」按钮的可用态）。 */
+const editForm = ref({})
+const editBaseline = ref({})
+const saving = ref(false)
+const confirmActive = ref(false)      // 停用/启用 的内联二次确认
+const savingActive = ref(false)
+const showChanges = ref(false)
+const changesList = ref([])
+const changesLoading = ref(false)
+const changesLoaded = ref(false)      // 首次展开才请求，避免拖慢打开弹窗
+const logBox = ref(null)              // 记录区（展开后滚进视野用）
+
+/* 可编辑字段清单 —— **同时是提交白名单**（只有这里列的才可能进 PUT body）。
+   ⚠️ 条码 / 厂家编码**有意不在**清单里：条码是唯一索引（`WHERE barcode!=''`）且是至少 5 条链路的
+      关联键（扫码查询、导入匹配、返利达成、档案弹层、预报配置），给它一个输入框就是给一把能
+      断链路的钥匙。要改条码得走专门的冲突处理流程。 */
+const EDIT_FIELDS = [
+  'name', 'spec', 'unit', 'category', 'brand', 'alias',
+  'sale_price', 'purchase_price', 'factory_price', 'dist_price',
+  'safety_stock', 'expiry_days', 'arrival_lead_days', 'description',
+]
+
+/* 数值型字段（diff 比较、校验、提交都按数字；其余按 trim 后的字符串）。
+   与「留空 = 清空」配套：数值留空归一成 0 提交，字符串留空提交空串。 */
+const EDIT_NUM_FIELDS = new Set([
+  'sale_price', 'purchase_price', 'factory_price', 'dist_price',
+  'safety_stock', 'expiry_days', 'arrival_lead_days',
+])
+
+/* 修改记录里 `field_name`（英文键）→ 中文。
+   ⚠️ 这是**展示层**叫法，与后端 `routers/import_router.py::FIELD_LABELS`（「导入列能识别成哪个
+      字段」的候选清单）**受众不同**，故不强行共用一份；但**同一字段的叫法必须对齐**：
+        · `sale_price` 后端导入标签写「售价」，本页列头写「标准售价」⇒ 本表跟**页面口径**
+          （同屏一致优先，用户在同一个页面不该看到两种叫法）；
+        · `arrival_lead_days` / `alias` / `description` 不在 FIELD_LABELS 里，用页面已有叫法。
+   映射不到的键**原样显示英文**（不隐藏、不猜）—— 否则下一个人会以为记录丢了。 */
+const FIELD_CN = {
+  name: '商品名称', spec: '规格', unit: '单位', barcode: '条码', brand: '品牌',
+  category: '分类', purchase_price: '进价', factory_price: '厂价', dist_price: '分销价',
+  sale_price: '标准售价', safety_stock: '安全库存', expiry_days: '保质期(天)',
+  product_code: '厂家商品编码', arrival_lead_days: '到货周期', alias: '别名',
+  description: '描述', wholesale_price: '批发价', min_order_qty: '起订量',
+  is_active: '状态', status: '状态', lead_time_days: '补货提前期',
+  review_period_days: '复核周期(天)', reorder_point: '补货点',
+  weight_kg: '重量(kg)', volume_m3: '体积(立方米)', large_unit: '大单位',
+  unit_ratio: '换算比', medium_unit: '中包装单位', medium_ratio: '中包装换算比',
+  created_at: '创建时间', updated_at: '更新时间',
+}
+
+/** 修改记录里「值」的展示美化。
+ *  后端对数值列取 `str()` 落库，于是 `REAL` 列存 0 会写成 `'0.0'` —— 业务上就是「0」，
+ *  末尾那个 `.0` 是浮点表示的噪音（对不懂技术的老板是纯干扰）。
+ *  ⚠️ 只削**整数尾巴**，不碰其它任何字符：名称/规格/别名这类文本字段的值原样显示，
+ *     否则「削尾巴」会把真实内容改掉（例如商品名正好叫「2026.0」）。
+ *  空值统一显示「空」（比空白格更明确：它表示「改前是空的」，不是「没有这一列」）。 */
+function logVal(v) {
+  if (v === '' || v == null) return '空'
+  const s = String(v)
+  return /^-?\d+\.0$/.test(s) ? s.slice(0, -2) : s
+}
+
+/** 归一化：数值字段恒为数字（空/非法 → 0），其余为去掉首尾空白的字符串。
+ *  ⚠️ 必须与后端口径一致 —— 若把 `''` 与 `0` 判成不同，就会为「其实什么都没改」多发一次 PUT，
+ *  于是修改记录里凭空多出一条。 */
+function _norm(k, v) {
+  if (EDIT_NUM_FIELDS.has(k)) {
+    const n = Number(v)
+    return isFinite(n) ? n : 0
+  }
+  return String(v == null ? '' : v).trim()
+}
+
+/* 未保存改动数（0 → 保存按钮置灰）。 */
+const dirtyCount = computed(() => {
+  const a = editForm.value || {}, b = editBaseline.value || {}
+  let n = 0
+  for (const k of EDIT_FIELDS) if (_norm(k, a[k]) !== _norm(k, b[k])) n++
+  return n
+})
+
+/* 新增弹窗 */
 const addOpen = ref(false)
 const addSaving = ref(false)
 const addForm = ref({ name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '', arrival_lead_days: '' })
@@ -661,7 +826,145 @@ async function saveFpBatch() {
   finally { fpSaving.value = false }
 }
 
-function openDetail(p) { detailTarget.value = p; detailOpen.value = true }
+/* ============================ v184c 商品编辑：打开 / 保存 / 关闭 ============================ */
+
+/** 打开编辑弹窗：把该商品的值拷两份 —— `editForm`（可变）+ `editBaseline`（diff 基线，不动）。
+ *
+ *  ⚠️ 数值字段**为 0 时渲染成空框**（而不是「0」）：这样用户一眼能分清「没设」与「有值」，
+ *  也与本弹窗的「留空 = 清空」语义一致（想清掉就把框清空）。placeholder 里写了 0/示例，
+ *  所以空框不会被误读成「这个字段不存在」。
+ *  ⚠️ 厂价框显示的是**存储值**而不是列表列那个 `fpEff()` 解析值 —— 列表里「取进价 3.5」说的是
+ *  「厂价没单独录，按口径用进价」，若在这里显示 3.5，用户会以为厂价已录，保存时也会把 0 写成 3.5。 */
+function openDetail(p) {
+  detailTarget.value = p
+  const f = {}, b = {}
+  for (const k of EDIT_FIELDS) {
+    let v
+    if (EDIT_NUM_FIELDS.has(k)) {
+      const n = Number(p[k])
+      v = (isFinite(n) && n > 0) ? String(n) : ''
+    } else {
+      v = p[k] == null ? '' : String(p[k])
+    }
+    f[k] = v
+    b[k] = _norm(k, v)
+  }
+  editForm.value = f
+  editBaseline.value = b
+  saving.value = false
+  confirmActive.value = false
+  showChanges.value = false
+  changesLoaded.value = false
+  changesList.value = []
+  detailOpen.value = true
+}
+
+/** 关闭编辑弹窗。有未保存改动时**提示一次**再关 —— 不静默丢弃（用户会以为存上了），
+ *  也不挡着不让人关（点遮罩/叉号本来就是「算了」的意思）。 */
+function tryCloseEdit() {
+  if (saving.value) return                    // 保存进行中不给关，避免半途状态
+  if (dirtyCount.value) toast(`已放弃 ${dirtyCount.value} 处未保存的改动`, 'warn')
+  detailOpen.value = false
+  confirmActive.value = false
+}
+
+/** 保存：**只提交改动过的字段**（diff）。
+ *
+ *  三处在发出请求前必须拦住（拦住 = 不发请求，与后端「宁可不写、不写脏」同向）：
+ *   ① **商品名称为空** —— `products.name` 是 NOT NULL，但**空串不是 NULL**，SQLite 会照收 ⇒
+ *      库里会出现无名商品（而它会出现在报单/小程序里）。后端也已补同一道闸（双保险）。
+ *   ② **到货周期非法** —— 走 `utils/arrival.js` 同一份规则（上界与后端 `_ATD_MAX` 同值）。
+ *   ③ **数值为负 / 非数字** —— `type=number` 只在 DOM 层拦得住「字母」，拦不住负数与越界。 */
+async function saveEdit() {
+  const p = detailTarget.value
+  if (!p) return
+  const f = editForm.value, b = editBaseline.value
+  const body = {}
+  for (const k of EDIT_FIELDS) {
+    const nv = _norm(k, f[k])
+    if (nv === b[k]) continue                 // 没动过 → 不进 body（这就是 diff）
+    body[k] = nv
+  }
+  if (!Object.keys(body).length) { toast('没有改动', 'warn'); return }
+  if ('name' in body && !String(body.name).trim()) { toast('商品名称不能为空', 'err'); return }
+  if ('arrival_lead_days' in body) {
+    const r = parseArrivalDays(body.arrival_lead_days)
+    if (!r.ok) { toast(`到货天数请填 0~${ARRIVAL_MAX} 之间的整数（留空或 0 = 取消设置）`, 'err'); return }
+    body.arrival_lead_days = r.value
+  }
+  for (const k of EDIT_NUM_FIELDS) {
+    if (k in body && (!isFinite(body[k]) || body[k] < 0)) {
+      toast((FIELD_CN[k] || k) + ' 不能是负数或非数字', 'err'); return
+    }
+  }
+  saving.value = true
+  try {
+    await api('/api/products/' + p.id, { method: 'PUT', body })
+    // 就地更新列表行 + 全量索引：切页回来、后续金额/补价计算都读到新值
+    Object.assign(p, body)
+    const hit = allProducts.value.find(x => x.id === p.id)
+    if (hit) Object.assign(hit, body)
+    if ('brand' in body) loadBrandOptions()   // 品牌可能是新值 → 刷新下拉候选
+    toast(`已保存 ${Object.keys(body).length} 处改动`, 'ok')
+    detailOpen.value = false
+    if (changesLoaded.value) loadChanges(p.id)   // 记录已展开 → 顺手刷新，让刚改的立即可见
+  } catch (e) { toast(e.message || '保存失败', 'err') }
+  finally { saving.value = false }
+}
+
+/** 停用 / 启用（`v` = 1 启用 / 0 停用）。
+ *
+ *  ⚠️ 走同一个 `PUT /api/products/{id}`（`is_active` 本就在 `product_update` 白名单里）。
+ *  ⚠️ 停用是**有业务后果**的动作：该商品会从报单导入与小程序报单的可选列表里消失
+ *     （既有单据不受影响）⇒ 故用内联二次确认，不做一键直通。 */
+async function applyActive(v) {
+  const p = detailTarget.value
+  if (!p) return
+  savingActive.value = true
+  try {
+    await api('/api/products/' + p.id, { method: 'PUT', body: { is_active: v } })
+    p.is_active = v
+    const hit = allProducts.value.find(x => x.id === p.id)
+    if (hit) hit.is_active = v
+    toast(v === 0
+      ? '已停用 —— 该商品不再出现在报单与小程序的可选列表'
+      : '已启用 —— 该商品重新可选', 'ok')
+    confirmActive.value = false
+    recomputeMissingFactory()                 // 停用会改变「缺厂价」计数口径（该计数只算启用商品）
+    if (changesLoaded.value) loadChanges(p.id)
+  } catch (e) { toast(e.message || '操作失败', 'err') }
+  finally { savingActive.value = false }
+}
+
+/** 展开/收起修改记录：**首次展开才请求**；展开后把记录区滚进视野。
+ *
+ *  ⚠️ 最后那步 `scrollIntoView` 不是装饰 —— 弹窗内容比视口长（14 字段 + 状态 + 记录），
+ *  记录区在底部，用户点「展开」时它往往在视口外 ⇒「点了展开却什么都没出现」，
+ *  看起来就像**没有记录**（v184c 首轮真机截图正是如此）。这个动作让「打开」的结果立刻可见。 */
+async function toggleChanges() {
+  showChanges.value = !showChanges.value
+  if (!showChanges.value) return
+  if (!changesLoaded.value) await loadChanges(detailTarget.value?.id)
+  await nextTick()      // 记录区可能刚由 v-if 挂载出来，要等这一拍才拿得到元素
+  if (logBox.value && logBox.value.scrollIntoView) {
+    logBox.value.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+}
+
+/** 拉商品修改记录（字段级留痕）。
+ *  ⚠️ 后端 `GET /api/products/{pid}/changes` 直接返回 **数组**（与本仓销售订单那个返回
+ *  `{changes:[...]}` 的端点**形态不同**）—— 这里两种都兼容，免得换个端点就静默空白。 */
+async function loadChanges(pid) {
+  if (!pid) return
+  changesLoading.value = true
+  try {
+    const d = await productsApi.changes(pid)
+    changesList.value = Array.isArray(d) ? d : (d && d.changes) || []
+    changesLoaded.value = true
+  } catch (e) { toast(e.message || '修改记录加载失败', 'err') }
+  finally { changesLoading.value = false }
+}
+
 
 /* ---- 新增商品 ---- */
 function openAdd() {
@@ -867,10 +1170,41 @@ onMounted(() => {
 .pa-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 14px;background:var(--bg2);padding:8px 12px;border-radius:8px}
 
 /* 详情网格 */
-.pa-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px}
-.pa-detail-item{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--t3)}
-.pa-detail-item b{font-size:14px;color:var(--t1);font-weight:600;word-break:break-all}
-.pa-detail-item.pa-full{grid-column:1 / -1}
+/* ---- v184c 商品编辑弹窗（原 .pa-detail-* 只读样式随弹窗改造一并删除，避免死 CSS）----
+   宽度 720 而非默认 520：14 个字段 + 状态 + 修改记录，520 下两列会挤到每行只剩半句。
+   body 可滚动 + max-height：本项目弹窗没有内置滚动，字段一多底部按钮会被推出视口（点不到保存）。 */
+.pa-modal.pa-edit{width:min(720px,94vw);max-height:88vh;display:flex;flex-direction:column}
+.pa-modal.pa-edit .pa-modal-body{overflow-y:auto}
+/* 分组小标题：把 14 个字段切成「身份 / 品牌 / 价格 / 库存效期 / 描述 / 状态 / 记录」。
+   没有分隔时就是一长条输入框，找「进价」和找「保质期」都得靠扫。 */
+.pa-sec{font-size:12px;font-weight:600;color:var(--t2);margin:16px 0 8px;padding-bottom:5px;
+  border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:6px}
+.pa-modal-body>.pa-sec:first-of-type{margin-top:2px}
+.pa-sec-click{cursor:pointer;user-select:none}
+.pa-sec-click:hover{color:var(--p)}
+.pa-caret{margin-left:auto;font-size:11.5px;color:var(--p);font-weight:400}
+.pa-f-full{grid-column:1 / -1}
+.pa-ta{height:auto;min-height:66px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
+/* 状态行：徽标 + 说明 + 按钮排一行；说明占满剩余宽度，长句不撑破弹窗。 */
+.pa-active{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pa-active .pa-hint{margin-left:0;flex:1 1 220px;min-width:0}
+/* 停用按钮用危险色：它是本弹窗里唯一「有业务后果」的动作（商品从报单/小程序可选列表消失）。 */
+.btn-danger{background:var(--dan-bg);color:var(--dan);border:1px solid transparent}
+.btn-danger:hover{filter:brightness(.97)}
+/* 底部左侧未保存提示：margin-right:auto 把它顶到左边，按钮组留在原位（不跳位）。 */
+.pa-ft-note{margin-right:auto;font-size:12px;color:var(--war)}
+/* 修改记录：时间 / 人 / 字段 / 改前→改后，前三列不换行、末列自适应。 */
+.pa-log{border:1px solid var(--border-subtle);border-radius:10px;max-height:210px;overflow-y:auto}
+.pa-log-empty{padding:14px;text-align:center;font-size:12.5px;color:var(--t3)}
+.pa-log-row{display:flex;align-items:baseline;gap:10px;padding:7px 12px;font-size:12.5px;
+  border-bottom:1px solid var(--border-subtle)}
+.pa-log-row:last-child{border-bottom:0}
+.pa-log-t{color:var(--t3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pa-log-w{color:var(--t2);white-space:nowrap;max-width:96px;overflow:hidden;text-overflow:ellipsis}
+.pa-log-f{color:var(--t2);white-space:nowrap;min-width:76px}
+.pa-log-v{color:var(--t1);word-break:break-all;min-width:0}
+.pa-log-v i{font-style:normal;color:var(--t3);text-decoration:line-through}
+.pa-log-v b{font-weight:600}
 
 /* 新增表单 */
 .pa-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}

@@ -697,6 +697,76 @@ SPEC_FE_LOSS = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v184c：商品档案「编辑」按钮（方案 A：只读详情弹窗 → 可编辑表单）──────────
+# 归属依据（逐 hunk 打印首行核对，不按行号猜；两个仓库各自的自证见下）：
+#
+# 前端（fe HEAD = b926c97）：
+#   hergent-cn-v2/src/pages/ProductArchive.vue（**11 hunk，全本轮**）→ keep_all
+#     11 个 hunk 的 old_start = 6 / 96 / 116 / 118 / 120 / 123 / 145 / 326 / 394 / 664 / 870，
+#     逐块打印确认全部是本轮 v184c 的改动（无并行会话在途尾巴）：
+#       6    页头副标题改写（原写「售价/进价/安全库存只读」已不成立，文案不能与事实不符）
+#       96   行尾按钮文案「详情」→「编辑」（**入口不变，不新增按钮** —— 方案 A 的定义）
+#       116  在只读弹窗原位插入大段设计约束注释（三条：diff 提交 / 条码只读 / 留空=清空）
+#       118  遮罩点击 → tryCloseEdit()（有未保存改动时提示一次，不静默丢弃）
+#       120  弹窗根节点加 .pa-edit 类 + 标题改「编辑商品」
+#       123  🔴 主体：.pa-detail-grid 只读栅格整块换成可编辑表单（7 个分组 + 修改记录区）
+#       145  底部按钮：「知道了」→ 「N 个字段已改」提示 + 取消 + 保存（无改动则置灰）
+#       326  import 加 nextTick（修改记录展开后滚进视野要用）
+#       394  🔴 state + 常量：editForm / editBaseline / EDIT_FIELDS 白名单 / _norm / dirtyCount
+#       664  🔴 函数：openDetail 重写 + tryCloseEdit + saveEdit（diff 提交）+ applyActive
+#            + toggleChanges + loadChanges
+#       870  删 4 行死 CSS（.pa-detail-*）换成 .pa-edit / .pa-sec / .pa-log 等
+#     ⚠️ keep_all 自证 = 「构造结果 == 工作区」，成立即证明该文件无在途改动。
+#   hergent-cn-v2/src/api/modules.js（9 hunk = 本轮 1 + 在途 8）→ **markers**
+#     本轮 1：old_start=363（+5 行注释 + changes 方法，productsApi.changes）
+#     在途 8（均为前几轮未提交、且**已全部在产**的改动，留在工作区由各自作者提交）：
+#       340/345  forecastApproveApi.summary 加 periodId 形参 + q.push('period_id=')
+#       354/356  bulkUpsert 行**搬家两半**（技能 §5.8：搬移必须两半一起排除）
+#       384/396  Excel 导入注释搬家两半
+#       398/428  importApi.template 搬家两半
+#     ⚠️ 两个候选标记串**都恰好命中 old_start=363 这一个 hunk**（已实测）：
+#        "changes: (pid) => api('/api/products/' + pid + '/changes'),"  → ['@@ -363,0 +365,6 @@']
+#        "v184c 商品「修改记录」"                                          → ['@@ -363,0 +365,6 @@']
+#        取功能行那个（更能抵抗注释改写）。
+#   ⚠️ 「9 hunk」是本刻快照；跨轮次会变，复跑前重数（本工具会自己断言，不会静默放过）。
+SPEC_FE_V184C = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/ProductArchive.vue",
+     "keep_all": True,
+     # 本轮**删掉**的东西必须在暂存版与工作区同时为 0：证明整块替换没留下半截。
+     "gone": ["pa-detail-grid", "pa-detail-item", "只读详情弹窗", "openDetail(p)\">详情"]},
+    {"file": "hergent-cn-v2/src/api/modules.js",
+     "markers": ["changes: (pid) => api('/api/products/' + pid + '/changes'),"],
+     "gone": []},
+    # 本轮真机验证工具（HEAD 无这些文件 → new_file，内容直接取工作区）
+    {"file": ".workbuddy/tools/v184c-archive-edit.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v184c-api-guard.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v184c-archive-edit-shot.js", "new_file": True, "gone": []},
+    # 本轮交付（6 张真机截图 + 交付说明）。outputs/ 已被跟踪，但本目录是新增。
+    #   ⚠️ PNG 必须标 `binary: True`（本工具默认按 utf-8 读新文件，截图会在
+    #      `invalid start byte` 上炸掉整个 spec；2026-09-17 实测过一次，已修）。
+    {"file": "outputs/商品编辑-2026-09-17/交付说明.md", "new_file": True, "gone": []},
+    {"file": "outputs/商品编辑-2026-09-17/01-档案页-每行编辑入口.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/商品编辑-2026-09-17/02-编辑弹窗-上半（身份·品牌·价格）.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/商品编辑-2026-09-17/03-编辑弹窗-下半（描述·状态·修改记录）.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/商品编辑-2026-09-17/04-未保存改动提示（只提交改过的字段）.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/商品编辑-2026-09-17/05-修改记录（谁·何时·哪个字段·改前改后）.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/商品编辑-2026-09-17/06-停用二次确认（有业务后果的动作）.png", "new_file": True, "binary": True, "gone": []},
+    # 本工具自身（新增上面这个 spec）—— ⚠️ 它只属于**前端** spec（后端 spec 的 REPO 是另一个
+    #   仓库，路径不相通；照 loss 那轮的做法不列它）。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
+# 后端（be HEAD = e1f7af0）：本轮唯一改动是 data.py 的 5 行新增，keep_all 自证「== 工作区」。
+#   5 行 = 4 行注释 + 「商品名称为空 → 400」那两行闸门（`products.name` 是 NOT NULL，
+#   但空串不是 NULL，SQLite 照收 ⇒ 无名商品会出现在报单/小程序里）。
+#   ⚠️ data.py 在本仓库常年有在途改动，但**此刻** diff 只有这 5 行（已核实）⇒ keep_all 成立。
+#      若复跑时 keep_all 报「 != 工作区」，说明有别的会话动了它，改用 markers。
+SPEC_BE_V184C = ("be", [
+    {"file": "server/routers/data.py",
+     "keep_all": True,
+     "gone": ["arrival_lead_days 为空"]},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -708,6 +778,7 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v184": SPEC_BE_V184, "fe-v184": SPEC_FE_V184,
          "be-v184b": SPEC_BE_V184B, "fe-v184b": SPEC_FE_V184B,
          "be-v184b2": SPEC_BE_V184B2, "fe-v184b2": SPEC_FE_V184B2,
+         "be-v184c": SPEC_BE_V184C, "fe-v184c": SPEC_FE_V184C,
          "be-loss": SPEC_BE_LOSS, "fe-loss": SPEC_FE_LOSS}
 
 def git(*a, **kw):

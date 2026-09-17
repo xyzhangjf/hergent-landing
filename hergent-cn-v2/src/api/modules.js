@@ -361,6 +361,12 @@ export const productsApi = {
   factoryPriceGate: () => api('/api/forecast/factory-price-gate'),
   setFactoryPriceGate: (enabled) =>
     api('/api/forecast/factory-price-gate', { method: 'PUT', body: { enabled } }),
+  // v184c 商品「修改记录」（字段级留痕：谁 · 何时 · 哪个字段 · 改前 → 改后）。
+  //   后端**早就在写**（`product_update` 内部自动调 `log_product_changes`，落 `product_change_logs` 表，
+  //   本租户已积累 414 条 / 覆盖 311 个商品），查询端点 `GET /api/products/{pid}/changes`
+  //   与 `erp_db` 门面导出也都已存在 —— **唯独前端零入口**，于是「改了但查不到谁改的」。
+  //   本方法只是把它接出来，零后端改动。
+  changes: (pid) => api('/api/products/' + pid + '/changes'),
 }
 
 /* ---- 预报建议配方（后端就绪；前端 localStorage 兜底，随租户配方下发） ---- */
