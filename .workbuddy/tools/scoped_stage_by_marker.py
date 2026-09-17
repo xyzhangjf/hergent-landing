@@ -504,6 +504,69 @@ SPEC_FE_V184 = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v184b（2026-09-17）：「到货周期」固定列 + 导入模版同步新增该列 ──────────
+# 基线：be HEAD = ed47d2d。逐块打印首行核对归属（**不按行号猜**，技能 §5.7）。
+#   server/erp_db.py（6 hunk = 本轮 1 + 在途 5）
+#     本轮 1：16485  forecast_submission_summary 的 imported_products 查询补
+#                    `COALESCE(p.arrival_lead_days,0) AS arrival_lead_days`
+#                    （off-archive 行不经过 products/grid，不补就恒显示「—」）
+#     在途 5：1400   products 建表 SQL：`extra_json` 从括号**外**归位到括号**内**
+#                     ⚠️ 该 hunk 1→1 且**首 86 字符完全相同**，差异在 500 字符之后 ——
+#                        技能 §5.16 一：截断会骗你，必须打整行才判得出归属
+#             10944 + 10959  `_safe_migrate("v110_products_dist_price")` 的搬家两半（一起排）
+#             11376 + 11379  `login_is_locked` 改双维度阈值（LOGIN_LOCK_USER_MAX）
+#   server/routers/data.py（1 hunk，**全本轮**）→ keep_all（拿「暂存版 == 工作区」自证）
+#     396  products_grid 下发 arrival_lead_days
+#   server/routers/import_router.py（8 hunk，**全本轮**）→ keep_all
+#     138/196/462/1357/1374/1379/1458/1497：关键词表补「到货周期/到货天数」·
+#       字段标签改「到货周期」· `_re_rhythm` 正则（+全角加号）· 模版加第 8 列（选填）·
+#       示例值「+3天」· 填写说明
+SPEC_BE_V184B = ("be", [
+    {"file": "server/erp_db.py",
+     "exclude_hunks": [1400, 10944, 10959, 11376, 11379],
+     "gone": []},
+    {"file": "server/routers/data.py", "keep_all": True, "gone": []},
+    {"file": "server/routers/import_router.py", "keep_all": True, "gone": []},
+])
+
+# ── v184b（2026-09-17，前端）──────────────────────────────────────────
+# 基线：fe HEAD = cdca9f4。已提交的 v184（期次复制）那份 spec **已是历史留档**，不要复跑。
+#   hergent-cn-v2/src/pages/Forecast.vue（47 hunk = 本轮 39 + 在途 8）
+#     本轮 39：全部围绕「到货周期」固定列这一件事 ——
+#       301（商品档案弹层改读 arrival_lead_days + 共用 arrivalCycleText）
+#       532·538（列设置菜单 c.fixed → isLockedCol）· 633·677·746（查看态表头/格/表尾冻结样式）
+#       853·886·912·951（编辑态表头/格/只读渲染分支/表尾）
+#       1576（右键菜单固定列提示）· 2008（asProdRow 补字段）
+#       2208（colOrderList 透传 fixed）· 2243（COL_DEFAULTS 补宽度）
+#       2251（frozenShift → frozenLeftOf/frozenRight）· 2305（isFrozen 认 fixed）
+#       2419·2437（arrivalCycleText + MASTER_COL_DEFS 新列）
+#       2468（loadCols 新固定列归位）· 2502·2509·2514（visibleCols fixed + 强制归位）
+#       2549（isLockedCol）· 2555·2561（toggleCol / quickHide）
+#       2695（loadEditGrid 到货周期）· 3680（ctxClear 只读闸门）· 3959（hdrFreezeCol 提示）
+#       4227·4230·4233·4238·4240·4290·4294（writeCellVal 只读 + clearRange 实际计数）
+#       6731（loadCross 到货周期）· 7414（.frozen.fc-cycle）· 7526（注释订正）· 7664（.cell-ro）
+#     在途 8：101        纯空行（无归属价值，排除零风险）
+#             2561·2563  loadEditGrid 里「sources 合并而非覆盖」（09-13 起未提交）
+#             2574·2576  loadEditGrid 里 extraByPid 累加（行级加单，同上）
+#             7636+7651  `.imp-errs` 规则的**搬家两半**（必须一起排；HEAD 里该串 2 处、
+#                        工作区亦 2 处，排完留在原位恰好一份）
+#             8020        纯空行
+#   ⚠️ 上述「在途 hunk 数」是**本刻**快照；跨轮次会变（技能 §5.16 三），复跑前重数。
+SPEC_FE_V184B = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2561, 2563, 2574, 2576, 7636, 7651, 8020],
+     "gone": []},
+    # 本轮真机验证工具（HEAD 无这些文件 → new_file，内容直接取工作区）
+    {"file": ".workbuddy/tools/v184-arrival-cycle-page.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v184-arrival-cycle-history.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v184-arrival-cycle-shot.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v184-import-step1-preview.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v184-import-step2-execute.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/forecast-arrival-rhythm-check.py", "new_file": True, "gone": []},
+    # 本工具自身（新增上面两个 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -512,7 +575,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v180": SPEC_FE_V180, "be-v180": SPEC_BE_V180,
          "fe-v181": SPEC_FE_V181, "fe-v181b": SPEC_FE_V181B,
          "fe-v182": SPEC_FE_V182, "fe-v183": SPEC_FE_V183,
-         "be-v184": SPEC_BE_V184, "fe-v184": SPEC_FE_V184}
+         "be-v184": SPEC_BE_V184, "fe-v184": SPEC_FE_V184,
+         "be-v184b": SPEC_BE_V184B, "fe-v184b": SPEC_FE_V184B}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

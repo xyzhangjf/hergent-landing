@@ -297,7 +297,10 @@
               <div class="pf-item"><span>品牌</span><b>{{ (prodMeta[prodProfile.product_id] || {}).brand || '—' }}</b></div>
               <div class="pf-item"><span>安全库存</span><b>{{ fmt(prodProfile.safety_stock) }}</b></div>
               <div class="pf-item"><span>起订量</span><b>{{ fmt(prodProfile.moq) }}</b></div>
-              <div class="pf-item"><span>到货天数</span><b>{{ fmt(prodProfile.lead_days) }}</b></div>
+              <!-- v184：原读 `prodProfile.lead_days` —— 行对象里**没有**这个键（行映射从未带过它），
+                   这一格一直是空的；物理列是 `products.arrival_lead_days`。
+                   改名的同时接上「到货周期文案」的唯一实现，与主表那一列同口径。 -->
+              <div class="pf-item"><span>到货周期</span><b>{{ arrivalCycleText(prodProfile.arrival_lead_days) }}</b></div>
               <div class="pf-item"><span>保质期天</span><b>{{ fmt(prodProfile.expiry_days) }}</b></div>
               <div class="pf-item"><span>标准售价</span><b>{{ prodProfile.sale_price != null ? fmt(prodProfile.sale_price) : '—' }}</b></div>
               <div class="pf-item"><span>进价</span><b>{{ prodProfile.purchase_price != null ? Number(prodProfile.purchase_price).toFixed(2) : '—' }}</b></div>
@@ -525,10 +528,14 @@
               </div>
               <ul class="col-menu-list">
                 <template v-for="(c, ci) in colOrder" :key="c.key">
-                  <li v-if="canSeeCol(c.key)" :class="{ locked: c.fixed, hidden: colVis[c.key] === false }" :draggable="!c.fixed" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
+                  <!-- v184：判定统一走 isLockedCol()（= name ∪ FROZEN_COLS），不再只看 c.fixed ——
+                       菜单的 c 来自 colOrder，那里只有 name 带 fixed，新增的固定列识别不出来
+                       ⇒ 会显示成「可拖、可取消勾选」，而实际拖了会被 visibleCols 归位、勾了会被
+                       toggleCol 拒绝（点了跟没点一样 = 假控件）。 -->
+                  <li v-if="canSeeCol(c.key)" :class="{ locked: isLockedCol(c.key), hidden: colVis[c.key] === false }" :draggable="!isLockedCol(c.key)" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
                     <span class="drag">⠿</span>
-                    <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="c.fixed" @click.prevent="toggleCol(c.key)"> {{ c.label }}</label>
-                    <button v-if="!c.fixed && c.deletable" class="col-menu-del" @click="deleteMasterCol(c.key)" title="删除该列"><Icon name="close"/></button>
+                    <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="isLockedCol(c.key)" @click.prevent="toggleCol(c.key)"> {{ c.label }}</label>
+                    <button v-if="!isLockedCol(c.key) && c.deletable" class="col-menu-del" @click="deleteMasterCol(c.key)" title="删除该列"><Icon name="close"/></button>
                   </li>
                 </template>
               </ul>
@@ -622,7 +629,7 @@
             </colgroup>
             <thead>
               <tr>
-                <th v-for="(col, ci) in colOrderList" :key="col.key" :class="['th', colCls(col), { frozen: isFrozen(col), sortable: canSort(col) }]" :style="isFrozen(col) ? 'left:' + frozenShift(0) + ';min-width:200px' : ''" :aria-sort="ariaSort(col)" @click="onHeadClick(col)" @contextmenu.prevent="openHdrCtx($event, col.key, col.type)">
+                <th v-for="(col, ci) in colOrderList" :key="col.key" :class="['th', colCls(col), { frozen: isFrozen(col), sortable: canSort(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')" :aria-sort="ariaSort(col)" @click="onHeadClick(col)" @contextmenu.prevent="openHdrCtx($event, col.key, col.type)">
                   <div class="th-in">
                     <template v-if="col.type === 'seq'">
                       <button class="col-cfg gear" @click.stop="showColMenu = !showColMenu" title="列设置"><Icon name="settings"/></button>
@@ -666,7 +673,7 @@
                     role="row" :aria-selected="selectedPid === it.r.product_id" :aria-label="rowAria(it.r)">
                   <td v-for="(col, ci) in colOrderList" :key="col.key"
                       :class="['td', colCls(col), { frozen: isFrozen(col), 'cell-active': cellActive(it, ci) }]"
-                      :style="isFrozen(col) ? 'left:' + frozenShift(0) + ';min-width:200px' : ''"
+                      :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')"
                       role="gridcell" :tabindex="cellActive(it, ci) ? 0 : -1"
                       :data-cell="ci" :data-pid="it.r.product_id"
                       :aria-label="cellAria(it.r, col)"
@@ -735,7 +742,7 @@
             </colgroup>
             <tbody>
               <tr class="col-total">
-                <td v-for="(col, ci) in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="isFrozen(col) ? 'left:' + frozenShift(0) : ''">
+                <td v-for="(col, ci) in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')">
                   <template v-if="col.key === 'name'">合计</template>
                   <template v-else-if="col.type === 'qty'">{{ cross.colTotals[(ci - 1) - visibleCols.length] || '' }}</template>
                   <template v-else-if="col.key === 'qty'">{{ fmt(cross.grand.qty) }}</template>
@@ -842,7 +849,7 @@
                   <button class="col-cfg gear" @click.stop="showColMenu = !showColMenu" title="列设置"><Icon name="settings"/></button>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'seq')" @click.stop></span>
                 </th>
-                <th v-for="(c, ci) in visibleCols" :key="c.key" :class="['th', c.cls, { frozen: c.fixed || c.key === frozenExtra, 'sel-col': selected.r >= 0 && selected.c === ci }]" :style="c.fixed ? 'left:' + frozenShift(0) + ';min-width:200px' : (c.key === frozenExtra ? 'left:' + frozenShift(200) + ';min-width:200px' : '')" @contextmenu.prevent="openHdrCtx($event, c.key, 'master')">
+                <th v-for="(c, ci) in visibleCols" :key="c.key" :class="['th', c.cls, { frozen: c.fixed || c.key === frozenExtra, 'sel-col': selected.r >= 0 && selected.c === ci }]" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" @contextmenu.prevent="openHdrCtx($event, c.key, 'master')">
                   <div class="th-in">
                     <span>{{ c.label }}</span>
                   </div>
@@ -875,7 +882,7 @@
             <tbody>
               <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'sel-row': selected.r === ri, 'cond-warn': condWarnOn && rowWarn(r) === 'low', 'new-row': r._new }" v-show="rowShown(ri)">
                 <td class="td seq-cell" :class="{ 'row-bad': errRowSet.has(ri) }" :data-r="ri"><span class="seq-num">{{ ri + 1 }}</span></td>
-                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:' + frozenShift(0) + ';min-width:200px' : (c.key === frozenExtra ? 'left:' + frozenShift(200) + ';min-width:200px' : '')" :data-r="ri" :data-c="ci" :title="cellIssue(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
+                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" :data-r="ri" :data-c="ci" :title="cellIssue(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
                   <template v-if="c.key === 'name'">
                     <input v-model="r.name" class="cell-input cell-name" placeholder="商品名称" :style="namePadStyle(r)" :title="r.name || ''" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)">
                     <div class="name-badges">
@@ -900,6 +907,14 @@
                   </template>
                   <template v-else-if="c.edit === 'num'">
                     <input v-model.number="r[c.key]" class="cell-input cell-num" type="number" min="0" placeholder="0" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)" @change="onCellChange">
+                  </template>
+                  <!-- v184：只读列（edit:'ro'）—— 有**展示**、没有写入口。
+                       ⚠️ 这里刻意不放 input：本列（到货周期）唯一写入口是「预报导入」，
+                          后端 bulk_upsert 的字段白名单里没有 arrival_lead_days ⇒
+                          摆个输入框就是**假旋钮**（用户改了、保存后静默回旧值、且不报错）。
+                       文案与查看态共用同一个 fmt（masterVal 也走 fmt）⇒ 两态显示必然一致。 -->
+                  <template v-else-if="c.edit === 'ro'">
+                    <span class="cell-ro">{{ c.fmt ? c.fmt(r) : (r[c.key] != null && r[c.key] !== '' ? r[c.key] : '—') }}</span>
                   </template>
                   <span v-if="selected.r === ri && selected.c === ci" class="fill-handle" @mousedown.prevent.stop="startFill(ri, ci, $event)" title="拖拽填充"></span>
                 </td>
@@ -932,7 +947,7 @@
             <tbody>
               <tr class="foot-row">
                 <td class="seq-cell"></td>
-                <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenShift(0) + ';min-width:200px' : (c.key === frozenExtra ? 'left:' + frozenShift(200) + ';min-width:200px' : '')">{{ c.key === 'name' ? '合计' : (c.edit === 'num' ? fmt(foot.masterSum[c.key] || 0) : '') }}</td>
+                <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')">{{ c.key === 'name' ? '合计' : (c.edit === 'num' ? fmt(foot.masterSum[c.key] || 0) : '') }}</td>
                 <td v-for="(u, ui) in cross.units" :key="'fu' + u.name" class="num calc">{{ fmt(foot.unitSum[ui] || 0) }}</td>
                 <td class="num calc extra">{{ fmt(cross.rows.reduce((s, r) => s + (Number(r.extraQty) || 0), 0)) }}</td>
                 <td class="num calc amount">{{ fmt(foot.amount) }}</td>
@@ -1557,7 +1572,10 @@
                 <template v-if="hdrCtx.type === 'master' && hdrCtx.key !== 'name'">
                   <div class="ctx-sep"></div>
                   <button @click="hdrHideCol"><Icon name="close"/> 隐藏此列</button>
-                  <button @click="hdrFreezeCol"><Icon name="cross"/> {{ frozenExtra === hdrCtx.key ? '取消冻结此列' : '冻结此列' }}</button>
+                  <!-- v184：固定列不给「冻结此列」开关 —— 它本来就一直冻结，摆一个点了没有变化的
+                       按钮就是假旋钮（用户会当成 bug）。改成一句状态说明。 -->
+                  <button v-if="!FROZEN_COLS.includes(hdrCtx.key)" @click="hdrFreezeCol"><Icon name="cross"/> {{ frozenExtra === hdrCtx.key ? '取消冻结此列' : '冻结此列' }}</button>
+                  <span v-else class="ctx-note">固定列（始终冻结，无需设置）</span>
                 </template>
               </template>
               <template v-else>
@@ -1986,6 +2004,13 @@ function asProdRow(src) {
     purchase_price: src.purchase_price || 0,
     safety_stock: src.safety_stock || 0, expiry_days: src.expiry_days || 0,
     category: src.category || '', brand: src.brand || '',
+    /* v184：到货周期 —— 本函数搬的是**一份显式白名单**，不在这里列出的字段到此为止。
+       ⚠️ 而「不在在售档案」的行（已停用/已删除但被本期引用）**不经过 products/grid**，
+          它们只从 summary 的 imported_products / rows 里来 ⇒ 漏了这一行，这些行的
+          「到货周期」列恒显示「—」，而库里与导入结果明明是 +3天。
+          真机实测已复现：沙箱 tenant_9999 的 pid 1160（已停用，本期登记）DB=3 而页面显示「—」。
+          对应的后端下发在 erp_db.py::forecast_submission_summary 的 imported_products 查询。 */
+    arrival_lead_days: Number(src.arrival_lead_days) || 0,
     extra: src.extra || {},
     offArchive: true,   // 不在「在售档案」里（已停用/已删除）—— 表格据此打「已停用」角标
   }
@@ -2179,7 +2204,9 @@ function onCellFocus(it, ci) { if (it.kind === 'row') activeCell.value = { pid: 
 
 const colOrderList = computed(() => {
   const cols = [{ type: 'seq', key: 'seq', label: '列设置' }]
-  visibleCols.value.forEach(c => cols.push({ type: 'master', key: c.key, label: c.label, cls: c.cls, fmt: c.fmt, deletable: c.deletable }))
+  // v184：把 fixed 一并带下去 —— 查看态的冻结判定（isFrozen）与 left 计算都要读它。
+  //   ⚠️ 此前这里只传 key/label/cls/fmt/deletable，fixed 到不了查看态。
+  visibleCols.value.forEach(c => cols.push({ type: 'master', key: c.key, label: c.label, cls: c.cls, fmt: c.fmt, deletable: c.deletable, fixed: c.fixed }))
   cross.value.units.forEach(u => cols.push({ type: 'qty', key: u.name, label: u.name }))
   cols.push({ type: 'calc', key: 'qty', label: '合计' })
   cols.push({ type: 'calc', key: 'boxes', label: '件数' })
@@ -2212,7 +2239,7 @@ const colWidths = ref({})
    只显示得下 9 位（对账时看不全，且与「条码重复」判定直接相关：看不到全码就无法人工核对）。
    需要 ~130px 才放得下 13 位数字 + 输入框内边距 + 拖拽手柄。用户若手动拖过该列，
    colWidths 里已有值、仍以用户所拖为准（本默认只对没拖过的用户生效）。 */
-const COL_DEFAULTS = { seq: 46, name: 210, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
+const COL_DEFAULTS = { seq: 46, name: 210, arrival_lead_days: 92, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
 // v176：序号列已冻结在 left:0，故**其后每个冻结列的 left 必须整体右移「一个序号列宽」**，
@@ -2220,7 +2247,19 @@ function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] 
 // 六个渲染点（只读表 thead/tbody/表尾 + 编辑表 thead/tbody/表尾）共用本函数，避免 6 份内联
 // 表达式各自漂移；序号列宽可被拖拽手柄改（startResize(...,'seq')），故**必须**走 colW('seq')，
 // 硬编码 46 会在用户改宽后错位。base = 既有偏移（0 或 200）。
-function frozenShift(base) { return (colW('seq') + (base || 0)) + 'px' }
+/* v184：左侧冻结区的偏移计算 —— 由「固定列宽度依次累加」得出，**不再硬编码**。
+   原实现 `frozenShift(base)` 手工传 0 或 **200**：那个 200 是「商品名称宽」的硬编码猜值，
+   而 COL_DEFAULTS.name = 210 ⇒ 只要用户没拖过列宽，第二个冻结列就偏 10px；把名称拖宽后偏更多。
+   现改为读实际列宽（colW），且新增固定列时其余冻结列自动右移。 */
+const FROZEN_COLS = ['name', 'arrival_lead_days']   // 左侧冻结区，从左到右（序号列另占 left:0）
+function frozenLeftOf(key) {                        // 某固定列的 left
+  let x = colW('seq')
+  for (const k of FROZEN_COLS) { if (k === key) break; x += colW(k) }
+  return x + 'px'
+}
+function frozenRight() {                            // 冻结区右界 —— 用户手动冻结的列排在这里
+  return (colW('seq') + FROZEN_COLS.reduce((s, k) => s + colW(k), 0)) + 'px'
+}
 function loadColWidths() { try { const s = localStorage.getItem('hergent-forecast-col-widths'); if (s) colWidths.value = JSON.parse(s) || {} } catch (e) {} }
 function resetColWidths() {
   try { localStorage.removeItem('hergent-forecast-col-widths') } catch (e) {}
@@ -2262,7 +2301,10 @@ const editColKeys = computed(() => {
   keys.push('op')
   return keys
 })
-function isFrozen(col) { return frozenKey.value !== 'none' && col.key === frozenKey.value }
+/* v184：查看态的冻结列 = **固定列** ∪ 用户在下拉里选的单列（frozenKey）。
+   固定列不受 frozenKey 影响 —— 下拉选了别的列时它照样冻结，否则「固定列」名不副实。
+   （此前只看 frozenKey，而它默认 'name'、可被用户改掉 ⇒ 加进来的固定列一改下拉就不见了。） */
+function isFrozen(col) { return col.fixed === true || (frozenKey.value !== 'none' && col.key === frozenKey.value) }
 function canSort(col) { return col.key === 'name' || col.key === 'qty' || col.key === 'amount' }
 function ariaSort(col) { return sortKey.value === col.key ? (sortDir.value === 'asc' ? 'ascending' : 'descending') : 'none' }
 function onHeadClick(col) { if (canSort(col)) onSort(col.key) }
@@ -2373,7 +2415,26 @@ function onBodyKey(e) {
    r.lead_days / r.sale_price，商品主档 upsert 载荷(DRAFT_MASTER_KEYS / prodRows)、
    粘贴与导入的表头映射(HEADER_KEYS)、以及依赖这些数据的功能（低于安全库存告警、
    短保告警、安全库存建议、AI 分析这一行）一律保持不变。 */
+/* v184：新增「到货周期」**固定列**（诉求：一眼看出每个单品 +几天到货）。
+   · 字段来源：`products.arrival_lead_days`（物理列，v109 迁移，DEFAULT 0）。
+     ⚠️ 它**不是** `products.lead_time_days`（补货算法的提前期，默认 7，进安全库存/补货点公式），
+        也不是品牌级的 `rebate_target_rules.order_cadence_days`（每几天到货一次的**频率**）。
+        三者是三个量，别混用；本列 = 「下单后第几天到货」的**提前天数**。
+   · 写入口只有一处：预报导入的「到货周期」列（后端 `_re_rhythm` 解析「+3天」/「+3到货」）。
+     故本列**只读**（`edit:'ro'`）—— 在网格里摆一个存不下去的输入框就是「假旋钮」。
+   · 展示：`+3天`；空/0 → `—`。**不做「继承品牌默认」**：那会让同一格有两个来源，
+     与「同屏数字口径必须同源」冲突；要默认值就导入时填。
+   · 位置：数组首位，使 defaultColOrder 里它紧跟「商品名称」；`visibleCols` 另有**强制归位**
+     （固定列必须构成左侧连续区，否则按宽度累加出来的冻结偏移会算到别的列头上）。 */
+/* v184：到货周期文案的**唯一实现** —— 主表列（MASTER_COL_DEFS 的 fmt）与商品档案弹层共用。
+   两处各写一份格式化 = 第二份拷贝 = 静默漂移（改了主表忘了弹层，同一商品两处显示不一致）。 */
+function arrivalCycleText(v) {
+  const n = Number(v)
+  return n > 0 ? '+' + n + '天' : '—'
+}
 const MASTER_COL_DEFS = [
+  { key: 'arrival_lead_days', label: '到货周期', cls: 'fc-text fc-cycle', edit: 'ro', fixed: true, deletable: false,
+    fmt: r => arrivalCycleText(r.arrival_lead_days) },
   { key: 'brand', label: '品牌', cls: 'fc-text', edit: 'text', deletable: true },
   { key: 'barcode', label: '条码', cls: 'fc-code', edit: 'text', deletable: false },
   { key: 'spec', label: '规格', cls: 'fc-text', edit: 'text', deletable: true },
@@ -2403,7 +2464,17 @@ function loadCols() {
       // 合并新增的主档列（若元数据有新增而存储没有）
       const have = new Set(p.order.map(c => c.key))
       const merged = p.order.filter(c => c.key === 'name' || c.custom || MASTER_COL_DEFS.find(m => m.key === c.key))
-      MASTER_COL_DEFS.forEach(m => { if (!have.has(m.key)) merged.push({ key: m.key, label: m.label, cls: m.cls }) })
+      /* v184：新列落位分两类 —— **固定列**插到「商品名称」之后（它参与左侧冻结区的宽度累加，
+         位置错 = 冻结偏移错），普通新列仍追加到末尾（不打乱用户已排好的顺序）。
+         ⚠️ 老用户的 localStorage 里没有新固定列，走的正是这条 splice 分支。 */
+      MASTER_COL_DEFS.forEach(m => {
+        if (have.has(m.key)) return
+        const item = { key: m.key, label: m.label, cls: m.cls }
+        if (m.fixed) {
+          const ni = merged.findIndex(c => c.key === 'name')
+          merged.splice(ni < 0 ? 0 : ni + 1, 0, item)
+        } else merged.push(item)
+      })
       // 确保 name 在第一且 fixed
       const nameFirst = merged.find(c => c.key === 'name')
       if (nameFirst) { nameFirst.fixed = true; nameFirst.label = '商品名称' }
@@ -2427,17 +2498,26 @@ async function loadBrandOptions() {
 const visibleCols = computed(() => {
   const defMap = {}
   MASTER_COL_DEFS.forEach(m => { defMap[m.key] = m })
-  return colOrder.value
+  const arr = colOrder.value
     .filter(c => c.key === 'name' || colVis.value[c.key] !== false)
     .filter(c => c.key === 'name' || canSeeCol(c.key))   // 列级权限：角色无权的列直接剔除
     .map(c => {
       if (c.key === 'name') return { key: 'name', label: '商品名称', fixed: true, cls: 'fc-name' }
       const m = defMap[c.key] || {}
       const opts = c.key === 'brand' ? (brandOptions.value && brandOptions.value.length ? brandOptions.value : m.options) : m.options
-      return { key: c.key, label: c.label, cls: c.cls || m.cls, fixed: false,
+      // v184：fixed 由 MASTER_COL_DEFS 决定（此前写死 false ⇒ 任何新列都进不了冻结区）
+      return { key: c.key, label: c.label, cls: c.cls || m.cls, fixed: m.fixed === true,
         edit: c.edit || m.edit, deletable: c.deletable !== undefined ? c.deletable : m.deletable,
         fmt: m.fmt, options: opts, custom: !!c.custom }
     })
+  /* v184：固定列**强制归位**到最左侧、且按 FROZEN_COLS 的次序。
+     为什么不能只靠 defaultColOrder / loadCols 管顺序：用户可以拖列、老 localStorage 里
+     也可能是任意顺序，而冻结偏移是按「固定列宽度依次累加」算的 —— 固定列一旦不连续或
+     次序颠倒，left 就会落到别的列头上（冻结列错位/互相遮挡，且不报错）。
+     在此排序 = 把「固定」做成**渲染期不变式**，不依赖数据碰巧正确。 */
+  const fixedPart = FROZEN_COLS.map(k => arr.find(c => c.key === k)).filter(Boolean)
+  const rest = arr.filter(c => !FROZEN_COLS.includes(c.key))
+  return [...fixedPart, ...rest]
 })
 const addableMasterCols = computed(() => MASTER_COL_DEFS.filter(m => !colOrder.value.find(c => c.key === m.key)))
 
@@ -2465,14 +2545,19 @@ function canSeeCol(key) {
   return !allow || allow.includes(bizRole.value)
 }
 
+/* v184：**固定列不可隐藏、不可删除** —— 左侧冻结区的偏移是「按 FROZEN_COLS 依次累加列宽」
+   算出来的，某列一旦被隐藏，冻结区就出现断层，其后冻结列的 left 会落在不存在的宽度上
+   （表现为后面几列错位/互相遮挡）。规则**只此一份**，toggleCol / quickHide 共用。 */
+function isLockedCol(key) { return key === 'name' || FROZEN_COLS.includes(key) }
+function _colLabel(key) { return (MASTER_COL_DEFS.find(m => m.key === key) || { label: key }).label }
 function toggleCol(key) {
-  if (key === 'name') return
+  if (isLockedCol(key)) { toast('「' + _colLabel(key) + '」是固定列，不能隐藏', 'warn'); return }
   // colVis[key]: undefined/true=显示, false=隐藏。点击切换为相反态。
   colVis.value[key] = colVis.value[key] === false ? true : false
   _persistCols()
 }
 function quickHide(key) {
-  if (key === 'name') return
+  if (isLockedCol(key)) { toast('「' + _colLabel(key) + '」是固定列，不能隐藏', 'warn'); return }
   const m = MASTER_COL_DEFS.find(x => x.key === key)
   if (m && m.deletable) {
     // 主档可删列：从 colOrder 移除（同时隐藏）
@@ -2593,6 +2678,10 @@ async function loadEditGrid() {
            （「放弃修改」/换期次/首次使用）品牌列就整列空白。
            且「条码重复」必须按品牌判定（同产品两个户头不算重复），判据不能建立在本地草稿的残留上。 */
         category: pd.category || '', brand: pd.brand || '',
+        /* v184：到货周期 —— 后端 /api/products/grid 下发的 products.arrival_lead_days。
+           0 或缺 = 未设置 ⇒ 该格显示「—」。本列只读，**不进 prodRows 的保存载荷**
+           （写入口是导入；网格保存的白名单里没有它，带上去也会被后端丢弃）。 */
+        arrival_lead_days: Number(pd.arrival_lead_days) || 0,
         price: pd.sale_price || 0, qtyByUnit, extraQty: extraByPid[pd.id] || 0, ai: null, suggest: 0, history: [],
         // v179：本行是否来自「本期导入登记」（表格角标用；来源是后端台账，非前端推测）
         imported: importedSet.has(Number(pd.id)),
@@ -3574,6 +3663,16 @@ function ctxClear() {
   if (sr && (inSel || type === 'body')) { clearRange(); return }   // clearRange 自带 snapshot + 撤销
   if (type === 'body') { toast('请先框选区域或点「全选编辑区域」，再执行清空', 'warn'); return }
   if (r < 0) return
+  /* v184：只读列（edit:'ro'，目前是「到货周期」）**不接受清空**。
+     本函数是**绕过 writeCellVal 的第二条写路径**（直接 `rw[key] = ''`）⇒ 只在
+     writeCellVal 里加闸门不够：右键「清空此单元格」会把 rw.arrival_lead_days 置空，
+     界面立刻显示「—」，但网格保存的字段白名单里没有 arrival_lead_days ⇒ 一刷新又变回 +3天。
+     「清了会自己回来」比「清不动」更糟 —— 用户会以为系统在丢数据。
+     故与 toggleCol / quickHide / hdrFreezeCol 同一处理：显式提示 + 不做，并说清该去哪改。 */
+  if (type === 'master' && visibleCols.value[c] && visibleCols.value[c].edit === 'ro') {
+    toast('「' + (visibleCols.value[c].label || key) + '」由预报导入的「到货周期」列决定，不能手工清空', 'warn')
+    return
+  }
   snapshot()
   const rw = cross.value.rows[r]
   if (rw) {
@@ -3843,6 +3942,15 @@ function hdrHideCol() {
 }
 function hdrFreezeCol() {
   const k = hdrCtx.value.key
+  /* v184：固定列（FROZEN_COLS）本就常驻冻结区，不接受「手动冻结」——
+     若让 frozenExtra 指向它们，就会与 c.fixed 的 left 争同一个位置（表现为点了没反应 / 错位）。
+     ⚠️ 显式提示而非静默 no-op：静默无操作会被当成 bug 反复点（「按钮点了没反应」的经典形态）。 */
+  if (FROZEN_COLS.includes(k)) {
+    const lb = (visibleCols.value.find(c => c.key === k) || {}).label || k
+    toast('「' + lb + '」是固定列，始终冻结', 'warn')
+    closeHdrCtx()
+    return
+  }
   frozenExtra.value = (frozenExtra.value === k) ? '' : k
   closeHdrCtx()
 }
@@ -4102,15 +4210,22 @@ function parseNumInput(v) {
   const n = Number(s)
   return Number.isNaN(n) ? String(v == null ? '' : v).trim() : n
 }
+/* v184：**返回是否真的写进去了**（false = 被拒或越界）。`clearRange` 用它统计实际清掉的
+   格数 —— 只读列被跳过后不能再按选区面积报数（否则提示「已清除 12 个」而实际只变 10 个）。 */
 function writeCellVal(r, c, v) {
-  const rw = cross.value.rows[r]; if (!rw) return
+  const rw = cross.value.rows[r]; if (!rw) return false
   if (c < visibleCols.value.length) {
     const col = visibleCols.value[c]
+    /* v184：只读列（edit:'ro'）**不接受写入** —— 粘贴与拖拽填充都是「按列位置横扫一整片」，
+       没有这道闸门时「到货周期」会被邻居列的数量文案覆盖，而它又存不回去（写入口是导入）
+       ⇒ 界面上留下一个假的、刷新即消失的值。 */
+    if (col.edit === 'ro') return false
     rw[col.key] = col.edit === 'num' ? parseNumInput(v) : (v == null ? '' : String(v))
-  } else {
-    const ui = c - visibleCols.value.length
-    if (ui < cross.value.units.length) rw.qtyByUnit[cross.value.units[ui].name] = parseNumInput(v)
+    return true
   }
+  const ui = c - visibleCols.value.length
+  if (ui < cross.value.units.length) { rw.qtyByUnit[cross.value.units[ui].name] = parseNumInput(v); return true }
+  return false
 }
 function startFill(r, c, e) {
   _fillStart = { r, c }; fillEnd.value = { r, c }
@@ -4158,9 +4273,12 @@ function clearRange() {
   if (!sr) return
   snapshot()
   const { r0, c0, r1, c1 } = sr
+  /* v184：按**实际写入成功**的格数报数。原实现是选区面积 (r1-r0+1)*(c1-c0+1)，
+     而 writeCellVal 会跳过只读列 ⇒ 提示的个数与实际变化对不上，用户会以为漏清了。 */
+  let n = 0
   for (let ri = r0; ri <= r1; ri++)
-    for (let ci = c0; ci <= c1; ci++) writeCellVal(ri, ci, '')
-  toast(`已清除 ${(r1 - r0 + 1) * (c1 - c0 + 1)} 个单元格`, 'ok')
+    for (let ci = c0; ci <= c1; ci++) { if (writeCellVal(ri, ci, '')) n++ }
+  toast(`已清除 ${n} 个单元格`, 'ok')
 }
 
 /* ---- 一键复制厂家下单文本（厂家编码+数量，直接粘厂家系统） ---- */
@@ -6596,6 +6714,9 @@ async function loadCross() {
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
         safety_stock: pd.safety_stock || 0, expiry_days: pd.expiry_days || 0,
         category: meta[pd.id] ? (meta[pd.id].category || '') : '', brand: meta[pd.id] ? (meta[pd.id].brand || '') : '',
+        // v184：到货周期（同 loadCross —— 本处的 pd 同样来自 productsApi.grid）。
+        //   ⚠️ 两条加载路径都要带：漏一处会让「本期」显示 +3天 而「往期」全变「—」。
+        arrival_lead_days: Number(pd.arrival_lead_days) || 0,
         qtyByUnit, total, boxes, price, amount,
         ai, aiMethod, people, final_qty, decided, extra_qty,
         // v179：这一行是不是「本批导入进来的」—— 供表格角标显示（用户要能一眼确认
@@ -7276,6 +7397,13 @@ onMounted(async () => {
 .cross-tbl{min-width:100%;font-size:12px}
 .cross-tbl thead th{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--bd);font-weight:500;color:var(--t2);padding:8px 7px;white-space:nowrap}
 .cross-tbl .frozen{position:sticky;left:0;background:var(--bg);z-index:6;min-width:200px;box-shadow:1px 0 0 var(--bd)}
+/* v184：到货周期是**固定列**，但比「商品名称」窄得多 —— 覆盖 .frozen 的 200px 宽度下限。
+   ⚠️ 位置：排在 `.cross-tbl .frozen` 之后（既然后写者赢，又多了个类 → 特异性更高，双重保险）。
+   ⚠️ 本表是 `table-layout:fixed` ⇒ **列宽实际由 colgroup 的 colW() 单独决定**
+      （COL_DEFAULTS.arrival_lead_days = 92），这条 min-width 当前不参与计算、属**防御**：
+      一旦有人把表改回 auto，它会阻止该列被 `.frozen` 的 200px 下限顶宽。
+   ⚠️ 别把 min-width 写回模板的 inline style：inline 优先级最高，会盖掉这条。 */
+.cross-tbl .frozen.fc-cycle{min-width:88px}
 .cross-tbl thead .frozen{background:var(--bg3)}
 .fc-code{min-width:96px;font-variant-numeric:tabular-nums;color:var(--t2);font-size:11px}
 .fc-num{min-width:72px;text-align:right;font-variant-numeric:tabular-nums;color:var(--t2)}
@@ -7381,7 +7509,7 @@ th.sortable:hover{color:var(--p-dark)}
    ④ z-index：单元格 6（与 .frozen 同级）、表头 **9** —— 表头必须高于既有 thead th(7) 与 th.frozen(8)，
       否则横向滚过来的普通表头会盖在序号表头上（同为 sticky，z 相同时后出现者胜）；
    ⑤ 权威列宽是 <colgroup> 的 colW('seq')（.cross-tbl/.edit-tbl 为 table-layout:fixed），
-      本处的 42px 是陈旧值、不参与布局；冻结列的右移量见 frozenShift()。 */
+      本处的 42px 是陈旧值、不参与布局；冻结列的右移量见 v184 的 frozenLeftOf()。 */
 .cross-tbl .seq-th,.cross-tbl .seq-cell{position:sticky;left:0;background:var(--bg);z-index:6}
 .cross-tbl thead .seq-th,.cross-tbl thead .seq-cell{background:var(--bg3);z-index:9}
 .cross-tbl .col-total .seq-cell,.cross-tbl .foot-row .seq-cell{background:var(--bg3)}
@@ -7519,6 +7647,10 @@ th.sortable:hover{color:var(--p-dark)}
 .edit-tbl{min-width:100%}
 .edit-tbl thead th{background:var(--bg3)}
 .cust-hd{display:flex;align-items:center;gap:4px}
+/* v184：只读单元格（edit:'ro'，目前只有「到货周期」）—— 视觉口径与同排的 input 对齐
+   （同字号、居中、tabular-nums 让 +3天 / +12天 的数字对齐），但**不是**输入框，
+   以免暗示「这里能改」。它只出现于编辑网格的只读列；查看态走 masterVal 的纯文本路径。 */
+.cell-ro{display:block;padding:2px 6px;color:var(--t2);font-size:12px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cell-input{height:26px;padding:0 6px;border:1px solid var(--bd);border-radius:5px;background:var(--bg);color:var(--t1);font-size:12px;outline:none;display:block;width:100%;min-width:0;box-sizing:border-box;text-align:center}
 .cell-input:focus{border-color:var(--p)}
 .cell-name{text-align:left;font-weight:500}
