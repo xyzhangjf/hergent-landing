@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>货损核算 · 页面与仪表盘原型（设计稿）</title>
+<style>
+:root{
+  --p:#06b6d4; --p-dark:#0891b2; --p-deep:#0e7490; --p-bg:rgba(6,182,212,.06); --p-border:rgba(6,182,212,.28);
+  --suc:#34c759; --dan:#ff3b30; --war:#ff9f0a;
+  --ink:#1d1d1f; --ink2:#4b5563; --ink3:#8a8f98;
+  --bd:#e5e7eb; --bg:#f5f5f7; --card:#fff;
+  --amber-bg:#FBEEDA; --amber-tx:#854F0B;
+  --red-bg:#FBE0E0; --red-tx:#A32D2D;
+  --green-bg:#DDF5E7; --green-tx:#0F6E56;
+  --blue-bg:#E6F1FB; --blue-tx:#185FA5;
+  --purple:#7c77dd; --teal:#1d9e75;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:20px 20px 60px}
+.demo{background:var(--amber-bg);color:var(--amber-tx);border:1px solid rgba(186,117,23,.3);
+  border-radius:10px;padding:8px 14px;font-size:12.5px;margin-bottom:14px}
+.page-hd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.page-hd h1{font-size:20px;font-weight:600;margin:0}
+.page-sub{color:var(--ink3);font-size:13px}
+.bar{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--bd);background:#fff;color:var(--ink2);border-radius:9px;
+  padding:7px 12px;font-size:13px;cursor:pointer;font-family:inherit}
+.btn:hover{border-color:#cfd4dc;color:var(--ink)}
+.btn-primary{background:var(--p);border-color:var(--p);color:#fff}
+.btn-primary:hover{background:var(--p-dark);color:#fff}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+.card-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.card-hd b{font-size:14px;font-weight:600}
+.card-hd .hint{color:var(--ink3);font-size:12px}
+.card-hd .right{margin-left:auto;color:var(--ink3);font-size:12px}
+.src{margin-top:10px;padding-top:9px;border-top:1px dashed var(--bd);color:var(--ink3);font-size:11.5px}
+.src code{background:#f3f4f6;border-radius:4px;padding:1px 5px;font-size:11px;color:var(--p-deep)}
+/* 筛选条 */
+.filters{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end}
+.f{display:flex;flex-direction:column;gap:6px}
+.f>label{font-size:11.5px;color:var(--ink3)}
+.seg{display:flex;border:1px solid var(--bd);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:#fff;color:var(--ink2);padding:6px 11px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.seg button+button{border-left:1px solid var(--bd)}
+.seg button.on{background:var(--p-bg);color:var(--p-deep);font-weight:600}
+.sw{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2);cursor:pointer;padding-bottom:6px}
+.sw input{width:34px;height:19px;-webkit-appearance:none;appearance:none;background:#d1d5db;border-radius:99px;position:relative;cursor:pointer;transition:.15s}
+.sw input:checked{background:var(--p)}
+.sw input:before{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;background:#fff;border-radius:50%;transition:.15s}
+.sw input:checked:before{left:17px}
+select{border:1px solid var(--bd);border-radius:9px;padding:6px 10px;font-size:12.5px;color:var(--ink2);background:#fff;font-family:inherit}
+/* 指标卡 */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+.kpi{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:14px 16px}
+.kpi .t{font-size:12px;color:var(--ink3);margin-bottom:6px}
+.kpi .v{font-size:22px;font-weight:600;letter-spacing:-.5px}
+.kpi .v small{font-size:12px;font-weight:400;color:var(--ink3);margin-left:3px}
+.kpi .s{font-size:11.5px;color:var(--ink3);margin-top:5px}
+.up{color:var(--dan)}.down{color:var(--suc)}
+.chip{display:inline-block;font-size:11px;border-radius:6px;padding:1px 7px;margin-right:5px}
+.c-ok{background:var(--green-bg);color:var(--green-tx)}
+.c-warn{background:var(--amber-bg);color:var(--amber-tx)}
+.c-bad{background:var(--red-bg);color:var(--red-tx)}
+.c-info{background:var(--blue-bg);color:var(--blue-tx)}
+.c-gray{background:#f1f2f4;color:#6b7280}
+/* 表 */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:right;padding:8px 10px;border-bottom:1px solid #f0f1f3;white-space:nowrap}
+th{font-size:11.5px;color:var(--ink3);font-weight:500;background:#fafafa}
+th:first-child,td:first-child{text-align:left}
+tbody tr:hover{background:#fafbfc}
+tfoot td{border-top:1px solid var(--bd);border-bottom:0;color:var(--ink2)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.grid3{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.note{color:var(--ink3);font-size:12px;line-height:1.7}
+.flag{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2)}
+.flag b{color:var(--p-deep)}
+/* 原型里的按钮也要有反馈 —— 本项目铁律：看得见但点了没反应＝死控件 */
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1d1d1f;color:#fff;
+  padding:9px 16px;border-radius:10px;font-size:12.5px;opacity:0;transition:opacity .18s;pointer-events:none;z-index:9}
+.toast.on{opacity:.94}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="demo">这是<b>设计原型</b>：数值为演示用示例数据，不是生产真实数据。可点击筛选条件看联动效果。</div>
+
+  <div class="page-hd">
+    <h1>货损核算</h1>
+    <span class="page-sub">月度核算 · 期间流水口径</span>
+    <div class="bar">
+      <button class="btn" data-src="loss_import_batch（预留）">上传数据</button>
+      <button class="btn" data-src="PUT /manual">手工录入</button>
+      <button class="btn" data-src="POST /recompute">重算</button>
+      <button class="btn" data-src="POST /close">结账</button>
+      <button class="btn" data-src="PUT /roles">叫法映射</button>
+      <button class="btn" data-src="GET /health">数据体检</button>
+      <button class="btn btn-primary" data-src="前端本地生成">导出</button>
+    </div>
+  </div>
+
+  <!-- 筛选 -->
+  <div class="card">
+    <div class="filters">
+      <div class="f"><label>期次区间</label>
+        <div class="seg" id="segRange">
+          <button data-v="6">近 6 月</button><button data-v="12" class="on">近 12 月</button><button data-v="cur">本年</button>
+        </div>
+      </div>
+      <div class="f"><label>计价口径</label>
+        <div class="seg" id="segPricing">
+          <button data-v="sale" class="on">售价</button><button data-v="cost">成本价（进货价）</button>
+        </div>
+      </div>
+      <div class="f"><label>主指标</label>
+        <div class="seg" id="segMetric">
+          <button data-v="net" class="on">净额</button><button data-v="gross">毛额</button>
+        </div>
+      </div>
+      <div class="f"><label>主体维度</label>
+        <select id="selScope">
+          <option value="all">全部（公司行）</option>
+          <option value="store">① 直营门店退货</option>
+          <option value="operator">② 业务员仓调拨</option>
+          <option value="direct">③ 良品仓直调临期仓</option>
+          <option value="wastage">④ 报损</option>
+        </select>
+      </div>
+      <label class="sw"><input type="checkbox" id="chkClosed" checked>含未结账月</label>
+    </div>
+    <div class="src">数据源：<code>GET /loss/accounting/bootstrap</code>（期次+口径）· <code>GET /loss/accounting/trend</code>（<b>本期需新增</b>）</div>
+  </div>
+
+  <!-- 指标卡 -->
+  <div class="kpis" id="kpis"></div>
+
+  <!-- 主图 -->
+  <div class="card">
+    <div class="card-hd">
+      <b>货损趋势（按月）</b>
+      <span class="hint">柱＝金额（万元，左轴）· 线＝公司行货损净率（%，右轴）</span>
+      <span class="right" id="hiddenNote"></span>
+    </div>
+    <div id="chartMain"></div>
+    <div class="legend">
+      <span><i style="background:#EF9F27"></i>货损毛额</span>
+      <span><i style="background:#06b6d4"></i>货损净额</span>
+      <span><i style="background:#7c77dd"></i>货损净率（右轴）</span>
+      <span><i style="background:#d1d5db"></i>未录入（无数据月不画 0）</span>
+    </div>
+    <div class="src">数据源：<code>GET /loss/accounting/trend</code> → 每期 <code>company.gross_amt / net_amt / rate_net</code> + <code>is_closed</code>。🔴 折线只画<b>公司行</b>净率：③④ 无分母，不参与率的序列。</div>
+  </div>
+
+  <div class="grid3">
+    <div class="card">
+      <div class="card-hd"><b>货损构成（按月堆叠）</b><span class="hint">损失从哪来</span></div>
+      <div id="chartStack"></div>
+      <div class="legend">
+        <span><i style="background:#0891b2"></i>① 门店退货</span>
+        <span><i style="background:#1d9e75"></i>② 业务员仓调</span>
+        <span><i style="background:#7c77dd"></i>③ 良品仓直调</span>
+        <span><i style="background:#EF9F27"></i>④ 报损</span>
+      </div>
+      <div class="src">数据源：trend → <code>groups[].subtotal.gross_amt</code>（4 段，金额口径，不含率）</div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><b>临期抵扣</b><span class="hint">抵扣救回了多少</span></div>
+      <div id="chartDed"></div>
+      <div class="legend">
+        <span><i style="background:#EF9F27"></i>毛额</span>
+        <span><i style="background:#34c759"></i>临期销售抵扣</span>
+        <span><i style="background:#06b6d4"></i>净额</span>
+      </div>
+      <div class="src">数据源：trend → <code>company.breakdown.loss_wh_sale_amt</code>（公司行扣<b>总额</b>，业务员行只扣自售）</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd"><b>主体货损排行</b><span class="hint">按净额降序，谁的货损最重</span></div>
+    <div id="chartRank"></div>
+    <div class="src">数据源：trend → 主体行 <code>rows[].net_amt</code>。③④ 为单行组，一并参与（金额口径可比）</div>
+  </div>
+
+  <!-- 月列表 -->
+  <div class="card">
+    <div class="card-hd"><b>按月管理</b><span class="hint">12 个月一览，点行切到该月详情</span>
+      <span class="right">数据截至 2026-09-17</span></div>
+    <table>
+      <thead><tr>
+        <th>月份</th><th>货损净额（万元）</th><th>货损净率</th><th>环比</th>
+        <th>结账态</th><th>数据完整度</th><th>操作</th>
+      </tr></thead>
+      <tbody id="monthRows"></tbody>
+    </table>
+    <div class="src">数据源：<code>GET /loss/accounting/periods</code>（期次+结账态+updated_at）+ trend 汇总。结账动作 <code>POST /close</code> / <code>/reopen</code></div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd"><b>落地缺口（后端）</b></div>
+    <div class="note">
+      <p style="margin:0 0 8px"><span class="flag"><b>P0</b> 新增跨期端点</span>
+        <code>GET /api/loss/accounting/trend?from=&amp;to=&amp;pricing=</code> —— 现在所有端点都是<b>单期</b>的，画不出趋势。
+        实现必须<b>复用 <code>_compute(c, period)</code></b>，不许另写一份数学（否则又是一次静默漂移）。</p>
+      <p style="margin:0 0 8px"><span class="flag"><b>P1</b> 副图零新增端点</span>
+        构成堆叠 / 抵扣对比 / 主体排行 全部可由 trend 派生。</p>
+      <p style="margin:0 0 8px"><span class="flag"><b>P2</b> 月内日走势</span>
+        <code>loss_daily</code> 表<b>已建但无人写</b> —— 需要在「重算 / 保存」时落日快照，才能画"这个月还在恶化吗"。</p>
+      <p style="margin:0 0 8px"><span class="flag"><b>P2</b> 结账快照</span>
+        <code>loss_monthly</code> 建议<b>只在结账时</b>物化，定位为"当时数字被冻结的证据"；每次保存都写会形成第二份口径 → 静默漂移。</p>
+      <p style="margin:0"><span class="flag"><b>单位铁律</b></span>
+        金额存元、显万元；<b>金额的环比用 %，率的变化用「个百分点」</b>——写错会差一个数量级。</p>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+/* ── 演示数据（元）────────────────────────────────────────── */
+const RAW = [
+  {p:'2025-10', sales:3860000, gross:62000,  ded:18000, cls:true,  comp:{store:21000,operator:18000,direct:9000, wastage:14000}, miss:[]},
+  {p:'2025-11', sales:4120000, gross:71500,  ded:22000, cls:true,  comp:{store:24000,operator:21000,direct:11500,wastage:15000}, miss:[]},
+  {p:'2025-12', sales:4650000, gross:88000,  ded:26000, cls:true,  comp:{store:30000,operator:25000,direct:13000,wastage:20000}, miss:[]},
+  {p:'2026-01', sales:5180000, gross:96500,  ded:31000, cls:true,  comp:{store:33000,operator:28000,direct:14500,wastage:21000}, miss:[]},
+  {p:'2026-02', sales:3420000, gross:58000,  ded:19500, cls:true,  comp:{store:19000,operator:16000,direct:8000, wastage:15000}, miss:[]},
+  {p:'2026-03', sales:4300000, gross:64000,  ded:21000, cls:true,  comp:{store:22000,operator:18500,direct:9500, wastage:14000}, miss:[]},
+  {p:'2026-04', sales:null, gross:null, ded:null, cls:false, empty:true, comp:{store:0,operator:0,direct:0,wastage:0}, miss:['本月未录入（无数据 ≠ 0）']},
+  {p:'2026-05', sales:4720000, gross:72000,  ded:29000, cls:true,  comp:{store:24500,operator:20000,direct:10500,wastage:17000}, miss:[]},
+  {p:'2026-06', sales:4950000, gross:78500,  ded:33000, cls:true,  comp:{store:27000,operator:22000,direct:11000,wastage:18500}, miss:[]},
+  {p:'2026-07', sales:5240000, gross:84000,  ded:36500, cls:true,  comp:{store:29000,operator:23500,direct:12000,wastage:19500}, miss:[]},
+  {p:'2026-08', sales:5080000, gross:69000,  ded:34000, cls:true,  comp:{store:23000,operator:19000,direct:10000,wastage:17000}, miss:[]},
+  {p:'2026-09', sales:3150000, gross:41000,  ded:12000, cls:false, comp:{store:14000,operator:11000,direct:6000, wastage:10000}, miss:['报损未录入（显示 0 元 ≠ 本月无货损）']},
+];
+const RANK = [
+  {n:'报损（单行组）',k:'wastage',v:17000},
+  {n:'直调临期仓（单行组）',k:'direct',v:10000},
+  {n:'永辉超市 · 门店',k:'store',v:9400},
+  {n:'美廉超市 · 门店',k:'store',v:7600},
+  {n:'分销一部 · 门店',k:'store',v:5200},
+  {n:'王强 · 业务员',k:'operator',v:6900},
+  {n:'李敏 · 业务员',k:'operator',v:5400},
+  {n:'赵磊 · 业务员',k:'operator',v:3200},
+];
+const MONTHS_CUR = 2026, COST_FACTOR = 0.86;  // 演示用：成本价 ≈ 售价 × 0.86
+
+const S = {range:12, pricing:'sale', metric:'net', scope:'all', withClosed:true};
+const f = v => (v==null?null:Number(v));
+const wan = v => (v==null||isNaN(v)) ? '—' : (v/10000).toFixed(2);
+const pct = v => (v==null||isNaN(v)) ? '—' : v.toFixed(2)+'%';
+function rowOf(r){
+  if(r.empty) return {...r, gross:null, ded:null, net:null, sales:null, rate:null};
+  const m = S.pricing==='cost' ? COST_FACTOR : 1;
+  const gross = +(r.gross*m).toFixed(2), ded = +(r.ded*m).toFixed(2);
+  const net = +(gross-ded).toFixed(2), sales = +(r.sales*m).toFixed(2);
+  const comp = {}; for(const k in r.comp) comp[k]=+(r.comp[k]*m).toFixed(2);
+  return {...r, gross, ded, net, sales, comp, rate: sales? net/sales*100 : null};
+}
+function view(){
+  let a = RAW.map(rowOf);
+  if(!S.withClosed) a = a.filter(x=>x.cls);
+  if(S.range===6) a = a.slice(-6);
+  if(S.range==='cur') a = a.filter(x=>x.p.startsWith(String(MONTHS_CUR)));
+  return a;
+}
+/* ── 指标卡 ─────────────────────────────────────────── */
+function renderKpis(){
+  const a = view(), last = a[a.length-1], prev = a[a.length-2];
+  const scope = S.scope;
+  const val = x => scope==='all' ? x.net : (x.gross, x.comp[scope]);
+  const cur = val(last), pre = prev? val(prev) : null;
+  const curRate = scope==='all' ? last.rate : null;
+  const preRate  = (scope==='all'&&prev) ? prev.rate : null;
+  const dAmt = (pre!=null && pre!==0) ? (cur-pre)/Math.abs(pre)*100 : null;
+  const dRate = (curRate!=null && preRate!=null) ? curRate-preRate : null;
+  const cls = v => v==null?'':(v>0?'up':'down');      // 货损上升=红（坏），下降=绿（好）
+  const sign = v => v==null?'':(v>0?'+':'');
+  const scopeName = {all:'公司行',store:'①门店',operator:'②业务员',direct:'③直调',wastage:'④报损'}[scope];
+  const missCnt = a.filter(x=>x.miss.length).length;
+  const opened = a.filter(x=>!x.cls).length;
+  document.getElementById('kpis').innerHTML = `
+  <div class="kpi"><div class="t">当期货损净额 · ${scopeName}</div>
+    <div class="v">${wan(cur)}<small>万元</small></div>
+    <div class="s">环比 <span class="${cls(dAmt)}">${sign(dAmt)}${dAmt==null?'—':dAmt.toFixed(1)+'%'}</span>
+      <span style="color:var(--ink3)">（金额比金额用 %）</span></div></div>
+  <div class="kpi"><div class="t">当期货损净率</div>
+    <div class="v">${scope==='all'?pct(curRate):'—'}<small>${scope==='all'?'':'该组无分母 · 不给率'}</small></div>
+    <div class="s">环比 <span class="${cls(dRate)}">${sign(dRate)}${dRate==null?'—':dRate.toFixed(2)}</span>
+      ${dRate==null?'':'个百分点'} <span style="color:var(--ink3)">（率的变化用百分点）</span></div></div>
+  <div class="kpi"><div class="t">当期货损毛额 · ${scopeName}</div>
+    <div class="v">${wan(scope==='all'?last.gross:last.comp[scope])}<small>万元</small></div>
+    <div class="s">未扣临期销售抵扣</div></div>
+  <div class="kpi"><div class="t">临期销售抵扣</div>
+    <div class="v">${wan(last.ded)}<small>万元</small></div>
+    <div class="s">占毛额 ${last.gross?((last.ded/last.gross)*100).toFixed(0):'—'}% · 代表挽回了多少</div></div>
+  <div class="kpi"><div class="t">数据完整度</div>
+    <div class="v">${a.length-missCnt}<small>/ ${a.length} 个月</small></div>
+    <div class="s">${missCnt?`<span class="chip c-warn">${missCnt} 个月有缺口</span>`:''}${opened?`<span class="chip c-gray">${opened} 个未结账</span>`:'<span class="chip c-ok">全部已结账</span>'}</div></div>`;
+}
+/* ── 通用：SVG 骨架 ─────────────────────────────────── */
+function svg(w,h,inner){return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="display:block">${inner}</svg>`}
+function axes(w,h,m,yMax,yMin,ticks,fmt){
+  let s=''; const n=ticks;
+  for(let i=0;i<=n;i++){
+    const y=m.t+(h-m.t-m.b)*i/n, v=yMax-(yMax-yMin)*i/n;
+    s+=`<line x1="${m.l}" x2="${w-m.r}" y1="${y}" y2="${y}" stroke="#f0f1f3"/>`;
+    s+=`<text x="${m.l-8}" y="${y+4}" font-size="11" fill="#8a8f98" text-anchor="end">${fmt(v)}</text>`;
+  }
+  return s;
+}
+function xLabels(a,w,h,m){
+  const bw=(w-m.l-m.r)/a.length;
+  return a.map((x,i)=>`<text x="${m.l+bw*(i+.5)}" y="${h-m.b+18}" font-size="11" fill="#8a8f98" text-anchor="middle">${x.p.slice(2)}</text>`).join('');
+}
+/* ── 主图：双柱 + 折线（双轴） ───────────────────────── */
+function renderMain(){
+  const a=view(), W=1140, H=330, m={l:62,r:62,t:18,b:34};
+  if(!a.length){document.getElementById('chartMain').innerHTML='<div class="note">该区间没有期次。</div>';return}
+  // 轴上限取「整齐值」：左轴按 4 万元取整、右轴按 0.5 个百分点取整，刻度才读得出来
+  const gMax=Math.max(40000, Math.ceil(Math.max(...a.map(x=>Math.max(x.gross,x.net)))*1.2/40000)*40000);
+  const rMax=Math.max(0.5, Math.ceil(Math.max(...a.map(x=>x.rate||0))*1.5/0.5)*0.5);
+  const bw=(W-m.l-m.r)/a.length, bar=Math.min(20,bw*.24);
+  const y1=v=>m.t+(H-m.t-m.b)*(1-v/gMax);
+  const y2=v=>m.t+(H-m.t-m.b)*(1-v/rMax);
+  let s=axes(W,H,m,gMax,0,4,v=>(v/10000).toFixed(1));
+  s+=`<text x="10" y="${m.t+10}" font-size="11" fill="#8a8f98">万元</text>`;
+  // 🔴 双轴图**必须**给右轴刻度 —— 只标一个 % 号，读数就靠猜了
+  for(let i=0;i<=4;i++){
+    const y=m.t+(H-m.t-m.b)*i/4, v=rMax-rMax*i/4;
+    s+=`<text x="${W-m.r+10}" y="${y+4}" font-size="11" fill="#7c77dd">${v.toFixed(1)}%</text>`;
+  }
+  a.forEach((x,i)=>{
+    const cx=m.l+bw*(i+.5);
+    if(x.empty){
+      // 无数据月：**不画 0 柱**，画浅灰虚线占位 —— 「无数据 ≠ 0」是这套设计的一条铁律
+      const yt=y1(gMax*0.98);
+      s+=`<rect x="${cx-bar-4}" y="${yt}" width="${(bar+2)*2}" height="${m.t+(H-m.t-m.b)-yt}" rx="3" fill="none" stroke="#d1d5db" stroke-width="1" stroke-dasharray="3 3"/>`;
+      s+=`<text x="${cx}" y="${m.t+(H-m.t-m.b)-6}" font-size="10" fill="#8a8f98" text-anchor="middle">未录入</text>`;
+      s+=`<title>${x.p}｜本月未录入 —— 不是 0，也不是"本月没有货损"</title>`;
+      return;
+    }
+    s+=`<rect x="${cx-bar-2}" y="${y1(x.gross)}" width="${bar}" height="${m.t+(H-m.t-m.b)-y1(x.gross)}" rx="3" fill="#EF9F27" opacity="${S.metric==='net'?.38:1}"/>`;
+    s+=`<rect x="${cx+2}" y="${y1(x.net)}" width="${bar}" height="${m.t+(H-m.t-m.b)-y1(x.net)}" rx="3" fill="#06b6d4" opacity="${S.metric==='gross'?.38:1}"/>`;
+    if(!x.cls) s+=`<text x="${cx}" y="${Math.min(y1(x.gross),y1(x.net))-7}" font-size="10" fill="#BA7517" text-anchor="middle">未结账</text>`;
+    s+=`<title>${x.p}｜毛额 ${wan(x.gross)} 万元｜抵扣 ${wan(x.ded)}｜净额 ${wan(x.net)}｜净率 ${pct(x.rate)}${x.miss.length?'｜'+x.miss.join('；'):'｜数据完整'}</title>`;
+  });
+  // 折线遇到空月必须**断开** —— 跨过去直接连一条线，等于假装那段有数据
+  const pts=a.map((x,i)=> x.rate==null ? null : [m.l+bw*(i+.5), y2(x.rate)]);
+  let run=[];
+  const flush=()=>{ if(run.length>1) s+=`<polyline points="${run.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#7c77dd" stroke-width="1.6"/>`; run=[] };
+  pts.forEach(p=>{ if(!p){flush();return} run.push(p) });
+  flush();
+  pts.forEach((p,i)=>{ if(p) s+=`<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="#fff" stroke="#7c77dd" stroke-width="1.6"><title>${a[i].p} 净率 ${pct(a[i].rate)}</title></circle>` });
+  s+=xLabels(a,W,H,m);
+  document.getElementById('chartMain').innerHTML=svg(W,H,s);
+}
+/* ── 堆叠柱 ─────────────────────────────────────────── */
+function renderStack(){
+  const a=view(), W=520, H=260, m={l:52,r:12,t:14,b:30};
+  const tot=a.map(x=>Object.values(x.comp).reduce((p,c)=>p+c,0));
+  const mx=Math.max(20000, Math.ceil(Math.max(...tot)*1.2/20000)*20000), bw=(W-m.l-m.r)/a.length;
+  const y=v=>m.t+(H-m.t-m.b)*(1-v/mx);
+  let s=axes(W,H,m,mx,0,4,v=>(v/10000).toFixed(1));
+  const COL={store:'#0891b2',operator:'#1d9e75',direct:'#7c77dd',wastage:'#EF9F27'};
+  a.forEach((x,i)=>{
+    const cx=m.l+bw*(i+.5), w=Math.min(bw*.56,26); let acc=0;
+    for(const k of ['store','operator','direct','wastage']){
+      const v=x.comp[k], h0=m.t+(H-m.t-m.b)-y(acc+v), hh=y(acc)-y(acc+v);
+      s+=`<rect x="${cx-w/2}" y="${y(acc+v)}" width="${w}" height="${Math.max(hh,0)}" fill="${COL[k]}"></rect>`;
+      s+=`<title>${x.p} ${({store:'①门店',operator:'②业务员',direct:'③直调',wastage:'④报损'})[k]} ${wan(v)} 万元</title>`;
+      acc+=v;
+    }
+  });
+  s+=xLabels(a,W,H,m);
+  document.getElementById('chartStack').innerHTML=svg(W,H,s);
+}
+/* ── 抵扣对比 ───────────────────────────────────────── */
+function renderDed(){
+  const a=view(), W=520, H=260, m={l:52,r:12,t:14,b:30};
+  const mx=Math.max(40000, Math.ceil(Math.max(...a.map(x=>x.gross))*1.2/40000)*40000), bw=(W-m.l-m.r)/a.length;
+  const y=v=>m.t+(H-m.t-m.b)*(1-v/mx);
+  let s=axes(W,H,m,mx,0,4,v=>(v/10000).toFixed(1));
+  const bar=Math.min(bw*.22,11);
+  a.forEach((x,i)=>{
+    const cx=m.l+bw*(i+.5);
+    const items=[['#EF9F27',x.gross,'毛额'],['#34c759',x.ded,'临期抵扣'],['#06b6d4',x.net,'净额']];
+    items.forEach((it,j)=>{
+      const px=cx+(j-1)*(bar+2);
+      s+=`<rect x="${px-bar/2}" y="${y(it[1])}" width="${bar}" height="${m.t+(H-m.t-m.b)-y(it[1])}" rx="2" fill="${it[0]}"><title>${x.p} ${it[2]} ${wan(it[1])} 万元</title></rect>`;
+    });
+  });
+  s+=xLabels(a,W,H,m);
+  document.getElementById('chartDed').innerHTML=svg(W,H,s);
+}
+/* ── 排行横向条形 ───────────────────────────────────── */
+function renderRank(){
+  const m=S.pricing==='cost'?COST_FACTOR:1;
+  const list=RANK.map(x=>({...x,v:x.v*m})).sort((a,b)=>b.v-a.v).slice(0,8);
+  const W=1140, rowH=30, H=list.length*rowH+20, lw=190, mx=Math.max(...list.map(x=>x.v));
+  const COLK={store:'#0891b2',operator:'#1d9e75',direct:'#7c77dd',wastage:'#EF9F27'};
+  let s='';
+  list.forEach((x,i)=>{
+    const y=10+i*rowH, w=(W-lw-70)*(x.v/mx);
+    s+=`<text x="${lw-10}" y="${y+15}" font-size="12" fill="#4b5563" text-anchor="end">${x.n}</text>`;
+    s+=`<rect x="${lw}" y="${y+4}" width="${w}" height="18" rx="4" fill="${COLK[x.k]}" opacity=".92"><title>${x.n}　净额 ${wan(x.v)} 万元</title></rect>`;
+    s+=`<text x="${lw+w+8}" y="${y+17}" font-size="12" fill="#1d1d1f">${wan(x.v)}</text>`;
+  });
+  document.getElementById('chartRank').innerHTML=svg(W,H,s);
+}
+/* ── 月列表 ─────────────────────────────────────────── */
+function renderMonths(){
+  const all=RAW.map(rowOf), rows=[], lastP=RAW[RAW.length-1].p;
+  all.forEach((x,i)=>{
+    const p=all[i-1];
+    const dPct=(p&&p.net!=null&&x.net!=null&&p.net)? (x.net-p.net)/Math.abs(p.net)*100 : null;
+    const dRate=(x.rate!=null&&p&&p.rate!=null)? x.rate-p.rate : null;
+    if(!S.withClosed&&!x.cls) return;
+    const netCell = x.net==null ? '<span style="color:var(--ink3)">—</span>'
+      : `<span class="${x.net>0?'up':'down'}">${wan(x.net)}</span>`;
+    const fullCell = x.empty ? '<span class="chip c-gray" title="本月未录入 —— 不是 0">未录入</span>'
+      : (x.miss.length ? `<span class="chip c-warn" title="${x.miss.join('；')}">缺 ${x.miss.length} 项</span>`
+                       : '<span class="chip c-ok">完整</span>');
+    rows.push(`<tr>
+      <td>${x.p}${x.p===lastP?' <span class="chip c-info">本期</span>':''}</td>
+      <td>${netCell}</td>
+      <td>${pct(x.rate)}</td>
+      <td>${dPct==null?'—':`<span class="${dPct>0?'up':'down'}">${dPct>0?'+':''}${dPct.toFixed(1)}%</span>`}
+          ${dRate==null?'':`<span style="color:var(--ink3);font-size:11.5px"> · 率 ${dRate>0?'+':''}${dRate.toFixed(2)} 个百分点</span>`}</td>
+      <td>${x.cls?'<span class="chip c-ok">已结账</span>':'<span class="chip c-gray">未结账</span>'}</td>
+      <td>${fullCell}</td>
+      <td><button class="btn" style="padding:3px 9px;font-size:12px">查看</button></td>
+    </tr>`);
+  });
+  document.getElementById('monthRows').innerHTML=rows.join('');
+}
+function renderAll(){
+  const hid=RAW.filter(x=>!x.cls).length;
+  document.getElementById('hiddenNote').textContent = S.withClosed?'':`已隐藏 ${hid} 个未结账月`;
+  renderKpis(); renderMain(); renderStack(); renderDed(); renderRank(); renderMonths();
+}
+/* 交互 */
+function seg(id,key,cb){
+  document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#'+id+' button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); const v=b.dataset.v; S[key]= (v==='cur'||isNaN(+v))?v:+v; cb&&cb(); renderAll();
+  });
+}
+seg('segRange','range'); seg('segPricing','pricing'); seg('segMetric','metric');
+document.getElementById('selScope').onchange=e=>{S.scope=e.target.value;renderAll()};
+document.getElementById('chkClosed').onchange=e=>{S.withClosed=e.target.checked;renderAll()};
+/* 每个控件都给出反馈（原型不接后端，但要让看的人知道它会打到哪个端点） */
+const toast=t=>{const el=document.getElementById('toast');el.textContent=t;el.classList.add('on');
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),1900)};
+document.querySelectorAll('.bar .btn').forEach(b=>b.onclick=()=>toast('原型示意 · 这里将调用 ' + b.dataset.src));
+document.getElementById('monthRows').addEventListener('click',e=>{
+  const tr=e.target.closest('tr'); if(!tr) return;
+  toast('切到该月详情：' + tr.cells[0].textContent.trim() + ' · GET /loss/accounting/bootstrap?period=' + tr.cells[0].textContent.trim().slice(0,7));
+});
+document.querySelectorAll('.legend span').forEach(s=>{s.style.cursor='default'});
+renderAll();
+</script>
+</body>
+</html>
