@@ -94,6 +94,39 @@ async function main() {
   await sleep(6000)
   ok(!/#\/login/.test(page.url()), '登录态注入成功（未被弹回 /#/login）')
 
+  /* 🔴 2026-09-17 补（v181 回归时踩到）：探针此前假设「进页面选中的期次就有报单记录」。
+     实测沙箱按当期（今天）默认选中「9月15日报单9月19日到货」，该期次**为空**，
+     此时点「改单」被 enterEdit 静默拦下 —— **不报错、只 toast「请先选择期次」**，
+     于是网格零行、后续断言全部 FATAL，看起来像功能坏了，实则期次没数据。
+     改为遍历期次，挑**第一个真有报单记录**的（实测「9月提审期-开放填报」28 行）。 */
+  const periodPick = await (async () => {
+    const list = await page.evaluate(() => {
+      const s = [...document.querySelectorAll('select')].find(x => /选择期次/.test(x.innerHTML || ''))
+      return s ? [...s.options].filter(o => o.value !== '0').map(o => ({ v: o.value, t: o.textContent.trim() })) : []
+    })
+    if (!list.length) return { label: 'no-select', txt: 'no-select' }
+    const seen = []
+    for (const o of list) {
+      await page.evaluate(v => {
+        const s = [...document.querySelectorAll('select')].find(x => /选择期次/.test(x.innerHTML || ''))
+        s.value = v; s.dispatchEvent(new Event('change', { bubbles: true }))
+      }, o.v)
+      await sleep(3500)
+      const st = await page.evaluate(() => {
+        const txt = document.body.innerText || ''
+        const mt = [...document.querySelectorAll('table.tbl')].filter(t => !t.closest('.sprint-card'))
+        return {
+          empty: /暂无预报数据|没有报单记录/.test(txt),
+          rows: mt.reduce((a, t) => a + t.querySelectorAll('tbody tr').length, 0),
+        }
+      })
+      seen.push(`${o.t}:${st.empty ? '空' : st.rows + '行'}`)
+      if (!st.empty && st.rows > 0) return { label: o.t, txt: `${o.t}（${st.rows} 行）` }
+    }
+    return { label: '', txt: 'all-empty(' + seen.join(' / ') + ')' }
+  })()
+  ok(!!periodPick.label && periodPick.label !== 'no-select', '选中了有报单记录的期次（改单前置）', periodPick.txt)
+
   console.log('\n=== A. 进入编辑态 ===')
   const entered = await page.evaluate(() => {
     const b = [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === '改单')

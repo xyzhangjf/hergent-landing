@@ -92,6 +92,42 @@ async function main() {
   await page.goto(`${BASE}/?cb=${Date.now()}#/forecast`, { waitUntil: 'networkidle2', timeout: 60000 })
   await sleep(7500)
 
+  /* 🔴 2026-09-17 补（v181 回归时踩到）：探针此前假设「进页面选中的期次就有报单记录」。
+     实测沙箱按当期（今天）默认选中「9月15日报单9月19日到货」，该期次**为空**，
+     此时点「改单」被 enterEdit 静默拦下 —— **不报错、只 toast「请先选择期次」**，
+     于是网格零行、后续断言全部 FATAL「no col」，看起来像功能坏了，实则期次没数据。
+     改为遍历期次，挑**第一个真有报单记录**的（实测「9月提审期-开放填报」28 行）。
+     `prefer` 用于 G 段 reload 后直接切回同一个期次（免去二次遍历）。 */
+  const ensurePeriod = async (prefer) => {
+    const list = await page.evaluate(() => {
+      const s = [...document.querySelectorAll('select')].find(x => /选择期次/.test(x.innerHTML || ''))
+      return s ? [...s.options].filter(o => o.value !== '0').map(o => ({ v: o.value, t: o.textContent.trim() })) : []
+    })
+    if (!list.length) return { label: 'no-select', val: '', txt: 'no-select' }
+    const order = prefer ? [...list.filter(o => o.v === prefer), ...list.filter(o => o.v !== prefer)] : list
+    const seen = []
+    for (const o of order) {
+      await page.evaluate(v => {
+        const s = [...document.querySelectorAll('select')].find(x => /选择期次/.test(x.innerHTML || ''))
+        s.value = v; s.dispatchEvent(new Event('change', { bubbles: true }))
+      }, o.v)
+      await sleep(3500)
+      const st = await page.evaluate(() => {
+        const txt = document.body.innerText || ''
+        const mt = [...document.querySelectorAll('table.tbl')].filter(t => !t.closest('.sprint-card'))
+        return {
+          empty: /暂无预报数据|没有报单记录/.test(txt),
+          rows: mt.reduce((a, t) => a + t.querySelectorAll('tbody tr').length, 0),
+        }
+      })
+      seen.push(`${o.t}:${st.empty ? '空' : st.rows + '行'}`)
+      if (!st.empty && st.rows > 0) return { label: o.t, val: o.v, txt: `${o.t}（${st.rows} 行）` }
+    }
+    return { label: '', val: '', txt: 'all-empty(' + seen.join(' / ') + ')' }
+  }
+  const periodPick = await ensurePeriod()
+  ok(!!periodPick.label && periodPick.label !== 'no-select', '选中了有报单记录的期次（改单前置）', periodPick.txt)
+
   console.log('\n=== A. 进入编辑态 ===')
   const entered = await page.evaluate(() => {
     const b = [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === '改单')
@@ -222,9 +258,12 @@ async function main() {
   // 先把 E 段改过的品牌复原，避免把状态带进 F
   await typeInto(R1, C.brC, orig.br1 === null ? '' : orig.br1)
   await sleep(1200)
-  const blankRow = C.data.find(d => !String(d.brand || '').trim() && d.r !== R0 && d.r !== R1)
+  /* 🔴 2026-09-17 补：样本行**必须取视口内的**。网格是虚拟滚动，远处行会被回收 ——
+     实测取到第 157 行时 page.click 抛 "Node is either not clickable or not an Element"
+     （元素此刻已不在 DOM / 不在可点位置），整个探针在此中断。限定前 12 行即可稳定复现。 */
+  const blankRow = C.data.find(d => !String(d.brand || '').trim() && d.r !== R0 && d.r !== R1 && d.r < 12)
   if (!blankRow) {
-    info('⚠ 找不到档案品牌为空的行，跳过 F')
+    info('⚠ 前 12 行内没有档案品牌为空的样本，跳过 F（虚拟滚动下远处行不可点）')
   } else {
     const R2 = blankRow.r
     const origBc2 = blankRow.barcode
@@ -270,6 +309,9 @@ async function main() {
     await page.reload({ waitUntil: 'networkidle2', timeout: 60000 })
     await sleep(7500)
     const hasDraftAfter = await page.evaluate(() => Object.keys(localStorage).filter(k => k.indexOf('forecast_draft') === 0))
+    // reload 后页面会回到「当期」期次（可能为空）→ 必须切回刚才那个有数据的期次
+    const p2 = await ensurePeriod(periodPick.val)
+    info('重载后期次: ' + p2.txt)
     const entered2 = await page.evaluate(() => {
       const b = [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === '改单')
       if (!b) return false
@@ -285,9 +327,15 @@ async function main() {
       return { n: it.length, filled: it.filter(x => String(x.brand || '').trim() !== '').length }
     })
     info(`档案侧：${gridBrandN.n} 个商品，其中品牌非空 ${gridBrandN.filled}`)
-    ok(C2.brFill === gridBrandN.filled,
-      `★ 品牌列非空行数 == 档案品牌非空数（${C2.brFill} vs ${gridBrandN.filled}）—— 不再依赖草稿`,
-      'draftKeys=' + JSON.stringify(hasDraftAfter))
+    /* 🔴 2026-09-17 修：原断言要求「网格行品牌非空数 == 档案侧品牌非空数」，但这两个是
+       **不同集合** —— 编辑网格只渲染该期次相关商品（实测 158 行），档案侧是全部商品（285 个）。
+       昨天两者凑巧都是 245 才通过，换个期次立刻失效（156 vs 274），看起来像回归、实为断言错。
+       改判据为**网格内品牌非空占比**：修复前（品牌只靠草稿恢复）草稿一清即整列空白 → 0%；
+       修复后应接近 100%（差的那几行是档案本身就没品牌的商品）。 */
+    const ratio = C2.nRows > 0 ? C2.brFill / C2.nRows : 0
+    ok(ratio >= 0.9,
+      `★ 品牌列非空占比 ≥90%（${C2.brFill}/${C2.nRows} = ${(ratio * 100).toFixed(1)}%）—— 不再依赖草稿`,
+      `档案侧 ${gridBrandN.filled}/${gridBrandN.n} 有品牌；draftKeys=${JSON.stringify(hasDraftAfter)}`)
     ok(C2.brFill > 0, '品牌列有值（不是整列空白）')
     await page.screenshot({ path: OUT + '/v178-品牌列不靠草稿.png' })
   }
