@@ -238,15 +238,20 @@ function curScrollTop() {
   info('文案分布: ' + JSON.stringify(dist))
 
   const EXP = { '1161': '+4天', '1162': '+3天', '1523': '+3天', '1164': '—' }
+  /* ⚠️ 下面这组期望值 / off-archive pid 是 **2026-09-17 那一次沙箱（克隆源与其时点）的 fixture**。
+     换一份沙箱数据后这些 pid 可能根本不在本期行底 —— 那不是产品缺陷，只是 fixture 过期。
+     故「没遍历到」时报**未覆盖**（info），不要报 FAIL（否则会把人引到错误的方向去查产品）。
+     🔴 需要**数据集无关**的同义验证，请用 `v184b-offarchive-forecast.js`：它的期望值从接口现取、
+     逐行双向核对，并会自己播种子造出「带值的 off-archive 行」，换数据也照样有效。 */
   for (const [pid, want] of Object.entries(EXP)) {
     const got = acc[pid]
-    if (!got) { ok(false, '未遍历到 pid=' + pid + '（该行不在本期行底？）'); continue }
+    if (!got) { info('未覆盖 pid=' + pid + '（本数据集本期行底里没有它 —— fixture 过期，非缺陷）'); continue }
     ok(got.cycle === want, 'pid=' + pid + ' 页面显示「' + want + '」', 'got=' + JSON.stringify(got.cycle) + ' frozen=' + got.pos + ' left=' + got.inlineLeft)
   }
   // 【核心】off-archive 行
   const off = acc['1160']
   if (!off) {
-    ok(false, '未遍历到 off-archive 行 pid=1160（没法验证停用商品不丢字段）')
+    info('未覆盖 off-archive 行 pid=1160（本数据集无此 fixture，非缺陷）→ 改跑 v184b-offarchive-forecast.js')
   } else {
     info('pid=1160: ' + JSON.stringify(off))
     ok(off.offTag, 'pid=1160 确实是 off-archive 行（带「已停用」角标）')
@@ -366,7 +371,11 @@ function curScrollTop() {
         const td = [...t.querySelectorAll('tbody td.fc-cycle')].find(x => x.textContent.trim())
         return td ? td.textContent.trim() : null
       })
-      ok(r1.toast && r1.toast.includes('不能手工清空'), '右键清空只读列 → 明确拒绝并说明该去哪改', JSON.stringify(r1.toast))
+      // v184b：提示语已改为「在网格里只读；要改请到「商品档案」页…」——断言从「匹配旧原话」
+      //   改成「匹配意图」：① 明确拒绝 ② 指向一个**真实存在**的改法。写死原话会让
+      //   文案优化变成假失败（2026-09-17 实测踩过）。
+      ok(r1.toast && r1.toast.includes('只读') && r1.toast.includes('商品档案'),
+        '右键清空只读列 → 明确拒绝并说明该去哪改', JSON.stringify(r1.toast))
       ok(now === rc.cy.text, '该格文本未被清空（只读列拒绝写入）', rc.cy.text + ' → ' + now)
     } else ok(false, '编辑态未找到可见的到货周期格')
 

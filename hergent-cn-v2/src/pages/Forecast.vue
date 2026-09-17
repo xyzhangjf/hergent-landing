@@ -1939,6 +1939,9 @@ import ImportMapping from '../components/ImportMapping.vue'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ForecastHistory from './ForecastHistory.vue'
 import ReportMapping from './ReportMapping.vue'
+/* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
+   两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
+import { arrivalCycleText } from '../utils/arrival.js'
 
 const periods = ref([])
 const curPeriod = ref(0)
@@ -2420,18 +2423,17 @@ function onBodyKey(e) {
      ⚠️ 它**不是** `products.lead_time_days`（补货算法的提前期，默认 7，进安全库存/补货点公式），
         也不是品牌级的 `rebate_target_rules.order_cadence_days`（每几天到货一次的**频率**）。
         三者是三个量，别混用；本列 = 「下单后第几天到货」的**提前天数**。
-   · 写入口只有一处：预报导入的「到货周期」列（后端 `_re_rhythm` 解析「+3天」/「+3到货」）。
-     故本列**只读**（`edit:'ro'`）—— 在网格里摆一个存不下去的输入框就是「假旋钮」。
+   · 写入口有**两个**（结果落同一列，展示走同一个 `arrivalCycleText`）：
+     ① 预报订单导入的「到货周期」列（后端 `_re_rhythm` 解析「+3天」/「+3到货」）；
+     ② 「商品档案」页该列的行内编辑（v184b 新增，`PUT /api/products/{id}`）。
+     故本网格里本列**只读**（`edit:'ro'`）—— 在网格里摆一个存不下去的输入框就是「假旋钮」；
+     要改值去「商品档案」，也就是下面右键提示语让用户去的地方。
    · 展示：`+3天`；空/0 → `—`。**不做「继承品牌默认」**：那会让同一格有两个来源，
-     与「同屏数字口径必须同源」冲突；要默认值就导入时填。
+     与「同屏数字口径必须同源」冲突；要默认值就在导入时填、或在商品档案里设。
    · 位置：数组首位，使 defaultColOrder 里它紧跟「商品名称」；`visibleCols` 另有**强制归位**
      （固定列必须构成左侧连续区，否则按宽度累加出来的冻结偏移会算到别的列头上）。 */
-/* v184：到货周期文案的**唯一实现** —— 主表列（MASTER_COL_DEFS 的 fmt）与商品档案弹层共用。
-   两处各写一份格式化 = 第二份拷贝 = 静默漂移（改了主表忘了弹层，同一商品两处显示不一致）。 */
-function arrivalCycleText(v) {
-  const n = Number(v)
-  return n > 0 ? '+' + n + '天' : '—'
-}
+/* v184b：文案函数已移到 `utils/arrival.js`（本文件顶部 import）——
+   商品档案页也要显示同一个值，留两份就是第二份拷贝。 */
 const MASTER_COL_DEFS = [
   { key: 'arrival_lead_days', label: '到货周期', cls: 'fc-text fc-cycle', edit: 'ro', fixed: true, deletable: false,
     fmt: r => arrivalCycleText(r.arrival_lead_days) },
@@ -3668,9 +3670,11 @@ function ctxClear() {
      writeCellVal 里加闸门不够：右键「清空此单元格」会把 rw.arrival_lead_days 置空，
      界面立刻显示「—」，但网格保存的字段白名单里没有 arrival_lead_days ⇒ 一刷新又变回 +3天。
      「清了会自己回来」比「清不动」更糟 —— 用户会以为系统在丢数据。
-     故与 toggleCol / quickHide / hdrFreezeCol 同一处理：显式提示 + 不做，并说清该去哪改。 */
+     故与 toggleCol / quickHide / hdrFreezeCol 同一处理：显式提示 + 不做，并说清该去哪改。
+     🔴 v184b：提示语必须指向**真实存在**的改法 —— 此前只说「由预报导入决定」，
+        而现在是两个写入口（导入 / 商品档案），用户拿到的应是「去哪能改」而不是「不能改」。 */
   if (type === 'master' && visibleCols.value[c] && visibleCols.value[c].edit === 'ro') {
-    toast('「' + (visibleCols.value[c].label || key) + '」由预报导入的「到货周期」列决定，不能手工清空', 'warn')
+    toast('「' + (visibleCols.value[c].label || key) + '」在网格里只读；要改请到「商品档案」页点该商品的到货周期格（或走预报导入）', 'warn')
     return
   }
   snapshot()

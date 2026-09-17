@@ -567,6 +567,91 @@ SPEC_FE_V184B = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v184b2（2026-09-17）：把「到货周期」做成**商品档案页可编辑字段**（方案 A）─────
+# 基线：be HEAD = 3a60c4d（上一轮的「注释订正」已落，故本轮 data.py 只剩 4 hunk，不再是 1 个）。
+#   server/db/queries/products.py（5 hunk，**全本轮**）→ keep_all（拿「暂存版 == 工作区」自证）
+#     6  文件头新增归一化的**唯一实现** `normalize_arrival_days` + `_ATD_MAX`（+37）
+#     16·23  product_create：白名单加 `arrival_lead_days` + 归一化（认不出→不写）
+#     45·53  product_update：白名单加 `arrival_lead_days` + 归一化
+#            ⚠️ **本轮最关键的改动**：`allowed` 不在那里放行 = 前端改完 **HTTP 200 静默回旧值**
+#   server/routers/data.py（4 hunk，**全本轮**）→ keep_all
+#     267  update_product 加**显式校验**（非整数/带小数/越界 → 400 并说清范围；避免「改了没反应也没提示」）
+#     287  bulk_upsert_products docstring 补「显式提供才写」守卫说明
+#     353  bulk_upsert_products 加守卫（`is not None` 判据 —— **0 是合法值**，真值判断会吞掉「显式取消」）
+#     398  products_grid 注释订正：「全仓唯一写入口」→「两个写入口」
+#   server/erp_db.py（6 hunk = 本轮 1 + 在途 5）→ exclude_hunks
+#     本轮 1：38  门面补导出 `normalize_arrival_days`（让三条写路径共享同一份规则）
+#     在途 5：1400    products 建表 SQL：`extra_json` 从括号**外**归位到括号**内**
+#             10944 + 10959  `_safe_migrate("v110_products_dist_price")` 的搬家两半（一起排）
+#             11376 + 11379  `login_is_locked` 改双维度阈值（LOGIN_LOCK_USER_MAX / IP 维度）
+SPEC_BE_V184B2 = ("be", [
+    {"file": "server/db/queries/products.py", "keep_all": True, "gone": []},
+    {"file": "server/routers/data.py", "keep_all": True, "gone": []},
+    {"file": "server/erp_db.py",
+     "exclude_hunks": [1400, 10944, 10959, 11376, 11379],
+     "gone": []},
+])
+
+# ── v184b2（2026-09-17，前端）─────────────────────────────────────────
+# 基线：fe HEAD = d7f977f。
+#   hergent-cn-v2/src/pages/Forecast.vue（14 hunk = 本轮 6 + 在途 8）→ **markers**
+#     本轮 6（全部围绕「到货周期文案的**唯一实现**移到 utils/arrival.js」+ 提示语订正）：
+#       1941  import { arrivalCycleText } from '../utils/arrival.js'
+#       2423  注释：写入口从「一个」改成「两个」
+#       2426  注释：「不做继承品牌默认」的理由（同屏口径同源）
+#       2429  删掉本地 `arrivalCycleText` 定义（只留一行指向 utils/arrival.js 的注释）
+#       3671  ctxClear 注释：提示语必须指向**真实存在**的改法
+#       3673  ctxClear 提示语正文：指向「商品档案」页
+#     在途 8：101        纯空行（无归属价值，排除零风险）
+#             2646·2648  loadEditGrid 里「sources 合并而非覆盖」（09-13 起未提交）
+#             2659·2661  loadEditGrid 里 extraByPid 累加（行级加单，同上）
+#             7768+7783  `.imp-errs` 规则的**搬家两半**（必须一起排；HEAD 里该串 2 处、
+#                        工作区亦 2 处，排完留在原位恰好一份）
+#             8152        纯空行
+#   ⚠️ 「4 个 2646/2659 段 + 2 个 CSS 搬移 + 2 个空行」是本刻快照；跨轮次会变，复跑前重数。
+#   hergent-cn-v2/src/pages/ProductArchive.vue（14 hunk，**全本轮**）→ keep_all
+#     本轮 14：6（页头副标题提「点到货周期格」）·43（表头新列 + 位置理由）
+#       51（单元格**三态**渲染 + 两个「留空」语义相反的说明）
+#       112（详情弹层字段）·142（新增表单字段 + 留空=不改动）·300（import 共享实现）
+#       350（state：editingCycleId / editCycle）·357（addForm 加字段）
+#       484（startEditCycle / saveCycle，+29）·599·606·622（saveAdd 校验 + 条件展开守卫）
+#       699（导出加该列）·741（.pa-cyc-* 样式 +12）
+#   ⚠️ 该文件 hunk 多且密，但**逐块打印确认全为本轮**（无并行会话在途改动）⇒ keep_all 自证成立。
+SPEC_FE_V184B2 = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "markers": [
+         "import { arrivalCycleText } from '../utils/arrival.js'",
+         "写入口有**两个**（结果落同一列，展示走同一个 `arrivalCycleText`）",
+         "与「同屏数字口径必须同源」冲突；要默认值就在导入时填、或在商品档案里设。",
+         "/* v184b：文案函数已移到 `utils/arrival.js`（本文件顶部 import）——",
+         "🔴 v184b：提示语必须指向**真实存在**的改法",
+         "」在网格里只读；要改请到「商品档案」页点该商品的到货周期格（或走预报导入）",
+     ],
+     "gone": []},
+    {"file": "hergent-cn-v2/src/pages/ProductArchive.vue", "keep_all": True, "gone": []},
+    # 🆕 共享实现（HEAD 无此文件）
+    {"file": "hergent-cn-v2/src/utils/arrival.js", "new_file": True, "gone": []},
+    # 上一轮探针的修正（2 处：提示语改成「匹配意图」/ 过期 fixture 由 FAIL 降级 info）——全本轮
+    {"file": ".workbuddy/tools/v184-arrival-cycle-page.js", "keep_all": True, "gone": []},
+    # 上一轮探针重写为「自播种子」（原版断言「往期不是全「—」」是 fixture 依赖）——全本轮
+    {"file": ".workbuddy/tools/v184-arrival-cycle-history.js", "keep_all": True, "gone": []},
+    # 本轮真机验证工具（HEAD 无这些文件 → new_file，内容直接取工作区）
+    {"file": ".workbuddy/tools/v184b-archive-arrival-cycle.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v184b-offarchive-forecast.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v184b-archive-arrival-shot.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v184b-input-visibility.js", "new_file": True, "gone": []},
+    # 本轮交付（真机截图 4 张 + 交付说明）—— outputs/ 已被跟踪，但本目录是新增。
+    #   ⚠️ PNG 必须标 `binary: True`：本工具默认按 utf-8 读新文件，截图会在
+    #      `invalid start byte` 上炸掉整个 spec（2026-09-17 实测，已修）。
+    {"file": "outputs/到货周期可编辑-2026-09-17/交付说明.md", "new_file": True, "gone": []},
+    {"file": "outputs/到货周期可编辑-2026-09-17/01-档案页到货周期列.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/到货周期可编辑-2026-09-17/02-到货周期列特写.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/到货周期可编辑-2026-09-17/03-行内编辑态.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/到货周期可编辑-2026-09-17/04-编辑输入框特写.png", "new_file": True, "binary": True, "gone": []},
+    # 本工具自身（新增上面两个 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -576,7 +661,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v181": SPEC_FE_V181, "fe-v181b": SPEC_FE_V181B,
          "fe-v182": SPEC_FE_V182, "fe-v183": SPEC_FE_V183,
          "be-v184": SPEC_BE_V184, "fe-v184": SPEC_FE_V184,
-         "be-v184b": SPEC_BE_V184B, "fe-v184b": SPEC_FE_V184B}
+         "be-v184b": SPEC_BE_V184B, "fe-v184b": SPEC_FE_V184B,
+         "be-v184b2": SPEC_BE_V184B2, "fe-v184b2": SPEC_FE_V184B2}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
@@ -666,7 +752,17 @@ def main():
 
     for spec in file_specs:
         path = spec["file"]
-        wt = open(os.path.join(REPO, path), encoding="utf-8").read()
+        # 🔴 binary=True：PNG/zip 等**不可按 utf-8 解码**的新文件。
+        #   2026-09-17 实测踩过：交付目录里的截图会让 `open(..., encoding="utf-8")` 在
+        #   `osition 0: invalid start byte` 上炸掉，整个 spec 连第一个文件都跑不完。
+        #   二进制只做「暂存版 == 工作区（逐字节）」这一条自证 —— 它本来就没有 hunk、
+        #   没有行数、也不该有 gone 文案检查，所以不需要任何别的分支。
+        is_bin = bool(spec.get("binary"))
+        assert not (is_bin and not spec.get("new_file")), \
+            "%s：binary 目前只支持 new_file（已跟踪的二进制没有可行的 hunk 归属判据）" % path
+        wt = (open(os.path.join(REPO, path), "rb").read() if is_bin
+              else open(os.path.join(REPO, path), encoding="utf-8").read())
+        assert not (is_bin and spec.get("gone")), "%s：binary 不该有 gone 名单" % path
 
         if spec.get("new_file"):
             # 新文件：HEAD 里不存在 → 无 hunk 可解析，内容直接取工作区（自证 == 工作区）
@@ -720,7 +816,10 @@ def main():
         inflight_sample = pick_inflight_sample(hunks, set(mine))
 
         outp = "/tmp/staged_" + os.path.basename(path)
-        open(outp, "w", encoding="utf-8").write(out)
+        if is_bin:
+            open(outp, "wb").write(out)
+        else:
+            open(outp, "w", encoding="utf-8").write(out)
         staged_blobs[path] = out
 
         # 混合 hunk 只落一半时，被丢弃的 `+` 侧（split_minus_only 整侧 / trim_plus 尾部）
@@ -735,12 +834,18 @@ def main():
         print("=" * 74)
         print("%s" % path)
         print("  hunk 总 %d | 本轮 %d %s | 在途 %d %s" % (len(hunks), len(mine), mine, n_def, deferred))
-        print("  行数 HEAD %d -> 暂存 %d (%+d) | 工作区 %d"
-              % (head.count("\n"), out.count("\n"),
-                 out.count("\n") - head.count("\n"), wt.count("\n")))
+        if is_bin:
+            print("  二进制（%d 字节）：无行数/无 hunk，只做逐字节自证" % len(out))
+        else:
+            print("  行数 HEAD %d -> 暂存 %d (%+d) | 工作区 %d"
+                  % (head.count("\n"), out.count("\n"),
+                     out.count("\n") - head.count("\n"), wt.count("\n")))
         if spec.get("keep_all"):
             assert out == wt, "%s：keep_all 但构造结果 != 工作区（切片法有误）" % path
             print("  暂存版 == 工作区（该文件无在途改动，keep_all 自证 ✓）")
+        if is_bin:
+            assert out == wt, "%s：二进制暂存版 != 工作区（构造有误）" % path
+            print("  暂存版 == 工作区（逐字节 ✓）")
         assert n_resid == n_def, \
             "残留 hunk %d != 在途 hunk %d，归属有误" % (n_resid, n_def)
         print("  残留 hunk == 在途 hunk == %d ✓" % n_resid)
@@ -768,10 +873,16 @@ def main():
     if commit_msg:
         names = []
         for path, out in staged_blobs.items():
+            # 已跟踪改动用 reset 清掉**旧索引态**；新文件 reset 是 no-op（无害）。
             git("reset", "-q", "HEAD", "--", path)
-            blob = subprocess.run(["git", "-C", REPO, "hash-object", "-w", "--stdin"],
-                                  input=out, text=True, capture_output=True,
-                                  check=True).stdout.strip()
+            # 🔴 str 传 text=True（走文本管道），bytes 必须 text=False —— 混用会让 PNG
+            #   在 hash-object 里被当文本编码，静默写出**损坏的 blob**。
+            #   反之 stdout 的类型也跟着 text 走：text=True → str，text=False → bytes，
+            #   故取回时**两边都要兼容**（首版只写了 .decode()，直接 AttributeError）。
+            res = subprocess.run(["git", "-C", REPO, "hash-object", "-w", "--stdin"],
+                                 input=out, text=isinstance(out, str),
+                                 capture_output=True, check=True)
+            blob = (res.stdout if isinstance(res.stdout, str) else res.stdout.decode()).strip()
             subprocess.run(["git", "-C", REPO, "update-index", "--add", "--cacheinfo",
                             "100644,%s,%s" % (blob, path)], check=True)
             names.append(path)

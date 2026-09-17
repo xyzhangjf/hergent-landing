@@ -3,7 +3,7 @@
     <div class="page-hd split">
       <div>
         <h2>商品档案</h2>
-        <span class="page-sub">浏览与轻量维护商品主档 · 点品牌格行内改（自动归一）· 点厂价格可直接补价 · 售价/进价/安全库存只读（厂价 ＝ 进价，进价有值即不必再补）</span>
+        <span class="page-sub">浏览与轻量维护商品主档 · 点品牌格行内改（自动归一）· 点厂价格可直接补价 · <b>点到货周期格可设「+几天到货」</b> · 售价/进价/安全库存只读（厂价 ＝ 进价，进价有值即不必再补）</span>
       </div>
       <div class="pa-actions">
         <span class="pa-stat" v-if="total !== null"><b>{{ total }}</b>&nbsp;个商品</span>
@@ -41,6 +41,9 @@
         <table class="tbl">
           <thead><tr>
             <th>名称</th><th>条码</th><th>规格</th><th>单位</th>
+            <!-- v184b：到货周期（该单品下单后第几天到货）。位置放在「商品身份」块（名称/条码/规格/单位）
+                 之后、价格块之前 —— 它是 SKU 属性，不属于价格组（售价/进价/厂价）。 -->
+            <th title="该单品下单后第几天到货（如 +3天）。点格子可直接改；留空或 0 = 取消设置">到货周期</th>
             <th>品牌</th><th class="num">标准售价</th><th class="num">进价</th><th class="num" title="厂价 ＝ 进价 ＝ 厂家结算价（同一个量，可留空按进价取）">厂价</th><th class="num">安全库存</th><th>状态</th><th></th>
           </tr></thead>
           <tbody>
@@ -49,6 +52,26 @@
               <td class="pa-mono">{{ p.barcode || '—' }}</td>
               <td>{{ p.spec || '—' }}</td>
               <td>{{ p.unit || '—' }}</td>
+              <!-- v184b：到货周期 —— 行内可编（沿用品牌/厂价两列的改法）。
+                   🔴 三态显示是**有意的**：
+                     · 有值  → '+3天'（可点）
+                     · 未设置 → 「未设」灰字 + 可点。这里**不用**「—」：本格是**可操作**的入口，
+                       一个不表意的破折号不告诉用户「点它就能设」（厂价列用「未录」同理）。
+                       只在预报主表用「—」（那是纯展示、不可点）。
+                     · 编辑中 → number 输入框，Enter 或失焦即存。
+                   ⚠️ 「留空 = 取消设置」与**预报导入**的「留空 = 不改动」**语义相反**，这是刻意的：
+                     导入是成百行的批量动作，空格子多半只是「这行没意见」；
+                     而这里是用户**专门点开某一格**的定向动作，留空只能是「我要清掉它」。
+                     故两边都各自显式提示（导入那边写在填写说明里，这里见 saveCycle 的 toast）。 -->
+              <td class="pa-cyc-cell">
+                <input v-if="editingCycleId === p.id" v-model="editCycle" class="input pa-cyc-input"
+                       type="number" min="0" :max="ARRIVAL_MAX" step="1"
+                       :title="'填 +几天到货（0~' + ARRIVAL_MAX + '）；留空或 0 = 取消设置'"
+                       @keyup.enter="saveCycle(p)" @blur="saveCycle(p)">
+                <span v-else-if="Number(p.arrival_lead_days) > 0" class="pa-cyc-val"
+                      title="点这里改（该单品下单后第几天到货）" @click="startEditCycle(p)">{{ arrivalCycleText(p.arrival_lead_days) }}</span>
+                <span v-else class="pa-cyc-none" title="点这里设置：该单品下单后第几天到货（如 3 = +3天）" @click="startEditCycle(p)">未设</span>
+              </td>
               <td class="pa-brand-cell">
                 <input v-if="editingId === p.id" v-model="editBrand" class="input pa-brand-input" list="pa-brand-list"
                        @keyup.enter="saveBrand(p)" @blur="saveBrand(p)">
@@ -110,6 +133,9 @@
               <div class="pa-detail-item"><span>分销价</span><b>{{ money(detailTarget?.dist_price) }}</b></div>
               <div class="pa-detail-item"><span>安全库存</span><b>{{ detailTarget?.safety_stock != null ? detailTarget.safety_stock : '—' }}</b></div>
               <div class="pa-detail-item"><span>保质期(天)</span><b>{{ detailTarget?.expiry_days != null ? detailTarget.expiry_days : '—' }}</b></div>
+              <!-- v184b：到货周期。文案走 utils/arrival.js 的同一份实现（与预报主表、列表列同源）——
+                   空/0 在这里显示「—」（弹层是**只读**展示，不承担「点它就能改」的引导）。 -->
+              <div class="pa-detail-item"><span>到货周期</span><b>{{ arrivalCycleText(detailTarget?.arrival_lead_days) }}</b></div>
               <div class="pa-detail-item"><span>厂家编码</span><b>{{ detailTarget?.product_code || '—' }}</b></div>
               <div class="pa-detail-item pa-full"><span>别名</span><b>{{ detailTarget?.alias || '—' }}</b></div>
               <div class="pa-detail-item pa-full"><span>状态</span><b>{{ detailTarget?.is_active === 0 ? '已停用' : '启用' }}</b></div>
@@ -140,6 +166,10 @@
               <label class="pa-f"><span>售价</span><input v-model="addForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               <label class="pa-f"><span>安全库存</span><input v-model="addForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
               <label class="pa-f"><span>保质期(天)</span><input v-model="addForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
+              <!-- v184b：到货周期。留空 = **不改动**（不写这一列）—— 本弹窗保存走 bulk-upsert，
+                   同名商品会走更新分支；若把空值当 0 提交，会把别人已设好的到货周期清零
+                   （厂价列踩过同一个坑，见 saveAdd 里的条件展开）。 -->
+              <label class="pa-f"><span>到货周期<span class="pa-hint">+几天到货，留空 = 不设置</span></span><input v-model="addForm.arrival_lead_days" class="input" type="number" min="0" :max="ARRIVAL_MAX" step="1" placeholder="如 3"></label>
             </div>
           </div>
           <div class="pa-modal-ft">
@@ -298,6 +328,9 @@ import { api } from '../api/client'
 import { productsApi, importApi } from '../api/modules'
 import * as XLSX from 'xlsx'
 import { toast } from '../store'
+/* v184b：到货周期文案 / 解析的**唯一实现**（与「本期预报」主表共用同一份，见该文件注释）。
+   本页若自己再写一份格式化 = 第二份拷贝 = 静默漂移（同一商品两处显示不一致）。 */
+import { arrivalCycleText, parseArrivalDays, ARRIVAL_MAX } from '../utils/arrival.js'
 
 const loading = ref(false)
 const products = ref([])
@@ -348,13 +381,20 @@ const fpFilledCount = computed(() => fpViewRows.value.filter(r => r._ck && Numbe
 
 const editingId = ref(null)
 const editBrand = ref('')
+
+// ---- v184b 到货周期：行内编辑（沿用品牌 / 厂价两列的改法）----
+// 🔴 与「本期预报」主表那列的关系 = **同一列、两个写入口**（预报导入 / 本页），
+//    展示都走 utils/arrival.js::arrivalCycleText；主表网格里它仍是只读（`edit:'ro'`），
+//    要改值只能来本页或走导入 —— 所以那里右键提示语指向的正是本页。
+const editingCycleId = ref(null)
+const editCycle = ref('')
 const detailOpen = ref(false)
 const detailTarget = ref(null)
 
 // 新增弹窗
 const addOpen = ref(false)
 const addSaving = ref(false)
-const addForm = ref({ name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '' })
+const addForm = ref({ name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '', arrival_lead_days: '' })
 
 // 导入弹窗
 const impOpen = ref(false)
@@ -482,6 +522,35 @@ async function saveFp(p) {
   } catch (e) { toast(e.message || '保存失败', 'err') }
 }
 
+/* ---- v184b 到货周期：行内编辑 ----
+   写的是 `products.arrival_lead_days`（该单品下单后第几天到货，整数，0 = 未设置）。
+   ① 后端白名单：`db/queries/products.py::product_update.allowed` —— 不在那里放行，本页改完
+      会**静默回旧值**（HTTP 200、零报错），属于「改了没反应」里最难查的一种。
+   ② 校验 + 展示走 `utils/arrival.js` 同一份规则（上界 365 与后端 `_ATD_MAX` / 路由层同值）。
+   ③ **留空 = 取消设置**（提交 0，本页显示「未设」、预报主表显示「—」）。这与**预报导入**的
+      「留空 = 不改动」相反，是有意的：导入是成百行的批量动作（空格子多半只是「没意见」），
+      这里是用户专门点开某一格的定向动作（留空只能是「清掉它」）。两边都各自显式提示。 */
+function startEditCycle(p) {
+  editingCycleId.value = p.id
+  editCycle.value = Number(p.arrival_lead_days) > 0 ? String(p.arrival_lead_days) : ''
+}
+async function saveCycle(p) {
+  if (editingCycleId.value !== p.id) return  // 已保存过（Enter + blur 重复触发）
+  editingCycleId.value = null
+  const r = parseArrivalDays(editCycle.value)
+  if (!r.ok) { toast(`到货天数请填 0~${ARRIVAL_MAX} 之间的整数（留空或 0 = 取消设置）`, 'err'); return }
+  if (r.value === (Number(p.arrival_lead_days) || 0)) return  // 无变化
+  try {
+    await api('/api/products/' + p.id, { method: 'PUT', body: { arrival_lead_days: r.value } })
+    p.arrival_lead_days = r.value
+    const hit = allProducts.value.find(x => x.id === p.id)
+    if (hit) hit.arrival_lead_days = r.value   // 索引同步：切页前再调详情弹层也读到新值
+    toast(r.value > 0
+      ? `到货周期已设为 ${arrivalCycleText(r.value)}`
+      : '已取消设置（该商品在预报主表显示「—」）', 'ok')
+  } catch (e) { toast(e.message || '保存失败', 'err') }
+}
+
 /* ---- v157 厂价：批量补（存量商品）---- */
 function _rebuildFpRows() {
   const miss = allProducts.value
@@ -596,7 +665,7 @@ function openDetail(p) { detailTarget.value = p; detailOpen.value = true }
 
 /* ---- 新增商品 ---- */
 function openAdd() {
-  addForm.value = { name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '' }
+  addForm.value = { name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '', arrival_lead_days: '' }
   addSaving.value = false
   addOpen.value = true
 }
@@ -604,6 +673,9 @@ function _num(v, d = 0) { const n = Number(v); return isNaN(n) ? d : n }
 async function saveAdd() {
   const f = addForm.value
   if (!f.name.trim()) { toast('请填写商品名称', 'err'); return }
+  // v184b：到货周期先校验再提交 —— 非法值一律不发请求（与后端同一口径「宁可不写，不写脏」）。
+  const _cyc = parseArrivalDays(f.arrival_lead_days)
+  if (!_cyc.ok) { toast(`到货天数请填 0~${ARRIVAL_MAX} 之间的整数（留空 = 不设置）`, 'err'); return }
   addSaving.value = true
   try {
     const row = {
@@ -620,6 +692,10 @@ async function saveAdd() {
       sale_price: _num(f.sale_price),
       safety_stock: _num(f.safety_stock),
       expiry_days: _num(f.expiry_days),
+      // v184b 到货周期：与厂价同一条守卫 —— **留空 = 不带该键**（= 不改动已有的值）。
+      //   本弹窗走 bulk-upsert，同名商品会命中更新分支；若把空值当 0 提交，
+      //   会把导入或档案里已设好的到货周期清零（厂价列踩过同一个坑）。
+      ...(_cyc.empty ? {} : { arrival_lead_days: _cyc.value }),
     }
     const r = await productsApi.bulkUpsert([row])
     toast(`已保存（新增 ${r.inserted || 0} / 更新 ${r.updated || 0}）`, 'ok')
@@ -697,6 +773,11 @@ async function exportXlsx() {
     const items = d.items || []
     const rows = items.map(p => ({
       '商品名称': p.name, '条码': p.barcode || '', '规格': p.spec || '', '单位': p.unit || '',
+      // v184b：到货周期。导出给**人看**，故用与页面同一种写法（`+3天`）。
+      //   ⚠️ 未设置导出**空串**而不是页面那个「—」：破折号在表格里是噪音，且回导时会被当成一个值。
+      //   ⚠️ 本导出**不是**回写通道：商品导入对已存在的条码是「冲突跳过」而非更新（见 import_router），
+      //      要改存量商品的到货周期请在**本页点该格**改。
+      '到货周期': Number(p.arrival_lead_days) > 0 ? arrivalCycleText(p.arrival_lead_days) : '',
       '品牌': p.brand || '', '分类': p.category || '',
       '标准售价': p.sale_price || 0, '进价': p.purchase_price || 0,
       '厂价': p.factory_price || 0, '分销价': p.dist_price || 0,
@@ -738,6 +819,18 @@ onMounted(() => {
 .pa-fp-miss:hover{background:rgba(var(--war-rgb),.24)}
 .pa-fp-input{width:92px;height:30px;text-align:right;padding:0 8px}
 .pa-hint{font-size:11px;color:var(--t3);font-weight:400;margin-left:4px}
+
+/* v184b 到货周期列：行内可编，沿用厂价列的视觉语言（虚线下划 + hover 变品牌色），
+   但**不用**警示色 —— 见下面 .pa-cyc-none 的注释。 */
+.pa-cyc-cell{white-space:nowrap;text-align:center}
+.pa-cyc-val{cursor:pointer;border-bottom:1px dashed transparent;font-variant-numeric:tabular-nums}
+.pa-cyc-val:hover{border-bottom-color:var(--p);color:var(--p)}
+/* 「未设」用**灰**（--t3）而不是厂价列那种琥珀（--war）：
+   缺厂价是**问题**（闸门开启后该商品在报单导入/小程序报单时会被拒收），缺到货周期只是「未设置」。
+   本租户 285 个在售商品里 274 个为空 —— 用警示色会变成满屏噪音，反而盖掉真正要看的缺价提示。 */
+.pa-cyc-none{cursor:pointer;color:var(--t3);font-size:12px;border-bottom:1px dashed transparent}
+.pa-cyc-none:hover{border-bottom-color:var(--p);color:var(--p)}
+.pa-cyc-input{width:74px;height:30px;text-align:center;padding:0 6px}
 
 .pa-panel{padding:18px;margin-bottom:14px}
 .pa-filters{display:flex;gap:10px;flex-wrap:nowrap;align-items:center;overflow-x:auto;padding-bottom:2px}
