@@ -422,7 +422,12 @@ SPEC_FE_V182 = ("fe", [
      "gone": []},
 ])
 
-# v183（2026-09-17 15:2x）：冲刺看板「进度」列文案 → 只留「达成率 X%」（三态判语删除）
+# ── v183（2026-09-17）：冲刺看板「进度」列文案 → 只留「达成率 X%」（三态判语删除）──
+# ✅ **已提交（2026-09-17）**：代码 `0c542db`（13 hunk +40/−32）。本 spec 记的是**提交前**的行号快照，
+#    故现在复跑会命中「黑名单里有不存在的 hunk（基线漂移？）」并中止 —— 那是**守卫按预期生效**：
+#    v183 进 HEAD 后就地删/改了那 13 处，其后 16 个在途 hunk 的 old_start 整体位移，名单自然全失效。
+#    ⚠️ 本 spec 已是**一次性归属记录**：那 16 个在途 hunk 从未提交，故 worktree 也复现不出当时的行号
+#       ⇒ 它的价值转为**审计留档**（「当时这 13 个 hunk 为什么归我」），不再用于复跑。
 # 我的 hunk（13 个，按内容判定）：412 / 417 / 6257 / 6280 / 6291 / 6293 / 6298 /
 #   6311 / 6314 / 6319 / 6331 / 6334 / 7536
 # ⚠️ 6280 与 6334（paceHint 体）不靠关键词也能看出是「v183 解耦」这一件事的两半：
@@ -489,7 +494,12 @@ def resolve_ownership(spec, hunks):
     elif "exclude_hunks" in spec:
         deferred = sorted(set(spec["exclude_hunks"]))
         missing = [d for d in deferred if d not in got]
-        assert not missing, "%s：黑名单里有不存在的 hunk %s（基线漂移？）" % (spec["file"], missing)
+        assert not missing, (
+            "%s：黑名单里有不存在的 hunk %s（基线漂移？）\n"
+            "  ⚠️ 先确认本 spec 是否**已提交**：那批 hunk 一旦进 HEAD，其后所有在途 hunk 的\n"
+            "     old_start 会整体位移、名单必然全失效、必然走到这里 —— 那是守卫**按预期生效**，\n"
+            "     不是回归，也不要据此改名单（改了只会错得更隐蔽）。"
+            % (spec["file"], missing))
         mine = [g for g in got if g not in set(deferred)]
     else:
         mine_oses = []
