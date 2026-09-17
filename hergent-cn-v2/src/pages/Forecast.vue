@@ -368,7 +368,7 @@
         <span class="tag hot">副驾建议</span>
         <span class="tag info" v-if="cross.period">本期 · {{ cross.period.name }}</span>
         <!-- 时间进度：与下方进度条的虚线标记同源（口径＝本期到货月），右对齐到本行最右侧 -->
-        <span class="sprint-tp" v-if="rebateSprint.length" :title="sprintTimeProgress.shown ? '虚线＝时间进度：进度条超过虚线＝超前，短于虚线＝落后时间进度' : ''">本月时间进度：<b>{{ sprintTimeProgress.pct }}%</b></span>
+        <span class="sprint-tp" v-if="rebateSprint.length" :title="sprintTimeProgress.shown ? '虚线＝时间进度：进度条超过虚线＝超前，短于虚线＝落后时间进度' : ''">本月时间进度：<b>{{ sprintTimeProgress.pct1 }}%</b></span>
         <button class="imp-x" :style="rebateSprint.length ? null : 'margin-left:auto'" @click="rebateSprintOpen = !rebateSprintOpen"><Icon :name="rebateSprintOpen ? 'chevron-up' : 'chevron-down'"/></button>
       </div>
       <!-- 决策横幅（A2）：看板结论的常驻摘要行 —— 折叠/展开都在，明细只在展开时出现。
@@ -382,7 +382,7 @@
         </template>
         <template v-else>
           <b>{{ rebateSprint.length }}</b> 个品牌目标<span class="val-ok">全部达成</span>
-          <span class="sep">·</span>本月时间进度 <b>{{ sprintTimeProgress.pct }}%</b>
+          <span class="sep">·</span>本月时间进度 <b>{{ sprintTimeProgress.pct1 }}%</b>
         </template>
       </div>
       <div v-show="rebateSprintOpen" class="panel-body">
@@ -409,10 +409,12 @@
                   <td class="num" v-if="s.gap > 0">¥{{ fmt(s.perOrder) }}</td>
                   <td class="num" v-else>—</td>
                   <td style="min-width:110px">
-                    <div class="sp-bar">
+                    <!-- v181：空间不足时（paceHint 非空）整条进度条挂 hover 提示，文案与提示同源 -->
+                    <div class="sp-bar" :title="paceHint(s)">
                       <div class="progress" :class="sprintBarClass(s.ach)"><i :style="{width: Math.min(100, s.ach * 100) + '%'}"></i></div>
                       <span v-if="sprintTimeProgress.shown" class="sp-bar-mark" :style="{left: (sprintTimeProgress.frac * 100) + '%'}" title="时间进度"></span>
                     </div>
+                    <span v-if="sprintPaceMap[s.key]" class="sp-pace" :class="[sprintPaceMap[s.key].cls, paceFits[s.key] === false ? 'is-hidden' : '']" :data-k="s.key">{{ sprintPaceMap[s.key].text }}</span>
                   </td>
                 </tr>
               </tbody>
@@ -6252,11 +6254,18 @@ const sprintTotalGapPerOrder = computed(() => rebateSprintOrders.value > 0 ? spr
 // 决策横幅（A2）：未达标对象数 —— 唯一实现，模板里不再重复 filter 表达式
 const unmetSprintCount = computed(() => rebateSprint.value.filter(s => s.gap > 0).length)
 
+/* v181：1 位小数、整数不带 .0 —— 「时间进度百分比」与「百分点差值」共用同一格式化，
+   保证页头的时间进度与进度条文案里的差值能互相对上（同屏口径同源，勿各写一套）。 */
+function paceNum(v) {
+  const r = Math.round(Number(v) * 10) / 10
+  return Number.isInteger(r) ? String(r) : r.toFixed(1)
+}
+
 // 冲刺看板：时间进度（口径＝本期「到货月」，与 rebateSprintMonth / 后端达成归属完全一致）
 // 算法与「目标与返利 → 仪表盘」timeProgress 同源：过去月=100% / 未来月=0% / 当月=今日 ÷ 该月总天数
 const sprintTimeProgress = computed(() => {
   const [yy, mm] = String(sprintAchvMonth.value || '').split('-').map(Number)
-  if (!yy || !mm) return { frac: 0, pct: 0, shown: false }
+  if (!yy || !mm) return { frac: 0, pct: 0, pct1: '0', shown: false }
   const totalDays = new Date(yy, mm, 0).getDate()          // 该月总天数（mm 为 1-based）
   const now = new Date()
   const curY = now.getFullYear(), curM = now.getMonth() + 1
@@ -6264,18 +6273,70 @@ const sprintTimeProgress = computed(() => {
   if (yy < curY || (yy === curY && mm < curM)) frac = 1
   else if (yy > curY || (yy === curY && mm > curM)) frac = 0
   else frac = Math.min(1, now.getDate() / totalDays)
-  return { frac, pct: Math.round(frac * 100), shown: frac > 0 && frac < 1 }   // 虚线只在当月有意义
+  // v181：pct1 是 1 位小数版（页头与 hover 提示用）—— 与进度条文案的「百分点差值」同精度，可互相对账
+  return { frac, pct: Math.round(frac * 100), pct1: paceNum(frac * 100), shown: frac > 0 && frac < 1 }   // 虚线只在当月有意义
 })
+
+/* v181：进度条「与时间进度对比」的**唯一**判定 —— 三态 + 差值（百分点）。
+   ⚠️ 文案与进度条着色必须走同一个函数（此前着色单独写了一份 `ach >= frac`，会让
+   差 0.03 个百分点的一行出现「文案写落后、进度条却判绿」的自相矛盾）。
+   单位用「个百分点」：两个百分比相减的结果单位是百分点，写成 % 会被读成比值。
+   差值取 1 位小数的**真实差值**（不是先把两个百分比各自取整再相减），与页头时间进度同精度。 */
+const PACE_EPS = 0.05       // 低于 0.05 个百分点视为持平（1 位小数下本就显示不出差异）
+function sprintPaceOf(ach) {
+  const tp = sprintTimeProgress.value
+  if (ach == null || !(tp.frac > 0)) return null     // 到货月尚未开始 → 不做比较
+  const pp = (Number(ach) - tp.frac) * 100           // 正 = 超前，负 = 落后
+  const detail = '（达成 ' + paceNum(Number(ach) * 100) + '% · 时间进度 ' + paceNum(tp.frac * 100) + '%）'
+  if (Math.abs(pp) < PACE_EPS) {
+    return { state: 'even', pp: 0, cls: 'pace-even', text: '与时间进度持平', hover: '与时间进度持平' + detail }
+  }
+  const ahead = pp > 0
+  const head = (ahead ? '超过' : '落后') + '时间进度 ' + paceNum(Math.abs(pp)) + ' 个百分点'
+  return { state: ahead ? 'ahead' : 'behind', pp, cls: ahead ? 'pace-ahead' : 'pace-behind', text: head, hover: head + detail }
+}
 
 // 冲刺进度条着色：达成 ≥ 时间进度 → 绿（超前时间进度）；未达 → 红（落后时间进度）
 // 与「目标与返利 → 仪表盘 → 返利目标达成」的 paceCls 同口径（v151 起两处统一）
 // 到货月尚未开始时（frac<=0）→ 返回空，走中性青，不做"0 达成也判绿"的误判
+// v181：改为复用 sprintPaceOf（持平时按「未落后」处理 → 绿，与原 ach>=frac 的边界行为一致）
 function sprintBarClass(ach) {
-  if (ach == null) return ''
-  const tp = sprintTimeProgress.value
-  if (!(tp.frac > 0)) return ''
-  return ach >= tp.frac ? 'green' : 'red'
+  const p = sprintPaceOf(ach)
+  return p ? (p.state === 'behind' ? 'red' : 'green') : ''
 }
+
+// 每行的对比判定（模板按 key 取，避免在模板里重复调用 sprintPaceOf）
+const sprintPaceMap = computed(() => {
+  const m = {}
+  rebateSprint.value.forEach(s => { m[s.key] = sprintPaceOf(s.ach) })
+  return m
+})
+
+/* v181：「文案放不放得下」按**真实列宽**判定。
+   `.sp-pace` 带 nowrap ⇒ 浏览器会按它的 min-content 把该列撑到恰好放下（实测 1680px 下 168→240px），
+   所以常见宽度下总能直接显示；只有列被外部压到放不下（窄屏溢出 / 手工压列）才降级为 hover。
+   判据用真实 DOM 尺寸：scrollWidth 是文字自然宽、clientWidth 是当前可用宽。
+   放不下 → visibility:hidden（保留占位，行高不跳动）并把完整文案挂到进度条的 title 上。 */
+const paceFits = ref({})
+function measureSprintPace() {
+  const out = {}
+  document.querySelectorAll('.sprint-card .sp-pace').forEach(el => {
+    out[el.dataset.k] = el.scrollWidth <= el.clientWidth
+  })
+  paceFits.value = out
+}
+// 仅在文案确实放不下时才挂 hover 提示（文字已可见时不再重复提示）
+function paceHint(s) {
+  const p = sprintPaceMap.value[s.key]
+  return (p && paceFits.value[s.key] === false) ? p.hover : ''
+}
+// 列宽随窗口变化（RO 不可用：v-show 折叠期间宽度为 0 会误判）→ resize 与数据/展开态变化时重测
+onMounted(() => {
+  nextTick(measureSprintPace)
+  window.addEventListener('resize', measureSprintPace)
+})
+onBeforeUnmount(() => window.removeEventListener('resize', measureSprintPace))
+watch([rebateSprint, rebateSprintOpen, sprintTimeProgress], () => { nextTick(measureSprintPace) })
 
 function onPeriodChange() {
   viewPeriod.value = null
@@ -7469,6 +7530,17 @@ th.sortable:hover{color:var(--p-dark)}
    仪表盘参照为 16px，此表更紧凑故取 12px。不波及「厂家返利」表（仍 6px） */
 .sprint-card .progress{height:12px}
 .sp-bar-mark{position:absolute;top:-3px;bottom:-3px;width:0;border-left:2px dashed var(--war);z-index:2;pointer-events:none}
+/* v181：进度条下方的「与时间进度对比」文案。
+   ⚠️ 它**会**把该列撑宽：table 自动布局按 nowrap 文案的 min-content 分配列宽
+   （实测 1680px 下进度列 168→240px，其余各列各缩 ~7px、均未换行、无横向滚动）。
+   这正好让文案在常见宽度下都能直接显示；只有列被外部压到放不下时才走 hover 降级。
+   放不下时用 visibility:hidden（不是 display:none）保留占位 —— 行高不跳动、显隐不引起表格重排。 */
+.sprint-card .sp-pace{display:block;width:100%;margin-top:3px;font-size:11.5px;line-height:1.25;
+  white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
+.sprint-card .sp-pace.is-hidden{visibility:hidden}
+.sprint-card .sp-pace.pace-behind{color:var(--dan)}
+.sprint-card .sp-pace.pace-ahead{color:var(--suc)}
+.sprint-card .sp-pace.pace-even{color:var(--t3)}
 /* 时间语义着色：达成未达时间进度=红，已超前=绿（复用全局 .progress>i 的绿/琥珀范式） */
 .sprint-card .progress.red>i{background:var(--dan)}
 .sprint-sum{margin:0 0 12px;font-size:13px;color:var(--t2);line-height:1.7}
