@@ -409,12 +409,13 @@
                   <td class="num" v-if="s.gap > 0">¥{{ fmt(s.perOrder) }}</td>
                   <td class="num" v-else>—</td>
                   <td style="min-width:110px">
-                    <!-- v181：空间不足时（paceHint 非空）整条进度条挂 hover 提示，文案与提示同源 -->
+                    <!-- v183：文案＝「达成率 X%」（不再标注与时间进度的差值）；
+                         空间不足时（paceHint 非空）整条进度条挂 hover 提示，文案与提示同源 -->
                     <div class="sp-bar" :title="paceHint(s)">
                       <div class="progress" :class="sprintBarClass(s.ach)"><i :style="{width: Math.min(100, s.ach * 100) + '%'}"></i></div>
                       <span v-if="sprintTimeProgress.shown" class="sp-bar-mark" :style="{left: (sprintTimeProgress.frac * 100) + '%'}" title="时间进度"></span>
                     </div>
-                    <span v-if="sprintPaceMap[s.key]" class="sp-pace" :class="[sprintPaceMap[s.key].cls, paceFits[s.key] === false ? 'is-hidden' : '']" :data-k="s.key">{{ sprintPaceMap[s.key].text }}</span>
+                    <span v-if="sprintPaceMap[s.key] && sprintPaceMap[s.key].text" class="sp-pace" :class="[sprintPaceMap[s.key].cls, paceFits[s.key] === false ? 'is-hidden' : '']" :data-k="s.key">{{ sprintPaceMap[s.key].text }}</span>
                   </td>
                 </tr>
               </tbody>
@@ -6254,8 +6255,8 @@ const sprintTotalGapPerOrder = computed(() => rebateSprintOrders.value > 0 ? spr
 // 决策横幅（A2）：未达标对象数 —— 唯一实现，模板里不再重复 filter 表达式
 const unmetSprintCount = computed(() => rebateSprint.value.filter(s => s.gap > 0).length)
 
-/* v181：1 位小数、整数不带 .0 —— 「时间进度百分比」与「百分点差值」共用同一格式化，
-   保证页头的时间进度与进度条文案里的差值能互相对上（同屏口径同源，勿各写一套）。 */
+/* v181：1 位小数、整数不带 .0 —— 「时间进度百分比」与「达成率」共用同一格式化，
+   保证两者同精度（同屏口径同源，勿各写一套）。 */
 function paceNum(v) {
   const r = Math.round(Number(v) * 10) / 10
   return Number.isInteger(r) ? String(r) : r.toFixed(1)
@@ -6277,26 +6278,28 @@ const sprintTimeProgress = computed(() => {
   return { frac, pct: Math.round(frac * 100), pct1: paceNum(frac * 100), shown: frac > 0 && frac < 1 }   // 虚线只在当月有意义
 })
 
-/* v181：进度条「与时间进度对比」的**唯一**判定 —— 三态 + 差值。
-   ⚠️ 文案与进度条着色必须走同一个函数（此前着色单独写了一份 `ach >= frac`，会让
-   差 0.03 个百分点的一行出现「文案写落后、进度条却判绿」的自相矛盾）。
-   v182：文案单位按用户指定用「%」（v181 曾用「个百分点」）。⚠️ 数学上两个百分比**相减**
-   的结果单位是百分点，写「%」会被一部分人读成比值（「超过 4.7%」可读作 104.7%）。此处的
-   消歧手段是 hover 提示里的「（达成 61.4% · 时间进度 56.7%）」—— 61.4 − 56.7 = 4.7，
-   一算就知单位是百分点。若要切回「个百分点」，只改下面 head 一处字符串即可。
-   差值取 1 位小数的**真实差值**（不是先把两个百分比各自取整再相减），与页头时间进度同精度。 */
-const PACE_EPS = 0.05       // 低于 0.05 个百分点视为持平（1 位小数下本就显示不出差异）
+/* v183：本函数**只负责配色判定**，不再产出文案 ——
+   用户判据：面板页头已常显「本月时间进度」、进度条上还有虚线标记，读者自己一比就知道超前/落后
+   ⇒「落后时间进度 X%」这类差值文案是冗余，删掉，只留「达成率 X%」（见 sprintAchText）。
+   ⚠️ 但配色必须仍走这里：颜色与进度条同源，才能保证同一行的「数」与「色」不互相矛盾。
+   此前 sprintBarClass 单独写了一份 `ach >= frac`，会让差 0.03 个百分点的一行出现
+   「进度条判绿、文案写落后」的自相矛盾 —— 勿再复制第二份判定。
+   pp 取 1 位小数的**真实差值**（不是先把两个百分比各自取整再相减）。 */
+const PACE_EPS = 0.05       // 低于 0.05 个百分点视为持平
 function sprintPaceOf(ach) {
   const tp = sprintTimeProgress.value
-  if (ach == null || !(tp.frac > 0)) return null     // 到货月尚未开始 → 不做比较
+  if (ach == null || !(tp.frac > 0)) return null     // 到货月尚未开始 → 不做比较（颜色走中性）
   const pp = (Number(ach) - tp.frac) * 100           // 正 = 超前，负 = 落后
-  const detail = '（达成 ' + paceNum(Number(ach) * 100) + '% · 时间进度 ' + paceNum(tp.frac * 100) + '%）'
-  if (Math.abs(pp) < PACE_EPS) {
-    return { state: 'even', pp: 0, cls: 'pace-even', text: '与时间进度持平', hover: '与时间进度持平' + detail }
-  }
+  if (Math.abs(pp) < PACE_EPS) return { state: 'even', pp: 0, cls: 'pace-even' }
   const ahead = pp > 0
-  const head = (ahead ? '超过' : '落后') + '时间进度 ' + paceNum(Math.abs(pp)) + '%'
-  return { state: ahead ? 'ahead' : 'behind', pp, cls: ahead ? 'pace-ahead' : 'pace-behind', text: head, hover: head + detail }
+  return { state: ahead ? 'ahead' : 'behind', pp, cls: ahead ? 'pace-ahead' : 'pace-behind' }
+}
+
+/* v183：进度单元格的文案 —— 只有「达成率 X%」（1 位小数，与页头时间进度同精度）。
+   ⚠️ 达成率与时间进度**无关**：到货月尚未开始时（frac = 0）也必须显示。
+   （v181/182 曾把文案挂在 sprintPaceOf 上，而它 frac=0 时返回 null ⇒ 那时连达成率一起消失。） */
+function sprintAchText(ach) {
+  return ach == null ? '' : '达成率 ' + paceNum(Number(ach) * 100) + '%'
 }
 
 // 冲刺进度条着色：达成 ≥ 时间进度 → 绿（超前时间进度）；未达 → 红（落后时间进度）
@@ -6308,18 +6311,22 @@ function sprintBarClass(ach) {
   return p ? (p.state === 'behind' ? 'red' : 'green') : ''
 }
 
-// 每行的对比判定（模板按 key 取，避免在模板里重复调用 sprintPaceOf）
+// 每行的进度单元格展示信息：文案 + 配色类（模板按 key 一次取到，避免在模板里重复调用函数）
 const sprintPaceMap = computed(() => {
   const m = {}
-  rebateSprint.value.forEach(s => { m[s.key] = sprintPaceOf(s.ach) })
+  rebateSprint.value.forEach(s => {
+    const p = sprintPaceOf(s.ach)
+    m[s.key] = { text: sprintAchText(s.ach), cls: p ? p.cls : '' }
+  })
   return m
 })
 
 /* v181：「文案放不放得下」按**真实列宽**判定。
-   `.sp-pace` 带 nowrap ⇒ 浏览器会按它的 min-content 把该列撑到恰好放下（实测 1680px 下 168→240px），
-   所以常见宽度下总能直接显示；只有列被外部压到放不下（窄屏溢出 / 手工压列）才降级为 hover。
-   判据用真实 DOM 尺寸：scrollWidth 是文字自然宽、clientWidth 是当前可用宽。
-   放不下 → visibility:hidden（保留占位，行高不跳动）并把完整文案挂到进度条的 title 上。 */
+   （v183 文案缩短为「达成率 X%」= 74px 后，这条降级路径已基本走不到 —— 进度列 1680px 下 168px、
+   文案只占 44%，必定放得下。保留它作防御：列宽被外部锁死时仍能优雅降级，不是死代码。）
+   ⚠️ 判据必须是「溢出」`scrollWidth > clientWidth`，不是「scrollWidth 等于文字自然宽」——
+   浏览器在未溢出时把 scrollWidth 抬平到 clientWidth，所以量不出文字宽（要量文字宽得先约束宽度）。
+   放不下 → visibility:hidden（保留占位，行高不跳动）并把同一句文案挂到进度条的 title 上。 */
 const paceFits = ref({})
 function measureSprintPace() {
   const out = {}
@@ -6328,10 +6335,10 @@ function measureSprintPace() {
   })
   paceFits.value = out
 }
-// 仅在文案确实放不下时才挂 hover 提示（文字已可见时不再重复提示）
+// 仅在文案确实放不下时才挂 hover 提示（文字已可见时不再重复提示；提示内容＝同一句文案）
 function paceHint(s) {
   const p = sprintPaceMap.value[s.key]
-  return (p && paceFits.value[s.key] === false) ? p.hover : ''
+  return (p && p.text && paceFits.value[s.key] === false) ? p.text : ''
 }
 // 列宽随窗口变化（RO 不可用：v-show 折叠期间宽度为 0 会误判）→ resize 与数据/展开态变化时重测
 onMounted(() => {
@@ -7533,10 +7540,11 @@ th.sortable:hover{color:var(--p-dark)}
    仪表盘参照为 16px，此表更紧凑故取 12px。不波及「厂家返利」表（仍 6px） */
 .sprint-card .progress{height:12px}
 .sp-bar-mark{position:absolute;top:-3px;bottom:-3px;width:0;border-left:2px dashed var(--war);z-index:2;pointer-events:none}
-/* v181：进度条下方的「与时间进度对比」文案。
-   ⚠️ 它**会**把该列撑宽：table 自动布局按 nowrap 文案的 min-content 分配列宽
-   （实测 1680px 下进度列 168→240px，其余各列各缩 ~7px、均未换行、无横向滚动）。
-   这正好让文案在常见宽度下都能直接显示；只有列被外部压到放不下时才走 hover 降级。
+/* v181：进度「与时间进度对比」文案（v183 起内容改为「达成率 X%」）。
+   ⚠️ v183 文案缩短后它**不再撑宽该列**：实测 1680px 下列宽 168px、文案自然宽仅 74px（占 44%）。
+   （v181/182 的长文案 212px 曾把该列撑到 240px、其余各列各缩 ~7px；文案变短后该副作用消失。）
+   ⚠️ table-layout:auto 会把该列宽度**下限**顶在 max(td 自带 min-width:110px, 文案 min-content) 上，
+   给 td 设 max-width 是无效的（实测设 64px、列宽仍为 102.8px）⇒ 要复现「放不下」只能约束本元素自身宽度。
    放不下时用 visibility:hidden（不是 display:none）保留占位 —— 行高不跳动、显隐不引起表格重排。 */
 .sprint-card .sp-pace{display:block;width:100%;margin-top:3px;font-size:11.5px;line-height:1.25;
   white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
