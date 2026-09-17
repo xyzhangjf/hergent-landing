@@ -558,15 +558,10 @@
         <div v-if="crossLoading" class="tbl-state tbl-skeleton" aria-busy="true" aria-label="数据加载中">
           <div class="sk-row" v-for="n in 8" :key="n"><span class="sk-bar" v-for="m in 6" :key="m"></span></div>
         </div>
-        <div v-else-if="!editMode && (!cross.rows.length || !cross.rows.some(r => !r._deleted))" class="tbl-state tbl-empty">
-          <div class="empty-ico"><Icon name="inbox"/></div>
-          <div class="empty-t">暂无预报数据</div>
-          <div class="empty-s">当前期次没有报单记录，可点「改单」进入编辑模式补录商品，或刷新重新载入</div>
-          <div class="empty-ops">
-              <button class="btn btn-primary btn-sm" @click="enterEdit"><Icon name="edit"/> 改单</button>
-              <button class="btn btn-ghost btn-sm" @click="loadCross()"><Icon name="refresh"/> 刷新</button>
-          </div>
-        </div>
+        <!-- v184：这里原来还有一个「只读态 0 行 ⇒ 整块空态」的分支，它**替换掉整张表**
+             （连列头都没有）⇒「哪些列不可删除」（提示挂在列头的右键菜单上）在空期次里
+             完全不可达，用户被迫先点「改单」才能看到表。现改为「表头保留 + 表体内一行引导」，
+             见下方 tbody 里的 .empty-row。 -->
         <div v-else-if="!editMode" class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
             <GridZoomCtl v-model="gridZoom"/>
@@ -641,6 +636,22 @@
               </tr>
             </thead>
             <tbody>
+              <!-- v184：本期 0 行时**保留表头**，只在表体内给一行引导。表头在 ⇒ 列设置与
+                   列头右键（「该主档列不可删除」的唯一提示出口）都可用了。
+                   三个动作 = 三条填数路：手工填 / 从上一期带 / 导入 Excel。 -->
+              <tr v-if="!flatItems.length" class="empty-row">
+                <td :colspan="colOrderList.length">
+                  <div class="er-t">本期还没有商品行</div>
+                  <div class="er-s">可以从上一期把清单带过来、导入 Excel，或直接进「改单」手工填写（也能粘贴 Excel 区域）。</div>
+                  <div class="er-ops">
+                    <button class="btn btn-primary btn-sm" @click="enterEdit"><Icon name="edit"/> 改单填写</button>
+                    <button class="btn btn-ghost btn-sm" :disabled="seedBusy || !nearestPrevPeriod" @click="seedFromPrev">
+                      <Icon name="copy"/> {{ nearestPrevPeriod ? `从「${nearestPrevPeriod.name}」复制清单` : '从上一期复制清单' }}
+                    </button>
+                    <button class="btn btn-ghost btn-sm" @click="openImport"><Icon name="upload"/> 导入 Excel</button>
+                  </div>
+                </td>
+              </tr>
               <tr class="vs-spacer" :style="{ height: vsWindow.top + 'px' }"><td :colspan="colOrderList.length"></td></tr>
               <template v-for="(it, wi) in vsWindow.items" :key="rowKey(it)">
                 <tr v-if="it.kind === 'group'" class="grp-head" @click="toggleGroup(it.key)" role="row">
@@ -1777,7 +1788,7 @@
     </div>
     </template>
 
-    <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" @rename="openPeriodEdit" />
+    <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" @rename="openPeriodEdit" @copy="openPeriodCopy" />
 
     <!-- 报单配置（原档案管理独立页，整合为标签页） -->
     <div v-if="activeTab === 'config'" class="config-panel">
@@ -1844,6 +1855,53 @@
             <div class="del-actions">
               <button class="btn btn-ghost" @click="peOpen = false">取消</button>
               <button class="btn btn-primary" :disabled="peSaving" @click="savePeriodEdit">{{ peSaving ? '保存中…' : '保存' }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- v184 复制期次弹窗（入口：往期预报列表每行的「复制」，源可以是**已关闭**期次）
+         默认「整体顺延」不是随手给的默认值 —— 加单与定稿的归属键是
+         (period_start, period_end) 日期窗口而非期次 id，沿用旧窗口会让两期共用同一份，
+         且同屏不报任何错。名称与窗口一起后移，才谈得上「只改名称即可用」。 -->
+    <Teleport to="body">
+      <Transition name="fade"><div v-if="pcOpen" class="imp-overlay" @click="pcOpen = false"></div></Transition>
+      <Transition name="pop">
+        <div v-if="pcOpen" class="imp-modal pe-modal pc-modal">
+          <div class="imp-hd"><b>复制期次</b><button class="imp-x" @click="pcOpen = false"><Icon name="close"/></button></div>
+          <div class="imp-body">
+            <p class="imp-own">
+              复制自：<b>{{ pcSrc && pcSrc.name }}</b>
+              <span class="tag" :class="pcSrc && pcSrc.status === 'open' ? 'ok' : 'info'">{{ pcSrc && pcSrc.status === 'open' ? '进行中' : '已关闭' }}</span>
+            </p>
+            <div class="pe-grid">
+              <label>期次名称</label>
+              <input ref="pcNameEl" v-model="pc.name" class="input" placeholder="如 9月22日报单-9月26日到货" @input="onPcNameInput">
+              <label>下单开始</label>
+              <input v-model="pc.order_start" class="input" type="date">
+              <label>下单截止</label>
+              <input v-model="pc.order_end" class="input" type="date">
+              <label>预计到货</label>
+              <input v-model="pc.arrival" class="input" type="date">
+            </div>
+            <div class="pc-shift">
+              <span class="pc-shift-lab">整体顺延</span>
+              <button v-for="d in PC_SHIFT_OPTS" :key="d" class="btn btn-sm"
+                      :class="pcShiftDays === d ? 'btn-primary' : 'btn-ghost'"
+                      @click="applyPcShift(d)">{{ d }} 天</button>
+              <span class="pc-shift-tip">名称里的日期会一起改，改完只想微调就直接改日期框</span>
+            </div>
+            <p class="imp-own">
+              将带过来：<b>{{ pcSrcCount == null ? '—' : pcSrcCount }} 个商品</b>
+              （不含报单数量、加单、定稿 —— 加单与定稿按<b>日期区间</b>归属，跟过来会和源期串数据）
+            </p>
+            <ul v-if="pcSoftWarn.length" class="np-warn">
+              <li v-for="(w, i) in pcSoftWarn" :key="i">{{ w }}</li>
+            </ul>
+            <div class="del-actions">
+              <button class="btn btn-ghost" @click="pcOpen = false">取消</button>
+              <button class="btn btn-primary" :disabled="pcSaving" @click="savePeriodCopy">{{ pcSaving ? '复制中…' : '创建并复制' }}</button>
             </div>
           </div>
         </div>
@@ -5264,6 +5322,8 @@ const AUDIT_ACTION_LABEL = {
   purchase_order_push: '推送采购单', intervention: '异常处置',
   hermes_analyze: 'AI根因分析', period_close: '关闭期次', period_delete: '删除期次',
   period_update: '修改期次',
+  // v184：复制期次（新建 + 只带商品清单）/ 把某期清单填入已有期次
+  period_copy: '复制期次', period_seed: '复制商品清单',
 }
 function auditActionLabel(a) { return AUDIT_ACTION_LABEL[a] || a || '修改' }
 function fmtAuditAt(s) { return String(s || '').replace('T', ' ').slice(0, 16) }
@@ -6720,6 +6780,12 @@ async function createPeriod() {
     showNewPeriod.value = false
     np.value = { name: '', order_start: '', order_end: '', arrival: '' }
     await loadPeriods()
+    // v184：loadPeriods() 内部会把 curPeriod 改成新建的这个期次（下拉跟着走），
+    // 但它**从不重载表格** ⇒ 画面是「下拉 = 新期次、表格 = 上一期的数据」，
+    // 用户会以为没建成功（2026-09-17 那次「导入的品不见了」正是同一个根因）。
+    // 复用期次切换的**唯一收口**（onPeriodChange 内部即 loadOrders + loadCross/loadEditGrid），
+    // 不新写第二份重载逻辑。
+    onPeriodChange()
   } catch (e) {
     toast('创建失败: ' + (e.message || ''), 'error')
   }
@@ -6797,6 +6863,147 @@ async function savePeriodEdit() {
     toast('保存失败: ' + (e.message || e), 'error')
   } finally {
     peSaving.value = false
+  }
+}
+
+/* ---- v184 (2026-09-17) 复制期次（入口：往期预报列表每行的「复制」） ----
+   为什么默认「整体顺延」：加单（`forecast_submissions.py:462`）与定稿（`erp_db.py:15200`）
+   的归属键是 `(period_start, period_end)` **日期窗口**，不是期次 id。沿用旧窗口 ⇒
+   两期**共用同一份**加单与定稿（窗口重叠即串期），而同屏不报任何错。
+   所以复制时名称与窗口**一起**后移 —— 这样「只改名称即可用」才成立。 */
+const pcOpen = ref(false)
+const pcSrc = ref(null)
+const pcSaving = ref(false)
+const pcNameEl = ref(null)
+const pc = ref({ name: '', order_start: '', order_end: '', arrival: '' })
+const PC_SHIFT_OPTS = [3, 7, 14]   // 天。默认 7 = 低温奶报单的周节奏
+const pcShiftDays = ref(7)
+
+function addDaysStr(iso, n) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''))
+  if (!m) return String(iso || '')
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  d.setDate(d.getDate() + Number(n || 0))
+  return fmtDate(d)
+}
+
+// 把期次名里的「M月D日」整体后移 n 天。名称里不带年份 ⇒ 只回写月日（跨年由 Date 自行滚动），
+// 年份只用于解析基准，取源期次的下单开始年。
+function shiftPeriodNameDates(text, n, baseIso) {
+  const s = String(text || '')
+  if (!n) return s
+  const _y = /^(\d{4})-/.exec(String(baseIso || ''))
+  const baseYear = _y ? Number(_y[1]) : new Date().getFullYear()
+  return s.replace(/(\d{1,2})月(\d{1,2})[日号]/g, (whole, mo, dd) => {
+    const d = new Date(baseYear, Number(mo) - 1, Number(dd))
+    if (isNaN(d.getTime())) return whole
+    d.setDate(d.getDate() + n)
+    return `${d.getMonth() + 1}月${d.getDate()}日`
+  })
+}
+
+// 按顺延天数重算名称与三个日期。⚠️ 一律**相对源期次**重算，不是相对当前值 ——
+// 否则连点两次「+7 天」会叠加成 +14，而按钮上写的是 7。
+function applyPcShift(n) {
+  const src = pcSrc.value
+  if (!src) return
+  pcShiftDays.value = Number(n || 0)
+  pc.value.name = shiftPeriodNameDates(src.name || '', pcShiftDays.value, src.order_start)
+  pc.value.order_start = addDaysStr(src.order_start, pcShiftDays.value)
+  pc.value.order_end = addDaysStr(src.order_end, pcShiftDays.value)
+  pc.value.arrival = addDaysStr(src.arrival_date || src.arrival, pcShiftDays.value)
+}
+
+function openPeriodCopy(row) {
+  if (!row || Number(row.id) <= 0) { toast('这个期次没有可复制的记录', 'warn'); return }
+  pcSrc.value = row
+  applyPcShift(pcShiftDays.value)
+  pcOpen.value = true
+  // 名称预填后**全选**：点进来直接打字即覆盖，不用先删掉原名（「仅需修改名称即可使用」）
+  nextTick(() => { try { pcNameEl.value && pcNameEl.value.select() } catch (e) { /* 忽略 */ } })
+}
+
+// 名称 → 日期联动。复制场景里新期次没有「手改保护」的需求，故一律覆盖 ——
+// 让「改名称里的日期」真的能带动窗口，这正是「只改名称」成立的前提。
+function onPcNameInput() {
+  const ds = parsePeriodDates(pc.value.name)
+  if (!ds || !ds.length) return
+  pc.value.order_start = pc.value.order_end = fmtDate(new Date(ds[0].year, ds[0].month - 1, ds[0].day))
+  if (ds.length >= 2) pc.value.arrival = fmtDate(new Date(ds[1].year, ds[1].month - 1, ds[1].day))
+}
+
+const pcSoftWarn = computed(() => periodSoftWarn(pc.value && pc.value.name, pc.value && pc.value.order_start, pc.value && pc.value.order_end, 0))
+const pcSrcCount = computed(() => {
+  const n = pcSrc.value && pcSrc.value.imported_count
+  return (n == null) ? null : Number(n)
+})
+
+async function savePeriodCopy() {
+  const src = pcSrc.value
+  if (!src) return
+  pcSaving.value = true
+  try {
+    const r = await forecastApi.copyPeriod(src.id, {
+      name: String(pc.value.name || '').trim(),
+      order_start: pc.value.order_start,
+      order_end: pc.value.order_end,
+      arrival: pc.value.arrival,
+    })
+    toast(`已复制为「${r.name}」，带过来 ${r.copied} 个商品`, 'success')
+    pcOpen.value = false
+    historyKey.value++      // 往期列表在子组件里自己 load()，不重挂会继续显示旧数据（v180 D6 教训）
+    await loadPeriods()
+    // 新期次落库后即为 current（loadPeriods 已把 curPeriod 指过去）⇒ 表格必须跟着重载，
+    // 否则画面还是源期次的数据，用户会以为复制没生效。
+    onPeriodChange()
+  } catch (e) {
+    toast('复制失败: ' + (e.message || e), 'error')
+  } finally {
+    pcSaving.value = false
+  }
+}
+
+/* ---- v184 空期次的「从上一期复制清单」（就地填入，**不新建期次**） ----
+   与往期列表的「复制」分工不同：那个会新建一期，这个直接往**当前查看的这一期**里填。
+   否则用户在空期次上想补清单，只能「去往期列表复制 → 建出新期 → 再删掉旧的」。 */
+const seedBusy = ref(false)
+const nearestPrevPeriod = computed(() => {
+  const cur = Number(curPeriod.value || 0)
+  const pool = (periods.value || [])
+    .filter(p => Number(p.id) > 0 && Number(p.id) !== cur && p.order_start && p.order_end)
+  if (!pool.length) return null
+  const cs = String((cross.value && cross.value.period && cross.value.period.order_start) || '')
+  // 优先「窗口在本期之前的最近一期」；本期是首个期次时（没有更早的）退回任意最近一期
+  const before = cs ? pool.filter(p => String(p.order_start) < cs) : pool
+  const use = before.length ? before : pool
+  return use.slice().sort((a, b) => String(b.order_start).localeCompare(String(a.order_start)))[0]
+})
+
+async function seedFromPrev() {
+  const src = nearestPrevPeriod.value
+  const cur = Number(curPeriod.value || 0)
+  if (!src) { toast('没有可用的上一期 —— 可以直接导入 Excel，或先建一个期次', 'warn'); return }
+  if (cur <= 0) { toast('请先选定一个期次', 'warn'); return }
+  seedBusy.value = true
+  try {
+    const r = await forecastApi.seedPeriod(src.id, { target_period_id: cur })
+    toast(`已从「${r.src_name}」填入 ${r.added} 个商品`
+      + (r.skipped ? `（跳过 ${r.skipped} 个本期已有的）` : ''), 'success')
+    // 🔴 `loadPeriods()` 会把 curPeriod 重设成**后端默认期次**（`forecast_period_default()`，
+    //    见 erp_db.py:15261）——它只回答「默认该看哪一期」，**不是**「保持用户当前在看的那一期」。
+    //    而 seed 的目标可能是一个**更老的空期次**（这正是「不必先删再建」的用法）：不还原的话，
+    //    用户点「从上一期复制清单」后视图会被**甩到另一期**去，同屏不报任何错 ——
+    //    真机 E 组当初之所以通过，只因被 seed 的那期恰好是最新的一期（侥幸 PASS）。
+    //    对比 `createPeriod()` 里那个同名的 `loadPeriods()`：那里「切到新建的那一期」正是想要的
+    //    行为，所以只有 seed 这条路需要守住视图。
+    const keep = cur
+    await loadPeriods()
+    if (keep > 0 && (periods.value || []).some(p => Number(p.id) === keep)) curPeriod.value = keep
+    if (editMode.value) loadEditGrid(); else loadCross()
+  } catch (e) {
+    toast('复制清单失败: ' + (e.message || e), 'error')
+  } finally {
+    seedBusy.value = false
   }
 }
 
@@ -7486,6 +7693,14 @@ th.sortable:hover{color:var(--p-dark)}
 .imp-own .btn{margin-left:6px;vertical-align:middle}
 /* v180 改期次弹窗 */
 .pe-modal{width:min(520px,94vw)}
+.pc-shift{display:flex;align-items:center;gap:8px;margin:12px 0 10px;flex-wrap:wrap}
+.pc-shift-lab{font-size:12.5px;color:var(--t2)}
+.pc-shift-tip{font-size:11.5px;color:var(--t3)}
+/* v184 空期次的表内引导行：表头保留（列与列右键可达），只替换表体 */
+.empty-row td{background:transparent;border-bottom:none;padding:34px 16px!important;text-align:center}
+.empty-row .er-t{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:6px}
+.empty-row .er-s{font-size:12.5px;color:var(--t3);line-height:1.7;margin-bottom:14px}
+.empty-row .er-ops{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .pe-grid{display:grid;grid-template-columns:76px 1fr;gap:10px 12px;align-items:center}
 .pe-grid label{font-size:12.5px;color:var(--t2)}
 .draft-section{}

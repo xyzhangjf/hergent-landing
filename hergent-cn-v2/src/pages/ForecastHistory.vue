@@ -33,6 +33,11 @@
             <td><span class="tag" :class="row.finalized ? 'ok' : 'info'">{{ row.finalized ? '已定稿' : '未定稿' }}</span></td>
             <td>
               <button class="btn btn-sm btn-ghost" @click="$emit('view', row)">查看</button>
+              <!-- v184：复制。源可以是**任何真实期次**（不限 open）—— 「照着满意的那一期建
+                   下一期」正是主场景，而满意的往往已经关闭了。合成行（id<0，如「2026-07-24
+                   报单」）没有 forecast_periods 记录，没有可引用的 id，故屏蔽（与下方关闭/
+                   删除同一判据）。只带商品清单，不带报单数量 / 加单 / 定稿。 -->
+              <button v-if="Number(row.id) > 0" class="btn btn-sm btn-ghost" @click="$emit('copy', row)">复制</button>
               <!-- v180：改名 / 改日期。此前没有这条路径 ⇒ 名字打错只能「关闭 → 删除」，
                    而删除会级联清掉该期全部报单/定稿/付款。仅 open 期次可改（与后端一致）。 -->
               <button v-if="row.status === 'open' && Number(row.id) > 0" class="btn btn-sm btn-ghost" @click="$emit('rename', row)">修改</button>
@@ -52,7 +57,7 @@
 import { ref, onMounted } from 'vue'
 import { forecastApi } from '../api/modules'
 
-const emit = defineEmits(['view', 'delete', 'close', 'rename'])
+const emit = defineEmits(['view', 'delete', 'close', 'rename', 'copy'])
 const list = ref([])
 const loading = ref(false)
 

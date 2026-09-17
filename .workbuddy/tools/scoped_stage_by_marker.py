@@ -443,6 +443,67 @@ SPEC_FE_V183 = ("fe", [
      "gone": []},
 ])
 
+# ── v184（2026-09-17）：期次复制 + 空表列展示（后端）────────────────────
+# 基线 HEAD = 401bfcf。hunk 归属**逐块打印首行核对过**（不按行号猜）：
+#   server/erp_db.py（11 hunk = 本轮 6 + 在途 5）
+#     本轮 6：1831（v184 origin 列迁移）·14972（_period_copy_products + copy/seed + 清单条数）
+#             ·15016（order_board 清单条数 GROUP BY）·15040 ·15064（真实行/合成行填 imported_count）
+#             ·15999（_ensure_forecast_tables 惰性补列）
+#     在途 5：1400            products DDL 里 `extra_json` 从括号外**归位**到括号内（1→1 替换，
+#                             M/P 两侧都是同一行长 SQL，肉眼几乎无法区分 —— 已打印全行确认：
+#                             唯一差异是 `)),extra_json TEXT DEFAULT '');` → `),extra_json …');`）
+#             10933 + 10948  `_safe_migrate("v110_products_dist_price")` 的**搬家两半**
+#                            （§5.8/§5.14：必须一起排，只排一半会让该迁移出现两次或零次）
+#             11365 + 11368  `login_is_locked` 改双维度阈值（v125 注释 + LOGIN_LOCK_USER_MAX）
+#   server/routers/forecast.py（2 hunk = 本轮 1 + 在途 1）
+#     本轮 1：173  `POST /periods/{pid}/copy` + `/seed`（+79 行纯插入）
+#     在途 1：527  payments_confirm 里消息 sender `"运营主管"` → `"经营副驾"`（1→1，与本轮无关）
+#   server/routers/import_router.py（3 hunk，**全本轮**）→ keep_all（拿「暂存版 == 工作区」自证）
+#     746 / 749 / 753：INSERT 列清单加 `origin` + 显式 `origin='import'` 的 UPDATE + 注释
+SPEC_BE_V184 = ("be", [
+    {"file": "server/erp_db.py",
+     "exclude_hunks": [1400, 10933, 10948, 11365, 11368],
+     "gone": []},
+    {"file": "server/routers/forecast.py",
+     "exclude_hunks": [527],
+     "gone": []},
+    {"file": "server/routers/import_router.py", "keep_all": True, "gone": []},
+])
+
+# ── v184（2026-09-17）：期次复制 + 空表列展示（前端）────────────────────
+# 基线 HEAD = ea15ed0。逐块打印首行核对：
+#   Forecast.vue（16 hunk = 本轮 8 + 在途 8）
+#     本轮 8：561（删「只读态 0 行 ⇒ 整块空态」分支）·643（表体内引导行 3 个动作）
+#             ·1780（`@copy="openPeriodCopy"` 接驳）·1851（复制期次弹窗 +47）
+#             ·5266（AUDIT_ACTION_LABEL 加 period_copy/period_seed）
+#             ·6722（createPeriod 补 onPeriodChange 重载表格）
+#             ·6802（复制期次逻辑 + seedFromPrev 守视图，+141）
+#             ·7488（.pc-shift / .empty-row 样式 +8）
+#     在途 8：101        纯空行（无归属价值，排除零风险）
+#             2503·2505  loadEditGrid 里「sources 合并而非覆盖」（09-13 起未提交）
+#             2516·2518  loadEditGrid 里 extraByPid 累加（行级加单，同上）
+#             7429+7444  `.imp-errs` 规则的**搬家两半**（必须一起排；HEAD 里该串 2 处、
+#                        工作区亦 2 处，排完留在原位恰好一份）
+#             7805        纯空行
+#   ForecastHistory.vue（2 hunk，**全本轮**）→ keep_all：35（「复制」按钮 + 注释）、55（emit 加 'copy'）
+#   src/api/modules.js（9 hunk = 本轮 1 + 在途 8）
+#     本轮 1：26  `copyPeriod` / `seedPeriod` 两个方法（+6）
+#     在途 8：293+297 forecastApproveApi.summary 加 periodId 参数与 query
+#             305+308 · 331+342 · 343+374 —— **三对搬家两半**（bulkUpsert / Excel 导入注释 /
+#                         importApi.template 各被搬到新位置）；每对必须一起排
+SPEC_FE_V184 = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2503, 2505, 2516, 2518, 7429, 7444, 7805],
+     "gone": []},
+    {"file": "hergent-cn-v2/src/pages/ForecastHistory.vue", "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/api/modules.js",
+     "exclude_hunks": [293, 297, 305, 308, 331, 342, 343, 374],
+     "gone": []},
+    # 本轮真机验证脚本（HEAD 无此文件）+ 本工具自身的配套改动（新增上面两个 spec）
+    {"file": ".workbuddy/tools/v184-period-copy-verify.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -450,7 +511,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v179": SPEC_FE_V179, "be-v179": SPEC_BE_V179,
          "fe-v180": SPEC_FE_V180, "be-v180": SPEC_BE_V180,
          "fe-v181": SPEC_FE_V181, "fe-v181b": SPEC_FE_V181B,
-         "fe-v182": SPEC_FE_V182, "fe-v183": SPEC_FE_V183}
+         "fe-v182": SPEC_FE_V182, "fe-v183": SPEC_FE_V183,
+         "be-v184": SPEC_BE_V184, "fe-v184": SPEC_FE_V184}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

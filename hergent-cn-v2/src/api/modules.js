@@ -24,6 +24,12 @@ export const forecastApi = {
   // 2026-09-16：改名 / 改日期（仅 open 期次）。此前只有 create/close/delete ⇒
   // 名字打错只能「关闭→删除」，而删除会级联删掉该期全部报单/定稿/付款，不可恢复。
   updatePeriod: (pid, body) => api(`/api/forecast/periods/${pid}`, { method: 'PATCH', body }),
+  // 2026-09-17：复制期次。`copyPeriod` = 新建一个期次并只带源期的**商品清单**；
+  // `seedPeriod` = 把源期清单填入**已存在**的期次（空期次用，不必先删再建）。
+  // 🔴 两者都刻意**不带**报单数量 / 加单 / 定稿 —— 加单与定稿的归属键是
+  //    (period_start, period_end) 日期窗口而不是期次 id，带过来会让两期**共用同一份**。
+  copyPeriod: (pid, body) => api(`/api/forecast/periods/${pid}/copy`, { method: 'POST', body }),
+  seedPeriod: (pid, body) => api(`/api/forecast/periods/${pid}/seed`, { method: 'POST', body }),
   closePeriod: (pid) => api(`/api/forecast/periods/${pid}/close`, { method: 'POST' }),
   deletePeriod: (pid) => api(`/api/forecast/periods/${pid}`, { method: 'DELETE' }),
   periodOrders: (periodId) => api(`/api/forecast/orders/${periodId}`),
