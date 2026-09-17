@@ -6273,14 +6273,17 @@ const sprintTimeProgress = computed(() => {
   if (yy < curY || (yy === curY && mm < curM)) frac = 1
   else if (yy > curY || (yy === curY && mm > curM)) frac = 0
   else frac = Math.min(1, now.getDate() / totalDays)
-  // v181：pct1 是 1 位小数版（页头与 hover 提示用）—— 与进度条文案的「百分点差值」同精度，可互相对账
+  // v181：pct1 是 1 位小数版（页头与 hover 提示用）—— 与进度条文案的差值同精度，可互相对账
   return { frac, pct: Math.round(frac * 100), pct1: paceNum(frac * 100), shown: frac > 0 && frac < 1 }   // 虚线只在当月有意义
 })
 
-/* v181：进度条「与时间进度对比」的**唯一**判定 —— 三态 + 差值（百分点）。
+/* v181：进度条「与时间进度对比」的**唯一**判定 —— 三态 + 差值。
    ⚠️ 文案与进度条着色必须走同一个函数（此前着色单独写了一份 `ach >= frac`，会让
    差 0.03 个百分点的一行出现「文案写落后、进度条却判绿」的自相矛盾）。
-   单位用「个百分点」：两个百分比相减的结果单位是百分点，写成 % 会被读成比值。
+   v182：文案单位按用户指定用「%」（v181 曾用「个百分点」）。⚠️ 数学上两个百分比**相减**
+   的结果单位是百分点，写「%」会被一部分人读成比值（「超过 4.7%」可读作 104.7%）。此处的
+   消歧手段是 hover 提示里的「（达成 61.4% · 时间进度 56.7%）」—— 61.4 − 56.7 = 4.7，
+   一算就知单位是百分点。若要切回「个百分点」，只改下面 head 一处字符串即可。
    差值取 1 位小数的**真实差值**（不是先把两个百分比各自取整再相减），与页头时间进度同精度。 */
 const PACE_EPS = 0.05       // 低于 0.05 个百分点视为持平（1 位小数下本就显示不出差异）
 function sprintPaceOf(ach) {
@@ -6292,7 +6295,7 @@ function sprintPaceOf(ach) {
     return { state: 'even', pp: 0, cls: 'pace-even', text: '与时间进度持平', hover: '与时间进度持平' + detail }
   }
   const ahead = pp > 0
-  const head = (ahead ? '超过' : '落后') + '时间进度 ' + paceNum(Math.abs(pp)) + ' 个百分点'
+  const head = (ahead ? '超过' : '落后') + '时间进度 ' + paceNum(Math.abs(pp)) + '%'
   return { state: ahead ? 'ahead' : 'behind', pp, cls: ahead ? 'pace-ahead' : 'pace-behind', text: head, hover: head + detail }
 }
 
