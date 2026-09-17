@@ -767,6 +767,13 @@ SPEC_BE_V184C = ("be", [
      "gone": ["arrival_lead_days 为空"]},
 ])
 
+# v184c 收尾：交付说明补「八、提交」（两端 commit 号 + 在途改动未夹带的回读证据）。
+# 该文件在 `5b56315` 里已入库，此 spec 只补这一段 —— 单文件、全本轮 ⇒ keep_all。
+SPEC_FE_V184C_DOCS = ("fe", [
+    {"file": "outputs/商品编辑-2026-09-17/交付说明.md", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -779,6 +786,7 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v184b": SPEC_BE_V184B, "fe-v184b": SPEC_FE_V184B,
          "be-v184b2": SPEC_BE_V184B2, "fe-v184b2": SPEC_FE_V184B2,
          "be-v184c": SPEC_BE_V184C, "fe-v184c": SPEC_FE_V184C,
+         "fe-v184c-docs": SPEC_FE_V184C_DOCS,
          "be-loss": SPEC_BE_LOSS, "fe-loss": SPEC_FE_LOSS}
 
 def git(*a, **kw):
