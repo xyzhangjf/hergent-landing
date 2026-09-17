@@ -652,6 +652,51 @@ SPEC_FE_V184B2 = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── loss：货损核算（月度 · 期间流水口径）—— 新页面 + 新后端模块 + 导入扩展位 ──────
+# 归属依据（逐 hunk 打印首行核对，不按行号猜）：
+#   本轮 = 1 个新页面 + 1 个新后端模块 + 2 个契约测试 + 2 张截图；3 个混合文件里本轮
+#   **全是纯插入**（无替换、无搬家），与在途改动不重叠。
+#   部署前已把工作区与生产做过两次独立比对，确认「工作区 == 生产 + 本轮改动」：
+#     ① 后端 10 个在途文件里 9 个与 /opt/hergent-erp 逐字节一致；第 10 个 server.py 的
+#        差异**纯是本轮**（生产上 grep loss_accounting 为空）。
+#     ② 前端 hash 归一化产物比对（tools/dist_normalized_diffcheck.py 复核过）：
+#        47 个 chunk 里 44 个与生产逐字节相同，仅 index/Shell/modules 三个 chunk 有真实
+#        差异 —— 正是本轮改的 3 个文件所在 chunk；新增/删除文件恰好是 LossAccounting 两个。
+#     ③ 中文串差集：6 个差异文件的「生产独有中文」全为 0 ⇒ 零夹带、零缺失。
+#   在途名单（均为 09-11~09-17 那批未提交改动，**已全部在产**，留在工作区由各自的作者提交）：
+SPEC_BE_LOSS = ("be", [
+    {"file": "server/routers/loss_accounting.py", "new_file": True, "gone": []},
+    # 该文件本轮 4 行（2 行注释 + import + include_router）全属本轮 → keep_all 拿「== 工作区」自证
+    {"file": "server/server.py", "keep_all": True, "gone": []},
+])
+
+SPEC_FE_LOSS = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/LossAccounting.vue", "new_file": True, "gone": []},
+    {"file": "hergent-cn-v2/tests/sfc-symbols.contract.mjs", "new_file": True, "gone": []},
+    {"file": "hergent-cn-v2/tests/loss-accounting-money.contract.mjs", "new_file": True, "gone": []},
+    {"file": "outputs/loss-accounting-2026-09-17-view.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/loss-accounting-2026-09-17-edit.png", "new_file": True, "binary": True, "gone": []},
+    # 本轮 1 个 hunk（+217,41 = lossAccountingApi 整块）。在途 9 个：
+    #   299/303  forecastApproveApi.summary 加 periodId 形参 + q.push('period_id=')
+    #   311/314  bulkUpsert 行**搬家两半**（技能 §5.8：搬移必须两半一起排除）
+    #   322      v184c 商品「修改记录」接口
+    #   337/348  Excel 导入注释搬家两半
+    #   349/380  importApi.template 搬家两半
+    {"file": "hergent-cn-v2/src/api/modules.js",
+     "exclude_hunks": [299, 303, 311, 314, 322, 337, 348, 349, 380], "gone": []},
+    # 本轮 2 个 hunk（+18 加 LossAccounting import；+49,3 加「货损核算」路由项）。在途 2 个：
+    #   21 加 ArchiveShell import；49 archive 路由改造（父子路由 + 4 个子路由）
+    {"file": "hergent-cn-v2/src/router/index.js",
+     "exclude_hunks": [21, 49], "gone": []},
+    # 本轮 2 个 hunk（+46 桌面侧栏入口 / +95 移动侧栏入口，各 1 行纯插入）。在途 10 个：
+    #   17 删 ⌘K 徽标；109 加 IdleTimeout 注释块；141/146 import 改造（+IdleTimeout/+clearChatCache）
+    #   187/188/193 logout 改 async + 清会话缓存 + 空闲超时；327/330/399 .tb-copilot/.tb-cp-k CSS
+    {"file": "hergent-cn-v2/src/components/Shell.vue",
+     "exclude_hunks": [17, 109, 141, 146, 187, 188, 193, 327, 330, 399], "gone": []},
+    # 本工具自身（新增上面两个 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -662,7 +707,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v182": SPEC_FE_V182, "fe-v183": SPEC_FE_V183,
          "be-v184": SPEC_BE_V184, "fe-v184": SPEC_FE_V184,
          "be-v184b": SPEC_BE_V184B, "fe-v184b": SPEC_FE_V184B,
-         "be-v184b2": SPEC_BE_V184B2, "fe-v184b2": SPEC_FE_V184B2}
+         "be-v184b2": SPEC_BE_V184B2, "fe-v184b2": SPEC_FE_V184B2,
+         "be-loss": SPEC_BE_LOSS, "fe-loss": SPEC_FE_LOSS}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

@@ -214,6 +214,47 @@ export const lossApi = {
   run: (recipe = {}) => api('/api/loss/run', { method: 'POST', body: recipe }),
 }
 
+/* ---- 货损核算（月度 · 期间流水口径 · 手工填报）----
+   ⚠️ 与上面的 lossApi **不是一回事**：lossApi 是"配方驱动的批次效期预测"（扫库存算
+   预计货损金额），本模块是"舟谱流水口径的期间实际货损核算"（算货损率）。别混用。
+
+   阶段一（当前）：手工填报 + 主体维护 + 结账 + 叫法映射，全部已可用。
+   阶段二（未实现）：importPreview / importExecute / importBatches —— 后端当前返回
+     501 + 明确文案；调用方按 `err.status === 501` 走"下一阶段"提示分支。
+     这三个方法**刻意现在就写好**：前端接线与后端路由位置先对齐，
+     下一步只换后端实现，前端零改动。 */
+export const lossAccountingApi = {
+  bootstrap: (period = '') =>
+    api(`/api/loss/accounting/bootstrap?period=${encodeURIComponent(period)}`),
+  periods: () => api('/api/loss/accounting/periods'),
+  summary: (period) =>
+    api(`/api/loss/accounting/summary?period=${encodeURIComponent(period)}`),
+  detail: (period, rowKind, subjectKey) =>
+    api(`/api/loss/accounting/detail?period=${encodeURIComponent(period)}`
+      + `&row_kind=${encodeURIComponent(rowKind)}`
+      + `&subject_key=${encodeURIComponent(subjectKey)}`),
+  health: (period) =>
+    api(`/api/loss/accounting/health?period=${encodeURIComponent(period)}`),
+  roles: () => api('/api/loss/accounting/roles'),
+  renameRole: (role, body) =>
+    api(`/api/loss/accounting/roles/${encodeURIComponent(role)}`, { method: 'PUT', body }),
+  getConfig: () => api('/api/loss/accounting/config'),
+  saveConfig: (body) => api('/api/loss/accounting/config', { method: 'PUT', body }),
+  saveManual: (body) => api('/api/loss/accounting/manual', { method: 'PUT', body }),
+  saveSubject: (body) => api('/api/loss/accounting/subjects', { method: 'PUT', body }),
+  deleteSubject: (sid) => api(`/api/loss/accounting/subjects/${sid}`, { method: 'DELETE' }),
+  recompute: (period) =>
+    api('/api/loss/accounting/recompute', { method: 'POST', body: { period } }),
+  close: (period) => api('/api/loss/accounting/close', { method: 'POST', body: { period } }),
+  reopen: (period) => api('/api/loss/accounting/reopen', { method: 'POST', body: { period } }),
+  importPreview: (body) =>
+    api('/api/loss/accounting/import/preview', { method: 'POST', body }),
+  importExecute: (body) =>
+    api('/api/loss/accounting/import/execute', { method: 'POST', body }),
+  importBatches: (period = '') =>
+    api(`/api/loss/accounting/import/batches?period=${encodeURIComponent(period)}`),
+}
+
 /* ---- 算工资工作流（模板 + 中文表单 + 配方存储） ---- */
 export const payrollApi = {
   getRecipe: () => api('/api/payroll-workflow/recipe'),

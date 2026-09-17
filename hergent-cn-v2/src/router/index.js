@@ -15,6 +15,7 @@ const Dashboard = () => import('../pages/Dashboard.vue')
 const ConnectCenter = () => import('../pages/ConnectCenter.vue')
 const Reconciliation = () => import('../pages/Reconciliation.vue')
 const LossWorkflow = () => import('../pages/LossWorkflow.vue')
+const LossAccounting = () => import('../pages/LossAccounting.vue')
 const PayrollWorkflow = () => import('../pages/PayrollWorkflow.vue')
 const DataFill = () => import('../pages/DataFill.vue')
 const EmployeeArchive = () => import('../pages/EmployeeArchive.vue')
@@ -44,6 +45,9 @@ export const router = createRouter({
         { path: 'roles', component: RoleManage, meta: { title: 'AI 团队' } },
         { path: 'reconciliation', component: Reconciliation, meta: { title: '对账工作流' } },
         { path: 'loss', component: LossWorkflow, meta: { title: '货损计算工作流' } },
+        // 货损核算（月度·期间流水口径）—— 与上面的 /loss（配方驱动的批次效期预测）
+        // 是两个模块：前者算"这个月实际损了多少、率是多少"，后者算"我的货里有多少快坏了"。
+        { path: 'loss-accounting', component: LossAccounting, meta: { title: '货损核算' } },
         { path: 'payroll', component: PayrollWorkflow, meta: { title: '算工资工作流' } },
         { path: 'data-fill', component: DataFill, meta: { title: '库存效期补录' } },
         { path: 'archive', redirect: '/archive/employees' },
