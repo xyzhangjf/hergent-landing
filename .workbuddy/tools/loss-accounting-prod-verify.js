@@ -75,6 +75,33 @@ function snapSidebar() {
   }
 }
 
+// 浏览器内：主 Tab 快照（标签 / 哪个高亮 / 两个 tab 各有的地标在不在）
+// ⚠️ 用**精确类名** .main-tabs / .main-tab / .la-tbar / .la-bar / .dsh——
+//   禁用 [class*=]，同前缀元素会抢先命中（本项目「探针偏航」铁律）。
+function snapTabs() {
+  const btns = [...document.querySelectorAll('.main-tabs .main-tab')]
+  const on = btns.find(x => x.classList.contains('on'))
+  return {
+    labels: btns.map(x => (x.textContent || '').replace(/\s+/g, ' ').trim()),
+    on: on ? (on.textContent || '').trim() : '',
+    // 仪表盘地标：趋势筛选条 + 仪表盘组件根
+    hasDash: !!document.querySelector('.la-tbar') && !!document.querySelector('section.dsh'),
+    // 数据填报地标：工具条 + 主表
+    hasFill: !!document.querySelector('.la-bar') && !!document.querySelector('table.la-tbl'),
+    // 月列表（只在仪表盘 tab）
+    hasMonthList: !!document.querySelector('.la-ml-tbl'),
+  }
+}
+
+// 浏览器内：按文字点主 Tab
+function clickMainTab(label) {
+  const b = [...document.querySelectorAll('.main-tabs .main-tab')]
+    .find(x => (x.textContent || '').trim() === label)
+  if (!b) return false
+  b.click()
+  return true
+}
+
 async function main() {
   if (!TOKEN) { console.error('缺 HG_TOKEN'); process.exit(2) }
   const browser = await puppeteer.launch({
@@ -107,7 +134,24 @@ async function main() {
   info('正文开头: ' + title.slice(0, 120))
   ok(/货损核算/.test(title), '页面标题含「货损核算」')
 
-  console.log('\n# 2) 公司卡与主表')
+  console.log('\n# 1.5) 主 Tab（「仪表盘」/「数据填报」分页 · 对齐「目标与返利」页）')
+  let tb = await page.evaluate(snapTabs)
+  info('tab: ' + tb.labels.join(' / ') + '   当前: ' + tb.on)
+  ok(tb.labels.length === 2, '主 Tab 恰好两个', tb.labels.join(' / '))
+  ok(tb.labels.join('|') === '仪表盘|数据填报', 'tab 文案与顺序与需求一致', tb.labels.join('|'))
+  ok(tb.on === '仪表盘', '默认落在「仪表盘」（与「目标与返利」一致）', tb.on)
+  ok(tb.hasDash && tb.hasMonthList, '仪表盘态：趋势地标 + 月列表都在')
+  ok(!tb.hasFill, '仪表盘态：填报地标（工具条/主表）不在')
+
+  // 切到「数据填报」—— 下面 # 2 ~ # 6 全部在这一屏跑（工具条 / 主表 / 录入态都在这里）
+  await page.evaluate(clickMainTab, '数据填报')
+  await sleep(600)
+  tb = await page.evaluate(snapTabs)
+  ok(tb.on === '数据填报', '点「数据填报」后高亮跟着切', tb.on)
+  ok(tb.hasFill, '数据填报态：工具条 + 主表都在')
+  ok(!tb.hasDash && !tb.hasMonthList, '数据填报态：趋势与月列表**已移除**（不是藏起来）')
+
+  console.log('\n# 2) 公司卡与主表（数据填报 tab）')
   const t = await page.evaluate(snapTable)
   if (!t) ok(false, '找到主表 table.la-tbl')
   else {
@@ -180,7 +224,15 @@ async function main() {
   await page.screenshot({ path: OUT + '/loss-accounting-prod-verify.png', fullPage: false })
   info('截图: ' + OUT + '/loss-accounting-prod-verify.png')
 
-  console.log('\n# 6.5) 趋势仪表盘（v185 新增 · 生产上无录入时走空态，同样要验）')
+  console.log('\n# 6.5) 趋势仪表盘（v185 · 生产上无录入时走空态，同样要验）')
+  // 先切回「仪表盘」：本段全部断言都建立在那一屏（# 2~# 6 已把页面停在数据填报 tab）
+  await page.evaluate(clickMainTab, '仪表盘')
+  await sleep(900)
+  const backTb = await page.evaluate(snapTabs)
+  ok(backTb.on === '仪表盘', '切回「仪表盘」后高亮跟着回', backTb.on)
+  ok(backTb.hasDash && backTb.hasMonthList, '切回后趋势地标 + 月列表都回来了')
+  ok(!backTb.hasFill, '切回后填报地标（工具条/主表）已移除')
+
   const dsh = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('.la-ml-tbl tbody tr')]
     const rate = rows.map(tr => ((tr.querySelectorAll('td')[4] || {}).textContent || '').trim())
@@ -199,10 +251,13 @@ async function main() {
       rank: document.querySelectorAll('.rk-row').length,
       // 「万元」与「%」两个单位必须同时出现在主图上（双轴各自标注）
       units: [...document.querySelectorAll('.dsh text.ax-u')].map(t => t.textContent.trim()),
+      // 月列表操作列：分 tab 后文案由「查看」改为「去填报」（点它 = 切月 + 跳填报 tab）
+      ops: [...new Set([...document.querySelectorAll('.la-ml-op')].map(td => (td.textContent || '').trim()))],
     }
   })
   ok(dsh.has, '趋势仪表盘已渲染')
   ok(dsh.bar, '趋势区间筛选条在')
+  ok(dsh.ops.join('|') === '去填报', '月列表操作列文案 = 「去填报」', dsh.ops.join('|'))
   ok(dsh.nRows === 12, '月列表 = 默认近 12 个月', dsh.nRows + ' 行')
   ok(/^\d{4}-\d{2}/.test(dsh.first), '首行是最新月份（降序）', dsh.first)
   const hasCharts = dsh.cards > 0

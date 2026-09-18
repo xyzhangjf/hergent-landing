@@ -269,6 +269,17 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .page-hd.flush{margin-bottom:0}
 .page-sub{font-size:12px;color:var(--t3)}
 
+/* ④ 页内主 Tab（同一个业务模块下分「看数」与「录数」两个面）。
+   🔴 **全站唯一一份**：2026-09-18 从 Rebate.vue（目标与返利）的 scoped 里上提到这里 ——
+   货损核算要照它的样子分 tab，若各页各写一份，两处视觉必然逐轮漂移
+   （项目铁律「第二份拷贝＝静默漂移」）。改这里的数值 = 同时改所有分 tab 的页面。
+   用法：<div class="main-tabs"><button class="main-tab" :class="{on: …}">…</button>…</div> */
+.main-tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border-subtle)}
+.main-tab{padding:10px 18px;border:none;background:none;font-size:14px;color:var(--t2);cursor:pointer;position:relative;font-weight:500}
+.main-tab:hover{color:var(--t1)}
+.main-tab.on{color:var(--p-dark)}
+.main-tab.on::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--p-dark);border-radius:2px}
+
 /* 通用卡片 */
 /* 内距 18px 为全站默认值（基线统计：18px 占 18/33，为绝对主流）。
    此前 .card 不含内距，每个页面都得靠自己的具体类补（.cc-card/.df-panel/.dash-card…），

@@ -933,6 +933,62 @@ SPEC_FE_V185_R7 = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v185-tabs：货损核算「仪表盘 / 数据填报」拆成两个主 Tab（2026-09-18）──────────
+#   用户原话：「请参照目标与返利模块，把仪表盘和数据填报页面分开」。
+#
+#   归属依据（逐 hunk 打印首行核对过，不按行号猜；基线 HEAD = 49236f0）：
+#
+#   variables.css  1 hunk（old_start=271）全归本轮 → keep_all
+#     页内主 Tab 从 Rebate.vue 的 scoped **上提到全局层**（全站唯一一份，
+#     防两页各写一份逐轮视觉漂移 —— 铁律「第二份拷贝＝静默漂移」）
+#   Rebate.vue     1 hunk（old_start=3207）全归本轮 → keep_all
+#     删掉本地那 5 条 .main-tabs/.main-tab，换成「已上提到全局层」注释；
+#     文件末尾 @media print 里隐藏 .main-tabs 那句**刻意保留**（只作用本页）
+#   LossAccounting.vue  13 hunk 全归本轮 → keep_all
+#     8    工具条整块搬进「数据填报」tab（原位置换成 .main-tabs）
+#     43   编辑条搬进填报 tab + 删「趋势图与月列表已在录入态收起」那句补丁
+#     57   删 v-if="!editMode" 的整段收起（分 tab 后不再需要这层补丁）
+#     73   筛选条右侧提示改写（点柱子=切期次；去填报=跳 tab）
+#     128  月列表操作列「查看」→「去填报」（@click 由 switchPeriod 改 goFill）
+#     146  LossDashboard @pick 由 switchPeriod 改 pickMonth
+#     149  插入「数据填报」tab 整块（工具条 + 编辑条 + 其后的公司卡/主表）
+#     331  </template> 收在表尾 footnote 之后（弹窗 Teleport 留在两 tab 之外）
+#     486  const mainTab = ref('dashboard')（放最前，防 Cannot access before initialization）
+#     794  switchPeriod → switchTab + blockIfDirty + pickMonth（含"留在仪表盘"语义）
+#     795  pickMonth 里加 blockIfDirty 拦截（从仪表盘换期次必须拒绝）
+#     801  goFill（切到该月 + 跳填报 tab）
+#     1095 .la-tabnote 诚实性提示样式（仪表盘读的是**已保存**的数据）
+#     ⚠️ 公司卡 / 主表两块**刻意保持原缩进**未重排 —— 175 行纯空白 churn 会让
+#        「本轮改动 vs 在途改动」在 hunk 粒度上更难分辨（本项目按 hunk 归属提交）。
+#     ⚠️ keep_all 自证「构造结果 == 工作区」成立 ⇒ 此刻该文件**无在途改动**
+#        （并发会话的 v185 rebate 工作已由 de41bd6 / 49236f0 提交，不再叠在本文件上）。
+#   loss-accounting-prod-verify.js   5 hunk 全归本轮 → keep_all
+#     + snapTabs / clickMainTab 两个浏览器内助手；# 1.5 主 Tab 7 条；# 6.5 切回 3 条
+#   loss-dashboard-local-preflight.js 7 hunk 全归本轮 → keep_all
+#     # 0 主 Tab 4 条；# 5 改读 .la-ml-tbl tbody tr.la-ml-cur>la-ml-m b（期次下拉只在填报 tab）；
+#     # 7.5 切填报→7 条（含主表结构 + 工具条 6 按钮 + 落 08-数据填报-本地预检.png）→切回→3 条
+#   ⚠️ Forecast.vue **不在本 spec 里**：本轮未碰它。它此刻在途的 8 hunk 属别的会话
+#      （v184d 那批），不由本提交认领 —— 不认领 = 不动它，留在工作区由作者提交。
+SPEC_FE_V185_TABS = ("fe", [
+    {"file": "hergent-cn-v2/src/styles/variables.css", "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/pages/Rebate.vue", "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/pages/LossAccounting.vue", "keep_all": True,
+     # 本轮删掉的两串（暂存版与工作区都必须为 0）
+     "gone": ["趋势图与月列表已在录入态收起",
+              '<button class="la-link" @click="switchPeriod(m.period)">查看</button>']},
+    {"file": ".workbuddy/tools/loss-accounting-prod-verify.js", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/tools/loss-dashboard-local-preflight.js", "keep_all": True, "gone": []},
+    # 重拍的仪表盘截图（**已跟踪** → binary + keep_all）+ 本轮新增的填报页截图（new_file）
+    {"file": "outputs/货损核算-2026-09-18/06-仪表盘-本地预检.png",
+     "binary": True, "keep_all": True, "gone": []},
+    {"file": "outputs/货损核算-2026-09-18/07-仪表盘-主图特写-本地预检.png",
+     "binary": True, "keep_all": True, "gone": []},
+    {"file": "outputs/货损核算-2026-09-18/08-数据填报-本地预检.png",
+     "binary": True, "new_file": True, "gone": []},
+    # 本工具自身（新增上面这个 spec + 「已跟踪二进制」支持）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -951,7 +1007,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v185-trend": SPEC_BE_V185_TREND, "fe-v185-trend": SPEC_FE_V185_TREND,
          "fe-v184d": SPEC_FE_V184D,
          "fe-v185-dash": SPEC_FE_V185_DASH,
-         "fe-v185-r7": SPEC_FE_V185_R7}
+         "fe-v185-r7": SPEC_FE_V185_R7,
+         "fe-v185-tabs": SPEC_FE_V185_TABS}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
@@ -1047,13 +1104,30 @@ def main():
         #   二进制只做「暂存版 == 工作区（逐字节）」这一条自证 —— 它本来就没有 hunk、
         #   没有行数、也不该有 gone 文案检查，所以不需要任何别的分支。
         is_bin = bool(spec.get("binary"))
-        assert not (is_bin and not spec.get("new_file")), \
-            "%s：binary 目前只支持 new_file（已跟踪的二进制没有可行的 hunk 归属判据）" % path
+        # 🔴 binary=True：PNG/zip 等**不可按 utf-8 解码**的文件。
+        #   2026-09-17 实测踩过：交付目录里的截图会让 `open(..., encoding="utf-8")` 在
+        #   `osition 0: invalid start byte` 上炸掉，整个 spec 连第一个文件都跑不完。
+        #   二进制只做「暂存版 == 工作区（逐字节）」这一条自证 —— 它本来就没有 hunk、
+        #   没有行数、也不该有 gone 文案检查，所以不需要任何别的分支。
+        #   ⚠️ 2026-09-18 起支持**已跟踪**二进制（此前只允许 new_file）：交付目录里的截图
+        #      重拍后若不带上，交付目录就与当前页面对不上。二进制无 hunk ⇒ 归属只能是
+        #      「整文件」故只接受 keep_all（拿 `out == wt` 逐字节自证），**不许**按 hunk 拆。
+        assert not (is_bin and not (spec.get("new_file") or spec.get("keep_all"))), \
+            "%s：binary 只能配 new_file 或 keep_all（二进制没有 hunk 可拆）" % path
+        assert not (is_bin and spec.get("gone")), "%s：binary 不该有 gone 名单" % path
         wt = (open(os.path.join(REPO, path), "rb").read() if is_bin
               else open(os.path.join(REPO, path), encoding="utf-8").read())
-        assert not (is_bin and spec.get("gone")), "%s：binary 不该有 gone 名单" % path
 
-        if spec.get("new_file"):
+        if is_bin:
+            # 二进制**不取 HEAD 内容**（`git show` 走 text=True 会 UnicodeDecodeError），
+            # 只探「HEAD 里有没有」来决定 new_file / keep_all 谁成立。
+            has = subprocess.run(["git", "-C", REPO, "cat-file", "-e", "HEAD:" + path],
+                                 capture_output=True).returncode == 0
+            assert has != bool(spec.get("new_file")), \
+                "%s：HEAD 里%s该文件，与 new_file=%s 不符（已跟踪的二进制请用 keep_all）" \
+                % (path, "已有" if has else "没有", bool(spec.get("new_file")))
+            head, hunks, mine, deferred, out = "", [], [], [], wt
+        elif spec.get("new_file"):
             # 新文件：HEAD 里不存在 → 无 hunk 可解析，内容直接取工作区（自证 == 工作区）
             has = subprocess.run(["git", "-C", REPO, "cat-file", "-e", "HEAD:" + path],
                                  capture_output=True).returncode == 0

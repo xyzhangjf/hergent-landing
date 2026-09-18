@@ -3204,12 +3204,10 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .btn-mini.btn-danger{color:var(--dan);border-color:rgba(var(--dan-rgb),.3)}
 .btn-mini.btn-danger:hover{background:rgba(var(--dan-rgb),.08)}
 
-/* 主 Tab：目标规则 / 达成填报 */
-.main-tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border-subtle)}
-.main-tab{padding:10px 18px;border:none;background:none;font-size:14px;color:var(--t2);cursor:pointer;position:relative;font-weight:500}
-.main-tab:hover{color:var(--t1)}
-.main-tab.on{color:var(--p-dark)}
-.main-tab.on::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--p-dark);border-radius:2px}
+/* 主 Tab：目标规则 / 达成填报
+   🔴 2026-09-18 起 .main-tabs / .main-tab 已上提到 `styles/variables.css`（全局层）——
+   货损核算页要照本页的样子分 tab，两页必须共用同一份，故此处不再重复定义。
+   本页的 @media print 里仍隐藏 .main-tabs（只作用于本页，见文件末尾）。 */
 
 /* 达成填报 Tab */
 .achv-card{padding:16px}

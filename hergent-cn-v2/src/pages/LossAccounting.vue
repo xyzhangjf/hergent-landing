@@ -5,59 +5,28 @@
       <span class="page-sub">月度核算 · 期间流水口径</span>
     </div>
 
-    <!-- ══ 工具条 ══ -->
-    <div class="la-bar">
-      <div class="la-bar-l">
-        <select v-model="period" class="input la-sel" aria-label="核算期次" @change="reload">
-          <option v-for="p in periods" :key="p.period" :value="p.period">
-            {{ p.period }}{{ p.is_closed ? '（已结账）' : '' }}
-          </option>
-        </select>
-        <span class="la-chip" :class="isClosed ? 'is-closed' : 'is-open'">
-          {{ isClosed ? '已结账 · 数据锁定' : '未结账' }}
-        </span>
-        <span class="la-chip la-chip-quiet">数据截至 {{ updatedAt || '—' }}</span>
-        <label class="la-pricing">
-          <span>计价口径</span>
-          <select v-model="pricing" class="input la-sel-sm" aria-label="计价口径" @change="onChangePricing">
-            <option value="sale">售价</option>
-            <option value="cost">成本价（进货价）</option>
-          </select>
-          <i class="la-hint" title="全部金额按此口径折算。临期销售抵扣也走同一口径 —— 分子里不允许混两种币值。">?</i>
-        </label>
-      </div>
-      <div class="la-bar-r">
-        <button class="btn btn-ghost btn-sm" @click="openImport">上传数据</button>
-        <button class="btn btn-sm" :class="editMode ? 'btn-primary' : ''" :disabled="isClosed && !editMode" @click="toggleEdit">
-          {{ editMode ? '完成录入' : '手工录入' }}
-        </button>
-        <button class="btn btn-ghost btn-sm" :disabled="busy" @click="doRecompute">重算</button>
-        <button class="btn btn-ghost btn-sm" @click="toggleClose">{{ isClosed ? '反结账' : '结账' }}</button>
-        <button class="btn btn-ghost btn-sm" @click="openRoles">叫法映射</button>
-        <button class="btn btn-ghost btn-sm" @click="openHealth">
-          数据体检<span v-if="healthBadge" class="la-badge">{{ healthBadge }}</span>
-        </button>
-      </div>
+    <!-- ══ 主 Tab：看数 / 录数分开（对齐「目标与返利」页的同一套 .main-tabs） ══
+         为什么要分：录数是"对着表格填"，看图是"回头看走势"。两者同屏时表格会被图表挤到
+         屏幕外 —— 此前只能靠"录入态把整段趋势收起"来兜，而用户一进录入态就以为图没了，
+         还得在编辑条里写一句话解释。分 tab 后这层补丁和那句话都不需要了。
+         默认落在「仪表盘」（与「目标与返利」一致：老板每天先看数，录数是手段）。
+         🔴 样式在 `styles/variables.css` 的全局层，全站唯一一份 —— 本页不重复定义。 -->
+    <div class="main-tabs">
+      <button class="main-tab" :class="{ on: mainTab === 'dashboard' }" @click="switchTab('dashboard')">仪表盘</button>
+      <button class="main-tab" :class="{ on: mainTab === 'fill' }" @click="switchTab('fill')">数据填报</button>
     </div>
 
-    <!-- ══ 编辑态提示条 ══ -->
-    <div v-if="editMode" class="la-editbar">
-      <span class="la-editbar-txt">
-        可填写的格子已变成输入框；<b>毛额 / 净额 / 货损率由系统在保存后重算</b>（不接受手工填写）。
-      </span>
-      <span v-if="dirtyCount" class="la-dirty">已改 <b>{{ dirtyCount }}</b> 格未保存</span>
-      <span v-else class="la-quiet">尚未修改</span>
-      <span class="la-quiet">趋势图与月列表已在录入态收起（点「完成录入」回来）</span>
-      <button class="btn btn-primary btn-sm" :disabled="!dirtyCount || saving" @click="saveManual">
-        {{ saving ? '保存中…' : '保存并重算' }}
-      </button>
-      <button class="btn btn-ghost btn-sm" :disabled="saving" @click="cancelEdit">放弃修改</button>
-    </div>
+    <!-- ══ 仪表盘 Tab（只读）══════════════════════════════════════════════
+         区间筛选 + 按月一览 + 趋势图。数据**全部**来自 GET /api/loss/accounting/trend
+         （月列表与图表同源，不各自取数 —— 同屏两个口径是最难查的一类差异）。 -->
+    <template v-if="mainTab === 'dashboard'">
+      <!-- 🔴 诚实性：仪表盘读的是**已保存**的数据。有未保存的录入改动时必须在这里说清，
+           否则用户会得出「我填了数、图怎么没变」—— 分 tab 之后这是最容易误解的一处。 -->
+      <div v-if="dirtyCount" class="la-tabnote">
+        当前有 <b>{{ dirtyCount }}</b> 格录入改动<b>尚未保存</b> ——
+        本页读的是已保存的数据，切到「数据填报」保存后才会更新。
+      </div>
 
-    <!-- ══ 趋势：区间筛选 + 按月一览 + 仪表盘 ══
-         录入态整段收起：录数是"对着表格填"，看图是"回头看走势"，两者同屏会把表格
-         挤到屏幕外。收起时编辑条里有一句说明，避免用户以为功能没了。 -->
-    <template v-if="!editMode">
       <div class="la-tbar">
         <span class="la-tbar-t">趋势区间</span>
         <select v-model.number="tRange" class="input la-sel-sm" aria-label="趋势区间" @change="loadTrend">
@@ -70,7 +39,7 @@
         <label class="la-chk"><input v-model="tSkipEmpty" type="checkbox" /> 跳过未录入月</label>
         <span v-if="trendLoading" class="la-quiet">加载中…</span>
         <span v-else-if="trendErr" class="la-tbar-err">{{ trendErr }}</span>
-        <span class="la-tbar-r la-quiet">点柱子 / 「查看」即切到该月详情</span>
+        <span class="la-tbar-r la-quiet">点柱子 = 切「当前期次」；点月列表「去填报」跳去录这个月</span>
       </div>
 
       <!-- 月列表 -->
@@ -125,7 +94,7 @@
                   <span v-else class="la-ml-gap" :title="m.gaps.join('；')">缺 {{ m.gaps.length }} 项</span>
                 </td>
                 <td class="la-ml-op">
-                  <button class="la-link" @click="switchPeriod(m.period)">查看</button>
+                  <button class="la-link" @click="goFill(m.period)">去填报</button>
                 </td>
               </tr>
             </tbody>
@@ -143,9 +112,63 @@
         :from="tFrom"
         :to="tTo"
         :skipped-empty="tSkipEmpty ? skipEmptyCount : 0"
-        @pick="switchPeriod"
+        @pick="pickMonth"
       />
     </template>
+
+    <!-- ══ 数据填报 Tab（**唯一能写的地方**）══════════════════════════════
+         工具条 / 编辑条 / 公司卡 / 主表都在这里。仪表盘上点某月的「去填报」会切到本 tab
+         并已定位到该月（见 goFill）。
+         ⚠️ 下面「公司整体」与主表两块**保持原缩进**未重排：避免 175 行纯空白改动混进本页
+         diff（本项目按 hunk 归属提交，纯缩进 churn 会让在途改动与本轮改动更难分辨）。 -->
+    <template v-if="mainTab === 'fill'">
+      <!-- 工具条 -->
+      <div class="la-bar">
+        <div class="la-bar-l">
+          <select v-model="period" class="input la-sel" aria-label="核算期次" @change="reload">
+            <option v-for="p in periods" :key="p.period" :value="p.period">
+              {{ p.period }}{{ p.is_closed ? '（已结账）' : '' }}
+            </option>
+          </select>
+          <span class="la-chip" :class="isClosed ? 'is-closed' : 'is-open'">
+            {{ isClosed ? '已结账 · 数据锁定' : '未结账' }}
+          </span>
+          <span class="la-chip la-chip-quiet">数据截至 {{ updatedAt || '—' }}</span>
+          <label class="la-pricing">
+            <span>计价口径</span>
+            <select v-model="pricing" class="input la-sel-sm" aria-label="计价口径" @change="onChangePricing">
+              <option value="sale">售价</option>
+              <option value="cost">成本价（进货价）</option>
+            </select>
+            <i class="la-hint" title="全部金额按此口径折算。临期销售抵扣也走同一口径 —— 分子里不允许混两种币值。">?</i>
+          </label>
+        </div>
+        <div class="la-bar-r">
+          <button class="btn btn-ghost btn-sm" @click="openImport">上传数据</button>
+          <button class="btn btn-sm" :class="editMode ? 'btn-primary' : ''" :disabled="isClosed && !editMode" @click="toggleEdit">
+            {{ editMode ? '完成录入' : '手工录入' }}
+          </button>
+          <button class="btn btn-ghost btn-sm" :disabled="busy" @click="doRecompute">重算</button>
+          <button class="btn btn-ghost btn-sm" @click="toggleClose">{{ isClosed ? '反结账' : '结账' }}</button>
+          <button class="btn btn-ghost btn-sm" @click="openRoles">叫法映射</button>
+          <button class="btn btn-ghost btn-sm" @click="openHealth">
+            数据体检<span v-if="healthBadge" class="la-badge">{{ healthBadge }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 编辑态提示条 -->
+      <div v-if="editMode" class="la-editbar">
+        <span class="la-editbar-txt">
+          可填写的格子已变成输入框；<b>毛额 / 净额 / 货损率由系统在保存后重算</b>（不接受手工填写）。
+        </span>
+        <span v-if="dirtyCount" class="la-dirty">已改 <b>{{ dirtyCount }}</b> 格未保存</span>
+        <span v-else class="la-quiet">尚未修改</span>
+        <button class="btn btn-primary btn-sm" :disabled="!dirtyCount || saving" @click="saveManual">
+          {{ saving ? '保存中…' : '保存并重算' }}
+        </button>
+        <button class="btn btn-ghost btn-sm" :disabled="saving" @click="cancelEdit">放弃修改</button>
+      </div>
 
     <!-- ══ 公司整体 ══ -->
     <div class="card la-co">
@@ -329,6 +352,7 @@
       货损率以月度为核算单位，可每日更新；每次保存会重算本期并写一份当月账快照与当日趋势点。
       打开「手工录入」即可开始手动填报，导入的舟谱数据会在下一阶段接入。
     </p>
+    </template>
 
     <!-- ══ 弹窗 ══ -->
     <Teleport to="body">
@@ -483,6 +507,14 @@ import LossDashboard from '../components/LossDashboard.vue'
    本文件**不写任何列名/列序/可否编辑的第二份定义** ——
    否则前端加一列、后端不知道，或后端改了列序、前端对不上，两处必然漂移。
    ════════════════════════════════════════════════════════════════════ */
+
+/* ── 主 Tab（对齐「目标与返利」页）──
+   `dashboard` = 只看数（区间筛选 / 按月一览 / 趋势图，全部只读）
+   `fill`      = 录数与结账（工具条 / 编辑条 / 公司卡 / 主表，**唯一能写的地方**）
+   ⚠️ 声明放在最前：`switchTab` / `goFill` 虽是函数（无 TDZ 风险），但本页后续
+      若有顶层求值引用到它，定义靠后会直接抛 "Cannot access before initialization"
+      （返利页 v123 踩过同一个坑）。 */
+const mainTab = ref('dashboard')
 
 const loading = ref(true)
 const busy = ref(false)
@@ -791,12 +823,51 @@ async function loadTrend() {
   } finally { trendLoading.value = false }
 }
 
-async function switchPeriod(p) {
+/* ── 主 Tab 切换（看数 ↔ 录数）──
+   ⚠️ 两个 tab **共享「当前期次」这一个时间维度**（同「目标与返利」页的月份双向同步）：
+   期次是同一个 ref，不存在"两个 tab 各有一个月份"的错配 —— 在填报页切到 6 月，
+   切到仪表盘就是 6 月（趋势图终点本来就跟着期次走）。
+   ⚠️ 切 tab **不重新取数**：仪表盘数据由 6 个写路径 + 期次切换点统一刷新，永远是新鲜的；
+   在这里再拉一次只会制造"同一份数据两条刷新路径"。
+   （返利页按需拉取，是因为它两个 tab 的数据集**不同**；本页两个 tab 读的是同一份
+     trend + bootstrap。） */
+function switchTab(t) {
+  if (t === mainTab.value) return
+  mainTab.value = t
+}
+
+/* 🔴 有未保存草稿时，**从仪表盘发起**的「换期次」必须拒绝。
+   为什么只在这里拦：仪表盘只看**已保存**的数据，草稿状态在那一屏是**不可见**的 ——
+   点一下柱子就把人半天的录入无声丢掉，是最难自查的一类数据损失。
+   （填报页的期次下拉与「完成录入」是既有行为，本轮未改，见交付说明的遗留项。） */
+function blockIfDirty(what) {
+  if (!dirtyCount.value) return false
+  switchTab('fill')
+  toast(`当前有 ${dirtyCount.value} 格未保存的录入改动，请先保存或放弃再${what}`, 'err')
+  return true
+}
+
+/* 点柱子 / 图上数据点 ⇒ 只切「当前期次」，**留在仪表盘**。
+   图上点一下是"横向比各月"，跳走就没法连续比；要"改哪个月"是明确动作，走月列表「去填报」。 */
+async function pickMonth(p) {
   if (!p || p === period.value) return
+  if (blockIfDirty('切换月份')) return
   exitEdit()
   period.value = p
   await load(p)
   await loadTrend()
+}
+
+/* 月列表「去填报」⇒ 切到该月 + 跳「数据填报」tab（那才是能改数的地方）。 */
+async function goFill(p) {
+  if (p && p !== period.value && blockIfDirty('切换月份')) return
+  if (p && p !== period.value) {
+    exitEdit()
+    period.value = p
+    await load(p)
+    await loadTrend()
+  }
+  switchTab('fill')
 }
 
 async function doRecompute() {
@@ -1093,6 +1164,10 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-footnote{font-size:12px;color:var(--t3);margin-top:10px;line-height:1.7}
 
 /* ── 趋势：区间筛选条 ── */
+/* 分 tab 后的诚实性提示：仪表盘读的是**已保存**的数据，有草稿时必须说出来 */
+.la-tabnote{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px;
+  padding:8px 12px;border-radius:var(--radius-md);font-size:12.5px;color:var(--t1);
+  border:1px solid color-mix(in srgb,var(--war) 32%,transparent);background:var(--warn-amber-bg)}
 .la-tbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px;
   padding:8px 12px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
 .la-tbar-t{font-size:12.5px;color:var(--t2)}

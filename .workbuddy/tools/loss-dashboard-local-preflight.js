@@ -110,6 +110,26 @@ async function main() {
   await sleep(1600)
   info('url = ' + page.url())
 
+  // ── 0) 主 Tab：默认落在「仪表盘」，且两个 tab 的内容真的互斥 ──
+  //  ⚠️ 用**精确类名**（.main-tabs/.main-tab/.la-bar/.la-tbar/section.dsh），
+  //    禁用 [class*=]（同前缀元素会抢先命中 —— 本项目「探针偏航」铁律）
+  console.log('\n# 0) 主 Tab（仪表盘 / 数据填报 分页）')
+  const t0 = await page.evaluate(() => {
+    const btns = [...document.querySelectorAll('.main-tabs .main-tab')]
+    const on = btns.find(x => x.classList.contains('on'))
+    return {
+      labels: btns.map(x => (x.textContent || '').trim()),
+      on: on ? (on.textContent || '').trim() : '',
+      hasDash: !!document.querySelector('.la-tbar') && !!document.querySelector('section.dsh'),
+      hasFill: !!document.querySelector('.la-bar') && !!document.querySelector('table.la-tbl'),
+    }
+  })
+  ok(t0.labels.join('|') === '仪表盘|数据填报', '主 Tab 两个，文案与顺序对', t0.labels.join('|'))
+  ok(t0.on === '仪表盘', '默认落在「仪表盘」', t0.on)
+  ok(t0.hasDash, '仪表盘地标在')
+  ok(!t0.hasFill, '仪表盘态下填报地标不在（工具条/主表属于另一个 tab）')
+
+
   // ── 1) 基本渲染 ──
   console.log('\n# 1) 渲染与结构')
   const has = await page.evaluate(() => ({
@@ -199,16 +219,29 @@ async function main() {
   ok(byP['2026-08'].mRate === '—', '上月缺分母 ⇒ 率的变化显示「—」（不是 0）', byP['2026-08'].mRate)
 
   // ── 5) 点柱切月 ──
-  console.log('\n# 5) 交互：点柱子切到该月详情')
-  const before = await page.$eval('.la-sel', el => el.value)
+  //  ⚠️ 分 tab 后「期次选择器(.la-sel)」只在**数据填报** tab 里 ⇒ 不能再用它读期次；
+  //    改读月列表里带 .la-ml-cur 的那一行（仪表盘自带，且它显示的就是共享的 period）。
+  console.log('\n# 5) 交互：点柱子切「当前期次」，且**留在仪表盘**（不跳走）')
+  const curPeriod = () => page.evaluate(() => {
+    const tr = document.querySelector('.la-ml-tbl tbody tr.la-ml-cur')
+    const b = tr && tr.querySelector('.la-ml-m b')
+    return b ? b.textContent.trim() : ''
+  })
+  const before = await curPeriod()
   await page.evaluate(() => {
     const g = document.querySelectorAll('.dsh-svg svg')[0].querySelectorAll('g.bars')
     if (g.length) g[0].dispatchEvent(new MouseEvent('click', { bubbles: true }))
   })
   await sleep(900)
-  const after = await page.$eval('.la-sel', el => el.value)
+  const after = await curPeriod()
   ok(before !== after, '期次已切换', before + ' → ' + after)
   ok(after === '2026-04', '切到图表最左那根柱子对应的月', after)
+  const stayed = await page.evaluate(() => ({
+    on: ((document.querySelector('.main-tabs .main-tab.on') || {}).textContent || '').trim(),
+    dsh: !!document.querySelector('.dsh'),
+  }))
+  ok(stayed.on === '仪表盘' && stayed.dsh,
+    '点柱子后仍停在仪表盘（图上要能连续比各月，跳走就没法比）', stayed.on)
 
   // ── 6) 两个开关 ──
   console.log('\n# 6) 筛选：两个开关只改显示，且都明说改了哪儿')
@@ -267,6 +300,65 @@ async function main() {
     await mainEl.screenshot({ path: p2 })
     info('主图特写: ' + p2)
   }
+
+  // ── 7.5) 切到「数据填报」再切回来（截图之后跑，免得影响上面那几张图）──
+  console.log('\n# 7.5) 主 Tab 切换：两个 tab 的内容确实互斥')
+  const clickTab = (label) => page.evaluate((lb) => {
+    const b = [...document.querySelectorAll('.main-tabs .main-tab')]
+      .find(x => (x.textContent || '').trim() === lb)
+    if (!b) return false
+    b.click()
+    return true
+  }, label)
+  await clickTab('数据填报')
+  await sleep(700)
+  const tf = await page.evaluate(() => ({
+    on: ((document.querySelector('.main-tabs .main-tab.on') || {}).textContent || '').trim(),
+    hasFill: !!document.querySelector('.la-bar') && !!document.querySelector('table.la-tbl'),
+    hasDash: !!document.querySelector('.la-tbar') || !!document.querySelector('section.dsh'),
+    foot: !!document.querySelector('.la-footnote'),
+  }))
+  ok(tf.on === '数据填报', '点「数据填报」后高亮切换', tf.on)
+  ok(tf.hasFill, '填报地标出现：工具条 + 主表')
+  ok(tf.foot, '表尾说明也在填报 tab')
+  ok(!tf.hasDash, '趋势段**已移除**（不是 display:none 藏起来）')
+
+  // 主表本身也要验：模板做了搬移（工具条从页首移到本 tab），表结构与列位必须原样
+  const ft = await page.evaluate(() => {
+    const t = document.querySelector('table.la-tbl')
+    const btns = [...document.querySelectorAll('.la-bar button')]
+      .map(b => (b.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean)
+    return {
+      nTh: t.querySelectorAll('thead th').length,
+      nGrp: t.querySelectorAll('tbody tr.la-grp').length,
+      nRow: t.querySelectorAll('tbody tr.la-row').length,
+      nSub: [...t.querySelectorAll('tbody td')].filter(td => (td.textContent || '').trim() === '小计').length,
+      foot: ((t.querySelector('tfoot') || {}).textContent || '').replace(/\s+/g, ' ').trim().slice(0, 20),
+      bar: btns,
+    }
+  })
+  ok(ft.nTh >= 3, '填报 tab 里主表表头列位齐全（搬移未打乱列）', ft.nTh + ' 列')
+  ok(ft.nGrp === 4, '四个行分组都在', ft.nGrp + ' 组')
+  ok(ft.nRow >= 2, '数据行在（含空占位）', ft.nRow + ' 行')
+  ok(ft.nSub === 4, '每组一条「小计」', ft.nSub + ' 条')
+  ok(/合计/.test(ft.foot), '表尾合计校验行在', ft.foot)
+  ok(ft.bar.includes('手工录入') && ft.bar.includes('上传数据'),
+    '工具条 6 个按钮搬过来后仍在', ft.bar.join(' / '))
+  const png2 = path.join(OUT, '08-数据填报-本地预检.png')
+  await page.screenshot({ path: png2, fullPage: true })
+  info('数据填报 tab 截图: ' + png2)
+
+  await clickTab('仪表盘')
+  await sleep(900)
+  const td = await page.evaluate(() => ({
+    on: ((document.querySelector('.main-tabs .main-tab.on') || {}).textContent || '').trim(),
+    dsh: !!document.querySelector('.dsh'),
+    ml: document.querySelectorAll('.la-ml-tbl tbody tr').length,
+    hasFill: !!document.querySelector('.la-bar'),
+  }))
+  ok(td.on === '仪表盘' && td.dsh, '切回「仪表盘」后图表重新挂上', td.on)
+  ok(td.ml === 6, '切回后月列表行数不变（数据没被重取丢成空）', td.ml + ' 行')
+  ok(!td.hasFill, '切回后填报地标已移除')
 
   console.log('\n# 8) 控制台')
   ok(errs.length === 0, '无 pageerror / console.error', errs.slice(0, 3).join(' || ') || '0 条')
