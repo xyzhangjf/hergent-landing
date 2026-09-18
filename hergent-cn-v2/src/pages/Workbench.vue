@@ -50,8 +50,9 @@
         </div>
       </div>
 
-      <!-- 今日经营要务（主块，占最大面积） -->
-      <div class="card today-panel" v-if="todayCards.length">
+      <!-- 今日经营要务（主块，占最大面积）。
+           ⚠️ v190：近效期预警不在时本块铺满整行 —— 否则右侧 4 列会留空（下方 expiry-card 同理）。 -->
+      <div class="card today-panel" :class="{ 'span-all': !expiryData.length }" v-if="todayCards.length">
         <div class="panel-hd">
           <b>今日经营要务</b>
           <span class="badge badge-blue">主动副驾 · 每日自动生成</span>
@@ -70,8 +71,9 @@
         </div>
       </div>
 
-      <!-- 近效期预警（右侧） -->
-      <div class="card expiry-card" v-if="expiryData.length">
+      <!-- 近效期预警（右侧 · 与「今日经营要务」并排并拉满其两行高度）。
+           ⚠️ v190：今日经营要务不在时本块铺满整行，否则右侧 8 列会留空。 -->
+      <div class="card expiry-card" :class="{ 'span-all': !todayCards.length }" v-if="expiryData.length">
         <div class="panel-hd">
           <b>近效期预警</b>
           <span class="tag bad">{{ expiryData.length }} 条</span>
@@ -89,17 +91,6 @@
               </tr>
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <!-- 7天趋势（右侧） -->
-      <div class="card trend-card" v-if="trend.length">
-        <div class="panel-hd"><b>近 7 天销售趋势</b><span class="tag info">{{ trendMaxLabel }}</span></div>
-        <div class="trend-chart">
-          <div v-for="(d,i) in trend" :key="i" class="tc-bar-wrap">
-            <div class="tc-bar" :style="{height: barHeight(d.sales) + 'px'}"></div>
-            <div class="tc-label">{{ d.date.slice(5) }}</div>
-          </div>
         </div>
       </div>
 
@@ -175,14 +166,6 @@ const kpis = computed(() => {
     { label: '近效期预警', val: expiryData.value.length || 0, sub: expiryData.value.length ? '需处理' : '无预警', cls: expiryData.value.length ? 'val-warn' : 'val-ok' },
   ]
 })
-
-const trend = computed(() => dashData.value?.trend || [])
-const trendMax = computed(() => Math.max(...trend.value.map(t => t.sales), 1))
-const trendMaxLabel = computed(() => '峰值 ¥' + fmt(trendMax.value))
-
-function barHeight(v) {
-  return Math.max(4, (v / trendMax.value) * 80)
-}
 
 function fmt(n) {
   if (n == null) return '—'
@@ -388,11 +371,20 @@ onMounted(loadData)
 .todo-title{font-size:14px;font-weight:500;color:var(--t1)}
 .todo-sub{font-size:12px;color:var(--t3);margin-top:2px}
 .todo-go{font-size:12px;color:var(--p-dark);flex-shrink:0}
-/* Bento 模块布局 */
+/* Bento 模块布局
+   v190：删除「近 7 天销售趋势」面板（trend-card）后，右侧只剩「近效期预警」一块 ——
+     原本 today-panel(8 列 × 2 行) + trend-card(4 列 × 1 行) 拼满第 1 行、today-panel
+     独自续占第 2 行左半，右侧 4 列由 trend-card 顶住。直接删 trend-card 后第 2 行
+     右侧会**留 4 列空洞**（today-panel 的 grid-row:span 2 仍在）。故让 expiry-card
+     拉满右侧两行（grid-row:span 2），与 today-panel 的跨度对齐，12 列完整填满。
+   ⚠️ 两张条件卡（均 v-if）互为对方的「空洞来源」：today-panel 不在时 expiry 只占
+     4 列、expiry-card 不在时 today-panel 只占 8 列，各自都会露出空位。
+     .span-all 让两者互斥铺满（对方不在 ⇒ 我占整行），四种显隐组合均无空位。
+     ⚠️ 不要改用 :has() —— scoped 样式 + 全局 .bento 的组合下可读性差且难排查。 */
 .today-panel{grid-column:span 8;grid-row:span 2;padding:18px;min-height:280px}
-.expiry-card{grid-column:span 4}
-.trend-card{grid-column:span 4}
+.expiry-card{grid-column:span 4;grid-row:span 2}
 .report-panel{grid-column:1/-1}
+.today-panel.span-all,.expiry-card.span-all{grid-column:1/-1}
 
 /* 空账套导入引导 —— 占整行，横向三段：图标 / 文案 / 操作 */
 .import-guide{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px dashed var(--bd)}
@@ -419,20 +411,16 @@ onMounted(loadData)
 .tc-text{font-size:12.5px;color:var(--t2);line-height:1.55}
 .tc-acts{flex-shrink:0;display:flex;gap:6px}
 .tc-acts .btn{height:28px;padding:0 12px;font-size:12px;border-radius:8px}
-.trend-chart{display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:10px}
-.tc-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
-.tc-bar{width:100%;max-width:36px;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--p) 0%,var(--p-dark) 100%);transition:height .4s ease}
-.tc-label{font-size:11px;color:var(--t3)}
 .ai-report{font-size:13px;color:var(--t1);line-height:1.8;max-height:none;overflow-y:auto}
 .ai-loading{padding:12px 0}
 
 @media(max-width:1200px){
+  /* 网格降为 6 列（见 styles/variables.css）。today-panel 整行；expiry-card 也必须整行 ——
+     它原为 span 3、与已删的 trend-card(span 3) 并排拼成一行，只剩自己会在右侧空 3 列。 */
   .today-panel{grid-column:span 6;grid-row:span 1}
-  .expiry-card{grid-column:span 3}
-  .trend-card{grid-column:span 3}
+  .expiry-card{grid-column:1/-1;grid-row:span 1}
 }
 @media(max-width:768px){
-  .today-panel,.expiry-card,.trend-card,.report-panel{grid-column:1/-1;grid-row:auto}
-  .trend-chart{height:80px}
+  .today-panel,.expiry-card,.report-panel{grid-column:1/-1;grid-row:auto}
 }
 </style>

@@ -1318,6 +1318,63 @@ SPEC_FE_V189_BOXES = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+"""v190-wb-trend（2026-09-18）：经营工作台（/workbench, Workbench.vue）删除「近 7 天销售趋势」面板，
+并**消除删除本身造成的空位** + 清掉残留死 CSS。1 个改动文件（Workbench.vue）+ 1 个新探针。
+
+🔴 本轮的判别性风险**不在「删掉没有」，在「删完有没有留白」**：
+   原布局 `today-panel{grid-column:span 8; **grid-row:span 2**}` + `trend-card{span 4}`，
+   第 1 行由 today+trend 拼满，第 2 行 today 独自续占左 8 列、**右侧 4 列由 trend 顶住**。
+   只删模板/脚本、不动布局 ⇒ 第 2 行右侧必留一块 4 列空洞。
+
+🔴 **部署前实测到线上正是这个「半成品」状态**（另一个会话先做了一半）：
+   · JS chunk 里 `近 7 天销售趋势` = 0、`trend-card` = 0 ⇒ 模板与脚本**已删**；
+   · 但 CSS chunk 里**仍留着** `.trend-card[data-v-…]{grid-column:span 4}`（5 条死规则）；
+   · 且 `.expiry-card` 仍只有 `grid-column:span 4`、无 `grid-row:span 2`。
+   ⇒ 真机测得 today-panel 右边界 1204.7px、`.bento` 右边界 1680px ⇒ **空 475.3px**；
+     `elementFromPoint` 在该空位命中 `.bento` 本身（`isBentoItself:true`）—— 空位坐实。
+   本轮修后同一点位命中 `today-card`（`inToday:true`）、today 右边界 = 1680 = bento 右边界。
+   ⚠️ 该对照（**同一点位、同分辨率**的命中目标从「容器」变「卡片」）是本轮最强的证据，
+     比「宽度数字变大」有力得多 —— 但只有在改前**真的留了空**时才测得出来，
+     所以别跳过「先跑一次改前探针」这一步。
+
+改动要点（Workbench.vue，11 个 -U0 hunk）：
+  1. 模板删 trend-card 整块（原 95-104 行）；
+  2. 脚本删 `trend` / `trendMax` / `trendMaxLabel` / `barHeight`（**保留** `dashData`（KPI 与
+     isEmptyTenant 在用）与 `fmt`（KPI 在用））；
+  3. 样式删 `.trend-card` / `.trend-chart` / `.tc-bar-wrap` / `.tc-bar` / `.tc-label`
+     + 两个 media 断点里的对应项。🔴 `.tc-` 前缀被 today-card 的 `.tc-body/.tc-title/
+     .tc-text/.tc-acts` **共用**，删时必须逐个精确匹配，不能用前缀通配打死；
+  4. 布局：`.expiry-card` 加 `grid-row:span 2`（拉满右侧两行，与 today-panel 的 span 2 对齐）；
+     两卡各加 `:class="{'span-all': 对方不存在}"` ⇒ 四种显隐组合均无空位
+     （生产实测当前租户 **expiryData 为空**，「预警缺失」这条分支就是实际生效的那条）；
+  5. `@media(max-width:1200px)`（网格降为 6 列）里 `.expiry-card` 必须改成整行 ——
+     它原为 `span 3`、与已删的 trend-card(`span 3`) 拼成一行，只剩自己会右侧空 3 列。
+
+🔴 **本 spec 不动任何数据请求（用户原话要求「删除相关数据请求」，但这里的正确处置是「一个都不删」）**：
+   该面板**没有独立请求** —— 它的 `trend` 来自 `/api/dashboard/today-profit` 的**同一个响应**，
+   与 KPI 四个数（sales/profit/orders/payment）同源；后端 `server/routers/dashboard.py:77-102`
+   一次返回 `{profit, sales, orders, payment, trend}`。且 `trend` 字段**仍被 `Dashboard.vue`
+   （「经营趋势」页，路由 `/dashboard`）消费**。
+   ⇒ 删请求会连带打掉 KPI 横条；删后端字段会打掉 /dashboard。故前后端**都不动**。
+
+⚠️ 号冲突：`v190` 裸号已被并发会话占用（`fe-v190-caseprice` / `be-v190-gridfp`）。
+   本 spec 带语义后缀 `-wb-trend` 区分。Workbench.vue 内注释写的是「v190」，与对方同号，
+   但**文件不同**（Workbench.vue vs Forecast.vue）⇒ 追责按文件区分（同 v187 的处理）。
+   ⚠️ 部署后才发现此冲突；改注释会连带改 scopeId ⇒ 必须重构建重部署，故本轮从简保留，
+   下次改 Workbench.vue 时若顺手，可把注释放到与 spec 后缀一致。
+
+⚠️ 未夹带：Workbench.vue 实测 11 hunk **全部**对应本轮这 8 处编辑（`-U0` 口径：53/73/95/179/
+   391/393/395/422/429/431/435），无并发会话在途改动 ⇒ keep_all 成立。
+   探针文件是新建（`new_file`）；本工具自身只有「新增 spec + 注册」两处（`keep_all`）。
+"""
+SPEC_FE_V190_WB_TREND = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Workbench.vue", "keep_all": True, "gone": []},
+    # 真机验收：① 面板零残留 ② 无异常 ③ 🔴 空位几何判据（expiry 底边对齐 + elementFromPoint
+    #   命中卡片）④ 其余模块正常 ⑤ HG_SMOKE=1 时多页冒烟（chunk 因 scopeId 整体换名后引用完整性）
+    {"file": ".workbuddy/tools/workbench-trend-removal-verify.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 """v190（2026-09-18）：预报改单网格「单价(厂价/箱)」支持手工录入 —— 录入箱价 → 保存时反推厂价写回商品档案。
 
 后端 1 hunk（`products_grid` 补发 `factory_price`）+ 前端 11 hunk（Forecast.vue）+ 探针 + 交付说明。
@@ -1423,6 +1480,11 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v186-covers": SPEC_FE_V186_COVERS,
          "fe-v187-dashboard": SPEC_FE_V187_DASHBOARD,
          "fe-v189-boxes": SPEC_FE_V189_BOXES,
+         # v190-wb-trend：经营工作台删「近 7 天销售趋势」面板 + 消除删除造成的空位。
+         #   ⚠️ v190 裸号已被并发会话的 fe-v190-caseprice 占用，故带 -wb-trend 语义后缀；
+         #   Workbench.vue 内注释写「v190」与对方同号，但**文件不同**（Workbench.vue vs
+         #   Forecast.vue）⇒ 追责按文件区分（同 v187 的做法）。
+         "fe-v190-workbench-trend": SPEC_FE_V190_WB_TREND,
          # ⚠️ v187 号被并发会话占用（fe-v187-dashboard = 货损仪表盘），本 spec 加 -editgrid 后缀区分。
          #    代价：Forecast.vue 内注释里写的「v187」不带后缀，与对方同号 ⇒ 追责时要按文件区分。
          "fe-v187-editgrid": SPEC_FE_V187,
