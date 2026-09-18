@@ -817,10 +817,15 @@
           <div v-if="showColMenu" class="col-menu edit-col-menu" @click.stop>
             <div class="col-menu-hd"><span>显示列（拖拽排序，<Icon name="check"/> 显示）</span><button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button></div>
             <ul class="col-menu-list">
-              <li v-for="(c, ci) in colOrder" :key="c.key" :class="{ locked: c.fixed, hidden: colVis[c.key] === false }" :draggable="!c.fixed" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
+              <!-- v192：判定统一走 isLockedCol()，与查看态菜单、toggleCol、quickHide 同源。
+                   此前这里读的是 `c.fixed`，而 `c` 来自 colOrder —— 那里**只有 name 带 fixed**
+                   （defaultColOrder / loadCols 都只搬 key/label/cls）⇒ 固定列被识别不出来：
+                   复选框不是 disabled、还能拖，点/拖却分别被 toggleCol 与 visibleCols 归位拒绝，
+                   成了「点了跟没点一样」的假控件（查看态菜单 v184 已修好，改单态这处漏了）。 -->
+              <li v-for="(c, ci) in colOrder" :key="c.key" :class="{ locked: isLockedCol(c.key), hidden: colVis[c.key] === false }" :draggable="!isLockedCol(c.key)" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
                 <span class="drag">⠿</span>
-                <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="c.fixed" @click.prevent="toggleCol(c.key)"> {{ c.label }}</label>
-                <button v-if="!c.fixed && c.deletable" class="col-menu-del" @click="deleteMasterCol(c.key)" title="删除该列"><Icon name="close"/></button>
+                <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="isLockedCol(c.key)" @click.prevent="toggleCol(c.key)"> {{ c.label }}</label>
+                <button v-if="!isLockedCol(c.key) && c.deletable" class="col-menu-del" @click="deleteMasterCol(c.key)" title="删除该列"><Icon name="close"/></button>
               </li>
             </ul>
             <div class="col-menu-add">
@@ -2300,13 +2305,21 @@ function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] 
    而 COL_DEFAULTS.name = 210 ⇒ 只要用户没拖过列宽，第二个冻结列就偏 10px；把名称拖宽后偏更多。
    现改为读实际列宽（colW），且新增固定列时其余冻结列自动右移。 */
 const FROZEN_COLS = ['name', 'arrival_lead_days']   // 左侧冻结区，从左到右（序号列另占 left:0）
+/* v192：冻结区宽度改由**实际渲染出来的固定列**累加得出（`visibleCols` 已把固定列按 FROZEN_COLS
+   次序强制归位到最左 ⇒ 它就是渲染次序的唯一权威）。为什么必须按"渲染出来的"、而不是"定义里的"：
+   自 v192 起固定列**允许被隐藏**（「到货周期」= 列设置里可勾掉，见 isLockedCol），被隐藏的固定列
+   不再渲染、也就不该再占位 —— 否则它身后的固定列、以及「用户手动冻结列」（left = frozenRight()）
+   都会停在空缺的宽度上，表现为凭空多出一段空白（且不报错）。
+   ⚠️ 没有任何固定列被隐藏时，本式与旧的「按 FROZEN_COLS 全量累加」**逐字等价** ⇒ 对既有用户零位移。
+   这也是不去改 FROZEN_COLS 名单本身的原因：到货周期**仍然是固定列**（依旧钉在左侧、依旧不可删），
+   只是多了一个「可隐藏」的许可。 */
 function frozenLeftOf(key) {                        // 某固定列的 left
   let x = colW('seq')
-  for (const k of FROZEN_COLS) { if (k === key) break; x += colW(k) }
+  for (const c of visibleCols.value) { if (c.key === key) break; if (c.fixed) x += colW(c.key) }
   return x + 'px'
 }
 function frozenRight() {                            // 冻结区右界 —— 用户手动冻结的列排在这里
-  return (colW('seq') + FROZEN_COLS.reduce((s, k) => s + colW(k), 0)) + 'px'
+  return (colW('seq') + visibleCols.value.reduce((s, c) => s + (c.fixed ? colW(c.key) : 0), 0)) + 'px'
 }
 function loadColWidths() { try { const s = localStorage.getItem('hergent-forecast-col-widths'); if (s) colWidths.value = JSON.parse(s) || {} } catch (e) {} }
 function resetColWidths() {
@@ -2659,7 +2672,11 @@ function onBodyKey(e) {
 /* v184b：文案函数已移到 `utils/arrival.js`（本文件顶部 import）——
    商品档案页也要显示同一个值，留两份就是第二份拷贝。 */
 const MASTER_COL_DEFS = [
-  { key: 'arrival_lead_days', label: '到货周期', cls: 'fc-text fc-cycle', edit: 'ro', fixed: true, deletable: false,
+  /* v192：本列**可隐藏**（`hideable: true`）—— 用户要能在列设置里把它勾掉、也能右键「隐藏此列」。
+     注意它**仍然是固定列**：依旧钉在左侧、依旧不可删除（`deletable: false`），
+     「可隐藏」只解掉「不可隐藏」这一条。隐藏后冻结区不留空缺 —— 偏移由 frozenLeftOf/frozenRight
+     按**实际渲染的固定列**累加（见那两处注释），这也是它敢被隐藏的前提。 */
+  { key: 'arrival_lead_days', label: '到货周期', cls: 'fc-text fc-cycle', edit: 'ro', fixed: true, hideable: true, deletable: false,
     fmt: r => arrivalCycleText(r.arrival_lead_days) },
   { key: 'brand', label: '品牌', cls: 'fc-text', edit: 'text', deletable: true },
   { key: 'barcode', label: '条码', cls: 'fc-code', edit: 'text', deletable: false },
@@ -2772,10 +2789,22 @@ function canSeeCol(key) {
   return !allow || allow.includes(bizRole.value)
 }
 
-/* v184：**固定列不可隐藏、不可删除** —— 左侧冻结区的偏移是「按 FROZEN_COLS 依次累加列宽」
+/* v184：**固定列默认不可隐藏、不可删除** —— 左侧冻结区的偏移是「按固定列宽度依次累加」
    算出来的，某列一旦被隐藏，冻结区就出现断层，其后冻结列的 left 会落在不存在的宽度上
-   （表现为后面几列错位/互相遮挡）。规则**只此一份**，toggleCol / quickHide 共用。 */
-function isLockedCol(key) { return key === 'name' || FROZEN_COLS.includes(key) }
+   （表现为后面几列错位/互相遮挡）。规则**只此一份**，toggleCol / quickHide / 两个列设置菜单共用。
+
+   v192：新增**例外通道** `hideable` —— 固定列在 MASTER_COL_DEFS 里显式声明 `hideable: true`
+   就允许被用户隐藏（本轮：到货周期）。之所以现在才敢开这个口子，是因为冻结区偏移已改为按
+   **实际渲染出来的固定列**累加（frozenLeftOf / frozenRight）—— 列被隐藏就不再占位，断层问题
+   在根上消掉了；否则「中间那个固定列被藏起来」必然把后面所有冻结列的 left 算错。
+   ⚠️ 隐藏 ≠ 解除冻结：重新显示时它照旧钉在原位（left 由 frozenLeftOf 现算）。
+   ⚠️ 「可隐藏」不波及「可删除」：能否删除仍单独归 deletable / 服务端注册表管（见 canDeleteMaster）。 */
+function isLockedCol(key) {
+  if (key === 'name') return true
+  if (!FROZEN_COLS.includes(key)) return false
+  const m = MASTER_COL_DEFS.find(x => x.key === key)
+  return !(m && m.hideable === true)
+}
 function _colLabel(key) { return (MASTER_COL_DEFS.find(m => m.key === key) || { label: key }).label }
 function toggleCol(key) {
   if (isLockedCol(key)) { toast('「' + _colLabel(key) + '」是固定列，不能隐藏', 'warn'); return }
@@ -4317,12 +4346,22 @@ async function loadColumnRegistry() {
   }
 }
 
-// 主档列是否可删除：自定义列恒可删；内置列以**服务端注册表**为准（加载失败才回落 MASTER_COL_DEFS）
+/* 主档列是否可删除：自定义列恒可删；内置列以**服务端注册表**为准（加载失败才回落 MASTER_COL_DEFS）。
+   v192：补一道**本地硬否决** —— MASTER_COL_DEFS 里显式 `deletable: false` 的内置列一律不可删，
+   哪怕服务端注册表没把它列进 PROTECTED_COLUMNS。
+   为什么必须有这道否决（实测）：内置列被 deleteMasterCol 从 colOrder 移除后，`loadCols` 的
+   「合并新增主档列」会把它当成「元数据里有、本地没有」⇒ **下次刷新原样补回来**。于是
+   「右键 → 删除列」成了一条**看着成功、刷新即复原**的死路（同族陷阱：清了会自己回来比清不动更糟，
+   用户会以为系统在丢数据）。要让内置列从视野里消失，正解是**隐藏** —— colVis 会被持久化、
+   loadCols 也认它（本轮「到货周期」就是这么处理的）。
+   ⚠️ 影响面恰好只有「到货周期」一列：其余 `deletable:false` 的内置列（条码/分销价/厂家编码）
+   本就在服务端 PROTECTED_COLUMNS 里 ⇒ 本否决对它们等价、零行为变化。 */
 function canDeleteMaster(key) {
   const c = colOrder.value.find(x => x.key === key)
   if (c && c.custom) return true
-  if (registryOk.value) return !protectedKeys.value.has(key)
   const m = MASTER_COL_DEFS.find(x => x.key === key)
+  if (m && m.deletable === false) return false
+  if (registryOk.value) return !protectedKeys.value.has(key)
   return !!(m && m.deletable)
 }
 

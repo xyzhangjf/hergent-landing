@@ -1533,6 +1533,38 @@ SPEC_BE_V191B_INHERIT = ("be", [
      "gone": []},
 ])
 
+# ── v192：「到货周期」由「固定列=不可隐藏」改为**可隐藏**（2026-09-18，用户原话
+#    「请把"到货周期"设置成可隐藏列」）──
+SPEC_FE_V192_HIDECYCLE = ("fe", [
+    # Forecast.vue：18 个 hunk 里**我的 11 个**（820/822 改单态列菜单、2302/2305/2309 冻结区宽度、
+    #   2662 MASTER_COL_DEFS 加 hideable、2775/2777 isLockedCol、4320/4324/4325 canDeleteMaster）；
+    #   排除的 7 个是纯他人在途 ——
+    #     101（查看态列菜单里多出的一个空行）、2873/2875/2886（loadEditGrid 的 srcByPid 合并与加单注释）、
+    #     8136/8151/8520（CSS：本轮一行没碰）。
+    #   ⚠️ 黑名单 = **HEAD 坐标的 old_start**（`@@ -101,0 +102 @@` 取 **101**，不是新侧的 102）——
+    #      本轮取证时把每个 hunk 的首几行内容一并打出来**逐条认归属**（技能 §5.18 三②），未再踩取号坑。
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2873, 2875, 2886, 8136, 8151, 8520],
+     # 旧实现必须消失（这五条正是本轮被替换掉的那一行/那段；0 命中已实测）
+     "gone": ["for (const k of FROZEN_COLS) { if (k === key) break; x += colW(k) }",
+              "function isLockedCol(key) { return key === 'name' || FROZEN_COLS.includes(key) }",
+              "return (colW('seq') + FROZEN_COLS.reduce((s, k) => s + colW(k), 0)) + 'px'",
+              '<button v-if="!c.fixed && c.deletable"',
+              ':disabled="c.fixed"']},
+    # 本轮新建：沙箱真机 41 项判据 + 出图脚本
+    {"file": ".workbuddy/tools/forecast-hidecycle-v192-verify.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v192-hidecycle-shots.js", "new_file": True, "gone": []},
+    # 本工具自身（新增上面这组 spec + 注册）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # 交付说明与沙箱证据（PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/预报到货周期可隐藏-2026-09-18/01-列设置-到货周期复选框可用（沙箱）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报到货周期可隐藏-2026-09-18/02-隐藏后-商品名称后直接是品牌（沙箱）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报到货周期可隐藏-2026-09-18/02-交付说明.md",
+     "new_file": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1581,7 +1613,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v191-periodonly": SPEC_FE_V191_PERIODONLY,
          "be-v191-caseprice": SPEC_BE_V191_CASEPRICE,
          "fe-v191b-inherit": SPEC_FE_V191B_INHERIT,
-         "be-v191b-inherit": SPEC_BE_V191B_INHERIT}
+         "be-v191b-inherit": SPEC_BE_V191B_INHERIT,
+         "fe-v192-hidecycle": SPEC_FE_V192_HIDECYCLE}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
