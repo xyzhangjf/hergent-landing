@@ -3,9 +3,24 @@
     <div class="mac-hd">
       <div class="mac-ti">
         <b>全年月度达成</b>
-        <span class="mac-sub">柱高＝金额；上下两张图各用自己的量程，柱高不可跨图比较。灰轨道＝目标 / 预估应返，深色段＝超出部分</span>
+        <!-- v185 R1：副标题只留**唯一不能从图上直接读出来**的一句。
+             删掉的两句：「柱高＝金额」（纵轴刻度＋柱顶「XX万」已自证）、
+             「灰轨道＝…／深色段＝…」（与图例逐字/同义重复，见下方 .mac-legend 注释） -->
+        <span class="mac-sub">上下两张图各用自己的量程，柱高不可跨图比较</span>
       </div>
       <div class="mac-ctl">
+        <!-- v185 C2：图表密度切换 —— 用户 2026-09-18 选定「保留 12 月 + 紧凑档切换」
+             （不采用"尾部空月不占槽"的自适应裁剪：12 月全景是"看全年走势"的本职）。
+             紧凑档只压单图高度（200→132）与刻度段数（5→3），不改变任何数据与口径。
+             选择记进 localStorage，下次进页面保持。
+             复用 v154 删掉「全年视图」切换器后遗留的 .mac-seg / .seg-btn —— 那 4 条 CSS
+             原本是死 CSS，现在名副其实地活了（不新增样式类）。 -->
+        <div class="mac-seg" role="group" aria-label="图表高度">
+          <button type="button" class="seg-btn" :class="{ on: density === 'full' }"
+                  title="单图 200px，5 段刻度" @click="setDensity('full')">完整</button>
+          <button type="button" class="seg-btn" :class="{ on: density === 'compact' }"
+                  title="单图 132px，3 段刻度（12 个月份与全部数据不变）" @click="setDensity('compact')">紧凑</button>
+        </div>
         <!-- v154 P2-A：品牌筛选已提升为页面级（`BrandFilter.vue`，与页面「统计月份」并排，一处筛选统管
              图表 + 异常区 + 达成列表）；原「全年视图」scope 徽标一并删除 —— 标题「全年月度达成」已表达该语义，
              且它与页头「单月视图」样式不一，两个时间维度的层级关系反而更乱 -->
@@ -18,20 +33,24 @@
     <!-- v159：图例改为「口径说明」——每月合并柱后，目标与达成不再是可独立开关的两个系列，
          故不再提供点击隐藏；改为解释柱子的两段结构（轨道 / 填充 / 超额段）与本月红绿规则。
          v162：拆成上下两张单轴图后，系列名与单位已由每张图的小标题承担（不必再来回找归属）→
-         图例只留「怎么读这根柱」的四条共性说明 -->
+         图例只留「怎么读这根柱」的共性说明。
+         v185 R1：由 4 条精简为 3 条。原 ① 灰轨道 与 ④ 深色段是**两条独立图例讲同一件事**
+         （柱体两段结构），合并为一条（两个色块 + 一句话）；副标题里那一份同名说明已删。
+         净效果：说明性文案 6 条 → 4 条（副标题 1 + 图例 3），且**零信息损失**。 -->
     <div class="mac-legend">
-      <span class="lg-item"><i class="lg-track"></i>灰轨道＝目标 / 预估应返</span>
+      <span class="lg-item"><i class="lg-track"></i>灰轨道＝目标位<i class="lg-deep lg-sep"></i>深色段＝超额</span>
       <span class="lg-item">
         <i :style="{ background: C.ahead.deep }"></i>
         <i :style="{ background: C.behind.deep }" class="lg-gap"></i>
         本月 绿＝超前时间进度 / 红＝落后
       </span>
       <span v-if="paceIdx >= 0" class="lg-item"><i class="lg-line"></i>虚线＝本月时间进度应完成的金额</span>
-      <span class="lg-item"><i class="lg-deep"></i>深色段＝超出目标的部分</span>
     </div>
 
     <!-- 加载态：骨架屏 -->
-    <div v-if="loading" class="mac-body mac-skel">
+    <!-- v185 C2：高度改由 CANVAS_H 动态给出（原 CSS 里写死 468px）—— 紧凑档下骨架屏/空态
+         必须跟着变矮，否则切档时页面会先跳一下再落定 -->
+    <div v-if="loading" class="mac-body mac-skel" :style="{ height: CANVAS_H + 'px' }">
       <div v-for="i in 12" :key="i" class="sk-col">
         <span :style="{ height: (30 + ((i * 37) % 45)) + '%' }"></span>
         <span :style="{ height: (24 + ((i * 23) % 40)) + '%' }"></span>
@@ -39,7 +58,7 @@
     </div>
 
     <!-- 空态 -->
-    <div v-else-if="!hasAny" class="mac-body mac-empty">
+    <div v-else-if="!hasAny" class="mac-body mac-empty" :style="{ height: CANVAS_H + 'px' }">
       <p>{{ emptyText }}</p>
       <slot name="empty-action" />
     </div>
@@ -51,7 +70,8 @@
           <div class="sec-hd">
             <b>{{ sec.title }}</b>
             <span v-if="sec.unit" class="sec-u">{{ sec.unit }}</span>
-            <span class="sec-note">{{ sec.note }}</span>
+            <!-- v185 R1：原 .sec-note「柱高＝实际销量 / 柱高＝实际返利金额」已删 —— 紧邻的小标题
+                 （销量达成 / 实际返利）已表达该图讲什么，单位由 .sec-u 承担，note 是第三遍讲"柱高" -->
           </div>
 
           <!-- 该系列整年无数据：占位等高，避免两张图高度不一造成上下错位 -->
@@ -61,6 +81,7 @@
             v-else
             :viewBox="`0 0 ${W} ${SH}`"
             class="mac-svg"
+            :style="{ height: SH + 'px' }"
             preserveAspectRatio="none"
             role="img"
             @mouseleave="tip = null"
@@ -197,6 +218,21 @@ const MIN_W = 600
 const rootEl = ref(null)
 const W = ref(MIN_W)
 
+// ── v185 C2：图表密度（完整 / 紧凑）──────────────────────────────────────────────
+// 用户 2026-09-18 明确选定「保留 12 月 + 紧凑档切换」：**不做**"尾部空月不占槽"的自适应裁剪，
+// 因为 12 月全景正是"看全年走势"的本职；紧凑档只压**单图高度**与**刻度段数**，
+// 不改变任何月份、任何数值、任何口径（改口径的开关是另一个东西，绝不可混）。
+// 完整 = 200px / 5 段刻度（原样）；紧凑 = 132px / 3 段刻度（刻度少才不会在矮图上挤成一团）。
+const DENSITY_KEY = 'hergent_achv_density'
+function readDensity() {
+  try { return localStorage.getItem(DENSITY_KEY) === 'compact' ? 'compact' : 'full' } catch (e) { return 'full' }
+}
+const density = ref(readDensity())
+function setDensity(v) {
+  density.value = v === 'compact' ? 'compact' : 'full'
+  try { localStorage.setItem(DENSITY_KEY, density.value) } catch (e) {}
+}
+
 // ── v162 布局：上下两张**单轴**图 ──────────────────────────────────────────────
 // v161 曾把销量与返利合并进一张双轴图（左轴销量、右轴返利）。问题：两根柱各读各的轴，
 // 「金额小却柱子高」是双轴图的固有观感（8 月销量 42.3 万 vs 返利 13.5 万，返利柱反而更高），
@@ -204,12 +240,13 @@ const W = ref(MIN_W)
 //   · 每张图自成一把尺子 → 柱高可直接跨月比高矮，零歧义；
 //   · 每张图自带小标题与单位 → 读者不必在两条轴之间找归属；
 //   · 两图共享同一套 x 轴几何（PAD / GW 完全一致）→ 月份列严格上下对齐。
-// 代价：图表高度由 300px 增至两张共约 460px（用户已确认接受）。
-const SH = 200                       // 单张图高度
+// 代价：图表高度由 300px 增至两张共约 460px（用户已确认接受；v185 起可用紧凑档压到 332px）。
+const SH = computed(() => (density.value === 'compact' ? 132 : 200))   // 单张图高度
+const SEG_N = computed(() => (density.value === 'compact' ? 3 : 5))    // 纵轴刻度段数
 const PAD = { l: 52, r: 18, t: 34, b: 30 }
 const plotW = computed(() => W.value - PAD.l - PAD.r)
-const plotH = SH - PAD.t - PAD.b     // 136
-const plotBase = PAD.t + plotH       // 170 ＝ 0 刻度线（柱底）
+const plotH = computed(() => SH.value - PAD.t - PAD.b)
+const plotBase = computed(() => PAD.t + plotH.value)   // 0 刻度线（柱底）
 const GW = computed(() => plotW.value / 12)
 // v162：改为每月单柱 → 柱宽由「半月槽」放宽到「近整月槽」，视觉重量回到单张图的正中
 const GAP = computed(() => Math.max(4, Math.min(12, GW.value * 0.16)))
@@ -217,11 +254,13 @@ const BW = computed(() => Math.max(12, Math.min(44, GW.value - GAP.value * 2)))
 
 // 小标题行与两图间距（tooltip 要按 hover 的是哪张图定位，故这几个值必须与 CSS 逐字一致：
 //   SEC_HD 26 = .sec-hd 行高 22px + .mac-sec 的 4px gap；SEC_GAP 16 = .mac-sec + .mac-sec 的 margin-top）
+// ⚠️ 这三处 CSS 高度**不随密度档变化**（完整 200 + 紧凑 132 只差在 SH），故 SEC_HD / SEC_GAP 保持常量；
+//    随密度变化的是净高部分 —— 故下面 SEC_TOP / CANVAS_H 必须是 computed（v185 前是常量）。
 const SEC_HD = 26
 const SEC_GAP = 16
-const SEC_TOP = { sales: 0, rebate: SEC_HD + SH + SEC_GAP }
-// 画布总高 = 两图（标题行 + 图 + 间距）再减末尾多余的间距 → 468。常量可算，tooltip 纵向夹取不必读 DOM
-const CANVAS_H = SEC_TOP.rebate + SEC_HD + SH
+const SEC_TOP = computed(() => ({ sales: 0, rebate: SEC_HD + SH.value + SEC_GAP }))
+// 画布总高 = 两图（标题行 + 图 + 间距）再减末尾多余的间距。常量可算，tooltip 纵向夹取不必读 DOM
+const CANVAS_H = computed(() => SEC_TOP.value.rebate + SEC_HD + SH.value)
 
 function measureW() {
   const el = rootEl.value
@@ -330,20 +369,23 @@ const LBL_DY_AMT = 18    // 上行（金额）baseline 距柱顶 ＝ 6 + 12px �
 function hAmt(v, max) {
   const m = Number(max) || 0
   if (m <= 0) return 0
-  return (Math.min(Math.max(0, Number(v) || 0), m) / m) * plotH
+  return (Math.min(Math.max(0, Number(v) || 0), m) / m) * plotH.value
 }
 /** 金额 → y 坐标 */
-function yAmt(v, max) { return plotBase - hAmt(v, max) }
+function yAmt(v, max) { return plotBase.value - hAmt(v, max) }
 
 function xGroup(i) { return PAD.l + i * GW.value }
 /** v162：每月单柱 → 在月槽内水平居中 */
 function xBar(i) { return xGroup(i) + (GW.value - BW.value) / 2 }
 
-/** 轴刻度：量程均分 5 段 —— niceMax 的基数 k∈{1,1.5,2,3,5,7.5,10}，除 5 后仍是整洁数值 */
-function axisTicks(max) {
+/** 轴刻度：量程均分 n 段 —— niceMax 的基数 k∈{1,1.5,2,3,5,7.5,10}，除 5 后仍是整洁数值。
+ *  v185：段数随密度档（完整 5 / 紧凑 3）。**只改刻度密度，不改量程、不改柱高算法** ——
+ *  量程恒为 niceMax(全年 max(目标, 达成))，紧凑档下柱高与刻度的比例关系完全一致。 */
+function axisTicks(max, n) {
   if (!(max > 0)) return []
-  return [0, 1, 2, 3, 4, 5].map(i => {
-    const v = (max * i) / 5
+  const seg = Number(n) > 0 ? Number(n) : 5
+  return Array.from({ length: seg + 1 }, (_, i) => {
+    const v = (max * i) / seg
     return { v, y: yAmt(v, max) }
   })
 }
@@ -407,14 +449,14 @@ function barOf(cfg, mo) {
     fill, deep, lbl,                    // 三段配色
     show: hasTarget || hasAchv,         // 有目标或有达成 → 该月这一列有东西可画
     trackH, fillH, deepH,
-    yTrack: plotBase - trackH,          // 轨道顶 ＝ 目标金额的高度
-    yFill: plotBase - fillH,            // 填充段顶
-    yDeep: plotBase - fillH - deepH,    // 超额段顶
-    yTop: plotBase - hTotal,            // 柱顶 ＝ 达成金额的高度
+    yTrack: plotBase.value - trackH,          // 轨道顶 ＝ 目标金额的高度
+    yFill: plotBase.value - fillH,            // 填充段顶
+    yDeep: plotBase.value - fillH - deepH,    // 超额段顶
+    yTop: plotBase.value - hTotal,            // 柱顶 ＝ 达成金额的高度
     // v164 柱顶标签锚点（两行横排，均以柱心为 text-anchor=middle 的基准）：
     //   有目标 → 金额在上行、达成率在下行；无目标（无从算达成率）→ 金额直接贴柱顶，不留空行
-    yAmtLbl: plotBase - hTotal - (noTarget ? LBL_DY_RATE : LBL_DY_AMT),
-    yRateLbl: plotBase - hTotal - LBL_DY_RATE,
+    yAmtLbl: plotBase.value - hTotal - (noTarget ? LBL_DY_RATE : LBL_DY_AMT),
+    yRateLbl: plotBase.value - hTotal - LBL_DY_RATE,
     rateTxt: noTarget ? '' : Math.round(rRaw * 100) + '%',
     // 时间进度线（仅当月）：金额轴上 ＝「该月目标 × 时间进度」；该月无目标（轨道高 0）则不画
     paceY: (isCur && timeProgress.value != null && trackH > 0)
@@ -431,17 +473,17 @@ function barOf(cfg, mo) {
 const sections = computed(() => {
   const mk = (cfg) => {
     const rows = months.value.map((mo, i) => Object.assign({ mo, i }, barOf(cfg, mo)))
-    return Object.assign({}, cfg, { rows, ticks: axisTicks(cfg.max) })
+    return Object.assign({}, cfg, { rows, ticks: axisTicks(cfg.max, SEG_N.value) })
   }
   return [
     mk({
-      key: 'sales', title: '销量达成', note: '柱高＝实际销量',
+      key: 'sales', title: '销量达成',
       unit: salesUnit.value, axisColor: C.sales.deep, showMonths: false,
       max: salesMax.value, color: C.sales,
       tgt: m => m.salesTarget, achv: m => m.salesAchv,
     }),
     mk({
-      key: 'rebate', title: '实际返利', note: '柱高＝实际返利金额',
+      key: 'rebate', title: '实际返利',
       unit: rebateUnit.value, axisColor: C.rebate.deep, showMonths: true,
       max: rebateMax.value, color: C.rebate,
       tgt: m => m.rebateTarget, achv: m => m.actualRebate,
@@ -496,7 +538,7 @@ function layoutTip() {
   if (!tip.value || !tipEl.value) return
   const { anchor, top } = clampTipAnchor(
     { anchor: tip.value.anchor, flip: tip.value.flip, w: tipEl.value.offsetWidth, h: tipEl.value.offsetHeight, top: tip.value.baseTop },
-    { canvasW: W.value, canvasH: CANVAS_H },
+    { canvasW: W.value, canvasH: CANVAS_H.value },
   )
   tip.value.x = anchor + 'px'
   tip.value.top = top + 'px'
@@ -528,7 +570,7 @@ function onHover(mo, i, key) {
   // 柱高、柱顶标签、时间进度线全部露出来。纵向无处可让（tooltip 比绘图区 136px 还高，见 tipPlacement.js），
   // 故仍贴本图顶部起步（两图相距 200px+，固定贴顶会让鼠标在下图时视线跳远）。
   const { anchor, flip } = tipAnchor(xGroup(i) + GW.value / 2, BW.value / 2, W.value)
-  const baseTop = (SEC_TOP[key] || 0) + SEC_HD + 6
+  const baseTop = (SEC_TOP.value[key] || 0) + SEC_HD + 6
   tip.value = {
     k,
     title: `${props.year} 年 ${mo.m} 月`,
@@ -563,6 +605,8 @@ function onHover(mo, i, key) {
 .lg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--t2); }
 .lg-item i { width: 10px; height: 10px; border-radius: 2px; border: 1px solid transparent; display: inline-block; }
 .lg-gap { margin-left: 2px; }
+/* v185 R1：合并后的图例里「深色段」色块与前半句之间要留一口气 */
+.lg-sep { margin-left: 8px; }
 /* 灰轨道示意：上半深灰（达成位）＋下半浅灰（未达位）—— 与柱体两段结构同形 */
 .lg-track { background: linear-gradient(180deg, #cbd5e1 0%, #cbd5e1 45%, #e2e8f0 45%, #e2e8f0 100%); }
 .lg-line { width: 12px !important; height: 0 !important; border: 0 !important; border-top: 1px dashed #d97706 !important; border-radius: 0 !important; }
@@ -587,10 +631,11 @@ function onHover(mo, i, key) {
 .sec-hd { display: flex; align-items: baseline; gap: 8px; height: 22px; }
 .sec-hd b { font-size: 12px; font-weight: 500; color: var(--t1); }
 .sec-u { font-size: 11px; color: var(--t3); }
-.sec-note { font-size: 11px; color: var(--t3); }
+/* v185 R1：.sec-note（原「柱高＝实际销量 / 柱高＝实际返利金额」）已随两条 note 一并删除 —— 不留死 CSS */
 .sec-empty { display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--t3); }
 
-.mac-svg { width: 100%; height: 200px; display: block; }
+/* v185 C2：高度由 :style 给出（完整 200 / 紧凑 132），不写死 */
+.mac-svg { width: 100%; display: block; }
 .grid { stroke: var(--border-subtle, #e2e8f0); stroke-width: 1; stroke-dasharray: 3 3; }
 .axis { stroke: var(--bd); stroke-width: 1; }
 .ax-lb { font-size: 11px; }

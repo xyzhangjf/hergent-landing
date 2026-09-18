@@ -1932,6 +1932,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import * as XLSX from 'xlsx'
 import { store, toast } from '../store'
 import { auth, api } from '../api/client.js'
@@ -3278,6 +3279,34 @@ const brandCandidates = computed(() => {
   cross.value.rows.forEach(r => { const b = rowBrand(r); if (b) s.add(b) })
   return [...s].sort((a, b) => a.localeCompare(b, 'zh'))
 })
+
+/* v185：承接跨页品牌上下文（`#/forecast?brand=A,B`）。
+   来源页＝「目标与返利 › 仪表盘」达成列表标题行的链接「实时达成（含预报贡献）→」
+   （Rebate.vue 的 goSprint）。此前那个链接只做 `location.hash = '#/forecast'`，
+   用户刚筛好的品牌到了这页就没了，还得重新勾一遍。
+   🔴 两页品牌是**两套词表**：来源页给的是「品牌档案名 / 返利规则 scope_name」，
+      本页 brandCandidates 来自「本期报单行的商品档案品牌（供货方）」⇒ 必须**求交集**后再落定。
+      交集为空 = 词表对不上 ⇒ **什么都不筛**（静默降级）。宁可不过滤，也不能让用户
+      一头撞进一张空表、还以为数据丢了。
+   ⚠️ 时机：brandCandidates 由 cross.rows 异步装载，挂载瞬间恒为空 ⇒ 必须 watch 候选集，
+      等到有货再判。`brandParamDone` 记住"这个参数值已处理过"，避免候选集每变一次就重筛一次
+      （否则用户手动改完筛选会被立刻改回去 = 死控件）。参数被清空时复位，下次同值再来仍生效。 */
+const route = useRoute()
+const brandParamDone = ref('')
+watch([brandCandidates, () => route.query.brand], () => {
+  const q = String(route.query.brand || '').trim()
+  if (!q) { brandParamDone.value = ''; return }
+  if (brandParamDone.value === q) return
+  const cand = brandCandidates.value || []
+  if (!cand.length) return          // 报单数据未就位，等下一次触发
+  const want = q.split(',').map(s => s.trim()).filter(Boolean)
+  brandParamDone.value = q
+  const hit = want.filter(w => cand.includes(w))
+  if (!hit.length) return           // 词表对不上 → 不筛（静默降级，不弹错）
+  brandSel.value = hit
+  toast(`已按来源页品牌筛选：${hit.join('、')}`, 'success')
+}, { immediate: true })
+
 const hdrFilterVal = ref('')
 const hdrFilterInput = ref(null)
 // 取某行在指定列上的「显示值」用于筛选（复用只读表渲染逻辑 cellText，兼容 master/qty/calc/计算列）

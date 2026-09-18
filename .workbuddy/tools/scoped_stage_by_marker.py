@@ -885,6 +885,31 @@ SPEC_FE_V184D = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v185-dash：「目标与返利 › 仪表盘」审查落地（R1–R5 + 紧凑档 + 跨页品牌）────────
+#   MonthlyAchvChart.vue  28 hunks 全归本轮 → keep_all（自证「构造结果 == 工作区」）：
+#     删 4 条重复说明（574px 副标题 / 两条 sec-note / 图例 4→3 合并）
+#     + 新增「完整 / 紧凑」密度切换（复活 v154 遗留的 .mac-seg / .seg-btn 死 CSS）
+#   Rebate.vue            13 hunks 全归本轮 → keep_all：
+#     hero 位换成「本月实际返利」（口径 = 本月全部填报，与达成填报同源同字段）
+#     + 行内第 3 格改「距下一档」绝对金额（hasTiers 时）／「距达标」（on_target 时）
+#     + 删序号圈、删死字段（triggered / effectiveRate / summary.noData）
+#     + goSprint 跨页带 ?brand=
+#   Forecast.vue          10 hunks = 本轮 2 + 在途 8 → exclude_hunks
+#     本轮：1934（useRoute import）、3280（route.query.brand watcher）
+#     在途：loadEditGrid sources 合并 / buildRowBase 行底同源 / .imp-errs 搬家（行号已位移）
+#   ⚠️ gone 一律选「不被新注释引用」的精确串 —— 新写的注释里**故意**提到了旧名
+#      （`<!-- v185 R1：原 .sec-note「柱高＝实际销量…」已删 -->`），拿旧文案当 gone 会必然误报。
+SPEC_FE_V185_DASH = ("fe", [
+    {"file": "hergent-cn-v2/src/components/rebate/MonthlyAchvChart.vue", "keep_all": True,
+     "gone": ['<span class="sec-note">', "sec.note", '"note":', "深色段＝超出目标的部分"]},
+    {"file": "hergent-cn-v2/src/pages/Rebate.vue", "keep_all": True,
+     "gone": ['<span class="rr-rank">', "gapText", "gapLabel", "noData:"]},
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2661, 2663, 2674, 2676, 7789, 7804, 8173],
+     "gone": []},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -901,7 +926,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-loss": SPEC_BE_LOSS, "fe-loss": SPEC_FE_LOSS,
          "fe-v185-nav": SPEC_FE_V185_NAV,
          "be-v185-trend": SPEC_BE_V185_TREND, "fe-v185-trend": SPEC_FE_V185_TREND,
-         "fe-v184d": SPEC_FE_V184D}
+         "fe-v184d": SPEC_FE_V184D,
+         "fe-v185-dash": SPEC_FE_V185_DASH}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

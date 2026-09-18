@@ -52,14 +52,29 @@
                  筛选提级到页头后，该说明移到筛选弹层内（用户点开筛选的那一刻才需要知道作用域） -->
           </div>
           <div class="dash-kpi">
-            <div class="kpi-hero money" :title="'本月预估返利：¥' + fmt(dashboardModel.summary.totalEstRebate)">
+            <!-- v185 R5（本轮 P0-A）：**补齐页面主语**。
+                 标题写的是「实际返利仪表盘」，可原本**全页没有任何"实际返利"的 KPI** —— 主数给的是
+                 「按当前达成**推算**出来的预估返利」。同屏四个返利数字（预估 / 预计 / 实际 / 预估应返）
+                 标签只差一个字，谁才是"到账"的，读不出来。
+                 现在 hero 位给「本月实际返利」：口径 ＝ 本月**全部填报**的 `actual_rebate` 合计
+                 （用户 2026-09-18 明确选定；字段与「达成填报」页同源，**不是第二份算法**）。
+                 原「本月预估返利」降为次级卡并改名「本月应返 · 按当前达成推算」自证口径。 -->
+            <div class="kpi-hero money"
+                 :title="'本月实际返利：¥' + fmt(dashboardModel.summary.actualRebateTotal) + '（本月全部填报的返利合计，与「达成填报」页同源）'">
               <!-- v112 R25：长金额缩写（≥1万 万 / ≥1亿 亿），悬停看全量 -->
-              <span class="kpi-num">¥{{ fmtShort(dashboardModel.summary.totalEstRebate) }}</span>
-              <span class="kpi-lb">本月预估返利</span>
+              <!-- v185：一条都没填报时显示「—」而不是「¥0」—— ¥0 配青色渐变会被读成"有数据、且是零" -->
+              <span class="kpi-num">{{ dashboardModel.summary.actualRebateCount ? '¥' + fmtShort(dashboardModel.summary.actualRebateTotal) : '—' }}</span>
+              <span class="kpi-lb">本月实际返利<i class="kpi-sub">{{ dashboardModel.summary.actualRebateCount ? ('本月全部填报 · ' + dashboardModel.summary.actualRebateCount + ' 条') : '本月尚未填报' }}</i></span>
             </div>
             <div class="kpi-hero" :class="dashboardModel.summary.risk ? 'risk' : ''">
               <span class="kpi-num">{{ dashboardModel.summary.risk }}</span>
               <span class="kpi-lb">预警规则</span>
+            </div>
+            <!-- v185 R5：本条由 hero 降为次级卡 —— 它仍是"按当前达成往后推"的**推算值**，
+                 不该与"已经到手多少"并肩占同一个视觉等级 -->
+            <div class="kpi-sm">
+              <span class="kpi-num">¥{{ fmtShort(dashboardModel.summary.totalEstRebate) }}</span>
+              <span class="kpi-lb">本月应返<i class="kpi-sub">按当前达成推算</i></span>
             </div>
             <div class="kpi-sm">
               <span class="kpi-num">{{ dashboardModel.summary.done }}<i class="kpi-unit">/ {{ dashboardModel.summary.applicable }}</i></span>
@@ -134,9 +149,13 @@
               <a class="rank-hd-link" href="#/forecast" @click.prevent="goSprint"
                  title="直达预报页「返利冲刺看板」：达成 = 填报达成 + 本期预报贡献">实时达成（含预报贡献）→</a>
             </div>
-            <div v-for="(it, idx) in dashItemsFiltered" :key="it.rule.id" class="rank-row" :class="it.level">
+            <div v-for="it in dashItemsFiltered" :key="it.rule.id" class="rank-row" :class="it.level">
               <div class="rr-top">
-                <span class="rr-rank">{{ idx + 1 }}</span>
+                <!-- v185 R2：序号圈 `.rr-rank` 已删。v151 已判定本区「混排品牌/商品、金额/数量口径，
+                     不构成同质可排名集合」并把标题从「返利达成排行」改成「返利目标达成」，序号却留着 ⇒
+                     在本区的**风险优先排序**下，序号会被读成名次，而第 1 条恰恰是最危险的那条；
+                     风险行还把序号圈染成红色，看起来更像警示标记而不是序号；品牌筛选重算后序号还会重排，
+                     "第 N 条"的清单语义随之失效。清单语义由行本身承担，不需要序号。 -->
                 <!-- v154 G6：「品牌 / 蒙牛」是同义叠加 → 有具体对象时只留对象名，仅在对象为「全部」时才用维度标签表达 -->
                 <span v-if="it.scopeAll" class="tag info">{{ it.dimLabel }}</span>
                 <b class="rr-name">{{ it.rule.rule_name }}</b>
@@ -159,8 +178,17 @@
                 <!-- v150：显式写「9月目标」—— 品牌目标是年度框架，真正参与达成的分母是该月分解值 -->
                 <span>{{ it.monthLabel }}目标 <b>{{ it.targetText }}</b></span>
                 <span>已填报 <b>{{ it.reportedText }}</b></span>
-                <!-- v154 G5：已达标行的「距目标 ¥0」是无信息量占位 → 换成「超出 ¥X」（继续冲量的真实增量） -->
-                <span>{{ it.gapLabel }} <b :class="it.gap > 0 ? 'val-warn' : 'val-ok'">{{ it.gapLabel === '超出' ? it.overText : it.gapText }}</b></span>
+                <!-- v185 R3：原「距目标」= 目标 − 已填报，**两个操作数就在左边紧邻**（v153 实测行：
+                     `9月目标 ¥900,000 ｜ 已填报 ¥0 ｜ 距目标 ¥900,000`），可心算 ⇒ 信息量为零。
+                     用户 2026-09-18 选定：空出的位置给「距下一档的绝对金额」。
+                     ⚠️ 生产实测（tenant_1 / tenant_10 共 4 条规则）**全是 on_target、没有一条阶梯** ——
+                     所以标签必须随模式自证，否则「距下一档」这个词在生产里一个都不会出现：
+                       · 阶梯规则（hasTiers）→「距下一档」：下一档门槛不在屏上（行内只显示百分比），差额有信息量
+                       · 达标即返规则 →「距达标」：量的是 trigger_threshold 门槛（默认 100%），讲"门槛"而非"目标"
+                     value 一律 = max(0, 门槛基数 − 已填报)，单位随规则口径（金额 / 件数，与左侧两格一致）。
+                     v154 G5 已达标行的「超出 ¥X」原样保留 —— 那是继续冲量的真实增量，不可误删。 -->
+                <span v-if="it.gap > 0 && it.gapSegText">{{ it.gapSegLabel }} <b class="val-warn">{{ it.gapSegText }}</b></span>
+                <span v-else-if="it.gap <= 0">超出 <b class="val-ok">{{ it.overText }}</b></span>
                 <!-- v153：按返利模式分述 —— 阶梯规则讲「档位 X → Y，多赚 ¥Z」；非阶梯规则（达标即返）无档位概念，
                      改述「达标可得 ¥X」；已达标且无剩余档位时该段整段不渲染（无门槛、无缺口，且返利金额
                      已在右侧「预计返利」呈现，此处再印一次会在同一行重复同一个数字）。 -->
@@ -2286,9 +2314,11 @@ const dashBase = computed(() => {
       monthLabel: `${mm}月`,   // v150：显性标注目标口径＝单月，避免与年度总额混淆
       targetText: fmtByType(target, r.target_type),
       reportedText: fmtByType(reported, r.target_type),
-      gapText: fmtByType(gap, r.target_type),
-      // v154 G5：gap=0 只可能是「已达/超目标」，此处换口径展示超出量（原「距目标 ¥0」无信息量）
-      gapLabel: gap > 0 ? '距目标' : '超出',
+      // v185 R3：「距目标」→「距下一档 / 距达标」（详见模板内注释）。门槛基数 nextTierBasis 就在上方
+      //   算好（阶梯规则＝下一档 from_pct × 目标；达标即返＝trigger_threshold × 目标），差值一律钳到 ≥0。
+      //   单位随规则口径（金额 / 件数），与左侧「目标 / 已填报」两格严格同口径，不跨量纲相加。
+      gapSegLabel: hasTiers ? '距下一档' : '距达标',
+      gapSegText: nextTierBasis != null ? fmtByType(Math.max(0, nextTierBasis - reported), r.target_type) : '',
       overText: fmtByType(Math.max(0, reported - target), r.target_type),
       achPct: pctText(ach),
       hasTiers,
@@ -2310,6 +2340,12 @@ const dashBase = computed(() => {
   // 风险升序：最该操心的排最前（risk → ontrack → done，同级按达成率升序）
   const levelRank = l => (l === 'risk' ? 0 : l === 'done' ? 2 : 1)
   items.sort((a, b) => (levelRank(a.level) - levelRank(b.level)) || (a.ach - b.ach))
+  // v185 R5：本月实际返利 —— 口径 ＝ 本月**全部填报**（用户 2026-09-18 明确选定，不限于"本月生效规则"集合）。
+  //   `achievements` 即 /api/rebate-achievements?month= 的原始行，与「达成填报」页 achvRows 的合计
+  //   **同源同字段**（`actual_rebate`）—— 前端只做求和，绝不算返利。条数一并给出：一条都没填时
+  //   页面显示「—」而不是「¥0」（¥0 配青色渐变会被读成"有数据、且是零"）。
+  let actualRebateTotal = 0
+  for (const a of (achievements.value || [])) actualRebateTotal += Number(a.actual_rebate) || 0
   return {
     items,
     summary: {
@@ -2320,7 +2356,9 @@ const dashBase = computed(() => {
       // 与图表「达成率」视图（合计达成÷合计目标）完全一致，消除同屏两个同名数字。
       weightedAchPct: (amtTarget > 0) ? pctText(amtReported / amtTarget)
         : (qtyTarget > 0 ? pctText(qtyReported / qtyTarget) : '—'),
-      noData: items.length > 0 && items.every(it => it.reported === 0),
+      // v185 R5：本月实际返利（口径见上）
+      actualRebateTotal,
+      actualRebateCount: (achievements.value || []).length,
       timeProgressPct: pctText(timeProgress),
       timeLabel,
       tpShown: timeProgress > 0 && timeProgress < 1,
@@ -2341,6 +2379,11 @@ const dashboardModel = computed(() => {
     // v153：负数兜底 —— 已达标时「下一档」试算值会低于当前值，原样相减会算出「多赚 ¥-2,400」，
     //   还被 val-ok 染成绿色（语义彻底反了）。差值恒钳到 ≥0，等于 0 时模板不渲染该段。
     const nextGain = Math.max(0, estRebateNext - estRebate)
+    // v185 R4：原 `triggered` / `effectiveRate` 两个字段已删 —— 全仓零消费（v185 复核：
+    //   `it.triggered` / `it.effectiveRate` 在模板与脚本里都没有读点）。同名的
+    //   `simResult.triggered`（试算明细弹窗）与 `accrueResult[].details[].triggered`（计提明细）
+    //   是**另一个对象**上的字段，不受影响、不得一并删。留着死字段的唯一后果，是让下一个人以为
+    //   "界面上某处在用它们"，从而不敢动真正的算法口径。
     return {
       ...it,
       estRebate,
@@ -2348,8 +2391,6 @@ const dashboardModel = computed(() => {
       nextGain,
       simReady: !!cur,
       simData: cur,
-      triggered: cur ? !!cur.triggered : false,
-      effectiveRate: cur && cur.effective_rate != null ? (cur.effective_rate * 100).toFixed(2) + '%' : '—',
     }
   })
   // 未拿到后端结果前不报总数（避免显示出一个"少算"的错数）
@@ -2366,8 +2407,16 @@ const dashboardModel = computed(() => {
 
 async function onDashMonth() { await loadAchievements(dashMonth.value) }
 
-// v154 A1：达成列表标题行的跨页导航（原页头副标题第 3 分句）—— 用 hash 跳转，与 Forecast.vue 的 goConnect 同法
-function goSprint() { location.hash = '#/forecast' }
+// v154 A1：达成列表标题行的跨页导航（原页头副标题第 3 分句）—— 用 hash 跳转，与 Forecast.vue 的 goConnect 同法。
+// v185：带上品牌筛选上下文。原实现只做 `location.hash = '#/forecast'`，把用户刚选的品牌丢掉了 ——
+//   到了预报页又得重新勾一遍，而那正是他一路筛过来的东西。只带品牌、**不带月份**：两页时间口径不同
+//   （本页看"统计月份"，预报页看"期次窗口"），硬带过去只会造成错配。
+//   接收侧（Forecast.vue）会与本期报单品牌**求交集**后再落定 —— 两页品牌词表不同源，
+//   交不上就不筛（宁可什么都不筛，也不能让用户落到一张空表上）。
+function goSprint() {
+  const sel = (chartBrandSel.value || []).filter(Boolean)
+  location.hash = '#/forecast' + (sel.length ? '?brand=' + encodeURIComponent(sel.join(',')) : '')
+}
 
 /* ---- 年度合同返利（rebate_contracts）并入目标与返利：展示 + 录入 ---- */
 const contracts = ref([])
@@ -3318,8 +3367,8 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 /* v153：原 .rank-flash 闪烁定位样式已删 —— 它只服务于异常区「看预警 → 闪烁定位达成行」，
    异常区收窄为只报规则重复后该入口不存在（死 CSS 一并清理） */
 .rr-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-.rr-rank{width:20px;height:20px;border-radius:50%;background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;font-weight:700;color:var(--t2);display:inline-flex;align-items:center;justify-content:center}
-.rank-row.risk .rr-rank{background:rgba(var(--dan-rgb),.15);border-color:rgba(var(--dan-rgb),.4);color:var(--dan)}
+/* v185 R2：.rr-rank 与它的风险态变体（风险行把序号圈染红，像警示标记而非序号）已随模板里的
+   序号圈一并删除 —— 不留死 CSS。 */
 .rr-name{font-size:14px;font-weight:600;color:var(--t1)}
 .rr-scope{font-size:12px;color:var(--t3)}
 .rr-ach{margin-left:auto;font-size:15px;font-weight:700;color:var(--p-dark)}
