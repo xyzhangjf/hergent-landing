@@ -130,7 +130,7 @@
         <div class="forgot-body">
           <p class="forgot-tip">为账号安全，目前由人工协助重置密码。</p>
           <p class="forgot-step">请将您的「用户名 + 联系电话」发邮件给我们，工作日内协助重置：</p>
-          <p class="forgot-mail">admin@hergent.cn</p>
+          <p class="forgot-mail">postmaster@hergent.cn</p>
           <a class="btn btn-primary btn-block" :href="mailtoForgot" target="_blank" rel="noopener">发邮件给我们（已自动填好主题与正文）</a>
           <p class="forgot-foot">紧急情况可联系您的系统管理员直接重置。</p>
         </div>
@@ -192,7 +192,7 @@ const pwShow = ref(false)   // 密码显隐切换
 const forgotOpen = ref(false)   // 忘记密码说明弹窗
 const mailtoForgot = computed(() => {
   const u = username.value.trim() || '（请填写您的用户名）'
-  return `mailto:admin@hergent.cn?subject=${encodeURIComponent('[Hergent] 密码重置请求')}&body=${encodeURIComponent(`您好，\n请协助重置我的账号密码：\n\n用户名：${u}\n联系电话：\n\n谢谢`)}`
+  return `mailto:postmaster@hergent.cn?subject=${encodeURIComponent('[Hergent] 密码重置请求')}&body=${encodeURIComponent(`您好，\n请协助重置我的账号密码：\n\n用户名：${u}\n联系电话：\n\n谢谢`)}`
 })
 onMounted(() => {   // 回填上次登录成功的用户名
   try {
