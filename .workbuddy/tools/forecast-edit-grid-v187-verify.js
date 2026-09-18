@@ -6,6 +6,12 @@
 //   v188（2026-09-18）：列名带单位 —— 「合计」→「合计(小单位)」、「件数(箱)」→「合计(箱)」，
 //     只读表与编辑网格两态同步。⚠️ 探针按文案匹配，改列名必须同步改 WANT/B 段，否则报的是
 //     探针自身的失败、不是产品缺陷。H 段为 v188 新增：**查看态（只读汇总表）表头**此前完全没验过。
+//   v190（2026-09-18）：「单价(厂价/箱)」由只读 span 改为**可录入框**（录入箱价 → 保存时反推厂价
+//     写回商品档案）。⚠️ 两处必须同步，否则探针自欺：
+//       ① snapshot 的 price 必须按「value 优先、空则 placeholder（自动价）」取 —— 否则读到空串，
+//           E 段那些行会被 eN 跳过 = 静默失去覆盖；
+//       ② I 段逐条验录入链路，**全程不点保存**（保存会改生产商品档案）。
+//     J 段用「厂价>0 而进价=0」的商品反证单价来源是厂价（旧版这些行显示「缺价」）。
 // ⚠️ 断言必须带「非空守卫」：编辑网格 0 行时逐行断言会静默变绿（技能点名的「断言消失」坑）
 // 用法: NODE_PATH=<managed workspace>/node_modules node forecast-edit-grid-v187-verify.js <TOKEN> [TENANT] [PERIOD_ID]
 const puppeteer = require('puppeteer-core');
@@ -134,7 +140,14 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
     const rows = Array.from(t.querySelectorAll('tbody tr')).map(tr => {
       const qty = Array.from(tr.querySelectorAll('td.qty-cell')).map(td => { const i = td.querySelector('input'); return i ? i.value : (td.innerText || '').trim(); });
       const g = cls => { const td = tr.querySelector('td.' + cls); if (!td) return null; const i = td.querySelector('input'); return i ? i.value : (td.innerText || '').replace(/\s+/g, ' ').trim(); };
-      return { qty, sum: g('calc.sum'), boxes: g('calc.boxes'), extra: g('calc.extra'), final: g('calc.final'), price: g('calc.price'), amount: g('calc.amount') };
+      /* v190：「单价(厂价/箱)」列已从只读 span 变成**录入框** —— 未录入时 value 为空、
+         有效价在 placeholder（自动价）。探针必须按「有效价」判，否则 E 段读到空串 →
+         `num('')` = NaN → 该行被 eN 计数跳过 = **断言静默失去覆盖**（假绿）。 */
+      const ptd = tr.querySelector('td.calc.price');
+      const pin = ptd ? ptd.querySelector('input') : null;
+      const price = pin ? ((pin.value || '').trim() || (pin.placeholder || '').trim()) : (ptd ? (ptd.innerText || '').trim() : null);
+      const priceManual = !!(pin && pin.classList.contains('manual-price'));
+      return { qty, sum: g('calc.sum'), boxes: g('calc.boxes'), extra: g('calc.extra'), final: g('calc.final'), price, priceManual, amount: g('calc.amount') };
     });
     const foot = document.querySelector('.col-total-bar');
     const fg = cls => { const td = foot ? foot.querySelector('td.' + cls) : null; return td ? (td.innerText || '').replace(/\s+/g, ' ').trim() : null; };
@@ -199,15 +212,134 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
   ok('F5 顶部汇总金额 == 表尾下单金额(厂价)', real.length > 0 && !isNaN(sumAmt) && Math.abs(sumAmt - Number(num(snap.foot.amount))) < 1,
     '汇总金额=' + sumAmt + ' 表尾=' + snap.foot.amount + ' 原文=' + snap.summaryText);
 
+  // ---- I: 「单价(厂价/箱)」手工录入（v190 新增）----
+  //   🔴 全程**不点保存** —— 保存会把该价反推写回**商品档案**（生产真数据）。
+  //      这里只验「录入 → 本行金额跟随 → 清空复原」这条前端链路，零写入。
+  const I = await page.evaluate(async () => {
+    const t = document.querySelector('table.tbl.edit-tbl');
+    if (!t) return { err: '找不到编辑网格' };
+    const trs = Array.from(t.querySelectorAll('tbody tr'));
+    let tr = null, ph = 0, name = '';
+    for (const x of trs) {
+      const pi = x.querySelector('td.calc.price input');
+      if (!pi) continue;
+      const v = Number(String(pi.placeholder || '').replace(/[^\d.]/g, ''));
+      if (v > 0) { tr = x; ph = v; name = (x.querySelector('input.cell-name') || {}).value || ''; break; }
+    }
+    if (!tr) return { err: '没有任何「有自动价」的行可测（厂价未下发到前端？）' };
+    const pi = tr.querySelector('td.calc.price input');
+    const ei = tr.querySelector('td.calc.extra input');        // 加单(箱)
+    const fi = tr.querySelector('td.calc.final');
+    const ai = tr.querySelector('td.calc.amount');
+    if (!ei || !fi || !ai) return { err: '缺 加单/最终下单/下单金额 单元格' };
+    const rd = el => Number(String(el.innerText || '').replace(/[^\d.]/g, ''));
+    const fire = (el, v) => { el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+    const isInput = pi.tagName === 'INPUT' && pi.type === 'number';
+
+    /* ⚠️ 本期报单量极小（期次 9：合计(箱) 全为 0）⇒ 最终下单 = 合计(箱) + 加单 = 0。
+       若直接测「金额 = 最终下单 × 单价」，两边恒为 0 = **空断言假 PASS**。
+       故先给「加单(箱)」置一个非零量让最终下单 > 0，再测录入对金额的影响。
+       （加单同样是前端状态、不点保存 ⇒ 零落库；测完复原。） */
+    const extraBefore = ei.value;
+    fire(ei, 5);
+    await new Promise(r => setTimeout(r, 600));
+    const finalAfterExtra = rd(fi);
+    const amtAuto = rd(ai);                                   // 未录价：= 最终下单 × 自动价
+    const nv = Math.round(ph * 1.5 * 100) / 100;
+    fire(pi, nv);                                             // 录入 = 自动价 × 1.5
+    await new Promise(r => setTimeout(r, 700));
+    const amtManual = rd(ai);
+    const manualCls = pi.classList.contains('manual-price');
+    const valAfter = pi.value;
+    fire(pi, '');                                             // 清空 → 应回自动价
+    await new Promise(r => setTimeout(r, 700));
+    const amtRevert = rd(ai);
+    const valCleared = pi.value;
+    fire(ei, extraBefore || '');                              // 复原加单，不留痕
+    await new Promise(r => setTimeout(r, 500));
+    return { isInput, name, auto: ph, extraSet: 5, finalAfterExtra, amtAuto, nv, amtManual,
+      manualCls, valAfter, amtRevert, valCleared, phAfter: String(pi.placeholder || '').trim(), finalRestored: rd(fi) };
+  });
+  if (I.err) { ok('I0 找到可测行', false, I.err); }
+  else {
+    ok('I1 「单价(厂价/箱)」是可录入的数字框（不再是只读 span）', I.isInput, '行=' + I.name);
+    ok('I2 未录入时有自动价（placeholder 有值 ⇒ 厂价已下发到前端）', I.auto > 0, '自动价=' + I.auto);
+    ok('I3 造量生效：最终下单(箱) = 合计(箱) + 加单(箱) = 5', Math.abs(I.finalAfterExtra - 5) < 0.5,
+      '最终下单=' + I.finalAfterExtra + '（加单置 ' + I.extraSet + '）');
+    ok('I4 未录价时 下单金额(厂价) = 最终下单(箱) × 自动价',
+      Math.abs(I.finalAfterExtra * I.auto - I.amtAuto) < 1.5,
+      `${I.finalAfterExtra} × ${I.auto} 应=${Math.round(I.finalAfterExtra * I.auto * 100) / 100}，实测=${I.amtAuto}`);
+    ok('I5 **录入后 下单金额(厂价) = 最终下单(箱) × 录入单价**（用户口径核心）',
+      Math.abs(I.finalAfterExtra * I.nv - I.amtManual) < 1.5,
+      `${I.finalAfterExtra} × ${I.nv} 应=${Math.round(I.finalAfterExtra * I.nv * 100) / 100}，实测=${I.amtManual}（录入前=${I.amtAuto}）`);
+    ok('I6 录入后金额确实变化（证明真生效，非恒等）', Math.abs(I.amtManual - I.amtAuto) > 0.5,
+      I.amtAuto + ' → ' + I.amtManual);
+    ok('I7 录入后的框带「手工价」视觉标记（manual-price）', I.manualCls, '命中=' + I.manualCls);
+    ok('I8 录入值逐字回显（不被厂价回算改写）', String(I.valAfter) === String(I.nv), '框内=' + I.valAfter + ' 录入=' + I.nv);
+    ok('I9 清空后金额复原为自动价口径', Math.abs(I.amtRevert - I.amtAuto) < 1.5, `清空后=${I.amtRevert} 原自动价口径=${I.amtAuto}`);
+    ok('I10 清空后框内无残留值（回到 placeholder 提示）', I.valCleared === '' && I.phAfter !== '', 'value=' + JSON.stringify(I.valCleared) + ' ph=' + JSON.stringify(I.phAfter));
+    ok('I11 加单已复原（探针零痕迹）', Math.abs(I.finalRestored) < 0.5, '复原后最终下单=' + I.finalRestored);
+  }
+
+  // ---- J: 归因 —— 「单价」确实来自**厂价**（不是回退进价）----
+  //   判据：存在「厂价 > 0 而进价 = 0」的商品；旧逻辑（前端读不到 factory_price ⇒ 回退进价）
+  //   会让这些行显示「缺价」。用「进价为空却有价」反证价的来源，不重实现 perCase。
+  let J = { note: '未取到接口数据' };
+  try {
+    const g = await fetch(BASE + '/api/products/grid', { headers: { Authorization: 'Bearer ' + TOKEN, 'X-Tenant-Id': String(TENANT) } }).then(r => r.json());
+    const items = g.items || [];
+    const withFp = items.filter(p => (Number(p.factory_price) || 0) > 0);
+    const fpOnly = withFp.filter(p => (Number(p.purchase_price) || 0) <= 0);
+    J = { total: items.length, withFp: withFp.length, fpOnlyNoPp: fpOnly.length,
+      sample: fpOnly.slice(0, 3).map(p => ({ name: p.name, fp: p.factory_price, pp: p.purchase_price, spec: p.spec })) };
+  } catch (e) { J = { err: String((e && e.message) || e) }; }
+  ok('J1 接口下发 factory_price（前端能读到档案厂价）', (J.withFp || 0) > 0, JSON.stringify(J).slice(0, 400));
+  ok('J2 存在「有厂价、进价为空」的商品 —— 这些行旧版显示「缺价」，现已算出价',
+    (J.fpOnlyNoPp || 0) > 0, '数量=' + J.fpOnlyNoPp + ' 样例=' + JSON.stringify(J.sample || []));
+
+  // 留一张「手工录入态」截图（纯前端状态、不保存 ⇒ 不落库；刷新即复原）
+  //   同样需要造量：本期最终下单全为 0 的话，金额列看不出录入的效果。
+  await page.evaluate(async () => {
+    const t = document.querySelector('table.tbl.edit-tbl');
+    const trs = t ? Array.from(t.querySelectorAll('tbody tr')) : [];
+    const fire = (el, v) => { el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+    for (const x of trs) {
+      const pi = x.querySelector('td.calc.price input');
+      const ei = x.querySelector('td.calc.extra input');
+      if (!pi || !ei) continue;
+      const ph = Number(String(pi.placeholder || '').replace(/[^\d.]/g, ''));
+      if (ph > 0) {
+        fire(ei, 5);
+        await new Promise(r => setTimeout(r, 400));
+        fire(pi, Math.round(ph * 1.5 * 100) / 100);
+        await new Promise(r => setTimeout(r, 700));
+        // 横向滚到最右 —— 「单价(厂价/箱)」「下单金额(厂价)」在全 38 列的最右几列。
+        //   ⚠️ scrollIntoView(inline) 对 sticky 冻结列不可靠；且祖先链上可能有多层可横向滚动
+        //   容器（只取第一个往往不是真正的表格滚动层，实测滚不动）⇒ **逐层都设到最右**。
+        let sc = t
+        while (sc && sc !== document.body) {
+          if (sc.scrollWidth > sc.clientWidth + 10) sc.scrollLeft = sc.scrollWidth
+          sc = sc.parentElement
+        }
+        x.scrollIntoView({ block: 'center' });
+        await new Promise(r => setTimeout(r, 400));
+        return true;
+      }
+    }
+    return false;
+  });
+
   // ---- G ----
   const realErr = consoleErrors.filter(e => !/403/.test(e));
   ok('G1 无 console error / pageerror', realErr.length === 0 && pageErrors.length === 0, JSON.stringify({ realErr: realErr.slice(0, 3), pageErrors: pageErrors.slice(0, 3) }));
 
-  await page.screenshot({ path: '/tmp/fc_edit_v187.png' });
+  await page.screenshot({ path: '/tmp/fc_caseprice_v190.png' });
   const pass = results.filter(r => r.pass).length;
   console.log(JSON.stringify({
     period: chosen, readonlyRows: roRows, editRows,
     headers: ths, footRow: snap.foot, summaryText: snap.summaryText,
+    casePriceTest: I,
+    priceSource: J,
     assertions: results,
     summary: pass + '/' + results.length + ' 通过' + (pass === results.length ? ' ✅' : ' ❌'),
     sampleRows: real.slice(0, 5), fails: fails.slice(0, 10),

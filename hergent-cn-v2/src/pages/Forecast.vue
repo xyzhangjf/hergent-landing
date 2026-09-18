@@ -871,7 +871,7 @@
                 <th v-if="showSuggest" class="num calc-th suggest" title="配方建议：按「建议算法」面板当前策略算出，只受该面板影响">配方建议<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'suggest')" @click.stop></span></th>
                 <th class="num calc-th extra">加单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'extra')" @click.stop></span></th>
                 <th class="num calc-th final">最终下单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'final')" @click.stop></span></th>
-                <th class="num calc-th price">单价(厂价/箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'price')" @click.stop></span></th>
+                <th class="num calc-th price" title="可直接录入：填「元/箱」。留空则按商品档案的厂价自动算（厂价 × 规格）。保存时会把这个价反推成厂价写回商品档案，此后各期沿用。">单价(厂价/箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'price')" @click.stop></span></th>
                 <th class="num calc-th amount">下单金额(厂价)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'amount')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th">上期量<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'comparePrev')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th delta">Δ<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'compareDelta')" @click.stop></span></th>
@@ -934,7 +934,7 @@
                 <td v-if="showSuggest" class="num calc suggest" :data-r="ri" title="配方建议：按「建议算法」面板策略算出">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
                 <td class="num calc extra" :data-r="ri"><input v-model.number="r.extraQty" class="cell-input cell-qty" type="number" min="0" placeholder="0" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT)" @change="onCellChange"></td>
                 <td class="num calc final" :data-r="ri"><b>{{ fmt(rowFinalQty(r)) }}</b></td>
-                <td class="num calc price" :data-r="ri"><span :class="{ 'miss-price': pricePerCase(r) == null }">{{ pricePerCase(r) != null ? pricePerCase(r).toFixed(2) + ' /箱' : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }}</span></td>
+                <td class="num calc price" :class="{ 'miss-price': pricePerCase(r) == null }" :data-r="ri"><input v-model.number="r.casePrice" class="cell-input cell-price" :class="{ 'manual-price': Number(r.casePrice) > 0 }" type="number" min="0" step="0.01" :placeholder="pricePh(r)" :title="priceTitle(r)" :data-r="ri" :data-c="C_PRICE_INPUT" @focus="onFocusCell(ri, C_PRICE_INPUT)" @change="onCasePriceChange(r)"></td>
                 <td class="num calc amount" :data-r="ri"><span :class="{ 'miss-price': pricePerCase(r) == null }">{{ amountValue(r) != null ? fmt(amountValue(r)) : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }}</span></td>
                 <td v-if="compareOn" class="num calc" :data-r="ri">{{ prevQty(r) != null ? fmt(prevQty(r)) : '—' }}</td>
                 <td v-if="compareOn" class="num calc delta" :class="deltaClass(r)" :data-r="ri">{{ deltaQty(r) == null ? '—' : (deltaQty(r) > 0 ? '+' : '') + fmt(deltaQty(r)) }}</td>
@@ -976,6 +976,7 @@
             </tbody>
           </table>
           </div>
+          <p class="cross-amt-note">最终下单(箱) = 合计(箱) + 加单(箱)；<b>下单金额(厂价) = 最终下单(箱) × 单价(厂价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」，留空 = 按商品档案的厂价自动算）；录入后点「保存」会把该价反推成厂价写回商品档案，此后各期沿用。</p>
           <div v-if="selStats" class="sel-stat">
             <span class="sel-stat-label">选区统计</span>
             <span>计数 <b>{{ selStats.count }}</b></span>
@@ -2366,6 +2367,11 @@ const editColKeys = computed(() => {
       且语义并不同源（calc 列压根不在这个索引空间里）。原先硬写成 visibleCols.length + units.length，
       现具名化，免得下次重排列序时误以为它需要跟着变。 */
 const C_EXTRA_INPUT = computed(() => visibleCols.value.length + cross.value.units.length)
+/* v190：改单网格「单价(厂价/箱)」录入框的哨兵值 —— 道理同 C_EXTRA_INPUT（calc 列不在单元格
+   选区索引空间内），但**故意取不同的值**：若两者同值，`selected.c` 就分不清「正在填单价」
+   还是「正在填加单」，日后给这两格加选中态会互相点亮。
+   本值对 readCellVal / writeCellVal 同样是越界 ⇒ 返回 '' / false，语义同 C_EXTRA_INPUT。 */
+const C_PRICE_INPUT = computed(() => visibleCols.value.length + cross.value.units.length + 1)
 /* v184：查看态的冻结列 = **固定列** ∪ 用户在下拉里选的单列（frozenKey）。
    固定列不受 frozenKey 影响 —— 下拉选了别的列时它照样冻结，否则「固定列」名不副实。
    （此前只看 frozenKey，而它默认 'name'、可被用户改掉 ⇒ 加进来的固定列一改下拉就不见了。） */
@@ -2429,12 +2435,68 @@ function rowBoxes(r) {
 // v184e：单价(厂价)按「箱」计价 = 厂价(元/件) × 规格(每箱小单位数)，与「最终下单/加单按箱」配套，
 // 保证 下单金额 = 最终下单(箱) × 单价(厂价/箱) 单位自洽（箱 × 元/箱 = 元）。缺价或缺规格返回 null。
 //   v189 同修规格取法 —— 此前 1500ML*6桶 的单价会 ×1500（放大 250 倍），金额整列错。
-function pricePerCase(r) {
+// v190：**自动价**（由商品档案的厂价换算）= 换算的唯一实现，供 pricePerCase 与录入框占位提示共用。
+//   ⚠️ 结果必须归一化到「分」。原因：手工录入的箱价是按**厂价**落库的，而
+//      db.batch_set_factory_prices 对厂价做 round(fp, 4)（100 元/箱 ÷ 12 = 8.3333），
+//      回算 8.3333 × 12 = 99.9996 —— 不归一到分，下单金额会算成 6,999.97 而不是 7,000.00，
+//      用户拿去对账差几分钱（实测口径：100 元/箱 × 70 箱）。
+//      「元/箱」本身只到分，这里归一化是**计价精度**，不是掩盖误差。
+function priceAuto(r) {
   const fp = factoryPrice(r)
   const pc = perCase(r.spec, r.unit)
   if (fp <= 0) return null                      // 缺价
   if (!(pc > 0)) return null                    // 缺规格，无法换算到箱
-  return fp * pc
+  return Math.round(fp * pc * 100) / 100
+}
+/* v190：「单价(厂价/箱)」取值 = **手工录入优先**，否则自动价。
+   录入值是权威 —— 直接用它（同样归一到分，钱只到分位），不再经厂价回算，
+   免得「填 100、保存后显示 99.9996」。
+   厂价仍是**跨期唯一真源**：保存时由手工箱价反推落库（见 casePriceToFactory），
+   下期从档案读回 —— 不引入第二份定价存储。 */
+function pricePerCase(r) {
+  const cv = Number(r && r.casePrice)
+  if (cv > 0) return Math.round(cv * 100) / 100
+  return priceAuto(r)
+}
+/* v190：手工箱价 → 厂价（元/件）的**唯一反推实现**，保存写回档案时用。
+   缺规格（perCase = 0）时返回 null —— 那时厂价没有定义，单价只在本次报单生效，不写档案。 */
+function casePriceToFactory(r) {
+  const cv = Number(r && r.casePrice)
+  const pc = perCase(r && r.spec, r && r.unit)
+  if (!(cv > 0) || !(pc > 0)) return null
+  return cv / pc
+}
+/* v190：录入框灰字占位 —— 未手工录入时显示「系统按档案厂价算出的箱价」，让用户一眼知道现在按多少算；
+   缺价/缺规格则直接说明是哪种，而不是留一个空白框让人猜。 */
+function pricePh(r) {
+  const a = priceAuto(r)
+  if (a != null) return a.toFixed(2)
+  return factoryPrice(r) <= 0 ? '缺价，请填' : '缺规格'
+}
+function priceTitle(r) {
+  const a = priceAuto(r)
+  const head = Number(r && r.casePrice) > 0
+    ? '手工录入价（保存时同步写回商品档案的厂价，此后各期沿用）'
+    : '按商品档案的厂价自动算出：厂价(元/件) × 规格。可直接录入覆盖。'
+  return head + (a != null ? `\n自动价 ¥${a.toFixed(2)}/箱` : '')
+}
+/* v190：录入箱价 → 本行立即生效（pricePerCase 优先读它，故「下单金额(厂价)」自动跟随：
+   下单金额 = 最终下单(箱) × 本列）。清空 = 撤掉手工价，回到档案厂价自动算。
+   反推厂价**不在这里算** —— 统一走 casePriceToFactory（保存时现算），避免两处各存一份、
+   日后漂移（草稿恢复、复制行等路径都可能让行上的副本不同步）。 */
+function onCasePriceChange(r) {
+  const v = Number(r.casePrice)
+  if (!(v > 0)) {                    // 清空 = 回到档案自动价
+    r.casePrice = null
+    saveDraftNow()
+    return
+  }
+  r.casePrice = v
+  if (casePriceToFactory(r) == null) {
+    // 缺规格 ⇒ 厂价没有定义：本行金额仍按录入的箱价算（最终下单 × 本列），但不写回档案。
+    toast('该商品缺规格：单价只在本次报单生效，未写回商品档案。请先补规格', 'warn')
+  }
+  saveDraftNow()
 }
 // v184e：下单金额(厂价)（元）= 最终下单(箱) × 单价(厂价/箱)；缺价或缺规格返回 null（界面显示「缺价/缺规格」）。
 function amountValue(r) {
@@ -2804,6 +2866,13 @@ async function loadEditGrid() {
         ...(pd.extra || {}),
         product_id: pd.id, name: pd.name, barcode: pd.barcode || '', spec: pd.spec || '', unit: pd.unit || '件',
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
+        /* v190：厂价必须随行带上 —— 此前**两处行映射都漏了它**，而 factoryPrice(r) 优先读
+           `r.factory_price` ⇒ 前端实际永远回退到进价，与后端 db.factory_price_sql
+           （厂价优先、缺则进价）不是同一个数：档案里「厂价 ≠ 进价」的商品，
+           本页「单价(厂价/箱)」与报单金额都和后端算的对不上。
+           ⚠️ 两条加载路径（loadCross / **本处 loadEditGrid**）**都要带**，漏一处就有一态算错。
+           本处是**编辑网格**的数据源 —— 没有它，手工录入的箱价反推不出厂价、也显示不出来。 */
+        factory_price: Number(pd.factory_price) || 0,
         safety_stock: pd.safety_stock || 0, expiry_days: pd.expiry_days || 0,
         product_code: pd.product_code || '', dist_price: pd.dist_price || 0,
         /* v178：品牌/品类是商品档案字段，此前这条行映射里漏了 —— 编辑网格的品牌列**只有「草稿恢复」
@@ -2843,7 +2912,11 @@ async function loadEditGrid() {
          粘贴/新增的商品行在刷新后全部丢失，但横幅却宣称「已恢复未完成数据」→ 误导。
          现补充：① 恢复主档字段；② 草稿里有、服务端商品库没有的新增行追加回来。 */
       const DRAFT_MASTER_KEYS = ['name', 'barcode', 'spec', 'unit', 'sale_price', 'purchase_price',
-        'safety_stock', 'expiry_days', 'product_code', 'dist_price', 'brand', 'moq', 'lead_days', 'extraQty']
+        'safety_stock', 'expiry_days', 'product_code', 'dist_price', 'brand', 'moq', 'lead_days', 'extraQty',
+        // v190：手工录入的单价与其反推的厂价也必须随草稿留住 —— 否则用户在改单网格填了箱价、
+        //   还没点「保存」就刷新/切期次，填的价会静默消失（金额也跟着变回去）。
+        //   `casePrice` 为 null 时不恢复（草稿守卫要求值非空），符合「清空 = 回到自动价」的语义。
+        'factory_price', 'casePrice']
       const draftByPid = {}
       const draftByKey = {}
       ;(dr.rows || []).forEach(r => {
@@ -3165,6 +3238,36 @@ async function saveEdits() {
       const pr = await productsApi.bulkUpsert(prodRows)
       prodMsg = ` · 商品 ${pr.inserted} 新增 / ${pr.updated} 更新`
       prodDone = true
+    }
+    /* v190：手工录入的「单价(厂价/箱)」→ 写回商品档案的**厂价**（用户 2026-09-18 拍板的生效范围：
+       一次录入、此后各期沿用）。
+       为什么走 batchFactoryPrice 而不是塞进上面的 bulkUpsert：
+         ① 该通道**有字段级留痕**（`log_product_changes` 记「改前 → 改后」；bulk_upsert 不留痕），
+            改价这种会影响全部期次金额的字段，必须能追溯是谁什么时候改的；
+         ② 语义专一 —— 只写 factory_price 一列，且非法值**逐条回报原因**（非数字 / <=0 / 商品不存在），
+            不静默丢行；用户必须能看出「哪几条没写进去、为什么」。
+       ⚠️ 判据是「本行有手工箱价」（`casePrice > 0`），**不依赖行上的易失标记** —— 这样草稿恢复
+          出来的手工价（刷新后 casePrice 被恢复、但标记没恢复）一样能正确写回。
+       ⚠️ 只提交**有手工价**的行：没录价的行若带上厂价，会把档案原值冲掉（反推值是 y/x 的浮点形态）。
+       ⚠️ 必须放在 bulkUpsert **之后**：新增商品是这会儿才拿到 id 的，按条码兜底才找得到。 */
+    const fpItems = []
+    usable.forEach(r => {
+      const fp = casePriceToFactory(r)          // 唯一反推实现；缺规格 → null（该价只在本期生效）
+      if (fp == null) return
+      fpItems.push(Number(r.product_id) > 0
+        ? { id: Number(r.product_id), factory_price: fp }
+        : { barcode: String(r.barcode || ''), factory_price: fp })
+    })
+    if (fpItems.length) {
+      try {
+        const fr = await productsApi.batchFactoryPrice(fpItems)
+        const _sk = fr.skipped || []
+        if (fr.updated) prodMsg += ` · 厂价写回 ${fr.updated} 条`
+        if (_sk.length) toast(`有 ${_sk.length} 条单价未写回商品档案：${_sk[0].reason || '原因未知'}`, 'warn')
+      } catch (e) {
+        // 厂价没写回属于「部分成功」，必须说出来 —— 否则用户以为下次开表还是这个价。
+        toast('单价已用于本次报单，但写回商品档案失败：' + ((e && e.message) || ''), 'warn')
+      }
     }
     // 2) 数量矩阵（保持原 save_matrix 语义：幂等覆盖本期『导入』数据）
     const payload = {
@@ -6891,6 +6994,10 @@ async function loadCross() {
         product_id: pd.id, name: pd.name, spec: pd.spec, unit: pd.unit,
         barcode: pd.barcode || '', product_code: pd.product_code || '', dist_price: pd.dist_price || 0,
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
+        // v190：厂价随行带上（同 loadEditGrid —— 两条加载路径都必须带，漏一处该态就算错）。
+        //   本行是**查看态（只读汇总表）**的数据源：不带上它，汇总表的「单价(厂价/箱)」与
+        //   报单金额只能退回进价算，与后端 db.factory_price_sql 的口径不是一个数。
+        factory_price: Number(pd.factory_price) || 0,
         safety_stock: pd.safety_stock || 0, expiry_days: pd.expiry_days || 0,
         category: meta[pd.id] ? (meta[pd.id].category || '') : '', brand: meta[pd.id] ? (meta[pd.id].brand || '') : '',
         // v184：到货周期（同 loadCross —— 本处的 pd 同样来自 productsApi.grid）。
@@ -7837,6 +7944,12 @@ th.sortable:hover{color:var(--p-dark)}
 .cell-ro{display:block;padding:2px 6px;color:var(--t2);font-size:12px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cell-input{height:26px;padding:0 6px;border:1px solid var(--bd);border-radius:5px;background:var(--bg);color:var(--t1);font-size:12px;outline:none;display:block;width:100%;min-width:0;box-sizing:border-box;text-align:center}
 .cell-input:focus{border-color:var(--p)}
+/* v190：「单价(厂价/箱)」录入框。
+   ① 手工录入价 —— 必须与「档案厂价算出来的自动价」在视觉上区分，否则用户分不清
+      「这个价是系统带的还是我填的」（同屏两个来源的数必须能自证，见项目铁律）。
+   ② 未录入且缺价/缺规格 —— 灰字占位改用警示色，避免空框看起来像「这一格本来就没数」。 */
+.cell-input.cell-price.manual-price{border-color:var(--p);background:var(--p-bg);font-weight:600}
+.calc.price.miss-price .cell-input::placeholder{color:var(--danger-txt);font-weight:600;opacity:1}
 .cell-name{text-align:left;font-weight:500}
 .cell-wide{text-align:left}
 .cell-cust{}

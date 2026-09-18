@@ -1318,6 +1318,82 @@ SPEC_FE_V189_BOXES = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+"""v190（2026-09-18）：预报改单网格「单价(厂价/箱)」支持手工录入 —— 录入箱价 → 保存时反推厂价写回商品档案。
+
+后端 1 hunk（`products_grid` 补发 `factory_price`）+ 前端 11 hunk（Forecast.vue）+ 探针 + 交付说明。
+
+🔴 **后端这个 hunk 是「根因」**：`/api/products/grid` 此前**不下发** `factory_price`，而前端
+   `factoryPrice(r)` 优先读 `r.factory_price` ⇒ 永远回退进价。凡档案里「厂价 ≠ 进价」的商品
+   （全量实测 288 个商品里 151 个有厂价，其中 **105 个有厂价、进价为空**），预警页的
+   「单价(厂价/箱)」与报单金额都与后端算的对不上；且用户手工录入厂价回写档案后
+   **页面自己读不回来** ⇒ 表现为「填了没生效」。前后端必须**同一个 spec 一起提交**，否则
+   单提交一侧就有一态算错（前端白改、后端白改）。
+
+🔴 **注释也进产物哈希（本轮实测踩到，别重犯）**：`@vitejs/plugin-vue` v5.2.4 生产态的
+   scope id = `sha256(相对路径 + 源码全文)[:8]`（node_modules 里 `getHash(normalizedPath + source)`）。
+   ⇒ 哪怕只改注释，产物里所有 `data-v-*` 都会变 ⇒ **md5 必然与旧包不同**。
+   本轮我一度把「/tmp 隔离构建与线上 md5 不同」误判成「隔离目录的路径噪声」，真实原因正是
+   我在部署后又订正了 3 行注释。判据：把 `sha256('src/pages/Forecast.vue' + 当前源码)[:8]`
+   与线上包里的 `data-v-XXXXXXXX` 对比 —— 相等才说明线上包就是**当前源码**构建的。
+
+Forecast.vue 是**多会话共享文件**，本轮只认领 11 个 hunk，排除并发会话的 8 个在途 hunk（全在
+loadEditGrid 的 srcByPid/extraByPid/buildRowBase 那一段 + `.imp-errs` 样式换位 + 首尾空行）。
+
+| old_start (-U0) | 内容（**别人的**，不归本轮） |
+|---|---|
+| 101  | 文件头多一个空行 |
+| 2779 | loadEditGrid：srcByPid「合并而非覆盖」的注释 |
+| 2781 | loadEditGrid：srcByPid 改 `[...prevSrc, ...r.sources]` |
+| 2792 | loadEditGrid：加单注释补「（同商品多行时累加）」 |
+| 2794 | loadEditGrid：extraByPid 累加 + 引入 buildRowBase（v179 编辑态行底同源） |
+| 7952 | 样式：`.imp-errs` 新增到 v179 段 |
+| 7967 | 样式：原 `.imp-errs` 从 P1-1 段删除 |
+| 8336 | 文件末尾多一个空行 |
+
+本轮认领的 11 个（874 / 937 / 978 / 2368 / 2432 / 2437 / 2806 / 2846 / 3168 / 6893 / 7839）：
+表头悬停说明 · 该列改录入框 · 口径说明补录入 · `C_PRICE_INPUT` 哨兵 · `priceAuto`+归一化到分 ·
+`pricePerCase`/`casePriceToFactory`/`pricePh`/`priceTitle`/`onCasePriceChange` · 编辑态行映射补
+`factory_price` · 草稿键加 `factory_price`/`casePrice` · `saveEdits` 写回厂价 · 查看态行映射补
+`factory_price` · 录入框样式。
+
+⚠️ 判据：`git diff -U0 -- Forecast.vue | grep -c '^@@'` 应等于 **19**（11 本轮 + 8 在途）。
+   数字变了（别人又动了这个文件）必须用 `-U0` **重取坐标**，禁用 `-U3`（会把相邻小改动并成
+   一个 hunk，两套坐标不可混用 —— v189 已踩过一次）。
+"""
+SPEC_BE_V190_GRIDFP = ("be", [
+    # 后端仓库本轮只有这一个文件一个 hunk（`factory_price` 下发）→ keep_all 拿到「== 工作区」自证
+    {"file": "server/routers/data.py", "keep_all": True,
+     # 回归判据：旧版 `purchase_price` **紧接** `safety_stock`（中间没有 factory_price）。
+     # 若这个相邻关系又回来，说明「补发厂价」的修复被整体回退 —— 那前端所有单价又会退回进价算。
+     "gone": ['"purchase_price": p.get("purchase_price") or 0,\n'
+              '            "safety_stock": p.get("safety_stock") or 0,']},
+])
+
+SPEC_FE_V190_CASEPRICE = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2779, 2781, 2792, 2794, 7952, 7967, 8336],
+     # 旧实现必须消失（回退即报）：旧表头（无悬停说明）、旧只读 span（编辑网格里已换成录入框）
+     "gone": ['<th class="num calc-th price">单价(厂价/箱)',
+              '<td class="num calc price" :data-r="ri"><span',
+              '_fpTouched']},
+    # 本轮同源更新过的真机探针（v190 加 I 段「单价录入链路」11 条 + J 段「价来自厂价」归因 2 条）
+    {"file": ".workbuddy/tools/forecast-edit-grid-v187-verify.js", "keep_all": True,
+     "gone": ["/tmp/fc_edit_v187.png"]},
+    # 本轮新建：沙箱端到端（录入箱价 → 保存 → 复核档案厂价 + 字段级留痕）
+    {"file": ".workbuddy/tools/forecast-caseprice-archive-v190-verify.js", "new_file": True, "gone": []},
+    # 本工具自身（新增上面两组 spec + 注册）。实测此刻本文件**只有我这处** hunk，故 keep_all 成立；
+    #   ⚠️ 但它是多会话共用的 spec 容器 —— 别人的 keep_all 会连带把我这份 spec 一起带进 HEAD
+    #   （v187 轮已实测一次）。若下次发现本文件已无 diff，先 `git log -3` 看是不是被连带带走了。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # 交付说明与真机证据（PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/预报单价手工录入-2026-09-18/01-改单网格-单价可手工录入（第1行蓝框为手工价5760 vs 其余灰色自动价）-1800.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报单价手工录入-2026-09-18/02-沙箱端到端-保存后提示厂价写回1条.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报单价手工录入-2026-09-18/03-交付说明.md",
+     "new_file": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1352,7 +1428,12 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v187-editgrid": SPEC_FE_V187,
          # v188：预报列名带单位。本 spec 直接带语义后缀（labels），即便 v188 号被并发会话
          #   占用也能按后缀区分（v187 就是这么撞上的）。
-         "fe-v188-labels": SPEC_FE_V188}
+         "fe-v188-labels": SPEC_FE_V188,
+         # v190：预报改单网格「单价(厂价/箱)」手工录入。前后端**必须一起提交**（后端补发
+         #   factory_price 是根因，缺它前端所有单价都会退回进价算）⇒ 两个 spec 一起跑。
+         # 同样带语义后缀而非只写号码（v187/v188 号都被并发会话撞过）。
+         "fe-v190-caseprice": SPEC_FE_V190_CASEPRICE,
+         "be-v190-gridfp": SPEC_BE_V190_GRIDFP}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
