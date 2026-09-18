@@ -1497,6 +1497,42 @@ SPEC_FE_V191_PERIODONLY = ("fe", [
      "new_file": True, "gone": []},
 ])
 
+# ── v191b：「单价(厂价/箱)」留空 = **自动沿用上一期录入的价**（2026-09-18，用户拍板「直接延用，不加按钮」）──
+SPEC_FE_V191B_INHERIT = ("fe", [
+    # Forecast.vue：18 个 hunk 里**我的 11 个**；排除的 7 个是纯他人在途 ——
+    #   101（工具栏）、2834/2836/2847（loadEditGrid 的 srcByPid 合并与加单注释）、
+    #   8070/8085/8454（CSS：本轮一行没碰）。
+    #   ⚠️ 黑名单必须是 **HEAD 坐标的 old_start**（`@@ -2834,0 +2875,2 @@` 取 **2834**，不是 2875）——
+    #      本轮实测踩过：误填新侧行号 ⇒ 断言「黑名单里有不存在的 hunk」直接中止（守卫按预期生效）。
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2834, 2836, 2847, 8070, 8085, 8454],
+     # 旧文案必须消失（口径改了：留空不再等于「按档案厂价自动算」，而是「自动沿用上一期」）
+     "gone": ['留空则按商品档案的厂价自动算',              # 旧表头 title
+              '留空 = 按商品档案的厂价自动算',             # 旧 cross-amt-note
+              '手工录入价（只在本期生效：本次报单按这个价算金额，不写回商品档案）']},  # 旧 priceTitle 分支
+    # 主探针：本轮做了**选择器可见性修正**（隐藏的返利冲刺看板表抢先命中 ⇒ 18/30 假 FAIL）
+    {"file": ".workbuddy/tools/forecast-edit-grid-v187-verify.js", "keep_all": True, "gone": []},
+    # 本轮新建：沙箱沿用链端到端（三段）＋ 沙箱夹具（造往期录入价）
+    {"file": ".workbuddy/tools/forecast-caseprice-inherit-v191b-verify.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/sandbox_extra_qty_fixture.py", "new_file": True, "gone": []},
+    # 本工具自身（新增上面这组 spec + 注册）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # 交付说明与沙箱证据（PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/预报单价沿用上期-2026-09-18/01-改单网格-沿用上期价（沙箱）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报单价沿用上期-2026-09-18/02-交付说明.md",
+     "new_file": True, "gone": []},
+])
+
+# ── v191b 后端：summary 随行下发「最近一次录入价」及其期次（沿用链的数据源）──
+SPEC_BE_V191B_INHERIT = ("be", [
+    # erp_db.py：7 个 hunk 里**我的 2 个**（都在 forecast_submission_summary 内，纯新增）；
+    #   排除的 5 个是纯他人在途（init_db、_safe_migrate 两处、alert_history_list、login_is_locked）。
+    {"file": "server/erp_db.py",
+     "exclude_hunks": [1400, 10958, 10973, 11390, 11393],
+     "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1543,7 +1579,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v190-caseprice": SPEC_FE_V190_CASEPRICE,
          "be-v190-gridfp": SPEC_BE_V190_GRIDFP,
          "fe-v191-periodonly": SPEC_FE_V191_PERIODONLY,
-         "be-v191-caseprice": SPEC_BE_V191_CASEPRICE}
+         "be-v191-caseprice": SPEC_BE_V191_CASEPRICE,
+         "fe-v191b-inherit": SPEC_FE_V191B_INHERIT,
+         "be-v191b-inherit": SPEC_BE_V191B_INHERIT}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

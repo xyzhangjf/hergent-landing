@@ -93,8 +93,16 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
   await page.waitForSelector('table.tbl', { timeout: 30000 }).catch(() => {});
   await sleep(3500);
 
+  /* 🔴 v191b 探针修正：只读表必须**按可见性**挑。
+     本页除「报单只读大表」外，还常驻一张 `table.tbl` —— **返利冲刺看板**（`v-show="rebateSprintOpen"`，
+     数据有条件时进 DOM、未展开时 `offsetParent === null`）。它排在 DOM 更前面 ⇒
+     原实现 `querySelectorAll('table.tbl')[0]` 会选中这张**隐藏表**：
+     readonlyRows 恒 0 ⇒ 期次扫描挑不出有行的期次 ⇒ 后面所有「只读表/编辑网格」断言连锁空转
+     （本轮实测 18/30，症状看着像功能坏了，实际全是选择器腐化）。
+     判据：`offsetParent !== null`。 */
   const countReadonlyRows = () => page.evaluate(() => {
-    const t = Array.from(document.querySelectorAll('table.tbl')).find(x => !x.classList.contains('edit-tbl'));
+    const t = Array.from(document.querySelectorAll('table.tbl'))
+      .find(x => !x.classList.contains('edit-tbl') && x.offsetParent !== null);
     return t ? t.querySelectorAll('tbody tr.data-row').length : 0;
   });
   const setPeriod = v => page.evaluate(val => {
@@ -121,7 +129,9 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
   // ---- H: 查看态（只读汇总表）表头 —— v188 新增。此前探针只验改单态，查看态列名无人管。----
   //   必须在「点改单」之前抓：之后只读表会被 v-else 换成编辑网格。
   const roHead = await page.evaluate(() => {
-    const cands = Array.from(document.querySelectorAll('table.tbl')).filter(x => !x.classList.contains('edit-tbl'));
+    // ⚠️ 同 countReadonlyRows：必须排除隐藏表（返利冲刺看板那张也是 `table.tbl`）
+    const cands = Array.from(document.querySelectorAll('table.tbl'))
+      .filter(x => !x.classList.contains('edit-tbl') && x.offsetParent !== null);
     const t = cands.find(x => x.querySelectorAll('tbody tr.data-row').length > 0) || cands[0];
     if (!t) return null;
     const ths = Array.from(t.querySelectorAll('thead th'));
@@ -244,8 +254,14 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
     '汇总金额=' + sumAmt + ' 表尾=' + snap.foot.amount + ' 原文=' + snap.summaryText);
 
   // ---- I: 「单价(厂价/箱)」手工录入（v190 新增）----
-  //   🔴 全程**不点保存** —— 保存会把该价反推写回**商品档案**（生产真数据）。
+  //   🔴 全程**不点保存** —— 本探针跑在**生产 tenant_1 真数据**上，点保存会写报单数据。
+  //      （⚠️ v190 时代这里写的是「保存会把该价反推写回商品档案」—— **v191 已删掉反推写档案**，
+  //       现在是「随 save-matrix 落本期 `forecast_extra_qty.case_price`」；无论如何都不该在生产点保存。）
   //      这里只验「录入 → 本行金额跟随 → 清空复原」这条前端链路，零写入。
+  //   v191b：清空后**不一定**回到档案自动价 —— 若该商品有往期录入价，会回落到「沿用值」。
+  //      本探针跑在 tenant_1（实测 `case_price` 全为 NULL、无非空行）⇒ 沿用链不激活，
+  //      「清空回自动价」的断言依然成立；**沿用链的验在沙箱探针**
+  //      `forecast-caseprice-inherit-v191b-verify.js`（有夹具造往期行）。
   const I = await page.evaluate(async () => {
     const t = document.querySelector('table.tbl.edit-tbl');
     if (!t) return { err: '找不到编辑网格' };

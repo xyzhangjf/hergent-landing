@@ -871,7 +871,7 @@
                 <th v-if="showSuggest" class="num calc-th suggest" title="配方建议：按「建议算法」面板当前策略算出，只受该面板影响">配方建议<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'suggest')" @click.stop></span></th>
                 <th class="num calc-th extra">加单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'extra')" @click.stop></span></th>
                 <th class="num calc-th final">最终下单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'final')" @click.stop></span></th>
-                <th class="num calc-th price" title="可直接录入：填「元/箱」。留空则按商品档案的厂价自动算（厂价 × 规格）。录入的价只在本期生效：点「保存」后随本期报单留存，不改商品档案，也不影响其他期次。">单价(厂价/箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'price')" @click.stop></span></th>
+                <th class="num calc-th price" title="可直接录入：填「元/箱」。留空则**自动沿用上一期录入过的价**（本期之前最近一次填过的，不用重填）；从未填过则按商品档案的厂价自动算（厂价 × 规格）。录入的价只在本期生效：点「保存」后随本期报单留存，不改商品档案，也不影响其他期次。">单价(厂价/箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'price')" @click.stop></span></th>
                 <th class="num calc-th amount">下单金额(厂价)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'amount')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th">上期量<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'comparePrev')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th delta">Δ<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'compareDelta')" @click.stop></span></th>
@@ -976,7 +976,7 @@
             </tbody>
           </table>
           </div>
-          <p class="cross-amt-note">最终下单(箱) = 合计(箱) + 加单(箱)；<b>下单金额(厂价) = 最终下单(箱) × 单价(厂价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」，留空 = 按商品档案的厂价自动算）；录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</p>
+          <p class="cross-amt-note">最终下单(箱) = 合计(箱) + 加单(箱)；<b>下单金额(厂价) = 最终下单(箱) × 单价(厂价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的厂价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</p>
           <div v-if="selStats" class="sel-stat">
             <span class="sel-stat-label">选区统计</span>
             <span>计数 <b>{{ selStats.count }}</b></span>
@@ -2452,24 +2452,63 @@ function priceAuto(r) {
    🔴 2026-09-18 口径变更（用户拍板「**只在本期生效**」）：手工价随报单落进
    `forecast_extra_qty.case_price`（唯一键含 产品×期次）⇒ 只影响本期；
    **不再反推写回商品档案** —— 写档案会改掉**所有期次**的金额。
-   要在别期也用这个价，就在那一期自己再填一次。 */
+   要在别期也用这个价，就在那一期自己再填一次。
+   🔴 v191b（同日稍晚，用户拍板「**直接延用上一期，不加按钮**」）⇒ 取值链由两级变**三级**：
+       ① 本期手工录入（`r.casePrice`，随 save-matrix 落库、只在本期生效）
+       ② **沿用**：本期之前**最近一次录入**过的价（`r.casePriceInherit`，后端随 summary 下发）
+       ③ 都没有 ⇒ 按商品档案厂价自动算（`priceAuto`）
+   ②是**只读参考值，绝不落库** —— 不碰档案、也不写本期记录 ⇒「没填」不会被保存成「填过」，
+   清空输入框即可撤销（回落到 ②/③）。 */
+function priceInherit(r) {
+  const iv = Number(r && r.casePriceInherit)
+  return iv > 0 ? Math.round(iv * 100) / 100 : null
+}
+/* v191b：沿用来源的期次标签（后端下发 last_case_period_start/end，形如 2026-08-30 / 2026-09-15）。
+   纯展示，不参与任何计算；同一年只给「月/日」，跨年或非本年带上年份。 */
+function inheritPeriodLabel(ps, pe) {
+  const p = (s) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ''))
+    return m ? { y: m[1], t: m[2] + '/' + m[3] } : null
+  }
+  const a = p(ps)
+  const b = p(pe) || a
+  if (!a) return '上一期'
+  if (b.y === a.y && a.y === String(new Date().getFullYear())) return a.t + '–' + b.t
+  return a.y + '/' + a.t + '–' + b.t
+}
 function pricePerCase(r) {
   const cv = Number(r && r.casePrice)
-  if (cv > 0) return Math.round(cv * 100) / 100
-  return priceAuto(r)
+  if (cv > 0) return Math.round(cv * 100) / 100   // ① 本期手工录入
+  const iv = priceInherit(r)
+  if (iv != null) return iv                        // ② 沿用上一期录入的价（不落库）
+  return priceAuto(r)                              // ③ 按商品档案厂价自动算
 }
-/* v190：录入框灰字占位 —— 未手工录入时显示「系统按档案厂价算出的箱价」，让用户一眼知道现在按多少算；
-   缺价/缺规格则直接说明是哪种，而不是留一个空白框让人猜。 */
+/* v190：录入框灰字占位 —— 未手工录入时显示「**当前实际生效的价**」，让用户一眼知道现在按多少算；
+   缺价/缺规格则直接说明是哪种，而不是留一个空白框让人猜。
+   ⚠️ v191b：占位值改用 `pricePerCase`（= 生效值）而不是只给 `priceAuto`（自动价）——
+   生效值还可能是「沿用上一期录入的价」，只显示自动价会与旁边「下单金额」列对不上（同屏两个口径）。
+   来源差异放在 `title` 里说清（见 priceTitle），灰字本身不区分来源。 */
 function pricePh(r) {
-  const a = priceAuto(r)
-  if (a != null) return a.toFixed(2)
+  const eff = pricePerCase(r)
+  if (eff != null) return eff.toFixed(2)
   return factoryPrice(r) <= 0 ? '缺价，请填' : '缺规格'
 }
+/* v190：来源必须可自证 —— 手工价与自动价不得长得一样。
+   v191b：三级来源各一句，且「沿用」态要点名**是哪一期的**录入价（否则老板会以为是自己本期填的）。
+   沿用态同样只进灰字占位：不实填、不加粗 ⇒ 一眼能与「本期手工录入」区分开。 */
 function priceTitle(r) {
   const a = priceAuto(r)
-  const head = Number(r && r.casePrice) > 0
-    ? '手工录入价（只在本期生效：本次报单按这个价算金额，不写回商品档案）'
-    : '按商品档案的厂价自动算出：厂价(元/件) × 规格。可直接录入覆盖。'
+  const cv = Number(r && r.casePrice)
+  const iv = priceInherit(r)
+  let head
+  if (cv > 0) {
+    head = '本期手工录入价（只在本期生效：本次报单按这个价算金额，不写回商品档案，也不影响其他期次）'
+  } else if (iv != null) {
+    head = '沿用「' + (r.casePriceInheritPeriod || '上一期') + '」录入的价 ¥' + iv.toFixed(2)
+      + '/箱 —— 本期不用重填；直接填数即可改，清空则回到档案自动价'
+  } else {
+    head = '按商品档案的厂价自动算出：厂价(元/件) × 规格。可直接录入覆盖。'
+  }
   return head + (a != null ? `\n自动价 ¥${a.toFixed(2)}/箱` : '')
 }
 /* v190：录入箱价 → 本行立即生效（pricePerCase 优先读它，故「下单金额(厂价)」自动跟随：
@@ -2858,6 +2897,21 @@ async function loadEditGrid() {
       const cp = Number(r.case_price)
       if (r.product_id && cp > 0) casePriceByPid[r.product_id] = cp
     })
+    /* v191b：**沿用价**（只读参考值）—— 后端 summary 下发的 `last_case_price`
+       （= 本期之前最近一次录入过的价）＋ 那条记录的期次标签，供占位与 title 说明来源。
+       ⚠️ 与 casePrice **分开两个字段**，因为它：
+         · 不进 save-matrix 载荷（**不落库**，「没填」不会被保存成「填过」）；
+         · 不进 `DRAFT_MASTER_KEYS`（服务端下发的只读值，不该被本地草稿覆盖）。
+       取**非空值**而非累加：价不能累加（同 casePrice 的判据）。 */
+    const casePriceInheritByPid = {}
+    ;(d.rows || []).forEach(r => {
+      const lp = Number(r.last_case_price)
+      if (r.product_id && lp > 0 && !casePriceInheritByPid[r.product_id]) {
+        casePriceInheritByPid[r.product_id] = {
+          v: lp, label: inheritPeriodLabel(r.last_case_period_start, r.last_case_period_end),
+        }
+      }
+    })
     // v179：编辑态行底与查看态**同源**（规则与注释见 loadCross 同段 / buildRowBase）——
     //   只列「本期导入登记的商品 ∪ 有报单的商品」（含已停用的），勾「显示全部商品」回到全量。
     // 🔴 两处必须用同一条规则：查看态看到 158 行、一进编辑却铺 285 行，用户会以为
@@ -2900,6 +2954,10 @@ async function loadEditGrid() {
         /* v190：本期手工单价 —— 编辑态的**草稿初始值**。没有它，刷新或换个人打开改单网格时
            单价框会回到灰色自动价（明明存过），用户会以为「保存没生效」。 */
         casePrice: casePriceByPid[pd.id] || null,
+        /* v191b：**沿用价**（本期未录入时自动带出的「最近一次录入过的价」）＋ 来源期次标签。
+           两者都是**只读**：不参与 save-matrix 载荷、不进草稿键 —— 见上方 casePriceInheritByPid 注释。 */
+        casePriceInherit: (casePriceInheritByPid[pd.id] || {}).v || null,
+        casePriceInheritPeriod: (casePriceInheritByPid[pd.id] || {}).label || '',
         ai: null, suggest: 0, history: [],
         // v179：本行是否来自「本期导入登记」（表格角标用；来源是后端台账，非前端推测）
         imported: importedSet.has(Number(pd.id)),
@@ -3278,7 +3336,10 @@ async function saveEdits() {
         /* v190：本期手工单价（元/箱）→ 后端落 `forecast_extra_qty.case_price`。
            未录入传 null（**不传 0**：前端判据是「> 0 才算手工录入」，传 0 会让两边判据
            出现「0 vs null」的表述差，虽然结果一样、但读代码的人要重新推一遍）。
-           清空后再保存 = 写回 NULL ⇒ 该行回到「按档案厂价自动算」。 */
+           清空后再保存 = 写回 NULL ⇒ 该行回到「按档案厂价自动算」。
+           🔴 v191b：**只能传 `r.casePrice`（用户真填过的那个）**，绝不把 `casePriceInherit`（沿用的价）
+              传上去 —— 传上去等于把「没填」记成「填过」：本期会凭空多出一条价记录，
+              且清空后再保存又被写回 ⇒ 用户永远清不掉（沿用值把它带回来）。 */
         case_price: Number(r.casePrice) > 0 ? Number(r.casePrice) : null,
       })),
     }
@@ -7010,6 +7071,11 @@ async function loadCross() {
            与填单人保存时看到的不一致（同屏两个口径打架）。值来自 summary 的 rows（按期次隔离）。
            ⚠️ 这里判 `> 0` 而不是 `!= null`：与前端 `pricePerCase` / 后端「非正数归 NULL」同判据。 */
         casePrice: (r && Number(r.case_price) > 0) ? Number(r.case_price) : null,
+        /* v191b：沿用价 + 来源期次标签（**只读参考值**，与 loadEditGrid 同源同判据）——
+           两条加载路径都要带：漏一处，「查看态（只读汇总表）」的单价与下单金额就会退回档案自动价，
+           与填单人在改单网格里看到的不是同一个数（同屏两个口径打架）。 */
+        casePriceInherit: (r && Number(r.last_case_price) > 0) ? Number(r.last_case_price) : null,
+        casePriceInheritPeriod: r ? inheritPeriodLabel(r.last_case_period_start, r.last_case_period_end) : '',
         // v179：这一行是不是「本批导入进来的」—— 供表格角标显示（用户要能一眼确认
         //   他那 159 个商品进来了）。来源是后端登记台账，不是前端推测。
         imported: importedSet.has(Number(pd.id)),
