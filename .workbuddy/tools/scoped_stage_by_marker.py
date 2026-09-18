@@ -1451,6 +1451,52 @@ SPEC_FE_V190_CASEPRICE = ("fe", [
      "new_file": True, "gone": []},
 ])
 
+# ── v191：「单价(厂价/箱)」改为**只在本期生效**（2026-09-18，用户拍板）──────────────────
+#   口径变更：手工单价不再反推写回商品档案（那会改掉**所有期次**的金额），改为随报单落进
+#   本期 `forecast_extra_qty.case_price`（唯一键含 产品×期次 ⇒ 天然按期次隔离）。
+#   归属依据：**逐 hunk 打印首行核对**，不按行号猜。
+SPEC_BE_V191_CASEPRICE = ("be", [
+    # erp_db.py：11 个 hunk 里**我的只有 6 个** —— v108 建表加列 / case_price 列 /
+    #   v190 迁移 / 惰性建表+兜底 ALTER / summary 两条 SQL 分支下发 case_price（2 个）。
+    #   其余 5 个是**他人在途**（第 1400 行、v27 与 v161 迁移旁、alert_history_list、login_is_locked）。
+    #   🔴 已实测「生产版 vs 工作区」**恰好只差我这 6 个 hunk** ⇒ scp 这两个文件是零夹带的。
+    {"file": "server/erp_db.py",
+     "exclude_hunks": [1400, 10946, 10961, 11378, 11381],
+     # 回归判据：旧版「无日期窗口」分支的字段集里**没有** case_price
+     "gone": ['final_qty_expr = "NULL AS final_qty, 0 AS extra_qty"']},
+    # save-matrix 的行级 upsert：3 个 hunk **全属本轮**（该文件无他人在途改动）
+    #   → keep_all 拿到「构造结果 == 工作区」自证
+    {"file": "server/routers/forecast_submissions.py", "keep_all": True,
+     "gone": ['"INSERT INTO forecast_extra_qty (period_start, period_end, product_id, product_name, unit, extra_qty) "']},
+])
+
+SPEC_FE_V191_PERIODONLY = ("fe", [
+    # Forecast.vue：23 个 hunk 里**我的 16 个**；排除的 7 个是纯他人在途 ——
+    #   101（工具栏某处）、2841/2843/2854（loadEditGrid 的 srcByPid 合并与加单注释）、
+    #   8065/8080/8449（CSS，本轮一行没碰）。
+    #   ⚠️ `-2856,2 +2853,21` 是**混合 hunk**：含我的 `casePriceByPid` 9 行
+    #   + 他人在途的 v179 行底改造 12 行（后者**已在生产运行**）。hunk 粒度无法再拆，
+    #   故整块认领 —— 对应提交信息里的「含他人在途改动」，**不冒认**。
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2841, 2843, 2854, 8065, 8080, 8449],
+     # 旧实现必须消失（回退即报）：
+     "gone": ['casePriceToFactory',                    # 反推厂价的唯一实现已删（不再写档案）
+              'batchFactoryPrice',                     # 写档案通道已摘除（本文件内零引用）
+              '保存时同步写回商品档案的厂价',
+              "'factory_price', 'casePrice']"]},       # 草稿键去掉 factory_price
+    # 本轮同源更新过的真机探针（K 段：后端已下发 case_price + 未录入为 null 而非 0）
+    {"file": ".workbuddy/tools/forecast-edit-grid-v187-verify.js", "keep_all": True, "gone": []},
+    # 本轮新建：沙箱端到端（落本期 / 不改档案 / 回读 / 可撤销）
+    {"file": ".workbuddy/tools/forecast-caseprice-periodonly-v191-verify.js", "new_file": True, "gone": []},
+    # 本工具自身（新增上面两组 spec + 注册）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # 交付说明与沙箱证据（PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/预报单价只在本期生效-2026-09-18/01-改单网格-录入手工价（沙箱端到端）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报单价只在本期生效-2026-09-18/02-交付说明.md",
+     "new_file": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1495,7 +1541,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          #   factory_price 是根因，缺它前端所有单价都会退回进价算）⇒ 两个 spec 一起跑。
          # 同样带语义后缀而非只写号码（v187/v188 号都被并发会话撞过）。
          "fe-v190-caseprice": SPEC_FE_V190_CASEPRICE,
-         "be-v190-gridfp": SPEC_BE_V190_GRIDFP}
+         "be-v190-gridfp": SPEC_BE_V190_GRIDFP,
+         "fe-v191-periodonly": SPEC_FE_V191_PERIODONLY,
+         "be-v191-caseprice": SPEC_BE_V191_CASEPRICE}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

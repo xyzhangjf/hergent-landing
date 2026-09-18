@@ -6,12 +6,20 @@
 //   v188（2026-09-18）：列名带单位 —— 「合计」→「合计(小单位)」、「件数(箱)」→「合计(箱)」，
 //     只读表与编辑网格两态同步。⚠️ 探针按文案匹配，改列名必须同步改 WANT/B 段，否则报的是
 //     探针自身的失败、不是产品缺陷。H 段为 v188 新增：**查看态（只读汇总表）表头**此前完全没验过。
-//   v190（2026-09-18）：「单价(厂价/箱)」由只读 span 改为**可录入框**（录入箱价 → 保存时反推厂价
-//     写回商品档案）。⚠️ 两处必须同步，否则探针自欺：
+//   v190（2026-09-18）：「单价(厂价/箱)」由只读 span 改为**可录入框**。
+//     ⚠️ 两处必须同步，否则探针自欺：
 //       ① snapshot 的 price 必须按「value 优先、空则 placeholder（自动价）」取 —— 否则读到空串，
 //           E 段那些行会被 eN 跳过 = 静默失去覆盖；
-//       ② I 段逐条验录入链路，**全程不点保存**（保存会改生产商品档案）。
+//       ② I 段逐条验录入链路，**全程不点保存**。
 //     J 段用「厂价>0 而进价=0」的商品反证单价来源是厂价（旧版这些行显示「缺价」）。
+//   v191（2026-09-18，同日口径变更）：用户拍板「**只在本期生效**」—— 手工价不再反推写回
+//     商品档案（那会改掉所有期次的金额），改为随报单落 `forecast_extra_qty.case_price`
+//     （唯一键含 产品×期次）。
+//     🔴 因此 I 段**必须继续不点保存**（本探针跑在生产，点保存会写生产数据）；
+//        「保存 → 回读 → 期次隔离 → 档案未变」由**沙箱端到端探针**验
+//        （`forecast-caseprice-archive-v190-verify.js`，跑在隔离租户 9997+）。
+//     K 段为本轮新增：验后端 summary 已下发 `case_price` 且「未录入 = null 而非 0」——
+//        这是「同屏口径同源」的数据层前提，纯读、不写任何数据。
 // ⚠️ 断言必须带「非空守卫」：编辑网格 0 行时逐行断言会静默变绿（技能点名的「断言消失」坑）
 // 用法: NODE_PATH=<managed workspace>/node_modules node forecast-edit-grid-v187-verify.js <TOKEN> [TENANT] [PERIOD_ID]
 const puppeteer = require('puppeteer-core');
@@ -36,7 +44,30 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
   const consoleErrors = [], pageErrors = [], badResp = [];
   page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', e => pageErrors.push(String(e)));
-  page.on('response', r => { if (r.status() >= 400 && r.url().includes('/api/')) badResp.push(r.status() + ' ' + r.url()); });
+  /* v191：顺手捕获页面**真实发出的** summary 响应 —— K 段要验「后端下发的行里带 case_price」。
+     🔴 **不要自己另发 fetch 去验**：实测自建查询（四种 start/end/period_id 组合、Authorization 与
+     X-Tenant-Id 都带齐）**恒返回 0 行**，而页面在同一个期次下明明渲染出 26 行；同一时刻
+     `/api/products/grid` 用同一套 header 却完全正常。⇒ 自建查询会给出**与事实相反**的结论。
+     用页面那份响应体（并记下它的 URL）才是事实来源。 */
+  let summarySnaps = [];
+  page.on('response', async r => {
+    if (r.status() >= 400 && r.url().includes('/api/')) badResp.push(r.status() + ' ' + r.url());
+    /* 🔴 真实路径是 `/api/forecast-submissions/summary`（见 api/modules.js::forecastApproveApi.summary）。
+       写成 `/api/forecast/summary` **永远匹配不到** ⇒ K 段退化成「未捕获」（本轮实跑踩过）。
+       同类坑：save-matrix 也是 `/api/forecast-submissions/save-matrix`，不是 `/api/forecast/...`。 */
+    if (!r.url().includes('/api/forecast-submissions/summary')) return;
+    try {
+      const j = await r.json();
+      const rows = j.rows || [];
+      summarySnaps.push({
+        url: r.url().replace(BASE, '').slice(0, 140),
+        rows: rows.length,
+        hasKey: rows.length ? Object.prototype.hasOwnProperty.call(rows[0], 'case_price') : null,
+        zeros: rows.filter(x => x.case_price === 0).length,
+        nonNull: rows.filter(x => Number(x.case_price) > 0).length,
+      });
+    } catch (e) { /* 响应体不可读（连接被中断等）时忽略，不影响其它断言 */ }
+  });
   // 角色不在填报白名单时 enterEdit 会 window.confirm —— 不接 dialog 会整轮卡死
   page.on('dialog', async d => { try { await d.accept(); } catch (e) {} });
 
@@ -297,6 +328,39 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
   ok('J2 存在「有厂价、进价为空」的商品 —— 这些行旧版显示「缺价」，现已算出价',
     (J.fpOnlyNoPp || 0) > 0, '数量=' + J.fpOnlyNoPp + ' 样例=' + JSON.stringify(J.sample || []));
 
+  /* v191：K 段需要一份「**有报单明细行**」的 summary —— 而 A 段挑中的期次可能 rows=0
+     （实测期次 13：表格有 26 行但全部来自**导入登记**，summary 的 rows 是 0）。
+     这里借「切期次」这个**页面原生操作**多采集几份（页面自己会发请求，探针不自建查询），
+     采到就停，最后切回原期次，不影响后续任何断言的上下文。 */
+  {
+    const _cands = await page.$$eval('select.sel-period option', os => os.filter(o => Number(o.value) > 0).map(o => o.value));
+    for (const v of _cands) {
+      if ((summarySnaps || []).some(x => (x.rows || 0) > 0)) break;
+      await setPeriod(v); await sleep(2200);
+    }
+    if (chosen) { await setPeriod(chosen); await sleep(2200); }
+  }
+
+  // ---- K: 「只在本期生效」的后端下发判据（**纯读，不写任何数据**）----
+  //   本轮（v191「只在本期生效」）把手工单价从「反推写回商品档案」改成「落本期
+  //   `forecast_extra_qty.case_price`」，于是后端 summary **必须**把它随行下发 ——
+  //   否则前端只读态与编辑网格都拿不到价，金额只能退回自动价（同屏两个口径打架）。
+  //   K1 判据 = 键存在：两条 SQL 分支（带/不带日期窗口）都给了同一字段集，
+  //     故用 period_id 单参也能验到该键。
+  //   K2 判据 = 语义：未录入必须是 **null**，不能是 0 —— 若写成 COALESCE(...,0)，
+  //     「0 元/箱」与「没录价」就得分靠猜（零值即健康类陷阱）。
+  /* 取「**真有行**」的那次 summary：页面上有些期次 rows=0 —— 表格里那几十行来自**导入登记**
+     （`imported_products`，实测期次 13：rows=0 但 imported=154），不是报单明细。
+     拿 0 行那次去验「字段是否下发」会退化成无效（本轮实跑踩到过；K0c 就是为此设的守卫）。 */
+  const withRows = (summarySnaps || []).filter(x => (x.rows || 0) > 0);
+  const K = withRows.length ? withRows[withRows.length - 1] : ((summarySnaps || [])[0] || { err: '未捕获到 summary 响应' });
+  ok('K0c 捕获到至少一次「有行」的 summary 响应（非空守卫：0 行时下面两条断言会退化成无效）',
+    withRows.length > 0, 'captured=' + (summarySnaps || []).length + ' withRows=' + withRows.length + ' url=' + K.url);
+  ok('K1 后端 summary 已下发 case_price（本期单价的唯一载体；缺它金额只能退回自动价）',
+    K.hasKey === true, JSON.stringify(K));
+  ok('K2 未录入价为 null 而非 0（否则「没录价」与「0 元/箱」无法区分）',
+    (K.zeros || 0) === 0, '零值行数=' + K.zeros + ' 有价行数=' + K.nonNull);
+
   // 留一张「手工录入态」截图（纯前端状态、不保存 ⇒ 不落库；刷新即复原）
   //   同样需要造量：本期最终下单全为 0 的话，金额列看不出录入的效果。
   await page.evaluate(async () => {
@@ -340,6 +404,7 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
     headers: ths, footRow: snap.foot, summaryText: snap.summaryText,
     casePriceTest: I,
     priceSource: J,
+    periodCasePrice: K,
     assertions: results,
     summary: pass + '/' + results.length + ' 通过' + (pass === results.length ? ' ✅' : ' ❌'),
     sampleRows: real.slice(0, 5), fails: fails.slice(0, 10),
