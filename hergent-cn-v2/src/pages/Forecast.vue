@@ -603,7 +603,7 @@
               <div v-if="copyMenuOpen" class="tb-pop-panel copy-pop" :style="popStyle" @click.stop>
                 <div class="cp-title">复制本期报单<span v-if="copyUnitName" class="cp-title-sub"> · {{ copyUnitName }}</span></div>
                 <p v-if="brandSel.length" class="cp-tip">已按品牌筛选：{{ brandSel.join('、') }}（只复制这些品牌）</p>
-                <p class="cp-tip">有报单 = 「最终下单」列有数量（合计 + 加单）；行序与表格一致</p>
+                <p class="cp-tip">有报单 = 「最终下单(箱)」列有数量（合计(箱) + 加单(箱)）；行序与表格一致</p>
                 <div class="cp-unit-btns">
                   <button class="grp-btn cp-act" :disabled="!copyCount" title="复制厂家编码（有报单，按行序）" @click="doCopyCodes"><Icon name="barcode"/> 厂家编码</button>
                   <button class="grp-btn cp-act" :disabled="!copyCount" title="复制最终下单数量（与编码行序一致）" @click="doCopyQty"><Icon name="hash"/> 下单数量</button>
@@ -757,7 +757,7 @@
             </tbody>
           </table>
           </div>
-          <p class="cross-amt-note">报单金额 = 最终下单数量（箱）× 单价（厂价/箱）。<b>厂价 ≡ 进价</b>：商品档案填的进货价即厂价，若另录厂价则优先用它；<b>单价(厂价/箱) = 厂价 × 规格</b>。件数 = 合计 ÷ 规格（取整），最终下单 = 件数 + 加单，均按箱计。</p>
+          <p class="cross-amt-note">报单金额 = 最终下单数量（箱）× 单价（厂价/箱）。<b>厂价 ≡ 进价</b>：商品档案填的进货价即厂价，若另录厂价则优先用它；<b>单价(厂价/箱) = 厂价 × 规格</b>。合计(箱) = 合计(小单位) ÷ 规格（取整），最终下单(箱) = 合计(箱) + 加单(箱)，均按箱计。</p>
         </div>
 
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
@@ -800,7 +800,7 @@
               </Teleport>
             </div>
             <!-- v168：编辑态**刻意不提供**「复制报单」——
-                 本态矩阵是**未定稿草稿**，rowFinalQty() 走「件数 + 加单（箱）」口径；此时复制出去的
+                 本态矩阵是**未定稿草稿**，rowFinalQty() 走「合计(箱) + 加单(箱)」口径；此时复制出去的
                  是"还没定稿的数"，很容易被当成最终报单直接粘进厂家系统下单 → 数错。
                  故复制入口**只在只读汇总表**提供（见上方 .grid-ctl-row）。
                  品牌筛选两态都留：它同时是**显示过滤**，改单时按品牌收窄视野仍有意义。 -->
@@ -864,8 +864,10 @@
                   </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, u.name)" @click.stop></span>
                 </th>
-                <th class="num calc-th sum">合计<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'sum')" @click.stop></span></th>
-                <th class="num calc-th boxes">件数(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'boxes')" @click.stop></span></th>
+                <!-- v188：列名自证单位（用户 2026-09-18）——「合计」→「合计(小单位)」、「件数(箱)」→「合计(箱)」。
+                     原「合计」二字未标单位、同屏又与按箱的「件数(箱)」并列，易被读成同一个量。 -->
+                <th class="num calc-th sum">合计(小单位)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'sum')" @click.stop></span></th>
+                <th class="num calc-th boxes">合计(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'boxes')" @click.stop></span></th>
                 <th v-if="showSuggest" class="num calc-th suggest" title="配方建议：按「建议算法」面板当前策略算出，只受该面板影响">配方建议<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'suggest')" @click.stop></span></th>
                 <th class="num calc-th extra">加单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'extra')" @click.stop></span></th>
                 <th class="num calc-th final">最终下单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'final')" @click.stop></span></th>
@@ -1648,7 +1650,10 @@
         <div v-if="editMode" class="edit-hint">
           <!-- v187：口径自证 —— 同屏有「分销价」主档列，若只写「金额」会被读成分销价×数量；
                本值实为 amountValue 累加 = 最终下单(箱) × 单价(厂价/箱)，与「下单金额(厂价)」列逐字同源。 -->
-          <div class="edit-summary">合计 <b>{{ fmt(editTotalQty) }}</b> 件 · 下单金额(厂价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
+          <!-- v188：此处原写「合计 X 件」——但 editTotalQty 是 Σ各报单单元数量（小单位），
+               不是「件」；规格 ≠1 时「件」是错的。随列名一并改为「合计(小单位)」并去掉单位字
+               （小单位可能是盒/袋/包，统一写「件」反而误导；列名已自证）。 -->
+          <div class="edit-summary">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 下单金额(厂价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
           <!-- Q14：如实写明恢复范围，不再笼统称「已恢复未完成数据」（原实现只恢复数量，用户被误导以为全保住了） -->
           <div v-if="draftRestored" class="draft-banner">
             <Icon name="alert-triangle"/> 已从本地草稿恢复：数量 <b>{{ (draftRestoreInfo && draftRestoreInfo.qty) || 0 }}</b> 行 ·
@@ -2137,7 +2142,7 @@ const renderModel = computed(() => {
   let zi = 0
   for (const [key, rs] of map) {
     const sub = { qty: 0, amount: 0 }
-    // v184e：小计金额改用 amountValue（厂价/箱 × 最终下单箱），与「下单金额(厂价)」列同源；qty 仍为合计(件) 与「合计」列同源。
+    // v184e：小计金额改用 amountValue（厂价/箱 × 最终下单箱），与「下单金额(厂价)」列同源；qty 仍为合计(小单位) 与「合计(小单位)」列同源。
     rs.forEach(r => { sub.qty += rowSum(r); sub.amount += (amountValue(r) || 0) })
     out.push({ kind: 'group', key, label: key, subtotal: sub })
     rs.forEach(r => out.push({ kind: 'row', r, zi: zi++, gkey: key }))
@@ -2175,8 +2180,8 @@ function recomputeTotals() {
   cross.value.colTotals = units.map(u => rows.reduce((s, r) => s + (r.qtyByUnit[u.name] || 0), 0))
   cross.value.grand = {
     sku: rows.length,
-    qty: rows.reduce((s, r) => s + (r.total || 0), 0),   // 合计(件)
-    boxes: rows.reduce((s, r) => s + rowBoxes(r), 0),     // 件数合计(箱)
+    qty: rows.reduce((s, r) => s + (r.total || 0), 0),   // 合计(小单位)
+    boxes: rows.reduce((s, r) => s + rowBoxes(r), 0),     // 合计(箱)
     // v184e：报单金额合计 = 最终下单(箱) × 单价(厂价/箱)，与只读表「下单金额(厂价)」列同源。
     amount: rows.reduce((s, r) => s + (amountValue(r) || 0), 0),
   }
@@ -2233,8 +2238,8 @@ const colOrderList = computed(() => {
   //   ⚠️ 此前这里只传 key/label/cls/fmt/deletable，fixed 到不了查看态。
   visibleCols.value.forEach(c => cols.push({ type: 'master', key: c.key, label: c.label, cls: c.cls, fmt: c.fmt, deletable: c.deletable, fixed: c.fixed }))
   cross.value.units.forEach(u => cols.push({ type: 'qty', key: u.name, label: u.name }))
-  cols.push({ type: 'calc', key: 'qty', label: '合计' })
-  cols.push({ type: 'calc', key: 'boxes', label: '件数(箱)' })
+  cols.push({ type: 'calc', key: 'qty', label: '合计(小单位)' })
+  cols.push({ type: 'calc', key: 'boxes', label: '合计(箱)' })
   // v184e：系统建议用于辅助决定「加单」填多少，移到「加单」左侧，形成「建议→加单→最终下单」阅读流。
   // ⚠️ 命名纪律：本列是**后端固定口径**（routers/forecast_audit.py 的安全库存/到货周期/提前期常量），
   // 与受「建议算法」面板控制的「配方建议」列**是两个不同的量**，不得同名（改名前叫「AI建议」）。
@@ -2267,7 +2272,11 @@ const colWidths = ref({})
    colWidths 里已有值、仍以用户所拖为准（本默认只对没拖过的用户生效）。 */
 /* v187：补 `price` —— 表头「单价(厂价/箱)」需 ~91px 才不折行，此前不在默认表里 ⇒
    落到兜底 90px，两态表头都会折成两行。与 `amount`(104) 拉平，两态同宽。 */
-const COL_DEFAULTS = { seq: 46, name: 210, arrival_lead_days: 92, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, price: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
+/* v188：列名带单位后加宽 —— 「合计(小单位)」需 ~95px（原 `qty`=只读表 / `sum`=编辑网格 都只有 74px）；
+   「合计(箱)」由「件数(箱)」缩短，但 70px 仍偏窄 ⇒ 与同排 `extra`/`final`(78) 拉平取 84。
+   ⚠️ 两态同列共用同一 key：只读表的「合计(小单位)」= `qty`，编辑网格的 = `sum`，**两个 key 同一个量**
+   （历史命名分裂，改名会牵动 readCellVal/导出/col_defs，本轮不动，只保证宽度一致）。 */
+const COL_DEFAULTS = { seq: 46, name: 210, arrival_lead_days: 92, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 104, boxes: 84, extra: 78, final: 78, ai: 84, amount: 104, price: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 104, op: 64 }
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
 // v176：序号列已冻结在 left:0，故**其后每个冻结列的 left 必须整体右移「一个序号列宽」**，
@@ -2317,14 +2326,15 @@ const editColKeys = computed(() => {
   visibleCols.value.forEach(c => keys.push(c.key))
   cross.value.units.forEach(u => keys.push(u.name))
   /* v187：汇总列与「汇总表（只读）」逐列对齐（用户 2026-09-18 要求）——
-     报单单元 → 合计 → 件数(箱) → 配方建议 → 加单(箱) → 最终下单(箱) → 单价(厂价/箱) → 下单金额(厂价)。
+     报单单元 → 合计(小单位) → 合计(箱) → 配方建议 → 加单(箱) → 最终下单(箱) → 单价(厂价/箱) → 下单金额(厂价)。
      原实现把「合计」甩到最右、且完全缺「最终下单 / 下单金额(厂价)」两列（只在只读表有）。
-     ⚠️ 本函数驱动 <colgroup>，改这里必须同步 thead th / tbody td / 表尾 td 四处，否则整表错位。 */
-  keys.push('sum')          // 合计（= 各报单单元数量之和，紧挨报单单元）
-  keys.push('boxes')        // 件数(箱) = round(合计 ÷ 规格)
+     ⚠️ 本函数驱动 <colgroup>，改这里必须同步 thead th / tbody td / 表尾 td 四处，否则整表错位。
+     v188：列名带单位（合计 → 合计(小单位)，件数(箱) → 合计(箱)），key 不变、本节结构不变。 */
+  keys.push('sum')          // 合计(小单位)（= 各报单单元数量之和，紧挨报单单元）
+  keys.push('boxes')        // 合计(箱) = round(合计(小单位) ÷ 规格)
   if (showSuggest.value) keys.push('suggest')
   keys.push('extra')        // 加单(箱)
-  keys.push('final')        // 最终下单(箱) = 件数(箱) + 加单(箱)
+  keys.push('final')        // 最终下单(箱) = 合计(箱) + 加单(箱)
   keys.push('price')        // 单价(厂价/箱) = 厂价 × 规格
   keys.push('amount')       // 下单金额(厂价) = 最终下单(箱) × 单价(厂价/箱)
   if (compareOn.value) { keys.push('comparePrev'); keys.push('compareDelta') }
@@ -2336,7 +2346,7 @@ const editColKeys = computed(() => {
 })
 /* v187：加单(箱) 输入框的 `data-c` 哨兵值。
    🔴 编辑网格的**选区索引空间只含主档列 + 报单单元**（maxC = visibleCols.length + units.length - 1）；
-   calc 列（合计 / 件数 / 配方建议 / 最终下单 / 单价 / 下单金额）**不参与**键盘导航、填充柄与选区统计
+   calc 列（合计(小单位) / 合计(箱) / 配方建议 / 最终下单 / 单价 / 下单金额）**不参与**键盘导航、填充柄与选区统计
    —— readCellVal / writeCellVal 对 c ≥ master+units 一律返回 '' / false。
    而「加单」是 calc 列里**唯一带输入框**的（v-model 手输加单量），聚焦时必须给 onFocusCell 传一个
    **不会命中任何真实格**的位置，否则会覆盖用户当前选区。
@@ -2362,7 +2372,8 @@ function factoryPrice(r) {
   const pp = Number(r?.purchase_price || 0)
   return fp > 0 ? fp : pp
 }
-// v184e：件数 = round(合计 ÷ 规格)，单位「箱」。与只读表「件数(箱)」列、rowFinalQty（最终下单）同源。
+// v184e：合计(箱) = round(合计(小单位) ÷ 规格)。与只读表「合计(箱)」列、rowFinalQty（最终下单）同源。
+//   v188 仅改列名（原「件数(箱)」），公式与 key(`boxes`) 不变。
 function rowBoxes(r) {
   if (!r) return 0
   const total = r.total != null ? (Number(r.total) || 0) : rowSum(r)
@@ -3487,7 +3498,7 @@ function editColDescAt(c) {
   if (yoyOn.value) { extra.push('yoyPrev'); extra.push('yoyDelta') }
   extra.push('sum')
   const key = extra[k]; if (!key) return null
-  const lblMap = { amount: '下单金额', suggest: '配方建议', comparePrev: '上期量', compareDelta: 'Δ', spark: '趋势', yoyPrev: '去年同期', yoyDelta: '同比', sum: '合计' }
+  const lblMap = { amount: '下单金额', suggest: '配方建议', comparePrev: '上期量', compareDelta: 'Δ', spark: '趋势', yoyPrev: '去年同期', yoyDelta: '同比', sum: '合计(小单位)' }
   return { type: 'calc', key, label: lblMap[key] || key }
 }
 // 分组小计：仅文本型主档列可分组
@@ -3956,7 +3967,7 @@ function colHeaderAt(c) {
   if (showSpark.value) extra.push('spark')
   if (yoyOn.value) { extra.push('yoyPrev'); extra.push('yoyDelta') }
   extra.push('sum')
-  const m = { amount: '下单金额', suggest: '配方建议', comparePrev: '上期量', compareDelta: 'Δ', spark: '趋势', yoyPrev: '去年同期', yoyDelta: '同比', sum: '合计' }
+  const m = { amount: '下单金额', suggest: '配方建议', comparePrev: '上期量', compareDelta: 'Δ', spark: '趋势', yoyPrev: '去年同期', yoyDelta: '同比', sum: '合计(小单位)' }
   return m[extra[k]] || extra[k]
 }
 function regionRect() {
@@ -4780,7 +4791,7 @@ const errRowSet = computed(() => {
   return s
 })
 // v187：编辑态顶部汇总口径与「汇总表（只读）」完全对齐 ——
-//   件数 = 各报单单元数量之和（合计列同源）；金额 = amountValue（最终下单箱 × 单价(厂价/箱)）。
+//   合计(小单位) = 各报单单元数量之和（与「合计(小单位)」列同源）；金额 = amountValue（最终下单箱 × 单价(厂价/箱)）。
 //   原 rowAmount（分销价 × 合计）已删除：编辑网格不再有分销价口径的「金额」列，分销价仍作为主档可见列存在。
 const editTotalQty = computed(() => cross.value.rows.reduce((s, r) => s + rowSum(r), 0))
 const editTotalAmount = computed(() => cross.value.rows.reduce((s, r) => s + (amountValue(r) || 0), 0))
@@ -5697,7 +5708,7 @@ const copyUnitName = computed(() => (cross.value.period && cross.value.period.na
 const rowExtraQty = (r) => Number(r && (r.extra_qty != null ? r.extra_qty : r.extraQty)) || 0
 const rowFinalQty = (r) => {
   if (!r) return 0
-  // v184e：最终下单 = 件数(箱) + 加单(箱)（按用户的四条规则）。此前是 合计 + 加单（按件），与「件数」列脱节。
+  // v184e：最终下单 = 合计(箱) + 加单(箱)（按用户的四条规则）。此前是 合计 + 加单（按件），与「合计(箱)」列脱节（v188 前名为「件数(箱)」）。
   return rowBoxes(r) + rowExtraQty(r)
 }
 const copyCount = computed(() => {
@@ -6845,7 +6856,7 @@ async function loadCross() {
       //   现算，不另存一份计数（同屏数字口径必须同源）。
       rowBaseTotal: allProds.length,
       // v184e：grand 初值先占位，随后由 recomputeTotals() 用行级同源函数重算（含 boxes），
-      // 保证表尾「件数(箱)」合计与只读表逐行 rowBoxes 完全一致，不在此另写一套累加。
+      // 保证表尾「合计(箱)」合计与只读表逐行 rowBoxes 完全一致，不在此另写一套累加。
       grand: {
         sku: matrixRows.length,
         qty: matrixRows.reduce((s, r) => s + r.total, 0),

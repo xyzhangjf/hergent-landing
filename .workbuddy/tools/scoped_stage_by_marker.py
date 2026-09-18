@@ -1258,6 +1258,29 @@ SPEC_FE_V187 = ("fe", [
      "new_file": True, "gone": []},
 ])
 
+# ── v188：预报列名带单位（合计 → 合计(小单位)、件数(箱) → 合计(箱)）───────────
+# 纯文案 + 列宽，逻辑零改动；Forecast.vue 里同时含并发会话的在途 hunk
+# （srcByPid 合并 / extraByPid 累加 / .imp-errs 规则换位 / 三处空行）⇒ 黑掉其 old_start。
+# ⚠️ exclude_hunks 用 **HEAD 坐标的 old_start**：HEAD 一变必须重取（本次 8 个，
+#    与 v187 那次的号完全不同 —— 因为 v187 提交后行号整体位移了）。
+SPEC_FE_V188 = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2721, 2723, 2734, 2736, 7881, 7896, 8265],
+     # 旧列名必须消失（裸「合计」/「件数(箱)」若回来就是回退）
+     "gone": ["label: '件数(箱)'", 'calc-th boxes">件数(箱)', 'edit-summary">合计 <b>']},
+    # 本轮同源更新过的真机探针（v188 加了 H 段「查看态表头」与 B6/H4「表头不折行」判据）
+    {"file": ".workbuddy/tools/forecast-edit-grid-v187-verify.js", "keep_all": True, "gone": []},
+    # 本工具自身（新增上面这组 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # 交付说明与真机证据（PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/预报列名带单位-2026-09-18/01-查看态（只读汇总表）列名-合计小单位-合计箱-1800.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报列名带单位-2026-09-18/02-改单态（编辑网格）列名同步-1800.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报列名带单位-2026-09-18/03-交付说明.md",
+     "new_file": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1288,7 +1311,10 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v187-dashboard": SPEC_FE_V187_DASHBOARD,
          # ⚠️ v187 号被并发会话占用（fe-v187-dashboard = 货损仪表盘），本 spec 加 -editgrid 后缀区分。
          #    代价：Forecast.vue 内注释里写的「v187」不带后缀，与对方同号 ⇒ 追责时要按文件区分。
-         "fe-v187-editgrid": SPEC_FE_V187}
+         "fe-v187-editgrid": SPEC_FE_V187,
+         # v188：预报列名带单位。本 spec 直接带语义后缀（labels），即便 v188 号被并发会话
+         #   占用也能按后缀区分（v187 就是这么撞上的）。
+         "fe-v188-labels": SPEC_FE_V188}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

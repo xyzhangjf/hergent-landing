@@ -1,8 +1,11 @@
-// v187 真机探针：验证「改单态编辑网格」的汇总列序与口径与只读汇总表对齐
-//   ① 合计 紧挨各报单单元，且 = 各报单单元数量之和
+// v187/v188 真机探针：验证「改单态编辑网格」的汇总列序与口径与只读汇总表对齐
+//   ① 合计(小单位) 紧挨各报单单元，且 = 各报单单元数量之和
 //   ② 最终下单(箱) / 单价(厂价/箱) / 下单金额(厂价) 三列可见（此前编辑网格完全没有）
-//   ③ 最终下单 = 件数(箱) + 加单(箱)；下单金额(厂价) = 最终下单 × 单价(厂价/箱)
+//   ③ 最终下单 = 合计(箱) + 加单(箱)；下单金额(厂价) = 最终下单 × 单价(厂价/箱)
 //   ④ 表尾与顶部汇总同源
+//   v188（2026-09-18）：列名带单位 —— 「合计」→「合计(小单位)」、「件数(箱)」→「合计(箱)」，
+//     只读表与编辑网格两态同步。⚠️ 探针按文案匹配，改列名必须同步改 WANT/B 段，否则报的是
+//     探针自身的失败、不是产品缺陷。H 段为 v188 新增：**查看态（只读汇总表）表头**此前完全没验过。
 // ⚠️ 断言必须带「非空守卫」：编辑网格 0 行时逐行断言会静默变绿（技能点名的「断言消失」坑）
 // 用法: NODE_PATH=<managed workspace>/node_modules node forecast-edit-grid-v187-verify.js <TOKEN> [TENANT] [PERIOD_ID]
 const puppeteer = require('puppeteer-core');
@@ -14,7 +17,7 @@ const BASE = 'https://hergent.cn';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const num = s => { if (s == null) return NaN; const m = String(s).replace(/[, ¥%]/g, '').match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : NaN; };
 
-const WANT = ['合计', '件数(箱)', '配方建议', '加单(箱)', '最终下单(箱)', '单价(厂价/箱)', '下单金额(厂价)'];
+const WANT = ['合计(小单位)', '合计(箱)', '配方建议', '加单(箱)', '最终下单(箱)', '单价(厂价/箱)', '下单金额(厂价)'];
 
 const results = [];
 const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) });
@@ -34,6 +37,18 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
   await page.evaluateOnNewDocument((t, ten) => {
     localStorage.setItem('hergent_v2_token', t);
     localStorage.setItem('hergent_v2_tenant', String(ten));
+    // v188：测「表头是否折行」—— 对元素内第一个非空文本节点做 Range 测量，行盒数 >1 即折行。
+    //   ⚠️ 不能用 th.getBoundingClientRect().height 横向比较：表格同一行内所有单元格高度被强制相同
+    //   （折行的那个只会把整行撑高）⇒ 那种判据恒真 = 空断言假 PASS。
+    window.__linesOf = (el) => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let n; while ((n = walker.nextNode())) { if (n.nodeValue && n.nodeValue.trim()) break; }
+      if (!n || !n.nodeValue || !n.nodeValue.trim()) return null;
+      const r = document.createRange(); r.selectNodeContents(n);
+      const rs = Array.from(r.getClientRects()).filter(x => x.height > 0);
+      if (!rs.length) return null;
+      return new Set(rs.map(x => Math.round(x.top))).size;
+    };
   }, TOKEN, TENANT);
 
   await page.goto(BASE + '/?cb=' + Date.now() + '#/forecast', { waitUntil: 'networkidle2', timeout: 60000 });
@@ -66,6 +81,38 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
   }
   ok('A2 找到有报单行的期次', roRows > 0, 'period=' + chosen + ' readonlyRows=' + roRows);
 
+  // ---- H: 查看态（只读汇总表）表头 —— v188 新增。此前探针只验改单态，查看态列名无人管。----
+  //   必须在「点改单」之前抓：之后只读表会被 v-else 换成编辑网格。
+  const roHead = await page.evaluate(() => {
+    const cands = Array.from(document.querySelectorAll('table.tbl')).filter(x => !x.classList.contains('edit-tbl'));
+    const t = cands.find(x => x.querySelectorAll('tbody tr.data-row').length > 0) || cands[0];
+    if (!t) return null;
+    const ths = Array.from(t.querySelectorAll('thead th'));
+    return ths.map(x => ({
+      t: (x.innerText || '').replace(/\s+/g, ' ').trim(),
+      c: x.className,
+      lines: window.__linesOf(x),
+      w: Math.round(x.getBoundingClientRect().width),
+    }));
+  });
+  if (!roHead) { ok('H0 读到查看态表头', false, 'null'); }
+  else {
+    const rt = roHead.map(x => x.t);
+    const ri = k => rt.indexOf(k);
+    ok('H1 查看态表头含「合计(小单位)」与「合计(箱)」', ri('合计(小单位)') >= 0 && ri('合计(箱)') >= 0, JSON.stringify(rt));
+    const rqty = roHead.map((x, i) => /qty/.test(x.c) ? i : -1).filter(i => i >= 0);
+    const rlast = rqty.length ? Math.max(...rqty) : -1;
+    ok('H2 查看态「合计(小单位)」紧挨最后一个报单单元', rlast >= 0 && ri('合计(小单位)') === rlast + 1,
+      'lastQtyThIdx=' + rlast + ' sumThIdx=' + ri('合计(小单位)'));
+    const rbare = rt.filter(x => x === '合计' || x === '件数(箱)');
+    ok('H3 查看态无裸「合计」/「件数(箱)」表头（防回退）', rbare.length === 0, rbare.length ? '仍存在: ' + JSON.stringify(rbare) : 'ok');
+    const si = ri('合计(小单位)');
+    const cell = si >= 0 ? roHead[si] : null;
+    ok('H4 查看态「合计(小单位)」表头单行不折行（列宽足够）', cell && cell.lines === 1,
+      cell ? JSON.stringify({ text: cell.t, w: cell.w, lines: cell.lines }) : '列不存在');
+    await page.screenshot({ path: '/tmp/fc_ro_v188.png' });
+  }
+
   // 进改单态
   const clicked = await page.evaluate(() => {
     const b = Array.from(document.querySelectorAll('button'))
@@ -81,6 +128,7 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
     if (!t) return null;
     const thList = Array.from(t.querySelectorAll('thead th'));
     const ths = thList.map(th => (th.innerText || '').replace(/\s+/g, ' ').trim());
+    const thInfo = thList.map(th => ({ t: (th.innerText || '').replace(/\s+/g, ' ').trim(), w: Math.round(th.getBoundingClientRect().width), lines: window.__linesOf(th) }));
     const qtyIdx = thList.map((th, i) => th.classList.contains('qty-th') ? i : -1).filter(i => i >= 0);
     // 编辑网格不虚拟滚动（159 行全在 DOM），必须全量读 —— 只采样前 N 行会让表尾断言假 FAIL
     const rows = Array.from(t.querySelectorAll('tbody tr')).map(tr => {
@@ -92,7 +140,7 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
     const fg = cls => { const td = foot ? foot.querySelector('td.' + cls) : null; return td ? (td.innerText || '').replace(/\s+/g, ' ').trim() : null; };
     const sum = document.querySelector('.edit-summary');
     return {
-      ths, qtyIdx, rows, qtyCellCount: rows.length ? rows[0].qty.length : 0,
+      ths, thInfo, qtyIdx, rows, qtyCellCount: rows.length ? rows[0].qty.length : 0,
       foot: { sum: fg('calc.sum'), boxes: fg('calc.boxes'), extra: fg('calc.extra'), final: fg('calc.final'), amount: fg('calc.amount') },
       summaryText: sum ? (sum.innerText || '').replace(/\s+/g, ' ').trim() : null,
     };
@@ -105,14 +153,18 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
   const present = WANT.filter(w => ths.includes(w));
   const idx = {}; present.forEach(w => { idx[w] = ths.indexOf(w); });
   const seq = present.map(w => idx[w]);
-  ok('B1 汇总段列序 = 合计 → 件数(箱) → 配方建议 → 加单(箱) → 最终下单(箱) → 单价(厂价/箱) → 下单金额(厂价)',
+  ok('B1 汇总段列序 = 合计(小单位) → 合计(箱) → 配方建议 → 加单(箱) → 最终下单(箱) → 单价(厂价/箱) → 下单金额(厂价)',
     seq.every((v, i) => i === 0 || v > seq[i - 1]) && present.length >= 6, present.join(' → '));
   const lastQty = snap.qtyIdx.length ? Math.max(...snap.qtyIdx) : -1;
-  ok('B2 合计紧挨各报单单元（= 最后一个报单单元的下一列）', idx['合计'] === lastQty + 1, 'lastQtyThIdx=' + lastQty + ' sumThIdx=' + idx['合计']);
-  ok('B3 合计不在最右', idx['合计'] < ths.length - 1, 'sumIdx=' + idx['合计'] + ' thTotal=' + ths.length);
+  ok('B2 合计(小单位) 紧挨各报单单元（= 最后一个报单单元的下一列）', idx['合计(小单位)'] === lastQty + 1, 'lastQtyThIdx=' + lastQty + ' sumThIdx=' + idx['合计(小单位)']);
+  ok('B3 合计(小单位) 不在最右', idx['合计(小单位)'] < ths.length - 1, 'sumIdx=' + idx['合计(小单位)'] + ' thTotal=' + ths.length);
   ok('B4 三列均存在（此前编辑网格完全没有）', ['最终下单(箱)', '单价(厂价/箱)', '下单金额(厂价)'].every(k => k in idx),
     ['最终下单(箱)', '单价(厂价/箱)', '下单金额(厂价)'].map(k => k + '@' + (idx[k] != null ? idx[k] : '缺失')).join(' '));
-  ok('B5 无遗留的裸「金额」表头', !ths.includes('金额'), JSON.stringify(ths));
+  // v188：裸「合计」/「件数(箱)」都必须消失（防回退到无单位列名）
+  const bare = ths.filter(x => x === '合计' || x === '件数(箱)' || x === '金额');
+  ok('B5 无遗留的裸「金额」/「合计」/「件数(箱)」表头', bare.length === 0, bare.length ? '仍存在: ' + JSON.stringify(bare) : JSON.stringify(ths));
+  const sumTh = (snap.thInfo || []).find(x => x.t === '合计(小单位)');
+  ok('B6 编辑网格「合计(小单位)」表头单行不折行（列宽足够）', !!sumTh && sumTh.lines === 1, sumTh ? JSON.stringify(sumTh) : '列不存在');
 
   // ---- C/D/E: 逐行口径（带非空守卫）----
   const real = snap.rows.filter(r => r.sum != null);
@@ -122,7 +174,7 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
     const units = r.qty.reduce((a, v) => a + (Number(v) || 0), 0);
     cN++; if (Number(num(r.sum)) === units) cOK++; else fails.push({ i, rule: 'C 合计=Σ报单单元', got: r.sum, units, qty: r.qty });
     if (r.boxes != null && r.extra != null && r.final != null) {
-      dN++; if (Number(num(r.final)) === Number(num(r.boxes)) + Number(num(r.extra))) dOK++; else fails.push({ i, rule: 'D 最终下单=件数+加单', boxes: r.boxes, extra: r.extra, final: r.final });
+      dN++; if (Number(num(r.final)) === Number(num(r.boxes)) + Number(num(r.extra))) dOK++; else fails.push({ i, rule: 'D 最终下单=合计(箱)+加单(箱)', boxes: r.boxes, extra: r.extra, final: r.final });
     }
     if (r.price != null && r.final != null && r.amount != null && /[\d.]/.test(r.price) && /[\d.]/.test(r.amount)) {
       const p = num(r.price), f = Number(num(r.final)), a = num(r.amount); eN++;
@@ -130,7 +182,7 @@ const ok = (name, pass, detail) => results.push({ name, pass: !!pass, detail: de
     }
   });
   ok('C 逐行 合计 == Σ各报单单元数量（非空守卫）', cN > 0 && cOK === cN, cOK + '/' + cN);
-  ok('D 逐行 最终下单(箱) == 件数(箱) + 加单(箱)（非空守卫）', dN > 0 && dOK === dN, dOK + '/' + dN);
+  ok('D 逐行 最终下单(箱) == 合计(箱) + 加单(箱)（非空守卫）', dN > 0 && dOK === dN, dOK + '/' + dN);
   ok('E 逐行 下单金额(厂价) == 最终下单(箱) × 单价(厂价/箱)（非空守卫）', eN > 0 && eOK === eN, eOK + '/' + eN);
 
   // ---- F: 表尾 / 顶部汇总同源（同样带非空守卫）----
