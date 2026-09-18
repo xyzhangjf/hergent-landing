@@ -1565,6 +1565,75 @@ SPEC_FE_V192_HIDECYCLE = ("fe", [
      "new_file": True, "gone": []},
 ])
 
+# ── v193：预报导入门禁 —— 没有**进行中（open）**的期次 ⇒ 前端置灰 + 后端 400 ──────
+#   用户原话（2026-09-18）：「我们之前设计的流程是：用户必须先点击『新建期次』，之后才能进行
+#   导入操作。但目前导入入口直接暴露在页面上，未新建期次也能使用，我实测点击后确实可以正常
+#   导入，导致整个业务流程被绕过、逻辑混乱。」
+#   🔴 判据取自项目内**用户拍板的既定方案**（不是我拍口径）：
+#      `outputs/期次数据流程优化方案-2026-09-17/期次数据流程优化方案-2026-09-17.md`
+#      §四.1「不是『必须先建期次』，而是『必须有一个「进行中」的期次』」。
+#      ⚠️ 第一版按「有没有期次」实现（沙箱 6/6+8/8 全绿），查方案后才发现方向错、已推倒重做；
+#         留档见 `outputs/预报导入门禁-必须先建期次-2026-09-18/04-交付说明.md` §2.1。
+SPEC_FE_V193_GATE = ("fe", [
+    # Forecast.vue：工作区共 **18 hunk**，我的 **11 个**，在途 **7 个**。
+    #   我的（逐 hunk 打内容认过，不按行号猜）：
+    #     12   gate-bar 模板（顶部常驻横幅）
+    #     47   工具条「导入」按钮 :disabled + :title
+    #     132  抽屉内 v180 警告块加 v193 注释
+    #     651/654 空态三行 + 按钮组（无进行中期次时改指路「新建期次」）
+    #     1983/1987 状态声明（openPeriodId / periodsLoaded）+ curOpenPeriodId 注释改写
+    #     6469/6470 判据块 + openImport 硬守卫
+    #     7625 loadPeriods 赋值
+    #     8221 `.gate-bar` 样式
+    #   在途（**纯他人**未提交改动）：
+    #     101        纯空行 hunk（工具栏与「新建期次表单」之间多出的一个空行）——无法归属，
+    #                排除零风险；与 v163/v191b/v192 三份 spec 的处理**一致**（同一处、同一判断）。
+    #     2902/2904/2915  loadEditGrid 的 srcByPid 改「合并而非覆盖」+ 加单注释（2026-09-13 那批）
+    #     8175/8190  `.imp-errs` 规则**搬家两半**（技能 §5.8：搬移必须两半一起排除）
+    #     8559       纯空行 hunk（td.invalid 规则后多出的一个空行）
+    #   ⚠️ 黑名单 = **HEAD 坐标的 old_start**（`@@ -2902,0 +2951,2 @@` 取 **2902**，不是新侧 2951）。
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2902, 2904, 2915, 8175, 8190, 8559],
+     # 旧实现必须消失（这三条正是本轮被替换掉的代码/注释，0 命中已实测）：
+     #   ① 工具条旧导入按钮（**没有** :disabled 的那一版）—— 这就是用户实测点得动的那个入口
+     #   ② 空态里那个「导入 Excel」按钮 —— 它把绕流程的入口**直接递到手上**
+     #   ③ 旧注释里断言「归属链 = current → 兜底 default()」的那半句 —— 本轮把兜底删了
+     "gone": ['<button class="btn btn-sm btn-ghost" @click="openImport" title="从 Excel 导入预报订单汇总表"><Icon name="upload"/> 导入</button>',
+              '<button class="btn btn-ghost btn-sm" @click="openImport"><Icon name="upload"/> 导入 Excel</button>',
+              '→ 兜底 forecast_period_default()），前端只能从 GET /periods 的']},
+    # 本轮新建：沙箱四阶段端到端（A 6/6 · B 7/7 · C 8/8 · D 8/8 = 29/29）+ 出图 + 样本 + SQL 助手
+    {"file": ".workbuddy/tools/forecast-import-gate-v193-verify.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v193-import-gate-shots.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/make-fc-cross-sample.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/sandbox_sql.py", "new_file": True, "gone": []},
+    # 本轮修的**基础设施缺陷**：`shutil.copy2` 不搬 uid/gid ⇒ 以 root 跑 `sandbox_tenant.py up`
+    #   时新库属主 = root:root，而后端以 hergent 运行 ⇒ `attempt to write a readonly database`
+    #   （接口 200、success:0，极易误判成业务失败）。修法＝属主跟着**源库**走。
+    {"file": ".workbuddy/tools/sandbox_tenant.py", "keep_all": True, "gone": []},
+    # 本工具自身（新增上面的 spec + 注册）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # 交付说明与沙箱证据（PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/预报导入门禁-必须先建期次-2026-09-18/01-期次已关闭-导入置灰且横幅提示（沙箱）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报导入门禁-必须先建期次-2026-09-18/02-未建期次-导入置灰且空态指路（沙箱）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报导入门禁-必须先建期次-2026-09-18/03-已建期次-横幅消失且导入恢复可用（沙箱）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报导入门禁-必须先建期次-2026-09-18/04-交付说明.md",
+     "new_file": True, "gone": []},
+])
+
+# ── v193 后端：删掉归属兜底 `forecast_period_default()` + 加 400 硬闸 / `/periods` 下发 open ──
+SPEC_BE_V193_GATE = ("be", [
+    # import_router.py：3 hunk 全是本轮的（删兜底 + 硬闸），无在途改动 → keep_all 拿「== 工作区」自证。
+    #   闸门位置的两个前提（都已核过）：① `_execute_forecast_cross` 是预报导入**唯一**落库入口
+    #   （`/preview` 只解析不落库、`/one-shot` 不产出 forecast_cross）；② 客户端**从不传 period_id**。
+    {"file": "server/routers/import_router.py", "keep_all": True, "gone": []},
+    # forecast.py：2 hunk 里**我的 1 个**（`/periods` 新增 `open` 字段）；
+    #   排除的 606 是纯他人在途 —— 付款到账通知的 sender 展示名（"运营主管" → "经营副驾"）。
+    {"file": "server/routers/forecast.py", "exclude_hunks": [606], "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1614,7 +1683,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v191-caseprice": SPEC_BE_V191_CASEPRICE,
          "fe-v191b-inherit": SPEC_FE_V191B_INHERIT,
          "be-v191b-inherit": SPEC_BE_V191B_INHERIT,
-         "fe-v192-hidecycle": SPEC_FE_V192_HIDECYCLE}
+         "fe-v192-hidecycle": SPEC_FE_V192_HIDECYCLE,
+         "fe-v193-gate": SPEC_FE_V193_GATE,
+         "be-v193-gate": SPEC_BE_V193_GATE}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

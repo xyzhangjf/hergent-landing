@@ -132,6 +132,7 @@ def cmd_up(a):
         sys.exit("拒绝：只允许从 tenant_1 / tenant_10 克隆（源库必须真实且只读）")
 
     src_before = sha256(src_db)
+    src_st = os.stat(src_db)        # 源库的 uid/gid —— 克隆后逐字沿用它（见下方 🔴）
 
     # ── 1. 克隆库 ────────────────────────────────────────────────
     for suffix in ("", "-wal", "-shm"):
@@ -149,7 +150,22 @@ def cmd_up(a):
         sp = src_db + suffix
         if os.path.exists(sp):
             shutil.copy2(sp, dst_db + suffix)
-    os.chmod(dst_db, 0o644)          # 与真实租户一致；属主已是 hergent（脚本以 hergent 跑）
+    os.chmod(dst_db, 0o644)          # 与真实租户一致的权限位
+    # 🔴 2026-09-18 修复：**属主必须跟着源库**，否则沙箱是「读得到、写不了」的空壳。
+    #    症状（实测本轮）：导入回执 `{"success":0,"errors":["客户「永辉」导入失败:
+    #    attempt to write a readonly database"]}` —— 接口 200、看着像业务失败，
+    #    极易误判成「产品坏了」。
+    #    根因：本工具是用 `ssh root@<prod> python3 sandbox_tenant.py up` 跑的，
+    #    `shutil.copy2` **不搬运属主**（copy2 只搬 mode/mtime，不搬 uid/gid），
+    #    新文件属主 = 调用进程 = root；而后端 systemd 以 **hergent** 运行
+    #    ⇒ root:root + 644 ⇒ 后端只读。
+    #    旧注释写「属主已是 hergent（脚本以 hergent 跑）」—— 那个前提在 ssh-as-root 下**不成立**，
+    #    正是本缺陷的来源。校验方式：`ls -l` 对比 dst 与 src 的属主。
+    #    取**源库的** uid/gid 而非硬编码 `hergent`：换部署用户后不会失效。
+    for suffix in ("", "-wal", "-shm"):
+        p = dst_db + suffix
+        if os.path.exists(p):
+            shutil.chown(p, src_st.st_uid, src_st.st_gid)
 
     today = date.today().isoformat()
     tc = sqlite3.connect(dst_db)

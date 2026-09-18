@@ -10,6 +10,16 @@
     </div>
 
     <template v-if="activeTab === 'summary'">
+    <!-- v193（既定方案 §五 阶段 0）：「无进行中期次」时的**常驻**通告 + 就地出口。
+         为什么不改成「点了导入才弹错误」：既定方案的判据是
+           「📌 **禁用 + 说明好过「点了弹错误」** —— 错误弹窗只在你已经动过手之后才来」。
+         判据 noOpenPeriod = **已成功问到后端** && 没有 open 期次（与后端导入硬闸同源，
+         见代码区 GATE_MSG / canImport 上方注释）；接口没问到时不显示，避免误报。 -->
+    <div v-if="noOpenPeriod" class="gate-bar" role="status">
+      <Icon name="calendar"/>
+      <span class="gate-txt"><b>{{ GATE_LEAD }}</b>{{ GATE_REST }}</span>
+      <button class="btn btn-sm btn-primary" @click="openNewPeriod"><Icon name="plus"/> 新建期次</button>
+    </div>
     <!-- 报单期次选择 -->
     <div class="card toolbar" :class="{ 'tb-dense': editMode }">
       <!-- 工具栏单行布局（2026-09-12）：期次上下文 | 搜索与数据进出 | 决策与编辑，三段以 .tb-sep 分隔。
@@ -44,7 +54,11 @@
           <Icon name="search"/>
           <input id="gridFind" v-model="findText" @keydown="onFindKey" class="fld" placeholder="搜索商品名 / 条码（后 4 位也行）…" aria-label="筛选商品名或条码">
         </div>
-        <button class="btn btn-sm btn-ghost" @click="openImport" title="从 Excel 导入预报订单汇总表"><Icon name="upload"/> 导入</button>
+        <!-- v193：导入的前置条件是**已新建期次**（判据与后端落库口径同源，见 openImport 上方注释）。
+             未建期次时按钮置灰并说明原因，而不是隐藏 —— 隐藏会让用户以为功能被删了，
+             而「新建期次」按钮就在同一行的左侧一格，置灰 + 指路比消失更好懂。 -->
+        <button class="btn btn-sm btn-ghost" @click="openImport" :disabled="!canImport"
+                :title="canImport ? '从 Excel 导入预报订单汇总表' : importBlockedReason"><Icon name="upload"/> 导入</button>
         <div class="tb-pop">
           <button ref="exportBtn" class="btn btn-sm btn-ghost" :class="{on:exportMenuOpen}" @click="toggleTbPop('export')" title="导出：全部 / 选中行 / 差异"><Icon name="download"/> 导出 <Icon name="chevron-down"/></button>
           <Teleport to="body">
@@ -129,7 +143,10 @@
           <div v-if="!impState" class="imp-body">
             <p class="imp-tip">选择你现有的订单汇总表（行=商品、列=客户、格=数量）。系统自动识别商品列与客户列，导入后即汇总进交叉表。</p>
             <!-- v180：归属期次前置展示。归到哪个期次是**导入那一刻**由后端定死的，
-                 导入后再命名不会把它挪过去 —— 所以这个问题只能在导之前回答。 -->
+                 导入后再命名不会把它挪过去 —— 所以这个问题只能在导之前回答。
+                 v193：这一支（无期次）**正常流程已不可达** —— 入口按钮已按 canImport 置灰、
+                       openImport 里也硬拦。保留它是**兜底**（后端同轮加了硬闸，此支只覆盖
+                       「抽屉已开着时期次被别的会话删掉」这类竞态），不是主路径。 -->
             <p class="imp-own" :class="{ warn: !impOwnedPeriodId }">
               <template v-if="impOwnedPeriodId">
                 本期归属：<b>{{ impOwnedName }}</b>
@@ -648,14 +665,27 @@
                    三个动作 = 三条填数路：手工填 / 从上一期带 / 导入 Excel。 -->
               <tr v-if="!flatItems.length" class="empty-row">
                 <td :colspan="colOrderList.length">
-                  <div class="er-t">本期还没有商品行</div>
-                  <div class="er-s">可以从上一期把清单带过来、导入 Excel，或直接进「改单」手工填写（也能粘贴 Excel 区域）。</div>
+                  <!-- v193：这一屏正是「没有进行中期次时用户会落到哪里」—— 旧文案照样招呼他
+                       「导入 Excel」，等于把绕流程的入口直接递到手上。现在无进行中期次时只指路
+                       「新建期次」：此刻它确实是唯一有意义的动作（另两个动作没有可落的期次）。
+                       ⚠️ 分支用 noOpenPeriod（= **已问到** + 确实没有），**不是** !hasOpenPeriod ——
+                          后者在期次还没加载完时会误报。 -->
+                  <div class="er-t">{{ noOpenPeriod ? '当前没有进行中的期次' : '本期还没有商品行' }}</div>
+                  <div class="er-s">{{ noOpenPeriod
+                    ? '导入和报单都需要先有一个期次 —— 请先新建期次（期次决定这批数据属于哪一期），之后再导入。'
+                    : '可以从上一期把清单带过来、导入 Excel，或直接进「改单」手工填写（也能粘贴 Excel 区域）。' }}</div>
                   <div class="er-ops">
-                    <button class="btn btn-primary btn-sm" @click="enterEdit"><Icon name="edit"/> 改单填写</button>
-                    <button class="btn btn-ghost btn-sm" :disabled="seedBusy || !nearestPrevPeriod" @click="seedFromPrev">
-                      <Icon name="copy"/> {{ nearestPrevPeriod ? `从「${nearestPrevPeriod.name}」复制清单` : '从上一期复制清单' }}
-                    </button>
-                    <button class="btn btn-ghost btn-sm" @click="openImport"><Icon name="upload"/> 导入 Excel</button>
+                    <template v-if="noOpenPeriod">
+                      <button class="btn btn-primary btn-sm" @click="openNewPeriod"><Icon name="plus"/> 新建期次</button>
+                    </template>
+                    <template v-else>
+                      <button class="btn btn-primary btn-sm" @click="enterEdit"><Icon name="edit"/> 改单填写</button>
+                      <button class="btn btn-ghost btn-sm" :disabled="seedBusy || !nearestPrevPeriod" @click="seedFromPrev">
+                        <Icon name="copy"/> {{ nearestPrevPeriod ? `从「${nearestPrevPeriod.name}」复制清单` : '从上一期复制清单' }}
+                      </button>
+                      <button class="btn btn-ghost btn-sm" @click="openImport" :disabled="!canImport"
+                              :title="canImport ? '从 Excel 导入预报订单汇总表' : importBlockedReason"><Icon name="upload"/> 导入 Excel</button>
+                    </template>
                   </div>
                 </td>
               </tr>
@@ -1980,11 +2010,28 @@ const periods = ref([])
 const curPeriod = ref(0)
 // v180：**归属口径**独立于「当前查看的期次」。
 //   curPeriod 会被期次下拉/往期「查看」改写（= 用户正在看哪期），
-//   而导入数据的归属是**后端**定的（import_router: forecast_period_current()
-//   → 兜底 forecast_period_default()），前端只能从 GET /periods 的 `current` 拿到，
-//   且**不可**随下拉漂移。曾把两者用同一个 ref ⇒ 「归属不一致」提示恒不成立（死分支），
-//   且查看往期时会把归属显示成那一期。
+//   而导入数据的归属是**后端**定的（import_router: forecast_period_current()），
+//   前端只能从 GET /periods 的 `current` 拿到，且**不可**随下拉漂移。曾把两者用同一个 ref
+//   ⇒ 「归属不一致」提示恒不成立（死分支），且查看往期时会把归属显示成那一期。
 const curOpenPeriodId = ref(0)
+/* 🔴 v193（2026-09-18）：**进行中（status='open'）的那个期次**，没有则为 0。
+   来源 = `GET /api/forecast/periods` 的 **`open`** 字段（= 后端 `forecast_period_current()`）。
+   它与 `curOpenPeriodId`（= `current` 字段 = `forecast_period_default()`）**不是一回事，不可互换**：
+     · `curOpenPeriodId` 是**展示/归属预告**口径 —— 期次全 closed 时它仍会兜底到一个期次
+       （「最近有报单的」/「最新创建的（不限状态）」），它服务默认视图；
+     · `openPeriodId`  只认真实进行中的期次 —— **导入的前置条件就是它**。
+   据既定方案（`outputs/期次数据流程优化方案-2026-09-17/…§四.1`）：「不是『必须先建期次』，
+   而是『必须有一个**进行中**的期次』」，理由② = 事故根因正是「7/8/9/10 期全 closed ⇒ 兜底把
+   154 个商品挂到了**已关闭的 9 期**，用户根本看不到」。故闸门必须收窄到 open，否则形同虚设。 */
+const openPeriodId = ref(0)
+/* 🔴 v193：期次是否**已成功加载过**。
+   为什么必须有这个标记，而不是直接判 `openPeriodId > 0`：
+   `loadPeriods()` 的 catch 是**静默**的（失败只留注释，不报错）—— 接口抖动 / 401 时
+   它停在初始值 **0**，而 0 恰好就是「没有进行中期次」的判据。
+   ⇒ 少了这个标记，网络一抖就会把导入入口**锁死**，用户看到的是「功能没了」
+   （正是本项目最忌讳的形态：静默失败伪装成能力缺失）。
+   故「确实没有进行中期次」与「还没问到」必须严格区分：只有**成功加载过**才启用那道门。 */
+const periodsLoaded = ref(false)
 const viewPeriod = ref(null) // 往期预报「查看」回载的期次（真实或合成行）
 const showNewPeriod = ref(false)
 const np = ref({ name: '', order_start: '', order_end: '', arrival: '' })
@@ -6467,7 +6514,47 @@ const impUnmapped = computed(() => {
   return Array.isArray(us) ? us : []
 })
 
+/* ---- v193 导入的前置条件：必须先有「进行中」的期次 ----------------------------------
+   用户诉求（2026-09-18 原话）：「我们之前设计的流程是：用户必须先点击『新建期次』，
+   之后才能进行导入操作。但目前导入入口直接暴露在页面上，未新建期次也能使用，
+   我实测点击后确实可以正常导入，导致整个业务流程被绕过、逻辑混乱。」
+
+   🔴 判据依据 = 既定方案 `outputs/期次数据流程优化方案-2026-09-17/期次数据流程优化方案-2026-09-17.md`：
+     · §四.1「**不是『必须先建期次』，而是『必须有一个「进行中」的期次**』」
+       理由② **昨天事故的直接根因**：导入时 7/8/9/10 期**全 closed** ⇒ 兜底
+         `forecast_period_default()` 把 154 个商品挂到了**已关闭的 9 期**，用户根本看不到；
+       理由③ fail-closed：**做不到正确归属，就不要写进去**。
+     · §四.1 同时点名：「闸门若只加在『有没有期次』而不收窄这个兜底，**闸门形同虚设**」
+       ⇒「导入侧只接受 `status='open'` 的期次」。
+     · §五 阶段 0：「无进行中期次 ⇒ 顶部常驻横幅 + 「导入」按钮**禁用**（不是点了才报错），
+       hover 说明原因」；「📌 判据：**禁用 + 说明好过「点了弹错误」**」。
+
+   ⚠️ 因此判据**必须**是「有没有 open 期次」（`openPeriodId`），**不能**是「有没有期次」
+   （`curOpenPeriodId`）—— 两者在「期次全 closed」这一情形下结论相反，而那正是事故场景。
+   本轮的取舍过程值得留档：先按「有没有期次」实现并验证过（沙箱 6/6 + 8/8 全绿），
+   但查既定方案后发现方向错，遂连同后端兜底一起收窄。
+
+   🔴 同源保证：`openPeriodId` 来自 `GET /periods` 的 `open` 字段 = 后端
+   `forecast_period_current()` = 后端硬闸（import_router）判定归属用的**同一个函数**
+   ⇒ 「前端按钮灰不灰」与「后端会不会 400」是同一条件，不可能各算一份而漂移。 */
+const hasOpenPeriod = computed(() => Number(openPeriodId.value || 0) > 0)
+// 「确认没有进行中期次」= 已**成功问到**后端 + 确实没有。与 canImport 互为反义（同一份判据，不写第二遍）
+const noOpenPeriod = computed(() => periodsLoaded.value && !hasOpenPeriod.value)
+// 横幅正文 = 既定方案 §五 阶段 0 的原文，**逐字不改**（拆两段只为把首句加粗）。
+const GATE_LEAD = '当前没有进行中的期次。'
+const GATE_REST = '导入和报单都需要先有一个期次。'
+/* 置灰按钮的 hover / 被守卫拦下时的 toast：**原因 + 下一步**。
+   与横幅分开写是有意的 —— 横幅里紧邻就有一个「新建期次」按钮，正文再重复一遍「请先新建」
+   属冗余；而 tooltip / toast 是**独立语境**（用户可能只看到按钮），必须自带出口。 */
+const importBlockedReason = computed(() => (noOpenPeriod.value
+  ? GATE_LEAD + GATE_REST + '请先点「新建期次」创建期次，再导入预报订单' : ''))
+const canImport = computed(() => !noOpenPeriod.value)
+
 function openImport() {
+  // v193 硬守卫：无论从哪个入口进来（含将来新增的第三个），先过闸。
+  //   凭什么是函数内守卫而不只靠按钮 disabled：按钮态只是**提示**，挡不住
+  //   直接调用 / 新入口；约束必须落在唯一的执行入口上。
+  if (!canImport.value) { toast(importBlockedReason.value, 'warn'); return }
   impOpen.value = true; impState.value = null; impResult.value = null
   impSuggestions.value = []; impFieldOptions.value = []; impMapping.value = {}
 }
@@ -7623,6 +7710,11 @@ async function loadPeriods() {
     // ⚠️ 必须**无条件**赋值：期次被全部删掉时 current 变 null，若沿用旧值，
     //    pick 步会继续显示一个已经不存在的「本期归属」，而导入实际会落 0。
     curOpenPeriodId.value = cid
+    // v193：**进行中**期次（= 后端 forecast_period_current()，导入落库归属的同一判据）。
+    // 与上面 cid 分开取 —— cid 来自 `current`（展示兜底口径），可能是一个已关闭的期次。
+    openPeriodId.value = d.open ? Number(d.open.id || 0) : 0
+    // v193：本次确实问到了后端（无论有没有进行中期次）⇒ 这才允许「没有进行中期次」这个结论成立。
+    periodsLoaded.value = true
   } catch (e) { /* 静默 */ }
 }
 
@@ -8219,6 +8311,16 @@ th.sortable:hover{color:var(--p-dark)}
 .oe-c4{background:var(--st-revised-bg);color:var(--st-revised-txt)}
 .oe-c5{background:var(--st-submitted-bg);color:var(--st-submitted-txt)}
 
+/* v193（既定方案 §五 阶段 0）：无「进行中期次」时的**常驻通告条**。
+   配色沿用本页既有的提示级范式（同 .imp-gate / .tag.warn：warn-amber-bg 底 + warn-amber 字），
+   不用 danger —— 这是「还差一步」而不是「出错了」。
+   ⚠️ 布局影响：期次就绪时整条**不在 DOM 里**（v-if），故对既有用户零位移；
+   出现时是页面纵向流的第一个块，不挤压工具栏那一行（不参与 .tb-group 的宽度竞争）。 */
+.gate-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;
+  border-radius:var(--radius-md);font-size:12.5px;line-height:1.6;
+  background:var(--warn-amber-bg);color:var(--warn-amber)}
+.gate-bar .gate-txt{flex:1}
+.gate-bar b{font-weight:600}
 .new-period{margin-bottom:14px}
 .np-row{display:flex;gap:10px;flex-wrap:wrap}
 .np-row .input{flex:1;min-width:140px}
