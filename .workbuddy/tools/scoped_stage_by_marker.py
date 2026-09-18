@@ -1281,6 +1281,43 @@ SPEC_FE_V188 = ("fe", [
      "new_file": True, "gone": []},
 ])
 
+"""v189（2026-09-18）：合计(箱) = 合计(小单位) ÷ 规格 —— 修「规格」取法 + 合计行同源 + 推送箱口径。
+
+Forecast.vue 是**多会话共享文件**，本轮只认领 23 个 hunk，排除并发会话的 8 个在途 hunk。
+
+🔴 **坐标一律取 `git diff -U0`** —— 本工具 `parse_hunks()` 就是跑 `-U0`（见其实现）。
+   我曾按 `-U3` 取号（`-99/2730/2742/7890/7904/8274`）写进黑名单，干跑立刻报
+   「黑名单里有不存在的 hunk」：`-U3` 会把相邻的小改动**合并成一个 hunk**，而 `-U0` 会拆开，
+   两套坐标不可混用。**取证粒度必须与工具一致**，否则表现为「明明看得见的 hunk 说它不存在」。
+
+| old_start (-U0) | 内容（**别人的**，不归本轮） |
+|---|---|
+| 101  | 工具行后多一个空行 |
+| 2732 | loadEditGrid：srcByPid 改「合并而非覆盖」+ 2026-09-13 注释 |
+| 2734 | loadEditGrid：srcByPid 由覆盖改 `[...prevSrc, ...r.sources]` |
+| 2745 | loadEditGrid：加单注释补「（同商品多行时累加）」 |
+| 2747 | loadEditGrid：extraByPid 累加 + 引入 buildRowBase（v179 编辑态行底同源） |
+| 7892 | 样式：`.imp-errs` 新增到 v179 段（上半） |
+| 7907 | 样式：原 `.imp-errs` 从 P1-1 段删除（下半） |
+| 8276 | 文件末尾多一个空行 |
+
+⚠️ 判据：`git diff -U0 -- Forecast.vue | grep -c '^@@'` 应等于 **31**（23 本轮 + 8 在途）。
+   若数字变了（别人又动了这个文件），**必须用 `-U0` 重取新坐标**，别沿用本表、更别用 `-U3`。
+"""
+SPEC_FE_V189_BOXES = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2732, 2734, 2745, 2747, 7892, 7907, 8276], "gone": []},
+    # 本地断言：从源码抽 perCase 执行 + 与 git HEAD 上一版 rowBoxes 做前后对比（不另写拷贝）
+    {"file": ".workbuddy/tools/forecast-boxes-caliber-check.js", "new_file": True, "gone": []},
+    # 真机验收：改单元格但不保存，用「80÷40=2 箱 vs 旧口径 8 箱」做判别性断言
+    {"file": ".workbuddy/tools/forecast-boxes-v189-verify.js", "new_file": True, "gone": []},
+    # 本工具自身（新增 SPEC_FE_V189_BOXES + 注册）。实测本文件此刻只有**我这两处** hunk，
+    #   故 keep_all 成立；⚠️ 但它是多会话共用的 spec 容器，别人的 keep_all 会连带把我这份
+    #   spec 一起提交进 HEAD（v187 轮已实测过一次）—— 若下一次发现本文件已无 diff，
+    #   先 `git log -3` 看是不是被别人连带带走了，不要盲目重跑。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1309,6 +1346,7 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v186-covers": SPEC_BE_V186_COVERS,
          "fe-v186-covers": SPEC_FE_V186_COVERS,
          "fe-v187-dashboard": SPEC_FE_V187_DASHBOARD,
+         "fe-v189-boxes": SPEC_FE_V189_BOXES,
          # ⚠️ v187 号被并发会话占用（fe-v187-dashboard = 货损仪表盘），本 spec 加 -editgrid 后缀区分。
          #    代价：Forecast.vue 内注释里写的「v187」不带后缀，与对方同号 ⇒ 追责时要按文件区分。
          "fe-v187-editgrid": SPEC_FE_V187,

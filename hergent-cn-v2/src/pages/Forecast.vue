@@ -748,8 +748,8 @@
                   <template v-else-if="col.type === 'qty'">{{ cross.colTotals[(ci - 1) - visibleCols.length] || '' }}</template>
                   <template v-else-if="col.key === 'qty'">{{ fmt(cross.grand.qty) }}</template>
                   <template v-else-if="col.key === 'boxes'">{{ fmt(cross.grand.boxes) }}</template>
-                  <template v-else-if="col.key === 'extra'">{{ fmt(cross.rows.reduce((s, r) => s + rowExtraQty(r), 0)) }}</template>
-                  <template v-else-if="col.key === 'final'">{{ fmt(cross.rows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</template>
+                  <template v-else-if="col.key === 'extra'">{{ fmt(liveRows.reduce((s, r) => s + rowExtraQty(r), 0)) }}</template>
+                  <template v-else-if="col.key === 'final'">{{ fmt(liveRows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</template>
                   <template v-else-if="col.key === 'amount'">{{ fmt(cross.grand.amount) }}</template>
                   <template v-else>—</template>
                 </td>
@@ -757,7 +757,7 @@
             </tbody>
           </table>
           </div>
-          <p class="cross-amt-note">报单金额 = 最终下单数量（箱）× 单价（厂价/箱）。<b>厂价 ≡ 进价</b>：商品档案填的进货价即厂价，若另录厂价则优先用它；<b>单价(厂价/箱) = 厂价 × 规格</b>。合计(箱) = 合计(小单位) ÷ 规格（取整），最终下单(箱) = 合计(箱) + 加单(箱)，均按箱计。</p>
+          <p class="cross-amt-note">报单金额 = 最终下单数量（箱）× 单价（厂价/箱）。<b>厂价 ≡ 进价</b>：商品档案填的进货价即厂价，若另录厂价则优先用它；<b>单价(厂价/箱) = 厂价 × 每箱小单位数</b>。<b>规格 = 每箱小单位数</b>（取规格串末位数量，如「250g*24瓶」=24；报单单位比末位更细时按层级相乘，如「100g*8杯*12组」按「杯」报单 =96）。合计(箱) = <b>逐行</b>「小单位 ÷ 规格」取整后相加，最终下单(箱) = 合计(箱) + 加单(箱)，均按箱计。</p>
         </div>
 
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
@@ -960,10 +960,10 @@
                 <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')">{{ c.key === 'name' ? '合计' : (c.edit === 'num' ? fmt(foot.masterSum[c.key] || 0) : '') }}</td>
                 <td v-for="(u, ui) in cross.units" :key="'fu' + u.name" class="num calc">{{ fmt(foot.unitSum[ui] || 0) }}</td>
                 <td class="num calc sum">{{ fmt(foot.qty) }}</td>
-                <td class="num calc boxes">{{ fmt(cross.rows.reduce((s, r) => s + rowBoxes(r), 0)) }}</td>
+                <td class="num calc boxes">{{ fmt(liveRows.reduce((s, r) => s + rowBoxes(r), 0)) }}</td>
                 <td v-if="showSuggest" class="num calc suggest">{{ fmt(foot.suggest) }}</td>
-                <td class="num calc extra">{{ fmt(cross.rows.reduce((s, r) => s + (Number(r.extraQty) || 0), 0)) }}</td>
-                <td class="num calc final">{{ fmt(cross.rows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</td>
+                <td class="num calc extra">{{ fmt(liveRows.reduce((s, r) => s + (Number(r.extraQty) || 0), 0)) }}</td>
+                <td class="num calc final">{{ fmt(liveRows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</td>
                 <td class="num calc price">—</td>
                 <td class="num calc amount">{{ fmt(foot.amount) }}</td>
                 <td v-if="compareOn" class="num calc">—</td>
@@ -1639,7 +1639,10 @@
         </div>
 
         <div v-if="cross.rows.length && !editMode" class="pin">
-          <span class="big">总订量 <b>{{ fmt(cross.grand.qty) }}</b> 件</span>
+          <!-- v189：原写「总订量 X 件」——X 是 Σ各报单单元数量（小单位，可能是盒/袋/包），
+               「件」不对；且同屏没有箱口径，用户无法自证「合计(箱)=合计(小单位)÷规格」。
+               两个数并列显示，规则错了一眼可见。 -->
+          <span class="big">合计(小单位) <b>{{ fmt(cross.grand.qty) }}</b> · 合计(箱) <b>{{ fmt(cross.grand.boxes) }}</b></span>
           <span class="mini">下单金额 <b>¥{{ fmt(cross.grand.amount) }}</b></span>
           <span class="mini">{{ cross.grand.sku }} 个商品 · {{ cross.reportedUnits }} 个报单单元</span>
         </div>
@@ -1653,7 +1656,7 @@
           <!-- v188：此处原写「合计 X 件」——但 editTotalQty 是 Σ各报单单元数量（小单位），
                不是「件」；规格 ≠1 时「件」是错的。随列名一并改为「合计(小单位)」并去掉单位字
                （小单位可能是盒/袋/包，统一写「件」反而误导；列名已自证）。 -->
-          <div class="edit-summary">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 下单金额(厂价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
+          <div class="edit-summary">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmt(editTotalBoxes) }}</b> · 下单金额(厂价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
           <!-- Q14：如实写明恢复范围，不再笼统称「已恢复未完成数据」（原实现只恢复数量，用户被误导以为全保住了） -->
           <div v-if="draftRestored" class="draft-banner">
             <Icon name="alert-triangle"/> 已从本地草稿恢复：数量 <b>{{ (draftRestoreInfo && draftRestoreInfo.qty) || 0 }}</b> 行 ·
@@ -2174,8 +2177,15 @@ const OVER = 8                            // 虚拟滚动上下缓冲行
 const VSCROLL_MIN = 80                    // 行数超过此值才启用虚拟滚动
 const vFocus = { mounted: el => { try { el.focus() } catch (e) {} } }
 
+/* v189：**活跃行**唯一判据 —— 所有「合计」的分子分母都必须与被渲染的行同源。
+   软删行（`_deleted`，见 delRowSoft）不进任何合计。此前只有 recomputeTotals 做了过滤，
+   编辑网格表尾（foot / inline Σ）、编辑态汇总条（editTotalQty / editTotalAmount）都对
+   **全量 rows** 求和 ⇒ 同屏两个「合计」对不上（只读表 3 箱、编辑表尾却是别的数）。
+   判据只留这一份，别处一律引用，不再各写一遍 filter。 */
+const liveRows = computed(() => cross.value.rows.filter(r => !r._deleted))
+
 function recomputeTotals() {
-  const rows = cross.value.rows.filter(r => !r._deleted)
+  const rows = liveRows.value
   const units = cross.value.units
   cross.value.colTotals = units.map(u => rows.reduce((s, r) => s + (r.qtyByUnit[u.name] || 0), 0))
   cross.value.grand = {
@@ -2215,8 +2225,8 @@ function commitCell(pid, uname, val) {
   r.total = total
   // v184e：r.amount、boxes 与只读表/导出/列统计同源（箱口径）。r.amount = 最终下单(箱) × 单价(厂价/箱)。
   r.amount = amountValue(r) != null ? amountValue(r) : (r.amount || 0)
-  const specNum = parseFloat(r.spec)
-  r.boxes = (specNum > 0 && total) ? Math.round(total / specNum) : r.boxes
+  const pc = perCase(r.spec, r.unit)
+  r.boxes = (pc > 0 && total) ? Math.round(total / pc) : r.boxes
   recomputeTotals()
   editingCell.value = null
 }
@@ -2372,22 +2382,59 @@ function factoryPrice(r) {
   const pp = Number(r?.purchase_price || 0)
   return fp > 0 ? fp : pp
 }
+/* v189：规格 → **每箱小单位数**（「合计(箱) = 合计(小单位) ÷ 规格」里那个「规格」的唯一实现）。
+   🔴 原四处都写 parseFloat(spec)，取到的是**净含量**、不是每箱数：
+        parseFloat('200g*12') = 200（克）、parseFloat('1500ML*6桶') = 1500 ⇒ 箱数被缩小 250 倍。
+        生产只读实测（期次 9）：规格 200g*12 的 24 件 → 算出 **0 箱**（正确应为 2；该期合计 0 → 3）。
+   🔴 为什么不能「先合计小单位、再除以某个规格」：生产档案 288 个商品里 **192 个规格是描述串**
+        （'250g*24瓶' / '90g*8杯*12组' / '210g*10瓶*6提手提装'）、**30 个为空** —— 规格异构时
+        该式**没有定义**。成立的唯一定义是**逐行除、再相加**（见 rowBoxes），本函数只负责那一「除」。
+   规则（对全量档案逐一验过）：
+     ① 取规格串里**最后一个**数字 = 每箱小单位数（250g*24瓶→24、100g*8杯*12组→12、1500ML*6桶→6）；
+     ② 报单单位(unit)也在规格里出现、且比末位更靠前（更细）时按层级相乘：
+        100g*8杯*12组 且 unit=杯 → 8×12 = 96（1 箱 = 12 组 = 96 杯）；
+     ③ 纯数字规格（'12'）即其本身；
+     ④ 不含任何数字 → 0（缺规格 ⇒ 不换算，界面走「缺规格」分支，**不静默当 1**）。 */
+function perCase(spec, unit) {
+  const s = String(spec == null ? '' : spec)
+  // 「数字 + 紧随其后的单位字串」分段（'*' / 'x' / '×' 只作分隔）
+  const segs = []
+  const re = /(\d+(?:\.\d+)?)\s*([^\d\s*×xX·]*)/g
+  let m
+  while ((m = re.exec(s))) {
+    const n = parseFloat(m[1])
+    if (n > 0) segs.push({ n, u: String(m[2] || '').trim() })
+  }
+  if (!segs.length) return 0                        // ④ 无数字
+  const last = segs[segs.length - 1]
+  if (segs.length === 1 && !last.u) return last.n    // ③ 纯数字规格
+  if (!last.u) return last.n                         // 末位无单位（'500g*12'）⇒ 它就是每箱数
+  const u0 = String(unit == null ? '' : unit).trim()
+  if (!u0 || u0 === last.u) return last.n            // ① 同单位 / 报单单位缺失
+  const i = segs.findIndex(x => x.u === u0)
+  if (i >= 0 && i < segs.length - 1) {               // ② 报单单位更细 ⇒ 层级相乘
+    return segs.slice(i).reduce((p, x) => p * x.n, 1)
+  }
+  return last.n
+}
 // v184e：合计(箱) = round(合计(小单位) ÷ 规格)。与只读表「合计(箱)」列、rowFinalQty（最终下单）同源。
 //   v188 仅改列名（原「件数(箱)」），公式与 key(`boxes`) 不变。
+//   v189 修「规格」的取法：parseFloat(spec) 取的是净含量 ⇒ 改走 perCase（唯一实现）。
 function rowBoxes(r) {
   if (!r) return 0
   const total = r.total != null ? (Number(r.total) || 0) : rowSum(r)
-  const specNum = parseFloat(r.spec)
-  return (specNum > 0 && total) ? Math.round(total / specNum) : 0
+  const pc = perCase(r.spec, r.unit)
+  return (pc > 0 && total) ? Math.round(total / pc) : 0
 }
-// v184e：单价(厂价)按「箱」计价 = 厂价(元/件) × 规格(件/箱)，与「最终下单/加单按箱」配套，
+// v184e：单价(厂价)按「箱」计价 = 厂价(元/件) × 规格(每箱小单位数)，与「最终下单/加单按箱」配套，
 // 保证 下单金额 = 最终下单(箱) × 单价(厂价/箱) 单位自洽（箱 × 元/箱 = 元）。缺价或缺规格返回 null。
+//   v189 同修规格取法 —— 此前 1500ML*6桶 的单价会 ×1500（放大 250 倍），金额整列错。
 function pricePerCase(r) {
   const fp = factoryPrice(r)
-  const specNum = parseFloat(r.spec)
+  const pc = perCase(r.spec, r.unit)
   if (fp <= 0) return null                      // 缺价
-  if (!(specNum > 0)) return null               // 缺规格，无法换算到箱
-  return fp * specNum
+  if (!(pc > 0)) return null                    // 缺规格，无法换算到箱
+  return fp * pc
 }
 // v184e：下单金额(厂价)（元）= 最终下单(箱) × 单价(厂价/箱)；缺价或缺规格返回 null（界面显示「缺价/缺规格」）。
 function amountValue(r) {
@@ -2919,6 +2966,9 @@ function delRow(ri) {
   }
   snapshot()
   cross.value.rows.splice(ri, 1)
+  // v189：splice 后必须重算 —— 原实现漏了这一步（delRowSoft 有调、delRow 没调），
+  //   删行后 grand 会僵在删前的值：同屏「行没了、合计没变」。
+  recomputeTotals()
 }
 
 /* 新增客户列 —— 全站唯一实现（v170 收敛）
@@ -3089,7 +3139,9 @@ async function saveEdits() {
   /* Q17：商品主档与数量矩阵必须用「同一份过滤结果」。
      原实现商品侧 .filter(r => r.name || r.barcode)，矩阵侧用未过滤的全量 rows ——
      无名行的商品不建、数量却写进矩阵（或反之），产生孤儿数量 / 数据错位。 */
-  const kept = cross.value.rows.filter(r => !r._deleted)
+  // v189：改用 liveRows（活跃行唯一判据）—— 此处原本第二次手写 filter，与合计口径各写一份
+  //   ⇒ 判据一改就只改一半（同「第二份拷贝 = 静默漂移」）。保存的行集与合计的行集必须是同一份。
+  const kept = liveRows.value
   const usable = kept.filter(r => Number(r.product_id) > 0 || String(r.name || '').trim() || String(r.barcode || '').trim())
   const ignored = kept.length - usable.length
   if (ignored > 0) {
@@ -4793,8 +4845,13 @@ const errRowSet = computed(() => {
 // v187：编辑态顶部汇总口径与「汇总表（只读）」完全对齐 ——
 //   合计(小单位) = 各报单单元数量之和（与「合计(小单位)」列同源）；金额 = amountValue（最终下单箱 × 单价(厂价/箱)）。
 //   原 rowAmount（分销价 × 合计）已删除：编辑网格不再有分销价口径的「金额」列，分销价仍作为主档可见列存在。
-const editTotalQty = computed(() => cross.value.rows.reduce((s, r) => s + rowSum(r), 0))
-const editTotalAmount = computed(() => cross.value.rows.reduce((s, r) => s + (amountValue(r) || 0), 0))
+//   v189 三个「合计」的行集一律走 liveRows（软删行不计），与只读表 grand 同一行集。
+const editTotalQty = computed(() => liveRows.value.reduce((s, r) => s + rowSum(r), 0))
+const editTotalAmount = computed(() => liveRows.value.reduce((s, r) => s + (amountValue(r) || 0), 0))
+/* v189：**合计(箱)** 的唯一实现（推送正文 / 汇总条共用）。
+   🔴 不可写成「Σ小单位 ÷ 某个规格」—— 生产档案规格异构（288 个里 192 个是描述串、30 个为空），
+      该式无定义。必须**逐行除再相加**，且与只读表「合计(箱)」列共用同一个 rowBoxes()。 */
+const editTotalBoxes = computed(() => liveRows.value.reduce((s, r) => s + rowBoxes(r), 0))
 
 // 本地草稿：未提交前自动缓存，刷新可恢复；保存后清除
 const draftRestored = ref(false)
@@ -5012,7 +5069,7 @@ function deltaClass(r) { const d = deltaQty(r); if (d == null) return ''; return
 
 // P3-4 冻结小计行
 const foot = computed(() => {
-  const rows = cross.value.rows
+  const rows = liveRows.value
   const masterSum = {}
   visibleCols.value.forEach(c => { if (c.key !== 'name' && c.edit === 'num') masterSum[c.key] = rows.reduce((s, r) => s + (parseFloat(r[c.key]) || 0), 0) })
   const unitSum = cross.value.units.map(u => rows.reduce((s, r) => s + (parseInt(r.qtyByUnit[u.name]) || 0), 0))
@@ -5398,7 +5455,10 @@ async function pushForecast() {
   const p = cross.value.period; if (!p) { toast('请先选定期次', 'warn'); return }
   const riskN = healthIssues.value.filter(x => x.sev === 'risk').length
   // v187：金额口径改为与全站「报单金额 = 最终下单(箱) × 单价(厂价/箱)」同源（原为分销价 × 合计），标签同步自证。
-  const summary = `【预报单待审批】${p.name}\nSKU ${cross.value.rows.length} · 总箱 ${editTotalQty.value} · 下单金额(厂价) ¥${fmt(editTotalAmount.value)}\n风险项 ${riskN} 条 · 生成于 ${new Date().toLocaleString()}`
+  // v189：原写「总箱 ${editTotalQty}」—— editTotalQty 是 Σ各报单单元数量（**小单位**），
+  //   标签「箱」是错的（同「规格 ≠ 1 时件数错」同一个病）。推送是给审批人看的一句话，
+  //   口径必须自证：改标「合计(箱)」并用箱口径 editTotalBoxes（= Σ round(行小单位 ÷ 行规格)）。
+  const summary = `【预报单待审批】${p.name}\nSKU ${liveRows.value.length} · 合计(箱) ${editTotalBoxes.value} · 下单金额(厂价) ¥${fmt(editTotalAmount.value)}\n风险项 ${riskN} 条 · 生成于 ${new Date().toLocaleString()}`
   pushing.value = true
   try {
     await forecastApi.push({ period: p.name, summary, total_sku: cross.value.rows.length, total_qty: editTotalQty.value, total_amount: editTotalAmount.value })
@@ -5431,7 +5491,7 @@ function buildSuggestBook() {
   const warn = healthIssues.value.filter(x => x.sev === 'warn')
   const top = healthIssues.value.slice(0, 6).map(x => '· ' + x.msg).join('\n')
   let t = `【${p ? p.name : '本期'} 订货下单说明】\n`
-  t += `共 ${cross.value.rows.length} 个 SKU，总箱 ${editTotalQty.value}，下单金额(厂价) ¥${fmt(editTotalAmount.value)}\n`
+  t += `共 ${liveRows.value.length} 个 SKU，合计(箱) ${editTotalBoxes.value}，下单金额(厂价) ¥${fmt(editTotalAmount.value)}\n`
   if (!healthIssues.value.length) t += '体检：未发现明显异常，可放心定稿。\n'
   else {
     t += `风险提示（${risk.length} 项高危 / ${warn.length} 项注意）：\n${top}\n`
@@ -6821,8 +6881,8 @@ async function loadCross() {
         total = r.total_qty || 0
         amount = r.total_amount || 0
         price = total ? amount / total : null
-        const specNum = parseFloat(pd.spec)
-        boxes = (specNum > 0 && total) ? Math.round(total / specNum) : null
+        const pc = perCase(pd.spec, pd.unit)
+        boxes = (pc > 0 && total) ? Math.round(total / pc) : null
         ai = r.ai_suggested_qty; aiMethod = r.ai_method; people = r.people || 0
         final_qty = r.final_qty != null ? r.final_qty : null; decided = !!r.forecast_decided
         extra_qty = r.extra_qty || 0
