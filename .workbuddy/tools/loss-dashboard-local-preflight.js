@@ -145,7 +145,7 @@ async function main() {
   console.log('\n# 1) 渲染与结构')
   const has = await page.evaluate(() => ({
     dsh: !!document.querySelector('.dsh'),
-    kpis: document.querySelectorAll('.dsh-kpis .k').length,
+    kpis: document.querySelectorAll('.kpi-strip .kpi').length,
     cards: document.querySelectorAll('.dsh-card').length,
     svgs: document.querySelectorAll('.dsh-svg svg').length,
     mlRows: document.querySelectorAll('.la-ml-tbl tbody tr').length,
@@ -159,6 +159,52 @@ async function main() {
   ok(has.mlRows === 6, '月列表 6 行（区间内的每一月都在，含未录入月）', has.mlRows)
   ok(has.rank === 4, '主体排行 4 条', has.rank)
 
+  // ── 1.5) 视觉规范落地（v187 重做仪表盘视觉层）──
+  //  判据全部落在**「能证明改动真的生效」的结构事实上**，不判"好不好看"：
+  //  ① 概览条收敛到全站规范的 .kpi-strip（旧的自造类必须消失，否则就是"改了两套"）；
+  //  ② 图表配色走本组件的 --c-* token，且**不等于**警示色 --war（防有人改回直接借警示色）；
+  //  ③ 柱体/占位框的 fill/stroke 在浏览器里**真的解析出了颜色**
+  //     —— SVG presentation attribute 写 `var(--x)` 是否生效依浏览器而定，
+  //     不实测一次就等于没验证（若哪天解析不动，柱子会静默变黑）。
+  console.log('\n# 1.5) 视觉规范（v187）')
+  const vis = await page.evaluate(() => {
+    const dsh = document.querySelector('.dsh')
+    const cs = getComputedStyle(dsh)
+    const main = document.querySelectorAll('.dsh-svg svg')[0]
+    const grossBar = main.querySelector('g.bars rect')
+    const phRect = main.querySelector('rect[stroke-dasharray]')
+    const secHd = document.querySelector('.sec-hd')
+    const a = document.querySelector('.dsh-card')
+    const b = document.querySelector('.la-ml')
+    return {
+      strip: document.querySelectorAll('.kpi-strip').length,
+      oldKpis: document.querySelectorAll('.dsh-kpis, .dsh .k').length,
+      parts: ['kpi-label', 'kpi-val', 'kpi-sub']
+        .map(c => document.querySelectorAll('.kpi-strip .' + c).length).join('/'),
+      kpiBoxIsCard: !!document.querySelector('.dsh-kpibox.card'),
+      cGross: cs.getPropertyValue('--c-gross').trim(),
+      cNet: cs.getPropertyValue('--c-net').trim(),
+      globalWar: getComputedStyle(document.documentElement).getPropertyValue('--war').trim(),
+      grossFill: grossBar ? getComputedStyle(grossBar).fill : '(无柱)',
+      phStroke: phRect ? getComputedStyle(phRect).stroke : '(无占位)',
+      secHdBorder: secHd ? getComputedStyle(secHd).borderBottomWidth : '(无)',
+      dshBeforeMl: !!(a && b && (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)),
+    }
+  })
+  ok(vis.strip === 1, '概览条用全站规范的 .kpi-strip（不再各页自造）', 'count=' + vis.strip)
+  ok(vis.oldKpis === 0, '旧自造 KPI 类已消失（.dsh-kpis / .dsh .k）', 'count=' + vis.oldKpis)
+  ok(vis.parts === '5/5/5', '5 项概览各自齐备 标题/数值/说明 三层', vis.parts)
+  ok(vis.kpiBoxIsCard, '概览条包在全局 .card 里（拿到统一内距与圆角）')
+  ok(!!vis.cGross && !!vis.cNet, '图表色 token 已生效（--c-gross / --c-net 有值）',
+     vis.cGross + ' / ' + vis.cNet)
+  ok(vis.cGross.toLowerCase() !== vis.globalWar.toLowerCase(),
+     '图表色是派生值，没有直接拿警示色 --war 铺柱体',
+     vis.cGross + ' vs ' + vis.globalWar)
+  ok(/^rgb/.test(vis.grossFill), '主图毛额柱 fill 真的解析出了颜色（不是黑/空）', vis.grossFill)
+  ok(/^rgb/.test(vis.phStroke), '空月占位框 stroke 真的解析出了颜色', vis.phStroke)
+  ok(vis.secHdBorder === '1px', '区块标题用全局 .sec-hd，下分隔线生效', vis.secHdBorder)
+  ok(vis.dshBeforeMl, '明细表在趋势图之后（先概览趋势、后按月明细）')
+
   // ── 2) 空月语义（本轮的核心合同）──
   console.log('\n# 2) 空月 / 缺分母：图上必须看得见，且不能画成 0')
   const empty = await page.evaluate(() => {
@@ -167,9 +213,9 @@ async function main() {
       ph: [...main.querySelectorAll('text.ph')].map(t => t.textContent.trim()),
       dashed: [...main.querySelectorAll('rect[stroke-dasharray]')].length,
       bars: main.querySelectorAll('g.bars rect').length,
-      // ⚠️ 只数**率数据点**（r=3.2）；主图里还有一个 r=3 的「当前期次」标记，
-      //    用 `circle` 全量数会多算 1 个
-      dots: main.querySelectorAll('circle[r="3.2"]').length,
+      // ⚠️ 只数**率数据点**（r=3.4，v187 视觉重做时由 3.2 调粗）；主图里还有一个
+      //    r=4 的「当前期次」标记（v187 由 r=3 加大并加白描边），用 `circle` 全量数会多算它
+      dots: main.querySelectorAll('circle[r="3.4"]').length,
       polylines: main.querySelectorAll('polyline').length,
       labels: main.querySelectorAll('text.xl-m').length,
     }
@@ -311,6 +357,58 @@ async function main() {
     await mainEl.screenshot({ path: p2 })
     info('主图特写: ' + p2)
   }
+  // 下半屏：Shell 的内容区是**内部滚动**（document 自己不长高）⇒ `fullPage:true`
+  // 截到的其实只有一屏，副图/排行/明细表全在画面外。手动把滚动容器推到底再截一张，
+  // 否则"下半部分长什么样"无法审（视觉重做时尤其致命）。截完把滚动位置还原。
+  const scrolled = await page.evaluate(() => {
+    const all = [...document.querySelectorAll('div, main, section')]
+    const sc = all.find(e => e.scrollHeight > e.clientHeight + 60
+      && ['auto', 'scroll'].includes(getComputedStyle(e).overflowY))
+    if (!sc) return 0
+    sc.scrollTop = sc.scrollHeight
+    return sc.scrollTop
+  })
+  if (scrolled) {
+    await sleep(500)
+    const p3 = path.join(OUT, '06b-仪表盘-下半屏-本地预检.png')
+    await page.screenshot({ path: p3 })
+    info('下半屏截图: ' + p3 + '（滚动容器推到底 ' + scrolled + 'px）')
+    await page.evaluate(() => {
+      const all = [...document.querySelectorAll('div, main, section')]
+      const sc = all.find(e => e.scrollHeight > e.clientHeight + 60
+        && ['auto', 'scroll'].includes(getComputedStyle(e).overflowY))
+      if (sc) sc.scrollTop = 0
+    })
+  } else {
+    info('下半屏截图: 跳过（没找到内部滚动容器，说明页面一屏放得下）')
+  }
+
+  // 深色主题：本轮的图表色 token 有**浅/深两套**，不实测一次等于没验证 ——
+  // 深色下若仍用浅色档，柱体会跟背景糊在一起，而这类问题只有截图才看得出来。
+  // 主题开关是 documentElement 上的 `.dark` class（不是 data-theme / prefers-color-scheme）。
+  await page.evaluate(() => document.documentElement.classList.add('dark'))
+  await sleep(400)
+  const darkTok = await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('.dsh'))
+    const bar = document.querySelector('.dsh-svg svg g.bars rect')
+    const ph = document.querySelector('.dsh-svg svg rect[stroke-dasharray]')
+    return {
+      gross: cs.getPropertyValue('--c-gross').trim(),
+      net: cs.getPropertyValue('--c-net').trim(),
+      fill: bar ? getComputedStyle(bar).fill : '(无柱)',
+      phStroke: ph ? getComputedStyle(ph).stroke : '(无占位)',
+    }
+  })
+  ok(darkTok.gross.toLowerCase() !== '#f97316' && !!darkTok.gross,
+     '🌙 深色下图表色切到深色档（没有沿用浅色值）', darkTok.gross + ' / ' + darkTok.net)
+  ok(/^rgb/.test(darkTok.fill), '🌙 深色下柱子 fill 仍解析出颜色（不是黑）', darkTok.fill)
+  ok(/^rgba?\(255/.test(darkTok.phStroke), '🌙 深色下空月占位改用**白**描边（深底上才看得见）',
+     darkTok.phStroke)
+  const pDark = path.join(OUT, '06c-仪表盘-深色-本地预检.png')
+  await page.screenshot({ path: pDark })
+  info('深色截图: ' + pDark)
+  await page.evaluate(() => document.documentElement.classList.remove('dark'))
+  await sleep(250)
 
   // ── 7.5) 切到「数据填报」再切回来（截图之后跑，免得影响上面那几张图）──
   console.log('\n# 7.5) 主 Tab 切换：两个 tab 的内容确实互斥')

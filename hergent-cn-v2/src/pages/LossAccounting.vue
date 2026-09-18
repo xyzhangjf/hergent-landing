@@ -42,11 +42,27 @@
         <span class="la-tbar-r la-quiet">点柱子 = 切「当前期次」；点月列表「去填报」跳去录这个月</span>
       </div>
 
-      <!-- 月列表 -->
+      <LossDashboard
+        :months="chartMonths"
+        :summary="tSummary"
+        :subject-totals="trendSubjects"
+        :groups-meta="trendGroups"
+        :pricing="trendPricing"
+        :period="period"
+        :from="tFrom"
+        :to="tTo"
+        :skipped-empty="tSkipEmpty ? skipEmptyCount : 0"
+        @pick="pickMonth"
+      />
+
+      <!-- 月列表（明细）—— 放在趋势图**之后**：
+           仪表盘的第一眼该是「概览 + 趋势」，按月明细是回头查证据用的。
+           压在图表下方既不跟图争视觉权重，「去填报」入口也照样可达
+           （它同时是仪表盘上唯一能跳到某个月去录入的地方）。 -->
       <div class="card la-ml">
-        <div class="la-ml-hd">
+        <div class="sec-hd">
           <b>按月一览</b>
-          <span class="la-ml-sub">
+          <span class="sec-sub">
             {{ tFrom }} → {{ tTo }} 共 {{ monthList.length }} 个月 ·
             有数据 {{ tSummary.months_with_data || 0 }} 个 ·
             已结账 {{ tSummary.months_closed || 0 }} 个
@@ -101,19 +117,6 @@
           </table>
         </div>
       </div>
-
-      <LossDashboard
-        :months="chartMonths"
-        :summary="tSummary"
-        :subject-totals="trendSubjects"
-        :groups-meta="trendGroups"
-        :pricing="trendPricing"
-        :period="period"
-        :from="tFrom"
-        :to="tTo"
-        :skipped-empty="tSkipEmpty ? skipEmptyCount : 0"
-        @pick="pickMonth"
-      />
     </template>
 
     <!-- ══ 数据填报 Tab（**唯一能写的地方**）══════════════════════════════
@@ -1186,33 +1189,36 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-tabnote{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px;
   padding:8px 12px;border-radius:var(--radius-md);font-size:12.5px;color:var(--t1);
   border:1px solid color-mix(in srgb,var(--war) 32%,transparent);background:var(--warn-amber-bg)}
-.la-tbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px;
-  padding:8px 12px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
+.la-tbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 2px;
+  padding:9px 12px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
 .la-tbar-t{font-size:12.5px;color:var(--t2)}
 .la-tbar-r{margin-left:auto}
 .la-tbar-err{font-size:12px;color:var(--danger-txt)}
 .la-chk{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--t2);cursor:pointer;user-select:none}
 
-/* ── 趋势：按月一览 ── */
-.la-ml{padding:12px 14px}
-.la-ml-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
-.la-ml-hd b{font-size:13.5px;color:var(--t1)}
-/* ⚠️ 不要复用公司卡的 `.la-co-formula` —— 那是"公司卡口径说明"的专用类，
+/* ── 趋势：按月一览（明细，位置在趋势图之后）──
+   明细的视觉权重必须**明显低于**图表卡，否则仪表盘又变回"表格堆"：
+   表头给浅底（不再只是一条下边框）、正文 12.5px、行高给足但不加粗。
+   ⚠️ 不要复用公司卡的 `.la-co-formula` —— 那是"公司卡口径说明"的专用类，
    复用到这儿会让 `querySelector('.la-co-formula')` 抓到月列表（真机探针就这么翻过车）。 */
-.la-ml-sub{font-size:11.5px;color:var(--t3);line-height:1.6}
-.la-ml-wrap{overflow-x:auto}
+.la-ml{padding:16px 18px 12px;margin-top:16px}
+.la-ml-wrap{overflow-x:auto;margin-top:12px}
 .la-ml-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
-.la-ml-tbl th{font-weight:500;color:var(--t2);text-align:left;padding:6px 8px;
-  border-bottom:1px solid var(--bd);white-space:nowrap}
+.la-ml-tbl th{font-weight:500;color:var(--t2);text-align:left;padding:8px 10px;
+  background:var(--bg2);border-bottom:1px solid var(--bd);white-space:nowrap}
+.la-ml-tbl th:first-child{border-radius:var(--radius-sm) 0 0 var(--radius-sm)}
+.la-ml-tbl th:last-child{border-radius:0 var(--radius-sm) var(--radius-sm) 0}
 .la-ml-tbl th.num,.la-ml-tbl td.num{text-align:right}
-.la-ml-tbl td{padding:6px 8px;border-bottom:1px solid var(--border-subtle);color:var(--t1);
+.la-ml-tbl td{padding:9px 10px;border-bottom:1px solid var(--border-subtle);color:var(--t1);
   font-variant-numeric:tabular-nums;white-space:nowrap}
 .la-ml-tbl tr:hover td{background:var(--bg2)}
 .la-ml-m b{font-weight:500}
 .la-ml-badge{margin-left:5px;font-size:10.5px;padding:1px 6px;border-radius:8px;
   background:var(--p-bg);color:var(--p-deep);text-decoration:none}
 .la-ml-badge-hid{background:var(--bg4);color:var(--t2)}
+/* 当前期次：浅底 + 左内色条（不再只靠一层几乎看不出的浅青底） */
 .la-ml-cur td{background:var(--p-bg)}
+.la-ml-cur td:first-child{box-shadow:inset 3px 0 0 var(--p-dark)}
 .la-ml-hid td{color:var(--t3)}
 .la-ml-none{font-size:11.5px;padding:1px 7px;border-radius:8px;background:var(--bg4);color:var(--t3)}
 .la-ml-ok{font-size:11.5px;padding:1px 7px;border-radius:8px;background:var(--ok-green-bg);color:var(--ok-green)}

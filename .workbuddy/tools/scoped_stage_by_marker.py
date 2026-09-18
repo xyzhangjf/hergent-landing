@@ -1206,6 +1206,15 @@ SPEC_FE_V187_DASHBOARD = ("fe", [
     {"file": ".workbuddy/tools/loss-dashboard-local-preflight.js", "keep_all": True, "gone": []},
     {"file": ".workbuddy/tools/loss-accounting-prod-verify.js", "keep_all": True, "gone": []},
     # 本工具自身（新增上面这组 spec）
+    # 🔴 2026-09-18 实测事故：本轮首次提交时**本条被守卫拦下** —— 索引里唯独少这个文件。
+    #    追因：17:21:00 并发会话提交 fb6edfa 时，其 spec 也对这个文件 keep_all ⇒ 把本轮
+    #    刚写进来的 SPEC_FE_V187_DASHBOARD（+60 行）**连带提交进了 HEAD**，于是本文件
+    #    在工作区与 HEAD 之间**已无 diff** ⇒「索引内容 == 待提交文件」这条洁净断言必然
+    #    失败（索引里不会有它，names 里却有它）。**这是守卫按预期生效，不是回归。**
+    #    ⇒ 处置：保留本条目（注释这点改动本身重新产生了 diff，从而可被正常自纳提交），
+    #      但要记住**多个会话共用同一个「spec 容器文件」时 keep_all 会互相连带**：
+    #      下一轮若发现本文件已无 diff，先 `git log -3` 看是不是已被别人连带带上去了，
+    #      不要盲目重跑同一个 spec、也不要据此怀疑归属判定。
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
     # 交付说明（用户点名的「改动方向 + 预期效果」）
     {"file": "outputs/货损核算-仪表盘视觉重做-2026-09-18/08-仪表盘视觉重做-交付说明-2026-09-18.md",

@@ -360,7 +360,14 @@ async function main() {
       first: ((rows[0] || {}).textContent || '').replace(/\s+/g, ' ').trim().slice(0, 24),
       rateTexts: [...new Set(rate)].filter(t => t && t !== '—'),
       compStates: [...new Set(comp)],
-      kpis: document.querySelectorAll('.dsh-kpis .k').length,
+      kpis: document.querySelectorAll('.kpi-strip .kpi').length,
+      // v187 视觉重做：概览条必须收敛到全站规范的 .kpi-strip，旧自造类必须消失；
+      // 图表配色必须走本组件的 --c-* token（读得到即有值）
+      oldKpis: document.querySelectorAll('.dsh-kpis, .dsh .k').length,
+      cGross: (() => {
+        const d = document.querySelector('.dsh')
+        return d ? getComputedStyle(d).getPropertyValue('--c-gross').trim() : ''
+      })(),
       cards: document.querySelectorAll('.dsh-card').length,
       svgs: document.querySelectorAll('.dsh-svg svg').length,
       empty: ((document.querySelector('.dsh-empty') || {}).textContent || '').replace(/\s+/g, ' ').trim(),
@@ -378,8 +385,33 @@ async function main() {
   ok(/^\d{4}-\d{2}/.test(dsh.first), '首行是最新月份（降序）', dsh.first)
   const hasCharts = dsh.cards > 0
   if (hasCharts) {
-    ok(dsh.kpis === 5, '5 张指标卡', dsh.kpis)
+    ok(dsh.kpis === 5, '5 项概览，承载形态 = 全站规范的 .kpi-strip', dsh.kpis)
+    ok(dsh.oldKpis === 0, '旧自造 KPI 类已消失（.dsh-kpis / .dsh .k）', 'count=' + dsh.oldKpis)
+    ok(!!dsh.cGross, '图表色 token --c-gross 在生产真的生效', dsh.cGross || '(空)')
     ok(dsh.cards === 4, '4 张图卡', dsh.cards)
+    // v187：柱群不得超列宽。副图 B 有**三根**柱，是唯一会溢出的那张 ——
+    // 生产默认区间是 12 个月、列宽只 ~79px，正是这个缺陷的暴露场景
+    // （以前"藏"着是因为只有最右列有数据，右边恰有 padR 的空间接住它）。
+    const fit = await page.evaluate(() => {
+      const svgs = [...document.querySelectorAll('.dsh-svg svg')]
+      if (svgs.length < 3) return { slot: 0, span: 0, n: 0 }
+      const xl = [...svgs[0].querySelectorAll('text.xl-m')].map(t => +t.getAttribute('x'))
+      const slot = xl.length > 1 ? Math.abs(xl[1] - xl[0]) : 0
+      const spans = [...svgs[2].querySelectorAll('g.bars')].map(g => {
+        const rs = [...g.querySelectorAll('rect')]
+        if (!rs.length) return 0
+        const min = Math.min(...rs.map(r => +r.getAttribute('x')))
+        const max = Math.max(...rs.map(r => +r.getAttribute('x') + +r.getAttribute('width')))
+        return max - min
+      })
+      return { slot, span: spans.length ? Math.max(...spans) : 0, n: spans.length }
+    })
+    if (fit.n === 0 || !fit.slot) {
+      info('柱群宽度检查：跳过（当前区间没有可比的有数据月）')
+    } else {
+      ok(fit.span <= fit.slot, '副图 B（3 根柱）柱群不超列宽（否则会挤进相邻月份）',
+        '群宽 ' + fit.span.toFixed(1) + ' vs 列宽 ' + fit.slot.toFixed(1))
+    }
     ok(dsh.svgs === 3, '3 个 SVG 图', dsh.svgs)
     ok(dsh.units.includes('万元') && dsh.units.includes('%'),
       '主图双轴各带单位（柱=万元 / 线=%）', dsh.units.join('/'))
