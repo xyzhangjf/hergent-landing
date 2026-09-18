@@ -864,15 +864,18 @@
                   </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, u.name)" @click.stop></span>
                 </th>
-                <th class="num calc-th extra">加单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'extra')" @click.stop></span></th>
-                <th class="num calc-th amount">金额<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'amount')" @click.stop></span></th>
+                <th class="num calc-th sum">合计<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'sum')" @click.stop></span></th>
+                <th class="num calc-th boxes">件数(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'boxes')" @click.stop></span></th>
                 <th v-if="showSuggest" class="num calc-th suggest" title="配方建议：按「建议算法」面板当前策略算出，只受该面板影响">配方建议<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'suggest')" @click.stop></span></th>
+                <th class="num calc-th extra">加单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'extra')" @click.stop></span></th>
+                <th class="num calc-th final">最终下单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'final')" @click.stop></span></th>
+                <th class="num calc-th price">单价(厂价/箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'price')" @click.stop></span></th>
+                <th class="num calc-th amount">下单金额(厂价)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'amount')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th">上期量<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'comparePrev')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th delta">Δ<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'compareDelta')" @click.stop></span></th>
                 <th v-if="showSpark" class="spark-th">趋势<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'spark')" @click.stop></span></th>
                 <th v-if="yoyOn" class="num calc-th">去年同期<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'yoyPrev')" @click.stop></span></th>
                 <th v-if="yoyOn" class="num calc-th">同比<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'yoyDelta')" @click.stop></span></th>
-                <th class="num calc-th sum">合计<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'sum')" @click.stop></span></th>
                 <!-- v170：此处原为「客户名」输入框（= 新增客户列入口）。撤除原因（真机实测）：
                      ① 表头总宽 4008px、可视仅 1360px，它默认在视口右界外 2475px，用户基本看不到；
                      ② 回车静默失效 —— <table @keydown="onGridKey"> 在有选区时会 focusCell()，
@@ -924,9 +927,13 @@
                   <input v-model.number="r.qtyByUnit[u.name]" class="cell-input cell-qty" type="number" min="0" placeholder="0" :data-r="ri" :data-c="visibleCols.length + ui" @focus="onFocusCell(ri, visibleCols.length + ui)" @change="onCellChange">
                   <span v-if="selected.r === ri && selected.c === visibleCols.length + ui" class="fill-handle" @mousedown.prevent.stop="startFill(ri, visibleCols.length + ui, $event)" title="拖拽填充"></span>
                 </td>
-                <td class="num calc extra" :data-r="ri"><input v-model.number="r.extraQty" class="cell-input cell-qty" type="number" min="0" placeholder="0" :data-r="ri" :data-c="visibleCols.length + cross.units.length" @focus="onFocusCell(ri, visibleCols.length + cross.units.length)" @change="onCellChange"></td>
-                <td class="num calc amount" :data-r="ri">{{ fmt(rowAmount(r)) }}</td>
+                <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri">{{ fmt(rowSum(r)) }}</td>
+                <td class="num calc boxes" :data-r="ri">{{ fmt(rowBoxes(r)) }}</td>
                 <td v-if="showSuggest" class="num calc suggest" :data-r="ri" title="配方建议：按「建议算法」面板策略算出">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
+                <td class="num calc extra" :data-r="ri"><input v-model.number="r.extraQty" class="cell-input cell-qty" type="number" min="0" placeholder="0" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT)" @change="onCellChange"></td>
+                <td class="num calc final" :data-r="ri"><b>{{ fmt(rowFinalQty(r)) }}</b></td>
+                <td class="num calc price" :data-r="ri"><span :class="{ 'miss-price': pricePerCase(r) == null }">{{ pricePerCase(r) != null ? pricePerCase(r).toFixed(2) + ' /箱' : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }}</span></td>
+                <td class="num calc amount" :data-r="ri"><span :class="{ 'miss-price': pricePerCase(r) == null }">{{ amountValue(r) != null ? fmt(amountValue(r)) : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }}</span></td>
                 <td v-if="compareOn" class="num calc" :data-r="ri">{{ prevQty(r) != null ? fmt(prevQty(r)) : '—' }}</td>
                 <td v-if="compareOn" class="num calc delta" :class="deltaClass(r)" :data-r="ri">{{ deltaQty(r) == null ? '—' : (deltaQty(r) > 0 ? '+' : '') + fmt(deltaQty(r)) }}</td>
                 <td v-if="showSpark" class="spark-td" :data-r="ri">
@@ -935,7 +942,6 @@
                 </td>
                 <td v-if="yoyOn" class="num calc" :data-r="ri">{{ yoyQty(r) != null ? fmt(yoyQty(r)) : '—' }}</td>
                 <td v-if="yoyOn" class="num calc delta" :class="yoyPct(r) > 0 ? 'up' : (yoyPct(r) < 0 ? 'down' : '')" :data-r="ri">{{ yoyPct(r) == null ? '—' : (yoyPct(r) > 0 ? '+' : '') + yoyPct(r) + '%' }}</td>
-                <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri">{{ fmt(rowSum(r)) }}</td>
                 <td class="op-th" :data-r="ri"><button class="btn-del" @click="delRow(ri)" title="删除该商品行"><Icon name="close"/></button></td>
               </tr>
             </tbody>
@@ -951,15 +957,18 @@
                 <td class="seq-cell"></td>
                 <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')">{{ c.key === 'name' ? '合计' : (c.edit === 'num' ? fmt(foot.masterSum[c.key] || 0) : '') }}</td>
                 <td v-for="(u, ui) in cross.units" :key="'fu' + u.name" class="num calc">{{ fmt(foot.unitSum[ui] || 0) }}</td>
-                <td class="num calc extra">{{ fmt(cross.rows.reduce((s, r) => s + (Number(r.extraQty) || 0), 0)) }}</td>
-                <td class="num calc amount">{{ fmt(foot.amount) }}</td>
+                <td class="num calc sum">{{ fmt(foot.qty) }}</td>
+                <td class="num calc boxes">{{ fmt(cross.rows.reduce((s, r) => s + rowBoxes(r), 0)) }}</td>
                 <td v-if="showSuggest" class="num calc suggest">{{ fmt(foot.suggest) }}</td>
+                <td class="num calc extra">{{ fmt(cross.rows.reduce((s, r) => s + (Number(r.extraQty) || 0), 0)) }}</td>
+                <td class="num calc final">{{ fmt(cross.rows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</td>
+                <td class="num calc price">—</td>
+                <td class="num calc amount">{{ fmt(foot.amount) }}</td>
                 <td v-if="compareOn" class="num calc">—</td>
                 <td v-if="compareOn" class="num calc delta">—</td>
                 <td v-if="showSpark" class="spark-td"></td>
                 <td v-if="yoyOn" class="num calc">—</td>
                 <td v-if="yoyOn" class="num calc delta">—</td>
-                <td class="num calc sum">{{ fmt(foot.qty) }}</td>
                 <td class="op-th"></td>
               </tr>
             </tbody>
@@ -1637,7 +1646,9 @@
           <div class="sk-row" v-for="n in 8" :key="n"><span class="sk-bar" v-for="m in 6" :key="m"></span></div>
         </div>
         <div v-if="editMode" class="edit-hint">
-          <div class="edit-summary">合计 <b>{{ fmt(editTotalQty) }}</b> 件 · 金额 <b>¥{{ fmt(editTotalAmount) }}</b></div>
+          <!-- v187：口径自证 —— 同屏有「分销价」主档列，若只写「金额」会被读成分销价×数量；
+               本值实为 amountValue 累加 = 最终下单(箱) × 单价(厂价/箱)，与「下单金额(厂价)」列逐字同源。 -->
+          <div class="edit-summary">合计 <b>{{ fmt(editTotalQty) }}</b> 件 · 下单金额(厂价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
           <!-- Q14：如实写明恢复范围，不再笼统称「已恢复未完成数据」（原实现只恢复数量，用户被误导以为全保住了） -->
           <div v-if="draftRestored" class="draft-banner">
             <Icon name="alert-triangle"/> 已从本地草稿恢复：数量 <b>{{ (draftRestoreInfo && draftRestoreInfo.qty) || 0 }}</b> 行 ·
@@ -2254,7 +2265,9 @@ const colWidths = ref({})
    只显示得下 9 位（对账时看不全，且与「条码重复」判定直接相关：看不到全码就无法人工核对）。
    需要 ~130px 才放得下 13 位数字 + 输入框内边距 + 拖拽手柄。用户若手动拖过该列，
    colWidths 里已有值、仍以用户所拖为准（本默认只对没拖过的用户生效）。 */
-const COL_DEFAULTS = { seq: 46, name: 210, arrival_lead_days: 92, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
+/* v187：补 `price` —— 表头「单价(厂价/箱)」需 ~91px 才不折行，此前不在默认表里 ⇒
+   落到兜底 90px，两态表头都会折成两行。与 `amount`(104) 拉平，两态同宽。 */
+const COL_DEFAULTS = { seq: 46, name: 210, arrival_lead_days: 92, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 74, boxes: 70, extra: 78, final: 78, ai: 84, amount: 104, price: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 74, op: 64 }
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
 // v176：序号列已冻结在 left:0，故**其后每个冻结列的 left 必须整体右移「一个序号列宽」**，
@@ -2303,19 +2316,36 @@ const editColKeys = computed(() => {
   const keys = ['seq']
   visibleCols.value.forEach(c => keys.push(c.key))
   cross.value.units.forEach(u => keys.push(u.name))
-  keys.push('extra')
-  keys.push('amount')
+  /* v187：汇总列与「汇总表（只读）」逐列对齐（用户 2026-09-18 要求）——
+     报单单元 → 合计 → 件数(箱) → 配方建议 → 加单(箱) → 最终下单(箱) → 单价(厂价/箱) → 下单金额(厂价)。
+     原实现把「合计」甩到最右、且完全缺「最终下单 / 下单金额(厂价)」两列（只在只读表有）。
+     ⚠️ 本函数驱动 <colgroup>，改这里必须同步 thead th / tbody td / 表尾 td 四处，否则整表错位。 */
+  keys.push('sum')          // 合计（= 各报单单元数量之和，紧挨报单单元）
+  keys.push('boxes')        // 件数(箱) = round(合计 ÷ 规格)
   if (showSuggest.value) keys.push('suggest')
+  keys.push('extra')        // 加单(箱)
+  keys.push('final')        // 最终下单(箱) = 件数(箱) + 加单(箱)
+  keys.push('price')        // 单价(厂价/箱) = 厂价 × 规格
+  keys.push('amount')       // 下单金额(厂价) = 最终下单(箱) × 单价(厂价/箱)
   if (compareOn.value) { keys.push('comparePrev'); keys.push('compareDelta') }
   if (showSpark.value) keys.push('spark')
   if (yoyOn.value) { keys.push('yoyPrev'); keys.push('yoyDelta') }
-  keys.push('sum')
-  // v170：原此处有 keys.push('spacer')（表头「客户名」输入框的占位列）。
-  //   该列唯一用途就是承载那个输入框，入口迁到工具行后列一并撤除。
-  //   ⚠️ 本函数驱动 <colgroup>，改这里必须同步 thead th / tbody td / 表尾 td（三处各减 1），否则整表错位。
+  // v170：原此处有 keys.push('spacer')（表头「客户名」输入框的占位列），入口迁到工具行后一并撤除。
   keys.push('op')
   return keys
 })
+/* v187：加单(箱) 输入框的 `data-c` 哨兵值。
+   🔴 编辑网格的**选区索引空间只含主档列 + 报单单元**（maxC = visibleCols.length + units.length - 1）；
+   calc 列（合计 / 件数 / 配方建议 / 最终下单 / 单价 / 下单金额）**不参与**键盘导航、填充柄与选区统计
+   —— readCellVal / writeCellVal 对 c ≥ master+units 一律返回 '' / false。
+   而「加单」是 calc 列里**唯一带输入框**的（v-model 手输加单量），聚焦时必须给 onFocusCell 传一个
+   **不会命中任何真实格**的位置，否则会覆盖用户当前选区。
+   故传「最后一个报单单元之后」这一越界值 —— 无害空操作：focusCell 查不到元素即 no-op，
+   所有 `selected.c === ...` 的比对也永不成立。
+   ⚠️ 不要改成 editColKeys.indexOf('extra') - 1：那个值会随 showSuggest 开关漂移，
+      且语义并不同源（calc 列压根不在这个索引空间里）。原先硬写成 visibleCols.length + units.length，
+      现具名化，免得下次重排列序时误以为它需要跟着变。 */
+const C_EXTRA_INPUT = computed(() => visibleCols.value.length + cross.value.units.length)
 /* v184：查看态的冻结列 = **固定列** ∪ 用户在下拉里选的单列（frozenKey）。
    固定列不受 frozenKey 影响 —— 下拉选了别的列时它照样冻结，否则「固定列」名不副实。
    （此前只看 frozenKey，而它默认 'name'、可被用户改掉 ⇒ 加进来的固定列一改下拉就不见了。） */
@@ -4749,10 +4779,11 @@ const errRowSet = computed(() => {
   })
   return s
 })
-// 金额：分销价 × 行总件数
-function rowAmount(r) { return (parseFloat(r.dist_price) || 0) * rowSum(r) }
+// v187：编辑态顶部汇总口径与「汇总表（只读）」完全对齐 ——
+//   件数 = 各报单单元数量之和（合计列同源）；金额 = amountValue（最终下单箱 × 单价(厂价/箱)）。
+//   原 rowAmount（分销价 × 合计）已删除：编辑网格不再有分销价口径的「金额」列，分销价仍作为主档可见列存在。
 const editTotalQty = computed(() => cross.value.rows.reduce((s, r) => s + rowSum(r), 0))
-const editTotalAmount = computed(() => cross.value.rows.reduce((s, r) => s + rowAmount(r), 0))
+const editTotalAmount = computed(() => cross.value.rows.reduce((s, r) => s + (amountValue(r) || 0), 0))
 
 // 本地草稿：未提交前自动缓存，刷新可恢复；保存后清除
 const draftRestored = ref(false)
@@ -5355,7 +5386,8 @@ const pushing = ref(false)
 async function pushForecast() {
   const p = cross.value.period; if (!p) { toast('请先选定期次', 'warn'); return }
   const riskN = healthIssues.value.filter(x => x.sev === 'risk').length
-  const summary = `【预报单待审批】${p.name}\nSKU ${cross.value.rows.length} · 总箱 ${editTotalQty.value} · 金额 ¥${fmt(editTotalAmount.value)}\n风险项 ${riskN} 条 · 生成于 ${new Date().toLocaleString()}`
+  // v187：金额口径改为与全站「报单金额 = 最终下单(箱) × 单价(厂价/箱)」同源（原为分销价 × 合计），标签同步自证。
+  const summary = `【预报单待审批】${p.name}\nSKU ${cross.value.rows.length} · 总箱 ${editTotalQty.value} · 下单金额(厂价) ¥${fmt(editTotalAmount.value)}\n风险项 ${riskN} 条 · 生成于 ${new Date().toLocaleString()}`
   pushing.value = true
   try {
     await forecastApi.push({ period: p.name, summary, total_sku: cross.value.rows.length, total_qty: editTotalQty.value, total_amount: editTotalAmount.value })
@@ -5388,7 +5420,7 @@ function buildSuggestBook() {
   const warn = healthIssues.value.filter(x => x.sev === 'warn')
   const top = healthIssues.value.slice(0, 6).map(x => '· ' + x.msg).join('\n')
   let t = `【${p ? p.name : '本期'} 订货下单说明】\n`
-  t += `共 ${cross.value.rows.length} 个 SKU，总箱 ${editTotalQty.value}，金额 ¥${fmt(editTotalAmount.value)}\n`
+  t += `共 ${cross.value.rows.length} 个 SKU，总箱 ${editTotalQty.value}，下单金额(厂价) ¥${fmt(editTotalAmount.value)}\n`
   if (!healthIssues.value.length) t += '体检：未发现明显异常，可放心定稿。\n'
   else {
     t += `风险提示（${risk.length} 项高危 / ${warn.length} 项注意）：\n${top}\n`

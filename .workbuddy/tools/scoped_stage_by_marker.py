@@ -1170,6 +1170,85 @@ SPEC_FE_V186_COVERS = ("fe", [
      "new_file": True, "binary": True, "gone": []},
 ])
 
+# ── v187：货损核算「仪表盘」视觉重做（**纯前端**；本轮无后端改动）────────────
+# 归属依据（逐 hunk 打印首行核对过，不按行号猜）：
+#   LossDashboard.vue      53 hunks 全部本轮 —— 区域全落在模板 33–290 与脚本 306–631：
+#                          色板 token 段（--c-gross/--c-net/--c-ded/--c-rate/--c-g1..g4/
+#                          --c-grid/--c-axis/--c-ph-bg/--c-ph-bd）+ bw3 + 占位框收成柱群宽 +
+#                          轴单位 y 上移 + 卡片标题换全局 sec-hd/sec-sub + KPI 结构由自造
+#                          `.dsh-kpis/.k` 改为规范要求的全局 `.kpi-strip` + 样式段整体重写。
+#                          该文件近 2h 内**只有本轮一次写入**（mtime 即我的编辑），
+#                          无并发会话足迹 → keep_all（拿「暂存版 == 工作区」逐字节自证）
+#   LossAccounting.vue     11 hunks 全部本轮 —— 模板 45–119（仪表盘 tab 内顺序重排：
+#                          概览 + 趋势在前、按月明细在后；旧位置纯删 13 行）+ 样式
+#                          1192–1221（.la-ml* 与 .la-tbar 间距收口）→ keep_all
+#   styles/variables.css    1 hunk（@@ -345,0 +346,26 @@）**纯新增**：全局区块标题
+#                          `.sec-hd` / `.sec-sub`（只新增类，不动任何既有规则）→ keep_all
+#   loss-dashboard-local-preflight.js  4 hunks 全部本轮（KPI 断言类名同步 → `.kpi-strip .kpi`、
+#                          率点 r 3.2→3.4 + 新增「视觉规范（v187）」10 条 + 下半屏截图 +
+#                          深色主题段 3 条）
+#   loss-accounting-prod-verify.js     3 hunks 全部本轮（KPI 断言同步 + oldKpis/cGross 采集 +
+#                          新增「副图 B（3 根柱）柱群不超列宽」闸）
+#   🔴 前端**不适用**「生产 == HEAD」那条前置（dist 是整体构建产物）——改用「HEAD→工作区
+#      每个 hunk 的内容是否属本轮」判归属，已逐条读过。
+#   🔴 本轮构建期间工作区有并发会话在改 Forecast.vue / Rebate.vue / useMonthlyAchv.js ——
+#      已用 `tools/dist_normalized_diffcheck.py` 做差集核查确认**零夹带**：首版抓到
+#      `Forecast-HASH.js` 真变化，回退到 `git show HEAD:` 版后最终真变化只剩
+#      「LossAccounting.js +45 字节」（= bw3 与占位框宽度），其余 28 项为纯派生噪声。
+#      故本 spec **不纳入任何 Forecast/Rebate 文件**。
+#   `gone` 一律为空：本轮是「视觉重做」而非「删旧串」型变更；唯一删净的 `.dsh-kpis`
+#   仍以说明性注释留在 LossDashboard.vue 第 36 行（注释不是活类名，不能拿 gone 断言），
+#   改由 preflight / prodverify 的负向断言 `oldKpis === 0` 在运行期把关。
+SPEC_FE_V187_DASHBOARD = ("fe", [
+    {"file": "hergent-cn-v2/src/components/LossDashboard.vue", "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/pages/LossAccounting.vue", "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/styles/variables.css", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/tools/loss-dashboard-local-preflight.js", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/tools/loss-accounting-prod-verify.js", "keep_all": True, "gone": []},
+    # 本工具自身（新增上面这组 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # 交付说明（用户点名的「改动方向 + 预期效果」）
+    {"file": "outputs/货损核算-仪表盘视觉重做-2026-09-18/08-仪表盘视觉重做-交付说明-2026-09-18.md",
+     "new_file": True, "gone": []},
+    # 改前 / 改后 / 下半屏 / 主图特写 / 深色主题 五张本地预检证据
+    # 🔴 PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec
+    {"file": "outputs/货损核算-仪表盘视觉重做-2026-09-18/01-改前-仪表盘-本地预检.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/货损核算-仪表盘视觉重做-2026-09-18/02-改后-仪表盘-本地预检.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/货损核算-仪表盘视觉重做-2026-09-18/03-改后-仪表盘-下半屏.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/货损核算-仪表盘视觉重做-2026-09-18/04-改后-主图特写.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/货损核算-仪表盘视觉重做-2026-09-18/05-改后-深色主题.png",
+     "new_file": True, "binary": True, "gone": []},
+    # 生产真机截图（68/68 那一次）
+    {"file": "outputs/货损核算-仪表盘视觉重做-2026-09-18/06-生产真机-仪表盘.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/货损核算-仪表盘视觉重做-2026-09-18/07-生产真机-数据填报.png",
+     "new_file": True, "binary": True, "gone": []},
+])
+
+# ── v187：预报「改单网格」汇总列序对齐汇总表 ─────────────────────────────
+# Forecast.vue 同时含本轮（v187 列序/口径）与并发会话的在途 hunk（loadEditGrid 同源合并、
+# .imp-errs 规则换位、两处空行）⇒ 用 exclude_hunks 黑掉在途 old_start，其余全归本轮。
+# ⚠️ exclude_hunks 用的是 **HEAD 坐标的 old_start**，HEAD 一变就要重新取（本次 8 个）。
+SPEC_FE_V187 = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2691, 2693, 2704, 2706, 7849, 7864, 8233],
+     # 旧编辑表头「金额」标签必须消失（用户投诉的正是它把口径算成了别的量）
+     "gone": ['calc-th amount">金额']},
+    # 本轮新增的真机探针（HEAD 无 → new_file）
+    {"file": ".workbuddy/tools/forecast-edit-grid-v187-verify.js", "new_file": True, "gone": []},
+    # 本工具自身（新增上面这组 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # 交付说明与真机证据（PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/预报改单网格-列序对齐-2026-09-18/01-改单网格列序（合计紧挨报单单元·最终下单·下单金额厂价）-1800.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/预报改单网格-列序对齐-2026-09-18/02-交付说明.md",
+     "new_file": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1196,7 +1275,11 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v186-unify": SPEC_BE_V186_UNIFY,
          "fe-v186-unify": SPEC_FE_V186_UNIFY,
          "be-v186-covers": SPEC_BE_V186_COVERS,
-         "fe-v186-covers": SPEC_FE_V186_COVERS}
+         "fe-v186-covers": SPEC_FE_V186_COVERS,
+         "fe-v187-dashboard": SPEC_FE_V187_DASHBOARD,
+         # ⚠️ v187 号被并发会话占用（fe-v187-dashboard = 货损仪表盘），本 spec 加 -editgrid 后缀区分。
+         #    代价：Forecast.vue 内注释里写的「v187」不带后缀，与对方同号 ⇒ 追责时要按文件区分。
+         "fe-v187-editgrid": SPEC_FE_V187}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
