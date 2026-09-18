@@ -7,6 +7,11 @@
  * 口径（v160 更新）：
  *   ① 销量达成取「达成填报」rebate_achievements，不接销售订单 API；
  *   ② 目标没填的月份就是 0，不做任何插值/均分，用户自己会去填。
+ *
+ * 口径（v186 生效期）：哪个月适用由 ruleCoversMonth() 唯一判定 ——
+ *   **有月度分解的规则，适用月份就是分解本身**，生效期不再逐月裁剪。
+ *   只要某月有目标，那根柱子就始终画得出来（未填报时为灰轨道），
+ *   不因"生效期只写了一个月"而整根消失。
  *   ③ **返利柱＝实际返利**（rebate_achievements.actual_rebate，人工填报 / Excel /
  *      Hermes 经 API·MCP 回写三源同字段），不再用「按达成率推算的预估返利」。
  *      灰轨道（返利柱的目标位）仍是后端 simulate-batch 按 100% 目标档推算的「预估应返」，
@@ -27,16 +32,63 @@ export function monthKey(year, m) {
   return `${year}-${String(m).padStart(2, '0')}`
 }
 
-/** 规则在 (year, m) 月是否生效（与页面 ruleActiveInMonth 同口径） */
-export function ruleActiveInMonth(rule, year, m) {
-  if (!rule || rule.is_active === 0) return false
-  const ms = new Date(Date.UTC(Number(year), Number(m) - 1, 1)).getTime()
-  const me = new Date(Date.UTC(Number(year), Number(m), 0)).getTime()
-  const s = rule.effective_start ? Date.parse(rule.effective_start + 'T00:00:00Z') : null
-  const e = rule.effective_end ? Date.parse(rule.effective_end + 'T00:00:00Z') : null
-  if (Number.isFinite(s) && s > me) return false
-  if (Number.isFinite(e) && e < ms) return false
+/**
+ * 规则归属年份：target_year > 生效期年份 > 当前年。
+ * 与后端 domain/rebate_period.rule_year 同口径（年份判断是防"2027 年套 2026 年目标"的关键）。
+ */
+export function ruleYear(rule) {
+  const ty = Number(rule && rule.target_year)
+  if (Number.isFinite(ty) && ty >= 2000 && ty <= 2100) return ty
+  const s = String((rule && rule.effective_start) || '')
+  if (/^\d{4}/.test(s)) return Number(s.slice(0, 4))
+  return new Date().getFullYear()
+}
+
+/** 月份 'YYYY-MM' 与 [effective_start, effective_end](''=无界) 是否有交集。
+ *  与后端 domain/rebate_period.month_in_range **逐字同源**（含 'MM-31' / 'MM-01' 的字符串比较技巧）。 */
+function effOverlapsMonth(rule, y, m) {
+  const ym = monthKey(y, m)
+  const s = String((rule && rule.effective_start) || '').trim()
+  const e = String((rule && rule.effective_end) || '').trim()
+  if (s && (ym + '-31') < s) return false
+  if (e && (ym + '-01') > e) return false
   return true
+}
+
+/**
+ * 规则在 (year, m) 月是否**有目标可言** —— 生效期门禁的**唯一实现**（v186）。
+ *
+ * 与后端 domain/rebate_period.rule_covers_month / covered_months 逐字同源：
+ *   · 年度规则 / 带月度分解 ⇒ 「分解里有这一格」（年份也要对齐）；
+ *     生效期**不再逐月裁剪** —— 年度规则的适用月份就是它的月度分解本身。
+ *   · 单期规则（无分解）⇒ 该月与生效期有交集。
+ *
+ * 此前这条门禁在 5 处各写了一遍（本文件的 ruleActiveInMonth、Rebate.vue 的两份
+ * ruleEffectiveInMonth + 本地 ruleActiveInMonth、Forecast.vue 的 ruleEffectiveInMonth），
+ * 口径一分叉就出现同屏自相矛盾。**新增消费方一律调用本函数，勿再本地另写。**
+ *
+ * ⚠️ 为什么必须与 covered_months 同口径：后端 monthly_view() 对**分解里没有的月份**
+ *    会回退到顶层 target_value（年度总额），那个月就会拿"全年目标"比"单月达成"
+ *    ⇒ 永不触发。所以"分解里没有的月份"必须在这里判为**不适用**，不能交给下游兜底。
+ *
+ * 真实事故（tenant_1「蒙牛低温2026年目标」）：12 个月分解齐全（合计 868.4 万），
+ * 生效期却只写了 2026-09 ⇒ 旧口径下 11 个月的目标柱整根不画、8 月已填报的
+ * 达成 32.4 万与实际返利 13.1 万被整个系统丢弃。
+ */
+export function ruleCoversMonth(rule, year, m) {
+  if (!rule || rule.is_active === 0) return false
+  const y = Number(year)
+  const mo = Number(m)
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || mo < 1 || mo > 12) return false
+  const amounts = parseMonthly(rule.monthly_amounts)
+  const hasMonthly = Object.keys(amounts).length > 0
+  if (hasMonthly || rule.period_type === 'year') {
+    // 无分解的年度规则：没有逐月信息可用，仍按生效期判断（放行 12 个月会把年度总额当每月目标）
+    if (!hasMonthly) return effOverlapsMonth(rule, y, mo)
+    if (ruleYear(rule) !== y) return false
+    return Object.prototype.hasOwnProperty.call(amounts, String(mo).padStart(2, '0'))
+  }
+  return effOverlapsMonth(rule, y, mo)
 }
 
 /** 解析 JSON 月度分解（monthly_amounts / monthly_rates），失败返回 {} */
@@ -125,7 +177,7 @@ export function buildYearMatrix({ year, rules = [], achievements = [], brandSel 
     const ruleVals = {}
 
     for (const r of kept) {
-      if (!ruleActiveInMonth(r, y, m)) continue
+      if (!ruleCoversMonth(r, y, m)) continue
       const t = monthTargetOf(r, y, m)
       if (!(t > 0)) continue
       hitRules.push(r)

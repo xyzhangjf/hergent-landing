@@ -1169,11 +1169,12 @@ import { api } from '../api/client.js'
 import TargetFormModal from '../components/rebate/TargetFormModal.vue'
 import MonthlyAchvChart from '../components/rebate/MonthlyAchvChart.vue'
 import BrandFilter from '../components/rebate/BrandFilter.vue'
-// ⚠️ ruleActiveInMonth 起别名：本文件 2165 行另有一个同名本地实现
-//    `ruleActiveInMonth(r, 'YYYY-MM')`（走本地时区 new Date(y,m-1,1)），
-//    与 hook 版（`(r, year, m)`，走 Date.UTC）是**两份口径**。品牌候选判据必须用 hook 版
-//    —— 它才是 buildYearMatrix 消费的那一份，用本地版会让「候选」与「图表能不能画」错配。
-import { buildYearMatrix, buildSimItems, applySimResults, monthTargetOf, monthEndISO, ruleActiveInMonth as achvRuleActiveInMonth } from '../components/rebate/useMonthlyAchv.js'
+// v186：生效期门禁**只有一处实现** —— useMonthlyAchv.ruleCoversMonth(r, year, month)
+//   （与后端 domain/rebate_period.rule_covers_month 同源）。
+//   本文件此前有两份本地实现（ruleEffectiveInMonth / ruleActiveInMonth，一份走本地时区
+//   new Date(y,m-1,1)、一份走 Date.UTC）外加 hook 里的第三份 —— 三份口径分叉就出现
+//   「图表不画柱、列表却算进去」「品牌候选与图表错配」这类同屏自相矛盾。现已全部删除。
+import { buildYearMatrix, buildSimItems, applySimResults, monthTargetOf, monthEndISO, ruleCoversMonth, ruleYear } from '../components/rebate/useMonthlyAchv.js'
 
 // v123：mainTab 提到最前 —— 上方的图表代码（watch/computed）会引用它，
 // 定义靠后时一旦有顶层求值就会触发 TDZ「Cannot access 'mainTab' before initialization」
@@ -1496,23 +1497,22 @@ let _chartSeq = 0
 
 const chartYearOptions = computed(() => {
   const set = new Set([Number(chartYear.value), new Date().getFullYear()])
-  for (const r of (rules.value || [])) {
-    const y = Number(r.target_year)
-    if (y >= 2000 && y <= 2100) set.add(y)
-    const s = String(r.effective_start || '').slice(0, 4)
-    if (/^\d{4}$/.test(s)) set.add(Number(s))
-  }
+  // v186：年份口径统一走 ruleYear（target_year > 生效期年份 > 当前年）——
+  //   与 ruleCoversMonth 内部的年份判定同源，避免"下拉里有这个年份、图表却一根柱都不画"。
+  for (const r of (rules.value || [])) set.add(ruleYear(r))
   return [...set].sort((a, b) => b - a)
 })
 
 // 品牌候选 = **本年度确有品牌目标**的品牌名（v185 R7）。
 // 判据与图表消费方 buildYearMatrix **逐字同源**：∃ 月 m 使
-//   achvRuleActiveInMonth(r, year, m) 且 monthTargetOf(r, year, m) > 0
+//   ruleCoversMonth(r, year, m) 且 monthTargetOf(r, year, m) > 0
 //   ⇒ 候选里出现的品牌，图表必然画得出至少一根柱 —— 「选中后整页空白」不再可能。
 // v185 前取「品牌档案全量（含已停用）∪ 规则里出现过的品牌名」：档案里那些本年度没有目标的品牌
 //   被选中后图表与列表全空、而顶部 KPI 仍照常显示 ⇒ 用户以为页面坏了。
 // ⚠️ 判据**不得**依赖 chartBrandSel：buildYearMatrix 的 measure / kept 会随选中态变化，
 //    一旦引用就成环（候选 → 选中 → measure → 候选）。
+// v186：谓词换成共享的 ruleCoversMonth —— 原来调的 hook 版 ruleActiveInMonth 已删除；
+//   它按生效期逐月裁剪，会把"分解里有目标、生效期没覆盖"的月份判掉，与图表消费方同源但口径错。
 const chartBrandList = computed(() => {
   const y = Number(chartYear.value)
   const set = new Set()
@@ -1521,7 +1521,7 @@ const chartBrandList = computed(() => {
     const nm = String(r.scope_name || r.scope_key || '').trim()
     if (!nm || set.has(nm)) continue
     for (let m = 1; m <= 12; m++) {
-      if (achvRuleActiveInMonth(r, y, m) && monthTargetOf(r, y, m) > 0) { set.add(nm); break }
+      if (ruleCoversMonth(r, y, m) && monthTargetOf(r, y, m) > 0) { set.add(nm); break }
     }
   }
   return [...set].sort((a, b) => a.localeCompare(b, 'zh')).map(name => ({ id: name, name }))
@@ -1798,16 +1798,6 @@ async function switchTab(t) {
   else if (t === 'contracts') await loadContracts()
 }
 
-// 规则是否在指定月份（YYYY-MM）生效：生效期缺省=长期有效；与仪表盘后端口径一致
-function ruleEffectiveInMonth(rule, m) {
-  if (!m) return true
-  const s = rule.effective_start ? String(rule.effective_start).slice(0, 7) : ''
-  const e = rule.effective_end ? String(rule.effective_end).slice(0, 7) : ''
-  if (s && s > m) return false
-  if (e && e < m) return false
-  return true
-}
-
 /** 「周期」列的 hover 说明：讲清「本月目标」这个数是怎么来的 / 为什么为空。
  *  它承载的是**取数口径**（不是可由页面自证的废话），故必须解释而不可省略。 */
 function achvPeriodTip(pt, ym, hasTarget, hasStart) {
@@ -1824,17 +1814,21 @@ function achvPeriodTip(pt, ym, hasTarget, hasStart) {
 }
 
 /** 把「启用中的目标规则」与「已填报达成」合并成可编辑行。
- *  仅纳入生效期覆盖所选月份的启用规则；无对应规则的达成行（用户已手动录入）仍保留，否则导入数据会"看不见"。 */
+ *  纳入规则的门禁 = `ruleCoversMonth`（v186）：该月**有目标可言**就纳入。
+ *  无对应规则的达成行（用户已手动录入 / 历史导入）仍保留，否则导入数据会"看不见"。 */
 function buildAchvRows() {
   const byKey = new Map()
   // v156/v173：本月的「本月目标」必须是「所选月份的月度目标」（monthTargetOf），绝不能用年度总额
   //   target_value 去比月度达成（否则年度 868 万 vs 月度 32 万 = 3.7% 失真）。口径与仪表盘排行同源。
   //   v173：取哪一格由**规则自己的 period_type** 决定（年度→monthly_amounts[MM]，单期→生效起始月整额），
   //   不再由用户选的「周期口径」决定 —— 用户选口径时其实是在选存储桶，那是实现细节。
+  // v186：原来用本地的 ruleEffectiveInMonth（按生效期逐月裁剪）—— 年度规则 12 个月分解齐全、
+  //   生效期只写 9 月时，8 月这行会**根本不出现**（或退化成"没有对应规则"的历史行），
+  //   用户连"8 月目标 95 万、达成 32.4 万"都看不到，更没法在页面上补填。
   const ym = normAchvMonth(achvMonth.value)
   const yy = Number(ym.split('-')[0]) || 0
   const mm = Number(ym.split('-')[1]) || 0
-  for (const r of rules.value.filter(x => x.is_active && ruleEffectiveInMonth(x, ym))) {
+  for (const r of rules.value.filter(x => x.is_active && ruleCoversMonth(x, yy, mm))) {
     const key = `${r.dimension}::${r.scope_key || ''}`
     const pt = ACHV_PERIOD_LABELS[r.period_type] ? r.period_type : 'custom'
     const monthTarget = monthTargetOf(r, yy, mm)
@@ -2165,18 +2159,9 @@ function achvRateCls(row) {
   return ''
 }
 
-/* ---- 仪表盘 Tab（A：实际返利全景 / 档位进度 / 预警，复用填报达成，不依赖预报） ---- */
-function ruleActiveInMonth(r, month) {
-  if (r.is_active === 0) return false
-  const [yy, mm] = String(month).split('-').map(Number)
-  if (!yy || !mm) return false
-  const ms = new Date(yy, mm - 1, 1), me = new Date(yy, mm, 0)
-  const s = r.effective_start ? new Date(r.effective_start) : null
-  const e = r.effective_end ? new Date(r.effective_end) : null
-  if (s && s > me) return false
-  if (e && e < ms) return false
-  return true
-}
+/* ---- 仪表盘 Tab（A：实际返利全景 / 档位进度 / 预警，复用填报达成，不依赖预报） ----
+ * v186：本 Tab 原有一份本地 ruleActiveInMonth（走本地时区 new Date(y,m-1,1)），
+ *   与 hook 版、achv 填报版的另两份实现并存 —— 已删除，一律用 ruleCoversMonth。 */
 
 /* ---- v113：返利金额一律由后端计算 ----
  * 历史债：此处曾有 computeRebateFront（后端算法的镜像实现，v112 R40 已记录必然漂移）。
@@ -2264,7 +2249,7 @@ const dashBase = computed(() => {
     const sk = a.dimension === 'product' ? resolveProductKey(a.scope_key) : String(a.scope_key ?? '')
     achvMap.set(`${a.dimension}::${sk}`, a)
   }
-  const activeRules = (rules.value || []).filter(r => ruleActiveInMonth(r, month))
+  const activeRules = (rules.value || []).filter(r => ruleCoversMonth(r, yy, mm))
   const items = []
   let done = 0, risk = 0
   // v132：达成率改「按目标加权」。金额类与数量类分别累计，绝不跨口径相加（件数+元没有业务含义）

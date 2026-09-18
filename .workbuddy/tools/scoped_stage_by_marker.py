@@ -1094,6 +1094,82 @@ SPEC_FE_V186_UNIFY = ("fe", [
 ])
 
 
+# ══ v186-covers：返利「生效期 ∩ 月度分解」门禁取消（用户需求：「有目标就必须画柱」）══
+# 根因：tenant_1 规则「蒙牛低温2026年目标」12 个月分解齐全（868.4 万），但
+#      effective_start/end 只写了 2026-09 ⇒ 旧口径取交集后只剩 9 月：
+#      前端 11 个月目标柱整根不画、后端 covered_months 只认 9 月、试算 as_of_date
+#      不在生效期 ⇒ 返利恒 0。8 月已填报的达成 32.4 万 / 实际返利 13.1 万被丢弃。
+# 口径（用户拍板）：年度规则适用月份 = 月度分解本身，生效期不再逐月裁剪；
+#      单期规则（无分解）仍按生效期过滤；未生效/未填报才用灰色。
+# 顺带把散落前后端 5 处的生效期门禁收敛成 1 处（前端 ruleCoversMonth / 后端 rule_covers_month）。
+#
+# ── 后端归属取证（基线 27bd785；每个 hunk 都已打印首行逐条核对）──
+#   rebate_period.py   5 hunks **全部本轮**（covered_months 改写 + rule_covers_month /
+#                      rule_covers_date 新增）→ keep_all，且已逐行通读全部 diff
+#   rebate_calc.py     4 hunks **全部本轮**（_rule_spec 下传月度字段 + 试算改走
+#                      rule_covers_date）→ keep_all
+#   rebate_cases.json  1 个纯插入 hunk（+55，含 C22~C25 四条新用例）→ keep_all
+#   erp_db.py          ⚠️ 混合：exclude_hunks 收 5 个**在途** hunk（都非本轮、且均已上生产）：
+#                        · 1400          products DDL 里 `extra_json` 归位（并发会话）
+#                        · 10944/10959   `_safe_migrate("v110_products_dist_price")` 搬家两半
+#                        · 11376/11379   `login_is_locked` 双维度 IP 锁定（并发会话）
+#                      本轮保留的 4 个 = 9938 / 9940 / 9943（_rule_active_in_month 委托 domain 层）
+#                        + 10102（accrue_rebate 报错文案随口径改写）
+#   🔴 keep_all 前置已核（§5.10 末）：三个 keep_all 文件的生产 md5 == 工作区 md5
+#      （c27bc119 / d2791b17 / 74817ace），且 HEAD→工作区的每个 hunk 内容都是本轮 v186 语义
+#      —— 不存在他人「已上线未提交」被记进本次提交。
+SPEC_BE_V186_COVERS = ("be", [
+    {"file": "server/domain/rebate_period.py", "keep_all": True, "gone": []},
+    {"file": "server/domain/rebate_calc.py", "keep_all": True, "gone": []},
+    {"file": "server/tests/fixtures/rebate_cases.json", "keep_all": True, "gone": []},
+    {"file": "server/erp_db.py",
+     "exclude_hunks": [1400, 10944, 10959, 11376, 11379], "gone": []},
+    {"file": "server/tests/test_rebate_period_v186.py", "new_file": True, "gone": []},
+])
+
+# ── 前端归属取证（基线 96fb918；同上，逐 hunk 打印首行核对）──
+#   useMonthlyAchv.js      4 hunks 全部本轮（删 ruleActiveInMonth / 新增 ruleYear +
+#                          ruleCoversMonth / 文件头口径注释）→ keep_all
+#   MonthlyAchvChart.vue   3 hunks 全部本轮（MIN_TRACK_PX=2 + .track 改实色 #cbd5e1）
+#                          → keep_all
+#   Rebate.vue             **11 hunks 全部本轮**（import 换共享谓词 / chartYearOptions 走
+#                          ruleYear / 删两份本地实现 ruleEffectiveInMonth +
+#                          ruleActiveInMonth / buildAchvRows 与 dashBase 改用共享谓词）
+#                          → keep_all
+#   Forecast.vue           ⚠️ 混合 11 hunks：本轮仅 3 个（1947 文件头注释 + 6375 删本地
+#                          ruleEffectiveInMonth + 6420 rebateSprint 用共享谓词）；
+#                          8 个**在途**（均为并发会话，已上生产未提交）：
+#                            · 101 / 8229              纯空行插入（无法归属 → 一律排除）
+#                            · 2686/2688/2699/2701     srcByPid 合并 + extraByPid 累加 +
+#                                                      v179 rowBase「查看态/编辑态同源」
+#                            · 7845/7860               `.imp-errs` 样式搬家两半
+#                          🔴 7845 与 7860 是**同一逻辑改动的两半**（§5.8：只排一半会让规则
+#                             彻底消失 / 出现两份）—— 两半都归在途，故一起排除，
+#                             `.imp-errs` 留在 HEAD 原位恰好一份。
+#   🔴 前端不适用「生产 == HEAD」那条前置（dist 是整体构建产物）——改用「HEAD→工作区每个
+#      hunk 内容是否属本轮」判归属，已逐条读过。
+SPEC_FE_V186_COVERS = ("fe", [
+    {"file": "hergent-cn-v2/src/components/rebate/useMonthlyAchv.js", "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/components/rebate/MonthlyAchvChart.vue", "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/pages/Rebate.vue", "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2686, 2688, 2699, 2701, 7845, 7860, 8229], "gone": []},
+    # 本轮新增的两个验证工具（HEAD 无 → new_file）
+    {"file": ".workbuddy/tools/rebate-rule-covers-month-check.mjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/rebate-chart-render-harness.py", "new_file": True, "gone": []},
+    # 本工具自身（新增上面这组 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # 交付说明与真机证据（PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/目标与返利-生效期口径-2026-09-18/01-交付说明.md",
+     "new_file": True, "gone": []},
+    {"file": "outputs/目标与返利-生效期口径-2026-09-18/02-图表真机测量.json",
+     "new_file": True, "gone": []},
+    {"file": "outputs/目标与返利-生效期口径-2026-09-18/03-真机图表.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/目标与返利-生效期口径-2026-09-18/04-真机月度表.png",
+     "new_file": True, "binary": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1118,7 +1194,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v186-directsale": SPEC_BE_V186_DIRECTSALE,
          "fe-v186-directsale": SPEC_FE_V186_DIRECTSALE,
          "be-v186-unify": SPEC_BE_V186_UNIFY,
-         "fe-v186-unify": SPEC_FE_V186_UNIFY}
+         "fe-v186-unify": SPEC_FE_V186_UNIFY,
+         "be-v186-covers": SPEC_BE_V186_COVERS,
+         "fe-v186-covers": SPEC_FE_V186_COVERS}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

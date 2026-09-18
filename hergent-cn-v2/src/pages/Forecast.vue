@@ -1945,6 +1945,11 @@ import ReportMapping from './ReportMapping.vue'
 /* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText } from '../utils/arrival.js'
+/* v186：「规则在这个月适不适用」只有一处实现 —— useMonthlyAchv.ruleCoversMonth
+   （与后端 domain/rebate_period.rule_covers_month 同源）。本文件原有一份本地
+   ruleEffectiveInMonth（按生效期逐月裁剪），年度规则 12 个月分解齐全、生效期只写
+   一个月时会把其余月份判掉 ⇒ 冲刺看板少行 / 目标柱不画。已删除，改用共享谓词。 */
+import { ruleCoversMonth } from '../components/rebate/useMonthlyAchv.js'
 
 const periods = ref([])
 const curPeriod = ref(0)
@@ -6372,15 +6377,9 @@ const rebateSprintOrders = computed(() => {
   return Math.max(1, Math.ceil(daysLeft / rebateGlobalCadence.value))
 })
 
-// 规则是否在指定月份（YYYY-MM）生效：生效期缺省=长期有效；与仪表盘后端口径一致
-function ruleEffectiveInMonth(rule, m) {
-  if (!m) return true
-  const s = rule.effective_start ? String(rule.effective_start).slice(0, 7) : ''
-  const e = rule.effective_end ? String(rule.effective_end).slice(0, 7) : ''
-  if (s && s > m) return false
-  if (e && e < m) return false
-  return true
-}
+// v186：规则适用月份判据统一走 ruleCoversMonth（共享谓词，与后端同源）。
+//   原本地 ruleEffectiveInMonth 按生效期逐月裁剪 —— 年度规则「12 个月分解齐全、
+//   生效期只写 9 月」时会把 8 月整个判掉：既少一行冲刺行，也让图表的 8 月目标柱消失。
 
 // v118 (L2细化)：到货模式感知的星期解析与剩余窗口计数
 // 与后端 domain/arrival_schedule.py 同一契约：arrival_weekdays 存 "2,6"，1=周一..7=周日
@@ -6417,8 +6416,13 @@ const rebateSprint = computed(() => {
   const p0 = cross.value.period
   const base0 = (p0 && (p0.arrival_date || p0.order_start || p0.name)) || ''
   const sprintMonth = /^\d{4}-\d{2}$/.test((base0 || '').slice(0, 7)) ? base0.slice(0, 7) : new Date().toISOString().slice(0, 7)
-  // 仅纳入生效期覆盖本期月份的启用规则（与仪表盘一致，避免"没设当月目标却显示"）
-  const rules = (rebateRules.value || []).filter(x => x.is_active !== 0 && ruleEffectiveInMonth(x, sprintMonth))
+  // 仅纳入「本期月份有目标可言」的启用规则（ruleCoversMonth，与仪表盘 / 全年图表同源）。
+  // v186：原来按生效期逐月裁剪 —— 年度规则 12 个月分解齐全而生效期只写一个月时，
+  //   本期即使"当月分解有目标"也会被整行剔除。当月分解无值的情况仍由下方
+  //   monthly_amounts[mm2] 的守卫兜住（"没设当月目标却显示"不会回来）。
+  const sprintY = Number(sprintMonth.slice(0, 4))
+  const sprintM = Number(sprintMonth.slice(5, 7))
+  const rules = (rebateRules.value || []).filter(x => x.is_active !== 0 && ruleCoversMonth(x, sprintY, sprintM))
   const rows = cross.value.rows || []
   const meta = prodMeta.value || {}
   // 到货截止日 → 剩余天数（用于按各品牌到货周期算剩余到货次数）

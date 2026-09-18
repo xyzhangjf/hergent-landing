@@ -365,6 +365,13 @@ const rebateMax = computed(() => {
 const LBL_DY_RATE = 6    // 下行（达成率）baseline 距柱顶
 const LBL_DY_AMT = 18    // 上行（金额）baseline 距柱顶 ＝ 6 + 12px 行距
 
+/* v186：「该月有目标」→ 必须**始终看得见**一根柱子。
+   hAmt 是纯等比（无最小高度），当月目标相对全年量程极小（如某月目标只占 0.1%）时
+   轨道高度会算成 0.1px —— 屏幕上等于没画，用户会以为"这个月的目标丢了"。
+   故给轨道一个 2px 的可见下限：宁可略微夸大小到看不见的量，也不能让柱子消失
+   （精确数值由 tooltip 与柱顶标签承担）。 */
+const MIN_TRACK_PX = 2
+
 /** 金额 → 像素高度（等比；min 截断只是防御，量程本就涵盖全部数值） */
 function hAmt(v, max) {
   const m = Number(max) || 0
@@ -439,7 +446,9 @@ function barOf(cfg, mo) {
   //   0 → 目标 为常规色段，目标 → 达成 为深色超额段。
   //   无目标但有达成 → 整根都算填充（中性灰），不再"硬画到 100% 位"。
   const hTotal = hAmt(achv, max)
-  const trackH = hAmt(target, max)
+  // v186：有目标 ⇒ 轨道至少 MIN_TRACK_PX 高 —— "只要录到了目标就始终显示这根柱子"
+  //   不是一句期望，而是这里的下限保证（未填报时它整根是灰的）。
+  const trackH = hasTarget ? Math.max(MIN_TRACK_PX, hAmt(target, max)) : 0
   const fillH = hasTarget ? Math.min(hTotal, trackH) : hTotal
   const deepH = Math.max(0, hTotal - fillH)
   return {
@@ -643,7 +652,12 @@ function onHover(mo, i, key) {
 /* v159 柱两段：轨道（目标）+ 填充（达成）+ 超额加深段。
    两处文字均加白色描边（paint-order）—— 柱顶标签可能压到相邻更高的柱、时间进度线文字会横跨当月柱身，
    无描边则与柱色混在一起读不出来 */
-.track { fill: var(--border-subtle, #e2e8f0); }
+/* v186：轨道改用**明确灰 #cbd5e1**（原为 var(--border-subtle,#e2e8f0)）。
+   轨道＝「该月有目标」这件事的唯一可见证据：有目标就必须看得见一根柱子 ——
+   未填报 / 未达成时它整根是灰的，达成部分再被彩色填充盖上去。
+   #e2e8f0 是边框色，在白底上淡到"像没画"，用户会以为"有目标却没柱子"。
+   #cbd5e1 与图例 .lg-track 的顶端同色 —— 图例与柱体不再是两个灰度。 */
+.track { fill: #cbd5e1; }
 .bar-lb { font-size: 8.5px; font-variant-numeric: tabular-nums; pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 2px; stroke-linejoin: round; }
 /* v164：下行达成率略降透明度 → 上行金额先被读到；两行同色系，整柱归属依然清楚 */
 .bar-lb-rate { opacity: .88; }
