@@ -235,6 +235,13 @@ export const lossAccountingApi = {
       + `&subject_key=${encodeURIComponent(subjectKey)}`),
   health: (period) =>
     api(`/api/loss/accounting/health?period=${encodeURIComponent(period)}`),
+  /* 跨期序列 —— 仪表盘的唯一数据源（月列表 / 柱状图 / 指标卡 / 各副图）。
+     `from`/`to` 都是 `YYYY-MM`；不传 to 时后端默认到本月。
+     ⚠️ **没有 pricing 入参**：计价口径是全期唯一的配置（见后端模块铁律①），
+        传了也不会变数 —— 那种"切了没反应"的旋钮不接。 */
+  trend: ({ from = '', to = '', limit = 0 } = {}) =>
+    api('/api/loss/accounting/trend'
+      + `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=${limit}`),
   roles: () => api('/api/loss/accounting/roles'),
   renameRole: (role, body) =>
     api(`/api/loss/accounting/roles/${encodeURIComponent(role)}`, { method: 'PUT', body }),

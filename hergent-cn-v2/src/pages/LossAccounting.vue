@@ -47,11 +47,105 @@
       </span>
       <span v-if="dirtyCount" class="la-dirty">已改 <b>{{ dirtyCount }}</b> 格未保存</span>
       <span v-else class="la-quiet">尚未修改</span>
+      <span class="la-quiet">趋势图与月列表已在录入态收起（点「完成录入」回来）</span>
       <button class="btn btn-primary btn-sm" :disabled="!dirtyCount || saving" @click="saveManual">
         {{ saving ? '保存中…' : '保存并重算' }}
       </button>
       <button class="btn btn-ghost btn-sm" :disabled="saving" @click="cancelEdit">放弃修改</button>
     </div>
+
+    <!-- ══ 趋势：区间筛选 + 按月一览 + 仪表盘 ══
+         录入态整段收起：录数是"对着表格填"，看图是"回头看走势"，两者同屏会把表格
+         挤到屏幕外。收起时编辑条里有一句说明，避免用户以为功能没了。 -->
+    <template v-if="!editMode">
+      <div class="la-tbar">
+        <span class="la-tbar-t">趋势区间</span>
+        <select v-model.number="tRange" class="input la-sel-sm" aria-label="趋势区间" @change="loadTrend">
+          <option :value="3">近 3 个月</option>
+          <option :value="6">近 6 个月</option>
+          <option :value="12">近 12 个月</option>
+          <option :value="0">本年</option>
+        </select>
+        <label class="la-chk"><input v-model="tHideOpen" type="checkbox" /> 只看已结账月</label>
+        <label class="la-chk"><input v-model="tSkipEmpty" type="checkbox" /> 跳过未录入月</label>
+        <span v-if="trendLoading" class="la-quiet">加载中…</span>
+        <span v-else-if="trendErr" class="la-tbar-err">{{ trendErr }}</span>
+        <span class="la-tbar-r la-quiet">点柱子 / 「查看」即切到该月详情</span>
+      </div>
+
+      <!-- 月列表 -->
+      <div class="card la-ml">
+        <div class="la-ml-hd">
+          <b>按月一览</b>
+          <span class="la-ml-sub">
+            {{ tFrom }} → {{ tTo }} 共 {{ monthList.length }} 个月 ·
+            有数据 {{ tSummary.months_with_data || 0 }} 个 ·
+            已结账 {{ tSummary.months_closed || 0 }} 个
+          </span>
+        </div>
+        <div v-if="!monthList.length" class="state-empty">这个区间还没有月份。</div>
+        <div v-else class="la-ml-wrap">
+          <table class="la-ml-tbl">
+            <thead>
+              <tr>
+                <th>月份</th>
+                <th class="num">货损净额</th>
+                <th class="num">货损净率</th>
+                <th class="num">净额环比</th>
+                <th class="num">净率变化</th>
+                <th>结账</th>
+                <th>完整度</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(m, i) in monthList" :key="m.period"
+                  :class="{ 'la-ml-cur': m.period === period, 'la-ml-hid': m.hidden }">
+                <td class="la-ml-m">
+                  <b>{{ m.period }}</b>
+                  <u v-if="m.period === period" class="la-ml-badge">当前</u>
+                  <u v-if="m.hidden" class="la-ml-badge la-ml-badge-hid">已隐藏</u>
+                </td>
+                <td class="num" :class="numCls(m.net_amt)">
+                  {{ m.has_data ? wanText(m.net_amt) : '未录入' }}
+                </td>
+                <td class="num" :class="m.rate_net == null ? 'la-void-t' : ''">
+                  {{ m.rate_net == null ? (m.has_data ? '—' : '—') : pctText(m.rate_net) }}
+                </td>
+                <td class="num" :class="momCls(momAmt(i))">{{ momAmtText(i) }}</td>
+                <td class="num" :class="momCls(momRate(i))">{{ momRateText(i) }}</td>
+                <td>
+                  <span class="la-chip la-chip-mini" :class="m.is_closed ? 'is-closed' : 'is-open'">
+                    {{ m.is_closed ? '已结账' : '未结账' }}
+                  </span>
+                </td>
+                <td>
+                  <span v-if="!m.has_data" class="la-ml-none">未录入</span>
+                  <span v-else-if="!m.gaps.length" class="la-ml-ok">完整</span>
+                  <span v-else class="la-ml-gap" :title="m.gaps.join('；')">缺 {{ m.gaps.length }} 项</span>
+                </td>
+                <td class="la-ml-op">
+                  <button class="la-link" @click="switchPeriod(m.period)">查看</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <LossDashboard
+        :months="chartMonths"
+        :summary="tSummary"
+        :subject-totals="trendSubjects"
+        :groups-meta="trendGroups"
+        :pricing="trendPricing"
+        :period="period"
+        :from="tFrom"
+        :to="tTo"
+        :skipped-empty="tSkipEmpty ? skipEmptyCount : 0"
+        @pick="switchPeriod"
+      />
+    </template>
 
     <!-- ══ 公司整体 ══ -->
     <div class="card la-co">
@@ -381,6 +475,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { toast } from '../store'
 import { lossAccountingApi } from '../api/modules'
+import LossDashboard from '../components/LossDashboard.vue'
 
 /* ════════════════════════════════════════════════════════════════════
    数据来源：**全部由后端下发** —— 列定义（col_defs）、列位与中文表头（slots）、
@@ -411,6 +506,18 @@ const healthItems = ref([])
 const detailData = ref(null)
 const showBreakdown = ref(false)
 const subjectForm = reactive({ subject_kind: 'store', subject_key: '', note: '' })
+
+/* ── 趋势（仪表盘）状态 ──
+   数据只来自 `GET /api/loss/accounting/trend`（跨期只读序列）。筛选分两类：
+     · **影响取数**的只有区间（近 N 月 / 本年）—— 区间变了要重新问后端；
+     · 两个开关只影响**显示**（是否含未结账月、是否跳过未录入月），本地过滤即可。
+   但两类都会改变"这一屏看的是哪几个月"，所以界面上必须明说（顶部提示条 + 月列表标）。 */
+const trend = ref(null)
+const trendLoading = ref(false)
+const trendErr = ref('')
+const tRange = ref(12)         // 3 / 6 / 12 / 0(=本年)
+const tHideOpen = ref(false)   // 只看已结账月
+const tSkipEmpty = ref(false)  // 跳过未录入月
 
 const SEp = '\u0001'
 const dkey = (kind, key, col) => kind + SEp + (key || '') + SEp + col
@@ -579,6 +686,72 @@ function pctText(v) {
 }
 function coV(key) { return company.value.values?.[key] }
 
+/* ── 趋势：派生数据与环比 ── */
+const tSummary = computed(() => trend.value?.summary || {})
+const trendSubjects = computed(() => trend.value?.subject_totals || [])
+const trendGroups = computed(() => trend.value?.row_groups || [])
+const trendPricing = computed(() => trend.value?.pricing || 'sale')
+const tFrom = computed(() => trend.value?.from || '')
+const tTo = computed(() => trend.value?.to || '')
+
+/* 月份序列（后端给的是**升序**）。
+   `hidden` = 被「只看已结账月」关掉的未结账月：**不删**，而是保留时间轴上的位置、
+   图上只留灰占位 —— 整列抽掉的话，折线会把"中间两个月没结账"画成"连续下降"。 */
+const allMonths = computed(() => (trend.value?.months || [])
+  .map(m => ({ ...m, hidden: tHideOpen.value && !m.is_closed })))
+const skipEmptyCount = computed(() => (tSkipEmpty.value
+  ? allMonths.value.filter(m => !m.has_data).length : 0))
+/* 两个开关各管一件事，互不重叠（否则会出现"被隐藏的空月"这种既不属于甲也不属于乙的格）：
+     · 跳过未录入月 → 无数据的月**整个从图上拿掉**（月列表里仍留着，好去补）
+     · 只看已结账月 → 未结账的月**留在时间轴上**、但只有灰占位，不参与图与合计
+   两者同时开：有数据但未结账的月 → 灰占位；无数据的月 → 整列拿掉。 */
+const chartMonths = computed(() => (tSkipEmpty.value
+  ? allMonths.value.filter(m => m.has_data) : allMonths.value))
+/* 月列表：**不过滤空月** —— 管理界面就是要看见"哪个月没录"，好去补；最新月在最上 */
+const monthList = computed(() => [...allMonths.value].reverse())
+
+/* 🔴 环比只跟**上一个自然月**比（列表的下一行），不跨过缺口去跟更早的月比：
+   跨缺口比出来的数用户无法在自己的账上复现。上月未录入就明说「上月未录入」。 */
+function prevMonthOf(i) { return monthList.value[i + 1] || null }
+function momAmt(i) {
+  const c = monthList.value[i]
+  const p = prevMonthOf(i)
+  if (!c.has_data || !p || !p.has_data || c.net_amt == null || p.net_amt == null) return null
+  if (!p.net_amt) return null           // 上月净额为 0 ⇒ 百分比除不出（不是 0%）
+  return (c.net_amt - p.net_amt) / Math.abs(p.net_amt) * 100
+}
+function momAmtText(i) {
+  const c = monthList.value[i]
+  const p = prevMonthOf(i)
+  if (!c.has_data) return '—'
+  if (!p) return '首次'
+  if (!p.has_data) return '上月未录入'
+  const v = momAmt(i)
+  return v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(1) + '%'
+}
+function momRate(i) {
+  const c = monthList.value[i]
+  const p = prevMonthOf(i)
+  if (!c.has_data || !p || !p.has_data || c.rate_net == null || p.rate_net == null) return null
+  return c.rate_net - p.rate_net        // 单位 = 个百分点
+}
+function momRateText(i) {
+  const c = monthList.value[i]
+  const p = prevMonthOf(i)
+  if (!c.has_data) return '—'
+  if (!p) return '首次'
+  if (!p.has_data) return '上月未录入'
+  const v = momRate(i)
+  if (v == null) return '—'
+  // 🔴 率的变化单位是**个百分点**（减法），不能写「%」——「+0.31%」会被读成相对涨幅，
+  //    与「+0.31 个百分点」差一个数量级
+  return (v > 0 ? '+' : '') + v.toFixed(2) + ' 个百分点'
+}
+function momCls(v) {
+  if (v == null || !isFinite(v)) return ''
+  return v > 0 ? 'la-bad' : (v < 0 ? 'la-good' : '')
+}
+
 /* ── 加载 ── */
 async function load(p) {
   loading.value = true
@@ -595,13 +768,44 @@ async function load(p) {
     loading.value = false
   }
 }
-async function reload() { exitEdit(); await load(period.value) }
+async function reload() { exitEdit(); await load(period.value); await loadTrend() }
+
+/* 趋势取数：区间只由 `tRange` 决定；**终点跟着当前期次走**（"截至我正看的这个月"）。
+   用"截至今天"的话，在看 6 月的账时图里会出现 9 月，与下方详情表错位。 */
+async function loadTrend() {
+  trendLoading.value = true
+  trendErr.value = ''
+  try {
+    const to = period.value || ''
+    let from = ''
+    let limit = 0
+    if (tRange.value === 0) {
+      const base = period.value || new Date().toISOString().slice(0, 7)
+      from = base.slice(0, 4) + '-01'
+    } else {
+      limit = tRange.value
+    }
+    trend.value = await lossAccountingApi.trend({ from, to, limit })
+  } catch (e) {
+    trendErr.value = e.message || '趋势数据加载失败'
+  } finally { trendLoading.value = false }
+}
+
+async function switchPeriod(p) {
+  if (!p || p === period.value) return
+  exitEdit()
+  period.value = p
+  await load(p)
+  await loadTrend()
+}
+
 async function doRecompute() {
   busy.value = true
   try {
     const r = await lossAccountingApi.recompute(period.value)
     boot.value = { ...boot.value, ...(r.summary || {}) }
     toast(r.message || '已重算', 'ok')
+    await loadTrend()
   } catch (e) {
     toast(e.message || '重算失败', 'err')
   } finally { busy.value = false }
@@ -671,6 +875,7 @@ async function saveManual() {
     boot.value = { ...boot.value, ...(r.summary || {}) }
     Object.keys(draft).forEach(k => delete draft[k])
     enterEdit()   // 用新值重建编辑态基线
+    await loadTrend()   // 刚改了数 ⇒ 趋势图上的这一根柱子也变了
     const msg = r.message || '已保存'
     toast(r.skipped_count ? (msg + '；' + r.skipped.slice(0, 2).join('；')) : msg,
           r.skipped_count ? 'info' : 'ok')
@@ -691,6 +896,7 @@ async function toggleClose() {
     toast(r.message || '操作成功', 'ok')
     exitEdit()
     await load(period.value)
+    await loadTrend()   // 结账态会改变图上的「未结账」标记与「只看已结账月」的过滤结果
   } catch (e) { toast(e.message || '操作失败', 'err') }
 }
 async function onChangePricing() {
@@ -705,6 +911,7 @@ async function onChangePricing() {
     const r = await lossAccountingApi.saveConfig({ pricing: pricing.value })
     toast(r.message || '已切换', 'ok')
     await load(period.value)
+    await loadTrend()   // 口径是全期唯一的 ⇒ 区间内每一根柱子都要跟着变
   } catch (e) {
     toast(e.message || '切换失败', 'err')
     pricing.value = old
@@ -787,7 +994,7 @@ async function openDetail(rk, row) {
   } catch (e) { toast(e.message || '加载失败', 'err') }
 }
 
-onMounted(() => load(''))
+onMounted(async () => { await load(''); await loadTrend() })
 </script>
 
 <style scoped>
@@ -869,6 +1076,9 @@ onMounted(() => load(''))
 .la-row .la-editable{background:color-mix(in srgb,var(--p) 5%,var(--bg))}
 .la-void,.la-void-t{color:var(--t3)}
 .la-good{color:var(--ok,#16a34a)}
+/* 环比为正 = 货损变大 = 坏（红）；为负 = 变小 = 好（绿）。
+   与详情表里的「负净额 = 好事」同一套符号约定，两处不能各定一套。 */
+.la-bad{color:var(--danger-txt)}
 .la-row-blank td,.la-blank{color:var(--t3);font-size:12px;text-align:center;padding:14px}
 .la-unit{margin-left:4px;font-size:10.5px;color:var(--t3)}
 .la-input{width:calc(100% - 34px);padding:4px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t1);font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums}
@@ -881,6 +1091,42 @@ onMounted(() => load(''))
 .la-foot-lbl{font-size:11.5px;color:var(--t2);background:var(--bg3);z-index:6;font-weight:500}
 
 .la-footnote{font-size:12px;color:var(--t3);margin-top:10px;line-height:1.7}
+
+/* ── 趋势：区间筛选条 ── */
+.la-tbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px;
+  padding:8px 12px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
+.la-tbar-t{font-size:12.5px;color:var(--t2)}
+.la-tbar-r{margin-left:auto}
+.la-tbar-err{font-size:12px;color:var(--danger-txt)}
+.la-chk{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--t2);cursor:pointer;user-select:none}
+
+/* ── 趋势：按月一览 ── */
+.la-ml{padding:12px 14px}
+.la-ml-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.la-ml-hd b{font-size:13.5px;color:var(--t1)}
+/* ⚠️ 不要复用公司卡的 `.la-co-formula` —— 那是"公司卡口径说明"的专用类，
+   复用到这儿会让 `querySelector('.la-co-formula')` 抓到月列表（真机探针就这么翻过车）。 */
+.la-ml-sub{font-size:11.5px;color:var(--t3);line-height:1.6}
+.la-ml-wrap{overflow-x:auto}
+.la-ml-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.la-ml-tbl th{font-weight:500;color:var(--t2);text-align:left;padding:6px 8px;
+  border-bottom:1px solid var(--bd);white-space:nowrap}
+.la-ml-tbl th.num,.la-ml-tbl td.num{text-align:right}
+.la-ml-tbl td{padding:6px 8px;border-bottom:1px solid var(--border-subtle);color:var(--t1);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.la-ml-tbl tr:hover td{background:var(--bg2)}
+.la-ml-m b{font-weight:500}
+.la-ml-badge{margin-left:5px;font-size:10.5px;padding:1px 6px;border-radius:8px;
+  background:var(--p-bg);color:var(--p-deep);text-decoration:none}
+.la-ml-badge-hid{background:var(--bg4);color:var(--t2)}
+.la-ml-cur td{background:var(--p-bg)}
+.la-ml-hid td{color:var(--t3)}
+.la-ml-none{font-size:11.5px;padding:1px 7px;border-radius:8px;background:var(--bg4);color:var(--t3)}
+.la-ml-ok{font-size:11.5px;padding:1px 7px;border-radius:8px;background:var(--ok-green-bg);color:var(--ok-green)}
+.la-ml-gap{font-size:11.5px;padding:1px 7px;border-radius:8px;background:var(--warn-amber-bg);
+  color:var(--warn-amber);cursor:help}
+.la-ml-op{text-align:right}
+.la-chip-mini{font-size:11px;padding:2px 7px}
 
 /* ── 弹窗 ── */
 .la-mask{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px}

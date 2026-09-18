@@ -799,6 +799,72 @@ SPEC_FE_V185_NAV = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v185-trend：货损核算「跨期趋势」端点 + 按月仪表盘（用户回「A」）────────────────
+# 归属依据（逐 hunk 打印首行核对过，不按行号猜）：
+#
+# 后端（be HEAD = 待查）：本轮唯一改动文件 = `server/routers/loss_accounting.py`，
+#   该文件 7 个 hunk **全是本轮**（已逐块打印确认，无并行会话尾巴）：
+#     30      import 加 Query
+#     518     新增三张列映射表 + `_agg`（率的唯一实现）
+#     531/535/540  `_subtotal` 改为「先求和 → 交 `_agg`」；新增 `ded_sum`
+#     552     新 `_subtotal` 定义
+#     906     🔴 主体：`_TREND_MAX_MONTHS` / `_NULL_SUM_KEYS` / `_month_add|diff|seq|gaps`
+#             / `_trend_series` / `GET /trend`（+232 行）
+#   ⇒ keep_all 拿到「构造结果 == 工作区」自证。
+SPEC_BE_V185_TREND = ("be", [
+    {"file": "server/routers/loss_accounting.py",
+     "keep_all": True,
+     # 本轮**删掉**的东西必须在暂存版与工作区同时为 0：证明率算法确实只剩 `_agg` 一份
+     # （旧的「列名散落在 `_subtotal` 里 + `bool(den_col)` 判率」写法必须彻底消失）。
+     "gone": ['num_col = {"store":', "bool(den_col)", "if den_col else None"]},
+])
+
+# 前端（fe HEAD = 待查）：
+#   `LossDashboard.vue` 新文件（纯展示层，**537 行**）⇒ new_file，内容取工作区。
+#   `LossAccounting.vue` **13 个 hunk 全本轮**（逐块打印确认，无在途尾巴；HEAD 922 → 1168，+246）：
+#     49/55        模板：编辑条加「趋势已收起」说明 + 区间筛选条/月列表/<LossDashboard> 整块
+#     383           import LossDashboard
+#     414           趋势状态（trend / trendLoading / trendErr / tRange / tHideOpen / tSkipEmpty）
+#     581           派生数据与环比（tSummary / trendSubjects / trendGroups / allMonths /
+#                   chartMonths / monthList / prevMonthOf / momAmt / momRate / momAmtText /
+#                   momRateText / momCls）
+#     598           reload 加 loadTrend + 新 loadTrend() + switchPeriod()
+#     604/673/693/707  四个联动刷新点（doRecompute / saveManual / toggleClose / onChangePricing）
+#     790           onMounted → async + loadTrend
+#     871/884       样式（.la-bad / .la-tbar* / .la-ml*）
+#     ⇒ keep_all。
+#   `api/modules.js` **9 个 hunk = 本轮 1 + 在途 8** ⇒ markers。
+#     本轮 1：old_start=237（`lossAccountingApi.trend` 整块，+7 行）。
+#     在途 8（均为前几轮未提交、**已全部在产**的改动，留在工作区由各自作者提交）：
+#       340(+1/−1)  forecastApproveApi.summary 加 periodId 形参
+#       344(+1)     q.push('period_id=' + periodId)
+#       352(+1/−1)  productsApi.bulkUpsert **搬家两半**（技能 §5.8：搬移必须两半一起排除）
+#       384(−1)     columnSchemeApi 上方注释搬家（删）
+#       395(+1)     forecastColumnsApi 上方注释搬家（增）
+#       396(+1/−1)  importApi.template **搬家两半**
+#     净：HEAD 512 → 工作区 520（我 +7，在途 +1）⇒ 暂存 519 是正确结果。
+#     ⚠️ 标记串 `trend: ({ from = '', to = '', limit = 0 } = {}) =>` 实测**恰好命中 old_start=237**
+#        这一个 hunk（取功能行而非注释行，更能抵抗注释改写）。
+#   `loss-accounting-prod-verify.js` 本轮 1 个 hunk（+183,46 = `# 6.5 仪表盘` 段）⇒ keep_all。
+#   ⚠️ 「9 hunk」「13 hunk」是本刻快照；跨轮次会变，复跑前重数（本工具会自己断言）。
+SPEC_FE_V185_TREND = ("fe", [
+    {"file": "hergent-cn-v2/src/components/LossDashboard.vue", "new_file": True, "gone": []},
+    {"file": "hergent-cn-v2/src/pages/LossAccounting.vue", "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/api/modules.js",
+     "markers": ["trend: ({ from = '', to = '', limit = 0 } = {}) =>"], "gone": []},
+    {"file": ".workbuddy/tools/loss-accounting-prod-verify.js", "keep_all": True, "gone": []},
+    # 本轮的两份「需求 → 可复跑断言」：68 条隔离验证 + 33 条本地渲染预检
+    {"file": ".workbuddy/tools/loss-trend-local-verify.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/loss-dashboard-local-preflight.js", "new_file": True, "gone": []},
+    # 交付截图（⚠️ 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/货损核算-2026-09-18/06-仪表盘-本地预检.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/货损核算-2026-09-18/07-仪表盘-主图特写-本地预检.png",
+     "new_file": True, "binary": True, "gone": []},
+    # 本工具自身（新增上面两个 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -813,7 +879,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v184c": SPEC_BE_V184C, "fe-v184c": SPEC_FE_V184C,
          "fe-v184c-docs": SPEC_FE_V184C_DOCS,
          "be-loss": SPEC_BE_LOSS, "fe-loss": SPEC_FE_LOSS,
-         "fe-v185-nav": SPEC_FE_V185_NAV}
+         "fe-v185-nav": SPEC_FE_V185_NAV,
+         "be-v185-trend": SPEC_BE_V185_TREND, "fe-v185-trend": SPEC_FE_V185_TREND}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

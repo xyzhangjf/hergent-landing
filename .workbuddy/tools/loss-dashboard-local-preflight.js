@@ -1,0 +1,283 @@
+/* 货损核算仪表盘 · **本地预检**（v185）
+ *
+ * 为什么要它：仪表盘是纯前端渲染，错了只会在浏览器里炸（Vue 渲染异常会让整段子树消失），
+ * 而 dist 是"整体构建"，直接上线等于让真实用户当第一个测试者。
+ * 本脚本把 ①本地 dist 静态服务起来 + ②拦截 /api/** 用**本地后端跑出来的真实 payload**
+ * （loss-trend-local-verify.py 导出的 fixture）响应，从而在**不碰生产**的前提下把
+ * 渲染、空月语义、双轴、折线断开、筛选联动全部验一遍，并留下截图。
+ *
+ * 用法：
+ *   LOSSFX=/tmp/loss-fixtures node loss-dashboard-local-preflight.js
+ * 前置：先跑 LOSSFX=/tmp/loss-fixtures python3 .workbuddy/tools/loss-trend-local-verify.py
+ */
+const http = require('http')
+const fs = require('fs')
+const path = require('path')
+const puppeteer = require('puppeteer-core')
+
+const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+const DIST = '/Users/zhangjunfeng/Documents/laozhangai-product/hergent-cn-v2/dist'
+const FX = process.env.LOSSFX || '/tmp/loss-fixtures'
+const OUT = process.env.HG_OUT
+  || '/Users/zhangjunfeng/Documents/laozhangai-product/outputs/货损核算-2026-09-18'
+const PORT = Number(process.env.PORT || 8877)
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.woff': 'font/woff',
+}
+
+const failed = []
+function ok(cond, label, extra) {
+  if (!cond) failed.push(label)
+  console.log((cond ? '  ✓ ' : '  ✗ ') + label + (extra !== undefined ? '   [' + extra + ']' : ''))
+}
+function info(m) { console.log('  · ' + m) }
+
+const bootstrap = JSON.parse(fs.readFileSync(path.join(FX, 'bootstrap.json'), 'utf8'))
+const trend = JSON.parse(fs.readFileSync(path.join(FX, 'trend.json'), 'utf8'))
+
+function serve() {
+  const srv = http.createServer((req, res) => {
+    let p = decodeURIComponent(req.url.split('?')[0])
+    if (p === '/' || !path.extname(p)) p = '/index.html'
+    const f = path.join(DIST, p)
+    if (!fs.existsSync(f) || !fs.statSync(f).isFile()) {
+      res.writeHead(404); res.end('nf'); return
+    }
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' })
+    fs.createReadStream(f).pipe(res)
+  })
+  return new Promise(r => srv.listen(PORT, '127.0.0.1', () => r(srv)))
+}
+
+async function main() {
+  if (!fs.existsSync(path.join(FX, 'trend.json'))) {
+    console.error('缺 fixture：' + FX + '（先跑 loss-trend-local-verify.py）')
+    process.exit(2)
+  }
+  const srv = await serve()
+  const browser = await puppeteer.launch({
+    executablePath: CHROME, headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--force-device-scale-factor=1'],
+  })
+  const page = await browser.newPage()
+  await page.setViewport({ width: 1680, height: 1100, deviceScaleFactor: 2 })
+  const errs = []
+  page.on('pageerror', e => errs.push('pageerror: ' + e.message))
+  page.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text().slice(0, 200)) })
+
+  await page.setRequestInterception(true)
+  page.on('request', req => {
+    const u = req.url()
+    if (u.includes('/api/')) {
+      let body = { ok: true, success: true, data: {} }
+      if (u.includes('/api/loss/accounting/bootstrap')) {
+        // mock 的数字仍是 fixture 那一期（2026-09）的，这里只把 `period` 标签改成请求里的值
+        // —— 本轮验的是"点柱子/切期次"的联动，不是数字本身（数字由 Python 侧断言锁）。
+        body = JSON.parse(JSON.stringify(bootstrap))
+        const m = /[?&]period=([^&]*)/.exec(u)
+        const qp = m ? decodeURIComponent(m[1]) : ''
+        if (qp) body.data.period = qp
+      } else if (u.includes('/api/loss/accounting/trend')) body = trend
+      else if (u.includes('/api/loss/accounting/periods')) {
+        body = { ok: true, success: true, data: { periods: bootstrap.data.periods } }
+      } else if (u.includes('/api/ai/sessions')) {
+        body = { ok: true, success: true, data: { sessions: [] } }
+      }
+      req.respond({
+        status: 200, contentType: 'application/json; charset=utf-8',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify(body),
+      })
+      return
+    }
+    req.continue()
+  })
+
+  await page.evaluateOnNewDocument(() => {
+    localStorage.setItem('hergent_v2_token', 'local-preflight')
+    localStorage.setItem('hergent_v2_tenant', '9998')
+    localStorage.setItem('hergent_v2_user',
+      JSON.stringify({ role: 'sales', username: 'local', display_name: '本地预检' }))
+  })
+
+  await page.goto(`http://127.0.0.1:${PORT}/#/loss-accounting`,
+    { waitUntil: 'networkidle2', timeout: 45000 })
+  await sleep(1600)
+  info('url = ' + page.url())
+
+  // ── 1) 基本渲染 ──
+  console.log('\n# 1) 渲染与结构')
+  const has = await page.evaluate(() => ({
+    dsh: !!document.querySelector('.dsh'),
+    kpis: document.querySelectorAll('.dsh-kpis .k').length,
+    cards: document.querySelectorAll('.dsh-card').length,
+    svgs: document.querySelectorAll('.dsh-svg svg').length,
+    mlRows: document.querySelectorAll('.la-ml-tbl tbody tr').length,
+    rank: document.querySelectorAll('.rk-row').length,
+    legs: document.querySelectorAll('.dsh .lg').length,
+  }))
+  ok(has.dsh, '仪表盘段已渲染')
+  ok(has.kpis === 5, '5 张指标卡', has.kpis)
+  ok(has.cards === 4, '4 张图卡（主图 + 构成堆叠 + 抵扣对比 + 主体排行）', has.cards)
+  ok(has.svgs === 3, '3 个 SVG（排行图用 HTML 条形）', has.svgs)
+  ok(has.mlRows === 6, '月列表 6 行（区间内的每一月都在，含未录入月）', has.mlRows)
+  ok(has.rank === 4, '主体排行 4 条', has.rank)
+
+  // ── 2) 空月语义（本轮的核心合同）──
+  console.log('\n# 2) 空月 / 缺分母：图上必须看得见，且不能画成 0')
+  const empty = await page.evaluate(() => {
+    const main = document.querySelectorAll('.dsh-svg svg')[0]
+    return {
+      ph: [...main.querySelectorAll('text.ph')].map(t => t.textContent.trim()),
+      dashed: [...main.querySelectorAll('rect[stroke-dasharray]')].length,
+      bars: main.querySelectorAll('g.bars rect').length,
+      // ⚠️ 只数**率数据点**（r=3.2）；主图里还有一个 r=3 的「当前期次」标记，
+      //    用 `circle` 全量数会多算 1 个
+      dots: main.querySelectorAll('circle[r="3.2"]').length,
+      polylines: main.querySelectorAll('polyline').length,
+      labels: main.querySelectorAll('text.xl-m').length,
+    }
+  })
+  info('占位文字: ' + JSON.stringify(empty.ph))
+  ok(empty.ph.includes('未录入'), '空月画了「未录入」占位')
+  ok(empty.dashed >= 1, '占位是虚线框（不是 0 柱）', empty.dashed + ' 个')
+  ok(empty.bars === 5 * 2, '只有 5 个有数据的月画柱（每月 2 根）', empty.bars)
+  ok(empty.labels === 6, 'X 轴 6 个月份标', empty.labels)
+  ok(empty.polylines === 1, '折线在空月/缺分母月**断开**（只 1 段：04→05）', empty.polylines + ' 段')
+  ok(empty.dots === 4, '率数据点 4 个（04/05/07/09；06 空月、08 缺分母都无点）', empty.dots)
+
+  // ── 3) 双轴都有刻度 ──
+  console.log('\n# 3) 双轴：金额与率各自带刻度（共轴会把"率"读成金额）')
+  const axes = await page.evaluate(() => {
+    const main = document.querySelectorAll('.dsh-svg svg')[0]
+    return {
+      wan: [...main.querySelectorAll('text.ax')].filter(t => t.textContent.includes('万')).length,
+      pct: [...main.querySelectorAll('text.ax-rate')].length,
+      unit: [...main.querySelectorAll('text.ax-u')].map(t => t.textContent.trim()),
+      ticks: [...main.querySelectorAll('text.ax')].length,
+    }
+  })
+  info('单位标注: ' + JSON.stringify(axes.unit))
+  ok(axes.pct >= 3, '右轴（率）有 ≥3 个刻度', axes.pct + ' 个')
+  ok(axes.unit.includes('万元') && axes.unit.includes('%'), '两个单位都明确标了', axes.unit.join('/'))
+  ok(axes.ticks >= 5, '左轴刻度 ≥5 个', axes.ticks)
+
+  // ── 4) 月列表：三态 + 环比两种单位 ──
+  console.log('\n# 4) 月列表：三种「没有数」必须长得不一样；环比两种单位不可混')
+  const ml = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('.la-ml-tbl tbody tr')]
+    return rows.map(tr => {
+      const td = [...tr.querySelectorAll('td')].map(x => (x.textContent || '').replace(/\s+/g, ' ').trim())
+      const g = tr.querySelector('.la-ml-gap')
+      return { period: td[0], net: td[1], rate: td[2], mAmt: td[3], mRate: td[4],
+        cls: tr.className, gapLabel: g ? (g.textContent || '').trim() : '',
+        comp: td[6], gapTip: g ? (g.getAttribute('title') || '') : '' }
+    })
+  })
+  const byP = Object.fromEntries(ml.map(r => [r.period.slice(0, 7), r]))
+  info('降序首行: ' + JSON.stringify(ml[0]))
+  ok(ml.length === 6 && ml[0].period.startsWith('2026-09'), '最新月在最上（降序）', ml[0].period)
+  ok(byP['2026-06'].net === '未录入', '空月净额显示「未录入」（不是 0）', byP['2026-06'].net)
+  ok(byP['2026-08'].net !== '未录入' && byP['2026-08'].rate === '—',
+    '缺分母月：净额有数、率显示「—」（不是 0.00%）', byP['2026-08'].rate)
+  ok(/缺 \d+ 项/.test(byP['2026-08'].gapLabel), '完整度显示「缺 N 项」', byP['2026-08'].gapLabel)
+  ok(/缺公司销售金额/.test(byP['2026-08'].gapTip), '悬停能列出**具体**缺哪几项', byP['2026-08'].gapTip)
+  ok(byP['2026-04'].comp === '完整', '已录满的月标「完整」', byP['2026-04'].comp)
+  ok(byP['2026-06'].comp === '未录入', '空月的完整度标「未录入」（不是「缺 N 项」）', byP['2026-06'].comp)
+  /* 环比要挑"上月也有数"的那一行：05 的上月是 04（两个月都全）——
+     挑 07 的话它的上月 06 是空月，按设计只会显示「上月未录入」，验不到单位。 */
+  ok(/个百分点/.test(byP['2026-05'].mRate), '净率变化写「个百分点」', byP['2026-05'].mRate)
+  ok(/%$/.test(byP['2026-05'].mAmt) && !/个百分点/.test(byP['2026-05'].mAmt),
+    '净额环比用 %（金额比金额，与率的变化不同单位）', byP['2026-05'].mAmt)
+  ok(byP['2026-06'].mAmt === '—', '空月的环比显示「—」（不跨缺口去跟 5 月比）', byP['2026-06'].mAmt)
+  ok(byP['2026-07'].mAmt === '上月未录入', '上月未录入时明确说「上月未录入」，不硬算', byP['2026-07'].mAmt)
+  ok(byP['2026-08'].mRate === '—', '上月缺分母 ⇒ 率的变化显示「—」（不是 0）', byP['2026-08'].mRate)
+
+  // ── 5) 点柱切月 ──
+  console.log('\n# 5) 交互：点柱子切到该月详情')
+  const before = await page.$eval('.la-sel', el => el.value)
+  await page.evaluate(() => {
+    const g = document.querySelectorAll('.dsh-svg svg')[0].querySelectorAll('g.bars')
+    if (g.length) g[0].dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  })
+  await sleep(900)
+  const after = await page.$eval('.la-sel', el => el.value)
+  ok(before !== after, '期次已切换', before + ' → ' + after)
+  ok(after === '2026-04', '切到图表最左那根柱子对应的月', after)
+
+  // ── 6) 两个开关 ──
+  console.log('\n# 6) 筛选：两个开关只改显示，且都明说改了哪儿')
+  await page.evaluate(() => {
+    const boxes = [...document.querySelectorAll('.la-tbar input[type=checkbox]')]
+    boxes[1].click()   // 跳过未录入月
+  })
+  await sleep(700)
+  const skip = await page.evaluate(() => ({
+    chartMonths: document.querySelectorAll('.dsh-svg svg')[0]
+      .querySelectorAll('text.xl-m').length,
+    mlRows: document.querySelectorAll('.la-ml-tbl tbody tr').length,
+    note: (document.querySelector('.dsh-note') || {}).textContent || '',
+  }))
+  ok(skip.chartMonths === 5, '跳过未录入月后图上少一个月（6 → 5）', skip.chartMonths)
+  ok(skip.mlRows === 6, '月列表**仍是 6 行**（管理界面上未录入月必须可见，好去补）', skip.mlRows)
+  ok(/跳过 1 个未录入月/.test(skip.note), '顶部明说跳过了几个', skip.note.trim())
+  await page.evaluate(() => {
+    const boxes = [...document.querySelectorAll('.la-tbar input[type=checkbox]')]
+    boxes[0].click()   // 只看已结账月
+  })
+  await sleep(700)
+  const hid = await page.evaluate(() => {
+    const main = document.querySelectorAll('.dsh-svg svg')[0]
+    return {
+      ph: main ? [...main.querySelectorAll('text.ph')].map(t => t.textContent.trim()) : [],
+      bars: main ? main.querySelectorAll('g.bars rect').length : -1,
+      labels: main ? main.querySelectorAll('text.xl-m').length : -1,
+      note: [...document.querySelectorAll('.dsh-note')].map(x => x.textContent.trim()).join(' | '),
+    }
+  })
+  ok(hid.ph.filter(x => x === '已隐藏').length === 3,
+    '有数据但未结账的月全部变灰占位（保留时间轴位置，不把列抽掉）',
+    hid.ph.filter(x => x === '已隐藏').length)
+  ok(hid.bars === 2 * 2, '只剩已结账的 2 个月参与柱（04/05）', hid.bars)
+  ok(hid.labels === 5, '无数据的月被「跳过未录入月」整列拿掉（6 → 5）', hid.labels)
+  /* 两条提示合起来必须能解释这一屏：6 个月 → 跳过 1 个（无数据）→ 隐藏 3 个（未结账）
+     → 剩 2 个参与图。任一条少写，用户都会看不出"少掉的月去哪了"。 */
+  ok(/已隐藏 3 个未结账月/.test(hid.note) && /跳过 1 个未录入月/.test(hid.note),
+    '两条提示合起来讲清了"少掉的月去哪了"', hid.note)
+
+  // ── 7) 截图（先还原开关）──
+  await page.evaluate(() => {
+    const boxes = [...document.querySelectorAll('.la-tbar input[type=checkbox]')]
+    boxes[0].click(); boxes[1].click()
+  })
+  await sleep(900)
+  fs.mkdirSync(OUT, { recursive: true })
+  const png = path.join(OUT, '06-仪表盘-本地预检.png')
+  await page.screenshot({ path: png, fullPage: true })
+  info('整页截图: ' + png)
+  // 主图特写：双轴刻度、空月占位、折线断点这些细节在整页里看不清
+  const mainEl = await page.$('.dsh-card')
+  if (mainEl) {
+    const p2 = path.join(OUT, '07-仪表盘-主图特写-本地预检.png')
+    await mainEl.screenshot({ path: p2 })
+    info('主图特写: ' + p2)
+  }
+
+  console.log('\n# 8) 控制台')
+  ok(errs.length === 0, '无 pageerror / console.error', errs.slice(0, 3).join(' || ') || '0 条')
+
+  await browser.close()
+  srv.close()
+  console.log('\n' + '='.repeat(64))
+  console.log(failed.length ? '失败 ' + failed.length + ' 项：\n  - ' + failed.join('\n  - ')
+    : '本地预检全部通过')
+  console.log('='.repeat(64))
+  process.exit(failed.length ? 1 : 0)
+}
+
+main().catch(e => { console.error(e); process.exit(3) })

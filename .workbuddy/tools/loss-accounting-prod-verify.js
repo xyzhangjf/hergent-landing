@@ -180,6 +180,52 @@ async function main() {
   await page.screenshot({ path: OUT + '/loss-accounting-prod-verify.png', fullPage: false })
   info('截图: ' + OUT + '/loss-accounting-prod-verify.png')
 
+  console.log('\n# 6.5) 趋势仪表盘（v185 新增 · 生产上无录入时走空态，同样要验）')
+  const dsh = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('.la-ml-tbl tbody tr')]
+    const rate = rows.map(tr => ((tr.querySelectorAll('td')[4] || {}).textContent || '').trim())
+    const comp = rows.map(tr => ((tr.querySelectorAll('td')[6] || {}).textContent || '').trim())
+    return {
+      has: !!document.querySelector('.dsh'),
+      bar: !!document.querySelector('.la-tbar'),
+      nRows: rows.length,
+      first: ((rows[0] || {}).textContent || '').replace(/\s+/g, ' ').trim().slice(0, 24),
+      rateTexts: [...new Set(rate)].filter(t => t && t !== '—'),
+      compStates: [...new Set(comp)],
+      kpis: document.querySelectorAll('.dsh-kpis .k').length,
+      cards: document.querySelectorAll('.dsh-card').length,
+      svgs: document.querySelectorAll('.dsh-svg svg').length,
+      empty: ((document.querySelector('.dsh-empty') || {}).textContent || '').replace(/\s+/g, ' ').trim(),
+      rank: document.querySelectorAll('.rk-row').length,
+      // 「万元」与「%」两个单位必须同时出现在主图上（双轴各自标注）
+      units: [...document.querySelectorAll('.dsh text.ax-u')].map(t => t.textContent.trim()),
+    }
+  })
+  ok(dsh.has, '趋势仪表盘已渲染')
+  ok(dsh.bar, '趋势区间筛选条在')
+  ok(dsh.nRows === 12, '月列表 = 默认近 12 个月', dsh.nRows + ' 行')
+  ok(/^\d{4}-\d{2}/.test(dsh.first), '首行是最新月份（降序）', dsh.first)
+  const hasCharts = dsh.cards > 0
+  if (hasCharts) {
+    ok(dsh.kpis === 5, '5 张指标卡', dsh.kpis)
+    ok(dsh.cards === 4, '4 张图卡', dsh.cards)
+    ok(dsh.svgs === 3, '3 个 SVG 图', dsh.svgs)
+    ok(dsh.units.includes('万元') && dsh.units.includes('%'),
+      '主图双轴各带单位（柱=万元 / 线=%）', dsh.units.join('/'))
+    info('主体排行 ' + dsh.rank + ' 条')
+  } else {
+    ok(/录入/.test(dsh.empty), '生产暂无录入 ⇒ 显示空态且**说清了原因**', dsh.empty.slice(0, 60))
+  }
+  /* 完整度只允许三态；环比只允许「%」（金额）、「个百分点」（率）、『上月未录入/首次/—』 */
+  ok(dsh.compStates.every(t => /^(完整|未录入|缺 \d+ 项)$/.test(t)),
+    '完整度列只有三态（完整 / 未录入 / 缺 N 项）', dsh.compStates.join(' | '))
+  ok(dsh.rateTexts.every(t => /个百分点$/.test(t) || /^(上月未录入|首次)$/.test(t)),
+    '净率变化一律用「个百分点」（不是 %）', dsh.rateTexts.slice(0, 3).join(' | ') || '（本期全为 —）')
+  if (hasCharts) {
+    await (await page.$('.dsh')).screenshot({ path: OUT + '/loss-accounting-prod-dashboard.png' })
+    info('仪表盘截图: ' + OUT + '/loss-accounting-prod-dashboard.png')
+  }
+
   console.log('\n# 7) 错误与 4xx/5xx')
   // 🔴 已知全局既有项（**不是本页的问题，别追**）：副驾组件调 /api/ai/roles，
   //    sales 角色没有 AI 模块权限 ⇒ 恒 403。已在 dashboard / forecast / loss-accounting
