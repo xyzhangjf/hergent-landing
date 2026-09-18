@@ -885,6 +885,27 @@ SPEC_FE_V184D = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v184e：预报汇总表「箱口径四规则」对齐 + 系统建议列移位 ────────────────────────
+#   背景：用户要求汇总表各列按四规则逐行对齐 ——
+#     ① 件数 = 合计 ÷ 规格（取整）② 加单/最终下单均以「箱」计
+#     ③ 最终下单 = 件数 + 加单  ④ 下单金额 = 最终下单 × 单价(厂价/箱)
+#   并评估「系统建议」列：发挥作用（后端定稿量辅助加单决策 + 风险提示），位置移到「加单」左侧。
+#   Forecast.vue 本轮 25 hunk 全归我（箱口径改造 + 系统建议移位 + 单价(厂价/箱)换算
+#     + 列标签/口径说明/返利贡献同步），exclude 8 个在途 hunk：
+#     101    顶部插入（历来在途，与本轮无关）
+#     2662/2664/2675/2677  loadEditGrid sources 合并 / 行级加单同源（并行会话在途）
+#     7818/7833  `.imp-errs` 样式搬家两半（并行会话在途，两半一起排除）
+#     8202    纯空行插入（并行会话在途）
+#   ⚠️ 根因修复点：loadCross 的 grand 初值缺 boxes，recomputeTotals 装载后未调用 →
+#     表尾「件数(箱)」显示「—」；本轮在 loadCross 末补 recomputeTotals()。
+SPEC_FE_V184E = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2662, 2664, 2675, 2677, 7818, 7833, 8202],
+     "gone": []},
+    # 本工具自身（新增上面这个 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 # ── v185-dash：「目标与返利 › 仪表盘」审查落地（R1–R5 + 紧凑档 + 跨页品牌）────────
 #   MonthlyAchvChart.vue  28 hunks 全归本轮 → keep_all（自证「构造结果 == 工作区」）：
 #     删 4 条重复说明（574px 副标题 / 两条 sec-note / 图例 4→3 合并）
@@ -1006,6 +1027,7 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v185-nav": SPEC_FE_V185_NAV,
          "be-v185-trend": SPEC_BE_V185_TREND, "fe-v185-trend": SPEC_FE_V185_TREND,
          "fe-v184d": SPEC_FE_V184D,
+         "fe-v184e": SPEC_FE_V184E,
          "fe-v185-dash": SPEC_FE_V185_DASH,
          "fe-v185-r7": SPEC_FE_V185_R7,
          "fe-v185-tabs": SPEC_FE_V185_TABS}

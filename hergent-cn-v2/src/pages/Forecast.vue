@@ -706,12 +706,12 @@
                       <span v-else class="qty-num tip-wrap" :style="heatStyle(it.r, col.key)">{{ it.r.qtyByUnit[col.key] }}<span class="tip">¥{{ fmt(displayPrice(it.r) != null ? (it.r.qtyByUnit[col.key] || 0) * displayPrice(it.r) : 0) }}（按行单价估算）</span></span>
                     </template>
                     <template v-else-if="col.key === 'qty'">{{ fmt(it.r.total) }}</template>
-                    <template v-else-if="col.key === 'boxes'">{{ it.r.boxes != null ? fmt(it.r.boxes) : '—' }}</template>
+                    <template v-else-if="col.key === 'boxes'">{{ fmt(rowBoxes(it.r)) }}</template>
                     <template v-else-if="col.key === 'extra'">{{ fmt(rowExtraQty(it.r)) }}</template>
                     <template v-else-if="col.key === 'final'"><b>{{ fmt(rowFinalQty(it.r)) }}</b></template>
                     <template v-else-if="col.key === 'ai'">{{ it.r.ai != null ? fmt(it.r.ai) : '—' }}</template>
-                    <template v-else-if="col.key === 'price'"><span :class="{ 'miss-price': factoryPrice(it.r) == 0 }">{{ factoryPrice(it.r) > 0 ? factoryPrice(it.r).toFixed(2) : '—' }}</span></template>
-                    <template v-else-if="col.key === 'amount'"><span :class="{ 'miss-price': factoryPrice(it.r) == 0 }">{{ factoryPrice(it.r) > 0 ? fmt(rowFinalQty(it.r) * factoryPrice(it.r)) : '缺价' }}</span></template>
+                    <template v-else-if="col.key === 'price'"><span :class="{ 'miss-price': pricePerCase(it.r) == null }">{{ pricePerCase(it.r) != null ? pricePerCase(it.r).toFixed(2) + ' /箱' : (factoryPrice(it.r) <= 0 ? '缺价' : '缺规格') }}</span></template>
+                    <template v-else-if="col.key === 'amount'"><span :class="{ 'miss-price': pricePerCase(it.r) == null }">{{ amountValue(it.r) != null ? fmt(amountValue(it.r)) : (factoryPrice(it.r) <= 0 ? '缺价' : '缺规格') }}</span></template>
                   </td>
                 </tr>
                 <tr v-else-if="it.kind === 'detail'" class="det-row" role="row">
@@ -747,7 +747,7 @@
                   <template v-if="col.key === 'name'">合计</template>
                   <template v-else-if="col.type === 'qty'">{{ cross.colTotals[(ci - 1) - visibleCols.length] || '' }}</template>
                   <template v-else-if="col.key === 'qty'">{{ fmt(cross.grand.qty) }}</template>
-                  <template v-else-if="col.key === 'boxes'">—</template>
+                  <template v-else-if="col.key === 'boxes'">{{ fmt(cross.grand.boxes) }}</template>
                   <template v-else-if="col.key === 'extra'">{{ fmt(cross.rows.reduce((s, r) => s + rowExtraQty(r), 0)) }}</template>
                   <template v-else-if="col.key === 'final'">{{ fmt(cross.rows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</template>
                   <template v-else-if="col.key === 'amount'">{{ fmt(cross.grand.amount) }}</template>
@@ -757,7 +757,7 @@
             </tbody>
           </table>
           </div>
-          <p class="cross-amt-note">报单金额 = 最终下单数量 × 单价（厂价）。<b>厂价 ≡ 进价</b>，即商品档案里填的进货价；如单独录入了厂价，则自动以厂价计。</p>
+          <p class="cross-amt-note">报单金额 = 最终下单数量（箱）× 单价（厂价/箱）。<b>厂价 ≡ 进价</b>：商品档案填的进货价即厂价，若另录厂价则优先用它；<b>单价(厂价/箱) = 厂价 × 规格</b>。件数 = 合计 ÷ 规格（取整），最终下单 = 件数 + 加单，均按箱计。</p>
         </div>
 
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
@@ -800,7 +800,7 @@
               </Teleport>
             </div>
             <!-- v168：编辑态**刻意不提供**「复制报单」——
-                 本态矩阵是**未定稿草稿**，rowFinalQty() 走「合计 + 加单」兜底；此时复制出去的
+                 本态矩阵是**未定稿草稿**，rowFinalQty() 走「件数 + 加单（箱）」口径；此时复制出去的
                  是"还没定稿的数"，很容易被当成最终报单直接粘进厂家系统下单 → 数错。
                  故复制入口**只在只读汇总表**提供（见上方 .grid-ctl-row）。
                  品牌筛选两态都留：它同时是**显示过滤**，改单时按品牌收窄视野仍有意义。 -->
@@ -864,7 +864,7 @@
                   </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, u.name)" @click.stop></span>
                 </th>
-                <th class="num calc-th extra">加单<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'extra')" @click.stop></span></th>
+                <th class="num calc-th extra">加单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'extra')" @click.stop></span></th>
                 <th class="num calc-th amount">金额<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'amount')" @click.stop></span></th>
                 <th v-if="showSuggest" class="num calc-th suggest" title="配方建议：按「建议算法」面板当前策略算出，只受该面板影响">配方建议<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'suggest')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th">上期量<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'comparePrev')" @click.stop></span></th>
@@ -2097,7 +2097,7 @@ const sortedRows = computed(() => {
     let av, bv
     if (sortKey.value === 'name') { av = (a.name || ''); bv = (b.name || '') }
     else if (sortKey.value === 'qty') { av = rowSum(a); bv = rowSum(b) }
-    else { av = rowAmount(a); bv = rowAmount(b) }
+    else { av = amountValue(a); bv = amountValue(b) }
     if (typeof av === 'string') return av.localeCompare(bv, 'zh') * dir
     return (av - bv) * dir
   })
@@ -2121,7 +2121,8 @@ const renderModel = computed(() => {
   let zi = 0
   for (const [key, rs] of map) {
     const sub = { qty: 0, amount: 0 }
-    rs.forEach(r => { sub.qty += rowSum(r); sub.amount += rowAmount(r) })
+    // v184e：小计金额改用 amountValue（厂价/箱 × 最终下单箱），与「下单金额(厂价)」列同源；qty 仍为合计(件) 与「合计」列同源。
+    rs.forEach(r => { sub.qty += rowSum(r); sub.amount += (amountValue(r) || 0) })
     out.push({ kind: 'group', key, label: key, subtotal: sub })
     rs.forEach(r => out.push({ kind: 'row', r, zi: zi++, gkey: key }))
   }
@@ -2158,9 +2159,10 @@ function recomputeTotals() {
   cross.value.colTotals = units.map(u => rows.reduce((s, r) => s + (r.qtyByUnit[u.name] || 0), 0))
   cross.value.grand = {
     sku: rows.length,
-    qty: rows.reduce((s, r) => s + (r.total || 0), 0),
-    // v184d：报单金额合计统一按厂价口径（厂价 × 最终下单），与只读表「下单金额(厂价)」列、编辑网格合计一致。
-    amount: rows.reduce((s, r) => s + rowFinalQty(r) * factoryPrice(r), 0),
+    qty: rows.reduce((s, r) => s + (r.total || 0), 0),   // 合计(件)
+    boxes: rows.reduce((s, r) => s + rowBoxes(r), 0),     // 件数合计(箱)
+    // v184e：报单金额合计 = 最终下单(箱) × 单价(厂价/箱)，与只读表「下单金额(厂价)」列同源。
+    amount: rows.reduce((s, r) => s + (amountValue(r) || 0), 0),
   }
 }
 function rowState(r) { return rowStates.value[r.product_id] || (r._deleted ? 'disabled' : '') }
@@ -2190,9 +2192,8 @@ function commitCell(pid, uname, val) {
   r.qtyByUnit = { ...r.qtyByUnit, [uname]: v }
   const total = cross.value.units.reduce((s, u) => s + (r.qtyByUnit[u.name] || 0), 0)
   r.total = total
-  // v184d：金额基准统一为厂价（factoryPrice），与只读表/列头/合计口径一致；不再用 sale_price（r.price）。
-  const px = factoryPrice(r)
-  r.amount = px > 0 ? total * px : (r.amount || 0)
+  // v184e：r.amount、boxes 与只读表/导出/列统计同源（箱口径）。r.amount = 最终下单(箱) × 单价(厂价/箱)。
+  r.amount = amountValue(r) != null ? amountValue(r) : (r.amount || 0)
   const specNum = parseFloat(r.spec)
   r.boxes = (specNum > 0 && total) ? Math.round(total / specNum) : r.boxes
   recomputeTotals()
@@ -2217,13 +2218,14 @@ const colOrderList = computed(() => {
   visibleCols.value.forEach(c => cols.push({ type: 'master', key: c.key, label: c.label, cls: c.cls, fmt: c.fmt, deletable: c.deletable, fixed: c.fixed }))
   cross.value.units.forEach(u => cols.push({ type: 'qty', key: u.name, label: u.name }))
   cols.push({ type: 'calc', key: 'qty', label: '合计' })
-  cols.push({ type: 'calc', key: 'boxes', label: '件数' })
-  cols.push({ type: 'calc', key: 'extra', label: '加单' })
-  cols.push({ type: 'calc', key: 'final', label: '最终下单' })
-  // ⚠️ 命名纪律（2026-09-14）：本列是**后端固定口径**（routers/forecast_audit.py 的安全库存/到货周期/提前期常量），
-  // 与报单汇总表里受「建议算法」面板控制的「配方建议」列**是两个不同的量**，不得同名。改名前它叫「AI建议」。
+  cols.push({ type: 'calc', key: 'boxes', label: '件数(箱)' })
+  // v184e：系统建议用于辅助决定「加单」填多少，移到「加单」左侧，形成「建议→加单→最终下单」阅读流。
+  // ⚠️ 命名纪律：本列是**后端固定口径**（routers/forecast_audit.py 的安全库存/到货周期/提前期常量），
+  // 与受「建议算法」面板控制的「配方建议」列**是两个不同的量**，不得同名（改名前叫「AI建议」）。
   if (showSuggest.value) cols.push({ type: 'calc', key: 'ai', label: '系统建议' })
-  cols.push({ type: 'calc', key: 'price', label: '单价(厂价)' })
+  cols.push({ type: 'calc', key: 'extra', label: '加单(箱)' })
+  cols.push({ type: 'calc', key: 'final', label: '最终下单(箱)' })
+  cols.push({ type: 'calc', key: 'price', label: '单价(厂价/箱)' })
   cols.push({ type: 'calc', key: 'amount', label: '下单金额(厂价)' })
   return cols
 })
@@ -2325,20 +2327,42 @@ function factoryPrice(r) {
   const pp = Number(r?.purchase_price || 0)
   return fp > 0 ? fp : pp
 }
+// v184e：件数 = round(合计 ÷ 规格)，单位「箱」。与只读表「件数(箱)」列、rowFinalQty（最终下单）同源。
+function rowBoxes(r) {
+  if (!r) return 0
+  const total = r.total != null ? (Number(r.total) || 0) : rowSum(r)
+  const specNum = parseFloat(r.spec)
+  return (specNum > 0 && total) ? Math.round(total / specNum) : 0
+}
+// v184e：单价(厂价)按「箱」计价 = 厂价(元/件) × 规格(件/箱)，与「最终下单/加单按箱」配套，
+// 保证 下单金额 = 最终下单(箱) × 单价(厂价/箱) 单位自洽（箱 × 元/箱 = 元）。缺价或缺规格返回 null。
+function pricePerCase(r) {
+  const fp = factoryPrice(r)
+  const specNum = parseFloat(r.spec)
+  if (fp <= 0) return null                      // 缺价
+  if (!(specNum > 0)) return null               // 缺规格，无法换算到箱
+  return fp * specNum
+}
+// v184e：下单金额(厂价)（元）= 最终下单(箱) × 单价(厂价/箱)；缺价或缺规格返回 null（界面显示「缺价/缺规格」）。
+function amountValue(r) {
+  const pc = pricePerCase(r)
+  if (pc == null) return null
+  return rowFinalQty(r) * pc
+}
 function cellText(r, col) {
   if (col.type === 'qty') return r.qtyByUnit[col.key] || 0
   if (col.type === 'master') return masterVal(r, col)
   if (col.key === 'qty') return fmt(r.total)
-  if (col.key === 'boxes') return r.boxes != null ? fmt(r.boxes) : '—'
+  if (col.key === 'boxes') return fmt(rowBoxes(r))
   if (col.key === 'extra') return fmt(rowExtraQty(r))
   if (col.key === 'final') return fmt(rowFinalQty(r))
   if (col.key === 'ai') return r.ai != null ? fmt(r.ai) : '—'
-  if (col.key === 'price') { const fp = factoryPrice(r); return fp > 0 ? fp.toFixed(2) : '—' }
-  if (col.key === 'amount') { const fq = rowFinalQty(r); const fp = factoryPrice(r); return fp > 0 ? fmt(fq * fp) : '缺价' }
+  if (col.key === 'price') { const pc = pricePerCase(r); return pc != null ? pc.toFixed(2) + ' /箱' : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }
+  if (col.key === 'amount') { const av = amountValue(r); return av != null ? fmt(av) : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }
   return ''
 }
 function cellAria(r, col) { if (col.type === 'seq') return '序号：' + (r.seq || '') ; return col.label + '：' + cellText(r, col) }
-function rowAria(r) { const fq = rowFinalQty(r); return r.name + '，合计 ' + fmt(r.total) + '，加单 ' + fmt(rowExtraQty(r)) + '，最终下单 ' + fmt(fq) + '，下单金额(厂价) ¥' + fmt(fq * factoryPrice(r)) }
+function rowAria(r) { const fq = rowFinalQty(r); const av = amountValue(r); return r.name + '，合计 ' + fmt(r.total) + '，加单 ' + fmt(rowExtraQty(r)) + '，最终下单 ' + fmt(fq) + '，下单金额(厂价) ¥' + fmt(av != null ? av : 0) }
 function rowKey(it) { return it.kind === 'group' ? 'grp-' + it.key : it.kind === 'row' ? 'row-' + it.r.product_id : 'det-' + it.r.product_id }
 function cellActive(it, ci) { return it.kind === 'row' && it.r.product_id === activeCell.value.pid && ci === activeCell.value.ci }
 function riskText(r) {
@@ -3368,9 +3392,9 @@ function colStatVal(r, desc) {
   }
   // calc 列
   switch (desc.key) {
-    case 'amount': return r.amount != null ? Number(r.amount) : null
+    case 'amount': { const av = amountValue(r); return av != null ? av : null }
     case 'qty': return Number(r.total || 0)
-    case 'boxes': return r.boxes != null ? Number(r.boxes) : null
+    case 'boxes': return Number(rowBoxes(r))
     case 'extra': return rowExtraQty(r)
     case 'final': return rowFinalQty(r)
     case 'ai': return r.ai != null ? Number(r.ai) : null
@@ -4220,7 +4244,7 @@ function buildXlsx(rows, fname) {
   const headers = ['商品名称']
   visibleCols.value.forEach(c => { if (c.key !== 'name') headers.push(c.label) })
   cross.value.units.forEach(u => headers.push(u.name))
-  headers.push('金额')
+  headers.push('下单金额(厂价)')
   headers.push('建议')
   const data = [headers]
   rows.forEach(r => {
@@ -4228,7 +4252,7 @@ function buildXlsx(rows, fname) {
     line.push(r.name || '')
     visibleCols.value.forEach(c => { if (c.key !== 'name') line.push(c.fmt ? (r[c.key] != null ? r[c.key] : '') : (r[c.key] || '')) })
     cross.value.units.forEach(u => line.push(r.qtyByUnit[u.name] || 0))
-    line.push(rowAmount(r))
+    line.push(amountValue(r) || 0)
     line.push(r.suggest || 0)
     data.push(line)
   })
@@ -5636,8 +5660,8 @@ const copyUnitName = computed(() => (cross.value.period && cross.value.period.na
 const rowExtraQty = (r) => Number(r && (r.extra_qty != null ? r.extra_qty : r.extraQty)) || 0
 const rowFinalQty = (r) => {
   if (!r) return 0
-  const base = r.total != null ? (Number(r.total) || 0) : rowSum(r)
-  return base + rowExtraQty(r)
+  // v184e：最终下单 = 件数(箱) + 加单(箱)（按用户的四条规则）。此前是 合计 + 加单（按件），与「件数」列脱节。
+  return rowBoxes(r) + rowExtraQty(r)
 }
 const copyCount = computed(() => {
   let n = 0
@@ -6425,7 +6449,7 @@ const rebateSprint = computed(() => {
       }
       if (!match) continue
       const fq = rowFinalQty(r)
-      const amt = fq * factoryPrice(r)
+      const amt = amountValue(r) || 0
       if (rule.target_type === 'quantity') contrib += fq
       else contrib += amt
       products.push({ name: r.name, contrib: amt, qty: fq })
@@ -6784,13 +6808,16 @@ async function loadCross() {
       // v179：收窄前有多少行（= 在售商品档案总数）—— 「另有 N 个未显示」由它与 rows.length
       //   现算，不另存一份计数（同屏数字口径必须同源）。
       rowBaseTotal: allProds.length,
+      // v184e：grand 初值先占位，随后由 recomputeTotals() 用行级同源函数重算（含 boxes），
+      // 保证表尾「件数(箱)」合计与只读表逐行 rowBoxes 完全一致，不在此另写一套累加。
       grand: {
         sku: matrixRows.length,
         qty: matrixRows.reduce((s, r) => s + r.total, 0),
-        amount: matrixRows.reduce((s, r) => s + rowFinalQty(r) * factoryPrice(r), 0),
+        amount: matrixRows.reduce((s, r) => s + (amountValue(r) || 0), 0),
       },
       reportedUnits: units.length,
     }
+    recomputeTotals()   // v184e：装载完成后用唯一权威函数重算 grand（含 boxes）
   } catch (e) {
     toast('交叉表加载失败: ' + (e.message || ''), 'error')
   } finally {
