@@ -710,7 +710,8 @@
                     <template v-else-if="col.key === 'extra'">{{ fmt(rowExtraQty(it.r)) }}</template>
                     <template v-else-if="col.key === 'final'"><b>{{ fmt(rowFinalQty(it.r)) }}</b></template>
                     <template v-else-if="col.key === 'ai'">{{ it.r.ai != null ? fmt(it.r.ai) : '—' }}</template>
-                    <template v-else-if="col.key === 'amount'"><span :class="{ 'miss-price': displayPrice(it.r) == null }">{{ displayPrice(it.r) != null ? displayPrice(it.r).toFixed(2) : '缺价' }}</span></template>
+                    <template v-else-if="col.key === 'price'"><span :class="{ 'miss-price': factoryPrice(it.r) == 0 }">{{ factoryPrice(it.r) > 0 ? factoryPrice(it.r).toFixed(2) : '—' }}</span></template>
+                    <template v-else-if="col.key === 'amount'"><span :class="{ 'miss-price': factoryPrice(it.r) == 0 }">{{ factoryPrice(it.r) > 0 ? fmt(rowFinalQty(it.r) * factoryPrice(it.r)) : '缺价' }}</span></template>
                   </td>
                 </tr>
                 <tr v-else-if="it.kind === 'detail'" class="det-row" role="row">
@@ -756,6 +757,7 @@
             </tbody>
           </table>
           </div>
+          <p class="cross-amt-note">报单金额 = 最终下单数量 × 单价（厂价）。<b>厂价 ≡ 进价</b>，即商品档案里填的进货价；如单独录入了厂价，则自动以厂价计。</p>
         </div>
 
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
@@ -2156,7 +2158,8 @@ function recomputeTotals() {
   cross.value.grand = {
     sku: rows.length,
     qty: rows.reduce((s, r) => s + (r.total || 0), 0),
-    amount: rows.reduce((s, r) => s + (r.amount || 0), 0),
+    // v184d：报单金额合计统一按厂价口径（厂价 × 最终下单），与只读表「下单金额(厂价)」列、编辑网格合计一致。
+    amount: rows.reduce((s, r) => s + rowFinalQty(r) * factoryPrice(r), 0),
   }
 }
 function rowState(r) { return rowStates.value[r.product_id] || (r._deleted ? 'disabled' : '') }
@@ -2186,8 +2189,9 @@ function commitCell(pid, uname, val) {
   r.qtyByUnit = { ...r.qtyByUnit, [uname]: v }
   const total = cross.value.units.reduce((s, u) => s + (r.qtyByUnit[u.name] || 0), 0)
   r.total = total
-  const px = r.price != null ? r.price : displayPrice(r)
-  r.amount = px != null ? total * px : r.amount
+  // v184d：金额基准统一为厂价（factoryPrice），与只读表/列头/合计口径一致；不再用 sale_price（r.price）。
+  const px = factoryPrice(r)
+  r.amount = px > 0 ? total * px : (r.amount || 0)
   const specNum = parseFloat(r.spec)
   r.boxes = (specNum > 0 && total) ? Math.round(total / specNum) : r.boxes
   recomputeTotals()
@@ -2219,7 +2223,7 @@ const colOrderList = computed(() => {
   // 与报单汇总表里受「建议算法」面板控制的「配方建议」列**是两个不同的量**，不得同名。改名前它叫「AI建议」。
   if (showSuggest.value) cols.push({ type: 'calc', key: 'ai', label: '系统建议' })
   cols.push({ type: 'calc', key: 'price', label: '单价(厂价)' })
-  cols.push({ type: 'calc', key: 'amount', label: '下单金额' })
+  cols.push({ type: 'calc', key: 'amount', label: '下单金额(厂价)' })
   return cols
 })
 function colCls(col) {
@@ -2312,6 +2316,14 @@ function canSort(col) { return col.key === 'name' || col.key === 'qty' || col.ke
 function ariaSort(col) { return sortKey.value === col.key ? (sortDir.value === 'asc' ? 'ascending' : 'descending') : 'none' }
 function onHeadClick(col) { if (canSort(col)) onSort(col.key) }
 function masterVal(r, col) { if (col.fmt) return col.fmt(r); const v = r[col.key]; return v != null && v !== '' ? v : '—' }
+// v184d：报单金额的计价基准 = 厂价。口径与后端 db.factory_price_sql 逐字同构（厂价 ≡ 进价）：
+//   优先取 factory_price，为 0/空则回退 purchase_price。删除「进价」列后，金额仍按此口径计算，
+//   且若日后 factory_price 被单独录入，金额会自动改用它（无需再改此处）。
+function factoryPrice(r) {
+  const fp = Number(r?.factory_price || 0)
+  const pp = Number(r?.purchase_price || 0)
+  return fp > 0 ? fp : pp
+}
 function cellText(r, col) {
   if (col.type === 'qty') return r.qtyByUnit[col.key] || 0
   if (col.type === 'master') return masterVal(r, col)
@@ -2320,12 +2332,12 @@ function cellText(r, col) {
   if (col.key === 'extra') return fmt(rowExtraQty(r))
   if (col.key === 'final') return fmt(rowFinalQty(r))
   if (col.key === 'ai') return r.ai != null ? fmt(r.ai) : '—'
-  if (col.key === 'price') return r.purchase_price != null ? Number(r.purchase_price).toFixed(2) : '—'
-  if (col.key === 'amount') { const fq = rowFinalQty(r); return r.purchase_price != null ? fmt(fq * r.purchase_price) : '缺价' }
+  if (col.key === 'price') { const fp = factoryPrice(r); return fp > 0 ? fp.toFixed(2) : '—' }
+  if (col.key === 'amount') { const fq = rowFinalQty(r); const fp = factoryPrice(r); return fp > 0 ? fmt(fq * fp) : '缺价' }
   return ''
 }
 function cellAria(r, col) { if (col.type === 'seq') return '序号：' + (r.seq || '') ; return col.label + '：' + cellText(r, col) }
-function rowAria(r) { const fq = rowFinalQty(r); return r.name + '，合计 ' + fmt(r.total) + '，加单 ' + fmt(rowExtraQty(r)) + '，最终下单 ' + fmt(fq) + '，下单金额 ¥' + fmt(fq * (r.purchase_price || 0)) }
+function rowAria(r) { const fq = rowFinalQty(r); return r.name + '，合计 ' + fmt(r.total) + '，加单 ' + fmt(rowExtraQty(r)) + '，最终下单 ' + fmt(fq) + '，下单金额(厂价) ¥' + fmt(fq * factoryPrice(r)) }
 function rowKey(it) { return it.kind === 'group' ? 'grp-' + it.key : it.kind === 'row' ? 'row-' + it.r.product_id : 'det-' + it.r.product_id }
 function cellActive(it, ci) { return it.kind === 'row' && it.r.product_id === activeCell.value.pid && ci === activeCell.value.ci }
 function riskText(r) {
@@ -2441,7 +2453,9 @@ const MASTER_COL_DEFS = [
   { key: 'barcode', label: '条码', cls: 'fc-code', edit: 'text', deletable: false },
   { key: 'spec', label: '规格', cls: 'fc-text', edit: 'text', deletable: true },
   { key: 'unit', label: '单位', cls: 'fc-text', edit: 'text', deletable: true, options: ['件', '箱', '提', '杯', '袋', '瓶', '盒', '托', '板', '根'] },
-  { key: 'purchase_price', label: '进价', cls: 'fc-num', edit: 'num', deletable: true, fmt: r => r.purchase_price ? Number(r.purchase_price).toFixed(2) : '—' },
+  // v184d：删除「进价」列 —— 它与「单价(厂价)」列显示的是**同一个数**（厂价 ≡ 进价），
+  //   属重复列。删列≠删数据：行对象 r.purchase_price / 导入解析 / 草稿 / 保存载荷一律保留，
+  //   报单金额仍按厂价口径计算（见 factoryPrice）。仅从 MASTER_COL_DEFS 与列权限表移除。
   { key: 'dist_price', label: '分销价', cls: 'fc-num', edit: 'num', deletable: false, fmt: r => r.dist_price ? r.dist_price.toFixed(2) : '—' },
   { key: 'product_code', label: '厂家编码', cls: 'fc-code', edit: 'text', deletable: false },
 ]
@@ -2530,10 +2544,9 @@ const addableMasterCols = computed(() => MASTER_COL_DEFS.filter(m => !colOrder.v
 const BIZ_ROLES = ['owner', 'finance', 'sales', 'promoter', 'supervisor', 'dealer']
 const ROLE_LABELS = { owner: '老板', finance: '财务', sales: '销售', promoter: '促销', supervisor: '督导', dealer: '经销商' }
 // 列权限：key -> 允许查看的角色；未列出的列所有人可见
+// v184d：purchase_price（进价）权限随「进价」列一并移除 —— 列已不渲染，留着是死配置。
 const COLUMN_PERMISSIONS = {
-  purchase_price: ['owner', 'finance'],                                  // 进价（成本）
   dist_price: ['owner', 'finance'],                                     // 分销价（毛利相关）
-  // v177：原 sale_price（标准售价）权限随该列一并移除 —— 列已不渲染，留着是死配置。
 }
 const BIZ_ROLE_KEY = 'hergent_biz_role'
 const bizRole = ref((store.user && store.user.role) || localStorage.getItem(BIZ_ROLE_KEY) || 'owner')
@@ -4344,10 +4357,12 @@ function copyQty() {
 
 /* ---- 增强：撤销/重做 · 校验 · 区域复制 · 金额 · 草稿 · 筛选 · 口径 · 导出 ---- */
 // 价格口径：dist=分销价 / sale=标准售价
-const priceBasis = ref('dist')
+// v184d：报单金额 / 单价口径统一为「厂价」—— 与后端 db.factory_price_sql 逐字同构（厂价 ≡ 进价）。
+//   此前 displayPrice 走 dist/sale_price（受已失效的 priceBasis 开关影响），与「按厂价」要求不符，
+//   且只读表「单价(厂价)」列因无渲染分支而空白、「下单金额(厂价)」列误显分销价。现统一改走 factoryPrice。
 function displayPrice(r) {
-  const v = priceBasis.value === 'dist' ? (r.dist_price || 0) : (r.sale_price || 0)
-  return v ? v : null
+  const v = factoryPrice(r)
+  return v > 0 ? v : null
 }
 // 筛选（商品名）
 const filterText = ref('')
@@ -6381,7 +6396,7 @@ const rebateSprint = computed(() => {
       }
       if (!match) continue
       const fq = rowFinalQty(r)
-      const amt = fq * (r.purchase_price || 0)
+      const amt = fq * factoryPrice(r)
       if (rule.target_type === 'quantity') contrib += fq
       else contrib += amt
       products.push({ name: r.name, contrib: amt, qty: fq })
@@ -6743,7 +6758,7 @@ async function loadCross() {
       grand: {
         sku: matrixRows.length,
         qty: matrixRows.reduce((s, r) => s + r.total, 0),
-        amount: matrixRows.reduce((s, r) => s + rowFinalQty(r) * (r.purchase_price || 0), 0),
+        amount: matrixRows.reduce((s, r) => s + rowFinalQty(r) * factoryPrice(r), 0),
       },
       reportedUnits: units.length,
     }
@@ -7522,6 +7537,8 @@ th.sortable:hover{color:var(--p-dark)}
 .gear:hover{background:var(--bg3);color:var(--p-dark)}
 .col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:2px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden;box-shadow:0 -2px 5px rgba(15,23,42,.06)}
 .col-total-bar>table{transform:translateX(var(--foot-sl,0));will-change:transform}
+.cross-amt-note{margin:10px 2px 0;font-size:12px;line-height:1.6;color:var(--t3)}
+.cross-amt-note b{color:var(--t1)}
 .col-total-bar .frozen{background:var(--bg3)}
 /* 表尾「冻结列」反向同步（v176，与序号列冻结同批）：
    表尾是**另一张 table**，靠 `--foot-sl` 整体位移跟随表体（它自己不滚动，所以 sticky 在里面无效）。

@@ -865,6 +865,26 @@ SPEC_FE_V185_TREND = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v184d：预报订单汇总表「报单金额按厂价计算」+ 删除「进价」重复列 ──────────────
+# 本轮（v184d）在上一轮未提交的 v184 工作之上，补齐**只读态汇总表**的金额口径：
+#   只读表原本用 displayPrice（走 dist/sale_price，受已失效的 priceBasis 开关影响）算「下单金额(厂价)」，
+#   且「单价(厂价)」列无渲染分支而空白。现把只读表 tbody 的 price/amount 分支、表尾 grand.amount、
+#   commitCell 金额基准、displayPrice 全部对齐 factoryPrice（与后端 db.factory_price_sql 逐字同构）。
+#   同时删除「进价」列（MASTER_COL_DEFS + COLUMN_PERMISSIONS），但保留行对象 r.purchase_price
+#   / 导入解析 / 草稿 / 保存载荷（删列≠删数据），报单金额仍按厂价口径计算。
+# 在途（别人的、未提交，2026-09-13 起同一批）：
+#   101   纯空行 hunk
+#   2648/2650/2661/2663  loadEditGrid 的 sources 合并 / srcByPid 合并 / extraByPid 累加 + buildRowBase（v179 同源，非本轮）
+#   7772/7787  `.imp-errs` 规则**搬家两半**（技能 §5.8：两半必须一起排除）
+#   8156   纯空行 hunk（即旧 exclude 7105 的位移版）
+SPEC_FE_V184D = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [101, 2648, 2650, 2661, 2663, 7772, 7787, 8156],
+     "gone": []},
+    # 本工具自身（新增上面这个 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -880,7 +900,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v184c-docs": SPEC_FE_V184C_DOCS,
          "be-loss": SPEC_BE_LOSS, "fe-loss": SPEC_FE_LOSS,
          "fe-v185-nav": SPEC_FE_V185_NAV,
-         "be-v185-trend": SPEC_BE_V185_TREND, "fe-v185-trend": SPEC_FE_V185_TREND}
+         "be-v185-trend": SPEC_BE_V185_TREND, "fe-v185-trend": SPEC_FE_V185_TREND,
+         "fe-v184d": SPEC_FE_V184D}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
