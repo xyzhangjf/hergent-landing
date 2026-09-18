@@ -1066,6 +1066,34 @@ SPEC_FE_V186_DIRECTSALE = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+SPEC_BE_V186_UNIFY = ("be", [
+    {"file": "server/routers/loss_accounting.py", "keep_all": True,
+     # 「统一」的**充分性证据**：两个旧变体在整个文件里必须彻底消失。
+     #   注意这两个串与上一轮 spec 的 `gone` 不同 —— 上一轮只消了「临期销售抵扣」，
+     #   本轮才消「临期货销售额」（② 行）与「临期销售额」（③ 行）。
+     "gone": ["临期货销售额", "临期销售额"]},
+])
+
+SPEC_FE_V186_UNIFY = ("fe", [
+    # ⑬ 段形态随轮次收紧：上一轮是「差异只允许是登记的 13 条」白名单，
+    # 本轮上一轮已进 HEAD ⟹ 白名单被删、改成 `_compute` **逐字零差异**，并新增 ⑬-2 双向封印。
+    {"file": ".workbuddy/tools/loss-trend-local-verify.py", "keep_all": True,
+     "gone": ['"groups[2].rows[0].values.direct_loss_sale_amt",',   # 白名单条目已删
+              "missing = [a for a in ALLOWED",                      # 旧的自证器已换成双向写法
+              "% len(ALLOWED)"]},
+    # 新增 `# 4.6` 直读 payload 段（三粒度同词 + 三个旧变体清零）
+    {"file": ".workbuddy/tools/loss-accounting-prod-verify.js", "keep_all": True, "gone": []},
+    {"file": "outputs/货损核算-2026-09-18/01-设计方案.md", "keep_all": True,
+     "gone": ["| `op_loss_sale_amt` | 临期货销售额 |"]},
+    # ⚠️ 这份**故意**不设 gone：文末「八」章节要写清"从哪个旧叫法改成了什么"，
+    #    正文里出现旧变体是**说明性引用**，不是残留。用 gone 会误报。
+    {"file": "outputs/货损核算-2026-09-18/11-临期销售填报入口-交付说明-2026-09-18.md",
+     "keep_all": True, "gone": []},
+    # 本工具自身（新增上面这组 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1088,7 +1116,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v185-r7": SPEC_FE_V185_R7,
          "fe-v185-tabs": SPEC_FE_V185_TABS,
          "be-v186-directsale": SPEC_BE_V186_DIRECTSALE,
-         "fe-v186-directsale": SPEC_FE_V186_DIRECTSALE}
+         "fe-v186-directsale": SPEC_FE_V186_DIRECTSALE,
+         "be-v186-unify": SPEC_BE_V186_UNIFY,
+         "fe-v186-unify": SPEC_FE_V186_UNIFY}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

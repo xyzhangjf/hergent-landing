@@ -8,10 +8,14 @@
     这三条，一旦错了在页面上都表现为"看起来正常的错数" —— 必须由断言锁住。
   · 本轮为了跨期累计还动了 `_subtotal`（把率算法抽成 `_agg`）—— 这是**既有代码**，
     必须证明它对既有输出**零影响**。故脚本会把 HEAD 版的模块 exec 进来，
-    逐期**逐叶子路径**对比 `_compute` 的输出，并要求「未登记差异 = 0」
-    （见 ⑬「变更集封印」：差异只允许是本轮登记的那几条，且每条都必须真的变了）。
-  · 本轮（③ 直调行新增「临期销售」填报入口）另加 ⑫ 段：写路径 / 行净额 / 组小计 /
-    公司口径的包含关系 / 跨期累积 / 旧词清零，全部锁住。
+    逐期**逐叶子路径**对比 `_compute` 的输出（见 ⑬「变更集封印」）。
+    ⚠️ 该封印的形态随轮次而变：v186-1 是「差异只允许是登记的那 13 条」，
+       v186-2（只改显示标签）已收紧成「**零差异**」。别照抄上一轮的白名单 ——
+       上一轮那批已进 HEAD，照抄必报 missing（那是封印在提示"该重写登记集合"）。
+  · ⑫ 段（v186-1）锁住 ③ 直调行新增「临期销售」后的六个消费点：写路径 / 行净额 /
+    组小计 / 公司口径的包含关系 / 跨期累积 / 旧词清零。
+  · ⑬-2（v186-2）锁住「三个粒度统一成同一个词」：带 HEAD 反证的双向断言 +
+    三粒度取同一个字符串，最后扫全文旧变体 = 0。
 
 隔离保证：全部落在 /tmp/loss-trend-harness/（含一个**自建的空租户库 tenant_9998.db**），
 不读也不写仓库里的 erp.db / tenant_1.db，不碰生产。
@@ -415,7 +419,7 @@ ok(sl[2]["key"] == "ded" and sl[2]["label"] == "临期销售",
    "抵扣列位表头 = 「临期销售」", sl[2]["label"])
 
 # ══════════════════════════════════════════════════════════════════════
-head("⑬ 🔴 变更集封印：`_compute` 与 HEAD 逐字比对，差异**只允许**是本轮登记的那几处")
+head("⑬ 🔴 变更集封印：`_compute` 与 HEAD 逐字比对（本轮只改标签 ⟹ **零差异**）+ 标签双向封印")
 src = subprocess.check_output(["git", "-C", BACKEND, "show",
                                "HEAD:server/routers/loss_accounting.py"])
 old_mod = types.ModuleType("la_head")
@@ -425,38 +429,23 @@ exec(compile(src.decode("utf-8"), "<HEAD:loss_accounting.py>", "exec"), old_mod.
 
 _MISS = object()
 
-# 本轮**登记在案**的差异 —— 只允许这些叶子路径不同。
-# 匹配规则：**精确相等**，或该路径是列表元素（`<登记项>[i]`）—— 列表长度会变，
-# 按元素个数展开登记既啰嗦又易漏。其余一律视为越界。
-# ⚠️ 判据是**逐期逐路径**比对，不是"看差异总数"：总数相同但换了地方 = 仍有未登记改动。
-ALLOWED = {
-    # ③ 直调行：新增的临期销售额，以及由它派生的三个净额口径（毛额**不变**）
-    #   `_row` 里 rate_num = net；`values.net_amt` 与 `net_amt` 是同一份值的两个出口
-    "groups[2].rows[0].values.direct_loss_sale_amt",
-    "groups[2].rows[0].values.net_amt",
-    "groups[2].rows[0].net_amt",
-    "groups[2].rows[0].rate_num",
-    # ③ 行可能新增一条质量提示（净额为负时）
-    "groups[2].rows[0].data_quality",
-    # ③ 组小计：抵扣求和 / 净额 / 净额派生的 rate_num
-    "groups[2].subtotal.ded_sum",
-    "groups[2].subtotal.net_amt",
-    "groups[2].subtotal.rate_num",
-    # ② 业务员行的质量提示**只是改名**（「临期销售抵扣超过调拨损失」→「临期销售超过调拨损失」）。
-    #   这里允许整条列表：真正的护栏是 ⑫-9「全量 payload 无旧词」，不是这条白名单。
-    "groups[1].rows[0].data_quality",
-    # 公司行：构成多一项 + 「其他渠道」少扣了 ③ 认领的那部分 + 那条告警改写了措辞
-    "company.breakdown.direct_loss_sale_amt",
-    "company.values.loss_wh_sale_other_amt",
-    "company.data_quality",
-    "data_quality",          # 顶层与 company.data_quality 是同一份列表的两个出口
-}
-# 纯定义（列注册表 / 列位 / 行分组）本轮**故意**改了，不参与数值封印 ——
-#   它们分别由 ⑫-9 的表头/旧词断言 与 前端预检的页面断言覆盖。
+# 🔴 本轮（v186-2：三个粒度统一成「临期销售」）与上一轮（v186-1：③ 行新增直调抵扣列）
+#   的关系是：**上一轮那批改动已随 `505ebe1` 提交成 HEAD**。
+#   ⟹ 本轮相对 HEAD 只动了 3 处**显示标签**，`_compute` 的输出必须**逐字相同**。
+#   ⟹ 封印因此比上一轮更强：不是"允许登记过的几条差异"，而是**零差异**。
+#   ⚠️ 别把上一轮那 13 条白名单照抄回来 —— 它们已经是 HEAD 的既成事实，照抄会报
+#      「登记集合里每一条都真的变了」失败。**那是封印在提示"HEAD 推进了、登记集合该
+#      重写"，不是代码出错**（上一轮为这条自证踩过一次，见 ⑬-2 的双向写法）。
+ALLOWED = set()
+# 纯定义（列注册表 / 列位 / 行分组）不参与数值封印 —— 本轮改的**恰恰就是它们**，
+#   改由 ⑬-2 用**双向**断言单独覆盖（既要求现在 == 新词，也要求 HEAD 版 != 新词）。
+#   这比"允许它变"更严：既证明改了，也证明没连带改坏别处。
 DROP_TOP = ("col_defs", "slots", "row_groups")
 
 
 def allowed(pa):
+    """本轮恒为 False（`ALLOWED` 是空集）—— 保留这个扩展位，是为了将来万一又出现
+    "只能登记、无法消除"的差异时有地方落笔。**本轮不要往里加东西。**"""
     return pa in ALLOWED or any(pa.startswith(a + "[") for a in ALLOWED)
 
 
@@ -490,11 +479,51 @@ with erp_db.get_db() as c:
             if not allowed(pa):
                 out_of_scope["%s %s" % (p, pa)] = True
 
-ok(not out_of_scope, "六期 `_compute` 的**未登记差异 = 0**（逐路径比对，共登记 %d 条）"
-   % len(ALLOWED),
-   ("越界 %d 处：%s" % (len(out_of_scope), sorted(out_of_scope))) if out_of_scope else "全部落在登记集合内")
-missing = [a for a in ALLOWED if not any(s == a or s.startswith(a + "[") for s in seen)]
-ok(not missing, "登记集合里每一条都**真的变了**（防'改了但没生效'）", sorted(missing))
+ok(not seen,
+   "六期 `_compute` 数值与结构与 HEAD **逐字相同**（本轮只改显示标签 ⟹ 零差异）",
+   ("差异 %d 处：%s" % (len(out_of_scope), sorted(out_of_scope))) if seen
+   else "零差异：改标签没有碰到任何计算")
+
+# ── ⑬-2 「统一」这个动作的**双向**封印 ────────────────────────────────
+#   单向断言（"现在等于新词"）在"本来就对"的情况下也会通过 ⟹ 证明不了"我真的改了"。
+#   所以每条都带 HEAD 版的反证：HEAD 版必须是旧词，且**不是**新词。
+#   ⭐ 上一轮那条 `missing` 断言就是因为判据不对称才误报 —— 判据要**对称**，
+#      "改了但没生效"与"没改却以为改了"是同一枚硬币的两面。
+NOW = "临期销售"
+OLD_VARIANTS = ("临期货销售额", "临期销售额", "临期销售抵扣")
+
+
+def _col(mod, key):
+    return next((x for x in mod.LOSS_COL_DEFS if x.get("key") == key), None)
+
+
+for _k in ("op_loss_sale_amt", "direct_loss_sale_amt"):
+    _a, _b = _col(la, _k), _col(old_mod, _k)
+    ok(_a is not None and _a["label"] == NOW and _b is not None and _b["label"] != NOW,
+       "列 `%s` 的 label 已统一成「%s」（HEAD 版 = 「%s」）"
+       % (_k, NOW, (_b or {}).get("label", "?")),
+       "现在 %s / HEAD %s" % ((_a or {}).get("label"), (_b or {}).get("label")))
+
+
+def _slot(mod, key):
+    return next(x for x in mod.LOSS_SLOTS if x["key"] == key)
+
+
+# ⭐ 「统一成同一个词」的**直接**判据：三个粒度取出来必须同一个字符串。
+#   逐个断言"等于新词"只保证各自对，保证不了**互相一致** —— 将来谁只改一处会漏检，
+#   而这三个粒度说的是同一笔钱，必须同词。
+_labels = ([_slot(la, "ded")["label"]]
+           + [_col(la, _k)["label"] for _k in ("op_loss_sale_amt", "direct_loss_sale_amt")])
+ok(len(set(_labels)) == 1, "三个粒度（列位表头 / ② 行 / ③ 行）的标签是**同一个词**", _labels)
+
+_d2n = next(x for x in la.ROW_GROUPS if x["row_kind"] == "operator")["desc"]
+_d2o = next(x for x in old_mod.ROW_GROUPS if x["row_kind"] == "operator")["desc"]
+ok(NOW in _d2n and _d2n != _d2o,
+   "② 行 desc 里的同一个词已跟着替换（HEAD 版仍是旧词）", _d2n)
+
+_src = open(os.path.join(SERVER, "routers", "loss_accounting.py"), encoding="utf-8").read()
+for _bad in OLD_VARIANTS:
+    ok(_bad not in _src, "`loss_accounting.py` 全文无旧变体「%s」" % _bad, _src.count(_bad))
 with erp_db.get_db() as c:
     sub_new = la._subtotal("operator", [{"values": {"op_to_loss_amt": 100, "op_loss_sale_amt": 30},
                                          "source": "manual"}])

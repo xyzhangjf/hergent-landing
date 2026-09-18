@@ -247,6 +247,34 @@ async function main() {
     ok((ded.wastage || {}).rowTxt === '—', '④ 报损行该列显示「—」', (ded.wastage || {}).rowTxt)
   }
 
+  // ── 4.6) 「临期销售」三个粒度必须同一个词（直读真数据 payload） ────────
+  //   为什么读 payload 而不读 DOM：`col_defs[].label` 在页面上**不直接显示** ——
+  //   它进的是「保存时的校验错误提示」与「溯源 / 修改日志的字段名」，DOM 里只有列位表头。
+  //   所以"三个粒度是不是同一个词"这条判据只能在数据层取，读 DOM 会误判成"通过"。
+  console.log('\n# 4.6) 「临期销售」三粒度标签统一（直读 payload）')
+  const lab = await page.evaluate(async () => {
+    const r = await fetch('/api/loss/accounting/bootstrap', {
+      headers: { Authorization: 'Bearer ' + (localStorage.getItem('hergent_v2_token') || '') },
+    })
+    const j = await r.json()
+    const d = j.data || j
+    const cd = d.col_defs || []
+    const pick = k => (cd.find(x => x.key === k) || {}).label || null
+    const ded = (d.slots || []).find(s => s.key === 'ded') || {}
+    return { http: r.status, slot: ded.label, op: pick('op_loss_sale_amt'),
+             direct: pick('direct_loss_sale_amt'), whole: JSON.stringify(d) }
+  })
+  ok(lab.http === 200, 'bootstrap 可直读（HTTP 200）', 'HTTP ' + lab.http)
+  info('列位表头 / ② 行 / ③ 行 = ' + [lab.slot, lab.op, lab.direct].join(' / '))
+  const labs = [lab.slot, lab.op, lab.direct]
+  ok(labs.every(x => x === '临期销售'), '三个粒度都是「临期销售」', JSON.stringify(labs))
+  // ⭐ 逐个"等于新词"只保证各自对；这条才保证**互相一致** —— 将来谁只改一处会漏检。
+  ok(new Set(labs).size === 1, '三个粒度是**同一个词**（不是各自"碰巧都对"）', JSON.stringify(labs))
+  for (const oldWord of ['临期销售抵扣', '临期销售额', '临期货销售额']) {
+    ok(lab.whole.indexOf(oldWord) === -1, 'payload 全量无旧变体「' + oldWord + '」',
+       'x' + (lab.whole.split(oldWord).length - 1))
+  }
+
   console.log('\n# 5) 录入态（只开不写）')
   await page.evaluate(() => {
     const b = [...document.querySelectorAll('.la-bar button')].find(x => /手工录入/.test(x.textContent || ''))
