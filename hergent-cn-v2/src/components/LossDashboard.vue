@@ -35,7 +35,7 @@
         <div class="k">
           <i>期段货损净额</i>
           <b :class="sgn(summary.net_amt)">{{ wan2(summary.net_amt) }}<u>万元</u></b>
-          <em>毛额 − 临期销售抵扣 · 负数=抵扣超过损失（好事）</em>
+          <em>毛额 − 临期销售 · 负数=临期销售超过损失（好事）</em>
         </div>
         <div class="k k-main">
           <i>期段货损净率</i>
@@ -50,7 +50,7 @@
           <em>①门店退货 + ②业务员仓调 + ③直调 + ④报损</em>
         </div>
         <div class="k">
-          <i>临期销售抵扣</i>
+          <i>临期销售</i>
           <b>{{ summary.ded_sum == null ? '—' : wan2(summary.ded_sum) }}<u v-if="summary.ded_sum != null">万元</u></b>
           <em v-if="summary.ded_sum == null" class="war">未录入 —— 不是 0（净额因此偏大）</em>
           <em v-else>挽回了毛额的 {{ pct(dedRatio) }}</em>
@@ -199,11 +199,11 @@
         <!-- ══ 副图 B：临期抵扣对比 ══ -->
         <div class="dsh-card">
           <div class="dsh-t">
-            临期销售抵扣对比
+            临期销售对比
             <span class="dsh-t-sub">抵扣救回了多少</span>
           </div>
           <div class="dsh-svg dsh-svg-sm">
-            <svg :viewBox="`0 0 ${W} ${Hs}`" class="ch" role="img" aria-label="逐月货损毛额、临期销售抵扣、货损净额对比柱">
+            <svg :viewBox="`0 0 ${W} ${Hs}`" class="ch" role="img" aria-label="逐月货损毛额、临期销售、货损净额对比柱">
               <g v-for="t in dedAxis.ticks" :key="'gd' + t">
                 <line :x1="padL" :x2="W - padR" :y1="yDed(t)" :y2="yDed(t)"
                       stroke="var(--bd)" :stroke-dasharray="t === 0 ? '' : '2 4'" stroke-width="1"/>
@@ -235,7 +235,7 @@
             </svg>
           </div>
           <div class="lg lg-wrap">
-            <span><i style="background:var(--teal)"></i>临期销售抵扣</span>
+            <span><i style="background:var(--teal)"></i>临期销售</span>
             <span><i style="background:var(--war)"></i>货损毛额</span>
             <span><i style="background:var(--p)"></i>货损净额</span>
           </div>
@@ -405,7 +405,7 @@ function tagOf(k) {
 function tip(m) {
   const L = [m.period + (m.is_closed ? '（已结账）' : '（未结账）')]
   L.push('货损毛额 ' + wan2(m.gross_amt) + ' 万元')
-  L.push('临期销售抵扣 ' + (m.ded_amt == null ? '未录入' : wan2(m.ded_amt) + ' 万元'))
+  L.push('临期销售 ' + (m.ded_amt == null ? '未录入' : wan2(m.ded_amt) + ' 万元'))
   L.push('货损净额 ' + wan2(m.net_amt) + ' 万元')
   L.push('公司货损净率 ' + (m.rate_net == null ? '—（缺分母）' : pct(m.rate_net)))
   if (m.gaps && m.gaps.length) L.push('缺口：' + m.gaps.join('；'))

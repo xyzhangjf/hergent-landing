@@ -1010,6 +1010,62 @@ SPEC_FE_V185_TABS = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v186-directsale：③ 直调行的「临期销售」填报入口 + 列位改名（2026-09-18）──────
+#   用户原话：「请给『良品仓 → 临期仓』加一个『临期销售抵扣』填报入口，
+#              同时把『临期销售抵扣』改成『临期销售』」
+#
+#   归属依据（逐 hunk 打印首行核对，不按行号猜；基线 be HEAD = c4d91ac / fe HEAD = 9787f01）：
+#
+#   六个文件**全部 keep_all** —— 逐块首行核对后无一条在途尾巴：
+#     ① 后端 loss_accounting.py 17 hunk：1 条新列定义 / 5 处改名 / `_KIND_DED_COL` 加 direct /
+#        `_compute` ③ 段取回填 direct_loss_sale_amt / `bd` 加键 / `loss_wh_sale_other_amt` 减 ③ /
+#        `_company_quality` 告警改写 / `_subtotal` docstring 写明**为什么不**加计数字段。
+#     ② LossAccounting.vue 4 hunk：subText 的 ded 分支 / 公司卡「展开构成」加一行 /
+#        「已进各行抵扣」→「已进 ② 行抵扣」/ 包含关系说明改写 / 计价口径 hint 改名。
+#     ③ LossDashboard.vue 6 hunk：7 处改名 + 副图脚注从句「负数=临期销售超过损失」。
+#     ④ loss-trend-local-verify.py 17 hunk：PLAN.direct 标量→(直调额, 直调临期销售) 元组 /
+#        新增 ⑫ 段 20+ 条 / ⑬ 段改「变更集封印」/ fixture 2 份→4 份。
+#     ⑤ loss-dashboard-local-preflight.js 4 hunk：HG_DIST 覆盖 / 按期次取 fixture / 新增 # 7.8。
+#     ⑥ loss-accounting-prod-verify.js 3 hunk：snapColDed() + # 4.5 + # 5.5。
+#
+#   ⚠️ 后端 keep_all 的**前置自证已完成**：生产 `/opt/hergent-erp/routers/loss_accounting.py`
+#      md5 == `git show HEAD` 版（565fa50a…）⇒ 工作区 diff 即「prod → 本轮」的唯一 delta，
+#      42+/16− 全部为本轮。（这一步必须做：本仓库常态 9~30 个脏文件，
+#      「HEAD == 生产」是 keep_all 成立的前提。）
+#   ⚠️ `.workbuddy/tools/scoped_stage_by_marker.py` 本轮改动 = 新增这组 spec（keep_all）。
+#   ⚠️ 截图 07 **刻意不入 spec**：重拍后 md5 与已提交版相同（05140d4e…）⇒ 无需重提交。
+#      06 / 08 是**已跟踪二进制**改动（binary + keep_all），09 / 10 / 11 是新文件。
+SPEC_BE_V186_DIRECTSALE = ("be", [
+    {"file": "server/routers/loss_accounting.py", "keep_all": True,
+     # 改名的**充分性**证据：旧词在整个文件里必须彻底消失（含列位 label 那一行）。
+     "gone": ["临期销售抵扣", '{"key": "ded", "label": "临期销售抵扣"']},
+])
+
+SPEC_FE_V186_DIRECTSALE = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/LossAccounting.vue", "keep_all": True,
+     "gone": ["其中：业务员自售（已进各行抵扣）", "临期销售抵扣也走同一口径"]},
+    {"file": "hergent-cn-v2/src/components/LossDashboard.vue", "keep_all": True,
+     "gone": ["临期销售抵扣"]},
+    {"file": ".workbuddy/tools/loss-trend-local-verify.py", "keep_all": True,
+     # ⑬ 段从「只允许新增 ded_sum」改成**登记制封印** ⇒ 旧的逐字比对待检器必须消失
+     "gone": ["strip_dedsum", "重构等价：_compute 输出与 HEAD 版逐字相同"]},
+    {"file": ".workbuddy/tools/loss-dashboard-local-preflight.js", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/tools/loss-accounting-prod-verify.js", "keep_all": True, "gone": []},
+    # 重拍的两张（**已跟踪二进制** → binary + keep_all）与新出的三张（new_file）
+    {"file": "outputs/货损核算-2026-09-18/06-仪表盘-本地预检.png",
+     "binary": True, "keep_all": True, "gone": []},
+    {"file": "outputs/货损核算-2026-09-18/08-数据填报-本地预检.png",
+     "binary": True, "keep_all": True, "gone": []},
+    {"file": "outputs/货损核算-2026-09-18/09-临期销售填报入口-本地预检.png",
+     "binary": True, "new_file": True, "gone": []},
+    {"file": "outputs/货损核算-2026-09-18/10-生产真机-临期销售列位.png",
+     "binary": True, "new_file": True, "gone": []},
+    {"file": "outputs/货损核算-2026-09-18/11-临期销售填报入口-交付说明-2026-09-18.md",
+     "new_file": True, "gone": []},
+    # 本工具自身（新增上面这组 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1030,7 +1086,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v184e": SPEC_FE_V184E,
          "fe-v185-dash": SPEC_FE_V185_DASH,
          "fe-v185-r7": SPEC_FE_V185_R7,
-         "fe-v185-tabs": SPEC_FE_V185_TABS}
+         "fe-v185-tabs": SPEC_FE_V185_TABS,
+         "be-v186-directsale": SPEC_BE_V186_DIRECTSALE,
+         "fe-v186-directsale": SPEC_FE_V186_DIRECTSALE}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

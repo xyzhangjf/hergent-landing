@@ -16,7 +16,10 @@ const path = require('path')
 const puppeteer = require('puppeteer-core')
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-const DIST = '/Users/zhangjunfeng/Documents/laozhangai-product/hergent-cn-v2/dist'
+// ⚠️ 可覆盖：多会话共用一个 dist 时，把「我这一份隔离构建」指过来验，
+//    否则验的可能是别人**未完工**的产物（本项目 v185-tabs 起实测过这个坑）
+const DIST = process.env.HG_DIST
+  || '/Users/zhangjunfeng/Documents/laozhangai-product/hergent-cn-v2/dist'
 const FX = process.env.LOSSFX || '/tmp/loss-fixtures'
 const OUT = process.env.HG_OUT
   || '/Users/zhangjunfeng/Documents/laozhangai-product/outputs/货损核算-2026-09-18'
@@ -76,12 +79,20 @@ async function main() {
     if (u.includes('/api/')) {
       let body = { ok: true, success: true, data: {} }
       if (u.includes('/api/loss/accounting/bootstrap')) {
-        // mock 的数字仍是 fixture 那一期（2026-09）的，这里只把 `period` 标签改成请求里的值
-        // —— 本轮验的是"点柱子/切期次"的联动，不是数字本身（数字由 Python 侧断言锁）。
-        body = JSON.parse(JSON.stringify(bootstrap))
+        // 🔴 按期次取 fixture：`bootstrap-<period>.json` 存在就用它（真后端导出的那一期），
+        //    否则回落到 bootstrap.json 并只把 `period` 标签改成请求值
+        //    —— 本轮要按**期次**验「③ 行临期销售」的已填/未填两种态，标签对不上就验的是别的月的数。
         const m = /[?&]period=([^&]*)/.exec(u)
         const qp = m ? decodeURIComponent(m[1]) : ''
-        if (qp) body.data.period = qp
+        const per = qp && path.join(FX, 'bootstrap-' + qp + '.json')
+        if (per && fs.existsSync(per)) {
+          body = JSON.parse(fs.readFileSync(per, 'utf8'))
+        } else {
+          // mock 的数字仍是 fixture 那一期（2026-09）的，这里只把 `period` 标签改成请求里的值
+          // —— 验的是"点柱子/切期次"的联动，不是数字本身（数字由 Python 侧断言锁）。
+          body = JSON.parse(JSON.stringify(bootstrap))
+          if (qp) body.data.period = qp
+        }
       } else if (u.includes('/api/loss/accounting/trend')) body = trend
       else if (u.includes('/api/loss/accounting/periods')) {
         body = { ok: true, success: true, data: { periods: bootstrap.data.periods } }
@@ -359,6 +370,95 @@ async function main() {
   ok(td.on === '仪表盘' && td.dsh, '切回「仪表盘」后图表重新挂上', td.on)
   ok(td.ml === 6, '切回后月列表行数不变（数据没被重取丢成空）', td.ml + ' 行')
   ok(!td.hasFill, '切回后填报地标已移除')
+
+  // ── 7.8) ③「良品仓 → 临期仓」新增「临期销售」填报入口 + 列位改名（本轮）──
+  //  按期取 fixture：2026-07 = ③ 填了 900 元（0.09 万）；2026-08 = 直调额填了但临期销售**未填**
+  //  ⚠️ 只看 2026-09（③ 两项都没填）验不出"填了之后小计怎么显示"—— 那正是本轮要保证的事。
+  console.log('\n# 7.8) ③ 直调行「临期销售」填报入口 + 列位改名')
+  await clickTab('数据填报')
+  await sleep(500)
+
+  // 期次下拉（.la-sel，**注意别撞上 .la-sel-sm 计价口径那个**）在填报 tab；
+  // page.select 会派发 change ⇒ 触发 reload ⇒ 拦截层按 period 返回对应的真 fixture
+  async function pickPeriod(p) {
+    await page.select('.la-sel', p)
+    await sleep(1200)
+  }
+
+  const readCells = () => page.evaluate(() => {
+    const ths = [...document.querySelectorAll('table.la-tbl thead th')]
+    const dedIdx = ths.findIndex(t => (t.textContent || '').trim().startsWith('临期销售'))
+    const rows = [...document.querySelectorAll('table.la-tbl tbody tr')]
+    function cellOf(grpNo) {
+      const i = rows.findIndex(r => r.classList.contains('la-grp')
+        && (r.textContent || '').includes(grpNo))
+      if (i < 0) return null
+      const rest = rows.slice(i + 1)
+      const data = rest.find(r => r.classList.contains('la-row'))
+      const sub = rest.find(r => r.classList.contains('la-sub'))
+      const pick = tr => {
+        const td = tr && tr.querySelectorAll('td')[dedIdx]
+        if (!td) return null
+        const inp = td.querySelector('input')
+        return { input: !!inp, val: inp ? inp.value : null,
+                 text: (td.textContent || '').trim(),
+                 editable: td.classList.contains('la-editable') }
+      }
+      return { data: pick(data), sub: pick(sub) }
+    }
+    const sel = document.querySelector('.la-sel')
+    return {
+      dedIdx,
+      head: ths[dedIdx] ? (ths[dedIdx].textContent || '') : '',
+      period: sel ? sel.value : '',
+      store: cellOf('①'), direct: cellOf('③'), wastage: cellOf('④'),
+    }
+  })
+
+  const clickBar = label => page.evaluate(lb => {
+    const b = [...document.querySelectorAll('.la-bar button')]
+      .find(x => (x.textContent || '').trim() === lb)
+    if (!b) return false
+    b.click()
+    return true
+  }, label)
+
+  await pickPeriod('2026-07')
+  let c7 = await readCells()
+  info('「临期销售」列位 = 第 ' + c7.dedIdx + ' 格 · 表头 = ' + c7.head.replace(/\s+/g, ' '))
+  ok(c7.head.includes('临期销售') && !c7.head.includes('抵扣'),
+    '列位表头已改名（含「临期销售」、不含「抵扣」）', c7.head.replace(/\s+/g, ' '))
+  ok(c7.period === '2026-07', '期次已切到 2026-07（拿到的是真后端那一期的 payload）', c7.period)
+  ok(c7.direct.data.text === '0.09',
+    '只读态：③ 行临期销售 = 0.09 万（= 900 元）', c7.direct.data.text)
+  ok(c7.direct.sub.text === '0.09',
+    '🔴 ③ 组小计也显示抵扣（本轮补的显示 —— 否则「毛额 − 抵扣 = 净额」在表上不成立）',
+    c7.direct.sub.text)
+  ok(c7.store.data.text === '—' && c7.wastage.data.text === '—',
+    '① / ④ 没有这一列位 ⇒ 显示「—」（不是 0）',
+    c7.store.data.text + ' / ' + c7.wastage.data.text)
+
+  ok(await clickBar('手工录入'), '点「手工录入」进入录入态')
+  await sleep(700)
+  c7 = await readCells()
+  ok(c7.direct.data.input && c7.direct.data.val === '0.09' && c7.direct.data.editable,
+    '🔴 录入态：③ 行「临期销售」是**可填输入框**且回填 0.09', c7.direct.data.val)
+  ok(!c7.store.data.input && !c7.wastage.data.input,
+    '录入态：① / ④ 行没有输入框（该列 scope 只含 ③）',
+    '①=' + c7.store.data.input + ' ④=' + c7.wastage.data.input)
+  const png3 = path.join(OUT, '09-临期销售填报入口-本地预检.png')
+  await page.screenshot({ path: png3, fullPage: true })
+  info('③ 行填报入口截图: ' + png3)
+  ok(await clickBar('完成录入'), '点「完成录入」退出录入态（未改动 ⇒ 不触发保存）')
+  await sleep(700)
+
+  await pickPeriod('2026-08')
+  const c8 = await readCells()
+  ok(c8.period === '2026-08' && c8.direct.data.input === false,
+    '已切到 2026-08 且退回只读态', c8.period)
+  ok(c8.direct.data.text === '—' && c8.direct.sub.text === '—',
+    '🔴 ③ 临期销售**未填**时，行与小计都显示「—」（不是 0 —— 0 会被读成"一分钱没卖回来"）',
+    c8.direct.data.text + ' / ' + c8.direct.sub.text)
 
   console.log('\n# 8) 控制台')
   ok(errs.length === 0, '无 pageerror / console.error', errs.slice(0, 3).join(' || ') || '0 条')

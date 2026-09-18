@@ -140,7 +140,7 @@
               <option value="sale">售价</option>
               <option value="cost">成本价（进货价）</option>
             </select>
-            <i class="la-hint" title="全部金额按此口径折算。临期销售抵扣也走同一口径 —— 分子里不允许混两种币值。">?</i>
+            <i class="la-hint" title="全部金额按此口径折算。临期销售也走同一口径 —— 分子里不允许混两种币值。">?</i>
           </label>
         </div>
         <div class="la-bar-r">
@@ -230,7 +230,10 @@
           <span>− 临期仓销售总额</span><b>{{ wanText(bd.loss_wh_sale_amt) }}</b>
         </div>
         <div class="la-bd-row la-bd-indent">
-          <span>其中：业务员自售（已进各行抵扣）</span><b>{{ wanText(bd.op_loss_sale_amt) }}</b>
+          <span>其中：业务员自售（已进 ② 行抵扣）</span><b>{{ wanText(bd.op_loss_sale_amt) }}</b>
+        </div>
+        <div class="la-bd-row la-bd-indent">
+          <span>其中：良品仓直调临期销售（已进 ③ 行抵扣）</span><b>{{ wanText(bd.direct_loss_sale_amt) }}</b>
         </div>
         <div class="la-bd-row la-bd-indent">
           <span>其中：其他渠道（公司行才扣）</span><b>{{ wanText(coV('loss_wh_sale_other_amt')) }}</b>
@@ -239,7 +242,8 @@
           <span>= 货损净额</span><b :class="numCls(company.net_amt)">{{ wanText(company.net_amt) }}</b>
         </div>
         <p class="la-bd-note">
-          公司行扣的是<b>临期仓销售总额</b>，业务员行只扣<b>该业务员自售部分</b> —— 两者是包含关系，不是重复扣减。
+          公司行扣的是<b>临期仓销售总额</b>；② 业务员行只扣<b>该业务员自售</b>、③ 直调行只扣<b>直调临期销售</b>
+          —— 是包含关系，不是重复扣减（三行相加恰好等于总额）。
         </p>
       </div>
 
@@ -678,6 +682,20 @@ function subText(rk, sk) {
   if (sk === 'gross') return wanText(s.gross_amt)
   if (sk === 'net') return wanText(s.net_amt)
   if (sk === 'den') return wanText(s.rate_den)
+  /* 「临期销售」列位的小计。
+     ⚠️ 两条都必要：
+       ① 该组**根本没有这一列**（①门店 / ④报损）⇒ 显示「—」，不是 0；
+       ② 该组有这一列但一行都没填 ⇒ 后端求和结果同样是 0，
+          而 0 会被读成"临期货一分钱都没卖出去"（「零值即健康」陷阱）
+          ⇒ 直接看**原始行数据**有没有真值：有才显示 0，没有显示「—」。
+          （不给后端加"填过几行"的字段 —— 判据所需的数据前端手里已经有了。） */
+  if (sk === 'ded') {
+    const c = colAt(rk, 'ded')
+    if (!c) return '—'
+    const g = groups.value.find(x => x.row_kind === rk)
+    const anyFilled = (g?.rows || []).some(r => r.values?.[c.key] != null)
+    return anyFilled ? wanText(s.ded_sum) : '—'
+  }
   return '—'
 }
 function subCls(rk, sk) {

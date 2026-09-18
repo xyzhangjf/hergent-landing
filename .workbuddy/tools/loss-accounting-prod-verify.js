@@ -102,6 +102,42 @@ function clickMainTab(label) {
   return true
 }
 
+/* 浏览器内：`临期销售` 列位（slot=ded）× 各组 ③ 行的填报能力快照。
+ * ⚠️ 全部用**精确类名**（table.la-tbl / tr.la-grp / tr.la-row / tr.la-sub / input.la-input），
+ *   禁用 [class*=] —— 本项目「探针偏航」铁律（同前缀元素会抢先命中）。
+ * ⚠️ 列下标由**表头文字**现取（不是写死第 3 格）：表尾是另一张 table、
+ *   列序由后端 col_defs 派生，写死下标会在加列时静默测错列。 */
+function snapColDed() {
+  const t = document.querySelector('table.la-tbl')
+  if (!t) return null
+  const ths = [...t.querySelectorAll('thead th')].map(x => (x.textContent || '').replace(/\s+/g, ' ').trim())
+  const dedIdx = ths.findIndex(x => x.includes('临期销售'))
+  const kids = [...t.querySelectorAll('tbody tr')]
+  const txt = x => (x ? (x.textContent || '').replace(/\s+/g, ' ').trim() : '')
+  function infoOf(noChar) {
+    const gi = kids.findIndex(tr => tr.classList.contains('la-grp') && txt(tr).includes(noChar))
+    if (gi < 0) return null
+    const rest = kids.slice(gi + 1)
+    const row = rest.find(tr => tr.classList.contains('la-row'))
+    const sub = rest.find(tr => tr.classList.contains('la-sub'))
+    const cell = tr => (tr ? ([...tr.querySelectorAll('td')][dedIdx] || null) : null)
+    const c = cell(row)
+    const inp = c ? c.querySelector('input.la-input') : null
+    return {
+      grp: txt(kids[gi]).slice(0, 24),
+      rowTxt: txt(c) || '(无行)',
+      hasInput: !!inp,
+      inputVal: inp ? inp.value : null,
+      subTxt: txt(cell(sub)) || '(无小计)',
+    }
+  }
+  return {
+    nTh: ths.length, dedIdx, headers: ths,
+    hdrHasOld: ths.some(x => x.includes('抵扣')),
+    store: infoOf('①'), operator: infoOf('②'), direct: infoOf('③'), wastage: infoOf('④'),
+  }
+}
+
 async function main() {
   if (!TOKEN) { console.error('缺 HG_TOKEN'); process.exit(2) }
   const browser = await puppeteer.launch({
@@ -187,6 +223,30 @@ async function main() {
   ok(bodyHas.calc === 0, '整页正文（含导航）不含「货损计算」', 'x' + bodyHas.calc)
   info('正文「货损核算」出现 ' + bodyHas.acc + ' 次')
 
+  console.log('\n# 4.5) ③ 直调行的「临期销售」列位（只读态）')
+  const ded = await page.evaluate(snapColDed)
+  if (!ded) ok(false, '主表可读（snapColDed）')
+  else {
+    info('表头: ' + ded.headers.join(' | '))
+    ok(ded.dedIdx >= 0, '表头含「临期销售」列位', '第 ' + (ded.dedIdx + 1) + ' 格 = ' + ded.headers[ded.dedIdx])
+    ok(!ded.hdrHasOld, '表头已不叫「临期销售抵扣」（本次改名）')
+    const pageHasOld = await page.evaluate(() => (document.body.innerText || '').match(/临期销售抵扣/g) || [])
+    ok(pageHasOld.length === 0, '整页正文无「临期销售抵扣」旧词', 'x' + pageHasOld.length)
+    ok(!!ded.direct, '③ 良品仓直调临期仓 组在', (ded.direct || {}).grp)
+    if (ded.direct) {
+      // 生产租户（mptest / 永诺旗舰店）该期零录入 ⇒ 只读态应显示「—」而不是 0
+      // （0 会被读成"一分钱没卖回来" —— 「零值即健康」陷阱）
+      info('③ 行该格: ' + ded.direct.rowTxt + '   ③ 小计该格: ' + ded.direct.subTxt)
+      ok(!ded.direct.hasInput, '只读态 ③ 行该格不是输入框')
+      ok(ded.direct.rowTxt === '—', '③ 行未填 ⇒ 显示「—」（不是 0）', ded.direct.rowTxt)
+      ok(ded.direct.subTxt === '—', '③ 组小计未填 ⇒ 显示「—」（不是 0）', ded.direct.subTxt)
+    }
+    // scope 收紧：该列只含 ③，① / ④ 不该有这个格子
+    info('① 行: ' + (ded.store || {}).rowTxt + '   ④ 行: ' + (ded.wastage || {}).rowTxt)
+    ok((ded.store || {}).rowTxt === '—', '① 门店退货行该列显示「—」（列位 scope 不含它）', (ded.store || {}).rowTxt)
+    ok((ded.wastage || {}).rowTxt === '—', '④ 报损行该列显示「—」', (ded.wastage || {}).rowTxt)
+  }
+
   console.log('\n# 5) 录入态（只开不写）')
   await page.evaluate(() => {
     const b = [...document.querySelectorAll('.la-bar button')].find(x => /手工录入/.test(x.textContent || ''))
@@ -211,6 +271,34 @@ async function main() {
   info('单元格单位: ' + (ed.units || []).join(' / '))
   ok(ed.hasGive, '「放弃修改」按钮在')
   ok(ed.saveDisabled === true, '零改动时「保存」为 disabled（写路径有闸）', 'disabled=' + ed.saveDisabled)
+
+  console.log('\n# 5.5) ③ 直调行的「临期销售」填报入口（录入态 · 只开不写）')
+  const dedEd = await page.evaluate(snapColDed)
+  if (!dedEd) ok(false, '录入态主表可读')
+  else {
+    ok(!!dedEd.direct, '录入态下 ③ 组仍在', (dedEd.direct || {}).grp)
+    if (dedEd.direct) {
+      // 🔴 本轮需求的正面证据：③ 行这一格在录入态必须是**可填输入框**
+      ok(dedEd.direct.hasInput, '🔴 ③ 行「临期销售」是可填输入框（本轮新增的填报入口）',
+        'input=' + dedEd.direct.hasInput + ' value=' + JSON.stringify(dedEd.direct.inputVal))
+      const inpCount = await page.evaluate(() => {
+        const t = document.querySelector('table.la-tbl')
+        const ths = [...t.querySelectorAll('thead th')].map(x => (x.textContent || '').replace(/\s+/g, ' ').trim())
+        const i = ths.findIndex(x => x.includes('临期销售'))
+        const kids = [...t.querySelectorAll('tbody tr')]
+        const gi = kids.findIndex(tr => tr.classList.contains('la-grp') && (tr.textContent || '').includes('③'))
+        const row = kids.slice(gi + 1).find(tr => tr.classList.contains('la-row'))
+        return { n: row ? row.querySelectorAll('input.la-input').length : -1, col: i }
+      })
+      info('③ 行录入态输入框总数 = ' + inpCount.n + '（该列下标 ' + inpCount.col + '）')
+      ok(inpCount.n === 2, '③ 行录入态恰好 2 个输入框（直调临期仓额 + 临期销售）', inpCount.n + ' 个')
+    }
+    // 回归闸：② 业务员的抵扣列必须照旧可填（同一 slot 的另一列，不能被本轮的 scope 收紧误伤）
+    ok((dedEd.operator || {}).hasInput === true, '② 业务员行该列照旧是可填输入框（回归闸）', (dedEd.operator || {}).grp)
+    // scope 收紧：① / ④ 不该出现输入框
+    ok((dedEd.store || {}).hasInput === false, '① 门店退货行该列无输入框（scope 只含 ②③）', (dedEd.store || {}).rowTxt)
+    ok((dedEd.wastage || {}).hasInput === false, '④ 报损行该列无输入框', (dedEd.wastage || {}).rowTxt)
+  }
 
   console.log('\n# 6) 退出录入态（不保存）')
   await page.evaluate(() => {
