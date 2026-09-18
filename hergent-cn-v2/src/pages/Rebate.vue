@@ -23,6 +23,7 @@
             <!-- v154 P2-A：品牌筛选从图表卡内部提升到页面级 —— 它本来就作用于图表 + 异常区 + 达成列表，
                  长在图表里才导致必须写一句"不随筛选变化"来解释 KPI；现在一处筛选统管全页，位置即说明 -->
             <BrandFilter :list="chartBrandList" v-model="chartBrandSel"
+                         empty-text="本年度暂无品牌目标"
                          scope-tip="作用于下方图表与「返利目标达成」列表（顶部 KPI 始终为全部品牌合计）。" />
             <div class="dash-month">
               <!-- v154 A2：原「单月视图」scope 徽标随图表侧「全年视图」一并删除 ——
@@ -1168,7 +1169,11 @@ import { api } from '../api/client.js'
 import TargetFormModal from '../components/rebate/TargetFormModal.vue'
 import MonthlyAchvChart from '../components/rebate/MonthlyAchvChart.vue'
 import BrandFilter from '../components/rebate/BrandFilter.vue'
-import { buildYearMatrix, buildSimItems, applySimResults, monthTargetOf, monthEndISO } from '../components/rebate/useMonthlyAchv.js'
+// ⚠️ ruleActiveInMonth 起别名：本文件 2165 行另有一个同名本地实现
+//    `ruleActiveInMonth(r, 'YYYY-MM')`（走本地时区 new Date(y,m-1,1)），
+//    与 hook 版（`(r, year, m)`，走 Date.UTC）是**两份口径**。品牌候选判据必须用 hook 版
+//    —— 它才是 buildYearMatrix 消费的那一份，用本地版会让「候选」与「图表能不能画」错配。
+import { buildYearMatrix, buildSimItems, applySimResults, monthTargetOf, monthEndISO, ruleActiveInMonth as achvRuleActiveInMonth } from '../components/rebate/useMonthlyAchv.js'
 
 // v123：mainTab 提到最前 —— 上方的图表代码（watch/computed）会引用它，
 // 定义靠后时一旦有顶层求值就会触发 TDZ「Cannot access 'mainTab' before initialization」
@@ -1500,17 +1505,39 @@ const chartYearOptions = computed(() => {
   return [...set].sort((a, b) => b - a)
 })
 
-// 品牌候选 = 品牌档案 ∪ 规则里实际出现的品牌名。
-// 只用档案会漏：历史规则的 scope_name 是自由文本（如「蒙牛低温」），与档案名不一定一致。
+// 品牌候选 = **本年度确有品牌目标**的品牌名（v185 R7）。
+// 判据与图表消费方 buildYearMatrix **逐字同源**：∃ 月 m 使
+//   achvRuleActiveInMonth(r, year, m) 且 monthTargetOf(r, year, m) > 0
+//   ⇒ 候选里出现的品牌，图表必然画得出至少一根柱 —— 「选中后整页空白」不再可能。
+// v185 前取「品牌档案全量（含已停用）∪ 规则里出现过的品牌名」：档案里那些本年度没有目标的品牌
+//   被选中后图表与列表全空、而顶部 KPI 仍照常显示 ⇒ 用户以为页面坏了。
+// ⚠️ 判据**不得**依赖 chartBrandSel：buildYearMatrix 的 measure / kept 会随选中态变化，
+//    一旦引用就成环（候选 → 选中 → measure → 候选）。
 const chartBrandList = computed(() => {
+  const y = Number(chartYear.value)
   const set = new Set()
-  for (const b of (brandList.value || [])) if (b && b.name) set.add(String(b.name))
   for (const r of (rules.value || [])) {
-    if (r.dimension !== 'brand') continue
+    if (!r || r.dimension !== 'brand') continue
     const nm = String(r.scope_name || r.scope_key || '').trim()
-    if (nm) set.add(nm)
+    if (!nm || set.has(nm)) continue
+    for (let m = 1; m <= 12; m++) {
+      if (achvRuleActiveInMonth(r, y, m) && monthTargetOf(r, y, m) > 0) { set.add(nm); break }
+    }
   }
-  return [...set].map(name => ({ id: name, name }))
+  return [...set].sort((a, b) => a.localeCompare(b, 'zh')).map(name => ({ id: name, name }))
+})
+
+// v185 R7 配套：候选随「年份切换 / 规则增删」变化后，把已选中但已不在候选里的品牌剔掉。
+// 不剔会留下**看不见的筛选** —— chip 与按钮徽标都不显示它、图表却空着，比原痛点更难排查。
+// 首次挂载 chartBrandSel 为空 ⇒ 不会误弹。
+watch(chartBrandList, (list) => {
+  const cur = (chartBrandSel.value || []).filter(Boolean)
+  if (!cur.length) return
+  const ok = new Set((list || []).map(x => x.name))
+  const gone = cur.filter(b => !ok.has(b))
+  if (!gone.length) return
+  chartBrandSel.value = cur.filter(b => ok.has(b))
+  toast(`已取消筛选：${gone.join('、')}（${chartYear.value} 年无品牌目标）`, 'warn')
 })
 
 const chartBase = computed(() => buildYearMatrix({

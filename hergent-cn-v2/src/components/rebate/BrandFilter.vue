@@ -17,7 +17,7 @@
         <label v-for="b in filtered" :key="b" class="bf-item">
           <input type="checkbox" :value="b" :checked="sel.includes(b)" @change="toggle(b)" /> {{ b }}
         </label>
-        <p v-if="!filtered.length" class="bf-empty">没有匹配的品牌</p>
+        <p v-if="!filtered.length" class="bf-empty">{{ names.length ? '没有匹配的品牌' : emptyText }}</p>
       </div>
       <p class="bf-tip"><template v-if="scopeTip">{{ scopeTip }}<br /></template>不勾选 = 全部品牌合计。达成率按加权计算（合计达成 ÷ 合计目标）。</p>
     </div>
@@ -33,6 +33,9 @@ const props = defineProps({
   modelValue: { type: Array, default: () => [] },
   // 作用域说明：不同摆放位置的筛选作用范围不同，由调用方给出（说明出现在"用户点开筛选"的那一刻）
   scopeTip: { type: String, default: '' },
+  // v185 R7：候选**本身就是空**（而非"搜索无结果"）时的文案 —— 两者都是空清单但成因完全不同，
+  // 同一条「没有匹配的品牌」会让「本年度确实没有品牌目标」看起来像搜索坏了
+  emptyText: { type: String, default: '没有匹配的品牌' },
 })
 const emit = defineEmits(['update:modelValue'])
 

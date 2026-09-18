@@ -910,6 +910,29 @@ SPEC_FE_V185_DASH = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v185-r7：品牌筛选候选收窄为「本年度确有品牌目标」──────────────────────────────
+#   Rebate.vue       8 hunks 全归本轮 → keep_all
+#     chartBrandList 判据换成与 buildYearMatrix **逐字同源**的两个测试
+#     （achvRuleActiveInMonth(r, y, m) && monthTargetOf(r, y, m) > 0，∃ m ∈ 1..12）
+#     ⇒ 候选里出现的品牌，图表必然画得出至少一根柱。
+#     + watch 剔除「已选中但已不在候选」的品牌（防**隐形筛选**）+ 模板传 empty-text
+#   BrandFilter.vue  2 hunks 全归本轮 → keep_all
+#     emptyText prop：区分「搜索无结果」与「候选本身就是空」两种空清单
+#   ⚠️ ruleActiveInMonth 必须 import 起别名 achvRuleActiveInMonth —— 本文件 2165 行
+#      另有一份同名本地实现（走本地时区 new Date(y,m-1,1)），直接同名 import 会
+#      `Identifier 'ruleActiveInMonth' has already been declared` 编译失败；
+#      而若改用它，又会与 buildYearMatrix（走 Date.UTC）错配 ⇒ 必须用 hook 版。
+#   ⚠️ gone 选「模板/代码形态」的精确串：`没有匹配的品牌` 作为**三元分支**仍在新模板里，
+#      只有 `没有匹配的品牌</p>` 才是真的不在了（这正是 §gone 那条判据的又一次实战）。
+SPEC_FE_V185_R7 = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Rebate.vue", "keep_all": True,
+     "gone": ["for (const b of (brandList.value || []))", "只用档案会漏",
+              "规则里实际出现的品牌名"]},
+    {"file": "hergent-cn-v2/src/components/rebate/BrandFilter.vue", "keep_all": True,
+     "gone": ['class="bf-empty">没有匹配的品牌</p>']},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -927,7 +950,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v185-nav": SPEC_FE_V185_NAV,
          "be-v185-trend": SPEC_BE_V185_TREND, "fe-v185-trend": SPEC_FE_V185_TREND,
          "fe-v184d": SPEC_FE_V184D,
-         "fe-v185-dash": SPEC_FE_V185_DASH}
+         "fe-v185-dash": SPEC_FE_V185_DASH,
+         "fe-v185-r7": SPEC_FE_V185_R7}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
