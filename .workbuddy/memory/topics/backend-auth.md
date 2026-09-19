@@ -209,27 +209,42 @@ def role_reject_detail(role):   return "角色不合法：%s。可选角色：%s
 
 **触发词：字段级权限 · 敏感字段 · 脱敏 · SELECT \* · 薪酬/工资 · 银行账号 · id_card · 员工档案权限**
 
-### 🔴 判据一：`hr` 模块只给了 `boss`（+ `admin` 通配）
+### 🔴 判据一：`hr` 与 `payroll` 都只给了 `boss`（+ `admin` 通配）
 
-`_DEFAULT_PERMS`（`core.py:375`）里有 `hr` 的角色**只有 `boss`**：
+`_DEFAULT_PERMS`（`core.py`）里有 `hr` 的角色**只有 `boss`**：
 `accountant` = dashboard/accounts/reports/marketing（**无 hr**）｜`supervisor` = dashboard/data（无）｜
 `sales`/`guide`/`driver`/`staff` 均无。
-⇒ **会计算不了工资、看不了社保** —— 业务上通常由会计承担的工作，现在只有老板能点。
 
-### 🔴 判据二：员工档案与算工资**是同一道门**
+✅ **2026-09-19 v205 起多了一个 `payroll` 窄模块，默认同样只给 `boss`**（`admin` 走 `*` 通配）。
+`accountant` **刻意不给默认值** —— 「会计能不能算工资」是**按客户差异**的业务决定，
+由各租户在权限页自行授予；这正是拆模块的目的。
+⇒ 现状「会计算不了工资」是**配置结果**，不再是能力缺失（v205 之前是后者）。
 
-以下前缀**全部映射到 `hr`** ⇒ 把字段从一个页面搬到另一个页面，**权限不发生变化**：
+### ✅ 判据二（v205 已拆开）：员工档案 = `hr`，算工资 = `payroll`
 
-| 前缀 | 位置 |
-|---|---|
-| `/api/employees` | `server.py:541` |
-| `/api/payroll-workflow` · `/api/attendance` · `/api/leave` · `/api/salaries` · `/api/webhooks` | `server.py:315/329/336` |
-| `/api/payroll` · `/api/salary-batch-calculate` · `/api/salary-save` · `/api/salary-summary` · `/api/social-insurance-config` | `server.py:371-375` |
-| `/api/salary-details` · `/api/salary-slip` · `/api/salary-bank-file` | `server.py:598-600` |
+**v205 之前**以下前缀**全部映射到 `hr`** ⇒ 把字段从一个页面搬到另一个页面，**权限不发生变化**。
 
-🔴 **推论：权限与位置正交 —— 隔离单位是「字段组」，不是「页面」。「迁移」唯一有价值的形态，
-是把薪酬前缀从 `hr` 拆成一个更窄的新模块（如 `payroll`），从而能安全地单独授权给会计。**
-⚠️ **绝不可给 `accountant` 加 `hr`** —— 会连带拿到身份证 + 银行账号 + 改角色能力。
+**v205 之后的真实映射**（`server.py` `_PATH_MODULE_MAP`，**顺序即优先级、首个 `startswith` 命中即停**）：
+
+| 前缀 | 模块 | 说明 |
+|---|---|---|
+| `/api/employees` | `hr` | `SELECT *` ⇒ 含 L3 实名与银行字段 |
+| `/api/salary-bank-file` | `hr` | 代发凭据文件（`账号\|姓名\|金额`）＝ L3 |
+| **`/api/payroll/bank-file`** | **`hr`** | 同上，**必须排在 `/api/payroll` 之前** |
+| `/api/attendance` · `/api/leave` | `hr` | HR 域 |
+| `/api/payroll` · `/api/payroll-workflow` · `/api/salary-batch-calculate` · `/api/salary-save` · `/api/salary-summary` · `/api/social-insurance-config` · `/api/salary-send` · `/api/salary-details` · `/api/salary-slip` · `/api/salaries` | **`payroll`** | L2 薪酬层，可单独授权给会计 |
+
+三层信息域：**L1 身份层**（姓名/工号）｜**L2 薪酬层**（底薪/社保基数 → `payroll`）｜
+**L3 实名与资金层**（身份证/开户行/银行账号 → 仅 `hr`，泄露**不可逆**）。
+
+🔴 判据仍是「**隔离单位是字段组，不是页面**」—— 「迁移」唯一有价值的形态就是把薪酬前缀
+从 `hr` 拆成一个更窄的新模块；v205 已把它落地。
+⚠️ **绝不可给 `accountant` 加 `hr`** —— 会连带拿到身份证 + 银行账号（改角色的能力另由
+`_admin` 按角色名把着，不靠 `hr`）。
+🔴 **加新路径时必须复核顺序**：`/api/payroll/bank-file` 这类「属 payroll 前缀、但语义属 L3」
+的路径一旦排到 `/api/payroll` 后面，会计拿到 payroll 就能**顺带读走全公司银行账号**（静默）。
+
+🔴 **推论：权限与位置正交 —— 隔离单位是「字段组」，不是「页面」。**（v205 已按此落地）
 
 ### 🔴 判据三：前端**不是**边界
 
@@ -259,35 +274,108 @@ def role_reject_detail(role):   return "角色不合法：%s。可选角色：%s
 
 ---
 
-## 🔴🔴 角色权限表是「**全平台一份**」，不是租户级（2026-09-19 实测确证，动手前必读）
+## ✅ 角色权限表**已按租户分叉**（2026-09-19 v205 落地并上线，commit `6276b25`）
 
 **触发场景**：任何「按客户差异配置角色权限」的需求（如「我的会计不能算工资，但某客户的会计要能算」）。
 
-**结论**：**做不到。** 给某客户开 = 所有租户一起开；收回来 = 所有租户一起收。**租户级差异无处安放。**
+**结论（v205 起）**：**做得到。** 给某客户开**不再**等于所有租户一起开。
 
-| # | 事实 | 判据 |
+### 核心不变量（记这一句就够）
+
+> **权限必须由「本请求所属租户」的那份表裁决。**
+
+### v205 之前的三重成因（**改这块前必读，否则会重新引入其中一条**）
+
+| # | 缺陷 | 判据 |
 |---|---|---|
-| 1 | 权限接口**无视租户头** | 同令牌 `X-Tenant-Id: 1/9/10` 打 `GET /api/role-permissions` → 三次返回**逐字相同**（8 角色，`accountant=[dashboard,accounts,reports,marketing]`） |
-| 2 | 权威锁在**主库** | `server.py:50-51` `/api/role-permissions` 在 **`_TENANT_MASTER_PREFIXES`** ⇒ `set_tenant_context(None)`（`:87-92`）⇒ 读写都落 `erp.db`；`:597` 同路径又映射 `hr`（故只 boss/admin 能用） |
-| 3 | 判据是**进程级全局** | `core.py:394 _load_perms` / `:406 ROLE_PERMS = _load_perms()`（import 期执行，此刻无租户 → 主库）/ `:408 reload_perms()` 仅保存时调 / `:450-455 _check_perm` 读全局 |
-| 4 | 租户库那份是**死数据** | 生产 `erp.db` 1 行(supervisor) · `tenant_1.db` 2 行(**库管**,supervisor) · tenant_9/10 各 1 行；而接口返回里**没有「库管」** ⇒ 既读不到也改不了（`erp_db.py:17045` v110 迁移「以租户库为准」的意图**从未落地**） |
+| 1 | 接口**无视租户头**（写主库） | `/api/role-permissions` 挂在 `server._TENANT_MASTER_PREFIXES`（`server.py:50`）⇒ `set_tenant_context(None)` ⇒ 读写**恒落主库** |
+| 2 | 读端是**进程级全局** | `core.ROLE_PERMS` = import 期在「无租户上下文」下 `_load_perms()` 装载 ⇒ **全平台一份** |
+| 3 | `reload_perms()` **串味** | 旧实现是全局单值，任何一次保存都把全局换成「**保存者所在租户**」那一份 |
 
-🔴 **核心错配（最该记住的一句）**：中间件在 `server.py:679` 调 `_check_perm` **之前**已正确设好租户上下文（`:109/:125`），
-而 `_check_perm` **根本不用它** ⇒ 「租户感知的连接层」+「租户无感的判据」拼在一起。
+实测判据（修复前）：同一令牌带 `X-Tenant-Id: 1 / 9 / 10` 打 `GET /api/role-permissions`，
+三次返回**逐字相同**（8 角色）；而 `tenant_1.db` 里的自定义角色 `库管` 在返回中**根本不存在**
+（既读不到、也改不了）。⚠️ **当时不是泄漏**：读路径与写路径**都锁主库** ⇒ 系统内部自洽。
+真缺陷是**能力缺失**（租户级配置无处安放）。
 
-⚠️ **不要讲成泄漏**：读路径与写路径**都锁主库** ⇒ 系统内部**自洽**，不存在跨租户串味。真缺陷是**能力缺失**（租户级配置无处安放）。
+### 地基其实早就在（别重复造）
 
-**连带缺陷（同批查出）**
-- 🔴 `库管` 是**孤儿角色**：不在 `ROLE_PERMS` ⇒ `_check_perm` 命中空表 ⇒ **零权限僵尸账号**；
-  而 `normalize_role` 白名单（`known_roles() = _DEFAULT_PERMS ∪ ROLE_PERMS`）会**直接 400 拒绝派发它**。
-  当前无实际影响（生产 `users.role` 只有 admin/boss/sales/supervisor）。⇒ **白名单的判据来源被此缺陷污染**，修 P0 后自动正确。
-- 🔴 `field_permissions`（字段级权限）**有表、有 API、无人消费**：tenant_1 有真实配置 `('sales','product','purchase_price',0,0)`，
-  但全仓**唯一消费方**是 `routers/platform.py:573/577`；`GET /api/products`、`/api/employees` **无任何读路径**调用它 ⇒ **配了不生效**。别当已有能力。
-- `user_tenants.role`（`admin`/`member`）**不参与鉴权** —— `check_user_tenant(:4442)`、`get_user_tenants(:4458)` 只查 user_id/tenant_id。**别误当「按租户角色」机制**。
+`erp_db.py` 的 v110 迁移「role_permissions 主库 → 租户库」注释里明写「收敛方向=以租户库为准」，
+并已在**每个租户库**建表灌数据 —— **断的只是读写端**。
 
-**修订方案**：**P0** 权限表按租户分叉（`/api/role-permissions` 移出 master 前缀 + `ROLE_PERMS` 改按租户缓存 + fail-safe 回落 `_DEFAULT_PERMS`）
-→ **P1** 拆 `payroll` 模块（`/api/employees` 留 `hr`，使「能算工资」≠「能看身份证/银行账号」）→ **P2** 补自我作用域（`/api/salary-slip/{eid}` 无 `payroll`/`hr` 时只允许本人）。
-**不做 P0，P1 的差异化对客户无效。**
+### v205 的修法（五处）
 
-📄 完整核查与方案：`outputs/员工薪酬信息归属与访问控制分析-2026-09-19/02-按租户差异的权限设计（修订）.md`
+1. `core.py`：`_load_perms` / `ROLE_PERMS` / 旧 `reload_perms` **整段替换**为按租户分叉 ——
+   `_PERMS_CACHE {tenant_key: {role: perms}}` + `RLock`（键 `0` = 无租户上下文）／
+   `_tenant_key` / `current_tenant_key` / `effective_tenant_key` / `_read_custom_perms(tid)` /
+   `perms_for(tid=None)` / `perms_for_effective(user=None)` / `reload_perms(tid=None)`（**只失效本租户**）／
+   `known_roles(tid=None)` / `_check_perm(..., tenant_id=None)`。
+   有效权限 = `{**_DEFAULT_PERMS, **本租户自定义}`（按角色整表覆盖，语义与旧实现一致）
+   ⇒ 某角色没被本租户配过时**自动回落默认**，不会因为「租户只配了 3 个角色」就让其余 5 个
+   变成「每个模块都 403 的僵尸账号」。
+2. `db/connection.py`：新增 `tenant_scope(tenant_id)` 上下文管理器（退出恢复原值、可安全嵌套）。
+   🔴 两条约束：`tenant_id` **只能来自已校验的成员关系**（`set_tenant_context` 会**建库**）；
+   它**不替代** tenant 中间件。
+3. `erp_db.get_all_role_permissions(tenant_id=None)`：显式按租户读；表不存在返回 `{}`、
+   坏行跳过并 warning（一行脏数据不该让整个租户的权限表读不出来）。
+4. `server.py`：`/api/role-permissions` **移出** `_TENANT_MASTER_PREFIXES` +
+   新增 `_perms_tenant_or_400()`（四个端点 fail-closed，取不到租户上下文就 400，
+   **绝不回落主库** —— 回落会变成「保存成功、但不生效」的静默失败）。
+5. `routers/auth.py` `/permissions`：改 `perms_for_effective(u)` —— 该接口在「登录后拉一次、
+   决定侧栏显示什么」时被调用，请求**可能不带** `X-Tenant-Id`，故先看请求上下文、
+   再按该用户的租户归属回落。
+
+### 🔴🔴 两个最容易踩的坑（各有一个真实判据）
+
+**(1) RBAC 中间件在最外层 ⇒ `_check_perm` 必须显式传 `tenant_id=`。**
+它先于 auth / tenant 中间件执行，被调用时 `db.get_tenant_context()` **还没有值**。
+不传 ⇒ 拿内置默认放行一个**已被本租户撤销**的模块 = **撤销失效（越权）**，比没有这功能更糟。
+⚠️ 解析纪律：**先 `db.check_user_tenant(user["id"], v)` 才敢用这个 id** —— 因为取值路径
+`perms_for(tid)` → `tenant_scope` → `set_tenant_context`，后者在租户库缺失时会**建库**（v88 兜底，
+建的是整库 schema）⇒ 盲信请求头 = 「带个随机 `X-Tenant-Id` 打任意接口」就能让服务端为每个随机 id
+建一整套库 = **DoS 放大**。
+
+**(2) 🔴 豁免 RBAC「模块判定」≠ 放宽访问控制。**
+`/api/role-permissions` 必须豁免**模块判定**：它映射的模块是 `hr`，一旦某租户误把 boss 的 `hr`
+撤掉，老板就打不开「**唯一能把它改回来**」的页面 ⇒ **自我锁死且无法自救**。
+⚠️ 但**豁免不是「任何登录用户可读」** —— 豁免前 GET 只要求 `_auth` ⇒ `sales`/`supervisor`
+都能读全租户角色→模块矩阵（原实现由 `hr` 拦着）。改用 `core._admin`
+（判 `role in ("admin","boss")`）：**按角色名**把关、不依赖 `hr` 模块，两头都成立。
+护栏：`tenant-perms-scope-check.py` 的 **A13c**；判别反例 ⑫。
+
+### 连带修掉的产品既有真 bug（v205-D）
+
+`routers/salary_send.py` 两处把 `db.salary_detail_get(...)` 当 **dict** 用 `slip.get(...)`，
+而该函数委托 `get_salary_details`、返回的是 **list** ⇒ 员工当月**有**工资明细时抛
+`AttributeError: 'list' object has no attribute 'get'`（HTTP 500）。
+**非本轮引入**；生产至今不可达的唯一原因是 `salary_details` 全库 **0 行**（走 `if not slip`
+的优雅分支），而「算工资」一旦跑起来就会命中 —— **而让会计能算工资正是 v205 的交付内容**。
+⇒ **通用教训：`xxx_get` 这类名字是单数、返回是 list 的 API，是「按名字猜语义」的陷阱。**
+
+### 连带缺陷（同批查出，**仍未修**）
+
+- `库管` 这类**租户自定义角色**曾是**孤儿**（不在全局 `ROLE_PERMS` ⇒ 命中空表 ⇒ 零权限僵尸账号，
+  且 `normalize_role` 白名单会 400 拒绝派发它）。v205 后 `known_roles(tid)` / `normalize_role`
+  按租户取 ⇒ **自动正确**。
+- 🔴 `field_permissions`（**字段级**权限）**有表、有 API、无人消费**：tenant_1 有真实配置
+  `('sales','product','purchase_price',0,0)`，但全仓唯一消费方是 `routers/platform.py:573/577`；
+  `GET /api/products`、`/api/employees` **无任何读路径**调用它 ⇒ **配了不生效**。别当已有能力。
+- `user_tenants.role`（`admin`/`member`）**不参与鉴权** —— `check_user_tenant` / `get_user_tenants`
+  只查 user_id/tenant_id。**别误当「按租户角色」机制**。
+
+### ⚠️ 前端两处「无门禁」（v205 有意不动，**已知缺陷**）
+
+侧栏「设置」与「算工资」都是**无条件 router-link（无模块门禁）**：
+- 老板**永远进得去**权限页 ⇒ 这正是「`payroll` 不必加进前端 `Settings.vue` 的 `CRITICAL_MODULES` 也能自救」的原因；
+- 但没拿到 `payroll` 的会计会**看到「算工资」菜单**、点进去接口 403 —— 既有「有菜单无权限」族缺陷。
+
+### 后续（拍板结论）
+
+- **P0 ✅ 已做**（按租户分叉）｜**P1 ✅ 已做**（拆 `payroll` 窄模块）——二者**必须同批上线**，
+  只做 P0 等于「能按租户配权限了，但没有可配的窄模块」。
+- **P2 ❌ 不做**（用户：「不能查，靠推送」）—— 维持工资条**推送**，不做「员工自查」自我作用域。
+  ⇒ `/api/salary-slip/{eid}/{month}` 仍**可按任意员工 + 月份枚举**（无「只能看自己」检查）；
+  当前靠 `payroll` 模块把门（员工没有该模块就 403）。
+
+📄 原始分析与三方案对比：`outputs/员工薪酬信息归属与访问控制分析-2026-09-19/`
+｜交付报告：`outputs/权限按租户分叉与算工资窄模块-2026-09-19/`
 

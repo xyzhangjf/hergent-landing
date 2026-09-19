@@ -14,7 +14,12 @@
   ⇒ 差集核查别把它当成「删了一个 + 加了一个」。见 `.workbuddy/tools/dist_normalized_diffcheck.py`
   （已内置「同一 chunk 改名」识别；归一化差集必须能区分**纯派生噪声 / 真变化 / 疑似改名**）。
 - `hergent-prod-deploy-e2e` —— 后端部署（flat `/opt/hergent-erp` 布局 + rsync 展平 + 权限）
+  ；⭐ **「冒烟 / 回收脚本的五条纪律」** + **「影子库 + 金丝雀范式」**（v205 新增，写不可逆路径/证明分层生效时首选）
 - `hergent-scoped-commit` —— **脏工作区**里只提交本轮改动（先读文首「🧭 导航」）
+  ；🔴 **§5.26 暂存产物是「第三份产物」**（HEAD + 我只认领的 hunk，**没人验过**）⇒ 提交前必须
+  `py_compile` + **符号一致性核对**；混合 hunk 的夹带裁决看「不收的后果」；
+  `keep_all` 前必须扫 `-` 侧确认「该文件工作区改动全是我写的」（本轮 `MEMORY.md` 被并发会话整体重写
+  ⇒ 同一 hunk 里夹着我的 1 行 ⇒ **该文件本轮不进索引**）
 
 ## 新增页面 / 模块
 
@@ -24,10 +29,14 @@
   徽标色板 · 小程序 `ROLE_TEXT` · 列级权限表 · 填报白名单 · 后端 `normalize_role` **共 8 处接线**；
   含「标了小程序 == 有 data/chat 权限」硬判据 · 「`normRole` 归一 ≠ 授权」·
   「权限层空转」三问（key 对不对 / 值从哪来 / 失败方向朝哪边）·
-  🔴 **§四之二「权限表是全平台一份、不是租户级」**（实测判据 + 三种伴生假象 + P0→P1→P2 修法）
-  —— ⚠️ **任何「按客户差异配权限」的需求先读这一节：结论是先做不到**
-- ⭐ `hergent-capability-reality-audit` —— **第十二/十三种伪装**（词汇归一⇒假装权限生效 ·
-  输入源没人赋值⇒能力空转 · **配置作用域 ≠ 权威作用域**）。触发词：为何配了不生效 · 按租户 · 空承诺
+  ✅ **§四之二「权限表按租户分叉」**（**v205 已修**：`perms_for(tid)` / `tenant_scope` / 窄模块 `payroll`；
+  🔴 两个最贵的坑：**RBAC 中间件在最外层 ⇒ 必须显式传 `tenant_id=`** · **豁免模块判定 ≠ 放宽访问控制**）
+  —— ⚠️ 任何「按客户差异配权限」的需求，现在**做得到**；但按客户差异请在**该租户权限页**里授予
+- ⭐ `hergent-capability-reality-audit` —— **第十二/十三/十四/十五种伪装**（词汇归一⇒假装权限生效 ·
+  输入源没人赋值⇒能力空转 · **配置作用域 ≠ 权威作用域**（v205 已修，伪装通用）·
+  **「验证通过」本身是假的**（404/5xx/空响应三种伪装 + **只读探测里夹写操作**）·
+  **豁免一个判定顺手做成放宽访问控制**）。触发词：为何配了不生效 · 按租户 · 空承诺 ·
+  **这个验证能不能算通过** · 假绿灯
 - 旧前端 `static/`：`hergent-frontend-add-module` · `hergent-vite-landing` · `hergent-frontend-fetch-consolidation`
 
 ## 预报主表 / Excel
@@ -99,8 +108,20 @@
   真源码 exec**，不 `import erp_db`）· `v203-prod-verify.py`（生产只读 16 项）·
   `v203-shadow-write-test.py`（**影子库写路径 22 项**，`tenant_1.db` → `tenant_99.db`）·
   `v203-cp-type-e2e.js`（真机 26 项）。
-- 🔴 **起号前先查占用**（`grep -rn` + **`git diff` 在途** + `git log --all -S`）；本序列已到 **v203**，
-  下次从 **v204** 起编。**禁用 `grep "A\|B"`**（zsh 静默失效），改号用**行号白名单 + 计数断言**。
+- ⭐ v205 五件套（**权限按租户分叉 + `payroll` 窄模块**）：`tenant-perms-scope-check.py`（源码护栏
+  **57/57**，A13c「两个 GET 端点必须用 `_admin` 而非 `_auth`」· D 组「`salary_detail_get` 返回 list」）·
+  `tenant-perms-scope-discriminate.py`（判别力自证 **12/12 全 FAIL**）·
+  `tenant-perms-shadow-e2e.py`（**影子库端到端 37/37**：`sqlite3.backup()` 只读复制生产库到 /tmp +
+  真实 `server.app` + `TestClient(raise_server_exceptions=False)`；**金丝雀 + 正/反双向对照**）·
+  `v205-prod-smoke.py`（**生产真机 32/32**，含零残留 8 条）· `v205-prod-cleanup.py`（残留回收 10/10）。
+  🔴 三条写脚本的铁律：**setup 与 cleanup 共用同一数据结构算占位符**（手写 `IN (?,?,?)` 而 token 列表
+  多了一个 ⇒ cleanup 崩在第一条 DELETE、**四项残留全留生产**）· 唯一约束上 `INSERT OR REPLACE` 保幂等 ·
+  清理断言写**绝对不变量**（「不存在」）而非相对量（「比 pre 少 1」）。详见 `hergent-prod-deploy-e2e`
+  「冒烟 / 回收脚本的五条纪律」+「影子库 + 金丝雀范式」。
+- 🔴 **起号前先查占用**（`grep -rn` + **`git diff` 在途** + `git log --all -S`）；本序列已到 **v205**，
+  下次从 **v206** 起编。**禁用 `grep "A\|B"`**（zsh 静默失效），改号用**行号白名单 + 计数断言**。
+  ⚠️ v205 号**两边都在用**：本侧（权限分叉，已实现上线）与同日另一会话（保存下拉，**仅评估**）
+  ⇒ 按对方自己写明的规则，**对方改号**。
 
 ## 门禁 / 协议 / 网关 / 外部数据
 

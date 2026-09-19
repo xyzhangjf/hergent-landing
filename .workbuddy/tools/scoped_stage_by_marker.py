@@ -2440,6 +2440,161 @@ SPEC_FE_V203_WRAP = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v205：角色权限表**按租户分叉**（P0）+ `payroll` 窄模块（P1）───────────────
+# 用户拍板原话：「1.做；2.可以不看；3.不能查，靠推送」
+#   1. 做  = P0 权限表按租户分叉（让「客户的会计能算工资、我自己的不能」在权限层可实现）
+#   2. 可以不看 = 会计**不需**看身份证 / 开户行 / 银行账号 ⇒ 必须先做 P1 拆 `payroll`，
+#      否则「给 hr = 连带把全公司实名与银行信息一起交出去」在权限上无法表达。
+#   3. 不能查，靠推送 = P2「员工自查工资条」**不做**。
+# 🔴 P0 与 P1 **必须同批上线**：只做 P0 等于「能按租户配权限了，但没有可配的窄模块」。
+#
+# 编号：v202/v204 同日已上线，本序列下一个号本应 v205 ⇒ 取 v205。
+# ⚠️ 撞号裁决：同日另一会话把 v205 **预留**给「保存下拉 + 保存并审核（不可编辑）」，
+#    但对方自己在记忆里写明「**仅评估、未落一行代码**；若它处先动了 v205，则改号成本极低
+#    （只需改报告里 1 处 + 本节）」。本侧**已实现并已上线生产**（6 文件双侧 md5 一致）
+#    ⇒ 保留 v205，由对方改号。（旁证：`laozhangai-product` 历史提交 `cafa0c0 docs(v203)`
+#    已把 v203 用掉，故不可回退用 v203。）
+#
+# 归属依据（**逐 hunk 打印首行核对过，不按行号猜** —— 本仓库此刻有多个并发会话在途）：
+#   server/core.py            25 hunk → 本轮 14；在途 11
+#       本轮：`_DEFAULT_PERMS["boss"]` 加 payroll、`_ALL_MODULES` 加 payroll、
+#             `_load_perms`/`ROLE_PERMS`/`reload_perms`/`known_roles` 整段换成按租户分叉、
+#             `_check_perm` 加 `tenant_id=`。
+#       在途：并发会话的「会话空闲超时 + bcrypt2 密码长度」——
+#             `SESSION_IDLE_MINUTES` / `_bcrypt2_pre` / `_hpw` / `_verify_password` /
+#             `_needs_rehash` / `_validate_password` / `_check_login_lockout` /
+#             `_lookup_user_by_token`（-13/-16/-26/-28/-30/-37/-40/-53/-57/-195/-198）。
+#       ⚠️ hunk `-6`（import 行）是**两家的混合行**：`base64` 属对方（`_bcrypt2_pre` 要用），
+#          `threading` 属本轮（`_PERMS_CACHE_LOCK`）。本工具只能**整行**落、无法只落半个 ⇒
+#          整行收进。代价 = HEAD 里多一个暂未使用的 `base64`（无行为影响，对方下一次提交
+#          即自然补齐）；**不收的代价**是 `threading.RLock()` 在 HEAD 上 `NameError`
+#          （拿 HEAD 部署会直接崩）⇒ 必须收。这是 `own_hunks` 无法规避的、唯一的夹带。
+#   server/server.py          25 hunk → **全属本轮**（keep_all 自带「== 工作区」自证）：
+#             payroll 窄模块路径映射（含 `/api/payroll/bank-file` 必须排在 `/api/payroll`
+#             **之前**）、`/api/role-permissions` 移出 `_TENANT_MASTER_PREFIXES`、
+#             RBAC 豁免 + 「先 `check_user_tenant` 再解析租户」（防建库 DoS 放大）、
+#             四个端点接 `_perms_tenant_or_400()`、两个 GET 由 `_auth` 改 `_admin`。
+#   server/erp_db.py          32 hunk → 本轮 7；在途 25
+#       本轮：`tenant_scope` 导入（-101）、`get_all_role_permissions(tenant_id=None)`
+#             按租户读 + 坏行容错（-2008/-2011/-2013）、`salary_detail_get` 的 v205
+#             docstring（-6813）、v110 迁移注释（-16998）与「仅空表才灌」（-17024）。
+#       在途：并发会话的 v199（客户列隐藏名册）/ v202（导入模板行序）/
+#             `_period_copy_products` / `_ensure_forecast_tables` /
+#             `forecast_submission_summary` / 品牌 `dismissed` / `login_is_locked` /
+#             `v110_products_dist_price` 搬家两半（-11089/-11104）等。
+#             ⇒ 逐条列黑名单（`exclude_hunks`）在这里**不安全**：对方仍在活跃改此文件，
+#               其新增 hunk 会被判成「我的残留」而夹带 ⇒ 用**正向认领** `own_hunks`。
+#   server/db/connection.py     1 hunk → 全属本轮（`tenant_scope` 上下文管理器）
+#   server/routers/auth.py      2 hunk → 全属本轮（`/permissions` 改 `perms_for_effective`）
+#   server/routers/salary_send.py 4 hunk → 全属本轮（`salary_detail_get` 返回 list 的修复）
+SPEC_BE_V205_PERMS = ("be", [
+    {"file": "server/core.py",
+     "own_hunks": [6, 345, 359, 362, 365, 371, 374, 376, 394, 396, 398, 418, 419, 423],
+     "present": ["租户级权限表（2026-09-19 P0",
+                 "def _tenant_key(tid):",
+                 "def current_tenant_key():",
+                 "def effective_tenant_key(user=None):",
+                 "def _read_custom_perms(tid):",
+                 "def perms_for(tid=None):",
+                 "def perms_for_effective(user=None):",
+                 "def known_roles(tid=None):",
+                 "_PERMS_CACHE_LOCK",
+                 "def _check_perm(user, module, action='read', tenant_id=None):",
+                 "# 2026-09-19 P1：boss 增加 payroll",
+                 '"hr", "payroll", "projects"'],
+     "gone": ["ROLE_PERMS = _load_perms()",
+              "def _load_perms():",
+              'perms = ROLE_PERMS.get(user["role"], [])']},
+    {"file": "server/server.py", "keep_all": True,
+     "present": ['"/api/payroll/bank-file": "hr",',
+                 'def _perms_tenant_or_400():',
+                 'if path.startswith("/api/role-permissions"):',
+                 '"/api/payroll-workflow": "payroll",',
+                 '"/api/salaries": "payroll",',
+                 '"payroll":"算工资"',
+                 "_check_perm(user, module, action, tenant_id=_perm_tid)"],
+     "gone": ['"/api/payroll-workflow": "hr",',
+              '"/api/salary-details": "hr",',
+              'if not _check_perm(user, module, action):',
+              'return {"roles": all_roles}',
+              '"/api/users", "/api/role-permissions", "/api/permissions",']},
+    {"file": "server/erp_db.py",
+     "own_hunks": [101, 2008, 2011, 2013, 6813, 16998, 17024],
+     "present": ["def get_all_role_permissions(tenant_id=None):",
+                 "with tenant_scope(tenant_id):",
+                 "🔴 v205：本函数名是**单数**",
+                 "空表才灌"],
+     "gone": ["def get_all_role_permissions():",
+              "return {r['role_name']: json.loads(r['permissions']) for r in rows}"]},
+    {"file": "server/db/connection.py", "keep_all": True,
+     "present": ["def tenant_scope(tenant_id=None):"], "gone": []},
+    {"file": "server/routers/auth.py", "keep_all": True,
+     "present": ["from core import perms_for_effective"],
+     "gone": ["from core import ROLE_PERMS"]},
+    {"file": "server/routers/salary_send.py", "keep_all": True,
+     "present": ["rows = db.salary_detail_get(employee_id, month)", "slip = rows[0]"],
+     "gone": ["slip = db.salary_detail_get(employee_id, month)",
+              "slip = db.salary_detail_get(int(eid), month)"]},
+])
+
+# ── v205 前端侧：**本轮前端零改动**，只入 5 个工具脚本 + 记忆 ────────────────
+# 🔴 必须说清「为什么前端一行没改」：本轮的交付是**能力与边界**（按租户分叉 + 窄模块），
+#    全部落在后端判定层。前端两处「无门禁」是**已知历史缺口、本轮有意不动**：
+#      · 侧栏「设置」是无条件 router-link（无模块门禁）⇒ 老板永远进得去权限页
+#        ⇒ 这恰恰是「`payroll` 不必加进 `CRITICAL_MODULES` 也能自救」的原因。
+#      · 侧栏「算工资」同样无条件 ⇒ 没拿到 `payroll` 的会计会**看到菜单**、点进去接口 403。
+#        这是既有的「有菜单无权限」族缺陷，记进记忆与交付报告，不在本轮夹带修改。
+# 归属：5 个脚本均为**未跟踪新文件**（无 hunk 可拆）⇒ `new_file`；
+#      记忆文件与「共享追加日志」的切法见下方各自注释。
+SPEC_FE_V205_PERMS = ("fe", [
+    {"file": ".workbuddy/tools/tenant-perms-scope-check.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/tenant-perms-scope-discriminate.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/tenant-perms-shadow-e2e.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v205-prod-smoke.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v205-prod-cleanup.py", "new_file": True, "gone": []},
+    # ── 记忆 ────────────────────────────────────────────────────────────────
+    # 🔴 `2026-09-19.md` 是**共享追加日志**（同一天被 4 个会话交错追加，见 v203 收尾 §5.25）：
+    #    本轮的段追加在**文件末尾**，与别人的 +203 行**合并成同一个纯插入 hunk**（`-1624,0`）
+    #    ⇒ 只能用 `own_hunks` + `keep_plus_slice` 锚「我的段」：
+    #      头部 203 行 = 别会话的（v202 收口 + v204 + v205 评估 + v205-b），
+    #      我的段 = `plus[203:336]`（**133 行**，已用脚本逐行比对该切片 == 我的块 ✓）。
+    #    ⚠️ 用 `trim_plus_head`（丢头 203）也行，但它依赖「对方当前有多少行」这个**会变的数**；
+    #       `keep_plus_slice` 只锚「我的段从第 203 行起、共 133 行」，**与我之后任何人再追加无关**。
+    #    ⚠️ 对方的段**不会因为我不提交而丢失** —— 仍在工作区（残留 hunk == 在途 hunk 有断言）。
+    {"file": ".workbuddy/memory/2026-09-19.md",
+     "own_hunks": [1624],
+     "keep_plus_slice": {1624: (203, 133)},
+     "present": ["## v205 —— 角色权限表**按租户分叉**（P0）+ 「算工资」窄模块（P1）",
+                 "1.做；2.可以不看；3.不能查，靠推送",
+                 "权限必须由「本请求所属租户」的那份表裁决",
+                 "豁免 RBAC「模块判定」≠ 放宽访问控制",
+                 "`_PATH_MODULE_MAP` 的顺序即优先级",
+                 "影子库端到端 **37/37 绿**",
+                 "CANARY_*_9137",
+                 "保留 v205，由对方改号"],
+     "gone": []},
+    {"file": ".workbuddy/memory/topics/backend-auth.md", "keep_all": True,
+     "present": ["✅ 角色权限表**已按租户分叉**（2026-09-19 v205 落地并上线，commit `6276b25`）",
+                 "✅ 判据二（v205 已拆开）：员工档案 = `hr`，算工资 = `payroll`",
+                 "豁免 RBAC「模块判定」≠ 放宽访问控制",
+                 "L3 实名与资金"],
+     "gone": ["## 🔴🔴 角色权限表是「**全平台一份**」，不是租户级（2026-09-19 实测确证，动手前必读）",
+              "**结论**：**做不到。** 给某客户开 = 所有租户一起开"]},
+    {"file": ".workbuddy/memory/topics/skill-routing.md", "keep_all": True,
+     "present": ["v205 五件套",
+                 "§5.26 暂存产物是「第三份产物」",
+                 "本序列已到 **v205**",
+                 "下次从 **v206** 起编"],
+     "gone": ["下次从 **v204** 起编",
+              "🔴 **§四之二「权限表是全平台一份、不是租户级」**"]},
+    {"file": ".workbuddy/memory/topics/cross-domain-iron-laws.md", "keep_all": True,
+     "present": ["搜索结果里「号码出现」≠「号码被占用」",
+                 "保留 v205、由对方改号"],
+     "gone": ['grep -rn  -e "v204" -e "V204"']},
+    # 本工具自身：新增上面两条 spec（be-v205-perms / fe-v205-perms）。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -2530,7 +2685,12 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          # v203 交付说明 + 判据入库（记忆）。🔴 `MEMORY.md` 本轮**不碰**（与 v201 在途同改一行）。
          "fe-v203-notes": SPEC_FE_V203_NOTES,
          # v203 收尾：共享追加日志被 v201 会话交错写入 ⇒ own_hunks + trim_plus_head（丢头 60）。
-         "fe-v203-wrap": SPEC_FE_V203_WRAP}
+         "fe-v203-wrap": SPEC_FE_V203_WRAP,
+         # v205：角色权限表按租户分叉（P0）+ `payroll` 窄模块（P1）。
+         #   ⚠️ 与同日另一会话的「保存下拉」评估**同号**（对方仅评估、未落代码）⇒ 本侧保留
+         #      v205，由对方改号；本侧带语义后缀（perms）以便追责时区分。
+         "be-v205-perms": SPEC_BE_V205_PERMS,
+         "fe-v205-perms": SPEC_FE_V205_PERMS}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
@@ -2651,6 +2811,13 @@ def main():
         assert not (is_bin and spec.get("gone")), "%s：binary 不该有 gone 名单" % path
         wt = (open(os.path.join(REPO, path), "rb").read() if is_bin
               else open(os.path.join(REPO, path), encoding="utf-8").read())
+
+        # 🔴 2026-09-19 v205 修：`n_extra_resid` 此前**只在非 new_file/非 binary 的分支里赋值**，
+        #   而下面的 `n_def` 无条件引用它 ⇒ **当 spec 的第一个文件是 `new_file`（或 `binary`）时**
+        #   直接 `UnboundLocalError`，整个 spec 连第一个文件都跑不完（本轮实测撞上：
+        #   5 个新工具脚本排在记忆文件前面）。历史上没炸只是因为那时的 spec 恰好把已跟踪文件
+        #   排在了最前 —— 属**侥幸**。纯新增文件没有 hunk、二进制没有 hunk ⇒ 残留增量恒为 0。
+        n_extra_resid = 0
 
         if is_bin:
             # 二进制**不取 HEAD 内容**（`git show` 走 text=True 会 UnicodeDecodeError），
