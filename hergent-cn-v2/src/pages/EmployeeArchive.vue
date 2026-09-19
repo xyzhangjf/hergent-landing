@@ -46,7 +46,7 @@
               </td>
               <!-- 2026-09-19 收敛：门店配置入口已移出员工档案，本列只读展示数量。
                    数据 = 报单配置派生 ∪ 历史授权（见后端 employee_stores_get）。 -->
-              <td class="num" title="在「预报订单管理 → 报单配置」里为该员工配门店/客户，配了即授权其小程序可报">  {{ (e.store_ids || []).length }} 家</td>
+              <td class="num" title="在「预报订单管理 → 报单配置」里为该员工配门店，配了即授权其小程序可报">  {{ (e.store_ids || []).length }} 家</td>
               <td class="df-ops">
                 <button class="btn btn-ghost btn-sm" @click="openEdit(e)">编辑</button>
                 <button v-if="e.is_active !== 0" class="btn btn-ghost btn-sm danger" @click="askDisable(e)">停用</button>
@@ -62,7 +62,7 @@
     <!-- 开账号已整合进「编辑员工」弹窗（见下方 edit-modal 的"登录账号"区） -->
 
     <!-- 2026-09-19：「分配门店」弹窗已移除 —— 门店配置收敛到「预报订单管理 → 报单配置」。
-         在那里按「员工 × 门店/客户」建一条报单映射，即等于授权该员工小程序可报该门店
+         在那里按「员工 × 门店」建一条报单映射，即等于授权该员工小程序可报该门店
          （后端 employee_stores_get 从报单配置派生可见范围）。
          员工档案只保留只读的「可报门店」数量列，避免两个入口配同一件事、且互不感知。 -->
 
@@ -214,7 +214,7 @@
           <div class="df-modal-hd"><b>交接报单配置</b><button class="df-x" @click="transferOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
             <p class="df-tip warn-text">
-              「{{ transferEmp?.name }}」名下还有 <b>{{ transferCount }}</b> 个报单配置（门店 / 客户）。<br>
+              「{{ transferEmp?.name }}」名下还有 <b>{{ transferCount }}</b> 个报单配置（门店）。<br>
               这些配置<b>不能随离职作废</b> —— 否则对应门店将无人报单，业务会中断。请转交给接任者。
             </p>
             <label class="df-field">
@@ -451,7 +451,7 @@ async function confirmDisable() {
   disableOpen.value = false
   const r = await employeeToggle(e.id, 0)
   // 停用后：若该员工名下还有报单配置，必须引导转交 ——
-  // 直接作废会导致这些门店/客户无人报单，业务中断。权限可回收，报单要交接。
+  // 直接作废会导致这些门店无人报单，业务中断。权限可回收，报单要交接。
   if (r && r.report_mapping_count > 0) {
     transferEmp.value = e
     transferCount.value = r.report_mapping_count

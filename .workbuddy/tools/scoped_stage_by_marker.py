@@ -2263,6 +2263,103 @@ SPEC_FE_V202_TENANTPERM = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ══════════════════════════════════════════════════════════════════════════════
+# v203：报单配置「对象类型」收敛为 门店 / 本人仓
+#       用户原话：「在报单配置里有门店和客户两个入口，实际上门店和客户是一个意思，
+#                  只保留门店这个入口吧」
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# 依据（这才是本轮真正的发现）：`report_mapping_refs()` 返回的对象池是
+#   `contacts.type IN ('customer','both')` —— 「门店」和「客户」两个入口点开选的是**同一批
+#   对象**，`counterparty_type` 从来只是个分类标签，不是"两种对象"。⇒ 合并零语义损失。
+#
+# ⚠️⚠️ **编号撞车修正**（初版误编为 v202）：收口时才发现 v202 已被**两个**会话占用 ——
+#   · `ad34224`（已提交）：员工薪酬信息归属 / 租户权限分析
+#   · 工作区在途：导入模板行序（`_safe_migrate('v202_forecast_import_sort_no')`）
+#   我开工前那步「检查 v202 未被占」是**假阴性**：命令写成 `grep "v202\|v203"`，
+#   zsh 下 `\|` 静默失效返回空（这条坑记忆里早记过，本次是**第三次**踩）。
+#   🔴 两条硬教训：
+#     ① 起号一律 `grep -e a -e b`（或 Grep 工具），**禁用 `\|`**；
+#     ② 还要搜 `_safe_migrate('vNNN_...')` 这类**迁移名** —— 那是"某个号已被用掉"最硬的证据
+#        （比注释、比 SPEC 名都硬，因为它已经在代码里生效）。
+#   改号成本实测 = 源码 9 处注释 + 4 个工具文件改名 + 报告 + **一次重建重部署**；
+#   且「只改注释」也会改变产物 hash 与体积（Forecast chunk 296.23kB ↔ 295.95kB）
+#   ⇒ **不能以"只是注释"为理由跳过重建**（产物 mtime ≥ 源码 mtime 的门禁同样会拦）。
+#
+# 归属（逐 hunk 看内容核过）：erp_db.py 共 32 个 hunk，本轮 7 个 ——
+#    6292（常量块 + `normalize_report_cp_type`，插在 report_mapping_list 前）
+#    6300（list 过滤参数：「刻意不归一」注释）      6322（create 白名单 → 归一）
+#    6374（update 归一 + **回写 data**）             6437（health 读端注释）
+#    6464 / 6475（import 归一 + 失败文案）
+#   其余 25 个属并发会话的在途线（导入模板行序 sort_no / 品牌归并 / 迁移等），
+#   与 report_mapping 区域**零交集**（已逐个看内容确认）。
+# 🔴 用 `own_hunks`（正向认领）而非 `exclude_hunks`：并发会话**正在活跃改这个文件**
+#   （开工时 24 hunk → 收口时 32 hunk）。黑名单模式下它每新增一个 hunk，那个 hunk 就会被
+#   当成「我的」而夹带进提交；正向认领天然免疫。代价是列表要按 old_start 写死 ——
+#   但这恰好让「基线漂移」以 `missing` 断言的形式**当场暴露**，而不是静默夹带。
+SPEC_BE_V203_CPTYPE = ("be", [
+    {"file": "server/erp_db.py",
+     "own_hunks": [6292, 6300, 6322, 6374, 6437, 6464, 6475],
+     "present": ['REPORT_CP_TYPES = ("store", "self_warehouse")',
+                 'REPORT_CP_ALIASES = {"customer": "store"}',
+                 "def normalize_report_cp_type(t):",
+                 "此处**刻意不归一**",
+                 'data["counterparty_type"] = _ct',
+                 'ctype_raw = (row.get("counterparty_type") or "store").strip()',
+                 "对象类型无效（应为 门店 / 本人仓）"],
+     # 旧白名单必须清零 —— 不清零说明「第二份判据」还在（本仓库最常见的复发形态）。
+     "gone": ['if ctype not in ("store", "customer", "self_warehouse"):',
+              "对象类型「{ctype}」无效(应为 store/customer/self_warehouse)"]},
+])
+
+# 前端：两个页面 + 4 个验证工具。
+#   · `ReportMapping.vue`：11 个 hunk **全属本轮**（5 处文案 + types 数组 + typeLabel/typeClass
+#     + openEdit 归一 + 2 处注释）⇒ 用 keep_all，自证「暂存版 == 工作区」。
+#   · `EmployeeArchive.vue`：6 个 hunk 里我的 4 个（49/65/217/454 —— 把「门店/客户」文案统一
+#     为「门店」，含只读列 title、说明注释、交接弹窗、代码注释）；
+#     3 与 671 属**前端 CSS 全局化**那条在途线 —— 判据：`page-hd.split` 是全局类
+#     （`styles/variables.css` 里已有），671 删的是 3 条 `.page-hd`/`.page-sub` **局部** CSS，
+#     与「对象类型收敛」无因果。
+SPEC_FE_V203_CPTYPE = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/ReportMapping.vue", "keep_all": True,
+     "present": ["function normalizeCpType(t) { return t === 'customer' ? 'store' : t }",
+                 "store: '门店', customer: '门店'",
+                 "store: 'info', customer: 'info'",
+                 "个门店未配置",
+                 "尚未配置报单的门店（前 50）",
+                 "对象类型填 store（门店）或 self_warehouse（本人仓）"],
+     # 这 7 条全是「只有真删掉才会消失」的旧文案 —— 别拿类名当判据（删了规则还可能
+     # 留一行说明注释点名，v200 为此吃过一次假失败）。
+     "gone": ["{ v: 'customer', label: '客户' }",
+              "customer: '客户'",
+              "customer: 'purple'",
+              "个门店/客户未配置",
+              "尚未配置报单的门店/客户",
+              "请给下列员工各建一条「门店 / 客户」映射",
+              "store / customer / self_warehouse"]},
+    {"file": "hergent-cn-v2/src/pages/EmployeeArchive.vue",
+     "exclude_hunks": [3, 671],
+     "present": ["为该员工配门店，配了即授权其小程序可报",
+                 "在那里按「员工 × 门店」建一条报单映射",
+                 "个报单配置（门店）",
+                 "会导致这些门店无人报单"],
+     "gone": ["门店/客户", "门店 / 客户"]},
+    # 判据自证（25 项）：AST 就地从 erp_db.py 取真实源码 exec，**不 import erp_db**
+    # （本地缺 cryptography，import 会连带拉起整条依赖链）。零依赖、可离线跑。
+    {"file": ".workbuddy/tools/v203-cp-type-normalize-check.py", "new_file": True, "gone": []},
+    # 生产只读验证（16 项）：🔴 必须 `set_tenant_context(1)` —— 不设则读错库，
+    # 症状（映射 0 条 / 可见门店 0 家）与「数据被删光」一模一样（本轮实测误判过一次）。
+    {"file": ".workbuddy/tools/v203-prod-verify.py", "new_file": True, "gone": []},
+    # 影子库写路径验证（22 项）：`ERP_DB_PATH` 指到 /tmp + 租户副本，绝不碰生产库；
+    # 核心断言是 update 的「归一必须回写 data」（不回写会被通用字段循环静默覆盖）。
+    {"file": ".workbuddy/tools/v203-shadow-write-test.py", "new_file": True, "gone": []},
+    # 真机 E2E（26/26，重部署后复跑仍 26/26）：类型控件只剩门店/本人仓。
+    # 🔴 脚本**绝不点「保存」** —— 没有"无改动短路"分支，点下去就是真实生产写入。
+    {"file": ".workbuddy/tools/v203-cp-type-e2e.js", "new_file": True, "gone": []},
+    # 本工具自身：新增上面两个 spec（+ 编号撞车那两条硬教训）。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -2345,7 +2442,11 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v202-tenantperm": SPEC_FE_V202_TENANTPERM,
          # v200 交付说明 + 判据入库（记忆）。⚠️ 并发会话在同一批记忆文件里有在途改动，
          #   本 spec 逐个文件核过归属（详见 SPEC_FE_V200_NOTES 上方注释）。
-         "fe-v200-notes": SPEC_FE_V200_NOTES}
+         "fe-v200-notes": SPEC_FE_V200_NOTES,
+         # v203：报单配置「对象类型」收敛为 门店 / 本人仓（用户：「门店和客户是一个意思」）。
+         #   ⚠️ 编号初版误编为 v202，收口时发现已被两个会话占用 ⇒ 改 v203（详见定义处注释）。
+         "be-v203-cptype": SPEC_BE_V203_CPTYPE,
+         "fe-v203-cptype": SPEC_FE_V203_CPTYPE}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

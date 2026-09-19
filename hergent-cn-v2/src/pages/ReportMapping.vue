@@ -65,7 +65,7 @@
     <div v-if="health" class="health-bar" :class="{ ok: !hasProblem }" @click="healthOpen = !healthOpen">
       <span class="hb-dot"></span>
       <template v-if="hasProblem">
-        配置体检：<b>{{ health.unmapped_count }}</b> 个门店/客户未配置 · <b>{{ health.alias_conflicts.length }}</b> 个别名冲突 · <b>{{ health.unassigned_count }}</b> 名员工未分配
+        配置体检：<b>{{ health.unmapped_count }}</b> 个门店未配置 · <b>{{ health.alias_conflicts.length }}</b> 个别名冲突 · <b>{{ health.unassigned_count }}</b> 名员工未分配
         <span class="hb-toggle">{{ healthOpen ? '收起' : '展开' }}</span>
       </template>
       <template v-else>配置体检：全部正常</template>
@@ -78,7 +78,7 @@
         <ul><li v-for="c in health.alias_conflicts" :key="c.report_alias">简称「{{ c.report_alias }}」重复 {{ c.c }} 次</li></ul>
       </div>
       <div v-if="health.unmapped_objects.length" class="hd-sec">
-        <b class="hd-t">尚未配置报单的门店/客户（前 50）</b>
+        <b class="hd-t">尚未配置报单的门店（前 50）</b>
         <div class="chip-row"><span v-for="o in health.unmapped_objects" :key="o.id" class="chip">{{ o.name }}</span></div>
       </div>
       <div v-if="health.unassigned_employees.length" class="hd-sec">
@@ -89,7 +89,7 @@
 
     <!-- 历史门店授权（2026-09-19 收敛）：在旧「员工档案 → 分配门店」里配过、但尚未纳入
          本页报单配置的门店。员工档案侧入口已移除 ⇒ 写端只剩本页；不把它们列出来，
-         这些门店就是「小程序看得到、后台没处改」。补一条「门店 / 客户」映射即收敛
+         这些门店就是「小程序看得到、后台没处改」。补一条「门店」映射即收敛
          （之后由映射派生，可停用、可收回）。 -->
     <div v-if="legacyStores.length" class="legacy-bar" @click="legacyOpen = !legacyOpen">
       <span class="lb-dot"></span>
@@ -97,7 +97,7 @@
       <span class="lb-toggle">{{ legacyOpen ? '收起' : '展开' }}</span>
     </div>
     <div v-if="legacyOpen && legacyStores.length" class="card legacy-detail">
-      <b class="hd-t">请给下列员工各建一条「门店 / 客户」映射：配完后门店由本页统一派生，可停用、可收回</b>
+      <b class="hd-t">请给下列员工各建一条「门店」映射：配完后门店由本页统一派生，可停用、可收回</b>
       <ul>
         <li v-for="l in legacyStores" :key="l.employee_id + '-' + l.store_id">
           <b>{{ l.employee_name || ('员工 #' + l.employee_id + '（已不在员工档案里）') }}</b> → {{ l.store_name }}
@@ -265,7 +265,7 @@
         <div v-if="importOpen" class="df-modal">
           <div class="df-modal-hd"><b>Excel 批量导入配置</b><button class="df-x" @click="importOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
-            <p class="hint">模板表头（7 列）：员工 / 对象类型 / 对象全称 / 简称(列头) / 单型 / 源仓 / 目标仓。对象类型填 store / customer / self_warehouse。</p>
+            <p class="hint">模板表头（7 列）：员工 / 对象类型 / 对象全称 / 简称(列头) / 单型 / 源仓 / 目标仓。对象类型填 store（门店）或 self_warehouse（本人仓）。</p>
             <label class="upload-btn">选择 Excel 文件
               <input type="file" accept=".xlsx,.xls" @change="onFile" hidden />
             </label>
@@ -307,11 +307,20 @@ const disableTarget = ref(0)
 const importOpen = ref(false)
 const importResult = ref(null)
 
+// 🔴 v203（2026-09-19）：对象类型收敛为 —— 门店 / 本人仓。
+// 依据：`/api/report-mappings/refs` 返回的对象池是 `contacts.type IN ('customer','both')`，
+// 「门店」与「客户」两个入口点开选的是**同一批对象**，这个类型只是个分类标签。
+// 用户定调「门店和客户是一个意思」⇒ 去掉「客户」入口。
+// ⚠️ `customer` 作为**历史兼容别名**仍被后端读端认识（存量行 / 旧 Excel 不会消失），
+//    本页把它按「门店」显示、保存即写成 store —— 口径与后端 REPORT_CP_ALIASES 同源。
 const types = [
   { v: 'store', label: '门店' },
-  { v: 'customer', label: '客户' },
   { v: 'self_warehouse', label: '本人仓' },
 ]
+
+// 历史 `customer` → `store`。只做**词汇归一**（与后端 normalize_report_cp_type 同义），
+// 不在这里做任何权限/合法性判断。
+function normalizeCpType(t) { return t === 'customer' ? 'store' : t }
 
 const form = reactive({
   employee_id: 0, counterparty_type: 'store', counterparty_id: 0,
@@ -393,7 +402,7 @@ const objOptions = computed(() => {
   return refs.contacts
 })
 
-// 对象下拉：可模糊查找的 combobox（门店/客户数量大，原生 select 难翻）
+// 对象下拉：可模糊查找的 combobox（门店数量大，原生 select 难翻）
 const objKeyword = ref('')
 const objOpen = ref(false)
 const objHi = ref(0)
@@ -448,8 +457,10 @@ const selectedEmpWh = computed(() => {
   return { id: e.warehouse_id, name: whMap.value[e.warehouse_id] || '本人仓' }
 })
 
-function typeLabel(t) { return ({ store: '门店', customer: '客户', self_warehouse: '本人仓' })[t] || t }
-function typeClass(t) { return ({ store: 'info', customer: 'purple', self_warehouse: 'teal' })[t] || 'info' }
+// 历史 `customer` 行按「门店」显示、用与门店**同一色板** —— 两者本就是同一批对象，
+// 让它们看起来不同只会制造「这里有两种东西」的错觉（v203）。
+function typeLabel(t) { return ({ store: '门店', customer: '门店', self_warehouse: '本人仓' })[t] || t }
+function typeClass(t) { return ({ store: 'info', customer: 'info', self_warehouse: 'teal' })[t] || 'info' }
 function whShow(m) {
   if (m.counterparty_type !== 'self_warehouse') return '—'
   const s = whMap.value[m.src_wh] || '?'
@@ -511,7 +522,10 @@ function openCreate() { editId.value = 0; resetForm(); editOpen.value = true }
 function openEdit(m) {
   editId.value = m.id
   form.employee_id = m.employee_id
-  form.counterparty_type = m.counterparty_type
+  // v203：历史 `customer` 行归一成 `store` 再进表单 —— ① 类型分段控件里已无「客户」项，
+  // 不归一则**没有任何按钮处于选中态**（用户第一反应是「这页坏了」）；
+  // ② 保存时自然写回 store，存量数据在用户编辑时零迁移脚本收敛。
+  form.counterparty_type = normalizeCpType(m.counterparty_type)
   form.counterparty_id = m.counterparty_id
   form.system_name = m.system_name || ''
   form.report_alias = m.report_alias || ''
