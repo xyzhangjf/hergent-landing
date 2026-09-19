@@ -191,7 +191,12 @@ export const todayApi = {
   refresh: () => api('/api/today/refresh', { method: 'POST' }),
 }
 
-/* ---- 对账工作流 ---- */
+/* ---- 对账工作流（⚠️ 页面已于 v197 撤下，本组接口暂留不删） ----
+   三步向导页面（Reconciliation.vue）已移除，原因见 router/index.js 的注释。
+   后端 /api/reconciliation/* 保留：重做方案要拿它做「存量入口」灰度，
+   且客户历史对账记录还在库里。新代码请勿再基于本组的 customerMatch /
+   customerConfirm 做增量 —— 它们输入的「客户声称金额」是人工口述的单一数字，
+   无法承载三类场景（厂家 / 客户 / 银行）的格式差异。 */
 export const reconciliationApi = {
   customers: () => api('/api/reconciliation/customers'),
   customerData: (cid) => api(`/api/reconciliation/customer/${cid}`),

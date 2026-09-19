@@ -316,10 +316,10 @@ async function loadTodo() {
       const first = disputed[0] || overdueBig[0]
       const extra = disputed.length + overdueBig.length - 1
       items.push({
-        icon: '账',
+        icon: '催',
         title: `催收：${first.contact_name} ${fmtNum(first.amount)} 元`,
         sub: first.status === 'disputed' ? '客户提出争议，需要你处理' : `逾期 ${first.age_days} 天` + (extra > 0 ? ` · 另有 ${extra} 笔需跟进` : ''),
-        prio: 'amber', path: '/reconciliation',
+        prio: 'amber', path: '/collections',
       })
     }
   } catch (e) { /* 静默 */ }

@@ -1710,6 +1710,16 @@ SPEC_FE_EMPACC_TOOL = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# 同上的交付物：真机探针 + 诊断报告（已补「甲档实施结果」一节）+ 生产真机截图。
+# 报告与截图都是**上一轮留下的未跟踪文件**，与本轮修复属同一件事，一起入库。
+SPEC_FE_EMPACC_PAGE = ("fe", [
+    {"file": ".workbuddy/tools/employee-account-map-page-verify.js", "new_file": True, "gone": []},
+    {"file": "outputs/员工账号开通能力核查-2026-09-19/01-诊断报告.md",
+     "new_file": True, "gone": []},
+    {"file": "outputs/员工账号开通能力核查-2026-09-19/02-修复后-账号列已开通与账号管理区（生产真机）.png",
+     "new_file": True, "binary": True, "gone": []},
+])
+
 # ══════════════════════════════════════════════════════════════════════════
 # Q29（2026-09-19）小程序自助改密 + 忘记密码自助重置 —— 前端 / 小程序 / 工具
 SPEC_FE_V195_PWRESET = ("fe", [
@@ -1804,6 +1814,60 @@ SPEC_FE_V195_PWRESET = ("fe", [
      "new_file": True, "gone": []},
 ])
 
+# ══ v197：撤下「三步对账向导」+「催收跟进」独立成页 ══
+# 用户决策（2026-09-19）：/reconciliation 页面撤下、催收独立成页、后端接口暂留不删。
+# 依据（outputs/对账模块存废与AI归属评估-2026-09-19/）：
+#   · 页面「系统应收余额」与匹配结果「系统算出」**不同口径**（客户 2870 同屏差 17.7 万）
+#   · 上线以来 39 次访问全为查看、确认 0 次（audit_logs 0 条）
+#   · 催收跟进是活的（514 次真实动作）→ 独立成页保住它
+#
+# ── 归属取证（基线 1501878；每个 hunk 都已打印首行逐条核对，不按行号猜）──
+#   CommandPalette.vue   1 hunk **全部本轮** → keep_all
+#   Workbench.vue        2 hunks **全部本轮**（催收待办 icon '账'→'催' + path）→ keep_all
+#   modules.js           ⚠️ 9 hunks，本轮只 194（reconciliationApi 注释 + 为何不适合；
+#                        该 hunk 把 1 行替换成 6 行）；在途 8 个（forecastApproveApi.periodId
+#                        / productsApi.opts 透传 / importApi 注释与 template 的**搬家两半**
+#                        —— 技能 §5.8：搬移必须两半一起排除）
+#   Shell.vue            ⚠️ 12 hunks，本轮只 48（侧栏）/ 96（移动抽屉）；
+#                        在途 10 个（⌘ K 徽标删除 / IdleTimeout 挂载 / clearChatCache /
+#                        空闲自动登出 onIdleTimeout / .tb-copilot 与 .tb-cp-k 样式）
+#   router/index.js      ⚠️ 5 hunks，本轮只 16（import 替换）/ 46（路由替换 + 旧链接 redirect
+#                        + 撤下原因注释）；在途 2 个（ArchiveShell import 与 archive 嵌套路由）
+#   Collections.vue      HEAD 里无 → new_file
+#   Reconciliation.vue   整文件删除 —— **本工具不支持 deleted**，另用 `git rm` 单独暂存
+SPEC_FE_V197_RECON_RETIRE = ("fe", [
+    {"file": "hergent-cn-v2/src/components/CommandPalette.vue", "keep_all": True,
+     # 命令面板里不该再有旧 id 与旧名（我在本文件没写引用旧名的注释，故 gone 可安全设）
+     "gone": ["id: 'reconciliation'", "对账工作流"]},
+    {"file": "hergent-cn-v2/src/pages/Workbench.vue", "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/api/modules.js",
+     "exclude_hunks": [347, 351, 359, 362, 391, 402, 403, 434],
+     # 本文件保留 reconciliationApi 定义本身（接口暂留），故 gone 不能设相关串
+     "gone": []},
+    {"file": "hergent-cn-v2/src/components/Shell.vue",
+     "exclude_hunks": [17, 109, 141, 146, 187, 188, 193, 327, 330, 399],
+     "gone": ['对账工作流', 'to="/reconciliation"']},
+    {"file": "hergent-cn-v2/src/router/index.js",
+     "exclude_hunks": [22, 53],
+     # 只断言「指向组件的旧路由行」消失；redirect 行与注释里出现 'reconciliation' 是**刻意保留**的
+     "gone": ["{ path: 'reconciliation', component: Reconciliation"]},
+    {"file": "hergent-cn-v2/src/pages/Collections.vue", "new_file": True,
+     # 新页不该再引对账 API / 不该有对账页那套文案
+     "gone": ["对账工作流", "客户声称欠款金额", "reconciliationApi"]},
+    {"file": ".workbuddy/tools/reconciliation-retire-collections-verify.js",
+     "new_file": True, "gone": []},
+    {"file": "outputs/对账撤下与催收独立-2026-09-19/01-催收跟进-独立页-1600.png",
+     "binary": True, "new_file": True, "gone": []},
+    {"file": "outputs/对账撤下与催收独立-2026-09-19/02-经营工作台待办-1600.png",
+     "binary": True, "new_file": True, "gone": []},
+    {"file": "outputs/对账撤下与催收独立-2026-09-19/03-移动端抽屉-390.png",
+     "binary": True, "new_file": True, "gone": []},
+    {"file": "outputs/对账撤下与催收独立-2026-09-19/01-交付说明.md",
+     "new_file": True, "gone": []},
+    # 本工具自身（新增上面这组 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1862,7 +1926,12 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v195-pwreset": SPEC_BE_V195_PWRESET,
          "fe-v195-pwreset": SPEC_FE_V195_PWRESET,
          "be-empacc-map": SPEC_BE_EMPACC_MAP,
-         "fe-empacc-tool": SPEC_FE_EMPACC_TOOL}
+         "fe-empacc-tool": SPEC_FE_EMPACC_TOOL,
+         "fe-empacc-page": SPEC_FE_EMPACC_PAGE,
+         # v197：撤下三步对账向导 + 催收跟进独立成页。
+         #   ⚠️ 整文件删除的 Reconciliation.vue 不在本 spec 内（工具不支持 deleted），
+         #      提交前须先 `git rm hergent-cn-v2/src/pages/Reconciliation.vue` 暂存它。
+         "fe-v197-recon-retire": SPEC_FE_V197_RECON_RETIRE}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
