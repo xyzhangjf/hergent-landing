@@ -257,3 +257,37 @@ def role_reject_detail(role):   return "角色不合法：%s。可选角色：%s
 📄 完整分析（含三方案对比、三层信息域设计、拍板清单）：
 `outputs/员工薪酬信息归属与访问控制分析-2026-09-19/01-分析报告.md`
 
+---
+
+## 🔴🔴 角色权限表是「**全平台一份**」，不是租户级（2026-09-19 实测确证，动手前必读）
+
+**触发场景**：任何「按客户差异配置角色权限」的需求（如「我的会计不能算工资，但某客户的会计要能算」）。
+
+**结论**：**做不到。** 给某客户开 = 所有租户一起开；收回来 = 所有租户一起收。**租户级差异无处安放。**
+
+| # | 事实 | 判据 |
+|---|---|---|
+| 1 | 权限接口**无视租户头** | 同令牌 `X-Tenant-Id: 1/9/10` 打 `GET /api/role-permissions` → 三次返回**逐字相同**（8 角色，`accountant=[dashboard,accounts,reports,marketing]`） |
+| 2 | 权威锁在**主库** | `server.py:50-51` `/api/role-permissions` 在 **`_TENANT_MASTER_PREFIXES`** ⇒ `set_tenant_context(None)`（`:87-92`）⇒ 读写都落 `erp.db`；`:597` 同路径又映射 `hr`（故只 boss/admin 能用） |
+| 3 | 判据是**进程级全局** | `core.py:394 _load_perms` / `:406 ROLE_PERMS = _load_perms()`（import 期执行，此刻无租户 → 主库）/ `:408 reload_perms()` 仅保存时调 / `:450-455 _check_perm` 读全局 |
+| 4 | 租户库那份是**死数据** | 生产 `erp.db` 1 行(supervisor) · `tenant_1.db` 2 行(**库管**,supervisor) · tenant_9/10 各 1 行；而接口返回里**没有「库管」** ⇒ 既读不到也改不了（`erp_db.py:17045` v110 迁移「以租户库为准」的意图**从未落地**） |
+
+🔴 **核心错配（最该记住的一句）**：中间件在 `server.py:679` 调 `_check_perm` **之前**已正确设好租户上下文（`:109/:125`），
+而 `_check_perm` **根本不用它** ⇒ 「租户感知的连接层」+「租户无感的判据」拼在一起。
+
+⚠️ **不要讲成泄漏**：读路径与写路径**都锁主库** ⇒ 系统内部**自洽**，不存在跨租户串味。真缺陷是**能力缺失**（租户级配置无处安放）。
+
+**连带缺陷（同批查出）**
+- 🔴 `库管` 是**孤儿角色**：不在 `ROLE_PERMS` ⇒ `_check_perm` 命中空表 ⇒ **零权限僵尸账号**；
+  而 `normalize_role` 白名单（`known_roles() = _DEFAULT_PERMS ∪ ROLE_PERMS`）会**直接 400 拒绝派发它**。
+  当前无实际影响（生产 `users.role` 只有 admin/boss/sales/supervisor）。⇒ **白名单的判据来源被此缺陷污染**，修 P0 后自动正确。
+- 🔴 `field_permissions`（字段级权限）**有表、有 API、无人消费**：tenant_1 有真实配置 `('sales','product','purchase_price',0,0)`，
+  但全仓**唯一消费方**是 `routers/platform.py:573/577`；`GET /api/products`、`/api/employees` **无任何读路径**调用它 ⇒ **配了不生效**。别当已有能力。
+- `user_tenants.role`（`admin`/`member`）**不参与鉴权** —— `check_user_tenant(:4442)`、`get_user_tenants(:4458)` 只查 user_id/tenant_id。**别误当「按租户角色」机制**。
+
+**修订方案**：**P0** 权限表按租户分叉（`/api/role-permissions` 移出 master 前缀 + `ROLE_PERMS` 改按租户缓存 + fail-safe 回落 `_DEFAULT_PERMS`）
+→ **P1** 拆 `payroll` 模块（`/api/employees` 留 `hr`，使「能算工资」≠「能看身份证/银行账号」）→ **P2** 补自我作用域（`/api/salary-slip/{eid}` 无 `payroll`/`hr` 时只允许本人）。
+**不做 P0，P1 的差异化对客户无效。**
+
+📄 完整核查与方案：`outputs/员工薪酬信息归属与访问控制分析-2026-09-19/02-按租户差异的权限设计（修订）.md`
+

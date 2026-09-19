@@ -23,7 +23,11 @@
   横跨后端 `_DEFAULT_PERMS` · 前端 `constants/roles.js` · 员工档案下拉与**适用端标注** ·
   徽标色板 · 小程序 `ROLE_TEXT` · 列级权限表 · 填报白名单 · 后端 `normalize_role` **共 8 处接线**；
   含「标了小程序 == 有 data/chat 权限」硬判据 · 「`normRole` 归一 ≠ 授权」·
-  「权限层空转」三问（key 对不对 / 值从哪来 / 失败方向朝哪边）。触发词：加角色 · 改权限 · 谁能看这列
+  「权限层空转」三问（key 对不对 / 值从哪来 / 失败方向朝哪边）·
+  🔴 **§四之二「权限表是全平台一份、不是租户级」**（实测判据 + 三种伴生假象 + P0→P1→P2 修法）
+  —— ⚠️ **任何「按客户差异配权限」的需求先读这一节：结论是先做不到**
+- ⭐ `hergent-capability-reality-audit` —— **第十二/十三种伪装**（词汇归一⇒假装权限生效 ·
+  输入源没人赋值⇒能力空转 · **配置作用域 ≠ 权威作用域**）。触发词：为何配了不生效 · 按租户 · 空承诺
 - 旧前端 `static/`：`hergent-frontend-add-module` · `hergent-vite-landing` · `hergent-frontend-fetch-consolidation`
 
 ## 预报主表 / Excel

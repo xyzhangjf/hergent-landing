@@ -10,9 +10,18 @@
   权威源 ＝ `core.py::_DEFAULT_PERMS`（**AST** 取 key），护栏 `.workbuddy/tools/role-registry-consistency-check.py`（**28 条**）。
   触发词：角色下拉 · 主管/supervisor · 开账号 · 改角色 · 列权限 COLUMN_PERMISSIONS
   🔴 **权限粒度只有「模块 × 动作」，无字段级** + **前端不是边界**（菜单硬编码、meta 只有 title）：
-  `hr` 只给了 boss ⇒ **会计算不了工资**；员工档案与算工资**同一道门**（都映射 `hr`）⇒
-  **权限与位置正交，隔离单位是「字段组」不是「页面」**。触发词：薪酬/工资 · 银行账号 · id_card ·
+  `hr` 只给了 boss ⇒ **会计算不了工资**（**2026-09-19 用户确认：这是本店有意的，不是缺陷** ——
+  但**部分客户要会计能算工资**）⇒ 员工档案与算工资**同一道门**（都映射 `hr`）
+  ⇒ **权限与位置正交，隔离单位是「字段组」不是「页面」**。触发词：薪酬/工资 · 银行账号 · id_card ·
   敏感字段 · 脱敏 · 字段级权限 · 员工档案权限（全文见该文件末节））
+  🔴🔴 **但「按租户差异」今天做不到**（2026-09-19 实测确证）：角色权限表是**全平台一份、存主库** ——
+  `GET /api/role-permissions` 带 `X-Tenant-Id: 1/9/10` **返回逐字相同**；权威锁主库
+  （`server.py:50` 该前缀在 `_TENANT_MASTER_PREFIXES` ⇒ `set_tenant_context(None)`），
+  判据是**进程级全局** `core.ROLE_PERMS`（`core.py:406`），而 `_check_perm`(:450) **无视中间件已设好的租户**。
+  ⇒ **「我的会计不能算、客户的会计能算」= 给客户开＝自己一起开**。⚠️ **不是泄漏**（读写都锁主库、内部自洽），
+  是**能力缺失**。判据 + 连带缺陷（`库管` 孤儿角色 / `field_permissions` 配了不生效 /
+  `user_tenants.role` 不参与鉴权）+ P0/P1/P2 方案见 `topics/backend-auth.md` 末节。
+  触发词：按租户 · 每客户一套权限 · 客户会计能算工资 · role_permissions
   ✅ **v199-ui 已修（fe `09714bd` / be `cb69a5d`，spec `fe-v199-roles`+`be-v199-roles`）**：
   「小程序账号」文案→「**登录账号**」+ 角色下拉补**适用端**标注 · 开账号/改角色接
   `core.normalize_role` 白名单（`known_roles() = _DEFAULT_PERMS ∪ ROLE_PERMS`，判据只写一份）·
