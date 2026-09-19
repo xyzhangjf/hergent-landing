@@ -1,61 +1,52 @@
-# Hergent 项目长期记忆
+# Hergent 项目长期记忆（索引）
 
-## 产品线与战略
-- **hergent.cn**=AI 经营副驾（主产品），同源 erp.hergent.cn。前端 hergent-cn-v2（Vue3+Vite+Pinia，`/opt/hergent-cn-v2`）；后端 hergent-erp（FastAPI+SQLite，`server.py:8700`，本地 `~/Documents/hergent-erp`，分支 `upgrade/v84-international`）。desktop-app 已冻结。
-- 战略=**不造 ERP**，坐客户 ERP 之上做分析/顾问/副驾；数据走 Excel/CSV 或连接器。护城河=低温奶配方化算法+副驾交互。订单 CRUD 冻结，回写走连接器；AI 只建议不擅自下单。
-- 自媒体：视频号「老张ai实践记」+公众号长文；北极星=加微信的经销商人数。脱敏红线：返利率/进货价/客户名/区域销量/不评厂家政策。写作规范（2026-09-07）：系列互引、术语转人话、单篇 1000–1500 字、段落短小标题多金句单列。
+> **本页只回答「该读哪一份」** —— 判据 / 触发词清单 / 全文一律在 `memory/topics/`，
+> 动手前点进对应 topic 读。别在本页找判据。
 
-## 用户与主体
-- 用户=蒙牛低温奶经销商，一人公司，懂业务不懂代码，纯靠 AI 开发。主体=湖北省小赫智体数字科技有限公司（自然人独资 2026-05-26，襄阳樊城，注册资本 50 万，经营含 AI 软件/互联网销售、**无食品**）。法人张俊峰。信用代码 `91420606MAKF1YPG5Y`；ICP `鄂ICP备2026027973号-1`。
-- ⚠️ **ID 凭据铁律**：一律**用户文本确认+正则校验**再采信（AppID `^wx[a-f0-9]{16}$`），**不靠 OCR**。主体信息多处出现（legal html、Login.vue footer、备案 md、小程序材料）更正须全改。
-- managed node=`/Users/zhangjunfeng/.workbuddy/binaries/node/versions/22.22.2-2/bin/{node,npm}`
+## 一、路由（改哪个面 → 读哪份）
 
-## 设计铁律
-- ★产品门面标准：每新功能先问"谁付费、谁天天看"，答不上=运维自保，不许进客户门面；运维类藏 `设置›AI 运维`。AI 层默认无商品录入入口（预报内联 Excel 网格例外）。
-- 偏好：极简行动导向；交付摘要五段（交付/变更/构建/对齐/需确认）；"全做"=批量端到端；one-Edit-at-a-time+grep 复核；选项 A/B/C + 影响表。
+- **前端**（页面 / 样式 / 表格 / 探针）→ `topics/frontend-ui.md`
+- **后端**（路由 / 数据 / DB / 权限）→ `topics/backend-invariants.md` + `backend-auth.md`
+- **部署 / 构建 / 上线 / 回读 / 旧前端 `static/`** → `topics/deploy-ops.md`（🔴 **验「后端路由是否已删/已加」禁用 HTTP 状态码**：`rbac_middleware` 按静态前缀 `_PATH_MODULE_MAP` 在**路由之前**拦 ⇒ 匿名恒 401、无权限恒 403、未映射 403，**三者均与路由存在性无关**；权威判据＝**`/openapi.json`**（`app.routes` 镜像）+ 同前缀**成对**对照（200 正例 + 404 负例）；工具 ⭐ `.workbuddy/tools/backend-route-removal-verify.py`）
+- **预报主表 · 期次 · 导入登记 · 到货周期** → `topics/forecast-order-domain.md`（🔴🔴 **导入门禁 → §v193**：判据＝「**进行中(open)** 期次」，**不是**「有没有期次」——期次全 closed 时两者结论**相反**，而那正是事故场景（154 个商品挂到已关闭的 9 期）· 判据**取自项目内既定方案**（`outputs/期次数据流程优化方案-2026-09-17/…§四.1`），**别自定口径** · 三处同源：前端 `canImport` ← `GET /periods` 新增 **`open`** ← 后端 `forecast_period_current()` ← 后端 **400 硬闸**（`_period_id<=0`）· 漏洞本体在后端：旧 `current() or default()` 的 `default()` 兜底＝最新期次**不限状态**；零期次落 `period_id=0`，**两种都照样写库** · 🔴 **`periodsLoaded` 标记必需**（`loadPeriods` 的 catch 是**静默**的 ⇒ 抖动会把入口**锁死**）· **`current` ≠ `open`**，不可互换（前者是展示口径、保留兜底）· 选「**禁用**」非「隐藏」 ｜ 🔴 **「到货周期」自 v192 起可被用户隐藏** → **§v192**：仍是固定列（仍钉左侧、仍不可删），只解掉「不可隐藏」这一条；前提是冻结区宽度改按**实际渲染的固定列**累加（不隐藏时与旧式逐字等价 ⇒ 零位移）· 列定义 `hideable` 例外通道 · 两个列设置菜单都别读 `c.fixed` · 判别点＝手动冻结列 left **348→256** ｜ 🔴 **表头右键菜单只在改单态渲染**（查看态右键＝处理器执行但零渲染），**验右键必须先进改单态**。🔴 **「单价(厂价/箱)」→ §v191 + §v191b**：v191 口径「**只在本期生效**」⇒ 落 `forecast_extra_qty.case_price`（唯一键含 产品×期次 ⇒ 天然隔离），**不写商品档案**；新值通道三处 DDL 兜底 · 后端 summary **不加 COALESCE**（null≠0 元/箱）· 前后端两处行映射取**非空值、不累加**。v191b 追加「**留空 = 自动沿用上一期录入的价**」**三级取值链**（本期手工 > 沿用 > 档案价）· 🔴 **沿用值绝不落库**（否则「没填」变「填过」+ 清空被写回 ⇒ 永远清不掉）· 沙箱必须先造往期行才有判别力 ｜ 探针：拦截**先核真实 URL**（`/api/forecast-submissions/*`）、期次 `summary.rows` 可能为 0（行来自导入登记）、挑只读表**必须要求可见**（隐藏的返利冲刺看板 `table.tbl` 会抢先命中）、主探针令牌要 boss/admin 且跑 tenant_1 需显式期次 ｜ 🔴🔴 **改单「删除列」/「保存失败」→ §v194 + §v194b（**两度修正，只认 v3**）→ ✅ **§v195 ＝ 甲档已执行并上线验收**（P0-1 后端止血 **940×/833×** + P1-2a 前端守卫；2026-09-19 凌晨）：**先分清是哪一种**——(a)「**页面出错了 / 表格没了 / 找不到保存按钮**」⇒ `selStats`(`3815`) 越界 ⇒ `App.vue:2` 的 `<ErrorBoundary>`（`position:fixed;inset:0`）**全屏接管** ⇒ **保存按钮根本不存在**（判据 `selRange.c1 > visibleCols.length + units.length - 1`；**普通单击不建选区**，只有拖选 / Shift+单击 / Shift+方向键 / 全选才建；`clampSelection`(4865) **只夹 `selected` 漏 `selRange`** 是第二条腿）——**这条真实、已复现，但不是用户那次**；(b)「**页面还在、点保存弹『保存失败（网络或服务器异常）』**」⇒ **真因**＝后端 `bulk_upsert_products`(`data.py:336`) 在**写事务内**调 `track_brand`(`erp_db.py:8417`)，而它**另开连接**写 `brand_pending` ⇒ **自锁** ⇒ 每行白等 `busy_timeout=5000`(`connection.py:228`) ⇒ **`N ≥ 4 行未注册品牌` 即 > 20 秒** ⇒ 前端 `AbortController`(`client.js:184` timeout=20000) 中止 ⇒ **nginx `499`** ⇒ `AbortError.message`(=`signal is aborted without reason`) 三个正则全不命中 ⇒ 落兜底文案。**判据**：① **等间隔精确 5 秒**的 `database is locked` 同 trace 重复＝**事务自锁**（`16:47:57→16:50:13` 28 条＝`5 秒 × N`；三次真实浏览器 `499`＝`16:48:12 / 18:24:38 / 22:59:55`，起点＝499−20s；我的探针 **4 行 ⇒ 正好 20 秒**，被 499 卡在阈值上）② **`499/502/504` 只在 nginx**、应用日志一行都不写 ⇒ **第 0 步必须查两层**，且 **nginx 是唯一带 UA 的层**（出口 IP 与探针相同 ⇒ **IP 分不出归属**）③ 品牌构成与库对账（`福宝 24` ↔ `products` 里 24 个；`brands` 仅 4 条）④ **异常条数要对上账**（全天 96 = 3×28 + 3×4）· **与「删列」无因果**（失败全落 `bulk-upsert`；`save-matrix` 真实浏览器 **0 次非 200**；三次跑在**三个不同前端构建**上）· **基线**：`12–16/Sep` 真实浏览器 save-matrix **0**、`17/Sep` **3 / 0**、`18/Sep` **0 / 3（全 499）** ⇒ **极低频路径** · **附带伤害＝一次点击 140 秒全租户写冻结**（97 次 locked 里 96 是 `track_brand`，另 1 是 `[Scheduler] Low stock check`）· **第二个坑**：`brand_pending` 13 条全 `resolved`/`backfill`、无 pending，`dismiss`(`8393-8394`) **只标 resolved、不加进 `brands`** ⇒ 「忽略」过的品牌每次复发，而新待审记录**恰因自锁写不进** ⇒ **队列看起来干净、实际永远收不到** · **修复（代码未动一行）**：**P0-1 `track_brand` 登记移出写事务**（循环内只用 `db.normalize_brand()`——返回值与 `track_brand` 相同 ⇒ 不改写入内容；`with` 退出后统一登记 ⇒ **140 秒 → 亚秒级**；⚠️ **后端契约级**，先核调用方）→ **P0-2 只提交脏行**（现每次全量 154 行；与 P0-1 **都要做**）→ P0-3 `bulkUpsert` 放宽超时 + 文案改可行动（**仅缓解**，不解决写锁）；P1-1 `kind` 分类器**必须判 `e.name`**；**P1-2 ＝ (a) 那组独立缺陷**；P2 品牌治理（修好 P0-1 会涌入 14 个品牌 · 需拍板归并）· 告警 · 部署留 `dist-<ts>.tar.gz`（**服务器不留历史 dist** ⇒ 无法事后核对版本）· 待查 `Sep 01` 63 次 locked（来源 `POST /api/rebate-rules`，**同族隐患，机制未核**）· ⚠️ **口径更正：旧的「每天 2000–23000 行 locked」是错的**，实测 `Aug 02`1 / `Sep 01`63 / `Sep 18`97 · 交付 `outputs/改单删列保存失败排查-2026-09-18/`（**02 = v3 报告** · 04 = 原始证据 · 03 = 崩页截图）· **待用户拍板 甲 最小止血 / 乙 止血+治本 / 丙 全做**）
+- **返利 / 目标** → `topics/rebate-domain.md`
+- **货损 / 效期**（`/loss` vs `/loss-accounting` 先分清）→ `topics/expiry-loss-domain.md`
+- **报单 / 小程序 / 品牌** → `topics/miniprogram-and-brand-data.md`（🔴 **小程序隐私申报 / 改名同步 / 备案口径红线** → 该文件末节（2026-09-18）：官方「接口↔个人信息」映射表 · **多申报与少申报都判风险** · 小程序**无 CLI 构建部署**、只能静态核对 + 手点编译 · 登录页**禁止出现引向电商的词**）
+- **副驾提示词 / 🔴 AI 在产品里的真实落点（算·录·判·说 四类分工）** → `topics/ai-copilot.md` 末节（🔴 **名带 `ai_` ≠ 用了 AI**：真调模型的只有 4 处，`ai_tools.py` 零模型调用、`ai_learning.py` 是**已接线的坏接口（2026-09-19 已删）** ——「死代码」是误判，别再沿用）｜**通知 / 工资条** → `notification-center.md`
+- **IM 渠道** → `im-channels-v131.md`｜**业绩 / 提成 / 龙虎榜** → `sales-reports-and-operator-attribution.md`
+- 🔴 **跨域铁律（触发词清单全文）→ `topics/cross-domain-iron-laws.md`** ← 动手前先扫一遍
+- **对外材料**（BP / 路演 / 视频号 / 客户沟通 / 赛事报名）→ `outputs/德邻杯-AI创业大赛-2026-09-19/02-脱敏口径清单.md`（五条红线处置 · 金额→复杂度、绝对值→改善幅度 · 截图须用**演示租户**非生产打码 · BP 六页按**评委六问**设计）。赛事后材料一律沿用此口径，别各写一份
 
-## 前端（hergent-cn-v2）
-- ⭐ 返利目标表单已拆分（v122）：`src/components/rebate/`=`useRebateTargetForm.js`(纯逻辑)+`TargetFormModal.vue`(按 dimension 分流)+`Brand/ProductTargetForm.vue`+`MonthlySplitBlock/ArrivalRhythmBlock/RebateValueBlock.vue`；`Rebate.vue` 退化宿主。子组件依赖走 props/emits，禁复用父页作用域变量。
-- 品牌目标双模式：`brandMode`=年度(12 月分解，按 period_type 有 monthly_* 或 year 回填)/单期(月单值)；`target_year/target_unit` 新列。**到货日不落库**（只存 `order_lead_days` 反推）；日期一律 `Date.UTC`；不跳周末节假日。
-- 统一 Lucide `<Icon>` 线性 SVG（WeatherWidget 例外彩 emoji）；统一 `src/api/client.js` `api()`；**副驾 SSE 前端直连 Hermes** `/hermes/v1/chat/completions` 不经 server.py。
-- ⭐ **前端零图表库**（deps 仅 vue/vue-router/pinia/xlsx）。需要图表一律**纯 SVG 自绘**，不引 ECharts（避免 +330KB gzip，违背轻量 AI 层定位）。v123 已有可复用实现：`components/rebate/MonthlyAchvChart.vue` + `useMonthlyAchv.js`。
-- ⚠️ **`<script setup>` 顶层 `watch([a, b, someRef], fn)` 会 TDZ**：watch 注册时即求数组值，若该 ref 定义在下方 → `Cannot access 'x' before initialization`。一律写 getter `() => x.value`。
-- ⚠️ **vite dev 缓存会制造假象**：改完源码务必 `pkill -f vite && rm -rf node_modules/.vite` 再重启，否则一直跑旧编译产物（曾据此误判"回退基线也报错"）。另：`npm run build` 在 dev server 运行时 emptyDir 会 rmSync 失败，先 pkill。
-- ⚠️ Vue3 `<script setup>` 函数体内必须 `.value`；`reactive` 显式 import；大块删 .vue 用 python 锚点切片勿用行号。
+## 二、技能路由（37 条 user-level；`-frontend-*` 指新前端 hergent-cn-v2）
 
-## 部署真相（每次改动必读）
-- 前端：`mv dist /tmp/hergent-dist-bak-$(date +%s)` → `npm run build` **&&** `rsync -a --no-owner --no-group --delete dist/ root@47.113.224.140:/opt/hergent-cn-v2/` **&&** `chown -R hergent:hergent`。必须 &&，nginx 静态免 restart。
-- hergent.cn：/api/→8700、/hermes/→18765（Bearer hergent-prod-gateway-key-2026）。验证静态须 `-H "Host: hergent.cn"`。
-- 后端：仓库根 `deploy.sh`（排 .env；**绝不 rsync *.db**；chown→rm `__pycache__`→systemctl restart）。**严禁裸 rsync --delete server/**。health `curl --noproxy '*' http://127.0.0.1:8700/api/health`；重启后 **sleep 5** 再探活。
-- ⚠️ **生产=早期部署的工作区整体**（数千行未提交改动+未跟踪新文件早已在线）；只部署 HEAD 会回退线上 `forecast.py`(+614)。部署前须全量比对工作区 vs 生产 md5 防意外回退。
-- 生产**扁平布局**：`/opt/hergent-erp/` 直接是 `server/` 内容，无 server/ 子层。服务器跑单测：先 `. /opt/hergent-erp/.env`（缺 ERP_SECRET 会 RuntimeError），再 `sys.path.insert(0,'/opt/hergent-erp')`。
-- 生产 E2E：`POST /api/auth/demo-login`（demo 租户不污染，token 顶层）；查数据 `mptestsp/Mpsup@1`（X-Tenant-Id:1，但 rebate-rules 属 sales，supervisor 403 正常）。
-- GitHub 推走 **SSH:443**（https PAT 已过期）。本地 `.git/index.lock` 沙箱 unlink 被拒→dangerouslyDisableSandbox 外 rm。真机 agent-browser：hash 路由、禁 AGENT_BROWSER_PROXY、需 Chrome executable path。
+- 上线前端 / 后端 → `hergent-frontend-deploy-verify` / `hergent-prod-deploy-e2e`
+- 在 hergent.cn 新增页面/模块 → `hergent-cn-v2-add-module`
+- 改预报主表列 → `hergent-forecast-column-registry`｜Excel 导入认错列 → `hergent-import-mapping-confirm`
+- 布局放不下 / 塌陷 / 浮层被压 / 控件没反应 → `-frontend-layout-capacity` / `-dom-structure-diagnosis` / `-zindex-diagnosis` / `-dead-control-diagnosis`
+- 图表柱子没显示 / 颜色不对 / 验前端没镜像后端算法 → `hergent-chart-render-verify`
+- 样式上提 / 对齐 WorkBuddy / emoji→线性图标 → `-css-globalize` / `hergent-workbuddy-ui-align` / `hergent-emoji-to-icon-sweep`
+- 旧前端 `static/`（erp.hergent.cn）→ `hergent-frontend-add-module` / `hergent-vite-landing` / `hergent-frontend-fetch-consolidation`
+- **小程序隐私申报 / 改名同步 / 提审前自查 → `hergent-miniprogram-privacy-audit`**（官方映射表 + 双向错误模型 + 无 CLI 验证）
+- 隔离租户沙箱真机验证 → ⭐ `.workbuddy/tools/sandbox_tenant.py`（id ≥ 9997，只能服务器跑）
+- 改生产库 / 租户库对账 / SQLite 改列 → `hergent-authorized-prod-data-write` / `hergent-tenant-schema-sync` / `hergent-sqlite-table-rebuild`
+- 自注册 / 租户隔离 / 数据不更新 / 能力核对 → `hergent-tenant-isolation-audit` / `hergent-data-staleness-diagnosis` / `hergent-capability-reality-audit`
+- **写操作报「保存失败/提交失败」（请求发出去了但没成功）→ `hergent-write-failure-diagnosis`**（三轴：**数这动作发了几个请求**（多阶段非事务 ⇒ 怕"改了一半"）· **失败文案是谁写的**（前端 `kind` 分类器在猜，界面「网络或服务器异常」多是兜底幻觉）· **后端该接口全部失败点**。🔴 **判据：等间隔精确 5 秒的 `database is locked` 同 trace 重复 ＝ 事务自锁**（`busy_timeout=5000`；本仓 `db/connection.py._sqlite_connect` 的重入分支给内层**新连接** ⇒ 事务内「另开连接」必自锁）· 🔴 **必须查两层日志**（应用层一行不写，`499/502/504` 只在 nginx）· 实证 2026-09-19 甲档：`track_brand` 移出写事务 ⇒ 28 行 **140.46s → 0.149s（940×）**。含六步取证法 + `journalctl` 时序还原 + 四个坑：循环上限<实际条数使决定性用例空转 · `console` 抓 Error 得 `JSHandle@error` · 本地时间 vs UTC `created_at` · zsh `grep "A\|B"` 静默失效）
+- **给写入口加「前置条件门禁」**（「流程被绕过」/「没做 A 也能做 B」/「要和既定方案一致」）→ `hergent-write-entry-gate`
+- 修改日志 / 口径不一致 → `hergent-page-change-log` / `hergent-rebate-caliber-consistency`
+- Hermes 网关 / 副驾围栏 / 外部数据源 → `hergent-hermes-tenant-diagnosis` / `hergent-ai-card-protocol` / `hergent-external-data-source`
+- **提交（脏工作区）→ `hergent-scoped-commit`**（先读文首「🧭 导航」）
+- 业务 Excel→主表/模版 · 导入验证 → `hergent-excel-attachment-to-schema-design` / `hergent-forecast-import-verify`
+- xlsx 补值不破公式 / 新产品流程 / WorkBuddy 勘察 → `local-xlsx-xml-minimal-write` / `product-dev-sop` / `workbuddy-*-internals`
 
-## 后端踩坑铁律
-- **新路由必须登记 RBAC**（`server.py _PATH_MODULE_MAP`，未命中 fail-closed 403）：forecast/forecast-submissions/cron/params→data、forecast-audit→stock、rebate-rules→sales、ai→chat、admin→*、platform→hr。
-- **ERP_SECRET 与密码哈希强绑定**（换/丢=全员密码失效；密码硬上限 8 字符）；登录错 5 次锁 15 分。
-- sqlite3.Row 勿 `.get()`（入口 `if not isinstance(r,dict): r=dict(r)`）；同库读写须同一 tenant context；`db.get_db()` 是 with 生成器。跨租户写主库（users/tenants）须 `sqlite3.connect(db.DB_PATH)` 直写。data↔forecast_audit 成环→函数内延迟 import。
-- 核查纪律：报告不算数，必须 grep 符号+生产 md5。**新增列登记【三处】白名单**：① `_row_to_dict` ② INSERT/UPDATE SQL ③ `update_rule` 局部更新元组（漏③会静默丢弃）。
+**技能库待整理**：`hergent-prod-deploy-e2e` 已成杂物箱；巨型技能全无 `references/`；诊断族命名不统一。
 
-## 预报/报单/品牌目标
-- `forecast_periods`（期次/报单表，租户库）**无 brand 字段→租户级全局、多品牌共用一张**。创建 `forecast_period_create`；关闭 `forecast_period_close`。
-- **报单节奏算法（2026-09-08 定稿）**：主序列=最密品牌节奏；品牌归属=提前窗口 `[C_X−E_X, C_X]` 取 max；零漏报 iff `cadence_main ≤ min(E_X)+1`（蒙牛 cad=2/E=1→0 漏）。**只提前不延后**。
-- 三时点：T_open=报单日前一日 20:00 / T_close=当日 10:00 / T_supplier=当日 12:00（仅提醒不代下单）。错过→admin/boss 重开。
-- 引擎 `server/domain/arrival_schedule.py`；预览 `GET /api/rebate-rules/auto-period-preview`（须在 `/{rule_id}` 前定义）。
-- 已部署：v121 第一批 `52d7806`+`9c2aa5c`（配置面板+6 期预览，**刻意未做 P3 调度执行**）；v122 R5 修复+字段增强（根因：存量月口径单期被 v121c 强改年度致返利少算 12 倍，改双模式）。到货/报单节奏合并（方案 B，单一 order_* 数据源，arrival_* 降为回退口径不静默改写）。
+## 三、战略 / 主体
 
-## 小程序「小赫 AI 报单助手」
-- AppID=`wxf8ce9b8e4b5693be`；类目「商业服务→企业管理」；提审账号 mptest/Mptest@1(sales)、mptestsp/Mpsup@1(supervisor)。**订单落库 order_date=期次 order_start**（非提交当天）→按期次窗口查。pending=已提交、approved=已定稿；「审批预报单」已下线。报单提交即计入汇总。
+- hergent.cn = AI 经营副驾（同源 erp.hergent.cn）。前端 hergent-cn-v2（Vue3+Vite+Pinia，仓库 `laozhangai-product`，生产 `/opt/hergent-cn-v2`）｜后端 hergent-erp（FastAPI+SQLite `:8700`）。desktop-app 冻结。
+- 战略 = **不造 ERP**，坐客户 ERP 之上做分析/顾问/副驾；数据走 Excel/CSV 或连接器；订单 CRUD 冻结。护城河 = 配方算法 + 副驾交互。
+- 🔴 **不做「一切皆插件」**：扩展作者是 **AI 代填**而非客户写码。顺序 P0-a → P0-b → P1 → P2 → P3。
+- 主体 = 湖北省小赫智体数字科技有限公司（**经营范围无食品**），法人张俊峰，`91420606MAKF1YPG5Y`。用户 = 蒙牛低温奶经销商，不懂代码。北极星 = 加微信的经销商人数；脱敏红线：返利率 / 进货价 / 客户名 / 区域销量 / 不评厂家政策。
 
-## 返利目标判重（v125 铁律）
-- **判重维度 = 覆盖月份集合，不是 period_type**。单期(month)与年度(year) 口径不同但覆盖同月 = 重复目标（会导致目标/达成/返利三处翻倍）。
-- 实现：`server/domain/rebate_period.py::covered_months()`（只依赖标准库，**必须放 domain 层**，放路由模块会被 erp_db 迁移回填触发循环 import）；`detect_conflicts()` 按月份交集判重。
-- DB 兜底：`rebate_rule_month_lock` + `UNIQUE(dimension,target_type,scope_key,ym)`，停用/删除即释放；`IntegrityError → 409`。
-- `POST /api/rebate-rules/precheck` 供前端保存前提示（两入口共用）。
-- ⚠️ `rebate_achievements` **不绑 rule_id**（按 period_month+dimension+scope_key）→ 停用/删除返利规则不影响达成填报；`rebate_tier_versions/calculations` 需先查引用数。
-- ⚠️ 迁移代码里 `tdb` 无 row_factory → 禁止 `dict(row)`，按列下标取值。
-- ⚠️ 前端 `api()` 自带 `JSON.stringify`，body 必须传对象（传字符串＝二次序列化 → 后端「规则必须是对象」）。
+## 四、本机 zsh 坑
 
-## 事故与凭据
-- 2026-08-22 裸 rsync --delete 删 .env→服务挂；已重建（重生成 ERP_SECRET）并备份 `/root/.hergent-env/.env`。`/opt/hergent-erp/.env` 勿提交 git。
+`grep "A\|B"`、`--include=*.py` **静默失效** → 用 Grep 工具或 `-e A -e B`｜写文件一律用 **Write**（heredoc 含 `${}` / 反引号会失败）｜给用户的 UI **数字必须带中文单位**（`pp` → 个百分点，详见 user-level 记忆）
