@@ -28,7 +28,7 @@
         <table class="tbl">
           <thead><tr>
             <th>员工</th><th>岗位</th><th class="num">底薪/月</th>
-            <th>登录账号</th><th>门店</th><th></th>
+            <th>登录账号</th><th title="门店配置已收敛到「预报订单管理 → 报单配置」，此处仅展示数量">可报门店</th><th></th>
           </tr></thead>
           <tbody>
             <tr v-for="e in employees" :key="e.id" :class="{ stopped: e.is_active === 0 }">
@@ -44,10 +44,11 @@
                 <span v-else class="df-acc">未开通</span>
                 <span v-if="e.account_role" class="df-role" :class="['r-' + e.account_role, { stopped: e.is_active === 0 }]">{{ roleName(e.account_role) }}</span>
               </td>
-              <td class="num">{{ (e.store_ids || []).length }} 家</td>
+              <!-- 2026-09-19 收敛：门店配置入口已移出员工档案，本列只读展示数量。
+                   数据 = 报单配置派生 ∪ 历史授权（见后端 employee_stores_get）。 -->
+              <td class="num" title="在「预报订单管理 → 报单配置」里为该员工配门店/客户，配了即授权其小程序可报">  {{ (e.store_ids || []).length }} 家</td>
               <td class="df-ops">
                 <button class="btn btn-ghost btn-sm" @click="openEdit(e)">编辑</button>
-                <button class="btn btn-ghost btn-sm" @click="openStores(e)">门店</button>
                 <button v-if="e.is_active !== 0" class="btn btn-ghost btn-sm danger" @click="askDisable(e)">停用</button>
                 <button v-else class="btn btn-ghost btn-sm" @click="employeeToggle(e.id, 1)">启用</button>
               </td>
@@ -60,29 +61,10 @@
 
     <!-- 开账号已整合进「编辑员工」弹窗（见下方 edit-modal 的"登录账号"区） -->
 
-    <!-- 绑门店弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="storeOpen" class="df-overlay" @click="storeOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="storeOpen" class="df-modal">
-          <div class="df-modal-hd"><b>分配门店 · {{ storeEmp?.name }}</b><button class="df-x" @click="storeOpen = false"><Icon name="close"/></button></div>
-          <div class="df-modal-body">
-            <p class="df-tip">员工登录后只能看到并填报这些门店。</p>
-            <div class="df-store-list">
-              <label v-for="s in allStores" :key="s.id" class="df-store-item">
-                <input type="checkbox" :value="s.id" v-model="storeForm.ids">
-                <span>{{ s.name }}</span>
-              </label>
-              <div v-if="!allStores.length" class="df-tip">还没有客户/门店，先在 ERP 里录入客户</div>
-            </div>
-          </div>
-          <div class="df-modal-ft">
-            <button class="btn btn-ghost" @click="storeOpen = false">取消</button>
-            <button class="btn btn-primary" @click="saveStores">保存分配</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- 2026-09-19：「分配门店」弹窗已移除 —— 门店配置收敛到「预报订单管理 → 报单配置」。
+         在那里按「员工 × 门店/客户」建一条报单映射，即等于授权该员工小程序可报该门店
+         （后端 employee_stores_get 从报单配置派生可见范围）。
+         员工档案只保留只读的「可报门店」数量列，避免两个入口配同一件事、且互不感知。 -->
 
     <!-- Excel 批量导入 -->
     <div class="card df-panel">
@@ -333,10 +315,6 @@ const showReset = ref(false)
 // 后端只存哈希 —— 关了弹窗就再也看不到，需要重发。
 const resetCode = ref('')
 const resetCodeExp = ref('')
-const storeOpen = ref(false)
-const storeEmp = ref(null)
-const storeForm = reactive({ ids: [] })
-const allStores = ref([])
 
 /* ---- 连接器状态 + 同步 ---- */
 const chanjetLinked = ref(false)
@@ -619,21 +597,6 @@ async function toggleAccStatus() {
   } catch (e) { toast(e.message || '操作失败', 'err') }
   finally { accBusy.value = false }
 }
-async function openStores(e) {
-  storeEmp.value = e
-  storeForm.ids = [...(e.store_ids || [])]
-  storeOpen.value = true
-  try { const d = await staffAccountApi.allStores(); allStores.value = d.stores || [] } catch (e2) { toast(e2.message || '门店加载失败', 'err') }
-}
-async function saveStores() {
-  try {
-    await staffAccountApi.setStores(storeEmp.value.id, storeForm.ids)
-    toast('门店分配已保存', 'ok')
-    storeOpen.value = false
-    loadEmployees()
-  } catch (e) { toast(e.message || '保存失败', 'err') }
-}
-
 /* ---- Excel 导入 ---- */
 const invFile = ref(null)
 const invFileName = ref('')
@@ -759,9 +722,8 @@ onMounted(() => {
 .df-modal-body{padding:18px 20px;display:flex;flex-direction:column;gap:12px;flex:1 1 auto;min-height:0;overflow-y:auto}
 .df-field{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--t2)}
 .req{color:var(--dan)}
-.df-store-list{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:320px;overflow-y:auto}
-.df-store-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);padding:8px 10px;border:1px solid var(--bd);border-radius:10px;cursor:pointer}
-.df-store-item input{accent-color:var(--p)}
+/* .df-store-list / .df-store-item 于 2026-09-19 随「分配门店」弹窗一并移除
+   （门店配置收敛到「预报订单管理 → 报单配置」）。 */
 .df-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle);flex-shrink:0}
 
 /* 停用视觉 */

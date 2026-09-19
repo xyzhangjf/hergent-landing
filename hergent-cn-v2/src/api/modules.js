@@ -333,6 +333,10 @@ export const reportMappingApi = {
   update: (mid, body) => api(`/api/report-mappings/${mid}`, { method: 'PUT', body }),
   toggle: (mid, isActive) => api(`/api/report-mappings/${mid}/toggle`, { method: 'POST', body: { is_active: isActive } }),
   health: () => api('/api/report-mappings/health'),
+  // 历史门店授权（在旧「员工档案 → 分配门店」配过、尚未纳入报单配置的门店）。
+  // 2026-09-19 起员工档案入口已移除，写端只剩本页 —— 靠这个清单把「看得到、没处改」
+  // 的那部分门店提示出来，补一条映射即收敛。
+  legacyStores: () => api('/api/report-mappings/legacy-stores'),
   importFile: (file) => {
     const fd = new FormData()
     fd.append('file', file)
@@ -343,8 +347,9 @@ export const reportMappingApi = {
 /* ---- 小程序员工账号与门店（老板配置） ---- */
 export const staffAccountApi = {
   createAccount: (body) => api('/api/forecast-submissions/staff-accounts', { method: 'POST', body }),
-  allStores: () => api('/api/forecast-submissions/all-stores'),
-  setStores: (eid, storeIds) => api(`/api/forecast-submissions/staff/${eid}/stores`, { method: 'PUT', body: { store_ids: storeIds } }),
+  // 2026-09-19 收敛：`allStores` / `setStores` 已移除 —— 「报单人的门店」唯一配置入口
+  // 是「预报订单管理 → 报单配置」（见 reportMappingApi）。后端两个接口仍保留
+  // （未删，避免破坏兼容与脚本），但前端不再有第二入口。
 }
 
 /* ---- 报单汇总表（矩阵）：汇总 + 保存（原审批流 pending/approve/reject 已废弃，见决策 2026-08-27） ---- */

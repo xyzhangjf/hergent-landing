@@ -2015,6 +2015,79 @@ SPEC_FE_V199_MEMORY = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# v200：报单人门店配置入口收敛（移除「员工档案 → 门店」，仅保留「报单配置」）。
+#
+# 判据：两个入口写**两张互不感知的表**（员工档案写 `employee_stores`；报单配置写
+#   `report_mapping`），而小程序「可见门店」只读 `employee_stores` ⇒ 在报单配置里配完
+#   **不落到可见范围**（实测 tenant_1 两表零交集）。收敛 = 移除前端入口 + 读端取并集
+#   + 让 `report_mapping` 成为真源 + `employee_stores` 退化为历史层。
+#
+# ⚠️ 前后端分属两个仓库 ⇒ 两条 spec **各自**提交。
+#
+# 🔴 erp_db.py 是**长期脏工作区**：31 个 hunk 里只有 14 个是本轮。
+#    **归属判据绝不能靠标记串**：首版按标记串分类，把自己 3 个 hunk
+#    （6259 `store_map→set` / 6460 `touched.add` / 16626 并集 SQL 正文）误判成在途，
+#    而工具原有四条自证**全部照过**（见 present 字段的定义处注释）—— 静默少提交。
+#    本名单是**逐 hunk 读正文**核出来的，并额外用 present 从正向锁死。
+#    那 17 个在途 hunk 归属：v199 客户列隐藏名册（1482 / 15156 / 16138 / 16430 / 16433）、
+#    v197 品牌待审 dismissed（8361~8407）、v125 登录锁定双维度（11398 / 11401）、
+#    products.dist_price 迁移搬移（10966 / 10981）、products.extra_json 建表（1400）。
+SPEC_BE_V200_STORESCOPE = ("be", [
+    {"file": "server/erp_db.py",
+     "exclude_hunks": [1400, 1482, 8361, 8368, 8369, 8386, 8402, 8405, 8407,
+                       10966, 10981, 11398, 11401, 15156, 16138, 16430, 16433],
+     "present": ["def employee_stores_prune_covered(employee_id=0):",
+                 "def report_mapping_legacy_stores():",
+                 "AND NOT EXISTS (SELECT 1 FROM report_mapping rm ",
+                 'store_map.setdefault(s["employee_id"], set()).add(s["store_id"])',
+                 "touched.add(int(eid))",
+                 "可报门店数：历史层 ∪ 报单配置派生",
+                 "查员工「可报门店」范围"],
+     "gone": ["查员工门店。", "SELECT c.id, c.name FROM employee_stores es JOIN contacts c ON c.id=es.store_id WHERE es.employee_id=? AND c.type IN ('customer','both') ORDER BY c.id"]},
+    {"file": "server/server.py",
+     "present": ["/api/report-mappings/legacy-stores"],
+     "keep_all": True, "gone": []},
+])
+
+SPEC_FE_V200_STORESCOPE = ("fe", [
+    # ⚠️ 9 个 hunk 里 7 个是本轮；`page-hd split`（old_start 3）与删 3 条 `.page-hd`/`.page-sub`
+    #   局部 CSS（708）属**前端 CSS 全局化**那条线 —— 判据：`.page-hd.split` 是**全局**类
+    #   （`styles/variables.css:268`，且 `Archive.vue:83` 已在 HEAD 用它），且「移除门店按钮」
+    #   动的是 `<td>`，与页头布局无关 ⇒ 与本次收敛无因果。留给它的作者提交。
+    {"file": "hergent-cn-v2/src/pages/EmployeeArchive.vue",
+     "exclude_hunks": [3, 708],
+     "present": ['title="门店配置已收敛到「预报订单管理 → 报单配置」，此处仅展示数量"',
+                 "门店配置入口已移出员工档案",
+                 "分配门店」弹窗已移除"],
+     # ⚠️ 判据用**规则本体**而不是 `df-store-list` 这个名字：删规则后原位留了一行
+     #   说明注释，注释里点了名（首版按名字断言 ⇒ 假失败。断言要挑"只有真删掉才会消失"
+     #   的文本，否则护栏会被自己的说明文案绊倒）。
+     "gone": ["openStores", "saveStores", "storeForm", "allStores",
+              ".df-store-list{display:grid", ".df-store-item input{accent-color",
+              "分配门店 · "]},
+    # 4 个 hunk 全属本轮（提示条 + ref + loadAll 拉取 + CSS）。
+    {"file": "hergent-cn-v2/src/pages/ReportMapping.vue",
+     "keep_all": True,
+     "present": ["legacyStores", "legacy-bar", "历史门店授权"],
+     "gone": []},
+    # ⚠️ 10 个 hunk 里只有 2 个是本轮（`legacyStores` 新增 / `allStores`+`setStores` 移除）；
+    #   其余 8 个是**同一文件里的在途改动**：forecastApproveApi 加 period_id（v191 期次过滤）、
+    #   productsApi.bulkUpsert 透传 opts（v196 改单长超时）、以及两处**纯搬移**（注释与
+    #   `importApi.template` 换位置）—— 逐个核对过内容，均与门店收敛无关。
+    {"file": "hergent-cn-v2/src/api/modules.js",
+     "exclude_hunks": [352, 356, 364, 367, 396, 407, 408, 439],
+     "present": ["legacyStores: () => api('/api/report-mappings/legacy-stores')",
+                 "「报单人的门店」唯一配置入口"],
+     "gone": ["allStores: () => api('/api/forecast-submissions/all-stores')",
+              "setStores: (eid, storeIds)"]},
+    # 函数级验证（22 项）：AST 从 erp_db.py 抽**真实源码**，在内存 sqlite 上跑并集/prune/作用域。
+    {"file": ".workbuddy/tools/v200-store-scope-verify.py", "new_file": True, "gone": []},
+    # 真机 E2E（13/13）：旧入口消失 / 提示条渲染 / 新接口 200 / 零 pageerror。
+    {"file": ".workbuddy/tools/v200-store-entry-e2e.js", "new_file": True, "gone": []},
+    # 本工具自身（新增 present 正向断言 + 上面两条 spec）。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -2086,7 +2159,11 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v199-roles": SPEC_FE_V199_ROLES,
          "be-v199-roles": SPEC_BE_V199_ROLEWL,
          # v199-ui 记忆入库（判据写进 ledger）。
-         "fe-v199-memory": SPEC_FE_V199_MEMORY}
+         "fe-v199-memory": SPEC_FE_V199_MEMORY,
+         # v200：报单人门店配置入口收敛（移除员工档案入口，仅留报单配置）。
+         #   前后端分属两仓库 ⇒ 各自规格、各自提交。
+         "be-v200-storescope": SPEC_BE_V200_STORESCOPE,
+         "fe-v200-storescope": SPEC_FE_V200_STORESCOPE}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
@@ -2298,6 +2375,22 @@ def main():
             print("  %s 在途特征 %-46s 暂存=%d HEAD=%d" % ("ok " if ok else "BAD", s[:46], a, c))
         if not inflight_sample:
             print("  （无在途 hunk，跳过零夹带抽样）")
+
+        # 🔴 present：正向断言「本轮特征**必须**出现在暂存版里，且与工作区计数一致」。
+        #   为什么必须有它（2026-09-19 v200 实测踩到）：exclude_hunks 模式下，若把**自己的**
+        #   hunk 误写进黑名单，现有四条自证**全部照过** ——
+        #     ① `missing` 只查「黑名单项是否存在」，自己那 hunk 当然存在；
+        #     ② 并集覆盖断言恒真（黑名单∪其余 == 全集）；
+        #     ③ `n_resid == n_def` 也成立（少落的那块正好算进"在途"数里）；
+        #     ④ 在途零夹带抽样只验「没夹带进来」，不验「有没有漏掉自己的」。
+        #   ⇒ 结果是**静默少提交**：提交里字段/函数缺一半，而工作区还留着，下一轮再混进别人那批。
+        #   与 v199「MAP[x] || x 把缺配置显示成正常值」同族：判据只看一侧，缺项就隐形。
+        #   present 是 `gone` 的**对称面**：一个验「该没有的没有」，一个验「该有的有」。
+        for s in spec.get("present", []):
+            a, b = out.count(s), wt.count(s)
+            ok = a > 0 and a == b
+            bad += 0 if ok else 1
+            print("  %s 本轮特征 %-46s 暂存=%d 工作区=%d" % ("ok " if ok else "BAD", s[:46], a, b))
 
         for s in spec["gone"]:
             a, b = out.count(s), wt.count(s)

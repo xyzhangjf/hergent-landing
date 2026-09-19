@@ -87,6 +87,24 @@
       </div>
     </div>
 
+    <!-- 历史门店授权（2026-09-19 收敛）：在旧「员工档案 → 分配门店」里配过、但尚未纳入
+         本页报单配置的门店。员工档案侧入口已移除 ⇒ 写端只剩本页；不把它们列出来，
+         这些门店就是「小程序看得到、后台没处改」。补一条「门店 / 客户」映射即收敛
+         （之后由映射派生，可停用、可收回）。 -->
+    <div v-if="legacyStores.length" class="legacy-bar" @click="legacyOpen = !legacyOpen">
+      <span class="lb-dot"></span>
+      历史门店授权：<b>{{ legacyStores.length }}</b> 条门店来自旧「员工档案 → 分配门店」，尚未纳入报单配置
+      <span class="lb-toggle">{{ legacyOpen ? '收起' : '展开' }}</span>
+    </div>
+    <div v-if="legacyOpen && legacyStores.length" class="card legacy-detail">
+      <b class="hd-t">请给下列员工各建一条「门店 / 客户」映射：配完后门店由本页统一派生，可停用、可收回</b>
+      <ul>
+        <li v-for="l in legacyStores" :key="l.employee_id + '-' + l.store_id">
+          <b>{{ l.employee_name || ('员工 #' + l.employee_id + '（已不在员工档案里）') }}</b> → {{ l.store_name }}
+        </li>
+      </ul>
+    </div>
+
     <!-- 工具栏 -->
     <div class="toolbar">
       <button class="btn btn-primary btn-sm" @click="openCreate">+ 新建配置</button>
@@ -276,6 +294,11 @@ const list = ref([])
 const refs = reactive({ employees: [], contacts: [], warehouses: [] })
 const health = ref(null)
 const healthOpen = ref(false)
+// 历史门店授权（旧「员工档案 → 分配门店」留下的、尚未纳入报单配置的门店）。
+// 员工档案侧入口 2026-09-19 已移除 ⇒ 写端只剩本页；不把它们列出来，
+// 这些门店就变成「小程序看得到、后台没处改」（读端有来源、写端无入口）。
+const legacyStores = ref([])
+const legacyOpen = ref(false)
 const editOpen = ref(false)
 const editId = ref(0)
 const saving = ref(false)
@@ -437,6 +460,8 @@ function whShow(m) {
 async function loadAll() {
   try { list.value = await reportMappingApi.list({ include_inactive: 1 }) } catch (e) { toast(e.message || '加载失败', 'err') }
   try { const r = await reportMappingApi.health(); health.value = r } catch {}
+  // 历史门店授权：接口或表缺失时静默降级为空（不能因为一条提示把整页带崩）
+  try { const r = await reportMappingApi.legacyStores(); legacyStores.value = r.items || [] } catch { legacyStores.value = [] }
 }
 async function loadChannels() {
   // 渠道字典只用于下拉与列头显示；失败不影响报单配置本身（不弹错、静默降级成「自动」）
@@ -590,6 +615,12 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile() })
 .hd-t{font-size:13px;color:var(--t1)}
 .hd-t.war{color:var(--war)}
 .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+/* 历史门店授权提示条：与「配置体检」同构但用中性色 —— 它是「待收敛」不是「有错」。 */
+.legacy-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:var(--bg2);border:1px solid var(--border-subtle);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:12px;cursor:pointer}
+.lb-dot{width:8px;height:8px;border-radius:50%;background:var(--t3);flex-shrink:0}
+.lb-toggle{margin-left:auto;color:var(--p);font-size:12px}
+.legacy-detail{margin-bottom:12px;padding:14px 16px}
+.legacy-detail ul{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--t2);line-height:1.9}
 .chip{font-size:12px;padding:3px 9px;background:var(--bg2);border-radius:8px;color:var(--t2)}
 
 .toolbar{display:flex;gap:10px;margin-bottom:12px}
