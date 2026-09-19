@@ -1676,6 +1676,41 @@ SPEC_BE_V195_PWRESET = ("be", [
 ])
 
 # ══════════════════════════════════════════════════════════════════════════
+# 员工账号映射缩进缺陷修复（2026-09-19）—— 后端
+#
+# 病灶：`erp_db.py::employee_account_map` 的 `return out` 缩进**落在 `for` 体内**
+#   （2 个 tab）⇒ 第一次迭代就 return，函数**最多只产出 1 个员工**。
+#   生产实证 tenant_1：SQL 命中 2 行（admin→员工1、boss→员工7）却只返回第 1 行
+#   ⇒ 员工 #7（法人本人）在员工档案里显示「未开通」，而账号区**只在"已开通"时
+#   才渲染** ⇒ 显示未开通 → 看不到账号区 → 开不出来 → 永远显示未开通（死循环）；
+#   `salary_send.py:245` 同源调它 ⇒ 第 2 个人起工资条发不出去。
+#
+# 归属（逐 hunk 打印首行核对过，不按行号猜）：
+#   erp_db.py 共 **6 hunk**，我的只有 **os=6054**（`return out` 去缩进 + 8 行理由注释）。
+#   其余 5 个属**并发的在途工作**，一个都不带：
+#     1400   products 建表 DDL：`),extra_json` → `,extra_json`（括号错位）
+#     10958  dist_price 迁移登记**前移**
+#     10973  同上的旧位置删除
+#     11390  登录锁定改「用户名 / 来源 IP」双维度（常量定义）
+#     11393  同上（函数体）
+#   ⚠️ 黑名单 = **HEAD 坐标的 old_start**。
+#   ⚠️ spec 名不带 v19x 版本号 —— v192/v196 已被并发会话占用，撞号会 grep 混淆。
+SPEC_BE_EMPACC_MAP = ("be", [
+    {"file": "server/erp_db.py",
+     "exclude_hunks": [1400, 10958, 10973, 11390, 11393],
+     "gone": []},
+    # 本轮新建的回归断言（AST 提取真函数源码 + 临时 sqlite，不 import 真模块；
+    # 反例自证过：指向旧缩进副本会 5 项 FAIL）
+    {"file": ".workbuddy/tools/employee-account-map-regression.py",
+     "new_file": True, "gone": []},
+])
+
+# 本工具自身：本轮只有「新增 spec + 注册」两处，全属本轮 → keep_all 拿「== 工作区」自证。
+SPEC_FE_EMPACC_TOOL = ("fe", [
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
+# ══════════════════════════════════════════════════════════════════════════
 # Q29（2026-09-19）小程序自助改密 + 忘记密码自助重置 —— 前端 / 小程序 / 工具
 SPEC_FE_V195_PWRESET = ("fe", [
     # EmployeeArchive.vue：7 hunk，我的 5 个（1/2/4/5/6），在途 2 个（os=3/649）。
@@ -1825,7 +1860,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          #   前后端**必须一起上**：小程序忘记密码页打的是后端的 `/api/auth/forgot-reset`
          #   （免登录），前端单独上线 = 页面在、接口 404；后端单独上线则无人调用。
          "be-v195-pwreset": SPEC_BE_V195_PWRESET,
-         "fe-v195-pwreset": SPEC_FE_V195_PWRESET}
+         "fe-v195-pwreset": SPEC_FE_V195_PWRESET,
+         "be-empacc-map": SPEC_BE_EMPACC_MAP,
+         "fe-empacc-tool": SPEC_FE_EMPACC_TOOL}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
