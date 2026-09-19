@@ -2408,6 +2408,38 @@ SPEC_FE_V203_NOTES = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v203 收尾：**共享追加日志**被多会话交错写入（§5.23 场景，本轮真实撞上）─────
+# 现象：`memory/2026-09-19.md` 被**三个会话**交错追加 ⇒ `git diff -U0` 把三段
+#       **合并成同一个纯插入 hunk**（`@@ -1593,0 +1648,114 @@`）：
+#         · 前 60 行 = 别会话的段（v201 会话的在途块 + 2 个空行）
+#         · 中间 30 行 = **我的收尾段**（`## v203 收尾…` 起）
+#         · 第 90 行起 = 第三个会话（v202 收口段）**在我之后**又追加的行
+#       （该 hunk `+` 侧共 114 行 = 60 + 30 + 24，与工作区 1762 = HEAD 1594 + 54 + 114 吻合）
+#   · `exclude_hunks` 不行 —— 对方**仍在活跃追加**，黑名单模式下对方每新增一个 hunk
+#     都会被当作「我的残留」而夹带（§5.24b 的判据）。
+#   · `keep_all` 更不行 —— 会把别人 60+ 行一起提交。
+#   · `trim_plus_head` **也不够**（本轮实测踩到）：它丢头 60 后**保尾**，把第三个会话
+#     追加的 24 行一起带进暂存版（干跑报 `+54` 而非 `+30`，**而 4 条 `present` 断言全绿**
+#     —— present 只查「我的串在不在」，查不出「多了别人的」）。
+#   ⇒ 用 `own_hunks` 正向认领 + **`keep_plus_slice: (60, 30)`**（本轮为工具新增的能力）：
+#     只锚「我的段从第 60 行起、共 30 行」，**与我之后任何人再追加多少行无关**。
+#   ⚠️ 对方的段**不会因为我不提交而丢失** —— 它仍在工作区里（残留 hunk == 在途 hunk 有断言）。
+# 边界算法（可复现）：`/tmp/v203-boundary.py <文件> <hunk旧侧起始> <我的段首行前缀>`
+#   → 输出「我的段首行在 + 侧的下标」= start；count = 我写入的行数（此处 30）。
+#   ⚠️ 别用 `grep -n 我的段标题` 减 HEAD 行数手算 —— 该文件里同处还有别的在途段，极易串位。
+SPEC_FE_V203_WRAP = ("fe", [
+    {"file": ".workbuddy/memory/2026-09-19.md",
+     "own_hunks": [1593],
+     "keep_plus_slice": {1593: (60, 30)},
+     "present": ["## v203 收尾（技能沉淀 + 一次「线上入口被并发会话顶替」的复核）",
+                 "§5.24b",
+                 "同一个坑**第四次**踩",
+                 "没有独立 chunk"],
+     "gone": []},
+    # 本工具自身：新增上面这条 spec + `keep_plus_slice` 能力。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -2496,7 +2528,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v203-cptype": SPEC_BE_V203_CPTYPE,
          "fe-v203-cptype": SPEC_FE_V203_CPTYPE,
          # v203 交付说明 + 判据入库（记忆）。🔴 `MEMORY.md` 本轮**不碰**（与 v201 在途同改一行）。
-         "fe-v203-notes": SPEC_FE_V203_NOTES}
+         "fe-v203-notes": SPEC_FE_V203_NOTES,
+         # v203 收尾：共享追加日志被 v201 会话交错写入 ⇒ own_hunks + trim_plus_head（丢头 60）。
+         "fe-v203-wrap": SPEC_FE_V203_WRAP}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
@@ -2661,8 +2695,28 @@ def main():
             assert not (set(trim_head) & set(trim_plus)), \
                 "同一 hunk 不能同时 trim_plus 与 trim_plus_head：%s" \
                 % sorted(set(trim_head) & set(trim_plus))
+            # ⭐ keep_plus_slice：只落 `+` 侧的 **[start, start+count) 区间（0-based）** ——
+            #   **并发追加日志的免竞态写法**（2026-09-19 v203 收尾实测，属本轮新增能力）。
+            #   场景：`memory/2026-09-19.md` 被**三个会话**交错追加 ⇒ 同一个纯插入 hunk 里
+            #   对方段在前 60 行、我的段在中间 30 行、**第三个会话又在我之后追加 24 行**。
+            #   🔴 此时 `trim_plus_head` / `trim_plus` 都不可靠 —— 它们依赖「对方当前有多少行」
+            #   这个**会变的数**：本轮刚算完「尾部 24 行」，几分钟后工作区又涨了 24 行
+            #   ⇒ 暂存版**多带 24 行对方的正文**（干跑报 `+54` 而非 `+30`，而 `present`
+            #   断言全绿 —— 它只查「我的串在不在」，查不出「多了别人的」）。
+            #   `keep_plus_slice` 只锚「我的段从第几行起、共几行」，**与我之后任何人再追加无关**。
+            #   ⇒ 只要对方是**追加在尾部**，这个写法就是**确定性的**。
+            keep_slice = {int(k): tuple(v) for k, v in spec.get("keep_plus_slice", {}).items()}
+            assert set(keep_slice) <= set(mine), \
+                "keep_plus_slice 必须落在本轮 hunk 里：%s" % sorted(set(keep_slice) - set(mine))
+            assert not (set(keep_slice) & (set(trim_head) | set(trim_plus))), \
+                "同一 hunk 不能同时用 keep_plus_slice 与 trim_*：%s" \
+                % sorted(set(keep_slice) & (set(trim_head) | set(trim_plus)))
             lines = head.splitlines(keepends=True)
             trimmed_lines = []
+            # keep_plus_slice 落在**中间**时，`+` 侧被切成「头残段 + 我的段 + 尾残段」
+            # ⇒ 残留 hunk 数会比「在途 hunk 数」**多 1**（头尾各成一块）。逐 hunk 累加，
+            # 供下面的残留数断言使用（2026-09-19 v203 收尾实测：3 != 1 的假红）。
+            n_extra_resid = 0
             for h in sorted([x for x in hunks if x["os"] in mine], key=lambda x: -x["os"]):
                 os_, oc = h["os"], h["oc"]
                 plus = h["plus"]
@@ -2676,6 +2730,14 @@ def main():
                     assert 1 <= n < len(plus), ("trim_plus_head 越界", os_, n, len(plus))
                     trimmed_lines += plus[:n]
                     plus = plus[n:]
+                if os_ in keep_slice:
+                    st, cnt = keep_slice[os_]
+                    assert st >= 0 and cnt >= 1 and st + cnt <= len(plus), \
+                        ("keep_plus_slice 越界", os_, st, cnt, len(plus))
+                    n_extra_resid += (1 if st > 0 else 0) \
+                        + (1 if st + cnt < len(plus) else 0)
+                    trimmed_lines += plus[:st] + plus[st + cnt:]
+                    plus = plus[st:st + cnt]
                 if oc == 0:
                     assert h["minus"] == [], "纯插入 hunk 不该有 - 行"
                     assert 1 <= os_ <= len(lines), ("插入点越界", os_)
@@ -2717,10 +2779,12 @@ def main():
             open(outp, "w", encoding="utf-8").write(out)
         staged_blobs[path] = out
 
-        # 混合 hunk 只落一半时，被丢弃的 `+` 侧（split_minus_only 整侧 / trim_plus 尾部）
-        # 会在残留里**单独成一块** → 每处期望值 +1
+        # 混合 hunk 只落一半时，被丢弃的 `+` 侧（split_minus_only 整侧 / trim_plus 尾部 /
+        # trim_plus_head 头部）会在残留里**单独成一块** → 每处期望值 +1
+        # keep_plus_slice 丢**头尾两侧** → 每处 +2（落在文件头/尾时按实际只 +1，见 n_extra_resid）。
         n_def = (len(deferred) + len(spec.get("split_minus_only", []))
-                 + len(spec.get("trim_plus", {})) + len(spec.get("trim_plus_head", {})))
+                 + len(spec.get("trim_plus", {})) + len(spec.get("trim_plus_head", {}))
+                 + n_extra_resid)
         resid = subprocess.run(["git", "-C", REPO, "diff", "-U0", "--no-index",
                                 "--", outp, os.path.join(REPO, path)],
                                capture_output=True, text=True).stdout
