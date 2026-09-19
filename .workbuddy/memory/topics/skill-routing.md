@@ -64,7 +64,9 @@
 ## 诊断族
 
 - `hergent-tenant-isolation-audit` —— 自注册链路 + 租户隔离 + 越权向量
+  ；**§2.5 影子库验证任意业务写路径**（真租户库拷成影子租户，`set_tenant_context` 是必需前置）
 - `hergent-data-staleness-diagnosis` —— 数据不更新 / 页面没刷新 / UI 语义缺陷
+  ；**C-3「两个入口其实选同一个池子」⇒ 收敛入口定式「写端收敛、读端放宽」**（含 `update` 回写陷阱）
 - `hergent-capability-reality-audit` —— 某能力/配置「到底有没有真的到用户面前」
 - `hergent-write-failure-diagnosis` —— 写操作报「失败」（三轴：几个请求 / 文案谁写的 / 后端全部失败点）
 - `hergent-rebate-caliber-consistency` —— 口径不一致（分子分母不同源 / 归组键错配 / 阈值硬编码）
@@ -93,6 +95,12 @@
   （旧按钮消失 / 提示条条数 / 新接口 200 / 0 pageerror / 0 业务 4xx-5xx）。
 - ⭐ `scoped_stage_by_marker.py` 新增 **`present` 正向断言**（`gone` 的对称面）——
   专防「把自己的 hunk 误判成在途 ⇒ 静默少提交」。详见 `hergent-scoped-commit` **§5.10 / §5.17**。
+- ⭐ v203 四件套（对象类型收敛）：`v203-cp-type-normalize-check.py`（判据自证 25 项，**AST 就地取
+  真源码 exec**，不 `import erp_db`）· `v203-prod-verify.py`（生产只读 16 项）·
+  `v203-shadow-write-test.py`（**影子库写路径 22 项**，`tenant_1.db` → `tenant_99.db`）·
+  `v203-cp-type-e2e.js`（真机 26 项）。
+- 🔴 **起号前先查占用**（`grep -rn` + **`git diff` 在途** + `git log --all -S`）；本序列已到 **v203**，
+  下次从 **v204** 起编。**禁用 `grep "A\|B"`**（zsh 静默失效），改号用**行号白名单 + 计数断言**。
 
 ## 门禁 / 协议 / 网关 / 外部数据
 
