@@ -68,6 +68,32 @@ print('仅改前有: %s' % (sorted(set(nb) - set(na)) or '无'))
 print('仅改后有: %s' % (sorted(set(na) - set(nb)) or '无'))
 assert len(nb) == len(before) and len(na) == len(after), '归一化后出现重名，比对不可靠'
 
+# 单侧文件里可能藏着「同一个 chunk 改名」—— 别当成「删了一个文件 + 加了一个文件」。
+# Vite 会给「被多处引用的共享 chunk」挑 chunk 内**某一个成员模块**的名字来命名：
+# 源码里新增/删除一个被多处引用的模块，就可能让 283 kB 的 xlsx 共享 chunk 从 `arrival-*`
+# 改名成 `roles-*`（2026-09-19 实测：新增 constants/roles.js 后正是如此）。
+# 判据：同扩展名 + 归一化后长度接近（±2% 且不超过 2 kB）。**只报告、不自动配对** ——
+# 「长度接近」也可能是巧合，配对与否由人看内容确认；这里的作用是把噪声定性出来。
+paired = set()
+renames = []
+for b in sorted(set(nb) - set(na)):
+    if not b.endswith(('.js', '.css')):
+        continue
+    for a in sorted(set(na) - set(nb)):
+        if a in paired or os.path.splitext(a)[1] != os.path.splitext(b)[1]:
+            continue
+        lb, la = len(nb[b]), len(na[a])
+        if abs(la - lb) <= max(2048, int(lb * 0.02)):
+            paired.add(a)
+            renames.append((b, a, lb, la, norm(nb[b]) == norm(na[a])))
+            break
+if renames:
+    print()
+    print('疑似同一 chunk 改名（**不是**文件被删/新增）：')
+    for b, a, lb, la, same in renames:
+        print('   %s → %s   %d → %d 字节  归一化后%s'
+              % (b, a, lb, la, '逐字节相同' if same else '仅剩标识符分配差异（压缩器重新分配短名）'))
+
 print()
 print('%-34s %10s %10s  %s' % ('文件(归一化名)', '改前', '改后', '判定'))
 print('-' * 84)
@@ -86,7 +112,7 @@ for name in sorted(set(nb) & set(na)):
         print('%-34s %10d %10d  %s' % (name, len(x), len(y), verdict))
 
 print()
-print('纯派生噪声 %d 项 / 真变化 %d 项' % (drift, len(real)))
+print('纯派生噪声 %d 项 / 真变化 %d 项 / 疑似改名 %d 项' % (drift, len(real), len(renames)))
 print()
 if not real:
     print('✅ 零真变化（改前 == 改后）')

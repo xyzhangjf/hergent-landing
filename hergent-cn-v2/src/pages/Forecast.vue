@@ -79,7 +79,7 @@
       <div class="tb-group tb-act">
         <button class="btn btn-sm btn-ghost" :disabled="!cross.period" @click="onSuggest" title="按体检/货损/返利/起订量生成建议并打开审核"><Icon name="sparkle"/> <span class="tb-ai-txt">AI智能建议</span></button>
         <button v-if="!editMode" class="btn btn-sm btn-primary" :disabled="loadingEdit"
-                :title="entryRoleWarn ? '当前角色（' + (ROLE_LABELS[bizRole] || bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'"
+                :title="entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'"
                 @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
         <!-- 编辑态：高级工具（审批/推送/打印 + 健康体检/AI工具/协同闭环/更多工具） -->
         <div v-if="editMode" class="tb-pop">
@@ -2000,6 +2000,8 @@ import ReportMapping from './ReportMapping.vue'
 /* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText } from '../utils/arrival.js'
+// 角色词汇（规范角色名 + 历史视图令牌归一）—— 前端唯一来源，见文件顶部说明
+import { normRole, roleName, isCanonicalRole, ROLE_VIEW_TOKEN_NAMES } from '../constants/roles'
 /* v186：「规则在这个月适不适用」只有一处实现 —— useMonthlyAchv.ruleCoversMonth
    （与后端 domain/rebate_period.rule_covers_month 同源）。本文件原有一份本地
    ruleEffectiveInMonth（按生效期逐月裁剪），年度规则 12 个月分解齐全、生效期只写
@@ -2814,26 +2816,52 @@ const visibleCols = computed(() => {
 const addableMasterCols = computed(() => MASTER_COL_DEFS.filter(m => !colOrder.value.find(c => c.key === m.key)))
 
 /* ---- 列级权限（角色可见性网关）----
-   借鉴企业微信智能表格「字段列级权限」。敏感列(进价/分销价/标准售价)按业务角色可见。
-   角色来源：登录返回 role > 本地切换(hergent_biz_role) > 默认 owner(全可见)。
-   说明：本层只做前端展示级隐藏；真实数据隔离仍需后端 DataSourceAdapter 行/列过滤（生产安全基线）。 */
-const BIZ_ROLES = ['owner', 'finance', 'sales', 'promoter', 'supervisor', 'dealer']
-const ROLE_LABELS = { owner: '老板', finance: '财务', sales: '销售', promoter: '促销', supervisor: '督导', dealer: '经销商' }
-// 列权限：key -> 允许查看的角色；未列出的列所有人可见
-// v184d：purchase_price（进价）权限随「进价」列一并移除 —— 列已不渲染，留着是死配置。
-const COLUMN_PERMISSIONS = {
-  dist_price: ['owner', 'finance'],                                     // 分销价（毛利相关）
-}
+   借鉴企业微信智能表格「字段列级权限」。敏感列(分销价)按业务角色可见。
+
+   🔴 2026-09-19 收敛：本层此前用 owner / finance / promoter / dealer 这套**后端并不存在**的角色名，
+      而 `bizRole` 取的却是登录角色／localStorage —— 两套词汇永不相等。后果是：一旦真把登录角色
+      接进 `store.user.role`，分销价列会对**所有真实角色（含老板）**隐藏，而且没人能从界面上找回来。
+      现统一到后端规范角色名（唯一来源 = src/constants/roles.js，权威源 = 后端 core._DEFAULT_PERMS）；
+      历史视图令牌经 `normRole` 归一后照旧命中，行为不变。
+
+   ⚠️ **本层目前是空转的**：全仓**没有任何地方给 `store.user.role` 赋值**（Shell.vue 只同步了
+      `user.name`）⇒ `bizRole` 实际只会取到 localStorage('hergent_biz_role') 的遗留值或默认值，
+      两者都指向「全可见」。也就是说「列级权限」现在既不隐藏任何列、也不构成任何保护。
+      ⇒ 日后若把登录角色接进 `store.user.role`，本表会**立刻生效**：届时需确认各角色该看哪些列（业务决定）。
+
+   ⚠️ 且本层**只是前端展示级隐藏**（列头、导出、接口照旧）——真正的列级隔离必须做在后端
+      DataSourceAdapter 的字段过滤上，否则只是安全幻觉。 */
 const BIZ_ROLE_KEY = 'hergent_biz_role'
-const bizRole = ref((store.user && store.user.role) || localStorage.getItem(BIZ_ROLE_KEY) || 'owner')
+// 只接受「已知令牌」（后端规范角色 或 历史视图令牌）。未知值一律忽略 ——
+// 否则一个拼错的遗留值就能静默藏掉一列，且无处可改。
+function _knownRoleToken(t) {
+  const k = String(t || '').trim()
+  if (!k) return ''
+  return (isCanonicalRole(k) || Object.prototype.hasOwnProperty.call(ROLE_VIEW_TOKEN_NAMES, k)) ? k : ''
+}
+const bizRole = ref((store.user && store.user.role) || _knownRoleToken(localStorage.getItem(BIZ_ROLE_KEY)) || 'boss')
 function setBizRole(r) {
+  // ⚠️ 当前**无 UI 入口**（按身份预览的切换器已撤），保留以备复用。
+  //    SOURCE 优先级：store.user.role > localStorage > 'boss' —— 改动此处等于改动上面那行。
   bizRole.value = r
   try { localStorage.setItem(BIZ_ROLE_KEY, r) } catch (e) {}
   if (store.user) store.user.role = r
 }
+// 列权限：key -> 允许查看的**规范角色名**（见 constants/roles.js）；未列出的列所有人可见
+// v184d：purchase_price（进价）权限随「进价」列一并移除 —— 列已不渲染，留着是死配置。
+// 2026-09-19：`owner`/`finance` 两个不存在的角色名 → `boss`/`accountant`（原意「老板 + 会计」），
+//   并补 `admin`（后端 `_DEFAULT_PERMS['admin'] = ['*']`，管理员本应全见）。
+const COLUMN_PERMISSIONS = {
+  dist_price: ['admin', 'boss', 'accountant'],                          // 分销价（毛利相关）
+}
 function canSeeCol(key) {
   const allow = COLUMN_PERMISSIONS[key]
-  return !allow || allow.includes(bizRole.value)
+  if (!allow) return true
+  const r = normRole(bizRole.value)
+  // 角色未知/未配置 ⇒ **不隐藏**。本层既然不是安全边界（见上），失败方向就取「宁可多显示」：
+  // 静默藏掉一列而用户没有任何入口把它找回来，是比多显示更坏的故障。
+  if (!isCanonicalRole(r)) return true
+  return allow.includes(r)
 }
 
 /* v184：**固定列默认不可隐藏、不可删除** —— 左侧冻结区的偏移是「按固定列宽度依次累加」
@@ -2904,13 +2932,16 @@ function onColDrop(ci) {
 // 大数据量下白屏等待，用户会重复点击。
 const loadingEdit = ref(false)
 /* Q30：填报权限前置提示。可填报角色白名单（与列级权限同一套角色体系）。
-   其余角色不硬禁用（避免误伤有后端权限的账号），改为点击时二次确认 + 说明。 */
-const ENTRY_ROLES = ['owner', 'finance', 'sales', 'dealer']
-const entryRoleWarn = computed(() => !ENTRY_ROLES.includes(String(bizRole.value || 'owner')))
+   其余角色不硬禁用（避免误伤有后端权限的账号），改为点击时二次确认 + 说明。
+   2026-09-19：白名单改用**后端规范角色名**并补 admin —— 原词表 owner/finance/dealer 在后端都不存在，
+   与列级权限同一处漂移；`dealer`（经销商）没有对应后端角色（本租户主体就是经销商）。
+   比对前先 normRole 归一，历史视图令牌（owner/finance/…）照旧命中，行为不变。 */
+const ENTRY_ROLES = ['admin', 'boss', 'accountant', 'sales']
+const entryRoleWarn = computed(() => !ENTRY_ROLES.includes(normRole(bizRole.value) || 'boss'))
 async function enterEdit() {
   // Q30：角色不在填报白名单时前置告知（不阻断，避免误伤）
   if (entryRoleWarn.value) {
-    const ok = window.confirm(`当前角色「${ROLE_LABELS[bizRole.value] || bizRole.value}」可能没有填报权限，保存时可能被服务器拒绝。\n\n仍要进入编辑吗？`)
+    const ok = window.confirm(`当前角色「${roleName(bizRole.value)}」可能没有填报权限，保存时可能被服务器拒绝。\n\n仍要进入编辑吗？`)
     if (!ok) return
   }
   if (loadingEdit.value) return

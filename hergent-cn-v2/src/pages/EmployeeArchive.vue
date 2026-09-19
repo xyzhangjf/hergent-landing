@@ -3,7 +3,7 @@
     <div class="page-hd">
       <div>
         <h2>员工档案</h2>
-        <span class="page-sub">维护员工底薪与小程序权限 · 支持手动录入与 Excel 批量导入</span>
+        <span class="page-sub">维护员工底薪与登录账号权限（网页端 / 小程序通用）· 支持手动录入与 Excel 批量导入</span>
       </div>
       <div class="sync-wrap">
         <span class="sync-state" :class="connState">{{ connLabel }}</span>
@@ -28,7 +28,7 @@
         <table class="tbl">
           <thead><tr>
             <th>员工</th><th>岗位</th><th class="num">底薪/月</th>
-            <th>小程序账号</th><th>门店</th><th></th>
+            <th>登录账号</th><th>门店</th><th></th>
           </tr></thead>
           <tbody>
             <tr v-for="e in employees" :key="e.id" :class="{ stopped: e.is_active === 0 }">
@@ -58,7 +58,7 @@
       <div v-else class="state-empty">还没有员工档案，先添加或从 Excel 导入</div>
     </div>
 
-    <!-- 开账号已整合进「编辑员工」弹窗（见下方 edit-modal 的"小程序账号"区） -->
+    <!-- 开账号已整合进「编辑员工」弹窗（见下方 edit-modal 的"登录账号"区） -->
 
     <!-- 绑门店弹窗 -->
     <Teleport to="body">
@@ -150,14 +150,14 @@
               </div>
             </section>
 
-            <!-- 小程序账号（整合原"开账号"入口：员工的人事档案与登录账号在同一处管理） -->
+            <!-- 登录账号（整合原"开账号"入口：员工的人事档案与登录账号在同一处管理） -->
             <section class="df-sec">
-              <div class="df-sec-title">小程序账号</div>
+              <div class="df-sec-title">登录账号</div>
               <div v-if="isCreate" class="df-acc-hint">
-                <p class="df-tip">保存员工后，可在此为其开通小程序账号。</p>
+                <p class="df-tip">保存员工后，可在此为其开通登录账号。</p>
               </div>
               <div v-else-if="!editTarget || !editTarget.has_account" class="df-acc-create">
-                <p class="df-tip">该员工暂无登录账号。开通后可用此手机号 + 密码登录预报小程序。</p>
+                <p class="df-tip">该员工暂无登录账号。开通后可用此手机号 + 密码登录<b>网页端</b>与<b>预报小程序</b> —— 同一个账号，能进哪些页面由下方角色决定。</p>
                 <label class="df-field"><span>手机号 / 账号</span><input v-model="accForm2.username" class="input" placeholder="如 13800000001"></label>
                 <label class="df-field"><span>初始密码</span><input v-model="accForm2.password" class="input" type="text" placeholder="至少 4 位"></label>
                 <label class="df-field"><span>角色 / 权限</span>
@@ -216,7 +216,7 @@
         <div v-if="disableOpen" class="df-modal">
           <div class="df-modal-hd"><b>停用员工</b><button class="df-x" @click="disableOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
-            <p class="df-tip warn-text">确认停用「{{ disableTarget?.name }}」？<br>停用后该员工不再计入工资核算，其小程序登录账号也会被禁用（可随时「启用」恢复）。</p>
+            <p class="df-tip warn-text">确认停用「{{ disableTarget?.name }}」？<br>停用后该员工不再计入工资核算，其登录账号也会被禁用（可随时「启用」恢复）。</p>
           </div>
           <div class="df-modal-ft">
             <button class="btn btn-ghost" @click="disableOpen = false">取消</button>
@@ -283,6 +283,8 @@ import { useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { toast } from '../store'
 import { employeeApi, importApi, staffAccountApi } from '../api/modules'
+// 角色中文名 —— 前端唯一来源（constants/roles.js 顶部有完整说明与权威源出处）
+import { roleName } from '../constants/roles'
 
 const router = useRouter()
 const loading = ref(false)
@@ -302,21 +304,25 @@ const editForm = reactive({
   social_insurance_base: null, housing_fund_base: null, base_salary: null,
 })
 
-/* ---- 小程序账号（整合进"编辑员工"弹窗）与门店 ---- */
+/* ---- 登录账号（整合进"编辑员工"弹窗）与门店 ---- */
+/* 角色下拉。**键集必须与后端 `core._DEFAULT_PERMS` 完全一致**（权威源在那，不在本文件）：
+ * 后端加角色而这里没同步 ⇒ ① 开不出该角色的账号（下拉里选不到，只能手改库）；
+ * ② 已有该角色的账号在「账号」列显示成 `未知角色( xxx )`（护栏会让它在构建前就失败）。
+ * 🔴 「网页端 / 小程序」标注是**从后端模块权限推出来的**，不是猜的：小程序调用的接口前缀在
+ *    `server.py::_PATH_MODULE_MAP` 里落到 `data`（/api/forecast-submissions/*、/api/products）
+ *    / `stock`（/api/inventory）/ `chat`（AI 对话）⇒ **有 data 或 chat 就能用小程序**。
+ *    对照 `_DEFAULT_PERMS`：admin/boss/sales/staff/supervisor 有，accountant/guide/driver 没有。
+ *    护栏会把「标了『小程序』的角色集」与这份权限集合对齐，防止文案与权限脱节。
+ * 顺序：先小程序主力（员工 / 主管 / 业务员），再网页端专用，最后两个全权限角色。 */
 const ROLE_OPTIONS = [
-  { value: 'staff', label: '小程序员工（仅报单 / AI 对话 / 库存）' },
-  // 2026-09-19 补：后端 core._DEFAULT_PERMS 共 8 个角色，此处此前只列了 7 个 —— 漏掉 supervisor（主管）。
-  // 两个后果都不轻：① **开不出新的主管账号**（下拉里没有这个角色，只能手改库）；
-  // ② 已是主管的账号（如生产 mptestsp）在「账号」列因 ROLE_NAMES 也缺条目而**显示裸英文 supervisor**。
-  // 🔴 权威源是后端 `_DEFAULT_PERMS`，不是本文件这份清单：后端加角色时这里必须同步，
-  //    回归护栏见 `.workbuddy/tools/role-registry-consistency-check.py`。
-  { value: 'supervisor', label: '主管（汇总总表 + 数据）' },
-  { value: 'sales', label: '业务员（销售 + 采购 + 客户 + 数据）' },
-  { value: 'guide', label: '导购（销售 + 采购 + 客户）' },
-  { value: 'driver', label: '司机（仅库存看板）' },
-  { value: 'accountant', label: '会计（账务 / 报表 / 营销）' },
-  { value: 'boss', label: '老板（几乎全开）' },
-  { value: 'admin', label: '管理员（全开）' },
+  { value: 'staff', label: '员工（仅小程序 · 报单 / AI 对话 / 库存）' },
+  { value: 'supervisor', label: '主管（网页端 + 小程序 · 汇总总表 / 数据）' },
+  { value: 'sales', label: '业务员（网页端 + 小程序 · 销售 / 采购 / 客户 / 报单）' },
+  { value: 'guide', label: '导购（仅网页端 · 销售 / 采购 / 客户 / 库存）' },
+  { value: 'driver', label: '司机（仅网页端 · 看板 / 库存）' },
+  { value: 'accountant', label: '会计（仅网页端 · 账务 / 报表 / 营销）' },
+  { value: 'boss', label: '老板（全模块 · 网页端 + 小程序）' },
+  { value: 'admin', label: '管理员（全模块 · 网页端 + 小程序）' },
 ]
 const accForm2 = reactive({ username: '', password: '', role: 'staff' })
 const accRoleEdit = ref('staff')
@@ -446,7 +452,7 @@ async function saveEmployee() {
       const created = await employeeApi.create(body)
       toast('已创建员工', 'ok')
       isCreate.value = false
-      // 用新档案继续填充弹窗，便于立即开通小程序账号
+      // 用新档案继续填充弹窗，便于立即开通登录账号
       openEdit(created)
       loadEmployees()
     } else {
@@ -523,11 +529,11 @@ async function confirmTransfer() {
   }
 }
 
-/* ---- 小程序账号 / 门店 ---- */
-// 角色短名。**键集必须覆盖后端 `_DEFAULT_PERMS` 的全部角色** —— 缺条目不会报错，
-// 只会静默显示裸英文（`roleName` 的 fallback 就是 `r` 本身），主管此前正是这么露出来的。
-const ROLE_NAMES = { admin: '管理员', boss: '老板', accountant: '会计', sales: '业务员', guide: '导购', driver: '司机', staff: '员工', supervisor: '主管' }
-function roleName(r) { return ROLE_NAMES[r] || r || '员工' }
+/* ---- 登录账号 / 门店 ---- */
+// 角色短名已上提到 `constants/roles.js`（前端唯一来源，2026-09-19 收敛）。
+// 此前这里另有一份 8 条目表 —— 与 Forecast.vue、小程序 roles.js 三份并存，正是漏条目的温床：
+// 缺 key 时旧写法 `ROLE_NAMES[r] || r` 会把英文原样显示，与「正常英文值」看不出区别。
+// 现在 roleName 对未知角色返回 `未知角色( xxx )`，让漂移在下一次看界面时就暴露。
 
 // 在"编辑员工"弹窗内开通账号（仅当该员工尚无账号时显示）
 async function createAccountInEdit() {
@@ -776,7 +782,7 @@ onMounted(() => {
 .df-field span{font-size:12.5px;color:var(--t2)}
 .df-field .req{color:var(--dan);font-style:normal;font-weight:600}
 
-/* 小程序账号区 */
+/* 登录账号区 */
 .df-acc-hint{margin-top:-2px}
 .df-acc-sum{font-size:12.5px;color:var(--t2);margin:0 0 2px;line-height:1.6}
 .df-acc-sum .on{color:var(--suc);font-weight:600}

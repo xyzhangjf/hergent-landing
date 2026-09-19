@@ -1906,6 +1906,100 @@ SPEC_FE_V198_SUPERVISOR = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# v199-ui（2026-09-19）：员工档案「登录账号」文案语义化（丙）+ 开账号 / 改角色两处后端白名单（丁）
+#   + 角色清单跨面漂移收敛 + 预报主表整页崩溃（unitCount 自递归）修复。
+#
+# ⚠️ 本 spec 是**在一个混着并发会话在途改动的工作区**里写的（Forecast.vue 一个文件 59 个 hunk）。
+#    归属靠 hunk 的**内容特征**判定，不靠行号 —— 行号会随别人改动整体漂移。
+#    我的 hunk 必含下列特征之一：constants/roles 的 import · roleName( · normRole ·
+#    isCanonicalRole · ROLE_VIEW_TOKEN_NAMES · COLUMN_PERMISSIONS · ENTRY_ROLES。
+#    🔴 其中 `os=2042` 是一个**不可拆**的 hunk：它同时含并发会话的 `blankCross()` / `hiddenUnits()`
+#       与我的 `unitCount()` 修复（两者紧邻，落在同一个 hunk 里）⇒ **故意不认领**。
+#       若认领，会把并发会话既有 spec 的黑名单全部打乱（它的在途 hunk 会因基线漂移整体失效），
+#       代价远大于收益。我的修复已在工作区与生产产物里，会随那个 hunk 一起进版本库。
+SPEC_FE_V199_ROLES = ("fe", [
+    # 前端角色词汇的**唯一来源**：8 个后端规范角色 + 4 个历史视图令牌 + normRole 归一
+    #   + canUseMiniProgram（「能进小程序」的判据与后端有 data/chat 权限者对齐）。
+    {"file": "hergent-cn-v2/src/constants/roles.js", "new_file": True, "gone": []},
+
+    # 丙：文案语义化（小程序账号 → 登录账号）+ 角色下拉加适用端标注。
+    #   两个在途 hunk 留给并发会话：
+    #     os=3   「page-hd」→「page-hd split」（布局改造，非本轮）
+    #     os=702 删本地 .page-hd/.page-hd h2/.page-sub 三条 CSS（同上，样式上提全局）
+    {"file": "hergent-cn-v2/src/pages/EmployeeArchive.vue",
+     "exclude_hunks": [3, 702],
+     "gone": ["维护员工底薪与小程序权限", "小程序账号", "小程序权限"]},
+
+    # 漂移收敛：ROLE_LABELS/BIZ_ROLES 删除、COLUMN_PERMISSIONS 与 ENTRY_ROLES 改用规范角色名、
+    #   canSeeCol 未知角色不隐藏、bizRole 默认 owner → boss。
+    #   ⚠️ 另 50 个 hunk 是在途改动（v199 / v199b 客户列隐藏名册 + v196 只发改动行等），**不是本轮**，
+    #      逐个核对过内容；名单见下方列表（含不可拆的 2042，见文件顶部说明）。
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "exclude_hunks": [115, 2042, 2429, 2434, 2682, 2883, 2887, 2949, 2951, 2962,
+                       3044, 3049, 3120, 3214, 3238, 3239, 3243, 3315, 3353, 3380,
+                       3390, 3391, 3407, 3442, 3444, 3448, 3811, 3820, 3866, 4052,
+                       4095, 4226, 4617, 4645, 4860, 4863, 4866, 4867, 4945, 4981,
+                       5020, 5041, 5056, 5060, 5063, 5087, 7046, 8267, 8282, 8661],
+     "gone": ["const BIZ_ROLES", "const ROLE_LABELS = { owner",
+              "dist_price: ['owner'", "ENTRY_ROLES = ['owner'"]},
+
+    # 小程序侧：ROLE_TEXT 补齐 driver/guide/staff，accountant「财务」→「会计」、sales「销售」→「业务员」
+    #   （与网页端**逐字**一致）；roleText 不再回落成原值（静默失败载体）→ 显式 `未知角色( x )`。
+    #   APPROVER_ROLES 保持原样（与后端 submission_summary 逐字一致），矛盾已写进注释待后端拍板。
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/utils/roles.js",
+     "keep_all": True, "gone": ["'财务'", "'销售'", "ROLE_TEXT[role] || role"]},
+
+    # 回归护栏：28 条硬断言（比上一版多 20 条）—— 下拉覆盖/纯净、前端两页面**不得自带角色表**、
+    #   列权限与填报白名单必须是规范角色名、「标了小程序」集合 == 后端有 data/chat 权限的集合、
+    #   译名逐字一致、白名单三处接线。判别力自证：5 份「各破坏一处」副本**全部 FAIL**。
+    {"file": ".workbuddy/tools/role-registry-consistency-check.py", "keep_all": True, "gone": []},
+    # 部署前差集核查：新增「同一 chunk 改名」识别（Vite 会给共享 chunk 挑某个成员模块的名字 ——
+    #   本轮新增 constants/roles.js 后，283 kB 的 xlsx chunk 从 arrival-* 改名为 roles-*）。
+    {"file": ".workbuddy/tools/dist_normalized_diffcheck.py", "keep_all": True, "gone": []},
+    # 自递归扫描（新）+ 它的判别力自证（新）：3 反例必 FAIL、2 正例（带出口的合法递归）必 PASS。
+    {"file": ".workbuddy/tools/direct-self-recursion-check.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/self-recursion-discriminate.py", "new_file": True, "gone": []},
+    # hunk 索引表（新）：在几百个脏项的长期工作区里区分「本轮」与「并发会话在途」。
+    {"file": ".workbuddy/tools/hunk_index.py", "new_file": True, "gone": []},
+    # 真机探针（新，18/18）+ 截图脚本（新）+ 临时令牌 helper（新，插/删/回读计数）。
+    {"file": ".workbuddy/tools/role-v199-ui-verify.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/role-v199-shots.js", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/probe_token.py", "new_file": True, "gone": []},
+
+    # 交付报告 + 两张生产真机截图（PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/角色清单收敛与预报页崩溃修复-2026-09-19/01-交付报告.md",
+     "new_file": True, "gone": []},
+    {"file": "outputs/角色清单收敛与预报页崩溃修复-2026-09-19/01-预报主表-已恢复正常渲染（生产真机）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/角色清单收敛与预报页崩溃修复-2026-09-19/02-员工档案-登录账号文案（生产真机）.png",
+     "new_file": True, "binary": True, "gone": []},
+
+    # 本工具自身（新增上面这组 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
+# v199-ui 后端：角色白名单（丁）—— 判据只写一份（core.py），三处接线。
+#
+# ⚠️ 这个仓库同样是长期脏工作区（13 个脏项里只有 4 个是本轮）。归属判据：
+#   · core.py  → 只认领含 `def normalize_role(` 的那一个 hunk（其余是并发会话的
+#                 bcrypt2 预哈希 / 会话空闲超时等）
+#   · server.py → 整个文件的 diff 都是本轮（update_user_role 三行改写）⇒ keep_all 自证
+#   · erp_db.py → 只认领 staff_account_create 里 INSERT 紧邻的第二道闸
+#   · forecast_submissions.py → 两个 hunk：docstring 改「开登录账号」+ 角色白名单
+SPEC_BE_V199_ROLEWL = ("be", [
+    {"file": "server/core.py",
+     "markers": ["def normalize_role(role, default=None):"],
+     "gone": []},
+    {"file": "server/server.py", "keep_all": True, "gone": []},
+    {"file": "server/erp_db.py",
+     "markers": ["角色白名单（第二道闸；第一道在调用入口"],
+     "gone": ["为员工开小程序账号"]},
+    {"file": "server/routers/forecast_submissions.py",
+     "markers": ["为员工开登录账号：{employee_id",
+                 "角色白名单（判据唯一来源 = core.normalize_role）"],
+     "gone": ["为员工开小程序账号"]},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1971,7 +2065,11 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          #      提交前须先 `git rm hergent-cn-v2/src/pages/Reconciliation.vue` 暂存它。
          "fe-v197-recon-retire": SPEC_FE_V197_RECON_RETIRE,
          # v198：员工档案补「主管」(supervisor) —— 纯前端发现性缺陷 + 角色清单回归护栏。
-         "fe-v198-supervisor": SPEC_FE_V198_SUPERVISOR}
+         "fe-v198-supervisor": SPEC_FE_V198_SUPERVISOR,
+         # v199-ui：文案语义化（丙）+ 白名单（丁）+ 角色清单漂移收敛 + 预报页自递归修复。
+         #   ⚠️ 前后端分属两个仓库 ⇒ 两条 spec **各自**提交；白名单的判据在 be、发现性在 fe。
+         "fe-v199-roles": SPEC_FE_V199_ROLES,
+         "be-v199-roles": SPEC_BE_V199_ROLEWL}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
