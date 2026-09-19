@@ -10,7 +10,7 @@
    ============================================================ */
 import { createPinia, defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
-import { api } from '../api/client'
+import { api, auth } from '../api/client'
 
 /* Pinia 实例在模块级创建，main.js 复用同一实例 app.use(pinia)。
    这样 store/index.js 可在 createApp 之前被 import（setTheme 等）。 */
@@ -30,6 +30,16 @@ export const useAppStore = defineStore('app', () => {
     role: ''
   })
   const demo = ref(false)
+  /* v206 (2026-09-19)：本账号在**当前租户**下的模块权限（如 payroll / hr / data…）。
+     三条设计约束，缺一条就会做错事：
+     ① `null` = **还不知道**（未登录 / 请求失败）⇒ `canModule()` 一律返回 true，
+        即「不知道就不隐藏」。菜单隐藏只是体验优化，**权限边界永远在后端**；
+        反过来写成 fail-closed，一次接口抖动就会把老板的菜单藏起来。
+     ② 权限表已**按租户分叉**，故必须记住「这份权限属于哪个租户」（`permsTenant`），
+        租户一变就重取 —— 否则切租户后会按上一个租户的权限显示菜单（串味）。
+     ③ 只认后端 `/api/auth/permissions` 返回的模块名，**不另抄一份角色表**（那正是漂移源）。 */
+  const perms = ref(null)
+  const permsTenant = ref('')
   const chat = reactive({
     messages: [],          // {role:'user'|'assistant', content}
     streaming: false,
@@ -51,6 +61,37 @@ export const useAppStore = defineStore('app', () => {
     document.documentElement.classList.remove('light', 'dark')
     document.documentElement.classList.add(t)
     localStorage.setItem('hergent_theme', t)
+  }
+
+  /* ---- 模块权限：拉取 / 判定（v206）------------------------------------------
+     调用点只需 `await store.loadPerms()`（幂等：同一租户只拉一次），
+     再用 `store.canModule('payroll')` 决定入口是否渲染。 */
+  async function loadPerms(force = false) {
+    const tid = String(auth.tenant || '')
+    if (!force && perms.value !== null && permsTenant.value === tid) return perms.value
+    try {
+      const d = await api('/api/auth/permissions')
+      const list = Array.isArray(d && d.permissions) ? d.permissions : []
+      perms.value = list
+      permsTenant.value = tid
+      const r = d && d.user && d.user.role
+      if (r) user.role = r          // 顺带把角色落到 store（此前全仓无人赋值）
+      if (d && d.user && !user.name) {
+        user.name = d.user.display_name || d.user.username || user.name
+      }
+    } catch (e) {
+      // 🔴 拉不到 ≠ 没权限。保持「未知」（fail-open），别把菜单错误地藏起来。
+      perms.value = null
+      permsTenant.value = ''
+    }
+    return perms.value
+  }
+
+  /** 该模块在当前租户下是否授权。未知（未加载/失败）⇒ true（不隐藏）。 */
+  function canModule(m) {
+    const p = perms.value
+    if (!p) return true
+    return p.indexOf('*') >= 0 || p.indexOf(m) >= 0
   }
 
   /* ---- AI 会话持久化 — localStorage 按会话分组，刷新不丢，可接着聊 ---- */
@@ -184,6 +225,7 @@ export const useAppStore = defineStore('app', () => {
   return {
     ui, user, demo, chat,
     toast, setTheme,
+    perms, permsTenant, loadPerms, canModule,
     loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession,
     loadAiRoles, setAiRole
   }

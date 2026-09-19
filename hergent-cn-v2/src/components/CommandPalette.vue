@@ -74,7 +74,9 @@ const COMMANDS = [
   { id: 'roles', group: '页面', icon: 'users', title: 'AI 团队', path: '/roles' },
   { id: 'collections', group: '页面', icon: 'phone', title: '催收跟进', path: '/collections' },
   { id: 'loss-accounting', group: '页面', icon: 'receipt', title: '货损核算', path: '/loss-accounting' },
-  { id: 'payroll', group: '页面', icon: 'coins', title: '算工资工作流', path: '/payroll' },
+  // v206: `module` = 该入口所属的后端权限模块。配了它的条目会按本租户权限过滤
+  //（与侧栏同一判据、同一个 `store.canModule`），否则「侧栏藏了、⌘⇧K 还能跳过去」。
+  { id: 'payroll', group: '页面', icon: 'coins', title: '算工资工作流', path: '/payroll', module: 'payroll' },
   { id: 'data-fill', group: '页面', icon: 'package', title: '库存效期补录', path: '/data-fill' },
   { id: 'archive', group: '页面', icon: 'book', title: '档案管理', path: '/archive/employees' },
   { id: 'cron', group: '页面', icon: 'clock', title: '定时任务', path: '/cron' },
@@ -83,9 +85,11 @@ const COMMANDS = [
 ]
 
 const filtered = computed(() => {
+  // v206：先按权限收窄（未配 module 的条目一律保留），再按关键词过滤。
+  const pool = COMMANDS.filter(c => !c.module || store.canModule(c.module))
   const kw = q.value.trim().toLowerCase()
-  if (!kw) return COMMANDS
-  return COMMANDS.filter(c => c.title.toLowerCase().includes(kw) || (c.keywords || '').includes(kw))
+  if (!kw) return pool
+  return pool.filter(c => c.title.toLowerCase().includes(kw) || (c.keywords || '').includes(kw))
 })
 
 function close() { emit('update:modelValue', false) }

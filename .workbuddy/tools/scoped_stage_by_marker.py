@@ -2621,6 +2621,97 @@ SPEC_FE_V205_INCIDENT = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v206（2026-09-19）后端：幽灵租户库「**根因**」收口 ────────────────────────────
+# 交付内容：新增唯一权威枚举 `erp_db.scan_tenant_dbs()`（判据 = 内容 + 登记表，不再只看文件名）
+#   + 6 处调用点收口 + `_ensure_tenant_db` 建库闸门 + fail-safe 三态 + 留痕去重。
+# 归属（**逐文件核过**）：
+#   · `erp_db.py` 混着 v197/v199/v202/v204/v206 多轮在途改动（HEAD 对比 357+/27-）⇒ 按 hunk 认领 5 个：
+#       132   = 新增的权威实现整块（177 行，**只含 v206 标记**，逐行看过）；
+#       710 / 17001 / 17048 / 17329 = 四处「按文件名 glob」循环收口（各 1~2 行删除）。
+#       其余 18 个 hunk（1397/1480/1852/8513/8538/8554/11119/11133/11550/15176/15188/
+#       15308/16291/16312/16322/16583/16726/16985/17034）**不认领**，留着给别人。
+#   · `scheduler.py` / `db/connection.py` / `tenant_audit.py` / `routers/admin_backup.py`
+#       四个文件经核实**只含 v206 标记** ⇒ keep_all。
+SPEC_BE_V206_TENANT_SCAN = ("be", [
+    {"file": "server/erp_db.py",
+     "own_hunks": [134, 713, 17004, 17051, 17332, 17334],
+     "present": ["def _tenant_registry_snapshot(active_only=True):",
+                 "def _tenant_db_is_real(path):",
+                 "def scan_tenant_dbs(registered_only=False, active_only=True):",
+                 "def list_tenant_db_ids(registered_only=False, active_only=True):",
+                 "def iter_tenant_db_paths(registered_only=False, active_only=True):",
+                 "_TENANT_SCAN_WARNED",
+                 "[tenant-scan]",
+                 "for path in iter_tenant_db_paths():",
+                 "for _tp in iter_tenant_db_paths():",
+                 "for _tp167 in iter_tenant_db_paths():"],
+     "gone": ['for path in sorted(glob.glob(os.path.join(DB_DIR, "tenant_*.db"))):',
+              'for _tp in sorted(_g2.glob(os.path.join(DB_DIR, "tenant_*.db"))):',
+              'for _tp in sorted(_g3.glob(os.path.join(DB_DIR, "tenant_*.db"))):',
+              'for _tp167 in sorted(_g167.glob(os.path.join(DB_DIR, "tenant_*.db"))):',
+              'import glob as _g167']},
+    {"file": "server/scheduler.py", "keep_all": True,
+     "present": ["def _tenant_ids():",
+                 "db.list_tenant_db_ids(registered_only=True)",
+                 "权威租户枚举失败",
+                 "租户枚举彻底失败"],
+     "gone": ['for f in glob.glob(os.path.join(base, "tenant_*.db")):',
+              "import glob"]},
+    {"file": "server/db/connection.py", "keep_all": True,
+     "present": ["def _tenant_registered(tenant_id):",
+                 "拒绝为未登记租户建库"],
+     "gone": []},
+    {"file": "server/tenant_audit.py", "keep_all": True,
+     "present": ["from erp_db import iter_tenant_db_paths", "iter_tenant_db_paths():"],
+     "gone": ['for f in sorted(glob.glob(os.path.join(DB_DIR, "tenant_*.db"))):']},
+    {"file": "server/routers/admin_backup.py", "keep_all": True,
+     "present": ["db.iter_tenant_db_paths()", "唯一权威枚举"],
+     "gone": ['out.extend(sorted(glob.glob(os.path.join(DB_DIR, "tenant_*.db"))))']},
+])
+
+# ── v206 前端：侧栏 / 手机抽屉 / 命令面板**按权限隐藏**（+ 护栏与真机探针） ────────
+# 归属（**逐文件核过**）：
+#   · `src/store/index.js` 混着并发会话的 chat 会话重构 ⇒ own_hunks [13, 32, 55, 186]（我的 4 处）。
+#   · `src/components/Shell.vue` 混着并发会话的 ⌘K 工具条改动 ⇒ own_hunks [47, 95, 254]。
+#   · `src/components/CommandPalette.vue` 三个 hunk **全是我的** ⇒ keep_all（自证更强）。
+#   · 4 个新工具脚本 + 4 张真机截图（binary）⇒ new_file。
+#   · 本工具自身：新增上面这两条 spec。
+#   ⚠️ 记忆四个文件本轮**不并进这条 spec**：`MEMORY.md` 的两段改动不连续、`keep_plus_slice`
+#      只能表达「单片」；另三个文件与并发会话的段落交错，留给专门一轮（见交付报告）。
+SPEC_FE_V206_MENU_PERM = ("fe", [
+    {"file": "hergent-cn-v2/src/store/index.js",
+     "own_hunks": [13, 32, 55, 186],
+     "present": ["import { api, auth } from '../api/client'",
+                 "const perms = ref(null)",
+                 "const permsTenant = ref('')",
+                 "async function loadPerms(force = false)",
+                 "function canModule(m)",
+                 "canModule,"],
+     "gone": ["import { api } from '../api/client'"]},
+    {"file": "hergent-cn-v2/src/components/Shell.vue",
+     "own_hunks": [47, 95, 254],
+     "present": ["canModule('payroll')", "store.loadPerms()"],
+     "gone": ['<router-link to="/payroll" class="sb-item">',
+              '<router-link to="/payroll" class="md-item"']},
+    {"file": "hergent-cn-v2/src/components/CommandPalette.vue", "keep_all": True,
+     "present": ["module: 'payroll'", "store.canModule(c.module)"],
+     "gone": ["{ id: 'payroll', group: '页面', icon: 'coins', title: '算工资工作流', path: '/payroll' },"]},
+    {"file": ".workbuddy/tools/v206-tenant-scan-check.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v206-tenant-scan-discriminate.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v206-menu-perm-gate-check.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v206-menu-perm-prod-probe.mjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # 真机截图（二进制：只能 new_file / keep_all，无 hunk）
+    {"file": "outputs/算工资菜单按权限隐藏-2026-09-19/v206-场景A-入口可见.png",
+     "binary": True, "new_file": True, "gone": []},
+    {"file": "outputs/算工资菜单按权限隐藏-2026-09-19/v206-场景B-入口隐藏.png",
+     "binary": True, "new_file": True, "gone": []},
+    {"file": "outputs/算工资菜单按权限隐藏-2026-09-19/v206-场景C-入口隐藏.png",
+     "binary": True, "new_file": True, "gone": []},
+    {"file": "outputs/算工资菜单按权限隐藏-2026-09-19/v206-场景D-入口可见.png",
+     "binary": True, "new_file": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -2718,7 +2809,12 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v205-perms": SPEC_BE_V205_PERMS,
          "fe-v205-perms": SPEC_FE_V205_PERMS,
          # v205-INC：交付后复核抓出的生产静默劣化（幽灵租户库）。纯文档。
-         "fe-v205-incident": SPEC_FE_V205_INCIDENT}
+         "fe-v205-incident": SPEC_FE_V205_INCIDENT,
+         # v206：幽灵租户库**根因**收口（6 处枚举 + 1 处闸门）+ 前端入口按权限隐藏。
+         #   ⚠️ 编号：v205 由本侧保留、对方改号后 v207 占「合计箱」、v208 占「保存下拉」；
+         #      v206 归本条（tenant-scan / menu-perm-gate），起号前已 grep 过三处。
+         "be-v206-tenant-scan": SPEC_BE_V206_TENANT_SCAN,
+         "fe-v206-menu-perm": SPEC_FE_V206_MENU_PERM}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
