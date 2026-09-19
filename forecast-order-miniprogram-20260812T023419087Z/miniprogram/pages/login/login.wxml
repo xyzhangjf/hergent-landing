@@ -9,10 +9,11 @@
     <input class="ipt" placeholder="手机号 / 账号" value="{{username}}" bindinput="onUsername" />
     <input class="ipt" placeholder="密码" password value="{{password}}" bindinput="onPassword" />
     <button class="btn" loading="{{loading}}" disabled="{{loading}}" bindtap="login">登 录</button>
+    <view class="forgot" bindtap="goForgot">忘记密码？</view>
     <view class="err" wx:if="{{error}}">{{error}}</view>
   </view>
 
-  <view class="tip">账号由管理员在「小赫智体」后台开通 · 首次登录请修改密码</view>
+  <view class="tip">账号由管理员在「小赫智体」后台开通 · 首次登录需修改初始密码</view>
 
   <!-- A3: 隐私同意弹窗（首次启动未同意时覆盖展示） -->
   <view class="privacy-mask" wx:if="{{showPrivacy}}" catchtap="onDisagreePrivacy">

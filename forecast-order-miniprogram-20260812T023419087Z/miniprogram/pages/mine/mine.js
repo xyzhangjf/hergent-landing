@@ -43,6 +43,11 @@ Page({
   goSummary() {
     wx.navigateTo({ url: '/pages/summary/summary' })
   },
+  // Q29（2026-09-19）：小程序内自助改密 —— 业务员 / 分销商 / 导购可能只登小程序、
+  // 不分配网页端权限，改密不能只依赖网页端
+  goPassword() {
+    wx.navigateTo({ url: '/pages/password/password' })
+  },
   toggleExpand(e) {
     const id = +e.currentTarget.dataset.id
     this.setData({ expandedId: this.data.expandedId === id ? 0 : id })
@@ -85,6 +90,7 @@ Page({
       const keys = (info && info.keys) || []
       for (const k of keys) {
         if (k === 'fs_cart' || k === 'fs_period_id' || k === 'fs_store_id' || k === 'fs_redirect' ||
+            k === 'fs_need_pwd_change' ||
             k.indexOf('fs_cart_') === 0 || k.indexOf('fs_last_cart_') === 0 || k.indexOf('fs_sub_') === 0) {
           wx.removeStorageSync(k)
         }

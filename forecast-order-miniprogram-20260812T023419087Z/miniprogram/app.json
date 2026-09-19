@@ -3,7 +3,9 @@
     "pages/login/login",
     "pages/fill/fill",
     "pages/mine/mine",
-    "pages/summary/summary"
+    "pages/summary/summary",
+    "pages/password/password",
+    "pages/forgot/forgot"
   ],
   "window": {
     "navigationBarTitleText": "预报订单",

@@ -1634,6 +1634,141 @@ SPEC_BE_V193_GATE = ("be", [
     {"file": "server/routers/forecast.py", "exclude_hunks": [606], "gone": []},
 ])
 
+# ══════════════════════════════════════════════════════════════════════════
+# Q29（2026-09-19）小程序自助改密 + 忘记密码自助重置 —— 后端
+#
+# 需求原话：「小程序需要支持自助改密和忘记密码自助改密，因为可能不会给
+#   业务员/分销商/导购等分配网页登录权限，只允许登录小程序」
+#
+# 方案 = **管理员发一次性重置码**（用户在选项里选定）。核心收益：管理员全程
+#   不知道员工最终设的密码 —— 此前唯一出路是管理员代改（= 管理员知道员工密码）。
+#
+# 🔴 本轮归属判定里最要命的一条 = **语义耦合**：
+#   `routers/auth.py` 里我的新路由 `forgot_reset` 调用了 `_client_ip(request)`，
+#   而这个函数在 HEAD 里**根本不存在**（`git show HEAD:server/routers/auth.py |
+#   grep -c "_client_ip"` == 0）。它属于**并发的在途改动**（2026-09-12 的
+#   「登录失败按 IP 计数可被 XFF 伪造绕过」修复）。
+#   ⇒ 若按「只留我自己的 hunk」把 os=74/80 排掉，HEAD 会在调用处 **NameError**，
+#     `/api/auth/forgot-reset` 一进来就 500。故这两个在途 hunk **必须一起带入**。
+#   ⇒ 这也正是本工具「hunk 级归属」不能只看「谁写的」、必须看「谁依赖谁」的实例。
+#
+# gone 名单（旧实现必须消失，暂存版与工作区双向 0 命中）：
+#   auth.py 那条旧 IP 写法 —— 它把**整个** X-Forwarded-For 头当 IP 存库。
+SPEC_BE_V195_PWRESET = ("be", [
+    # 本轮新建：重置码表 + 发码/换密/校验（主库 erp.db，理由见模块 docstring）
+    {"file": "server/password_reset.py", "new_file": True, "gone": []},
+    # 3 hunk **全部保留**（含 2 个在途）—— 理由见上方「语义耦合」。keep_all 顺带
+    # 拿「暂存版 == 工作区」自证，避免我手工列名单时漏掉 os=74/80 而静默 NameError。
+    {"file": "server/routers/auth.py", "keep_all": True,
+     "gone": ['    ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "unknown")']},
+    # 2 hunk 全是本轮的：
+    #   246  CSRF_EXEMPT_PATHS 加 `/api/auth/forgot-reset` —— 🔴 漏了它必 403：
+    #        免登录请求既无 Bearer 也无 CSRF cookie，会被 CSRF 中间件直接拒掉。
+    #   1015 新增 `POST /api/users/{uid}/reset-code`（管理员发码，admin/boss）。
+    {"file": "server/server.py", "keep_all": True, "gone": []},
+    # core.py 共 **13 hunk**，我的只有 os=139（`_init_users()` 里补 `_pr_ensure(conn)`
+    #   建重置码表）。其余 12 个属**并发的**「bcrypt2$ 密码哈希升级（解除 8 字符上限）
+    #   + 会话空闲超时」在途工作，与本轮无关，一个都不带。
+    #   ⚠️ 黑名单 = **HEAD 坐标的 old_start**。
+    {"file": "server/core.py",
+     "exclude_hunks": [6, 13, 16, 26, 28, 30, 37, 40, 53, 57, 187, 190],
+     "gone": []},
+])
+
+# ══════════════════════════════════════════════════════════════════════════
+# Q29（2026-09-19）小程序自助改密 + 忘记密码自助重置 —— 前端 / 小程序 / 工具
+SPEC_FE_V195_PWRESET = ("fe", [
+    # EmployeeArchive.vue：7 hunk，我的 5 个（1/2/4/5/6），在途 2 个（os=3/649）。
+    #   我的（逐 hunk 读内容认过，不按行号猜）：
+    #     185  账号区新增「生成重置码」按钮 + 码展示框（30 分钟有效文案）
+    #     306  resetCode / resetCodeExp 状态
+    #     386  resetEditForm 里清码（换人 / 重开弹窗即失效，避免发错人）
+    #     549  issueResetCode + copyResetCode（含剪贴板失败的降级提示）
+    #     730  .rc-tip/.rc-box/.rc-code/.rc-exp 样式
+    #   在途：
+    #     3     `page-hd` → `page-hd split`（模板侧）
+    #     649   `.page-hd/.page-hd h2/.page-sub` 三行 CSS（全局层已有，删本地重复）
+    #   🔴 这两半**必须一起排**（技能 §5.8「搬移要两半对称」）：只排 3 不排 649
+    #     ⇒ 模板用了 `page-hd split` 而全局 CSS 里那个类还没落地，页头会掉样式；
+    #     只排 649 不排 3 ⇒ 本地 CSS 被删而模板没改，同样掉样式。
+    {"file": "hergent-cn-v2/src/pages/EmployeeArchive.vue",
+     "exclude_hunks": [3, 649], "gone": []},
+    # 本轮的**基础设施修复**：`down` 漏清 `password_reset_codes`（主库表、只有
+    #   user_id 可定位）。真机探针点一次「生成重置码」就落一行，down 后 users 已删、
+    #   码却留着 = **孤儿行**，而 ZERO_RESIDUE 仍报 true（复核清单里没有这张表）。
+    #   补了删除 + 复核 + 存在性守卫（表由 ensure_tables 懒建）。
+    {"file": ".workbuddy/tools/sandbox_tenant.py", "keep_all": True, "gone": []},
+    # 本轮新建：真机探针（隔离沙箱 9997 克隆 tenant_1）A0~F2 共 24 条断言全绿。
+    {"file": ".workbuddy/tools/employee-reset-code-v195-verify.js", "new_file": True, "gone": []},
+    # 本轮新建：三层验证的另三个脚本（都是「可重跑」的，不是一次性探针）
+    #   password-reset-verify.py          本地语义（mock core/fastapi + 临时 sqlite）27/27
+    #   password-reset-prod-e2e.py        生产真实链路 E2E（服务器上跑，临时账号跑完即删）21/21
+    #   miniprogram-password-pages-check.py 小程序静态核对（无 CLI 构建通道的替代）43/43
+    {"file": ".workbuddy/tools/password-reset-verify.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/password-reset-prod-e2e.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/miniprogram-password-pages-check.py", "new_file": True, "gone": []},
+    # 本工具自身（新增上面两个 spec + 注册）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+
+    # ── 小程序 ─────────────────────────────────────────────────────────────
+    # app.json：2 hunk，我的 1 个（os=6 注册 password/forgot 两个新页面）；
+    #   在途 os=9 是 `navigationBarTitleText` 改名「预报订单 → 小赫智体报单助手」，
+    #   属「小程序改名与备案重提」那条线，**不带**。
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/app.json",
+     "exclude_hunks": [9], "gone": []},
+    # login.js 4 hunk 全是本轮的：
+    #   os=18  进页先看 `fs_need_pwd_change` —— 首次改密没做完就杀进程重进时
+    #          storage 里 token 还在，只看 token 就放行 = 强制改密这道闸被绕过
+    #   os=52  goForgot() 跳忘记密码页
+    #   os=84  消费后端 `require_password_change`（🔴 此前小程序**完全没读**这个字段，
+    #          这道闸在小程序侧形同虚设）+ 原密码只放 app.globalData 不落 storage
+    #   os=89  删掉旧位置的 track —— 它与 os=84 新增的那行**逐字相同**，属搬移
+    #          （故 gone 不能写这句，会命中新行；工具的在途特征行断言已覆盖）
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/login/login.js",
+     "keep_all": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/login/login.wxml",
+     "keep_all": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/login/login.wxss",
+     "keep_all": True, "gone": []},
+    # mine 页：新增「修改密码」入口（业务员/分销商/导购可能只登小程序）
+    #   + logout 清 `fs_need_pwd_change`（换账号登录不能被上一个账号的标记拦住）
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/mine/mine.js",
+     "keep_all": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/mine/mine.wxml",
+     "keep_all": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/utils/track.js",
+     "keep_all": True, "gone": []},
+    # ⚠️ 以下两文件**整份在途**（属「小程序改名与已停售商品跳过」那条线），
+    #    本 spec **完全不写进来** —— 不是 exclude 全部 hunk，而是根本不列：
+    #    `pages/fill/fill.js`（5 hunk）、`project.config.json`（1 hunk，description 改名）。
+
+    # 新页面（未跟踪 → new_file，各 4 个文件）
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/password/password.js",
+     "new_file": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/password/password.json",
+     "new_file": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/password/password.wxml",
+     "new_file": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/password/password.wxss",
+     "new_file": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/forgot/forgot.js",
+     "new_file": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/forgot/forgot.json",
+     "new_file": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/forgot/forgot.wxml",
+     "new_file": True, "gone": []},
+    {"file": "forecast-order-miniprogram-20260812T023419087Z/miniprogram/pages/forgot/forgot.wxss",
+     "new_file": True, "gone": []},
+
+    # 交付物：真机截图（沙箱 9997，生产域名）必须标 binary，否则 utf-8 解码炸掉整个 spec
+    {"file": "outputs/小程序自助改密与忘记密码-2026-09-19/01-员工档案账号区-生成前（位置与文案）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/小程序自助改密与忘记密码-2026-09-19/02-生成重置码-六位码与有效期（真实生产沙箱）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/小程序自助改密与忘记密码-2026-09-19/03-交付说明.md",
+     "new_file": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1685,7 +1820,12 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v191b-inherit": SPEC_BE_V191B_INHERIT,
          "fe-v192-hidecycle": SPEC_FE_V192_HIDECYCLE,
          "fe-v193-gate": SPEC_FE_V193_GATE,
-         "be-v193-gate": SPEC_BE_V193_GATE}
+         "be-v193-gate": SPEC_BE_V193_GATE,
+         # Q29（2026-09-19）：小程序自助改密 + 忘记密码自助重置（管理员发一次性重置码）。
+         #   前后端**必须一起上**：小程序忘记密码页打的是后端的 `/api/auth/forgot-reset`
+         #   （免登录），前端单独上线 = 页面在、接口 404；后端单独上线则无人调用。
+         "be-v195-pwreset": SPEC_BE_V195_PWRESET,
+         "fe-v195-pwreset": SPEC_FE_V195_PWRESET}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

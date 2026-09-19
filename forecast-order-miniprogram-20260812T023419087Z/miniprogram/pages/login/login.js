@@ -16,6 +16,12 @@ Page({
     // F2 修复：已登录用户打开 App 直接进填报页，不再见空登录框
     const token = app.globalData.token || wx.getStorageSync('fs_token')
     if (token) {
+      // Q29（2026-09-19）：首次改密没做完就杀掉小程序再重进时，storage 里的 token 仍在 ——
+      // 若只看 token 就放行进填报页，强制改密这道闸就被绕过了。故优先拦回改密页。
+      if (wx.getStorageSync('fs_need_pwd_change')) {
+        wx.reLaunch({ url: '/pages/password/password?force=1' })
+        return
+      }
       // M12: 已登录但带重定向目标（如 401 回跳）则跳回原页面
       const redirect = wx.getStorageSync('fs_redirect')
       if (redirect) { wx.removeStorageSync('fs_redirect'); wx.reLaunch({ url: redirect }) }
@@ -50,6 +56,8 @@ Page({
   },
   onUsername(e) { this.setData({ username: e.detail.value }) },
   onPassword(e) { this.setData({ password: e.detail.value }) },
+  // Q29（2026-09-19）：忘记密码 —— 用管理员发放的重置码自助重置（免登录路径）
+  goForgot() { wx.navigateTo({ url: '/pages/forgot/forgot' }) },
   noop() {}, // A3: 阻断弹窗内部点击冒泡到遮罩
   // A3: 同意隐私指引
   onAgreePrivacy() {
@@ -82,11 +90,23 @@ Page({
       wx.setStorageSync('fs_token', d.token)
       wx.setStorageSync('fs_user', d.user || {})
       wx.setStorageSync('fs_tenant_id', d.tenant_id || '')
+      track(EVENTS.LOGIN, { role: (d.user && d.user.role) || '' })
+      // Q29（2026-09-19）：密码仍是系统初始密码（password_changed=0）→ 必须先改密，
+      // 不允许直接进填报页。与网页端 Login.vue 的强制改密弹窗对齐 ——
+      // 此前小程序**完全没读** require_password_change 这个字段，
+      // 于是这道闸在小程序侧形同虚设（员工带着初始密码一直用）。
+      // 原密码暂存内存供改密页复用，不写 storage（避免明文密码留存在本机）。
+      if (d.require_password_change) {
+        app.globalData.loginPw = password
+        wx.setStorageSync('fs_need_pwd_change', '1')
+        wx.reLaunch({ url: '/pages/password/password?force=1' })
+        return
+      }
+      wx.removeStorageSync('fs_need_pwd_change')
       // M12: 登录成功后回跳原页面（401 场景），否则进填报页
       const redirect = this.redirect || wx.getStorageSync('fs_redirect')
       wx.removeStorageSync('fs_redirect')
       wx.reLaunch({ url: redirect || '/pages/fill/fill' })
-      track(EVENTS.LOGIN, { role: (d.user && d.user.role) || '' })
     } catch (e) {
       track(EVENTS.LOGIN_FAIL, { msg: (e.message || '登录失败').slice(0, 80) })
       this.setData({ error: e.message || '登录失败' })

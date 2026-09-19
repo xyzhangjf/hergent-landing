@@ -1,0 +1,34 @@
+<view class="fp-page">
+  <view class="hd">
+    <view class="hd-title">重置密码</view>
+    <view class="hd-sub">用管理员发放的重置码，自己设置新密码</view>
+  </view>
+
+  <view class="card">
+    <view class="field">
+      <view class="label">账号</view>
+      <input class="ipt" placeholder="你的登录账号 / 手机号" value="{{username}}" bindinput="onUser" />
+    </view>
+    <view class="field">
+      <view class="label">重置码</view>
+      <input class="ipt code" type="number" maxlength="6" placeholder="6 位数字" value="{{code}}" bindinput="onCode" />
+    </view>
+    <view class="field">
+      <view class="label">新密码</view>
+      <input class="ipt" password placeholder="至少 8 位，含数字和字母" value="{{newPw}}" bindinput="onNew" />
+    </view>
+    <view class="field">
+      <view class="label">确认新密码</view>
+      <input class="ipt" password placeholder="再次输入新密码" value="{{newPw2}}" bindinput="onNew2" />
+    </view>
+
+    <view class="err" wx:if="{{error}}">{{error}}</view>
+    <button class="btn" loading="{{saving}}" disabled="{{saving}}" bindtap="submit">重置密码</button>
+    <button class="btn ghost" bindtap="back">返回登录</button>
+  </view>
+
+  <view class="help">
+    <view class="help-t">没有重置码？</view>
+    <view class="help-b">重置码由管理员在「小赫智体」后台生成，请向你的上级或老板索取。一个码 30 分钟内有效、只能使用一次。</view>
+  </view>
+</view>

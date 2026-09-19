@@ -334,6 +334,20 @@ def cmd_down(a):
                 removed[t] = mc.execute(q, uids).rowcount
             else:
                 removed[t] = 0
+        # 🔴 2026-09-19 补：`password_reset_codes`（忘记密码一次性重置码）也是**主库**表，
+        #    且同样只有 user_id 可定位（无 tenant_id）。本工具此前漏了它 —— 真机探针里
+        #    点一次「生成重置码」就落一行，down 后 users 已删、码却留着 = **孤儿行**，
+        #    而 ZERO_RESIDUE 仍报 true（因为复核清单里没有这张表）。
+        #    表由 `password_reset.ensure_tables` 懒建，故先做存在性守卫。
+        _have_prc = bool(mc.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='password_reset_codes'"
+        ).fetchone())
+        if _have_prc and uids:
+            removed["password_reset_codes"] = mc.execute(
+                "DELETE FROM password_reset_codes WHERE user_id IN (%s)"
+                % ",".join("?" * len(uids)), uids).rowcount
+        else:
+            removed["password_reset_codes"] = 0
         if uids:
             removed["users"] = mc.execute(
                 "DELETE FROM users WHERE id IN (%s)" % ",".join("?" * len(uids)), uids).rowcount
@@ -348,6 +362,11 @@ def cmd_down(a):
             # ⚠️ sessions 无 tenant_id 列 → 只能按 user_id 复核
             "sessions": _count_sessions(mc, uids),
             "user_tenants": mc.execute("SELECT COUNT(*) c FROM user_tenants WHERE tenant_id=?", (a.id,)).fetchone()["c"],
+            # 重置码表按 user_id 复核（表可能不存在 → 视作 0）
+            "password_reset_codes": (
+                mc.execute("SELECT COUNT(*) c FROM password_reset_codes WHERE user_id IN (%s)"
+                           % ",".join("?" * len(uids)), uids).fetchone()["c"]
+                if (_have_prc and uids) else 0),
         }
     finally:
         mc.close()

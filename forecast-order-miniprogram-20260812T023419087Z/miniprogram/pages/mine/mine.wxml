@@ -20,6 +20,18 @@
     <view class="entry-arrow">›</view>
   </view>
 
+  <!-- 账号设置：修改密码（Q29 2026-09-19 新增）
+       业务员 / 分销商 / 导购可能只被允许登录小程序、不分配网页端权限，
+       改密必须能在小程序内自己完成（网页端此前是唯一入口）。 -->
+  <view class="entry" bindtap="goPassword">
+    <view class="entry-ic">密</view>
+    <view class="entry-main">
+      <view class="entry-title">修改密码</view>
+      <view class="entry-sub">修改后其它设备需重新登录</view>
+    </view>
+    <view class="entry-arrow">›</view>
+  </view>
+
   <view class="sec-title">我的预报提交</view>
   <view class="list" wx:if="{{records.length}}">
     <view class="rec" wx:for="{{records}}" wx:key="id">

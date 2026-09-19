@@ -183,6 +183,19 @@
                   <button class="btn btn-ghost btn-sm" @click="showReset = !showReset">{{ showReset ? '取消重置' : '重置密码' }}</button>
                   <button class="btn btn-ghost btn-sm danger" :disabled="accBusy" @click="toggleAccStatus">{{ editTarget.account_active ? '禁用账号' : '启用账号' }}</button>
                 </div>
+                <!-- Q29（2026-09-19）生成一次性重置码：员工在小程序「忘记密码」里自己设新密码，
+                     管理员全程不知道员工最终密码 —— 比上面的「重置密码」（管理员直接指定明文）
+                     责任边界更清楚。业务员/分销商/导购可能只被允许登录小程序、不分配网页端
+                     权限，所以这条通道必须在小程序侧闭环。 -->
+                <div class="df-acc-row">
+                  <button class="btn btn-ghost btn-sm" :disabled="accBusy || !editTarget.account_active" @click="issueResetCode">生成重置码</button>
+                  <span class="rc-tip">线下发给员工 · 30 分钟内有效 · 用一次即废</span>
+                </div>
+                <div v-if="resetCode" class="df-acc-row rc-box">
+                  <b class="rc-code">{{ resetCode }}</b>
+                  <button class="btn btn-ghost btn-sm" @click="copyResetCode">复制</button>
+                  <span class="rc-exp">{{ resetCodeExp }} 前有效</span>
+                </div>
               </div>
             </section>
 
@@ -304,6 +317,10 @@ const accRoleEdit = ref('staff')
 const accPwdEdit = ref('')
 const accBusy = ref(false)
 const showReset = ref(false)
+// Q29（2026-09-19）忘记密码自助重置：一次性重置码。明文只在生成的这一次出现，
+// 后端只存哈希 —— 关了弹窗就再也看不到，需要重发。
+const resetCode = ref('')
+const resetCodeExp = ref('')
 const storeOpen = ref(false)
 const storeEmp = ref(null)
 const storeForm = reactive({ ids: [] })
@@ -384,6 +401,8 @@ function resetEditForm(e) {
   accRoleEdit.value = src.account_role || 'staff'
   accPwdEdit.value = ''
   showReset.value = false
+  resetCode.value = ''      // 换人 / 重开弹窗即清 —— 码只对刚生成的那个人有效
+  resetCodeExp.value = ''
 }
 
 function openCreate() {
@@ -545,6 +564,32 @@ async function resetAccPwd() {
     accPwdEdit.value = ''
   } catch (e) { toast(e.message || '重置失败', 'err') }
   finally { accBusy.value = false }
+}
+
+// Q29（2026-09-19）生成「忘记密码」一次性重置码。
+// 员工拿这个码在小程序「忘记密码」页自己设新密码 —— 管理员不清楚员工最终密码，
+// 与上面的 resetAccPwd（管理员直接指定明文）相比责任边界更清楚。
+async function issueResetCode() {
+  if (accBusy.value || !editTarget.value || !editTarget.value.account_user_id) return
+  accBusy.value = true
+  try {
+    const d = await api(`/api/users/${editTarget.value.account_user_id}/reset-code`, { method: 'POST', body: {} })
+    resetCode.value = d.code || ''
+    resetCodeExp.value = d.expires_at || ''
+    toast('重置码已生成，请线下发给本人', 'ok')
+  } catch (e) { toast(e.message || '生成重置码失败', 'err') }
+  finally { accBusy.value = false }
+}
+
+async function copyResetCode() {
+  if (!resetCode.value) return
+  try {
+    await navigator.clipboard.writeText(resetCode.value)
+    toast('已复制重置码', 'ok')
+  } catch (e) {
+    // 非 HTTPS 或未授权剪贴板时 clipboard API 会拒绝 —— 退回让用户手抄
+    toast('复制失败，请手动记录：' + resetCode.value, 'err')
+  }
 }
 
 // 启用 / 禁用已有账号
@@ -728,6 +773,11 @@ onMounted(() => {
 .df-acc-manage{display:flex;flex-direction:column;gap:12px}
 .df-acc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .df-acc-row .input, .df-acc-row select{flex:1;min-width:0}
+/* Q29（2026-09-19）忘记密码：一次性重置码的展示区 */
+.rc-tip{font-size:12px;color:var(--t3);line-height:1.5}
+.rc-box{gap:10px;background:var(--bg2);border-radius:9px;padding:8px 12px}
+.rc-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:20px;letter-spacing:3px;color:var(--teal)}
+.rc-exp{font-size:12px;color:var(--t3);margin-left:auto}
 .btn-block{width:100%}
 .warn-text{color:var(--dan);font-weight:500}
 .acc-role{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:9px;padding:0 11px;font-size:13px;background:var(--bg);color:var(--t1);appearance:none;cursor:pointer}

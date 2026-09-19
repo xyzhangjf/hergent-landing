@@ -10,6 +10,7 @@ const EVENTS = {
   REJECT: 'reject_action',
   RECALL: 'recall_action',
   PAGE_VIEW: 'page_view',
+  PASSWORD: 'password_action',
   API_ERROR: 'api_error'
 }
 
