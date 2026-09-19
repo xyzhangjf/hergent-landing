@@ -82,6 +82,13 @@
 - ⭐ `.workbuddy/tools/employee-supervisor-role-verify.js` —— 员工档案角色**真机探针**（沙箱 9997，真实 UI 建号）
 - ⭐ `.workbuddy/tools/role-v199-ui-verify.js` —— 员工档案 + 预报页**真机 UI 18 断言**（含「预报页正文
   > 200 字符」这条 —— 它正是抓出整页 `RangeError` 自递归崩溃的那条）；`role-v199-shots.js` 出真机截图
+- ⭐ `.workbuddy/tools/v200-store-scope-verify.py` —— **门店可见范围函数级 22 断言**（AST 抽真源码 +
+  内存 sqlite；并集 / `prune` 不改可见集合 / 停用即收回 / `prune(0)` 作用域 / 缺表回落 / 不越权 /
+  残留清单口径）。支持 **`ERP_DB=` 指向 scoped 暂存产物** ⇒ 验的是「要提交的那份」而不是工作区。
+- ⭐ `.workbuddy/tools/v200-store-entry-e2e.js` —— 门店入口收敛**真机 13 断言**
+  （旧按钮消失 / 提示条条数 / 新接口 200 / 0 pageerror / 0 业务 4xx-5xx）。
+- ⭐ `scoped_stage_by_marker.py` 新增 **`present` 正向断言**（`gone` 的对称面）——
+  专防「把自己的 hunk 误判成在途 ⇒ 静默少提交」。详见 `hergent-scoped-commit` **§5.10 / §5.17**。
 
 ## 门禁 / 协议 / 网关 / 外部数据
 

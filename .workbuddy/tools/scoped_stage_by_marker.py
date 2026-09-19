@@ -2149,6 +2149,52 @@ SPEC_FE_V200_STORESCOPE = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# v200 交付说明 + 判据入库（记忆）。
+#
+# ⚠️ 本轮踩到**多会话并发写同一批记忆文件**，故这里逐个文件核过归属：
+#   · `2026-09-19.md`（1344,0,110）→ **整块都是我的**（v201 会话已把自己的 46 行提交走）
+#   · `MEMORY.md`（37,1,5）→ 我的（v199 那条行的 1→5 改写）；hunk 11 属 v199-ui，且**已提交**
+#   · `cross-domain-iron-laws.md`（154,0,22）/ `skill-routing.md`（84,0,7）→ 整块都是我的
+#   · 🔴 `forecast-order-domain.md`（1960,0,336）→ **合并 hunk**：
+#       HEAD 只有 1960 行（整块 v199→v200 都未提交），其中前 259 行属「改单删列」那条序列
+#       （v199 / v199b / v199c 段 + 它的「编号」行），我的 §v200 在**后 77 行**。
+#       两者在文件里**连续**⇒ `-U0` 合成一个纯插入 hunk，`exclude_hunks` 用不了
+#       ⇒ 用 `trim_plus_head` **丢头保尾**（这正是 v201 会话为同类场景新增的能力）。
+#   · `2026-09-09.md` / `automations/*/memory.md` / `topics/backend-auth.md` 属并发会话，**不碰**。
+SPEC_FE_V200_NOTES = ("fe", [
+    {"file": "outputs/门店配置入口收敛-2026-09-19/01-交付报告.md",
+     "new_file": True,
+     "present": ["这两个入口写的根本不是同一张表", "读端取并集",
+                 "employee_stores_prune_covered"],
+     "gone": []},
+    {"file": "outputs/门店配置入口收敛-2026-09-19/01-员工档案-可报门店只读列（生产真机）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/门店配置入口收敛-2026-09-19/02-报单配置-历史门店授权提示条（生产真机）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": ".workbuddy/memory/2026-09-19.md", "keep_all": True,
+     "present": ["## v200 —— 报单人门店配置收敛为单一入口",
+                 "分 hunk 归属不能靠标记串"],
+     "gone": []},
+    {"file": ".workbuddy/memory/MEMORY.md", "keep_all": True,
+     "present": ["🔴 **报单人门店配置收敛 v200**"],
+     "gone": []},
+    # `exclude_hunks: []` = 「该文件没有在途 hunk」的显式声明（此文件只有这一个合并 hunk，
+    #   它的头 259 行不是我的 —— 靠 `trim_plus_head` 丢，不靠 exclude_hunks）。
+    {"file": ".workbuddy/memory/topics/forecast-order-domain.md",
+     "exclude_hunks": [],
+     "trim_plus_head": {1960: 259},
+     "present": ["## §v200 **已上线**：报单人门店配置收敛为单一入口"],
+     "gone": []},
+    {"file": ".workbuddy/memory/topics/cross-domain-iron-laws.md", "keep_all": True,
+     "present": ["### E. 提交 / hunk 归属判定"],
+     "gone": []},
+    {"file": ".workbuddy/memory/topics/skill-routing.md", "keep_all": True,
+     "present": ["v200-store-scope-verify.py", "`present` 正向断言"],
+     "gone": []},
+    # 本工具自身：新增上面这条 spec（`trim_plus_head` 由 v201 会话提供，非本轮流）。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -2227,7 +2273,10 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v200-storescope": SPEC_FE_V200_STORESCOPE,
          # v201：员工薪酬信息「归属与访问控制」的分析交付（本轮**零代码改动**，
          #   只有分析报告 + 三个记忆文件的纯追加）。
-         "fe-v201-payroll-audit": SPEC_FE_V201_PAYROLL_AUDIT}
+         "fe-v201-payroll-audit": SPEC_FE_V201_PAYROLL_AUDIT,
+         # v200 交付说明 + 判据入库（记忆）。⚠️ 并发会话在同一批记忆文件里有在途改动，
+         #   本 spec 逐个文件核过归属（详见 SPEC_FE_V200_NOTES 上方注释）。
+         "fe-v200-notes": SPEC_FE_V200_NOTES}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
@@ -2427,8 +2476,13 @@ def main():
             #   判据要挑**有区分度**的行，否则护栏会被空白绊倒、进而被人绕着走。
             #   非空白行的计数相等仍能抓住两类真错：「多」＝原处没删干净又插了一份；
             #   「少」＝把 HEAD 原位那份也误删了。
+            # 🔴 2026-09-19 v200 再一般化一步：**纯标点 / 纯符号行同样没有区分度** ——
+            #   `'---\n'`（Markdown 分隔线）在 HEAD、我的插入段、被 trim 的对方段里都会出现，
+            #   于是「暂存=17 HEAD=16」当场炸，而改动完全正确（我本来就新增了一条分隔线）。
+            #   ⇒ 判据统一收敛为「**该行含字母 / 数字 / 汉字才算有区分度**」。
+            #   ⚠️ 别把阈值放宽到「长度 ≥ N」——`## v200 …` 与 `---` 长度可以一样。
             for l in trimmed_lines:
-                if not l.strip():
+                if not re.search(r"[0-9A-Za-z\u4e00-\u9fff]", l):
                     continue
                 assert out.count(l) == head.count(l), \
                     "trim_plus 截掉的行计数漂移（HEAD=%d 暂存=%d）：%r" \

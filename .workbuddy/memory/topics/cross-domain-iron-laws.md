@@ -152,3 +152,25 @@
   **存原文**。判据 = **任一硬编码的客户字面值都是「只能卖给一家客户」的暗桩** → `expiry-loss-domain.md §8.5`
   （范式全文见技能 `hergent-excel-attachment-to-schema-design §十一`）。
 
+### E. 提交 / hunk 归属判定（在长期脏工作区里只提交本轮）
+
+- 🔴 **归属判定绝不能靠标记串（2026-09-19 v200 实测，差点静默少提交）**。
+  `erp_db.py` 31 个 hunk 里只有 14 个是本轮；首版按「标记串」（如 `employee_stores_prune_covered`）
+  自动分类，把**自己 3 个 hunk**（`store_map→set` / `touched.add` / **并集 SQL 正文**）判成在途 ——
+  而工具原有**四条自证全部照过**：① 黑名单项存在性 ② 并集覆盖断言 ③ `n_resid == n_def`
+  ④ 在途零夹带抽样。原因：**四条只验「没多」，不验「没少」**。
+  ⇒ 后果：提交里 docstring 写「读端取并集」而**函数体还是旧的单表查询**（文档与实现相反）。
+  **与 v199「`MAP[x] || x` 把缺配置显示成正常值」同族：判据只看一侧，缺项就隐形。**
+  **正确姿势 = 逐 hunk 读正文**（标记串只作辅助），并给工具加 **`present` 正向断言**（`gone` 的对称面）。
+  工具：`.workbuddy/tools/scoped_stage_by_marker.py`（已加 `present`）。
+- 🔴 **`gone` 要挑「只有真删掉才会消失」的文本**：写 `df-store-list` ⇒ 假失败，因为删掉 CSS 规则后
+  **留了一行说明注释、注释里点了名**。改判据为规则本体 `.df-store-list{display:grid` 才成立。
+  **断言不能选「自己的说明文案里也会出现的词」。**
+- 🔴 **`git commit` 绝不能带 pathspec**（会让索引被工作区覆盖，筛好的 hunk 全失效）——
+  一律 `git commit -F <msg>`。
+- 🔴 **查含方括号的代码一律 `grep -F`**：`grep "store_map.setdefault(s[\"employee_id\"], set())"`
+  返回 0 是**假阴性**（`[...]` 被当字符类）。同族：`grep "a\|b"` 在 zsh 下静默失效。
+- 🔴 **生产只读探针必须带 service 环境**：裸跑 `python3 xxx.py` 缺 `ERP_SECRET` ⇒
+  `employee_account_map()` 抛错 ⇒ 外层 `try` **静默吞掉** ⇒ 返回值缺字段，看着像「代码没生效」。
+  姿势：`set -a && . /opt/hergent-erp/.env && set +a && python3 …`。
+

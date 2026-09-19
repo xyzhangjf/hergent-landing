@@ -1958,3 +1958,80 @@ P1-2 b/c/d（`clampSelection` 漏 `selRange` / `delCol` 至少留一列 / 拦空
 
 - 代码：`/opt/hergent-erp/backups/code-20260919-104914/`（`data.py` / `import_router.py` / `erp_db.py`）
 - 数据：`/opt/hergent-erp/backups/tenant_1.db.before-v197-dup-retire-20260919-104742.bak`
+🔴 **编号提示（给「改单删列」那条序列）：`v200` 已被「报单配置 / 门店可见范围」这条线占用**
+（见下方 §v200）—— 那条序列的下一个号请从 **v201** 起编，别与 §v200 混为一谈。
+
+---
+
+## §v200 **已上线**：报单人门店配置收敛为单一入口 —— 读端取并集，报单配置成为真源（2026-09-19）
+
+**触发**：用户要求「移除员工档案里的门店配置入口，仅保留报单配置下的入口，并确保移除后功能仍可用」。
+
+### 一、🔴 一句话根因（**这类问题的通用判据**）
+
+**两个入口写的是两张不同的表，而读端只认其中一张。**
+
+| 入口 | 写的表 | 小程序「可见 / 可报门店」读的表 |
+|---|---|---|
+| 档案管理 → 员工档案 → 「门店」弹窗 | `employee_stores` | ← **只读这张** |
+| 预报订单管理 → **报单配置**（`/forecast` 页内嵌 `<ReportMapping />`，**不是独立路由**） | `report_mapping` | 不读（只用于汇总表落列 / 模板列头） |
+
+生产租户 1 实测**两表零交集**：`employee_stores` 只有 [张俊峰→一分利(2562)、张俊峰→一扫光(2804)、
+emp9001→永诺旗舰店(2220)]；`report_mapping` 只有 [张俊峰→永辉东津店(2868)、刘小顶→美联（保康店）(2225)、
+刘善涛→刘善涛仓] ⇒ **在报单配置里配了「永辉东津店」，小程序端看不到**。
+
+**通用判据（与 v199 客户列「删了又回来」同一条铁律）**：
+> **读端来源 ≠ 写端作用域 ⇒ 必然出现「配了不生效」或「删了又回来」。**
+> 根治 = 让**读端 = 写端**（同一张表 / 同一口径），而不是在两头各打补丁。
+
+⚠️ **所以"删掉一个入口"是个陷阱**：`employee_stores` 是可见范围的真源，删掉它唯一的写入口
+= **门店配置功能整体失效**（正是需求要求避免的）。必须同时收拢读端口径。
+
+### 二、收敛后的口径（改这块之前先读这张表）
+
+| 角色 | 载体 | 可写？ |
+|---|---|---|
+| **真源** | `report_mapping`（active，`counterparty_type IN ('store','customer')`） | ✅ 报单配置页（**唯一入口**） |
+| **历史兼容层** | `employee_stores` | ❌ 已无 UI（`employee_stores_set` 保留仅供脚本/旧接口） |
+| **读端** | `employee_stores_get()` = ① ∪ ② | — |
+| **收敛动作** | `employee_stores_prune_covered()` 清「**已被 active 映射覆盖**」的历史行 | 由 4 处写端自动触发 |
+| **残留暴露** | `report_mapping_legacy_stores()` + `GET /api/report-mappings/legacy-stores` | 前端提示条 |
+
+- `prune` **安全的前提**：删除**不改变可见集合**（映射会派生同一个 `store_id`）⇒ 幂等、零权限丢失。
+  它存在的唯一理由：否则「在报单配置里**停用**映射」之后，历史层那行仍让门店可见 = **停用无效**。
+- 写端 4 处挂钩：`report_mapping_create` / `update`（清**新旧两个**员工，`employee_id` 可被改=转交）/
+  `toggle`（**只在启用时**清）/ `import`（`touched` 集合）。
+- 对象集合与写端**同口径** `contacts.type IN ('customer','both')`。**读端口径必须显式对齐，不能默认相等。**
+- 缺 `report_mapping` 表（老租户库）⇒ 回落历史层，不让一次缺表把小程序首屏带崩。
+- `employee_list().store_ids` 也改用并集（原先直接吐 `employee_stores` 的行），与 `employee_stores_get` **同源**。
+
+### 三、🔴 两条必背（不判就出事）
+
+1. **`employee_stores_prune_covered(0)` 的语义是「清全租户」**（`employee_id=0` = 全部）。
+   ⇒ 四个调用点**全部显式判 `if emp_id:`**。不判 = 误清全租户。
+2. **`DELETE` 用 `rowid IN (子查询)`，不用 `DELETE ... AS es`** —— 后者依赖 SQLite
+   qualified-table-name 别名语法，写法较新，老版本 / 其他驱动不一定认。
+
+### 四、验收口径（**跑在提交的暂存产物上**，不是工作区）
+
+- 函数级 22 项：AST 从 `erp_db.py` 抽**真实源码** exec 进内存 sqlite 跑（`v200-store-scope-verify.py`，支持 `ERP_DB=` 指向暂存产物）。
+- 真机 E2E 13/13（`v200-store-entry-e2e.js`）。
+- 生产只读回放：**张俊峰可见门店 2 → 3 家**（「永辉东津店」终于生效）；
+  `employee_list().store_ids` 与 `employee_stores_get(7)` 逐字一致；行数未变。
+- 提交：hergent-erp **`7e502fd`** / laozhangai-product **`26924cc`**。
+  回滚：`/opt/hergent-erp/{erp_db.py,server.py}.bak-v200-20260919-123245`、
+  `/opt/hergent-cn-v2.bak-v200-20260919-123159`。
+
+### 五、🔴 运维 / 探针坑（**最容易自欺**）
+
+- **生产只读探针必须带 service 环境**：裸跑 `python3 xxx.py` 会因缺 `ERP_SECRET`
+  让 `employee_account_map()` 抛错 → `employee_list` 外层 `try` **静默吞掉** →
+  返回的行**没有 `store_ids`**，看着像「代码没生效」。
+  正确姿势：`set -a && . /opt/hergent-erp/.env && set +a && python3 …`
+  （service 定义 = `EnvironmentFile=/opt/hergent-erp/.env`、`WorkingDirectory=/opt/hergent-erp`）。
+- **`grep "store_map.setdefault(s[\"employee_id\"], set())"` 返回 0 是假阴性** ——
+  `[...]` 被当字符类。查含方括号的代码一律 **`grep -F`**。
+- **`ReportMapping.vue` 的产物在 `Forecast-*.js` 里**（`/forecast` 页内嵌组件，非独立路由），
+  **不在** `Archive-*.js`。找产物标记要全量 `grep -l`，别猜 chunk 名。
+- ⚠️ **旧描述订正**：本文件早前写的「`设置›报单配置`」**不准** ——
+  实际入口是 **预报订单管理 → 报单配置**（`/forecast` 页内 `<ReportMapping />`）。
