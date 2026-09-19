@@ -2000,6 +2000,21 @@ SPEC_BE_V199_ROLEWL = ("be", [
      "gone": ["为员工开小程序账号"]},
 ])
 
+# v199-ui 记忆入库（2026-09-19）：把本轮的判据写进 ledger。
+#
+# ⚠️ `MEMORY.md` 与 `2026-09-19.md` **同时含并发会话的追加**（同一个文件里的交错段落，
+#    不可按 hunk 拆 —— 语义上也不该拆：它们记的是同一批事实的不同侧面）。
+#    故本 spec 对这两个文件用 keep_all，并在提交信息里如实写明。
+#    其余三个 topics 文件在开工时是干净的 ⇒ 100% 本轮改动。
+SPEC_FE_V199_MEMORY = ("fe", [
+    {"file": ".workbuddy/memory/topics/backend-auth.md", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/memory/topics/cross-domain-iron-laws.md", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/memory/topics/skill-routing.md", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/memory/MEMORY.md", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/memory/2026-09-19.md", "keep_all": True, "gone": []},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -2069,7 +2084,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          # v199-ui：文案语义化（丙）+ 白名单（丁）+ 角色清单漂移收敛 + 预报页自递归修复。
          #   ⚠️ 前后端分属两个仓库 ⇒ 两条 spec **各自**提交；白名单的判据在 be、发现性在 fe。
          "fe-v199-roles": SPEC_FE_V199_ROLES,
-         "be-v199-roles": SPEC_BE_V199_ROLEWL}
+         "be-v199-roles": SPEC_BE_V199_ROLEWL,
+         # v199-ui 记忆入库（判据写进 ledger）。
+         "fe-v199-memory": SPEC_FE_V199_MEMORY}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

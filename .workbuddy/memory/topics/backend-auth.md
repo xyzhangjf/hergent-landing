@@ -93,10 +93,20 @@
 唯一入口 ＝ 档案管理 › 员工档案 › 编辑员工 ›「小程序账号」区，这是**刻意收口**（三处注释互证：
 `Settings.vue:28`「成员/账号归位员工档案」· `EmployeeArchive.vue:61/305`「已整合进编辑员工弹窗」）。
 
-🔴 但整块语义**写死为「小程序」共 7 处**（`EmployeeArchive.vue:31` 表头 / `:155` 区标题 /
-`:160` 提示 / `:305` 注释 + `routers/forecast_submissions.py:515` docstring +
-`erp_db.py:16649` docstring + `api/modules.js:338` 注释）⇒ 网页端场景**不可发现** ——
-这是 **UI 语义缺陷，不是缺功能**（角色下拉 `:306-314` 里已备好会计 / 老板 / 管理员）。
+🔴 整块语义原**写死为「小程序」共 7 处**（`EmployeeArchive.vue` 表头 / 区标题 / 提示 / 注释 +
+`routers/forecast_submissions.py:515` docstring + `erp_db.py:16649` docstring + `api/modules.js` 注释）
+⇒ 网页端场景**不可发现** —— 这是 **UI 语义缺陷，不是缺功能**。
+
+✅ **2026-09-19 已修（`09714bd` / 后端 `cb69a5d`，spec `fe-v199-roles` + `be-v199-roles`）**：
+页头 / 表头 / 弹窗区标题 / 提示语 / 停用弹窗一律改「**登录账号**」，并注明「网页端 + 小程序通用」；
+角色下拉 8 项补**适用端**标注（仅小程序 / 仅网页端 / 网页端 + 小程序）；两个后端 docstring 同步改「开登录账号」。
+
+🔴🔴 **判据（是硬约束，不是文案偏好）**：「标了小程序」的角色集 **必须 ==** 后端有 `data`/`chat`
+权限的角色集 ⇒ `admin / boss / sales / staff / supervisor`。
+标注多说一个角色，用户就会按标注去开一个「**开了也登不进去**」的账号。
+小程序走的接口前缀在 `server.py::_PATH_MODULE_MAP` 落到 `data`（`/api/forecast-submissions`、
+`/api/products`）/ `stock`（`/api/inventory`）/ `chat` ⇒ **有 data 或 chat 就能用小程序**
+（`accountant` / `guide` / `driver` **不可以**）。已进护栏 D 段断言。
 
 ### 缺口 A（P1）：`supervisor` 前后端不一致 —— ✅ **2026-09-19 已修（`2fbc9db`）**
 后端 `core.py:388` **有** supervisor `["dashboard","data"]`；`Settings.vue:512/516` **有**「主管」；
@@ -115,17 +125,45 @@
 **会真的拒绝请求**的地方找（此处 = `core.py::_DEFAULT_PERMS`，**AST** 取 key，注释里也有角色名所以不能正则）。
 
 **两条护栏（新增，以后加角色必跑）**
-- `.workbuddy/tools/role-registry-consistency-check.py` —— 四组断言（A 下拉无重/无缺/无多 ·
-  B `ROLE_NAMES` 覆盖 + 两表值集一致 + 无「中文名=英文名」空映射 · C `.df-role.r-*` 色板覆盖 ·
-  D 其它清单只告警并横向打印跨页译名）。`ROLE_REG_EMPARCHIVE=/tmp/broken.vue` 可指向副本做判别力自证。
+- `.workbuddy/tools/role-registry-consistency-check.py` —— **2026-09-19 升级为 28 条硬断言**
+  （较 v198 的 8 条 +20）：A 下拉覆盖 / 纯净 / 无重复 · B `constants/roles.js` 覆盖 + 值都是中文 +
+  无空映射 + **两个页面不得再自带角色表**（防「护栏只看一处、漂移从另一处进来」）+
+  视图令牌必须在 `EXTRA_OK` 登记 · C 色板覆盖 · D 「标了小程序」集合 == 后端有 `data`/`chat` 的集合 ·
+  E Forecast 不再自带表 + `COLUMN_PERMISSIONS`/`ENTRY_ROLES` 必须是**规范角色名** +
+  小程序 `ROLE_TEXT` 覆盖 + `roleText` **不回落原值** + 跨面译名逐字一致 · F `normalize_role` 以
+  `_DEFAULT_PERMS`/`ROLE_PERMS` 为判据（**不另抄名单**）+ 三处写入口接线。
+  **判别力自证**：5 份「各破坏一处」副本跑同一脚本**全部 FAIL**（26/28、26/28、27/28、27/28、27/28）——
+  漏报才最危险。
 - `.workbuddy/tools/employee-supervisor-role-verify.js` —— 真机探针（沙箱 9997，走真实 UI 建号）。
+- 新增 `hergent-cn-v2/src/constants/roles.js` —— 前端角色词汇的**唯一来源**
+  （8 规范角色 + 4 历史视图令牌 + `ROLE_ALIAS` + `normRole` + `roleName` + `canUseMiniProgram`）。
 
-🔴 **同根因漂移三处（同批发现，**尚未修**，已进校验脚本 D 段告警）**
+✅ **同根因漂移三处 —— 2026-09-19 全部收敛（`09714bd`）**
 - `Forecast.vue ROLE_LABELS` 键集缺 6 个角色、多 `dealer/finance/owner/promoter` 四个**后端不存在**的名字；
-  而 `bizRole` 取的就是 `store.user.role`（后端角色名）⇒ **键错配**。连带
-  `COLUMN_PERMISSIONS = { dist_price: ['owner','finance'] }` **权限失效**（老板/会计看不到该列）。
-- `Forecast.vue` 里 supervisor 译作「**督导**」（与员工档案的「主管」不一致）；`sales` 那里叫「销售」。
-- 小程序 `utils/roles.js ROLE_TEXT` 缺 `driver/guide/staff`、多 `promoter`。
+  连带 `COLUMN_PERMISSIONS = { dist_price: ['owner','finance'] }` **权限永不命中**。
+  ✅ 改为 `['admin','boss','accountant']`；`ROLE_LABELS`/`BIZ_ROLES` 删除，改用共享 `roleName()`；
+  `ENTRY_ROLES` 改 `['admin','boss','accountant','sales']` 并先 `normRole` 归一；
+  supervisor 不再叫「督导」（统一「主管」）；`bizRole` 默认值 `owner` → `boss`。
+- ✅ 小程序 `utils/roles.js ROLE_TEXT` 补齐 `driver/guide/staff`，`accountant`「财务」→「会计」、
+  `sales`「销售」→「业务员」（与网页端**逐字一致**）；`roleText` 改显式 `未知角色( x )` 不回落。
+  `APPROVER_ROLES` **保持原样** = `['admin','boss','accountant','supervisor']`（与后端
+  `submission_summary` 逐字一致），但见下方「未解矛盾」。
+
+🔴🔴 **两条必须记住的判据**
+1. **`normRole` 只做「词汇归一」（owner→boss、finance→accountant），
+   ≠ 把后端不存在的名字变成有效权限。** 视图令牌是演示期词，规范角色名是「后端会真的拒绝请求」的那套 ——
+   归一 ≠ 授权。混这两件事正是本题最容易搞错的地方。
+2. **前端列级权限目前是空转的**：全仓**没有任何地方给 `store.user.role` 赋值**（`Shell.vue` 只同步
+   `user.name`）⇒ `bizRole` 只取 `localStorage('hergent_biz_role')` 的遗留值或默认值，两者都指向「全可见」。
+   且它**只是前端展示级隐藏**（列头、导出、接口照旧）—— 真隔离必须做在后端 DataSourceAdapter 字段过滤，
+   否则只是安全幻觉。⇒ 日后真接上会**立刻生效**，届时需业务拍板各角色该看哪些列。
+   `canSeeCol` 的失败方向取「**宁可多显示**」：角色未知 ⇒ 不隐藏（静默藏掉一列而用户无处找回，比多显示更坏）。
+
+🔴 **未解矛盾（待后端拍板）**：`submission_summary`（`erp_db.py`）硬编码
+`("admin","boss","accountant","supervisor")`，但 **`accountant` 没有 `data` 权限** ⇒
+会计点「汇总总表」会在**中间件**就被 403。两处后端判据互相矛盾：要么给 `accountant` 补 `data`，
+要么从 `submission_summary` 名单里摘掉它。小程序 `APPROVER_ROLES` 与本名单逐字一致，
+改哪边都要三处同步。
 
 ### 缺口 B（P2）：「只允许登录小程序」**做不到硬隔离**
 `routers/auth.py` 登录成功后**无任何端校验**；`Login.vue:250/258` 处理完 `require_password_change`
@@ -133,10 +171,31 @@
 `_DEFAULT_PERMS["staff"]=["data","chat","stock"]` 过滤后只剩几项）。
 即「业务员只能用小程序」**在权限上成立、在门禁上不成立**；硬隔离需新增端白名单列或按角色设端约束。
 
-### 缺口 C（P3，B2B 交付时收口）：role 无白名单
-`routers/forecast_submissions.py:523`（开账号，直接透传 `d.get("role","staff")`）与
-`server.py:1000`（改角色 `UPDATE users SET role=?`）**均无白名单**，而下拉含
+### 缺口 C（P3）：role 无白名单 —— ✅ **2026-09-19 已修（后端 `cb69a5d`）**
+原状：`routers/forecast_submissions.py`（开账号，直接透传 `d.get("role","staff")`）与
+`server.py`（改角色 `UPDATE users SET role=?`）**均无白名单**，而下拉含
 `boss`（几乎全开）/ `admin`（全开）⇒ 任何 admin/boss 可一键造出新 admin/boss。
-另：`staff_account_create` 强制要求**真实员工存在**（`erp_db.py:16665`）⇒
-「给非员工（如外包财务）开账号」**暂无通道**；`platform.py:318` 能建无主账号但走
+
+✅ **修法**（判据只写一份，`core.py`）：
+```python
+def known_roles():      return set(_DEFAULT_PERMS.keys()) | set(ROLE_PERMS.keys())
+def normalize_role(role, default=None):
+    r = str(role or "").strip();  return r if r in known_roles() else default
+def role_reject_detail(role):   return "角色不合法：%s。可选角色：%s" % (role, "、".join(_DEFAULT_PERMS.keys()))
+```
+三处接线：`PUT /api/users/{uid}/role` · `POST /api/forecast-submissions/staff-accounts` ·
+`erp_db.staff_account_create` 的 **INSERT 紧邻处**（第二道闸，防日后新增调用点绕过）。
+真机 **9/9**（`role-whitelist-prod-verify.py`，临时令牌走真实 HTTP、跑完即删、users 一字未变）。
+
+两个设计取舍（都写进代码注释）：
+1. **不另抄一份角色名表** —— 再抄一份就是下一个漂移源（同日刚修完「前端四处各抄一份」）。
+2. **取 `ROLE_PERMS` 并集而不是只用 `_DEFAULT_PERMS`** —— `_check_perm` 查的是 `ROLE_PERMS`，
+   写不进权限表的角色 = **僵尸账号**（能登录、每个模块都 403）；并集也兼容租户自定义角色。
+
+🔴 **仍未解（需业务拍板）**：白名单只关掉「写进**任意**角色名」，
+**不阻止 admin/boss 给别人派 admin** —— 那是策略问题（谁能派全权限角色），不是校验问题。
+
+另：`staff_account_create` 强制要求**真实员工存在**（`erp_db.py`）⇒
+「给非员工（如外包财务）开账号」**暂无通道**；`platform.py` 能建无主账号但走
 `_platform_admin`（创始人专属），租户老板用不到。
+
