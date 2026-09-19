@@ -2360,6 +2360,54 @@ SPEC_FE_V203_CPTYPE = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# v203 交付说明 + 判据入库（记忆）。
+#
+# ⚠️ 本轮记忆文件里混着**两条并发在途线**，故逐个文件核过归属 —— 好在我的追加都落在**文件末尾**，
+#   与对方的旧 hunk 不相邻、未被 `-U0` 合并 ⇒ 可直接按 old_start 正向认领：
+#   · `2026-09-19.md`：os=1502 是 v201 会话（「保存后状态不可见」54 行）；
+#     **我的在 os=1540**（文件末尾 append §v203，53 行）
+#   · `forecast-order-domain.md`：os=1960 与 os=1962 属在途（客户列删除排查 + v201 §v201）；
+#     **我的在 os=2037**（末尾 append §v203）
+#   · `cross-domain-iron-laws.md`：本轮开工时**干净**（我的 v200「E 节」已提交）
+#     ⇒ 文件内只有我的 hunk，用 keep_all
+#   · 🔴 `MEMORY.md` **本轮不碰** —— v201 会话正在**同一行**追加编号提示
+#     （该行现写着「下次从 v202 起编」，已过期），我的改动无法与它干净拆分 ⇒
+#     整块认领＝夹带别人的在途改动。纠正信息改由上述三个文件 + 报告第 9 节传达。
+SPEC_FE_V203_NOTES = ("fe", [
+    {"file": "outputs/报单配置对象类型收敛-2026-09-19/01-交付报告.md",
+     "new_file": True, "gone": [],
+     "present": ["指向同一批对象的两个标签",
+                 "写端收敛、读端放宽",
+                 "编号撞车：v202 → v203",
+                 "该序列的下一个号请从 v204 起编",
+                 "影子库"]},
+    {"file": "outputs/报单配置对象类型收敛-2026-09-19/01-新建配置弹窗-类型只剩门店与本人仓（生产真机）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/报单配置对象类型收敛-2026-09-19/02-Excel导入说明已改（生产真机）.png",
+     "new_file": True, "binary": True, "gone": []},
+    {"file": ".workbuddy/memory/2026-09-19.md",
+     "own_hunks": [1540],
+     "present": ["## v203 —— 报单配置「对象类型」收敛为 门店 / 本人仓",
+                 "同一个坑第三次踩",
+                 "不能以\"只是注释\"为由跳过重建"],
+     "gone": []},
+    {"file": ".workbuddy/memory/topics/forecast-order-domain.md",
+     "own_hunks": [2037],
+     "present": ["## §v203 **已上线**：报单配置「对象类型」收敛为 门店 / 本人仓",
+                 "不是\"两个功能\"，而是同一批对象的两个标签",
+                 "本序列下一个号从 v204 起编"],
+     "gone": []},
+    {"file": ".workbuddy/memory/topics/cross-domain-iron-laws.md", "keep_all": True,
+     "present": ["### F. 编号起号",
+                 "禁用 `grep \"v204\\|v205\"`",
+                 "`_safe_migrate('vNNN_…')` 是「号已被用掉」最硬的证据",
+                 "绝不用 `replace_all`",
+                 "`set_tenant_context(N)`"],
+     "gone": []},
+    # 本工具自身：新增上面这条 spec。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -2446,7 +2494,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          # v203：报单配置「对象类型」收敛为 门店 / 本人仓（用户：「门店和客户是一个意思」）。
          #   ⚠️ 编号初版误编为 v202，收口时发现已被两个会话占用 ⇒ 改 v203（详见定义处注释）。
          "be-v203-cptype": SPEC_BE_V203_CPTYPE,
-         "fe-v203-cptype": SPEC_FE_V203_CPTYPE}
+         "fe-v203-cptype": SPEC_FE_V203_CPTYPE,
+         # v203 交付说明 + 判据入库（记忆）。🔴 `MEMORY.md` 本轮**不碰**（与 v201 在途同改一行）。
+         "fe-v203-notes": SPEC_FE_V203_NOTES}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
