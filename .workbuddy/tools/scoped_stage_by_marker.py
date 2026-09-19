@@ -2595,6 +2595,32 @@ SPEC_FE_V205_PERMS = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v205-INC：交付后复核抓出的**生产静默劣化**（幽灵租户库 → 调度器每 2 分钟报错）──
+# 这批全是**文档**（无代码改动）：判据进 `topics/deploy-ops.md`「幽灵租户库」一节 +
+# 当天的排障全过程进 `memory/2026-09-19.md`。
+# 归属：`2026-09-19.md` 仍是我追加在**文件末尾**（这次没人跟在我后面）⇒
+#   `git diff` 给出一个**纯插入 hunk**（`-1757,0 +2075,71`，old 侧位置 = 「我上次提交后」的文件尾）。
+#   仍用 `keep_plus_slice: (0, 71)` 而非裸 `own_hunks` —— 锚「我的段从第 0 行起、共 71 行」，
+#   之后**任何人再追加都不影响**（对方会加到 index 71 之后）。这是上一轮 §5.25 教训的直接应用。
+SPEC_FE_V205_INCIDENT = ("fe", [
+    {"file": ".workbuddy/memory/2026-09-19.md",
+     "own_hunks": [1757],
+     "keep_plus_slice": {1757: (0, 71)},
+     "present": ["## v205-INC（16:00–16:09）",
+                 "幽灵租户库",
+                 "服务以 `hergent` 运行 ⇒ 它创建的文件必然 `hergent:hergent`",
+                 "移动后不会立刻止血",
+                 "另一种结局"],
+     "gone": []},
+    {"file": ".workbuddy/memory/topics/deploy-ops.md", "keep_all": True,
+     "present": ["「幽灵租户库」：任何**以 root 打开过某个不存在的租户库**的脚本",
+                 "_tenant_ids()",
+                 "quarantine_ghost_tenants"],
+     "gone": []},
+    # 本工具自身：新增上面这条 spec。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -2690,7 +2716,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          #   ⚠️ 与同日另一会话的「保存下拉」评估**同号**（对方仅评估、未落代码）⇒ 本侧保留
          #      v205，由对方改号；本侧带语义后缀（perms）以便追责时区分。
          "be-v205-perms": SPEC_BE_V205_PERMS,
-         "fe-v205-perms": SPEC_FE_V205_PERMS}
+         "fe-v205-perms": SPEC_FE_V205_PERMS,
+         # v205-INC：交付后复核抓出的生产静默劣化（幽灵租户库）。纯文档。
+         "fe-v205-incident": SPEC_FE_V205_INCIDENT}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

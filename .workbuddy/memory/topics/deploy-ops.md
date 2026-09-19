@@ -424,3 +424,55 @@ ssh root@47.113.224.140 'grep -o "data-v-[0-9a-f]\{8\}" /opt/hergent-cn-v2/asset
 内层双引号被吞 ⇒ 空响应、`JSONDecodeError: Expecting value: line 1 column 1`，
 **看起来像"服务没起来"**（当时刚重启 4 秒，更容易误判）。
 修法：一律 `ssh root@… 'python3 -' < script.py` 送脚本文件。
+
+## 🔴🔴 「幽灵租户库」：任何**以 root 打开过某个不存在的租户库**的脚本，都会让调度器**永久报错**（2026-09-19 v205 部署当日实测，1268 条错误）
+
+**症状**（生产）：
+```
+[Scheduler] Cron tasks check error: attempt to write a readonly database      ← 每分钟 ×2
+[Scheduler] ai reminders tenant=2 error: attempt to write a readonly database
+[Scheduler] ai reminders tenant=3 error: attempt to write a readonly database
+[Tenant patch] FTS products_fts in /opt/hergent-erp/tenant_3.db: attempt to write a readonly database
+```
+**现场**：`/opt/hergent-erp/tenant_2.db`、`tenant_3.db` = **0 字节、`root:root`**、两者 ctime **同一纳秒**。
+
+**机制（三个缺陷串起来，缺一不可）**
+1. `db.connection.set_tenant_context(tid)` 有 **v88 兜底「租户库缺失就建库」** ⇒ 任何以 root 跑的脚本
+   只要碰过一次 `set_tenant_context(2)`，就落下一个 **0 字节 root 文件**（SQLite 连接后首次写才写头，
+   所以是 0 字节）。
+2. `scheduler._tenant_ids()`（`scheduler.py:956`）**扫的是文件系统**（`glob tenant_*.db` + `fullmatch`），
+   **不查 `tenants` 表、也不查 `user_tenants`** ⇒ 幽灵文件被当成真实租户 2/3。
+3. 服务以 `hergent` 运行、文件归 `root` ⇒ 每次 tick 写它都失败；而调用处是
+   `except ... print` ⇒ **不抛不中断，每 2 分钟刷一行，永久静默劣化**。
+
+**判据 / 认领（10 分钟可复现，别猜）**
+```bash
+stat -c "%n size=%s ctime=%z owner=%U:%G" /opt/hergent-erp/tenant_*.db   # 找 size=0 + root:root
+python3 -c "import sqlite3;[print(r) for r in sqlite3.connect('/opt/hergent-erp/erp.db').execute('SELECT id,name,is_active FROM tenants')]"
+python3 -c "import sqlite3;[print(r) for r in sqlite3.connect('/opt/hergent-erp/erp.db').execute('SELECT user_id,tenant_id,role FROM user_tenants')]"
+journalctl -u hergent-erp --since <日期> --no-pager | grep -ci "readonly database"    # 起止时间点
+```
+🔴 **归属判据（很硬）**：**服务以 `hergent` 跑 ⇒ 它创建的文件必然 `hergent:hergent`**。
+所以 **`root:root` 的幽灵库一定来自 root shell / root 脚本**，不可能是应用自己产生的。
+⇒ 反过来说：**部署期间任何以 root 执行的验证片段都可能留下它**（本轮就落在重启后第 53 秒、
+冒烟脚本跑起来之前的那段窗口里）。**取证能力有限时，就照实说「来自一个 root 进程、无法进一步归因」。**
+
+⚠️ **危险的不是报错本身，而是它的另一种结局**：如果那个文件恰好归 `hergent`（比如脚本是用
+`sudo -u hergent` 跑的），`set_tenant_context(2)` 会**把它补成完整 schema** ⇒ 系统从此认真对待
+一个不存在的「租户 2」（无人属于它，但简报/提醒/监控都会去跑）。**root:root 反而挡住了这一步。**
+
+**处置（可回滚，别 `rm`）**
+```bash
+mkdir -p /root/quarantine_ghost_tenants_$(date +%Y%m%d)
+mv /opt/hergent-erp/tenant_2.db /opt/hergent-erp/tenant_3.db /root/quarantine_ghost_tenants_*/
+```
+⚠️ **移动后不会立刻止血**：正在跑的进程已把 `tenant_2/3` 的连接/列表握在手里 ⇒ **还会再报 1–2 个 tick**
+（本轮 16:01 移动、16:02:39 仍报、16:04:39 起为 0）。**别据此以为没生效、更别去动 `tenants` 表。**
+⚠️ 顺带发现的**设计缺陷（未修，待拍板）**：`_tenant_ids()` 既不看 `tenants` 表、也不跳过不可写文件
+⇒ 系统的「租户集合」有**两个真相源**（磁盘文件 vs `tenants` 表）。生产里 `tenant_9.db` 就是
+「有库、不在 `tenants` 表」的活例子（它能写，所以不报错、也不报异常）。
+**建议**：`_tenant_ids()` 与 `tenants` 表取交集（或至少跳过 `os.access(f, os.W_OK)` 为假者）。
+
+🔴 **给所有「以 root 跑生产库脚本」的纪律**：跑之前先想清楚 **`ERP_DB_PATH` / `DB_DIR` 指向哪**，
+以及 **脚本会不会 `set_tenant_context` 一个不存在的 id**。验证片段宁可显式带
+`ERP_DB_PATH=/tmp/xxx`，也不要在 `/opt/hergent-erp` 里裸跑。
