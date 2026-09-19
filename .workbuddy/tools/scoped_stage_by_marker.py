@@ -2015,6 +2015,67 @@ SPEC_FE_V199_MEMORY = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# v201：员工薪酬信息「归属与访问控制」的**分析交付**（本轮不改任何代码）。
+#
+# 起因：用户问「把员工档案的『薪酬与账户』迁到算工资模块的可行性」。
+# 核实后的三条反直觉结论（都写进了 present 断言，防止报告被改坏而无人察觉）：
+#   ① **迁移不改变任何权限** —— `/api/employees`（`server.py:541`）与
+#      `/api/payroll-workflow`（:315）、`/api/payroll*`/`/api/salary-*`（:371-375、:598-600）
+#      **全部映射到同一个 `hr` 模块** ⇒ 换页面 = 换位置不换门。
+#   ② 真缺口是**权限粒度只有「模块 × 动作」，没有字段级**（`core.py:450 _check_perm`）
+#      ⇒ `GET /api/employees` 用 `SELECT *`（`erp_db.py:6247`）把 id_card/bank_account
+#      一次性全给；敏感度天差地别的字段绑在同一行、同一接口、同一权限里。
+#   ③ `_DEFAULT_PERMS` 里有 `hr` 的**只有 boss** ⇒ **会计两边都进不去**；
+#      而「让会计算工资」正是迁移唯一能解决的真问题（解法＝新建 payroll 模块，
+#      绝不可给 accountant 加 hr）。
+#
+# 🟢 时机（决定性）：生产 `hr_employees` 11 名员工，敏感字段**全部 0 行**、
+#    `salary_details` **0 行** ⇒ 薪酬能力尚未投产，**现在是零数据风险窗口**。
+#
+# 产出只有一份分析报告 + 三个记忆文件的**纯追加**；故用 `keep_all` + `present` 正向锁死。
+# ⚠️ 这四个文件里没有并发会话的在途改动（提交前逐文件核过 hunk 数均为 1）。
+SPEC_FE_V201_PAYROLL_AUDIT = ("fe", [
+    {"file": "outputs/员工薪酬信息归属与访问控制分析-2026-09-19/01-分析报告.md",
+     "new_file": True, "gone": [],
+     "present": ["迁移位置**不会改变任何人的访问权限**",
+                 "把字段从 A 页搬到 B 页，门没换、钥匙没换",
+                 "会计现在**两边都进不去**",
+                 "整块能力尚未投产，现在是零数据风险窗口",
+                 "L3 必须与 L2 分开"]},
+    {"file": ".workbuddy/memory/2026-09-19.md",
+     # 🔴 该文件是**共享追加日志**：并发会话的 v200「报单人门店配置收敛」段（新增行 1..111）
+     #    与我的段（112..157）在文件末尾**连续追加**，`-U0` 合并成**一个纯插入 hunk**
+     #    ⇒ 既不能 keep_all（会替对方提交），也不能 exclude_hunks（会把自己的段一起丢）。
+     #    我的段在尾部 ⇒ 用 trim_plus_head 丢头 110 行、保尾 46 行。
+     #    ⚠️ 边界数字怎么来的：工作区该标题行在 1455、HEAD 共 1344 行 ⇒ 它是我新增的第 111 行
+     #    ⇒ 丢弃前 110 行。（**别用 `git diff | grep '^+' | grep -n` 数**：那会把 diff 的
+     #    `+++ b/...` 头行算成第 1 行，序号整体 +1，照着填就会把自己的标题行也切掉 —— 实测踩过。）
+     #    残留 1 个 hunk（对方的段）＝ 在途，留给它的作者提交。
+     #    归属与切分是**两件事**：`own_hunks` 认领整个 hunk（本文件只有这一个），
+     #    `trim_plus_head` 再从 `+` 侧切掉对方那 111 行。
+     "own_hunks": [1344],
+     "trim_plus_head": {1344: 110},
+     "present": ["## 员工薪酬信息归属与访问控制（分析，未改代码）",
+                 "迁移不改变任何权限",
+                 "整块薪酬能力尚未投产，现在是零数据风险窗口",
+                 "隔离单位是「字段组」不是「页面」"],
+     "gone": []},
+    {"file": ".workbuddy/memory/topics/backend-auth.md",
+     "keep_all": True, "gone": [],
+     "present": ["权限粒度实况：只有「模块 × 动作」，**没有字段级**",
+                 "判据二：员工档案与算工资**是同一道门**",
+                 "判据三：前端**不是**边界"]},
+    {"file": ".workbuddy/memory/MEMORY.md",
+     # 🔴 该文件同样混着并发会话的 v200 记忆（旧起 33 附近插了 4 行「报单人门店配置收敛」）。
+     #    首版我用 `keep_all` ⇒ 工具照报「在途 0」并把它当成本轮 hunk（**keep_all 不分辨归属**）
+     #    ⇒ 差点替对方提交。`keep_all` 的语义是「已核实该文件只有我的改动」这个**断言**。
+     "exclude_hunks": [33],
+     "present": ["权限与位置正交，隔离单位是「字段组」不是「页面」"],
+     "gone": []},
+    # 本工具自身（新增上面这组 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 # v200：报单人门店配置入口收敛（移除「员工档案 → 门店」，仅保留「报单配置」）。
 #
 # 判据：两个入口写**两张互不感知的表**（员工档案写 `employee_stores`；报单配置写
@@ -2163,7 +2224,10 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          # v200：报单人门店配置入口收敛（移除员工档案入口，仅留报单配置）。
          #   前后端分属两仓库 ⇒ 各自规格、各自提交。
          "be-v200-storescope": SPEC_BE_V200_STORESCOPE,
-         "fe-v200-storescope": SPEC_FE_V200_STORESCOPE}
+         "fe-v200-storescope": SPEC_FE_V200_STORESCOPE,
+         # v201：员工薪酬信息「归属与访问控制」的分析交付（本轮**零代码改动**，
+         #   只有分析报告 + 三个记忆文件的纯追加）。
+         "fe-v201-payroll-audit": SPEC_FE_V201_PAYROLL_AUDIT}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
@@ -2204,6 +2268,18 @@ def resolve_ownership(spec, hunks):
     got = sorted(h["os"] for h in hunks)
     if spec.get("keep_all"):
         mine, deferred = got, []
+    elif "own_hunks" in spec:
+        # 显式认领名单（`exclude_hunks` 的对称面）。用于「该 hunk 属于我，但我只落它 `+` 侧
+        # 的一部分」—— 即配合 `trim_plus_head` / `trim_plus` 使用。
+        # 🔴 这里**不能**用 `keep_all` 代替：keep_all 带一条「暂存版 == 工作区」的断言，
+        #    与任何 trim 天然矛盾（v201 实测直接炸在 `keep_all 但构造结果 != 工作区`）。
+        #    keep_all 的语义是「整个文件都是我的」，而本场景是「整个 hunk 是我的、
+        #    但其中一段是别人先追加的」—— 两件事，必须分开表达。
+        mine = sorted(set(int(x) for x in spec["own_hunks"]))
+        missing = [m for m in mine if m not in got]
+        assert not missing, \
+            "%s：own_hunks 里有不存在的 hunk %s（基线漂移？）" % (spec["file"], missing)
+        deferred = [g for g in got if g not in set(mine)]
     elif "exclude_hunks" in spec:
         deferred = sorted(set(spec["exclude_hunks"]))
         missing = [d for d in deferred if d not in got]
@@ -2302,6 +2378,20 @@ def main():
             trim_plus = {int(k): int(v) for k, v in spec.get("trim_plus", {}).items()}
             assert set(trim_plus) <= set(mine), \
                 "trim_plus 必须落在本轮 hunk 里：%s" % sorted(set(trim_plus) - set(mine))
+            # trim_plus_head：只落 `+` 侧**后 (len-n) 行**，丢掉**前** n 行 —— `trim_plus` 的对称面。
+            #   场景（v201 实测）：**共享文件**（`memory/2026-09-19.md` 这类）被两个会话在文件
+            #   同一处连续追加，`git diff -U0` 把两段**合并成一个纯插入 hunk** ⇒
+            #   无法用 `exclude_hunks` 排除（那会连自己的段一起丢）。本轮我的段在**尾部**、
+            #   对方 v200 的段在前 111 行 ⇒ 丢头保尾。
+            #   🔴 判据：`keep_all` 是「该文件只有我的改动」的**断言**，不是省事写法 ——
+            #   本轮首版对 MEMORY.md 用了 keep_all，工具照报「在途 0」并把他人的 v200 记忆
+            #   当成本轮 hunk（keep_all 不分辨归属）⇒ 差点替对方提交。
+            trim_head = {int(k): int(v) for k, v in spec.get("trim_plus_head", {}).items()}
+            assert set(trim_head) <= set(mine), \
+                "trim_plus_head 必须落在本轮 hunk 里：%s" % sorted(set(trim_head) - set(mine))
+            assert not (set(trim_head) & set(trim_plus)), \
+                "同一 hunk 不能同时 trim_plus 与 trim_plus_head：%s" \
+                % sorted(set(trim_head) & set(trim_plus))
             lines = head.splitlines(keepends=True)
             trimmed_lines = []
             for h in sorted([x for x in hunks if x["os"] in mine], key=lambda x: -x["os"]):
@@ -2312,6 +2402,11 @@ def main():
                     assert 1 <= n < len(plus), ("trim_plus 越界", os_, n, len(plus))
                     trimmed_lines += plus[len(plus) - n:]
                     plus = plus[:len(plus) - n]
+                if os_ in trim_head:
+                    n = trim_head[os_]
+                    assert 1 <= n < len(plus), ("trim_plus_head 越界", os_, n, len(plus))
+                    trimmed_lines += plus[:n]
+                    plus = plus[n:]
                 if oc == 0:
                     assert h["minus"] == [], "纯插入 hunk 不该有 - 行"
                     assert 1 <= os_ <= len(lines), ("插入点越界", os_)
@@ -2326,7 +2421,15 @@ def main():
             out = "".join(lines)
             # 🔴 被 trim 掉的每一行，在暂存版里必须与 HEAD **计数相等**（不许多、不许少）：
             #   多 = 重复（原处没删干净，还多插了一份）；少 = 把 HEAD 原位那份也误删了。
+            # 🔴 只对**非空白行**逐行计数 —— 空行在 HEAD 里遍地都是，对它做「计数相等」
+            #   这个判据必然假失败（v201 实测：trim_plus_head 切掉对方段落头部时含 2 个空行，
+            #   `HEAD=1344 vs 暂存=1389`，守卫当场炸，而改动完全正确）。
+            #   判据要挑**有区分度**的行，否则护栏会被空白绊倒、进而被人绕着走。
+            #   非空白行的计数相等仍能抓住两类真错：「多」＝原处没删干净又插了一份；
+            #   「少」＝把 HEAD 原位那份也误删了。
             for l in trimmed_lines:
+                if not l.strip():
+                    continue
                 assert out.count(l) == head.count(l), \
                     "trim_plus 截掉的行计数漂移（HEAD=%d 暂存=%d）：%r" \
                     % (head.count(l), out.count(l), l[:60])
@@ -2343,7 +2446,7 @@ def main():
         # 混合 hunk 只落一半时，被丢弃的 `+` 侧（split_minus_only 整侧 / trim_plus 尾部）
         # 会在残留里**单独成一块** → 每处期望值 +1
         n_def = (len(deferred) + len(spec.get("split_minus_only", []))
-                 + len(spec.get("trim_plus", {})))
+                 + len(spec.get("trim_plus", {})) + len(spec.get("trim_plus_head", {})))
         resid = subprocess.run(["git", "-C", REPO, "diff", "-U0", "--no-index",
                                 "--", outp, os.path.join(REPO, path)],
                                capture_output=True, text=True).stdout

@@ -199,3 +199,61 @@ def role_reject_detail(role):   return "角色不合法：%s。可选角色：%s
 「给非员工（如外包财务）开账号」**暂无通道**；`platform.py` 能建无主账号但走
 `_platform_admin`（创始人专属），租户老板用不到。
 
+
+## 权限粒度实况：只有「模块 × 动作」，**没有字段级**（2026-09-19 核实）
+
+`core.py:450 _check_perm(user, module, action)` 的判据 = **一个模块名 + 一个动作**
+（read/create/update/delete）。**不存在**「能读姓名但不读银行账号」的表达力。
+中间件按 `路径前缀 → 模块` 推导模块（`server.py:311 _PATH_MODULE_MAP`，**前缀匹配、首个命中者优先**），
+动作按 HTTP method 映射（GET=read/POST=create/PUT=update/DELETE=delete）。
+
+**触发词：字段级权限 · 敏感字段 · 脱敏 · SELECT \* · 薪酬/工资 · 银行账号 · id_card · 员工档案权限**
+
+### 🔴 判据一：`hr` 模块只给了 `boss`（+ `admin` 通配）
+
+`_DEFAULT_PERMS`（`core.py:375`）里有 `hr` 的角色**只有 `boss`**：
+`accountant` = dashboard/accounts/reports/marketing（**无 hr**）｜`supervisor` = dashboard/data（无）｜
+`sales`/`guide`/`driver`/`staff` 均无。
+⇒ **会计算不了工资、看不了社保** —— 业务上通常由会计承担的工作，现在只有老板能点。
+
+### 🔴 判据二：员工档案与算工资**是同一道门**
+
+以下前缀**全部映射到 `hr`** ⇒ 把字段从一个页面搬到另一个页面，**权限不发生变化**：
+
+| 前缀 | 位置 |
+|---|---|
+| `/api/employees` | `server.py:541` |
+| `/api/payroll-workflow` · `/api/attendance` · `/api/leave` · `/api/salaries` · `/api/webhooks` | `server.py:315/329/336` |
+| `/api/payroll` · `/api/salary-batch-calculate` · `/api/salary-save` · `/api/salary-summary` · `/api/social-insurance-config` | `server.py:371-375` |
+| `/api/salary-details` · `/api/salary-slip` · `/api/salary-bank-file` | `server.py:598-600` |
+
+🔴 **推论：权限与位置正交 —— 隔离单位是「字段组」，不是「页面」。「迁移」唯一有价值的形态，
+是把薪酬前缀从 `hr` 拆成一个更窄的新模块（如 `payroll`），从而能安全地单独授权给会计。**
+⚠️ **绝不可给 `accountant` 加 `hr`** —— 会连带拿到身份证 + 银行账号 + 改角色能力。
+
+### 🔴 判据三：前端**不是**边界
+
+`router/index.js` 的路由 `meta` **只有 `title`，无权限字段**；`components/Shell.vue:41-57` 侧栏菜单
+**硬编码**，所有角色看到同样入口。⇒ **菜单/区块的隐藏只是 UX，零安全效果**。
+有效判定链只有一条：**中间件（前缀→模块→动作）→ 业务函数**。
+
+### 🔴 判据四：`GET /api/employees` 用 `SELECT *`，敏感字段全量明文返回
+
+`erp_db.py:6247` → `SELECT * FROM hr_employees`，含 `id_card` / `bank_name` / `bank_account` /
+`social_insurance_base` / `housing_fund_base` / `salary_structure`。**要么全有，要么全无。**
+
+配套三条缺口（截至 2026-09-19 **均未修**）：
+1. **明文落库** —— 而 `crypto_utils`（AES-256-GCM）**现成**、`SENSITIVE_FIELDS` **已含 `bank_account`**、
+   已用于客户档案（`db/queries/contacts.py:3`）⇒ **同一套能力没接在员工档案上**。
+2. **无留痕** —— `routers/_field_log.py` 覆盖商品/客户/订单/达成/返利/货损，**未覆盖 `hr_employees`**。
+   接留痕时抄 `contacts.py:105`：用加密前明文比较、但**排除 `SENSITIVE_FIELDS`** 防日志泄密。
+3. **出口无约束** —— `export_salary_bank_file`（`erp_db.py:6742`）明文拼 `账号|姓名|金额|CNY`；
+   `/api/salary-slip/{eid}/{month}` 可按**任意员工 + 月份**枚举，**无「只能看自己」检查**。
+
+🟢 **时机**：生产 `hr_employees` 共 **11 名**员工（tenant_1 七名 + tenant_10 四名），
+敏感字段**全部 0 行**、`salary_details` **0 行**、`social_insurance_config` **0 行**
+⇒ **整块薪酬能力尚未投产，当前是零数据风险窗口**。改造（拆表/加密/改权限）**无需迁移存量**。
+
+📄 完整分析（含三方案对比、三层信息域设计、拍板清单）：
+`outputs/员工薪酬信息归属与访问控制分析-2026-09-19/01-分析报告.md`
+

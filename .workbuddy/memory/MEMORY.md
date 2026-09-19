@@ -8,7 +8,11 @@
 - **后端**（路由 / 数据 / DB / 权限 / 登录账号）→ `topics/backend-invariants.md` + `topics/backend-auth.md`
   （🔴 **角色 / 权限清单缺条目 ⇒ 静默失败**：`MAP[x] || x` 形状会把「缺配置」显示成「正常英文值」；
   权威源 ＝ `core.py::_DEFAULT_PERMS`（**AST** 取 key），护栏 `.workbuddy/tools/role-registry-consistency-check.py`（**28 条**）。
-  触发词：角色下拉 · 主管/supervisor · 开账号 · 改角色 · 列权限 COLUMN_PERMISSIONS）
+  触发词：角色下拉 · 主管/supervisor · 开账号 · 改角色 · 列权限 COLUMN_PERMISSIONS
+  🔴 **权限粒度只有「模块 × 动作」，无字段级** + **前端不是边界**（菜单硬编码、meta 只有 title）：
+  `hr` 只给了 boss ⇒ **会计算不了工资**；员工档案与算工资**同一道门**（都映射 `hr`）⇒
+  **权限与位置正交，隔离单位是「字段组」不是「页面」**。触发词：薪酬/工资 · 银行账号 · id_card ·
+  敏感字段 · 脱敏 · 字段级权限 · 员工档案权限（全文见该文件末节））
   ✅ **v199-ui 已修（fe `09714bd` / be `cb69a5d`，spec `fe-v199-roles`+`be-v199-roles`）**：
   「小程序账号」文案→「**登录账号**」+ 角色下拉补**适用端**标注 · 开账号/改角色接
   `core.normalize_role` 白名单（`known_roles() = _DEFAULT_PERMS ∪ ROLE_PERMS`，判据只写一份）·
