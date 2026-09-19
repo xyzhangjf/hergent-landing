@@ -305,6 +305,12 @@ const editForm = reactive({
 /* ---- 小程序账号（整合进"编辑员工"弹窗）与门店 ---- */
 const ROLE_OPTIONS = [
   { value: 'staff', label: '小程序员工（仅报单 / AI 对话 / 库存）' },
+  // 2026-09-19 补：后端 core._DEFAULT_PERMS 共 8 个角色，此处此前只列了 7 个 —— 漏掉 supervisor（主管）。
+  // 两个后果都不轻：① **开不出新的主管账号**（下拉里没有这个角色，只能手改库）；
+  // ② 已是主管的账号（如生产 mptestsp）在「账号」列因 ROLE_NAMES 也缺条目而**显示裸英文 supervisor**。
+  // 🔴 权威源是后端 `_DEFAULT_PERMS`，不是本文件这份清单：后端加角色时这里必须同步，
+  //    回归护栏见 `.workbuddy/tools/role-registry-consistency-check.py`。
+  { value: 'supervisor', label: '主管（汇总总表 + 数据）' },
   { value: 'sales', label: '业务员（销售 + 采购 + 客户 + 数据）' },
   { value: 'guide', label: '导购（销售 + 采购 + 客户）' },
   { value: 'driver', label: '司机（仅库存看板）' },
@@ -518,7 +524,9 @@ async function confirmTransfer() {
 }
 
 /* ---- 小程序账号 / 门店 ---- */
-const ROLE_NAMES = { admin: '管理员', boss: '老板', accountant: '会计', sales: '业务员', guide: '导购', driver: '司机', staff: '员工' }
+// 角色短名。**键集必须覆盖后端 `_DEFAULT_PERMS` 的全部角色** —— 缺条目不会报错，
+// 只会静默显示裸英文（`roleName` 的 fallback 就是 `r` 本身），主管此前正是这么露出来的。
+const ROLE_NAMES = { admin: '管理员', boss: '老板', accountant: '会计', sales: '业务员', guide: '导购', driver: '司机', staff: '员工', supervisor: '主管' }
 function roleName(r) { return ROLE_NAMES[r] || r || '员工' }
 
 // 在"编辑员工"弹窗内开通账号（仅当该员工尚无账号时显示）
@@ -732,6 +740,10 @@ onMounted(() => {
 .df-role.r-guide{background:rgba(168,85,247,.14);color:#a855f7}
 .df-role.r-driver{background:rgba(245,158,11,.14);color:#f59e0b}
 .df-role.r-staff{background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--teal,#0ea5a4)}
+/* 2026-09-19 补：此前 8 个角色只定义了 7 个色板，r-supervisor 落到基础 .df-role（teal），
+   与 r-staff 撞色 —— 主管和其他角色混在一起看不出来。用 indigo 与既有的
+   red/orange/blue/emerald/purple/amber 都拉开距离。 */
+.df-role.r-supervisor{background:rgba(99,102,241,.14);color:#6366f1}
 .df-role.stopped{background:#e5e7eb !important;color:#9aa0a6 !important}
 .df-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:980}
 .df-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(420px,92vw);max-height:88vh;display:flex;flex-direction:column;background:var(--bg);border-radius:16px;z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.18)}

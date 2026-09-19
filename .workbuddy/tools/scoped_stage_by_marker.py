@@ -1868,6 +1868,44 @@ SPEC_FE_V197_RECON_RETIRE = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ══ v198（2026-09-19）员工档案补「主管」(supervisor) 角色 —— 纯前端 ══
+# 病因 = **前后端角色清单漂移**：后端 `core._DEFAULT_PERMS` 有 8 个角色（v110 起含 supervisor），
+#   而 `EmployeeArchive.vue` 的角色下拉（ROLE_OPTIONS）与中文名映射（ROLE_NAMES）**各只列了 7 个**
+#   ⇒ ① 开不出新的主管账号（下拉里没有该角色）② 已是主管的账号在「账号」列显示裸英文 `supervisor`
+#   （`roleName(r) { return ROLE_NAMES[r] || r }` —— 缺条目不报错，只是把英文原样吐出来，**静默失败**）。
+# 后端**一行未改**：`staff_account_create` 与 `PUT /api/users/{uid}/role` 都不做角色白名单，
+#   所以这是纯前端「发现性」缺陷 —— 能力在，界面上够不着。
+# 归属依据（old_start **现取** `git diff -U0`，不照抄上一轮编号；HEAD 一变编号就整体位移）：
+#   EmployeeArchive.vue 共 5 hunk：
+#     307  本轮：ROLE_OPTIONS 补 `supervisor` 选项
+#     521  本轮：ROLE_NAMES 补 `supervisor: '主管'`
+#     740  本轮：`.df-role.r-supervisor` 色板（缺它则退回基础 teal，与 r-staff 撞色）
+#     3    在途：`page-hd` → `page-hd split`（并发的「页头样式上提到全局」模板侧）
+#     694  在途：删本地 `.page-hd/.page-hd h2/.page-sub` 三行 CSS（全局层已有）
+#   🔴 3 与 694 **必须一起排**：只排 3 ⇒ 模板用 `page-hd split` 而本地 CSS 还在、全局层没落地；
+#     只排 694 ⇒ 本地 CSS 被删而模板没改。两半对称才不留半成品。
+SPEC_FE_V198_SUPERVISOR = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/EmployeeArchive.vue",
+     "exclude_hunks": [3, 694], "gone": []},
+    # 回归护栏：以**后端 `_DEFAULT_PERMS`** 为唯一权威源，核对四组（下拉值集 / 中文名键集 /
+    #   CSS 色板 / 其它清单告警 + 跨页译名对照）。判别力自证：三份「各破坏一处」的副本分别
+    #   6/8、6/8、7/8，好代码 8/8（rc=0 vs rc=1）。
+    {"file": ".workbuddy/tools/role-registry-consistency-check.py", "new_file": True, "gone": []},
+    # 真机探针：隔离沙箱 9997（克隆 tenant_1，7 名员工）走**真实 UI** 建 supervisor 账号，
+    #   24/24 全绿（含「下拉含 supervisor」「徽标为中文主管」「背景 rgba(99,102,241,.14)」）。
+    #   ⚠️ 它会写**主库 users**（staff_account_create 走 _master_db），跑完按 username 精确删。
+    {"file": ".workbuddy/tools/employee-supervisor-role-verify.js", "new_file": True, "gone": []},
+    # 上一轮（甲档）的核查报告：本轮补第六节「乙档实施结果」，并把遗留里的乙标记为已实施。
+    #   两个 hunk（191 改写遗留一行 / 198 追加第六节）都是本轮 ⇒ keep_all。
+    {"file": "outputs/员工账号开通能力核查-2026-09-19/01-诊断报告.md",
+     "keep_all": True, "gone": []},
+    # 真机截图（PNG 必须标 binary，否则 utf-8 解码会炸掉整个 spec）
+    {"file": "outputs/员工账号开通能力核查-2026-09-19/03-修复后-主管角色可创建且徽标为中文（生产真机沙箱）.png",
+     "new_file": True, "binary": True, "gone": []},
+    # 本工具自身（新增上面这组 spec）
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -1931,7 +1969,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          # v197：撤下三步对账向导 + 催收跟进独立成页。
          #   ⚠️ 整文件删除的 Reconciliation.vue 不在本 spec 内（工具不支持 deleted），
          #      提交前须先 `git rm hergent-cn-v2/src/pages/Reconciliation.vue` 暂存它。
-         "fe-v197-recon-retire": SPEC_FE_V197_RECON_RETIRE}
+         "fe-v197-recon-retire": SPEC_FE_V197_RECON_RETIRE,
+         # v198：员工档案补「主管」(supervisor) —— 纯前端发现性缺陷 + 角色清单回归护栏。
+         "fe-v198-supervisor": SPEC_FE_V198_SUPERVISOR}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
