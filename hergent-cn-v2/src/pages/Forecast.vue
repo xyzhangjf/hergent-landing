@@ -926,7 +926,27 @@
                 <td class="td seq-cell" :class="{ 'row-bad': errRowSet.has(ri) }" :data-r="ri"><span class="seq-num">{{ ri + 1 }}</span></td>
                 <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" :data-r="ri" :data-c="ci" :title="cellIssue(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
                   <template v-if="c.key === 'name'">
-                    <input v-model="r.name" class="cell-input cell-name" placeholder="商品名称" :style="namePadStyle(r)" :title="r.name || ''" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)">
+                    <!-- v215：商品名候选**自建面板**（替掉原生 datalist）。
+                         🔴 为什么必须自建：datalist 的过滤由浏览器定（Safari 只认前缀）、
+                            只按 value 匹配 ⇒ 条码后四位 / 拼音首字母**无从表达**。
+                         ⚠️ `@input` 里开面板（datalist 时代没有这一格的输入事件）；
+                            `@keydown` 上下选 / 回车选中 / Esc 关闭；`@blur` 关闭。 -->
+                    <input v-model="r.name" class="cell-input cell-name" :placeholder="namePh" :style="namePadStyle(r)" :title="r.name || ''" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @input="onNameInput(r, ri, ci, $event)" @keydown="nameSugKey" @blur="nameSugClose" @change="onCellChange">
+                    <!-- v211（P1-1）：商品名称**补全候选** —— 数据源是 /api/products/grid 下发的**全量商品主档**
+                         （约 428 条），不是本期那 158 行。
+                         🔴 为什么这一格最值得补：保存时 `prodPayloadOf` 会把 name 一起回写**商品档案**
+                            （走 productsApi.bulkUpsert）⇒ 名字打歪一次就等于**给档案里添一条错商品**，
+                            比「打错字」严重得多（下游的对账/返利/统计都会带上它）。
+                         原实现这一格**既无候选、也没有 @change** —— 后者是个静默缺陷：
+                            商品名改动不进撤销栈（`_pendingCell` 只在 onCellChange 里消费），
+                            改了之后 Ctrl+Z / 「回退」都还原不了，也不点亮状态条。
+                         ⚠️ 照 1026 行同款「**仅首行渲染一份**」：每行都渲染会得到重复 id + 428×行数 个
+                            option 节点（实测同类做法会让点击展开时标签页卡死）。
+                         ⚠️ 非编辑态不渲染（查看态没有输入框，白挂 428 个节点）。
+                         ⚠️ option 的 `label` 在 Chrome 里是**下拉里显示的辅助文字**、`value` 才是填入值
+                            ⇒ label 放「名称 · 规格」，用户在下拉里看到规格便于区分同名的不同规格。 -->
+                    <!-- datalist 已由下面的**自建面板**取代（v215）。刻意**不保留空壳 datalist** ——
+                         留着会被别处的 `list=` 意外命中（v212 数量格那条注释里的同款教训）。 -->
                     <div class="name-badges">
                       <span v-if="rowWarn(r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
                       <span v-else-if="rowWarn(r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）"><Icon name="alert-triangle"/></span>
@@ -2041,6 +2061,25 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- v215：商品名候选面板（替掉原生 datalist）。
+         🔴 必须用 Teleport 到 body：表格在 `overflow` 容器里、还有 sticky 表头与冻结列，
+            浮层留在 `<td>` 内会被裁掉或压住 —— 本项目反复踩过的层级/裁剪问题。
+         🔴 候选项绑 `@mousedown.prevent` 而非 `@click`：click 之前先触发 input 的 blur，
+            面板已经关了 ⇒ 点上去毫无反应（死按钮形态）。 -->
+    <Teleport to="body">
+      <div v-if="nameSug.open" class="name-sug-pop"
+           :style="{ top: nameSug.top + 'px', left: nameSug.left + 'px', width: nameSug.w + 'px' }">
+        <div v-for="(o, i) in nameSug.list" :key="o.v + '@' + i" class="ns-item"
+             :class="{ on: i === nameSug.idx }"
+             @mousedown.prevent="nameSugPick(o)"
+             @mouseenter="nameSug.idx = i">
+          <span class="ns-name">{{ o.v }}</span>
+          <span v-if="o.l" class="ns-spec">{{ o.l.slice(o.v.length + 3) }}</span>
+          <span v-if="o.c" class="ns-code" :title="'条码 ' + o.c">尾号 {{ o.c.slice(-4) }}</span>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -2059,6 +2098,7 @@ import ReportMapping from './ReportMapping.vue'
 /* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText } from '../utils/arrival.js'
+import { pyInitials, PY_OK } from '../utils/pinyin.js'
 // 角色词汇（规范角色名 + 历史视图令牌归一）—— 前端唯一来源，见文件顶部说明
 import { normRole, roleName, isCanonicalRole, ROLE_VIEW_TOKEN_NAMES } from '../constants/roles'
 /* v186：「规则在这个月适不适用」只有一处实现 —— useMonthlyAchv.ruleCoversMonth
@@ -2104,6 +2144,113 @@ const cross = ref({ period: null, units: [], rows: [], colTotals: [], grand: { s
 // B1 修复 (2026-07-24)：默认只读模式——进入页面先看汇总表，需编辑再点「编辑」
 // （原默认 true 直接进入编辑网格，改数量/粘贴/删除等编辑能力对非录入员暴露过早）
 const editMode = ref(false)
+/* v211（P1-1）：商品名称**补全候选**（数据源 = 全量商品主档，赋值点在 loadCross 两处）。
+   v215：**替掉原生 datalist**，改自建候选面板 —— 因为 datalist 的过滤逻辑由浏览器决定，
+      各家不一致、也**无法**支持「条码后四位 / 拼音首字母」这两种检索（它只按 value 匹配）。
+   🔴 为什么做成「全局一份」而不是「每行一份」：主档约 428 条，按行算就是 428 × 158 ≈ 6.8 万个
+      节点 —— 候选与「哪一行」无关，它回答的是「这个名字在档案里应该怎么写」，那是**全局**问题。
+   字段：v=名称（填入值）· l=下拉里显示的辅助文字（名称 · 规格）· c=条码 · y=拼音首字母串。
+   ⚠️ 拼音串在 `buildNameOptions` 里**一次性算好**（`attachPy`），不在输入时逐字算 ——
+      428 条 × 每次按键，光标会卡。 */
+const masterNameOptions = ref([])
+function buildNameOptions(list) {
+  const out = (list || []).map((p) => {
+    const name = String(p.name || '')
+    const spec = String(p.spec || '').trim()
+    return {
+      id: String(p.id == null ? '' : p.id),
+      v: name,
+      l: spec ? name + ' · ' + spec : '',
+      c: String(p.barcode || ''),
+      y: pyInitials(name),
+    }
+  }).filter((o) => o.v)
+  return out
+}
+/* pid → 拼音首字母串。给**网格搜索框**用（`rowMatchText`），保证与候选面板同口径。
+   ⚠️ 做成 computed 而不是第二份数组：拼音只该有一个来源，重复构建迟早会漂移。 */
+const pyMap = computed(() => {
+  const m = {}
+  for (const o of masterNameOptions.value) if (o.id && o.y) m[o.id] = o.y
+  return m
+})
+
+/* ---- v215：商品名候选面板 ----
+   🔴 原生 datalist 的三个硬伤（这就是要自建的理由）：
+      ① 过滤逻辑由浏览器定：Chrome 是「子串 + 模糊」，Safari 早期只认**前缀** ⇒ 同一份数据两种体验；
+      ② 只按 `value` 匹配 ⇒ **条码后四位 / 拼音首字母**根本无从表达；
+      ③ 无法控制外观与键盘行为（上下键选中项的值在多数浏览器里**读不到**）。
+   ⚠️ 定位用 `position:fixed` + Teleport 到 body：表格里有 `overflow` 容器和 sticky 表头，
+      浮层留在 `<td>` 里会被**裁掉**（这是本项目反复踩过的层级/裁剪问题，见 zindex 诊断技能）。
+   ⚠️ 候选项用 `@mousedown.prevent` 而不是 `@click`：click 之前会先触发 input 的 blur，
+      面板已关闭 ⇒ 点了没反应（经典的「死按钮」形态）。 */
+const nameSug = ref({ open: false, ri: -1, ci: -1, idx: 0, list: [], top: 0, left: 0, w: 0 })
+function nameSugList(q) {
+  const f = String(q || '').trim().toLowerCase()
+  if (!f) return []
+  const pool = masterNameOptions.value
+  const hit = []
+  for (const o of pool) {
+    if (matchMasterOne(o, f)) hit.push(o)
+    if (hit.length >= 40) break      // 面板最多 40 条 —— 再多既看不过来也拖慢渲染
+  }
+  return hit
+}
+/* 单个候选的匹配口径。**必须与 `rowMatchText` 同源**（名称 / 厂家编码 / 条码后 4 位 / 拼音首字母），
+   否则会出现「在筛选框里搜得到、在商品名格里搜不到」这种同屏两套答案。 */
+function matchMasterOne(o, f) {
+  if (!f) return true
+  const name = String(o.v || '').toLowerCase()
+  if (name.includes(f)) return true                      // 名称子串（含汉字直接搜）
+  if (String(o.code || '').toLowerCase().includes(f)) return true   // 厂家编码
+  const bc = String(o.c || '').toLowerCase()
+  if (bc && (bc.includes(f) || (f.length >= 3 && bc.endsWith(f)))) return true  // 条码 / 后 4 位
+  if (o.y && o.y.toLowerCase().includes(f.toUpperCase().toLowerCase())) return true  // 拼音首字母
+  return false
+}
+function onNameInput(r, ri, ci, e) {
+  const el = e && e.target
+  const q = el ? el.value : ''
+  const rect = el ? el.getBoundingClientRect() : null
+  const list = nameSugList(q)
+  if (!list.length || !rect) { nameSug.value.open = false; return }
+  nameSug.value = {
+    open: true, ri, ci, idx: 0, list,
+    left: rect.left, w: Math.max(rect.width, 260),
+    // 面板放不下就往上翻（贴底时往下会超出视口 ⇒ 用户看不到，等于没弹）
+    top: (rect.bottom + 226 < window.innerHeight) ? rect.bottom + 2 : Math.max(8, rect.top - 226),
+  }
+}
+/* 🔴 必须**手动** stopPropagation，且**只在面板打开时**：
+      input 在 `<table @keydown="onGridKey">` 内，方向键会冒泡上去被表格当成「跳格」
+      ⇒ 焦点在 keydown 阶段就被搬走、面板随即 blur 关闭（真机实测：↓ 后高亮消失、
+      回车写入静默失效——看起来像「键盘没反应」，属于死控件那一类）。
+      1017 行注释里记的是同一个坑的**回车版**（`focusCell()` 抢焦点导致 @keyup.enter 收不到）。
+   ⚠️ 不能写成模板上的 `@keydown.stop`：那样**面板没开时**也拦，方向键跳格就被破坏了。
+      所以放在函数里按 `s.open` 条件拦 —— 「只在我要用这几个键的时候才拦」。 */
+function nameSugKey(e) {
+  const s = nameSug.value
+  if (!s.open) return
+  e.stopPropagation()
+  if (e.key === 'ArrowDown') { s.idx = (s.idx + 1) % s.list.length; e.preventDefault() }
+  else if (e.key === 'ArrowUp') { s.idx = (s.idx - 1 + s.list.length) % s.list.length; e.preventDefault() }
+  else if (e.key === 'Enter') { nameSugPick(s.list[s.idx]); e.preventDefault() }
+  else if (e.key === 'Escape') { s.open = false; e.preventDefault() }
+}
+function nameSugPick(o) {
+  const s = nameSug.value
+  if (!o) return
+  const r = cross.value.rows[s.ri]
+  if (r) {
+    r.name = o.v
+    onCellChange()          // 🔴 必须：不调它，改名不进撤销栈、也不点亮状态条（v211 修过的老缺陷）
+  }
+  s.open = false
+}
+function nameSugClose() { nameSug.value.open = false }
+/* 占位文案**按能力给**：环境不支持拼音序时**不提拼音** —— 提了等于承诺一个搜不到的功能。
+   （`PY_OK` 由 `utils/pinyin.js` 在加载时用 4 个已知字自检得出，见该文件顶部说明。） */
+const namePh = computed(() => (PY_OK ? '商品名称 / 条码后 4 位 / 拼音首字母' : '商品名称 / 条码后 4 位'))
 
 /* ---- 表体优化（P1/P2/P3）：分组/热力图/排序/筛选/风险徽标 ---- */
 const prodMeta = ref({})            // pid -> {category, brand}，loadCross 填充
@@ -2199,6 +2346,11 @@ function rowMatchText(r, f) {
   if (String(r.product_code || '').toLowerCase().includes(f)) return true
   const bc = String(r.barcode || '').toLowerCase()
   if (bc && (bc.includes(f) || (f.length >= 3 && bc.endsWith(f)))) return true
+  /* v215：补拼音首字母 —— **必须与商品名候选面板同口径**（`matchMasterOne`），
+     否则会出现「在筛选框里搜得到、在商品名格搜不到」这种同屏两套答案。
+     ⚠️ `f` 已被 lower 过，而 `pyMap` 里存的是大写串 ⇒ 两边都转小写再比。 */
+  const py = pyMap.value[String(r.product_id)]
+  if (py && py.toLowerCase().includes(f)) return true
   return false
 }
 function rowVisible(r) {
@@ -8818,6 +8970,17 @@ td.invalid, .qty-cell.invalid{background:var(--danger-bg) !important}
 .empty-ico svg.ico{width:40px;height:40px;opacity:.35}
 .ctx-menu button svg.ico{width:14px;height:14px;vertical-align:-2px;margin-right:6px}
 .link-btn svg.ico{width:14px;height:14px;vertical-align:-2px}
+/* v215 商品名候选面板 —— 配色/圆角/阴影沿用 `.ctx-menu`（同一套浮层观感）。
+   🔴 z-index 取 1101+：与 `.tb-pop-panel` 同级但更高，保证盖在工具栏浮层之上；
+      又远低于全屏遮罩层（950 那条是表格内的），不会压住真正的模态。
+   ⚠️ `position:fixed` + Teleport to body：表格有 overflow 容器与 sticky 表头，
+      浮层留在单元格里会被裁掉。 */
+.name-sug-pop{position:fixed;z-index:1150;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:4px;max-height:220px;overflow-y:auto;font-size:12.5px}
+.ns-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.ns-item.on{background:var(--brand-soft,#eef2ff);color:var(--brand,#4f46e5)}
+.ns-name{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.ns-spec{flex:0 0 auto;color:var(--fg-muted,#94a3b8);font-size:11.5px}
+.ns-code{flex:0 0 auto;color:var(--fg-muted,#94a3b8);font-size:11.5px;font-variant-numeric:tabular-nums}
 .st-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:5px;vertical-align:middle}
 .sort-ind svg.ico{width:12px;height:12px;vertical-align:middle;margin-left:3px}
 .zb-btn svg.ico{width:14px;height:14px;vertical-align:middle}

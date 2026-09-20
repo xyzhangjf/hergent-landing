@@ -2735,6 +2735,26 @@ SPEC_FE_V214_HALFNUM = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v215「商品名候选面板」（2026-09-21）──
+# 替掉原生 datalist：datalist 的过滤由浏览器定（Safari 只认前缀）、只按 value 匹配
+# ⇒ 条码后四位 / 拼音首字母**无从表达**。自建面板支持三种检索：名称 / 条码后 4 位 / 拼音首字母。
+# 🔴 Forecast.vue 仍是长期在途文件（168 个 -U0 hunk，本轮 6 个）⇒ own_hunks。
+#    拼音零依赖实现靠 `Intl.Collator('zh-Hans-CN')` 的 ICU 拼音序，带 PY_OK 自检（不通过就禁用）。
+SPEC_FE_V215_NAMESUG = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "own_hunks": [929, 2043, 2061, 2106, 2201, 8820],
+     "present": ["const nameSug = ref(", "function nameSugList(", "function matchMasterOne(",
+                 "function nameSugKey(", "name-sug-pop"],
+     # ⚠️ gone 刻意留空：`opt-prodname` 在**注释**里仍被提到（说明「为什么删掉它」），
+     #    所以它「出现 0 次」不成立；datalist 是否真的移除由真机取证断言（面板在位 + 老 id 不在）。
+     "gone": []},
+    {"file": "hergent-cn-v2/src/utils/pinyin.js", "new_file": True,
+     "present": ["PY_OK", "pyInitials"], "gone": []},
+    {"file": ".workbuddy/tools/v215-pinyin-selftest.cjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v215-name-suggest-verify.cjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 # ── v214 记忆（共享追加日志：keep_all —— 全是本会话链的追加，无并发会话）──
 SPEC_FE_V214_MEMORY = ("fe", [
     {"file": ".workbuddy/memory/2026-09-20.md", "new_file": True, "gone": []},
@@ -2852,7 +2872,8 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "be-v206-tenant-scan": SPEC_BE_V206_TENANT_SCAN,
          "fe-v206-menu-perm": SPEC_FE_V206_MENU_PERM,
          "fe-v214-halfnum": SPEC_FE_V214_HALFNUM,
-         "fe-v214-memory": SPEC_FE_V214_MEMORY}
+         "fe-v214-memory": SPEC_FE_V214_MEMORY,
+         "fe-v215-namesug": SPEC_FE_V215_NAMESUG}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
