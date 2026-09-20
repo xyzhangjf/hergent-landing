@@ -51,6 +51,7 @@
 - `-dom-structure-diagnosis` —— 主内容空白 / 布局塌陷 / 侧栏不见
 - `-zindex-diagnosis` —— 浮层被压 / 元素凭空浮在上面
 - `-dead-control-diagnosis` —— 控件看得见但点了没反应
+- `hergent-numeric-input-ime-tolerance` —— 数字格的**输入法容错**（全角数字 / `。` 句号 / 千分位；`type=number` 静默加工）
 - `hergent-chart-render-verify` —— 图表柱子几何与颜色；证明前端没镜像后端算法
 
 ## 样式治理
