@@ -2712,6 +2712,42 @@ SPEC_FE_V206_MENU_PERM = ("fe", [
      "binary": True, "new_file": True, "gone": []},
 ])
 
+# ── v214-A「全角数字自动转半角」（2026-09-20）──
+# 🔴 Forecast.vue 是**长期在途文件**（本轮 183 个 -U0 hunk，本轮只占 19 个）⇒ 必须 own_hunks。
+#    其中 964 / 1017 / 1535 / 1568 / 1082 是**混合 hunk**：v211（inputmode）/ v212（批量填值、
+#    软警告开关）的在途改动与 v214 的 `numInput(...)` 紧邻，-U0 把它们合成一块。
+#    归属判据：这些在前几轮也是**本会话链**做的（无并发会话），带上无害；
+#    但**其余 164 个 hunk 一律不动**（含多件「待拍板」的在途改动）。
+SPEC_FE_V214_HALFNUM = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "own_hunks": [364, 735, 951, 964, 970, 972, 1017, 1082, 1105, 1380, 1416,
+                   1535, 1568, 1667, 1798, 2277, 2581, 4642, 4657],
+     # ⚠️ gone 刻意留空：本轮新增的**注释**里保留了 `type="number"` 字样（解释「为什么换掉它」），
+     #    所以「暂存版里 type="number" 出现 0 次」这一条**不成立**。代码层是否已无 number 输入框，
+     #    由提交后用 `grep 'type="number"' | 只剩注释` 人工复核（本轮实测剩 3 处，全是注释）。
+     "present": ["const HALF_MAP = {", "function toHalfNum(", "function numInput(",
+                 "function numCommit(", "numInput($event, r, c.key)"],
+     "gone": []},
+    {"file": ".workbuddy/tools/v214-halfnum-parity.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v214-browser-input-verify.cjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/dist-token-align.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v213-rules-selftest.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
+# ── v214 记忆（共享追加日志：keep_all —— 全是本会话链的追加，无并发会话）──
+SPEC_FE_V214_MEMORY = ("fe", [
+    {"file": ".workbuddy/memory/2026-09-20.md", "new_file": True, "gone": []},
+    {"file": ".workbuddy/memory/topics/frontend-ui.md", "keep_all": True,
+     "present": ["§v214-A 数字输入格的「输入法容错」"], "gone": []},
+    {"file": ".workbuddy/memory/topics/deploy-ops.md", "keep_all": True,
+     "present": ["§v214b"], "gone": []},
+    {"file": ".workbuddy/memory/MEMORY.md", "keep_all": True,
+     "present": ["最贵判据 ②（v214-A）"], "gone": []},
+    {"file": ".workbuddy/memory/topics/skill-routing.md", "keep_all": True,
+     "present": ["hergent-numeric-input-ime-tolerance"], "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -2814,7 +2850,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          #   ⚠️ 编号：v205 由本侧保留、对方改号后 v207 占「合计箱」、v208 占「保存下拉」；
          #      v206 归本条（tenant-scan / menu-perm-gate），起号前已 grep 过三处。
          "be-v206-tenant-scan": SPEC_BE_V206_TENANT_SCAN,
-         "fe-v206-menu-perm": SPEC_FE_V206_MENU_PERM}
+         "fe-v206-menu-perm": SPEC_FE_V206_MENU_PERM,
+         "fe-v214-halfnum": SPEC_FE_V214_HALFNUM,
+         "fe-v214-memory": SPEC_FE_V214_MEMORY}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

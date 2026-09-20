@@ -361,7 +361,7 @@
                       <td class="num">{{ a.current_stock ?? '—' }}</td>
                       <td class="num">{{ a.avg_daily_sales ?? '—' }}</td>
                       <td class="num"><b class="audit-sug">{{ a.suggested_qty != null ? fmt(a.suggested_qty) : '—' }}</b></td>
-                      <td class="num"><input v-if="a.final_qty != null" v-model.number="a.final_qty" class="qty-input" type="number" min="0"><span v-else class="hint">—</span></td>
+                      <td class="num"><input v-if="a.final_qty != null" :value="a.final_qty" class="qty-input" type="text" inputmode="numeric" @input="numInput($event, a, 'final_qty')" @change="a.final_qty = parseNumInput($event.target.value)"><span v-else class="hint">—</span></td>
                       <td class="audit-verdict"><span :class="verdictCls(a.error || a.verdict)">{{ a.error || a.verdict }}</span></td>
                     </tr>
                   </tbody>
@@ -732,7 +732,7 @@
                     </template>
                     <template v-else-if="col.type === 'master'">{{ masterVal(it.r, col) }}</template>
                     <template v-else-if="col.type === 'qty'">
-                      <input v-if="editingCell && editingCell.pid === it.r.product_id && editingCell.uname === col.key" class="cell-input cell-qty" type="number" min="0" :value="it.r.qtyByUnit[col.key] || 0" v-focus @change="commitCell(it.r.product_id, col.key, $event.target.value)" @blur="commitCell(it.r.product_id, col.key, $event.target.value)" @keydown.stop="onCellKey($event, it.r.product_id, col.key)">
+                      <input v-if="editingCell && editingCell.pid === it.r.product_id && editingCell.uname === col.key" class="cell-input cell-qty" type="text" inputmode="numeric" :value="it.r.qtyByUnit[col.key] || 0" v-focus @input="numInput($event, it.r.qtyByUnit, col.key)" @change="commitCell(it.r.product_id, col.key, $event.target.value)" @blur="commitCell(it.r.product_id, col.key, $event.target.value)" @keydown.stop="onCellKey($event, it.r.product_id, col.key)">
                       <span v-else class="qty-num tip-wrap" :style="heatStyle(it.r, col.key)">{{ it.r.qtyByUnit[col.key] }}<span class="tip">¥{{ fmt(displayPrice(it.r) != null ? (it.r.qtyByUnit[col.key] || 0) * displayPrice(it.r) : 0) }}（按行单价估算）</span></span>
                     </template>
                     <template v-else-if="col.key === 'qty'">{{ fmt(it.r.total) }}</template>
@@ -948,7 +948,7 @@
                     <input v-model="r[c.key]" class="cell-input cell-wide" :placeholder="c.label" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)" @change="onCellChange">
                   </template>
                   <template v-else-if="c.edit === 'num'">
-                    <input v-model.number="r[c.key]" class="cell-input cell-num" type="number" min="0" placeholder="0" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)" @change="onCellChange">
+                    <input :value="r[c.key] ?? ''" class="cell-input cell-num" type="text" :inputmode="c.num === 'int' ? 'numeric' : 'decimal'" placeholder="0" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @input="numInput($event, r, c.key)" @change="numCommit($event, r, c.key)">
                   </template>
                   <!-- v184：只读列（edit:'ro'）—— 有**展示**、没有写入口。
                        ⚠️ 这里刻意不放 input：本列（到货周期）唯一写入口是「预报导入」，
@@ -961,15 +961,28 @@
                   <span v-if="selected.r === ri && selected.c === ci" class="fill-handle" @mousedown.prevent.stop="startFill(ri, ci, $event)" title="拖拽填充"></span>
                 </td>
                 <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellInvalid(ri, visibleCols.length + ui), 'warn-low': rowWarn(r) === 'low', 'warn-short': rowWarn(r) === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0 }" :style="heatStyle(r, u.name)" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellErrMsg(ri, visibleCols.length + ui) || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
-                  <input v-model.number="r.qtyByUnit[u.name]" class="cell-input cell-qty" type="number" min="0" placeholder="0" :data-r="ri" :data-c="visibleCols.length + ui" @focus="onFocusCell(ri, visibleCols.length + ui)" @change="onCellChange">
+                  <!-- v211（P1-2）：补 `inputmode` —— 触屏设备（平板 / 手机开网页）点这一格直接弹**数字键盘**。
+                       ⚠️ 不能只靠 `type="number"`：iOS 会弹数字键盘，但部分安卓浏览器不给 ⇒ 加 inputmode 是双保险。
+                       ⚠️ 只有**数量**用 numeric（整数）；单价有 `step="0.01"`（两位小数）必须用 decimal，
+                          否则安卓上小数点键会消失，用户永远填不了小数价。 -->
+                  <input :value="r.qtyByUnit[u.name] ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="0" :data-r="ri" :data-c="visibleCols.length + ui" :list="qtyListFor(ri, ui)" @focus="onFocusCell(ri, visibleCols.length + ui, $event)" @input="numInput($event, r.qtyByUnit, u.name)" @change="numCommit($event, r.qtyByUnit, u.name)">
+                  <!-- v211（P1-3）：同主档列的角标。这里用 `cellErrMsg` 而非 `cellIssue`：
+                       数量格不涉及条码，与 td 自己的 title 保持**同一个判据**（否则角标和悬停会各说一套）。 -->
+                  <span v-if="cellErrMsg(ri, visibleCols.length + ui)" class="cell-err-dot" :title="cellErrMsg(ri, visibleCols.length + ui)" @mousedown.stop.prevent @click.stop="showCellErr(ri, visibleCols.length + ui)" aria-label="查看此格的错误原因"><Icon name="alert-triangle"/></span>
+                  <!-- v212（P2-2）：**软警告角标**（黄=疑）—— 只有数量格有。
+                       三类角标各占一角，互不遮挡：红（一定错）在**左上**、黄（可能错）在**右上**、
+                       填充柄在**右下**（左下留给「行号格标红」那条视觉通道，不占）。
+                       ⚠️ `z-index` 必须 < 6（`.seq-cell` / `.frozen` 都是 6）—— 否则横向滚动时
+                          角标会浮在冻结列**上方**，像贴错了格子。 -->
+                  <span v-if="cellSoftIssue(ri, ui)" class="cell-soft-dot" :class="'soft-' + cellSoftIssue(ri, ui)" :title="cellSoftMsg(ri, ui)" @mousedown.stop.prevent @click.stop="showCellSoft(ri, ui)" aria-label="查看此格的疑点"><Icon name="alert-triangle"/></span>
                   <span v-if="selected.r === ri && selected.c === visibleCols.length + ui" class="fill-handle" @mousedown.prevent.stop="startFill(ri, visibleCols.length + ui, $event)" title="拖拽填充"></span>
                 </td>
                 <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri">{{ fmt(rowSum(r)) }}</td>
                 <td class="num calc boxes" :data-r="ri">{{ fmt(rowBoxes(r)) }}</td>
                 <td v-if="showSuggest" class="num calc suggest" :data-r="ri" title="配方建议：按「建议算法」面板策略算出">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
-                <td class="num calc extra" :data-r="ri"><input v-model.number="r.extraQty" class="cell-input cell-qty" type="number" min="0" placeholder="0" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT)" @change="onCellChange"></td>
+                <td class="num calc extra" :data-r="ri"><input :value="r.extraQty ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="0" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT, $event)" @input="numInput($event, r, 'extraQty')" @change="numCommit($event, r, 'extraQty')"></td>
                 <td class="num calc final" :data-r="ri"><b>{{ fmt(rowFinalQty(r)) }}</b></td>
-                <td class="num calc price" :class="{ 'miss-price': pricePerCase(r) == null }" :data-r="ri"><input v-model.number="r.casePrice" class="cell-input cell-price" :class="{ 'manual-price': Number(r.casePrice) > 0 }" type="number" min="0" step="0.01" :placeholder="pricePh(r)" :title="priceTitle(r)" :data-r="ri" :data-c="C_PRICE_INPUT" @focus="onFocusCell(ri, C_PRICE_INPUT)" @change="onCasePriceChange(r)"></td>
+                <td class="num calc price" :class="{ 'miss-price': pricePerCase(r) == null }" :data-r="ri"><input :value="r.casePrice ?? ''" class="cell-input cell-price" :class="{ 'manual-price': Number(r.casePrice) > 0 }" type="text" inputmode="decimal" :placeholder="pricePh(r)" :title="priceTitle(r)" :data-r="ri" :data-c="C_PRICE_INPUT" @focus="onFocusCell(ri, C_PRICE_INPUT, $event)" @input="numInput($event, r, 'casePrice')" @change="onCasePriceChange(r, $event)"></td>
                 <td class="num calc amount" :data-r="ri"><span :class="{ 'miss-price': pricePerCase(r) == null }">{{ amountValue(r) != null ? fmt(amountValue(r)) : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }}</span></td>
                 <td v-if="compareOn" class="num calc" :data-r="ri">{{ prevQty(r) != null ? fmt(prevQty(r)) : '—' }}</td>
                 <td v-if="compareOn" class="num calc delta" :class="deltaClass(r)" :data-r="ri">{{ deltaQty(r) == null ? '—' : (deltaQty(r) > 0 ? '+' : '') + fmt(deltaQty(r)) }}</td>
@@ -1014,9 +1027,26 @@
           <p class="cross-amt-note">最终下单(箱) = 合计(箱) + 加单(箱)；<b>下单金额(厂价) = 最终下单(箱) × 单价(厂价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的厂价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</p>
           <div v-if="selStats" class="sel-stat">
             <span class="sel-stat-label">选区统计</span>
-            <span>计数 <b>{{ selStats.count }}</b></span>
-            <span>求和 <b>{{ fmt(selStats.sum) }}</b></span>
-            <span>平均 <b>{{ fmt(selStats.avg) }}</b></span>
+            <span>共 <b>{{ selCellCount }}</b> 格</span>
+            <template v-if="selStats && selStats.sum !== 0">
+              <span>有数 <b>{{ selStats.count }}</b> 格</span>
+              <span>求和 <b>{{ fmt(selStats.sum) }}</b></span>
+              <span>平均 <b>{{ fmt(selStats.avg) }}</b></span>
+            </template>
+            <!-- v212（P2-3）：**「选区批量填同值」的可见入口**。
+                 功能（Ctrl+Enter：选中一片 → 输一个值 → 全部写入）自 Q17 就实现了，
+                 但**只活在快捷键里** ⇒ 不记快捷键的用户根本不知道它存在。
+                 陈列在选区统计条上是刻意选的位置：这条**只在有选区时出现**，
+                 正好是「刚框完一片、正想批量改」的那个瞬间。
+                 ⚠️ 与右键菜单里那条共用同一个 `ctxFillVal` / `fillSelectionWith` ——
+                    同一份状态、同一个写入口，不做第二套。
+                 ⚠️ 输入框必须 `<input type=number>` + `inputmode` 双保险（同数量格的理由）；
+                    回车与按钮等价（表单心智：填完回车就走）。 -->
+            <span class="sel-fill">
+              <span class="sel-fill-label">批量填入</span>
+              <input :value="ctxFillVal" class="sel-fill-ipt" type="text" inputmode="numeric" :placeholder="selCellCount + ' 格'" aria-label="批量填入的值" @input="numInput($event, setFillVal)" @keyup.enter="applySelFill">
+              <button class="sel-fill-go" :disabled="String(ctxFillVal == null ? '' : ctxFillVal).trim() === ''" @click="applySelFill" title="把该值写入选中区域（等同于 Ctrl+Enter）">填入</button>
+            </span>
             <button class="sel-stat-x" @click="selRange = null" title="清除选区"><Icon name="close"/></button>
           </div>
           <div v-if="openGroup" class="grp-row">
@@ -1079,9 +1109,9 @@
               <option value="trend">趋势外推法</option>
               <option value="blend">加权混合法</option>
             </select>
-            <span v-if="suggRecipe.strategy !== 'safety'">覆盖天数<input v-model.number="suggRecipe.coverageDays" type="number" min="1" class="recipe-val"></span>
-            <span v-if="suggRecipe.strategy === 'trend'">外推步数<input v-model.number="suggRecipe.trendSteps" type="number" min="1" class="recipe-val"></span>
-            <span v-if="suggRecipe.strategy === 'blend'">历史权重<input v-model.number="suggRecipe.trendWeight" type="number" step="0.1" min="0" max="1" class="recipe-val"></span>
+            <span v-if="suggRecipe.strategy !== 'safety'">覆盖天数<input :value="suggRecipe.coverageDays" type="text" inputmode="numeric" class="recipe-val" @input="numInput($event, suggRecipe, 'coverageDays')"></span>
+            <span v-if="suggRecipe.strategy === 'trend'">外推步数<input :value="suggRecipe.trendSteps" type="text" inputmode="numeric" class="recipe-val" @input="numInput($event, suggRecipe, 'trendSteps')"></span>
+            <span v-if="suggRecipe.strategy === 'blend'">历史权重<input :value="suggRecipe.trendWeight" type="text" inputmode="decimal" class="recipe-val" @input="numInput($event, suggRecipe, 'trendWeight')"></span>
             <label class="basis-toggle">配方
               <select v-model="recipePick" @change="applySuggestRecipe(recipePick)">
                 <option value="">选择…</option>
@@ -1102,7 +1132,7 @@
               <option value="add">+ 加值</option>
               <option value="set">= 设值</option>
             </select>
-            <input v-model.number="batch.val" type="number" class="batch-val" placeholder="数值">
+            <input :value="batch.val" type="text" inputmode="decimal" class="batch-val" placeholder="数值" @input="numInput($event, batch, 'val')">
             <button class="btn btn-primary btn-xs" @click="applyBatch">应用</button>
             <span class="hint">先 Shift+点击 或 拖选多行</span>
           </div>
@@ -1377,7 +1407,7 @@
             <div class="imp-tip">销售现场录单：选商品 + 数量，提交即写 <code>forecast_orders</code>，Web 端「<Icon name="check"/> 审批」实时可见。小程序工程另立（契约见交付文档）。</div>
             <div class="mini-form">
               <select v-model="miniPid" class="input"><option value="">选商品…</option><option v-for="r in cross.rows" :key="r.product_id" :value="r.product_id">{{ r.name }}</option></select>
-              <input v-model.number="miniQty" type="number" min="0" class="input" placeholder="数量(箱)" style="width:90px">
+              <input :value="miniQty" type="text" inputmode="numeric" class="input" placeholder="数量(箱)" style="width:90px" @input="numInput($event, setMiniQty)">
               <input v-model="miniUnit" class="input" placeholder="单位" style="width:64px">
               <input v-model="miniNote" class="input" placeholder="备注(选填)">
               <button class="btn btn-primary btn-sm" :disabled="miniSaving" @click="submitMini">提交录单</button>
@@ -1413,7 +1443,7 @@
             <div class="imp-tip">为节令/促销设置销量放大因子，一键叠加到当前网格预报量。</div>
             <div class="mini-form">
               <select v-model="calFactors.selected" class="input"><option value="">选因子…</option><option v-for="p in calPresets" :key="p" :value="p">{{ p }}</option></select>
-              <input v-model.number="calFactors.factors[calFactors.selected]" type="number" step="0.1" min="0.1" class="input" placeholder="倍数" style="width:70px" :disabled="!calFactors.selected" @focus="setCalFactor(calFactors.selected)">
+              <input :value="calFactors.factors[calFactors.selected]" type="text" inputmode="decimal" class="input" placeholder="倍数" style="width:70px" :disabled="!calFactors.selected" @input="numInput($event, calFactors.factors, calFactors.selected)" @focus="setCalFactor(calFactors.selected)">
               <button class="btn btn-primary btn-sm" @click="applyCal">应用因子</button>
               <button class="btn btn-ghost btn-sm" @click="saveCal">保存</button>
             </div>
@@ -1533,6 +1563,24 @@
             <div class="ctx-sep"></div>
             <button class="ctx-paste" @click="ctxPaste"><Icon name="paste"/> 粘贴</button>
             <button @click="ctxCopy"><Icon name="copy"/> 复制选区</button>
+            <!-- v212（P2-3）：批量填同值 —— 功能（Ctrl+Enter）自 Q17 起就在，只是**没有可见入口**。
+                 这里与表格底部的「选区统计」条各放一个：右键是 Excel 用户的肌肉记忆路径，
+                 统计条是「刚框完一片」时眼睛正落着的地方。两条共用 state 与写入口。 -->
+            <template v-if="ctxMode === 'fill' && selRange">
+              <div class="ctx-ipt-row">
+                <!-- ⚠️ `ctx-ipt-fill` 是刻意的**区分性类名**：同一个菜单里还有一个
+                     `ctx-ipt`（超放量倍数阈值）。两者共用 `.ctx-ipt` 样式，
+                     但在 DOM 层必须能分辨 —— 否则「Esc 退回菜单了吗」这类断言
+                     会被阈值输入框误命中（v212 真机上就这么假绿过一次）。 -->
+                <input ref="ctxFillInput" :value="ctxFillVal" class="ctx-ipt ctx-ipt-fill" type="text" inputmode="numeric" placeholder="填入选中区域的值…" @input="numInput($event, setFillVal)" @keyup.enter="applyCtxBatchFill" @keyup.esc="ctxMode = 'menu'">
+                <span class="ctx-ipt-unit">{{ selCellCount }} 格</span>
+              </div>
+              <div class="ctx-ipt-actions">
+                <button class="btn-primary" @click="applyCtxBatchFill">填入</button>
+                <button @click="ctxMode = 'menu'">取消</button>
+              </div>
+            </template>
+            <button v-else-if="ctxHasRangeSel" @click="openCtxFill"><Icon name="edit"/> 批量填入相同值…<kbd>Ctrl+Enter</kbd></button>
             <button @click="ctxAskAi"><Icon name="sparkle"/> 让 AI 分析这行</button>
             <button v-if="ctx.type !== 'body'" @click="ctxColStats"><Icon name="list"/> 此列统计</button>
             <button v-if="ctxNumCell" @click="ctxFillSafety"><Icon name="sparkle"/> 按安全库存补齐</button>
@@ -1566,6 +1614,17 @@
             <button @click="ctxExportSel"><Icon name="download"/> 导出选中行</button>
             <div class="ctx-sep"></div>
             <button :class="{ 'ctx-on': condWarnOn }" @click="toggleCondWarn"><span class="st-dot"></span><Icon v-if="condWarnOn" name="check"/> 高亮库存&lt;安全库存</button>
+            <!-- v212（P2-2）：软警告（黄角标）的两个分档开关 + 倍数阈值。
+                 与上一行 `.ctx-on` 的既有范式一致（点击即切换 + 打勾）。
+                 ⚠️ 阈值做成输入框而不是常量：经销商口味不同（有人 3 倍就慌、有人 10 倍才算异常），
+                    写死等于每个租户都得改代码。落 localStorage，随租户/浏览器生效。 -->
+            <button :class="{ 'ctx-on': softWarnCfg.missOn }" @click="toggleSoftWarn('miss')"><Icon v-if="softWarnCfg.missOn" name="check"/> 疑漏订角标（上期有量 · 本期 0）</button>
+            <button :class="{ 'ctx-on': softWarnCfg.overOn }" @click="toggleSoftWarn('over')"><Icon v-if="softWarnCfg.overOn" name="check"/> 疑超放量角标（≥ 上期几倍）</button>
+            <div v-if="softWarnCfg.overOn" class="ctx-ipt-row">
+              <span class="ctx-ipt-unit">超放量倍数</span>
+              <input :value="softWarnCfg.overRatio" class="ctx-ipt" type="text" inputmode="numeric" style="width:76px" @input="numInput($event, softWarnCfg, 'overRatio'); saveSoftWarnCfg()">
+              <span class="ctx-ipt-unit">倍</span>
+            </div>
             <div class="ctx-sep"></div>
             <button :disabled="!canUndo" @click="undo"><Icon name="undo"/> 撤销</button>
             <button :disabled="!canRedo" @click="redo"><Icon name="redo"/> 重做</button>
@@ -1664,7 +1723,7 @@
             <!-- 内联：精确列宽 -->
             <template v-else-if="hdrCtx.mode === 'width'">
               <div class="ctx-ipt-row">
-                <input v-model="hdrWidthVal" class="ctx-ipt" type="number" min="40" style="width:90px" @keyup.enter="applyHdrWidth" @keyup.esc="hdrCtx.mode='menu'"> <span class="ctx-ipt-unit">px</span>
+                <input :value="hdrWidthVal" class="ctx-ipt" type="text" inputmode="numeric" style="width:90px" @input="numInput($event, setHdrWidth)" @keyup.enter="applyHdrWidth" @keyup.esc="hdrCtx.mode='menu'"> <span class="ctx-ipt-unit">px</span>
               </div>
               <div class="ctx-ipt-actions">
                 <button class="btn-primary" @click="applyHdrWidth">应用</button>
@@ -1795,7 +1854,7 @@
               <td>{{ d.name }}</td>
               <td>{{ d.spec || '—' }}</td>
               <td>{{ d.unit || '—' }}</td>
-              <td class="num"><input v-model.number="d.requested_qty" class="qty-input" type="number" min="0"></td>
+              <td class="num"><input :value="d.requested_qty" class="qty-input" type="text" inputmode="numeric" @input="numInput($event, d, 'requested_qty')" @change="d.requested_qty = parseNumInput($event.target.value)"></td>
               <td class="num">{{ d.current_stock ?? '—' }}</td>
               <td class="num">{{ d.avg_daily_sales ?? '—' }}</td>
               <td class="num">
@@ -2274,7 +2333,9 @@ function editCell(pid, uname) { editingCell.value = { pid, uname } }
 function commitCell(pid, uname, val) {
   const r = cross.value.rows.find(x => x.product_id === pid)
   if (!r) { editingCell.value = null; return }
-  const v = Math.max(0, parseInt(val) || 0)
+  /* v214 A：`toHalfNum` 与其它数字格同源 —— 原实现 `parseInt("１２")` = NaN ⇒ `|| 0`
+     ⇒ 用户在查看态双击输入一个全角数量，保存下来是 **0**（看着像"填了没生效"）。 */
+  const v = Math.max(0, parseInt(toHalfNum(val), 10) || 0)
   r.qtyByUnit = { ...r.qtyByUnit, [uname]: v }
   const total = cross.value.units.reduce((s, u) => s + (r.qtyByUnit[u.name] || 0), 0)
   r.total = total
@@ -2578,7 +2639,14 @@ function priceTitle(r) {
    落库发生在「保存」：随 save-matrix 的 case_price 落进 `forecast_extra_qty`
    （按 产品×期次 唯一）⇒ **只在本期生效**，且换浏览器 / 换个人打开本期表看到的都是同一个价。
    录入过程中**不**在行上存任何派生态副本（草稿恢复、复制行都会让副本漂移）。 */
-function onCasePriceChange(r) {
+function onCasePriceChange(r, e) {
+  /* v214 A：先把编辑期间的中间态收敛成确定值（`"12."` → 12），与数量格同理 ——
+     不收敛会被后端 `_NUM_RE` 判「非数字」拒收，而用户填的明明是 12。
+     ⚠️ 顺带堵一个静默清除：原实现直接 `Number(r.casePrice)`，若这一格是**全角**的
+        （`v-model.number` 在 `type=number` 下虽打不进来，但粘贴/草稿恢复可以），
+        `Number("１２")` = NaN ⇒ `!(NaN > 0)` 成立 ⇒ 走「清空 = 回到档案自动价」分支，
+        把用户刚输的价**悄悄抹掉**（看起来像「填了没生效」）。归一后不再发生。 */
+  if (e && e.target) r.casePrice = parseNumInput(e.target.value)
   const v = Number(r.casePrice)
   if (!(v > 0)) {                    // 清空 = 回到档案自动价
     r.casePrice = null
@@ -4640,6 +4708,92 @@ function buildXlsx(rows, fname) {
   XLSX.utils.book_append_sheet(wb, ws, '预报单')
   XLSX.writeFile(wb, `${fname}.xlsx`)
 }
+/* ---- v214 A：全角数字自动转半角（输入法容错） ----
+   🔴 病根**不在校验层**（`cellErrMsg` 与后端 `normalize_qty` 早已走 NFKC），而在**输入层**。
+      而且它的真实行为**不是**「收不到全角字符」（这是我最初的猜测，真机取证推翻了）——
+      `<input type="number">` 会**静默加工**你敲进去的东西：
+         `１２。５` → `125`   中文句号被删 ⇒ 小数点消失 ⇒ **数量放大 10 倍**
+         `12箱`    → `12`    汉字被删 ⇒ 脏值变成合法数字
+         `12.`     → `12`    中间态被打断 ⇒ 小数**根本打不出来**
+      🔴 用户**看不到任何异常**：没有报错、没有红框、框里显示的就是个"正常数字"。
+         这比「输不进去」危险得多 —— 与 v213 已确立的原则完全同向（宁可标红，不要静默丢/改）。
+      取证方式：同一台真实 Chrome 里放两个**裸** input，只差 `type`，灌同一批输入（见
+      `.workbuddy/tools/v214-browser-input-verify.cjs`）。改 API 或改注释前请先跑它。
+   ⚠️ 改成 `type="text"` 后必须自己接住校验责任：`type=text` 会**原样**收下任何字符
+      （含 `12箱`、`abc`）—— 所以 `cellErrMsg` 的整串判据是这套设计的**组成部分**，
+      不是可选装饰。
+   ⚠️ 本表与后端 `db/queries/forecast_rules.py` 的 `_HALF_MAP` 是**同一张表**（逐字同源，
+      护栏 `v213-rules-selftest.py` + `v214-halfnum-parity.py` 两侧断言）。改一侧必须改两侧。
+   ⚠️ 只收「在数字格内语义唯一」的字符，不做 `O→0` / `l→1` 这类歧义映射 ——
+      那会把「真打错的字」静默改成看似合法的数字，比报错贵得多。 */
+const HALF_MAP = {
+  '。': '.',   // U+3002 表意句号 —— NFKC 不转，本表的核心理由
+  '、': ',',   // U+3001 顿号     —— 数字格内只可能是千分位
+  '—': '-',    // U+2014 em dash  —— 负号手误
+  '–': '-',    // U+2013 en dash
+  '\u2212': '-',  // U+2212 数学减号 —— 从公式/某些输入法复制的「负号」常是它，不是 ASCII 的 -
+  '．': '.',   // U+FF0E 全角句点（NFKC 已覆盖，显式列出以便与后端逐字比对）
+  '，': ',',   // U+FF0C 全角逗号（同上）
+  '－': '-',   // U+FF0D 全角连字符（同上）
+  '＋': '+',   // U+FF0B 全角加号（同上）
+  // 　(U+3000) 表意空格**刻意不在这张表里**：NFKC 会先把它折成**普通空格**，
+  //    所以「先 NFKC、再查表」的实现永远匹配不到它（写进来 = 死条目）。
+  //    真正兜住它的是 `toHalfNum` 末尾的 `.trim()`（与后端 `.strip()` 同源）。
+}
+/* 全角 → 半角 + 去千分位逗号。**与后端 `normalize_num_text` 逐字同源**。
+   ⚠️ 去逗号刻意放在这里、而不是只放在提交时：`rowSum` 用 `parseInt`，model 里若留着
+      `"1,200"`，合计会**当场算成 1**（用户看见数字跳一下再跳回来）。逐字输入时逗号被吃掉
+      也符合预期 —— 千分位本来就是给人看的，不是数据的一部分。 */
+function toHalfNum(s) {
+  let t = String(s == null ? '' : s).normalize('NFKC')
+  for (const k in HALF_MAP) if (t.indexOf(k) >= 0) t = t.split(k).join(HALF_MAP[k])
+  return t.replace(/,/g, '').trim()
+}
+/* 数字格的 `@input`：**边打边转**。
+   🔴 必须同时做两件事，缺一不可：
+      ① 回写 DOM 的 value（用户**看得见**转换 —— 这是本功能的全部价值）；
+      ② 显式写 model。不能只让 `v-model` 去写：两者的执行顺序取决于原生监听器的注册次序
+         （props 的 `onInput` 先于 `v-modelText` 指令注册 ⇒ 实际是「本处理器先跑、v-model 后跑」），
+         **顺序一旦反转就会把全角原串写进 model** —— 而 `parseInt('１２')` = NaN、
+         `rowSum` 会对它静默按 0 累加（合计错、没有任何提示）。显式写入让两种顺序都得到正确结果。
+   ⚠️ 光标：全角→半角是 1:1（长度不变），但**去逗号会让文本变短** ⇒ 不能沿用原 `selectionStart`
+      （会把光标顶到逗号右侧）。按「光标左侧文本转换后的长度」重算。
+   ⚠️ IME 组合期（`e.isComposing`）**一律不碰 DOM** —— 改 value 会打断输入法候选框。
+      组合结束时浏览器会再补一次 `input`（`isComposing` 已为 false）⇒ 转换不会漏。 */
+function numInput(e, obj, key) {
+  const el = e && e.target
+  if (!el) return
+  if (e.isComposing) return
+  const before = el.value
+  const after = toHalfNum(before)
+  if (after !== before) {
+    const pos = el.selectionStart == null ? after.length : el.selectionStart
+    const newPos = toHalfNum(before.slice(0, pos)).length
+    el.value = after
+    try { el.setSelectionRange(newPos, newPos) } catch (_) {}
+  }
+  /* 写入目标：`obj[key]`（对象字段）；`obj` 本身是函数时当 setter 用 —— 供 ref 场景
+     （如批量填值框 `ctxFillVal` 是个 ref，没有可写的字段名）。 */
+  if (typeof obj === 'function') obj(after)
+  else if (obj) obj[key] = after
+}
+/* 数字格的 `@change`：把编辑期间的中间态收敛成**确定值**。
+   ⚠️ 收敛只能在离开这一格时做，**不能**放进 `@input`：`Number("12.")` = 12，边打边收敛
+      会让用户**永远打不出小数点**（敲了 `.` 立刻被抹掉）。
+   ⚠️ 不收敛会真出错：后端 `normalize_num_text("12.")` 仍返回 `"12."`，而 `_NUM_RE` 要求
+      小数点后必须有数字 ⇒ `"12."` 被判「非数字」拒收。用户填的明明是 12，却看到红框。 */
+function numCommit(e, obj, key) {
+  const el = e && e.target
+  obj[key] = parseNumInput(el ? el.value : obj[key])
+  onCellChange()
+}
+/* ref 场景的 setter 集合 —— 模板里 ref 会被**自动解包**，没法把 ref 对象本身传给 `numInput`
+   （传进去的是解包后的值，写回无效）。故给每个需要全角容错的 ref 包一层 setter。
+   ⚠️ reactive 对象（`suggRecipe` / `calFactors` / `softWarnCfg` / `ref({})` 解包出的 `batch`）
+      不需要这一层，直接 `numInput($event, obj, 'key')` 即可。 */
+function setFillVal(v) { ctxFillVal.value = v }
+function setMiniQty(v) { miniQty.value = v }
+function setHdrWidth(v) { hdrWidthVal.value = v }
 // 填充柄：从选中单元格拖拽，复制填充到矩形范围（兼容主档列 + 客户数量列）
 function readCellVal(r, c) {
   const rw = cross.value.rows[r]; if (!rw) return ''
@@ -4654,7 +4808,13 @@ function readCellVal(r, c) {
    - 解析失败时保留原始字符串 → cellErrMsg 报「必须是数字」并标红，保存时拦截
    - 空串仍按 0 处理（=未填） */
 function parseNumInput(v) {
-  const s = String(v == null ? '' : v).trim().replace(/,/g, '')
+  /* v214 A：补 `toHalfNum` —— 与后端 `normalize_num_text` 同源。
+     🔴 原实现只去逗号、不折全角：粘贴（`writeCellVal` 走这里）进来的 `"１２"` 因
+        `Number("１２")` = NaN 而被**保留为字符串** `"１２"` 存进 model，随后 `rowSum` 的
+        `parseInt("１２")` = NaN ⇒ 按 0 累加 ⇒ **合计静默算少**，且屏幕上一切看起来正常。
+     ⚠️ 解析失败时返回**归一后**的原串（而不是用户原始字节）：这样 model 里不残留全角字符，
+        标红与保存拦截仍照常生效（`"12箱"` 归一后还是 `"12箱"`）。 */
+  const s = toHalfNum(v).trim()
   if (s === '') return 0
   const n = Number(s)
   return Number.isNaN(n) ? String(v == null ? '' : v).trim() : n
