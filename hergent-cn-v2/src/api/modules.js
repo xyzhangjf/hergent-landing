@@ -337,6 +337,11 @@ export const reportMappingApi = {
   // 2026-09-19 起员工档案入口已移除，写端只剩本页 —— 靠这个清单把「看得到、没处改」
   // 的那部分门店提示出来，补一条映射即收敛。
   legacyStores: () => api('/api/report-mappings/legacy-stores'),
+  /* v216（2026-09-20）：**收回**一条历史门店授权（`employee_stores` 单行）。
+     在此之前只有上面的 GET、没有写端 ⇒ 落在历史层的门店（如用户配的「一分利 / 一扫光」）
+     变成「小程序看得到、后台改不掉」。与 GET 成对：GET 列出来，DELETE 收回去。 */
+  revokeLegacyStore: (employeeId, storeId) =>
+    api(`/api/report-mappings/legacy-stores/${employeeId}/${storeId}`, { method: 'DELETE' }),
   importFile: (file) => {
     const fd = new FormData()
     fd.append('file', file)
@@ -354,22 +359,30 @@ export const staffAccountApi = {
 
 /* ---- 报单汇总表（矩阵）：汇总 + 保存（原审批流 pending/approve/reject 已废弃，见决策 2026-08-27） ---- */
 export const forecastApproveApi = {
-  summary: (date = '', start = '', end = '') => {
+  summary: (date = '', start = '', end = '', periodId = 0) => {
     const q = []
     if (date) q.push('date=' + date)
     if (start) q.push('start=' + start)
     if (end) q.push('end=' + end)
+    if (periodId) q.push('period_id=' + periodId)
     return api('/api/forecast-submissions/summary' + (q.length ? '?' + q.join('&') : ''))
   },
   saveMatrix: (body) => api('/api/forecast-submissions/save-matrix', { method: 'POST', body }),
+  /* v213：数量录入的**校验规格**（上限 + 五类文案）—— 与后端同一个来源
+     （`server/db/queries/forecast_rules.py`）。Web 交叉表取它替掉写死的 `QTY_MAX=999999`，
+     让「前端预检」与「后端门禁」用同一组判据、同一句文案（此前是四个口径各写一套）。 */
+  validationSpec: () => api('/api/forecast-submissions/validation-spec'),
 }
 
 /* ---- 商品主档（Web 预报模块网格直编 / 粘贴） ---- */
 export const productsApi = {
   grid: () => api('/api/products/grid'),
+  /* v196：`opts` 透传 —— 改单保存那一步要单独给更长超时（默认 20 秒对"商品档案 + 数量矩阵"
+     这一串写太紧：正常 0.2 秒就能回，长超时纯兜底；真慢下来时至少不会在 20 秒被硬掐断）。
+     ⚠️ 默认值 `{}` ⇒ 既有两个调用方（ProductArchive 单行）行为一字不变。 */
+  bulkUpsert: (rows, opts = {}) => api('/api/products/bulk-upsert', { method: 'POST', body: { rows }, ...opts }),
   // v157 存量商品批量补厂价：items = [{id, factory_price}] 或 [{barcode, factory_price}]（导出回填走条码）
   batchFactoryPrice: (items) => api('/api/products/batch-factory-price', { method: 'POST', body: { items } }),
-  bulkUpsert: (rows) => api('/api/products/bulk-upsert', { method: 'POST', body: { rows } }),
   // v161 自定义列的值：批量写（合并写，值为空 = 删该键）。
   // 后端会按列注册表校验 key —— 未知列/系统列一律 400，绝不静默丢弃。
   extraValues: (items) => api('/api/products/extra-values', { method: 'POST', body: { items } }),
@@ -398,7 +411,6 @@ export const columnSchemeApi = {
   save: (schemes) => api('/api/forecast/column-schemes', { method: 'PUT', body: { schemes } }),
 }
 
-/* ---- Excel 导入（FormData，走统一 api 封装） ---- */
 /* ---- v161 列注册表（**服务端权威**）----
    为什么要有它：在此之前"哪些列不可删"是前端 MASTER_COL_DEFS.deletable 说了算，
    自定义列的定义和值只存 localStorage（换设备即丢、不参与导入导出计算）。
@@ -410,7 +422,9 @@ export const forecastColumnsApi = {
   remove: (key) => api('/api/forecast/columns/' + encodeURIComponent(key), { method: 'DELETE' }),
 }
 
+/* ---- Excel 导入（FormData，走统一 api 封装） ---- */
 export const importApi = {
+  template: (category) => api(`/api/import/template/${category}`),
   /* v158 待补厂价清单导出（后端生成 xlsx，含「商品编号」列作导回钥匙）。
      为什么走后端而不在前端用 SheetJS 造：钥匙规则（编号优先/条码兜底、共码与无条码商品）
      必须在**唯一一处**实现，否则前端一份、后端一份 → 静默漂移（v158 实测两者的行为已经不一致）。 */
@@ -441,7 +455,6 @@ export const importApi = {
     fd.append('file', file)
     return api('/api/import/factory-price-apply', { method: 'POST', body: fd, timeout: 60000 })
   },
-  template: (category) => api(`/api/import/template/${category}`),
   templateFile: async (category) => {
     const token = localStorage.getItem('hergent_v2_token') || ''
     const csrf = localStorage.getItem('hergent_v2_csrf') || ''
