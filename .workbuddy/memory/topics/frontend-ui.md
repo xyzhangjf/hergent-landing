@@ -856,3 +856,28 @@ NFKC 只折**全角形**（`．`U+FF0E → `.`）；中文输入法在**中文�
   净化层照样生效 ⇒ 对照被自己污染。必须用 `createElement('input')` 的**裸元素**（`position:fixed;left:-9999px`）。
 - 输入必须走 **CDP `Input.insertText`**（`page.target().createCDPSession()`）；`page.keyboard.insertText`
   在 managed `puppeteer-core` 里**不存在**。
+
+## §v234 「下架一个模块」的 7 个落点（漏一个就留下死链或死入口）—— 2026-09-21
+
+案例：前端下架「催收跟进」（`Collections.vue`）。**只删组件 + 侧栏一项是不够的。**
+
+| # | 落点 | 漏掉的后果 |
+|---|---|---|
+| 1 | `pages/<X>.vue` 组件本体 | —— |
+| 2 | `router/index.js` 懒加载 `const X = () => import(…)` | 构建报错（引用了未定义变量） |
+| 3 | `router/index.js` 路由项 `{ path: '<x>', component: X }` | 死页仍可达 |
+| 4 | **指向该路由的 `redirect`** | 🔴 比死页更糟：旧书签被**静默重定向到死页** |
+| 5 | `components/Shell.vue` 的**桌面侧栏 + 移动端抽屉两处** | 只删一处 ⇒ 移动端仍能点进死页 |
+| 6 | `components/CommandPalette.vue` 命令项 | 🔴 侧栏藏了，⌘⇧K 仍能跳过去 |
+| 7 | 其他引用：能力中心卡（`ConnectCenter` 的 `SKILL_META`）、工作台待办卡片（`Workbench` 的 `todoItems` 里 `path:`）、`api/modules.js` 的导出 | 🔴 卡片/导出指向已删页面 = **失效链接** |
+
+**验收（三扫 + 一建）**
+1. 残留扫：`grep -rn -e "<中文名>" -e "<Component>" -e "<apiName>" -e "/<path>" -e "hergent-<key>" src` → 0
+2. **死链扫**：`grep -rn "'/<path>'" -e '"/<path>"' -e 'to="/<path>"' src` **并且**扫它的
+   `redirect` **源**路径（本次 `reconciliation` 就是靠这条抓到的）→ 0
+3. `grep -rn "<Component>.vue" src`（无残留 import）→ 0
+4. `npm run build` 零报错，且产物里**没有**该模块 chunk、没有入口文案（本次 assets 53→51，净减恰为 js+css）
+
+**范围边界要显式说明**：本次是「前端侧栏下架」，后端 `/api/<x>/*` 与路由文件**刻意保留**
+（重做方案要以它为存量入口）；`desktop-app/main.js` 里的同名能力描述属**另一套产品面**，
+不在同批范围 —— 交付时要点明，别默认"全清了"。
