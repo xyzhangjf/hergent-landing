@@ -1,0 +1,48 @@
+.login-page{min-height:100vh;background:#f5f5f7;display:flex;flex-direction:column;align-items:center;padding:80rpx 48rpx 40rpx}
+.brand{display:flex;flex-direction:column;align-items:center;margin-bottom:64rpx}
+.brand-ic{width:128rpx;height:128rpx;border-radius:32rpx;overflow:hidden;margin-bottom:24rpx;display:block}
+.brand-name{font-size:40rpx;font-weight:600;color:#1d1d1f}
+.brand-sub{font-size:24rpx;color:#86868b;margin-top:12rpx}
+.card{width:100%;background:#fff;border-radius:24rpx;padding:48rpx 40rpx;box-shadow:0 4rpx 24rpx rgba(0,0,0,.05)}
+.ipt{height:96rpx;border:1rpx solid #e5e5ea;border-radius:16rpx;padding:0 28rpx;font-size:30rpx;margin-bottom:24rpx}
+/* 🔴 2026-09-20 修：按钮文字此前**垂直偏上 7rpx**（实测值，非估算）。
+   根因不在本行任何一条属性，而在**没写的那条** —— 微信 `button` 组件内置
+   `line-height:2.55555556`（无单位倍数，按 font-size 计算 ⇒ 32rpx × 2.5555… = 81.78rpx），
+   小于 `height:96rpx` ⇒ 行盒贴在内容盒顶部，文字中心比按钮中心高 (96−81.78)/2 = 7.11rpx。
+   ⇒ 改为**显式 flex 居中**（`align-items` 管垂直、`justify-content` 管水平），并把 `line-height`
+   归一化：这样「文字居中」不再依赖 `height` 与 `line-height` 两个数字永远保持相等
+   （依赖相等就是这个 bug 的成因，改高度时必然复发）。`padding:0` 清掉微信默认的左右 14px。 */
+.btn{height:96rpx;background:#06b6d4;color:#fff;font-size:32rpx;border-radius:16rpx;margin-top:8rpx}
+.btn[disabled]{opacity:.5}
+.forgot{font-size:26rpx;color:#06b6d4;text-align:right;margin-top:20rpx;padding-right:4rpx}
+.err{color:#ff3b30;font-size:26rpx;margin-top:20rpx;text-align:center}
+.tip{font-size:24rpx;color:#86868b;margin-top:48rpx;text-align:center}
+
+/* P0（2026-09-19）：登录页常驻协议入口 —— 不依赖 showPrivacy 状态，
+   已同意过的用户同样可见可点（此前同意后即再无任何查阅入口）。 */
+.legal-links{display:flex;flex-direction:row;align-items:center;justify-content:center;margin-top:24rpx}
+.lk{font-size:24rpx;color:#06b6d4}
+.lk-sep{font-size:24rpx;color:#c7c7cc;margin:0 12rpx}
+
+/* A3 隐私同意弹窗：遮罩 + 卡片 + 可滚动正文
+   🔴 2026-09-19 补：privacy-mask / privacy-box / privacy-body / p-btn 这一组类名
+   此前**只存在于 login.wxml，全仓没有任何 CSS 定义**（Grep 整个 miniprogram 仅命中
+   login.wxml 自身）。后果：弹窗没有遮罩、没有卡片、没有滚动区，只是排在登录卡片
+   下方的一坨裸文字 —— 用户看到也不会认为那是「隐私协议弹窗」。
+   这与「同意后再无处可查」叠加，正是用户反馈「登录页没看到用户协议和隐私协议」的直接原因。 */
+.privacy-mask{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:1000;padding:0 48rpx}
+.privacy-box{width:100%;max-width:640rpx;background:#fff;border-radius:24rpx;padding:40rpx 36rpx 28rpx;display:flex;flex-direction:column;max-height:80vh}
+.privacy-title{font-size:34rpx;font-weight:600;color:#1d1d1f;text-align:center;margin-bottom:20rpx}
+.privacy-body{flex:1;min-height:0;height:52vh;font-size:26rpx;line-height:1.7;color:#3a3a3c}
+.pz-p{font-size:26rpx;color:#3a3a3c;line-height:1.7;margin:12rpx 0}
+.pz-li{font-size:26rpx;color:#3a3a3c;line-height:1.7;margin:8rpx 0}
+/* 非必要项区块：与必需项做视觉区隔，让用户一眼看出「这段是可以拒绝的」 */
+.pz-opt{background:#f0fdfa;border:1rpx solid #99f6e4;border-radius:12rpx;padding:16rpx 20rpx;margin:16rpx 0}
+.pz-opt-h{font-size:25rpx;font-weight:600;color:#0f766e;line-height:1.6}
+.pz-opt-b{font-size:24rpx;color:#0f766e;line-height:1.6;margin-top:8rpx}
+.privacy-actions{display:flex;flex-direction:row;margin-top:24rpx}
+.p-btn{flex:1;height:84rpx;line-height:84rpx;font-size:28rpx;border-radius:14rpx;margin:0;padding:0}
+.p-btn::after{border:none}
+.p-btn.disagree{background:#f2f2f7;color:#3a3a3c;margin-right:16rpx}
+.p-btn.agree{background:#06b6d4;color:#fff}
+.pz-more{display:flex;flex-direction:row;align-items:center;justify-content:center;margin-top:20rpx}

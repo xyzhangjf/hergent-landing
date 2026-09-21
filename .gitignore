@@ -24,3 +24,10 @@ engines/
 snapshots/
 desktop-app/*.tar.gz
 *.dmg
+
+# 项目数据目录下的备份 / 临时（2026-09-21：不再在未跟踪列表里刷屏）
+# ⚠️ 注意：上面的 `backup/` 与 `/tmp/` 只匹配仓库根下的同名目录，
+#    匹配不到 `.workbuddy/` 里的，故需单独列出。
+.workbuddy/backups/
+.workbuddy/tmp/
+.workbuddy/memory/*.bak*
