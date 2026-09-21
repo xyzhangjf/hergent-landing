@@ -31,3 +31,16 @@ desktop-app/*.tar.gz
 .workbuddy/backups/
 .workbuddy/tmp/
 .workbuddy/memory/*.bak*
+
+# 验证截图（2026-09-21 v234）：属**可再生的交付证据**，本地保留、不入版本库。
+# 理由：仓库曾用 filter-branch 从 859MB 清到 10MB，截图是唯一体积黑洞
+#   （未跟踪 232 张 ≈ 35.5MB，会让仓库体积翻数倍）。
+# ⚠️ 边界（很重要）：**只排除"证据目录"下的 png**，产品资源一律不受影响 ——
+#   avatars/ · landing-page/ · hergent_mobile/ · desktop-app/ · 小程序 的 png
+#   都**不在**下列规则内；assets/ 只排除两个截图前缀（真资源 icon*.png 不受影响）。
+#   若将来确要入库某张截图或某个 `assets/ai-*`/`assets/role-*` 真资源，用 `git add -f`。
+/outputs/*.png
+/outputs/**/*.png
+/artifacts/*.png
+/assets/ai-*.png
+/assets/role-*.png
