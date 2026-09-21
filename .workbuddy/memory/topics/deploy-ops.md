@@ -629,6 +629,50 @@ git diff --cached --name-only -z | while IFS= read -r -d '' p; do git reset -q H
 `~/.workbuddy/traces/<session-id>/*.json` ⇒ 扫 trace、取**最长的那一份**即最完整版本。
 （🔴 只对**已跟踪**文件有效：`topics/*.md` 多为未跟踪，`git checkout` 不会动它们。）
 
+## §v233 部署记录（2026-09-21）—— 兼「列对账」的生产实证
+
+**前置比对**（照 §v232 那张表的三种情形判）：生产 4 个文件 md5 **逐一等于本地 HEAD~1**
+（`db/queries/products.py` fc608e4…、`erp_db.py` 238452c…、`routers/data.py` dc95c58…、
+`routers/forecast.py` 1239414…），第 5 个 `domain/unit_convert.py` 生产**不存在**
+⇒ 情形①「相等」，差异 100% 属本轮，可直接部署。
+
+**部署**：备份 → `/root/backup_v233_20260921_174700/`；scp **5 个具名单文件**（禁整目录 rsync / 禁 `--delete`）
+→ `chown hergent:hergent` → 清 `__pycache__`（含 `routers/` `db/` `db/queries/` `domain/` 四处）
+→ 落点 md5 与本地 HEAD **逐一对上**（**这一步不能省**：scp 也会报 OK 而文件进错目录）
+→ `systemctl restart` → `sleep 12` → `health=200`。
+启动日志异常计数（Traceback/ImportError/`no such column`/migration/`no such table`）**全 0**。
+
+**⭐ 本轮最有价值的一条实证**：重启日志直接给出
+
+```
+[schema-sync] tenant_1.db 补列(+1): ['products.order_unit']
+[schema-sync] tenant_9.db 补列(+1): ['products.order_unit']
+[schema-sync] tenant_10.db 补列(+1): ['products.order_unit']
+[schema-sync] 租户库列对账：3 个库有差异，补列 3 个，告警 0 条（…）
+```
+
+⇒ **零手工操作，新列自动到齐全部租户库**（`PRAGMA table_info` 正面断言：3 个库 + 主库列都在，
+DDL `TEXT DEFAULT ''` 与主库逐字一致）。这是上方「§v233 订正 §v231」在生产上的实锤，
+也是本布局下**新增业务列的正确验收方式**：**重启 → 读那一行**（而不是手工 glob 补列）。
+
+**回填（数据写入）**：`v233-order-unit-backfill.py --apply`，
+在线备份 → 事务 → 逐主键定位 → 写后逐列断言 → 回滚 SQL（29 条）。
+⚠️ `runuser` 传环境变量的正确写法是 `runuser -u hergent -- env K=V python3 …`
+（写成 `runuser -u hergent -- K=V python3` 会报 `failed to execute K=V: No such file or directory`）。
+⚠️ 回滚 SQL 第一版写「当时的生效单位名」，已改为写 `''`（逐字节精确）—— 见 v233 当日日志。
+
+**「存量零变化」怎么证**（可复用范式）：把**回填前的库**还原到独立目录
+（`ERP_DB_PATH=/tmp/xxx/erp.db` ⇒ 租户库解析到 `/tmp/xxx/tenant_1.db` 这一行为在本机与生产一致），
+两侧跑**同一份真身函数** dump 出「业务可读的那几格」到文件，再
+`diff <(grep -v '^#') <(grep -v '^#')` ⇒ **期望 0 行**。
+🔴 同时必须**跑一次回填前库做负例**：同一脚本在 PRE 上应 **FAIL**（否则探针没有判别力）。
+
+**探针自身的坑（本轮踩到，值得单独记）**：数某个报错条数时我写了
+`cmd 2>&1 >/dev/null | grep -c X`，而那条报错走的是 **stdout** ⇒ 被 `/dev/null` 丢掉 ⇒
+**PRE 侧 0、POST 侧 23**，看起来像「我引入了新报错」（白紧张一轮）。
+⇒ 两侧一律 `> file 2>&1` 再比；**正反例结果不同才算探针有效**。
+
+
 ## §v231 🔴 「加列迁移只跑主库」⇒ **租户库不会自动获得新列**（2026-09-21 做 P1-3 时再次确认）
 
 > ⚠️ **本节结论已被 `§v233` 订正**：`_safe_migrate` 确实只作用于主库，但**启动期另有一道

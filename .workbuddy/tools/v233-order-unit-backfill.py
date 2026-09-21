@@ -240,8 +240,19 @@ def main():
     print('  ✅ 已写入 %d 行，逐行复核通过' % n)
     rb = os.path.join('/tmp', 'v233-order-unit-rollback-%s.sql' % ts)
     with open(rb, 'w', encoding='utf-8') as f:
+        # 🔴 为什么回滚写 `''` 而**不是**「当时的生效单位名」（如 '件'）：
+        #   `plan()` 里 `_skip()` 已保证**凡被写入的行，其原 `order_unit` 必为空**
+        #   ⇒ 逐字节还原就是写 `''`。
+        #   写生效单位名虽然**当下行为等价**（`order_unit` 与 `unit` 同值时消费方结论一致），
+        #   但它把一个**过期值钉死**在库里：日后若有人改了该商品的 `unit`，
+        #   `order_unit='件'` 会继续压着新 `unit` —— 那不是"回滚"，是"新埋一个坑"。
+        #   （本工具第一版就是这么写的，属于"看起来对、其实不精确"的回滚。）
+        f.write('-- v233 报单单位回填：回滚脚本（**逐字节精确**）\n')
+        f.write("-- 把这批商品的 `products.order_unit` 清空 = 回到「未指定 ⇒ 跟随 `unit`」的原状。\n")
+        f.write('-- 用法：sqlite3 <租户库> < 本文件\n\n')
         for pid, old in rollback:
-            f.write("UPDATE products SET order_unit='%s' WHERE id=%d;\n" % (old.replace("'", "''"), pid))
+            f.write("UPDATE products SET order_unit='' WHERE id=%d;   -- 回填前生效单位=%s\n"
+                    % (pid, old.replace("'", "''")))
     print('  ✅ 回滚 SQL → %s（%d 条）' % (rb, len(rollback)))
     conn.close()
     return 0
