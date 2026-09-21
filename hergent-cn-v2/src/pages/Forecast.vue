@@ -1617,7 +1617,7 @@
             <div class="mini-form">
               <select v-model="miniPid" class="input"><option value="">选商品…</option><option v-for="r in cross.rows" :key="r.product_id" :value="r.product_id">{{ r.name }}</option></select>
               <input :value="miniQty" type="text" inputmode="numeric" class="input" placeholder="数量(箱)" style="width:90px" @input="numInput($event, setMiniQty)">
-              <input v-model="miniUnit" class="input" placeholder="单位" style="width:64px">
+              <input v-model="miniUnit" class="input" placeholder="单位" title="自动带出该商品的报单默认单位（商品档案 → 包装单位）；可手改" style="width:64px">
               <input v-model="miniNote" class="input" placeholder="备注(选填)">
               <button class="btn btn-primary btn-sm" :disabled="miniSaving" @click="submitMini">提交录单</button>
             </div>
@@ -2603,6 +2603,9 @@ function asProdRow(src) {
        （这份清单就是当年 `arrival_lead_days` 被吃掉、导致停用商品到货周期恒显示「—」的同一个坑。） */
     large_unit: src.large_unit || '', large_ratio: Number(src.large_ratio) || 0,
     medium_unit: src.medium_unit || '', medium_ratio: Number(src.medium_ratio) || 0,
+    /* v240：报单默认单位（`products.order_unit`）—— 与上面换算字段同一条「显式白名单」纪律，
+       漏列就等于该字段在此路径上不存在 ⇒ 已停用商品的录单单位带不出来（静默回退）。 */
+    order_unit: src.order_unit || '',
     extra: src.extra || {},
     offArchive: true,   // 不在「在售档案」里（已停用/已删除）—— 表格据此打「已停用」角标
   }
@@ -3756,6 +3759,9 @@ async function loadEditGrid() {
            判据是 `large_ratio > 0`，**不是** `has_multi_unit`（实测该标志位漏标 9 条）。 */
         large_unit: pd.large_unit || '', large_ratio: Number(pd.large_ratio) || 0,
         medium_unit: pd.medium_unit || '', medium_ratio: Number(pd.medium_ratio) || 0,
+        /* v240：报单默认单位（`products.order_unit`）随行带上 —— 与换算字段同一条「两条加载路径
+           都要带」的纪律：漏一处，那一态的新增单据就带不出单位（静默回退档案单位）。 */
+        order_unit: pd.order_unit || '',
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
         /* v190：进价必须随行带上 —— 此前**两处行映射都漏了它**，而 factoryPrice(r) 优先读
            `r.factory_price` ⇒ 前端实际永远回退到进价，与后端 db.factory_price_sql
@@ -8482,6 +8488,15 @@ const miniUnit = ref('箱')
 const miniNote = ref('')
 const miniSaving = ref(false)
 const miniMsg = ref('')
+/* v240：新增单据时「单位」自动带出该商品在档案里配的**报单默认单位**（`products.order_unit`，
+   配置入口：商品档案 → 编辑 → 包装单位 → 默认单位）。
+   🔴 取值三级回退：**报单默认单位 → 档案单位 → '箱'**（'箱' 是迁入前的既有默认，不动它）。
+   🔴 只做**预填**：输入框仍可手改，submitMini 不再二次覆盖（手改值优先）。 */
+watch(miniPid, (pid) => {
+  const row = cross.value.rows.find(r => String(r.product_id) === String(pid))
+  if (!row) return
+  miniUnit.value = String(row.order_unit || '').trim() || String(row.unit || '').trim() || '箱'
+})
 async function submitMini() {
   if (!curPeriod.value) { toast('请先选择期次', 'warn'); return }
   if (!miniPid.value) { toast('请选择商品', 'warn'); return }
@@ -9299,6 +9314,8 @@ async function loadCross() {
            就会按规格串解析算，与编辑态/保存时看到的不一致。 */
         large_unit: pd.large_unit || '', large_ratio: Number(pd.large_ratio) || 0,
         medium_unit: pd.medium_unit || '', medium_ratio: Number(pd.medium_ratio) || 0,
+        // v240：报单默认单位随行带上（同 loadEditGrid —— 两条加载路径缺一不可）。
+        order_unit: pd.order_unit || '',
         barcode: pd.barcode || '', product_code: pd.product_code || '', dist_price: pd.dist_price || 0,
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
         // v190：进价随行带上（同 loadEditGrid —— 两条加载路径都必须带，漏一处该态就算错）。

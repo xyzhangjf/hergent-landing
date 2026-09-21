@@ -44,10 +44,16 @@
             <!-- v233：报单单位 —— 主表「单位」列与舟谱模板「*单位」列的**共同来源**。
                  与左边的「单位」分开成列，因为它们是**两个概念**（混在一格正是 v217 的病根）：
                    · 「单位」= 档案单位（舟谱「小单位」语义，用于档案对账/价格档位）
-                   · 「报单单位」= 实际下单用的单位（可为中单位，如「组」；永不为大单位）
+                   · 「报单默认单位」= 实际下单用的单位（可为中单位，如「组」；永不为大单位）
                  真实数据里两者会不同：生产 285 个启用商品中 29 个不同，全是**档案没录过小单位**
                  那批（`unit` 落了默认值「件」）。 -->
-            <th title="报单时使用的单位 —— 主表「单位」列与舟谱模板「*单位」列都用它。留空 = 跟随左边的「单位」；在「编辑」里可改">报单单位</th>
+            <th title="报单时使用的单位 —— 主表「单位」列与舟谱模板「*单位」列都用它。留空 = 跟随左边的「单位」；在「编辑 → 包装单位」里可改">报单默认单位</th>
+            <!-- v237：大单位/中单位 —— 舟谱导入自动带出（large_unit/large_ratio、medium_unit/medium_ratio）。
+                 主表过去只渲染「单位」(=小单位)，导致经销商在档案里「只看到一个单位」。本列把
+                 中单位、大单位也摊开，并显示换算关系（1 中单位=N 小单位、1 大单位=N 小单位），
+                 方便核对箱/条/组等包装层级。无该层级时显示「—」。 -->
+            <th title="中单位（如 条/组/板）：1 个中单位含多少个小单位。舟谱导入自动带出，可在此核对包装层级">中单位</th>
+            <th title="大包装（如 件/箱）：1 个大包装含多少个小单位。舟谱导入自动带出，可在此核对包装层级">大包装</th>
             <!-- v184b：到货周期（该单品下单后第几天到货）。位置放在「商品身份」块（名称/条码/规格/单位）
                  之后、价格块之前 —— 它是 SKU 属性，不属于价格组（标准售价/进价/分销价）。 -->
             <th title="该单品下单后第几天到货（如 +3天）。点格子可直接改；留空或 0 = 取消设置">到货周期</th>
@@ -63,9 +69,18 @@
                    留空是一等状态（跟随档案单位），不是「没填」。用破折号说不清这件事。 -->
               <td class="pa-ou-cell">
                 <span v-if="p.order_unit" class="pa-ou-val"
-                      :title="'报单单位（人工指定）：' + p.order_unit">{{ p.order_unit }}</span>
+                      :title="'报单默认单位（人工指定）：' + p.order_unit">{{ p.order_unit }}</span>
                 <span v-else class="pa-ou-follow"
                       title="未单独指定 ⇒ 报单时跟随左边的「单位」">跟随</span>
+              </td>
+              <!-- v237：大单位/中单位 摊开显示（见表头注释）。无该层级显示「—」。 -->
+              <td class="pa-mu-cell">
+                <span v-if="p.medium_unit">{{ p.medium_unit }}<small v-if="Number(p.medium_ratio) > 0"> · 1{{ p.medium_unit }}={{ p.medium_ratio }}{{ p.unit || '小单位' }}</small></span>
+                <span v-else>—</span>
+              </td>
+              <td class="pa-lu-cell">
+                <span v-if="p.large_unit">{{ p.large_unit }}<small v-if="Number(p.large_ratio) > 0"> · 1{{ p.large_unit }}={{ p.large_ratio }}{{ p.unit || '小单位' }}</small></span>
+                <span v-else>—</span>
               </td>
               <!-- v184b：到货周期 —— 行内可编（沿用品牌/进价两列的改法）。
                    🔴 三态显示是**有意的**：
@@ -169,46 +184,134 @@
           <div class="pa-modal-body">
             <p class="pa-tip">改哪个字段就只提交哪个 —— 没动过的字段不会被覆盖，也不会产生多余的修改记录。</p>
 
-            <div class="pa-sec">商品身份</div>
-            <div class="pa-form">
-              <label class="pa-f"><span>商品名称 <i>*</i></span><input v-model="editForm.name" class="input" placeholder="必填"></label>
-              <label class="pa-f"><span>规格</span><input v-model="editForm.spec" class="input" placeholder="如 200g×12"></label>
-              <label class="pa-f"><span>单位</span><input v-model="editForm.unit" class="input" placeholder="件"></label>
-              <!-- v233：报单单位 —— 「主表显示什么单位」与「舟谱模板写什么单位」的**唯一来源**。
-                   与上面的「单位」是两个概念，别合一格：
-                     · 「单位」= 档案里的小单位（舟谱「小单位」口径，对账/价格档位用它）
-                     · 「报单单位」= 实际下单用的单位，可为中单位（如「组」「板」「条」）
-                   留空 = 跟随「单位」，这是**一等状态**不是「没填」；填了则以它为准。 -->
-              <label class="pa-f"><span>报单单位<span class="pa-hint">主表与舟谱模板都用它；留空 = 跟随「单位」</span></span><input v-model="editForm.order_unit" class="input" maxlength="8" placeholder="留空 = 跟随「单位」"></label>
-              <label class="pa-f"><span>分类</span><input v-model="editForm.category" class="input" placeholder="如 液态奶"></label>
-              <label class="pa-f"><span>条码<span class="pa-hint">关联键，不可改</span></span><input :value="detailTarget?.barcode || '—'" class="input" disabled></label>
-              <label class="pa-f"><span>厂家编码<span class="pa-hint">不可改</span></span><input :value="detailTarget?.product_code || '—'" class="input" disabled></label>
+            <div class="pa-tabs">
+              <button type="button" class="pa-tab" :class="{on: tab==='base'}" @click="tab='base'">基本信息</button>
+              <button type="button" class="pa-tab" :class="{on: tab==='pack'}" @click="tab='pack'">包装单位</button>
+              <button type="button" class="pa-tab" :class="{on: tab==='price'}" @click="tab='price'">价格</button>
+              <button type="button" class="pa-tab" :class="{on: tab==='stock'}" @click="tab='stock'">库存效期</button>
             </div>
 
-            <div class="pa-sec">品牌与别名</div>
-            <div class="pa-form">
-              <label class="pa-f"><span>品牌<span class="pa-hint">保存时自动归一</span></span><input v-model="editForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
-              <label class="pa-f"><span>别名<span class="pa-hint">逗号分隔的俗称，用于智能匹配</span></span><input v-model="editForm.alias" class="input" placeholder="如 纯甄,蒙牛纯甄"></label>
+            <!-- Tab 1 基本信息 -->
+            <div v-show="tab==='base'" class="pa-pane">
+              <div class="pa-form">
+                <label class="pa-f"><span>商品名称 <i>*</i></span><input v-model="editForm.name" class="input" placeholder="必填"></label>
+                <label class="pa-f"><span>规格</span><input v-model="editForm.spec" class="input" placeholder="如 200g×12"></label>
+                <!-- v240：报单默认单位已从本 Tab 迁到「包装单位」Tab 的「默认单位」区块（与销售默认单位同排），
+                     字段仍是 `products.order_unit`（v233 落地的报单单位真身），只是控件由手填文本改为下拉。 -->
+                <label class="pa-f"><span>分类</span><input v-model="editForm.category" class="input" placeholder="如 液态奶"></label>
+                <label class="pa-f"><span>条码<span class="pa-hint">关联键，不可改</span></span><input :value="detailTarget?.barcode || '—'" class="input" disabled></label>
+                <label class="pa-f"><span>厂家编码<span class="pa-hint">不可改</span></span><input :value="detailTarget?.product_code || '—'" class="input" disabled></label>
+                <label class="pa-f"><span>品牌<span class="pa-hint">保存时自动归一</span></span><input v-model="editForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
+                <label class="pa-f"><span>别名<span class="pa-hint">逗号分隔的俗称，用于智能匹配</span></span><input v-model="editForm.alias" class="input" placeholder="如 纯甄,蒙牛纯甄"></label>
+                <!-- v234 P1：业务范围控制 —— 该商品可用于哪些业务。三个开关独立，默认都开。 -->
+                <div class="pa-f pa-f-full">
+                  <span>业务范围<span class="pa-hint">控制该商品可用于哪些业务</span></span>
+                  <div class="pa-checks">
+                    <label class="pa-cb"><input type="checkbox" v-model="canSale"> 可销售</label>
+                    <label class="pa-cb"><input type="checkbox" v-model="canReturn"> 可退货</label>
+                    <label class="pa-cb"><input type="checkbox" v-model="canPurchase"> 可采购</label>
+                  </div>
+                </div>
+                <label class="pa-f"><span>顺序号<span class="pa-hint">列表/报单排序，越小越靠前；0 = 不指定</span></span><input v-model="editForm.order_seq" class="input" type="number" min="0" step="1" placeholder="0"></label>
+                <label class="pa-f"><span>起订量<span class="pa-hint">一次最少订多少（件）</span></span><input v-model="editForm.min_order_qty" class="input" type="number" min="0" step="1" placeholder="0"></label>
+              </div>
             </div>
 
-            <div class="pa-sec">价格</div>
-            <div class="pa-form">
-              <label class="pa-f"><span>标准售价<span class="pa-hint">导入模版里叫「售价」</span></span><input v-model="editForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
-              <!-- v226：原来这里有**两个**进价输入框（`purchase_price` / `factory_price`）——
-                   两词同义 ⇒ 只留一个（对外叫「进价」，绑 `factory_price`）。用户不必再猜该填哪个。
-                   ⚠️ `editForm.purchase_price` 仍留在数据里：保存走「只提交真的改过的字段」，
-                      没有界面入口 ⇒ 它永远不会进 payload，库里已有的值不会被覆盖或清零。 -->
-              <label class="pa-f"><span>进价<span class="pa-hint">厂家跟你结算的价（元/箱）；留空 = 按档案历史进价列取</span></span><input v-model="editForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="留空 = 按档案历史进价列取"></label>
-              <label class="pa-f"><span>分销价</span><input v-model="editForm.dist_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
+            <!-- Tab 2 包装单位 -->
+            <div v-show="tab==='pack'" class="pa-pane">
+              <!-- 小单位（基础单位）卡片 -->
+              <div class="pa-card">
+                <div class="pa-card-hd">小单位（基础单位）</div>
+                <div class="pa-form">
+                  <label class="pa-f"><span>单位名</span><input v-model="editForm.unit" class="input" placeholder="件"></label>
+                  <label class="pa-f"><span>条码</span><input :value="detailTarget?.barcode || '—'" class="input" disabled></label>
+                  <label class="pa-f"><span>换算比</span><input class="input" value="1" disabled></label>
+                </div>
+              </div>
+              <!-- 中单位卡片 -->
+              <div class="pa-card">
+                <div class="pa-card-hd">中单位</div>
+                <div class="pa-form">
+                  <label class="pa-f"><span>中单位名<span class="pa-hint">如 条 / 组 / 板；留空 = 无中单位层级</span></span><input v-model="editForm.medium_unit" class="input" maxlength="8" placeholder="如 条"></label>
+                  <label class="pa-f"><span>中单位条码</span><input v-model="editForm.medium_barcode" class="input" maxlength="20" placeholder="选填"></label>
+                  <label class="pa-f"><span>换算比<span class="pa-hint">1 中单位 = ? 个小单位</span></span><input v-model="editForm.medium_ratio" class="input" type="number" min="0" step="1" placeholder="如 5"></label>
+                </div>
+              </div>
+              <!-- 大单位卡片 -->
+              <div class="pa-card">
+                <div class="pa-card-hd">大单位</div>
+                <div class="pa-form">
+                  <label class="pa-f"><span>大单位名<span class="pa-hint">如 件 / 箱；留空 = 无大单位层级</span></span><input v-model="editForm.large_unit" class="input" maxlength="8" placeholder="如 件"></label>
+                  <label class="pa-f"><span>大单位条码</span><input v-model="editForm.large_barcode" class="input" maxlength="20" placeholder="选填"></label>
+                  <label class="pa-f"><span>换算比<span class="pa-hint">1 大单位 = ? 个小单位</span></span><input v-model="editForm.large_ratio" class="input" type="number" min="0" step="1" placeholder="如 40"></label>
+                </div>
+              </div>
+              <!-- v234 P0：默认单位（采购/销售/赠送各选一个档位，空 = 跟随档案单位） -->
+              <div class="pa-subsec">默认单位<span class="pa-hint">开单时预选的单位，空 = 跟随档案单位</span></div>
+              <div class="pa-form">
+                <label class="pa-f"><span>采购默认单位</span>
+                  <select v-model="editForm.default_purchase_unit" class="input"><option value="">跟随档案单位</option><option v-for="o in unitOptions" :key="'p'+o" :value="o">{{ o }}</option></select></label>
+                <label class="pa-f"><span>销售默认单位</span>
+                  <select v-model="editForm.default_sale_unit" class="input"><option value="">跟随档案单位</option><option v-for="o in unitOptions" :key="'s'+o" :value="o">{{ o }}</option></select></label>
+                <!-- v240：报单默认单位（原「报单单位」，在基本信息 Tab 的手填输入框）。
+                     🔴 字段仍绑 `products.order_unit`（v233 落地的真身：主表「单位」列与舟谱模板「*单位」列同源），
+                        只把控件改成与「销售默认单位」**同一个下拉**（同 class="input"、同尺寸、同样式、同「跟随档案单位」空项）。
+                     🔴 单值语义 ⇒ 天然满足「最多一个报单默认单位」：选中新值即顶掉旧值；新增单位不会自动选中。 -->
+                <label class="pa-f" title="报单时使用的单位 —— 主表「单位」列与舟谱模板「*单位」列都用它；留空 = 跟随档案单位"><span>报单默认单位</span>
+                  <select v-model="editForm.order_unit" class="input"><option value="">跟随档案单位</option><option v-for="o in orderUnitOptions" :key="'o'+o" :value="o">{{ o }}</option></select></label>
+                <label class="pa-f"><span>赠送默认单位</span>
+                  <select v-model="editForm.default_gift_unit" class="input"><option value="">跟随档案单位</option><option v-for="o in unitOptions" :key="'g'+o" :value="o">{{ o }}</option></select></label>
+              </div>
+              <!-- v234 P0：移动端开单可见单位（位掩码，勾选才在报单小程序出现） -->
+              <div class="pa-subsec">移动端开单可见单位<span class="pa-hint">勾选的单位才会在小程序报单里出现</span></div>
+              <div class="pa-checks">
+                <label class="pa-cb"><input type="checkbox" v-model="mobileSmall"> 小单位</label>
+                <label class="pa-cb" v-if="editForm.medium_unit"><input type="checkbox" v-model="mobileMedium"> 中单位</label>
+                <label class="pa-cb" v-if="editForm.large_unit"><input type="checkbox" v-model="mobileLarge"> 大单位</label>
+              </div>
             </div>
 
-            <div class="pa-sec">库存与效期</div>
-            <div class="pa-form">
-              <label class="pa-f"><span>安全库存</span><input v-model="editForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
-              <label class="pa-f"><span>保质期(天)</span><input v-model="editForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
-              <label class="pa-f"><span>到货周期<span class="pa-hint">+几天到货；留空 = 取消设置</span></span><input v-model="editForm.arrival_lead_days" class="input" type="number" min="0" :max="ARRIVAL_MAX" step="1" placeholder="如 3"></label>
+            <!-- Tab 3 价格 -->
+            <div v-show="tab==='price'" class="pa-pane">
+              <div class="pa-form">
+                <label class="pa-f"><span>标准售价<span class="pa-hint">导入模版里叫「售价」</span></span><input v-model="editForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
+                <!-- v226：只留一个「进价」输入框（绑 factory_price）。 -->
+                <label class="pa-f"><span>进价<span class="pa-hint">厂家跟你结算的价（元/箱）；留空 = 按档案历史进价列取</span></span><input v-model="editForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="留空 = 按档案历史进价列取"></label>
+                <label class="pa-f"><span>分销价</span><input v-model="editForm.dist_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
+              </div>
+              <!-- v234 P1：价格矩阵（按单位档位），本轮仅展示/录入，不切换预报/返利读价链 -->
+              <div class="pa-subsec">价格矩阵（按单位档位）</div>
+              <div class="pa-pm-wrap">
+                <table class="tbl pa-pm">
+                  <thead><tr>
+                    <th>单位档位</th><th class="num">批发价</th><th class="num">零售价</th><th class="num">最低售价</th><th class="num">进价</th><th>允许改价</th><th>允许看成本</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr v-for="row in priceRows" :key="row.level">
+                      <td>{{ row.name || '—' }}</td>
+                      <td class="num"><input v-model="row.wholesale_price" class="input pa-pm-input" type="number" min="0" step="0.01"></td>
+                      <td class="num"><input v-model="row.retail_price" class="input pa-pm-input" type="number" min="0" step="0.01"></td>
+                      <td class="num"><input v-model="row.min_price" class="input pa-pm-input" type="number" min="0" step="0.01"></td>
+                      <td class="num"><input v-model="row.purchase_price" class="input pa-pm-input" type="number" min="0" step="0.01"></td>
+                      <td class="pa-c"><input type="checkbox" v-model="row.allow_reprice"></td>
+                      <td class="pa-c"><input type="checkbox" v-model="row.allow_view_cost"></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <button type="button" class="btn btn-ghost btn-sm" :disabled="savingPrices" @click="saveUnitPrices()">{{ savingPrices ? '保存中…' : '保存价格矩阵' }}</button>
+              </div>
             </div>
 
+            <!-- Tab 4 库存效期 -->
+            <div v-show="tab==='stock'" class="pa-pane">
+              <div class="pa-form">
+                <label class="pa-f"><span>安全库存</span><input v-model="editForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
+                <label class="pa-f"><span>保质期(天)</span><input v-model="editForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
+                <label class="pa-f"><span>到货周期<span class="pa-hint">+几天到货；留空 = 取消设置</span></span><input v-model="editForm.arrival_lead_days" class="input" type="number" min="0" :max="ARRIVAL_MAX" step="1" placeholder="如 3"></label>
+              </div>
+            </div>
+
+            <!-- 常驻底部：描述 / 状态 / 修改记录 -->
             <div class="pa-sec">描述</div>
             <label class="pa-f pa-f-full"><span>描述<span class="pa-hint">内部备注，不印在单据上；留空 = 清空</span></span>
               <textarea v-model="editForm.description" class="input pa-ta" rows="3" placeholder="选填"></textarea></label>
@@ -268,8 +371,10 @@
               <label class="pa-f"><span>规格</span><input v-model="addForm.spec" class="input" placeholder="如 200g×12"></label>
               <label class="pa-f"><span>单位</span><input v-model="addForm.unit" class="input" placeholder="件（默认）"></label>
               <!-- v233：报单单位（可选）。留空 = 跟随「单位」；填了就同时作用于**主表**与**舟谱模板**，
-                   并且模板会按档案换算把数量一并折算（不是只换标签）。与进价同一条守卫：留空 = 不带该键。 -->
-              <label class="pa-f"><span>报单单位<span class="pa-hint">留空 = 跟随「单位」；填了则报单/导舟谱都用它</span></span><input v-model="addForm.order_unit" class="input" maxlength="8" placeholder="如 条 / 组 / 板"></label>
+                   并且模板会按档案换算把数量一并折算（不是只换标签）。与进价同一条守卫：留空 = 不带该键。
+                   v240：与编辑弹窗同一字段名（报单默认单位）。此处仍是**手填** —— 新建时还不知道中/大单位名，
+                   下拉无项可选；档位建好后到「编辑 → 包装单位」用下拉改即可。 -->
+              <label class="pa-f"><span>报单默认单位<span class="pa-hint">留空 = 跟随「单位」；填了则报单/导舟谱都用它</span></span><input v-model="addForm.order_unit" class="input" maxlength="8" placeholder="如 条 / 组 / 板"></label>
               <label class="pa-f"><span>品牌</span><input v-model="addForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
               <label class="pa-f"><span>分类</span><input v-model="addForm.category" class="input" placeholder="如 液态奶"></label>
               <!-- v226：同编辑弹窗 —— 只留一个「进价」输入框（绑 factory_price）。 -->
@@ -528,14 +633,98 @@ const changesLoading = ref(false)
 const changesLoaded = ref(false)      // 首次展开才请求，避免拖慢打开弹窗
 const logBox = ref(null)              // 记录区（展开后滚进视野用）
 
+/* v234 P0/P1：编辑弹窗 Tab 状态与新增字段的派生读写 */
+const tab = ref('base')
+const savingPrices = ref(false)
+// 价格矩阵（按单位档位）：[{level,name,wholesale_price,retail_price,min_price,purchase_price,allow_reprice,allow_view_cost}]
+const priceRows = ref([])
+
+/* 业务范围三个开关：editForm 里存 0/1 整数，这里用布尔 computed 桥接 checkbox。 */
+const canSale = computed({ get: () => Number(editForm.value.can_sale) === 1, set: v => { editForm.value.can_sale = v ? 1 : 0 } })
+const canReturn = computed({ get: () => Number(editForm.value.can_return) === 1, set: v => { editForm.value.can_return = v ? 1 : 0 } })
+const canPurchase = computed({ get: () => Number(editForm.value.can_purchase) === 1, set: v => { editForm.value.can_purchase = v ? 1 : 0 } })
+
+/* 移动端可见单位：editForm.mobile_order_units 是位掩码（bit0=小/1=中/2=大）。 */
+function _setMobileBit(bit, on) {
+  const cur = Number(editForm.value.mobile_order_units) || 0
+  const mask = 1 << bit
+  editForm.value.mobile_order_units = on ? (cur | mask) : (cur & ~mask)
+}
+const mobileSmall = computed({ get: () => (Number(editForm.value.mobile_order_units) || 0) & 1, set: v => _setMobileBit(0, v) })
+const mobileMedium = computed({ get: () => (Number(editForm.value.mobile_order_units) || 0) & 2, set: v => _setMobileBit(1, v) })
+const mobileLarge = computed({ get: () => (Number(editForm.value.mobile_order_units) || 0) & 4, set: v => _setMobileBit(2, v) })
+
+/* 默认单位下拉可选项：取该商品当前各档位的单位名（小/中/大）。 */
+const unitOptions = computed(() => {
+  const f = editForm.value
+  const arr = []
+  if (f.unit) arr.push(f.unit)
+  if (f.medium_unit) arr.push(f.medium_unit)
+  if (f.large_unit) arr.push(f.large_unit)
+  return arr
+})
+
+/* v240：报单默认单位的下拉可选项 = 三档单位（小/中/大）**+ 库里已有的历史值**。
+   🔴 为什么要兜底历史值：`order_unit` 在 v240 之前是**手填文本**，生产里有 29 个商品的值
+      并不等于任何一档单位名（那批商品档案没录过小单位、unit 落了默认「件」）。
+      若只给三档选项，这些已生效的报单单位在下拉里**匹配不到任何 option** ⇒ 界面显示成空白
+      （看着像「跟随档案单位」，实际不是）⇒ 用户以为没配、或保存时静默改掉。
+      补进列表 ⇒ 看得见、可改回，不静默丢。没有历史孤儿值时行为与「销售默认单位」完全一致。 */
+const orderUnitOptions = computed(() => {
+  const arr = unitOptions.value
+  const v = String(editForm.value.order_unit || '').trim()
+  if (v && !arr.includes(v)) arr.push(v)
+  return arr
+})
+
+/* v234 P1：拉取价格矩阵（按单位档位）。先按商品可售档位铺空行，再异步用已有数据覆盖。 */
+async function loadUnitPrices(pid) {
+  const t = detailTarget.value
+  const base = [{ level: 0, name: t?.unit || '小单位' }]
+  if (t?.medium_unit) base.push({ level: 1, name: t.medium_unit })
+  if (t?.large_unit) base.push({ level: 2, name: t.large_unit })
+  priceRows.value = base.map(l => ({ level: l.level, name: l.name, wholesale_price: 0, retail_price: 0, min_price: 0, purchase_price: 0, allow_reprice: true, allow_view_cost: true }))
+  try {
+    const d = await api('/api/products/' + pid + '/unit-prices')
+    const items = d.items || []
+    priceRows.value = priceRows.value.map(r => {
+      const ex = items.find(x => x.unit_level === r.level)
+      if (!ex) return r
+      return { ...r, wholesale_price: Number(ex.wholesale_price) || 0, retail_price: Number(ex.retail_price) || 0, min_price: Number(ex.min_price) || 0, purchase_price: Number(ex.purchase_price) || 0, allow_reprice: !!Number(ex.allow_reprice), allow_view_cost: !!Number(ex.allow_view_cost) }
+    })
+  } catch (e) { /* 价格矩阵为增强项，失败不影响主流程 */ }
+}
+
+/* v234 P1：保存价格矩阵（整表替换）。独立端点，不走 diff 提交。 */
+async function saveUnitPrices() {
+  const pid = detailTarget.value?.id
+  if (!pid) return
+  savingPrices.value = true
+  try {
+    const rows = priceRows.value.map(r => ({
+      unit_level: r.level, unit_name: r.name,
+      wholesale_price: Number(r.wholesale_price) || 0, retail_price: Number(r.retail_price) || 0,
+      min_price: Number(r.min_price) || 0, purchase_price: Number(r.purchase_price) || 0,
+      allow_reprice: r.allow_reprice ? 1 : 0, allow_view_cost: r.allow_view_cost ? 1 : 0,
+    }))
+    await api('/api/products/' + pid + '/unit-prices', { method: 'PUT', body: { items: rows } })
+    toast('价格矩阵已保存', 'ok')
+  } catch (e) { toast(e.message || '保存失败', 'err') }
+  finally { savingPrices.value = false }
+}
+
 /* 可编辑字段清单 —— **同时是提交白名单**（只有这里列的才可能进 PUT body）。
    ⚠️ 条码 / 厂家编码**有意不在**清单里：条码是唯一索引（`WHERE barcode!=''`）且是至少 5 条链路的
       关联键（扫码查询、导入匹配、返利达成、档案弹层、预报配置），给它一个输入框就是给一把能
       断链路的钥匙。要改条码得走专门的冲突处理流程。 */
 const EDIT_FIELDS = [
-  'name', 'spec', 'unit', 'order_unit', 'category', 'brand', 'alias',
+  'name', 'spec', 'unit', 'order_unit', 'large_unit', 'large_ratio', 'medium_unit', 'medium_ratio',
+  'category', 'brand', 'alias',
   'sale_price', 'purchase_price', 'factory_price', 'dist_price',
   'safety_stock', 'expiry_days', 'arrival_lead_days', 'description',
+  // v234 P0/P1：业务范围开关 / 排序号 / 起订量 / 默认单位 / 移动端可见位掩码。
+  'min_order_qty', 'order_seq', 'can_sale', 'can_return', 'can_purchase', 'mobile_order_units',
+  'default_purchase_unit', 'default_sale_unit', 'default_gift_unit',
 ]
 /* v233：`order_unit`（报单单位）是**字符串**字段、留空合法（= 跟随 `unit`）⇒
    不进 `EDIT_NUM_FIELDS`；`_norm` 对它做 trim 后比较即可。
@@ -546,6 +735,9 @@ const EDIT_FIELDS = [
 const EDIT_NUM_FIELDS = new Set([
   'sale_price', 'purchase_price', 'factory_price', 'dist_price',
   'safety_stock', 'expiry_days', 'arrival_lead_days',
+  'large_ratio', 'medium_ratio',
+  // v234：整数型字段（金额相关走 0.01 步进，这里都是整数）
+  'min_order_qty', 'order_seq', 'can_sale', 'can_return', 'can_purchase', 'mobile_order_units',
 ])
 
 /* 修改记录里 `field_name`（英文键）→ 中文。
@@ -560,11 +752,17 @@ const FIELD_CN = {
   category: '分类', factory_price: '进价', purchase_price: '进价（历史字段）', dist_price: '分销价',
   sale_price: '标准售价', safety_stock: '安全库存', expiry_days: '保质期(天)',
   product_code: '厂家商品编码', arrival_lead_days: '到货周期', alias: '别名',
-  order_unit: '报单单位',
+  order_unit: '报单默认单位',
+  // v234 P0/P1 新增字段中文
+  can_sale: '可销售', can_return: '可退货', can_purchase: '可采购', order_seq: '顺序号',
+  default_purchase_unit: '采购默认单位', default_sale_unit: '销售默认单位',
+  default_gift_unit: '赠送默认单位', mobile_order_units: '移动端可见单位',
+  medium_barcode: '中单位条码', large_barcode: '大单位条码',
   description: '描述', wholesale_price: '批发价', min_order_qty: '起订量',
   is_active: '状态', status: '状态', lead_time_days: '补货提前期',
   review_period_days: '复核周期(天)', reorder_point: '补货点',
-  weight_kg: '重量(kg)', volume_m3: '体积(立方米)', large_unit: '大单位',
+  weight_kg: '重量(kg)', volume_m3: '体积(立方米)',   large_unit: '大单位',
+  large_ratio: '大单位换算比',
   unit_ratio: '换算比', medium_unit: '中包装单位', medium_ratio: '中包装换算比',
   created_at: '创建时间', updated_at: '更新时间',
 }
@@ -917,6 +1115,8 @@ function openDetail(p) {
   showChanges.value = false
   changesLoaded.value = false
   changesList.value = []
+  tab.value = 'base'            // v234：每次打开回到第一个 Tab
+  loadUnitPrices(p.id)         // v234 P1：异步拉价格矩阵（铺空行后覆盖）
   detailOpen.value = true
 }
 
