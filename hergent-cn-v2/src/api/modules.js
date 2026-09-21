@@ -535,6 +535,34 @@ export const priceChannelApi = {
     }),
 }
 
+/* v228 客户专属价（后端表 `customer_prices`）—— 「客户 × 商品 → 小/中/大三档价」。
+   与上面的「渠道价」互补：渠道价按渠道统一定价，专属价只对**某一个客户**生效、
+   优先级更高（定价引擎第 4 层 `customer_specific`，见 domain/pricing_engine.py:501）。
+   生产 `tenant_1` 已有 8024 行 / 518 客户 / 65 商品 —— 但此前**前端零界面**，
+   这 8024 条在系统里「存在却看不见」，本模块就是把它接出来。
+
+   🔴 保存时**只提交有值的档**：后端 `set_customer_price` 只覆盖传进去的列，
+      提交 0 会把库里已有那一档清零（旧实现更狠 —— 整行 REPLACE，见其 docstring）。
+
+   🔴 路径是 `/api/customer-prices`，**没有 `/crm` 段** ——
+      `routers/crm.py` 的 `APIRouter(prefix="/api")` + `server.py:936 include_router(crm_router)`
+      （无附加 prefix）⇒ 真实路径就是 `/api/customer-prices`。生产 openapi.json 亦如此。
+      文件名叫 crm 只是代码组织，不进 URL。 */
+export const custPriceApi = {
+  list: ({ keyword = '', customerId = 0, productId = 0, onlyPriced = '', sort = 'customer',
+           offset = 0, limit = 50 } = {}) => {
+    const qs = new URLSearchParams({
+      keyword, customer_id: customerId, product_id: productId,
+      only_priced: onlyPriced, sort, offset, limit,
+    })
+    return api('/api/customer-prices?' + qs.toString())
+  },
+  /* 单行写入（后端一次一行）；调用方改多行时自行并发，回执按行归并。 */
+  save: (row) => api('/api/customer-prices', { method: 'POST', body: row }),
+  byCustomer: (cid) => api(`/api/customer-prices/${cid}`),
+  templateUrl: () => '/api/import/template-file/customer_prices',
+}
+
 /* v160 租户业务参数 —— 舟谱模板的「业务员 / 部门 / 仓库」列、自提单号起始序号、
    商品名内嵌的下单主体清单。原先这些值硬编码在后端代码里、且是**一家客户的值**，
    多租户下会把别家公司与别人的人名写进模板。读写唯一实现见后端
