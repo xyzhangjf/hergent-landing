@@ -1,10 +1,29 @@
-# Hergent 版本史（v230 → v223）+ 起号 / 改号规程
+# Hergent 版本史（v232 → v223）+ 起号 / 改号规程
 
-> **本页从 `MEMORY.md` 第三节下沉而来**（2026-09-21 瘦身：**15252 B → 10486 B**，已达标 ≤10.5KB）。
+> **本页从 `MEMORY.md` 第三节下沉而来**（2026-09-21 瘦身：**15252 B → 10446 B**，已达标 ≤10.5KB）。
 > `MEMORY.md` 只回答「**该读哪一份**」；本页存「**每一版具体做了什么 + commit hash + 编号撞车的处置**」。
 > 更早版本（**v222 及以前**）见 `.workbuddy/memory/YYYY-MM-DD.md` 当日日志。
 
 ## 一、版本史（新 → 旧）
+
+### v232 = 舟谱模板单价改取渠道价（v218 §10.7 P2-1）—— 顺带修一个**在产缺陷**
+
+「进价」被写进了舟谱的「`*单价(折后价)`」列：明细价 = **进价（元/箱）**，而该列与「`*单位`」
+成对 = **元/单位** ⇒ 旧模板单价**一直偏大「规格 × 0.9」倍（实测 10~24 倍）**。
+
+- `db/queries/prices.py`：**新增 `channel_price_detail(pid, ch, unit)`**（唯一实现）——
+  把「价以什么单位计价」作为返回值的一部分（大/小/中单位名；`matrix` 退回主列 ⇒ `''`）。
+  `resolve_channel_price` 降级为其 3 元组视图（**既有调用方零影响**）；`resolve_for_report` 加键 `price_unit`。
+- `routers/forecast.py`：`_template_price()` = **渠道价优先 → 明细价兜底** + **`_reject_reason()` 量纲闸门**；
+  另存 `raw_map[alias] = 整行 report_mapping`（取价要 `channel_id`/`counterparty_id`，
+  `alias_map` 只是给模板列的 **4 键投影**，**不扩它**）。
+- `erp_db.py`：门面补导出 `channel_price_detail`。
+- **影响面（只读试算，`tenant_1` 593 行）**：会变 **521**、回退 60、不变 3、新增单价 9。
+- **验收**：`tools/v232-p2-1-selftest.py` 43 项全绿 + 生产只读跑真身 `_build_zhoupu_data`
+  （期次 14：`11.0/桶、17.56/组、8.78/组、4.31/杯`，全为**元/单位**）。
+- **已上线**（与 v231 合并，backend commit `0e7c6de`）：补列 `glob tenant_*.db` 已跑 + 双侧 md5 全等。
+- 🔴 **判据教训**：报告原文的「存量行为零变化」**是错的** —— `resolve_report_channel()` 有
+  默认渠道兜底（v159 有意设计）⇒「没配渠道」≠ `missing` ⇒ 照样改输出。详见 `deploy-ops.md §v232`。
 
 ### v231 = 渠道价补「三级单位价」三列（v218 §10.7 P1-3）
 
