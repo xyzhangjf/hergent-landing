@@ -41,6 +41,13 @@
         <table class="tbl">
           <thead><tr>
             <th>名称</th><th>条码</th><th>规格</th><th>单位</th>
+            <!-- v233：报单单位 —— 主表「单位」列与舟谱模板「*单位」列的**共同来源**。
+                 与左边的「单位」分开成列，因为它们是**两个概念**（混在一格正是 v217 的病根）：
+                   · 「单位」= 档案单位（舟谱「小单位」语义，用于档案对账/价格档位）
+                   · 「报单单位」= 实际下单用的单位（可为中单位，如「组」；永不为大单位）
+                 真实数据里两者会不同：生产 285 个启用商品中 29 个不同，全是**档案没录过小单位**
+                 那批（`unit` 落了默认值「件」）。 -->
+            <th title="报单时使用的单位 —— 主表「单位」列与舟谱模板「*单位」列都用它。留空 = 跟随左边的「单位」；在「编辑」里可改">报单单位</th>
             <!-- v184b：到货周期（该单品下单后第几天到货）。位置放在「商品身份」块（名称/条码/规格/单位）
                  之后、价格块之前 —— 它是 SKU 属性，不属于价格组（标准售价/进价/分销价）。 -->
             <th title="该单品下单后第几天到货（如 +3天）。点格子可直接改；留空或 0 = 取消设置">到货周期</th>
@@ -52,6 +59,14 @@
               <td class="pa-mono">{{ p.barcode || '—' }}</td>
               <td>{{ p.spec || '—' }}</td>
               <td>{{ p.unit || '—' }}</td>
+              <!-- v233：报单单位 —— 「有值/跟随」两态（不是「有值/空」）：
+                   留空是一等状态（跟随档案单位），不是「没填」。用破折号说不清这件事。 -->
+              <td class="pa-ou-cell">
+                <span v-if="p.order_unit" class="pa-ou-val"
+                      :title="'报单单位（人工指定）：' + p.order_unit">{{ p.order_unit }}</span>
+                <span v-else class="pa-ou-follow"
+                      title="未单独指定 ⇒ 报单时跟随左边的「单位」">跟随</span>
+              </td>
               <!-- v184b：到货周期 —— 行内可编（沿用品牌/进价两列的改法）。
                    🔴 三态显示是**有意的**：
                      · 有值  → '+3天'（可点）
@@ -159,6 +174,12 @@
               <label class="pa-f"><span>商品名称 <i>*</i></span><input v-model="editForm.name" class="input" placeholder="必填"></label>
               <label class="pa-f"><span>规格</span><input v-model="editForm.spec" class="input" placeholder="如 200g×12"></label>
               <label class="pa-f"><span>单位</span><input v-model="editForm.unit" class="input" placeholder="件"></label>
+              <!-- v233：报单单位 —— 「主表显示什么单位」与「舟谱模板写什么单位」的**唯一来源**。
+                   与上面的「单位」是两个概念，别合一格：
+                     · 「单位」= 档案里的小单位（舟谱「小单位」口径，对账/价格档位用它）
+                     · 「报单单位」= 实际下单用的单位，可为中单位（如「组」「板」「条」）
+                   留空 = 跟随「单位」，这是**一等状态**不是「没填」；填了则以它为准。 -->
+              <label class="pa-f"><span>报单单位<span class="pa-hint">主表与舟谱模板都用它；留空 = 跟随「单位」</span></span><input v-model="editForm.order_unit" class="input" maxlength="8" placeholder="留空 = 跟随「单位」"></label>
               <label class="pa-f"><span>分类</span><input v-model="editForm.category" class="input" placeholder="如 液态奶"></label>
               <label class="pa-f"><span>条码<span class="pa-hint">关联键，不可改</span></span><input :value="detailTarget?.barcode || '—'" class="input" disabled></label>
               <label class="pa-f"><span>厂家编码<span class="pa-hint">不可改</span></span><input :value="detailTarget?.product_code || '—'" class="input" disabled></label>
@@ -246,6 +267,9 @@
               <label class="pa-f"><span>条码</span><input v-model="addForm.barcode" class="input" placeholder="唯一编码，留空按名称匹配"></label>
               <label class="pa-f"><span>规格</span><input v-model="addForm.spec" class="input" placeholder="如 200g×12"></label>
               <label class="pa-f"><span>单位</span><input v-model="addForm.unit" class="input" placeholder="件（默认）"></label>
+              <!-- v233：报单单位（可选）。留空 = 跟随「单位」；填了就同时作用于**主表**与**舟谱模板**，
+                   并且模板会按档案换算把数量一并折算（不是只换标签）。与进价同一条守卫：留空 = 不带该键。 -->
+              <label class="pa-f"><span>报单单位<span class="pa-hint">留空 = 跟随「单位」；填了则报单/导舟谱都用它</span></span><input v-model="addForm.order_unit" class="input" maxlength="8" placeholder="如 条 / 组 / 板"></label>
               <label class="pa-f"><span>品牌</span><input v-model="addForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
               <label class="pa-f"><span>分类</span><input v-model="addForm.category" class="input" placeholder="如 液态奶"></label>
               <!-- v226：同编辑弹窗 —— 只留一个「进价」输入框（绑 factory_price）。 -->
@@ -509,10 +533,13 @@ const logBox = ref(null)              // 记录区（展开后滚进视野用）
       关联键（扫码查询、导入匹配、返利达成、档案弹层、预报配置），给它一个输入框就是给一把能
       断链路的钥匙。要改条码得走专门的冲突处理流程。 */
 const EDIT_FIELDS = [
-  'name', 'spec', 'unit', 'category', 'brand', 'alias',
+  'name', 'spec', 'unit', 'order_unit', 'category', 'brand', 'alias',
   'sale_price', 'purchase_price', 'factory_price', 'dist_price',
   'safety_stock', 'expiry_days', 'arrival_lead_days', 'description',
 ]
+/* v233：`order_unit`（报单单位）是**字符串**字段、留空合法（= 跟随 `unit`）⇒
+   不进 `EDIT_NUM_FIELDS`；`_norm` 对它做 trim 后比较即可。
+   后端白名单在 `db/queries/products.py` 的 `product_update`（不加 = 这里填了也静默回旧值）。 */
 
 /* 数值型字段（diff 比较、校验、提交都按数字；其余按 trim 后的字符串）。
    与「留空 = 清空」配套：数值留空归一成 0 提交，字符串留空提交空串。 */
@@ -533,6 +560,7 @@ const FIELD_CN = {
   category: '分类', factory_price: '进价', purchase_price: '进价（历史字段）', dist_price: '分销价',
   sale_price: '标准售价', safety_stock: '安全库存', expiry_days: '保质期(天)',
   product_code: '厂家商品编码', arrival_lead_days: '到货周期', alias: '别名',
+  order_unit: '报单单位',
   description: '描述', wholesale_price: '批发价', min_order_qty: '起订量',
   is_active: '状态', status: '状态', lead_time_days: '补货提前期',
   review_period_days: '复核周期(天)', reorder_point: '补货点',
@@ -575,7 +603,7 @@ const dirtyCount = computed(() => {
 /* 新增弹窗 */
 const addOpen = ref(false)
 const addSaving = ref(false)
-const addForm = ref({ name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '', arrival_lead_days: '' })
+const addForm = ref({ name: '', barcode: '', spec: '', unit: '', order_unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '', arrival_lead_days: '' })
 
 // 导入弹窗
 const impOpen = ref(false)
@@ -1001,7 +1029,7 @@ async function loadChanges(pid) {
 
 /* ---- 新增商品 ---- */
 function openAdd() {
-  addForm.value = { name: '', barcode: '', spec: '', unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '', arrival_lead_days: '' }
+  addForm.value = { name: '', barcode: '', spec: '', unit: '', order_unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '', arrival_lead_days: '' }
   addSaving.value = false
   addOpen.value = true
 }
@@ -1036,6 +1064,11 @@ async function saveAdd() {
       //   本弹窗走 bulk-upsert，同名商品会命中更新分支；若把空值当 0 提交，
       //   会把导入或档案里已设好的到货周期清零（进价列踩过同一个坑）。
       ...(_cyc.empty ? {} : { arrival_lead_days: _cyc.value }),
+      // v233 报单单位：与上一条**同一条守卫** —— 留空 = 不带该键（= 不动已有的人工指定值）。
+      //   本弹窗走 bulk-upsert，同名商品会命中更新分支；若把空串无条件提交，
+      //   `normalize_order_unit('')` 返回 `''` 是**合法值**（= 清掉人工指定）⇒ 会把
+      //   用户在档案里特意指定的报单单位**清空**（进价 / 到货周期两列都踩过同一个坑）。
+      ...(String(f.order_unit || '').trim() === '' ? {} : { order_unit: String(f.order_unit).trim() }),
     }
     const r = await productsApi.bulkUpsert([row])
     toast(`已保存（新增 ${r.inserted || 0} / 更新 ${r.updated || 0}）`, 'ok')
@@ -1172,6 +1205,10 @@ onMounted(() => {
    本租户 285 个在售商品里 274 个为空 —— 用警示色会变成满屏噪音，反而盖掉真正要看的缺价提示。 */
 .pa-cyc-none{cursor:pointer;color:var(--t3);font-size:12px;border-bottom:1px dashed transparent}
 .pa-cyc-none:hover{border-bottom-color:var(--p);color:var(--p)}
+/* v233：报单单位列 —— 「已指定」「跟随」两态。**不用破折号**：留空是一等状态（跟随档案单位），
+   破折号说不清「这是有意的跟随」还是「这格没数据」（同 .pa-cyc-none 的三态道理）。 */
+.pa-ou-val{font-variant-numeric:tabular-nums}
+.pa-ou-follow{color:var(--t3);font-size:12px}
 .pa-cyc-input{width:74px;height:30px;text-align:center;padding:0 6px}
 
 .pa-panel{padding:18px;margin-bottom:14px}
