@@ -21,6 +21,12 @@ Page({
     // 2026-09-06 跨期次沿用：提交后不清空，记住「上次报了什么」，下期可一键带入
     lastOrder: null,           // { periodId, periodName, at, count, qty, items[] } 同门店上次报单快照
     submittedInfo: null,       // { sid, count, qty, at } 当前门店 + 当前期次已提交（防重复提交）
+    /* v227（2026-09-21）：样单来源回执 —— { name, count, qty, outTip, outOfScope }。
+       它回答的是"车里这些数从哪来、跟本期清单合不合"—— 而这个答案直接决定用户下一步
+       是"直接提交"还是"先改几个"（需求原话：「如果无需修改，则可直接提交」）。
+       ⚠️ 切期次 / 切门店 / 清空时必须清除：`outTip` 里的越界结论是**按期次清单**算的，
+          换一期它就过期了，留着就是让页面说错话。 */
+    sampleInfo: null,
     /* v224（2026-09-21）：**页内结果卡**（方案 A）—— 提交成功后的持久回执。
        为什么必须有：提交按钮 `position:fixed` 在**屏幕底部**，而唯一那条持久回执
        （`submittedInfo`）渲染在**页面顶部**；成功提示又只靠 `wx.showModal`（会自动消失）
@@ -121,14 +127,43 @@ Page({
 
   /* 拉取期次：Web 端所有 status='open' 的期次（含已过单日窗口的），
      有效期次排最前并默认选中；过期项在名称后标注「（已过窗口）」 */
+  /* v227（2026-09-21）：本地「今天」（YYYY-MM-DD）。
+     为什么不用 toISOString()：那是 **UTC** —— 北京时间 00:00~08:00 之间会比真实日期
+     早一天，期次窗口判定（"未开始" vs "已过"）会整体错一格。本项目已有同类教训
+     （v224 提交时间、v225 推送计数），这里从一开始就用本地时间。 */
+  _todayStr() {
+    const d = new Date()
+    const p2 = (n) => (n < 10 ? '0' + n : '' + n)
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate())
+  },
   async loadPeriods() {
     try {
       const cached = this._fsCacheGet('periods')
       if (cached) { this._applyPeriods(cached); return }
       const d = await request('/api/forecast-submissions/open-periods')
-      const periods = (d.periods || []).map(p => Object.assign({}, p, {
-        display: (p.name || '') + (p.in_window === false ? '（已过窗口）' : '')
-      }))
+      /* v227（2026-09-21）：窗口状态由**两态**改**三态**。
+         原实现把 `in_window === false` 一律标成「（已过窗口）」，而该标志有两种成因：
+           · `order_start` 已过   → 真的「已过窗口」（只能求管理员重开本期）
+           · `order_start` 在未来 → 「尚未开始」（管理员把下一期提前建好了）
+         后端 `forecast_open_periods_all()` 的过滤条件是 `status='open'`（**不带日期**），
+         所以"尚未开始"的期次**本来就在列表里** —— 对它说"已过窗口"是把话说反了，
+         下方警示条还会跟着教用户"提交会被拒绝"，而真实原因（还没到日子）完全不同。
+         ⚠️ 生产实测 2026-09-21：tenant_1 的 4 个 open 期次**恰好都是"已过"**，
+           所以这个错误从未显形；一旦管理员把下一期提前建好，当天就会说谎。
+         ⚠️ 判定用**本地** today（见 `_todayStr`），并顺带把 `wstate` 一并下发 ——
+           WXML 里不再重复比较日期字符串（两处比较 = 两处迟早分叉）。 */
+      const today = this._todayStr()
+      const periods = (d.periods || []).map(p => {
+        let wstate = 'in'
+        if (p.in_window === false) {
+          wstate = (p.order_start && today < p.order_start) ? 'future' : 'past'
+        }
+        return Object.assign({}, p, {
+          wstate,
+          display: (p.name || '')
+            + (wstate === 'future' ? '（未开始）' : (wstate === 'past' ? '（已过窗口）' : ''))
+        })
+      })
       this._fsCacheSet('periods', periods)
       this._applyPeriods(periods)
     } catch (e) {
@@ -172,7 +207,8 @@ Page({
     wx.setStorageSync('fs_period_id', period.id !== undefined ? period.id : '')
     // v224：切期次后必须清除旧结果卡/错误条 —— 它们说的是**上一个期次**的那一单，
     // 留在屏幕上会被当成"本期已提交"（多期并存时这种误读最危险）。
-    this.setData({ submitResult: null, submitError: null })
+    // v227：样单条同理 —— 它的越界结论是按**上一期的清单**算的，换期后失效。
+    this.setData({ submitResult: null, submitError: null, sampleInfo: null })
     this.refreshBanners()                // 期次变了，重新判断「本期是否已报」
     // 二期: 已填数量切到新期次 → 轻提示（数据保留可沿用，但别提交错期次）
     if (this.data.cartCount > 0 && period.id !== oldId && period.in_window !== false) {
@@ -181,8 +217,15 @@ Page({
         icon: 'none', duration: 2500
       })
     }
-    // 已过报单窗口的期次：提前告知（后端提交时仍会二次校验并 400 拒绝）
-    if (period.in_window === false) {
+    // 不能提交的期次：提前告知（后端提交时仍会二次校验并 400 拒绝）
+    // v227：区分「尚未开始」与「已过」—— 前者是**可用的**（先做样单，等开放再提交），
+    // 后者只能求管理员重开本期。原文案只有一种说法，把"还没到日子"说成了"过期了"。
+    if (period.wstate === 'future') {
+      wx.showToast({
+        title: '该期次还没到报单时间，可以先做样单，开放后再提交',
+        icon: 'none', duration: 3000
+      })
+    } else if (period.wstate === 'past' || period.in_window === false) {
       wx.showToast({
         title: '该期次报单窗口已过，提交会被拒绝',
         icon: 'none', duration: 2500
@@ -298,6 +341,167 @@ Page({
     wx.showToast({ title: `已带入 ${last.count} 项 / ${last.qty} 件`, icon: 'none' })
     track(EVENTS.SUBMIT, { action: 'apply_last_order', count: last.count, qty: last.qty })
   },
+
+  /* ============ v227（2026-09-21）：**复制生成样单** ============
+     需求（用户原话）：「报单人能否具备样单体验功能：在小程序中选择一个期次后，
+     直接点击复制生成样单，然后切换到已开放的期次。如果样单内容需要修改，支持直接
+     改单；如果无需修改，则可直接提交。」
+
+     ⚠️ 实现的三个边界，缺一条这个功能就会"说谎"：
+       ① **源** = 该门店在某个往期报过的单（含数量），取自**服务端**，不是本机快照。
+          为什么不用现成的 `lastOrder`（`fs_last_cart_<storeId>`）：那是本机 Storage、
+          只存"最近一次"，**换台手机就没了** —— 而报单人是拿自己手机干活的。
+       ② **落点** = 当前选中的期次（提交时用的就是它）。所以"切到已开放的期次再提交"
+          这个动作，复用的正是既有的「切期次保留已填数量」行为，**不需要新机制**。
+       ③ **样单不落库**。它只是一份本地草稿。落库会造出"未开放期次的报单"，与
+          「一店一期一单」「未在窗口内不许报」两条硬规则直接冲突（后端必 400）。
+          ⇒ 生成样单**不发任何写请求**，只发一次读。
+
+     ⚠️ 两个必须挡住的坑：
+       · **撤回/驳回的单不能当源** —— `recall` 只是 `UPDATE status='recalled'`（行还在），
+         拿它当样单 = 把"已作废的数量"再报一次，而用户以为是在沿用有效的单。
+       · **同店同期可能有多条历史单**（v224「一店一期一单」之前的存量，生产实测存在：
+         店 2220 在 period 9 就有 user 5 / user 2 两条）。取 **id 最大**那条 ——
+         `/my` 已按 `ORDER BY id DESC` 返回，所以"首见即最新"。 */
+  async genSample() {
+    const store = this.data.store || {}
+    if (!store.id) {
+      /* 无门店 vs 没选门店是两句话 —— 前者要去找管理员，后者点一下选择器即可。
+         判据用 `stores`（既有字段）而非 P0-1 的 `storeEmpty`：语义等价（后者就是
+         `!stores.length`），但不把本轮代码挂到在途工作上；「一个字段两处判据」迟早分叉。 */
+      wx.showToast({
+        title: (this.data.stores || []).length ? '请先选择门店' : '你还没有被配置报单门店',
+        icon: 'none'
+      })
+      return
+    }
+    wx.showLoading({ title: '读取往期单据…', mask: true })
+    let recs = []
+    try {
+      // v227：按门店取全（一店一期一单 ⇒ 条数 == 该店报过的期次数，量很小）
+      const d = await request('/api/forecast-submissions/my?limit=100&store_id=' + store.id)
+      recs = d.records || []
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: e.message || '读取往期单据失败', icon: 'none' })
+      return
+    }
+    wx.hideLoading()
+
+    const seen = {}
+    const srcs = []
+    for (const r of recs) {
+      const st = String(r.status || '')
+      if (st === 'recalled' || st === 'rejected') continue   // 作废单不是有效源
+      const pid = (r.period_id == null) ? 0 : r.period_id
+      if (seen[pid]) continue                                // 已按 id DESC ⇒ 首见即最新
+      seen[pid] = 1
+      const items = (r.items || []).filter(it => it && it.product_id && Number(it.quantity) > 0)
+      if (!items.length) continue
+      srcs.push({
+        pid,
+        date: r.order_date || '',
+        name: this._periodName(pid, r.order_date),
+        count: items.length,
+        qty: items.reduce((s, it) => s + Number(it.quantity || 0), 0),
+        items: items
+      })
+    }
+    if (!srcs.length) {
+      wx.showToast({ title: '这个门店还没有可复制的往期单据', icon: 'none', duration: 2500 })
+      return
+    }
+    /* ActionSheet 有两处硬限制：选项 ≤6 条、每条文本不宜过长。
+       超出按"最新优先"截断 —— 报单人多半只想照上一期，不会翻到半年前。 */
+    const MAX = 6
+    const top = srcs.slice(0, MAX)
+    const curId = String((this.data.period || {}).id)
+    const labels = top.map(s => {
+      let t = s.name + ' · ' + s.count + '项 ' + s.qty + '件'
+      if (String(s.pid) === curId) t = '★ ' + t
+      return t.length > 20 ? t.slice(0, 19) + '…' : t
+    })
+    if (srcs.length > MAX) labels.push('（更早的 ' + (srcs.length - MAX) + ' 期未列出）')
+    wx.showActionSheet({
+      itemList: labels,
+      success: (res) => {
+        const src = top[res.tapIndex]
+        if (!src) return
+        this._applySample(src)
+      },
+      fail: () => {}
+    })
+  },
+
+  /* 期次号 → 可读名称。优先当前列表里的名字；源期次可能已关闭（不在 open 列表里），
+     那时退回日期 —— 报单人不认识期次号，但认识"9月19日那期"。 */
+  _periodName(pid, date) {
+    const hit = (this.data.periods || []).find(p => String(p.id) === String(pid))
+    if (hit && hit.name) return hit.name
+    return date ? (date.slice(5) + ' 那期') : ('期次 #' + pid)
+  },
+
+  /* 把源单铺成样单（覆盖式）。有已填内容先确认 —— 一键清掉别人填了半天的东西，
+     是这个页面上最容易造成实际损失的动作。 */
+  _applySample(src) {
+    if (!src) return
+    const doIt = () => {
+      this.cartMap = {}
+      for (const it of src.items) {
+        const unit = it.unit || '件'
+        const key = it.product_id + '|' + unit
+        this.cartMap[key] = {
+          key, id: it.product_id,
+          name: it.product_name || ('#' + it.product_id),
+          spec: it.spec || '', unit, qty: Number(it.quantity) || 0
+        }
+      }
+      this.syncCart()
+      this.applyQtyToRows()
+      /* 越界预检：**只在本期清单已全部加载时**才下结论。
+         为什么必须加这个条件：`products` 是分页加载的，只比第一页会把"还没翻到"
+         误报成"不在本期清单"（假阳性），而用户会照着这个错误的提示去删商品。 */
+      const loadedAll = this.data.total > 0 && this.data.products.length >= this.data.total
+      let outside = []
+      if (loadedAll) {
+        const inScope = {}
+        for (const p of this.data.products) inScope[String(p.id)] = 1
+        outside = src.items.filter(it => !inScope[String(it.product_id)])
+      }
+      const outTip = loadedAll
+        ? (outside.length
+            ? (outside.length + ' 项不在本期清单，提交时会被自动跳过')
+            : '全部商品都在本期清单内')
+        : '提交时系统会核对本期清单，不在的会自动跳过'
+      this.setData({
+        sampleInfo: { name: src.name, count: src.count, qty: src.qty,
+                      outTip: outTip, outOfScope: outside.length }
+      })
+      wx.showToast({
+        title: '已生成样单（' + src.count + ' 项 / ' + src.qty + ' 件）',
+        icon: 'none', duration: 2200
+      })
+      track(EVENTS.SUBMIT, { action: 'gen_sample', pid: src.pid, count: src.count, qty: src.qty })
+    }
+    if (this.data.cartCount) {
+      wx.showModal({
+        title: '覆盖当前已填内容？',
+        content: '当前已填 ' + this.data.cartCount + ' 项 / ' + this.data.cartQty
+               + ' 件，将被「' + src.name + '」的 ' + src.count + ' 项替换。',
+        confirmText: '覆盖', cancelText: '取消', confirmColor: '#06b6d4',
+        success: (r) => { if (r.confirm) doIt() },
+        fail: () => {}
+      })
+    } else {
+      doIt()
+    }
+  },
+
+  /* 收起样单说明条（内容仍在，只是不再占位） */
+  dismissSample() {
+    this.setData({ sampleInfo: null })
+  },
+
   /* 把已填数量回填到已加载的商品行（带入上次 / 翻页 / 搜索后用） */
   applyQtyToRows() {
     const qm = this._qtyMap || {}
@@ -415,7 +619,7 @@ Page({
     if (!store || !store.id) return
     if (store.id === (this.data.store || {}).id) return
     this.flushCart()                 // 旧店的已填数量先落盘（fs_cart_<旧id>）
-    this.setData({ store, storeIdx: i, cartOpen: false, pendingSubmit: false, submitResult: null, submitError: null })
+    this.setData({ store, storeIdx: i, cartOpen: false, pendingSubmit: false, submitResult: null, submitError: null, sampleInfo: null })
     wx.setStorageSync('fs_store_id', store.id !== undefined ? store.id : '')
     this.restoreCart(true)           // 切店：无条件载入新店的购物车（fs_cart_<新id>）
     this.refreshBanners()            // 门店变了，读该门店的上次报单快照
@@ -753,7 +957,7 @@ Page({
     this.cartMap = {}
     this.syncCart()
     this.clearRowQty()
-    this.setData({ pendingSubmit: false, submitResult: null, submitError: null, cartOpen: false })
+    this.setData({ pendingSubmit: false, submitResult: null, submitError: null, cartOpen: false, sampleInfo: null })
   },
 
   /* 清空所有行内已填数量（提交成功 / 清空购物车后） */

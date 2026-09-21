@@ -21,7 +21,29 @@
     <text class="store-count" wx:if="{{period.arrival_date}}">到货 {{period.arrival_date}}</text>
   </view>
   <view class="reported-note" wx:if="{{!periods.length}}">当前没有可报单的期次，请联系管理员建期次</view>
-  <view class="period-warn" wx:elif="{{period.in_window === false}}">该期次报单窗口（{{period.order_start}} ~ {{period.order_end}}）已过，提交将被拒绝</view>
+  <!-- v227（2026-09-21）：窗口状态由两态改**三态** —— 「尚未开始」≠「已过」。
+       两者的可行动作完全不同：未开始 = 可以先做样单、等开放再提交；已过 = 只能求管理员重开。
+       原实现只有「已过」一种说法，对未开始的期次是**把话说反了**（后端
+       `forecast_open_periods_all()` 按 `status='open'` 返回，不带日期过滤 ⇒ 未来期次本就在列）。 -->
+  <view class="period-warn" wx:elif="{{period.wstate === 'past'}}">该期次报单窗口（{{period.order_start}} ~ {{period.order_end}}）已过，提交将被拒绝</view>
+  <view class="period-warn period-warn-future" wx:elif="{{period.wstate === 'future'}}">该期次 {{period.order_start}} 才开始报单 —— 现在可以先生成样单，开放后再提交</view>
+
+  <!-- ================= v227（2026-09-21）：复制生成样单 =================
+       需求：报单人可以先"照往期"生成一份样单，改或不改，再切到已开放的期次提交。
+       · 入口**常驻**（不做成"有历史单才显示"）：否则每次进页都要多发一次请求才知道该不该
+         显示；而"这个门店还没有可复制的往期单据"本身就是一句有效提示，点击时再说即可。
+       · 完整交互与约束见 fill.js::genSample 的头注释（源 / 落点 / 不落库三条边界）。 -->
+  <view class="sample-bar" wx:if="{{periods.length && !submitResult}}">
+    <text class="sample-txt">把往期报过的单复制成本期样单，改完直接提交</text>
+    <text class="sample-go" bindtap="genSample">复制生成样单</text>
+  </view>
+  <!-- 样单来源回执：说清「这些数从哪来」+「跟本期清单合不合」——
+       后者直接决定用户下一步是"直接提交"还是"先改几个"。 -->
+  <view class="sample-info" wx:if="{{sampleInfo}}">
+    <text class="sample-info-t">样单来自「{{sampleInfo.name}}」· {{sampleInfo.count}} 项 / {{sampleInfo.qty}} 件</text>
+    <text class="sample-info-s {{sampleInfo.outOfScope ? 'sample-info-warn' : ''}}">{{sampleInfo.outTip}}</text>
+    <text class="sample-info-x" bindtap="dismissSample">收起</text>
+  </view>
 
   <!-- M10: 最近报单门店快捷入口 -->
   <view class="recent-stores" wx:if="{{recentStores.length}}">

@@ -13,8 +13,28 @@
 .prod-head-n{font-size:24rpx;color:#86868b}
 .load-more{text-align:center;color:#86868b;font-size:26rpx;padding:32rpx 0}
 .load-end{text-align:center;color:#c7c7cc;font-size:24rpx;padding:32rpx 0}
-/* 期次已过窗口提示 */
+/* 期次窗口提示
+   v227：三态 —— 「已过」用告警红；「未开始」是可行动作（先做样单、等开放），
+   用信息蓝 —— 两者可做的事不同，颜色相同会让用户以为"都没救了"。 */
 .period-warn{margin:16rpx 32rpx 0;background:#fef2f2;border:1rpx solid #fecaca;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#b91c1c}
+.period-warn-future{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+/* ⚠️ v227 补回被误删的 `.reported-note`：
+   v224 删它的理由是"引用它的 `<view>` 是死代码"，但那个类其实被**两处**引用 ——
+     · `wx:if="{{lastReported && !cartCount}}"`  ← 死（v224 已删该 view）
+     · `wx:if="{{!periods.length}}"`            ← **活的**（"当前没有可报单的期次"）
+   删 CSS 时只核对了其中一个引用 ⇒ 这句提示一直在**裸奔**（无边框/无底色/无字号约束）。
+   补回，与 no-store-note 同族（都是"你现在做不了这件事，原因在别处"）。
+   🔴 教训：删一条 CSS 前要 grep **全部**引用点，而不是只看自己正在改的那个。 */
+.reported-note{margin:16rpx 32rpx 0;background:#fffbeb;border:1rpx solid #fde68a;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#92400e;line-height:1.6}
+/* v227（2026-09-21）：复制生成样单 —— 入口条 + 来源回执 */
+.sample-bar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin:16rpx 32rpx 0;background:#fff;border:1rpx dashed #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx}
+.sample-txt{font-size:24rpx;color:#86868b;flex:1;line-height:1.5}
+.sample-go{font-size:26rpx;color:#06b6d4;font-weight:600;flex:0 0 auto}
+.sample-info{display:flex;flex-direction:column;gap:6rpx;margin:12rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx;position:relative}
+.sample-info-t{font-size:24rpx;color:#0e7490;font-weight:600;line-height:1.5;padding-right:70rpx}
+.sample-info-s{font-size:22rpx;color:#0891b2;line-height:1.5}
+.sample-info-warn{color:#b45309}
+.sample-info-x{position:absolute;top:14rpx;right:20rpx;font-size:22rpx;color:#86868b}
 .prod-list{padding:16rpx 32rpx 0}
 .prod-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:16rpx;padding:20rpx 24rpx;margin-bottom:16rpx;border:2rpx solid transparent}
 .prod-row-on{background:#ecfeff;border-color:#a5f3fc}
