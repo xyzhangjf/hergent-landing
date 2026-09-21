@@ -67,6 +67,7 @@
 ## 四、主体 / 脱敏
 
 hergent-cn-v2（`laozhangai-product` → `/opt/hergent-cn-v2`）｜hergent-erp（FastAPI + SQLite `:8700` → **FLAT** `/opt/hergent-erp`）｜🔴 **脱敏红线**：返利率 / 进货价 / 客户名 / 区域销量 / 厂家政策。
+🔴 **仓库内含生产凭据明文**（2026-09-21 核实）：Hermes 网关 Bearer 密钥在**已跟踪**的 `artifacts/nginx-hermes-proxy.conf` 等 **9 文件** / 历史 **3 提交**里；提审账号 `Mptest@1`/`Mpsup@1`（历史 11 提交 / 已跟踪 6+8 文件）与老板手机号（历史 4 提交）同样早已入库 ⇒ **远端仓库必须 private**；建议轮换网关密钥。**入库新文件前先跑凭据扫描**。
 
 ## 五、本机坑 → `topics/local-machine-pitfalls.md`
 
