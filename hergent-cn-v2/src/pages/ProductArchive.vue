@@ -176,40 +176,70 @@
     <Teleport to="body">
       <Transition name="fade"><div v-if="detailOpen" class="pa-overlay" @click="tryCloseEdit()"></div></Transition>
       <Transition name="pop">
-        <div v-if="detailOpen" class="pa-modal pa-edit">
+        <!-- v241：补 dialog 语义与键盘可达 —— 此前本弹窗既无 role=dialog（屏幕阅读器
+             读不出"这是一个对话框"），也无 Esc 关闭、无初始聚焦（键盘用户打开后焦点仍在
+             页面背景，要 Tab 很久才能走到表单）。tabindex="-1" 让它可被脚本聚焦。 -->
+        <div v-if="detailOpen" class="pa-modal pa-edit" role="dialog" aria-modal="true"
+             aria-labelledby="pa-edit-title" tabindex="-1" ref="editModal" @keydown.esc="tryCloseEdit()">
           <div class="pa-modal-hd">
-            <b>编辑商品 · {{ detailTarget?.name }}</b>
+            <b id="pa-edit-title">编辑商品 · {{ detailTarget?.name }}</b>
             <button class="pa-x" @click="tryCloseEdit()"><Icon name="close"/></button>
           </div>
           <div class="pa-modal-body">
             <p class="pa-tip">改哪个字段就只提交哪个 —— 没动过的字段不会被覆盖，也不会产生多余的修改记录。</p>
 
-            <div class="pa-tabs">
-              <button type="button" class="pa-tab" :class="{on: tab==='base'}" @click="tab='base'">基本信息</button>
-              <button type="button" class="pa-tab" :class="{on: tab==='pack'}" @click="tab='pack'">包装单位</button>
-              <button type="button" class="pa-tab" :class="{on: tab==='price'}" @click="tab='price'">价格</button>
-              <button type="button" class="pa-tab" :class="{on: tab==='stock'}" @click="tab='stock'">库存效期</button>
+            <!-- v241：校验错误汇总条。字段级错误（红框 + 框下文案）覆盖名称与到货周期；
+                 其余数值字段分散在 3 个 Tab，用这条统一列出并**可点击跳转** ——
+                 否则用户在「价格」Tab 填错了，提示却在看不见的地方。 -->
+            <div v-if="errorList.length" class="pa-errbar" role="alert">
+              <span class="pa-errbar-hd">有 {{ errorList.length }} 处需要修正：</span>
+              <button v-for="e in errorList" :key="e.key" type="button" class="pa-errbar-item" @click="focusField(e.key)">
+                {{ e.label }}：{{ e.msg }}
+              </button>
+            </div>
+
+            <!-- v241：改用**全局** .main-tabs / .main-tab（variables.css 注释明确「全站唯一一份」）。
+                 此前自造的 pa-tabs/pa-tab **全仓零 CSS 定义** ⇒ 退化成浏览器默认按钮。
+                 role="tablist"/"tab" + aria-selected：屏幕阅读器才能知道这是 Tab 组、当前在哪一页。 -->
+            <div class="main-tabs" role="tablist" aria-label="编辑商品分区">
+              <button type="button" class="main-tab" role="tab" :aria-selected="tab==='base'" :class="{on: tab==='base'}" @click="tab='base'">基本信息</button>
+              <button type="button" class="main-tab" role="tab" :aria-selected="tab==='pack'" :class="{on: tab==='pack'}" @click="tab='pack'">包装单位</button>
+              <button type="button" class="main-tab" role="tab" :aria-selected="tab==='price'" :class="{on: tab==='price'}" @click="tab='price'">价格</button>
+              <button type="button" class="main-tab" role="tab" :aria-selected="tab==='stock'" :class="{on: tab==='stock'}" @click="tab='stock'">库存效期</button>
             </div>
 
             <!-- Tab 1 基本信息 -->
-            <div v-show="tab==='base'" class="pa-pane">
+            <div v-show="tab==='base'" class="tab-pane">
               <div class="pa-form">
-                <label class="pa-f"><span>商品名称 <i>*</i></span><input v-model="editForm.name" class="input" placeholder="必填"></label>
+                <!-- v241：必填标识从「纯视觉星号」升级为可访问 —— aria-required + aria-invalid +
+                     字段级错误文案（此前校验失败只有 toast，用户不知道错在哪个框）。 -->
+                <label class="pa-f">
+                  <span>商品名称 <i aria-hidden="true">*</i></span>
+                  <input v-model="editForm.name" class="input" data-f="name" :class="{err: !!errors.name}"
+                         aria-required="true" :aria-invalid="!!errors.name" aria-describedby="err-name" placeholder="必填">
+                  <span id="err-name" class="field-err" v-if="errors.name">{{ errors.name }}</span>
+                </label>
                 <label class="pa-f"><span>规格</span><input v-model="editForm.spec" class="input" placeholder="如 200g×12"></label>
                 <!-- v240：报单默认单位已从本 Tab 迁到「包装单位」Tab 的「默认单位」区块（与销售默认单位同排），
                      字段仍是 `products.order_unit`（v233 落地的报单单位真身），只是控件由手填文本改为下拉。 -->
                 <label class="pa-f"><span>分类</span><input v-model="editForm.category" class="input" placeholder="如 液态奶"></label>
-                <label class="pa-f"><span>条码<span class="pa-hint">关联键，不可改</span></span><input :value="detailTarget?.barcode || '—'" class="input" disabled></label>
-                <label class="pa-f"><span>厂家编码<span class="pa-hint">不可改</span></span><input :value="detailTarget?.product_code || '—'" class="input" disabled></label>
+                <!-- v241：disabled → readonly。差别：disabled 元素**不进 Tab 焦点序列**，
+                     屏幕阅读器会整段跳过，用户既读不到也复制不了条码；readonly 保留焦点与复制能力，
+                     视觉由全局 .input[readonly] 表达「不可编辑」。 -->
+                <label class="pa-f"><span>条码<span class="pa-hint">关联键，不可改</span></span><input :value="detailTarget?.barcode || '—'" class="input" readonly aria-readonly="true" title="条码是关联键，不可修改"></label>
+                <label class="pa-f"><span>厂家编码<span class="pa-hint">不可改</span></span><input :value="detailTarget?.product_code || '—'" class="input" readonly aria-readonly="true" title="厂家编码由上游同步，不可修改"></label>
                 <label class="pa-f"><span>品牌<span class="pa-hint">保存时自动归一</span></span><input v-model="editForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
                 <label class="pa-f"><span>别名<span class="pa-hint">逗号分隔的俗称，用于智能匹配</span></span><input v-model="editForm.alias" class="input" placeholder="如 纯甄,蒙牛纯甄"></label>
                 <!-- v234 P1：业务范围控制 —— 该商品可用于哪些业务。三个开关独立，默认都开。 -->
-                <div class="pa-f pa-f-full">
-                  <span>业务范围<span class="pa-hint">控制该商品可用于哪些业务</span></span>
-                  <div class="pa-checks">
-                    <label class="pa-cb"><input type="checkbox" v-model="canSale"> 可销售</label>
-                    <label class="pa-cb"><input type="checkbox" v-model="canReturn"> 可退货</label>
-                    <label class="pa-cb"><input type="checkbox" v-model="canPurchase"> 可采购</label>
+                <!-- v241：role="group" + aria-labelledby —— 三个复选框是**一组**（属于同一个语义单元），
+                     不加分组时屏幕阅读器只会念出三个孤立的「可销售/可退货/可采购」。
+                     用 role=group 而非 <fieldset>：后者在 flex/grid 容器里各浏览器渲染不一致。 -->
+                <div class="pa-f pa-f-full" role="group" aria-labelledby="lbl-scope">
+                  <span id="lbl-scope">业务范围<span class="pa-hint">控制该商品可用于哪些业务</span></span>
+                  <div class="check-group">
+                    <label class="check-item"><input type="checkbox" v-model="canSale"> 可销售</label>
+                    <label class="check-item"><input type="checkbox" v-model="canReturn"> 可退货</label>
+                    <label class="check-item"><input type="checkbox" v-model="canPurchase"> 可采购</label>
                   </div>
                 </div>
                 <label class="pa-f"><span>顺序号<span class="pa-hint">列表/报单排序，越小越靠前；0 = 不指定</span></span><input v-model="editForm.order_seq" class="input" type="number" min="0" step="1" placeholder="0"></label>
@@ -218,19 +248,19 @@
             </div>
 
             <!-- Tab 2 包装单位 -->
-            <div v-show="tab==='pack'" class="pa-pane">
+            <div v-show="tab==='pack'" class="tab-pane">
               <!-- 小单位（基础单位）卡片 -->
-              <div class="pa-card">
-                <div class="pa-card-hd">小单位（基础单位）</div>
+              <div class="sub-card">
+                <div class="sub-card-hd">小单位（基础单位）</div>
                 <div class="pa-form">
                   <label class="pa-f"><span>单位名</span><input v-model="editForm.unit" class="input" placeholder="件"></label>
                   <label class="pa-f"><span>条码</span><input :value="detailTarget?.barcode || '—'" class="input" disabled></label>
-                  <label class="pa-f"><span>换算比</span><input class="input" value="1" disabled></label>
+                  <label class="pa-f"><span>换算比</span><input class="input" value="1" readonly aria-readonly="true" title="小单位是基准单位，换算比恒为 1"></label>
                 </div>
               </div>
               <!-- 中单位卡片 -->
-              <div class="pa-card">
-                <div class="pa-card-hd">中单位</div>
+              <div class="sub-card">
+                <div class="sub-card-hd">中单位</div>
                 <div class="pa-form">
                   <label class="pa-f"><span>中单位名<span class="pa-hint">如 条 / 组 / 板；留空 = 无中单位层级</span></span><input v-model="editForm.medium_unit" class="input" maxlength="8" placeholder="如 条"></label>
                   <label class="pa-f"><span>中单位条码</span><input v-model="editForm.medium_barcode" class="input" maxlength="20" placeholder="选填"></label>
@@ -238,8 +268,8 @@
                 </div>
               </div>
               <!-- 大单位卡片 -->
-              <div class="pa-card">
-                <div class="pa-card-hd">大单位</div>
+              <div class="sub-card">
+                <div class="sub-card-hd">大单位</div>
                 <div class="pa-form">
                   <label class="pa-f"><span>大单位名<span class="pa-hint">如 件 / 箱；留空 = 无大单位层级</span></span><input v-model="editForm.large_unit" class="input" maxlength="8" placeholder="如 件"></label>
                   <label class="pa-f"><span>大单位条码</span><input v-model="editForm.large_barcode" class="input" maxlength="20" placeholder="选填"></label>
@@ -247,7 +277,7 @@
                 </div>
               </div>
               <!-- v234 P0：默认单位（采购/销售/赠送各选一个档位，空 = 跟随档案单位） -->
-              <div class="pa-subsec">默认单位<span class="pa-hint">开单时预选的单位，空 = 跟随档案单位</span></div>
+              <div class="sub-sec">默认单位<span class="pa-hint">开单时预选的单位，空 = 跟随档案单位</span></div>
               <div class="pa-form">
                 <label class="pa-f"><span>采购默认单位</span>
                   <select v-model="editForm.default_purchase_unit" class="input"><option value="">跟随档案单位</option><option v-for="o in unitOptions" :key="'p'+o" :value="o">{{ o }}</option></select></label>
@@ -263,16 +293,16 @@
                   <select v-model="editForm.default_gift_unit" class="input"><option value="">跟随档案单位</option><option v-for="o in unitOptions" :key="'g'+o" :value="o">{{ o }}</option></select></label>
               </div>
               <!-- v234 P0：移动端开单可见单位（位掩码，勾选才在报单小程序出现） -->
-              <div class="pa-subsec">移动端开单可见单位<span class="pa-hint">勾选的单位才会在小程序报单里出现</span></div>
-              <div class="pa-checks">
-                <label class="pa-cb"><input type="checkbox" v-model="mobileSmall"> 小单位</label>
-                <label class="pa-cb" v-if="editForm.medium_unit"><input type="checkbox" v-model="mobileMedium"> 中单位</label>
-                <label class="pa-cb" v-if="editForm.large_unit"><input type="checkbox" v-model="mobileLarge"> 大单位</label>
+              <div class="sub-sec" id="lbl-mobile">移动端开单可见单位<span class="pa-hint">勾选的单位才会在小程序报单里出现</span></div>
+              <div class="check-group" role="group" aria-labelledby="lbl-mobile">
+                <label class="check-item"><input type="checkbox" v-model="mobileSmall"> 小单位</label>
+                <label class="check-item" v-if="editForm.medium_unit"><input type="checkbox" v-model="mobileMedium"> 中单位</label>
+                <label class="check-item" v-if="editForm.large_unit"><input type="checkbox" v-model="mobileLarge"> 大单位</label>
               </div>
             </div>
 
             <!-- Tab 3 价格 -->
-            <div v-show="tab==='price'" class="pa-pane">
+            <div v-show="tab==='price'" class="tab-pane">
               <div class="pa-form">
                 <label class="pa-f"><span>标准售价<span class="pa-hint">导入模版里叫「售价」</span></span><input v-model="editForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
                 <!-- v226：只留一个「进价」输入框（绑 factory_price）。 -->
@@ -280,21 +310,21 @@
                 <label class="pa-f"><span>分销价</span><input v-model="editForm.dist_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               </div>
               <!-- v234 P1：价格矩阵（按单位档位），本轮仅展示/录入，不切换预报/返利读价链 -->
-              <div class="pa-subsec">价格矩阵（按单位档位）</div>
-              <div class="pa-pm-wrap">
-                <table class="tbl pa-pm">
+              <div class="sub-sec">价格矩阵（按单位档位）</div>
+              <div class="pm-wrap">
+                <table class="tbl">
                   <thead><tr>
                     <th>单位档位</th><th class="num">批发价</th><th class="num">零售价</th><th class="num">最低售价</th><th class="num">进价</th><th>允许改价</th><th>允许看成本</th>
                   </tr></thead>
                   <tbody>
                     <tr v-for="row in priceRows" :key="row.level">
                       <td>{{ row.name || '—' }}</td>
-                      <td class="num"><input v-model="row.wholesale_price" class="input pa-pm-input" type="number" min="0" step="0.01"></td>
-                      <td class="num"><input v-model="row.retail_price" class="input pa-pm-input" type="number" min="0" step="0.01"></td>
-                      <td class="num"><input v-model="row.min_price" class="input pa-pm-input" type="number" min="0" step="0.01"></td>
-                      <td class="num"><input v-model="row.purchase_price" class="input pa-pm-input" type="number" min="0" step="0.01"></td>
-                      <td class="pa-c"><input type="checkbox" v-model="row.allow_reprice"></td>
-                      <td class="pa-c"><input type="checkbox" v-model="row.allow_view_cost"></td>
+                      <td class="num"><input v-model="row.wholesale_price" class="input pm-input" type="number" min="0" step="0.01"></td>
+                      <td class="num"><input v-model="row.retail_price" class="input pm-input" type="number" min="0" step="0.01"></td>
+                      <td class="num"><input v-model="row.min_price" class="input pm-input" type="number" min="0" step="0.01"></td>
+                      <td class="num"><input v-model="row.purchase_price" class="input pm-input" type="number" min="0" step="0.01"></td>
+                      <td class="pm-c"><input type="checkbox" v-model="row.allow_reprice"></td>
+                      <td class="pm-c"><input type="checkbox" v-model="row.allow_view_cost"></td>
                     </tr>
                   </tbody>
                 </table>
@@ -303,11 +333,17 @@
             </div>
 
             <!-- Tab 4 库存效期 -->
-            <div v-show="tab==='stock'" class="pa-pane">
+            <div v-show="tab==='stock'" class="tab-pane">
               <div class="pa-form">
                 <label class="pa-f"><span>安全库存</span><input v-model="editForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
                 <label class="pa-f"><span>保质期(天)</span><input v-model="editForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
-                <label class="pa-f"><span>到货周期<span class="pa-hint">+几天到货；留空 = 取消设置</span></span><input v-model="editForm.arrival_lead_days" class="input" type="number" min="0" :max="ARRIVAL_MAX" step="1" placeholder="如 3"></label>
+                <label class="pa-f">
+                  <span>到货周期<span class="pa-hint">+几天到货；留空 = 取消设置</span></span>
+                  <input v-model="editForm.arrival_lead_days" class="input" data-f="arrival_lead_days" type="number" min="0" :max="ARRIVAL_MAX" step="1"
+                         :class="{err: !!errors.arrival_lead_days}" :aria-invalid="!!errors.arrival_lead_days"
+                         aria-describedby="err-arrival" placeholder="如 3">
+                  <span id="err-arrival" class="field-err" v-if="errors.arrival_lead_days">{{ errors.arrival_lead_days }}</span>
+                </label>
               </div>
             </div>
 
@@ -352,8 +388,18 @@
           </div>
           <div class="pa-modal-ft">
             <span class="pa-ft-note" v-if="dirtyCount">{{ dirtyCount }} 个字段已改，未保存</span>
-            <button class="btn btn-ghost" @click="tryCloseEdit()">取消</button>
-            <button class="btn btn-primary" :disabled="saving || !dirtyCount" @click="saveEdit()">{{ saving ? '保存中…' : '保存' }}</button>
+            <!-- v241：有改动时「取消」先进内联确认态（放弃 / 继续编辑），
+                 不直接关窗丢数据；按钮换成危险色以匹配「这是不可逆动作」。 -->
+            <template v-if="confirmDiscard">
+              <span class="pa-ft-ask">放弃这 {{ dirtyCount }} 处改动？</span>
+              <button class="btn btn-danger btn-sm" @click="tryCloseEdit(true)">确认放弃</button>
+              <button class="btn btn-ghost btn-sm" @click="confirmDiscard = false">继续编辑</button>
+            </template>
+            <template v-else>
+              <button class="btn btn-ghost" @click="tryCloseEdit()">取消</button>
+              <button class="btn btn-primary" :disabled="saving || !dirtyCount"
+                      :title="dirtyCount ? '' : '还没有改动任何字段'" @click="saveEdit()">{{ saving ? '保存中…' : '保存' }}</button>
+            </template>
           </div>
         </div>
       </Transition>
@@ -636,6 +682,45 @@ const logBox = ref(null)              // 记录区（展开后滚进视野用）
 /* v234 P0/P1：编辑弹窗 Tab 状态与新增字段的派生读写 */
 const tab = ref('base')
 const savingPrices = ref(false)
+
+/* v241：字段级校验错误（此前校验失败只有 toast，用户不知道错在哪个框）。
+   键 = 字段名，值 = 错误文案；空对象 = 无错误。每次保存前清空重算。 */
+const errors = ref({})
+/* v241：关闭时的「放弃改动」内联确认态（与 confirmActive 同一套交互语言）。 */
+const confirmDiscard = ref(false)
+/* v241：弹窗根元素引用 —— 打开后要把焦点移进弹窗，否则键盘用户按 Esc 无效、
+   且要 Tab 很久才能走到表单。 */
+const editModal = ref(null)
+
+/* v241：字段 → 所在 Tab。用途：校验失败时**自动切到出错字段所在的 Tab** ——
+   到货周期在「库存效期」、名称在「基本信息」，若用户当前在别的 Tab，
+   只弹 toast 会让人完全找不到错误在哪（这是字段级错误呈现能生效的前提）。 */
+const FIELD_TAB = {
+  name: 'base', spec: 'base', category: 'base', brand: 'base', alias: 'base',
+  order_seq: 'base', min_order_qty: 'base',
+  can_sale: 'base', can_return: 'base', can_purchase: 'base',
+  unit: 'pack', medium_unit: 'pack', medium_barcode: 'pack', medium_ratio: 'pack',
+  large_unit: 'pack', large_barcode: 'pack', large_ratio: 'pack',
+  default_purchase_unit: 'pack', default_sale_unit: 'pack',
+  order_unit: 'pack', default_gift_unit: 'pack', mobile_order_units: 'pack',
+  sale_price: 'price', factory_price: 'price', dist_price: 'price',
+  safety_stock: 'stock', expiry_days: 'stock', arrival_lead_days: 'stock',
+}
+/** 错误汇总条的数据源：把 errors 摊平成「字段名 + 文案」列表（保留插入顺序）。
+    为什么还要汇总条 —— 数值字段（售价/进价/库存…）分散在 3 个 Tab，逐字段插错误
+    <span> 要改 9 处模板；汇总条一处即可覆盖全部，且**可点击跳转**到出错字段。 */
+const errorList = computed(() =>
+  Object.entries(errors.value).map(([key, msg]) => ({ key, msg, label: (FIELD_CN[key] || key) }))
+)
+
+/** 跳到某字段所在 Tab，并把焦点移到该字段的输入框。 */
+async function focusField(key) {
+  const t = FIELD_TAB[key]
+  if (t && tab.value !== t) tab.value = t
+  await nextTick()
+  const el = editModal.value?.querySelector(`[data-f="${key}"]`)
+  if (el) el.focus()
+}
 // 价格矩阵（按单位档位）：[{level,name,wholesale_price,retail_price,min_price,purchase_price,allow_reprice,allow_view_cost}]
 const priceRows = ref([])
 
@@ -1112,21 +1197,35 @@ function openDetail(p) {
   editBaseline.value = b
   saving.value = false
   confirmActive.value = false
+  confirmDiscard.value = false
+  errors.value = {}
   showChanges.value = false
   changesLoaded.value = false
   changesList.value = []
   tab.value = 'base'            // v234：每次打开回到第一个 Tab
+  /* v241：打开后把焦点移进弹窗 —— 否则焦点仍在页面背景，
+     ① Esc 键（绑在弹窗根元素上）收不到；② 键盘用户要 Tab 很久才走到表单。 */
+  nextTick(() => editModal.value?.focus())
   loadUnitPrices(p.id)         // v234 P1：异步拉价格矩阵（铺空行后覆盖）
   detailOpen.value = true
 }
 
 /** 关闭编辑弹窗。有未保存改动时**提示一次**再关 —— 不静默丢弃（用户会以为存上了），
  *  也不挡着不让人关（点遮罩/叉号本来就是「算了」的意思）。 */
-function tryCloseEdit() {
+/** 关闭编辑弹窗（force=true 表示用户已明确确认放弃）。
+ *
+ *  v241：此前**任何**关闭入口（点遮罩 / 点取消 / 点 X）都会直接丢弃未保存改动，
+ *  只在事后 toast「已放弃 N 处」—— 提示是马后炮，改动已经没了。遮罩是全屏区域，
+ *  误触概率最高。改为：有改动时第一次触发只进入**内联确认态**（不关闭），
+ *  与「停用商品」同一套交互，不叠第二层弹窗。 */
+function tryCloseEdit(force) {
   if (saving.value) return                    // 保存进行中不给关，避免半途状态
+  if (dirtyCount.value && !force) { confirmDiscard.value = true; return }
   if (dirtyCount.value) toast(`已放弃 ${dirtyCount.value} 处未保存的改动`, 'warn')
   detailOpen.value = false
   confirmActive.value = false
+  confirmDiscard.value = false
+  errors.value = {}
 }
 
 /** 保存：**只提交改动过的字段**（diff）。
@@ -1147,16 +1246,26 @@ async function saveEdit() {
     body[k] = nv
   }
   if (!Object.keys(body).length) { toast('没有改动', 'warn'); return }
-  if ('name' in body && !String(body.name).trim()) { toast('商品名称不能为空', 'err'); return }
+
+  /* v241：由「遇到第一个错误就 return + toast」改为**收集全部错误** ——
+     ① 一次把所有问题都标红，用户不用改一次点一次保存；
+     ② 错误挂到字段上（红框 + 框下文案）而不是只飘一条 toast；
+     ③ 自动切到第一个出错字段所在的 Tab 并聚焦（跨 Tab 时 toast 完全找不到目标）。 */
+  const errs = {}
+  if ('name' in body && !String(body.name).trim()) errs.name = '商品名称不能为空'
   if ('arrival_lead_days' in body) {
     const r = parseArrivalDays(body.arrival_lead_days)
-    if (!r.ok) { toast(`到货天数请填 0~${ARRIVAL_MAX} 之间的整数（留空或 0 = 取消设置）`, 'err'); return }
-    body.arrival_lead_days = r.value
+    if (!r.ok) errs.arrival_lead_days = `请填 0~${ARRIVAL_MAX} 之间的整数（留空或 0 = 取消设置）`
+    else body.arrival_lead_days = r.value
   }
   for (const k of EDIT_NUM_FIELDS) {
-    if (k in body && (!isFinite(body[k]) || body[k] < 0)) {
-      toast((FIELD_CN[k] || k) + ' 不能是负数或非数字', 'err'); return
-    }
+    if (k in body && (!isFinite(body[k]) || body[k] < 0)) errs[k] = '不能是负数或非数字'
+  }
+  if (Object.keys(errs).length) {
+    errors.value = errs
+    await focusField(Object.keys(errs)[0])
+    toast('请先修正标红的字段', 'err')
+    return
   }
   saving.value = true
   try {
@@ -1393,7 +1502,10 @@ onMounted(() => {
 .pa-fp-miss{display:inline-block;padding:1px 8px;border-radius:8px;background:rgba(var(--war-rgb),.14);color:var(--war);font-size:12px;cursor:pointer}
 .pa-fp-miss:hover{background:rgba(var(--war-rgb),.24)}
 .pa-fp-input{width:92px;height:30px;text-align:right;padding:0 8px}
-.pa-hint{font-size:11px;color:var(--t3);font-weight:400;margin-left:4px}
+/* v241：11px + --t3 的实测对比度只有 **2.5:1**（WCAG AA 正文要求 4.5:1，11px 不属
+   「大字」无豁免）⇒ 说明性文字对弱视用户基本不可读。字号提到 --fs-sm(12px)、
+   颜色换 --t2(#6e6e73 ≈ 5.0:1 达标)。--t3 今后只用于**装饰性/非说明性**文字。 */
+.pa-hint{font-size:var(--fs-sm);color:var(--t2);font-weight:400;margin-left:4px}
 
 /* v184b 到货周期列：行内可编，沿用进价列的视觉语言（虚线下划 + hover 变品牌色），
    但**不用**警示色 —— 见下面 .pa-cyc-none 的注释。 */
@@ -1436,8 +1548,11 @@ onMounted(() => {
 .pa-size{height:30px;width:auto}
 
 /* 弹窗 */
-.pa-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:980}
-.pa-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(520px,92vw);background:var(--bg);border-radius:16px;z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.18)}
+.pa-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-overlay)}
+/* v241：圆角/阴影/z-index 全部改走令牌。此前是字面量 16px 与 0 16px 48px rgba(0,0,0,.18)，
+   后者比规范 --shadow-lg(0 12px 40px .10) 明显更重 —— 与站内 ReportMapping /
+   TargetFormModal 的观感对不上（那两处早已用令牌）。 */
+.pa-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(520px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-modal);box-shadow:var(--shadow-lg)}
 .pa-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
 .pa-modal-hd b{font-size:15px;color:var(--t1)}
 .pa-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer}
@@ -1464,13 +1579,14 @@ onMounted(() => {
 /* 状态行：徽标 + 说明 + 按钮排一行；说明占满剩余宽度，长句不撑破弹窗。 */
 .pa-active{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pa-active .pa-hint{margin-left:0;flex:1 1 220px;min-width:0}
-/* 停用按钮用危险色：它是本弹窗里唯一「有业务后果」的动作（商品从报单/小程序可选列表消失）。 */
-.btn-danger{background:var(--dan-bg);color:var(--dan);border:1px solid transparent}
-.btn-danger:hover{filter:brightness(.97)}
+/* v241：.btn-danger 已**上提到全局层**（variables.css 三档按钮之一）——
+   它此前只存在于本页 scoped，其他页需要「停用/删除」这类危险动作时只能再抄一份，
+   违反「第二份拷贝＝静默漂移」。这里删除本地定义，改由全局提供。 */
 /* 底部左侧未保存提示：margin-right:auto 把它顶到左边，按钮组留在原位（不跳位）。 */
 .pa-ft-note{margin-right:auto;font-size:12px;color:var(--war)}
 /* 修改记录：时间 / 人 / 字段 / 改前→改后，前三列不换行、末列自适应。 */
-.pa-log{border:1px solid var(--border-subtle);border-radius:10px;max-height:210px;overflow-y:auto}
+/* v241：10px 在规范圆角档位（8/12/16/22）里**不存在** ⇒ 改 --radius-md(12px)。 */
+.pa-log{border:1px solid var(--border-subtle);border-radius:var(--radius-md);max-height:210px;overflow-y:auto}
 .pa-log-empty{padding:14px;text-align:center;font-size:12.5px;color:var(--t3)}
 .pa-log-row{display:flex;align-items:baseline;gap:10px;padding:7px 12px;font-size:12.5px;
   border-bottom:1px solid var(--border-subtle)}
@@ -1486,7 +1602,9 @@ onMounted(() => {
 .pa-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
 .pa-f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--t2)}
 .pa-f i{color:var(--dan);font-style:normal}
-.pa-f .input{height:34px}
+/* v241：34px 是全站**独有的第三档**（全局只有 .input=40px 与 .fld=32px 两档）。
+   弹窗表单密集 ⇒ 取紧凑档 32px，内距对齐 .fld(0 10px)，消除第三档。 */
+.pa-f .input{height:32px;padding:0 10px}
 
 /* 导入 */
 .pa-imp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -1524,6 +1642,32 @@ tr.pa-row-off td{opacity:.5}
 .pa-fp-gate.on .pa-fp-switch b{color:var(--suc)}
 .pa-fp-gate-hint{flex:1 1 320px;min-width:0;color:var(--t2)}
 .pa-fp-gate-hint b{color:var(--war)}
+
+/* v241：校验错误汇总条（弹窗顶部）。列出全部错误，点条目跳到出错字段 ——
+   数值字段分散在 3 个 Tab，没有它时「填错了但提示在看不见的地方」。 */
+.pa-errbar{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:0 0 12px;padding:8px 12px;
+  border:1px solid var(--dan);border-radius:var(--radius-sm);background:var(--danger-bg)}
+.pa-errbar-hd{font-size:var(--fs-sm);font-weight:600;color:var(--danger-txt)}
+.pa-errbar-item{border:none;background:none;padding:0;font-family:inherit;font-size:var(--fs-sm);
+  color:var(--danger-txt);text-align:left;text-decoration:underline;cursor:pointer}
+.pa-errbar-item:hover{text-decoration:none}
+.pa-ft-ask{font-size:var(--fs-sm);color:var(--dan);font-weight:500}
+
+/* v241：表格单元格 —— 此前 pa-brand-cell / pa-lu-cell / pa-mu-cell / pa-ou-cell /
+   pa-log-list 五个类**零定义**（差集审计实测），行为退化为默认（长内容换行撑破列宽）。 */
+.pa-brand-cell,.pa-lu-cell,.pa-mu-cell,.pa-ou-cell{white-space:nowrap}
+.pa-log-list{display:flex;flex-direction:column}
+
+/* v241：响应式断点 —— 此前本页 @media 计数为 **0**。
+   720px 弹窗在 94vw 窄屏（375px 视口实测每列仅约 160px）会把标签与数值挤成两行，
+   故 640px 以下表单降为单列、筛选栏换行、搜索框占满整行。 */
+@media(max-width:640px){
+  .pa-form{grid-template-columns:1fr}
+  .pa-modal.pa-edit{width:96vw;max-height:92vh}
+  .pa-filters{flex-wrap:wrap}
+  .pa-search{flex:1 1 100%;max-width:none}
+  .pa-modal-ft{flex-wrap:wrap}
+}
 
 .state-empty{font-size:13px;color:var(--t3);text-align:center;padding:22px 0}
 </style>

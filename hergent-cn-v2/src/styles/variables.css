@@ -101,6 +101,30 @@
   --glass-bg-strong:rgba(255,255,255,0.85);
   --glass-blur:saturate(180%) blur(20px);
   --glass-border:rgba(0,0,0,0.06);
+
+  /* ===== v241 补齐：层级 / 字号 / 间距（S2 · S6） =====
+     由来：此前全站 z-index 是**散点硬编码**，实测并存 950 / 960 / 980 / 990 /
+     1000 / 1001 六档（ConnectCenter 用 961、CronJobs 用 950），叠加顺序无保证；
+     字号实测散落 11 / 11.5 / 12 / 12.5 / 13 / 14.5 / 15 / 20 / 22 共 9 档。
+     ⚠️ 本段**只新增令牌，不修改任何既有规则** —— 既有页面沿用原值不受影响，
+     新页面与整改页面一律改用令牌。 */
+  --z-dropdown:400;
+  --z-sticky:600;
+  --z-overlay:980;
+  --z-modal:990;
+  --z-popover:1010;
+  --z-toast:1200;
+
+  /* 字号阶梯。现有页面字号不强制迁移，但**新增样式必须从中取值**。 */
+  --fs-xs:11px;    /* 仅供角标/计数这类非说明性文字，禁止承载说明文案 */
+  --fs-sm:12px;    /* 提示/次要信息（WCAG：12px 已是下限，别再小） */
+  --fs-base:13px;  /* 表格/表单控件 */
+  --fs-md:14px;    /* 正文 */
+  --fs-lg:16px;    /* 弹窗标题 */
+  --fs-xl:20px;    /* 页头 h2 */
+
+  /* 间距阶梯（4 的倍数）。 */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:14px; --sp-5:18px; --sp-6:20px;
 }
 
 :root.dark{
@@ -437,6 +461,82 @@ table.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 
 /* 加载骨架 */
 .skel-line{height:14px;border-radius:4px;background:var(--bg4);animation:pulse 1.4s ease-in-out infinite}
+
+/* ============================================================
+   v241 补齐：危险按钮 / 输入禁用·只读 / 表单错误态（S3 · S4 · S5）
+   ------------------------------------------------------------
+   由来（2026-09-22 商品档案 UI 审查实测）：
+   ① `.btn-danger` 此前**只存在于 ProductArchive.vue 的 scoped 里** —— 全局按钮
+      层级只有 primary/ghost，于是「有业务后果」的动作（停用/删除）每做一页
+      就得再抄一份 ⇒ 违反「第二份拷贝＝静默漂移」，故上提为本层第三档。
+   ② `.input` 此前只有 `:focus` 与 `::placeholder`，**没有 `:disabled`** ——
+      商品档案里「条码/厂家编码/换算比」三个不可改字段与可编辑框视觉几乎一致，
+      用户只能靠框里的「—」猜它不可改。
+   ③ 全站**没有表单错误态** ⇒ 各页只能用 toast 兜底，校验失败时用户不知道
+      错在哪个字段（跨 Tab 时更是完全找不到）。本段给出统一的字段级错误样式。
+   ⚠️ 本段**只新增类，不修改任何既有选择器**。
+   ============================================================ */
+
+/* 危险按钮（全局第三档）：用于停用 / 删除 / 驳回这类有业务后果的动作。
+   视觉走「浅红底 + 危险色字」（不是实底红）—— 与 .btn-primary 的实底主色形成
+   层级差，避免满屏都是高饱和实底。 */
+.btn-danger{background:var(--dan-bg);color:var(--dan);border:1px solid transparent}
+.btn-danger:hover:not(:disabled){filter:brightness(.97)}
+.btn-danger:disabled{opacity:.45;cursor:not-allowed;filter:none}
+
+/* 输入禁用态：灰底 + 降对比 + 禁用光标，与可编辑框一眼可分。
+   🔴 此前全站缺失 ⇒ 禁用框看起来「像能改但改不动」。 */
+.input:disabled{background:var(--bg4);color:var(--t3);cursor:not-allowed;border-color:var(--border-subtle)}
+/* 只读态：与禁用区分 —— 只读**保留焦点**（可 Tab 到、可选中复制），
+   只去掉「可编辑」的暗示（无 focus 高亮、底更浅）。 */
+.input[readonly]{background:var(--bg2);color:var(--t2);cursor:default}
+.input[readonly]:focus{border-color:var(--bd);box-shadow:none}
+
+/* ============================================================
+   v241 补齐：Tab 面板 / 分组卡片 / 复选组 / 价格矩阵（S1 配套的表单件）
+   ------------------------------------------------------------
+   由来：商品档案编辑弹窗 v234/v237/v240 三期新增的主体 UI ——
+   `pa-pane` `pa-card` `pa-card-hd` `pa-subsec` `pa-checks` `pa-cb`
+   `pa-pm-wrap` `pa-pm` `pa-pm-input` `pa-c` 共 10 个类**全仓零 CSS 定义**
+   （2026-09-22 类差集审计实测）⇒ 整块新功能退化为浏览器默认样式。
+   这里按「全局层只放可复用件」上提，页面 scoped 不再各写一份。
+   ⚠️ 本段只新增类，不修改任何既有选择器。
+   ============================================================ */
+
+/* Tab 内容面板：与 .main-tabs 配套，给一点上间距即可（分隔线由 .main-tabs 提供）。 */
+.tab-pane{padding-top:4px}
+
+/* 分组小卡片（如「小单位 / 中单位 / 大单位」三块）：比 .card 轻一档，
+   不用 --shadow-* —— 嵌套在弹窗里的卡片再带阴影会显得脏。 */
+.sub-card{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-3) var(--sp-3);background:var(--bg2)}
+.sub-card-hd{font-size:var(--fs-sm);font-weight:600;color:var(--t2);margin-bottom:var(--sp-2)}
+
+/* 次级小标题（卡片内的分组名，如「默认单位」「移动端开单可见单位」） */
+.sub-sec{font-size:var(--fs-sm);font-weight:600;color:var(--t2);margin:var(--sp-3) 0 var(--sp-2)}
+
+/* 复选组：一行排开，窄屏自动折行 */
+.check-group{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap}
+.check-item{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-base);color:var(--t1);cursor:pointer;user-select:none}
+.check-item input{width:15px;height:15px;margin:0;cursor:pointer;accent-color:var(--p-dark)}
+.check-item input:disabled{cursor:not-allowed;opacity:.5}
+
+/* 价格矩阵表格：单元格里塞输入框 ⇒ 收紧内距、输入右对齐等宽数字 */
+.pm-wrap{overflow-x:auto;margin-bottom:var(--sp-3)}
+.pm-input{height:30px;padding:0 8px;text-align:right;font-variant-numeric:tabular-nums}
+.pm-c{text-align:center}
+
+/* 表格单元格的细粒度对齐（此前 pa-brand-cell / pa-lu-cell / pa-ou-cell 等同样零定义） */
+.cell-nowrap{white-space:nowrap}
+
+/* 表单错误态（字段级）。用法：
+     <label class="pa-f">
+       <span>商品名称 <i aria-hidden="true">*</i></span>
+       <input class="input err" aria-invalid="true" aria-describedby="err-name">
+       <span id="err-name" class="field-err">商品名称不能为空</span>
+     </label> */
+.input.err{border-color:var(--dan);background:var(--danger-bg)}
+.input.err:focus{border-color:var(--dan);box-shadow:0 0 0 3px var(--dan-bg)}
+.field-err{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--danger-txt);line-height:1.5}
 
 /* 移动端基础 */
 @media(max-width:768px){
