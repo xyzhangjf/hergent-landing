@@ -18,6 +18,33 @@
   ④ GONE 列表在暂存版与工作区都必须为 0
   ⑤ keep_all 文件：暂存版必须与工作区逐字节相同
 
+每个 hunk 可选一种「切分」（把别人的行从我认领的 hunk 里剔掉）：
+  · split_minus_only     混合 hunk 只落 `-` 侧（替在途提交搬移的反面）
+  · trim_plus            {os: n} 丢 `+` 侧**尾部** n 行
+  · trim_plus_head       {os: n} 丢 `+` 侧**头部** n 行
+  · keep_plus_slice      {os: (start, count)} 只落 `+` 侧中间一段（0-based，免竞态）
+  · keep_plus_before_minus {os: k} 落 `+` 前 k 行 + **保留旧侧行**
+  · drop_plus_lines      {os: [0-based 索引…]} 挖 `+` 侧**中间**若干行 ← 第八种（2026-09-21 v224）
+      别人的块夹在**我的块中间**时用。硬约束：恰好**一段连续**、且**不贴 `+` 侧两端**、
+      不空表（贴边会让残留块与相邻 hunk 合并 ⇒ `n_resid` 公式不成立）。每处残留 +1。
+
+断言族（三个方向，缺一不可）：
+  · present  暂存 >0 且 == 工作区   「我该有的在不在」
+  · gone     暂存 ==0 且 工作区 ==0 「该没有的、两侧都没有」
+  · dropped  暂存 ==0 且 工作区 >0  「**我故意没交**的别人的东西，确实没进我这次提交」
+      是 `drop_plus_lines` / trim_* 的**唯一证据链**（§5.29）。⚠️ 待断言的串若在 HEAD 里
+      本就存在，则 `dropped` 不适用（改由 trim 的内置不变式覆盖）。
+
+🔴 两条用血换来的操作纪律（2026-09-21 实测踩到）：
+  1. **提交后必须复位共享索引。** 若用 `GIT_INDEX_FILE` 临时索引提交（并发会话已预暂存时的
+     正确做法：只动 HEAD、不碰对方索引），共享索引会**停留在他次提交前的状态** ——
+     `git status` 显示 `MM`/`D `，此时任何 `git commit`（不带 `-a`）会把它们**当"改动"提交出去**，
+     等于把刚提交的内容**回退成旧版**。复位：`git reset -q HEAD -- <paths>`。
+     本工具自己的 `--commit` 走**共享索引**并用「索引内容 == 我提交的文件」断言兜住，无此问题。
+  2. **绝不要用 `git checkout -- <目录>` 收拾索引。** 它会把该目录下**所有已跟踪文件的未提交改动**
+     一起抹掉（不报错、不可逆）。本轮就因此丢了 619 行本工具源码 + 5.8KB MEMORY.md 索引内容，
+     只能靠 `__pycache__/*.pyc` 与技能文档部分还原。收拾索引只用 `git reset`，它不碰工作区。
+
 用法：
   python3 scoped_stage_by_marker.py <spec名>              # 干跑，只写 /tmp/staged_*
   python3 scoped_stage_by_marker.py <spec名> --commit /tmp/msg.txt
@@ -2928,7 +2955,46 @@ SPEC_FE_V219 = ("fe", [
     {"file": ".workbuddy/tools/sfc-freevar-audit.py", "new_file": True, "gone": []},
 ])
 
+# ============================================================================
+# SPEC_SELF —— 指向**本工具自身**的 spec：把新增能力的代码路径真正跑通的**回归自测**。
+#
+#   为什么需要它（2026-09-21 实测）：`drop_plus_lines` + `dropped` 的代码在
+#   `main()` 的**断言段**里，而断言段只有在「归属解析成功」之后才会执行 ——
+#   那些老 spec 的 `os` 在基线漂移后全部失效（工具会断言中止），
+#   ⇒ 新代码**根本跑不到**，`py_compile` 过了也不代表它是活的。
+#   本 spec 用 `keep_all` 让归属解析**必然成功**（该文件只有我的改动），
+#   于是断言段（`present` / `gone` / **`dropped`**）会被完整执行。
+#
+#   用法（改完本工具后必跑）：`python3 scoped_stage_by_marker.py self`
+#   ⚠️ 它同时是**本工具未提交改动的看门狗**：跑通 = 我的改动被完整识别。
+# ============================================================================
+SPEC_SELF = ("fe", [
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True,
+     "present": ['def apply_drop_plus_lines(plus, idx, os_):',
+                 '      · drop_plus_lines      {os: [0-based 索引…]}',
+                 '            n_extra_resid += 1'],
+     "gone": []},
+    {"file": ".workbuddy/tools/drop-plus-lines-selftest.py", "new_file": True,
+     "gone": []},
+])
+
+SPEC_SELF_DROP = ("fe", [
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py",
+     # ⚠️ **不能用 `markers`**：marker 串本身会被写在本 spec 里 ⇒ 本文件出现第二处
+     #    ⇒ 工具报「命中 2 个 hunk」（第一版实测）——**spec 自己把自己变成了第二个命中点**。
+     #    `own_hunks` 是数字、不会被引用，故在「自己测自己」时只能用 `own_hunks`。
+     #    ⚠️ 代价：这是**行号**，本文件每次改动都会漂移 ⇒ 改完工具请重跑 `self` 取新行号。
+     "own_hunks": [3134],
+     # 🔴 这两条必须是「**HEAD 里 0 次**、我这次**故意不交**、而工作区里有」的串 ——
+     #    否则 `dropped` 的 `a == 0` 不成立（HEAD 里本来就有 ⇒ 暂存版里也有）。
+     #    故取「我在**别的 hunk** 里新写的串」：HEAD=0、我只落 3134 号 hunk ⇒ 暂存=0、工作区=1。
+     "dropped": ['不提交他轮 %-44s 暂存=%d 工作区=%d',
+                 '  · drop_plus_lines      {os: [0-based 索引…]}'],
+     "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
+         "self": SPEC_SELF, "self-drop": SPEC_SELF_DROP,
          "be-v219": SPEC_BE_V219, "fe-v219": SPEC_FE_V219,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
@@ -3132,6 +3198,56 @@ def resolve_ownership(spec, hunks):
     return mine, deferred
 
 
+def apply_drop_plus_lines(plus, idx, os_):
+    """`drop_plus_lines` 的核心：挖掉 `+` 侧的**中间**若干行（**0-based 索引**）。
+
+    返回 `(保留下来的行, 被挖掉的行)`。三条硬约束在此断言：
+      · 越界       —— 索引必须落在 `0..len(plus)-1`
+      · 必须是**一段连续**索引 —— 否则残留块数算不准（`n_resid` 是公式算的：每处 +1）
+      · 不能贴 `+` 侧**两端** —— 贴边时残留块会与相邻 hunk **合并**，+1 就不成立
+
+    🔴 索引口径是 **0-based**（与 `keep_plus_slice` 的 `(start, count)` 一致）。
+       判据来自技能 §5.29 的示例注释编号「要（0）… 要（6）」与 `{331: [1,2]}`
+       —— 若按 1-based 读，`[1,2]` 就"贴头"了，与「不贴两端」自相矛盾。
+
+    抽成函数是为了**可单测**：这条判据的三种失败形态都是静默的（少挖一行会让提交版
+    引用未提交的定义，`py_compile` 与 `import` 都不报），必须有反证自测
+    —— 见 `drop-plus-lines-selftest.py`。
+    """
+    assert idx and idx[0] >= 0 and idx[-1] <= len(plus) - 1, \
+        ("drop_plus_lines 越界", os_, idx, len(plus))
+    assert idx == list(range(idx[0], idx[0] + len(idx))), \
+        "drop_plus_lines 必须是**一段**连续行（否则残留 hunk 数算不准）"
+    assert idx[0] > 0 and idx[-1] < len(plus) - 1, \
+        "drop_plus_lines 不能贴 `+` 侧两端（贴边时残留块会与相邻 hunk 合并）"
+    d = set(idx)
+    keep = [l for i, l in enumerate(plus) if i not in d]
+    gone = [l for i, l in enumerate(plus) if i in d]
+    return keep, gone
+
+
+def dropped_ok(staged_count, wt_count):
+    """`dropped` 的判据：**我故意没提交的别人的东西** —— 暂存 0、工作区 >0。
+
+    🔴 三个方向的断言，少一个就有一类错隐形（§5.29）：
+      · `present`  该有的在不在          → 暂存 >0 且 == 工作区
+      · `gone`     该没有的两侧都没有     → 暂存 ==0 且 工作区 ==0
+      · `dropped`  **我故意没交的别人的**  → 暂存 ==0 且 工作区 >0   ← 本函数
+    `dropped` 是 `drop_plus_lines` / `trim_*` 的**唯一证据链**：挖掉别人内容这件事，
+    原本 `present` 不查（它只问"我的在不在"）、`gone` 查不了（它要工作区也为 0）、
+    在途抽样也覆盖不到（`pick_inflight_sample` 明确排除我 hunk 内的行）。
+
+    ⚠️ **不适用条件**（v226 实测）：待断言的串若在 HEAD 里**本就存在**，则 `暂存 == 0`
+    不成立，但这**不代表我漏挖** —— 例如「搬家」的删那半在别的 hunk 里、`+` 侧那半在我的
+    hunk 里。此时改由 `trim_plus_head` 的**内置不变式**覆盖（被截掉的每一行：
+    暂存计数 == HEAD 计数）。
+
+    抽成函数是为了**可单测**：判据的失败形态是静默的（少挖一行 ⇒ 提交版引用未提交的定义，
+    `py_compile` 与 `import` 都不报）。见 `drop-plus-lines-selftest.py`。
+    """
+    return staged_count == 0 and wt_count > 0
+
+
 def main():
     args = sys.argv[1:]
     commit_msg = None
@@ -3261,6 +3377,30 @@ def main():
             assert not (set(keep_before) & (set(trim_head) | set(trim_plus) | set(keep_slice))), \
                 "同一 hunk 不能同时用 keep_plus_before_minus 与其它切分：%s" \
                 % sorted(set(keep_before) & (set(trim_head) | set(trim_plus) | set(keep_slice)))
+            # ⭐ drop_plus_lines：按 **0-based 索引** 挖掉 `+` 侧**中间**若干行、其余全落
+            #   ——「别人的块夹在我的块**中间**」的第八种切分（2026-09-21 v224 实测，本轮新增能力）。
+            #   场景（routers/forecast_submissions.py os=331，`-1/+7`）：
+            #     我的要 0 与 3..6，v215 的夹在 1、2 —— 既有四种切分**全表达不了**：
+            #       · `trim_plus`（丢尾）丢不到 1、2；
+            #       · `keep_plus_slice` 只能取连续区间；
+            #       · `keep_plus_before_minus` 只在「紧贴旧侧行之前」成立。
+            #   写法：`"drop_plus_lines": {331: [1, 2]}`（键是 `os`，值是**要丢掉**的
+            #   **0-based** 索引 —— 与 `keep_plus_slice` 的口径一致）。
+            #   🔴 硬约束（工具直接断言，不靠"一般不会发生"）：恰好**一段连续**、且**不贴 `+` 侧两端**。
+            #      因为 `n_resid == n_def` 的残留计数是**公式算**的（每处 +1）；贴边时残留块会与
+            #      相邻 hunk 合并 ⇒ 计数不成立。空表也没有意义（那说明该 hunk 你根本不该认领）。
+            drop_lines = {int(k): sorted(set(int(v) for v in vs))
+                          for k, vs in spec.get("drop_plus_lines", {}).items()}
+            assert set(drop_lines) <= set(mine), \
+                "drop_plus_lines 必须落在本轮 hunk 里：%s" % sorted(set(drop_lines) - set(mine))
+            for _os, _idx in drop_lines.items():
+                assert _idx, \
+                    "drop_plus_lines 传了空表（无意义，直接别认领该 hunk）：%s" % (_os,)
+            assert not (set(drop_lines) & (set(trim_head) | set(trim_plus) | set(keep_slice)
+                                           | set(keep_before))), \
+                "同一 hunk 不能同时用 drop_plus_lines 与其它切分：%s" \
+                % sorted(set(drop_lines) & (set(trim_head) | set(trim_plus) | set(keep_slice)
+                                            | set(keep_before)))
             lines = head.splitlines(keepends=True)
             trimmed_lines = []
             # 🔴 精确不变量的两本账（见下方 trim 计数断言）：
@@ -3300,6 +3440,10 @@ def main():
                     trimmed_lines += plus[k:]
                     # 🔴 顺序：我的块在前、**旧侧行原样留在其后**（不是丢掉、也不是放在前面）
                     plus = plus[:k] + h["minus"]
+                if os_ in drop_lines:
+                    plus, _dropped = apply_drop_plus_lines(plus, drop_lines[os_], os_)
+                    n_extra_resid += 1
+                    trimmed_lines += _dropped
                 minus_all.update(h["minus"])
                 if oc == 0:
                     assert h["minus"] == [], "纯插入 hunk 不该有 - 行"
@@ -3418,6 +3562,29 @@ def main():
             ok = a == 0 and b == 0
             bad += 0 if ok else 1
             print("  %s 已删文案 %-24s 暂存=%d 工作区=%d" % ("ok " if ok else "BAD", s, a, b))
+
+        # 🔴 dropped：**我故意没提交的别人的东西** —— 暂存=0 且工作区>0。
+        #   为什么必须有（2026-09-21 v224 实测）：`drop_plus_lines` / trim_* 在把别人的块
+        #   从我认领的 hunk 里挖掉时，**唯一的证据就是"暂存里没有它"** —— 而
+        #     · `present` 只查「我该有的在不在」；
+        #     · `gone`   只查「该没有的且**工作区也没有**」⇒ 对"工作区还有"的东西**用不了**；
+        #     · 在途零夹带抽样只从**别的** hunk 取样本（`pick_inflight_sample` 明确排除
+        #       我 hunk 内出现过的行）。
+        #   ⇒ 「我 hunk 里那段别人的代码有没有被漏掉」原本**一条断言都不覆盖**。
+        #   若哪天 `drop_plus_lines` 的索引写错（少挖一行），暂存版就会静默带上
+        #   v215 的 `"skipped_out_of_scope"` —— 而它的定义在另外三个 hunk 里、本轮不提交
+        #   ⇒ 提交后 `/api/forecast-submissions` 直接 `NameError` 500，而
+        #      `py_compile` 与 `import` **都不报**（判据只看一侧 ⇒ 缺项隐形）。
+        #   方向与 `gone` 正好相反：一个验「两侧都没有」，一个验「**只有工作区有**」。
+        # ⚠️ 不适用条件（v226 实测踩到）：待断言的那个串在 **HEAD 里本就存在**时，
+        #    `a==0` 不成立但**不代表我漏挖** —— 例如搬家的「删」那半在别的 hunk 里、
+        #    `＋` 侧那半在我的 hunk 里。此时改由 `trim_plus_head` 的**内置不变式**覆盖
+        #    （「被截掉的每一行：暂存计数 == HEAD 计数」）。
+        for s in spec.get("dropped", []):
+            ok = dropped_ok(out.count(s), wt.count(s))
+            bad += 0 if ok else 1
+            print("  %s 不提交他轮 %-44s 暂存=%d 工作区=%d" % ("ok " if ok else "BAD", s[:44],
+                                                              out.count(s), wt.count(s)))
 
     print("=" * 74)
     assert bad == 0, "自证失败 %d 项，先查归属判定" % bad
