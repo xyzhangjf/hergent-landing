@@ -15,16 +15,50 @@
 
   <view class="tip">账号由管理员在「小赫智体」后台开通 · 首次登录需修改初始密码</view>
 
+  <!-- P0（2026-09-19）：常驻协议入口。
+       此前协议只存在于「首次未同意」时弹出的一次性弹窗里，同意过一次就再无处可查 ——
+       已同意用户（含审核员用测试账号体验时）找不到任何入口，命中《App违法违规收集
+       使用个人信息行为认定方法》第一条第三项「隐私政策等收集使用规则难以访问」。
+       故此处必须常驻，且不依赖 showPrivacy 状态、不依赖是否已同意。 -->
+  <view class="legal-links">
+    <text class="lk" bindtap="goTerms">《用户服务协议》</text>
+    <text class="lk-sep">·</text>
+    <text class="lk" bindtap="goPrivacy">《隐私政策》</text>
+  </view>
+
   <!-- A3: 隐私同意弹窗（首次启动未同意时覆盖展示） -->
   <view class="privacy-mask" wx:if="{{showPrivacy}}" catchtap="onDisagreePrivacy">
     <view class="privacy-box" catchtap="noop">
       <view class="privacy-title">隐私保护指引</view>
       <scroll-view class="privacy-body" scroll-y="true">
-        <text>欢迎使用「小赫智体报单助手」。我们仅收集实现功能所必要的信息：\n\n· 你填写的登录账号与密码（密码加盐哈希存储，不留明文）\n· 你的姓名 / 显示名、角色（销售、督导、管理员等）\n· 你填报的门店、预报商品与数量、报单期次\n· 剪切板（仅在你点击「复制」时写入汇总结果，不读取其中其它内容）\n\n用途：身份验证、生成与汇总预报订单、按门店/期次/角色聚合展示、保障服务稳定。\n\n数据存放于 hergent.cn 服务器，采用 HTTPS 传输加密。我们不向任何第三方出售或交换你的个人信息。\n\n我们不收集：微信 OpenID / 昵称 / 头像 / 手机号（未使用微信一键登录）、位置、相册、摄像头、麦克风、通讯录、蓝牙，也不收集设备型号、系统版本与崩溃日志。\n\n另有两项仅在本机或在微信平台内使用：① 本机网络类型仅用于断网提示，不上传、不存储；② 使用微信原生统计记录登录/提交/页面浏览等业务事件名（字段含角色、门店名称、报单编号与数量合计，不含账号密码与商品明细）。\n\n你有权查询、更正个人资料，并可要求删除账号与预报记录（联系 postmaster@hergent.cn）。\n\n点击「同意并继续」即表示你已阅读并同意上述说明。</text>
+        <view class="pz-p">欢迎使用「小赫智体报单助手」。我们仅收集实现功能所必要的信息：</view>
+        <view class="pz-li">· 你填写的登录账号与密码（密码加盐哈希存储，不留明文）</view>
+        <view class="pz-li">· 你的姓名 / 显示名、角色（销售、督导、管理员等）</view>
+        <view class="pz-li">· 你填报的门店、预报商品与数量、报单期次</view>
+        <view class="pz-li">· 剪切板（仅在你点击「复制」时写入汇总结果，不读取其中其它内容）</view>
+        <view class="pz-p">用途：身份验证、生成与汇总预报订单、按门店/期次/角色聚合展示、保障服务稳定。</view>
+        <view class="pz-p">数据存放于 hergent.cn 服务器，采用 HTTPS 传输加密。我们不向任何第三方出售或交换你的个人信息。</view>
+        <view class="pz-p">我们不收集：微信 OpenID / 昵称 / 头像 / 手机号（未使用微信一键登录）、位置、相册、摄像头、麦克风、通讯录、蓝牙，也不收集设备型号、系统版本与崩溃日志。</view>
+        <view class="pz-p">仅在本机使用、不上传也不存储：本机网络类型仅用于断网提示。</view>
+        <!-- P0（2026-09-19）：非必要项与必需项拆分标注。
+             《个人信息保护法》第 16 条 + 微信官方指引：用户拒绝非必要授权时，
+             不得据此拒绝提供全部服务。原文把「统计」「网络类型」与账号密码
+             混在一段里一揽子同意，用户无法判断哪部分是可选的。 -->
+        <view class="pz-opt">
+          <view class="pz-opt-h">以下为非必要信息，不同意也不影响你使用本程序</view>
+          <view class="pz-opt-b">使用统计：记录登录 / 提交 / 页面浏览等业务事件名（字段含角色、门店名称、报单编号与数量合计，不含账号密码与商品明细），存放于我们自己的服务器 hergent.cn，不向微信平台或任何第三方统计 / 广告平台提供。可随时在「我的提交 → 隐私设置」中关闭。</view>
+        </view>
+        <view class="pz-p">你有权查询、更正个人资料，并可要求删除账号与预报记录（联系 postmaster@hergent.cn）。</view>
+        <view class="pz-p">点击「同意并继续」即表示你已阅读并同意上述说明；完整条款请见《用户服务协议》与《隐私政策》。</view>
       </scroll-view>
       <view class="privacy-actions">
         <button class="p-btn disagree" bindtap="onDisagreePrivacy">暂不同意</button>
         <button class="p-btn agree" bindtap="onAgreePrivacy">同意并继续</button>
+      </view>
+      <view class="pz-more">
+        <text class="lk" bindtap="goTerms">《用户服务协议》</text>
+        <text class="lk-sep">·</text>
+        <text class="lk" bindtap="goPrivacy">《隐私政策》</text>
       </view>
     </view>
   </view>

@@ -44,6 +44,13 @@
     <text class="sample-info-s {{sampleInfo.outOfScope ? 'sample-info-warn' : ''}}">{{sampleInfo.outTip}}</text>
     <text class="sample-info-x" bindtap="dismissSample">收起</text>
   </view>
+  
+  <!-- P0-1（2026-09-20）：**空门店**必须给原因与解锁动作 —— 原先只有一个空选择器 + 提交时
+       一句「请先选择报单门店」，用户与审核员都不知道该找谁、改哪里。 -->
+  <view class="no-store-note" wx:if="{{storeEmpty}}">
+    <text>你还没有被配置报单门店，因此无法提交。请让管理员在电脑上打开【预报订单管理 → 报单配置】，把你的门店加上。</text>
+    <text class="no-store-lnk" bindtap="copyStoreHint">复制提示发给管理员</text>
+  </view>
 
   <!-- M10: 最近报单门店快捷入口 -->
   <view class="recent-stores" wx:if="{{recentStores.length}}">
@@ -91,9 +98,9 @@
     <text class="search-clear" wx:if="{{kw}}" bindtap="clearSearch">✕</text>
   </view>
 
-  <!-- 可预报商品：进入即按 Web 端配置全量铺开，滚动到底分页加载 -->
+  <!-- 可预报商品：v215 起 = **本期报单清单**（与 Web 端同源同序），滚动到底分页加载 -->
   <view class="prod-head">
-    <text class="prod-head-t">可预报商品</text>
+    <text class="prod-head-t">本期可报商品</text>
     <text class="prod-head-n">{{kw ? '匹配 ' : '共 '}}{{total}} 项</text>
   </view>
   <view class="prod-list">
@@ -118,7 +125,24 @@
       <view class="empty-txt">{{loadError}}</view>
       <view class="retry-btn" bindtap="reloadProducts">点此重试</view>
     </view>
-    <view class="empty" wx:elif="{{!products.length && !loadingMore}}">没有找到商品，试试其他关键词</view>
+    <!-- v215：空态分三种成因，文案必须不同 —— 「本期没配清单」要引导用户找管理员，
+         「搜索没匹配」只需换个词，二者混在一起会让用户白等或白找。 -->
+    <view class="empty" wx:elif="{{!products.length && !loadingMore}}">
+      <block wx:if="{{kw}}">
+        <view class="empty-txt">本期没有匹配「{{kw}}」的商品</view>
+        <view class="empty-txt empty-sub">也可以清空搜索词，看本期的全部商品</view>
+        <view class="retry-btn" bindtap="clearSearch">清空搜索</view>
+      </block>
+      <block wx:elif="{{periodEmpty}}">
+        <view class="empty-txt">本期「{{period.name || ''}}」还没有配置报单商品清单</view>
+        <view class="empty-txt empty-sub">本期的可报商品来自电脑端的导入模板，请让管理员导入后再报单</view>
+        <view class="retry-btn" bindtap="copyPeriodHint">复制给管理员</view>
+      </block>
+      <block wx:else>
+        <view class="empty-txt">本期还没有可报单的商品</view>
+        <view class="empty-txt empty-sub">下拉可刷新重试</view>
+      </block>
+    </view>
   </view>
   <view class="load-more" wx:if="{{loadingMore}}">加载中…</view>
   <view class="load-end" wx:elif="{{!hasMore && products.length}}">已显示全部 {{total}} 项</view>

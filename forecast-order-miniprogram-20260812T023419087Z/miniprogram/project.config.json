@@ -1,9 +1,15 @@
 {
-  "description": "Hergent 预报订单小程序",
+  "description": "小赫智体报单助手小程序",
   "packOptions": {
     "ignore": [
-      { "type": "file", "value": "CLAUDE.md" },
-      { "type": "glob", "value": "**/*.md" }
+      {
+        "type": "file",
+        "value": "CLAUDE.md"
+      },
+      {
+        "type": "glob",
+        "value": "**/*.md"
+      }
     ],
     "include": []
   },

@@ -13,16 +13,21 @@
 
 // 「能看汇总总表（跨门店）」的角色。**本名单不许自行增删** —— 它必须与后端两处对齐：
 //   ① `routers/forecast_submissions.py::submission_summary`（GET /summary）里的硬编码名单
-//      `("admin","boss","accountant","supervisor")`，不符即 403「仅管理员/老板可看汇总」；
+//      `("admin","boss","supervisor")`，不符即 403「仅管理员 / 老板 / 主管可查看报单汇总」；
 //   ② `server.py::_PATH_MODULE_MAP` 把 `/api/forecast-submissions` 登记为 **data 模块** ⇒
 //      调用方还必须持有 `core._DEFAULT_PERMS` 里的 data 权限（中间件先于路由执行）。
-// 🔴 2026-09-19 实测记录（**两处后端判据互相矛盾，尚未修**）：`accountant` 在 ①名单里，但
-//   `_DEFAULT_PERMS['accountant'] = [dashboard, accounts, reports, marketing]` **没有 data** ⇒
-//   会计进小程序点「汇总总表」会在**中间件**就被 403（连路由的角色检查都到不了）。
-//   要让会计真能看，正确改法是**在后端给 accountant 加 data 权限**（或从 ①名单里去掉 accountant）
-//   —— 那是业务决定；在这里加名字只会造出一个点了就报错的入口。
-//   故本名单**保持原样**，与①逐字一致，等待后端拍板后再同步。
-const APPROVER_ROLES = ['admin', 'boss', 'accountant', 'supervisor']
+//
+// 🔴 2026-09-20 已收敛：`accountant` **从本名单移除**（此前它在名单里，制造了「假入口」）。
+//   原状态是三处打架：本名单收会计（`isApprover` 为真 ⇒ 「我的」页显示汇总入口）
+//   ＋ ①后端名单收会计 ＋ ②中间件拒会计（`_DEFAULT_PERMS['accountant']` 没有 `data`）
+//   ⇒ 会计点进去必 403，而失败点在**中间件**、连路由里那句提示语都到不了，用户只看到通用报错。
+//   用户 2026-09-20 拍板：**会计不报单**。三处已统一为「会计不在名单内」：
+//     · 本文件 APPROVER_ROLES           —— 移除 accountant
+//     · forecast_submissions.py:281     —— 移除 accountant，且提示语补上「主管」
+//     · erp_db.py::forecast_submission_recall —— 移除 accountant（同一份名单的第 4 处拷贝）
+//   ⚠️ 若日后要让会计看汇总，正确做法是**在后端给 accountant 加 `data`**（业务决定，
+//      会一并放开 `/api/products` 等宽权限）；只把名字加回这里 = 再造一次假入口。
+const APPROVER_ROLES = ['admin', 'boss', 'supervisor']
 
 // 角色 → 中文显示名（mine 页头部展示用）。
 // 🔴 键集必须覆盖后端 `core._DEFAULT_PERMS` 的**全部 8 个角色**，且**译名与网页端逐字相同**

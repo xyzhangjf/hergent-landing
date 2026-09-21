@@ -32,6 +32,18 @@
     <view class="entry-arrow">›</view>
   </view>
 
+  <!-- 隐私设置（P0 2026-09-19 新增）
+       承载协议查阅、非必要信息开关、撤回同意与注销途径说明。
+       此前这三项在小程序内都没有入口（协议只在首启弹窗出现过一次，同意后再不可查）。 -->
+  <view class="entry" bindtap="goPrivacySettings">
+    <view class="entry-ic">隐</view>
+    <view class="entry-main">
+      <view class="entry-title">隐私设置</view>
+      <view class="entry-sub">协议查阅 · 撤回同意 · 统计开关</view>
+    </view>
+    <view class="entry-arrow">›</view>
+  </view>
+
   <view class="sec-title">我的预报提交</view>
   <view class="list" wx:if="{{records.length}}">
     <view class="rec" wx:for="{{records}}" wx:key="id">

@@ -35,6 +35,9 @@
 .sample-info-s{font-size:22rpx;color:#0891b2;line-height:1.5}
 .sample-info-warn{color:#b45309}
 .sample-info-x{position:absolute;top:14rpx;right:20rpx;font-size:22rpx;color:#86868b}
+/* P0-1（2026-09-20）：空门店说明条 —— 与 period-warn 同族（都是「你现在做不了这件事，原因在别处」） */
+.no-store-note{margin:16rpx 32rpx 0;background:#fffbeb;border:1rpx solid #fde68a;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#92400e;line-height:1.7}
+.no-store-lnk{display:block;margin-top:12rpx;color:#06b6d4;font-weight:600}
 .prod-list{padding:16rpx 32rpx 0}
 .prod-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:16rpx;padding:20rpx 24rpx;margin-bottom:16rpx;border:2rpx solid transparent}
 .prod-row-on{background:#ecfeff;border-color:#a5f3fc}
@@ -63,6 +66,7 @@
 .cart-del{position:absolute;top:-14rpx;right:-10rpx;width:44rpx;height:44rpx;border-radius:50%;background:#ff3b30;color:#fff;font-size:24rpx;display:flex;align-items:center;justify-content:center;opacity:.9}
 .empty{text-align:center;color:#86868b;font-size:26rpx;padding:40rpx 0}
 .empty-txt{font-size:26rpx;color:#86868b;line-height:1.6;padding:0 60rpx}
+.empty-sub{font-size:24rpx;color:#a1a1a6;margin-top:6rpx}
 .retry-btn{display:inline-flex;align-items:center;margin-top:20rpx;padding:14rpx 44rpx;font-size:28rpx;color:#06b6d4;border:1rpx solid #06b6d4;border-radius:40rpx;background:#fff}
 /* v224（2026-09-21）方案 A：底部固定区。
    ⚠️ 定位/边框/安全区**全部上提到 .bottom-dock**，提交栏本身不再 fixed ——

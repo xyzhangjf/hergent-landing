@@ -1,0 +1,55 @@
+<!--
+  用户服务协议（微信小程序版）
+  ⚠️ 与网页端 hergent-cn-v2/public/legal/terms.html 是**两份不同产品的协议**，不可互相替代：
+     网页端是「Hergent · AI 经营副驾」（含 AI 分析、Excel 上传、连接器等），
+     小程序是「小赫智体报单助手」（仅预报订单填报）。
+     照搬网页端协议会声明本程序不具备的服务内容，属不实描述。
+  ⚠️ 本页与《隐私政策》（pages/legal/privacy）成对出现，须同时可从登录页与「我的」页进入。
+-->
+<view class="legal-page">
+  <view class="legal-card">
+    <view class="legal-h1">用户服务协议</view>
+    <view class="legal-meta">小赫智体报单助手 · 微信小程序　|　生效日期：2026-09-19　|　最近更新：2026-09-19</view>
+
+    <view class="legal-lead">欢迎使用「小赫智体报单助手」微信小程序（以下简称「本程序」）。本程序由湖北省小赫智体数字科技有限公司（统一社会信用代码：91420606MAKF1YPG5Y，以下简称「我们」）运营，是「Hergent · AI 经营副驾」（hergent.cn）的配套移动端报单工具。在使用前，请你仔细阅读并充分理解本协议。登录或使用本程序即表示你已阅读、理解并同意接受本协议约束。</view>
+
+    <view class="legal-h2">一、服务说明</view>
+    <view class="legal-li">本程序面向低温奶及快消品经销企业的内部员工与管理人员，提供预报订单的填报、查询与汇总数据复制等移动端能力。</view>
+    <view class="legal-li">本程序与网页端（hergent.cn）共用同一账号体系与业务数据，你在此填报的内容会计入所属企业的本期汇总。</view>
+    <view class="legal-li">账号由你所属企业的管理员在后台开通，<text class="legal-b">本程序不提供自助注册</text>。</view>
+
+    <view class="legal-h2">二、账号与使用规范</view>
+    <view class="legal-li">你应妥善保管账号与密码，因密码泄露或出借导致的后果由你自行承担。</view>
+    <view class="legal-li">本程序按企业（租户）隔离，你确认对自己账号下填报的全部数据与操作负责。</view>
+    <view class="legal-p">你承诺合法使用本程序，包括但不限于：</view>
+    <view class="legal-li">不利用本程序从事任何违反法律法规的活动；</view>
+    <view class="legal-li"><text class="legal-b">不将本程序获取的任一客户的经营数据用于转售、对外提供或超出约定目的的使用</text>；</view>
+    <view class="legal-li">不上传含有病毒、恶意代码或侵犯他人合法权益的内容；</view>
+    <view class="legal-li">不逆向工程、破解或干扰本程序的正常运行。</view>
+
+    <view class="legal-h2">三、数据与知识产权</view>
+    <view class="legal-li">你填报的预报数据权益归你所属企业所有；你授权我们在为你提供服务所必需的范围内处理该等数据。</view>
+    <view class="legal-li">本程序相关的软件、界面与文档的知识产权归我们所有或已获合法授权。</view>
+
+    <view class="legal-h2">四、服务内容与免责</view>
+    <view class="legal-li">本程序提供的汇总、统计与提示信息仅供你内部经营参考，<text class="legal-b">不构成任何经营决策、财务或法律建议</text>。</view>
+    <view class="legal-li">你应在提交前自行核对填报的商品、门店与数量是否正确；提交后的数据将计入本期汇总，如需变更请使用撤回功能或联系管理员。</view>
+    <view class="legal-li">因网络、设备或你所处企业账号状态（如被停用）导致的暂时无法使用，我们将尽力恢复但不承担由此产生的经营损失。</view>
+
+    <view class="legal-h2">五、服务的变更、中断与终止</view>
+    <view class="legal-li">我们保留为升级优化而调整、暂停或终止部分服务的权利，重大变更将尽力提前通知。</view>
+    <view class="legal-li">如你违反本协议，我们有权暂停或终止你的账号。</view>
+
+    <view class="legal-h2">六、个人信息保护</view>
+    <view class="legal-p">我们依据《隐私政策》处理你的个人信息。请在使用前阅读《隐私政策》；你可在登录页或「我的提交 → 隐私设置」中随时查阅。</view>
+
+    <view class="legal-h2">七、协议的更新</view>
+    <view class="legal-p">我们可能适时更新本协议。重大变更将通过程序内公告或登录页提示告知你；你继续使用本程序即视为接受更新后的协议。</view>
+
+    <view class="legal-h2">八、如何联系我们</view>
+    <view class="legal-p">如对本协议有疑问，可邮件联系：<text class="legal-b">postmaster@hergent.cn</text></view>
+    <view class="legal-note">运营主体：湖北省小赫智体数字科技有限公司　|　联系邮箱：postmaster@hergent.cn</view>
+
+    <view class="legal-foot">© 2026 湖北省小赫智体数字科技有限公司</view>
+  </view>
+</view>

@@ -1,3 +1,5 @@
+const { track, flush, EVENTS } = require('./utils/track')
+
 App({
   globalData: {
     apiBase: 'https://hergent.cn',
@@ -14,7 +16,19 @@ App({
       this.globalData.user = u || null
       this.globalData.tenantId = tid || ''
     }
+    // v211（2026-09-20）：埋点改为上报自建后端。启动即补传上次遗留的队列
+    // —— `onHide` 里那次 flush 可能因为进程被立刻回收而没发出去。
+    track(EVENTS.APP_LAUNCH, { has_token: t ? 1 : 0 })
+    flush()
     this.checkUpdate()
+  },
+  onShow() {
+    // 回到前台：把离线期间攒下的事件送一次
+    flush()
+  },
+  onHide() {
+    // 退到后台：小程序可能被随时回收，这是最可靠的发送时机
+    flush()
   },
   /* P0-1: 版本更新检测——有新版本提示重启，避免老用户永远停在旧版 */
   checkUpdate() {

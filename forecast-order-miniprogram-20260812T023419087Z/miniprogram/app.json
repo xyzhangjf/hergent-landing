@@ -5,10 +5,14 @@
     "pages/mine/mine",
     "pages/summary/summary",
     "pages/password/password",
-    "pages/forgot/forgot"
+    "pages/forgot/forgot",
+    "pages/no-permission/no-permission",
+    "pages/legal/privacy",
+    "pages/legal/terms",
+    "pages/privacy-settings/privacy-settings"
   ],
   "window": {
-    "navigationBarTitleText": "预报订单",
+    "navigationBarTitleText": "小赫智体报单助手",
     "navigationBarBackgroundColor": "#06b6d4",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#f5f5f7"
@@ -34,5 +38,6 @@
     ]
   },
   "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
 }

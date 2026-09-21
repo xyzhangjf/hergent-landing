@@ -1,10 +1,11 @@
 const app = getApp()
 const { request } = require('../../utils/api')
 const { track, EVENTS } = require('../../utils/track')
+const { peekPerms } = require('../../utils/perm')
 
 Page({
   data: {
-    stores: [], storeIdx: 0, store: {},
+    stores: [], storeIdx: 0, store: {}, storeEmpty: false,   // storeEmpty: P0-1 空门店说明条
     periods: [], periodIdx: 0, period: {},  // A 方案：报单期次（对齐到货窗口）
     kw: '',
     // 全量铺开（2026-09-06）：进入即列出全部可预报商品，分页滚动加载，避免首屏卡顿
@@ -15,6 +16,9 @@ Page({
     showTop: false,          // P2-7: 滚动超一屏显示「回到顶部」
     initialLoading: false,   // P2-2: 商品首屏加载中（避免误显「没有找到商品」）
     loadError: '',           // P2-5: 商品首屏加载失败文案（非空时显示错误视图+重试）
+    // v215（2026-09-20）：商品列表口径回执 + 空态区分
+    listScope: '',           // 'period' = 本期报单清单；'catalog' = 档案兜底（旧口径）
+    periodEmpty: false,      // 本期确实没有（或还没配）报单商品清单 —— 与「搜索无匹配」是两回事
     offline: false,          // P2-3/5: 断网提示（顶部横幅 + 恢复自动补传）
     recentStores: [],          // M10: 最近报单门店快捷入口
     pendingSubmit: false,      // M11: 存在未提交草稿（离线/失败），待联网补传
@@ -41,6 +45,7 @@ Page({
   cartMap: {},
   _qtyMap: {},        // P1-3: 实例属性版 qtyMap（id -> 已填数量），供分页回填/行同步读取
   _prodIndex: {},     // P1-2: id -> products 下标索引，O(1) 定位免全表遍历
+  _loadedPeriodId: '',   // v215: 当前商品列表是按哪个期次铺开的（'' = 未铺开，需重拉）
   _seq: 0,           // F3: 搜索请求序号，用于丢弃过期响应
   _searchTimer: null,
   _persistTimer: null, // P1-1: 购物车写盘防抖计时器
@@ -77,12 +82,16 @@ Page({
   onPullDownRefresh() {
     app.globalData._fsCache = {}
     this._periodWarned = false
+    // v215：下拉刷新 = **强制**重拉商品 ⇒ 先清掉「已按某期铺开」的标记。
+    // 原来这里把 loadProducts 与 loadPeriods **并发** ⇒ 商品开始加载时 this.data.period
+    // 还是 {}，拿不到期次号（v215 之前没有期次参数所以看不出问题，但口径一直是错的）。
+    // 现在改为「先把期次定下来，再按期次铺商品」。
+    this._loadedPeriodId = ''
     Promise.all([
       this.loadStores(),
       this.loadPeriods(),
-      this.loadProducts('', false),
       this.loadRecentStores()
-    ]).then(() => {
+    ]).then(() => this.syncProductsForPeriod()).then(() => {
       wx.stopPullDownRefresh()
     }).catch(() => {
       wx.stopPullDownRefresh()
@@ -91,14 +100,32 @@ Page({
   onShow() {
     const token = app.globalData.token || wx.getStorageSync('fs_token')
     if (!token) { wx.reLaunch({ url: '/pages/login/login' }); return }
+    // P0-2（2026-09-20）：**权限闸的第二道**。登录时已判过一次，这里补的是「登录后被改角色」
+    // 与「从无权限页 / 其它入口直接进填报页」两条路径。
+    // 只用**缓存判据**（零请求）：`known=false`（还没拉到）时 fail-open 放行 ——
+    // 一次接口抖动不能把能干活的人挡在门外，真无权限仍由后端 403 兜住。
+    const perm = peekPerms()
+    if (perm.known && !perm.canReport) {
+      wx.reLaunch({ url: '/pages/no-permission/no-permission' })
+      return
+    }
     this.restoreCart()       // M8: 恢复持久化购物车（跨页面销毁不丢）
     this.loadStores()        // P1-4: 内部带 5min 内存缓存
+    // v215（2026-09-20）：期次必须**先于**商品定下来。
+    // 原实现是 `loadPeriods()` 与 `loadProducts()` 并发 —— 商品开始加载时
+    // `this.data.period` 还是 `{}`，拿不到期次号；且原守卫是「products 非空则不重拉」
+    // ⇒ 切期次后永远看到的是上一期的商品。
+    // 现在统一由 `_applyPeriods()` → `syncProductsForPeriod()` 决定要不要重拉：
+    // 期次没变则不重拉（保留滚动位置与已加载内容），期次变了才重拉。
     this.loadPeriods()       // A 方案：拉取当前可报单期次（内部带 5min 缓存）
-    // P1-4: 商品列表已有（从其它 tab 切回）则不重拉——保留滚动位置与已加载内容
-    if (!this.data.products.length) this.loadProducts('', false)
     this.loadRecentStores()  // M10
-    // P2-3: 页面可见 + 有网 + 有草稿 → 自动补传（网络恢复或重进页面时）
-    if (this.data.pendingSubmit && this.data.cartCount && !this.data.offline) this.resumeDraft()
+    /* P2-3/v224: 自动补传**不在**这里同步调用。
+       原实现紧跟 `loadPeriods()` 同步跑 ⇒ 补传开始时 `this.data.period` 很可能还是 `{}`
+       （`loadPeriods` 是 async，走网络的路径下还没回来）⇒ `_doSubmit` 的守卫直接弹
+       「请先选择报单期次」：用户看到的是一个**莫名其妙的错误**，而草稿仍然没传上去。
+       现在改为「期次定案之后再补传」—— 由 `_applyPeriods` 末尾的 `_autoResumeDraft()` 接手。
+       （`onPullDownRefresh` 早已修过同类竞态，这条当时漏了。） */
+    this._wantAutoResume = true
     // P1-4: 恢复切走前的滚动位置（150ms 等首帧渲染完成再滚）
     if (this._scrollTop > 0) {
       const st = this._scrollTop
@@ -173,6 +200,10 @@ Page({
         this._periodWarned = true
         wx.showToast({ title: '报单期次加载失败，请返回重试', icon: 'none' })
       }
+      // v215：期次接口失败时 `_applyPeriods` 不会执行 ⇒ 商品也不会铺开，
+      // 用户看到的是「期次在、商品空」（比"都空"更难理解）。若本地还留着上次
+      // 选中的期次，就仍按它把商品铺开（期次号存在 Storage 里，不依赖这次请求）。
+      this.syncProductsForPeriod()
     }
   },
   _applyPeriods(periods) {
@@ -196,6 +227,48 @@ Page({
     const sel = periods[idx]
     if (sel && sel.id !== undefined) wx.setStorageSync('fs_period_id', sel.id)
     this.refreshBanners()
+    // v215：期次定案后，把商品列表对齐到**这个期次**（期次没变则不重拉）
+    this.syncProductsForPeriod(sel && sel.id)
+    // v224：期次定案之后，才允许"自动补传上次没传成功的草稿"（见 onShow 里的注释）
+    this._autoResumeDraft()
+  },
+
+  /* v224（2026-09-21）：自动补传的唯一触发点 —— 期次已定案。
+     为什么必须等期次：`_doSubmit` 的第一个业务守卫就是「有没有选中期次」，
+     没有期次就补传 = 必然弹「请先选择报单期次」把用户弄糊涂，而草稿依旧留在本机。
+     只在 onShow 请求过时执行一次（`_wantAutoResume`），避免切期次/下拉刷新时意外补传。 */
+  _autoResumeDraft() {
+    if (!this._wantAutoResume) return
+    this._wantAutoResume = false
+    if (!this.data.pendingSubmit || !this.data.cartCount || this.data.offline) return
+    if (!((this.data.period || {}).id)) return
+    this.resumeDraft()
+  },
+
+  /* v215（2026-09-20）：保证「商品列表 = 当前选中期次的报单清单」。
+     为什么要单独一层：商品的铺开必须**依赖期次**（期次不同 → 清单不同），
+     而原实现里两者是并发或互不感知的：
+       · onShow：loadPeriods() 与 loadProducts() 同时发 ⇒ 商品加载时 period 还是 {}；
+       · 切期次：onPeriodChange 只改了 period，**商品一行都不重拉** ⇒ 用户切到另一期，
+         看到的还是上一期的商品，提交时才发现商品不对（或被后端按本期清单剔除）。
+     触发点共三处：`_applyPeriods`（含下拉刷新/重进页面）、`onPeriodChange`、`loadPeriods` 失败兜底。
+     ⚠️ 判据用 `_loadedPeriodId`（内存态，非 data）—— 放 data 会引发无意义 setData。 */
+  syncProductsForPeriod(pidOverride) {
+    // ⚠️ 显式收期次号优先：不依赖「setData 之后 this.data 已更新」这一隐含时序，
+    //    调用方刚拿到的新期次直接传进来，永远取到的是**要铺的那一期**。
+    const pid = (pidOverride !== undefined && pidOverride !== null && pidOverride !== '')
+      ? pidOverride
+      : (this.data.period || {}).id
+    // 期次还没定（首次进入、接口还没回来）⇒ 什么都不做，等 `_applyPeriods` 再调
+    if (pid === undefined || pid === null || pid === '') return Promise.resolve()
+    // 已经按这一期铺过了：不重拉，保留滚动位置与已加载内容。
+    // `periodEmpty` 也算"铺过了"—— 否则本期清单为空的用户每次 onShow 都要空跑一次请求。
+    if (String(this._loadedPeriodId) === String(pid) &&
+        (this.data.products.length || this.data.periodEmpty)) {
+      return Promise.resolve()
+    }
+    this._loadedPeriodId = pid
+    return this.loadProducts('', false)
   },
 
   /* A 方案：切换报单期次 */
@@ -231,6 +304,10 @@ Page({
         icon: 'none', duration: 2500
       })
     }
+    // v215：商品清单是**按期次**的 ⇒ 切期次必须重新铺开商品。
+    // ⚠️ 已填购物车**有意**跨期次保留（跨期沿用），但其中可能有**不属于新期次**的商品：
+    //    提交时后端会按本期清单剔除并在回执里逐项说明，故这里只重铺列表、不动购物车。
+    this.syncProductsForPeriod(period.id)
   },
 
   /* M8 二期: 购物车持久化到 Storage，按门店分键 fs_cart_<storeId>（根治串店）
@@ -298,10 +375,33 @@ Page({
       const found = stores.findIndex(s => String(s.id) === String(savedId))
       if (found >= 0) idx = found
     }
-    this.setData({ stores, store: stores[idx] || {}, storeIdx: idx })
+    // P0-1（2026-09-20）：空列表要显式说出来。`/stores` 返回空数组有三种成因
+    // （没配报单配置 / 员工关联为空 / 后端回退分支），对用户而言都是同一件事：配置没到位。
+    this.setData({ stores, store: stores[idx] || {}, storeIdx: idx, storeEmpty: !stores.length })
     // 二期: 门店定案后再恢复该店的购物车（fs_cart_<storeId>，根治串店）
     this.restoreCart()
     this.refreshBanners()
+  },
+  /* P0-1（2026-09-20）：把「没门店」的解锁动作写成一句可直接转发的话 */
+  copyStoreHint() {
+    const u = (app && app.globalData.user) || wx.getStorageSync('fs_user') || {}
+    wx.setClipboardData({
+      data: '我的小程序账号（' + (u.username || '') + '）没有可以报单的门店，提交不了。' +
+            '麻烦在电脑上打开【预报订单管理 → 报单配置】，把我的门店加上。',
+      success: () => wx.showToast({ title: '已复制，发给管理员即可', icon: 'none' })
+    })
+  },
+  /* v215（2026-09-20）：把「本期没有商品清单」的解锁动作写成一句可直接转发的话。
+     与 copyStoreHint 同款思路 —— 一线销售不需要理解系统，只要能把这句原话转出去。 */
+  copyPeriodHint() {
+    const p = this.data.period || {}
+    const u = (app && app.globalData.user) || wx.getStorageSync('fs_user') || {}
+    wx.setClipboardData({
+      data: '小程序报单页的「' + (p.name || '当前期次') + '」这一期，可报商品清单是空的，'
+            + '所有销售都报不了单。麻烦在电脑上打开【预报订单管理 → 导入模板】，'
+            + '把本期的商品导入进去。（反馈人账号：' + (u.username || '') + '）',
+      success: () => wx.showToast({ title: '已复制，发给管理员即可', icon: 'none' })
+    })
   },
 
   /* ---- 2026-09-06 跨期次沿用：上次报单快照 + 本期已提交回执 ----
@@ -513,11 +613,15 @@ Page({
     if (Object.keys(patch).length) this.setData(patch)
   },
 
-  /* 全量铺开 + 分页（2026-09-06）
-     - keyword 为空：按 Web 端已配置（is_active）商品全量铺开，分页返回
-     - keyword 非空：沿用原有模糊匹配（名称/规格/厂家编码/拼音首字母），
-       仅作为对列表的过滤定位，不改变原搜索逻辑
-     - append=true 时追加到已有列表末尾（滚动加载） */
+  /* v215（2026-09-20）：**按期次**拉取商品 —— 数据源从「商品档案」换成「本期报单清单」。
+     用户拍板：「报单商品的判定基准不是商品档案（档案里很多赠品不需要报单），
+     应该以每一期次内实际包含哪些商品作为基准」，且要求「Web 端某期有几个商品，
+     小程序就展示几个，排列顺序也必须完全一致」。
+     ⇒ 后端按模板行序（`sort_no`，与 Web 端逐字同构）返回，前端**原样渲染、不再排序**。
+     - keyword 为空：本期清单全量铺开，分页返回
+     - keyword 非空：在**本期清单内**做过滤定位（只过滤、不改序，与 Excel 筛选同体验）
+     - append=true 时追加到已有列表末尾（滚动加载）
+     原「按 is_active 商品档案全量铺开」的口径已废弃（实测某期 Web 端 154 / 小程序 285）。 */
   async loadProducts(keyword, append) {
     // F3 修复：请求序号，响应返回时若已不是最新请求则丢弃，避免竞态覆盖
     const seq = (this._seq = (this._seq || 0) + 1)
@@ -526,6 +630,10 @@ Page({
     if (!append && !this.data.products.length) this.setData({ initialLoading: true, loadError: '' })
     try {
       let q = `?limit=${this.data.pageSize}&offset=${offset}`
+      // 🔴 期次号**必须**带上：不带时后端回退旧口径（商品档案全量铺开），
+      //    那正是「Web 端 154 个、小程序 285 个」的成因。
+      const pid = (this.data.period || {}).id
+      if (pid !== undefined && pid !== null && pid !== '') q += `&period_id=${pid}`
       if (keyword) q += `&q=${encodeURIComponent(keyword)}`
       const d = await request('/api/products/fill-search' + q)
       if (seq !== this._seq) return
@@ -537,15 +645,24 @@ Page({
       const idx = {}
       products.forEach((p, i) => { idx[String(p.id)] = i })
       this._prodIndex = idx
-      this.setData({
+      const patch = {
         products,
         total,
         hasMore: products.length < total,
         loadingMore: false,
         initialLoading: false,
-        loadError: ''
-      })
+        loadError: '',
+        listScope: d.scope || ''
+      }
+      // 「本期一条商品都没有」与「搜索词没匹配到」是两件事：前者要引导用户找管理员
+      // 配清单，后者只需换个词。且只允许**无关键词的首屏**下结论 —— 否则一次搜索
+      // 就会把「本期没配清单」的结论覆盖掉，用户再也看不到那句提示。
+      if (!append && !keyword) patch.periodEmpty = (!list.length && d.scope === 'period')
+      this.setData(patch)
     } catch (e) {
+      // v215：首屏失败要让「已按本期铺开」的标记失效，否则重进页面时
+      // `syncProductsForPeriod` 会认为"铺过了"而不再重试 ⇒ 一直空列表。
+      if (!append) this._loadedPeriodId = ''
       this.setData({ loadingMore: false, initialLoading: false })
       // P2-5: 首屏商品加载失败给错误视图（可重试），翻页失败仅 toast 不打扰
       if (!this.data.products.length) {
@@ -768,7 +885,7 @@ Page({
 
      为什么必须分级（这是本次最该改的一点）：
        原实现所有失败都走同一条路 —— `pendingSubmit: true` + toast「…已存草稿」+ 进待补传。
-       于是「商品不在本期清单」「未录厂价」「本期已定稿」「无门店权限」这些
+       于是「商品不在本期清单」「未录进价」「本期已定稿」「无门店权限」这些
        **改数据才能解决、重试一万次结果一样**的失败，也被登记成"待补传"：
        用户每进一次页面被自动重试打扰一次、每次必然再失败一次，
        而**真正的原因他一次都没看到**（toast 只说"已存草稿"，听起来像网络问题）。
@@ -828,7 +945,12 @@ Page({
       return
     }
     if (!store || !store.id) {
-      wx.showToast({ title: '请先选择报单门店', icon: 'none' })
+      // P0-1（2026-09-20）：区分「没选」与「压根没有可选的」—— 后者是配置问题，
+      // 让用户去「选择门店」是把他支使到一个空列表上（原先的 toast 就是这样，说不清原因）。
+      wx.showToast({
+        title: this.data.storeEmpty ? '你还没有被配置报单门店，请联系管理员' : '请先选择报单门店',
+        icon: 'none', duration: 2500
+      })
       return
     }
     if (!period || !period.id) {

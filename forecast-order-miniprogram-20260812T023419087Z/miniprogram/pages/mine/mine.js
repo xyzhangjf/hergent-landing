@@ -2,6 +2,7 @@ const app = getApp()
 const { request } = require('../../utils/api')
 const { track, pageView, EVENTS } = require('../../utils/track')
 const { isApprover, roleText } = require('../../utils/roles')
+const { logout: doLogout } = require('../../utils/session')
 
 // 2026-09-07：审批模块下线后，pending 不再表示「等人审批」，而是「已提交并计入本期汇总」
 const STATUS_TEXT = {
@@ -48,6 +49,10 @@ Page({
   goPassword() {
     wx.navigateTo({ url: '/pages/password/password' })
   },
+  // P0（2026-09-19）：隐私设置入口 —— 协议查阅 / 撤回同意 / 非必要信息开关
+  goPrivacySettings() {
+    wx.navigateTo({ url: '/pages/privacy-settings/privacy-settings' })
+  },
   toggleExpand(e) {
     const id = +e.currentTarget.dataset.id
     this.setData({ expandedId: this.data.expandedId === id ? 0 : id })
@@ -77,25 +82,24 @@ Page({
     }
   },
   logout() {
-    app.globalData.token = ''
-    app.globalData.user = null
-    app.globalData.tenantId = ''
-    wx.removeStorageSync('fs_token')
-    wx.removeStorageSync('fs_user')
-    wx.removeStorageSync('fs_tenant_id')
-    // E2 + 二期: 清除本机会话偏好 + 按门店/期次隔离的购物车与快照（fs_cart_*/fs_last_cart_*/fs_sub_*），
-    // 避免退出后残留导致下一个账号串店/看到上个账号的上次报单
-    try {
-      const info = wx.getStorageInfoSync()
-      const keys = (info && info.keys) || []
-      for (const k of keys) {
-        if (k === 'fs_cart' || k === 'fs_period_id' || k === 'fs_store_id' || k === 'fs_redirect' ||
-            k === 'fs_need_pwd_change' ||
-            k.indexOf('fs_cart_') === 0 || k.indexOf('fs_last_cart_') === 0 || k.indexOf('fs_sub_') === 0) {
-          wx.removeStorageSync(k)
-        }
+    // P1-1（2026-09-20）：改走 `utils/session.js` —— 除本机清态外**同时通知服务端销毁会话**。
+    // 原实现只清本机（全仓 `/api/auth/logout` **0 命中**）⇒ 点过「退出」的 token 在服务端
+    // 仍可继续使用最长 24 小时；手机丢失/借用场景下，「退出」必须真的让 token 失效。
+    // 下面那段「按门店/期次隔离的购物车与快照」清理保持原样（它是本机隐私清理，与会话无关）。
+    doLogout({
+      success: () => {
+        try {
+          const info = wx.getStorageInfoSync()
+          const keys = (info && info.keys) || []
+          for (const k of keys) {
+            if (k === 'fs_cart' || k === 'fs_period_id' ||
+                k.indexOf('fs_cart_') === 0 || k.indexOf('fs_last_cart_') === 0 || k.indexOf('fs_sub_') === 0) {
+              wx.removeStorageSync(k)
+            }
+          }
+        } catch (e) { console.warn('[mine] logout cleanup failed:', e) }
+        wx.reLaunch({ url: '/pages/login/login' })
       }
-    } catch (e) { console.warn('[mine] logout cleanup failed:', e) }
-    wx.reLaunch({ url: '/pages/login/login' })
+    })
   }
 })
