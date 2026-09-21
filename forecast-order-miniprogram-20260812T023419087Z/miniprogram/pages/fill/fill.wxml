@@ -1,4 +1,4 @@
-<view class="page">
+<view class="page {{submitResult ? 'page-with-result' : ''}}">
   <!-- 门店选择 -->
   <view class="store-bar">
     <picker mode="selector" range="{{stores}}" range-key="name" value="{{storeIdx}}" bindchange="onStoreChange">
@@ -38,9 +38,11 @@
     </view>
   </view>
 
-  <!-- 2026-09-06 跨期次沿用：本期已提交回执（绿色） -->
+  <!-- 2026-09-06 跨期次沿用：本期已提交回执（绿色）
+       v224：补上**单号** —— 这是用户在"我这一单到底报上没有"上最需要的那个凭据，
+       而在此之前它只在"你重复提交了"的警告框里出现过一次（越需要越看不到）。 -->
   <view class="last-bar last-bar-done" wx:if="{{submittedInfo}}">
-    <text class="last-txt">✓ 本期已报 {{submittedInfo.count}} 项 / {{submittedInfo.qty}} 件（{{submittedInfo.at}}）· 内容已保留，可继续修改</text>
+    <text class="last-txt">✓ 本期已报 {{submittedInfo.count}} 项 / {{submittedInfo.qty}} 件（{{submittedInfo.at}}）<text wx:if="{{submittedInfo.sid}}"> · 单号 {{submittedInfo.sid}}</text> · 内容已保留，可继续修改</text>
     <text class="last-go" bindtap="goSummary">查看我的报单</text>
   </view>
   <!-- 上次报单快照：当前为空 → 一键带入；已有内容 → 提示来源 -->
@@ -50,8 +52,13 @@
     <text class="last-go last-go-plain" wx:else bindtap="clearCart">清空重填</text>
   </view>
 
-  <!-- M9: 今日已报回执 -->
-  <view class="reported-note" wx:if="{{lastReported && !cartCount}}">{{lastReported}}</view>
+  <!-- ⚠️ v224 删除：此处原有一块「M9 今日已报回执」
+         `<view class="reported-note" wx:if="{{lastReported && !cartCount}}">{{lastReported}}</view>`
+       它是一条**永不显示的死代码**：`lastReported` 只在提交成功时被赋值，而同一段代码里
+       明确写着「提交成功后**不再清空**购物车」⇒ 赋值那一刻 `cartCount` 必然 > 0 ⇒ 条件恒假；
+       唯一能让数量归零的「清空重填」又会把 `lastReported` 一起清掉。
+       ⇒ 用户在这个页面上**从来没有**看到过这条"最贴题"的回执（这正是"提交了看不出成没成"
+       的直接成因之一）。已由底部结果卡（方案 A）取代 —— 它不会被数量或清空动作抹掉。 -->
 
   <!-- P2-3: 断网横幅 -->
   <view class="offline-banner" wx:if="{{offline}}">网络已断开，数据已存本机，恢复后自动补传</view>
@@ -115,12 +122,55 @@
     <view class="empty" wx:if="{{!cart.length}}">还没填数量，在上方商品行直接输入即可</view>
   </view>
 
-  <!-- 提交 -->
-  <view class="submit-bar">
-    <view class="submit-total">{{cartCount}} 项 · {{cartQty}} 件 · {{store.name || '未选门店'}}</view>
-    <button class="submit-btn" disabled="{{submitting}}" bindtap="submit">{{submitting ? '提交中…' : '提交预报'}}</button>
+  <!-- ================= v224（2026-09-21）：底部固定区（方案 A） =================
+       为什么把三种状态放进**同一个**固定容器（而不是各自 fixed + 各自的 bottom 偏移）：
+         · 反馈必须落在**视线的落点** —— 用户刚点的按钮在屏幕底部，回执就必须出现在屏幕底部；
+         · 用同一个容器 = 三种状态**互斥且同一位置**，不可能出现"结果卡与提交按钮同时存在"
+           （那正是原来看不出成没成的原因：按钮还在，用户就以为没提交成功）；
+         · 也不依赖任何"提交栏高度是多少 rpx"的魔数（那种算法会在适配/字体变化时错位）。 -->
+  <view class="bottom-dock">
+    <!-- ① 提交成功结果卡：卡片在、提交按钮**不在**（想再报必须先点「继续修改」） -->
+    <view class="result-bar" wx:if="{{submitResult}}">
+      <view class="result-hd">
+        <text class="result-ic">✓</text>
+        <text class="result-title">{{submitResult.isUpdate ? '已更新这一单' : '提交成功'}}</text>
+        <text class="result-at">{{submitResult.at}}</text>
+      </view>
+      <!-- 单号：整行可点复制 —— 用户要拿它去对账 / 报给主管 / 在列表里找回同一单 -->
+      <view class="result-sid" bindtap="copySid">
+        <text class="result-sid-lb">单号</text>
+        <text class="result-sid-no">{{submitResult.sid || '—'}}</text>
+        <text class="result-sid-cp">复制</text>
+      </view>
+      <view class="result-meta">{{submitResult.storeName}} · {{submitResult.periodName}}</view>
+      <view class="result-qty">本次 {{submitResult.count}} 项 · 共 {{submitResult.qty}} 件</view>
+      <view class="result-skip" wx:if="{{submitResult.skipScopeText}}">已自动跳过不属于本期的商品：{{submitResult.skipScopeText}}</view>
+      <view class="result-skip" wx:if="{{submitResult.skipInactiveText}}">已自动跳过已停售商品：{{submitResult.skipInactiveText}}</view>
+      <view class="result-acts">
+        <view class="dock-btn dock-btn-plain" bindtap="backToEdit">继续修改</view>
+        <view class="dock-btn dock-btn-main" bindtap="goSummary">查看我的报单</view>
+      </view>
+    </view>
+
+    <!-- ② 提交失败错误条：可重试（网络/服务端）→ 给「重试提交」；不可重试（业务拒绝）
+         → 只说原因、不给徒劳的重试按钮（重试一万次结果一样，给了反而是误导）。 -->
+    <view class="err-bar" wx:elif="{{submitError}}">
+      <view class="err-txt">{{submitError.msg}}</view>
+      <view class="err-acts">
+        <view class="dock-btn dock-btn-plain" bindtap="dismissSubmitError">知道了</view>
+        <view class="dock-btn dock-btn-main" wx:if="{{submitError.retryable}}" bindtap="retrySubmit">重试提交</view>
+      </view>
+    </view>
+
+    <!-- ③ 提交栏：正常态（结果卡不显示时才出现） -->
+    <view class="submit-bar" wx:if="{{!submitResult}}">
+      <view class="submit-total">{{cartCount}} 项 · {{cartQty}} 件 · {{store.name || '未选门店'}}</view>
+      <button class="submit-btn" disabled="{{submitting}}" bindtap="submit">{{submitting ? '提交中…' : '提交预报'}}</button>
+    </view>
   </view>
 
-  <!-- P2-7: 回到顶部（滚动超一屏显示） -->
-  <view class="back-top" wx:if="{{showTop}}" bindtap="backTop">↑</view>
+  <!-- P2-7: 回到顶部（滚动超一屏显示）
+       v224：结果卡显示时隐藏 —— 它是 fixed + z-index:20，会浮在结果卡（z-index:10）上面，
+       把卡片顶部几行压住；而卡片正是此刻唯一要看的东西。 -->
+  <view class="back-top" wx:if="{{showTop && !submitResult}}" bindtap="backTop">↑</view>
 </view>

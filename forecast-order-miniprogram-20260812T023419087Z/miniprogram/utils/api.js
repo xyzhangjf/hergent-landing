@@ -7,6 +7,25 @@ const { reportError } = require('./track')
 let _kicking = false   // 已在跳登录，防并发多次 reLaunch
 let _probing = false   // 复核进行中，多个 401 只 probe 一次
 
+/* v224（2026-09-21）：错误对象必须带上**可分级的**信息 —— 这是「提交后反馈」能分级的前提。
+   背景：报单提交失败时原实现只有一句 `message`，调用方无从区分两类失败：
+     · 「网络断了 / 超时」   → 重试有意义，"存草稿 + 联网自动补传"是对的；
+     · 「业务拒绝 400/403/409」→ 重试一万次结果一样，必须**当场**把原因告诉用户。
+   于是所有失败都被当成"网络问题"存成草稿并自动补传 ⇒ 用户每进一次页面被弹一次确认框，
+   而真正的原因（商品不在本期清单 / 未录厂价 / 本期已定稿 / 无门店权限）他一次都没看到。
+   ⚠️ 只**增加**字段，`message` 一字未动 —— 既有调用方全部只读 `e.message`，零破坏。 */
+function httpError(msg, statusCode, body, isNetwork) {
+  const e = new Error(msg)
+  e.statusCode = statusCode || 0
+  e.payload = body || null
+  e.code = (body && (body.code || body.error_code)) || 0
+  e.isNetwork = !!isNetwork
+  // 「值不值得再试一次」的唯一判据：网络层失败、或服务端 5xx。
+  // 4xx（含 200 + success:false 的信封）一律是业务拒绝 —— 重试无意义，必须让用户看到原因。
+  e.retryable = !!isNetwork || statusCode >= 500
+  return e
+}
+
 function doKick() {
   if (_kicking) return
   _kicking = true
@@ -73,13 +92,14 @@ function request(path, method = 'GET', data = {}) {
               if (!valid) doKick()
             })
           }
-          reject(new Error('登录已过期，请重新登录'))
+          reject(httpError('登录已过期，请重新登录', 401, body, false))
           return
         }
         if (res.statusCode >= 400 || body.success === false || body.ok === false) {
           const msg = body.error || body.detail || body.message || `请求失败(${res.statusCode})`
           reportError(msg, 'api.' + (res.statusCode || 'err'))
-          reject(new Error(msg))
+          // v224：带上状态码与整个响应体 —— 调用方据此分级（并读 body.violations 等结构化原因）
+          reject(httpError(msg, res.statusCode, body, false))
           return
         }
         resolve(body)
@@ -89,7 +109,8 @@ function request(path, method = 'GET', data = {}) {
         // P0-2: 区分超时与普通网络错误，给用户可理解的文案
         const msg = /timeout/i.test(em) ? '网络超时，请重试' : (em || '网络错误')
         reportError(msg, 'api.fail')
-        reject(new Error(msg))
+        // v224：isNetwork=true ⇒ retryable ⇒ 调用方才允许"存草稿 + 自动补传"
+        reject(httpError(msg, 0, null, true))
       }
     })
   })

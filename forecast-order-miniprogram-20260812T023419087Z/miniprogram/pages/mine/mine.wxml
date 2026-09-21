@@ -47,6 +47,9 @@
         </view>
       </view>
       <view class="rec-ft">
+        <!-- v224（2026-09-21）：显示**单号**。填报页的结果卡把它当作核对凭据给了用户，
+             用户点「查看我的报单」过来必须能**对上号** —— 否则给了单号却无处可查。 -->
+        <text class="rec-no">单号 {{item.id}}</text>
         <text class="rec-total">共 {{item.total_qty}} 件</text>
         <button class="recall-btn" wx:if="{{item.status === 'pending'}}" size="mini" loading="{{recallingId === item.id}}" bindtap="recall" data-id="{{item.id}}">撤回</button>
         <text class="rec-expand" wx:if="{{expandedId !== item.id}}" bindtap="toggleExpand" data-id="{{item.id}}">展开</text>

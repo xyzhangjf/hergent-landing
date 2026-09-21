@@ -18,10 +18,19 @@ Page({
     offline: false,          // P2-3/5: 断网提示（顶部横幅 + 恢复自动补传）
     recentStores: [],          // M10: 最近报单门店快捷入口
     pendingSubmit: false,      // M11: 存在未提交草稿（离线/失败），待联网补传
-    lastReported: '',          // M9: 今日已报回执文本
     // 2026-09-06 跨期次沿用：提交后不清空，记住「上次报了什么」，下期可一键带入
     lastOrder: null,           // { periodId, periodName, at, count, qty, items[] } 同门店上次报单快照
-    submittedInfo: null        // { sid, count, qty, at } 当前门店 + 当前期次已提交（防重复提交）
+    submittedInfo: null,       // { sid, count, qty, at } 当前门店 + 当前期次已提交（防重复提交）
+    /* v224（2026-09-21）：**页内结果卡**（方案 A）—— 提交成功后的持久回执。
+       为什么必须有：提交按钮 `position:fixed` 在**屏幕底部**，而唯一那条持久回执
+       （`submittedInfo`）渲染在**页面顶部**；成功提示又只靠 `wx.showModal`（会自动消失）
+       ⇒ 用户视线停在刚点过的按钮上，看到的仍是「提交预报」这个**还能点**的按钮，
+       「不知道提交成功没有」成为必然结果 —— 这不是"缺反馈"，是**反馈放错了位置**。
+       方案 A：把结果卡渲染在**刚点过的那个位置**（底部固定区），卡片在、按钮不在
+       ⇒ 视野与状态一致，且它不会自己消失（对比：弹窗会）。
+       ⚠️ 「继续修改」是唯一出口 —— 它同时也是防重复提交的一环（见 submit()）。 */
+    submitResult: null,        // 提交成功回执卡数据；非空即显示，显示期间底部提交栏让位
+    submitError: null,         // 提交失败错误条 { msg, retryable, kind, hint }
   },
   cartMap: {},
   _qtyMap: {},        // P1-3: 实例属性版 qtyMap（id -> 已填数量），供分页回填/行同步读取
@@ -31,6 +40,12 @@ Page({
   _persistTimer: null, // P1-1: 购物车写盘防抖计时器
   _scrollTop: 0,      // P1-4: 页面滚动位置（切 tab 回来恢复）
   _lastShowTop: false, // P2-7: 回顶按钮显隐节流（避免每帧 setData）
+  /* v224（2026-09-21）：提交实例锁 —— **必须同步上锁**。
+     原实现只靠 `disabled="{{submitting}}"`，而 `submitting:true` 是在
+     「确认弹窗点确认之后」才 setData 的 ⇒ 连点两下会**弹两次确认框**、进而发两次请求
+     （第二次覆盖第一次，结果虽然不重复落单，但用户会看到两次"提交成功"）。
+     实例锁在函数第一行就置位，绕开 setData 的异步窗口。 */
+  _submitLock: false,
 
   /* P2-3: 全局网络监听——断网提示 + 恢复后自动补传草稿（仅注册一次） */
   onLoad() {
@@ -155,7 +170,9 @@ Page({
     const oldId = (this.data.period || {}).id
     this.setData({ period, periodIdx: i })
     wx.setStorageSync('fs_period_id', period.id !== undefined ? period.id : '')
-    this.setData({ lastReported: '' })   // 切换期次后清除旧回执
+    // v224：切期次后必须清除旧结果卡/错误条 —— 它们说的是**上一个期次**的那一单，
+    // 留在屏幕上会被当成"本期已提交"（多期并存时这种误读最危险）。
+    this.setData({ submitResult: null, submitError: null })
     this.refreshBanners()                // 期次变了，重新判断「本期是否已报」
     // 二期: 已填数量切到新期次 → 轻提示（数据保留可沿用，但别提交错期次）
     if (this.data.cartCount > 0 && period.id !== oldId && period.in_window !== false) {
@@ -398,7 +415,7 @@ Page({
     if (!store || !store.id) return
     if (store.id === (this.data.store || {}).id) return
     this.flushCart()                 // 旧店的已填数量先落盘（fs_cart_<旧id>）
-    this.setData({ store, storeIdx: i, cartOpen: false, pendingSubmit: false, lastReported: '' })
+    this.setData({ store, storeIdx: i, cartOpen: false, pendingSubmit: false, submitResult: null, submitError: null })
     wx.setStorageSync('fs_store_id', store.id !== undefined ? store.id : '')
     this.restoreCart(true)           // 切店：无条件载入新店的购物车（fs_cart_<新id>）
     this.refreshBanners()            // 门店变了，读该门店的上次报单快照
@@ -523,15 +540,81 @@ Page({
 
   /* 提交入口：外层兜底。此前前端异常（未定义变量等）会静默失败，表现为「点了没反应」，
      这里统一捕获并给出提示，同时保证 submitting 一定复位，避免按钮永久禁用。 */
+  /* v224（2026-09-21）：提交入口 —— 同步上锁 + 统一错误分级。
+     原实现的问题不在"有没有 try/catch"，而在两处：
+       ① **锁太晚**：`submitting:true` 要等确认弹窗点完才 setData ⇒ 连点两下弹两次框、发两次请求；
+       ② **错误一刀切**：所有失败都进"已存草稿 + 自动补传"（见 `_doSubmit` 原 catch）。
+     现在：同步锁挡连点；错误统一交给 `_showSubmitError` 按可重试性分流。 */
   async submit() {
+    if (this._submitLock) return
+    this._submitLock = true
+    this.setData({ submitError: null })   // 上一次的失败原因不该跨次留存
     try {
       await this._doSubmit()
     } catch (e) {
       console.error('[fill] submit error:', e)
-      wx.showToast({ title: '提交异常：' + ((e && e.message) ? e.message.slice(0, 30) : '请重试'), icon: 'none' })
+      this._showSubmitError(e)
     } finally {
-      if (this.data.submitting) this.setData({ submitting: false })
+      this._submitLock = false
+      this.setData({ submitting: false })
     }
+  },
+
+  /* v224（2026-09-21）：把异常翻译成**用户能据以行动**的错误条。
+
+     为什么必须分级（这是本次最该改的一点）：
+       原实现所有失败都走同一条路 —— `pendingSubmit: true` + toast「…已存草稿」+ 进待补传。
+       于是「商品不在本期清单」「未录厂价」「本期已定稿」「无门店权限」这些
+       **改数据才能解决、重试一万次结果一样**的失败，也被登记成"待补传"：
+       用户每进一次页面被自动重试打扰一次、每次必然再失败一次，
+       而**真正的原因他一次都没看到**（toast 只说"已存草稿"，听起来像网络问题）。
+
+     判据：`statusCode` 4xx = 业务拒绝（不可重试）；网络层失败 / 5xx = 可重试。
+       · 业务拒绝 ⇒ `pendingSubmit: false`（**必须**，否则自动补传会变成骚扰源），
+         页面级错误条把后端原话显示出来 —— 后端 400 的文案本就是写给业务员看的
+         （"所选商品不在本期的报单清单里：XXX，请以填报页列出的商品为准"）。
+       · 可重试 ⇒ 保留草稿 + 自动补传是对的，但要**说出来**（"已存草稿，联网后自动重试"）。 */
+  _showSubmitError(e) {
+    const sc = (e && e.statusCode) || 0
+    const isNetwork = !!(e && e.isNetwork)
+    const raw = (e && e.message) ? String(e.message) : ''
+    const business = sc >= 400 && sc < 500     // 含 200 + success:false 的信封（走 message 分支）
+    let msg = raw || '提交失败'
+    if (!business) {
+      msg = isNetwork ? ('网络不通：' + (raw || '已存草稿，联网后自动重试'))
+                      : ('服务器暂时没响应：' + (raw || '已存草稿，稍后自动重试'))
+    }
+    this.setData({
+      pendingSubmit: !business,
+      submitError: { msg, retryable: !business, statusCode: sc }
+    })
+    track(EVENTS.SUBMIT_FAIL, { msg: msg.slice(0, 80), retryable: !business })
+  },
+
+  /* v224：错误条上的两个动作 —— 「重试」/「知道了」。 */
+  retrySubmit() {
+    this.setData({ submitError: null })
+    this.submit()
+  },
+  dismissSubmitError() {
+    this.setData({ submitError: null })
+  },
+
+  /* v224 **方案 A**：「继续修改」—— 收起结果卡，把底部还原成提交栏。
+     它同时是防重复提交的最后一环：结果卡显示期间底部**没有**提交按钮，
+     想再提交必须先明确地点一次「继续修改」（而不是连点那个还亮着的按钮）。 */
+  backToEdit() {
+    this.setData({ submitResult: null })
+  },
+
+  /* v224：单号一键复制 —— 结果卡上的单号必须**能被拿去用**（对账、报给主管、找回这一单）。 */
+  copySid() {
+    const sid = (this.data.submitResult || {}).sid
+    if (!sid) return
+    wx.setClipboardData({
+      data: String(sid),
+      success: () => wx.showToast({ title: '单号已复制', icon: 'none' })
+    })
   },
 
   async _doSubmit() {
@@ -548,15 +631,20 @@ Page({
       wx.showToast({ title: '请先选择报单期次', icon: 'none' })
       return
     }
-    // 2026-09-06：同一门店 + 同一期次已报过 —— 先确认，避免"数据留着"导致误重复下单
+    /* 2026-09-06 / v224：同一门店 + 同一期次已报过 —— 先确认。
+       v224 订正文案：后端语义是**覆盖同一单**（v224 起单号还保持不变），
+       原文案却写「再提交会新增一单」—— 与后端相反：会把用户吓住（怕重复下单）、
+       也会让人按"新增"去理解对账。现在三件事一次说清：改的是哪一单、单号不变、不会多一条。
+       ⚠️ showModal 的 content 是**纯文本**，不要写 markdown 强调符号（`**` 会原样显示）。 */
     const dup = wx.getStorageSync(this._subKey())
     let confirmed = false
     if (dup && dup.sid) {
       const ok = await new Promise(res => {
         wx.showModal({
-          title: '本期已报过',
-          content: `${store.name} 在「${period.name}」已报 ${dup.count} 项 / ${dup.qty} 件（单号 ${dup.sid}）。\n再提交会新增一单，确定继续？`,
-          confirmText: '仍要提交', cancelText: '去查看',
+          title: '本期已报过，将更新这一单',
+          content: `${store.name} 在「${period.name}」已报 ${dup.count} 项 / ${dup.qty} 件。\n`
+                 + `继续提交将修改这同一单（单号 ${dup.sid} 不变），不会多出一条。`,
+          confirmText: '提交修改', cancelText: '去查看',
           success: (r) => res(!!r.confirm),
           fail: () => res(false)
         })
@@ -588,40 +676,67 @@ Page({
       }))
       const d = await request('/api/forecast-submissions', 'POST', { store, items, period_id: period.id })
       const total = (d && d.total_qty != null) ? d.total_qty : cart.reduce((s, c) => s + c.qty, 0)
-      // M9: 明确回执「今日 XX 店已报 N 件」，并给查看入口
-      const msg = `今日 ${store.name} 已报 ${total} 件`
-      this.setData({ lastReported: msg })
+      // 后端会把「已停售」「不属于本期清单」的商品挡在库外并分别回传；
+      // 两类都同步从「上次报单」快照里剔除 —— 否则下次一键带入又会带进来、又被拦一次。
+      //   · skipped_inactive     —— 商品已停售（2026-09-12）
+      //   · skipped_out_of_scope —— 商品不属于本期清单（v215；典型来路是
+      //                             「一键带入上次报单」把**上一期**的商品带了进来）
+      const skipped = (d && d.skipped_inactive) || []
+      const skippedScope = (d && d.skipped_out_of_scope) || []
+      const skippedSet = new Set(skipped.concat(skippedScope))
+      const kept = cart.filter(c => !skippedSet.has(c.name))
       track(EVENTS.SUBMIT, { store: store.name, qty: total })
+      /* v224：提交时间一律取**本机本地时间**。
+         原实现用 `new Date().toISOString()` —— 那是 **UTC**，比北京时间早 8 小时，
+         而它正是「本期已报（{{at}}）」与「上次报单（{{at}}）」两处**给用户看的时间**
+         ⇒ 用户看到的报单时间永远比实际早 8 小时（本项目已知的 `created_at` UTC 家族问题，
+         只不过这一处直接摆在用户眼前）。 */
+      const _p2 = (n) => (n < 10 ? '0' + n : '' + n)
+      const _now = new Date()
+      const at = _now.getFullYear() + '-' + _p2(_now.getMonth() + 1) + '-' + _p2(_now.getDate())
+               + ' ' + _p2(_now.getHours()) + ':' + _p2(_now.getMinutes())
+      const sid = (d && (d.id || d.submission_id)) || ''
+      const isUpdate = !!(d && d.created === false)   // false = 改的是已有那一单
+      const _names = (arr) => arr.slice(0, 2).join('、') + (arr.length > 2 ? ' 等' : '')
       // 2026-09-06：提交成功后**不再清空**——数据留在页面上，方便查看/微调/下期沿用
       try {
         const snapshot = {
           periodId: period.id, periodName: period.name || '',
-          at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-          count: cart.length, qty: total,
-          items: cart.map(c => ({ id: c.id, name: c.name, spec: c.spec, unit: c.unit, qty: c.qty }))
+          at,
+          count: kept.length, qty: total,
+          items: kept.map(c => ({ id: c.id, name: c.name, spec: c.spec, unit: c.unit, qty: c.qty }))
         }
         wx.setStorageSync(this._lastKey(), snapshot)
-        wx.setStorageSync(this._subKey(), {
-          sid: (d && (d.id || d.submission_id)) || '', count: cart.length, qty: total,
-          at: snapshot.at
-        })
+        wx.setStorageSync(this._subKey(), { sid, count: kept.length, qty: total, at })
       } catch (e) { console.warn('[fill] save last order failed:', e) }
       this.refreshBanners()
-      wx.showModal({
-        title: '提交成功',
-        content: `${msg}\n内容已保留在页面，可继续修改；换期次后也能一键带入上次报单。`,
-        confirmText: '查看我的报单',
-        cancelText: '留在本页',
-        success: (r) => { if (r.confirm) wx.switchTab({ url: '/pages/mine/mine' }) }
+      /* v224 **方案 A**：不再用 `wx.showModal` 报成功。
+         为什么换掉 —— 弹窗按设计**会自己消失**，消失之后页面上剩下的还是一个
+         「提交预报」按钮（数据有意不清空），于是"到底提交成功没有"重新变成不可知。
+         现在两层：① 一条短暂的 success toast（立即的对勾，与提交动作在时间上分开）；
+                  ② 一张**不会消失**的结果卡，渲染在刚点过的那个位置（底部固定区）。
+         结果卡字段 = 核对"这一单对不对"真正要的四件事（单号/门店期次/项件/时刻）
+         ＋ 被自动跳过的商品（不说出来，用户就会以为全报上去了）。 */
+      this.setData({
+        pendingSubmit: false,
+        cartOpen: false,
+        submitError: null,
+        submitResult: {
+          sid, isUpdate,
+          storeName: store.name || '',
+          periodName: period.name || period.display || '',
+          count: kept.length, qty: total, at,
+          skipInactiveText: skipped.length ? _names(skipped) : '',
+          skipScopeText: skippedScope.length ? _names(skippedScope) : ''
+        }
       })
-      this.setData({ pendingSubmit: false, cartOpen: false })
+      wx.showToast({ title: '提交成功', icon: 'success', duration: 1200 })
     } catch (e) {
-      // M11: 提交失败（多为断网）保留购物车为草稿，联网后一键补传
-      this.setData({ pendingSubmit: true })
-      track(EVENTS.SUBMIT_FAIL, { msg: (e.message || '提交失败').slice(0, 80) })
-      wx.showToast({ title: (e.message || '提交失败') + '，已存草稿', icon: 'none' })
-    } finally {
-      this.setData({ submitting: false })
+      // v224：此处**不再自己决定怎么报错**，统一抛给 `submit()` 的 `_showSubmitError` 分级。
+      // 原实现在这里把**所有**失败都当成网络问题（`pendingSubmit: true` +「已存草稿」）⇒
+      // 400/403/409 这些"改数据才能解决"的失败被登记成"待补传"：每次进页面自动重试一次、
+      // 每次必然再失败一次，而真正的原因用户一次都没看到。
+      throw e
     }
   },
 
@@ -638,7 +753,7 @@ Page({
     this.cartMap = {}
     this.syncCart()
     this.clearRowQty()
-    this.setData({ pendingSubmit: false, lastReported: '', cartOpen: false })
+    this.setData({ pendingSubmit: false, submitResult: null, submitError: null, cartOpen: false })
   },
 
   /* 清空所有行内已填数量（提交成功 / 清空购物车后） */

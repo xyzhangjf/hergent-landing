@@ -26,4 +26,6 @@
 .rec-item{display:flex;justify-content:space-between;padding:8rpx 0;font-size:26rpx;color:#3a3a3c}
 .it-qty{color:#06b6d4;font-weight:500}
 .rec-ft{font-size:26rpx;color:#ff9500;font-weight:600;margin-top:12rpx}
+/* v224：单号 —— 用弱化的灰色，避免与"共 N 件"抢注意力，但要一眼能找到 */
+.rec-no{color:#86868b;font-weight:400;margin-right:20rpx}
 .empty{text-align:center;color:#86868b;font-size:26rpx;padding:80rpx 0}

@@ -44,7 +44,12 @@
 .empty{text-align:center;color:#86868b;font-size:26rpx;padding:40rpx 0}
 .empty-txt{font-size:26rpx;color:#86868b;line-height:1.6;padding:0 60rpx}
 .retry-btn{display:inline-flex;align-items:center;margin-top:20rpx;padding:14rpx 44rpx;font-size:28rpx;color:#06b6d4;border:1rpx solid #06b6d4;border-radius:40rpx;background:#fff}
-.submit-bar{position:fixed;left:0;right:0;bottom:0;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));border-top:1rpx solid #e5e5ea;z-index:10}
+/* v224（2026-09-21）方案 A：底部固定区。
+   ⚠️ 定位/边框/安全区**全部上提到 .bottom-dock**，提交栏本身不再 fixed ——
+      若提交栏与结果卡各自 fixed、各算各的 bottom 偏移，必然出现「卡片压住按钮」或
+      「按钮压在卡片上」，而且依赖"提交栏究竟多少 rpx"这个魔数（一改字体/适配就错位）。 */
+.bottom-dock{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1rpx solid #e5e5ea;z-index:10;padding-bottom:env(safe-area-inset-bottom)}
+.submit-bar{display:flex;align-items:center;justify-content:space-between;padding:20rpx 32rpx}
 .submit-total{flex:1;min-width:0;font-size:26rpx;color:#1d1d1f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .total-num{font-size:40rpx;color:#ff9500;font-weight:700}
 .submit-btn{background:#06b6d4;color:#fff;font-size:32rpx;border-radius:16rpx;padding:0 64rpx;height:88rpx;line-height:88rpx}
@@ -62,8 +67,11 @@
 .draft-go{font-size:26rpx;color:#06b6d4;font-weight:600}
 .draft-clear{font-size:26rpx;color:#86868b}
 
-/* M9: 今日已报回执 */
-.reported-note{margin:16rpx 32rpx 0;background:#ecfdf5;border:1rpx solid #a7f3d0;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#047857}
+/* M9: 今日已报回执
+   ⚠️ v224 删除 `.reported-note` 规则本身 —— 引用它的那个 `<view>` 是**死代码**
+      （条件 `lastReported && !cartCount` 恒假，详见 fill.wxml 里的说明）。
+      留着这条 CSS 会让人以为"页面上还有这么一个回执"，是下一轮排查的诱饵。
+      它现在的能力由底部结果卡（方案 A）承担。 */
 
 /* 2026-09-06 跨期次沿用：上次报单快照 / 本期已提交回执 */
 .last-bar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin:16rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx}
@@ -76,5 +84,40 @@
 /* P2-3: 断网横幅 */
 .offline-banner{margin:16rpx 32rpx 0;background:#fef3c7;border:1rpx solid #fde68a;border-radius:14rpx;padding:16rpx 24rpx;font-size:26rpx;color:#92400e;text-align:center}
 
-/* P2-7: 回到顶部 */
+/* P2-7: 回到顶部
+   v224：结果卡显示时该按钮由 wxml 侧 `&& !submitResult` 隐藏 —— 它是 fixed + z-index:20，
+   会浮在 z-index:10 的结果卡**上面**把卡片顶部几行压住，而卡片正是此刻唯一要看的东西。 */
 .back-top{position:fixed;right:24rpx;bottom:220rpx;width:84rpx;height:84rpx;border-radius:50%;background:rgba(6,182,212,.92);color:#fff;font-size:44rpx;display:flex;align-items:center;justify-content:center;z-index:20}
+
+/* ================= v224（2026-09-21）：底部固定区三态（方案 A） =================
+   三种状态**互斥且同位置**：结果卡 / 错误条 / 提交栏。这样"反馈"永远出现在
+   用户刚操作过的那个位置，且不可能出现「按钮还在、到底成没成不知道」。 */
+/* ① 提交成功结果卡 */
+.result-bar{padding:24rpx 32rpx 20rpx;background:#ecfdf5}
+.result-hd{display:flex;align-items:center;gap:12rpx}
+.result-ic{width:40rpx;height:40rpx;border-radius:50%;background:#059669;color:#fff;font-size:24rpx;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.result-title{font-size:30rpx;font-weight:600;color:#047857;flex:1}
+.result-at{font-size:22rpx;color:#059669;flex:0 0 auto}
+/* 单号：整行可点复制 */
+.result-sid{display:flex;align-items:center;gap:16rpx;margin-top:16rpx;background:#fff;border:1rpx solid #a7f3d0;border-radius:12rpx;padding:14rpx 20rpx}
+.result-sid-lb{font-size:24rpx;color:#86868b;flex:0 0 auto}
+.result-sid-no{flex:1;font-size:36rpx;font-weight:700;color:#047857;letter-spacing:1rpx}
+.result-sid-cp{font-size:24rpx;color:#06b6d4;font-weight:600;flex:0 0 auto}
+.result-meta{font-size:24rpx;color:#047857;margin-top:14rpx}
+.result-qty{font-size:26rpx;color:#065f46;font-weight:600;margin-top:4rpx}
+.result-skip{font-size:22rpx;color:#b45309;margin-top:8rpx;line-height:1.5}
+.result-acts{display:flex;gap:16rpx;margin-top:20rpx}
+/* ② 提交失败错误条 */
+.err-bar{padding:24rpx 32rpx 20rpx;background:#fef2f2}
+.err-txt{font-size:26rpx;color:#b91c1c;line-height:1.6}
+.err-acts{display:flex;gap:16rpx;margin-top:18rpx;justify-content:flex-end}
+/* 通用按钮（结果卡 / 错误条共用，避免两套几乎相同的样式各自漂移） */
+.dock-btn{height:80rpx;line-height:80rpx;text-align:center;border-radius:14rpx;font-size:28rpx;box-sizing:border-box}
+.dock-btn-plain{background:#fff;color:#047857;border:1rpx solid #a7f3d0}
+.dock-btn-main{background:#06b6d4;color:#fff;font-weight:600}
+.result-acts .dock-btn{flex:1}
+.err-bar .dock-btn{flex:0 0 auto;padding:0 44rpx;height:72rpx;line-height:72rpx}
+.err-bar .dock-btn-plain{color:#b91c1c;border-color:#fecaca}
+.err-bar .dock-btn-main{background:#dc2626}
+/* 结果卡显示时加大页面底部留白 —— 否则列表末尾（含"已显示全部 N 项"）会被卡片永久遮住 */
+.page-with-result{padding-bottom:660rpx}
