@@ -31,6 +31,9 @@ export const forecastApi = {
   copyPeriod: (pid, body) => api(`/api/forecast/periods/${pid}/copy`, { method: 'POST', body }),
   seedPeriod: (pid, body) => api(`/api/forecast/periods/${pid}/seed`, { method: 'POST', body }),
   closePeriod: (pid) => api(`/api/forecast/periods/${pid}/close`, { method: 'POST' }),
+  // v219：关闭（=定稿）此前是**单向**的，误点一次即永久锁死、无补救 ⇒ 重开是唯一补救路径。
+  // ⚠️ 副作用必须让用户知道：重开后该期次重新出现在小程序 open 列表 ⇒ **销售又能报单了**。
+  reopenPeriod: (pid) => api(`/api/forecast/periods/${pid}/reopen`, { method: 'POST' }),
   deletePeriod: (pid) => api(`/api/forecast/periods/${pid}`, { method: 'DELETE' }),
   periodOrders: (periodId) => api(`/api/forecast/orders/${periodId}`),
   submitOrder: (body) => api('/api/forecast/orders', { method: 'POST', body }),

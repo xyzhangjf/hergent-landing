@@ -26,6 +26,7 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
 
 REPOS = {
     "fe": "/Users/zhangjunfeng/Documents/laozhangai-product",
@@ -2768,7 +2769,167 @@ SPEC_FE_V214_MEMORY = ("fe", [
      "present": ["hergent-numeric-input-ime-tolerance"], "gone": []},
 ])
 
+# ── be-v219：期次「定稿」管控（reopen + 闸门 + 建表前置）+ ⑥ 上限写入口 ──────────
+#    2026-09-21 实测，基线 HEAD=3e2cd70（v214-A）。
+#
+# 判据（现取现用，别抄）：
+#   git diff -U0 -- server/erp_db.py                  | grep -c '^@@'  → 44（本轮 1 + 在途 43）
+#   git diff -U0 -- server/routers/forecast.py         | grep -c '^@@'  →  2（本轮 1 + 在途  1）
+#   git diff -U0 -- server/routers/forecast_submissions.py | grep -c '^@@' → 35（本轮 5 + 在途 30）
+#   本轮特征串 = forecast_period_reopen / reopen_period / v219 定稿闸门 /
+#                v219：建表前置 / v219 打磨⑥   （全仓 `grep -rn -e v219` 可复现）
+#
+# 🔴 为什么 forecast_submissions.py 要多认领 os=7/9/13（81 行，**不是本轮写的**）：
+#   本轮 ⑥（`PUT /validation-rules`）调用了 `fr.get_rules()` 与 `_user_label(...)`，
+#   而这两个符号**在 HEAD 里根本不存在**（HEAD 版 591 行 vs 工作区 965 行；
+#   `git show HEAD:<f> | grep -c _user_label` = 0；`git log --all -S"_user_label"` 全分支无提交）。
+#   ⇒ 只落本轮 hunk 会提交出一个「端点一被调用就 NameError」的版本，`py_compile` 还查不出来。
+#   skill hergent-scoped-commit §5.11 的判据是「只留我的那一半，提交出来的版本能自洽吗」——
+#   不能，故必须把**依赖闭包**一起提交。闭包恰好是一个自洽单元：
+#     os=7  1 行  `from fastapi.responses import JSONResponse`（下两个助手的依赖）
+#     os=9  4 行  `from db.queries import forecast_rules as fr`（我直接用它）
+#     os=13 76 行 `_violations_400` / `_user_label`（我用）/ `_conflict_409`（同批，自带局部 import）
+#   三者**已部署在生产**（生产 md5 == 工作区），本提交因此让 HEAD 与线上在这三处一致。
+#   os=13 里另两个助手在 HEAD 上是「已定义未调用」—— 合法的死代码，远优于 NameError。
+#
+# 两处 trim（`+` 侧头尾归属不同，`own_hunks` 无法规避 ⇒ 必须切）：
+#   os=57  nc=24：前 11 行 是在途的 **v213 数量判据门禁**（含 `_rules`/`_violations`
+#          与对 `_violations_400` 的调用）+ 第 12 行空行 ⇒ 本轮从第 13 行
+#          （`# ---- v219：建表前置…`）起，共 12 行 ⇒ trim_plus_head {57: 12}
+#          ⚠️ 切完仍是 4 空格缩进、且位于 `store = {...}` 之后同一个函数体内（HEAD 57 行是空行）。
+#   os=303 nc=68：前 19 行 是在途的 `@router.get("/validation-spec")` 整段（含 2 行空行），
+#          本轮从第 20 行（`@router.put("/validation-rules")`）起，共 49 行
+#          ⇒ trim_plus_head {303: 19}
+#          ⚠️ 丢头 19 行后，前面仍是 HEAD 的 302/303 两个空行 ⇒ PEP8 两空行依然成立。
+#
+# 本轮不动的在途（举例，非全体）：os=617 forecast.py 付款到账 sender 名、
+#   os=15641 之外的 43 个 erp_db.py hunk（v211 埋点 / v199 客户列名册 / v202 模板行序 /
+#   v216 收回门店 / v213-B1 口径常量 / v125 登录锁定 / v110 dist_price 搬家…）——
+#   它们是**别人（或历轮会话）已上线未提交**的工作，归各自的作者。
+SPEC_BE_V219 = ("be", [
+    {"file": "server/erp_db.py", "own_hunks": [15641],
+     # ⚠️ present 必须挑「只有本轮改动才会让它出现」的串：`def forecast_period_close` 就不合格（HEAD 也有）。
+     "present": ["def forecast_period_reopen(pid):"],
+     "gone": []},
+    {"file": "server/routers/forecast.py", "own_hunks": [273],
+     "present": ['@router.post("/periods/{pid}/reopen")'],
+     "gone": []},
+    {"file": "server/routers/forecast_submissions.py",
+     "own_hunks": [7, 9, 13, 57, 303, 384], "trim_plus_head": {57: 12, 303: 19},
+     "present": ['@router.put("/validation-rules")',
+                 "# ---- v219 定稿闸门：期次已关闭（= 已定稿）⇒ 矩阵不可再写 ----",
+                 "# ---- v219：建表前置（新租户空库的第一个写路径） ----",
+                 '"该期次已定稿（关闭），不能再修改。若确需改动，请到「往期预报」里先重开该期次。"'],
+     "gone": []},
+])
+
+# ══════════════════════════════════════════════════════════════════════════════
+# fe-v219 —— 期次「定稿」管控（前端）+ 第四批打磨 ②③④（①⑤⑥ 因依赖闭包留作在途，见下）
+#   2026-09-21 实测，基线 HEAD=d89c5d5。
+#
+# 判据（现取现用，别抄）：
+#   git diff -U0 -- hergent-cn-v2/src/pages/Forecast.vue | grep -c '^@@' → 191（本轮 19 + 在途 172）
+#   本轮特征串 = 下面 present 里那些（`grep -cF` 逐条可复现）
+#
+# 🔴 本轮**刻意不含** 打磨①（Ctrl+End 跳最后一处有数据）：它的 `lastDataPos()` 用了
+#   `unitCount()`，而 `unitCount` 在 HEAD 里出现 **0 次**（定义在在途 os=2143，属 v199b
+#   「cross 形状单一来源 + accessor 兜底」那次整页崩溃修复，39 行）——
+#   同一条规则：引用在途轮次的定义 ⇒ 该功能不进本轮。⇒ 一并排除 os=4102（定义）与
+#   os=4221 的**尾部 9 行**（Ctrl+End 分支 ⇒ trim_plus {4221: 9}，打磨③ 的 Ctrl+左右 保留）。
+#
+# 🔴 本 spec **刻意不含** 打磨⑤（预检「一键修复」）与 打磨⑥（数量上限可配）。不是漏写，
+#   是查过依赖闭包之后才定的 —— 这两项的前端实现引用了**在途三轮**的东西，摘不干净：
+#     · `qtyMax` / `specText` / `NUM_RE` / `SPEC_MSG_FALLBACK` / `loadValidationSpec`
+#       —— 定义在 os=3500（46 行），消费方在 os=5353（1 行）与 os=5369（6→16 行），
+#          拉取点在 os=3190（3 行）：**四处全属在途 v213**（「数量判据与后端同源」）。
+#     · `refreshDirty()` —— 定义在 os=5195（32 行），属在途 **v201/v208**（「存没存看得见」），
+#          且它自己还依赖 `lastSavedSnap` / `dirtySinceSave` … ⇒ 依赖链继续往 v201 那轮延伸。
+#   于是只有两条路，两条都不可取：
+#     (a) 连 v213/v201 那上百行一起提交 ⇒ 从「依赖闭包」滑成「替三轮在途提交」；
+#     (b) 只落 打磨⑤⑥ 不带闭包 ⇒ 提交出来的版本里 `qtyMax` / `refreshDirty` **未定义**，
+#         一进编辑网格就 ReferenceError；若只补 `qtyMax` 而丢 os=5369 的消费方，则 HEAD 的
+#         `cellErrMsg` 仍按 `QTY_MAX=999999` 判、而我的入口改的是 `qtyMax`
+#         ⇒ **前端不标红、保存被后端拒**（同一件事两个口径，最坏的一种）。
+#   ⇒ 本轮**不提交** 打磨⑤⑥，整体留作在途。生产已上线两者（工作区即部署产物），功能不受影响。
+#   被**排除**的 hunk：os=1185（修复入口模板）1199（修复预览弹窗）3602（fixables/applyFixes/
+#     规则编辑整块）5172 与 5185（undo/redo 的 batch 分支）8872（打磨⑤⑥ CSS）；
+#     modules.js 的 os=374（`setValidationRules` 客户端方法，其唯一调用方在 os=3602）同样排除。
+#   ⚠️ 已知残留（纯死代码，无副作用）：os=5192 里 `undoLabel()` 的 `if (s.t === 'batch')` 分支
+#     随本提交进入 HEAD，而 batch 类型未提交 ⇒ 该分支不可达。已在提交信息里声明。
+#
+# 🔴 三处切分（`+` 侧头尾归属不同，own_hunks 无法规避）：
+#   os=682（1→4）  第 1 条 `+` 是 `<!-- v219：同上 —— … -->`，而「同上」指的第一处（os=81）
+#          因与 v209 同行纠缠**不提交** ⇒ 留着就是悬空指代 ⇒ trim_plus_head {682: 1}
+#   os=3580（+31） 前 12 行 属在途 v211「触屏可读的错误原因」（showCellErr 全块）⇒ 打磨④ 的
+#          `flashCell/isFlash/flashAt` 从第 13 行起、共 19 行 ⇒ trim_plus_head {3580: 12}
+#   os=5167（+13） 前 10 行 属 打磨⑤「批量修复入栈」（pushBatchSnap 全块，本轮不提交）⇒
+#          打磨② 的 `undo(silent)` 从第 11 行起、共 3 行 ⇒ trim_plus_head {5167: 10}
+#          ⚠️ 保留它**不是**夹带打磨⑤：`silent` 的使用者是我的 `undoUpto()`（os=5192 ——
+#             「退到第 N 步」要连退多步，正因为要静音才需要这个参数），见 os=5178。
+#   os=5178（1→2） 第 1 条 `+`（`refreshDirty()`）带 **v201** 注释、属 v201 ⇒ 只落第 2 条
+#          `if (!silent) toast('已撤销','ok')`（配套 os=5167 的 `silent` 重构）
+#          ⇒ trim_plus_head {5178: 1}
+#
+# 🔴 本轮**特意不提交**的混合 hunk：os=81 / os=632 —— 我加的 `periodClosed` 禁用（两处「改单」
+#   按钮）与在途 v209「全屏专属改单入口 / 主工具栏让位」写在**同一行**上（os=81 的
+#   `v-if="!editMode && !fsRowHosting"` 与 `:disabled="loadingEdit || periodClosed"` 同属一行；
+#   os=632 整块位于 v209 的 `<template v-if="fsRowHosting">` 内）⇒ 落整块 = 替 v209 提交，
+#   丢整块 = 我的禁用不生效。故留作在途。
+#   ⚠️ 后果：os=3160 的注释写「三处「改单」按钮与 enterEdit 共用这一个判据」，本快照里只兑现
+#      1 处（os=682 的「改单填写」）+ `enterEdit` 守卫 ⇒ 安全性不受影响（守卫在），
+#      只是另两处按钮的**灰显**要等 v209 那轮一起提交。已在提交信息里声明。
+SPEC_FE_V219 = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "own_hunks": [682, 927, 983, 1650, 1945, 1976, 1985, 3160, 3161, 3580, 3583,
+                   4212, 4221, 5167, 5178, 5192, 7431, 8800],
+     "trim_plus_head": {682: 1, 3580: 12, 5167: 10, 5178: 1},
+     "trim_plus": {4221: 9},
+     # ⚠️ present 必须挑「只有本轮改动才会让它出现」的串（且在工作区**唯一**）。
+     "present": ['const periodClosed = computed(() => {',
+                 '/* v219：已定稿（关闭）的期次不许进编辑态。',
+                 '<button class="btn btn-primary btn-sm" :disabled="periodClosed"',
+                 '<b>关闭 = 定稿</b>',
+                 '/* v219：重开期次 —— 「关闭 = 定稿」的**唯一**补救路径。',
+                 'async function onHistoryReopen (row) {',
+                 '@reopen="onHistoryReopen"',
+                 '<!-- v219 打磨②：撤销栈可见 —— 一步步盲退不知道退到哪',
+                 '<Icon name="history"/> 改动记录',
+                 '/* v219 打磨②：撤销栈**可见**。',
+                 'function undoUpto (i) {',
+                 "if (!silent) toast('已撤销', 'ok')",
+                 '/* v219 打磨③：Ctrl+**Shift**+方向键',
+                 '/* v219 打磨④：跳转后让目标格**闪一下**。',
+                 'function flashAt (r, c) {',
+                 'flash: isFlash(ri, ci)',
+                 'flash: isFlash(ri, visibleCols.length + ui)',
+                 '/* v219 打磨④：错误跳转/清单点击后目标格闪两下。'],
+     "gone": ['关闭后该期次<b>不可再编辑</b>，仅可删除（级联删除其全部数据）。']},
+    # ── 下面三个文件各自只剩本轮改动（无在途纠缠），故 hunk 级认领即可 ──────────
+    {"file": "hergent-cn-v2/src/pages/ForecastHistory.vue", "own_hunks": [46],
+     "present": ["$emit('reopen', row)",
+                 '<!-- v219：关闭（=定稿）此前**单向不可逆**'], "gone": []},
+    {"file": "hergent-cn-v2/src/components/Icon.vue", "own_hunks": [53],
+     "present": ["history: ['M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'"], "gone": []},
+    {"file": "hergent-cn-v2/src/api/modules.js", "own_hunks": [33],
+     "present": ["reopenPeriod: (pid) => api(`/api/forecast/periods/${pid}/reopen`"], "gone": []},
+    # ── 本轮自身的工具（keep_all 是「该文件只有我的改动」的断言，5 个 hunk 全为本轮）──
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+    # ── 本轮新建的取证 / 审计工具（HEAD 无 → new_file，内容直接取工作区）─────────
+    {"file": ".workbuddy/tools/v219-prod-http-verify.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v219-frontend-verify.cjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v219-fix-guard.cjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v219-hunks.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v219-rules-verify.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v219-shadow-verify.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v219-fe-classify.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/hunk_find.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/hunk_show.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/staged_check.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/sfc-freevar-audit.py", "new_file": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
+         "be-v219": SPEC_BE_V219, "fe-v219": SPEC_FE_V219,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
          "fe-v177": SPEC_FE_V177, "fe-v178": SPEC_FE_V178, "fe-v178b": SPEC_FE_V178B,
          "fe-v178c": SPEC_FE_V178C, "be-v178c": SPEC_BE_V178C,
@@ -2898,12 +3059,30 @@ def parse_hunks(path):
 
 
 def pick_inflight_sample(hunks, mine_oses):
-    """自动抽「在途 hunk」的特征行（每 hunk 取最长的一行，最多 3 条），用于零夹带断言。"""
+    """自动抽「在途 hunk」的特征行（每 hunk 取最长的一行，最多 3 条），用于零夹带断言。
+
+    🔴 判别串必须**只属于在途**：若某行也出现在我自己的 hunk 里，它就不是判别串 ——
+       我的段落里当然也有，于是「暂存=1 HEAD=0」当场假红。这在「我改的那一行与他改的那一行
+       **是同一条源码行**」时必然发生（`-U0` 会给两侧各出一个 hunk，各自带一份近似的 `+` 行）。
+       v219 实测：`:title="periodClosed ? '该期次已定稿（关闭），不可改单；如需改动请到`
+       同时出现在在途 os=81/os=632 与我的 os=682 里 ⇒ 断言误报「夹带」。
+       ⇒ 先把「我的 hunk 里出现过的行」（原样 + 截断 60 字符两种形态）整个排除掉再挑。
+    """
+    mine_lines = set()
+    for h in hunks:
+        if h["os"] not in mine_oses:
+            continue
+        for l in h["plus"] + h["minus"]:
+            s = l.strip()
+            if s:
+                mine_lines.add(s)
+                mine_lines.add(s[:60])
     out = []
     for h in hunks:
         if h["os"] in mine_oses:
             continue
         cands = [l.strip() for l in (h["plus"] + h["minus"]) if len(l.strip()) >= 20]
+        cands = [c for c in cands if c not in mine_lines and c[:60] not in mine_lines]
         if cands:
             out.append(max(cands, key=len)[:60])
     return out[:3]
@@ -3061,8 +3240,34 @@ def main():
             assert not (set(keep_slice) & (set(trim_head) | set(trim_plus))), \
                 "同一 hunk 不能同时用 keep_plus_slice 与 trim_*：%s" \
                 % sorted(set(keep_slice) & (set(trim_head) | set(trim_plus)))
+            # ⭐ keep_plus_before_minus：落 `+` 侧**前 k 行**（我的块），**并保留旧侧行**
+            #   —— 即「我的插入紧贴在别人修改的那一行**之前**」，`-U0` 把两件事并成了
+            #   一次 `oc=1` 的替换（2026-09-21 v219 实测，属本轮新增能力）。
+            #   场景（Forecast.vue os=3602，203 行）：我新插的「打磨⑤⑥」两个整块（前 168 行）
+            #   恰好落在 `async function saveEdits() {` 这一行**之前**，而那行的正文正被
+            #   另一个轮次（v196/v208）改写 ⇒ diff 报成
+            #       @@ -3602,1 +4279,203 @@   -async function saveEdits() {
+            #   三种既有写法**全错**：
+            #     · 整块落 ⇒ 替 v196/v208 提交了他们对 saveEdits 的改写（夹带）；
+            #     · 整块排 ⇒ 我的两个功能块全丢；
+            #     · `keep_plus_slice(0,168)` ⇒ 旧侧那行**被删掉且没补回** ⇒ 文件里
+            #       `saveEdits` 的函数头消失 ⇒ `-U0` 看不出、`vite build` 必炸。
+            #   ✅ 正解 = `plus[:k] + minus`：我的块在前、旧侧行原样留在其后。
+            #   ⚠️ 它**只能**配 `oc >= 1` 用（纯插入 hunk 没有旧侧行可保留，会断言失败）。
+            keep_before = {int(k): int(v) for k, v in spec.get("keep_plus_before_minus", {}).items()}
+            assert set(keep_before) <= set(mine), \
+                "keep_plus_before_minus 必须落在本轮 hunk 里：%s" \
+                % sorted(set(keep_before) - set(mine))
+            assert not (set(keep_before) & (set(trim_head) | set(trim_plus) | set(keep_slice))), \
+                "同一 hunk 不能同时用 keep_plus_before_minus 与其它切分：%s" \
+                % sorted(set(keep_before) & (set(trim_head) | set(trim_plus) | set(keep_slice)))
             lines = head.splitlines(keepends=True)
             trimmed_lines = []
+            # 🔴 精确不变量的两本账（见下方 trim 计数断言）：
+            #   out = HEAD − Σ(旧侧行) + Σ(实际落下的新侧行)
+            #   ⇒ 判据必须按这本账来，不能简单要求「暂存计数 == HEAD 计数」（那会假红，见下）。
+            minus_all = Counter()       # 我的 hunk 的 `-` 侧行
+            kept_plus_all = Counter()   # 我的 hunk 里**真正写进暂存版**的 `+` 侧行（trim 之后）
             # keep_plus_slice 落在**中间**时，`+` 侧被切成「头残段 + 我的段 + 尾残段」
             # ⇒ 残留 hunk 数会比「在途 hunk 数」**多 1**（头尾各成一块）。逐 hunk 累加，
             # 供下面的残留数断言使用（2026-09-19 v203 收尾实测：3 != 1 的假红）。
@@ -3088,17 +3293,30 @@ def main():
                         + (1 if st + cnt < len(plus) else 0)
                     trimmed_lines += plus[:st] + plus[st + cnt:]
                     plus = plus[st:st + cnt]
+                if os_ in keep_before:
+                    k = keep_before[os_]
+                    assert oc >= 1, ("keep_plus_before_minus 需要 oc>=1（要有旧侧行可保留）", os_, oc)
+                    assert 1 <= k < len(plus), ("keep_plus_before_minus 越界", os_, k, len(plus))
+                    trimmed_lines += plus[k:]
+                    # 🔴 顺序：我的块在前、**旧侧行原样留在其后**（不是丢掉、也不是放在前面）
+                    plus = plus[:k] + h["minus"]
+                minus_all.update(h["minus"])
                 if oc == 0:
                     assert h["minus"] == [], "纯插入 hunk 不该有 - 行"
                     assert 1 <= os_ <= len(lines), ("插入点越界", os_)
                     lines[os_:os_] = plus               # 🔴 纯插入一律 lines[a:a]，不是 a-1
+                    kept_plus_all.update(plus)
                 else:
                     seg = lines[os_ - 1: os_ - 1 + oc]
                     assert seg == h["minus"], \
                         ("old_start=%d 旧侧不匹配\n HEAD=%r\n diff=%r" % (os_, seg, h["minus"]))
                     # 🔴 混合 hunk 只落 `-` 侧：diff 把「我删掉的一行」与「在途搬进来的一行」
                     #    配成 1→1 修改时，落 `+` 侧 = 替在途提交了那次搬移（技能 §5.8）。
-                    lines[os_ - 1: os_ - 1 + oc] = [] if os_ in minus_only else plus
+                    if os_ in minus_only:
+                        lines[os_ - 1: os_ - 1 + oc] = []
+                    else:
+                        lines[os_ - 1: os_ - 1 + oc] = plus
+                        kept_plus_all.update(plus)
             out = "".join(lines)
             # 🔴 被 trim 掉的每一行，在暂存版里必须与 HEAD **计数相等**（不许多、不许少）：
             #   多 = 重复（原处没删干净，还多插了一份）；少 = 把 HEAD 原位那份也误删了。
@@ -3113,12 +3331,23 @@ def main():
             #   于是「暂存=17 HEAD=16」当场炸，而改动完全正确（我本来就新增了一条分隔线）。
             #   ⇒ 判据统一收敛为「**该行含字母 / 数字 / 汉字才算有区分度**」。
             #   ⚠️ 别把阈值放宽到「长度 ≥ N」——`## v200 …` 与 `---` 长度可以一样。
+            # 🔴 2026-09-21 v219 再一般化一步：**通用代码行同样没有区分度**。
+            #   `trim_plus {4221: 9}`（切掉 Ctrl+End 分支、保留同 hunk 里 Ctrl+左右那段）
+            #   被切掉的 9 行里有 `    e.preventDefault()` —— 而**我保留的那段里也有一份**，
+            #   于是「HEAD=7 暂存=8」当场炸，改动却完全正确。
+            #   ⇒ 判据从「计数相等」升级为**精确不变量的等式**（trim 只是其中一个来源）：
+            #        out = HEAD − Σ(我的旧侧行) + Σ(我真正写进暂存的新侧行)
+            #      即 `out.count(l) == head.count(l) - minus_all[l] + kept_plus_all[l]`
+            #   它同时覆盖三种真错：① 被 trim 的行**重复**了（我插了两次）；
+            #   ② 被 trim 的行**把 HEAD 原位那份也误删**了；③ 旧侧行没删干净。
             for l in trimmed_lines:
                 if not re.search(r"[0-9A-Za-z\u4e00-\u9fff]", l):
                     continue
-                assert out.count(l) == head.count(l), \
-                    "trim_plus 截掉的行计数漂移（HEAD=%d 暂存=%d）：%r" \
-                    % (head.count(l), out.count(l), l[:60])
+                exp = head.count(l) - minus_all[l] + kept_plus_all[l]
+                assert out.count(l) == exp, \
+                    "计数漂移（HEAD=%d 旧侧=%d 我落下=%d ⇒ 期望 %d，实得 %d）：%r" \
+                    % (head.count(l), minus_all[l], kept_plus_all[l],
+                       exp, out.count(l), l[:60])
 
         inflight_sample = pick_inflight_sample(hunks, set(mine))
 
@@ -3134,6 +3363,7 @@ def main():
         # keep_plus_slice 丢**头尾两侧** → 每处 +2（落在文件头/尾时按实际只 +1，见 n_extra_resid）。
         n_def = (len(deferred) + len(spec.get("split_minus_only", []))
                  + len(spec.get("trim_plus", {})) + len(spec.get("trim_plus_head", {}))
+                 + len(spec.get("keep_plus_before_minus", {}))
                  + n_extra_resid)
         resid = subprocess.run(["git", "-C", REPO, "diff", "-U0", "--no-index",
                                 "--", outp, os.path.join(REPO, path)],

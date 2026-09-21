@@ -679,7 +679,9 @@
                       <button class="btn btn-primary btn-sm" @click="openNewPeriod"><Icon name="plus"/> 新建期次</button>
                     </template>
                     <template v-else>
-                      <button class="btn btn-primary btn-sm" @click="enterEdit"><Icon name="edit"/> 改单填写</button>
+                      <button class="btn btn-primary btn-sm" :disabled="periodClosed"
+                              :title="periodClosed ? '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」' : '进入可编辑网格填写报单'"
+                              @click="enterEdit"><Icon name="edit"/> 改单填写</button>
                       <button class="btn btn-ghost btn-sm" :disabled="seedBusy || !nearestPrevPeriod" @click="seedFromPrev">
                         <Icon name="copy"/> {{ nearestPrevPeriod ? `从「${nearestPrevPeriod.name}」复制清单` : '从上一期复制清单' }}
                       </button>
@@ -924,7 +926,7 @@
             <tbody>
               <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'sel-row': selected.r === ri, 'cond-warn': condWarnOn && rowWarn(r) === 'low', 'new-row': r._new }" v-show="rowShown(ri)">
                 <td class="td seq-cell" :class="{ 'row-bad': errRowSet.has(ri) }" :data-r="ri"><span class="seq-num">{{ ri + 1 }}</span></td>
-                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci) }]" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" :data-r="ri" :data-c="ci" :title="cellIssue(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
+                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'range-sel': inRange(ri, ci), invalid: cellInvalid(ri, ci), flash: isFlash(ri, ci) }]" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" :data-r="ri" :data-c="ci" :title="cellIssue(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
                   <template v-if="c.key === 'name'">
                     <!-- v215：商品名候选**自建面板**（替掉原生 datalist）。
                          🔴 为什么必须自建：datalist 的过滤由浏览器定（Safari 只认前缀）、
@@ -980,7 +982,7 @@
                   </template>
                   <span v-if="selected.r === ri && selected.c === ci" class="fill-handle" @mousedown.prevent.stop="startFill(ri, ci, $event)" title="拖拽填充"></span>
                 </td>
-                <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellInvalid(ri, visibleCols.length + ui), 'warn-low': rowWarn(r) === 'low', 'warn-short': rowWarn(r) === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0 }" :style="heatStyle(r, u.name)" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellErrMsg(ri, visibleCols.length + ui) || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
+                <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellInvalid(ri, visibleCols.length + ui), 'warn-low': rowWarn(r) === 'low', 'warn-short': rowWarn(r) === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0, flash: isFlash(ri, visibleCols.length + ui) }" :style="heatStyle(r, u.name)" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellErrMsg(ri, visibleCols.length + ui) || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
                   <!-- v211（P1-2）：补 `inputmode` —— 触屏设备（平板 / 手机开网页）点这一格直接弹**数字键盘**。
                        ⚠️ 不能只靠 `type="number"`：iOS 会弹数字键盘，但部分安卓浏览器不给 ⇒ 加 inputmode 是双保险。
                        ⚠️ 只有**数量**用 numeric（整数）；单价有 `step="0.01"`（两位小数）必须用 decimal，
@@ -1648,6 +1650,8 @@
             <div class="ctx-sep"></div>
             <button :disabled="!canUndo" @click="undo"><Icon name="undo"/> 撤销</button>
             <button :disabled="!canRedo" @click="redo"><Icon name="redo"/> 重做</button>
+            <!-- v219 打磨②：撤销栈可见 —— 一步步盲退不知道退到哪，点这里看改了哪些、直接退到某一步 -->
+            <button :disabled="!undoStack.length" @click="undoPanelOpen = true" title="查看改动记录，可直接回退到某一步"><Icon name="history"/> 改动记录</button>
           </div>
           <div v-if="hdrCtx.show" class="ctx-overlay" @click="closeHdrCtx" @contextmenu.prevent="closeHdrCtx"></div>
           <div v-if="hdrCtx.show" class="ctx-menu" :style="hdrCtxStyle">
@@ -1942,7 +1946,7 @@
     </div>
     </template>
 
-    <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" @rename="openPeriodEdit" @copy="openPeriodCopy" />
+    <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" @reopen="onHistoryReopen" @rename="openPeriodEdit" @copy="openPeriodCopy" />
 
     <!-- 报单配置（原档案管理独立页，整合为标签页） -->
     <div v-if="activeTab === 'config'" class="config-panel">
@@ -1973,10 +1977,36 @@
         <div v-if="closeOpen" class="imp-modal del-modal">
           <div class="imp-hd"><b>关闭期次</b><button class="imp-x" @click="closeOpen = false"><Icon name="close"/></button></div>
           <div class="imp-body">
-            <p class="imp-tip warn-text">确认关闭期次「{{ closeTarget && closeTarget.name }}」？关闭后该期次<b>不可再编辑</b>，仅可删除（级联删除其全部数据）。</p>
+            <!-- v219：原文案只说「不可再编辑」，**没说**关闭会连带关掉销售的报单通道 ——
+                 那是这条操作最容易被忽略的副作用（定稿 = 停止收报单）。同时补上「可重开」，
+                 否则「仅可删除」会让人以为关闭不可逆（2026-09-21 前确实不可逆，现在不是了）。 -->
+            <p class="imp-tip warn-text">确认关闭期次「{{ closeTarget && closeTarget.name }}」？<b>关闭 = 定稿</b>：该期次不可再编辑，且<b>销售的小程序报单通道会同时关闭</b>（不再接收新报单）。如需改动，可到「往期预报」里点<b>「重开」</b>恢复。</p>
             <div class="del-actions">
               <button class="btn btn-ghost" @click="closeOpen = false">取消</button>
               <button class="btn btn-primary" :disabled="closing" @click="confirmClose">{{ closing ? '关闭中…' : '确认关闭' }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- v219 打磨②：改动记录（撤销栈可见）。一步步盲退不知道退到哪，这里列出改过什么、可直接退到某一步 -->
+    <Teleport to="body">
+      <Transition name="fade"><div v-if="undoPanelOpen" class="imp-overlay" @click="undoPanelOpen = false"></div></Transition>
+      <Transition name="pop">
+        <div v-if="undoPanelOpen" class="imp-modal del-modal">
+          <div class="imp-hd"><b>改动记录</b><button class="imp-x" @click="undoPanelOpen = false"><Icon name="close"/></button></div>
+          <div class="imp-body">
+            <p class="imp-tip">共 <b>{{ undoStack.length }}</b> 步可撤销（新的在上）。点某一条 = 回退到这一步<b>之前</b>。</p>
+            <div v-if="undoShown.length" class="undo-list">
+              <button v-for="it in undoShown" :key="it.i" class="undo-item" @click="undoUpto(it.i)">
+                <span class="undo-idx">{{ it.i + 1 }}</span>
+                <span class="undo-label">{{ it.label }}</span>
+              </button>
+            </div>
+            <p v-else class="imp-tip">还没有任何改动。</p>
+            <div class="del-actions">
+              <button class="btn btn-ghost" @click="undoPanelOpen = false">关闭</button>
             </div>
           </div>
         </div>
@@ -3158,7 +3188,24 @@ const loadingEdit = ref(false)
    比对前先 normRole 归一，历史视图令牌（owner/finance/…）照旧命中，行为不变。 */
 const ENTRY_ROLES = ['admin', 'boss', 'accountant', 'sales']
 const entryRoleWarn = computed(() => !ENTRY_ROLES.includes(normRole(bizRole.value) || 'boss'))
+/* v219：当期期次是否已定稿（关闭）。三处「改单」按钮与 `enterEdit` 共用**这一个**判据 ——
+   判据散在四处迟早会漂移（一处漏判 = 用户能改但保存被拒 = 白干半天）。
+   ⚠️ 与后端 `save_matrix` 闸门**同源**：`pid>0 且 status !== 'open'`；
+   「今日报单」（无期次，id=0）不算定稿态，照常可改。 */
+const periodClosed = computed(() => {
+  if (!curPeriod.value) return false
+  const _p = periods.value.find(x => Number(x.id) === Number(curPeriod.value))
+  return !!(_p && _p.status && _p.status !== 'open')
+})
+
 async function enterEdit() {
+  /* v219：已定稿（关闭）的期次不许进编辑态。
+     后端 `save_matrix` 已有硬闸门（409 + 中文文案），这里是 UX 层提前拦 ——
+     否则用户改半天才在保存时被拒，白干。 */
+  if (periodClosed.value) {
+    toast('该期次已定稿（关闭），不可改单。如需改动，请到「往期预报」里先点「重开」。', 'warn')
+    return
+  }
   // Q30：角色不在填报白名单时前置告知（不阻断，避免误伤）
   if (entryRoleWarn.value) {
     const ok = window.confirm(`当前角色「${roleName(bizRole.value)}」可能没有填报权限，保存时可能被服务器拒绝。\n\n仍要进入编辑吗？`)
@@ -3578,9 +3625,31 @@ function validateAll() {
    原实现先 `errListOpen = false`（那是为居中弹窗准备的：弹窗盖住表格，不关就看不到目标格）。
    现在的面板内联在表格下方、不遮挡网格，关掉反而丢掉「还剩哪些没改」的上下文 ——
    保持打开，改对后该条会自己消失。 */
+/* v219 打磨④：跳转后让目标格**闪一下**。
+   「跳过去了」和「用户看见跳到哪一格」是两件事 —— 428 行表 + 全屏 + 缩放之后，
+   光标落在某个格上往往根本看不见，观感仍然是「点了清单没反应」。
+   ⚠️ 用 `k` 计数而不是布尔：连续点同一处错误时，布尔不变 ⇒ CSS 动画**不会重放**
+   （第二次点等于没闪，又变回「点了没反应」）。改 key 强制重挂载是一种办法，但会连带
+   丢焦点；这里改的是 class 的**开关 + 计数**，靠 v-if 之外的 `animation-name` 重放更麻烦
+   ⇒ 退而求其次：清一次再置一次（下面的 setTimeout(0) 就是干这个的）。 */
+const flashCell = ref({ r: -1, c: -1, k: 0 })
+let _flashTimer = null
+function isFlash (r, c) {
+  return flashCell.value.r === r && flashCell.value.c === c
+}
+function flashAt (r, c) {
+  if (_flashTimer) clearTimeout(_flashTimer)
+  flashCell.value = { r: -1, c: -1, k: flashCell.value.k + 1 }   // 先关掉，逼动画重放
+  nextTick(() => { flashCell.value = { r, c, k: flashCell.value.k + 1 } })
+  _flashTimer = setTimeout(() => { flashCell.value = { r: -1, c: -1, k: flashCell.value.k } }, 1400)
+}
+
 function gotoErr(it) {
   gotoRowPage(it.ri)
-  nextTick(() => { selectCell(it.ri, it.ci); focusCell(it.ri, it.ci, { select: true }); scrollRowIntoView(it.ri) })
+  nextTick(() => {
+    selectCell(it.ri, it.ci); focusCell(it.ri, it.ci, { select: true }); scrollRowIntoView(it.ri)
+    flashAt(it.ri, it.ci)
+  })
 }
 /* v174：把面板滚进视野。面板在表格下方，用户在长表中间点「查错」或保存失败时，
    结果可能落在视口之外 —— 那样「点了没反应」的观感其实并没真正消除。 */
@@ -4209,7 +4278,11 @@ function onGridKey(e) {
       if (nv === '' || nv === null || nv === undefined || Number(nv) === 0) break
       nr++
     }
-    selectCell(nr, c); focusCell(nr, c); gotoRowPage(nr)
+    /* v219 打磨③：Ctrl+**Shift**+方向键 = 从当前格**扩展选区**到连续数据边界（Excel 同款）。
+       此前只支持不带 Shift 的跳转 ⇒ 要选一整片连续行只能鼠标拖，428 行表里极易拖过头。 */
+    if (e.shiftKey) selectCell(nr, c, true)
+    else selectCell(nr, c)
+    focusCell(nr, c); gotoRowPage(nr)
   } else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') {
     e.preventDefault()
     let nr = r
@@ -4218,7 +4291,24 @@ function onGridKey(e) {
       if (nv === '' || nv === null || nv === undefined || Number(nv) === 0) break
       nr--
     }
-    selectCell(nr, c); focusCell(nr, c); gotoRowPage(nr)
+    if (e.shiftKey) selectCell(nr, c, true)
+    else selectCell(nr, c)
+    focusCell(nr, c); gotoRowPage(nr)
+  } else if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+    /* 补齐 Ctrl+左右：原先**只有上下两个方向**，左右没实现 ⇒ 按下去毫无反应，
+       与「键盘坏了」长得完全一样（不报错、就是不动）。语义与上下同源：
+       跳到本行连续数据的最后一格 / 第一格（遇空格停）。 */
+    e.preventDefault()
+    const step = e.key === 'ArrowRight' ? 1 : -1
+    let nc = c
+    while (nc + step >= 0 && nc + step <= maxC) {
+      const nv = readCellVal(r, nc + step)
+      if (nv === '' || nv === null || nv === undefined || Number(nv) === 0) break
+      nc += step
+    }
+    if (e.shiftKey) selectCell(r, nc, true)
+    else selectCell(r, nc)
+    focusCell(r, nc); gotoRowPage(r)
   }
 }
 // 右键上下文菜单（插入/删除行、插入/删除列、清空内容）
@@ -5164,7 +5254,9 @@ function pushCellSnap(r, c, oldVal, newVal) {
   if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
   redoStack.value = []
 }
-function undo() {
+/* v219 打磨②：`silent` = 批量回退时不逐条 toast（否则连退 8 步刷 8 条提示，
+   最后一条盖住前面所有，用户只看到「已撤销」一次 ⇒ 以为只退了一步）。 */
+function undo(silent) {
   const s = undoStack.value.pop()
   if (!s) return
   if (s.t === 'cell') {
@@ -5175,7 +5267,7 @@ function undo() {
     cross.value = s.data
   }
   clampSelection()
-  toast('已撤销', 'ok')
+  if (!silent) toast('已撤销', 'ok')
 }
 function redo() {
   const s = redoStack.value.pop()
@@ -5190,6 +5282,46 @@ function redo() {
   clampSelection()
   toast('已重做', 'ok')
 }
+/* v219 打磨②：撤销栈**可见**。
+   Ctrl+Z 只能一步一步盲退 —— 用户误操作后真正想知道的是「我刚才到底改了哪几处、
+   退到第几步能回到我想要的样子」。栈不可见时只能试，退过头还得重做回去。
+   这里把最近 30 步列出来（新的在上），点哪一条就**退到那一步之前**。
+   ⚠️ 描述**不改**栈结构（`{t,r,c,old,new}` 原样保留）—— 撤销/重做的正确性靠这个结构，
+      为显示去动它不值得；描述是纯派生。 */
+const undoPanelOpen = ref(false)
+const undoShown = computed(() => {
+  const st = undoStack.value
+  const out = []
+  for (let i = st.length - 1; i >= Math.max(0, st.length - 30); i--) {
+    out.push({ i, label: undoLabel(st[i]) })
+  }
+  return out
+})
+function colLabelOf (c) {
+  const vc = visibleCols.value
+  if (c < vc.length) return String((vc[c] && (vc[c].label || vc[c].key)) || ('第' + (c + 1) + '列'))
+  const u = (cross.value.units || [])[c - vc.length]
+  return u ? String(u.name) : ('第' + (c + 1) + '列')
+}
+function briefVal (v) {
+  if (v === null || v === undefined || v === '') return '（空）'
+  const s = String(v)
+  return s.length > 10 ? s.slice(0, 10) + '…' : s
+}
+function undoLabel (s) {
+  if (!s) return ''
+  if (s.t === 'cell') return `第 ${s.r + 1} 行 · ${colLabelOf(s.c)}：${briefVal(s.old)} → ${briefVal(s.new)}`
+  if (s.t === 'batch') return `批量修复 ${s.cells.length} 处（一次撤销可整批还原）`
+  return '结构性变更（增删行 / 粘贴 / 填充等）'
+}
+function undoUpto (i) {
+  const n = undoStack.value.length - i
+  if (n <= 0) return
+  while (undoStack.value.length > i) undo(true)
+  undoPanelOpen.value = false
+  toast(`已回退 ${n} 步`, 'ok')
+}
+
 // Q5：保存成功后不再清空撤销栈（原实现保存后无法 Ctrl+Z 回退）。
 // 改为记录「上次保存基线」，并提供「回退到上次保存」入口，避免用户保存后误改无法还原。
 const lastSavedSnap = ref(null)
@@ -7429,6 +7561,34 @@ async function confirmClose() {
   }
 }
 
+/* v219：重开期次 —— 「关闭 = 定稿」的**唯一**补救路径。
+   为什么必须有：`forecast_period_close` 是单向的，而 open 期次又不许删 ⇒ 在补上本入口之前，
+   误关一次 = 永久锁死，且同屏不报任何错。补上之后「关闭」才成为可逆操作。
+   ⚠️ 副作用必须当面说清（不能只在日志里记）：重开会让该期次重新出现在小程序 open 列表里
+   ⇒ **销售又能报单了**。老板以为只是「改个历史数」，实际是把报单通道重新打开了。 */
+const reopening = ref(false)
+async function onHistoryReopen (row) {
+  if (!row) return
+  if (Number(row.id) <= 0) { toast('合成报单行不可重开', 'warn'); return }
+  const ok = window.confirm(
+    `重开期次「${row.name || ''}」？\n\n` +
+    `重开后该期次恢复可编辑，并且【销售的小程序报单通道会重新打开】——销售可以继续报单。\n\n` +
+    `如果只是要改历史数据，改完记得再关闭一次。确定重开吗？`
+  )
+  if (!ok) return
+  reopening.value = true
+  try {
+    await forecastApi.reopenPeriod(row.id)
+    historyKey.value++            // 重挂往期预报，状态刷新
+    await loadPeriods()           // 刷新期次下拉
+    toast('已重开期次：' + (row.name || ''), 'ok')
+  } catch (e) {
+    toast('重开失败: ' + (e.message || ''), 'err')
+  } finally {
+    reopening.value = false
+  }
+}
+
 async function loadCross() {
   let p = null
   if (viewPeriod.value && Number(viewPeriod.value.id) === Number(curPeriod.value)) {
@@ -8798,6 +8958,19 @@ th.sortable:hover{color:var(--p-dark)}
 .cross-tbl.dragging, .cross-tbl.dragging *{user-select:none}
 .fc-num.invalid, .fc-code.invalid, .fc-text.invalid{border-radius:6px}
 td.invalid, .qty-cell.invalid{background:var(--danger-bg) !important}
+/* v219 打磨④：错误跳转/清单点击后目标格闪两下。
+   ⚠️ 用 outline 而不是 background —— 背景色会跟「红框错误色 / 热力图底色 / 选区底色」
+      抢同一块视觉（用户会分不清「这是刚跳到的格」还是「这格错了」）。outline 不占位、
+      不影响布局，也不改背景。 */
+td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
+@keyframes cellFlash{0%{outline:2px solid var(--brand,#4f46e5);outline-offset:-2px}100%{outline-color:transparent}}
+/* v219 打磨②：改动记录列表 */
+.undo-list{display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;margin:8px 0;border:1px solid var(--bd);border-radius:var(--radius-md)}
+.undo-item{display:flex;align-items:center;gap:8px;padding:6px 8px;background:none;border:0;border-bottom:1px solid var(--bd);cursor:pointer;text-align:left;font-size:12.5px;color:var(--fg)}
+.undo-item:last-child{border-bottom:0}
+.undo-item:hover{background:var(--brand-soft,#eef2ff)}
+.undo-idx{flex:0 0 28px;color:var(--fg-muted,#94a3b8);font-variant-numeric:tabular-nums;font-size:11.5px}
+.undo-label{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 行号格标红：长表里先看见「哪一行有问题」，再落到具体格 */
 .td.seq-cell.row-bad{background:var(--danger-bg);color:var(--danger-txt);font-weight:700}
 .td.seq-cell.row-bad .seq-num{color:var(--danger-txt)}

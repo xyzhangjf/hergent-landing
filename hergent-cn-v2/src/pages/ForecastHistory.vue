@@ -44,6 +44,9 @@
               <!-- A6 修复 (2026-07-24)：合成行（id<0，如「2026-07-24 报单」）无真实期次记录，
                    关闭/删除会打到无效 id（UPDATE 0 行或误触数据），故屏蔽 -->
               <button v-if="row.status === 'open' && Number(row.id) > 0" class="btn btn-sm btn-ghost" @click="$emit('close', row)">关闭</button>
+              <!-- v219：关闭（=定稿）此前**单向不可逆** —— open 期次又不许删 ⇒ 误关一次即永久锁死。
+                   重开是唯一补救路径，只对已关闭期次出现。⚠️ 副作用：重开后销售又能报单。 -->
+              <button v-if="row.status !== 'open' && Number(row.id) > 0" class="btn btn-sm btn-ghost" @click="$emit('reopen', row)">重开</button>
               <button v-if="row.status !== 'open' && Number(row.id) > 0" class="btn btn-sm btn-ghost danger" @click="$emit('delete', row)">删除</button>
             </td>
           </tr>
