@@ -2974,7 +2974,11 @@ SPEC_SELF = ("fe", [
                  '      · drop_plus_lines      {os: [0-based 索引…]}',
                  '            n_extra_resid += 1'],
      "gone": []},
-    {"file": ".workbuddy/tools/drop-plus-lines-selftest.py", "new_file": True,
+    # ⚠️ 这里**不能**写 `new_file: True` —— 它在 v230 首次提交后就变成已跟踪文件，
+    #    再跑会断言「标了 new_file，但 HEAD 里已存在同名文件」。`self` 是**长期看门狗**，
+    #    要能在提交后继续跑 ⇒ 用 `keep_all`（该文件只有我的改动）。
+    {"file": ".workbuddy/tools/drop-plus-lines-selftest.py", "keep_all": True,
+     "present": ['def expect_boom(name, fn, *a):', '⑦ dropped 判据'],
      "gone": []},
 ])
 
