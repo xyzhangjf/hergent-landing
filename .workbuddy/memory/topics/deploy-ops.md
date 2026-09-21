@@ -628,3 +628,39 @@ git diff --cached --name-only -z | while IFS= read -r -d '' p; do git reset -q H
 `<working_memory_content>`（即 `memory/MEMORY.md` 全文）写进
 `~/.workbuddy/traces/<session-id>/*.json` ⇒ 扫 trace、取**最长的那一份**即最完整版本。
 （🔴 只对**已跟踪**文件有效：`topics/*.md` 多为未跟踪，`git checkout` 不会动它们。）
+
+## §v231 🔴 「加列迁移只跑主库」⇒ **租户库不会自动获得新列**（2026-09-21 做 P1-3 时再次确认）
+
+`erp_db.py` 的 `_safe_migrate` 在 **import 时**执行，而那一刻 `get_db()` 返的是**主库 `erp.db`**
+（尚无租户上下文）⇒ 新列**只在主库生成**，`tenant_*.db` 一个都没有。
+
+**危险不在于「列没加上」，而在于加不上时它也不会响**：`db/queries/prices.py::resolve_channel_price`
+外面包着宽 `except Exception`（设计如此：取价永不抛），所以租户库里的
+`no such column: m.small_unit_price` 会被吞成「取不到价 ⇒ 落回明细价」——
+**看起来完全像「这个渠道本来就没录价」**（= 又一条「恒空恒 0 且零报错」的静默失效）。
+
+⇒ **凡新增业务列，部署后必须另跑一次 `glob` 补列**（生产库不止 `tenant_1..8`，含
+`tenant_10` / `tenant_tenant_1` 等，**务必 glob 不要枚举**）：
+
+```python
+# scp 到 prod → runuser -u hergent -- python3 x.py（root 跑会把 WAL 副文件属主改成 root）
+import sqlite3, glob
+for f in sorted(glob.glob('/opt/hergent-erp/tenant_*.db')):
+    c = sqlite3.connect(f)
+    cols = [r[1] for r in c.execute('PRAGMA table_info(product_channel_prices)')]
+    for col in ('small_unit_price', 'medium_unit_price', 'large_unit_price'):
+        if col not in cols:
+            c.execute('ALTER TABLE product_channel_prices ADD COLUMN %s REAL DEFAULT 0' % col)
+    c.commit(); c.close()
+```
+
+⚠️ **不要在租户库伪造 `_migrations` 登记行** —— 租户库压根不跑模块级迁移，写那些名字只是谎。
+
+**反向记住一条**：宽 `except` 让「列缺失」与「确实没录价」**读数相同** ⇒
+验收必须**正面断言列存在**（`PRAGMA table_info`），不能靠「接口没报错」。
+
+## §v231 未部署待办（P1-3 已提交 `2b2ab31`，**刻意不单独部署**）
+
+`product_channel_prices` 补三档列这件事**今天零用户可见变化**（表 0 行、前端零界面）
+⇒ 不为它单独重启一次生产。**与 v218 §10.7 的 P2-1 / P2-2 合并成一次部署**，
+届时验收必须包含上面那步 **`glob tenant_*.db` 补列**。

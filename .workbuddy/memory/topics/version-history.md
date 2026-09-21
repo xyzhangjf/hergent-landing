@@ -6,6 +6,29 @@
 
 ## 一、版本史（新 → 旧）
 
+### v231 = 渠道价补「三级单位价」三列（v218 §10.7 P1-3）
+
+`product_channel_prices` 补 `small/medium/large_unit_price`，与 `customer_prices` **逐列同构**
+（舟谱「价格方案」范式：**单位写在列名里** ⇒ 从根上消灭「这个 99 是元/箱还是元/桶」的量纲歧义）。
+
+- **三处零变化保证**：① 生产该表 **0 行** ⇒ 零迁移；② **只 `ADD COLUMN`**（不重建、不动 `price`）；
+  ③ `price` 仍是取价主列，三档缺省 0 = 「未录该档」。
+- `_tier_of_unit(unit, u_small, u_medium, u_large)`：**按单位名**对齐档位
+  （与 v223「三级商品用中单位、两级用小单位」的报单单位铁律同源）；🔴 **空名永不匹配**。
+- `resolve_channel_price(…, unit="")` / `resolve_for_report(…, unit="")`：命中且该档 `>0` 才用，
+  **否则退回主列** ⇒ 不传 `unit` 的调用方**零变化**。
+- `set_channel_matrix` 维持 **`price` ≡ `small_unit_price`** 不变量（否则会产生半残行，
+  而 `channel_price_summary` 按 `price>0` 计「已录价」）。
+
+**验证**：内存库自测 **28 项断言全绿**（含 3 项档位反证 + **5 项「部分更新不得误清其余档」**）。
+提交 `2b2ab31`。**刻意不单独部署**（零用户可见变化）⇒ 与 P2-1/P2-2 合并部署，
+且部署时必须另跑 **`glob tenant_*.db` 补列**（见 `topics/deploy-ops.md §v231`）。
+
+🔴 **结构性发现**：`resolve_for_report()` 只返回**一个** `price` ⇒
+P1-3（三档）+ P2-1/P2-2（按单位取价）+ P2-3（`order_unit`）**是一个耦合特性**；
+**P1-3 单独做本是死 schema**（0 行 + 无界面的表加三列 = 加了没人用），
+本轮把**选档钩子**一并做进去，它才成立。
+
 ### v230 = 受控提交工具两项能力重建 + 三条操作纪律入库
 
 🔴 **事故背景**：`git checkout -- .workbuddy` 抹掉 `tools/scoped_stage_by_marker.py` **619 行**
