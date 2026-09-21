@@ -169,7 +169,7 @@
           <div v-else-if="impState === 'preview'" class="imp-body">
             <p class="imp-tip">系统按列名猜字段，可能猜错（例如把「合计」当成客户列）。核对「识别为」这一列，不对就在下拉里改 —— 标「不导入」的列不会进来。</p>
             <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions" />
-            <p v-if="impFactoryMissing" class="imp-gate">没有识别到「厂价」列。厂价闸门开启时，档案里也没有厂价（或进价）的行会被整行拒收 —— 文件里若有厂价列，请在上表把它改成「厂价」。</p>
+            <p v-if="impFactoryMissing" class="imp-gate">没有识别到「进价」列。进价闸门开启时，档案里也没有进价的行会被整行拒收 —— 文件里若有这一列（旧模版里叫「厂价」），请在上表把它改成「进价」。</p>
             <div v-if="impPreview.length" class="imp-matrix">
               <table class="tbl">
                 <thead><tr><th v-for="(h, hi) in impHeaders.slice(0, 12)" :key="hi">{{ h }}</th></tr></thead>
@@ -251,14 +251,14 @@
               <div class="imp-arch-line">
                 <span class="imp-arch-tag ok">自动建档 <b>{{ impArchive.created }}</b> 个</span>
                 <span class="imp-arch-tag muted">复用已有 <b>{{ impArchive.reused }}</b> 个</span>
-                <!-- v157：命中已有档案时顺带补进去的空字段（最常见的就是老商品没录厂价） -->
+                <!-- v157：命中已有档案时顺带补进去的空字段（最常见的就是老商品没录进价） -->
                 <span v-if="impArchive.backfilled" class="imp-arch-tag ok">补进已有档案 <b>{{ impArchive.backfilled }}</b> 个</span>
               </div>
               <ul v-if="impArchive.backfilledNames.length" class="imp-arch-list">
                 <li v-for="(n, i) in impArchive.backfilledNames" :key="i">补录：{{ n }}</li>
               </ul>
               <p v-if="impArchive.backfilled" class="imp-arch-note">
-                只有已有档案里<u>空着</u>的字段才会被补上（多为厂价/规格），档案里已有的值一律不动。
+                只有已有档案里<u>空着</u>的字段才会被补上（多为进价/规格），档案里已有的值一律不动。
               </p>
               <ul v-if="impArchive.createdNames.length" class="imp-arch-list">
                 <li v-for="(n, i) in impArchive.createdNames" :key="i">新建：{{ n }}</li>
@@ -274,23 +274,23 @@
                 已记入「条码冲突」台账，请人工确认后处理。
               </p>
             </div>
-            <!-- v158 厂价闸门：厂价与进价都没有的行被拒 —— 「整行不进报单」是硬结果，必须给补价入口指引。
+            <!-- v158 进价闸门：连进价都没有的行被拒 —— 「整行不进报单」是硬结果，必须给补价入口指引。
                  闸门关闭时后端回传 factory_price_gate_on=false → 此块不渲染。
-                 v165：判据口径已改「厂价 → 进价」（厂价 ≡ 进价），故不再只看 factory_price 一列。 -->
+                 v165：判据口径已改「进价 → 标准售价」两档（原「厂价列 / 进价列」两列合一），故不再只看 factory_price 一列。 -->
             <div v-if="impFpRejected" class="imp-arch">
-              <div class="imp-arch-hd">厂价必填（已开启）</div>
+              <div class="imp-arch-hd">进价必填（已开启）</div>
               <template v-if="impFpRejected.count">
                 <p class="imp-arch-note bad">
-                  有 <b>{{ impFpRejected.count }}</b> 个商品因为<u>厂价与进价都没有</u>被拒收，这些行的数量<u>没有</u>进本次报单：
+                  有 <b>{{ impFpRejected.count }}</b> 个商品因为<u>连进价都没有</u>被拒收，这些行的数量<u>没有</u>进本次报单：
                 </p>
                 <ul class="imp-arch-list">
                   <li v-for="(n, i) in impFpRejected.names.slice(0, 8)" :key="i">{{ n }}</li>
                 </ul>
                 <p class="imp-arch-note">
-                  厂价 ＝ 进价 ＝ 厂家跟你结算的价（同一个量）。请到 <b>商品档案 → 补厂价</b> 补上（可「导出待补清单」批量填好再导回），补完重新导入本文件即可。
+                  进价就是厂家跟你结算的价（元/箱）。请到 <b>商品档案 → 补进价</b> 补上（可「导出待补清单」批量填好再导回），补完重新导入本文件即可。
                 </p>
               </template>
-              <p v-else class="imp-arch-note">本次导入的商品都有价（厂价或进价），没有行被拒收。</p>
+              <p v-else class="imp-arch-note">本次导入的商品都有进价，没有行被拒收。</p>
             </div>
             <div class="imp-ft">
               <button class="btn btn-primary" @click="closeImportAndReload">完成，刷新交叉表</button>
@@ -320,7 +320,11 @@
               <div class="pf-item"><span>到货周期</span><b>{{ arrivalCycleText(prodProfile.arrival_lead_days) }}</b></div>
               <div class="pf-item"><span>保质期天</span><b>{{ fmt(prodProfile.expiry_days) }}</b></div>
               <div class="pf-item"><span>标准售价</span><b>{{ prodProfile.sale_price != null ? fmt(prodProfile.sale_price) : '—' }}</b></div>
-              <div class="pf-item"><span>进价</span><b>{{ prodProfile.purchase_price != null ? Number(prodProfile.purchase_price).toFixed(2) : '—' }}</b></div>
+              <!-- v226b：此前读 `prodProfile.purchase_price` 并叫「进价」 —— 那是**第三个**「进价」实现，
+                   且取的正是本页金额**不使用**的那一列（元/小单位、实测等于售价）⇒ 用户在浮层看到
+                   「进价 6.99」、回主表却见金额显示「缺价」，无从理解。现与金额基准同源（factoryPrice）
+                   并**显式标注量纲**，未录时把后果写出来（不留下"填了却没反应"的悬案）。 -->
+              <div class="pf-item"><span>进价(元/箱)</span><b>{{ factoryPrice(prodProfile) > 0 ? fmt(factoryPrice(prodProfile)) : '未录（金额按标准售价估算）' }}</b></div>
               <div class="pf-item"><span>分销价</span><b>{{ prodProfile.dist_price != null ? fmt(prodProfile.dist_price) : '—' }}</b></div>
               <div class="pf-item"><span>健康分</span><b :class="healthClass(prodProfile.product_id)">{{ hsMap[prodProfile.product_id] != null ? hsMap[prodProfile.product_id] : '—' }}</b></div>
               <div class="pf-item"><span>批次资料</span><b :class="gapSet.has(prodProfile.product_id) ? 'pf-warn' : 'pf-ok'">{{ gapSet.has(prodProfile.product_id) ? '缺批次/到期' : '完整' }}</b></div>
@@ -497,7 +501,7 @@
         </li>
       </ul>
       <div v-else class="hint">本期暂无修改记录</div>
-      <!-- v166：与期次无关的全局操作（厂价闸门 / 回写 / 采购单推送 / 异常处置 / AI 根因分析 /
+      <!-- v166：与期次无关的全局操作（进价闸门 / 回写 / 采购单推送 / 异常处置 / AI 根因分析 /
            删除期次）原先写完就再也看不到，这里折叠交还；**不揉进本期时间线**，避免被误读成
            「本期汇总表被改过」。删期次的记录留在该期自己的 audit 键里，删完仍可回溯。 -->
       <div v-if="auditGlobal.length" class="at-global">
@@ -1771,7 +1775,7 @@
         </div>
         <div v-if="editMode" class="edit-hint">
           <!-- v187：口径自证 —— 同屏有「分销价」主档列，若只写「金额」会被读成分销价×数量；
-               本值实为 amountValue 累加 = 最终下单(箱) × 单价(厂价/箱)，与「下单金额(厂价)」列逐字同源。 -->
+               本值实为 amountValue 累加 = 最终下单(箱) × 单价(进价/箱)，与「下单金额(进价)」列逐字同源。 -->
           <!-- v188：此处原写「合计 X 件」——但 editTotalQty 是 Σ各报单单元数量（小单位），
                不是「件」；规格 ≠1 时「件」是错的。随列名一并改为「合计(小单位)」并去掉单位字
                （小单位可能是盒/袋/包，统一写「件」反而误导；列名已自证）。 -->
@@ -2323,6 +2327,10 @@ function asProdRow(src) {
     barcode: src.barcode || '', product_code: src.product_code || '',
     dist_price: src.dist_price || 0, sale_price: src.sale_price || 0,
     purchase_price: src.purchase_price || 0,
+    /* 🔴 v226b：本函数是**显式白名单**（见下方 v184 注释）—— 漏列即等于该字段在此路径上不存在。
+       `factory_price`（元/箱 进价）此前缺失 ⇒ 凡是走本函数进来的行（已停用/已删除但被本期引用、
+       以及 summary 的 imported_products）在本页**金额恒缺价**，而库里明明是有的。 */
+    factory_price: Number(src.factory_price) || 0,
     safety_stock: src.safety_stock || 0, expiry_days: src.expiry_days || 0,
     category: src.category || '', brand: src.brand || '',
     /* v184：到货周期 —— 本函数搬的是**一份显式白名单**，不在这里列出的字段到此为止。
@@ -2441,7 +2449,7 @@ const renderModel = computed(() => {
   let zi = 0
   for (const [key, rs] of map) {
     const sub = { qty: 0, amount: 0 }
-    // v184e：小计金额改用 amountValue（厂价/箱 × 最终下单箱），与「下单金额(厂价)」列同源；qty 仍为合计(小单位) 与「合计(小单位)」列同源。
+    // v184e：小计金额改用 amountValue（进价/箱 × 最终下单箱），与「下单金额(进价)」列同源；qty 仍为合计(小单位) 与「合计(小单位)」列同源。
     rs.forEach(r => { sub.qty += rowSum(r); sub.amount += (amountValue(r) || 0) })
     out.push({ kind: 'group', key, label: key, subtotal: sub })
     rs.forEach(r => out.push({ kind: 'row', r, zi: zi++, gkey: key }))
@@ -2488,7 +2496,7 @@ function recomputeTotals() {
     sku: rows.length,
     qty: rows.reduce((s, r) => s + (r.total || 0), 0),   // 合计(小单位)
     boxes: rows.reduce((s, r) => s + rowBoxes(r), 0),     // 合计(箱)
-    // v184e：报单金额合计 = 最终下单(箱) × 单价(厂价/箱)，与只读表「下单金额(厂价)」列同源。
+    // v184e：报单金额合计 = 最终下单(箱) × 单价(进价/箱)，与只读表「下单金额(进价)」列同源。
     amount: rows.reduce((s, r) => s + (amountValue(r) || 0), 0),
   }
 }
@@ -2521,7 +2529,7 @@ function commitCell(pid, uname, val) {
   r.qtyByUnit = { ...r.qtyByUnit, [uname]: v }
   const total = cross.value.units.reduce((s, u) => s + (r.qtyByUnit[u.name] || 0), 0)
   r.total = total
-  // v184e：r.amount、boxes 与只读表/导出/列统计同源（箱口径）。r.amount = 最终下单(箱) × 单价(厂价/箱)。
+  // v184e：r.amount、boxes 与只读表/导出/列统计同源（箱口径）。r.amount = 最终下单(箱) × 单价(进价/箱)。
   r.amount = amountValue(r) != null ? amountValue(r) : (r.amount || 0)
   const pc = perCase(r.spec, r.unit)
   r.boxes = (pc > 0 && total) ? Math.round(total / pc) : r.boxes
@@ -2554,8 +2562,8 @@ const colOrderList = computed(() => {
   if (showSuggest.value) cols.push({ type: 'calc', key: 'ai', label: '系统建议' })
   cols.push({ type: 'calc', key: 'extra', label: '加单(箱)' })
   cols.push({ type: 'calc', key: 'final', label: '最终下单(箱)' })
-  cols.push({ type: 'calc', key: 'price', label: '单价(厂价/箱)' })
-  cols.push({ type: 'calc', key: 'amount', label: '下单金额(厂价)' })
+  cols.push({ type: 'calc', key: 'price', label: '单价(进价/箱)' })
+  cols.push({ type: 'calc', key: 'amount', label: '下单金额(进价)' })
   return cols
 })
 function colCls(col) {
@@ -2578,7 +2586,7 @@ const colWidths = ref({})
    只显示得下 9 位（对账时看不全，且与「条码重复」判定直接相关：看不到全码就无法人工核对）。
    需要 ~130px 才放得下 13 位数字 + 输入框内边距 + 拖拽手柄。用户若手动拖过该列，
    colWidths 里已有值、仍以用户所拖为准（本默认只对没拖过的用户生效）。 */
-/* v187：补 `price` —— 表头「单价(厂价/箱)」需 ~91px 才不折行，此前不在默认表里 ⇒
+/* v187：补 `price` —— 表头「单价(进价/箱)」需 ~91px 才不折行，此前不在默认表里 ⇒
    落到兜底 90px，两态表头都会折成两行。与 `amount`(104) 拉平，两态同宽。 */
 /* v188：列名带单位后加宽 —— 「合计(小单位)」需 ~95px（原 `qty`=只读表 / `sum`=编辑网格 都只有 74px）；
    「合计(箱)」由「件数(箱)」缩短，但 70px 仍偏窄 ⇒ 与同排 `extra`/`final`(78) 拉平取 84。
@@ -2642,8 +2650,8 @@ const editColKeys = computed(() => {
   visibleCols.value.forEach(c => keys.push(c.key))
   cross.value.units.forEach(u => keys.push(u.name))
   /* v187：汇总列与「汇总表（只读）」逐列对齐（用户 2026-09-18 要求）——
-     报单单元 → 合计(小单位) → 合计(箱) → 配方建议 → 加单(箱) → 最终下单(箱) → 单价(厂价/箱) → 下单金额(厂价)。
-     原实现把「合计」甩到最右、且完全缺「最终下单 / 下单金额(厂价)」两列（只在只读表有）。
+     报单单元 → 合计(小单位) → 合计(箱) → 配方建议 → 加单(箱) → 最终下单(箱) → 单价(进价/箱) → 下单金额(进价)。
+     原实现把「合计」甩到最右、且完全缺「最终下单 / 下单金额(进价)」两列（只在只读表有）。
      ⚠️ 本函数驱动 <colgroup>，改这里必须同步 thead th / tbody td / 表尾 td 四处，否则整表错位。
      v188：列名带单位（合计 → 合计(小单位)，件数(箱) → 合计(箱)），key 不变、本节结构不变。 */
   keys.push('sum')          // 合计(小单位)（= 各报单单元数量之和，紧挨报单单元）
@@ -2685,13 +2693,20 @@ function canSort(col) { return col.key === 'name' || col.key === 'qty' || col.ke
 function ariaSort(col) { return sortKey.value === col.key ? (sortDir.value === 'asc' ? 'ascending' : 'descending') : 'none' }
 function onHeadClick(col) { if (canSort(col)) onSort(col.key) }
 function masterVal(r, col) { if (col.fmt) return col.fmt(r); const v = r[col.key]; return v != null && v !== '' ? v : '—' }
-// v184d：报单金额的计价基准 = 厂价。口径与后端 db.factory_price_sql 逐字同构（厂价 ≡ 进价）：
-//   优先取 factory_price，为 0/空则回退 purchase_price。删除「进价」列后，金额仍按此口径计算，
-//   且若日后 factory_price 被单独录入，金额会自动改用它（无需再改此处）。
+// v184d：**报单金额的计价基准 = 进价（元/箱）**。
+// 🔴 v226b 收紧：只认 `factory_price`，**不再回退 `purchase_price`**。为什么必须收紧：
+//   · 量纲：`purchase_price` 是**元/小单位**（生产实测 `factory_price = pp × perCase × 0.9`，46/46 成立），
+//     而本函数返回值要乘 `rowFinalQty`（**箱数**）⇒ 回退会让金额**差一个 perCase 倍**（10~36 倍）。
+//   · 语义：`purchase_price` 生产实测 **56/56 == `sale_price`**（其中 46/46 还 == `dist_price`）
+//     ⇒ 它存的是「卖给门店的价」，压根不是进货成本；拿它当进价是在说假话。
+//   · 生产影响：命中 10 个商品，而它们 `pp == sp` 逐个全等 ⇒ **金额数值零变化**
+//     （回退 pp 与回退售价本就等价），只是界面从「缺规格」如实改成「缺价」。
+// ⚠️ 与「档案完整性」口径的区别（**别把两件事混成一件事**）：
+//   `ProductArchive.fpEff()` 与后端 `db.factory_price_sql` **仍保留**回退 —— 它们回答的是
+//   「这个商品档案里有没有录过价格信息」（用于列表展示与缺价计数/闸门），**不是**「算金额用多少钱」。
+//   同一个词「进价」在两个问题下答案不同，是有意的；改任意一处前先想清问的是哪一个。
 function factoryPrice(r) {
-  const fp = Number(r?.factory_price || 0)
-  const pp = Number(r?.purchase_price || 0)
-  return fp > 0 ? fp : pp
+  return Number(r?.factory_price || 0)
 }
 /* v189：规格 → **每箱小单位数**（「合计(箱) = 合计(小单位) ÷ 规格」里那个「规格」的唯一实现）。
    🔴 原四处都写 parseFloat(spec)，取到的是**净含量**、不是每箱数：
@@ -2751,8 +2766,8 @@ function priceAuto(r) {
   if (!(pc > 0)) return null                    // 缺规格，无法换算到箱
   return Math.round(fp * pc * 100) / 100
 }
-/* v190：「单价(厂价/箱)」取值 = **手工录入优先**，否则自动价。
-   录入值是权威 —— 直接用它（同样归一到分，钱只到分位），不再经厂价回算，
+/* v190：「单价(进价/箱)」取值 = **手工录入优先**，否则自动价。
+   录入值是权威 —— 直接用它（同样归一到分，钱只到分位），不再经进价回算，
    免得「填 100、保存后显示 99.9996」。
    🔴 2026-09-18 口径变更（用户拍板「**只在本期生效**」）：手工价随报单落进
    `forecast_extra_qty.case_price`（唯一键含 产品×期次）⇒ 只影响本期；
@@ -2761,7 +2776,7 @@ function priceAuto(r) {
    🔴 v191b（同日稍晚，用户拍板「**直接延用上一期，不加按钮**」）⇒ 取值链由两级变**三级**：
        ① 本期手工录入（`r.casePrice`，随 save-matrix 落库、只在本期生效）
        ② **沿用**：本期之前**最近一次录入**过的价（`r.casePriceInherit`，后端随 summary 下发）
-       ③ 都没有 ⇒ 按商品档案厂价自动算（`priceAuto`）
+       ③ 都没有 ⇒ 按商品档案进价自动算（`priceAuto`）
    ②是**只读参考值，绝不落库** —— 不碰档案、也不写本期记录 ⇒「没填」不会被保存成「填过」，
    清空输入框即可撤销（回落到 ②/③）。 */
 function priceInherit(r) {
@@ -2786,7 +2801,7 @@ function pricePerCase(r) {
   if (cv > 0) return Math.round(cv * 100) / 100   // ① 本期手工录入
   const iv = priceInherit(r)
   if (iv != null) return iv                        // ② 沿用上一期录入的价（不落库）
-  return priceAuto(r)                              // ③ 按商品档案厂价自动算
+  return priceAuto(r)                              // ③ 按商品档案进价自动算
 }
 /* v190：录入框灰字占位 —— 未手工录入时显示「**当前实际生效的价**」，让用户一眼知道现在按多少算；
    缺价/缺规格则直接说明是哪种，而不是留一个空白框让人猜。
@@ -2816,8 +2831,8 @@ function priceTitle(r) {
   }
   return head + (a != null ? `\n自动价 ¥${a.toFixed(2)}/箱` : '')
 }
-/* v190：录入箱价 → 本行立即生效（pricePerCase 优先读它，故「下单金额(厂价)」自动跟随：
-   下单金额 = 最终下单(箱) × 本列）。清空 = 撤掉手工价，回到档案厂价自动算。
+/* v190：录入箱价 → 本行立即生效（pricePerCase 优先读它，故「下单金额(进价)」自动跟随：
+   下单金额 = 最终下单(箱) × 本列）。清空 = 撤掉手工价，回到档案进价自动算。
    落库发生在「保存」：随 save-matrix 的 case_price 落进 `forecast_extra_qty`
    （按 产品×期次 唯一）⇒ **只在本期生效**，且换浏览器 / 换个人打开本期表看到的都是同一个价。
    录入过程中**不**在行上存任何派生态副本（草稿恢复、复制行都会让副本漂移）。 */
@@ -2861,7 +2876,7 @@ function cellText(r, col) {
   return ''
 }
 function cellAria(r, col) { if (col.type === 'seq') return '序号：' + (r.seq || '') ; return col.label + '：' + cellText(r, col) }
-function rowAria(r) { const fq = rowFinalQty(r); const av = amountValue(r); return r.name + '，合计 ' + fmt(r.total) + '，加单 ' + fmt(rowExtraQty(r)) + '，最终下单 ' + fmt(fq) + '，下单金额(厂价) ¥' + fmt(av != null ? av : 0) }
+function rowAria(r) { const fq = rowFinalQty(r); const av = amountValue(r); return r.name + '，合计 ' + fmt(r.total) + '，加单 ' + fmt(rowExtraQty(r)) + '，最终下单 ' + fmt(fq) + '，下单金额(进价) ¥' + fmt(av != null ? av : 0) }
 function rowKey(it) { return it.kind === 'group' ? 'grp-' + it.key : it.kind === 'row' ? 'row-' + it.r.product_id : 'det-' + it.r.product_id }
 function cellActive(it, ci) { return it.kind === 'row' && it.r.product_id === activeCell.value.pid && ci === activeCell.value.ci }
 function riskText(r) {
@@ -2981,9 +2996,9 @@ const MASTER_COL_DEFS = [
   { key: 'barcode', label: '条码', cls: 'fc-code', edit: 'text', deletable: false },
   { key: 'spec', label: '规格', cls: 'fc-text', edit: 'text', deletable: true },
   { key: 'unit', label: '单位', cls: 'fc-text', edit: 'text', deletable: true, options: ['件', '箱', '提', '杯', '袋', '瓶', '盒', '托', '板', '根'] },
-  // v184d：删除「进价」列 —— 它与「单价(厂价)」列显示的是**同一个数**（厂价 ≡ 进价），
+  // v184d：删除原「进价」列（绑 purchase_price）—— 它与「单价(进价)」列显示的是**同一个数**（v226 起两列合一），
   //   属重复列。删列≠删数据：行对象 r.purchase_price / 导入解析 / 草稿 / 保存载荷一律保留，
-  //   报单金额仍按厂价口径计算（见 factoryPrice）。仅从 MASTER_COL_DEFS 与列权限表移除。
+  //   报单金额仍按进价口径计算（见 factoryPrice）。仅从 MASTER_COL_DEFS 与列权限表移除。
   { key: 'dist_price', label: '分销价', cls: 'fc-num', edit: 'num', deletable: false, fmt: r => r.dist_price ? r.dist_price.toFixed(2) : '—' },
   { key: 'product_code', label: '厂家编码', cls: 'fc-code', edit: 'text', deletable: false },
 ]
@@ -3098,7 +3113,7 @@ function setBizRole(r) {
   if (store.user) store.user.role = r
 }
 // 列权限：key -> 允许查看的**规范角色名**（见 constants/roles.js）；未列出的列所有人可见
-// v184d：purchase_price（进价）权限随「进价」列一并移除 —— 列已不渲染，留着是死配置。
+// v184d：purchase_price 的列权限随该列一并移除（v226 起它已不单独成列）—— 列不渲染，权限是死配置。
 // 2026-09-19：`owner`/`finance` 两个不存在的角色名 → `boss`/`accountant`（原意「老板 + 会计」），
 //   并补 `admin`（后端 `_DEFAULT_PERMS['admin'] = ['*']`，管理员本应全见）。
 const COLUMN_PERMISSIONS = {
@@ -3306,7 +3321,7 @@ async function loadEditGrid() {
         ...(pd.extra || {}),
         product_id: pd.id, name: pd.name, barcode: pd.barcode || '', spec: pd.spec || '', unit: pd.unit || '件',
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
-        /* v190：厂价必须随行带上 —— 此前**两处行映射都漏了它**，而 factoryPrice(r) 优先读
+        /* v190：进价必须随行带上 —— 此前**两处行映射都漏了它**，而 factoryPrice(r) 优先读
            `r.factory_price` ⇒ 前端实际永远回退到进价，与后端 db.factory_price_sql
            （厂价优先、缺则进价）不是同一个数：档案里「厂价 ≠ 进价」的商品，
            本页「单价(厂价/箱)」与报单金额都和后端算的对不上。
@@ -3359,7 +3374,7 @@ async function loadEditGrid() {
          Q14：原实现只恢复 qtyByUnit 数量，主档字段（名称/规格/价格…）的本地编辑与
          粘贴/新增的商品行在刷新后全部丢失，但横幅却宣称「已恢复未完成数据」→ 误导。
          现补充：① 恢复主档字段；② 草稿里有、服务端商品库没有的新增行追加回来。 */
-      const DRAFT_MASTER_KEYS = ['name', 'barcode', 'spec', 'unit', 'sale_price', 'purchase_price',
+      const DRAFT_MASTER_KEYS = ['name', 'barcode', 'spec', 'unit', 'sale_price', 'factory_price', 'purchase_price',
         'safety_stock', 'expiry_days', 'product_code', 'dist_price', 'brand', 'moq', 'lead_days', 'extraQty',
         // v190：手工录入的单价也必须随草稿留住 —— 否则用户在改单网格填了箱价、
         //   还没点「保存」就刷新/切期次，填的价会静默消失（金额也跟着变回去）。
@@ -3711,13 +3726,13 @@ async function saveEdits() {
       prodMsg = ` · 商品 ${pr.inserted} 新增 / ${pr.updated} 更新`
       prodDone = true
     }
-    /* v190（2026-09-18 口径变更）：手工录入的「单价(厂价/箱)」**只在本期生效** ——
-       不再反推写回商品档案的厂价（那是当时的另一个选项，用户明确选了「只在本期」）。
+    /* v190（2026-09-18 口径变更）：手工录入的「单价(进价/箱)」**只在本期生效** ——
+       不再反推写回商品档案的进价（那是当时的另一个选项，用户明确选了「只在本期」）。
        本期价随下面的 saveMatrix 载荷走 `rows[].case_price`，后端落进 `forecast_extra_qty`
        （唯一键含 产品×期次）⇒ 天然按期次隔离，也天然不碰商品档案。
        ⚠️ 不要把它塞进上面的 productsApi.bulkUpsert：那是**商品档案**写通道，
-          塞进去就等于「本期单价」和「档案厂价」两个不同生命周期的东西共用一张表。
-       要改档案厂价请去商品档案页（那里有字段级留痕）。 */
+          塞进去就等于「本期单价」和「档案进价」两个不同生命周期的东西共用一张表。
+       要改档案进价请去商品档案页（那里有字段级留痕）。 */
     // 2) 数量矩阵（保持原 save_matrix 语义：幂等覆盖本期『导入』数据）
     const payload = {
       start: p.order_start, end: p.order_end,
@@ -3732,7 +3747,7 @@ async function saveEdits() {
         /* v190：本期手工单价（元/箱）→ 后端落 `forecast_extra_qty.case_price`。
            未录入传 null（**不传 0**：前端判据是「> 0 才算手工录入」，传 0 会让两边判据
            出现「0 vs null」的表述差，虽然结果一样、但读代码的人要重新推一遍）。
-           清空后再保存 = 写回 NULL ⇒ 该行回到「按档案厂价自动算」。
+           清空后再保存 = 写回 NULL ⇒ 该行回到「按档案进价自动算」。
            🔴 v191b：**只能传 `r.casePrice`（用户真填过的那个）**，绝不把 `casePriceInherit`（沿用的价）
               传上去 —— 传上去等于把「没填」记成「填过」：本期会凭空多出一条价记录，
               且清空后再保存又被写回 ⇒ 用户永远清不掉（沿用值把它带回来）。 */
@@ -3842,7 +3857,13 @@ function onPaste(e) {
     '厂家编码': 'product_code', '永辉代码': 'product_code', '客户代码': 'product_code', '产品编码': 'product_code', '货号': 'product_code',
     '规格': 'spec', '单位': 'unit', '售价': 'sale_price', '单价': 'sale_price', '销售价': 'sale_price',
     '分销价': 'dist_price', '分销价格': 'dist_price', '批发价': 'dist_price',
-    '进价': 'purchase_price', '成本价': 'purchase_price', '采购价': 'purchase_price',
+    /* 🔴 v226b：此处原为 `'进价': 'purchase_price'` —— 与「商品档案页的进价输入框 / 导入模板 /
+       后端 import_router 的「进价」列」指向了**不同的物理列**（同一个词、两个列）。后果是
+       用户在这里粘了进价，主表金额却仍显示「缺价」（那一列不参与金额）—— 典型的"填了没反应"。
+       现统一为 `factory_price`（元/箱），与上述三处同一物理列。
+       老列名「厂价」系列一并接住：Excel 列头写「厂价 / 出厂价 / 工厂价」的用户不必改表。 */
+    '进价': 'factory_price', '厂价': 'factory_price', '出厂价': 'factory_price', '工厂价': 'factory_price',
+    '成本价': 'factory_price', '采购价': 'factory_price',
     '安全库存': 'safety_stock', '库存下限': 'safety_stock', '保质期': 'expiry_days', '保质期天数': 'expiry_days',
   }
   const first = lines[0].split('\t').map(s => s.trim())
@@ -3856,20 +3877,20 @@ function onPaste(e) {
     headerMap = first.map(h => HEADER_KEYS[h] || null)
     startIdx = 1
   } else {
-    // 无表头：默认顺序 名称/条码/规格/单位/售价/分销价/厂家编码/进价/安全库存/保质期
-    headerMap = ['name', 'barcode', 'spec', 'unit', 'sale_price', 'dist_price', 'product_code', 'purchase_price', 'safety_stock', 'expiry_days']
+    // 无表头：默认顺序 名称/条码/规格/单位/售价/分销价/厂家编码/进价(元/箱)/安全库存/保质期
+    headerMap = ['name', 'barcode', 'spec', 'unit', 'sale_price', 'dist_price', 'product_code', 'factory_price', 'safety_stock', 'expiry_days']
   }
   let added = 0, skipped = 0
   snapshot()
   for (let i = startIdx; i < lines.length; i++) {
     const cells = lines[i].split('\t')
     const row = { product_id: 0, name: '', barcode: '', spec: '', unit: '件',
-      sale_price: 0, purchase_price: 0, safety_stock: 0, expiry_days: 0, product_code: '', dist_price: 0,
+      sale_price: 0, factory_price: 0, safety_stock: 0, expiry_days: 0, product_code: '', dist_price: 0,
       price: 0, qtyByUnit: {}, ai: null, _new: true }
     headerMap.forEach((key, ci) => {
       if (!key) return
       const v = (cells[ci] || '').trim()
-      if (key === 'sale_price' || key === 'purchase_price' || key === 'safety_stock' || key === 'expiry_days' || key === 'dist_price') row[key] = parseNumInput(v)
+      if (key === 'sale_price' || key === 'factory_price' || key === 'safety_stock' || key === 'expiry_days' || key === 'dist_price') row[key] = parseNumInput(v)
       else row[key] = v
     })
     // Q19：跳过行必须显式计数并告知，原实现静默 continue → 用户粘 50 行只进 43 行却不知原因
@@ -4040,7 +4061,7 @@ const colStats = ref(null)         // { label, numeric, sum, avg, min, max, coun
 const hdrWidthVal = ref(120)       // 精确列宽输入
 const uniqAll = ref(false)         // 唯一值筛选：全选
 // 列统计：取某行在某列上的「数值」（可统计列返回 number，否则返回 null 视为文本列）
-const NUMERIC_MASTER = { sale_price: 1, purchase_price: 1, dist_price: 1, safety_stock: 1, expiry_days: 1, moq: 1, lead_days: 1 }
+const NUMERIC_MASTER = { sale_price: 1, factory_price: 1, purchase_price: 1, dist_price: 1, safety_stock: 1, expiry_days: 1, moq: 1, lead_days: 1 }
 function colStatVal(r, desc) {
   if (!r) return null
   if (desc.type === 'qty') return Number(r.qtyByUnit[desc.key] || 0)
@@ -4140,7 +4161,7 @@ const selStats = computed(() => {
 
 function blankRow() {
   return { product_id: 0, name: '', barcode: '', spec: '', unit: '件',
-    sale_price: 0, purchase_price: 0, safety_stock: 0, expiry_days: 0, product_code: '', dist_price: 0,
+    sale_price: 0, factory_price: 0, purchase_price: 0, safety_stock: 0, expiry_days: 0, product_code: '', dist_price: 0,
     price: 0, qtyByUnit: {}, ai: null }
 }
 function selectCell(r, c, shift) {
@@ -4933,7 +4954,7 @@ function buildXlsx(rows, fname) {
   const headers = ['商品名称']
   visibleCols.value.forEach(c => { if (c.key !== 'name') headers.push(c.label) })
   cross.value.units.forEach(u => headers.push(u.name))
-  headers.push('下单金额(厂价)')
+  headers.push('下单金额(进价)')
   headers.push('建议')
   const data = [headers]
   rows.forEach(r => {
@@ -5191,9 +5212,13 @@ function copyQty() {
 
 /* ---- 增强：撤销/重做 · 校验 · 区域复制 · 金额 · 草稿 · 筛选 · 口径 · 导出 ---- */
 // 价格口径：dist=分销价 / sale=标准售价
-// v184d：报单金额 / 单价口径统一为「厂价」—— 与后端 db.factory_price_sql 逐字同构（厂价 ≡ 进价）。
-//   此前 displayPrice 走 dist/sale_price（受已失效的 priceBasis 开关影响），与「按厂价」要求不符，
-//   且只读表「单价(厂价)」列因无渲染分支而空白、「下单金额(厂价)」列误显分销价。现统一改走 factoryPrice。
+// v184d：报单金额 / 单价口径统一为「进价」。
+//   此前 displayPrice 走 dist/sale_price（受已失效的 priceBasis 开关影响），与「按进价」要求不符，
+//   且只读表「单价(进价)」列因无渲染分支而空白、「下单金额(进价)」列误显分销价。现统一改走 factoryPrice。
+// 🔴 v226b：本处原写「与后端 db.factory_price_sql 逐字同构（两列同义）」—— **该表述已不成立**，
+//   两处口径**有意分家**：本函数（金额基准）只认 `factory_price`（元/箱）；而
+//   `db.factory_price_sql` 服务的是「档案里有没有价格信息」（闸门/缺价计数/列表展示），仍含历史列回退。
+//   详见 `factoryPrice()` 定义处的长注释。改这条链前请先确认问的是「算钱」还是「有没有录过」。
 function displayPrice(r) {
   const v = factoryPrice(r)
   return v > 0 ? v : null
@@ -5568,7 +5593,7 @@ const errRowSet = computed(() => {
   return s
 })
 // v187：编辑态顶部汇总口径与「汇总表（只读）」完全对齐 ——
-//   合计(小单位) = 各报单单元数量之和（与「合计(小单位)」列同源）；金额 = amountValue（最终下单箱 × 单价(厂价/箱)）。
+//   合计(小单位) = 各报单单元数量之和（与「合计(小单位)」列同源）；金额 = amountValue（最终下单箱 × 单价(进价/箱)）。
 //   原 rowAmount（分销价 × 合计）已删除：编辑网格不再有分销价口径的「金额」列，分销价仍作为主档可见列存在。
 //   v189 三个「合计」的行集一律走 liveRows（软删行不计），与只读表 grand 同一行集。
 const editTotalQty = computed(() => liveRows.value.reduce((s, r) => s + rowSum(r), 0))
@@ -6179,7 +6204,7 @@ const pushing = ref(false)
 async function pushForecast() {
   const p = cross.value.period; if (!p) { toast('请先选定期次', 'warn'); return }
   const riskN = healthIssues.value.filter(x => x.sev === 'risk').length
-  // v187：金额口径改为与全站「报单金额 = 最终下单(箱) × 单价(厂价/箱)」同源（原为分销价 × 合计），标签同步自证。
+  // v187：金额口径改为与全站「报单金额 = 最终下单(箱) × 单价(进价/箱)」同源（原为分销价 × 合计），标签同步自证。
   // v189：原写「总箱 ${editTotalQty}」—— editTotalQty 是 Σ各报单单元数量（**小单位**），
   //   标签「箱」是错的（同「规格 ≠ 1 时件数错」同一个病）。推送是给审批人看的一句话，
   //   口径必须自证：改标「合计(箱)」并用箱口径 editTotalBoxes（= Σ round(行小单位 ÷ 行规格)）。
@@ -6341,7 +6366,7 @@ const AUDIT_ACTION_LABEL = {
   save_changes: '保存汇总表', import: '导入', adopt: '确认定稿', change: '修改',
   'submission.submit': '提交审批', 'submission.approve': '审批通过',
   'submission.reject': '审批驳回', 'submission.revise': '退回修改',
-  factory_price_gate: '厂价闸门', connector_writeback: '回写ERP',
+  factory_price_gate: '进价闸门', connector_writeback: '回写ERP',
   purchase_order_push: '推送采购单', intervention: '异常处置',
   hermes_analyze: 'AI根因分析', period_close: '关闭期次', period_delete: '删除期次',
   period_update: '修改期次',
@@ -6945,7 +6970,7 @@ const impViewedName = computed(() => cross.value.period?.name || '')
 // 回执里「这次导入到底归到哪」用**后端回传的** results.period_id（权威），
 // 不用上面的预告 —— 两者可能因「导入瞬间刚建了期次」而不同。
 const impResultPeriodId = computed(() => Number(impResult.value?.results?.period_id || 0))
-/* 厂价是模版的「条件必填」列：闸门开启时缺厂价（且档案无进价）的行会被整行拒收。
+/* 进价是模版的「条件必填」列：闸门开启时档案里没有进价的行会被整行拒收。
    旧版把这句做成只读回显，用户看到「未识别」也无从下手；现在改成能被改的提示。 */
 const impFactoryMissing = computed(() => !Object.values(impMapping.value).some(v => v === 'factory' || v === 'price'))
 
@@ -6967,7 +6992,7 @@ const impArchive = computed(() => {
   return { created, reused, backfilled, unmatched, conflicts, createdNames, backfilledNames }
 })
 
-// v158 厂价闸门：后端在 results 里回传 products_rejected_no_factory(_count) 与 factory_price_gate_on。
+// v158 进价闸门：后端在 results 里回传 products_rejected_no_factory(_count) 与 factory_price_gate_on。
 // 只在**闸门开启**时渲染（关闭时两个字段为 0/false → 返回 null，不显示空块）。
 // 为什么单列一块：被拒的行是「整行没进报单」，用户最容易误以为「导入成功了」→ 必须点名到商品。
 const impFpRejected = computed(() => {
@@ -7684,8 +7709,8 @@ async function loadCross() {
         product_id: pd.id, name: pd.name, spec: pd.spec, unit: pd.unit,
         barcode: pd.barcode || '', product_code: pd.product_code || '', dist_price: pd.dist_price || 0,
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
-        // v190：厂价随行带上（同 loadEditGrid —— 两条加载路径都必须带，漏一处该态就算错）。
-        //   本行是**查看态（只读汇总表）**的数据源：不带上它，汇总表的「单价(厂价/箱)」与
+        // v190：进价随行带上（同 loadEditGrid —— 两条加载路径都必须带，漏一处该态就算错）。
+        //   本行是**查看态（只读汇总表）**的数据源：不带上它，汇总表的「单价(进价/箱)」与
         //   报单金额只能退回进价算，与后端 db.factory_price_sql 的口径不是一个数。
         factory_price: Number(pd.factory_price) || 0,
         safety_stock: pd.safety_stock || 0, expiry_days: pd.expiry_days || 0,
@@ -7696,7 +7721,7 @@ async function loadCross() {
         qtyByUnit, total, boxes, price, amount,
         ai, aiMethod, people, final_qty, decided, extra_qty,
         /* v190：本期手工单价（元/箱）—— 只读汇总表的**金额列要靠它**。
-           没有它，老板在查看态看到的「单价(厂价/箱)」与「下单金额(厂价)」会退回档案自动价，
+           没有它，老板在查看态看到的「单价(进价/箱)」与「下单金额(进价)」会退回档案自动价，
            与填单人保存时看到的不一致（同屏两个口径打架）。值来自 summary 的 rows（按期次隔离）。
            ⚠️ 这里判 `> 0` 而不是 `!= null`：与前端 `pricePerCase` / 后端「非正数归 NULL」同判据。 */
         casePrice: (r && Number(r.case_price) > 0) ? Number(r.case_price) : null,
@@ -8649,8 +8674,8 @@ th.sortable:hover{color:var(--p-dark)}
 .cell-ro{display:block;padding:2px 6px;color:var(--t2);font-size:12px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cell-input{height:26px;padding:0 6px;border:1px solid var(--bd);border-radius:5px;background:var(--bg);color:var(--t1);font-size:12px;outline:none;display:block;width:100%;min-width:0;box-sizing:border-box;text-align:center}
 .cell-input:focus{border-color:var(--p)}
-/* v190：「单价(厂价/箱)」录入框。
-   ① 手工录入价 —— 必须与「档案厂价算出来的自动价」在视觉上区分，否则用户分不清
+/* v190：「单价(进价/箱)」录入框。
+   ① 手工录入价 —— 必须与「档案进价算出来的自动价」在视觉上区分，否则用户分不清
       「这个价是系统带的还是我填的」（同屏两个来源的数必须能自证，见项目铁律）。
    ② 未录入且缺价/缺规格 —— 灰字占位改用警示色，避免空框看起来像「这一格本来就没数」。 */
 .cell-input.cell-price.manual-price{border-color:var(--p);background:var(--p-bg);font-weight:600}
@@ -8756,7 +8781,7 @@ th.sortable:hover{color:var(--p-dark)}
    —— 那组回显已被 ImportMapping 组件的可编辑映射表取代，留着就是死 CSS。 */
 /* 列映射确认步要横向空间（文件列 / 识别为 / 依据 / 样例值四列） */
 .imp-modal.imp-wide{width:min(880px,94vw)}
-/* 厂价列未识别时的提示：不是「说明文字」而是风险提示（闸门开启会整行拒收），且指明了去哪改 */
+/* 进价列未识别时的提示：不是「说明文字」而是风险提示（闸门开启会整行拒收），且指明了去哪改 */
 .imp-gate{margin:10px 0 12px;padding:8px 12px;border-radius:var(--radius-sm);font-size:12.5px;line-height:1.6;background:var(--warn-amber-bg);color:var(--warn-amber)}
 .imp-matrix{max-height:180px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-md);margin-bottom:12px}
 .imp-matrix table{font-size:11.5px}

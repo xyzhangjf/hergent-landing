@@ -3,13 +3,13 @@
     <div class="page-hd split">
       <div>
         <h2>商品档案</h2>
-        <span class="page-sub">浏览与维护商品主档 · <b>点行尾「编辑」改名称/规格/价格/描述等（只提交你真的改过的字段）</b> · 品牌、厂价、到货周期三列也支持行内直接点改</span>
+        <span class="page-sub">浏览与维护商品主档 · <b>点行尾「编辑」改名称/规格/价格/描述等（只提交你真的改过的字段）</b> · 品牌、进价、到货周期三列也支持行内直接点改</span>
       </div>
       <div class="pa-actions">
         <span class="pa-stat" v-if="total !== null"><b>{{ total }}</b>&nbsp;个商品</span>
         <button v-if="missingFactoryCount > 0" class="btn btn-ghost btn-sm pa-fp-btn" @click="openBatchFp"
-                title="厂价 ＝ 进价 ＝ 厂家跟你结算的价（同一个量），用于算「本期需付款」。进价已有值的商品不必再补；这里可逐行填或用清单批量补">
-          <Icon name="edit"/> 补厂价<span class="pa-fp-n">{{ missingFactoryCount }}</span>
+                title="进价 ＝ 厂家跟你结算的价（元/箱），算「本期需付款」用的就是它。这里可逐行填，也可导出清单批量补">
+          <Icon name="edit"/> 补进价<span class="pa-fp-n">{{ missingFactoryCount }}</span>
         </button>
         <button class="btn btn-primary btn-sm" @click="openAdd">+ 新增</button>
         <button class="btn btn-ghost btn-sm" @click="openImport">导入</button>
@@ -42,9 +42,9 @@
           <thead><tr>
             <th>名称</th><th>条码</th><th>规格</th><th>单位</th>
             <!-- v184b：到货周期（该单品下单后第几天到货）。位置放在「商品身份」块（名称/条码/规格/单位）
-                 之后、价格块之前 —— 它是 SKU 属性，不属于价格组（售价/进价/厂价）。 -->
+                 之后、价格块之前 —— 它是 SKU 属性，不属于价格组（标准售价/进价/分销价）。 -->
             <th title="该单品下单后第几天到货（如 +3天）。点格子可直接改；留空或 0 = 取消设置">到货周期</th>
-            <th>品牌</th><th class="num">标准售价</th><th class="num">进价</th><th class="num" title="厂价 ＝ 进价 ＝ 厂家结算价（同一个量，可留空按进价取）">厂价</th><th class="num">安全库存</th><th>状态</th><th></th>
+            <th>品牌</th><th class="num">标准售价</th><th class="num" title="进价 ＝ 厂家跟你结算的价（元/箱），算「本期需付款」用的就是它。可留空：留空则按档案里的历史进价列取；点格子可直接改">进价</th><th class="num">安全库存</th><th>状态</th><th></th>
           </tr></thead>
           <tbody>
             <tr v-for="p in products" :key="p.id" :class="{ stopped: p.is_active === 0 }">
@@ -52,11 +52,11 @@
               <td class="pa-mono">{{ p.barcode || '—' }}</td>
               <td>{{ p.spec || '—' }}</td>
               <td>{{ p.unit || '—' }}</td>
-              <!-- v184b：到货周期 —— 行内可编（沿用品牌/厂价两列的改法）。
+              <!-- v184b：到货周期 —— 行内可编（沿用品牌/进价两列的改法）。
                    🔴 三态显示是**有意的**：
                      · 有值  → '+3天'（可点）
                      · 未设置 → 「未设」灰字 + 可点。这里**不用**「—」：本格是**可操作**的入口，
-                       一个不表意的破折号不告诉用户「点它就能设」（厂价列用「未录」同理）。
+                       一个不表意的破折号不告诉用户「点它就能设」（进价列用「未录」同理）。
                        只在预报主表用「—」（那是纯展示、不可点）。
                      · 编辑中 → number 输入框，Enter 或失焦即存。
                    ⚠️ 「留空 = 取消设置」与**预报导入**的「留空 = 不改动」**语义相反**，这是刻意的：
@@ -78,16 +78,24 @@
                 <span v-else class="pa-brand" @click="startEditBrand(p)">{{ p.brand || '—' }}</span>
               </td>
               <td class="num">{{ money(p.sale_price) }}</td>
-              <td class="num">{{ money(p.purchase_price) }}</td>
+              <!-- 🔴 v226（2026-09-21）：此处原有**两列**（「进价」绑 `purchase_price`、
+                   「厂价」绑 `factory_price`），用户拍板「进价跟厂价是一个意思」⇒ **合成一列**。
+                   实测那 46 个两列都有值的商品上，`purchase_price` 与「分销价」「标准售价」
+                   **46/46 完全相同**，且门店真实成交价也是这个数 ⇒ 它存的是**卖给门店的价**，
+                   而 `factory_price` 才是厂家跟你结算的进货成本 ⇒ 留后者。
+                   ⚠️ `purchase_price` 仍在库里、仍作 `factory_price` 为空时的回退（见 `fpEff()`），
+                      只是不再单独成列。🔴 **该回退只在"档案里有没有价"这个语义下成立**：
+                      它是元/小单位、且实测等于标准售价 ⇒ **不参与金额计算**
+                      （预报页金额基准 `factoryPrice()` 只认 `factory_price`，见其定义处 v226b 注释）。 -->
               <td class="num pa-fp-cell">
                 <input v-if="editingFpId === p.id" v-model="editFp" class="input pa-fp-input" type="number" min="0" step="0.01"
                        @keyup.enter="saveFp(p)" @blur="saveFp(p)">
                 <span v-else-if="fpEff(p).from === 'factory'" class="pa-fp-val" @click="startEditFp(p)">{{ money(fpEff(p).v) }}</span>
-                <!-- v165：厂价 ≡ 进价 ⇒ 未单独录厂价但进价有值时，直接显示口径解析后的价（不显示「未录」，
-                     否则用户会以为要重录一遍，而付款额其实已经在用进价）。 -->
+                <!-- v165/v226：档案进价列为空、但历史进价列有值时，直接显示解析后的价
+                     （不显示「未录」，否则用户会以为要重录一遍，而付款额其实已经在用那个值）。 -->
                 <span v-else-if="fpEff(p).from === 'purchase'" class="pa-fp-from" @click="startEditFp(p)"
-                      title="按口径「厂价 ＝ 进价」取自进价；点这里也可单独填厂价">取进价 {{ money(fpEff(p).v) }}</span>
-                <span v-else class="pa-fp-miss" title="点这里填厂价（进价也为空）" @click="startEditFp(p)">未录</span>
+                      title="取自档案里的历史进价列（元/小单位，实测等于标准售价）—— 这里只代表「档案里有价」，不代表能算金额；算「本期需付款」用的是元/箱的「进价」，点这里可直接填一个">取进价 {{ money(fpEff(p).v) }}</span>
+                <span v-else class="pa-fp-miss" title="点这里填进价（档案里两个进价列都是空的）" @click="startEditFp(p)">未录</span>
               </td>
               <td class="num">{{ p.safety_stock != null ? p.safety_stock : '—' }}</td>
               <td>
@@ -117,8 +125,8 @@
          🔴 三条设计约束（改之前先读）：
 
          ① **保存只提交「真正改动过的字段」**（diff），而不是把整张表单 PUT 回去。理由三条：
-            · **不留假痕迹** —— 厂价框显示的是 `fpEff()` 解析值（可能是「取进价」的结果），
-              无脑整表回传会把 `factory_price` 从 0 写成那个数，留痕里凭空多一条「厂价 0→3.5」；
+            · **不留假痕迹** —— 进价框显示的是 `fpEff()` 解析值（可能是「取进价」的结果），
+              无脑整表回传会把 `factory_price` 从 0 写成那个数，留痕里凭空多一条「进价 0→3.5」；
             · **不误清空** —— 表单没渲染到的字段永远不会被覆盖（与 bulk-upsert 那个坑同源）；
             · **并发更安全** —— 两人同时编辑各改各的字段，后保存的不吃掉先保存的。
 
@@ -165,8 +173,11 @@
             <div class="pa-sec">价格</div>
             <div class="pa-form">
               <label class="pa-f"><span>标准售价<span class="pa-hint">导入模版里叫「售价」</span></span><input v-model="editForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
-              <label class="pa-f"><span>进价</span><input v-model="editForm.purchase_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
-              <label class="pa-f"><span>厂价<span class="pa-hint">＝ 进价 ＝ 厂家结算价；留空 = 按进价</span></span><input v-model="editForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="留空 = 按进价"></label>
+              <!-- v226：原来这里有**两个**进价输入框（`purchase_price` / `factory_price`）——
+                   两词同义 ⇒ 只留一个（对外叫「进价」，绑 `factory_price`）。用户不必再猜该填哪个。
+                   ⚠️ `editForm.purchase_price` 仍留在数据里：保存走「只提交真的改过的字段」，
+                      没有界面入口 ⇒ 它永远不会进 payload，库里已有的值不会被覆盖或清零。 -->
+              <label class="pa-f"><span>进价<span class="pa-hint">厂家跟你结算的价（元/箱）；留空 = 按档案历史进价列取</span></span><input v-model="editForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="留空 = 按档案历史进价列取"></label>
               <label class="pa-f"><span>分销价</span><input v-model="editForm.dist_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
             </div>
 
@@ -237,14 +248,14 @@
               <label class="pa-f"><span>单位</span><input v-model="addForm.unit" class="input" placeholder="件（默认）"></label>
               <label class="pa-f"><span>品牌</span><input v-model="addForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
               <label class="pa-f"><span>分类</span><input v-model="addForm.category" class="input" placeholder="如 液态奶"></label>
-              <label class="pa-f"><span>进价</span><input v-model="addForm.purchase_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
-              <label class="pa-f"><span>厂价<span class="pa-hint">＝ 进价，可留空</span></span><input v-model="addForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
+              <!-- v226：同编辑弹窗 —— 只留一个「进价」输入框（绑 factory_price）。 -->
+              <label class="pa-f"><span>进价<span class="pa-hint">厂家跟你结算的价（元/箱），可留空</span></span><input v-model="addForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               <label class="pa-f"><span>售价</span><input v-model="addForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               <label class="pa-f"><span>安全库存</span><input v-model="addForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
               <label class="pa-f"><span>保质期(天)</span><input v-model="addForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
               <!-- v184b：到货周期。留空 = **不改动**（不写这一列）—— 本弹窗保存走 bulk-upsert，
                    同名商品会走更新分支；若把空值当 0 提交，会把别人已设好的到货周期清零
-                   （厂价列踩过同一个坑，见 saveAdd 里的条件展开）。 -->
+                   （进价列踩过同一个坑，见 saveAdd 里的条件展开）。 -->
               <label class="pa-f"><span>到货周期<span class="pa-hint">+几天到货，留空 = 不设置</span></span><input v-model="addForm.arrival_lead_days" class="input" type="number" min="0" :max="ARRIVAL_MAX" step="1" placeholder="如 3"></label>
             </div>
           </div>
@@ -292,35 +303,36 @@
         </div>
       </Transition>
 
-      <!-- v157 批量补厂价弹窗：默认只列「未录厂价」的启用商品 -->
+      <!-- v157 批量补进价弹窗：默认只列「未录进价」的启用商品 -->
       <Transition name="fade"><div v-if="fpOpen" class="pa-overlay" @click="fpOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="fpOpen" class="pa-modal pa-wide">
           <div class="pa-modal-hd">
-            <b>批量补厂价 · 还有 {{ fpRows.length }} 个商品厂价与进价都没有</b>
+            <b>批量补进价 · 还有 {{ fpRows.length }} 个商品连进价都没有</b>
             <button class="pa-x" @click="fpOpen = false"><Icon name="close"/></button>
           </div>
           <div class="pa-modal-body">
             <p class="pa-tip">
-              <b>厂价 ＝ 进价 ＝ 厂家跟你结算的价</b>（同一个量，档案里分成两列存）。它用于算「本期需付款 = 定稿量 × 厂价」，
-              取价顺序为 <b>厂价 → 进价 → 标准售价</b>，所以<b>进价已有值的商品不必在这里重录</b>。<br>
+              <b>进价 ＝ 厂家跟你结算的价</b>（元/箱），用于算「本期需付款 = 定稿量 × 进价」。<br>
+              本表只列<b>连进价都没有</b>的商品 —— <b>档案里已有进价、或历史进价列里有值的一律不在列</b>，
+              不必在这里重录（与工具栏徽标、导出清单同一个数）。<br>
               两种填法任选：① 直接在下表逐行填；② 点「导出待补清单」到 Excel 里填好，再点「导入回填」——
               回填按 <b>商品编号</b> 定位（编号缺失才退回条码），所以<b>没有条码的商品也能补</b>，前两列请勿改动。
             </p>
 
-            <!-- v158 厂价闸门：文案按开关实际状态陈述。此前 8 处文案无条件写「会被拒收」，
+            <!-- v158 进价闸门：文案按开关实际状态陈述。此前 8 处文案无条件写「会被拒收」，
                  而代码里根本没有拒收逻辑 —— 开关存在就是为了让文案与行为都能说真话。 -->
             <div class="pa-fp-gate" :class="{ on: fpGate }">
               <label class="pa-fp-switch">
                 <input type="checkbox" :checked="fpGate" :disabled="fpGateBusy" @change="toggleFpGate">
-                <span><b>厂价必填</b>（报单时拒收没录厂价的商品）</span>
+                <span><b>进价必填</b>（报单时拒收没录进价的商品）</span>
               </label>
               <span class="pa-fp-gate-hint">
                 <template v-if="fpGate">
-                  已开启：厂价与进价都没有的商品，在<b>报单导入</b>与<b>小程序报单</b>时都会被拒收。<b v-if="fpGateMissing">当前还有 {{ fpGateMissing }} 个没补，建议先补完再保持开启。</b>
+                  已开启：连进价都没有的商品，在<b>报单导入</b>与<b>小程序报单</b>时都会被拒收。<b v-if="fpGateMissing">当前还有 {{ fpGateMissing }} 个没补，建议先补完再保持开启。</b>
                 </template>
                 <template v-else>
-                  未开启：价格没录也能正常报单 —— 有进价的按进价算，<b>厂价与进价都没有的才按标准售价估算（偏大）</b>。<span v-if="fpGateMissing"> 还有 {{ fpGateMissing }} 个商品价格没录。</span>
+                  未开启：价格没录也能正常报单 —— 档案里有进价的按进价算，<b>连进价都没有的才按标准售价估算（偏大）</b>。<span v-if="fpGateMissing"> 还有 {{ fpGateMissing }} 个商品价格没录。</span>
                 </template>
               </span>
             </div>
@@ -342,7 +354,7 @@
               <table class="tbl pa-fp-tbl">
                 <thead><tr>
                   <th class="pa-fp-ck"></th><th>条码</th><th>名称</th><th>规格</th><th>单位</th>
-                  <th class="num">参考：分销价</th><th class="num">填入厂价</th>
+                  <th class="num">参考：分销价</th><th class="num">填入进价</th>
                 </tr></thead>
                 <tbody>
                   <tr v-for="r in fpViewRows" :key="r.id" :class="{ 'pa-row-off': !r._ck }">
@@ -357,7 +369,7 @@
                 </tbody>
               </table>
             </div>
-            <p v-else class="state-empty">当前筛选下没有缺厂价的商品 —— 都补好了</p>
+            <p v-else class="state-empty">当前筛选下没有缺进价的商品 —— 都补好了</p>
 
             <p v-if="fpFiltered.length > fpShowLimit" class="pa-fp-more">
               表内只显示前 {{ fpShowLimit }} 个，另有 {{ fpFiltered.length - fpShowLimit }} 个请用「导出待补清单」批量处理
@@ -374,7 +386,7 @@
 
             <div v-if="fpResult" class="pa-imp-result" :class="(fpResult.skipped?.length || fpResult.nokey) ? 'warn' : 'ok'">
               已更新 {{ fpResult.updated }} 个商品
-              <template v-if="fpResult.unfilled">· {{ fpResult.unfilled }} 行厂价留空（不算错）</template>
+              <template v-if="fpResult.unfilled">· {{ fpResult.unfilled }} 行进价留空（不算错）</template>
               <template v-if="fpResult.nokey">· {{ fpResult.nokey }} 行既没编号也没条码、认不出商品</template>
               <template v-if="fpResult.skipped?.length">· 跳过 {{ fpResult.skipped.length }} 个（{{ fpResult.skipped.slice(0, 3).map(s => (s.barcode || s.id) + '：' + s.reason).join('；') }}）</template>
             </div>
@@ -420,14 +432,18 @@ const includeInactive = ref(false)
 const brandOptions = ref([])
 const categoryOptions = ref([])
 
-// ---- v157 厂价（v165 更正口径）----
-// 🔴 厂价 ≡ 进价 ≡ 厂家跟经销商结算的价 —— **同一个量**（用户 2026-09-14 定调原话「厂价就是进价」）。
-// v132 曾把它另建成独立列 `factory_price`，与既有列 `purchase_price`（列头「进价」）同义；
-// 实测真实租户 `factory_price` 269/269 全空、价都在进价里 ⇒ 解析口径 = **厂价优先，缺则取进价**，
-// 两者皆无才回退标准售价（偏大）。闸门开启后，厂价与进价都没有的商品会在报单导入 / 小程序报单时被拒收。
-// 解析的唯一实现：前端 `fpEff()`（本页）/ 后端 `db.factory_price_sql`。改口径请只改这两处。
-const allProducts = ref([])           // 全量商品索引（含停用），供补厂价面板与分类候选共用
-const missingFactoryCount = ref(0)    // 启用商品中「厂价与进价都没有」的数量 → 为 0 时工具栏入口自动隐藏
+// ---- v157 进价（v165 更正口径；v226b 实证再修正）----
+// 🔴 进价 ≡ 厂家跟经销商结算的价（用户 2026-09-14 定调原话「厂价就是进价」；v226 起界面统一叫「进价」）。
+// v132 曾把它另建成独立列 `factory_price`，与既有列 `purchase_price` 并列为两个「进价」输入框；
+// v226 用户拍板「两词一个意思」⇒ 界面**合成一列**（对外叫「进价」，绑 `factory_price`）。
+// 🔴 v226b 实证：**两列的"同义"仅止于界面文案，值本身既不同量纲、也不同语义** ——
+//   `factory_price` 元/箱；`purchase_price` 元/小单位且实测 56/56 == `sale_price`（存的是卖给门店的价）。
+//   ⇒ 本页的解析口径（`factory_price` 优先，缺则取 `purchase_price`）**只用于"有没有录过价"**：
+//      列表展示 / 缺价计数 / 补价面板。**它不参与金额计算**（那是 `Forecast.vue::factoryPrice()`，只认前者）。
+//   闸门开启后，两列都没有的商品会在报单导入 / 小程序报单时被拒收。
+// 解析的唯一实现：前端 `fpEff()`（本页）/ 后端 `db.factory_price_sql`（同为"有没有"口径）。改口径请只改这两处。
+const allProducts = ref([])           // 全量商品索引（含停用），供补进价面板与分类候选共用
+const missingFactoryCount = ref(0)    // 启用商品中「连进价都没有」的数量 → 为 0 时工具栏入口自动隐藏
 const editingFpId = ref(null)
 const editFp = ref('')
 const fpOpen = ref(false)
@@ -437,16 +453,16 @@ const fpCategory = ref('')
 const fpSaving = ref(false)
 const fpResult = ref(null)
 const fpShowLimit = 200               // 面板内一次渲染上限（其余走「导出待补清单」）
-// v158 厂价闸门：开启后「报单导入」与「小程序报单」都会拒收**厂价与进价都没有**的商品行；**默认关闭**。
+// v158 进价闸门：开启后「报单导入」与「小程序报单」都会拒收**连进价都没有**的商品行；**默认关闭**。
 // 关闭时价格没录也能照常报单：有进价的按进价算，只有两者皆无才按标准售价回退估算（偏大）。
 // 文案必须如实说清，不能无条件写「会被拒收」（此前 8 处文案都这么写，而代码里根本没有拒收逻辑）。
 const fpGate = ref(false)
 const fpGateBusy = ref(false)
-const fpGateMissing = ref(0)          // 后端权威的「厂价与进价都没有」计数
+const fpGateMissing = ref(0)          // 后端权威的「连进价都没有」计数
 
 const totalPages = computed(() => Math.max(1, Math.ceil((total.value || 0) / pageSize.value)))
 
-/* ---- v157 批量补厂价：派生视图 ---- */
+/* ---- v157 批量补进价：派生视图 ---- */
 const fpBrandOptions = computed(() => [...new Set(fpRows.value.map(r => r.brand).filter(Boolean))].sort())
 const fpCategoryOptions = computed(() => [...new Set(fpRows.value.map(r => r.category).filter(Boolean))].sort())
 const fpFiltered = computed(() => fpRows.value.filter(r =>
@@ -458,7 +474,7 @@ const fpFilledCount = computed(() => fpViewRows.value.filter(r => r._ck && Numbe
 const editingId = ref(null)
 const editBrand = ref('')
 
-// ---- v184b 到货周期：行内编辑（沿用品牌 / 厂价两列的改法）----
+// ---- v184b 到货周期：行内编辑（沿用品牌 / 进价两列的改法）----
 // 🔴 与「本期预报」主表那列的关系 = **同一列、两个写入口**（预报导入 / 本页），
 //    展示都走 utils/arrival.js::arrivalCycleText；主表网格里它仍是只读（`edit:'ro'`），
 //    要改值只能来本页或走导入 —— 所以那里右键提示语指向的正是本页。
@@ -514,7 +530,7 @@ const EDIT_NUM_FIELDS = new Set([
    映射不到的键**原样显示英文**（不隐藏、不猜）—— 否则下一个人会以为记录丢了。 */
 const FIELD_CN = {
   name: '商品名称', spec: '规格', unit: '单位', barcode: '条码', brand: '品牌',
-  category: '分类', purchase_price: '进价', factory_price: '厂价', dist_price: '分销价',
+  category: '分类', factory_price: '进价', purchase_price: '进价（历史字段）', dist_price: '分销价',
   sale_price: '标准售价', safety_stock: '安全库存', expiry_days: '保质期(天)',
   product_code: '厂家商品编码', arrival_lead_days: '到货周期', alias: '别名',
   description: '描述', wholesale_price: '批发价', min_order_qty: '起订量',
@@ -600,7 +616,7 @@ async function loadBrandOptions() {
 }
 
 // v157：一次性拉全量商品（含停用）做「商品索引」——
-//   ① 分类筛选候选；② 「缺厂价」计数（决定工具栏补厂价入口显不显示）；③ 批量补厂价面板的数据源。
+//   ① 分类筛选候选；② 「缺进价」计数（决定工具栏补进价入口显不显示）；③ 批量补进价面板的数据源。
 // 428 行量级可接受；原先只为分类候选单独拉过一次，此处合并为一份缓存，避免重复请求。
 async function refreshProductIndex() {
   try {
@@ -611,10 +627,17 @@ async function refreshProductIndex() {
   } catch (e) { /* 商品索引为增强项，失败不影响主流程 */ }
 }
 
-// v165 厂价口径：**厂价 ≡ 进价 ≡ 厂家结算价（同一个量）** —— 用户 2026-09-14 定调。
-// v132 曾把厂价另建成独立列 factory_price，实测真实租户 269/269 全空，价其实都在「进价」里。
-// 本函数是前端**唯一**的解析处（与后端 `factory_price_sql` 逐字同规则）：
-//   厂价列有值 → 用它（兼容历史上单独填过的租户）；否则取进价；两者皆无才视为缺价。
+// v165 进价口径：**档案里有没有录过价格** —— 本函数回答的是这个。
+// v132 曾把进价另建成独立列 factory_price，实测真实租户 `factory_price` 全空，价都在 purchase_price 里，
+// 故判据放宽为「有厂价用厂价、没有才取历史进价」。
+// 本函数是前端**唯一**的解析处（与后端 `factory_price_sql` 逐字同规则），一处供三用：
+// 列表展示 / 缺价计数（工具栏徽标）/ 批量补价面板的数据源。
+// 🔴 v226b 实证修正（原注释写「两列是**同一个量**」，**该表述是错的**，别再用）：
+//   · `factory_price` = **元/箱**；`purchase_price` = **元/小单位**（实测 `factory_price = pp × perCase × 0.9`，46/46 成立）；
+//   · 且 `purchase_price` 实测 **56/56 == `sale_price`**（46/46 还 == `dist_price`）⇒ 它存的是「卖给门店的价」。
+//   ⇒ 回退**只在本函数这种「有没有」的语义下成立**（量纲不参与运算，值仅作展示与计数）。
+//   🔴 **禁止**把本函数的返回值当作「元/箱 单价」去做乘法 —— 预报页金额基准走的是
+//     `Forecast.vue::factoryPrice()`，那个**不回退**。两处口径有意分家，别互相"对齐"。
 function fpEff(p) {
   const f = Number(p?.factory_price || 0)
   if (f > 0) return { v: f, from: 'factory' }
@@ -624,7 +647,7 @@ function fpEff(p) {
 }
 
 function recomputeMissingFactory() {
-  // 「待补厂价」= 厂价与进价**都没有**的启用商品（改前只看 factory_price ⇒ 真实租户 269 全中，
+  // 「待补进价」= 连进价都没有的启用商品（改前只看 factory_price ⇒ 真实租户 269 全中，
   // 会让用户重录一遍已经在「进价」里的数）。
   missingFactoryCount.value = allProducts.value
     .filter(p => p.is_active !== 0)
@@ -659,7 +682,7 @@ async function saveBrand(p) {
   } catch (e) { toast(e.message || '保存失败', 'err') }
 }
 
-/* ---- v157 厂价：行内编辑（沿用品牌的行内改法）---- */
+/* ---- v157 进价：行内编辑（沿用品牌的行内改法）---- */
 function startEditFp(p) {
   editingFpId.value = p.id
   editFp.value = Number(p.factory_price) > 0 ? String(p.factory_price) : ''
@@ -673,8 +696,8 @@ async function saveFp(p) {
   //    （真机 E2E 抓到；纯逻辑测试抓不到）。品牌那列是 text 才没这问题。
   const raw = String(editFp.value ?? '').trim()
   const nv = Number(raw)
-  // 厂价必须为正数：0/空 = 「没打算补」，不作为有效输入提交（后端同样拒绝 <=0）
-  if (!raw || isNaN(nv) || nv <= 0) { toast('厂价请填大于 0 的数字', 'err'); return }
+  // 进价必须为正数：0/空 = 「没打算补」，不作为有效输入提交（后端同样拒绝 <=0）
+  if (!raw || isNaN(nv) || nv <= 0) { toast('进价请填大于 0 的数字', 'err'); return }
   if (nv === Number(p.factory_price || 0)) return  // 无变化
   try {
     const r = await productsApi.batchFactoryPrice([{ id: p.id, factory_price: nv }])
@@ -683,7 +706,7 @@ async function saveFp(p) {
     const hit = allProducts.value.find(x => x.id === p.id)
     if (hit) hit.factory_price = nv
     recomputeMissingFactory()
-    toast('厂价已更新', 'ok')
+    toast('进价已更新', 'ok')
   } catch (e) { toast(e.message || '保存失败', 'err') }
 }
 
@@ -716,11 +739,20 @@ async function saveCycle(p) {
   } catch (e) { toast(e.message || '保存失败', 'err') }
 }
 
-/* ---- v157 厂价：批量补（存量商品）---- */
+/* ---- v157 进价：批量补（存量商品）---- */
+/* 🔴 v226b 修：过滤口径与 `recomputeMissingFactory()` / `fpEff()` **统一**。
+   此前这里写的是 `!(Number(p.factory_price) > 0)` —— 只看 `factory_price` 一列，而
+   工具栏徽标与导出清单走的是 `fpEff()`（有厂价用厂价、没有才取历史进价）⇒ **同一功能两条路径给出两个数**：
+   面板标题说「还有 134 个商品连进价都没有」，而同一屏的工具栏徽标与导出清单都是 124，差的那 10 个
+   正是「历史进价列里其实有值」的商品 —— 档案列表对它们显示「取进价 ¥x」，
+   面板却要用户重录一遍（面板自己的提示语还写着"后两处已有值的商品不必在这里重录"，自相矛盾）。
+   ⇒ 一处口径（`fpEff`）供三处共用：徽标 / 导出清单 / 本面板。
+   ⚠️ 与「金额基准」的区别：`factoryPrice()`（预报页算钱）**不回退**历史进价（元/小单位，混量纲）；
+   本函数服务的是「档案里有没有价格信息」，回退是对的。两件事不同，别互相"对齐"。 */
 function _rebuildFpRows() {
   const miss = allProducts.value
     .filter(p => p.is_active !== 0)
-    .filter(p => !(Number(p.factory_price) > 0))
+    .filter(p => fpEff(p).from === 'none')
   fpRows.value = miss.map(p => ({ ...p, _ck: true, _fp: '' }))
 }
 
@@ -734,7 +766,7 @@ function openBatchFp() {
   loadFpGate()
 }
 
-/* ---- v158 厂价闸门：读状态 / 开与关 ---- */
+/* ---- v158 进价闸门：读状态 / 开与关 ---- */
 async function loadFpGate() {
   try {
     const g = await productsApi.factoryPriceGate()
@@ -751,8 +783,8 @@ async function toggleFpGate() {
     fpGate.value = !!g.enabled
     fpGateMissing.value = Number(g.missing_count || 0)
     toast(next
-      ? `已开启厂价必填：厂价与进价都没有的商品在报单导入 / 小程序报单时会被拒收（当前还有 ${g.missing_count} 个没补）`
-      : '已关闭厂价必填：不再拦价格缺失的商品（有进价的按进价算，两者皆无才按标准售价估算）',
+      ? `已开启进价必填：连进价都没有的商品在报单导入 / 小程序报单时会被拒收（当前还有 ${g.missing_count} 个没补）`
+      : '已关闭进价必填：不再拦价格缺失的商品（有进价的按进价算，两者皆无才按标准售价估算）',
       next ? 'warn' : 'ok')
   } catch (e) { toast(e.message || '开关失败', 'err') }
   finally { fpGateBusy.value = false }
@@ -763,19 +795,19 @@ function fpSelectAll(v) { fpViewRows.value.forEach(r => { r._ck = v }) }
 // 导出待补清单：**走后端生成**（后端那份带「商品编号」列作导回钥匙）。
 // 为什么不在前端用 SheetJS 造：钥匙规则必须在唯一一处实现 —— 实测前端那版只有条码，
 // 而本域存在「无条码商品」（演示租户 11 个待补商品全部无条码）与「共码商品」
-// （两个下单主体共用同一商品条码），只认条码 → 前者永远补不回去、后者会把厂价写到错的商品上。
+// （两个下单主体共用同一商品条码），只认条码 → 前者永远补不回去、后者会把进价写到错的商品上。
 async function exportFpList() {
   try {
     const blob = await importApi.factoryPriceTemplate({ brand: fpBrand.value, category: fpCategory.value })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `待补厂价清单_${new Date().toISOString().slice(0, 10)}.xlsx`
+    a.download = `待补进价清单_${new Date().toISOString().slice(0, 10)}.xlsx`
     document.body.appendChild(a)
     a.click()
     a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
-    toast(`已导出 ${fpFiltered.value.length} 条，填好「厂价」列后点「导入回填」`, 'ok')
+    toast(`已导出 ${fpFiltered.value.length} 条，填好「进价」列后点「导入回填」`, 'ok')
   } catch (e) { toast(e.message || '导出失败', 'err') }
 }
 
@@ -797,7 +829,7 @@ async function onFpFile(ev) {
     }
     await loadFpGate()
     const bits = []
-    if (r.unfilled) bits.push(`${r.unfilled} 行厂价留空（不算错）`)
+    if (r.unfilled) bits.push(`${r.unfilled} 行进价留空（不算错）`)
     if (r.nokey) bits.push(`${r.nokey} 行既没编号也没条码、认不出是哪个商品`)
     toast(`回填完成：更新 ${r.updated} 个`
       + `${r.skipped?.length ? '，跳过 ' + r.skipped.length + ' 个' : ''}`
@@ -810,7 +842,7 @@ async function onFpFile(ev) {
 
 async function saveFpBatch() {
   const picked = fpViewRows.value.filter(r => r._ck && Number(r._fp) > 0)
-  if (!picked.length) { toast('请至少勾选一行并填入厂价', 'warn'); return }
+  if (!picked.length) { toast('请至少勾选一行并填入进价', 'warn'); return }
   fpSaving.value = true
   try {
     const r = await productsApi.batchFactoryPrice(
@@ -833,8 +865,9 @@ async function saveFpBatch() {
  *  ⚠️ 数值字段**为 0 时渲染成空框**（而不是「0」）：这样用户一眼能分清「没设」与「有值」，
  *  也与本弹窗的「留空 = 清空」语义一致（想清掉就把框清空）。placeholder 里写了 0/示例，
  *  所以空框不会被误读成「这个字段不存在」。
- *  ⚠️ 厂价框显示的是**存储值**而不是列表列那个 `fpEff()` 解析值 —— 列表里「取进价 3.5」说的是
- *  「厂价没单独录，按口径用进价」，若在这里显示 3.5，用户会以为厂价已录，保存时也会把 0 写成 3.5。 */
+ *  ⚠️ 进价框显示的是**存储值**（`factory_price`）而不是列表列那个 `fpEff()` 解析值 —— 列表里
+ *  「取进价 3.5」说的是「factory_price 没单独录，按口径用 purchase_price」，若在这里显示 3.5，
+ *  用户会以为已录，保存时也会把 0 写成 3.5。 */
 function openDetail(p) {
   detailTarget.value = p
   const f = {}, b = {}
@@ -930,7 +963,7 @@ async function applyActive(v) {
       ? '已停用 —— 该商品不再出现在报单与小程序的可选列表'
       : '已启用 —— 该商品重新可选', 'ok')
     confirmActive.value = false
-    recomputeMissingFactory()                 // 停用会改变「缺厂价」计数口径（该计数只算启用商品）
+    recomputeMissingFactory()                 // 停用会改变「缺进价」计数口径（该计数只算启用商品）
     if (changesLoaded.value) loadChanges(p.id)
   } catch (e) { toast(e.message || '操作失败', 'err') }
   finally { savingActive.value = false }
@@ -988,16 +1021,20 @@ async function saveAdd() {
       unit: f.unit.trim() || '件',
       brand: f.brand.trim(),
       category: f.category.trim(), // 显式提供（含空），后端仅当提供时更新
-      purchase_price: _num(f.purchase_price),
-      // 厂价：空 = 「不动已录的厂价」。本页新增同名商品会走 upsert 覆盖其它字段，
-      // 若把空值当 0 提交，会把用户补好的厂价清零 —— 故只在真填了值时才带上该键。
+      // 🔴 v226：此处原为 `purchase_price: _num(f.purchase_price)`（**无条件**带键）。
+      //   界面已把两个进价输入框合成一个 ⇒ `f.purchase_price` 恒为空 ⇒ `_num("")` = 0
+      //   ⇒ 新增同名商品走 upsert 时会把库里已有的 `purchase_price` **清零**。
+      //   故本键改为**只在真填了值时才带**（与下面 factory_price 同一条守卫）。
+      ...(String(f.purchase_price).trim() === '' ? {} : { purchase_price: _num(f.purchase_price) }),
+      // 进价：空 = 「不动已录的进价」。本页新增同名商品会走 upsert 覆盖其它字段，
+      // 若把空值当 0 提交，会把用户补好的进价清零 —— 故只在真填了值时才带上该键。
       ...(String(f.factory_price).trim() === '' ? {} : { factory_price: _num(f.factory_price) }),
       sale_price: _num(f.sale_price),
       safety_stock: _num(f.safety_stock),
       expiry_days: _num(f.expiry_days),
-      // v184b 到货周期：与厂价同一条守卫 —— **留空 = 不带该键**（= 不改动已有的值）。
+      // v184b 到货周期：与进价同一条守卫 —— **留空 = 不带该键**（= 不改动已有的值）。
       //   本弹窗走 bulk-upsert，同名商品会命中更新分支；若把空值当 0 提交，
-      //   会把导入或档案里已设好的到货周期清零（厂价列踩过同一个坑）。
+      //   会把导入或档案里已设好的到货周期清零（进价列踩过同一个坑）。
       ...(_cyc.empty ? {} : { arrival_lead_days: _cyc.value }),
     }
     const r = await productsApi.bulkUpsert([row])
@@ -1082,8 +1119,10 @@ async function exportXlsx() {
       //      要改存量商品的到货周期请在**本页点该格**改。
       '到货周期': Number(p.arrival_lead_days) > 0 ? arrivalCycleText(p.arrival_lead_days) : '',
       '品牌': p.brand || '', '分类': p.category || '',
-      '标准售价': p.sale_price || 0, '进价': p.purchase_price || 0,
-      '厂价': p.factory_price || 0, '分销价': p.dist_price || 0,
+      '标准售价': p.sale_price || 0,
+      // v226：原有两个中文键都叫「进价」（分别取 purchase_price / factory_price），
+      //   JS 对象里**后者覆盖前者** ⇒ 导出的一直是 factory_price。现只留一个键，行为不变。
+      '进价': p.factory_price || 0, '分销价': p.dist_price || 0,
       '安全库存': p.safety_stock != null ? p.safety_stock : '', '保质期(天)': p.expiry_days != null ? p.expiry_days : '',
       '状态': p.is_active === 0 ? '停用' : '启用',
     }))
@@ -1107,12 +1146,12 @@ onMounted(() => {
 .pa-stat{font-size:13px;color:var(--t2);flex-shrink:0}
 .pa-stat b{color:var(--p);font-size:16px}
 
-/* v157 「补厂价」入口：仅当有商品未录厂价时出现，补完自动消失（不是常驻按钮） */
+/* v157 「补进价」入口：仅当有商品未录进价时出现，补完自动消失（不是常驻按钮） */
 .pa-fp-btn{color:var(--war);border-color:rgba(var(--war-rgb),.35);gap:5px}
 .pa-fp-btn:hover{background:rgba(var(--war-rgb),.1);color:var(--war)}
 .pa-fp-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:rgba(var(--war-rgb),.16);font-size:11.5px;font-weight:600;line-height:16px;text-align:center}
 
-/* v157 厂价列（行内可编） */
+/* v157 进价列（行内可编） */
 .pa-fp-cell{white-space:nowrap}
 .pa-fp-val{cursor:pointer;border-bottom:1px dashed transparent}
 .pa-fp-val:hover{border-bottom-color:var(--p);color:var(--p)}
@@ -1123,13 +1162,13 @@ onMounted(() => {
 .pa-fp-input{width:92px;height:30px;text-align:right;padding:0 8px}
 .pa-hint{font-size:11px;color:var(--t3);font-weight:400;margin-left:4px}
 
-/* v184b 到货周期列：行内可编，沿用厂价列的视觉语言（虚线下划 + hover 变品牌色），
+/* v184b 到货周期列：行内可编，沿用进价列的视觉语言（虚线下划 + hover 变品牌色），
    但**不用**警示色 —— 见下面 .pa-cyc-none 的注释。 */
 .pa-cyc-cell{white-space:nowrap;text-align:center}
 .pa-cyc-val{cursor:pointer;border-bottom:1px dashed transparent;font-variant-numeric:tabular-nums}
 .pa-cyc-val:hover{border-bottom-color:var(--p);color:var(--p)}
-/* 「未设」用**灰**（--t3）而不是厂价列那种琥珀（--war）：
-   缺厂价是**问题**（闸门开启后该商品在报单导入/小程序报单时会被拒收），缺到货周期只是「未设置」。
+/* 「未设」用**灰**（--t3）而不是进价列那种琥珀（--war）：
+   缺进价是**问题**（闸门开启后该商品在报单导入/小程序报单时会被拒收），缺到货周期只是「未设置」。
    本租户 285 个在售商品里 274 个为空 —— 用警示色会变成满屏噪音，反而盖掉真正要看的缺价提示。 */
 .pa-cyc-none{cursor:pointer;color:var(--t3);font-size:12px;border-bottom:1px dashed transparent}
 .pa-cyc-none:hover{border-bottom-color:var(--p);color:var(--p)}
@@ -1221,7 +1260,7 @@ onMounted(() => {
 .pa-errs{display:flex;flex-direction:column;gap:2px;margin-top:6px}
 .pa-err{font-size:12px;color:var(--t2)}
 
-/* v157 批量补厂价面板 */
+/* v157 批量补进价面板 */
 .pa-modal.pa-wide{width:min(880px,96vw)}
 /* v178 列映射确认步：表格要横向空间，且行数可能几十行 → 加宽 + 限高内滚（不撑出视口） */
 .pa-modal.pa-map{width:min(880px,96vw);max-height:88vh;display:flex;flex-direction:column}
@@ -1239,7 +1278,7 @@ tr.pa-row-off td{opacity:.5}
 .pa-fp-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
 .pa-fp-count{font-size:12.5px;color:var(--t2);margin-right:auto}
 .pa-fp-count b{color:var(--t1)}
-/* v158 厂价闸门开关：默认（未开启）走中性底色，开启后转成功色 —— 开关状态一眼可辨 */
+/* v158 进价闸门开关：默认（未开启）走中性底色，开启后转成功色 —— 开关状态一眼可辨 */
 .pa-fp-gate{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd);font-size:12.5px;line-height:1.6}
 .pa-fp-gate.on{background:rgba(var(--suc-rgb),.08);border-color:rgba(var(--suc-rgb),.35)}
 .pa-fp-switch{display:inline-flex;align-items:center;gap:7px;cursor:pointer;color:var(--t1);white-space:nowrap;user-select:none}
