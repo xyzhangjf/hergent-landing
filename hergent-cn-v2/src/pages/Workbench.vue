@@ -121,7 +121,7 @@ import { ref, computed, onMounted } from 'vue'
 import { toast } from '../store'
 import { hermesChat } from '../api/client'
 import { stripAllFences } from '../composables/useCardTrigger'
-import { dashboardApi, expiryApi, todayApi, collectionsApi, importApi } from '../api/modules'
+import { dashboardApi, expiryApi, todayApi, importApi } from '../api/modules'
 
 /* ---- 日期 ---- */
 const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
@@ -298,31 +298,13 @@ async function loadData() {
   loadTodo()
 }
 
-/* ---- 今日待办：审批 + 催收 + 临期（AI 替你盯着的） ---- */
+/* ---- 今日待办：临期预警 + AI 建议（AI 替你盯着的） ---- */
 const todoItems = ref([])
 const todoLoading = ref(false)
 
 async function loadTodo() {
   todoLoading.value = true
   const items = []
-  try {
-    const [col] = await Promise.all([
-      collectionsApi.queue().catch(() => null),
-    ])
-    const cols = (col && col.items) || []
-    const disputed = cols.filter(c => c.status === 'disputed')
-    const overdueBig = cols.filter(c => c.escalated && c.age_days > 0).slice(0, 1)
-    if (disputed.length || overdueBig.length) {
-      const first = disputed[0] || overdueBig[0]
-      const extra = disputed.length + overdueBig.length - 1
-      items.push({
-        icon: '催',
-        title: `催收：${first.contact_name} ${fmtNum(first.amount)} 元`,
-        sub: first.status === 'disputed' ? '客户提出争议，需要你处理' : `逾期 ${first.age_days} 天` + (extra > 0 ? ` · 另有 ${extra} 笔需跟进` : ''),
-        prio: 'amber', path: '/collections',
-      })
-    }
-  } catch (e) { /* 静默 */ }
   // 临期预警 —— expiryData 已是风险档（已过期/红/橙，口径 = 配方阈值），
   //   旧版按后端从不返回的 status/is_near 过滤，导致这条待办永远不出现。
   const near = expiryData.value || []

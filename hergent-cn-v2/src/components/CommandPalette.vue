@@ -72,7 +72,6 @@ const COMMANDS = [
   { id: 'dashboard', group: '页面', icon: 'sort', title: '经营趋势', path: '/dashboard' },
   { id: 'connect', group: '页面', icon: 'brain', title: '能力中心', path: '/connect' },
   { id: 'roles', group: '页面', icon: 'users', title: 'AI 团队', path: '/roles' },
-  { id: 'collections', group: '页面', icon: 'phone', title: '催收跟进', path: '/collections' },
   { id: 'loss-accounting', group: '页面', icon: 'receipt', title: '货损核算', path: '/loss-accounting' },
   // v206: `module` = 该入口所属的后端权限模块。配了它的条目会按本租户权限过滤
   //（与侧栏同一判据、同一个 `store.canModule`），否则「侧栏藏了、⌘⇧K 还能跳过去」。

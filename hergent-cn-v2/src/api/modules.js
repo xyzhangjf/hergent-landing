@@ -207,14 +207,6 @@ export const reconciliationApi = {
   customerConfirm: (body) => api('/api/reconciliation/customer-confirm', { method: 'POST', body }),
 }
 
-/* ---- 催收跟进（Logistify AR Agent 式闭环） ---- */
-export const collectionsApi = {
-  queue: (params = '') => api(`/api/collections/queue${params}`),
-  rebuild: () => api('/api/collections/rebuild', { method: 'POST', body: {} }),
-  action: (fid, body) => api(`/api/collections/${fid}/action`, { method: 'POST', body }),
-  summary: () => api('/api/collections/summary'),
-}
-
 /* ---- 货损工作流（模板 + 中文表单 + 配方存储） ---- */
 export const lossApi = {
   getRecipe: () => api('/api/loss/recipe'),

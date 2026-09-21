@@ -514,7 +514,6 @@ const SKILL_META = {
   'hergent-milk-expiry':     { icon: 'loader', title: '临期与货损',   what: '判定几天算临期、过期怎么计损、临期库存分级处置', when: '你问"这批快到期怎么办""货损怎么算""过期损失多少"' },
   'hergent-milk-commission': { icon: 'coins', title: '提成与工资',   what: '按回款/开单算提成、阶梯提成、扣社保个税后的实发', when: '你问"这个月工资多少""提成怎么算""给业务员算提成"' },
   'hergent-milk-rebate':     { icon: 'gift', title: '厂家返利',     what: '目标达成率、返利基数、核销注意事项', when: '你问"返利怎么算""达成多少""能拿多少返利"' },
-  'hergent-collections':     { icon: 'phone', title: '智能催收',     what: '查应收逾期、生成分级催收清单和话术', when: '你问"谁还欠钱""该催谁了""逾期多少钱"' },
   'hergent-erp-tools':       { icon: 'toolbox', title: 'ERP 工具集',   what: '28 个业务工具：开单 / 查库存 / 收付款 / 出报表 / 预警', when: '日常开单、查库存、对账等高频操作' },
   'hergent-architecture':    { icon: 'building', title: '系统架构', internal: true, what: '数据库表结构、API 路由、前端模块（开发维护用）', when: '系统开发 / 维护时' },
   'hergent-erp-diagnostics': { icon: 'wrench', title: '排障诊断', internal: true, what: 'API 调用、端口 / token 获取、工具直调（开发排障用）', when: '系统异常排查时' },
