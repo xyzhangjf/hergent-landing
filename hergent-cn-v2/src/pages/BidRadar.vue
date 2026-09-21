@@ -1,22 +1,52 @@
 <template>
-  <div class="br">
-    <div class="br-head">
+  <div class="page">
+    <div class="page-hd split">
       <div class="br-title">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
         <div>
           <h2>招投标雷达</h2>
-          <p>中国政府采购网 · 全国公共资源交易平台 · 军队采购网 · 低温奶相关商机订阅（每日 07:10 自动抓取）</p>
+          <span class="page-sub">中国政府采购网 · 全国公共资源交易平台 · 军队采购网 · 低温奶相关商机订阅（每日 07:10 自动抓取）</span>
+          <span class="br-fresh">数据每日 07:10 自动更新 · 最新公告 {{ maxDate || '—' }}</span>
         </div>
-      </div>
-      <div class="br-stat" v-if="!loading && meta.total !== null">
-        共 <b>{{ meta.total }}</b> 条 · 今日新增 <b class="br-new-n">{{ todayCount }}</b> · 更新于 {{ meta.fetched_at }}
       </div>
     </div>
 
+    <div class="bento">
+    <!-- KPI 概览条（顶部紧凑统计带） -->
+    <div class="card kpi-strip">
+      <div class="kpi">
+        <div class="kpi-label">累计商机</div>
+        <div class="kpi-val">{{ meta.total === null ? '—' : meta.total }}</div>
+        <div class="kpi-sub">条公开招投标信息</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">近 3 日新增</div>
+        <div class="kpi-val" :class="recentCount ? 'val-warn' : ''">{{ recentCount }}</div>
+        <div class="kpi-sub">最近 3 天发布</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">覆盖省份</div>
+        <div class="kpi-val">{{ meta.regionHit }}</div>
+        <div class="kpi-sub">当前有商机的省</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">数据来源</div>
+        <div class="kpi-val">{{ meta.sources.length }}</div>
+        <div class="kpi-sub">个平台</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">当前结果</div>
+        <div class="kpi-val">{{ items.length }}</div>
+        <div class="kpi-sub">{{ meta.fetched_at ? '更新于 ' + meta.fetched_at : '尚未抓取' }}</div>
+      </div>
+    </div>
+
+    <!-- 筛选与列表（主区，整行铺满） -->
+    <div class="card br-main">
     <!-- 快速筛选 -->
     <div class="br-presets">
       <button class="br-chip" :class="{ on: f.source === 'plap' }" @click="togglePreset('plap')">军队采购网</button>
-      <button class="br-chip" :class="{ on: todayOnly }" @click="toggleToday">仅看今日新增</button>
+      <button class="br-chip" :class="{ on: recentOnly }" @click="toggleRecent">仅看近 3 日新增</button>
     </div>
 
     <!-- 筛选栏 -->
@@ -72,7 +102,7 @@
           <td class="c-buyer">{{ it.buyer || '—' }}</td>
           <td class="c-region">{{ it.region }}</td>
           <td class="c-title">
-            <span v-if="isNew(it)" class="br-new" title="今日发布">新</span>
+            <span v-if="isNew(it)" class="br-new" title="近 24 小时或本次打开后新入库">新</span>
             <span v-if="it.is_capex" class="br-capex" title="制造端 CAPEX，非配送线索">CAPEX</span>
             {{ it.title }}
           </td>
@@ -88,7 +118,10 @@
       <button class="br-btn" :disabled="f.page >= totalPages" @click="goto(f.page + 1)">下一页</button>
     </div>
 
+    </div><!-- /br-main -->
+
     <p class="br-foot">数据来源：上述平台公开搜索结果 · 仅摘要+原文链接，不整篇搬运 · 合规使用</p>
+    </div><!-- /bento -->
   </div>
 </template>
 
@@ -98,7 +131,7 @@ import { api } from '../api/client'
 
 const items = ref([])
 const loading = ref(false)
-const todayCount = ref(0)
+const recentCount = ref(0)
 const meta = reactive({ total: null, regions: [], types: [], sources: [], fetched_at: '', regionHit: 0 })
 const f = reactive({
   keyword: '', region: '', type: '', source: '', date_from: '', date_to: '', capex: false,
@@ -106,13 +139,23 @@ const f = reactive({
 })
 let _searchTimer = null
 
-const TODAY = (() => {
-  const d = new Date(); const p = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-})()
-const todayOnly = computed(() => f.date_from === TODAY && !f.date_to)
+// 日期助手：用于「近 3 日」窗口与「新」角标判定
+function fmtDate(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
+const NOW = new Date()
+const _d3 = new Date(NOW); _d3.setDate(_d3.getDate() - 2)
+const RECENT_FROM = fmtDate(_d3)                 // 近 3 日窗口下界（含今天共 3 天）
+const NOW_MS = NOW.getTime()
+const recentOnly = computed(() => f.date_from === RECENT_FROM && !f.date_to)
+const LS_KEY = 'br_last_visit'
+const lastVisitMs = ref(Number(localStorage.getItem(LS_KEY) || 0))   // 上次打开的时间戳
 
 const totalPages = computed(() => Math.max(1, Math.ceil((meta.total || 0) / f.page_size)))
+const maxDate = computed(() => {
+  let m = ''
+  for (const it of items.value) if (it.date > m) m = it.date
+  return m
+})
+let _persisted = false
 
 function tagClass(type) {
   if (['公开招标', '招标公告', '竞争性磋商', '竞争性谈判', '询价公告'].includes(type)) return 'tag-active'
@@ -126,7 +169,13 @@ function sourceTagClass(source) {
   return 'src-other'
 }
 function isNew(it) {
-  return it.date === TODAY
+  // 「新」= 近 24h 入库，或本次打开后才入库（自上次访问以来新增）
+  const c = it.created_at ? new Date(it.created_at.replace(/-/g, '/')) : null
+  if (!c || isNaN(c.getTime())) return false
+  const t = c.getTime()
+  if (t > lastVisitMs.value) return true
+  if (NOW_MS - t <= 24 * 3600 * 1000) return true
+  return false
 }
 
 function buildQuery() {
@@ -159,11 +208,11 @@ function togglePreset(src) {
   f.source = f.source === src ? '' : src
   reload()
 }
-function toggleToday() {
-  if (todayOnly.value) {
+function toggleRecent() {
+  if (recentOnly.value) {
     f.date_from = ''
   } else {
-    f.date_from = TODAY
+    f.date_from = RECENT_FROM
     f.date_to = ''
   }
   reload()
@@ -178,14 +227,19 @@ async function load() {
     meta.regions = res.regions || []
     meta.regionHit = (res.regions || []).filter(r => r.count > 0).length
     meta.types = res.types || []
+    // 修复既存缺陷：后端 /api/bid-radar 一直返回 sources（bid_radar.py 的 "sources" 字段），
+    // 但此处此前漏了赋值 → 筛选栏「全部来源」下拉与 KPI 概览条的来源数恒为空。
+    meta.sources = res.sources || []
     meta.fetched_at = res.fetched_at || ''
-    // 今日新增计数（独立轻量查询）
-    const t = await api(`/api/bid-radar?date_from=${TODAY}&page_size=1`, { method: 'GET' })
-    todayCount.value = t.total || 0
+    // 近 3 日新增计数（独立轻量查询，规避「按浏览器当天」白天恒为 0 的误导）
+    const t = await api(`/api/bid-radar?date_from=${RECENT_FROM}&page_size=1`, { method: 'GET' })
+    recentCount.value = t.total || 0
+    // 记录本次打开时间，供下次访问判断「自上次打开后新增」
+    if (!_persisted) { try { localStorage.setItem(LS_KEY, String(Date.now())) } catch (e) {} _persisted = true }
   } catch (e) {
     items.value = []
     meta.total = 0
-    todayCount.value = 0
+    recentCount.value = 0
   } finally {
     loading.value = false
   }
@@ -195,15 +249,15 @@ onMounted(load)
 </script>
 
 <style scoped>
-.br{max-width:1180px;margin:0 auto}
-.br-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+/* Bento 分栏：.bento / .kpi-strip 及 KPI 子元素走全局层（variables.css），这里只声明本页占宽。
+   此前 .br 被 1200px 限宽（1920 视口下占宽仅 74%）；招投标雷达属表格密集页，改为整行铺满。
+   页头统一走全局 .page-hd.split —— 原来的 .br-head / .br-stat / .br-title h2|p / .br-new-n
+   已分别由全局页头与 KPI 概览条替代，故一并删除。 */
+.br-main{grid-column:1/-1}
+.br-foot{grid-column:1/-1}
 .br-title{display:flex;align-items:center;gap:12px}
 .br-title svg{color:var(--p-dark);background:var(--p-bg);padding:8px;border-radius:12px;box-sizing:content-box}
-.br-title h2{margin:0;font-size:20px;font-weight:600;color:var(--t1)}
-.br-title p{margin:2px 0 0;font-size:12px;color:var(--t3)}
-.br-stat{font-size:13px;color:var(--t2);background:var(--bg2);padding:6px 12px;border-radius:10px}
-.br-stat b{color:var(--p-dark)}
-.br-new-n{color:#dc2626}
+.br-fresh{display:block;margin-top:4px;font-size:11px;color:var(--t3)}
 
 .br-presets{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .br-chip{height:32px;padding:0 14px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);border-radius:999px;font-size:12px;cursor:pointer;transition:all .15s}
@@ -223,7 +277,8 @@ onMounted(load)
 .br-state{padding:48px;text-align:center;color:var(--t3);font-size:14px}
 .br-empty{color:var(--t2)}
 
-.br-tbl{width:100%;border-collapse:collapse;background:var(--bg);border:1px solid var(--border-subtle);border-radius:12px;overflow:hidden;font-size:13px}
+/* 表格已置于 .card 内（卡片自带边框与圆角），故去掉自身的边框/圆角，避免双层描边 */
+.br-tbl{width:100%;border-collapse:collapse;font-size:13px}
 .br-tbl th{text-align:left;padding:10px 12px;background:var(--bg2);color:var(--t2);font-weight:500;border-bottom:1px solid var(--border-subtle);white-space:nowrap}
 .br-tbl td{padding:10px 12px;border-bottom:1px solid var(--border-subtle);color:var(--t1);vertical-align:top}
 .br-tbl tbody tr:hover{background:var(--bg2)}

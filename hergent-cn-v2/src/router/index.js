@@ -20,6 +20,7 @@ const PayrollWorkflow = () => import('../pages/PayrollWorkflow.vue')
 const DataFill = () => import('../pages/DataFill.vue')
 const EmployeeArchive = () => import('../pages/EmployeeArchive.vue')
 const CustomerArchive = () => import('../pages/CustomerArchive.vue')
+const ArchiveShell = () => import('../pages/ArchiveShell.vue')
 const Archive = () => import('../pages/Archive.vue')
 const Settings = () => import('../pages/Settings.vue')
 const CronJobs = () => import('../pages/CronJobs.vue')
@@ -57,11 +58,20 @@ export const router = createRouter({
         { path: 'loss-accounting', component: LossAccounting, meta: { title: '货损核算' } },
         { path: 'payroll', component: PayrollWorkflow, meta: { title: '算工资工作流' } },
         { path: 'data-fill', component: DataFill, meta: { title: '库存效期补录' } },
-        { path: 'archive', redirect: '/archive/employees' },
-        { path: 'archive/employees', component: Archive, meta: { title: '档案管理' } },
-        { path: 'archive/customers', component: Archive, meta: { title: '档案管理' } },
-        { path: 'archive/brands', component: Archive, meta: { title: '档案管理' } },
-        { path: 'archive/products', component: Archive, meta: { title: '档案管理' } },
+        // 档案管理：父级为薄壳容器，4 个 tab 作为子路由。
+        // 这样侧栏 <router-link to="/archive"> 解析出的父级 record 会出现在任意
+        // /archive/* 子页面的 matched 链里，router-link-active 自动命中（与其它模块一致）。
+        {
+          path: 'archive',
+          component: ArchiveShell,
+          redirect: '/archive/employees',
+          children: [
+            { path: 'employees', component: Archive, meta: { title: '档案管理' } },
+            { path: 'customers', component: Archive, meta: { title: '档案管理' } },
+            { path: 'brands', component: Archive, meta: { title: '档案管理' } },
+            { path: 'products', component: Archive, meta: { title: '档案管理' } }
+          ]
+        },
         { path: 'cron', component: CronJobs, meta: { title: '定时任务' } },
         { path: 'ai-hub', component: AiHub, meta: { title: 'AI 中心' } },
         // v159：价格渠道字典 —— 渠道是数据不是代码，客户自行配置（独立一级入口）

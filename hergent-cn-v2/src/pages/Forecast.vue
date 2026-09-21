@@ -78,8 +78,11 @@
       <span class="tb-sep"></span>
       <div class="tb-group tb-act">
         <button class="btn btn-sm btn-ghost" :disabled="!cross.period" @click="onSuggest" title="按体检/货损/返利/起订量生成建议并打开审核"><Icon name="sparkle"/> <span class="tb-ai-txt">AI智能建议</span></button>
-        <button v-if="!editMode" class="btn btn-sm btn-primary" :disabled="loadingEdit"
-                :title="entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'"
+        <!-- v209：全屏时让位给表格工具行里那一份（全屏层 fixed/inset:0 把本工具栏整条盖住 ⇒ 这里的按钮点不到）。
+             非全屏照旧渲染于此。判据见 fsRowHosting。 -->
+        <!-- v219：已定稿（关闭）的期次禁用改单 —— 与后端 save_matrix 闸门同源，避免「能改但保存被拒」 -->
+        <button v-if="!editMode && !fsRowHosting" class="btn btn-sm btn-primary" :disabled="loadingEdit || periodClosed"
+                :title="periodClosed ? '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行')"
                 @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
         <!-- 编辑态：高级工具（审批/推送/打印 + 健康体检/AI工具/协同闭环/更多工具） -->
         <div v-if="editMode" class="tb-pop">
@@ -99,19 +102,36 @@
           </Teleport>
         </div>
       </div>
-      <!-- 编辑控制组：编辑态 6 个按钮独占第二行，紧贴下方表格（视线与鼠标行程最短） -->
-      <div v-if="editMode" class="tb-edit-group">
+      <!-- 编辑控制组：编辑态 6 个按钮独占第二行，紧贴下方表格（视线与鼠标行程最短）。
+           v209：全屏时让位给表格工具行里那一份（判据见 fsRowHosting）——全屏层把本行盖住，
+           而用户此时**正在改单**，够不着的代价最大。 -->
+      <div v-if="editMode && !fsRowHosting" class="tb-edit-group">
         <!-- Q12/Q30：编辑按钮带载入态与权限提示；Q25：校验按钮带待修正角标；Q27：失败后按钮变「重试保存」 -->
         <button class="btn btn-sm btn-ghost" @click="exitEdit">取消</button>
-        <button class="btn btn-sm btn-ghost" :disabled="!lastSavedSnap" title="放弃保存后的改动，回到上次保存的版本" @click="undoToLastSaved">回退</button>
+        <!-- v201：可用性与状态条**同源** —— 原为 `:disabled="!lastSavedSnap"`，
+             与状态条各判一套：草稿恢复那一态基线为 null，「回退」灰着，而状态条正说
+             「有未保存的改动」。现在两者都只看 dirtySinceSave（＝有改动才可回退）。 -->
+        <button class="btn btn-sm btn-ghost" :disabled="!dirtySinceSave" title="放弃自上次保存以来的改动，回到起点（上次保存时的内容；本次若从未保存过，则是刚进入编辑时的服务端内容）" @click="undoToLastSaved">回退</button>
         <button class="btn btn-sm btn-ghost" title="全表录入查错：列出类型/必填/上限/条码重复等错误（可点击跳转）" @click="openErrList">
           查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
         </button>
         <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
         <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+        <!-- v201：常驻的保存状态。保存成功只弹一条几秒即消失的提示，之后页面与保存前
+             长得一模一样 ⇒ 用户无法确认「到底存进去了没有」。这里给一个**一直挂着**的答案
+             （保存失败另有红色横幅，两者语义不重叠）。
+             v208：保存成功已改为**退出编辑态**（回到带「改单」按钮的只读态），
+             状态条随之不再可见 —— 它的受众是「正在编辑、准备再改一轮」的人。 -->
+        <span class="save-state" :class="saveState.cls"
+              :title="saveState.cls === 'dirty' ? '改动还没提交：点右侧「保存」才会生效'
+                     : (saveState.cls === 'saved' ? '内容已提交到服务器；继续改动需再次点「保存」'
+                        : '本次进入编辑后还没有任何改动')">
+          <i class="ss-dot"></i>{{ saveState.text }}
+        </span>
       </div>
       <div v-if="(advToolsOpen && editMode) || exportMenuOpen || brandPopOpen || copyMenuOpen" class="pop-overlay" @click="advToolsOpen=false; exportMenuOpen=false; brandPopOpen=false; copyMenuOpen=false"></div>
     </div>
+
 
     <!-- 新建期次表单（紧贴工具条，随时可点，不依赖视图） -->
     <div v-if="showNewPeriod" class="card new-period">
@@ -592,14 +612,25 @@
              见下方 tbody 里的 .empty-row。 -->
         <div v-else-if="!editMode" class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
-            <GridZoomCtl v-model="gridZoom"/>
-            <span class="tb-sep"></span>
+            <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。
+                 .tb-sep-lead 标记「行首那条装饰分隔条」，全屏时隐藏（纯装饰，不丢控件/信息）。 -->
+            <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
+            <span class="tb-sep tb-sep-lead"></span>
             <!-- 表格级筛选器（原在主工具栏）：作用于本交叉表，下移到表格工具行，缩短「控件—作用对象」距离 -->
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
-            <span v-if="hideZeroReport" class="confirm-badge filter"><Icon name="filter" /> 已隐藏 {{ zeroReportCount }} 个零报单</span>
+            <!-- v209：全屏时收成图标形态（badge-slim）。文案不丢 —— 完整句子在 title 与 aria-label。
+                 它是全屏单行的必要项：本徽标与「另有 N 个」可同时出现，两者实测各约 150–180px。 -->
+            <span v-if="hideZeroReport" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
+                  :title="'已隐藏 ' + zeroReportCount + ' 个零报单（取消勾选「仅显示有报单」即可展开）'"
+                  :aria-label="'已隐藏 ' + zeroReportCount + ' 个零报单'"
+            ><Icon name="filter" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
-            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter"><Icon name="filter" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
+            <!-- v209：同「已隐藏 N 个零报单」，全屏时收成图标形态（实测本条占 180px，是全行最肥的单件） -->
+            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
+                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（勾选「显示全部商品」即可展开）'"
+                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示'"
+            ><Icon name="filter" /><template v-if="!gridFullscreen"> 另有 {{ hiddenByRowBase }} 个在售商品未显示</template></span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -634,6 +665,21 @@
               </div>
               </Teleport>
             </div>
+            <!-- v209：**全屏专属**「改单」入口。
+                 成因：全屏层 `.grid-area.is-fs{position:fixed;inset:0;z-index:1000}` 把主工具栏整条盖住
+                 ⇒ 全屏下页头那个「改单」点不到（真机 elementFromPoint 命中到一个无 class 的元素，
+                 按钮坐标正常但最上层不是它）。用户在**全屏看表**时想改单，被迫先退出全屏。
+                 解法：在**全屏层内部**补一个同源入口，不必退出全屏即可进入改单。
+                 非全屏**刻意不渲染**：页头那份本来就在手边，且表格工具行没有多余宽度
+                 （实测非全屏 1440 塞入编辑组差 273px、必然折行）—— 这正是「方案 A：全屏专属」的取舍。
+                 与主工具栏那份同源（同 :disabled / :title / @click）；两者由 fsRowHosting 保证**同时只有一份**。 -->
+            <template v-if="fsRowHosting">
+              <span class="tb-sep"></span>
+              <!-- v219：同第一处 —— 已定稿期次禁用改单（三处按钮共用 periodClosed 判据） -->
+              <button class="btn btn-sm btn-primary" :disabled="loadingEdit || periodClosed"
+                      :title="periodClosed ? '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行')"
+                      @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
+            </template>
           </div>
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
@@ -683,6 +729,7 @@
                       <button class="btn btn-primary btn-sm" @click="openNewPeriod"><Icon name="plus"/> 新建期次</button>
                     </template>
                     <template v-else>
+                      <!-- v219：同上 —— 已定稿期次禁用改单 -->
                       <button class="btn btn-primary btn-sm" :disabled="periodClosed"
                               :title="periodClosed ? '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」' : '进入可编辑网格填写报单'"
                               @click="enterEdit"><Icon name="edit"/> 改单填写</button>
@@ -742,7 +789,7 @@
                       <span v-else class="qty-num tip-wrap" :style="heatStyle(it.r, col.key)">{{ it.r.qtyByUnit[col.key] }}<span class="tip">¥{{ fmt(displayPrice(it.r) != null ? (it.r.qtyByUnit[col.key] || 0) * displayPrice(it.r) : 0) }}（按行单价估算）</span></span>
                     </template>
                     <template v-else-if="col.key === 'qty'">{{ fmt(it.r.total) }}</template>
-                    <template v-else-if="col.key === 'boxes'">{{ fmt(rowBoxes(it.r)) }}</template>
+                    <template v-else-if="col.key === 'boxes'"><span :class="{ 'miss-price': boxMissing(it.r) }">{{ boxText(it.r) }}</span></template>
                     <template v-else-if="col.key === 'extra'">{{ fmt(rowExtraQty(it.r)) }}</template>
                     <template v-else-if="col.key === 'final'"><b>{{ fmt(rowFinalQty(it.r)) }}</b></template>
                     <template v-else-if="col.key === 'ai'">{{ it.r.ai != null ? fmt(it.r.ai) : '—' }}</template>
@@ -783,7 +830,7 @@
                   <template v-if="col.key === 'name'">合计</template>
                   <template v-else-if="col.type === 'qty'">{{ cross.colTotals[(ci - 1) - visibleCols.length] || '' }}</template>
                   <template v-else-if="col.key === 'qty'">{{ fmt(cross.grand.qty) }}</template>
-                  <template v-else-if="col.key === 'boxes'">{{ fmt(cross.grand.boxes) }}</template>
+                  <template v-else-if="col.key === 'boxes'">{{ fmtBox(cross.grand.boxes) }}<span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></template>
                   <template v-else-if="col.key === 'extra'">{{ fmt(liveRows.reduce((s, r) => s + rowExtraQty(r), 0)) }}</template>
                   <template v-else-if="col.key === 'final'">{{ fmt(liveRows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</template>
                   <template v-else-if="col.key === 'amount'">{{ fmt(cross.grand.amount) }}</template>
@@ -793,19 +840,30 @@
             </tbody>
           </table>
           </div>
-          <p class="cross-amt-note">报单金额 = 最终下单数量（箱）× 单价（厂价/箱）。<b>厂价 ≡ 进价</b>：商品档案填的进货价即厂价，若另录厂价则优先用它；<b>单价(厂价/箱) = 厂价 × 每箱小单位数</b>。<b>规格 = 每箱小单位数</b>（取规格串末位数量，如「250g*24瓶」=24；报单单位比末位更细时按层级相乘，如「100g*8杯*12组」按「杯」报单 =96）。合计(箱) = <b>逐行</b>「小单位 ÷ 规格」取整后相加，最终下单(箱) = 合计(箱) + 加单(箱)，均按箱计。</p>
+          <p class="cross-amt-note">报单金额 = 最终下单数量（箱）× 单价（进价/箱）。<b>单价(进价/箱) = 商品档案的进价</b>（档案里的进价<b>本身就是「元/箱」</b>，不再乘任何换算）；档案进价为空时回退到档案里的历史进价列。<b>每箱数（= 每箱有几个报单单位）</b>取商品档案的单位换算，档案缺则按规格串解析（如「250g*24瓶」=24、纯数字规格「12」=12）。合计(箱) = <b>逐行</b>「报单数量 ÷ 每箱数」，<b>可为小数</b>（如报 3 瓶 ÷ 24 瓶/箱 = 0.125 箱）；最终下单(箱) = <b>合计(箱) 不足一箱按一箱</b>（厂商不拆零发货）<b>+ 加单(箱)</b>。</p>
         </div>
 
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
         <div v-else class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
-            <GridZoomCtl v-model="gridZoom"/>
-            <span class="tb-sep"></span>
+            <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。
+                 .tb-sep-lead 标记「行首那条装饰分隔条」，全屏时隐藏（纯装饰，不丢控件/信息）。 -->
+            <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
+            <span class="tb-sep tb-sep-lead"></span>
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
-            <span v-if="hideZeroReport" class="confirm-badge filter"><Icon name="filter" /> 已隐藏 {{ zeroReportCount }} 个零报单</span>
+            <!-- v209：全屏时收成图标形态（badge-slim）。文案不丢 —— 完整句子在 title 与 aria-label。
+                 它是全屏单行的必要项：本徽标与「另有 N 个」可同时出现，两者实测各约 150–180px。 -->
+            <span v-if="hideZeroReport" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
+                  :title="'已隐藏 ' + zeroReportCount + ' 个零报单（取消勾选「仅显示有报单」即可展开）'"
+                  :aria-label="'已隐藏 ' + zeroReportCount + ' 个零报单'"
+            ><Icon name="filter" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
-            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter"><Icon name="filter" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
+            <!-- v209：同「已隐藏 N 个零报单」，全屏时收成图标形态（实测本条占 180px，是全行最肥的单件） -->
+            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
+                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（勾选「显示全部商品」即可展开）'"
+                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示'"
+            ><Icon name="filter" /><template v-if="!gridFullscreen"> 另有 {{ hiddenByRowBase }} 个在售商品未显示</template></span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -840,6 +898,34 @@
                  是"还没定稿的数"，很容易被当成最终报单直接粘进厂家系统下单 → 数错。
                  故复制入口**只在只读汇总表**提供（见上方 .grid-ctl-row）。
                  品牌筛选两态都留：它同时是**显示过滤**，改单时按品牌收窄视野仍有意义。 -->
+            <!-- v209：**全屏专属**编辑控制组 —— 就是「改单」点击后出现的全部功能按钮 + 常驻保存状态。
+                 与主工具栏 .tb-edit-group 那份**同源同文案**（同 :disabled / :title / @click）。
+                 ⚠️ 两处必须同步改：任何一处增删按钮，另一处要跟上（本文件里品牌弹层、两态表格工具行
+                    也是同样的「同构两处」写法，沿此惯例）。
+                 只在全屏渲染的理由同「改单」入口：非全屏时主工具栏那行在手边，
+                 而表格工具行没有多余宽度（实测非全屏 1440 塞入编辑组差 273px，必然折行）。 -->
+            <template v-if="fsRowHosting">
+              <span class="tb-sep"></span>
+              <div class="tb-edit-group">
+                <!-- Q12/Q30：编辑按钮带载入态与权限提示；Q25：校验按钮带待修正角标；Q27：失败后按钮变「重试保存」 -->
+                <button class="btn btn-sm btn-ghost" @click="exitEdit">取消</button>
+                <!-- v201：可用性与状态条**同源** —— 两者都只看 dirtySinceSave（＝有改动才可回退） -->
+                <button class="btn btn-sm btn-ghost" :disabled="!dirtySinceSave" title="放弃自上次保存以来的改动，回到起点（上次保存时的内容；本次若从未保存过，则是刚进入编辑时的服务端内容）" @click="undoToLastSaved">回退</button>
+                <button class="btn btn-sm btn-ghost" title="全表录入查错：列出类型/必填/上限/条码重复等错误（可点击跳转）" @click="openErrList">
+                  查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
+                </button>
+                <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
+                <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+                <!-- v201/v208：常驻保存状态。三态 see saveState；保存成功后已改为退出编辑态，
+                     故本态是「正在编辑、准备再改一轮」的人的常驻答案。 -->
+                <span class="save-state" :class="saveState.cls"
+                      :title="saveState.cls === 'dirty' ? '改动还没提交：点右侧「保存」才会生效'
+                             : (saveState.cls === 'saved' ? '内容已提交到服务器；继续改动需再次点「保存」'
+                                : '本次进入编辑后还没有任何改动')">
+                  <i class="ss-dot"></i>{{ saveState.text }}
+                </span>
+              </div>
+            </template>
           </div>
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
@@ -912,8 +998,8 @@
                 <th v-if="showSuggest" class="num calc-th suggest" title="配方建议：按「建议算法」面板当前策略算出，只受该面板影响">配方建议<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'suggest')" @click.stop></span></th>
                 <th class="num calc-th extra">加单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'extra')" @click.stop></span></th>
                 <th class="num calc-th final">最终下单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'final')" @click.stop></span></th>
-                <th class="num calc-th price" title="可直接录入：填「元/箱」。留空则**自动沿用上一期录入过的价**（本期之前最近一次填过的，不用重填）；从未填过则按商品档案的厂价自动算（厂价 × 规格）。录入的价只在本期生效：点「保存」后随本期报单留存，不改商品档案，也不影响其他期次。">单价(厂价/箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'price')" @click.stop></span></th>
-                <th class="num calc-th amount">下单金额(厂价)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'amount')" @click.stop></span></th>
+                <th class="num calc-th price" title="可直接录入：填「元/箱」。留空则**自动沿用上一期录入过的价**（本期之前最近一次填过的，不用重填）；从未填过则按商品档案的进价自动算（档案进价本身就是「元/箱」，直接作为本单价）。录入的价只在本期生效：点「保存」后随本期报单留存，不改商品档案，也不影响其他期次。">单价(进价/箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'price')" @click.stop></span></th>
+                <th class="num calc-th amount">下单金额(进价)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'amount')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th">上期量<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'comparePrev')" @click.stop></span></th>
                 <th v-if="compareOn" class="num calc-th delta">Δ<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'compareDelta')" @click.stop></span></th>
                 <th v-if="showSpark" class="spark-th">趋势<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'spark')" @click.stop></span></th>
@@ -964,14 +1050,14 @@
                     </div>
                   </template>
                   <template v-else-if="c.edit === 'text' && c.options && c.options.length">
-                    <input v-model="r[c.key]" class="cell-input cell-wide" :placeholder="c.label" :data-r="ri" :data-c="ci" :list="'opt-' + c.key" @focus="onFocusCell(ri, ci)" @change="onCellChange">
+                    <input v-model="r[c.key]" class="cell-input cell-wide" :placeholder="c.label" :data-r="ri" :data-c="ci" :list="'opt-' + c.key" @focus="onFocusCell(ri, ci, $event)" @change="onCellChange">
                     <!-- 共享 datalist：仅首行渲染一份，避免每行重复 id + 海量 option 节点导致点击展开时标签页崩溃 -->
                     <datalist v-if="ri === 0" :id="'opt-' + c.key">
                       <option v-for="o in c.options" :key="o" :value="o"></option>
                     </datalist>
                   </template>
                   <template v-else-if="c.edit === 'text'">
-                    <input v-model="r[c.key]" class="cell-input cell-wide" :placeholder="c.label" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci)" @change="onCellChange">
+                    <input v-model="r[c.key]" class="cell-input cell-wide" :placeholder="c.label" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @change="onCellChange">
                   </template>
                   <template v-else-if="c.edit === 'num'">
                     <input :value="r[c.key] ?? ''" class="cell-input cell-num" type="text" :inputmode="c.num === 'int' ? 'numeric' : 'decimal'" placeholder="0" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @input="numInput($event, r, c.key)" @change="numCommit($event, r, c.key)">
@@ -984,6 +1070,9 @@
                   <template v-else-if="c.edit === 'ro'">
                     <span class="cell-ro">{{ c.fmt ? c.fmt(r) : (r[c.key] != null && r[c.key] !== '' ? r[c.key] : '—') }}</span>
                   </template>
+                  <!-- v211（P1-3）：错误角标 —— **触屏唯一能读到「为什么错」的入口**（td 的 title 要悬停，
+                       平板/手机没有悬停）。桌面侧它也顺带把「哪一格错了」标得比纯红框显眼。 -->
+                  <span v-if="cellIssue(ri, ci)" class="cell-err-dot" :title="cellIssue(ri, ci)" @mousedown.stop.prevent @click.stop="showCellErr(ri, ci)" aria-label="查看此格的错误原因"><Icon name="alert-triangle"/></span>
                   <span v-if="selected.r === ri && selected.c === ci" class="fill-handle" @mousedown.prevent.stop="startFill(ri, ci, $event)" title="拖拽填充"></span>
                 </td>
                 <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellInvalid(ri, visibleCols.length + ui), 'warn-low': rowWarn(r) === 'low', 'warn-short': rowWarn(r) === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0, flash: isFlash(ri, visibleCols.length + ui) }" :style="heatStyle(r, u.name)" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellErrMsg(ri, visibleCols.length + ui) || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
@@ -1004,7 +1093,7 @@
                   <span v-if="selected.r === ri && selected.c === visibleCols.length + ui" class="fill-handle" @mousedown.prevent.stop="startFill(ri, visibleCols.length + ui, $event)" title="拖拽填充"></span>
                 </td>
                 <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri">{{ fmt(rowSum(r)) }}</td>
-                <td class="num calc boxes" :data-r="ri">{{ fmt(rowBoxes(r)) }}</td>
+                <td class="num calc boxes" :data-r="ri"><span :class="{ 'miss-price': boxMissing(r) }">{{ boxText(r) }}</span></td>
                 <td v-if="showSuggest" class="num calc suggest" :data-r="ri" title="配方建议：按「建议算法」面板策略算出">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
                 <td class="num calc extra" :data-r="ri"><input :value="r.extraQty ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="0" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT, $event)" @input="numInput($event, r, 'extraQty')" @change="numCommit($event, r, 'extraQty')"></td>
                 <td class="num calc final" :data-r="ri"><b>{{ fmt(rowFinalQty(r)) }}</b></td>
@@ -1022,6 +1111,19 @@
               </tr>
             </tbody>
             </table>
+            <!-- v212（P2-1）：数量格候选的**唯一** datalist（全表共用一个）。
+                 🔴 `:key="qtyOptKey"` 是刻意的 —— 换格时**销毁重建**这个元素。
+                    只改 <option> 内容而不换节点，`input.list` 的惰性解析可能沿用旧候选，
+                    用户会看到上一格的数（本设计唯一的真实风险点）。换 key 即强制新节点。
+                 🔴 放在 <table> **外面**：datalist 不是表格内容，塞进 <tr>/<td> 里虽然浏览器
+                    容错能渲染，但会让「每行是否都渲染了一份」这种问题在结构上变得难判
+                    （v211 的商品名 datalist 放在 td 里是因为它要跟着 ri===0 那行走，
+                     本处不需要 —— 只有聚焦格才带 list，其它格谁也引用不到它）。
+                 ⚠️ `v-if="editMode && qtyOptKey"`：查看态不渲染；没有任何数量格聚焦时不渲染
+                    （避免留一个空壳 datalist，被别处的 `list=` 意外命中）。 -->
+            <datalist v-if="editMode && qtyOptKey" id="opt-qty" :key="qtyOptKey">
+              <option v-for="o in qtyCellOptions" :key="o.v" :value="o.v" :label="o.l"></option>
+            </datalist>
           </div>
           <div ref="editFoot" class="col-total-bar">
           <table class="tbl cross-tbl edit-tbl">
@@ -1034,7 +1136,7 @@
                 <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')">{{ c.key === 'name' ? '合计' : (c.edit === 'num' ? fmt(foot.masterSum[c.key] || 0) : '') }}</td>
                 <td v-for="(u, ui) in cross.units" :key="'fu' + u.name" class="num calc">{{ fmt(foot.unitSum[ui] || 0) }}</td>
                 <td class="num calc sum">{{ fmt(foot.qty) }}</td>
-                <td class="num calc boxes">{{ fmt(liveRows.reduce((s, r) => s + rowBoxes(r), 0)) }}</td>
+                <td class="num calc boxes">{{ fmtBox(editTotalBoxes) }}<span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></td>
                 <td v-if="showSuggest" class="num calc suggest">{{ fmt(foot.suggest) }}</td>
                 <td class="num calc extra">{{ fmt(liveRows.reduce((s, r) => s + (Number(r.extraQty) || 0), 0)) }}</td>
                 <td class="num calc final">{{ fmt(liveRows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</td>
@@ -1050,8 +1152,18 @@
             </tbody>
           </table>
           </div>
-          <p class="cross-amt-note">最终下单(箱) = 合计(箱) + 加单(箱)；<b>下单金额(厂价) = 最终下单(箱) × 单价(厂价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的厂价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</p>
-          <div v-if="selStats" class="sel-stat">
+          <p class="cross-amt-note">最终下单(箱) = 合计(箱) <b>不足一箱按一箱</b> + 加单(箱)（厂商不拆零发货）；<b>下单金额(进价) = 最终下单(箱) × 单价(进价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的进价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</p>
+          <!-- ⚠️ v212 两处修正（都是真机探针抓出来的，不是推演出来的）——
+               ① 判据从 `selStats` 改成 `selRange`。
+                  原写法在**选区里一个数字都没有**时整条不渲染 —— 而「框选一片空格子 → 填同一个数」
+                  恰恰是「批量填入」最主要的用法（一个客户这个月每种货都订 10 箱：
+                  框选一列空格 → 输 10 → 填入）。结果是**功能在真正需要它的那一步消失**，
+                  而且不报错、不出提示（静默缺入口，比报错更难发现）。
+               ② 「N 格」提到最外层、恒显示；求和/平均只在**真的有意义**时才显示。
+                  理由：这一格的初值大量是 `0`（不是空串）⇒ 逐格算出来的 `sum` 恒为 0，
+                  于是恒显示「求和 0 / 平均 0」——对用户是纯噪音，还容易被读成"里面全是 0（有数据）"。
+                  格数才是用户在这一刻唯一必须知道的事（**会被写入多少格**）。 -->
+          <div v-if="selRange" class="sel-stat">
             <span class="sel-stat-label">选区统计</span>
             <span>共 <b>{{ selCellCount }}</b> 格</span>
             <template v-if="selStats && selStats.sum !== 0">
@@ -1189,6 +1301,21 @@
                   {{ g.label }} {{ g.n }}
                 </button>
               </div>
+              <!-- v219 打磨⑤：一键修复入口。只对「原值本身就能算出来」的项可点，
+                   其余（重复建档/负数/名称缺失…）明确告知需手工，不给「假装能修」的按钮。 -->
+              <div class="err-fixbar">
+                <button v-if="fixables.length" class="btn btn-sm btn-primary" @click="openFixPreview">
+                  <Icon name="wizard"/> 一键修复 {{ fixables.length }} 处
+                </button>
+                <span v-if="manualErrs" class="err-fixhint">
+                  {{ fixables.length ? '另有 ' : '' }}{{ manualErrs }} 处需手工判断（重复建档 / 负数 / 名称缺失等），不会自动改
+                </span>
+                <!-- v219 打磨⑥：上限入口就放在「被上限拦下」真正发生的地方 -->
+                <button v-if="canEditRules" class="err-rulebtn" @click="openRuleEdit"
+                        title="改本租户的数量录入上限：超过它的数量会被标红并在保存时拦下">
+                  数量上限 {{ qtyMax }} · 修改
+                </button>
+              </div>
               <div class="err-list-wrap">
                 <ul class="err-list">
                   <li v-for="it in errShown" :key="it.ri + '_' + it.ci" @click="gotoErr(it)">
@@ -1203,6 +1330,62 @@
             </template>
             <div v-else class="err-empty">已全部修正，可以保存了</div>
           </div>
+          <!-- v219 打磨⑤：一键修复的**预览确认**弹窗。
+               存在的理由：批量改数值必须让用户看见每一处「改成什么、依据是什么」，
+               不能点了按钮背后悄悄改。用户看过再确认 ⇒ 不是静默改写。 -->
+          <Teleport to="body">
+            <div v-if="fixPreviewOpen" class="fix-mask" @click.self="fixPreviewOpen = false">
+              <div class="fix-dlg">
+                <div class="fix-hd">
+                  <b><Icon name="wizard"/> 一键修复预览</b>
+                  <button class="imp-x" @click="fixPreviewOpen = false"><Icon name="close"/></button>
+                </div>
+                <p class="fix-tip">
+                  以下 <b>{{ fixables.length }}</b> 处将按<b>原值本身就能算出的结果</b>修改（只取值、不猜、不清空）。
+                  确认后整批执行，<b>一次 Ctrl+Z 可整批还原</b>。
+                </p>
+                <div class="fix-list-wrap">
+                  <ul class="fix-list">
+                    <li v-for="(x, i) in fixables" :key="i">
+                      <span class="fix-loc">第 {{ x.row }} 行 · {{ x.name || '（无名称）' }} · {{ x.col }}</span>
+                      <span class="fix-chg"><span class="fix-old">{{ x.old || '（空）' }}</span> → <b class="fix-new">{{ x.neu }}</b></span>
+                      <span class="fix-how">{{ x.how }}</span>
+                    </li>
+                  </ul>
+                </div>
+                <div class="fix-ft">
+                  <span v-if="manualErrs" class="fix-rest">另有 {{ manualErrs }} 处需手工处理，本次不会改动</span>
+                  <button class="btn btn-sm" @click="fixPreviewOpen = false">取消</button>
+                  <button class="btn btn-sm btn-primary" @click="applyFixes">确认修复 {{ fixables.length }} 处</button>
+                </div>
+              </div>
+            </div>
+          </Teleport>
+          <!-- v219 打磨⑥：数量上限编辑（老板/管理员）。 -->
+          <Teleport to="body">
+            <div v-if="ruleEditOpen" class="fix-mask" @click.self="ruleEditOpen = false">
+              <div class="fix-dlg rule-dlg">
+                <div class="fix-hd">
+                  <b><Icon name="settings"/> 数量录入上限</b>
+                  <button class="imp-x" @click="ruleEditOpen = false"><Icon name="close"/></button>
+                </div>
+                <p class="fix-tip">
+                  超过上限的数量会被标红、并在保存时被服务器拦下（用来挡「手滑多按一位」）。
+                  这是<b>本租户</b>的设置：改完立即生效，Web 与小程序两个端同时变。
+                </p>
+                <div class="rule-body">
+                  <label class="rule-label">单个客户 · 单项最大数量</label>
+                  <!-- type="text" 而**不是** number：type=number 会静默加工输入（v214 判据） -->
+                  <input v-model="ruleQtyMax" class="rule-input" type="text" inputmode="numeric" @keydown.enter="saveRuleEdit">
+                  <span class="rule-hint">取值 1 ~ 999999999　·　当前生效 {{ qtyMax }}</span>
+                </div>
+                <div class="fix-ft">
+                  <button class="btn btn-sm" @click="ruleEditOpen = false">取消</button>
+                  <button class="btn btn-sm btn-primary" :disabled="ruleSaving" @click="saveRuleEdit">{{ ruleSaving ? '保存中…' : '保存' }}</button>
+                </div>
+              </div>
+            </div>
+          </Teleport>
           <div v-if="rebatePushOpen" class="info-panel">
             <div class="panel-hd"><b><Icon name="payment"/> 返利缺口提示</b><button class="imp-x" @click="rebatePushOpen=false"><Icon name="close"/></button></div>
             <div v-if="rebatePushLoading" class="hint">加载中…</div>
@@ -1547,10 +1730,10 @@
             <div class="panel-hd"><b><Icon name="bar-chart"/> 列统计 · {{ colStats && colStats.label }}</b><button class="imp-x" @click="statsOpen=false"><Icon name="close"/></button></div>
             <div v-if="colStats" class="stats-body">
               <template v-if="colStats.numeric">
-                <div class="stat-row"><span>合计</span><b>{{ fmt(colStats.sum) }}</b></div>
-                <div class="stat-row"><span>平均值</span><b>{{ fmt(colStats.avg) }}</b></div>
-                <div class="stat-row"><span>最大值</span><b>{{ fmt(colStats.max) }}</b></div>
-                <div class="stat-row"><span>最小值</span><b>{{ fmt(colStats.min) }}</b></div>
+                <div class="stat-row"><span>合计</span><b>{{ statFmt(colStats.key, colStats.sum) }}</b></div>
+                <div class="stat-row"><span>平均值</span><b>{{ statFmt(colStats.key, colStats.avg) }}</b></div>
+                <div class="stat-row"><span>最大值</span><b>{{ statFmt(colStats.key, colStats.max) }}</b></div>
+                <div class="stat-row"><span>最小值</span><b>{{ statFmt(colStats.key, colStats.min) }}</b></div>
                 <div class="stat-row"><span>数值个数</span><b>{{ colStats.count }}</b></div>
                 <div class="stat-row"><span>空值个数</span><b>{{ colStats.empty }}</b></div>
               </template>
@@ -1765,7 +1948,7 @@
           <!-- v189：原写「总订量 X 件」——X 是 Σ各报单单元数量（小单位，可能是盒/袋/包），
                「件」不对；且同屏没有箱口径，用户无法自证「合计(箱)=合计(小单位)÷规格」。
                两个数并列显示，规则错了一眼可见。 -->
-          <span class="big">合计(小单位) <b>{{ fmt(cross.grand.qty) }}</b> · 合计(箱) <b>{{ fmt(cross.grand.boxes) }}</b></span>
+          <span class="big">合计(小单位) <b>{{ fmt(cross.grand.qty) }}</b> · 合计(箱) <b>{{ fmtBox(cross.grand.boxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></span>
           <span class="mini">下单金额 <b>¥{{ fmt(cross.grand.amount) }}</b></span>
           <span class="mini">{{ cross.grand.sku }} 个商品 · {{ cross.reportedUnits }} 个报单单元</span>
         </div>
@@ -1779,7 +1962,7 @@
           <!-- v188：此处原写「合计 X 件」——但 editTotalQty 是 Σ各报单单元数量（小单位），
                不是「件」；规格 ≠1 时「件」是错的。随列名一并改为「合计(小单位)」并去掉单位字
                （小单位可能是盒/袋/包，统一写「件」反而误导；列名已自证）。 -->
-          <div class="edit-summary">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmt(editTotalBoxes) }}</b> · 下单金额(厂价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
+          <div class="edit-summary">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
           <!-- Q14：如实写明恢复范围，不再笼统称「已恢复未完成数据」（原实现只恢复数量，用户被误导以为全保住了） -->
           <div v-if="draftRestored" class="draft-banner">
             <Icon name="alert-triangle"/> 已从本地草稿恢复：数量 <b>{{ (draftRestoreInfo && draftRestoreInfo.qty) || 0 }}</b> 行 ·
@@ -1968,6 +2151,39 @@
             <div class="del-actions">
               <button class="btn btn-ghost" @click="delOpen = false">取消</button>
               <button class="btn btn-danger" :disabled="deleting" @click="confirmDelete">{{ deleting ? '删除中…' : '确认删除' }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- v213-B1 并发编辑冲突（乐观锁 409）：
+         为什么必须有这个对话框，而不是「保存失败」一句话 ——
+         它要回答的是三个不同的问题，缺一个用户就无从下手：
+           ① 发生了什么？  → 本期在你打开之后被别人改过（谁、什么时候，都写出来）
+           ② 我的改动怎么了？→ **没保存**（不是系统坏了），屏幕上这一份还是你改的
+           ③ 我该怎么做？  → 两个出口（重新载入看对方的 / 坚持用我这份覆盖），用户自己选
+         ⚠️ 不自动替用户选：「覆盖」会抹掉别人的录入，「放弃」会丢掉用户自己的录入 ——
+            两条都不可逆，必须问一次。默认焦点给「重新载入」（更安全的那个）。 -->
+    <Teleport to="body">
+      <Transition name="fade"><div v-if="conflictInfo" class="imp-overlay" @click="conflictInfo = null"></div></Transition>
+      <Transition name="pop">
+        <div v-if="conflictInfo" class="imp-modal del-modal">
+          <div class="imp-hd"><b>本期数据已被别人修改</b><button class="imp-x" @click="conflictInfo = null"><Icon name="close"/></button></div>
+          <div class="imp-body">
+            <p class="imp-tip warn-text">
+              你打开这张表之后，<b>{{ conflictInfo.by || '其他人' }}</b> 在
+              <b>{{ conflictInfo.at || '刚才' }}</b> 也保存了本期数据，两边改的不是同一份。
+              为避免把对方的改动直接盖掉，<b>这次保存没有执行</b> —— 你屏幕上改的内容还在。
+            </p>
+            <p class="imp-tip">
+              选「重新载入最新数据」会看到对方存进去的内容，但<b>你这次未保存的改动会丢失</b>；
+              选「用我这份覆盖」会把对方存进去的内容换成你屏幕上的这一份。
+            </p>
+            <div class="del-actions">
+              <button class="btn btn-ghost" @click="conflictInfo = null">先不处理</button>
+              <button class="btn btn-ghost" :disabled="savingEdit" @click="conflictOverride">用我这份覆盖</button>
+              <button class="btn btn-primary" :disabled="savingEdit || loadingEdit" autofocus @click="conflictReload">{{ loadingEdit ? '载入中…' : '重新载入最新数据' }}</button>
             </div>
           </div>
         </div>
@@ -2174,7 +2390,45 @@ const activeTab = ref('summary') // 'summary' | 'history' | 'config'
 
 /* ---- P0-1 交叉表视图 ---- */
 const viewMode = ref('cross')
-const cross = ref({ period: null, units: [], rows: [], colTotals: [], grand: { sku: 0, qty: 0, amount: 0 }, reportedUnits: 0 })
+/* v199：`hiddenUnits` = **本次要隐去的客户列名**（服务端 `forecast_hidden_units` 的待提交集合）。
+   🔴 为什么放在 cross 里而不是单独的 ref：`snapshot()` 是 `clone(cross.value)` 全量深拷贝，
+   放进 cross ⇒ **Ctrl+Z 撤销删列时集合自动跟着回退**；若另起一个 ref，用户撤销了删列、
+   集合却还留着那个名字，一保存就把列隐掉了 —— 看起来像"撤销没用/系统自己删数据"。
+   🔴 为什么用「显式记录删列动作」而不是「保存时算名册差集」：差集会把**改名**也算成删列
+   （renameCol 后旧名从 units 消失），用户的意图只是改显示名、并不想动名册 ⇒ 差集方案会误伤。
+   显式记录只认「用户真的点了删列」这一个动作，意图精确。
+   🔴🔴 v199b（**v199 上线当天就被点崩，用户看到的是整页「页面出错了」**）：
+   只要 `cross.value` 还会被**整体替换**，就绝不能假定某个字段一定在。`cross.value = {...}`
+   全文有 **5 处**（loadEditGrid 两分支 / 删期次 / 查看态 / 快照恢复），v199 只补了其中一处
+   ⇒ 走「有草稿」分支时 `hiddenUnits` 是 `undefined`，`delCol` 里那句 `.includes` 直接抛
+   TypeError，被 ErrorBoundary 兜成整页「页面出错了」。同理 `units`：删期次那条路径把 cross
+   换成只含 `rows` 的对象，而 `C_EXTRA_INPUT` 在模板里被读、v197 加的 watch 在赋值瞬间即求值
+   ⇒ 读 `undefined.length` 同样崩。
+   ⇒ 治本两条：① 形状只有**一个**来源（`blankCross()`，别再手写对象字面量）；
+              ② 这两类字段的读写一律走 `hiddenUnits()` / `unitCount()` accessor ——
+                 替换点再多、将来再加一处，也不会崩页面。 */
+function blankCross() {
+  return { period: null, units: [], rows: [], colTotals: [], grand: { sku: 0, qty: 0, amount: 0 }, reportedUnits: 0, hiddenUnits: [] }
+}
+const cross = ref(blankCross())
+/* v199b：`hiddenUnits` 的**唯一**读写入口（见上方注释）。读时兜底初始化 ⇒ 无论 cross 被谁
+   整体替换过，拿到的都是真数组；最坏也只是「本次没记上」，不会崩页面。 */
+function hiddenUnits() {
+  if (!Array.isArray(cross.value.hiddenUnits)) cross.value.hiddenUnits = []
+  return cross.value.hiddenUnits
+}
+/* v199b：客户列数的**唯一**读法。`cross.value.units` 同理可能缺失（删期次那条路径就是把
+   cross 换成只含 rows 的对象），而它在模板（`C_EXTRA_INPUT`）与 watch 源里都会被立即求值
+   ⇒ 读 `undefined.length` 会当场把整页兜成「页面出错了」。
+   🔴 2026-09-19 二次修：v199b 的首版把兜底写成了 `? unitCount() : 0` —— **自递归、没有出口**，
+   一进预报页就 `RangeError: Maximum call stack size exceeded`，同样被兜成整页「页面出错了」。
+   实测生产 `Forecast-*` chunk 里就是 `function X(){return Array.isArray(f.value.units)?X():0}`
+   （浏览器栈里 8 层自调用）。本意是「返回客户列个数」⇒ 取 `.length`。
+   ⚠️ 教训：给 accessor 写兜底时，兜底分支**绝不能回落到 accessor 自己** ——
+      症状与它要防的那个（读 undefined.length）在界面上**长得一模一样**，只会更难查。 */
+function unitCount() {
+  return Array.isArray(cross.value.units) ? cross.value.units.length : 0
+}
 // B1 修复 (2026-07-24)：默认只读模式——进入页面先看汇总表，需编辑再点「编辑」
 // （原默认 true 直接进入编辑网格，改数量/粘贴/删除等编辑能力对非录入员暴露过早）
 const editMode = ref(false)
@@ -2340,17 +2594,50 @@ function asProdRow(src) {
           真机实测已复现：沙箱 tenant_9999 的 pid 1160（已停用，本期登记）DB=3 而页面显示「—」。
           对应的后端下发在 erp_db.py::forecast_submission_summary 的 imported_products 查询。 */
     arrival_lead_days: Number(src.arrival_lead_days) || 0,
+    /* v222：三级单位换算（`perCase` 的唯一权威数据源）。两处来源不同，务必分清：
+       ① **在售档案行不走本函数** —— `buildRowBase` 的 keep 直接用 `products/grid` 的原对象，
+          换算字段由 `routers/data.py::products_grid` 下发；
+       ② 本函数只处理「**不在在售档案**」的行（已停用/已删除，靠 summary 的 imported_products/rows）——
+          后端那两条查询当前**未下发**换算字段 ⇒ 这里恒为 0/空，`perCase` 回退规格解析（与改动前一致）。
+       仍然列在这里：将来后端一旦下发，不会又被这份**显式白名单**吃掉。
+       （这份清单就是当年 `arrival_lead_days` 被吃掉、导致停用商品到货周期恒显示「—」的同一个坑。） */
+    large_unit: src.large_unit || '', large_ratio: Number(src.large_ratio) || 0,
+    medium_unit: src.medium_unit || '', medium_ratio: Number(src.medium_ratio) || 0,
     extra: src.extra || {},
     offArchive: true,   // 不在「在售档案」里（已停用/已删除）—— 表格据此打「已停用」角标
   }
 }
+/* v202：**行底原始顺序**（product_id 序列）。
+   用途只有一个：`applySort()` 切回「默认（不排序）」时按它恢复 —— 那个分支此前**什么都不做**
+   （只处理 asc/desc），于是「按名称升序 → 再切回默认」后顺序停在按名称的结果上，
+   回不到导入模板序（用户会认为「排序旋钮坏了」）。
+   ⚠️ 存 product_id 而不是行对象引用：行底每次加载都会重建，存引用会指向上一次加载的过期对象。 */
+const rowBaseOrder = ref([])
 /* v179：行底 = 「在售档案中被本期引用到的」∪「不在在售档案但被本期引用到的」。
    `importedProducts` = summary 的 imported_products（登记台账，含停用商品）；
    `reportRows` = summary 的 rows（本期有报单的商品，同样可能已停用）。
    两路都**来自后端**，前端不自己猜哪些算「本期导入」。 */
 function buildRowBase(allProds, importedProducts, reportRows, showAll) {
   const byId = {}
-  ;(importedProducts || []).forEach(p => { byId[Number(p.id)] = byId[Number(p.id)] || p })
+  /* v202：pid -> **导入顺序键**，行底顺序的唯一权威来源。三档（tier 越小越靠前）：
+       tier 0 —— 有 `sort_no`：后端登记台账的模板行序（= 批次基准 + 模板行号）⇒ **模板序**
+       tier 1 —— 无 `sort_no` 但在 `importedProducts` 里：**存量期次**（v202 之前导入的行，
+                迁移补列时一律为 0）或迁移未跑到的库。用**数组下标**作次序 ——
+                因为后端那条 SQL 已经按 `(sort_no 是否>0, sort_no, r.id)` 排好，下标即
+                「**登记插入序**」。实测 tenant_1：期次 9 与期次 13 的登记序 **154 行逐行相同**
+                （同一模板导两次），而它与 `products.id DESC` 恰是反的 ⇒ 登记序就是模板序。
+       tier 2 —— 不在 `importedProducts` 里（小程序报单 / 手工新增 / 已删登记）：排在最后。
+     🔴 **为什么不做「把存量行 sort_no 按 id 序回填」**：那是对生产库的一次批量数据改写，
+        而同样效果在这里用**读端兜底**就能拿到 —— 零数据写入、零回滚风险、对老库同样生效。
+        判据：**能用读端口径解决的，就不要动存量数据。** */
+  const impOrder = {}
+  ;(importedProducts || []).forEach((p, i) => {
+    const pid = Number(p.id)
+    byId[pid] = byId[pid] || p
+    if (pid in impOrder) return
+    const sn = Number(p.sort_no) || 0
+    impOrder[pid] = sn > 0 ? { t: 0, k: sn } : { t: 1, k: i }
+  })
   const reportById = {}
   ;(reportRows || []).forEach(r => { if (r && r.product_id) reportById[Number(r.product_id)] = r })
   const refIds = new Set([...Object.keys(byId).map(Number), ...Object.keys(reportById).map(Number)])
@@ -2366,7 +2653,34 @@ function buildRowBase(allProds, importedProducts, reportRows, showAll) {
   //   否则「另有 N 个在售商品未显示」会多减掉档案外的行（实测少报 5）。
   //   ⚠️ allProds 在本函数之后不再被复用（两处调用点均已核对），就地打标无副作用。
   keep.forEach(p => { p.offArchive = false })
-  return keep.concat(off)
+  /* v202（2026-09-19）**按导入模板行序排列** —— 用户诉求原话：
+     「预报订单模板导入后，系统中显示的商品名称排序与导入模板中的商品名称排序不一致。
+       请调整系统逻辑，使导入后系统中的商品名称排列顺序与导入模板中的商品名称顺序
+       完全保持一致，不受其他排序规则影响。」
+     🔴 为什么必须在**这里**排（这是本 bug 的根因所在）：行底两个来源各自带一套
+        与模板无关的顺序，而 `keep` 的顺序直接决定表格行序（`rowBase.map` 逐行映射）——
+        · `allProds` 来自 `/api/products/grid`，是 `ORDER BY id DESC`
+          （routers/data.py::products_grid → product_list 的排序）⇒ 顺序 = **建档顺序倒排**。
+          模板最后一行若是新商品，它反而顶到最前。**实测 tenant_1 期次 9**：模板首行
+          「红桶（福宝下单）」(pid 1475) 沉到末尾，页面首行成了「简爱酸奶吸吸乐…」(pid 1608)。
+        · `off` 来自 `refIds` 这个 Set 的插入顺序（= byId 的键序），同样与模板无关。
+        ⇒ 前端 `sortedRows` 默认 `sortKey='none'` 原样透传，所以页面**逐行**复现了上面那个错序。
+     排序规则（`Array.prototype.sort` 在现代 JS 引擎是**稳定**的）：
+        ① 两侧都有顺序键 → 先比 tier（0 在 1 前）、再比次序 k
+        ② 只有一侧有 → 有键的在前
+        ③ 两侧都没有 → 返回 0，保持原有相对顺序
+     为什么「不在登记台账里」的排后面而不是按 id 插进去：它们**不属于这份模板**
+        （小程序报单 / 手工新增），插进模板行之间会把「模板顺序」切碎，用户看到的仍是不一致。 */
+  const out = keep.concat(off)
+  const rank = p => impOrder[Number(p.id)] || null
+  out.sort((a, b) => {
+    const ao = rank(a), bo = rank(b)
+    if (ao && bo) return (ao.t - bo.t) || (ao.k - bo.k)
+    if (ao) return -1
+    if (bo) return 1
+    return 0
+  })
+  return out
 }
 /* v179：勾选「显示全部商品」必须**立刻**换行底 —— 否则它就是个假旋钮：
    行底只在 loadCross（查看态）/ loadEditGrid（编辑态）里构建，只改 ref 的话
@@ -2500,6 +2814,9 @@ function recomputeTotals() {
     amount: rows.reduce((s, r) => s + (amountValue(r) || 0), 0),
   }
 }
+/* v207：表尾「合计(箱)」必须说清有多少行**没被算进去**（判据见 boxMissing —— 唯一来源）。
+   表尾只是「能换算的行」之和；不报出行数，用户会看到表尾比逐行相加少一截却找不到原因。 */
+const boxMissingRows = computed(() => liveRows.value.filter(boxMissing))
 function rowState(r) { return rowStates.value[r.product_id] || (r._deleted ? 'disabled' : '') }
 function setRowState(pid, s) { rowStates.value = { ...rowStates.value, [pid]: s } }
 function toggleExpand(pid) { expandedRows.value = { ...expandedRows.value, [pid]: !expandedRows.value[pid] } }
@@ -2531,8 +2848,8 @@ function commitCell(pid, uname, val) {
   r.total = total
   // v184e：r.amount、boxes 与只读表/导出/列统计同源（箱口径）。r.amount = 最终下单(箱) × 单价(进价/箱)。
   r.amount = amountValue(r) != null ? amountValue(r) : (r.amount || 0)
-  const pc = perCase(r.spec, r.unit)
-  r.boxes = (pc > 0 && total) ? Math.round(total / pc) : r.boxes
+  // v207：boxes 不再就地取整 —— 唯一实现是 rowBoxes()（内部 boxesOf）。r.total 上一行刚写好，可直接算。
+  r.boxes = rowBoxes(r)
   recomputeTotals()
   editingCell.value = null
 }
@@ -2590,9 +2907,12 @@ const colWidths = ref({})
    落到兜底 90px，两态表头都会折成两行。与 `amount`(104) 拉平，两态同宽。 */
 /* v188：列名带单位后加宽 —— 「合计(小单位)」需 ~95px（原 `qty`=只读表 / `sum`=编辑网格 都只有 74px）；
    「合计(箱)」由「件数(箱)」缩短，但 70px 仍偏窄 ⇒ 与同排 `extra`/`final`(78) 拉平取 84。
+   v207：`boxes` 84 → 100 —— 箱数改为**可为小数**后要放下「1,234.567」这类 9 位（原 84px 只够
+   6~7 位整数），且表尾那格还要容纳「（缺规格 N 行未计入）」。`final` 不跟着加：它被
+   Math.ceil 过、恒为整数，位数没变。
    ⚠️ 两态同列共用同一 key：只读表的「合计(小单位)」= `qty`，编辑网格的 = `sum`，**两个 key 同一个量**
    （历史命名分裂，改名会牵动 readCellVal/导出/col_defs，本轮不动，只保证宽度一致）。 */
-const COL_DEFAULTS = { seq: 46, name: 210, arrival_lead_days: 92, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 104, boxes: 84, extra: 78, final: 78, ai: 84, amount: 104, price: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 104, op: 64 }
+const COL_DEFAULTS = { seq: 46, name: 210, arrival_lead_days: 92, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 104, boxes: 100, extra: 78, final: 78, ai: 84, amount: 104, price: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 104, op: 64 }
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
 // v176：序号列已冻结在 left:0，故**其后每个冻结列的 left 必须整体右移「一个序号列宽」**，
@@ -2655,12 +2975,12 @@ const editColKeys = computed(() => {
      ⚠️ 本函数驱动 <colgroup>，改这里必须同步 thead th / tbody td / 表尾 td 四处，否则整表错位。
      v188：列名带单位（合计 → 合计(小单位)，件数(箱) → 合计(箱)），key 不变、本节结构不变。 */
   keys.push('sum')          // 合计(小单位)（= 各报单单元数量之和，紧挨报单单元）
-  keys.push('boxes')        // 合计(箱) = round(合计(小单位) ÷ 规格)
+  keys.push('boxes')        // 合计(箱) = 合计(小单位) ÷ 每箱小单位数（v207 起**可为小数**；取整只在「最终下单」）
   if (showSuggest.value) keys.push('suggest')
   keys.push('extra')        // 加单(箱)
-  keys.push('final')        // 最终下单(箱) = 合计(箱) + 加单(箱)
-  keys.push('price')        // 单价(厂价/箱) = 厂价 × 规格
-  keys.push('amount')       // 下单金额(厂价) = 最终下单(箱) × 单价(厂价/箱)
+  keys.push('final')        // 最终下单(箱) = 取整(合计(箱), 向上) + 加单(箱)
+  keys.push('price')        // 单价(进价/箱) = 商品档案的进价本身（v223 起不再乘每箱数，见 priceAuto）
+  keys.push('amount')       // 下单金额(进价) = 最终下单(箱) × 单价(进价/箱)
   if (compareOn.value) { keys.push('comparePrev'); keys.push('compareDelta') }
   if (showSpark.value) keys.push('spark')
   if (yoyOn.value) { keys.push('yoyPrev'); keys.push('yoyDelta') }
@@ -2679,12 +2999,12 @@ const editColKeys = computed(() => {
    ⚠️ 不要改成 editColKeys.indexOf('extra') - 1：那个值会随 showSuggest 开关漂移，
       且语义并不同源（calc 列压根不在这个索引空间里）。原先硬写成 visibleCols.length + units.length，
       现具名化，免得下次重排列序时误以为它需要跟着变。 */
-const C_EXTRA_INPUT = computed(() => visibleCols.value.length + cross.value.units.length)
-/* v190：改单网格「单价(厂价/箱)」录入框的哨兵值 —— 道理同 C_EXTRA_INPUT（calc 列不在单元格
+const C_EXTRA_INPUT = computed(() => visibleCols.value.length + unitCount())
+/* v190：改单网格「单价(进价/箱)」录入框的哨兵值 —— 道理同 C_EXTRA_INPUT（calc 列不在单元格
    选区索引空间内），但**故意取不同的值**：若两者同值，`selected.c` 就分不清「正在填单价」
    还是「正在填加单」，日后给这两格加选中态会互相点亮。
    本值对 readCellVal / writeCellVal 同样是越界 ⇒ 返回 '' / false，语义同 C_EXTRA_INPUT。 */
-const C_PRICE_INPUT = computed(() => visibleCols.value.length + cross.value.units.length + 1)
+const C_PRICE_INPUT = computed(() => visibleCols.value.length + unitCount() + 1)
 /* v184：查看态的冻结列 = **固定列** ∪ 用户在下拉里选的单列（frozenKey）。
    固定列不受 frozenKey 影响 —— 下拉选了别的列时它照样冻结，否则「固定列」名不副实。
    （此前只看 frozenKey，而它默认 'name'、可被用户改掉 ⇒ 加进来的固定列一改下拉就不见了。） */
@@ -2721,7 +3041,34 @@ function factoryPrice(r) {
         100g*8杯*12组 且 unit=杯 → 8×12 = 96（1 箱 = 12 组 = 96 杯）；
      ③ 纯数字规格（'12'）即其本身；
      ④ 不含任何数字 → 0（缺规格 ⇒ 不换算，界面走「缺规格」分支，**不静默当 1**）。 */
-function perCase(spec, unit) {
+/* v222（2026-09-21）：换算的**数据源**改为「商品档案优先 → 规格解析回退」——尺度与语义**完全不变**
+   （仍返回「1 个大单位 = 多少个小单位」= 每箱小单位数；报单单位落在中/大单位层时按层级折算）。
+   🔴 为什么改：规格串是**自由文本**，生产实测三类翻车 ——
+      · 净含量被当成装箱数：'340G' ⇒ 340 瓶（与真值 12 差 **28.3 倍**）；
+      · 末位数字不是装箱数：'195g×24盒（130g+65g）' 被末位抓成 **65**；
+      · 空规格 28 个 ⇒ 连箱数都算不出（界面显示「缺规格」）。
+     而 `products.large_ratio/medium_ratio` **结构化、有来源**（import_zhoupu.py 读舟谱「大单位换算」，
+      与本轮舟谱档案逐值比对 **96.8% 一致**），且**已被定价引擎消费**（domain/pricing_engine.py）。
+   🔴 权威唯一性：这是「1 件 = 24 瓶」在本系统的**唯一权威**；`unit_conversions` / `unit_archive`
+      在生产上都是 **0 行空表**、**不得反向写入**（同一事实存两份必然漂移）。
+   🔴 判据是 `large_ratio > 0`，**不是** `has_multi_unit` —— 实测该标志位漏标 9 条，拿它当判据会静默漏商品。
+   🔴 三级尺度以**档案**为准（规格串只是兜底）：报单单位 == 大单位 ⇒ 1；== 中单位 ⇒ lr/mr；
+      其余（更细/未知名）⇒ lr。**回退只在档案无换算时发生**，逐字保留 v189 规则，不做「先猜再看」。
+   参数 `arc` = 行对象（含 large_unit/large_ratio/medium_unit/medium_ratio，由 /api/products/grid 下发）；
+      **不传 ⇒ 完全回到 v189 行为**（供测试与未配套升级的调用方，不静默按 1 算）。 */
+function perCase(spec, unit, arc) {
+  // ① 档案换算优先（唯一权威）
+  const lr = arc ? (Number(arc.large_ratio) || 0) : 0
+  if (lr > 0) {
+    const u0 = String(unit == null ? '' : unit).trim()
+    const lu = String(arc.large_unit == null ? '' : arc.large_unit).trim()
+    const mu = String(arc.medium_unit == null ? '' : arc.medium_unit).trim()
+    const mr = Number(arc.medium_ratio) || 0
+    if (u0 && lu && u0 === lu) return 1                    // 按大单位（件/箱）报单 ⇒ 1 个 = 1 箱
+    if (u0 && mu && u0 === mu && mr > 0) return lr / mr    // 按中单位报单 ⇒ 1 箱 = lr/mr 个中单位
+    return lr                                              // 按小单位报单（当前生产全部命中此支）
+  }
+  // ② 回退：规格串解析（v189 规则，逐字保留）
   const s = String(spec == null ? '' : spec)
   // 「数字 + 紧随其后的单位字串」分段（'*' / 'x' / '×' 只作分隔）
   const segs = []
@@ -2743,28 +3090,73 @@ function perCase(spec, unit) {
   }
   return last.n
 }
-// v184e：合计(箱) = round(合计(小单位) ÷ 规格)。与只读表「合计(箱)」列、rowFinalQty（最终下单）同源。
+/* v207：箱数换算的**唯一实现**（不含取整）—— rowBoxes / 只读表行构造 / 编辑格子回写共用这一处。
+   🔴 为什么去掉 Math.round（原 v184e 写法。用户 2026-09-19 报障：期次 14 / 永辉东津店
+       的报单「合计(小单位)」有 9、「合计(箱)」却是 0）：
+       报单数量按**最小销售单位**录入（瓶/杯/组/袋），「合计(箱)」= 数量 ÷ 每箱小单位数
+       **可以是小数** —— 这是用户 2026-09-13 已拍板的口径（`件数 = 数量 ÷ 规格`，明确可为小数）。
+       旧实现先 Math.round ⇒ 不足半箱的行被抹成 **0**；更贵的是连带
+       `下单金额 = 最终下单(箱) × 单价(进价/箱)` 一起变 0，而「单价(进价/箱)」列本身不为 0
+       ⇒ 用户只看到金额栏凭空归零，看不出是哪一步丢的。
+   🔴 取整**只发生在「最终下单」**（见 rowFinalQty），理由：厂商不拆零发货。
+   ⚠️ 保留 **3** 位小数（不是 2 位）：185ml×24瓶 报 3 瓶 = 0.125，2 位会显示成 0.13。
+      用户自己的报单 Excel 里「件数」就是 3 位（实锤：3.625）⇒ 同精度便于逐行对账。 */
+function boxesOf(total, spec, unit, arc) {
+  const pc = perCase(spec, unit, arc)
+  const t = Number(total) || 0
+  if (!(pc > 0) || !t) return 0
+  return Math.round(t / pc * 1000) / 1000
+}
+// v184e / v207：合计(箱) —— 与只读表「合计(箱)」列、rowFinalQty（最终下单）、下单金额同源。
 //   v188 仅改列名（原「件数(箱)」），公式与 key(`boxes`) 不变。
 //   v189 修「规格」的取法：parseFloat(spec) 取的是净含量 ⇒ 改走 perCase（唯一实现）。
+//   v207 去掉取整（抹零元凶）—— 见 boxesOf 上方说明。
 function rowBoxes(r) {
   if (!r) return 0
   const total = r.total != null ? (Number(r.total) || 0) : rowSum(r)
-  const pc = perCase(r.spec, r.unit)
-  return (pc > 0 && total) ? Math.round(total / pc) : 0
+  return boxesOf(total, r.spec, r.unit, r)
 }
-// v184e：单价(厂价)按「箱」计价 = 厂价(元/件) × 规格(每箱小单位数)，与「最终下单/加单按箱」配套，
-// 保证 下单金额 = 最终下单(箱) × 单价(厂价/箱) 单位自洽（箱 × 元/箱 = 元）。缺价或缺规格返回 null。
-//   v189 同修规格取法 —— 此前 1500ML*6桶 的单价会 ×1500（放大 250 倍），金额整列错。
-// v190：**自动价**（由商品档案的厂价换算）= 换算的唯一实现，供 pricePerCase 与录入框占位提示共用。
-//   ⚠️ 结果归一化到「分」：「元/箱」本身只到分，而厂价是浮点（96 × 40 = 3840、8.3333 × 12 = 99.9996
-//      这类），不归一就会出现「界面上写着 3840.00，金额却是 3839.9996 累出来的」——
-//      用户拿去对账差几分钱。这是**计价精度**，不是掩盖误差。
+/* v207：某一行的「合计(箱)」**换算不出来**（有报单但商品档案没规格）—— 全站**唯一判据**。
+   boxText（单元格文案）、boxMissingRows（表尾未计入行数）、单元格警示样式 全部引用它。
+   ⚠️ 绝不在别处再写一遍这个条件：两处判据一旦漂移，就会出现「表尾说有 2 行缺规格、
+      单元格却一个都没标」这种自相矛盾的界面。 */
+function boxMissing(r) {
+  if (!r) return false
+  const total = r.total != null ? (Number(r.total) || 0) : rowSum(r)
+  return total > 0 && !(perCase(r.spec, r.unit, r) > 0)
+}
+/* v207：「合计(箱)」的**显示取值** —— 把「缺规格」与「真的是 0」分开。
+   缺规格时 perCase 返回 0 ⇒ 根本换算不出来；若照常显示 0，用户看到的就是「报了单却 0 箱」，
+   与本次报障**长得一模一样、根因完全不同**（一个是取整抹零、一个是商品档案没规格）。
+   与 perCase 规则④「缺规格 ⇒ 不换算，界面走「缺规格」分支，不静默当 1」一致。 */
+function boxText(r) {
+  if (!r) return '—'
+  return boxMissing(r) ? '缺规格' : fmtBox(rowBoxes(r))
+}
+/* 🔴 v223（2026-09-21）：**单价(进价/箱) = 商品档案的进价本身，不做任何乘除。**
+   轨迹 —— 三轮都在调「乘多少」，没人质疑「该不该乘」：
+     v184e 写 `进价 × parseFloat(规格)`（取到的是净含量）；v189 把「规格」换成每箱小单位数（1500ML*6桶 由 ×1500 变 ×6）；
+     v222 把「每箱小单位数」的数据源从规格解析换成档案换算 —— 三次都没动那个「×」。
+   🔴 事实：`products.factory_price` 的单位**就是「元/箱（大单位）」**，不是「元/小单位」。三条**互相独立**的数据逐条吻合：
+     ① `进价 ÷ large_ratio` = 每小单位成本，再 `÷ 0.9` = 档案 `dist_price`
+        （1494: 75÷15=5.00 → 5.5556 ✓；1454: 124.80÷24=5.20 → 5.7778 ✓；1477: 94.80÷12=7.90 → 8.7778 ✓；1539: 62÷8=7.75 → 8.6111 ✓）
+     ② `sale_order_items.unit_price` **逐字等于** `dist_price`（1494 全部 389 行 = 5.5556；1454 227 行 = 5.7778；1539 343 行 = 8.6111）
+     ③ 反证：若进价是「元/小单位」，1494 一箱成本 = 75 × 15 = 1125 元，而门店买一箱只付 83.33 元 ⇒ **卖一箱亏 1041 元**，不可能
+   旁证（后端同口径）：`domain/pricing_engine._get_standard_price` 写 `大单位价 = sale_price × large_ratio`
+     ⇒ **`sale_price` / `purchase_price` / `dist_price` 是「元/小单位」，只有 `factory_price` 是「元/大单位」**。
+   ⇒ 再乘 perCase 就是把「元/箱」又乘一次每箱单位数 ⇒ **单价与金额同时被放大 perCase 倍**
+     （1454 曾显示 124.80 × 24 = 2995.20，真值 124.80，放大 24 倍）。这正是 v217「价格被放大」诊断出的那个根，v223 才真正修掉。
+   ⚠️ 单价**不再依赖 perCase** ⇒ 缺规格的行也照样显示单价；但箱数仍算不出来 ⇒ 金额仍走「缺规格」（见 amountValue 守卫）。
+   v190：**自动价** = 换算的唯一实现，供 pricePerCase 与录入框占位提示共用。
+     结果归一化到「分」：进价是浮点（`62/0.9` 这类），不归一就会出现
+     「界面上写着 3840.00、金额却是 3839.9996 累出来的」——用户拿去对账差几分钱。这是**计价精度**，不是掩盖误差。
+   ✅ v226b 已收紧（原遗留项）：`factoryPrice()` 不再回退 `purchase_price`（元/小单位） —— 见其定义处注释。
+     命中 10 个商品、`pp == sp` 全等 ⇒ **金额数值零变化**；文案由「缺规格」改为更前置、更准确的「缺价」
+     （它们既没箱价、也没规格，先缺的是价）。要让它们能算金额，须在**商品档案**按「元/箱」补一个进价。 */
 function priceAuto(r) {
   const fp = factoryPrice(r)
-  const pc = perCase(r.spec, r.unit)
   if (fp <= 0) return null                      // 缺价
-  if (!(pc > 0)) return null                    // 缺规格，无法换算到箱
-  return Math.round(fp * pc * 100) / 100
+  return Math.round(fp * 100) / 100
 }
 /* v190：「单价(进价/箱)」取值 = **手工录入优先**，否则自动价。
    录入值是权威 —— 直接用它（同样归一到分，钱只到分位），不再经进价回算，
@@ -2804,14 +3196,16 @@ function pricePerCase(r) {
   return priceAuto(r)                              // ③ 按商品档案进价自动算
 }
 /* v190：录入框灰字占位 —— 未手工录入时显示「**当前实际生效的价**」，让用户一眼知道现在按多少算；
-   缺价/缺规格则直接说明是哪种，而不是留一个空白框让人猜。
+   缺价则直接说明，而不是留一个空白框让人猜。
    ⚠️ v191b：占位值改用 `pricePerCase`（= 生效值）而不是只给 `priceAuto`（自动价）——
    生效值还可能是「沿用上一期录入的价」，只显示自动价会与旁边「下单金额」列对不上（同屏两个口径）。
-   来源差异放在 `title` 里说清（见 priceTitle），灰字本身不区分来源。 */
+   来源差异放在 `title` 里说清（见 priceTitle），灰字本身不区分来源。
+   ⚠️ v223：单价已不依赖 perCase ⇒ 空态**只剩「缺价」一种**（原「缺规格」分支成了死代码，已删）；
+     缺规格的提示仍在「合计(箱)」列（boxText）与金额列（amountValue 守卫）里出现，没有丢信息。 */
 function pricePh(r) {
   const eff = pricePerCase(r)
   if (eff != null) return eff.toFixed(2)
-  return factoryPrice(r) <= 0 ? '缺价，请填' : '缺规格'
+  return '缺价，请填'
 }
 /* v190：来源必须可自证 —— 手工价与自动价不得长得一样。
    v191b：三级来源各一句，且「沿用」态要点名**是哪一期的**录入价（否则老板会以为是自己本期填的）。
@@ -2827,7 +3221,7 @@ function priceTitle(r) {
     head = '沿用「' + (r.casePriceInheritPeriod || '上一期') + '」录入的价 ¥' + iv.toFixed(2)
       + '/箱 —— 本期不用重填；直接填数即可改，清空则回到档案自动价'
   } else {
-    head = '按商品档案的厂价自动算出：厂价(元/件) × 规格。可直接录入覆盖。'
+    head = '按商品档案的进价：进价本身就是「元/箱」，直接作为单价(进价/箱)。可直接录入覆盖。'
   }
   return head + (a != null ? `\n自动价 ¥${a.toFixed(2)}/箱` : '')
 }
@@ -2851,23 +3245,29 @@ function onCasePriceChange(r, e) {
     return
   }
   r.casePrice = v
-  if (!(perCase(r.spec, r.unit) > 0)) {
-    // 缺规格 ⇒ 「最终下单(箱)」那一路本就换算不出来，单价填了也只有金额能算。
-    toast('该商品缺规格：单价已按你填的值算本行金额，但箱数换算不出来，请先补规格', 'warn')
+  if (!(perCase(r.spec, r.unit, r) > 0)) {
+    /* 缺规格 ⇒ 「最终下单(箱)」换算不出来 ⇒ 金额也随之算不出来。
+       ⚠️ v223：原文写「单价填了也只有金额能算」—— 单价口径修好之后**这句话不再成立**
+       （amountValue 已补守卫，缺规格直接返回 null 走「缺规格」文案），改掉以免用户以为金额已按他填的价算好。 */
+    toast('该商品缺规格：单价已记下，但箱数换算不出来 ⇒ 最终下单与下单金额都算不出来，请先补规格', 'warn')
   }
   saveDraftNow()
 }
-// v184e：下单金额(厂价)（元）= 最终下单(箱) × 单价(厂价/箱)；缺价或缺规格返回 null（界面显示「缺价/缺规格」）。
+/* v184e：下单金额(进价)（元）= 最终下单(箱) × 单价(进价/箱)；缺价或缺规格返回 null（界面显示「缺价/缺规格」）。
+   🔴 v223 补第二道守卫：单价改回「进价本身」后**不再依赖 perCase**，若这里仍只看 `pricePerCase`，
+      缺规格的行会算出 `rowFinalQty(=0) × 单价 = 0.00` —— 与旁边「合计(箱)」写着「缺规格」自相矛盾，
+      而且会被当成本期真的一分钱没有。⇒ 与 `perCase` 规则④「缺规格不静默当 1」同判据，显式返回 null。 */
 function amountValue(r) {
   const pc = pricePerCase(r)
   if (pc == null) return null
+  if (!(perCase(r.spec, r.unit, r) > 0)) return null   // v223：缺规格 ⇒ 箱数无从换算 ⇒ 金额也谈不上
   return rowFinalQty(r) * pc
 }
 function cellText(r, col) {
   if (col.type === 'qty') return r.qtyByUnit[col.key] || 0
   if (col.type === 'master') return masterVal(r, col)
   if (col.key === 'qty') return fmt(r.total)
-  if (col.key === 'boxes') return fmt(rowBoxes(r))
+  if (col.key === 'boxes') return boxText(r)
   if (col.key === 'extra') return fmt(rowExtraQty(r))
   if (col.key === 'final') return fmt(rowFinalQty(r))
   if (col.key === 'ai') return r.ai != null ? fmt(r.ai) : '—'
@@ -2946,7 +3346,7 @@ function onBodyKey(e) {
   else if (e.key === 'Enter') {
     const it = arr[ri]
     if (it && it.kind === 'row') {
-      const uStart = visibleCols.value.length, uEnd = uStart + cross.value.units.length
+      const uStart = visibleCols.value.length, uEnd = uStart + unitCount()
       if (ci >= uStart && ci < uEnd) editCell(it.r.product_id, cross.value.units[ci - uStart].name)
       else toggleExpand(it.r.product_id)
     }
@@ -3174,10 +3574,15 @@ function addMasterCol(key) {
   colVis.value[key] = true
   _persistCols()
 }
+/* v197（P1-2b）：删主档列同样会让「可见列总数」-1 ⇒ 选区/锚点可能落到列号之外。
+   这里**不需要**加「至少保留一列」守卫：内置列里只有 品牌/规格/单位 三列 `deletable: true`，
+   条码/分销价/厂家编码 由服务端 PROTECTED_COLUMNS 挡住、到货周期 由 canDeleteMaster 的本地
+   硬否决挡住、商品名称是固定列不进删除菜单 —— 7 个内置列删不空，表体不会失去「商品」这一维。 */
 function deleteMasterCol(key) {
   colOrder.value = colOrder.value.filter(c => c.key !== key)
   delete colVis.value[key]
   _persistCols()
+  clampSelection()
 }
 // 拖拽排序
 let _dragFrom = -1
@@ -3246,12 +3651,27 @@ async function loadEditGrid() {
     const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
     p = { id: 0, name: '今日报单', order_start: today, order_end: today, arrival_date: '', arrival: '' }
   }
+  /* v212（P2-1/P2-2）：上期「按客户」数量的缓存**随期次变** ⇒ 每次重进编辑网格先清空重取。
+     （守卫 `prevUnitsLoaded` 的语义是「这一次加载取过了」，不是「这个会话取过了」——
+      留着跨期次的旧数会让候选与软警告那**别的期次**的数去比，比不提示更糟。） */
+  prevUnitsLoaded.value = false
+  prevUnitMap.value = {}
+  prevUnitsPeriod.value = ''
   try {
     const [prods, d] = await Promise.all([
       productsApi.grid(),
       forecastApproveApi.summary('', p.order_start || '', p.order_end || '', p.id || 0),
+      /* v213：校验规格（上限 + 五类文案）。**并发**取 —— 单加一次串行请求会让「改单」变慢。
+         失败由 loadValidationSpec 内部吞掉（沿用默认口径），不会让整个加载失败。 */
+      loadValidationSpec(),
     ])
     confirmInfo.value = (d.confirmed || null)
+    /* v213-B1：记下「我打开这张矩阵时看到的版本」——保存时原样回传（见 saveEdits 的 base_rev）。
+       ⚠️ 必须在这里取（进编辑态的那一刻），不能在保存前现取 —— 现取永远等于当前值，
+          那样乐观锁就恒不触发（等于没做）。 */
+    matrixRev.value = d.matrix_rev || ''
+    matrixAt.value = d.matrix_at || ''
+    matrixBy.value = d.matrix_by || ''
     const srcByPid = {}
     const units = []
     const _seenUnit = new Set()
@@ -3260,8 +3680,11 @@ async function loadEditGrid() {
       if (name && !_seenUnit.has(name)) { _seenUnit.add(name); units.push({ name, role: '' }) }
     })
     // ② 当期来源：补齐 quantity 与 role（当期有报单的客户优先带角色/数量）
+    // 2026-09-13：sources 改为合并而非覆盖（后端已对齐主档单位，同商品正常单行；此处为防御性聚合，
+    //   避免同商品多行时后一行覆盖前一行导致各客户报单量丢失）。
     ;(d.rows || []).forEach(r => {
-      srcByPid[r.product_id] = r.sources || []
+      const prevSrc = srcByPid[r.product_id]
+      srcByPid[r.product_id] = prevSrc ? [...prevSrc, ...(r.sources || [])] : (r.sources || [])
       ;(r.sources || []).forEach(s => {
         const name = s.store || s.store_name || '未署名'
         if (!_seenUnit.has(name)) {
@@ -3272,7 +3695,7 @@ async function loadEditGrid() {
         }
       })
     })
-    // 行级加单（业务经理按进度追加）：从 summary 的 extra_qty 注入每行
+    // 行级加单（业务经理按进度追加）：从 summary 的 extra_qty 注入每行（同商品多行时累加）
     const extraByPid = {}
     ;(d.rows || []).forEach(r => {
       if (r.product_id) extraByPid[r.product_id] = (extraByPid[r.product_id] || 0) + (r.extra_qty || 0)
@@ -3306,9 +3729,16 @@ async function loadEditGrid() {
     // 🔴 两处必须用同一条规则：查看态看到 158 行、一进编辑却铺 285 行，用户会以为
     //    「改单把表撑大了」—— 这正是「同屏数字口径必须同源」在行底上的形态。
     const allProds = prods.items || []
+    /* v211（P1-1）：商品名称补全候选随主档一起落。**两处赋值点缺一不可** ——
+       这里是「已导入/有报单」那一支，另一支在默认行底分支（下方同款语句）。
+       只喂一处 ⇒ 某些期次进编辑态后候选空着，而用户看不出「为什么这次没提示」。 */
+    masterNameOptions.value = buildNameOptions(allProds)
     const importedProducts = d.imported_products || []
     const importedSet = new Set(importedProducts.map(p => Number(p.id)))
     const rowBase = buildRowBase(allProds, importedProducts, d.rows || [], showAllProducts.value)
+    // v202：记下行底原始顺序（＝ 导入模板序 + 无导入序那批的稳定尾随）。
+    //   `applySort()` 切回「默认」时按它恢复 —— 这是**编辑态**的那个赋值点。
+    rowBaseOrder.value = rowBase.map(p => Number(p.id))
     let rows = rowBase.map(pd => {
       const qtyByUnit = {}
       ;(srcByPid[pd.id] || []).forEach(s => {
@@ -3320,11 +3750,17 @@ async function loadEditGrid() {
         // 放在最前，便于一眼看出"这些键不是写死的列，而是列注册表里的自定义列"。
         ...(pd.extra || {}),
         product_id: pd.id, name: pd.name, barcode: pd.barcode || '', spec: pd.spec || '', unit: pd.unit || '件',
+        /* v222：三级单位换算随行带上 —— 它是 `perCase` 的**唯一权威数据源**。
+           🔴 **两条加载路径（loadCross / 本处 loadEditGrid）都要带**：漏一处那一态的箱数就退回
+              规格串解析，出现「查看态 1 箱、编辑态 0.035 箱」这种同屏两个口径。
+           判据是 `large_ratio > 0`，**不是** `has_multi_unit`（实测该标志位漏标 9 条）。 */
+        large_unit: pd.large_unit || '', large_ratio: Number(pd.large_ratio) || 0,
+        medium_unit: pd.medium_unit || '', medium_ratio: Number(pd.medium_ratio) || 0,
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
         /* v190：进价必须随行带上 —— 此前**两处行映射都漏了它**，而 factoryPrice(r) 优先读
            `r.factory_price` ⇒ 前端实际永远回退到进价，与后端 db.factory_price_sql
-           （厂价优先、缺则进价）不是同一个数：档案里「厂价 ≠ 进价」的商品，
-           本页「单价(厂价/箱)」与报单金额都和后端算的对不上。
+           （`factory_price` 优先、缺则取 `purchase_price`）不是同一个数：档案里两列不相等的商品，
+           本页「单价(进价/箱)」与报单金额都和后端算的对不上。
            ⚠️ 两条加载路径（loadCross / **本处 loadEditGrid**）**都要带**，漏一处就有一态算错。
            本处是**编辑网格**的数据源 —— 没有它，单价框只能退回进价算（自动价整列错）。 */
         factory_price: Number(pd.factory_price) || 0,
@@ -3355,15 +3791,39 @@ async function loadEditGrid() {
       }
     })
     let colTotals = units.map(u => rows.reduce((s, r) => s + (r.qtyByUnit[u.name] || 0), 0))
+    /* v196（P0-2）：抓「服务端权威」基线 —— **必须在草稿合并之前**
+       （紧接下面的 loadDraft() 会就地改 rows：`r[k] = d[k]`，还可能有补回来的新增行）。
+       ⚠️ 若挪到函数末尾（草稿已合入）再抓：草稿里未提交的商品档案改动会被当成
+          "本来就长这样" ⇒ 保存时静默漏发，用户改了名称/条码/品牌，保存完一看没生效。
+       ⚠️ 只收 product_id>0 的行：无档案号 = 新增行，基线里不该有它（有就等于"已存在"，
+          保存时会被判成"没改过"而漏建商品）。
+       ⚠️ 两条分支（有草稿 / 无草稿）共用这一处 —— 别再在下面那个 `cross.value = {` 前补一份。 */
+    prodBaseline.value = new Map(
+      rows.filter(r => Number(r.product_id) > 0).map(r => [Number(r.product_id), prodPayloadOf(r)])
+    )
     cross.value = {
       period: p, units, rows, colTotals,
       rowBaseTotal: allProds.length,   // v179：收窄前行数（= 在售商品档案总数）
       grand: { sku: rows.length, qty: rows.reduce((s, r) => s + Object.values(r.qtyByUnit).reduce((a, b) => a + (parseInt(b) || 0), 0), 0), amount: 0 },
       reportedUnits: units.length,
+      /* v199：每次重新加载都从空开始。loadEditGrid 每次**进入编辑态**都会被调用
+         （v208 起保存成功后不再重载网格 —— 改为退出编辑态、回只读），
+         此时服务端的隐藏名册已生效、`all_units` 里已不含被删的列 ⇒ 待提交集合必须清空，
+         否则下一次进编辑再保存会把同一批名字**再提交一遍**（虽然后端幂等、结果一样，
+         但语义是错的：「本次界面删了哪些列」是一个**增量**，不是累计状态）。 */
+      hiddenUnits: [],
     }
     // 恢复本地草稿（未提交数据），但绝不允许草稿冲掉服务端客户列：
     // 列集始终以服务端 all_units 为准，草稿仅叠加单元格值 + 补回本地新增列。
     const dr = loadDraft()
+    /* v201 补：留一份「服务端内容」快照 —— **必须在下面对 rows / units 就地覆盖之前**。
+       它就是「回退」按钮在有草稿时的落点（＝放弃本次草稿的全部改动，回到服务端内容）。
+       🔴 不能图省事改成"合并完再 `clone(cross.value)`（后置捕获）"：草稿恢复是**就地改**
+          rows（`r[k] = d[k]`）并往 units 里补列，赋值对象与这些数组是**同一份引用**，
+          事后 clone 拿到的已经是"草稿内容"，拿它当基线 ⇒ 「回退」点了等于没点。
+       ⚠️ 只在**真有草稿**时创建：无草稿分支自己会取一份，别在这里白白全表序列化两次
+          （428 行 × 30 列）。 */
+    const preDraftSnap = (dr && dr.rows && dr.rows.length) ? clone(cross.value) : null
     if (dr && dr.rows && dr.rows.length) {
       // 1) 草稿里服务端没有的本地新增列（如右键加列未提交）补回来
       ;(dr.units || []).forEach(du => {
@@ -3431,11 +3891,23 @@ async function loadEditGrid() {
         rowBaseTotal: allProds.length,   // v179：与上方同源（草稿分支也要带上，否则开关一勾数字会跳）
         grand: { sku: rows.length, qty: rows.reduce((s, r) => s + Object.values(r.qtyByUnit).reduce((a, b) => a + (parseInt(b) || 0), 0), 0), amount: 0 },
         reportedUnits: units.length,
+        /* v199b 🔴 漏这一行 = v199 上线当天点删列必崩：本分支会**整体替换** cross.value，
+           不带上 `hiddenUnits` 它就是 undefined，而 `delCol` 里 `.includes` 直接抛 TypeError。
+           ⚠️ 语义与上面那条分支**必须一致**：一次加载 = 待提交集合从空开始（草稿只回放
+              单元格值/主档字段/新增行，**不回放 hiddenUnits** —— 它表示「本次界面删了哪些列」，
+              是一个增量动作，跨会话累计会把它变成状态，语义就错了）。 */
+        hiddenUnits: [],
       }
       draftRestored.value = true
       draftRestoreInfo.value = { qty: restoredQty, master: restoredMaster, added: restoredAdded }
       _ignoreNextWatch = 1
     } else {
+      /* v201 补：本次加载**没有**草稿 ⇒ 把"来自草稿"的标记清掉。
+         原先不置假：一旦某次加载命中草稿分支，之后即便草稿已被清（另一标签页清、或别的
+         清除路径），再加载时横幅仍会宣称「已从本地草稿恢复」—— 状态由**上一次加载的残留**
+         决定，而不是本次加载的事实。标记必须和它描述的那次加载同生共死。 */
+      draftRestored.value = false
+      draftRestoreInfo.value = null
       _ignoreNextWatch = 1
     }
     // v161：自定义列的值已随 grid 的 extra 字段并入上面的行（服务端权威）。
@@ -3451,6 +3923,10 @@ async function loadEditGrid() {
     loadNotes()
     loadCloudNotes()
     loadRealtimeWarn()
+    /* v212：上期「按客户」数量（候选 + 软警告的共用数据源）。**刻意不 await** ——
+       它是参考数据，进编辑网格不该为它多等一次往返；取到后 prevUnitMap 变化会自动驱动
+       候选与角标重算，用户感知到的只是「过一下黄角标冒出来」。 */
+    loadPrevUnits().catch(() => {})
     loadSubmission()
     loadAuditLog()
     loadGaps()
@@ -3459,24 +3935,84 @@ async function loadEditGrid() {
     /* Q7：编辑态默认分页。原实现强制 pagingOn=false → 全量商品主档（428 行）每行渲染
        约 30 个 input ≈ 1.2 万节点，首屏卡顿、每次输入掉帧。现默认分页（可在分页条切「显示全部」）。 */
     pagingOn.value = true; curPage.value = 0; findIdx.value = -1
+    /* v201：给「本次编辑」定一个**起点基线**。
+       🔴 为什么必须在这里定，而不是等 saveEdits 时才记：原先只在保存成功后才设基线，
+       于是**刚进编辑、什么都没改**时状态条也会显示「有未保存的改动」——
+       标记被置真了却没有任何基线能把它比对回来。真机断言 P6 抓到的就是这个：
+       进改单立刻显示「有未保存的改动」，而用户一个格子都没动。
+       现在起点的语义是**「上次保存时的服务端内容」**，分两态：
+         · 没有草稿 / 草稿无实质改动 ⇒ 当前内容就是服务端内容 ⇒ 基线 = 当前内容 ⇒ 「尚未修改」
+         · 草稿有实质改动 ⇒ 基线 = 合并草稿**之前**的服务端内容 ⇒ 「有未保存的改动」
+       附带两个好处：① 撤销 / 回退回到起点时会自动变干净（refreshDirty 有基线可比）
+                    ② 「回退」按钮的可用性改为与状态条**同源**（都看 dirtySinceSave）——
+                       不会再出现"状态条说有未保存改动、紧邻的「回退」却是灰的"这种自相矛盾。 */
+    if (draftRestored.value) {
+      /* ⚠️ 不能因为「读到过草稿」就判脏 —— 草稿内容**完全可能等于服务端内容**：
+         进页面时 cross 被填充 → `watch` 800ms 后自动写一份草稿 → 下次进编辑就读到它。
+         真机实测正是这种情况：横幅显示「已从本地草稿恢复」，而数量 / 商品资料 / 本地新增
+         三项都还是 0（见 `draftRestoreInfo`）。若按"有没有草稿"判，**刚进编辑、什么都没改**
+         也会显示「有未保存的改动」（P6 断言抓到的就是这个）。
+         ⇒ 改用 `draftRestoreInfo` 的**实质差异计数**判定。 */
+      const info = draftRestoreInfo.value || {}
+      const real = (Number(info.qty) || 0) + (Number(info.master) || 0) + (Number(info.added) || 0)
+      /* 草稿含实质改动 ⇒ 当前内容 ≠ 服务端内容（横幅已如实提示恢复范围）。
+         起点基线取**合并草稿之前**的那份服务端快照（preDraftSnap）。
+         🔴 这里原先写 `= null`：于是状态条说「有未保存的改动」，紧邻的「回退」（＝丢掉
+           这些改动）却是灰的 —— 用户唯一出路只剩"保存"或"取消后重进"，而"取消"并不丢草稿
+           （草稿仍在 localStorage，再进来又恢复）。这不是罕见态：**改完没保存就关页面，
+           下次进编辑必然命中本分支**。 */
+      if (real > 0) {
+        lastSavedSnap.value = preDraftSnap
+        dirtySinceSave.value = true
+      }
+    }
+    if (!dirtySinceSave.value) {
+      /* 走到这里 = 没有草稿，或草稿与服务端完全一致。
+         ⚠️ 这两态都**不能**把基线留成 null：refreshDirty() 的前提就是"基线存在"，
+            null 会让「撤销回到起点」再也回不到干净态。⇒ 当前内容即服务端内容 ⇒ 基线 = 当前内容。 */
+      lastSavedSnap.value = clone(cross.value)
+      dirtySinceSave.value = false
+    }
   } catch (e) {
     toast('商品清单加载失败: ' + (e.message || ''), 'error')
   }
 }
 
-function exitEdit() {
-  // Q2：有未保存改动时二次确认，避免误点「取消」让长时间录入白费
-  const dirty = undoStack.value.length > 0 || draftRestored.value
-  if (dirty) {
-    const ok = window.confirm('放弃本次编辑？\n\n未保存的改动将不会提交。\n已录入的数量仍存于本地草稿，再次点「编辑」可恢复。')
-    if (!ok) return
-  }
+/* v208：退出编辑态的**唯一收口**。两个入口共用，差别只在「要不要问那一句」：
+     ① 用户点「取消」 → exitEdit()：有未保存改动时二次确认
+     ② 保存成功       → exitEditAfterSave()：**永不确认**（内容刚落库）
+   ⚠️ 都是同步返回、**不 await** loadCross()：与「取消」路径保持完全一致的行为。
+      若在这里 await，loadCross 的异常会冒泡进 saveEdits 的 try/catch ⇒
+      明明保存成功了却弹「保存失败」，是比不刷新严重得多的错。 */
+function leaveEdit() {
   editMode.value = false
   loadingEdit.value = false
   errListOpen.value = false   // v174：退出编辑态收起查错面板（否则下次进入会先闪一屏旧结果）
   pagingOn.value = false   // Q7：退出编辑复位分页，read-only 表恢复全量渲染原行为
-  loadCross()  // 放弃修改，回到只读
+  loadCross()  // 回到只读 —— 也就是「带『改单』按钮」的那一态
 }
+function exitEdit() {
+  /* Q2：有未保存改动时二次确认，避免误点「取消」让长时间录入白费。
+     v201：判据从「撤销栈非空」改为**真实的未保存状态**。原写法在保存成功后仍为真
+     （Q5 刻意保留了撤销栈以支持 Ctrl+Z）⇒ 用户保存完点「取消」，会收到
+     「放弃本次编辑？未保存的改动将不会提交」—— 改动明明已经提交了，这句是**误导**。 */
+  const dirty = dirtySinceSave.value
+  if (dirty) {
+    const ok = window.confirm('放弃本次编辑？\n\n未保存的改动将不会提交。\n已录入的数量仍存于本地草稿，再次点「编辑」可恢复。')
+    if (!ok) return
+  }
+  leaveEdit()
+}
+/* v208（2026-09-19 用户拍板）：保存成功 ⇒ 退出编辑态。原话：
+   「点击『保存』后，页面应回到带有『改单』按钮的状态，此行为与关闭期次无关……
+     可继续点击『改单』，改完再次点击『保存』，支持反复修改，且每次修改都需记录
+     并体现在修改日志中。」
+   ⚠️ 为什么不复用 exitEdit()：那是「用户主动放弃」的入口，dirty 时会弹
+      「放弃本次编辑？未保存的改动将不会提交」—— 内容刚存进去，这句话纯属误导
+      （与 v201 修掉的那处是同一个坑，只是入口从「用户点取消」变成「系统自动退出」）。
+   ⚠️ 为什么不做成一个带参函数：`@click="exitEdit"` 会把 **MouseEvent** 当第一个实参传进来，
+      改签名还得同步改模板，稍不留神就是「取消按钮悄悄跳过确认框」。独立函数零耦合。 */
+function exitEditAfterSave() { leaveEdit() }
 
 function rowSum(r) {
   return Object.values(r.qtyByUnit || {}).reduce((s, v) => s + (parseInt(v) || 0), 0)
@@ -3525,6 +4061,15 @@ function addUnit(name) {
   snapshot()
   cross.value.units.push({ name: v, role: '' })
   cross.value.rows.forEach(r => { if (!(v in r.qtyByUnit)) r.qtyByUnit[v] = 0 })
+  /* v199：**加回列**的入口。若这个名字在「待隐去」集合里 ⇒ 移除它；
+     保存时该名会出现在 `customers` 里，后端 save_matrix 反向 DELETE 隐藏记录 ⇒ 列真正回来。
+     ⚠️ 这是「删错列」的唯一反悔路径，也是本方案可逆性的关键 —— 必须留在这里，
+        否则用户删掉一列后**再也加不回来**（列不在名册里、后端记录也还在）。
+     ⚠️ 不用 push 判断「是否已存在」：列本身有重名校验（上方），但集合里可能有**别处**
+        留下的同名残留，直接按值剔除最稳。 */
+  const hu = hiddenUnits()
+  const hi = hu.indexOf(v)
+  if (hi >= 0) hu.splice(hi, 1)
   return true
 }
 
@@ -3549,17 +4094,87 @@ function renameCol(ui, newName) {
   u.name = v
 }
 
+/* v197（P1-2c）：客户列是这张表**唯一**的「下单对象」维度 —— 删到一列不剩，
+   保存载荷的 customers 就成了 `[]`（`saveEdits` 里 `cross.value.units.map(u => u.name)`），
+   后端 save_matrix 与小程序报单都会拿到一张「有商品、没有客户」的行集。
+   拦在**唯一的删列漏斗**上：三处入口（模板表头 × @899 / 右键菜单 ctxDeleteCol @4116 /
+   表头菜单 hdrDeleteCol @4621）全都调本函数 ⇒ 拦一处即全覆盖，这也是不写三份重复判定的原因。
+   ⚠️ 顺带补越界守卫：若调用方传进来的 ui 已失效（例如菜单是上一帧渲染的、期间数组被改过），
+     `cross.value.units[ui]` 是 undefined，下一行 `u.name` 直接抛异常 —— 而 snapshot() 已经压栈，
+     用户按 Ctrl+Z 会撤销掉一个「什么都没发生的快照」，看起来像系统自己乱改数据。 */
 function delCol(ui) {
+  /* v199b：改用 unitCount() —— `cross.value.units` 在「删期次」等路径上会是 undefined，
+     而本函数是三个删列入口的**唯一漏斗**，这里读 `undefined.length` 同样会崩整页。 */
+  if (ui < 0 || ui >= unitCount()) return
+  if (unitCount() <= 1) {
+    toast('至少要保留一列客户列，不能全部删完', 'warn')
+    return
+  }
   snapshot()
   const u = cross.value.units[ui]
   cross.value.units.splice(ui, 1)
   cross.value.rows.forEach(r => { delete r.qtyByUnit[u.name] })
+  /* v199：把这一列记进「待隐去」集合 —— 保存时随 save-matrix 提交，后端落
+     `forecast_hidden_units`，`all_units` 名册随之不再下发它（这是「删列」第一次有持久化载体；
+     旧实现只删本期 role='导入' 的记录，而列来自**全历史名册** ⇒ 刷新必然回来）。
+     ⚠️ snapshot() 在上面 ⇒ 快照里存的还是**没有这个名字**的旧 hiddenUnits，
+        所以 Ctrl+Z 撤销删列时集合会一起回退（否则撤销后一保存仍会把列隐掉，看着像"撤销没用"）。
+     ⚠️ 去重：正常路径删完该列就不在 units 里、不会重复记；这里防的是「删 → 撤销 → 再删」
+        之类的组合把同名记两遍（后端幂等，纯为保持集合语义干净）。 */
+  const hu = hiddenUnits()
+  if (u.name && !hu.includes(u.name)) hu.push(u.name)
+  clampSelection()          // v197：列总数少一列 ⇒ 选区/锚点要跟着夹（见 clampSelection 注释）
 }
 
 /* ---- Q16 / Q25：全量校验 + 可点击跳转的错误清单 ----
    原实现保存拦截时只报「存在 N 个单元格录入不合法」，428 行里用肉眼找 N 个红框
    几乎不可能，错误原因还要逐个悬停才看得到。 */
-const QTY_MAX = 999999          // 单格数量上限（防误输入 9999999 之类脏数据）
+const QTY_MAX = 999999          // 兜底上限（= 后端默认口径；成功取到 spec 后被覆盖）
+/* v213（2026-09-20）：数量判据与后端**同源**。
+   原先前端写死 QTY_MAX=999999、后端小程序入口写 10000、Web 保存入口毫无上限 —— 同一件事
+   四个口径（还有小程序端的 99999）。现在唯一来源是
+   `GET /api/forecast-submissions/validation-spec`（后端见 db/queries/forecast_rules.py）：
+   **上限与五类文案都由它下发**，前端只负责显示。
+   ⚠️ fail-safe：取不到就退回下面这组默认值（与后端默认口径一致）。绝不能因为一次请求失败
+      就把表格判成「全部合法」（漏拦）或「全部非法」（变成假红）。
+   ⚠️ 这里只是**预检**（让用户当场看见红框），权威判定始终在后端 —— 保存时后端会再判一次，
+      不一致时以服务端回执为准（见 saveEdits 的 400/409 分支）。 */
+const qtyMax = ref(QTY_MAX)
+const SPEC_MSG_FALLBACK = {
+  over: '数量过大（上限 {max}）',
+  neg: '不能为负数',
+  int: '必须为整数',
+  num: '必须是数字（当前值无法识别，如「12箱」请改为 12）',
+  name: '商品名称必填（该行已填报数量）',
+}
+const specMsg = ref({ ...SPEC_MSG_FALLBACK })
+/* 文案模板里的 {max} 等占位符按当前规则填充。缺项一律回退默认文案 ⇒ 后端多下发一类
+   前端不认识的 kind 也不会显示成空串。 */
+function specText(kind, repl) {
+  let t = specMsg.value[kind] || SPEC_MSG_FALLBACK[kind] || ''
+  if (repl) for (const key in repl) t = t.split('{' + key + '}').join(String(repl[key]))
+  return t
+}
+/* 🔴 v213：**整串**数字判据（与后端 normalize_qty 逐字对齐）。
+   原来是 `parseFloat(...)` —— **前缀解析**：`parseFloat('12箱')` = 12 ⇒ 前端判「合法、
+   不标红、放行」，而后端整串解析直接拒收 ⇒ 那一格被**静默丢弃**（用户以为报上去了 = 漏订货）。
+   文案当时写着「必须是数字（当前值无法识别，如「12箱」请改为 12）」—— 承诺了、实现没做到。
+   现在同一条判据：NFKC 归一把全角数字转半角 → 去千分位逗号 → 整串正则（**允许记数法**，
+   因为 `1e3` 是 Excel 与 JS 都认的合法数字，拒绝它会造出一格假红）。 */
+const NUM_RE = /^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/
+/* 取一次校验规格（进编辑网格时随另外两个请求并发，不额外增加一次串行等待）。
+   失败静默 —— 保留上一次取到的值（首次即默认口径），不打断任何流程。 */
+async function loadValidationSpec() {
+  try {
+    const d = await forecastApproveApi.validationSpec()
+    const sp = (d && d.spec) || {}
+    const m = Number(sp.qty_max)
+    if (Number.isFinite(m) && m > 0) qtyMax.value = m
+    const tpl = { ...SPEC_MSG_FALLBACK }
+    if (Array.isArray(sp.kinds)) sp.kinds.forEach(k => { if (k && k.k && k.msg) tpl[k.k] = String(k.msg) })
+    specMsg.value = tpl
+  } catch (e) { /* fail-safe：沿用现有（默认）口径 */ }
+}
 const errListOpen = ref(false)
 const errList = ref([])
 /* v174：查错面板的筛选与派生数据。
@@ -3625,7 +4240,7 @@ function pushErr(list, ri, ci, r, msg) {
 function validateAll() {
   const list = []
   const nc = visibleCols.value.length
-  const nu = cross.value.units.length
+  const nu = unitCount()
   // v175：不再单独扫一遍条码 —— 「条码重复」已并入 cellIssue，表格红框与清单同源，
   // 否则又是「清单报了、格子上没标」这种两套规则各自漂移的老毛病
   cross.value.rows.forEach((r, ri) => {
@@ -3640,6 +4255,18 @@ function validateAll() {
    原实现先 `errListOpen = false`（那是为居中弹窗准备的：弹窗盖住表格，不关就看不到目标格）。
    现在的面板内联在表格下方、不遮挡网格，关掉反而丢掉「还剩哪些没改」的上下文 ——
    保持打开，改对后该条会自己消失。 */
+/* v211（P1-3）：**触屏可读的错误原因**。
+   问题：错误原因一直只挂在 `<td :title>` 上（**悬停**才出来）—— 平板 / 手机根本没有悬停，
+   用户只看见一个红框、不知道错在哪；要查原因还得滚到表格下方的「查错」清单。
+   做法：有错的格子在角上加一个**可点击**的角标，点它直接弹出完整原因。
+   ⚠️ 位置取**左上角**：右侧垂直中线是 `.name-badges` 的地盘、右下角是 `.fill-handle`
+      （拖拽填充要用）—— 只有左上角是完全空闲的。
+   ⚠️ `mousedown.stop.prevent` + `click.stop` **缺一不可**：少了任一，按下角标会先被 td 的
+      `onCellDown` 接走（选中该格 / 起拖框选）⇒ 用户点一下「看原因」，顺手把选区也改了。 */
+function showCellErr(ri, ci) {
+  const msg = cellIssue(ri, ci)
+  if (msg) toast(msg, 'warn')
+}
 /* v219 打磨④：跳转后让目标格**闪一下**。
    「跳过去了」和「用户看见跳到哪一格」是两件事 —— 428 行表 + 全屏 + 缩放之后，
    光标落在某个格上往往根本看不见，观感仍然是「点了清单没反应」。
@@ -3683,9 +4310,222 @@ function openErrList() {
   revealErrPanel()
 }
 
-async function saveEdits() {
+/* ---- v219 打磨⑤：预检「一键修复」 ----
+   起因：清单能**列出**错误、能**跳转**到那一格，但改还得一格一格手改。
+   从 Excel / 微信粘一整片进来时，几十处「带单位的数字」（`12箱`）要挨个删字。
+
+   🔴 判据：**只自动修「官方文案自己给出了唯一目标值」的两类** —— 文案承诺什么才做什么
+      （文案来自后端 `db/queries/forecast_rules.py`，经 validation-spec 下发、两端逐字同构）：
+        · over「数量过大（上限 {max}）」 ⇒ 目标值唯一 = {max}            ✅ 自动修
+        · num 「…如「12箱」请改为 12」   ⇒ 目标值唯一 = 串里那个数字      ✅ 自动修
+      其余一律**不自动修**，理由逐条（这不是保守，是文案没给答案）：
+        · num  串里**没有**数字（「箱」）→ 只能归零，而「这件不报了」是业务决定 ⇒ 不猜
+        · num  串里**多个**数字（`12箱24瓶`）→ 哪个是数量无法判定 ⇒ 不猜
+        · num  带正负号（`-5箱`）→ 符号有语义，抽掉可能把「要减 5」变成「要加 5」⇒ 不猜
+        · int 「必须为整数」    → 12.5 改 12 还是 13？两解 ⇒ 不猜
+        · neg 「不能为负数」    → 改 0 / 取绝对值 / 本意是退货（该走退单）？⇒ 不猜
+        · name「商品名称必填」  → 选哪个商品是业务决定 ⇒ 不猜
+        · dup 「条码重复」      → 档案跨行关系（v196 多规格共码）⇒ 不猜
+        · enum「取值不在候选中」→ 多个候选 ⇒ 不猜
+      净效果：**只把原值里本就有的信息取出来，绝不凭空造值、绝不清空**。
+
+   为什么敢自动改数值：① 每处改动都在确认弹窗里**逐条列给用户看**（原值 → 新值 → 依据），
+   点是用户点的；② 整批只入**一条**撤销记录（一次 Ctrl+Z 整批还原）；③ 全程不静默。 */
+function cellNumericMeta(ci) {
+  if (ci < visibleCols.value.length) {
+    const col = visibleCols.value[ci]
+    if (!col || col.edit !== 'num') return null      // 非数字列（名称/条码等）本就不该有数字错
+    return { isInt: col.num === 'int' }
+  }
+  const ui = ci - visibleCols.value.length
+  if (ui >= unitCount()) return null
+  return { isInt: true }                             // 客户数量列 = 非负整数（同 cellErrMsg）
+}
+function fixCandidate(ri, ci, msg) {
+  const meta = cellNumericMeta(ci)
+  if (!meta) return null
+  const raw = String(readCellVal(ri, ci))
+  const kind = errKindOf(msg).k
+  let cand, how
+  if (kind === 'over') {
+    cand = String(qtyMax.value)
+    how = '超出上限，按上限 ' + qtyMax.value + ' 计'
+  } else if (kind === 'num') {
+    /* 🔴 归一**必须排在符号检查之前**（v219 判据，由本护栏的 B17 用例抓出）：
+       `HALF_MAP` 会把 U+2212 数学减号「−」折成 ASCII '-'（从公式或某些输入法复制的
+       「负号」常是它）。若先拿**原串**判符号，`−5箱` 会绕过守卫、被抽出 5 ——
+       把用户的「减 5」静默改成「加 5」，方向反了，而屏幕上没有任何异常。
+       「先查后归一」这个写法在别的字符上是同一类漏洞，别改回原序。 */
+    const s = toHalfNum(raw)
+    if (/^[+-]/.test(s.trim())) return null
+    const ms = s.match(/[0-9]+(?:\.[0-9]+)?/g) || []
+    if (ms.length !== 1) return null
+    cand = ms[0]
+    how = '从「' + raw + '」中取出数字 ' + cand
+  } else return null
+  /* 自我验证（照着 cellErrMsg 的判据重来一遍）：候选值不合法就**不修** ——
+     否则会出现「点了修复、格子还是红的」这种假修复，比不修更糟。 */
+  const n = Number(cand)
+  if (!Number.isFinite(n) || n < 0) return null
+  if (meta.isInt && !Number.isInteger(n)) return null
+  if (n > qtyMax.value) return null
+  if (raw === cand) return null
+  return { v: cand, how }
+}
+const fixables = computed(() => {
+  const out = []
+  const seen = new Set()
+  const nc = visibleCols.value.length + unitCount()
+  for (const it of errList.value) {
+    if (it.ci < 0 || it.ci >= nc) continue
+    const key = it.ri + '_' + it.ci
+    if (seen.has(key)) continue
+    /* 🔴 复核这道闸门**不能省**：errList 有两个来源 —— 本地 `validateAll()`（ri/ci 精确）
+       与后端 400 回执 `errFromViolations()`（ri/ci 是**推算**的：列名对不上时会退到
+       「该行第一个可编辑格」）。拿推算坐标去写数值 = 改错格。
+       因此动手前用当前表格状态重算这一格，必须**与清单里那条同类**才认。 */
+    const now = cellIssue(it.ri, it.ci)
+    if (!now || errKindOf(now).k !== it.kind) continue
+    const f = fixCandidate(it.ri, it.ci, now)
+    if (!f) continue
+    seen.add(key)
+    out.push({
+      ri: it.ri, ci: it.ci, row: it.row, col: it.col, name: it.name,
+      kind: it.kind, kindLabel: it.kindLabel,
+      oldRaw: readCellVal(it.ri, it.ci), old: String(readCellVal(it.ri, it.ci)),
+      neu: f.v, how: f.how,
+    })
+  }
+  return out
+})
+const manualErrs = computed(() => errList.value.length - fixables.value.length)
+const fixPreviewOpen = ref(false)
+function openFixPreview() {
+  if (!fixables.value.length) { toast('这类错误需要你手工判断，没有可自动修复的项', 'warn'); return }
+  fixPreviewOpen.value = true
+}
+function applyFixes() {
+  const list = fixables.value
+  if (!list.length) { fixPreviewOpen.value = false; return }
+  /* 先抓 old 再写：pushBatchSnap 存的是 old→new 补丁，写之前 old 必须已经在手。
+     ⚠️ `?? ''` 这道兜底不能省：readCellVal 对「从未填过」的格返回 undefined，
+        undo 时 writeCellVal(r,c,undefined) 会被 parseNumInput 里的 String(undefined)
+        变成字面量 "undefined" 写进格子里 —— 回退反而把数据搞脏。 */
+  const cells = list.map(x => ({ r: x.ri, c: x.ci, old: x.oldRaw == null ? '' : x.oldRaw, new: x.neu }))
+  for (const x of list) writeCellVal(x.ri, x.ci, x.neu)
+  pushBatchSnap(cells)
+  fixPreviewOpen.value = false
+  refreshDirty()
+  const rest = validateAll()
+  errList.value = rest
+  /* 🔴 角标必须与清单在**同一次**回写：errCount 平时靠 1.5s 节流自更新（见 Q25），
+     但「修完还剩几处」是用户正盯着看的结果 —— 只回写 errList 会让角标与面板
+     在最长 1.5s 内自相矛盾（角标「1」/ 面板「没有了」）。v219 真机取证抓到的就是这个。 */
+  errCount.value = rest.length
+  errKind.value = ''
+  toast(
+    '已修复 ' + list.length + ' 处' + (rest.length ? '，还剩 ' + rest.length + ' 处需手工处理' : '，可以保存了'),
+    rest.length ? 'warn' : 'ok'
+  )
+  if (rest.length) revealErrPanel()
+}
+
+/* ---- v219 打磨⑥：数量上限**可配** ----
+   在此之前上限是「只读」的：前端按服务端下发的 qtyMax 判红框与文案，
+   而租户**没有任何办法改它**（`set_rules` 全仓无 HTTP 调用方，见本轮新增的
+   `PUT /api/forecast-submissions/validation-rules`）⇒ 出厂值 99999 用到底，
+   遇到「一个正常的量被拦了」只能忍着。
+   入口就放在**查错面板**里：这是「被上限拦下」这件事真正发生的地方，
+   把「上限是多少、怎么改」放在用户当下正在看的这一屏，比埋进设置页有用。 */
+/* 与后端 `_admin`（role ∈ admin/boss）**同判据**。
+   ⚠️ 直接用**原始** role 比，不过 `normRole` —— 后端判的就是原始 role，
+      两侧归一规则不同会造出「前端给了入口、后端回 403」这个最差组合。
+      前端这里只是提前隐藏，**权威判定始终在后端**。 */
+const canEditRules = computed(() => ['admin', 'boss'].includes(String(bizRole.value || '')))
+const ruleEditOpen = ref(false)
+const ruleQtyMax = ref('')
+const ruleSaving = ref(false)
+function openRuleEdit() {
+  ruleQtyMax.value = String(qtyMax.value)
+  ruleEditOpen.value = true
+}
+async function saveRuleEdit() {
+  if (ruleSaving.value) return
+  const raw = String(ruleQtyMax.value).trim()
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < 1 || n > 999999999) {
+    toast('数量上限要是 1 ~ 999999999 之间的整数', 'warn')
+    return
+  }
+  ruleSaving.value = true
+  try {
+    const d = await forecastApproveApi.setValidationRules({ qty_max: n })
+    const rr = (d && d.rules) || {}
+    const got = Number(rr.qty_max)
+    if (Number.isFinite(got) && got > 0) qtyMax.value = got   // 以服务端回执为准，不用本地输入值
+    ruleEditOpen.value = false
+    /* 放宽上限后可能有格子不再「超上限」、收紧后可能新出现一批 ⇒ 清单必须跟着重算，
+       否则面板上留着上一次的结论（用户按它去修，修的是不存在的错）。 */
+    const rest = validateAll()
+    errList.value = rest
+    errKind.value = ''
+    toast('数量上限已改为 ' + qtyMax.value + (rest.length ? '，当前还有 ' + rest.length + ' 处待修正' : '，当前录入全部合规'), 'ok')
+  } catch (e) {
+    toast('保存失败：' + (e.message || ''), 'err')
+  } finally {
+    ruleSaving.value = false
+  }
+}
+
+/* v213-B1：把 409 回执里的违规清单式冲突渲染成可行动的清单。
+   （400 的 violations 走同一套「点一行跳到那一格」的清单 —— 见 errFromViolations。） */
+function errFromViolations(vlist) {
+  const list = []
+  ;(vlist || []).forEach(v => {
+    const ri = Math.max(0, (Number(v.row) || 1) - 1)
+    const colName = String(v.col || '')
+    /* col 定位：后端给的是**列名**（Web 端 = 客户名；小程序端无客户列维度故恒为「报单数量」）。
+       在客户列里按名找；找不到再按主档列名找；都没有就只定位到行（清单仍可点，跳到该行）。 */
+    let ci = -1
+    if (colName && colName !== '报单数量') {
+      const ui = cross.value.units.findIndex(u => String(u.name) === colName)
+      if (ui >= 0) ci = visibleCols.value.length + ui
+      else ci = visibleCols.value.findIndex(c => String(c.label || '') === colName)
+    }
+    /* 定位不到具体列时退到「该行第一个可编辑格」，**不留 -1** —— 清单每一行都要能点，
+       否则用户点了没反应，比不给清单更糟（回到「400 只报一句数量」的老问题）。 */
+    if (ci < 0) ci = unitCount() ? visibleCols.value.length : 0
+    const kd = errKindOf(v.msg || '')
+    list.push({
+      ri, ci, row: Number(v.row) || 0, col: colName,
+      name: (cross.value.rows[ri] && cross.value.rows[ri].name) || '',
+      msg: String(v.msg || '录入不合法'),
+      kind: String(v.kind || kd.k), kindLabel: String(v.label || kd.label) || '录入不合法',
+    })
+  })
+  return list
+}
+
+async function saveEdits(opts = {}) {
+  /* opts.force：用户在并发冲突对话框上明确选了「用我这份覆盖」⇒ 只给 save-matrix 多带一个
+     force=true（后端跳过冲突判定）。
+     ⚠️ 复用**同一个函数**而不是在对话框里另写一份提交逻辑：两份载荷字段清单必然漂移
+        （本项目已多次吃过「第二份拷贝」的亏）。force 路径下**跳过商品档案那一步** ——
+        第一次尝试时已经写过了，重跑只是白白多一次写锁和一条修改日志。 */
+  const force = !!opts.force
   const p = cross.value.period
   if (!p) return
+  /* v197（P1-2d）：提交前拦「一个客户列都没有」。
+     `delCol` 已加「至少保留一列」守卫（P1-2c），这里是**第二道**，因为能把 units 变成空的路径不止那条：
+     套用列方案（applyScheme 整体替换 colOrder/colVis）、本地草稿恢复、以及载入进来的期次本身
+     就没有客户列。与其让后端收到 `customers: []` 后报一个说不清的错误（或静默写出一张
+     「有商品、没有客户」的矩阵），不如在发请求之前就说人话。
+     ⚠️ 放在 validateAll() **之前**：客户列是这张表的**位置**语义（数量按客户名存在 qtyByUnit 里），
+        一个客户都没有时逐格校验也在校验一堆无意义的空列，先拦更省事也更好懂。 */
+  if (!unitCount()) {
+    toast('至少要有一个客户列才能保存：请先点工具行的「新增客户」加回一列', 'warn')
+    return
+  }
   // Q25：全量校验（单元格类型 + 名称必填 + 数量上限 + 条码重复），失败直接弹清单
   const list = validateAll()
   if (list.length) {
@@ -3710,20 +4550,44 @@ async function saveEdits() {
   }
   savingEdit.value = true
   let prodDone = false
+  let prodMsg = ''
   try {
     // 1) 商品主档（网格直编 / 粘贴）—— 先落商品，再落数量矩阵
-    const prodRows = usable.map(r => ({
-      name: r.name || '', barcode: r.barcode || '', spec: r.spec || '', unit: r.unit || '件',
-      sale_price: r.sale_price || 0, purchase_price: r.purchase_price || 0,
-      safety_stock: r.safety_stock || 0, expiry_days: r.expiry_days || 0,
-      product_code: r.product_code || '', dist_price: r.dist_price || 0,
-      brand: r.brand || '',
-      moq: r.moq || 0, lead_days: r.lead_days || 0,
-    }))
-    let prodMsg = ''
+    /* v196（P0-2）：只提交**与基线不同**的行。
+       此前是无脑 upsert 全部 usable（≈154 行），`fields` 字面量**无条件覆盖** ⇒ 纯写放大；
+       更要命的是只要其中还有 1 行未注册品牌，就要白等一次写锁（v195 修的是那个自锁，
+       本处修的是**规模**：规模不降，"阈值"只是变宽松）。
+       ⚠️ 判定与载荷共用 prodPayloadOf **同一个**函数（见其注释：两份字段清单必然漂移）。
+       ⚠️ 基线里没有该 pid / 行没有档案号 ⇒ **必发** —— 宁多勿漏。
+       ⚠️ 数量矩阵的 payload 仍然走全量 `usable`：本期录入数量是整表语义，不能只发改动行。
+       v213-B1：`force`（并发冲突下用户选「用我这份覆盖」）时**整段跳过** —— 商品档案在第一次
+       尝试时已经写成功（那一步失败会直接抛错、根本走不到矩阵保存），重跑只会多占一次写锁。 */
+    const base = prodBaseline.value
+    const prodRows = force ? [] : usable.filter(r => {
+      const pid = Number(r.product_id) || 0
+      if (!pid) return true                                   // 新增行：档案里还没有它
+      const b = base && base.get(pid)
+      if (!b) return true                                     // 基线没有 ⇒ 当新行发
+      const now = prodPayloadOf(r)
+      return Object.keys(now).some(k => String(now[k]) !== String(b[k]))
+    }).map(prodPayloadOf)
     if (prodRows.length) {
-      const pr = await productsApi.bulkUpsert(prodRows)
+      /* v196（P0-3）：给这一步单独的**较长**超时（默认 20 秒，见 client.js:184）。
+         P0-1 修好后这条正常根本用不到（实测 0.17 秒）；留着是防"某天又慢下来"时，
+         用户至少不会在 20 秒被硬掐断却看到一个和超时无关的报错。
+         ⚠️ 放宽超时**不解决写锁**，只是让失败来得晚一点、且文案说人话（见下方 catch）。 */
+      const pr = await productsApi.bulkUpsert(prodRows, { timeout: 60000 })
       prodMsg = ` · 商品 ${pr.inserted} 新增 / ${pr.updated} 更新`
+      /* v197（P2-1）：品牌待审登记失败**不再让整个保存失败**（后端已逐个吞住并计数）。
+         但「不失败」不等于「没事」—— 登记失败的那几个品牌不会进 `brand_pending`，
+         也就进不了 `brands` 表，而品牌下拉候选正是从 `GET /api/brands` 读的
+         ⇒ 用户下次报单会发现「我明明填过这个品牌，怎么选不出来」。
+         商品本身这次是存住了（后端事务先提交、登记在提交之后），所以只提醒这一件事。
+         ⚠️ 指向的必须是**真实存在**的改法（吃过亏）：品牌档案页有「+ 添加品牌」按钮
+            → `POST /api/brands`（BrandArchive.vue:19/241），这条路能真正把品牌补进候选表。 */
+      if (pr && pr.brands_failed) {
+        toast(`${pr.brands_failed} 个品牌未能登记到待审清单（商品已保存）。可在「档案管理 → 品牌档案」点「+ 添加品牌」补上`, 'warn')
+      }
       prodDone = true
     }
     /* v190（2026-09-18 口径变更）：手工录入的「单价(进价/箱)」**只在本期生效** ——
@@ -3740,6 +4604,11 @@ async function saveEdits() {
       // （窗口完全相同的两个期次，靠猜会落到 id 最大的那个，可能不是当前正在编辑的这一期）
       period_id: p.id || 0,
       customers: cross.value.units.map(u => u.name),
+      /* v199：本次界面**删掉的**客户列名 → 后端落 `forecast_hidden_units`，`all_units` 名册
+         随之不再下发它们（否则列在刷新后必然回来 —— 见 save_matrix docstring 的说明）。
+         ⚠️ 传**名字数组**（后端按名 INSERT）；传错成数量后端只会静默少隐藏几列。
+         ⚠️ 向后兼容：旧后端不认识这个字段会直接忽略，不会 400 —— 前后端各自可独立上线。 */
+      hidden_customers: hiddenUnits(),
       rows: usable.map(r => ({
         product_id: r.product_id || 0, product_name: r.name || '', spec: r.spec || '',
         unit: r.unit || '件', price: r.sale_price || 0, qty_by_unit: r.qtyByUnit || {},
@@ -3753,37 +4622,125 @@ async function saveEdits() {
               且清空后再保存又被写回 ⇒ 用户永远清不掉（沿用值把它带回来）。 */
         case_price: Number(r.casePrice) > 0 ? Number(r.casePrice) : null,
       })),
+      /* v213-B1 乐观锁：把「我打开这张矩阵时看到的版本」原样回传。后端与当前指纹比对，
+         不一致 ⇒ 409 + conflict（期间有人保存过），本次保存**一个字节都不写**。
+         ⚠️ 传空串 = 不判冲突（后端 fail-open 的同一约定）：进编辑态时若 summary 没给
+            `matrix_rev`（比如后端还没升级），行为就与 v212 逐字相同 —— 前后端可各自独立上线。 */
+      base_rev: matrixRev.value || '',
     }
+    if (force) payload.force = true
     const r = await forecastApproveApi.saveMatrix(payload)
     if (!r.success) throw new Error(r.error || '保存失败')
+    /* v213-B1：采纳**回执里的新指纹** —— 本次保存已经把库里的内容换成了屏幕上这一份，
+       所以「我看到的版本」现在就是它。不采纳的话，用户接着改再保存会 409（自己和自己冲突）。 */
+    if (r.matrix_rev) { matrixRev.value = r.matrix_rev; matrixAt.value = r.matrix_at || ''; matrixBy.value = '' }
     syncMoq()
     saveCloudNotes()
     // v166：明细里补上商品主档的增改数——「改单」同时会落商品档案，只报客户/明细数看不出这层。
     // 前缀「保存汇总表」由动作列承担，明细不再重复（面板按 时间·修改人·动作·明细 四段渲染）
-    recordAudit('save_changes', `${r.saved_customers} 客户 / ${r.saved_items} 条明细${prodMsg}`)
+    /* v208：改为 **await** —— 用户要求「每次修改都需记录并体现在修改日志中」。
+       原实现是「发射后不管」，与随后的「退出编辑态」构成竞态：刚退出就点「修改日志」可能看不到这一条。
+       ⚠️ 仍**不阻断保存**：recordAudit 内部自己 catch（失败只告警、不抛出）。
+       ⚠️ 必须在 exitEdit() **之前**调 —— 先记痕，再离开编辑态。 */
+    await recordAudit('save_changes', `${r.saved_customers} 客户 / ${r.saved_items} 条明细${prodMsg}`)
     toast(`已保存：${r.saved_customers} 个客户 · ${r.saved_items} 条商品明细${prodMsg}`, 'ok')
     clearDraft(true)          // Q11：静默清除草稿，不再弹「已放弃草稿」
+    /* v201：记下保存时刻，并把状态条置回「干净」—— 这是让用户**看见**「已经存进去了」的唯一信号。
+       ⚠️ `hour12:false` 显式给定：中文 locale 默认可能带「上午/下午」，与 24 小时制混排很啰嗦。 */
+    lastSavedAt.value = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' })
+    dirtySinceSave.value = false
     // v161：自定义列的值写回服务端。**必须 await** —— 失败要能被上面的 try/catch 捕获并提示，
     // 自定义列没落库属于"静默丢数据"，不能吞。
     await collectCustVals()
     usable.forEach(rw => { delete rw._new })   // Q9：保存后清除「新增行」标识
     saveFailed.value = null
-    // 保持编辑态并刷新（粘贴/新增的商品留在表里可见）
-    await loadEditGrid()
-    // Q5：不再清空撤销栈；改为记录「上次保存基线」，保存后仍可 Ctrl+Z / 一键回退
+    /* Q5：不再清空撤销栈；改为记录「上次保存基线」，保存后仍可 Ctrl+Z / 一键回退。
+       ⚠️ 位置**必须**在退出编辑态之前 —— `leaveEdit()` 会调 `loadCross()` 把
+          `cross.value` 重建为**只读态**对象（字段集与编辑态不同：没有 `_new` /
+          `casePrice` 这类编辑态专有字段），之后再 clone 会得到一个残缺基线，
+          「回退」就退歪了。 */
     lastSavedSnap.value = clone(cross.value)
+    /* v208（2026-09-19 用户拍板）：保存成功 ⇒ **退出编辑态**，回到带「改单」按钮的只读态
+       （原实现是 `await loadEditGrid()` 保持编辑态，用户点保存后页面「长得一模一样」）。
+       用户原话见 exitEditAfterSave() 的说明。
+       ⚠️ 保存**失败**不走这里 —— catch 分支停在编辑态、数据不丢（另有红色横幅）。
+       副作用（已核对）：粘贴/新增的商品行不会消失 —— 它们已随本次 saveMatrix 落库，
+       只读态 loadCross() 会从服务端把它们读回来。 */
+    exitEditAfterSave()
   } catch (e) {
     // Q26：按错误类型分流，并明确告知「商品已落库、数量未保存」的部分成功状态
     const msg = String((e && e.message) || '')
+    const nm = String((e && e.name) || '')
+    const pay = (e && e.payload) || null
+    /* ---- v213-B1：409 并发冲突 —— 单独一条分支，先于所有按文案分类的兜底 ----
+       用**状态码**判（client.js 已把 payload 与 status 挂到 Error 上），不猜中文文案。
+       这里要做的不是 toast 一句「保存失败」，而是把三件事摆到用户面前：
+         · 发生了什么（谁、什么时候改过本期）；
+         · 我的改动怎么了（**没保存**，不是系统坏了）；
+         · 两个出口（重新载入看对方的 / 坚持用我这份覆盖）由对话框按钮承接。
+       ⇒ 弹对话框，不进红色横幅那条道（横幅说的是「失败」，这里语义是「冲突」）。 */
+    if (e && e.status === 409 && pay && pay.conflict) {
+      conflictInfo.value = pay.conflict
+      saveFailed.value = null
+      return
+    }
+    /* ---- v213：400 违规清单 —— 后端与前端同一条判据，把清单原样搬进「查错」面板 ----
+       正常情况下 `validateAll()` 已经在保存前拦住了（同一份判据、同一句话）；
+       走到这里说明前端预检漏了一格（例如后端租户上限刚被调小、或某列判据前端未覆盖）。
+       把服务端给的 `{row, col, kind, msg}` 直接渲染成可点清单，比只说一句「校验未通过」强得多。 */
+    if (pay && Array.isArray(pay.violations) && pay.violations.length) {
+      errList.value = errFromViolations(pay.violations)
+      errKind.value = ''
+      errListOpen.value = true
+      revealErrPanel()
+      saveFailed.value = { kind: '数据校验未通过', msg, prodDone, at: new Date().toLocaleTimeString('zh-CN') }
+      toast(`服务端拦下 ${pay.violations.length} 处录入不合法，见表格下方清单（点一行跳到那一格）`, 'err')
+      return
+    }
+    /* v196（P0-3）：**超时优先判定，且按结构化字段判、不靠猜文案**。
+       原先只看 message 文本 —— 而 AbortController 到点 abort 抛出的 DOMException，其 message
+       是英文（"signal is aborted without reason" / "The user aborted a request."），
+       既不含「超时」也不含 timeout/network/fetch ⇒ 一律落到兜底「网络或服务器异常」，
+       用户看不出该等一会还是该重试（v194b 真机实测即此形态）。
+       client.js 现已把 abort 统一转成 `name='TimeoutError' / timeout=true`，
+       这里加一条**最高优先级**分支接住它。 */
     let kind = '网络或服务器异常'
-    if (/403|权限|forbidden|未授权|无权限/i.test(msg)) kind = '无权限'
+    if (e && (e.timeout || nm === 'TimeoutError' || nm === 'AbortError')) kind = '保存超时'
+    else if (/403|权限|forbidden|未授权|无权限/i.test(msg)) kind = '无权限'
     else if (/超时|timeout|network|fetch/i.test(msg)) kind = '网络超时'
     else if (/不合法|校验|invalid/i.test(msg)) kind = '数据校验未通过'
     saveFailed.value = { kind, msg, prodDone, at: new Date().toLocaleTimeString('zh-CN') }
-    toast(`保存失败（${kind}）` + (prodDone ? '：商品资料已保存，数量未保存' : '') + (msg ? ` · ${msg}` : ''), 'err')
+    /* 文案必须**可行动**：告诉用户下一步能做什么，而不是替他猜一个原因。
+       ⚠️ 这里是 toast 单行，别写成小作文。 */
+    const hint = kind === '保存超时' ? '，请稍后重试；若反复出现请联系我们' : ''
+    toast(`保存失败（${kind}）` + (prodDone ? '：商品资料已保存，数量未保存' : '') + hint + (msg ? ` · ${msg}` : ''), 'err')
   } finally {
     savingEdit.value = false
   }
+}
+
+/* ---- v213-B1：并发冲突对话框的两个出口 ----
+   为什么必须给两个出口、而不是替用户自动选一个：
+     · 自动「覆盖」= 把别人的改动**静默抹掉**（改单是几个人协作的活，很可能对方刚录完）；
+     · 自动「放弃我的」= 把用户这几分钟的录入无声丢掉。
+   两条都不可接受，所以停下来问一次。默认焦点在「重新载入」（更安全的那个）。 */
+async function conflictReload() {
+  conflictInfo.value = null
+  toast('已载入最新数据（你未保存的改动已放弃）', 'warn')
+  await loadEditGrid()
+}
+async function conflictOverride() {
+  const info = conflictInfo.value
+  conflictInfo.value = null
+  if (info) {
+    /* 覆盖前记一笔痕：这是一次**有意识的**覆盖 —— 事后有人问「我的数怎么没了」时，
+       修改日志里要能看出是「谁在什么时候选择了覆盖」，而不是一条普通的保存记录。 */
+    try {
+      await recordAudit('conflict_override',
+        `覆盖并发改动（对方：${info.by || '其他人'} ${info.at || ''}）`)
+    } catch (e) { /* 记痕失败不阻断保存 */ }
+  }
+  await saveEdits({ force: true })
 }
 
 /* Q23：粘贴「商品 × 客户」交叉表。
@@ -3906,10 +4863,41 @@ function onPaste(e) {
 }
 const savingEdit = ref(false)
 const confirmInfo = ref(null)  // 2026-08-27：期次确认（经理保存汇总表=审批定稿）状态，老板进汇总表一眼看出是否已定稿
+/* ---- v213-B1：乐观锁状态（并发编辑冲突） ----
+   后端 `GET /summary` 下发 `matrix_rev`（本期矩阵的**内容指纹**，见 erp_db.forecast_matrix_rev）。
+   前端把它当作「我打开时看到的版本」，保存时原样回传 ⇒ 不一致即 409。
+   语义要点（决定了这里怎么用）：
+     · 指纹只由**内容**决定（不按自增 id）⇒ 同一内容重复保存指纹不变，不会「自己和自己冲突」；
+     · 覆盖范围 = 后端保存时真正会删改的那些行（导入报单 + 加单/单价 + 删列名册）
+       ⇒ 别人改的是小程序报单（role≠'导入'）时**不会**误报冲突（保存也动不到它）；
+     · 保存成功回执里带**新的** `matrix_rev`，直接采纳即可继续改，不必重新载入。 */
+const matrixRev = ref('')
+const matrixAt = ref('')   // 最后写入时刻（仅用于冲突对话框展示）
+const matrixBy = ref('')   // 最后写入人显示名
+const conflictInfo = ref(null)  // 409 冲突详情：{by, at, current_rev, items}（null = 无冲突）
 
 /* ---- Excel 式交互（单元格选中 / 方向键导航 / 右键行列菜单 / 填充柄） ---- */
 // 选中单元格坐标：r=行索引, c=统一列索引（主档列 0..n-1，客户列 n..n+m-1；操作列不参与导航）
 const selected = ref({ r: -1, c: -1 })
+/* v210（2026-09-20 用户拍板）：单元格**两态模型**。
+   用户诉求是两条：「① 单击单元格应选中所有内容，便于快速修改已有内容」「② 要支持键盘方向键在
+   不同单元格之间跳转」。这两条**单独看都很容易做，合在一起做就会打架** ——
+   焦点落在一个 `<input>` 上时，方向键到底是「跳格」还是「在数字中间移光标」？
+   当年 Q21（见 onGridKey 顶部的注释）为了治「想改一位数字却被跳格」，把方向键在输入框内**一律放行**，
+   代价是 **② 整个功能等于不存在**：单元格被选中时焦点必定在 input 里 ⇒ 永远走不到跳格分支。
+   ⇒ 正解不是二选一，而是像 Excel 那样**分两态**，用一个布尔量显式区分：
+
+     · **导航态** `cellTyping = false`（默认；单击选中 / 键盘跳到的格子）
+         - 单击即**全选内容** ⇒ 直接打字就是整体替换（诉求①）
+         - 方向键 / Home / End / PageUp·Down **跨格跳转**（诉求②）
+     · **输入态** `cellTyping = true`（双击 / F2 / 在**已选中的同一格**上再按一次）
+         - 不强制全选，光标落在点击处 ⇒ 想改一位数字就改一位（Q21 的老诉求不丢）
+         - 方向键放行给浏览器**在文本内移动光标**
+
+   ⚠️ 本值只描述「当前聚焦格处于哪一态」，是**瞬态**、不入草稿、不参与保存载荷。
+   ⚠️ 判定它是否生效必须**同时**看焦点是否真在输入框内（见 onGridKey 里的 `&& editing`），
+      否则「拖框选」这类把输入框 blur 掉的操作会让它停留在 true ⇒ 方向键整体失效且不报错。 */
+const cellTyping = ref(false)
 const ctx = ref({ show: false, x: 0, y: 0, top: 0, r: -1, c: -1, type: '', key: '', ui: -1, deletable: false })
 const ctxMenuEl = ref(null)
 const fillEnd = ref({ r: -1, c: -1 })
@@ -4057,7 +5045,11 @@ const hdrCtxStyle = computed(() => {
 // ===== 右键增强状态 =====
 const condWarnOn = ref(false)      // 条件格式：库存<安全库存 整行高亮
 const statsOpen = ref(false)       // 列统计弹层
-const colStats = ref(null)         // { label, numeric, sum, avg, min, max, count, empty, distinct, sample }
+const colStats = ref(null)         // { key, label, numeric, sum, avg, min, max, count, empty, distinct, sample }
+/* v207：列统计面板按**列**选小数位 —— 箱数列必须与表格单元格同精度（3 位）。
+   否则右键「合计(箱)」列的统计会显示 0.13，而同一屏的单元格写着 0.125 ⇒ 同屏两个精度。
+   （用户对「同屏两个数对不上」最敏感，0.13 vs 0.125 正好会让人以为其中一个是错的。） */
+function statFmt(key, n) { return key === 'boxes' ? fmtBox(n) : fmt(n) }
 const hdrWidthVal = ref(120)       // 精确列宽输入
 const uniqAll = ref(false)         // 唯一值筛选：全选
 // 列统计：取某行在某列上的「数值」（可统计列返回 number，否则返回 null 视为文本列）
@@ -4098,7 +5090,7 @@ function computeColStats(desc) {
     const sum = nums.reduce((a, b) => a + b, 0)
     const avg = sum / nums.length
     colStats.value = {
-      label: desc.label, numeric: true,
+      key: desc.key, label: desc.label, numeric: true,
       sum, avg, min: Math.min(...nums), max: Math.max(...nums),
       count: nums.length, empty: texts.filter(t => !t).length,
       distinct: 0, sample: ''
@@ -4107,7 +5099,7 @@ function computeColStats(desc) {
     const nonEmpty = texts.filter(t => t !== '')
     const dist = new Set(nonEmpty)
     colStats.value = {
-      label: desc.label, numeric: false,
+      key: desc.key, label: desc.label, numeric: false,
       sum: 0, avg: 0, min: 0, max: 0, count: nonEmpty.length,
       empty: texts.length - nonEmpty.length, distinct: dist.size,
       sample: Array.from(dist).slice(0, 6).join('、')
@@ -4139,7 +5131,18 @@ function groupableCol(key) { return ['product_code', 'unit', 'spec', 'category',
 
 // 商品档案弹层
 const prodProfile = ref(null)
-// 选区统计（求和/平均/计数）
+/* 选区**面积**（格数）—— 与「有几个数字」是两件事。
+   分开算的理由：「批量填入」的入口与提示要看的是**会被写入多少格**（面积），
+   而「求和 / 平均 / 计数」看的是**选区里有多少个数字**。
+   曾经把两者混成一个 `selStats`（没有数字就返回 null），
+   于是框选一片空格子时整条统计条连同入口一起消失 —— v212 真机上抓到。
+   面积是唯一的：占位符、菜单里的「N 格」、无数字时的回退文案都取它。 */
+const selCellCount = computed(() => {
+  const sr = selRange.value
+  if (!sr) return 0
+  return (sr.r1 - sr.r0 + 1) * (sr.c1 - sr.c0 + 1)
+})
+// 选区统计（求和/平均/计数）—— **只统计有数字的格**，没有就返回 null
 const selStats = computed(() => {
   const sr = selRange.value
   if (!sr) return null
@@ -4149,7 +5152,7 @@ const selStats = computed(() => {
     for (let c = sr.c0; c <= sr.c1; c++) {
       let v
       if (c < visibleCols.value.length) { const col = visibleCols.value[c]; if (!col || col.edit !== 'num') continue; v = rw[col.key] }
-      else { const ui = c - visibleCols.value.length; v = rw.qtyByUnit[cross.value.units[ui].name] }
+      else { const ui = c - visibleCols.value.length; const u = cross.value.units[ui]; if (!u) continue; v = rw.qtyByUnit[u.name] }
       const n = Number(v)
       if (v !== '' && v != null && !isNaN(n)) nums.push(n)
     }
@@ -4159,6 +5162,32 @@ const selStats = computed(() => {
   return { count: nums.length, sum, avg: sum / nums.length }
 })
 
+/* v196（P0-2）：**商品档案字段的唯一映射** —— 保存载荷与「脏行判定」共用它。
+   为什么必须唯一：若发载荷写一份字段清单、脏行判定另写一份，日后加字段只改一处，
+   就会退化成「改了 A 却不算改动 ⇒ 保存时静默漏发」。这类"第二份拷贝"是本项目的老毛病
+   （v189 的合计口径、v175 的校验判据都栽在同一坑上）。
+   字段清单与取值写法**逐字沿用** v195 前 `saveEdits` 里的 prodRows 字面量 ⇒ 写入内容一字不变。 */
+function prodPayloadOf(r) {
+  const x = r || {}
+  return {
+    name: x.name || '', barcode: x.barcode || '', spec: x.spec || '', unit: x.unit || '件',
+    sale_price: x.sale_price || 0, purchase_price: x.purchase_price || 0,
+    /* 🔴 v226b：补齐 `factory_price`（元/箱 进价）—— 此前本映射**漏了它**，后果是
+       「在预报页粘贴带进价的表 → 那列写进了行对象 → 保存时载荷不带它 → 静默不落库」，
+       用户看到进价填了、下期打开又是空的（"填了没反应"的那一族）。
+       🔴 **条件带键**（不是无条件 `|| 0`）：本对象同时是**脏行判定与写入载荷**的共用体，
+       无条件带键会在 `factory_price` 为空的行上把库里已有的进价**清零**
+       （同类缺陷在 `ProductArchive.vue` 的新增弹窗里已修过一次）。*/
+    ...(Number(x.factory_price) > 0 ? { factory_price: Number(x.factory_price) } : {}),
+    safety_stock: x.safety_stock || 0, expiry_days: x.expiry_days || 0,
+    product_code: x.product_code || '', dist_price: x.dist_price || 0,
+    brand: x.brand || '',
+    moq: x.moq || 0, lead_days: x.lead_days || 0,
+  }
+}
+/* v196（P0-2）：**基线** = 进入编辑态时服务端权威的商品档案值（pid → payload）。
+   保存时只把「与基线不同」的行发出去 —— 此前每次保存都无脑 upsert 全部 ≈154 行。 */
+const prodBaseline = ref(null)
 function blankRow() {
   return { product_id: 0, name: '', barcode: '', spec: '', unit: '件',
     sale_price: 0, factory_price: 0, purchase_price: 0, safety_stock: 0, expiry_days: 0, product_code: '', dist_price: 0,
@@ -4174,13 +5203,74 @@ function selectCell(r, c, shift) {
   }
   selected.value = { r, c }
 }
+/* v210（需求②的连带缺陷，同批修）：**键盘跳到的格子不能被粘性列 / 粘性表头遮住**。
+   🔴 为什么必须显式处理 —— 浏览器原生 focus() 的「滚进视口」是**最小滚动**语义：只把目标格
+      送到滚动口的**边缘**就算「已可见」。而本表两处边缘都被粘性元素占据：
+        · 左边缘：`.cross-tbl .seq-cell{position:sticky;left:0}`（序号 46px）
+                  + `.cross-tbl .frozen{position:sticky;left:0;min-width:200px}`（商品名称）
+                  ⇒ 冻结区实测约 250px
+        · 上边缘：`.cross-tbl thead th{position:sticky;top:0}`
+      浏览器不知道 sticky 会盖住内容 ⇒ 于是「跳过去 = 光标停在冻结列底下」，
+      表现是**按了方向键，光标看不见**。这比「没跳」更难排查：格子确实被选中、值也能改，
+      但用户看不到，会认为是随机失灵。
+   🔴 这条路径是 **v210 新开出来的** —— 改之前方向键在输入框内一律放行，根本不会跳格
+      （见 onGridKey 顶部注释），所以老版本不存在这个问题，不能算「历史遗留」。
+   ⚠️ 只在**需要时**才滚：已经舒舒服服可见的格子一律不动，否则相邻格之间按方向键会不停抖动。
+   ⚠️ 粘性格自身（序号 / 商品名称）**直接跳过**：它按定义永远可见，对它做补偿只会让
+      横向滚动条无意义地漂移（按 Home 回首列时表体还停在右边 —— 那才是反直觉的）。 */
+function keepCellClear(el) {
+  const td = el.closest('td')
+  if (td && getComputedStyle(td).position === 'sticky') return
+  const wrap = el.closest('.table-wrap')
+  if (!wrap) return
+  const wr = wrap.getBoundingClientRect()
+  /* 冻结区右边界：取本行所有 sticky 格子里最靠右的那个（行内通用，不写死 250px） */
+  let leftGuard = wr.left
+  const tr = el.closest('tr')
+  if (tr) {
+    for (const cell of tr.children) {
+      if (getComputedStyle(cell).position === 'sticky') {
+        const cr = cell.getBoundingClientRect()
+        if (cr.right > leftGuard) leftGuard = cr.right
+      }
+    }
+  }
+  /* 粘性表头下边界（表头可能是多行，故取最大 bottom） */
+  let topGuard = wr.top
+  wrap.querySelectorAll('thead th').forEach((th) => {
+    if (getComputedStyle(th).position === 'sticky') {
+      const hr = th.getBoundingClientRect()
+      if (hr.bottom > topGuard) topGuard = hr.bottom
+    }
+  })
+  const M = 6  // 留一点余量，让格子边缘不贴着冻结区
+  const r = el.getBoundingClientRect()
+  if (r.left < leftGuard + M) wrap.scrollLeft -= (leftGuard + M - r.left)
+  else if (r.right > wr.right - M) wrap.scrollLeft += (r.right - (wr.right - M))
+  if (r.top < topGuard + M) wrap.scrollTop -= (topGuard + M - r.top)
+  else if (r.bottom > wr.bottom - M) wrap.scrollTop += (r.bottom - (wr.bottom - M))
+}
 function focusCell(r, c, opts) {
   const doSelect = !opts || opts.select !== false
+  /* v210：**所有键盘跳格都走这里**（方向键 / Enter / Tab / Home / End / PageUp·Down / Ctrl+方向键，
+     以及 F2 与 Ctrl+Z 后的定位）。故「跳到新格 ⇒ 回到导航态」这条语义在此**统一落定**，
+     各调用点不必各写一遍 —— 也让「漏了某条跳格路径没复位」这种错不可能发生。
+     🔴 必须写在 nextTick **之前**：下面的 el.focus() 会**同步**触发模板上的 @focus（onFocusCell），
+        那里面要读 cellTyping 才能决定「要不要全选」。放到 nextTick 里就晚了一步 ⇒
+        用 F2 进输入态时会被 @focus 抢先把内容全选掉（正好把 F2 的语义做反）。 */
+  cellTyping.value = !doSelect
   nextTick(() => {
     const el = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`)
     if (el) {
       el.focus()
       if (doSelect && el.select) { try { el.select() } catch (e) {} }
+      /* 输入态（F2）：光标落到**末尾**，内容不清空 —— Excel 的 F2 就是这个手感。
+         ⚠️ 数字输入框上 setSelectionRange 会抛 InvalidStateError（Chrome 至今如此），
+            必须 try 包住；失败时保持浏览器默认行为（聚焦即落在末尾），不能让它冒泡中断。 */
+      else if (el.setSelectionRange) { try { const n = String(el.value || '').length; el.setSelectionRange(n, n) } catch (e) {} }
+      /* v210：跳到的格子若停在粘性列/粘性表头底下（原生 focus 的最小滚动会这样停），
+         把它滚出来 —— 否则「按了方向键但光标看不见」。详见 keepCellClear 顶部注释。 */
+      keepCellClear(el)
     }
   })
 }
@@ -4190,21 +5280,51 @@ function isEditingInput(e) {
   return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'
 }
 // 键盘导航：Enter 下移 / Shift+Enter 上移 / Tab 右移(到头换下一行) / Shift+Tab 左移 / Esc 取消选中
+/* v219 打磨①：整表「已用区域」右下角 —— Ctrl+End 的定位依据。
+   行与列**独立**取最大有数据的下标（Excel 同口径）：右下角那一格自己可以是空的。
+   ⚠️「空」的判据与全站同源：`'' / null / undefined / 0` 都算空 —— 数量格填 0 表达的就是
+      「这一格不报」，把它当有数据会让定位跳到一长串 0 的尾巴上去（等于没跳）。 */
+function lastDataPos () {
+  const maxR = cross.value.rows.length - 1
+  const maxC = visibleCols.value.length + unitCount() - 1
+  let lr = -1
+  let lc = -1
+  for (let i = maxR; i >= 0; i--) {
+    for (let j = maxC; j >= 0; j--) {
+      const v = readCellVal(i, j)
+      if (v === '' || v === null || v === undefined || Number(v) === 0) continue
+      if (i > lr) lr = i
+      if (j > lc) lc = j
+    }
+  }
+  return { r: lr, c: lc }
+}
+
 function onGridKey(e) {
   if (!editMode.value) return
   const editing = isEditingInput(e)
-  /* Q21：方向键 / Home / End / Ctrl+方向键 在输入框内一律放行。
-     原实现只对 Delete/Backspace 做了 tag 判断（L2479），方向键没有——
-     导致用户跳格后内容被全选，想按左右键在数字中间改一位，结果直接跳到相邻格
-     且新格又被全选，只能整格重输。这是最违背 Excel 心智的手感问题。 */
-  if (editing && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight'
+  /* v210（需求②）：方向键 / Home / End / Ctrl+方向键 / PageUp·Down 在**输入态**放行给浏览器（字内移光标），
+     在**导航态**则被下面的跳格分支接管 ⇒ 跨单元格跳转。
+
+     🔴 Q21 的老注释（原文保留在此，因为它记录了「为什么当年不敢这么做」）：
+        「方向键 / Home / End / Ctrl+方向键 在输入框内一律放行。原实现只对 Delete/Backspace 做了 tag
+          判断，方向键没有 —— 导致用户跳格后内容被全选，想按左右键在数字中间改一位，结果直接跳到相邻格
+          且新格又被全选，只能整格重输。这是最违背 Excel 心智的手感问题。」
+        当年的处置治好了「改一位数字」，但代价是**方向键跳格功能等于不存在**
+        （单元格一被选中，焦点必定落在 input 里 ⇒ 这个 return 必然命中 ⇒ 下面所有跳格分支都是死代码）。
+        ⇒ v210 把判据从**过粗的「焦点在输入框内」**换成**两态**：`cellTyping` 才是「用户正在改文本」的信号。
+
+     ⚠️ 必须 `&& editing`，不能只判 `cellTyping`：拖框选（onCellOver）会把输入框 blur 掉，
+        但 cellTyping 仍是上次的 true ⇒ 只判它会**让拖框选之后方向键整体失效**（不报错、就是不动，
+        与「键盘坏了」长得一样）。带上 editing 后，焦点不在输入框里就一律按导航处理，自愈。 */
+  if (cellTyping.value && editing && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight'
     || e.key === 'Home' || e.key === 'End' || e.key === 'PageUp' || e.key === 'PageDown')) return
   // Ctrl+A 在输入框内放行（选中本格文本），非编辑态才是「全选表格」
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
     if (editing) return
     e.preventDefault(); selectAll(); return
   }
-  const maxC = visibleCols.value.length + cross.value.units.length - 1
+  const maxC = visibleCols.value.length + unitCount() - 1
   const maxR = cross.value.rows.length - 1
   let { r, c } = selected.value
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return }
@@ -4277,9 +5397,17 @@ function onGridKey(e) {
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault(); c = Math.max(0, c - 1); selectCell(r, c); focusCell(r, c)
   } else if (e.key === 'F2') {
-    e.preventDefault(); focusCell(r, c, { select: true })
+    /* v210：F2 = 进入**输入态**（Excel 同款：光标落末尾、内容保留）。
+       原实现是 { select: true } = 全选，与「单击」完全等价 ⇒ 用户按 F2 想改一位数字，
+       得到的是整格替换，等于这个键**白给**。 */
+    e.preventDefault(); focusCell(r, c, { select: false })
   } else if (e.key === 'Escape') {
     if (errListOpen.value) { errListOpen.value = false; return }
+    /* v210：输入态下 Esc 先**退回导航态**（Excel 心智：Esc 退出「正在编辑」）。
+       ⚠️ 这里刻意**不回退内容** —— v-model 早已写进 r[c.key]，回退归「回退」按钮与 Ctrl+Z 管；
+          在这里顺手还原会把「改到一半按 Esc」变成静默丢数据（而且 `change` 未提交，
+          还原逻辑还得自己造一份副本，是纯粹的额外风险面）。只换态，零数据影响。 */
+    if (cellTyping.value) { cellTyping.value = false; focusCell(r, c, { select: true }); return }
     selected.value = { r: -1, c: -1 }
   /* ---- Q22：补齐大表定位快捷键（428 行只靠滚轮找商品效率极低） ---- */
   } else if (e.key === 'Home') {
@@ -4330,6 +5458,15 @@ function onGridKey(e) {
     if (e.shiftKey) selectCell(r, nc, true)
     else selectCell(r, nc)
     focusCell(r, nc); gotoRowPage(r)
+  } else if ((e.ctrlKey || e.metaKey) && e.key === 'End') {
+    /* v219 打磨①：跳到**最后一处有数据**的格（Excel 的 Ctrl+End）。
+       与 Ctrl+方向键的区别：后者只在本列/本行的**连续**数据里走、遇空格就停；
+       本键**跨空行空列**，直接定位整张表已用区域的右下角 —— 428 行表里找最后一行报单
+       不必滚到底。⚠️ 行列**独立**取最大值（Excel 同口径），不要求右下角那一格自己非空。 */
+    e.preventDefault()
+    const p = lastDataPos()
+    if (p.r < 0) { toast('当前表格还没有填入任何数据', 'warn'); return }
+    selectCell(p.r, p.c); focusCell(p.r, p.c); gotoRowPage(p.r)
   }
 }
 // 右键上下文菜单（插入/删除行、插入/删除列、清空内容）
@@ -4348,7 +5485,36 @@ function openCtx(e, r, c, type) {
   ctx.value = { show: true, x: e.clientX, y: e.clientY, top: e.clientY, r, c, type, key, ui, deletable }
   fitCtxMenu()
 }
-function closeCtx() { ctx.value.show = false }
+/* v212（P2-3）：右键菜单的**内联子模式**。原菜单是纯按钮列表（点一下即关），
+   而「批量填入相同值」需要一个输入框 —— 照 hdrCtx.mode 的既有范式加一层模式，
+   而不是弹 window.prompt（prompt 会阻塞渲染线程、样式不可控、移动端体验差）。
+   ⚠️ `ctxFillVal` 必须在 `closeCtx()` 里清空：菜单是复用的，残留上次输入会让
+      第二次打开时输入框里躺着旧数字，用户以为「它默认就是这个值」。 */
+const ctxMode = ref('menu')   // 'menu' | 'fill'
+const ctxFillVal = ref('')
+const ctxFillInput = ref(null)
+function openCtxFill() {
+  ctxMode.value = 'fill'
+  ctxFillVal.value = ''
+  /* 进子模式即聚焦（v-focus 指令只跑 mounted 一次，而这里只是模式切换、节点已存在
+     ⇒ 必须手动 focus）。try 包住：聚焦失败不该中断右键菜单本身。 */
+  nextTick(() => { try { if (ctxFillInput.value) ctxFillInput.value.focus() } catch (e) {} })
+}
+/* 把输入框里的值铺到整个选区 —— 与 Ctrl+Enter **同一个写入口**（batchWrite）。
+   🔴 刻意复用而不是另写一份循环：`Ctrl+Enter` 那条路径已被生产验证（含只读列跳过、
+      数值净化、快照入栈、提示文案），另写一份就是「同一条规则两处实现」的经典开局。
+   ⚠️ **空值一律拒**：留空点「填入」如果被当成「清空选区」执行，用户会在毫不知情下删掉
+      一整片数据（清空有它自己的入口 Delete / 「清空选区」，两者语义必须分开）。 */
+function fillSelectionWith(raw) {
+  const sr = selRange.value
+  if (!sr) { toast('请先框选要填充的区域，再执行批量填入', 'warn'); return }
+  const s = String(raw == null ? '' : raw).trim()
+  if (s === '') { toast('请输入要填入的值（清空选区请用 Delete 或「清空选区」）', 'warn'); return }
+  batchWrite(parseNumInput(s))
+}
+function applyCtxBatchFill() { const v = ctxFillVal.value; closeCtx(); fillSelectionWith(v) }
+function applySelFill() { fillSelectionWith(ctxFillVal.value) }
+function closeCtx() { ctxMode.value = 'menu'; ctxFillVal.value = ''; ctx.value.show = false }
 // 表体任意位置右键统一入口（table 级冒泡）：
 //  - 数据格（td[data-r][data-c]）→ 单元格菜单（master/qty）
 //  - 行号 / 只读计算列 / 操作列（仅 data-r）→ 表体菜单（保留当前选中，供全选/复制/清空选区）
@@ -4411,7 +5577,7 @@ function ctxInsertCol(left) {
   snapshot()
   const ui = ctx.value.ui
   const at = left ? ui : ui + 1
-  let base = cross.value.units.length + 1, i = 1, name = '新客户' + base
+  let base = unitCount() + 1, i = 1, name = '新客户' + base
   while (cross.value.units.find(u => u.name === name)) { name = '新客户' + (base + i++); }
   cross.value.units.splice(at, 0, { name, role: '' })
   cross.value.rows.forEach(rw => { if (!(name in rw.qtyByUnit)) rw.qtyByUnit[name] = 0 })
@@ -4454,7 +5620,7 @@ function ctxClear() {
 function ctxSelectAll() {
   closeCtx()
   const mr = cross.value.rows.length - 1
-  const mc = visibleCols.value.length + cross.value.units.length - 1
+  const mc = visibleCols.value.length + unitCount() - 1
   if (mr < 0 || mc < 0) { toast('表格暂无数据，可先「补录商品」或粘贴导入', 'warn'); return }
   selectAll()
   toast(`已全选 ${mr + 1} 行 × ${mc + 1} 列编辑区 — 可 Ctrl+C 复制 / Delete 清空，或在本菜单选「复制选区 / 清空选区」`, 'ok')
@@ -4585,7 +5751,7 @@ function ctxFillRight() {
   const { r, c } = ctx.value
   snapshot()
   const src = readCellVal(r, c)
-  const last = visibleCols.value.length + cross.value.units.length - 1
+  const last = visibleCols.value.length + unitCount() - 1
   for (let i = c + 1; i <= last; i++) writeCellVal(r, i, src)
   recomputeTotals(); closeCtx(); toast('已向右填充', 'ok')
 }
@@ -5062,7 +6228,7 @@ function readCellVal(r, c) {
   const rw = cross.value.rows[r]; if (!rw) return ''
   if (c < visibleCols.value.length) { const k = visibleCols.value[c].key; return rw[k] ?? '' }
   const ui = c - visibleCols.value.length
-  if (ui < cross.value.units.length) return rw.qtyByUnit[cross.value.units[ui].name] || 0
+  if (ui < unitCount()) return rw.qtyByUnit[cross.value.units[ui].name] || 0
   return ''
 }
 /* Q18：数值解析不再静默归 0。原实现 `parseFloat(v) || 0` 会把「12箱」「1,234」「abc」
@@ -5080,7 +6246,7 @@ function parseNumInput(v) {
   const s = toHalfNum(v).trim()
   if (s === '') return 0
   const n = Number(s)
-  return Number.isNaN(n) ? String(v == null ? '' : v).trim() : n
+  return Number.isNaN(n) ? s : n
 }
 /* v184：**返回是否真的写进去了**（false = 被拒或越界）。`clearRange` 用它统计实际清掉的
    格数 —— 只读列被跳过后不能再按选区面积报数（否则提示「已清除 12 个」而实际只变 10 个）。 */
@@ -5096,7 +6262,7 @@ function writeCellVal(r, c, v) {
     return true
   }
   const ui = c - visibleCols.value.length
-  if (ui < cross.value.units.length) { rw.qtyByUnit[cross.value.units[ui].name] = parseNumInput(v); return true }
+  if (ui < unitCount()) { rw.qtyByUnit[cross.value.units[ui].name] = parseNumInput(v); return true }
   return false
 }
 function startFill(r, c, e) {
@@ -5133,9 +6299,17 @@ function batchWrite(val) {
   const sr = selRange.value; if (!sr) return
   snapshot()
   const { r0, c0, r1, c1 } = sr
+  /* v212：按**实际写入成功**的格数报数 —— 与下面 `clearRange` 完全同一口径。
+     原实现报的是**选区面积** `(r1-r0+1)*(c1-c0+1)`，而 `writeCellVal` 会**跳过只读列**
+     （条码 / 规格 / 单位 / 到货周期 / 厂家编码…）⇒ 提示的个数与实际变化对不上，
+     用户会以为「有些格没填进去」而反复重试。
+     真机实测：12 格的选区里只有 4 格是数量格，提示却报「已批量写入 12 个单元格」。
+     ⚠️ 同一个坑 **v184 已经在「清空」上踩过并修掉**（见 clearRange 的注释），
+        这里当时漏了 —— 典型的「同一条规则两处实现、只修一处」。两处现在同口径。 */
+  let n = 0
   for (let ri = r0; ri <= r1; ri++)
-    for (let ci = c0; ci <= c1; ci++) writeCellVal(ri, ci, val)
-  toast(`已批量写入 ${(r1 - r0 + 1) * (c1 - c0 + 1)} 个单元格`, 'ok')
+    for (let ci = c0; ci <= c1; ci++) { if (writeCellVal(ri, ci, val)) n++ }
+  toast(`已批量写入 ${n} 个单元格`, 'ok')
 }
 // 批量清除：清空选区（或单格）内容（Delete / Backspace，非编辑态）
 function clearRange() {
@@ -5241,11 +6415,31 @@ function rowShown(ri) {
 }
 // 排序：none / asc / desc（直接重排 rows，提交按 product_id 无关顺序）
 const sortMode = ref('none')
+/* v202：切回「默认」时要能**真正回到导入模板序**。
+   旧实现只处理 asc/desc，`none` 分支什么都不做（`rows` 原样赋回）⇒ 顺序停在
+   「按名称排完」的结果上：旋钮显示「默认」、行序却不是默认，且**没有任何办法回去**
+   （再点两下轮回到 none 也还是那个顺序）。这正是用户那句「不受其他排序规则影响」的落点 ——
+   默认态必须等于模板序。现按 `rowBaseOrder`（行底原始顺序，＝ buildRowBase 的产出顺序）恢复。
+   ⚠️ 不在本函数里重置光标/选区：排序只动行序，`selAnchor` 是 (行, 列) 坐标，排序后它指向
+      别的行属于既有行为；本轮只修「顺序」，避免把一次排序变成一次隐性的选区跳转。 */
 function applySort() {
   snapshot()
   const rows = cross.value.rows
   if (sortMode.value === 'asc') rows.sort((a, b) => (a.name || '').localeCompare((b.name || ''), 'zh'))
   else if (sortMode.value === 'desc') rows.sort((a, b) => (b.name || '').localeCompare((a.name || ''), 'zh'))
+  else {
+    // 恢复导入模板序：按行底原始顺序的索引重排；不在原始顺序里的行（草稿恢复出来的新增行）
+    // 稳定地留在末尾 —— 与 buildRowBase 对「无导入序」那批的处理一致。
+    const ix = {}
+    ;(rowBaseOrder.value || []).forEach((pid, i) => { ix[pid] = i })
+    rows.sort((a, b) => {
+      const ai = ix[a.product_id], bi = ix[b.product_id]
+      if (ai !== undefined && bi !== undefined) return ai - bi
+      if (ai !== undefined) return -1
+      if (bi !== undefined) return 1
+      return 0
+    })
+  }
   cross.value.rows = rows
   saveDraftNow()
 }
@@ -5270,12 +6464,24 @@ function clone(o) { return JSON.parse(JSON.stringify(o)) }
    行/列增删、粘贴、填充等结构性变更仍需全量快照（{ t:'full' }）。 */
 const UNDO_LIMIT = 100
 function snapshot() {
+  dirtySinceSave.value = true          // v201：结构变更 ⇒ 有未保存改动（见 refreshDirty 注释）
   undoStack.value.push({ t: 'full', data: clone(cross.value) })
   if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
   redoStack.value = []
 }
 function pushCellSnap(r, c, oldVal, newVal) {
+  dirtySinceSave.value = true          // v201：单元格改动 ⇒ 有未保存改动
   undoStack.value.push({ t: 'cell', r, c, old: oldVal, new: newVal })
+  if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
+  redoStack.value = []
+}
+/* v219 打磨⑤：批量修复入栈（一次 Ctrl+Z 退掉**整批**）。
+   为什么不复用 pushCellSnap 逐格入栈：那样「一键修复 40 处」要按 40 次 Ctrl+Z 才退干净，
+   而用户的心理模型是「我刚点了一次按钮 ⇒ 一次撤销」。 */
+function pushBatchSnap(cells) {
+  if (!cells || !cells.length) return
+  dirtySinceSave.value = true
+  undoStack.value.push({ t: 'batch', cells: cells.map(x => ({ r: x.r, c: x.c, old: x.old, new: x.new })) })
   if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
   redoStack.value = []
 }
@@ -5287,11 +6493,18 @@ function undo(silent) {
   if (s.t === 'cell') {
     redoStack.value.push({ t: 'cell', r: s.r, c: s.c, old: s.old, new: s.new })
     writeCellVal(s.r, s.c, s.old)
+  } else if (s.t === 'batch') {
+    /* v219 打磨⑤：批量修复的**整批单条**回退（见 pushBatchSnap）。
+       倒序写回：一批里同一格不应出现两次（fixList 按 ri+ci 去重过），
+       倒序只是让「后写的先还原」这个直觉成立，出现重复也不会出错。 */
+    redoStack.value.push({ t: 'batch', cells: s.cells.map(x => ({ r: x.r, c: x.c, old: x.old, new: x.new })) })
+    for (let i = s.cells.length - 1; i >= 0; i--) writeCellVal(s.cells[i].r, s.cells[i].c, s.cells[i].old)
   } else {
     redoStack.value.push({ t: 'full', data: clone(cross.value) })
     cross.value = s.data
   }
   clampSelection()
+  refreshDirty()          // v201：撤销可能正好回到上次保存的版本 ⇒ 重新比对，别谎报「有未保存改动」
   if (!silent) toast('已撤销', 'ok')
 }
 function redo() {
@@ -5300,11 +6513,15 @@ function redo() {
   if (s.t === 'cell') {
     undoStack.value.push({ t: 'cell', r: s.r, c: s.c, old: s.old, new: s.new })
     writeCellVal(s.r, s.c, s.new)
+  } else if (s.t === 'batch') {
+    undoStack.value.push({ t: 'batch', cells: s.cells.map(x => ({ r: x.r, c: x.c, old: x.old, new: x.new })) })
+    for (const x of s.cells) writeCellVal(x.r, x.c, x.new)
   } else {
     undoStack.value.push({ t: 'full', data: clone(cross.value) })
     cross.value = s.data
   }
   clampSelection()
+  refreshDirty()          // v201：同 undo()
   toast('已重做', 'ok')
 }
 /* v219 打磨②：撤销栈**可见**。
@@ -5350,21 +6567,92 @@ function undoUpto (i) {
 // Q5：保存成功后不再清空撤销栈（原实现保存后无法 Ctrl+Z 回退）。
 // 改为记录「上次保存基线」，并提供「回退到上次保存」入口，避免用户保存后误改无法还原。
 const lastSavedSnap = ref(null)
+
+/* v201：把「当前到底存没存」变成**看得见**的状态。
+   🔴 起因（用户原话）：「点击保存后整个页面还是在可编辑状态，这样设计对吗」
+   当时（v201）的处置是**只补状态可见性、编辑态留着**，因为提示是不对称的：
+     · 保存**失败** → 有持久的红色横幅（`save-fail-banner`）
+     · 保存**成功** → 只有一条几秒就消失的提示，之后页面与保存前**长得一模一样**
+   ⇒ 用户无法确认「到底存没存进去」。补两个值，在编辑工具行常驻显示。
+   🔴 v208（2026-09-19 用户拍板）：**编辑态本身也去掉了** —— 保存成功即退出编辑态、
+   回到带「改单」按钮的只读态（见 saveEdits 尾部的 exitEditAfterSave()）。
+   ⚠️ 但本段这两个状态值**继续保留、不要删** —— 编辑态里反复改单时，「有未保存的改动」
+      仍是用户在**离开页面前**唯一能看到的警告（草稿虽在本地，用户并不知道）。 */
+const dirtySinceSave = ref(false)   // 自上次保存以来是否改过内容
+const lastSavedAt = ref('')         // 上次保存成功的时刻（HH:MM）
+/* 改动登记的两个**唯一漏斗**：一切会改内容的动作都经过 snapshot()（结构变更）或
+   pushCellSnap()（单元格提交）。已逐个核对：addRow / addUnit / renameCol / delCol /
+   粘贴 / 填充 / 右键删除列 / 快照恢复 / 软删行 …… 全部走这两个，无遗漏。
+   ⚠️ 视图偏好（列宽、列显隐、分组、排序）**故意不标** —— 它们不改变要落库的内容。 */
+function refreshDirty() {
+  /* v201：基线由 `loadEditGrid` 在**加载收尾**处写入（＝服务端内容）；保存成功后由
+     saveEdits 用「退出编辑态**之前**的编辑态快照」覆盖（v208 —— 必须在 leaveEdit()
+    之前取，否则 clone 到的是只读态对象，字段集不同 ⇒ 基线残缺）。
+     ⇒ 一进编辑就有基线可比，撤销回到起点时会自动变干净。
+     没有基线时（例如网格加载失败）**保持标记不变** —— 偏保守：可能误报「有改动」，
+     但不会漏报；漏报会让用户以为已经存好而直接关掉页面，代价大得多。 */
+  if (!lastSavedSnap.value) return
+  dirtySinceSave.value = JSON.stringify(cross.value) !== JSON.stringify(lastSavedSnap.value)
+}
+const saveState = computed(() => {
+  if (dirtySinceSave.value) return { cls: 'dirty', text: '有未保存的改动' }
+  if (lastSavedAt.value) return { cls: 'saved', text: '已保存 ' + lastSavedAt.value }
+  return { cls: 'clean', text: '尚未修改' }
+})
 function undoToLastSaved() {
   if (!lastSavedSnap.value) return
-  if (!window.confirm('回退到上次保存的版本？当前未保存的改动将被丢弃（可用 Ctrl+Z 再撤销回来）。')) return
+  if (!window.confirm('回退到本次编辑的起点（上次保存时的内容，或刚进入编辑时的内容）？\n\n当前未保存的改动将被丢弃，可用 Ctrl+Z 再撤销回来。')) return
   snapshot()
   cross.value = clone(lastSavedSnap.value)
   clampSelection()
-  toast('已回退到上次保存的版本', 'ok')
+  dirtySinceSave.value = false      // v201：内容已回到基线 ⇒ 状态条回到干净态
+  toast('已回退到本次编辑的起点', 'ok')
 }
+/* v197（P1-2b）：把**矩形选区与拖拽锚点**也一起夹进合法区间。
+   改前只夹 selected（单格焦点），漏了 selRange / selAnchor —— 而删列（表头 × / 右键
+   「删除此列」）是把客户列从 `cross.units` 里 splice 掉，列总数随之变小，
+   此时 selRange.c1 仍指向那个**已经不存在的列号**：
+     · inRange() 照旧把越界列当命中 ⇒ 表体画出并不存在的选中底色（`.range-sel`）；
+     · 选区求和 / 复制 / 清空按 c0..c1 遍历 ⇒ 读到 undefined，状态栏数字悄悄少算。
+   这类问题不报错、不崩溃，只让数字对不上 —— 比崩溃更难发现，所以必须在唯一的夹取入口修。
+   ⚠️ 只做**按下标夹取**，不做「删除后整体左移补偿」：后者会让选区语义变成「跳到旁边那一列」，
+      用户看到的是「我删了 A 列，怎么选中变成 B 列了」。此处的诉求仅仅是「别读到不存在的列」。 */
 function clampSelection() {
   const nr = Math.max(0, cross.value.rows.length - 1)
-  const nc = Math.max(0, visibleCols.value.length + cross.value.units.length - 1)
+  const nc = Math.max(0, visibleCols.value.length + unitCount() - 1)
   if (selected.value.r > nr) selected.value.r = nr
   if (selected.value.c > nc) selected.value.c = nc
   if (selected.value.r < 0) selected.value.r = -1
+  const sr = selRange.value
+  if (sr) {
+    const r0 = Math.min(Math.max(sr.r0, 0), nr)
+    const r1 = Math.min(Math.max(sr.r1, 0), nr)
+    const c0 = Math.min(Math.max(sr.c0, 0), nc)
+    const c1 = Math.min(Math.max(sr.c1, 0), nc)
+    if (r0 > r1 || c0 > c1) {
+      selRange.value = null          // 夹完区间反向 ⇒ 整体作废，界面显示「无选区」而不是留个假选区
+    } else if (r0 !== sr.r0 || c0 !== sr.c0 || r1 !== sr.r1 || c1 !== sr.c1) {
+      selRange.value = { r0, c0, r1, c1 }   // 只在真的变了才换对象，避免每次空转触发重渲染
+    }
+  }
+  const sa = selAnchor.value
+  if (sa && (sa.r > nr || sa.c > nc)) {
+    // 锚点是「拖选的起点」，越界后再拖会从不存在的位置开始算 ⇒ 同样夹进合法区
+    selAnchor.value = { r: Math.min(sa.r, nr), c: Math.min(sa.c, nc) }
+  }
 }
+/* v197（P1-2b）：列数一变就夹一次选区。
+   上面 delCol / deleteMasterCol 里的显式调用只覆盖「删除列」，而**会改变可见列数的路径不止两条**：
+     · 列设置里取消勾选 / 右键「隐藏此列」→ toggleCol（colVis 置 false）
+     · 右键「隐藏此列」对可删内置列 → quickHide（直接从 colOrder 移除，等同删除）
+     · 套用列方案 → applyScheme（顺序 + 显隐一起换）
+   补三处调用能治今天，补一个 watch 能治以后 —— 漏一处就是同一类「数字悄悄少算」的复发。
+   只在**列数真的变化**时触发（watch 源是两个长度相加），列重排、改名、改标签都不会空转；
+   clampSelection 只写 selected/selRange/selAnchor，不写被 watch 的源，无回环风险。 */
+watch(
+  () => visibleCols.value.length + unitCount(),
+  () => clampSelection()
+)
 function normRange(r0, c0, r1, c1) {
   return { r0: Math.min(r0, r1), c0: Math.min(c0, c1), r1: Math.max(r0, r1), c1: Math.max(c0, c1) }
 }
@@ -5376,9 +6664,31 @@ function inRange(r, c) {
 /* Q24：单元格聚焦只记录「这一格的旧值」（O(1)），change 时若值有变则入增量补丁。
    不再 clone/stringify 整表。 */
 let _pendingCell = null
-function onFocusCell(r, c) {
+function onFocusCell(r, c, e) {
   selectCell(r, c)
-  if (!_pendingCell) _pendingCell = { r, c, old: readCellVal(r, c) }
+  /* v212（P2-1）：**聚焦的那一格**决定候选内容（单实例 datalist，见 syncQtyCellOptions）。
+     放在这里而不是 onCellDown：键盘跳格（方向键 / Tab / Enter）**只走 focus**、不走 mousedown，
+     挂在 mousedown 上会让「键盘跳过去的那一格没有候选」，两种进格方式行为不一致。 */
+  syncQtyCellOptions(r, c)
+  /* v210 缺陷修复（与需求①②同路径，一并改）：_pendingCell 必须**每格一套**。
+     🔴 原写法是 `if (!_pendingCell)`，有个完全静默的后果：焦点在**没有改动**的格子之间连续移动时
+        （从前靠鼠标逐格点，v210 起方向键跳格会让它变成**常态**），_pendingCell 会一直停在**第一个**格子上；
+        之后在别处改一格 ⇒ onCellChange 拿它去比对「那个压根没动过的格子」⇒ 两边相等 ⇒
+        **直接 return**：这次改动既不进撤销栈（Ctrl+Z / 回退都还原不了），也不点亮状态条
+        （refreshDirty 只在 undo/redo 里被调，`dirtySinceSave` 唯一置真的地方就是 pushCellSnap）
+        ⇒ 用户明明改了内容，状态条却说「尚未修改」、紧邻的「回退」还是灰的。
+     ⚠️ 同格重复 focus 不重记（保持原 old）：方向键在同一格上按左右 / 再次点击都会回到这里，
+        若重记，old 会变成「改了一半的值」，撤销就撤不回去了。 */
+  if (!_pendingCell || _pendingCell.r !== r || _pendingCell.c !== c) {
+    _pendingCell = { r, c, old: readCellVal(r, c) }
+  }
+  /* v210（需求①）：导航态下「**单击即全选内容**」——
+     点一下就能直接打字整体替换，不必三击 / 拖选 / 先删再输。
+     ⚠️ 只在导航态全选：输入态（双击 / F2 / 在已选中的格上再按一次）必须放行浏览器的
+        「光标落在点击处」，否则「想改一位数字」又变成整格重输 —— Q21 的老病立刻复发。
+     ⚠️ try 包住：判断与写法都照抄同文件 focusCell() 里已被生产验证过的那句，
+        数字输入框上某些选 API 会抛 InvalidStateError，绝不能让它冒泡中断聚焦。 */
+  if (!cellTyping.value && e && e.target && e.target.select) { try { e.target.select() } catch (err) {} }
 }
 function onCellChange() {
   const p = _pendingCell
@@ -5411,6 +6721,16 @@ let _dragMoved = false
 let _dragEditing = false
 function onCellDown(ri, ci, e) {
   if (e.button === 2) return          // 右键：不重置选区，交给 openCtx（区域内保留选区、区域外重置单格）
+  /* v210：本格这次按下是「选中」还是「进入输入态」。
+     判据 = **按下这一刻，该输入框是否已经是 document.activeElement**：
+       · 是 ⇒ 在**已选中的同一格**上再按一次（含双击的第二下）⇒ 输入态，
+              放行浏览器把光标落在点击处（这就是「想改一位数字」的入口，见需求②的两态注释）
+       · 否 ⇒ 新格/未聚焦 ⇒ 导航态：随之触发的 @focus 会全选内容（需求①）
+     🔴 判据**不能用 `selected` 比对**代替：键盘跳格后 selected 已指向该格，但焦点未必还在输入框
+        （例如拖框选之后焦点在 body）—— 那时单击必须仍是「全选」，不能变成「输入态」。
+        只有「焦点此刻真在这个输入框里」才够资格叫「第二次点击」。 */
+  const t = e.target
+  cellTyping.value = !!(t && t.tagName === 'INPUT' && document.activeElement === t)
   dragging.value = true
   _dragMoved = false
   _dragEditing = !!(e.target && e.target.tagName === 'INPUT')
@@ -5429,6 +6749,11 @@ function onCellOver(ri, ci) {
   if (ri === selAnchor.value.r && ci === selAnchor.value.c) return
   if (!_dragMoved && _dragEditing && document.activeElement && document.activeElement.blur) {
     try { document.activeElement.blur() } catch (e) {}
+    /* v210：拖框选会把输入框 blur 掉（焦点回到 body），此时必须**显式回到导航态**。
+       虽然 onGridKey 的判据带了 `&& editing` 已能自愈，但留着 true 就是一颗定时炸弹：
+       下一个读 cellTyping 而不读“焦点在不在输入框”的地方就会踩雷（onFocusCell 正是这么读的）。
+       拖框选后紧接着单击某格 → onCellDown 会重算，所以这里只是把中间态收干净。 */
+    cellTyping.value = false
   }
   _dragMoved = true
   selRange.value = normRange(selAnchor.value.r, selAnchor.value.c, ri, ci)
@@ -5442,7 +6767,7 @@ function onCellUp() {
 // Ctrl/Cmd+A 全选当前表体
 function selectAll() {
   const maxR = cross.value.rows.length - 1
-  const maxC = visibleCols.value.length + cross.value.units.length - 1
+  const maxC = visibleCols.value.length + unitCount() - 1
   if (maxR < 0 || maxC < 0) return
   selAnchor.value = { r: 0, c: 0 }
   selected.value = { r: maxR, c: maxC }
@@ -5478,7 +6803,7 @@ function pasteRegion(text) {
   if (selRange.value) { sr = selRange.value.r0; sc = selRange.value.c0 }
   else { sr = selected.value.r; sc = selected.value.c }
   if (sr < 0 || sc < 0) return
-  const maxC = visibleCols.value.length + cross.value.units.length - 1
+  const maxC = visibleCols.value.length + unitCount() - 1
   let useCols = cols, truncated = false
   if (sc + cols - 1 > maxC) { useCols = Math.max(0, maxC - sc + 1); truncated = true }
   const needRows = sr + rows
@@ -5507,7 +6832,7 @@ function cellErrMsg(r, c) {
       raw = rw[col.key]
       // Q16：商品名称「有数量才必填」——该行已填报单数量却没名字，保存后会变成无名商品/孤儿数量
       if (col.key === 'name' && !String(raw == null ? '' : raw).trim() && rowSum(rw) > 0)
-        return '商品名称必填（该行已填报数量）'
+        return specText('name')   // v213：文案与后端同一来源
       // options 仅作输入候选提示（datalist 下拉），不强制校验；如需强制枚举约束的列，设 enforceOptions:true
       if (col.options && col.options.length && col.enforceOptions && raw !== '' && raw != null && raw !== undefined && !col.options.includes(String(raw)))
         return '应为：' + col.options.join('/') + ' 之一'
@@ -5517,18 +6842,28 @@ function cellErrMsg(r, c) {
     raw = rw[col.key]
   } else {
     const ui = c - visibleCols.value.length
-    if (ui >= cross.value.units.length) return ''
+    if (ui >= unitCount()) return ''
     const k = cross.value.units[ui].name
     isNum = true; isInt = true                    // 客户数量=非负整数
     raw = rw.qtyByUnit[k]
   }
   if (raw === '' || raw === null || raw === undefined) return ''   // 空=未填=合法(0)
-  const n = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/,/g, ''))
-  if (Number.isNaN(n)) return '必须是数字（当前值无法识别，如「12箱」请改为 12）'
-  if (n < 0) return '不能为负数'
-  if (isInt && !Number.isInteger(n)) return '必须为整数'
-  // Q16：数量上限（原实现可填 9999999 之类脏数据，无任何拦截）
-  if (n > QTY_MAX) return `数量过大（上限 ${QTY_MAX}）`
+  /* v213：整串判据（原为 parseFloat 前缀解析，见 NUM_RE 注释）。与后端 normalize_qty
+     同一套：NFKC 归一并去千分位逗号后**整串**匹配；bool 单独挡掉（`Number(true)=1`
+     会让 JSON 里一个 true 静默变成「1 件」）。 */
+  let n
+  if (typeof raw === 'number') n = raw
+  else if (typeof raw === 'boolean') return specText('num')
+  else {
+    const s = String(raw).trim().normalize('NFKC').replace(/,/g, '').trim()
+    if (!NUM_RE.test(s)) return specText('num')
+    n = Number(s)
+  }
+  if (!Number.isFinite(n)) return specText('num')
+  if (n < 0) return specText('neg')
+  if (isInt && !Number.isInteger(n)) return specText('int')
+  // Q16：数量上限（原先前端 999999 / 后端小程序 10000 / Web 无上限 ⇒ 现由服务端下发单源）
+  if (n > qtyMax.value) return specText('over', { max: qtyMax.value })
   return ''
 }
 /* v175：把「某一格到底有没有错、错在哪」收敛成唯一权威 —— 红框标记、悬停提示、
@@ -5538,14 +6873,24 @@ function cellErrMsg(r, c) {
    ⚠️ 条码重复必须用 computed 预建「行号 → 说明」索引：若在 cellErrMsg 里现扫全表，
    模板逐格渲染会退化成 O(N²×M)。 */
 const barcodeColIdx = computed(() => visibleCols.value.findIndex(c => c.key === 'barcode'))
-/* v178：**条码重复只在同品牌下才算重复**。
-   业务事实（用户 2026-09-16 定调）：公司在蒙牛有两个户头（福宝 / 恒滋），同一个产品两个户头
-   都会下单，品牌列分别写作「蒙牛低温（福宝）」「蒙牛低温（恒滋）」—— 两行条码相同是**正常的**，
-   报重复反而是误报。判据：**同条码 + 同品牌**才重复。
-   品牌空白时**仍按重复处理**（fail-closed）：空品牌既可能是"同品牌漏填"、也可能是"另一个户头"，
-   信息不足以区分 ⇒ 宁可让用户把品牌填上（填上且品牌不同，告警立刻消失），
-   不可静默放行 —— 放行的代价是保存后按条码匹配商品串档。
-   比较用归一化键（去空白、全角括号统一），显示值不动。 */
+/* 条码重复判据（**两度放宽，只认本条**）
+   ── v178（2026-09-16 用户定调）：同条码 + **同品牌** 才算重复。
+      靠**品牌名**区分两个户头 —— 公司在蒙牛有两个户头，品牌列分别写
+      「蒙牛低温（福宝）」「蒙牛低温（恒滋）」，同一产品两个户头都会下单，共码是正常的。
+   ── v196（2026-09-19 用户定调，本轮）：**再收窄一层**。两个新事实推翻了 v178 的判据：
+      ① 「**多规格本就允许共用条码**」—— 同一商品 200g*10瓶*6组 与 200g*24瓶 共码是正常的
+         （生产实测：12 组重复条码里 6 组是这类多规格，另有 5 个赠品杯子共用占位码 8003）；
+      ② 用户要求把 福宝/恒滋 **归并**为「蒙牛低温」（该 25 行条码全部唯一，归并零副作用）
+         ⇒ 归并后品牌名不再能区分户头，v178 的判据会**大面积误报**。
+      现行判据：**同条码 + 同品牌 + 同名 + 同规格 + 双方都还在售** 才算「条码重复」。
+      这才是唯一有真实危害的情形：同一商品在档案里被**重复建了两行**——
+      无档案号的新行保存时按「条码」匹配商品，两条并存会串档
+      （生产实测现存 3 组：每日鲜酪桂花马蹄 1199/1438、青青柚子 1198/1439、阿慕乐黄桃 1219/1451）。
+      其余一律放行：品牌不同（两个户头）、名称或规格不同（多规格/同系列不同口味）、
+      一方已停用（历史旧档，如友芝友 3 组、赠品 1335/1433）。
+   ── 为什么敢 fail-open：条码列自 v178 起有 132px 宽、13 位全码可见，人工能核对；
+      而误报的代价是**用户点保存被拦住**（本轮用户实际踩到的就是这条）。
+      比较用归一化键（去空白、全角括号统一），显示值不动。 */
 function brandKeyOf(v) {
   return String(v == null ? '' : v).trim().replace(/\s+/g, '')
     .replace(/\(/g, '（').replace(/\)/g, '）')
@@ -5553,23 +6898,23 @@ function brandKeyOf(v) {
 const dupBarcodeAt = computed(() => {
   const m = new Map()
   if (barcodeColIdx.value < 0) return m
-  const byBc = new Map()   // 条码 → [{ri, key}]（按行序）
+  const byBc = new Map()   // 条码 → [{ri, key, off}]（按行序）
   cross.value.rows.forEach((r, ri) => {
     const bc = String((r && r.barcode) || '').trim()
     if (!bc) return
-    const raw = String(rowBrand(r) || '').trim()
-    const key = brandKeyOf(raw)
+    /* v196 命中判据：品牌 / 名称 / 规格 **三者全同**，且**双方都还在售**。
+       ⚠️ 名称里本身常带规格（「…200g*10瓶*6组」）⇒「同名」已强于「同规格」；
+          两条同时比是刻意的冗余：名称被手工改短、规格字段留着时仍能判准。
+       ⚠️ off = 已停用/已删除的档案行（v179 的 offArchive）。任一方 off ⇒ 不报：
+          「停用旧档 + 在用新档」共码是档案演进而非本期录入错误。 */
+    const key = [brandKeyOf(rowBrand(r)), String((r && r.name) || '').trim().replace(/\s+/g, ''),
+      String((r && r.spec) || '').trim()].join('\u0001')
+    const off = !!(r && r.offArchive)
     const prev = byBc.get(bc)
-    // 冲突 = 与某条前序行**同品牌**，或**任一方品牌为空**（分不出户头）
-    const hit = prev && prev.find(p => key === '' || p.key === '' || p.key === key)
-    if (hit) {
-      const why = (key && key === hit.key)
-        ? `同品牌「${raw || key}」`
-        : '品牌未填全，无法区分户头'
-      m.set(ri, `条码重复（第 ${hit.ri + 1} 行 ${why}）`)
-    }
-    if (prev) prev.push({ ri, key })
-    else byBc.set(bc, [{ ri, key }])
+    const hit = prev && prev.find(p => !p.off && !off && p.key === key)
+    if (hit) m.set(ri, `条码重复（第 ${hit.ri + 1} 行 同品牌同名同规格）`)
+    if (prev) prev.push({ ri, key, off })
+    else byBc.set(bc, [{ ri, key, off }])
   })
   return m
 })
@@ -5584,7 +6929,7 @@ function cellInvalid(r, c) { return cellIssue(r, c) !== '' }
 // 有错的行号集合：行号格标红，「一眼定位」先定位到行、再定位到格
 const errRowSet = computed(() => {
   const s = new Set()
-  const nc = visibleCols.value.length + cross.value.units.length
+  const nc = visibleCols.value.length + unitCount()
   cross.value.rows.forEach((r, ri) => {
     for (let ci = 0; ci < nc; ci++) {
       if (cellInvalid(ri, ci)) { s.add(ri); break }
@@ -5816,6 +7161,201 @@ function clearCompare() { compareOn.value = false; compareBaseId.value = ''; pre
 function prevQty(r) { const v = prevMap.value[r.name]; return v != null ? v : null }
 function deltaQty(r) { const p = prevQty(r); if (p == null) return null; return rowSum(r) - p }
 function deltaClass(r) { const d = deltaQty(r); if (d == null) return ''; return d > 0 ? 'up' : d < 0 ? 'down' : '' }
+
+/* ==== v212（P2-1 + P2-2）：**上一期「按客户」的数量** —— 一个数据源，喂两个功能 ====
+   · 用途①「数量格候选」：点进数量格时给「上期这客户订了多少」（P2-1）。
+   · 用途②「软警告分级」：本格 vs 上期同格 ⇒ 疑「超放量」/ 疑「漏订」（P2-2）。
+
+   🔴 为什么必须是**按客户**（per store），不能用现成的 `prevMap`：
+      `prevMap`（「上期量」列的数据）是**按商品汇总**的（所有客户合计）。拿它去比**单格**数量
+      ⇒ 一个客户订 20、而该商品上期 10 个客户共 200 ⇒ 会被判成「严重漏订」，
+      整表满屏黄。**逐格比必须用逐格的数**。
+      好在不需要改后端也不需要新接口 —— sources 里本来就带 `store` + `qty`
+      （见后端 erp_db.py::forecast_submission_summary 的 by_product 段）。
+
+   ⚠️ 失败**静默降级**（prevUnitMap 留空 ⇒ 候选少一类、软警告不亮），绝不 toast 报错：
+      这是**增益信息**；新建期次第一次用时它天然为空，报错就是纯噪音。
+   ⚠️ 调用处**不 await**：进编辑网格不该为参考数据多等一次往返。 */
+const prevUnitMap = ref({})        // { product_id: { 客户名: 上期数量和 } }
+const prevUnitsLoaded = ref(false)  // 已尝试加载（含「加载过但为空」）—— 防重复请求
+const prevUnitsPeriod = ref('')    // 上期名字，候选/角标文案里要说明「这些数从哪来」
+async function loadPrevUnits() {
+  if (prevUnitsLoaded.value) return
+  const cur = cross.value.period
+  if (!cur || !periods.value.length) return
+  const sorted = [...periods.value].sort((a, b) => (a.order_start || '').localeCompare(b.order_start || ''))
+  const idx = sorted.findIndex(x => Number(x.id) === Number(cur.id))
+  const prev = idx > 0 ? sorted[idx - 1] : null
+  if (!prev) return
+  prevUnitsLoaded.value = true
+  try {
+    const d = await forecastApproveApi.summary('', prev.order_start || '', prev.order_end || '', prev.id || 0)
+    const m = {}
+    ;(d.rows || []).forEach(r => {
+      const pid = Number(r.product_id) || 0
+      if (!pid) return
+      const bucket = m[pid] || (m[pid] = {})
+      ;(r.sources || []).forEach(s => {
+        const name = s.store || s.store_name || '未署名'
+        bucket[name] = (bucket[name] || 0) + (parseInt(s.qty) || 0)
+      })
+    })
+    prevUnitMap.value = m
+    prevUnitsPeriod.value = prev.name || ''
+  } catch (e) { /* 增益信息：静默降级 */ }
+}
+function prevUnitQty(r, unitName) {
+  const b = prevUnitMap.value[Number(r && r.product_id) || 0]
+  if (!b) return null
+  const v = b[unitName]
+  return v == null ? null : v
+}
+
+/* ---- P2-1：数量格「上期值 / 常用值」候选 ----
+   候选来源（按优先级）：
+     ① **上期同格**（同商品 × 同客户）—— 报单是周期性重复动作，这条命中率最高，
+        也是「一键落数」真正省事的一条。
+     ② **本期同商品、其它客户列已经填过的值**（纯本地、零请求）—— 同一商品铺货常是同一个量；
+        排除 0（0 在这里的意思是「还没填」而不是「填了 0」），按出现次数降序取前 3。
+
+   🔴 为什么是「单实例 datalist + 强制重建」，而不是每格一个：
+      数量格有 `行数 × 客户列数` 个（生产实测 158 行 × 21 列 ≈ 3300）。每格自带一份 option
+      ⇒ 点击展开直接卡死标签页（v211 商品名补全那段注释里实测过同类做法，428×行数 就够卡死）。
+      ⇒ 全局只保留**一个** `#opt-qty`，靠 `:key="qtyOptKey"` 在换格时**销毁重建**：
+        · 节点数永远 = 当前格的候选数（通常 1~4 个，不是 3300 个）；
+        · 「重建」是刻意的 —— 只改 <option> 内容、不换节点的话，`input.list` 的惰性解析
+          可能沿用旧候选，用户会看到**上一格的**候选（这是本设计唯一的真实风险点，真机验过）。
+   ⚠️ 只有「当前聚焦的那一格」的 input 才带 `list` 指向它（靠 `qtyOptKey` 比对），
+      其它格不带 —— 否则多格共享一个内容会变的 datalist，会互相看到对方的候选。 */
+const qtyCellOptions = ref([])
+const qtyOptKey = ref('')   // `${ri}-${ui}`；空串 = 没有任何格在聚焦（datalist 不渲染）
+function buildQtyCellOptions(ri, ui) {
+  const r = cross.value.rows[ri]
+  const u = cross.value.units[ui]
+  if (!r || !u) return []
+  const out = []
+  const seen = new Set()
+  const pv = prevUnitQty(r, u.name)
+  if (pv != null && pv > 0) {
+    out.push({ v: String(pv), l: '上期 ' + fmt(pv) + (prevUnitsPeriod.value ? '（' + prevUnitsPeriod.value + '）' : '') })
+    seen.add(String(pv))
+  }
+  const tally = {}
+  cross.value.units.forEach(x => {
+    if (x.name === u.name) return
+    const q = parseInt(r.qtyByUnit[x.name]) || 0
+    if (q > 0) tally[q] = (tally[q] || 0) + 1
+  })
+  Object.keys(tally).map(Number)
+    .sort((a, b) => tally[b] - tally[a] || a - b)
+    .slice(0, 3)
+    .forEach(q => {
+      const k = String(q)
+      if (seen.has(k)) return
+      seen.add(k)
+      out.push({ v: k, l: '本期其它客户填 ' + fmt(q) + '（' + tally[q] + ' 个客户）' })
+    })
+  return out
+}
+
+/* 换格时同步候选。`qtyOptKey` 同时干两件事：① datalist 的 `:key`（强制销毁重建）
+   ② 只有 key 匹配的那一格才带 `list` 属性（见模板）。
+   ⚠️ 非数量格（主档列 / 计算列）必须把 key 清空 —— 否则上一个数量格的 datalist 还挂着，
+      用户切到主档列后那个 `#opt-qty` 依然在 DOM 里，属于「看不见但还在」的残留状态。 */
+function syncQtyCellOptions(r, c) {
+  const vm = visibleCols.value.length
+  const ui = c - vm
+  if (ui < 0 || ui >= unitCount()) { qtyOptKey.value = ''; qtyCellOptions.value = []; return }
+  const key = r + '-' + ui
+  if (key === qtyOptKey.value) return
+  qtyCellOptions.value = buildQtyCellOptions(r, ui)
+  qtyOptKey.value = key
+}
+function qtyListFor(ri, ui) { return (editMode.value && qtyOptKey.value === (ri + '-' + ui)) ? 'opt-qty' : null }
+
+/* ---- P2-2：软警告分级 —— 「黄 = 疑」 ----
+   红框（`cellIssue`）管的是**一定错**：非数字 / 负数 / 非整数 / 超上限 / 条码重复。
+   这里管的是**可能错**，两类：
+     · `over` 疑超放量：本格 > 0 且 本格 ≥ 上期同格 × overRatio（默认 5 倍）
+     · `miss` 疑漏订：上期同格 > 0 而本格 = 0
+
+   🔴 漏订判据**必须带一个前提**：该商品行本期**已经有别的客户填过值**（`rowSum(r) > 0`）。
+      否则一进编辑网格（全表数量皆空、视作 0）时，每一格「上期有值」的都会亮黄 ⇒
+      满屏黄 = 没人再看。带上前提后语义才对：**这个商品本期确实在报，只是这个客户漏了**。
+   ⚠️ 阈值进 `softWarnCfg` 并落 localStorage，**不写死在判据里** ——
+      经销商口味不同（有人 3 倍就慌、有人 10 倍才算异常），写死等于每个租户都得改代码。
+   ⚠️ 只在**数量格**判。主档数字列（安全库存 / 保质期 / 到货周期…）拿「上期数量」去比
+      没有业务含义，判了就是假警报。 */
+const SOFTWARN_KEY = () => 'hergent_forecast_softwarn_v1'
+const softWarnCfg = reactive({ overOn: true, missOn: true, overRatio: 5 })
+try {
+  const _sw = JSON.parse(localStorage.getItem(SOFTWARN_KEY()) || 'null')
+  if (_sw && typeof _sw === 'object') Object.assign(softWarnCfg, _sw)
+} catch (e) { /* 存储不可用：用默认值 */ }
+function saveSoftWarnCfg() {
+  try {
+    localStorage.setItem(SOFTWARN_KEY(), JSON.stringify({
+      overOn: softWarnCfg.overOn, missOn: softWarnCfg.missOn, overRatio: softWarnCfg.overRatio,
+    }))
+  } catch (e) {}
+}
+function softRatio() { const n = Number(softWarnCfg.overRatio); return n >= 2 ? n : 5 }
+/* 🔴 必须是**一次成图的 computed**，不能在单元格里现算 —— 与 `dupBarcodeAt` 同一条理由
+   （它的注释里写得很清楚：模板逐格渲染时现扫全表会退化成 O(N²×M)）。
+   本页编辑网格量级：428 行 × 21 客户列 ≈ 9k 个数量格；判据里要读「本行本期合计」
+   （`rowSum` 本身 O(客户数)）⇒ 现算就是 9k × 21 ≈ 19 万次运算，**每次按键**都会跑一遍。
+   成图后：每次变化只扫一遍 rows×units（≈9k 次，快路径下几乎全被 `continue` 跳过），
+   模板侧退化为 `Map.get` 的 O(1) 查询。
+   ⚠️ 快路径刻意放在最前面：**该行本期一条数量都没填 ⇒ 整行跳过**。
+      新建期次进编辑态时这就是绝大多数行的情况（全 0），软警告等于零成本。 */
+const softAt = computed(() => {
+  const m = new Map()   // `${ri}-${ui}` → 'miss' | 'over'
+  if (!softWarnCfg.missOn && !softWarnCfg.overOn) return m
+  const rows = cross.value.rows, units = cross.value.units
+  if (!rows.length || !units.length) return m
+  const ratio = softRatio()
+  for (let ri = 0; ri < rows.length; ri++) {
+    const r = rows[ri]
+    const b = prevUnitMap.value[Number(r.product_id) || 0]
+    if (!b) continue
+    // 本行本期报单合计 —— 同时是 miss 判据的前提，也是本行的快路径开关
+    let rowTotal = 0
+    for (let ui = 0; ui < units.length; ui++) rowTotal += parseInt(r.qtyByUnit[units[ui].name]) || 0
+    if (rowTotal <= 0) continue
+    for (let ui = 0; ui < units.length; ui++) {
+      const pv = b[units[ui].name]
+      if (pv == null || pv <= 0) continue
+      const cur = parseFloat(r.qtyByUnit[units[ui].name]) || 0
+      if (softWarnCfg.overOn && cur > 0 && cur >= pv * ratio) m.set(ri + '-' + ui, 'over')
+      else if (softWarnCfg.missOn && cur === 0) m.set(ri + '-' + ui, 'miss')
+    }
+  }
+  return m
+})
+function cellSoftIssue(ri, ui) { return softAt.value.get(ri + '-' + ui) || '' }
+function cellSoftMsg(ri, ui) {
+  const kind = cellSoftIssue(ri, ui)
+  if (!kind) return ''
+  const r = cross.value.rows[ri]
+  const u = cross.value.units[ui]
+  if (!r || !u) return ''
+  const pv = prevUnitQty(r, u.name) || 0
+  const cur = parseFloat(r.qtyByUnit[u.name]) || 0
+  const src = prevUnitsPeriod.value ? '「' + prevUnitsPeriod.value + '」' : '上一期'
+  if (kind === 'miss') {
+    return `疑漏订：${u.name} 在${src}报了 ${fmt(pv)}，本期还是 0（同商品其它客户已报 ${fmt(rowSum(r))}）。确认不订可忽略。`
+  }
+  return `疑超放量：本期 ${fmt(cur)} 是${src}的 ${fmt(pv)} 的 ${(cur / pv).toFixed(1)} 倍，请确认是否促销 / 新增渠道。`
+}
+function showCellSoft(ri, ui) { const m = cellSoftMsg(ri, ui); if (m) toast(m, 'warn') }
+function toggleSoftWarn(which) {
+  if (which === 'miss') softWarnCfg.missOn = !softWarnCfg.missOn
+  else softWarnCfg.overOn = !softWarnCfg.overOn
+  saveSoftWarnCfg()
+  closeCtx()
+  toast('软警告「' + (which === 'miss' ? '疑漏订' : '疑超放量') + '」已'
+    + ((which === 'miss' ? softWarnCfg.missOn : softWarnCfg.overOn) ? '开启' : '关闭'), 'ok')
+}
 
 // P3-4 冻结小计行
 const foot = computed(() => {
@@ -6199,6 +7739,18 @@ function onFsKey(e) { if (e.key === 'Escape' && gridFullscreen.value) gridFullsc
 onMounted(() => { window.addEventListener('keydown', onFsKey) })
 onBeforeUnmount(() => { window.removeEventListener('keydown', onFsKey) })
 
+/* v209：全屏态把「改单 / 编辑组」搬进表格工具行后，**主工具栏那一份必须让位**。
+   不让位也能用（全屏层是不透明 fixed 且 z-index:1000，会把它整条盖住），但会留下两份 DOM：
+   被盖住的那份仍在 Tab 序里、屏幕阅读器也会读两遍 —— 同一个按钮出现两次。
+   🔴 **让位判据必须与「全屏层此刻真的挂在屏幕上」严格同源**，即模板里那条 v-if 链
+      `crossLoading → !editMode → 编辑态` 中真正渲染 .grid-area 的那两支。
+      漏掉 `!crossLoading` 会造出**死按钮**：重新加载期间 .grid-area 整块被骨架替换、全屏层随之消失，
+      此时若主工具栏那份已经让位，屏幕上就一个「改单」都没有 —— 点了没反应，且**不报任何错**。
+      （这类「一个状态两种含义」的失效形态在本项目已多次复现，故此处显式写死三条件。）
+   ⚠️ viewMode 也要判：表格工具行只在汇总表视图里存在（.cross-area 是 v-if），
+      逐单补录视图下它不在 DOM 中 —— 若那时仍让位，同样是无入口。 */
+const fsRowHosting = computed(() => gridFullscreen.value && viewMode.value === 'cross' && !crossLoading.value)
+
 // P6-8 企微/飞书推送快照（后端就绪 /api/forecast/push；失败降级复制）
 const pushing = ref(false)
 async function pushForecast() {
@@ -6207,8 +7759,9 @@ async function pushForecast() {
   // v187：金额口径改为与全站「报单金额 = 最终下单(箱) × 单价(进价/箱)」同源（原为分销价 × 合计），标签同步自证。
   // v189：原写「总箱 ${editTotalQty}」—— editTotalQty 是 Σ各报单单元数量（**小单位**），
   //   标签「箱」是错的（同「规格 ≠ 1 时件数错」同一个病）。推送是给审批人看的一句话，
-  //   口径必须自证：改标「合计(箱)」并用箱口径 editTotalBoxes（= Σ round(行小单位 ÷ 行规格)）。
-  const summary = `【预报单待审批】${p.name}\nSKU ${liveRows.value.length} · 合计(箱) ${editTotalBoxes.value} · 下单金额(厂价) ¥${fmt(editTotalAmount.value)}\n风险项 ${riskN} 条 · 生成于 ${new Date().toLocaleString()}`
+  //   口径必须自证：改标「合计(箱)」并用箱口径 editTotalBoxes（= Σ(行小单位 ÷ 行规格)）。
+  // v207：箱数改走 fmtBox —— 它可能是**小数**（如 0.125），`${数字}` 直接插值位数不可控。
+  const summary = `【预报单待审批】${p.name}\nSKU ${liveRows.value.length} · 合计(箱) ${fmtBox(editTotalBoxes.value)} · 下单金额(进价) ¥${fmt(editTotalAmount.value)}\n风险项 ${riskN} 条 · 生成于 ${new Date().toLocaleString()}`
   pushing.value = true
   try {
     await forecastApi.push({ period: p.name, summary, total_sku: cross.value.rows.length, total_qty: editTotalQty.value, total_amount: editTotalAmount.value })
@@ -6241,7 +7794,7 @@ function buildSuggestBook() {
   const warn = healthIssues.value.filter(x => x.sev === 'warn')
   const top = healthIssues.value.slice(0, 6).map(x => '· ' + x.msg).join('\n')
   let t = `【${p ? p.name : '本期'} 订货下单说明】\n`
-  t += `共 ${liveRows.value.length} 个 SKU，合计(箱) ${editTotalBoxes.value}，下单金额(厂价) ¥${fmt(editTotalAmount.value)}\n`
+  t += `共 ${liveRows.value.length} 个 SKU，合计(箱) ${fmtBox(editTotalBoxes.value)}，下单金额(进价) ¥${fmt(editTotalAmount.value)}\n`
   if (!healthIssues.value.length) t += '体检：未发现明显异常，可放心定稿。\n'
   else {
     t += `风险提示（${risk.length} 项高危 / ${warn.length} 项注意）：\n${top}\n`
@@ -6372,6 +7925,9 @@ const AUDIT_ACTION_LABEL = {
   period_update: '修改期次',
   // v184：复制期次（新建 + 只带商品清单）/ 把某期清单填入已有期次
   period_copy: '复制期次', period_seed: '复制商品清单',
+  // v213-B1：并发冲突下用户明确选择「用我这份覆盖」—— 事后有人问「我的数怎么没了」时，
+  //   这一条要能一眼看出是**有意识的覆盖**，而不是一条普通保存记录（见 conflictOverride）
+  conflict_override: '覆盖并发改动',
 }
 function auditActionLabel(a) { return AUDIT_ACTION_LABEL[a] || a || '修改' }
 function fmtAuditAt(s) { return String(s || '').replace('T', ' ').slice(0, 16) }
@@ -6391,7 +7947,18 @@ function toggleTrail() {
 }
 async function recordAudit(action, detail, ref_id = '') {
   const p = cross.value.period; if (!p) return
-  try { await forecastApi.auditPost({ period_id: p.id, action, detail, ref_id }); await loadAuditLog() } catch (e) {}
+  try {
+    await forecastApi.auditPost({ period_id: p.id, action, detail, ref_id })
+    /* v208：只在**面板开着**时刷新列表。
+       原实现每次记录都无条件 `loadAuditLog()`（白搭一次往返），而保存路径上用户根本看不见
+       —— 打开面板时 toggleTrail 本就会拉一次，不依赖这里。 */
+    if (trailOpen.value) await loadAuditLog()
+  } catch (e) {
+    /* v208：**不再完全静默**。用户要求「每次修改都需记录并体现在修改日志中」，
+       原来连失败都不留任何痕迹 ⇒ 日志静默少一条，用户只会觉得"我明明改过"。
+       仍然**不阻断业务**（保存照常成功），只留一条告警供排查。 */
+    console.warn('[forecast] 修改日志写入失败：', e)
+  }
 }
 
 // P10-7 配方行业模板库（成功客户 recipe 一键套用，护城河变现）
@@ -6518,8 +8085,17 @@ const copyUnitName = computed(() => (cross.value.period && cross.value.period.na
 const rowExtraQty = (r) => Number(r && (r.extra_qty != null ? r.extra_qty : r.extraQty)) || 0
 const rowFinalQty = (r) => {
   if (!r) return 0
-  // v184e：最终下单 = 合计(箱) + 加单(箱)（按用户的四条规则）。此前是 合计 + 加单（按件），与「合计(箱)」列脱节（v188 前名为「件数(箱)」）。
-  return rowBoxes(r) + rowExtraQty(r)
+  /* v184e：最终下单 = 合计(箱) + 加单(箱)（此前是 合计 + 加单（按件），与「合计(箱)」列脱节）。
+     v207：补上**取整** —— 用户 2026-09-13 拍板「取整只发生在最终下单」，方向 = 商品级、默认**向上**。
+       理由：**厂商不拆零发货** ⇒ 报了 3 瓶（=0.125 箱）实际下单就是 1 箱。
+       不取整会有两个说不通的后果：① 「最终下单」出现小数箱，而这列是要拿去厂家系统下单的；
+       ② `下单金额 = 最终下单(箱) × 单价(元/箱)` 会按 0.125 箱算钱 —— 现实中收不到这种货。
+       ⚠️ `- 1e-9` 是浮点护栏：24/24 可能算成 1.0000000000000002，Math.ceil 会直接跳到 2 箱。
+       ⚠️ 「按商品配置取整方向」**暂未实现** —— 商品档案里没有这个字段（`products` 无取整方向列），
+          所以一律按默认向上。将来要支持，就在此处读 `r.round_dir`（'ceil' 向上 / 'floor' 向下）。
+       ⚠️ 本函数是全站唯一实现（模板 / 列统计 / 列筛选 / aria / 复制报单 / 下单金额 / 返利达成 全走它）
+          ⇒ 改口径只改这一处；但也意味着**改一次，全站一起动**。 */
+  return Math.ceil(rowBoxes(r) - 1e-9) + rowExtraQty(r)
 }
 const copyCount = computed(() => {
   let n = 0
@@ -7543,7 +9119,11 @@ async function confirmDelete() {
     await loadPeriods()           // 刷新期次下拉 / 滚动期次
     if (curPeriod.value === row.id) {
       curPeriod.value = 0
-      cross.value = { rows: [] }
+      /* v199b：原为 `cross.value = { rows: [] }` —— **只给 rows、没有 units**。
+         以前没人立刻读它所以没炸；v197 给列数加了 watch 之后，这次赋值会在同一帧内被
+         求值 `undefined.length` ⇒ 删当期期次当场整页「页面出错了」。
+         一律走 blankCross()：形状只有一个来源，加字段不会再漏第二处。 */
+      cross.value = blankCross()
       viewPeriod.value = null
     }
     toast('已删除期次：' + (row.name || ''), 'ok')
@@ -7681,11 +9261,18 @@ async function loadCross() {
     // ⚠️ 两个来源都**来自后端**（imported_products / rows），前端不自己猜：
     //    「本批导入」这件事只有后端知道（登记台账），前端凭空推导必然与后端漂移。
     const allProds = prods.items || []
+    /* v211（P1-1）：商品名称补全候选随主档一起落。**两处赋值点缺一不可** ——
+       这里是「已导入/有报单」那一支，另一支在默认行底分支（下方同款语句）。
+       只喂一处 ⇒ 某些期次进编辑态后候选空着，而用户看不出「为什么这次没提示」。 */
+    masterNameOptions.value = buildNameOptions(allProds)
     const importedProducts = d.imported_products || []
     const importedSet = new Set(importedProducts.map(p => Number(p.id)))
     // 第三参传 summary 的**原始 rows**（不是聚合后的 sumById）：要拿它的 name/spec/unit
     //   给「不在在售档案」的商品补行，聚合后的对象不带 product_name。
     const rowBase = buildRowBase(allProds, importedProducts, d.rows || [], showAllProducts.value)
+    // v202：行底原始顺序 —— **查看态**的赋值点（编辑态那份在 loadEditGrid 里）。
+    //   两处都必须赋值：只改一处会让「切回默认」在另一态下按上一个态的顺序恢复（静默错序）。
+    rowBaseOrder.value = rowBase.map(p => Number(p.id))
     const matrixRows = rowBase.map(pd => {
       const r = sumById[pd.id]
       const qtyByUnit = {}
@@ -7699,14 +9286,19 @@ async function loadCross() {
         total = r.total_qty || 0
         amount = r.total_amount || 0
         price = total ? amount / total : null
-        const pc = perCase(pd.spec, pd.unit)
-        boxes = (pc > 0 && total) ? Math.round(total / pc) : null
+        // v207：与 rowBoxes 同源（不取整）—— 只读汇总表这一列此前也在这里被 Math.round 抹成 0。
+        boxes = total ? boxesOf(total, pd.spec, pd.unit, pd) : null
         ai = r.ai_suggested_qty; aiMethod = r.ai_method; people = r.people || 0
         final_qty = r.final_qty != null ? r.final_qty : null; decided = !!r.forecast_decided
         extra_qty = r.extra_qty || 0
       }
       return {
         product_id: pd.id, name: pd.name, spec: pd.spec, unit: pd.unit,
+        /* v222：三级单位换算随行带上（同 loadEditGrid —— **两条加载路径缺一不可**）。
+           本处是**查看态（只读汇总表）**的数据源：不带它，「合计(箱)」与「下单金额(进价)」
+           就会按规格串解析算，与编辑态/保存时看到的不一致。 */
+        large_unit: pd.large_unit || '', large_ratio: Number(pd.large_ratio) || 0,
+        medium_unit: pd.medium_unit || '', medium_ratio: Number(pd.medium_ratio) || 0,
         barcode: pd.barcode || '', product_code: pd.product_code || '', dist_price: pd.dist_price || 0,
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
         // v190：进价随行带上（同 loadEditGrid —— 两条加载路径都必须带，漏一处该态就算错）。
@@ -8291,9 +9883,22 @@ function coverClass(days) {
   if (days < 7) return 'cover-warn'
   return 'cover-ok'
 }
+/* v207：`maximumFractionDigits` 由 0 改 2 —— 原来是**显示层的二次抹零**，计算层改对了也没用。
+   两类量都受益：
+     ① 金额：最终下单(箱) × 单价(元/箱) 本来就带分（如 3 箱 × ¥97.36 = ¥292.08），
+        旧设置显示成 ¥292 ⇒ 表尾金额与逐行相加对不上（差几角几分）。现在按分显示。
+     ② 数量/库存/起订量这类整数：`maximumFractionDigits` 只是**上限**、`minimumFractionDigits`
+        仍是 0 ⇒ 整数照旧显示成整数，不会冒出「12.00」。
+   ⚠️ 箱数不走这里 —— 它要 3 位小数，见 fmtBox（24 瓶/箱报 3 瓶 = 0.125，2 位会变 0.13）。 */
 function fmt(n) {
   if (n == null) return '—'
-  return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 })
+  return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
+}
+/* v207：**箱数专用**格式（最多 3 位小数）。
+   与 fmt 分开的原因：元只到分（2 位）、箱要 3 位，一个函数兜不住两种精度。 */
+function fmtBox(n) {
+  if (n == null) return '—'
+  return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 3 })
 }
 /* P1-4 下单主体徽标配色：把主体名稳定散列到 6 色色板（oe-c0..oe-c5）。
    不针对任何具体主体名做特判 —— 主体由租户在「报单配置」里自己定义，
@@ -8361,9 +9966,26 @@ onMounted(async () => {
    编辑态多出的 5 个编辑按钮交由 .tb-edit-group 独占第二行（v169 校准：v168 撤掉编辑态「复制报单」后由 6 个减为 5 个），故 toolbar 保留 flex-wrap 作窄屏兜底。
    注：类名用 .tb-dense 而非 .tb-compact —— 后者是 variables.css 的全局类（Toolbar.vue 在用），避免命名碰撞。 */
 .toolbar>.tb-group>*{flex:0 0 auto;white-space:nowrap}
-/* 编辑控制组：编辑态独占整行（flex-basis 100% 强制换行），且位于工具栏最末 → 最贴近下方表格 */
-.toolbar>.tb-edit-group{display:flex;align-items:center;gap:8px;flex:0 0 100%;flex-wrap:wrap}
-.toolbar>.tb-edit-group>.btn{flex:0 0 auto;white-space:nowrap}
+/* 编辑控制组：编辑态独占整行（flex-basis 100% 强制换行），且位于工具栏最末 → 最贴近下方表格。
+   v209：本组自 v209 起**同时被全屏表格工具行复用**（.grid-ctl-row 内那份，见 fsRowHosting）。
+   故必须拆成「共用布局 + 上下文修饰」—— 原为单条 `.toolbar>.tb-edit-group` 同时管这两件事，
+   若直接复用会连带继承「独占整行」(flex:0 0 100%)，在表格工具行里立刻被强制折行。 */
+.tb-edit-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tb-edit-group>.btn{flex:0 0 auto;white-space:nowrap}
+/* v201：编辑工具行的**常驻保存状态**（未修改 / 有未保存的改动 / 已保存 HH:MM）。
+   放在「保存」按钮之后 ⇒ 阅读顺序自然变成「点保存 → 往右看结果」。
+   三态用「小圆点 + 中文文案」，不依赖图标字体；底色用半透明 ⇒ 浅色与深色主题都可读。 */
+.tb-edit-group>.save-state{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;
+  padding:0 10px;height:28px;border-radius:14px;font-size:12px;white-space:nowrap;line-height:1}
+/* ① 工具栏内：独占整行（工具栏最末一段，视觉上紧贴下方表格） */
+.toolbar>.tb-edit-group{flex:0 0 100%}
+/* ② 表格工具行内：与同行控件并列 —— 不占满行、自身也不换行
+      （行级换行统一由 .grid-ctl-row 的 flex-wrap 决定，避免「组内换行」产生视觉断层） */
+.grid-ctl-row>.tb-edit-group{flex:0 0 auto;flex-wrap:nowrap}
+.save-state .ss-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.save-state.clean{color:#8a8f98;background:rgba(127,127,127,.12)}
+.save-state.saved{color:#1a7f45;background:rgba(34,160,90,.14)}
+.save-state.dirty{color:#b26a00;background:rgba(230,150,0,.16)}
 .toolbar.tb-dense,.toolbar.tb-dense>.tb-edit-group{gap:6px}
 .toolbar.tb-dense .tb-sep{margin:0 3px}
 /* 窄屏（<1440）：收紧段间距、AI 按钮只留图标 → 单行在 1366 及以上依然成立（1366 最坏态余量 +60px）。
@@ -8494,11 +10116,36 @@ th.sortable:hover{color:var(--p-dark)}
 .grp-sub-info{margin-left:10px;color:var(--t2);font-size:12px;font-weight:400}
 
 /* 选区统计状态栏 */
-.sel-stat{display:flex;align-items:center;gap:16px;padding:7px 14px;background:var(--bg3);border-top:1px solid var(--bd);font-size:12.5px;color:var(--t2)}
+/* 🔴 `position:fixed` 是**功能的一部分**，不是装饰。这条为什么必须浮起来：
+   ① 表格自己是一个 `max-height:72vh` 的滚动盒（.table-wrap.edit-grid-wrap），
+      统计条在它**下面**；整个页面又在 `main.content`（overflow-y:auto）里滚，
+      页面比可视区高 ~574px ⇒ 1600×950 视口下统计条落在 y≈1200，**在屏幕外**。
+      后果：用户刚框完一片格、正想批量填，入口却在屏幕外，得先往下滚 ——
+      而这条统计条存在的**全部意义**就是"框完之后一眼看见"。
+   ② 试过 `position:sticky;bottom:0`（真机实测**无效**）：它是 `.grid-area` 的
+      **最后一个子元素**，包含块底边就在它下面 ⇒ sticky 无处可移（实测 top 仍是 1200）。
+      这条约束是硬性的：页面里任何"把表格改矮"的做法都救不了（页头+工具栏就已经超出视口）。
+   `left:var(--sidebar-w)` 让开左侧栏（该变量由 Shell 写在 documentElement 上，
+   且侧栏可拖拽调宽 ⇒ 跟随自动生效）。
+   `z-index:40` > 粘性列的 6；又远低于各类浮层（ctx-menu 1091 / modal 1130），不抢层级。 */
+.sel-stat{display:flex;align-items:center;gap:16px;padding:7px 14px;background:var(--bg3);border-top:1px solid var(--bd);font-size:12.5px;color:var(--t2);position:fixed;left:var(--sidebar-w,248px);right:0;bottom:0;z-index:40;box-shadow:0 -2px 8px rgba(0,0,0,.07)}
+/* 全屏层 `.grid-area.is-fs` 是 `position:fixed;inset:0`，把整个视口（含侧栏位）都占了
+   ⇒ 那里必须让统计条铺满全宽，否则左边缘会凭空缺一块。 */
+.grid-area.is-fs .sel-stat{left:0}
 .sel-stat-label{font-weight:600;color:var(--t1)}
 .sel-stat b{color:var(--p-dark);font-weight:600;margin-left:2px}
 .sel-stat-x{margin-left:auto;width:22px;height:22px;border:none;background:var(--bg);border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .sel-stat-x:hover{background:var(--dan-bg);color:var(--dan)}
+/* v212（P2-3）：选区统计条上的「批量填入」可见入口。放在 `margin-left:auto` 的关闭按钮
+   **之前** ⇒ 它留在左侧统计数字那一簇里，跟「计数/求和/平均」同一组心智（都作用于选区）。 */
+.sel-fill{display:inline-flex;align-items:center;gap:6px;padding-left:14px;border-left:1px solid var(--bd)}
+.sel-fill-label{color:var(--t2)}
+.sel-fill-ipt{width:88px;padding:3px 7px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:12.5px;outline:none}
+.sel-fill-ipt:focus{border-color:var(--p)}
+.sel-fill-ipt::placeholder{color:var(--t3)}
+.sel-fill-go{padding:3px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:12.5px;cursor:pointer}
+.sel-fill-go:hover:not(:disabled){background:var(--bg3)}
+.sel-fill-go:disabled{opacity:.45;cursor:default}
 
 /* 商品档案弹层 */
 .profile-modal{max-width:480px}
@@ -8547,6 +10194,10 @@ th.sortable:hover{color:var(--p-dark)}
    给冻结格反向位移一份即对齐。⚠️ `--foot-sl=0` 时本规则为 **no-op** ⇒ 不滚动时静态外观零变化。 */
 .col-total-bar .frozen,.col-total-bar .seq-cell{transform:translateX(calc(-1 * var(--foot-sl,0px)))}
 .miss-price{color:var(--danger-txt);font-weight:500}
+/* v207：表尾/汇总条里「有几行没被算进合计(箱)」的补充说明。
+   小字 + 警示色，挂在主数字**之后** —— 不抢主数字，但也不允许静默省略。
+   （单元格级的「缺规格」直接复用上面的 .miss-price —— 同一个视觉语言：「数据缺」，不另立类。） */
+.box-miss{margin-left:4px;font-size:11px;font-weight:400;color:var(--war)}
 .calc-th.amount{min-width:80px}
 .calc{text-align:right;font-variant-numeric:tabular-nums}
 .calc.sum{background:var(--sum-bg);color:var(--sum-txt);font-weight:500}
@@ -8573,6 +10224,28 @@ th.sortable:hover{color:var(--p-dark)}
 .grid-fs-btn:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .grid-fs-btn:disabled{opacity:.35;cursor:default}
 .grid-area.is-fs .grid-fs-btn{top:14px;right:14px}
+/* ===== v209：全屏态把「改单 / 编辑组」搬进表格工具行（方案 A：全屏专属）=====
+   背景：全屏层 .grid-area.is-fs 是 position:fixed;inset:0;z-index:1000，把主工具栏整条盖住
+   ⇒ 全屏下页头那个「改单」点不到（真机 elementFromPoint 命中到无 class 的元素）。用户在**全屏看表**
+   时想改单被迫先退出全屏。解法 = 在**全屏层内部**补同源入口（见模板 fsRowHosting）。
+   ⚠️ 下面各条**只在全屏生效**，非全屏表格工具行一个像素都不动（方案 A 的取舍：非全屏页头那份在手边，
+      且实测非全屏 1440 塞入编辑组差 273px、必然折行）。 */
+/* ① 行尾给右上角全屏按钮**留位**。.grid-fs-btn 是 position:absolute;right:14px（相对全屏层），
+      而 .grid-ctl-row 的内容右边界在 视口−12px ⇒ 两者天然重叠最后 28px：内容一长就被按钮压住
+      （看着像缺一块，且点不中）。故全屏时行尾预留 34px。 */
+.grid-area.is-fs .grid-ctl-row{padding-right:34px;gap:6px}
+/* ② 行首那条装饰分隔条（缩放与「仅显示有报单」之间）全屏时隐藏 —— 纯装饰，不丢控件/信息。
+      ⚠️ 只隐藏行首那条：编辑组前面那条**保留**，否则「视图控件 | 编辑动作」两段会糊成一团。 */
+.grid-area.is-fs .tb-sep-lead{display:none}
+/* ③ 两个计数徽标收成图标形态（文案不丢：完整句子在 title 与 aria-label 里，见模板）。
+      ⚠️ 这是全屏单行的**必要项**，不是美观取舍：徽标实测各约 150–180px，且「已隐藏 N 个零报单」
+         与「另有 N 个在售商品未显示」**可同时出现**；再加上状态条宽度随文案变
+         （「已保存 12:34」比实测时的「尚未修改」宽 84px）⇒ 全屏最坏态比稳态宽约 230px，
+         不收起必然折行。只在全屏收，非全屏保持完整文案。 */
+.grid-area.is-fs .confirm-badge.badge-slim{padding:3px 7px;gap:0}
+/* ④ 编辑组在全屏再收一档：按钮横向内边距 12→9、组内间距 8→6。仅外观微调，不删任何按钮。 */
+.grid-area.is-fs .grid-ctl-row>.tb-edit-group{gap:6px}
+.grid-area.is-fs .grid-ctl-row>.tb-edit-group>.btn{padding-left:9px;padding-right:9px}
 /* v129 修复：全屏时把主工具栏弹层容器降回普通层级。
    .tb-pop 常态 z-index:1120（要高于 .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”），
    但全屏层 .grid-area.is-fs 只有 1000 → 仍在工具栏的「导出」「工具箱」触发器会盖在全屏层上，
@@ -8793,6 +10466,7 @@ th.sortable:hover{color:var(--p-dark)}
 /* v179：「建档成功但没有数量」与「真的什么都没有」两个中性结局（信息蓝，不是错误色）。
    旧实现把前者渲染成绿色的「导入成功：0 个客户」，正是用户误判导入成功的直接原因。 */
 .imp-none{color:var(--info-blue);font-size:13px;line-height:1.75;margin-bottom:12px}
+.imp-errs{margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.8}
 
 /* v157 零档案建档结果块 */
 .imp-arch{margin-top:12px;padding:12px 14px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
@@ -8807,7 +10481,6 @@ th.sortable:hover{color:var(--p-dark)}
 .imp-arch-note.warn{color:var(--war)}
 .imp-arch-note.bad{color:var(--dan)}
 .imp-arch-note.bad b{color:var(--dan)}
-.imp-errs{margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.8}
 
 /* ---- P1-1 周期级 AI 审核台 ---- */
 .audit-modal{width:min(760px,96vw)}
@@ -9019,6 +10692,25 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 /* ---- P3-P4 增强样式 ---- */
 .warn-low{background:var(--danger-bg) !important}
 .warn-short{background:var(--sum-bg) !important}
+/* v211（P1-3）：错误角标。**左上角是格内唯一空闲位** —— 右侧垂直中线被 .name-badges 占、
+   右下角被 .fill-handle 占（拖拽填充要用手势起在那里）。触屏点它即弹原因（td 的 title 要悬停，触屏没有）。
+   ⚠️ z-index 取 5：**必须低于粘性列（.seq-cell / .frozen 都是 6）** ——
+      否则横向滚动时，被冻结列盖住的那半张表上的角标会浮出来「飘在冻结列上面」。
+   ⚠️ 尺寸压到 13×11、图标 9px：格子本身只有约 26px 高，再大就会压住输入文字的首字符。 */
+.cell-err-dot{position:absolute;left:0;top:0;width:13px;height:11px;display:flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger-txt);border-bottom-right-radius:6px;cursor:pointer;z-index:5;line-height:1}
+.cell-err-dot svg.ico{width:9px;height:9px;vertical-align:top;margin:0}
+/* v212（P2-2）：软警告角标（黄=疑）—— 与红角标**同形不同角**，靠颜色深浅分两档。
+   位置：**右上角**（红在左上、填充柄在右下、左下留给行号格的红条，四角不打架）。
+   ⚠️ `z-index:5` 必须 < 6：`.seq-cell` / `.frozen` 的粘性列是 6 ⇒ 高了会浮在冻结列上面。
+   两档配色刻意都用「--sev-warn」这一支（黄系）：
+     · soft-miss（疑漏订，**少报=少赚**，业务上更痛）→ 实心琥珀、更醒目
+     · soft-over（疑超放量，占库存/压资金）→ 浅琥珀描边感、次要
+   ⚠️ 实心那档的**文字色用 `var(--bg)`**（浅色主题=白、深色主题=近黑）：
+      写死 #fff 在深色主题下是「浅琥珀底 + 白字」→ 几乎看不见（对比度 < 2:1）。 */
+.cell-soft-dot{position:absolute;right:0;top:0;width:13px;height:11px;display:flex;align-items:center;justify-content:center;border-bottom-left-radius:6px;cursor:pointer;z-index:5;line-height:1}
+.cell-soft-dot svg.ico{width:9px;height:9px;vertical-align:top;margin:0}
+.cell-soft-dot.soft-miss{background:var(--sev-warn);color:var(--bg)}
+.cell-soft-dot.soft-over{background:var(--sev-warn-bg);color:var(--sev-warn)}
 .name-badges{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:2px;pointer-events:none}
 .name-badges>span{margin-left:0;pointer-events:auto}
 .warn-badge{display:inline-block;margin-left:3px;font-size:11px;color:var(--danger-txt);vertical-align:middle}
@@ -9068,6 +10760,34 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .err-loc{flex:none;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)}
 .err-why{color:var(--danger-txt);font-weight:600}
 .err-more{margin-top:6px;color:var(--t2)}
+/* v219 打磨⑤：查错面板的一键修复条 + 修复预览弹窗 */
+.err-fixbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}
+.err-fixhint{font-size:12px;color:var(--t2);line-height:1.6}
+.fix-mask{position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:1200;display:flex;align-items:center;justify-content:center;padding:20px}
+.fix-dlg{width:min(720px,94vw);max-height:86vh;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);overflow:hidden}
+.fix-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--bd);font-size:13.5px}
+.fix-tip{margin:0;padding:10px 16px;font-size:12.5px;color:var(--t2);line-height:1.7;background:var(--bg2)}
+.fix-list-wrap{flex:1 1 auto;overflow:auto;padding:6px 10px}
+.fix-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+.fix-list li{display:flex;gap:10px;align-items:baseline;padding:5px 8px;border-radius:6px;line-height:1.7;font-size:12.5px}
+.fix-list li:nth-child(odd){background:var(--bg2)}
+.fix-loc{flex:none;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)}
+.fix-chg{flex:none;font-variant-numeric:tabular-nums}
+.fix-old{color:var(--t3)}
+.fix-new{color:var(--p-deep)}
+.fix-how{flex:1 1 auto;color:var(--t2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fix-ft{display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--bd)}
+.fix-rest{flex:1 1 auto;font-size:12px;color:var(--dan)}
+.fix-ft .btn:first-of-type{margin-left:auto}
+/* v219 打磨⑥：数量上限入口与编辑弹窗 */
+.err-rulebtn{margin-left:auto;border:1px dashed var(--bd);background:none;color:var(--t2);border-radius:999px;padding:2px 9px;font-size:12px;line-height:1.7;cursor:pointer;white-space:nowrap}
+.err-rulebtn:hover{border-color:var(--p);color:var(--p-deep)}
+.rule-dlg{width:min(420px,94vw)}
+.rule-body{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.rule-label{font-size:12.5px;color:var(--t2)}
+.rule-input{border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);padding:6px 10px;font-size:13px;font-variant-numeric:tabular-nums;outline:none}
+.rule-input:focus{border-color:var(--p)}
+.rule-hint{font-size:12px;color:var(--t2)}
 .err-empty{color:var(--t2)}
 .push-list,.health-list{margin:0;padding-left:18px;line-height:1.8}
 .health-list li{cursor:pointer;display:flex;align-items:center;gap:6px}
@@ -9134,7 +10854,7 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
   .table-wrap,.table-wrap *{visibility:visible}
   .table-wrap{position:absolute;left:0;top:0;width:100%;overflow:visible}
   .edit-tbl{width:100%}
-  .batch-panel,.snap-bar,.edit-hint,.col-config-bar,.draft-banner,.ctx-menu,.ctx-overlay{display:none !important}
+  .batch-panel,.snap-bar,.edit-hint,.col-config-bar,.draft-banner,.ctx-menu,.ctx-overlay,.sel-stat{display:none !important}
 }
 /* Q9：编辑态新增行标识（左侧品牌色竖条 + 轻微底色，保存后随 _new 清除） */
 .cross-tbl.edit-tbl tbody tr.new-row > td,
@@ -9211,3 +10931,4 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .copy-pop .cp-act:disabled{opacity:.45;cursor:not-allowed}
 .copy-pop .cp-empty{font-size:12px;color:var(--t3);margin:8px 0 0;text-align:center}
 </style>
+

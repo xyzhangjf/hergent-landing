@@ -362,7 +362,7 @@ const srcOptions = ref({ price_sources: [], code_sources: [], kinds: [] })
 /* ---------------- 渠道字典 ---------------- */
 
 const SRC_FALLBACK = {
-  products_factory: '用商品档案的厂价',
+  products_factory: '用商品档案的进价',
   products_dist: '用商品档案的分销价',
   products_code: '用商品档案的厂家编码',
   matrix: '本渠道单独维护',

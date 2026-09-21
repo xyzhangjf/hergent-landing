@@ -89,9 +89,6 @@ onMounted(loadData)
 </script>
 
 <style scoped>
-.page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
-.page-hd h2{font-size:20px;font-weight:600}
-.page-sub{font-size:12px;color:var(--t3)}
 .chart-card{margin-bottom:14px}
 .legend{display:flex;gap:14px}
 .lg-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)}

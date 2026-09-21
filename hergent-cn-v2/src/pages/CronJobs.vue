@@ -1,40 +1,49 @@
 <template>
   <div class="page">
-    <div class="panel-hd">
+    <div class="page-hd split">
       <div>
-        <b>定时任务</b>
-        <p class="sub">AI 副驾的定时任务，由 Hermes 引擎调度，到点自动执行</p>
+        <h2>定时任务</h2>
+        <span class="page-sub">AI 副驾的定时任务，由 Hermes 引擎调度，到点自动执行 · 结论可推送企业微信</span>
       </div>
       <button class="btn btn-primary" @click="openCreate">新建任务</button>
     </div>
 
-    <!-- 推送配置状态 -->
-    <div class="card push-card" :class="pushConfigured ? 'on' : ''">
-      <div class="push-row">
-        <span class="push-ic"><Icon :name="pushConfigured ? 'mail' : 'bell-off'"/></span>
-        <div>
-          <b>{{ pushConfigured ? '企微推送已配置' : '任务结果未配置推送' }}</b>
-          <p class="sub">{{ pushConfigured ? `今日已推 ${pushCount} 次 · 最近：${pushLast || '—'}` : '配置企业微信群机器人 webhook，任务执行后结果自动发到你微信' }}</p>
-        </div>
-        <button v-if="pushConfigured" class="btn btn-ghost btn-sm" @click="testPush">发测试消息</button>
-        <button v-else class="btn btn-ghost btn-sm" @click="showPushHelp = !showPushHelp">如何配置</button>
+    <div class="bento">
+    <!-- KPI 概览条（顶部紧凑统计带） -->
+    <div class="card kpi-strip">
+      <div class="kpi">
+        <div class="kpi-label">任务总数</div>
+        <div class="kpi-val">{{ jobs.length }}</div>
+        <div class="kpi-sub">已配置</div>
       </div>
-      <!-- 未配置：自助填入 webhook -->
-      <div v-if="!pushConfigured" class="push-set">
-        <input v-model="webhookInput" class="input" placeholder="粘贴企业微信群机器人 webhook 地址" :disabled="savingWebhook">
-        <button class="btn btn-primary btn-sm" :disabled="savingWebhook || !webhookInput.trim()" @click="saveWebhook">{{ savingWebhook ? '保存中…' : '保存并启用' }}</button>
+      <div class="kpi">
+        <div class="kpi-label">运行中</div>
+        <div class="kpi-val val-ok">{{ runningCount }}</div>
+        <div class="kpi-sub">到点自动执行</div>
       </div>
-      <div v-if="showPushHelp && !pushConfigured" class="push-help">
-        <p><b>配置步骤（1 分钟）：</b></p>
-        <ol>
-          <li>企业微信 → 群聊 → 右上角「…」→ 群机器人 → 添加机器人</li>
-          <li>复制 webhook 地址（https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...）</li>
-          <li>把地址粘贴到上方输入框，点「保存并启用」即可</li>
-        </ol>
+      <div class="kpi">
+        <div class="kpi-label">已暂停</div>
+        <div class="kpi-val" :class="pausedCount ? 'val-warn' : ''">{{ pausedCount }}</div>
+        <div class="kpi-sub">{{ pausedCount ? '未在调度' : '无暂停任务' }}</div>
       </div>
-      <div v-if="pushTestResult" class="push-test" :class="{ err: pushTestErr }">{{ pushTestResult }}</div>
+      <div class="kpi">
+        <div class="kpi-label">今日推送</div>
+        <div class="kpi-val">{{ pushConfigured ? pushCount : '—' }}</div>
+        <div class="kpi-sub">{{ pushConfigured ? '最近 ' + (pushLast || '—') : '推送未配置' }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">执行记录</div>
+        <div class="kpi-val">{{ executions.length }}</div>
+        <div class="kpi-sub">结果已回流</div>
+      </div>
     </div>
 
+    <!-- 任务列表（主区） -->
+    <div class="card jobs-card">
+      <div class="panel-hd">
+        <b>任务列表</b>
+        <span class="page-sub">到点自动执行，结论回流到下方「执行记录」</span>
+      </div>
     <div v-if="loading" class="skel-line" style="margin-bottom:12px"></div>
     <div v-else-if="error" class="state-error">{{ error }}</div>
     <div v-else-if="!jobs.length" class="state-empty">
@@ -69,6 +78,34 @@
         </tbody>
       </table>
     </div>
+    </div><!-- /jobs-card -->
+
+    <!-- 推送配置（右栏） -->
+    <div class="card push-card" :class="pushConfigured ? 'on' : ''">
+      <div class="push-row">
+        <span class="push-ic"><Icon :name="pushConfigured ? 'mail' : 'bell-off'"/></span>
+        <div>
+          <b>{{ pushConfigured ? '企微推送已配置' : '任务结果未配置推送' }}</b>
+          <p class="sub">{{ pushConfigured ? `今日已推 ${pushCount} 次 · 最近：${pushLast || '—'}` : '配置企业微信群机器人 webhook，任务执行后结果自动发到你微信' }}</p>
+        </div>
+        <button v-if="pushConfigured" class="btn btn-ghost btn-sm" @click="testPush">发测试消息</button>
+        <button v-else class="btn btn-ghost btn-sm" @click="showPushHelp = !showPushHelp">如何配置</button>
+      </div>
+      <!-- 未配置：自助填入 webhook -->
+      <div v-if="!pushConfigured" class="push-set">
+        <input v-model="webhookInput" class="input" placeholder="粘贴企业微信群机器人 webhook 地址" :disabled="savingWebhook">
+        <button class="btn btn-primary btn-sm" :disabled="savingWebhook || !webhookInput.trim()" @click="saveWebhook">{{ savingWebhook ? '保存中…' : '保存并启用' }}</button>
+      </div>
+      <div v-if="showPushHelp && !pushConfigured" class="push-help">
+        <p><b>配置步骤（1 分钟）：</b></p>
+        <ol>
+          <li>企业微信 → 群聊 → 右上角「…」→ 群机器人 → 添加机器人</li>
+          <li>复制 webhook 地址（https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...）</li>
+          <li>把地址粘贴到上方输入框，点「保存并启用」即可</li>
+        </ol>
+      </div>
+      <div v-if="pushTestResult" class="push-test" :class="{ err: pushTestErr }">{{ pushTestResult }}</div>
+    </div>
 
     <!-- ④ cron 执行结果回流 -->
     <div class="card exec-card">
@@ -94,6 +131,7 @@
         </li>
       </ul>
     </div>
+    </div><!-- /bento -->
 
     <Teleport to="body">
       <Transition name="fade">
@@ -131,7 +169,7 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/client'
 import { toast } from '../store'
 
@@ -231,6 +269,10 @@ function isPaused(j) {
   return j.state === 'paused' || j.enabled === false
 }
 
+/* KPI 概览条统计 */
+const runningCount = computed(() => jobs.value.filter(j => !isPaused(j)).length)
+const pausedCount = computed(() => jobs.value.filter(j => isPaused(j)).length)
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -290,7 +332,12 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 </script>
 
 <style scoped>
-.page{max-width:900px}
+/* Bento 分栏：.bento / .kpi-strip 及 KPI 子元素走全局层（variables.css），
+   这里只声明本页模块占宽。此前整页被 900px 限宽 + 单列纵向堆叠，
+   1920 视口下占宽仅 55%、整页高仅 422px，两侧与下方均为大面积留白。 */
+.jobs-card{grid-column:span 7}
+.push-card{grid-column:span 5}
+.exec-card{grid-column:1/-1}
 .sub{font-size:12px;color:var(--t3);margin:2px 0 0}
 .tb-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2);cursor:pointer}
 .tb-btn:hover{background:var(--bg2);color:var(--dan)}
@@ -307,8 +354,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .chip.on{background:var(--p-bg);border-color:var(--p-dark);color:var(--p-dark);font-weight:500}
 .fade-enter-active,.fade-leave-active{transition:opacity .2s}
 .fade-enter-from,.fade-leave-to{opacity:0}
-/* 推送状态卡 */
-.push-card{margin-bottom:16px}
+/* 推送状态卡（占宽已在顶部声明；grid 里由 gap 控距，不再用 margin） */
 .push-card.on{border-color:rgba(52,199,89,.35)}
 .push-row{display:flex;align-items:center;gap:12px}
 .push-ic{font-size:20px}
@@ -321,7 +367,6 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .push-test{margin-top:10px;font-size:12px;color:#2f9e44;font-weight:500}
 .push-test.err{color:#d0342c}
 /* ④ cron 执行结果回流 */
-.exec-card{margin-top:16px}
 .exec-hd{display:flex;align-items:center;gap:12px}
 .exec-hd .btn{margin-left:auto;flex-shrink:0}
 .exec-empty{margin:10px 0 2px;font-size:12.5px;color:var(--t3);line-height:1.7}
@@ -335,4 +380,12 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .exec-name{font-size:13px;color:var(--t1)}
 .exec-time{font-size:11.5px;color:var(--t3);margin-left:auto;flex-shrink:0}
 .exec-result{margin:3px 0 0;font-size:12.5px;color:var(--t2);line-height:1.6;white-space:pre-wrap;word-break:break-word}
+
+/* 窄屏：栅格降为 6 列 → 两栏各占整行；单列屏全部堆叠 */
+@media(max-width:1200px){
+  .jobs-card,.push-card{grid-column:span 6}
+}
+@media(max-width:768px){
+  .jobs-card,.push-card,.exec-card{grid-column:1/-1}
+}
 </style>

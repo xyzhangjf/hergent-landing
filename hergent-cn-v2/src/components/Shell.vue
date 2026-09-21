@@ -14,7 +14,6 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
           </span>
           <span class="tb-cp-txt">AI</span>
-          <span class="tb-cp-k">⌘K</span>
         </button>
       </div>
       <div class="tb-right">
@@ -107,6 +106,9 @@
     <!-- 通知面板（P0-1a：把只写不读的 message_center 接出来） -->
     <NotificationPanel :open="notiOpen" @close="notiOpen=false" @unread="notiUnread=$event" />
 
+    <!-- 空闲自动登出（30 分钟无操作；到期前 60 秒倒计时可续期） -->
+    <IdleTimeout :idle-minutes="30" :warn-seconds="60" @timeout="onIdleTimeout" />
+
     <!-- 命令面板（⌘Shift+K） -->
     <CommandPalette v-model="cmdOpen" />
 
@@ -138,12 +140,13 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { store, toast, setTheme } from '../store'
+import { store, toast, setTheme, clearChatCache } from '../store'
 import { auth, api, resetTenantContext } from '../api/client'
 import CopilotDrawer from './CopilotDrawer.vue'
 import NotificationPanel from './NotificationPanel.vue'
 import CommandPalette from './CommandPalette.vue'
 import WeatherWidget from './WeatherWidget.vue'
+import IdleTimeout from './IdleTimeout.vue'
 import Icon from './Icon.vue'
 import { messagesApi } from '../api/modules'
 // 通知偏好（本地）：徽标要扣掉「被你收起的类」，且必须与面板共用同一份规则、同一个算法
@@ -184,11 +187,20 @@ function toggleTheme() {
   setTheme(store.ui.theme === 'light' ? 'dark' : 'light')
 }
 
-function logout() {
+async function logout() {
+  // 先通知服务端销毁会话（失败不阻塞本地清理；silent401 保证 401 时不重复跳转）
+  try { await api('/api/auth/logout', { method: 'POST', silent401: true }) } catch (_) {}
   resetTenantContext()   // 清本地 tenant_id + hergent_tenant cookie，避免污染下一次登录
+  clearChatCache()       // 清本地会话缓存，避免下一个登录的账号看到上一个账号的对话
   auth.token = ''
   auth.user = null
   router.push('/login')
+}
+
+/* 空闲超时（IdleTimeout 组件）→ 走与手动登出同一路径，额外给出原因提示 */
+function onIdleTimeout() {
+  toast('已因长时间无操作自动退出登录')
+  logout()
 }
 
 /* 用户菜单 + 修改资料 */
@@ -327,10 +339,9 @@ function stopResize() {
 .tb-user{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer}
 
 .tb-ai{display:flex;align-items:center;gap:12px}
-.tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 7px 0 11px;border:1px solid transparent;border-radius:18px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:18px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
 .tb-copilot:hover{background:var(--p);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .tb-cp-ic{display:flex;align-items:center;justify-content:center}
-.tb-cp-k{padding:2px 7px;border-radius:8px;background:rgba(6,182,212,.14);font-size:11px;font-weight:500}
 
 .body{flex:1;display:flex;overflow:hidden;position:relative}
 .sidebar{width:var(--sidebar-w);flex-shrink:0;display:flex;flex-direction:column;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-right:1px solid var(--glass-border);transition:width .2s}
@@ -399,7 +410,6 @@ function stopResize() {
   .sidebar{display:none}
   .sb-resizer{display:none}
   .tb-sub{display:none}
-  .tb-cp-k{display:none}
   .wx{display:none}
   .mnav{display:flex;position:fixed;bottom:0;left:0;right:0;height:calc(56px + env(safe-area-inset-bottom));background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-top:1px solid var(--glass-border);z-index:800;padding-bottom:env(safe-area-inset-bottom)}
   .mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;color:var(--t3);font-size:11px}

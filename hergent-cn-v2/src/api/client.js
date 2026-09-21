@@ -52,6 +52,14 @@ export function bootstrapTenantContext() {
   if (auth.token && !auth.tenant) clearTenantCookie()
 }
 
+/* 认证类接口的统一错误文案。
+   nginx 层按 IP 限流（conf.d/hergent-ratelimit.conf）返回的是 HTML 429，不是 JSON，
+   res.json() 解析失败后 data 为空对象；若直接回落成「登录失败」，用户会误以为
+   密码错了。按状态码补一条可读文案。后端自身的 429（账户锁定）带 detail，优先展示。 */
+function _authErrText(res, data, fallback) {
+  return data.detail || data.message || (res.status === 429 ? '操作过于频繁，请稍后再试' : fallback)
+}
+
 /* 登录（复用现有后端 /api/auth/login，字段与后端 routers/auth.py 一致） */
 export async function login(username, password) {
   const res = await fetch('/api/auth/login', {
@@ -60,7 +68,7 @@ export async function login(username, password) {
     body: JSON.stringify({ username, password })
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.detail || data.message || '登录失败')
+  if (!res.ok) throw new Error(_authErrText(res, data, '登录失败'))
   auth.token = data.access_token || data.token || ''
   // 后端返回 user: {id, username, display_name, role}；存 CSRF 供写操作
   auth.user = data.user || null
@@ -230,6 +238,22 @@ export async function api(path, opts = {}) {
       throw err
     }
     return raw ? data : (data.data !== undefined ? data.data : data)
+  } catch (e) {
+    /* v196：把「到点 abort」转成**可读、可判定**的错误。
+       fetch 在 signal abort 时抛的是 DOMException(name='AbortError')，message 为英文
+       （"signal is aborted without reason" / "The user aborted a request."）——
+       既无「超时」也无 timeout/network/fetch 字样 ⇒ 上层任何按文案分类的兜底逻辑
+       都会把它归成「网络或服务器异常」，用户看到一条与真实原因（超时）无关的提示
+       （v194b 真机实测即此形态；改单保存 140 秒撞 20 秒超时就是这样报出来的）。
+       统一在此转换，全站受益。⚠️ 只改失败路径，成功路径与既有 401/403 分支一字不动。 */
+    if (e && e.name === 'AbortError') {
+      const err = new Error(`请求超时（${Math.round(timeout / 1000)} 秒未响应）`)
+      err.name = 'TimeoutError'
+      err.timeout = true
+      err.status = 0
+      throw err
+    }
+    throw e
   } finally {
     clearTimeout(timer)
   }

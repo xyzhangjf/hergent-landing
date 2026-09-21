@@ -636,12 +636,14 @@ onMounted(() => {
 .toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:12px}
 .tb-title{font-size:13.5px;font-weight:600;color:var(--t1)}
 .tb-right{margin-left:auto}
-.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2)}
-.tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px}
+/* 胶囊 + 内层无边框 input：焦点反馈挂胶囊整体，避免全局 .fld:focus 光晕悬空浮在胶囊内（同 Forecast） */
+.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);transition:border-color .2s,box-shadow .2s}
+.tb-search:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
+.tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px;height:100%}
+.tb-search .fld:focus{box-shadow:none}
 .tb-search .fld::placeholder{color:var(--t3)}
 
 /* 全局无定义的类，本页补齐（沿用各页面统一口径） */
-.page-sub{font-size:12px;color:var(--t3)}
 .btn-mini{border:1px solid var(--bd);background:none;border-radius:6px;padding:3px 10px;font-size:12px;color:var(--t2);cursor:pointer}
 .btn-mini:hover{border-color:var(--p);color:var(--p-dark)}
 

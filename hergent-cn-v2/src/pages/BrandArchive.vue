@@ -135,7 +135,8 @@
           <div class="ba-modal-body ba-body-stack">
             <p class="ba-tip">确认把「<b>{{ dismissTarget?.raw_name }}</b>」（命中 {{ dismissTarget?.ref_count }} 个商品）标记为<b>不是品牌</b>？</p>
             <ul class="ba-bullets">
-              <li class="ok-line">这条会从待审队列移除，不再反复提示。</li>
+              <li class="ok-line">这条会从待审队列移除，以后<b>不再</b>反复提示（这个决定会记下来）。</li>
+              <li class="warn-line">想反悔：到上方「<b>+ 添加品牌</b>」把它建成品牌即可 —— 建成后它反而会出现在各处的品牌下拉里。</li>
               <li class="warn-line">它<b>不会</b>改动任何商品的品牌字段 —— 关联商品的品牌名仍是「{{ dismissTarget?.raw_name }}」。</li>
               <li class="warn-line">若要让这些商品彻底从「本期预报」的品牌筛选里消失，请到<b>商品档案</b>把它们<b>停用</b>（停用可逆，不影响历史订单与统计）。</li>
             </ul>
@@ -278,7 +279,7 @@ async function resolve(p, action) {
     if (action === 'merge') body.target_name = p._mergeTarget
     const r = await api('/api/brands/pending/' + p.id + '/resolve', { method: 'POST', body })
     const msg = action === 'dismiss'
-      ? '已标记为「不是品牌」（未改动任何商品数据）'
+      ? '已标记为「不是品牌」：以后不再提示，也未改动任何商品数据'
       : ('已归一为「' + (r?.canonical || canonicalOf(p)) + '」，商品已改挂')
     toast(msg, 'ok')
     loadPending()
@@ -293,10 +294,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
-.page-hd h2{font-size:20px;font-weight:600}
-.page-sub{font-size:12px;color:var(--t3)}
-
 .ba-panel{padding:18px;margin-bottom:14px}
 .ba-tip{font-size:12.5px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
 .ba-tip.dim{color:var(--t3);font-size:12px;margin-bottom:0}

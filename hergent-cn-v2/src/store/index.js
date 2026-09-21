@@ -45,6 +45,7 @@ export const useAppStore = defineStore('app', () => {
     streaming: false,
     error: '',
     sessions: [],          // 历史会话 [{id, title, messages, updated_at}]
+    sessionsLoading: false,// 正在向服务端拉会话列表（历史视图显示"加载中"）
     currentId: '',         // 当前会话 id（'' = 新对话）
     roles: [],             // AI 团队列表（来自 /api/ai/roles）
     currentRole: ''        // 当前团队 role_id（默认 copilot）
@@ -104,11 +105,15 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function loadSessions() {
+    // ① 本地缓存先渲染，秒开、离线可看
     try {
       const raw = localStorage.getItem(CHAT_KEY)
-      if (raw) { chat.sessions = JSON.parse(raw); return }
+      const arr = raw ? JSON.parse(raw) : null
+      if (Array.isArray(arr)) chat.sessions = arr
     } catch { chat.sessions = [] }
-    // 本地空 → 跨设备/清缓存后从服务端拉会话列表（第三期 P1-③）
+    // ② 无论本地有没有，都向服务端对齐一次 —— 跨设备可见的前提。
+    //    旧实现此处是 `if (raw) return`：本机只要存过任何会话（哪怕内容是 []），
+    //    就永不再请求服务端，于是"另一台设备看不到历史会话"。(2026-09-11 修)
     loadSessionsFromServer()
   }
 
@@ -124,16 +129,50 @@ export const useAppStore = defineStore('app', () => {
     } catch (_) {}
   }
 
+  /* 时间戳归一：本地存的是 Date.now() 数字，服务端回的是 'YYYY-MM-DD HH:MM:SS' 字符串 */
+  function tsNum(v) {
+    if (v == null || v === '') return 0
+    if (typeof v === 'number') return v
+    const n = Date.parse(String(v).replace(' ', 'T'))
+    return isNaN(n) ? 0 : n
+  }
+
+  /* 拉服务端会话列表并与本地合并：服务端为准，本地独有的（尚未同步成功）保留在后 */
   async function loadSessionsFromServer() {
+    chat.sessionsLoading = true
     try {
       const d = await api('/api/ai/sessions', { silent401: true })
       const list = d && d.sessions
-      if (Array.isArray(list) && list.length) {
-        chat.sessions = list.map(s => ({
-          id: s.session_id, title: s.title || '', messages: [], updated_at: s.updated_at || ''
-        }))
-      }
-    } catch (_) {}
+      if (!Array.isArray(list)) return
+      const local = new Map(chat.sessions.map(s => [s.id, s]))
+      const serverIds = new Set(list.map(s => s.session_id))
+      const merged = list.map(s => {
+        const l = local.get(s.session_id)
+        return {
+          id: s.session_id,
+          title: s.title || (l && l.title) || '(无标题)',
+          // 服务端只回标题，全文按需再拉（见 openChatSession）
+          messages: (l && Array.isArray(l.messages)) ? l.messages : [],
+          updated_at: s.updated_at || (l && l.updated_at) || ''
+        }
+      })
+      for (const s of chat.sessions) if (!serverIds.has(s.id)) merged.push(s)
+      merged.sort((a, b) => tsNum(b.updated_at) - tsNum(a.updated_at))
+      chat.sessions = merged
+    } catch (_) {
+    } finally {
+      chat.sessionsLoading = false
+    }
+  }
+
+  /* 退出登录时清掉本地会话缓存：会话按账号存服务端，
+     本地若跨账号残留，会让下一个登录的人看到上一个人的对话。 */
+  function clearChatCache() {
+    try { localStorage.removeItem(CHAT_KEY) } catch (_) {}
+    chat.sessions = []
+    chat.messages = []
+    chat.currentId = ''
+    chat.error = ''
   }
 
   function saveCurrentSession() {
@@ -227,6 +266,7 @@ export const useAppStore = defineStore('app', () => {
     toast, setTheme,
     perms, permsTenant, loadPerms, canModule,
     loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession,
+    clearChatCache,
     loadAiRoles, setAiRole
   }
 })
@@ -244,5 +284,6 @@ export const saveCurrentSession = (...a) => store.saveCurrentSession(...a)
 export const newChatSession = (...a) => store.newChatSession(...a)
 export const openChatSession = (...a) => store.openChatSession(...a)
 export const deleteChatSession = (...a) => store.deleteChatSession(...a)
+export const clearChatCache = (...a) => store.clearChatCache(...a)
 export const loadAiRoles = (...a) => store.loadAiRoles(...a)
 export const setAiRole = (...a) => store.setAiRole(...a)

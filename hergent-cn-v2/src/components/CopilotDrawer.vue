@@ -22,7 +22,7 @@
             <button class="cp-icon-btn" title="存为报告" :disabled="!hasChat || savingReport" @click="saveAsReport">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6M9 17h6"/></svg>
             </button>
-            <button class="cp-icon-btn" title="历史会话" :disabled="!store.chat.sessions.length && !showHistory" @click="toggleHistory">
+            <button class="cp-icon-btn" title="历史会话" @click="toggleHistory">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><polyline points="12 7 12 12 15 15"/></svg>
             </button>
             <button class="cp-icon-btn" title="清空对话" :disabled="!store.chat.messages.length" @click="clear">
@@ -53,11 +53,11 @@
               <div v-for="(sn, si) in h.snippets" :key="si" class="cp-hist-snippet">{{ sn }}</div>
             </div>
           </div>
-          <div v-if="!store.chat.sessions.length && !histHits.length" class="state-empty">还没有历史会话</div>
+          <div v-if="!store.chat.sessions.length && !histHits.length" class="state-empty">{{ store.chat.sessionsLoading ? '正在加载历史会话…' : '还没有历史会话' }}</div>
           <div v-else class="cp-hist-list">
             <div v-for="s in store.chat.sessions" :key="s.id" class="cp-hist-item" :class="{ on: s.id === store.chat.currentId }" @click="openSession(s.id)">
               <div class="cp-hist-title">{{ s.title }}</div>
-              <div class="cp-hist-meta">{{ fmtTime(s.updated_at) }} · {{ s.messages.length }} 条</div>
+              <div class="cp-hist-meta">{{ fmtTime(s.updated_at) }}<template v-if="s.messages && s.messages.length"> · {{ s.messages.length }} 条</template></div>
               <button class="cp-hist-del" title="删除" @click.stop="delSession(s.id)"><Icon name="close"/></button>
             </div>
           </div>
@@ -207,7 +207,11 @@
         <!-- 输入区 -->
         <footer class="cp-foot">
           <!-- 待发送附件 -->
-          <div v-if="attachments.length" class="cp-atts">
+          <div v-if="attachments.length || uploading" class="cp-atts">
+            <div v-if="uploading" class="cp-att cp-att-loading">
+              <span class="cp-att-spin"><Icon name="loader"/></span>
+              <span class="cp-att-name">上传解析中…</span>
+            </div>
             <div v-for="(a, i) in attachments" :key="i" class="cp-att">
               <span class="cp-att-ic"><Icon :name="a.file_type === 'image' ? 'image' : 'file'"/></span>
               <span class="cp-att-name">{{ a.file_name }}</span>
@@ -235,56 +239,64 @@
             <div v-if="smartResult" class="cp-smart-result" :class="{ err: smartResultErr }">{{ smartResult }}</div>
           </div>
 
-          <div class="cp-input-wrap">
-            <!-- 团队胶囊（WorkBuddy 范式：输入区左下角，＋左侧） -->
-            <div class="cp-role" @click.stop="toggleRoleMenu">
-              <span class="cp-role-av">
-                <img v-if="currentRole && currentRole.custom_avatar" :src="avatarUrl(currentRole)" class="cp-role-av-img" alt="">
-                <template v-else>{{ (currentRole && currentRole.avatar) || '🚀' }}</template>
-              </span>
-              <span class="cp-role-name">{{ (currentRole && currentRole.name) || '经营副驾' }}</span>
-              <svg class="cp-role-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-              <div v-if="showRoleMenu" class="cp-role-menu">
-                <div class="cp-role-menu-hd">切换 AI 团队</div>
-                <div v-for="r in activeRoles" :key="r.role_id" class="cp-role-item" :class="{ on: r.role_id === store.chat.currentRole }" @click.stop="pickRole(r)">
-                  <span class="cp-role-item-av">
-                    <img v-if="r.custom_avatar" :src="avatarUrl(r)" class="cp-role-item-av-img" alt="">
-                    <template v-else>{{ r.avatar }}</template>
-                  </span>
-                  <div class="cp-role-item-tx">
-                    <div class="cp-role-item-name">{{ r.name }}</div>
-                    <div class="cp-role-item-desc">{{ r.opening }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <label class="cp-plus" title="上传 Excel / CSV / 图片">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <input type="file" accept=".xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp,.pdf" style="display:none" @change="onFile">
-            </label>
+          <!-- Composer 卡片（WorkBuddy 范式：文本区独占整行 + 工具条两端锚定） -->
+          <div class="cp-composer">
+            <!-- 第一层：文本区，width:100%，不再与控件争宽度 -->
             <textarea
               v-model="draft"
               class="cp-input"
               rows="1"
               placeholder="问返利、算货损、今天订什么货…（可上传 Excel 让 AI 直接分析）"
+              aria-label="向 AI 经营副驾提问"
               @keydown.enter.exact.prevent="send"
               @input="autoGrow"
               ref="cpInput"
             ></textarea>
-            <button class="cp-voice" :class="{ on: recognizing }" title="语音输入" @click="toggleVoice">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
-            </button>
-            <button class="cp-send" :disabled="(!draft.trim() && !attachments.length) || store.chat.streaming" @click="send">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-            </button>
-          </div>
-          <div v-if="uploading" class="cp-uploading">上传解析中…</div>
-          <div class="cp-foot-guard">
-            <button class="cp-guard-btn" :class="{ on: aiGuard === 'execute' }" @click="toggleAiGuard"
-              :title="aiGuard === 'advise' ? 'AI 只给建议，不替你下单/收款/采购。点击切换' : '已允许 AI 执行写操作。点击切换回只建议'">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
-              {{ aiGuard === 'advise' ? '只建议 · 不替你下单' : '允许执行写操作' }}
-            </button>
+            <!-- 第二层：工具条，左=输入手段 / 右=提交动作 -->
+            <div class="cp-toolbar">
+              <div class="cp-tools">
+                <label class="cp-plus" title="上传 Excel / CSV / 图片" aria-label="上传文件">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <input type="file" accept=".xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp,.pdf" style="display:none" @change="onFile">
+                </label>
+                <!-- 团队胶囊：会话级配置，＋ 之后 -->
+                <div class="cp-role" @click.stop="toggleRoleMenu" role="button" aria-label="切换 AI 团队">
+                  <span class="cp-role-av">
+                    <img v-if="currentRole && currentRole.custom_avatar" :src="avatarUrl(currentRole)" class="cp-role-av-img" alt="">
+                    <template v-else>{{ (currentRole && currentRole.avatar) || '🚀' }}</template>
+                  </span>
+                  <span class="cp-role-name">{{ (currentRole && currentRole.name) || '经营副驾' }}</span>
+                  <svg class="cp-role-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                  <div v-if="showRoleMenu" class="cp-role-menu">
+                    <div class="cp-role-menu-hd">切换 AI 团队</div>
+                    <div v-for="r in activeRoles" :key="r.role_id" class="cp-role-item" :class="{ on: r.role_id === store.chat.currentRole }" @click.stop="pickRole(r)">
+                      <span class="cp-role-item-av">
+                        <img v-if="r.custom_avatar" :src="avatarUrl(r)" class="cp-role-item-av-img" alt="">
+                        <template v-else>{{ r.avatar }}</template>
+                      </span>
+                      <div class="cp-role-item-tx">
+                        <div class="cp-role-item-name">{{ r.name }}</div>
+                        <div class="cp-role-item-desc">{{ r.opening }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- 权限开关：输入前的策略选择，chip 形态归入工具条左组 -->
+                <button class="cp-guard-btn" :class="{ on: aiGuard === 'execute' }" @click="toggleAiGuard"
+                  :title="aiGuard === 'advise' ? 'AI 只给建议，不替你下单/收款/采购。点击切换' : '已允许 AI 执行写操作。点击切换回只建议'">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+                  {{ aiGuard === 'advise' ? '只建议' : '允许执行' }}
+                </button>
+              </div>
+              <div class="cp-trailing">
+                <button class="cp-voice" :class="{ on: recognizing }" title="语音输入" aria-label="语音输入" @click="toggleVoice">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+                </button>
+                <button class="cp-send" :disabled="(!draft.trim() && !attachments.length) || store.chat.streaming" @click="send" aria-label="发送">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                </button>
+              </div>
+            </div>
           </div>
           <div class="cp-foot-hint">Enter 发送 · Shift+Enter 换行 · 支持上传 Excel/CSV/图片</div>
         </footer>
@@ -342,9 +354,6 @@
       </aside>
     </Transition>
 
-    <!-- 团队下拉遮罩：点击空白处关闭 -->
-    <div v-if="showRoleMenu" class="cp-role-backdrop" @click="showRoleMenu=false"></div>
-
     <!-- 转发面板（M5） -->
     <Transition name="fade">
       <div v-if="forwardCard" class="cp-fwd-mask" @click="forwardCard = null">
@@ -375,7 +384,7 @@ import { importApi } from '../api/modules'
 import { chatAttachmentApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
 import ProgressSteps from './ProgressSteps.vue'
-import { useCardTrigger, extractCard, extractCardIntent, stripIntentFence, extractClarify, stripClarifyFence, extractProposal, stripProposalFence, extractReminder, stripReminderFence, DENY_RE, demoCard } from '../composables/useCardTrigger'
+import { useCardTrigger, extractCard, extractCardIntent, stripAllFences, extractClarify, extractProposal, extractReminder, DENY_RE, demoCard } from '../composables/useCardTrigger'
 import { useVoiceInput } from '../composables/useVoiceInput'
 import { renderMd } from '../utils/md'
 
@@ -481,6 +490,7 @@ function onDividerUp() {
 }
 function onWinResize() {
   isNarrow.value = window.matchMedia('(max-width:760px)').matches
+  autoGrow()   // 宽度变化会改变折行数，必须重算 textarea 高度（否则多出的行被裁掉）
   if (isNarrow.value) return
   const maxW = artMaxWidth()
   if (artWidth.value > maxW) artWidth.value = maxW
@@ -507,6 +517,7 @@ function toggleHistory() {
   } else {
     saveCurrentSession()
     showHistory.value = true
+    loadSessions()   // 每次打开历史都向服务端对齐，保证看到别的设备/端刚聊过的会话
   }
 }
 
@@ -556,6 +567,14 @@ function avatarUrl(r) {
   return r && r.custom_avatar ? `/api/ai/roles/${r.role_id}/avatar` : null
 }
 function toggleRoleMenu() { showRoleMenu.value = !showRoleMenu.value }
+// 点角色胶囊/菜单以外的任意空白处 → 收起菜单（抽屉内空白 + 抽屉外页面空白都算）。
+// 用捕获阶段 pointerdown，避免被内层 @click.stop 或抽屉遮罩的 click 抢走。
+function onDocPointerDown(e) {
+  if (!showRoleMenu.value) return
+  const t = e.target
+  if (t && t.closest && t.closest('.cp-role')) return
+  showRoleMenu.value = false
+}
 function pickRole(r) {
   setAiRole(r.role_id)
   showRoleMenu.value = false
@@ -842,7 +861,7 @@ async function doShare() {
 }
 
 /* 输入框随内容自动增高，但保底 3 行、封顶 ~7 行，避免过矮/失控 */
-const INPUT_MIN_H = 50
+const INPUT_MIN_H = 40
 const INPUT_MAX_H = 168
 function autoGrow(e) {
   const el = e && e.target ? e.target : cpInput.value
@@ -1084,22 +1103,20 @@ async function streamReply(payload) {
           const last = store.chat.messages[replyIndex]
           if (!last) return
           if (!cardIntent) cardIntent = extractCardIntent(full)
-          let clean = stripIntentFence(full)
-          // 主动澄清：```clarify 围栏 → 渲染可点选项，围栏不出现在正文
-          const cl = extractClarify(clean)
-          if (cl && cl.options && cl.options.length) { last.clarify = cl; clean = stripClarifyFence(clean) }
-          // 配方自进化提案：```proposal 围栏 → 渲染采纳/忽略卡片，围栏不出现在正文
-          const prop = extractProposal(clean)
-          if (prop && !last.proposal) { last.proposal = prop; clean = stripProposalFence(clean) }
-          // AI 待办提醒：```reminder 围栏 → 渲染「已记下提醒」卡片，围栏不出现在正文
-          const rem = extractReminder(clean)
-          if (rem && !last.reminder) { last.reminder = rem; clean = stripReminderFence(clean) }
-          if (last.card) { last.content = clean }            // 已抽到卡片，继续累积纯文本（意图围栏已剥离）
-          else {
-            const ex = extractCard(clean)
-            if (ex) { last.card = ex.card; last.content = ex.content }
-            else last.content = clean
+          // 各协议围栏先抽取成结构化数据（澄清 / 提案 / 提醒 / 经营卡），
+          // 正文统一在最后一步剥掉全部围栏——不再有「抽到卡片后就不剥 card 围栏」的分支。
+          const cl = extractClarify(full)
+          if (cl && cl.options && cl.options.length) last.clarify = cl
+          const prop = extractProposal(full)
+          if (prop && !last.proposal) last.proposal = prop
+          const rem = extractReminder(full)
+          if (rem && !last.reminder) last.reminder = rem
+          if (!last.card) {
+            const ex = extractCard(full)
+            if (ex) last.card = ex.card
           }
+          // 正文 = 原文剥掉所有协议围栏（含流式半截未闭合的），老板永远看不到控制标记
+          last.content = stripAllFences(full)
           scrollBottom()
         }
       }
@@ -1140,10 +1157,17 @@ async function streamReply(payload) {
   }
   // 是否补经营卡 = AI 自主判断（老板无需知道"卡片"）：
   //   ① AI 输出了 ```cards 意图围栏 → 完全按 AI 的 show 执行（show:[] 即纯文字一张不补）
-  //   ② AI 未输出（模型漏标/旧会话）→ 单卡正则弱兜底，且尊重显式否定词
+  //   ② AI 已出单卡（```card / 裸卡，已在 onDelta 里被 extractCard 抽成 replyMsg.card）
+  //      → 视为 AI 已自主判断，不再兜底
+  //   ③ 以上都没有（模型漏标/旧会话）→ 单卡正则弱兜底，且尊重显式否定词
+  // v156 A：判据原先只看 ```cards 复数围栏，而协议要求 AI「出单个 ```card 就别再出 ```cards」
+  //   （两者只需其一）→ AI 越守协议，前端越判定"未出卡"而再补一张，老板收到两条结论相反的
+  //   回复（2026-09-13 实测：LLM 说"算不出来/数据缺失"，兜底卡却报"库存健康"）。
+  //   修复：只要 AI 已出过卡（任意形态），兜底一律不触发。
+  const aiCarded = !!(cardIntent || (replyMsg && replyMsg.card))
   if (cardIntent) {
     if (cardIntent.show && cardIntent.show.length) fireCards(cardIntent.show, q)
-  } else if (!DENY_RE.test(q)) {
+  } else if (!aiCarded && !DENY_RE.test(q)) {
     triggerCards(q)
   }
   saveCurrentSession()
@@ -1199,10 +1223,12 @@ onMounted(() => {
   onWinResize()
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('resize', onWinResize)
+  document.addEventListener('pointerdown', onDocPointerDown, true)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('resize', onWinResize)
+  document.removeEventListener('pointerdown', onDocPointerDown, true)
 })
 
 watch(() => store.chat.messages.length, scrollBottom)
@@ -1350,15 +1376,20 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-att-meta{font-size:11px;color:var(--p-dark);opacity:.7}
 .cp-att-x{border:none;background:none;color:var(--p-dark);cursor:pointer;font-size:12px;padding:0 2px;opacity:.6}
 .cp-att-x:hover{opacity:1}
-.cp-plus{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0}
-.cp-plus:hover{background:var(--bg4);color:var(--p-dark)}
-.cp-uploading{font-size:11px;color:var(--t3);margin-top:6px;text-align:center}
-.cp-input-wrap{display:flex;align-items:flex-end;gap:6px;border:1px solid var(--bd);border-radius:18px;padding:8px 10px;background:var(--bg3);transition:border-color .2s,box-shadow .2s}
-.cp-input-wrap:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 4px var(--p-bg)}
-.cp-role{position:relative;display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 8px 0 6px;border-radius:10px;background:var(--p-bg);color:var(--p-dark);cursor:pointer;flex-shrink:0;transition:all .15s;max-width:150px}
+.cp-plus{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0}
+.cp-plus:hover{background:var(--bg4);color:var(--t1)}
+.cp-att-loading{background:var(--bg2);border-color:var(--border-subtle);color:var(--t2)}
+.cp-att-spin{display:inline-flex;animation:cp-spin 1s linear infinite}
+@keyframes cp-spin{to{transform:rotate(360deg)}}
+.cp-composer{display:flex;flex-direction:column;gap:8px;padding-top:8px;border:1px solid var(--bd);border-radius:20px;background:var(--bg3);transition:border-color .2s,box-shadow .2s}
+.cp-composer:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 4px var(--p-bg)}
+.cp-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;padding:0 8px 8px}
+.cp-tools{display:flex;align-items:center;gap:2px;flex:0 1 auto;min-width:0}
+.cp-trailing{display:flex;align-items:center;gap:2px;flex:none;margin-left:auto}
+.cp-role{position:relative;display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);cursor:pointer;flex-shrink:1;min-width:0;transition:background .15s;max-width:220px}
 .cp-role:hover{background:rgba(6,182,212,.16)}
-.cp-role-av{font-size:15px;line-height:1;flex-shrink:0;display:flex;align-items:center}
-.cp-role-av-img{width:20px;height:20px;border-radius:50%;object-fit:cover;display:block}
+.cp-role-av{font-size:14px;line-height:1;flex-shrink:0;display:flex;align-items:center}
+.cp-role-av-img{width:18px;height:18px;border-radius:50%;object-fit:cover;display:block}
 .cp-role-name{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cp-role-caret{flex-shrink:0;opacity:.7}
 .cp-role-menu{position:absolute;bottom:calc(100% + 8px);left:0;width:248px;max-height:300px;overflow-y:auto;background:var(--bg);border:1px solid var(--bd);border-radius:14px;box-shadow:var(--shadow-lg);padding:8px;z-index:20}
@@ -1371,20 +1402,18 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-role-item-tx{display:flex;flex-direction:column;min-width:0}
 .cp-role-item-name{font-size:13px;font-weight:500;color:var(--t1)}
 .cp-role-item-desc{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.cp-role-backdrop{position:fixed;inset:0;z-index:15}
-.cp-input{flex:1;border:none;background:none;outline:none;resize:none;font-size:14px;line-height:1.6;min-height:50px;max-height:168px;padding:8px 4px;color:var(--t1);font-family:inherit;overflow-y:auto}
+.cp-input{display:block;width:100%;border:none;background:none;outline:none;resize:none;font-size:15px;line-height:22px;min-height:40px;max-height:168px;padding:9px 12px 9px 16px;color:var(--t1);font-family:inherit;overflow-y:auto}
 .cp-input::placeholder{color:var(--t3)}
-.cp-send{width:36px;height:36px;border:none;border-radius:11px;background:var(--p-dark);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s;box-shadow:var(--shadow-sm)}
-.cp-send:not(:disabled):hover{background:var(--p-deep);transform:translateY(-1px)}
-.cp-send:disabled{opacity:.35;cursor:default}
+.cp-send{width:28px;height:28px;border:none;border-radius:999px;background:var(--p-dark);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s,color .15s,box-shadow .15s;box-shadow:var(--shadow-sm)}
+.cp-send:not(:disabled):hover{background:var(--p-deep)}
+.cp-send:disabled{background:transparent;color:var(--t3);box-shadow:inset 0 0 0 1px var(--bd);cursor:default}
 .cp-foot-hint{font-size:11px;color:var(--t3);margin-top:7px;text-align:center}
 
 /* P0-③ AI 权限护栏开关 */
-.cp-foot-guard{display:flex;justify-content:center;margin-top:7px}
-.cp-guard-btn{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border:1px solid var(--border-subtle);border-radius:12px;background:var(--bg2);font-size:11px;color:var(--t2);cursor:pointer;transition:all .15s}
+.cp-guard-btn{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 10px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
 .cp-guard-btn svg{color:var(--suc);flex-shrink:0}
-.cp-guard-btn:hover{border-color:var(--suc);color:var(--t1)}
-.cp-guard-btn.on{border-color:var(--war);background:var(--war-bg,#FAEEDA)}
+.cp-guard-btn:hover{background:var(--bg4);color:var(--t1)}
+.cp-guard-btn.on{border-color:rgba(var(--war-rgb),.5);background:rgba(var(--war-rgb),.14);color:var(--war)}
 .cp-guard-btn.on svg{color:var(--war)}
 
 /* M2 渐进式访谈引导 chips */
@@ -1451,8 +1480,8 @@ watch(() => store.chat.messages.length, scrollBottom)
 @keyframes cp-spin{to{transform:rotate(360deg)}}
 
 /* M5 语音输入按钮 */
-.cp-voice{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0;border:none;background:none}
-.cp-voice:hover{background:var(--bg4);color:var(--p-dark)}
+.cp-voice{width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0;border:none;background:none}
+.cp-voice:hover{background:var(--bg4);color:var(--t1)}
 .cp-voice.on{background:var(--p-dark);color:#fff;animation:cp-voice-pulse 1.2s infinite}
 @keyframes cp-voice-pulse{0%,100%{box-shadow:0 0 0 0 rgba(6,182,212,.4)}50%{box-shadow:0 0 0 5px rgba(6,182,212,0)}}
 

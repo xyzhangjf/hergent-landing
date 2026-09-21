@@ -246,12 +246,64 @@ async function doLogin() {
     const data = await login(username.value.trim(), password.value)
     store.user.name = data.user?.display_name || data.user?.name || data.user?.username || username.value.trim()
     try { localStorage.setItem('hergent_last_username', username.value.trim()) } catch (e) {}
+    // 密码仍是系统初始密码（password_changed=0）→ 必须先改密，不允许直接进入系统
+    if (data.require_password_change) {
+      oldPw.value = password.value   // 复用刚录入的密码，用户只需设新密码
+      newPw.value = ''
+      newPw2.value = ''
+      pwErr.value = ''
+      pwdOpen.value = true
+      return
+    }
     router.push('/workbench')
   } catch (e) {
     error.value = e.message || '登录失败'
   } finally {
     loading.value = false
   }
+}
+
+/* ---- 首次登录强制改密 ---- */
+const pwdOpen = ref(false)
+const oldPw = ref('')
+const newPw = ref('')
+const newPw2 = ref('')
+const pwErr = ref('')
+const pwSaving = ref(false)
+
+async function doChangePw() {
+  pwErr.value = ''
+  const np = newPw.value
+  if (!np) { pwErr.value = '请输入新密码'; return }
+  if (np.length < 8) { pwErr.value = '密码至少需要 8 位'; return }
+  if (!(/[0-9]/.test(np) && /[a-zA-Z]/.test(np))) { pwErr.value = '密码需要同时包含数字和字母'; return }
+  if (np !== newPw2.value) { pwErr.value = '两次输入的新密码不一致'; return }
+  if (np === oldPw.value) { pwErr.value = '新密码不能与原密码相同'; return }
+  pwSaving.value = true
+  try {
+    await changePassword(oldPw.value, np)
+    pwdOpen.value = false
+    router.push('/workbench')
+  } catch (e) {
+    pwErr.value = e.message || '修改密码失败'
+  } finally {
+    pwSaving.value = false
+  }
+}
+
+/* 用户不愿现在改密 → 销毁会话并退回登录态，避免留下一个未改密的可用会话 */
+async function abortChangePw() {
+  try {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {}
+    })
+  } catch (e) { /* 忽略网络错误：本地凭证照样清掉 */ }
+  auth.token = ''
+  auth.user = null
+  pwdOpen.value = false
+  password.value = ''
+  error.value = '已退出登录（未修改初始密码）'
 }
 
 async function doDemo() {
@@ -365,6 +417,9 @@ form{display:flex;flex-direction:column;gap:12px;flex:1}
 .forgot-step{font-size:12px;color:var(--t3);margin-bottom:8px}
 .forgot-mail{font-size:14px;font-weight:600;color:var(--p-dark);text-align:center;padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:14px}
 .forgot-foot{font-size:11px;color:var(--t3);margin-top:10px;text-align:center}
+/* 首次登录强制改密 */
+.pw-form{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.pw-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .login-legal .beian{margin-right:6px}
 .login-legal a{color:var(--p-dark);text-decoration:none;margin:0 2px}
 .login-legal a:hover{text-decoration:underline}

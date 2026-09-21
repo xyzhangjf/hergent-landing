@@ -1,7 +1,7 @@
 <template>
   <div class="page">
-    <div class="page-hd">
-      <b>AI 中心</b>
+    <div class="page-hd flush">
+      <h2>AI 中心</h2>
       <span class="page-sub">副驾产出固化 · 用量配额 · 个性化洞察 · 长期画像</span>
     </div>
     <div class="ops-hint">
@@ -9,8 +9,38 @@
       <router-link to="/settings?tab=aiops">设置 › AI 运维</router-link>
     </div>
 
+    <div class="bento">
+    <!-- KPI 概览条（顶部紧凑统计带） -->
+    <div class="card kpi-strip">
+      <div class="kpi">
+        <div class="kpi-label">我的报告</div>
+        <div class="kpi-val">{{ reports.length }}</div>
+        <div class="kpi-sub">已沉淀的分析</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">本月 AI 调用</div>
+        <div class="kpi-val">{{ value ? fmtNum(value.usage.calls) : '—' }}</div>
+        <div class="kpi-sub">{{ value ? value.month + ' 月至今' : '暂无数据' }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">配额剩余</div>
+        <div class="kpi-val" :class="quota && quota.exceeded ? 'val-bad' : ''">{{ quota ? fmtNum(quota.remaining) : '—' }}</div>
+        <div class="kpi-sub">{{ quota ? tierLabel(quota.tier) : '—' }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">建议采纳率</div>
+        <div class="kpi-val" :class="value && value.adoption_rate >= 50 ? 'val-ok' : ''">{{ value ? value.adoption_rate + '%' : '—' }}</div>
+        <div class="kpi-sub">{{ value ? '已采纳 ' + value.advice.adopted + ' / ' + value.advice.total : '暂无数据' }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">长期画像</div>
+        <div class="kpi-val" :class="profile ? 'val-ok' : ''">{{ profile ? '已生成' : '未生成' }}</div>
+        <div class="kpi-sub">{{ profile && profile.updated_at ? '更新于 ' + fmt(profile.updated_at) : '用副驾对话后自动生成' }}</div>
+      </div>
+    </div>
+
     <!-- ==================== ① 我的报告 ==================== -->
-    <div class="card">
+    <div class="card rep-card">
       <div class="panel-hd">
         <b>我的报告</b>
         <span class="page-sub">副驾分析结果一键固化，可回看 / 导出 / 转发</span>
@@ -38,7 +68,7 @@
     </div>
 
     <!-- ==================== ② 用量与配额 ==================== -->
-    <div class="card">
+    <div class="card quota-card">
       <div class="panel-hd">
         <b>用量与配额</b>
         <span class="page-sub">本租户当月 AI 调用计量（字符量近似）</span>
@@ -68,7 +98,7 @@
     </div>
 
     <!-- ==================== ②·5 AI 价值账单（环3 门面） ==================== -->
-    <div class="card">
+    <div class="card value-card">
       <div class="panel-hd">
         <b>AI 价值账单</b>
         <span class="page-sub">AI 给了多少建议、你采纳了多少、本月用了多少算力</span>
@@ -99,7 +129,7 @@
     </div>
 
     <!-- ==================== ③ AI 经营洞察 ==================== -->
-    <div class="card">
+    <div class="card insight-card">
       <div class="panel-hd">
         <b>AI 经营洞察</b>
         <span class="page-sub">LLM 读真实数据，跨表因果，区别于规则模板</span>
@@ -120,7 +150,7 @@
     </div>
 
     <!-- ==================== ⑤ 长期经营画像 ==================== -->
-    <div class="card">
+    <div class="card profile-card">
       <div class="panel-hd">
         <b>长期经营画像</b>
         <span class="page-sub">AI 从历史对话自动提炼你的偏好与口径</span>
@@ -146,6 +176,7 @@
         画像将在你使用副驾（对话 / 纠正口径）后自动生成，点「刷新画像」立即提炼
       </div>
     </div>
+    </div><!-- /bento -->
 
     <!-- 报告查看弹窗 -->
     <div v-if="viewing" class="rep-mask" @click.self="viewing = null">
@@ -365,14 +396,22 @@ async function refreshProfile() {
 </script>
 
 <style scoped>
-.page{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
-.page-hd{display:flex;align-items:baseline;gap:12px;margin-bottom:2px}
-.page-hd b{font-size:18px;font-weight:600;color:var(--t1)}
-.page-sub{color:var(--t3);font-size:12px}
+.page{display:flex;flex-direction:column;gap:16px}
+/* Bento 分栏：.bento / .kpi-strip 及 KPI 子元素走全局层（variables.css），
+   这里只声明本页模块占宽 —— 12 列栅格按「7+5 / 5+7 / 12」两栏铺开，
+   消除此前 900px 单列窄栏造成的大面积留白（1920 视口下占宽仅 55%）。 */
+.rep-card{grid-column:span 7}
+.quota-card{grid-column:span 5}
+.value-card{grid-column:span 5}
+.insight-card{grid-column:span 7}
+.profile-card{grid-column:1/-1}
 .ops-hint{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t3);margin-top:-8px}
 .ops-hint a{color:var(--p);text-decoration:none;font-weight:500}
 .ops-hint a:hover{text-decoration:underline}
 .card{background:var(--bg2);border:1px solid var(--border-subtle);border-radius:14px;padding:16px 18px}
+/* KPI 条要覆盖上面这条 scoped .card 的内距 —— 两者特异性同为 0,2,0（scoped 会被加上
+   [data-v-x] 属性选择器），全局层的 .kpi-strip 特异性只有 0,1,0 盖不住，只能靠源顺序在这里补一条。 */
+.kpi-strip{padding:6px 0}
 .panel-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
 .panel-hd b{font-size:15px;font-weight:600;color:var(--t1)}
 .state-empty{color:var(--t3);font-size:13px;padding:14px 4px;text-align:center}
@@ -398,7 +437,7 @@ async function refreshProfile() {
 .quota-set{margin-top:10px;display:flex;align-items:center;gap:8px}
 
 /* 价值账单 */
-.value-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.value-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .value-item{background:var(--bg3);border-radius:10px;padding:14px 10px;text-align:center}
 .value-num{font-size:26px;font-weight:600;color:var(--t1);line-height:1.1}
 .value-num.good{color:var(--suc)}
@@ -420,4 +459,12 @@ async function refreshProfile() {
 .rep-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle);font-size:15px;color:var(--t1)}
 .rep-content{flex:1;overflow:auto;padding:16px 18px;margin:0;font-size:13px;line-height:1.7;color:var(--t1);white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .rep-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid var(--border-subtle)}
+
+/* 窄屏：栅格降为 6 列 → 两栏各占 3 列；单列屏全宽堆叠 */
+@media(max-width:1200px){
+  .rep-card,.quota-card,.value-card,.insight-card{grid-column:span 3}
+}
+@media(max-width:768px){
+  .rep-card,.quota-card,.value-card,.insight-card,.profile-card{grid-column:1/-1}
+}
 </style>

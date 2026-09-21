@@ -19,6 +19,18 @@
       </div>
     </div>
 
+    <!-- 明细清单：AI 直给的结构化行（如 `items:[{name,daily_avg,stock,suggest}]`）。
+         规范字段只有 metrics/points，不兜底的话这类卡片会只剩一个标题、数据全丢。 -->
+    <div v-if="detail && !props.compact" class="rc-items">
+      <div class="rc-item-hd">
+        <span v-for="(c, i) in detail.cols" :key="i">{{ c.label }}</span>
+      </div>
+      <div v-for="(r, ri) in detail.rows" :key="ri" class="rc-item-row">
+        <span v-for="(c, ci) in detail.cols" :key="ci" :class="ci === 0 ? 'rc-item-name' : ''">{{ r[c.key] }}</span>
+      </div>
+      <div v-if="detail.meta" class="rc-item-meta">{{ detail.meta }}</div>
+    </div>
+
     <!-- 要点列表 -->
     <ul v-if="!props.compact && card.points && card.points.length" class="rc-points">
       <li v-for="(p, i) in card.points" :key="i" :class="'dot-' + (p.tone || 'neutral')">
@@ -113,6 +125,45 @@ const actions = computed(() =>
     ? props.card.actions
     : [{ key: 'adopt', label: '采纳', primary: true }, { key: 'reject', label: '驳回' }]
 )
+
+/* ---- 明细清单兜底（2026-09-11）：
+   AI 直出经营卡时常给 items / rows / detail / list 这类自定义数组，而规范卡只认
+   metrics/points → 不兜底就只剩一个标题、数据全丢。这里做一层字段名映射成小表。 ---- */
+const ITEM_LABELS = {
+  name: '品名', product: '品名', title: '品名', sku: '品名', item: '品名',
+  daily_avg: '日均', avg: '日均', daily: '日均', daily_sales: '日均', sales: '销量',
+  stock: '库存', inventory: '库存', stock_qty: '库存',
+  qty: '数量', quantity: '数量', num: '数量', unit: '单位',
+  suggest: '建议', suggest_qty: '建议', recommend: '建议', need: '建议', advice: '建议',
+  days_supply: '可销天数', supply_days: '可销天数', cover_days: '可销天数',
+  price: '单价', amount: '金额', money: '金额', sum: '金额', total: '合计'
+}
+const DETAIL_KEYS = ['items', 'rows', 'detail', 'list']
+const detail = computed(() => {
+  const c = props.card || {}
+  const arr = DETAIL_KEYS.map((k) => c[k])
+    .find((a) => Array.isArray(a) && a.length && a[0] && typeof a[0] === 'object')
+  if (!arr) return null
+  const keys = []
+  arr.forEach((o) => Object.keys(o || {}).forEach((k) => { if (!keys.includes(k)) keys.push(k) }))
+  const cols = keys.slice(0, 4).map((k) => ({ key: k, label: ITEM_LABELS[k] || k }))
+  if (!cols.length) return null
+  const rows = arr.slice(0, 12).map((o) => {
+    const r = {}
+    cols.forEach((col) => {
+      const v = o[col.key]
+      r[col.key] = (v === null || v === undefined || v === '') ? '—' : String(v)
+    })
+    return r
+  })
+  const meta = []
+  if (c.note) meta.push(String(c.note))
+  if (c.data_date) meta.push('数据截至 ' + String(c.data_date).slice(0, 10))
+  if (c.reorder_date) meta.push('建议下单 ' + String(c.reorder_date).slice(0, 10))
+  if (c.arrival_date) meta.push('预计到货 ' + String(c.arrival_date).slice(0, 10))
+  if (arr.length > rows.length) meta.push(`仅列前 ${rows.length} 项，共 ${arr.length} 项`)
+  return { cols, rows, meta: meta.join(' · ') }
+})
 
 function onAction(a) {
   emit('action', { key: a.key, card: props.card })
@@ -240,6 +291,16 @@ const donutTotal = computed(() => {
 .dot-good .rc-dot{background:var(--suc)}
 .dot-warn .rc-dot{background:var(--war)}
 .dot-bad  .rc-dot{background:var(--dan)}
+
+/* 明细清单（AI 直出 items）：首列品名自适应省略，其余数值列右对齐固定宽 */
+.rc-items{border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;background:var(--bg)}
+.rc-item-hd,.rc-item-row{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px;line-height:1.4}
+.rc-item-hd{background:var(--bg2);font-size:11px;color:var(--t3)}
+.rc-item-hd span,.rc-item-row span{flex:0 0 auto;min-width:44px;text-align:right;color:var(--t2);white-space:nowrap}
+.rc-item-hd span:first-child,.rc-item-row span:first-child{flex:1 1 auto;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis}
+.rc-item-row+.rc-item-row{border-top:1px solid var(--border-subtle)}
+.rc-item-name{color:var(--t1)}
+.rc-item-meta{padding:6px 10px;font-size:11px;color:var(--t3);line-height:1.5;border-top:1px solid var(--border-subtle);background:var(--bg2)}
 
 .rc-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}
 .rc-status{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;font-size:11px;font-weight:500}

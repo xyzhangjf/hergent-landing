@@ -97,10 +97,22 @@
       <span class="lb-toggle">{{ legacyOpen ? '收起' : '展开' }}</span>
     </div>
     <div v-if="legacyOpen && legacyStores.length" class="card legacy-detail">
-      <b class="hd-t">请给下列员工各建一条「门店」映射：配完后门店由本页统一派生，可停用、可收回</b>
+      <b class="hd-t">这些门店现在只有本页能改</b>
+      <p class="lb-tip">
+        <b>还要用</b> —— 点工具栏「新建配置」，给该员工建一条「门店」映射；此后由映射派生，
+        可停用、可启用。<br>
+        <b>不要了</b> —— 点「收回」，该员工在小程序里就不再能选这家门店报单；
+        <b>不影响</b>已经报过的单与应收。
+      </p>
       <ul>
         <li v-for="l in legacyStores" :key="l.employee_id + '-' + l.store_id">
-          <b>{{ l.employee_name || ('员工 #' + l.employee_id + '（已不在员工档案里）') }}</b> → {{ l.store_name }}
+          <span class="lb-row">
+            <b>{{ l.employee_name || ('员工 #' + l.employee_id + '（已不在员工档案里）') }}</b>
+            <span class="lb-arrow">→</span>
+            <span>{{ l.store_name }}</span>
+            <span v-if="l.store_active === 0" class="tag danger">门店已停用</span>
+            <button class="btn btn-ghost btn-sm danger lb-revoke" @click="askLegacyRevoke(l)">收回</button>
+          </span>
         </li>
       </ul>
     </div>
@@ -258,6 +270,28 @@
       </Transition>
     </Teleport>
 
+    <!-- 收回历史门店授权（v216）：与「停用配置」不同 —— 这里删的是 employee_stores
+         那一行（旧入口留下的授权），不是 report_mapping 的映射行。 -->
+    <Teleport to="body">
+      <Transition name="fade"><div v-if="revokeOpen" class="df-overlay" @click="revokeOpen = false"></div></Transition>
+      <Transition name="pop">
+        <div v-if="revokeOpen" class="df-modal">
+          <div class="df-modal-hd"><b>收回门店</b><button class="df-x" @click="revokeOpen = false"><Icon name="close"/></button></div>
+          <div class="df-modal-body">
+            <p class="warn-text">
+              确认收回「{{ revokeTarget.employee_name || ('员工 #' + revokeTarget.employee_id) }}」
+              对「{{ revokeTarget.store_name }}」的报单资格？
+            </p>
+            <p class="hint">收回后，该员工在小程序里不再能选这家门店报单。<b>不影响</b>已落库的历史报单与应收。</p>
+          </div>
+          <div class="df-modal-ft">
+            <button class="btn btn-ghost" @click="revokeOpen = false">取消</button>
+            <button class="btn btn-danger" :disabled="revoking" @click="confirmLegacyRevoke">{{ revoking ? '收回中…' : '确认收回' }}</button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- Excel 导入 -->
     <Teleport to="body">
       <Transition name="fade"><div v-if="importOpen" class="df-overlay" @click="importOpen = false"></div></Transition>
@@ -304,6 +338,13 @@ const editId = ref(0)
 const saving = ref(false)
 const disableOpen = ref(false)
 const disableTarget = ref(0)
+// v216（2026-09-20）：**收回**历史门店授权（删 `employee_stores` 单行）。
+// ⚠️ 与上面的「停用配置」不是同一件事：那条改的是 `report_mapping` 的**映射行**
+// （停用后可再启用），这条删的是旧「员工档案 → 分配门店」留下的**授权行**
+// （删了就没了，要恢复得重新建一条映射）。两者都只影响"还能不能报单"。
+const revokeOpen = ref(false)
+const revokeTarget = ref({})
+const revoking = ref(false)
 const importOpen = ref(false)
 const importResult = ref(null)
 
@@ -568,6 +609,25 @@ async function save() {
 }
 
 function askDisable(m) { disableTarget.value = m.id; disableOpen.value = true }
+// v216：收回历史门店授权。`l` 是 `legacy-stores` 返回的一行（employee_id/store_id/store_name/…），
+// 整行存下来是为了确认弹窗能显示「谁 → 哪家店」，而不是只显示一个 id。
+function askLegacyRevoke(l) { revokeTarget.value = { ...l }; revokeOpen.value = true }
+async function confirmLegacyRevoke() {
+  const t = revokeTarget.value || {}
+  revoking.value = true
+  try {
+    const r = await reportMappingApi.revokeLegacyStore(t.employee_id, t.store_id)
+    // `removed=0` = 该行本来就不存在（幂等，不是失败）。如实说出来，
+    // 否则用户以为"点了没生效"；但仍然刷新页面，因为目标状态已经达成。
+    toast(r && r.removed ? '已收回该门店的报单资格' : '该授权本就不存在，已按最新状态刷新', 'ok')
+    revokeOpen.value = false
+    await loadAll()
+  } catch (e) {
+    toast(e.message || '收回失败', 'err')
+  } finally {
+    revoking.value = false
+  }
+}
 async function confirmDisable() {
   await toggle(disableTarget.value, 0)
   disableOpen.value = false
@@ -634,7 +694,12 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile() })
 .lb-dot{width:8px;height:8px;border-radius:50%;background:var(--t3);flex-shrink:0}
 .lb-toggle{margin-left:auto;color:var(--p);font-size:12px}
 .legacy-detail{margin-bottom:12px;padding:14px 16px}
+.lb-tip{font-size:12.5px;color:var(--t2);line-height:1.8;margin:8px 0 0}
 .legacy-detail ul{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--t2);line-height:1.9}
+/* 每行：员工 → 门店 [已停用] [收回] —— 用 inline-flex + wrap，窄屏时按钮换行不挤压文字 */
+.lb-row{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lb-arrow{color:var(--t3)}
+.lb-revoke{margin-left:4px}
 .chip{font-size:12px;padding:3px 9px;background:var(--bg2);border-radius:8px;color:var(--t2)}
 
 .toolbar{display:flex;gap:10px;margin-bottom:12px}

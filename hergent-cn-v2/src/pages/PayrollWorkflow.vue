@@ -318,10 +318,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
-.page-hd h2{font-size:20px;font-weight:600}
-.page-sub{font-size:12px;color:var(--t3)}
-
 .pr-steps{display:flex;align-items:center;gap:10px;margin-bottom:16px}
 .pr-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--border-subtle)}
 .pr-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}

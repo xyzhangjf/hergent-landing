@@ -375,6 +375,9 @@ export const forecastApproveApi = {
      （`server/db/queries/forecast_rules.py`）。Web 交叉表取它替掉写死的 `QTY_MAX=999999`，
      让「前端预检」与「后端门禁」用同一组判据、同一句文案（此前是四个口径各写一套）。 */
   validationSpec: () => api('/api/forecast-submissions/validation-spec'),
+  /* v219 打磨⑥：**改**数量上限（老板/管理员）。set_rules 本就存在，缺的正是这一个 HTTP 入口
+     —— 在此之前上限是「只读」的：前端按它判红框，而租户没有任何办法改它。 */
+  setValidationRules: (body) => api('/api/forecast-submissions/validation-rules', { method: 'PUT', body }),
 }
 
 /* ---- 商品主档（Web 预报模块网格直编 / 粘贴） ---- */
@@ -384,12 +387,12 @@ export const productsApi = {
      这一串写太紧：正常 0.2 秒就能回，长超时纯兜底；真慢下来时至少不会在 20 秒被硬掐断）。
      ⚠️ 默认值 `{}` ⇒ 既有两个调用方（ProductArchive 单行）行为一字不变。 */
   bulkUpsert: (rows, opts = {}) => api('/api/products/bulk-upsert', { method: 'POST', body: { rows }, ...opts }),
-  // v157 存量商品批量补厂价：items = [{id, factory_price}] 或 [{barcode, factory_price}]（导出回填走条码）
+  // v157 存量商品批量补进价：items = [{id, factory_price}] 或 [{barcode, factory_price}]（导出回填走条码）
   batchFactoryPrice: (items) => api('/api/products/batch-factory-price', { method: 'POST', body: { items } }),
   // v161 自定义列的值：批量写（合并写，值为空 = 删该键）。
   // 后端会按列注册表校验 key —— 未知列/系统列一律 400，绝不静默丢弃。
   extraValues: (items) => api('/api/products/extra-values', { method: 'POST', body: { items } }),
-  // v158 厂价闸门（per-tenant 开关，**默认关闭**）：开启后两条上报路径都会拒收「没录厂价」的商品行。
+  // v158 进价闸门（per-tenant 开关，**默认关闭**）：开启后两条上报路径都会拒收「没录进价」的商品行。
   // 判据在后端 db.factory_price_verdict 一处；本接口只读写开关值 + 回报还有多少没补。
   factoryPriceGate: () => api('/api/forecast/factory-price-gate'),
   setFactoryPriceGate: (enabled) =>
@@ -428,7 +431,7 @@ export const forecastColumnsApi = {
 /* ---- Excel 导入（FormData，走统一 api 封装） ---- */
 export const importApi = {
   template: (category) => api(`/api/import/template/${category}`),
-  /* v158 待补厂价清单导出（后端生成 xlsx，含「商品编号」列作导回钥匙）。
+  /* v158 待补进价清单导出（后端生成 xlsx，含「商品编号」列作导回钥匙）。
      为什么走后端而不在前端用 SheetJS 造：钥匙规则（编号优先/条码兜底、共码与无条码商品）
      必须在**唯一一处**实现，否则前端一份、后端一份 → 静默漂移（v158 实测两者的行为已经不一致）。 */
   factoryPriceTemplate: async ({ brand = '', category = '' } = {}) => {
@@ -452,7 +455,7 @@ export const importApi = {
     }
     return res.blob()
   },
-  /* v158 导回填好厂价的清单：按「商品编号」优先、条码兜底回写（只改 factory_price 一列）。 */
+  /* v158 导回填好进价的清单：按「商品编号」优先、条码兜底回写（只改 factory_price 一列）。 */
   factoryPriceApply: (file) => {
     const fd = new FormData()
     fd.append('file', file)

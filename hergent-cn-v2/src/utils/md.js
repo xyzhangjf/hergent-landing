@@ -2,13 +2,17 @@
 // 支持：标题 #/##/###、粗体 **、斜体 *、行内代码 `、无序列表 -/*、有序列表 1.、
 //       表格 |、引用 >、分割线 ---、围栏代码块 ```，其余按段落 + 换行渲染。
 // 用法：v-html="renderMd(text)" —— 仅用于可信来源（AI 回复/已抽离 card 围栏的 content）。
+import { stripAllFences } from '../composables/useCardTrigger'
 
 export function renderMd(src) {
   if (!src) return ''
+  // 0) 最后一道闸：协议围栏（```card / ```cards / ```clarify / ```proposal / ```reminder）
+  //    绝不允许出现在老板眼前——含历史会话里已残留的、以及模型漏打/写错语言标签的卡片 JSON。
+  const body = stripAllFences(src)
 
   // 1) 抽取围栏代码块，避免被后续行内/块规则破坏
   const codes = []
-  const text = src.replace(/```[a-zA-Z0-9]*\n?([\s\S]*?)```/g, (_, code) => {
+  const text = body.replace(/```[a-zA-Z0-9]*\n?([\s\S]*?)```/g, (_, code) => {
     const idx = codes.length
     codes.push(code.replace(/\n$/, ''))
     return ` C${idx} `

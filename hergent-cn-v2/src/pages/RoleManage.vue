@@ -1,6 +1,6 @@
 <template>
   <div :class="embed ? 'rm-embed' : 'page'">
-    <div class="page-hd">
+    <div class="page-hd split">
       <div>
         <h2>AI 团队</h2>
         <span class="page-sub">配置副驾的不同 AI 团队。切换后对话自动带上对应专家视角，让 AI 更贴你的业务。</span>
@@ -376,9 +376,6 @@ onMounted(load)
 </script>
 
 <style scoped>
-.page-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
-.page-hd h2{font-size:20px;font-weight:600;margin:0 0 4px}
-.page-sub{font-size:12px;color:var(--t3)}
 .rm-new{flex-shrink:0}
 .rm-state{padding:40px;text-align:center;color:var(--t3);font-size:13px}
 .rm-empty{background:var(--bg2);border-radius:12px}

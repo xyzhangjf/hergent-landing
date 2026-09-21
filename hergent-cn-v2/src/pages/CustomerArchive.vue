@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <div class="page-hd">
+    <div class="page-hd split">
       <div>
         <h2>客户档案</h2>
         <span class="page-sub">管理客户/门店主档 · 支持手动录入、Excel 导入与外部 ERP 同步</span>
@@ -93,9 +93,6 @@ onMounted(probeConnectors)
 </script>
 
 <style scoped>
-.page-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
-.page-hd h2{font-size:20px;font-weight:600}
-.page-sub{font-size:12px;color:var(--t3)}
 .sync-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .sync-state{font-size:11.5px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
