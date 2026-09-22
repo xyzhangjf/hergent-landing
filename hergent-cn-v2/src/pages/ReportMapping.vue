@@ -10,6 +10,7 @@
     <!-- v160 模板参数：生成舟谱导入模板时写进「业务员 / 部门 / 仓库」列的值（租户级）。
          原先这些值硬编码在后端代码里，且是**一家客户的值** —— 换一家客户就全错。 -->
     <!-- v242 报单自动化：到点自动建表 / 关单（原在品牌目标弹窗，现归「报单这件事的设置」） -->
+    <div class="sec-label">自动化与模板</div>
     <AutoPeriodBlock />
 
     <div class="card tp-card">
@@ -64,6 +65,7 @@
       </div>
     </div>
 
+    <div class="sec-label">报单对象</div>
     <!-- 配置体检红标 -->
     <div v-if="health" class="health-bar" :class="{ ok: !hasProblem }" @click="healthOpen = !healthOpen">
       <span class="hb-dot"></span>
@@ -376,7 +378,7 @@ const form = reactive({
 
 // v160（2026-09-14）：模板参数 —— 舟谱模板的「业务员 / 部门 / 仓库」列、自提单号起始序号、
 // 下单主体清单。原先硬编码在后端代码里且是**一家客户的值**，现改为租户自配。
-const tpOpen = ref(false)
+const tpOpen = ref(true)
 const tpSaving = ref(false)
 const tp = reactive({ company_name: '', salesman: '', warehouse: '总仓', zt_seq_start: 21 })
 const tpEntities = ref('')
@@ -662,6 +664,10 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile() })
 </script>
 
 <style scoped>
+/* 分区眉标：建立信息层次，把「设置」与「核心列表」清晰分组 */
+.sec-label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--t3);letter-spacing:.4px;margin:18px 0 10px}
+.sec-label::before{content:"";width:3px;height:13px;border-radius:2px;background:var(--p)}
+
 /* v160 模板参数卡片 */
 .tp-card{margin-bottom:12px;padding:0;overflow:hidden}
 .tp-hd{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer}
@@ -683,7 +689,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile() })
 .tp-dept-name{min-width:76px;font-size:12px;color:var(--t2);flex:0 0 auto}
 .tp-dept-row input{flex:1;min-width:0}
 .tp-actions{display:flex;gap:8px}
-.health-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:rgba(var(--war-rgb),.10);border:1px solid rgba(var(--war-rgb),.35);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:12px;cursor:pointer}
+.health-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:rgba(var(--war-rgb),.06);border:1px solid var(--border-subtle);border-left:3px solid var(--war);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:14px;cursor:pointer}
 .health-bar.ok{background:rgba(var(--suc-rgb),.10);border-color:rgba(var(--suc-rgb),.35)}
 .hb-dot{width:8px;height:8px;border-radius:50%;background:var(--war);flex-shrink:0}
 .health-bar.ok .hb-dot{background:var(--suc)}
@@ -695,7 +701,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile() })
 .hd-t.war{color:var(--war)}
 .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 /* 历史门店授权提示条：与「配置体检」同构但用中性色 —— 它是「待收敛」不是「有错」。 */
-.legacy-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:var(--bg2);border:1px solid var(--border-subtle);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:12px;cursor:pointer}
+.legacy-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:var(--bg2);border:1px solid var(--border-subtle);border-left:3px solid var(--t3);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:14px;cursor:pointer}
 .lb-dot{width:8px;height:8px;border-radius:50%;background:var(--t3);flex-shrink:0}
 .lb-toggle{margin-left:auto;color:var(--p);font-size:12px}
 .legacy-detail{margin-bottom:12px;padding:14px 16px}
@@ -707,7 +713,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile() })
 .lb-revoke{margin-left:4px}
 .chip{font-size:12px;padding:3px 9px;background:var(--bg2);border-radius:8px;color:var(--t2)}
 
-.toolbar{display:flex;gap:10px;margin-bottom:12px}
+.toolbar{display:flex;gap:10px;align-items:center;margin:16px 0 12px}
 
 .card{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
 .table-wrap{padding:6px 4px;overflow-x:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}

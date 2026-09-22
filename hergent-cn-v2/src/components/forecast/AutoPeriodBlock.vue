@@ -105,7 +105,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { autoPeriodApi } from '../../api/modules'
 import { toast } from '../../store'
 
-const open = ref(false)
+const open = ref(true)
 const busy = ref(false)
 const state = reactive({
   enabled: 0, rule_id: 0, brand: '', occupied_by: '',
