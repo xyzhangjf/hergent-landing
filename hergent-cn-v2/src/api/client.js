@@ -30,8 +30,9 @@ export const auth = {
         推导用户所属租户（见 api() 内的 TENANT_FORBIDDEN 分支）。
    ------------------------------------------------------------------------ */
 
-/** 清掉可能残留的 hergent_tenant cookie（非 HttpOnly，JS 可清） */
-export function clearTenantCookie() {
+/** 清掉可能残留的 hergent_tenant cookie（非 HttpOnly，JS 可清）。
+ *  仅本模块内部使用（resetTenantContext / bootstrapTenantContext），故不对外导出。 */
+function clearTenantCookie() {
   try {
     const host = window.location.hostname
     const base = 'hergent_tenant=; Max-Age=0; path=/; SameSite=lax'

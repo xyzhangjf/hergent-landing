@@ -1,7 +1,7 @@
 // 自包含可打印 / 可下载成品页 —— 让 AI 报告、货损 / 工资 / 对账结果能一键带走
 // （打印或另存 PDF），不依赖任何外部 CDN，全部样式内联、离线可用。
 // 用法：openPrintable({ title, subtitle, bodyHtml, filename, generatedAt })
-//       downloadPrintable({ ... })  // 直接下载 .html
+// （下载 .html 由成品页内联的"下载 HTML"按钮提供，见 buildPrintableHtml 的 dlHandler）
 
 function escapeHtml(s) {
   return String(s == null ? '' : s)
@@ -45,7 +45,7 @@ const BASE_CSS = `
   }
 `
 
-export function buildPrintableHtml({ title = 'Hergent 交付物', subtitle = '', brand = 'Hergent AI 经营副驾', bodyHtml = '', filename, generatedAt } = {}) {
+function buildPrintableHtml({ title = 'Hergent 交付物', subtitle = '', brand = 'Hergent AI 经营副驾', bodyHtml = '', filename, generatedAt } = {}) {
   const stamp = generatedAt || new Date().toLocaleString('zh-CN')
   const safeTitle = escapeHtml(title)
   const safeBrand = escapeHtml(brand)
@@ -80,14 +80,4 @@ export function openPrintable(opts = {}) {
   const w = window.open('', '_blank')
   if (!w) { alert('浏览器拦截了弹出窗口，请允许后重试'); return }
   w.document.open(); w.document.write(html); w.document.close()
-}
-
-export function downloadPrintable(opts = {}) {
-  const html = buildPrintableHtml(opts)
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = (opts.filename || opts.title || 'hergent') + '.html'
-  a.click()
-  URL.revokeObjectURL(a.href)
 }

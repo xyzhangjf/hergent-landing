@@ -333,8 +333,6 @@ function goTodo(t) {
   window.location.hash = '#' + t.path
 }
 
-function fmtNum(n) { return Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
-
 onMounted(loadData)
 </script>
 
