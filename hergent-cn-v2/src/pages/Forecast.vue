@@ -859,7 +859,8 @@
             </tbody>
           </table>
           </div>
-          <p class="cross-amt-note">报单金额 = 最终下单数量（箱）× 单价（进价/箱）。<b>单价(进价/箱) = 商品档案的进价</b>（档案里的进价<b>本身就是「元/箱」</b>，不再乘任何换算）；档案进价为空时回退到档案里的历史进价列。<b>每箱数（= 每箱有几个报单单位）</b>取商品档案的单位换算，档案缺则按规格串解析（如「250g*24瓶」=24、纯数字规格「12」=12）。合计(箱) = <b>逐行</b>「报单数量 ÷ 每箱数」，<b>可为小数</b>（如报 3 瓶 ÷ 24 瓶/箱 = 0.125 箱）；最终下单(箱) = <b>合计(箱) 不足一箱按一箱</b>（厂商不拆零发货）<b>+ 加单(箱)</b>。</p>
+          <div class="amt-note-toggle" @click="amtNoteOpen=!amtNoteOpen">口径说明（合计/单价换算口径）{{ amtNoteOpen ? ' ▴' : ' ▾' }}</div>
+          <p v-if="amtNoteOpen" class="cross-amt-note">报单金额 = 最终下单数量（箱）× 单价（进价/箱）。<b>单价(进价/箱) = 商品档案的进价</b>（档案里的进价<b>本身就是「元/箱」</b>，不再乘任何换算）；档案进价为空时回退到档案里的历史进价列。<b>每箱数（= 每箱有几个报单单位）</b>取商品档案的单位换算，档案缺则按规格串解析（如「250g*24瓶」=24、纯数字规格「12」=12）。合计(箱) = <b>逐行</b>「报单数量 ÷ 每箱数」，<b>可为小数</b>（如报 3 瓶 ÷ 24 瓶/箱 = 0.125 箱）；最终下单(箱) = <b>合计(箱) 不足一箱按一箱</b>（厂商不拆零发货）<b>+ 加单(箱)</b>。</p>
         </div>
 
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
@@ -1078,7 +1079,7 @@
                     <input v-model="r[c.key]" class="cell-input cell-wide" :placeholder="c.label" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @change="onCellChange">
                   </template>
                   <template v-else-if="c.edit === 'num'">
-                    <input :value="r[c.key] ?? ''" class="cell-input cell-num" type="text" :inputmode="c.num === 'int' ? 'numeric' : 'decimal'" placeholder="0" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @input="numInput($event, r, c.key)" @change="numCommit($event, r, c.key)">
+                    <input :value="r[c.key] ?? ''" class="cell-input cell-num" type="text" :inputmode="c.num === 'int' ? 'numeric' : 'decimal'" placeholder="·" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @input="numInput($event, r, c.key)" @change="numCommit($event, r, c.key)">
                   </template>
                   <!-- v184：只读列（edit:'ro'）—— 有**展示**、没有写入口。
                        ⚠️ 这里刻意不放 input：本列（到货周期）唯一写入口是「预报导入」，
@@ -1098,7 +1099,7 @@
                        ⚠️ 不能只靠 `type="number"`：iOS 会弹数字键盘，但部分安卓浏览器不给 ⇒ 加 inputmode 是双保险。
                        ⚠️ 只有**数量**用 numeric（整数）；单价有 `step="0.01"`（两位小数）必须用 decimal，
                           否则安卓上小数点键会消失，用户永远填不了小数价。 -->
-                  <input :value="r.qtyByUnit[u.name] ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="0" :data-r="ri" :data-c="visibleCols.length + ui" :list="qtyListFor(ri, ui)" @focus="onFocusCell(ri, visibleCols.length + ui, $event)" @input="numInput($event, r.qtyByUnit, u.name)" @change="numCommit($event, r.qtyByUnit, u.name)">
+                  <input :value="r.qtyByUnit[u.name] ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="visibleCols.length + ui" :list="qtyListFor(ri, ui)" @focus="onFocusCell(ri, visibleCols.length + ui, $event)" @input="numInput($event, r.qtyByUnit, u.name)" @change="numCommit($event, r.qtyByUnit, u.name)">
                   <!-- v211（P1-3）：同主档列的角标。这里用 `cellErrMsg` 而非 `cellIssue`：
                        数量格不涉及条码，与 td 自己的 title 保持**同一个判据**（否则角标和悬停会各说一套）。 -->
                   <span v-if="cellErrMsg(ri, visibleCols.length + ui)" class="cell-err-dot" :title="cellErrMsg(ri, visibleCols.length + ui)" @mousedown.stop.prevent @click.stop="showCellErr(ri, visibleCols.length + ui)" aria-label="查看此格的错误原因"><Icon name="alert-triangle"/></span>
@@ -1113,7 +1114,7 @@
                 <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri">{{ fmt(rowSum(r)) }}</td>
                 <td class="num calc boxes" :data-r="ri"><span :class="{ 'miss-price': boxMissing(r) }">{{ boxText(r) }}</span></td>
                 <td v-if="showSuggest" class="num calc suggest" :data-r="ri" title="配方建议：按「建议算法」面板策略算出">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
-                <td class="num calc extra" :data-r="ri"><input :value="r.extraQty ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="0" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT, $event)" @input="numInput($event, r, 'extraQty')" @change="numCommit($event, r, 'extraQty')"></td>
+                <td class="num calc extra" :data-r="ri"><input :value="r.extraQty ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT, $event)" @input="numInput($event, r, 'extraQty')" @change="numCommit($event, r, 'extraQty')"></td>
                 <td class="num calc final" :data-r="ri"><b>{{ fmt(rowFinalQty(r)) }}</b></td>
                 <td class="num calc price" :class="{ 'miss-price': pricePerCase(r) == null }" :data-r="ri"><input :value="r.casePrice ?? ''" class="cell-input cell-price" :class="{ 'manual-price': Number(r.casePrice) > 0 }" type="text" inputmode="decimal" :placeholder="pricePh(r)" :title="priceTitle(r)" :data-r="ri" :data-c="C_PRICE_INPUT" @focus="onFocusCell(ri, C_PRICE_INPUT, $event)" @input="numInput($event, r, 'casePrice')" @change="onCasePriceChange(r, $event)"></td>
                 <td class="num calc amount" :data-r="ri"><span :class="{ 'miss-price': pricePerCase(r) == null }">{{ amountValue(r) != null ? fmt(amountValue(r)) : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }}</span></td>
@@ -1170,7 +1171,8 @@
             </tbody>
           </table>
           </div>
-          <p class="cross-amt-note">最终下单(箱) = 合计(箱) <b>不足一箱按一箱</b> + 加单(箱)（厂商不拆零发货）；<b>下单金额(进价) = 最终下单(箱) × 单价(进价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的进价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</p>
+          <div class="amt-note-toggle" @click="amtNoteOpen=!amtNoteOpen">口径说明（下单/单价录入口径）{{ amtNoteOpen ? ' ▴' : ' ▾' }}</div>
+          <p v-if="amtNoteOpen" class="cross-amt-note">最终下单(箱) = 合计(箱) <b>不足一箱按一箱</b> + 加单(箱)（厂商不拆零发货）；<b>下单金额(进价) = 最终下单(箱) × 单价(进价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的进价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</p>
           <!-- ⚠️ v212 两处修正（都是真机探针抓出来的，不是推演出来的）——
                ① 判据从 `selStats` 改成 `selRange`。
                   原写法在**选区里一个数字都没有**时整条不渲染 —— 而「框选一片空格子 → 填同一个数」
@@ -2746,11 +2748,13 @@ function heatStyle(r, uname) {
   const t = Math.min(1, v / maxQty.value)
   // C1 修复 (2026-07-24)：硬编码 7 色 → variables.css --heat-* 令牌（inline style 中
   // var() 合法，深色模式自动适配，无需在 JS 里做主题分支）
+  // v246 降噪：低值档（<0.35）只上**文字色**、不上底色 —— 否则整列同档时会变成一整块
+  // 橄榄色，看起来像「被选中/出错」而非热度。底色只留给真正高的值。
   if (t >= 0.85) return { background: 'var(--heat-4-bg)', color: 'var(--heat-4-txt)' }
   if (t >= 0.6) return { background: 'var(--heat-3-bg)', color: 'var(--heat-3-txt)' }
   if (t >= 0.35) return { background: 'var(--heat-2-bg)', color: 'var(--heat-2-txt)' }
-  if (t >= 0.15) return { background: 'var(--heat-1-bg)', color: 'var(--heat-1-txt)' }
-  return { background: 'var(--heat-0-bg)', color: 'var(--heat-0-txt)' }
+  if (t >= 0.15) return { color: 'var(--heat-3-txt)' }
+  return { color: 'var(--t3)' }
 }
 const sortedRows = computed(() => {
   const rows = cross.value.rows
@@ -7437,6 +7441,8 @@ const foot = computed(() => {
 
 // P3-6 行内 sparkline（近 6 期趋势，按需载入）
 const showSpark = ref(false)
+// v246：口径说明默认收起，点开才显示（降噪）
+const amtNoteOpen = ref(false)
 const historyLoading = ref(false)
 async function fetchHistory() {
   const cur = cross.value.period
@@ -10340,6 +10346,7 @@ th.sortable:hover{color:var(--p-dark)}
 .col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:2px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden;box-shadow:0 -2px 5px rgba(15,23,42,.06)}
 .col-total-bar>table{transform:translateX(var(--foot-sl,0));will-change:transform}
 .cross-amt-note{margin:10px 2px 0;font-size:12px;line-height:1.6;color:var(--t3)}
+.amt-note-toggle{display:inline-block;margin:8px 2px 0;font-size:12px;color:var(--p-dark);cursor:pointer;user-select:none}
 .cross-amt-note b{color:var(--t1)}
 .col-total-bar .frozen{background:var(--bg3)}
 /* 表尾「冻结列」反向同步（v176，与序号列冻结同批）：
@@ -10499,6 +10506,8 @@ th.sortable:hover{color:var(--p-dark)}
 .cell-ro{display:block;padding:2px 6px;color:var(--t2);font-size:12px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cell-input{height:26px;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:12px;outline:none;display:block;width:100%;min-width:0;box-sizing:border-box;text-align:center}
 .cell-input:focus{border-color:var(--p)}
+/* v246 零值降噪：空格子的占位点（·）淡显，避免「满屏 0」淹没有效数据 */
+.cell-input::placeholder{color:var(--t3);opacity:.4}
 /* v190：「单价(进价/箱)」录入框。
    ① 手工录入价 —— 必须与「档案进价算出来的自动价」在视觉上区分，否则用户分不清
       「这个价是系统带的还是我填的」（同屏两个来源的数必须能自证，见项目铁律）。
