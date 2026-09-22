@@ -141,7 +141,7 @@
         <!-- v242e：改成**可见 label**。原先四个字段只靠 placeholder 标识，而 placeholder
              一旦有值就消失 —— 预填改为「今天/明天/明天+4」后**永远有值**，于是打开表单看到的是
              三个光秃秃的日期，分不出哪个是下单开始、哪个是到货。与同页 2252 行那组字段同范式。 -->
-        <label class="np-fld"><span>期次名称</span>
+        <label class="np-fld np-fld-name"><span>期次名称</span>
           <input v-model="np.name" class="input" placeholder="如 8月25日报单-8月29日到货" @input="onPeriodNameInput"></label>
         <!-- v180：手工改过的字段会被标记 —— 名称解析不再静默覆盖它 -->
         <label class="np-fld"><span>下单开始</span>
@@ -10607,14 +10607,16 @@ th.sortable:hover{color:var(--p-dark)}
 .gate-bar .gate-txt{flex:1}
 .gate-bar b{font-weight:600}
 .new-period{margin-bottom:14px}
-/* v242e：align-items:flex-end —— 字段上方多了 label，按钮要与输入框底对齐 */
-.np-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
-.np-row .input{flex:1;min-width:140px}
-/* v242e：带 label 的字段（label 上、input 下）。放进 .np-row 后 label 成了 flex 子项，
-   故 flex/min-width 由 .np-fld 承接，input 必须解掉继承来的 flex:1（列方向会撑高） */
-.np-fld{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px}
-.np-fld>span{font-size:11px;color:var(--t3);line-height:1}
-.np-fld .input{flex:none;width:100%;min-width:0}
+/* v242h（用户定）：**行内标签**（label 在输入框左侧）+ 输入框本地降到 32px + 收窄宽度。
+   为什么 32px：与 .btn-sm / 本页工具栏（期次选择器 32 + 新建期次按钮 32）齐平，整行一个高度。
+   为什么要收窄：原 `.np-fld{flex:1}` 把 4 个字段各拉到卡片 1/4，日期框被撑到 200px+ ——
+   一个「2026-09-22」用不了那么宽，纯浪费。现在日期固定 140px、名称 240px，行内不抢空间。 */
+.np-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.np-fld{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.np-fld>span{font-size:12px;color:var(--t2);white-space:nowrap}
+.np-fld .input{flex:none;width:130px;height:32px;min-width:0;padding:0 10px}
+/* 名称要比日期宽（「9月20日报单9月25日到货」这类名字装得下） */
+.np-fld-name .input{width:210px}
 /* v180 期次软警告（同名 / 窗口重叠）—— 非阻塞提示；硬规则由后端 period_validate 拦截 */
 .np-hint-warn{font-size:12px;color:var(--war,#b45309);background:rgba(245,158,11,.1);border-left:3px solid rgba(245,158,11,.5);border-radius:6px;padding:6px 9px;margin:8px 0 0;line-height:1.55}
 .np-warn{margin:10px 0 0;padding-left:18px;font-size:12.5px;line-height:1.7;color:var(--war)}
