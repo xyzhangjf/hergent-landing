@@ -9789,13 +9789,14 @@ function openNewPeriod() {
     return
   }
   showNewPeriod.value = true
-  // 打开即预填（v242c 统一为**填报窗口**口径）：报单日=今天 ⇒
-  //   下单截止=今天、下单开始=**前一天**、到货=今天+4（均可手改）
+  // 打开即预填（v242c 统一为**填报窗口**口径；v242d 按用户口径校正锚点）：
+  //   报单日 = **明天** ⇒ 下单开始 = 今天、下单截止 = 明天、到货 = 明天 + 4 天
+  //   （到货跟着报单日走，保持「到货 = 报单日 + 提前天数」的关系；三项均可手改）
   const t = new Date()
-  const arr = new Date(t.getTime() + 4 * 86400000)
-  const prev = new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1)
-  np.value.order_start = fmtDate(prev)
-  np.value.order_end = fmtDate(t)
+  const tomorrow = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1)
+  const arr = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 5)
+  np.value.order_start = fmtDate(t)
+  np.value.order_end = fmtDate(tomorrow)
   np.value.arrival = fmtDate(arr)
   // v180：预填值不算「手改」，否则名称解析会被自己的预填挡住
   resetNpTouched()
