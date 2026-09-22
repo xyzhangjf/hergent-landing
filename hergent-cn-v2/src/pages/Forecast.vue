@@ -644,6 +644,12 @@
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
+            <!-- v247：查看态默认收起「整列全空」的列（历史期次列 / 档案未填列），勾上才铺开 -->
+            <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
+            <span v-if="hiddenEmptyCols" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
+                  :title="'已收起 ' + hiddenEmptyCols + ' 个全空列（勾选「显示空列」即可展开）'"
+                  :aria-label="'已收起 ' + hiddenEmptyCols + ' 个全空列'"
+            ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
             <!-- v209：同「已隐藏 N 个零报单」，全屏时收成图标形态（实测本条占 180px，是全行最肥的单件） -->
             <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
                   :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（勾选「显示全部商品」即可展开）'"
@@ -802,7 +808,7 @@
                         <button class="rop danger" @click.stop="delRowSoft(it.r.product_id)" title="删除该行"><Icon name="trash"/></button>
                       </span>
                     </template>
-                    <template v-else-if="col.type === 'master'">{{ masterVal(it.r, col) }}</template>
+                    <template v-else-if="col.type === 'master'"><span :class="{ 'cell-dash': masterVal(it.r, col) === '—' }">{{ masterVal(it.r, col) }}</span></template>
                     <template v-else-if="col.type === 'qty'">
                       <input v-if="editingCell && editingCell.pid === it.r.product_id && editingCell.uname === col.key" class="cell-input cell-qty" type="text" inputmode="numeric" :value="it.r.qtyByUnit[col.key] || 0" v-focus @input="numInput($event, it.r.qtyByUnit, col.key)" @change="commitCell(it.r.product_id, col.key, $event.target.value)" @blur="commitCell(it.r.product_id, col.key, $event.target.value)" @keydown.stop="onCellKey($event, it.r.product_id, col.key)">
                       <span v-else class="qty-num tip-wrap" :style="heatStyle(it.r, col.key)">{{ it.r.qtyByUnit[col.key] }}<span class="tip">¥{{ fmt(displayPrice(it.r) != null ? (it.r.qtyByUnit[col.key] || 0) * displayPrice(it.r) : 0) }}（按行单价估算）</span></span>
@@ -877,6 +883,12 @@
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
+            <!-- v247：查看态默认收起「整列全空」的列（历史期次列 / 档案未填列），勾上才铺开 -->
+            <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
+            <span v-if="hiddenEmptyCols" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
+                  :title="'已收起 ' + hiddenEmptyCols + ' 个全空列（勾选「显示空列」即可展开）'"
+                  :aria-label="'已收起 ' + hiddenEmptyCols + ' 个全空列'"
+            ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
             <!-- v209：同「已隐藏 N 个零报单」，全屏时收成图标形态（实测本条占 180px，是全行最肥的单件） -->
             <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
                   :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（勾选「显示全部商品」即可展开）'"
@@ -2576,6 +2588,9 @@ const hideZeroReport = ref(false)   // 仅显示有报单（填报数量>0）的
    勾上 = 回到旧行为（全量在售商品档案），供「翻全量清单挑一个来补报」的场景。
    ⚠️ 与 `hideZeroReport` 是两层不同的东西：那个过滤**已有行**，这个换**行底来源**。 */
 const showAllProducts = ref(false)
+// v247：查看态默认**收起整列全空的列**（历史期次列 / 档案未填列），勾上才铺开。
+// 背景：期次一多，十几列全空的列把「合计(小单位)」挤出视口，有用的信息要横向滚才看得到。
+const showEmptyCols = ref(false)
 const zeroReportCount = computed(() => cross.value.rows.filter(r => rowSum(r) <= 0).length)
 // 行底被收窄时隐藏了多少行 —— 数字必须由**同一份 rows** 现算，不另存计数
 // （旧铁律：同屏数字口径必须同源；人工维护的计数必然漂移）。
@@ -2891,12 +2906,43 @@ function onCellClick(it, col, ci, e) {
 function onCellDbl(it, col) { if (it.kind === 'row' && col.type === 'qty') editCell(it.r.product_id, col.key) }
 function onCellFocus(it, ci) { if (it.kind === 'row') activeCell.value = { pid: it.r.product_id, ci } }
 
+/* v247 空列判定：整列在所有行里**都没有有效值** ⇒ 判为空列。
+   ⚠️ 用 flatItems（全量行）而非 vsWindow（虚拟滚动窗口）—— 窗口内恰好都空会让列
+      一闪一闪地出现/消失，判定必须稳定。
+   ⚠️ 商品名（name）与固定列永不收起；0 也算「无值」（报 0 = 没报单）。 */
+const emptyColSet = computed(() => {
+  const rows = flatItems.value.filter(it => it.kind === 'row').map(it => it.r)
+  const s = new Set()
+  if (!rows.length) return s
+  visibleCols.value.forEach(c => {
+    if (c.key === 'name' || c.fixed) return
+    const has = rows.some(r => {
+      const v = c.fmt ? c.fmt(r) : r[c.key]
+      return v != null && v !== '' && String(v).trim() !== '' && String(v) !== '0'
+    })
+    if (!has) s.add('m:' + c.key)
+  })
+  cross.value.units.forEach(u => {
+    const has = rows.some(r => (parseInt(r.qtyByUnit && r.qtyByUnit[u.name]) || 0) !== 0)
+    if (!has) s.add('q:' + u.name)
+  })
+  return s
+})
+const hiddenEmptyCols = computed(() => (showEmptyCols.value ? 0 : emptyColSet.value.size))
+
 const colOrderList = computed(() => {
   const cols = [{ type: 'seq', key: 'seq', label: '列设置' }]
   // v184：把 fixed 一并带下去 —— 查看态的冻结判定（isFrozen）与 left 计算都要读它。
   //   ⚠️ 此前这里只传 key/label/cls/fmt/deletable，fixed 到不了查看态。
-  visibleCols.value.forEach(c => cols.push({ type: 'master', key: c.key, label: c.label, cls: c.cls, fmt: c.fmt, deletable: c.deletable, fixed: c.fixed }))
-  cross.value.units.forEach(u => cols.push({ type: 'qty', key: u.name, label: u.name }))
+  // v247：收起整列全空的列（勾选「显示空列」后恢复）
+  visibleCols.value.forEach(c => {
+    if (!showEmptyCols.value && emptyColSet.value.has('m:' + c.key)) return
+    cols.push({ type: 'master', key: c.key, label: c.label, cls: c.cls, fmt: c.fmt, deletable: c.deletable, fixed: c.fixed })
+  })
+  cross.value.units.forEach(u => {
+    if (!showEmptyCols.value && emptyColSet.value.has('q:' + u.name)) return
+    cols.push({ type: 'qty', key: u.name, label: u.name })
+  })
   cols.push({ type: 'calc', key: 'qty', label: '合计(小单位)' })
   cols.push({ type: 'calc', key: 'boxes', label: '合计(箱)' })
   // v184e：系统建议用于辅助决定「加单」填多少，移到「加单」左侧，形成「建议→加单→最终下单」阅读流。
@@ -10347,6 +10393,8 @@ th.sortable:hover{color:var(--p-dark)}
 .col-total-bar>table{transform:translateX(var(--foot-sl,0));will-change:transform}
 .cross-amt-note{margin:10px 2px 0;font-size:12px;line-height:1.6;color:var(--t3)}
 .amt-note-toggle{display:inline-block;margin:8px 2px 0;font-size:12px;color:var(--p-dark);cursor:pointer;user-select:none}
+/* v247：档案列空值（—）淡显，与数量格空格子同一套语言 */
+.cell-dash{color:var(--t3);opacity:.55}
 .cross-amt-note b{color:var(--t1)}
 .col-total-bar .frozen{background:var(--bg3)}
 /* 表尾「冻结列」反向同步（v176，与序号列冻结同批）：
