@@ -80,10 +80,9 @@
       <span class="tb-sep"></span>
       <div class="tb-group tb-act">
         <button class="btn btn-sm btn-ghost" :disabled="!cross.period" @click="onSuggest" title="按体检/货损/返利/起订量生成建议并打开审核"><Icon name="sparkle"/> <span class="tb-ai-txt">AI智能建议</span></button>
-        <!-- v209：全屏时让位给表格工具行里那一份（全屏层 fixed/inset:0 把本工具栏整条盖住 ⇒ 这里的按钮点不到）。
-             非全屏照旧渲染于此。判据见 fsRowHosting。 -->
+        <!-- v243c：改单按钮始终渲染于此（不再让位）。全屏层改从真实工具栏底部下方开始，主工具栏始终可见可达，无需层内副本。 -->
         <!-- v219：已定稿（关闭）的期次禁用改单 —— 与后端 save_matrix 闸门同源，避免「能改但保存被拒」 -->
-        <button v-if="!editMode && !fsRowHosting" class="btn btn-sm btn-primary" :disabled="loadingEdit || periodClosed"
+        <button v-if="!editMode" class="btn btn-sm btn-primary" :disabled="loadingEdit || periodClosed"
                 :title="periodClosed ? '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行')"
                 @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
         <!-- 编辑态：高级工具（审批/推送/打印 + 健康体检/AI工具/协同闭环/更多工具） -->
@@ -105,9 +104,8 @@
         </div>
       </div>
       <!-- 编辑控制组：编辑态 6 个按钮独占第二行，紧贴下方表格（视线与鼠标行程最短）。
-           v209：全屏时让位给表格工具行里那一份（判据见 fsRowHosting）——全屏层把本行盖住，
-           而用户此时**正在改单**，够不着的代价最大。 -->
-      <div v-if="editMode && !fsRowHosting" class="tb-edit-group">
+           v243c：始终渲染于此（不再让位）。全屏层从真实工具栏底部下方开始，本组在屏内即可用。 -->
+      <div v-if="editMode" class="tb-edit-group">
         <!-- Q12/Q30：编辑按钮带载入态与权限提示；Q25：校验按钮带待修正角标；Q27：失败后按钮变「重试保存」 -->
         <button class="btn btn-sm btn-ghost" @click="exitEdit">取消</button>
         <!-- v201：可用性与状态条**同源** —— 原为 `:disabled="!lastSavedSnap"`，
@@ -685,21 +683,7 @@
               </div>
               </Teleport>
             </div>
-            <!-- v209：**全屏专属**「改单」入口。
-                 成因：全屏层 `.grid-area.is-fs{position:fixed;inset:0;z-index:1000}` 把主工具栏整条盖住
-                 ⇒ 全屏下页头那个「改单」点不到（真机 elementFromPoint 命中到一个无 class 的元素，
-                 按钮坐标正常但最上层不是它）。用户在**全屏看表**时想改单，被迫先退出全屏。
-                 解法：在**全屏层内部**补一个同源入口，不必退出全屏即可进入改单。
-                 非全屏**刻意不渲染**：页头那份本来就在手边，且表格工具行没有多余宽度
-                 （实测非全屏 1440 塞入编辑组差 273px、必然折行）—— 这正是「方案 A：全屏专属」的取舍。
-                 与主工具栏那份同源（同 :disabled / :title / @click）；两者由 fsRowHosting 保证**同时只有一份**。 -->
-            <template v-if="fsRowHosting">
-              <span class="tb-sep"></span>
-              <!-- v219：同第一处 —— 已定稿期次禁用改单（三处按钮共用 periodClosed 判据） -->
-              <button class="btn btn-sm btn-primary" :disabled="loadingEdit || periodClosed"
-                      :title="periodClosed ? '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行')"
-                      @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
-            </template>
+            <!-- v243c：原 v209 全屏层内「改单」副本已移除 —— 全屏层从真实工具栏底部下方开始，主工具栏的改单始终可达，无需层内副本。 -->
           </div>
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
@@ -918,35 +902,7 @@
                  是"还没定稿的数"，很容易被当成最终报单直接粘进厂家系统下单 → 数错。
                  故复制入口**只在只读汇总表**提供（见上方 .grid-ctl-row）。
                  品牌筛选两态都留：它同时是**显示过滤**，改单时按品牌收窄视野仍有意义。 -->
-            <!-- v209：**全屏专属**编辑控制组 —— 就是「改单」点击后出现的全部功能按钮 + 常驻保存状态。
-                 与主工具栏 .tb-edit-group 那份**同源同文案**（同 :disabled / :title / @click）。
-                 ⚠️ 两处必须同步改：任何一处增删按钮，另一处要跟上（本文件里品牌弹层、两态表格工具行
-                    也是同样的「同构两处」写法，沿此惯例）。
-                 只在全屏渲染的理由同「改单」入口：非全屏时主工具栏那行在手边，
-                 而表格工具行没有多余宽度（实测非全屏 1440 塞入编辑组差 273px，必然折行）。 -->
-            <template v-if="fsRowHosting">
-              <span class="tb-sep"></span>
-              <div class="tb-edit-group">
-                <!-- Q12/Q30：编辑按钮带载入态与权限提示；Q25：校验按钮带待修正角标；Q27：失败后按钮变「重试保存」 -->
-                <button class="btn btn-sm btn-ghost" @click="exitEdit">取消</button>
-                <!-- v201：可用性与状态条**同源** —— 两者都只看 dirtySinceSave（＝有改动才可回退） -->
-                <button class="btn btn-sm btn-ghost" :disabled="!dirtySinceSave" title="放弃自上次保存以来的改动，回到起点（上次保存时的内容；本次若从未保存过，则是刚进入编辑时的服务端内容）" @click="undoToLastSaved">回退</button>
-                <button class="btn btn-sm btn-ghost" title="全表录入查错：列出类型/必填/上限/条码重复等错误（可点击跳转）" @click="openErrList">
-                  查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
-                </button>
-                <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
-                <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="noOpenPeriod"
-                :title="noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵'" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
-                <!-- v201/v208：常驻保存状态。三态 see saveState；保存成功后已改为退出编辑态，
-                     故本态是「正在编辑、准备再改一轮」的人的常驻答案。 -->
-                <span class="save-state" :class="saveState.cls"
-                      :title="saveState.cls === 'dirty' ? '改动还没提交：点右侧「保存」才会生效'
-                             : (saveState.cls === 'saved' ? '内容已提交到服务器；继续改动需再次点「保存」'
-                                : '本次进入编辑后还没有任何改动')">
-                  <i class="ss-dot"></i>{{ saveState.text }}
-                </span>
-              </div>
-            </template>
+            <!-- v243c：原 v209 全屏层内「编辑控制组」副本已移除 —— 全屏层从真实工具栏底部下方开始，主工具栏 .tb-edit-group 始终可达，无需层内副本。 -->
           </div>
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
@@ -5041,6 +4997,32 @@ watch([brandCandidates, () => route.query.brand], () => {
   toast(`已按来源页品牌筛选：${hit.join('、')}`, 'success')
 }, { immediate: true })
 
+/* v243b：品牌筛选「本地记忆」（仅本页作用域）。
+   - 用户勾选的品牌刷新/重进本页后自动恢复，免去重复勾选。
+   - 🔴 不覆盖 v185 跨页上下文：`route.query.brand` 存在时由上文 watch 优先落定，本逻辑跳过还原。
+   - 🔴 候选集校验：localStorage 里的值必须用当前 brandCandidates 过滤（过期/改名品牌不残留）。
+   - 不污染跨页：键名带本页标识，且不写 route，不影响「目标与返利」来源页。 */
+const BRAND_SEL_KEY = 'hergent.forecast.brandSel'
+const brandRestored = ref(false)
+watch(brandCandidates, () => {
+  const cand = brandCandidates.value || []
+  if (!cand.length) return                              // 报单数据未就位，等下一次触发
+  if (brandRestored.value) return                       // 已处理过候选集就绪，避免重复/覆盖用户当前选择
+  brandRestored.value = true
+  if (String(route.query.brand || '').trim()) return     // 跨页参数优先，跳过本地恢复（写入仍启用）
+  let saved = []
+  try { saved = JSON.parse(localStorage.getItem(BRAND_SEL_KEY) || '[]') } catch (e) { saved = [] }
+  if (!Array.isArray(saved)) saved = []
+  const hit = saved.filter(b => cand.includes(b))
+  if (hit.length) brandSel.value = hit                  // 仅恢复仍为有效候选的品牌
+}, { immediate: true })
+
+// 用户改动后写回本地（仅在已尝试恢复之后启用，避免挂载瞬间把初始 [] 写回覆盖旧值）
+watch(brandSel, () => {
+  if (!brandRestored.value) return
+  try { localStorage.setItem(BRAND_SEL_KEY, JSON.stringify(brandSel.value || [])) } catch (e) {}
+}, { deep: true })
+
 const hdrFilterVal = ref('')
 const hdrFilterInput = ref(null)
 // 取某行在指定列上的「显示值」用于筛选（复用只读表渲染逻辑 cellText，兼容 master/qty/calc/计算列）
@@ -7779,9 +7761,17 @@ const gridFullscreen = ref(false)
 const gridZoom = ref(100)
 function toggleGridFullscreen() {
   gridFullscreen.value = !gridFullscreen.value
-  if (!gridFullscreen.value) gridZoom.value = 100
-  // v129：全屏层 z-index:1000 会盖住主工具栏，若此时仍开着下拉（面板 fixed/1101、遮罩 1100 都在全屏层之上）
-  // 会留一个浮在表体上的孤儿弹层，进出全屏一律先收起。
+  if (gridFullscreen.value) {
+    // v243c：全屏层从真实工具栏底部下方开始 ⇒ 实测工具栏底边（视口坐标）写入 --fs-top。
+    // 工具栏本身不参与全屏布局（留在原位可见），此刻其位置即最终位置，测量稳健。
+    nextTick(() => {
+      const tb = document.querySelector('.page.grid-fs-on .card.toolbar')
+      if (tb) document.documentElement.style.setProperty('--fs-top', tb.getBoundingClientRect().bottom + 'px')
+    })
+  } else {
+    gridZoom.value = 100
+  }
+  // v129：全屏层会盖住工具栏区域外的页面内容，若仍开着下拉（面板 fixed/1101 等）会留孤儿弹层，进出全屏一律先收起。
   _closePopPanes('')
 }
 function onFsKey(e) { if (e.key === 'Escape' && gridFullscreen.value) gridFullscreen.value = false }
@@ -7798,7 +7788,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onFsKey) })
       （这类「一个状态两种含义」的失效形态在本项目已多次复现，故此处显式写死三条件。）
    ⚠️ viewMode 也要判：表格工具行只在汇总表视图里存在（.cross-area 是 v-if），
       逐单补录视图下它不在 DOM 中 —— 若那时仍让位，同样是无入口。 */
-const fsRowHosting = computed(() => gridFullscreen.value && viewMode.value === 'cross' && !crossLoading.value)
+// v243c：原 fsRowHosting（全屏层内补「改单/编辑组」副本 + 主工具栏让位）已移除 —— 全屏层改为从真实工具栏底部下方开始（见 .grid-area.is-fs 与 toggleGridFullscreen），主工具栏始终可见可达，不再需要副本与让位。
 
 // P6-8 企微/飞书推送快照（后端就绪 /api/forecast/push；失败降级复制）
 const pushing = ref(false)
@@ -10076,9 +10066,8 @@ onMounted(async () => {
    注：类名用 .tb-dense 而非 .tb-compact —— 后者是 variables.css 的全局类（Toolbar.vue 在用），避免命名碰撞。 */
 .toolbar>.tb-group>*{flex:0 0 auto;white-space:nowrap}
 /* 编辑控制组：编辑态独占整行（flex-basis 100% 强制换行），且位于工具栏最末 → 最贴近下方表格。
-   v209：本组自 v209 起**同时被全屏表格工具行复用**（.grid-ctl-row 内那份，见 fsRowHosting）。
-   故必须拆成「共用布局 + 上下文修饰」—— 原为单条 `.toolbar>.tb-edit-group` 同时管这两件事，
-   若直接复用会连带继承「独占整行」(flex:0 0 100%)，在表格工具行里立刻被强制折行。 */
+   v243c：原 v209 的「全屏表格工具行内那份副本」已移除，本组现在只渲染于主工具栏（见模板 v-if="editMode"），
+   不再被 .grid-ctl-row 复用，故「独占整行」不会在表格工具行里被强制折行，原拆分顾虑已不成立。 */
 .tb-edit-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tb-edit-group>.btn{flex:0 0 auto;white-space:nowrap}
 /* v201：编辑工具行的**常驻保存状态**（未修改 / 有未保存的改动 / 已保存 HH:MM）。
@@ -10320,6 +10309,14 @@ th.sortable:hover{color:var(--p-dark)}
 /* 表体全屏按钮：尺寸/图标/颜色/圆角/悬停态与 AI 副驾 .cp-icon-btn 全屏按钮完全对齐 */
 .grid-area{position:relative;display:flex;flex-direction:column;gap:10px}
 .grid-area.is-fs{position:fixed;inset:0;z-index:1000;background:var(--bg);padding:12px;display:flex;flex-direction:column;gap:10px}
+/* v243c：全屏可达性根治。
+   旧方案用 fsRowHosting 在层内补一份「改单 / 编辑组」副本（v209），但主工具栏的
+   「导出 / 期次 / AI建议 / 工具箱」在全屏下仍够不着（需先退出全屏）。
+   新方案：全屏层不再覆盖整个视口（inset:0），而是从**真实工具栏底部**下方开始，
+   工具栏始终留在原位、可见可达 —— 导出 / 改单 / 期次等全部主工具栏功能在屏内即可用。
+   --fs-top 由 toggleGridFullscreen 实测工具栏 getBoundingClientRect().bottom 写入
+   （视口坐标、含顶栏偏移，稳健不依赖写死高度）；left:var(--sidebar-w) 让开左侧栏，与工具栏同起点。 */
+.page.grid-fs-on .grid-area.is-fs{top:var(--fs-top, 0px);left:var(--sidebar-w, 248px);right:0;bottom:0}
 .grid-area.is-fs .cross-viewport,
 .grid-area.is-fs .edit-grid-wrap{flex:1 1 auto;min-height:0;max-height:none}
 /* 表体控制条：全屏按钮 + 缩放条整合为一行，置于表体上方（flex 流），与表格主体保持间距、互不遮挡（非全屏/全屏均成立） */
@@ -10332,12 +10329,11 @@ th.sortable:hover{color:var(--p-dark)}
 .grid-fs-btn:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .grid-fs-btn:disabled{opacity:.35;cursor:default}
 .grid-area.is-fs .grid-fs-btn{top:14px;right:14px}
-/* ===== v209：全屏态把「改单 / 编辑组」搬进表格工具行（方案 A：全屏专属）=====
-   背景：全屏层 .grid-area.is-fs 是 position:fixed;inset:0;z-index:1000，把主工具栏整条盖住
-   ⇒ 全屏下页头那个「改单」点不到（真机 elementFromPoint 命中到无 class 的元素）。用户在**全屏看表**
-   时想改单被迫先退出全屏。解法 = 在**全屏层内部**补同源入口（见模板 fsRowHosting）。
-   ⚠️ 下面各条**只在全屏生效**，非全屏表格工具行一个像素都不动（方案 A 的取舍：非全屏页头那份在手边，
-      且实测非全屏 1440 塞入编辑组差 273px、必然折行）。 */
+/* ===== v243c：全屏态表格工具行的视觉收敛（原 v209 的「层内补副本 + 主工具栏让位」已移除）=====
+   背景：v209 时全屏层 inset:0 把主工具栏整条盖住，才需在层内补「改单/编辑组」副本。
+   v243c 改为「全屏层从真实工具栏底部下方开始」（.grid-area.is-fs 的 top/left 覆盖），工具栏始终可见可达，
+   故副本与让位都不需要了；下面各条只管「全屏时表格工具行（品牌/复制/全屏按钮）的视觉收敛」，
+   与工具栏互不影响。⚠️ 下面各条**只在全屏生效**，非全屏表格工具行一个像素都不动。 */
 /* ① 行尾给右上角全屏按钮**留位**。.grid-fs-btn 是 position:absolute;right:14px（相对全屏层），
       而 .grid-ctl-row 的内容右边界在 视口−12px ⇒ 两者天然重叠最后 28px：内容一长就被按钮压住
       （看着像缺一块，且点不中）。故全屏时行尾预留 34px。 */
@@ -10351,19 +10347,14 @@ th.sortable:hover{color:var(--p-dark)}
          （「已保存 12:34」比实测时的「尚未修改」宽 84px）⇒ 全屏最坏态比稳态宽约 230px，
          不收起必然折行。只在全屏收，非全屏保持完整文案。 */
 .grid-area.is-fs .confirm-badge.badge-slim{padding:3px 7px;gap:0}
-/* ④ 编辑组在全屏再收一档：按钮横向内边距 12→9、组内间距 8→6。仅外观微调，不删任何按钮。 */
-.grid-area.is-fs .grid-ctl-row>.tb-edit-group{gap:6px}
-.grid-area.is-fs .grid-ctl-row>.tb-edit-group>.btn{padding-left:9px;padding-right:9px}
-/* v129 修复：全屏时把主工具栏弹层容器降回普通层级。
-   .tb-pop 常态 z-index:1120（要高于 .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”），
-   但全屏层 .grid-area.is-fs 只有 1000 → 仍在工具栏的「导出」「工具箱」触发器会盖在全屏层上，
-   脱离工具栏悬浮在表体中间、遮挡表头与数据行。全屏时置为 auto（< 1000）即可随工具栏一起被覆盖。
-   不动 .tb-pop 常态值，退出全屏后普通模式的互斥点击行为完全不变。
-   v167 校准：品牌筛选（2026-09-12 下移）与复制报单（v167 下移）现已挂在 .grid-ctl-row 上，
-   属全屏层**内部**元素，不再"脱离工具栏悬浮"；本条规则对它们只剩把容器降为 auto 的中性效果。
-   v168 补充：复制报单只挂**只读态**那条 .grid-ctl-row（编辑态已撤），但无论哪条都在全屏层内部，
-   故上面这条结论不变。 */
-.page.grid-fs-on .tb-pop{z-index:auto}
+/* v243c：原「④ 编辑组在全屏再收一档」两条规则已移除 —— 全屏层不再覆盖主工具栏，编辑组只在主工具栏
+   那一份渲染，其间距/内边距已由 .toolbar>.tb-edit-group 统一管理，无需在层内再收一档。 */
+/* v243c：原 v129 的「全屏时把 .tb-pop 降为 auto」规则已**移除**。
+   旧前提＝全屏层 inset:0 把主工具栏整条盖住（工具栏不可见），才需要把它的弹层容器降下去，
+   免得脱离工具栏悬浮在表体上。v243c 改为「全屏层从真实工具栏底部下方开始」，工具栏始终可见可达，
+   其弹层（.tb-pop-panel 经 Teleport 到 body，z1101）必须保持在全屏层（1000）之上才点得着 ⇒ 不再降级。
+   （品牌筛选 / 复制报单的 .tb-pop 本就在全屏层内部，不受影响。） */
+.page.grid-fs-on .tb-pop{z-index:1120}
 /* v135 修复：AI 副驾全局抽屉（.copilot z-index:950）打开时，主工具栏 .tb-pop 的常态
    z-index:1120 会浮在抽屉之上——触发按钮（工具栏内「导出 / 期次 / 高级工具」，表体工具行内
    「品牌 / 复制报单」）脱离页面悬浮在副驾抽屉上。与全屏层 .grid-fs-on 同构：副驾打开时统一
