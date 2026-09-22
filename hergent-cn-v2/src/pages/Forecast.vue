@@ -136,11 +136,18 @@
     <!-- 新建期次表单（紧贴工具条，随时可点，不依赖视图） -->
     <div v-if="showNewPeriod" class="card new-period">
       <div class="np-row">
-        <input v-model="np.name" class="input" placeholder="期次名称（如 8月25日报单-8月29日到货）" @input="onPeriodNameInput">
+        <!-- v242e：改成**可见 label**。原先四个字段只靠 placeholder 标识，而 placeholder
+             一旦有值就消失 —— 预填改为「今天/明天/明天+4」后**永远有值**，于是打开表单看到的是
+             三个光秃秃的日期，分不出哪个是下单开始、哪个是到货。与同页 2252 行那组字段同范式。 -->
+        <label class="np-fld"><span>期次名称</span>
+          <input v-model="np.name" class="input" placeholder="如 8月25日报单-8月29日到货" @input="onPeriodNameInput"></label>
         <!-- v180：手工改过的字段会被标记 —— 名称解析不再静默覆盖它 -->
-        <input v-model="np.order_start" class="input" type="date" placeholder="下单开始" @input="markNpTouched('order_start')">
-        <input v-model="np.order_end" class="input" type="date" placeholder="下单截止" @input="markNpTouched('order_end')">
-        <input v-model="np.arrival" class="input" type="date" placeholder="预计到货" @input="markNpTouched('arrival')">
+        <label class="np-fld"><span>下单开始</span>
+          <input v-model="np.order_start" class="input" type="date" @input="markNpTouched('order_start')"></label>
+        <label class="np-fld"><span>下单截止</span>
+          <input v-model="np.order_end" class="input" type="date" @input="markNpTouched('order_end')"></label>
+        <label class="np-fld"><span>预计到货</span>
+          <input v-model="np.arrival" class="input" type="date" @input="markNpTouched('arrival')"></label>
         <!-- v180：名称里能识别出日期时才出现。原本「名称 → 日期」是**静默覆盖**，
              现在拆成「自动只填空字段」+「显式按名称重算」两条路。 -->
         <button v-if="npNameDates.length" class="btn btn-sm btn-ghost" @click="applyNameDatesNow"
@@ -10582,8 +10589,14 @@ th.sortable:hover{color:var(--p-dark)}
 .gate-bar .gate-txt{flex:1}
 .gate-bar b{font-weight:600}
 .new-period{margin-bottom:14px}
-.np-row{display:flex;gap:10px;flex-wrap:wrap}
+/* v242e：align-items:flex-end —— 字段上方多了 label，按钮要与输入框底对齐 */
+.np-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 .np-row .input{flex:1;min-width:140px}
+/* v242e：带 label 的字段（label 上、input 下）。放进 .np-row 后 label 成了 flex 子项，
+   故 flex/min-width 由 .np-fld 承接，input 必须解掉继承来的 flex:1（列方向会撑高） */
+.np-fld{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px}
+.np-fld>span{font-size:11px;color:var(--t3);line-height:1}
+.np-fld .input{flex:none;width:100%;min-width:0}
 /* v180 期次软警告（同名 / 窗口重叠）—— 非阻塞提示；硬规则由后端 period_validate 拦截 */
 .np-hint-warn{font-size:12px;color:var(--war,#b45309);background:rgba(245,158,11,.1);border-left:3px solid rgba(245,158,11,.5);border-radius:6px;padding:6px 9px;margin:8px 0 0;line-height:1.55}
 .np-warn{margin:10px 0 0;padding-left:18px;font-size:12.5px;line-height:1.7;color:var(--war)}
