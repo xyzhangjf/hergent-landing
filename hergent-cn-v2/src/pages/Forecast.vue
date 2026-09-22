@@ -7103,8 +7103,11 @@ async function saveSuggestRecipe() {
   const item = { name: n, recipe: clone(suggRecipe) }
   const i = list.findIndex(x => x.name === n); if (i >= 0) list[i] = item; else list.push(item)
   localStorage.setItem(SUGGEST_RECIPE_KEY(), JSON.stringify(list))   // 本地兜底
-  try { await forecastRecipeApi.save(list) } catch (e) {}            // 云端同步（静默）
-  loadSuggestRecipes(); recipePick.value = n; toast('已存为配方「' + n + '」', 'ok')
+  // 云端同步失败不说成成功：本地已落盘，但换设备/清缓存后会丢，须让用户知道
+  let cloudOk = true
+  try { await forecastRecipeApi.save(list) } catch (e) { cloudOk = false }
+  loadSuggestRecipes(); recipePick.value = n
+  toast(cloudOk ? '已存为配方「' + n + '」' : '已存到本地，但云端同步失败（换设备不可用）', cloudOk ? 'ok' : 'warn')
 }
 function applySuggestRecipe(name) {
   const s = suggestRecipes.value.find(x => x.name === name); if (!s) return
@@ -7558,10 +7561,12 @@ async function saveScheme() {
   const item = { name: n, order: clone(colOrder.value), vis: clone(colVis.value) }
   const i = schemes.value.findIndex(x => x.name === n); if (i >= 0) schemes.value[i] = item; else schemes.value.push(item)
   localStorage.setItem(SCHEME_KEY(), JSON.stringify(schemes.value))   // 本地兜底
-  try { await columnSchemeApi.save(schemes.value) } catch (e) {}       // 云端同步（静默）
+  // 云端同步失败不说成成功：本地已落盘，但换设备/清缓存后会丢，须让用户知道
+  let cloudOk = true
+  try { await columnSchemeApi.save(schemes.value) } catch (e) { cloudOk = false }
   schemeName.value = n          // 保存后下拉自动选中刚保存的方案
   schemeSaveName.value = ''     // 清空输入框
-  toast('已保存列方案「' + n + '」', 'ok')
+  toast(cloudOk ? '已保存列方案「' + n + '」' : '已存到本地，但云端同步失败（换设备不可用）', cloudOk ? 'ok' : 'warn')
 }
 function applyScheme(name) {
   const s = schemes.value.find(x => x.name === name); if (!s) return
@@ -7572,8 +7577,9 @@ async function delScheme(name) {
   schemes.value = schemes.value.filter(x => x.name !== name)
   localStorage.setItem(SCHEME_KEY(), JSON.stringify(schemes.value)) // 本地兜底
   if (schemeName.value === name) schemeName.value = ''
-  try { await columnSchemeApi.save(schemes.value) } catch (e) {}  // 云端同步（静默）
-  toast('已删除方案「' + name + '」', 'ok')
+  let cloudOk = true
+  try { await columnSchemeApi.save(schemes.value) } catch (e) { cloudOk = false }
+  toast(cloudOk ? '已删除方案「' + name + '」' : '已删除本地方案，但云端同步失败', cloudOk ? 'ok' : 'warn')
 }
 
 /* ===== P5 / P6 / P7 下一代增强（前端交付，零后端风险；P6-8/P7-10 后端就绪） ===== */
@@ -8219,8 +8225,15 @@ const varByCategory = computed(() => {
   return m
 })
 async function saveVarAttr(pid, cause) {
+  // 留底原值：服务端写失败时回滚，否则归因本地生效而服务端没有，下期重算会丢
+  const prevCause = varAttrs[pid]
   varAttrs[pid] = cause
-  try { await forecastApi.varianceAttrPut({ period_id: curPeriod.value, attrs: JSON.parse(JSON.stringify(varAttrs)) }) } catch (e) {}
+  try {
+    await forecastApi.varianceAttrPut({ period_id: curPeriod.value, attrs: JSON.parse(JSON.stringify(varAttrs)) })
+  } catch (e) {
+    varAttrs[pid] = prevCause
+    toast('归因保存失败：' + (e.message || e), 'err')
+  }
 }
 
 // ---------- P12-5 自然语言改单 ----------
@@ -8436,8 +8449,16 @@ async function loadHeal() {
 }
 async function setHeal(id, status, note) {
   const it = healIssues.value.find(x => x.id === id)
+  // 先留底再改本地：服务端写失败时能原样回滚，避免界面显示"改了一半"
+  const prevStatus = it ? it.status : undefined
+  const prevNote = it ? it.note : undefined
   if (it) { it.status = status; if (note != null) it.note = note }
-  try { await forecastApi.interventionsPost({ id, status, note: note || '' }) } catch (e) {}
+  try {
+    await forecastApi.interventionsPost({ id, status, note: note || '' })
+  } catch (e) {
+    if (it) { it.status = prevStatus; it.note = prevNote }
+    toast('保存失败：' + (e.message || e), 'err')
+  }
 }
 
 // ---------- P15-7 Hermes 深度联动 ----------
