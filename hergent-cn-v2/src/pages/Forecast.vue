@@ -10185,7 +10185,6 @@ onMounted(async () => {
 .col-menu-list input[type=checkbox]{accent-color:var(--p);width:14px;height:14px;cursor:pointer}
 .col-menu-del{border:none;background:none;color:var(--t3);cursor:pointer;font-size:11px;padding:1px 4px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center}
 .col-menu-del:hover{color:var(--dan);background:var(--dan-bg)}
-.col-menu-del:hover{color:var(--dan);background:var(--dan-bg,rgba(239,68,68,.1))}
 .col-menu-add{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .col-menu-add .cm-label{font-size:11px;color:var(--t3);margin-right:2px}
 .col-menu-schemes{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;flex-direction:column;gap:6px}
@@ -10687,7 +10686,6 @@ th.sortable:hover{color:var(--p-dark)}
 .qty-input{width:72px;height:30px;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);text-align:right;background:var(--bg3);color:var(--t1)}
 .btn-del{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .btn-del:hover{color:var(--dan);background:var(--dan-bg)}
-.btn-del:hover{background:rgba(var(--dan-rgb),.1);color:var(--dan)}
 .rebate-section{}
 .sprint-card{}
 .sprint-card.is-pinned{margin:14px 0 4px;border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
