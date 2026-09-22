@@ -147,6 +147,9 @@
                 title="按名称里的日期重算三个日期（会覆盖你手改过的）"><Icon name="refresh"/> 按名称更新日期</button>
         <button class="btn btn-primary" @click="createPeriod">创建</button>
       </div>
+      <!-- v242c：口径提示 —— 自动建表用「报单日前一天 ~ 报单日」，手工建期建议一致，
+           否则同一种期次的「报单窗口」在列表里显示成两种样子。非阻塞，仅提示。 -->
+      <p v-if="npSingleDayWarn" class="np-hint-warn">{{ npSingleDayWarn }}</p>
       <!-- 软警告：同名 / 窗口重叠。硬规则由后端 period_validate 拦截，此处不重复实现 -->
       <ul v-if="npSoftWarn.length" class="np-warn">
         <li v-for="(w, i) in npSoftWarn" :key="i">{{ w }}</li>
@@ -9786,10 +9789,12 @@ function openNewPeriod() {
     return
   }
   showNewPeriod.value = true
-  // 打开即预填：下单窗口=今天，到货=今天+4（均可手改）
+  // 打开即预填（v242c 统一为**填报窗口**口径）：报单日=今天 ⇒
+  //   下单截止=今天、下单开始=**前一天**、到货=今天+4（均可手改）
   const t = new Date()
   const arr = new Date(t.getTime() + 4 * 86400000)
-  np.value.order_start = fmtDate(t)
+  const prev = new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1)
+  np.value.order_start = fmtDate(prev)
   np.value.order_end = fmtDate(t)
   np.value.arrival = fmtDate(arr)
   // v180：预填值不算「手改」，否则名称解析会被自己的预填挡住
@@ -9829,12 +9834,27 @@ function resetNpTouched() { npTouched.value = { order_start: false, order_end: f
 // 名称里能识别出的日期（第一个=下单日、第二个=到货日）——决定「按名称更新日期」按钮是否出现
 const npNameDates = computed(() => parsePeriodDates(np.value?.name))
 
+// v242c：报单窗口只有一天时给出与「自动建表」口径对齐的提示（不阻塞创建 —— 后端
+//   period_validate 允许 start<=end，且有些客户确实只报一天）
+const npSingleDayWarn = computed(() => {
+  const a = np.value?.order_start, b = np.value?.order_end
+  if (!a || !b || a !== b) return ''
+  return '这一期的「报单窗口」只有一天。自动建表用的是「报单日前一天 ~ 报单日」，若要口径一致，请把「下单开始」改成报单日的前一天（或直接在期次名称里写日期，会自动按前一日填）。'
+})
+
 // 把识别到的日期写进表单。force=true 时无视「手改过」保护（用户主动点按钮才允许）
 function applyPeriodDates(ds, force) {
   if (!ds || !ds.length) return false
-  const d0 = fmtDate(new Date(ds[0].year, ds[0].month - 1, ds[0].day))
-  if (force || !npTouched.value.order_start) np.value.order_start = d0
+  // v242c：名称里第一个日期是**报单日** ⇒ 下单截止 = 它；下单开始 = 它的**前一天**。
+  //   原先两个字段同设成 d0（下单开始=下单截止=报单日），与「自动建表」写出的
+  //   「填报窗口」(报单日前一天 ~ 报单日) **口径不一致** ⇒ 同一种期次在列表里的
+  //   「报单窗口」显示成两种样子。现统一为填报窗口口径（用 Date 归一化做减法，
+  //   避免 86400000 毫秒在夏令时边界上偏一天）。
+  const _d0 = new Date(ds[0].year, ds[0].month - 1, ds[0].day)
+  const d0 = fmtDate(_d0)
+  const d0prev = fmtDate(new Date(ds[0].year, ds[0].month - 1, ds[0].day - 1))
   if (force || !npTouched.value.order_end) np.value.order_end = d0
+  if (force || !npTouched.value.order_start) np.value.order_start = d0prev
   if (ds.length >= 2) {
     const d1 = fmtDate(new Date(ds[1].year, ds[1].month - 1, ds[1].day))
     if (force || !npTouched.value.arrival) np.value.arrival = d1
@@ -10564,6 +10584,7 @@ th.sortable:hover{color:var(--p-dark)}
 .np-row{display:flex;gap:10px;flex-wrap:wrap}
 .np-row .input{flex:1;min-width:140px}
 /* v180 期次软警告（同名 / 窗口重叠）—— 非阻塞提示；硬规则由后端 period_validate 拦截 */
+.np-hint-warn{font-size:12px;color:var(--war,#b45309);background:rgba(245,158,11,.1);border-left:3px solid rgba(245,158,11,.5);border-radius:6px;padding:6px 9px;margin:8px 0 0;line-height:1.55}
 .np-warn{margin:10px 0 0;padding-left:18px;font-size:12.5px;line-height:1.7;color:var(--war)}
 /* v180 导入弹窗「本期归属」行 —— 归属由后端在导入那一刻定死，故必须前置展示 */
 .imp-own{margin:0 0 12px;font-size:12.5px;line-height:1.7;color:var(--t2)}
