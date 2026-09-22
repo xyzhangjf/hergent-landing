@@ -1163,6 +1163,7 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { toast } from '../store'
 import { rebateApi } from '../api/modules'
 import { api } from '../api/client.js'
@@ -1180,6 +1181,18 @@ import { buildYearMatrix, buildSimItems, applySimResults, monthTargetOf, monthEn
 // 定义靠后时一旦有顶层求值就会触发 TDZ「Cannot access 'mainTab' before initialization」
 const mainTab = ref('dashboard')
 const rules = ref([])
+// v242b：「报单配置」页的「改节奏」深链落点 —— #/rebate?edit_rule=<id> 直接打开该规则
+const _route = useRoute()
+let _routeEditDone = false
+function _applyRouteEdit() {
+  if (_routeEditDone) return
+  const rid = Number((_route.query || {}).edit_rule || 0)
+  if (!rid) return
+  const r = (rules.value || []).find(x => Number(x.id) === rid)
+  if (!r) return
+  _routeEditDone = true          // 只认一次，避免保存后 loadRules 再次弹出
+  openEdit(r)
+}
 const loading = ref(false)
 const filterDim = ref('')
 const filterActive = ref('')
@@ -1596,6 +1609,7 @@ async function loadRules() {
     // v112 R5：include_inactive=1 —— 停用规则也要加载，否则无法恢复/筛选「已停用」
     const d = await rebateApi.list(1)
     rules.value = d.rules || d.data || d || []
+    _applyRouteEdit()
   } catch (e) {
     // 静默
   } finally {
