@@ -10528,7 +10528,10 @@ th.sortable:hover{color:var(--p-dark)}
 .tbl-empty .empty-t{font-size:15px;font-weight:500;margin-top:8px}
 .tbl-empty .empty-s{color:var(--t3);font-size:12px;margin-top:4px}
 .tbl-empty .empty-ops{display:flex;gap:10px;justify-content:center;margin-top:14px}
-.pname{font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* v251：原写死 max-width:200px —— 列宽由 colgroup（拖宽/拖窄）决定，而这条硬上限把
+   商品名永远卡在 200px 内，用户拖再宽也显示不全（只能出省略号）。
+   现改为 max-width:100% ⇒ 跟着列宽走；表仍是 table-layout:fixed，内容不会反推列宽。 */
+.pname{font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pspec{color:var(--t3);font-size:11px;margin-top:1px}
 .ai-hint{color:var(--p-dark);font-size:11px;margin-top:2px;font-weight:500}
 .tip-wrap{position:relative;cursor:help;border-bottom:1px dashed var(--bd)}
