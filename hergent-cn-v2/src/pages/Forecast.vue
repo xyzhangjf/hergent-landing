@@ -792,7 +792,7 @@
                     <template v-if="col.type === 'seq'"><span class="seq-num">{{ it.seq }}</span></template>
                     <template v-else-if="col.type === 'master' && col.key === 'name'">
                       <span class="exp-chev" @click.stop="toggleExpand(it.r.product_id)" :title="isExpanded(it.r.product_id) ? '收起明细' : '展开明细'"><Icon :name="isExpanded(it.r.product_id) ? 'chevron-down' : 'chevron-right'"/></span>
-                      <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span><span v-if="it.r.imported" class="oe-badge imp-tag" title="这一行是本期导入的商品（来自导入登记）">导入</span><span v-if="it.r.offArchive" class="oe-badge off-tag" title="这个商品在你的「在售商品档案」里已停用或已删除，但本期数据引用了它。要让它回到档案列表，请到「商品档案」重新启用。">已停用</span></div>
+                      <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span><span v-if="it.r.offArchive" class="oe-badge off-tag" title="这个商品在你的「在售商品档案」里已停用或已删除，但本期数据引用了它。要让它回到档案列表，请到「商品档案」重新启用。">已停用</span></div>
                       <div class="pspec">{{ it.r.spec || '—' }} · {{ it.r.unit }}<span v-if="it.r.people"> · {{ it.r.people }} 人报</span></div>
                       <div v-if="it.r.ai != null" class="ai-hint">系统建议 {{ fmt(it.r.ai) }}{{ it.r.unit }}<span v-if="it.r.aiMethod" class="hint">（{{ it.r.aiMethod }}）</span></div>
                       <span v-if="rowWarn(it.r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
@@ -1055,9 +1055,6 @@
                          ⚠️ `@input` 里开面板（datalist 时代没有这一格的输入事件）；
                             `@keydown` 上下选 / 回车选中 / Esc 关闭；`@blur` 关闭。 -->
                     <input v-model="r.name" class="cell-input cell-name" :placeholder="namePh" :style="namePadStyle(r)" :title="r.name || ''" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @input="onNameInput(r, ri, ci, $event)" @keydown="nameSugKey" @blur="nameSugClose" @change="onCellChange">
-                    <!-- v249：编辑态也显示「导入」来源标 —— 此前只在查看态渲染，用户点改单后徽章
-                         凭空消失，误以为标记丢了（实际是两态渲染不一致）。数据源同查看态 r.imported。 -->
-                    <span v-if="r.imported" class="oe-badge imp-tag cell-imp-tag" title="这一行是本期导入的商品（来自导入登记）">导入</span>
                     <!-- v211（P1-1）：商品名称**补全候选** —— 数据源是 /api/products/grid 下发的**全量商品主档**
                          （约 428 条），不是本期那 158 行。
                          🔴 为什么这一格最值得补：保存时 `prodPayloadOf` 会把 name 一起回写**商品档案**
@@ -10708,7 +10705,7 @@ th.sortable:hover{color:var(--p-dark)}
    现改为通用色板 oe-c0..oe-c5，同名恒定同色，与主体名具体叫什么无关。 */
 .oe-badge{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:999px;font-size:var(--fs-xs);margin-left:6px;vertical-align:1px}
 /* v179：本批导入角标（信息蓝，与户头徽标的彩色系区分开 —— 户头是"谁下单"，这个是"哪来的"） */
-.imp-tag{background:var(--info-blue-bg);color:var(--info-blue)}
+/* v250：「导入」来源标已撤（用户反馈徽章形似按钮、看着像要点击）；原 .imp-tag 样式随之删除，不留死 CSS */
 /* v179：不在「在售档案」里的行（已停用/已删除）—— 琥珀色，与「导入」蓝明确区分 */
 .off-tag{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .oe-c0{background:var(--p-bg);color:var(--p-dark)}
@@ -10913,8 +10910,6 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
       否则横向滚动时，被冻结列盖住的那半张表上的角标会浮出来「飘在冻结列上面」。
    ⚠️ 尺寸压到 13×11、图标 9px：格子本身只有约 26px 高，再大就会压住输入文字的首字符。 */
 .cell-err-dot{position:absolute;left:0;top:0;width:13px;height:11px;display:flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger-txt);border-bottom-right-radius:6px;cursor:pointer;z-index:5;line-height:1}
-/* v249：编辑态名称格的「导入」角标 —— 右上角小标，与查看态徽章同色系（imp-tag） */
-.cell-imp-tag{position:absolute;right:0;top:0;height:12px;padding:0 4px;font-size:9px;margin:0;border-radius:0 0 0 6px;z-index:4;pointer-events:none}
 .cell-err-dot svg.ico{width:9px;height:9px;vertical-align:top;margin:0}
 /* v212（P2-2）：软警告角标（黄=疑）—— 与红角标**同形不同角**，靠颜色深浅分两档。
    位置：**右上角**（红在左上、填充柄在右下、左下留给行号格的红条，四角不打架）。
