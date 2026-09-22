@@ -632,10 +632,8 @@
              见下方 tbody 里的 .empty-row。 -->
         <div v-else-if="!editMode" class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
-            <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。
-                 .tb-sep-lead 标记「行首那条装饰分隔条」，全屏时隐藏（纯装饰，不丢控件/信息）。 -->
+            <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。 -->
             <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
-            <span class="tb-sep tb-sep-lead"></span>
             <!-- 表格级筛选器（原在主工具栏）：作用于本交叉表，下移到表格工具行，缩短「控件—作用对象」距离 -->
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
             <!-- v209：全屏时收成图标形态（badge-slim）。文案不丢 —— 完整句子在 title 与 aria-label。
@@ -701,7 +699,7 @@
                       @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
             </template>
           </div>
-          <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
+          <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏（Esc）' : '全屏查看表格（Esc 退出）'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
           </button>
           <div class="filter-row" v-if="colFilter || colFilterSet">
@@ -740,6 +738,7 @@
                        「新建期次」：此刻它确实是唯一有意义的动作（另两个动作没有可落的期次）。
                        ⚠️ 分支用 noOpenPeriod（= **已问到** + 确实没有），**不是** !hasOpenPeriod ——
                           后者在期次还没加载完时会误报。 -->
+                  <div class="er-ic"><Icon name="inbox"/></div>
                   <div class="er-t">{{ noOpenPeriod ? '当前没有进行中的期次' : '本期还没有商品行' }}</div>
                   <div class="er-s">{{ noOpenPeriod
                     ? '导入和报单都需要先有一个期次 —— 请先新建期次（期次决定这批数据属于哪一期），之后再导入。'
@@ -866,10 +865,8 @@
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
         <div v-else class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
-            <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。
-                 .tb-sep-lead 标记「行首那条装饰分隔条」，全屏时隐藏（纯装饰，不丢控件/信息）。 -->
+            <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。 -->
             <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
-            <span class="tb-sep tb-sep-lead"></span>
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
             <!-- v209：全屏时收成图标形态（badge-slim）。文案不丢 —— 完整句子在 title 与 aria-label。
                  它是全屏单行的必要项：本徽标与「另有 N 个」可同时出现，两者实测各约 150–180px。 -->
@@ -948,7 +945,7 @@
               </div>
             </template>
           </div>
-          <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏' : '全屏'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
+          <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏（Esc）' : '全屏查看表格（Esc 退出）'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
           </button>
           <div class="filter-row" v-if="colFilter || colFilterSet">
@@ -2022,7 +2019,7 @@
 
     <!-- 商品搜索 + 草稿区 -->
     <div v-show="viewMode === 'list'" class="card draft-section">
-      <div class="panel-hd"><b>报单草稿</b><span class="tag info">{{ draft.length }} 个商品</span>
+      <div class="panel-hd"><b><Icon name="receipt"/> 报单草稿</b><span class="tag info">{{ draft.length }} 个商品</span>
         <span class="ph-actions">
           <button class="btn btn-sm btn-primary" :disabled="!draft.length || auditing" @click="runAudit">{{ auditing ? '审核中…' : '智能审核' }}</button>
           <!-- Q15：去掉无说明的 disabled，改为点击后引导 -->
@@ -2128,7 +2125,7 @@
          人工或 Hermes 回写的实际返利金额 —— 叫「实际返利」会指鹿为马，故只去掉与全站重名的
          「达成」二字，「达成率」列按指标名保留。 -->
     <div class="card rebate-section" style="margin-top:14px" v-if="rebateSummary.length">
-      <div class="panel-hd"><b>厂家返利</b><span class="tag info">{{ rebateSummary.length }} 个合同</span></div>
+      <div class="panel-hd"><b><Icon name="coins"/> 厂家返利</b><span class="tag info">{{ rebateSummary.length }} 个合同</span></div>
       <div class="table-wrap">
         <table class="tbl">
           <thead>
@@ -7814,6 +7811,28 @@ function onFsKey(e) { if (e.key === 'Escape' && gridFullscreen.value) gridFullsc
 onMounted(() => { window.addEventListener('keydown', onFsKey) })
 onBeforeUnmount(() => { window.removeEventListener('keydown', onFsKey) })
 
+/* P2-⑬ 键盘可达性快捷键（与 Esc 退出全屏一起构成键盘操作层）：
+   · Ctrl/Cmd+S → 保存（编辑态下；即使用户焦点在输入框也允许，避免「点了没存」焦虑）；
+   · [ / ] → 切换上一/下一期次（仅只读态、且焦点不在输入控件时，避免与正常输入冲突）。
+   ⚠️ 与既有 onGlobalFind(Ctrl/Cmd+F) 共存：二者绑定在同一 window keydown，互不重叠。 */
+function onKbdShortcuts(e) {
+  const ae = document.activeElement
+  const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    if (editMode.value) { e.preventDefault(); saveEdits() }
+    return
+  }
+  if (!typing && !editMode.value && (e.key === '[' || e.key === ']')) {
+    const sorted = [...(periods.value || [])].sort((a, b) => (a.order_start || '').localeCompare(b.order_start || ''))
+    if (!sorted.length) return
+    const idx = sorted.findIndex(x => Number(x.id) === Number(curPeriod.value))
+    const ni = e.key === '[' ? idx - 1 : idx + 1
+    if (ni >= 0 && ni < sorted.length) { e.preventDefault(); gotoPeriod(sorted[ni].id) }
+  }
+}
+onMounted(() => { window.addEventListener('keydown', onKbdShortcuts) })
+onBeforeUnmount(() => { window.removeEventListener('keydown', onKbdShortcuts) })
+
 /* v209：全屏态把「改单 / 编辑组」搬进表格工具行后，**主工具栏那一份必须让位**。
    不让位也能用（全屏层是不透明 fixed 且 z-index:1000，会把它整条盖住），但会留下两份 DOM：
    被盖住的那份仍在 Tab 序里、屏幕阅读器也会读两遍 —— 同一个按钮出现两次。
@@ -10226,7 +10245,9 @@ onMounted(async () => {
 .col-cfg{border:none;background:transparent;color:var(--t3);cursor:pointer;font-size:11px;padding:0 2px;line-height:1;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 .col-cfg:hover{color:var(--p-dark)}
 .col-cfg:hover{color:var(--p-dark)}
-.cross-tbl tbody td{border-bottom:1px solid var(--border-subtle);padding:7px 7px;white-space:nowrap}
+/* P1-② 表格去线：去掉表体行分隔线，行区分完全交给斑马纹 + hover（已存在），
+   40+ 列大表视觉更透气；表头底线 / 列合计顶线 / 分组头底线保留（结构性分隔）。 */
+.cross-tbl tbody td{padding:7px 7px;white-space:nowrap}
 .qty-th{text-align:center;min-width:52px}
 .qty-cell{text-align:center;color:var(--t3)}
 .qty-cell.has{color:var(--t1);font-weight:500}
@@ -10314,7 +10335,7 @@ th.sortable:hover{color:var(--p-dark)}
 .cross-tbl thead .seq-th,.cross-tbl thead .seq-cell{background:var(--bg3);z-index:9}
 .cross-tbl .col-total .seq-cell,.cross-tbl .foot-row .seq-cell{background:var(--bg3)}
 .seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
-.gear{padding:2px 4px;border:none;background:transparent;cursor:pointer;font-size:14px;line-height:1;color:var(--t3);border-radius:4px}
+.gear{padding:2px 4px;border:none;background:transparent;cursor:pointer;font-size:14px;line-height:1;color:var(--t3);border-radius:var(--radius-sm)}
 .gear:hover{background:var(--bg3);color:var(--p-dark)}
 .col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:2px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden;box-shadow:0 -2px 5px rgba(15,23,42,.06)}
 .col-total-bar>table{transform:translateX(var(--foot-sl,0));will-change:transform}
@@ -10368,9 +10389,6 @@ th.sortable:hover{color:var(--p-dark)}
       而 .grid-ctl-row 的内容右边界在 视口−12px ⇒ 两者天然重叠最后 28px：内容一长就被按钮压住
       （看着像缺一块，且点不中）。故全屏时行尾预留 34px。 */
 .grid-area.is-fs .grid-ctl-row{padding-right:34px;gap:6px}
-/* ② 行首那条装饰分隔条（缩放与「仅显示有报单」之间）全屏时隐藏 —— 纯装饰，不丢控件/信息。
-      ⚠️ 只隐藏行首那条：编辑组前面那条**保留**，否则「视图控件 | 编辑动作」两段会糊成一团。 */
-.grid-area.is-fs .tb-sep-lead{display:none}
 /* ③ 两个计数徽标收成图标形态（文案不丢：完整句子在 title 与 aria-label 里，见模板）。
       ⚠️ 这是全屏单行的**必要项**，不是美观取舍：徽标实测各约 150–180px，且「已隐藏 N 个零报单」
          与「另有 N 个在售商品未显示」**可同时出现**；再加上状态条宽度随文案变
@@ -10682,6 +10700,8 @@ th.sortable:hover{color:var(--p-dark)}
 .empty-row td{background:transparent;border-bottom:none;padding:34px 16px!important;text-align:center}
 .empty-row .er-t{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:6px}
 .empty-row .er-s{font-size:var(--fs-sm);color:var(--t3);line-height:1.7;margin-bottom:14px}
+.empty-row .er-ic{width:48px;height:48px;border-radius:14px;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.empty-row .er-ic svg{width:24px;height:24px}
 .empty-row .er-ops{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .pe-grid{display:grid;grid-template-columns:76px 1fr;gap:10px 12px;align-items:center}
 .pe-grid label{font-size:var(--fs-sm);color:var(--t2)}
@@ -10756,8 +10776,8 @@ th.sortable:hover{color:var(--p-dark)}
 .sprint-suggest{margin-top:12px;font-size:13px;color:var(--t2);line-height:1.8}
 .sprint-suggest ul{margin:6px 0 0;padding-left:18px}
 .sprint-suggest li{margin:4px 0}
-.sprint-prod{display:inline-block;margin:0 8px 0 4px;padding:1px 8px;background:var(--bg3);border-radius:10px;font-size:12px;color:var(--t2)}
-.sprint-prod-empty{margin-left:4px;padding:1px 8px;font-size:12px;color:var(--warn-amber);background:color-mix(in srgb,var(--warn-amber) 10%,transparent);border-radius:10px}
+.sprint-prod{display:inline-block;margin:0 8px 0 4px;padding:1px 8px;background:var(--bg3);border-radius:var(--radius-md);font-size:12px;color:var(--t2)}
+.sprint-prod-empty{margin-left:4px;padding:1px 8px;font-size:12px;color:var(--warn-amber);background:color-mix(in srgb,var(--warn-amber) 10%,transparent);border-radius:var(--radius-md)}
 .val-ok{color:var(--suc)}
 .val-warn{color:var(--war)}
 .val-bad{color:var(--dan)}
@@ -10772,7 +10792,7 @@ th.sortable:hover{color:var(--p-dark)}
 .sug-cell{display:inline-flex;align-items:center;gap:4px;position:relative}
 .why{display:inline-flex;align-items:center;color:var(--t3);cursor:help}
 .why:hover{color:var(--p-dark)}
-.why-tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:230px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--shadow-md);padding:11px 13px;z-index:60;font-size:12px;color:var(--t2);line-height:1.8;text-align:left;white-space:nowrap}
+.why-tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:230px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:11px 13px;z-index:60;font-size:12px;color:var(--t2);line-height:1.8;text-align:left;white-space:nowrap}
 .why:hover .why-tip{display:block}
 .why-formula{white-space:nowrap}
 .why-result{color:var(--p-dark);font-weight:500;margin-top:3px;padding-top:3px;border-top:1px solid var(--border-subtle)}
@@ -10964,7 +10984,7 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .tmpl-form{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
 .tmpl-form .input{width:auto;flex:1;min-width:120px}
 .bi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:6px}
-.bi-card{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;text-align:center}
+.bi-card{background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);padding:10px;text-align:center}
 .bi-num{font-size:20px;font-weight:600;color:var(--p)}
 .bi-num.warn{color:var(--sev-risk)}
 .bi-lbl{font-size:11px;color:var(--t2);margin-top:2px}
@@ -10984,7 +11004,7 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .mini-form{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
 .mini-form .input{flex:1;min-width:90px}
 .mini-msg{margin-top:6px;font-size:12px;color:var(--ok-green)}
-.heal-row{border:1px solid var(--bd);border-radius:8px;padding:8px 10px;margin-top:8px;background:var(--bg)}
+.heal-row{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:8px 10px;margin-top:8px;background:var(--bg)}
 .heal-row.risk{border-left:3px solid var(--sev-risk)}
 .heal-row.warn{border-left:3px solid var(--sev-warn)}
 @media print{
@@ -11000,10 +11020,10 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .cross-tbl.edit-tbl tbody tr.new-row:hover > td,
 .edit-tbl tbody tr.new-row:hover > td{background:color-mix(in srgb,var(--p) 14%,var(--bg))}
 /* Q14：草稿恢复范围说明条 */
-.draft-banner{margin:6px 0;padding:6px 10px;border-radius:8px;background:color-mix(in srgb,var(--war) 14%,var(--bg));color:var(--t1);font-size:12px;line-height:1.6}
+.draft-banner{margin:6px 0;padding:6px 10px;border-radius:var(--radius-sm);background:color-mix(in srgb,var(--war) 14%,var(--bg));color:var(--t1);font-size:12px;line-height:1.6}
 .draft-banner .link-btn{margin-left:4px}
 /* Q26/Q27：保存失败分流条 + 重试入口 */
-.save-fail-banner{margin:6px 0;padding:6px 10px;border-radius:8px;background:color-mix(in srgb,var(--dan) 14%,var(--bg));color:var(--t1);font-size:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.save-fail-banner{margin:6px 0;padding:6px 10px;border-radius:var(--radius-sm);background:color-mix(in srgb,var(--dan) 14%,var(--bg));color:var(--t1);font-size:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .save-fail-banner .sf-partial{color:var(--war);font-weight:600}
 .save-fail-banner .sf-msg{color:var(--t2)}
 .save-fail-banner .sf-time{color:var(--t2);opacity:.7}

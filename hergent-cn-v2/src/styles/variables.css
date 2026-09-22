@@ -115,13 +115,19 @@
   --z-popover:1010;
   --z-toast:1200;
 
-  /* 字号阶梯。现有页面字号不强制迁移，但**新增样式必须从中取值**。 */
+  /* 字号阶梯。现有页面字号不强制迁移，但**新增样式必须从中取值**。
+     P2-⑦ 字阶：在刻度外补充标题层级 h1–h4（标题统一 font-weight:600），
+     与正文(--fs-base)/辅助(--fs-sm)/说明(--fs-xs) 共同构成完整字阶体系。 */
   --fs-xs:11px;    /* 仅供角标/计数这类非说明性文字，禁止承载说明文案 */
   --fs-sm:12px;    /* 提示/次要信息（WCAG：12px 已是下限，别再小） */
   --fs-base:13px;  /* 表格/表单控件 */
   --fs-md:14px;    /* 正文 */
   --fs-lg:16px;    /* 弹窗标题 */
   --fs-xl:20px;    /* 页头 h2 */
+  --fs-h1:24px;    /* 一级页头（大盘/工作台主标题） */
+  --fs-h2:20px;    /* 二级页头（业务页标题，等同 --fs-xl） */
+  --fs-h3:17px;    /* 三级标题（卡片标题/分区名） */
+  --fs-h4:15px;    /* 四级标题（面板标题/子分区名） */
 
   /* 间距阶梯（4 的倍数）。 */
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:14px; --sp-5:18px; --sp-6:20px;
@@ -288,7 +294,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    堆叠式 <div><h2>标题</h2><span class="page-sub">…</span></div> → 标题在上、副标题在下。
    两种结构兼容同一套规则；带右侧操作区加 .split；下边距交由父容器 gap 控制时加 .flush。 */
 .page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
-.page-hd h2{font-size:20px;font-weight:600}
+.page-hd h2{font-size:var(--fs-h2);font-weight:600}
 .page-hd.split{align-items:flex-start;justify-content:space-between;gap:12px}
 .page-hd.flush{margin-bottom:0}
 .page-sub{font-size:12px;color:var(--t3)}
@@ -380,7 +386,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    ============================================================ */
 .sec-hd{
   display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
-  font-size:14.5px;font-weight:600;color:var(--t1);
+  font-size:var(--fs-h4);font-weight:600;color:var(--t1);
   padding-bottom:10px;border-bottom:1px solid var(--border-subtle);
   position:relative;
 }
@@ -453,7 +459,7 @@ table.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 
 /* 面板标题行 */
 .panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.panel-hd b{font-size:14px;font-weight:500}
+.panel-hd b{font-size:var(--fs-h4);font-weight:600}
 
 /* 空态 */
 .state-empty{padding:48px 20px;text-align:center;color:var(--t3);font-size:13px}
