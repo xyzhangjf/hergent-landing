@@ -18,7 +18,8 @@
     <div v-if="noOpenPeriod" class="gate-bar" role="status">
       <Icon name="calendar"/>
       <span class="gate-txt"><b>{{ GATE_LEAD }}</b>{{ GATE_REST }}</span>
-      <button class="btn btn-sm btn-primary" @click="openNewPeriod"><Icon name="plus"/> 新建期次</button>
+      <button class="btn btn-sm btn-primary" @click="openNewPeriod"
+              :title="showNewPeriod ? '收起新建期次表单' : '新建期次：设置期次名称与下单 / 到货日期'"><Icon name="plus"/> 新建期次</button>
     </div>
     <!-- 报单期次选择 -->
     <div class="card toolbar" :class="{ 'tb-dense': editMode }">
@@ -43,7 +44,8 @@
                已由「历史期次」页每行的「关闭 / 删除」按钮承担（ForecastHistory.vue，同样走 askClose / askDelete），
                故移除 ⋯ 菜单不损失任何能力。 -->
           <button class="btn btn-sm btn-ghost" @click="openNewPeriod"
-                  title="新建期次：设置期次名称与下单 / 到货日期" aria-label="新建期次"><Icon name="plus"/> 新建期次</button>
+                  :title="showNewPeriod ? '收起新建期次表单' : '新建期次：设置期次名称与下单 / 到货日期'"
+                  aria-label="新建期次"><Icon name="plus"/> 新建期次</button>
           <!-- 审批状态属于「期次」上下文，紧随期次选择器（原在行1 尾部、与筛选器混排） -->
           <span v-if="confirmInfo" class="confirm-badge ok"><Icon name="check" /> 已确认{{ confirmInfo.by ? ' · ' + confirmInfo.by : '' }}</span>
           <span v-else class="confirm-badge draft">待审核</span>
@@ -152,6 +154,9 @@
              现在拆成「自动只填空字段」+「显式按名称重算」两条路。 -->
         <button v-if="npNameDates.length" class="btn btn-sm btn-ghost" @click="applyNameDatesNow"
                 title="按名称里的日期重算三个日期（会覆盖你手改过的）"><Icon name="refresh"/> 按名称更新日期</button>
+        <!-- v242f：显式「取消」。此前唯一出路是"再点一次工具栏的新建期次"（按钮长得不像开关，
+             用户反馈"不想建了只能刷新"）。放主按钮左侧，与全站弹窗底栏「取消 / 主操作」同序。 -->
+        <button class="btn btn-sm btn-ghost" @click="cancelNewPeriod">取消</button>
         <button class="btn btn-primary" @click="createPeriod">创建</button>
       </div>
       <!-- v242c：口径提示 —— 自动建表用「报单日前一天 ~ 报单日」，手工建期建议一致，
@@ -9806,6 +9811,15 @@ function openNewPeriod() {
   np.value.order_end = fmtDate(tomorrow)
   np.value.arrival = fmtDate(arr)
   // v180：预填值不算「手改」，否则名称解析会被自己的预填挡住
+  resetNpTouched()
+}
+
+// v242f：取消新建 —— 关闭表单并清空已填内容。
+//   不弹二次确认：这是用户**主动**放弃，与「误点遮罩」不同族（后者才需要"确认放弃/继续编辑"）。
+//   npSoftWarn / npNameDates 都是 computed，跟着 np 自动归零，无需单独重置。
+function cancelNewPeriod() {
+  showNewPeriod.value = false
+  np.value = { name: '', order_start: '', order_end: '', arrival: '' }
   resetNpTouched()
 }
 
