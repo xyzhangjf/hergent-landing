@@ -70,7 +70,7 @@
             :monthly-sum-wan="monthlySumWan" :annual-target-wan="annualTargetWan" :annual-rate-pct="annualRatePct"
             :annual-rate-placeholder="annualRatePlaceholder" :monthly-filled-count="monthlyFilledCount"
             :legacy-notice="legacyNotice" :rule-tiers="ruleTiers" :scale-options="scaleOptions"
-            :arrival-preview="arrivalPreview" :auto-period-preview="autoPeriodPreview" :ap-missed-summary="apMissedSummary"
+            :arrival-preview="arrivalPreview"
             :first-arrival-date="firstArrivalDate" :arrival-weekday="arrivalWeekday" :lead-err="leadErr"
             :lead-valid="leadValid" :is-order-wk="isOrderWk"
             @update:annual-target="v => (annualTargetWan = v)"
@@ -79,7 +79,7 @@
             @add-tier="ruleTiers.push(emptyTier())" @remove-tier="i => ruleTiers.splice(i,1)"
             @add-month-tier="addMonthTier" @remove-month-tier="removeMonthTier"
             @lead-input="onLeadInput" @arrival-change="onArrivalChange"
-            @toggle-wk="toggleOrderWk" @adopt="adoptSuggestion" @open-migrate="openMigrate"
+            @toggle-wk="toggleOrderWk" @open-migrate="openMigrate"
           />
           <ProductTargetForm
             v-else
@@ -189,7 +189,6 @@ const monthlyRows = ref(emptyMonthlyRows())
 const legacyNotice = ref('')
 const targetWan = ref(0)
 const arrivalPreview = ref(null)
-const autoPeriodPreview = ref(null)
 const formNameRef = ref(null)
 const showMigrate = ref(false)
 const migrateInfo = ref(null)
@@ -386,16 +385,6 @@ function toggleOrderWk(v) {
   if (i >= 0) cur.splice(i, 1); else cur.push(String(v))
   form.value.order_weekdays = cur.sort((a, b) => Number(a) - Number(b)).join(',')
 }
-const apMissedSummary = computed(() => {
-  const m = (autoPeriodPreview.value && autoPeriodPreview.value.missed) || []
-  if (!m.length) return ''
-  const head = m.slice(0, 4).map(x => `${x.name} ${x.cutoff}`).join('、')
-  return head + (m.length > 4 ? ` 等 ${m.length} 次` : '')
-})
-function adoptSuggestion() {
-  const s = autoPeriodPreview.value && autoPeriodPreview.value.suggestion
-  if (s && s.suggested) form.value.order_first_date = s.suggested
-}
 
 /* ---------------- 异步预览（均单 / 未来 6 期） ---------------- */
 let _apTimer = null
@@ -420,38 +409,6 @@ async function loadArrivalPreview() {
     if (r) arrivalPreview.value = r
   } catch (e) { /* 预览失败不阻断编辑 */ }
 }
-let _opTimer = null
-async function loadAutoPeriodPreview() {
-  const f = form.value
-  if (!f.auto_period_enabled && !f.order_first_date) { autoPeriodPreview.value = null; return }
-  if (f.order_first_date && !leadValid.value) { autoPeriodPreview.value = null; return }
-  const params = new URLSearchParams()
-  if (editing.value && f.id) params.set('rule_id', f.id)
-  if (f.scope_name) params.set('scope_name', f.scope_name)
-  params.set('order_mode', f.order_mode || 'interval')
-  if (f.order_first_date) params.set('order_first_date', f.order_first_date)
-  params.set('order_cadence_days', f.order_cadence_days ?? 2)
-  if (f.order_weekdays != null) params.set('order_weekdays', f.order_weekdays)
-  params.set('order_lead_days', leadValid.value ? f.order_lead_days : 4)
-  params.set('order_max_early_days', f.order_max_early_days ?? 1)
-  params.set('auto_open_time', f.auto_open_time || '20:00')
-  params.set('auto_close_time', f.auto_close_time || '10:00')
-  params.set('supplier_deadline_time', f.supplier_deadline_time || '12:00')
-  try {
-    const r = await api('/api/rebate-rules/auto-period-preview?' + params.toString())
-    if (r) autoPeriodPreview.value = r
-  } catch (e) { /* 预览失败不阻断编辑 */ }
-}
-watch(
-  () => [form.value.auto_period_enabled, form.value.order_mode, form.value.order_first_date,
-         form.value.order_cadence_days, form.value.order_weekdays, form.value.order_lead_days,
-         form.value.order_max_early_days, form.value.auto_open_time, form.value.auto_close_time,
-         form.value.supplier_deadline_time, form.value.scope_name],
-  () => {
-    if (_opTimer) clearTimeout(_opTimer)
-    _opTimer = setTimeout(loadAutoPeriodPreview, 300)
-  }
-)
 watch(
   () => [form.value.arrival_mode, form.value.arrival_first_dom, form.value.arrival_cadence_days,
          form.value.arrival_weekdays, form.value.arrival_count_override, form.value.target_type, targetWan.value,
@@ -464,7 +421,6 @@ watch(
 )
 onBeforeUnmount(() => {
   if (_apTimer) clearTimeout(_apTimer)
-  if (_opTimer) clearTimeout(_opTimer)
 })
 
 /* ---------------- 旧到货排程 → 报单节奏 反推 ---------------- */
@@ -574,7 +530,6 @@ function init() {
     legacyNotice.value = ''
     monthlyRows.value = emptyMonthlyRows()
   }
-  autoPeriodPreview.value = null
   nextTick(() => formNameRef.value && formNameRef.value.focus())
 }
 

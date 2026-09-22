@@ -9,6 +9,9 @@
 
     <!-- v160 模板参数：生成舟谱导入模板时写进「业务员 / 部门 / 仓库」列的值（租户级）。
          原先这些值硬编码在后端代码里，且是**一家客户的值** —— 换一家客户就全错。 -->
+    <!-- v242 报单自动化：到点自动建表 / 关单（原在品牌目标弹窗，现归「报单这件事的设置」） -->
+    <AutoPeriodBlock />
+
     <div class="card tp-card">
       <div class="tp-hd" @click="tpOpen = !tpOpen">
         <b>模板参数</b>
@@ -319,6 +322,8 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+// v242：报单自动化（原在「目标与返利 → 创建品牌目标」弹窗的 ③ 区）迁到本页
+import AutoPeriodBlock from '../components/forecast/AutoPeriodBlock.vue'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { reportMappingApi, priceChannelApi, businessProfileApi } from '../api/modules'
 import { api } from '../api/client'

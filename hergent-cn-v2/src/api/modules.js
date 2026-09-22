@@ -17,6 +17,15 @@ export const expiryApi = {
 }
 
 /* ---- 预报订货 ---- */
+/* ---- 报单自动化（v242，租户级契约）----
+   后端存储**复用** rebate_target_rules 的四列，但前端**只认这套契约**：
+   将来后端把四列物理搬到独立租户级表，本文件与页面零改动。
+   见 outputs/报单自动化实现-2026-09-22/01-立项包-PRD-风险评估-技术方案.md */
+export const autoPeriodApi = {
+  get: () => api('/api/forecast/auto-period'),
+  save: (body) => api('/api/forecast/auto-period', { method: 'PUT', body }),
+}
+
 export const forecastApi = {
   periods: () => api('/api/forecast/periods'),
   orderBoard: () => api('/api/forecast/order-board'),

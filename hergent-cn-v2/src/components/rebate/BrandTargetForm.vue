@@ -31,15 +31,15 @@
     </div>
   </div>
 
-  <!-- 到货与报单节奏（品牌方排产节点，品牌页独有） -->
+  <!-- 到货与报单节奏（品牌方排产节点，品牌页独有）
+       v242：③ 报单自动化已移至「预报订单 → 报单配置」 -->
   <ArrivalRhythmBlock
-    :form="form" :arrival-preview="arrivalPreview" :auto-period-preview="autoPeriodPreview"
-    :ap-missed-summary="apMissedSummary" :first-arrival-date="firstArrivalDate"
+    :form="form" :arrival-preview="arrivalPreview"
+    :first-arrival-date="firstArrivalDate"
     :arrival-weekday="arrivalWeekday" :lead-err="leadErr" :lead-valid="leadValid" :is-order-wk="isOrderWk"
     @lead-input="$emit('lead-input', $event)"
     @arrival-change="$emit('arrival-change', $event)"
     @toggle-wk="$emit('toggle-wk', $event)"
-    @adopt="$emit('adopt')"
     @open-migrate="$emit('open-migrate')"
   />
 </template>
@@ -61,8 +61,6 @@ defineProps({
   ruleTiers: { type: Array, required: true },
   scaleOptions: { type: Array, default: () => [] },
   arrivalPreview: { type: Object, default: null },
-  autoPeriodPreview: { type: Object, default: null },
-  apMissedSummary: { type: String, default: '' },
   firstArrivalDate: { type: String, default: '' },
   arrivalWeekday: { type: String, default: '' },
   leadErr: { type: String, default: '' },
@@ -72,7 +70,7 @@ defineProps({
 defineEmits([
   'update:annualTarget', 'update:annualRate', 'clear-monthly',
   'add-tier', 'remove-tier', 'add-month-tier', 'remove-month-tier',
-  'lead-input', 'arrival-change', 'toggle-wk', 'adopt', 'open-migrate',
+  'lead-input', 'arrival-change', 'toggle-wk', 'open-migrate',
 ])
 </script>
 

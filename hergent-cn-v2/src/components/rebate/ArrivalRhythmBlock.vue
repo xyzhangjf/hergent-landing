@@ -47,51 +47,12 @@
       <button type="button" class="ap-adopt" @click="$emit('open-migrate')">从旧排程反推</button>
     </p>
 
-    <div class="ap-sec">③ 报单自动化</div>
-    <div class="form-row"><label>智能创建/关闭报单表</label>
-      <div class="seg">
-        <button type="button" :class="['seg-btn', !form.auto_period_enabled?'on':'']" @click="form.auto_period_enabled=0">手动建表</button>
-        <button type="button" :class="['seg-btn', form.auto_period_enabled?'on':'']" @click="form.auto_period_enabled=1">自动建表</button>
-      </div>
-    </div>
-    <div class="form-grid3">
-      <div class="form-row"><label>开放填报</label><input v-model="form.auto_open_time" class="input" type="time"></div>
-      <div class="form-row"><label>自动关单</label><input v-model="form.auto_close_time" class="input" type="time"></div>
-      <div class="form-row"><label>厂家下单截止</label><input v-model="form.supplier_deadline_time" class="input" type="time"></div>
-    </div>
-    <p class="cf-tip">报单是<b>按品牌方排产节点</b>走的：<b>只能提前、不能延后</b> —— 过了品牌方的报单日就只能下期再报；提前太久报单又不准，所以最多提前 1~2 天。<br>
-      <b>开放填报</b>在报单日<b>前一日</b>这个时刻自动建表，<b>自动关单</b>在报单日当天这个时刻截止；中间到<b>厂家下单截止</b>的这段，是留给经理改单、你付款、款到厂家账上的时间 —— 系统只在该时点提醒，<b>不会替你去厂家系统下单</b>。</p>
-
-    <div v-if="autoPeriodPreview" class="ap-preview">
-      <div class="ap-head">
-        <span>未来 {{ autoPeriodPreview.preview.length }} 期</span>
-        <span v-if="autoPeriodPreview.main_brand">主节奏：{{ autoPeriodPreview.main_brand }} · 每 {{ autoPeriodPreview.main_interval }} 天</span>
-        <span v-if="autoPeriodPreview.window_hours">填报窗口 {{ autoPeriodPreview.window_hours }} 小时</span>
-      </div>
-      <div v-for="w in (autoPeriodPreview.warnings||[])" :key="w" class="ap-warn">⚠ {{ w }}</div>
-      <div v-if="autoPeriodPreview.suggestion && autoPeriodPreview.suggestion.better" class="ap-warn ap-warn-tip">
-        首次报单日建议改为 <b>{{ autoPeriodPreview.suggestion.suggested }}</b>
-        （可避免 {{ autoPeriodPreview.suggestion.current_missed }} 次漏报）
-        <button type="button" class="ap-adopt" @click="$emit('adopt')">采纳</button>
-      </div>
-      <table class="ap-tbl">
-        <thead><tr><th>报单日</th><th>开放→关单</th><th>到货</th><th>本期应报</th></tr></thead>
-        <tbody>
-          <tr v-for="p in autoPeriodPreview.preview" :key="p.order_date">
-            <td>{{ p.order_date }}</td>
-            <td class="ap-dim">{{ p.open_date }} {{ (autoPeriodPreview.times&&autoPeriodPreview.times.open)||'' }} → {{ (autoPeriodPreview.times&&autoPeriodPreview.times.close)||'' }}</td>
-            <td>{{ p.arrival_date }}</td>
-            <td>
-              <span v-for="b in p.brand_detail" :key="b.name" class="ap-brand">{{ b.name }}<i v-if="b.early_days"> 提前{{ b.early_days }}天</i></span>
-              <span v-if="!p.brand_detail.length" class="ap-dim">—</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div v-if="(autoPeriodPreview.missed||[]).length" class="ap-warn">
-        会漏报 {{ autoPeriodPreview.missed.length }} 次：{{ apMissedSummary }}
-      </div>
-    </div>
+    <!-- v242：「③ 报单自动化」已迁至「预报订单 → 报单配置」。
+         它管的是**期次开闭**（预报订单模块的核心对象），且后端限定「租户内同一时间
+         只能一个品牌开启」⇒ 属**租户级运行参数**，不属品牌目标。本块只保留
+         ① 节奏 / ② 到货产出（这两项确实是品牌方排产节点）。 -->
+    <div class="ap-moved">报单自动化（到点自动建表 / 关单）已移至
+      <a href="#/forecast">预报订单 → 报单配置</a></div>
   </div>
 </template>
 
@@ -101,8 +62,6 @@ import { WEEKDAY_OPTIONS, fmtWan } from './useRebateTargetForm.js'
 defineProps({
   form: { type: Object, required: true },
   arrivalPreview: { type: Object, default: null },
-  autoPeriodPreview: { type: Object, default: null },
-  apMissedSummary: { type: String, default: '' },
   firstArrivalDate: { type: String, default: '' },
   arrivalWeekday: { type: String, default: '' },
   leadErr: { type: String, default: '' },
@@ -110,7 +69,7 @@ defineProps({
   /** 判断某星期是否已选（状态在父层，传函数进来避免拷贝 form 引用） */
   isOrderWk: { type: Function, required: true },
 })
-defineEmits(['lead-input', 'arrival-change', 'toggle-wk', 'adopt', 'open-migrate'])
+defineEmits(['lead-input', 'arrival-change', 'toggle-wk', 'open-migrate'])
 
 const weekdayOptions = WEEKDAY_OPTIONS
 </script>
@@ -136,19 +95,12 @@ const weekdayOptions = WEEKDAY_OPTIONS
 .ap-sec{display:flex;align-items:center;gap:8px;margin:12px 0 8px;font-size:12.5px;font-weight:600;color:var(--t1)}
 .ap-sec:first-child{margin-top:0}
 .ap-sec-note{font-weight:400;font-size:11.5px;color:var(--t3)}
+.ap-moved{margin:8px 0 0;font-size:12px;color:var(--t3);line-height:1.6}
+.ap-moved a{color:var(--p-dark);text-decoration:none;border-bottom:1px dashed var(--p)}
 .ap-derive{margin:2px 0 0;font-size:12px;color:var(--p-dark);background:rgba(6,182,212,.08);border-radius:6px;padding:6px 8px}
-.ap-preview{margin-top:10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px;background:var(--bg2)}
-.ap-head{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--t3);margin-bottom:8px}
 .ap-warn{font-size:12px;color:var(--danger,#c0392b);background:rgba(192,57,43,.08);border-radius:6px;padding:6px 8px;margin-bottom:6px;line-height:1.5}
-.ap-warn-tip{color:var(--p-dark)}
 .ap-adopt{margin-left:8px;border:1px solid var(--p);background:transparent;color:var(--p-dark);border-radius:6px;padding:1px 10px;font-size:12px;cursor:pointer}
 .ap-adopt:hover{background:var(--p);color:#fff}
-.ap-tbl{width:100%;border-collapse:collapse;font-size:12px}
-.ap-tbl th{text-align:left;color:var(--t3);font-weight:500;padding:4px 6px;border-bottom:1px solid var(--border-subtle)}
-.ap-tbl td{padding:5px 6px;border-bottom:1px solid var(--border-subtle);vertical-align:middle}
-.ap-dim{color:var(--t3);font-size:11px}
-.ap-brand{display:inline-block;background:rgba(6,182,212,.12);color:var(--p-dark);border-radius:4px;padding:1px 6px;margin:1px 4px 1px 0;font-size:11px}
-.ap-brand i{font-style:normal;opacity:.7;margin-left:2px}
 .cf-tip{font-size:13px;color:var(--t2);line-height:1.6;margin:0}
 @media(max-width:768px){ .form-grid2,.form-grid3{grid-template-columns:1fr} }
 </style>
