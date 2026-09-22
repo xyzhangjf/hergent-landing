@@ -10437,8 +10437,8 @@ th.sortable:hover{color:var(--p-dark)}
 .pspec{color:var(--t3);font-size:11px;margin-top:1px}
 .ai-hint{color:var(--p-dark);font-size:11px;margin-top:2px;font-weight:500}
 .tip-wrap{position:relative;cursor:help;border-bottom:1px dashed var(--bd)}
-.tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#111827;color:#fff;font-size:11px;padding:7px 10px;border-radius:6px;white-space:nowrap;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,.18)}
-.tip b{color:#7dd3fc}
+.tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg);color:var(--t1);font-size:11px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);white-space:nowrap;z-index:20;box-shadow:var(--shadow-md)}
+.tip b{color:var(--p-dark)}
 .tip-wrap:hover .tip{display:block}
 .pin{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
 .pin .big{font-size:18px;font-weight:500}
@@ -10553,9 +10553,6 @@ th.sortable:hover{color:var(--p-dark)}
 .del-modal{width:min(440px,92vw)}
 .warn-text{color:var(--dan);font-weight:500}
 .del-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
-.btn-danger{background:var(--dan);border-color:var(--dan);color:#fff}
-.btn-danger:hover{filter:brightness(.95)}
-.btn-danger:disabled{opacity:.6;cursor:not-allowed}
 .btn.danger{color:var(--dan)}
 .btn.danger:hover{filter:brightness(.95)}
 .imp-file{font-size:12px;color:var(--t3);margin-top:10px}
@@ -10695,7 +10692,7 @@ th.sortable:hover{color:var(--p-dark)}
 .sprint-card{}
 .sprint-card.is-pinned{margin:14px 0 4px;border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
 .sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:10px;margin-bottom:0}
-.tag.hot{background:linear-gradient(135deg,#ff7a45,#ff4d4f);color:#fff;font-weight:600}
+.tag.hot{background:var(--dan-bg);color:var(--dan);font-weight:600}
 /* 决策横幅（A2）：一行承载「未达标数 / 总缺口 / 剩余到货机会 / 均单需报」，折叠与展开都常显 */
 .sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:9px 16px;font-size:12.5px;line-height:1.5;color:var(--t2)}
 .sprint-banner b{color:var(--t1);font-variant-numeric:tabular-nums}
@@ -10779,13 +10776,13 @@ td.invalid, .qty-cell.invalid{background:var(--danger-bg) !important}
       抢同一块视觉（用户会分不清「这是刚跳到的格」还是「这格错了」）。outline 不占位、
       不影响布局，也不改背景。 */
 td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
-@keyframes cellFlash{0%{outline:2px solid var(--brand,#4f46e5);outline-offset:-2px}100%{outline-color:transparent}}
+@keyframes cellFlash{0%{outline:2px solid var(--p-dark);outline-offset:-2px}100%{outline-color:transparent}}
 /* v219 打磨②：改动记录列表 */
 .undo-list{display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;margin:8px 0;border:1px solid var(--bd);border-radius:var(--radius-md)}
-.undo-item{display:flex;align-items:center;gap:8px;padding:6px 8px;background:none;border:0;border-bottom:1px solid var(--bd);cursor:pointer;text-align:left;font-size:12.5px;color:var(--fg)}
+.undo-item{display:flex;align-items:center;gap:8px;padding:6px 8px;background:none;border:0;border-bottom:1px solid var(--bd);cursor:pointer;text-align:left;font-size:12.5px;color:var(--t1)}
 .undo-item:last-child{border-bottom:0}
-.undo-item:hover{background:var(--brand-soft,#eef2ff)}
-.undo-idx{flex:0 0 28px;color:var(--fg-muted,#94a3b8);font-variant-numeric:tabular-nums;font-size:11.5px}
+.undo-item:hover{background:var(--p-bg)}
+.undo-idx{flex:0 0 28px;color:var(--t3);font-variant-numeric:tabular-nums;font-size:11.5px}
 .undo-label{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 行号格标红：长表里先看见「哪一行有问题」，再落到具体格 */
 .td.seq-cell.row-bad{background:var(--danger-bg);color:var(--danger-txt);font-weight:700}
@@ -11013,10 +11010,10 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
       浮层留在单元格里会被裁掉。 */
 .name-sug-pop{position:fixed;z-index:1150;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:4px;max-height:220px;overflow-y:auto;font-size:12.5px}
 .ns-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
-.ns-item.on{background:var(--brand-soft,#eef2ff);color:var(--brand,#4f46e5)}
+.ns-item.on{background:var(--p-bg);color:var(--p-dark)}
 .ns-name{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;font-weight:500}
-.ns-spec{flex:0 0 auto;color:var(--fg-muted,#94a3b8);font-size:11.5px}
-.ns-code{flex:0 0 auto;color:var(--fg-muted,#94a3b8);font-size:11.5px;font-variant-numeric:tabular-nums}
+.ns-spec{flex:0 0 auto;color:var(--t3);font-size:11.5px}
+.ns-code{flex:0 0 auto;color:var(--t3);font-size:11.5px;font-variant-numeric:tabular-nums}
 .st-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:5px;vertical-align:middle}
 .sort-ind svg.ico{width:12px;height:12px;vertical-align:middle;margin-left:3px}
 .zb-btn svg.ico{width:14px;height:14px;vertical-align:middle}
