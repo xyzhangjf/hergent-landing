@@ -644,10 +644,10 @@
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
-            <!-- v247：查看态默认收起「整列全空」的列（历史期次列 / 档案未填列），勾上才铺开 -->
+            <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
             <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
             <span v-if="hiddenEmptyCols" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
-                  :title="'已收起 ' + hiddenEmptyCols + ' 个全空列（勾选「显示空列」即可展开）'"
+                  :title="'已收起 ' + hiddenEmptyCols + ' 个全空的主档列（客户列始终显示；勾选「显示空列」即可展开）'"
                   :aria-label="'已收起 ' + hiddenEmptyCols + ' 个全空列'"
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
             <!-- v209：同「已隐藏 N 个零报单」，全屏时收成图标形态（实测本条占 180px，是全行最肥的单件） -->
@@ -883,10 +883,10 @@
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
-            <!-- v247：查看态默认收起「整列全空」的列（历史期次列 / 档案未填列），勾上才铺开 -->
+            <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
             <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
             <span v-if="hiddenEmptyCols" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
-                  :title="'已收起 ' + hiddenEmptyCols + ' 个全空列（勾选「显示空列」即可展开）'"
+                  :title="'已收起 ' + hiddenEmptyCols + ' 个全空的主档列（客户列始终显示；勾选「显示空列」即可展开）'"
                   :aria-label="'已收起 ' + hiddenEmptyCols + ' 个全空列'"
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
             <!-- v209：同「已隐藏 N 个零报单」，全屏时收成图标形态（实测本条占 180px，是全行最肥的单件） -->
@@ -2906,10 +2906,14 @@ function onCellClick(it, col, ci, e) {
 function onCellDbl(it, col) { if (it.kind === 'row' && col.type === 'qty') editCell(it.r.product_id, col.key) }
 function onCellFocus(it, ci) { if (it.kind === 'row') activeCell.value = { pid: it.r.product_id, ci } }
 
-/* v247 空列判定：整列在所有行里**都没有有效值** ⇒ 判为空列。
+/* v248 修正（推翻 v247 的一半）：**客户列（qty）永不收**。
+   cross.units 是跨期持久的客户名册 —— 「即使当期无报单，也保留客户列」是刻意设计
+   （载入处 L3754 注释原文），文员要按名册对照谁没报。v247 把整列空的客户列收掉，
+   用户看到「只剩东津一列」当即否决 ⇒ 客户列从空列判定里整体剔除。
+   空列判定只作用于**主档列**（保质期这类档案缺口）。
    ⚠️ 用 flatItems（全量行）而非 vsWindow（虚拟滚动窗口）—— 窗口内恰好都空会让列
       一闪一闪地出现/消失，判定必须稳定。
-   ⚠️ 商品名（name）与固定列永不收起；0 也算「无值」（报 0 = 没报单）。 */
+   ⚠️ 商品名（name）与固定列永不收起；0 也算「无值」。 */
 const emptyColSet = computed(() => {
   const rows = flatItems.value.filter(it => it.kind === 'row').map(it => it.r)
   const s = new Set()
@@ -2922,10 +2926,6 @@ const emptyColSet = computed(() => {
     })
     if (!has) s.add('m:' + c.key)
   })
-  cross.value.units.forEach(u => {
-    const has = rows.some(r => (parseInt(r.qtyByUnit && r.qtyByUnit[u.name]) || 0) !== 0)
-    if (!has) s.add('q:' + u.name)
-  })
   return s
 })
 const hiddenEmptyCols = computed(() => (showEmptyCols.value ? 0 : emptyColSet.value.size))
@@ -2934,15 +2934,12 @@ const colOrderList = computed(() => {
   const cols = [{ type: 'seq', key: 'seq', label: '列设置' }]
   // v184：把 fixed 一并带下去 —— 查看态的冻结判定（isFrozen）与 left 计算都要读它。
   //   ⚠️ 此前这里只传 key/label/cls/fmt/deletable，fixed 到不了查看态。
-  // v247：收起整列全空的列（勾选「显示空列」后恢复）
+  // v248：主档空列按「显示空列」开关收起；客户列（units）**永不收** —— 跨期名册，见 emptyColSet 注释
   visibleCols.value.forEach(c => {
     if (!showEmptyCols.value && emptyColSet.value.has('m:' + c.key)) return
     cols.push({ type: 'master', key: c.key, label: c.label, cls: c.cls, fmt: c.fmt, deletable: c.deletable, fixed: c.fixed })
   })
-  cross.value.units.forEach(u => {
-    if (!showEmptyCols.value && emptyColSet.value.has('q:' + u.name)) return
-    cols.push({ type: 'qty', key: u.name, label: u.name })
-  })
+  cross.value.units.forEach(u => cols.push({ type: 'qty', key: u.name, label: u.name }))
   cols.push({ type: 'calc', key: 'qty', label: '合计(小单位)' })
   cols.push({ type: 'calc', key: 'boxes', label: '合计(箱)' })
   // v184e：系统建议用于辅助决定「加单」填多少，移到「加单」左侧，形成「建议→加单→最终下单」阅读流。
