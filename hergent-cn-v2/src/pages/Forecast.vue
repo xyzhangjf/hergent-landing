@@ -157,7 +157,11 @@
         <!-- v242f：显式「取消」。此前唯一出路是"再点一次工具栏的新建期次"（按钮长得不像开关，
              用户反馈"不想建了只能刷新"）。放主按钮左侧，与全站弹窗底栏「取消 / 主操作」同序。 -->
         <button class="btn btn-sm btn-ghost" @click="cancelNewPeriod">取消</button>
-        <button class="btn btn-primary" @click="createPeriod">创建</button>
+        <!-- v242g：补 btn-sm。原先「创建」是默认档 .btn（36px），而「取消」与
+             「按名称更新日期」是 .btn-sm（32px）⇒ 同一行三个按钮两种高度。
+             统一到本页既有习惯（工具栏「新建期次」也是 btn-sm）；主次仍靠 btn-primary 的颜色区分，
+             不靠尺寸 —— 尺寸只应表达"紧凑/常规"，不该在同一行里分组。 -->
+        <button class="btn btn-sm btn-primary" @click="createPeriod">创建</button>
       </div>
       <!-- v242c：口径提示 —— 自动建表用「报单日前一天 ~ 报单日」，手工建期建议一致，
            否则同一种期次的「报单窗口」在列表里显示成两种样子。非阻塞，仅提示。 -->
