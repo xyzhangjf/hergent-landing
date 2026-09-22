@@ -118,7 +118,8 @@
           查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
         </button>
         <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
-        <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+        <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="noOpenPeriod"
+                :title="noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵'" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
         <!-- v201：常驻的保存状态。保存成功只弹一条几秒即消失的提示，之后页面与保存前
              长得一模一样 ⇒ 用户无法确认「到底存进去了没有」。这里给一个**一直挂着**的答案
              （保存失败另有红色横幅，两者语义不重叠）。
@@ -934,7 +935,8 @@
                   查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
                 </button>
                 <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
-                <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+                <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="noOpenPeriod"
+                :title="noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵'" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
                 <!-- v201/v208：常驻保存状态。三态 see saveState；保存成功后已改为退出编辑态，
                      故本态是「正在编辑、准备再改一轮」的人的常驻答案。 -->
                 <span class="save-state" :class="saveState.cls"
@@ -1995,7 +1997,8 @@
             <span v-if="saveFailed.prodDone" class="sf-partial">商品资料已保存，数量未保存，请重试</span>
             <span class="sf-msg">{{ saveFailed.msg }}</span>
             <span class="sf-time">{{ saveFailed.at }}</span>
-            <button class="btn btn-xs btn-primary" @click="saveEdits">重试保存</button>
+            <button class="btn btn-xs btn-primary" :disabled="noOpenPeriod"
+                    :title="noOpenPeriod ? saveBlockedReason : '重新提交本次保存'" @click="saveEdits">重试保存</button>
           </div>
           <!-- Q28：P5-P7 做了大量能力但埋没，用户只会最笨的逐格手输 -->
           <div class="kbd-help">
@@ -3648,6 +3651,10 @@ async function enterEdit() {
     toast('该期次已定稿（关闭），不可改单。如需改动，请到「往期预报」里先点「重开」。', 'warn')
     return
   }
+  /* v244：没有进行中的期次时**不许进编辑态** —— 否则用户改半小时、点保存才被拒（白干）。
+     既定方案的判据同向：「📌 禁用 + 说明好过『点了弹错误』」（§五 阶段 0）。
+     后端 `save_matrix` 的 v244 闸是最终约束，这里是同一判据的 UX 层提前拦。 */
+  if (noOpenPeriod.value) { toast(saveBlockedReason.value, 'warn'); return }
   // Q30：角色不在填报白名单时前置告知（不阻断，避免误伤）
   if (entryRoleWarn.value) {
     const ok = window.confirm(`当前角色「${roleName(bizRole.value)}」可能没有填报权限，保存时可能被服务器拒绝。\n\n仍要进入编辑吗？`)
@@ -4540,6 +4547,17 @@ async function saveEdits(opts = {}) {
   const force = !!opts.force
   const p = cross.value.period
   if (!p) return
+  /* v244 期次归属硬守卫（与后端 `save_matrix` 新增的 v244 闸**同源判据**）：
+     没有进行中的期次时保存，会产出 `period_id=0` 的孤儿行 —— 看板会把它补成「合成行」
+     （`id<0`），而四个行级按钮的判据都是 `Number(row.id)>0` ⇒ 那批数据**既改不了也关不掉**，
+     只能人工清库（2026-08-22 那 20 条 / 12,709 件就是这么来的）。
+     放在**唯一的提交入口**上，与按钮 disabled 构成两层：按钮态只是提示，挡不住直接调用
+     与将来新增的第三个入口。`!p.id` 兜住「拿到的是合成期次（今日报单，id=0）」这一形态
+     —— 那时 noOpenPeriod 未必为真（可能只是当前视图没指到真实期次），文案单独兜底。 */
+  if (noOpenPeriod.value || !Number(p.id || 0)) {
+    toast(saveBlockedReason.value || '当前编辑的不是一个真实期次，无法保存：请先选择一个进行中的期次。', 'warn')
+    return
+  }
   /* v197（P1-2d）：提交前拦「一个客户列都没有」。
      `delCol` 已加「至少保留一列」守卫（P1-2c），这里是**第二道**，因为能把 units 变成空的路径不止那条：
      套用列方案（applyScheme 整体替换 colOrder/colVis）、本地草稿恢复、以及载入进来的期次本身
@@ -8677,8 +8695,15 @@ const GATE_REST = '导入和报单都需要先有一个期次。'
 /* 置灰按钮的 hover / 被守卫拦下时的 toast：**原因 + 下一步**。
    与横幅分开写是有意的 —— 横幅里紧邻就有一个「新建期次」按钮，正文再重复一遍「请先新建」
    属冗余；而 tooltip / toast 是**独立语境**（用户可能只看到按钮），必须自带出口。 */
-const importBlockedReason = computed(() => (noOpenPeriod.value
-  ? GATE_LEAD + GATE_REST + '请先点「新建期次」创建期次，再导入预报订单' : ''))
+/* v244：同一份文案生成器供**所有**被这道闸挡住的入口复用（导入 / 保存报单）——
+   写成函数而不是再抄一份常量：本项目铁律「第二份拷贝 = 静默漂移」（v189/v197/v213 都吃过）。
+   尾部的动作短语按入口给（「再导入预报订单」/「再保存报单」），前半句逐字共用。 */
+const gateReason = (action) => (noOpenPeriod.value
+  ? GATE_LEAD + GATE_REST + '请先点「新建期次」创建期次，再' + action : '')
+const importBlockedReason = computed(() => gateReason('导入预报订单'))
+/* v244：报单保存被**同一道闸**拦住时的原因（原因 + 下一步）。供保存按钮 tooltip、
+   函数内守卫的 toast 共用 —— 三处文案同源，不可能各说一套。 */
+const saveBlockedReason = computed(() => gateReason('保存报单'))
 const canImport = computed(() => !noOpenPeriod.value)
 
 function openImport() {
