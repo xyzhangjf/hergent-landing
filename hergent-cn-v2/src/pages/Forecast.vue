@@ -1055,6 +1055,9 @@
                          ⚠️ `@input` 里开面板（datalist 时代没有这一格的输入事件）；
                             `@keydown` 上下选 / 回车选中 / Esc 关闭；`@blur` 关闭。 -->
                     <input v-model="r.name" class="cell-input cell-name" :placeholder="namePh" :style="namePadStyle(r)" :title="r.name || ''" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @input="onNameInput(r, ri, ci, $event)" @keydown="nameSugKey" @blur="nameSugClose" @change="onCellChange">
+                    <!-- v249：编辑态也显示「导入」来源标 —— 此前只在查看态渲染，用户点改单后徽章
+                         凭空消失，误以为标记丢了（实际是两态渲染不一致）。数据源同查看态 r.imported。 -->
+                    <span v-if="r.imported" class="oe-badge imp-tag cell-imp-tag" title="这一行是本期导入的商品（来自导入登记）">导入</span>
                     <!-- v211（P1-1）：商品名称**补全候选** —— 数据源是 /api/products/grid 下发的**全量商品主档**
                          （约 428 条），不是本期那 158 行。
                          🔴 为什么这一格最值得补：保存时 `prodPayloadOf` 会把 name 一起回写**商品档案**
@@ -10910,6 +10913,8 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
       否则横向滚动时，被冻结列盖住的那半张表上的角标会浮出来「飘在冻结列上面」。
    ⚠️ 尺寸压到 13×11、图标 9px：格子本身只有约 26px 高，再大就会压住输入文字的首字符。 */
 .cell-err-dot{position:absolute;left:0;top:0;width:13px;height:11px;display:flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger-txt);border-bottom-right-radius:6px;cursor:pointer;z-index:5;line-height:1}
+/* v249：编辑态名称格的「导入」角标 —— 右上角小标，与查看态徽章同色系（imp-tag） */
+.cell-imp-tag{position:absolute;right:0;top:0;height:12px;padding:0 4px;font-size:9px;margin:0;border-radius:0 0 0 6px;z-index:4;pointer-events:none}
 .cell-err-dot svg.ico{width:9px;height:9px;vertical-align:top;margin:0}
 /* v212（P2-2）：软警告角标（黄=疑）—— 与红角标**同形不同角**，靠颜色深浅分两档。
    位置：**右上角**（红在左上、填充柄在右下、左下留给行号格的红条，四角不打架）。
