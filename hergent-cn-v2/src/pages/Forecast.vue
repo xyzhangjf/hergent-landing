@@ -1106,7 +1106,7 @@
                   <span v-if="cellIssue(ri, ci)" class="cell-err-dot" :title="cellIssue(ri, ci)" @mousedown.stop.prevent @click.stop="showCellErr(ri, ci)" aria-label="查看此格的错误原因"><Icon name="alert-triangle"/></span>
                   <span v-if="selected.r === ri && selected.c === ci" class="fill-handle" @mousedown.prevent.stop="startFill(ri, ci, $event)" title="拖拽填充"></span>
                 </td>
-                <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellInvalid(ri, visibleCols.length + ui), 'warn-low': rowWarn(r) === 'low', 'warn-short': rowWarn(r) === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0, flash: isFlash(ri, visibleCols.length + ui) }" :style="heatStyle(r, u.name)" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellErrMsg(ri, visibleCols.length + ui) || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
+                <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellInvalid(ri, visibleCols.length + ui), 'warn-low': rowWarn(r) === 'low', 'warn-short': rowWarn(r) === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0, flash: isFlash(ri, visibleCols.length + ui) }" :style="heatStyle(r, u.name)" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellErrMsg(ri, visibleCols.length + ui) || heatTitle(r, u.name) || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
                   <!-- v211（P1-2）：补 `inputmode` —— 触屏设备（平板 / 手机开网页）点这一格直接弹**数字键盘**。
                        ⚠️ 不能只靠 `type="number"`：iOS 会弹数字键盘，但部分安卓浏览器不给 ⇒ 加 inputmode 是双保险。
                        ⚠️ 只有**数量**用 numeric（整数）；单价有 `step="0.01"`（两位小数）必须用 decimal，
@@ -2753,14 +2753,27 @@ function rowVisible(r) {
   return true
 }
 // 热力色：绝对值档位（用户 2026-09-23 拍板）—— 不再按「占全场最大值的比例」分档，
-// 改成按报单数量的绝对大小。低于 100 不上任何底色/字色（保持清爽，且改任何格子都不会
-// 让整表颜色乱跳）。色阶复用 variables.css 的 --heat-* 令牌（深色模式自动适配）。
+// v253 改「绝对值档位 + 预警」：兼顾美观（绿=正常量大，扫读谁订得多）与预警（大单风险）。
+// 语义：<100 干净无底色；100~499 浅绿；500~1499 绿（健康大单）；
+//   ≥1500 且 ≤ 该商品 AI 周预测总量(r.ai) ⇒ 琥珀「大单留意/可能积压」；
+//   > 该商品 AI 周预测总量 ⇒ 红「单客户订量超过整个商品预测需求，极可能填错或严重积压」。
+// 红色是数据驱动（对 r.ai 比对），不依赖拍绝对数；r.ai 缺失时退回纯绝对值档（无红）。
+const WARN_ABS = 1500 // 琥珀档绝对门槛（可调）：没有 AI 预测时的兜底大单阈值
 function heatStyle(r, uname) {
   const v = parseInt(r.qtyByUnit[uname]) || 0
   if (v < 100) return {}
-  if (v >= 1000) return { background: 'var(--heat-4-bg)', color: 'var(--heat-4-txt)' }
+  if (r.ai != null && v > r.ai) return { background: 'var(--danger-bg)', color: 'var(--danger-txt)' }
+  if (v >= WARN_ABS) return { background: 'var(--warn-amber-bg)', color: 'var(--warn-amber)' }
   if (v >= 500) return { background: 'var(--heat-3-bg)', color: 'var(--heat-3-txt)' }
   return { background: 'var(--heat-2-bg)', color: 'var(--heat-2-txt)' }
+}
+// 配色含义的悬停说明（仅警告色给出提示，绿色正常不啰嗦）
+function heatTitle(r, uname) {
+  const v = parseInt(r.qtyByUnit[uname]) || 0
+  if (v < 100) return ''
+  if (r.ai != null && v > r.ai) return '红色：本格订量已超过该商品 AI 周预测总量（' + fmt(r.ai) + r.unit + '），疑似填错或严重积压，请核对'
+  if (v >= WARN_ABS) return '琥珀色：大单，留意是否会导致库存积压'
+  return ''
 }
 const sortedRows = computed(() => {
   const rows = cross.value.rows
