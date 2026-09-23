@@ -2752,24 +2752,15 @@ function rowVisible(r) {
   if (brandSel.value.length && !brandSel.value.includes(rowBrand(r))) return false
   return true
 }
-const maxQty = computed(() => {
-  let m = 1
-  cross.value.rows.forEach(r => cross.value.units.forEach(u => { const v = parseInt(r.qtyByUnit[u.name]) || 0; if (v > m) m = v }))
-  return m
-})
+// 热力色：绝对值档位（用户 2026-09-23 拍板）—— 不再按「占全场最大值的比例」分档，
+// 改成按报单数量的绝对大小。低于 100 不上任何底色/字色（保持清爽，且改任何格子都不会
+// 让整表颜色乱跳）。色阶复用 variables.css 的 --heat-* 令牌（深色模式自动适配）。
 function heatStyle(r, uname) {
   const v = parseInt(r.qtyByUnit[uname]) || 0
-  if (!v) return {}
-  const t = Math.min(1, v / maxQty.value)
-  // C1 修复 (2026-07-24)：硬编码 7 色 → variables.css --heat-* 令牌（inline style 中
-  // var() 合法，深色模式自动适配，无需在 JS 里做主题分支）
-  // v246 降噪：低值档（<0.35）只上**文字色**、不上底色 —— 否则整列同档时会变成一整块
-  // 橄榄色，看起来像「被选中/出错」而非热度。底色只留给真正高的值。
-  if (t >= 0.85) return { background: 'var(--heat-4-bg)', color: 'var(--heat-4-txt)' }
-  if (t >= 0.6) return { background: 'var(--heat-3-bg)', color: 'var(--heat-3-txt)' }
-  if (t >= 0.35) return { background: 'var(--heat-2-bg)', color: 'var(--heat-2-txt)' }
-  if (t >= 0.15) return { color: 'var(--heat-3-txt)' }
-  return { color: 'var(--t3)' }
+  if (v < 100) return {}
+  if (v >= 1000) return { background: 'var(--heat-4-bg)', color: 'var(--heat-4-txt)' }
+  if (v >= 500) return { background: 'var(--heat-3-bg)', color: 'var(--heat-3-txt)' }
+  return { background: 'var(--heat-2-bg)', color: 'var(--heat-2-txt)' }
 }
 const sortedRows = computed(() => {
   const rows = cross.value.rows
@@ -7206,7 +7197,8 @@ async function loadSuggestRecipes() {
 }
 async function saveSuggestRecipe() {
   const n = (window.prompt('配方名称：') || '').trim(); if (!n) return
-  const list = JSON.parse(localStorage.getItem(SUGGEST_RECIPE_KEY()) || '[]')
+  let list = []
+  try { list = JSON.parse(localStorage.getItem(SUGGEST_RECIPE_KEY()) || '[]') || [] } catch (e) { list = [] }
   const item = { name: n, recipe: clone(suggRecipe) }
   const i = list.findIndex(x => x.name === n); if (i >= 0) list[i] = item; else list.push(item)
   localStorage.setItem(SUGGEST_RECIPE_KEY(), JSON.stringify(list))   // 本地兜底
@@ -7521,7 +7513,7 @@ async function loadHistory() {
 function sparkPoints(r) {
   const a = r.history || []
   if (a.length < 2) return ''
-  const w = 84, h = 18, max = Math.max.apply(null, a.concat([1])), min = Math.min.apply(null, a.concat([0]))
+  const w = 84, h = 18, max = Math.max(...a, 1), min = Math.min(...a, 0)
   const span = (max - min) || 1
   return a.map((v, i) => {
     const x = (i / (a.length - 1)) * w
