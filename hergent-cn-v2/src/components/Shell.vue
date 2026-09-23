@@ -282,7 +282,7 @@ onBeforeUnmount(() => {
 })
 
 /* ---- 侧栏拖拽调宽 ---- */
-const SIDEBAR_MIN = 180
+const SIDEBAR_MIN = 120
 const SIDEBAR_MAX = 420
 const resizing = ref(false)
 let _startX = 0
