@@ -1,10 +1,9 @@
 <template>
   <router-view v-if="isLogin" />
-  <ToastHost v-if="isLogin" />
   <div class="layout" v-else>
     <aside class="sidebar">
       <div class="brand">
-        <span class="logo">H</span>
+        <img class="logo" :src="brandIcon" alt="Hergent" />
         <span>Hergent 管理后台</span>
       </div>
       <nav class="nav">
@@ -16,7 +15,7 @@
           class="nav-item"
           :class="{ active: isActive(item.to) }"
         >
-          <svg class="ico" viewBox="0 0 24 24" v-html="item.icon"></svg>
+          <Icon :name="item.icon" />
           <span>{{ item.label }}</span>
         </router-link>
         <div class="nav-group-title">治理</div>
@@ -27,7 +26,7 @@
           class="nav-item"
           :class="{ active: isActive(item.to) }"
         >
-          <svg class="ico" viewBox="0 0 24 24" v-html="item.icon"></svg>
+          <Icon :name="item.icon" />
           <span>{{ item.label }}</span>
         </router-link>
       </nav>
@@ -58,6 +57,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './store/auth'
 import ToastHost from './components/ToastHost.vue'
+import Icon from './components/Icon.vue'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -65,14 +65,16 @@ const router = useRouter()
 
 const isLogin = computed(() => route.name === 'login')
 
+const brandIcon = import.meta.env.BASE_URL + 'icons/brand-64.png'
+
 const mainNav = [
-  { to: '/', label: '平台总览', icon: '<path d="M3 13h8V3H3zM13 21h8V3h-8zM3 21h8v-6H3z"/>' },
-  { to: '/tenants', label: '租户管理', icon: '<path d="M3 21V7l9-4 9 4v14M9 21v-6h6v6"/>' },
+  { to: '/', label: '平台总览', icon: 'dashboard' },
+  { to: '/tenants', label: '租户管理', icon: 'building' },
 ]
 const govNav = [
-  { to: '/invite-codes', label: '邀请码管理', icon: '<path d="M4 7h16M4 12h16M4 17h10"/>' },
-  { to: '/registrations', label: '注册审核', icon: '<path d="M9 11l3 3 8-8M3 5h18v14H3z"/>' },
-  { to: '/users', label: '平台用户', icon: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M16 11l2 2 4-4"/>' },
+  { to: '/invite-codes', label: '邀请码管理', icon: 'ticket' },
+  { to: '/registrations', label: '注册审核', icon: 'clipboard' },
+  { to: '/users', label: '平台用户', icon: 'users' },
 ]
 
 const title = computed(() => route.meta.title || 'Hergent 管理后台')

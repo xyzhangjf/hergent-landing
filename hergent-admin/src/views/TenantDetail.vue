@@ -34,7 +34,7 @@
             </div>
             <div class="stat-card">
               <div class="label">租户库体积</div>
-              <div class="value">{{ usage.db_exists ? usage.db_size_mb + ' MB' : '—' }}</div>
+              <div class="value">{{ usage.db_exists ? usage.db_size_mb + ' 兆' : '—' }}</div>
             </div>
             <div class="stat-card">
               <div class="label">数据库状态</div>

@@ -2,7 +2,7 @@
   <div class="login-page">
     <div class="login-card card">
       <div class="login-brand">
-        <span class="logo">H</span>
+        <img class="logo" :src="brandIcon" alt="Hergent" />
         <div>
           <div class="lb-title">Hergent 管理后台</div>
           <div class="lb-sub">独立租户管理 · 平台运营控制台</div>
@@ -34,6 +34,8 @@ import { ApiError } from '../api/client'
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+
+const brandIcon = import.meta.env.BASE_URL + 'icons/brand-64.png'
 
 const username = ref('')
 const password = ref('')
@@ -69,9 +71,7 @@ async function submit() {
 .login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
 .login-brand .logo {
   width: 40px; height: 40px; border-radius: 10px;
-  background: linear-gradient(135deg, #06b6d4, #22d3ee);
-  color: #fff; font-weight: 700; font-size: 20px;
-  display: flex; align-items: center; justify-content: center;
+  display: block; object-fit: contain;
 }
 .lb-title { font-size: 18px; font-weight: 700; }
 .lb-sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }

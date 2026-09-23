@@ -33,7 +33,7 @@
       </div>
       <div class="stat-card">
         <div class="label">数据总体积</div>
-        <div class="value">{{ s.total_db_size_mb }} <span style="font-size:14px;color:var(--text-3)">MB</span></div>
+        <div class="value">{{ s.total_db_size_mb }} <span style="font-size:14px;color:var(--text-3)">兆</span></div>
         <div class="foot">主库 + 全部租户库</div>
       </div>
     </div>
