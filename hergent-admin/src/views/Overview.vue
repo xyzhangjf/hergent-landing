@@ -3,38 +3,38 @@
     <div v-if="loading" class="loading-box">加载中…</div>
     <template v-else>
       <div class="stat-grid">
-      <div class="stat-card">
-        <div class="label">租户总数</div>
-        <div class="value brand">{{ s.total_tenants }}</div>
-        <div class="foot">累计开通的客户数</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">启用中</div>
-        <div class="value success">{{ s.active_tenants }}</div>
-        <div class="foot">正常使用的租户</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">已停用</div>
-        <div class="value danger">{{ s.inactive_tenants }}</div>
-        <div class="foot">被停用的租户</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">今日新增</div>
-        <div class="value">{{ s.new_today }}</div>
-        <div class="foot">今日注册的租户数</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">近 7 天新增</div>
-        <div class="value">{{ s.new_this_week }}</div>
-        <div class="foot">滚动一周注册</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">平台总用户</div>
-        <div class="value">{{ s.total_users }}</div>
-        <div class="foot">全部注册账号数</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">数据总体积</div>
+        <div class="stat-card">
+          <div class="label" title="截至当前累计开通的租户总数，含已停用">租户总数</div>
+          <div class="value brand">{{ s.total_tenants }}</div>
+          <div class="foot">累计开通的客户数</div>
+        </div>
+        <div class="stat-card">
+          <div class="label" title="状态为启用的租户，可正常登录使用系统">启用中</div>
+          <div class="value success">{{ s.active_tenants }}</div>
+          <div class="foot">正常使用的租户</div>
+        </div>
+        <div class="stat-card">
+          <div class="label" title="状态为停用的租户，已停止服务但数据完整保留">已停用</div>
+          <div class="value danger">{{ s.inactive_tenants }}</div>
+          <div class="foot">被停用的租户</div>
+        </div>
+        <div class="stat-card">
+          <div class="label" title="今天 0 点到现在新注册的租户数量">今日新增</div>
+          <div class="value">{{ s.new_today }}</div>
+          <div class="foot">今日注册的租户数</div>
+        </div>
+        <div class="stat-card">
+          <div class="label" title="滚动 7 天内新注册的租户数量，含今天">近 7 天新增</div>
+          <div class="value">{{ s.new_this_week }}</div>
+          <div class="foot">滚动一周注册</div>
+        </div>
+        <div class="stat-card">
+          <div class="label" title="全部租户下的注册账号总数">平台总用户</div>
+          <div class="value">{{ s.total_users }}</div>
+          <div class="foot">全部注册账号数</div>
+        </div>
+        <div class="stat-card">
+          <div class="label" title="主库与全部租户库文件占用之和">数据总体积</div>
         <div class="value">{{ s.total_db_size_mb }} <span style="font-size:14px;color:var(--text-3)">兆</span></div>
         <div class="foot">主库 + 全部租户库</div>
       </div>

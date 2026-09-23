@@ -345,3 +345,29 @@ table.tbl td.wrap { white-space: normal; }
 .pill-group { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
 .pill-group .pill { padding: 6px 14px; font-size: 13px; cursor: pointer; background: #fff; color: var(--text-2); }
 .pill-group .pill.on { background: var(--brand); color: #fff; }
+
+/* ---- 表格：可排序表头 + 分页条 ---- */
+.tbl th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.tbl th.sortable:hover { color: var(--brand-dark); }
+.tbl th .arrow { margin-left: 4px; font-size: 11px; color: var(--text-3); }
+.tbl th.sorted .arrow { color: var(--brand-dark); }
+
+.pager {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--text-2);
+}
+.pager .spacer { flex: 1; }
+.pager-pos { font-size: 13px; color: var(--text-2); }
+
+/* ---- 表单：字段级错误提示 ---- */
+.input.error, .select.error { border-color: var(--danger); }
+.field-error { margin-top: 4px; font-size: 12px; color: var(--danger); }
+
+/* ---- 操作列：次要操作降级为文字链接，降低视觉噪音 ---- */
+.link-btn {
+  background: none; border: none; padding: 0; margin: 0;
+  color: var(--brand-dark); font-size: 13px; font-family: inherit;
+  cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; }

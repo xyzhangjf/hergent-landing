@@ -16,12 +16,18 @@
         <table class="tbl">
           <thead>
             <tr>
-              <th>ID</th><th>公司名</th><th>联系人</th><th>手机号</th>
-              <th>套餐</th><th>最大用户</th><th>状态</th><th>创建时间</th><th>操作</th>
+              <SortTh label="ID" field="id" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
+              <SortTh label="公司名" field="name" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
+              <th>联系人</th><th>手机号</th>
+              <th>套餐</th>
+              <SortTh label="最大用户" field="max_users" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
+              <th>状态</th>
+              <SortTh label="创建时间" field="created_at" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="t in filtered" :key="t.id">
+            <tr v-for="t in paged" :key="t.id">
               <td>{{ t.id }}</td>
               <td>{{ t.name }}</td>
               <td>{{ t.contact_name || '—' }}</td>
@@ -32,9 +38,10 @@
               <td class="muted">{{ t.created_at || '—' }}</td>
               <td>
                 <div class="btn-row">
-                  <router-link :to="'/tenants/' + t.id" class="btn sm">详情</router-link>
+                  <router-link :to="'/tenants/' + t.id" class="link-btn">详情</router-link>
+                  <!-- 启停是破坏性操作，保留实心按钮；详情/编辑降级为文字链接 -->
                   <button class="btn sm" @click="toggle(t)">{{ t.is_active ? '停用' : '启用' }}</button>
-                  <button class="btn sm" @click="openEdit(t)">编辑</button>
+                  <button class="link-btn" @click="openEdit(t)">编辑</button>
                 </div>
               </td>
             </tr>
@@ -57,12 +64,26 @@
           </tbody>
         </table>
       </div>
+      <Pager
+        :total="filtered.length"
+        :page="page"
+        :page-size="PAGE_SIZE"
+        @update:page="page = $event"
+      />
     </div>
 
     <Modal :show="modalShow" :title="isEdit ? '编辑租户' : '新增租户'" @close="modalShow = false">
       <div class="field">
         <label>公司名<span class="req">*</span></label>
-        <input class="input" v-model="form.name" :disabled="isEdit" placeholder="客户公司名称" />
+        <input
+          class="input"
+          :class="{ error: errors.name }"
+          v-model="form.name"
+          :disabled="isEdit"
+          placeholder="客户公司名称"
+          @input="errors.name = ''"
+        />
+        <div v-if="errors.name" class="field-error">{{ errors.name }}</div>
         <div v-if="isEdit" class="muted" style="font-size:12px;margin-top:4px">公司名创建后不可修改</div>
       </div>
       <div class="form-row">
@@ -86,7 +107,15 @@
         </div>
         <div class="field">
           <label>最大用户数</label>
-          <input class="input" type="number" min="1" v-model.number="form.max_users" />
+          <input
+            class="input"
+            :class="{ error: errors.max_users }"
+            type="number"
+            min="1"
+            v-model.number="form.max_users"
+            @input="errors.max_users = ''"
+          />
+          <div v-if="errors.max_users" class="field-error">{{ errors.max_users }}</div>
         </div>
       </div>
       <div class="field" v-if="isEdit">
@@ -105,18 +134,25 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { tenantApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
 import StatusBadge from '../components/StatusBadge.vue'
 import Modal from '../components/Modal.vue'
 import EmptyState from '../components/EmptyState.vue'
+import Pager from '../components/Pager.vue'
+import SortTh from '../components/SortTh.vue'
+import { sortRows, pageSlice, PAGE_SIZE } from '../utils/table'
 
 const toast = useToastStore()
 const list = ref([])
 const loading = ref(false)
 const keyword = ref('')
 const filter = ref('all')
+const page = ref(1)
+const sortKey = ref('')
+const sortDir = ref('asc')
+const errors = ref({})
 const modalShow = ref(false)
 const isEdit = ref(false)
 const saving = ref(false)
@@ -144,6 +180,18 @@ const filtered = computed(() => {
   })
 })
 
+// 排序 + 分页：当前在本地完成，数据量上千后改为后端 order_by / limit
+const paged = computed(() =>
+  pageSlice(sortRows(filtered.value, sortKey.value, sortDir.value), page.value)
+)
+function toggleSort(k) {
+  if (sortKey.value === k) sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  else { sortKey.value = k; sortDir.value = 'asc' }
+  page.value = 1
+}
+// 筛选条件变化后回到第一页，避免停在一个已不存在的页码
+watch([keyword, filter], () => { page.value = 1 })
+
 async function load() {
   loading.value = true
   try {
@@ -160,11 +208,13 @@ function openCreate() {
   isEdit.value = false
   editingId.value = null
   form.value = blankForm()
+  errors.value = {}
   modalShow.value = true
 }
 function openEdit(t) {
   isEdit.value = true
   editingId.value = t.id
+  errors.value = {}
   form.value = {
     name: t.name, contact_name: t.contact_name || '', contact_phone: t.contact_phone || '',
     plan: t.plan || 'free', max_users: t.max_users || 5, is_active: t.is_active ? 1 : 0,
@@ -172,7 +222,11 @@ function openEdit(t) {
   modalShow.value = true
 }
 async function save() {
-  if (!form.value.name.trim()) { toast.err('请填写公司名'); return }
+  // 字段级校验：错误定位到具体输入框，不依赖会自动消失的 toast
+  errors.value = {}
+  if (!form.value.name.trim()) { errors.value.name = '请填写公司名'; return }
+  const mu = Number(form.value.max_users)
+  if (!mu || mu < 1) { errors.value.max_users = '最大用户数至少为 1'; return }
   saving.value = true
   try {
     if (isEdit.value) {
