@@ -9,6 +9,7 @@ Page({
     password: '',
     loading: false,
     error: '',
+    remember: false,             // v252：记住**账号**（只存账号名，口令一律不落盘）
     showPrivacy: false,          // A3: 隐私同意弹窗
     privacyAgreed: false
   },
@@ -39,6 +40,11 @@ Page({
     }
     // M12: 记录重定向目标（来自 401 回跳或页面传入）
     this.redirect = (options && options.redirect) || wx.getStorageSync('fs_redirect') || ''
+    // v252：回填上次记住的**账号** —— 只填账号，密码永远要用户输。
+    // 为什么不做「记住密码」：明文口令落 storage 是合规红线，且同一账号可登 Web 端，
+    // 泄露影响面远大于小程序本身。
+    const savedAcc = wx.getStorageSync('fs_remember_account') || ''
+    if (savedAcc) this.setData({ username: savedAcc, remember: true })
     // A3: 未同意隐私指引则拦截登录，弹窗要求先同意
     if (!wx.getStorageSync('fs_privacy_agreed')) {
       this.setData({ showPrivacy: true, privacyAgreed: false })
@@ -86,6 +92,13 @@ Page({
       confirmText: '我知道了'
     })
   },
+  // v252：记住账号开关。**只存账号名，不存口令**。
+  toggleRemember() {
+    const remember = !this.data.remember
+    this.setData({ remember })
+    // 取消勾选时**立刻**清掉已存账号（不拖到下次登录）—— 与统计开关同一纪律：能关就必须真关
+    if (!remember) wx.removeStorageSync('fs_remember_account')
+  },
   async login() {
     // A3: 双重保险——未同意不允许登录
     if (!wx.getStorageSync('fs_privacy_agreed')) {
@@ -103,6 +116,11 @@ Page({
       wx.setStorageSync('fs_token', d.token)
       wx.setStorageSync('fs_user', d.user || {})
       wx.setStorageSync('fs_tenant_id', d.tenant_id || '')
+      // v252：记住账号 —— **只写账号名**。
+      // 🔴 密码一律不落盘：明文口令是合规红线（且同一账号可登 Web 端，泄露影响更大）。
+      // 取消勾选时立即清除，不留残留。
+      if (this.data.remember) wx.setStorageSync('fs_remember_account', username)
+      else wx.removeStorageSync('fs_remember_account')
       track(EVENTS.LOGIN, { role: (d.user && d.user.role) || '' })
       flush()   // v211: 拿到 token 了，把登录前攒下的队列（app_launch / login_fail）一次性补传
       // Q29（2026-09-19）：密码仍是系统初始密码（password_changed=0）→ 必须先改密，

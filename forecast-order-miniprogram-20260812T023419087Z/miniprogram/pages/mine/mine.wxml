@@ -45,29 +45,60 @@
   </view>
 
   <view class="sec-title">我的预报提交</view>
+  <!-- v259：列表项改为「左滑删除」结构。
+       分三层：.swipe（相对定位 + 裁掉溢出）= 每项的滑动舞台；
+               .swipe-act（绝对定位贴右侧）= 藏在下层的红色删除按钮；
+               .swipe-body（可位移）= 原来的卡片内容，左滑时露出下层按钮。
+       ⚠️ 删除按钮只在 item.can_delete 为真时才渲染 —— 该布尔由**服务端**判定
+          （本人提交 **且** 期次仍可写）。本列表范围是「我报的 OR 我负责门店报的」，
+          不全是本人单；若按「在列表里」就给按钮，督导能抹掉销售的单据 ⇒ 越权。 -->
   <view class="list" wx:if="{{records.length}}">
-    <view class="rec" wx:for="{{records}}" wx:key="id">
-      <view class="rec-hd" bindtap="toggleExpand" data-id="{{item.id}}">
-        <text class="rec-store">{{item.store_name}}</text>
-        <text class="rec-date">{{item.order_date}}</text>
-        <text class="rec-status status-{{item.status}}">{{item.statusText}}</text>
+    <view class="swipe" wx:for="{{records}}" wx:key="id">
+      <view class="swipe-act" wx:if="{{item.can_delete}}">
+        <view class="del-btn" bindtap="onDeleteTap" data-id="{{item.id}}" data-index="{{index}}">删除</view>
       </view>
-      <view class="rec-items" wx:if="{{expandedId === item.id}}">
-        <view class="rec-item" wx:for="{{item.items}}" wx:for-item="it" wx:key="index">
-          <text class="it-name">{{it.product_name}} {{it.spec}}</text>
-          <text class="it-qty">{{it.quantity}} {{it.unit}}</text>
+      <!-- 位移量只对 swipeId 命中的那一项生效 ⇒ 同一时刻最多一项展开（iOS 列表同款行为）。
+           dragging 时关掉过渡，让内容**跟手**；松手后再开过渡做吸附动画。 -->
+      <view class="swipe-body {{dragging ? 'dragging' : ''}}"
+            style="transform:translateX({{swipeId === item.id ? swipeX : 0}}px)"
+            data-id="{{item.id}}" data-can="{{item.can_delete ? 1 : 0}}"
+            bindtouchstart="onSwipeStart" bindtouchmove="onSwipeMove"
+            bindtouchend="onSwipeEnd" bindtouchcancel="onSwipeEnd">
+        <view class="rec">
+          <view class="rec-hd" bindtap="toggleExpand" data-id="{{item.id}}">
+            <text class="rec-store">{{item.store_name}}</text>
+            <text class="rec-date">{{item.order_date}}</text>
+            <text class="rec-status status-{{item.status}}">{{item.statusText}}</text>
+          </view>
+          <view class="rec-items" wx:if="{{expandedId === item.id}}">
+            <view class="rec-item" wx:for="{{item.items}}" wx:for-item="it" wx:key="index">
+              <text class="it-name">{{it.product_name}} {{it.spec}}</text>
+              <text class="it-qty">{{it.quantity}} {{it.unit}}</text>
+            </view>
+          </view>
+          <view class="rec-ft">
+            <!-- v224（2026-09-21）：显示**单号**。填报页的结果卡把它当作核对凭据给了用户，
+                 用户点「查看我的报单」过来必须能**对上号** —— 否则给了单号却无处可查。 -->
+            <text class="rec-no">单号 {{item.id}}</text>
+            <text class="rec-total">共 {{item.total_qty}} 件</text>
+            <button class="recall-btn" wx:if="{{item.status === 'pending'}}" size="mini" loading="{{recallingId === item.id}}" bindtap="recall" data-id="{{item.id}}">撤回</button>
+            <text class="rec-expand" wx:if="{{expandedId !== item.id}}" bindtap="toggleExpand" data-id="{{item.id}}">展开</text>
+            <text class="rec-expand" wx:else bindtap="toggleExpand" data-id="{{item.id}}">收起</text>
+          </view>
         </view>
-      </view>
-      <view class="rec-ft">
-        <!-- v224（2026-09-21）：显示**单号**。填报页的结果卡把它当作核对凭据给了用户，
-             用户点「查看我的报单」过来必须能**对上号** —— 否则给了单号却无处可查。 -->
-        <text class="rec-no">单号 {{item.id}}</text>
-        <text class="rec-total">共 {{item.total_qty}} 件</text>
-        <button class="recall-btn" wx:if="{{item.status === 'pending'}}" size="mini" loading="{{recallingId === item.id}}" bindtap="recall" data-id="{{item.id}}">撤回</button>
-        <text class="rec-expand" wx:if="{{expandedId !== item.id}}" bindtap="toggleExpand" data-id="{{item.id}}">展开</text>
-        <text class="rec-expand" wx:else bindtap="toggleExpand" data-id="{{item.id}}">收起</text>
       </view>
     </view>
   </view>
   <view class="empty" wx:else>还没有提交记录</view>
+
+  <!-- 备案号标注（2026-09-22 备案通过后新增）
+       依据：工信部《关于开展移动互联网应用程序备案工作的通知》第（八）条 ——
+       「APP 主办者应当在 APP 显著位置标明其备案编号，并在备案编号下方
+       按要求链接备案系统网址，供公众查询核对」；未依法标注可责令改正并处罚款。
+       ⚠️ 小程序内无法直跳工信部站点（业务域名需在 beian.miit.gov.cn 放校验文件，不可行），
+       故用「点击复制查询网址」；wx.setClipboardData 已在隐私申报范围内，不新增申报项。 -->
+  <view class="beian" bindtap="copyBeian">
+    <view class="beian-no">备案号：鄂ICP备2026027973号-2X</view>
+    <view class="beian-link">备案查询：beian.miit.gov.cn（点击复制网址）</view>
+  </view>
 </view>

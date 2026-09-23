@@ -4,10 +4,23 @@
 .user-info{flex:1;margin-left:24rpx}
 .user-name{font-size:34rpx;font-weight:600;color:#1d1d1f}
 .user-role{font-size:24rpx;color:#86868b;margin-top:6rpx}
-.logout{font-size:26rpx;color:#ff3b30;background:none;border:1rpx solid #ff3b30;border-radius:12rpx;padding:10rpx 28rpx;line-height:1.6}
+.logout{display:inline-flex;align-items:center;justify-content:center;height:64rpx;padding:0 28rpx;font-size:26rpx;line-height:1;color:#ff3b30;background:#fff;border:none;box-shadow:inset 0 0 0 2rpx #ff3b30;border-radius:12rpx;box-sizing:border-box;margin:0}
+/* 🔴 2026-09-22 二次修（真机复报「退出按钮下边缘还是有点没显示出来」）。
+   上一次只清了原生 `::after`（`border:none`），真机上底边仍缺 —— 根因**不是** ::after 残留，
+   而是 **`1rpx` 描边在 iOS 上的亚像素渲染**：1rpx = 0.5pt，在 dpr=3 的 iPhone 上落在
+   1.5 物理像素上，**底边与圆角衔接处最易被丢掉**（顶边通常正常，故看起来"只有下边缘没了"）。
+   修法：① `border:none` 不再走 border 渲染路径；② 改用 `box-shadow: inset` 画描边 ——
+   它跟随 border-radius 绘制、按物理像素抗锯齿，不吃亚像素；③ 描边宽度提到 2rpx（=1pt），
+   与 iOS 标准描边一致；④ `::after{display:none}` 彻底移除原生边框层（比只清 border 更干净）；
+   ⑤ 盒模型改用 `inline-flex + height:64rpx + line-height:1` —— 不再依赖 `line-height` 撑高，
+   彻底排除原生 button 默认 `line-height:2.56` 对盒高的干扰。
+   ⚠️ 同款问题见同页 `.recall-btn`（同为 1rpx 描边，一并加固）；`.revoke` 无边框、不受影响。 */
+.logout::after{display:none}
 .sec-title{font-size:28rpx;font-weight:600;color:#1d1d1f;padding:32rpx 32rpx 16rpx}
 .list{padding:0 32rpx}
-.rec{background:#fff;border-radius:16rpx;padding:24rpx;margin-bottom:20rpx}
+/* v259：卡片间距移到外层 .swipe 上（原本在 .rec）—— 左滑容器才是列表项的外框，
+   间距若留在内层，内容层位移时会把下面的空白一起拖走，卡片之间忽宽忽窄。 */
+.rec{background:#fff;border-radius:16rpx;padding:24rpx}
 .rec-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:16rpx}
 .rec-store{font-size:30rpx;font-weight:600;color:#1d1d1f}
 .rec-date{font-size:24rpx;color:#86868b}
@@ -25,7 +38,35 @@
 .rec-items{border-top:1rpx solid #f2f2f7;padding-top:12rpx}
 .rec-item{display:flex;justify-content:space-between;padding:8rpx 0;font-size:26rpx;color:#3a3a3c}
 .it-qty{color:#06b6d4;font-weight:500}
-.rec-ft{font-size:26rpx;color:#ff9500;font-weight:600;margin-top:12rpx}
+/* 行尾（单号 / 共 N 件 / 撤回 / 展开）
+   🔴 2026-09-22 修：此前 `.rec-total` / `.recall-btn` / `.rec-expand` **三个类名只有 wxml 引用、
+   wxss 里一条样式都没有**（`.rec-no` 有）。后果：微信原生 `<button>` 按默认样式渲染
+   （块级 + `margin:auto` + 大行高），视觉上**悬在卡片中间盖住文字**；「共 N 件 / 展开」也因无样式
+   而与父级同色、层次不清。⇒ 一律补上，并把行改为 flex 让按钮与文字**垂直居中对齐**。 */
+.rec-ft{display:flex;align-items:center;font-size:26rpx;color:#ff9500;font-weight:600;margin-top:12rpx}
+.rec-total{font-weight:600;color:#ff9500}
 /* v224：单号 —— 用弱化的灰色，避免与"共 N 件"抢注意力，但要一眼能找到 */
 .rec-no{color:#86868b;font-weight:400;margin-right:20rpx}
+/* 撤回：小号描边按钮（与 .logout 同配色）。
+   2026-09-22 二次修：与 `.logout` 同因同修 —— `1rpx` 描边在 iOS 真机亚像素渲染会丢掉底边，
+   改用 `box-shadow: inset` 画描边 + `::after{display:none}` 彻底移除原生边框层。 */
+.recall-btn{margin-left:16rpx;font-size:24rpx;color:#ff3b30;background:#fff;border:none;box-shadow:inset 0 0 0 2rpx #ff3b30;border-radius:10rpx;padding:6rpx 20rpx;line-height:1.4;box-sizing:border-box}
+.recall-btn::after{display:none}
+/* 展开 / 收起：推到行尾，避免与撤回挤在一起 */
+.rec-expand{margin-left:auto;font-size:24rpx;color:#06b6d4;font-weight:400}
+/* ===== v259：左滑删除 =====
+   三层：.swipe = 舞台（相对定位 + 裁掉溢出）；.swipe-act = 藏在右下的红色删除按钮；
+   .swipe-body = 可位移的内容层（白底、盖在上层，左滑时露出下层按钮）。
+   ⚠️ .swipe-act 的 width 必须与 mine.js 里的 DEL_RPX **同一个数**（当前 160rpx）：
+      「按钮露出多宽」与「内容左移多少」是同一件事，写在两个文件里靠这个注释互相对齐。 */
+.swipe{position:relative;overflow:hidden;margin-bottom:20rpx;border-radius:16rpx}
+.swipe-act{position:absolute;top:0;right:0;bottom:0;width:160rpx;background:#ff3b30;display:flex;align-items:center;justify-content:center}
+.del-btn{font-size:28rpx;color:#fff;font-weight:500}
+.swipe-body{position:relative;z-index:1;background:#fff;border-radius:16rpx;transition:transform .22s ease}
+/* 跟手阶段必须关掉过渡：否则手指每动一下都在追一段动画，手感会明显"拖泥带水" */
+.swipe-body.dragging{transition:none}
 .empty{text-align:center;color:#86868b;font-size:26rpx;padding:80rpx 0}
+/* 备案号（2026-09-22）：合规必需，但**弱化**处理，不与主功能抢注意力 */
+.beian{padding:40rpx 0 20rpx;text-align:center}
+.beian-no{font-size:24rpx;color:#86868b}
+.beian-link{font-size:22rpx;color:#06b6d4;margin-top:8rpx}

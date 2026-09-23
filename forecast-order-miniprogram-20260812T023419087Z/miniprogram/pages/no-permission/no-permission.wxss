@@ -14,7 +14,13 @@
    （否则文字会偏上 (height − 内置行高)/2）。这里两者都显式给值，不吃内置值。 */
 .btn-primary{height:88rpx;line-height:88rpx;background:#06b6d4;color:#fff;font-size:30rpx;border-radius:14rpx;padding:0}
 .btn-primary[disabled]{background:#a8e0e6;color:#fff}
-.btn-ghost{height:84rpx;line-height:84rpx;background:#fff;color:#06b6d4;font-size:28rpx;border:1rpx solid #06b6d4;border-radius:14rpx;margin-bottom:20rpx;padding:0}
-.btn-quit{height:88rpx;line-height:88rpx;background:#fff;color:#ff3b30;font-size:30rpx;border:1rpx solid #ff3b30;border-radius:14rpx;padding:0}
+.btn-ghost{height:84rpx;line-height:84rpx;background:#fff;color:#06b6d4;font-size:28rpx;border:none;box-shadow:inset 0 0 0 2rpx #06b6d4;border-radius:14rpx;margin-bottom:20rpx;padding:0}
+.btn-quit{height:88rpx;line-height:88rpx;background:#fff;color:#ff3b30;font-size:30rpx;border:none;box-shadow:inset 0 0 0 2rpx #ff3b30;border-radius:14rpx;padding:0}
+/* 🔴 2026-09-22 二次修：与 mine.wxss `.logout` 同因 —— 只清 `::after` 不够，`1rpx` 描边在 iOS
+   真机亚像素渲染会丢掉底边。改为 `box-shadow: inset`（跟随圆角、抗亚像素）+ 2rpx 宽，
+   并 `::after{display:none}` 彻底移除原生边框层。
+   `.btn-primary` 是纯色底、无自定义 border，不受影响（不动）。 */
+.btn-ghost::after{display:none}
+.btn-quit::after{display:none}
 .tip{font-size:25rpx;color:#86868b;line-height:1.7;padding:0 8rpx;margin-bottom:40rpx}
 .ft{padding:0 8rpx}

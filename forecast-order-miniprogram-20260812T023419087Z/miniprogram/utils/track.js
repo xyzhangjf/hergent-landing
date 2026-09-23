@@ -44,6 +44,7 @@ const EVENTS = {
   APPROVE: 'approve_action',
   REJECT: 'reject_action',
   RECALL: 'recall_action',
+  DELETE: 'delete_action',      // v259：小程序「我的提交」左滑删除本人预报单
   PAGE_VIEW: 'page_view',
   NO_PERMISSION_VIEW: 'no_permission_view',   // 无权限页曝光
   PASSWORD: 'password_action',

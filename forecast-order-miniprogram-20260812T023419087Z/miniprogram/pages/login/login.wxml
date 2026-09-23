@@ -2,12 +2,20 @@
   <view class="brand">
     <image class="brand-ic" src="/assets/brand-logo.png" mode="aspectFit" />
     <view class="brand-name">小赫智体报单助手</view>
-    <view class="brand-sub">员工预报 · 汇总总表 · 内部使用</view>
+    <view class="brand-sub">员工预报 · 汇总总表</view>
+    <view class="scope-note">仅限本企业员工内部使用</view>
   </view>
 
   <view class="card">
     <input class="ipt" placeholder="手机号 / 账号" value="{{username}}" bindinput="onUsername" />
     <input class="ipt" placeholder="密码" password value="{{password}}" bindinput="onPassword" />
+    <!-- v252：记住账号 —— 只存账号名，密码永远不存（明文口令是合规红线） -->
+    <view class="remember" bindtap="toggleRemember">
+      <view class="remember-box {{remember ? 'on' : ''}}">
+        <text wx:if="{{remember}}" class="remember-ck">✓</text>
+      </view>
+      <text class="remember-txt">记住账号</text>
+    </view>
     <button class="btn" loading="{{loading}}" disabled="{{loading}}" bindtap="login">登 录</button>
     <view class="forgot" bindtap="goForgot">忘记密码？</view>
     <view class="err" wx:if="{{error}}">{{error}}</view>
@@ -32,13 +40,13 @@
       <view class="privacy-title">隐私保护指引</view>
       <scroll-view class="privacy-body" scroll-y="true">
         <view class="pz-p">欢迎使用「小赫智体报单助手」。我们仅收集实现功能所必要的信息：</view>
-        <view class="pz-li">· 你填写的登录账号与密码（密码加盐哈希存储，不留明文）</view>
+        <view class="pz-li">· 你填写的登录账号（你的手机号或管理员分配的账号）与密码（密码加盐哈希存储，不留明文）</view>
         <view class="pz-li">· 你的姓名 / 显示名、角色（销售、督导、管理员等）</view>
         <view class="pz-li">· 你填报的门店、预报商品与数量、报单期次</view>
         <view class="pz-li">· 剪切板（仅在你点击「复制」时写入汇总结果，不读取其中其它内容）</view>
         <view class="pz-p">用途：身份验证、生成与汇总预报订单、按门店/期次/角色聚合展示、保障服务稳定。</view>
         <view class="pz-p">数据存放于 hergent.cn 服务器，采用 HTTPS 传输加密。我们不向任何第三方出售或交换你的个人信息。</view>
-        <view class="pz-p">我们不收集：微信 OpenID / 昵称 / 头像 / 手机号（未使用微信一键登录）、位置、相册、摄像头、麦克风、通讯录、蓝牙，也不收集设备型号、系统版本与崩溃日志。</view>
+        <view class="pz-p">我们不收集：微信 OpenID / 昵称 / 头像（未使用微信一键登录，也未通过微信获取你的手机号）、位置、相册、摄像头、麦克风、通讯录、蓝牙，也不收集设备型号、系统版本与崩溃日志。</view>
         <view class="pz-p">仅在本机使用、不上传也不存储：本机网络类型仅用于断网提示。</view>
         <!-- P0（2026-09-19）：非必要项与必需项拆分标注。
              《个人信息保护法》第 16 条 + 微信官方指引：用户拒绝非必要授权时，

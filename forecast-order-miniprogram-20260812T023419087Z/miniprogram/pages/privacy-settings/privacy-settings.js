@@ -17,7 +17,8 @@ Page({
   goPrivacy() { wx.navigateTo({ url: '/pages/legal/privacy' }) },
   goTerms() { wx.navigateTo({ url: '/pages/legal/terms' }) },
 
-  // 非必要信息开关：关 = 写 opt-out 标记，utils/track.js 由此不再上报 wx.reportAnalytics
+  // 非必要信息开关：关 = 写 opt-out 标记，utils/track.js 由此**不入队**（不再上报到我们自己的
+  // 服务器 `/api/track`）。注意：2026-09-20 起埋点已由微信原生统计改为自建后端上报。
   onStat(e) {
     const on = !!(e.detail && e.detail.value)
     try {
