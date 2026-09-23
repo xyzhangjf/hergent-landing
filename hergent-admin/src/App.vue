@@ -28,6 +28,7 @@
         >
           <Icon :name="item.icon" />
           <span>{{ item.label }}</span>
+          <span v-if="item.to === '/registrations' && regCount > 0" class="badge">{{ regCount }}</span>
         </router-link>
       </nav>
       <div class="side-foot">Hergent ERP · 租户管理后台<br />v1.0 · 独立子站</div>
@@ -53,11 +54,12 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './store/auth'
 import ToastHost from './components/ToastHost.vue'
 import Icon from './components/Icon.vue'
+import { regApi } from './api/client'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -73,7 +75,7 @@ const mainNav = [
 ]
 const govNav = [
   { to: '/invite-codes', label: '邀请码管理', icon: 'ticket' },
-  { to: '/registrations', label: '注册审核', icon: 'clipboard' },
+  { to: '/registrations', label: '注册流水', icon: 'clipboard' },
   { to: '/users', label: '平台用户', icon: 'users' },
 ]
 
@@ -83,6 +85,19 @@ const subtitle = computed(() => {
   return ''
 })
 const initial = computed(() => (auth.username ? auth.username.charAt(0).toUpperCase() : 'A'))
+
+// 侧栏待办徽标：注册流水条数（增强信息，拉取失败静默降级为不显示）
+const regCount = ref(0)
+async function loadRegCount() {
+  try {
+    const d = await regApi.list()
+    regCount.value = ((d && d.registrations) || []).length
+  } catch (e) {
+    regCount.value = 0
+  }
+}
+// App 在登录后不会重新挂载，因此用 watch 覆盖「首次进入已是后台」与「登录成功后切入」两种情况
+watch(isLogin, (v) => { if (!v) loadRegCount() }, { immediate: true })
 
 function isActive(to) {
   if (to === '/') return route.path === '/' || route.path === ''

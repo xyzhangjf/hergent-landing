@@ -40,7 +40,8 @@ async function request(method, path, body) {
   if (resp.status === 401) {
     setToken('')
     if (location.hash.indexOf('#/login') === -1) {
-      location.href = '/admin/#/login'
+      // 带上 reason，登录页据此显示「登录已失效」提示，避免用户莫名回到登录页
+      location.href = '/admin/#/login?reason=expired'
     }
     throw new ApiError('登录已失效，请重新登录', 401, 'UNAUTHORIZED')
   }

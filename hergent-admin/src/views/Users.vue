@@ -13,8 +13,17 @@
               <td><span class="badge neutral">{{ u.role }}</span></td>
               <td><StatusBadge :active="u.is_active" /></td>
             </tr>
-            <tr v-if="users.length === 0">
-              <td colspan="5"><div class="empty">暂无数据（该接口需平台管理员权限）</div></td>
+            <tr v-if="loading">
+              <td colspan="5"><div class="loading-box">加载中…</div></td>
+            </tr>
+            <tr v-else-if="users.length === 0">
+              <td colspan="5">
+                <EmptyState
+                  icon="users"
+                  title="暂无数据"
+                  desc="没有读到平台用户名册；该接口需要平台管理员权限，请确认当前账号已加入 platform_admins"
+                />
+              </td>
             </tr>
           </tbody>
         </table>
@@ -28,17 +37,22 @@ import { ref, onMounted } from 'vue'
 import { userApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
 import StatusBadge from '../components/StatusBadge.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 const toast = useToastStore()
 const users = ref([])
+const loading = ref(false)
 
 async function load() {
+  loading.value = true
   try {
     const data = await userApi.list()
     // 该接口直接返回数组
     users.value = Array.isArray(data) ? data : (data.data || [])
   } catch (e) {
     toast.err('加载失败：' + (e instanceof ApiError ? e.message : e.message))
+  } finally {
+    loading.value = false
   }
 }
 onMounted(load)

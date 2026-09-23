@@ -42,6 +42,11 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
+// 由 api/client.js 在 401 时跳转带出，提示会话失效而非让用户莫名回到登录页
+if (route.query.reason === 'expired') {
+  error.value = '登录已失效，请重新登录'
+}
+
 async function submit() {
   error.value = ''
   if (!username.value || !password.value) {

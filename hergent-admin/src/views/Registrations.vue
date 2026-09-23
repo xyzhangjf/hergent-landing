@@ -1,5 +1,7 @@
 <template>
   <div>
+    <div class="page-note">邀请码注册即生效，本页仅供追溯核对，无需人工审核。</div>
+
     <div class="card" style="margin-bottom:20px">
       <div class="card-head"><h3>平台管理员</h3></div>
       <div class="card-body">
@@ -28,8 +30,17 @@
               <td class="muted">{{ r.ip_address || '—' }}</td>
               <td class="muted wrap">{{ (r.user_agent || '').slice(0, 40) || '—' }}</td>
             </tr>
-            <tr v-if="regs.length === 0">
-              <td colspan="6"><div class="empty">暂无注册记录</div></td>
+            <tr v-if="loading">
+              <td colspan="6"><div class="loading-box">加载中…</div></td>
+            </tr>
+            <tr v-else-if="regs.length === 0">
+              <td colspan="6">
+                <EmptyState
+                  icon="clipboard"
+                  title="暂无注册记录"
+                  desc="还没有客户通过邀请码注册；注册成功后会在这里留下账号、邀请码与时间"
+                />
+              </td>
             </tr>
           </tbody>
         </table>
@@ -42,19 +53,32 @@
 import { ref, onMounted } from 'vue'
 import { regApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
+import EmptyState from '../components/EmptyState.vue'
 
 const toast = useToastStore()
 const regs = ref([])
 const admins = ref([])
+const loading = ref(false)
 
 async function load() {
+  loading.value = true
   try {
     const data = await regApi.list()
     regs.value = (data && data.registrations) || []
     admins.value = (data && data.platform_admins) || []
   } catch (e) {
     toast.err('加载失败：' + (e instanceof ApiError ? e.message : e.message))
+  } finally {
+    loading.value = false
   }
 }
 onMounted(load)
 </script>
+
+<style scoped>
+.page-note {
+  font-size: 13px; color: var(--text-2); background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 12px; margin-bottom: 16px;
+}
+</style>

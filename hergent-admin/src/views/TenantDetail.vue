@@ -52,7 +52,13 @@
                   <td>{{ tableLabel(k) }}</td><td>{{ v }}</td>
                 </tr>
                 <tr v-if="Object.keys(usage.data_stats || {}).length === 0">
-                  <td colspan="2"><div class="empty">暂无业务数据</div></td>
+                  <td colspan="2">
+                    <EmptyState
+                      icon="dashboard"
+                      title="暂无业务数据"
+                      desc="该租户还没有商品、订单等业务记录，导入或开单后这里会自动统计"
+                    />
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -80,10 +86,16 @@
                   <td>{{ m.display_name || '—' }}</td>
                   <td><span class="badge neutral">{{ m.role }}</span></td>
                   <td><StatusBadge :active="m.is_active" /></td>
-                  <td><button class="btn sm danger" @click="removeMember(m)">移除</button></td>
+                  <td><button class="btn sm danger" @click="askRemoveMember(m)">移除</button></td>
                 </tr>
                 <tr v-if="members.length === 0">
-                  <td colspan="6"><div class="empty">暂无成员</div></td>
+                  <td colspan="6">
+                    <EmptyState
+                      icon="users"
+                      title="暂无成员"
+                      desc="在上方输入已有的平台账号名，即可把该账号加入这个租户"
+                    />
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -91,6 +103,17 @@
         </div>
       </div>
     </template>
+
+    <ConfirmDialog
+      :show="confirmShow"
+      title="移除成员"
+      :text="'确认将「' + ((pendingMember && pendingMember.username) || '') + '」移出该租户？'"
+      consequence="移除后该成员将立即失去这个租户的数据访问权限；其账号本身不会被删除，可随时重新添加。"
+      confirm-label="确认移除"
+      :busy="removing"
+      @cancel="confirmShow = false"
+      @confirm="doRemoveMember"
+    />
   </div>
 </template>
 
@@ -100,6 +123,8 @@ import { useRoute } from 'vue-router'
 import { tenantApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
 import StatusBadge from '../components/StatusBadge.vue'
+import EmptyState from '../components/EmptyState.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const toast = useToastStore()
 const route = useRoute()
@@ -111,6 +136,9 @@ const members = ref([])
 const usage = ref({ member_count: 0, max_users: 0, db_exists: false, db_size_mb: 0, data_stats: {} })
 const newMember = ref('')
 const adding = ref(false)
+const confirmShow = ref(false)
+const removing = ref(false)
+const pendingMember = ref(null)
 
 function planLabel(p) { return { free: '免费版', pro: '专业版', enterprise: '企业版', '': '未设置' }[p] || p }
 function tableLabel(k) {
@@ -150,14 +178,24 @@ async function addMember() {
     adding.value = false
   }
 }
-async function removeMember(m) {
-  if (!confirm('确认将「' + m.username + '」移出该租户？')) return
+function askRemoveMember(m) {
+  pendingMember.value = m
+  confirmShow.value = true
+}
+async function doRemoveMember() {
+  const m = pendingMember.value
+  if (!m) return
+  removing.value = true
   try {
     await tenantApi.removeMember(id, m.id)
     toast.ok('已移除')
+    confirmShow.value = false
+    pendingMember.value = null
     await load()
   } catch (e) {
     toast.err('移除失败：' + (e instanceof ApiError ? e.message : e.message))
+  } finally {
+    removing.value = false
   }
 }
 

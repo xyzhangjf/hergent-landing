@@ -15,7 +15,7 @@ const routes = [
   { path: '/tenants', name: 'tenants', component: Tenants, meta: { title: '租户管理' } },
   { path: '/tenants/:id', name: 'tenant-detail', component: TenantDetail, meta: { title: '租户详情' } },
   { path: '/invite-codes', name: 'invite-codes', component: InviteCodes, meta: { title: '邀请码管理' } },
-  { path: '/registrations', name: 'registrations', component: Registrations, meta: { title: '注册审核' } },
+  { path: '/registrations', name: 'registrations', component: Registrations, meta: { title: '注册流水' } },
   { path: '/users', name: 'users', component: Users, meta: { title: '平台用户' } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

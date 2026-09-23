@@ -38,8 +38,21 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="filtered.length === 0">
-              <td colspan="9"><div class="empty">没有匹配的租户</div></td>
+            <tr v-if="loading">
+              <td colspan="9"><div class="loading-box">加载中…</div></td>
+            </tr>
+            <tr v-else-if="filtered.length === 0">
+              <td colspan="9">
+                <EmptyState
+                  icon="building"
+                  :title="keyword.trim() || filter !== 'all' ? '没有匹配的租户' : '还没有租户'"
+                  :desc="keyword.trim() || filter !== 'all'
+                    ? '换个关键词，或把筛选切回「全部」试试'
+                    : '创建第一个租户后，就能在这里统一管理套餐、成员与启停状态'"
+                  :action-label="keyword.trim() || filter !== 'all' ? '' : '+ 新增租户'"
+                  @action="openCreate"
+                />
+              </td>
             </tr>
           </tbody>
         </table>
@@ -97,9 +110,11 @@ import { tenantApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
 import StatusBadge from '../components/StatusBadge.vue'
 import Modal from '../components/Modal.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 const toast = useToastStore()
 const list = ref([])
+const loading = ref(false)
 const keyword = ref('')
 const filter = ref('all')
 const modalShow = ref(false)
@@ -130,11 +145,14 @@ const filtered = computed(() => {
 })
 
 async function load() {
+  loading.value = true
   try {
     const data = await tenantApi.list(false)
     list.value = Array.isArray(data) ? data : (data.data || [])
   } catch (e) {
     toast.err('加载租户列表失败：' + (e instanceof ApiError ? e.message : e.message))
+  } finally {
+    loading.value = false
   }
 }
 

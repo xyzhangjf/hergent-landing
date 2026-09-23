@@ -1,6 +1,8 @@
 <template>
   <div>
-    <div class="stat-grid">
+    <div v-if="loading" class="loading-box">加载中…</div>
+    <template v-else>
+      <div class="stat-grid">
       <div class="stat-card">
         <div class="label">租户总数</div>
         <div class="value brand">{{ s.total_tenants }}</div>
@@ -19,7 +21,7 @@
       <div class="stat-card">
         <div class="label">今日新增</div>
         <div class="value">{{ s.new_today }}</div>
-        <div class="foot">较昨日注册量</div>
+        <div class="foot">今日注册的租户数</div>
       </div>
       <div class="stat-card">
         <div class="label">近 7 天新增</div>
@@ -51,6 +53,7 @@
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
