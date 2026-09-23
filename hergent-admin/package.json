@@ -1,0 +1,21 @@
+{
+  "name": "hergent-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hergent 独立租户管理后台（与主站物理隔离的子站）",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "pinia": "^2.2.6",
+    "vue": "^3.5.13",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.4",
+    "vite": "^5.4.10"
+  }
+}

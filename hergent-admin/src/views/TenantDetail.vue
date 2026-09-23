@@ -1,0 +1,169 @@
+<template>
+  <div>
+    <div class="btn-row" style="margin-bottom:16px">
+      <router-link to="/tenants" class="btn sm">← 返回租户列表</router-link>
+    </div>
+
+    <div v-if="loading" class="loading-box">加载中…</div>
+    <template v-else>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-head">
+          <h3>{{ tenant.name }}</h3>
+          <StatusBadge :active="tenant.is_active" />
+        </div>
+        <div class="card-body">
+          <div class="kv">
+            <span class="k">租户 ID</span><span class="v">{{ tenant.id }}</span>
+            <span class="k">公司名</span><span class="v">{{ tenant.name }}</span>
+            <span class="k">联系人</span><span class="v">{{ tenant.contact_name || '—' }}</span>
+            <span class="k">手机号</span><span class="v">{{ tenant.contact_phone || '—' }}</span>
+            <span class="k">套餐</span><span class="v">{{ planLabel(tenant.plan) }}</span>
+            <span class="k">最大用户数</span><span class="v">{{ tenant.max_users }}</span>
+            <span class="k">创建时间</span><span class="v">{{ tenant.created_at || '—' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-head"><h3>用量统计</h3></div>
+        <div class="card-body">
+          <div class="usage-grid">
+            <div class="stat-card">
+              <div class="label">成员数 / 上限</div>
+              <div class="value">{{ usage.member_count }} <span style="font-size:14px;color:var(--text-3)">/ {{ usage.max_users }}</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="label">租户库体积</div>
+              <div class="value">{{ usage.db_exists ? usage.db_size_mb + ' MB' : '—' }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="label">数据库状态</div>
+              <div class="value" :class="usage.db_exists ? 'success' : 'danger'">{{ usage.db_exists ? '正常' : '缺失' }}</div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="section-title">核心业务表行数</div>
+          <div v-if="!usage.db_exists" class="muted">租户库文件不存在，无法统计业务数据。</div>
+          <div v-else class="table-wrap">
+            <table class="tbl">
+              <thead><tr><th>表</th><th>记录数</th></tr></thead>
+              <tbody>
+                <tr v-for="(v, k) in usage.data_stats" :key="k">
+                  <td>{{ tableLabel(k) }}</td><td>{{ v }}</td>
+                </tr>
+                <tr v-if="Object.keys(usage.data_stats || {}).length === 0">
+                  <td colspan="2"><div class="empty">暂无业务数据</div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>成员列表</h3>
+          <span class="spacer" style="flex:1"></span>
+          <div class="btn-row">
+            <input class="input" style="width:180px" v-model="newMember" placeholder="输入已有账号名" />
+            <button class="btn primary sm" :disabled="adding" @click="addMember">{{ adding ? '添加中…' : '添加成员' }}</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table class="tbl">
+              <thead><tr><th>ID</th><th>账号</th><th>姓名</th><th>角色</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr v-for="m in members" :key="m.id">
+                  <td>{{ m.id }}</td>
+                  <td>{{ m.username }}</td>
+                  <td>{{ m.display_name || '—' }}</td>
+                  <td><span class="badge neutral">{{ m.role }}</span></td>
+                  <td><StatusBadge :active="m.is_active" /></td>
+                  <td><button class="btn sm danger" @click="removeMember(m)">移除</button></td>
+                </tr>
+                <tr v-if="members.length === 0">
+                  <td colspan="6"><div class="empty">暂无成员</div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { tenantApi, ApiError } from '../api/client'
+import { useToastStore } from '../store/toast'
+import StatusBadge from '../components/StatusBadge.vue'
+
+const toast = useToastStore()
+const route = useRoute()
+const id = route.params.id
+
+const loading = ref(true)
+const tenant = ref({})
+const members = ref([])
+const usage = ref({ member_count: 0, max_users: 0, db_exists: false, db_size_mb: 0, data_stats: {} })
+const newMember = ref('')
+const adding = ref(false)
+
+function planLabel(p) { return { free: '免费版', pro: '专业版', enterprise: '企业版', '': '未设置' }[p] || p }
+function tableLabel(k) {
+  return {
+    products: '商品主档', sale_orders: '销售订单', purchase_orders: '采购订单',
+    inventory: '库存', forecast_orders: '预报订单',
+  }[k] || k
+}
+
+async function load() {
+  loading.value = true
+  try {
+    const [t, m, u] = await Promise.all([
+      tenantApi.get(id), tenantApi.members(id), tenantApi.usage(id),
+    ])
+    tenant.value = t || {}
+    members.value = (m && m.data) || []
+    usage.value = (u && u.data) || usage.value
+  } catch (e) {
+    toast.err('加载失败：' + (e instanceof ApiError ? e.message : e.message))
+  } finally {
+    loading.value = false
+  }
+}
+async function addMember() {
+  const name = newMember.value.trim()
+  if (!name) { toast.err('请输入账号名'); return }
+  adding.value = true
+  try {
+    await tenantApi.addMember(id, { username: name, role: 'user' })
+    toast.ok('已添加成员 ' + name)
+    newMember.value = ''
+    await load()
+  } catch (e) {
+    toast.err('添加失败：' + (e instanceof ApiError ? e.message : e.message))
+  } finally {
+    adding.value = false
+  }
+}
+async function removeMember(m) {
+  if (!confirm('确认将「' + m.username + '」移出该租户？')) return
+  try {
+    await tenantApi.removeMember(id, m.id)
+    toast.ok('已移除')
+    await load()
+  } catch (e) {
+    toast.err('移除失败：' + (e instanceof ApiError ? e.message : e.message))
+  }
+}
+
+onMounted(load)
+</script>
+
+<style scoped>
+.usage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+</style>
