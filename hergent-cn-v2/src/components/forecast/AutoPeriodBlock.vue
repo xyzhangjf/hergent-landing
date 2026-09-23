@@ -45,7 +45,7 @@
           <input v-model="form.auto_close_time" type="time" class="ap-in" :disabled="!form.enabled || busy">
         </div>
         <div class="field">
-          <label>厂家下单截止<span class="ap-hint">须晚于自动关单</span></label>
+          <label>厂家下单截止<span class="ap-hint">须晚于关单</span></label>
           <input v-model="form.supplier_deadline_time" type="time" class="ap-in" :disabled="!form.enabled || busy">
         </div>
       </div>
@@ -215,7 +215,7 @@ onMounted(load)
 .ap-warnchip{font-size:12px;color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px 8px;border-radius:10px}
 .ap-body{padding:0 16px 14px;border-top:1px solid var(--border-subtle)}
 .ap-tip{font-size:12.5px;color:var(--t2);line-height:1.65;margin:12px 0}
-.ap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;padding:2px 0 6px}
+.ap-grid{display:grid;grid-template-columns:max-content minmax(180px,1fr) repeat(3,140px);gap:12px;padding:2px 0 6px}
 .ap-grid .field{display:flex;flex-direction:column;gap:5px}
 .ap-grid .field label{font-size:12px;color:var(--t2)}
 .ap-hint{font-size:11px;color:var(--t3);margin-left:4px}
@@ -239,5 +239,6 @@ onMounted(load)
 .ap-brand{display:inline-block;background:rgba(var(--p-rgb),.12);color:var(--p-dark);border-radius:var(--radius-xs, 4px);padding:1px 6px;margin:1px 4px 1px 0;font-size:11px}
 .ap-brand i{font-style:normal;opacity:.7;margin-left:2px}
 .ap-actions{display:flex;align-items:center;gap:10px;margin-top:12px}
+@media(max-width:900px){ .ap-grid{grid-template-columns:1fr 1fr} }
 @media(max-width:640px){ .ap-grid{grid-template-columns:1fr} }
 </style>
