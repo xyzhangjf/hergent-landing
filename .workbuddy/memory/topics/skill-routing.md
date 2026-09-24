@@ -41,6 +41,14 @@
 
 ## 预报主表 / Excel
 
+- ⭐ `hergent-unit-conversion-audit` —— **动任何「数量 / 箱数 / 单位 / 换算」代码前必跑**
+  （报单·加单·商品目标·价格·库存·返利达成）。权威 = `products` 三级单位 + `order_unit`；
+  唯一实现 = `perCase()` / `order_unit_master_sql()`。
+  🔴 两个实测静默陷阱：① **`medium_ratio > 0` 在 SQLite 下假阳性**（157 行存空串，`'' > 0` 恒真
+  ⇒ 中单位数 53 变 210），SQL 一律 `CAST(medium_ratio AS REAL)` ② **小程序与 Web 主表单位不同源**
+  （`fill-search` 只下发 `p.unit`）⇒ 「按填报单位显示」的功能必须先打通。
+  另含锚点商品（id=1449 ⇒ 1件=8包=40袋）、`arrival_count_override` = 可报单数、
+  `rebate_achievements` 有 product 维度但**缺 unit 列**。
 - `hergent-forecast-column-registry` —— 主表增删一列；删列前核查「会不会连同功能一起删掉」
 - `hergent-import-mapping-confirm` —— Excel 导入加「列映射确认」界面并**改判真生效**
 - `hergent-forecast-import-verify` —— 端到端验证导入（真实接口 + 隔离沙箱 + 逐列对账）

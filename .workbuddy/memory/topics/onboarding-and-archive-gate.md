@@ -536,3 +536,76 @@ customer_prices:  price(=小单位价) │ small_unit_price │ medium_unit_pric
 **部署的 staged base 必须是「生产文件」而非「HEAD」** —— 生产的 `import_router.py` / `erp_db.py`
 含**从未提交但已部署**的 v226 改动，用「HEAD + 我的 hunk」会把它整批抹掉且不报错。
 正确判据 = `diff 生产文件 工作区文件`，差异 100% 属本轮 ⇒ 直接推工作区文件。
+
+---
+
+## 十五、🔴 单位换算的两个静默陷阱（2026-09-24 实测发现，**未修，写代码前必读**）
+
+起因：用户提「商品目标管理」需求，特别叮嘱「**要注意单位换算，要看系统里的真实单位换算是什么样的**」。
+按提示实测生产 `tenant_1.db`（285 个在售商品），抓到两个会让换算**静默算错**的陷阱。
+
+### 15.1 🔴🔴 `medium_ratio > 0` 是假判据 —— SQLite 文本恒大于数字
+
+**根因**：`medium_ratio` 这一列**存了两种 SQLite 类型**（`REAL DEFAULT 0` 的列，但存量导入写进了空串）：
+
+```
+typeof(medium_ratio) 分布（285 行）：real = 128 · **text = 157**（全是 `''` 空串）
+```
+
+SQLite 的类型排序规则是「NULL < INTEGER/REAL < TEXT」，所以**文本永远大于任何数字**：
+
+```sql
+SELECT '' > 0;      -- 返回 1（true！）
+SELECT '' > 0.0;    -- 返回 1
+```
+
+**后果对照（同一份数据，两个判据差 157 行）**：
+
+| 判据 | 命中数 | 结论 |
+|---|---|---|
+| `medium_ratio > 0` | **210** | ❌ 假阳性 —— 多算 157 个**根本没有中单位**的商品 |
+| `CAST(medium_ratio AS REAL) > 0` | **53** | ✅ 正确 |
+| `medium_unit <> '' AND CAST(medium_ratio AS REAL) > 0` | **53** | ✅ 同答案（互为交叉验证） |
+| `medium_unit` 非空 | **53** | ✅ |
+| `large_ratio > 0` | 209 | ✅ 安全（`typeof(large_ratio)` 恒 real，285/285） |
+| `has_multi_unit = 1` | 209 | ✅ 与上同数（此前记忆里说「漏标 9 条」，本轮实测已对齐） |
+
+⇒ **`large_ratio` 系列可以用裸比较，`medium_ratio` 一律必须 `CAST(... AS REAL)`。**
+
+**为什么一直没被发现**：前端唯一实现 `Forecast.vue::perCase()` 里写的是
+`const mr = Number(arc.medium_ratio) || 0` —— JS 的 `Number('')` = `0`（假值）⇒ **前端天然安全**。
+所以这条只在**新写的 SQL** 里才会咬人，而且咬得完全静默（数字偏大但不报错，只是"算出来的均单目标/箱数不对"）。
+
+**纪律**：单位判据必须收口到**一处**（建议后端 `db/queries/products.py` 新增 `per_case_sql()` /
+`unit_levels_sql()`），业务代码禁止散写 `medium_ratio > 0`。与 `ORDER_UNIT_COALESCE` 同族
+（"别在别处再写一遍这个 COALESCE —— 第二份必然漂移"）。
+
+### 15.2 🔴 小程序与 Web 主表的「单位」不同源
+
+| 端 | 下发/显示的单位 | 唯一实现 |
+|---|---|---|
+| Web 报单主表「单位」列 | `order_unit` 优先 → 空回退 `unit` | `db/queries/products.py::order_unit_master_sql()` |
+| 小程序报单框（`prod-spec`） | **只有 `p.unit`** | `routers/data.py::fill_search_products()` 的 `sel_rest` |
+
+实测影响面**当前很小**：30 个填了 `order_unit` 的商品里，**只有 1 个**与 `unit` 不同（id=1596
+`现代牧场0乳糖软牛奶185ml+2到货`，unit=瓶 / order_unit=组）。
+⇒ 现在不构成故障，但**任何"按填报单位显示数量"的新功能**（如均单目标提示）必须先打通这一处，
+否则会出现「提示说 72 包、输入框单位写着组」这类看不懂的界面。
+
+### 15.3 同期核实的既有事实（供养新功能复用）
+
+- **三级单位真实语义**：`unit` = 小 · `medium_unit`+`medium_ratio` = 中 · `large_unit`+`large_ratio` = 大 ·
+  `order_unit` = 报单单位（空回退 `unit`）。`large_unit` 取值：件 202 / 箱 7。
+- **实测好样本（做换算测试的首选锚点）**：
+  - `id=1449 蒙牛0蔗糖原味百利包150g*5袋*8包` → 袋(小) / 包(中,5) / 件(大,40) ⇒ **1件 = 8包 = 40袋**
+  - `id=1339 高钙骨力风味酸奶90g*8袋*12包（新）` → 袋 / 包(8) / 件(96) ⇒ 1件 = 12包 = 96袋
+  - `id=1162 蒙牛双拼果蔬风味酸牛奶圆周杯90g×8杯×12组` → 杯 / 组(8) / 件(96)
+- **`perCase()` 的三级分支**（前端唯一实现，`Forecast.vue:3132`）：按大单位报单 → `1`；
+  按中单位报单 → `large_ratio / medium_ratio`；否则 → `large_ratio`。
+  实测 `id=1449` 按中单位「包」⇒ `40/5 = 8` ✅ 与用户口述的「每箱8包」一致。
+- **`rebate_target_rules.arrival_count_override` = 本期可报单数**（生产：蒙牛低温2026年目标 = **15**，
+  简爱9月目标 = 8）。天然可作「均单目标」分母的来源；`arrival_cadence_days` / `arrival_mode` 是节奏。
+- **`rebate_achievements`（达成填报）已支持 `dimension='product'`**（`DIMENSIONS` 五维，
+  `scope_key` + `actual_qty`），但生产 4 行**全是 brand 且 `actual_qty` 全 0**
+  ⇒ 🔴 **该表没有「单位」列**，`actual_qty=150` 无法判断是 150 箱还是 150 包。
+  任何要用「达成填报数量」的功能，必须先决定这一列的单位口径。
