@@ -2504,6 +2504,41 @@ SPEC_MEM_TARGET_0924B = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── 2026-09-24 晚：用户回「A」⇒ 预填值 = 建议态（D5-A 封板）──────────────────
+# 只改**文档 + 记忆**（未动代码 ⇒ 无版本号）。四个文件：
+#   ① 方案文档：15 个 hunk 全部是我这轮的 6 处 Edit（逐条核对 os 与 Edit 一一对应、
+#      零多余 hunk）⇒ keep_all。⚠️ keep_all 的前提正是"数过且对得上"，别的目录别照抄。
+#   ② 记忆主题文件：**第三次**出现 os=2191 的「对方 v248 段(5 行) + 我的标题/方案行(2 行)」
+#      混合 hunk（同 0924/0924b 的形状）⇒ own_hunks + trim_plus_head。
+#   ③ 技能路由文件：1 个纯新增 hunk（+6 行，本侧独占）⇒ own_hunks。
+#   ④ 本工具自身：新增本 spec + 注册 ⇒ keep_all。
+# ⚠️ 今日日志 `2026-09-24.md` 是**未跟踪**文件且混多会话内容 ⇒ **不提交**（沿用 0924 的决定）。
+SPEC_TGT_0924A = ("fe", [
+    {"file": "outputs/商品目标管理-需求梳理与开发计划-2026-09-24/01-需求梳理与开发计划.md",
+     "keep_all": True,
+     "present": ["口径已全部拍板（D1~D5 + 预填建议态 A）",
+                 "## 一、先说结论（五句话）",
+                 "### 5.4 加单格的四种状态",
+                 "【全部忽略】",
+                 "suggested-accepted",
+                 "| **4** | **建议值实时重算时，绝不允许覆盖经理已经改过"],
+     "gone": ["只剩一个待你定", "口径已拍板 4/5"]},
+    {"file": ".workbuddy/memory/topics/forecast-order-domain.md",
+     "own_hunks": [2191, 2200, 2213],
+     "trim_plus_head": {2191: 5},
+     "present": ["D5-A 已拍板（2026-09-24 用户回「A」）",
+                 "建议值实时重算时只刷",
+                 "suggested-accepted",
+                 "D3 用 B"],
+     "gone": [],
+     "dropped": ["## 🔴 客户列永不收（2026-09-22 v248 拍板）"]},
+    {"file": ".workbuddy/memory/topics/skill-routing.md",
+     "own_hunks": [141],
+     "present": ["建议值型写入", "系统代填"],
+     "gone": []},
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPEC_FE_V203_WRAP = ("fe", [
     {"file": ".workbuddy/memory/2026-09-19.md",
      "own_hunks": [1593],
@@ -3145,6 +3180,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          # 商品目标管理（2026-09-24 傍晚）：用户订正 D5 ⇒ 只改记忆（文档另笔提交 deb7109）。
          #   **只改记忆、未动代码**；今日日志 2026-09-24.md 是未跟踪文件且混多会话 ⇒ 不提交。
          "mem-target-0924b": SPEC_MEM_TARGET_0924B,
+         # 商品目标管理（2026-09-24 晚）：用户回「A」⇒ 预填值 = 建议态（D5-A 封板）。
+         #   只改文档 + 记忆，**未动代码**（故无版本号）。起号仍待 P0 开工时三连搜。
+         "mem-target-0924c": SPEC_TGT_0924A,
          # v205：角色权限表按租户分叉（P0）+ `payroll` 窄模块（P1）。
          #   ⚠️ 与同日另一会话的「保存下拉」评估**同号**（对方仅评估、未落代码）⇒ 本侧保留
          #      v205，由对方改号；本侧带语义后缀（perms）以便追责时区分。
