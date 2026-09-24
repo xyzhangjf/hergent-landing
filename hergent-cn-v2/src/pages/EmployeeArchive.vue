@@ -43,6 +43,12 @@
                 <span v-if="e.has_account" class="df-acc" :class="{ on: e.account_active }" :title="'账号：' + e.account_username + (e.account_active ? '（启用中）' : '（已禁用，点「编辑」可重新启用）')">已开通 {{ e.account_username }}</span>
                 <span v-else class="df-acc">未开通</span>
                 <span v-if="e.account_role" class="df-role" :class="['r-' + e.account_role, { stopped: e.is_active === 0 }]">{{ roleName(e.account_role) }}</span>
+                <span
+                  v-for="r in extraRolesOf(e)"
+                  :key="'x-' + r"
+                  class="df-role df-role-extra"
+                  :title="'兼任角色：' + roleName(r)"
+                >+{{ roleName(r) }}</span>
               </td>
               <!-- 2026-09-19 收敛：门店配置入口已移出员工档案，本列只读展示数量。
                    数据 = 报单配置派生 ∪ 历史授权（见后端 employee_stores_get）。 -->
@@ -150,12 +156,29 @@
                 <button class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || accForm2.password.length < 4" @click="createAccountInEdit">开通账号</button>
               </div>
               <div v-else class="df-acc-manage">
-                <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleName(editTarget.account_role) }} · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span></p>
+                <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleName(editTarget.account_role) }}<template v-if="extraRolesOf(editTarget).length">（兼任 {{ extraRolesOf(editTarget).map(roleName).join('、') }}）</template> · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span></p>
                 <div class="df-acc-row">
                   <select v-model="accRoleEdit" class="input acc-role">
                     <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
-                  <button class="btn btn-ghost btn-sm" :disabled="accBusy || accRoleEdit === editTarget.account_role" @click="saveAccRole">修改角色</button>
+                  <button class="btn btn-ghost btn-sm" :disabled="accBusy || !accRoleDirty" @click="saveAccRole">保存角色</button>
+                </div>
+                <!-- v266 角色可叠加：兼任角色**只增加权限**，不改上面的主角色。
+                     主角色决定「这个人是干嘛的」（销售只看自己的单、能不能用小程序…）；
+                     兼任让一个人同时干两份活（如 业务员 + 库管、会计 + 主管）。 -->
+                <div class="df-acc-row df-acc-extra">
+                  <span class="df-acc-extra-tip">兼任角色（可多选，只加权限）</span>
+                  <div class="df-extra-chips">
+                    <button
+                      v-for="o in extraRoleOptions"
+                      :key="'x-' + o.value"
+                      type="button"
+                      class="chip"
+                      :class="{ on: accRolesEdit.includes(o.value) }"
+                      :aria-pressed="accRolesEdit.includes(o.value)"
+                      @click="toggleExtraRole(o.value)"
+                    >{{ roleName(o.value) }}</button>
+                  </div>
                 </div>
                 <div v-if="showReset" class="df-acc-row">
                   <input v-model="accPwdEdit" class="input" type="text" placeholder="新密码（至少 4 位）">
@@ -308,6 +331,10 @@ const ROLE_OPTIONS = [
 ]
 const accForm2 = reactive({ username: '', password: '', role: 'staff' })
 const accRoleEdit = ref('staff')
+/* v266 角色可叠加：**兼任角色**（只加权限，不改主角色承载的单值语义 ——
+   主角色仍决定「这个人是干嘛的」：销售只看自己的单、小程序能不能报单…）。
+   存数组便于多选；提交时拼成数组交给后端（后端 `core.user_roles` 也容错中文分隔符）。 */
+const accRolesEdit = ref([])
 const accPwdEdit = ref('')
 const accBusy = ref(false)
 const showReset = ref(false)
@@ -389,6 +416,8 @@ function resetEditForm(e) {
   accForm2.password = ''
   accForm2.role = 'staff'
   accRoleEdit.value = src.account_role || 'staff'
+  accRolesEdit.value = String(src.account_roles || '')
+    .split(/[,，、;；]/).map(s => s.trim()).filter(Boolean)
   accPwdEdit.value = ''
   showReset.value = false
   resetCode.value = ''      // 换人 / 重开弹窗即清 —— 码只对刚生成的那个人有效
@@ -532,13 +561,44 @@ async function createAccountInEdit() {
   finally { accBusy.value = false }
 }
 
-// 修改已有账号的角色
+/* ---- v266 兼任角色（角色可叠加）---------------------------------------------
+   三个小工具，判据与后端 `core.user_roles()` 完全同源（都容错中英文分隔符），
+   不在这里另写一套「什么算合法角色」—— 那正是漂移源。 */
+function extraRolesOf(e) {
+  return String((e && e.account_roles) || '')
+    .split(/[,，、;；]/).map(s => s.trim())
+    .filter(r => r && r !== (e && e.account_role))
+}
+/** 点选 / 取消一个兼任角色。 */
+function toggleExtraRole(v) {
+  const i = accRolesEdit.value.indexOf(v)
+  if (i >= 0) accRolesEdit.value.splice(i, 1)
+  else accRolesEdit.value.push(v)
+}
+/** 可选兼任项：排除当前主角色（兼任与主角色相同没有意义）。 */
+const extraRoleOptions = computed(() => ROLE_OPTIONS.filter(o => o.value !== accRoleEdit.value))
+/** 「有未保存改动」—— 主角色或兼任任一变化即算。原实现只比主角色，加了兼任后会漏判。 */
+const accRoleDirty = computed(() => {
+  if (!editTarget.value) return false
+  const norm = (arr) => arr.slice().sort().join(',')
+  const next = norm(accRolesEdit.value.filter(r => r && r !== accRoleEdit.value))
+  const cur = norm(extraRolesOf(editTarget.value))
+  return accRoleEdit.value !== editTarget.value.account_role || next !== cur
+})
+
+// 修改已有账号的角色（v266：主角色 + 兼任角色一起提交）
 async function saveAccRole() {
   if (accBusy.value || !editTarget.value || !editTarget.value.account_user_id) return
   accBusy.value = true
   try {
-    await api(`/api/users/${editTarget.value.account_user_id}/role`, { method: 'PUT', body: { role: accRoleEdit.value } })
-    toast('角色已更新', 'ok')
+    const extras = accRolesEdit.value.filter(r => r && r !== accRoleEdit.value)
+    await api(`/api/users/${editTarget.value.account_user_id}/role`, {
+      method: 'PUT',
+      body: { role: accRoleEdit.value, roles: extras },
+    })
+    toast(extras.length
+      ? `角色已更新（兼任 ${extras.map(roleName).join('、')}）`
+      : '角色已更新', 'ok')
     editOpen.value = false
     loadEmployees()
   } catch (e) { toast(e.message || '更新失败', 'err') }
@@ -711,6 +771,9 @@ onMounted(() => {
    red/orange/blue/emerald/purple/amber 都拉开距离。 */
 .df-role.r-supervisor{background:rgba(99,102,241,.14);color:#6366f1}
 .df-role.stopped{background:#e5e7eb !important;color:#9aa0a6 !important}
+/* v266 兼任角色徽标：用**虚框**而非实底，与主角色实底徽标在视觉上分层
+   —— 一眼看出「哪个是这个人的本职、哪个是兼的」。 */
+.df-role-extra{background:transparent !important;border:1px dashed rgba(var(--teal-rgb,14,165,164),.55);color:var(--teal,#0ea5a4)}
 .df-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:980}
 .df-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(420px,92vw);max-height:88vh;display:flex;flex-direction:column;background:var(--bg);border-radius:16px;z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.18)}
 .df-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
@@ -750,6 +813,16 @@ onMounted(() => {
 .df-acc-manage{display:flex;flex-direction:column;gap:12px}
 .df-acc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .df-acc-row .input, .df-acc-row select{flex:1;min-width:0}
+/* v266 兼任角色选择：独占一行、可点选的 chip（多选）。
+   不用 `<select multiple>` —— 手机上多选下拉极难操作，而这里的语义就是「勾几个」，
+   chip 更直白、也不用按住 Ctrl。 */
+.df-acc-extra{align-items:flex-start;flex-direction:column;gap:7px}
+.df-acc-extra-tip{font-size:12px;color:var(--t3)}
+.df-extra-chips{display:flex;flex-wrap:wrap;gap:6px}
+.df-extra-chips .chip{border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:12px;padding:3px 10px;border-radius:20px;cursor:pointer;font-family:inherit;line-height:1.6}
+.df-extra-chips .chip:hover{border-color:var(--teal)}
+.df-extra-chips .chip.on{background:rgba(var(--teal-rgb,14,165,164),.14);border-color:var(--teal);color:var(--teal);font-weight:600}
+.df-extra-chips .chip:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
 /* Q29（2026-09-19）忘记密码：一次性重置码的展示区 */
 .rc-tip{font-size:12px;color:var(--t3);line-height:1.5}
 .rc-box{gap:10px;background:var(--bg2);border-radius:9px;padding:8px 12px}

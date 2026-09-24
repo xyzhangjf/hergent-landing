@@ -61,7 +61,7 @@
               <td>{{ t.name }}</td>
               <td>{{ t.contact_name || '—' }}</td>
               <td>{{ t.contact_phone || '—' }}</td>
-              <td><Badge variant="neutral">{{ planLabel(t.plan) }}</Badge></td>
+              <td><Badge variant="neutral" :title="capsTitle(t.plan)">{{ planLabel(t.plan) }}</Badge></td>
               <td>{{ t.max_users }}</td>
               <td><StatusBadge :active="t.is_active" /></td>
               <td class="muted">{{ t.created_at || '—' }}</td>
@@ -127,10 +127,13 @@
         <div class="field">
           <label for="tn-plan">套餐</label>
           <select id="tn-plan" class="select" v-model="form.plan">
-            <option value="free">免费版</option>
-            <option value="pro">专业版</option>
-            <option value="enterprise">企业版</option>
+            <option v-for="p in PLAN_ORDER" :key="p" :value="p">
+              {{ planLabel(p) }}{{ capsSummary(p) ? '（' + capsSummary(p) + '）' : '' }}
+            </option>
           </select>
+          <!-- v266：改套餐时直接告诉操作者「这个套餐含什么」——以前只有一个套餐名，
+               改完之后谁也说不清给了客户什么能力。 -->
+          <div v-if="capsTitle(form.plan)" class="field-hint">{{ capsTitle(form.plan) }}</div>
         </div>
         <div class="field">
           <label for="tn-maxusers">最大用户数</label>
@@ -188,7 +191,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { tenantApi, ApiError } from '../api/client'
+import { tenantApi, planApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
 import { exportCsv } from '../utils/csv'
 import { PAGE_SIZE } from '../utils/table'
@@ -204,6 +207,40 @@ import SortTh from '../components/SortTh.vue'
 
 const route = useRoute()
 const toast = useToastStore()
+
+/* v266 套餐 → 能力对照（来自 `/api/platform/plans`，权威源 = 后端 `core._PLAN_CAPS`）。
+   🔴 前端**不硬编码任何能力名**：改套餐时显示的「含哪些能力」必须与后端真实裁决逐字一致，
+      否则就是把一个实际没有的能力卖给客户（或反过来不敢卖）。 */
+const plans = ref({})
+const PLAN_ORDER = ['free', 'pro', 'enterprise']
+async function loadPlans() {
+  try {
+    const d = await planApi.list()
+    plans.value = (d && d.plans) || {}
+  } catch (e) {
+    plans.value = {}      // 拉不到就只显示套餐名，不显示能力说明（宁可少说，不说错）
+  }
+}
+/** 下拉项里的一句摘要（只讲**差异点**，不罗列布尔值）。 */
+function capsSummary(p) {
+  const c = plans.value[p]
+  if (!c) return ''
+  const bits = [c.max_users ? `${c.max_users} 人` : '不限人数']
+  if (c.bulk_export) bits.push('批量导出')
+  if (c.api) bits.push('API 拉取')
+  return bits.join(' · ')
+}
+/** 悬停说明：该套餐**含**哪些能力（比罗列 false 更有用）。 */
+function capsTitle(p) {
+  const c = plans.value[p]
+  if (!c) return planLabel(p)
+  const yes = []
+  if (c.view) yes.push('查看与分析')
+  if (c.export) yes.push('手动导出')
+  if (c.bulk_export) yes.push('批量导出')
+  if (c.api) yes.push('API 拉取')
+  return `${planLabel(p)}：${yes.join(' / ') || '—'}；成员上限 ${c.max_users || '不限'}`
+}
 
 const list = ref([])
 const total = ref(0)
@@ -450,6 +487,7 @@ async function bulkSetActive(active) {
 onMounted(() => {
   // 命令面板「新增租户」入口：/tenants?new=1
   if (String(route.query.new || '') === '1') openCreate()
+  loadPlans()   // 套餐能力对照先拉一次（下拉与提示都据此渲染，不硬编码能力名）
   load()
 })
 </script>

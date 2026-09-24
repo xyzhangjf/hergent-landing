@@ -27,7 +27,8 @@ export const useAppStore = defineStore('app', () => {
   })
   const user = reactive({
     name: '',
-    role: ''
+    role: '',
+    roles: []              // v266：全部角色（主角色 + 兼任角色），由 loadPerms 落
   })
   const demo = ref(false)
   /* v206 (2026-09-19)：本账号在**当前租户**下的模块权限（如 payroll / hr / data…）。
@@ -40,6 +41,14 @@ export const useAppStore = defineStore('app', () => {
      ③ 只认后端 `/api/auth/permissions` 返回的模块名，**不另抄一份角色表**（那正是漂移源）。 */
   const perms = ref(null)
   const permsTenant = ref('')
+  /* v266 套餐与能力（来自 `/api/auth/permissions` 的 `plan` / `capabilities`）。
+     权威源在后端 `core._PLAN_CAPS`，前端**不另抄一份能力表**（那正是漂移源）。
+     用途：决定「带走类」能力是否可用（批量导出 / API 拉取）。
+     🔴 与 `perms` 同一条方向：`null` = 还不知道 ⇒ 一律放行（fail-open）。
+        理由不是「这不重要」，而是「一次接口抖动不能把老板已有的导出按钮藏起来」；
+        而且本层只是**界面门禁** —— 真正的边界在后端（详见 `core._PLAN_CAPS` 注释）。 */
+  const plan = ref('')
+  const caps = ref(null)
   const chat = reactive({
     messages: [],          // {role:'user'|'assistant', content}
     streaming: false,
@@ -77,6 +86,10 @@ export const useAppStore = defineStore('app', () => {
       permsTenant.value = tid
       const r = d && d.user && d.user.role
       if (r) user.role = r          // 顺带把角色落到 store（此前全仓无人赋值）
+      const rs = d && d.user && d.user.roles
+      if (Array.isArray(rs) && rs.length) user.roles = rs
+      plan.value = (d && d.plan) || ''
+      caps.value = (d && d.capabilities) || null
       if (d && d.user && !user.name) {
         user.name = d.user.display_name || d.user.username || user.name
       }
@@ -84,6 +97,8 @@ export const useAppStore = defineStore('app', () => {
       // 🔴 拉不到 ≠ 没权限。保持「未知」（fail-open），别把菜单错误地藏起来。
       perms.value = null
       permsTenant.value = ''
+      // 能力同理：未知 ⇒ `canCap()` 放行（不因一次抖动藏掉导出按钮）。
+      caps.value = null
     }
     return perms.value
   }
@@ -93,6 +108,13 @@ export const useAppStore = defineStore('app', () => {
     const p = perms.value
     if (!p) return true
     return p.indexOf('*') >= 0 || p.indexOf(m) >= 0
+  }
+
+  /** v266 该套餐能力是否可用（如 `bulk_export` / `api`）。未知（未加载/失败）⇒ true。 */
+  function canCap(k) {
+    const c = caps.value
+    if (!c) return true
+    return c[k] === true
   }
 
   /* ---- AI 会话持久化 — localStorage 按会话分组，刷新不丢，可接着聊 ---- */
@@ -265,6 +287,7 @@ export const useAppStore = defineStore('app', () => {
     ui, user, demo, chat,
     toast, setTheme,
     perms, permsTenant, loadPerms, canModule,
+    plan, caps, canCap,
     loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession,
     clearChatCache,
     loadAiRoles, setAiRole

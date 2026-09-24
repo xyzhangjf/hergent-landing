@@ -70,6 +70,14 @@ export const statsApi = {
   overview: () => api.get('/platform/stats'),
 }
 
+// ---------- 套餐能力对照（v266）----------
+// 能力的**唯一权威源在后端**（`core._PLAN_CAPS`）—— 前端只渲染接口返回的内容，
+// **不硬编码任何能力名**。理由：抄一份就会漂移，而这里漂移的代价是
+// 「按错误的说明把套餐卖给客户」。
+export const planApi = {
+  list: () => api.get('/platform/plans'),
+}
+
 // ---------- 系统健康（只读排障） ----------
 // 复用既有端点，无需新增后端：/api/system/health 给主库体积/表数/表行数/最近备份，
 // /api/platform/stats 给「主库 + 全部租户库」总体积。
