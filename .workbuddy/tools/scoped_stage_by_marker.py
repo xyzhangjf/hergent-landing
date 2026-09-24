@@ -2455,6 +2455,35 @@ SPEC_FE_V203_NOTES = ("fe", [
 # 边界算法（可复现）：`/tmp/v203-boundary.py <文件> <hunk旧侧起始> <我的段首行前缀>`
 #   → 输出「我的段首行在 + 侧的下标」= start；count = 我写入的行数（此处 30）。
 #   ⚠️ 别用 `grep -n 我的段标题` 减 HEAD 行数手算 —— 该文件里同处还有别的在途段，极易串位。
+# ── 商品目标管理（2026-09-24 下午）：D1~D4 口径拍板 —— 方案文档 + 记忆 ──────────
+# 用户 5 条答复：D1 达成未填按 0 · D2 可报单数取"系统里设置的值"（=`arrival_count_override`）·
+# D3 减单夹断最低 0 · D4 目标挂月 + 期次自动认领 · D5 差额合计（用户原话"我不太明白你的意思"
+# ⇒ 整节重写 + 配 SVG 图，给 A/B/C 落点）。**本轮只改文档，未动任何代码 ⇒ 不占版本号。**
+# 🔴 `forecast-order-domain.md` 文件**末尾混着另一会话的在途段**（v248「客户列永不收」5 行，
+#    2026-09-22 写的、至今未提交）；我追加的内容紧跟其后 ⇒ `git diff -U0` 把两段
+#    **合并成一个纯插入 hunk**（`@@ -2189,0 +2190,26 @@`）—— §5.23 场景的老朋友。
+#    ⇒ `own_hunks` 正向认领 + `trim_plus_head: {2189: 5}` 丢掉对方那 5 行。
+#    边界怎么算：`git diff -U0 -- <f> | grep "^+"` 的第 1..5 行是对方的、第 6 行（空行）起是我的。
+#    ⚠️ 不能用 `exclude_hunks`（黑名单）—— 对方仍在活跃改这份文件（§5.24b 判据）。
+SPEC_MEM_TARGET_0924 = ("fe", [
+    # 方案文档：新建文件、只我在写 ⇒ 全部认领。
+    {"file": "outputs/商品目标管理-需求梳理与开发计划-2026-09-24/01-需求梳理与开发计划.md",
+     "keep_all": True,
+     "present": ["D1 ✅ 已拍板", "D5 —— 「差额合计」是什么？（上次我没讲清，这里从头说）",
+                 "arrival_count_override", "39 行里 38 行为 0"],
+     "gone": []},
+    # 记忆主题文件：末尾混对方在途段 ⇒ 正向认领 + 丢头 5 行。
+    {"file": ".workbuddy/memory/topics/forecast-order-domain.md",
+     "own_hunks": [2189],
+     "trim_plus_head": {2189: 5},
+     "present": ["## §商品目标管理 · 口径已拍板 4/5（2026-09-24",
+                 "report_alias", "**D5 差额合计 = 加单格的参考值**", "store_id"],
+     "gone": [],
+     "dropped": ["## 🔴 客户列永不收（2026-09-22 v248 拍板）"]},
+    # 本工具自身：新增上面这条 spec + 注册（此刻该文件仅这 2 个 hunk，均属本轮）。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPEC_FE_V203_WRAP = ("fe", [
     {"file": ".workbuddy/memory/2026-09-19.md",
      "own_hunks": [1593],
@@ -3090,6 +3119,9 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v203-notes": SPEC_FE_V203_NOTES,
          # v203 收尾：共享追加日志被 v201 会话交错写入 ⇒ own_hunks + trim_plus_head（丢头 60）。
          "fe-v203-wrap": SPEC_FE_V203_WRAP,
+         # 商品目标管理（2026-09-24 下午）：D1~D4 口径拍板 ⇒ 方案文档 + 记忆。
+         #   **只改文档、未动代码**（故无版本号）；`MEMORY.md` 本轮不碰（5 个在途 hunk）。
+         "mem-target-0924": SPEC_MEM_TARGET_0924,
          # v205：角色权限表按租户分叉（P0）+ `payroll` 窄模块（P1）。
          #   ⚠️ 与同日另一会话的「保存下拉」评估**同号**（对方仅评估、未落代码）⇒ 本侧保留
          #      v205，由对方改号；本侧带语义后缀（perms）以便追责时区分。
