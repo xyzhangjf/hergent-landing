@@ -76,6 +76,7 @@ const mainNav = [
 const govNav = [
   { to: '/invite-codes', label: '邀请码管理', icon: 'ticket' },
   { to: '/registrations', label: '注册流水', icon: 'clipboard' },
+  { to: '/audit-logs', label: '操作审计', icon: 'history' },
   { to: '/users', label: '平台用户', icon: 'users' },
 ]
 

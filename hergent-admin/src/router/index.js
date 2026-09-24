@@ -8,6 +8,7 @@ import TenantDetail from '../views/TenantDetail.vue'
 import InviteCodes from '../views/InviteCodes.vue'
 import Registrations from '../views/Registrations.vue'
 import Users from '../views/Users.vue'
+import AuditLog from '../views/AuditLog.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: Login, meta: { public: true } },
@@ -16,6 +17,7 @@ const routes = [
   { path: '/tenants/:id', name: 'tenant-detail', component: TenantDetail, meta: { title: '租户详情' } },
   { path: '/invite-codes', name: 'invite-codes', component: InviteCodes, meta: { title: '邀请码管理' } },
   { path: '/registrations', name: 'registrations', component: Registrations, meta: { title: '注册流水' } },
+  { path: '/audit-logs', name: 'audit-logs', component: AuditLog, meta: { title: '操作审计' } },
   { path: '/users', name: 'users', component: Users, meta: { title: '平台用户' } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

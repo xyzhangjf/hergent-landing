@@ -99,3 +99,8 @@ export const regApi = {
 export const userApi = {
   list: () => api.get('/users'),
 }
+
+// ---------- 平台操作审计 ----------
+export const auditApi = {
+  list: (limit = 500) => api.get('/platform/audit-logs?limit=' + limit),
+}
