@@ -85,9 +85,9 @@
   ；**§2.5 影子库验证任意业务写路径**（真租户库拷成影子租户，`set_tenant_context` 是必需前置）
 - `hergent-data-staleness-diagnosis` —— 数据不更新 / 页面没刷新 / UI 语义缺陷
   ；**C-3「两个入口其实选同一个池子」⇒ 收敛入口定式「写端收敛、读端放宽」**（含 `update` 回写陷阱）
-- `hergent-capability-reality-audit` —— 某能力/配置「到底有没有真的到用户面前」
+- `hergent-capability-reality-audit` —— 某能力/配置「到底有没有真的到用户面前」；🔴 第二十一种伪装：**列在、且有几个非零值 ⇒ 数 distinct 永远免死**（要数「无效值占比」，`bad/n > 0.2` 就不该当关联键；同类：全空串 / 主库有行租户库全 0）
 - `hergent-write-failure-diagnosis` —— 写操作报「失败」（三轴：几个请求 / 文案谁写的 / 后端全部失败点）
-- `hergent-rebate-caliber-consistency` —— 口径不一致（分子分母不同源 / 归组键错配 / 阈值硬编码）
+- `hergent-rebate-caliber-consistency` —— 口径不一致（分子分母不同源 / 归组键错配 / 阈值硬编码 / **单期 vs 累计（差额会恒 0）** / **跨表按名字匹配要先判「两侧同源」** / **配置项作用域（品牌≠全局）**）
 - `hergent-page-change-log` —— 给业务页加字段级「修改日志」
 - ⭐ `.workbuddy/tools/role-registry-consistency-check.py` —— **清单一致性回归护栏**（28 条硬断言；
   角色/权限清单 vs 后端 `core.py::_DEFAULT_PERMS` **AST** 权威源）。除了「下拉覆盖」还管：
