@@ -1,12 +1,12 @@
 <template>
   <div>
     <div class="toolbar">
-      <div class="pill-group">
-        <span class="pill" :class="{ on: filter === 'all' }" @click="filter = 'all'">全部</span>
-        <span class="pill" :class="{ on: filter === 'on' }" @click="filter = 'on'">启用</span>
-        <span class="pill" :class="{ on: filter === 'off' }" @click="filter = 'off'">停用</span>
+      <div class="pill-group" role="group" aria-label="按状态筛选租户">
+        <button type="button" class="pill" :class="{ on: filter === 'all' }" :aria-pressed="filter === 'all'" @click="filter = 'all'">全部</button>
+        <button type="button" class="pill" :class="{ on: filter === 'on' }" :aria-pressed="filter === 'on'" @click="filter = 'on'">启用</button>
+        <button type="button" class="pill" :class="{ on: filter === 'off' }" :aria-pressed="filter === 'off'" @click="filter = 'off'">停用</button>
       </div>
-      <input class="search" v-model="keyword" placeholder="搜索公司名 / 联系人 / 手机号" />
+      <input class="search" v-model="keyword" aria-label="搜索公司名 / 联系人 / 手机号" placeholder="搜索公司名 / 联系人 / 手机号" />
       <span class="spacer"></span>
       <button class="btn primary" @click="openCreate">+ 新增租户</button>
     </div>
@@ -40,7 +40,7 @@
                 <div class="btn-row">
                   <router-link :to="'/tenants/' + t.id" class="link-btn">详情</router-link>
                   <!-- 启停是破坏性操作，保留实心按钮；详情/编辑降级为文字链接 -->
-                  <button class="btn sm" @click="toggle(t)">{{ t.is_active ? '停用' : '启用' }}</button>
+                  <button class="btn sm" @click="askToggle(t)">{{ t.is_active ? '停用' : '启用' }}</button>
                   <button class="link-btn" @click="openEdit(t)">编辑</button>
                 </div>
               </td>
@@ -74,55 +74,61 @@
 
     <Modal :show="modalShow" :title="isEdit ? '编辑租户' : '新增租户'" @close="modalShow = false">
       <div class="field">
-        <label>公司名<span class="req">*</span></label>
+        <label for="tn-name">公司名<span class="req" aria-hidden="true">*</span></label>
         <input
+          id="tn-name"
           class="input"
           :class="{ error: errors.name }"
           v-model="form.name"
           :disabled="isEdit"
           placeholder="客户公司名称"
+          aria-required="true"
+          :aria-describedby="errors.name ? 'tn-name-err' : undefined"
           @input="errors.name = ''"
         />
-        <div v-if="errors.name" class="field-error">{{ errors.name }}</div>
-        <div v-if="isEdit" class="muted" style="font-size:12px;margin-top:4px">公司名创建后不可修改</div>
+        <div v-if="errors.name" id="tn-name-err" class="field-error" role="alert">{{ errors.name }}</div>
+        <div v-if="isEdit" class="muted field-hint">公司名创建后不可修改</div>
       </div>
       <div class="form-row">
         <div class="field">
-          <label>联系人</label>
-          <input class="input" v-model="form.contact_name" placeholder="联系人姓名" />
+          <label for="tn-contact">联系人</label>
+          <input id="tn-contact" class="input" v-model="form.contact_name" placeholder="联系人姓名" />
         </div>
         <div class="field">
-          <label>手机号</label>
-          <input class="input" v-model="form.contact_phone" placeholder="联系电话" />
+          <label for="tn-phone">手机号</label>
+          <input id="tn-phone" class="input" v-model="form.contact_phone" placeholder="联系电话" />
         </div>
       </div>
       <div class="form-row">
         <div class="field">
-          <label>套餐</label>
-          <select class="select" v-model="form.plan">
+          <label for="tn-plan">套餐</label>
+          <select id="tn-plan" class="select" v-model="form.plan">
             <option value="free">免费版</option>
             <option value="pro">专业版</option>
             <option value="enterprise">企业版</option>
           </select>
         </div>
         <div class="field">
-          <label>最大用户数</label>
+          <label for="tn-maxusers">最大用户数</label>
           <input
+            id="tn-maxusers"
             class="input"
             :class="{ error: errors.max_users }"
             type="number"
             min="1"
             v-model.number="form.max_users"
+            aria-required="true"
+            :aria-describedby="errors.max_users ? 'tn-maxusers-err' : undefined"
             @input="errors.max_users = ''"
           />
-          <div v-if="errors.max_users" class="field-error">{{ errors.max_users }}</div>
+          <div v-if="errors.max_users" id="tn-maxusers-err" class="field-error" role="alert">{{ errors.max_users }}</div>
         </div>
       </div>
       <div class="field" v-if="isEdit">
-        <label>状态</label>
-        <div class="pill-group">
-          <span class="pill" :class="{ on: form.is_active }" @click="form.is_active = 1">启用</span>
-          <span class="pill" :class="{ on: !form.is_active }" @click="form.is_active = 0">停用</span>
+        <label id="tn-status-label">状态</label>
+        <div class="pill-group" role="group" aria-labelledby="tn-status-label">
+          <button type="button" class="pill" :class="{ on: form.is_active }" :aria-pressed="!!form.is_active" @click="form.is_active = 1">启用</button>
+          <button type="button" class="pill" :class="{ on: !form.is_active }" :aria-pressed="!form.is_active" @click="form.is_active = 0">停用</button>
         </div>
       </div>
       <template #footer>
@@ -130,6 +136,17 @@
         <button class="btn primary" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
       </template>
     </Modal>
+
+    <ConfirmDialog
+      :show="confirmShow"
+      title="停用租户"
+      :text="'确认停用「' + ((pendingToggle && pendingToggle.name) || '') + '」？'"
+      consequence="停用后该租户下所有账号将立即无法登录，数据完整保留；可随时重新启用。"
+      confirm-label="确认停用"
+      :busy="toggling"
+      @cancel="confirmShow = false"
+      @confirm="doToggle()"
+    />
   </div>
 </template>
 
@@ -140,6 +157,7 @@ import { useToastStore } from '../store/toast'
 import StatusBadge from '../components/StatusBadge.vue'
 import Modal from '../components/Modal.vue'
 import EmptyState from '../components/EmptyState.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Pager from '../components/Pager.vue'
 import SortTh from '../components/SortTh.vue'
 import { sortRows, pageSlice, PAGE_SIZE } from '../utils/table'
@@ -158,6 +176,9 @@ const isEdit = ref(false)
 const saving = ref(false)
 const editingId = ref(null)
 const form = ref(blankForm())
+const confirmShow = ref(false)
+const toggling = ref(false)
+const pendingToggle = ref(null)
 
 function blankForm() {
   return { name: '', contact_name: '', contact_phone: '', plan: 'free', max_users: 5, is_active: 1 }
@@ -252,13 +273,30 @@ async function save() {
     saving.value = false
   }
 }
-async function toggle(t) {
+
+// 停用（破坏性）先确认；启用（恢复性、安全）直接执行
+function askToggle(t) {
+  if (t.is_active) {
+    pendingToggle.value = t
+    confirmShow.value = true
+  } else {
+    doToggle(t)
+  }
+}
+async function doToggle(t) {
+  const target = t || pendingToggle.value
+  if (!target) return
+  toggling.value = true
   try {
-    await tenantApi.update(t.id, { is_active: t.is_active ? 0 : 1 })
-    toast.ok(t.is_active ? '已停用' : '已启用')
+    await tenantApi.update(target.id, { is_active: target.is_active ? 0 : 1 })
+    toast.ok(target.is_active ? '已停用' : '已启用')
+    confirmShow.value = false
+    pendingToggle.value = null
     await load()
   } catch (e) {
     toast.err('操作失败：' + (e instanceof ApiError ? e.message : e.message))
+  } finally {
+    toggling.value = false
   }
 }
 

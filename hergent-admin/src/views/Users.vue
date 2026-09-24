@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="card">
-      <div class="card-head"><h3>平台用户名册</h3><span class="muted" style="font-size:12px">共 {{ users.length }} 个账号</span></div>
+      <div class="card-head"><h3>平台用户名册</h3><span class="muted text-xs">共 {{ users.length }} 个账号</span></div>
       <div class="table-wrap">
         <table class="tbl">
           <thead>

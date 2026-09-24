@@ -6,32 +6,34 @@
     </div>
 
     <div class="toolbar">
-      <select class="input" style="width:160px" v-model="actionFilter">
+      <select class="input select-action" v-model="actionFilter" aria-label="按动作类型筛选">
         <option value="">全部动作</option>
         <option v-for="a in actions" :key="a" :value="a">{{ a }}</option>
       </select>
-      <div class="pill-group">
-        <span
+      <div class="pill-group" role="group" aria-label="按时间范围筛选">
+        <button
           v-for="r in RANGES"
           :key="r.k"
+          type="button"
           class="pill"
           :class="{ on: range === r.k }"
+          :aria-pressed="range === r.k"
           @click="range = r.k"
-        >{{ r.label }}</span>
+        >{{ r.label }}</button>
       </div>
       <template v-if="range === 'custom'">
-        <input class="input" style="width:150px" type="date" v-model="from" />
+        <input class="input date-input" type="date" v-model="from" aria-label="起始日期" />
         <span class="muted">至</span>
-        <input class="input" style="width:150px" type="date" v-model="to" />
+        <input class="input date-input" type="date" v-model="to" aria-label="结束日期" />
       </template>
       <input
-        class="input"
-        style="width:200px"
+        class="input search-inline"
         v-model="keyword"
+        aria-label="搜索操作人 / 对象 / 详情"
         placeholder="搜索操作人 / 对象 / 详情"
       />
       <span class="spacer"></span>
-      <span class="muted" style="font-size:12px">
+      <span class="muted text-xs">
         筛选后 {{ filtered.length }} 条 · 共加载 {{ entries.length }} 条
       </span>
     </div>
@@ -223,8 +225,8 @@ onMounted(load)
   display: inline-block; font-size: 12px; line-height: 1; padding: 4px 8px;
   border-radius: 6px; white-space: nowrap;
 }
-.tag.create { color: #047857; background: #d1fae5; }
-.tag.modify { color: #1d4ed8; background: #dbeafe; }
-.tag.danger { color: #b91c1c; background: #fee2e2; }
+.tag.create { color: var(--chip-green-fg); background: var(--chip-green-bg); }
+.tag.modify { color: var(--chip-blue-fg); background: var(--chip-blue-bg); }
+.tag.danger { color: var(--chip-red-fg); background: var(--chip-red-bg); }
 .tag.neutral { color: var(--text-2); background: var(--bg); border: 1px solid var(--border); }
 </style>

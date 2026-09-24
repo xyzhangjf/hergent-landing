@@ -1,7 +1,8 @@
 <template>
   <router-view v-if="isLogin" />
   <div class="layout" v-else>
-    <aside class="sidebar">
+    <div v-if="menuOpen" class="sidebar-backdrop" @click="menuOpen = false" aria-hidden="true"></div>
+    <aside class="sidebar" :class="{ open: menuOpen }">
       <div class="brand">
         <img class="logo" :src="brandIcon" alt="Hergent" />
         <span>Hergent 管理后台</span>
@@ -36,6 +37,9 @@
 
     <div class="content">
       <header class="topbar">
+        <button type="button" class="menu-btn" aria-label="打开导航菜单" @click="menuOpen = true">
+          <Icon name="menu" :size="18" />
+        </button>
         <span class="title">{{ title }}</span>
         <span class="subtitle">{{ subtitle }}</span>
         <span class="spacer"></span>
@@ -66,6 +70,10 @@ const route = useRoute()
 const router = useRouter()
 
 const isLogin = computed(() => route.name === 'login')
+
+// 移动端侧栏抽屉开关（≤768px 生效；路由切换后自动收起）
+const menuOpen = ref(false)
+watch(() => route.path, () => { menuOpen.value = false })
 
 const brandIcon = import.meta.env.BASE_URL + 'icons/brand-64.png'
 

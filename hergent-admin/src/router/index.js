@@ -11,7 +11,7 @@ import Users from '../views/Users.vue'
 import AuditLog from '../views/AuditLog.vue'
 
 const routes = [
-  { path: '/login', name: 'login', component: Login, meta: { public: true } },
+  { path: '/login', name: 'login', component: Login, meta: { title: '登录', public: true } },
   { path: '/', name: 'overview', component: Overview, meta: { title: '平台总览' } },
   { path: '/tenants', name: 'tenants', component: Tenants, meta: { title: '租户管理' } },
   { path: '/tenants/:id', name: 'tenant-detail', component: TenantDetail, meta: { title: '租户详情' } },
@@ -39,6 +39,12 @@ router.beforeEach(async (to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   return true
+})
+
+// 浏览器标签标题随路由联动（多标签下可辨识、收藏/历史可读）
+router.afterEach((to) => {
+  const t = (to.meta && to.meta.title) || ''
+  document.title = t ? t + ' · Hergent 管理后台' : 'Hergent 管理后台'
 })
 
 export default router

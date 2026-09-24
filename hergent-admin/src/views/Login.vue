@@ -8,16 +8,16 @@
           <div class="lb-sub">独立租户管理 · 平台运营控制台</div>
         </div>
       </div>
-      <div v-if="error" class="login-error">{{ error }}</div>
+      <div v-if="error" class="login-error" role="alert">{{ error }}</div>
       <div class="field">
-        <label>账号<span class="req">*</span></label>
-        <input class="input" v-model="username" placeholder="平台管理员账号" @keyup.enter="submit" />
+        <label for="lg-username">账号<span class="req" aria-hidden="true">*</span></label>
+        <input id="lg-username" class="input" v-model="username" placeholder="平台管理员账号" aria-required="true" @keyup.enter="submit" />
       </div>
       <div class="field">
-        <label>密码<span class="req">*</span></label>
-        <input class="input" type="password" v-model="password" placeholder="登录密码" @keyup.enter="submit" />
+        <label for="lg-password">密码<span class="req" aria-hidden="true">*</span></label>
+        <input id="lg-password" class="input" type="password" v-model="password" placeholder="登录密码" aria-required="true" @keyup.enter="submit" />
       </div>
-      <button class="btn primary" style="width:100%;padding:10px" :disabled="loading" @click="submit">
+      <button class="btn primary btn-block" :disabled="loading" @click="submit">
         {{ loading ? '登录中…' : '登录' }}
       </button>
       <div class="login-foot">仅限平台管理员登录；普通租户账号无权限进入。</div>
@@ -70,7 +70,7 @@ async function submit() {
 <style scoped>
 .login-page {
   height: 100vh; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #1f2329 0%, #2b313a 100%);
+  background: linear-gradient(135deg, var(--side-bg) 0%, var(--side-bg-2) 100%);
 }
 .login-card { width: 380px; max-width: 92vw; padding: 32px; }
 .login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }

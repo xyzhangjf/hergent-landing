@@ -1,12 +1,12 @@
 <template>
   <div>
-    <div class="btn-row" style="margin-bottom:16px">
+    <div class="btn-row mb-16">
       <router-link to="/tenants" class="btn sm">← 返回租户列表</router-link>
     </div>
 
     <div v-if="loading" class="loading-box">加载中…</div>
     <template v-else>
-      <div class="card" style="margin-bottom:20px">
+      <div class="card mb-20">
         <div class="card-head">
           <h3>{{ tenant.name }}</h3>
           <StatusBadge :active="tenant.is_active" />
@@ -24,13 +24,13 @@
         </div>
       </div>
 
-      <div class="card" style="margin-bottom:20px">
+      <div class="card mb-20">
         <div class="card-head"><h3>用量统计</h3></div>
         <div class="card-body">
           <div class="usage-grid">
             <div class="stat-card">
               <div class="label">成员数 / 上限</div>
-              <div class="value">{{ usage.member_count }} <span style="font-size:14px;color:var(--text-3)">/ {{ usage.max_users }}</span></div>
+              <div class="value">{{ usage.member_count }} <span class="metric-unit">/ {{ usage.max_users }}</span></div>
             </div>
             <div class="stat-card">
               <div class="label">租户库体积</div>
@@ -69,9 +69,9 @@
       <div class="card">
         <div class="card-head">
           <h3>成员列表</h3>
-          <span class="spacer" style="flex:1"></span>
+          <span class="spacer"></span>
           <div class="btn-row">
-            <input class="input" style="width:180px" v-model="newMember" placeholder="输入已有账号名" />
+            <input class="input member-input" v-model="newMember" placeholder="输入已有账号名" aria-label="输入要加入该租户的账号名" />
             <button class="btn primary sm" :disabled="adding" @click="addMember">{{ adding ? '添加中…' : '添加成员' }}</button>
           </div>
         </div>

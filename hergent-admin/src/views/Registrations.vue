@@ -2,7 +2,7 @@
   <div>
     <div class="page-note">邀请码注册即生效，本页仅供追溯核对，无需人工审核。</div>
 
-    <div class="card" style="margin-bottom:20px">
+    <div class="card mb-20">
       <div class="card-head"><h3>平台管理员</h3></div>
       <div class="card-body">
         <div v-if="admins.length === 0" class="empty">无</div>
@@ -15,22 +15,24 @@
     </div>
 
     <div class="toolbar">
-      <div class="pill-group">
-        <span
+      <div class="pill-group" role="group" aria-label="按时间范围筛选">
+        <button
           v-for="r in RANGES"
           :key="r.k"
+          type="button"
           class="pill"
           :class="{ on: range === r.k }"
+          :aria-pressed="range === r.k"
           @click="range = r.k"
-        >{{ r.label }}</span>
+        >{{ r.label }}</button>
       </div>
       <template v-if="range === 'custom'">
-        <input class="input" style="width:150px" type="date" v-model="from" />
+        <input class="input date-input" type="date" v-model="from" aria-label="起始日期" />
         <span class="muted">至</span>
-        <input class="input" style="width:150px" type="date" v-model="to" />
+        <input class="input date-input" type="date" v-model="to" aria-label="结束日期" />
       </template>
       <span class="spacer"></span>
-      <span class="muted" style="font-size:12px">
+      <span class="muted text-xs">
         筛选后 {{ filtered.length }} 条 / 共 {{ regs.length }} 条
       </span>
     </div>
@@ -50,7 +52,7 @@
           <tbody>
             <tr v-for="(r, i) in paged" :key="i">
               <td>{{ r.username || '—' }}</td>
-              <td><code style="background:#f3f4f6;padding:2px 6px;border-radius:4px">{{ r.code || '—' }}</code></td>
+              <td><code class="code-chip">{{ r.code || '—' }}</code></td>
               <td>{{ r.tenant_name || ('租户#' + (r.tenant_id ?? '—')) }}</td>
               <td class="muted">{{ r.created_at || '—' }}</td>
               <td class="muted">{{ r.ip_address || '—' }}</td>

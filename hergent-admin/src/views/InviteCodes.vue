@@ -19,7 +19,7 @@
           </thead>
           <tbody>
             <tr v-for="c in paged" :key="c.code || c.id">
-              <td><code style="background:#f3f4f6;padding:2px 6px;border-radius:4px">{{ c.code }}</code></td>
+              <td><code class="code-chip">{{ c.code }}</code></td>
               <td class="wrap">{{ c.label || c.note || '—' }}</td>
               <td>{{ c.used_count != null ? c.used_count : '—' }} / {{ c.max_uses == 0 ? '不限' : (c.max_uses ?? '—') }}</td>
               <td class="muted">{{ c.expires_at || '永久' }}</td>
@@ -63,38 +63,42 @@
 
     <Modal :show="modalShow" title="生成邀请码" @close="modalShow = false">
       <div class="field">
-        <label>备注 / 渠道</label>
-        <input class="input" v-model="form.label" placeholder="如：2026秋季推广" />
+        <label for="ic-label">备注 / 渠道</label>
+        <input id="ic-label" class="input" v-model="form.label" placeholder="如：2026秋季推广" />
       </div>
       <div class="form-row">
         <div class="field">
-          <label>使用上限</label>
+          <label for="ic-maxuses">使用上限</label>
           <input
+            id="ic-maxuses"
             class="input"
             :class="{ error: errors.max_uses }"
             type="number"
             min="0"
             v-model.number="form.max_uses"
             placeholder="0 = 不限"
+            :aria-describedby="errors.max_uses ? 'ic-maxuses-err' : undefined"
             @input="errors.max_uses = ''"
           />
-          <div v-if="errors.max_uses" class="field-error">{{ errors.max_uses }}</div>
+          <div v-if="errors.max_uses" id="ic-maxuses-err" class="field-error" role="alert">{{ errors.max_uses }}</div>
         </div>
         <div class="field">
-          <label>有效期至</label>
+          <label for="ic-expires">有效期至</label>
           <input
+            id="ic-expires"
             class="input"
             :class="{ error: errors.expires_at }"
             v-model="form.expires_at"
             placeholder="留空=永久（年-月-日，例如 2026-12-31）"
+            :aria-describedby="errors.expires_at ? 'ic-expires-err' : undefined"
             @input="errors.expires_at = ''"
           />
-          <div v-if="errors.expires_at" class="field-error">{{ errors.expires_at }}</div>
+          <div v-if="errors.expires_at" id="ic-expires-err" class="field-error" role="alert">{{ errors.expires_at }}</div>
         </div>
       </div>
       <div class="field">
-        <label>指定码（可选）</label>
-        <input class="input" v-model="form.code" placeholder="留空自动生成" />
+        <label for="ic-code">指定码（可选）</label>
+        <input id="ic-code" class="input" v-model="form.code" placeholder="留空自动生成" />
       </div>
       <template #footer>
         <button class="btn ghost" @click="modalShow = false">取消</button>

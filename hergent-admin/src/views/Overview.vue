@@ -35,10 +35,10 @@
         </div>
         <div class="stat-card">
           <div class="label" title="主库与全部租户库文件占用之和">数据总体积</div>
-        <div class="value">{{ s.total_db_size_mb }} <span style="font-size:14px;color:var(--text-3)">兆</span></div>
-        <div class="foot">主库 + 全部租户库</div>
+          <div class="value">{{ s.total_db_size_mb }} <span class="metric-unit">兆</span></div>
+          <div class="foot">主库 + 全部租户库</div>
+        </div>
       </div>
-    </div>
 
     <div class="card">
       <div class="card-head"><h3>套餐分布</h3></div>
@@ -97,7 +97,7 @@ onMounted(async () => {
 .plan-bars { display: flex; flex-direction: column; gap: 14px; }
 .plan-row { display: flex; align-items: center; gap: 14px; }
 .plan-name { width: 80px; font-size: 13px; color: var(--text-2); }
-.plan-track { flex: 1; height: 10px; background: #eef0f3; border-radius: 5px; overflow: hidden; }
-.plan-fill { height: 100%; background: linear-gradient(90deg, #06b6d4, #22d3ee); border-radius: 5px; }
+.plan-track { flex: 1; height: 10px; background: var(--bg-muted); border-radius: 5px; overflow: hidden; }
+.plan-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--brand-2)); border-radius: 5px; }
 .plan-count { width: 40px; text-align: right; font-size: 13px; font-weight: 600; }
 </style>
