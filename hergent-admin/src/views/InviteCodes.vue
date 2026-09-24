@@ -161,6 +161,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { inviteApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
 import { exportCsv } from '../utils/csv'
@@ -175,6 +176,7 @@ import SortTh from '../components/SortTh.vue'
 import { sortRows, pageSlice, PAGE_SIZE } from '../utils/table'
 
 const toast = useToastStore()
+const route = useRoute()
 const codes = ref([])
 const loading = ref(false)
 const modalShow = ref(false)
@@ -280,10 +282,23 @@ async function create() {
   }
 }
 async function toggle(c) {
+  const next = !c.is_active
   try {
-    await inviteApi.setStatus({ code_or_id: keyOf(c), active: !c.is_active })
-    toast.ok('已更新状态')
+    await inviteApi.setStatus({ code_or_id: keyOf(c), active: next })
     await load()
+    // P2-5：停用/启用可逆 ⇒ 用「撤销」代替确认
+    toast.ok(next ? '已启用' : '已停用', {
+      label: '撤销',
+      run: async () => {
+        try {
+          await inviteApi.setStatus({ code_or_id: keyOf(c), active: !next })
+          toast.ok('已撤销')
+          await load()
+        } catch (e) {
+          toast.err('撤销失败：' + (e instanceof ApiError ? e.message : e.message))
+        }
+      },
+    })
   } catch (e) {
     toast.err('操作失败：' + (e instanceof ApiError ? e.message : e.message))
   }
@@ -337,5 +352,9 @@ async function bulkRemove() {
   await load()
 }
 
-onMounted(load)
+onMounted(() => {
+  // 命令面板「生成邀请码」入口：/invite-codes?new=1
+  if (String(route.query.new || '') === '1') openCreate()
+  load()
+})
 </script>

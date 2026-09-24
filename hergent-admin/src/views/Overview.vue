@@ -18,6 +18,19 @@
         </component>
       </div>
 
+      <div class="card mb-20">
+        <div class="card-head">
+          <h3>近 30 天新增租户</h3>
+          <div class="card-actions">
+            <router-link to="/registrations?range=30d" class="link-btn">查看流水 →</router-link>
+          </div>
+        </div>
+        <div class="card-body">
+          <TrendChart v-if="trend.length" :data="trend" caption="每日新注册租户数" />
+          <div v-else class="empty">暂无趋势数据</div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-head"><h3>套餐分布</h3></div>
         <div class="card-body">
@@ -42,17 +55,19 @@ import { statsApi } from '../api/client'
 import { ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
 import Skeleton from '../components/Skeleton.vue'
+import TrendChart from '../components/TrendChart.vue'
 
 const toast = useToastStore()
 const loading = ref(false)
 const s = ref({
   total_tenants: 0, active_tenants: 0, inactive_tenants: 0,
   new_today: 0, new_this_week: 0, total_users: 0, total_db_size_mb: 0,
-  plan_distribution: {},
+  plan_distribution: {}, daily_registrations: [],
 })
 
 const planEntries = computed(() => Object.entries(s.value.plan_distribution || {}))
 const maxCount = computed(() => Math.max(1, ...planEntries.value.map(([, c]) => c)))
+const trend = computed(() => s.value.daily_registrations || [])
 
 function pct(c) { return Math.round((c / maxCount.value) * 100) }
 function planLabel(p) {

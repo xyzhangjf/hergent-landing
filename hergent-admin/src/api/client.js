@@ -70,9 +70,21 @@ export const statsApi = {
   overview: () => api.get('/platform/stats'),
 }
 
+// 统一拼查询串：跳过空值（保留 false / 0 —— `active_only=false`、`limit=0` 都有语义）
+function qs(params) {
+  const u = new URLSearchParams()
+  Object.keys(params).forEach((k) => {
+    const v = params[k]
+    if (v === '' || v === null || v === undefined) return
+    u.set(k, typeof v === 'boolean' ? String(v) : v)
+  })
+  return u.toString()
+}
+
 // ---------- 租户 ----------
 export const tenantApi = {
-  list: (activeOnly = false) => api.get('/tenants?active_only=' + (activeOnly ? 'true' : 'false')),
+  // v262：服务端分页/搜索/排序；返回 {success, data, total}
+  list: (params = {}) => api.get('/tenants?' + qs({ active_only: false, ...params })),
   get: (id) => api.get('/tenants/' + id),
   create: (b) => api.post('/tenants', b),
   update: (id, b) => api.put('/tenants/' + id, b),
@@ -92,27 +104,22 @@ export const inviteApi = {
 
 // ---------- 注册流水 ----------
 export const regApi = {
-  list: () => api.get('/platform/registrations'),
+  // v262：服务端分页/搜索/排序；返回 {success, registrations, total, platform_admins}
+  list: (params = {}) => api.get('/platform/registrations?' + qs(params)),
 }
 
 // ---------- 平台用户 ----------
 export const userApi = {
-  list: () => api.get('/users'),
+  // v262：服务端分页/搜索/排序；返回 {success, data, total}
+  list: (params = {}) => api.get('/users?' + qs(params)),
 }
 
 // ---------- 平台操作审计 ----------
 // v262：服务端分页/排序/关键字（limit+offset+order_by+order_dir+q），
 // 不再一次拉满 500 条本地过滤（超过 500 条会静默截断）。
 export const auditApi = {
-  list: (params = {}) => {
-    const p = {
-      limit: 20, offset: 0, order_by: 'created_at', order_dir: 'desc',
-      action: '', q: '', date_from: '', date_to: '', ...params,
-    }
-    const qs = new URLSearchParams()
-    Object.keys(p).forEach((k) => {
-      if (p[k] !== '' && p[k] !== null && p[k] !== undefined) qs.set(k, p[k])
-    })
-    return api.get('/platform/audit-logs?' + qs.toString())
-  },
+  list: (params = {}) => api.get('/platform/audit-logs?' + qs({
+    limit: 20, offset: 0, order_by: 'created_at', order_dir: 'desc',
+    action: '', q: '', date_from: '', date_to: '', ...params,
+  })),
 }
