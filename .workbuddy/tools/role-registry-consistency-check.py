@@ -322,8 +322,12 @@ def main():
     core = read(CORE_PY)
     check('core.py 定义了 normalize_role（白名单判据唯一来源）',
           bool(re.search(r"def\s+normalize_role\s*\(", core)))
-    check('normalize_role 以 _DEFAULT_PERMS / ROLE_PERMS 为判据（未另抄名单）',
-          bool(re.search(r"def\s+known_roles[\s\S]{0,300}?_DEFAULT_PERMS[\s\S]{0,120}?ROLE_PERMS", core)))
+    # v205 起读端由「进程级全局 ROLE_PERMS」改为「**按租户** perms_for(tid)」⇒
+    # 判据必须两者皆可，否则脚本会对**正确实现**误报。
+    # 2026-09-24 实测：旧判据下 27/28 FAIL，但 core.py 的实现完全正确（候选 ≠ 缺陷）。
+    # 保留原意：known_roles 必须**派生自权威源**，不得另抄一份硬编码角色名单。
+    check('normalize_role 以权威源（_DEFAULT_PERMS + 按租户表）为判据（未另抄名单）',
+          bool(re.search(r"def\s+known_roles[\s\S]{0,300}?_DEFAULT_PERMS[\s\S]{0,160}?(?:ROLE_PERMS|perms_for)", core)))
     srv = read(SERVER_PY)
     fs = read(FS_PY)
     erp = read(ERPDB_PY)

@@ -9,6 +9,7 @@ import InviteCodes from '../views/InviteCodes.vue'
 import Registrations from '../views/Registrations.vue'
 import Users from '../views/Users.vue'
 import AuditLog from '../views/AuditLog.vue'
+import SystemHealth from '../views/SystemHealth.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: Login, meta: { title: '登录', public: true } },
@@ -18,6 +19,7 @@ const routes = [
   { path: '/invite-codes', name: 'invite-codes', component: InviteCodes, meta: { title: '邀请码管理' } },
   { path: '/registrations', name: 'registrations', component: Registrations, meta: { title: '注册流水' } },
   { path: '/audit-logs', name: 'audit-logs', component: AuditLog, meta: { title: '操作审计' } },
+  { path: '/system', name: 'system-health', component: SystemHealth, meta: { title: '系统健康' } },
   { path: '/users', name: 'users', component: Users, meta: { title: '平台用户' } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

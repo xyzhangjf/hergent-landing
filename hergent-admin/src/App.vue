@@ -114,6 +114,7 @@ const govNav = [
   { to: '/invite-codes', label: '邀请码管理', icon: 'ticket' },
   { to: '/registrations', label: '注册流水', icon: 'clipboard' },
   { to: '/audit-logs', label: '操作审计', icon: 'history' },
+  { to: '/system', label: '系统健康', icon: 'pulse' },
   { to: '/users', label: '平台用户', icon: 'users' },
 ]
 
@@ -158,7 +159,7 @@ function onPaletteRun(it) {
 }
 
 let gPending = false
-const GOTO = { o: '/', t: '/tenants', i: '/invite-codes', r: '/registrations', a: '/audit-logs', u: '/users' }
+const GOTO = { o: '/', t: '/tenants', i: '/invite-codes', r: '/registrations', a: '/audit-logs', u: '/users', s: '/system' }
 
 function onKey(e) {
   if (isLogin.value) return

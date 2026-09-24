@@ -60,6 +60,9 @@ const ICONS = {
   // 表格密度
   rows:
     '<rect x="3" y="4" width="18" height="3" rx="1"/><rect x="3" y="10.5" width="18" height="3" rx="1"/><rect x="3" y="17" width="18" height="3" rx="1"/>',
+  // 系统健康（脉搏线）
+  pulse:
+    '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
 }
 
 const props = defineProps({

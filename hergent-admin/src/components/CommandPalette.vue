@@ -60,6 +60,7 @@ const STATIC = [
   { id: 'p-invite', label: '邀请码管理', kind: '页面', icon: 'ticket', to: '/invite-codes' },
   { id: 'p-reg', label: '注册流水', kind: '页面', icon: 'clipboard', to: '/registrations' },
   { id: 'p-audit', label: '操作审计', kind: '页面', icon: 'history', to: '/audit-logs' },
+  { id: 'p-system', label: '系统健康', kind: '页面', icon: 'pulse', to: '/system' },
   { id: 'p-users', label: '平台用户', kind: '页面', icon: 'users', to: '/users' },
   { id: 'a-new-tenant', label: '新增租户', kind: '操作', icon: 'building', to: '/tenants?new=1' },
   { id: 'a-new-invite', label: '生成邀请码', kind: '操作', icon: 'ticket', to: '/invite-codes?new=1' },

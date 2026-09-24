@@ -70,6 +70,13 @@ export const statsApi = {
   overview: () => api.get('/platform/stats'),
 }
 
+// ---------- 系统健康（只读排障） ----------
+// 复用既有端点，无需新增后端：/api/system/health 给主库体积/表数/表行数/最近备份，
+// /api/platform/stats 给「主库 + 全部租户库」总体积。
+export const systemApi = {
+  health: () => api.get('/system/health'),
+}
+
 // 统一拼查询串：跳过空值（保留 false / 0 —— `active_only=false`、`limit=0` 都有语义）
 function qs(params) {
   const u = new URLSearchParams()
