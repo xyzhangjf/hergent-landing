@@ -1,16 +1,29 @@
 <template>
   <div>
-    <div class="btn-row mb-16">
-      <router-link to="/tenants" class="btn sm">← 返回租户列表</router-link>
+    <Breadcrumb :items="[{ label: '租户管理', to: '/tenants' }, { label: tenant.name || '租户详情' }]" />
+
+    <div v-if="loading" class="card">
+      <Skeleton :rows="5" :widths="['18%', '36%', '26%', '20%']" />
     </div>
 
-    <div v-if="loading" class="loading-box">加载中…</div>
     <template v-else>
       <div class="card mb-20">
         <div class="card-head">
           <h3>{{ tenant.name }}</h3>
           <StatusBadge :active="tenant.is_active" />
         </div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button
+          v-for="t in TABS" :key="t.k" type="button" role="tab"
+          class="tab" :class="{ on: tab === t.k }"
+          :aria-selected="tab === t.k" @click="tab = t.k"
+        >{{ t.label }}<template v-if="t.k === 'members' && members.length">（{{ members.length }}）</template></button>
+      </div>
+
+      <!-- 概览 -->
+      <div v-show="tab === 'overview'" class="card">
         <div class="card-body">
           <div class="kv">
             <span class="k">租户 ID</span><span class="v">{{ tenant.id }}</span>
@@ -24,10 +37,10 @@
         </div>
       </div>
 
-      <div class="card mb-20">
-        <div class="card-head"><h3>用量统计</h3></div>
+      <!-- 用量 -->
+      <div v-show="tab === 'usage'" class="card">
         <div class="card-body">
-          <div class="usage-grid">
+          <div class="usage-grid mb-20">
             <div class="stat-card">
               <div class="label">成员数 / 上限</div>
               <div class="value">{{ usage.member_count }} <span class="metric-unit">/ {{ usage.max_users }}</span></div>
@@ -41,7 +54,6 @@
               <div class="value" :class="usage.db_exists ? 'success' : 'danger'">{{ usage.db_exists ? '正常' : '缺失' }}</div>
             </div>
           </div>
-          <div class="divider"></div>
           <div class="section-title">核心业务表行数</div>
           <div v-if="!usage.db_exists" class="muted">租户库文件不存在，无法统计业务数据。</div>
           <div v-else class="table-wrap">
@@ -66,7 +78,8 @@
         </div>
       </div>
 
-      <div class="card">
+      <!-- 成员 -->
+      <div v-show="tab === 'members'" class="card">
         <div class="card-head">
           <h3>成员列表</h3>
           <span class="spacer"></span>
@@ -84,7 +97,7 @@
                   <td>{{ m.id }}</td>
                   <td>{{ m.username }}</td>
                   <td>{{ m.display_name || '—' }}</td>
-                  <td><span class="badge neutral">{{ m.role }}</span></td>
+                  <td><Badge variant="neutral">{{ m.role }}</Badge></td>
                   <td><StatusBadge :active="m.is_active" /></td>
                   <td><button class="btn sm danger" @click="askRemoveMember(m)">移除</button></td>
                 </tr>
@@ -109,6 +122,7 @@
       title="移除成员"
       :text="'确认将「' + ((pendingMember && pendingMember.username) || '') + '」移出该租户？'"
       consequence="移除后该成员将立即失去这个租户的数据访问权限；其账号本身不会被删除，可随时重新添加。"
+      :require-text="(pendingMember && pendingMember.username) || ''"
       confirm-label="确认移除"
       :busy="removing"
       @cancel="confirmShow = false"
@@ -122,6 +136,9 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { tenantApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
+import Breadcrumb from '../components/Breadcrumb.vue'
+import Badge from '../components/Badge.vue'
+import Skeleton from '../components/Skeleton.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
@@ -129,6 +146,13 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 const toast = useToastStore()
 const route = useRoute()
 const id = route.params.id
+
+const TABS = [
+  { k: 'overview', label: '概览' },
+  { k: 'usage', label: '用量' },
+  { k: 'members', label: '成员' },
+]
+const tab = ref('overview')
 
 const loading = ref(true)
 const tenant = ref({})

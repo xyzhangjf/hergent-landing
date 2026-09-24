@@ -33,32 +33,46 @@
         placeholder="搜索操作人 / 对象 / 详情"
       />
       <span class="spacer"></span>
-      <span class="muted text-xs">
-        筛选后 {{ filtered.length }} 条 · 共加载 {{ entries.length }} 条
-      </span>
+      <span class="muted text-xs">共 {{ total }} 条</span>
     </div>
 
     <div class="card">
+      <div class="card-head">
+        <h3>操作审计</h3>
+        <div class="card-actions">
+          <button class="btn sm icon-only" :disabled="loading" aria-label="刷新" title="刷新" @click="load">
+            <Icon name="refresh" :size="15" />
+          </button>
+          <button class="btn sm" :disabled="loading || entries.length === 0" @click="onExport">
+            <Icon name="download" :size="14" /> 导出本页
+          </button>
+        </div>
+      </div>
       <div class="table-wrap">
         <table class="tbl">
           <thead>
             <tr>
               <SortTh label="时间" field="created_at" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
-              <th>操作人</th>
-              <th>动作</th>
-              <th>操作对象</th>
+              <SortTh label="操作人" field="actor" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
+              <SortTh label="动作" field="action" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
+              <SortTh label="操作对象" field="target_name" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
               <th>变更内容</th>
-              <th>来源 IP</th>
+              <SortTh label="来源 IP" field="client_ip" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(e, i) in paged" :key="i">
+            <tr v-for="(e, i) in entries" :key="e.id || i">
               <td class="muted nowrap">{{ e.created_at || '—' }}</td>
               <td>{{ e.actor || '—' }}</td>
               <td><span class="tag" :class="actionClass(e.action)">{{ e.action || '—' }}</span></td>
               <td class="wrap">
                 <span class="obj-type">{{ e.target_type || '—' }}</span>
-                <span v-if="e.target_name" class="obj-name">{{ e.target_name }}</span>
+                <router-link
+                  v-if="e.target_type === 'tenant' && e.target_id"
+                  :to="'/tenants/' + e.target_id"
+                  class="obj-name obj-link"
+                >{{ e.target_name || ('#' + e.target_id) }}</router-link>
+                <span v-else-if="e.target_name" class="obj-name">{{ e.target_name }}</span>
                 <span v-else-if="e.target_id" class="obj-name">#{{ e.target_id }}</span>
               </td>
               <td class="wrap">
@@ -73,13 +87,13 @@
               <td class="muted">{{ e.client_ip || '—' }}</td>
             </tr>
             <tr v-if="loading">
-              <td colspan="6"><div class="loading-box">加载中…</div></td>
+              <td colspan="6"><Skeleton :rows="6" :widths="['18%', '12%', '14%', '18%', '22%', '12%']" /></td>
             </tr>
-            <tr v-else-if="filtered.length === 0">
+            <tr v-else-if="entries.length === 0">
               <td colspan="6">
                 <EmptyState
                   icon="history"
-                  :title="entries.length === 0 ? '暂无操作记录' : '没有符合条件的记录'"
+                  :title="total === 0 ? '暂无操作记录' : '没有符合条件的记录'"
                   desc="平台级高危操作（停用租户、改套餐、增删成员、生成/停用邀请码等）发生后会在这里留痕"
                 />
               </td>
@@ -88,7 +102,7 @@
         </table>
       </div>
       <Pager
-        :total="filtered.length"
+        :total="total"
         :page="page"
         :page-size="PAGE_SIZE"
         @update:page="page = $event"
@@ -98,25 +112,36 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { auditApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
+import { exportCsv } from '../utils/csv'
+import { PAGE_SIZE } from '../utils/table'
+import Icon from '../components/Icon.vue'
+import Skeleton from '../components/Skeleton.vue'
 import EmptyState from '../components/EmptyState.vue'
 import Pager from '../components/Pager.vue'
 import SortTh from '../components/SortTh.vue'
-import { sortRows, pageSlice, PAGE_SIZE } from '../utils/table'
 
 const toast = useToastStore()
 const entries = ref([])
 const actions = ref([])
+const total = ref(0)
 const loading = ref(false)
 
-// ---- 筛选：动作下拉 + 日期快捷区间 + 关键字 ----
+// ---- 筛选：动作下拉 + 日期快捷区间 + 关键字（全部走服务端）----
 const actionFilter = ref('')
 const range = ref('all')
 const from = ref('')
 const to = ref('')
 const keyword = ref('')
+const debouncedKeyword = ref('')
+let kwTimer = null
+watch(keyword, (v) => {
+  clearTimeout(kwTimer)
+  kwTimer = setTimeout(() => { debouncedKeyword.value = v.trim() }, 300)
+})
+
 const RANGES = [
   { k: 'all', label: '全部' },
   { k: 'today', label: '今天' },
@@ -124,63 +149,42 @@ const RANGES = [
   { k: '30d', label: '近 30 天' },
   { k: 'custom', label: '自定义' },
 ]
-function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
-function daysAgo(n) { const x = startOfDay(new Date()); x.setDate(x.getDate() - n); return x }
-function parseTime(v) {
-  if (!v) return null
-  const t = new Date(String(v).replace(' ', 'T'))
-  return isNaN(t.getTime()) ? null : t
-}
 
-const filtered = computed(() => {
-  let rows = entries.value
-  // 日期区间
-  if (range.value !== 'all') {
-    let start = null, end = null
-    if (range.value === 'today') start = startOfDay(new Date())
-    else if (range.value === '7d') start = daysAgo(6)
-    else if (range.value === '30d') start = daysAgo(29)
-    else if (range.value === 'custom') {
-      start = from.value ? new Date(from.value + 'T00:00:00') : null
-      end = to.value ? new Date(to.value + 'T23:59:59') : null
-    }
-    rows = rows.filter((e) => {
-      const t = parseTime(e.created_at)
-      if (!t) return false
-      if (start && t < start) return false
-      if (end && t > end) return false
-      return true
-    })
-  }
-  // 动作下拉
-  if (actionFilter.value) rows = rows.filter((e) => e.action === actionFilter.value)
-  // 关键字（操作人 / 对象名 / 详情 / 动作）
-  const kw = keyword.value.trim().toLowerCase()
-  if (kw) {
-    rows = rows.filter((e) =>
-      (e.actor && e.actor.toLowerCase().includes(kw)) ||
-      (e.target_name && e.target_name.toLowerCase().includes(kw)) ||
-      (e.detail && e.detail.toLowerCase().includes(kw)) ||
-      (e.action && e.action.toLowerCase().includes(kw)))
-  }
-  return rows
-})
-
-// ---- 排序 + 分页 ----
+// ---- 排序 + 分页（服务端）----
 const page = ref(1)
 const sortKey = ref('created_at')
 const sortDir = ref('desc')
-const paged = computed(() =>
-  pageSlice(sortRows(filtered.value, sortKey.value, sortDir.value), page.value)
-)
 function toggleSort(k) {
   if (sortKey.value === k) sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
   else { sortKey.value = k; sortDir.value = 'asc' }
   page.value = 1
 }
-watch([range, from, to, actionFilter, keyword], () => { page.value = 1 })
 
-// ---- 动作色彩分类（让「创建/修改/移除」一眼可辨）----
+function fmtDate(d) {
+  const p = (n) => String(n).padStart(2, '0')
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+}
+function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
+function daysAgo(n) { const x = startOfDay(new Date()); x.setDate(x.getDate() - n); return x }
+function dateRange() {
+  if (range.value === 'today') return { from: fmtDate(startOfDay(new Date())), to: '' }
+  if (range.value === '7d') return { from: fmtDate(daysAgo(6)), to: '' }
+  if (range.value === '30d') return { from: fmtDate(daysAgo(29)), to: '' }
+  if (range.value === 'custom') return { from: from.value, to: to.value }
+  return { from: '', to: '' }
+}
+
+// 单一查询签名：任一参数变化即请求一次，避免 watch 多路重复触发
+const sig = computed(() => JSON.stringify({
+  a: actionFilter.value, r: range.value, f: from.value, t: to.value,
+  k: debouncedKeyword.value, p: page.value, s: sortKey.value, d: sortDir.value,
+}))
+
+// 注意顺序：先注册「筛选变化回第一页」，再注册「签名变化即拉取」，
+// 保证 page 先归 1，只发一次请求。
+watch([actionFilter, range, from, to, debouncedKeyword], () => { page.value = 1 })
+watch(sig, load)
+
 function actionClass(a) {
   if (!a) return 'neutral'
   if (/创建|开通|生成|添加/.test(a)) return 'create'
@@ -189,11 +193,37 @@ function actionClass(a) {
   return 'neutral'
 }
 
+function onExport() {
+  exportCsv('操作审计', [
+    { key: 'created_at', label: '时间' },
+    { key: 'actor', label: '操作人' },
+    { key: 'action', label: '动作' },
+    { key: 'target_type', label: '对象类型' },
+    { key: 'target_name', label: '对象' },
+    { key: 'field', label: '字段' },
+    { key: 'old_value', label: '改前' },
+    { key: 'new_value', label: '改后' },
+    { key: 'detail', label: '详情' },
+    { key: 'client_ip', label: '来源 IP' },
+  ], entries.value)
+}
+
 async function load() {
   loading.value = true
   try {
-    const data = await auditApi.list()
+    const dr = dateRange()
+    const data = await auditApi.list({
+      limit: PAGE_SIZE,
+      offset: (page.value - 1) * PAGE_SIZE,
+      action: actionFilter.value,
+      q: debouncedKeyword.value,
+      date_from: dr.from,
+      date_to: dr.to,
+      order_by: sortKey.value,
+      order_dir: sortDir.value,
+    })
     entries.value = (data && data.entries) || []
+    total.value = (data && data.total) || 0
     actions.value = (data && data.actions) || []
   } catch (e) {
     toast.err('加载失败：' + (e instanceof ApiError ? e.message : e.message))
@@ -202,6 +232,7 @@ async function load() {
   }
 }
 onMounted(load)
+onBeforeUnmount(() => clearTimeout(kwTimer))
 </script>
 
 <style scoped>
@@ -217,10 +248,12 @@ onMounted(load)
   border-radius: 4px; padding: 1px 6px; margin-right: 6px;
 }
 .obj-name { font-weight: 600; }
+.obj-link { color: var(--brand-dark); }
+.obj-link:hover { text-decoration: underline; }
 .field-name { color: var(--text-2); }
 .arrow { color: var(--text-2); margin: 0 4px; }
-.old { color: var(--danger); }
-.new { color: var(--success); }
+.old { color: var(--badge-danger-fg); }
+.new { color: var(--badge-success-fg); }
 .tag {
   display: inline-block; font-size: 12px; line-height: 1; padding: 4px 8px;
   border-radius: 6px; white-space: nowrap;

@@ -7,9 +7,7 @@
       <div class="card-body">
         <div v-if="admins.length === 0" class="empty">无</div>
         <div v-else class="btn-row">
-          <span v-for="a in admins" :key="a.username || a" class="badge on">
-            <span class="dot"></span>{{ a.username || a }}
-          </span>
+          <Badge v-for="a in admins" :key="a.username || a" variant="success">{{ a.username || a }}</Badge>
         </div>
       </div>
     </div>
@@ -38,7 +36,17 @@
     </div>
 
     <div class="card">
-      <div class="card-head"><h3>注册流水</h3></div>
+      <div class="card-head">
+        <h3>注册流水</h3>
+        <div class="card-actions">
+          <button class="btn sm icon-only" :disabled="loading" aria-label="刷新" title="刷新" @click="load">
+            <Icon name="refresh" :size="15" />
+          </button>
+          <button class="btn sm" :disabled="loading || filtered.length === 0" @click="onExport">
+            <Icon name="download" :size="14" /> 导出
+          </button>
+        </div>
+      </div>
       <div class="table-wrap">
         <table class="tbl">
           <thead>
@@ -53,13 +61,18 @@
             <tr v-for="(r, i) in paged" :key="i">
               <td>{{ r.username || '—' }}</td>
               <td><code class="code-chip">{{ r.code || '—' }}</code></td>
-              <td>{{ r.tenant_name || ('租户#' + (r.tenant_id ?? '—')) }}</td>
+              <td>
+                <router-link v-if="r.tenant_id" :to="'/tenants/' + r.tenant_id" class="link-btn">
+                  {{ r.tenant_name || ('租户#' + r.tenant_id) }}
+                </router-link>
+                <span v-else class="muted">—</span>
+              </td>
               <td class="muted">{{ r.created_at || '—' }}</td>
               <td class="muted">{{ r.ip_address || '—' }}</td>
               <td class="muted wrap">{{ (r.user_agent || '').slice(0, 40) || '—' }}</td>
             </tr>
             <tr v-if="loading">
-              <td colspan="6"><div class="loading-box">加载中…</div></td>
+              <td colspan="6"><Skeleton :rows="5" :widths="['18%', '16%', '20%', '16%', '14%', '16%']" /></td>
             </tr>
             <tr v-else-if="filtered.length === 0">
               <td colspan="6">
@@ -85,22 +98,25 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { regApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
+import { exportCsv } from '../utils/csv'
+import Icon from '../components/Icon.vue'
+import Badge from '../components/Badge.vue'
+import Skeleton from '../components/Skeleton.vue'
 import EmptyState from '../components/EmptyState.vue'
 import Pager from '../components/Pager.vue'
 import SortTh from '../components/SortTh.vue'
 import { sortRows, pageSlice, PAGE_SIZE } from '../utils/table'
 
+const route = useRoute()
 const toast = useToastStore()
 const regs = ref([])
 const admins = ref([])
 const loading = ref(false)
 
 // ---- 日期筛选：快捷区间 + 自定义起止 ----
-const range = ref('all')
-const from = ref('')
-const to = ref('')
 const RANGES = [
   { k: 'all', label: '全部' },
   { k: 'today', label: '今天' },
@@ -108,6 +124,11 @@ const RANGES = [
   { k: '30d', label: '近 30 天' },
   { k: 'custom', label: '自定义' },
 ]
+// 支持从总览 KPI 卡下钻：/registrations?range=today
+const initRange = String(route.query.range || '')
+const range = ref(RANGES.some((r) => r.k === initRange) ? initRange : 'all')
+const from = ref('')
+const to = ref('')
 function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 function daysAgo(n) { const x = startOfDay(new Date()); x.setDate(x.getDate() - n); return x }
 function parseTime(v) {
@@ -141,15 +162,25 @@ const filtered = computed(() => {
 const page = ref(1)
 const sortKey = ref('created_at')
 const sortDir = ref('desc')
-const paged = computed(() =>
-  pageSlice(sortRows(filtered.value, sortKey.value, sortDir.value), page.value)
-)
+const sorted = computed(() => sortRows(filtered.value, sortKey.value, sortDir.value))
+const paged = computed(() => pageSlice(sorted.value, page.value))
 function toggleSort(k) {
   if (sortKey.value === k) sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
   else { sortKey.value = k; sortDir.value = 'asc' }
   page.value = 1
 }
 watch([range, from, to], () => { page.value = 1 })
+
+function onExport() {
+  exportCsv('注册流水', [
+    { key: 'username', label: '账号' },
+    { key: 'code', label: '邀请码' },
+    { key: 'tenant_name', label: '租户' },
+    { key: 'created_at', label: '时间' },
+    { key: 'ip_address', label: 'IP' },
+    { key: 'user_agent', label: '来源' },
+  ], sorted.value)
+}
 
 async function load() {
   loading.value = true

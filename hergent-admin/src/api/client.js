@@ -101,6 +101,18 @@ export const userApi = {
 }
 
 // ---------- 平台操作审计 ----------
+// v262：服务端分页/排序/关键字（limit+offset+order_by+order_dir+q），
+// 不再一次拉满 500 条本地过滤（超过 500 条会静默截断）。
 export const auditApi = {
-  list: (limit = 500) => api.get('/platform/audit-logs?limit=' + limit),
+  list: (params = {}) => {
+    const p = {
+      limit: 20, offset: 0, order_by: 'created_at', order_dir: 'desc',
+      action: '', q: '', date_from: '', date_to: '', ...params,
+    }
+    const qs = new URLSearchParams()
+    Object.keys(p).forEach((k) => {
+      if (p[k] !== '' && p[k] !== null && p[k] !== undefined) qs.set(k, p[k])
+    })
+    return api.get('/platform/audit-logs?' + qs.toString())
+  },
 }

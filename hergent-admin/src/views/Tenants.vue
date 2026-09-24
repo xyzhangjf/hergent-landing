@@ -11,11 +11,36 @@
       <button class="btn primary" @click="openCreate">+ 新增租户</button>
     </div>
 
+    <div class="bulk-bar" v-if="selected.length > 0">
+      <span>已选 <span class="bulk-count">{{ selected.length }}</span> 个租户</span>
+      <div class="btn-row">
+        <button class="btn sm" :disabled="bulkBusy" @click="bulkSetActive(1)">批量启用</button>
+        <button class="btn sm danger" :disabled="bulkBusy" @click="bulkAskDisable">批量停用</button>
+        <button class="link-btn" @click="selected = []">取消选择</button>
+      </div>
+    </div>
+
     <div class="card">
+      <div class="card-head">
+        <h3>租户列表</h3>
+        <span class="muted text-xs">筛选后 {{ filtered.length }} 家</span>
+        <div class="card-actions">
+          <button class="btn sm icon-only" :disabled="loading" aria-label="刷新" title="刷新" @click="load">
+            <Icon name="refresh" :size="15" />
+          </button>
+          <button class="btn sm" :disabled="loading || filtered.length === 0" @click="onExport">
+            <Icon name="download" :size="14" /> 导出
+          </button>
+        </div>
+      </div>
       <div class="table-wrap">
         <table class="tbl">
           <thead>
             <tr>
+              <th class="col-check">
+                <input class="chk" type="checkbox" :checked="allSelected" :disabled="filtered.length === 0"
+                       aria-label="全选租户" @change="toggleAll" />
+              </th>
               <SortTh label="ID" field="id" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
               <SortTh label="公司名" field="name" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggleSort" />
               <th>联系人</th><th>手机号</th>
@@ -28,11 +53,15 @@
           </thead>
           <tbody>
             <tr v-for="t in paged" :key="t.id">
+              <td class="col-check">
+                <input class="chk" type="checkbox" :checked="selected.includes(t.id)"
+                       :aria-label="'选择租户 ' + t.name" @change="toggleOne($event, t)" />
+              </td>
               <td>{{ t.id }}</td>
               <td>{{ t.name }}</td>
               <td>{{ t.contact_name || '—' }}</td>
               <td>{{ t.contact_phone || '—' }}</td>
-              <td><span class="badge neutral">{{ planLabel(t.plan) }}</span></td>
+              <td><Badge variant="neutral">{{ planLabel(t.plan) }}</Badge></td>
               <td>{{ t.max_users }}</td>
               <td><StatusBadge :active="t.is_active" /></td>
               <td class="muted">{{ t.created_at || '—' }}</td>
@@ -46,10 +75,10 @@
               </td>
             </tr>
             <tr v-if="loading">
-              <td colspan="9"><div class="loading-box">加载中…</div></td>
+              <td colspan="10"><Skeleton :rows="5" :widths="['4%', '8%', '22%', '14%', '14%', '12%', '10%']" /></td>
             </tr>
             <tr v-else-if="filtered.length === 0">
-              <td colspan="9">
+              <td colspan="10">
                 <EmptyState
                   icon="building"
                   :title="keyword.trim() || filter !== 'all' ? '没有匹配的租户' : '还没有租户'"
@@ -147,13 +176,29 @@
       @cancel="confirmShow = false"
       @confirm="doToggle()"
     />
+
+    <ConfirmDialog
+      :show="bulkConfirmShow"
+      title="批量停用租户"
+      :text="'确认停用选中的 ' + selected.length + ' 个租户？'"
+      consequence="停用后这些租户下所有账号将立即无法登录，数据完整保留；可随时重新启用。"
+      confirm-label="确认停用"
+      :busy="bulkBusy"
+      @cancel="bulkConfirmShow = false"
+      @confirm="bulkSetActive(0)"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { tenantApi, ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
+import { exportCsv } from '../utils/csv'
+import Icon from '../components/Icon.vue'
+import Badge from '../components/Badge.vue'
+import Skeleton from '../components/Skeleton.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import Modal from '../components/Modal.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -162,11 +207,14 @@ import Pager from '../components/Pager.vue'
 import SortTh from '../components/SortTh.vue'
 import { sortRows, pageSlice, PAGE_SIZE } from '../utils/table'
 
+const route = useRoute()
 const toast = useToastStore()
 const list = ref([])
 const loading = ref(false)
 const keyword = ref('')
-const filter = ref('all')
+// 支持从总览 KPI 卡下钻：/tenants?status=off
+const initStatus = String(route.query.status || '')
+const filter = ref(['on', 'off'].includes(initStatus) ? initStatus : 'all')
 const page = ref(1)
 const sortKey = ref('')
 const sortDir = ref('asc')
@@ -179,6 +227,9 @@ const form = ref(blankForm())
 const confirmShow = ref(false)
 const toggling = ref(false)
 const pendingToggle = ref(null)
+const selected = ref([])
+const bulkBusy = ref(false)
+const bulkConfirmShow = ref(false)
 
 function blankForm() {
   return { name: '', contact_name: '', contact_phone: '', plan: 'free', max_users: 5, is_active: 1 }
@@ -202,9 +253,8 @@ const filtered = computed(() => {
 })
 
 // 排序 + 分页：当前在本地完成，数据量上千后改为后端 order_by / limit
-const paged = computed(() =>
-  pageSlice(sortRows(filtered.value, sortKey.value, sortDir.value), page.value)
-)
+const sorted = computed(() => sortRows(filtered.value, sortKey.value, sortDir.value))
+const paged = computed(() => pageSlice(sorted.value, page.value))
 function toggleSort(k) {
   if (sortKey.value === k) sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
   else { sortKey.value = k; sortDir.value = 'asc' }
@@ -213,11 +263,44 @@ function toggleSort(k) {
 // 筛选条件变化后回到第一页，避免停在一个已不存在的页码
 watch([keyword, filter], () => { page.value = 1 })
 
+// ---- 多选（以租户 id 为键）----
+const allSelected = computed(
+  () => filtered.value.length > 0 && selected.value.length === filtered.value.length
+)
+function toggleAll(e) {
+  selected.value = e.target.checked ? filtered.value.map((t) => t.id) : []
+}
+function toggleOne(e, t) {
+  if (e.target.checked) {
+    if (!selected.value.includes(t.id)) selected.value = [...selected.value, t.id]
+  } else {
+    selected.value = selected.value.filter((x) => x !== t.id)
+  }
+}
+
+function onExport() {
+  exportCsv('租户列表', [
+    { key: 'id', label: 'ID' },
+    { key: 'name', label: '公司名' },
+    { key: 'contact_name', label: '联系人' },
+    { key: 'contact_phone', label: '手机号' },
+    { key: 'plan', label: '套餐' },
+    { key: 'max_users', label: '最大用户数' },
+    { key: 'is_active', label: '状态' },
+    { key: 'created_at', label: '创建时间' },
+  ], sorted.value.map((t) => ({
+    ...t, plan: planLabel(t.plan), is_active: t.is_active ? '启用' : '停用',
+  })))
+}
+
 async function load() {
   loading.value = true
   try {
     const data = await tenantApi.list(false)
     list.value = Array.isArray(data) ? data : (data.data || [])
+    // 列表刷新后剔除已不存在的选择
+    const ids = new Set(list.value.map((t) => t.id))
+    selected.value = selected.value.filter((id) => ids.has(id))
   } catch (e) {
     toast.err('加载租户列表失败：' + (e instanceof ApiError ? e.message : e.message))
   } finally {
@@ -298,6 +381,26 @@ async function doToggle(t) {
   } finally {
     toggling.value = false
   }
+}
+
+// ---- 批量启停：逐个串行调用，统计成功/失败（后端无批量端点）----
+function bulkAskDisable() {
+  bulkConfirmShow.value = true
+}
+async function bulkSetActive(active) {
+  bulkBusy.value = true
+  const targets = list.value.filter((t) => selected.value.includes(t.id))
+  let ok = 0
+  let fail = 0
+  for (const t of targets) {
+    if (!!t.is_active === !!active) continue
+    try { await tenantApi.update(t.id, { is_active: active }); ok++ } catch (e) { fail++ }
+  }
+  toast.ok('已' + (active ? '启用' : '停用') + ' ' + ok + ' 个' + (fail ? '，失败 ' + fail + ' 个' : ''))
+  selected.value = []
+  bulkConfirmShow.value = false
+  bulkBusy.value = false
+  await load()
 }
 
 onMounted(load)

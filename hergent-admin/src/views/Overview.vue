@@ -1,67 +1,47 @@
 <template>
   <div>
-    <div v-if="loading" class="loading-box">加载中…</div>
+    <div v-if="loading" class="card"><Skeleton :rows="4" :widths="['22%', '30%', '24%', '20%']" /></div>
     <template v-else>
       <div class="stat-grid">
-        <div class="stat-card">
-          <div class="label" title="截至当前累计开通的租户总数，含已停用">租户总数</div>
-          <div class="value brand">{{ s.total_tenants }}</div>
-          <div class="foot">累计开通的客户数</div>
-        </div>
-        <div class="stat-card">
-          <div class="label" title="状态为启用的租户，可正常登录使用系统">启用中</div>
-          <div class="value success">{{ s.active_tenants }}</div>
-          <div class="foot">正常使用的租户</div>
-        </div>
-        <div class="stat-card">
-          <div class="label" title="状态为停用的租户，已停止服务但数据完整保留">已停用</div>
-          <div class="value danger">{{ s.inactive_tenants }}</div>
-          <div class="foot">被停用的租户</div>
-        </div>
-        <div class="stat-card">
-          <div class="label" title="今天 0 点到现在新注册的租户数量">今日新增</div>
-          <div class="value">{{ s.new_today }}</div>
-          <div class="foot">今日注册的租户数</div>
-        </div>
-        <div class="stat-card">
-          <div class="label" title="滚动 7 天内新注册的租户数量，含今天">近 7 天新增</div>
-          <div class="value">{{ s.new_this_week }}</div>
-          <div class="foot">滚动一周注册</div>
-        </div>
-        <div class="stat-card">
-          <div class="label" title="全部租户下的注册账号总数">平台总用户</div>
-          <div class="value">{{ s.total_users }}</div>
-          <div class="foot">全部注册账号数</div>
-        </div>
-        <div class="stat-card">
-          <div class="label" title="主库与全部租户库文件占用之和">数据总体积</div>
-          <div class="value">{{ s.total_db_size_mb }} <span class="metric-unit">兆</span></div>
-          <div class="foot">主库 + 全部租户库</div>
-        </div>
+        <component
+          :is="c.to ? RouterLink : 'div'"
+          v-for="c in cards"
+          :key="c.label"
+          :to="c.to || undefined"
+          class="stat-card"
+          :class="{ link: !!c.to }"
+        >
+          <div class="label" :title="c.tip">{{ c.label }}</div>
+          <div class="value" :class="c.cls">{{ c.value }}<span v-if="c.unit" class="metric-unit"> {{ c.unit }}</span></div>
+          <div v-if="c.delta" class="delta" :class="c.delta.cls">{{ c.delta.text }}</div>
+          <div class="foot">{{ c.foot }}</div>
+        </component>
       </div>
 
-    <div class="card">
-      <div class="card-head"><h3>套餐分布</h3></div>
-      <div class="card-body">
-        <div v-if="planEntries.length === 0" class="empty">暂无数据</div>
-        <div v-else class="plan-bars">
-          <div v-for="[plan, count] in planEntries" :key="plan" class="plan-row">
-            <span class="plan-name">{{ planLabel(plan) }}</span>
-            <div class="plan-track"><div class="plan-fill" :style="{ width: pct(count) + '%' }"></div></div>
-            <span class="plan-count">{{ count }}</span>
+      <div class="card">
+        <div class="card-head"><h3>套餐分布</h3></div>
+        <div class="card-body">
+          <div v-if="planEntries.length === 0" class="empty">暂无数据</div>
+          <div v-else class="plan-bars">
+            <div v-for="[plan, count] in planEntries" :key="plan" class="plan-row">
+              <span class="plan-name">{{ planLabel(plan) }}</span>
+              <div class="plan-track"><div class="plan-fill" :style="{ width: pct(count) + '%' }"></div></div>
+              <span class="plan-count">{{ count }}</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </template>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { RouterLink } from 'vue-router'
 import { statsApi } from '../api/client'
 import { ApiError } from '../api/client'
 import { useToastStore } from '../store/toast'
+import Skeleton from '../components/Skeleton.vue'
 
 const toast = useToastStore()
 const loading = ref(false)
@@ -79,6 +59,34 @@ function planLabel(p) {
   const m = { free: '免费版', pro: '专业版', enterprise: '企业版', '': '未设置' }
   return m[p] || p
 }
+
+// 环比：后端提供上一周期字段时显示（缺失则返回 null，卡片退回只显示静态脚注，不假装有数据）
+function deltaOf(cur, prev, prefix) {
+  if (cur == null || prev == null) return null
+  const d = Number(cur) - Number(prev)
+  if (!Number.isFinite(d)) return null
+  if (d === 0) return { text: prefix + '持平', cls: 'muted' }
+  return { text: prefix + (d > 0 ? ' +' : ' ') + d, cls: d > 0 ? 'success' : 'danger' }
+}
+
+// KPI 卡可下钻到对应筛选列表（对标 Stripe Dashboard：看数与查数连通）
+const cards = computed(() => [
+  { label: '租户总数', value: s.value.total_tenants, cls: 'brand', foot: '累计开通的客户数', tip: '截至当前累计开通的租户总数，含已停用', to: '/tenants' },
+  { label: '启用中', value: s.value.active_tenants, cls: 'success', foot: '正常使用的租户', tip: '状态为启用的租户，可正常登录使用系统', to: '/tenants?status=on' },
+  { label: '已停用', value: s.value.inactive_tenants, cls: 'danger', foot: '被停用的租户', tip: '状态为停用的租户，已停止服务但数据完整保留', to: '/tenants?status=off' },
+  {
+    label: '今日新增', value: s.value.new_today, cls: '', foot: '今日注册的租户数',
+    tip: '今天 0 点到现在新注册的租户数量', to: '/registrations?range=today',
+    delta: deltaOf(s.value.new_today, s.value.new_yesterday, '较昨日'),
+  },
+  {
+    label: '近 7 天新增', value: s.value.new_this_week, cls: '', foot: '滚动一周注册',
+    tip: '滚动 7 天内新注册的租户数量，含今天', to: '/registrations?range=7d',
+    delta: deltaOf(s.value.new_this_week, s.value.new_prev_week, '较前 7 天'),
+  },
+  { label: '平台总用户', value: s.value.total_users, cls: '', foot: '全部注册账号数', tip: '全部租户下的注册账号总数', to: '/users' },
+  { label: '数据总体积', value: s.value.total_db_size_mb, unit: '兆', cls: '', foot: '主库 + 全部租户库', tip: '主库与全部租户库文件占用之和', to: '' },
+])
 
 onMounted(async () => {
   loading.value = true
