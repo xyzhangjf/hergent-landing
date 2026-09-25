@@ -151,6 +151,14 @@
           <input v-model="np.order_end" class="input" type="date" @input="markNpTouched('order_end')"></label>
         <label class="np-fld"><span>预计到货</span>
           <input v-model="np.arrival" class="input" type="date" @input="markNpTouched('arrival')"></label>
+        <!-- v273（2026-09-25）：沿用上一期的商品清单。**只在确实存在上一期时出现** ——
+             没有上一期还摆一个勾了也不生效的框，就是假旋钮。
+             措辞里点明「不含报单数量」：沿用的是**商品清单**这一个桶，不是报单数据
+             （后者的归属键是日期窗口，跨期复制会串期，见 forecast-order-domain.md）。 -->
+        <label v-if="npPrevPeriod" class="np-fld np-fld-chk"
+               title="勾选后，新期次会带上一期的商品清单（不含报单数量）。之后导入会按来源精确替换，不会与上期的品叠加。">
+          <input type="checkbox" v-model="np.seed_from_prev">
+          <span>沿用上一期「{{ npPrevPeriod.name }}」的商品清单</span></label>
         <!-- v180：名称里能识别出日期时才出现。原本「名称 → 日期」是**静默覆盖**，
              现在拆成「自动只填空字段」+「显式按名称重算」两条路。 -->
         <button v-if="npNameDates.length" class="btn btn-sm btn-ghost" @click="applyNameDatesNow"
@@ -2418,8 +2426,12 @@ const openPeriodId = ref(0)
 const periodsLoaded = ref(false)
 const viewPeriod = ref(null) // 往期预报「查看」回载的期次（真实或合成行）
 const showNewPeriod = ref(false)
-const np = ref({ name: '', order_start: '', order_end: '', arrival: '' })
-const activeTab = ref('summary') // 'summary' | 'history' | 'config'
+// v273（2026-09-25）：`seed_from_prev` = 新建期次时是否**沿用上一期的商品清单**。
+//   默认 true，与后端 `FcPeriodCreate.seed_from_prev=True` 同口径 —— 用户诉求原话：
+//   「新建期次时应自动带出上一个期次的商品信息」。表单里给的是**可见可撤销**的勾选项，
+//   不做静默自动（v182 设计评审的结论：静默灌数据会让人以为在新建、实际在改旧的）。
+const np = ref({ name: '', order_start: '', order_end: '', arrival: '', seed_from_prev: true })
+const activeTab = ref('summary') // 'summary' | 'history' | 'config' | 'target'（v265 加「商品目标」）
 
 /* ---- P0-1 交叉表视图 ---- */
 const viewMode = ref('cross')
@@ -9683,10 +9695,29 @@ async function createPeriod() {
     return
   }
   try {
-    await forecastApi.createPeriod(b)
-    toast('期次已创建', 'success')
+    // v273：带回执 —— 后端会把「沿用了几期、带过来几个商品」放在响应的 copied/src_name 里。
+    const r = await forecastApi.createPeriod(b)
+    // 🔴 必须把「带没带、带了多少」说出来：否则用户回到原来那个疑问
+    //    「新建完表格是空的，到底建成功没有 / 怎么没自动带出来」。
+    const _copied = Number((r && r.copied) || 0)
+    const _src = (r && r.src_name) || ''
+    // 四种结局要能分开说（`src_name` 非空 = **确实存在**上一期）：
+    //   ① 没勾沿用              → 空白期次，是用户的选择
+    //   ② 勾了、带过来 N 个      → 正常
+    //   ③ 勾了、上一期自己也空   → 有上一期但没清单（不是"没有上一期"！）
+    //   ④ 勾了、压根没有上一期   → 本期是第一期
+    // 把 ③④ 混成一句话会让用户以为「上一期的清单丢了」。
+    if (!b.seed_from_prev) {
+      toast('期次已创建（本期商品清单为空，可直接导入或手填）', 'success')
+    } else if (_copied > 0) {
+      toast(`期次已创建，已沿用「${_src}」的 ${_copied} 个商品`, 'success')
+    } else if (_src) {
+      toast(`期次已创建（上一期「${_src}」里也没有商品清单）`, 'success')
+    } else {
+      toast('期次已创建（没有更早的期次可沿用，本期商品清单为空）', 'success')
+    }
     showNewPeriod.value = false
-    np.value = { name: '', order_start: '', order_end: '', arrival: '' }
+    np.value = { name: '', order_start: '', order_end: '', arrival: '', seed_from_prev: true }
     await loadPeriods()
     // v184：loadPeriods() 内部会把 curPeriod 改成新建的这个期次（下拉跟着走），
     // 但它**从不重载表格** ⇒ 画面是「下拉 = 新期次、表格 = 上一期的数据」，
@@ -9947,7 +9978,8 @@ function openNewPeriod() {
 //   npSoftWarn / npNameDates 都是 computed，跟着 np 自动归零，无需单独重置。
 function cancelNewPeriod() {
   showNewPeriod.value = false
-  np.value = { name: '', order_start: '', order_end: '', arrival: '' }
+  // v273：开关也要一起复位 —— 下次打开表单必须是「默认沿用」，不能继承上次取消时的选择
+  np.value = { name: '', order_start: '', order_end: '', arrival: '', seed_from_prev: true }
   resetNpTouched()
 }
 
@@ -9990,6 +10022,28 @@ const npSingleDayWarn = computed(() => {
   const a = np.value?.order_start, b = np.value?.order_end
   if (!a || !b || a !== b) return ''
   return '这一期的「报单窗口」只有一天。自动建表用的是「报单日前一天 ~ 报单日」，若要口径一致，请把「下单开始」改成报单日的前一天（或直接在期次名称里写日期，会自动按前一日填）。'
+})
+
+/* v273（2026-09-25）：新建期次表单用 ——「上一期」是哪一期，只用来**提示**用户
+   「会带过来哪一期的商品清单」；真正执行沿用的是后端（`POST /api/forecast/periods`
+   → `erp_db.forecast_period_prev_id` → `forecast_period_seed`）。
+   🔴 判据必须与后端**逐字同源**，否则会出现「提示说带 A、实际带了 B」：
+      ① 锚点是 **`order_start`（业务时间序）**，不是 id；
+      ② 严格 `<`（窗口相等的一期不算「上一期」，后端注释里写了原因：两套建表口径会撞同一天）；
+      ③ 并列时取 id 更大者（后端 `ORDER BY order_start DESC, id DESC`）。
+   前端算不出来就不显示勾选项（`npPrevPeriod === null`）——宁可少一个提示，
+   也不给一个会撒谎的提示。 */
+const npPrevPeriod = computed(() => {
+  const os = String(np.value?.order_start || '')
+  if (!os) return null
+  const cands = (periods.value || []).filter(p => String(p.order_start || '') < os)
+  if (!cands.length) return null
+  cands.sort((a, b) => {
+    const sa = String(a.order_start || ''), sb = String(b.order_start || '')
+    if (sa !== sb) return sa < sb ? -1 : 1
+    return Number(a.id || 0) - Number(b.id || 0)
+  })
+  return cands[cands.length - 1]
 })
 
 // 把识别到的日期写进表单。force=true 时无视「手改过」保护（用户主动点按钮才允许）
@@ -10742,6 +10796,16 @@ th.sortable:hover{color:var(--p-dark)}
 .np-fld{display:flex;align-items:center;gap:6px;flex:0 0 auto}
 .np-fld>span{font-size:12px;color:var(--t2);white-space:nowrap}
 .np-fld .input{flex:none;width:130px;height:32px;min-width:0;padding:0 10px}
+/* v273：新建期次表单里「沿用上一期商品清单」的勾选开关。
+   刻意**不复用** `.np-fld>span` 的灰字 —— 那是字段标签的样式；这里是可操作的选择项，
+   字体要能看出「可以点」。高度与同排 32px 输入框对齐，避免整行高低不齐。
+   🔴 v273b 真机回归改的：初版给 span 加了 `max-width:260px + nowrap + 省略号`，实测在
+   1440 下把「沿用上一期「张记乳品演示期次-2026-09」的**商品清单**」截成「…的…」——
+   恰好把最关键的「商品清单」三个字藏掉了（截图实测）。期次名本来就长，限宽只会稳定地
+   藏住尾部。改成**允许换行 + 可收缩**：文字永远完整，行宽不够时自己折行，不挤按钮。 */
+.np-fld-chk{cursor:pointer;user-select:none;min-height:32px}
+.np-fld-chk>input{flex:none;width:14px;height:14px;margin:0;cursor:pointer}
+.np-fld-chk>span{font-size:12px;color:var(--t1);white-space:normal;line-height:1.35;max-width:420px;min-width:0;overflow-wrap:anywhere}
 /* 名称要比日期宽（「9月20日报单9月25日到货」这类名字装得下） */
 .np-fld-name .input{width:210px}
 /* v180 期次软警告（同名 / 窗口重叠）—— 非阻塞提示；硬规则由后端 period_validate 拦截 */
