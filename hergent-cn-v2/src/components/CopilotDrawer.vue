@@ -252,13 +252,43 @@
               @input="autoGrow"
               ref="cpInput"
             ></textarea>
+            <!-- 只看**字数**：有内容时才出现（纯文字、无术语）。
+                 🔴 空态**不显示快捷键提示**（2026-09-25 老板指出）：原来的「⏎ 发送 · ⇧⏎ 换行」
+                    用的是键盘符号，**经销商看不懂**——正是"别给老板看他不认识的东西"。
+                    回车发送属通用习惯，占位文字「输入 / 唤起快捷指令，或直接问…」已足够指路。 -->
+            <span v-if="draft.trim()" class="cp-inhint" aria-hidden="true">{{ draft.length }} 字</span>
             <!-- 第二层：工具条，左=输入手段 / 右=提交动作 -->
             <div class="cp-toolbar">
               <div class="cp-tools">
-                <label class="cp-plus" title="上传 Excel / CSV / 图片" aria-label="上传文件">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  <input type="file" accept=".xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp,.pdf" style="display:none" @change="onFile">
-                </label>
+                <!-- 「＋」= 菜单（对齐 WorkBuddy 的 addMenu）：让老板知道**能给 AI 什么**。
+                     三项都走同一个 onFile 流程，只是预筛类型不同（不塞假条目）。 -->
+                <div class="cp-add">
+                  <button class="cp-plus" @click.stop="toggleAddMenu" title="给 AI 一份材料" aria-label="给 AI 一份材料">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </button>
+                  <input ref="fileInput" type="file" :accept="fileAccept" style="display:none" @change="onFile">
+                  <div v-if="showAddMenu" class="cp-role-menu cp-add-menu">
+                    <div class="cp-role-menu-hd">给 AI 一份材料</div>
+                    <div class="cp-role-item" @click.stop="pickAdd('sheet')">
+                      <div class="cp-role-item-tx">
+                        <div class="cp-role-item-name">上传表格</div>
+                        <div class="cp-role-item-desc">Excel / CSV，能自动识别并生成经营卡</div>
+                      </div>
+                    </div>
+                    <div class="cp-role-item" @click.stop="pickAdd('image')">
+                      <div class="cp-role-item-tx">
+                        <div class="cp-role-item-name">上传图片</div>
+                        <div class="cp-role-item-desc">截图或照片，AI 能看懂画面内容</div>
+                      </div>
+                    </div>
+                    <div class="cp-role-item" @click.stop="pickAdd('file')">
+                      <div class="cp-role-item-tx">
+                        <div class="cp-role-item-name">上传文件</div>
+                        <div class="cp-role-item-desc">PDF、文本等其它格式</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <!-- 团队胶囊：会话级配置，＋ 之后 -->
                 <div class="cp-role" @click.stop="toggleRoleMenu" role="button" aria-label="切换 AI 团队">
                   <span class="cp-role-av">
@@ -281,14 +311,49 @@
                     </div>
                   </div>
                 </div>
-                <!-- 权限开关：输入前的策略选择，chip 形态归入工具条左组 -->
-                <button class="cp-guard-btn" :class="{ on: aiGuard === 'execute' }" @click="toggleAiGuard"
-                  :title="aiGuard === 'advise' ? 'AI 只给建议，不替你下单/收款/采购。点击切换' : '已允许 AI 执行写操作。点击切换回只建议'">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
-                  {{ aiGuard === 'advise' ? '只建议' : '允许执行' }}
+                <!-- AI 权限（对齐 WorkBuddy 的 permission chip：**把解释摆在台面上**，不藏在 hover 提示里）
+                     ⚠️ 语义澄清：aiGuard 是**提示级软开关**（影响提示词）；真正的硬门禁是服务端
+                     `ai_mode`（readonly / disabled，后端拦截写操作）。只读时这里禁用并强制只给建议。 -->
+                <div class="cp-guard">
+                  <button class="cp-guard-btn" :class="{ on: aiGuard === 'execute' }" @click.stop="toggleGuardMenu"
+                    :disabled="aiMode === 'readonly'"
+                    :title="aiMode === 'readonly' ? '只读模式：AI 仅给建议，不可放开' : 'AI 可以怎么做？点开选择'">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+                    {{ aiGuard === 'advise' ? '只给建议' : '可直接执行' }}
+                    <svg class="cp-guard-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                  <div v-if="showGuardMenu" class="cp-role-menu cp-guard-menu">
+                    <div class="cp-role-menu-hd">AI 可以怎么做</div>
+                    <div class="cp-role-item" :class="{ on: aiGuard === 'advise' }" @click.stop="pickGuard('advise')">
+                      <div class="cp-role-item-tx">
+                        <div class="cp-role-item-name">只给建议</div>
+                        <div class="cp-role-item-desc">只算给你看，不替你下单、收款、改档案</div>
+                      </div>
+                    </div>
+                    <div class="cp-role-item" :class="{ on: aiGuard === 'execute', locked: aiMode === 'readonly' }"
+                      @click.stop="pickGuard('execute')">
+                      <div class="cp-role-item-tx">
+                        <div class="cp-role-item-name">可直接执行</div>
+                        <div class="cp-role-item-desc">{{ aiMode === 'readonly' ? '后台已设只读，暂不可选' : '可以真的下单、收款、改档案' }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- 副驾代理层**用户开关**（专项 P2）：老板自己可开/关，不必懂技术。
+                     开 = 经系统服务端转发，主模型出问题时自动切换备用模型；
+                     关 = 走直连通道（主模型出问题就没有备用）。 -->
+                <button class="cp-proxy-btn" :class="{ on: proxyOn }" @click="toggleProxy"
+                  :title="proxyOn ? '已开启：副驾经系统服务端转发，主模型出问题时自动切换备用模型。点击关闭' : '已关闭：走直连通道，主模型出问题时不会自动切换。点击开启'">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
+                  {{ proxyOn ? '自动降级' : '直连通道' }}
                 </button>
               </div>
               <div class="cp-trailing">
+                <!-- 🔴 模型选择已于 2026-09-25 下架（老板选 B）。
+                     原因：Hermes 的 `model_routes` 未配置 ⇒ 请求里的 model **匹配不到路由、静默回落默认模型**
+                     （服务端账本 `session_model_usage` 只有 deepseek-v4-flash 可证）⇒
+                     放在界面上就是**静默无效**的控件，点了没反应也不报错。宁可不给。
+                     恢复步骤见 outputs/输入框对比-2026-09-25/ 报告 §9.6.4b。 -->
                 <button class="cp-voice" :class="{ on: recognizing }" title="语音输入" aria-label="语音输入" @click="toggleVoice">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
                 </button>
@@ -298,7 +363,6 @@
               </div>
             </div>
           </div>
-          <div class="cp-foot-hint">Enter 发送 · Shift+Enter 换行 · 支持上传 Excel/CSV/图片</div>
         </footer>
         </div><!-- /cp-chat -->
 
@@ -566,14 +630,27 @@ const currentRole = computed(() => {
 function avatarUrl(r) {
   return r && r.custom_avatar ? `/api/ai/roles/${r.role_id}/avatar` : null
 }
-function toggleRoleMenu() { showRoleMenu.value = !showRoleMenu.value }
-// 点角色胶囊/菜单以外的任意空白处 → 收起菜单（抽屉内空白 + 抽屉外页面空白都算）。
+/* ---- 下拉菜单**集中互斥**（3 个：团队 / 权限 / 添加）----
+   🔴 2026-09-25 教训：原先每个 toggle 各自写「关掉另一个」，加到第 4 个时必然会漏，
+      造成「两个菜单同屏挂在屏幕上」（加模型下拉时就这么被探针抓了一次）。
+   ⇒ 改成**一处集中管理**：以后新增菜单只要在这里登记一行 + 在 onDocPointerDown 登记一行，就不会再漏。
+   （模型下拉已于同日下架，此处同步摘除。） */
+function closeMenus(except) {
+  if (except !== 'role') showRoleMenu.value = false
+  if (except !== 'guard') showGuardMenu.value = false
+  if (except !== 'add') showAddMenu.value = false
+}
+function toggleRoleMenu() { const on = !showRoleMenu.value; closeMenus('role'); showRoleMenu.value = on }
+// 点胶囊/菜单以外的任意空白处 → 收起菜单（抽屉内空白 + 抽屉外页面空白都算）。
 // 用捕获阶段 pointerdown，避免被内层 @click.stop 或抽屉遮罩的 click 抢走。
+// 2026-09-25：新增权限下拉后改为「各管各的」——两个菜单各自判断点击是否落在自己容器内。
 function onDocPointerDown(e) {
-  if (!showRoleMenu.value) return
+  if (!showRoleMenu.value && !showGuardMenu.value && !showAddMenu.value) return
   const t = e.target
-  if (t && t.closest && t.closest('.cp-role')) return
-  showRoleMenu.value = false
+  const inside = (sel) => !!(t && t.closest && t.closest(sel))
+  if (showRoleMenu.value && !inside('.cp-role')) showRoleMenu.value = false
+  if (showGuardMenu.value && !inside('.cp-guard')) showGuardMenu.value = false
+  if (showAddMenu.value && !inside('.cp-add')) showAddMenu.value = false
 }
 function pickRole(r) {
   setAiRole(r.role_id)
@@ -634,9 +711,51 @@ function formatDailyLogForAI(logs) {
 
 /* ---- P0-③ 动作分级护栏：AI 权限档位（只建议/允许执行），产品化"只建议不擅自下单"铁律 ---- */
 const aiGuard = ref(localStorage.getItem('hergent_ai_guard') || 'advise')  // advise=只建议（默认）/ execute=允许执行
-function toggleAiGuard() {
-  aiGuard.value = aiGuard.value === 'advise' ? 'execute' : 'advise'
-  localStorage.setItem('hergent_ai_guard', aiGuard.value)
+// H1：Web 副驾服从后台 AI 模式（auto/readonly/disabled），修复"后台关 AI 但副驾仍可用"的越权口子
+const aiMode = ref('auto')  // auto=正常 / readonly=强制只建议 / disabled=完全停用
+/* 权限下拉（对齐 WorkBuddy 的 permission chip）：把"AI 会怎么做"摆到台面上，不再只靠 hover 提示。
+   （原 `toggleAiGuard` 二态直切已由本下拉取代，函数一并删除，避免死代码。）
+   ⚠️ 硬门禁仍在服务端 `ai_mode`；这里只是让老板看懂软开关的含义。 */
+const showGuardMenu = ref(false)
+function toggleGuardMenu() {
+  if (aiMode.value === 'readonly') return          // 只读时按钮本就 disabled，双保险
+  const on = !showGuardMenu.value; closeMenus('guard'); showGuardMenu.value = on
+}
+function pickGuard(mode) {
+  if (mode === 'execute' && aiMode.value === 'readonly') { showGuardMenu.value = false; return }
+  aiGuard.value = mode
+  localStorage.setItem('hergent_ai_guard', mode)
+  showGuardMenu.value = false
+}
+
+/* 🔴 「模型选择」已于 2026-09-25 整体下架（老板选 B）——前后端代码一并移除，不留死 UI 逻辑。
+   根因：Hermes 未配 `model_routes` ⇒ 请求里的 model 匹配不到路由、**静默回落默认模型**
+   （服务端账本 `session_model_usage` 只出现 deepseek-v4-flash 可证）⇒ 那是"静默无效"控件。
+   恢复 A 方案的精确步骤见报告 §9.6.4b（加 model_routes + 重启网关 + 还原本处 UI）。 */
+
+/* ---- 「＋」变菜单（P3/R10，对齐 WorkBuddy 的 `addMenu`）----
+   🔴 只放**真能用的**入口：三项走的是同一个 `onFile` 流程，只是**预筛的文件类型**不同。
+      菜单的价值是让老板知道"能给 AI 什么"，而不是新增能力（不塞假条目——假条目点了没反应更伤信任）。
+   ⚠️ 智能导入不是独立入口：它由 onFile 识别到表格后自动弹确认面板（`.cp-smart`）。 */
+const showAddMenu = ref(false)
+const fileAccept = ref('.xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp,.pdf')
+const fileInput = ref(null)
+const ADD_KINDS = {
+  sheet: '.xlsx,.xls,.csv',
+  image: '.jpg,.jpeg,.png,.gif,.webp',
+  file: '.pdf,.txt,.md,.json',
+}
+function toggleAddMenu() { const on = !showAddMenu.value; closeMenus('add'); showAddMenu.value = on }
+function pickAdd(kind) {
+  fileAccept.value = ADD_KINDS[kind] || ADD_KINDS.file
+  showAddMenu.value = false
+  // 等 accept 落到 DOM 再唤起系统选择框（否则可能拿旧 accept 打开，选不到目标类型）
+  nextTick(() => {
+    const el = fileInput.value
+    if (!el) return
+    el.value = ''      // 允许连续选同一个文件
+    el.click()
+  })
 }
 const AI_GUARD_HINT = '【AI 权限】你当前处于「只建议」模式：任何下单、收款、付款、采购、删除、修改等写操作，一律只给建议和步骤，绝不擅自执行。'
 
@@ -861,8 +980,11 @@ async function doShare() {
 }
 
 /* 输入框随内容自动增高，但保底 3 行、封顶 ~7 行，避免过矮/失控 */
-const INPUT_MIN_H = 40
-const INPUT_MAX_H = 168
+// 🔴 这两个常量与 `.cp-input` 的 CSS `min-height/max-height` **必须成对修改**：
+//    autoGrow 会把内联 height 写死在 textarea 上、**覆盖 CSS** ⇒ 只改 CSS 会静默无效（高度不变）。
+//    2026-09-25 对齐 WorkBuddy：40/168 → 48/240（其可编辑区为 min 50 / max 252）。
+const INPUT_MIN_H = 48
+const INPUT_MAX_H = 240
 function autoGrow(e) {
   const el = e && e.target ? e.target : cpInput.value
   if (!el) return
@@ -1361,6 +1483,26 @@ watch(() => store.chat.messages.length, scrollBottom)
 .typing i{width:6px;height:6px;border-radius:50%;background:var(--t3);animation:cp-blink 1.2s infinite}
 .typing i:nth-child(2){animation-delay:.2s}
 .typing i:nth-child(3){animation-delay:.4s}
+.typing-tx{font-style:normal;font-size:12px;color:var(--t3);margin-left:7px}
+/* 工具执行情况（对齐 WorkBuddy：标题 + 完成计数 + 执行中/已完成 耗时） */
+.msg-tools .cp-tools-hd{display:flex;align-items:center;gap:6px;width:100%;padding:1px 0;background:transparent;border:none;font-size:11px;color:var(--t3);cursor:pointer;text-align:left}
+.msg-tools .cp-tools-hd:hover{color:var(--t2)}
+.cp-tools-hd svg{flex-shrink:0}
+.cp-tools-n,.cp-tools-t{font-variant-numeric:tabular-nums;flex-shrink:0}
+.cp-tools-t{margin-left:auto;color:var(--t3)}
+.cp-tools-caret{transition:transform .15s}
+.cp-tools-caret.open{transform:rotate(180deg)}
+.cp-tools-body{display:flex;flex-direction:column;gap:4px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border-subtle)}
+.cp-tool-st{font-size:11px;color:var(--t3);flex-shrink:0;margin-left:auto;white-space:nowrap}
+/* 深度思考（推理流）—— 对齐 WorkBuddy「深度思考」：默认折叠，标题显示字数 */
+.msg-think{width:100%;margin-bottom:6px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg2);overflow:hidden}
+.mt-hd{display:flex;align-items:center;gap:6px;width:100%;padding:7px 10px;background:transparent;border:none;font-size:12px;color:var(--t2);cursor:pointer;text-align:left}
+.mt-hd:hover{color:var(--t1)}
+.mt-hd svg{flex-shrink:0;color:var(--t3)}
+.mt-n{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums}
+.mt-caret{margin-left:auto;transition:transform .15s}
+.mt-caret.open{transform:rotate(180deg)}
+.mt-body{padding:8px 12px 10px;font-size:12.5px;line-height:1.65;color:var(--t2);white-space:pre-wrap;border-top:1px dashed var(--border-subtle);max-height:280px;overflow:auto}
 @keyframes cp-blink{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
 
 .msg-error{font-size:12px;color:var(--dan);padding:6px 2px;line-height:1.5}
@@ -1376,22 +1518,34 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-att-meta{font-size:11px;color:var(--p-dark);opacity:.7}
 .cp-att-x{border:none;background:none;color:var(--p-dark);cursor:pointer;font-size:12px;padding:0 2px;opacity:.6}
 .cp-att-x:hover{opacity:1}
-.cp-plus{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0}
+.cp-plus{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0}
 .cp-plus:hover{background:var(--bg4);color:var(--t1)}
 .cp-att-loading{background:var(--bg2);border-color:var(--border-subtle);color:var(--t2)}
 .cp-att-spin{display:inline-flex;animation:cp-spin 1s linear infinite}
 @keyframes cp-spin{to{transform:rotate(360deg)}}
-.cp-composer{display:flex;flex-direction:column;gap:8px;padding-top:8px;border:1px solid var(--bd);border-radius:20px;background:var(--bg3);transition:border-color .2s,box-shadow .2s}
+.cp-composer{position:relative;display:flex;flex-direction:column;gap:8px;padding-top:8px;border:1px solid var(--bd);border-radius:24px;background:var(--bg3);transition:border-color .2s,box-shadow .2s}
 .cp-composer:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 4px var(--p-bg)}
-.cp-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;padding:0 8px 8px}
-.cp-tools{display:flex;align-items:center;gap:2px;flex:0 1 auto;min-width:0}
-.cp-trailing{display:flex;align-items:center;gap:2px;flex:none;margin-left:auto}
-.cp-role{position:relative;display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);cursor:pointer;flex-shrink:1;min-width:0;transition:background .15s;max-width:220px}
+.cp-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:0 10px 10px}
+.cp-tools{display:flex;align-items:center;gap:4px;flex:0 1 auto;min-width:0}
+.cp-trailing{display:flex;align-items:center;gap:12px;flex:none;margin-left:auto}
+.cp-role{position:relative;display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 10px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);cursor:pointer;flex-shrink:1;min-width:0;transition:background .15s;max-width:220px}
 .cp-role:hover{background:rgba(6,182,212,.16)}
 .cp-role-av{font-size:14px;line-height:1;flex-shrink:0;display:flex;align-items:center}
 .cp-role-av-img{width:18px;height:18px;border-radius:50%;object-fit:cover;display:block}
 .cp-role-name{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cp-role-caret{flex-shrink:0;opacity:.7}
+/* AI 权限下拉（对齐 WorkBuddy permission chip）：容器定位 + 不可选项的视觉 */
+.cp-guard{position:relative;display:inline-flex;flex-shrink:0}
+.cp-guard-caret{flex-shrink:0;opacity:.7}
+.cp-guard-menu{width:240px}
+.cp-role-item.locked{opacity:.5;cursor:not-allowed}
+.cp-role-item.locked:hover{background:transparent}
+/* 「＋」菜单（P3/R10）：容器定位 + 菜单宽度 */
+.cp-add{position:relative;display:inline-flex;flex-shrink:0}
+.cp-add-menu{width:266px}
+/* ＋ 从 label 改为 button 后，需显式清掉浏览器默认按钮样式 */
+button.cp-plus{border:none;background:transparent;padding:0}
+button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-role-menu{position:absolute;bottom:calc(100% + 8px);left:0;width:248px;max-height:300px;overflow-y:auto;background:var(--bg);border:1px solid var(--bd);border-radius:14px;box-shadow:var(--shadow-lg);padding:8px;z-index:20}
 .cp-role-menu-hd{font-size:11px;color:var(--t3);padding:4px 8px 8px}
 .cp-role-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer;transition:all .15s}
@@ -1402,15 +1556,33 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-role-item-tx{display:flex;flex-direction:column;min-width:0}
 .cp-role-item-name{font-size:13px;font-weight:500;color:var(--t1)}
 .cp-role-item-desc{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.cp-input{display:block;width:100%;border:none;background:none;outline:none;resize:none;font-size:15px;line-height:22px;min-height:40px;max-height:168px;padding:9px 12px 9px 16px;color:var(--t1);font-family:inherit;overflow-y:auto}
+.cp-input{display:block;width:100%;border:none;background:none;outline:none;resize:none;font-size:15px;line-height:22px;min-height:48px;max-height:240px;padding:13px 12px 9px 16px;color:var(--t1);font-family:inherit;overflow-y:auto}
 .cp-input::placeholder{color:var(--t3)}
-.cp-send{width:28px;height:28px;border:none;border-radius:999px;background:var(--p-dark);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s,color .15s,box-shadow .15s;box-shadow:var(--shadow-sm)}
+/* M1 斜杠命令浮层：锚在 composer 上方，不打断输入 */
+.cp-slash{position:absolute;left:0;right:0;bottom:calc(100% + 8px);background:var(--bg);border:1px solid var(--border-subtle);border-radius:12px;box-shadow:0 12px 34px rgba(0,0,0,.20);max-height:44vh;overflow-y:auto;padding:6px;z-index:30}
+.cp-slash-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:600;color:var(--t3);padding:8px 10px 6px;letter-spacing:.4px}
+.cp-slash-kbd{font-weight:400;color:var(--t3)}
+.cp-slash-kbd kbd{font-size:10px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:4px;padding:1px 4px;margin:0 1px}
+.cp-slash-group{font-size:10px;font-weight:600;color:var(--t3);padding:8px 10px 3px;letter-spacing:.5px}
+.cp-slash-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;background:none;border-radius:8px;padding:8px 10px;font-size:13px;color:var(--t1);cursor:pointer}
+.cp-slash-item.active{background:var(--p-bg)}
+.cp-slash-ic{color:var(--t2);display:flex;flex-shrink:0}
+.cp-slash-item.active .cp-slash-ic{color:var(--p-dark)}
+.cp-slash-cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--p-dark);flex-shrink:0;min-width:62px}
+.cp-slash-title{flex:1;color:var(--t1)}
+.cp-slash-hint{font-size:11px;color:var(--t3);flex-shrink:0}
+.cp-send{width:32px;height:32px;border:none;border-radius:999px;background:var(--p-dark);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s,color .15s,box-shadow .15s;box-shadow:var(--shadow-sm)}
 .cp-send:not(:disabled):hover{background:var(--p-deep)}
 .cp-send:disabled{background:transparent;color:var(--t3);box-shadow:inset 0 0 0 1px var(--bd);cursor:default}
-.cp-foot-hint{font-size:11px;color:var(--t3);margin-top:7px;text-align:center}
+/* 字数内联：绝对定位在文本区**第一行**右侧，不占布局高度（composer 高度不变）。
+   🔴 top 的算法：绝对定位相对 **padding box** ⇒ 文本区顶 = 8px(padding-top)，
+      其第一行文字再 +13px(textarea padding-top) ⇒ **21px** 才是第一行基线区。
+      别写 13px（那是 textarea 的**内部**坐标，会整体偏高 8px）。
+   🔵 不需要窄屏隐藏：字数**只在有内容时**出现，而有内容时占位文字不渲染 ⇒ 天然不会重叠。 */
+.cp-inhint{position:absolute;top:21px;right:15px;font-size:11px;line-height:22px;color:var(--t3);pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums}
 
 /* P0-③ AI 权限护栏开关 */
-.cp-guard-btn{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 10px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
+.cp-guard-btn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 11px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
 .cp-guard-btn svg{color:var(--suc);flex-shrink:0}
 .cp-guard-btn:hover{background:var(--bg4);color:var(--t1)}
 .cp-guard-btn.on{border-color:rgba(var(--war-rgb),.5);background:rgba(var(--war-rgb),.14);color:var(--war)}
@@ -1469,7 +1641,10 @@ watch(() => store.chat.messages.length, scrollBottom)
 .msg-progress{width:100%;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px}
 
 /* H2 AI 工具调用过程可视化 */
-.msg-tools{display:flex;flex-direction:column;gap:4px;margin-top:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
+/* 工具执行情况容器：回复中展开、结束后收起成一行摘要（对齐 WorkBuddy） */
+.msg-tools{display:flex;flex-direction:column;margin-top:8px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);transition:padding .15s}
+.msg-tools.folded{padding:5px 10px}
+.msg-tools.live{border-color:var(--p-border)}
 .cp-tool{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t2);line-height:1.5}
 .cp-tool-ic{display:flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--p-dark);flex-shrink:0}
 .cp-tool.running .cp-tool-ic{color:var(--war)}
@@ -1480,7 +1655,7 @@ watch(() => store.chat.messages.length, scrollBottom)
 @keyframes cp-spin{to{transform:rotate(360deg)}}
 
 /* M5 语音输入按钮 */
-.cp-voice{width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0;border:none;background:none}
+.cp-voice{width:32px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0;border:none;background:none}
 .cp-voice:hover{background:var(--bg4);color:var(--t1)}
 .cp-voice.on{background:var(--p-dark);color:#fff;animation:cp-voice-pulse 1.2s infinite}
 @keyframes cp-voice-pulse{0%,100%{box-shadow:0 0 0 0 rgba(6,182,212,.4)}50%{box-shadow:0 0 0 5px rgba(6,182,212,0)}}
