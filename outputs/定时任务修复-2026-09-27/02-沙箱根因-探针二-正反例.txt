@@ -1,0 +1,37 @@
+===== A 现状复刻：ProtectHome=true ＋ sudo -u root =====
+Traceback (most recent call last):
+  File "/usr/lib/python3.11/pathlib.py", line 1116, in mkdir
+    os.mkdir(self, mode)
+FileNotFoundError: [Errno 2] No such file or directory: '/root/.hermes/cron'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/hermes-agent/hermes_cron_bridge.py", line 65, in <module>
+    main()
+  File "/usr/local/lib/hermes-agent/hermes_cron_bridge.py", line 28, in main
+    _out({"ok": True, "jobs": list_jobs(include_disabled=True)})
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/cron/jobs.py", line 1319, in list_jobs
+    jobs = [_normalize_job_record(j) for j in load_jobs()]
+                                              ^^^^^^^^^^^
+  File "/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/cron
+===== B 候选：ProtectHome=read-only ＋ ReadWritePaths=/root/.hermes ＋ sudo -u root =====
+{"ok": true, "jobs": [{"id": "853f2e208ae2", "name": "每日经营要务预生成", "prompt": "", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": null, "model_snapshot": null, "base_url": null, "script": "daily_briefing.sh", "no_agent": true, "context_from": null, "schedule": {"kind": "cron", "expr": "0 6 * * *", "display": "0 6 * * *"}, "schedule_display": "0 6 * * *", "repeat": {"times": null, "completed": 26}, "enabled": false, "state": "paused", "paused_at": "2026-09-09T20:33:01.989367+08:00", "paused_reason": null, "created_at": "2026-08-14T22:42:18.538891+08:00", "next_run_at": "2026-09-10T06:00:00+08:00", "last_run_at": "2026-09-09T06:00:39.807477+08:00", "last_status": "ok", "last_error": null, "last_delivery_error": null, "deliver": "local", "origin": null, "enabled_toolsets": null, "workdir": null, "fire_claim": null, "latest_execution": {"id"
+===== C 可写性硬证：在自有 cron 目录里 touch 再删（瞬时、无残留）=====
+WRITABLE
+CLEANED
+
+===== D 反例：read-only 但**不**放开 /root/.hermes 写权 ⇒ 应只读 =====
+touch: cannot touch '/root/.hermes/cron/.wprobe2': Read-only file system
+READONLY-AS-EXPECTED
+
+===== E 暴露面对照：read-only 下 /root 看得见什么（诚实评估用）=====
+/bin/ls: cannot open directory '/root': Permission denied
+
+===== F 对照：read-only 下能否读到 gateway 的其它敏感文件（.ssh / 私钥类）=====
+drwx------ 2 root root 4096 Jun 25  2025 /root/.ssh
+head: cannot open '/root/.ssh/id_rsa' for reading: Permission denied
+
+-rw-r--r-- 1 hergent hergent 539 Sep 26 19:31 /root/.hermes/config.yaml
+===== 结束 =====

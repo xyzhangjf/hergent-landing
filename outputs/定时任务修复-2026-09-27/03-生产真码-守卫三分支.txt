@@ -1,0 +1,14 @@
+已加载生产真文件：/opt/hergent-erp/routers/cron_tasks.py
+HERMES_HOME = /root/.hermes
+JOBS_JSON   = /root/.hermes/cron/jobs.json
+============================================================================
+④ _authority_job_count() ⇒ 1  OK
+① 正常路径 ⇒ ok=True jobs=1  OK
+     · 853f2e208ae2  每日经营要务预生成  state=paused
+② 上游失败 ⇒ HTTPException 502  OK
+     detail=Hermes 定时任务服务调用失败：SIMULATED: Traceback ... OSError EROFS
+③ 静默空 ⇒ HTTPException 502  OK
+     detail=定时任务数据读取异常：bridge 返回 0 条，而 /root/.hermes/cron/jobs.json 里有 1 条（疑似 HOME / HERMES_HOME 解析不一致，见本文件头 ①②）
+============================================================================
+判据台结束（未写任何数据）
+[临时探针已删除]

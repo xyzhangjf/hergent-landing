@@ -1,0 +1,27 @@
+判据来源（真文件切片）：/Users/zhangjunfeng/Documents/hergent-erp/server/routers/cron_tasks.py
+切出函数：['_authority_job_count', '_bridge_or_502']
+==============================================================================
+OK  ① 上游失败：bridge ok:false + traceback ⇒ 必须 502
+      期望=('raise', 502, 'Hermes 定时任务服务调用失败')
+      实得=('raise', 502, "Hermes 定时任务服务调用失败：Traceback (most recent call last):\n  File ...\nOSError: [Errno 30] Read-only file system: '/root/.hermes'")
+OK  ② 静默空：bridge ok:true + jobs=[] 而权威有 2 条 ⇒ 必须 502
+      期望=('raise', 502, '定时任务数据读取异常')
+      实得=('raise', 502, '定时任务数据读取异常：bridge 返回 0 条，而 /var/folders/ww/mx5k2ty941j1fvr0tqw51klw0000gn/T/v299-cron-icjc2pix/case1_jobs.json 里有 2 条（疑似 HOME / HERMES_HOME 解析不一致，见本文件头 ①②）')
+OK  ③ 反例：bridge ok:true + jobs=[] 且权威也空 ⇒ 必须放行（不得误报）
+      期望=('pass', None, None)
+      实得=('pass', None, None)
+      返回={"ok": true, "jobs": []}
+OK  ④ 正常：bridge ok:true + jobs 非空 ⇒ 放行且原样返回
+      期望=('pass', None, None)
+      实得=('pass', None, None)
+      返回={"ok": true, "jobs": [{"id": "853f2e208ae2", "name": "每日经营要务预生成"}]}
+OK  ⑤ 反例：bridge ok:true + jobs=[] 且权威文件**不存在** ⇒ 必须放行（保守设计）
+      期望=('pass', None, None)
+      实得=('pass', None, None)
+      返回={"ok": true, "jobs": []}
+OK  ⑥ 反例：bridge ok:true + jobs=[] 且权威文件是坏 JSON ⇒ 必须放行（不得误报）
+      期望=('pass', None, None)
+      实得=('pass', None, None)
+      返回={"ok": true, "jobs": []}
+==============================================================================
+✅  6 通过 / 0 失败

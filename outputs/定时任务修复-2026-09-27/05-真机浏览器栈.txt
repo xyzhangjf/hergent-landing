@@ -1,0 +1,19 @@
+== ① 打开站点 ==
+  ✅ 页面已加载　→ Hergent · AI 经营副驾
+== ② 登录（真账号）==
+  ✅ 登录 HTTP=200　→ 200
+  ✅ 拿到 token　→ OSHnxhVC18…
+== ③ 带 token GET /api/cron/jobs ==
+  ✅ HTTP=200（修复前也是 200 —— 所以这一条**单独不足以**证明修好）　→ 200
+  ✅ 正文**不含** Traceback（修复前的故障形态已消失）
+  ✅ 正文 ok === true（修复前是 ok:false + error 里塞 traceback）
+  ✅ 有 jobs 数组
+  ✅ jobs.length === 1（与 SSH 直跑 / 探针 B 的真值一致）　→ 每日经营要务预生成
+  ✅ 任务 id 与权威数据一致　→ 853f2e208ae2
+== ④ 反例：不带 token ⇒ 必须 401（闸门没被放宽）==
+  ✅ 未认证 ⇒ HTTP=401　→ 401
+== ⑤ 零写入 / 零 pageerror ==
+  ✅ 全程非 GET 请求数 = 0　→ 0
+  ✅ 全程 pageerror = 0　→ 0
+
+✅  12 通过 / 0 失败

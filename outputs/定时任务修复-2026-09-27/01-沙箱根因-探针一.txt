@@ -1,0 +1,19 @@
+临时探针已清理
+==================== ① 当前状态：ProtectHome=true，无 BindPaths ====================
+{"ok": true, "jobs": []}
+
+==================== ② 修复候选：ProtectHome=true + BindPaths=/root/.hermes ====================
+{"ok": true, "jobs": []}
+
+==================== ③ 暴露面对照：BindPaths 后 /root 里还剩什么 ====================
+--- 3a 当前（ProtectHome=true）---
+/bin/ls: cannot open directory '/root': Permission denied
+--- 3b 加 BindPaths 后 ---
+/bin/ls: cannot open directory '/root': Permission denied
+
+==================== ④ 只读性确认：hergent 能读 jobs.json 吗 ====================
+/bin/ls: cannot access '/root/.hermes/cron': Permission denied
+
+==================== ⑤ 对照：SSH 交互 shell（无沙箱）同一命令 ====================
+{"ok": true, "jobs": [{"id": "853f2e208ae2", "name": "每日经营要务预生成", "prompt": "", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": null, "model_snapshot": null, "base_url": null, "script": "daily_briefing.sh", "no_agent": true, "context_from": null, 
+==================== 探针结束 ====================
