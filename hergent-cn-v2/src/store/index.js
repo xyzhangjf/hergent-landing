@@ -110,6 +110,26 @@ export const useAppStore = defineStore('app', () => {
     return p.indexOf('*') >= 0 || p.indexOf(m) >= 0
   }
 
+  /* v291（2026-09-27）：**清空权限缓存**。登录成功与登出都必须调。
+     🔴 为什么必须（这是本轮「按角色收窄菜单」功能的前提）：
+        缓存的键只有**租户**（`permsTenant`），不含账号 —— 见上方 state 注释②
+        "租户一变就重取"。但**同租户内换账号**时租户没变 ⇒ `loadPerms()` 命中上一个
+        账号的缓存 ⇒「菜单按**上一个账号**的权限显示」。老板登出、员工登录，员工会
+        看到老板的全套菜单。反过来（员工先登、老板后登）会把老板的菜单砍掉。
+        既然本轮的门禁判据读的就是这份权限，拿错权限就等于整个功能失效。
+     🔴 为什么用"清缓存"而不是"把缓存键改成 租户+账号"：后者需要 `user.id/username`，
+        而 `loadPerms()` 从接口回填的 `d.user` 只落到 role/roles/name（没有 id/username）
+        ⇒ 要先改后端返回结构。登录/登出本来就该重置会话内一切派生状态，
+        清缓存是等价且改动更小的做法（同时也顺手清掉 caps/plan，避免套餐串味）。 */
+  function resetPerms() {
+    perms.value = null
+    permsTenant.value = ''
+    caps.value = null
+    plan.value = ''
+    user.role = ''
+    user.roles = []
+  }
+
   /** v266 该套餐能力是否可用（如 `bulk_export` / `api`）。未知（未加载/失败）⇒ true。 */
   function canCap(k) {
     const c = caps.value
@@ -286,7 +306,7 @@ export const useAppStore = defineStore('app', () => {
   return {
     ui, user, demo, chat,
     toast, setTheme,
-    perms, permsTenant, loadPerms, canModule,
+    perms, permsTenant, loadPerms, canModule, resetPerms,
     plan, caps, canCap,
     loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession,
     clearChatCache,

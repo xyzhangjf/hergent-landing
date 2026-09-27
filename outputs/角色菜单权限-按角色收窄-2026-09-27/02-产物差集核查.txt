@@ -1,0 +1,61 @@
+基准 /tmp/v291-dist-prev-1790487672：53 个文件 / 53 个去hash基名
+对比 hergent-cn-v2/dist：53 个文件 / 53 个去hash基名
+
+✅ 去hash基名集合完全一致（无 chunk 新增/删除 —— 只有重命名）
+
+--- 字节数相同的基名：45 个（名字变了、内容长度没变） ---
+   = AdvicePanel.css                       1488 B  AdvicePanel-DDPBDQ3v.css→AdvicePanel-DDPBDQ3v.css  [md5同]
+   = AdvicePanel.js                        2564 B  AdvicePanel-DjaqGaM8.js→AdvicePanel-CNuJtp_d.js  [md5异]
+   = AiHub.css                             6228 B  AiHub-C-u2q1WF.css→AiHub-C-u2q1WF.css  [md5同]
+   = AiHub.js                             16066 B  AiHub-DC9R76P6.js→AiHub-BAHKPoaU.js  [md5异]
+   = Archive.css                          26048 B  Archive-La9R98fs.css→Archive-DK6PSCBo.css  [md5异]
+   = ArchiveShell.js                        180 B  ArchiveShell-Cav1oBZw.js→ArchiveShell-BlNex8CV.js  [md5异]
+   = BidRadar.css                          4178 B  BidRadar-BpFNXNKV.css→BidRadar-BpFNXNKV.css  [md5同]
+   = BidRadar.js                           8342 B  BidRadar-DUUc7_Hf.js→BidRadar-DKFvRgpA.js  [md5异]
+   = ConnectCenter.css                    19495 B  ConnectCenter-C8sy4Stf.css→ConnectCenter-C8sy4Stf.css  [md5同]
+   = ConnectCenter.js                     41989 B  ConnectCenter-Ds9zHaGy.js→ConnectCenter-DfdDNaT5.js  [md5异]
+   = CronJobs.css                          3863 B  CronJobs-CCNf1RPJ.css→CronJobs-CCNf1RPJ.css  [md5同]
+   = CronJobs.js                          11539 B  CronJobs-B6wj-v4m.js→CronJobs-yvL_oFcV.js  [md5异]
+   = Dashboard.css                          713 B  Dashboard-CJ-dHyzB.css→Dashboard-CJ-dHyzB.css  [md5同]
+   = Dashboard.js                          2849 B  Dashboard-CirQGWjO.js→Dashboard-noN6tulR.js  [md5异]
+   = DataFill.css                          1053 B  DataFill-9dZBiq8a.css→DataFill-9dZBiq8a.css  [md5同]
+   = DataFill.js                           5661 B  DataFill-DJy0d9r6.js→DataFill-CGh7FLZ_.js  [md5异]
+   = Forecast.css                         99202 B  Forecast-BWCCfzvN.css→Forecast-BWCCfzvN.css  [md5同]
+   = Icon.js                               7979 B  Icon-DaHFb-6t.js→Icon-eGW_P6aT.js  [md5异]
+   = ImportMapping.css                     1896 B  ImportMapping-CXyTAHez.css→ImportMapping-CXyTAHez.css  [md5同]
+   = ImportMapping.js                      2746 B  ImportMapping-Daz_1RWi.js→ImportMapping-DkN9-MPt.js  [md5异]
+   = Login.css                             5854 B  Login-dOhPyLDy.css→Login-C4KOU40m.css  [md5异]
+   = LossAccounting.css                   18805 B  LossAccounting-Dn-5v5TH.css→LossAccounting-Dn-5v5TH.css  [md5同]
+   = LossAccounting.js                    49059 B  LossAccounting-bdl85yd1.js→LossAccounting-DqVatyV1.js  [md5异]
+   = LossWorkflow.css                      3456 B  LossWorkflow-BUfjPkLY.css→LossWorkflow-BCGsrKVt.css  [md5异]
+   = PayrollWorkflow.css                   2513 B  PayrollWorkflow-C0nwNhCT.css→PayrollWorkflow-DtRmT1lU.css  [md5异]
+   = PriceChannels.css                     8246 B  PriceChannels-C1679WpZ.css→PriceChannels-C1679WpZ.css  [md5同]
+   = PriceChannels.js                     26305 B  PriceChannels-v6PIZOdo.js→PriceChannels-Dc3mJ3km.js  [md5异]
+   = Rebate.css                           40773 B  Rebate-BB4BKuAY.css→Rebate-BB4BKuAY.css  [md5同]
+   = Rebate.js                           169132 B  Rebate-Bh7OghJt.js→Rebate-BKs87z55.js  [md5异]
+   = RoleManage.css                        5948 B  RoleManage-BcBX01Yy.css→RoleManage-BcBX01Yy.css  [md5同]
+   = RoleManage.js                        11955 B  RoleManage-fTdbhgJ-.js→RoleManage-aNvYsMV1.js  [md5异]
+   = Settings.css                          9764 B  Settings-D5AJQCyA.css→Settings-D5AJQCyA.css  [md5同]
+   = Settings.js                          34636 B  Settings-BmqOj5yj.js→Settings-BPQPGpI6.js  [md5异]
+   = Shell.css                            61271 B  Shell-Bd_y4R6S.css→Shell-CnwJPAQf.css  [md5异]
+   = Workbench.css                         6644 B  Workbench-IM-p08Pd.css→Workbench-C8NBu1rU.css  [md5异]
+   = ZhoupuImport.css                      3789 B  ZhoupuImport-DHFMMqxn.css→ZhoupuImport-DHFMMqxn.css  [md5同]
+   = ZhoupuImport.js                       9397 B  ZhoupuImport-D2t1j-iJ.js→ZhoupuImport-DjcoeIMI.js  [md5异]
+   = arrival.js                          283718 B  arrival-B1PXWqFm.js→arrival-B1PXWqFm.js  [md5同]
+   = favicon.js                              39 B  favicon-B1w23DGS.js→favicon-B1w23DGS.js  [md5同]
+   = index.css                            15425 B  index-CSOmVdY6.css→index-CSOmVdY6.css  [md5同]
+   = md.js                                 2081 B  md-BKw5wcUx.js→md-gmCh9zgV.js  [md5异]
+   = modules.js                           16595 B  modules-U32vVzJw.js→modules-CRelbQnM.js  [md5异]
+   = printable.js                          4022 B  printable-BL3F1_ze.js→printable-BL3F1_ze.js  [md5同]
+   = useCardTrigger.js                     6071 B  useCardTrigger-DNgT_7VP.js→useCardTrigger-V2oVoQZi.js  [md5异]
+   = useMonthlyAchv.js                     3692 B  useMonthlyAchv-BmTcQsnF.js→useMonthlyAchv-BmTcQsnF.js  [md5同]
+
+--- 字节数不同的基名：8 个（= 本次真实内容改动，逐个归因） ---
+   ≠ Archive.js                          104514 →  104686 B  (Δ+172)  Archive-QI3TJNkV.js
+   ≠ Forecast.js                         384500 →  384501 B  (Δ+1)  Forecast-CVIVr4Qn.js
+   ≠ Login.js                             15541 →   15571 B  (Δ+30)  Login-D2T7RmSU.js
+   ≠ LossWorkflow.js                      10750 →   10848 B  (Δ+98)  LossWorkflow-BRPakxJT.js
+   ≠ PayrollWorkflow.js                   11144 →   11242 B  (Δ+98)  PayrollWorkflow-fNi3aiBH.js
+   ≠ Shell.js                            116046 →  117150 B  (Δ+1104)  Shell-DG1qi00c.js
+   ≠ Workbench.js                         19390 →   19489 B  (Δ+99)  Workbench-RrbvFqjm.js
+   ≠ index.js                            129454 →  131219 B  (Δ+1765)  index-9x9LEEqr.js

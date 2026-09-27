@@ -1,0 +1,44 @@
+=== 公网连通性 ===
+index.html   200
+entry js     200
+
+=== 线上生效入口 ===
+index-BVALmRug.js
+index-CSOmVdY6.css
+
+=== index chunk 里的页面注册表特征串（应全 >0）===
+货损计算工作流              2
+库存效期补录               2
+招投标雷达                2
+舟谱单据导入               2
+算工资                  2
+
+=== 已废弃判据是否清干净（应全 0）===
+canViewForecastSummary           0
+store.canModule('payroll')       0
+meta.roles                       0
+
+=== Shell chunk 里的门禁调用点数量（canSee 内联后应 ≥24 处 v-if 痕迹不可直接数，改看功能串）===
+(eval):1: no matches found: https://hergent.cn/assets/Shell-*.js
+没有访问             0
+(eval):1: no matches found: https://hergent.cn/assets/Shell-*.js
+的权限              0
+
+=== Shell chunk 里 12 个入口路径的引用次数（证明 24 处 v-if 真实存在）===
+/workbench         7
+/forecast          8
+/rebate            7
+/loss-accounting   6
+/payroll           7
+/archive           5
+/price-channels    4
+/connect           6
+/bid-radar         6
+/cron              6
+/ai-hub            4
+/settings          6
+
+=== 各 chunk 里的提示文案 ===
+没有访问（Shell chunk）                  0
+=== 公网同一文件回读（应一致）===
+公网 Shell chunk 路径引用总数              80

@@ -1,0 +1,22 @@
+# v291 真机探针原始输出 [old]   dist=/tmp/v291-dist-prev-1790487672
+
+| 角色 | 期望 | 实测 | 侧栏条目 |
+|---|---|---|---|
+| admin | 12 | 12 | /workbench /forecast /rebate /loss-accounting /payroll /archive /price-channels /connect /bid-radar /cron /ai-hub /settings |
+| boss | 12 | 12 | /workbench /forecast /rebate /loss-accounting /payroll /archive /price-channels /connect /bid-radar /cron /ai-hub /settings |
+| accountant | 10 | 10 | /workbench /rebate /loss-accounting /archive /price-channels /connect /bid-radar /cron /ai-hub /settings |
+| sales | 10 | 10 | /workbench /rebate /loss-accounting /archive /price-channels /connect /bid-radar /cron /ai-hub /settings |
+| guide | 10 | 10 | /workbench /rebate /loss-accounting /archive /price-channels /connect /bid-radar /cron /ai-hub /settings |
+| driver | 10 | 10 | /workbench /rebate /loss-accounting /archive /price-channels /connect /bid-radar /cron /ai-hub /settings |
+| staff | 10 | 10 | /workbench /rebate /loss-accounting /archive /price-channels /connect /bid-radar /cron /ai-hub /settings |
+| supervisor | 11 | 11 | /workbench /forecast /rebate /loss-accounting /archive /price-channels /connect /bid-radar /cron /ai-hub /settings |
+
+用例 2 深链 #/cron（staff）：最终 hash = #/cron
+用例 2 页面提示：
+用例 3 权限接口 500（boss）：实测 12 条菜单（期望 12 = fail-open）
+
+通过 17 / 失败 3
+失败项：
+  - 员工深链 #/cron 被拦（没停在 /cron）  [#/cron]
+  - 落回工作台  [#/cron]
+  - 拒绝看得见（弹提示点名页面）  []

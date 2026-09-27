@@ -54,6 +54,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { toast } from '../store'
+/* v291：页内跳转入口同判据（见 goConnect）。 */
+import { canSee } from '../constants/pages'
 
 const router = useRouter()
 const chanjetLinked = ref(false)
@@ -87,7 +89,13 @@ async function onSync() {
   finally { syncBusy.value = false }
 }
 
-function goConnect() { remindOpen.value = false; router.push('/connect') }
+function goConnect() {
+  /* v291（2026-09-27）：入口同判据 —— 能进档案的人**不一定**能进「能力中心」
+     （业务员能进档案，但不能进连接器/数据源配置）⇒ 不判就会出现"点了被弹回工作台"（假入口）。 */
+  if (!canSee('/connect')) { toast('你没有访问「能力中心」的权限', 'warn'); return }
+  remindOpen.value = false
+  router.push('/connect')
+}
 
 onMounted(probeConnectors)
 </script>

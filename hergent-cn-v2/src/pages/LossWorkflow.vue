@@ -184,6 +184,8 @@ import Icon from '../components/Icon.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../store'
+/* v291：页内跳转入口同判据（见 goDataFill）。 */
+import { canSee } from '../constants/pages'
 import { lossApi, adviceApi } from '../api/modules'
 import AdvicePanel from '../components/AdvicePanel.vue'
 import { openPrintable } from '../utils/printable'
@@ -191,6 +193,9 @@ import { openPrintable } from '../utils/printable'
 const router = useRouter()
 
 function goDataFill() {
+  /* v291（2026-09-27）：「去补录」的目标页也受权限保护（/data-fill 只给业务管理岗）——
+     入口同判据，避免点了被守卫弹回工作台（假入口）。 */
+  if (!canSee('/data-fill')) { toast('你没有访问「库存效期补录」的权限', 'warn'); return }
   router.push('/data-fill')
 }
 

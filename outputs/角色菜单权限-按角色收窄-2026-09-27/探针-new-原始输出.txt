@@ -1,0 +1,18 @@
+# v291 真机探针原始输出 [new]   dist=/Users/zhangjunfeng/Documents/laozhangai-product/hergent-cn-v2/dist
+
+| 角色 | 期望 | 实测 | 侧栏条目 |
+|---|---|---|---|
+| admin | 12 | 12 | /workbench /forecast /rebate /loss-accounting /payroll /archive /price-channels /connect /bid-radar /cron /ai-hub /settings |
+| boss | 12 | 12 | /workbench /forecast /rebate /loss-accounting /payroll /archive /price-channels /connect /bid-radar /cron /ai-hub /settings |
+| accountant | 6 | 6 | /workbench /rebate /loss-accounting /archive /price-channels /ai-hub |
+| sales | 6 | 6 | /workbench /rebate /loss-accounting /archive /bid-radar /ai-hub |
+| guide | 2 | 2 | /workbench /ai-hub |
+| driver | 2 | 2 | /workbench /ai-hub |
+| staff | 2 | 2 | /workbench /ai-hub |
+| supervisor | 6 | 6 | /workbench /forecast /rebate /loss-accounting /archive /ai-hub |
+
+用例 2 深链 #/cron（staff）：最终 hash = #/workbench
+用例 2 页面提示：没有「定时任务」这一页的访问权限，已回到经营工作台
+用例 3 权限接口 500（boss）：实测 12 条菜单（期望 12 = fail-open）
+
+通过 20 / 失败 0

@@ -1,0 +1,34 @@
+PAGE_RULES 登记 17 个路径
+   /ai-hub
+   /archive
+   /bid-radar
+   /connect
+   /cron
+   /dashboard
+   /data-fill
+   /forecast
+   /loss
+   /loss-accounting
+   /payroll
+   /price-channels
+   /rebate
+   /roles
+   /settings
+   /workbench
+   /zhoupu-import
+
+Shell.vue 引用 12 个 / CommandPalette.vue 引用 13 个
+
+--- 判据 A：入口引用但**未登记**（fail-open ⇒ 静默失去门禁）---
+   ✅ 无（每个被引用的路径都已登记）
+
+--- 判据 B：router 有组件的子路由但**未登记** ---
+   （router 抓到 17 个：/ai-hub /archive /bid-radar /connect /cron /dashboard /data-fill /forecast /loss /loss-accounting /payroll /price-channels /rebate /roles /settings /workbench /zhoupu-import）
+   ✅ 无
+
+--- 反向提示：登记了但三个入口都没引用（仅提示，不算失败）---
+   （无）
+   注：这些通常是深链 / 页内跳转专用（如 /zhoupu-import、/loss），属正常。
+
+========================================================
+✅ 护栏通过：入口引用集合 ⊆ 注册表

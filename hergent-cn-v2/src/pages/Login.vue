@@ -245,6 +245,12 @@ async function doLogin() {
   try {
     const data = await login(username.value.trim(), password.value)
     store.user.name = data.user?.display_name || data.user?.name || data.user?.username || username.value.trim()
+    /* v291（2026-09-27）：**换账号必须清权限缓存**。
+       缓存键只有租户、不含账号（见 `store/index.js` 顶部 state 注释②与其 `resetPerms()`），
+       同租户内换账号时租户没变 ⇒ 会命中上一个账号的权限 ⇒「老板登出、员工登录，
+       员工看到老板的全套菜单」（本轮的门禁判据正好读这份权限，拿错就等于功能失效）。
+       清掉之后由路由守卫在进主界面前重新拉一次。 */
+    store.resetPerms()
     try { localStorage.setItem('hergent_last_username', username.value.trim()) } catch (e) {}
     // 密码仍是系统初始密码（password_changed=0）→ 必须先改密，不允许直接进入系统
     if (data.require_password_change) {
@@ -313,6 +319,7 @@ async function doDemo() {
     const data = await demoLogin()
     store.user.name = data.user?.display_name || '演示用户'
     store.demo = true
+    store.resetPerms()   // v291：演示租户不同于正式租户 ⇒ 权限必须重取（理由同 doLogin）
     router.push('/workbench')
   } catch (e) {
     error.value = e.message || '演示入口暂不可用'

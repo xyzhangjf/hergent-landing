@@ -5,6 +5,11 @@
    显著降低首屏 JS 体积（P0 评审清单）。
    ============================================================ */
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { store } from '../store'
+/* v291（2026-09-27）：「哪些角色能进哪些页」已收敛到 `constants/pages.js` 的**页面注册表**。
+   本文件不再自己写判据 —— 侧栏 / 命令面板 / 守卫 / 页内跳转读的是同一份表。
+   （旧写法是各页 `meta.roles` 自己带名单，只有 1 个页面填了。见文件末尾守卫处注释。） */
+import { ruleFor, pageRoleAllowed } from '../constants/pages'
 
 const Login = () => import('../pages/Login.vue')
 const Shell = () => import('../components/Shell.vue')
@@ -74,9 +79,71 @@ export const router = createRouter({
   ]
 })
 
-router.beforeEach((to) => {
+/* ---------------------------------------------------------------------------
+   v275（2026-09-25）路由级角色守卫
+   ---------------------------------------------------------------------------
+   起因：入口可以靠 `v-if` 藏起来，但**深链藏不住** —— 书签 / 浏览器历史 / 手敲 URL /
+        别处贴过来的链接都能直接落在页面上。此前 `/zhoupu-import` 正是如此：主管看不到入口，
+        手敲 `#/zhoupu-import` 却能把页面打开（点到"读取"才 403）。
+        表现是"看起来权限做过了，其实没有" —— 属**假封锁**，比假入口更难发现。
+
+   🔴 为什么要 async + `ensureRoleLoaded()`（这是本段唯一的技术难点）：
+      `roleIn('')` 对**未知角色**是 fail-open（返回 true），这是刻意的 ——
+      启动瞬间 `store.user.role` 就是空串，此刻若判 false 会把老板弹走（见 roles.js 注释）。
+      所以守卫**不能**直接拿 `store.user.role` 判，必须先"把未知消掉"：
+      等一次 `loadPerms()`（幂等：同一租户只真发一次请求；Shell.onMounted 也调它，命中缓存不重发）。
+      代价 = 深链首次进入多等一次权限往返；换来 = "未知"不再自动等于"放行"。
+
+   🔴 `loadPerms()` 失败（网络抖动 / 401）⇒ **放行**。取舍明确：让一个终将被后端 403 的人
+      多看一眼页面，远比把管理员挡在自己系统门外轻。本仓一贯纪律「拉不到 ≠ 没权限」，这里不破例。
+
+   ❌ 这里**故意不拦模块级权限**（`store.canModule`）：那是面向菜单的优化，边界已在后端，
+      未授权时页面自己会渲染常驻的无权限说明。按模块拦会把"接口抖一下"放大成"进不去页面"，
+      收益不抵风险。因此守卫只拦 `roles` 白名单（v291 起由 `constants/pages.js` 统一提供）。
+
+   v291（2026-09-27）变更：判据从"各页 `meta.roles`（当时只有 1 页填了）"换成
+      **页面注册表全表**。故现在是**所有登记了 roles 的页面**都受保护，不再是一页。
+      受影响页面清单见 `constants/pages.js::PAGE_RULES`（含 `/cron` `/connect` `/settings`
+      `/archive` `/rebate` `/loss-accounting` 等 11 页）—— 老板原话：「不同角色登录进去后
+      只能看到自己有权限的页面」。注意这只加了**入口与深链**的门禁，**没有收窄任何后端权限**：
+      被拦的角色即使手改前端缓存，接口仍会按后端权限返回 403。
+--------------------------------------------------------------------------- */
+async function ensureRoleLoaded() {
+  if (store.user.role) return store.user.role
+  try { await store.loadPerms() } catch (_) { /* 拉不到 ⇒ 维持"未知"，由 roleIn 放行 */ }
+  return store.user.role
+}
+
+/** v291：本页是否受角色门禁保护（= 注册表里登记了非空 roles）。 */
+function roleGuarded(path) {
+  const r = ruleFor(path)
+  return !!(r && Array.isArray(r.roles) && r.roles.length)
+}
+
+router.beforeEach(async (to) => {
   const token = localStorage.getItem('hergent_v2_token')
   if (!token && to.path !== '/login') return '/login'
   if (token && to.path === '/login') return '/'
+
+  /* v291：判据来自页面注册表。**只有受保护的页面**才走这段并可能发权限请求
+     （`ensureRoleLoaded` 幂等，同一租户只真发一次）—— 未登记的页面不进这里，
+     所以"进站首次多等一次往返"只发生在受保护页面上，不影响登录后落工作台的速度。 */
+  if (token) {
+    /* v291：本次会话还没拉过权限（登录后 / F5 刷新后）⇒ **先等它回来再渲染**。
+       不这样的话，Shell 的 24 处菜单会因为「角色未知 = fail-open」先**全显**、
+       权限回来后**再收窄**（员工会看到「定时任务 / 设置」一闪而过，观感等同权限没做）。
+       代价只有一次本来就要发的请求（`perms` 非空时这里直接跳过，页面内跳转零开销）。 */
+    if (!store.perms) await ensureRoleLoaded()
+
+    if (roleGuarded(to.path) && !pageRoleAllowed(to.path, store.user.role)) {
+      /* 🔴 拒绝必须**看得见**：`return false` 会原地停住、页面一片空白（"死按钮"的变体，
+         用户会以为自己点坏了）。带 `denied` 回到工作台，由 Shell.vue 弹说明并清掉 query
+         （清掉是为了刷新 / 回退时不重复弹）。
+         ⚠️ 回落到 `/workbench` 是安全的：它在注册表里是 core（roles:null）⇒ 不会再被拦，
+            不存在"被拦后又落到另一个被拦页面"的循环。 */
+      return { path: '/workbench',
+               query: { denied: String((ruleFor(to.path) || {}).title || to.path) } }
+    }
+  }
   return true
 })

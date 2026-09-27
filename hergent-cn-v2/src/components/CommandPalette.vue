@@ -47,6 +47,9 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { store, setTheme } from '../store'
+/* v291（2026-09-27）：入口可见性判据 —— 与侧栏 / 路由守卫读**同一份**页面注册表，
+   见下方 `canSee()` 与 `COMMANDS` 头部注释。 */
+import { canSee } from '../constants/pages'
 import Icon from './Icon.vue'
 
 const props = defineProps({
@@ -62,30 +65,55 @@ const input = ref(null)
 const open = computed(() => props.modelValue)
 
 const COMMANDS = [
-  // 操作（高频动作）
+  // 操作（高频动作）—— 与页面无关，不做权限过滤（人人可用）
   { id: 'copilot', group: '操作', icon: 'sparkle', title: '问 AI 副驾', hint: '⌘K', action: () => { store.ui.copilotOpen = true } },
   { id: 'theme', group: '操作', icon: 'lightbulb', title: '切换深浅主题', action: () => setTheme(store.ui.theme === 'light' ? 'dark' : 'light') },
-  // 页面（导航）
-  { id: 'workbench', group: '页面', icon: 'grid', title: '经营工作台', path: '/workbench' },
-  { id: 'forecast', group: '页面', icon: 'activity', title: '预报订货管理', path: '/forecast' },
-  { id: 'rebate', group: '页面', icon: 'target', title: '目标与返利', path: '/rebate' },
-  { id: 'dashboard', group: '页面', icon: 'sort', title: '经营趋势', path: '/dashboard' },
-  { id: 'connect', group: '页面', icon: 'brain', title: '能力中心', path: '/connect' },
-  { id: 'roles', group: '页面', icon: 'users', title: 'AI 团队', path: '/roles' },
-  { id: 'loss-accounting', group: '页面', icon: 'receipt', title: '货损核算', path: '/loss-accounting' },
-  // v206: `module` = 该入口所属的后端权限模块。配了它的条目会按本租户权限过滤
-  //（与侧栏同一判据、同一个 `store.canModule`），否则「侧栏藏了、⌘⇧K 还能跳过去」。
-  { id: 'payroll', group: '页面', icon: 'coins', title: '算工资工作流', path: '/payroll', module: 'payroll' },
-  { id: 'data-fill', group: '页面', icon: 'package', title: '库存效期补录', path: '/data-fill' },
-  { id: 'archive', group: '页面', icon: 'book', title: '档案管理', path: '/archive/employees' },
-  { id: 'cron', group: '页面', icon: 'clock', title: '定时任务', path: '/cron' },
-  { id: 'settings', group: '页面', icon: 'settings', title: '设置', path: '/settings' },
-  { id: 'bid-radar', group: '页面', icon: 'search', title: '招投标雷达', path: '/bid-radar' }
+  /* 页面（导航）—— v291（2026-09-27）：**每一条都走 `canSee(path)`**，判据唯一实现在
+     `constants/pages.js` 的页面注册表（侧栏、路由守卫读的是同一份表）。
+     🔴 为什么这里一条都不能漏：命令面板是**第二组入口**。侧栏藏了、这里还搜得到，
+        就是"假入口"的回归 —— 用户 ⌘⇧K 搜到「定时任务」、点进去被弹回工作台，
+        只会以为系统坏了（v267 修过的正是这一类）。
+     ⚠️ 旧写法是逐条自己配 `module` / `when`（v206 起）：14 条页面里只有 2 条真正配上，
+        而配上的那 2 条**也拦不住** —— 员工持有 `data`（报单要用），`data` 又覆盖 83 个接口。
+        现在统一查表，"哪条忘了配"在结构上不可能发生。 */
+  { id: 'workbench', group: '页面', icon: 'grid', title: '经营工作台', path: '/workbench',
+    when: () => canSee('/workbench') },
+  { id: 'forecast', group: '页面', icon: 'activity', title: '预报订货管理', path: '/forecast',
+    when: () => canSee('/forecast') },
+  { id: 'rebate', group: '页面', icon: 'target', title: '目标与返利', path: '/rebate',
+    when: () => canSee('/rebate') },
+  // 商品目标已收进「预报订货管理」当第 4 个页签 ⇒ 直指页签（少一跳 redirect）。
+  // 判据同 /forecast（ruleFor 会剥掉 `?tab=target` 再查表）。
+  { id: 'product-target', group: '页面', icon: 'bars', title: '商品目标', path: '/forecast?tab=target',
+    when: () => canSee('/forecast') },
+  { id: 'dashboard', group: '页面', icon: 'sort', title: '经营趋势', path: '/dashboard',
+    when: () => canSee('/dashboard') },
+  { id: 'connect', group: '页面', icon: 'brain', title: '能力中心', path: '/connect',
+    when: () => canSee('/connect') },
+  { id: 'roles', group: '页面', icon: 'users', title: 'AI 团队', path: '/roles',
+    when: () => canSee('/roles') },
+  { id: 'loss-accounting', group: '页面', icon: 'receipt', title: '货损核算', path: '/loss-accounting',
+    when: () => canSee('/loss-accounting') },
+  { id: 'payroll', group: '页面', icon: 'coins', title: '算工资工作流', path: '/payroll',
+    when: () => canSee('/payroll') },
+  { id: 'data-fill', group: '页面', icon: 'package', title: '库存效期补录', path: '/data-fill',
+    when: () => canSee('/data-fill') },
+  { id: 'archive', group: '页面', icon: 'book', title: '档案管理', path: '/archive/employees',
+    when: () => canSee('/archive') },
+  { id: 'cron', group: '页面', icon: 'clock', title: '定时任务', path: '/cron',
+    when: () => canSee('/cron') },
+  { id: 'settings', group: '页面', icon: 'settings', title: '设置', path: '/settings',
+    when: () => canSee('/settings') },
+  { id: 'bid-radar', group: '页面', icon: 'search', title: '招投标雷达', path: '/bid-radar',
+    when: () => canSee('/bid-radar') }
 ]
 
 const filtered = computed(() => {
-  // v206：先按权限收窄（未配 module 的条目一律保留），再按关键词过滤。
-  const pool = COMMANDS.filter(c => !c.module || store.canModule(c.module))
+  /* v206：先按权限收窄（未配 module 的条目一律保留），再按关键词过滤。
+     v267：加**第二条轴** `when`（角色级门禁）。为什么要新轴而不是复用 `module`：
+       `module` 只能表达「本租户有没有这个模块」，表达不了「同一模块下按角色区分」——
+       报单汇总正是后者（`/api/forecast` 归 `data`，业务员持有 `data`）。 */
+  const pool = COMMANDS.filter(c => (!c.module || store.canModule(c.module)) && (!c.when || c.when()))
   const kw = q.value.trim().toLowerCase()
   if (!kw) return pool
   return pool.filter(c => c.title.toLowerCase().includes(kw) || (c.keywords || '').includes(kw))
