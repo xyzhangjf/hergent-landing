@@ -23,17 +23,17 @@
       表达不了「**这个角色该不该看这一页**」。后者必须由产品内置，就是本表。
 
    ---------------------------------------------------------------------------
-   二、两条轴 + 一条「让位」规则（v292）
+   二、两条轴 + 一条「让位」规则（v296）
    ---------------------------------------------------------------------------
      · `module` —— 后端权限模块（读 `store.canModule`）。客户可在「设置 › 权限」自助开关，
                     用来表达「这个租户用不用得上这个功能」。
      · `roles`  —— 角色硬门槛（读 `roles.js::roleIn`）。产品内置，
                     用来表达「这一页天然只给某几类人」。
-     · `lock`   —— （v292 新增，可选）`true` = **连客户配置也放不开**的产品硬锁。
+     · `lock`   —— （v296 新增，可选）`true` = **连客户配置也放不开**的产品硬锁。
      🔴 `roles: null` = 不按角色收紧，只看模块。
 
    ---------------------------------------------------------------------------
-   二之二、v292「用户配置优先」——为什么 `roles` 必须会**让位**
+   二之二、v296「用户配置优先」——为什么 `roles` 必须会**让位**
    ---------------------------------------------------------------------------
    背景（老板原话）：「允许用户自主为角色分配和调整权限；当权限发生变更时，该角色对应的
    UI 界面元素应同步动态调整」。把这句话落到实处时，出现了**两套判据打架**：
@@ -58,13 +58,41 @@
       要放开必须先给它们建一个真模块（后端要同步改 `_PATH_MODULE_MAP`），不能只改这里。
 
    🔴 现在恰好有 3 页**同时**配了 `roles` 与 `module`（其余各页只有一条轴，故不受本规则影响）：
-      `/bid-radar`（module `data`）、`/cron`（module `data`）、`/roles`（module `chat`）。
+      `/bid-radar`（module `bid`）、`/cron`（module `cron`）、`/roles`（module `chat`）。
       前两页后端只按模块裁决 ⇒ 让位是**诚实**的（放开就能真进去）。
       而 `/roles`（AI 团队）是**配置页**、且 `chat` 模块人人都有 ⇒ 已 `lock: true` 锁死，
       否则任何角色一旦被改过就会看到「AI 团队」。同理 `/settings` 也标了 `lock: true`
       （它是权限页本身所在，放开等于把改权限的入口发给被管的人）。
       —— `lock` 是**显式声明**，即使某页当前因为 `module: null` 而天然不会让位，
          也照样标上：后人给它补 `module` 时，锁还在。
+
+   ---------------------------------------------------------------------------
+   二之三、v296：`data` 拆出 `cron` / `bid` 两个窄模块（让位规则的前置修复）
+   ---------------------------------------------------------------------------
+   上面第 ③ 档（让位）有一个前提：**「勾了这个模块」必须真的等于「想开这一页」**。
+   而 `data` 不是这样的模块 —— 它一条管 **83 个接口前缀**，业务名却叫「档案管理」：
+     老板在权限页给「会计」勾上「档案管理」（本意：让她看客户/商品档案），
+     却同时把 `/api/cron`、`/api/bid-radar` 也一并授了出去；这两个角色一旦被改过权限，
+     `/cron`、`/bid-radar` 就**让位** ⇒ 会计的侧栏凭空多出「定时任务」。
+     权限页从头到尾没提过这件事 —— 又是一次"许诺得比兑现的多"。
+
+   v296 的修法不是改让位规则（那是老板明确要的：客户能自主调权限），而是**把模块拆细**：
+     · `/api/cron`      → 新模块 `cron`（权限页中文名「定时任务」）
+     · `/api/bid-radar` → 新模块 `bid`（权限页中文名「招投标雷达」）
+   拆完之后，「档案管理」与「定时任务」变成两个可**分别**勾选的项 ⇒ 第 ③ 档重新变得诚实。
+
+   🔴 三处缺一不可（少任一处都是静默失效）：
+     ① 后端 `core._ALL_MODULES`（权限页要能勾到它）；
+     ② 后端 `server.py::_PATH_MODULE_MAP`（接口要真按它裁决）；
+     ③ **迁移脚本**（老租户的等价性）。③ 最容易被漏：拆了映射却不迁移 ⇒
+        老租户里"原本靠 `data` 就能调 `/api/cron`"的角色**全部 403**，
+        而前端 `/cron` 页面照样打得开（它的 `roles` 含 boss）⇒ **页面进得去、数据拉不到、零报错**。
+        迁移判据 = **写死四个默认持有 `data` 的角色**（boss / sales / staff / supervisor）补
+        `cron`/`bid`；客户手工勾出来的 `data`（如给会计勾的「档案管理」）**不补** —— 那正是要消除的连带。
+
+   ⚠️ 顺带纠正一处**文案漂移**：权限页里原先把 `tasks` 标作「定时任务」，
+      但 `tasks` 管的是 `/api/tasks`+`/api/projects`（任务看板 / 项目），与定时任务无关。
+      v296 起 `tasks` 显示为「任务与项目」，而「定时任务」这个名字归新模块 `cron`（对齐页面名）。
 
    ---------------------------------------------------------------------------
    三、三处消费方，同一份判据（这是本文件的主要价值）
@@ -78,24 +106,27 @@
      · **假封锁**：入口没了、手敲 URL 还能进（以为权限做过了，其实没有）。
    收敛成一份表之后，这四种假象**结构上不可能**再出现 —— 因为不可能再"各写一份"。
 
-   🔴 v292 补充：`pageRoleAllowed`（守卫用）与 `canSeePage`（入口用）现在都调同一个
+   🔴 v296 补充：`pageRoleAllowed`（守卫用）与 `canSeePage`（入口用）现在都调同一个
       `roleGateOpen`。「让位」这件事只在**一处**实现 ⇒ 不可能出现
       「侧栏按规则放开了、守卫却还按旧名单拦」这种**假封锁回归**。
 
    ---------------------------------------------------------------------------
-   四、fail-open 的两处（纪律，不是疏忽）
+   四、fail-open / fail-closed 的分界（纪律，不是疏忽）
    ---------------------------------------------------------------------------
      · **未登记的路径 ⇒ 放行**。新增页面忘了登记时，页面照常可用（不会白屏），
        只是暂时不受门禁保护。反向（未登记 ⇒ 拒绝）会让一次漏登记把整页锁死。
-     · **未知角色 ⇒ 放行**（`roleIn` 的实现，见 roles.js 注释）。启动瞬间 `store.user.role`
-       还是空串，此刻判 false 会把合法用户（含老板）的菜单全藏掉。
-       调用方若要更严的语义，正确做法是**先 `await loadPerms()` 把"未知"消掉**
-       （`router/index.js::ensureRoleLoaded()` 就是这么做的），而不是改掉这里的 fail-open。
-     ⚠️ v292 例外说明：`customRoles` 拿到 `null`（= 不知道哪些角色被改过）时**不让位**，
-        即退回"只认内置 `roles`"的**较严**那一侧。这与上面两条 fail-open 方向相反，
-        是刻意的取舍 —— 方向对调的理由：`perms` 拉不到时若"藏菜单"，代价是老板眼前
-        少几个入口（看得见、可刷新）；而 `customRoles` 拉不到时若"放行"，代价是
-        每个角色的菜单**凭空多出**「定时任务 / AI 团队」几个入口（看起来就像权限失效）。
+     · **角色「未加载」（空串）⇒ 放行**。启动瞬间 `store.user.role` 还是空串，
+       此刻判 false 会把合法用户（含老板）的菜单全藏掉。
+     · 🔴 **角色「真未知」（非空、但不在 `ROLE_NAMES` 里）⇒ 收紧**（v296 修洞）。
+       这是 v296 之前的一个真洞：原 `roleIn()` 对"未知"一律放行，于是租户只要在员工档案里
+       填一个自定义角色名（如 `库管`），该角色就**绕过产品内置的全部 `roles` 门槛** ——
+       既越权看到入口，又在「预报订货管理」这类页上造出**假入口**（页内判据说可以、后端 403）。
+       现在「未知」分两判：空串 = 未加载 = 放行（技术性竞态）；非空未知 = 收紧。
+       客户要给自定义角色放开，走「设置 › 权限」那条正门（`roleGateOpen` 第 ③ 档让位）。
+     ⚠️ v296 的另一条：`customRoles` 拿到 `null`（= 不知道哪些角色被改过）时**不让位**，
+        即退回"只认内置 `roles`"的**较严**那一侧。方向理由：`perms` 拉不到时若"藏菜单"，
+        代价是老板眼前少几个入口（看得见、可刷新）；而 `customRoles` 拉不到时若"放行"，
+        代价是每个角色的菜单**凭空多出**「定时任务 / AI 团队」几个入口（看起来就像权限失效）。
         后者更像缺陷、更难解释。
    ============================================================================ */
 import { roleIn, normRole, FORECAST_SUMMARY_ROLES, ZHOUPU_IMPORT_ROLES } from './roles'
@@ -127,7 +158,7 @@ export const ADMIN_ROLES = ['admin', 'boss']
  *   title   —— 中文名。被路由守卫用作"你无权访问「xxx」"的文案，必须与页面标题一致。
  *   module  —— 后端权限模块名（`store.canModule`）；`null` = 不看模块。
  *   roles   —— 允许的角色白名单；`null` = 不按角色收紧。
- *   lock    —— （v292 可选）`true` = 产品硬锁：**连客户配置也放不开**（见文件头 §二之二）。
+ *   lock    —— （v296 可选）`true` = 产品硬锁：**连客户配置也放不开**（见文件头 §二之二）。
  *   cat     —— 分类（仅作文档与护栏用，运行时不用）：'core' 人人 | 'biz' 业务岗 | 'admin' 管理岗
  */
 export const PAGE_RULES = {
@@ -153,23 +184,26 @@ export const PAGE_RULES = {
   //   「会计能不能算工资按客户差异，由各租户在权限页自行授予」（见后端 `_DEFAULT_PERMS` 注释）。
   //   这里若加角色硬门槛，客户在权限页给会计勾了 `payroll` 也放不开 ⇒ 违背该契约。
   '/payroll':         { title: '算工资',       module: 'payroll',   roles: null,        cat: 'biz' },
-  // 招投标雷达：接口归 `data`（**员工/司机也持有 `data`**）⇒ 只判模块拦不住，必须叠角色门槛。
+  // 招投标雷达：v296 起接口归**独立模块 `bid`**（原归 `data`）⇒ 勾「档案管理」不再连带放开本页。
+  //   角色门槛保留：`bid` 模块本身仍可能被客户授给任意角色，而这一页天然只给这几类人。
   //   给业务员留一个：招投标情报正是跑业务的人用得上的东西。
-  '/bid-radar':       { title: '招投标雷达',   module: 'data',      roles: [...ADMIN_ROLES, 'sales'], cat: 'biz' },
+  '/bid-radar':       { title: '招投标雷达',   module: 'bid',       roles: [...ADMIN_ROLES, 'sales'], cat: 'biz' },
 
   /* —— admin：管理岗（ADMIN_ROLES） —— */
   '/price-channels':  { title: '渠道与价格',   module: null,        roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
   '/connect':         { title: '能力中心',     module: null,        roles: ADMIN_ROLES, cat: 'admin' },
-  '/cron':            { title: '定时任务',     module: 'data',      roles: ADMIN_ROLES, cat: 'admin' },
+  // v296：接口从 `data` 拆到独立模块 `cron`。动机见文件头 §二之三 ——
+  //   「老板给某角色勾『档案管理』，却连带放开了定时任务」这件事，根因是 `data` 粒度太粗。
+  '/cron':            { title: '定时任务',     module: 'cron',      roles: ADMIN_ROLES, cat: 'admin' },
   // AI 团队（管 AI 团队成员与提示词）—— 配置页，同「设置」一族。
-  // 🔴 v292 `lock: true`：它挂的 `module: 'chat'` 而**每个角色都持有 chat**（`_DEFAULT_PERMS`
+  // 🔴 v296 `lock: true`：它挂的 `module: 'chat'` 而**每个角色都持有 chat**（`_DEFAULT_PERMS`
   //    里 staff/driver/guide 全有）⇒ 一旦「用户配置优先」让位生效，任何被改过权限的角色
   //    都会多出这个入口。配置类页面不该因为一次权限勾选就对全员敞开。
   '/roles':           { title: 'AI 团队',      module: 'chat',      roles: ADMIN_ROLES, lock: true, cat: 'admin' },
   // 🔴 `/settings` **故意不挂任何 module**：`_ALL_MODULES` 里有 `settings`，
   //    但 `_PATH_MODULE_MAP` 里**没有任何接口归它**（幽灵模块），而老板的 `_DEFAULT_PERMS`
   //    里恰好没有 `settings` ⇒ 一旦挂上 `module: 'settings'`，**老板自己的「设置」菜单会消失**。
-  // 🔴 v292 `lock: true`：本页就是「设置 › 权限」所在。后端 `role-permissions` 四个端点
+  // 🔴 v296 `lock: true`：本页就是「设置 › 权限」所在。后端 `role-permissions` 四个端点
   //    一律 `core._admin`（role ∈ admin/boss）⇒ 放开入口只会造出**假入口**
   //    （能进页面、改任何一项都被 403）。锁是显式声明：即使它因 `module: null` 天然不会让位，
   //    也照样标上 —— 后人给它补 module 时，锁还在。
@@ -196,7 +230,7 @@ export function ruleFor(path) {
 }
 
 /**
- * **角色门槛是否放行**（v292 抽出，`canSeePage` 与 `pageRoleAllowed` 共用唯一实现）。
+ * **角色门槛是否放行**（v296 抽出，`canSeePage` 与 `pageRoleAllowed` 共用唯一实现）。
  *
  * 三档（详见文件头 §二之二，那里解释了每条限制为什么必须在）：
  *   ① 本行没配 `roles` ⇒ 过；
@@ -210,7 +244,7 @@ export function ruleFor(path) {
  */
 function roleGateOpen(r, role, customRoles) {
   if (!r.roles) return true                      // ① 不按角色收紧
-  if (roleIn(role, r.roles)) return true         // ② 在名单里（含"未知角色 fail-open"）
+  if (roleIn(role, r.roles)) return true         // ② 在名单里（空串=未加载亦放行；真未知不放行，v296）
   if (r.lock === true) return false              // 产品硬锁：客户配置也放不开
   if (!r.module) return false                    // 没有 module 可判 ⇒ 让位 = 全开，不许
   if (!Array.isArray(customRoles)) return false  // 不知道 ⇒ 按内置门槛收紧（见文件头 §四）
@@ -223,7 +257,7 @@ function roleGateOpen(r, role, customRoles) {
  * @param {string} path      路由路径
  * @param {string} role      `store.user.role`
  * @param {Function} canModule  `store.canModule`（传函数而非模块集合，避免各调用点自己拼）
- * @param {string[]=} customRoles  后端 `custom_roles`（v292；省略 ⇒ 不让位，= v291 行为）
+ * @param {string[]=} customRoles  后端 `custom_roles`（v296；省略 ⇒ 不让位，= v291 行为）
  * @returns {boolean} true = 显示 / 可进
  */
 export function canSeePage(path, role, canModule, customRoles) {
@@ -269,7 +303,7 @@ export function pageTitle(path) {
  *    `canSeePage` 直接跳过模块轴（`typeof canModule === 'function'` 为假），页面看着照常显示，
  *    却悄悄少了一层判据。这正是本项目反复栽的"规则抄多份"的同一类坑。
  *    收敛成一个壳之后，调用点连参数都不用传，不可能写错。
- *    （v292 加 `customRoles` 时这条纪律又救了一次：24 处菜单 + 命令面板 13 条**一处都不用改**。）
+ *    （v296 加 `customRoles` 时这条纪律又救了一次：24 处菜单 + 命令面板 13 条**一处都不用改**。）
  */
 export function canSee(path) {
   return canSeePage(path, store.user.role, store.canModule, store.customRoles)

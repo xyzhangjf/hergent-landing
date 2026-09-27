@@ -1,0 +1,18 @@
+# v296 接口可达性正反例（生产 hergent.cn · 只读 GET · mptest=sales/tenant1）
+# 时间：2026-09-27 19:20:18 CST
+# 命令：python3 .workbuddy/tools/v296-api-reachability.py
+
+登录 mptest ⇒ HTTP=200 role=sales tenant_id=1
+======================================================================
+OK  /api/cron/jobs           HTTP=200  (期望 200)  正例：cron 模块（迁移补上了）
+      body={"ok":false,"error":"Traceback (most recent call last):\n  File \"/usr/lib/python3.11/pathlib.py\", line 1116, in mkdir\n    os.mkdir(self, mode)\nFileNotFoundE
+OK  /api/bid-radar           HTTP=200  (期望 200)  正例：bid 模块（原本因被 /api/bi 吞掉而恒 403 ⇒ 假入口）
+      body={"success":true,"data":{"items":[{"url":"http://www.ccgp.gov.cn/cggg/dfgg/qtgg/202609/t20260924_27398990.htm","title":"无锡市第二人民医院2026年食堂乳制品采购项目废标(终止)公告","buyer":
+OK  /api/bi/summary          HTTP=403  (期望 403)  反例：reports 域，sales 无此模块 ⇒ 必须仍 403
+      body={"success":false,"error":"权限不足：你的角色「业务员」没有「报表」的使用权限。请联系管理员在网页端【员工档案 → 角色权限】里为用户开通该模块，或把你的角色调整为需要报单的岗位（业务员 / 主管）。","code":403,"error_code":"MODULE_DENIED","modul
+OK  /api/reports/export      HTTP=403  (期望 403)  反例：reports 域，同上
+      body={"success":false,"error":"权限不足：你的角色「业务员」没有「报表」的使用权限。请联系管理员在网页端【员工档案 → 角色权限】里为用户开通该模块，或把你的角色调整为需要报单的岗位（业务员 / 主管）。","code":403,"error_code":"MODULE_DENIED","modul
+OK  /api/auth/perms-rev      HTTP=401  (期望 401)  未认证访问 ⇒ 必须 401
+      body={"ok":false,"success":false,"data":null,"detail":"未登录","message":"未登录","error":"未登录","code":401}
+======================================================================
+✅ 全部符合预期

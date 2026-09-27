@@ -62,7 +62,7 @@ export function normRole(r) {
 }
 
 /**
- * 通用判据：角色是否在给定白名单内 —— **未知角色一律放行（fail-open）**。
+ * 通用判据：角色是否在给定白名单内。
  *
  * 🔴 为什么必须收敛成这一个函数（v275，2026-09-25）：
  *    「能不能看到某个入口」（侧栏 / 卡片）与「能不能进某个页面」（路由守卫）
@@ -71,15 +71,31 @@ export function normRole(r) {
  *      · 入口没了、直接输 URL 就能进（**假封锁** —— 看起来像"权限做过了"，其实没有）。
  *    抽成函数后，路由表的 `meta.roles` 与侧栏的 `v-if` 引的是同一个数组、同一个算法。
  *
- * 🔴 未知角色 ⇒ **放行**，这不是疏忽：`store.user.role` 在权限接口回来之前是空串，
- *    此刻判 false 会把合法用户（含老板）弹走。同 `store.canModule()` 的纪律
- *    「拉不到 ≠ 没权限」。真正的边界永远在后端；本函数只决定**界面给不给看 / 走不走**。
- *    调用方若要更严的语义（例如路由守卫希望"未知"不出现），正确做法是先
- *    `await loadPerms()` 把"未知"消掉，**而不是**把这里的 fail-open 改掉。
+ * 🔴 「未知」必须分成两种（v296，2026-09-27）—— 这是本条判据唯一微妙处：
+ *    ① **空串 = 还没加载**（`store.user.role` 在权限接口回来之前就是空串）
+ *       ⇒ **放行**。此刻判 false 会把合法用户（含老板）的菜单全藏掉，
+ *       同 `store.canModule()` 的纪律「拉不到 ≠ 没权限」。
+ *    ② **非空但不在 `ROLE_NAMES` 里 = 真·未知角色**（典型：租户自定义的「库管」）
+ *       ⇒ **收紧**（false）。
+ *
+ *    ⚠️ v296 之前 ② 也是放行（原实现只有一句 `if (!isCanonicalRole(k)) return true`），
+ *       后果不是抽象的：租户只要在员工档案里填一个自定义角色名，该角色就**绕过产品内置的
+ *       全部 `roles` 门槛**（`/cron`、`/bid-radar`、`/settings`、`/roles`…），
+ *       而它连 `roleName()` 都拼不出中文名（会显示「未知角色( 库管 )」）。
+ *       更糟的是它同时制造**假入口**：自定义角色进「预报订货管理」时，
+ *       页内判据 `canViewForecastSummary()` 说"可以"、后端 `SUMMARY_ROLES` 却 403
+ *       ⇒ 用户看到一个**永远读不到数**的汇总区（看起来像系统坏了）。
+ *       —— 收紧之后，「能不能看这一页」重新由**产品内置**说了算。客户要给某个角色放开，
+ *       走的是「设置 › 权限」那条正门（后端 `custom_roles` 让位，见 `pages.js::roleGateOpen` ③），
+ *       而不是"名字没登记就默认放行"这条后门。
+ *
+ *    本函数只决定**界面给不给看 / 走不走**；硬边界永远在后端。
+ *    ① 保留的原因是**启动竞态**（技术性），不是"宽松更好"。
  */
 export function roleIn(r, allowList) {
   const k = normRole(r)
-  if (!isCanonicalRole(k)) return true
+  if (!k) return true                            // ① 未加载（空串）⇒ 放行：拉不到 ≠ 没权限
+  if (!isCanonicalRole(k)) return false          // ② v296：真·未知角色 ⇒ 收紧，不给内置门槛之外的后门
   return Array.isArray(allowList) && allowList.includes(k)
 }
 
@@ -127,16 +143,19 @@ export const FORECAST_SUMMARY_ROLES = ['admin', 'boss', 'supervisor']
 
 /** 该角色能否查看报单汇总（= 侧栏「预报订货管理」是否可见、本期预报表格是否可读）。
  *
- *  🔴 **角色未知时不隐藏（fail-open）** —— 与 `store.canModule()` 同一纪律：「拉不到 ≠ 没权限」。
- *     两个真实场景决定了这一点：
- *       ① 启动瞬间 `store.user.role` 还是空串（权限还没回来）⇒ 若此时判 false，
- *          老板会看到「预报订货管理」先消失、权限回来后再冒出来（闪一下）。
- *       ② 角色值是历史遗留/配置漂移的怪值时，宁可让他多看到一个入口
- *          （进去有常驻的无权限说明），也不要让一个合法角色无端丢掉核心模块。
- *     代价是「未知角色多看一眼入口」，比「核心模块对老板人间蒸发」轻得多。
+ *  🔴 **加载前（空串）不隐藏** —— 与 `store.canModule()` 同一纪律：「拉不到 ≠ 没权限」。
+ *     启动瞬间 `store.user.role` 还是空串（权限还没回来）⇒ 若此时判 false，
+ *     老板会看到「预报订货管理」先消失、权限回来后再冒出来（闪一下）。
+ *
+ *  ⚠️ v296 起，「配置漂移的怪值」**不再**享受这条放宽：真·未知角色（如租户自定义的
+ *     「库管」）现在**会被隐藏**。原文把取舍讲反了 —— 后端这条路用的是 `SUMMARY_ROLES`
+ *     硬白名单（`forecast_submissions.py`），未知角色**必然 403**。所以"多看一眼入口"
+ *     不是轻微代价，而是**造一个假入口**：入口在、页内汇总区也在，但永远读不到数。
+ *     宁可让它看不见入口，也不要让它对着一个空表格怀疑系统坏了。
+ *     （口径按**主角色单值**判的说明见 `FORECAST_SUMMARY_ROLES` 上方注释。）
  */
 export function canViewForecastSummary(r) {
-  // v275：fail-open 的实现已收敛到 `roleIn()`（见其注释），本函数只剩"名单是谁"。
+  // v275：实现已收敛到 `roleIn()`；v296 起该函数对"真未知角色"收紧（见其注释）。
   return roleIn(r, FORECAST_SUMMARY_ROLES)
 }
 
@@ -158,7 +177,9 @@ export function canViewForecastSummary(r) {
  */
 export const ZHOUPU_IMPORT_ROLES = ['admin', 'boss']
 
-/** 该角色能否使用舟谱单据导入（= 侧栏入口 / 能力中心卡片是否可见、路由是否放行）。未知角色时不隐藏，理由同上。 */
+/** 该角色能否使用舟谱单据导入（= 侧栏入口 / 能力中心卡片是否可见、路由是否放行）。
+ *  v296：真·未知角色**不显示** —— 后端 `_guard()` 只放 admin/boss（不在名单里必 403），
+ *        显示出来就是纯粹的假入口，且一次导入要跑几分钟，用户会以为是系统坏了。 */
 export function canImportZhoupu(r) {
   return roleIn(r, ZHOUPU_IMPORT_ROLES)
 }

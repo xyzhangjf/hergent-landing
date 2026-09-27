@@ -1,0 +1,36 @@
+# v296「data 拆出 cron/bid」——生产库**只读**复验（部署后）
+# 时间：2026-09-27 19:19:16 CST
+# 命令：scp v296-data-split-migrate.py → /tmp/v296-migrate.py 后
+#       runuser -u hergent -- python3 /tmp/v296-migrate.py --snap-dir /opt/hergent-erp --server-dir /opt/hergent-erp --live
+# 说明：--live ⇒ 读用 mode=ro（**不带** immutable，活库必须如此）；无 --apply ⇒ 只读、不写盘
+
+真 core：_DEFAULT_PERMS 8 角色；_ALL_MODULES 含 cron=True bid=True
+  /api/cron        data → cron  目标 ['boss', 'sales', 'staff', 'supervisor']
+      其中默认持 data     = ['boss', 'sales', 'staff', 'supervisor'] ；名单内额外包含 = 无
+  /api/bid-radar   reports → bid   目标 ['boss', 'accountant', 'sales']
+      其中默认持 reports  = ['accountant', 'boss'] ；名单内额外包含 = ['sales']
+模式：DRY-RUN
+==============================================================================
+
+### tenant_1.db —— 2 行
+   [收紧] 库管           /api/cron        data=True → cron=False（**有意**：它持 data 是客户手工勾的，正是本次要消除的连带）
+   库管           已是目标态（无新模块）
+   supervisor   已是目标态（['cron']）
+
+### tenant_10.db —— 7 行
+   [放开] sales        /api/bid-radar   reports=False → bid=True（有意：页面名单要求）
+   supervisor   已是目标态（['cron']）
+   boss         已是目标态（['bid', 'cron']）
+   accountant   已是目标态（['bid']）
+   sales        已是目标态（['bid', 'cron']）
+   guide        已是目标态（无新模块）
+   driver       已是目标态（无新模块）
+   staff        已是目标态（['cron']）
+
+### erp.db —— 1 行
+   supervisor   已是目标态（['cron']）
+
+==============================================================================
+将变更的行 = 0 ；有意放开 = 1 处 ；有意收紧 = 1 处 ；破坏性收紧 = 0 处
+✅ 断言通过：没有任何「默认就能调」的角色被收掉；
+   仅有的放开（页面名单要求）与收紧（客户手工勾出来的连带）均属本轮设计意图。

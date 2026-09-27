@@ -88,11 +88,15 @@ export const router = createRouter({
         表现是"看起来权限做过了，其实没有" —— 属**假封锁**，比假入口更难发现。
 
    🔴 为什么要 async + `ensureRoleLoaded()`（这是本段唯一的技术难点）：
-      `roleIn('')` 对**未知角色**是 fail-open（返回 true），这是刻意的 ——
-      启动瞬间 `store.user.role` 就是空串，此刻若判 false 会把老板弹走（见 roles.js 注释）。
-      所以守卫**不能**直接拿 `store.user.role` 判，必须先"把未知消掉"：
-      等一次 `loadPerms()`（幂等：同一租户只真发一次请求；Shell.onMounted 也调它，命中缓存不重发）。
-      代价 = 深链首次进入多等一次权限往返；换来 = "未知"不再自动等于"放行"。
+      `roleIn('')` 对**空串**是 fail-open（返回 true）—— 启动瞬间 `store.user.role` 就是空串，
+      此刻若判 false 会把老板弹走（见 roles.js 注释）。所以守卫**不能**直接拿
+      `store.user.role` 判，必须先"把未知消掉"：等一次 `loadPerms()`
+      （幂等：同一租户只真发一次请求；Shell.onMounted 也调它，命中缓存不重发）。
+      代价 = 深链首次进入多等一次权限往返；换来 = 空串不再自动等于"放行"。
+      ⚠️ v296：这句话的适用面**收窄**了 —— `roleIn()` 现在只对"空串 = 未加载"放行，
+      对**真未知角色**（非空、但不在 `ROLE_NAMES` 里，如租户自定义的 `库管`）改为**收紧**。
+      于是本段多兜住一件事：自定义角色在它本该被拒的页上**真被拒**（此前借 fail-open 穿过
+      所有 `roles` 门槛，既越权又造假入口）。
 
    🔴 `loadPerms()` 失败（网络抖动 / 401）⇒ **放行**。取舍明确：让一个终将被后端 403 的人
       多看一眼页面，远比把管理员挡在自己系统门外轻。本仓一贯纪律「拉不到 ≠ 没权限」，这里不破例。
@@ -108,7 +112,7 @@ export const router = createRouter({
       只能看到自己有权限的页面」。注意这只加了**入口与深链**的门禁，**没有收窄任何后端权限**：
       被拦的角色即使手改前端缓存，接口仍会按后端权限返回 403。
 
-   v292（2026-09-27）两处变更：
+   v296（2026-09-27）两处变更：
      ① 守卫改调 `pageRoleAllowed(path, role, customRoles)` —— 多传一个"哪些角色被本租户
         真实改过权限"。**「让位」这件事只在 `pages.js::roleGateOpen` 里实现一次**，
         入口与守卫共用一个实现；否则会出现"侧栏按新规则放开了、守卫还按旧名单拦"
@@ -118,7 +122,7 @@ export const router = createRouter({
 --------------------------------------------------------------------------- */
 async function ensureRoleLoaded() {
   if (store.user.role) return store.user.role
-  try { await store.loadPerms() } catch (_) { /* 拉不到 ⇒ 维持"未知"，由 roleIn 放行 */ }
+  try { await store.loadPerms() } catch (_) { /* 拉不到 ⇒ 维持空串，由 roleIn 按"未加载"放行 */ }
   return store.user.role
 }
 
@@ -143,7 +147,7 @@ router.beforeEach(async (to) => {
        代价只有一次本来就要发的请求（`perms` 非空时这里直接跳过，页面内跳转零开销）。 */
     if (!store.perms) await ensureRoleLoaded()
 
-    /* v292：「权限被别处改过」在这里被发现 —— **故意不 await**。
+    /* v296：「权限被别处改过」在这里被发现 —— **故意不 await**。
        它只是一个几十字节的版本号比对；一旦 await，每次点导航（含页面内跳转）都要多等
        一次往返，把"权限联动"变成手感税。不 await 的代价 = 变更从**下一次**导航起生效，
        而"下一次"通常就在几秒内（加上 Shell 的 60 秒轮询与切回标签页检查兜底）。

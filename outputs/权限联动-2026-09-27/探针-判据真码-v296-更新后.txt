@@ -1,0 +1,57 @@
+  ✅ 加载 /src/constants/pages.js（产品真文件）　→ true
+
+A. 逐用例断言
+  ✅ 未登记路径 ⇒ 放行　→ 期望 true，实得 true
+  ✅ 首页不挂 module ⇒ 员工可见　→ 期望 true，实得 true
+  ✅ 经营趋势：员工没 dashboard ⇒ 不可见　→ 期望 false，实得 false
+  ✅ 经营趋势：勾上 dashboard ⇒ 可见　→ 期望 true，实得 true
+  ✅ 算工资：会计勾上 payroll ⇒ 可见　→ 期望 true，实得 true
+  ✅ 算工资：会计没勾 payroll ⇒ 不可见　→ 期望 false，实得 false
+  ✅ 定时任务：会计持 cron、角色未自定义 ⇒ 不可见（v291 语义保留）　→ 期望 false，实得 false
+  ✅ 定时任务：会计持 cron、角色已自定义 ⇒ 让位可见（用户配置优先）　→ 期望 true，实得 true
+  ✅ 定时任务：customRoles 未知(null) ⇒ 不让位（刻意偏严）　→ 期望 false，实得 false
+  ✅ 定时任务：老板始终可见　→ 期望 true，实得 true
+  ✅ 🔴 定时任务：员工持 data（档案管理）而非 cron ⇒ 不可见（拆模块的效果，旧值 true）　→ 期望 false，实得 false
+  ✅ AI 团队：会计已自定义但仍锁死（lock）　→ 期望 false，实得 false
+  ✅ 设置：会计已自定义且全模块仍锁死（lock）　→ 期望 false，实得 false
+  ✅ 档案管理：员工已自定义 ⇒ 仍不可见（无 module ⇒ 不让位）　→ 期望 false，实得 false
+  ✅ 渠道与价格：司机已自定义+全模块 ⇒ 仍不可见（无 module ⇒ 不让位）　→ 期望 false，实得 false
+  ✅ 招投标雷达：司机持 bid、角色已自定义 ⇒ 让位可见　→ 期望 true，实得 true
+  ✅ 招投标雷达：司机持 bid、角色未自定义 ⇒ 不可见　→ 期望 false，实得 false
+  ✅ 招投标雷达：业务员在名单里 ⇒ 可见　→ 期望 true，实得 true
+  ✅ 店铺导入：业务员始终不可见　→ 期望 false，实得 false
+  ✅ 空串角色（权限未加载）⇒ 放行（启动竞态，v296 刻意保留）　→ 期望 true，实得 true
+  ✅ 🔴 库管（真未知角色）持 cron、角色未自定义 ⇒ 收紧不可见（v296 修洞，旧值 true）　→ 期望 false，实得 false
+  ✅ 🔴 库管 customRoles=null ⇒ 收紧不可见（不知道自定义情况也不放行）　→ 期望 false，实得 false
+  ✅ 库管已被老板写进自定义名单 ⇒ 走正门让位可见（客户配置优先，非后门）　→ 期望 true，实得 true
+  ✅ 🔴 库管进「预报订货管理」⇒ 入口不可见（不再造假入口；后端 SUMMARY_ROLES 必 403）　→ 期望 false，实得 false
+
+B. 不变量穷举（入口可见 ⇒ 守卫放行）
+  ✅ 穷举 2720 组合（17 路径 × 10 角色 × 4 自定义集 × 4 模块集）：无「入口可见但守卫拦」　→ 0 违例
+  ✅ 穷举规模未被静默缩小（2720 = 17×10×4×4）　→ 2720 / 期望 2720
+  ✅ 注册表页数 = 17　→ 17
+
+C. 注册表自检
+  ✅ 每行都有 title　→ []
+  ✅ lock 恰为 /roles + /settings　→ ["/roles","/settings"]
+  ✅ 同时受两轴约束的页面 = /bid-radar + /cron + /roles（决定「让位」影响面）　→ ["/bid-radar","/cron","/roles"]
+
+D. store / roles 侧接线
+  ✅ store.refreshPermsIfChanged 存在　→ {"hasFn":true,"customRolesIsNull":true,"revIsEmpty":true,"perms":null}
+  ✅ 未登录时 customRoles = null（未知，不让位）　→ true
+  ✅ 未登录时 permsRev 为空　→ true
+  ✅ roleIn(空串) = true（未加载 ⇒ 放行：拉不到 ≠ 没权限）　→ true
+  ✅ 🔴 roleIn(库管, [admin,boss]) = false（真未知 ⇒ 收紧，v296 修洞）　→ false
+  ✅ 🔴 roleIn(库管, [库管]) = false（内置门槛对真未知角色恒 false，先收紧再查名单）　→ false
+  ✅ roleIn(finance, …) = true（视图令牌经 ROLE_ALIAS 归一为 accountant ⇒ 仍按内置角色判）　→ true
+  ✅ 内置角色的两条路径未被修洞影响　→ {"empty":true,"unknown":false,"unknownSelfList":false,"unknownViewToken":true,"canonical":true,"canonicalMiss":false}
+
+E. 🔴 真·未知角色（库管）的收紧 —— 反例对照
+  ✅ roles 门槛页数量 ≥ 10（用例非空）　→ 13
+  ✅ 对照基线：boss 在同样条件下能进 13 个门槛页 ⇒ 门槛集合本身是通行的　→ 13
+  ✅ 🔴 「库管」未自定义时对全部 13 个 roles 门槛页均不可见（v296 修洞；修洞前会全部泄漏）　→ 0 泄漏
+  ✅ 反例对照：把「库管」写进自定义名单后确有页面可见 ⇒ 上一条不是「一律 false」的空断言　→ 2 页可见：["/bid-radar","/cron"]
+  ✅ 空串角色仍放行（启动竞态那一档）⇒ 修洞没有误伤「未加载」　→ true
+
+================================================================
+结果：44 通过 / 0 失败

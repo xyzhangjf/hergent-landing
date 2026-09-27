@@ -41,7 +41,7 @@ export const useAppStore = defineStore('app', () => {
      ③ 只认后端 `/api/auth/permissions` 返回的模块名，**不另抄一份角色表**（那正是漂移源）。 */
   const perms = ref(null)
   const permsTenant = ref('')
-  /* v292（2026-09-27）：权限**联动**用的两件东西，都来自 `/api/auth/permissions`（只加字段）。
+  /* v296（2026-09-27）：权限**联动**用的两件东西，都来自 `/api/auth/permissions`（只加字段）。
      为什么需要它们：老板在「设置 › 权限」改完保存后，**别的会话 / 别的设备 / 已开着的标签页**
      仍按旧权限显示菜单，直到那个人重新登录 —— 用户看到的就是「权限改了没生效」。
      前端只知道自己那份缓存，**无从判断服务端那份变没变**，所以要一个可比对的东西。
@@ -104,7 +104,7 @@ export const useAppStore = defineStore('app', () => {
       if (Array.isArray(rs) && rs.length) user.roles = rs
       plan.value = (d && d.plan) || ''
       caps.value = (d && d.capabilities) || null
-      // v292：权限联动的两个派生字段（后端"只加不改"地追加在同一条响应里）
+      // v296：权限联动的两个派生字段（后端"只加不改"地追加在同一条响应里）
       permsRev.value = String((d && d.perms_rev) || '')
       const cr = d && d.custom_roles
       customRoles.value = Array.isArray(cr) ? cr.map(String) : []
@@ -117,7 +117,7 @@ export const useAppStore = defineStore('app', () => {
       permsTenant.value = ''
       // 能力同理：未知 ⇒ `canCap()` 放行（不因一次抖动藏掉导出按钮）。
       caps.value = null
-      // v292：`customRoles` 的"未知"刻意走**相反方向**（null ⇒ 不让位 ⇒ 按内置门槛收紧），
+      // v296：`customRoles` 的"未知"刻意走**相反方向**（null ⇒ 不让位 ⇒ 按内置门槛收紧），
       //       理由见 state 注释里那段三态说明。这里**不要**图省事写成 `[]`：
       //       `[]` 的含义是"已确认没有任何角色被改过"，与"不知道"是两回事。
       customRoles.value = null
@@ -133,7 +133,7 @@ export const useAppStore = defineStore('app', () => {
     return p.indexOf('*') >= 0 || p.indexOf(m) >= 0
   }
 
-  /* ---- v292 权限联动：权限被别处改过时，本会话自动跟上 -------------------------------
+  /* ---- v296 权限联动：权限被别处改过时，本会话自动跟上 -------------------------------
      🔴 缺陷原样：老板改完权限保存，**只有他自己这台机器**的菜单会变（保存后前端强制重拉
         一次）。别的会话、别的设备、已经开着的标签页**一直按旧权限显示**，直到重新登录
         —— 用户看到的就是「权限改了没生效」，而系统里没有任何一处能自证这件事。
@@ -201,7 +201,7 @@ export const useAppStore = defineStore('app', () => {
     plan.value = ''
     user.role = ''
     user.roles = []
-    // v292：联动的两件东西同样必须清 —— 否则换账号后 `customRoles` 还是上一个人的租户
+    // v296：联动的两件东西同样必须清 —— 否则换账号后 `customRoles` 还是上一个人的租户
     // 那份（决定"内置 roles 要不要让位"），`permsRev` 也是上一个租户的指纹，
     // 会让 `refreshPermsIfChanged()` 认为"没变过"从而永不重拉。串味方式与 perms 同族。
     permsRev.value = ''
