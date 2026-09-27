@@ -111,19 +111,49 @@ export function roleName(r) {
 }
 
 /**
- * 该角色能否在小程序里干活（报单 / 商品 / 门店 / 汇总 / 库存 / AI 对话）。
- * 判据是**后端模块权限**，不是猜的：小程序调用的接口前缀在
- * `server.py::_PATH_MODULE_MAP` 里分别落到 `data`（/api/forecast-submissions/*、/api/products）
- * 与 `stock`（/api/inventory）与 `chat`（AI 对话）—— 所以「有 data 或 chat 就能用小程序」。
- * 与后端 `_DEFAULT_PERMS` 对照：admin/boss/sales/staff/supervisor 有，accountant/guide/driver 没有。
- * 护栏会把这个集合与员工档案角色下拉里的「小程序」标注对齐，防止文案与权限脱节。
+ * 「适用端」标注 —— **全站唯一一份**（员工档案的角色下拉用它拼 label）。
+ *
+ * 🔴 它**不是**"又一份手写的角色表"：护栏 `role-registry-consistency-check.py` 的 D 段
+ *    会把「标为 小程序 的角色集（`mini` ∪ `both`）」与后端 `_DEFAULT_PERMS` 里
+ *    **持有 `data` 或 `*`** 的角色集**逐项比对** ⇒ 后端改了而这里没跟，构建前就红。
+ *    （旧实现是"下拉 label 里手写『小程序』字样 + 另一处硬编码名单"，两边各写一份 —— 已漂移过。）
+ *
+ * 🔴 v300（2026-09-27）订正判据：从「有 `data` **或** `chat`」收窄为「有 `data`」。
+ *    为什么：`chat` 自 v292/v293 起**全员持有**（为「副驾代理通道降级」而补，见后端
+ *    `_DEFAULT_PERMS` 2026-09-25 注释）⇒ 它**已失去区分度**，用 `data||chat` 判会把
+ *    8 个角色**全部**判成"能用小程序"，而事实上会计/导购/司机在业务上并不用小程序。
+ *    小程序的核心能力是**报单**（`/api/forecast-submissions/*`、`/api/products` → 归 `data`）
+ *    ⇒ 判据 = `data`（或 admin 的 `*`），与产品定义精确对齐：
+ *       admin(*) / boss / sales / staff / supervisor —— 恰好 5 个。
+ *    ⚠️ 这条订正同时消掉了护栏 D 段的一个**真红**（旧判据下文案集 5 ≠ 后端集 8）。
+ *       真因是**判据过时**，不是文案漏标 —— 千万别用"把文案补成 8 个"去消红（那会把
+ *       会计/导购/司机的下拉 label 改成"网页端 + 小程序"，属于把缺陷写进产品）。
+ */
+export const ROLE_END = {
+  staff: 'mini',                                       // 仅小程序
+  supervisor: 'both', sales: 'both', boss: 'both', admin: 'both',
+  guide: 'web', driver: 'web', accountant: 'web',      // 仅网页端
+}
+
+/** `ROLE_END` 的取值 → 中文标注（员工档案下拉 label / 账号摘要用）。 */
+export const ROLE_END_LABEL = { mini: '仅小程序', both: '网页端 + 小程序', web: '仅网页端' }
+
+/**
+ * 能在小程序里干活的后端角色（含 admin 的 `*` 通配）。
+ * ⚠️ **派生自 `ROLE_END`**，不另抄一份名单 —— 两处各写一份正是漂移的温床。
+ *    顺序即 `ROLE_END` 的声明顺序（消费方只做 `includes`，与顺序无关）。
+ */
+export const MINI_PROGRAM_ROLES = Object.keys(ROLE_END).filter(r => ROLE_END[r] !== 'web')
+
+/**
+ * 该角色能否在小程序里干活（报单 / 商品 / 门店 / 汇总 / 库存）。
+ * 判据 = 后端模块权限里有 `data` 或 `*`（依据与订正见 `ROLE_END` 上方注释）。
+ * 🔴 本函数之前**零引用**（2026-09-22 代码评审点过名）—— 员工档案的角色下拉现在真的接它了，
+ *    否则"护栏声明"与"护栏实际接线"仍是两张皮。
  */
 export function canUseMiniProgram(r) {
   return roleIn(r, MINI_PROGRAM_ROLES)
 }
-
-/** 能在小程序里干活的后端角色（含 admin 的 `*` 通配） */
-export const MINI_PROGRAM_ROLES = ['admin', 'boss', 'sales', 'staff', 'supervisor']
 
 /**
  * 能查看「报单汇总表」的后端角色 —— 也就是「能不能用『预报订货管理』页」。

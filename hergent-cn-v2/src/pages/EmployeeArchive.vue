@@ -42,13 +42,13 @@
               <td>
                 <span v-if="e.has_account" class="df-acc" :class="{ on: e.account_active }" :title="'账号：' + e.account_username + (e.account_active ? '（启用中）' : '（已禁用，点「编辑」可重新启用）')">已开通 {{ e.account_username }}</span>
                 <span v-else class="df-acc">未开通</span>
-                <span v-if="e.account_role" class="df-role" :class="['r-' + e.account_role, { stopped: e.is_active === 0 }]">{{ roleName(e.account_role) }}</span>
+                <span v-if="e.account_role" class="df-role" :class="['r-' + e.account_role, { stopped: e.is_active === 0 }]">{{ roleDisplay(e.account_role) }}</span>
                 <span
                   v-for="r in extraRolesOf(e)"
                   :key="'x-' + r"
                   class="df-role df-role-extra"
-                  :title="'兼任角色：' + roleName(r)"
-                >+{{ roleName(r) }}</span>
+                  :title="'兼任角色：' + roleDisplay(r)"
+                >+{{ roleDisplay(r) }}</span>
               </td>
               <!-- 2026-09-19 收敛：门店配置入口已移出员工档案，本列只读展示数量。
                    数据 = 报单配置派生 ∪ 历史授权（见后端 employee_stores_get）。 -->
@@ -165,7 +165,7 @@
                   <span v-if="accAnyDirty" class="df-dirty-tag">有未保存的改动</span>
                 </div>
                 <p class="df-acc-card-tip">以下每一项都<b>各自独立保存</b>：改完点它自己那一行的按钮，与弹窗底部的「保存基本信息」互不影响。</p>
-                <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleName(editTarget.account_role) }}<template v-if="extraRolesOf(editTarget).length">（兼任 {{ extraRolesOf(editTarget).map(roleName).join('、') }}）</template> · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span></p>
+                <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleDisplay(editTarget.account_role) }}<template v-if="extraRolesOf(editTarget).length">（兼任 {{ extraRolesOf(editTarget).map(roleDisplay).join('、') }}）</template> · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span></p>
                 <div class="df-acc-row">
                   <select v-model="accRoleEdit" class="input acc-role">
                     <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
@@ -186,7 +186,7 @@
                       :class="{ on: accRolesEdit.includes(o.value) }"
                       :aria-pressed="accRolesEdit.includes(o.value)"
                       @click="toggleExtraRole(o.value)"
-                    >{{ roleName(o.value) }}</button>
+                    >{{ roleDisplay(o.value) }}</button>
                   </div>
                 </div>
                 <!-- v290（2026-09-27）操作行 + 展开区**上下相邻**。
@@ -318,7 +318,9 @@ import { toast } from '../store'
 import { canSee } from '../constants/pages'
 import { employeeApi, importApi, staffAccountApi } from '../api/modules'
 // 角色中文名 —— 前端唯一来源（constants/roles.js 顶部有完整说明与权威源出处）
-import { roleName } from '../constants/roles'
+// v300：另取 `ROLE_END`/`ROLE_END_LABEL`（「适用端」标注的唯一来源）与 `canUseMiniProgram`
+//   （降级判据）—— 下拉 label 由它们**生成**，不再手写「小程序」字样。
+import { roleName, isCanonicalRole, ROLE_END, ROLE_END_LABEL, canUseMiniProgram } from '../constants/roles'
 
 const router = useRouter()
 const loading = ref(false)
@@ -343,25 +345,93 @@ const formSnap = ref('')
 function snapshotForm() { formSnap.value = JSON.stringify(editForm) }
 
 /* ---- 登录账号（整合进"编辑员工"弹窗）与门店 ---- */
-/* 角色下拉。**键集必须与后端 `core._DEFAULT_PERMS` 完全一致**（权威源在那，不在本文件）：
- * 后端加角色而这里没同步 ⇒ ① 开不出该角色的账号（下拉里选不到，只能手改库）；
- * ② 已有该角色的账号在「账号」列显示成 `未知角色( xxx )`（护栏会让它在构建前就失败）。
- * 🔴 「网页端 / 小程序」标注是**从后端模块权限推出来的**，不是猜的：小程序调用的接口前缀在
- *    `server.py::_PATH_MODULE_MAP` 里落到 `data`（/api/forecast-submissions/*、/api/products）
- *    / `stock`（/api/inventory）/ `chat`（AI 对话）⇒ **有 data 或 chat 就能用小程序**。
- *    对照 `_DEFAULT_PERMS`：admin/boss/sales/staff/supervisor 有，accountant/guide/driver 没有。
- *    护栏会把「标了『小程序』的角色集」与这份权限集合对齐，防止文案与权限脱节。
+/* 角色下拉的**值域**。
+ *
+ * 🔴 v300（2026-09-27）从「前端写死 8 项」改为「**内置 8 项 + 本租户自定义角色**」。
+ *    为什么要改：后端 `core.known_roles(tid)` = 内置 ∪ 本租户自定义，且 `PUT /api/users/{uid}/role`
+ *    与开账号接口**都按它放行** —— 但下拉写死 8 项 ⇒ 客户在「设置 › 权限」里配出来的自定义角色
+ *    （生产实测：tenant_1 的「库管」真配了 4 个模块）**在下拉里选不到** ⇒
+ *    后端通、UI 断，配了没人能用的**死配置**（`users.role` 里 0 个 `库管` 即证）。
+ *
+ * 值域来源 = `GET /api/role-permissions`（返回 `{内置 ∪ 本租户 custom}`，每项带 `is_custom`）。
+ *   ⚠️ 该端点归 `hr` 模块且要求 `role ∈ (admin,boss)`（`core._admin`），而本页可见角色是
+ *      `BIZ_ROLES`（含 accountant/sales/supervisor）⇒ 他们拉不到是**预期**，此时**静默降级为
+ *      内置 8 项**（与改动前完全一致：不报错、不闪错）。这不算缺陷 —— 角色指派本就是
+ *      admin/boss 的活（后端两处写入口都只放行 admin/boss）。
+ *
+ * 「适用端」标注不再是手写文案，而是由 `ROLE_END`（唯一来源）**生成** —— 它的键集有护栏，
+ * 会与后端「持有 `data`/`*`」的角色集逐项比对（`role-registry-consistency-check.py` D 段）。
  * 顺序：先小程序主力（员工 / 主管 / 业务员），再网页端专用，最后两个全权限角色。 */
-const ROLE_OPTIONS = [
-  { value: 'staff', label: '员工（仅小程序 · 报单 / AI 对话 / 库存）' },
-  { value: 'supervisor', label: '主管（网页端 + 小程序 · 汇总总表 / 数据）' },
-  { value: 'sales', label: '业务员（网页端 + 小程序 · 销售 / 采购 / 客户 / 报单）' },
-  { value: 'guide', label: '导购（仅网页端 · 销售 / 采购 / 客户 / 库存）' },
-  { value: 'driver', label: '司机（仅网页端 · 看板 / 库存）' },
-  { value: 'accountant', label: '会计（仅网页端 · 账务 / 报表 / 营销）' },
-  { value: 'boss', label: '老板（全模块 · 网页端 + 小程序）' },
-  { value: 'admin', label: '管理员（全模块 · 网页端 + 小程序）' },
-]
+const BUILTIN_ROLE_ORDER = ['staff', 'supervisor', 'sales', 'guide', 'driver', 'accountant', 'boss', 'admin']
+/** 内置角色的业务说明（**只写"干什么"**；「适用端」由 `ROLE_END` 生成，不在这里重复）。 */
+const ROLE_HINTS = {
+  staff: '报单 / AI 对话 / 库存',
+  supervisor: '汇总总表 / 数据',
+  sales: '销售 / 采购 / 客户 / 报单',
+  guide: '销售 / 采购 / 客户 / 库存',
+  driver: '看板 / 库存',
+  accountant: '账务 / 报表 / 营销',
+  boss: '全模块',
+  admin: '全模块',
+}
+/** 后端实况：`{角色: {modules:[], is_custom}}`；`null` = 尚未/无权加载 ⇒ 降级为内置 8 项。 */
+const roleCatalog = ref(null)
+async function loadRoleCatalog() {
+  try {
+    const r = await api('/api/role-permissions')
+    const out = {}
+    for (const [name, v] of Object.entries(r.roles || {})) {
+      out[name] = {
+        modules: Array.isArray(v.permissions) ? v.permissions : Object.keys(v.permissions || {}),
+        is_custom: !!v.is_custom,
+      }
+    }
+    roleCatalog.value = out
+  } catch (_) {
+    roleCatalog.value = null      // 403 / 网络异常 ⇒ 降级（不弹错；指派角色本就不该由这些角色做）
+  }
+}
+/** 「能在小程序干活」的判据 = 有 `data` 或 `*`（与 `roles.js::ROLE_END` 同源）。 */
+function miniCapable(mods) {
+  return Array.isArray(mods) && (mods.includes('*') || mods.includes('data'))
+}
+/** 一个角色的「适用端」文字。三档优先级：产品定义 → 后端实况 → 共享判据兜底。 */
+function endLabelOf(role) {
+  const e = ROLE_END[role]
+  if (e) return ROLE_END_LABEL[e] || ''
+  const cat = roleCatalog.value
+  if (cat && cat[role] && Array.isArray(cat[role].modules)) {
+    return miniCapable(cat[role].modules) ? ROLE_END_LABEL.both : ROLE_END_LABEL.web
+  }
+  // 既不在产品定义里、也查不到实况（如降级时遇到已删的自定义角色）⇒ 用共享判据兜底，
+  // 且**不谎称**能用小程序。
+  return canUseMiniProgram(role) ? ROLE_END_LABEL.both : ROLE_END_LABEL.web
+}
+/** 角色下拉的完整选项：内置 8 项（固定顺序）+ 本租户自定义角色（排在末尾并标注）。 */
+const ROLE_OPTIONS = computed(() => {
+  const out = BUILTIN_ROLE_ORDER.map(v => ({
+    value: v,
+    label: roleName(v) + '（' + endLabelOf(v) + (ROLE_HINTS[v] ? ' · ' + ROLE_HINTS[v] : '') + '）',
+  }))
+  const cat = roleCatalog.value
+  if (cat) {
+    for (const name of Object.keys(cat).sort()) {
+      if (isCanonicalRole(name)) continue
+      out.push({ value: name, label: name + '（自定义角色 · ' + endLabelOf(name) + '）' })
+    }
+  }
+  return out
+})
+/** 角色**显示名**：内置走共享表；本租户自定义角色**直接显示原名**
+ *  （它不是"未知" —— 是客户在权限页真配过的角色，`roleCatalog` 里查得到）。
+ *  真·未知角色仍走 `roleName()` 的 `未知角色( x )`，让配置漂移在下一次看界面时暴露。 */
+function roleDisplay(r) {
+  const k = String(r || '').trim()
+  if (!k) return '未设置'
+  if (isCanonicalRole(k)) return roleName(k)
+  if (roleCatalog.value && roleCatalog.value[k]) return k
+  return roleName(k)
+}
 const accForm2 = reactive({ username: '', password: '', role: 'staff' })
 const accRoleEdit = ref('staff')
 /* v266 角色可叠加：**兼任角色**（只加权限，不改主角色承载的单值语义 ——
@@ -663,8 +733,9 @@ function toggleExtraRole(v) {
   if (i >= 0) accRolesEdit.value.splice(i, 1)
   else accRolesEdit.value.push(v)
 }
-/** 可选兼任项：排除当前主角色（兼任与主角色相同没有意义）。 */
-const extraRoleOptions = computed(() => ROLE_OPTIONS.filter(o => o.value !== accRoleEdit.value))
+/** 可选兼任项：排除当前主角色（兼任与主角色相同没有意义）。
+ *  ⚠️ v300：`ROLE_OPTIONS` 已是 `computed` ⇒ 这里**必须** `.value`（模板里才自动解包）。 */
+const extraRoleOptions = computed(() => ROLE_OPTIONS.value.filter(o => o.value !== accRoleEdit.value))
 /** 「有未保存改动」—— 主角色或兼任任一变化即算。原实现只比主角色，加了兼任后会漏判。 */
 const accRoleDirty = computed(() => {
   if (!editTarget.value) return false
@@ -718,7 +789,7 @@ async function saveAccRole() {
       body: { role: accRoleEdit.value, roles: extras },
     })
     toast(extras.length
-      ? `角色已保存（兼任 ${extras.map(roleName).join('、')}）`
+      ? `角色已保存（兼任 ${extras.map(roleDisplay).join('、')}）`
       : '角色已保存', 'ok')
     // 🔴 v290（2026-09-27）：**关窗 → 就地刷新**。
     //    原来这里是 `editOpen.value = false`（关掉整个弹窗），而弹窗里「人事档案」与
@@ -901,6 +972,7 @@ async function doImportEmployees() {
 
 onMounted(() => {
   loadEmployees()
+  loadRoleCatalog()  // v300：角色下拉的动态值域（403/失败静默降级为内置 8 项，见函数注释）
   probeConnectors()
 })
 </script>

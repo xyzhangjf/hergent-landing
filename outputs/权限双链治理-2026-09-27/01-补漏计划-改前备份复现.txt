@@ -1,0 +1,22 @@
+权威源 server/core.py::_DEFAULT_PERMS = 8 个角色
+补漏白名单：{"chat": "ALL_BUILTIN", "sales": ["supervisor"]}
+======================================================================
+
+【tenant_10.db.改前.bak】只读
+  现有行：accountant=['dashboard', 'accounts', 'reports', 'marketing', 'chat', 'bid'], boss=['dashboard', 'ops-workbench', 'data', 'sales', 'buying', 'stock', 'accounts', 'crm', 'marketing', 'hr', 'payroll', 'projects', 'perf', 'goals', 'reports', 'chat', 'tasks', 'cron', 'bid'], driver=['dashboard', 'stock', 'chat'], guide=['dashboard', 'ops-workbench', 'sales', 'buying', 'stock', 'crm', 'chat'], sales=['dashboard', 'ops-workbench', 'sales', 'buying', 'stock', 'crm', 'data', 'chat', 'cron', 'bid'], staff=['data', 'stock', 'cron'], supervisor=['data', 'dashboard', 'cron']
+  ---- 计划变更 2 条 ----
+    ➕ staff        += chat      ← 默认值新增 `chat`（白名单内）＋该行未偏离默认
+    ➕ supervisor   += sales     ← 默认值新增 `sales`（白名单内）＋该行未偏离默认
+  ---- 跳过 8 条（保守不补）----
+    ·  accountant   无缺项
+    ·  admin        admin = ['*'] 通配 ⇒ 逻辑上不缺任何模块（但仍留痕，便于审计）
+    ·  boss         无缺项
+    ·  driver       无缺项
+    ·  guide        无缺项
+    ·  sales        无缺项
+    ·  staff        缺 `bid` 但**不在**补漏白名单（可能是有意收紧）⇒ 不补
+    ·  supervisor   缺 `bid` 但**不在**补漏白名单（可能是有意收紧）⇒ 不补
+  [只读模式] 未写入。加 --apply 才会改。
+
+======================================================================
+合计：计划变更 2 条 / 保守跳过 8 条（只读模式，未写入任何库）

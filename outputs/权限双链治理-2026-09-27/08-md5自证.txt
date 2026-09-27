@@ -1,0 +1,18 @@
+【v300】工具副本 md5 自证 —— 副本与工作区原件必须一致
+生成时间：2026-09-27 22:40:52
+注：v300-role-dropdown-e2e.mjs / v300-recon-archive.mjs 在本轮入库前做过**凭据脱敏**（明文密码 → HG_PASS 环境变量），
+    原件与副本同时更新，故两份 md5 仍一致；脱敏后复跑仍 17/17（见 09 号证据）。
+
+文件                                       工作区 .workbuddy/tools               副本 08-可复跑工具副本
+----------------------------------------------------------------------------------------------------
+perms-tenant-backfill.py                 f794460ed47cd7dcac1cec71b8c9831c   f794460ed47cd7dcac1cec71b8c9831c  ✅
+perms-tenant-backfill-test.py            4db712a6380e0eac92ca78750d0f0d2a   4db712a6380e0eac92ca78750d0f0d2a  ✅
+role-registry-consistency-check.py       6fc8c5ad262929115efe4555972b6b8b   6fc8c5ad262929115efe4555972b6b8b  ✅
+v300-compile-check.py                    1a0b5be2edbd9d92079b7ea0345756b2   1a0b5be2edbd9d92079b7ea0345756b2  ✅
+v300-guard-discriminate.py               d45d38687880213d701da1cb15c7a09d   d45d38687880213d701da1cb15c7a09d  ✅
+v300-perms-baseline-probe.py             0c5342e663ea4a6028169090b012930a   0c5342e663ea4a6028169090b012930a  ✅
+v300-role-perms-payload-probe.py         c38b00924035dd0d8bd63ab960409da5   c38b00924035dd0d8bd63ab960409da5  ✅
+v300-role-dropdown-e2e.mjs               a6bf448109d60c120a921257ef7c2a3d   a6bf448109d60c120a921257ef7c2a3d  ✅
+v300-recon-archive.mjs                   ff7b538f557cef4e51170163ae40aeb2   ff7b538f557cef4e51170163ae40aeb2  ✅
+
+不一致数 = 0

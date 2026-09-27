@@ -1,0 +1,88 @@
+判据来源：生产 core.py（ast 实取，非手抄）
+  _DEFAULT_PERMS 角色数 = 8  → accountant、admin、boss、driver、guide、sales、staff、supervisor
+  _ALL_MODULES   模块数 = 17  → dashboard、data、sales、buying、stock、accounts、crm、marketing、hr、payroll、projects、reports、chat、tasks、cron、bid、settings
+
+==============================================================================
+[A链] tenant_1.db::role_permissions —— 「设置 › 权限」的落库处
+==============================================================================
+  库管           模块数=4   **自定义**
+       ['chat', 'dashboard', 'data', 'stock']
+  supervisor   模块数=5   **自定义**
+       ['chat', 'cron', 'dashboard', 'data', 'sales']
+       ↑ 比内置默认多: ['chat']
+       ↓ 比内置默认少: ['bid']
+
+  ⇒ custom_roles(tenant_1) = ['supervisor', '库管']
+  ⇒ known_roles(tenant_1)  = 9 个 → ['accountant', 'admin', 'boss', 'driver', 'guide', 'sales', 'staff', 'supervisor', '库管']
+
+==============================================================================
+[A链] tenant_10.db::role_permissions —— 「设置 › 权限」的落库处
+==============================================================================
+  supervisor   模块数=3   **自定义**
+       ['cron', 'dashboard', 'data']
+       ↓ 比内置默认少: ['bid', 'sales']
+  boss         模块数=19  (与内置默认相同)
+       ['accounts', 'bid', 'buying', 'chat', 'crm', 'cron', 'dashboard', 'data', 'goals', 'hr', 'marketing', 'ops-workbench', 'payroll', 'perf', 'projects', 'reports', 'sales', 'stock', 'tasks']
+  accountant   模块数=6   **自定义**
+       ['accounts', 'bid', 'chat', 'dashboard', 'marketing', 'reports']
+       ↑ 比内置默认多: ['bid']
+  sales        模块数=10  (与内置默认相同)
+       ['bid', 'buying', 'chat', 'crm', 'cron', 'dashboard', 'data', 'ops-workbench', 'sales', 'stock']
+  guide        模块数=7   (与内置默认相同)
+       ['buying', 'chat', 'crm', 'dashboard', 'ops-workbench', 'sales', 'stock']
+  driver       模块数=3   (与内置默认相同)
+       ['chat', 'dashboard', 'stock']
+  staff        模块数=3   **自定义**
+       ['cron', 'data', 'stock']
+       ↓ 比内置默认少: ['bid', 'chat']
+
+  ⇒ custom_roles(tenant_10) = ['accountant', 'staff', 'supervisor']
+  ⇒ known_roles(tenant_10)  = 8 个 → ['accountant', 'admin', 'boss', 'driver', 'guide', 'sales', 'staff', 'supervisor']
+
+==============================================================================
+[B链] erp.db::users —— 「员工档案 › 账号与权限」的落库处
+==============================================================================
+  users 列: id, username, password_hash, display_name, role, is_active, created_at, phone, employee_code, pinyin, department_id, mfa_secret, mfa_enabled, recovery_codes, password_changed, employee_id, roles
+
+  账号总数 = 10
+
+  按主角色分布：
+    admin           2 个   [OK] [OK]
+    boss            3 个   [OK] [OK]
+    sales           3 个   [OK] [OK]
+    supervisor      2 个   [OK] [OK]
+
+  带兼任角色的账号 = 0
+
+  已关联员工档案的账号 = 8 / 10
+
+==============================================================================
+交叉分析：两条链的对齐/错位
+==============================================================================
+① users.role 里实际出现的角色 = ['admin', 'boss', 'sales', 'supervisor']
+② 前端下拉可指派（ROLE_OPTIONS，写死 8 项）= ['staff', 'supervisor', 'sales', 'guide', 'driver', 'accountant', 'boss', 'admin']
+
+③ 🔴 被指派过、但**不在内置 _DEFAULT_PERMS** 里的角色（= 租户自定义角色）：
+     无
+
+④ 🔴 B 链指派得出来、但 A 链**看不到**的角色：无（A 链读 known_roles，是超集）
+⑤ 🔴 A 链配得出权限、但 B 链**下拉里选不到**的角色（只能手改库）：
+     自定义角色共 4 个：['accountant', 'staff', 'supervisor', '库管']
+     🔴 下拉选不到的：['库管']
+
+⑥ 前端显示层：users.role 里会渲染成「未知角色(xxx)」的 = 无
+
+⑦ 内置角色在两条链的可见性对照（B 链下拉 / A 链矩阵列）
+     accountant   B链下拉=✓   A链矩阵=✓
+     admin        B链下拉=✓   A链矩阵=✓
+     boss         B链下拉=✓   A链矩阵=✓
+     driver       B链下拉=✓   A链矩阵=✓
+     guide        B链下拉=✓   A链矩阵=✓
+     sales        B链下拉=✓   A链矩阵=✓
+     staff        B链下拉=✓   A链矩阵=✓
+     supervisor   B链下拉=✓   A链矩阵=✓
+     库管           B链下拉=✗   A链矩阵=✓(自定义)
+
+[完] 本脚本全程 mode=ro，未写任何库。
+=== 清理 ===
+removed

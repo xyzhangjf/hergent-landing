@@ -1,0 +1,61 @@
+权威源：server/core.py::_DEFAULT_PERMS (L496) = 8 个角色
+        admin, boss, accountant, sales, guide, driver, staff, supervisor
+
+A 员工档案 · 角色下拉（能开出哪些角色）
+  PASS  ROLE_OPTIONS 无重复值   [重复: []]
+  PASS  ROLE_OPTIONS 覆盖全部后端角色
+  PASS  ROLE_OPTIONS 无后端不存在的角色
+
+B 角色中文名（唯一来源 src/constants/roles.js）
+  PASS  constants/roles.js 存在且可解析出 ROLE_NAMES
+  PASS  ROLE_NAMES 的键覆盖全部后端角色
+  PASS  ROLE_NAMES 无「中文名 = 英文角色名」的空映射   [可疑: []]
+  PASS  ROLE_NAMES 的值都是中文   [可疑: []]
+  PASS  ROLE_VIEW_TOKEN_NAMES 的每个词都在 EXTRA_OK 里登记
+  PASS  EmployeeArchive.vue 不再自带 ROLE_NAMES（改为引用共享表）   [本地重复表会让护栏只看一处、漂移从另一处进来]
+  PASS  EmployeeArchive.vue 引用了共享角色表
+
+C 员工档案 · 角色标签色板
+  PASS  .df-role.r-* 覆盖全部后端角色
+  PASS  色板无重复定义   [重复: []]
+
+D 员工档案 · 角色下拉的「适用端」标注 ↔ 后端模块权限
+  FAIL  标了「小程序」的角色集 = 后端有 data/chat 权限的角色集   [文案多 [] / 少 ['accountant', 'driver', 'guide']]
+        admin=小程序  |  boss=小程序  |  accountant=小程序  |  sales=小程序  |  guide=小程序  |  driver=小程序  |  staff=小程序  |  supervisor=小程序
+
+E 其它面的角色清单
+  PASS  Forecast.vue 不再自带 ROLE_LABELS（改为引用共享表）
+  PASS  Forecast.vue 引用了共享角色表
+  PASS  COLUMN_PERMISSIONS 里的角色名都是**规范角色名**
+  PASS  ENTRY_ROLES 里的角色名都是**规范角色名**
+  PASS  小程序 ROLE_TEXT 覆盖全部后端角色
+  PASS  小程序 ROLE_TEXT 无未登记的多余角色
+        （已登记的非后端角色：promoter=业务口语（促销；后端由 staff 承载 —— core.py v107 注释即证））
+  PASS  小程序 roleText 不回落成原值（静默失败载体）   [应回落到显式标记（如 `未知角色( x )`）]
+  PASS  同一角色在网页端与小程序译名逐字一致
+  PASS  Settings.vue ROLE_LABELS 覆盖全部后端角色
+  PASS  Settings.vue ROLE_LABELS 无空映射   [可疑: []]
+
+F 后端 · 角色白名单与两处写入口接线
+  PASS  core.py 定义了 normalize_role（白名单判据唯一来源）
+  PASS  normalize_role 以权威源（_DEFAULT_PERMS + 按租户表）为判据（未另抄名单）
+  PASS  PUT /api/users/{uid}/role 接入了白名单   [只校验非空 ⇒ 任何 admin/boss 都能造出新 admin]
+  FAIL  开账号接口（staff-accounts）接入了白名单
+  PASS  staff_account_create（INSERT 旁）也有第二道白名单
+
+F2 报单汇总可见角色白名单（后端 SUMMARY_ROLES ↔ 前端 FORECAST_SUMMARY_ROLES）
+  PASS  后端 SUMMARY_ROLES 是**模块级常量**（内联在函数体内护栏看不见 ⇒ 等于没护栏）
+  PASS  前端定义了 FORECAST_SUMMARY_ROLES（roles.js）
+  PASS  两侧白名单逐项一致（排序后）   [后端=['admin', 'boss', 'supervisor'] 前端=['admin', 'boss', 'supervisor']]
+  PASS  SUMMARY_ROLES 非空（空 = 全员看不到汇总 = 静默失效）
+  PASS  SUMMARY_ROLES 不含后端不存在的角色（写错字 = 那个角色被静默放行）
+  PASS  submission_summary 真的用 SUMMARY_ROLES 判据（未留内联副本）
+  PASS  Shell.vue 每个 /forecast 入口都带门禁（≥2 处，且无裸入口）   [带门禁 2 处 / 裸入口 0 处]
+  PASS  Forecast.vue 两条路都接了（summaryDenied 按角色预判 + crossDenied 服务端拒绝）
+  PASS  Forecast.vue 按**状态码**分流 403（不再把「无权限」说成「加载失败」）
+
+--------------------------------------------------------------
+硬断言 35/37 通过，告警 0 条
+失败项:
+   - 标了「小程序」的角色集 = 后端有 data/chat 权限的角色集
+   - 开账号接口（staff-accounts）接入了白名单

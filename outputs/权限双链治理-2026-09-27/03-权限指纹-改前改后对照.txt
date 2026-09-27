@@ -1,0 +1,84 @@
+【v300 权限指纹 改前 / 改后 对照 —— 生产实地读数】
+
+来源：`runuser -u hergent -- /usr/bin/python3 /tmp/v300-perms-baseline-probe.py <标签>`
+      （**新进程冷读库**：`perms_rev` / `custom_roles` 直读库，不走 `_PERMS_CACHE`）
+时间：2026-09-27 21:52（改前） / 21:53（改后） / 21:53:15–21:53:20（重启后端）
+
+════════════════════════════════════════════════════════════════════
+【改前】tenant_1  perms_rev = 716a4562b85a
+           custom_roles = ['supervisor', '库管']
+           staff       = ['data', 'chat', 'stock', 'cron', 'bid']
+           supervisor  = ['data', 'dashboard', 'chat', 'sales', 'cron']
+           sales       = ['dashboard', 'ops-workbench', 'sales', 'buying', 'stock', 'crm', 'data', 'chat', 'cron', 'bid']
+           accountant  = ['dashboard', 'accounts', 'reports', 'marketing', 'chat']
+           staff 在 custom_roles 里？  False
+           supervisor 在 custom_roles 里？ True
+tenant_10  perms_rev = df85b80274d3
+           custom_roles = ['accountant', 'staff', 'supervisor']
+           staff       = ['data', 'stock', 'cron']
+           supervisor  = ['data', 'dashboard', 'cron']
+           sales       = ['dashboard', 'ops-workbench', 'sales', 'buying', 'stock', 'crm', 'data', 'chat', 'cron', 'bid']
+           accountant  = ['dashboard', 'accounts', 'reports', 'marketing', 'chat', 'bid']
+           staff 在 custom_roles 里？  True
+           supervisor 在 custom_roles 里？ True
+
+════════════════════════════════════════════════════════════════════
+【改后】tenant_1  perms_rev = 716a4562b85a          ← ✅ **未变**（证明没动它）
+           custom_roles = ['supervisor', '库管']
+           staff       = ['data', 'chat', 'stock', 'cron', 'bid']
+           supervisor  = ['data', 'dashboard', 'chat', 'sales', 'cron']
+           sales       = ['dashboard', 'ops-workbench', 'sales', 'buying', 'stock', 'crm', 'data', 'chat', 'cron', 'bid']
+           accountant  = ['dashboard', 'accounts', 'reports', 'marketing', 'chat']
+           staff 在 custom_roles 里？  False
+           supervisor 在 custom_roles 里？ True
+tenant_10  perms_rev = 41e1332af26a                 ← ✅ **变了**（证明改动落库）
+           custom_roles = ['accountant', 'staff', 'supervisor']   ← ✅ **未变**
+           staff       = ['data', 'stock', 'cron', 'chat']        ← ➕chat
+           supervisor  = ['data', 'dashboard', 'cron', 'sales']   ← ➕sales
+           sales       = ['dashboard', 'ops-workbench', 'sales', 'buying', 'stock', 'crm', 'data', 'chat', 'cron', 'bid']
+           accountant  = ['dashboard', 'accounts', 'reports', 'marketing', 'chat', 'bid']
+           staff 在 custom_roles 里？  True
+           supervisor 在 custom_roles 里？ True
+
+════════════════════════════════════════════════════════════════════
+【三条结论】
+
+1. **改了该改的**：tenant_10 的 `staff` += `chat`、`supervisor` += `sales`；
+   指纹由 `df85b80274d3` → `41e1332af26a` ⇒ 内容确实变了。
+
+2. **没动不该动的**：tenant_1 指纹**逐字符不变**（`716a4562b85a`）。
+   这是"只改该改的"最硬的证据 —— 只读盘点里它就 0 变更。
+
+3. 🔴 **`custom_roles` 两边都没变** —— 这一条是**特意验的隐藏副作用**：
+   判据是「内容 ≠ 内置默认」（`core.custom_roles`），而它决定 `pages.js::roleGateOpen` ③
+   的「让位」（让该角色通过**内置 `roles` 门槛**）。
+   ⇒ 如果补漏补得"恰好等于默认"，该角色会**退出** `custom_roles` ⇒ 页面对它**重新收窄**
+     （等于把一个看不见的功能拿走）。实测改后 `staff` / `supervisor` 仍各缺 `bid`
+     ⇒ 仍 ≠ 默认 ⇒ **让位状态不变** ⇒ 无副作用。
+   ⚠️ 也就是说：本轮的"保守判据（只补白名单模块）"恰好也保住了让位状态，
+      下一次若有人把白名单放开到 `bid`，**必须重验这一条**。
+
+════════════════════════════════════════════════════════════════════
+【🔴 缓存与生效：为什么改库之后必须重启】
+
+`core.perms_for(tid)` 带**进程级缓存 `_PERMS_CACHE`、且没有 TTL**（只有保存接口会调
+`reload_perms(tid)` 手动失效）。而 `perms_rev` / `custom_roles` 走 `_read_custom_perms`
+—— **直读库、不缓存**。
+
+⇒ 分工必须分清：
+   · 本文件里的读数（新进程冷读库）证明的是「**库里**是什么」；
+   · 运行中那个后端进程读到什么，**不等于**这个 —— 它有可能是旧缓存。
+   · 让两者等价的手段 = **重启**（进程重建 ⇒ `_PERMS_CACHE` 为空）。
+     ⚠️ 没有别的轻量办法：`reload_perms` 只在两个**保存接口**里被调用，而那两个都要
+        admin/boss 的 token（本轮没有该租户的凭据）。
+
+本轮的收尾动作（实测记录）：
+    systemctl restart hergent-erp
+    重启前 21:53:15 active  →  重启后 21:53:20 active（**停机约 1 秒**）
+    启动日志正常：[DB] SQLite engine — /opt/hergent-erp/erp.db
+                  [RateLimit] Enabled: 300 req/min default
+
+⚠️ **诚实边界**：`tenant_10` 的账号凭据不在探针手上 ⇒ **没有做**「该租户主管登录后
+   看返利冲刺看板有数据」这一条端到端验证。已做到的是：
+   ① 库内容正确（冷读）；② 指纹变化（落库）；③ 让位状态不变（无副作用）；
+   ④ 重启使缓存失效（结构性保证）。⇒ 需老板用该租户的主管账号 30 秒自验。

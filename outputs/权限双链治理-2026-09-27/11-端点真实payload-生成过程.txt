@@ -1,0 +1,40 @@
+【v300】角色下拉值域 —— 端点真实 payload 的生成过程（只读）
+
+来源：scp .workbuddy/tools/v300-role-perms-payload-probe.py root@47.113.224.140:/tmp/
+      ssh root@47.113.224.140 'chmod 644 /tmp/... && runuser -u hergent -- /usr/bin/python3 /tmp/v300-role-perms-payload-probe.py'
+时间：2026-09-27 22:0x（重启后端之后）
+
+探针跑的就是 server.py::get_role_perms 第 1116-1122 行的组装逻辑（只读，无写路径）：
+    custom = db.get_all_role_permissions(tenant_id=tid)
+    for role, perms in {**_DEFAULT_PERMS, **custom}.items():
+        all_roles[role] = {'permissions': perms, 'is_custom': role in custom, 'is_default': role in _DEFAULT_PERMS}
+    return {'roles': all_roles, 'tenant_id': tid}
+
+════════════════════════════════════════════════════════════════
+
+[DB] SQLite engine — /opt/hergent-erp/erp.db
+=== tenant_1 ===
+role 数 = 9
+角色名（按序列化顺序）= ["admin", "boss", "accountant", "sales", "guide", "driver", "staff", "supervisor", "库管"]
+自定义角色 = ["supervisor", "库管"]
+--- 端点原样 JSON（可直接喂给 E2E mock）---
+{"roles": {"admin": {"permissions": ["*"], "is_custom": false, "is_default": true}, "boss": {"permissions": ["dashboard", "ops-workbench", "data", "sales", "buying", "stock", "accounts", "crm", "marketing", "hr", "payroll", "projects", "perf", "goals", "reports", "chat", "tasks", "cron", "bid"], "is_custom": false, "is_default": true}, "accountant": {"permissions": ["dashboard", "accounts", "reports", "marketing", "chat"], "is_custom": false, "is_default": true}, "sales": {"permissions": ["dashboard", "ops-workbench", "sales", "buying", "stock", "crm", "data", "chat", "cron", "bid"], "is_custom": false, "is_default": true}, "guide": {"permissions": ["dashboard", "ops-workbench", "sales", "buying", "stock", "crm", "chat"], "is_custom": false, "is_default": true}, "driver": {"permissions": ["dashboard", "stock", "chat"], "is_custom": false, "is_default": true}, "staff": {"permissions": ["data", "chat", "stock", "cron", "bid"], "is_custom": false, "is_default": true}, "supervisor": {"permissions": ["data", "dashboard", "chat", "sales", "cron"], "is_custom": true, "is_default": true}, "库管": {"permissions": ["dashboard", "stock", "data", "chat"], "is_custom": true, "is_default": false}}, "tenant_id": 1}
+
+=== tenant_10 ===
+role 数 = 8
+角色名（按序列化顺序）= ["admin", "boss", "accountant", "sales", "guide", "driver", "staff", "supervisor"]
+自定义角色 = ["boss", "accountant", "sales", "guide", "driver", "staff", "supervisor"]
+--- 端点原样 JSON（可直接喂给 E2E mock）---
+{"roles": {"admin": {"permissions": ["*"], "is_custom": false, "is_default": true}, "boss": {"permissions": ["dashboard", "ops-workbench", "data", "sales", "buying", "stock", "accounts", "crm", "marketing", "hr", "payroll", "projects", "perf", "goals", "reports", "chat", "tasks", "cron", "bid"], "is_custom": true, "is_default": true}, "accountant": {"permissions": ["dashboard", "accounts", "reports", "marketing", "chat", "bid"], "is_custom": true, "is_default": true}, "sales": {"permissions": ["dashboard", "ops-workbench", "sales", "buying", "stock", "crm", "data", "chat", "cron", "bid"], "is_custom": true, "is_default": true}, "guide": {"permissions": ["dashboard", "ops-workbench", "sales", "buying", "stock", "crm", "chat"], "is_custom": true, "is_default": true}, "driver": {"permissions": ["dashboard", "stock", "chat"], "is_custom": true, "is_default": true}, "staff": {"permissions": ["data", "stock", "cron", "chat"], "is_custom": true, "is_default": true}, "supervisor": {"permissions": ["data", "dashboard", "cron", "sales"], "is_custom": true, "is_default": true}}, "tenant_id": 10}
+
+
+════════════════════════════════════════════════════════════════
+【🔴 本探针顺手暴露的一个陷阱 → 已写进 E2E 断言】
+
+tenant_10 的 is_custom = ["boss","accountant","sales","guide","driver","staff","supervisor"]
+  ⇒ **7 个内置角色**在该租户里 is_custom 也是 true（因为 role_permissions 表里有它们的行）。
+  ⇒ 前端若拿 is_custom 当「这是不是自定义角色」的判据，内置角色会被**重复列一遍**。
+  ⇒ 所以实现必须用「名字是否在 canonical 集合里」（isCanonicalRole），实测已断言：
+      内置「主管」只出现 1 次。
+
+tenant_1 的 is_custom = ['supervisor','库管'] —— 同样含内置的 supervisor，同一个陷阱。

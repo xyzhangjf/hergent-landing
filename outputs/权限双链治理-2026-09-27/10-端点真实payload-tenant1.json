@@ -1,0 +1,118 @@
+{
+  "roles": {
+    "admin": {
+      "permissions": [
+        "*"
+      ],
+      "is_custom": false,
+      "is_default": true
+    },
+    "boss": {
+      "permissions": [
+        "dashboard",
+        "ops-workbench",
+        "data",
+        "sales",
+        "buying",
+        "stock",
+        "accounts",
+        "crm",
+        "marketing",
+        "hr",
+        "payroll",
+        "projects",
+        "perf",
+        "goals",
+        "reports",
+        "chat",
+        "tasks",
+        "cron",
+        "bid"
+      ],
+      "is_custom": false,
+      "is_default": true
+    },
+    "accountant": {
+      "permissions": [
+        "dashboard",
+        "accounts",
+        "reports",
+        "marketing",
+        "chat"
+      ],
+      "is_custom": false,
+      "is_default": true
+    },
+    "sales": {
+      "permissions": [
+        "dashboard",
+        "ops-workbench",
+        "sales",
+        "buying",
+        "stock",
+        "crm",
+        "data",
+        "chat",
+        "cron",
+        "bid"
+      ],
+      "is_custom": false,
+      "is_default": true
+    },
+    "guide": {
+      "permissions": [
+        "dashboard",
+        "ops-workbench",
+        "sales",
+        "buying",
+        "stock",
+        "crm",
+        "chat"
+      ],
+      "is_custom": false,
+      "is_default": true
+    },
+    "driver": {
+      "permissions": [
+        "dashboard",
+        "stock",
+        "chat"
+      ],
+      "is_custom": false,
+      "is_default": true
+    },
+    "staff": {
+      "permissions": [
+        "data",
+        "chat",
+        "stock",
+        "cron",
+        "bid"
+      ],
+      "is_custom": false,
+      "is_default": true
+    },
+    "supervisor": {
+      "permissions": [
+        "data",
+        "dashboard",
+        "chat",
+        "sales",
+        "cron"
+      ],
+      "is_custom": true,
+      "is_default": true
+    },
+    "库管": {
+      "permissions": [
+        "dashboard",
+        "stock",
+        "data",
+        "chat"
+      ],
+      "is_custom": true,
+      "is_default": false
+    }
+  },
+  "tenant_id": 1
+}

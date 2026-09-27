@@ -1,0 +1,20 @@
+权威源 = /Users/zhangjunfeng/Documents/hergent-erp/server/core.py（8 个角色）
+
+== 正例（该补的必须补上）==
+  PASS  ① staff 缺 chat（默认有、白名单内、行未偏离）⇒ 补 chat
+  PASS  ② supervisor 缺 sales（v293 新增）⇒ 补 sales
+  PASS  ③ driver 缺 chat ⇒ 也补（chat 白名单对全部内置角色开放）
+  PASS  ④ supervisor 同时缺 sales/cron/bid ⇒ **只补 sales**（白名单外的默认模块一律拒）
+
+== 反例（不该补的必须拒 —— 这些才是判据的保守性所在）==
+  PASS  ⑤ `bid` 不在白名单（v296 迁移已单独处理，不在这里补）⇒ 拒
+  PASS  ⑥ `tasks` 不在白名单 ⇒ 拒
+  PASS  ⑦ 🔴 该行**多了** payroll ⇒ 已偏离默认（有人管过）⇒ 整行跳过，连 chat 也不补
+  PASS  ⑧ `sales` 的补漏**只给 supervisor**：guide 缺 sales 时不补（白名单限定）
+  PASS  ⑨ admin 永不处理（= `["*"]` 通配），但必须**留痕**以便审计
+  PASS  ⑩ 权限是 CRUD dict 形态 ⇒ 保守跳过
+  PASS  ⑪ 租户库无该行 ⇒ 走默认值，不算缺
+  PASS  ⑫ 行与默认值完全一致 ⇒ 无缺项
+
+--------------------------------------------------------------
+通过 12 / 失败 0

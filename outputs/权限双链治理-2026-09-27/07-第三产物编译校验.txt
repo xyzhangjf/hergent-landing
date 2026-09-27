@@ -1,0 +1,30 @@
+【v300】第三产物 / 工具 编译与符号校验
+生成时间：2026-09-27 22:02:57
+跑法：python3 .workbuddy/tools/v300-compile-check.py <文件>...
+
+  PASS  ../hergent-cn-v2/src/constants/roles.js
+  PASS  ../hergent-cn-v2/src/pages/EmployeeArchive.vue   [OK]
+  PASS  tools/role-registry-consistency-check.py
+  PASS  tools/perms-tenant-backfill.py
+  PASS  tools/perms-tenant-backfill-test.py
+  PASS  tools/v300-guard-discriminate.py
+  PASS  tools/v300-compile-check.py
+  PASS  tools/v300-perms-baseline-probe.py
+  PASS  tools/v300-role-perms-payload-probe.py
+
+跨文件符号闭包（import 的每个符号都必须在源文件里真的 export）
+  ok    api ← hergent-cn-v2/src/api/client.js
+  ok    toast ← hergent-cn-v2/src/store/index.js
+  ok    canSee ← hergent-cn-v2/src/constants/pages.js
+  ok    employeeApi ← hergent-cn-v2/src/api/modules.js
+  ok    importApi ← hergent-cn-v2/src/api/modules.js
+  ok    staffAccountApi ← hergent-cn-v2/src/api/modules.js
+  ok    warehouseApi ← hergent-cn-v2/src/api/modules.js
+  ok    roleName ← hergent-cn-v2/src/constants/roles.js
+  ok    isCanonicalRole ← hergent-cn-v2/src/constants/roles.js
+  ok    ROLE_END ← hergent-cn-v2/src/constants/roles.js
+  ok    ROLE_END_LABEL ← hergent-cn-v2/src/constants/roles.js
+  ok    canUseMiniProgram ← hergent-cn-v2/src/constants/roles.js
+
+--------------------------------------------------------------
+通过 10 / 失败 0 / 跳过 0
