@@ -1,0 +1,57 @@
+# 06 · 后端生产落盘核对（v288）
+
+采集时间：2026-09-27 09:0x
+判据：**本地源码 md5 == 生产落盘 md5**（`server.py` 除外，原因见下）
+
+## 本地源码 md5（`hergent-erp/server/`）
+
+    f901ec4335ce04ce40935d2126f17ac5  core.py
+    f074214ce9f240e27cad47614977af03  erp_db.py
+    6a9ea3eaf0134236a7ec789605a77dec  server.py
+    4316bfbb31a0e6176e9591268153e904  routers/auth.py
+
+## 生产落盘 md5（`/opt/hergent-erp/`）
+
+    f901ec4335ce04ce40935d2126f17ac5  core.py
+    f074214ce9f240e27cad47614977af03  erp_db.py
+    64e23c687e64245e5f9b8683b111b3d2  server.py
+    4316bfbb31a0e6176e9591268153e904  routers/auth.py
+
+## 判读
+
+- **`core.py` / `erp_db.py` / `routers/auth.py`：本地 == 生产**（逐字节一致）。
+- **`server.py`：md5 不同 —— 这是预期的**，原因见下。
+
+## `server.py` 为什么 md5 不同（分块部署）
+
+本地 `server.py` 里混着**别人的在途改动**（尚未上线）：
+
+    第 5 行     import ... logging, subprocess     ← 别人的在途改动
+    第 4973 行  subprocess.check_output(...)       ← 别人的在途改动
+    生产同位置为 os.popen(...)                      ← 生产保持原样
+
+⇒ 本轮**只上传自己的那一个 hunk**，生产上没有夹带别人的改动。
+
+- 证据一：生产 `grep -c subprocess /opt/hergent-erp/server.py` = **0**
+- 证据二：`diff 本地 生产` 的差异**精确等于上面那 2 处**（共 4 行 = 2 处各一对 `<` / `>`），无第三处
+
+## 逻辑等价性证据（v286 → v288 只换版本号字样）
+
+对生产备份 `backups/v288-pre/`（= 改名**前**的版本）与当前生产逐文件 diff，
+**先把 `v286` 与 `v288` 归一成同一占位符**再比：
+
+    core.py          ✅ 除版本号字样外零差异
+    erp_db.py        ✅ 除版本号字样外零差异
+    server.py        ✅ 除版本号字样外零差异
+    routers/auth.py  ✅ 除版本号字样外零差异
+
+⇒ **v288 的重命名不改变任何逻辑**，v286 版上验过的结论对 v288 同样成立。
+
+## 服务健康
+
+    systemctl is-active hergent-erp                              → active
+    curl -w "%{http_code}" http://127.0.0.1:8700/api/health      → 200
+    curl -w "%{http_code}" http://127.0.0.1:8700/health          → 200
+    监听：127.0.0.1:8700（python3，systemd 单元 hergent-erp）
+
+回滚点：`/opt/hergent-erp/backups/v288-pre/`（core.py / erp_db.py / server.py / routers/auth.py 四份）。

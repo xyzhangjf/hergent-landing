@@ -184,7 +184,16 @@
                   <input v-model="accPwdEdit" class="input" type="text" placeholder="新密码（至少 4 位）">
                   <button class="btn btn-ghost btn-sm" :disabled="accBusy || accPwdEdit.length < 4" @click="resetAccPwd">保存密码</button>
                 </div>
+                <!-- v288（2026-09-27）：改**登录账号名**。
+                     原入口只在「个人设置」里（`PUT /api/auth/profile`）且**只能改自己** ——
+                     老板在这里看不到入口，账号名建错只能删账号重建。 -->
+                <div v-if="showRename" class="df-acc-row">
+                  <input v-model="accNameEdit" class="input" type="text" placeholder="新的登录账号（2-32 个字符）" @keyup.enter="renameAcc">
+                  <button class="btn btn-ghost btn-sm" :disabled="accBusy || !nameDirty" @click="renameAcc">保存账号</button>
+                </div>
                 <div class="df-acc-row">
+                  <button v-if="!showRename" class="btn btn-ghost btn-sm" :disabled="accBusy" @click="openRename">改账号</button>
+                  <button v-else class="btn btn-ghost btn-sm" @click="showRename = false">取消改账号</button>
                   <button class="btn btn-ghost btn-sm" @click="showReset = !showReset">{{ showReset ? '取消重置' : '重置密码' }}</button>
                   <button class="btn btn-ghost btn-sm danger" :disabled="accBusy" @click="toggleAccStatus">{{ editTarget.account_active ? '禁用账号' : '启用账号' }}</button>
                 </div>
@@ -338,6 +347,17 @@ const accRolesEdit = ref([])
 const accPwdEdit = ref('')
 const accBusy = ref(false)
 const showReset = ref(false)
+/* v288（2026-09-27）：改**登录账号名**。
+   此前只有本人能在个人设置里改自己（`PUT /api/auth/profile`），员工档案的账号区
+   有「重置密码 / 禁用账号 / 生成重置码」却**没有改账号** ⇒ 账号名建错了只能删账号重建
+   （而删账号会连带丢掉报单配置与工资条链路）。
+   🔴 改完账号名**立即生效**：本人手上的会话不断（sessions 按 user_id），但**下次登录必须用新名**。 */
+const accNameEdit = ref('')
+const showRename = ref(false)
+const nameDirty = computed(() => {
+  const n = accNameEdit.value.trim()
+  return !!n && !!editTarget.value && n !== (editTarget.value.account_username || '')
+})
 // Q29（2026-09-19）忘记密码自助重置：一次性重置码。明文只在生成的这一次出现，
 // 后端只存哈希 —— 关了弹窗就再也看不到，需要重发。
 const resetCode = ref('')
@@ -420,6 +440,10 @@ function resetEditForm(e) {
     .split(/[,，、;；]/).map(s => s.trim()).filter(Boolean)
   accPwdEdit.value = ''
   showReset.value = false
+  // v288：改账号的展开态与输入也要复位 —— 否则换一个人打开弹窗，输入框里留着**上一个人**
+  // 的账号名（预填逻辑只在点「改账号」时跑，展开态却是复用的），容易顺手改错人。
+  showRename.value = false
+  accNameEdit.value = ''
   resetCode.value = ''      // 换人 / 重开弹窗即清 —— 码只对刚生成的那个人有效
   resetCodeExp.value = ''
 }
@@ -602,6 +626,37 @@ async function saveAccRole() {
     editOpen.value = false
     loadEmployees()
   } catch (e) { toast(e.message || '更新失败', 'err') }
+  finally { accBusy.value = false }
+}
+
+/* v288（2026-09-27）改登录账号名。
+   打开时**预填当前账号名** —— 改名往往是"改几个字"（如 liushantao → liushantao2），
+   空白输入框会让人重敲一遍，还容易打错成另一个已存在的名字。 */
+function openRename() {
+  accNameEdit.value = (editTarget.value && editTarget.value.account_username) || ''
+  showRename.value = true
+}
+
+async function renameAcc() {
+  if (accBusy.value || !editTarget.value || !editTarget.value.account_user_id) return
+  const n = accNameEdit.value.trim()
+  if (!n) { toast('请填写新的登录账号', 'err'); return }
+  // 与后端 `core.validate_username` 同一口径（2..32）。前端这一层只为"不用等一个来回"，
+  // **不是**判据本身 —— 真正的门禁在后端（且 admin 一类保留名由后端拒）。
+  if (n.length < 2 || n.length > 32) { toast('登录账号需 2-32 个字符', 'err'); return }
+  accBusy.value = true
+  try {
+    const r = await api(`/api/users/${editTarget.value.account_user_id}/username`, {
+      method: 'PUT',
+      body: { new_username: n },
+    })
+    if (r && r.changed === false) { toast('登录账号没有变化', 'ok'); showRename.value = false; return }
+    // 🔴 必须点名「下次登录用新账号」—— 否则员工拿旧账号登录被拒，会以为是密码坏了。
+    toast(`登录账号已改为「${n}」— 该员工下次登录请用新账号`, 'ok')
+    showRename.value = false
+    editOpen.value = false
+    loadEmployees()
+  } catch (e) { toast(e.message || '修改失败', 'err') }
   finally { accBusy.value = false }
 }
 

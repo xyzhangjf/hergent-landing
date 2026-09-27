@@ -86,6 +86,58 @@
 
 ## 🔴 员工登录账号：**不分端**（2026-09-19 核查，触发词：开账号 / 员工账号 / web 端账号 / 网页端权限）
 
+### v288（2026-09-27）：账号名可改 —— 老板代改入口 + 三处必须跟着动的副作用
+触发：**改账号 / 改登录名 / 账号建错了 / 能不能改用户名**
+
+**病根 = 「只做了一半」**：后端**早就有**改用户名的能力（`PUT /api/auth/profile`，`routers/auth.py:243`，
+自带 2..32 长度校验 + 查重），但它 `WHERE id = 当前登录用户` ⇒ **只能改自己**；
+员工档案弹窗的账号区有「重置密码 / 禁用账号 / 生成重置码」，**唯独没有改账号**
+⇒ 用户看到的就是「能改密码、不能改账号」。
+
+**🔴 别被这条误导（差一步就误判成重缺陷）**：`_sqlite_connect` 是
+`db_path = _tenant_db.get() or DB_PATH` ⇒ **有租户上下文就走租户库**，而 `users` 是**主库**表，
+`/api/users/{uid}/{role,password,status,reset-code}` 又全都用 `db.get_db()` ——
+看着像「四个端点全写错库」。**实测推翻**：`server.py::_TENANT_MASTER_PREFIXES` 含 `/api/users`、
+`_TENANT_PUBLIC_PREFIXES` 含 `/api/auth` ⇒ 这两族请求期间 `set_tenant_context(None)` ⇒ 走主库、全部有效。
+**⇒ 判「某端点写哪个库」的唯一可靠办法 = 查这两个前缀元组，不要看它用哪个连接函数。**
+
+**另附实测（别再拿错那一份当判据）**：主库 `erp.db` 的 users **8 行**（真实账号）；
+`tenant_1.db` 里也躺着一份 users **6 行**（`admin/boss/accountant/sales/warehouse/driver` = **另一批种子数据**）。
+读端统一走主库（`employee_account_map()` 用 `core._master_db`）⇒ **租户库那份 users 是死数据**。
+
+**判据只有一份**：`core.validate_username(nu)`（2..32 字符 + `USERNAME_IMMUTABLE`）+
+`erp_db.user_rename(uid, new, actor, conn=None)`（唯一写入实现）——
+`/api/auth/profile`（本人自助）与新端点 `PUT /api/users/{uid}/username`（老板代改，复用
+`_assert_user_manageable` 权限闸）**都调它们**。
+
+**改名必须跟着动的三处（漏一条就是「看起来成功、留了半截」）**：
+1. **`phone`** —— `staff_account_create` 会写 `phone=username`。**仅当 phone 逐字等于旧账号名**
+   （= 它只是拷贝）才跟随；是**真实手机号**则不动（否则把手机号冲掉）。
+2. **未用的 `password_reset_codes.username`** —— 一次性重置码是按 `username COLLATE NOCASE` 查的
+   （`password_reset.py:193`）。不同步 ⇒ 管理员刚发给员工的码**当场失效**。
+3. **审计记「旧名 → 新名」**（原 profile 只写「修改个人资料」，查不出改了哪个字段）。
+
+**历史日志里的旧名一律不动**：`login_logs` / `login_attempts` / `audit_logs` / `mp_events`
+记的是「当时用哪个账号登录的」—— 改它才是篡改。
+
+🔴 **`admin` 本体也不可改**（不只是"不能改成 admin"）：`core._init_users()` 的判据是
+`SELECT id FROM users WHERE username='admin'` 是否存在，**查不到就再造一个随机密码的管理员**
+（密码只打进日志）；`erp_db.py` 初始化时也按 `username='admin'` 绑 tenant 1。
+⇒ `USERNAME_IMMUTABLE` 在「新名」与「旧名」两侧都要拦。
+
+🔴 **判重必须 `COLLATE NOCASE`** —— 因为重置码那条路就是 NOCASE 查的。允许 `LiuShantao` 与
+`liushantao` 并存 ⇒ 管理员用大写名发码、员工敲小写名，会命中**另一个人**。
+
+🔴 **`_conn_is_master()` 只能用 `os.path.realpath`**（不能用 `abspath`）：
+SQLite 的 `PRAGMA database_list` 回的是**解析过 symlink** 的路径（macOS `/var` → `/private/var`），
+`abspath` 不解析 ⇒ 同一文件被判成「不是主库」⇒ 改动被静默挪到另一条连接（单测 B2 抓到的）。
+
+**改完的即时语义**：`sessions` 按 `user_id` 关联 ⇒ **已登录会话不被打断**；但**下次登录必须用新名**
+（前端提示语刻意点名这一点，否则员工拿旧账号登录被拒会以为密码坏了）。
+
+**算「当前账号名」**：唯一实现 = `erp_db.employee_account_map()`（员工 id → 账号；跨库读主库，
+并按 `user_tenants` 收口租户）。
+
 **账号模型**：一张主库 `users` 表 + 一个 `/api/auth/login`，小程序（`wx.request`）与网页端（fetch）
 **共用**（`routers/auth.py:138` 注释即证：`v108-fix: ...(wx.request doesn't auto-handle cookies)`）。
 `users` **没有「端」字段**；权限只按「角色 → 模块」（`core.py:375-389` `_DEFAULT_PERMS`）。
@@ -379,3 +431,22 @@ def role_reject_detail(role):   return "角色不合法：%s。可选角色：%s
 📄 原始分析与三方案对比：`outputs/员工薪酬信息归属与访问控制分析-2026-09-19/`
 ｜交付报告：`outputs/权限按租户分叉与算工资窄模块-2026-09-19/`
 
+---
+
+## 🔴 legacy 权限数组 = 「全动作放行」（2026-09-24 核实，影响面全站）
+- `core.py::_check_perm`：
+  · `if "*" in perms: return True`
+  · `if isinstance(perms, list): return module in perms`  ← 注释原文「Legacy format: list of module names — **grants all actions**」
+  · 只有 **dict 格式**才细分动作：`return action in mod_perms`
+- `server.py` 中间件确实把 method 映射成动作（`{"GET":"read","POST":"create","PUT":"update","PATCH":"update","DELETE":"delete"}`），
+  但**对 legacy 数组形同虚设** ⇒ 只要某角色的模块权限写成数组，该模块的**增删改查一并放行**。
+- 生产实测：`tenant_1.role_permissions` **只有 2 行**（`库管`→`["dashboard","stock","data"]`、`supervisor`→`["data","dashboard"]`），
+  其余角色（boss/sales/accountant/admin/driver/warehouse）全走 `_DEFAULT_PERMS`；而 `_DEFAULT_PERMS` 里
+  **除 `admin: ["*"]` 外全是 legacy 数组** ⇒ **默认权限表里没有任何写操作限制**。
+- `perms_for(tid)` = `{**_DEFAULT_PERMS, **_read_custom_perms(key)}` —— 按**角色整表覆盖**（不是按模块合并）。
+- ⚠️ **`sales` 是模块名，业务员角色名也叫 `sales`** —— 同名不同物。「角色 sales 恰好拥有 sales 模块」纯属
+  `_DEFAULT_PERMS["sales"] = ["dashboard","ops-workbench","sales","buying","stock","crm","data"]` 里的巧合式全开。
+- ⚠️ **前端侧栏不是安全边界**：`Shell.vue` 15 条入口里**只有「算工资」一条**带 `v-if="store.canModule('payroll')"`
+  （桌面 :48 / 移动 :96），其余（含「目标与返利」「档案管理」）**全部裸奔**。权限必须落在服务端。
+- 🔴 **写操作的角色级收口要靠路由内显式校验**（`_auth` 只验登录，不验角色）——
+  例：`routers/rebate_achievements.py::upsert_achievement` 只有 `_auth(request)`。

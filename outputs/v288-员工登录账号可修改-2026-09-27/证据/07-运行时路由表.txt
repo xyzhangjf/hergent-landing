@@ -1,0 +1,14 @@
+[DB] SQLite engine — /opt/hergent-erp/erp.db
+[RateLimit] Enabled: 300 req/min default
+运行中 app 的路由总数 = 1444
+
+=== 本轮新增的端点 ===
+  ✅ /api/users/{uid}/username                  ['PUT']
+  命中 1 条（期望 ≥1）
+
+=== 同族端点对照（应四条同在前缀下）===
+  /api/users/{uid}/password                  ['POST']
+  /api/users/{uid}/reset-code                ['POST']
+  /api/users/{uid}/role                      ['PUT']
+  /api/users/{uid}/status                    ['PUT']
+  /api/users/{uid}/username                  ['PUT']

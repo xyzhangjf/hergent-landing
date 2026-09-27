@@ -1,0 +1,26 @@
+===== ① 首页 =====
+http_status    = 200
+title          = Hergent · AI 经营副驾
+app_children   = 1
+body_text      = "Hergent · AI 经营副驾\n\n低温奶经销商的经营好帮手\n\n登录\n免费注册\n用户名\n密码\n忘记密码？\n登 录\n先看看演示效果（免注册）\n\n© 2026 湖北省小赫智体数字科技有限公司\n鄂ICP备2026027973号-1 · 用户协议 · 隐私政策"
+
+===== ② 关键 chunk 可加载 =====
+  200  129014B  /assets/index-C7Lw83l-.js
+  200  92220B  /assets/Archive-PCH8g8K-.js
+  200  15425B  /assets/index-CSOmVdY6.css
+
+===== ③ 本轮新文案是否在 Archive chunk 里 =====
+  OK    改账号
+  OK    取消改账号
+  OK    保存账号
+  OK    该员工下次登录请用新账号
+  OK    登录账号需 2-32 个字符
+
+===== ④ 未登录深链到本轮改的页面 =====
+  final_url  = https://hergent.cn/#/login
+  body_text  = "Hergent · AI 经营副驾\n\n低温奶经销商的经营好帮手\n\n登录\n免费注册\n用户名\n密码\n忘记密码？\n登 录\n先看看演示效果（免注册）\n\n© 2026 湖北省小赫智体数字科技有限公司\n鄂ICP备2026027973号-1 · 用户协议 · 隐私政策"
+  深链期间新增 error = 0
+
+===== 汇总 =====
+console_errors = 0
+console_warns  = 0
