@@ -151,6 +151,43 @@
           <div v-if="errors.max_users" id="tn-maxusers-err" class="field-error" role="alert">{{ errors.max_users }}</div>
         </div>
       </div>
+      <!-- v287：仅新增时填写 —— 租户建完必须有账号才能登录，这两项与公司名同等必需 -->
+      <template v-if="!isEdit">
+        <div class="cred-sep">客户登录凭据</div>
+        <p class="cred-hint">
+          客户用这组账号密码登录。密码保存后<b>只显示这一次</b>，请当场复制发给客户。
+        </p>
+        <div class="field">
+          <label for="tn-account">登录账号<span class="req" aria-hidden="true">*</span></label>
+          <input
+            id="tn-account"
+            class="input"
+            :class="{ error: errors.admin_account }"
+            v-model="form.admin_account"
+            placeholder="建议直接用客户手机号"
+            aria-required="true"
+            @input="accountTouched = true; errors.admin_account = ''"
+          />
+          <div v-if="errors.admin_account" class="field-error" role="alert">{{ errors.admin_account }}</div>
+        </div>
+        <div class="field">
+          <label for="tn-pwd">初始密码<span class="req" aria-hidden="true">*</span></label>
+          <div class="pwd-row">
+            <input
+              id="tn-pwd"
+              class="input"
+              :class="{ error: errors.admin_password }"
+              v-model="form.admin_password"
+              placeholder="至少 8 位，须含字母和数字"
+              aria-required="true"
+              @input="errors.admin_password = ''"
+            />
+            <button type="button" class="btn" @click="form.admin_password = genPassword()">换一个</button>
+          </div>
+          <div v-if="errors.admin_password" class="field-error" role="alert">{{ errors.admin_password }}</div>
+          <div class="muted field-hint">已自动生成合规密码，可直接用；也可改成客户熟悉的</div>
+        </div>
+      </template>
       <div class="field" v-if="isEdit">
         <label id="tn-status-label">状态</label>
         <div class="pill-group" role="group" aria-labelledby="tn-status-label">
@@ -161,6 +198,24 @@
       <template #footer>
         <button class="btn ghost" @click="modalShow = false">取消</button>
         <button class="btn primary" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
+      </template>
+    </Modal>
+
+    <!-- v287：开通成功后展示凭据 —— 密码只回传这一次，必须让操作者当场复制 -->
+    <Modal :show="credShow" title="客户账号已创建" @close="credShow = false">
+      <p class="cred-warn">
+        密码<b>只显示这一次</b>，关闭后无法再查看。请先点「复制全部」再关闭。
+      </p>
+      <div class="cred-box">
+        <div class="cred-line"><span>登录地址</span><b>{{ cred.url }}</b></div>
+        <div class="cred-line"><span>公司</span><b>{{ cred.company }}</b></div>
+        <div class="cred-line"><span>登录账号</span><b>{{ cred.account }}</b></div>
+        <div class="cred-line"><span>初始密码</span><b>{{ cred.password }}</b></div>
+      </div>
+      <p class="cred-hint">把复制到的内容发给客户，并提醒首次登录后尽快修改密码。</p>
+      <template #footer>
+        <button class="btn ghost" @click="credShow = false">关闭（密码不再显示）</button>
+        <button class="btn primary" @click="copyCred">复制全部</button>
       </template>
     </Modal>
 
@@ -273,10 +328,60 @@ const bulkBusy = ref(false)
 const bulkConfirmShow = ref(false)
 
 function blankForm() {
-  return { name: '', contact_name: '', contact_phone: '', plan: 'free', max_users: 5, is_active: 1 }
+  return {
+    name: '', contact_name: '', contact_phone: '', plan: 'free', max_users: 5, is_active: 1,
+    // v287：**仅新增时使用**。开通一个客户必须同时给出登录账号与初始密码，否则租户建完
+    //   没有任何人能登录。后端 `POST /api/platform/onboard` 早已支持，此前前端调的却是
+    //   只建租户的 `POST /api/tenants` ⇒ 账号永远缺失。
+    admin_account: '', admin_password: '',
+  }
 }
 function planLabel(p) {
   return { free: '免费版', pro: '专业版', enterprise: '企业版', '': '未设置' }[p] || p
+}
+
+// ---- v287：客户登录凭据（仅「新增」时使用）----
+/** 初始密码：8 位，大写 / 小写 / 数字各至少一个；剔除易混淆的 0 O 1 l I。 */
+function genPassword() {
+  const up = 'ABCDEFGHJKMNPQRSTUVWXYZ'
+  const lo = 'abcdefghjkmnpqrstuvwxyz'
+  const di = '23456789'
+  const all = up + lo + di
+  const pick = (s) => s[Math.floor(Math.random() * s.length)]
+  const out = [pick(up), pick(lo), pick(di)]
+  while (out.length < 8) out.push(pick(all))
+  return out.sort(() => Math.random() - 0.5).join('')
+}
+/** 账号建议值：优先用联系人手机号（客户自己记得住、唯一性好）；没填就留空由用户自己写。 */
+function suggestAccount() {
+  const phone = (form.value.contact_phone || '').replace(/\D/g, '')
+  return phone.length >= 6 ? phone : ''
+}
+const credShow = ref(false)
+const cred = ref({ url: '', company: '', account: '', password: '' })
+// 账号一旦被手动改过就不再自动覆盖（避免"我改好了又被手机号顶掉"）
+const accountTouched = ref(false)
+watch(() => form.value.contact_phone, () => {
+  if (isEdit.value || accountTouched.value) return
+  const s = suggestAccount()
+  if (s) form.value.admin_account = s
+})
+/** 把凭据拼成一段可直接转发给客户的文字（含首次登录须改密的提示）。 */
+async function copyCred() {
+  const c = cred.value
+  const text = [
+    '【Hergent AI 经营副驾】账号已开通',
+    '登录地址：' + c.url,
+    '登录账号：' + c.account,
+    '初始密码：' + c.password,
+    '首次登录后请立即修改密码。',
+  ].join('\n')
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.ok('已复制，可直接发给客户')
+  } catch (e) {
+    toast.err('复制失败，请手动选中上面的内容复制')
+  }
 }
 
 // 查询签名：任一参数变化即请求一次（服务端分页/搜索/排序）
@@ -362,6 +467,8 @@ function openCreate() {
   isEdit.value = false
   editingId.value = null
   form.value = blankForm()
+  form.value.admin_password = genPassword()   // v287：预生成合规初始密码，省一步手填
+  accountTouched.value = false
   errors.value = {}
   modalShow.value = true
 }
@@ -391,12 +498,31 @@ async function save() {
       })
       toast.ok('已保存')
     } else {
-      await tenantApi.create({
-        name: form.value.name, contact_name: form.value.contact_name,
-        contact_phone: form.value.contact_phone, plan: form.value.plan,
+      const acc = (form.value.admin_account || '').trim()
+      const pwd = form.value.admin_password || ''
+      // 本地只做**快速反馈**；真正的判据在后端（core.validate_username / _validate_password）
+      if (!acc) { errors.value.admin_account = '请填写客户登录账号'; return }
+      if (acc.toLowerCase() === 'admin') { errors.value.admin_account = '「admin」是系统内置账号，不能使用'; return }
+      if (acc.length < 2 || acc.length > 32) { errors.value.admin_account = '账号需 2~32 个字符'; return }
+      if (!pwd || pwd.length < 8) { errors.value.admin_password = '密码至少 8 位'; return }
+      if (!(/\d/.test(pwd) && /[a-zA-Z]/.test(pwd))) { errors.value.admin_password = '密码需同时包含数字和字母'; return }
+      // v287：改调 onboard —— 一次完成「建租户 + 建管理员账号 + 关联成员」并回传账号密码
+      const res = await tenantApi.onboard({
+        company_name: form.value.name,
+        contact_name: form.value.contact_name,
+        contact_phone: form.value.contact_phone,
+        admin_account: acc,
+        admin_password: pwd,
+        plan: form.value.plan,
         max_users: form.value.max_users,
       })
-      toast.ok('租户已创建')
+      cred.value = {
+        url: location.origin + '/',
+        company: form.value.name,
+        account: (res && res.username) || acc,
+        password: (res && res.password) || pwd,
+      }
+      credShow.value = true
     }
     modalShow.value = false
     await load()

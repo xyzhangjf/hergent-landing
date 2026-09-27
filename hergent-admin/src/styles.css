@@ -699,3 +699,41 @@ table.tbl td.wrap { white-space: normal; }
 }
 :root[data-theme="dark"] table.tbl tr:hover td { background: #1f242c; }
 :root[data-theme="dark"] .tbl th { background: var(--bg-subtle); }
+
+/* ---- v287：开通客户后的「登录凭据」展示（Tenants.vue 新增租户 / 凭据弹窗）---- */
+.cred-sep {
+  margin: 16px 0 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.cred-hint { margin: 0 0 10px; font-size: 12px; color: var(--text-3); line-height: 1.6; }
+.cred-warn {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--chip-red-bg);
+  color: var(--chip-red-fg);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.cred-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 12px;
+  margin-bottom: 10px;
+}
+.cred-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 13px;
+}
+.cred-line + .cred-line { border-top: 1px solid var(--border); }
+.cred-line span { color: var(--text-3); flex: none; }
+.cred-line b { font-weight: 500; color: var(--text); word-break: break-all; text-align: right; }
+.pwd-row { display: flex; gap: 8px; align-items: center; }
+.pwd-row .input { flex: 1; min-width: 0; }

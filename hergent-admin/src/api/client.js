@@ -102,6 +102,10 @@ export const tenantApi = {
   list: (params = {}) => api.get('/tenants?' + qs({ active_only: false, ...params })),
   get: (id) => api.get('/tenants/' + id),
   create: (b) => api.post('/tenants', b),
+  // v287：一键开通客户 = 建租户 + 建管理员账号 + 关联成员，并返回**仅显示一次**的账号密码。
+  // 与 create 的区别：create 只建租户（没有任何账号 ⇒ 客户无法登录），本接口才配得上
+  // 「开通一个客户」这件事。后端实现见 routers/platform.py::onboard_tenant。
+  onboard: (b) => api.post('/platform/onboard', b),
   update: (id, b) => api.put('/tenants/' + id, b),
   members: (id) => api.get('/tenants/' + id + '/members'),
   addMember: (id, b) => api.post('/tenants/' + id + '/members', b),
