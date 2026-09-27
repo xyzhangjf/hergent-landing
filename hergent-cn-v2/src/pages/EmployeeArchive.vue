@@ -107,10 +107,10 @@
 
     <!-- 编辑员工弹窗 -->
     <Teleport to="body">
-      <Transition name="fade"><div v-if="editOpen" class="df-overlay" @click="editOpen = false"></div></Transition>
+      <Transition name="fade"><div v-if="editOpen" class="df-overlay" @click="tryCloseEdit"></div></Transition>
       <Transition name="pop">
         <div v-if="editOpen" class="df-modal edit-modal">
-          <div class="df-modal-hd"><b>{{ isCreate ? '新建员工' : ('编辑员工 · ' + (editTarget?.name || '')) }}</b><button class="df-x" @click="editOpen = false"><Icon name="close"/></button></div>
+          <div class="df-modal-hd"><b>{{ isCreate ? '新建员工' : ('编辑员工 · ' + (editTarget?.name || '')) }}</b><button class="df-x" @click="tryCloseEdit" aria-label="关闭"><Icon name="close"/></button></div>
           <div class="df-modal-body df-edit-body">
 
             <!-- 基本信息 -->
@@ -155,13 +155,22 @@
                 </label>
                 <button class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || !pwdOk(accForm2.password)" @click="createAccountInEdit">开通账号</button>
               </div>
-              <div v-else class="df-acc-manage">
+              <div v-else class="df-acc-manage df-acc-card">
+                <!-- v290（2026-09-27）：把「独立保存」这件事**画出来**。
+                     这一段原先与上面两段外观完全一样，用户看不出"哪里到哪里算一个保存单位"，
+                     于是很自然地以为底部那个最显眼的「保存」能把整页都存下来 —— 而它只管人事档案。
+                     ⇒ 边框 = 保存边界：卡片以内各自保存，卡片以外归底部「保存基本信息」。 -->
+                <div class="df-acc-card-hd">
+                  <span class="df-acc-card-t">账号与权限</span>
+                  <span v-if="accAnyDirty" class="df-dirty-tag">有未保存的改动</span>
+                </div>
+                <p class="df-acc-card-tip">以下每一项都<b>各自独立保存</b>：改完点它自己那一行的按钮，与弹窗底部的「保存基本信息」互不影响。</p>
                 <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleName(editTarget.account_role) }}<template v-if="extraRolesOf(editTarget).length">（兼任 {{ extraRolesOf(editTarget).map(roleName).join('、') }}）</template> · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span></p>
                 <div class="df-acc-row">
                   <select v-model="accRoleEdit" class="input acc-role">
                     <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
-                  <button class="btn btn-ghost btn-sm" :disabled="accBusy || !accRoleDirty" @click="saveAccRole">保存角色</button>
+                  <button class="btn btn-primary btn-sm" :disabled="accBusy || !accRoleDirty" @click="saveAccRole">保存角色</button>
                 </div>
                 <!-- v266 角色可叠加：兼任角色**只增加权限**，不改上面的主角色。
                      主角色决定「这个人是干嘛的」（销售只看自己的单、能不能用小程序…）；
@@ -180,22 +189,31 @@
                     >{{ roleName(o.value) }}</button>
                   </div>
                 </div>
-                <div v-if="showReset" class="df-acc-row">
-                  <input v-model="accPwdEdit" class="input" type="text" :placeholder="'新密码（' + PWD_HINT + '）'">
-                  <button class="btn btn-ghost btn-sm" :disabled="accBusy || !pwdOk(accPwdEdit)" @click="resetAccPwd">保存密码</button>
+                <!-- v290（2026-09-27）操作行 + 展开区**上下相邻**。
+                     原实现的展开输入框长在这一行的**上方**（中间还隔着「兼任角色」一整块），
+                     点完按钮，输入框出现在屏幕另一处 ⇒ 看着像"点了没反应"，用户会连点。
+                     现在：按钮行不动，输入框紧贴在它下面长出来（几何距离 ≤ 1 行）。
+                     另外「取消改账号 / 取消重置」两个按钮**不再叫"取消"** ——
+                     同屏三个"取消"（含底部关窗那个）语义不同，是误点源。 -->
+                <div class="df-acc-row df-acc-ops">
+                  <button class="btn btn-ghost btn-sm" :class="{ 'is-on': showRename }" :disabled="accBusy" :aria-expanded="showRename" @click="toggleRename">{{ showRename ? '收起' : '改登录名' }}</button>
+                  <button class="btn btn-ghost btn-sm" :class="{ 'is-on': showReset }" :disabled="accBusy" :aria-expanded="showReset" @click="showReset = !showReset">{{ showReset ? '收起' : '重置密码' }}</button>
+                  <button class="btn btn-ghost btn-sm danger df-acc-right" :disabled="accBusy" @click="toggleAccStatus">{{ editTarget.account_active ? '禁用账号' : '启用账号' }}</button>
                 </div>
-                <!-- v288（2026-09-27）：改**登录账号名**。
-                     原入口只在「个人设置」里（`PUT /api/auth/profile`）且**只能改自己** ——
-                     老板在这里看不到入口，账号名建错只能删账号重建。 -->
-                <div v-if="showRename" class="df-acc-row">
-                  <input v-model="accNameEdit" class="input" type="text" placeholder="新的登录账号（2-32 个字符）" @keyup.enter="renameAcc">
-                  <button class="btn btn-ghost btn-sm" :disabled="accBusy || !nameDirty" @click="renameAcc">保存账号</button>
-                </div>
-                <div class="df-acc-row">
-                  <button v-if="!showRename" class="btn btn-ghost btn-sm" :disabled="accBusy" @click="openRename">改账号</button>
-                  <button v-else class="btn btn-ghost btn-sm" @click="showRename = false">取消改账号</button>
-                  <button class="btn btn-ghost btn-sm" @click="showReset = !showReset">{{ showReset ? '取消重置' : '重置密码' }}</button>
-                  <button class="btn btn-ghost btn-sm danger" :disabled="accBusy" @click="toggleAccStatus">{{ editTarget.account_active ? '禁用账号' : '启用账号' }}</button>
+                <div v-if="showRename || showReset" class="df-acc-expand">
+                  <!-- v288（2026-09-27）：改**登录账号名**。
+                       原入口只在「个人设置」里（`PUT /api/auth/profile`）且**只能改自己** ——
+                       老板在这里看不到入口，账号名建错只能删账号重建。 -->
+                  <div v-if="showRename" class="df-acc-row">
+                    <span class="df-acc-exp-label">新登录名</span>
+                    <input v-model="accNameEdit" class="input" type="text" placeholder="2-32 个字符" @keyup.enter="renameAcc">
+                    <button class="btn btn-primary btn-sm" :disabled="accBusy || !nameDirty" @click="renameAcc">保存登录名</button>
+                  </div>
+                  <div v-if="showReset" class="df-acc-row">
+                    <span class="df-acc-exp-label">新密码</span>
+                    <input v-model="accPwdEdit" class="input" type="text" :placeholder="PWD_HINT">
+                    <button class="btn btn-primary btn-sm" :disabled="accBusy || !pwdOk(accPwdEdit)" @click="resetAccPwd">保存密码</button>
+                  </div>
                 </div>
                 <!-- Q29（2026-09-19）生成一次性重置码：员工在小程序「忘记密码」里自己设新密码，
                      管理员全程不知道员工最终密码 —— 比上面的「重置密码」（管理员直接指定明文）
@@ -216,8 +234,8 @@
           </div>
 
           <div class="df-modal-ft">
-            <button class="btn btn-ghost" @click="editOpen = false">取消</button>
-            <button class="btn btn-primary" :disabled="!editForm.name.trim()" @click="saveEmployee">保存</button>
+            <button class="btn btn-ghost" @click="tryCloseEdit">取消</button>
+            <button class="btn btn-primary" :disabled="!editForm.name.trim()" @click="saveEmployee">保存基本信息</button>
           </div>
         </div>
       </Transition>
@@ -317,6 +335,10 @@ const editForm = reactive({
   bank_name: '', bank_account: '', social_insurance_city: '',
   social_insurance_base: null, housing_fund_base: null, base_salary: null,
 })
+/* v290（2026-09-27）：「人事档案有没有被改过」的基线快照。
+   打开弹窗时由 resetEditForm 存一份，关窗前拿它和当前 editForm 比 —— 见 tryCloseEdit。 */
+const formSnap = ref('')
+function snapshotForm() { formSnap.value = JSON.stringify(editForm) }
 
 /* ---- 登录账号（整合进"编辑员工"弹窗）与门店 ---- */
 /* 角色下拉。**键集必须与后端 `core._DEFAULT_PERMS` 完全一致**（权威源在那，不在本文件）：
@@ -464,6 +486,9 @@ function resetEditForm(e) {
   accNameEdit.value = ''
   resetCode.value = ''      // 换人 / 重开弹窗即清 —— 码只对刚生成的那个人有效
   resetCodeExp.value = ''
+  // v290：存一份「档案基线」，供关窗前的未保存检查比对。
+  // 必须放在**最后一行** —— 保证此刻 editForm 已经是"刚打开弹窗时该有的值"。
+  snapshotForm()
 }
 
 function openCreate() {
@@ -506,9 +531,17 @@ async function saveEmployee() {
       loadEmployees()
     } else {
       await employeeApi.update(editTarget.value.id, body)
-      toast('已保存', 'ok')
-      editOpen.value = false
       loadEmployees()
+      // 🔴 v290（2026-09-27）：**保存成功后是否关窗，要看账号区干不干净**。
+      //    原来是无条件 `editOpen = false` —— 若用户"改完档案又改了角色、然后点底部保存"，
+      //    角色那处改动会随关窗无声消失（这正是评审报告里的路径②）。
+      //    现在：账号区干净才关；否则留在弹窗里，并明确告诉他还有什么没存。
+      if (accAnyDirty.value) {
+        toast('基本信息已保存；登录账号区还有未保存的改动', 'warn')
+      } else {
+        toast('已保存', 'ok')
+        editOpen.value = false
+      }
     }
   } catch (e2) { toast(e2.message || '保存失败', 'err') }
 }
@@ -599,8 +632,11 @@ async function createAccountInEdit() {
       role: accForm2.role,
     })
     toast('账号已开通', 'ok')
-    editOpen.value = false
-    loadEmployees()
+    // v290（2026-09-27）：不关窗 —— 开通后刷新即就地切到「已有账号」态，
+    //    让用户接着配角色 / 密码；关窗同样会丢掉档案区未保存的改动。
+    await loadEmployees()
+    const fresh = employees.value.find(x => x.id === (editTarget.value && editTarget.value.id))
+    if (fresh) editTarget.value = fresh
   } catch (e) { toast(e.message || '开通失败', 'err') }
   finally { accBusy.value = false }
 }
@@ -630,6 +666,39 @@ const accRoleDirty = computed(() => {
   return accRoleEdit.value !== editTarget.value.account_role || next !== cur
 })
 
+/** v290：把角色编辑态同步到某个员工对象上（保存成功后调用，让 accRoleDirty 归零）。 */
+function syncRoleEdit(e) {
+  const src = e || {}
+  accRoleEdit.value = src.account_role || 'staff'
+  accRolesEdit.value = String(src.account_roles || '')
+    .split(/[,，、;；]/).map(s => s.trim()).filter(Boolean)
+}
+
+/* ==== v290（2026-09-27）「未保存改动」的统一判据 ==============================
+   为什么要有这一组：这个弹窗里「人事档案」与「登录账号」是**两套独立保存**
+   （两套端点、字段零交集 —— 这是对的，别去合并）；但原先**任何一处保存成功
+   都会关掉整个弹窗**，于是"先改 A、再改 B、只点了一个保存"⇒ 另一处随关窗
+   **无声消失**（零提示、零报错，比 v289 那个"至少还报错"的缺陷更隐蔽）。
+   现在分两步治：① 保存成功不再一律关窗（见各 save / rename 函数）
+              ② 关窗前统一问一句 —— 就是下面的 tryCloseEdit。
+   ⚠️ 判据只在**这里**写一份，不要在各个按钮里再抄一遍（本项目三次栽在"规则抄多份"）。 */
+const formDirty = computed(() => JSON.stringify(editForm) !== formSnap.value)
+const accAnyDirty = computed(() =>
+  accRoleDirty.value || nameDirty.value || String(accPwdEdit.value || '').length > 0
+)
+const anyDirty = computed(() => formDirty.value || accAnyDirty.value)
+
+/** 关闭编辑弹窗的**唯一入口**（遮罩 / ✕ / 取消 三处都走它，别再直接写 editOpen=false）。 */
+function tryCloseEdit() {
+  if (anyDirty.value) {
+    const what = [formDirty.value ? '人事档案' : '', accAnyDirty.value ? '登录账号' : '']
+      .filter(Boolean).join('和')
+    const nm = (editTarget.value && editTarget.value.name) || ''
+    if (!window.confirm(`「${nm}」的${what}还有未保存的改动。\n\n关闭后这些改动会丢失，确定关闭吗？`)) return
+  }
+  editOpen.value = false
+}
+
 // 修改已有账号的角色（v266：主角色 + 兼任角色一起提交）
 async function saveAccRole() {
   if (accBusy.value || !editTarget.value || !editTarget.value.account_user_id) return
@@ -641,10 +710,17 @@ async function saveAccRole() {
       body: { role: accRoleEdit.value, roles: extras },
     })
     toast(extras.length
-      ? `角色已更新（兼任 ${extras.map(roleName).join('、')}）`
-      : '角色已更新', 'ok')
-    editOpen.value = false
-    loadEmployees()
+      ? `角色已保存（兼任 ${extras.map(roleName).join('、')}）`
+      : '角色已保存', 'ok')
+    // 🔴 v290（2026-09-27）：**关窗 → 就地刷新**。
+    //    原来这里是 `editOpen.value = false`（关掉整个弹窗），而弹窗里「人事档案」与
+    //    「账号区」是两套独立保存 ⇒ 用户"改完岗位顺手改角色、点保存角色"，
+    //    岗位那处改动就随着关窗**无声消失**（零提示、零报错）。
+    //    v289 那个缺陷至少还会报错；这个是"消失得和保存成功一模一样"，更隐蔽。
+    //    现在：只刷新本区状态，弹窗留着 —— 让用户自己看见还有哪些没存。
+    await loadEmployees()
+    const fresh = employees.value.find(x => x.id === (editTarget.value && editTarget.value.id))
+    if (fresh) { editTarget.value = fresh; syncRoleEdit(fresh) }
   } catch (e) { toast(e.message || '更新失败', 'err') }
   finally { accBusy.value = false }
 }
@@ -655,6 +731,13 @@ async function saveAccRole() {
 function openRename() {
   accNameEdit.value = (editTarget.value && editTarget.value.account_username) || ''
   showRename.value = true
+}
+
+/** v290：点「改登录名」展开（顺带预填当前账号名）、再点即收起。
+    抽成函数是因为模板里原来写死的是 `showRename = false`（只能收、不能开）。 */
+function toggleRename() {
+  if (showRename.value) { showRename.value = false; return }
+  openRename()
 }
 
 async function renameAcc() {
@@ -674,8 +757,12 @@ async function renameAcc() {
     // 🔴 必须点名「下次登录用新账号」—— 否则员工拿旧账号登录被拒，会以为是密码坏了。
     toast(`登录账号已改为「${n}」— 该员工下次登录请用新账号`, 'ok')
     showRename.value = false
-    editOpen.value = false
-    loadEmployees()
+    accNameEdit.value = ''
+    // v290（2026-09-27）：同 saveAccRole —— **不关窗**。
+    //    关窗会连带丢掉「人事档案」那边还没保存的改动，而用户完全看不出来。
+    await loadEmployees()
+    const fresh = employees.value.find(x => x.id === (editTarget.value && editTarget.value.id))
+    if (fresh) editTarget.value = fresh
   } catch (e) { toast(e.message || '修改失败', 'err') }
   finally { accBusy.value = false }
 }
@@ -733,8 +820,10 @@ async function toggleAccStatus() {
   try {
     await api(`/api/users/${editTarget.value.account_user_id}/status`, { method: 'PUT', body: { is_active: next } })
     toast(next ? '账号已启用' : '账号已禁用', 'ok')
-    editOpen.value = false
-    loadEmployees()
+    // v290（2026-09-27）：同 saveAccRole —— 不关窗（关窗会吃掉档案区未保存的改动）。
+    await loadEmployees()
+    const fresh = employees.value.find(x => x.id === (editTarget.value && editTarget.value.id))
+    if (fresh) editTarget.value = fresh
   } catch (e) { toast(e.message || '操作失败', 'err') }
   finally { accBusy.value = false }
 }
@@ -855,7 +944,10 @@ onMounted(() => {
 /* v266 兼任角色徽标：用**虚框**而非实底，与主角色实底徽标在视觉上分层
    —— 一眼看出「哪个是这个人的本职、哪个是兼的」。 */
 .df-role-extra{background:transparent !important;border:1px dashed rgba(var(--teal-rgb,14,165,164),.55);color:var(--teal,#0ea5a4)}
-.df-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:980}
+/* v290：遮罩 .3 → .45。原值太浅，弹窗右侧还能看清整个员工列表，视觉焦点不集中。
+   ⚠️ 这只是**对比度**问题，不是层叠问题 —— overlay 980 / modal 990 的层级本来就是对的，
+      截图里露出的那块表格是没遮严的页面内容，不是 bug，别往 z-index 上修。 */
+.df-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:980}
 .df-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(420px,92vw);max-height:88vh;display:flex;flex-direction:column;background:var(--bg);border-radius:16px;z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.18)}
 .df-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
 .df-modal-hd b{font-size:15px;color:var(--t1)}
@@ -875,7 +967,8 @@ onMounted(() => {
 .btn-danger:hover{filter:brightness(.95)}
 
 /* 编辑弹窗布局 */
-.edit-modal{width:min(600px,94vw)}
+/* v290：600 → 680 —— 两列栅格下每列约 270px 太挤（"薪酬与账户"7 个字段会挤出半行留白）。 */
+.edit-modal{width:min(680px,94vw)}
 .df-edit-body{display:flex;flex-direction:column;gap:20px}
 .df-sec{display:flex;flex-direction:column;gap:13px}
 .df-sec-title{font-size:13px;font-weight:600;color:var(--t1);padding-left:11px;border-left:3px solid var(--p);line-height:1.2}
@@ -892,6 +985,22 @@ onMounted(() => {
 .df-acc-sum .off{color:var(--t3)}
 .df-acc-create{display:flex;flex-direction:column;gap:12px}
 .df-acc-manage{display:flex;flex-direction:column;gap:12px}
+/* v290：账号区**带边框的卡片** —— 边框 = 保存边界。
+   这一段是「各自独立保存」的，卡片以外的两段归弹窗底部的「保存基本信息」。
+   画个框，用户就能一眼看出"一个保存单位"到哪儿为止（原来三段外观完全一样，无从分辨）。 */
+.df-acc-card{border:1px solid var(--border-subtle);border-radius:12px;padding:14px 14px 15px;background:var(--bg2);gap:11px}
+.df-acc-card-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.df-acc-card-t{font-size:12.5px;font-weight:600;color:var(--t1)}
+/* 文字色跟主题走（浅色=深字 / 深色=浅字），只有底色是黄调 —— 避免深色主题下看不清。 */
+.df-dirty-tag{font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:20px;background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5)}
+.df-acc-card-tip{font-size:12px;color:var(--t3);margin:-4px 0 0;line-height:1.6}
+.df-acc-card-tip b{color:var(--t2)}
+/* v290：操作行 + 紧贴其下的展开区（输入框**不再**长在按钮上方、隔着别的区块）。 */
+.df-acc-ops{padding-top:1px}
+.df-acc-ops .btn.is-on{border-color:var(--teal);color:var(--teal)}
+.df-acc-right{margin-left:auto}
+.df-acc-expand{display:flex;flex-direction:column;gap:10px;padding:10px 11px;border-radius:9px;background:var(--bg);border:1px dashed var(--border-subtle)}
+.df-acc-exp-label{font-size:12.5px;color:var(--t2);flex-shrink:0;min-width:56px}
 .df-acc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .df-acc-row .input, .df-acc-row select{flex:1;min-width:0}
 /* v266 兼任角色选择：独占一行、可点选的 chip（多选）。
