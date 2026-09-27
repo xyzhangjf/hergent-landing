@@ -1,0 +1,65 @@
+v292 护栏与一致性检查（生成时间：2026-09-27 15:35:59）
+================================================================
+--- A. 页面注册表护栏（v291 建，本轮必跑）---
+PAGE_RULES 登记 17 个路径
+   /ai-hub
+   /archive
+   /bid-radar
+   /connect
+   /cron
+   /dashboard
+   /data-fill
+   /forecast
+   /loss
+   /loss-accounting
+   /payroll
+   /price-channels
+   /rebate
+   /roles
+   /settings
+   /workbench
+   /zhoupu-import
+
+Shell.vue 引用 12 个 / CommandPalette.vue 引用 13 个
+
+--- 判据 A：入口引用但**未登记**（fail-open ⇒ 静默失去门禁）---
+   ✅ 无（每个被引用的路径都已登记）
+
+--- 判据 B：router 有组件的子路由但**未登记** ---
+   （router 抓到 17 个：/ai-hub /archive /bid-radar /connect /cron /dashboard /data-fill /forecast /loss /loss-accounting /payroll /price-channels /rebate /roles /settings /workbench /zhoupu-import）
+   ✅ 无
+
+--- 反向提示：登记了但三个入口都没引用（仅提示，不算失败）---
+   （无）
+   注：这些通常是深链 / 页内跳转专用（如 /zhoupu-import、/loss），属正常。
+
+========================================================
+✅ 护栏通过：入口引用集合 ⊆ 注册表
+退出码=0
+
+--- B. 角色注册表一致性（37 项）---
+  PASS  Settings.vue ROLE_LABELS 无空映射   [可疑: []]
+
+F 后端 · 角色白名单与两处写入口接线
+  PASS  core.py 定义了 normalize_role（白名单判据唯一来源）
+  PASS  normalize_role 以权威源（_DEFAULT_PERMS + 按租户表）为判据（未另抄名单）
+  PASS  PUT /api/users/{uid}/role 接入了白名单   [只校验非空 ⇒ 任何 admin/boss 都能造出新 admin]
+  FAIL  开账号接口（staff-accounts）接入了白名单
+  PASS  staff_account_create（INSERT 旁）也有第二道白名单
+
+F2 报单汇总可见角色白名单（后端 SUMMARY_ROLES ↔ 前端 FORECAST_SUMMARY_ROLES）
+  PASS  后端 SUMMARY_ROLES 是**模块级常量**（内联在函数体内护栏看不见 ⇒ 等于没护栏）
+  PASS  前端定义了 FORECAST_SUMMARY_ROLES（roles.js）
+  PASS  两侧白名单逐项一致（排序后）   [后端=['admin', 'boss', 'supervisor'] 前端=['admin', 'boss', 'supervisor']]
+  PASS  SUMMARY_ROLES 非空（空 = 全员看不到汇总 = 静默失效）
+  PASS  SUMMARY_ROLES 不含后端不存在的角色（写错字 = 那个角色被静默放行）
+  PASS  submission_summary 真的用 SUMMARY_ROLES 判据（未留内联副本）
+  PASS  Shell.vue 每个 /forecast 入口都带门禁（≥2 处，且无裸入口）   [带门禁 2 处 / 裸入口 0 处]
+  PASS  Forecast.vue 两条路都接了（summaryDenied 按角色预判 + crossDenied 服务端拒绝）
+  PASS  Forecast.vue 按**状态码**分流 403（不再把「无权限」说成「加载失败」）
+
+--------------------------------------------------------------
+硬断言 35/37 通过，告警 0 条
+失败项:
+   - 标了「小程序」的角色集 = 后端有 data/chat 权限的角色集
+   - 开账号接口（staff-accounts）接入了白名单

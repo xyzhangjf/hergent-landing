@@ -1,0 +1,34 @@
+v292 线上回读特征串（生产 hergent.cn / 47.113.224.140）
+生成时间：2026-09-27 15:35:50
+================================================================
+① 公网 index.html 入口引用（带 cb 破缓存）
+assets/index-DOMPut21.js
+assets/index-CSOmVdY6.css
+
+② 线上 index.html 落盘时间（证明是本轮 15:18 那次构建）
+2026-09-27 15:18:18.000000000 +0800  826 bytes  /opt/hergent-cn-v2/index.html
+2026-09-27 15:18:18.000000000 +0800  132202 bytes  /opt/hergent-cn-v2/assets/index-DOMPut21.js
+
+③ 线上入口 bundle 里的 v292 特征串命中数（1 处 / 2 处）
+   perms-rev              1 处
+   customRoles            2 处
+   permsRev               1 处
+   refreshPermsIfChanged  2 处
+
+④ 后端新端点 /api/auth/perms-rev（未认证应 401）
+   HTTP=401
+
+⑤ 后端 /api/auth/permissions 返回体键集（登录 mptest@sales/租户1）
+   键集 : ['capabilities', 'custom_roles', 'permissions', 'perms_rev', 'plan', 'tenant_id', 'user']
+   perms_rev      : 1d233ec2461d
+   custom_roles   : ['supervisor', '库管']
+   permissions    : ['dashboard', 'ops-workbench', 'sales', 'buying', 'stock', 'crm', 'data', 'chat']
+   既有键是否齐全 : True
+
+⑥ /api/auth/perms-rev 重复请求稳定性（同值才证明是内容指纹、不是随机数）
+{"perms_rev":"1d233ec2461d","tenant_id":1}
+{"perms_rev":"1d233ec2461d","tenant_id":1}
+{"perms_rev":"1d233ec2461d","tenant_id":1}
+
+⑦ 收尾：注销本次回读登录态
+{"success":true}

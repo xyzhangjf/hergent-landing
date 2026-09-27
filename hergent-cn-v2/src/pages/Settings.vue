@@ -49,6 +49,27 @@
           <Icon name="alert-triangle"/> 为防止把自己锁在门外，<b>老板</b> 与 <b>管理员</b> 的「员工管理」「档案管理」为必选、不可取消 —— 本设置页本身依赖这两个模块。
         </p>
 
+        <!-- 🔴 v292：这两段文案是**功能的一部分**，不是装饰。
+             权限页最容易犯的错是「许诺一件它兑现不了的事」——老板勾了一个模块、界面没变，
+             就会认定系统坏了（而系统一声不吭）。所以这里必须把"勾选到底控制什么"、
+             "哪些页面不受影响"、"多久生效"三件事说成事实。 -->
+        <p class="pm-tip">
+          勾选控制两件事：① 该角色能不能调用这个模块下的<b>功能接口</b>；② 部分页面的<b>入口显隐</b>
+          （经营趋势 / AI 中心 / 算工资 / 定时任务 / 招投标雷达）。
+          保存后<b>立即生效</b>：本人菜单当场重排；已在别处登录的人最迟 1 分钟内跟随。
+        </p>
+        <p class="pm-tip">
+          ⚠️「档案管理」对应的是后端 <code>data</code> 模块，<b>粒度较粗</b>：给某角色勾上它，
+          除功能接口外还会一并放开<b>定时任务</b>与<b>招投标雷达</b>两个入口
+          —— 这两页的产品内置门槛，会在该角色被改动过权限后让位给客户配置。
+          所以「档案管理」只勾给真的需要它的角色（老板 / 会计 / 业务员 / 主管）。
+        </p>
+        <p class="pm-tip">
+          <b>产品内置、不受此处勾选影响</b>：预报订货管理、目标与返利、货损计算工作流、货损核算、
+          库存效期补录、档案管理、渠道与价格、能力中心、舟谱单据导入、设置、AI 团队。
+          —— 这些页面要么没有独立的权限模块（勾了也无处生效），要么就是「改权限」这件事本身。
+        </p>
+
         <div v-if="permLoading" class="state-empty"><div class="skel-line" style="width:40%;margin:0 auto"></div></div>
         <div v-else-if="!filteredModules.length" class="state-empty">没有匹配的模块</div>
         <div v-else class="table-wrap">
@@ -540,6 +561,20 @@ const filteredModules = computed(() => {
   return modules.value.filter(m => (m.label || '').toLowerCase().includes(q))
 })
 
+/* 权限值有两种合法形态（见后端 `core._DEFAULT_PERMS` 注释）：
+     · legacy list：`["stock","data"]`
+     · 新版 dict  ：`{"stock":["read","create"]}`
+   本页只按**模块**勾选，两种形态都归一成模块名数组（丢动作粒度，因为动作粒度不影响任何入口显隐）。
+   🔴 归一必须容错：`[...(v.permissions || [])]` 遇到 dict 会**直接抛**
+      "object is not iterable" ⇒ 整个 `loadPerms` 落进 catch ⇒ 权限页一片空白 +
+      只留一句"权限加载失败"。而这只在"某些租户用过 CRUD 级权限接口（/detail）"时才出现，
+      本地无论如何复现不出 —— 属最难查的那类缺陷。 */
+function permsToModules(v) {
+  if (Array.isArray(v)) return v.filter(x => typeof x === 'string')
+  if (v && typeof v === 'object') return Object.keys(v)
+  return []
+}
+
 async function loadPerms() {
   permLoading.value = true
   try {
@@ -549,14 +584,20 @@ async function loadPerms() {
     permRoles.value = Object.entries(r.roles || {})
       .map(([name, v]) => ({
         name,
-        perms: [...(v.permissions || [])].filter(p => p !== '*'),
+        perms: permsToModules(v.permissions).filter(p => p !== '*'),
         is_custom: v.is_custom,
       }))
       .filter(x => !LOCKED_ROLES.includes(x.name))
       .map(role => {
-        // 只保留已知模块（历史数据可能残留 ops-workbench 等已下线项）
-        role.perms = role.perms.filter(p => known.has(p) || p === 'dashboard')
-        // 受保护角色强制补回关键模块，避免历史脏数据导致自锁
+        /* 🔴 v292：这里**不再**丢弃"本页没有对应行的模块"（原为
+           `filter(p => known.has(p) || p === 'dashboard')`）。
+           原写法看着像"清理历史脏数据"，实际是**静默数据丢失**：`core._ALL_MODULES` 只有 15 项，
+           而 `_DEFAULT_PERMS` 里还用着 `ops-workbench` / `perf` / `goals` 三个**未登记**的模块
+           （`boss` 默认就持有它们）⇒ 老板只要点一次「保存权限」，这三个模块就被从租户库里**抹掉**，
+           且全链路零报错 —— 因为 POST 回去的正是被过滤后的那份列表（自己弄丢、自己说没问题）。
+           正确做法是「不认识 ≠ 丢掉」：未知模块**保留在数组里**（它只用于回传，不会被渲染成行，
+           因为行是由 `modules` 渲染的）⇒ 保存时逐字回传，一个字节都不改。
+           若日后要让它可配，正确动作是把它加进后端 `_ALL_MODULES` 并补中文标签，而不是在这里过滤。 */
         if (PROTECTED_ROLES.includes(role.name)) {
           for (const c of CRITICAL_MODULES) {
             if (known.has(c) && !role.perms.includes(c)) role.perms.push(c)
@@ -578,6 +619,19 @@ function togglePerm(role, mid, ev) {
   role.perms = on ? [...new Set([...role.perms, mid])] : role.perms.filter(p => p !== mid)
 }
 
+/* v292：保存/恢复后**必须把本会话的权限重新拉一遍**。改前没有这一步 ——
+   `store.perms` 仍是旧值 ⇒ 侧栏 24 处 `canSee()` 全部按旧权限渲染，老板改完看着菜单没变，
+   会以为"没保存上"；而系统给出的提示偏偏写着「权限已保存，立即生效」= **一句假承诺**。
+   这是最容易被原谅、也最伤信任的一类缺陷：它不报错，它撒谎。
+   🔴 用 `loadPerms(true)` 而**不是** `resetPerms()` + `loadPerms()`：后者会先把 `user.role`
+      清空，而"角色未知 = fail-open"会让菜单**先全显一遍**再收窄（闪一屏，观感更糟）。 */
+async function syncStorePerms() {
+  try {
+    await store.loadPerms(true)
+  } catch (_) {}
+  return !!store.perms
+}
+
 async function savePerms() {
   permSaving.value = true
   try {
@@ -587,7 +641,12 @@ async function savePerms() {
         body: { role_name: role.name, permissions: role.perms },
       })
     }
-    toast('权限已保存，立即生效', 'success')
+    if (await syncStorePerms()) {
+      toast('权限已保存，菜单与入口已同步更新', 'success')
+    } else {
+      // 拉不回来（网络/401）⇒ 老实说"没核对上"，别继续许诺"已生效"。
+      toast('权限已保存；但本机菜单未能刷新，请刷新页面确认', 'warn')
+    }
   } catch (e) {
     toast('保存失败：' + (e.message || ''), 'error')
   } finally {
@@ -600,7 +659,9 @@ async function resetRole(name) {
   try {
     await api(`/api/role-permissions/${name}`, { method: 'DELETE' })
     await loadPerms()
-    toast('已恢复默认权限', 'success')
+    // v292：恢复默认同样是一次权限变更（而且会撤掉该角色的"让位"资格）⇒ 一样要同步本会话。
+    await syncStorePerms()
+    toast('已恢复默认权限，菜单与入口已同步更新', 'success')
   } catch (e) {
     toast('恢复失败：' + (e.message || ''), 'error')
   }

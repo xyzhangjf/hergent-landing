@@ -229,6 +229,34 @@ onMounted(() => {
 })
 onBeforeUnmount(() => { if (notiTimer) clearInterval(notiTimer) })
 
+/* ---------------------------------------------------------------------------
+   v292（2026-09-27）权限联动兜底 —— 「人一直停在某个页面」也要能跟上权限变化
+   ---------------------------------------------------------------------------
+   🔴 为什么必须有这一层：设置页保存时前端会强制重拉（那是最快路径，见 `Settings.vue`），
+      但**别的会话**没有任何触发点 —— 如果那个人正停在报表页、不点导航、也不刷新，
+      他会一直按旧权限用下去，而系统里没有任何一处能自证这件事。
+   两个触发点，覆盖两种"人回来的时刻"：
+     · `visibilitychange` → 可见：切回标签页就查一次。这正是真实场景 —— 老板改完权限，
+       在微信里喊一声"你重新进一下"，对方切回浏览器标签页，这一刻必须已经生效。
+     · 60 秒轮询：一直盯着屏幕、没切走的情形。
+   🔴 两个触发点都走 `store.refreshPermsIfChanged()`（内部 20 秒节流 + 全静默 + 并发去重），
+      所以最坏情况也只是每个周期多打一个**几十字节**的请求，不会给后端添负担。
+   ⚠️ 与上面的通知轮询（2 分钟）分开两个 timer：两者周期不同、失败语义也不同，
+      合并会让"通知失败"和"权限失败"互相拖累，也会让任一个的改动都要重算另一个。
+--------------------------------------------------------------------------- */
+let permsTimer = null
+function onVisibilityCheck() {
+  if (document.visibilityState === 'visible') store.refreshPermsIfChanged(true)
+}
+onMounted(() => {
+  permsTimer = setInterval(() => store.refreshPermsIfChanged(true), 60000)
+  document.addEventListener('visibilitychange', onVisibilityCheck)
+})
+onBeforeUnmount(() => {
+  if (permsTimer) clearInterval(permsTimer)
+  document.removeEventListener('visibilitychange', onVisibilityCheck)
+})
+
 function toggleTheme() {
   setTheme(store.ui.theme === 'light' ? 'dark' : 'light')
 }

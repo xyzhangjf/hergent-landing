@@ -41,6 +41,20 @@ export const useAppStore = defineStore('app', () => {
      ③ 只认后端 `/api/auth/permissions` 返回的模块名，**不另抄一份角色表**（那正是漂移源）。 */
   const perms = ref(null)
   const permsTenant = ref('')
+  /* v292（2026-09-27）：权限**联动**用的两件东西，都来自 `/api/auth/permissions`（只加字段）。
+     为什么需要它们：老板在「设置 › 权限」改完保存后，**别的会话 / 别的设备 / 已开着的标签页**
+     仍按旧权限显示菜单，直到那个人重新登录 —— 用户看到的就是「权限改了没生效」。
+     前端只知道自己那份缓存，**无从判断服务端那份变没变**，所以要一个可比对的东西。
+       · `permsRev`    本租户自定义权限表的**内容指纹**（后端 `core.perms_rev`）。
+                       与 `refreshPermsIfChanged()` 配对：只有指纹不同才重拉整份权限。
+       · `customRoles` 本租户**真实改过**权限的角色名（后端 `core.custom_roles`）。
+                       页面判据用它决定「内置 roles 门槛是否让位」（`constants/pages.js`）。
+     🔴 `customRoles` 的三态与 `perms` 刻意不同：
+          `null` = 不知道 ⇒ **不让位**（按内置门槛收紧）。方向与 `perms` 相反，理由见
+          `constants/pages.js` 文件头 §四 —— 拉不到时"藏菜单"只少几个入口，
+          "放行"却会让每个角色凭空多出「定时任务 / AI 团队」，看起来就像权限失效。 */
+  const permsRev = ref('')
+  const customRoles = ref(null)
   /* v266 套餐与能力（来自 `/api/auth/permissions` 的 `plan` / `capabilities`）。
      权威源在后端 `core._PLAN_CAPS`，前端**不另抄一份能力表**（那正是漂移源）。
      用途：决定「带走类」能力是否可用（批量导出 / API 拉取）。
@@ -90,6 +104,10 @@ export const useAppStore = defineStore('app', () => {
       if (Array.isArray(rs) && rs.length) user.roles = rs
       plan.value = (d && d.plan) || ''
       caps.value = (d && d.capabilities) || null
+      // v292：权限联动的两个派生字段（后端"只加不改"地追加在同一条响应里）
+      permsRev.value = String((d && d.perms_rev) || '')
+      const cr = d && d.custom_roles
+      customRoles.value = Array.isArray(cr) ? cr.map(String) : []
       if (d && d.user && !user.name) {
         user.name = d.user.display_name || d.user.username || user.name
       }
@@ -99,6 +117,11 @@ export const useAppStore = defineStore('app', () => {
       permsTenant.value = ''
       // 能力同理：未知 ⇒ `canCap()` 放行（不因一次抖动藏掉导出按钮）。
       caps.value = null
+      // v292：`customRoles` 的"未知"刻意走**相反方向**（null ⇒ 不让位 ⇒ 按内置门槛收紧），
+      //       理由见 state 注释里那段三态说明。这里**不要**图省事写成 `[]`：
+      //       `[]` 的含义是"已确认没有任何角色被改过"，与"不知道"是两回事。
+      customRoles.value = null
+      permsRev.value = ''
     }
     return perms.value
   }
@@ -108,6 +131,56 @@ export const useAppStore = defineStore('app', () => {
     const p = perms.value
     if (!p) return true
     return p.indexOf('*') >= 0 || p.indexOf(m) >= 0
+  }
+
+  /* ---- v292 权限联动：权限被别处改过时，本会话自动跟上 -------------------------------
+     🔴 缺陷原样：老板改完权限保存，**只有他自己这台机器**的菜单会变（保存后前端强制重拉
+        一次）。别的会话、别的设备、已经开着的标签页**一直按旧权限显示**，直到重新登录
+        —— 用户看到的就是「权限改了没生效」，而系统里没有任何一处能自证这件事。
+     解法：拿一个**几十字节**的版本号做比对，不同才重拉整份权限。
+        · `rev` 相同 ⇒ 什么都不做（绝大多数情况，零渲染、零状态变化）。
+        · `rev` 不同 ⇒ `loadPerms(true)` ⇒ `perms / role / roles / customRoles / plan / caps`
+          全部刷新，侧栏 24 处 `canSee()`、命令面板、页内跳转判据一起重算（都是响应式的）。
+     调用时机（三处，缺一不可，各自覆盖一种"人回来的时刻"）：
+        ① 设置页保存成功后 —— 立刻、同步地（`Settings.vue::savePerms`，不用等轮询）；
+        ② 每次路由导航 —— 不 await（不让导航多等一次往返），下一次导航生效；
+        ③ 切回标签页 / 每 60 秒轮询 —— `Shell.vue`，覆盖"人一直停在某个页面"的情形。
+     🔴 节流 20 秒：`②` 的触发频率 = 用户点菜单的频率。不节流的话，每次点导航都发一个请求
+        —— 那是把一个"零成本的正确性检查"变成持续的背景流量。
+     🔴 401/网络失败一律**静默**（`silent401` + 空 catch）：这是个体验优化，
+        绝不能让它在网络抖动时打断用户，更不能把会话踢掉。 */
+  const REV_CHECK_MIN_INTERVAL_MS = 20000
+  let _revCheckedAt = 0
+  let _revInflight = null
+
+  /**
+   * 若服务端权限版本与本地不同则重拉权限。
+   * @param {boolean} force 跳过 20 秒节流（切回标签页 / 轮询用；导航用默认值即可）
+   * @returns {Promise<boolean>} true = 检测到变更并已重拉
+   */
+  async function refreshPermsIfChanged(force = false) {
+    // 还没加载过权限 ⇒ 不在这里补：那是 `loadPerms()` 的职责（本函数只做"增量比对"）。
+    // 在 `perms === null` 时去比对，会把"首次加载"误判成"变更"，两条路各自发请求。
+    if (!perms.value) return false
+    const now = Date.now()
+    if (!force && now - _revCheckedAt < REV_CHECK_MIN_INTERVAL_MS) return false
+    _revCheckedAt = now
+    if (_revInflight) return _revInflight
+    const p = (async () => {
+      try {
+        const d = await api('/api/auth/perms-rev', { silent401: true })
+        const rev = String((d && d.perms_rev) || '')
+        if (rev && rev !== permsRev.value) {
+          await loadPerms(true)
+          return true
+        }
+      } catch (_) { /* 静默：拉不到就下次再比 */ }
+      return false
+    })()
+    _revInflight = p
+    p.then(() => { if (_revInflight === p) _revInflight = null },
+           () => { if (_revInflight === p) _revInflight = null })
+    return p
   }
 
   /* v291（2026-09-27）：**清空权限缓存**。登录成功与登出都必须调。
@@ -128,6 +201,11 @@ export const useAppStore = defineStore('app', () => {
     plan.value = ''
     user.role = ''
     user.roles = []
+    // v292：联动的两件东西同样必须清 —— 否则换账号后 `customRoles` 还是上一个人的租户
+    // 那份（决定"内置 roles 要不要让位"），`permsRev` 也是上一个租户的指纹，
+    // 会让 `refreshPermsIfChanged()` 认为"没变过"从而永不重拉。串味方式与 perms 同族。
+    permsRev.value = ''
+    customRoles.value = null
   }
 
   /** v266 该套餐能力是否可用（如 `bulk_export` / `api`）。未知（未加载/失败）⇒ true。 */
@@ -307,6 +385,7 @@ export const useAppStore = defineStore('app', () => {
     ui, user, demo, chat,
     toast, setTheme,
     perms, permsTenant, loadPerms, canModule, resetPerms,
+    permsRev, customRoles, refreshPermsIfChanged,
     plan, caps, canCap,
     loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession,
     clearChatCache,

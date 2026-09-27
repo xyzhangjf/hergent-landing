@@ -107,6 +107,14 @@ export const router = createRouter({
       `/archive` `/rebate` `/loss-accounting` 等 11 页）—— 老板原话：「不同角色登录进去后
       只能看到自己有权限的页面」。注意这只加了**入口与深链**的门禁，**没有收窄任何后端权限**：
       被拦的角色即使手改前端缓存，接口仍会按后端权限返回 403。
+
+   v292（2026-09-27）两处变更：
+     ① 守卫改调 `pageRoleAllowed(path, role, customRoles)` —— 多传一个"哪些角色被本租户
+        真实改过权限"。**「让位」这件事只在 `pages.js::roleGateOpen` 里实现一次**，
+        入口与守卫共用一个实现；否则会出现"侧栏按新规则放开了、守卫还按旧名单拦"
+        = 把 v275 修好的**假封锁**重新造出来。
+     ② 每次导航顺带发一个**不 await** 的权限版本比对（见下方注释），用于发现
+        "权限被别的会话改过"。
 --------------------------------------------------------------------------- */
 async function ensureRoleLoaded() {
   if (store.user.role) return store.user.role
@@ -135,7 +143,15 @@ router.beforeEach(async (to) => {
        代价只有一次本来就要发的请求（`perms` 非空时这里直接跳过，页面内跳转零开销）。 */
     if (!store.perms) await ensureRoleLoaded()
 
-    if (roleGuarded(to.path) && !pageRoleAllowed(to.path, store.user.role)) {
+    /* v292：「权限被别处改过」在这里被发现 —— **故意不 await**。
+       它只是一个几十字节的版本号比对；一旦 await，每次点导航（含页面内跳转）都要多等
+       一次往返，把"权限联动"变成手感税。不 await 的代价 = 变更从**下一次**导航起生效，
+       而"下一次"通常就在几秒内（加上 Shell 的 60 秒轮询与切回标签页检查兜底）。
+       `refreshPermsIfChanged` 内部有 20 秒节流 + 全静默（见 store/index.js），
+       所以这里连错误分支都不用写。 */
+    store.refreshPermsIfChanged().catch(() => {})
+
+    if (roleGuarded(to.path) && !pageRoleAllowed(to.path, store.user.role, store.customRoles)) {
       /* 🔴 拒绝必须**看得见**：`return false` 会原地停住、页面一片空白（"死按钮"的变体，
          用户会以为自己点坏了）。带 `denied` 回到工作台，由 Shell.vue 弹说明并清掉 query
          （清掉是为了刷新 / 回退时不重复弹）。
