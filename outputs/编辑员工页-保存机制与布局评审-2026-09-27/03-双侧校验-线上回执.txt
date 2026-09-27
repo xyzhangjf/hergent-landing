@@ -1,0 +1,65 @@
+# v290 双侧校验 · 线上逐文件 md5 回执
+# 清单来源：本地 hergent-cn-v2/dist（53 assets + 4 根文件 = 57）
+# 校验方式：scp 本地 md5 清单到生产，在 /opt/hergent-cn-v2 下跑 md5sum -c
+# 时间：2026-09-27 11:07:46
+
+assets/AdvicePanel-DDPBDQ3v.css: OK
+assets/AdvicePanel-DjaqGaM8.js: OK
+assets/AiHub-C-u2q1WF.css: OK
+assets/AiHub-DC9R76P6.js: OK
+assets/Archive-Csz-Ohy6.js: OK
+assets/Archive-La9R98fs.css: OK
+assets/ArchiveShell-Cav1oBZw.js: OK
+assets/BidRadar-BpFNXNKV.css: OK
+assets/BidRadar-DUUc7_Hf.js: OK
+assets/ConnectCenter-C8sy4Stf.css: OK
+assets/ConnectCenter-Ds9zHaGy.js: OK
+assets/CronJobs-B6wj-v4m.js: OK
+assets/CronJobs-CCNf1RPJ.css: OK
+assets/Dashboard-CJ-dHyzB.css: OK
+assets/Dashboard-CirQGWjO.js: OK
+assets/DataFill-9dZBiq8a.css: OK
+assets/DataFill-DJy0d9r6.js: OK
+assets/Forecast-BWCCfzvN.css: OK
+assets/Forecast-Dqt1YSY5.js: OK
+assets/Icon-DaHFb-6t.js: OK
+assets/ImportMapping-CXyTAHez.css: OK
+assets/ImportMapping-Daz_1RWi.js: OK
+assets/Login-BEq4laR_.js: OK
+assets/Login-dOhPyLDy.css: OK
+assets/LossAccounting-Dn-5v5TH.css: OK
+assets/LossAccounting-bdl85yd1.js: OK
+assets/LossWorkflow-BUfjPkLY.css: OK
+assets/LossWorkflow-PJkuvj4R.js: OK
+assets/PayrollWorkflow-BrjkoHei.js: OK
+assets/PayrollWorkflow-C0nwNhCT.css: OK
+assets/PriceChannels-C1679WpZ.css: OK
+assets/PriceChannels-v6PIZOdo.js: OK
+assets/Rebate-BB4BKuAY.css: OK
+assets/Rebate-Bh7OghJt.js: OK
+assets/RoleManage-BcBX01Yy.css: OK
+assets/RoleManage-fTdbhgJ-.js: OK
+assets/Settings-BmqOj5yj.js: OK
+assets/Settings-D5AJQCyA.css: OK
+assets/Shell-Bd_y4R6S.css: OK
+assets/Shell-Do3zAGQM.js: OK
+assets/Workbench-CKE8EitZ.js: OK
+assets/Workbench-IM-p08Pd.css: OK
+assets/ZhoupuImport-D2t1j-iJ.js: OK
+assets/ZhoupuImport-DHFMMqxn.css: OK
+assets/arrival-B1PXWqFm.js: OK
+assets/favicon-B1w23DGS.js: OK
+assets/index-B6SH7DEo.js: OK
+assets/index-CSOmVdY6.css: OK
+assets/md-BKw5wcUx.js: OK
+assets/modules-U32vVzJw.js: OK
+assets/printable-BL3F1_ze.js: OK
+assets/useCardTrigger-DNgT_7VP.js: OK
+assets/useMonthlyAchv-BmTcQsnF.js: OK
+favicon.svg: OK
+index.html: OK
+legal/privacy.html: OK
+legal/terms.html: OK
+
+=== 汇总 ===
+     57 OK

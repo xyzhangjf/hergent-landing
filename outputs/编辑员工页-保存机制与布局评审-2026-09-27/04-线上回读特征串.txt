@@ -1,0 +1,42 @@
+=== 新文案命中（应全 >0）===
+保存基本信息                   2
+保存登录名                    1
+各自独立保存                   1
+有未保存的改动                  3
+改登录名                     1
+关闭后这些改动会丢失               1
+账号与权限                    1
+
+=== 旧文案命中（新 chunk 应全 0）===
+取消改账号                    0
+取消重置                     0
+保存账号                     0
+
+=== 与旧世代 chunk 对照（历史并集里仍在，未 --delete 故保留）===
+grep: Archive-Csz-Ohy6.js: No such file or directoryArchive-Csz-Ohy6.js          0
+=== 本地 assets 里所有 Archive-*.js（历史并集）与其旧文案计数 ===
+Archive-Csz-Ohy6.js                      取消重置=0  保存基本信息=2
+=== 线上 assets 里所有 Archive-*.js ===
+Archive-B1ra-l9t.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+Archive-BGWOlNnA.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+Archive-BrBvyG3B.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+Archive-Bs9dn7nt.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+Archive-CaZqB26i.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+Archive-Csz-Ohy6.js                      取消重置=0  保存基本信息=2  各自独立保存=1
+Archive-Dih4yx1i.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+Archive-DjOgQa_5.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+Archive-PCH8g8K-.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+Archive-qgtTb-ss.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+Archive-WbhP5nQ_.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+Archive-yFcVQnoE.js                      取消重置=1  保存基本信息=0  各自独立保存=0
+
+=== 生效入口 index.html 引用的 Archive 分片 ===
+Archive-Csz-Ohy6.js
+Archive-La9R98fs.css
+
+=== 回滚点 ===
+total 16
+-rw-r--r-- 1 hergent hergent 826 Sep 26 19:36 index.html.pre-v282.20260926_202232
+-rw-r--r-- 1 hergent hergent 826 Sep 26 20:21 index.html.pre-v286.20260927_085140
+-rw-r--r-- 1 hergent hergent 826 Sep 27 08:48 index.html.pre-v289.20260927_093625
+-rw-r--r-- 1 hergent hergent 826 Sep 27 09:33 index.html.pre-v290.20260927_110006
