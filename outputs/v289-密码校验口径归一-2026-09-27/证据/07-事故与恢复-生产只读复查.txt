@@ -1,0 +1,46 @@
+[DB] SQLite engine — /opt/hergent-erp/erp.db
+=== 生产库 users（只读）===
+  id=1        admin            changed=1  bcrypt$$2b$12$……（截断）
+  id=2        boss             changed=1  bcrypt2$$2b$12$……（截断）
+  id=4        demo_boss        changed=1  bcrypt$$2b$12$……（截断）
+  id=7        186****8882      changed=0  bcrypt$$2b$12$……（截断）
+  id=999899   liuxiaoding      changed=0  bcrypt2$$2b$12$……（截断）
+  id=999900   138****6296      changed=0  bcrypt2$$2b$12$……（截断）
+  id=999903   mptest           changed=1  bcrypt2$$2b$12$……（截断）
+  id=999904   mptestsp         changed=1  bcrypt2$$2b$12$……（截断）
+
+=== 用生产代码验证「我脚本用过的密码」是否生效（只读）===
+  🔴 id=999903 mptest           的密码现在是：Mptest@●
+  🔴 id=999904 mptestsp         的密码现在是：Mpsup@●
+  （以上没有 🔴 行 = 生产密码未被改动）
+
+=== 恢复动作（fix_pw）输出 ===
+[DB] SQLite engine — /opt/hergent-erp/erp.db
+======================================================================
+修复前
+======================================================================
+  id=999904  账号=mptestsp
+  hash 前缀：bcrypt2$$2b$12$……（截断）
+  「Abcd••••」能登录吗：False   ← 期望 False（它不该能登录）
+  「Mpsup@●」能登录吗：True   ← 期望 False（当前是坏的）
+
+======================================================================
+修复后
+======================================================================
+  hash 前缀：bcrypt2$$2b$12$……（截断）
+  「Mpsup@●」能登录吗：True   ← 必须 True
+  「Abcd••••」能登录吗：False   ← 必须 False
+
+======================================================================
+影响面自证
+======================================================================
+  id=1        admin            password_changed=1
+  id=2        boss             password_changed=1
+  id=4        demo_boss        password_changed=1
+  id=7        186****8882      password_changed=0
+  id=999899   liuxiaoding      password_changed=0
+  id=999900   138****6296      password_changed=0
+  id=999903   mptest           password_changed=1
+  id=999904   mptestsp         password_changed=1  ← 本次修复对象
+
+  ✅ 已恢复：mptestsp 可以用原密码登录

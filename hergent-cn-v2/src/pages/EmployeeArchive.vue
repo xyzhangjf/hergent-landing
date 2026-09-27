@@ -147,13 +147,13 @@
               <div v-else-if="!editTarget || !editTarget.has_account" class="df-acc-create">
                 <p class="df-tip">该员工暂无登录账号。开通后可用此手机号 + 密码登录<b>网页端</b>与<b>预报小程序</b> —— 同一个账号，能进哪些页面由下方角色决定。</p>
                 <label class="df-field"><span>手机号 / 账号</span><input v-model="accForm2.username" class="input" placeholder="如 13800000001"></label>
-                <label class="df-field"><span>初始密码</span><input v-model="accForm2.password" class="input" type="text" placeholder="至少 4 位"></label>
+                <label class="df-field"><span>初始密码</span><input v-model="accForm2.password" class="input" type="text" :placeholder="PWD_HINT"></label>
                 <label class="df-field"><span>角色 / 权限</span>
                   <select v-model="accForm2.role" class="input acc-role">
                     <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
                 </label>
-                <button class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || accForm2.password.length < 4" @click="createAccountInEdit">开通账号</button>
+                <button class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || !pwdOk(accForm2.password)" @click="createAccountInEdit">开通账号</button>
               </div>
               <div v-else class="df-acc-manage">
                 <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleName(editTarget.account_role) }}<template v-if="extraRolesOf(editTarget).length">（兼任 {{ extraRolesOf(editTarget).map(roleName).join('、') }}）</template> · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span></p>
@@ -181,8 +181,8 @@
                   </div>
                 </div>
                 <div v-if="showReset" class="df-acc-row">
-                  <input v-model="accPwdEdit" class="input" type="text" placeholder="新密码（至少 4 位）">
-                  <button class="btn btn-ghost btn-sm" :disabled="accBusy || accPwdEdit.length < 4" @click="resetAccPwd">保存密码</button>
+                  <input v-model="accPwdEdit" class="input" type="text" :placeholder="'新密码（' + PWD_HINT + '）'">
+                  <button class="btn btn-ghost btn-sm" :disabled="accBusy || !pwdOk(accPwdEdit)" @click="resetAccPwd">保存密码</button>
                 </div>
                 <!-- v288（2026-09-27）：改**登录账号名**。
                      原入口只在「个人设置」里（`PUT /api/auth/profile`）且**只能改自己** ——
@@ -347,6 +347,24 @@ const accRolesEdit = ref([])
 const accPwdEdit = ref('')
 const accBusy = ref(false)
 const showReset = ref(false)
+
+/* 🔴 v289（2026-09-27）：密码规则 —— **唯一权威在后端** `core._validate_password`
+   （规则：≥8 个字符，且**同时包含字母和数字**）。
+
+   为什么这一段要写在最显眼处：本页两个密码框原先硬编码的下限都是 4 位，而后端门槛
+   早已是 8 位 ⇒ 老板按提示输 4 位、点保存被后端打回「密码至少需要8位」，提示与校验
+   当场打架。病根是**规则被抄成多份、改一处漏一处**。
+   ⇒ 前端只此一处定义，两个输入框共用；后端 `core.py` 里有一段反向索引注释点名了本文件，
+     改后端规则时必须同步改这里的 PWD_MIN / PWD_HINT。
+   ⚠️ 前端这一层只为"少跑一个来回"，**判据始终在后端**。 */
+const PWD_MIN = 8
+const PWD_HINT = '至少 8 位，且包含字母和数字'
+/** 与后端 `core._validate_password` **同口径**：长度达标 ＋ 同时含数字和字母。 */
+function pwdOk(p) {
+  const s = String(p || '')
+  return s.length >= PWD_MIN && /[0-9]/.test(s) && /[a-zA-Z]/.test(s)
+}
+
 /* v288（2026-09-27）：改**登录账号名**。
    此前只有本人能在个人设置里改自己（`PUT /api/auth/profile`），员工档案的账号区
    有「重置密码 / 禁用账号 / 生成重置码」却**没有改账号** ⇒ 账号名建错了只能删账号重建
@@ -569,6 +587,8 @@ async function confirmTransfer() {
 // 在"编辑员工"弹窗内开通账号（仅当该员工尚无账号时显示）
 async function createAccountInEdit() {
   if (accBusy.value || !editTarget.value) return
+  // v289：与上面 resetAccPwd 同一口径（同 PWD_HINT），避免"两个密码框两套说法"。
+  if (!pwdOk(accForm2.password)) { toast('初始密码需' + PWD_HINT, 'err'); return }
   accBusy.value = true
   try {
     await staffAccountApi.createAccount({
@@ -663,9 +683,15 @@ async function renameAcc() {
 // 重置已有账号的密码
 async function resetAccPwd() {
   if (accBusy.value || !editTarget.value || !editTarget.value.account_user_id) return
+  const p = accPwdEdit.value
+  // 🔴 v289（2026-09-27）：**先把规则说清楚，再提交**。
+  //    以前这里直接 POST：输 4 位就被后端打回「密码至少需要8位」，而那个输入框当时写的下限
+  //    正是 4 位 ⇒ 老板照提示填却被拒，看起来像系统坏了。现在前端按同一口径先挡一道，
+  //    提示语与 placeholder 是**同一句话**（PWD_HINT）。判据仍在后端，这里只挡明显不合格的。
+  if (!pwdOk(p)) { toast('密码需' + PWD_HINT, 'err'); return }
   accBusy.value = true
   try {
-    await api(`/api/users/${editTarget.value.account_user_id}/password`, { method: 'POST', body: { password: accPwdEdit.value } })
+    await api(`/api/users/${editTarget.value.account_user_id}/password`, { method: 'POST', body: { password: p } })
     toast('密码已重置', 'ok')
     showReset.value = false
     accPwdEdit.value = ''

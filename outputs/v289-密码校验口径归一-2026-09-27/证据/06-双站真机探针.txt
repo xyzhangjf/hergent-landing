@@ -1,0 +1,26 @@
+==================================================================
+hergent.cn（新前端）  https://hergent.cn/
+==================================================================
+  HTTP 状态        : 200  ✅
+  页面标题         : Hergent · AI 经营副驾
+  可见文字长度     : 127  ✅ 有渲染
+  控制台报错       : 0  ✅
+==================================================================
+erp.hergent.cn（旧前端）  https://erp.hergent.cn/
+==================================================================
+  HTTP 状态        : 200  ✅
+  页面标题         : login · Hergent
+  可见文字长度     : 185  ✅ 有渲染
+  控制台报错       : 6  🔴
+      · Failed to load resource: the server responded with a status of 401 ()
+      · Failed to load resource: the server responded with a status of 401 ()
+      · Failed to load resource: the server responded with a status of 401 ()
+      · Failed to load resource: the server responded with a status of 401 ()
+==================================================================
+新前端：未登录深链 /#/archive/employees
+==================================================================
+  最终地址   : https://hergent.cn/#/login
+  被守卫拦下 : ✅ 已跳登录页
+  JS 异常    : 0  ✅
+
+🔴 探针有 1 项异常

@@ -142,7 +142,7 @@ gate 一旦转绿，**块尾种子会首次执行**。本次那批种子含 `ban
 - 首次部署实测：8 库补 **573 列**（tenant_1 +3；tenant_2/3/4/7/8 各 +114）、启动 **8 秒**、
   schema 对象数 2665→**2665**（ADD COLUMN 不增删对象）、数据行数**逐字一致**、跨进程幂等（补列 0）
 - ⚠️ **生产库分层**（改动前必查）：`tenant_1.db` = 主库 id=1「测试企业A」，但**含真实业务数据**
-  （430 商品 / 730 客户 / 15539 明细 / 8024 客户价，`mptest`/`mptestsp` 经 `user_tenants` 归属它）；
+  （430 商品 / 730 客户 / 15539 明细 / 8024 客户价；`admin`/`boss`/`liuxiaoding`/`liushantao` 经 `user_tenants` 归属它。⚠️ **2026-09-26 起**原 `mptest`/`mptestsp` 两个提审账号已删，别再拿它们当归属证据）；
   `tenant_2/3/4/7/8` 是 2026-06-18 建的测试租户、**几乎全空（0~1 行）**；`tenant_10`(demo) 与
   `erp.db` 本就 0 缺列。**别把"库文件存在"当成"有真实数据"。**
 - ⚠️ **运维脚本一律用绝对路径**：`file:erp.db?mode=ro` 在 ssh（cwd=`/root`）下会**静默产出
@@ -281,4 +281,222 @@ tenant_1 租户成员 5 个、员工 7 个 ⇒ `employee_account_map()` **命中
 **`len(结果) == SQL 命中行数`**（用同一 `where` 独立数一遍），**不要写死期望值** ——
 写死 `== 2` 会在数据变化时静默失真，且无法逐租户复用。本轮生产只读验证就是用这条
 遍历 tenant_1/tenant_10 一次跑完的。
+
+
+## 🔴 裸 `except:` 收窄：**必须分三类，不能一刀切**（2026-09-23 全仓清零，25 处 / 13 文件）
+
+**先界定「是不是真代码」**：`grep -rn "except\s*:"` 命中不等于缺陷 —— 本轮 30 命中里 **5 行是注释**
+（"旧写法是裸 except"的溯源说明）。判别：`awk -F: '{ln=$3; sub(/^[ \t]+/,"",ln); if (substr(ln,1,1)!="#") print}'`。
+**注释保持原样**（那是有意留的历史溯源，不是缺陷）。
+
+**三类策略**（判据 = 「被吞掉的到底是什么」）：
+
+| 类 | 判据 | 收窄为 | 为什么 |
+|---|---|---|---|
+| A 数据解析 | `json.loads` / `await request.json()` / `float()` | `(ValueError, TypeError)` | 这两个异常**完全覆盖**解析失败的全部现实成因（`JSONDecodeError`、`UnicodeDecodeError` 都是 `ValueError` 子类）⇒ 精确且不漏 |
+| B DDL 幂等迁移 | `ALTER TABLE ADD COLUMN` 撞已有列 | `sqlite3.OperationalError` | duplicate column 的精确异常；**外层保留 `except Exception` 兜底** ⇒ 收窄不会让导入期炸服务 |
+| C 未知操作兜底 | DB 查询 / `zlib` / `_get_user` / redis ping | **只升到 `except Exception` + 补日志** | 见下 |
+
+🔴 **本轮最重要的一条判据**：裸 `except:` 的真实危害**不是"捕获太宽"，而是连 `KeyboardInterrupt`/`SystemExit`
+一起吞**（二者继承 `BaseException` 而非 `Exception`）⇒ **最小正确修法就是升到 `except Exception`**。
+C 类**刻意不硬猜具体异常**：猜错会把原本"静默降级"（返回空 / 兜底值）变成**"直接 500"**，**制造回归**。
+⇒ **只有 A/B 类做精确收窄；C 类只升 Exception + 补留痕**（"静默返回空/兜底值"的 3 处补 `warning`/`debug`）。
+
+**批量修法**（比手工逐处 Edit 更可核验）：脚本按「**文件 + 行号 + 该行 strip 后完全相等**」定位，
+① **先全量校验、再落盘**（校验失败则一个文件都不写）；② **按行号降序应用**（否则多行替换会让后续行号漂移
+—— 本轮 `reports.py` 的块展开就使 454/464 漂到 456/466）。
+
+**部署前的防夹带审计**（判「哪些 hunk 属于我」之前，**先判「该文件整体是否已上线」**）：
+把待上线文件逐个 `ssh cat 生产路径 | diff - 本地文件`；若某文件差异**恰好只有我的 hunk** ⇒ 在途改动**早已在生产**，
+不存在夹带。再追加一道过滤：**剔除"不含 except/import 的行"**，剩余若全是自己块展开引入的日志行 ⇒ 零意外内容。
+
+**「生产还有、本地已清零」= 在途未上线**，不是漏修：本轮生产剩 4 处裸 except，正来自本地已修好但未部署的
+在途文件 ⇒ 收口必须**以生产为准再看一眼**，否则会误判为"已完成"。
+验证口径 = **本地与生产双双 `grep` 归零**（单看一侧都不算数）。
+
+## 报 500 的取证：先看 `finally`，别只看栈顶那一行（v259 实例）
+
+🔴 **Python 中 `finally` 里抛出的异常会**替换** `try` 里的原始异常**（只在 `__context__` 里留指向）。
+⇒ 栈指向的那一行常常**不是真正的病根**：v259 排查 `forecast_period_writable` 报 500，栈顶是
+`conn.close()` 报 `AttributeError: '_GeneratorContextManager' object has no attribute 'close'`，
+看着像 close 的问题；实际是**上一行 `conn = get_db()` 就取错了东西**（拿到上下文管理器而非连接），
+`conn.execute()` 在 try 里先炸，close 那个异常把它覆盖了。
+
+**同族病根：`get_db()` 是 `@contextmanager` 生成器**（`db/connection.py`）⇒ **必须 `with` 起来用**。
+裸调 `get_db()` 拿到的不是连接。正确写法两种：
+- `with get_db() as c: ...`
+- 需要"可选自己开连接"时：先 `if db_conn is None: with get_db() as c: return f(..., db_conn=c)`
+  （递归把真连接传下去），或 `_cm = get_db(); db = _cm.__enter__()`（仓内既有写法，记得配 `__exit__`）。
+⚠️ 全仓裸用处已排查，v259 时**仅 `forecast_period_writable` 一处**是坏的。
+⚠️ 波及面：所有**不传 `db_conn`** 的调用方、且 `period_id>0` 时一律 500 —— 实测既有的 `POST /{sid}/recall`
+（撤回）就是这样，撤回任何挂期次的单都只吐 "Internal server error"，真正的原因（期次已定稿/已截止）
+一次都没到用户面前。**修一个判据函数能同时修好一批接口 ⇒ 遇到 500 先查它属于哪个共用判据。**
+
+
+---
+
+# §v277 多租户 schema 下发的两个静默洞（2026-09-25）
+
+## 洞一：新建表 ≠ 建好索引 —— 租户库「只下发表、不下发索引」
+
+**机制**：`erp_db.py::_safe_migrate_script(name, sql)` 只把 DDL 落到**主库** `erp.db`；
+业务租户库 `tenant_<id>.db` 靠**启动期回放主库 DDL**（`master_ddl`）下发 ——
+**只下发表，不下发索引**。索引另有一条通道：`db/indexes.py::INDEX_SQLS` → `_create_indexes_on(每个 tenant_*.db)`。
+
+⇒ **新建表时，索引必须同时登记进 `db/indexes.py::INDEX_SQLS`**，否则：主库有、租户库没有。
+
+**实证（v277）**：`forecast_extra_alloc` 在 `tenant_1/9/10.db` **建表成功**（`sqlite_master` 查得到），
+但 `PRAGMA index_list('forecast_extra_alloc')` **返回空**，且全程**零报错**。
+唯一性约束（`uq_fea_period_prod_emp`）因此只在主库生效 ⇒ 幂等写入在租户库会**重复插行**。
+
+**验收判据（必须用这条）**：
+```sql
+SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='<表名>';
+```
+🔴 **只查「表在不在」会漏** —— 这正是「恒空且零报错」的静默失效族。
+逐库跑：`erp.db` + 所有 `tenant_*.db`。
+
+## 洞二：窗口当主键 —— `save_matrix` 写一套窗口、`GET /extra-alloc` 读另一套
+
+**机制**：
+- `forecast_submissions.py::save_matrix` 把加/减单分配明细按**请求体里的** `start` / `end` 落 `forecast_extra_alloc`
+- `product_targets.py::GET /extra-alloc` 按 `_period_or_400(period_id)` 取到的**期次自身** `order_start` / `order_end` 读
+
+⇒ 两者的窗口一旦不一致：**保存返回成功、读取返回空、零报错**，且表里留下两套窗口的重复行。
+**触发条件很日常**：只要有人改过期次的 `order_end`（例如为规避 `scheduler._auto_period_close`
+把 `order_end` 设成非今天的值），历史分配行立刻"消失"。
+
+**本轮处置（v277 当时）**：仅**验收侧规避**（探针的 `START/END` 动态取自期次自身窗口），未改代码。
+
+### ✅ 已修：v279（2026-09-26）落地方案 A —— 归属键 → `period_id`
+
+老板 2026-09-26 拍板「**选 A**」，已上线（4 文件 · FLAT · 双侧 md5 全等；E2E 36/36）。
+
+**改动四处，缺一不可**（口径必须**全都**统一到期次自身，漏一处就还是两套尺子）：
+
+| 处 | 改法 |
+|---|---|
+| 表 | `ALTER TABLE forecast_extra_alloc ADD COLUMN period_id INTEGER NOT NULL DEFAULT 0` |
+| 唯一索引 | DROP `uq_fea_period_prod_emp` / `idx_fea_period`，建 `uq_fea_periodid_prod_emp` UNIQUE(`period_id`,`product_id`,`employee_id`) |
+| 写 | `DELETE FROM forecast_extra_alloc WHERE period_id=?` + `INSERT` 带 `period_id` |
+| 读 | `GET /extra-alloc` 按 `period_id=?` 读（不再算窗口） |
+| 通知 | `event_key = 'forecast_extra_alloc\|<period_id>\|<product_id>'`（原按窗口拼） |
+| 算 | `plan_extra_allocs()` 开头**锚定期次**：`SELECT order_start,order_end FROM forecast_periods WHERE id=?` 覆盖传入窗口 |
+
+**🔴 DDL 落法（两个易错点）**：
+
+1. `ADD COLUMN` 必须**单独走 `_safe_migrate()`**（单语句），**不能并进 `_safe_migrate_script()`**：
+   `executescript` 中任一语句抛错会**中断后续所有语句**，而 `ALTER TABLE ADD COLUMN`
+   是所有语句里**唯一不幂等**的那条（重复执行 = `duplicate column name`）。
+   单独走才能让 `_is_idempotent_migration_error()` 把它记成 `"ok"`、不误告警。
+2. **DROP 旧唯一索引必须写进 `db/indexes.py::INDEX_SQLS`**，不能只放进一次性迁移 ——
+   `INDEX_SQLS` 是**唯一**覆盖全部 `tenant_*.db` 的通道（见「洞一」）。
+   旧索引留着会与新键**两套约束并存**：同一窗口挂两个期次时，旧键会**误拒新键允许的行**。
+
+**验收里最值钱的一条**（证明归属真的不随窗口漂）：
+
+> 改期次 `order_end` A→C 之后 ——
+> 按**当前**期次窗口查 = **0 行**（= v277 当时 `GET` 读到的结果，复现了旧病）
+> 按**落库时**窗口查 = 仍 3 行；按 **`period_id`** 查 = 仍 3 行；HTTP 仍回 3 行；
+> **改窗口前后落库数据逐字节相同**。
+
+**为什么不用方案 B**：B 只是让**写**也去取期次窗口，把两把尺子合成一把 ——
+但「窗口当键」的脆弱性还在（窗口仍是主键，改窗口仍会孤立旧行）。A 把**属性**降回属性。
+
+**通用教训**：**同一个逻辑集合，写入键与读取键必须是同一个稳定标识。**
+拿「可变的属性」当键 ⇒ 属性一改，历史行成孤儿，而**全程零报错**。
+
+**迁移负担实测**：生产 4 库 `forecast_extra_alloc` 均为 `COUNT(*)=0` ⇒ 存量迁移负担为**零**。
+
+## 🔴🔴 幽灵 inode：删除/替换库文件 + 连接缓存（2026-09-26 亲历，最贵的一个坑）
+
+**现象链**（排查近一整轮，每一层单独看都"正常"）：
+- 沙箱库里 `products.order_unit='提'`，API 却回「**包**」
+- 改成 `unit='袋'` 后**接口纹丝不动**
+- `/product-targets/products` 也回「包」
+- API **读得到**目标（`id=3, created_by=mptestsp`），但**把所有磁盘库扫一遍都查不到 `id=3`**
+
+**根因**：`db/connection.py::_sqlite_connect()` 按 `(threading.get_ident(), db_path)` 缓存连接
+（`_sqlite_cache`）。在**服务运行中** `os.remove()` 掉库文件并重建同名文件 ⇒
+缓存里的 Connection 仍指向**已被删除的旧 inode** ⇒ **写入落进幽灵文件、读取返回旧数据**。
+
+**🔴 判据陷阱（这条是整轮最贵的认知）**：
+
+```python
+conn.execute("SELECT 1")      # 对「已被删除文件」的句柄 —— 照样成功！
+```
+⇒ **`SELECT 1` 验证不了 inode 是否被切换通**。任何「跑一句 SQL 看看通不通」的自证都不成立。
+
+**铁律**：
+> **维护期删除 / 替换任何库文件（尤其 `tenant_<id>.db` 的销毁重建），必须先删文件、再 `systemctl restart`，
+> 用重启清 `_sqlite_cache`。**
+> 顺序不能反：先重启再删 ⇒ 重启后的新连接照样会在删文件后变成幽灵。
+
+**通用排查序（「库读是 X、API 回 Y」时照这个走）**：
+
+1. 先排除**路由遮蔽** —— 是不是有两份同名路由 / 两份同名函数（`grep` 端点装饰器）；
+2. 再**直调底层函数**，证明逻辑本身对（本轮：直调 `_arc_map` 打印 `order_unit_sql` 的返回值、
+   `unit_display_map(75, arc)`、`unit_value(75,'提',...)` ⇒ 逻辑全对）；
+3. 逻辑对 ⇒ 必然是**运行进程读到了别的文件** ⇒ 扫全部 db 候选（**含子目录 `db/tenant_1.db`、
+   `incident_*`、`.hermes/`**）；
+4. 都扫不到 ⇒ 就是**句柄级问题** ⇒ **重启验证**（重启后立刻恢复 = 确诊）。
+
+⚠️ **扫描脚本别用裸 `except: pass`** —— 它会把「表不存在」也静默吃掉，看起来像「扫过了、没有」。
+⚠️ 这条也解释了另一件事：**「生产库文件被删了但服务还活着、还能读写」**不是奇迹，是幽灵 inode。
+
+## 附：写事务互锁（v277 再次踩到）
+
+`get_db_tx()` 持写事务期间，**另开连接读同一个 SQLite 文件会互锁**。
+⇒ 只算不写的准备阶段（`plan_extra_allocs`：读 `product_targets` / `product_target_alloc` / 本期报单）
+必须放在**事务外（之前）**；通知类副作用（`_notify_extra_allocs`）必须放在**提交后**。
+
+## 附：白名单漏字段 = 静默不写
+
+`db/queries/products.py` 的 `product_update` / `product_create` 有一份**字段白名单**。
+🔴 v277 实测：同组的 `large_unit` / `medium_unit` / `medium_ratio` 都在，**唯独漏了 `large_ratio`**
+⇒ 用户在前端填的换算比**静默不写、也不报错**（前端 toast 成功、后端无异常、库里没变）。
+**排查手法**：改字段写不进去时，不要先查前端 —— 先看这张白名单有没有该字段；
+「同族字段齐了、单独少一个」是最典型的形态。
+
+## 🔴 附：影子库 / 沙盒验收 —— **DB_PATH 有两份**（v289 真踩进生产）
+
+**症状**：验收脚本宣称"跑在影子库上、零写入生产"，但其中一条**写操作**没反映到影子库
+（另一条读操作却正常）—— 说明**读写走了不同的库**。
+
+**根因**：本项目取"主库"的入口**不止一个**，且各自持有**独立的 DB_PATH 变量**：
+
+| 入口 | 读的是哪份 DB_PATH |
+|---|---|
+| `core._master_db()` → `db.sqlite3.connect(db.DB_PATH)` | `erp_db.DB_PATH` |
+| `erp_db.get_db()` → `_connect()` → `_sqlite_connect()` | **`db/connection.py:11` 自己那份** |
+| `erp_db._open_master()`（v288 加） | `erp_db.DB_PATH` |
+| 租户上下文 | `_tenant_db.get()`（另有一套，指向 `tenant_<id>.db`） |
+
+⇒ 只 patch `erp_db.DB_PATH`：**认证**（走 `_master_db`）读到影子 ✅，**写库**（走 `get_db`）
+仍落生产 🔴。v289 因此把生产上**提审账号 `mptestsp` 的密码**真的改掉了。
+
+**正确姿势（缺一不可）**
+```python
+erp_db.DB_PATH = SHADOW          # core._master_db() 用
+import db.connection as _dbc
+_dbc.DB_PATH = SHADOW            # get_db() / _sqlite_connect() 用  ← 最容易漏
+```
+**跑前自证**（不通过就 `exit(2)`，宁可不验也不能污染生产）：
+```python
+with erp_db.get_db() as c:
+    main = {r[1]: r[2] for r in c.execute("PRAGMA database_list")}["main"]
+    assert os.path.realpath(main) == os.path.realpath(SHADOW)
+m = erp_db._open_master()
+assert os.path.realpath({r[1]: r[2] for r in m.execute("PRAGMA database_list")}["main"]) \
+       == os.path.realpath(SHADOW)
+```
+
+**判「有没有真写生产」的判据（mtime 会骗人）**
+- ❌ **不能只看主库文件 mtime**：WAL 模式下改动先进 `-wal`，主文件 mtime 可能不动（v289 就被它骗过）。
+- ✅ **用内容判据**：拿**生产代码**反查"我这次用过的那个值"是否生效 ——
+  如 `core._verify_password("我用的那个密码", 生产库里的 hash)` ⇒ True 就说明真写进去了。
+- ✅ 顺手核对**行数/清单**：探针账号、探针会话有没有出现在生产库。
+
+**善后模板**：`cp erp.db backups/<tag>/` → 用权威函数写回原值 → 用**只读**方式自证
+（`_verify_password` 正例 True / 反例 False）→ 只读复查全库影响面 → 删影子目录。
 

@@ -1,0 +1,27 @@
+=== 后端三文件：本地 vs 生产 md5 ===
+--- 本地 ---
+36e4ec3735bf50011812807fccafae14 core.py
+595d3ea0e727d2a51250e0c40a05580d routers/auth.py
+b6677897512810ebb23ee8538773bd16 routers/forecast_submissions.py
+--- 生产 ---
+36e4ec3735bf50011812807fccafae14  core.py
+595d3ea0e727d2a51250e0c40a05580d  routers/auth.py
+b6677897512810ebb23ee8538773bd16  routers/forecast_submissions.py
+
+服务状态: active
+health: 200
+
+--- 新前端 ---
+de710d2e7ceac13835acf2bb0d18b37f  index.html
+7c686dd406d6f25f57529725ccc98b09  assets/Archive-qgtTb-ss.js
+3fba72523af3e71aba3d3154bf13983a  assets/Login-BfB1xGb9.js
+--- 旧前端 ---
+a1eac1ce0cc9db7b54fe3a8c38c4e820  index.html
+8950b1454ff12c2857b56f243daaf5da  assets/main-pWoV6gPr.js
+
+=== 本地对应值 ===
+de710d2e7ceac13835acf2bb0d18b37f index.html
+7c686dd406d6f25f57529725ccc98b09 assets/Archive-qgtTb-ss.js
+3fba72523af3e71aba3d3154bf13983a assets/Login-BfB1xGb9.js
+a1eac1ce0cc9db7b54fe3a8c38c4e820 index.html
+8950b1454ff12c2857b56f243daaf5da assets/main-pWoV6gPr.js
