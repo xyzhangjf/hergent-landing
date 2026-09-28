@@ -138,7 +138,11 @@ export const ROLE_END = {
   // v307 分销商：外部客户 ⇒ **默认只开小程序**（登录入口），这也是「默认小程序 + 可手动开通
   //   网页端」这条需求的落点。改这里会同时改到角色下拉的适用端标注（两职合一，见下方说明）。
   distributor: 'mini',
-  supervisor: 'both', sales: 'both', boss: 'both', admin: 'both',
+  // v310 业务员收紧：**默认仅小程序**（与分销商同口径）。
+  //   原值是 'both' ⇒ 老板给业务员开完号，那个人能从电脑网页端直接登进后台。
+  //   🔴 改这里会同时改到角色下拉的「适用端」标注（两职合一，见下方说明）。
+  sales: 'mini',
+  supervisor: 'both', boss: 'both', admin: 'both',   // 主管要在电脑上看汇总、审报单 ⇒ 两端
   guide: 'web', driver: 'web', accountant: 'web',      // 仅网页端
 }
 

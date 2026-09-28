@@ -131,6 +131,30 @@ def func_body_has(path, funcname, needle):
     return None
 
 
+def _py_dict_literal(path, var):
+    """从 Python 源码里取 `var = {...}` 的**字典字面量**（AST，不 import、不执行）。
+
+    🔴 为什么不 `import` 后端模块：那会真的跑起来 `core.py`（连库、读环境变量、起日志），
+    而护栏只在乎"这张表写了什么"。`ast.literal_eval` 对非字面量（拼字符串、函数调用）
+    一律返回 `None` ⇒ 护栏报红，正好逼着写表的人保持它是纯字面量。
+    """
+    try:
+        src = read(path)
+        tree = ast.parse(src)
+    except Exception:
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and t.id == var:
+                    try:
+                        v = ast.literal_eval(node.value)
+                    except Exception:
+                        return None
+                    return v if isinstance(v, dict) else None
+    return None
+
+
 # ---------------------------------------------------------------- 权威源
 
 def authority():
@@ -357,6 +381,41 @@ def main():
         '%s=%s' % (r, end_label_map.get(end_map.get(r, ''), '?')) for r in auth))
     print('')
 
+    # ---- D2 角色 → 默认登录范围（前端 ROLE_END ↔ 后端 core.ROLE_LOGIN_SCOPE）------
+    # 🔴 v310 新增：这份映射**天然会被写成两份** —— 前端要拿它做「新建账号时登录端的
+    #    默认值」，后端要拿它做「建号没传时的默认值」。两边一旦漂移，症状是
+    #    「界面上看着是仅小程序、开出来的号照样能登网页端」（或反之），**且零报错**。
+    #    本项目三次栽在"同一规则抄成两份" ⇒ 这里就是那份对账点。
+    print('D2 角色 → 默认登录范围（前端 ROLE_END ↔ 后端 core.ROLE_LOGIN_SCOPE）')
+    be_scope = _py_dict_literal(CORE_PY, 'ROLE_LOGIN_SCOPE')
+    check('core.py 定义了 ROLE_LOGIN_SCOPE（角色 → 默认登录范围，字典字面量）',
+          isinstance(be_scope, dict) and bool(be_scope),
+          '' if isinstance(be_scope, dict) else '没解析到字典')
+    _bad_scope = sorted({k for k, v in (be_scope or {}).items() if v not in ('mini', 'web', 'both')})
+    check('ROLE_LOGIN_SCOPE 的取值都是合法端（mini/web/both；拼错 = 该账号永远登不进来）',
+          not _bad_scope, '非法: %s' % _bad_scope if _bad_scope else '')
+    _miss_scope = sorted(set(end_map) - set(be_scope or {}))
+    check('后端 ROLE_LOGIN_SCOPE 覆盖前端 ROLE_END 的全部角色'
+          '（缺 = 该角色建号时回落 both，与界面标注不符）',
+          not _miss_scope, '缺: %s' % _miss_scope if _miss_scope else '')
+    _diff_scope = sorted(k for k in (set(end_map) & set(be_scope or {}))
+                         if end_map[k] != be_scope[k])
+    check('前端 ROLE_END 与后端 ROLE_LOGIN_SCOPE 逐项一致（默认端不许两份口径）',
+          not _diff_scope,
+          '; '.join('%s: 前端=%s 后端=%s' % (k, end_map[k], be_scope[k]) for k in _diff_scope))
+    # 判据来源：默认值必须由那张表派生，不许在函数里另抄一份 if/elif
+    check('default_login_scope_for_role 的判据来自 ROLE_LOGIN_SCOPE（未另抄名单）',
+          func_body_has(CORE_PY, 'default_login_scope_for_role', 'ROLE_LOGIN_SCOPE') is True,
+          '')
+    # 接线：定义了却没人用 = 声明式护栏（本项目的老毛病）
+    check('开账号（erp_db.staff_account_create）真的用了角色默认值',
+          func_body_has(ERPDB_PY, 'staff_account_create', 'default_login_scope_for_role') is True,
+          '')
+    check('开账号路由（forecast_submissions.create_staff_account）真的用了角色默认值',
+          func_body_has(FS_PY, 'create_staff_account', 'default_login_scope_for_role') is True,
+          '')
+    print('')
+
     # ---- E 其它面的清单（本轮由「只告警」升级为硬断言） ------------------------
     print('E 其它面的角色清单')
     # E1 Forecast.vue：不许自带表；角色字面量必须在已知词汇内
@@ -449,6 +508,59 @@ def main():
     check('开账号接口（staff-accounts）接入了白名单', _ok, _d)
     _ok, _d = _wired(ERPDB_PY, 'staff_account_create', 'normalize_role(')
     check('staff_account_create（INSERT 旁）也有第二道白名单', _ok, _d)
+    print('')
+
+    # ---- F2 报单汇总可见角色白名单（v267）-------------------------------------
+    # 为什么单列一面：这条白名单**不在模块权限矩阵里**（`/api/forecast-submissions` 整体归 `data`，
+    # 业务员持有）⇒ 它是**唯一**决定「业务员能不能看全公司汇总」的东西，且两端各有一份。
+    # 漂移的后果是不对称的、且都是**静默**的：
+    #   · 后端放宽 / 前端没跟上 ⇒ 前端仍然隐藏入口 = 功能做了但没人看得见；
+    #   · 后端收紧 / 前端没跟上 ⇒ 入口可见、点进去 403 = 「假入口」（用户 2026-09-20 刚为会计修过一次）。
+    # 另一半判据（接线）同样重要：改了常量却没接到判据/调用点上 = 白改且看不出来。
+    print('F2 报单汇总可见角色白名单（后端 SUMMARY_ROLES ↔ 前端 FORECAST_SUMMARY_ROLES）')
+    m_be = re.search(r"^SUMMARY_ROLES\s*=\s*\(([^)]*)\)", fs, re.M)
+    be = [s.strip().strip('"\'') for s in (m_be.group(1).split(',') if m_be else []) if s.strip()]
+    check('后端 SUMMARY_ROLES 是**模块级常量**（内联在函数体内护栏看不见 ⇒ 等于没护栏）',
+          bool(m_be), '' if m_be else '未在 forecast_submissions.py 顶层找到 SUMMARY_ROLES')
+    const_src = read(CONST_ROLES)
+    m_fe = re.search(r"FORECAST_SUMMARY_ROLES\s*=\s*\[([^\]]*)\]", const_src)
+    fe = [s.strip().strip('"\'') for s in (m_fe.group(1).split(',') if m_fe else []) if s.strip()]
+    check('前端定义了 FORECAST_SUMMARY_ROLES（roles.js）', bool(m_fe))
+    check('两侧白名单逐项一致（排序后）', sorted(be) == sorted(fe),
+          '后端=%s 前端=%s' % (be, fe))
+    check('SUMMARY_ROLES 非空（空 = 全员看不到汇总 = 静默失效）', bool(be))
+    bad_role = sorted(set(be) - auth_set)
+    check('SUMMARY_ROLES 不含后端不存在的角色（写错字 = 那个角色被静默放行）',
+          not bad_role, '可疑: %s' % bad_role if bad_role else '')
+    # v300：同上改 AST 判据（原 `[\s\S]{0,1400}?` 同样是字符窗口，同族风险）。
+    _ss_uses = func_body_has(FS_PY, 'submission_summary', 'not in SUMMARY_ROLES')
+    _ss_inline = func_body_has(FS_PY, 'submission_summary', 'not in ("admin"')
+    _ss_ok = (_ss_uses is True) and not _ss_inline
+    check('submission_summary 真的用 SUMMARY_ROLES 判据（未留内联副本）', _ss_ok,
+          '' if _ss_ok else ('找不到函数 submission_summary' if _ss_uses is None
+                             else ('函数体内没引用 SUMMARY_ROLES' if not _ss_uses
+                                   else '函数体内仍留了内联角色副本')))
+    sh_src = read(SHELL_VUE) if os.path.isfile(SHELL_VUE) else ''
+    # 🔴 2026-09-27（v291/v292）订正：原断言数的是「`canViewForecastSummary(` 出现 ≥ 3 次」，
+    #    而 v291 已经把「谁看得见预报页」的判据**收敛进页面注册表**
+    #    （`Shell.vue` 改成 `canSee('/forecast')` ⇒ `constants/pages.js` 的 `/forecast` 行，
+    #     那一行的 `roles` 仍是 `FORECAST_SUMMARY_ROLES`）⇒ 原断言**永久变红**。
+    #    ⚠️ 一条永远红的断言比没有断言更糟：它会训练所有人忽略红色输出（本项目已因此栽过——
+    #    "看起来像历史遗留的红"正是漏检的温床）。故改成断言**真正的契约**：
+    #      ① 带门禁的 /forecast 入口 ≥ 2（桌面侧栏 `.sb-item` + 手机底栏 `.mnav-item`）；
+    #      ② **不存在**裸入口（`<router-link to="/forecast"` 前面不带 `v-if`）
+    #         —— 那正是"入口对全员可见、点进去被 403"的假入口。
+    #    两种门禁写法都接受（注册表式 / 旧的专用函数式），这样无论判据收敛到哪一层都测得准。
+    _gated = len(re.findall(r"""v-if="(?:canSee\('/forecast'\)|canViewForecastSummary\()""", sh_src))
+    _naked = len(re.findall(r"""<router-link\s+to="/forecast\"""", sh_src))
+    check('Shell.vue 每个 /forecast 入口都带门禁（≥2 处，且无裸入口）',
+          _gated >= 2 and _naked == 0,
+          '带门禁 %d 处 / 裸入口 %d 处' % (_gated, _naked))
+    fore_src = read(FORECAST)
+    check('Forecast.vue 两条路都接了（summaryDenied 按角色预判 + crossDenied 服务端拒绝）',
+          'summaryDenied' in fore_src and 'crossDenied' in fore_src)
+    check('Forecast.vue 按**状态码**分流 403（不再把「无权限」说成「加载失败」）',
+          bool(re.search(r"e\.status[\s\S]{0,80}?===\s*403", fore_src)))
     print('')
 
     print('-' * 62)
