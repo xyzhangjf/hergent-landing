@@ -113,6 +113,11 @@
         <div class="cc-gateway">
           <span class="gw-dot" :class="gwCls"></span>
           <span class="gw-text">{{ gwText }}</span>
+          <!-- T1-6 ②：能力已配好、但网关还是旧进程 ⇒ 工具索引（进程内缓存）里没有它，
+               现象是「配了却用不到」且零报错。后端按「配置比进程新」判定，
+               这里只提示；清除它的动作 = 本栏**既有**的「重新检测全部」（内部即重启网关）。
+               不新增侧栏/区块。 -->
+          <span v-if="gwMcpPending" class="gw-mcp">新能力还没生效，点右侧「重新检测全部」启用</span>
           <button class="gw-btn" :disabled="gwBusy" @click="recheckAll">重新检测全部</button>
         </div>
 
@@ -192,8 +197,28 @@
             <div class="cc-desc">授权后同步商品 / 客户 / 供应商 / 库存 / 订单</div>
             <div class="cc-action" :class="kingdee.linked ? 'ghost' : 'primary'">{{ kingdee.linked ? '管理' : '去连接' }}</div>
           </div>
+          <!-- 舟谱 / 导出表（v274）：与上面两张并列，但**不是 OAuth** —— 人工上传 Excel 的通道。
+               故卡片上没有「断开 / 同步」按钮（没有对应语义的动作就不摆按钮）。 -->
+          <div v-if="zhoupuVisible" class="card cc-card" :class="{ linked: zhoupu.connected }"
+               :title="zhoupuTip" @click="openZhoupu">
+            <div class="cc-card-top">
+              <span class="cc-logo" :class="zhoupu.connected ? 'cc-logo-zhoupu' : ''">舟</span>
+              <span class="cc-state" :class="zhoupu.connected ? 'on' : ''">{{ zhoupuStateText }}</span>
+            </div>
+            <div class="cc-name">舟谱 / 导出表</div>
+            <div class="cc-desc">{{ zhoupuSub }}</div>
+            <div class="cc-action" :class="zhoupu.connected ? 'ghost' : 'primary'">{{ zhoupu.connected ? '再导一份' : '去导入' }}</div>
+          </div>
         </div>
       </div>
+
+      <!-- v304：数据台账 —— 与上面「ERP 数据源」**同一件事的另一半**：
+           上面说"数据从哪接进来"，这里说"接得全不全、上次什么时候接的"。
+           刻意放在同一页、同一个 Tab、紧挨着，而不是新开一个侧栏一级入口 ——
+           侧栏那一格 3 天前刚因为「不为一个低频动作占一行」被撤掉（见 ZhoupuImport 的由来）。
+           组件自带上传弹窗（客户/应收/订单明细/专属价/收款流水 这 5 个**没有导入界面**的类目），
+           有专门页面的类目（商品/员工/库存）只给「去上传」跳转 ⇒ 不产生第二套导入入口。 -->
+      <DataLedger />
 
       <div class="cc-section">
         <div class="panel-hd">
@@ -206,7 +231,7 @@
           </div>
           <div class="cc-mcp-txt">
             <div class="cc-mcp-title">添加 MCP 服务器</div>
-            <div class="cc-mcp-desc">接入舟谱、第三方数据源等，让 AI 副驾读更多数据</div>
+            <div class="cc-mcp-desc">把外部系统按 MCP 协议接进来（开发中，暂未开放）</div>
           </div>
         </div>
       </div>
@@ -220,6 +245,28 @@
 
     <!-- ===== 技能 Tab ===== -->
     <template v-else>
+      <!-- 平台能力（引擎基础设施）：P2-1 接出 Hermes 5 个技能基础设施模块（只读，不可由租户开关） -->
+      <div class="cc-section">
+        <div class="panel-hd">
+          <b>平台能力（引擎基础设施）</b>
+          <span class="page-sub">Hermes 引擎自带的技能系统底层能力，系统内置、始终运行</span>
+        </div>
+        <div v-if="infraModules.length" class="sk-grid">
+          <div v-for="m in infraModules" :key="m.name" class="card sk-card infra">
+            <div class="sk-top">
+              <span class="sk-ic"><Icon :name="infraIcon(m.name)"/></span>
+              <div class="sk-id">
+                <div class="sk-title">{{ m.title }}</div>
+                <div class="sk-name">{{ m.name }}</div>
+              </div>
+              <span class="sk-badge" :class="{ on: m.status === 'active' }">{{ m.status === 'active' ? '运行中' : m.status }}</span>
+            </div>
+            <div class="sk-what">{{ m.description }}</div>
+          </div>
+        </div>
+        <div v-else class="state-empty">平台能力模块未返回</div>
+      </div>
+
       <!-- AI 技能库：预置行业技能 + AI 自进化沉淀 -->
       <div class="cc-section">
         <div class="panel-hd">
@@ -475,10 +522,12 @@
 import Icon from '../components/Icon.vue'
 import { reactive, ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { toast } from '../store'
-import { workflowApi, aiSkillsApi } from '../api/modules'
+import { toast, store } from '../store'
+import { workflowApi, aiSkillsApi, zhoupuApi } from '../api/modules'
 import { api } from '../api/client'
+import { canImportZhoupu } from '../constants/roles'
 import RoleManage from './RoleManage.vue'
+import DataLedger from '../components/DataLedger.vue'
 
 const router = useRouter()
 const tab = ref('connector')
@@ -504,9 +553,20 @@ function fmtEvTime(t) {
 
 /* ---- AI 技能库（预置 + AI 自进化） ---- */
 const aiSkills = ref([])
+const infraModules = ref([])
 const skillLoading = ref(false)
 const prebuiltSkills = computed(() => aiSkills.value.filter(s => s.source === 'prebuilt'))
 const generatedSkills = computed(() => aiSkills.value.filter(s => s.source === 'generated'))
+
+/* 平台能力（引擎基础设施）图标映射 —— 仅用 Icon.vue 已支持的图标名 */
+const INFRA_ICON = {
+  skills_hub: 'box',
+  skills_guard: 'shield',
+  skills_sync: 'refresh',
+  skill_provenance: 'key',
+  skill_manager_tool: 'toolbox',
+}
+function infraIcon(name) { return INFRA_ICON[name] || 'box' }
 
 /* 技能展示富化：把机器名 + 技术描述 → 老板可懂的「图标 + 中文名 + 能干嘛 + 何时触发」 */
 const SKILL_META = {
@@ -527,6 +587,7 @@ async function loadAiSkills() {
   try {
     const d = await aiSkillsApi.list()
     aiSkills.value = d.skills || []
+    infraModules.value = d.infrastructure || []
   } catch (e) {
     aiSkills.value = []
     toast(e.message || '技能加载失败', 'err')
@@ -642,6 +703,11 @@ const gwSummary = computed(() => {
 })
 const gwCls = computed(() => gwSummary.value.cls)
 const gwText = computed(() => gwSummary.value.text)
+/* T1-6 ②：网关**已经在跑**时改了 MCP 配置 ⇒ Hermes 工具索引是进程内缓存，
+   新能力不会生效（用户看到的是「配了却用不到」，零报错）。
+   后端按「config.yaml 修改时刻 > 进程启动时刻」判定并回 mcp_pending；
+   判不了时（如无 /proc）后端给 judged=false，这里就**不提示**，不臆断。 */
+const gwMcpPending = computed(() => !!((ccView.gateway || {}).mcp_pending))
 
 async function recheckAll() {
   gwBusy.value = true
@@ -1057,6 +1123,82 @@ async function disconnectKingdee() {
   } finally { kingdee.busy = false }
 }
 
+/* ---- 舟谱 / 导出表（v274，2026-09-25）----
+ *
+ * 🔴 为什么舟谱落在这里，而不是继续占一行侧栏：
+ *   用户不认可为一个**低频动作**（一个月导一次）在侧栏单独开一格；而这一页本来就有一区
+ *   叫「ERP 数据源」，标题写着「接入你的业务系统，AI 副驾直接读真实数据」——
+ *   舟谱导出的两张表**就是一个数据来源**，和旁边的畅捷通 / 金蝶同类。
+ *   同页 MCP 区的文案原本还写着「接入舟谱、第三方数据源等」，而那块点下去只弹
+ *   「即将上线」—— 名字挂在那里却不是入口，正是 v267 清过的那类**假入口** ⇒ 一并改掉。
+ *
+ * ⚠️ 它和上面两条**不是同一类**：畅捷通 / 金蝶是 OAuth 授权 + 后端拉数（有凭据、
+ *   有 `disconnect`、有 `sync`）；舟谱这条路**没有凭据**，是人工上传 Excel。
+ *   所以卡片上**不摆「断开/同步」按钮** —— 摆了就是假按钮（点了没有对应语义的动作）。
+ *   状态读的是导入成功后落的**回执**（`/api/import/zhoupu/source-status`）。
+ *
+ * 可见性判据与侧栏原来那条**同一份**（`canImportZhoupu` ← `roles.js::ZHOUPU_IMPORT_ROLES`，
+ * 与后端 `_guard()` 的 admin/boss 同源）：这一页谁都能进，卡片也必须按角色判，
+ * 否则业务员会看到一张点进去必被 403 的卡（假入口）。
+ */
+const zhoupu = reactive({ ready: false, connected: false, lastAt: '', lastLabel: '',
+                          lastOrders: 0, lastLines: 0, importCount: 0, filename: '' })
+const zhoupuVisible = computed(() => canImportZhoupu(store.user.role))
+
+async function loadZhoupu() {
+  if (!zhoupuVisible.value) return
+  try {
+    // 🔴 必须走 `zhoupuApi.sourceStatus()`，**不要在这里直接 `api(...)`**：
+    //    `api()` 默认会把 `{success,data}` 的 `data` 解包掉，而这四个舟谱端点都返回信封
+    //    ⇒ 少传 `raw:false`（或绕开模块自己调 api）就会拿到解包后的对象，
+    //      再读 `r.data` 恒为 undefined：**不报错、只是永远显示「未使用」**。
+    //    2026-09-25 真机探针就是这么抓到第一次的（当时这里写的是 `api(...)`）。
+    const r = await zhoupuApi.sourceStatus()
+    const d = (r && r.data) || {}
+    zhoupu.connected = !!d.connected
+    zhoupu.lastAt = d.last_at || ''
+    zhoupu.lastLabel = d.last_kind_label || ''
+    zhoupu.lastOrders = d.last_orders_created || 0
+    zhoupu.lastLines = d.last_lines_created || 0
+    zhoupu.importCount = d.import_count || 0
+    zhoupu.filename = d.last_filename || ''
+  } catch (e) { /* 静默：拉不到状态不该让整页报错（卡片退回「未使用」） */ }
+  finally { zhoupu.ready = true }
+}
+
+/* 状态行文案：把「上次动作」说清楚。**没有**「共多少张」这种话 —— 回执里没有
+   累计张数（`sale_orders` 无法标识哪些单来自本通道），写了就是编。 */
+const zhoupuStateText = computed(() => {
+  if (!zhoupu.ready) return '读取中…'
+  if (!zhoupu.connected) return '未使用'
+  return '已接入'
+})
+function fmtShortDay(t) {
+  if (!t) return ''
+  const m = String(t).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2})/)
+  return m ? (Number(m[2]) + '月' + Number(m[3]) + '日 ' + m[4]) : String(t).slice(0, 16)
+}
+/* 副标题必须**一行放得下**（`.cc-desc` 不会 nowrap，长了会把这张卡撑高、
+   把同一行的另外两张卡也顶高）。实测一行约 26 个汉字宽 ⇒ 只放「时间 · 张数」，
+   表种（销售结算 / 调拨）挪到卡片的 title 提示里 —— 它属于"想看才看"的信息。 */
+const zhoupuSub = computed(() => {
+  if (!zhoupu.connected) return '上传舟谱导出的销售结算表 / 调拨订单表'
+  const parts = ['上次 ' + fmtShortDay(zhoupu.lastAt)]
+  if (zhoupu.lastOrders) parts.push(Number(zhoupu.lastOrders).toLocaleString('zh-CN') + ' 张单')
+  return parts.join(' · ')
+})
+const zhoupuTip = computed(() => {
+  if (!zhoupu.connected) return '还没有导入过舟谱单据'
+  const t = []
+  if (zhoupu.lastLabel) t.push(zhoupu.lastLabel)
+  if (zhoupu.filename) t.push(zhoupu.filename)
+  t.push('导入次数 ' + zhoupu.importCount + ' 次')
+  t.push('明细 ' + Number(zhoupu.lastLines || 0).toLocaleString('zh-CN') + ' 行')
+  return t.filter(Boolean).join('\n')
+})
+
+function openZhoupu() { router.push('/zhoupu-import') }
+
 onMounted(async () => {
   await loadChannels()
   // 进页面时若已有渠道在过渡态（刚保存没刷新就离开过），继续轮询到位
@@ -1065,6 +1207,7 @@ onMounted(async () => {
   loadPairings()
   refreshChanjetStatus()
   refreshKingdeeStatus()
+  loadZhoupu()
   loadWorkflows()
   loadAiSkills()
 })
@@ -1095,6 +1238,9 @@ onUnmounted(stopStatusPoll)
 .cc-logo-wecom{background:var(--p-bg);color:var(--p-dark)}
 .cc-logo-chanjet{background:rgba(255,149,0,.14);color:#ff9500}
 .cc-logo-kingdee{background:rgba(14,165,183,.16);color:#0ea5b7}
+/* v274：舟谱 —— 与畅捷通（橙）、金蝶（青）取的色相都错开，避免三张卡看起来是同一家。
+   这里**不声称**是舟谱的品牌色，只是个能区分开的标识色。 */
+.cc-logo-zhoupu{background:rgba(83,74,183,.16);color:#534ab7}
 .cc-modal-tip.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .cc-modal-btns{display:flex;gap:10px;flex-wrap:wrap}
 .cc-modal-btns .btn{flex:1;min-width:120px}
@@ -1162,6 +1308,9 @@ onUnmounted(stopStatusPoll)
 .sk-title{font-size:14px;font-weight:600;color:var(--t1)}
 .sk-name{font-size:11px;color:var(--t3);font-family:var(--font-mono,monospace);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sk-badge{font-size:10px;padding:2px 7px;border-radius:8px;background:var(--bg3);color:var(--t3);flex-shrink:0;align-self:flex-start}
+.sk-card.infra{border-left:3px solid #3b82f6}
+.sk-card.infra .sk-ic{color:#3b82f6}
+.sk-badge.on{background:rgba(34,197,94,.16);color:#16a34a}
 .sk-what{font-size:12.5px;color:var(--t2);line-height:1.65}
 .sk-when{font-size:11.5px;color:var(--p-dark);background:var(--p-bg);padding:6px 10px;border-radius:8px;line-height:1.5}
 @media(max-width:768px){.sk-grid{grid-template-columns:1fr}}
@@ -1259,6 +1408,7 @@ onUnmounted(stopStatusPoll)
 .gw-dot.warn{background:#f59e0b}
 .gw-dot.err{background:#ef4444}
 .gw-text{flex:1;color:var(--t2)}
+.gw-mcp{font-size:12px;color:var(--warn-amber);background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:8px;padding:4px 10px;white-space:nowrap}
 .gw-btn{font-size:12px;padding:5px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer;transition:all .15s}
 .gw-btn:hover:not(:disabled){border-color:var(--p-dark);color:var(--p-dark)}
 .gw-btn:disabled{opacity:.5;cursor:not-allowed}

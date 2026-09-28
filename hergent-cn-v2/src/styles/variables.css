@@ -227,10 +227,19 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
   height:36px;padding:0 16px;border:none;border-radius:var(--radius-md);
   font-size:14px;font-weight:500;transition:all .15s;
 }
+/* 🔴 v264b 补齐：`.btn:disabled` 此前**全站没有定义** —— 只有 `.btn-icon:disabled` 与
+   `.btn-danger:disabled` 各写了一份（见本文件 262 / 491 行），`.btn` 这一档漏了。
+   ⇒ 后果是**禁用态与可用态逐属性相同**：主按钮照样实底蓝，而且 `.btn-primary:hover`
+   也没有 `:not(:disabled)` 守卫 ⇒ 禁用的按钮**鼠标移上去还会变深**，看起来更可点。
+   用户点了没反应，也说不出为什么 —— 正是本项目反复付学费的「死按钮不报错」形态。
+   （真机实测现场：商品目标页「保存」在 Σ 占比 ≠ 100% 时是 disabled，但看着完全可用。）
+   数值与写法都沿用同文件 `.btn-danger:disabled` 的成例，不新造视觉语言。
+   ⚠️ 这是**全局**规则：改它会同时改全站所有 `.btn` 的禁用外观（这正是目的）。 */
+.btn:disabled{opacity:.45;cursor:not-allowed}
 .btn-primary{background:var(--p-dark);color:#fff}
-.btn-primary:hover{background:var(--p-deep)}
+.btn-primary:hover:not(:disabled){background:var(--p-deep)}
 .btn-ghost{background:transparent;color:var(--t1);border:1px solid var(--bd)}
-.btn-ghost:hover{background:var(--bg2)}
+.btn-ghost:hover:not(:disabled){background:var(--bg2)}
 /* v169 补齐：`.btn.on` 此前**全站没有定义** —— 模板里「导出 / 工具箱 / 修改日志 / 品牌 /
    复制报单 / 返利·品牌筛选」共 6 处都写了 :class="{on:...}"，但点击前后计算样式逐属性相同
    （background/color/border/boxShadow 全不变），等于「弹层开着但触发按钮毫无反馈」。

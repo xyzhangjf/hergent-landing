@@ -459,14 +459,10 @@
             </div>
             <template v-if="impStep === 'map'">
               <p class="pa-tip">系统按列名猜字段，可能猜错（例如把「厂家商品编码」当成品牌）。核对「识别为」这一列，不对就在下拉里改 —— 标「不导入」的列不会进来。</p>
-              <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions" />
+              <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions"
+                             :memory="impMemory" v-model:incremental="impInc" />
             </template>
-            <div v-if="impResult" class="pa-imp-result" :class="impResult.results?.errors?.length ? 'warn' : 'ok'">
-              成功 {{ impResult.results?.success }} 条 · 跳过 {{ impResult.results?.skipped }} 条 · 失败 {{ impResult.results?.errors?.length || 0 }} 条
-              <span v-if="impResult.results?.errors?.length" class="pa-errs">
-                <span v-for="(er, i) in impResult.results.errors.slice(0, 4)" :key="i" class="pa-err">第{{ er.row }}行: {{ er.msg }}</span>
-              </span>
-            </div>
+            <ImportReceipt :result="impResult" @undone="loadProducts()" />
           </div>
           <div class="pa-modal-ft">
             <template v-if="impStep === 'map'">
@@ -586,6 +582,7 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import ImportMapping from '../components/ImportMapping.vue'
+import ImportReceipt from '../components/ImportReceipt.vue'
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { api } from '../api/client'
 import { productsApi, importApi } from '../api/modules'
@@ -901,6 +898,10 @@ const impStep = ref('pick')          // pick=选文件 | map=确认列映射
 const impSuggestions = ref([])       // /preview 的 suggestions（含样例值）
 const impFieldOptions = ref([])      // 候选字段（**后端给**，前端不自己写一份键→中文）
 const impMapping = ref({})
+/* v303：映射记忆提示（后端回的 `remembered`）+ 「跳过已存在的记录」开关。
+   商品建档的重复导入没有业务价值（同条码/同名称再建一次就是脏档案）⇒ 默认打开。 */
+const impMemory = ref(null)
+const impInc = ref(true)
 
 async function loadProducts() {
   loading.value = true
@@ -1392,12 +1393,14 @@ async function saveAdd() {
 function openImport() {
   impFile.value = null; impFileName.value = ''; impResult.value = null; impSaving.value = false
   impStep.value = 'pick'; impSuggestions.value = []; impFieldOptions.value = []; impMapping.value = {}
+  impMemory.value = null; impInc.value = true   // v303：每次重开弹窗回到默认（跳过已存在的记录）
   impOpen.value = true
 }
 function onImpFile(ev) {
   const f = ev.target.files[0] || null
   if (f && !/\.(xlsx|xls|csv)$/i.test(f.name)) { toast('仅支持 Excel/CSV 文件', 'err'); ev.target.value = ''; return }
   impFile.value = f; impFileName.value = f?.name || ''; impResult.value = null
+  impMemory.value = null   // v303：换文件 ⇒ 上一次的映射记忆提示不再适用（新指纹可能又命中，但那要等 preview 回）
   impStep.value = 'pick'   // 换文件 → 映射作废，回到第一步重识别
 }
 async function downloadTpl() {
@@ -1419,6 +1422,7 @@ async function previewImport() {
     const prev = await importApi.preview(impFile.value, 'products')
     impSuggestions.value = prev.suggestions || []
     impFieldOptions.value = prev.field_options || []
+    impMemory.value = prev.remembered || null
     if (!impSuggestions.value.length) { toast('没读到任何列，请检查文件是否为 Excel/CSV', 'err'); return }
     const m = {}
     for (const s of impSuggestions.value) if (s.suggested_field) m[s.index] = s.suggested_field
@@ -1433,7 +1437,8 @@ async function doImport() {
   if (!impFile.value) return
   impSaving.value = true
   try {
-    const r = await importApi.execute(impFile.value, 'products', impMapping.value)
+    const r = await importApi.execute(impFile.value, 'products', impMapping.value,
+                                      impInc.value ? { mode: 'incremental' } : {})
     impResult.value = r
     impStep.value = 'pick'
     toast(`导入完成：成功 ${r.results?.success || 0} 条`, r.results?.errors?.length ? 'warn' : 'ok')

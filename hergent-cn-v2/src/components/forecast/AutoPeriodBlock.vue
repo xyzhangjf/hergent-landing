@@ -1,18 +1,16 @@
 <template>
   <!-- v242 报单自动化 —— 从「创建品牌目标」弹窗的 ③ 区迁来（报单配置页）。
        折叠头**不展开也能看到**当前状态与下次动作（验收 A7）。 -->
-  <div class="card ap-card">
-    <div class="ap-hd" @click="open = !open">
-      <b>报单自动化</b>
-      <span class="ap-sub">到点自动建表 / 到点自动关单 —— 按品牌方的报单节奏走</span>
+  <ConfigCard v-model="open" title="报单自动化" subtitle="到点自动建表 / 关单 —— 按品牌方的报单节奏走">
+    <template #chip>
       <span class="ap-chip" :class="form.enabled ? 'on' : 'off'">{{ form.enabled ? '自动' : '手动' }}</span>
+      <span v-if="!form.enabled && state.occupied_by" class="ap-warnchip">已被「{{ state.occupied_by }}」占用</span>
+    </template>
+    <template #summary>
       <span v-if="form.enabled && state.brand" class="ap-meta">基准「{{ state.brand }}」</span>
       <span v-if="live" class="ap-meta ap-strong">{{ live }}</span>
-      <span v-if="!form.enabled && state.occupied_by" class="ap-warnchip">已被「{{ state.occupied_by }}」占用</span>
-      <span class="ap-toggle">{{ open ? '收起' : '展开' }}</span>
-    </div>
+    </template>
 
-    <div v-if="open" class="ap-body">
       <p class="ap-tip">
         报单是<b>按品牌方排产节点</b>走的：<b>只能提前、不能延后</b>。开启后系统在「开放填报」时刻
         自动建表、「自动关单」时刻自动关单；中间到「厂家下单截止」这段留给经理改单、你付款 ——
@@ -96,14 +94,14 @@
         </button>
         <span v-if="state.dry_run" class="ap-warnchip">演练中：只记日志，不实际建表/关单</span>
       </div>
-    </div>
-  </div>
+  </ConfigCard>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { autoPeriodApi } from '../../api/modules'
 import { toast } from '../../store'
+import ConfigCard from './ConfigCard.vue'
 
 const open = ref(true)
 const busy = ref(false)
@@ -202,18 +200,12 @@ onMounted(load)
 </script>
 
 <style scoped>
-.ap-card{margin-bottom:12px;padding:0;overflow:hidden}
-.ap-hd{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer;flex-wrap:wrap}
-.ap-hd b{font-size:13px;color:var(--t1)}
-.ap-sub{font-size:12px;color:var(--t3)}
-.ap-toggle{margin-left:auto;color:var(--p);font-size:12px}
-.ap-chip{font-size:11px;padding:1px 8px;border-radius:10px;font-weight:500}
-.ap-chip.on{background:rgba(var(--p-rgb),.12);color:var(--p-dark)}
+.ap-chip{font-size:11px;padding:1px 9px;border-radius:10px;font-weight:500}
+.ap-chip.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .ap-chip.off{background:var(--bg2, #f3f4f6);color:var(--t3)}
 .ap-meta{font-size:12px;color:var(--t2)}
 .ap-strong{font-size:12px;color:var(--p-dark);font-weight:500}
 .ap-warnchip{font-size:12px;color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px 8px;border-radius:10px}
-.ap-body{padding:0 16px 14px;border-top:1px solid var(--border-subtle)}
 .ap-tip{font-size:12.5px;color:var(--t2);line-height:1.65;margin:12px 0}
 .ap-grid{display:grid;grid-template-columns:max-content minmax(180px,1fr) repeat(3,140px);gap:12px;padding:2px 0 6px}
 .ap-grid .field{display:flex;flex-direction:column;gap:5px}

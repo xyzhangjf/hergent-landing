@@ -4,9 +4,15 @@
   <div class="page" :class="{ 'grid-fs-on': gridFullscreen, 'copilot-on': store.ui.copilotOpen }">
     <!-- 模块级标签页：本期预报 / 历史期次（历史分析工具改在汇总表工具箱「对比分析」组，见下） -->
     <div class="module-tabs">
-      <button :class="{ on: activeTab === 'summary' }" @click="activeTab = 'summary'">本期预报</button>
-      <button :class="{ on: activeTab === 'history' }" @click="activeTab = 'history'">历史期次</button>
-      <button :class="{ on: activeTab === 'config' }" @click="activeTab = 'config'">报单配置</button>
+      <button :class="{ on: activeTab === 'summary' }" @click="setTab('summary')">本期预报</button>
+      <button :class="{ on: activeTab === 'history' }" @click="setTab('history')">历史期次</button>
+      <button :class="{ on: activeTab === 'config' }" @click="setTab('config')">报单配置</button>
+      <!-- v265（2026-09-24）：商品目标收进本页当第 4 个页签（原为侧栏独立入口）。
+           为什么放这里：它**唯一的只读依赖**「报单配置」就是隔壁那个 tab（读 report_mapping
+           算逐人实报），两者又同属 `data` 权限模块（零权限变更）。放同页后依赖闭环、
+           且消掉侧栏「目标与返利 / 商品目标」并排两个"目标"的困惑。
+           点 tab 走 setTab() 而不是直接赋值：要同步 URL（?tab=target），旧链 /product-target 才能 redirect 过来。 -->
+      <button :class="{ on: activeTab === 'target' }" @click="setTab('target')">商品目标</button>
     </div>
 
     <template v-if="activeTab === 'summary'">
@@ -79,12 +85,12 @@
       </div>
       <span class="tb-sep"></span>
       <div class="tb-group tb-act">
-        <button class="btn btn-sm btn-ghost" :disabled="!cross.period" @click="onSuggest" title="按体检/货损/返利/起订量生成建议并打开审核"><Icon name="sparkle"/> <span class="tb-ai-txt">AI智能建议</span></button>
+        <button class="btn btn-sm btn-ghost" :disabled="!cross.period" @click="onSuggest" title="按配方规则（体检/货损/返利/起订量）算出建议补货量，并打开审核台"><Icon name="sparkle"/> <span class="tb-ai-txt">补货建议</span></button>
         <!-- v209：全屏时让位给表格工具行里那一份（全屏层 fixed/inset:0 把本工具栏整条盖住 ⇒ 这里的按钮点不到）。
              非全屏照旧渲染于此。判据见 fsRowHosting。 -->
         <!-- v219：已定稿（关闭）的期次禁用改单 —— 与后端 save_matrix 闸门同源，避免「能改但保存被拒」 -->
-        <button v-if="!editMode && !fsRowHosting" class="btn btn-sm btn-primary" :disabled="loadingEdit || periodClosed"
-                :title="periodClosed ? '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行')"
+        <button v-if="!editMode && !fsRowHosting" class="btn btn-sm btn-primary" :disabled="loadingEdit || periodLocked"
+                :title="periodLocked ? lockHint : (closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'))"
                 @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
         <!-- 编辑态：高级工具（审批/推送/打印 + 健康体检/AI工具/协同闭环/更多工具） -->
         <div v-if="editMode" class="tb-pop">
@@ -118,8 +124,8 @@
           查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
         </button>
         <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
-        <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="noOpenPeriod"
-                :title="noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵'" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+        <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="noOpenPeriod || periodDeadlinePassed"
+                :title="periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵')" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
         <!-- v201：常驻的保存状态。保存成功只弹一条几秒即消失的提示，之后页面与保存前
              长得一模一样 ⇒ 用户无法确认「到底存进去了没有」。这里给一个**一直挂着**的答案
              （保存失败另有红色横幅，两者语义不重叠）。
@@ -216,7 +222,8 @@
           </div>
           <div v-else-if="impState === 'preview'" class="imp-body">
             <p class="imp-tip">系统按列名猜字段，可能猜错（例如把「合计」当成客户列）。核对「识别为」这一列，不对就在下拉里改 —— 标「不导入」的列不会进来。</p>
-            <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions" />
+            <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions"
+                           :memory="impMemory" :show-incremental="false" />
             <p v-if="impFactoryMissing" class="imp-gate">没有识别到「进价」列。进价闸门开启时，档案里也没有进价的行会被整行拒收 —— 文件里若有这一列（旧模版里叫「厂价」），请在上表把它改成「进价」。</p>
             <div v-if="impPreview.length" class="imp-matrix">
               <table class="tbl">
@@ -387,10 +394,32 @@
       <Transition name="fade"><div v-if="auditOpen" class="imp-overlay" @click="auditOpen = false"></div></Transition>
       <Transition name="pop">
         <div v-if="auditOpen" class="imp-modal audit-modal">
-          <div class="imp-hd"><b>智能建议本周期 · {{ cross.period?.name || '' }}</b><button class="imp-x" @click="auditOpen = false"><Icon name="close"/></button></div>
+          <div class="imp-hd"><b>补货建议本周期 · {{ cross.period?.name || '' }}</b><button class="imp-x" @click="auditOpen = false"><Icon name="close"/></button></div>
           <div class="imp-body">
             <div v-if="!erpLinked" class="imp-tip warn-text audit-erp-note">
-              <b><Icon name="alert-triangle"/> 当前未连接 ERP（畅捷通 / 金蝶）。</b>本功能的智能建议需以实时库存与销量为依据；未连接时建议量缺少数据支撑、仅供参考。你可手动核对报单量后直接「确认定稿」，或前往 <button class="link-btn" @click="goConnect">能力中心</button> 连接 ERP，建议才会准确。
+              <b><Icon name="alert-triangle"/> 当前未连接 ERP（畅捷通 / 金蝶）。</b>本功能的补货建议需以实时库存与销量为依据；未连接时建议量缺少数据支撑、仅供参考。你可手动核对报单量后直接「确认定稿」，或前往 <button class="link-btn" @click="goConnect">能力中心</button> 连接 ERP，建议才会准确。
+            </div>
+            <!-- v265：销量数据新鲜度；P0-2（2026-09-27）：由「仅不新鲜时告警」改为「**常显数据依据**」。
+                 为什么必须放在**这一层**（而不是 `auditState==='done'` 分支里）：数据停更多半
+                 就发生在"这个期次没有报单商品"的时候（没报单 ⇒ 审核台走 empty 分支），
+                 而那句话正是「为什么没有建议」的答案。塞进 done 分支 = 最该看到它的人看不到。
+                 文案依据：窗口锚在**数据自己的最新日期**（MAX(order_date)，**有意**设计，防数据
+                 迟到时窗口打空）⇒ 数据一停更，窗口静默漂移到 101 天前，285 个在售商品里 180 个
+                 日均销量被算成 0、判定退化成「无销售数据，请人工判断」，**零报错、数字看着正常**。
+                 P0-2：fresh 档**不再隐藏** —— 依据要常显，新鲜与否只决定**配色**（不再决定是否渲染）。 -->
+            <div v-if="auditFresh" class="imp-tip audit-fresh" :class="auditFresh.level === 'fresh' ? 'audit-fresh-ok' : 'warn-text'">
+              <template v-if="auditFresh.level === 'fresh'">
+                <Icon name="clock"/> <b>本建议依据的销量数据最新到 {{ auditFresh.max_date }}（{{ auditFreshAgo }}）</b>，统计窗口 {{ auditFresh.window_start }} 至 {{ auditFresh.window_end }}。
+              </template>
+              <template v-else>
+                <b><Icon name="alert-triangle"/> {{ auditFresh.label }}</b>
+                <template v-if="auditFresh.level === 'stale'">
+                  —— 系统建议依据的统计窗口是 {{ auditFresh.window_start }} 至 {{ auditFresh.window_end }}（按数据最新日期回推 {{ auditFresh.window_days }} 天，<b>不是最近 {{ auditFresh.window_days }} 天</b>）。窗口内没有销量的商品，日均销量会被算成 0、建议量退化为人工判断，下方建议量请只作参考。
+                </template>
+                <template v-else>
+                  —— 距上次销量更新已有 {{ auditFresh.days_stale }} 天。建议尽快补充最新的销售/发货数据，否则建议量会逐渐失真。
+                </template>
+              </template>
             </div>
             <p v-if="auditState === 'loading'" class="imp-tip">正在按「日均销量 × 覆盖天数 − 当前库存」逐 SKU 计算建议量…</p>
             <template v-else-if="auditState === 'done'">
@@ -449,19 +478,40 @@
         <template v-if="unmetSprintCount">
           <b>{{ unmetSprintCount }}</b> 个品牌未达标
           <span class="sep">·</span>总缺口 <b class="val-warn">¥{{ fmt(sprintTotalGap) }}</b>
-          <span class="sep">·</span>剩 <b>{{ rebateSprintOrders }}</b> 次到货
-          <span class="sep">·</span>均单需报 <b class="val-warn">¥{{ fmt(sprintTotalGapPerOrder) }}</b>
+          <!-- v292：窗口已关闭（剩 0 次）时不再显示「均单需报 ¥0」——
+               分母为 0 得出的均单是算式产物，不是业务含义。直接把"已无机会"说出来。 -->
+          <template v-if="rebateSprintOrders > 0">
+            <span class="sep">·</span>剩 <b>{{ rebateSprintOrders }}</b> 次到货
+            <span class="sep">·</span>均单需报 <b class="val-warn">¥{{ fmt(sprintTotalGapPerOrder) }}</b>
+          </template>
+          <template v-else>
+            <span class="sep">·</span><b class="val-warn">本月到货窗口已结束</b>，缺口无法再追补
+          </template>
         </template>
         <template v-else>
           <b>{{ rebateSprint.length }}</b> 个品牌目标<span class="val-ok">全部达成</span>
           <span class="sep">·</span>本月时间进度 <b>{{ sprintTimeProgress.pct1 }}%</b>
         </template>
       </div>
+      <!-- v293：取数失败（403 等）时在**常显位置**给出原因 —— 折叠状态下也要能看见。
+           否则用户默认看到的是"有标题、没内容"的空卡片，点开才发现是空的，与静默失效无异。
+           复用 .sprint-banner（同为常显结论行），零新增 CSS。 -->
+      <div v-if="rebateRulesErr" class="sprint-banner">
+        <b class="val-warn">返利数据未能读取</b>
+        <span class="sep">·</span>{{ rebateRulesErr }}
+      </div>
       <div v-show="rebateSprintOpen" class="panel-body">
         <template v-if="rebateSprint.length">
           <p class="sprint-sum">
-            本期（返利周期截止 <b>{{ rebateCampaignEnd || (cross.period && cross.period.order_end) }}</b>）按默认到货周期（每 {{ rebateGlobalCadence }} 天）约剩 <b>{{ rebateSprintOrders }}</b> 次到货机会；各品牌到货周期不同，下表按各自周期算「建议均单」。
-            要补齐以下返利目标缺口，<b>均单需报 ¥{{ fmt(sprintTotalGapPerOrder) }}</b>（按默认周期估算）。
+            <template v-if="rebateSprintOrders > 0">
+              本期（返利周期截止 <b>{{ rebateCampaignEnd || (cross.period && cross.period.order_end) }}</b>，即当月最后一天）按默认到货周期（每 {{ rebateGlobalCadence }} 天）约剩 <b>{{ rebateSprintOrders }}</b> 次到货机会；各品牌到货周期不同，下表按各自周期算「建议均单」<template v-if="sprintOverrideNames">；<b>{{ sprintOverrideNames }}</b> 按你在「到货节奏」里配置的本月到货次数折算</template>。
+              要补齐以下返利目标缺口，<b>均单需报 ¥{{ fmt(sprintTotalGapPerOrder) }}</b>（按默认周期估算）。
+            </template>
+            <!-- v292：窗口已关闭时不再说「约剩 0 次到货机会 / 均单需报 ¥0」——
+                 那种句子读起来像"还有机会但不用报"，实际是"这个月已经没有机会了"。 -->
+            <template v-else>
+              本期到货窗口已结束（返利周期截止 <b>{{ rebateCampaignEnd }}</b>）—— <b class="val-warn">本月已无到货机会</b>，剩余缺口无法再靠报单追补；下表仅供复盘。
+            </template>
             <span class="muted">（达成按到货月份归属 = 已填报达成 + 本期预报贡献；未填报可在「目标与返利 → 达成填报」补录或 Excel 导入）</span>
           </p>
           <div class="table-wrap">
@@ -506,6 +556,13 @@
             </ul>
           </div>
         </template>
+        <!-- v293：403（角色没权限）**不能**复用下面那条「尚未配置品牌 / 商品返利目标」的空态 ——
+             那会让主管以为是自己没配目标，是把用户往错方向引。这里只复述原因 + 给出期望，
+             具体原因与行动指引已由上方那条常显行承载。 -->
+        <p v-else-if="rebateRulesErr" class="hint">
+          <b class="val-warn">{{ rebateRulesErr }}</b> —— 处理完这里会自动出现；
+          已填报的达成数据不受影响，不会丢。
+        </p>
         <p v-else class="hint">尚未配置品牌 / 商品返利目标。去「目标与返利」页创建目标后，这里会在你下单时实时显示达成率、缺口与建议均单；实际达成可在「达成填报」补录或 Excel 导入。</p>
       </div>
     </div>
@@ -631,7 +688,28 @@
           </div>
 
         <!-- 表体：加载态 / 空态 / 汇总表（虚拟滚动+分组+展开+行操作+键盘a11y） -->
-        <div v-if="crossLoading" class="tbl-state tbl-skeleton" aria-busy="true" aria-label="数据加载中">
+        <!-- v267（2026-09-24）：无报单汇总权限时**先于加载态**给出常驻说明。
+             判据 = 角色白名单（`roles.js::FORECAST_SUMMARY_ROLES` ← 后端 `SUMMARY_ROLES`，有 AST 护栏）
+                   **或** 服务端实际回了 403（纵深防御）。
+             为什么必须做成**常驻**而不是沿用 toast：真机实测（v265-e2e 相位 9）——
+             动作后 1 秒能读到 toast，6 秒后 toast 已消失，页面只剩「空表 + 一排永久灰按钮」，
+             全程 0 报错；用户**分不清是「没数据」还是「没权限」**。
+             措辞口径：说清「谁不能看 / 谁能看 / 这不是故障」三件事，不出现状态码与英文缩写
+             （产品面向不懂技术的经销商）。
+             ⚠️ 它必须是这条条件链的**第一支**：放后面就会被 `crossLoading` / `grid-area` 盖住。 -->
+        <div v-if="summaryDenied || crossDenied" class="tbl-state denied-state">
+          <div class="denied-hd"><Icon name="alert-triangle"/> 你的角色不能查看报单汇总</div>
+          <p class="denied-body">
+            报单汇总表是全公司各门店报单的合计，只对 管理员 / 老板 / 主管 开放。
+            你的角色是「<b>{{ roleName(store.user.role) }}</b>」，所以这里没有数据 ——
+            这不是系统故障，也不是网络问题。
+          </p>
+          <p class="denied-body">
+            要看你自己报的单，用手机上的小程序；<br>
+            如果你确实需要看全公司的合计，让老板在「员工账号」里把你的角色改成 主管。
+          </p>
+        </div>
+        <div v-else-if="crossLoading" class="tbl-state tbl-skeleton" aria-busy="true" aria-label="数据加载中">
           <div class="sk-row" v-for="n in 8" :key="n"><span class="sk-bar" v-for="m in 6" :key="m"></span></div>
         </div>
         <!-- v184：这里原来还有一个「只读态 0 行 ⇒ 整块空态」的分支，它**替换掉整张表**
@@ -708,8 +786,8 @@
             <template v-if="fsRowHosting">
               <span class="tb-sep"></span>
               <!-- v219：同第一处 —— 已定稿期次禁用改单（三处按钮共用 periodClosed 判据） -->
-              <button class="btn btn-sm btn-primary" :disabled="loadingEdit || periodClosed"
-                      :title="periodClosed ? '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行')"
+              <button class="btn btn-sm btn-primary" :disabled="loadingEdit || periodLocked"
+                      :title="periodLocked ? lockHint : (closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'))"
                       @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
             </template>
           </div>
@@ -763,8 +841,8 @@
                     </template>
                     <template v-else>
                       <!-- v219：同上 —— 已定稿期次禁用改单 -->
-                      <button class="btn btn-primary btn-sm" :disabled="periodClosed"
-                              :title="periodClosed ? '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」' : '进入可编辑网格填写报单'"
+                      <button class="btn btn-primary btn-sm" :disabled="periodLocked"
+                              :title="periodLocked ? lockHint : '进入可编辑网格填写报单'"
                               @click="enterEdit"><Icon name="edit"/> 改单填写</button>
                       <button class="btn btn-ghost btn-sm" :disabled="seedBusy || !nearestPrevPeriod" @click="seedFromPrev">
                         <Icon name="copy"/> {{ nearestPrevPeriod ? `从「${nearestPrevPeriod.name}」复制清单` : '从上一期复制清单' }}
@@ -823,8 +901,17 @@
                     </template>
                     <template v-else-if="col.key === 'qty'">{{ fmt(it.r.total) }}</template>
                     <template v-else-if="col.key === 'boxes'"><span :class="{ 'miss-price': boxMissing(it.r) }">{{ boxText(it.r) }}</span></template>
-                    <template v-else-if="col.key === 'extra'">{{ fmt(rowExtraQty(it.r)) }}</template>
-                    <template v-else-if="col.key === 'final'"><b>{{ fmt(rowFinalQty(it.r)) }}</b></template>
+                    <template v-else-if="col.key === 'extra'">
+                      <!-- v277（需求 4/6）：有商品目标时，加单量右上角带一个角标 ——
+                           未分配显示「缺30」（= 各业务员差额合计），已按占比分配后显示「加6 / 减12」。
+                           悬停整格看完整算路（差额怎么算、分到谁、定稿多少）。 -->
+                      <span class="tip-wrap pt-xm" :class="ptExtraMark(it.r) ? ('has-' + ptExtraMark(it.r).kind) : ''">
+                        {{ fmt(rowExtraQty(it.r)) }}
+                        <b v-if="ptExtraMark(it.r)" class="pt-xm-b">{{ ptExtraMark(it.r).text }}</b>
+                        <span v-if="ptExtraMark(it.r)" class="tip pt-tip"><i v-for="(L, li) in ptExtraTip(it.r)" :key="li">{{ L }}</i></span>
+                      </span>
+                    </template>
+                    <template v-else-if="col.key === 'final'"><b :class="{ 'final-neg': rowFinalQty(it.r) < 0 }" :title="rowFinalQty(it.r) < 0 ? '最终下单为负：加单(箱)的负数比「合计(箱)」还大。厂商不拆零发货，负数量无法下单 —— 请核对加单量。' : ''">{{ fmt(rowFinalQty(it.r)) }}</b></template>
                     <template v-else-if="col.key === 'ai'">{{ it.r.ai != null ? fmt(it.r.ai) : '—' }}</template>
                     <template v-else-if="col.key === 'price'"><span :class="{ 'miss-price': pricePerCase(it.r) == null }">{{ pricePerCase(it.r) != null ? pricePerCase(it.r).toFixed(2) + ' /箱' : (factoryPrice(it.r) <= 0 ? '缺价' : '缺规格') }}</span></template>
                     <template v-else-if="col.key === 'amount'"><span :class="{ 'miss-price': pricePerCase(it.r) == null }">{{ amountValue(it.r) != null ? fmt(amountValue(it.r)) : (factoryPrice(it.r) <= 0 ? '缺价' : '缺规格') }}</span></template>
@@ -953,8 +1040,8 @@
                   查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
                 </button>
                 <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
-                <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="noOpenPeriod"
-                :title="noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵'" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+                <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="noOpenPeriod || periodDeadlinePassed"
+                :title="periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵')" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
                 <!-- v201/v208：常驻保存状态。三态 see saveState；保存成功后已改为退出编辑态，
                      故本态是「正在编辑、准备再改一轮」的人的常驻答案。 -->
                 <span class="save-state" :class="saveState.cls"
@@ -1134,7 +1221,7 @@
                 <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri">{{ fmt(rowSum(r)) }}</td>
                 <td class="num calc boxes" :data-r="ri"><span :class="{ 'miss-price': boxMissing(r) }">{{ boxText(r) }}</span></td>
                 <td v-if="showSuggest" class="num calc suggest" :data-r="ri" title="配方建议：按「建议算法」面板策略算出">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
-                <td class="num calc extra" :data-r="ri"><input :value="r.extraQty ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT, $event)" @input="numInput($event, r, 'extraQty')" @change="numCommit($event, r, 'extraQty')"></td>
+                <td class="num calc extra pt-xmtd" :data-r="ri"><input :value="r.extraQty ?? ''" class="cell-input cell-qty" :class="{ 'cell-minus': isMinus(r.extraQty) }" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT, $event)" @input="numInput($event, r, 'extraQty')" @change="numCommit($event, r, 'extraQty')" title="可填负数 = 减单"><b v-if="ptExtraMark(r)" class="pt-xm-b pt-xm-abs" :class="'has-' + ptExtraMark(r).kind">{{ ptExtraMark(r).text }}</b><span v-if="ptExtraMark(r)" class="tip pt-tip pt-tip-abs"><i v-for="(L, li) in ptExtraTip(r)" :key="li">{{ L }}</i></span></td>
                 <td class="num calc final" :data-r="ri"><b>{{ fmt(rowFinalQty(r)) }}</b></td>
                 <td class="num calc price" :class="{ 'miss-price': pricePerCase(r) == null }" :data-r="ri"><input :value="r.casePrice ?? ''" class="cell-input cell-price" :class="{ 'manual-price': Number(r.casePrice) > 0 }" type="text" inputmode="decimal" :placeholder="pricePh(r)" :title="priceTitle(r)" :data-r="ri" :data-c="C_PRICE_INPUT" @focus="onFocusCell(ri, C_PRICE_INPUT, $event)" @input="numInput($event, r, 'casePrice')" @change="onCasePriceChange(r, $event)"></td>
                 <td class="num calc amount" :data-r="ri"><span :class="{ 'miss-price': pricePerCase(r) == null }">{{ amountValue(r) != null ? fmt(amountValue(r)) : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }}</span></td>
@@ -2016,8 +2103,8 @@
             <span v-if="saveFailed.prodDone" class="sf-partial">商品资料已保存，数量未保存，请重试</span>
             <span class="sf-msg">{{ saveFailed.msg }}</span>
             <span class="sf-time">{{ saveFailed.at }}</span>
-            <button class="btn btn-xs btn-primary" :disabled="noOpenPeriod"
-                    :title="noOpenPeriod ? saveBlockedReason : '重新提交本次保存'" @click="saveEdits">重试保存</button>
+            <button class="btn btn-xs btn-primary" :disabled="noOpenPeriod || periodDeadlinePassed"
+                    :title="periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '重新提交本次保存')" @click="saveEdits">重试保存</button>
           </div>
           <!-- Q28：P5-P7 做了大量能力但埋没，用户只会最笨的逐格手输 -->
           <div class="kbd-help">
@@ -2179,6 +2266,13 @@
     <!-- 报单配置（原档案管理独立页，整合为标签页） -->
     <div v-if="activeTab === 'config'" class="config-panel">
       <ReportMapping />
+    </div>
+
+    <!-- 商品目标（v265：原侧栏独立页，收进本页当第 4 个页签）
+         v-if 切换 ⇒ 每次切回来都会重新挂载 ⇒ onMounted 里的 loadAudit() 自动重跑，
+         「报单配置」改完切回来，顶部那条映射告警会自己消失（不需要手动刷新）。 -->
+    <div v-if="activeTab === 'target'" class="target-panel">
+      <ProductTarget />
     </div>
 
     <!-- 删除期次确认弹窗（置于 root 模板内、始终渲染，确保 summary 与 history 两个入口都能唤起） -->
@@ -2376,22 +2470,30 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
+// 🔴 v265：`useRouter` 与 `useRoute` **必须同时导入** —— 下方 `setTab()`（页签同步 URL）用了
+//    `useRouter()`。曾因两者被分开编辑（import 行只留 useRoute、`const router = useRouter()`
+//    留着），构建不报错、`node --check` 也不报，但**运行期 ReferenceError 直接崩掉整个预报页**
+//    （ErrorBoundary 捕获，用户看到的是白屏/错误页）。改这一行前先 grep 全文的 `useRouter(`。
+import { useRoute, useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
 import { store, toast } from '../store'
 import { auth, api } from '../api/client.js'
-import { forecastApi, auditApi, forecastApproveApi, importApi, productsApi, forecastRecipeApi, columnSchemeApi, forecastColumnsApi } from '../api/modules'
+import { forecastApi, auditApi, forecastApproveApi, importApi, productsApi, forecastRecipeApi, columnSchemeApi, forecastColumnsApi, productTargetsApi } from '../api/modules'
 import Icon from '../components/Icon.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ForecastHistory from './ForecastHistory.vue'
 import ReportMapping from './ReportMapping.vue'
+// v265：商品目标（原侧栏独立页）收进本页当第 4 个页签
+import ProductTarget from './ProductTarget.vue'
 /* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText } from '../utils/arrival.js'
 import { pyInitials, PY_OK } from '../utils/pinyin.js'
 // 角色词汇（规范角色名 + 历史视图令牌归一）—— 前端唯一来源，见文件顶部说明
-import { normRole, roleName, isCanonicalRole, ROLE_VIEW_TOKEN_NAMES } from '../constants/roles'
+// v267：加 `canViewForecastSummary` —— 报单汇总的角色白名单（= 后端 SUMMARY_ROLES 的前端镜像，
+//   有 AST 护栏）。本页用它①提前拦掉那个注定 403 的请求 ②把「无权限」与「加载失败」分开说。
+import { normRole, roleName, isCanonicalRole, ROLE_VIEW_TOKEN_NAMES, canViewForecastSummary } from '../constants/roles'
 /* v186：「规则在这个月适不适用」只有一处实现 —— useMonthlyAchv.ruleCoversMonth
    （与后端 domain/rebate_period.rule_covers_month 同源）。本文件原有一份本地
    ruleEffectiveInMonth（按生效期逐月裁剪），年度规则 12 个月分解齐全、生效期只写
@@ -2836,6 +2938,26 @@ function sortInd(key) { return sortKey.value === key ? (sortDir.value === 'asc' 
 
 /* ============ 表体工程化增强（T1-T8）：选中/内联编辑/展开/虚拟滚动/行状态/行操作/冻结列/空加载态/键盘a11y ============ */
 const crossLoading = ref(false)
+
+/* v267（2026-09-24）无报单汇总权限 —— 「入口已撤、深链/书签仍能进来」的那一态。
+   为什么必须有这一态（而不是继续靠 loadCross 的 catch 兜）：
+     ① **措辞**：`/api/forecast-submissions/summary` 对非 admin/boss/supervisor 返回 403
+        「仅管理员 / 老板 / 主管可查看报单汇总」。此前 catch 里一律 `toast('交叉表加载失败: …')`
+        —— 把**权限不足**说成了**系统故障**，用户会去重启/找客服，而正确动作是换个账号。
+     ② **持久性**：toast 几秒后自动消失，之后页面只剩「空表 + 一排永久灰按钮」，
+        用户不知道是"没数据"还是"没权限"（真机实测：6 秒后 toast=[]、按钮 disabled=true、0 报错）。
+     ③ **省一次注定失败的请求**：`loadCross()` 是 `Promise.all([summary(), products.grid()])`，
+        403 会让**整函数 reject** ⇒ `cross.value` 永不被赋值 ⇒ `cross.period` 恒 null
+        ⇒ 连「补货建议」按钮都恒 disabled（`:disabled="!cross.period"`）。
+   判据来源与后端逐字同源（`roles.js::FORECAST_SUMMARY_ROLES` ← 后端 `SUMMARY_ROLES`，有 AST 护栏），
+   不是前端另猜一份。⚠️ 角色未知时不拦（fail-open），理由见该函数注释。 */
+const summaryDenied = computed(() => !canViewForecastSummary(store.user.role))
+
+/* v267：**服务端实际拒绝了汇总**（纵深防御那一路）。与 `summaryDenied`（按角色预判）分开存：
+   预判会因为白名单漂移而落空，服务端拒绝不会 —— 两者任一为真，表格区都要给常驻说明。
+   模板判据 = `summaryDenied || crossDenied`。 */
+const crossDenied = ref(false)
+
 const selectedPid = ref(null)
 const expandedRows = ref({})            // pid -> true 展开明细
 const frozenKey = ref('name')           // 冻结列：name | product_code | none
@@ -3703,12 +3825,65 @@ const periodClosed = computed(() => {
   return !!(_p && _p.status && _p.status !== 'open')
 })
 
+// v2026-09-23：截止硬锁的前端同源判据 —— 期次仍 open 但报单截止日已过。
+// 后端 save_matrix / import / recall 已用 `forecast_period_writable` 统一拒（409/400），
+// 这里在 UX 层提前拦，避免「改半天才在保存时被拒」。order_end 为空 = 不设截止 ⇒ 不锁。
+const _todayStr = () => {
+  const d = new Date()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+const periodDeadlinePassed = computed(() => {
+  if (!curPeriod.value) return false
+  const _p = periods.value.find(x => Number(x.id) === Number(curPeriod.value))
+  const oe = (_p && _p.order_end) || ''
+  return !!oe && oe < _todayStr()
+})
+/* v305（2026-09-28）：**授权改单** —— 关单（定稿）后仍能修单的角色。
+   🔴 判据必须取**登录角色**（`store.user.role`）而**不是** `bizRole`：
+      `bizRole` 来自 localStorage('hergent_biz_role')（业务角色标签，见其上方注释），
+      与后端 `users.role` 是两套词汇 —— 拿它判权限必然出现「前端放行、后端 409」或反向。
+   复用 `canViewForecastSummary()`（= `roleIn(role, FORECAST_SUMMARY_ROLES)`，`roles.js` 的
+      `FORECAST_SUMMARY_ROLES` ← 后端 `SUMMARY_ROLES`，有 AST 护栏）：用户说的「有 web 端权限
+      的人」=「能看全公司报单汇总的人」，两者是同一批人，不新增名单也就不会两侧漂移。
+   还顺带继承 `roleIn` 的一条纪律：「角色是空串（权限还没回来）⇒ **放行**」——
+      启动瞬间不会先把按钮锁死再解锁（那种"闪一下"会让用户以为功能坏了）。 */
+const canEditClosedPeriod = computed(
+  () => canViewForecastSummary((store.user && store.user.role) || ''))
+
+/* 编辑/保存双重锁：已定稿（关闭）**或**报单截止日已过，都视为「本期货不可再改」。
+   三处改单入口按钮 + enterEdit + saveEdits 共用本判据，与后端硬锁同源。
+   🔴 v305：授权角色（管理员/老板/主管）**不受此锁** —— 与后端 `save_matrix` 里
+      `allow_closed=True` 那一支**同源**（判据都是 `SUMMARY_ROLES`）。销售/促销照旧被锁：
+      他们走的是小程序那条路，后端那条路**没有开**这个口子。 */
+const periodLocked = computed(() => {
+  if (canEditClosedPeriod.value) return false
+  return periodClosed.value || periodDeadlinePassed.value
+})
+/* v305：`closedEditMode` = 「当前是授权改单场景」（期次已关闭/已截止 **且** 我有权限）。
+   它的唯一用途是**把"为什么还能点"说出来** —— 否则授权角色会看到按钮亮着却没有任何解释，
+   心里没底（本项目一条纪律：能做的事要让用户知道为什么能做，和「不能做要说清原因」同等重要）。
+   判定里**复用** `periodClosed/periodDeadlinePassed` 两个既有判据，不再写第二套日期比较
+   （第二套必然与 `forecast_period_writable` 漂移）。 */
+const closedEditMode = computed(
+  () => canEditClosedPeriod.value && (periodClosed.value || periodDeadlinePassed.value))
+/* 锁定时给用户的「原因 + 下一步」：区分定稿与截止两种语境（文案不混用，避免误导）。 */
+const lockHint = computed(() => {
+  if (periodClosed.value) return '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」'
+  if (periodDeadlinePassed.value) {
+    const _p = periods.value.find(x => Number(x.id) === Number(curPeriod.value))
+    return `该期次报单已于 ${_p && _p.order_end || ''} 截止，无法再报单或修改；如需改动请联系管理员重开本期`
+  }
+  return ''
+})
+
 async function enterEdit() {
-  /* v219：已定稿（关闭）的期次不许进编辑态。
-     后端 `save_matrix` 已有硬闸门（409 + 中文文案），这里是 UX 层提前拦 ——
-     否则用户改半天才在保存时被拒，白干。 */
-  if (periodClosed.value) {
-    toast('该期次已定稿（关闭），不可改单。如需改动，请到「往期预报」里先点「重开」。', 'warn')
+  /* v2026-09-23：已定稿（关闭）**或**报单截止日已过，都不许进编辑态。
+     后端 save_matrix / import / recall 已有硬闸（forecast_period_writable），
+     这里是 UX 层提前拦 —— 否则用户改半天才在保存时被拒，白干。 */
+  if (periodLocked.value) {
+    toast(lockHint.value, 'warn')
     return
   }
   /* v244：没有进行中的期次时**不许进编辑态** —— 否则用户改半小时、点保存才被拒（白干）。
@@ -4023,6 +4198,9 @@ async function loadEditGrid() {
     loadAuditLog()
     loadGaps()
     loadSafety()
+    /* v277：编辑网格是「加单(箱)」真正被填的地方 ⇒ 角标必须在这一态也有。
+       与 loadCross 同源同判据（都调 `loadPtGap()`、它自己从 cross.period 取期次 id）。 */
+    loadPtGap().catch(() => {})
     _alertedThisLoad = false
     /* Q7：编辑态默认分页。原实现强制 pagingOn=false → 全量商品主档（428 行）每行渲染
        约 30 个 input ≈ 1.2 万节点，首屏卡顿、每次输入掉帧。现默认分页（可在分页条切「显示全部」）。 */
@@ -4618,6 +4796,19 @@ async function saveEdits(opts = {}) {
     toast(saveBlockedReason.value || '当前编辑的不是一个真实期次，无法保存：请先选择一个进行中的期次。', 'warn')
     return
   }
+  /* v2026-09-23 截止硬锁 UX 层提前拦：后端 `save_matrix` 已用 `forecast_period_writable`
+     统一判据（status!=='open' 或 order_end<today 均拒 409/400）。这里提前拦，避免改半天被拒白干。
+     与后端同源：order_end 为空视为不设截止 ⇒ 不锁。
+     🔴 v305：**授权角色直接跳过本道 UX 锁** —— 后端已对它传 `allow_closed=True`（会放行），
+        若前端仍在这里 `return`，就会出现「后端其实能存、前端却拦下不提交」的假封锁
+        （比真封锁更坏：用户看不出是谁拦的）。 */
+  if (!canEditClosedPeriod.value) {
+    const _oe = (p.order_end || '').trim()
+    if (_oe && _oe < _todayStr()) {
+      toast(`该期次报单已于 ${_oe} 截止，无法再保存。如需改动，请联系管理员重开本期。`, 'warn')
+      return
+    }
+  }
   /* v197（P1-2d）：提交前拦「一个客户列都没有」。
      `delCol` 已加「至少保留一列」守卫（P1-2c），这里是**第二道**，因为能把 units 变成空的路径不止那条：
      套用列方案（applyScheme 整体替换 colOrder/colVis）、本地草稿恢复、以及载入进来的期次本身
@@ -4745,8 +4936,39 @@ async function saveEdits(opts = {}) {
        原实现是「发射后不管」，与随后的「退出编辑态」构成竞态：刚退出就点「修改日志」可能看不到这一条。
        ⚠️ 仍**不阻断保存**：recordAudit 内部自己 catch（失败只告警、不抛出）。
        ⚠️ 必须在 exitEdit() **之前**调 —— 先记痕，再离开编辑态。 */
-    await recordAudit('save_changes', `${r.saved_customers} 客户 / ${r.saved_items} 条明细${prodMsg}`)
-    toast(`已保存：${r.saved_customers} 个客户 · ${r.saved_items} 条商品明细${prodMsg}`, 'ok')
+    await recordAudit('save_changes',
+      `${r.saved_customers} 客户 / ${r.saved_items} 条明细${prodMsg}`
+      + (r.closed_edit ? '（已关闭期次 · 授权改单）' : ''))
+    /* 🔴 v305：授权改单必须**当场回执** —— 用户改的是「已关闭」的期次，要立刻看到"已留痕"，
+       否则他无法确认系统真的记了账（本项目最怕那类「看起来做了、其实没做」）。
+       用 `warn` 色而非 `ok` 色：这是**例外操作**，不该长得和日常保存一样。 */
+    const _ceTip = r.closed_edit ? '　· 本期次已关闭，本次修改已按授权操作留痕' : ''
+    toast(`已保存：${r.saved_customers} 个客户 · ${r.saved_items} 条商品明细${prodMsg}${_ceTip}`,
+          r.closed_edit ? 'warn' : 'ok')
+    /* ── v277（需求 6 / 需求 7）：把本次保存算出的「加/减单按占比分配」结果当场回执给经理 ──
+       ① `r.extra_alloc` 直接采纳进 `ptAlloc` —— 后端这个回执与 `GET /extra-alloc` 的 items
+          是**同一处生成**的同一结构，所以不必再打一次接口；加单列的悬停立刻能看到结果。
+       ② 单独一条 toast：分配是**经理看不见的副作用**（他只填了总量），
+          「分了多少 / 涉及几个人 / 通知发了几条」必须回执 —— 否则他无法确认系统真的做了，
+          而这件事的失败模式恰恰是「看起来做了、其实没做」（本项目最怕的那类）。
+       ③ 没分满**必须点名**（占比合计不足 100% / 减单时有人报量不够被夹断）：
+          后端只在日志里留了痕，用户端不说就等于静默。 */
+    const _ea = (r && r.extra_alloc) || {}
+    const _eaKeys = Object.keys(_ea)
+    if (_eaKeys.length) {
+      const _m = {}
+      _eaKeys.forEach(k => { _m[Number(k)] = _ea[k] })
+      ptAlloc.value = Object.assign({}, ptAlloc.value, _m)
+      const _tot = _eaKeys.reduce((s, k) => s + (Number(_ea[k].total_delta) || 0), 0)
+      const _ppl = new Set()
+      _eaKeys.forEach(k => (_ea[k].rows || []).forEach(o => _ppl.add(o.employee_id)))
+      const _short = _eaKeys.filter(k => !_ea[k].fully_applied).length
+      toast(`已按目标占比分配：${_eaKeys.length} 个商品 · 合计${_tot >= 0 ? '加' : '减'} `
+            + `${fmt(Math.abs(_tot))} 箱 · 涉及 ${_ppl.size} 人`
+            + (Number(r.notified) ? ` · 已发 ${r.notified} 条通知` : '')
+            + (_short ? `　⚠️ ${_short} 个商品没分满（占比合计不足 100%，或减单时有人报量不够），详情见「加单(箱)」列角标` : ''),
+            _short ? 'warn' : 'ok')
+    }
     clearDraft(true)          // Q11：静默清除草稿，不再弹「已放弃草稿」
     /* v201：记下保存时刻，并把状态条置回「干净」—— 这是让用户**看见**「已经存进去了」的唯一信号。
        ⚠️ `hour12:false` 显式给定：中文 locale 默认可能带「上午/下午」，与 24 小时制混排很啰嗦。 */
@@ -5086,6 +5308,7 @@ const brandCandidates = computed(() => {
       等到有货再判。`brandParamDone` 记住"这个参数值已处理过"，避免候选集每变一次就重筛一次
       （否则用户手动改完筛选会被立刻改回去 = 死控件）。参数被清空时复位，下次同值再来仍生效。 */
 const route = useRoute()
+const router = useRouter()   // v265：页签同步 URL 用（setTab）
 const brandParamDone = ref('')
 watch([brandCandidates, () => route.query.brand], () => {
   const q = String(route.query.brand || '').trim()
@@ -5099,6 +5322,30 @@ watch([brandCandidates, () => route.query.brand], () => {
   if (!hit.length) return           // 词表对不上 → 不筛（静默降级，不弹错）
   brandSel.value = hit
   toast(`已按来源页品牌筛选：${hit.join('、')}`, 'success')
+}, { immediate: true })
+
+/* v265：页签与 URL 同步（`#/forecast?tab=target`）。
+   为什么必须同步、不能只用一个 ref：
+     ① 旧链 `#/product-target` 改成 redirect 到 `?tab=target` —— 不同步就落在「本期预报」上，
+        用过书签的人会以为这个功能没了；
+     ② 同页互跳要能表达（商品目标页顶部那条映射告警 → 切「报单配置」tab 修完再切回来，
+        v-if 重挂 ⇒ onMounted 的 loadAudit() 自动重跑 ⇒ 告警自己消失）；
+     ③ 刷新 / 收藏 / 后退时能停在原页签。
+   只把**非默认**页签写进 URL：默认 summary 不写，保持 /forecast 干净（与本节 brand 参数同一风格）。 */
+const TAB_KEYS = ['summary', 'history', 'config', 'target']
+const setTab = (t) => {
+  const v = TAB_KEYS.includes(t) ? t : 'summary'
+  const cur = (v === 'summary') ? '' : v
+  if (activeTab.value === v && String(route.query.tab || '') === cur) return
+  activeTab.value = v
+  const q = { ...route.query }
+  if (cur) q.tab = v; else delete q.tab
+  router.replace({ path: '/forecast', query: q }).catch(() => {})
+}
+// 外部进入（redirect / 手改地址 / 后退）也要落对页签；immediate 让首次进入即生效。
+watch(() => route.query.tab, (t) => {
+  const v = (typeof t === 'string' && TAB_KEYS.includes(t) && t !== 'summary') ? t : 'summary'
+  if (activeTab.value !== v) activeTab.value = v
 }, { immediate: true })
 
 /* v243b：品牌筛选「本地记忆」（仅本页作用域）。
@@ -7192,8 +7439,8 @@ async function genSuggestions() {
   cross.value.rows.forEach(r => { r.suggest = computeSuggestion(r, recipe) })
   toast('已按「' + recipeLabel(recipe.strategy) + '」算出建议量' + (needHist ? '（基于近 6 期趋势）' : ''), 'ok')
 }
-// 合并入口：原「智能建议」(openAudit) 与前端配方计算 (genSuggestions) 合一，避免两个都算建议量造成混淆
-// 点「智能建议」同时：弹后端审核窗（r.ai，定稿）+ 填前端配方建议列（r.suggest，可采纳）
+// 合并入口：按钮「补货建议」(openAudit) 与前端配方计算 (genSuggestions) 合一，避免两个都算建议量造成混淆
+// 点「补货建议」同时：弹后端审核窗（r.ai，定稿）+ 填前端配方建议列（r.suggest，可采纳）
 function onSuggest() {
   openAudit()
   genSuggestions().catch(() => {})
@@ -7592,7 +7839,8 @@ const snapCompare = ref(null)
 function loadSnaps() { try { snaps.value = JSON.parse(localStorage.getItem(SNAP_KEY()) || '[]') } catch (e) { snaps.value = [] } }
 function saveSnap() {
   const name = (window.prompt('快照名称：') || '').trim() || ('快照 ' + new Date().toLocaleString())
-  const list = JSON.parse(localStorage.getItem(SNAP_KEY()) || '[]')
+  let list = []
+  try { list = JSON.parse(localStorage.getItem(SNAP_KEY()) || '[]') } catch (e) { list = [] }
   list.push({ name, time: Date.now(), data: clone(cross.value) })
   localStorage.setItem(SNAP_KEY(), JSON.stringify(list.slice(-10)))
   loadSnaps(); toast('已保存快照', 'ok')
@@ -8704,6 +8952,9 @@ const importing = ref(false)
    候选字段由后端 /preview 的 field_options 给 —— 前端不自己写一份键→中文。 */
 const impSuggestions = ref([])
 const impFieldOptions = ref([])
+/* v303：映射记忆命中提示（后端 /preview 回的 `remembered`）。报单矩阵每期客户列都在变，
+   这是四处导入里最需要它的地方。 */
+const impMemory = ref(null)
 /* 客户列数从 **实际要提交的 mapping** 派生，不再取后端识别结果 ——
    否则用户在上面把某列改成「不导入」后，按钮仍写着 N 个客户，文案与提交内容两套口径。 */
 const impCustomerCount = computed(() => Object.values(impMapping.value).filter(v => v === 'customer').length)
@@ -8811,11 +9062,12 @@ const GATE_REST = '导入和报单都需要先有一个期次。'
    尾部的动作短语按入口给（「再导入预报订单」/「再保存报单」），前半句逐字共用。 */
 const gateReason = (action) => (noOpenPeriod.value
   ? GATE_LEAD + GATE_REST + '请先点「新建期次」创建期次，再' + action : '')
-const importBlockedReason = computed(() => gateReason('导入预报订单'))
+const importBlockedReason = computed(() =>
+  periodDeadlinePassed.value ? lockHint.value : gateReason('导入预报订单'))
 /* v244：报单保存被**同一道闸**拦住时的原因（原因 + 下一步）。供保存按钮 tooltip、
    函数内守卫的 toast 共用 —— 三处文案同源，不可能各说一套。 */
 const saveBlockedReason = computed(() => gateReason('保存报单'))
-const canImport = computed(() => !noOpenPeriod.value)
+const canImport = computed(() => !noOpenPeriod.value && !periodDeadlinePassed.value)
 
 function openImport() {
   // v193 硬守卫：无论从哪个入口进来（含将来新增的第三个），先过闸。
@@ -8855,6 +9107,11 @@ async function onImportFile(ev) {
     impPreview.value = prev.preview || []
     impSuggestions.value = prev.suggestions || []
     impFieldOptions.value = prev.field_options || []
+    // v303：报单矩阵的客户列每期都在变（客户名做表头），这是四处导入里**最需要
+    //   映射记忆**的一处 —— 命中就少认一遍几十个客户列。只回填 `remembered`，
+    //   不走「跳过已存在的记录」（那条路径在 `_execute_forecast_cross` 里提前 return，
+    //   `mode` 不生效 ⇒ 界面上不显示那个勾选框，见 ImportMapping 的 showIncremental 注释）。
+    impMemory.value = prev.remembered || null
     const mapping = {}
     for (const s of impSuggestions.value) {
       if (s.suggested_field) mapping[s.index] = s.suggested_field
@@ -8903,6 +9160,26 @@ const adopting = ref(false)
 const auditPage = ref(1)       // W2: AI 审核分批渲染，避免整周期数百行一次渲染卡顿
 const AUDIT_PAGE_SIZE = 50
 const auditPaged = computed(() => (auditData.value?.items || []).slice(0, auditPage.value * AUDIT_PAGE_SIZE))
+
+// v265：销量数据新鲜度 —— 后端 `_sales_freshness` **总是**返回同一份读数
+// （max_date / days_stale / window_start / window_end / window_days / level）。
+// v265 原设计只在**不新鲜**时返回对象（fresh 返回 null ⇒ 模板整块不渲染，不留常态噪音）。
+// P0-2（2026-09-27）：改为**常显数据依据**。
+//   为什么改：审核窗里最该被看见的一句话是「这份建议依据的是哪天的销量」——
+//   而它原来只在数据不新鲜时才出现，**数据新鲜时反而看不到依据**。诚实的产品应当始终说明依据。
+//   做法：仍复用后端那一份读数（**不在前端重算**，避免"同一事实两份实现"），只是不再丢弃 fresh 档；
+//   新鲜与否只决定**配色**（fresh 常规色 / 其余警示色），不决定**是否显示**。
+const auditFresh = computed(() => {
+  const f = auditData.value && auditData.value.sales_freshness
+  return (f && f.level) ? f : null
+})
+
+// 依据行的日期后缀：0 天不写「0 天前」，写「今日」（中文习惯，别让老板算减法）
+const auditFreshAgo = computed(() => {
+  const d = auditFresh.value && auditFresh.value.days_stale
+  if (d == null) return ''
+  return d > 0 ? `${d} 天前` : '今日'
+})
 
 // 2026-08-29：占位功能提示——未连接 ERP 时 AI 建议缺少实时库存/销量依据
 const chanjetLinked = ref(false)
@@ -8979,6 +9256,11 @@ async function loadTenantParams() {
   } catch (e) { /* 取默认 2 */ }
 }
 const rebateRules = ref([])     // 活跃返利目标规则（品牌/商品维度）
+/* v293：规则拉取失败的原因（空串 = 正常）。存在的唯一目的是把 R8 说的「静默失效」显式化 ——
+   修前 403（角色没权限）与 200 空数组（真没配目标）**落到同一条空态提示**
+   「尚未配置品牌 / 商品返利目标」，主管看到会以为是自己没配目标，
+   实际是被模块权限挡住。两者的正确说法完全不同，必须分开。 */
+const rebateRulesErr = ref('')
 // 冲刺看板折叠态（A2 决策横幅）：默认折叠 —— 结论已由卡片内常显的「决策横幅」承载，明细按需展开。
 // 编辑态自动折叠：同一块 360px 面板同时挡着「改单」进入点与编辑态「保存」，收起它一次缩短两段距离。
 const rebateSprintOpen = ref(false)
@@ -8989,7 +9271,16 @@ async function loadRebateRules() {
     const r = await api('/api/rebate-rules')
     const list = (r && r.data) ? r.data : (Array.isArray(r) ? r : [])
     rebateRules.value = (list || []).filter(x => x.is_active !== 0)
-  } catch (e) { rebateRules.value = [] }
+    rebateRulesErr.value = ''
+  } catch (e) {
+    rebateRules.value = []
+    /* api() 会把 HTTP 状态挂到 error.status 上（见 src/api/client.js:237 的 err.status = res.status），
+       403 即模块权限不足（后端 error_code=MODULE_DENIED）—— 那是"被挡住"，不是"没数据"。
+       其余（超时 / 5xx / 网络）也各自说清，别再退回一句笼统的"尚未配置目标"。 */
+    rebateRulesErr.value = (e && e.status === 403)
+      ? '你的角色没有查看返利规则的权限，需要管理员在「设置 › 权限」里为该角色勾上「销售」模块'
+      : ('返利规则读取失败：' + ((e && e.message) || '未知错误'))
+  }
 }
 
 // 填报的达成数据（无 API / 手动上传客户在「目标与返利 → 达成填报」录入或 Excel 导入）
@@ -9015,25 +9306,49 @@ async function loadRebateAchievements() {
 // 期次切换导致到货月变化时，重新拉取该月填报达成（竞态由 loadAchievements 的 seq 机制同理保护）
 watch(rebateSprintMonth, () => { loadRebateAchievements() })
 
-// 返利活动/合同截止日：取当前冲刺所纳入规则的生效期末日最大值（而非单个报单期次的 order_end）。
-// 修复：原先误用 cross.period.order_end（当前这一单报单期次的下单截止，如 2026-09-03），
-// 导致窗口只剩不足 1 天 → 兜底成 1 次下单、均单被放大到 108 万。正确口径应到返利目标生效期截止。
+// 冲刺月（＝到货月）的**月末日**（YYYY-MM-DD）。
+// 返利按月计算 ⇒ 一个返利周期的自然终点就是当月最后一天，与「本月时间进度」「月度达成」
+// 「达成桶」共用同一个月份口径（都锚 sprintAchvMonth / rebateSprintMonth）。
+// v292（2026-09-27）新增：此前没有这个值，下游只能拿别的东西当截止日，见 rebateCampaignEnd。
+const rebateSprintMonthEnd = computed(() => {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(sprintAchvMonth.value || ''))
+  if (!m) return ''
+  // day=0 ⇒ 上个月的最后一天 = 本月月末（如 10 → 2026-10-31）。
+  // ⚠️ 用本地时间构造，**不要**走 toISOString()：那是 UTC，月初/月末会各差一天。
+  const last = new Date(Number(m[1]), Number(m[2]), 0)
+  const p2 = n => (n < 10 ? '0' + n : String(n))
+  return `${last.getFullYear()}-${p2(last.getMonth() + 1)}-${p2(last.getDate())}`
+})
+
+// 返利周期截止日 = **冲刺月的月末**。
+//
+// v292（2026-09-27）修正 —— 原实现取「全部活跃规则 effective_end 的字符串最大值」，两处错：
+//   ① 候选集合错：对**全部**活跃规则取 max，既不按"本月适用"过滤、也不按品牌过滤
+//      ⇒ 别的月份、别的品牌的配置会污染当前视图；
+//   ② 语义错：它根本不是"本月返利周期"。规则里的「生效期」是**规则整体的启停窗口**
+//      （有月度分解时完全不参与适用月份判定，见 domain/rebate_period.py::covered_months），
+//      拿它当返利周期截止日 = 把两个不同的时间概念混成一个。
+// 真实症状（生产实测）：把某规则的生效截止日从 09-30 改成 12-31，面板的「返利周期截止」
+//   跟着跳到 12-31，「剩余到货次数」由 18 次变 48 次（均单被反向摊薄）；而返利明明按月算、
+//   剩余到货次数也按月算 ⇒ 两个数字都错。
+// 降级：月份都定不出来时才退回本期次的下单截止（比给一个跨年的假截止日诚实）。
 const rebateCampaignEnd = computed(() => {
-  const rules = (rebateRules.value || []).filter(x => x.is_active !== 0 && x.effective_end)
-  if (rules.length) {
-    return rules.map(r => String(r.effective_end)).sort().slice(-1)[0]
-  }
-  const p = cross.value.period
-  return p && p.order_end ? p.order_end : null
+  return rebateSprintMonthEnd.value || (cross.value.period && cross.value.period.order_end) || null
 })
 
 // 本期还剩几次到货机会（按全局默认到货周期估算，供表头概览；各品牌精确值见 rebateSprint 每行）
+// v292（2026-09-27）：窗口已关闭时返回 **0**，不再兜底成 1。
+// 原兜底 `if (!endStr) return 1` / `if (daysLeft <= 0) return 1` 是"假余量"：看历史期次时
+// 窗口早就过了，面板却显示「剩 1 次到货」，下游还据此算出一个"每单需报 ¥X"的建议
+// —— 用户照着报单也追不回返利。**兜底只能用于「无法判断」，不能用于「已知为 0」。**
+// 连月份都取不到时同样返回 0（不是"未知所以给 1"）：下游 `v-if="rebateSprintOrders > 0"`
+// 会自然收起建议块，比显示一个编出来的 1 次诚实。
 const rebateSprintOrders = computed(() => {
   const endStr = rebateCampaignEnd.value
-  if (!endStr) return 1
+  if (!endStr) return 0
   const end = new Date(endStr + 'T23:59:59')
   const daysLeft = Math.ceil((end - new Date()) / 86400000)
-  if (daysLeft <= 0) return 1
+  if (daysLeft <= 0) return 0
   return Math.max(1, Math.ceil(daysLeft / rebateGlobalCadence.value))
 })
 
@@ -9092,6 +9407,12 @@ const rebateSprint = computed(() => {
     const d = Math.ceil((new Date(endStr + 'T23:59:59') - new Date()) / 86400000)
     return d
   })()
+  // 冲刺月的天数 —— 用于把「整月到货次数」折算到剩余窗口（见下方 arrival_count_override）。
+  // 与 rebateSprintMonthEnd 同月，day=0 取月末；取不到月份时按 30 天（只是个折算分母，不参与判断）。
+  const daysInSprintMonth = (() => {
+    const m = /^(\d{4})-(\d{2})$/.exec(String(sprintMonth || ''))
+    return m ? new Date(Number(m[1]), Number(m[2]), 0).getDate() : 30
+  })()
   // 填报达成查表：维度 + 作用对象 → 达成记录（已按到货月加载）
   const achvMap = new Map()
   for (const a of (rebateAchievements.value || [])) {
@@ -9133,18 +9454,39 @@ const rebateSprint = computed(() => {
     const achieved = reported + contrib            // 达成 = 已填报 + 本期预报贡献（均按到货月归属）
     const gap = Math.max(0, target - achieved)
     // v118 (L2细化)：尊重 arrival_mode —— 按间隔天数 / 按固定星期 分别计算剩余到货次数与建议均单
+    // v292（2026-09-27）：把「窗口已关闭」提到分支**之前**判定，所有分支共用同一个结论。
+    // 为什么必须这样：weekday 分支写的是 `Math.max(1, countWeekdayArrivalsInWindow(...))`，
+    // 而窗口已过时那个函数返回 0 ⇒ 被 Math.max 抬回 1 —— 与 interval 分支的
+    // `daysLeft > 0 ? ... : 1` 一样，都是**把"已知为 0"粉饰成 1**。分开写就有两处兜底要维护。
+    const windowClosed = !endStr || daysLeft <= 0
     const mode = rule.arrival_mode || 'interval'
     let cadenceLabel, orders
     if (mode === 'weekday') {
       const wds = parseArrivalWeekdays(rule.arrival_weekdays)
-      orders = wds.length
-        ? Math.max(1, countWeekdayArrivalsInWindow(wds, endStr))
-        : (daysLeft > 0 ? Math.max(1, Math.ceil(daysLeft / (rebateGlobalCadence.value || 2))) : 1)
+      orders = windowClosed ? 0
+        : (wds.length
+            ? Math.max(1, countWeekdayArrivalsInWindow(wds, endStr))
+            : Math.max(1, Math.ceil(daysLeft / (rebateGlobalCadence.value || 2))))
       cadenceLabel = wds.length ? `每周 ${wds.length} 次（${wds.map(w => '周' + ARR_WEEKDAY_CN[w]).join('、')}）` : '未设星期'
     } else {
       const cadence = (Number(rule.arrival_cadence_days) > 0) ? Number(rule.arrival_cadence_days) : rebateGlobalCadence.value
-      orders = daysLeft > 0 ? Math.max(1, Math.ceil(daysLeft / cadence)) : 1
+      orders = windowClosed ? 0 : Math.max(1, Math.ceil(daysLeft / cadence))
       cadenceLabel = `${cadence} 天/次`
+    }
+    // v292（2026-09-27）：面板次数与品牌配置的「本月到货次数」打通。
+    // 修前 `arrival_count_override` 在**本页出现 0 次** —— 用户在「到货节奏」里手配的次数
+    // （表单 label「本月到货次数」、单位「次/月」）与面板显示的次数**毫无关系**，配了等于没配；
+    // 面板自己按 rebateCampaignEnd 推算，而那个截止日本身是错的（见上方说明）。
+    // 口径：override = 该品牌**整月**的到货次数 —— 后端 arrival_summary → compute_per_order
+    // 就是这么用的（eff = override > 0 ? override : count，为「节假日停单」这类场景准备）。
+    // 所以面板的「剩余」= 整月次数 × 剩余天数占比，收敛到 [有剩余天数就至少 1, 整月次数]；
+    // 量级与按排程推算一致（例：月末前 4 天 / 整月 30 天 × 15 次 ≈ 2 次，
+    // 按"每 2 天一次"的排程也是 2 次）—— 是同一个窗口的两种等价表达，不是另起一套算法。
+    const ovRaw = Number(rule.arrival_count_override)
+    const ovFromConfig = Number.isFinite(ovRaw) && ovRaw > 0
+    if (ovFromConfig) {
+      orders = windowClosed ? 0 : Math.min(ovRaw, Math.max(1, Math.round(ovRaw * daysLeft / daysInSprintMonth)))
+      cadenceLabel = `整月 ${ovRaw} 次（手动配置）`
     }
     const perOrder = orders > 0 ? gap / orders : gap
     const ach = target > 0 ? achieved / target : 0
@@ -9158,7 +9500,10 @@ const rebateSprint = computed(() => {
       name: rule.scope_name || scope,
       target, targetType: rule.target_type,
       reported, contrib, achieved, gap, perOrder, ach, top, topEmpty,
-      cadenceLabel, orders
+      cadenceLabel, orders,
+      // v292：本行的剩余次数是否来自品牌配置的「本月到货次数」——
+      // 用于在摘要里点明"这几个数字来自你的配置"，否则用户改了配置看不出面板跟着变。
+      ovFromConfig
     })
   }
   return out
@@ -9166,6 +9511,11 @@ const rebateSprint = computed(() => {
 
 const sprintTotalGap = computed(() => rebateSprint.value.reduce((s, x) => s + x.gap, 0))
 const sprintTotalGapPerOrder = computed(() => rebateSprintOrders.value > 0 ? sprintTotalGap.value / rebateSprintOrders.value : 0)
+// v292：哪些品牌的剩余次数用的是你配的「本月到货次数」（arrival_count_override）。
+// 在摘要里如实点出来 —— 修前这个配置在本页完全不生效，用户改了也看不出面板有任何变化，
+// 无法分辨"是我没配对"还是"系统没读"。空串 = 一个都没配 ⇒ 这段文案整句不出现（不留常态噪音）。
+const sprintOverrideNames = computed(() =>
+  rebateSprint.value.filter(s => s.ovFromConfig).map(s => s.name).join('、'))
 // 决策横幅（A2）：未达标对象数 —— 唯一实现，模板里不再重复 filter 表达式
 const unmetSprintCount = computed(() => rebateSprint.value.filter(s => s.gap > 0).length)
 
@@ -9385,7 +9735,135 @@ async function onHistoryReopen (row) {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   v277 · 商品目标 → 「加单(箱)」列的两块数据（需求 4 / 需求 5 / 需求 6）
+   ──────────────────────────────────────────────────────────────────────────
+   需求 4：Web 端在加单列显示各业务员的**差额合计**（0糖袋目标 150 箱 ⇒ 均单 11 箱；
+           某业务员只报 8 箱差 3 箱；10 人各差 3 箱则显示 30），悬停展示计算逻辑。
+   需求 6：经理保存后按**目标分解占比**把加单/减单分到人，结果同样悬停可看计算逻辑。
+
+   🔴 两条纪律（别绕开）：
+     ① 两个数都**只取后端**（`/avg-target` 的 gap_total_box+operators、
+        `/extra-alloc` 的 rows）。本页不做任何重算 —— 这些数字要拿去跟业务员对账，
+        多一份实现就有两个答案（「夹断后重分配」这类边界上两份必然不同）。
+     ② 「没设目标」与「差 0 箱」**不是同一个数**。没目标 ⇒ 整块不出现（返回 null）；
+        有目标且全员报够 ⇒ 显示 0。把前者显示成 0，老板会读成「都报齐了」。
+   ══════════════════════════════════════════════════════════════════════════ */
+const ptGap = ref({})      // product_id → avg-target 的 item（gap_total_box / operators / achieved_*）
+const ptAlloc = ref({})    // product_id → extra-alloc 的 item（total_delta / rows）
+
+/* 从 `cross.value.period` 自己取期次 id，**不接受调用方传参** ——
+   本页有两条装载路径（loadCross / loadEditGrid），传参就意味着两处各写一遍，
+   而「两条路都要带」是本页写坏过好几次的地方（见行映射里那几条注释）。 */
+async function loadPtGap() {
+  const pid = Number((cross.value && cross.value.period && cross.value.period.id) || 0)
+  ptGap.value = {}
+  ptAlloc.value = {}
+  if (!pid) return                      // 「今日报单」合成期次（id=0）没有期次 ⇒ 无目标可谈
+  try {
+    const d = await productTargetsApi.avgTarget(pid)
+    const m = {}
+    const items = (d && d.items) || {}
+    Object.keys(items).forEach(k => { m[Number(k)] = items[k] })
+    ptGap.value = m
+  } catch (e) {
+    /* 辅助提示层：查不到就整层不出现。**刻意不 toast** ——
+       没设过目标的期次这里必然为空，属正常态；弹提示会把「功能未使用」说成「功能坏了」。 */
+  }
+  try {
+    const a = await productTargetsApi.extraAlloc(pid)
+    const m = {}
+    const items = (a && a.items) || {}
+    Object.keys(items).forEach(k => { m[Number(k)] = items[k] })
+    ptAlloc.value = m
+  } catch (e) {}
+}
+
+/* 加单列角标的**唯一取值处**（渲染与悬停都读它，免得两处各判一次口径）。
+   返回 {kind, text, gap, alloc}；null = 这个商品本期没有可显示的加单依据。 */
+function ptExtraMark(r) {
+  const pid = Number(r && r.product_id)
+  if (!pid) return null
+  const g = ptGap.value[pid] || null
+  const a = ptAlloc.value[pid] || null
+  const gap = g ? Number(g.gap_total_box) : null
+  const ops = (g && g.operators) || []
+  const hasAlloc = !!(a && (a.rows || []).length)
+  if (!hasAlloc && !(ops.length && gap > 0)) return null
+  if (hasAlloc) {
+    // 已分配 ⇒ 角标改为**结果**（经理要知道自己那一笔最终落了什么）
+    const d = Number(a.total_delta) || 0
+    return { kind: 'done', text: (d >= 0 ? '加' : '减') + fmt(Math.abs(d)), gap, alloc: a }
+  }
+  return { kind: 'gap', text: '缺' + fmt(gap), gap, alloc: null }
+}
+
+/* 悬停说明 = 「这一格加单量是怎么来的」的完整算路：差额怎么算 → 是否已按占比分到人。
+   返回字符串数组（多行），模板里逐行渲染。**不在这里做任何运算**，只做文案。 */
+function ptExtraTip(r) {
+  const pid = Number(r && r.product_id)
+  const g = ptGap.value[pid] || null
+  const a = ptAlloc.value[pid] || null
+  if (!g && !a) return []
+  const L = []
+  if (g && (g.operators || []).length) {
+    const avg = Number(g.avg_box) || 0
+    L.push(`差额合计 ${fmt(g.gap_total_box)} 箱 —— 均单目标 ${fmt(avg)} 箱，`
+           + `逐人算「均单 − 本人本期报单」，只累计不足的（超报不抵扣别人的缺口）`)
+    ;(g.operators || []).forEach(o => {
+      const nm = o.employee_name || ('员工' + o.employee_id)
+      const rb = fmt(o.reported_box)
+      const gp = Number(o.gap_box) || 0
+      L.push(`· ${nm}（占比 ${fmt(o.ratio)}%）：报 ${rb} 箱` +
+             (gp > 0 ? ` ⇒ 差 ${fmt(gp)} 箱` : ` ⇒ 已达标`))
+    })
+    if (Number(g.target_box)) {
+      L.push(`月目标 ${fmt(g.target_box)} 箱 · 本月已达成 ${fmt(g.achieved_box)} 箱`
+             + `（${g.achieved_src === 'sales' ? '按销售单自动汇总' : '按达成填报录入'}）`
+             + ` · 剩余可报 ${Number(g.remaining_periods) || 0} 次到货`)
+    }
+  }
+  if (a && (a.rows || []).length) {
+    const d = Number(a.total_delta) || 0
+    L.push(`已按占比分配（经理保存汇总表时生效）：本商品共${d >= 0 ? '加' : '减'} ${fmt(Math.abs(d))} 箱`
+           + `　＝ 各人占比 × ${fmt(Math.abs(d))} 箱`)
+    ;(a.rows || []).forEach(o => {
+      const nm = o.employee_name || ('员工' + o.employee_id)
+      const al = Number(o.alloc_box) || 0
+      L.push(`· ${nm}：占比 ${fmt(o.ratio)}% ⇒ ${al >= 0 ? '加' : '减'} ${fmt(Math.abs(al))} 箱；`
+             + `原报 ${fmt(o.reported_box)} ⇒ 定稿 ${fmt(o.final_box)} 箱`)
+    })
+    L.push('减单时某人的报量不足会被夹到 0，缺口再分给还有余量的人（保证「说减多少就真减多少」）')
+  } else if (g && (g.operators || []).length) {
+    L.push('尚未按占比分配 —— 在下方「加单(箱)」填好总量后点保存，系统才会分到各人。')
+  }
+  return L
+}
+
+/* 加单格是不是负数（= 需求 5/6 的「减单」）。判据与 `parseNumInput` 同源：
+   先 `toHalfNum`（折全角/数学减号）再 `Number`，否则 `－6`、`−6` 这两种手写负号不会被认出。
+   中间态（`-`、`-6.`）不标色 —— 边打边闪比不标更烦。 */
+function isMinus(v) {
+  const s = toHalfNum(v)
+  if (!s) return false
+  const n = Number(s)
+  return isFinite(n) && n < 0
+}
+
 async function loadCross() {
+  /* v267：无汇总权限时**直接停在无权限态、一个请求都不发**。
+     为什么要在最前面拦（而不是让它 403 再靠 catch 兜）：
+       · 省掉一次**注定失败**的请求（业务员每次进页都白打一条 403，网络面板一片红）；
+       · 更重要的是 —— 403 会经 `Promise.all` 让整函数 reject，`cross.value` 永不被赋值
+         ⇒ 页面停在「空表 + 全灰按钮」这一**无法自解释**的状态（见 summaryDenied 注释）。
+     ⚠️ 仍保留下方 catch 的 403 分支做**纵深防御**：万一日后白名单漂移（比如后端放开了某角色
+        而前端镜像没跟上，护栏没拦住），页面也不会再退化成「交叉表加载失败」这种误导文案。 */
+  if (summaryDenied.value) {
+    crossDenied.value = true
+    crossLoading.value = false
+    return
+  }
+  crossDenied.value = false   // v267：有权限 ⇒ 清掉上一轮可能留下的拒绝态
   let p = null
   if (viewPeriod.value && Number(viewPeriod.value.id) === Number(curPeriod.value)) {
     // 往期预报合成行（无真实期次记录）：直接用行内日期回载，避免回退到「今日」
@@ -9542,8 +10020,24 @@ async function loadCross() {
       reportedUnits: units.length,
     }
     recomputeTotals()   // v184e：装载完成后用唯一权威函数重算 grand（含 boxes）
+    /* v277：商品目标的差额 + 加单分配明细。**刻意不 await** —— 它是「加单(箱)」列角标的
+       辅助提示层，主表不该为它多等两次往返；取到后 ref 变化会自动让角标冒出来。
+       失败也不弹提示（没设过目标的期次这里必然空，属正常态）。 */
+    loadPtGap().catch(() => {})
   } catch (e) {
-    toast('交叉表加载失败: ' + (e.message || ''), 'error')
+    /* v267：把「无权限」与「加载失败」分开说。
+       此前一律显示「交叉表加载失败: 仅管理员 / 老板 / 主管可查看报单汇总」——
+       一句话里同时出现"失败"和"权限"，用户只会读到前半句（以为是系统坏了）。
+       判据取**状态码**（`client.js:237` 把 HTTP 状态挂到 `err.status`），不解析文案：
+       文案会变、状态码是契约。
+       ⚠️ 这里只 toast 是不够的（几秒后就没影了）⇒ 同时置 `crossDenied` 让**表格区**
+          常驻一段说明。两条路给的是同一个事实，只是生命周期不同。 */
+    if (Number((e && e.status) || 0) === 403) {
+      crossDenied.value = true
+      toast('你的角色没有查看报单汇总的权限（仅管理员 / 老板 / 主管可看）', 'warn')
+    } else {
+      toast('交叉表加载失败: ' + (e.message || ''), 'error')
+    }
   } finally {
     crossLoading.value = false
   }
@@ -9707,12 +10201,20 @@ async function createPeriod() {
     //   ③ 勾了、上一期自己也空   → 有上一期但没清单（不是"没有上一期"！）
     //   ④ 勾了、压根没有上一期   → 本期是第一期
     // 把 ③④ 混成一句话会让用户以为「上一期的清单丢了」。
+    // v282（2026-09-26）：后端新增 `carry_warn` —— 「有上一期、却带过来 0 个商品」时给出**可操作**说明。
+    //   🔴 原来这一支是 `success` 色 + 一句「上一期里也没有商品清单」，读起来像正常结果；
+    //   生产实测这条路会让**小程序报单页整页空白，且下一期继续沿用这个空清单**（逐期传染）。
+    //   顺序：有 `carry_warn` 就用它（后端已区分「源本身为空」与「本期已有同商品」两种成因）。
+    const _warn = String((r && r.carry_warn) || '')
     if (!b.seed_from_prev) {
       toast('期次已创建（本期商品清单为空，可直接导入或手填）', 'success')
     } else if (_copied > 0) {
       toast(`期次已创建，已沿用「${_src}」的 ${_copied} 个商品`, 'success')
+    } else if (_warn) {
+      toast(_warn, 'warn')
     } else if (_src) {
-      toast(`期次已创建（上一期「${_src}」里也没有商品清单）`, 'success')
+      // 兜底（后端 `carry_warn` 理论上已覆盖这一支）：仍然用 warn 色，不再报「一切正常」
+      toast(`期次已创建（上一期「${_src}」里也没有商品清单）`, 'warn')
     } else {
       toast('期次已创建（没有更早的期次可沿用，本期商品清单为空）', 'success')
     }
@@ -9926,8 +10428,14 @@ async function seedFromPrev() {
   seedBusy.value = true
   try {
     const r = await forecastApi.seedPeriod(src.id, { target_period_id: cur })
-    toast(`已从「${r.src_name}」填入 ${r.added} 个商品`
-      + (r.skipped ? `（跳过 ${r.skipped} 个本期已有的）` : ''), 'success')
+    // v282（2026-09-26）：填入 0 个时**必须给出原因** —— 用户点完看到还是空表格，
+    //   只回一句「填入 0 个商品」等于把「源期次本身是空的」这件事又藏起来。
+    if (Number(r.added || 0) === 0) {
+      toast(String(r.carry_warn || `「${r.src_name}」里没有可复制的商品（该期清单是空的）`), 'warn')
+    } else {
+      toast(`已从「${r.src_name}」填入 ${r.added} 个商品`
+        + (r.skipped ? `（跳过 ${r.skipped} 个本期已有的）` : ''), 'success')
+    }
     // 🔴 `loadPeriods()` 会把 curPeriod 重设成**后端默认期次**（`forecast_period_default()`，
     //    见 erp_db.py:15261）——它只回答「默认该看哪一期」，**不是**「保持用户当前在看的那一期」。
     //    而 seed 的目标可能是一个**更老的空期次**（这正是「不必先删再建」的用法）：不还原的话，
@@ -10213,13 +10721,18 @@ onMounted(async () => {
 /* 报单配置嵌入为标签页时，去掉其自身 .page 包裹的内边距，并隐藏与标签重复的小标题（独立深链页不受影响） */
 .config-panel :deep(.page){padding:0;margin:0}
 .config-panel :deep(.page-hd){display:none}
+/* v265 商品目标嵌入为标签页：同 config-panel 成例收掉内边距与重复标题。
+   与报单配置唯一的差别 —— **只藏 <h2>「商品目标」（与页签同名），保留副标题**
+   「按月设总量 · 分解到人 · 期次自动认领」：那句是业务口径，页签上看不出来。 */
+.target-panel :deep(.page){padding:0;margin:0}
+.target-panel :deep(.page-hd h2){display:none}
 .toolbar{display:flex;align-items:center;justify-content:flex-start;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:8px}
 .tb-left,.tb-right,.toolbar>.tb-group{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .tb-left .btn,.tb-right .btn,.toolbar>.tb-group .btn{flex:0 0 auto;white-space:nowrap}
 /* 工具栏单行布局（2026-09-12）：分三段，段间以 .tb-sep 分隔、段内 gap 8
    段1 .tb-ctx  期次上下文（期次选择 / 新建期次 / 审批状态徽标）
    段2 .tb-data 搜索与数据进出（搜索框 / 导入 / 导出）  ← v167：复制报单已下移到表格工具行
-   段3 .tb-act  决策与编辑（AI智能建议 / 改单 / 编辑态工具箱）
+   段3 .tb-act  决策与编辑（补货建议 / 改单 / 编辑态工具箱）
    容量实测（「新建期次」提为常显按钮后，最坏态＝期次名撑满选择器限宽；余量＝可用内容宽 − 所需内容宽）：
      1440 → +43px（真实态 +67）  1366 → +60   1512 → +115   1680 → +283   1920 → +523   1280 → +8（见 <1360 档）
    表格级筛选器（仅显示有报单 / 品牌）已下移到表格卡片顶部的 .grid-ctl-row。
@@ -10580,6 +11093,16 @@ th.sortable:hover{color:var(--p-dark)}
 .vs-spacer td{border:none;padding:0;height:0;line-height:0;background:transparent;font-size:0}
 .qty-num{display:inline-block;min-width:18px}
 .tbl-state{padding:40px 16px;text-align:center}
+/* v267：无报单汇总权限的常驻说明 —— 用琥珀（--warn-amber）而**不是**红（--dan）：
+   这不是错误，是「你的角色看不到这一块」。用红会让人以为系统坏了 —— 那正是本轮修掉的误读。
+   明/暗两套主题下 --warn-amber / --warn-amber-bg 都由 variables.css 成对给出，不写死 rgba。 */
+.tbl-state.denied-state{padding:48px 24px}
+.denied-state .denied-hd{display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:var(--radius-sm);background:var(--warn-amber-bg);color:var(--warn-amber);
+  font-weight:600;font-size:14px;line-height:1.9}
+.denied-state .denied-body{max-width:520px;margin:10px auto 0;color:var(--t2);
+  font-size:13px;line-height:1.95;text-align:left}
+.denied-state .denied-body b{color:var(--t1)}
 .tbl-skeleton .sk-row{display:flex;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border-subtle)}
 .tbl-skeleton .sk-bar{flex:1;height:14px;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--bg2) 25%,var(--bg3) 37%,var(--bg2) 63%);background-size:400% 100%;animation:sk 1.2s ease-in-out infinite}
 @keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
@@ -10597,6 +11120,30 @@ th.sortable:hover{color:var(--p-dark)}
 .tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg);color:var(--t1);font-size:11px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);white-space:nowrap;z-index:20;box-shadow:var(--shadow-md)}
 .tip b{color:var(--p-dark)}
 .tip-wrap:hover .tip{display:block}
+/* ── v277（需求 4 / 需求 6）：「加单(箱)」列的角标 + 多行悬浮算路 ──
+   · 角标（`pt-xm-b`）是**纯提示、不可点**：编辑格里它压在 input 的右上角，
+     若可点会把「点进这一格输数字」挡住（那是这一列最常用的动作）⇒ 只给视觉，
+     悬停的触发面交给**整格**（`.pt-xmtd:hover`），符合「鼠标悬停时展示计算逻辑」。
+   · `.tip` 本体是 `white-space:nowrap`（单行 ¥金额 用的）—— 这里要多行算路，必须覆盖。 */
+.pt-xm-b{font-size:9px;font-weight:600;line-height:1;letter-spacing:-.2px}
+.pt-xm .pt-xm-b{vertical-align:super;margin-left:2px}
+.pt-xm.has-gap .pt-xm-b{color:var(--warn-amber)}
+.pt-xm.has-done .pt-xm-b{color:var(--p-dark)}
+.pt-xm.has-gap{border-bottom-color:var(--warn-amber)}
+.pt-xm.has-done{border-bottom-color:var(--p-dark)}
+.pt-xmtd{position:relative}
+.pt-xm-abs{position:absolute;top:0;right:1px;z-index:3;pointer-events:none}
+.pt-tip{white-space:normal;text-align:left;max-width:430px;min-width:240px;line-height:1.55;font-size:11px}
+.pt-tip i{display:block;font-style:normal}
+.pt-tip i+i{margin-top:2px}
+/* 编辑格里 tip 挂在 td 上（不在 `.tip-wrap` 内）⇒ 悬停面自己声明；定位沿用 `.tip` 本体 */
+.pt-xmtd:hover .pt-tip-abs{display:block}
+/* v277（需求 5/6）：加单填负数 = 减单，必须一眼能认出来（否则会被当成手误删掉）。
+   与「单价」列手工录入的红字口径一致：变色 + 加粗，不改数字本身。 */
+.cell-input.cell-minus{color:var(--danger-txt);font-weight:600;border-color:var(--danger-txt)}
+/* v277：最终下单被减成负数 —— 这是**真的算不通**（厂商不拆零发货），必须显式标红；
+   不做静默夹断（夹了用户就不知道自己的加单量超过了合计）。 */
+.final-neg{color:var(--danger-txt)}
 .pin{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
 .pin .big{font-size:18px;font-weight:500}
 .pin .big b{color:var(--p-dark)}
@@ -10749,6 +11296,12 @@ th.sortable:hover{color:var(--p-dark)}
 
 /* ---- P1-1 周期级 AI 审核台 ---- */
 .audit-modal{width:min(760px,96vw)}
+/* v265：销量数据新鲜度提示 —— 复用站内 warn 语义色（.warn-text），不新造视觉语言。
+   P0-2（2026-09-27）：改为**常显**数据依据 → 新鲜档（fresh）走 .audit-fresh-ok 的中性色，
+   只有 notice / stale 才由模板挂 .warn-text。**配色变、位置不变**，避免"依据藏在告警里"。 */
+.audit-fresh{margin:8px 0 0;line-height:1.7}
+.audit-fresh-ok{background:var(--bg3);border:1px solid var(--bd);border-left:3px solid var(--p);border-radius:var(--radius-sm);padding:8px 12px}
+.audit-fresh-ok .ico{color:var(--p);opacity:.8}
 .legacy-note{font-size:var(--fs-sm);color:var(--t3);margin:0 0 10px;line-height:1.6}
 .audit-erp-note{background:var(--bg3);border:1px solid var(--bd);border-left:3px solid var(--dan);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;line-height:1.7}
 .audit-erp-note .link-btn{background:none;border:none;color:var(--p);font:inherit;font-weight:600;padding:0 2px;cursor:pointer;text-decoration:underline}

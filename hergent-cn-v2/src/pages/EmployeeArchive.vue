@@ -70,7 +70,7 @@
         <table class="tbl">
           <thead><tr>
             <th>员工</th><th>岗位</th><th class="num">底薪/月</th>
-            <th>登录账号</th><th title="门店配置已收敛到「预报订单管理 → 报单配置」，此处仅展示数量">可报门店</th><th></th>
+            <th>登录账号</th><th title="个人仓 = 该员工报「本人仓」调拨单时的目标仓；在「编辑」里设置">个人仓</th><th title="门店配置已收敛到「预报订单管理 → 报单配置」，此处仅展示数量">可报门店</th><th></th>
           </tr></thead>
           <tbody>
             <tr v-for="e in employees" :key="e.id" :class="{ stopped: e.is_active === 0 }">
@@ -91,6 +91,12 @@
                   class="df-role df-role-extra"
                   :title="'兼任角色：' + roleDisplay(r)"
                 >+{{ roleDisplay(r) }}</span>
+              </td>
+              <!-- v294：个人仓 —— 一眼看出「这个人能不能报本人仓的调拨单」。
+                   `warehouseName` 查不到时回落到 id，绝不显示空白（空白会被读成"没问题"）。 -->
+              <td>
+                <span v-if="e.warehouse_id" class="df-wh">{{ warehouseName(e.warehouse_id) || ('仓库 #' + e.warehouse_id) }}</span>
+                <span v-else class="df-muted">未设</span>
               </td>
               <!-- 2026-09-19 收敛：门店配置入口已移出员工档案，本列只读展示数量。
                    数据 = 报单配置派生 ∪ 历史授权（见后端 employee_stores_get）。 -->
@@ -130,7 +136,8 @@
         </button>
       </div>
       <div v-if="impStep === 'map'" class="df-map">
-        <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions" />
+        <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions"
+                       :memory="impMemory" v-model:incremental="impInc" />
         <div class="df-import-row">
           <button class="btn btn-ghost" :disabled="importing" @click="impStep = 'pick'">返回</button>
           <button class="btn btn-primary" :disabled="importing" @click="doImportEmployees">
@@ -138,12 +145,7 @@
           </button>
         </div>
       </div>
-      <div v-if="invResult" class="df-result" :class="invResult.results?.errors?.length ? 'warn' : 'ok'">
-        成功 {{ invResult.results?.success }} 条 · 跳过 {{ invResult.results?.skipped }} 条 · 失败 {{ invResult.results?.errors?.length || 0 }} 条
-        <span v-if="invResult.results?.errors?.length" class="df-errs">
-          <span v-for="(er, i) in invResult.results.errors.slice(0, 4)" :key="i" class="df-err">第{{ er.row }}行: {{ er.msg }}</span>
-        </span>
-      </div>
+      <ImportReceipt :result="invResult" @undone="loadEmployees()" />
       <p v-if="connState === 'unlinked'" class="df-tip df-warn">未连接 ERP：连接畅捷通/金蝶后，可点上方「同步」拉取外部档案。员工 API 同步将于 P1 上线，当前同步客户与商品。</p>
     </div>
 
@@ -164,6 +166,29 @@
                 <label class="df-field"><span>岗位</span><input v-model="editForm.position" class="input"></label>
                 <label class="df-field"><span>入职日期</span><input v-model="editForm.hire_date" class="input" placeholder="2026-03-01"></label>
               </div>
+            </section>
+
+            <!-- v294：报单身份 —— 个人仓。
+                 它是「本人仓」调拨单的**前置条件**（后端 report_mapping_create 的
+                 self_warehouse 分支会读它）；留空则该员工在报单配置里选「本人仓」会被拒。 -->
+            <section class="df-sec">
+              <div class="df-sec-title">报单身份</div>
+              <div class="df-edit-grid">
+                <label class="df-field">
+                  <span>个人仓</span>
+                  <select v-model.number="editForm.warehouse_id" class="input">
+                    <option :value="0">未设 —— 不可报本人仓的调拨单</option>
+                    <option v-for="w in warehouses" :key="w.id" :value="Number(w.id)">{{ w.name }}</option>
+                  </select>
+                </label>
+              </div>
+              <p v-if="!warehouses.length" class="df-tip df-warn">
+                还没有仓库档案。请先到「档案管理 → 仓库档案」新建一个仓（如「刘小顶仓」），再回来指派。
+              </p>
+              <p v-else class="df-tip">
+                指派后，该员工才能在「预报订单管理 → 报单配置」里以<b>本人仓</b>为对象建调拨单 ——
+                报单对象自动锁定为这个仓，报不了别人的仓（防选错）。
+              </p>
             </section>
 
             <!-- 薪酬与账户 -->
@@ -372,17 +397,19 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import ImportMapping from '../components/ImportMapping.vue'
-import { ref, reactive, computed, onMounted } from 'vue'
+import ImportReceipt from '../components/ImportReceipt.vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { toast } from '../store'
 /* v291：页内跳转入口同判据（见 goConnect）。 */
 import { canSee } from '../constants/pages'
-import { employeeApi, importApi, staffAccountApi } from '../api/modules'
+import { employeeApi, importApi, staffAccountApi, warehouseApi } from '../api/modules'
 // 角色中文名 —— 前端唯一来源（constants/roles.js 顶部有完整说明与权威源出处）
 // v300：另取 `ROLE_END`/`ROLE_END_LABEL`（「适用端」标注的唯一来源）与 `canUseMiniProgram`
 //   （降级判据）—— 下拉 label 由它们**生成**，不再手写「小程序」字样。
-import { roleName, isCanonicalRole, ROLE_END, ROLE_END_LABEL, canUseMiniProgram } from '../constants/roles'
+import { roleName, isCanonicalRole, ROLE_END, ROLE_END_LABEL, canUseMiniProgram,
+         LOGIN_SCOPE_OPTIONS, defaultLoginScope, loginScopeLabel } from '../constants/roles'
 
 const router = useRouter()
 const loading = ref(false)
@@ -400,6 +427,12 @@ const editForm = reactive({
   name: '', employee_no: '', position: '', hire_date: '', id_card: '',
   bank_name: '', bank_account: '', social_insurance_city: '',
   social_insurance_base: null, housing_fund_base: null, base_salary: null,
+  // 🔴 v294（2026-09-27）「个人仓」—— 0 = 未设。
+  //    它是「本人仓」报单映射的**前置条件**：`erp_db.report_mapping_create` 的
+  //    self_warehouse 分支会读 `hr_employees.warehouse_id`，为 0 时直接拒存并提示
+  //    「该员工未配置本人仓」。此前三处后端白名单都漏了它、前端也没这个输入框
+  //    ⇒ 这一项**在任何界面都写不进去**（用户报障：「员工档案里没有设置个人仓的入口」）。
+  warehouse_id: 0,
 })
 /* v290（2026-09-27）：「人事档案有没有被改过」的基线快照。
    打开弹窗时由 resetEditForm 存一份，关窗前拿它和当前 editForm 比 —— 见 tryCloseEdit。 */
@@ -608,6 +641,30 @@ async function loadEmployees() {
   finally { loading.value = false }
 }
 
+/* ---- 仓库主档（v294）：个人仓下拉的数据源 ----
+   入口在「档案管理 → 仓库档案」（同一份 `/api/warehouses/full`）。
+
+   🔴 失败时**静默降级为空数组、不弹错**（与「同步」按钮的失败语义刻意不同）：
+   个人仓是**可选字段**，拉不到仓库列表不该阻塞员工档案本身的编辑 ——
+   真要弹错，应该是"用户要用它时"提示，而不是"打开页面就报警"。
+   但下拉会因此只剩「未设」一项，所以模板里对空列表给了显式文案，避免看起来像坏了。 */
+const warehouses = ref([])
+async function loadWarehouses() {
+  try {
+    warehouses.value = await warehouseApi.list() || []
+  } catch {
+    warehouses.value = []
+  }
+}
+/* 行内展示：把 warehouse_id 翻成仓名。查不到（仓已删 / 未设）返回空串，
+   由调用处决定显示什么 —— 不在这里造「未知仓库」这种文案。 */
+function warehouseName(id) {
+  const wid = Number(id) || 0
+  if (!wid) return ''
+  const w = warehouses.value.find(x => Number(x.id) === wid)
+  return w ? (w.name || '') : ''
+}
+
 /* ---- 完整编辑弹窗（新增 / 编辑共用同一弹窗） ---- */
 function resetEditForm(e) {
   const src = e || {}
@@ -674,6 +731,9 @@ async function saveEmployee() {
     social_insurance_city: f.social_insurance_city || undefined,
     social_insurance_base: f.social_insurance_base != null ? f.social_insurance_base : undefined,
     housing_fund_base: f.housing_fund_base != null ? f.housing_fund_base : undefined,
+    // v294：个人仓**恒发送**（含 0）—— 「取消绑定」是一个有效意图，
+    // 若按其它字段那样用 `|| undefined` 省略，清空就永远存不下去（静默不生效）。
+    warehouse_id: Number(f.warehouse_id) || 0,
   }
   if (f.base_salary != null) body.salary_structure = JSON.stringify({ base_salary: f.base_salary })
   try {
@@ -918,6 +978,7 @@ async function saveAccScope() {
 const formDirty = computed(() => JSON.stringify(editForm) !== formSnap.value)
 const accAnyDirty = computed(() =>
   accRoleDirty.value || nameDirty.value || String(accPwdEdit.value || '').length > 0
+  || accScopeDirty.value
 )
 const anyDirty = computed(() => formDirty.value || accAnyDirty.value)
 
@@ -1069,6 +1130,9 @@ const impStep = ref('pick')
 const impSuggestions = ref([])
 const impFieldOptions = ref([])
 const impMapping = ref({})
+/* v303：映射记忆提示 + 「跳过已存在的记录」开关。员工按工号/姓名去重 —— 默认打开。 */
+const impMemory = ref(null)
+const impInc = ref(true)
 
 function onInvFile(ev) {
   const f = ev.target.files[0] || null
@@ -1080,6 +1144,7 @@ function onInvFile(ev) {
   invFile.value = f
   invFileName.value = f?.name || ''
   invResult.value = null
+  impMemory.value = null
   impStep.value = 'pick'
 }
 async function downloadEmpTemplate() {
@@ -1102,6 +1167,7 @@ async function previewEmployees() {
     const prev = await importApi.preview(invFile.value, 'employees')
     impSuggestions.value = prev.suggestions || []
     impFieldOptions.value = prev.field_options || []
+    impMemory.value = prev.remembered || null
     if (!impSuggestions.value.length) { toast('没读到任何列，请检查文件', 'err'); return }
     const m = {}
     for (const s of impSuggestions.value) if (s.suggested_field) m[s.index] = s.suggested_field
@@ -1115,7 +1181,8 @@ async function doImportEmployees() {
   if (!invFile.value) return
   importing.value = true
   try {
-    const r = await importApi.execute(invFile.value, 'employees', impMapping.value)
+    const r = await importApi.execute(invFile.value, 'employees', impMapping.value,
+                                      impInc.value ? { mode: 'incremental' } : {})
     invResult.value = r
     impStep.value = 'pick'
     toast(`导入完成：成功 ${r.results?.success || 0} 条`, r.results?.errors?.length ? 'warn' : 'ok')
@@ -1156,13 +1223,14 @@ onMounted(() => {
 .df-map{margin-top:12px;display:flex;flex-direction:column;gap:10px}
 .df-file-btn{position:relative;overflow:hidden}
 .df-fname{font-size:12.5px;color:var(--t2)}
-.df-result{margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc)}
-.df-result.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
-.df-errs{display:flex;flex-direction:column;gap:2px;margin-top:6px}
-.df-err{font-size:12px;color:var(--t2)}
+/* v303：`.df-result / .df-errs / .df-err` 已随模板删除（结果展示改由共用的
+   `ImportReceipt.vue` 负责，它自带样式）。本页不再有 `class="df-result"` 的元素。 */
 
 /* 账号/门店 */
 .df-acc{font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+/* v294：个人仓（有仓 = 可用色标出，未设 = 弱化 —— 后者是需要老板去补的状态） */
+.df-wh{font-size:12px;padding:2px 8px;border-radius:8px;background:rgba(var(--p-rgb,.2),.12);color:var(--p);white-space:nowrap}
+.df-muted{font-size:11px;color:var(--t3)}
 .df-acc.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .df-role{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;margin-left:6px;background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--teal,#0ea5a4);white-space:nowrap}
 .df-role.r-admin{background:rgba(239,68,68,.14);color:#ef4444}

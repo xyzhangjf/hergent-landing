@@ -177,7 +177,9 @@ export const PAGE_RULES = {
   '/loss':            { title: '货损计算工作流', module: null,      roles: BIZ_ROLES,   cat: 'biz' },
   '/loss-accounting': { title: '货损核算',     module: null,        roles: BIZ_ROLES,   cat: 'biz' },
   '/data-fill':       { title: '库存效期补录', module: null,        roles: BIZ_ROLES,   cat: 'biz' },
-  // 档案管理：`/archive/employees|customers|brands|products` 四个子路由自动继承本行。
+  // 档案管理：`/archive/employees|customers|brands|products|warehouses` 五个子路由自动继承本行。
+  //   ⚠️ 子路由**必须**全部在 router/index.js 的 /archive children 里登记；父级只解析到
+  //      `/archive` 这一段，多出的路径段不会自动继承、会落到 404。
   '/archive':         { title: '档案管理',     module: null,        roles: BIZ_ROLES,   cat: 'biz' },
 
   // 算工资：**只挂 module、不挂 roles** —— 这是 2026-09-19 拆出 `payroll` 窄模块时的明确契约：

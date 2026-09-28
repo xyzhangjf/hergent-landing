@@ -268,41 +268,71 @@ export async function api(path, opts = {}) {
 }
 
 /* ============================================================
-   Hermes 通道 — OpenAI 兼容 /v1/chat/completions
-   经 Vite 代理 /hermes -> Hermes API server :8642
+   Hermes 通道 —— 一律经**本仓后端代理** `/api/ai/copilot/chat`
+   （后端再直连 127.0.0.1:18765；网关凭据只存在于服务端 .env）
    AI 能力 100% 由 Hermes 提供，前端不实现任何 AI 逻辑
+   🔴 v281（2026-09-26）：原先前端还持有网关 Key（`hermesKey`/`hermes_v2_key`）并把
+      `/hermes/*` 当作直连通道 —— 因该路径「对公网无鉴权且带 terminal/file 工具集」
+      已被封堵；Key 与直连路径一并撤除，前端不再持有任何网关凭据。
    ============================================================ */
-
-let hermesKey = ''
-
-export function setHermesKey(k) { hermesKey = k }
 
 /* Hermes 流式超时分级（P1）：普通对话 3 分钟；长任务（对账/复盘/报表等
    工具循环）5 分钟。hermesChat 默认 300000 保持兼容，调用方按任务轻重显式传 timeout。 */
 export const CHAT_TIMEOUT_NORMAL = 180000
 export const CHAT_TIMEOUT_LONG = 300000
 
-export async function hermesChat(messages, { onDelta, onTool, model, system, timeout = 300000 } = {}) {
-  const key = hermesKey || localStorage.getItem('hermes_v2_key') || ''
+/* 🔴 v309（2026-09-28）外部中止信号支持 —— 让「停止生成」成为可能。
+   对齐 WorkBuddy 的做法（其 SendButton 是 `handleClick = loading ? onCancel : onSend`，
+   停止真正落地靠三件事：① 取消 SSE reader ② `abortController.abort()` 掐断 fetch
+   ③ 再向服务端发一条 DELETE 拆除服务端那次运行）。我们只有 ①② 这一条路
+   （后端是同步直通代理，浏览器 abort 会让 Starlette 关闭上游生成器并 `resp.close()`），
+   所以**中止信号必须真的传到 fetch**，否则按钮是个摆设。
+   ⚠️ 与内部超时共用 AbortController：两者都表现为 `AbortError` ⇒ 调用方无法区分
+   「我等了 3 分钟没动静」和「我自己按的停止」。这里主动区分：**外部信号触发的**中止
+   抛 `StoppedError`（带 `stopped=true`），内部超时仍抛原生 `AbortError`。 */
+function _abortError() {
+  const e = new Error('已停止生成')
+  e.name = 'StoppedError'
+  e.stopped = true
+  return e
+}
+
+/** 合并两个 AbortSignal（优先 `AbortSignal.any`；老浏览器回退成手工转发，绝不静默丢弃外部信号） */
+function _mergeSignal(external, internal) {
+  if (!external) return internal
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([external, internal])
+  }
+  if (external.aborted) return external   // 已中止 ⇒ 直接用它（fetch 会立刻抛 AbortError）
+  external.addEventListener('abort', () => internal.abort(), { once: true })
+  return internal
+}
+
+export async function hermesChat(messages, { onDelta, onTool, onReasoning, model, system, timeout = 300000, signal } = {}) {
   const ctrl = new AbortController()
   // 长任务（复杂对账/报表）会让 Hermes 工具循环跑数分钟；120s 硬杀会中途断流
   // 并误报离线（P0 评审炸弹 #4）。放宽到 5 分钟，由调用方按需覆盖。
   const timer = setTimeout(() => ctrl.abort(), timeout)
+  // 外部 signal（用户点「停止」）与内部超时 signal 合并后交给 fetch；
+  // 谁先 abort 都掐断请求，但抛出的错误类型按下方 catch 区分。
+  const sig = _mergeSignal(signal, ctrl.signal)
   try {
     const finalMessages = system ? [{ role: 'system', content: system }, ...messages] : messages
-    const res = await fetch('/hermes/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(key ? { Authorization: `Bearer ${key}` } : {})
-      },
-      body: JSON.stringify({
-        model: model || 'hermes-agent',
-        messages: finalMessages,
-        stream: true
-      }),
-      signal: ctrl.signal
+    // 🔴 v281（2026-09-26）**只走本仓后端代理**，直连通道已整条撤除。
+    //   原先后备有两条"保险"，都已删除：
+    //   ① 「无 chat 权限账号自动退回 `/hermes/`」——那条路径是 nginx 上**对公网零鉴权直通生产
+    //      网关**（带 terminal/file 工具集，实测外网零凭据可执行命令）⇒ 已封堵，退回也没有意义；
+    //   ② 「localStorage.hergent_copilot_proxy='0' 紧急回滚」——应急开关改由**后端环境变量**承担，
+    //      用户侧不再持有能绕过后端 `ai_mode` 权威判定的开关。
+    //   密钥不再经前端：网关凭据只存在于服务端（.env），后端经 127.0.0.1 直连网关。
+    const payload = { model: model || 'hermes-agent', messages: finalMessages, stream: true }
+    const proxyHdrs = { 'Content-Type': 'application/json' }
+    const _t = localStorage.getItem('hergent_v2_token') || ''
+    if (_t) proxyHdrs.Authorization = `Bearer ${_t}`   // Bearer 免 CSRF
+    const post = (url, hdrs) => fetch(url, {
+      method: 'POST', headers: hdrs, body: JSON.stringify(payload), signal: sig
     })
+    const res = await post('/api/ai/copilot/chat', proxyHdrs)
     if (!res.ok) {
       const e = await res.json().catch(() => ({}))
       // 把 HTTP 状态码前置到 message，便于上层区分「鉴权失败(401/403)」「服务不可用(502/503/504)」「临时错误」
@@ -342,6 +372,13 @@ export async function hermesChat(messages, { onDelta, onTool, model, system, tim
           // 文本增量（Chat Completions 格式，既有链路，保持不变）
           const delta = j.choices?.[0]?.delta?.content || ''
           if (delta) { full += delta; onDelta && onDelta(delta, full) }
+          // 推理流（DeepSeek 的 `reasoning_content`）：模型在吐答案前先流式输出思考。
+          // 🔴 2026-09-25 实测：模型侧**确实在流**（直连 api.deepseek.com 能看到逐字
+          //    reasoning_content），但 **Hermes 目前没有把它转发到对客户端的 SSE**
+          //    （其 `_thinking` 事件只是把助手正文回传、用于子智能体转播，不是推理流）。
+          //    故此处按协议备好解析：**Hermes 一旦转发即自动生效**，无需再改前端。
+          const rdel = j.choices?.[0]?.delta?.reasoning_content || ''
+          if (rdel) { onReasoning && onReasoning(rdel) }
           // 工具调用生命周期（OpenAI Responses 风格 event:）
           if (onTool && pendingEvent === 'response.output_item.added') {
             const item = j.item
@@ -357,43 +394,41 @@ export async function hermesChat(messages, { onDelta, onTool, model, system, tim
             const item = j.item
             if (item && item.type === 'function_call' && item.status === 'completed')
               onTool({ phase: 'done', name: item.name || '' })
+          } else if (onTool && pendingEvent === 'hermes.tool.progress') {
+            // 🔴 Hermes **原生**工具进度事件。实测事件名就是 `hermes.tool.progress`，
+            //   payload = {tool, emoji, label, toolCallId, status:'running'|'completed'}。
+            //   此前这里只认 OpenAI Responses 风格的 `response.output_item.added` ⇒ **事件名对不上**，
+            //   实测一轮「查库存」对话里 14 个过程事件被**全部丢弃**，老板在 26 秒里只看到
+            //   三个跳动的点（2026-09-25 定位并修复）。
+            if (j && j.tool) {
+              onTool({
+                phase: j.status === 'completed' ? 'done' : 'start',
+                id: j.toolCallId || '',
+                name: j.tool,
+                emoji: j.emoji || '',
+                label: j.label || '',
+              })
+            }
           }
         } catch { /* 忽略不完整行 */ }
         pendingEvent = ''   // 一条 data 消费后清空，避免误用到下一帧
       }
     }
     return full
+  } catch (e) {
+    // 外部信号（用户点「停止」/ 按 Esc）导致的中止 —— 与内部超时区分开，
+    // 否则调用方会把「我自己按的停止」显示成「回答生成超时」。
+    if (e && e.name === 'AbortError' && signal && signal.aborted) throw _abortError()
+    throw e
   } finally {
     clearTimeout(timer)
   }
 }
 
-/* 统一 Hermes REST 请求（非流式）：models / 配置校验等
- * 与 hermesChat 共享同一套 Hermes Key 鉴权，避免各组件裸 fetch /hermes/*。
- * path 形如 '/hermes/v1/models'（经 Vite 代理 /hermes -> Hermes API server）。
- * 返回 { ok, status, data }，由调用方决定 UI 文案（401 等不强制跳转登录）。
- */
-export async function hermesRequest(path, opts = {}) {
-  const { method = 'GET', body, timeout = 20000 } = opts
-  const key = hermesKey || localStorage.getItem('hermes_v2_key') || ''
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), timeout)
-  try {
-    const res = await fetch(path, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(key ? { Authorization: `Bearer ${key}` } : {})
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: ctrl.signal
-    })
-    const data = await res.json().catch(() => ({}))
-    return { ok: res.ok, status: res.status, data }
-  } finally {
-    clearTimeout(timer)
-  }
-}
+/* 🔴 v281（2026-09-26）`hermesRequest(path)` 已**删除**。
+   它用于向 `/hermes/*` 发非流式请求（唯一调用点是设置页的「测试连接」）。
+   该路径已被封堵（对公网无鉴权直通生产网关），且前端不再持有网关 Key；
+   设置页的测试改为直接打后端真实链路（`/api/ai/skills`）。 */
 
 /* ============================================================
    表格全量计算已上移至服务端（方案 A）：

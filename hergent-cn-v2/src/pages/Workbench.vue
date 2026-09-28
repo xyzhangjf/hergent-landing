@@ -94,6 +94,141 @@
         </div>
       </div>
 
+      <!-- 补货建议（v259：本周建议订购清单 · 直接消费既有 /api/ai/replenishment 算层，
+           零 AI 推理成本，且每条带口径披露 reason。占整行，不扰动今日/效期 8/4 栅格） -->
+      <div class="card repl-panel" v-if="replItems.length || replLoading">
+        <div class="panel-hd">
+          <b>本周建议订购清单</b>
+          <span class="badge badge-blue">基于安全库存 · 在途扣减</span>
+          <span class="repl-head-actions">
+            <button class="btn btn-primary repl-docx" :disabled="downloadingDocx" @click="downloadWeeklyDocx">生成经营周报（Word）</button>
+            <button class="btn btn-ghost repl-refresh" :disabled="replLoading" @click="loadReplenishment">刷新</button>
+          </span>
+        </div>
+        <div v-if="replLoading" class="ai-loading">
+          <div class="skel-line" style="width:90%"></div>
+          <div class="skel-line" style="width:70%;margin-top:8px"></div>
+          <div class="skel-line" style="width:85%;margin-top:8px"></div>
+        </div>
+        <div v-else class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>商品</th><th class="num">现有库存</th><th class="num">在途</th><th class="num">建议补</th><th>口径</th></tr></thead>
+            <tbody>
+              <tr v-for="r in replItems" :key="r.product_id">
+                <td>{{ r.product_name || '—' }}</td>
+                <td class="num">{{ fmt(r.current_stock) }}</td>
+                <td class="num">{{ fmt(r.on_order) }}</td>
+                <td class="num val-warn">{{ fmt(r.suggest_qty) }}</td>
+                <td class="repl-reason">{{ r.reason }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="replItems.length" class="repl-foot">共 {{ replItems.length }} 个单品需补货 · 仅作建议，实际下单请结合促销/临期情况拍板</div>
+        </div>
+      </div>
+
+      <!-- 经营研判（判层 · P1-2b）：掉量归因 + 先出哪批权衡，全部只读、真实数据兜底 -->
+      <div class="card judge-panel">
+        <div class="panel-hd">
+          <b>经营研判（判）</b>
+          <span class="badge badge-blue">AI 研判 · 只读建议</span>
+          <span class="repl-head-actions">
+            <button class="btn btn-primary" :disabled="judgeLoading" @click="loadDecline">诊断近期掉量商品</button>
+          </span>
+        </div>
+        <div v-if="declineAnchor" class="judge-anchor">对比窗口锚定：数据最新日 {{ declineAnchor }}（按最近一个 {{ declinePeriod }} 天 vs 上一个同长窗口）</div>
+
+        <!-- A：掉量归因 -->
+        <div v-if="judgeLoading" class="ai-loading">
+          <div class="skel-line" style="width:90%"></div>
+          <div class="skel-line" style="width:70%;margin-top:8px"></div>
+          <div class="skel-line" style="width:85%;margin-top:8px"></div>
+        </div>
+        <div v-else-if="declineItems.length" class="judge-list">
+          <div v-for="d in declineItems" :key="d.product_id" class="judge-row">
+            <div class="judge-row-hd">
+              <span class="j-name">{{ d.product_name }}</span>
+              <span class="j-drop">↓{{ d.drop_pct }}%（{{ d.qty_recent }}/{{ d.qty_prior }} 件）</span>
+            </div>
+            <div class="j-grounded">库存 {{ d.grounded.stock }} · 安全库存 {{ d.grounded.safety_stock }} · 在途 {{ d.grounded.on_order }} · 7天临期 {{ d.grounded.near_expiry_qty }}</div>
+            <div v-if="d.ai_ok && d.diagnosis" class="j-diag" v-html="renderMd(d.diagnosis)"></div>
+            <div v-else-if="!d.ai_ok" class="j-diag j-diag-warn">AI 研判暂不可用（真实数据已上表），联网后可重试</div>
+          </div>
+        </div>
+        <div v-else-if="judgeReady && noSalesData" class="state-empty"><p>暂无可对比的销售数据（销售历史为空或尚未录入）</p></div>
+        <div v-else-if="judgeReady" class="state-empty"><p>最近一个 {{ declinePeriod }} 天窗口暂无显著掉量商品</p></div>
+
+        <!-- B：先出哪批（多目标权衡） -->
+        <div class="judge-tradeoff">
+          <div class="j-tradeoff-hd">
+            <span>先出哪批（临期 vs 新鲜度 vs 利润）</span>
+            <span class="j-pick">
+              <select v-model.number="tradeoffProductId" class="j-select">
+                <option :value="0">选择商品…</option>
+                <option v-for="p in productOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+              <button class="btn btn-ghost" :disabled="tradeoffLoading || !tradeoffProductId" @click="loadTradeoff">研判</button>
+            </span>
+          </div>
+          <div v-if="tradeoffLoading" class="ai-loading">
+            <div class="skel-line" style="width:80%"></div>
+            <div class="skel-line" style="width:60%;margin-top:8px"></div>
+          </div>
+          <div v-else-if="tradeoffData && tradeoffData.no_batch_data" class="j-diag j-diag-warn">
+            该商品暂未录入批次 / 效期信息，无法做批次级出库权衡。当前总库存 {{ tradeoffData.grounded.total_stock }} 件、毛利率 {{ tradeoffData.grounded.margin_pct }}%。在库存中补录批号与效期后可自动启用。
+          </div>
+          <div v-else-if="tradeoffData" class="j-tradeoff-body">
+            <table class="tbl">
+              <thead><tr><th>批号</th><th>效期</th><th class="num">数量</th><th class="num">成本</th></tr></thead>
+              <tbody>
+                <tr v-for="(b,i) in tradeoffData.batches" :key="i">
+                  <td>{{ b.batch_no || '无' }}</td>
+                  <td>{{ b.expiry_date || '未录' }}</td>
+                  <td class="num">{{ fmt(b.quantity) }}</td>
+                  <td class="num">{{ b.cost_price }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="j-grounded">毛利率 {{ tradeoffData.grounded.margin_pct }}% · 总库存 {{ tradeoffData.grounded.total_stock }} 件 · 在途 {{ tradeoffData.grounded.on_order }} 件</div>
+            <div v-if="tradeoffData.ai_ok && tradeoffData.tradeoff" class="j-diag" v-html="renderMd(tradeoffData.tradeoff)"></div>
+            <div v-else-if="!tradeoffData.ai_ok" class="j-diag j-diag-warn">AI 权衡暂不可用（真实批次已上表），联网后可重试</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 经验闭环（越用越聪明 · P2-4）：只读健康看板 + 三项验收指标，全量 soft-fail -->
+      <div class="card loop-panel" v-if="loopStatus || loopLoading">
+        <div class="panel-hd">
+          <b>经验闭环（越用越聪明）</b>
+          <span class="badge badge-blue">AI 自进化底座</span>
+          <span class="repl-head-actions">
+            <button class="btn btn-ghost" :disabled="loopLoading" @click="loadLoopStatus">刷新</button>
+          </span>
+        </div>
+        <div v-if="loopLoading" class="ai-loading">
+          <div class="skel-line" style="width:80%"></div>
+          <div class="skel-line" style="width:60%;margin-top:8px"></div>
+        </div>
+        <div v-else-if="loopStatus" class="loop-body">
+          <div class="loop-kpis">
+            <div class="loop-kpi"><span class="num">{{ loopStatus.captured_overrides }}</span><span class="lbl">已捕获覆写</span></div>
+            <div class="loop-kpi"><span class="num">{{ loopStatus.cross_tenant_caliber_entries }}</span><span class="lbl">跨租户口径</span></div>
+            <div class="loop-kpi"><span class="num">{{ loopStatus.acceptance.loop_proposals_total }}</span><span class="lbl">自动提案</span></div>
+            <div class="loop-kpi"><span class="num" :class="loopStatus.red_line_blocked ? 'warn' : 'ok'">{{ loopStatus.red_line_blocked }}</span><span class="lbl">红线拦截</span></div>
+          </div>
+          <div class="loop-accept">
+            <div class="la-row"><span>可追溯率（source_ref 非空）</span><b>{{ loopStatus.acceptance.source_ref_nonempty_rate }}%</b></div>
+            <div class="la-row"><span>跨 ≥2 场景复用</span><b>{{ loopStatus.acceptance.cross_tenant_reused_scenarios }}</b></div>
+            <div class="la-row"><span>提案否决率（回归风险）</span><b>{{ loopStatus.acceptance.loop_proposal_rejection_rate }}%</b></div>
+          </div>
+          <div class="loop-note">只共享算法口径（参数名 + 量级桶）；金额 / 工资 / 客户 / 进货价 / 返利费率等商业秘密一律不跨租户。</div>
+        </div>
+      </div>
+
+      <!-- 客户回款（v303）：整合进工作台，不新增侧栏 ——
+           老板每天在这页看「今天欠多少 / 该催谁」，收款与催收本是同一动作的两半。 -->
+      <CollectionsCard />
+
       <!-- AI 晨报（底部整行） -->
       <div class="card report-panel">
         <div class="panel-hd"><b>AI 晨报</b><span class="badge badge-blue">Hermes</span></div>
@@ -123,7 +258,8 @@ import { toast } from '../store'
 import { canSee, pageTitle } from '../constants/pages'
 import { hermesChat, auth } from '../api/client'
 import { stripAllFences } from '../composables/useCardTrigger'
-import { dashboardApi, expiryApi, todayApi, importApi } from '../api/modules'
+import { dashboardApi, expiryApi, todayApi, importApi, aiJudgementApi, aiExperienceApi, productsApi } from '../api/modules'
+import CollectionsCard from '../components/CollectionsCard.vue'
 
 /* ---- 日期 ---- */
 const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
@@ -198,6 +334,121 @@ function expiryText(days) {
 const aiText = ref('')
 const aiLoading = ref(false)
 const mdText = ref('')
+
+/* ---- 本周建议订购清单（v259：消费 /api/ai/replenishment 既有算层） ---- */
+const replItems = ref([])
+const replLoading = ref(false)
+const downloadingDocx = ref(false)
+
+/* ---- 经营研判（判层 · P1-2b）：掉量归因 + 先出哪批权衡，全部只读 ---- */
+const judgeReady = ref(false)
+const judgeLoading = ref(false)
+const declineItems = ref([])
+const declinePeriod = ref(30)
+const declineAnchor = ref('')
+const noSalesData = ref(false)
+const tradeoffLoading = ref(false)
+const tradeoffData = ref(null)
+const tradeoffProductId = ref(0)
+const productOptions = ref([])
+
+/* ---- 经验闭环（越用越聪明 · P2-4）：只读健康看板 ---- */
+const loopStatus = ref(null)
+const loopLoading = ref(false)
+
+async function loadLoopStatus() {
+  loopLoading.value = true
+  try {
+    const r = await aiExperienceApi.loopStatus()
+    loopStatus.value = r || null
+  } catch (e) {
+    loopStatus.value = null
+  } finally {
+    loopLoading.value = false
+  }
+}
+
+async function loadProducts() {
+  try {
+    const r = await productsApi.grid()
+    const rows = (r && r.rows) || []
+    productOptions.value = rows.map((p) => ({ id: p.id, name: p.name || ('#' + p.id) }))
+  } catch (e) {
+    productOptions.value = []
+  }
+}
+
+async function loadDecline() {
+  judgeLoading.value = true
+  judgeReady.value = false
+  declineItems.value = []
+  declineAnchor.value = ''
+  noSalesData.value = false
+  try {
+    const r = await aiJudgementApi.decline(30, 8)
+    declinePeriod.value = (r && r.period_days) || 30
+    declineAnchor.value = (r && r.anchor_date) || ''
+    noSalesData.value = !!(r && r.no_sales_data)
+    declineItems.value = (r && r.items) || []
+  } catch (e) {
+    declineItems.value = []
+    toast('掉量诊断失败，请稍后重试', 'warn')
+  } finally {
+    judgeReady.value = true
+    judgeLoading.value = false
+  }
+}
+
+async function loadTradeoff() {
+  if (!tradeoffProductId.value) return
+  tradeoffLoading.value = true
+  tradeoffData.value = null
+  try {
+    const r = await aiJudgementApi.batchTradeoff(tradeoffProductId.value, 1)
+    tradeoffData.value = r || null
+  } catch (e) {
+    tradeoffData.value = null
+    toast('批次权衡失败，请稍后重试', 'warn')
+  } finally {
+    tradeoffLoading.value = false
+  }
+}
+
+async function loadReplenishment() {
+  replLoading.value = true
+  try {
+    const r = await dashboardApi.replenishment(1, 20)
+    replItems.value = (r && r.suggestions) || []
+  } catch (e) {
+    replItems.value = []
+  } finally {
+    replLoading.value = false
+  }
+}
+
+async function downloadWeeklyDocx() {
+  downloadingDocx.value = true
+  try {
+    const headers = {
+      ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
+      ...(auth.tenant ? { 'X-Tenant-Id': String(auth.tenant) } : {}),
+    }
+    const res = await fetch('/api/meeting/export-docx', { method: 'GET', headers })
+    if (!res.ok) { toast(`生成失败（${res.status}）`, 'warn'); return }
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `经营周报_${new Date().toISOString().slice(0, 10)}.docx`
+    document.body.appendChild(a); a.click(); a.remove()
+    URL.revokeObjectURL(url)
+    toast('经营周报已生成，开始下载', 'success')
+  } catch (e) {
+    toast('生成失败，请稍后重试', 'warn')
+  } finally {
+    downloadingDocx.value = false
+  }
+}
 
 function renderMd(t) {
   // 晨报同样是 Hermes 输出，可能附带 ```card / ```cards 控制标记 —— 先剥干净再渲染
@@ -298,6 +549,9 @@ async function loadData() {
     recentActions.value = arr.filter(a => a && a.module !== 'auth')
   } catch (e) { recentActions.value = [] }
   loadTodo()
+  loadReplenishment()
+  loadProducts()
+  loadLoopStatus()
 }
 
 /* ---- 今日待办：临期预警 + AI 建议（AI 替你盯着的） ---- */
@@ -345,6 +599,23 @@ onMounted(loadData)
 <style scoped>
 /* .bento / .kpi-strip 及 KPI 子元素样式已上提全局层（src/styles/variables.css），
    此处只保留本页模块占位与局部组件。 */
+/* 经营研判（判层 · P1-2b） */
+.judge-panel{grid-column:1/-1}
+.judge-anchor{font-size:12px;color:var(--t3);margin-top:6px}
+.judge-list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.judge-row{border:1px solid var(--bd);border-radius:12px;padding:12px 14px;background:var(--bg2)}
+.judge-row-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.j-name{font-size:14px;font-weight:600;color:var(--t1)}
+.j-drop{font-size:12px;color:#ff3b30;font-weight:500}
+.j-grounded{font-size:12px;color:var(--t3);margin-top:6px}
+.j-diag{font-size:13px;color:var(--t2);margin-top:8px;line-height:1.6}
+.j-diag-warn{color:#ff9500}
+.judge-tradeoff{margin-top:16px;border-top:1px dashed var(--bd);padding-top:14px}
+.j-tradeoff-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px;font-weight:500;color:var(--t1)}
+.j-pick{display:flex;align-items:center;gap:8px}
+.j-select{max-width:200px;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t1);font-size:13px}
+.j-tradeoff-body{margin-top:12px}
+.j-tradeoff-body .tbl{margin-bottom:8px}
 .todo-panel{grid-column:1/-1}
 .todo-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .todo-item{display:flex;align-items:center;gap:12px;border:1px solid var(--bd);border-radius:12px;padding:12px 14px;cursor:pointer;transition:background .15s}
@@ -371,6 +642,25 @@ onMounted(loadData)
 .expiry-card{grid-column:span 4;grid-row:span 2}
 .report-panel{grid-column:1/-1}
 .today-panel.span-all,.expiry-card.span-all{grid-column:1/-1}
+/* v259：本周建议订购清单 —— 占整行，不扰动今日/效期 8/4 栅格 */
+.repl-panel{grid-column:1/-1}
+.repl-refresh{margin-left:auto;padding:4px 12px;font-size:12px}
+.repl-head-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.repl-docx{padding:4px 12px;font-size:12px}
+.repl-reason{color:var(--t3);font-size:12px;max-width:340px}
+.repl-foot{margin-top:10px;font-size:12px;color:var(--t3)}
+/* P2-4 经验闭环：占整行，只读健康看板 */
+.loop-panel{grid-column:1/-1}
+.loop-kpis{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px}
+.loop-kpi{display:flex;flex-direction:column;align-items:center;min-width:74px;padding:8px 10px;border:1px solid var(--bd);border-radius:12px;background:var(--bg)}
+.loop-kpi .num{font-size:20px;font-weight:700;color:var(--t1);line-height:1.2}
+.loop-kpi .num.ok{color:#34c759}
+.loop-kpi .num.warn{color:#ff9500}
+.loop-kpi .lbl{font-size:12px;color:var(--t3);margin-top:2px}
+.loop-accept{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--t2)}
+.loop-accept .la-row{display:flex;gap:6px;align-items:center}
+.loop-accept .la-row b{color:var(--t1);font-size:14px}
+.loop-note{margin-top:10px;font-size:12px;color:var(--t3);line-height:1.6}
 
 /* 空账套导入引导 —— 占整行，横向三段：图标 / 文案 / 操作 */
 .import-guide{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px dashed var(--bd)}

@@ -8,6 +8,10 @@ import { api } from './client.js'
 export const dashboardApi = {
   todayProfit: () => api('/api/dashboard/today-profit'),
   recentActions: (limit = 8) => api(`/api/dashboard/recent-actions?limit=${limit}`),
+  /* v259 补货建议：复用既有后端口径 `需补 = 安全库存 - 现有库存 - 在途`，
+     不新造算法；后端自带 reason 字段做口径披露。 */
+  replenishment: (warehouseId = 1, limit = 20) =>
+    api(`/api/ai/replenishment?warehouse_id=${warehouseId}&limit=${limit}`),
 }
 
 /* ---- 近效期 / 货损 ---- */
@@ -203,7 +207,7 @@ export const todayApi = {
   refresh: () => api('/api/today/refresh', { method: 'POST' }),
 }
 
-/* ---- 对账工作流（⚠️ 页面已于 v197 撤下，本组接口暂留不删） ----
+/* ---- @deprecated 对账工作流（⚠️ 页面已于 v197 撤下，本组接口暂留不删） ----
    三步向导页面（Reconciliation.vue）已移除，原因见 router/index.js 的注释。
    后端 /api/reconciliation/* 保留：重做方案要拿它做「存量入口」灰度，
    且客户历史对账记录还在库里。新代码请勿再基于本组的 customerMatch /
@@ -306,6 +310,31 @@ export const aiSkillsApi = {
   list: () => api('/api/ai/skills'),
 }
 
+/* ---- AI 经营研判（「判」层：掉量归因 / 先出哪批权衡，全部只读 + 真实数据兜底） ---- */
+export const aiJudgementApi = {
+  decline: (periodDays = 30, topN = 8) =>
+    api(`/api/ai/decline-diagnosis?period_days=${periodDays}&top_n=${topN}`),
+  batchTradeoff: (productId, warehouseId = 1) =>
+    api(`/api/ai/batch-tradeoff?product_id=${productId}&warehouse_id=${warehouseId}`),
+}
+
+/* ---- 经验闭环（「越用越聪明」底座 · P2-4）：只读健康看板 + 跨租户口径（红线过滤） ---- */
+export const aiExperienceApi = {
+  loopStatus: () => api('/api/ai/experience/loop-status'),
+  industryCaliber: (paramKey = '') =>
+    api(`/api/ai/experience/industry-caliber${paramKey ? `?param_key=${encodeURIComponent(paramKey)}` : ''}`),
+  /* T1-5：可调口径**权威清单**（模块/中文名/值域/当前值/近 30 天记录次数）。
+     🔴 候选清单只由后端给 —— 前端不得再写第二份（旧 FIELD_LABEL 已漂移 4 个不存在的键）。 */
+  params: () => api('/api/ai/experience/params'),
+  /* T1-5：把「这一次确认的口径」显式沉成一条提案（一次确认即建提案，不等 3 次重复） */
+  proposeRecipe: (body) => api('/api/ai/experience/propose-recipe', { method: 'POST', body }),
+}
+
+/* ---- AI 经营一页纸（P1-3：四宫格聚合，只读） ---- */
+export const aiPagerApi = {
+  pager: () => api('/api/ai/business-pager'),
+}
+
 /* ---- 员工档案（数据补录） ---- */
 export const employeeApi = {
   list: (params) => {
@@ -320,6 +349,26 @@ export const employeeApi = {
   create: (body) => api('/api/employees', { method: 'POST', body }),
   update: (eid, body) => api(`/api/employees/${eid}`, { method: 'PUT', body }),
   toggle: (eid, isActive) => api(`/api/employees/${eid}/toggle`, { method: 'POST', body: { is_active: isActive } }),
+}
+
+/* ---- 仓库档案（v294，2026-09-27）：内部仓主档 ----
+
+   后端 CRUD **早就有了**（`routers/inventory.py` 的 `/api/warehouses/full`，
+   GET/POST/PUT/DELETE 四件套，挂 `stock` 模块），但**前端此前没有任何入口** ——
+   仓库只能靠库存页顺带露出来，改名/加仓/填联系人无处可去。
+
+   为什么现在必须补：员工档案的「个人仓」（`hr_employees.warehouse_id`）与报单模板的
+   「源仓 / 目标仓」（`report_mapping.src_wh / dst_wh`）都指向这张表 ——
+   没有主档入口，上游三个下拉就只能是「默认仓库」一个选项，配了也等于没配。
+
+   ⚠️ 数据源用 `/api/warehouses/full` 而**不是** `/api/warehouses`：两者今天返回同一份，
+   但 `full` 是「带地址/联系人」的语义名，`/api/warehouses` 是 v107.48 为兼容旧客户端补的
+   别名（见该路由上方注释）⇒ 新代码一律走 `full`，别再扩那个兼容名。 */
+export const warehouseApi = {
+  list: () => api('/api/warehouses/full'),
+  create: (body) => api('/api/warehouses/full', { method: 'POST', body }),
+  update: (wid, body) => api(`/api/warehouses/full/${wid}`, { method: 'PUT', body }),
+  remove: (wid) => api(`/api/warehouses/full/${wid}`, { method: 'DELETE' }),
 }
 
 /* ---- 报单配置（v109）：消化全称↔简称与一人报多对象多单型 ---- */
@@ -337,6 +386,11 @@ export const reportMappingApi = {
   update: (mid, body) => api(`/api/report-mappings/${mid}`, { method: 'PUT', body }),
   toggle: (mid, isActive) => api(`/api/report-mappings/${mid}/toggle`, { method: 'POST', body: { is_active: isActive } }),
   health: () => api('/api/report-mappings/health'),
+  /* v295（2026-09-27）：报单简称（列头）名册 —— 「报单简称」输入框据此**点选**。
+     汇总表列头 = `forecast_submissions.store_name` 的全历史名册（后端 all_units），
+     手打一个名册外的名字 = 给汇总表**新增一列**（同一门店裂成两列、永不合并 = v247 的病根）。
+     返回 { aliases: [...], suggest: {"store:2225": {alias, from}}, stats: {...} }。 */
+  aliasPool: () => api('/api/report-mappings/alias-pool'),
   // 历史门店授权（在旧「员工档案 → 分配门店」配过、尚未纳入报单配置的门店）。
   // 2026-09-19 起员工档案入口已移除，写端只剩本页 —— 靠这个清单把「看得到、没处改」
   // 的那部分门店提示出来，补一条映射即收敛。
@@ -379,6 +433,46 @@ export const forecastApproveApi = {
   /* v219 打磨⑥：**改**数量上限（老板/管理员）。set_rules 本就存在，缺的正是这一个 HTTP 入口
      —— 在此之前上限是「只读」的：前端按它判红框，而租户没有任何办法改它。 */
   setValidationRules: (body) => api('/api/forecast-submissions/validation-rules', { method: 'PUT', body }),
+}
+
+/* ---- 商品目标管理（v264，2026-09-24）----
+   🔴 后端前缀 `/api/product-targets` **必须**在 server.py 的 `_PATH_MODULE_MAP` 里显式登记：
+      那个映射用 `path.startswith(prefix)` 匹配，而本前缀**不**以 `/api/products` 开头
+      （`product-t` ≠ `products`）⇒ 不登记就是 fail-closed 403，页面只会显示「无权限」。
+   🔴 目标一律以**箱**计（方案 §4.1）⇒ 后端对「无大单位换算」的商品硬拒 422；
+      前端用 `/products` 的 `can_target` 提前禁选并说明原因（不让用户白填一遍再报错）。
+   🔴 均单/预填**只由后端算**（`/avg-target`），前端不本地重算 —— 那是第二份口径。 */
+export const productTargetsApi = {
+  list: (month = '', keyword = '') => {
+    const q = []
+    if (month) q.push('month=' + encodeURIComponent(month))
+    if (keyword) q.push('keyword=' + encodeURIComponent(keyword))
+    return api('/api/product-targets' + (q.length ? '?' + q.join('&') : ''))
+  },
+  create: (body) => api('/api/product-targets', { method: 'POST', body }),
+  update: (tid, body) => api(`/api/product-targets/${tid}`, { method: 'PUT', body }),
+  remove: (tid) => api(`/api/product-targets/${tid}`, { method: 'DELETE' }),
+  employees: () => api('/api/product-targets/employees'),
+  products: (keyword = '', limit = 50) =>
+    api(`/api/product-targets/products?keyword=${encodeURIComponent(keyword)}&limit=${limit}`),
+  /* 均单目标 + 加单预填。`periodId` 必填（剩余期次与本期报单合计都挂在期次上）。 */
+  avgTarget: (periodId, productIds = '') =>
+    api(`/api/product-targets/avg-target?period_id=${periodId}`
+        + (productIds ? '&product_ids=' + encodeURIComponent(productIds) : '')),
+  /* v264c：报单「列名 ↔ 报单对象」对账（**只读**）。用于目标页顶部告警 ——
+     列名没配进「报单配置」时，该列落库 store_id=0 ⇒「逐人实报」只能靠名字匹配。 */
+  mappingAudit: () => api('/api/product-targets/mapping-audit'),
+  /* v277（需求 6 读取端）：加/减单的**按比例分配明细**。只读 `forecast_extra_alloc`，
+     **不重算** —— 算归 `save-matrix`（经理保存那一刻的结果），这里只把存下来的结果拿出来给
+     hover 展示用。重算会出现「保存时按 8 人算、悬停时按 9 人算」两套结果。 */
+  extraAlloc: (periodId) => api(`/api/product-targets/extra-alloc?period_id=${periodId}`),
+  /* v277（S3）：**就地补商品的大单位换算**。后端三道校验（当前必须真缺 / 补完必须真能折箱
+     且能摊出各级单位 / 大单位名不得撞名），任一不过返 400 并带中文原因。 */
+  fixConversion: (productId, largeUnit, largeRatio) =>
+    api('/api/product-targets/fix-conversion', {
+      method: 'POST',
+      body: { product_id: productId, large_unit: largeUnit, large_ratio: largeRatio },
+    }),
 }
 
 /* ---- 商品主档（Web 预报模块网格直编 / 粘贴） ---- */
@@ -502,6 +596,41 @@ export const importApi = {
     for (const k of Object.keys(extra || {})) if (extra[k] != null) fd.append(k, extra[k])
     return api('/api/import/execute', { method: 'POST', raw: true, body: fd })
   },
+  /* v303：导入回执 → 撤销。只回删该次导入**新建**的行；后端逐行确认仍在库里，
+     返回 {deleted, recorded}，两者不相等说明有人在导入后动过这些行。
+     对「库存 / 应收期初 / 销售明细 / 报单矩阵」后端会**明确拒绝**并给原因（不静默失败）。 */
+  receipts: (limit = 20) => api(`/api/import/receipts?limit=${limit}`),
+  undo: (batchId) => api(`/api/import/receipts/${encodeURIComponent(batchId)}/undo`, { method: 'POST' }),
+  mappingMemory: (category) => api(`/api/import/mapping-memory?category=${category}`),
+  /* v304：数据台账 —— 「我的数据全不全、上次什么时候传的」。
+     后端 `/api/import/ledger` 的返回是 `{success, items, generated_at}`（**没有 `data` 外层**）
+     ⇒ `api()` 会把整包原样返回，调用方读 `.items` 即可（见 client.js 的解包规则）。
+     🔴 后端只给事实（条数 / 上次上传时间 / 上次条数 / 上传人），**不给建议**：
+        "这个数算不算少""多久没传该提示"只写在 `DataLedger.vue` 一处，避免阈值散成两份。 */
+  ledger: () => api('/api/import/ledger'),
+}
+
+/* v303：客户回款 —— 「他到底收回来了多少」的唯一入口。
+   账龄（aging）的金额口径 = `receivables.amount - paid_amount`，而 `paid_amount`
+   在 v303 之前**没有任何写入口** ⇒ 这个数字一直是"期初建账"口径。 */
+export const collectionsApi = {
+  aging: () => api('/api/collections/aging'),
+  payments: (contactId = 0, limit = 20) =>
+    api(`/api/collections/payments?contact_id=${contactId || 0}&limit=${limit}`),
+  pay: (body) => api('/api/collections/payments', { method: 'POST', body }),
+  undo: (rid) => api(`/api/collections/payments/${rid}/undo`, { method: 'POST' }),
+}
+
+/* v303：厂家承诺台账 —— 口头承诺（返利/陈列费/赠品/费用支持）的登记与兑现跟踪。
+   挂在「目标与返利」页签里，不新增侧栏（见 CommitmentsTab.vue 的注释）。 */
+export const commitmentsApi = {
+  list: (status = '') => api(`/api/commitments${status ? '?status=' + status : ''}`),
+  summary: () => api('/api/commitments/summary'),
+  create: (body) => api('/api/commitments', { method: 'POST', body }),
+  update: (id, body) => api(`/api/commitments/${id}`, { method: 'PUT', body }),
+  done: (id, body = { status: 'done' }) => api(`/api/commitments/${id}/done`, { method: 'POST', body }),
+  remove: (id) => api(`/api/commitments/${id}`, { method: 'DELETE' }),
+  scanDue: () => api('/api/commitments/scan-due', { method: 'POST' }),
 }
 
 /* ---- 通知中心（P0-1a：把只写不读的 message_center 接出来）----
@@ -574,4 +703,61 @@ export const custPriceApi = {
 export const businessProfileApi = {
   get: () => api('/api/forecast/business-profile'),
   save: (data) => api('/api/forecast/business-profile', { method: 'PUT', body: data }),
+}
+
+/* ---- 舟谱单据导入（v269，2026-09-25）----
+ * 把舟谱导出的「销售结算明细表 / 调拨订单明细表」落成系统里的提货单。
+ * 两步：先 `preview` 看清单（不写库），确认后再 `execute` 落库。
+ *
+ * 🔴 v271（2026-09-25）：这两个端点改成**后台任务**了 —— 请求只负责「开工」，
+ *   立刻返回一个 `job_id`，真正的活在服务端线程里跑，前端拿 job_id 轮询 `/status`。
+ *
+ *   为什么必须改：同步版实测整年（14.4 万行 / 2.2 万张单）**268.7 秒**，
+ *   而 nginx `proxy_read_timeout` 是 300 秒 —— 只剩 31 秒余量，文件稍大就是一次 504，
+ *   用户看到的只是「失败」，而库里其实可能已经导了一半。
+ *
+ *   改完之后**不再受 300 秒约束**（HTTP 请求本身只有几十毫秒），超时只需覆盖上传本身。
+ * 🔴 **本模块四个方法一律 `raw: true`** —— 也就是说返回值都是**整包** `{success, data}`，
+ *   调用方必须读 `r.data`。这不是随手写的，是把一个**已经踩过的坑**固定下来：
+ *   `api()`（api/client.js:241）默认会**把 `data` 解包掉**
+ *   （`return raw ? data : (data.data !== undefined ? data.data : data)`），
+ *   而后端这四个端点返回的都是 `{"success":true,"data":{…}}`。
+ *   ⇒ 只要有一个方法漏了 `raw: true`，调用方读 `r.data` 就是 `undefined`：
+ *     **不报错、不抛异常，只是静默拿到空值**（进度条永远停在原地 / 卡片永远显示「未使用」）。
+ *   2026-09-25 v271 真机探针实测：`status` 正因为漏了 `raw: true`，
+ *     轮询里 `d = (r && r.data) || null` 恒为 null ⇒ **进度永远不会走到完成**。
+ *     当时只做了 curl 级验收所以没发现 —— 加新方法时请照抄 `raw: true`。
+ */
+export const zhoupuApi = {
+  /** 上传并开工解析。返回 { job_id } —— 报告要等轮询拿。 */
+  preview: (file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api('/api/import/zhoupu/preview', {
+      method: 'POST', body: fd, timeout: 60000, raw: true
+    })
+  },
+  /** 按 token 开工落库。返回 { job_id }。 */
+  execute: (token) => {
+    const fd = new FormData()
+    fd.append('token', token)
+    return api('/api/import/zhoupu/execute', {
+      method: 'POST', body: fd, timeout: 30000, raw: true
+    })
+  },
+  /** 查进度。跑完后 `data.result` 里带完整报告。 */
+  status: (jobId) => api(`/api/import/zhoupu/status/${encodeURIComponent(jobId)}`,
+                         { timeout: 15000, raw: true }),
+  /** 请求中止。协作式：在下一张单的边界停，已导入的完整单据保留。 */
+  cancel: (jobId) => {
+    const fd = new FormData()
+    return api(`/api/import/zhoupu/cancel/${encodeURIComponent(jobId)}`, {
+      method: 'POST', body: fd, timeout: 15000, raw: true
+    })
+  },
+  /* v274（2026-09-25）：通道状态 —— 给「能力中心 › 连接器 › ERP 数据源」那张卡用，
+     读的是导入成功后落的**回执**（后端 system_config 里的 zhoupu_import_receipt）。
+     ⚠️ 读数含义 = 「这个通道最近一次动作」，**不是**「库里现在有多少张舟谱单」——
+        别拿它当业务量统计（有人手工删过单就会与库不一致）。 */
+  sourceStatus: () => api('/api/import/zhoupu/source-status', { timeout: 15000, raw: true }),
 }

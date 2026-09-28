@@ -4,11 +4,30 @@
       <span class="im-st">
         共 {{ rows.length }} 列 · 导入 <b>{{ mappedCount }}</b> 列 · 不导入 <b :class="{ off: skippedCount }">{{ skippedCount }}</b> 列
       </span>
-      <button v-if="changed" class="im-reset" @click="resetToSuggested">还原系统识别</button>
+      <span class="im-acts">
+        <!-- v303：「跳过已存在的记录」= 后端 `mode=incremental`。
+             为什么长在这里而不是页面上：它和上面那张映射表回答的是同一件事 ——
+             「这份文件会怎么进系统」。放在映射确认这一步，用户改完映射顺手就能决定；
+             放到页面上就会和「选文件」挤在一行，变成先选文件、隔着一步才想起该不该去重。
+             标签用业务话（"已存在的记录"）而不是"增量导入"——这个词老板不认识。 -->
+        <label v-if="showIncremental" class="im-inc" :title="'打开后，系统里已有的记录不会重复导入（商品按条码/名称、员工按工号/姓名、库存按商品+批次号判断）'">
+          <input type="checkbox" :checked="incremental"
+                 @change="$emit('update:incremental', $event.target.checked)" />
+          跳过已存在的记录
+        </label>
+        <button v-if="changed" class="im-reset" @click="resetToSuggested">还原系统识别</button>
+      </span>
     </div>
 
     <div v-if="skippedCount" class="im-note">
       标「不导入」的列不会写进系统。若其中有你需要的列，在右边把它改成对应字段即可。
+    </div>
+
+    <!-- v303：映射记忆提示。只在**真命中**时出现（后端算不出命中就不回这个字段）——
+         空壳提示（"已记住你的映射"但没记住）比不提示更糟：用户下次会发现并没有记住。 -->
+    <div v-if="memory && memory.applied" class="im-mem">
+      已按你上次的映射预填 <b>{{ memory.applied }}</b> 列
+      <span class="im-mem-t">（{{ (memory.updated_at || '').slice(0, 10) }} 那次定的）。右边改动的列会覆盖它。</span>
     </div>
 
     <div class="im-wrap">
@@ -67,8 +86,18 @@ const props = defineProps({
   fieldOptions: { type: Array, default: () => [] },
   // 当前映射 {列下标: 字段键}；空串/不存在 = 不导入
   modelValue: { type: Object, default: () => ({}) },
+  // v303：/import/preview 回的 `remembered`（{applied, updated_at, hit_count} 或 null）。
+  //   传 null 不显示任何提示 —— 组件**不自己判断**"有没有记住"，判据只有后端一处。
+  memory: { type: Object, default: null },
+  // v303：是否跳过已存在的记录（→ 后端 `mode=incremental`）。默认关，保持既有行为。
+  incremental: { type: Boolean, default: false },
+  // v303：是否显示上面那个勾选框。**报单矩阵（forecast_cross）必须传 false** ——
+  //   那条路径走 `_execute_forecast_cross`、在 `/execute` 里提前 return，`mode` 根本不生效；
+  //   显示一个不起作用的勾选框就是「死按钮」，比没有更糟。去重由报单本身的
+  //   「一店一期一单」幂等键负责，不需要这个开关。
+  showIncremental: { type: Boolean, default: true },
 })
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'update:incremental'])
 
 /* 行的可见性：无表头且无数据、也无映射的列不显示 —— Excel 尾部常拖一堆空列，显示出来全是噪音。
    隐藏**不会**改变映射（那类列本来就没有映射项）。 */
@@ -97,10 +126,14 @@ function resetToSuggested() {
   emit('update:modelValue', next)
 }
 
-const CONF = { high: '系统识别', ai: 'AI 推测', cross: '客户列', low: '未识别' }
+const CONF = { high: '系统识别', ai: 'AI 推测', cross: '客户列', low: '未识别', memory: '上次你的选择' }
 function confKey(r) {
   if (current(r.index) !== suggestedOf(r)) return 'edit'
-  return suggestedOf(r) ? (r.confidence || 'high') : 'low'
+  if (!suggestedOf(r)) return 'low'
+  // v303：memory 与 high 都表示"系统给的、可直接用"，但来源不同 —— 分开标色，
+  //   用户才知道这一列是**自己上次定的**、不是系统猜的（猜的要复核，自己定的不用）。
+  if (r.confidence === 'memory') return 'memory'
+  return r.confidence || 'high'
 }
 function confLabel(r) {
   if (current(r.index) !== suggestedOf(r)) return '已改'
@@ -114,8 +147,14 @@ function confLabel(r) {
 .im-st{font-size:12px;color:var(--t2)}
 .im-st b{color:var(--p-dark);font-size:13px}
 .im-st b.off{color:var(--war)}
+.im-acts{display:flex;align-items:center;gap:12px}
+.im-inc{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap}
+.im-inc input{cursor:pointer;margin:0}
 .im-reset{border:none;background:none;padding:0;font-size:12px;color:var(--p-dark);text-decoration:underline;cursor:pointer}
 .im-note{font-size:12px;color:var(--warn-amber);background:var(--warn-amber-bg);border-radius:var(--radius-sm);padding:6px 10px}
+.im-mem{font-size:12px;color:var(--p-dark);background:var(--p-bg);border-radius:var(--radius-sm);padding:6px 10px}
+.im-mem b{font-size:13px}
+.im-mem-t{color:var(--t2)}
 .im-wrap{max-height:320px;overflow:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
 .im-tbl{font-size:13px}
 .im-tbl th{position:sticky;top:0;z-index:1}
@@ -131,4 +170,5 @@ function confLabel(r) {
 .im-cc-cross{background:var(--p-bg);color:var(--p-dark)}
 .im-cc-low{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .im-cc-edit{background:var(--violet-bg);color:var(--violet)}
+.im-cc-memory{background:var(--violet-bg);color:var(--violet)}
 </style>

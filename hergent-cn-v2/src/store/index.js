@@ -279,6 +279,11 @@ export const useAppStore = defineStore('app', () => {
       for (const s of chat.sessions) if (!serverIds.has(s.id)) merged.push(s)
       merged.sort((a, b) => tsNum(b.updated_at) - tsNum(a.updated_at))
       chat.sessions = merged
+      // 可靠性补推（2026-09-23）：本地有、服务端没有的会话，趁本次登录态有效补推一次，
+      // 修复此前因 401/网络中断漏同步的会话，保证跨设备最终一致。
+      for (const s of merged) {
+        if (!serverIds.has(s.id) && s.messages && s.messages.length) syncSessionToServer(s)
+      }
     } catch (_) {
     } finally {
       chat.sessionsLoading = false
@@ -379,6 +384,18 @@ export const useAppStore = defineStore('app', () => {
   function setAiRole(rid) {
     chat.currentRole = rid
     try { localStorage.setItem('hergent_role', rid) } catch {}
+  }
+
+  /* 跨设备/重开保护（2026-09-23）：
+     此前只在 AI 完整回复后才落盘；若中途关盖休眠 / 切走 / 关页，进行中的副驾对话只活在内存，
+     换设备 / 重开就丢了（用户公司电脑关盖时 AI 正在流式回复，整段对话未落盘，回家看不到）。
+     监听 visibilitychange(hidden) + pagehide，页面一隐藏就立即落盘当前对话（含流式进行中）。 */
+  if (typeof window !== 'undefined') {
+    const _persistOnHide = () => saveCurrentSession()
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') _persistOnHide()
+    })
+    window.addEventListener('pagehide', _persistOnHide)
   }
 
   return {

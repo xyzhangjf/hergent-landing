@@ -89,10 +89,18 @@
           />
 
           <!-- 共用：生效期 / 优先级 / 启用 -->
+          <!-- v292（2026-09-27）文案修正：这两个日期是**规则整体的启停窗口**，不决定
+               "它在哪几个月生效" —— 带「月度分解」的规则由分解的月份决定适用月份，
+               生效期完全不参与（见 domain/rebate_period.py::covered_months）。
+               旧文案「生效结束」极易被读成"这个目标只算到这一天"：实际事故是把它填成
+               09-30 期待"10 月不再生效"，而 10 月照常生效（要停用只能改下面的「启用」开关）；
+               它唯一被误用的地方是返利冲刺看板的周期截止日（v292 已改为当月月末）。
+               改成「规则启用日 / 规则停用日」并补一行说明，让字段名自己说清边界。 -->
           <div class="form-grid2">
-            <div class="form-row"><label>生效开始</label><input v-model="form.effective_start" class="input" type="date"></div>
-            <div class="form-row"><label>生效结束</label><input v-model="form.effective_end" class="input" type="date"></div>
+            <div class="form-row"><label>规则启用日</label><input v-model="form.effective_start" class="input" type="date"></div>
+            <div class="form-row"><label>规则停用日</label><input v-model="form.effective_end" class="input" type="date"></div>
           </div>
+          <div class="cf-tip">这两个日期只管这条规则整体的启用 / 停用，<b>不决定它在哪几个月生效</b>；某个月是否参与返利，请看上方「月度分解」里有没有填这个月。要整条停用，请把下面的「启用」改为停用。</div>
           <div class="form-grid2">
             <div class="form-row"><label>优先级</label><input v-model.number="form.priority" class="input" type="number" placeholder="数值越大越优先"></div>
             <div class="form-row"><label>启用</label>
@@ -587,7 +595,25 @@ async function save() {
     f.monthly_tiers = {}
   }
   if (!f.rule_name) { toast('请填写规则名称', 'error'); return }
-  if (!f.target_value || f.target_value <= 0) { toast('目标值必须 > 0', 'error'); return }
+  // v282（2026-09-26）：允许「只配到货节奏、不设返利目标」的品牌规则，与后端 validate_rule 同口径。
+  //   为什么需要：报单页的「均单目标」提示要求「该品牌有启用的到货规则」，而到货规则只能挂在
+  //   品牌规则上；但经销商手里往往只有部分品牌有厂商下发的返利目标 ⇒ 原校验会**逼用户编一个假目标**。
+  //   两条约束（缺一不可）：① 确实配了节奏 ② 返利率为 0（不产生任何返利金额）。
+  const _hasRhythm = !!String(f.order_first_date || '').trim()
+    || Number(f.order_cadence_days || 0) > 0
+    || !!String(f.order_weekdays || '').trim()
+    || Number(f.arrival_cadence_days || 0) > 0
+    || !!String(f.arrival_weekdays || '').trim()
+  if (!f.target_value || f.target_value <= 0) {
+    if (!_hasRhythm) {
+      toast('目标值必须 > 0（若这条规则只用来配「到货节奏」，请先填「首次报单日」或报单周期）', 'error')
+      return
+    }
+    if (Number(f.rebate_rate || 0) > 0 || Number(f.rebate_amount || 0) > 0) {
+      toast('没填目标值时不能设返利 —— 请把返利比例/金额改为 0', 'error')
+      return
+    }
+  }
   if (f.order_mode === 'weekday' && !f.order_weekdays) { toast('请选择至少一个报单星期', 'error'); return }
   if (f.order_first_date && !leadValid.value) {
     toast(leadErr.value || '「提前天数」须为 0~30 的整数', 'error'); return

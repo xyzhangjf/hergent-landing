@@ -19,6 +19,9 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
               <span v-if="artifacts.length" class="cp-art-badge">{{ artifacts.length }}</span>
             </button>
+            <button class="cp-icon-btn" :class="{on:showPager}" title="经营一页纸" @click="togglePager">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            </button>
             <button class="cp-icon-btn" title="存为报告" :disabled="!hasChat || savingReport" @click="saveAsReport">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6M9 17h6"/></svg>
             </button>
@@ -64,7 +67,7 @@
         </div>
 
         <!-- 双栏：左聊天 / 右产物（方案 B） -->
-        <div v-show="!showHistory" class="cp-split">
+        <div v-show="!showHistory && !showPager" class="cp-split">
         <div class="cp-chat" :class="{'art-hidden': artFullscreen}">
         <!-- 对话流 -->
         <div class="cp-body" ref="cpBody">
@@ -86,10 +89,32 @@
               <template v-else>{{ (currentRole && currentRole.avatar) || 'AI' }}</template>
             </span>
             <div class="msg-col">
+              <!-- 深度思考（推理流）：默认折叠，点开看模型想什么。对齐 WorkBuddy 的「深度思考」。 -->
+              <div v-if="m.reasoning" class="msg-think">
+                <button class="mt-hd" @click="toggleThink(i)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 00-3.6 10.8V17h7.2v-3.2A6 6 0 0012 3z"/><path d="M9.5 20.5h5"/></svg>
+                  <span>深度思考</span>
+                  <span class="mt-n">{{ m.reasoning.length }} 字</span>
+                  <svg class="mt-caret" :class="{ open: openThink === i }" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div v-if="openThink === i" class="mt-body">{{ m.reasoning }}</div>
+              </div>
               <div class="msg-bubble">
                 <div v-if="m.role === 'assistant' && m.content" class="md" v-html="renderMd(mediaView(m.content).text)"></div>
-                <span v-else-if="m.role === 'assistant'" class="typing"><i></i><i></i><i></i></span>
+                <!-- 等待动画：只在「正在流式 + 这是最后一条 + 还没收到内容」时显示。
+                     判据必须带上 streaming —— 请求超时/报错/取消时 streaming 立刻变 false，
+                     组件随之卸载，不会留在气泡里一直跳（原先只看内容为空，中断后会常驻）。 -->
+                <ThinkingDots
+                  v-else-if="m.role === 'assistant' && store.chat.streaming && i === store.chat.messages.length - 1"
+                  text="思考中…"
+                />
                 <template v-else>{{ m.content }}</template>
+                <!-- v309：用户主动停止的标记。对齐 WorkBuddy 的 `message.interrupted`（任务被中断）——
+                     中断后**保留**已生成内容，只在末尾附一个中性标记，不弹错误、不删气泡。 -->
+                <div v-if="m.role === 'assistant' && m.stopped" class="cp-stopped" role="status">
+                  <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg>
+                  <span>已停止生成</span>
+                </div>
                 <!-- v301：副驾产出的文件（Hermes `MEDIA:` 标记）→ 可直接下载/打开。
                      原先 Web 端只显示一串服务器路径（企微客户端里却能点开），就是这个缺口。
                      v306：🔴 下载**必须**走 downloadAuthed()（带 Authorization 头取 blob）——
@@ -129,23 +154,31 @@
                   <div class="src-item">已读取你的真实经营数据（应收、库存、订单等）作答，非凭空生成。</div>
                 </div>
               </div>
-              <!-- 任务进度（M3） -->
-              <div v-if="m.progress" class="msg-progress">
-                <ProgressSteps :steps="m.progress.steps" />
-              </div>
-
               <!-- 结构化经营结果卡 -->
               <ResultCard v-if="m.card" :card="m.card" @action="onCardAction" />
 
-              <!-- AI 调用工具的过程（H2：让推理可见，提升信任） -->
-              <div v-if="m.tools && m.tools.length" class="msg-tools">
-                <div v-for="(t, ti) in m.tools" :key="ti" class="cp-tool" :class="t.status">
-                  <span class="cp-tool-ic">
-                    <svg v-if="t.status === 'running'" class="cp-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>
-                    <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  </span>
-                  <span class="cp-tool-name">{{ t.name }}</span>
-                  <span v-if="t.args" class="cp-tool-args">{{ shortArgs(t.args) }}</span>
+              <!-- AI 调用工具的过程 —— 对齐 WorkBuddy 的节奏：
+                   **回复中自动展开**显示每一步（执行中 / 已完成 耗时）；
+                   **回复结束自动收起**，只留答案 + 一行可点开的摘要。
+                   数据来自 Hermes 的 `hermes.tool.progress` 事件（此前事件名对不上、被全丢）。 -->
+              <div v-if="m.tools && m.tools.length" class="msg-tools" :class="{ folded: !toolsOpen(i), live: toolsLive(i) }">
+                <button class="cp-tools-hd" @click="toggleTools(i)">
+                  <svg v-if="toolsLive(i)" class="cp-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>
+                  <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>{{ toolsLive(i) ? '正在执行' : '工具执行情况' }}</span>
+                  <span class="cp-tools-n">{{ m.tools.filter(t => t.status === 'done').length }} / {{ m.tools.length }} 步</span>
+                  <span class="cp-tools-t">{{ toolsElapsed(m) }}</span>
+                  <svg class="cp-tools-caret" :class="{ open: toolsOpen(i) }" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div v-if="toolsOpen(i)" class="cp-tools-body">
+                  <div v-for="(t, ti) in m.tools" :key="ti" class="cp-tool" :class="t.status">
+                    <span class="cp-tool-ic">
+                      <svg v-if="t.status === 'running'" class="cp-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>
+                      <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                    <span class="cp-tool-name">{{ t.emoji ? t.emoji + ' ' : '' }}{{ t.label || t.name }}</span>
+                    <span class="cp-tool-st">{{ t.status === 'running' ? '执行中' : (t.ms ? '已完成 ' + fmtMs(t.ms) : '已完成') }}</span>
+                  </div>
                 </div>
               </div>
 
@@ -263,14 +296,31 @@
 
           <!-- Composer 卡片（WorkBuddy 范式：文本区独占整行 + 工具条两端锚定） -->
           <div class="cp-composer">
+            <!-- M1 斜杠命令：输入 / 唤起快捷指令面板（复用命令面板的分组/键盘/权限范式） -->
+            <div v-if="slashOpen" class="cp-slash" role="listbox" aria-label="快捷指令">
+              <div class="cp-slash-hd">
+                <span>快捷指令</span>
+                <span class="cp-slash-kbd"><kbd>↑↓</kbd> 选择 · <kbd>↵</kbd> 执行 · <kbd>Esc</kbd> 关闭</span>
+              </div>
+              <template v-for="(c, i) in slashMatches" :key="c.cmd">
+                <div v-if="i === 0 || slashMatches[i - 1].group !== c.group" class="cp-slash-group">{{ c.group }}</div>
+                <button type="button" class="cp-slash-item" :class="{ active: i === slashIndex }"
+                  @mousemove="slashIndex = i" @mousedown.prevent="pickSlash(c)">
+                  <span class="cp-slash-ic"><Icon :name="c.icon" :size="15" /></span>
+                  <span class="cp-slash-cmd">{{ c.cmd }}</span>
+                  <span class="cp-slash-title">{{ c.title }}</span>
+                  <span v-if="c.hint" class="cp-slash-hint">{{ c.hint }}</span>
+                </button>
+              </template>
+            </div>
             <!-- 第一层：文本区，width:100%，不再与控件争宽度 -->
             <textarea
               v-model="draft"
               class="cp-input"
               rows="1"
-              placeholder="问返利、算货损、今天订什么货…（可上传 Excel 让 AI 直接分析）"
+              placeholder="输入 / 唤起快捷指令，或直接问返利、算货损…"
               aria-label="向 AI 经营副驾提问"
-              @keydown.enter.exact.prevent="send"
+              @keydown="onComposerKeydown"
               @input="autoGrow"
               ref="cpInput"
             ></textarea>
@@ -361,14 +411,12 @@
                     </div>
                   </div>
                 </div>
-                <!-- 副驾代理层**用户开关**（专项 P2）：老板自己可开/关，不必懂技术。
-                     开 = 经系统服务端转发，主模型出问题时自动切换备用模型；
-                     关 = 走直连通道（主模型出问题就没有备用）。 -->
-                <button class="cp-proxy-btn" :class="{ on: proxyOn }" @click="toggleProxy"
-                  :title="proxyOn ? '已开启：副驾经系统服务端转发，主模型出问题时自动切换备用模型。点击关闭' : '已关闭：走直连通道，主模型出问题时不会自动切换。点击开启'">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
-                  {{ proxyOn ? '自动降级' : '直连通道' }}
-                </button>
+                <!-- 🔴 v281（2026-09-26）此处的「自动降级 / 直连通道」开关已**整条撤除**。
+                     原因（实测）：它不是用户偏好，而是**通道选择**，且"关"的那一侧会绕过后端的
+                     AI 停用管控（`ai_mode` 只在后端代理这条路上做权威判定）；更严重的是那条"直连"
+                     路径（nginx `/hermes/`）原本是**对公网零鉴权直通生产网关**，实测外网不带凭据
+                     即可在服务器上执行命令 ⇒ 已封堵，前端亦无存在的必要。
+                     现在恒定走 `/api/ai/copilot/chat`（后端直连 127.0.0.1:18765，凭据只在服务端）。 -->
               </div>
               <div class="cp-trailing">
                 <!-- 🔴 模型选择已于 2026-09-25 下架（老板选 B）。
@@ -379,12 +427,36 @@
                 <button class="cp-voice" :class="{ on: recognizing }" title="语音输入" aria-label="语音输入" @click="toggleVoice">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
                 </button>
-                <button class="cp-send" :disabled="(!draft.trim() && !attachments.length) || store.chat.streaming" @click="send" aria-label="发送">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                <!-- 🔴 v309（2026-09-28）发送 / 停止 = **同一个按钮**（对齐 WorkBuddy 的 SendButton）。
+                     对照要点：① `handleClick` 按 loading 分流到 onStop/onSend；
+                     ② loading 时**不再 disabled**（WB 的 effectiveDisabled 写成
+                        `(loading && cancelDisabled) || (disabled && !loading)`）——
+                        原先我们的 `:disabled` 里带着 `store.chat.streaming`，
+                        正是「消息发出后无法停止」的病根；
+                     ③ 只换图形不换色（WB 的停止态与发送态同色）；
+                     ④ 二次确认时按钮位置显示快捷键标签（WB: send-button__stop-confirm-label，11px/600）。 -->
+                <button
+                  class="cp-send"
+                  :class="{ 'is-stop': canStop, 'is-busy': store.chat.streaming && !canStop }"
+                  :disabled="canStop ? false : ((!draft.trim() && !attachments.length) || store.chat.streaming || aiMode === 'disabled')"
+                  :title="canStop ? stopHint : '发送'"
+                  :aria-label="canStop ? stopHint : '发送'"
+                  @click="canStop ? stopReply() : send()"
+                >
+                  <span v-if="stopConfirm && canStop" class="cp-send-esc">Esc</span>
+                  <!-- 停止：实心圆角方块。几何照抄 WorkBuddy 的 STOP_PATH ——
+                       在其 32×32 圆盘里方块是 `M13 10 …H19…V13` ⇒ 边长 12/32、圆角 3，
+                       我们按钮同为 32px，故直接用同尺寸 viewBox 1:1 复刻。 -->
+                  <svg v-else-if="canStop" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                    <rect x="10" y="10" width="12" height="12" rx="3" fill="currentColor"/>
+                  </svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
                 </button>
               </div>
             </div>
           </div>
+          <div v-if="aiMode === 'disabled'" class="cp-mode-banner disabled">AI 已停用（后台设置）。当前无法对话，请联系管理员开启。</div>
+        <div v-else-if="aiMode === 'readonly'" class="cp-mode-banner readonly">只读模式：AI 仅给建议，不会执行任何写操作。</div>
         </footer>
         </div><!-- /cp-chat -->
 
@@ -439,6 +511,77 @@
           </div>
         </aside>
       </div><!-- /cp-split -->
+
+      <!-- 经营一页纸（P1-3：四宫格聚合视图；窄屏自动 1 列） -->
+      <div v-if="!showHistory && showPager" class="cp-pager">
+        <div class="cp-pager-hd">
+          <b>本期经营一页纸</b>
+          <span class="cp-pager-sub">四宫格 + 异常清单 · 数据来自你的真实库表</span>
+          <button class="cp-pager-back" @click="showPager=false">← 返回对话</button>
+        </div>
+
+        <div v-if="pagerLoading" class="cp-pager-loading">正在汇总经营数据…</div>
+        <div v-else-if="!pagerData" class="state-empty">暂时取不到经营数据，请稍后重试</div>
+        <template v-else>
+          <div class="cp-pager-grid">
+            <!-- 预报达成 -->
+            <div class="cp-pg-card" @click="drillTo('#/forecast')">
+              <div class="cp-pg-ic" style="background:#eaf2ff;color:#2563eb"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+              <div class="cp-pg-t">预报达成</div>
+              <div class="cp-pg-v">{{ pagerData.forecast ? pagerData.forecast.done_pct + '%' : '—' }}</div>
+              <div class="cp-pg-s" v-if="pagerData.forecast">已报 {{ pagerData.forecast.submitted_stores }}/{{ pagerData.forecast.total_stores }} 门店 · 预报 ¥{{ fmtWan(pagerData.forecast.amount) }}</div>
+              <div class="cp-pg-s" v-else>暂无开放期次</div>
+            </div>
+            <!-- 货损 -->
+            <div class="cp-pg-card" @click="drillTo('#/loss')">
+              <div class="cp-pg-ic" style="background:#fff1e6;color:#ea580c"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+              <div class="cp-pg-t">货损</div>
+              <div class="cp-pg-v">{{ pagerData.loss ? pagerData.loss.expiring_soon + ' 个' : '—' }}</div>
+              <div class="cp-pg-s" v-if="pagerData.loss">14天内临期 · 短保风险 {{ pagerData.loss.short_sku }} 个SKU</div>
+              <div class="cp-pg-s" v-else>暂无临期数据</div>
+            </div>
+            <!-- 回款 -->
+            <div class="cp-pg-card" @click="drillTo('#/ai-hub')">
+              <div class="cp-pg-ic" style="background:#ecfdf5;color:#059669"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+              <div class="cp-pg-t">回款（应收）</div>
+              <div class="cp-pg-v">¥{{ pagerData.ar ? fmtWan(pagerData.ar.balance) : '—' }}</div>
+              <div class="cp-pg-s" v-if="pagerData.ar">逾期 ¥{{ fmtWan(pagerData.ar.overdue_amount) }} · {{ pagerData.ar.overdue_count }} 笔</div>
+              <div class="cp-pg-s" v-else>暂无应收数据</div>
+            </div>
+            <!-- 返利 -->
+            <div class="cp-pg-card" @click="drillTo('#/rebate')">
+              <div class="cp-pg-ic" style="background:#f3e8ff;color:#7c3aed"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg></div>
+              <div class="cp-pg-t">返利</div>
+              <div class="cp-pg-v">¥{{ pagerData.rebate ? fmtWan(pagerData.rebate.expected_rebate) : '—' }}</div>
+              <div class="cp-pg-s" v-if="pagerData.rebate">{{ pagerData.rebate.contracts }} 份合同 · 达成 ¥{{ fmtWan(pagerData.rebate.achieved) }}</div>
+              <div class="cp-pg-s" v-else>暂无返利合同</div>
+            </div>
+          </div>
+
+          <!-- 异常清单 -->
+          <div class="cp-pager-anom" v-if="pagerData.anomalies">
+            <div class="cp-anom-hd">异常清单（点击下钻）</div>
+            <div class="cp-anom-list">
+              <div class="cp-anom-row" @click="drillTo('#/dashboard')">
+                <span class="cp-anom-t">低库存商品</span><span class="cp-anom-n">{{ pagerData.anomalies.low_stock }}</span>
+              </div>
+              <div class="cp-anom-row" @click="drillTo('#/loss')">
+                <span class="cp-anom-t">临期商品</span><span class="cp-anom-n">{{ pagerData.anomalies.expiring_soon }}</span>
+              </div>
+              <div class="cp-anom-row" @click="drillTo('#/ai-hub')">
+                <span class="cp-anom-t">逾期应收</span><span class="cp-anom-n">{{ pagerData.anomalies.overdue_ar }}</span>
+              </div>
+              <div class="cp-anom-row" @click="drillTo('#/workbench')">
+                <span class="cp-anom-t">待审批订单</span><span class="cp-anom-n">{{ pagerData.anomalies.pending_orders }}</span>
+              </div>
+              <div class="cp-anom-row" @click="drillTo('#/data-fill')">
+                <span class="cp-anom-t">库存缺批次/效期</span><span class="cp-anom-n">{{ pagerData.anomalies.data_gaps }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
       </aside>
     </Transition>
 
@@ -465,22 +608,28 @@
 
 <script setup>
 import Icon from './Icon.vue'
-import { ref, nextTick, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import ThinkingDots from './ThinkingDots.vue'
+import { ref, shallowRef, nextTick, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { store, loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession, loadAiRoles, setAiRole } from '../store'
 import { hermesChat, api, auth, CHAT_TIMEOUT_NORMAL, CHAT_TIMEOUT_LONG } from '../api/client'
 import { importApi } from '../api/modules'
-import { chatAttachmentApi } from '../api/modules'
+import { chatAttachmentApi, aiPagerApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
-import ProgressSteps from './ProgressSteps.vue'
 import { useCardTrigger, extractCard, extractCardIntent, stripAllFences, extractClarify, extractProposal, extractReminder, DENY_RE, demoCard } from '../composables/useCardTrigger'
 import { useVoiceInput } from '../composables/useVoiceInput'
 import { renderMd, splitMedia } from '../utils/md'
+import { useRouter } from 'vue-router'   // M1：斜杠命令「跳转页面」用
+
+const router = useRouter()
 
 const draft = ref('')
 const cpBody = ref(null)
 const cpInput = ref(null)
 const sources = ref([])
 const openSources = ref(-1)
+const openThink = ref(-1)          // 展开「深度思考」的消息下标（-1 = 全折叠）
+function toggleThink(i) { openThink.value = openThink.value === i ? -1 : i }
+
 /* v301（2026-09-28）：副驾产出的文件（Hermes 的 `MEDIA:<路径>` 标记）→ 可下载文件卡。
    病根不在鉴权/跨域，而在**两个渠道的适配器不同**：企微适配器会把标记摘出正文、真上传文件；
    Web 副驾走的 OpenAI 兼容适配器**只处理图片**，`docx/xlsx/pptx` 原样退回原文 ⇒ 老板只看到
@@ -550,6 +699,23 @@ async function downloadAuthed(url, name) {
   }
 }
 
+/* 工具执行情况的展开节奏（对齐 WorkBuddy）：
+   **回复中自动展开**看每一步；**回复结束自动收起**，只留答案 + 一行可点开的摘要。
+   openTools: -1 = 未手动干预（跟随「是否正在回复」）／i = 手动展开该条／-2 = 手动收起 */
+const openTools = ref(-1)
+const toolsLive = (i) => store.chat.streaming && i === store.chat.messages.length - 1
+function toolsOpen(i) {
+  if (openTools.value === -2) return false
+  if (openTools.value === i) return true
+  return toolsLive(i)
+}
+function toggleTools(i) { openTools.value = toolsOpen(i) ? -2 : i }
+/* 汇总耗时：已完成步骤的耗时之和（并行步骤会重复计，仅作量级参考） */
+function toolsElapsed(m) {
+  const done = (m.tools || []).filter(t => t.ms)
+  if (!done.length) return ''
+  return fmtMs(done.reduce((a, b) => a + (b.ms || 0), 0))
+}
 const attachments = ref([])
 const uploading = ref(false)
 const showHistory = ref(false)
@@ -561,6 +727,37 @@ function toggleFullscreen() {
 /* 产物区：默认隐藏；系统生成新产物自动弹开；顶部按钮可手动隐藏 / 切换区域全屏 */
 const artOpen = ref(false)
 const artFullscreen = ref(false)
+
+// P1-3 经营一页纸（四宫格聚合视图）
+const showPager = ref(false)
+const pagerData = ref(null)
+const pagerLoading = ref(false)
+function togglePager() {
+  if (showPager.value) { showPager.value = false; return }
+  showPager.value = true
+  if (!pagerData.value) loadPager()
+}
+async function loadPager() {
+  pagerLoading.value = true
+  try {
+    const r = await aiPagerApi.pager()
+    pagerData.value = r
+  } catch (e) {
+    pagerData.value = null
+  } finally {
+    pagerLoading.value = false
+  }
+}
+function drillTo(hash) {
+  showPager.value = false
+  store.ui.copilotOpen = false
+  window.location.hash = hash
+}
+function fmtWan(v) {
+  if (v == null) return '—'
+  const wan = v / 10000
+  return (wan >= 0.1 ? wan.toFixed(1) : wan.toFixed(2)) + ' 万'
+}
 /* ① 存为报告 */
 const savingReport = ref(false)
 const hasChat = computed(() => store.chat.messages.some(m => m.content))
@@ -653,6 +850,11 @@ function onWinResize() {
   if (artWidth.value > maxW) artWidth.value = maxW
 }
 
+/* 工具耗时：<1s 显示毫秒，否则显示秒（对齐 WorkBuddy「已完成 {duration}」） */
+function fmtMs(ms) {
+  const n = Number(ms) || 0
+  return n < 1000 ? n + 'ms' : (n / 1000).toFixed(1) + 's'
+}
 function shortArgs(s) {
   if (!s) return ''
   const t = String(s).replace(/\s+/g, ' ').trim()
@@ -712,6 +914,77 @@ function onHistSearch() {
 
 const suggestions = ['今天该订什么货？', '算一下这个月货损', '哪些客户该催款了？', '核对我该拿多少返利']
 
+/* ---- M1：对话内斜杠命令（输入 / 唤起快捷指令） ----
+   复用命令面板（CommandPalette）的范式：分组 + 键盘导航 + `store.canModule` 权限过滤 + Icon。
+   形态取「输入框上方的内联浮层」而非全屏模态 —— 这是斜杠命令的标准形态，不打断输入。
+   两类命令：prompt（选中即发送一条预置提问）/ path（跳转页面，跳转时收起抽屉）。 */
+const slashIndex = ref(0)
+const slashDismissed = ref(false)
+const SLASH_COMMANDS = [
+  // —— 快捷提问（选中即发，省去打字）——
+  { cmd: '/报单', group: '快捷提问', icon: 'package', title: '本期报单建议', hint: '结合库存与销量', module: 'data',
+    prompt: '帮我看本期报单：结合当前库存和近期销量，给我建议报单量。' },
+  { cmd: '/查库存', group: '快捷提问', icon: 'store', title: '库存与临期排查', hint: '偏低 / 临期', module: 'stock',
+    prompt: '查一下当前库存：哪些商品库存偏低需要补货？哪些临期需要尽快处理？' },
+  { cmd: '/今日洞察', group: '快捷提问', icon: 'lightbulb', title: '今日经营洞察', hint: '销售·库存·应收',
+    prompt: '给我今天的经营洞察：销售、库存、应收各有什么要重点关注的？' },
+  { cmd: '/生成日报', group: '快捷提问', icon: 'book', title: '生成经营日报', hint: '可复制发群',
+    prompt: '生成本周经营日报，包含销售、货损、返利达成要点。' },
+  { cmd: '/审批提案', group: '快捷提问', icon: 'check', title: '待审批提案', hint: '改动与风险',
+    prompt: '有哪些待我审批的提案？分别说明改动内容和风险。' },
+  { cmd: '/催款', group: '快捷提问', icon: 'phone', title: '催款名单', hint: '按逾期金额', module: 'accounts',
+    prompt: '哪些客户该催款了？按逾期金额从高到低排，给出金额和账期。' },
+  { cmd: '/返利', group: '快捷提问', icon: 'target', title: '返利达成核对', hint: '按品牌', module: 'sales',
+    prompt: '核对我该拿多少返利，按品牌说明达成情况和缺口。' },
+  { cmd: '/货损', group: '快捷提问', icon: 'trash', title: '货损分析', hint: '按品类 / 原因', module: 'stock',
+    prompt: '算一下这个月货损，按品类和原因拆解，指出异常。' },
+  // —— 跳转页面（跳转时收起抽屉）——
+  { cmd: '/工作台', group: '跳转页面', icon: 'grid', title: '经营工作台', path: '/workbench' },
+  { cmd: '/预报', group: '跳转页面', icon: 'activity', title: '预报订货管理', path: '/forecast' },
+  { cmd: '/返利政策', group: '跳转页面', icon: 'target', title: '目标与返利', path: '/rebate' },
+  { cmd: '/商品目标', group: '跳转页面', icon: 'bars', title: '商品目标', path: '/product-target', module: 'data' },
+  { cmd: '/算工资', group: '跳转页面', icon: 'coins', title: '算工资工作流', path: '/payroll', module: 'payroll' }
+]
+// 只在「首词是 /指令、且尚未输空格」时激活（一旦空格即是提问，不是选命令）
+const slashQuery = computed(() => {
+  const m = /^\/(\S*)$/.exec(draft.value)
+  return m ? m[1].toLowerCase() : null
+})
+const slashMatches = computed(() => {
+  if (slashQuery.value === null) return []
+  const kw = slashQuery.value
+  return SLASH_COMMANDS.filter(c => (!c.module || store.canModule(c.module)) &&
+    (!kw || c.cmd.slice(1).toLowerCase().includes(kw) || c.title.includes(kw)))
+})
+const slashOpen = computed(() => slashQuery.value !== null && !slashDismissed.value && slashMatches.value.length > 0)
+// 草稿脱离「/指令」形态时重置「已关闭」，让下次输入 / 能重新唤起
+watch(draft, () => {
+  if (slashQuery.value === null) slashDismissed.value = false
+  slashIndex.value = 0
+})
+function onComposerKeydown(e) {
+  if (slashOpen.value) {
+    const n = slashMatches.value.length
+    if (e.key === 'ArrowDown') { e.preventDefault(); slashIndex.value = (slashIndex.value + 1) % n; return }
+    if (e.key === 'ArrowUp') { e.preventDefault(); slashIndex.value = (slashIndex.value - 1 + n) % n; return }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickSlash(slashMatches.value[slashIndex.value]); return }
+    if (e.key === 'Escape') { e.preventDefault(); slashDismissed.value = true; return }
+  }
+  // 与原 `.keydown.enter.exact.prevent` 语义一致：无任何修饰键的 Enter 才发送
+  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); send() }
+}
+function pickSlash(c) {
+  if (!c) return
+  slashDismissed.value = true
+  if (c.path) {
+    draft.value = ''
+    store.ui.copilotOpen = false
+    router.push(c.path)
+    return
+  }
+  if (c.prompt) ask(c.prompt)
+}
+
 /* ---- AI 团队（角色定位）：输入区左下角胶囊 + 下拉 ---- */
 const showRoleMenu = ref(false)
 const activeRoles = computed(() => (store.chat.roles || []).filter(r => r.is_active !== 0))
@@ -750,7 +1023,7 @@ function pickRole(r) {
   showRoleMenu.value = false
 }
 
-function close() { store.ui.copilotOpen = false }
+function close() { store.ui.copilotOpen = false; showPager.value = false }
 
 async function toggleSources(i) {
   if (openSources.value === i) { openSources.value = -1; return }
@@ -852,6 +1125,15 @@ function pickAdd(kind) {
 }
 const AI_GUARD_HINT = '【AI 权限】你当前处于「只建议」模式：任何下单、收款、付款、采购、删除、修改等写操作，一律只给建议和步骤，绝不擅自执行。'
 
+/* 🔴 v281（2026-09-26）副驾代理层"用户开关"已**整条撤除**（UI + 状态 + 函数）。
+   原先：开 = 经服务端转发 / 关 = 浏览器直连 `/hermes/v1/chat/completions`。
+   撤除理由（实测取证，见 outputs/安全-hermes网关未鉴权-2026-09-26.md）：
+     ① 那条"直连"路径是 nginx 上**对公网零鉴权直通生产 Hermes 网关**的 location，
+        且带 terminal/file/browser 工具集 ⇒ 外网不带任何凭据即可在服务器上执行命令；
+     ② "关"的一侧会**绕过后端 AI 停用管控**（`ai_mode` 只在后端代理这条路做权威判定）；
+     ③ 它本质是运维应急开关（原 `client.js` 注释自述"紧急回滚，不用改代码"），不该给老板点。
+   现在恒定走 `/api/ai/copilot/chat`；应急回滚改由**后端环境变量**承担。 */
+
 /* ---- P1-⑥ 经营画像：让副驾"开口就懂这家客户"（缓存 10 分钟，静默失败不阻断） ---- */
 const tenantProfile = ref('')
 let profileLoadedAt = 0
@@ -881,14 +1163,16 @@ function showDemo() {
     content: '这是「货损核算」经营卡，带近 7 日趋势迷你图：',
     card: demoCard()
   })
+  // 过程回复：改成演示**真实在用的**「工具执行情况」UI（原 `progress` 是死路径，已移除）。
+  // 字段与 Hermes `hermes.tool.progress` 实际下发的保持一致（含 emoji/label/耗时）。
   store.chat.messages.push({
     role: 'assistant',
-    content: '长任务（如算整月工资）会显示进度，老板一眼看到哪一步：',
-    progress: { steps: [
-      { label: '读库存', status: 'done' },
-      { label: '算折价', status: 'done' },
-      { label: '出报表', status: 'active' }
-    ]}
+    content: '长任务（如算整月工资）会实时显示「工具执行情况」，老板一眼看到走到哪一步：',
+    tools: [
+      { id: 'demo-1', name: 'skill_view', emoji: '📚', label: 'hergent-milk-commission', status: 'done', ms: 320 },
+      { id: 'demo-2', name: 'terminal', emoji: '💻', label: '读取库存与效期批次', status: 'done', ms: 1840 },
+      { id: 'demo-3', name: 'run_payroll', emoji: '🧮', label: '核算本月工资提成', status: 'running' }
+    ]
   })
   scrollBottom()
   saveCurrentSession()
@@ -1093,6 +1377,16 @@ const smartResult = ref('')
 const smartResultErr = ref(false)
 let pendingSmartFile = null
 
+// H2：File -> base64 data URL（把图片真正喂给视觉模型，修复"伪多模态"）
+function readFileAsDataUrl(f) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader()
+    fr.onload = () => resolve(fr.result)
+    fr.onerror = reject
+    fr.readAsDataURL(f)
+  })
+}
+
 async function onFile(ev) {
   const f = ev.target.files?.[0]
   ev.target.value = ''
@@ -1100,6 +1394,10 @@ async function onFile(ev) {
   uploading.value = true
   try {
     const d = await chatAttachmentApi.upload(f)
+    // H2：图片读取为 base64 data URL，随消息送给 Hermes 视觉模型（此前图片只当文件名文本，模型看不到）
+    if (/^image\//i.test(f.type) || /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name)) {
+      try { d.dataUrl = await readFileAsDataUrl(f) } catch (_) { /* 读不出则退化为纯文本引用 */ }
+    }
     attachments.value.push(d)
     store.chat.error = ''
     // B 路径：Excel/CSV 走智能识别，可导入则弹建议卡
@@ -1224,9 +1522,61 @@ function spreadsheetSoftHint(tableFiles) {
 
 let lastPayload = null   // 最近一次发送载荷，供「重试」使用（含表格软提示）
 
+/* ============================================================
+   v309（2026-09-28）「停止生成」—— 对齐 WorkBuddy（本机 app.asar 实测）
+   ------------------------------------------------------------
+   WorkBuddy 的做法（源码原文，包路径 packages/conversation-render/src/
+   chat-input/components/send-button/send-button.tsx）：
+     · **发送与停止是同一个按钮**，按 loading 分流：
+         const handleClick = () => { if (canStop) { onStop?.(); return }
+                                     if (loading) return
+                                     if (semanticDisabled) return
+                                     store.api.send()... }
+     · `canStop   = loading && !!onStop && !cancelDisabled`
+       `semantic` = loading ? (cancelDisabled || !onStop) : isSendDisabled
+       ⇒ **loading 期间按钮不再 disabled**（除非宿主显式取消停止能力）
+     · 视觉：`--sending`（只能等，不能停）opacity .7 / cursor default；
+             `--stop` 颜色与**发送态同值**（`--cr-internal-send-button-fill-stop` =
+             rgba(0,0,0,.9) light、rgba(255,255,255,.92) dark）⇒ **不换色，只把箭头换方块**
+             （方块 12/32 × 32 圆盘内、corner radius 3）
+     · 文案：tooltip/aria-label 三态 发送 / 发送中… / 停止；二次确认时按钮显示快捷键「Esc」
+     · 二次确认（pendingStopConfirm）：先按一次快捷键 → 按钮变「Esc」提示、
+       tooltip 变「再次按下快捷键停止」→ 再按一次才真的停（防误触）
+     · 真正落地停止 = 取消 SSE reader + abortController.abort() 掐断 fetch +
+       再向服务端 DELETE 一条拆除该次运行（我们的后端是直通代理：浏览器 abort 后
+       Starlette 会关闭上游生成器并 resp.close()，故只需前两步）
+   ------------------------------------------------------------
+   🔴 原先的缺陷：`:disabled` 里带着 `store.chat.streaming` ⇒ 流式期间发送键被禁用，
+      **消息发出后没有任何办法停止**（越长的任务越难等）。
+   ============================================================ */
+const stopRequested = ref(false)   // 这次中止是「用户点的停止」，而不是超时/断网
+const sctrl = shallowRef(null)     // 当前流式请求的中止器（null = 当前没有可停的请求）
+const stopConfirm = ref(false)     // Esc 二次确认态（对齐 WB 的 pendingStopConfirm）
+let stopConfirmTimer = null
+/** 有正在跑的、可被中止的请求 ⇒ 按钮呈「停止」态（对应 WB 的 canStop） */
+const canStop = computed(() => store.chat.streaming && !!sctrl.value)
+const stopHint = computed(() => (stopConfirm.value ? '再次按下 Esc 停止' : '停止生成（Esc）'))
+
+function resetStopConfirm() {
+  if (stopConfirmTimer) { clearTimeout(stopConfirmTimer); stopConfirmTimer = null }
+  stopConfirm.value = false
+}
+
+/** 停止当前回复。真正的掐断在 `sctrl.abort()`（见 api/client.js 的 _mergeSignal）；
+ *  这里先把 UI 解锁，避免「点了停止、按钮还是停止、要等一个网络回合」的空窗。 */
+function stopReply() {
+  if (!canStop.value) return
+  resetStopConfirm()
+  stopRequested.value = true
+  try { sctrl.value.abort() } catch (_) { /* 已收尾，忽略 */ }
+  store.chat.streaming = false
+}
+
 async function send() {
   const q = draft.value.trim()
   if ((!q && !attachments.value.length) || store.chat.streaming) return
+  if (aiMode.value === 'disabled') { store.chat.error = 'AI 已停用（后台设置）。如需使用请管理员开启。'; return }
+  if (aiMode.value === 'readonly') aiGuard.value = 'advise'  // 只读模式强制只建议
   draft.value = ''
   nextTick(() => { if (cpInput.value) autoGrow(cpInput.value) })
   store.chat.error = ''
@@ -1235,6 +1585,7 @@ async function send() {
   let content = q
   let tableFiles = []   // 上传的 Excel/CSV 附件（含 file_id），供 Hermes 跨文件/单文件全量表计算引用
   let files = []        // P1-④ 产物栏文件卡片：附件原文件（file_id 可下载回看）
+  let visionBlocks = [] // H2：图片视觉块（base64 直传 Hermes 视觉模型）
   if (attachments.value.length) {
     tableFiles = attachments.value.filter(a => a.file_id && /\.(xlsx|csv)$/i.test(a.file_name))
     files = attachments.value
@@ -1247,6 +1598,13 @@ async function send() {
       return `${head}（已上传，Hermes 将经表格工具读取全量数据）`
     })
     content = parts.join('\n\n') + (q ? `\n\n我的问题：${q}` : '\n\n请分析这份数据。')
+    // H2：图片转为视觉块（base64 直传 Hermes 视觉模型，无需 Hermes 回连后端）
+    visionBlocks = attachments.value
+      .filter(a => a.dataUrl)
+      .map(a => ({ type: 'image_url', image_url: { url: a.dataUrl } }))
+    if (visionBlocks.length) {
+      content += `\n\n（已附带 ${visionBlocks.length} 张图片，请结合图片内容一并分析）`
+    }
     attachments.value = []
   }
 
@@ -1276,19 +1634,24 @@ async function send() {
     sys = (sys ? sys + '\n\n' : '') + AI_GUARD_HINT
   }
 
-  lastPayload = { content, sys, q, tableFiles: [...tableFiles], files }
+  lastPayload = { content, sys, q, tableFiles: [...tableFiles], files, vision: visionBlocks }
   streamReply(lastPayload)
 }
 
 /* 流式发送核心：成功才触发卡片/推送并落盘；失败（含超时中断）只移除半截气泡、
    给出分级错误，绝不误报「离线」或追发卡片请求（P0 评审炸弹 #4）。 */
 async function streamReply(payload) {
-  const { content, sys, q, tableFiles, files } = payload
+  const { content, sys, q, tableFiles, files, vision } = payload
   store.chat.error = ''
-  store.chat.messages.push({ role: 'user', content, files: files || [] })
+  store.chat.messages.push({ role: 'user', content, files: files || [], vision: vision && vision.length ? vision : null })
   store.chat.messages.push({ role: 'assistant', content: '', tools: [] })
   const replyIndex = store.chat.messages.length - 1
   store.chat.streaming = true
+  // v309：给这次请求挂上可被「停止」的中止器（按钮据此呈现停止态）
+  stopRequested.value = false
+  resetStopConfirm()
+  const ctrl = new AbortController()
+  sctrl.value = ctrl
   scrollBottom()
   // AI 自主判断的卡片意图（```cards 围栏）；null = AI 未输出意图，走弱兜底
   let cardIntent = null
@@ -1297,22 +1660,49 @@ async function streamReply(payload) {
     // 分级超时（P1）：对账/复盘/汇总/报表等长任务放宽到 5 分钟，普通对话 3 分钟
     const isHeavy = /对账|复盘|汇总|报表|经营分析|reconcil/i.test((q || '') + ' ' + (content || ''))
     await hermesChat(
-      store.chat.messages.filter(m => m.content).map(m => ({ role: m.role, content: m.content })),
+      store.chat.messages.filter(m => m.content).map(m => ({ role: m.role, content: m.vision || m.content })),
       {
         system: sys,
         timeout: isHeavy ? CHAT_TIMEOUT_LONG : CHAT_TIMEOUT_NORMAL,
+        // v309：把中止信号传到 fetch —— 不加这一行，「停止」按钮就只是个换了图标的摆设。
+        // 中止后浏览器掐断连接 ⇒ 后端 Starlette 关闭上游生成器 ⇒ Hermes 那次运行随之断开。
+        signal: ctrl.signal,
         onTool: (step) => {
           const last = store.chat.messages[replyIndex]
           if (!last || !last.tools) return
+          // 配对优先用 toolCallId（Hermes 的 hermes.tool.progress 事件自带 id）；
+          // 旧的 Responses 风格事件没有 id，回退按工具名配「正在跑的那条」。
+          const running = () => step.id
+            ? last.tools.find(x => x.id === step.id)
+            : last.tools.find(x => x.name === step.name && x.status === 'running')
           if (step.phase === 'start') {
-            last.tools.push({ name: step.name, args: step.args, status: 'running' })
+            if (step.id && last.tools.some(x => x.id === step.id)) return   // 同 id 重复 running 不重复加
+            last.tools.push({
+              id: step.id || '',
+              name: step.name,
+              emoji: step.emoji || '',
+              label: step.label || '',
+              args: step.args || '',
+              status: 'running',
+              t0: Date.now(),
+            })
+            scrollBottom()
           } else if (step.phase === 'done') {
-            const t = last.tools.find(x => x.name === step.name && x.status === 'running')
-            if (t) t.status = 'done'
+            const t = running()
+            if (t) { t.status = 'done'; t.ms = t.t0 ? (Date.now() - t.t0) : 0 }
+            scrollBottom()
           } else if (step.phase === 'result') {
-            const t = last.tools.find(x => x.name === step.name && x.status === 'running')
-            if (t) { t.status = 'done'; t.result = step.result }
+            const t = running()
+            if (t) { t.status = 'done'; t.result = step.result; t.ms = t.t0 ? (Date.now() - t.t0) : 0 }
           }
+        },
+        // 推理流：模型吐答案前的思考（DeepSeek `reasoning_content`）。
+        // 累加到 m.reasoning，由模板渲染成可折叠的「深度思考」块（对齐 WorkBuddy）。
+        onReasoning: (r) => {
+          const last = store.chat.messages[replyIndex]
+          if (!last) return
+          last.reasoning = (last.reasoning || '') + r
+          scrollBottom()
         },
         onDelta: (d, full) => {
           const last = store.chat.messages[replyIndex]
@@ -1337,17 +1727,46 @@ async function streamReply(payload) {
       }
     )
   } catch (e) {
-    // 失败/超时：移除半截气泡，避免把截断消息当完整会话落盘（乱码重现）
+    const stopped = stopRequested.value || (e && e.stopped === true)
+    stopRequested.value = false
+    sctrl.value = null
     const last = store.chat.messages[replyIndex]
+
+    /* 🔴 v309（2026-09-28）**用户主动停止 ≠ 出错**，两条路必须分开走：
+       WorkBuddy 的取向（实测其 message-timeline）：中断后**保留**已生成内容，
+       仅在其后附一个「任务被中断」标记（i18n `message.interrupted`），不弹错误、
+       不删气泡。我们照此办理，并把标记落盘（`m.stopped`）。
+       原先这里只有「失败」一种处理 ⇒ 停一下会看到红字「回答生成超时」+ 半截气泡被删，
+       既误导（不是超时）又白等（生成的内容没了）。 */
+    if (stopped) {
+      if (last) last.stopped = true
+      saveCurrentSession()      // 停在哪留哪：用户提问 + 已生成部分 + 「已停止」标记一起落盘
+      store.chat.error = ''     // 不是错误，不给红字
+      store.chat.streaming = false
+      return
+    }
+
+    // 中断/失败（含关盖休眠、网络断开、超时）：先把当前对话落盘——用户提问 + 已生成的部分回复，
+    // 否则这场对话只活在内存里，换设备/重开页面就丢了（2026-09-23：用户公司电脑关盖时 AI 正在流式
+    // 回复，整段对话未落盘，回家后在另一台电脑看不到）。
+    saveCurrentSession()
+    // 再移除内存里的半截气泡，避免本机重新打开时把截断消息当完整会话显示（乱码重现）
     if (last && !last.card) store.chat.messages.splice(replyIndex, 1)
 
     // 区分错误类型，避免一切失败都冒泡成"离线"（修复"AI助手暂时离线"误导）
     const rawMsg = (e && e.message) || ''
     let msg
     if (e && e.name === 'AbortError') {
+      // ⚠️ v309 起这条**只**代表「内部超时」（如 3 / 5 分钟没跑完）。
+      //    用户点「停止」走的是上面的 `stopped` 分支，client.js 已把两者拆开
+      //    （外部信号中止抛 `StoppedError`，不再冒充 AbortError）—— 别再把两者合并。
       msg = '回答生成超时，已停止。请点「重试」重新发送。'
-    } else if (/\[HTTP (401|403)\]|鉴权|unauthorized|forbidden/i.test(rawMsg)) {
-      msg = 'AI 服务鉴权异常，请联系管理员。'
+    } else if (/\[HTTP 403\]|无权限|forbidden|权限不足/i.test(rawMsg)) {
+      // 🔴 v281：原先 403 会被 client.js「自动退回直连通道」兜掉，那条退路已随安全封堵删除，
+      //   403 现在会真到用户面前 ⇒ 必须给出**能行动**的话（而不是笼统的"鉴权异常"）。
+      msg = '当前账号没有使用 AI 副驾的权限，请联系管理员开通。'
+    } else if (/\[HTTP 401\]|未认证|鉴权|unauthorized/i.test(rawMsg)) {
+      msg = '登录状态已失效，请重新登录后再试。'
     } else if (/\[HTTP (502|503|504)\]|离线|offline|暂时不可用|service unavailable|bad gateway|gateway timeout/i.test(rawMsg)) {
       msg = 'AI 服务暂时不可用，正在自动重试…如持续失败请稍后再试。'
     } else {
@@ -1364,6 +1783,7 @@ async function streamReply(payload) {
   }
 
   store.chat.streaming = false
+  sctrl.value = null            // v309：正常跑完 ⇒ 撤掉中止器（按钮回到「发送」态）
   // 成功分支：仅在 AI 正常回复后才触发卡片/推送（修复原 .then 在失败时仍误触发）
   const replyMsg = store.chat.messages[replyIndex]
   const reply = (replyMsg && replyMsg.content ? replyMsg.content : '').trim()
@@ -1417,11 +1837,23 @@ async function pushRoleReply(roleId, content, title, kind = 'reply') {
   }
 }
 
+/* H1：拉取后台 AI 模式，服从 disabled / readonly 管控（Web 副驾此前直连 Hermes 绕过此管控） */
+async function loadAiMode() {
+  try {
+    const r = await api('/api/ai-mode')
+    if (r && r.mode) {
+      aiMode.value = r.mode
+      if (r.mode === 'readonly') aiGuard.value = 'advise'  // 只读模式强制只建议
+    }
+  } catch (_) { /* 静默降级，默认 auto */ }
+}
+
 /* 打开抽屉时聚焦输入框 */
 watch(() => store.ui.copilotOpen, (v) => {
   if (v) {
     loadSessions()
     loadAiRoles()
+    loadAiMode()
     nextTick(() => { if (cpInput.value) cpInput.value.focus() })
   } else {
     showRoleMenu.value = false
@@ -1430,7 +1862,21 @@ watch(() => store.ui.copilotOpen, (v) => {
 })
 
 function onKeydown(e) {
-  if (e.key === 'Escape' && isFullscreen.value) isFullscreen.value = false
+  if (e.key === 'Escape' && isFullscreen.value) { isFullscreen.value = false; return }
+  if (e.key !== 'Escape') return
+  /* v309：流式中的 Esc = 停止生成（**二次确认**，对齐 WorkBuddy 的 `pendingStopConfirm`：
+     第一次按 → 按钮位置显示快捷键「Esc」、tooltip 变「再次按下快捷键停止」；2.5 秒内再按一次
+     才真的停 —— 防误触。这是 WB 的设计，不要简化成「按一下就停」。 */
+  if (!store.ui.copilotOpen || !canStop.value) return
+  // 有下拉菜单开着时，Esc 的语义是「收菜单」，不能顺手把 AI 回复也停了
+  if (showAddMenu.value || showRoleMenu.value || showGuardMenu.value) { closeMenus(); return }
+  if (!stopConfirm.value) {
+    stopConfirm.value = true
+    if (stopConfirmTimer) clearTimeout(stopConfirmTimer)
+    stopConfirmTimer = setTimeout(() => { stopConfirm.value = false; stopConfirmTimer = null }, 2500)
+    return
+  }
+  stopReply()
 }
 onMounted(() => {
   loadSessions()
@@ -1444,6 +1890,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('resize', onWinResize)
   document.removeEventListener('pointerdown', onDocPointerDown, true)
+  resetStopConfirm()   // v309：别把确认态的定时器留在身后
 })
 
 watch(() => store.chat.messages.length, scrollBottom)
@@ -1511,6 +1958,30 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-art-toggle{position:relative}
 .cp-art-toggle.on{background:var(--p-bg);color:var(--p-dark)}
 .cp-art-badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--dan);color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center}
+
+/* ===== P1-3 经营一页纸 ===== */
+.cp-pager{flex:1;overflow:auto;padding:16px;background:var(--bg1)}
+.cp-pager-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.cp-pager-hd b{font-size:15px;color:var(--t1)}
+.cp-pager-sub{font-size:12px;color:var(--t3)}
+.cp-pager-back{margin-left:auto;border:1px solid var(--bd1);background:var(--bg2);color:var(--t2);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer}
+.cp-pager-back:hover{background:var(--bg3)}
+.cp-pager-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.cp-pg-card{background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;padding:14px;cursor:pointer;transition:transform .12s,border-color .12s;display:flex;flex-direction:column;gap:6px}
+.cp-pg-card:hover{transform:translateY(-2px);border-color:var(--p)}
+.cp-pg-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+.cp-pg-t{font-size:13px;color:var(--t2);font-weight:600}
+.cp-pg-v{font-size:24px;font-weight:700;color:var(--t1);line-height:1.1}
+.cp-pg-s{font-size:12px;color:var(--t3);line-height:1.4}
+.cp-pager-anom{margin-top:14px;background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;padding:12px 14px}
+.cp-anom-hd{font-size:12px;color:var(--t3);margin-bottom:8px}
+.cp-anom-list{display:flex;flex-direction:column}
+.cp-anom-row{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--bd1);cursor:pointer;font-size:13px;color:var(--t2)}
+.cp-anom-row:last-child{border-bottom:none}
+.cp-anom-row:hover{color:var(--p)}
+.cp-anom-n{font-weight:700;color:var(--t1)}
+.cp-pager-loading{padding:30px;text-align:center;color:var(--t3);font-size:13px}
+@media (max-width:560px){.cp-pager-grid{grid-template-columns:1fr}}
 .cp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:940}
 
 .cp-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
@@ -1575,12 +2046,7 @@ watch(() => store.chat.messages.length, scrollBottom)
 .src-item{font-size:12px;color:var(--t2);line-height:1.6;padding:6px 8px;background:var(--bg2);border-radius:8px}
 .src-empty{font-size:12px;color:var(--t3);padding:6px 8px}
 
-/* 思考中动效 */
-.typing{display:inline-flex;gap:4px;align-items:center;padding:4px 0}
-.typing i{width:6px;height:6px;border-radius:50%;background:var(--t3);animation:cp-blink 1.2s infinite}
-.typing i:nth-child(2){animation-delay:.2s}
-.typing i:nth-child(3){animation-delay:.4s}
-.typing-tx{font-style:normal;font-size:12px;color:var(--t3);margin-left:7px}
+/* 「思考中」等待动画已抽成可复用组件 components/ThinkingDots.vue（参数与此处原实现一致） */
 /* 工具执行情况（对齐 WorkBuddy：标题 + 完成计数 + 执行中/已完成 耗时） */
 .msg-tools .cp-tools-hd{display:flex;align-items:center;gap:6px;width:100%;padding:1px 0;background:transparent;border:none;font-size:11px;color:var(--t3);cursor:pointer;text-align:left}
 .msg-tools .cp-tools-hd:hover{color:var(--t2)}
@@ -1600,7 +2066,6 @@ watch(() => store.chat.messages.length, scrollBottom)
 .mt-caret{margin-left:auto;transition:transform .15s}
 .mt-caret.open{transform:rotate(180deg)}
 .mt-body{padding:8px 12px 10px;font-size:12.5px;line-height:1.65;color:var(--t2);white-space:pre-wrap;border-top:1px dashed var(--border-subtle);max-height:280px;overflow:auto}
-@keyframes cp-blink{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
 
 .msg-error{font-size:12px;color:var(--dan);padding:6px 2px;line-height:1.5}
 .err-hint{color:var(--t3);display:block;margin-top:2px}
@@ -1671,12 +2136,26 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-send{width:32px;height:32px;border:none;border-radius:999px;background:var(--p-dark);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s,color .15s,box-shadow .15s;box-shadow:var(--shadow-sm)}
 .cp-send:not(:disabled):hover{background:var(--p-deep)}
 .cp-send:disabled{background:transparent;color:var(--t3);box-shadow:inset 0 0 0 1px var(--bd);cursor:default}
+/* v309：停止态 —— **与发送态同色**（对齐 WorkBuddy：--cr-send-button-fill-stop 与
+   --cr-send-button-fill 是同值 rgba(0,0,0,.9)/rgba(255,255,255,.92)），只把箭头换成方块。
+   刻意不用红色：一是 WB 也没有，二是「红=危险/报错」会把「正常中断」渲染成事故。 */
+.cp-send.is-stop{background:var(--p-dark);color:#fff;box-shadow:var(--shadow-sm);cursor:pointer}
+.cp-send.is-stop:not(:disabled):active{transform:scale(.93)}
+/* 流式中但没有可停的请求（极短窗口）——按 WB 的 `--sending`：只能等，不能点 */
+.cp-send.is-busy{background:transparent;color:var(--t3);box-shadow:inset 0 0 0 1px var(--bd);cursor:default}
+/* 停止二次确认时显示的快捷键标签（对齐 WB `.cr-send-button__stop-confirm-label`：11px/600） */
+.cp-send-esc{font-size:11px;font-weight:600;line-height:1;letter-spacing:.02em}
+/* 已停止标记（对齐 WB 的 message.interrupted「任务被中断」）：中性、不喧哗 */
+.cp-stopped{display:flex;align-items:center;gap:5px;margin-top:8px;font-size:12px;color:var(--t3)}
 /* 字数内联：绝对定位在文本区**第一行**右侧，不占布局高度（composer 高度不变）。
    🔴 top 的算法：绝对定位相对 **padding box** ⇒ 文本区顶 = 8px(padding-top)，
       其第一行文字再 +13px(textarea padding-top) ⇒ **21px** 才是第一行基线区。
       别写 13px（那是 textarea 的**内部**坐标，会整体偏高 8px）。
    🔵 不需要窄屏隐藏：字数**只在有内容时**出现，而有内容时占位文字不渲染 ⇒ 天然不会重叠。 */
 .cp-inhint{position:absolute;top:21px;right:15px;font-size:11px;line-height:22px;color:var(--t3);pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cp-mode-banner{font-size:12px;padding:6px 10px;border-radius:8px;margin-top:7px;text-align:center;line-height:1.4}
+.cp-mode-banner.disabled{background:#fdecea;color:#c0392b}
+.cp-mode-banner.readonly{background:#fff7e6;color:#b9770e}
 
 /* P0-③ AI 权限护栏开关 */
 .cp-guard-btn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 11px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
@@ -1684,6 +2163,8 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-guard-btn:hover{background:var(--bg4);color:var(--t1)}
 .cp-guard-btn.on{border-color:rgba(var(--war-rgb),.5);background:rgba(var(--war-rgb),.14);color:var(--war)}
 .cp-guard-btn.on svg{color:var(--war)}
+/* 🔴 v281（2026-09-26）：`.cp-proxy-btn` 四条样式已随「副驾代理层用户开关」一并撤除
+   （对应模板与 proxyOn/toggleProxy 已删；工具条左组由 4 控件回到 3：＋ / 只给建议 / 团队）。 */
 
 /* M2 渐进式访谈引导 chips */
 .cp-followups{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
@@ -1735,7 +2216,6 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-fb-done{font-size:11px;color:var(--t3)}
 
 /* M3 任务进度容器 */
-.msg-progress{width:100%;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px}
 
 /* H2 AI 工具调用过程可视化 */
 /* 工具执行情况容器：回复中展开、结束后收起成一行摘要（对齐 WorkBuddy） */

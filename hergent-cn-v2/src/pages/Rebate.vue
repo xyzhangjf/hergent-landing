@@ -6,6 +6,9 @@
       <button class="main-tab" :class="{ on: mainTab === 'rules' }" @click="mainTab = 'rules'">目标与返利</button>
       <button class="main-tab" :class="{ on: mainTab === 'achv' }" @click="switchTab('achv')">达成填报</button>
       <button class="main-tab" :class="{ on: mainTab === 'contracts' }" @click="switchTab('contracts')">返利结算</button>
+      <!-- v303：承诺台账作为第 5 个页签，不新增侧栏 —— 老板想起"返利对不对得上"时，
+           必然同时想起"他还答应给我补陈列费"（两边都是"该给我的钱"）。 -->
+      <button class="main-tab" :class="{ on: mainTab === 'promises' }" @click="switchTab('promises')">厂家承诺</button>
     </div>
 
     <!-- ===== 仪表盘 Tab（A：实际返利全景 / 档位进度 / 预警，默认落地） ===== -->
@@ -901,10 +904,13 @@
               </table>
             </div>
             <div class="dt-sec">
-              <h4>生效区间</h4>
+              <!-- v292（2026-09-27）：标题与字段名对齐新口径 ——「生效区间」极易被读成
+                   "这个目标只在起止月份内生效"，实际它是**规则整体的启停窗口**；
+                   逐月适用性看上面的「月度分解」。 -->
+              <h4>规则启停区间</h4>
               <div class="dt-grid">
-                <div class="dt-item"><span class="dt-l">生效开始</span><span class="dt-v">{{ detailRule.effective_start || '不限' }}</span></div>
-                <div class="dt-item"><span class="dt-l">生效结束</span><span class="dt-v">{{ detailRule.effective_end || '不限' }}</span></div>
+                <div class="dt-item"><span class="dt-l">规则启用日</span><span class="dt-v">{{ detailRule.effective_start || '不限' }}</span></div>
+                <div class="dt-item"><span class="dt-l">规则停用日</span><span class="dt-v">{{ detailRule.effective_end || '不限' }}</span></div>
                 <div class="dt-item"><span class="dt-l">创建时间</span><span class="dt-v">{{ detailRule.created_at || '—' }}</span></div>
                 <div class="dt-item"><span class="dt-l">更新时间</span><span class="dt-v">{{ detailRule.updated_at || '—' }}</span></div>
               </div>
@@ -1157,11 +1163,16 @@
       </Transition>
     </Teleport>
 
+    <!-- v303：厂家承诺台账（第 5 个页签）。数据由组件自己在 onMounted 拉，
+         所以 switchTab('promises') 不需要预加载分支 —— 切走再切回会自动重挂载刷新。 -->
+    <CommitmentsTab v-if="mainTab === 'promises'" />
+
   </div>
 </template>
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import CommitmentsTab from '../components/CommitmentsTab.vue'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from '../store'

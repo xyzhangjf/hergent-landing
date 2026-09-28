@@ -26,7 +26,8 @@
         </button>
       </div>
       <div v-if="impStep === 'map'" class="df-map">
-        <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions" />
+        <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions"
+                       :memory="impMemory" v-model:incremental="impInc" />
         <div class="df-import-row">
           <button class="btn btn-ghost" :disabled="importing" @click="impStep = 'pick'">返回</button>
           <button class="btn btn-primary" :disabled="importing" @click="doImportInv">
@@ -34,12 +35,7 @@
           </button>
         </div>
       </div>
-      <div v-if="invResult" class="df-result" :class="invResult.results?.errors?.length ? 'warn' : 'ok'">
-        成功 {{ invResult.results?.success }} 条 · 跳过 {{ invResult.results?.skipped }} 条 · 失败 {{ invResult.results?.errors?.length || 0 }} 条
-        <span v-if="invResult.results?.errors?.length" class="df-errs">
-          <span v-for="(er, i) in invResult.results.errors.slice(0, 4)" :key="i" class="df-err">第{{ er.row }}行: {{ er.msg }}</span>
-        </span>
-      </div>
+      <ImportReceipt :result="invResult" @undone="onInvUndone" />
     </div>
 
     <div class="card df-panel">
@@ -63,6 +59,7 @@ import { ref, onMounted } from 'vue'
 import { toast } from '../store'
 import { importApi, expiryApi } from '../api/modules'
 import ImportMapping from '../components/ImportMapping.vue'
+import ImportReceipt from '../components/ImportReceipt.vue'
 
 const importing = ref(false)
 const invStats = ref(null)
@@ -77,6 +74,11 @@ const impStep = ref('pick')
 const impSuggestions = ref([])
 const impFieldOptions = ref([])
 const impMapping = ref({})
+/* v303：映射记忆命中提示（后端回的 `remembered`）+ 「跳过已存在的记录」开关。
+   开关默认**打开**：库存重复导入是"同批次数量翻倍"这种**静默的数据错误**，
+   而跳过会逐条点名（"批次 X 已在库存里"）—— 后者可见、可纠正，前者不可见。 */
+const impMemory = ref(null)
+const impInc = ref(true)
 
 function onInvFile(ev) {
   const f = ev.target.files[0] || null
@@ -88,6 +90,7 @@ function onInvFile(ev) {
   invFile.value = f
   invFileName.value = f?.name || ''
   invResult.value = null
+  impMemory.value = null
   impStep.value = 'pick'
 }
 
@@ -112,6 +115,7 @@ async function previewInv() {
     const prev = await importApi.preview(invFile.value, 'inventory')
     impSuggestions.value = prev.suggestions || []
     impFieldOptions.value = prev.field_options || []
+    impMemory.value = prev.remembered || null
     if (!impSuggestions.value.length) { toast('没读到任何列，请检查文件', 'err'); return }
     const m = {}
     for (const s of impSuggestions.value) if (s.suggested_field) m[s.index] = s.suggested_field
@@ -129,7 +133,10 @@ async function doImportInv() {
   if (!invFile.value) return
   importing.value = true
   try {
-    const r = await importApi.execute(invFile.value, 'inventory', impMapping.value)
+    // v303：「跳过已存在的记录」→ 后端 `mode=incremental`（按商品+批次号精确去重、逐条点名）。
+    //   不传 mode 时后端行为与改动前**逐字节一致** —— 小程序/Hermes/旧前端的调用方零影响。
+    const extra = impInc.value ? { mode: 'incremental' } : {}
+    const r = await importApi.execute(invFile.value, 'inventory', impMapping.value, extra)
     invResult.value = r
     impStep.value = 'pick'
     toast(`导入完成：成功 ${r.results?.success || 0} 条`, r.results?.errors?.length ? 'warn' : 'ok')
@@ -139,6 +146,12 @@ async function doImportInv() {
   } finally {
     importing.value = false
   }
+}
+
+/* v303：撤销之后重载统计。**不清空 `invResult`** —— ImportReceipt 自己会把按钮切成
+   "已撤销"，清掉的话用户就看不到"刚才撤销成功了"这一格回执了。 */
+function onInvUndone() {
+  loadInvStats()
 }
 
 async function loadInvStats() {
@@ -170,8 +183,7 @@ onMounted(() => {
 .df-map{margin-top:12px;display:flex;flex-direction:column;gap:10px}
 .df-file-btn{position:relative;overflow:hidden}
 .df-fname{font-size:12.5px;color:var(--t2)}
-.df-result{margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc)}
-.df-result.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
-.df-errs{display:flex;flex-direction:column;gap:2px;margin-top:6px}
-.df-err{font-size:12px;color:var(--t2)}
+/* v303：`.df-result / .df-errs / .df-err` 三条已随模板一起删除 ——
+   结果展示改由共用的 `ImportReceipt.vue` 负责（它自带样式）。
+   留着就是死 CSS：本页再也不会有 `class="df-result"` 的元素。 */
 </style>

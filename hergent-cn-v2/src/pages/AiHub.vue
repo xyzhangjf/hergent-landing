@@ -128,6 +128,93 @@
       <div v-else class="state-empty">暂无数据，去副驾里采纳/驳回几条建议，这里就会长出你的 AI 价值账单</div>
     </div>
 
+    <!-- ==================== ②·6 口径提案审核台（M3） ==================== -->
+    <div class="card proposal-card">
+      <div class="panel-hd">
+        <b>口径提案审核台</b>
+        <span class="page-sub">AI / 运营沉淀的算法口径改动 —— 采纳后才合并进正式配方（全程可审计）</span>
+      </div>
+      <div class="tb-group tb-right" style="margin-bottom:12px">
+        <button class="btn btn-sm btn-ghost" @click="toggleCaliberForm">
+          {{ caliberOpen ? '收起' : '＋ 记录一次口径' }}
+        </button>
+        <button class="btn btn-sm btn-ghost" :disabled="proposalsLoading" @click="loadProposals">
+          {{ proposalsLoading ? '加载中…' : '刷新' }}
+        </button>
+      </div>
+
+      <div v-if="paramsInfo" class="cal-hint">
+        可调口径 {{ paramsInfo.params.length }} 项 · 近 30 天已记录 {{ totalRecent }} 次 ·
+        同一口径同量级累计 <b>3 次同向</b>改写时系统会自动提案
+      </div>
+
+      <!-- ============ T1-5 记录一次口径（与审核台同卡，不新增侧栏）============
+           「提」与「审」放在同一处才闭环。字段清单全部来自后端 /params，
+           前端不写第二份（旧 FIELD_LABEL 已漂移出 4 个后端不存在的键）。 -->
+      <div v-if="caliberOpen" class="cal-form">
+        <div v-if="!paramsInfo" class="cal-tip">口径清单加载中…</div>
+        <template v-else>
+          <div class="cal-row">
+            <select v-model="cal.module" class="fld cal-f1" @change="onModuleChange">
+              <option v-for="m in paramsInfo.modules" :key="m.v" :value="m.v">{{ m.l }}</option>
+            </select>
+            <select v-model="cal.param_key" class="fld cal-f2">
+              <option v-for="p in calParams" :key="p.param_key" :value="p.param_key">
+                {{ p.label }}{{ p.unit ? '（' + p.unit + '）' : '' }} · 当前 {{ valText(p) }}
+              </option>
+            </select>
+            <select v-if="calEntry && calEntry.type === 'enum'" v-model="cal.user_value" class="fld cal-f3">
+              <option v-for="o in calEntry.options" :key="o.v" :value="o.v">{{ o.l }}</option>
+            </select>
+            <input v-else v-model="cal.user_value" class="fld cal-f3" type="text" inputmode="decimal"
+                   :placeholder="calEntry ? '新取值' + (calEntry.unit ? '（' + calEntry.unit + '）' : '') : '新取值'" />
+            <input v-model="cal.note" class="fld cal-f4" type="text" placeholder="为什么这么定？（可选）" />
+            <button class="btn btn-sm btn-primary" :disabled="calBusy || !calEntry" @click="submitCaliber">
+              {{ calBusy ? '提交中…' : '记下并生成提案' }}
+            </button>
+          </div>
+          <div v-if="calEntry && calEntry.hint" class="cal-tip">{{ calEntry.hint }}</div>
+          <div v-if="calEntry && calEntry.type !== 'enum'" class="cal-tip">
+            取值范围 {{ calEntry.min }} ~ {{ calEntry.max }}{{ calEntry.unit || '' }}，超出会被自动收到边界
+          </div>
+          <div v-if="calEntry" class="cal-tip">
+            <template v-if="calEntry.shareable">属算法参数：确认后会计入跨租户行业口径（只共享参数名与量级，不含金额 / 客户 / 进货价）</template>
+            <template v-else>属商业秘密：只在本租户沉淀，不会进入跨租户共享层</template>
+          </div>
+        </template>
+      </div>
+
+      <div v-if="proposalsDenied" class="state-empty">
+        当前账号没有「AI 对话」模块权限，看不到待审提案。请管理员在【员工档案 → 角色权限】里为你开通该模块。
+      </div>
+      <div v-else-if="!proposals.length" class="state-empty">
+        暂无待审提案。当同类口径被反复改写（经验闭环判定）或运营手工提交时，提案会出现在这里等你拍板。
+      </div>
+      <div v-else class="prop-list">
+        <div v-for="p in proposals" :key="p.id" class="prop-item" :class="{ done: p.status !== 'pending' }">
+          <div class="prop-main">
+            <div class="prop-title">
+              <span class="prop-mod">{{ MOD_LABEL[p.module] || p.module }}</span>
+              <span class="prop-name">{{ p.title || '（无标题）' }}</span>
+              <span class="prop-st" :class="'st-' + p.status">{{ ST_LABEL[p.status] || p.status }}</span>
+            </div>
+            <div v-if="p.rationale" class="prop-why">{{ p.rationale }}</div>
+            <div v-if="changesText(p.changes)" class="prop-chg">{{ changesText(p.changes) }}</div>
+            <div class="prop-meta">
+              {{ srcLabel(p) }} · {{ fmt(p.created_at) }}
+              <template v-if="p.reviewed_at"> · {{ fmt(p.reviewed_at) }} 由 {{ p.reviewed_by || '—' }}</template>
+            </div>
+            <div v-if="p.status === 'pending' && fuelOf(p)" class="prop-fuel">{{ fuelOf(p) }}</div>
+          </div>
+          <div v-if="p.status === 'pending'" class="prop-ops">
+            <button class="btn btn-sm btn-primary" :disabled="!isAdmin || reviewing === p.id" @click="reviewProposal(p, 'accept')">采纳</button>
+            <button class="btn btn-sm btn-ghost danger" :disabled="!isAdmin || reviewing === p.id" @click="reviewProposal(p, 'reject')">驳回</button>
+          </div>
+        </div>
+      </div>
+      <div v-if="!isAdmin && proposals.some(p => p.status === 'pending')" class="quota-sub">仅管理员可采纳 / 驳回</div>
+    </div>
+
     <!-- ==================== ③ AI 经营洞察 ==================== -->
     <div class="card insight-card">
       <div class="panel-hd">
@@ -140,12 +227,40 @@
         </button>
         <span class="page-sub" v-if="insightAt">最近：{{ insightAt }}</span>
       </div>
-      <div v-if="insight" class="insight-box">{{ insight }}</div>
+      <!-- T1-3：缺数据时**明说缺数据**，不拿残缺数据编一段像模像样的洞察 -->
+      <div v-if="insightBlocked" class="blocked-box">
+        <b>缺数据，本次不出结论</b>
+        <div class="blocked-txt">{{ insight }}</div>
+      </div>
+      <div v-else-if="insight" class="insight-box">{{ insight }}</div>
       <div v-else class="state-empty">点「生成经营洞察」，AI 会结合你的销售/应收/临期/返利数据给出建议</div>
-      <div v-if="insightDp && Object.keys(insightDp).length" class="insight-dp">
-        <div v-for="(v, k) in insightDp" :key="k" class="dp-item" v-show="v">
-          <span class="dp-k">{{ dpLabel(k) }}</span><span class="dp-v">{{ dpText(k, v) }}</span>
+
+      <!-- T1-3 溯源：读了几张表 / 每项按什么口径 / 由几行算出来的 -->
+      <div v-if="provenance.length" class="prov">
+        <div class="prov-hd">
+          这份结论读了 <b>{{ tablesRead.length }}</b> 张表、共 <b>{{ rowsTotal }}</b> 行数据
         </div>
+        <div class="prov-tb">
+          <div class="prov-tr prov-th">
+            <span>指标</span><span>数据源表</span><span>口径</span>
+            <span class="num">行数</span><span class="num">取值</span>
+          </div>
+          <div v-for="p in provenance" :key="p.key" class="prov-tr" :class="'pv-' + p['状态']">
+            <span>{{ p['指标'] }}</span>
+            <span>{{ p['数据源表'] }}</span>
+            <span>{{ p['口径'] }}</span>
+            <span class="num">{{ p['行数'] }}</span>
+            <span class="num">
+              {{ pv(p) }}
+              <em v-if="p['状态'] === 'empty'" class="prov-e">确实无记录</em>
+              <em v-else-if="p['状态'] === 'error'" class="prov-e bad">读不到</em>
+            </span>
+          </div>
+        </div>
+        <div class="prov-warn" v-if="unscannedBatches">
+          另有 {{ unscannedBatches }} 个在库批次没录到期日、未纳入临期扫描 —— 所以「临期风险低」不等于库存健康。
+        </div>
+        <div class="prov-tip">口径 = 这个数是怎么算出来的。照着「数据源表 + 口径」两列，你可以自己在系统里复算一遍。</div>
       </div>
     </div>
 
@@ -199,6 +314,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/client'
+import { aiExperienceApi } from '../api/modules'
 import { store } from '../store'
 import { openPrintable } from '../utils/printable'
 import { renderMd } from '../utils/md'
@@ -209,7 +325,6 @@ const quota = ref(null)
 const quotaForm = ref({ tier: 'free' })
 const isAdmin = ref(false)
 const insight = ref('')
-const insightDp = ref(null)
 const insightAt = ref('')
 const insighting = ref(false)
 const profile = ref(null)
@@ -223,6 +338,8 @@ onMounted(() => {
   loadQuota()
   loadValue()
   loadProfile()
+  loadProposals()
+  loadParams()
   try {
     const u = JSON.parse(localStorage.getItem('hergent_v2_user') || '{}')
     isAdmin.value = u && (u.role === 'admin' || u.role === 'boss')
@@ -245,6 +362,144 @@ function pct(used, limit) {
 }
 function tierLabel(t) {
   return { free: '免费版', pro: '专业版', enterprise: '企业版' }[t] || t
+}
+
+/* ②·6 口径提案审核台（M3）——后端 /api/ai/recipe-proposals（list / review） */
+const proposals = ref([])
+const proposalsLoading = ref(false)
+const proposalsDenied = ref(false)   // 🔴 403 与「真没有提案」必须分开说，别把「没权限」显示成「没有」
+const reviewing = ref(0)
+const MOD_LABEL = { loss: '货损', payroll: '工资', forecast: '预报', rebate: '返利' }
+const ST_LABEL = { pending: '待审批', accepted: '已采纳', rejected: '已驳回' }
+async function loadProposals() {
+  proposalsLoading.value = true
+  proposalsDenied.value = false
+  try {
+    const d = await api('/api/ai/recipe-proposals')
+    proposals.value = (d && d.proposals) || []
+  } catch (e) {
+    proposals.value = []
+    // 403 / 模块未授权 ⇒ 单独提示「没权限」，不与「真没有提案」混为一谈
+    const msg = String((e && (e.message || e.error || e.code)) || '')
+    proposalsDenied.value = /403|权限|MODULE_DENIED|AI 对话/.test(msg)
+  } finally {
+    proposalsLoading.value = false
+  }
+}
+async function reviewProposal(p, action) {
+  if (!isAdmin.value || reviewing.value) return
+  reviewing.value = p.id
+  try {
+    await api('/api/ai/recipe-proposals/' + p.id + '/review', { method: 'POST', body: { action } })
+    store.toast(action === 'accept' ? '已采纳，口径已合并进正式配方' : '已驳回')
+    await loadProposals()
+  } catch (e) {
+    store.toast((e && e.message) || '审批失败', 'error')
+  } finally {
+    reviewing.value = 0
+  }
+}
+/* 把 changes 对象压成一行「字段=值」，空对象返回空串（不渲染空行） */
+function changesText(ch) {
+  if (!ch || typeof ch !== 'object' || Array.isArray(ch)) return ''
+  const ks = Object.keys(ch)
+  if (!ks.length) return ''
+  return ks.map(k => k + ' = ' + JSON.stringify(ch[k])).join('　·　')
+}
+/* 提案来源要说人话，且**不能把「闭环自动提案」说成「AI 提案」** —— 前者是系统按
+   统计规则算出来的，后者是模型自己想出来的，老板据此判断可信度，混为一谈就是误导。 */
+function srcLabel(p) {
+  if (p.source === 'loop') return '经验闭环自动提案（同口径反复改写触发）'
+  if (p.source === 'manual') return '口径记录入口提交'
+  return 'AI 提案'
+}
+
+/* ==================== T1-5 记录一次口径 ====================
+   与「口径提案审核台」同一张卡：既能审（accept/reject），也能提（一次确认即建提案）。
+   候选清单全部来自后端 /api/ai/experience/params —— 前端不写第二份。 */
+const paramsInfo = ref(null)
+const caliberOpen = ref(false)
+const calBusy = ref(false)
+const cal = ref({ module: 'loss', param_key: '', user_value: '', note: '' })
+const calParams = computed(() => {
+  if (!paramsInfo.value) return []
+  return paramsInfo.value.params.filter(p => p.module === cal.value.module)
+})
+const calEntry = computed(() => calParams.value.find(p => p.param_key === cal.value.param_key) || null)
+const totalRecent = computed(() => {
+  if (!paramsInfo.value) return 0
+  return paramsInfo.value.params.reduce((s, p) => s + (p.recent_overrides || 0), 0)
+})
+function valText(p) {
+  if (p.type === 'enum') {
+    const o = (p.options || []).find(x => x.v === p.current)
+    return o ? o.l : String(p.current)
+  }
+  return String(p.current) + (p.unit || '')
+}
+async function loadParams() {
+  try {
+    const d = await aiExperienceApi.params()
+    paramsInfo.value = d && d.ok ? d : null
+    // 默认选中当前模块的第一条口径（避免下拉空着、按钮灰着让人以为坏了）
+    if (paramsInfo.value && !cal.value.param_key) {
+      const first = calParams.value[0]
+      if (first) { cal.value.param_key = first.param_key; cal.value.user_value = String(first.current) }
+    }
+  } catch (_) {
+    paramsInfo.value = null
+  }
+}
+function toggleCaliberForm() {
+  caliberOpen.value = !caliberOpen.value
+  if (caliberOpen.value && !paramsInfo.value) loadParams()
+}
+function onModuleChange() {
+  const first = calParams.value[0]
+  cal.value.param_key = first ? first.param_key : ''
+  cal.value.user_value = first ? String(first.current) : ''
+}
+/* 数字输入层归一：全角数字/中文句号等先折成半角（中文输入法下 `１２。５` 否则整串作废）。
+   🔴 与 Forecast/CollectionsCard 同一条判据：不用 type=number（它会静默吞掉全角字符）。 */
+function normNum(v) {
+  let s = String(v == null ? '' : v)
+  try { s = s.normalize('NFKC') } catch (e) { /* 老浏览器忽略 */ }
+  return s.replace(/[。｡、]/g, '.').replace(/，/g, ',').replace(/−|–|—/g, '-').replace(/,/g, '').trim()
+}
+async function submitCaliber() {
+  const e = calEntry.value
+  if (!e || calBusy.value) return
+  const raw = e.type === 'enum' ? cal.value.user_value : normNum(cal.value.user_value)
+  if (raw === '') { store.toast('请填写新取值', 'error'); return }
+  calBusy.value = true
+  try {
+    const r = await aiExperienceApi.proposeRecipe({
+      module: e.module, param_key: e.param_key, user_value: raw, note: cal.value.note || ''
+    })
+    let msg = r.created ? '已生成提案' : '已有同口径待审提案，已并到那一条'
+    msg += '：' + (r.label || e.label) + ' = ' + r.applied_value + (r.unit || '')
+    if (r.clamped) msg += '（你填的值超范围，已收到边界）'
+    store.toast(msg)
+    cal.value.note = ''
+    await Promise.all([loadProposals(), loadParams()])
+  } catch (err) {
+    store.toast((err && err.message) || '记录失败', 'error')
+  } finally {
+    calBusy.value = false
+  }
+}
+/* 待审提案若是「某个口径」，把它的燃料进度说出来（老板才知道系统还差几次会自己提） */
+const fuelMap = computed(() => {
+  const m = {}
+  if (paramsInfo.value) paramsInfo.value.params.forEach(p => { m[p.param_key] = p })
+  return m
+})
+function fuelOf(p) {
+  const pk = p && p.changes && p.changes.__param
+  if (!pk || !fuelMap.value[pk]) return ''
+  const n = fuelMap.value[pk].recent_overrides || 0
+  if (!n) return ''
+  return '该口径近 30 天已被记录 ' + n + ' 次'
 }
 
 /* ① 报告 */
@@ -342,15 +597,29 @@ async function loadValue() {
   }
 }
 
-/* ③ 洞察 */
+/* ③ 洞察（T1-3：结论 + 指标级溯源；缺数据则拒答）*/
+const insightBlocked = ref(false)
+const provenance = ref([])
+const tablesRead = ref([])
+const rowsTotal = ref(0)
+const unscannedBatches = computed(() => {
+  // 覆盖度不足必须显现出来，否则「临期风险低」会被误读成「库存健康」
+  return provenance.value.reduce((s, p) => s + (p['未纳扫批次'] || 0), 0)
+})
 async function genInsight() {
   insighting.value = true
   insight.value = ''
-  insightDp.value = null
+  insightBlocked.value = false
+  provenance.value = []
+  tablesRead.value = []
+  rowsTotal.value = 0
   try {
     const d = await api('/api/ai/llm-insight')
     insight.value = (d && d.insight) || ''
-    insightDp.value = (d && d.data_points) || null
+    insightBlocked.value = !!(d && d.blocked)
+    provenance.value = (d && d.provenance) || []
+    tablesRead.value = (d && d.tables_read) || []
+    rowsTotal.value = (d && d.rows_total) || 0
     insightAt.value = (d && d.generated_at) || ''
   } catch (e) {
     store.toast((e && e.message) || '生成失败', 'error')
@@ -358,16 +627,14 @@ async function genInsight() {
     insighting.value = false
   }
 }
-function dpLabel(k) {
-  return {
-    top_customers: '重点客户', overdue_ar: '逾期应收', expiry_risk_value: '临期风险货值',
-    rebate_open: '未结返利', rebate_achieved: '返利已达成', loss_30d: '近30天货损'
-  }[k] || k
-}
-function dpText(k, v) {
-  if (k === 'top_customers') return Array.isArray(v) ? v.join('；') : v
-  if (typeof v === 'number') return fmtNum(v)
-  return v
+/* 取值渲染：数字带中文单位（经销商看不懂英文缩写的数目字），列表压成一行 */
+function pv(p) {
+  const v = p['取值']
+  const u = p['单位'] || ''
+  if (v === null || v === undefined) return '—'
+  if (Array.isArray(v)) return v.length ? v.join('；') : '—'
+  if (typeof v === 'number') return v.toLocaleString('zh-CN') + (u ? ' ' + u : '')
+  return String(v)
 }
 
 /* ⑤ 画像 */
@@ -405,6 +672,8 @@ async function refreshProfile() {
 .value-card{grid-column:span 5}
 .insight-card{grid-column:span 7}
 .profile-card{grid-column:1/-1}
+/* 审核台是列表，整行铺开（与 profile-card 同策略）；🔴 不写这条会被栅格塞进 1 列窄栏、文字竖排 */
+.proposal-card{grid-column:1/-1}
 .ops-hint{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t3);margin-top:-8px}
 .ops-hint a{color:var(--p);text-decoration:none;font-weight:500}
 .ops-hint a:hover{text-decoration:underline}
@@ -445,10 +714,24 @@ async function refreshProfile() {
 
 /* 洞察 / 画像 */
 .insight-box{background:var(--p-bg);border:1px solid var(--p-border);border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.7;color:var(--t1);white-space:pre-wrap}
-.insight-dp{margin-top:10px;display:flex;flex-direction:column;gap:6px}
-.dp-item{display:flex;gap:10px;font-size:12px}
-.dp-k{color:var(--t3);min-width:84px;flex-shrink:0}
-.dp-v{color:var(--t2)}
+/* T1-3 缺数据拒答：必须看起来就"不是一条洞察"，否则老板会把说明当结论读 */
+.blocked-box{background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:10px;padding:12px 14px;color:var(--t1)}
+.blocked-box b{display:block;font-size:13.5px;color:var(--warn-amber);margin-bottom:6px}
+.blocked-txt{font-size:13px;line-height:1.7;white-space:pre-wrap}
+/* T1-3 指标级溯源表 */
+.prov{margin-top:12px;border-top:1px dashed var(--border-subtle);padding-top:11px}
+.prov-hd{font-size:12.5px;color:var(--t2);margin-bottom:8px}
+.prov-hd b{color:var(--p-dark);font-size:13.5px}
+.prov-tb{display:flex;flex-direction:column;border:1px solid var(--border-subtle);border-radius:9px;overflow:hidden}
+.prov-tr{display:grid;grid-template-columns:112px 1.15fr 1.9fr 52px 108px;gap:8px;padding:7px 10px;font-size:12px;color:var(--t2);border-top:1px solid var(--border-subtle)}
+.prov-tr:first-child{border-top:none}
+.prov-tr.prov-th{background:var(--bg3);color:var(--t3);font-weight:600;font-size:11.5px}
+.prov-tr .num{text-align:right;font-variant-numeric:tabular-nums}
+.prov-tr.pv-error{background:var(--dan-bg)}
+.prov-e{font-style:normal;font-size:10.5px;margin-left:5px;padding:1px 6px;border-radius:7px;background:var(--bg3);color:var(--t3)}
+.prov-e.bad{background:var(--dan-bg);color:var(--dan)}
+.prov-warn{margin-top:8px;font-size:12px;color:var(--warn-amber);line-height:1.6}
+.prov-tip{margin-top:7px;font-size:11.5px;color:var(--t3);line-height:1.55}
 .prof-sec{margin-top:12px}
 .prof-hd{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:6px}
 .prof-item{font-size:13px;color:var(--t2);padding:4px 0;border-bottom:1px dashed var(--border-subtle)}
@@ -465,6 +748,30 @@ async function refreshProfile() {
   .rep-card,.quota-card,.value-card,.insight-card{grid-column:span 3}
 }
 @media(max-width:768px){
-  .rep-card,.quota-card,.value-card,.insight-card,.profile-card{grid-column:1/-1}
+  .rep-card,.quota-card,.value-card,.insight-card,.profile-card,.proposal-card{grid-column:1/-1}
 }
+/* M3 口径提案审核台 */
+.prop-list{display:flex;flex-direction:column;gap:10px}
+.prop-item{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--border-subtle);border-radius:10px;padding:11px 13px;background:var(--bg)}
+.prop-item.done{opacity:.62}
+.prop-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.prop-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.prop-mod{font-size:11px;padding:1px 8px;border-radius:9px;background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
+.prop-name{font-size:13.5px;font-weight:600;color:var(--t1)}
+.prop-st{font-size:11px;padding:1px 8px;border-radius:9px;flex-shrink:0}
+.prop-st.st-pending{background:var(--p-bg);color:var(--p-dark)}
+.prop-st.st-accepted{color:var(--suc);background:var(--dan-bg)}
+.prop-st.st-rejected{color:var(--dan);background:var(--dan-bg)}
+.prop-why{font-size:12.5px;color:var(--t2);line-height:1.55}
+.prop-chg{font-size:12px;color:var(--t1);background:var(--bg2);border-radius:7px;padding:5px 9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+.prop-meta{font-size:11px;color:var(--t3)}
+.prop-fuel{font-size:11px;color:var(--p-dark)}
+.prop-ops{display:flex;gap:6px;align-items:center;flex-shrink:0}
+/* T1-5 记录一次口径（与审核台同卡） */
+.cal-hint{font-size:12px;color:var(--t3);margin-bottom:10px;line-height:1.6}
+.cal-hint b{color:var(--t2)}
+.cal-form{background:var(--bg3);border:1px solid var(--border-subtle);border-radius:10px;padding:12px;margin-bottom:12px}
+.cal-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cal-f1{width:130px}.cal-f2{width:250px}.cal-f3{width:150px}.cal-f4{flex:1;min-width:160px}
+.cal-tip{font-size:11.5px;color:var(--t3);margin-top:7px;line-height:1.55}
 </style>

@@ -64,6 +64,14 @@
           <router-link v-if="canSee('/loss-accounting')" to="/loss-accounting" class="sb-item" title="月度货损率核算（期间流水口径）"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h16v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M8 8h8"/><path d="M8 12h5"/></svg><span>货损核算</span></router-link>
           <router-link v-if="canSee('/payroll')" to="/payroll" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg><span>算工资</span></router-link>
 
+          <!-- v274（2026-09-25）：**舟谱单据导入的侧栏入口已撤掉**，迁进
+               「能力中心 › 连接器 › ERP 数据源」（http://…/connect 那张卡）。
+               撤掉的理由：它是一个**一个月用一次**的动作，占一行侧栏不划算；而能力中心
+               那一区本来就是「接入你的业务系统」的数据源清单（旁边是畅捷通 / 金蝶），
+               舟谱导出的两张表就是一个数据来源 ⇒ 归到那里语义更正。
+               ⚠️ 不是「下架」：路由 `/zhoupu-import` **保留**（卡片深链、刷新、收藏都还能用），
+                  页面与后端 `_guard()`（admin/boss）一律未动。要再挂回侧栏就在这里加一行。
+               回归判据：本文件里搜「舟谱单据导入」应当**只命中这段注释**（没有任何路由指向它）。 -->
           <router-link v-if="canSee('/archive')" to="/archive" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span>档案管理</span></router-link>
           <router-link v-if="canSee('/price-channels')" to="/price-channels" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1"/></svg><span>渠道与价格</span></router-link>
           <router-link v-if="canSee('/connect')" to="/connect" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg><span>能力中心</span></router-link>
@@ -359,7 +367,7 @@ onBeforeUnmount(() => {
 })
 
 /* ---- 侧栏拖拽调宽 ---- */
-const SIDEBAR_MIN = 120
+const SIDEBAR_MIN = 160
 const SIDEBAR_MAX = 420
 const resizing = ref(false)
 let _startX = 0

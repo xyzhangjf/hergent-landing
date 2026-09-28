@@ -325,7 +325,16 @@ export function demoCard() {
       { text: '其余 10 个 SKU 货龄健康，无需处理', tone: 'good' }
     ],
     status: 'draft',
-    chart: { kind: 'mini', caption: '近 7 日货损(元)', series: [210, 380, 150, 420, 290, 510, 320] },
+    // M2：示例卡演示「一卡双图」——近 7 日趋势（折线）+ 货损构成（环形）。
+    //   构成三档之和 = 货损金额 ¥3,180，与上方指标自洽。
+    chart: [
+      { kind: 'mini', caption: '近 7 日货损(元)', series: [210, 380, 150, 420, 290, 510, 320] },
+      { kind: 'donut', caption: '货损构成(元)', segments: [
+        { label: '纯甄风味酸奶', value: 1480 },
+        { label: '冠益乳 LB', value: 980 },
+        { label: '其他 10 款', value: 720 }
+      ] }
+    ],
     actions: [
       { key: 'adopt', label: '采纳建议', primary: true },
       { key: 'detail', label: '查看明细' },

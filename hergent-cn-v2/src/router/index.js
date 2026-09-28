@@ -5,6 +5,11 @@
    显著降低首屏 JS 体积（P0 评审清单）。
    ============================================================ */
 import { createRouter, createWebHashHistory } from 'vue-router'
+/* v275（2026-09-25）：路由级角色守卫要用到 store 与角色判据。
+   🔴 这里**静态** import store 是安全的（已核实）：store/index.js 不反向依赖 router
+      （`api/client.js` 零 import 语句），且 main.js 是 `app.use(pinia).use(router)`，
+      而 store/index.js 用的是 `useAppStore(pinia)`（显式传实例）⇒ 不依赖"当前 active pinia"，
+      在 app 挂载前被求值也没问题。 */
 import { store } from '../store'
 /* v291（2026-09-27）：「哪些角色能进哪些页」已收敛到 `constants/pages.js` 的**页面注册表**。
    本文件不再自己写判据 —— 侧栏 / 命令面板 / 守卫 / 页内跳转读的是同一份表。
@@ -22,6 +27,8 @@ const LossWorkflow = () => import('../pages/LossWorkflow.vue')
 const LossAccounting = () => import('../pages/LossAccounting.vue')
 const PayrollWorkflow = () => import('../pages/PayrollWorkflow.vue')
 const DataFill = () => import('../pages/DataFill.vue')
+// v269 (2026-09-25)：舟谱单据导入（销售结算表 / 调拨订单表 → 提货单）
+const ZhoupuImport = () => import('../pages/ZhoupuImport.vue')
 const EmployeeArchive = () => import('../pages/EmployeeArchive.vue')
 const CustomerArchive = () => import('../pages/CustomerArchive.vue')
 const ArchiveShell = () => import('../pages/ArchiveShell.vue')
@@ -32,6 +39,8 @@ const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
 const AiHub = () => import('../pages/AiHub.vue')
 const PriceChannels = () => import('../pages/PriceChannels.vue')
+// v265（2026-09-24）：ProductTarget 不再由路由懒加载 —— 它已收进 Forecast.vue 当第 4 个页签
+// （静态 import，随 Forecast chunk 一起加载）。旧路由 /product-target 保留 redirect，见下。
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -45,6 +54,11 @@ export const router = createRouter({
         { path: 'workbench', component: Workbench, meta: { title: '经营工作台' } },
         { path: 'forecast', component: Forecast, meta: { title: '预报订货管理' } },
         { path: 'rebate', component: Rebate, meta: { title: '目标与返利' } },
+        // v265（2026-09-24）：商品目标已收进「预报订货管理」当第 4 个页签。
+        // 🔴 旧路由**保留为 redirect，不能直接删**：书签 / 浏览器历史 / 命令面板里还留着
+        //    `#/product-target`，删掉就是白屏。redirect 到 `?tab=target` 后落在 /forecast 上，
+        //    侧栏「预报订货管理」也能正常高亮（router-link-active 按 matched 链匹配）。
+        { path: 'product-target', redirect: { path: '/forecast', query: { tab: 'target' } } },
         { path: 'dashboard', component: Dashboard, meta: { title: '经营趋势' } },
         { path: 'connect', component: ConnectCenter, meta: { title: '能力中心' } },
         { path: 'roles', component: RoleManage, meta: { title: 'AI 团队' } },
@@ -54,6 +68,17 @@ export const router = createRouter({
         { path: 'loss-accounting', component: LossAccounting, meta: { title: '货损核算' } },
         { path: 'payroll', component: PayrollWorkflow, meta: { title: '算工资工作流' } },
         { path: 'data-fill', component: DataFill, meta: { title: '库存效期补录' } },
+        /* v291（2026-09-27）：本页的角色白名单已从 `meta.roles` **迁进页面注册表**
+           （`constants/pages.js` 的 `/zhoupu-import` 行，名单仍是 `ZHOUPU_IMPORT_ROLES`）。
+           为什么迁：判据原本散在 router / Shell / ConnectCenter 三处，天然会漂移 ——
+           侧栏藏了但 URL 还能进（假封锁），或卡片在但守卫拒（假入口）。
+           现在侧栏 / 命令面板 / 守卫 / 页内跳转读同一份表 ⇒ 结构上不可能再漂移。
+           ⚠️ 本页**已无 `meta.roles`**（字段废弃，全表见 pages.js）—— 别在别处又补一份。
+           ⚠️ 白名单只给**后端整页级拒绝**的页面配：本页后端 `_guard()` 对非 admin/boss 一律 403
+               （不是"某个操作 403"，是整页不可用）⇒ 拦在门口不会误伤任何合法用法。
+           ❌ 不要顺手给 /forecast、/payroll 配 `roles`：那些页面的合法用户可以进
+               （只是页内某块不可见；模块未授权时页面自己会渲染常驻说明），整页拦会**误伤**。 */
+        { path: 'zhoupu-import', component: ZhoupuImport, meta: { title: '舟谱单据导入' } },
         // 档案管理：父级为薄壳容器，4 个 tab 作为子路由。
         // 这样侧栏 <router-link to="/archive"> 解析出的父级 record 会出现在任意
         // /archive/* 子页面的 matched 链里，router-link-active 自动命中（与其它模块一致）。
@@ -65,7 +90,10 @@ export const router = createRouter({
             { path: 'employees', component: Archive, meta: { title: '档案管理' } },
             { path: 'customers', component: Archive, meta: { title: '档案管理' } },
             { path: 'brands', component: Archive, meta: { title: '档案管理' } },
-            { path: 'products', component: Archive, meta: { title: '档案管理' } }
+            { path: 'products', component: Archive, meta: { title: '档案管理' } },
+            // v294：仓库档案 —— 员工「个人仓」与报单模板「源仓/目标仓」的上游主档。
+            // 继承父级 `/archive` 的可见性规则（module:null + BIZ_ROLES），无需单独登记。
+            { path: 'warehouses', component: Archive, meta: { title: '档案管理' } }
           ]
         },
         { path: 'cron', component: CronJobs, meta: { title: '定时任务' } },

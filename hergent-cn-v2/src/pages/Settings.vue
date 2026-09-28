@@ -112,14 +112,10 @@
     <template v-if="tab === 'ai'">
       <div class="card">
         <div class="panel-hd">
-          <b>Hermes API 连接</b>
+          <b>AI 副驾连接</b>
           <span class="page-sub">AI 经营副驾由 Hermes Agent 提供</span>
         </div>
-        <p class="set-desc">填入 API server 的 Bearer Key（生产环境由部署方配置，存于本地浏览器）。</p>
-        <div class="set-row">
-          <input v-model="key" class="input" type="password" placeholder="Hermes API Server Key（可选）">
-          <button class="btn btn-primary" @click="saveKey">保存</button>
-        </div>
+        <p class="set-desc">副驾经本系统服务端转发，网关凭据由服务端保管，无需在此填写。</p>
         <div class="set-row">
           <button class="btn btn-sm btn-ghost" @click="test">测试连接</button>
           <span v-if="testResult" class="set-result" :class="testOk ? 'ok' : 'bad'">{{ testResult }}</span>
@@ -180,6 +176,7 @@
         </div>
       </div>
     </template>
+
 
     <!-- ==================== 客户开通（创始人内部工具） ==================== -->
     <template v-if="tab === 'onboard'">
@@ -334,7 +331,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { store, setTheme, toast } from '../store'
-import { api, setHermesKey, hermesRequest } from '../api/client'
+import { api } from '../api/client'
 import Icon from '../components/Icon.vue'
 import AiOps from './AiOps.vue'
 
@@ -455,28 +452,26 @@ function copyCode(code) {
   document.body.removeChild(ta)
 }
 
-/* ---- Hermes API ---- */
-const key = ref('')
+/* ---- AI 副驾连接检测 ----
+   🔴 v281（2026-09-26）：原先这里让用户**在前端填网关 Bearer Key** 并存 localStorage，
+   「测试连接」直接打 `/hermes/v1/models`。两处都已改：
+     ① 那条 `/hermes/` 直通因「对公网无鉴权、且带 terminal/file 工具集」已被 nginx 封堵（403）；
+     ② 网关凭据改为**只由服务端保管**（后端经 127.0.0.1 直连，`.env` 提供）⇒ 前端不该也不需要 Key。
+   检测改为打后端**真实链路**（`/api/ai/skills` 会真正调用上游网关，403/失败会明确暴露）。 */
 const testResult = ref('')
 const testOk = ref(false)
-
-function saveKey() {
-  localStorage.setItem('hermes_v2_key', key.value.trim())
-  setHermesKey(key.value.trim())
-  testResult.value = '已保存'
-  testOk.value = true
-}
 
 async function test() {
   testResult.value = '测试中…'
   testOk.value = false
   try {
-    // 走统一 Hermes REST 封装，复用同一套 Key 鉴权（不再裸 fetch）
-    const res = await hermesRequest('/hermes/v1/models')
-    testOk.value = res.ok
-    testResult.value = res.ok ? 'Hermes 连接成功' : `${res.status}（请检查 Key / 服务）`
+    const d = await api('/api/ai/skills')
+    const ok = !!(d && d.ok !== false && d.success !== false)
+    testOk.value = ok
+    testResult.value = ok ? '连接正常' : '连接失败：上游网关无响应'
   } catch (e) {
-    testResult.value = '无法连接 Hermes API server'
+    testOk.value = false
+    testResult.value = (e && e.message) ? String(e.message) : '无法连接 AI 服务'
   }
 }
 
@@ -677,7 +672,6 @@ function toggleTheme() {
 }
 
 onMounted(() => {
-  key.value = localStorage.getItem('hermes_v2_key') || ''
   loadMemory()
   loadWhoami()
   // 支持 ?tab=aiops 深链（AI 中心页的「设置 › AI 运维」入口）
@@ -768,4 +762,5 @@ onMounted(() => {
 .ic-st-exhausted,.ic-st-expired{background:var(--bg3);color:var(--t2)}
 .ic-st-disabled{background:var(--bg3);color:var(--t3)}
 .ic-empty{color:var(--t3);text-align:center;padding:14px 0}
+
 </style>

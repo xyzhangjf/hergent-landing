@@ -5,6 +5,7 @@
       <button :class="{ on: activeTab === 'customers' }" @click="goTab('customers')">客户档案</button>
       <button :class="{ on: activeTab === 'brands' }" @click="goTab('brands')">品牌档案</button>
       <button :class="{ on: activeTab === 'products' }" @click="goTab('products')">商品档案</button>
+      <button :class="{ on: activeTab === 'warehouses' }" @click="goTab('warehouses')">仓库档案</button>
     </div>
 
     <div class="archive-panel">
@@ -12,6 +13,7 @@
       <CustomerArchive v-if="activeTab === 'customers'" />
       <BrandArchive v-if="activeTab === 'brands'" />
       <ProductArchive v-if="activeTab === 'products'" />
+      <WarehouseArchive v-if="activeTab === 'warehouses'" />
     </div>
   </div>
 </template>
@@ -23,6 +25,7 @@ import EmployeeArchive from './EmployeeArchive.vue'
 import CustomerArchive from './CustomerArchive.vue'
 import BrandArchive from './BrandArchive.vue'
 import ProductArchive from './ProductArchive.vue'
+import WarehouseArchive from './WarehouseArchive.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,6 +33,7 @@ const router = useRouter()
 function tabFromPath(p) {
   if (p.endsWith('/products')) return 'products'
   if (p.endsWith('/brands')) return 'brands'
+  if (p.endsWith('/warehouses')) return 'warehouses'
   return p.endsWith('/customers') ? 'customers' : 'employees'
 }
 
