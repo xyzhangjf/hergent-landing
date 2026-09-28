@@ -278,3 +278,86 @@ M hergent-cn-v2/src/components/CopilotDrawer.vue +~120 行（按钮双态 / 停�
 
 验证脚本（本轮临时产物，未入库）：`/tmp/stop-transport.test.mjs`（7/7）、`/tmp/stop-ui.probe.cjs`（17/17）、
 `/tmp/wb_asar.js`（WorkBuddy asar 读取器）。
+
+---
+
+## 九、✈️ 上线与生产真机验收（2026-09-28 19:34，已部署）
+
+### 9.1 提交
+| 提交 | 内容 |
+|---|---|
+| `174c914` | feat(copilot): 输入框支持「停止生成」（v309）—— 41 文件 / +8910 −502 |
+| `379a7cf` | docs(memory): 补 v309 提交记录 |
+
+### 9.2 部署前的四道判据（全部通过才敢发）
+| # | 判据 | 读数 |
+|---|---|---|
+| ① | 线上生效版识别（**按 mtime 分离**，不看 `ls -lt` 并集） | `index.html` mtime `16:43:03` ⇒ 58 文件 = 生效批次；线上 `assets/` 物理文件 **848 / 仅 55 个基名**（历次并集） |
+| ② | 基名配对差集 | 基名集合**完全一致**（无 chunk 新增/删除）；真内容变化仅 13 项，其中 10 项为 `Δ+1`＝纯 hash 级联 |
+| ③ | API 超集（会不会撤回线上功能） | 撤回 **0** / 新增 **0** |
+| ④ | 后端路由**穷尽**核对 | 用 `erp.hergent.cn/openapi.json`（**1189 条**）逐条匹配产物里 313 个 `/api` 路径 |
+
+### 9.3 🔴 上线前拦下两颗「上线即说谎」的雷（本轮最有价值的一段）
+`openapi` 穷尽核对 + **有权限(boss)令牌**实测，双双确认下列端点在**生产后端不存在**：
+
+| 端点 | 调用方 | 触发时机 | 失败表现 | 处置 |
+|---|---|---|---|---|
+| `/api/collections/aging`、`/api/collections/payments` | `CollectionsCard` | **落地页 `onMounted` 即请求** | `catch` → **静默降级成空态** | 🔴 **摘入口** |
+| `/api/import/ledger` | `DataLedger` | `onMounted(load)` | 显示一行错误 | 🔴 **摘入口** |
+| `/api/commitments*`、`/api/import/receipts`、`/api/import/mapping-memory` | CommitmentsTab / ImportReceipt | 点页签 / 导入后 | — | 保持（**线上早已在跑**，非本次引入） |
+
+- 判据纪律：**不带 token 的 401 与低权限角色的 403 对「路由是否存在」零判别力**
+  （RBAC 在路由匹配**之前**就返回）。本轮 `/api/commitments` 用 boss 令牌回的是
+  `403 路径未配置访问模块` —— 看似"权限问题"，**openapi 实查该路由根本不存在**。
+- 摘除方式：**只在隔离构建副本**（`/tmp/v309-deploy`）里加 `v-if="false"` + 写明原因的注释，
+  **工作区源码一行未动**（那是另一会话的工作）。自证三步：
+  ① 组件特有文案在产物里**归零**（`当前没有未清的客户应收` / `数据类目`）；
+  ② 本轮自己的判别串**仍在**；③ `collectionsApi` 被 tree-shake ⇒ `/api/collections/aging` 从产物消失。
+
+### 9.4 部署
+```
+备份：/root/hergent-cn-v2-bak-20260928-193400.tgz（12M）+ _rollback/index.html.pre-v309-*
+rsync -a --no-owner --no-group /tmp/v309-fe-dist/ root@47.113.224.140:/opt/hergent-cn-v2/   # 不带 --delete
+ssh root@… "chown -R hergent:hergent /opt/hergent-cn-v2"
+```
+- **刻意不带 `--delete`**（按 v292 判据）：线上 `assets/` 是历次构建并集，删它不可逆；不带只是留旧代死文件。
+- 双侧 md5 **4/4 一致**；线上入口 = 公网入口 = `index-CN2Wvw7b.js`。
+- ⚠️ **连带教训**：不带 `--delete` 之后，「在 `assets/*.js` 里 grep 某串」**必然假阳性**
+  （会命中上一代残留）。判别串必须**只对「当前生效批次」**跑：
+  从线上入口 chunk 抽出引用列表（52 个），逐个 grep —— 本次据此得到干净读数。
+
+### 9.5 生产真机验收（**20/20**，截图 `停止生成-生产真机验收-2026-09-28.png`）
+真实点击、真实 Hermes（用**隔离租户 9997**跑的，跑完 `down` 且 `ZERO_RESIDUE: true`）：
+
+```
+PASS ① 页面在跑本轮构建（入口 chunk）        /assets/index-CN2Wvw7b.js
+PASS ② 从未请求 /api/collections/aging（摘除证据）  无 collections 请求
+PASS ② 落地页无「客户回款」空卡文案 / 静态资源无 4xx
+PASS ④ 流式中按钮切「停止」且**可点**（旧版此处 disabled）
+PASS ④ 已真实发出 chat 请求 · 停止前已收到模型增量（10 字）
+PASS ⑤ 网络层：chat 请求被中止  net::ERR_ABORTED        ← 真掐断
+PASS ⑤ 按钮回「发送」/ 出现「已停止生成」/ 内容保留（10 → 23）/ 不弹红字 / 无多余消息
+PASS ⑥ Esc 第一次显示「Esc」未停、第二次真停
+PASS 全程无页面级 JS 异常
+```
+
+### 9.6 ⭐ 顺带结掉了上一轮挂着的「未验证项」
+上一轮我标注「后端到 Hermes 的断连传播、以及 Hermes 是否真的终止 agent 循环 —— 代码推断成立，未实测」。
+本轮验收期间，网关 `journalctl -u hermes-gateway` 在 **19:37:26 / 19:37:39 / 19:37:43** 记录 3 条：
+
+```
+WARNING agent.chat_completion_helpers: Stream ended with no finish_reason after
+delivering text with no tool calls; treating as a mid-stream drop.
+```
+
+时间与「1 次 curl 中止 + 探针 2 次点击停止」**逐条对上** ⇒ **客户端中止确实一路传到 Hermes，
+且 Hermes 自己把它识别成 mid-stream drop**。这一项从「推断」升级为「有日志证据」。
+（仍未测：Hermes 收到 drop 后是否**立刻**停止计费/停止上游 LLM 调用 —— 属其内部实现。）
+
+### 9.7 收尾
+- 服务器临时文件（`/tmp/sandbox_tenant.py`、`sandbox_9997.meta.json`、`live_files.txt`）**已清理**；
+  沙箱库 `tenant_9997.db*` **0 残留**；源库 sha256 前后一致、`src_business_check.verdict = ok`。
+- **未提交**：本轮「摘入口」只存在于隔离构建副本，**不在 HEAD 源码里** ——
+  这是**有意为之**（不动别人的工作）。🔴 **遗留提醒**：若日后有人从 HEAD 重新构建部署，
+  这两个卡片会**再次回到落地页**并继续打 404 接口；正确处理是**后端补上这 5 个端点**，
+  或由该组件的作者决定去留。
