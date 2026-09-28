@@ -4,6 +4,51 @@
 // 用法：v-html="renderMd(text)" —— 仅用于可信来源（AI 回复/已抽离 card 围栏的 content）。
 import { stripAllFences } from '../composables/useCardTrigger'
 
+/* ---------------------------------------------------------------------------
+   v301（2026-09-28）副驾产出的文件标记 `MEDIA:<绝对路径>` → 文件卡
+   🔴 为什么 Web 端会看到一串裸路径（生产实测）：
+      副驾要发文件时会在回复末尾写 `MEDIA:/opt/hermes-tenants/.../xx.docx`。
+      · 企微渠道：Hermes 的 `gateway/platforms/weixin.py::send_message` 先
+        `extract_media()` 把标记**摘出正文**，再 `send_document()` 真上传
+        ⇒ 客户端拿到真附件，正文里没有路径。
+      · Web 副驾：走 `gateway/platforms/api_server.py`（OpenAI 兼容 SSE），其
+        `_resolve_media_to_data_urls()` **只认图片**（非图片 `return None` 原样退回），
+        且该渠道**没有任何文件下载路由** ⇒ 路径字符串直达气泡，无法下载/打开。
+    ⇒ 这里把标记识别出来（交给 CopilotDrawer 渲染成可下载的文件卡），
+      并从展示文本里剥掉（否则会同一行既显示路径又显示卡片）。
+   ⚠️ 判据刻意与 Hermes 的 `MEDIA_TAG_CLEANUP_RE` **对齐**：锚定「绝对路径 + 已知扩展名」，
+      这样正文里仅仅是"提到 MEDIA:"的句子不会被误伤（Hermes 那边同理）。
+--------------------------------------------------------------------------- */
+const MEDIA_ABS = String.raw`(?:\/|~\/|[A-Za-z]:[/\\])`
+const MEDIA_EXT = 'docx?|xlsx?|pptx?|pdf|md|markdown|txt|csv|json|zip|' +
+  'png|jpe?g|gif|webp|bmp|svg|mp4|mov|mp3|wav|ogg'
+// 可选引号/反引号包裹；路径不含空白与引号；扩展名大小写不敏感
+const MEDIA_TAG_RE = new RegExp(
+  'MEDIA:\\s*([`"\']?)(' + MEDIA_ABS + '[^\\s`"\']+?\\.(?:' + MEDIA_EXT + '))\\1', 'gi')
+// 流式半截：路径还没写完（尚无扩展名）时先把尾巴收掉，避免气泡里闪过半截路径。
+// 允许尾部空白 —— 绝大多数回复末尾是一个换行，不放过它就等于这条规则不生效。
+const MEDIA_OPEN_RE = new RegExp('MEDIA:\\s*[`"\']?' + MEDIA_ABS + '[^\\s]*\\s*$', 'i')
+
+/**
+ * 把文本拆成「展示文本 + 附件列表」。
+ * @param {string} text AI 回复原文
+ * @returns {{text: string, files: Array<{path: string, name: string}>}}
+ */
+export function splitMedia(text) {
+  const t = String(text || '')
+  const files = []
+  if (t.indexOf('MEDIA:') < 0) return { text: t, files }
+  let out = t.replace(MEDIA_TAG_RE, (_full, _q, path) => {
+    const name = String(path).split(/[\\/]/).pop() || '文件'
+    // 去重：同一条回复里同一个文件被标两次只出一张卡
+    if (!files.some((f) => f.path === path)) files.push({ path, name })
+    return ''
+  })
+  out = out.replace(MEDIA_OPEN_RE, '')
+  if (files.length) out = out.replace(/\n{3,}/g, '\n\n')   // 摘掉整行后别留一堆空行
+  return { text: out, files }
+}
+
 export function renderMd(src) {
   if (!src) return ''
   // 0) 最后一道闸：协议围栏（```card / ```cards / ```clarify / ```proposal / ```reminder）

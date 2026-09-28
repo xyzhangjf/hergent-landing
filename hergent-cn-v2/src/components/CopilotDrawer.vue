@@ -87,9 +87,31 @@
             </span>
             <div class="msg-col">
               <div class="msg-bubble">
-                <div v-if="m.role === 'assistant' && m.content" class="md" v-html="renderMd(m.content)"></div>
+                <div v-if="m.role === 'assistant' && m.content" class="md" v-html="renderMd(mediaView(m.content).text)"></div>
                 <span v-else-if="m.role === 'assistant'" class="typing"><i></i><i></i><i></i></span>
                 <template v-else>{{ m.content }}</template>
+                <!-- v301：副驾产出的文件（Hermes `MEDIA:` 标记）→ 可直接下载/打开。
+                     原先 Web 端只显示一串服务器路径（企微客户端里却能点开），就是这个缺口。
+                     v306：🔴 下载**必须**走 downloadAuthed()（带 Authorization 头取 blob）——
+                     裸 <a href> 是普通链接跳转，不带鉴权头 ⇒ 端点回 401 ⇒ Chrome 下载中断。
+                     详见 downloadAuthed 注释。href 保留只为「右键复制链接」语义，点击一律拦截。 -->
+                <a
+                  v-for="(f, fi) in mediaFiles(m)"
+                  :key="fi"
+                  class="cp-art-file msg-file"
+                  :href="mediaHref(f.path)"
+                  :download="f.name"
+                  @click.prevent="downloadAuthed(mediaHref(f.path), f.name)"
+                >
+                  <span class="cp-art-file-ic">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                  </span>
+                  <span class="cp-art-file-tx">
+                    <span class="cp-art-file-name">{{ f.name }}</span>
+                    <span class="cp-art-file-meta">副驾产出 · 点击下载</span>
+                  </span>
+                  <svg class="cp-art-file-dl" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
               </div>
               <!-- 溯源：参考来源 -->
               <button v-if="m.role === 'assistant' && m.content" class="src-tag" @click="toggleSources(i)">
@@ -401,7 +423,9 @@
               @click="jumpTo(a.index)"
             >
               <ResultCard v-if="a.card" :card="a.card" :compact="true" @action="onCardAction" />
-              <a v-else-if="a.file" class="cp-art-file" :href="`/api/chat-attachment/download/${a.file.file_id}`" :download="a.file.file_name" target="_blank" rel="noopener" @click.stop>
+              <!-- v306：同样不能裸 href —— 该端点同样要 Authorization（匿名实测 401），
+                   点击一律走 downloadAuthed() 带鉴权头取 blob。 -->
+              <a v-else-if="a.file" class="cp-art-file" :href="`/api/chat-attachment/download/${a.file.file_id}`" :download="a.file.file_name" @click.stop.prevent="downloadAuthed(`/api/chat-attachment/download/${a.file.file_id}`, a.file.file_name)">
                 <span class="cp-art-file-ic">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
                 </span>
@@ -443,20 +467,89 @@
 import Icon from './Icon.vue'
 import { ref, nextTick, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { store, loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession, loadAiRoles, setAiRole } from '../store'
-import { hermesChat, api, CHAT_TIMEOUT_NORMAL, CHAT_TIMEOUT_LONG } from '../api/client'
+import { hermesChat, api, auth, CHAT_TIMEOUT_NORMAL, CHAT_TIMEOUT_LONG } from '../api/client'
 import { importApi } from '../api/modules'
 import { chatAttachmentApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
 import ProgressSteps from './ProgressSteps.vue'
 import { useCardTrigger, extractCard, extractCardIntent, stripAllFences, extractClarify, extractProposal, extractReminder, DENY_RE, demoCard } from '../composables/useCardTrigger'
 import { useVoiceInput } from '../composables/useVoiceInput'
-import { renderMd } from '../utils/md'
+import { renderMd, splitMedia } from '../utils/md'
 
 const draft = ref('')
 const cpBody = ref(null)
 const cpInput = ref(null)
 const sources = ref([])
 const openSources = ref(-1)
+/* v301（2026-09-28）：副驾产出的文件（Hermes 的 `MEDIA:<路径>` 标记）→ 可下载文件卡。
+   病根不在鉴权/跨域，而在**两个渠道的适配器不同**：企微适配器会把标记摘出正文、真上传文件；
+   Web 副驾走的 OpenAI 兼容适配器**只处理图片**，`docx/xlsx/pptx` 原样退回原文 ⇒ 老板只看到
+   一串服务器路径，无法下载/打开。（详因见 `utils/md.js::splitMedia` 的注释。）
+   渲染：卡片走**模板**（复用产物栏 `.cp-art-file` 的既有外观 —— v-html 注入的 DOM 拿不到
+        scoped 的 `data-v-*`，样式不会生效，所以卡片不放 markdown 里）；
+        正文喂给 renderMd 前先剥掉路径行，否则同一处既显路径又显卡。
+   下载：后端 `/api/ai/media`（已登录 + 只放行**本租户** Hermes 家目录的 output/·media/）。
+   ⚠️ 按内容 memo：模板每次重渲染都会问一次，长会话有数百条气泡，不能每条都跑正则；
+      流式期间内容逐字增长会不断产生新键 ⇒ 超阈值整表清空，避免无界增长。 */
+const _mvCache = new Map()
+function mediaView(content) {
+  const key = content || ''
+  const hit = _mvCache.get(key)
+  if (hit) return hit
+  const v = splitMedia(key)
+  if (_mvCache.size > 400) _mvCache.clear()
+  _mvCache.set(key, v)
+  return v
+}
+function mediaFiles(m) {
+  return m && m.role === 'assistant' && m.content ? mediaView(m.content).files : []
+}
+function mediaHref(p) { return '/api/ai/media?path=' + encodeURIComponent(String(p || '')) }
+
+/* v306（2026-09-28）：带鉴权的文件下载 —— 本组件所有「下载」都必须走这里，**不能**用裸 <a href>。
+   🔴 病根（生产实测）：本仓鉴权是 `Authorization: Bearer <token>`（token 存 localStorage），
+      而 `GET /api/ai/media` 与 `GET /api/chat-attachment/download/:id` **都要鉴权**。
+      裸 <a href> 触发的是**普通链接跳转**，浏览器不会附带这个请求头 ⇒ 端点回 401（JSON），
+      Chrome 的下载随即被中断 —— 下载记录里那条「无法从网站上提取文件」就是它。
+      （对比：带同一个 token 直接请求该 URL = 200 / 45,452 字节，所以问题**完全在前端怎么发这个请求**。）
+   ⚠️ 极具迷惑性：`:download` 属性会**自己提供文件名**，所以下载记录里文件名看着完全正确，
+      只瞄一眼名字会以为端点通了 —— 判据必须是「响应状态码」，不是「文件名对不对」。
+   ⇒ 正解 = fetch（带头）→ blob → objectURL → a.download → click。这与本仓既有导出范式一致
+      （见 `pages/Workbench.vue::downloadWeeklyDocx`、`api/modules.js` 的模板下载）。
+   ⚠️ `revokeObjectURL` **不能**紧跟在 click 之后同步执行：Chrome 还没读完 blob 就把 URL 撤销，
+      会报出**一模一样**的「无法从网站上提取文件」，等于修好 401 又换回一个长得相同的故障。
+      这里延后 10 秒（那时下载早已开始读取，且不再白占内存）。
+   ⚠️ 也不能改用 window.open：新标签同样是普通跳转，没有鉴权头，只是把 401 换个地方显示。 */
+async function downloadAuthed(url, name) {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
+        ...(auth.tenant ? { 'X-Tenant-Id': String(auth.tenant) } : {}),
+      },
+    })
+    if (!res.ok) {
+      // 失败必须出声：静默的话用户看到的就是「点了没反应」，比报错更难排查
+      let msg = ''
+      try { msg = (await res.json()).detail || '' } catch (e) { /* 非 JSON（如网关 502）不必强解 */ }
+      store.toast(msg || `下载失败（${res.status}），请稍后重试`, 'error')
+      return
+    }
+    const blob = await res.blob()
+    const u = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = u
+    a.download = name || '文件'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(u), 10000)
+  } catch (e) {
+    // 网络层失败（断网/超时）也走这里 —— 同样必须让用户看见
+    store.toast('下载失败，请检查网络后重试', 'error')
+  }
+}
+
 const attachments = ref([])
 const uploading = ref(false)
 const showHistory = ref(false)
@@ -1400,6 +1493,10 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-art-file-name{font-size:13px;color:var(--t1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cp-art-file-meta{font-size:11px;color:var(--t3)}
 .cp-art-file-dl{color:var(--t3);flex-shrink:0}
+/* v301：气泡内的「副驾产出文件」卡 —— 复用产物栏外观，仅调底色与间距
+   （气泡底就是 --bg2，卡片再铺 --bg2 会没有对比；--bg 在两套主题下都有对比） */
+.msg-file{margin-top:8px;background:var(--bg)}
+.msg-file .cp-art-file-name{white-space:normal}
 /* 跳转动效 */
 .msg.flash .msg-bubble{animation:cpFlash 1.2s ease}
 @keyframes cpFlash{0%,100%{box-shadow:0 0 0 0 transparent}30%{box-shadow:0 0 0 3px var(--p-bg)}}
