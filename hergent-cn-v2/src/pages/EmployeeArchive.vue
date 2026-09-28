@@ -14,6 +14,48 @@
       </div>
     </div>
 
+    <!-- v308 外部客户账号（分销商）。默认收起 —— 多数企业没有分销商，别让这块占着首屏。 -->
+    <div class="card df-panel df-ext">
+      <div class="panel-hd df-ph">
+        <b>外部客户账号（分销商）</b>
+        <div class="df-ph-right">
+          <span class="tag info">不是员工 · 只开小程序报单</span>
+          <button class="btn btn-ghost btn-sm" :aria-expanded="extOpen" @click="extOpen = !extOpen">
+            {{ extOpen ? '收起' : (extAccounts.length ? `展开（${extAccounts.length}）` : '展开') }}
+          </button>
+        </div>
+      </div>
+      <div v-if="extOpen" class="df-ext-body">
+        <p class="df-tip">给<b>外部客户</b>开一个只能登录小程序的报单账号：不建人事档案、不算工资。默认<b>仅小程序</b>，确需进后台可在下方改。</p>
+        <div class="df-ext-form">
+          <label class="df-field"><span>客户名称</span><input v-model="extForm.name" class="input" placeholder="如 永辉超市（分销）"></label>
+          <label class="df-field"><span>手机号 / 账号</span><input v-model="extForm.username" class="input" placeholder="如 13800000001"></label>
+          <label class="df-field"><span>初始密码</span><input v-model="extForm.password" class="input" type="text" :placeholder="PWD_HINT"></label>
+          <label class="df-field"><span>可登录端</span>
+            <select v-model="extForm.login_scope" class="input">
+              <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+            </select>
+          </label>
+          <button class="btn btn-primary btn-sm" :disabled="extBusy || !extForm.name.trim() || !extForm.username.trim() || !pwdOk(extForm.password)" @click="createExtAccount">开通账号</button>
+        </div>
+        <div v-if="extAccounts.length" class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>客户</th><th>登录账号</th><th>可登录端</th><th>状态</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="u in extAccounts" :key="u.id" :class="{ stopped: !u.is_active }">
+                <td>{{ u.external_ref }}</td>
+                <td>{{ u.username }}</td>
+                <td>{{ loginScopeLabel(u.login_scope) }}</td>
+                <td><span :class="u.is_active ? 'on' : 'off'">{{ u.is_active ? '启用中' : '已禁用' }}</span></td>
+                <td><button class="btn btn-ghost btn-sm" :class="{ danger: u.is_active }" :disabled="extBusy" @click="toggleExtAccount(u)">{{ u.is_active ? '禁用' : '启用' }}</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-else class="state-empty">还没有外部客户账号</div>
+      </div>
+    </div>
+
     <div class="card df-panel">
       <div class="panel-hd df-ph">
         <b>在职员工</b>
@@ -145,12 +187,20 @@
                 <p class="df-tip">保存员工后，可在此为其开通登录账号。</p>
               </div>
               <div v-else-if="!editTarget || !editTarget.has_account" class="df-acc-create">
-                <p class="df-tip">该员工暂无登录账号。开通后可用此手机号 + 密码登录<b>网页端</b>与<b>预报小程序</b> —— 同一个账号，能进哪些页面由下方角色决定。</p>
+                <!-- v307：原文案写死「可登录**网页端**与**预报小程序**」，与下面新加的
+                     「可登录端」下拉可能相反（选了员工 ⇒ 默认仅小程序）⇒ 改成跟随所选值。
+                     这类"同屏两句互相矛盾"的措辞，正是老板得出「权限没生效」结论的来源。 -->
+                <p class="df-tip">该员工暂无登录账号。开通后可登录：<b>{{ loginScopeLabel(accForm2.login_scope) }}</b> —— 默认值按所选角色给出，可随时在下方调整；能进哪些页面由角色决定。</p>
                 <label class="df-field"><span>手机号 / 账号</span><input v-model="accForm2.username" class="input" placeholder="如 13800000001"></label>
                 <label class="df-field"><span>初始密码</span><input v-model="accForm2.password" class="input" type="text" :placeholder="PWD_HINT"></label>
                 <label class="df-field"><span>角色 / 权限</span>
                   <select v-model="accForm2.role" class="input acc-role">
                     <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                  </select>
+                </label>
+                <label class="df-field"><span>可登录端</span>
+                  <select v-model="accForm2.login_scope" class="input acc-role">
+                    <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
                 </label>
                 <button class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || !pwdOk(accForm2.password)" @click="createAccountInEdit">开通账号</button>
@@ -165,13 +215,25 @@
                   <span v-if="accAnyDirty" class="df-dirty-tag">有未保存的改动</span>
                 </div>
                 <p class="df-acc-card-tip">以下每一项都<b>各自独立保存</b>：改完点它自己那一行的按钮，与弹窗底部的「保存基本信息」互不影响。</p>
-                <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleDisplay(editTarget.account_role) }}<template v-if="extraRolesOf(editTarget).length">（兼任 {{ extraRolesOf(editTarget).map(roleDisplay).join('、') }}）</template> · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span></p>
+                <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleDisplay(editTarget.account_role) }}<template v-if="extraRolesOf(editTarget).length">（兼任 {{ extraRolesOf(editTarget).map(roleDisplay).join('、') }}）</template> · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span> · 可登录：{{ loginScopeLabel(editTarget.account_login_scope || defaultLoginScope(editTarget.account_role)) }}</p>
                 <div class="df-acc-row">
                   <select v-model="accRoleEdit" class="input acc-role">
                     <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
                   <button class="btn btn-primary btn-sm" :disabled="accBusy || !accRoleDirty" @click="saveAccRole">保存角色</button>
                 </div>
+                <!-- v307 可登录端：默认按岗位给出（如「员工」默认仅小程序），**可手动改**。
+                     ⚠️ 两项说明写在界面上，因为它俩正是最容易误解的地方：
+                       ① 这只管「能不能登录这个端」，**能看哪些页面仍由角色决定**；
+                       ② 改了**不影响已登录的人**，只在他下次登录时生效。 -->
+                <div class="df-acc-row">
+                  <span class="df-acc-exp-label">可登录端</span>
+                  <select v-model="accScopeEdit" class="input acc-role" aria-label="可登录端">
+                    <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                  </select>
+                  <button class="btn btn-primary btn-sm" :disabled="accBusy || !accScopeDirty" @click="saveAccScope">保存</button>
+                </div>
+                <p class="df-tip">只决定这个账号能从哪里登录；能看哪些页面由上面的角色决定。保存后，该账号<b>下次登录</b>时生效。</p>
                 <!-- v266 角色可叠加：兼任角色**只增加权限**，不改上面的主角色。
                      主角色决定「这个人是干嘛的」（销售只看自己的单、能不能用小程序…）；
                      兼任让一个人同时干两份活（如 业务员 + 库管、会计 + 主管）。 -->
@@ -362,10 +424,11 @@ function snapshotForm() { formSnap.value = JSON.stringify(editForm) }
  * 「适用端」标注不再是手写文案，而是由 `ROLE_END`（唯一来源）**生成** —— 它的键集有护栏，
  * 会与后端「持有 `data`/`*`」的角色集逐项比对（`role-registry-consistency-check.py` D 段）。
  * 顺序：先小程序主力（员工 / 主管 / 业务员），再网页端专用，最后两个全权限角色。 */
-const BUILTIN_ROLE_ORDER = ['staff', 'supervisor', 'sales', 'guide', 'driver', 'accountant', 'boss', 'admin']
+const BUILTIN_ROLE_ORDER = ['staff', 'distributor', 'supervisor', 'sales', 'guide', 'driver', 'accountant', 'boss', 'admin']
 /** 内置角色的业务说明（**只写"干什么"**；「适用端」由 `ROLE_END` 生成，不在这里重复）。 */
 const ROLE_HINTS = {
   staff: '报单 / AI 对话 / 库存',
+  distributor: '外部客户报单',
   supervisor: '汇总总表 / 数据',
   sales: '销售 / 采购 / 客户 / 报单',
   guide: '销售 / 采购 / 客户 / 库存',
@@ -432,8 +495,18 @@ function roleDisplay(r) {
   if (roleCatalog.value && roleCatalog.value[k]) return k
   return roleName(k)
 }
-const accForm2 = reactive({ username: '', password: '', role: 'staff' })
+const accForm2 = reactive({ username: '', password: '', role: 'staff', login_scope: defaultLoginScope('staff') })
+/* v307：换角色 ⇒ 可登录端**重取默认值**（默认跟随角色）；用户手动改过之后
+   再换角色会重设，这是刻意的 —— 换角色等于换岗位，沿用上一个岗位的端设置更危险。 */
+watch(() => accForm2.role, (r) => { accForm2.login_scope = defaultLoginScope(r) })
 const accRoleEdit = ref('staff')
+/* v307 登录范围（这个账号允许从哪个端登录）。
+   🔴 **默认跟随角色的适用端**（`defaultLoginScope` → `ROLE_END` 唯一源），**可手动改**
+      ⇒ 满足「业务员 / 促销员默认只开小程序，需要时再开通网页端」。
+   🔴 与「角色」**分开保存**：两套端点、字段零交集（同本弹窗其它项的处理一致），
+      不要合并成一个"保存账号"按钮 —— 合并后一处失败会连累另一处。 */
+const accScopeEdit = ref('both')
+const accScopeBase = ref('both')          // 打开弹窗时的原值（判脏用）
 /* v266 角色可叠加：**兼任角色**（只加权限，不改主角色承载的单值语义 ——
    主角色仍决定「这个人是干嘛的」：销售只看自己的单、小程序能不能报单…）。
    存数组便于多选；提交时拼成数组交给后端（后端 `core.user_roles` 也容错中文分隔符）。 */
@@ -549,13 +622,17 @@ function resetEditForm(e) {
   editForm.social_insurance_base = src.social_insurance_base != null ? src.social_insurance_base : null
   editForm.housing_fund_base = src.housing_fund_base != null ? src.housing_fund_base : null
   editForm.base_salary = e ? (salaryOf(e) || null) : null
+  // v294：个人仓（0 = 未设）。转 Number 是必需的 —— `<select>` 的 v-model 会得到字符串
+  // "3"，而 `report_mapping_create` 那边读出来要和仓库 id 比大小；统一在入口归一。
+  editForm.warehouse_id = Number(src.warehouse_id) || 0
   // 账号区状态复位
   accForm2.username = ''
   accForm2.password = ''
   accForm2.role = 'staff'
-  accRoleEdit.value = src.account_role || 'staff'
-  accRolesEdit.value = String(src.account_roles || '')
-    .split(/[,，、;；]/).map(s => s.trim()).filter(Boolean)
+  accForm2.login_scope = defaultLoginScope('staff')
+  // v307：账号区编辑态**统一走 syncRoleEdit 一处**。此前这里把那三行抄了一遍 ——
+  // 抄第二遍的代价正是「新增字段时只改了一处」（v307 的登录范围就是这样漏的）。
+  syncRoleEdit(src)
   accPwdEdit.value = ''
   showReset.value = false
   // v288：改账号的展开态与输入也要复位 —— 否则换一个人打开弹窗，输入框里留着**上一个人**
@@ -708,6 +785,7 @@ async function createAccountInEdit() {
       password: accForm2.password,
       display_name: editTarget.value.name,
       role: accForm2.role,
+      login_scope: accForm2.login_scope,
     })
     toast('账号已开通', 'ok')
     // v290（2026-09-27）：不关窗 —— 开通后刷新即就地切到「已有账号」态，
@@ -717,6 +795,57 @@ async function createAccountInEdit() {
     if (fresh) editTarget.value = fresh
   } catch (e) { toast(e.message || '开通失败', 'err') }
   finally { accBusy.value = false }
+}
+
+/* ---- v308 外部客户账号（分销商）---------------------------------------------
+   🔴 **为什么入口在这里，而不是在客户档案**：
+     ① 登录账号在**主库 `users`**、客户业务数据在**租户库** —— 放客户档案要跨库写两处，
+        破坏现有多租户隔离边界；
+     ② 本系统现在**没有客户主数据表**（`CustomerArchive.vue` 是数据源同步页，不是客户档案），
+        为放一个入口先造一整套客户主数据，成本是前者的数倍；
+     ③ 放员工档案可**复用**现成的密码策略（`PWD_HINT`）、角色白名单（后端强制 distributor）、
+        自助改密通道。
+   🔴 外部客户**不是员工** ⇒ 不建人事档案、不进工资核算、不占员工编号
+     （后端 `employee_id` 保持 0，身份留痕写 `external_ref`），避免污染人事/工资口径。 */
+const extOpen = ref(false)
+const extAccounts = ref([])
+const extBusy = ref(false)
+const extForm = reactive({ name: '', username: '', password: '', login_scope: 'mini' })
+
+async function loadExtAccounts() {
+  try {
+    const d = await api('/api/users')
+    extAccounts.value = (d.users || []).filter(u => String(u.external_ref || '').trim())
+  } catch { extAccounts.value = [] }   // 无权限/接口抖动：当"没有"，下拉里不显示即可，不打断整页
+}
+
+async function createExtAccount() {
+  if (extBusy.value) return
+  if (!extForm.name.trim()) { toast('请填写客户名称', 'err'); return }
+  if (!pwdOk(extForm.password)) { toast('初始密码需' + PWD_HINT, 'err'); return }
+  extBusy.value = true
+  try {
+    await staffAccountApi.createAccount({
+      employee_id: 0,                        // 外部客户不关联员工
+      username: extForm.username.trim(),
+      password: extForm.password,
+      display_name: extForm.name.trim(),
+      role: 'distributor',                   // 后端强制；外部账号不允许其它角色
+      login_scope: extForm.login_scope,
+      external_ref: extForm.name.trim(),     // 身份留痕
+    })
+    toast('外部客户账号已开通', 'ok')
+    extForm.name = ''; extForm.username = ''; extForm.password = ''
+    await loadExtAccounts()
+  } catch (e) { toast(e.message || '开通失败', 'err') }
+  finally { extBusy.value = false }
+}
+
+async function toggleExtAccount(u) {
+  try {
+    await api(`/api/users/${u.id}/status`, { method: 'PUT', body: { is_active: u.is_active ? 0 : 1 } })
+    await loadExtAccounts()
+  } catch (e) { toast(e.message || '操作失败', 'err') }
 }
 
 /* ---- v266 兼任角色（角色可叠加）---------------------------------------------
@@ -751,6 +880,31 @@ function syncRoleEdit(e) {
   accRoleEdit.value = src.account_role || 'staff'
   accRolesEdit.value = String(src.account_roles || '')
     .split(/[,，、;；]/).map(s => s.trim()).filter(Boolean)
+  // v307 登录范围：库里有值 ⇒ 用它（**手工值优先**）；库里为空 ⇒ 按角色默认（存量账号）。
+  const cur = String(src.account_login_scope || '').trim()
+  accScopeEdit.value = cur || defaultLoginScope(accRoleEdit.value)
+  accScopeBase.value = accScopeEdit.value
+}
+
+/* v307 判脏：与「打开弹窗时的原值」比，而不是与后端值比 ——
+   本弹窗里多项改动各自独立保存，保存后 `editTarget` 会刷新，若拿它比会把
+   "刚保存完的这一项"误判成仍在修改（界面上「有未保存的改动」标签不消失）。 */
+const accScopeDirty = computed(() => accScopeEdit.value !== accScopeBase.value)
+
+async function saveAccScope() {
+  if (accBusy.value || !editTarget.value || !editTarget.value.account_user_id) return
+  accBusy.value = true
+  try {
+    await api(`/api/users/${editTarget.value.account_user_id}/login-scope`, {
+      method: 'PUT',
+      body: { login_scope: accScopeEdit.value },
+    })
+    toast('可登录端已保存', 'ok')
+    await loadEmployees()
+    const fresh = employees.value.find(x => x.id === (editTarget.value && editTarget.value.id))
+    if (fresh) { editTarget.value = fresh; syncRoleEdit(fresh) }
+  } catch (e) { toast(e.message || '保存失败', 'err') }
+  finally { accBusy.value = false }
 }
 
 /* ==== v290（2026-09-27）「未保存改动」的统一判据 ==============================
@@ -972,8 +1126,10 @@ async function doImportEmployees() {
 
 onMounted(() => {
   loadEmployees()
+  loadWarehouses()   // v294：个人仓下拉的数据源（失败静默降级，见函数注释）
   loadRoleCatalog()  // v300：角色下拉的动态值域（403/失败静默降级为内置 8 项，见函数注释）
   probeConnectors()
+  loadExtAccounts()  // v308：外部客户账号（失败静默 —— 无权限就当"没有"，不打断整页）
 })
 </script>
 
@@ -1020,6 +1176,15 @@ onMounted(() => {
    与 r-staff 撞色 —— 主管和其他角色混在一起看不出来。用 indigo 与既有的
    red/orange/blue/emerald/purple/amber 都拉开距离。 */
 .df-role.r-supervisor{background:rgba(99,102,241,.14);color:#6366f1}
+/* v307 分销商：角色表新增的第 9 个角色，**先想好色再上线** —— 不定义就会落回基础
+   .df-role（teal）与「员工」撞色，列表里分不出谁是外部客户（2026-09-19 主管踩过同一个坑）。
+   用 rose（玫瑰红）与既有 8 色都拉开距离，也暗示"外部 / 需留意"。 */
+.df-role.r-distributor{background:rgba(244,63,94,.14);color:#f43f5e}
+/* v308 外部客户账号分区：表单单行自适应换行（窄屏自动折行，不横向溢出）。 */
+.df-ext{margin-bottom:12px}
+.df-ext-body{padding:10px 12px 4px}
+.df-ext-form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:8px 0}
+.df-ext-form .df-field{min-width:150px;flex:1 1 150px}
 .df-role.stopped{background:#e5e7eb !important;color:#9aa0a6 !important}
 /* v266 兼任角色徽标：用**虚框**而非实底，与主角色实底徽标在视觉上分层
    —— 一眼看出「哪个是这个人的本职、哪个是兼的」。 */

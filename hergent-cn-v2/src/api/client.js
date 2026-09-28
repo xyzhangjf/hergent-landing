@@ -61,11 +61,18 @@ function _authErrText(res, data, fallback) {
   return data.detail || data.message || (res.status === 429 ? '操作过于频繁，请稍后再试' : fallback)
 }
 
-/* 登录（复用现有后端 /api/auth/login，字段与后端 routers/auth.py 一致） */
+/* 登录（复用现有后端 /api/auth/login，字段与后端 routers/auth.py 一致）
+
+   v307：网页端必须自报家门 `X-Client: web`。
+   🔴 为什么必须带：后端「登录范围」判据里，**缺头一律视为小程序**（fail-open）——
+     存量小程序客户端不带这个头且已备案上线，改成"必带头"会当场切断所有存量小程序登录，
+     所以只能由**随时可发版的网页端**来补。不带 ⇒ 网页端被当成小程序，
+     于是「仅网页端」的账号登不进来、而「仅小程序」的账号反而能从网页端登进去。
+   🔴 这条头只是**自报家门**（客户端可伪造），不是安全边界；真正的边界仍是后端模块权限。 */
 export async function login(username, password) {
   const res = await fetch('/api/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Client': 'web' },
     body: JSON.stringify({ username, password })
   })
   const data = await res.json().catch(() => ({}))

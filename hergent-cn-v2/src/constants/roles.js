@@ -29,6 +29,10 @@ export const ROLE_NAMES = {
   driver: '司机',
   staff: '员工',
   supervisor: '主管',
+  // v307 分销商（**外部客户**，不是本企业员工）：只用小程序给自己报单。
+  // 🔴 键名用 `distributor` 而非 `dealer` —— `dealer` 是演示期遗留的**视图令牌**
+  //    （见下方 `ROLE_VIEW_TOKEN_NAMES`），复用会让历史值就地变成真实角色。
+  distributor: '分销商',
 }
 
 /** 视图令牌 → 中文名（**不是**后端角色；只为兼容历史配置/遗留 localStorage 值）。 */
@@ -131,12 +135,41 @@ export function roleName(r) {
  */
 export const ROLE_END = {
   staff: 'mini',                                       // 仅小程序
+  // v307 分销商：外部客户 ⇒ **默认只开小程序**（登录入口），这也是「默认小程序 + 可手动开通
+  //   网页端」这条需求的落点。改这里会同时改到角色下拉的适用端标注（两职合一，见下方说明）。
+  distributor: 'mini',
   supervisor: 'both', sales: 'both', boss: 'both', admin: 'both',
   guide: 'web', driver: 'web', accountant: 'web',      // 仅网页端
 }
 
 /** `ROLE_END` 的取值 → 中文标注（员工档案下拉 label / 账号摘要用）。 */
 export const ROLE_END_LABEL = { mini: '仅小程序', both: '网页端 + 小程序', web: '仅网页端' }
+
+/* ---- v307 登录范围（账号允许从哪个端登录）----------------------------------
+   ⚠️ `ROLE_END` 现在**身兼两职**：① 角色下拉里的「适用端」标注（能力）
+      ② 新建账号时「可登录端」的**默认值**（入口）。
+      第 ② 条是本轮新增 —— 默认值刻意**复用同一张表**，不另抄一份名单
+      （本项目三次栽在"同一规则抄成两份"）。界面上仍可手动改，改了以手工值为准。
+   -------------------------------------------------------------------------- */
+
+/** 下拉选项。取值与后端 `core.LOGIN_SCOPES` **逐字一致**，顺序即界面顺序。 */
+export const LOGIN_SCOPE_OPTIONS = [
+  { value: 'mini', label: '仅小程序' },
+  { value: 'both', label: '网页端 + 小程序' },
+  { value: 'web', label: '仅网页端' },
+]
+
+/** 中文标注（账号摘要、列表列用）。与 `ROLE_END_LABEL` 取值口径相同，分开存只为语义清楚。 */
+export function loginScopeLabel(v) {
+  return ({ mini: '仅小程序', both: '网页端 + 小程序', web: '仅网页端' })[v] || '网页端 + 小程序'
+}
+
+/** 某角色的**默认**登录范围 = 它的适用端。
+ *  🔴 未登记的角色（含客户自定义角色）一律 `both` —— 宁可放宽也不猜
+ *     （猜错 = 某个客户的人登不进来，而唯一能改的人可能也被挡着）。 */
+export function defaultLoginScope(r) {
+  return ROLE_END[r] || 'both'
+}
 
 /**
  * 能在小程序里干活的后端角色（含 admin 的 `*` 通配）。

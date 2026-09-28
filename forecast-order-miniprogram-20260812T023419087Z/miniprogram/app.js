@@ -1,4 +1,5 @@
 const { track, flush, EVENTS } = require('./utils/track')
+const { loadPerms } = require('./utils/perm')
 
 App({
   globalData: {
@@ -25,6 +26,13 @@ App({
   onShow() {
     // 回到前台：把离线期间攒下的事件送一次
     flush()
+    // v307：顺带**按需**刷新权限（缓存未过期则不会真的发请求，见 `loadPerms` 的 TTL 逻辑）。
+    //   为什么加这一条：管理员在网页端改了某角色的权限后，小程序侧原来**最多要等 5 分钟**
+    //   （缓存 TTL），而用户看到的是"网页端改了、手机没变"。
+    //   🔴 刻意 `force=false`：小程序没有"切标签页"这种高频时机，若每次回前台都强拉，
+    //      一天几十次请求纯属浪费；TTL 过期才真拉，既对齐网页端又省流量。
+    //   🔴 失败静默（loadPerms 永不 reject 且 fail-open）：一次刷新失败不该打扰用户。
+    if (this.globalData.token) loadPerms(false)
   },
   onHide() {
     // 退到后台：小程序可能被随时回收，这是最可靠的发送时机

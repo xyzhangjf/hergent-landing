@@ -532,10 +532,13 @@ async function resetMemory() {
 const ROLE_LABELS = {
   admin: '系统管理员', boss: '老板（全权限）', accountant: '财务 / 文员', sales: '业务员',
   guide: '导购', driver: '司机', staff: '员工（小程序）', supervisor: '主管',
+  // v307 分销商：外部客户，默认只给 `data`（够跑通小程序报单），且默认只开小程序登录。
+  distributor: '分销商（外部客户）',
 }
 const ROLE_DESCS = {
   admin: '全部权限（不可修改）', boss: '全部模块', accountant: '财务相关', sales: '销售 + 采购 + 库存',
   guide: '销售 + 库存', driver: '看板 + 库存', staff: '填报 + AI 对话', supervisor: '审批 + 数据',
+  distributor: '仅报单（外部客户）',
 }
 const LOCKED_ROLES = ['admin']                  // 管理员不可改，保留唯一兜底账号
 // 本页依赖 /api/role-permissions(hr) 与 /api/users(data)；只有 admin/boss 能进入，

@@ -36,10 +36,48 @@ function _curIdentity() {
   return { username: u.username || '', tenantId: String(t || '') }
 }
 
-function _canReportFrom(perms) {
+/* v307：小程序里的**能力点** → 后端模块名。
+   🔴 取值必须与后端 `core._ALL_MODULES` **逐字一致**（改后端模块名要同步改这里），
+      因为判据读的就是后端 `/api/auth/permissions` 返回的那个数组。
+   🔴 只列小程序**用得到**的模块，不必照抄全部 17 个 —— 没用到的列进来只会让
+      未来的维护者以为这里真的在判它。 */
+const MODULES = {
+  report: 'data',      // 报单（小程序的 7 个业务端点全映射 data）
+  stock: 'stock',      // 库存
+  chat: 'chat',        // AI 对话
+  cron: 'cron',        // 定时任务
+  bid: 'bid',          // 中标 / 招标
+  summary: 'data',     // 汇总总表（报单数据域）
+}
+
+/** 判据：**与网页端 `canModule` 同口径** —— 通配 `*` 或含该模块即放行。
+ *  🔴 调用它之前必须已经是「已知」状态：传进来的 `perms` 来自后端成功返回或有效缓存。
+ *     「还不知道」这个状态由 `known:false` 表达，且**只在 `peekPerms` 一处**做 fail-open。
+ *     把两种状态混成一个假值，是这套闸最容易写错的地方（后果详见下面空数组那一段）。 */
+function canModuleFrom(perms, m) {
+  // 🔴 空数组 = **已确认一个模块都没有**（不是"不知道"）⇒ 判无权限。
+  //    「不知道」由 `known:false` 表达，调用方在那里才 fail-open（见 `peekPerms`）。
+  //    两者绝不能混 —— 混了的结果是：客户在网页端把某角色的权限全取消后，
+  //    小程序反而把人放进填报页到处 403（看着像"改了权限没生效"）。
   if (!perms || !perms.length) return false
   if (perms.indexOf('*') >= 0) return true
-  return perms.indexOf('data') >= 0
+  return perms.indexOf(m) >= 0
+}
+
+function _canReportFrom(perms) {
+  // v307：报单能力**不再自带一套判据**，改为走通用 `canModule`（否则以后加一个能力点
+  // 就要再抄一遍"先看 * 再看模块"，两处迟早漂移 —— 本项目三次栽在这上面）。
+  return canModuleFrom(perms, MODULES.report)
+}
+
+/** 某个能力点能不能用（`'report' | 'stock' | 'chat' | 'cron' | 'bid' | 'summary'`）。
+ *  🔴 未知的能力点名 ⇒ 返回 `false`（**收紧**）：宁可暂时不显示，也别把没登记的能力
+ *     当成"可用"放出去 —— 那等于凭空给了一个没人复核过权限的入口。
+ *     （与 `known=false ⇒ fail-open` 不冲突：那条防的是**接口抖动**，这条防的是**代码漏登记**。） */
+function _canUse(perms, key) {
+  const m = MODULES[key]
+  if (!m) return false
+  return canModuleFrom(perms, m)
 }
 
 /** 读缓存。身份不符 / 过期 / 无缓存 → null（= 还不知道）。 */
@@ -57,13 +95,18 @@ function readCache() {
     role: raw.role || '',
     permissions: raw.permissions,
     canReport: _canReportFrom(raw.permissions),
+    canUse: function (k) { return _canUse(raw.permissions, k) },   // v307
     fromCache: true
   }
 }
 
 /** 同步取「已确认的权限状态」。未加载/过期 → `{known:false}`（调用方按 fail-open 处理）。 */
 function peekPerms() {
-  return readCache() || { known: false, role: '', permissions: [], canReport: true }
+  // 🔴 `known:false` 时 `canUse` **必须**返回 true（fail-open）：权限还没拉到的时候
+  //    把按钮/入口藏掉，用户看到的是「功能不见了」而不是「加载中」，且**零报错**。
+  const noop = { known: false, role: '', permissions: [], canReport: true,
+                 canUse: function () { return true } }
+  return readCache() || noop
 }
 
 function _write(role, permissions) {
@@ -106,8 +149,11 @@ function loadPerms(force) {
         if (r.statusCode === 200 && Array.isArray(b.permissions)) {
           const role = (b.user && b.user.role) || ''
           _write(role, b.permissions)
-          resolve({ known: true, role: role, permissions: b.permissions,
-                    canReport: _canReportFrom(b.permissions), fromCache: false })
+          const _ps = b.permissions
+          resolve({ known: true, role: role, permissions: _ps,
+                    canReport: _canReportFrom(_ps),
+                    canUse: function (k) { return _canUse(_ps, k) },   // v307
+                    fromCache: false })
         } else {
           // 非 200：**不**据此断定无权限（可能只是网关抖动）⇒ fail-open
           resolve({ known: false, role: '', permissions: [], canReport: true })
@@ -125,4 +171,5 @@ function clearPerms() {
   try { wx.removeStorageSync(CACHE_KEY) } catch (e) { }
 }
 
-module.exports = { loadPerms, peekPerms, readCache, clearPerms, canReportFrom: _canReportFrom, CACHE_KEY }
+module.exports = { loadPerms, peekPerms, readCache, clearPerms, canReportFrom: _canReportFrom,
+                   canModuleFrom, canUse: _canUse, MODULES, CACHE_KEY }
