@@ -385,3 +385,52 @@ npx vite build --outDir dist-<本轮号> --emptyOutDir   # 全新目录 ⇒ 没�
 5. **已知未修（不是本轮范围，勿静默改别人文件）**：`server/tests/`
    `test_period_prev_v273.py`、`test_rhythm_only_rule_v282.py`、`test_user_rename_v288.py`
    三个文件 import server 模块但 **`ERP_DB_PATH` 出现 0 次** ⇒ 直接跑会写真库。修法同上。
+
+---
+
+## 19. 🔴 浏览器语音输入「真机测试」的四个坑（2026-09-28 一次踩齐）
+
+**场景**：要验「点麦克风按钮能不能真的识别」。这类测试有个特点：**功能全在浏览器侧**，
+所以既要测应用接线，又要测浏览器与网络——**两者的结论不能互相顶替**。
+
+### 19.1 🔴 Chrome 同时暴露**两个**构造器，替换/包装必须**两个都做**
+`window.SpeechRecognition` **与** `window.webkitSpeechRecognition` 在现代 Chrome 里**都存在**，
+而 `useVoiceInput.js` 取的是 `window.SpeechRecognition || window.webkitSpeechRecognition`
+⇒ 只包 `webkitSpeechRecognition` 时，**应用走的是没被包的那个**，
+表现为「点击后事件列表 / 模拟结果全都为空」，看起来像**按钮没接线**（实际是探针自己漏了）。
+判据：包装后先断言 `[!!window.SpeechRecognition, !!window.webkitSpeechRecognition]` 两个都为 true，
+且**以应用实际取用的那个为准**。
+
+### 19.2 `--use-fake-device-for-media-stream` **喂不进语音识别**
+- 它 + `--use-fake-ui-for-media-stream` 能让 `getUserMedia` 成功（设备名 `Fake Default Audio Input`），
+  但 `SpeechRecognition` 走的是**另一条特权采集通道**，不认假设备 ⇒ 报 **`audio-capture`**。
+- ⇒ **别用 `audio-capture` 判定"用户的麦克风坏了"** —— 那是自动化环境的限制。
+- ⇒ 反过来说：**麦克风/识别路径无法在本机无头环境里做端到端正向验证**；
+  要正向证据只能靠「浏览器层能否连到语音服务」+「应用侧结果渲染」两段分别证。
+
+### 19.3 本机没有真中文 TTS 声音，`say -v Eddy` 会产出**哑文件**
+- `say -v '?' | grep zh_CN` 列出的 `Eddy/Flo/Grandma/...` 是**新奇(novelty)声音**；
+  用**短名** `say -v Eddy -o a.aiff "中文"` 会静默产出 **4800 字节**的哑文件（每次一样大）。
+- ✅ 必须用**完整声音名**：`say -v 'Eddy (中文（中国大陆）)' -o a.aiff "库存还有多少"` → 79KB（约 3.6s 真音频）。
+- 转 Chrome 假麦克风要的格式：`afconvert -f WAVE -d LEI16@16000 -c 1 a.aiff a.wav`（16k/mono/16bit）。
+- 🔴 **自证**：转完必须用 `wave` 读一次 `getnframes()/getframerate()`；只 `ls -l` 看字节数会漏掉
+  「头里 nframes=320（0.02s）」这种**哑文件也能有 4.5KB** 的情况。
+
+### 19.4 在页面里做网络探测**必须带超时**
+`page.evaluate(() => fetch('https://www.google.com/...'))` 在**黑洞网络**下会挂很久（不是快速失败），
+整个探针被宿主 SIGTERM（`exit=137`、**stdout 还因为管道缓冲全丢**，看起来像"脚本没跑"）。
+⇒ 一律 `fetch(url, { signal: AbortSignal.timeout(5000) })`；`mode:'no-cors'` 只能判"有没有到"，
+判状态码要用可 CORS 的地址。
+
+---
+
+## 20. 🔴 「浏览器说支持」≠「能用」：Chrome 的 `available()` 不检查网络（2026-09-28 实测）
+
+`SpeechRecognition.available({langs:['zh-CN'], processLocally:false})` 返回 **`"available"`**，
+但同一台机器上 `fetch('https://speech.googleapis.com/')` **5 秒超时**。
+⇒ 云端可用性**只看浏览器自己的登记表，不探网**。
+判据：**「能力声明」与「实际连通」是两件事**（与本项目「接口 200 ≠ 数据正常」同族）。
+另：`processLocally:true` 查中文得 **`downloadable`** ⇒ 设备端模型**存在但未装**，
+代码若不显式设 `r.processLocally = true`，永远走云端那条路。
+
+---
