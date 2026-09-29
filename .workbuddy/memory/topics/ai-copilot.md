@@ -259,6 +259,19 @@ A5 **把网页副驾网关从 root 降权**（**不是停** —— 它是 nginx 
 必须查两件事：① 通篇有没有 `call_ai` / `chat_ai`；② 有没有被 import（`grep -rn` 时排除自身文件）。
 本轮两个坑都踩到过，记住。
 
+🔴 **v301（2026-09-27）把判据抬到「全仓调用点」层**：
+`grep -rn "chat/completions" server/` ⇒ 后端真模型调用点**全仓只有 7 处**：
+`ai_engine.py:17-18`（DeepSeek / 通义网关）· `hermes_core.py:14` · `hermes_bridge.py:11`（`call_hermes`）·
+`ocr.py:11`（图片/PDF 识别）· `routers/ai_judgement.py:39` · `routers/copilot_proxy.py:35`（Web 副驾）·
+`routers/forecast_config.py:1146`（`/hermes-analyze` 异常根因分析）。
+👉 **没出现在这 7 处的「AI 能力」，一律先按"待核实"处理，不得直接对外讲。**
+
+📄 **唯一权威表 = `docs/AI能力对照表.md`**（2026-09-27 落盘）：
+真 AI 10 项 / 已整改 1 项 / 灰区 4 处 / 对外口径三条红线。
+**新增任何带「AI」的界面文案，都要先在这张表里登记。**
+⚠️ 别再按「前端 `grep -c "AI"` 的文案条数」对齐 —— 前端含 "AI" 的文案有 100+ 处，
+绝大多数是**同一个真能力的界面碎片**，按条数对齐会得出错误结论。**按「能力」组织。**
+
 ### 真正调大模型的只有四处（调用链已验证）
 
 | # | 文件 | 能力 | 调用链 |
@@ -268,12 +281,16 @@ A5 **把网页副驾网关从 root 降权**（**不是停** —— 它是 nginx 
 | ③ | `ai_product_fill.py` | 商品字段补全（品牌/品类/规格/单位/建议价）。🔴 **本地规则优先（0 token），模糊才调模型** | `server.py:4759` |
 | ④ | `CopilotDrawer.vue` + `AiHub.vue` | 副驾问答/报告/卡片；用量配额·个性化洞察·长期画像 | ↔ `routers/ai_assist.py` |
 
-### 名不副实的两个（对外讲之前先处理）
+### ⚠️ 不是「名不副实」，但对外仍禁提（**v301 修正定性**）
 
-- **`ai_tools.py` 的 `AI_TOOLS`（11 个工具）通篇零模型调用** —— 纯 SQL + 阈值判断。
-  它的真实角色是「**给 AI 用的工具**」，不是 AI。
-  🔴 **对外绝对不要提「我们有 11 个 AI 工具」**，被追问一行代码就穿帮。
-  接线：`server.py:3285+`、`scheduler.py:664`。
+- **`ai_tools.py` 的 `AI_TOOLS`（11 个工具）通篇零模型调用** —— 纯 SQL + 阈值，
+  **11 个全部只读**（`tool_sales_today` / `tool_ar_aging` / `tool_expiry_alert` …）。
+  🔴 **v301（2026-09-27）修正**：docstring 原文 `These functions are callable by AI agents via the
+  Gateway tool system.` ⇒ 它的真实角色是「**给 AI 用的工具**」（AI 的手脚），
+  `ai_` = 「**服务于 AI**」，**不是「由模型计算」** ⇒ **它不是名不副实**。
+  **但结论不变**：🔴 **对外仍绝对不要提「我们有 11 个 AI 工具」** —— 客户会读成
+  「有 11 个模型能力」，属夸大。**不是假，是会误导。**
+  接线（实测）：`server.py:3627` / `3680 list_ai_tools` / `3690 get_tool`。
 - ✅ **`ai_learning.py` 已于 2026-09-19 删除**（原是**已接线**的坏接口，非死代码 —— 见上文「跨租户经验采集」节）。
   删除前的真实状态：三个接口**没有一个能工作**（SQL 列名与表结构不符 + 写路径与 FLAT 布局不符），
   且 `/approve` 的 `regex`/`tool` 零校验 ⇒ **未引爆的跨租户代码注入面**。零调用（nginx 0 命中）。
@@ -343,3 +360,168 @@ A5 **把网页副驾网关从 root 降权**（**不是停** —— 它是 nginx 
 **给 AI 这条路的底座已就位**：附件通道 `chat_attachment.py`（xlsx/csv/图/PDF + `/query`）✅ +
 `op="match"` 算子 ✅ + Hermes 卡片协议 `"type":"reconcile"`（**已定义但从未使用**）⚠️ +
 缺 1 个「逐笔应收/应付明细」只读工具（`ai_tools.py` 只有 `tool_ar_aging` 汇总）
+
+---
+
+## 🔴 能力名实对照表（2026-09-27 复核 —— **对外讲 AI 之前必读**）
+
+**判据**：界面/文件名带 `AI` ≠ 调了模型。逐个查 ① 有没有 `call_ai`/`chat_ai` ② 有没有被 import。
+
+| 界面 / 文件 | 名字含 AI | 真调模型 | 判定 |
+|---|---|---|---|
+| **「AI智能建议」按钮**（`Forecast.vue`） | ✅ | ❌ 前端 `computeSuggestion` 纯配方（安全库存 / 均值 / 趋势外推 / 加权融合）；后端 `routers/forecast_audit.py::audit_period` **通篇零模型调用** | 🔴 **名不副实** ⇒ **v301 已正名为「补货建议」**（代码已改，**未部署**） |
+| **`ai_advice_log` 23 条**（`tenant_1`） | ❌ 表名无 AI | ❌ **由大模型产出的 = 0 条** | 🔴 **不能当 AI 产出来讲** —— 构成见下 |
+| `ai_tools.py` 的 11 个工具 | ✅ | ❌ 纯 SQL + 阈值 | ⚠️ **不是名不副实**（`ai_` 指「服务于 AI」，它是 AI 的手脚）—— 但**对外仍禁提「11 个 AI 工具」**：原因不是假，是会误导 |
+| `ai_insight_llm.py` 经营洞察 | ✅ | ✅ 真调（跨表因果） | ✅ |
+| `ai_insights.py` 每日晨报 | ✅ | ✅ 真调 | ✅ |
+| `ai_product_fill.py` 商品补全 | ✅ | ✅ 本地规则优先、模糊才调 | ✅ |
+| 副驾问答 / 经营卡片 | ✅ | ✅ 真调 | ✅ |
+
+### 🔴 `ai_advice_log` 的真身（v301 实测 · **讲「AI 产出」之前必须先 GROUP BY**）
+
+那张表**共 23 条**，按 `ai_source` / `task_type` 拆开是这样：
+
+| `ai_source` | `task_type` | 条数 | 是不是 AI |
+|---|---|---|---|
+| `miniprogram:forecast` | `forecast_submit` | **19** | ❌ 小程序**报单提交时按规则算出的**分拨建议，只是走了同一条留痕通道 |
+| （空串） | `order_review` | 2 | ❌ 同上 |
+| `workflow:loss` | `loss_calc` | 1 | ❌ 工作流提示 |
+| `workflow:payroll` | `payroll_calc` | 1 | ❌ 工作流提示 |
+
+⇒ **由大模型产出的：0 条**。且 `status='pending'` 有 **21 条**、`decision` 非空仅 **2 条** ⇒ **没有一条被真正执行过**。
+**真正的「模型真在用」证据在副驾会话（会话数 / 消息条数），不在这张表里。**
+
+🔴 **一般化判据**：**表格的标签 ≠ 数据的构成。** 对外讲任何一个「产出量」之前，
+**先按来源列一次 GROUP BY** —— **先去数它，再决定怎么叫它**。
+`ai_` 前缀是**标签**，`GROUP BY ai_source` 才是**事实**。**改口径救不了错标签。**
+
+**两处「自己都不一致」（可直接被追问，务必先修）**：
+1. 「AI智能建议」**按钮**叫 AI，而**同一功能的列头**叫「**配方建议**」（`lblMap` 的 `suggest: '配方建议'`）。
+2. `forecast_audit.py` 的 docstring 写着「纯只读（**AI 只建议**…）」，实现里却没有任何模型调用
+   —— **注释口径 ≠ 代码行为**的又一实例。
+
+**处置顺序（不能颠倒）**：① 按钮已正名为「**补货建议**」（v301，代码已改未部署）→ ② 再谈对外宣传；
+③ 对外只讲「内嵌 AI 引擎」，**不讲引擎品牌**（Hermes 是第三方，当前 v0.19.0）；
+④ 唯一真正该讲的 AI 卖点是这两条：**「AI 是生产关系」**（一个人 + AI 做出 **1,349** 个唯一接口 / **367** 张表）
+＋ **「AI 的能力边界可以被工程管住」**（租户 AI 收进独立系统账号、跨租户库打不开）。
+⚠️ 数字口径：**接口 1,349 = 按「方法+路径」去重**（装饰器计数 1,445）；**页面 22 = 副驾端含 component 的路由**（ERP 端另有 102 模块，不对外）。
+
+**顺带一条现成的可信度资产**：`forecast_audit.py` 已有 `_sales_freshness`（v265），
+系统**已经**在算「这份建议依据的销量有多旧」；且前端在未连接 ERP 时有一段诚实提示
+（`Forecast.vue`：「未连接时建议量缺少数据支撑、仅供参考」）。
+
+🔥 ✅ **v301 已执行（P0-2「数据依据常显」）—— 关键发现值得记**：
+`_sales_freshness` **总是**返回读数（`max_date` / `days_stale` / `window_start` / `window_end` / `level`），
+是**前端** `auditStale`（`level !== 'fresh' ? f : null`）在 fresh 档把它丢掉
+⇒ **数据新鲜时反而看不到依据** —— 诚实的产品应当**始终**说明依据。
+改法：`auditStale` → **`auditFresh`**，**新鲜与否只决定配色、不决定是否渲染**；
+读数仍取自后端**同一份**、前端**不重算**（避免「同一事实两份实现」）。新增 `.audit-fresh-ok`（中性色）。
+🔴 **一般化判据**：凡「只在异常时才显示的解释」都值得反过来问一句 ——
+**正常态下用户看不看得到依据？** 看不到，就是把"别吵"做过了头。
+
+---
+
+## 🔴 `MEDIA:<绝对路径>` = 第 6 种协议标记，但**没有"统一剥离"**（2026-09-28 v306）
+
+**与上面 5 种围栏的本质区别**：`cards|card|clarify|proposal|reminder` 是**给前端看的控制信号**，
+剥掉就完；`MEDIA:` 是**「请把这个文件发给用户」的交付指令** —— 剥掉等于**丢文件**。
+⇒ 所以它**不能**进 `stripAllFences()`，必须**由渠道适配器各自消费**。
+
+### 🔴 铁律：同一份回复，**两个渠道的 MEDIA 处理完全不同**
+
+| 渠道 | 落点 | 行为 |
+| --- | --- | --- |
+| **企微** | `gateway/platforms/weixin.py::send_message`（~1851–1900） | `extract_media()` 摘标记 → `filter_media_delivery_paths()` → `_deliver_media()` → `send_document()` **真上传** ⇒ 客户端拿真附件 |
+| **Web 副驾** | `gateway/platforms/api_server.py::_resolve_media_to_data_urls`（589 起） | **只认图片**（`_MEDIA_IMG_EXT = {.png,.jpg,.jpeg,.gif,.webp,.bmp}`），`suffix not in …→ return None` ⇒ 非图片**原样退回**；该渠道**本无任何文件下载路由** |
+
+⇒ **症状 = 气泡里裸着 `MEDIA:/opt/…`**。⚠️ 见到此类症状**先问「是哪个渠道」**，
+别去查 `media_id`/`access_token`/鉴权/跨域/文件类型 —— **全都是错的方向**（v306 结论：与这些全无关，
+且**不调用企微任何服务端接口 ⇒ 无需企微权限与凭证**）。
+
+### 修法（v306 已落地，判据可复用）
+
+1. **后端补通道**（唯一真缺口）：`routers/ai_assist.py` 新增 `GET /api/ai/media`，
+   `_MEDIA_ROOTS=("output","media")` ＋ 纯函数 `_media_path_allowed(raw, home)`
+   （`realpath` + `commonpath` 双判 ⇒ 同时挡 `../` 穿越与**符号链接逃逸**）。
+   `FileResponse(filename=…)` 让中文名自动走 `filename*=utf-8''…`（不乱码）。
+   🔴 **准入要一起改**：`server.py::rbac_middleware` 必须把 `/api/ai/media` 与既有 `/api/ai/sessions`、
+   `/api/ai/search-chat` 并列**豁免模块判定** —— 否则无 `chat` 权限的角色看到卡片却 403
+   = 「点得动但打不开」，**比不给卡更糟**（认证仍由 `_get_user` ＋ 端点内 `_auth` 兜底）。
+2. **前端把标记变卡片**：`utils/md.js::splitMedia()` → `{text, files:[{path,name}]}`，
+   判据与 Hermes 的 `MEDIA_TAG_CLEANUP_RE` **对齐**（锚定绝对路径 ＋ 已知扩展名，
+   否则模型在正文里**提到** `MEDIA:` 也会被误摘），含**流式半截收尾**与去重。
+3. 🔴 **卡片必须走模板渲染，绝不能塞进 markdown HTML** —— `v-html` ＋ `<style scoped>` 编译成
+   `.md table[data-v-…]` ⇒ 注入的 DOM **拿不到** scoped 样式（复用 `.cp-art-file` 类名在模板里写）。
+
+### 落地状态（v306 ／ v306b，均已上线）
+
+- **后端**：扁平布局 `/opt/hergent-erp/`，md5 `d8023421…`/`a7b2f58d…`，备份 `*.bak-v306-20260928_153616`。
+- **前端三轮**：① 全量版（15:55，暴露空壳卡片）② **摘除版**（15:59，`index-D2ohw4_-.js`/`Shell-lZFC-FXN.js`）
+  ③ **下载修复版（当前线上，16:15）** `index-DvMm-2ep.js`/`Shell-9VFgLDdi.js`，
+  备份 `index.html.bak-v306b-20260928_161553`；公网入口实取一致、双侧 md5 3/3。
+- 🔴 **判夹带的方法**：chunk 名**什么都判不了**（hash 级联）⇒ 用「**可视串 ＋ 逻辑名**」比对本地构建产物
+  vs 从 `https://hergent.cn/assets/` 实拉的**现役** chunk（⚠️ 现役 Shell 名不在 `index.html` 里，
+  要去**入口 chunk** 里 grep；`Server-*.js` 之类容易与 `ArchiveShell-*.js` **子串误匹配**）。
+  且**必须再核「入口是否活着」**（`v-if="false"` 只藏 DOM、组件仍被打包 ⇒ 只看串会**误报**）。
+- 判夹带时**别信 401/403** —— RBAC 中间件在**路由匹配之前**返回，对「路由存不存在」零判别力；
+  必须用**有权限角色**（`demo-login` 的 boss）探 ⇒ `/api/collections/aging` 等 5 个接口在生产是 **404**。
+
+### 🔴🔴 v306b：卡片**能显示 ≠ 能下载** —— 裸 `<a href>` 不带鉴权头（老板原话「无法从网站上提取文件」）
+
+**症状**：文件卡显示正常、文件名**完全正确**，一点就进 Chrome 下载记录并失败：「无法从网站上提取文件」。
+**接口本身是好的**（带 token `curl` = 200 / 45,452 字节，与磁盘 md5 逐字节一致）。
+
+**根因**：本仓鉴权 = `Authorization: Bearer`（token 存 localStorage，**不是 cookie**）。
+裸 `<a href>` 是**普通链接跳转** ⇒ **不带这个头** ⇒ 端点回 **401（JSON）** ⇒ Chrome 中断下载。
+⇒ 正解 = `fetch(带头) → blob → objectURL → a.download → click`（本仓既有范式：
+`pages/Workbench.vue::downloadWeeklyDocx`、`api/modules.js` 的模板下载）。
+**落点**：`CopilotDrawer.vue` 新增 `downloadAuthed(url, name)`；气泡文件卡 ＋ **产物栏附件卡**
+（`/api/chat-attachment/download/:id`，同一个坑，带 token 实测存在但匿名必 401）都改走它。
+
+**四个极具迷惑性的点**（写进判据，别再被骗）：
+1. 🔴 **`:download` 属性会自己提供文件名** ⇒ 下载记录里文件名**完全正确**，只瞄名字会以为端点通了。
+   **判据必须是响应状态码**，不是文件名对不对。
+2. 🔴 **`revokeObjectURL` 不能紧跟 `click()` 同步执行** —— Chrome 还没读完 blob 就撤销，会报出
+   **一模一样**的「无法从网站上提取文件」⇒ 修好 401 又换回一个长得相同的故障（本仓多处这么写；
+   新代码一律延后 10 秒）。
+3. 🔴 **探针里「页面内 `fetch` 带 token」≠「用户点一下」** —— v306 第一版探针正是这么验的，
+   200 / 45,452 字节**全绿**却漏掉真缺陷。**凡「点了会发生什么」的验收，一律 `locator.click()`。**
+4. ⚠️ **导航型下载不上报页面 Network 域** ⇒ 挂 `page` 的 `response` 监听得到**空数组**（像是请求没发）。
+   要抓就挂 `ctx.on('response')` ＋ `ctx.on('page', p => attach(p))`（缺陷版卡片带 `target="_blank"`，
+   请求发生在**新页面**里）。
+
+**验收读数（模板）**：反例 `failure='canceled'` ＋ 裸链请求 **401**；正例 `failure=null` / **45,452 字节**
+/ 落盘文件名吻合 / 请求头含 `authorization` + `x-tenant-id`；该条消息**两个**文件各自 200 且
+**md5 与服务器磁盘逐字节一致**；回归件（纯文本 markdown 表格/列表）仍正常渲染、失败请求 = 无。
+
+---
+
+## 🔴 「AI 团队」角色**到底是什么**（2026-09-29 代码级核对 —— 谈"角色/团队"之前必读）
+
+**一句话**：今天的角色 = **人格提示词前缀 + 署名头像 + 推送落点**，仅此三者；**不是权限、不是能力、不是上下文**。
+
+**切一个角色实际只动三处**（`pickRole()` 全文只有 `setAiRole()` + 关菜单两行）：
+1. `CopilotDrawer.vue:87-88` 助手头像渲染读的是 **`currentRole`** ⇒ ⚠️ **全部历史回复被追溯性改写**（切谁，历史就都变成谁的）；
+2. `send()` 里 `sys = currentRole.system_prompt` ⇒ 只影响**下一条**消息；
+3. `pushRoleReply(role_id)` → `ai_role_channels` ⇒ 回复推到该角色绑定的 IM 渠道（**"团队"目前唯一有实体支撑的含义**）。
+
+**切换时一个都不动**：对话内容（`chat.messages` 原样）、`aiGuard`（只给建议/可执行是**另一个独立开关**）、
+会话归属（`saveCurrentSession` 只存 messages+updated_at，**不存角色**）、后端（请求体**无 role_id**；
+`copilot_proxy.py` 只认 messages 里的 `role:'user'/'system'`）。
+
+**字段天花板**：`ai_roles` = `name / system_prompt / opening / avatar / built_in / is_active / sort_order / custom_avatar`
+（`server/ai_roles.py:100`）—— **无** 技能 / 工具 / 模型 / 数据范围 / 权限 任何一列；也无 `ai_role_skills` 类表。
+`opening` 只当**菜单副标题**显示（`CopilotDrawer.vue:381`），不产生行为。
+
+**四条易犯的误判（判据/红线）**：
+- 🔴 **角色 ≠ 权限**。真边界是**用户的** RBAC 模块权限 + `ai_mode`(readonly/disabled)。把"切到会计"当"看不到财务以外"是危险误解。
+- 🔴 **system prompt 会被上文压过**：上下文是几十条具体内容，人格只是开头一句 ⇒ 延续会话里"切了像没切"是**必然**，不是 bug。
+- 🔴 **历史署名必须快照**（`m.roleId`），不能按 `currentRole` 渲染 —— 否则切角色 = 改写历史署名（多人与审计场景直接失真）。
+- 🔴 **要让角色当能力边界，必须后端按 role_id 裁剪**（现 system 由**前端拼**、后端不知角色 ⇒ 前端一改即越权）。
+
+**补齐清单（分层，详见 `outputs/AI团队角色切换-设计评估-2026-09-29.md`）**：
+L0 立刻正确 = 消息级 roleId 快照 / 切换插入分隔卡+`opening` 当开场白 / 输入框常驻"将由 X 回答" chip；
+L1 上下文语义 = 切换时二选一「新开/继续」+ 继续时 system 显式声明"上文由他人回答，勿沿用其口径"；
+L2 真差别 = `ai_roles` 扩 `skills/tools/model/data_scope/guard` + **后端裁剪** + 角色权限 ∩ 用户权限(fail-closed) + per-role 审计配额。
+**战略含义**：角色字段设计 = 「行业 skill pack + 数据范围 + 渠道」的**打包单位**；不补则"AI 团队"永远停在头像切换器，
+而它占的 UI 位置（会话级配置）反而在**承诺**它做不到的事。
