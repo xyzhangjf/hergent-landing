@@ -244,7 +244,9 @@ export const useAppStore = defineStore('app', () => {
     try {
       api('/api/ai/sessions', {
         method: 'POST', silent401: true,
-        body: { session_id: s.id, title: s.title || '', messages: s.messages || [] }
+        // v320：带上会话归属（空串 = 不属于任何角色）。后端对空串是「保持原值」，
+        // 所以旧客户端/本地缓存缺 roleId 时的补推也不会把服务端已记的归属清掉。
+        body: { session_id: s.id, title: s.title || '', messages: s.messages || [], role_id: s.roleId || '' }
       }).catch(() => {})
     } catch (_) {}
   }
@@ -273,7 +275,9 @@ export const useAppStore = defineStore('app', () => {
           title: s.title || (l && l.title) || '(无标题)',
           // 服务端只回标题，全文按需再拉（见 openChatSession）
           messages: (l && Array.isArray(l.messages)) ? l.messages : [],
-          updated_at: s.updated_at || (l && l.updated_at) || ''
+          updated_at: s.updated_at || (l && l.updated_at) || '',
+          // v320：归属以**服务端**为准（本机缓存可能还没有这个字段）
+          roleId: s.role_id || (l && l.roleId) || ''
         }
       })
       for (const s of chat.sessions) if (!serverIds.has(s.id)) merged.push(s)
@@ -290,6 +294,19 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  /* v320：「接着上次聊」的目标 —— 该角色名下**最近**的一条会话。
+     🔴 刻意**不存"每个角色的当前会话指针"**：指针是隐式状态，多端之间必然不同步
+       （A 端切了角色，B 端还指着旧的）。这里每次**从会话列表现算** ⇒
+       每端从同一份（服务端对齐后的）列表算出同一个答案：零新状态、零漂移。
+     🔴 归属为空串的会话（存量会话、旧客户端产生）**不属于任何角色** ⇒ 谁都不会"认领"它，
+       所以不会出现"点接着聊，结果跳到一段陌生会话"这种最坏情况。 */
+  function latestSessionOfRole(rid) {
+    if (!rid) return null
+    const cands = (chat.sessions || []).filter(s => s && s.roleId === rid)
+    if (!cands.length) return null
+    return cands.reduce((a, b) => (tsNum(b.updated_at) >= tsNum(a.updated_at) ? b : a))
+  }
+
   /* 退出登录时清掉本地会话缓存：会话按账号存服务端，
      本地若跨账号残留，会让下一个登录的人看到上一个人的对话。 */
   function clearChatCache() {
@@ -303,6 +320,18 @@ export const useAppStore = defineStore('app', () => {
   function saveCurrentSession() {
     const msgs = chat.messages.filter(m => m.content)
     if (!msgs.length) return
+    // 🔴 v320b 修复（本轮生产探针当场抓到，不是推测）：
+    //   **标题必须来自真实对话，不能被"切换角色"分隔标记占用。**
+    //   分隔标记的 `content` 非空（"已切换角色 · 以上由「X」，以下由「Y」回答"），
+    //   而落盘会被很多东西触发（切标签页 visibilitychange / 开历史 / 关页 / 换会话）。
+    //   于是「在**空会话**里先切角色、然后切走标签页」就会产出一条
+    //   标题=分隔文本、且**只有分隔标记**的会话 —— 真机上实测到了（历史列表里
+    //   多出一条叫「已切换角色 · 以上由「经营副驾」，以下由「会计…」的对话）。
+    //   ⇒ 只有分隔标记时**直接不保存**（没有真内容可存，就不该产生会话）。
+    //   ⚠️ 已保存的 `s.messages` 仍**保留** isSwitch —— 它是会话的一部分（重开时能看见
+    //      "从哪条换了人"），只是不参与标题、也不单独构成一条会话。
+    const real = msgs.filter(m => !m.isSwitch)
+    if (!real.length) return
     const now = Date.now()
     if (chat.currentId) {
       const s = chat.sessions.find(x => x.id === chat.currentId)
@@ -314,9 +343,13 @@ export const useAppStore = defineStore('app', () => {
       chat.currentId = 's' + now
       chat.sessions.unshift({
         id: chat.currentId,
-        title: msgs[0].content.slice(0, 24) + (msgs[0].content.length > 24 ? '…' : ''),
+        title: real[0].content.slice(0, 24) + (real[0].content.length > 24 ? '…' : ''),
         messages: msgs,
-        updated_at: now
+        updated_at: now,
+        // v320：**新会话记下"谁开的"**（= 创建那一刻的角色）。之后换角色继续聊同一段，
+        // 归属**不变** —— 「谁开的算谁的」，比"随最后一次发言的角色漂移"可预期得多。
+        // ⚠️ 已有会话走上面的分支，只更新 messages/updated_at，**不动归属**（与后端"只增不减"一致）。
+        roleId: chat.currentRole || ''
       })
     }
     saveSessions()
@@ -404,9 +437,9 @@ export const useAppStore = defineStore('app', () => {
     perms, permsTenant, loadPerms, canModule, resetPerms,
     permsRev, customRoles, refreshPermsIfChanged,
     plan, caps, canCap,
-    loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession,
+    loadSessions, loadSessionsFromServer, saveCurrentSession, newChatSession, openChatSession, deleteChatSession,
     clearChatCache,
-    loadAiRoles, setAiRole
+    loadAiRoles, setAiRole, latestSessionOfRole
   }
 })
 
@@ -420,6 +453,8 @@ export const toast = (...a) => store.toast(...a)
 export const setTheme = (...a) => store.setTheme(...a)
 export const loadSessions = (...a) => store.loadSessions(...a)
 export const saveCurrentSession = (...a) => store.saveCurrentSession(...a)
+export const loadSessionsFromServer = (...a) => store.loadSessionsFromServer(...a)
+export const latestSessionOfRole = (...a) => store.latestSessionOfRole(...a)
 export const newChatSession = (...a) => store.newChatSession(...a)
 export const openChatSession = (...a) => store.openChatSession(...a)
 export const deleteChatSession = (...a) => store.deleteChatSession(...a)

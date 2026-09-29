@@ -15,8 +15,7 @@
       <div v-for="r in sortedRoles" :key="r.role_id" class="rm-card" :class="{ off: !r.is_active }">
         <div class="rm-av-wrap">
           <button class="rm-av-btn" :title="r.custom_avatar ? '更换头像' : '上传头像'" @click="pickFile(r)">
-            <img v-if="r.custom_avatar" :src="avatarUrl(r)" class="rm-av-img" alt="">
-            <span v-else class="rm-av-emoji">{{ r.avatar || '🤖' }}</span>
+            <RoleAvatar :role="r" img-class="rm-av-img" text-class="rm-av-emoji" fallback="🤖" :bust="bust" />
           </button>
         </div>
         <div class="rm-main">
@@ -35,6 +34,14 @@
             <button class="rm-ch-add" @click="openBind(r)">+ 连接渠道</button>
           </div>
           <div class="rm-open">{{ r.opening || '（无开场白）' }}</div>
+          <!-- v319（L2）：能力摘要 —— 让"这个角色到底能干什么"在列表上就能看见，
+               不必点进去。⚠️ 未配置时显示的是「继承」语义（全部技能包 / 随权限），
+               不是"没有" —— 这两个字差别决定了老板会不会误以为功能坏了。 -->
+          <div class="rm-caps">
+            <span class="rm-cap" :class="'g-' + (r.guard || 'inherit')">{{ guardText(r) }}</span>
+            <span class="rm-cap">{{ (r.skills && r.skills.length) ? (r.skills.length + ' 个技能包') : '全部技能包' }}</span>
+            <span class="rm-cap">{{ (r.data_scope && r.data_scope.length) ? (r.data_scope.length + ' 个数据域') : '数据范围随权限' }}</span>
+          </div>
           <div class="rm-sys">{{ r.system_prompt || '（无团队描述）' }}</div>
         </div>
         <div class="rm-ops">
@@ -42,6 +49,7 @@
             <input type="checkbox" :checked="!!r.is_active" @change="toggleActive(r, $event)">
             <span :class="r.is_active ? 'on' : 'off'">{{ r.is_active ? '启用中' : '已停用' }}</span>
           </label>
+          <button class="btn btn-ghost btn-sm" @click="openCaps(r)">能力</button>
           <button v-if="!r.built_in" class="btn btn-ghost btn-sm" @click="openEdit(r)">编辑</button>
           <button v-if="!r.built_in" class="btn btn-ghost btn-sm rm-del" @click="remove(r)">删除</button>
         </div>
@@ -62,8 +70,7 @@
         <div v-if="editing" class="rm-fld">头像
           <div class="rm-av-row">
             <button class="rm-av-btn sm" :title="editing.custom_avatar ? '更换头像' : '上传头像'" @click="pickFile(editing)">
-              <img v-if="editing.custom_avatar" :src="avatarUrl(editing)" class="rm-av-img" alt="">
-              <span v-else class="rm-av-emoji">{{ form.avatar || '🤖' }}</span>
+              <RoleAvatar :role="editingAvatarView" img-class="rm-av-img" text-class="rm-av-emoji" fallback="🤖" :bust="bust" />
             </button>
             <span class="rm-av-hint">点击上传自定义头像（自动裁剪为 256×256 正方形）。不传则显示下方 emoji。</span>
             <button v-if="editing.custom_avatar" class="rm-av-rm2" @click="removeAvatar(editing)">移除</button>
@@ -87,6 +94,59 @@
           <button class="btn btn-ghost" @click="closeForm">取消</button>
           <button class="btn btn-primary" :disabled="!form.name.trim() || saving" @click="save">
             {{ saving ? '保存中…' : '保存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- v319（L2）：角色能力配置 —— 技能包 / 数据范围 / 权限档。
+         🔴 这三项才是"角色切换"真正该有的差异（此前只有头像与人设措辞）。
+            可选项全部来自后端 `/api/ai/role-catalog`，前端不写死。 -->
+    <div v-if="capsOpen" class="rm-modal" @click.self="closeCaps">
+      <div class="rm-form rm-caps-form">
+        <div class="rm-form-hd">{{ (capsRole && capsRole.name) || '' }} · 能做什么
+          <button class="rm-x" @click="closeCaps"><Icon name="close"/></button>
+        </div>
+        <p class="rm-caps-tip">这三项决定这个角色在对话里<b>能碰什么</b>。全部留空＝沿用当前设置（不做额外限制）。</p>
+
+        <div class="rm-fld">能做哪些事（技能包）
+          <div class="rm-chips">
+            <label v-for="s in catalog.skills" :key="s.id" class="rm-chip"
+              :class="{ on: capsForm.skills.includes(s.id) }" :title="s.desc">
+              <input type="checkbox" :value="s.id" v-model="capsForm.skills">
+              <span>{{ s.name }}</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="rm-fld">能看哪些数据（数据范围）
+          <div class="rm-chips">
+            <label v-for="d in catalog.data_scope" :key="d.id" class="rm-chip"
+              :class="{ on: capsForm.data_scope.includes(d.id) }">
+              <input type="checkbox" :value="d.id" v-model="capsForm.data_scope">
+              <span>{{ d.name }}</span>
+            </label>
+          </div>
+          <div class="rm-hint">只在「这个角色想要的」超出「你自己的账号权限」时才会被自动收窄 —— 角色永远不能让你看到你本来没有的东西。</div>
+        </div>
+
+        <div class="rm-fld">怎么做事（执行档）
+          <div class="rm-radios">
+            <label class="rm-radio" :class="{ on: !capsForm.guard }" title="跟随租户的 AI 模式设置">
+              <input type="radio" value="" v-model="capsForm.guard"><span>沿用全局</span>
+            </label>
+            <label v-for="g in catalog.guards" :key="g.id" class="rm-radio"
+              :class="{ on: capsForm.guard === g.id }" :title="g.desc">
+              <input type="radio" :value="g.id" v-model="capsForm.guard"><span>{{ g.name }}</span>
+            </label>
+          </div>
+          <div class="rm-hint">「只给建议」会在服务端拒绝开单/收款等写操作 —— 不只是提示词上的约束。</div>
+        </div>
+
+        <div class="rm-form-ops">
+          <button class="btn btn-ghost" @click="closeCaps">取消</button>
+          <button class="btn btn-primary" :disabled="capsSaving" @click="saveCaps">
+            {{ capsSaving ? '保存中…' : '保存' }}
           </button>
         </div>
       </div>
@@ -144,6 +204,7 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import RoleAvatar from '../components/RoleAvatar.vue'   // v322：角色头像唯一渲染口
 import { ref, computed, reactive, onMounted } from 'vue'
 import { store, toast } from '../store'
 import { api } from '../api/client'
@@ -160,12 +221,71 @@ const fileInput = ref(null)
 const pendingRole = ref(null)
 const bust = ref(0) // 头像缓存破坏，上传/移除后递增
 
+// v322：编辑弹窗里的头像预览视图。
+// 🔴 emoji 必须取 `form.value.avatar`（下方"头像 emoji"输入框的实时值），
+//    不能用 `editing.avatar`（打开弹窗那一刻的快照）——否则用户在输入框里改 emoji，预览纹丝不动。
+const editingAvatarView = computed(() => (editing.value ? {
+  role_id: editing.value.role_id,
+  custom_avatar: editing.value.custom_avatar,
+  avatar: form.value.avatar
+} : null))
+
 const sortedRoles = computed(() =>
   [...roles.value].sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99))
 )
 
-function avatarUrl(r) {
-  return r.custom_avatar ? `/api/ai/roles/${r.role_id}/avatar?t=${bust.value}` : null
+/* v322：`avatarUrl()` 已删 —— 头像 URL 的计算收进 `RoleAvatar.vue`（唯一渲染口）。
+   本页原来的两处 `<img v-if="custom_avatar">` 各写一遍判断，正是让别处漏写的成因。 */
+
+/* ---- v319（L2）：角色能力三轴（技能包 / 数据范围 / 权限档）----
+   可选项来自后端 `/api/ai/role-catalog`：技能包 id 必须与 Hermes 运行时的 skills 目录同名，
+   写死在前端会在"Hermes 加了新技能包"时静默缺项（老板勾不到 ⇒ 以为没这个能力）。 */
+const catalog = reactive({ skills: [], data_scope: [], guards: [] })
+const capsOpen = ref(false)
+const capsRole = ref(null)
+const capsSaving = ref(false)
+const capsForm = reactive({ skills: [], data_scope: [], guard: '' })
+
+function guardText(r) {
+  if (r.guard === 'advise') return '只给建议'
+  if (r.guard === 'execute') return '可执行'
+  return '执行档随全局'
+}
+
+async function loadCatalog() {
+  try {
+    const d = await api('/api/ai/role-catalog')
+    catalog.skills = d.skills || []
+    catalog.data_scope = d.data_scope || []
+    catalog.guards = d.guards || []
+  } catch (e) { /* 静默：目录拉不到只是配置面缺可选项，不影响角色本身 */ }
+}
+
+function openCaps(r) {
+  capsRole.value = r
+  // 🔴 深拷贝：直接引用 r.skills 会让弹窗里的勾选**当场改动列表**（取消也回不去）
+  capsForm.skills = [...(r.skills || [])]
+  capsForm.data_scope = [...(r.data_scope || [])]
+  capsForm.guard = r.guard || ''
+  capsOpen.value = true
+}
+function closeCaps() { capsOpen.value = false; capsRole.value = null }
+
+async function saveCaps() {
+  const r = capsRole.value
+  if (!r) return
+  capsSaving.value = true
+  try {
+    await api('/api/ai/roles/' + r.role_id, {
+      method: 'PUT',
+      body: { skills: capsForm.skills, data_scope: capsForm.data_scope, guard: capsForm.guard }
+    })
+    toast('已保存「' + r.name + '」的能力范围')
+    await load()
+    closeCaps()
+  } catch (e) {
+    toast('保存失败：' + (e.message || ''), 'error')
+  } finally { capsSaving.value = false }
 }
 
 async function load() {
@@ -372,7 +492,7 @@ async function remove(r) {
   }
 }
 
-onMounted(load)
+onMounted(() => { load(); loadCatalog() })
 </script>
 
 <style scoped>
@@ -441,6 +561,23 @@ onMounted(load)
 .rm-x{border:none;background:none;color:var(--t3);font-size:16px;cursor:pointer;line-height:1}
 .rm-x:hover{color:var(--t1)}
 .rm-fld{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--t2);margin-bottom:14px}
+
+/* v319（L2）角色能力：列表上的能力摘要 + 能力配置弹窗 */
+.rm-caps{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
+.rm-cap{padding:1px 7px;border-radius:var(--radius-md);background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;color:var(--t3)}
+.rm-cap.g-advise{color:var(--war)}
+.rm-cap.g-execute{color:var(--suc)}
+.rm-caps-form{max-width:560px}
+.rm-caps-tip{margin:0 0 12px;font-size:12.5px;color:var(--t3);line-height:1.6}
+.rm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.rm-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--bd);border-radius:var(--radius-md);font-size:12.5px;color:var(--t2);cursor:pointer;user-select:none}
+.rm-chip input{display:none}
+.rm-chip.on{border-color:var(--p);color:var(--p);background:var(--p-bg)}
+.rm-radios{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.rm-radio{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--bd);border-radius:var(--radius-md);font-size:12.5px;color:var(--t2);cursor:pointer}
+.rm-radio input{display:none}
+.rm-radio.on{border-color:var(--p);color:var(--p);background:var(--p-bg)}
+.rm-hint{margin-top:6px;font-size:11.5px;color:var(--t3);line-height:1.6}
 .rm-req{color:var(--dan)}
 .rm-av-in{width:90px}
 .rm-ta{resize:vertical;line-height:1.6;font-family:inherit}

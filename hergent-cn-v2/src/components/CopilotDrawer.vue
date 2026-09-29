@@ -8,9 +8,19 @@
         <!-- 头部 -->
         <header class="cp-head">
           <div class="cp-brand">
-            <img class="cp-ai-img" src="/favicon.svg" alt="Hergent" />
+            <!-- v319b：顶栏头像必须与「输入框角色选择器」「消息头像」**同源**。
+                 此前这里写死品牌 logo（`/favicon.svg`）⇒ 切角色时顶栏纹丝不动，
+                 看起来像"三处头像各说各话"（老板实测截图发现）。
+                 现在统一渲染**当前角色**的头像（自定义 PNG 优先，否则 emoji）。 -->
+            <span class="cp-ai-img" :title="(currentRole && currentRole.name) || ''">
+              <RoleAvatar :role="currentRole" img-class="cp-ai-img-png" fallback="🚀" />
+            </span>
             <div class="cp-titles">
-              <b>AI 经营副驾</b>
+              <!-- v322b：标题也带上当前角色名（老板：「要不要标题也跟着显示角色名」→ 要）。
+                   🔴 **additive**：产品名「AI 经营副驾」仍是主标题（品牌不能丢），角色名作为后缀标签；
+                   🔴 **角色名与产品名重复时不渲染** —— 默认角色就叫「经营副驾」，
+                      直接拼会得到「AI 经营副驾 · 经营副驾」（生产探针当场抓到的观感缺陷）。 -->
+              <b>AI 经营副驾<span v-if="titleRoleSuffix" class="cp-title-role"> · {{ titleRoleSuffix }}</span></b>
               <span class="cp-sub">Hermes · 随时在侧</span>
             </div>
           </div>
@@ -60,7 +70,10 @@
           <div v-else class="cp-hist-list">
             <div v-for="s in store.chat.sessions" :key="s.id" class="cp-hist-item" :class="{ on: s.id === store.chat.currentId }" @click="openSession(s.id)">
               <div class="cp-hist-title">{{ s.title }}</div>
-              <div class="cp-hist-meta">{{ fmtTime(s.updated_at) }}<template v-if="s.messages && s.messages.length"> · {{ s.messages.length }} 条</template></div>
+              <div class="cp-hist-meta">
+                <span v-if="roleNameOf(s.roleId)" class="cp-hist-role">{{ roleNameOf(s.roleId) }}</span>
+                {{ fmtTime(s.updated_at) }}<template v-if="s.messages && s.messages.length"> · {{ s.messages.length }} 条</template>
+              </div>
               <button class="cp-hist-del" title="删除" @click.stop="delSession(s.id)"><Icon name="close"/></button>
             </div>
           </div>
@@ -83,10 +96,26 @@
             <button class="cp-demo" @click="showDemo">查看示例经营卡 →</button>
           </div>
 
-          <div v-for="(m, i) in store.chat.messages" :key="i" class="msg" :class="m.role" :data-msg="i">
-            <span v-if="m.role === 'assistant'" class="msg-avatar">
-              <img v-if="currentRole && currentRole.custom_avatar" :src="avatarUrl(currentRole)" class="msg-av-img" alt="">
-              <template v-else>{{ (currentRole && currentRole.avatar) || 'AI' }}</template>
+          <div v-for="(m, i) in store.chat.messages" :key="i" class="msg" :class="[m.role, m.isSwitch && 'is-switch']" :data-msg="i">
+            <!-- v319（L2）角色切换分隔标记：整条退化为一行居中灰字（其余子节点由 CSS 隐藏） -->
+            <div v-if="m.isSwitch" class="cp-switch-line">
+              <span>{{ m.content }}</span>
+              <button class="cp-switch-new" @click.stop="startNewFromSwitch"
+                title="角色换了，另起一段干净对话（当前这段会存进历史）">新开对话</button>
+              <!-- v320：这个角色的历史会话。**只挂在"当前角色"的那条分隔标记上**
+                   （老标记不显示，否则切一轮回来会冒出好几个同名按钮），
+                   且已经在那条会话里时也不显示（否则是让人原地打转）。 -->
+              <button v-if="resumeTarget && m.switchTo === (currentRole && currentRole.role_id)"
+                class="cp-switch-resume" @click.stop="resumeSession"
+                :title="`回到「${(currentRole && currentRole.name) || ''}」上次那段对话`">
+                接着《{{ resumeTarget.title }}》聊
+              </button>
+            </div>
+            <span v-else-if="m.role === 'assistant'" class="msg-avatar" :title="(m.roleMeta && m.roleMeta.name) || ''">
+              <!-- 🔴 用**消息自己的**角色快照，不用 currentRole：否则切角色会追溯改写历史署名。
+                   v322：存量消息（v319 之前存的 / 服务端直接拉回的）**没有快照** ⇒ 此前只回落成
+                   emoji，于是历史回复显示 🚀 而顶栏显示 3D 头像。现在整份回落，走同一渲染口。 -->
+              <RoleAvatar :role="m.roleMeta || currentRole" img-class="msg-av-img" fallback="AI" />
             </span>
             <div class="msg-col">
               <!-- 深度思考（推理流）：默认折叠，点开看模型想什么。对齐 WorkBuddy 的「深度思考」。 -->
@@ -261,6 +290,19 @@
 
         <!-- 输入区 -->
         <footer class="cp-foot">
+          <!-- v319（L2）：常驻一行「将由谁回答」。作用有两个 ——
+               ① 切角色后**立刻能确认生效**（此前只有左下角胶囊变了个名字）；
+               ② 把这个角色的能力边界讲在明处（技能数 / 数据域数 / 执行档），
+                  老板不必去设置里翻，就知道"现在这个 AI 能干什么"。
+               ⚠️ 未配置能力的角色（存量）不显示摘要 ⇒ 界面与升级前逐字相同。 -->
+          <div class="cp-who">
+            <!-- v322：这里原来**只打印 emoji** ⇒ 明明有 3D 头像也显示 🚀（老板实测发现）。
+                 统一走 RoleAvatar（唯一渲染口），与顶栏/胶囊/消息头像同源。 -->
+            <span class="cp-who-av"><RoleAvatar :role="currentRole" img-class="cp-who-av-img" fallback="🚀" /></span>
+            <span class="cp-who-t">将由「{{ (currentRole && currentRole.name) || '经营副驾' }}」回答</span>
+            <span class="cp-who-tag" :class="effectiveGuard">{{ effectiveGuard === 'advise' ? '只给建议' : '可执行' }}</span>
+            <span v-if="capSummary" class="cp-who-cap">{{ capSummary }}</span>
+          </div>
           <!-- 待发送附件 -->
           <div v-if="attachments.length || uploading" class="cp-atts">
             <div v-if="uploading" class="cp-att cp-att-loading">
@@ -364,8 +406,7 @@
                 <!-- 团队胶囊：会话级配置，＋ 之后 -->
                 <div class="cp-role" @click.stop="toggleRoleMenu" role="button" aria-label="切换 AI 团队">
                   <span class="cp-role-av">
-                    <img v-if="currentRole && currentRole.custom_avatar" :src="avatarUrl(currentRole)" class="cp-role-av-img" alt="">
-                    <template v-else>{{ (currentRole && currentRole.avatar) || '🚀' }}</template>
+                    <RoleAvatar :role="currentRole" img-class="cp-role-av-img" fallback="🚀" />
                   </span>
                   <span class="cp-role-name">{{ (currentRole && currentRole.name) || '经营副驾' }}</span>
                   <svg class="cp-role-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
@@ -373,8 +414,7 @@
                     <div class="cp-role-menu-hd">切换 AI 团队</div>
                     <div v-for="r in activeRoles" :key="r.role_id" class="cp-role-item" :class="{ on: r.role_id === store.chat.currentRole }" @click.stop="pickRole(r)">
                       <span class="cp-role-item-av">
-                        <img v-if="r.custom_avatar" :src="avatarUrl(r)" class="cp-role-item-av-img" alt="">
-                        <template v-else>{{ r.avatar }}</template>
+                        <RoleAvatar :role="r" img-class="cp-role-item-av-img" fallback="AI" />
                       </span>
                       <div class="cp-role-item-tx">
                         <div class="cp-role-item-name">{{ r.name }}</div>
@@ -387,26 +427,28 @@
                      ⚠️ 语义澄清：aiGuard 是**提示级软开关**（影响提示词）；真正的硬门禁是服务端
                      `ai_mode`（readonly / disabled，后端拦截写操作）。只读时这里禁用并强制只给建议。 -->
                 <div class="cp-guard">
-                  <button class="cp-guard-btn" :class="{ on: aiGuard === 'execute' }" @click.stop="toggleGuardMenu"
-                    :disabled="aiMode === 'readonly'"
-                    :title="aiMode === 'readonly' ? '只读模式：AI 仅给建议，不可放开' : 'AI 可以怎么做？点开选择'">
+                  <button class="cp-guard-btn" :class="{ on: effectiveGuard === 'execute' }" @click.stop="toggleGuardMenu"
+                    :disabled="aiMode === 'readonly' || roleGuardLocked"
+                    :title="roleGuardLocked
+                      ? ('这个由「' + ((currentRole && currentRole.name) || '当前角色') + '」的角色决定，去「设置 › AI 团队」里改')
+                      : (aiMode === 'readonly' ? '只读模式：AI 仅给建议，不可放开' : 'AI 可以怎么做？点开选择')">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
-                    {{ aiGuard === 'advise' ? '只给建议' : '可直接执行' }}
+                    {{ effectiveGuard === 'advise' ? '只给建议' : '可直接执行' }}
                     <svg class="cp-guard-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
                   </button>
                   <div v-if="showGuardMenu" class="cp-role-menu cp-guard-menu">
-                    <div class="cp-role-menu-hd">AI 可以怎么做</div>
-                    <div class="cp-role-item" :class="{ on: aiGuard === 'advise' }" @click.stop="pickGuard('advise')">
+                    <div class="cp-role-menu-hd">AI 可以怎么做<span v-if="roleGuardLocked" class="cp-hd-note">· 由「{{ (currentRole && currentRole.name) || '当前角色' }}」决定</span></div>
+                    <div class="cp-role-item" :class="{ on: effectiveGuard === 'advise', locked: roleGuardLocked }" @click.stop="pickGuard('advise')">
                       <div class="cp-role-item-tx">
                         <div class="cp-role-item-name">只给建议</div>
                         <div class="cp-role-item-desc">只算给你看，不替你下单、收款、改档案</div>
                       </div>
                     </div>
-                    <div class="cp-role-item" :class="{ on: aiGuard === 'execute', locked: aiMode === 'readonly' }"
+                    <div class="cp-role-item" :class="{ on: effectiveGuard === 'execute', locked: aiMode === 'readonly' || roleGuardLocked }"
                       @click.stop="pickGuard('execute')">
                       <div class="cp-role-item-tx">
                         <div class="cp-role-item-name">可直接执行</div>
-                        <div class="cp-role-item-desc">{{ aiMode === 'readonly' ? '后台已设只读，暂不可选' : '可以真的下单、收款、改档案' }}</div>
+                        <div class="cp-role-item-desc">{{ roleGuardLocked ? '这个角色的权限档在「设置 › AI 团队」里配' : (aiMode === 'readonly' ? '后台已设只读，暂不可选' : '可以真的下单、收款、改档案') }}</div>
                       </div>
                     </div>
                   </div>
@@ -609,6 +651,7 @@
 <script setup>
 import Icon from './Icon.vue'
 import ThinkingDots from './ThinkingDots.vue'
+import RoleAvatar from './RoleAvatar.vue'   // v322：角色头像唯一渲染口
 import { ref, shallowRef, nextTick, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { store, loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession, loadAiRoles, setAiRole } from '../store'
 import { hermesChat, api, auth, CHAT_TIMEOUT_NORMAL, CHAT_TIMEOUT_LONG } from '../api/client'
@@ -992,9 +1035,33 @@ const currentRole = computed(() => {
   const list = store.chat.roles || []
   return list.find(r => r.role_id === store.chat.currentRole) || list[0] || null
 })
-// 自定义头像 URL（与桌面版一致：服务端存储的 256x256 PNG）
-function avatarUrl(r) {
-  return r && r.custom_avatar ? `/api/ai/roles/${r.role_id}/avatar` : null
+// v322b：顶栏标题里的**角色名后缀**。
+// 🔴 角色名与产品名重复时返回空串 ⇒ 不渲染。默认角色就叫「经营副驾」，
+//    直接拼会得到「AI 经营副驾 · 经营副驾」——生产探针当场抓到的观感缺陷。
+//    没有当前角色时（角色列表未加载完 / 空租户）同样返回空串 ⇒ 与升级前逐字相同。
+const titleRoleSuffix = computed(() => {
+  const n = (currentRole.value && currentRole.value.name) || ''
+  return n && !'AI 经营副驾'.includes(n) ? n : ''
+})
+// v322：自定义头像 URL 的计算已收进 `RoleAvatar.vue`（唯一渲染口）。
+// 原来这里有一份 `avatarUrl()`，与本文件 5 处各自的 `v-if="custom_avatar"` 并存 ——
+// 正是"判断散落多处、两处漏写"的成因（「将由 X 回答」行就漏了，生产上一直显示 🚀）。
+// v319（L2）：**消息级角色快照**。
+// 🔴 修的是一个既存缺陷：此前每条助手消息渲染时都读 `currentRole` ⇒ 一切换角色，
+//    历史回复的署名与头像**被追溯改写**（切到"会计"后，之前"经营副驾"的回复也变成会计）。
+//    正确做法是发送那一刻把角色快照进消息里，之后永不重算。
+function roleMetaOf(rid) {
+  if (!rid) return null
+  const r = (store.chat.roles || []).find(x => x.role_id === rid)
+  return r ? { role_id: r.role_id, name: r.name, avatar: r.avatar, custom_avatar: r.custom_avatar } : null
+}
+
+// v320：历史列表里的「这段是谁开的」标签。
+//   🔴 取不到名字（角色已被删除 / 归属为空）就返回空串 ⇒ **不显示标签**，
+//      绝不让 `ROLE_NAMES[x] || x` 那类回落把内部 id 印到界面上（本项目踩过的老坑）。
+function roleNameOf(rid) {
+  const m = roleMetaOf(rid)
+  return m ? m.name : ''
 }
 /* ---- 下拉菜单**集中互斥**（3 个：团队 / 权限 / 添加）----
    🔴 2026-09-25 教训：原先每个 toggle 各自写「关掉另一个」，加到第 4 个时必然会漏，
@@ -1033,8 +1100,42 @@ async function toggleSources(i) {
     sources.value = d.user || []
   } catch (e) {
     sources.value = []
+  const prev = store.chat.currentRole
   }
 }
+  if (!r || r.role_id === prev) return
+  // v319（L2）：切换必须**看得见**。此前只换头像 —— 老板既不知道"切没切成功"，
+  //   也不知道"从哪一条开始换了人答"，而历史头像还会被追溯改写（既存缺陷）。
+  //   这里插一条分隔标记：渲染成居中灰字，**不参与发送**（发送处按 isSwitch 过滤）。
+  const pv = roleMetaOf(prev)
+  store.chat.messages.push({
+    role: 'assistant', isSwitch: true,
+    content: `已切换角色 · 以上由「${(pv && pv.name) || '上一个角色'}」，以下由「${r.name}」回答`,
+    switchTo: r.role_id, switchFrom: prev || ''
+  })
+  // v320：拉一次服务端会话列表 —— 「接着《…》聊」的目标要从它算出来（`latestSessionOfRole`）。
+  //   🔴 **不 await**：切换本身必须立刻可见（分隔标记先出来），列表回来后再把按钮补上；
+  //      按钮是 computed，依赖 store.chat.sessions ⇒ 列表一到就自动出现，不需要额外通知。
+  try { store.loadSessionsFromServer() } catch (_) {}
+  nextTick(() => scrollBottom())
+}
+
+// v319（L2）：从切换标记一键「另起一段」。
+//   ⚠️ 刻意**不自动清空**：老板可能只是想让另一个人接着看同一段上下文。
+//      所以给按钮、不强制 —— 但把「新开对话」摆在切换那一行，是因为角色换了以后
+//      旧角色的口径会污染新角色（同一段历史里两个角色的话混在一起，模型会串）。
+function startNewFromSwitch() {
+  try { store.newChatSession() } catch (_) {}
+  nextTick(() => scrollBottom())
+}
+
+// v320：点「接着《…》聊」= **显式**打开该角色上次那段会话。
+//   复用 openSession —— 它内部的 openChatSession 已处理"本地无全文 ⇒ 从服务端拉完整 messages"
+//   （换设备场景），所以这里不需要额外处理。
+function resumeSession() {
+  const t = resumeTarget.value
+  if (!t) return
+  openSession(t.id)
 
 function clear() {
   store.chat.messages = []
@@ -1094,6 +1195,43 @@ function pickGuard(mode) {
   showGuardMenu.value = false
 }
 
+/* v319（L2）：**生效的**权限档 = 角色档 ⊕ 租户 AI 模式（都只能收窄）。
+   为什么必须与后端同口径：后端 `role_caps()` 就是这么算的（模式非 auto ⇒ 一律 advise）。
+   前端若还显示 aiGuard 的本地值，会出现"界面写着可直接执行、后端却拒绝" —— 用户看到的
+   解释与实际行为不一致，比不给这个开关更糟。 */
+const effectiveGuard = computed(() => {
+  if (aiMode.value === 'readonly' || aiMode.value === 'disabled') return 'advise'
+  const g = currentRole.value && currentRole.value.guard
+  if (g === 'advise' || g === 'execute') return g
+  return aiGuard.value
+})
+// 角色是否**已配置**权限档 ⇒ 前端这个软开关就该退位（把决定权交回角色）
+const roleGuardLocked = computed(() => {
+  const g = currentRole.value && currentRole.value.guard
+  return g === 'advise' || g === 'execute'
+})
+// 能力摘要（技能包数 / 数据域数）。🔴 未配置时返回空 ⇒ 界面**逐字不变**（存量角色零观感变化）
+const capSummary = computed(() => {
+  const r = currentRole.value
+  if (!r) return ''
+  const sk = (r.skills || []).length
+  const sc = (r.data_scope || []).length
+  if (!sk && !sc) return ''
+  return `${sk} 个技能 · ${sc} 个数据域`
+})
+
+// v320：「接着上次聊」的目标 —— 当前角色名下**最近**一条会话，且**不是**正在聊的这条。
+// 🔴 这是"显式版"的核心：系统**只提供目标**，绝不自己跳过去。
+//   用户点它才算数 —— 因为切换角色的意图是真二义的（"换个视角看同一件事" vs
+//   "换个岗位干另一摊活"），自动跳会赌错一半，而赌错的代价（屏幕被换走）用户撤不回来。
+const resumeTarget = computed(() => {
+  const rid = currentRole.value && currentRole.value.role_id
+  if (!rid) return null
+  const s = store.latestSessionOfRole(rid)
+  if (!s || s.id === store.chat.currentId) return null
+  return s
+})
+
 /* 🔴 「模型选择」已于 2026-09-25 整体下架（老板选 B）——前后端代码一并移除，不留死 UI 逻辑。
    根因：Hermes 未配 `model_routes` ⇒ 请求里的 model 匹配不到路由、**静默回落默认模型**
    （服务端账本 `session_model_usage` 只出现 deepseek-v4-flash 可证）⇒ 那是"静默无效"控件。
@@ -1102,6 +1240,8 @@ function pickGuard(mode) {
 /* ---- 「＋」变菜单（P3/R10，对齐 WorkBuddy 的 `addMenu`）----
    🔴 只放**真能用的**入口：三项走的是同一个 `onFile` 流程，只是**预筛的文件类型**不同。
       菜单的价值是让老板知道"能给 AI 什么"，而不是新增能力（不塞假条目——假条目点了没反应更伤信任）。
+  // v319（L2）：角色已配权限档 ⇒ 前端这个**软开关退位**（决定权在角色，去「设置 › AI 团队」改）
+  if (roleGuardLocked.value) { showGuardMenu.value = false; return }
    ⚠️ 智能导入不是独立入口：它由 onFile 识别到表格后自动弹确认面板（`.cp-smart`）。 */
 const showAddMenu = ref(false)
 const fileAccept = ref('.xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp,.pdf')
@@ -1608,9 +1748,14 @@ async function send() {
     attachments.value = []
   }
 
-  // 系统提示：角色人设 + （若有上传表）表格计算工具指令
-  let sys = currentRole.value ? currentRole.value.system_prompt : ''
-  if (tableFiles.length) sys = (sys ? sys + '\n' : '') + spreadsheetSoftHint(tableFiles)
+  // v319（L2）：把系统提示拆成**两段** ——
+  //   ① 角色人设：只在"没有角色 id"时兜底。（传了 roleId ⇒ 人格与能力边界都由**后端**
+  //      用服务端角色定义拼装，避免同一个人设下发两份、互相干扰）
+  //   ② 附加上下文：表格软提示 / 每日经营日志 / 经营画像 —— 这些是**数据**，
+  //      永远要传，后端会把它们排在能力授权书之后并显式标注"非指令"。
+  const rolePrompt = currentRole.value ? currentRole.value.system_prompt : ''
+  let sysCtx = ''
+  if (tableFiles.length) sysCtx = (sysCtx ? sysCtx + '\n' : '') + spreadsheetSoftHint(tableFiles)
 
   // P0-② 时间锚点：老板问「昨天/上周」时，把每日经营日志注入 AI 上下文（静默，失败不阻断）
   const anchorDays = timeAnchorDays(q)
@@ -1619,32 +1764,45 @@ async function send() {
       const res = await api(`/api/ai/daily-log?days=${anchorDays}`)
       const logs = (res && res.logs) || []
       const ctx = formatDailyLogForAI(logs)
-      if (ctx) sys = (sys ? sys + '\n\n' : '') + ctx
+      if (ctx) sysCtx = (sysCtx ? sysCtx + '\n\n' : '') + ctx
     } catch (_) { /* 静默降级，不阻断主对话 */ }
   }
 
   // P1-⑥ 经营画像：让副驾"开口就懂这家客户"（缓存 10 分钟，静默失败不阻断）
   try {
     const profile = await ensureProfile()
-    if (profile) sys = (sys ? sys + '\n\n' : '') + `【这家店的经营画像】${profile}（回答时自然参考，勿逐字复述）`
+    if (profile) sysCtx = (sysCtx ? sysCtx + '\n\n' : '') + `【这家店的经营画像】${profile}（回答时自然参考，勿逐字复述）`
   } catch (_) { /* 静默降级 */ }
 
   // P0-③ 动作分级护栏：只建议档显式注入行为边界（信任透明化 + 未来写能力护栏）
   if (aiGuard.value === 'advise') {
-    sys = (sys ? sys + '\n\n' : '') + AI_GUARD_HINT
+    sysCtx = (sysCtx ? sysCtx + '\n\n' : '') + AI_GUARD_HINT
   }
 
-  lastPayload = { content, sys, q, tableFiles: [...tableFiles], files, vision: visionBlocks }
+  const roleId = (currentRole.value && currentRole.value.role_id) || ''
+  // 🔴 兼容性决策（重要）：**仍然把完整人设放进 system**，而不是"传了 roleId 就不传人设"。
+  //   原因：前端与后端是两条独立部署线，中间必有时间窗。若前端先上线而后端未上线，
+  //   后端不认识 roleId、只会照用前端 system ⇒ AI **当场丢掉角色人设**（可感知的功能倒退）。
+  //   现在这样两边都不会坏：
+  //     · 旧后端：照用 system（含人设）⇒ 与升级前逐字相同
+  //     · 新后端：看到 roleId ⇒ 用服务端角色定义拼装，并把前端这段人设前缀**剥掉**
+  //       （否则同一个人设下发两遍、互相干扰）
+  const sys = rolePrompt + (sysCtx ? '\n\n' + sysCtx : '')
+  lastPayload = { content, sys, roleId, q, tableFiles: [...tableFiles], files, vision: visionBlocks }
   streamReply(lastPayload)
 }
 
 /* 流式发送核心：成功才触发卡片/推送并落盘；失败（含超时中断）只移除半截气泡、
    给出分级错误，绝不误报「离线」或追发卡片请求（P0 评审炸弹 #4）。 */
 async function streamReply(payload) {
-  const { content, sys, q, tableFiles, files, vision } = payload
+  const { content, sys, roleId, q, tableFiles, files, vision } = payload
   store.chat.error = ''
   store.chat.messages.push({ role: 'user', content, files: files || [], vision: vision && vision.length ? vision : null })
-  store.chat.messages.push({ role: 'assistant', content: '', tools: [] })
+  //   ⚠️ v319 起这一条与「角色权限档」同向但不同源：本开关是**租户级**，角色档是**角色级**。
+  //      两者都只能收窄，叠加是双保险；后端 `role_caps` 已把租户 AI 模式并进角色 guard。
+  // v319（L2）：把**回答时的角色**快照进消息 —— 历史署名与头像从此不再随后续切换被改写
+  store.chat.messages.push({ role: 'assistant', content: '', tools: [],
+                             roleId: roleId || '', roleMeta: roleMetaOf(roleId) })
   const replyIndex = store.chat.messages.length - 1
   store.chat.streaming = true
   // v309：给这次请求挂上可被「停止」的中止器（按钮据此呈现停止态）
@@ -1660,7 +1818,9 @@ async function streamReply(payload) {
     // 分级超时（P1）：对账/复盘/汇总/报表等长任务放宽到 5 分钟，普通对话 3 分钟
     const isHeavy = /对账|复盘|汇总|报表|经营分析|reconcil/i.test((q || '') + ' ' + (content || ''))
     await hermesChat(
-      store.chat.messages.filter(m => m.content).map(m => ({ role: m.role, content: m.vision || m.content })),
+      // 🔴 分隔标记（isSwitch）必须排除：它只是给人看的分隔线，不是对话内容；
+      //    发上去会让模型把"已切换角色"当成用户说过的话（污染上下文）。
+      store.chat.messages.filter(m => m.content && !m.isSwitch).map(m => ({ role: m.role, content: m.vision || m.content })),
       {
         system: sys,
         timeout: isHeavy ? CHAT_TIMEOUT_LONG : CHAT_TIMEOUT_NORMAL,
@@ -1677,6 +1837,9 @@ async function streamReply(payload) {
             : last.tools.find(x => x.name === step.name && x.status === 'running')
           if (step.phase === 'start') {
             if (step.id && last.tools.some(x => x.id === step.id)) return   // 同 id 重复 running 不重复加
+        // v319（L2）：把角色 id 交给后端 —— 能力边界（技能包 / 数据范围 / 权限档）
+        // 由服务端按角色裁决，前端不再拥有"我说我是谁"的权力。
+        roleId,
             last.tools.push({
               id: step.id || '',
               name: step.name,
@@ -1986,9 +2149,15 @@ watch(() => store.chat.messages.length, scrollBottom)
 
 .cp-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
 .cp-brand{display:flex;align-items:center;gap:10px}
-.cp-ai-img{width:32px;height:32px;border-radius:50%;object-fit:cover}
-.cp-titles{display:flex;flex-direction:column}
-.cp-titles b{font-size:14px;font-weight:600;color:var(--t1)}
+/* v319b：顶栏头像容器与「消息头像」(`.msg-avatar`) 同一套视觉 —— 圆形底 + 居中 emoji/PNG，
+   差别只在尺寸（32 / 26）。改这里时请一并看 `.msg-avatar` 与 `.cp-role-av`，三处必须同源。 */
+.cp-ai-img{width:32px;height:32px;border-radius:50%;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1;flex-shrink:0;overflow:hidden}
+.cp-ai-img-png{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.cp-titles{display:flex;flex-direction:column;min-width:0}
+.cp-titles b{font-size:14px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* v322b：标题里的角色名后缀。用较淡的字重/颜色 ⇒ 读作"标签"而不是"第二个标题"；
+   角色名很长时由上面的 ellipsis 兜底，不会把头部撑破。 */
+.cp-title-role{font-size:12px;font-weight:500;color:var(--t3)}
 .cp-sub{font-size:11px;color:var(--t3);margin-top:1px}
 .cp-actions{display:flex;gap:6px}
 .cp-icon-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2);cursor:pointer}
@@ -2086,6 +2255,29 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-att-spin{display:inline-flex;animation:cp-spin 1s linear infinite}
 @keyframes cp-spin{to{transform:rotate(360deg)}}
 .cp-composer{position:relative;display:flex;flex-direction:column;gap:8px;padding-top:8px;border:1px solid var(--bd);border-radius:24px;background:var(--bg3);transition:border-color .2s,box-shadow .2s}
+/* v319（L2）：常驻「将由谁回答」行 + 角色切换分隔标记 + 角色决定权限档的说明 */
+.cp-who{display:flex;align-items:center;gap:6px;padding:0 2px 8px;font-size:12px;color:var(--t3);flex-wrap:wrap}
+.cp-who-av{display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--p-bg);color:var(--p-dark);font-size:12px;line-height:1;flex-shrink:0;overflow:hidden}
+/* v322：这里原来只打印 emoji（`.cp-who-av` 是个纯文字格）⇒ 有 3D 头像也显示 🚀 */
+.cp-who-av-img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.cp-who-t{color:var(--t2)}
+.cp-who-tag{padding:1px 6px;border-radius:var(--radius-md);background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;color:var(--t3)}
+.cp-who-tag.execute{color:var(--suc);border-color:currentColor}
+.cp-who-cap{color:var(--t3);font-size:11px}
+.cp-hd-note{font-weight:400;color:var(--t3);font-size:11px}
+/* 切换标记：整条退化为一行居中的细字（其余子节点一律隐藏，避免渲染出空气泡） */
+.msg.is-switch{justify-content:center;padding:2px 0}
+.msg.is-switch > *:not(.cp-switch-line){display:none}
+.cp-switch-line{flex:1;display:flex;align-items:center;gap:10px;color:var(--t3);font-size:11.5px}
+.cp-switch-line::before,.cp-switch-line::after{content:'';flex:1;height:1px;background:var(--border-subtle)}
+.cp-switch-line > span{white-space:nowrap}
+.cp-switch-new{flex:none;padding:1px 8px;border-radius:var(--radius-md);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:11px;cursor:pointer}
+.cp-switch-new:hover{color:var(--p);border-color:var(--p)}
+/* v320：「接着《…》聊」—— 会话标题可能很长 ⇒ 限宽 + 省略号，绝不把分隔行撑破 */
+.cp-switch-resume{flex:none;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 8px;border-radius:var(--radius-md);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:11px;cursor:pointer}
+.cp-switch-resume:hover{color:var(--p);border-color:var(--p)}
+/* v320：历史列表里「这段是谁开的」小标签（归属为空则不渲染 = 存量会话界面不变） */
+.cp-hist-role{display:inline-block;padding:0 5px;margin-right:5px;border-radius:var(--radius-md);background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;color:var(--t3)}
 .cp-composer:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 4px var(--p-bg)}
 .cp-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:0 10px 10px}
 .cp-tools{display:flex;align-items:center;gap:4px;flex:0 1 auto;min-width:0}

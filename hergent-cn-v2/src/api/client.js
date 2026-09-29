@@ -308,7 +308,7 @@ function _mergeSignal(external, internal) {
   return internal
 }
 
-export async function hermesChat(messages, { onDelta, onTool, onReasoning, model, system, timeout = 300000, signal } = {}) {
+export async function hermesChat(messages, { onDelta, onTool, onReasoning, model, system, roleId, timeout = 300000, signal } = {}) {
   const ctrl = new AbortController()
   // 长任务（复杂对账/报表）会让 Hermes 工具循环跑数分钟；120s 硬杀会中途断流
   // 并误报离线（P0 评审炸弹 #4）。放宽到 5 分钟，由调用方按需覆盖。
@@ -317,7 +317,10 @@ export async function hermesChat(messages, { onDelta, onTool, onReasoning, model
   // 谁先 abort 都掐断请求，但抛出的错误类型按下方 catch 区分。
   const sig = _mergeSignal(signal, ctrl.signal)
   try {
-    const finalMessages = system ? [{ role: 'system', content: system }, ...messages] : messages
+    // 🔴 v319（L2）：`system` 改为**独立字段**上送，不再拼进 `messages[0]`。
+    //   为什么必须拆开：后端要按 `role_id` 用**服务端角色定义**拼装人格与能力边界；
+    //   若 system 混在 messages 里，后端只能整包透传 ⇒ 角色边界仍由前端说了算。
+    const finalMessages = messages
     // 🔴 v281（2026-09-26）**只走本仓后端代理**，直连通道已整条撤除。
     //   原先后备有两条"保险"，都已删除：
     //   ① 「无 chat 权限账号自动退回 `/hermes/`」——那条路径是 nginx 上**对公网零鉴权直通生产
@@ -326,6 +329,10 @@ export async function hermesChat(messages, { onDelta, onTool, onReasoning, model
     //      用户侧不再持有能绕过后端 `ai_mode` 权威判定的开关。
     //   密钥不再经前端：网关凭据只存在于服务端（.env），后端经 127.0.0.1 直连网关。
     const payload = { model: model || 'hermes-agent', messages: finalMessages, stream: true }
+    if (system) payload.system = system
+    // v319（L2）：角色 id 上送 ⇒ 后端按角色裁决能力（技能包 / 数据范围 / 权限档）。
+    //   不传（老客户端）后端逐字沿用旧行为，所以这里是纯 additive。
+    if (roleId) payload.role_id = roleId
     const proxyHdrs = { 'Content-Type': 'application/json' }
     const _t = localStorage.getItem('hergent_v2_token') || ''
     if (_t) proxyHdrs.Authorization = `Bearer ${_t}`   // Bearer 免 CSRF
