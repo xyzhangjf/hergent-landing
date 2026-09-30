@@ -2,11 +2,29 @@
 .store-bar{display:flex;align-items:center;justify-content:space-between;background:#fff;padding:24rpx 32rpx;border-bottom:1rpx solid #e5e5ea}
 .store-sel{display:flex;align-items:center}
 .store-name{font-size:32rpx;font-weight:600;color:#1d1d1f}
+/* v294：本人仓标识 —— 与门店区分（两者报的是不同的单：自提 vs 调拨） */
+.store-kind-tag{font-size:20rpx;font-weight:500;color:#0e7490;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:6rpx;padding:2rpx 10rpx;margin-left:12rpx}
 .store-arrow{font-size:24rpx;color:#06b6d4;margin-left:12rpx}
 .store-count{font-size:26rpx;color:#86868b}
 .search-bar{display:flex;align-items:center;gap:16rpx;padding:24rpx 32rpx 0}
 .search-ipt{flex:1;background:#fff;border-radius:16rpx;height:88rpx;padding:0 28rpx;font-size:30rpx;border:1rpx solid #e5e5ea}
 .search-clear{font-size:30rpx;color:#86868b;padding:0 8rpx}
+/* ===== v266（2026-09-27）：筛选 chips（品牌 + 我的常报）=====
+   放在搜索栏与列表标题之间 —— 与搜索同属"缩小范围"，且都在列表上方。
+   ⚠️ 横向滚动用「nowrap 容器 + inline-flex 内容」这一经典组合，不用 `enable-flex`：
+      那个属性在不同基础库上对 scroll-view 内部布局的接管程度并不一致。 */
+.filter-bar{padding:20rpx 32rpx 0}
+.filter-scroll{width:100%;white-space:nowrap}
+.filter-chips{display:inline-flex;align-items:center;gap:14rpx}
+.fchip{flex:0 0 auto;font-size:24rpx;line-height:1.4;padding:10rpx 24rpx;border-radius:28rpx;
+  background:#fff;border:1rpx solid #e5e5ea;color:#1d1d1f}
+/* 品牌选中态：靛蓝（与 .recent-chip 同族）—— 品牌维度只能选中一个 */
+.fchip-on{background:#4338ca;border-color:#4338ca;color:#fff;font-weight:600}
+/* 「我的常报」用**青色系**与品牌区分：两者可叠加（品牌 ∧ 常报），同色会被读成单选 */
+.fchip-freq{background:#ecfeff;border-color:#a5f3fc;color:#0e7490;font-weight:600}
+.fchip-freq-on{background:#06b6d4;border-color:#06b6d4;color:#fff;font-weight:600}
+/* chip 上的条数：比"品牌名"淡一档，不抢主要信息 */
+.fchip-n{font-size:22rpx;opacity:.72;margin-left:6rpx}
 /* 全量铺开：列表标题 + 分页加载状态 */
 .prod-head{display:flex;align-items:center;justify-content:space-between;padding:24rpx 32rpx 0}
 .prod-head-t{font-size:28rpx;color:#1d1d1f;font-weight:600}
@@ -26,6 +44,27 @@
    补回，与 no-store-note 同族（都是"你现在做不了这件事，原因在别处"）。
    🔴 教训：删一条 CSS 前要 grep **全部**引用点，而不是只看自己正在改的那个。 */
 .reported-note{margin:16rpx 32rpx 0;background:#fffbeb;border:1rpx solid #fde68a;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#92400e;line-height:1.6}
+/* v304（2026-09-28）：本期报单进度提醒条 —— 与 .reported-note 同族（amber 底），
+   但它是**可行动的进度提示**（"还差几个没报"），故底色更暖一档 + 左侧色条，
+   与"仅说明原因"的那几条（period-warn / reported-note）在视觉上区分开。
+   色条用 CSS 画，不用 emoji / 符号图标（全站图标规范）。 */
+.pending-bar{display:flex;align-items:stretch;margin:16rpx 32rpx 0;background:#fff7ed;border:1rpx solid #fed7aa;border-radius:14rpx;overflow:hidden}
+.pending-accent{width:6rpx;background:#f59e0b;flex:none}
+.pending-text{display:flex;flex-direction:column;padding:18rpx 24rpx;min-width:0;flex:1}
+.pending-title{font-size:26rpx;color:#9a3412;font-weight:600;line-height:1.5}
+.pending-sub{font-size:22rpx;color:#c2410c;line-height:1.5;margin-top:4rpx}
+/* v318（2026-09-29）：未读通知条 —— 与 .pending-bar **同构**（左色条 + 两行文案 + 右侧箭头），
+   但**换成青色系**：两条可能同屏（"该报单" 与 "有人改了我的量"），
+   同色会被读成同一件事的两个状态；青色 = 品牌主色（与 .sample-bar / .store-kind-tag 同族），
+   琥珀 = 待办紧迫感。颜色分工是这套样式唯一的表达职责，别改。
+   ⚠️ 文字色必须与底色同族（#0e7490 / #0891b2 配 #ecfeff）：直接沿用 .pending-title 的
+      橙字会导致"青底橙字"，看起来像渲染错误。 */
+.msg-bar{display:flex;align-items:center;margin:16rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;overflow:hidden}
+.msg-accent{width:6rpx;align-self:stretch;background:#06b6d4;flex:none}
+.msg-text{display:flex;flex-direction:column;padding:18rpx 24rpx;min-width:0;flex:1}
+.msg-title{font-size:26rpx;color:#0e7490;font-weight:600;line-height:1.5}
+.msg-sub{font-size:22rpx;color:#0891b2;line-height:1.5;margin-top:4rpx}
+.msg-go{font-size:36rpx;color:#06b6d4;flex:none;padding:0 24rpx 0 8rpx;line-height:1}
 /* v227（2026-09-21）：复制生成样单 —— 入口条 + 来源回执 */
 .sample-bar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin:16rpx 32rpx 0;background:#fff;border:1rpx dashed #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx}
 .sample-txt{font-size:24rpx;color:#86868b;flex:1;line-height:1.5}
@@ -45,6 +84,11 @@
 .prod-name{font-size:30rpx;color:#1d1d1f;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prod-spec{font-size:24rpx;color:#86868b;margin-top:6rpx}
 .prod-meta{font-size:22rpx;color:#94a3b8;margin-top:6rpx}
+/* v264c（2026-09-24）：均单目标浅色提示 —— 淡淡的青底 + 青字，与品牌色同族但**不抢眼**：
+   商品名（#1d1d1f 30rpx）> 规格（#86868b）> 库存/日均（#94a3b8）> 本行（最轻）。
+   为什么不做成徽章/加粗：它是**参考值**，不是警告；抢眼了会让人误以为必须照它报。 */
+.prod-avg{display:inline-block;margin-top:6rpx;padding:2rpx 10rpx;border-radius:8rpx;
+  background:#ecfeff;color:#0891b2;font-size:22rpx;line-height:1.5}
 /* 行内填报：− / 输入框 / +（P2-6: 触控目标 60→76rpx≈38px，减少手抖误触） */
 .qty-ctl{display:flex;align-items:center;gap:12rpx;flex:0 0 auto}
 .qty-ctl .qty-btn{width:76rpx;height:76rpx;font-size:44rpx}

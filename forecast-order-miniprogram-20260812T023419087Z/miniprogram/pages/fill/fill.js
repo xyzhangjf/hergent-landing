@@ -19,6 +19,18 @@ Page({
     // v215（2026-09-20）：商品列表口径回执 + 空态区分
     listScope: '',           // 'period' = 本期报单清单；'catalog' = 档案兜底（旧口径）
     periodEmpty: false,      // 本期确实没有（或还没配）报单商品清单 —— 与「搜索无匹配」是两回事
+    /* v266（2026-09-27）：筛选面（品牌 + 我的常报）—— 全部是**过滤**语义，
+       只改「显示哪些行」，不改数量、不改顺序、不写任何业务数据。
+       · brandFacets 只含**本期清单内**的品牌（后端按整期聚合）⇒ 点开必有结果；
+         label 可能是哨兵 '__blank__'（= 未分类），**不能**是空串 —— 空串在 query 里
+         与"不过滤"同形，直接下发会让这个 chip 一点就变成"显示全部"（静默失效）。
+       · freqReady=false 时「我的常报」chip **整条不渲染**：不给一个点了 0 项的按钮。 */
+    brandFacets: [],
+    brandSel: '',            // 选中品牌 label（'' = 全部）
+    freqReady: false,        // 常报统计是否已够数据（不足 ⇒ 不显示该筛选）
+    freqOn: false,           // 「我的常报」开关
+    filterEmpty: false,      // 筛选后为空 —— 与「本期没配清单」是两个完全不同的空态
+    filterHint: '',          // 空态里点名「是哪个条件挡住了」（只说"没有商品"会把用户支使去找管理员）
     offline: false,          // P2-3/5: 断网提示（顶部横幅 + 恢复自动补传）
     recentStores: [],          // M10: 最近报单门店快捷入口
     pendingSubmit: false,      // M11: 存在未提交草稿（离线/失败），待联网补传
@@ -41,11 +53,32 @@ Page({
        ⚠️ 「继续修改」是唯一出口 —— 它同时也是防重复提交的一环（见 submit()）。 */
     submitResult: null,        // 提交成功回执卡数据；非空即显示，显示期间底部提交栏让位
     submitError: null,         // 提交失败错误条 { msg, retryable, kind, hint }
+    /* v304（2026-09-28）：本期报单进度提醒条 —— 「还有几个单元没报 / 我负责的还没报」。
+       为什么要有它：企微/站内信是**推出去**，而销售每天必开小程序 —— 这是**零授权、必达**的
+       那一条（微信订阅消息对「工具→效率」这类目拿不到长期订阅，只能一次性授权，
+       不适合做系统主动催单的主渠道）。
+       🔴 数据与后端催单**同源**（后端直接复用调度器那一份口径）⇒ 页面说的"还差几个"
+          与催单催的"还差谁"永远是同一件事，不会出现"页面说报完了、催单还在催"。
+       ⚠️ 提醒条是**辅助信息**：接口失败一律静默降级，绝不挡住报单这个主流程。 */
+    pending: null,             // 接口原始响应（备查）
+    pendingOn: false,          // 是否渲染提醒条（有开放期次 且 还有未报单元）
+    pendingTitle: '',          // 主句
+    pendingSub: '',            // 副句
+    /* v318：未读通知数（加单/减单明细 + 系统通知）。
+       0 = 不渲染通知条（**不显示 0**，避免在页头挂一条"你有 0 条通知"的纯噪音）。 */
+    msgUnread: 0,
   },
   cartMap: {},
   _qtyMap: {},        // P1-3: 实例属性版 qtyMap（id -> 已填数量），供分页回填/行同步读取
   _prodIndex: {},     // P1-2: id -> products 下标索引，O(1) 定位免全表遍历
   _loadedPeriodId: '',   // v215: 当前商品列表是按哪个期次铺开的（'' = 未铺开，需重拉）
+  /* v266（2026-09-27）：筛选面（品牌 + 我的常报）已拉取的判据，形如 `期次|门店`。
+     🔴 **两个维度都要进 key**：品牌面按期次（换期次 ⇒ 换清单 ⇒ 换品牌集合），
+        常报面按**门店**（换门店 ⇒ 同一期次的常报内容不同）。只带期次会让切门店后
+        拿着上一家的常报过滤本期商品 —— 页面零报错、结果全错。
+     🔴 放实例属性不放 data：它只用于"要不要发请求"这个内部判据，页面不渲染它，
+        进 data 会引发无意义 setData（与 `_qtyMap` / `_loadedPeriodId` 同理）。 */
+  _facetsKey: '',
   _seq: 0,           // F3: 搜索请求序号，用于丢弃过期响应
   _searchTimer: null,
   _persistTimer: null, // P1-1: 购物车写盘防抖计时器
@@ -57,6 +90,26 @@ Page({
      （第二次覆盖第一次，结果虽然不重复落单，但用户会看到两次"提交成功"）。
      实例锁在函数第一行就置位，绕开 setData 的异步窗口。 */
   _submitLock: false,
+  /* v264c（2026-09-24）：均单目标（方案 §5.1）—— 提示用，**只读、不参与任何写入**。
+     · `_avgMap`  = pid(字符串) -> 后端 `/avg-target` 的那一项（**原样存**，含 flags 与 per_unit）
+     · `_avgPid`  = 已拉过哪一期（避免每次 onShow / 翻页重复请求）
+     🔴 v298（2026-09-27）：**删掉了 `_avgNums`** —— 它曾是「提交前比对」的基准，却是在
+        `applyAvgToRows()` 里按 **已加载出来的行**（`this.data.products`）建的 ⇒ 基准取决于
+        "用户滚到哪了"：同一个单子滚到 30 行提交、和滚到 154 行提交，判据不同，且**两边都不报错**。
+        现在一律由 `_avgTargets()` 从 `_avgMap`（**整期全量**）现算（见该方法注释）。
+     🔴 一律**不自己算**均单：口径 = (月目标 − 已达成) ÷ 剩余可报期次，还要折到填单单位；
+        小程序算一遍就是第二份实现（本项目已多次为此付学费）。 */
+  _avgMap: {},
+  _avgPid: '',
+  _avgMapPid: '',
+  /* v304（2026-09-28）：提醒条上次拉取时刻（60 秒节流）。
+     onShow 在切 tab / 从其它页返回时会反复触发，而「还差几个没报」按分钟级刷新足够；
+     放进 data 会引发无意义的 setData（同 `_qtyMap` / `_loadedPeriodId` 的道理）。 */
+  _pendingAt: 0,
+  /* v318：未读通知数的上次拉取时刻（同款 60 秒节流）。
+     为什么这条提醒要出现在**填报页**而不是只在「我的」里：加单/减单明细是**定向**通知，
+     而销售每天必开的就是这一页 —— 只在「我的」挂角标，等于赌他会主动去点那一栏。 */
+  _msgAt: 0,
 
   /* P2-3: 全局网络监听——断网提示 + 恢复后自动补传草稿（仅注册一次） */
   onLoad() {
@@ -87,6 +140,8 @@ Page({
     // 还是 {}，拿不到期次号（v215 之前没有期次参数所以看不出问题，但口径一直是错的）。
     // 现在改为「先把期次定下来，再按期次铺商品」。
     this._loadedPeriodId = ''
+    // v266：下拉刷新 = 强制重拉，筛选面同理（清判据 ⇒ `loadFacets` 不再短路）
+    this._facetsKey = ''
     Promise.all([
       this.loadStores(),
       this.loadPeriods(),
@@ -119,6 +174,8 @@ Page({
     // 期次没变则不重拉（保留滚动位置与已加载内容），期次变了才重拉。
     this.loadPeriods()       // A 方案：拉取当前可报单期次（内部带 5min 缓存）
     this.loadRecentStores()  // M10
+    this.loadPending()       // v304: 本期报单进度提醒条（只读接口，60s 节流，失败静默）
+    this.loadMsgUnread()     // v318: 未读通知条（同上：只读、60s 节流、失败静默）
     /* P2-3/v224: 自动补传**不在**这里同步调用。
        原实现紧跟 `loadPeriods()` 同步跑 ⇒ 补传开始时 `this.data.period` 很可能还是 `{}`
        （`loadPeriods` 是 async，走网络的路径下还没回来）⇒ `_doSubmit` 的守卫直接弹
@@ -144,6 +201,64 @@ Page({
   backTop() {
     wx.pageScrollTo({ scrollTop: 0, duration: 300 })
   },
+
+  /* v304（2026-09-28）：拉「本期还差谁没报」→ 顶部提醒条。**只读接口，不写任何业务数据**。
+     · 60 秒节流：onShow 在切 tab / 从其它页返回时会反复触发，这件事按分钟级刷新足够；
+     · 失败**静默降级**（不写 loadError、不弹错）：提醒条是辅助信息，绝不能因为它挂了
+       就把「报单」这件主事挡住；
+     · 与后端催单**同源**（后端复用调度器那一份口径），小程序**不做任何二次计算** ——
+       一旦在这里自己算一遍，就会出现"页面说的"和"催单催的"两把尺子。
+     · 文案里的数字一律带中文单位（"个单元"），不用英文缩写。 */
+  async loadPending(force) {
+    const now = Date.now()
+    if (!force && this._pendingAt && (now - this._pendingAt) < 60000) return
+    this._pendingAt = now
+    try {
+      const d = await request('/api/forecast-submissions/pending-summary')
+      if (!d || !d.ok) return
+      const names = d.my_missing || []
+      const total = d.units_total || 0
+      const reported = d.units_reported || 0
+      const missing = d.units_missing || 0
+      const end = (d.period && d.period.order_end) || ''
+      // 有"我负责的门店"时优先说这个 —— 销售能直接对上自己该做的事；
+      // 没有归属绑定时退化为全局进度（fail-safe，不显示一个空的主语）。
+      const title = names.length
+        ? ('你负责的 ' + names.length + ' 家店还没报单')
+        : ('本期还有 ' + missing + ' 个单元没报单')
+      let sub = '已报 ' + reported + ' / ' + total + ' 个单元'
+      if (end) sub += '，截止 ' + end
+      if (names.length) {
+        sub += ' · ' + names.slice(0, 2).join('、') + (names.length > 2 ? ' 等' : '')
+      }
+      this.setData({
+        pending: d,
+        pendingOn: !!(d.has_period && missing > 0),
+        pendingTitle: title,
+        pendingSub: sub,
+      })
+    } catch (e) {
+      // 静默降级（见方法头注释第 2 条）
+    }
+  },
+
+  /* v318：拉「我有几条未读通知」→ 顶部通知条 + 跳转「我的通知」。
+     · 与 `loadPending` 同款 60 秒节流（同一个 onShow 触发点，同一档刷新频率足够）；
+     · 失败**静默**：通知条是辅助信息，不能因为它挂了就挡住报单（同 `loadPending` 的纪律）；
+     · 只取 `limit=1` 算未读数 —— 不要在首页拉 30 条正文（这一页的主事是报单）。
+     · 🔴 文案带中文单位（"条"）。 */
+  async loadMsgUnread(force) {
+    const now = Date.now()
+    if (!force && this._msgAt && (now - this._msgAt) < 60000) return
+    this._msgAt = now
+    try {
+      const d = await request('/api/messages?limit=1')
+      this.setData({ msgUnread: Number(d.unread_count || 0) })
+    } catch (e) {
+      // 静默降级：拿不到就不显示这一条（不写 0 也不报错，避免"看起来没有通知"的假结论）
+    }
+  },
+  goMessages() { wx.navigateTo({ url: '/pages/messages/messages' }) },
 
   /* 触底加载下一页（分页滚动，避免一次性渲染数百 SKU 卡顿） */
   onReachBottom() {
@@ -261,6 +376,13 @@ Page({
       : (this.data.period || {}).id
     // 期次还没定（首次进入、接口还没回来）⇒ 什么都不做，等 `_applyPeriods` 再调
     if (pid === undefined || pid === null || pid === '') return Promise.resolve()
+    /* v266：筛选面同样**依赖期次**，所以一起在这里拉。
+       ⚠️ 必须放在下面的"已铺过"短路**之前** —— 那个短路判的是**商品列表**，
+          而筛选面还多一个维度（门店）：换门店时商品不用重拉（清单按期次），
+          但常报要重算。放短路之后就会出现"换了门店，常报还是上一家的"。
+       ⚠️ 不 await：chips 晚到不影响商品铺开；若它发现筛选必须被重置（见 `_applyFacets`），
+          会自己再重拉一次列表。 */
+    this.loadFacets()
     // 已经按这一期铺过了：不重拉，保留滚动位置与已加载内容。
     // `periodEmpty` 也算"铺过了"—— 否则本期清单为空的用户每次 onShow 都要空跑一次请求。
     if (String(this._loadedPeriodId) === String(pid) &&
@@ -281,7 +403,14 @@ Page({
     // v224：切期次后必须清除旧结果卡/错误条 —— 它们说的是**上一个期次**的那一单，
     // 留在屏幕上会被当成"本期已提交"（多期并存时这种误读最危险）。
     // v227：样单条同理 —— 它的越界结论是按**上一期的清单**算的，换期后失效。
-    this.setData({ submitResult: null, submitError: null, sampleInfo: null })
+    /* v266：筛选面同理，而且必须**连 chips 一起清空** —— 品牌是"本期清单内"的聚合，
+       换期次后旧品牌可能整条都不存在。留着旧 chips 有两个后果：① 点它得到空列表
+       （后端按未知品牌返回明确空集），② 用户以为自己"选了本期确实有的品牌"。 */
+    this.setData({
+      submitResult: null, submitError: null, sampleInfo: null,
+      brandFacets: [], brandSel: '', freqReady: false, freqOn: false,
+      filterEmpty: false, filterHint: ''
+    })
     this.refreshBanners()                // 期次变了，重新判断「本期是否已报」
     // 二期: 已填数量切到新期次 → 轻提示（数据保留可沿用，但别提交错期次）
     if (this.data.cartCount > 0 && period.id !== oldId && period.in_window !== false) {
@@ -313,10 +442,24 @@ Page({
   /* M8 二期: 购物车持久化到 Storage，按门店分键 fs_cart_<storeId>（根治串店）
      旧版 fs_cart 单份 → 首次进某店时自动迁移到 fs_cart_<storeId> 后删旧键
      force=true 仅在「主动切店」时用（无条件切到新店的车）；其余场景若已有进行中
-     填报（cartMap 非空）则不覆盖，避免门店列表加载前就开始填报的数据被清掉 */
+     填报（cartMap 非空）则不覆盖，避免门店列表加载前就开始填报的数据被清掉
+
+     🔴 v294（2026-09-27）：键里**必须**带对象类型。
+     门店与本人仓的 id 空间独立、可以撞号 —— 「门店 5」与「本人仓 5」同时存在，
+     正是本次要支持的业务场景（一个人既报门店的单、也报自己仓的调拨单）。
+     只按 id 分键会让两个对象的购物车**互相覆盖**：切到「本人仓 5」时会看到
+     「门店 5」的车（正是二期当初修掉的「串店」，换个入口又回来了）。
+     ⚠️ 门店沿用**旧键形状**（`fs_cart_<id>`）—— 不能改：一改，升级后所有人
+        正在填的购物车全部找不到（静默清空，且用户已习惯"切走再回来数量还在"）。
+        本人仓加 `wh_` 前缀区分（原先不存在这类键，无迁移负担）。 */
+  _objKey(o) {
+    const s = o || {}
+    if (s.id == null) return null
+    return s.kind === 'warehouse' ? ('wh_' + s.id) : String(s.id)
+  },
   _cartKey() {
-    const s = this.data.store
-    return (s && s.id != null) ? 'fs_cart_' + s.id : null
+    const k = this._objKey(this.data.store)
+    return k ? 'fs_cart_' + k : null
   },
   restoreCart(force) {
     const key = this._cartKey()
@@ -369,15 +512,36 @@ Page({
   },
   _applyStores(stores) {
     // F1 修复：保留上次选中的门店，不强制重置为 stores[0]
-    const savedId = wx.getStorageSync('fs_store_id')
+    // 🔴 v294：选中的对象要**连类型一起**记住并比对 —— 「门店 5」与「本人仓 5」是
+    //   两个不同的对象。只比 id 会恢复出错的那一个，于是购物车、商品清单、
+    //   「上次报单」快照全部张冠李戴，而界面看起来完全正常。
+    //   兼容旧值：老版本存的是裸 id（字符串/数字），此时按门店处理。
+    const savedRaw = wx.getStorageSync('fs_store_id')
+    let savedId = savedRaw
+    let savedKind = 'store'
+    if (savedRaw && typeof savedRaw === 'object') {
+      savedId = savedRaw.id
+      savedKind = savedRaw.kind || 'store'
+    }
+    const list = (stores || []).map(s => Object.assign({}, s, {
+      kind: s.kind || 'store',
+      // 下拉要能一眼分清门店与本人仓 —— 两者名字可能很像，而报出来的是完全不同的单
+      // （自提 vs 调拨）。只显示 name 用户会选错，且错了不会报错。
+      label: (s.kind === 'warehouse') ? ((s.name || '') + '（本人仓 · 调拨单）') : (s.name || ''),
+    }))
     let idx = 0
     if (savedId !== '' && savedId !== null && savedId !== undefined) {
-      const found = stores.findIndex(s => String(s.id) === String(savedId))
+      const found = list.findIndex(s =>
+        String(s.id) === String(savedId) && s.kind === savedKind)
       if (found >= 0) idx = found
     }
     // P0-1（2026-09-20）：空列表要显式说出来。`/stores` 返回空数组有三种成因
     // （没配报单配置 / 员工关联为空 / 后端回退分支），对用户而言都是同一件事：配置没到位。
-    this.setData({ stores, store: stores[idx] || {}, storeIdx: idx, storeEmpty: !stores.length })
+    this.setData({ stores: list, store: list[idx] || {}, storeIdx: idx, storeEmpty: !list.length })
+    /* v266：门店定案 ⇒ 常报面要按这个门店重算（判据 key 里含 store_id，会自动重拉；
+       ⚠️ 这里必须放在 setData **之后** —— `loadFacets` 读的是 `this.data.store`）。
+       期次未定时 `loadFacets` 内部直接返回，不会有半截请求。 */
+    this.loadFacets()
     // 二期: 门店定案后再恢复该店的购物车（fs_cart_<storeId>，根治串店）
     this.restoreCart()
     this.refreshBanners()
@@ -407,14 +571,18 @@ Page({
   /* ---- 2026-09-06 跨期次沿用：上次报单快照 + 本期已提交回执 ----
      需求：提交后不清空，下次报单时能看到「上次报了什么」，可一键带入后直接提交。
      - lastOrder  按「门店」维度存：换期次仍在，用于一键带入
-     - submitted  按「门店+期次」维度存：本期已报过，提交前拦截防重复下单 */
+     - submitted  按「门店+期次」维度存：本期已报过，提交前拦截防重复下单
+     🔴 v294：两个键都要带**对象类型**（走 `_objKey`）—— 门店与本人仓 id 会撞号，
+     不带类型的话「门店 5」的「上次报单」会被「本人仓 5」覆盖（一键带入带错货），
+     而「本期已提交」还会互相拦截/互相放行（防重复下单**失效**）。 */
   _lastKey() {
-    const s = this.data.store
-    return 'fs_last_cart_' + (s && s.id != null ? s.id : '0')
+    const k = this._objKey(this.data.store)
+    return 'fs_last_cart_' + (k || '0')
   },
   _subKey() {
-    const s = this.data.store, p = this.data.period
-    return 'fs_sub_' + (s && s.id != null ? s.id : '0') + '_' + (p && p.id != null ? p.id : '0')
+    const k = this._objKey(this.data.store)
+    const p = this.data.period
+    return 'fs_sub_' + (k || '0') + '_' + (p && p.id != null ? p.id : '0')
   },
   refreshBanners() {
     let last = null, sub = null
@@ -479,7 +647,10 @@ Page({
     let recs = []
     try {
       // v227：按门店取全（一店一期一单 ⇒ 条数 == 该店报过的期次数，量很小）
-      const d = await request('/api/forecast-submissions/my?limit=100&store_id=' + store.id)
+      // v294：`store_kind` 必须一起传 —— 门店与本人仓的 id 可以撞号，
+      // 只传 store_id 会把「本人仓 5」的往期单当成「门店 5」的样单（张冠李戴，且不报错）。
+      const d = await request('/api/forecast-submissions/my?limit=100&store_id=' + store.id
+        + '&store_kind=' + encodeURIComponent(store.kind || 'store'))
       recs = d.records || []
     } catch (e) {
       wx.hideLoading()
@@ -558,10 +729,16 @@ Page({
       }
       this.syncCart()
       this.applyQtyToRows()
-      /* 越界预检：**只在本期清单已全部加载时**才下结论。
-         为什么必须加这个条件：`products` 是分页加载的，只比第一页会把"还没翻到"
-         误报成"不在本期清单"（假阳性），而用户会照着这个错误的提示去删商品。 */
-      const loadedAll = this.data.total > 0 && this.data.products.length >= this.data.total
+      /* 越界预检：**只在本期清单完整可见时**才下结论。两条前提缺一不可：
+         ① 列表已全部加载（`products` 是分页的，只比第一页会把"还没翻到"误报成"不在清单"）；
+         ② **没有生效的过滤/搜索**（v266 补）—— 过滤后 `products` 与 `total` 都只剩"筛过的"
+            那一份，两者仍然相等 ⇒ 判据①照样成立，但下面的 `inScope` 只装得下筛选后可见的
+            商品 ⇒ 凡是**被筛掉的**都会被误报成"不在本期清单"，而用户会照着这句提示去删
+            本来该报的商品。这是**零报错的假阳性**，比不提示更危险。
+         （补前遗留：只有 `kw` 时就已经有这个缺陷 —— 搜完再生成样单就会误报，一并修掉。） */
+      const narrowed = !!(this.data.kw || this.data.brandSel || this.data.freqOn)
+      const loadedAll = !narrowed
+        && this.data.total > 0 && this.data.products.length >= this.data.total
       let outside = []
       if (loadedAll) {
         const inScope = {}
@@ -613,6 +790,126 @@ Page({
     if (Object.keys(patch).length) this.setData(patch)
   },
 
+  /* ══════════════════ v266（2026-09-27）：筛选面（品牌 + 我的常报）══════════════════
+     用户需求原话：「商品太多了，能不能加个品牌选择」+「每期报单的商品基本一样，常报的
+     能不能排在前面」。拍板结论：**都做成"过滤"**（用户回「1.过滤」），统计范围锚
+     **本门店**（用户回「2.本门店」）。
+
+     为什么是"过滤"而不是"置顶排序"：
+       · 商品顺序是**铁律**（v215：小程序必须与 Web 端逐字同序，后端按模板行序返回）——
+         前端一旦重排，"同一期在两个端看到不同的表"就会成为常态，而对账靠的就是这个表；
+       · 过滤是**可逆、可退出**的：chip 一关，顺序立刻回到与 Web 端一致的全量。
+     已端到端验证：过滤结果是全量的**同序子序列**（相对顺序逐项一致）。
+
+     ⚠️ 三条必须同时成立，缺一条就有死锁或说谎（都在下面的代码里实现）：
+       ① **不留死锁**：chip 不渲染时，它背后的筛选开关必须是关着的 —— 否则列表被一个
+          **看不见的筛选**过滤着，用户没有任何 UI 能取消它（列表永远空、屏幕上找不到原因）。
+          见 `_applyFacets` 的两条自洽修正。
+       ② **不泄漏哨兵**：后端把"空品牌"编码成 `__blank__`（空串在 query 里与"不过滤"同形，
+          直接下发会让「未分类」chip 一点就变成"显示全部"）。前端只认 `label`（传参用），
+          显示一律走 `name`（`__blank__` → 「未分类」）。
+       ③ **不说谎的空态**：筛选后为空 ≠ 本期没配清单。前者去掉条件就能看到东西，
+          后者要去找管理员 —— 混在一起会把用户支使到错误的方向上。 */
+  _brandNameOf(label) {
+    if (label === '__blank__') return '未分类'
+    const hit = (this.data.brandFacets || []).find(b => b.label === label)
+    return (hit && hit.name) || label || ''
+  },
+
+  /* 空态里点名当前生效的条件 —— 用户看到"没有商品"时，最需要知道的是**哪一个条件**在起作用。 */
+  _filterHint(kw) {
+    const parts = []
+    if (this.data.brandSel) parts.push('品牌「' + this._brandNameOf(this.data.brandSel) + '」')
+    if (this.data.freqOn) parts.push('「我的常报」')
+    if (kw) parts.push('关键词「' + kw + '」')
+    return parts.length
+      ? ('当前条件：' + parts.join(' ＋ ') + '，去掉其中一项就能看到更多商品')
+      : ''
+  },
+
+  /* 拉筛选面。判据 `期次|门店`（见 `_facetsKey` 注释）；`force=true` 供下拉刷新用。 */
+  loadFacets(force) {
+    const pid = (this.data.period || {}).id
+    if (pid === undefined || pid === null || pid === '') return Promise.resolve()
+    const sid = (this.data.store || {}).id || 0
+    const key = String(pid) + '|' + String(sid)
+    if (!force && this._facetsKey === key) return Promise.resolve()
+    this._facetsKey = key            // 请求发出即占位，防同 key 重复发
+    let q = '?period_id=' + pid
+    if (sid) q += '&store_id=' + sid
+    return request('/api/products/fill-facets' + q)
+      .then(d => {
+        // 竞态：响应回来时若已切走（期次/门店变了）就丢弃 —— 与 loadProducts 的 `_seq` 同理
+        if (this._facetsKey !== key) return
+        this._applyFacets(d)
+      })
+      .catch(e => {
+        /* 拉不到就**降级为"没有筛选面"**：chips 不渲染，但搜索与报单照常可用。
+           ⚠️ 失败必须清掉 `_facetsKey` —— 否则下次进页会因"已拉过"被短路，
+              筛选面**永久**回不来（这正是本项目最忌的静默失效）。 */
+        if (this._facetsKey === key) this._facetsKey = ''
+        console.warn('[fill] loadFacets failed:', e && e.message)
+      })
+  },
+
+  _applyFacets(d) {
+    const raw = (d && d.brands) || []
+    // 哨兵只活在**传参层**；显示层一律换成 `name`（见本段头注释 ②）
+    const brands = raw.map(b => Object.assign({}, b, {
+      name: (b.label === '__blank__' ? '未分类' : (b.label || ''))
+    }))
+    /* ⚠️ `frequent.count` **不显示**：后端返回的是"窗口内出现≥N次的商品数"，
+       它**没有与本期清单求交** ⇒ 与点开后的实际条数不一致（会显示"常报 12"，点开却只有 9）。
+       品牌 chip 的 `count` 与点开后的 total **逐字一致**（已实测：蒙牛低温 73 = 73），
+       所以那个可以显示。R8：宁可不显示数字，也不显示一个会变的数字。 */
+    const freqReady = !!(d && d.frequent && d.frequent.ready)
+    let brandSel = this.data.brandSel
+    let freqOn = this.data.freqOn
+    let dirty = false
+    /* ① 品牌自洽：选中的品牌必须仍在**本次**筛选面里。换期次后旧品牌可能整条都不存在
+       （如上一期有「友芝友」、本期没有）—— 此时后端按未知品牌返回明确空集（`1=0`），
+       而那个 chip 已经不在屏幕上 ⇒ 用户没有任何 UI 能取消它（列表永远空 + 找不到原因）。 */
+    if (brandSel && !brands.some(b => b.label === brandSel)) { brandSel = ''; dirty = true }
+    /* ② 常报自洽：同一条铁律 —— `ready=false` 时 chip 不渲染，开关就必须是关的。
+       （换期次 / 切门店后新门店数据不足，就会走到这一支。） */
+    if (freqOn && !freqReady) { freqOn = false; dirty = true }
+    const patch = { brandFacets: brands, freqReady, brandSel, freqOn }
+    // 筛选面变了 ⇒ 上一次"筛选后为空"的结论作废，必须由重拉后的结果重新下
+    if (dirty) patch.filterEmpty = false
+    this.setData(patch)
+    // 筛选被强制改过 ⇒ 列表内容与屏幕上的筛选状态已不一致，必须重拉
+    if (dirty) this.loadProducts(this.data.kw, false)
+  },
+
+  /* 点品牌 chip：**再点一次 = 取消**（回全部）。这是 chip 的通用语义，也省掉了
+     一个"清除"按钮在小屏上占的位置。 */
+  pickBrand(e) {
+    const label = (e.currentTarget.dataset.label || '')
+    this.setData({
+      brandSel: (this.data.brandSel === label) ? '' : label,
+      filterEmpty: false
+    })
+    this.loadProducts(this.data.kw, false)
+  },
+
+  toggleFreq() {
+    // 防御：chip 不渲染时不该被触发，但真机上事件仍可能命中（见 `_applyFacets` ①②）
+    if (!this.data.freqReady) return
+    this.setData({ freqOn: !this.data.freqOn, filterEmpty: false })
+    this.loadProducts(this.data.kw, false)
+  },
+
+  /* 空态上的出口：一次点击回到"能看到全部商品"的状态。
+     为什么把关键词也一起清掉 —— 用户点的是"清除筛选条件"，而空态只告诉他"没有商品"；
+     若只清品牌/常报而留下关键词，很可能点完仍是空 ⇒ 一次"看起来没生效"的点击，
+     比一开始就不给这个按钮更糟。 */
+  clearFilters() {
+    if (this._searchTimer) clearTimeout(this._searchTimer)
+    this._lastKw = ''
+    this.setData({ brandSel: '', freqOn: false, kw: '', filterEmpty: false, filterHint: '' })
+    this.loadProducts('', false)
+  },
+
   /* v215（2026-09-20）：**按期次**拉取商品 —— 数据源从「商品档案」换成「本期报单清单」。
      用户拍板：「报单商品的判定基准不是商品档案（档案里很多赠品不需要报单），
      应该以每一期次内实际包含哪些商品作为基准」，且要求「Web 端某期有几个商品，
@@ -635,6 +932,19 @@ Page({
       const pid = (this.data.period || {}).id
       if (pid !== undefined && pid !== null && pid !== '') q += `&period_id=${pid}`
       if (keyword) q += `&q=${encodeURIComponent(keyword)}`
+      /* v266：筛选参数（品牌 / 我的常报）—— 与 `q` 同属**过滤**语义，三者 AND 叠加：
+         · `brand` 必须 encodeURIComponent：品牌名含中文，哨兵 `__blank__` 也在其中；
+         · `store_id` **只在常报开着时**才带 —— 常报按**门店**统计，后端也只在该分支读它
+           （不带时后端 `_store_or_zero` 会归 0 ⇒ 返回明确空集，而不是静默全量）。
+         🔴 这里绝不改 `limit`/`offset` 以外的任何东西，也绝不本地排序：顺序由后端按
+            模板行序（`sort_no`）给出，过滤只是"少给几行"，不是"换一个顺序"。 */
+      const brandSel = this.data.brandSel || ''
+      if (brandSel) q += `&brand=${encodeURIComponent(brandSel)}`
+      if (this.data.freqOn) {
+        q += '&frequent=1'
+        const sid = (this.data.store || {}).id
+        if (sid) q += `&store_id=${sid}`
+      }
       const d = await request('/api/products/fill-search' + q)
       if (seq !== this._seq) return
       const qm = this._qtyMap || {}
@@ -654,11 +964,27 @@ Page({
         loadError: '',
         listScope: d.scope || ''
       }
-      // 「本期一条商品都没有」与「搜索词没匹配到」是两件事：前者要引导用户找管理员
-      // 配清单，后者只需换个词。且只允许**无关键词的首屏**下结论 —— 否则一次搜索
-      // 就会把「本期没配清单」的结论覆盖掉，用户再也看不到那句提示。
-      if (!append && !keyword) patch.periodEmpty = (!list.length && d.scope === 'period')
+      /* 空态现在有**三种互斥成因**，各自的可行动作完全不同，绝不能用同一句话糊过去：
+           · 筛选后为空  → 去掉某个条件即可，用户自己就能解决；
+           · 搜索词没匹配 → 换个词即可；
+           · 本期没配清单 → 只有管理员能解决（要引导他去转发提示）。
+         v266 补的是第一类：在此之前它与第二类共用一句「本期没有匹配『kw』的商品」，
+         而**筛选**（品牌/常报）造成的空**根本没有对应文案** —— 列表空着、搜索框也空着、
+         屏幕上没有任何东西解释为什么（这正是"看起来坏了"的典型现场）。
+         ⚠️ `periodEmpty` 只在「无关键词 **且** 无筛选的首屏」下结论：三个条件缺一，
+            结论都会说谎（把"筛选太窄"说成"本期没配清单" = 把用户支使去找管理员）。 */
+      const filtered = !!(brandSel || this.data.freqOn)
+      if (!append) {
+        patch.filterEmpty = (!list.length && filtered)
+        // 不成对清掉会留下上一条空态的"是哪个条件挡住了"，下次空态换个条件时会指错人
+        patch.filterHint = patch.filterEmpty ? this._filterHint(keyword) : ''
+        if (!keyword && !filtered) patch.periodEmpty = (!list.length && d.scope === 'period')
+      }
       this.setData(patch)
+      // v264c：商品铺开后拉一次均单目标（按期次缓存，翻页/搜索不重复请求），
+      //   再贴到刚渲染的行上 —— 「目标先到 / 商品先到」两种时序都能收敛。
+      this.loadAvgTargets(pid)
+      this.applyAvgToRows()
     } catch (e) {
       // v215：首屏失败要让「已按本期铺开」的标记失效，否则重进页面时
       // `syncProductsForPeriod` 会认为"铺过了"而不再重试 ⇒ 一直空列表。
@@ -677,6 +1003,184 @@ Page({
   reloadProducts() {
     this.setData({ loadError: '' })
     this.loadProducts('', false)
+  },
+
+  /* ══════════════════ v264c（2026-09-24）：均单目标提示 ══════════════════════
+     用户需求原话：「报单行要能看到均单目标，浅色提示，不要抢眼」+「低于目标时提交前
+     弹一次确认」。数据全部来自后端 `/api/product-targets/avg-target`。
+
+     · 为什么**整期一次取**、不按当前页商品取：商品是按 pageSize=30 滚动分页铺开的，
+       按页取会让「翻到第二页才发现没提示」，且每翻一页多发一次请求。整期一次拿全，
+       翻页零等待（本期清单量与 Web 端一致，实测一两百条，一次响应可接受）。
+     · 为什么**不做本地换算**：均单 =（月目标 − 已达成）÷ 剩余可报期次，还要折成
+       填单单位 —— 这套口径只由后端算，小程序再算一遍就是第二份实现。
+     · 失败**静默**（不弹错、不阻塞报单）：提示是增益列，报单才是主功能。 */
+  loadAvgTargets(pid) {
+    const p = pid === undefined || pid === null || pid === '' ? '' : String(pid)
+    if (!p) return Promise.resolve()
+    if (this._avgPid === p) return Promise.resolve()   // 同一期次已拉过
+    this._avgPid = p
+    return request('/api/product-targets/avg-target?period_id=' + p)
+      .then(d => {
+        // ⚠️ `items` 的键是 JSON 序列化后的**字符串**商品 id（后端是 int 键）。
+        //    这里统一 `.map(String)` 存，取值端也一律 `String(p.id)` —— 两边同一种键型，
+        //    否则会出现「本地测试命中、真机恒取不到」的静默空提示。
+        const src = (d && d.items) || {}
+        const m = {}
+        Object.keys(src).forEach(k => { m[String(k)] = src[k] })
+        this._avgMap = m
+        // 🔴 数据与"它属于哪一期"必须**绑定存**：切期次后商品会重拉，而 `applyAvgToRows`
+        //    是异步触发的 —— 只存 map、不存 pid，就会出现"拿上一期的目标贴到本期的行上"
+        //    这种零报错的错贴（本项目最忌的一类）。
+        this._avgMapPid = p
+        /* v330+1：服务端给的「我是不是本期目标承接人」。
+           🔴 **只有明确的 false 才算非承接人** —— 老版本后端不返回这个字段（undefined）时
+              保持原行为（照常提醒）。绝不能因为字段缺失就把提醒静默关掉（同族铁律「降级即抹掉」）。
+           为什么需要它：均单是「(月目标 − 已达成) ÷ 剩余可报期次」的**整期全量**口径，
+           不按人过滤 ⇒ 分销商这类**没有目标的人**也会拿到同一个团队参考值，却被提示
+           「有 1 个有目标的商品还没填」= 拿别人的目标、以"你的目标"的口吻对他说话。 */
+        this._avgHolder = (d && d.is_holder === false) ? false : true
+        this.applyAvgToRows()
+      })
+      .catch(() => { this._avgPid = '' })   // 失败不记缓存：下次进页/切期次可重试
+  },
+
+  /* 把均单目标贴到**已渲染的行**上（只增 `avgText` / `avgNum` 两个字段，幂等）。
+     幂等很重要：本方法会被「商品到」与「目标到」两个异步分支各调一次，谁先到都成立。 */
+  applyAvgToRows() {
+    if (!this.data.products.length) return
+    // 🔴 期次校验：`_avgMap` 可能属于**上一期**（用户刚切了期次、新请求还没回来）。
+    //    不校验就会把上一期的目标贴到本期的行上，而且不会报错。
+    const curPid = String((this.data.period || {}).id === undefined ? '' : (this.data.period || {}).id)
+    if (!curPid || String(this._avgMapPid || '') !== curPid) return
+    const m = this._avgMap || {}
+    const patch = {}
+    this.data.products.forEach((p, i) => {
+      const it = m[String(p.id)]
+      const txt = this._avgText(it, p.unit)
+      if (p.avgText !== txt) patch['products[' + i + '].avgText'] = txt
+      /* v298：本方法**只负责显示**。`avgNum`（行内数值）继续贴，供调试与后续使用，
+         但**不再**兼作「提交前比对」的基准 —— 那件事已归 `_avgTargets()`（整期全量）。
+         留在这里会造成两份基准，而两份基准迟早会分叉。 */
+      const av = this._avgNum(it, p.unit)
+      if (p.avgNum !== av) patch['products[' + i + '].avgNum'] = av
+    })
+    if (Object.keys(patch).length) this.setData(patch)
+  },
+
+  /* 均单目标的**数值**（行内单位口径）。取不到 = 0（= 不比、不提示）——**绝不用 0 冒充**：
+     0 在这里的语义是"没有可比的基准"，不是"目标为零"。 */
+  _avgNum(it, unit) {
+    if (!it || !unit) return 0
+    const fl = it.flags || {}
+    if (fl.no_target || fl.no_convert || fl.no_window || fl.done) return 0
+    const pu = it.avg_per_unit || it.per_unit || {}
+    const v = pu[unit]
+    if (v === undefined || v === null) return 0
+    const n = Number(v)
+    return n > 0 ? n : 0
+  },
+
+  /* 均单目标的**展示文案**。取不到一律返回空串 ⇒ 模板不渲染（R8：无目标不显示，
+     不拿 0 冒充、也不说"无法计算"这种让人焦虑的话）。
+     唯一的例外是 `done`（本期已达标）：它不是"没有数据"，而是一句**准确**的结论。 */
+  _avgText(it, unit) {
+    if (!it || !unit) return ''
+    const fl = it.flags || {}
+    if (fl.done) return '本期已达标'
+    const n = this._avgNum(it, unit)
+    if (!n) return ''
+    return '均单目标 ' + this._numText(n) + ' ' + unit
+  },
+
+  /* 数量文案：整数不带小数点，小数最多 3 位（与 Web 端 `boxesOf` 同精度 —— 1 箱 = 8 包
+     这类换算经常不是整数，直接 toFixed 会满屏 .0）。 */
+  _numText(v) {
+    const n = Number(v) || 0
+    return Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000)
+  },
+
+  /* v298（2026-09-27）：本期**有均单目标**的商品 -> { target, unit, name }，**整期全量**。
+     数据源 = `_avgMap`（`/avg-target` 不带 product_ids 时的全量返回），**不是**已渲染的行 ——
+     这样判据与"用户滚到第几行"无关（旧实现在这点上是错的，见文件头 `_avgNums` 那段注释）。
+     返回 null = 期次对不上（目标还没回来 / 属于上一期）⇒ 调用方**一律不提示**，
+     绝不拿上一期的目标判本期的未达标（那是零报错的错报）。
+     ⚠️ 目标值仍一律走 `_avgNum()`：no_target / no_convert / no_window / done 四类**不计** ⇒
+        「没设目标」「本期已达标」「缺单位换算」「已无到货窗口」都不会进这张表，
+        提示条数天然有界（生产实测 2026-09：本期清单 154 个商品里只有 3 个设了月目标）。 */
+  _avgTargets() {
+    const m = this._avgMap
+    if (!m) return null
+    const curPid = String((this.data.period || {}).id === undefined ? '' : (this.data.period || {}).id)
+    if (!curPid || String(this._avgMapPid || '') !== curPid) return null
+    const out = {}
+    Object.keys(m).forEach(pid => {
+      const it = m[pid]
+      const unit = this._unitOf(pid, it)
+      const t = this._avgNum(it, unit)
+      if (!(t > 0)) return                      // 与 `_avgText` 同一条判据：取不到 = 不计
+      out[pid] = { target: t, unit, name: this._nameOf(pid, it) }
+    })
+    return out
+  },
+
+  /* 取「用户实际看到的那个单位」：优先已加载的商品行（= 输入框里的单位，与行上那条
+     「均单目标 N」**同一个来源** —— D20「两把尺子」就靠它守住）；该行还没滚到时，退回
+     后端给的报单单位（`avg-target` 的 `item.unit`，`order_unit` 优先，与 `fill-search` 同源）。 */
+  _unitOf(pid, it) {
+    const row = this._rowOf(pid)
+    return (row && row.unit) || (it && it.unit) || ''
+  },
+  /* 名字优先取**用户看得见的那一行**；行还没滚到时用后端 `product_name`
+     （= 老板在「商品目标」页建目标时用的那个名字，比档案名更贴近他的认知）。 */
+  _nameOf(pid, it) {
+    const row = this._rowOf(pid)
+    if (row && row.name) return row.name
+    return (it && it.product_name) || ''
+  },
+  /* 已加载的商品行（还没滚到 ⇒ null）。`_prodIndex` = id -> products 下标的 O(1) 索引 */
+  _rowOf(pid) {
+    const i = (this._prodIndex || {})[String(pid)]
+    return (i === undefined) ? null : (this.data.products[i] || null)
+  },
+
+  /* 提交前提醒的清单：**本期有目标、但没填够**的商品 ——「未达标」是唯一判据。
+     🔴 v298 修的两个不一致（病根都在这里）：
+       ① **完全未填（空值）也要提示**。原实现遍历 `this.data.cart`，而 `cartMap` **只装
+          qty>0 的商品**（`setQty()` 里 `qty<=0` 直接 `delete`；`applyLastOrder()` 还显式
+          跳过 `!(it.qty>0)`）⇒「一个字没填」的商品**在结构上就进不了这个循环**，于是
+          同一个字段出现两种行为：填了但没够 → 弹提醒；完全没填 → 一句话都没有。
+          用户原话：「使字段为空时也能触发明确的提示，并保证两种情况（填了未达标、
+          完全未填）的提示行为一致且符合预期。」
+          ⇒ 现在按**目标表**遍历，cart 只用来查已填数量，**查不到的一律按 0 算**。
+       ② 基准从「已渲染的行」换成「整期全量」（见 `_avgTargets()`）。
+     ⚠️「未填」与「填了但不够」**成因不同、该做的事也不同**（一个可能漏了、一个是要不要加），
+        所以每条都带 `empty`，由 `_doSubmit()` 分叉文案 —— 但**判据是同一个**（`q < target`），
+        两者走同一条弹窗、同样"只提醒不阻拦"，这就是"提示行为一致"。
+     ⚠️ `unit` 取目标侧单位（与行上那条提示同源）；`qty` 是行内单位口径的已填数。 */
+  _lowList() {
+    const basis = this._avgTargets()
+    const out = []
+    if (!basis) return out
+    // 已填数量：cart 只装 qty>0 ⇒ **没出现在 cart 里的商品 = 完全未填 = 0**
+    const qtyOf = {}
+    this.data.cart.forEach(c => { qtyOf[String(c.id)] = Number(c.qty) || 0 })
+    Object.keys(basis).forEach(pid => {
+      const b = basis[pid]
+      const q = qtyOf[pid] === undefined ? 0 : qtyOf[pid]
+      if (q < b.target) {
+        out.push({
+          id: Number(pid), name: b.name, unit: b.unit,
+          qty: q, target: b.target, empty: !(q > 0)
+        })
+      }
+    })
+    /* 「完全未填」排前面 —— 那更可能是"漏了"，比"报少了"更该先看。
+       ⚠️ 这个 sort **只作用于 `out`**（本方法算出来的提醒清单，一个派生的一次性数组），
+          **绝不碰 `this.data.products`**：商品顺序是后端契约（v215：小程序必须与 Web 端
+          逐字同序），这个页面上任何地方都不得重排商品列表。 */
+    out.sort((a, b) => (a.empty === b.empty ? 0 : (a.empty ? -1 : 1)))
+    return out
   },
 
   /* 搜索：对已铺开列表做过滤定位（防抖）
@@ -715,7 +1219,11 @@ Page({
       const names = []
       for (const r of recs) {
         const nm = r.store_name || r.store || ''
-        if (nm && names.indexOf(nm) < 0) { names.push(nm); seen.push({ name: nm }) }
+        // v294：**名字 + 类型** 才是唯一标识 —— 门店与本人仓可以同名，
+        // 只按名字去重会把两个对象合并成一个（点进去是另一个对象，且不报错）。
+        const kd = r.store_kind || 'store'
+        const sig = kd + '|' + nm
+        if (nm && names.indexOf(sig) < 0) { names.push(sig); seen.push({ name: nm, kind: kd, sig: sig }) }
         if (seen.length >= 4) break
       }
       if (seen.length) {
@@ -734,18 +1242,35 @@ Page({
   _switchStore(i) {
     const store = this.data.stores[i] || {}
     if (!store || !store.id) return
-    if (store.id === (this.data.store || {}).id) return
-    this.flushCart()                 // 旧店的已填数量先落盘（fs_cart_<旧id>）
+    // v294：同 id 的「门店」与「本人仓」是两个对象 —— 比较必须带类型，
+    //       否则从「门店 5」切到「本人仓 5」会被判成"没换店"而直接 return，
+    //       购物车与商品清单都停在上一个对象上（静默不切换）。
+    const cur = this.data.store || {}
+    if (store.id === cur.id && (store.kind || 'store') === (cur.kind || 'store')) return
+    this.flushCart()                 // 旧店的已填数量先落盘（fs_cart_<旧 id 键>）
     this.setData({ store, storeIdx: i, cartOpen: false, pendingSubmit: false, submitResult: null, submitError: null, sampleInfo: null })
-    wx.setStorageSync('fs_store_id', store.id !== undefined ? store.id : '')
-    this.restoreCart(true)           // 切店：无条件载入新店的购物车（fs_cart_<新id>）
+    // v294：连类型一起存（对象而非裸 id）。读取端 _applyStores 兼容旧裸 id。
+    wx.setStorageSync('fs_store_id', { id: store.id, kind: store.kind || 'store' })
+    this.restoreCart(true)           // 切店：无条件载入新店的购物车（fs_cart_<新 id 键>）
     this.refreshBanners()            // 门店变了，读该门店的上次报单快照
+    /* v266：常报是**按门店**算的 ⇒ 换店后即使筛选开关没变，"常报"的内容也换了。
+       ⚠️ 放在 setData **之后**（`loadFacets` 读的是 `this.data.store`）。
+       ⚠️ 商品清单本身**不**随门店变（它按期次），所以只在「我的常报」真正生效时才重拉列表
+          —— 否则每次切店都白请求一次全量。
+       若新门店常报数据不足，`_applyFacets` 会替用户把开关关掉并自行重拉（`dirty` 分支），
+       此时这里的 `this.data.freqOn` 已是 false ⇒ 不会重复请求。 */
+    this.loadFacets().then(() => {
+      if (this.data.freqOn) this.loadProducts(this.data.kw, false)
+    })
   },
 
   /* M10: 点击最近报单门店快捷入口 */
   pickRecent(e) {
     const nm = e.currentTarget.dataset.name
-    const i = this.data.stores.findIndex(s => s.name === nm)
+    const kd = e.currentTarget.dataset.kind || 'store'
+    // v294：按「名字 + 类型」定位 —— 只按名字会在同名的门店/本人仓之间选错那一个。
+    let i = this.data.stores.findIndex(s => s.name === nm && (s.kind || 'store') === kd)
+    if (i < 0) i = this.data.stores.findIndex(s => s.name === nm)   // 降级：旧数据无 kind 时按名字
     if (i >= 0) this._switchStore(i)
   },
 
@@ -956,6 +1481,55 @@ Page({
     if (!period || !period.id) {
       wx.showToast({ title: '请先选择报单期次', icon: 'none' })
       return
+    }
+    /* v264c（2026-09-24）/ v298（2026-09-27）：**未达标**（含「完全未填」）的商品 —— 提交前提醒一次。
+       口径（用户拍板，与 D5-A「建议态」同一精神）：系统只**提示**，绝不替用户改数量；
+       改不改由人决定，但**必须让他知道**。所以：
+         · 只提醒、不阻拦 —— 点「继续提交」照常走下面的确认流程
+         · 「返回修改」直接 return，不改动任何状态
+       位置放在「本期已报过 / 首次提交」两种确认**之前**：改单场景（下调数量）更需要它，
+       而走「已报过」分支的人同样该被提醒到，放在后面会漏掉他们。
+       🔴 v298：清单里现在**既有「填了但低于目标」也有「完全没填」**（判据同一条 `q < target`），
+          而且**成因不同、该做的事不同**，所以标题与明细行**分叉**：同一句话糊两种成因，
+          用户就不知道该改哪个 ——「未填」= 可能漏了（要他去补）；「N / 均单 M」= 报少了。
+          ⚠️ 只有「低于」这一类时**标题保持原文案不变**（D21 的验收串依赖它）。
+       ⚠️ `showModal` 的 content 是**纯文本**，不要写 markdown 强调符号（`**` 会原样显示）。 */
+    /* v330+1：**非目标承接人不弹这条提醒**。
+       唐成是分销商、也是报单人，但老板没有给他设商品目标（他 `employee_id=0`、
+       不在任何 `product_target_alloc` 名单里）⇒ 均单那个团队参考值与他无关，
+       提示「有 1 个有目标的商品还没填」只会让他以为自己漏填了别人的目标。
+       🔴 判据**只认服务端给的明确 false**：字段缺失（老后端）时照常提醒，不静默关闭。 */
+    const low = (this._avgHolder === false) ? [] : this._lowList()
+    if (low.length) {
+      const notFilled = low.filter(x => x.empty)      // 完全未填
+      const short = low.filter(x => !x.empty)         // 填了但低于目标
+      const lineOf = (x) => x.empty
+        ? (x.name + ' 未填 / 均单 ' + this._numText(x.target) + ' ' + (x.unit || ''))
+        : (x.name + ' ' + this._numText(x.qty) + ' / 均单 ' + this._numText(x.target) + ' ' + (x.unit || ''))
+      const title = (notFilled.length && short.length)
+        ? ('有 ' + low.length + ' 个有目标的商品未达标')
+        : (notFilled.length
+            ? ('有 ' + notFilled.length + ' 个有目标的商品还没填')
+            : ('有 ' + short.length + ' 个商品低于均单目标'))
+      // 只有「未填」时多一句说明口径（"没填 = 按 0 计"），否则用户会以为系统算错了
+      const note = notFilled.length
+        ? ('\n没填的商品按 0 计算（共 ' + notFilled.length + ' 个）。')
+        : ''
+      const ok = await new Promise(res => {
+        wx.showModal({
+          title,
+          content: low.slice(0, 3).map(lineOf).join('\n')
+                 + (low.length > 3 ? '\n…等 ' + low.length + ' 个' : '')
+                 + '\n\n均单目标是按月目标和剩余可报期次推算的参考值，不是必须达到的数。'
+                 + note
+                 + '照常提交请点「继续提交」。',
+          confirmText: '继续提交', cancelText: '返回修改',
+          confirmColor: '#06b6d4',
+          success: (r) => res(!!r.confirm),
+          fail: () => res(false)
+        })
+      })
+      if (!ok) return
     }
     /* 2026-09-06 / v224：同一门店 + 同一期次已报过 —— 先确认。
        v224 订正文案：后端语义是**覆盖同一单**（v224 起单号还保持不变），

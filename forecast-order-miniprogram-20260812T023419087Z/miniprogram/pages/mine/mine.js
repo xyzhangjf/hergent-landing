@@ -22,6 +22,10 @@ const AXIS_LOCK_PX = 8
 Page({
   data: {
     user: {}, avatarChar: '', roleName: '', canManage: false, records: [], expandedId: 0, recallingId: 0,
+    /* v318：未读通知数 —— 「我的通知」入口上的角标。
+       为什么要它：加单/减单明细是**定向**通知（只发给被加/减的那个人），
+       入口若不显示未读数，业务员没有任何理由点进去 ⇒ 等于没发。 */
+    msgUnread: 0,
     // v259 左滑删除：swipeId = 当前展开的那一项 id（0 = 没有），swipeX = 位移量（px，负值），
     // dragging = 手指按下中（跟手，关掉过渡动画），deletingId = 正在请求删除的那一项（防重复点）
     swipeId: 0, swipeX: 0, dragging: false, deletingId: 0
@@ -62,7 +66,21 @@ Page({
       // 留着 swipeId 会指向一条已经不在列表里的单据（下次滑动就"对不上号"）。
       this.setData({ records, swipeId: 0, swipeX: 0 })
     } catch (e) { wx.showToast({ title: e.message, icon: 'none' }) }
+    this.loadMsgUnread()
   },
+  /* v318：未读通知数（「我的通知」入口的角标）。
+     🔴 失败**静默**并把角标归 0 —— 入口本身必须照常可点：拿不到角标不等于"没有权限看通知"，
+        把入口藏起来会让"通过小程序发送"整条链断掉；真实错误由通知页自己去说。
+     🔴 只取 limit=1（一条就够算 unread_count），不拉全表 —— 这个调用挂在每次 onShow 上。 */
+  async loadMsgUnread() {
+    try {
+      const d = await request('/api/messages?limit=1')
+      this.setData({ msgUnread: Number(d.unread_count || 0) })
+    } catch (e) {
+      this.setData({ msgUnread: 0 })
+    }
+  },
+  goMessages() { wx.navigateTo({ url: '/pages/messages/messages' }) },
   // 展开/收起明细
   goSummary() {
     wx.navigateTo({ url: '/pages/summary/summary' })

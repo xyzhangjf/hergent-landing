@@ -1,9 +1,13 @@
 <view class="page {{submitResult ? 'page-with-result' : ''}}">
   <!-- 门店选择 -->
   <view class="store-bar">
-    <picker mode="selector" range="{{stores}}" range-key="name" value="{{storeIdx}}" bindchange="onStoreChange">
+    <!-- v294：下拉的 range-key 由 name 换成 label —— 「本人仓」那几项要能一眼认出来。
+         门店与本人仓报的是**完全不同的单**（自提 vs 调拨），只显示名字用户会选错，
+         而选错不会报错（只会生成一张归属不对的单）。 -->
+    <picker mode="selector" range="{{stores}}" range-key="label" value="{{storeIdx}}" bindchange="onStoreChange">
       <view class="store-sel">
         <text class="store-name">{{store.name || '选择门店'}}</text>
+        <text class="store-kind-tag" wx:if="{{store.kind === 'warehouse'}}">本人仓</text>
         <text class="store-arrow">▾</text>
       </view>
     </picker>
@@ -27,6 +31,34 @@
        `forecast_open_periods_all()` 按 `status='open'` 返回，不带日期过滤 ⇒ 未来期次本就在列）。 -->
   <view class="period-warn" wx:elif="{{period.wstate === 'past'}}">该期次报单窗口（{{period.order_start}} ~ {{period.order_end}}）已过，提交将被拒绝</view>
   <view class="period-warn period-warn-future" wx:elif="{{period.wstate === 'future'}}">该期次 {{period.order_start}} 才开始报单 —— 现在可以先生成样单，开放后再提交</view>
+
+  <!-- v304（2026-09-28）：本期报单进度提醒条 —— 让「还没报单」在**打开小程序时就看得见**。
+       与 period-warn 同族（都是"你现在该关注这件事"），但它是**可行动**的进度提示，
+       故用更醒目的一档底色 + 左侧色条。
+       只在「有开放期次 且 还有未报单元」时渲染（pendingOn 由 js 算好，模板不做复杂判断）。
+       ⚠️ 不用 emoji/符号图标（全站图标规范：线性、currentColor）；色条用 CSS 画。 -->
+  <view class="pending-bar" wx:if="{{pendingOn}}">
+    <view class="pending-accent"></view>
+    <view class="pending-text">
+      <text class="pending-title">{{pendingTitle}}</text>
+      <text class="pending-sub">{{pendingSub}}</text>
+    </view>
+  </view>
+
+  <!-- v318（2026-09-29）：未读通知条 —— 加单/减单明细与系统通知的**入口 + 必达提醒**。
+       为什么放在填报页顶部：加单/减单是**定向**通知（只发给被加/减的那个人），
+       而销售每天必开的就是这一页；只靠「我的」里的角标，等于赌他会主动去点那一栏。
+       ⚠️ 0 条**不渲染**（不做"你有 0 条通知"这种纯噪音）；接口失败也不渲染（`loadMsgUnread` 静默）。
+       ⚠️ 与上一条 pending-bar 是**并列**的两件事（"该报单" vs "有人改了我的量"），
+          各自独立显示，不互相挤掉。 -->
+  <view class="msg-bar" wx:if="{{msgUnread > 0}}" bindtap="goMessages">
+    <view class="msg-accent"></view>
+    <view class="msg-text">
+      <text class="msg-title">你有 {{msgUnread}} 条未读通知</text>
+      <text class="msg-sub">加单 / 减单明细与系统通知 · 点此查看</text>
+    </view>
+    <text class="msg-go">›</text>
+  </view>
 
   <!-- ================= v227（2026-09-21）：复制生成样单 =================
        需求：报单人可以先"照往期"生成一份样单，改或不改，再切到已开放的期次提交。
@@ -55,7 +87,7 @@
   <!-- M10: 最近报单门店快捷入口 -->
   <view class="recent-stores" wx:if="{{recentStores.length}}">
     <text class="recent-label">最近报单</text>
-    <view class="recent-chip" wx:for="{{recentStores}}" wx:key="name" data-name="{{item.name}}" bindtap="pickRecent">{{item.name}}</view>
+    <view class="recent-chip" wx:for="{{recentStores}}" wx:key="sig" data-name="{{item.name}}" data-kind="{{item.kind}}" bindtap="pickRecent">{{item.name}}</view>
   </view>
 
   <!-- M11: 离线/失败草稿一键补传横幅 -->
@@ -98,10 +130,32 @@
     <text class="search-clear" wx:if="{{kw}}" bindtap="clearSearch">✕</text>
   </view>
 
+  <!-- ================= v266（2026-09-27）：筛选 chips（品牌 + 我的常报）=================
+       两条都是**过滤**，不是排序 —— 顺序必须与 Web 端逐字一致（见 fill.js 里的头注释）。
+       · 「我的常报」放最前：它是跨品牌的快捷筛选，而横向滚动的初始位置就在最左，最够得到；
+         用**青色系**、品牌用靛蓝 —— 两者是**可叠加**的（品牌 ∧ 常报），同色会被读成单选。
+       · 品牌 chip 上的数字 = 本期该品牌的商品数，与点开后的条数**逐字一致**（已实测 73=73）。
+         「我的常报」**不显示数字**：后端的 count 未与本期清单求交，显示出来必然说谎。
+       · 点已选中的 chip = 取消（回全部），所以不需要额外的"清除"按钮占小屏位置。
+       · 整条的 `wx:if` 是"有没有可筛的东西"：品牌不足两个且常报不可用时整条不渲染 ——
+         不给一排点了没区别的按钮（R8：不拿空数据冒充功能）。 -->
+  <view class="filter-bar" wx:if="{{brandFacets.length > 1 || freqReady}}">
+    <scroll-view class="filter-scroll" scroll-x="{{true}}">
+      <view class="filter-chips">
+        <view class="fchip {{freqOn ? 'fchip-freq-on' : 'fchip-freq'}}" wx:if="{{freqReady}}" bindtap="toggleFreq">我的常报</view>
+        <view class="fchip {{brandSel ? '' : 'fchip-on'}}" data-label="" bindtap="pickBrand">全部</view>
+        <view class="fchip {{brandSel === item.label ? 'fchip-on' : ''}}" wx:for="{{brandFacets}}" wx:key="label"
+              data-label="{{item.label}}" bindtap="pickBrand">{{item.name}}<text class="fchip-n">{{item.count}}</text></view>
+      </view>
+    </scroll-view>
+  </view>
+
   <!-- 可预报商品：v215 起 = **本期报单清单**（与 Web 端同源同序），滚动到底分页加载 -->
   <view class="prod-head">
     <text class="prod-head-t">本期可报商品</text>
-    <text class="prod-head-n">{{kw ? '匹配 ' : '共 '}}{{total}} 项</text>
+    <!-- v266：有筛选时同样该说「匹配」—— 此时 `total` 是**筛过之后**的条数，
+         还写「共」会让人以为本期就这么多（而 Web 端显示的是另一个数）。 -->
+    <text class="prod-head-n">{{kw || brandSel || freqOn ? '匹配 ' : '共 '}}{{total}} 项</text>
   </view>
   <view class="prod-list">
     <!-- 行内填报：直接在这一行填数量，已填行高亮；库存/日均辅助判断 -->
@@ -110,6 +164,11 @@
         <view class="prod-name">{{item.name}}</view>
         <view class="prod-spec">{{item.spec || ''}} · {{item.unit || '件'}}</view>
         <view class="prod-meta">库存 {{item.current_stock || 0}} · 日均 {{item.avg_daily_sales || 0}}</view>
+        <!-- v264c（2026-09-24）：均单目标（浅色提示，用户要求"不要抢眼"）。
+             空串 = 这个商品没有可显示的目标（没设目标 / 缺单位换算 / 剩余期次为 0）
+             ⇒ 整行不渲染 —— 不显示「0」，也不说「无法计算」（R8：不拿 0 冒充）。
+             数据来自 `/api/product-targets/avg-target`，**行内单位与后端同源**。 -->
+        <view class="prod-avg" wx:if="{{item.avgText}}">{{item.avgText}}</view>
       </view>
       <view class="qty-ctl">
         <view class="qty-btn {{item.qty ? '' : 'qty-btn-off'}}" data-id="{{item.id}}" bindtap="onQtyMinus">−</view>
@@ -125,10 +184,20 @@
       <view class="empty-txt">{{loadError}}</view>
       <view class="retry-btn" bindtap="reloadProducts">点此重试</view>
     </view>
-    <!-- v215：空态分三种成因，文案必须不同 —— 「本期没配清单」要引导用户找管理员，
-         「搜索没匹配」只需换个词，二者混在一起会让用户白等或白找。 -->
+    <!-- v215 / v266：空态分**三种**成因，文案必须不同 —— 「筛选为空」去掉条件即可、
+         「搜索没匹配」换个词即可、「本期没配清单」只有管理员能解决（要引导他去转发）。
+         三者混在一句话里，用户就会白等、白找、或者找错人。 -->
     <view class="empty" wx:elif="{{!products.length && !loadingMore}}">
-      <block wx:if="{{kw}}">
+      <!-- v266：**筛选空**排在搜索空之前。两者可能同时成立，但用户此刻最需要知道的是
+           "是筛选把它挡住的"（`filterHint` 会把生效的每个条件都点名，包括搜索词）。
+           在 v266 之前，筛选造成的空**没有任何对应文案** —— 列表空着、搜索框也空着、
+           屏幕上没有任何东西解释为什么（"看起来坏了"的典型现场）。 -->
+      <block wx:if="{{filterEmpty}}">
+        <view class="empty-txt">当前筛选条件下没有商品</view>
+        <view class="empty-txt empty-sub">{{filterHint}}</view>
+        <view class="retry-btn" bindtap="clearFilters">清除筛选条件</view>
+      </block>
+      <block wx:elif="{{kw}}">
         <view class="empty-txt">本期没有匹配「{{kw}}」的商品</view>
         <view class="empty-txt empty-sub">也可以清空搜索词，看本期的全部商品</view>
         <view class="retry-btn" bindtap="clearSearch">清空搜索</view>

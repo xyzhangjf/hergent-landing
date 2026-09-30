@@ -3,6 +3,7 @@
     "pages/login/login",
     "pages/fill/fill",
     "pages/mine/mine",
+    "pages/messages/messages",
     "pages/summary/summary",
     "pages/password/password",
     "pages/forgot/forgot",

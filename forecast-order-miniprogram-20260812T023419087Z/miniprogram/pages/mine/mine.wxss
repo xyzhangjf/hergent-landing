@@ -35,6 +35,11 @@
 .entry-title{font-size:30rpx;font-weight:600;color:#1d1d1f}
 .entry-sub{font-size:24rpx;color:#86868b;margin-top:4rpx}
 .entry-arrow{font-size:40rpx;color:#c7c7cc}
+/* v318：未读通知角标。数字旁挂一个小红点（与通知页的未读点在语义上同源：都是"还没看"）。
+   用 min-width 而不是固定宽：99+ 时不能把圆点撑成椭圆。 */
+.entry-badge{display:inline-block;min-width:34rpx;padding:0 8rpx;margin-left:12rpx;box-sizing:border-box;
+  height:34rpx;line-height:34rpx;border-radius:17rpx;background:#ff3b30;color:#fff;
+  font-size:22rpx;font-weight:600;text-align:center;vertical-align:middle}
 .rec-items{border-top:1rpx solid #f2f2f7;padding-top:12rpx}
 .rec-item{display:flex;justify-content:space-between;padding:8rpx 0;font-size:26rpx;color:#3a3a3c}
 .it-qty{color:#06b6d4;font-weight:500}
