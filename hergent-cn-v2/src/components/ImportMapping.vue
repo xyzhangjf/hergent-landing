@@ -23,14 +23,48 @@
       标「不导入」的列不会写进系统。若其中有你需要的列，在右边把它改成对应字段即可。
     </div>
 
+    <!-- v346：**危险列**提示条。刻意放在最上面（颜色也最重）——
+         这类列的共同点是「界面原本显示一切正常」，用户根本不会主动往下看。
+         风险等级高于「有列不导入」：不导入只是少数据，映射错了是**错数据**。 -->
+    <div v-if="riskyRows.length" class="im-risk">
+      <div class="im-risk-h">
+        <Icon name="alert" :size="14" />
+        有 <b>{{ riskyRows.length }}</b> 列识别不确定，导入前请看一眼
+      </div>
+      <ul class="im-risk-l">
+        <li v-for="r in riskyRows" :key="r.index">
+          <b>「{{ r.header }}」</b>{{ riskTail(r) }}
+        </li>
+      </ul>
+    </div>
+
     <!-- v303：映射记忆提示。只在**真命中**时出现（后端算不出命中就不回这个字段）——
          空壳提示（"已记住你的映射"但没记住）比不提示更糟：用户下次会发现并没有记住。 -->
     <div v-if="memory && memory.applied" class="im-mem">
       已按你上次的映射预填 <b>{{ memory.applied }}</b> 列
-      <span class="im-mem-t">（{{ (memory.updated_at || '').slice(0, 10) }} 那次定的）。右边改动的列会覆盖它。</span>
+      <span class="im-mem-t">（{{ (memory.updated_at || '').slice(0, 10) }} 那次定的）。{{ memoryTail }}</span>
     </div>
 
-    <div class="im-wrap">
+    <!-- v346：**记忆命中且没有危险列** ⇒ 默认收起映射表，让「确认导入」直接就是下一步。
+         判据只有后端一处（`remembered.direct_ok`）：前端不自己推算"该不该直通"。
+         ⚠️ 收起 ≠ 不让看：按钮永远在，点一下就是完整映射表，改动照样生效。
+         为什么敢默认收起：这份映射是**用户自己上次确认过的**，且这次没有一列需要改。 -->
+    <div v-if="collapsed" class="im-fold">
+      <Icon name="check" :size="14" />
+      <span>各列都和你上次定的一样，没有需要确认的地方，可以直接导入。</span>
+      <button class="im-fold-btn" @click="collapsed = false">
+        <Icon name="chevron-right" :size="13" />
+        查看 / 调整映射（{{ rows.length }} 列）
+      </button>
+    </div>
+
+    <div v-else class="im-wrap">
+      <div v-if="collapsible" class="im-unfold">
+        <button class="im-fold-btn" @click="collapsed = true">
+          <Icon name="chevron-down" :size="13" />
+          收起映射表
+        </button>
+      </div>
       <table class="tbl im-tbl">
         <thead>
           <tr>
@@ -44,10 +78,15 @@
           <tr v-for="r in rows" :key="r.index" :class="{ 'im-off': !current(r.index) }">
             <td class="im-hd">{{ r.header }}</td>
             <td>
-              <select class="fld im-sel" :value="current(r.index)" :aria-label="'「' + r.header + '」这一列对应哪个字段'" @change="pick(r.index, $event.target.value)">
+              <select class="fld im-sel" :class="{ 'im-sel-risk': !!r.risk }" :value="current(r.index)" :aria-label="'「' + r.header + '」这一列对应哪个字段'" @change="pick(r.index, $event.target.value)">
                 <option value="">（不导入）</option>
                 <option v-for="o in fieldOptions" :key="o.key" :value="o.key">{{ o.label }}</option>
               </select>
+              <!-- v346：危险列在**行内**再说一遍原因。只靠顶部提示条不够 ——
+                   用户点「改」的时候视线在这一行上，那时候最需要看到"为什么说它可疑"。 -->
+              <div v-if="r.risk" class="im-rdanger">
+                <Icon name="alert" :size="12" />{{ riskTail(r) }}
+              </div>
             </td>
             <td><span class="im-cc" :class="'im-cc-' + confKey(r)">{{ confLabel(r) }}</span></td>
             <td class="im-smp">{{ (r.samples || []).join(' / ') || '—' }}</td>
@@ -59,7 +98,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import Icon from './Icon.vue'
 
 /* 导入「列映射确认」——商品 / 库存 / 员工 / 预报订单四处导入共用**同一份实现**。
  *
@@ -69,7 +109,7 @@ import { computed } from 'vue'
  * 另外后端 `_execute_forecast_cross` 的 400 文案早就写着「请在预览里把客户列映射为「客户」」
  * —— 承诺了界面，但预览里根本没有可改的控件。
  *
- * 设计约束（三条，别改）：
+ * 设计约束（四条，别改）：
  *  ① **候选字段清单只能来自后端**（`/import/preview` 的 field_options）。前端自己再写一份
  *     「键→中文」就是第二份拷贝 —— 加字段时必然漏掉一侧，用户就会「选不到」。
  *  ② **必须是可改的，且改完真生效**。后端 `/execute` 本来就照用前端传的 mapping
@@ -77,16 +117,23 @@ import { computed } from 'vue'
  *     所以这里不需要动写入侧 —— 唯一要做的是把选择权交出去。
  *  ③ **给出判断依据**。只显示「识别为：品牌」没用，用户不知道对不对；显示命中这一列的前几个
  *     值（如 `130200004312`）才判断得了。样例值由后端在 preview 里一并回传。
+ *  ④ **v346：该拦的拦住、该省的省掉**。危险列（`r.risk`）必须显眼到不可能错过；
+ *     而记忆命中且无危险列时，「确认导入」直接就是下一步（收起映射表）。
+ *     两个判据都**只来自后端**，前端不算第二遍。
  */
 
 const props = defineProps({
-  // /import/preview 的 suggestions：每列一条 {index, header, suggested_field, confidence, samples}
+  // /import/preview 的 suggestions：每列一条
+  // {index, header, suggested_field, confidence, samples, risk, risk_reason}
+  //   · risk ∈ '' | 'dup'（同一字段被多列命中）| 'generic'（整名列名属于另一个字段）
+  //   · risk_reason 是**后端给好的业务话**，前端直接显示，不要自己再拼一句
   suggestions: { type: Array, default: () => [] },
   // 后端给的候选字段：[{key, label}]，顺序即下拉顺序
   fieldOptions: { type: Array, default: () => [] },
   // 当前映射 {列下标: 字段键}；空串/不存在 = 不导入
   modelValue: { type: Object, default: () => ({}) },
-  // v303：/import/preview 回的 `remembered`（{applied, updated_at, hit_count} 或 null）。
+  // v303：/import/preview 回的 `remembered`
+  //   （{applied, updated_at, hit_count, risky_columns, direct_ok, block_reason} 或 null）。
   //   传 null 不显示任何提示 —— 组件**不自己判断**"有没有记住"，判据只有后端一处。
   memory: { type: Object, default: null },
   // v303：是否跳过已存在的记录（→ 后端 `mode=incremental`）。默认关，保持既有行为。
@@ -113,6 +160,36 @@ const mappedCount = computed(() => rows.value.filter(r => current(r.index)).leng
 const skippedCount = computed(() => rows.value.filter(r => !current(r.index)).length)
 const changed = computed(() => rows.value.some(r => current(r.index) !== suggestedOf(r)))
 
+/* v346：危险列。**只用后端给的 `risk`**，不在前端重算 —— 判据（无歧义列名索引 + 语义族门）
+   在后端 `_annotate_column_risks` 里只有一处实现，前端再算一遍必然漂移。 */
+const riskyRows = computed(() => rows.value.filter(r => !!r.risk))
+
+/* 提示语：后端把「被识别成了什么」写在 risk_reason 开头，这里只做去重拼接，不改写语义。
+   `risk_reason` 形如「「商品名称」被识别成了「客户名称」——…」，而列表里已经显示了列名
+   （`<b>「X」</b>`），所以把开头那段「「X」」摘掉，避免同一句话里出现两次列名。 */
+function riskTail(r) {
+  const s = String(r.risk_reason || '')
+  const h = String(r.header || '')
+  if (!s) return ''
+  const head = '「' + h + '」'
+  return s.startsWith(head) ? s.slice(head.length) : ' ' + s
+}
+
+/* ── v346：记忆命中 ⇒ 是否默认收起映射表 ────────────────────────────────────
+   判据 = 后端 `remembered.direct_ok`（后端已经排除了「改账目类目」「报单矩阵」「有危险列」）。
+   前端**不**自己判这几种情况 —— 那会是同一规则的第二份实现。 */
+const collapsible = computed(() => !!(props.memory && props.memory.direct_ok))
+const collapsed = ref(collapsible.value)
+// 同一组件实例可能被下一页 prev 复用（父级不一定重挂），memory 变了要跟着回到对应状态。
+watch(collapsible, (v) => { collapsed.value = v })
+
+const memoryTail = computed(() => {
+  const b = String(props.memory?.block_reason || '')
+  if (b) return b + '，右边可以逐列核对。'
+  if (collapsible.value) return '下面各列不用改。'
+  return '右边改动的列会覆盖它。'
+})
+
 function pick(idx, val) {
   const next = { ...(props.modelValue || {}) }
   if (val) next[idx] = val
@@ -128,6 +205,9 @@ function resetToSuggested() {
 
 const CONF = { high: '系统识别', ai: 'AI 推测', cross: '客户列', low: '未识别', memory: '上次你的选择' }
 function confKey(r) {
+  // v346：危险列排在最前 —— 用户自己改过就以"已改"为准（改动之后的映射才是要落库的那份，
+  //   后端的风险标记是针对改之前那一列的）。
+  if (current(r.index) === suggestedOf(r) && r.risk) return 'risk'
   if (current(r.index) !== suggestedOf(r)) return 'edit'
   if (!suggestedOf(r)) return 'low'
   // v303：memory 与 high 都表示"系统给的、可直接用"，但来源不同 —— 分开标色，
@@ -136,6 +216,7 @@ function confKey(r) {
   return r.confidence || 'high'
 }
 function confLabel(r) {
+  if (current(r.index) === suggestedOf(r) && r.risk) return '需确认'
   if (current(r.index) !== suggestedOf(r)) return '已改'
   return suggestedOf(r) ? (CONF[r.confidence] || '系统识别') : '未识别'
 }
@@ -155,6 +236,15 @@ function confLabel(r) {
 .im-mem{font-size:12px;color:var(--p-dark);background:var(--p-bg);border-radius:var(--radius-sm);padding:6px 10px}
 .im-mem b{font-size:13px}
 .im-mem-t{color:var(--t2)}
+/* v346 危险列提示条 —— 用最重的颜色，因为这类列原本"看起来一切正常" */
+.im-risk{font-size:12px;color:var(--danger-txt);background:var(--danger-bg);border-radius:var(--radius-sm);padding:7px 10px;display:flex;flex-direction:column;gap:3px;border:1px solid var(--danger-txt)}
+.im-risk-h{display:flex;align-items:center;gap:5px;font-weight:600}
+.im-risk-l{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px}
+.im-risk-l li{line-height:1.5}
+/* v346 收起态：一行把话说清，按钮永远在 */
+.im-fold{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ok-green);background:var(--ok-green-bg);border-radius:var(--radius-sm);padding:8px 10px;flex-wrap:wrap}
+.im-fold-btn{display:inline-flex;align-items:center;gap:3px;border:none;background:none;padding:0;font-size:12px;color:var(--p-dark);text-decoration:underline;cursor:pointer}
+.im-unfold{display:flex;justify-content:flex-end;padding:5px 8px 0}
 .im-wrap{max-height:320px;overflow:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
 .im-tbl{font-size:13px}
 .im-tbl th{position:sticky;top:0;z-index:1}
@@ -162,6 +252,9 @@ function confLabel(r) {
 .im-c1{width:26%}.im-c2{width:26%}.im-c3{width:96px}
 .im-hd{font-weight:500;color:var(--t1);word-break:break-all}
 .im-sel{width:100%;height:30px;padding:0 6px;font-size:13px}
+/* 危险列的下拉框本身也描红 —— 只标「依据」徽章的话，扫一眼很难定位到是哪一行要改 */
+.im-sel-risk{border-color:var(--danger-txt)}
+.im-rdanger{display:flex;align-items:flex-start;gap:4px;margin-top:4px;font-size:11.5px;line-height:1.45;color:var(--danger-txt)}
 .im-smp{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--t2);word-break:break-all}
 .im-off .im-hd,.im-off .im-smp{color:var(--t3)}
 .im-cc{display:inline-block;padding:1px 8px;border-radius:8px;font-size:11.5px;white-space:nowrap;background:var(--bg2);color:var(--t3)}
@@ -171,4 +264,5 @@ function confLabel(r) {
 .im-cc-low{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .im-cc-edit{background:var(--violet-bg);color:var(--violet)}
 .im-cc-memory{background:var(--violet-bg);color:var(--violet)}
+.im-cc-risk{background:var(--danger-bg);color:var(--danger-txt);font-weight:600}
 </style>
