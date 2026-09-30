@@ -3,12 +3,12 @@
     <div class="page-hd">
       <div>
         <h2>库存效期补录</h2>
-        <span class="page-sub">补齐库存批次效期，让货损/预报引擎算得准 · 一次补录，长期受益</span>
+        <span class="page-sub">补齐库存批次效期 · 一次补录，长期受益</span>
       </div>
     </div>
 
     <div class="card df-panel">
-      <div class="panel-hd"><b>库存批次效期</b><span class="tag info">货损/预报引擎都靠它</span></div>
+      <div class="panel-hd"><b>库存批次效期</b></div>
       <p class="df-tip">
         货损工作流按「到期日」算损耗，预报按「可销天数」算缺货。库存里没有效期的批次，AI 就算不准。
         从舟谱导出库存 Excel，或按下面模板填写后导入。
@@ -16,7 +16,11 @@
       <p class="df-tip df-warn">仅支持 Excel 文件（.xlsx / .xls）。下载的 CSV 模板请用 Excel 打开填写后<b>另存为 .xlsx</b> 再上传。</p>
       <div class="df-import-row">
         <button class="btn btn-ghost" @click="downloadInvTemplate">下载模板</button>
-        <label class="btn btn-ghost df-file-btn">
+        <!-- v335 按钮级门禁：整条导入链的写动作是 POST /api/import/execute ⇒ 模块 data / 动作 create。
+             「下一步」本身是 /api/import/preview（只读 POST，后端 `_READ_ONLY_POST` 纠偏成 read）⇒ 不门禁；
+             但只读预览没有落库能力，所以「选择文件」一并按 create 收起 —— 否则用户能一路填到
+             最后一步才发现「确认导入」不见了。 -->
+        <label v-if="canDo('data', 'create')" class="btn btn-ghost df-file-btn">
           选择文件
           <input type="file" accept=".xlsx,.xls" style="display:none" @change="onInvFile">
         </label>
@@ -30,7 +34,7 @@
                        :memory="impMemory" v-model:incremental="impInc" />
         <div class="df-import-row">
           <button class="btn btn-ghost" :disabled="importing" @click="impStep = 'pick'">返回</button>
-          <button class="btn btn-primary" :disabled="importing" @click="doImportInv">
+          <button v-if="canDo('data', 'create')" class="btn btn-primary" :disabled="importing" @click="doImportInv">
             {{ importing ? '导入中…' : '确认导入' }}
           </button>
         </div>
@@ -56,7 +60,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { toast } from '../store'
+import { toast, canDo } from '../store'
 import { importApi, expiryApi } from '../api/modules'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'

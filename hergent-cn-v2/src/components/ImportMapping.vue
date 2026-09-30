@@ -10,7 +10,7 @@
              「这份文件会怎么进系统」。放在映射确认这一步，用户改完映射顺手就能决定；
              放到页面上就会和「选文件」挤在一行，变成先选文件、隔着一步才想起该不该去重。
              标签用业务话（"已存在的记录"）而不是"增量导入"——这个词老板不认识。 -->
-        <label v-if="showIncremental" class="im-inc" :title="'打开后，系统里已有的记录不会重复导入（商品按条码/名称、员工按工号/姓名、库存按商品+批次号判断）'">
+        <label v-if="showIncremental" class="im-inc" :title="'打开后，系统里已有的记录不会重复导入'">
           <input type="checkbox" :checked="incremental"
                  @change="$emit('update:incremental', $event.target.checked)" />
           跳过已存在的记录

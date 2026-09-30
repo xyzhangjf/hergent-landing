@@ -7,61 +7,72 @@
       </div>
       <div class="sync-wrap">
         <span class="sync-state" :class="connState">{{ connLabel }}</span>
-        <button class="btn btn-ghost btn-sm" :disabled="syncBusy" @click="onSync">
+        <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" :disabled="syncBusy" @click="onSync">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
           {{ syncBusy ? '同步中…' : '同步' }}
         </button>
       </div>
     </div>
 
-    <!-- v308 外部客户账号（分销商）。默认收起 —— 多数企业没有分销商，别让这块占着首屏。 -->
-    <div class="card df-panel df-ext">
+    <!-- v308 外部客户账号（分销商）· v317（2026-09-29）版式与「在职员工」对齐：
+         页头「＋ 新建外部客户」+ **常驻列表**。
+         🔴 为什么撤销「默认收起」：收起时整块只剩一行标题，老板看到的现象是
+         「已经开好的账号**没有展示**」—— 一个默认折叠等于把唯一入口藏起来。
+         空间代价很小（空态只占一行），但少了整整一类用户「找不到自己刚建的号」的故障。 -->
+    <div class="card df-panel">
       <div class="panel-hd df-ph">
-        <b>外部客户账号（分销商）</b>
+        <b>外部客户账号</b>
         <div class="df-ph-right">
-          <span class="tag info">不是员工 · 只开小程序报单</span>
-          <button class="btn btn-ghost btn-sm" :aria-expanded="extOpen" @click="extOpen = !extOpen">
-            {{ extOpen ? '收起' : (extAccounts.length ? `展开（${extAccounts.length}）` : '展开') }}
-          </button>
+          <span class="tag info">不是员工 · 默认只开小程序</span>
+          <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" :disabled="extBusy" @click="openExtCreate">＋ 新建外部客户</button>
         </div>
       </div>
-      <div v-if="extOpen" class="df-ext-body">
-        <p class="df-tip">给<b>外部客户</b>开一个只能登录小程序的报单账号：不建人事档案、不算工资。默认<b>仅小程序</b>，确需进后台可在下方改。</p>
-        <div class="df-ext-form">
-          <label class="df-field"><span>客户名称</span><input v-model="extForm.name" class="input" placeholder="如 永辉超市（分销）"></label>
-          <label class="df-field"><span>手机号 / 账号</span><input v-model="extForm.username" class="input" placeholder="如 13800000001"></label>
-          <label class="df-field"><span>初始密码</span><input v-model="extForm.password" class="input" type="text" :placeholder="PWD_HINT"></label>
-          <label class="df-field"><span>可登录端</span>
-            <select v-model="extForm.login_scope" class="input">
-              <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-            </select>
-          </label>
-          <button class="btn btn-primary btn-sm" :disabled="extBusy || !extForm.name.trim() || !extForm.username.trim() || !pwdOk(extForm.password)" @click="createExtAccount">开通账号</button>
-        </div>
-        <div v-if="extAccounts.length" class="table-wrap">
-          <table class="tbl">
-            <thead><tr><th>客户</th><th>登录账号</th><th>可登录端</th><th>状态</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="u in extAccounts" :key="u.id" :class="{ stopped: !u.is_active }">
-                <td>{{ u.external_ref }}</td>
-                <td>{{ u.username }}</td>
-                <td>{{ loginScopeLabel(u.login_scope) }}</td>
-                <td><span :class="u.is_active ? 'on' : 'off'">{{ u.is_active ? '启用中' : '已禁用' }}</span></td>
-                <td><button class="btn btn-ghost btn-sm" :class="{ danger: u.is_active }" :disabled="extBusy" @click="toggleExtAccount(u)">{{ u.is_active ? '禁用' : '启用' }}</button></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-else class="state-empty">还没有外部客户账号</div>
+      <p class="df-tip">
+        给<b>外部客户（分销商）</b>开一个只用来报单的登录账号：不建人事档案、不算工资。
+        开完号还要去 <b>预报订单管理 → 报单配置</b> 把<b>他的门店</b>配给他，小程序里才有东西可选。
+      </p>
+
+      <div v-if="extLoading" class="state-empty">加载中…</div>
+      <div v-else-if="extAccounts.length" class="table-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th>客户</th><th>登录账号</th><th>可登录端</th>
+            <th class="num" title="在「预报订单管理 → 报单配置」里为该客户配的门店数；配了小程序才报得了单">可报门店</th>
+            <th>状态</th><th></th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="u in extAccounts" :key="u.id" :class="{ stopped: !u.is_active }">
+              <td>{{ extNameOf(u) }}</td>
+              <td>{{ u.username }}</td>
+              <td>{{ loginScopeLabel(u.login_scope) }}</td>
+              <td class="num">
+                <!-- v317：`null` = **读数不可用**（租户库查询失败）必须与 `0`（真·没配）分开展示 ——
+                     把「不知道」渲染成「未配 · 去配置」就是用未知冒充结论（静默撒谎）。 -->
+                <span v-if="u.report_mapping_count > 0">{{ u.report_mapping_count }} 家</span>
+                <span v-else-if="u.report_mapping_count === null || u.report_mapping_count === undefined"
+                      class="df-no" title="读取报单配置失败，请刷新重试">—</span>
+                <button v-else class="df-mini-lnk" @click="goReportConfig">未配 · 去配置</button>
+              </td>
+              <td><span :class="u.is_active ? 'on' : 'off'">{{ u.is_active ? '启用中' : '已禁用' }}</span></td>
+              <td class="df-ops">
+                <!-- v335 按钮级门禁：外部客户账号走 /api/users/* ⇒ 后端模块 **data**（不是本页的 hr）
+                     编辑=PUT display-name · login-scope ⇒ update；禁用·启用=PUT /api/users/{uid}/status ⇒ update -->
+                <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" :disabled="extBusy" @click="openExtEdit(u)">编辑</button>
+                <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" :class="{ danger: u.is_active }" :disabled="extBusy" @click="toggleExtAccount(u)">{{ u.is_active ? '禁用' : '启用' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+      <div v-else class="state-empty">还没有外部客户账号 —— 点右上角「＋ 新建外部客户」开通</div>
     </div>
 
     <div class="card df-panel">
       <div class="panel-hd df-ph">
         <b>在职员工</b>
         <div class="df-ph-right">
-          <span class="tag info">工资按档案底薪算，没填的用配方兜底</span>
-          <button class="btn btn-primary btn-sm" @click="openCreate">＋ 添加员工</button>
+          <span class="tag info">工资按档案底薪算</span>
+          <button v-if="canDo('hr', 'create')" class="btn btn-primary btn-sm" @click="openCreate">＋ 添加员工</button>
         </div>
       </div>
 
@@ -70,7 +81,7 @@
         <table class="tbl">
           <thead><tr>
             <th>员工</th><th>岗位</th><th class="num">底薪/月</th>
-            <th>登录账号</th><th title="个人仓 = 该员工报「本人仓」调拨单时的目标仓；在「编辑」里设置">个人仓</th><th title="门店配置已收敛到「预报订单管理 → 报单配置」，此处仅展示数量">可报门店</th><th></th>
+            <th>登录账号</th><th title="个人仓 = 该员工报「本人仓」调拨单时的目标仓；在「编辑」里设置">个人仓</th><th>可报门店</th><th></th>
           </tr></thead>
           <tbody>
             <tr v-for="e in employees" :key="e.id" :class="{ stopped: e.is_active === 0 }">
@@ -102,9 +113,12 @@
                    数据 = 报单配置派生 ∪ 历史授权（见后端 employee_stores_get）。 -->
               <td class="num" title="在「预报订单管理 → 报单配置」里为该员工配门店，配了即授权其小程序可报">  {{ (e.store_ids || []).length }} 家</td>
               <td class="df-ops">
-                <button class="btn btn-ghost btn-sm" @click="openEdit(e)">编辑</button>
-                <button v-if="e.is_active !== 0" class="btn btn-ghost btn-sm danger" @click="askDisable(e)">停用</button>
-                <button v-else class="btn btn-ghost btn-sm" @click="employeeToggle(e.id, 1)">启用</button>
+                <!-- v335 按钮级门禁：员工主档走 /api/employees/* ⇒ 模块 **hr**
+                     编辑=PUT /api/employees/{eid} ⇒ update
+                     停用·启用=**POST** /api/employees/{eid}/toggle ⇒ hr/**create**（动作由 HTTP 方法推导） -->
+                <button v-if="canDo('hr', 'update')" class="btn btn-ghost btn-sm" @click="openEdit(e)">编辑</button>
+                <button v-if="e.is_active !== 0 && canDo('hr', 'create')" class="btn btn-ghost btn-sm danger" @click="askDisable(e)">停用</button>
+                <button v-else-if="canDo('hr', 'create')" class="btn btn-ghost btn-sm" @click="employeeToggle(e.id, 1)">启用</button>
               </td>
             </tr>
           </tbody>
@@ -126,7 +140,10 @@
       <p class="df-tip">下载模板，按 <code>姓名* | 工号 | 岗位 | 底薪/月 | 社保基数 | 银行账号</code> 填写，用 Excel 打开后<b>另存为 .xlsx</b> 再上传。</p>
       <div class="df-import-row">
         <button class="btn btn-ghost" @click="downloadEmpTemplate">下载模板</button>
-        <label class="btn btn-ghost df-file-btn">
+        <!-- v335 按钮级门禁：整条导入链的写动作是 POST /api/import/execute ⇒ data/create；
+             「下一步」是只读预览（后端 `_READ_ONLY_POST`）⇒ 不门禁，但选文件一并收起，
+             免得一路填到最后才发现「确认导入」不见了。 -->
+        <label v-if="canDo('data', 'create')" class="btn btn-ghost df-file-btn">
           选择文件
           <input type="file" accept=".xlsx,.xls" style="display:none" @change="onInvFile">
         </label>
@@ -140,13 +157,13 @@
                        :memory="impMemory" v-model:incremental="impInc" />
         <div class="df-import-row">
           <button class="btn btn-ghost" :disabled="importing" @click="impStep = 'pick'">返回</button>
-          <button class="btn btn-primary" :disabled="importing" @click="doImportEmployees">
+          <button v-if="canDo('data', 'create')" class="btn btn-primary" :disabled="importing" @click="doImportEmployees">
             {{ importing ? '导入中…' : '确认导入' }}
           </button>
         </div>
       </div>
       <ImportReceipt :result="invResult" @undone="loadEmployees()" />
-      <p v-if="connState === 'unlinked'" class="df-tip df-warn">未连接 ERP：连接畅捷通/金蝶后，可点上方「同步」拉取外部档案。员工 API 同步将于 P1 上线，当前同步客户与商品。</p>
+      <p v-if="connState === 'unlinked'" class="df-tip df-warn">未连接 ERP：连接畅捷通/金蝶后，可点上方「同步」拉取外部档案。</p>
     </div>
 
     <!-- 编辑员工弹窗 -->
@@ -224,11 +241,21 @@
                   </select>
                 </label>
                 <label class="df-field"><span>可登录端</span>
-                  <select v-model="accForm2.login_scope" class="input acc-role">
+                  <select v-model="accForm2.login_scope" class="input acc-role" @change="accScopeTouched = true">
                     <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
                 </label>
-                <button class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || !pwdOk(accForm2.password)" @click="createAccountInEdit">开通账号</button>
+                <!-- v312：把「这个默认值是从哪来的」写出来 —— 它来自「设置 › 权限」里给该角色配的端。
+                     不写的话，老板改完权限页来这里看不到变化（或看到旧值），会以为没生效。 -->
+                <p class="df-tip df-scope-src">
+                  该角色在「设置 › 权限」里配的默认端：<b>{{ loginScopeLabel(roleEndScope(accForm2.role)) }}</b>
+                  <template v-if="accScopeTouched && accForm2.login_scope !== roleEndScope(accForm2.role)">
+                    ；本次已手工改为 <b>{{ loginScopeLabel(accForm2.login_scope) }}</b>。
+                    <button type="button" class="df-mini-lnk" @click="accScopeTouched = false; accForm2.login_scope = roleEndScope(accForm2.role)">改回角色默认</button>
+                  </template>
+                </p>
+                <!-- v335 按钮级门禁：开通账号=POST /api/forecast-submissions/staff-accounts ⇒ data/create -->
+                <button v-if="canDo('data', 'create')" class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || !pwdOk(accForm2.password)" @click="createAccountInEdit">开通账号</button>
               </div>
               <div v-else class="df-acc-manage df-acc-card">
                 <!-- v290（2026-09-27）：把「独立保存」这件事**画出来**。
@@ -240,12 +267,13 @@
                   <span v-if="accAnyDirty" class="df-dirty-tag">有未保存的改动</span>
                 </div>
                 <p class="df-acc-card-tip">以下每一项都<b>各自独立保存</b>：改完点它自己那一行的按钮，与弹窗底部的「保存基本信息」互不影响。</p>
-                <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleDisplay(editTarget.account_role) }}<template v-if="extraRolesOf(editTarget).length">（兼任 {{ extraRolesOf(editTarget).map(roleDisplay).join('、') }}）</template> · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span> · 可登录：{{ loginScopeLabel(editTarget.account_login_scope || defaultLoginScope(editTarget.account_role)) }}</p>
+                <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleDisplay(editTarget.account_role) }}<template v-if="extraRolesOf(editTarget).length">（兼任 {{ extraRolesOf(editTarget).map(roleDisplay).join('、') }}）</template> · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span> · 可登录：{{ loginScopeLabel(editTarget.account_login_scope || roleEndScope(editTarget.account_role)) }}</p>
                 <div class="df-acc-row">
                   <select v-model="accRoleEdit" class="input acc-role">
                     <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
-                  <button class="btn btn-primary btn-sm" :disabled="accBusy || !accRoleDirty" @click="saveAccRole">保存角色</button>
+                  <!-- v335 按钮级门禁：PUT /api/users/{uid}/role ⇒ data/update -->
+                  <button v-if="canDo('data', 'update')" class="btn btn-primary btn-sm" :disabled="accBusy || !accRoleDirty" @click="saveAccRole">保存角色</button>
                 </div>
                 <!-- v307 可登录端：默认按岗位给出（如「员工」默认仅小程序），**可手动改**。
                      ⚠️ 两项说明写在界面上，因为它俩正是最容易误解的地方：
@@ -256,9 +284,22 @@
                   <select v-model="accScopeEdit" class="input acc-role" aria-label="可登录端">
                     <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
-                  <button class="btn btn-primary btn-sm" :disabled="accBusy || !accScopeDirty" @click="saveAccScope">保存</button>
+                  <!-- v335 按钮级门禁：PUT /api/users/{uid}/login-scope ⇒ data/update -->
+                  <button v-if="canDo('data', 'update')" class="btn btn-primary btn-sm" :disabled="accBusy || !accScopeDirty" @click="saveAccScope">保存</button>
                 </div>
-                <p class="df-tip">只决定这个账号能从哪里登录；能看哪些页面由上面的角色决定。保存后，该账号<b>下次登录</b>时生效。</p>
+                <!-- v312：**只提示、不自动改**。
+                     老板在权限页改了某角色的端之后，这个账号的端不会跟着变（刻意的，见下）。
+                     但必须让他**看见**这件事 —— 否则"权限改了但这个人还能用网页端"会被当成没生效；
+                     反过来自动改，会把"人为单独给某人开过网页端"的账号静默收窄回小程序，
+                     那是"用户被自己锁在门外"那一族的另一种形态。 -->
+                <div v-if="accScopeMismatch" class="df-mismatch">
+                  <span class="df-mismatch-tag">与角色配置不一致</span>
+                  <span class="df-mismatch-txt">角色「{{ roleDisplay(accRoleEdit) }}」现在的默认端是 <b>{{ loginScopeLabel(accScopeDefault) }}</b>，而这个账号是 <b>{{ loginScopeLabel(accScopeEdit) }}</b>。</span>
+                  <!-- v335 按钮级门禁：PUT /api/users/{uid}/login-scope ⇒ data/update -->
+                  <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" :disabled="accBusy" @click="alignAccScope">按角色对齐</button>
+                </div>
+                <p class="df-tip">只决定这个账号能从哪里登录；能看哪些页面由上面的角色决定。保存后，该账号<b>下次登录</b>时生效。
+                  该角色当前在「设置 › 权限」里配的默认端是 <b>{{ loginScopeLabel(accScopeDefault) }}</b>。</p>
                 <!-- v266 角色可叠加：兼任角色**只增加权限**，不改上面的主角色。
                      主角色决定「这个人是干嘛的」（销售只看自己的单、能不能用小程序…）；
                      兼任让一个人同时干两份活（如 业务员 + 库管、会计 + 主管）。 -->
@@ -283,9 +324,13 @@
                      另外「取消改账号 / 取消重置」两个按钮**不再叫"取消"** ——
                      同屏三个"取消"（含底部关窗那个）语义不同，是误点源。 -->
                 <div class="df-acc-row df-acc-ops">
-                  <button class="btn btn-ghost btn-sm" :class="{ 'is-on': showRename }" :disabled="accBusy" :aria-expanded="showRename" @click="toggleRename">{{ showRename ? '收起' : '改登录名' }}</button>
-                  <button class="btn btn-ghost btn-sm" :class="{ 'is-on': showReset }" :disabled="accBusy" :aria-expanded="showReset" @click="showReset = !showReset">{{ showReset ? '收起' : '重置密码' }}</button>
-                  <button class="btn btn-ghost btn-sm danger df-acc-right" :disabled="accBusy" @click="toggleAccStatus">{{ editTarget.account_active ? '禁用账号' : '启用账号' }}</button>
+                  <!-- v335 按钮级门禁：这三个都是 /api/users/* ⇒ 模块 **data**
+                       改登录名  → 保存链路是 PUT /api/users/{uid}/username ⇒ update
+                       重置密码  → 保存链路是 POST /api/users/{uid}/password ⇒ **create**
+                       禁用·启用账号 → PUT /api/users/{uid}/status ⇒ update -->
+                  <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" :class="{ 'is-on': showRename }" :disabled="accBusy" :aria-expanded="showRename" @click="toggleRename">{{ showRename ? '收起' : '改登录名' }}</button>
+                  <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" :class="{ 'is-on': showReset }" :disabled="accBusy" :aria-expanded="showReset" @click="showReset = !showReset">{{ showReset ? '收起' : '重置密码' }}</button>
+                  <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm danger df-acc-right" :disabled="accBusy" @click="toggleAccStatus">{{ editTarget.account_active ? '禁用账号' : '启用账号' }}</button>
                 </div>
                 <div v-if="showRename || showReset" class="df-acc-expand">
                   <!-- v288（2026-09-27）：改**登录账号名**。
@@ -294,12 +339,14 @@
                   <div v-if="showRename" class="df-acc-row">
                     <span class="df-acc-exp-label">新登录名</span>
                     <input v-model="accNameEdit" class="input" type="text" placeholder="2-32 个字符" @keyup.enter="renameAcc">
-                    <button class="btn btn-primary btn-sm" :disabled="accBusy || !nameDirty" @click="renameAcc">保存登录名</button>
+                    <!-- v335 按钮级门禁：PUT /api/users/{uid}/username ⇒ data/update -->
+                    <button v-if="canDo('data', 'update')" class="btn btn-primary btn-sm" :disabled="accBusy || !nameDirty" @click="renameAcc">保存登录名</button>
                   </div>
                   <div v-if="showReset" class="df-acc-row">
                     <span class="df-acc-exp-label">新密码</span>
                     <input v-model="accPwdEdit" class="input" type="text" :placeholder="PWD_HINT">
-                    <button class="btn btn-primary btn-sm" :disabled="accBusy || !pwdOk(accPwdEdit)" @click="resetAccPwd">保存密码</button>
+                    <!-- v335 按钮级门禁：POST /api/users/{uid}/password ⇒ data/**create** -->
+                    <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" :disabled="accBusy || !pwdOk(accPwdEdit)" @click="resetAccPwd">保存密码</button>
                   </div>
                 </div>
                 <!-- Q29（2026-09-19）生成一次性重置码：员工在小程序「忘记密码」里自己设新密码，
@@ -307,7 +354,8 @@
                      责任边界更清楚。业务员/分销商/导购可能只被允许登录小程序、不分配网页端
                      权限，所以这条通道必须在小程序侧闭环。 -->
                 <div class="df-acc-row">
-                  <button class="btn btn-ghost btn-sm" :disabled="accBusy || !editTarget.account_active" @click="issueResetCode">生成重置码</button>
+                  <!-- v335 按钮级门禁：POST /api/users/{uid}/reset-code ⇒ data/**create** -->
+                  <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" :disabled="accBusy || !editTarget.account_active" @click="issueResetCode">生成重置码</button>
                   <span class="rc-tip">线下发给员工 · 30 分钟内有效 · 用一次即废</span>
                 </div>
                 <div v-if="resetCode" class="df-acc-row rc-box">
@@ -323,6 +371,74 @@
           <div class="df-modal-ft">
             <button class="btn btn-ghost" @click="tryCloseEdit">取消</button>
             <button class="btn btn-primary" :disabled="!editForm.name.trim()" @click="saveEmployee">保存基本信息</button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- v317 新建 / 编辑外部客户账号（分销商）—— 与「新建员工」同一套版式与控件 -->
+    <Teleport to="body">
+      <Transition name="fade"><div v-if="extOpen" class="df-overlay" @click="closeExt"></div></Transition>
+      <Transition name="pop">
+        <div v-if="extOpen" class="df-modal ext-modal">
+          <div class="df-modal-hd">
+            <b>{{ extEditId ? '编辑外部客户 · ' + (extForm.name || '') : '新建外部客户' }}</b>
+            <button class="df-x" @click="closeExt" aria-label="关闭"><Icon name="close"/></button>
+          </div>
+          <div class="df-modal-body">
+
+            <section class="df-sec">
+              <div class="df-sec-title">客户与登录账号</div>
+              <label class="df-field"><span>客户名称 <i class="req">*</i></span>
+                <input v-model="extForm.name" class="input" placeholder="如 永辉超市（分销）">
+              </label>
+              <label class="df-field"><span>登录账号（手机号） <i v-if="!extEditId" class="req">*</i></span>
+                <input v-model="extForm.username" class="input" :disabled="!!extEditId" placeholder="如 13800000001">
+              </label>
+              <label v-if="!extEditId" class="df-field"><span>初始密码 <i class="req">*</i></span>
+                <input v-model="extForm.password" class="input" type="text" :placeholder="PWD_HINT">
+              </label>
+            </section>
+
+            <section class="df-sec">
+              <div class="df-sec-title">可登录端</div>
+              <label class="df-field"><span>允许登录</span>
+                <select v-model="extForm.login_scope" class="input">
+                  <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                </select>
+              </label>
+              <p class="df-tip">
+                外部客户默认<b>仅小程序</b>。除非确有需要，不要给他开网页端 ——
+                网页端能看到整店的经营数据。
+              </p>
+              <p class="df-tip">
+                开通后请到 <b>预报订单管理 → 报单配置</b> 选「报单人 = 该客户」，把<b>他的门店</b>配给他，
+                他在小程序里才能报单。
+              </p>
+            </section>
+
+            <section v-if="extEditId" class="df-sec">
+              <div class="df-sec-title">账号操作（不填则不改动）</div>
+              <div class="df-acc-row">
+                <span class="df-acc-exp-label">新登录名</span>
+                <input v-model="extNameEdit" class="input" type="text" placeholder="2-32 个字符">
+                <!-- v335 按钮级门禁：PUT /api/users/{uid}/username ⇒ data/update -->
+                <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" :disabled="extBusy || !extNameEdit.trim()" @click="renameExtAcc">保存登录名</button>
+              </div>
+              <div class="df-acc-row">
+                <span class="df-acc-exp-label">新密码</span>
+                <input v-model="extPwdEdit" class="input" type="text" :placeholder="PWD_HINT">
+                <!-- v335 按钮级门禁：POST /api/users/{uid}/password ⇒ data/**create** -->
+                <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" :disabled="extBusy || !pwdOk(extPwdEdit)" @click="resetExtPwd">重置密码</button>
+              </div>
+            </section>
+
+          </div>
+          <div class="df-modal-ft">
+            <button class="btn btn-ghost" @click="closeExt">取消</button>
+            <button class="btn btn-primary" :disabled="extBusy || !extForm.name.trim() || (!extEditId && (!extForm.username.trim() || !pwdOk(extForm.password)))" @click="saveExt">
+              {{ extBusy ? '保存中…' : (extEditId ? '保存' : '开通账号') }}
+            </button>
           </div>
         </div>
       </Transition>
@@ -366,7 +482,7 @@
           </div>
           <div class="df-modal-ft">
             <button class="btn btn-ghost" @click="transferOpen = false">稍后处理</button>
-            <button class="btn btn-primary" :disabled="transferring || !transferToId" @click="confirmTransfer">
+            <button v-if="canDo('hr', 'create')" class="btn btn-primary" :disabled="transferring || !transferToId" @click="confirmTransfer">
               {{ transferring ? '转交中…' : '确认转交' }}
             </button>
           </div>
@@ -382,11 +498,11 @@
           <div class="df-modal-hd"><b>尚未连接 ERP</b><button class="df-x" @click="remindOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
             <p class="df-tip">「同步」需要先把你的 ERP（畅捷通 / 金蝶）接入 Hergent。</p>
-            <p class="df-tip">请前往 <b>能力中心</b> 完成授权连接后，再来点「同步」。</p>
+            <p class="df-tip">请前往 <b>AI 引擎 › 连接器</b> 完成授权连接后，再来点「同步」。</p>
           </div>
           <div class="df-modal-ft">
             <button class="btn btn-ghost" @click="remindOpen = false">知道了</button>
-            <button class="btn btn-primary" @click="goConnect">去能力中心</button>
+            <button class="btn btn-primary" @click="goConnect">去 AI 引擎</button>
           </div>
         </div>
       </Transition>
@@ -401,7 +517,7 @@ import ImportReceipt from '../components/ImportReceipt.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/client'
-import { toast } from '../store'
+import { toast, store, canDo } from '../store'
 /* v291：页内跳转入口同判据（见 goConnect）。 */
 import { canSee } from '../constants/pages'
 import { employeeApi, importApi, staffAccountApi, warehouseApi } from '../api/modules'
@@ -409,7 +525,8 @@ import { employeeApi, importApi, staffAccountApi, warehouseApi } from '../api/mo
 // v300：另取 `ROLE_END`/`ROLE_END_LABEL`（「适用端」标注的唯一来源）与 `canUseMiniProgram`
 //   （降级判据）—— 下拉 label 由它们**生成**，不再手写「小程序」字样。
 import { roleName, isCanonicalRole, ROLE_END, ROLE_END_LABEL, canUseMiniProgram,
-         LOGIN_SCOPE_OPTIONS, defaultLoginScope, loginScopeLabel } from '../constants/roles'
+         LOGIN_SCOPE_OPTIONS, defaultLoginScope, loginScopeLabel,
+         ROLE_HINTS } from '../constants/roles'
 
 const router = useRouter()
 const loading = ref(false)
@@ -458,18 +575,8 @@ function snapshotForm() { formSnap.value = JSON.stringify(editForm) }
  * 会与后端「持有 `data`/`*`」的角色集逐项比对（`role-registry-consistency-check.py` D 段）。
  * 顺序：先小程序主力（员工 / 主管 / 业务员），再网页端专用，最后两个全权限角色。 */
 const BUILTIN_ROLE_ORDER = ['staff', 'distributor', 'supervisor', 'sales', 'guide', 'driver', 'accountant', 'boss', 'admin']
-/** 内置角色的业务说明（**只写"干什么"**；「适用端」由 `ROLE_END` 生成，不在这里重复）。 */
-const ROLE_HINTS = {
-  staff: '报单 / AI 对话 / 库存',
-  distributor: '外部客户报单',
-  supervisor: '汇总总表 / 数据',
-  sales: '销售 / 采购 / 客户 / 报单',
-  guide: '销售 / 采购 / 客户 / 库存',
-  driver: '看板 / 库存',
-  accountant: '账务 / 报表 / 营销',
-  boss: '全模块',
-  admin: '全模块',
-}
+// v328：这段已上提到 `constants/roles.js::ROLE_HINTS`（权限页与档案页共用同一份名字与职责，
+//   不再各写一套）。改文案请去那里改，别在这里再建一份。
 /** 后端实况：`{角色: {modules:[], is_custom}}`；`null` = 尚未/无权加载 ⇒ 降级为内置 8 项。 */
 const roleCatalog = ref(null)
 async function loadRoleCatalog() {
@@ -480,9 +587,16 @@ async function loadRoleCatalog() {
       out[name] = {
         modules: Array.isArray(v.permissions) ? v.permissions : Object.keys(v.permissions || {}),
         is_custom: !!v.is_custom,
+        // v312：该角色**实际生效**的默认可登录端 —— 后端 `core.role_end_for` 已把
+        //   「租户覆盖 ⊕ 出厂默认」合好，前端**不要**再自己合一遍（那会造出第二份判据）。
+        scope: v.default_login_scope || '',
       }
     }
     roleCatalog.value = out
+    // v312：角色表是**异步**到的 ⇒ 若此刻开账号表单正开着、且用户没手工动过「可登录端」，
+    //   就把预览刷新成本租户实况。否则会出现"我在权限页刚配完端，来这里开号却还是旧值"，
+    //   而用户会据此认定"权限没生效"。
+    if (!accScopeTouched.value) accForm2.login_scope = roleEndScope(accForm2.role)
   } catch (_) {
     roleCatalog.value = null      // 403 / 网络异常 ⇒ 降级（不弹错；指派角色本就不该由这些角色做）
   }
@@ -491,11 +605,29 @@ async function loadRoleCatalog() {
 function miniCapable(mods) {
   return Array.isArray(mods) && (mods.includes('*') || mods.includes('data'))
 }
-/** 一个角色的「适用端」文字。三档优先级：产品定义 → 后端实况 → 共享判据兜底。 */
+/** v312：某角色**默认**的可登录端（= 给该角色新建账号时，「可登录端」会预填什么）。
+ *
+ *  🔴 三档优先级，顺序**不能倒**：
+ *    ① 后端实况 —— 本租户在「设置 › 权限」为该角色配的端（`r.default_login_scope`）；
+ *    ② 出厂默认 —— `roles.js::ROLE_END`（唯一源，有护栏对账）；
+ *    ③ 共享判据兜底 `defaultLoginScope()`。
+ *    倒过来（先 ② 再 ①）就会出现"权限页刚配好、这里仍按出厂值预填"——同屏两处说法不一致。
+ */
+function roleEndScope(role) {
+  const cat = roleCatalog.value
+  const s = cat && cat[role] && cat[role].scope
+  if (s) return s
+  return defaultLoginScope(role)
+}
+/** 一个角色的「适用端」文字。篇幅优先级：**租户实况 → 出厂定义 → 后端模块实况 → 共享判据兜底**。
+ *  ⚠️ v312 起把"租户实况"提到最前 —— 端已经能在「设置 › 权限」里按客户改，
+ *     出厂值 `ROLE_END` 从此只是**默认**，不再是这家客户实际生效的上限。 */
 function endLabelOf(role) {
+  const cat = roleCatalog.value
+  const s = cat && cat[role] && cat[role].scope
+  if (s) return ROLE_END_LABEL[s] || ''
   const e = ROLE_END[role]
   if (e) return ROLE_END_LABEL[e] || ''
-  const cat = roleCatalog.value
   if (cat && cat[role] && Array.isArray(cat[role].modules)) {
     return miniCapable(cat[role].modules) ? ROLE_END_LABEL.both : ROLE_END_LABEL.web
   }
@@ -529,9 +661,18 @@ function roleDisplay(r) {
   return roleName(k)
 }
 const accForm2 = reactive({ username: '', password: '', role: 'staff', login_scope: defaultLoginScope('staff') })
+/* v312：`accScopeTouched` = 用户有没有**手工**改过「可登录端」。
+   🔴 它决定提交时**发不发**这个字段（见 `createAccountInEdit`）：没改过就不发，
+      由后端按该角色的端政策决定。为什么必须这样 —— 本页的角色表可能因权限不足而
+      **降级成出厂默认**（`loadRoleCatalog` 的 403 分支），此时若把前端猜出来的值发上去，
+      会**静默覆盖**这家客户在「设置 › 权限」里的实际配置，而界面看不出任何异常。 */
+const accScopeTouched = ref(false)
 /* v307：换角色 ⇒ 可登录端**重取默认值**（默认跟随角色）；用户手动改过之后
    再换角色会重设，这是刻意的 —— 换角色等于换岗位，沿用上一个岗位的端设置更危险。 */
-watch(() => accForm2.role, (r) => { accForm2.login_scope = defaultLoginScope(r) })
+watch(() => accForm2.role, (r) => {
+  accForm2.login_scope = roleEndScope(r)
+  accScopeTouched.value = false
+})
 const accRoleEdit = ref('staff')
 /* v307 登录范围（这个账号允许从哪个端登录）。
    🔴 **默认跟随角色的适用端**（`defaultLoginScope` → `ROLE_END` 唯一源），**可手动改**
@@ -618,9 +759,11 @@ async function onSync() {
 }
 
 function goConnect() {
-  /* v291（2026-09-27）：入口同判据 —— 能进档案的人**不一定**能进「能力中心」
-     （业务员能进档案，但不能进连接器/数据源配置）⇒ 不判就会出现"点了被弹回工作台"（假入口）。 */
-  if (!canSee('/connect')) { toast('你没有访问「能力中心」的权限', 'warn'); return }
+  /* v291（2026-09-27）：入口同判据 —— 能进档案的人**不一定**能进「AI 引擎」
+     （业务员能进档案，但不能进连接器/数据源配置）⇒ 不判就会出现"点了被弹回工作台"（假入口）。
+     ⚠️ v311：容器已由「能力中心」更名「AI 引擎」——**提示文案必须跟着改**，
+        否则用户按提示去找一个已经不存在的菜单名。路由仍是 `/connect`，判据没变。 */
+  if (!canSee('/connect')) { toast('你没有访问「AI 引擎」的权限', 'warn'); return }
   remindOpen.value = false
   router.push('/connect')
 }
@@ -686,7 +829,9 @@ function resetEditForm(e) {
   accForm2.username = ''
   accForm2.password = ''
   accForm2.role = 'staff'
-  accForm2.login_scope = defaultLoginScope('staff')
+  // v312：默认端跟着**角色实况**（本租户在权限页配的）而不是出厂常量；同时清"手工改过"标记。
+  accForm2.login_scope = roleEndScope('staff')
+  accScopeTouched.value = false
   // v307：账号区编辑态**统一走 syncRoleEdit 一处**。此前这里把那三行抄了一遍 ——
   // 抄第二遍的代价正是「新增字段时只改了一处」（v307 的登录范围就是这样漏的）。
   syncRoleEdit(src)
@@ -745,8 +890,22 @@ async function saveEmployee() {
       openEdit(created)
       loadEmployees()
     } else {
-      await employeeApi.update(editTarget.value.id, body)
+      const r = await employeeApi.update(editTarget.value.id, body)
       loadEmployees()
+      // 🔴 v326（2026-09-29）：**改名会联动该员工的登录账号显示名**（后端已改，见
+      //    `erp_db.sync_employee_account_display_name`）。这里要接住它的回执：
+      //      ① 后端明确回带了失败原因 ⇒ **说出来**（否则"名字改了但账号没改"又变回
+      //         一个只能靠用户自己发现的静默问题 —— 本轮修的就是这个）；
+      //      ② 真的同步到了账号 ⇒ `force` 重拉一次身份：若改的正是**自己**，
+      //         右上角当场跟着变（`loadPerms` 默认幂等，不 force 会直接 return 缓存）；
+      //         改的是别人也无害（一次轻请求）。
+      const renamed = Number((r && r.account_renamed) || 0)
+      if (r && r.rename_error) {
+        toast('基本信息已保存，但登录账号名称没同步成功：' + r.rename_error, 'err')
+      } else {
+        toast(renamed > 0 ? '已保存（登录账号名称已同步）' : '已保存', 'ok')
+      }
+      if (renamed > 0) store.loadPerms(true)
       // 🔴 v290（2026-09-27）：**保存成功后是否关窗，要看账号区干不干净**。
       //    原来是无条件 `editOpen = false` —— 若用户"改完档案又改了角色、然后点底部保存"，
       //    角色那处改动会随关窗无声消失（这正是评审报告里的路径②）。
@@ -754,7 +913,6 @@ async function saveEmployee() {
       if (accAnyDirty.value) {
         toast('基本信息已保存；登录账号区还有未保存的改动', 'warn')
       } else {
-        toast('已保存', 'ok')
         editOpen.value = false
       }
     }
@@ -845,7 +1003,11 @@ async function createAccountInEdit() {
       password: accForm2.password,
       display_name: editTarget.value.name,
       role: accForm2.role,
-      login_scope: accForm2.login_scope,
+      // v312：**没手工改过就不带这个字段**（空串 ⇒ 后端按该角色的端政策取默认值，
+      //   见 `routers/forecast_submissions.py` 的 `raw_scope is None or not strip()` 分支）。
+      //   理由见 `accScopeTouched` 的注释：本页角色表可能降级成出厂值，
+      //   把它发上去会静默覆盖租户实际配置。
+      login_scope: accScopeTouched.value ? accForm2.login_scope : '',
     })
     toast('账号已开通', 'ok')
     // v290（2026-09-27）：不关窗 —— 开通后刷新即就地切到「已有账号」态，
@@ -868,36 +1030,105 @@ async function createAccountInEdit() {
    🔴 外部客户**不是员工** ⇒ 不建人事档案、不进工资核算、不占员工编号
      （后端 `employee_id` 保持 0，身份留痕写 `external_ref`），避免污染人事/工资口径。 */
 const extOpen = ref(false)
+const extLoading = ref(true)
 const extAccounts = ref([])
 const extBusy = ref(false)
+const extEditId = ref(0)                 // 0 = 新建；>0 = 正在编辑的 users.id
+const extNameEdit = ref('')              // 编辑态：新登录名（选填）
+const extPwdEdit = ref('')               // 编辑态：新密码（选填）
 const extForm = reactive({ name: '', username: '', password: '', login_scope: 'mini' })
 
-async function loadExtAccounts() {
-  try {
-    const d = await api('/api/users')
-    extAccounts.value = (d.users || []).filter(u => String(u.external_ref || '').trim())
-  } catch { extAccounts.value = [] }   // 无权限/接口抖动：当"没有"，下拉里不显示即可，不打断整页
+/** 客户名（唯一取法）：`name`（名册口径）→ `external_ref` → `display_name` → 「外部客户 #id」。
+ *  🔴 **绝不回落空串** —— 空串在表格里看着像「这行坏了」，而实际只是名字列没读到。 */
+function extNameOf(u) {
+  const s = String((u && (u.name || u.external_ref || u.display_name)) || '').trim()
+  return s || ('外部客户 #' + ((u && u.id) || 0))
 }
 
-async function createExtAccount() {
+/** v317：外部客户名册改从 **`/api/report-mappings/refs`**（租户库口径）取。
+ *
+ *  🔴 为什么不再用 `/api/users`（这是老板报的「已开通账号没有展示」的**真根因**）：
+ *   A. `/api/users` 线上有**两个实现**，谁生效只看注册顺序 ——
+ *      `routers/platform.py::list_users`（prefix `/api`，在 `include_router` 阶段注册）
+ *      先命中，`server.py::list_users` **永不可达**（在它那儿加字段不会生效）；
+ *   B. 生效的那个返回 `{success, data:[…], total}` —— 经 `api()` 解包后拿到的是**裸数组**，
+ *      而这里原来读的是 `d.users` ⇒ `undefined`；
+ *   C. 它的 `SELECT` 里**也没有 `external_ref`** ⇒ 即使形状对，按 `external_ref` 过滤也恒空。
+ *   A+B+C ⇒ `extAccounts` 恒为空 ⇒ 界面永远看不见已开通的账号（零报错、零提示）。
+ *
+ *  `refs.externals` 天然覆盖本块全部需要（`name` / `username` / `login_scope` / `is_active`
+ *  ＋ v317 补的 `report_mapping_count`），且「按 `user_tenants` 收口」在同一处完成。
+ *  保留旧形状兜底，以免日后路由若被改回去时又静默变空。 */
+async function loadExtAccounts() {
+  try {
+    const d = await api('/api/report-mappings/refs')
+    let list = (d && Array.isArray(d.externals)) ? d.externals : null
+    if (!list) {
+      // 兜底：旧口径（形状可能是裸数组，也可能是 `{users:[…]}`，两种都收）
+      const u = await api('/api/users')
+      const arr = Array.isArray(u) ? u : ((u && u.users) || [])
+      list = arr.filter((x) => String(x.external_ref || '').trim())
+    }
+    extAccounts.value = list
+  } catch { extAccounts.value = [] }   // 无权限/接口抖动：当"没有"，不打断整页
+  finally { extLoading.value = false }
+}
+
+function openExtCreate() {
+  extEditId.value = 0
+  extForm.name = ''; extForm.username = ''; extForm.password = ''
+  // v312 同源：默认端取「设置 › 权限」里给「分销商」配的端，而不是写死 'mini'。
+  // 写死的后果 = 权限页改了分销商政策、这里却仍然按老规矩建号（两处口径）。
+  extForm.login_scope = roleEndScope('distributor')
+  extNameEdit.value = ''; extPwdEdit.value = ''
+  extOpen.value = true
+}
+
+function openExtEdit(u) {
+  extEditId.value = u.id
+  extForm.name = extNameOf(u)
+  extForm.username = u.username || ''
+  extForm.password = ''
+  extForm.login_scope = String(u.login_scope || '').trim() || roleEndScope('distributor')
+  extNameEdit.value = ''; extPwdEdit.value = ''
+  extOpen.value = true
+}
+
+function closeExt() { if (extBusy.value) return; extOpen.value = false }
+
+/** 新建 / 编辑统一入口。编辑时先落「客户名称 + 可登录端」，再由用户按需点改名/重置密码。 */
+async function saveExt() {
   if (extBusy.value) return
   if (!extForm.name.trim()) { toast('请填写客户名称', 'err'); return }
-  if (!pwdOk(extForm.password)) { toast('初始密码需' + PWD_HINT, 'err'); return }
   extBusy.value = true
   try {
-    await staffAccountApi.createAccount({
-      employee_id: 0,                        // 外部客户不关联员工
-      username: extForm.username.trim(),
-      password: extForm.password,
-      display_name: extForm.name.trim(),
-      role: 'distributor',                   // 后端强制；外部账号不允许其它角色
-      login_scope: extForm.login_scope,
-      external_ref: extForm.name.trim(),     // 身份留痕
-    })
-    toast('外部客户账号已开通', 'ok')
-    extForm.name = ''; extForm.username = ''; extForm.password = ''
+    if (!extEditId.value) {
+      if (!pwdOk(extForm.password)) { toast('初始密码需' + PWD_HINT, 'err'); return }
+      await staffAccountApi.createAccount({
+        employee_id: 0,                        // 外部客户不关联员工
+        username: extForm.username.trim(),
+        password: extForm.password,
+        display_name: extForm.name.trim(),
+        role: 'distributor',                   // 后端强制；外部账号不允许其它角色
+        login_scope: extForm.login_scope,
+        external_ref: extForm.name.trim(),     // 身份留痕
+      })
+      toast('外部客户账号已开通', 'ok')
+    } else {
+      const uid = extEditId.value
+      const cur = extAccounts.value.find(x => x.id === uid) || {}
+      // 只在**真的改了**的时候才发请求 —— 无变化也发会刷出一条无意义的审计记录。
+      if (extForm.name.trim() !== extNameOf(cur)) {
+        await api(`/api/users/${uid}/display-name`, { method: 'PUT', body: { display_name: extForm.name.trim() } })
+      }
+      if (String(cur.login_scope || '') !== extForm.login_scope) {
+        await api(`/api/users/${uid}/login-scope`, { method: 'PUT', body: { login_scope: extForm.login_scope } })
+      }
+      toast('已保存', 'ok')
+    }
+    extOpen.value = false
     await loadExtAccounts()
-  } catch (e) { toast(e.message || '开通失败', 'err') }
+  } catch (e) { toast(e.message || '保存失败', 'err') }
   finally { extBusy.value = false }
 }
 
@@ -906,6 +1137,45 @@ async function toggleExtAccount(u) {
     await api(`/api/users/${u.id}/status`, { method: 'PUT', body: { is_active: u.is_active ? 0 : 1 } })
     await loadExtAccounts()
   } catch (e) { toast(e.message || '操作失败', 'err') }
+}
+
+/** 编辑态：改登录名（`PUT /api/users/{uid}/username`，与员工账号同一接口）。 */
+async function renameExtAcc() {
+  if (extBusy.value || !extEditId.value) return
+  const n = extNameEdit.value.trim()
+  if (!n) { toast('请填写新的登录账号', 'err'); return }
+  if (n.length < 2 || n.length > 32) { toast('登录账号需 2-32 个字符', 'err'); return }
+  extBusy.value = true
+  try {
+    const r = await api(`/api/users/${extEditId.value}/username`, { method: 'PUT', body: { new_username: n } })
+    if (r && r.changed === false) { toast('登录账号没有变化', 'ok'); extNameEdit.value = ''; return }
+    // 必须点名「下次登录用新账号」—— 否则客户拿旧号登录被拒，会以为密码坏了。
+    toast(`登录账号已改为「${n}」— 该客户下次登录请用新账号`, 'ok')
+    extNameEdit.value = ''
+    await loadExtAccounts()
+  } catch (e) { toast(e.message || '修改失败', 'err') }
+  finally { extBusy.value = false }
+}
+
+/** 编辑态：重置密码（`POST /api/users/{uid}/password`，与员工账号同一接口）。 */
+async function resetExtPwd() {
+  if (extBusy.value || !extEditId.value) return
+  if (!pwdOk(extPwdEdit.value)) { toast('新密码需' + PWD_HINT, 'err'); return }
+  extBusy.value = true
+  try {
+    await api(`/api/users/${extEditId.value}/password`, { method: 'POST', body: { password: extPwdEdit.value } })
+    toast('密码已重置 — 请告知该客户新密码', 'ok')
+    extPwdEdit.value = ''
+  } catch (e) { toast(e.message || '重置失败', 'err') }
+  finally { extBusy.value = false }
+}
+
+/** 去「预报订单管理 → 报单配置」给该客户配门店。
+ *  🔴 入口同判据（与 goConnect 同规矩）：能进员工档案的人**不一定**能进预报订单管理
+ *     ⇒ 不判就会出现「点了没反应 / 被弹回工作台」的假入口。 */
+function goReportConfig() {
+  if (!canSee('/forecast')) { toast('你没有访问「预报订单管理」的权限', 'warn'); return }
+  router.replace({ path: '/forecast', query: { tab: 'config' } }).catch(() => {})
 }
 
 /* ---- v266 兼任角色（角色可叠加）---------------------------------------------
@@ -941,8 +1211,9 @@ function syncRoleEdit(e) {
   accRolesEdit.value = String(src.account_roles || '')
     .split(/[,，、;；]/).map(s => s.trim()).filter(Boolean)
   // v307 登录范围：库里有值 ⇒ 用它（**手工值优先**）；库里为空 ⇒ 按角色默认（存量账号）。
+  // v312：这里的"角色默认"改走 `roleEndScope`（本租户在权限页配的端），而不是出厂常量。
   const cur = String(src.account_login_scope || '').trim()
-  accScopeEdit.value = cur || defaultLoginScope(accRoleEdit.value)
+  accScopeEdit.value = cur || roleEndScope(accRoleEdit.value)
   accScopeBase.value = accScopeEdit.value
 }
 
@@ -965,6 +1236,42 @@ async function saveAccScope() {
     if (fresh) { editTarget.value = fresh; syncRoleEdit(fresh) }
   } catch (e) { toast(e.message || '保存失败', 'err') }
   finally { accBusy.value = false }
+}
+
+/* ---- v312：角色端政策 ↔ 账号实际端的**差异提示与一键对齐** ----------------------
+   需求原话（老板）：「在设置中为角色配置权限后…该员工只有小程序权限」。
+   功能权限那条**本来就是继承**（员工没有自己的模块权限）；端这条是**两层**：
+     · 角色政策（`role_end`，在「设置 › 权限」配）—— 决定**新建账号**的默认值；
+     · 账号事实（`users.login_scope`）—— 建号后仍可单独改（v307 的"保留手动开通"）。
+   ⇒ 改角色政策时**不动已有账号**。但必须让老板**看得见**这个差异，所以有下面这一对。 */
+/** 当前所选角色在「设置 › 权限」里配的默认端。 */
+const accScopeDefault = computed(() => roleEndScope(accRoleEdit.value))
+/** 这个账号的端 ≠ 它角色的默认端。
+ *  🔴 **只用来提示，绝不自动改**：自动对齐会把"当初特意给某人开过网页端"的账号
+ *     在下一次动角色时静默收窄回小程序 —— 那正是"用户被自己锁在门外"那一族。 */
+const accScopeMismatch = computed(() => {
+  const cur = String(accScopeEdit.value || '')
+  return !!cur && cur !== accScopeDefault.value
+})
+/** 一键把账号的端对齐到角色默认（走与手动保存**同一个端点**，不另开写路径）。 */
+async function alignAccScope() {
+  if (accBusy.value || !editTarget.value || !editTarget.value.account_user_id) return
+  const want = accScopeDefault.value
+  if (!confirm('把这个账号的「可登录端」改成角色「' + roleDisplay(accRoleEdit.value) + '」的默认值：' + loginScopeLabel(want) + '？')) return
+  accBusy.value = true
+  try {
+    await api(`/api/users/${editTarget.value.account_user_id}/login-scope`, {
+      method: 'PUT',
+      body: { login_scope: want },
+    })
+    toast('已按角色对齐', 'ok')
+    await loadEmployees()
+    const fresh = employees.value.find(x => x.id === (editTarget.value && editTarget.value.id))
+    if (fresh) { editTarget.value = fresh; syncRoleEdit(fresh) }
+  } catch (e) {
+    // 后端对"改自己"会 400（把自己锁在门外 = 自杀操作）⇒ 如实转达，别吞掉。
+    toast(e.message || '操作失败', 'err')
+  } finally { accBusy.value = false }
 }
 
 /* ==== v290（2026-09-27）「未保存改动」的统一判据 ==============================
@@ -999,13 +1306,42 @@ async function saveAccRole() {
   accBusy.value = true
   try {
     const extras = accRolesEdit.value.filter(r => r && r !== accRoleEdit.value)
-    await api(`/api/users/${editTarget.value.account_user_id}/role`, {
+    const uid = editTarget.value.account_user_id
+    const r = await api(`/api/users/${uid}/role`, {
       method: 'PUT',
       body: { role: accRoleEdit.value, roles: extras },
     })
     toast(extras.length
       ? `角色已保存（兼任 ${extras.map(roleDisplay).join('、')}）`
       : '角色已保存', 'ok')
+
+    // v328 G1：**角色换了，登录范围不会跟着换** —— 账号的"能从哪儿登录"是既成事实，
+    //   后端刻意不自动改（有人可能兼任两职、就是要两端）。但**不说就是坑**：
+    //   把「导购（仅网页端）」改成「业务员（仅小程序）」后，这个人照样能登网页端，
+    //   与角色政策相悖，而界面上一声不吭 ⇒ 老板根本不知道有这回事。
+    //   ⇒ 后端返回 `scope_drift` ⇒ 这里当场问一句，让老板自己点头。
+    if (r && r.scope_drift && r.default_login_scope) {
+      const nm = (editTarget.value && editTarget.value.name) || '该员工'
+      const want = loginScopeLabel(r.default_login_scope)
+      const now = loginScopeLabel(r.login_scope)
+      const yes = window.confirm(
+        `「${nm}」的角色已改为「${roleDisplay(accRoleEdit.value)}」，` +
+        `但他现在能登录的范围还是 ${now}（新角色的默认是 ${want}）。\n\n` +
+        `要按新角色对齐成 ${want} 吗？`
+      )
+      if (yes) {
+        try {
+          await api(`/api/users/${uid}/login-scope`, {
+            method: 'PUT',
+            body: { login_scope: r.default_login_scope },
+          })
+          toast('已按新角色对齐登录范围', 'ok')
+        } catch (e2) {
+          // 后端对"改自己"会 400（把自己锁在门外）⇒ 如实转达，别吞掉。
+          toast(e2.message || '登录范围未改动', 'err')
+        }
+      }
+    }
     // 🔴 v290（2026-09-27）：**关窗 → 就地刷新**。
     //    原来这里是 `editOpen.value = false`（关掉整个弹窗），而弹窗里「人事档案」与
     //    「账号区」是两套独立保存 ⇒ 用户"改完岗位顺手改角色、点保存角色"，
@@ -1209,6 +1545,13 @@ onMounted(() => {
 .df-panel{padding:18px;margin-bottom:14px}
 .df-tip{font-size:12.5px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
 .df-tip code{background:var(--bg2);padding:1px 6px;border-radius:5px;font-size:12px}
+/* v312：角色默认端的出处说明 / 内联小按钮 / 「与角色配置不一致」提示条 */
+.df-scope-src{margin:0 0 12px}
+.df-mini-lnk{border:none;background:none;color:var(--p);cursor:pointer;font-size:12.5px;padding:0 2px;text-decoration:underline}
+.df-mini-lnk:hover{color:var(--p-dark)}
+.df-mismatch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 10px;padding:7px 10px;border-radius:var(--radius-md);background:var(--bg3)}
+.df-mismatch-tag{font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:20px;background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5);flex-shrink:0}
+.df-mismatch-txt{font-size:12.5px;color:var(--t2);line-height:1.6;min-width:0;flex:1 1 240px}
 .df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:8px;font-size:12px}
 
 .df-ph{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -1249,10 +1592,9 @@ onMounted(() => {
    用 rose（玫瑰红）与既有 8 色都拉开距离，也暗示"外部 / 需留意"。 */
 .df-role.r-distributor{background:rgba(244,63,94,.14);color:#f43f5e}
 /* v308 外部客户账号分区：表单单行自适应换行（窄屏自动折行，不横向溢出）。 */
-.df-ext{margin-bottom:12px}
-.df-ext-body{padding:10px 12px 4px}
-.df-ext-form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:8px 0}
-.df-ext-form .df-field{min-width:150px;flex:1 1 150px}
+/* v317：外部客户弹窗宽度 —— 比「停用确认」略宽（要放 2 列字段 + 两行说明），
+   比「编辑员工」（680px）窄，因为它没有薪酬那一大块。 */
+.ext-modal{width:min(560px,94vw)}
 .df-role.stopped{background:#e5e7eb !important;color:#9aa0a6 !important}
 /* v266 兼任角色徽标：用**虚框**而非实底，与主角色实底徽标在视觉上分层
    —— 一眼看出「哪个是这个人的本职、哪个是兼的」。 */

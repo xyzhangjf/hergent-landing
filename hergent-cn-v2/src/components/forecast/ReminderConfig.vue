@@ -89,7 +89,8 @@
       </div>
 
       <div class="set-row" style="margin-top:14px">
-        <button class="btn btn-primary" :disabled="remindSaving" @click="saveReminder">{{ remindSaving ? '保存中…' : '保存设置' }}</button>
+        <!-- v335 按钮级门禁：PUT /api/forecast/reminder-config ⇒ 模块 data / 动作 update -->
+        <button v-if="canDo('data', 'update')" class="btn btn-primary" :disabled="remindSaving" @click="saveReminder">{{ remindSaving ? '保存中…' : '保存设置' }}</button>
         <span class="set-desc">保存后立即对后续所有期次生效；已发出的提醒不会撤回。</span>
       </div>
     </template>
@@ -99,7 +100,7 @@
 <script setup>
 import { reactive, ref, computed } from 'vue'
 import { api } from '../../api/client'
-import { toast } from '../../store'
+import { toast, canDo } from '../../store'
 import ConfigCard from './ConfigCard.vue'
 
 /* ---- 报单提醒控制面板（从设置页迁至「预报订货管理 → 报单配置」，与报单自动化并列） ---- */

@@ -65,8 +65,13 @@ const input = ref(null)
 const open = computed(() => props.modelValue)
 
 const COMMANDS = [
-  // 操作（高频动作）—— 与页面无关，不做权限过滤（人人可用）
-  { id: 'copilot', group: '操作', icon: 'sparkle', title: '问 AI 副驾', hint: '⌘K', action: () => { store.ui.copilotOpen = true } },
+  // 操作（高频动作）—— 与页面无关，**默认**不做权限过滤（人人可用）。
+  // 🔴 v325（2026-09-29）例外：`copilot` 必须带 `module: 'chat'`。
+  //   AI 已从"人人可用"改为**按需开通**（消耗积分有成本，默认只给管理员/老板）。
+  //   这里漏填的后果是**第二组假入口**：侧栏/顶部栏都藏了，⌘⇧K 一搜「问 AI 副驾」还搜得到，
+  //   点开是个用不了的抽屉 —— 与 v267 修过的「命令面板假入口」是同一类缺陷。
+  //   过滤逻辑无需改：`filtered` 早就支持 `!c.module || store.canModule(c.module)`。
+  { id: 'copilot', group: '操作', icon: 'sparkle', title: '问 AI 副驾', hint: '⌘K', module: 'chat', action: () => { store.ui.copilotOpen = true } },
   { id: 'theme', group: '操作', icon: 'lightbulb', title: '切换深浅主题', action: () => setTheme(store.ui.theme === 'light' ? 'dark' : 'light') },
   /* 页面（导航）—— v291（2026-09-27）：**每一条都走 `canSee(path)`**，判据唯一实现在
      `constants/pages.js` 的页面注册表（侧栏、路由守卫读的是同一份表）。
@@ -88,8 +93,19 @@ const COMMANDS = [
     when: () => canSee('/forecast') },
   { id: 'dashboard', group: '页面', icon: 'sort', title: '经营趋势', path: '/dashboard',
     when: () => canSee('/dashboard') },
-  { id: 'connect', group: '页面', icon: 'brain', title: '能力中心', path: '/connect',
+  // v311：「能力中心」已更名「AI 引擎」（路由仍是 `/connect`）。
+  { id: 'connect', group: '页面', icon: 'brain', title: 'AI 引擎', path: '/connect',
     when: () => canSee('/connect') },
+  /* v311：两个「已并入容器当页签」的页面，这里**各留一条直达**（不删）。
+     🔴 命令面板是**第二组入口**，判据与侧栏同源（`canSee`）—— 侧栏藏了、这里还搜得到，
+        就是"假入口"回归（用户 ⌘⇧K 搜到、点进去被弹回工作台）。
+     ⚠️ 它们现在**没有侧栏项**，与 `/roles`（AI 团队）同构：有路由、靠容器页签进入，
+        但命令面板里仍单独可搜 —— 目的是"知道名字就能直达"，不必先想起它在哪个容器下。
+     ⚠️ 路径分别指向 `/archive/prices`（旧 `/price-channels` 已 redirect）与 `/ai-hub`（活路由）。 */
+  { id: 'archive-prices', group: '页面', icon: 'template', title: '渠道与价格', path: '/archive/prices',
+    when: () => canSee('/archive/prices') },
+  { id: 'ai-hub', group: '页面', icon: 'sparkle', title: '产出与用量', path: '/ai-hub',
+    when: () => canSee('/ai-hub') },
   { id: 'roles', group: '页面', icon: 'users', title: 'AI 团队', path: '/roles',
     when: () => canSee('/roles') },
   { id: 'loss-accounting', group: '页面', icon: 'receipt', title: '货损核算', path: '/loss-accounting',

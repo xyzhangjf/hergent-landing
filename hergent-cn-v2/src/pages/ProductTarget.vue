@@ -15,7 +15,9 @@
       <span>·</span>
       <span>均单剩余(箱) = (月目标 − 已达成) ÷ 剩余可报期次</span>
       <span>·</span>
-      <span>剩余期次 = 整月到货日历里「今天及以后」的到货日个数</span>
+      <span>月目标 = <b>到货日所在月份</b>的目标（提前报单，报单月 ≠ 到货月）</span>
+      <span>·</span>
+      <span>剩余期次 = 整月到货日历里<b>「报单窗口还没关」</b>的到货日个数</span>
     </div>
 
     <!-- ══ v264c（R9）：报单列名 ↔ 报单对象 对账告警 ══════════════════════════
@@ -45,7 +47,15 @@
     <!-- ══ 工具栏 ══ -->
     <div class="pt-tbar">
       <span class="pt-tbar-t">目标月份</span>
-      <input v-model="month" type="month" class="fld pt-fld-m" aria-label="目标月份" @change="load(month)">
+      <input v-model="month" type="month" class="fld pt-fld-m" aria-label="目标月份"
+             @change="monthTouched = true; load(month)">
+      <!-- v324：把「这个月是按哪个到货日定的」写在月份旁边。
+           🔴 为什么必须有这一行：本轮病根是「系统按报单月读了目标月」，
+              而这种错**零报错、数字看着合理**，只有老板肉眼发现「怎么还是上个月的」。
+              把锚点摆到台面上，以后同类错位第一眼就能看见，不用等到月底。 -->
+      <span v-if="monthHint" class="pt-anchor" :class="{ 'pt-anchor-warn': monthHintWarn }">
+        {{ monthHint }}
+      </span>
       <span class="pt-tbar-t">均单按</span>
       <select v-model.number="periodId" class="fld pt-fld-p" aria-label="期次" @change="loadAvg">
         <option :value="0">不显示均单</option>
@@ -55,7 +65,9 @@
       </select>
       <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load(month)">刷新</button>
       <span class="pt-sp"></span>
-      <button class="btn btn-primary btn-sm" @click="openNew">新建目标</button>
+      <!-- v335 按钮级门禁：POST /api/product-targets ⇒ 模块 data / 动作 create
+           （本页已收进 `/forecast` 当第 4 页签，写接口归 `data` 与父页同模块） -->
+      <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" @click="openNew">新建目标</button>
     </div>
 
     <!-- ══ 列表 ══ -->
@@ -75,8 +87,10 @@
               <th class="num">已达成(箱)</th>
               <th class="num">差额(箱)</th>
               <th class="num">本期报单(箱)</th>
-              <th class="num">剩余可报</th>
-              <th class="num">均单(箱)</th>
+              <!-- v324 P2-A：这两列走的是后端实际读的目标月（= 到货月），与「目标/已达成/差额」
+                   （走工具栏筛的月份）可能**不同月**。只在真的不同月时才挂 title，一致时连属性都不渲染。 -->
+              <th class="num" :title="avgColTip || undefined">剩余可报</th>
+              <th class="num" :title="avgColTip || undefined">均单(箱)</th>
               <th class="num">分解</th>
               <th class="pt-th-op">操作</th>
             </tr>
@@ -110,13 +124,15 @@
                 </td>
                 <td class="num pt-quiet">{{ (r.allocs || []).length }} 人</td>
                 <td class="pt-op">
-                  <button class="btn-icon" title="改目标量" @click="openEdit(r)">
+                  <!-- v335 按钮级门禁：改目标量=PUT /api/product-targets/{tid} ⇒ data/update；
+                       删除=DELETE 同路径 ⇒ data/delete -->
+                  <button v-if="canDo('data', 'update')" class="btn-icon" title="改目标量" @click="openEdit(r)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>
                     </svg>
                   </button>
-                  <button class="btn-icon" title="删除目标（同时删掉分解）" @click="askDelete(r)">
+                  <button v-if="canDo('data', 'delete')" class="btn-icon" title="删除目标（同时删掉分解）" @click="askDelete(r)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
@@ -179,9 +195,14 @@
             <div class="pt-form">
               <label class="pt-lb">商品</label>
               <div class="pt-pick">
-                <input v-if="!editing" v-model="pkw" class="fld pt-pick-in" placeholder="输入商品名或条码搜索"
-                       aria-label="搜索商品" @input="searchProducts">
-                <div v-if="!editing" class="pt-pick-list">
+                <!-- ══ v319e（P0-1）新建态分两屏：未选 = 搜索框 + 列表；已选 = 一张「已选卡片」══
+                     原实现点选后只改了一行 6% 透明度的底色（实测合成到白底 = rgb(240,251,252)，
+                     与白底只差 3.6% ⇒ 肉眼不可辨），且**没有任何文字**说明选到了什么
+                     ⇒ 用户唯一能得出的结论就是「点了没反应」。这里改成：点选 → 列表收起 →
+                     原地出现「✓ 商品名 / 换算 / 重新选择」。 -->
+                <input v-if="!editing && !pickedProd" v-model="pkw" class="fld pt-pick-in"
+                       placeholder="输入商品名或条码搜索" aria-label="搜索商品" @input="searchProducts">
+                <div v-if="!editing && !pickedProd" class="pt-pick-list">
                   <!-- v277（S3）：可设目标的商品仍是 <button>（整行可选）；缺换算的商品改用 <div>
                        —— **必须换标签**，因为「补换算」要在这一条里再嵌一个 <button>，
                        而 button 不能嵌套 button：HTML 解析器会把内层踢出外层，表现为
@@ -192,7 +213,12 @@
                       <span class="pt-pick-nm">{{ p.name }}</span>
                       <span class="pt-pick-meta">{{ convText(p) }}</span>
                     </button>
-                    <div v-else class="pt-pick-item dis">
+                    <!-- v319e（P0-2）：这一行原来**点了完全没反应**（`pickProduct` 里
+                         `if (!p.can_target) return` 静默退出），而它恰好是整行唯一不给解释的动作。
+                         现在整行可点 ⇒ 弹一句原因 + 就地打开补换算。内层的「补换算」按钮照旧
+                         `@click.stop` 独立生效（两个入口都能到，互不抢）。 -->
+                    <div v-else class="pt-pick-item dis" @click="onDisabledPick(p)"
+                         title="缺大单位换算 ⇒ 不能按箱设目标。点一下看原因并就地补上。">
                       <span class="pt-pick-nm">{{ p.name }}</span>
                       <span class="pt-pick-meta">{{ convText(p) }}</span>
                       <span class="pt-pick-warn">缺大单位换算，无法按箱设目标</span>
@@ -202,7 +228,7 @@
                     </div>
                     <div v-if="!p.can_target && fixFor === p.id" class="pt-fix-box">
                       <div class="pt-fix-hint">
-                        照商品包装补一处换算，这个商品就能按箱设目标。填错不会落库 ——
+                        照商品包装补一处换算，这个商品就能按箱设目标。填错不会保存 ——
                         系统会先按这组换算试算一遍「1 大单位 = 几个小单位」，算不出或单位名打架就整笔拒收。
                       </div>
                       <div class="pt-fix-row">
@@ -213,7 +239,7 @@
                         <input v-model.number="fixForm.large_ratio" type="number" min="0" step="1"
                                class="fld pt-fix-n" placeholder="?" aria-label="换算比">
                         <span class="pt-fix-eq">{{ p.unit || '小单位' }}</span>
-                        <button class="pt-fix-save" :disabled="fixBusy" @click.stop="submitFix(p)">
+                        <button v-if="canDo('data', 'create')" class="pt-fix-save" :disabled="fixBusy" @click.stop="submitFix(p)">
                           {{ fixBusy ? '保存中…' : '保存换算' }}
                         </button>
                       </div>
@@ -235,7 +261,18 @@
                   </template>
                   <div v-if="!prods.length" class="pt-quiet pt-pick-empty">没有匹配的在售商品。</div>
                 </div>
-                <div v-else class="pt-fixed">
+                <!-- ══ 已选卡片（v319e P0-1）══
+                     数据源 = 点选那一刻冻结的商品快照（`pickedProd`），**不回搜索结果里现找** ——
+                     否则换个搜索词列表被替换，连目标量旁那行换算都会一起消失。 -->
+                <div v-if="!editing && pickedProd" class="pt-picked">
+                  <span class="pt-picked-tick" aria-hidden="true">✓</span>
+                  <div class="pt-picked-txt">
+                    <div class="pt-picked-nm">{{ pickedName }}</div>
+                    <div class="pt-picked-cv">{{ convText(pickedProd) }}</div>
+                  </div>
+                  <button type="button" class="pt-picked-change" @click="clearPick">重新选择</button>
+                </div>
+                <div v-if="editing" class="pt-fixed">
                   {{ pickedName }} <span class="pt-quiet">（商品与月份不可改，要改请删了重建）</span>
                 </div>
               </div>
@@ -244,6 +281,10 @@
               <div>
                 <input v-model="form.period_month" type="month" class="fld pt-fld-m"
                        aria-label="目标月份" :disabled="editing">
+                <!-- v324：说清「该建到哪个月」= **到货月**。
+                     提前报单、几天后到货 ⇒ 月底建的目标本该落在次月。
+                     不写这一行，用户会按月历直觉填当月，锚点改了也白改。 -->
+                <div v-if="!editing && anchorMonthTip" class="pt-md-tip">{{ anchorMonthTip }}</div>
               </div>
 
               <label class="pt-lb">目标量（箱）</label>
@@ -369,7 +410,7 @@ import { useRouter } from 'vue-router'
 import { productTargetsApi, forecastApi } from '../api/modules.js'
 // v277：补换算成功后要给「已写进哪个商品档案」一个明确回执。本页此前只用页内 err 条，
 // 但那行是「列表级」的（会被后续 load 覆盖），而这里是一次单点写操作 ⇒ 用全站 toast。
-import { toast } from '../store'
+import { toast, canDo } from '../store'
 
 /* ══════════════════════════════════════════════════════════════
    商品目标管理（v264）
@@ -390,6 +431,16 @@ const openId = ref(0)
 
 const now = new Date()
 const month = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+/* v324：用户**手动**改过月份 ⇒ 不再自动纠正。
+   `false` 时，`loadPeriods()` 会把月份对齐到「进行中期次的到货月」——
+   因为我们是提前报单、几天后到货，月底那几期的**目标月是次月**，
+   默认值取自然月会让老板月底进来看到上个月的桶（本轮报障就是这个）。 */
+const monthTouched = ref(false)
+/* v324：当期锚点（供页面自证「我按哪个到货日定的目标月」）。`null` = 没拿到期次。 */
+const anchor = ref(null)
+/* v324：后端实际读的目标月（/avg-target 回的 `target_month`）。
+   用于把「X 月还没有目标」说成具体月份 —— 只说「本月」在跨月那几天恰恰是错的。 */
+const avgMonth = ref('')
 const periodId = ref(0)
 const avgById = ref({})
 /* v264c（R9）：报单「列名 ↔ 报单对象」对账（**只读**）。
@@ -408,6 +459,17 @@ function fmt(v) {
   if (!isFinite(n)) return '—'
   // 3 位小数与前端 `boxesOf` 同精度（用户自己的报单 Excel 里「件数」就是 3 位）
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000)
+}
+
+/* v324：'2026-10-03' → '10-03'；非法 → 原样（宁可显示得丑，也不要显示一个编的日期）。 */
+function fmtMd(iso) {
+  const s = String(iso || '').slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.slice(5) : (s || '')
+}
+/* v324：'2026-10' → '10 月'；空/非法 → ''（调用方负责兜底）。 */
+function monthLabel(m) {
+  const s = String(m || '')
+  return /^\d{4}-\d{2}$/.test(s) ? (Number(s.slice(5)) + ' 月') : ''
 }
 
 /* 选商品时把「一箱 = 几包 = 几袋」摊开给用户看。
@@ -471,6 +533,22 @@ async function loadPeriods() {
     // 默认选**进行中**的期次；没有则用后端给的展示兜底 `current`
     const prefer = d.open || d.current || null
     if (prefer && !periodId.value) periodId.value = Number(prefer.id) || 0
+    /* v324：锚点优先取 `open/current` 上带的 `arrival_date`。
+       为什么还要回查 `periods`：`open`/`current` 是两个独立查询的返回，
+       字段不保证与列表同宽（老库尤其明显）；列表里一定有 arrival_date。
+       取不到 `arrival_date` ⇒ anchor=null ⇒ 提示整行不渲染（不拿自然月冒充锚点）。 */
+    const _p = (prefer && periods.value.find(x => Number(x.id) === Number(prefer.id))) || prefer || null
+    const _ad = String((_p && _p.arrival_date) || '').trim()
+    anchor.value = _ad ? { arrival_date: _ad, period_name: (_p && _p.name) || '' } : null
+    const av = _ad.slice(0, 7)
+    if (av && !monthTouched.value && month.value !== av) {
+      month.value = av
+      /* 月份变了 ⇒ 列表必须按新月份**重取**。
+         ⚠️ 这里是「先按自然月查一次、发现锚点是次月再查一次」，页面上会有一次
+         无声的第二次请求；代价是进页面多一个 list 请求，换来的是**不猜锚点**
+         （先猜再校验的写法会在老库/缺字段时静默取错月，正是本轮要消灭的那个静默）。 */
+      await load(av)
+    }
   } catch (e) {
     periods.value = []
   }
@@ -479,15 +557,63 @@ async function loadPeriods() {
 async function loadAvg() {
   if (!periodId.value || !rows.value.length) {
     avgById.value = {}
+    avgMonth.value = ''
     return
   }
   try {
     const d = await productTargetsApi.avgTarget(periodId.value)
     avgById.value = d.items || {}
+    // v324：后端实际读的目标月（= 到货月）。**不自己算** —— 自己算就是第二份锚点口径。
+    avgMonth.value = String(d.target_month || '')
   } catch (e) {
     avgById.value = {}
+    avgMonth.value = ''
   }
 }
+
+/* v324：锚点提示文案。三条判据，全都只读后端/期次给的事实，本页不推算：
+   ① 有到货日才能说      ② 与当前查看的月份一致 ⇒ 正常态（一句话说清依据）
+   ③ 不一致 ⇒ 警示态（明确告诉用户在看的不是本期的目标月） */
+const monthHint = computed(() => {
+  const a = anchor.value
+  if (!a || !a.arrival_date) return ''
+  const av = String(a.arrival_date).slice(0, 7)
+  const md = fmtMd(a.arrival_date)
+  if (av === month.value) return `按到货月 · 本期到货 ${md}`
+  return `本期到货 ${md}（属 ${monthLabel(av)}）· 当前看的是 ${monthLabel(month.value)}目标`
+})
+const monthHintWarn = computed(() => {
+  const a = anchor.value
+  if (!a || !a.arrival_date) return false
+  return String(a.arrival_date).slice(0, 7) !== month.value
+})
+/* v324：新建弹窗里「该建到哪个月」的一句话说明（锚点 = 到货月）。 */
+const anchorMonthTip = computed(() => {
+  const a = anchor.value
+  if (!a || !a.arrival_date) return ''
+  const av = String(a.arrival_date).slice(0, 7)
+  return `本期到货 ${fmtMd(a.arrival_date)} ⇒ 目标建到 ${monthLabel(av) || av}`
+       + '（提前报单，报单月 ≠ 到货月）'
+})
+
+/* v324 P2-A：同屏两口径的**零噪音**提示。
+   `均单 / 剩余可报` 走后端实际读的目标月（= 到货月，见 avgMonth ← d.target_month），
+   `目标 / 已达成 / 差额` 走用户在工具栏筛的 month。两者默认恰好重合，所以这个错位
+   一直看不见；把锚点修对之后才被撕开（真机实测：切回 9 月时同屏出现「目标 150 / 均单 66.667」，
+   而 66.667 是 10 月那 1000 箱算出来的）。
+   解法：**一致时返回空串 ⇒ 表头连 title 属性都不渲染**（零可见噪音）；不一致时鼠标悬停才出说明。
+   ⚠️ 本页不自己算月份，只比对后端给的 target_month 与用户选的 month —— 自己算就是第二份口径。 */
+const avgColTip = computed(() => {
+  const av = avgMonth.value
+  if (!av || av === month.value) return ''
+  const a = anchor.value
+  const md = (a && a.arrival_date) ? fmtMd(a.arrival_date) : ''
+  const avL = monthLabel(av) || av
+  const mvL = monthLabel(month.value) || month.value
+  return `「均单 / 剩余可报」按 ${avL} 的月目标算` + (md ? `（本期到货 ${md}）` : '')
+       + `；「目标 / 已达成 / 差额」按你筛选的 ${mvL} 算。`
+       + `两列月份不同 —— 要同一口径，把左边月份切到 ${avL}。`
+})
 
 function toggle(id) { openId.value = openId.value === id ? 0 : id }
 
@@ -509,7 +635,9 @@ function avgWhy(r) {
   if (!it) return '该商品不在本期期次清单里'
   const f = it.flags || {}
   if (f.no_convert) return '该商品缺单位换算，无法折算均单'
-  if (f.no_target) return '本月还没有目标'
+  /* v324：点名**后端实际读的那个月**（= 到货月）。
+     说「本月」在跨月那几天恰恰是错的 —— 老板报障时看到的正是这个歧义。 */
+  if (f.no_target) return (monthLabel(avgMonth.value) || '本月') + '还没有目标'
   if (f.no_rule) return '该品牌没有到货规则（配置面板里没设），算不出剩余期次'
   if (f.no_dates) return '该品牌按本规则在本月没有到货日'
   if (f.done) return '已达成本月目标'
@@ -532,12 +660,21 @@ const editing = ref(null)          // null = 新建；否则是被编辑的目�
 const prods = ref([])
 const emps = ref([])
 const pkw = ref('')
+/* v319e（P0-1）：点选那一刻冻结的商品快照。`null` = 还没选（⇒ 显示搜索列表）。
+   🔴 不复制字段、直接持有后端返回的那个对象：`searchProducts()` 之后 `prods` 整个被换掉，
+   旧对象仍被这里引用 ⇒ 快照语义天然成立；而**逐字段拷一份新对象**反而是第二份商品口径，
+   迟早与档案漂移（本页第 ① 条纪律）。 */
+const pickedProd = ref(null)
 const ekw = ref('')
 const saveErr = ref('')
 const form = reactive({ product_id: 0, period_month: '', target_qty: null })
 const members = ref([])
 
-const picked = computed(() => prods.value.find(p => p.id === form.product_id) || editing.value || null)
+/* v319e（P0-1）：新建态取**点选快照**，编辑态取被编辑的行。
+   原实现 `prods.value.find(p => p.id === form.product_id) || editing.value`：
+   换个搜索词 `prods` 被替换，选中记录就找不到了 —— 目标量旁那行换算随之消失，
+   用户刚建立的「我选好了」的认知也跟着消失（这是「选不中」体感的第二个来源）。 */
+const picked = computed(() => pickedProd.value || editing.value || null)
 const pickedName = computed(() => picked.value?.name || picked.value?.product_name || '—')
 const pickedUnit = computed(() => picked.value?.large_unit || picked.value?.target_unit || '箱')
 /* 目标量输入框旁那行换算提示。
@@ -583,6 +720,11 @@ async function openNew() {
   members.value = []
   pkw.value = ''
   ekw.value = ''
+  /* v319e：快照必须复位 —— 否则关掉再新建时会直接显示上一次选的商品（弹窗"带记忆"），
+     而 `form.product_id` 恰好也是 0 的话，界面说的和要提交的就不是同一件事。 */
+  pickedProd.value = null
+  fixFor.value = 0
+  fixMsg.value = ''
   modal.value = true
   if (!prods.value.length) await searchProducts()
   if (!emps.value.length) await loadEmps()
@@ -622,11 +764,36 @@ async function loadEmps() {
 }
 
 function pickProduct(p) {
-  if (!p.can_target) return
+  // 缺换算的商品**不能静默 return**（那就是原病根）—— 转交 onDisabledPick 给一句解释。
+  // 模板里已按 can_target 分流，这里保留判定是为了防将来有人把本函数接到别处去。
+  if (!p.can_target) { onDisabledPick(p); return }
   form.product_id = p.id
-  if (!form.product_id) return
+  pickedProd.value = p          // 冻结快照（已选卡片与目标量旁换算是同一个数据源）
   // 单位随商品带回（目标单位 = 商品大单位）
   form.target_unit = p.large_unit || ''
+}
+
+/* v319e（P0-2）：点「缺大单位换算」那一行 —— 把死路变成有出路。
+   改前：点它零反馈（选中标记不变、提示 0 条、页面内容长度变化 0），
+   而这一行右侧明明写着「缺大单位换算，无法按箱设目标」—— 文字看得见，点它却什么都不发生。
+   生产实测：362 个在售商品里 36 个属于这类（9.9%），首屏 50 行里 9 行（18%）。 */
+function onDisabledPick(p) {
+  const nm = String(p.name || '该商品')
+  const short = nm.length > 14 ? nm.slice(0, 14) + '…' : nm
+  const su = p.unit || '小单位'
+  toast(`「${short}」还没配大单位换算，不能按箱设目标。已打开「补换算」，`
+        + `照包装填「1 箱 = 几个${su}」，填好就能选它。`)
+  // 只在未展开时切换：重复点同一行时保持展开（每次都要有反馈），不要变成开关来回跳。
+  if (fixFor.value !== p.id) toggleFix(p)
+}
+
+/* v319e（P0-1）：点「重新选择」回到搜索列表。
+   必须同时清掉 `form.product_id` 与 `target_unit` —— 只清快照的话，
+   `product_id` 还留着、界面上却看不到任何选中项，那正是原来那类「说不清的中间态」。 */
+function clearPick() {
+  pickedProd.value = null
+  form.product_id = 0
+  form.target_unit = ''
 }
 
 /* ══ v277（S3）：缺换算商品「就地补换算」 ═══════════════════════════════════════
@@ -786,6 +953,14 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-fld-m{width:150px}
 .pt-fld-p{width:210px}
 .pt-sp{flex:1 1 auto}
+/* ── v324：目标月份锚点提示 ──
+   正常态用次级文字色（它是**说明**，不是告警）；不一致时才升到站内琥珀告警色。
+   两种态用同一套语义色，不新造视觉语言（成例：`.pt-audit` / `.pt-err`）。 */
+.pt-anchor{font-size:12px;color:var(--t2);line-height:1.5}
+.pt-anchor-warn{color:var(--warn-amber)}
+/* v324：新建弹窗里的「目标建到哪个月」提示。次级文字色 + 收紧上间距 ——
+   它是输入框的**旁注**（贴着月份框），不该被读成区段标题。 */
+.pt-md-tip{margin-top:4px;font-size:11.5px;color:var(--t2);line-height:1.55}
 
 /* ── 列表 ── */
 .pt-card{padding:0;overflow:hidden}
@@ -841,17 +1016,31 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-lb{font-size:13px;color:var(--t2);padding-top:9px}
 .pt-pick{display:flex;flex-direction:column;gap:8px}
 .pt-pick-in{width:100%}
-.pt-pick-list{max-height:150px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-sm)}
+/* v319e（P1-2）：150px 只露 4~5 行，搜「蒙牛」有 50 行要滚很久，
+   而**选中项常常在可视区之外** ⇒ 用户以为"点不到"。放到 260px（约 8~9 行）。 */
+.pt-pick-list{max-height:260px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-sm)}
 .pt-pick-item{display:flex;align-items:center;gap:10px;width:100%;padding:7px 10px;border:none;
   background:none;cursor:pointer;text-align:left;font-size:13px;color:var(--t1);
   border-bottom:1px solid var(--bd)}
 .pt-pick-item:last-child{border-bottom:none}
-.pt-pick-item:hover:not(.dis){background:var(--bg2)}
-.pt-pick-item.on{background:var(--p-bg);font-weight:600}
+/* 🔴 v319e（P1-1）优先级倒置修正：原写法 `:hover:not(.dis)` 权重 (0,3,0)，
+   **高于** `.pt-pick-item.on` 的 (0,2,0) ⇒ 鼠标停在选中行上时选中色被 hover 色盖掉。
+   两色实测差异都只有 3.6% 左右，用户根本分不出哪个是"选中的那个"。
+   收窄为 `:not(.on)` ⇒ hover 让位于选中态（语义：已选中的行不因鼠标经过而变色）。 */
+.pt-pick-item:hover:not(.on):not(.dis){background:var(--bg2)}
+/* 🔴 v319e（P0-1）选中态必须"一眼可辨"：原来只有 `--p-bg`（6% 透明度底色），
+   合成到白底实测 = rgb(240,251,252)，与白底只差 3.6% ⇒ 肉眼不可辨。
+   现在补**第二条视觉通道** —— 左侧 3px 主色实心条（用 inset 阴影画：不占布局、行宽不跳）。
+   底色保留（弱提示），主色条 + 加粗承担"可辨"这件事。 */
+.pt-pick-item.on{background:var(--p-bg);font-weight:600;
+  box-shadow:inset 3px 0 0 0 var(--p)}
 /* v277：整行不再一起降透明度 —— `dis` 行里现在有「补换算」按钮，
    行级 opacity 会把按钮一起压暗（还能点，但看起来像禁用 = 用户不会去点）。
    改为只压暗三个文字 span，按钮保持全亮。 */
-.pt-pick-item.dis{cursor:not-allowed}
+/* v319e（P0-2）：灰行现在**整行可点**（点了给原因并就地补换算）⇒ 光标必须是 pointer。
+   原来写 `not-allowed`，用户连试都不会试 —— 那和修之前一样是死路。 */
+.pt-pick-item.dis{cursor:pointer}
+.pt-pick-item.dis:hover:not(.on){background:var(--bg2)}
 .pt-pick-item.dis .pt-pick-nm,
 .pt-pick-item.dis .pt-pick-meta,
 .pt-pick-item.dis .pt-pick-warn{opacity:.62}
@@ -877,6 +1066,21 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-fix-src{margin-top:7px;font-size:11.5px;color:var(--t2);line-height:1.5}
 .pt-fix-msg{margin-top:6px;font-size:12px;color:var(--danger-txt)}
 .pt-pick-empty{padding:10px}
+/* ── v319e（P0-1）已选商品卡片 ──
+   点选后列表收起，原地换成这一张 ⇒ 用户一眼能确认「选的是哪件、一箱等于多少」。
+   🔴 不用半透明底色当主信号（6% 那层正是原缺陷）；改用**实心主色圆勾** + 主色描边，
+   差异是"有色/无色"级别，不依赖透明度，深色模式下同样成立。 */
+.pt-picked{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:var(--p-bg);border:1px solid var(--p);border-radius:var(--radius-sm)}
+.pt-picked-tick{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--p);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.pt-picked-txt{flex:1 1 auto;min-width:0}
+.pt-picked-nm{font-size:13.5px;font-weight:600;color:var(--t1);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.pt-picked-cv{font-size:11.5px;color:var(--t2);margin-top:2px}
+.pt-picked-change{flex:0 0 auto;height:26px;padding:0 10px;border:1px solid var(--bd);
+  background:var(--bg);color:var(--t1);border-radius:var(--radius-sm);font-size:12px;cursor:pointer}
+.pt-picked-change:hover{background:var(--bg2)}
 .pt-fixed{padding:8px 10px;background:var(--bg3);border-radius:var(--radius-sm);font-size:13px}
 .pt-qty{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pt-qty-in{width:130px}

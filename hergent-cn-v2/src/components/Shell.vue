@@ -9,7 +9,12 @@
       </div>
       <div class="tb-ai">
         <WeatherWidget />
-        <button class="tb-copilot" @click="openCopilot">
+        <!-- v325（2026-09-29）：AI 入口按权限收窄 —— 无 `chat` 模块就不渲染。
+             判据走 `store.canUseAi()`（唯一定义处，见 `store/index.js`），
+             **不要**在这里直写 `canModule('chat')`：本仓有 5 个 AI 入口，抄五份必漂移。
+             🔴 三态由 `canModule` 保证：`perms === null`（未加载/抖动）⇒ **显示**，
+                绝不能写成"拉不到就藏"（那会把老板的按钮也藏掉）。 -->
+        <button v-if="store.canUseAi()" class="tb-copilot" @click="openCopilot">
           <span class="tb-cp-ic">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
           </span>
@@ -38,8 +43,6 @@
     <div class="body">
       <!-- 侧栏（桌面） -->
       <aside class="sidebar" :class="{collapsed:!store.ui.sidebarOpen}">
-        <nav class="sb-nav">
-          <router-link v-if="canSee('/workbench')" to="/workbench" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>经营工作台</span></router-link>
           <!-- v291（2026-09-27）：**侧栏每一条都走同一个判据 `canSee(path)`** —— 唯一实现在
                `constants/pages.js` 的页面注册表。需求原话（老板）：
                「不同角色登录进去后只能看到自己有权限的页面」。
@@ -48,7 +51,7 @@
                权限页勾选也放不开 —— 价格体系/定时任务这类不该因一次误勾就对全员敞开）。
                🔴 为什么必须有 `roles` 这一轴：`data` 模块覆盖 **83 个接口**（报单要走它），
                   而员工/司机/导购都持有 `data`/`stock` ⇒ 只按模块判，员工登录后能看到
-                  「定时任务」「渠道与价格」「能力中心」等六七个管理页。这是**模块粒度**问题
+                  「定时任务」「渠道与价格」「AI 引擎」等六七个管理页。这是**模块粒度**问题
                   （`/api/cron` 恰好也归 `data`），不是配置没配对。
                ⚠️ 未知角色一律放行（fail-open，「拉不到 ≠ 没权限」）：启动瞬间 `store.user.role`
                   还是空串，此刻判 false 会让老板的菜单先消失再冒出来（一闪）。
@@ -59,27 +62,35 @@
                   而 `/api/forecast` 归 `data`、业务员持有 ⇒ 模块级门禁拦不住他。
                   那正是**假入口**（入口在、点进去必失败）的典型。v291 起不再单独写判据，
                   统一读 `pages.js` 的 `/forecast` 行（名单仍是 `FORECAST_SUMMARY_ROLES`）。 -->
-          <router-link v-if="canSee('/forecast')" to="/forecast" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg><span>预报订货管理</span></router-link>
-          <router-link v-if="canSee('/rebate')" to="/rebate" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span>目标与返利</span></router-link>
-          <router-link v-if="canSee('/loss-accounting')" to="/loss-accounting" class="sb-item" title="月度货损率核算（期间流水口径）"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h16v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M8 8h8"/><path d="M8 12h5"/></svg><span>货损核算</span></router-link>
-          <router-link v-if="canSee('/payroll')" to="/payroll" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg><span>算工资</span></router-link>
 
           <!-- v274（2026-09-25）：**舟谱单据导入的侧栏入口已撤掉**，迁进
-               「能力中心 › 连接器 › ERP 数据源」（http://…/connect 那张卡）。
-               撤掉的理由：它是一个**一个月用一次**的动作，占一行侧栏不划算；而能力中心
-               那一区本来就是「接入你的业务系统」的数据源清单（旁边是畅捷通 / 金蝶），
+               「AI 引擎 › 连接器 › ERP 数据源」（http://…/connect 那张卡）。
+               （v311 起「能力中心」已更名「AI 引擎」；页面位置与路由 `/connect` 都没动。）
+               撤掉的理由：它是一个**一个月用一次**的动作，占一行侧栏不划算；而那一区
+               本来就是「接入你的业务系统」的数据源清单（旁边是畅捷通 / 金蝶），
                舟谱导出的两张表就是一个数据来源 ⇒ 归到那里语义更正。
                ⚠️ 不是「下架」：路由 `/zhoupu-import` **保留**（卡片深链、刷新、收藏都还能用），
-                  页面与后端 `_guard()`（admin/boss）一律未动。要再挂回侧栏就在这里加一行。
-               回归判据：本文件里搜「舟谱单据导入」应当**只命中这段注释**（没有任何路由指向它）。 -->
-          <router-link v-if="canSee('/archive')" to="/archive" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span>档案管理</span></router-link>
-          <router-link v-if="canSee('/price-channels')" to="/price-channels" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1"/></svg><span>渠道与价格</span></router-link>
-          <router-link v-if="canSee('/connect')" to="/connect" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg><span>能力中心</span></router-link>
-          <router-link v-if="canSee('/bid-radar')" to="/bid-radar" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg><span>招投标雷达</span></router-link>
+                  页面与后端 `_guard()`（admin/boss）一律未动。要再挂回侧栏就在 `NAV` 里加一行。
+               🔴 回归判据（v311 更新）：本文件里搜「舟谱单据导入」应当**只命中这段注释**
+                  （`NAV` 里没有任何指向 `/zhoupu-import` 的条目）。 -->
 
-          <router-link v-if="canSee('/cron')" to="/cron" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>定时任务</span></router-link>
-          <router-link v-if="canSee('/ai-hub')" to="/ai-hub" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></svg><span>AI 中心</span></router-link>
-          <router-link v-if="canSee('/settings')" to="/settings" class="sb-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>设置</span></router-link>
+        <!-- v311（2026-09-28）：侧栏改为**表驱动**（见 `<script setup>` 里的 `NAV`）。
+             v311 两处结构变更：①「渠道与价格」并入「档案管理」当第 6 个页签；
+             ②「AI 中心」并入「能力中心」（已更名「AI 引擎」）当第 5 个页签；
+             并新增三个分组标题（经营 / 核算 / 配置）—— 侧栏从 12 项平铺变 3 组 10 项。
+             🔴 为什么必须表驱动：分组标题只有在「本组至少有一项可见」时才该出现。
+                若标题另写一份路径清单去判（`paths.some(canSee)`），就与各条目的 `v-if`
+                形成**两份判据**，一旦漂移就会出现「有标题、下面空着」或「有条目、没有标题」
+                —— 正是本项目反复在修的"规则抄多份"。表驱动后标题由条目算出来，不可能不一致。
+             ⚠️ 图标一律用 `<Icon>`（全站统一线性图标库），别再手写内联 `<svg>`。
+                写错名字**不会报错** —— `Icon.vue` 的兜底是 `ICONS.settings`，会静默显示成齿轮。
+                新增条目前先确认名字在库：`grep -o -E "^  [a-z0-9-]+:" components/Icon.vue`。
+             ⚠️ 条目顺序 = 数组顺序；判据在 `NAV` 之外的 `canSee` 已无第二份，别在模板里补。 -->
+        <nav class="sb-nav">
+          <template v-for="g in navGroups" :key="g.label">
+            <div class="sb-grp">{{ g.label }}</div>
+            <router-link v-for="it in g.items" :key="it.path" :to="it.path" class="sb-item"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span></router-link>
+          </template>
         </nav>
       </aside>
 
@@ -96,13 +107,13 @@
       </main>
     </div>
 
-    <!-- 移动端底部 Tab -->
+    <!-- 移动端底部 Tab
+         v311b（2026-09-28）：由**手写 3 条**改为读 `mnavItems`（源自 `NAV`）——
+         名字/图标/路径只有一份 ⇒ 不可能再出现"同一页两个名字"。
+         ⚠️ 图标一律 `<Icon>`（全站规范）；`more-horizontal` 是抽屉开关，无对应路由，故不进 NAV。 -->
     <nav class="mnav">
-      <router-link v-if="canSee('/workbench')" to="/workbench" class="mnav-item" @click="store.ui.mobileDrawer=false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>工作台</span></router-link>
-      <!-- v267：移动端底部导航同样是「入口」⇒ 与桌面侧栏用同一判据（理由见上方 .sb-item 处注释） -->
-      <router-link v-if="canSee('/forecast')" to="/forecast" class="mnav-item" @click="store.ui.mobileDrawer=false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg><span>预报</span></router-link>
-      <router-link v-if="canSee('/rebate')" to="/rebate" class="mnav-item" @click="store.ui.mobileDrawer=false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span>目标与返利</span></router-link>
-      <button class="mnav-item" @click="store.ui.mobileDrawer=!store.ui.mobileDrawer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span>更多</span></button>
+      <router-link v-for="it in mnavItems" :key="it.path" :to="it.path" class="mnav-item" @click="store.ui.mobileDrawer=false"><Icon :name="it.icon" :size="20" /><span>{{ it.name }}</span></router-link>
+      <button class="mnav-item" @click="store.ui.mobileDrawer=!store.ui.mobileDrawer"><Icon name="more-horizontal" :size="20" /><span>更多</span></button>
     </nav>
 
     <!-- 移动端更多抽屉 -->
@@ -113,15 +124,13 @@
       <Transition name="sheet">
         <div v-if="store.ui.mobileDrawer" class="md-sheet">
           <div class="md-grab"></div>
-          <router-link v-if="canSee('/connect')" to="/connect" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>能力中心</router-link>
-          <router-link v-if="canSee('/cron')" to="/cron" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>定时任务</router-link>
-          <router-link v-if="canSee('/ai-hub')" to="/ai-hub" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></svg>AI 中心</router-link>
-          <router-link v-if="canSee('/settings')" to="/settings" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>设置</router-link>
-          <router-link v-if="canSee('/loss-accounting')" to="/loss-accounting" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h16v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M8 8h8"/><path d="M8 12h5"/></svg>货损核算</router-link>
-          <router-link v-if="canSee('/payroll')" to="/payroll" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>算工资</router-link>
-          <router-link v-if="canSee('/archive')" to="/archive" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>档案管理</router-link>
-          <router-link v-if="canSee('/price-channels')" to="/price-channels" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1"/></svg>渠道与价格</router-link>
-          <router-link v-if="canSee('/bid-radar')" to="/bid-radar" class="md-item" @click="store.ui.mobileDrawer=false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>招投标雷达</router-link>
+          <!-- v311（2026-09-28）：手机抽屉与桌面侧栏**共用同一份 `NAV`**（去掉底部栏已有的三项），
+               分组与显隐一起算。⚠️ 桌面清干净了、手机还留着旧入口，是这类改造最常见的漏 ——
+               所以两边都从这里取，别再手写第二份。 -->
+          <template v-for="g in drawerGroups" :key="g.label">
+            <div class="md-group-hd">{{ g.label }}</div>
+            <router-link v-for="it in g.items" :key="it.path" :to="it.path" class="md-item" @click="store.ui.mobileDrawer=false"><Icon :name="it.icon" :size="18" />{{ it.name }}</router-link>
+          </template>
         </div>
       </Transition>
     </Teleport>
@@ -164,7 +173,7 @@
 </template>
 
 <script setup>
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { store, toast, setTheme, clearChatCache } from '../store'
 import { auth, api, resetTenantContext } from '../api/client'
@@ -178,6 +187,90 @@ import { messagesApi } from '../api/modules'
 /* v267：侧栏「预报订货管理」按角色可见性 —— 判据是后端同一份白名单的前端镜像
    （`roles.js::FORECAST_SUMMARY_ROLES`，护栏 AST 校验）。见下方 v-if 处注释。 */
 import { canSee } from '../constants/pages'
+
+/* ---------------------------------------------------------------------------
+   v311（2026-09-28）：侧栏导航表 —— 桌面侧栏与手机抽屉的**唯一来源**
+   ---------------------------------------------------------------------------
+   需求（老板）：「对侧栏做一次整理，更简洁、易用、美观」，两处结构变更：
+     · 「渠道与价格」→ 并入「档案管理」当第 6 个页签（侧栏不再单列）
+     · 「AI 中心」  → 并入「AI 引擎」（原「能力中心」更名）当第 5 个页签（侧栏不再单列）
+   结果：侧栏 12 项平铺 → **3 组 10 项**（分组标题：经营 / 核算 / 配置）。
+
+   🔴 为什么把导航写成表、而不是继续手写 `<router-link>`（这是本次最关键的一个决定）：
+      加了分组标题之后，标题只有在「本组至少有一项可见」时才该出现。若标题的显示条件
+      另写一份清单（`paths.some(canSee)`），就与各条目的 `v-if` 组成**两份判据** ——
+      漂移那天会出现「有标题、下面空着」（导购/司机就会命中：核算与配置两组对他全空）
+      或「有条目、没有标题」。这正是本项目反复在修的"规则抄多份"。
+      表驱动之后，标题**由条目算出来**，结构上不可能不一致。
+
+   ⚠️ 判据全部落在 `canSee(path)`（→ `constants/pages.js` 一张表）。
+      **不要**在这里写角色硬编码，也**不要**在模板里再补 `v-if`：
+      v291 立下的规矩是「要改'谁看得见哪一页'，只改 (pages.js)」。
+   ⚠️ 图标名必须真实存在于 `Icon.vue`（自带 50+ 个）。写错**不报错** ——
+      `Icon.vue:144` 的兜底是 `ICONS.settings`，会静默显示成齿轮，肉眼很难发现配错了。
+   --------------------------------------------------------------------------- */
+const NAV = [
+  {
+    label: '经营',
+    items: [
+      { path: '/workbench', name: '经营工作台', icon: 'grid' },
+      { path: '/forecast', name: '预报订货管理', icon: 'line-chart' },
+      { path: '/rebate', name: '目标与返利', icon: 'target' },
+      { path: '/bid-radar', name: '招投标雷达', icon: 'search' }
+    ]
+  },
+  {
+    label: '核算',
+    items: [
+      { path: '/loss-accounting', name: '货损核算', icon: 'receipt' },
+      { path: '/payroll', name: '算工资', icon: 'coins' }
+    ]
+  },
+  {
+    label: '配置',
+    items: [
+      { path: '/archive', name: '档案管理', icon: 'book' },
+      // ⚠️ 名字是「AI 引擎」不是「能力中心」—— v311 更名，理由见 `pages.js` 该行注释。
+      //   路由仍是 `/connect`（**不改路径**：它是已上线深链，改名只动显示名）。
+      { path: '/connect', name: 'AI 引擎', icon: 'brain' },
+      { path: '/cron', name: '定时任务', icon: 'clock' },
+      { path: '/settings', name: '设置', icon: 'settings' }
+    ]
+  }
+]
+
+/** 手机底部栏已有的三项 —— 抽屉里不再重复出现（保持 v311 之前的行为）。 */
+const MNAV_PATHS = ['/workbench', '/forecast', '/rebate']
+
+/**
+ * 🔴 **底部栏也要同一份名字**（v311b，2026-09-28）。
+ *
+ * 改之前这里手写了 3 条 `<router-link>`：名字/图标/路径**各抄一份**，结果与侧栏
+ * **当场就不一致** —— 同一个目的地，侧栏叫「经营工作台」「预报订货管理」，
+ * 底部栏叫「工作台」「预报」。用户会以为是两个不同的地方（而它们的 `to` 一模一样）。
+ * 这正是本项目反复栽的「同一条规则抄两份」：**两份之间没有任何断言，只能靠肉眼**。
+ *
+ * ⇒ 现在从 `NAV` 里**按路径取**（名字、图标、路径都只有一份）。
+ * `MNAV_PATHS` 保留为「哪几项属于底部栏」这个**设计意图**的声明（与权限无关），
+ * 抽屉的排除项也读它 —— 不再有第三份。
+ */
+const mnavItems = computed(() => {
+  const all = NAV.flatMap(g => g.items)
+  return MNAV_PATHS
+    .map(p => all.find(it => it.path === p))
+    .filter(it => it && canSee(it.path))
+})
+
+/** 桌面侧栏：按 `canSee` 收窄，**并丢掉空组**（否则导购/司机会看到两个空标题）。 */
+const navGroups = computed(() => NAV
+  .map(g => ({ label: g.label, items: g.items.filter(it => canSee(it.path)) }))
+  .filter(g => g.items.length))
+
+/** 手机抽屉：同一份表，再减掉底部栏那三项。 */
+const drawerGroups = computed(() => NAV
+  .map(g => ({ label: g.label, items: g.items.filter(it => canSee(it.path) && !MNAV_PATHS.includes(it.path)) }))
+  .filter(g => g.items.length))
+
 // 通知偏好（本地）：徽标要扣掉「被你收起的类」，且必须与面板共用同一份规则、同一个算法
 // —— 两边各算一遍 = 同屏两个数字对不上。
 import { badgeFromGroups } from '../composables/useNotiPrefs'
@@ -339,6 +432,11 @@ function onKeydown(e) {
     const t = e.target
     const tag = t && t.tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (t && t.isContentEditable)) return
+    /* v325（2026-09-29）：无 AI 权限 ⇒ **不拦这个键**。
+       🔴 顺序很重要：`preventDefault()` 必须在判据**之后**。
+          若先 preventDefault 再判权限，没有 AI 的角色按 ⌘K 会被"吃掉"——
+          浏览器什么都没发生、命令面板（Shift+K 那条）也进不去，用户只会以为系统卡了。 */
+    if (!e.shiftKey && !store.canUseAi()) return
     e.preventDefault()
     if (e.shiftKey) cmdOpen.value = true
     else store.ui.copilotOpen = !store.ui.copilotOpen
@@ -437,6 +535,14 @@ function stopResize() {
 .sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;color:var(--t2);text-decoration:none;font-size:13px;transition:all .15s}
 .sb-item:hover{background:var(--bg);color:var(--t1)}
 .sb-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
+/* v311：侧栏分组标题（经营 / 核算 / 配置）。
+   样式刻意**轻**：11px、字色 --t3（最浅一档）、不写 font-weight 600 ——
+   分组标题是"路标"不是"条目"，比条目抢眼就会把侧栏切成三块硬邦邦的隔断，
+   反而更不清爽。上间距 14px 相当于一条看不见的分隔线，不另画 border。
+   ⚠️ `:first-child` 去掉第一组的上边距：否则「经营」之上会多出一段空白，
+      看起来像侧栏顶部被压塌了（移动端 `.md-group-hd` 同理，见下）。 */
+.sb-grp{font-size:11px;color:var(--t3);letter-spacing:.8px;padding:14px 10px 4px}
+.sb-grp:first-child{padding-top:2px}
 
 .md-group-hd{font-size:11px;font-weight:500;color:var(--t3);padding:14px 20px 4px;letter-spacing:.8px}
 
@@ -497,6 +603,9 @@ function stopResize() {
   .mnav{display:flex;position:fixed;bottom:0;left:0;right:0;height:calc(56px + env(safe-area-inset-bottom));background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-top:1px solid var(--glass-border);z-index:800;padding-bottom:env(safe-area-inset-bottom)}
   .mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;color:var(--t3);font-size:11px}
   .mnav-item.router-link-active{color:var(--p-dark)}
+  /* v311b：底部栏名字改回与侧栏**同源**（「工作台」→「经营工作台」等）后变长，
+     窄屏（320px / 4 格 ≈ 80px）下不许换行把图标顶歪；也防「预报订货管理」挤出格。 */
+  .mnav-item span{white-space:nowrap}
   .content{padding:14px 12px calc(72px + env(safe-area-inset-bottom))}
 }
 </style>

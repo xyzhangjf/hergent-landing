@@ -3,11 +3,14 @@
     <div class="page-hd split">
       <div>
         <h2>渠道与价格</h2>
-        <span class="page-sub">一个渠道 = 一个下游系统（它自己的一套商品编码 + 一套价格）。你有几个系统就建几条，加渠道不用改代码。</span>
+        <span class="page-sub">一个渠道 = 一个下游系统（它自己的一套商品编码 + 一套价格）。你有几个系统就建几条。</span>
       </div>
       <div class="pc-act">
         <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load"><Icon name="refresh"/> 刷新</button>
-        <button class="btn btn-primary btn-sm" @click="openNew"><Icon name="plus"/> 新建渠道</button>
+        <!-- v335 按钮级门禁：POST /api/price-channels ⇒ 模块 data / 动作 create
+             （🔴 本页 `pages.js` 的 `module` 是 `null`，但接口归 `data`
+                —— 门禁必须用**接口**模块，用页面模块就等于没判据） -->
+        <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" @click="openNew"><Icon name="plus"/> 新建渠道</button>
       </div>
     </div>
 
@@ -46,15 +49,20 @@
           <button
             v-if="c.price_source === 'matrix' || c.code_source === 'matrix'"
             class="btn btn-ghost btn-sm" @click="openMatrix(c)">管价格</button>
-          <button class="btn btn-ghost btn-sm" @click="openEdit(c)">编辑</button>
+          <!-- v335 按钮级门禁（接口模块都是 data）：
+               编辑 / 停用·启用 → PUT /api/price-channels/{cid} ⇒ update
+               设为默认        → PUT /api/price-channels/{cid}/default ⇒ update
+               删除            → DELETE /api/price-channels/{cid} ⇒ delete
+               注：「管价格」只是打开弹窗（GET），不门禁；矩阵弹窗内的「保存」另判 create。 -->
+          <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" @click="openEdit(c)">编辑</button>
           <button
-            v-if="!c.is_default && c.is_active"
+            v-if="!c.is_default && c.is_active && canDo('data', 'update')"
             class="btn btn-ghost btn-sm" @click="makeDefault(c)">设为默认</button>
           <button
-            v-if="!c.is_default"
+            v-if="!c.is_default && canDo('data', 'update')"
             class="btn btn-ghost btn-sm" @click="toggleActive(c)">{{ c.is_active ? '停用' : '启用' }}</button>
           <button
-            v-if="!c.is_default"
+            v-if="!c.is_default && canDo('data', 'delete')"
             class="btn btn-ghost btn-sm pc-danger" @click="removeOne(c)">删除</button>
         </div>
       </div>
@@ -69,7 +77,8 @@
         <span class="page-sub">某个客户（门店）的专供货价。一行 = 一个「客户 × 商品」，小 / 中 / 大单位三档价可分别填。</span>
         <div class="pc-act">
           <button class="btn btn-ghost btn-sm" :disabled="cpLoading" @click="loadCustPrices(cpOffset)"><Icon name="refresh"/> 刷新</button>
-          <button class="btn btn-primary btn-sm" :disabled="!cpDirtyCount || cpBusy" @click="saveCustPrices">
+          <!-- v335 按钮级门禁：POST /api/customer-prices ⇒ data/**create**（动作由 HTTP 方法推导） -->
+          <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" :disabled="!cpDirtyCount || cpBusy" @click="saveCustPrices">
             {{ cpBusy ? '保存中…' : ('保存改动' + (cpDirtyCount ? '（' + cpDirtyCount + ' 行）' : '')) }}
           </button>
         </div>
@@ -192,7 +201,6 @@
     <div class="card pc-try">
       <div class="pc-sec">
         <b>试算：这个客户的这个商品，会取到哪个价</b>
-        <span class="page-sub">这里调用的取价函数，就是将来生成订单文件时用的同一个 —— 不是前端另算一份。</span>
       </div>
       <div class="pc-try-row">
         <label class="pc-f">
@@ -338,7 +346,8 @@
         <div class="pc-modal-ft">
           <span class="pc-dirty">{{ dirtyCount }} 行待保存</span>
           <button class="btn btn-ghost btn-sm" @click="mxOpen = false">关闭</button>
-          <button class="btn btn-primary btn-sm" :disabled="!dirtyCount || mxBusy" @click="saveMatrix">
+          <!-- v335 按钮级门禁：POST /api/price-channels/{cid}/matrix ⇒ data/**create** -->
+          <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" :disabled="!dirtyCount || mxBusy" @click="saveMatrix">
             {{ mxBusy ? '保存中…' : '保存' }}
           </button>
         </div>
@@ -351,7 +360,7 @@
 import Icon from '../components/Icon.vue'
 import { ref, computed, onMounted } from 'vue'
 import { priceChannelApi, reportMappingApi, productsApi, custPriceApi } from '../api/modules'
-import { toast } from '../store'
+import { toast, canDo } from '../store'
 
 const loading = ref(false)
 const channels = ref([])

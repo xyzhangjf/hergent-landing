@@ -42,7 +42,9 @@
           <div class="se-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
           <p v-if="!rules.length">暂无返利规则，请先在「目标与返利」创建品牌 / 商品目标。
             <!-- v132：全页空态唯一入口，直达创建（原「去创建目标」只切 tab，还要再点一次） -->
-            <button class="btn btn-primary btn-sm" style="display:block;margin:10px auto 0" @click="openCreate('brand')">去创建品牌目标</button>
+            <!-- v335：按钮级门禁 —— 目标创建走 POST /api/rebate-rules ⇒ 动作 create -->
+            <button v-if="canDo('sales', 'create')" class="btn btn-primary btn-sm" style="display:block;margin:10px auto 0" @click="openCreate('brand')">去创建品牌目标</button>
+            <span v-else class="page-sub" style="display:block;margin-top:10px">当前角色无权创建返利目标，请联系管理员。</span>
           </p>
           <p v-else>所选月份（{{ dashMonth }}）没有处于生效期的返利目标。</p>
         </div>
@@ -250,14 +252,15 @@
           <h3>品牌目标</h3>
           <p>按品牌设置月度/季度返利与指标达成（如蒙牛纯牛奶系列），下单时副驾提示冲刺进度与缺口建议。</p>
         </div>
-        <button class="btn btn-primary btn-sm" @click="openCreate('brand')">+ 创建品牌目标</button>
+        <!-- v335 按钮级门禁：POST /api/rebate-rules ⇒ 模块 sales / 动作 create -->
+        <button v-if="canDo('sales', 'create')" class="btn btn-primary btn-sm" @click="openCreate('brand')">+ 创建品牌目标</button>
       </div>
       <div class="card entry-card">
         <div class="ec-body">
           <h3>商品目标</h3>
           <p>按核心单品（SKU）设置返利冲量目标，支持按销售数量（大单位）维度。</p>
         </div>
-        <button class="btn btn-primary btn-sm" @click="openCreate('product')">+ 创建商品目标</button>
+        <button v-if="canDo('sales', 'create')" class="btn btn-primary btn-sm" @click="openCreate('product')">+ 创建商品目标</button>
       </div>
     </div>
 
@@ -293,17 +296,22 @@
               <td><span class="tag" :class="statusOf(r).cls">{{ statusOf(r).text }}</span></td>
               <td>
                 <button class="btn-mini" @click="openDetail(r)">详情</button>
-                <button class="btn-mini" @click="openEdit(r)">编辑</button>
+                <!-- v335 按钮级门禁（本页写接口全归后端模块 **sales**）：
+                     编辑 / 停用·启用 → PUT /api/rebate-rules/{id} ⇒ update
+                     复制 → 落入 POST /api/rebate-rules ⇒ **create**
+                     删除 → DELETE /api/rebate-rules/{id} ⇒ delete
+                     （「详情 / 算式 / 版本」都只是 GET 或只读试算 ⇒ 不门禁） -->
+                <button v-if="canDo('sales', 'update')" class="btn-mini" @click="openEdit(r)">编辑</button>
                 <!-- #354：规则级「查看算式」（以 100% 达成为例生成算式链） -->
                 <button class="btn-mini" @click="openRuleCalc(r)">算式</button>
                 <!-- v114 (B2-1)：阶梯版本管理（按生效期锁定历史月份计提口径） -->
                 <button class="btn-mini" @click="openVersionManager(r)">版本</button>
                 <!-- v112 R11：复制（清空生效期，名称带副本后缀），多 SKU 同结构目标免重复录入 -->
-                <button class="btn-mini" @click="dup(r)">复制</button>
+                <button v-if="canDo('sales', 'create')" class="btn-mini" @click="dup(r)">复制</button>
                 <!-- v112 R5：停用/启用三态 —— 停用=软删可恢复；启用=重新生效 -->
-                <button v-if="r.is_active" class="btn-mini" @click="toggleActive(r)">停用</button>
-                <button v-else class="btn-mini" style="color:var(--p-dark);border-color:rgba(var(--p-rgb),.4)" @click="toggleActive(r)">启用</button>
-                <button class="btn-mini btn-danger" @click="del(r)">删除</button>
+                <button v-if="r.is_active && canDo('sales', 'update')" class="btn-mini" @click="toggleActive(r)">停用</button>
+                <button v-else-if="canDo('sales', 'update')" class="btn-mini" style="color:var(--p-dark);border-color:rgba(var(--p-rgb),.4)" @click="toggleActive(r)">启用</button>
+                <button v-if="canDo('sales', 'delete')" class="btn-mini btn-danger" @click="del(r)">删除</button>
               </td>
             </tr>
           </tbody>
@@ -334,7 +342,9 @@
             <!-- v171：修改日志（字段级留痕；数据源与写路径见下方弹窗注释） -->
             <button class="btn btn-ghost btn-sm" @click="openAchvLog"><Icon name="list"/> 修改日志</button>
             <button class="btn btn-ghost btn-sm" @click="downloadAchvTemplate">下载模板</button>
-            <button class="btn btn-primary btn-sm" @click="achvImpOpen = true">Excel 导入</button>
+            <!-- v335：按钮级门禁 —— 导入 = POST /api/rebate-achievements/import（预览用同一端点 + preview=1，
+                 不在 `_READ_ONLY_POST` 白名单里 ⇒ 预览也是 create）⇒ 整条导入链按 create 收起 -->
+            <button v-if="canDo('sales', 'create')" class="btn btn-primary btn-sm" @click="achvImpOpen = true">Excel 导入</button>
           </div>
         </div>
 
@@ -368,23 +378,25 @@
                   <span v-else :title="row.periodTitle">—</span>
                 </td>
                 <td class="num">{{ row.target_type ? fmtAchvTarget(row) : '—' }}</td>
+                <!-- v335：按钮级门禁 —— 达成三个格子在 `@change` 上自动落库（POST /api/rebate-achievements
+                     ⇒ create）。无 create 权限时置灰：数值仍可读（是事实），但改不动、也不会发出写请求。 -->
                 <td class="num">
                   <input class="input num-input" type="number" v-model.number="row.achAmount"
                          :placeholder="row.target_type === 'amount' ? '填金额' : '—'"
-                         :disabled="achvSaving[row.key]"
+                         :disabled="achvSaving[row.key] || !canDo('sales', 'create')"
                          @change="saveAchv(row)" />
                 </td>
                 <td class="num">
                   <input class="input num-input" type="number" v-model.number="row.achQty"
                          :placeholder="row.target_type === 'quantity' ? '填数量' : '—'"
-                         :disabled="achvSaving[row.key]"
+                         :disabled="achvSaving[row.key] || !canDo('sales', 'create')"
                          @change="saveAchv(row)" />
                 </td>
                 <!-- v160：实际返利（元）—— 始终可填（不像金额/数量受 target_type 限制），
                      它是人工/Excel/AI 回写的业务事实，与目标是什么口径无关 -->
                 <td class="num">
                   <input class="input num-input" type="number" v-model.number="row.achRebate" placeholder="填返利"
-                         :disabled="achvSaving[row.key]"
+                         :disabled="achvSaving[row.key] || !canDo('sales', 'create')"
                          @change="saveAchv(row)" />
                 </td>
                 <td class="num"><span :class="achvRateCls(row)">{{ achvRateText(row) }}</span></td>
@@ -398,7 +410,7 @@
                   <span v-if="achvSaving[row.key]" class="achv-saving">保存中…</span>
                   <span v-else-if="achvFail[row.key]" class="achv-fail" @click="retryAchv(row)">保存失败，点击重试</span>
                 </td>
-                <td><button v-if="row.achId" class="btn-mini btn-danger" :disabled="achvSaving[row.key]" @click="delAchv(row)">清除</button></td>
+                <td><button v-if="row.achId && canDo('sales', 'delete')" class="btn-mini btn-danger" :disabled="achvSaving[row.key]" @click="delAchv(row)">清除</button></td>
               </tr>
             </tbody>
           </table>
@@ -500,11 +512,13 @@
       <div class="card list-card">
         <div class="dash-hd">
           <b>返利结算</b>
-          <span class="page-sub">厂家 / 平台给你的年度返利合同，在此做计提 / 结算 / 申领与余额管理 · 数据来自年度合同（rebate_contracts）</span>
+          <span class="page-sub">厂家 / 平台给你的年度返利合同，在此做计提 / 结算 / 申领与余额管理</span>
           <!-- v112 R12：合同搜索（名称 / 年度） -->
           <input v-model="contractSearch" class="input" style="width:180px" placeholder="搜索合同名称 / 年度" />
-          <button class="btn btn-ghost btn-sm" :disabled="batchAccruing" @click="batchAccrue">{{ batchAccruing ? '计提中…' : '批量计提(本月)' }}</button>
-          <button class="btn btn-primary btn-sm" style="margin-left:auto" @click="openCreateContract">+ 录入年度合同</button>
+          <!-- v335：按钮级门禁 —— 批量计提 = POST /api/rebate-contracts/batch-accrue ⇒ create -->
+          <button v-if="canDo('sales', 'create')" class="btn btn-ghost btn-sm" :disabled="batchAccruing" @click="batchAccrue">{{ batchAccruing ? '计提中…' : '批量计提(本月)' }}</button>
+          <!-- v335：按钮级门禁 —— 录入年度合同 = POST /api/rebate-contracts ⇒ create -->
+          <button v-if="canDo('sales', 'create')" class="btn btn-primary btn-sm" style="margin-left:auto" @click="openCreateContract">+ 录入年度合同</button>
         </div>
 
         <div v-if="contractLoading" class="state-empty">加载中…</div>
@@ -521,16 +535,19 @@
               <span class="tag" :class="c.settled ? '' : 'ok'">{{ c.settled ? '已结算' : '进行中' }}</span>
               <span class="tag warn">{{ contractTypeText(c) }}</span>
               <span class="tag" :class="claimBadgeClass(c)">{{ claimStatusText(c) }}</span>
+              <!-- v335：按钮级门禁 —— 合同动作按「HTTP 方法」判动作，不按业务语感：
+                   阶梯设置=PUT …/tiers ⇒ update；计提本月/结算/申领/审核·驳回·冲销 = POST ⇒ create；
+                   编辑=PUT …/rebate-contracts/{cid} ⇒ update；删除=DELETE ⇒ delete -->
               <span class="cc-actions">
-                <button class="btn btn-ghost btn-xs" @click="openTierForm(c)">阶梯设置</button>
-                <button v-if="!c.settled" class="btn btn-ghost btn-xs" @click="openAccrueMonth(c)">计提本月</button>
-                <button v-if="!c.settled" class="btn btn-primary btn-xs" @click="settleContract(c)">结算</button>
-                <button v-if="!c.settled && claimStatus(c)==='none'" class="btn btn-ghost btn-xs" @click="claimSubmit(c)">申领</button>
-                <button v-if="!c.settled && claimStatus(c)==='submitted'" class="btn btn-primary btn-xs" @click="claimReview(c,'approve')">审核通过</button>
-                <button v-if="!c.settled && claimStatus(c)==='submitted'" class="btn btn-ghost btn-xs danger" @click="claimReview(c,'reject')">驳回</button>
-                <button v-if="claimStatus(c)==='approved'" class="btn btn-ghost btn-xs danger" @click="claimReview(c,'reverse')">冲销</button>
-                <button class="btn btn-ghost btn-xs" @click="openEditContract(c)">编辑</button>
-                <button class="btn btn-ghost btn-xs danger" @click="deleteContract(c)">删除</button>
+                <button v-if="canDo('sales', 'update')" class="btn btn-ghost btn-xs" @click="openTierForm(c)">阶梯设置</button>
+                <button v-if="!c.settled && canDo('sales', 'create')" class="btn btn-ghost btn-xs" @click="openAccrueMonth(c)">计提本月</button>
+                <button v-if="!c.settled && canDo('sales', 'create')" class="btn btn-primary btn-xs" @click="settleContract(c)">结算</button>
+                <button v-if="!c.settled && claimStatus(c)==='none' && canDo('sales', 'create')" class="btn btn-ghost btn-xs" @click="claimSubmit(c)">申领</button>
+                <button v-if="!c.settled && claimStatus(c)==='submitted' && canDo('sales', 'create')" class="btn btn-primary btn-xs" @click="claimReview(c,'approve')">审核通过</button>
+                <button v-if="!c.settled && claimStatus(c)==='submitted' && canDo('sales', 'create')" class="btn btn-ghost btn-xs danger" @click="claimReview(c,'reject')">驳回</button>
+                <button v-if="claimStatus(c)==='approved' && canDo('sales', 'create')" class="btn btn-ghost btn-xs danger" @click="claimReview(c,'reverse')">冲销</button>
+                <button v-if="canDo('sales', 'update')" class="btn btn-ghost btn-xs" @click="openEditContract(c)">编辑</button>
+                <button v-if="canDo('sales', 'delete')" class="btn btn-ghost btn-xs danger" @click="deleteContract(c)">删除</button>
               </span>
             </div>
             <div class="cc-grid">
@@ -571,11 +588,13 @@
                 <template v-else-if="moData[c.id]">
                   <!-- #357 目标分解：分解方式 + 校验条 -->
                   <div class="cc-mo-toolbar">
-                    <div class="cc-months-save">
+                    <!-- v335：按钮级门禁 —— 月度目标保存 = PUT …/months ⇒ update（只读角色改不了，
+                         故「保存」与「分解方式」这两组**编辑工具**一并收起；右侧校验条是事实，保留可见） -->
+                    <div v-if="canDo('sales', 'update')" class="cc-months-save">
                       <span class="cc-ms-tip">月度目标之和 = 合同年度目标（保存后自动回写）</span>
                       <button class="btn btn-primary btn-xs" :disabled="moSaving[c.id]" @click="saveMonths(c)">{{ moSaving[c.id] ? '保存中…' : '保存月度目标' }}</button>
                     </div>
-                    <div class="cc-mo-split">
+                    <div v-if="canDo('sales', 'update')" class="cc-mo-split">
                       <label class="cc-mo-split-l">分解方式</label>
                       <select v-model="moSplitMode[c.id]" class="input input-sm cc-mo-select" @change="applySplit(c)">
                         <option value="manual">手动（自定义）</option>
@@ -607,7 +626,9 @@
                               ¥{{ fmt(m.target_amount) }}
                               <svg class="mo-lock" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" title="已计提，已锁定不可改"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
                             </span>
-                            <input v-else v-model.number="moEdits[c.id][m.month]" class="input cc-m-input" type="number" min="0" step="1000" placeholder="0" />
+                            <!-- v335：按钮级门禁 —— 无 update 权限时保留「月度目标」这个事实可见，但不可改
+                                 （用 readonly 而非 v-if：整列消失会让用户以为「这个月没设目标」） -->
+                            <input v-else v-model.number="moEdits[c.id][m.month]" class="input cc-m-input" type="number" min="0" step="1000" placeholder="0" :readonly="!canDo('sales', 'update')" />
                           </td>
                           <td>¥{{ fmt(m.achieved) }}</td>
                           <td :class="m.achievement_pct != null ? (m.achievement_pct >= 1 ? 'dt-ok' : '') : ''">{{ m.achievement_pct != null ? (m.achievement_pct * 100).toFixed(1) + '%' : '—' }}</td>
@@ -621,7 +642,9 @@
                             <span v-else class="tag">—</span>
                           </td>
                           <td>
-                            <button class="btn btn-ghost btn-xs" :disabled="m.settled || accrueLoading[c.id+'-'+m.month]" @click="accrueMonth(c, m)">
+                            <!-- v335：按钮级门禁 —— 单月计提 = POST …/accrue ⇒ create
+                                 （「已结算」这一事实在左侧「状态」列已有 tag，隐藏本按钮不丢信息） -->
+                            <button v-if="canDo('sales', 'create')" class="btn btn-ghost btn-xs" :disabled="m.settled || accrueLoading[c.id+'-'+m.month]" @click="accrueMonth(c, m)">
                               <!-- v112 R33：区分首次计提 / 重提（覆盖旧值） -->
                               {{ m.settled ? '已结算' : (accrueLoading[c.id+'-'+m.month] ? '计提中…' : (Number(m.accrued_rebate) > 0 ? '重提' : '计提')) }}
                             </button>
@@ -921,7 +944,8 @@
             <button class="btn btn-ghost" @click="showDetail=false">关闭</button>
             <button class="btn btn-ghost" @click="openRuleCalc(detailRule)">查看算式</button>
             <button class="btn btn-ghost" @click="showSimulate=true; showDetail=false">返利试算</button>
-            <button class="btn btn-primary" @click="openEdit(detailRule); showDetail=false">编辑</button>
+            <!-- v335：按钮级门禁 —— 详情弹窗内「编辑」= PUT /api/rebate-rules/{id} ⇒ update -->
+            <button v-if="canDo('sales', 'update')" class="btn btn-primary" @click="openEdit(detailRule); showDetail=false">编辑</button>
           </div>
         </div>
       </Transition>
@@ -1068,7 +1092,7 @@
                 <div class="cf-r-row"><span>返利比例</span><b>{{ rebatePctText(contractForm.rebate_pct) }}</b></div>
                 <div class="cf-r-row"><span>全年目标</span><b>¥{{ fmt(contractYearSum) }}</b></div>
               </div>
-              <p class="cf-tip">确认无误后点击「保存」。保存后可在年度合同列表展开「月度构成」继续用 #357 的分解方式微调。</p>
+              <p class="cf-tip">保存后可在年度合同列表展开「月度构成」继续微调。</p>
             </div>
           </div>
           <div class="modal-ft">
@@ -1076,7 +1100,10 @@
             <span style="flex:1"></span>
             <button v-if="contractStep>1" class="btn btn-ghost" @click="contractStep--">上一步</button>
             <button v-if="contractStep<4" class="btn btn-primary" @click="nextContractStep">下一步</button>
-            <button v-else class="btn btn-primary" @click="saveContract">保存</button>
+            <!-- v335：按钮级门禁 —— 新建合同走 POST /api/rebate-contracts ⇒ create；编辑走 PUT ⇒ update。
+                 按 `editingContractId` 二选一判动作（同一按钮两种方法，不能只取其一）。
+                 保留按钮、置灰而非 v-if：这是表单最后一步，凭空消失会让用户以为「填完了却没了下一步」。 -->
+            <button v-else class="btn btn-primary" :disabled="!canDo('sales', editingContractId ? 'update' : 'create')" @click="saveContract">保存</button>
           </div>
         </div>
       </Transition>
@@ -1110,7 +1137,8 @@
           </div>
           <div class="modal-ft">
             <button class="btn btn-ghost" @click="tierFormOpen=false">取消</button>
-            <button class="btn btn-primary" :disabled="tierSaving" @click="saveTiers">{{ tierSaving ? '保存中…' : '保存阶梯' }}</button>
+            <!-- v335：按钮级门禁 —— 保存阶梯 = PUT …/tiers ⇒ update（入口按钮已按 update 收起，此处防守备） -->
+            <button class="btn btn-primary" :disabled="tierSaving || !canDo('sales', 'update')" @click="saveTiers">{{ tierSaving ? '保存中…' : '保存阶梯' }}</button>
           </div>
         </div>
       </Transition>
@@ -1139,7 +1167,8 @@
                   <td class="td-date">{{ v.effective_start || '—' }} ~ {{ v.effective_end || '—' }}</td>
                   <td>{{ tierCountOf(v.tiers_json) }} 档</td>
                   <td>{{ v.scale_type === 'graduated' ? '累进' : '全量按档' }}</td>
-                  <td><button class="btn btn-ghost btn-xs danger" @click="deleteVersion(v)">删除</button></td>
+                  <!-- v335：按钮级门禁 —— 删除版本 = DELETE …/tier-versions/{id} ⇒ delete -->
+                  <td><button v-if="canDo('sales', 'delete')" class="btn btn-ghost btn-xs danger" @click="deleteVersion(v)">删除</button></td>
                 </tr>
               </tbody>
             </table>
@@ -1157,7 +1186,8 @@
           </div>
           <div class="modal-ft">
             <button class="btn btn-ghost" @click="versionModalOpen=false">关闭</button>
-            <button class="btn btn-primary" :disabled="versionSaving" @click="createVersion">{{ versionSaving ? '保存中…' : '新增版本' }}</button>
+            <!-- v335：按钮级门禁 —— 新增版本 = POST …/tier-versions ⇒ create -->
+            <button v-if="canDo('sales', 'create')" class="btn btn-primary" :disabled="versionSaving" @click="createVersion">{{ versionSaving ? '保存中…' : '新增版本' }}</button>
           </div>
         </div>
       </Transition>
@@ -1175,7 +1205,7 @@ import Icon from '../components/Icon.vue'
 import CommitmentsTab from '../components/CommitmentsTab.vue'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { toast } from '../store'
+import { toast, canDo } from '../store'
 import { rebateApi } from '../api/modules'
 import { api } from '../api/client.js'
 import TargetFormModal from '../components/rebate/TargetFormModal.vue'

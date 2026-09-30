@@ -584,7 +584,8 @@ onMounted(() => { load(); loadCatalog() })
 .rm-form-ops{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}
 .rm-file{display:none}
 
-/* 嵌入能力中心「专家」tab 时去掉外层 .page 内边距，避免嵌套双 padding */
+/* 嵌入「AI 引擎 › 专家」tab 时去掉外层 .page 内边距，避免嵌套双 padding
+   （容器 v311 前叫「能力中心」，本规则作用没变） */
 .rm-embed{padding:0}
 .rm-embed .page-hd{margin-bottom:16px}
 </style>

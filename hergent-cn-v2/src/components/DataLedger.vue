@@ -135,7 +135,7 @@ import ImportReceipt from './ImportReceipt.vue'
       现在再加一行 = 3 天内自我推翻。
    ② 仓里有明文纪律：「上传能力与『上传第一份数据』**同一个接口** ⇒ **避免出现两套导入入口**」
       （`Workbench.vue:13-15`）。再加一个 = 第三套。
-   ③ 这一页（能力中心）本来就有一区叫「ERP 数据源」，标题写着「接入你的业务系统，
+   ③ 这一页（AI 引擎，v311 前叫「能力中心」）本来就有一区叫「ERP 数据源」，标题写着「接入你的业务系统，
       AI 副驾直接读真实数据」—— **数据台账正是那一区的另一半**：上面说"从哪接"，
       下面说"接得全不全"。同类信息放在一起，用户不用在两个页面之间对账。
 
@@ -248,7 +248,7 @@ function lastTip(it) {
 
 function statusOf(it) {
   if (it.count === null) {
-    return { k: 'err', t: '读不到', tip: '这张表还没初始化，或统计出错：' + (it.count_error || '') }
+    return { k: 'err', t: '读不到', tip: '统计出错：' + (it.count_error || '') }
   }
   if (!it.count) return { k: 'empty', t: '没数据', tip: '一条都还没有 —— 这一类补上，下游才算得动' }
   const stale = STALE_DAYS[it.category]

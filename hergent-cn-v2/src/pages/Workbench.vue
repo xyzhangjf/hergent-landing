@@ -217,7 +217,7 @@
             <div class="loop-kpi"><span class="num" :class="loopStatus.red_line_blocked ? 'warn' : 'ok'">{{ loopStatus.red_line_blocked }}</span><span class="lbl">红线拦截</span></div>
           </div>
           <div class="loop-accept">
-            <div class="la-row"><span>可追溯率（source_ref 非空）</span><b>{{ loopStatus.acceptance.source_ref_nonempty_rate }}%</b></div>
+            <div class="la-row"><span>可追溯率（每条都有来源依据）</span><b>{{ loopStatus.acceptance.source_ref_nonempty_rate }}%</b></div>
             <div class="la-row"><span>跨 ≥2 场景复用</span><b>{{ loopStatus.acceptance.cross_tenant_reused_scenarios }}</b></div>
             <div class="la-row"><span>提案否决率（回归风险）</span><b>{{ loopStatus.acceptance.loop_proposal_rejection_rate }}%</b></div>
           </div>
@@ -229,14 +229,19 @@
            老板每天在这页看「今天欠多少 / 该催谁」，收款与催收本是同一动作的两半。 -->
       <CollectionsCard />
 
-      <!-- AI 晨报（底部整行） -->
-      <div class="card report-panel">
-        <div class="panel-hd"><b>AI 晨报</b><span class="badge badge-blue">Hermes</span></div>
+      <!-- AI 晨报（底部整行）—— v325（2026-09-29）：**整卡**按 AI 权限收窄。
+           🔴 为什么连卡片一起去掉、而不是只藏按钮：本页 `module: null, roles: null`
+              ⇒ **任何角色都能进来**。若只藏按钮，员工会看到一张写着
+              「每天早上由 Hermes 生成经营晨报」的卡片，找不到任何入口 →
+              只会以为功能坏了（"点得动但用不了"的静态版）。
+           判据同其它四处：`store.canUseAi()`（唯一定义处，见 `store/index.js`）。 -->
+      <div v-if="store.canUseAi()" class="card report-panel">
+        <div class="panel-hd"><b>AI 晨报</b><span class="badge badge-blue">AI</span></div>
         <div v-if="!aiText && !aiLoading" class="state-empty">
           <div class="se-ic">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M5 12H3M21 12h-3M6 6l-2-2M20 20l-2-2M6 18l-2 2M20 4l-2 2"/><circle cx="12" cy="12" r="4"/></svg>
           </div>
-          <p>每天早上由 Hermes 生成经营晨报</p>
+          <p>每天早上自动生成经营晨报</p>
           <button class="btn btn-ghost" style="margin-top:12px" :disabled="aiLoading" @click="loadMorning">生成今日晨报</button>
         </div>
         <div v-if="aiLoading" class="ai-loading">
@@ -253,7 +258,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { toast } from '../store'
+import { toast, store } from '../store'
 /* v291：待办项也会指向受权限保护的页面 ⇒ 入口同判据（见 goTodo）。 */
 import { canSee, pageTitle } from '../constants/pages'
 import { hermesChat, auth } from '../api/client'
@@ -470,7 +475,7 @@ async function loadMorning() {
       onDelta: (d, f) => { full = f; aiText.value = f; mdText.value = renderMd(f) }
     })
   } catch (e) {
-    aiText.value = '晨报生成失败：' + (e.message || 'Hermes 未连接')
+    aiText.value = '晨报生成失败：' + (e.message || 'AI 未连接')
     mdText.value = aiText.value
   } finally {
     aiLoading.value = false

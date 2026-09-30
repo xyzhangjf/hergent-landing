@@ -343,7 +343,7 @@ export async function hermesChat(messages, { onDelta, onTool, onReasoning, model
     if (!res.ok) {
       const e = await res.json().catch(() => ({}))
       // 把 HTTP 状态码前置到 message，便于上层区分「鉴权失败(401/403)」「服务不可用(502/503/504)」「临时错误」
-      throw new Error(`[HTTP ${res.status}] ` + (e.detail || e.message || 'Hermes 上游错误'))
+      throw new Error(`[HTTP ${res.status}] ` + (e.detail || e.message || 'AI 服务错误'))
     }
     if (!onDelta) {
       const reader = res.body.getReader()

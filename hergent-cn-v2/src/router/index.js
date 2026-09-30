@@ -60,7 +60,11 @@ export const router = createRouter({
         //    侧栏「预报订货管理」也能正常高亮（router-link-active 按 matched 链匹配）。
         { path: 'product-target', redirect: { path: '/forecast', query: { tab: 'target' } } },
         { path: 'dashboard', component: Dashboard, meta: { title: '经营趋势' } },
-        { path: 'connect', component: ConnectCenter, meta: { title: '能力中心' } },
+        // v311（2026-09-28）：「能力中心」改名「AI 引擎」（第二次改名，见 pages.js 的 `/connect` 行）。
+        //   理由：容器现在覆盖 接入(连接器) → 配置(专家/技能) → 运行(进化日志) → 产出(产出与用量)，
+        //   「能力中心」只盖住第 3 段。`meta.title` 与 `pages.js` 的 `title` 必须同源同字，
+        //   否则「设置›权限」里列模块名、命令面板显示名、页签容器名会三处不一致。
+        { path: 'connect', component: ConnectCenter, meta: { title: 'AI 引擎' } },
         { path: 'roles', component: RoleManage, meta: { title: 'AI 团队' } },
         { path: 'loss', component: LossWorkflow, meta: { title: '货损计算工作流' } },
         // 货损核算（月度·期间流水口径）—— 与上面的 /loss（配方驱动的批次效期预测）
@@ -93,13 +97,26 @@ export const router = createRouter({
             { path: 'products', component: Archive, meta: { title: '档案管理' } },
             // v294：仓库档案 —— 员工「个人仓」与报单模板「源仓/目标仓」的上游主档。
             // 继承父级 `/archive` 的可见性规则（module:null + BIZ_ROLES），无需单独登记。
-            { path: 'warehouses', component: Archive, meta: { title: '档案管理' } }
+            { path: 'warehouses', component: Archive, meta: { title: '档案管理' } },
+            // v311（2026-09-28）：渠道与价格并入本容器当第 6 个页签。
+            // 🔴 它是**唯一一个不继承父级门槛**的子路由：`/archive` 是 BIZ_ROLES（含主管/业务员），
+            //    而价格只给老板/管理员/会计 ⇒ 必须在 `pages.js` 里给 `/archive/prices` 单独登记
+            //    窄名单（`ruleFor` 精确匹配优先）。页签本身也带 `canSee` 门禁，两道一起才不漏。
+            { path: 'prices', component: PriceChannels, meta: { title: '渠道与价格' } }
           ]
         },
         { path: 'cron', component: CronJobs, meta: { title: '定时任务' } },
-        { path: 'ai-hub', component: AiHub, meta: { title: 'AI 中心' } },
-        // v159：价格渠道字典 —— 渠道是数据不是代码，客户自行配置（独立一级入口）
-        { path: 'price-channels', component: PriceChannels, meta: { title: '渠道与价格' } },
+        // v311（2026-09-28）：「AI 中心」并入「AI 引擎」当第 5 个页签（侧栏不再单列）。
+        //   ⚠️ 路由**保留为活的**，不做 redirect —— 与本仓 `/roles`（AI 团队）同构：
+        //      有路由、无侧栏项、靠容器页签进入。副驾 `CopilotDrawer` 有 `drillTo('#/ai-hub')`、
+        //      命令面板也可直达 ⇒ 保留活路由，这些入口才不用改判据。
+        //   🔴 改名同时把可见性收口为管理岗（见 `constants/pages.js` 的 `/ai-hub` 行）——
+        //      它是物理嵌入的页签，用户得先能进「AI 引擎」（ADMIN_ROLES），两侧口径必须一致。
+        { path: 'ai-hub', component: AiHub, meta: { title: '产出与用量' } },
+        // v311：「渠道与价格」并入「档案管理」当第 6 个页签 ⇒ 本路径改为 redirect。
+        //   🔴 与 v265「商品目标」同一处置：**旧路径不能直接删** —— 书签 / 浏览器历史 /
+        //      群里的链接都还留着 `#/price-channels`，删掉就是白屏。
+        { path: 'price-channels', redirect: { path: '/archive/prices' } },
         { path: 'settings', component: Settings, meta: { title: '设置' } },
         { path: 'bid-radar', component: BidRadar, meta: { title: '招投标雷达' } }
       ]

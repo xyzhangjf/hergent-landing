@@ -3,10 +3,11 @@
     <div class="page-hd split">
       <div>
         <h2>仓库档案</h2>
-        <span class="page-sub">内部仓主档 —— 供员工「个人仓」与报单模板「源仓 / 目标仓」引用</span>
+        <span class="page-sub">内部仓主档</span>
       </div>
       <div class="wh-hd-right">
-        <button class="btn btn-primary btn-sm" @click="openCreate">＋ 新建仓库</button>
+        <!-- v335 按钮级门禁：新建 = POST /api/warehouses/full ⇒ 模块 stock / 动作 create -->
+        <button v-if="canDo('stock', 'create')" class="btn btn-primary btn-sm" @click="openCreate">＋ 新建仓库</button>
       </div>
     </div>
 
@@ -42,8 +43,11 @@
                 <span v-else class="wh-muted">普通仓</span>
               </td>
               <td class="wh-ops">
-                <button class="btn btn-ghost btn-sm" @click="openEdit(w)">编辑</button>
+                <!-- v335 按钮级门禁：编辑=PUT /api/warehouses/full/{id} ⇒ stock/update；
+                     删除=DELETE 同路径 ⇒ stock/delete（弹窗内的「保存」不再重复判 —— 入口已藏） -->
+                <button v-if="canDo('stock', 'update')" class="btn btn-ghost btn-sm" @click="openEdit(w)">编辑</button>
                 <button
+                  v-if="canDo('stock', 'delete')"
                   class="btn btn-ghost btn-sm danger"
                   :disabled="Number(w.is_default) === 1"
                   :title="Number(w.is_default) === 1 ? '默认仓不能删除' : '删除该仓库'"
@@ -120,7 +124,7 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import { ref, reactive, onMounted } from 'vue'
-import { toast } from '../store'
+import { toast, canDo } from '../store'
 import { warehouseApi } from '../api/modules'
 
 const rows = ref([])

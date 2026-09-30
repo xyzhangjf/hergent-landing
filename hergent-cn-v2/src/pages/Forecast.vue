@@ -24,7 +24,9 @@
     <div v-if="noOpenPeriod" class="gate-bar" role="status">
       <Icon name="calendar"/>
       <span class="gate-txt"><b>{{ GATE_LEAD }}</b>{{ GATE_REST }}</span>
-      <button class="btn btn-sm btn-primary" @click="openNewPeriod"
+      <!-- v335：按钮级门禁 —— 新建期次 = POST /api/forecast/periods ⇒ 模块 `data`、动作 `create`。
+           本页共 5 处 openNewPeriod 入口，同一判据逐处挂（不能只挂主栏那一个）。 -->
+      <button v-if="canDo('data', 'create')" class="btn btn-sm btn-primary" @click="openNewPeriod"
               :title="showNewPeriod ? '收起新建期次表单' : '新建期次：设置期次名称与下单 / 到货日期'"><Icon name="plus"/> 新建期次</button>
     </div>
     <!-- 报单期次选择 -->
@@ -49,7 +51,7 @@
                原菜单中的「关闭期次 / 删除期次」属低频且只作用于“当前已选中的那个期次”，
                已由「历史期次」页每行的「关闭 / 删除」按钮承担（ForecastHistory.vue，同样走 askClose / askDelete），
                故移除 ⋯ 菜单不损失任何能力。 -->
-          <button class="btn btn-sm btn-ghost" @click="openNewPeriod"
+          <button v-if="canDo('data', 'create')" class="btn btn-sm btn-ghost" @click="openNewPeriod"
                   :title="showNewPeriod ? '收起新建期次表单' : '新建期次：设置期次名称与下单 / 到货日期'"
                   aria-label="新建期次"><Icon name="plus"/> 新建期次</button>
           <!-- 审批状态属于「期次」上下文，紧随期次选择器（原在行1 尾部、与筛选器混排） -->
@@ -98,7 +100,8 @@
           <Teleport to="body">
           <div v-if="advToolsOpen" class="tb-pop-panel" :style="popStyle" @click.stop>
             <button class="grp-btn" @click="subOpen=!subOpen"><Icon name="approve"/> 审批流</button>
-            <button class="grp-btn" @click="pushForecast" :disabled="pushing"><Icon name="upload"/> 推送企微审批</button>
+            <!-- v335：按钮级门禁 —— 推送企微审批 = POST /api/forecast/push ⇒ data/create -->
+            <button v-if="canDo('data', 'create')" class="grp-btn" @click="pushForecast" :disabled="pushing"><Icon name="upload"/> 推送企微审批</button>
             <button class="grp-btn" @click="printGrid"><Icon name="print"/> 打印</button>
             <div class="tb-pop-sep"></div>
             <button class="grp-btn" :class="{on:openGroup==='quality'}" @click="openGroup=openGroup==='quality'?null:'quality'">健康体检</button>
@@ -124,8 +127,8 @@
           查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
         </button>
         <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
-        <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="noOpenPeriod || periodDeadlinePassed"
-                :title="periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵')" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+        <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="saveDisabled"
+                :title="saveGateHint || (periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵'))" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
         <!-- v201：常驻的保存状态。保存成功只弹一条几秒即消失的提示，之后页面与保存前
              长得一模一样 ⇒ 用户无法确认「到底存进去了没有」。这里给一个**一直挂着**的答案
              （保存失败另有红色横幅，两者语义不重叠）。
@@ -176,7 +179,8 @@
              「按名称更新日期」是 .btn-sm（32px）⇒ 同一行三个按钮两种高度。
              统一到本页既有习惯（工具栏「新建期次」也是 btn-sm）；主次仍靠 btn-primary 的颜色区分，
              不靠尺寸 —— 尺寸只应表达"紧凑/常规"，不该在同一行里分组。 -->
-        <button class="btn btn-sm btn-primary" @click="createPeriod">创建</button>
+        <!-- v335：按钮级门禁 —— 「创建」= POST /api/forecast/periods ⇒ data/create -->
+        <button v-if="canDo('data', 'create')" class="btn btn-sm btn-primary" @click="createPeriod">创建</button>
       </div>
       <!-- v242c：口径提示 —— 自动建表用「报单日前一天 ~ 报单日」，手工建期建议一致，
            否则同一种期次的「报单窗口」在列表里显示成两种样子。非阻塞，仅提示。 -->
@@ -207,7 +211,7 @@
               </template>
               <template v-else>
                 <b>你现在还没有期次</b> —— 这次导入不会归到任何期次，之后再新建期次它也不会自动跟过去。
-                <button class="btn btn-sm btn-ghost" @click="openNewPeriod()"><Icon name="plus"/> 先建一个期次</button>
+                <button v-if="canDo('data', 'create')" class="btn btn-sm btn-ghost" @click="openNewPeriod()"><Icon name="plus"/> 先建一个期次</button>
               </template>
             </p>
             <p v-if="impViewMismatch" class="imp-own warn">
@@ -216,7 +220,9 @@
             </p>
             <div class="imp-actions">
               <button class="btn btn-ghost" @click="downloadFcTemplate"><Icon name="download"/> 下载模板</button>
-              <button class="btn btn-primary" @click="pickFile">选择文件…</button>
+              <!-- v335：按钮级门禁 —— 「选择文件…」触发 = POST /api/import/preview ⇒ data/create
+                   （与 /api/import/execute 同模块同动作；入口按钮已按 canImport 置灰，此处防守备） -->
+              <button v-if="canDo('data', 'create')" class="btn btn-primary" @click="pickFile">选择文件…</button>
             </div>
             <p v-if="impFileName" class="imp-file">已选择：{{ impFileName }}</p>
           </div>
@@ -237,7 +243,9 @@
             </div>
             <div class="imp-ft">
               <button class="btn btn-ghost" @click="impState = null">重选文件</button>
-              <button class="btn btn-primary" :disabled="!impCanExec || importing" @click="doImport">
+              <!-- v335：按钮级门禁 —— 导入执行 = POST /api/import/execute ⇒ data/create
+                   （只读角色连「选择文件」都不给，见下方 canImport 入口判据） -->
+              <button v-if="canDo('data', 'create')" class="btn btn-primary" :disabled="!impCanExec || importing" @click="doImport">
                 {{ importing ? '导入中…' : `确认导入（${impCustomerCount} 个客户）` }}
               </button>
             </div>
@@ -279,7 +287,7 @@
                 数据已经进来了，但你现在还没有期次 —— <b>之后再新建期次，这批商品和报单不会自动跟过去</b>。
                 要现在建一个吗？
               </p>
-              <button class="btn btn-sm btn-ghost" @click="closeImportAndReload(); openNewPeriod()">
+              <button v-if="canDo('data', 'create')" class="btn btn-sm btn-ghost" @click="closeImportAndReload(); openNewPeriod()">
                 <Icon name="plus"/> 现在新建期次
               </button>
             </div>
@@ -397,7 +405,7 @@
           <div class="imp-hd"><b>补货建议本周期 · {{ cross.period?.name || '' }}</b><button class="imp-x" @click="auditOpen = false"><Icon name="close"/></button></div>
           <div class="imp-body">
             <div v-if="!erpLinked" class="imp-tip warn-text audit-erp-note">
-              <b><Icon name="alert-triangle"/> 当前未连接 ERP（畅捷通 / 金蝶）。</b>本功能的补货建议需以实时库存与销量为依据；未连接时建议量缺少数据支撑、仅供参考。你可手动核对报单量后直接「确认定稿」，或前往 <button class="link-btn" @click="goConnect">能力中心</button> 连接 ERP，建议才会准确。
+              <b><Icon name="alert-triangle"/> 当前未连接 ERP（畅捷通 / 金蝶）。</b>本功能的补货建议需以实时库存与销量为依据；未连接时建议量缺少数据支撑、仅供参考。你可手动核对报单量后直接「确认定稿」，或前往 <button class="link-btn" @click="goConnect">AI 引擎</button> 连接 ERP，建议才会准确。
             </div>
             <!-- v265：销量数据新鲜度；P0-2（2026-09-27）：由「仅不新鲜时告警」改为「**常显数据依据**」。
                  为什么必须放在**这一层**（而不是 `auditState==='done'` 分支里）：数据停更多半
@@ -677,8 +685,10 @@
                 </select>
                 <div class="scheme-row">
                   <input class="scheme-name-ipt" v-model="schemeSaveName" placeholder="输入方案名" @keyup.enter="saveScheme">
-                  <button class="btn btn-ghost btn-xs scheme-btn" @click="saveScheme">保存当前</button>
-                  <button class="btn btn-ghost btn-xs scheme-btn" :disabled="!schemeName" @click="delScheme(schemeName)" title="删除所选方案">删除</button>
+                  <!-- v335：按钮级门禁 —— 列方案保存 = PUT /api/forecast/column-schemes ⇒ data/update
+                       （保存与删除都写同一端点，故同一判据） -->
+                  <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-xs scheme-btn" @click="saveScheme">保存当前</button>
+                  <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-xs scheme-btn" :disabled="!schemeName" @click="delScheme(schemeName)" title="删除所选方案">删除</button>
                 </div>
               </div>
               <div class="col-menu-reset">
@@ -837,14 +847,15 @@
                     : '可以从上一期把清单带过来、导入 Excel，或直接进「改单」手工填写（也能粘贴 Excel 区域）。' }}</div>
                   <div class="er-ops">
                     <template v-if="noOpenPeriod">
-                      <button class="btn btn-primary btn-sm" @click="openNewPeriod"><Icon name="plus"/> 新建期次</button>
+                      <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" @click="openNewPeriod"><Icon name="plus"/> 新建期次</button>
                     </template>
                     <template v-else>
                       <!-- v219：同上 —— 已定稿期次禁用改单 -->
                       <button class="btn btn-primary btn-sm" :disabled="periodLocked"
                               :title="periodLocked ? lockHint : '进入可编辑网格填写报单'"
                               @click="enterEdit"><Icon name="edit"/> 改单填写</button>
-                      <button class="btn btn-ghost btn-sm" :disabled="seedBusy || !nearestPrevPeriod" @click="seedFromPrev">
+                      <!-- v335：按钮级门禁 —— 从上一期复制清单 = POST /api/forecast/periods/{pid}/seed ⇒ data/create -->
+                      <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" :disabled="seedBusy || !nearestPrevPeriod" @click="seedFromPrev">
                         <Icon name="copy"/> {{ nearestPrevPeriod ? `从「${nearestPrevPeriod.name}」复制清单` : '从上一期复制清单' }}
                       </button>
                       <button class="btn btn-ghost btn-sm" @click="openImport" :disabled="!canImport"
@@ -885,7 +896,10 @@
                       <span v-else-if="rowWarn(it.r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）"><Icon name="alert-triangle"/></span>
                       <span v-if="lossWarn(it.r)" class="loss-badge" :class="lossWarn(it.r)" :title="lossTip(it.r)"><Icon name="flame"/></span>
                       <span v-if="rtBadge(it.r)" class="rt-badge" :class="rtBadge(it.r)" :title="rtBadgeTip(it.r)"><Icon name="bell"/></span>
-                      <span v-if="rowNote(it.r)" class="note-badge" :title="rowNote(it.r)" @click.stop="setRowNote(cross.rows.indexOf(it.r))"><Icon name="message"/></span>
+                      <!-- v335：按钮级门禁 —— 批注写库 = PUT /api/forecast/notes ⇒ data/update。
+                           无权限时**保留角标**（批注本身是事实，tooltip 照旧可看），只是不可点改。 -->
+                      <span v-if="rowNote(it.r) && canDo('data', 'update')" class="note-badge" :title="rowNote(it.r)" @click.stop="setRowNote(cross.rows.indexOf(it.r))"><Icon name="message"/></span>
+                      <span v-else-if="rowNote(it.r)" class="note-badge" style="cursor:default" :title="rowNote(it.r)"><Icon name="message"/></span>
                       <span v-if="gapSet.has(it.r.product_id)" class="gap-badge" title="缺批次/到期资料，需补录"><Icon name="alert-triangle"/></span>
                       <span v-if="hsMap[it.r.product_id] !== undefined && hsMap[it.r.product_id] < 60" class="hs-badge" :title="'健康分 ' + hsMap[it.r.product_id] + '（偏低，需补全资料）'"><Icon name="lightbulb"/></span>
                       <span class="row-ops">
@@ -1014,7 +1028,7 @@
                   <input ref="addColInput" v-model="addColName" class="ac-input" placeholder="客户名（如：永辉超市）" @keyup.enter="confirmAddCol">
                   <button class="btn btn-sm btn-primary" :disabled="!addColName.trim()" @click="confirmAddCol">添加</button>
                 </div>
-                <p class="ac-tip">历史报单出现过的客户已自动成列；此处只用于「当期新开、从未提报」的客户/门店。加完请点右上角「保存」，才会存到后端。</p>
+                <p class="ac-tip">历史报单出现过的客户已自动成列；此处只用于「当期新开、从未提报」的客户/门店。加完请点右上角「保存」。</p>
               </div>
               </Teleport>
             </div>
@@ -1040,8 +1054,8 @@
                   查错<span v-if="errCount" class="btn-badge err">{{ errCount > 99 ? '99+' : errCount }}</span>
                 </button>
                 <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
-                <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="noOpenPeriod || periodDeadlinePassed"
-                :title="periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵')" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+                <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="saveDisabled"
+                :title="saveGateHint || (periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵'))" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
                 <!-- v201/v208：常驻保存状态。三态 see saveState；保存成功后已改为退出编辑态，
                      故本态是「正在编辑、准备再改一轮」的人的常驻答案。 -->
                 <span class="save-state" :class="saveState.cls"
@@ -1086,8 +1100,8 @@
                 <option value="">选择方案…</option>
                 <option v-for="s in schemes" :key="s.name" :value="s.name">{{ s.name }}</option>
               </select>
-              <button class="btn btn-ghost btn-xs" @click="saveScheme">保存当前</button>
-              <button class="btn btn-ghost btn-xs" @click="delScheme(schemeName)" :disabled="!schemeName" title="删除所选方案">删除</button>
+              <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-xs" @click="saveScheme">保存当前</button>
+              <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-xs" @click="delScheme(schemeName)" :disabled="!schemeName" title="删除所选方案">删除</button>
             </div>
             <div class="col-menu-reset">
               <button class="btn btn-ghost btn-xs" @click="resetColWidths" title="清除本地列宽记忆，恢复默认列宽">重置列宽</button>
@@ -1170,7 +1184,8 @@
                       <span v-else-if="rowWarn(r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）"><Icon name="alert-triangle"/></span>
                       <span v-if="lossWarn(r)" class="loss-badge" :class="lossWarn(r)" :title="lossTip(r)"><Icon name="flame"/></span>
                       <span v-if="rtBadge(r)" class="rt-badge" :class="rtBadge(r)" :title="rtBadgeTip(r)"><Icon name="bell"/></span>
-                      <span v-if="rowNote(r)" class="note-badge" :title="rowNote(r)" @click="setRowNote(ri)"><Icon name="message"/></span>
+                      <span v-if="rowNote(r) && canDo('data', 'update')" class="note-badge" :title="rowNote(r)" @click="setRowNote(ri)"><Icon name="message"/></span>
+                      <span v-else-if="rowNote(r)" class="note-badge" style="cursor:default" :title="rowNote(r)"><Icon name="message"/></span>
                       <span v-if="gapSet.has(r.product_id)" class="gap-badge" title="缺批次/到期资料，需补录"><Icon name="alert-triangle"/></span>
                       <span v-if="hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60" class="hs-badge" :title="'健康分 '+hsMap[r.product_id]+'（偏低，需补全资料）'"><Icon name="lightbulb"/></span>
                     </div>
@@ -1221,7 +1236,14 @@
                 <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri">{{ fmt(rowSum(r)) }}</td>
                 <td class="num calc boxes" :data-r="ri"><span :class="{ 'miss-price': boxMissing(r) }">{{ boxText(r) }}</span></td>
                 <td v-if="showSuggest" class="num calc suggest" :data-r="ri" title="配方建议：按「建议算法」面板策略算出">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
-                <td class="num calc extra pt-xmtd" :data-r="ri"><input :value="r.extraQty ?? ''" class="cell-input cell-qty" :class="{ 'cell-minus': isMinus(r.extraQty) }" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT, $event)" @input="numInput($event, r, 'extraQty')" @change="numCommit($event, r, 'extraQty')" title="可填负数 = 减单"><b v-if="ptExtraMark(r)" class="pt-xm-b pt-xm-abs" :class="'has-' + ptExtraMark(r).kind">{{ ptExtraMark(r).text }}</b><span v-if="ptExtraMark(r)" class="tip pt-tip pt-tip-abs"><i v-for="(L, li) in ptExtraTip(r)" :key="li">{{ L }}</i></span></td>
+                <td class="num calc extra pt-xmtd" :class="ptExtraCellCls(r)" :data-r="ri"><input :value="r.extraQty ?? ''" class="cell-input cell-qty" :class="{ 'cell-minus': isMinus(r.extraQty), 'xm-alert': ptExtraAlert(r) }" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT, $event)" @input="numInput($event, r, 'extraQty')" @change="numCommit($event, r, 'extraQty')" :title="ptExtraInputTitle(r)"><!-- v318：一键分摊入口。**只在编辑态**出现（比例写档案、加单量回填本行，都属"改单"范畴），
+                     readonly 态不放开 —— 免得在"只是看一眼"的状态下误写全期目标档案。
+                     v336：判据从「有目标且有承接人」放宽为「**有人可分**」
+                     （后端 `alloc_members` 唯一判定：目标承接人 或 本期报单人）。
+                     且**只有 ≥2 人时才出按钮** —— 只有一个人可承接时分摊是恒等映射，
+                     弹窗纯属打扰（用户 2026-09-30 拍板方案 B）。
+                     ⚠️ readonly 态不出按钮，但**悬停说明两种状态都给**（见 ptExtraInputTitle）。 -->
+                <button v-if="hasAllocTarget(r)" type="button" class="pt-alloc-btn" :title="ptAllocBtnTitle(r)" @click.stop.prevent="openAlloc(allocRowRef(r))">分摊</button><b v-if="ptExtraMark(r)" class="pt-xm-b pt-xm-abs" :class="'has-' + ptExtraMark(r).kind">{{ ptExtraMark(r).text }}</b><span v-if="ptExtraMark(r)" class="tip pt-tip pt-tip-abs"><i v-for="(L, li) in ptExtraTip(r)" :key="li">{{ L }}</i></span></td>
                 <td class="num calc final" :data-r="ri"><b>{{ fmt(rowFinalQty(r)) }}</b></td>
                 <td class="num calc price" :class="{ 'miss-price': pricePerCase(r) == null }" :data-r="ri"><input :value="r.casePrice ?? ''" class="cell-input cell-price" :class="{ 'manual-price': Number(r.casePrice) > 0 }" type="text" inputmode="decimal" :placeholder="pricePh(r)" :title="priceTitle(r)" :data-r="ri" :data-c="C_PRICE_INPUT" @focus="onFocusCell(ri, C_PRICE_INPUT, $event)" @input="numInput($event, r, 'casePrice')" @change="onCasePriceChange(r, $event)"></td>
                 <td class="num calc amount" :data-r="ri"><span :class="{ 'miss-price': pricePerCase(r) == null }">{{ amountValue(r) != null ? fmt(amountValue(r)) : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }}</span></td>
@@ -1331,7 +1353,8 @@
             </template>
             <template v-else-if="openGroup==='collab'">
               <button class="btn btn-ghost btn-sm" @click="poOpen=!poOpen"><Icon name="package"/> 供应商订单</button>
-              <button class="btn btn-ghost btn-sm" @click="loadPo2" :disabled="po2Loading"><Icon name="receipt"/> 采购直发</button>
+              <!-- v335：按钮级门禁 —— 采购直发 = POST /api/forecast/purchase-order ⇒ data/create -->
+              <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" @click="loadPo2" :disabled="po2Loading"><Icon name="receipt"/> 采购直发</button>
               <button class="btn btn-ghost btn-sm" @click="loadHeal" :disabled="healLoading"><Icon name="settings"/> 异常修复</button>
               <button class="btn btn-ghost btn-sm" @click="miniInputOpen=!miniInputOpen"><Icon name="smartphone"/> 小程序录单</button>
               <button class="btn btn-ghost btn-sm" @click="miniOpen=!miniOpen"><Icon name="smartphone"/> 小程序审批</button>
@@ -1382,7 +1405,8 @@
                 <option value="">选择…</option>
                 <option v-for="s in suggestRecipes" :key="s.name" :value="s.name">{{ s.name }}</option>
               </select>
-              <button class="btn btn-ghost btn-xs" @click="saveSuggestRecipe">存</button>
+              <!-- v335：按钮级门禁 —— 存建议配方 = PUT /api/forecast/recipe ⇒ data/update -->
+              <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-xs" @click="saveSuggestRecipe">存</button>
             </label>
             <button class="btn btn-ghost btn-xs" @click="suggestPanel = false">收起</button>
           </div>
@@ -1439,7 +1463,7 @@
                 </span>
                 <!-- v219 打磨⑥：上限入口就放在「被上限拦下」真正发生的地方 -->
                 <button v-if="canEditRules" class="err-rulebtn" @click="openRuleEdit"
-                        title="改本租户的数量录入上限：超过它的数量会被标红并在保存时拦下">
+                        title="改数量录入上限：超过它的数量会被标红并在保存时拦下">
                   数量上限 {{ qtyMax }} · 修改
                 </button>
               </div>
@@ -1498,7 +1522,7 @@
                 </div>
                 <p class="fix-tip">
                   超过上限的数量会被标红、并在保存时被服务器拦下（用来挡「手滑多按一位」）。
-                  这是<b>本租户</b>的设置：改完立即生效，Web 与小程序两个端同时变。
+                  这是本店的设置：改完立即生效，网页端与手机端同时变。
                 </p>
                 <div class="rule-body">
                   <label class="rule-label">单个客户 · 单项最大数量</label>
@@ -1508,7 +1532,8 @@
                 </div>
                 <div class="fix-ft">
                   <button class="btn btn-sm" @click="ruleEditOpen = false">取消</button>
-                  <button class="btn btn-sm btn-primary" :disabled="ruleSaving" @click="saveRuleEdit">{{ ruleSaving ? '保存中…' : '保存' }}</button>
+                  <!-- v335：按钮级门禁 —— 数量上限 = PUT /api/forecast-submissions/validation-rules ⇒ data/update -->
+                  <button class="btn btn-sm btn-primary" :disabled="ruleSaving || !canDo('data', 'update')" @click="saveRuleEdit">{{ ruleSaving ? '保存中…' : '保存' }}</button>
                 </div>
               </div>
             </div>
@@ -1539,7 +1564,7 @@
           <div v-if="suggestBookOpen" class="info-panel">
             <div class="panel-hd"><b><Icon name="file-text"/> 下单说明文档</b><button class="imp-x" @click="suggestBookOpen=false"><Icon name="close"/></button></div>
             <textarea class="book-area" v-model="suggestBookText" rows="10"></textarea>
-            <div class="imp-ft"><button class="btn btn-primary btn-sm" :disabled="pushing" @click="sendSuggestBook"><Icon name="upload"/> 推送企微审批</button><span class="hint">AI 据体检/货损/MOQ 自动生成，可手改</span></div>
+            <div class="imp-ft"><button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" :disabled="pushing" @click="sendSuggestBook"><Icon name="upload"/> 推送企微审批</button><span class="hint">AI 据体检/货损/MOQ 自动生成，可手改</span></div>
           </div>
 
           <!-- P8-2 实时库存预警 -->
@@ -1575,11 +1600,16 @@
           <div v-if="subOpen" class="info-panel">
             <div class="panel-hd"><b><Icon name="approve"/> 审批流（状态机）</b><span class="tag" :class="'st-'+subStatus">{{ SUB_LABEL[subStatus] }}</span><button class="imp-x" @click="subOpen=false"><Icon name="close"/></button></div>
             <div class="sub-bar">
-              <button class="btn btn-sm" :disabled="subStatus!=='draft'&&subStatus!=='revised'" @click="doSubmit">提交审批</button>
-              <button class="btn btn-primary btn-sm" :disabled="subStatus!=='submitted'" @click="doApprove">通过</button>
-              <button class="btn btn-sm" :disabled="subStatus!=='submitted'" @click="doReject">驳回</button>
-              <button class="btn btn-sm" :disabled="subStatus!=='approved'&&subStatus!=='rejected'" @click="doRevise">退回修改</button>
-              <button class="btn btn-sm" :disabled="subStatus!=='approved'" @click="doWriteback"><Icon name="link"/> 回写ERP</button>
+              <!-- v335：按钮级门禁 —— 审批流五个动作全走 POST /api/forecast/submission ⇒ data/create
+                   （「提交/通过/驳回/退回修改」是**同一端点**换 action 参数，不能只挂其中一个）
+                   ⚠️ 不做成 v-if：状态机按钮的 disabled 本身表达「当前状态不该点」，隐藏会让人
+                   不知道审批流在哪一步；权限不足只需在既有 disabled 上再叠一条。 -->
+              <button class="btn btn-sm" :disabled="!canDo('data', 'create') || (subStatus!=='draft'&&subStatus!=='revised')" @click="doSubmit">提交审批</button>
+              <button class="btn btn-primary btn-sm" :disabled="!canDo('data', 'create') || subStatus!=='submitted'" @click="doApprove">通过</button>
+              <button class="btn btn-sm" :disabled="!canDo('data', 'create') || subStatus!=='submitted'" @click="doReject">驳回</button>
+              <button class="btn btn-sm" :disabled="!canDo('data', 'create') || (subStatus!=='approved'&&subStatus!=='rejected')" @click="doRevise">退回修改</button>
+              <!-- v335：按钮级门禁 —— 回写ERP = POST /api/forecast/connector-writeback ⇒ data/create -->
+              <button class="btn btn-sm" :disabled="!canDo('data', 'create') || subStatus!=='approved'" @click="doWriteback"><Icon name="link"/> 回写ERP</button>
             </div>
             <div v-if="subBy" class="hint">操作人 {{ subBy }} · {{ subAt }}</div>
             <div v-if="subReason" class="imp-warn">驳回原因：{{ subReason }}</div>
@@ -1598,7 +1628,8 @@
                 <input v-model="tmplName" class="input" placeholder="模板名（如 低温奶-酸奶线）">
                 <input v-model="tmplIndustry" class="input" placeholder="行业/品类" style="width:120px">
                 <input v-model="tmplDesc" class="input" placeholder="说明（可选）">
-                <button class="btn btn-primary btn-xs" @click="saveTemplate">存为模板</button>
+                <!-- v335：按钮级门禁 —— 存为模板 = PUT /api/forecast/recipe-templates ⇒ data/update -->
+                <button v-if="canDo('data', 'update')" class="btn btn-primary btn-xs" @click="saveTemplate">存为模板</button>
               </div>
             </div>
           </div>
@@ -1631,7 +1662,8 @@
                 <div class="gap-form">
                   <input class="input" v-model="g._batch" placeholder="批次号" style="width:110px">
                   <input class="input" v-model="g._expiry" placeholder="到期 2026-09-01" style="width:130px">
-                  <button class="btn btn-primary btn-xs" :disabled="gapSavingId===g.product_id" @click="saveGap(g)">补录</button>
+                  <!-- v335：按钮级门禁 —— 补录批次资料 = POST /api/forecast/data-gaps ⇒ data/create -->
+                  <button v-if="canDo('data', 'create')" class="btn btn-primary btn-xs" :disabled="gapSavingId===g.product_id" @click="saveGap(g)">补录</button>
                   <span v-if="g.has_batch" class="tag ok">已有批次</span>
                   <span v-if="g.has_expiry" class="tag ok">已有到期</span>
                 </div>
@@ -1678,7 +1710,9 @@
                     <tr v-for="it in items.slice(0,20)" :key="it.product_id">
                       <td>{{ it.product }}</td><td class="num">{{ fmt(it.forecast) }}</td><td class="num">{{ fmt(it.actual) }}</td>
                       <td class="num" :class="it.diff>0?'up':(it.diff<0?'down':'')">{{ it.diff>0?'+':'' }}{{ fmt(it.diff) }}</td>
-                      <td><select class="input" style="width:90px" :value="varAttrs[it.product_id]||''" @change="saveVarAttr(it.product_id, $event.target.value)"><option value="">—</option><option v-for="c in varCauses" :key="c" :value="c">{{ c }}</option></select></td>
+                      <!-- v335：按钮级门禁 —— 偏差归因 = PUT /api/forecast/variance-attr ⇒ data/update
+                           （用 :disabled 而非 v-if：当前归因值本身是用户要看的事实） -->
+                      <td><select class="input" style="width:90px" :value="varAttrs[it.product_id]||''" :disabled="!canDo('data', 'update')" @change="saveVarAttr(it.product_id, $event.target.value)"><option value="">—</option><option v-for="c in varCauses" :key="c" :value="c">{{ c }}</option></select></td>
                     </tr>
                   </tbody>
                 </table>
@@ -1732,21 +1766,22 @@
                 <div class="var-cat-hd">{{ g.brand }}（{{ g.lines.length }} 项）</div>
                 <ul class="push-list"><li v-for="l in g.lines" :key="l.product_id">{{ l.name }} · {{ fmt(l.qty) }} 箱</li></ul>
               </div>
-              <div class="imp-tip">按品牌(≈供货方)聚合。真实供应商主档需在商品主档补全（本期未造供应商模块，符合不自研边界）。</div>
+              <div class="imp-tip">按品牌(≈供货方)聚合。真实供应商主档需在商品主档补全。</div>
             </div>
             <div v-else class="hint">点「聚合」按当前网格生成采购单草稿</div>
           </div>
 
           <!-- P16-10 移动端预报录入（Web 侧闭环，复用 submitOrder） -->
           <div v-if="miniInputOpen" class="info-panel">
-            <div class="panel-hd"><b><Icon name="smartphone"/> 小程序录单（Web 侧闭环）</b><button class="imp-x" @click="miniInputOpen=false"><Icon name="close"/></button></div>
-            <div class="imp-tip">销售现场录单：选商品 + 数量，提交即写 <code>forecast_orders</code>，Web 端「<Icon name="check"/> 审批」实时可见。小程序工程另立（契约见交付文档）。</div>
+            <div class="panel-hd"><b><Icon name="smartphone"/> 小程序录单</b><button class="imp-x" @click="miniInputOpen=false"><Icon name="close"/></button></div>
+            <div class="imp-tip">销售现场录单：选商品 + 数量，提交后在 Web 端「<Icon name="check"/> 审批」里实时可见。</div>
             <div class="mini-form">
               <select v-model="miniPid" class="input"><option value="">选商品…</option><option v-for="r in cross.rows" :key="r.product_id" :value="r.product_id">{{ r.name }}</option></select>
               <input :value="miniQty" type="text" inputmode="numeric" class="input" placeholder="数量(箱)" style="width:90px" @input="numInput($event, setMiniQty)">
               <input v-model="miniUnit" class="input" placeholder="单位" title="自动带出该商品的报单默认单位（商品档案 → 包装单位）；可手改" style="width:64px">
               <input v-model="miniNote" class="input" placeholder="备注(选填)">
-              <button class="btn btn-primary btn-sm" :disabled="miniSaving" @click="submitMini">提交录单</button>
+              <!-- v335：按钮级门禁 —— 提交录单 = POST /api/forecast/orders ⇒ data/create -->
+              <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" :disabled="miniSaving" @click="submitMini">提交录单</button>
             </div>
             <div v-if="miniMsg" class="mini-msg">{{ miniMsg }}</div>
           </div>
@@ -1781,7 +1816,8 @@
               <select v-model="calFactors.selected" class="input"><option value="">选因子…</option><option v-for="p in calPresets" :key="p" :value="p">{{ p }}</option></select>
               <input :value="calFactors.factors[calFactors.selected]" type="text" inputmode="decimal" class="input" placeholder="倍数" style="width:70px" :disabled="!calFactors.selected" @input="numInput($event, calFactors.factors, calFactors.selected)" @focus="setCalFactor(calFactors.selected)">
               <button class="btn btn-primary btn-sm" @click="applyCal">应用因子</button>
-              <button class="btn btn-ghost btn-sm" @click="saveCal">保存</button>
+              <!-- v335：按钮级门禁 —— 日历因子 = PUT /api/forecast/calendar-factors ⇒ data/update -->
+              <button class="btn btn-ghost btn-sm" :disabled="!canDo('data', 'update')" @click="saveCal">保存</button>
             </div>
             <div class="imp-tip">已设：<span v-for="(v,k) in calFactors.factors" :key="k" class="tag info">{{ k }} ×{{ v }}</span></div>
           </div>
@@ -1810,7 +1846,7 @@
             <div class="panel-hd"><b><Icon name="receipt"/> 采购单直发</b><button class="imp-x" @click="po2Open=false"><Icon name="close"/></button></div>
             <div v-if="po2Loading" class="imp-tip">生成中…</div>
             <template v-else>
-              <div v-if="po2Data" class="imp-tip">采购单 #{{ po2Data.id }} · 状态：{{ po2Data.status }} · {{ po2Data.total_lines }} 行</div>
+              <div v-if="po2Data" class="imp-tip">采购单 #{{ po2Data.id }} · 状态：{{ PO_STATUS_LABEL[po2Data.status] || '未确认' }} · {{ po2Data.total_lines }} 行</div>
               <table v-if="po2Data" class="acc-tbl">
                 <thead><tr><th>品牌(供货方)</th><th>商品</th><th class="num">数量</th></tr></thead>
                 <tbody>
@@ -1819,9 +1855,10 @@
                   </template>
                 </tbody>
               </table>
-              <button class="btn btn-primary btn-sm" :disabled="!po2Data" @click="pushPo2">经连接器直推供应商</button>
+              <!-- v335：按钮级门禁 —— 直推供应商 = POST /api/forecast/purchase-order/push ⇒ data/create -->
+              <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" :disabled="!po2Data" @click="pushPo2">经连接器直推供应商</button>
             </template>
-            <div v-if="po2List.length" class="imp-tip">历史采购单：<span v-for="o in po2List" :key="o.id" class="tag" :class="o.status==='pushed'?'ok':'info'">#{{ o.id }} {{ o.status }}</span></div>
+            <div v-if="po2List.length" class="imp-tip">历史采购单：<span v-for="o in po2List" :key="o.id" class="tag" :class="o.status==='pushed'?'ok':'info'">#{{ o.id }} {{ o.status === 'pushed' ? '已推送' : '未推送' }}</span></div>
           </div>
 
           <!-- P15-6 异常自愈闭环 -->
@@ -1834,9 +1871,10 @@
                 <div><b>{{ it.product }}</b> · <span class="sev-dot" :class="'sev-'+it.severity"></span>{{ it.issue }}</div>
                 <div class="imp-tip">建议：{{ it.action }}</div>
                 <div class="mini-form">
-                  <span class="tag" :class="it.status==='resolved'?'ok':(it.status==='ack'?'info':'warn')">{{ it.status }}</span>
-                  <button class="btn btn-ghost btn-xs" @click="setHeal(it.id,'ack')">已知悉</button>
-                  <button class="btn btn-primary btn-xs" @click="setHeal(it.id,'resolved')">标记已处理</button>
+                  <span class="tag" :class="it.status==='resolved'?'ok':(it.status==='ack'?'info':'warn')">{{ HEAL_STATUS_LABEL[it.status] || '待处理' }}</span>
+                  <!-- v335：按钮级门禁 —— 干预项回执 = POST /api/forecast/interventions ⇒ data/create -->
+                  <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-xs" @click="setHeal(it.id,'ack')">已知悉</button>
+                  <button v-if="canDo('data', 'create')" class="btn btn-primary btn-xs" @click="setHeal(it.id,'resolved')">标记已处理</button>
                 </div>
               </div>
             </template>
@@ -1844,10 +1882,10 @@
 
           <!-- P15-7 Hermes 深度联动 -->
           <div v-if="hermesOpen" class="info-panel">
-            <div class="panel-hd"><b><Icon name="sparkle"/> Hermes 深度联动（异常根因分析）</b><button class="imp-x" @click="hermesOpen=false"><Icon name="close"/></button></div>
+            <div class="panel-hd"><b><Icon name="sparkle"/> AI 深度联动（异常根因分析）</b><button class="imp-x" @click="hermesOpen=false"><Icon name="close"/></button></div>
             <textarea v-model="hermesCtx" class="book-area" placeholder="描述预报/库存/销售异常，例如：A商品连续3周预测偏高20%，B商品临期积压…"></textarea>
             <div class="mini-form">
-              <button class="btn btn-primary btn-sm" :disabled="hermesLoading" @click="runHermes">{{ hermesLoading ? '分析中…' : '让 Hermes 分析' }}</button>
+              <button class="btn btn-primary btn-sm" :disabled="hermesLoading" @click="runHermes">{{ hermesLoading ? '分析中…' : '让 AI 分析' }}</button>
             </div>
             <div v-if="hermesResult" class="imp-tip" style="white-space:pre-wrap">{{ hermesResult }}</div>
           </div>
@@ -1917,7 +1955,13 @@
               </div>
             </template>
             <button v-else-if="ctxHasRangeSel" @click="openCtxFill"><Icon name="edit"/> 批量填入相同值…<kbd>Ctrl+Enter</kbd></button>
-            <button @click="ctxAskAi"><Icon name="sparkle"/> 让 AI 分析这行</button>
+            <!-- v325（2026-09-29）：AI 入口按权限收窄。
+                 右键菜单是**第三组入口**（顶部栏 / 命令面板之外的）——
+                 漏了它就会出现「侧栏藏了、右键还能点」的假入口。
+                 判据同其它处：`store.canUseAi()`（唯一定义处，见 `store/index.js`）。
+                 ⚠️ 面板本体（`hermesOpen`）不必再判：它的唯一触发点就是本按钮
+                    （`ctxAskAi()` 里 `hermesOpen.value = true`）。 -->
+            <button v-if="store.canUseAi()" @click="ctxAskAi"><Icon name="sparkle"/> 让 AI 分析这行</button>
             <button v-if="ctx.type !== 'body'" @click="ctxColStats"><Icon name="list"/> 此列统计</button>
             <button v-if="ctxNumCell" @click="ctxFillSafety"><Icon name="sparkle"/> 按安全库存补齐</button>
             <button v-if="ctx.type === 'master' && ctx.key === 'name'" @click="ctxViewProfile"><Icon name="list"/> 查看商品档案</button>
@@ -1989,7 +2033,8 @@
                 </select>
               </div>
               <div class="ctx-ipt-actions">
-                <button class="btn-primary" @click="applyHdrAdd">确认</button>
+                <!-- v335：按钮级门禁 —— 新增自定义列 = POST /api/forecast/columns ⇒ data/create -->
+                <button v-if="canDo('data', 'create')" class="btn-primary" @click="applyHdrAdd">确认</button>
                 <button @click="hdrCtx.mode='menu'">取消</button>
               </div>
             </template>
@@ -1998,7 +2043,8 @@
               <template v-if="hdrCtx.type === 'master' || hdrCtx.type === 'qty'">
                 <button v-if="hdrCtx.key !== 'name'" @click="startHdrRename"><Icon name="edit"/> 修改字段</button>
                 <button @click="startHdrAdd"><Icon name="plus"/> 增加列</button>
-                <button v-if="hdrCtx.key !== 'name' && (hdrCtx.type === 'qty' || canDeleteMaster(hdrCtx.key))" class="danger" @click="hdrDeleteCol"><Icon name="close"/> 删除列</button>
+                <!-- v335：按钮级门禁 —— 删除自定义列 = DELETE /api/forecast/columns/{key} ⇒ data/delete -->
+                <button v-if="hdrCtx.key !== 'name' && (hdrCtx.type === 'qty' || canDeleteMaster(hdrCtx.key)) && canDo('data', 'delete')" class="danger" @click="hdrDeleteCol"><Icon name="close"/> 删除列</button>
                 <div v-if="hdrCtx.key !== 'name' && hdrCtx.type === 'master' && !canDeleteMaster(hdrCtx.key)" class="ctx-note">该主档列不可删除（可在列设置中隐藏）</div>
                 <div class="ctx-sep"></div>
                 <button @click="hdrColStats"><Icon name="list"/> 列统计</button>
@@ -2103,8 +2149,9 @@
             <span v-if="saveFailed.prodDone" class="sf-partial">商品资料已保存，数量未保存，请重试</span>
             <span class="sf-msg">{{ saveFailed.msg }}</span>
             <span class="sf-time">{{ saveFailed.at }}</span>
-            <button class="btn btn-xs btn-primary" :disabled="noOpenPeriod || periodDeadlinePassed"
-                    :title="periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '重新提交本次保存')" @click="saveEdits">重试保存</button>
+            <!-- v335：按钮级门禁 —— 重试保存 = 同一次 POST /api/forecast-submissions/save-matrix ⇒ data/create -->
+            <button class="btn btn-xs btn-primary" :disabled="saveDisabled"
+                    :title="saveGateHint || (periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '重新提交本次保存'))" @click="saveEdits">重试保存</button>
           </div>
           <!-- Q28：P5-P7 做了大量能力但埋没，用户只会最笨的逐格手输 -->
           <div class="kbd-help">
@@ -2132,7 +2179,11 @@
         <span class="ph-actions">
           <button class="btn btn-sm btn-primary" :disabled="!draft.length || auditing" @click="runAudit">{{ auditing ? '审核中…' : '智能审核' }}</button>
           <!-- Q15：去掉无说明的 disabled，改为点击后引导 -->
-          <button class="btn btn-sm btn-ghost" @click="saveDraft" :title="auditResults.length ? '保存草稿' : '请先点「智能审核」'">保存草稿</button>
+          <!-- v335：按钮级门禁 —— 保存审核草稿 = POST /api/forecast-audit/save
+               ⚠️ 模块是 `forecast-audit` 而不是 `data`：后端 `_PATH_MODULE_MAP` 里
+               `/api/forecast-audit` 的插入位置在 `/api/forecast` **之前**，而匹配是
+               "首个 startswith 命中即停" ⇒ 它归 forecast-audit。按 data 判会造出假入口。 -->
+          <button v-if="canDo('forecast-audit', 'create')" class="btn btn-sm btn-ghost" @click="saveDraft" :title="auditResults.length ? '保存草稿' : '请先点「智能审核」'">保存草稿</button>
           <!-- Q1：草稿 → 编辑网格 的单向同步入口 -->
           <button class="btn btn-sm btn-ghost" :disabled="!draft.length" @click="syncDraftToGrid" title="把草稿商品带入编辑网格，继续分配到各客户">带入编辑网格</button>
         </span>
@@ -2167,7 +2218,8 @@
             </div>
             <div class="al-ft">
               <button class="btn btn-ghost" @click="aliasOpen = false">取消</button>
-              <button class="btn btn-primary" @click="saveAlias">保存</button>
+              <!-- v335：按钮级门禁 —— 商品别名 = PUT /api/products/{pid}/alias ⇒ data/update -->
+              <button class="btn btn-primary" :disabled="!canDo('data', 'update')" @click="saveAlias">保存</button>
             </div>
           </div>
         </Transition>
@@ -2261,7 +2313,7 @@
     </div>
     </template>
 
-    <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" @reopen="onHistoryReopen" @rename="openPeriodEdit" @copy="openPeriodCopy" />
+    <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" @reopen="onHistoryReopen" @unlock="onHistoryUnlock" @push="onHistoryPush" @rename="openPeriodEdit" @copy="openPeriodCopy" />
 
     <!-- 报单配置（原档案管理独立页，整合为标签页） -->
     <div v-if="activeTab === 'config'" class="config-panel">
@@ -2317,8 +2369,156 @@
             </p>
             <div class="del-actions">
               <button class="btn btn-ghost" @click="conflictInfo = null">先不处理</button>
-              <button class="btn btn-ghost" :disabled="savingEdit" @click="conflictOverride">用我这份覆盖</button>
+              <!-- v335：按钮级门禁 —— 「用我这份覆盖」最终仍走 saveEdits ⇒ data/create -->
+              <button class="btn btn-ghost" :disabled="savingEdit || !canSaveMatrix" @click="conflictOverride">用我这份覆盖</button>
               <button class="btn btn-primary" :disabled="savingEdit || loadingEdit" autofocus @click="conflictReload">{{ loadingEdit ? '载入中…' : '重新载入最新数据' }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- v318：一键分摊弹窗（编辑态「加单(箱)」格的分摊按钮唤起）—— 预演台，不是第二份分摊算法 -->
+    <Teleport to="body">
+      <Transition name="fade"><div v-if="allocOpen" class="imp-overlay" @click="closeAlloc"></div></Transition>
+      <Transition name="pop">
+        <div v-if="allocOpen" class="imp-modal alloc-modal">
+          <div class="imp-hd">
+            <b>按比例分摊 · {{ (allocSetup && allocSetup.product && allocSetup.product.name) || '商品' }}</b>
+            <button class="imp-x" @click="closeAlloc"><Icon name="close"/></button>
+          </div>
+          <div class="imp-body">
+            <!-- v336：前置缺失必须**分开说**（两者成因与解法完全不同）──────────────
+                 · `no_members` = **真的一条都分不出去**（无目标 **且** 本期没人报过）⇒ 必须点名；
+                 · `no_target`（只是没有目标）**不再**是"分不出去" —— 会走 L2
+                   （按本期各人报单量推导占比），所以这里只是**说明依据变了**，表格照常显示。
+                 旧文案把两者混为一谈，会把人引去建一个他并不需要的目标。 -->
+            <p v-if="allocSetup && allocFlags.no_members" class="imp-tip warn-text">
+              该商品<b>本期没有人报过单，也没有启用目标</b>（或目标没填分解承接人）
+              ⇒ 这笔加/减单<b>一个人都分不到</b>，保存后也不会有任何人的量被调整。
+              请先让业务员在「报单」里报这个商品，或到「商品目标」页为它建目标并填分解比例。
+            </p>
+            <p v-else-if="allocSetup && allocFlags.no_target" class="imp-tip alloc-note">
+              该商品在 <b>{{ (allocSetup.product && allocSetup.product.month) || '' }}</b> 没有启用目标
+              ⇒ 本次按<b>各人本期报单量</b>推导占比来分摊（客观事实，<b>比例只读</b>）。
+              要让比例可调，请到「商品目标」页为它建目标并填分解比例。
+            </p>
+            <template v-if="allocSetup && !allocFlags.no_members">
+              <div class="alloc-top">
+                <label>本期{{ allocTotalNum() >= 0 ? '加单' : '减单' }}总量</label>
+                <input class="cell-input alloc-num" type="text" inputmode="decimal" :value="allocTotalRaw"
+                       title="正数 = 加单，负数 = 减单；改完按回车或点别处即重新联动"
+                       @input="onAllocTotalInput" @change="onAllocTotalCommit">
+                <span class="alloc-unit">箱</span>
+                <span v-if="Number(allocSetup.product && allocSetup.product.large_ratio) > 0" class="alloc-conv">
+                  ≈ {{ fmt(Math.abs(allocTotalNum()) * Number(allocSetup.product.large_ratio)) }} {{ (allocSetup.product && allocSetup.product.unit) || '小单位' }}
+                </span>
+              </div>
+              <p v-if="allocIsOverride" class="imp-tip alloc-note">
+                ⓘ 占比是<b>本期临时设定</b>的<template v-if="allocSetup.override && allocSetup.override.operator"
+                  >（{{ allocSetup.override.operator }} 设定）</template> —— 改动<b>只影响本期</b>，
+                不会改商品目标档案。
+              </p>
+              <p v-else-if="allocIsDerived" class="imp-tip alloc-note">
+                ⓘ 该商品本期没有目标 ⇒ 原本按<b>各人本期报单量</b>推导占比。
+                在这里改动会存成<b>本期专用</b>占比（<b>只影响本期</b>、不改商品目标档案）；
+                存下之后，业务员后来补报也不会再自动改变你定下的分法。
+              </p>
+              <p v-else class="imp-tip alloc-note">
+                ⓘ 占比来自该商品的<b>目标档案</b>。在这里改动会<b>同时改写目标档案</b> ——
+                该商品<b>本月所有期次</b>的加单分摊都会跟着变（不只是本期）。
+              </p>
+              <div class="alloc-tbl-wrap">
+                <table class="alloc-tbl">
+                  <thead>
+                    <tr>
+                      <th>{{ (allocIsDerived || allocIsOverride) ? '报单人' : '承接人' }}</th><th class="num">占比%</th><th class="num">本期报量(箱)</th>
+                      <th class="num">加单(箱)</th><th class="num">定稿(箱)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- 逐行顺序 = `product_target_alloc.sort_no`（与目标档案一致，改比例时按它整表回写） -->
+                    <tr v-for="x in allocRows" :key="x.employee_id">
+                      <td>{{ x.employee_name || ('员工' + x.employee_id) }}</td>
+                      <td class="num">
+                        <!-- 占比可否改 —— 🔴 v339 改了这条判据：旧版对「按报单量推导」**只读**，
+                             而 L2 商品根本没有档案可写 ⇒ 用户**没有别的入口**，
+                             「想按本月实际情况调整分法」这个需求完全无解。
+                             现在可改：改动存成**本期专用**占比（不写档案、只影响本期）。 -->
+                        <input class="cell-input alloc-mini" type="text" inputmode="decimal"
+                               :readonly="!allocRatioEditable" :class="{ 'alloc-ro': !allocRatioEditable }"
+                               :title="!allocRatioEditable ? '本期没有可分摊对象'
+                                       : (allocIsOverride ? '本期临时占比：改动只影响本期，不会改商品目标档案'
+                                       : (allocIsDerived ? '原本按各人本期报单量推导；改动会存成本期专用占比（只影响本期）'
+                                       : '来自商品目标档案；改动会同时改写档案，影响本月所有期次'))"
+                               :value="allocRatiosRaw[x.employee_id] != null ? allocRatiosRaw[x.employee_id] : x.ratio"
+                               @input="onAllocRatioInput($event, x.employee_id)"
+                               @change="onAllocRatioCommit($event, x.employee_id)">
+                      </td>
+                      <td class="num">{{ fmt(x.reported_box) }}</td>
+                      <td class="num">
+                        <!-- ⚠️ @focus/@blur 记「正在打字的是哪一格」：预演回来时**不回填这一格**，
+                             否则用户敲到一半的数字会被后端的四舍五入值顶掉（"填了不算"）。 -->
+                        <input class="cell-input alloc-mini" type="text" inputmode="decimal"
+                               :value="allocAllocsRaw[x.employee_id] != null ? allocAllocsRaw[x.employee_id] : fmt(x.alloc_box)"
+                               @focus="allocFocusEid = x.employee_id" @blur="allocFocusEid = 0"
+                               @input="onAllocAllocInput($event, x.employee_id)"
+                               @change="onAllocAllocCommit($event, x.employee_id)">
+                      </td>
+                      <td class="num" :class="{ 'alloc-neg': Number(x.final_box) < 0 }">{{ fmt(x.final_box) }}</td>
+                    </tr>
+                    <tr v-if="!allocRows.length">
+                      <td colspan="5" class="alloc-empty">{{ allocBusy || allocPrev ? '计算中…' : (allocErr || '没有可分摊的承接人') }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="alloc-sum">
+                <span :class="allocRatioOk ? 'ok' : 'bad'">占比合计 {{ fmt(allocRatioTotal) }}%{{ allocRatioOk ? ' ✓' : ' ✗ 必须 = 100%' }}</span>
+                <span v-if="allocSummary" :class="allocSummary.fully_applied ? 'ok' : 'bad'">
+                  加单合计 {{ fmt(allocSummary.allocated) }}{{ allocSummary.fully_applied ? ' ✓' : (' ✗ 差 ' + fmt(allocSummary.unassigned)) }}
+                </span>
+                <span v-if="allocSetup.target">目标总量 {{ fmt(allocSetup.target.target_qty) }} 箱</span>
+                <span v-else>本月无目标</span>
+              </div>
+              <p v-if="allocSummary && !allocSummary.fully_applied" class="imp-tip warn-text">
+                分不满：经理填 {{ fmt(allocSummary.total_delta) }} 箱，实际分出 {{ fmt(allocSummary.allocated) }} 箱，缺口 {{ fmt(allocSummary.unassigned) }} 箱
+                —— 其中「占比合计不足 100%」占 {{ fmt(allocSummary.ratio_gap) }} 箱、
+                「减单时有人报量不够被夹到 0」占 {{ fmt(allocSummary.clip_gap) }} 箱。
+                前者改占比即可，后者是报量事实、改占比无用。
+              </p>
+              <p v-if="allocErr" class="imp-tip warn-text">{{ allocErr }}</p>
+            </template>
+            <p v-else class="imp-tip">正在读取分摊依据…</p>
+            <div class="alloc-actions">
+              <!-- v339：L2（无目标）也能分摊之后，「**有没有目标**」不再是能不能操作的前提 ——
+                   旧版两处 `!no_target` 把 L2 商品的「平均分配 / 恢复」**整对按钮藏掉了**。
+                   现在唯一的前提是"本期有没有可分摊对象"（= no_members）。 -->
+              <button v-if="allocSetup && !allocFlags.no_members"
+                      class="btn btn-sm btn-ghost" @click="allocSplitEven">平均分配</button>
+              <button v-if="allocSetup && !allocFlags.no_members && !allocIsOverride"
+                      class="btn btn-sm btn-ghost"
+                      :title="allocIsDerived ? '恢复为按各人本期报单量自动算' : '恢复为商品目标档案里的比例'"
+                      @click="allocResetRatios">{{ allocIsDerived ? '恢复自动比例' : '恢复档案原比例' }}</button>
+              <!-- v339：**撤销本期覆盖**的专用入口。没有它，用户改错了只能手动把每个人敲回原值 ——
+                   而且**永远回不到"没设过"的状态**（`basis` 会一直是 override，界面也就一直说"你改过"）。 -->
+              <button v-if="allocSetup && allocIsOverride"
+                      class="btn btn-sm btn-ghost"
+                      title="清除本期临时占比，恢复为自动判据（不改商品目标档案）"
+                      @click="allocClearOverride">清除本期临时占比</button>
+              <span class="alloc-spacer"></span>
+              <button class="btn btn-ghost" @click="closeAlloc">取消</button>
+              <!-- v335 门禁：两条写路都归 data/update ——
+                   写档案 = PUT /api/product-targets/{tid}；v339 本期临时占比 = PUT .../extra-alloc/override -->
+              <button class="btn btn-primary"
+                      :disabled="allocBusy || allocPrev || !allocSetup || !!allocFlags.no_members || !allocRatioOk || !canDo('data', 'update')"
+                      :title="!canDo('data', 'update') ? '当前角色没有分摊加单/减单的权限'
+                              : (!allocRatioOk ? '占比合计必须等于 100% 才能保存'
+                              : (allocIsOverride ? '保存本期临时占比（只影响本期），并把加单量回填到本行'
+                              : (allocIsDerived ? '保存本期临时占比（只影响本期、不改商品目标档案），并把加单量回填到本行'
+                              : '把占比写进商品目标档案（全期生效），并把加单量回填到本行')))"
+                      @click="applyAlloc">{{ allocBusy ? '应用中…'
+                        : ((allocIsOverride || allocIsDerived) ? '保存本期占比并回填' : '应用到汇总表') }}</button>
             </div>
           </div>
         </div>
@@ -2329,16 +2529,78 @@
     <Teleport to="body">
       <Transition name="fade"><div v-if="closeOpen" class="imp-overlay" @click="closeOpen = false"></div></Transition>
       <Transition name="pop">
-        <div v-if="closeOpen" class="imp-modal del-modal">
-          <div class="imp-hd"><b>关闭期次</b><button class="imp-x" @click="closeOpen = false"><Icon name="close"/></button></div>
+        <div v-if="closeOpen" class="imp-modal del-modal close-modal">
+          <div class="imp-hd"><b>确认定稿 · 关闭期次</b><button class="imp-x" @click="closeOpen = false"><Icon name="close"/></button></div>
           <div class="imp-body">
             <!-- v219：原文案只说「不可再编辑」，**没说**关闭会连带关掉销售的报单通道 ——
                  那是这条操作最容易被忽略的副作用（定稿 = 停止收报单）。同时补上「可重开」，
-                 否则「仅可删除」会让人以为关闭不可逆（2026-09-21 前确实不可逆，现在不是了）。 -->
-            <p class="imp-tip warn-text">确认关闭期次「{{ closeTarget && closeTarget.name }}」？<b>关闭 = 定稿</b>：该期次不可再编辑，且<b>销售的小程序报单通道会同时关闭</b>（不再接收新报单）。如需改动，可到「往期预报」里点<b>「重开」</b>恢复。</p>
+                 否则「仅可删除」会让人以为关闭不可逆（2026-09-21 前确实不可逆，现在不是了）。
+                 🔴 v319：原文案让用户去点「重开」，但那条路会**连带重开销售报单通道**
+                 （副作用远大于"只想改个数"）。现拆成两个语义入口，文案必须指向对的那个。 -->
+            <p class="imp-tip warn-text">确认关闭期次「{{ closeTarget && closeTarget.name }}」？<b>关闭 = 定稿</b>：该期次不可再编辑，且<b>销售的小程序报单通道会同时关闭</b>（不再接收新报单）。如需改动：到「往期预报」里点<b>「解锁编辑」</b>（只放开改数，销售照旧报不了单）；确实还要让销售补报，再点<b>「恢复报单」</b>。</p>
+            <!-- v318：定稿会把加单/减单明细**逐人推送**到小程序「我的通知」，推送出去就收不回来
+                 ⇒ 推送内容必须在这一步先亮出来让人核对（而不是点完才知道发了什么）。 -->
+            <div class="close-nf">
+              <div class="close-nf-hd">定稿后将推送给相关人员的加单 / 减单明细</div>
+              <p v-if="closeDetailErr" class="close-nf-none bad">
+                读取加单/减单明细失败（{{ closeDetailErr }}）—— 仍可定稿，但**推送内容未经核对**。
+              </p>
+              <template v-else-if="closeDetail">
+                <p v-if="!closeDetail.items.length" class="close-nf-none">
+                  本期没有加单 / 减单 ⇒ 定稿后<b>不会发送任何通知</b>。
+                </p>
+                <template v-else>
+                  <div class="close-nf-wrap">
+                    <table class="close-nf-tbl">
+                      <thead>
+                        <tr><th>商品</th><th>方向</th><th class="num">涉及</th><th class="num">合计(箱)</th><th></th></tr>
+                      </thead>
+                      <tbody>
+                        <template v-for="it in closeDetail.items" :key="it.product_id">
+                          <tr :class="{ 'not-full': it.notFull }">
+                            <td class="cn-name">{{ it.name }}</td>
+                            <td>{{ it.verb }}</td>
+                            <td class="num">{{ it.people }} 人</td>
+                            <td class="num">{{ it.total >= 0 ? '+' : '−' }}{{ fmt(Math.abs(it.total)) }}</td>
+                            <td class="num">
+                              <button type="button" class="cn-exp"
+                                      @click="closeExpandPid = (closeExpandPid === it.product_id ? 0 : it.product_id)">
+                                {{ closeExpandPid === it.product_id ? '收起' : '逐人明细' }}
+                              </button>
+                            </td>
+                          </tr>
+                          <tr v-if="closeExpandPid === it.product_id" class="cn-detail">
+                            <td colspan="5">
+                              <div v-for="p in it.rows" :key="p.employee_id" class="cn-p">
+                                <span class="cn-pname">{{ p.employee_name }}</span>
+                                <span>占比 {{ fmt(p.ratio) }}%</span>
+                                <span>报 {{ fmt(p.reported_box) }} ⇒ 定稿 {{ fmt(p.final_box) }} 箱</span>
+                                <b :class="p.alloc_box >= 0 ? 'cn-add' : 'cn-cut'">
+                                  {{ p.alloc_box >= 0 ? '加' : '减' }} {{ fmt(Math.abs(p.alloc_box)) }} 箱
+                                </b>
+                              </div>
+                              <!-- 「分不满」必须点名：否则经理以为全都推出去了，而实际有人的数据没分完 -->
+                              <div v-if="it.notFull" class="cn-p bad">
+                                ⚠ 该商品<b>未分满</b>，还差 {{ fmt(it.short) }} 箱
+                                （成因：目标分解占比合计不足 100%，或减单时有人报量不够被夹到 0）
+                              </div>
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p class="close-nf-sum">
+                    定稿后把以上明细<b>逐人推送</b>到各自的「我的通知」（小程序 / 网页端铃铛都能查），
+                    共涉及 <b>{{ closeDetail.people }}</b> 人。
+                  </p>
+                </template>
+              </template>
+              <p v-else class="close-nf-none">正在读取加单 / 减单明细…</p>
+            </div>
             <div class="del-actions">
-              <button class="btn btn-ghost" @click="closeOpen = false">取消</button>
-              <button class="btn btn-primary" :disabled="closing" @click="confirmClose">{{ closing ? '关闭中…' : '确认关闭' }}</button>
+              <button class="btn btn-ghost" @click="closeOpen = false">取消，继续修改</button>
+              <button class="btn btn-primary" :disabled="closing" @click="confirmClose">{{ closing ? '定稿并推送中…' : '确定定稿' }}</button>
             </div>
           </div>
         </div>
@@ -2377,7 +2639,7 @@
         <div v-if="peOpen" class="imp-modal pe-modal">
           <div class="imp-hd"><b>修改期次</b><button class="imp-x" @click="peOpen = false"><Icon name="close"/></button></div>
           <div class="imp-body">
-            <p class="imp-tip">只提交你改动过的字段，没动的保持原样。<b>改动期次窗口会改变该期的达成 / 返利归属口径</b>，所以每一次改动都会记入修改日志。</p>
+            <p class="imp-tip">没改动的项会保持原样。<b>改动期次窗口会改变该期的达成 / 返利归属口径</b>，所以每一次改动都会记入修改日志。</p>
             <div class="pe-grid">
               <label>期次名称</label>
               <input v-model="pe.name" class="input" placeholder="如 8月25日报单-8月29日到货">
@@ -2393,7 +2655,8 @@
             </ul>
             <div class="del-actions">
               <button class="btn btn-ghost" @click="peOpen = false">取消</button>
-              <button class="btn btn-primary" :disabled="peSaving" @click="savePeriodEdit">{{ peSaving ? '保存中…' : '保存' }}</button>
+              <!-- v335：按钮级门禁 —— 改期次 = PATCH /api/forecast/periods/{pid} ⇒ data/update -->
+              <button class="btn btn-primary" :disabled="peSaving || !canDo('data', 'update')" @click="savePeriodEdit">{{ peSaving ? '保存中…' : '保存' }}</button>
             </div>
           </div>
         </div>
@@ -2440,7 +2703,8 @@
             </ul>
             <div class="del-actions">
               <button class="btn btn-ghost" @click="pcOpen = false">取消</button>
-              <button class="btn btn-primary" :disabled="pcSaving" @click="savePeriodCopy">{{ pcSaving ? '复制中…' : '创建并复制' }}</button>
+              <!-- v335：按钮级门禁 —— 复制期次 = POST /api/forecast/periods/{pid}/copy ⇒ data/create -->
+              <button class="btn btn-primary" :disabled="pcSaving || !canDo('data', 'create')" @click="savePeriodCopy">{{ pcSaving ? '复制中…' : '创建并复制' }}</button>
             </div>
           </div>
         </div>
@@ -2476,10 +2740,15 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } 
 //    （ErrorBoundary 捕获，用户看到的是白屏/错误页）。改这一行前先 grep 全文的 `useRouter(`。
 import { useRoute, useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
-import { store, toast } from '../store'
+import { store, toast, canDo } from '../store'
 import { auth, api } from '../api/client.js'
 import { forecastApi, auditApi, forecastApproveApi, importApi, productsApi, forecastRecipeApi, columnSchemeApi, forecastColumnsApi, productTargetsApi } from '../api/modules'
 import Icon from '../components/Icon.vue'
+/* v311（2026-09-28）：页内跳转入口要同判据（见 goConnect）。
+   与 CustomerArchive / EmployeeArchive 同一范式：**能进预报的人不一定能进「AI 引擎」**
+   （业务员能报单、能开补货建议弹窗，但 `ADMIN_ROLES` 之外进不了 `/connect`）
+   ⇒ 不判就是"点了被弹回工作台"的假入口。判据源仍是 `constants/pages.js`。 */
+import { canSee } from '../constants/pages'
 import ImportMapping from '../components/ImportMapping.vue'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ForecastHistory from './ForecastHistory.vue'
@@ -2501,6 +2770,17 @@ import { normRole, roleName, isCanonicalRole, ROLE_VIEW_TOKEN_NAMES, canViewFore
 import { ruleCoversMonth } from '../components/rebate/useMonthlyAchv.js'
 
 const periods = ref([])
+/* 🔴 purchase_orders.status 是后端英文枚举（DDL CHECK：draft / pending_approval /
+   confirmed / received / partial / returned / cancelled）。生产实测收到的是 'received'，
+   直接渲染会把英文印在「采购单直发」面板上 ⇒ 必须映射；兜底也必须是中文。 */
+/* 🔴 后端英文枚举：采购单推送状态 `pushed`、异常干预状态 `resolved`/`ack`
+   ⇒ 直接渲染会把英文印在「采购单直发 / 异常修复闭环」面板上（生产实测收到 'received'/'pushed'）。 */
+const HEAL_STATUS_LABEL = { resolved: '已处理', ack: '已知悉' }
+const PO_STATUS_LABEL = {
+  draft: '草稿', pending_approval: '待审批', confirmed: '已确认',
+  received: '已收货', partial: '部分收货', returned: '已退货', cancelled: '已取消',
+}
+
 const curPeriod = ref(0)
 // v180：**归属口径**独立于「当前查看的期次」。
 //   curPeriod 会被期次下拉/往期「查看」改写（= 用户正在看哪期），
@@ -3868,12 +4148,22 @@ const periodLocked = computed(() => {
    （第二套必然与 `forecast_period_writable` 漂移）。 */
 const closedEditMode = computed(
   () => canEditClosedPeriod.value && (periodClosed.value || periodDeadlinePassed.value))
-/* 锁定时给用户的「原因 + 下一步」：区分定稿与截止两种语境（文案不混用，避免误导）。 */
+/* 锁定时给用户的「原因 + 下一步」：区分定稿与截止两种语境（文案不混用，避免误导）。
+   🔴 v319 修正：原文案让用户「去『往期预报』里点『重开』」/「联系管理员重开本期」——
+      而「重开」会把**销售的小程序报单通道一起重新打开**（副作用远大于"只想改个数"），
+      且自动化开着时会在 2~5 分钟内被调度器重新关掉（生产 2026-09-27 实测两次，见
+      `_auto_period_close` 的 docstring）⇒ 那是一条**导向失败的建议**。
+      现在指向真正走得通的两个动作：「解锁编辑」（status 不动、销售照旧报不了单）
+      与「授权改单」（主管/管理员在汇总表直接改，保存即留痕）。 */
 const lockHint = computed(() => {
-  if (periodClosed.value) return '该期次已定稿（关闭），不可改单；如需改动请到「往期预报」里先点「重开」'
+  if (periodClosed.value) {
+    return '该期次已定稿（关闭），不可改单。如需改动：到「往期预报」里对该期次点「解锁编辑」，'
+      + '或由主管/管理员在汇总表直接改单（保存后留痕）'
+  }
   if (periodDeadlinePassed.value) {
     const _p = periods.value.find(x => Number(x.id) === Number(curPeriod.value))
-    return `该期次报单已于 ${_p && _p.order_end || ''} 截止，无法再报单或修改；如需改动请联系管理员重开本期`
+    return `该期次报单已于 ${_p && _p.order_end || ''} 截止，无法再报单或修改。`
+      + '如需改动：请由主管/管理员在汇总表直接改单（保存后留痕）'
   }
   return ''
 })
@@ -4805,7 +5095,7 @@ async function saveEdits(opts = {}) {
   if (!canEditClosedPeriod.value) {
     const _oe = (p.order_end || '').trim()
     if (_oe && _oe < _todayStr()) {
-      toast(`该期次报单已于 ${_oe} 截止，无法再保存。如需改动，请联系管理员重开本期。`, 'warn')
+      toast(`该期次报单已于 ${_oe} 截止，无法再保存。如需改动：请由主管/管理员在汇总表直接改单（保存后留痕）。`, 'warn')
       return
     }
   }
@@ -5109,7 +5399,7 @@ function tryPasteCross(block) {
   toast(`已按客户列粘贴：新增 ${added} 个商品 · 更新 ${updated} 个商品`
     + (skipped ? ` · 跳过 ${skipped} 行（无商品名称）` : '')
     + (bad ? ` · ${bad} 格不合法（已标红）` : '')
-    + '（改完点「保存」落库）', bad || skipped ? 'warn' : 'ok')
+    + '（改完点「保存」）', bad || skipped ? 'warn' : 'ok')
   return true
 }
 
@@ -5184,7 +5474,7 @@ function onPaste(e) {
   if (added || skipped)
     toast(`已从 Excel 粘贴 ${added} 行商品`
       + (skipped ? `，跳过 ${skipped} 行（缺少商品名称或条码）` : '')
-      + '（改完点「保存」落库）', skipped ? 'warn' : 'ok')
+      + '（改完点「保存」）', skipped ? 'warn' : 'ok')
 }
 const savingEdit = ref(false)
 const confirmInfo = ref(null)  // 2026-08-27：期次确认（经理保存汇总表=审批定稿）状态，老板进汇总表一眼看出是否已定稿
@@ -8176,7 +8466,7 @@ async function pushForecast() {
     toast('已推送审批通知', 'ok')
   } catch (e) {
     try { await navigator.clipboard.writeText(summary) } catch (e2) {}
-    toast('已复制审批摘要到剪贴板（后端推送未部署）', 'warn')
+    toast('已复制审批摘要到剪贴板', 'warn')
   } finally { pushing.value = false }
 }
 
@@ -8229,7 +8519,7 @@ async function sendSuggestBook() {
     toast('下单说明已推送审批', 'ok')
   } catch (e) {
     try { await navigator.clipboard.writeText(suggestBookText.value) } catch (e2) {}
-    toast('已复制下单说明到剪贴板（后端推送未部署）', 'warn')
+    toast('已复制下单说明到剪贴板', 'warn')
   } finally { pushing.value = false }
 }
 
@@ -8867,7 +9157,7 @@ async function runHermes() {
   hermesLoading.value = true; hermesResult.value = ''
   try {
     const r = await forecastApi.hermesAnalyze({ context: hermesCtx.value })
-    if (!r.ok) { toast('Hermes 未接通：' + (r.detail || ''), 'warn'); return }
+    if (!r.ok) { toast('AI 副驾未接通：' + (r.detail || ''), 'warn'); return }
     hermesResult.value = r.analysis || '(无返回)'
   } catch (e) { toast('分析失败：' + (e.message || e), 'err') }
   finally { hermesLoading.value = false }
@@ -9062,12 +9352,32 @@ const GATE_REST = '导入和报单都需要先有一个期次。'
    尾部的动作短语按入口给（「再导入预报订单」/「再保存报单」），前半句逐字共用。 */
 const gateReason = (action) => (noOpenPeriod.value
   ? GATE_LEAD + GATE_REST + '请先点「新建期次」创建期次，再' + action : '')
-const importBlockedReason = computed(() =>
-  periodDeadlinePassed.value ? lockHint.value : gateReason('导入预报订单'))
+/* v244：报单保存被**同一道闸**拦住时的原因（原因 + 下一步）。供保存按钮 tooltip、
+   函数内守卫的 toast 共用 —— 三处文案同源，不可能各说一套。 */
+/* v335：导入被拦的原因也归拢到这里。**权限不足优先于期次/截止日** —— 越靠前的越先要解决：
+   没权限的人就算建好期次、掐准时间，也依然导不进去。 */
+const importBlockedReason = computed(() => (canDo('data', 'create')
+  ? (periodDeadlinePassed.value ? lockHint.value : gateReason('导入预报订单'))
+  : '当前角色没有「报单数据 · 新增」权限，不能导入预报订单'))
+const canImport = computed(() => !noOpenPeriod.value && !periodDeadlinePassed.value && canDo('data', 'create'))
 /* v244：报单保存被**同一道闸**拦住时的原因（原因 + 下一步）。供保存按钮 tooltip、
    函数内守卫的 toast 共用 —— 三处文案同源，不可能各说一套。 */
 const saveBlockedReason = computed(() => gateReason('保存报单'))
-const canImport = computed(() => !noOpenPeriod.value && !periodDeadlinePassed.value)
+
+/* 🔴 v335（2026-09-30）：按钮级门禁 —— 报单矩阵保存/重试保存/冲突覆盖这三处都会发
+   `POST /api/forecast-submissions/save-matrix`（模块 `data`、动作 `create`，见后端
+   `_PATH_MODULE_MAP` 的 `/api/forecast-submissions` 键 + 中间件按 HTTP 方法推动作）。
+   ⚠️ 动作取 `create` 而不是 `update`：动作轴的定义是**HTTP 方法**，不是业务语感
+   （「保存」听起来像 update，但它是 POST ⇒ create）。写错会让门禁与后端判据不一致 ——
+   即"门禁撒谎"：按钮亮着，一点就 403。
+   ⚠️ 这里用 `:disabled` 而不是 `v-if`：格子在、数据在，只是存不进去。若整片按钮凭空消失，
+   用户会以为页面坏了；置灰 + tooltip 才是「你没有这一步的权限」的正确表达。 */
+const canSaveMatrix = computed(() => canDo('data', 'create'))
+const savePermHint = '当前角色没有「报单数据 · 新增」权限，不能保存报单'
+/** 保存类按钮的 tooltip：权限不足的说明优先于期次/截止日说明（越靠前的越先要解决）。 */
+const saveGateHint = computed(() => (canSaveMatrix.value ? ''
+  : savePermHint))
+const saveDisabled = computed(() => !canSaveMatrix.value || noOpenPeriod.value || periodDeadlinePassed.value)
 
 function openImport() {
   // v193 硬守卫：无论从哪个入口进来（含将来新增的第三个），先过闸。
@@ -9189,7 +9499,15 @@ async function probeErp() {
   try { const s = await api('/api/datasources/v2/chanjet/status'); chanjetLinked.value = !!s.connected } catch { chanjetLinked.value = false }
   try { const s = await api('/api/datasources/v2/kingdee/status'); kingdeeLinked.value = !!s.connected } catch { kingdeeLinked.value = false }
 }
-function goConnect() { location.hash = '#/connect' }
+/* v311（2026-09-28）：原为裸 `location.hash = '#/connect'`。
+   补货建议弹窗里的「未连接 ERP」提示对**能开这个弹窗的所有角色**都可见（含业务员），
+   而 `#/connect` 只给老板/管理员 ⇒ 业务员点了会被路由守卫弹回工作台，看着像坏了。
+   与 CustomerArchive / EmployeeArchive 统一：先判 `canSee`，无权限就只提示不跳。
+   ⚠️ 改了容器显示名不等于改了路由 —— 跳转目标仍是 `/connect`（没动路径）。 */
+function goConnect() {
+  if (!canSee('/connect')) { toast('你没有访问「AI 引擎」的权限', 'warn'); return }
+  location.hash = '#/connect'
+}
 
 async function openAudit() {
   if (!cross.value.period) { toast('请先选择期次', 'warn'); return }
@@ -9679,10 +9997,61 @@ async function confirmDelete() {
 const closeOpen = ref(false)
 const closeTarget = ref(null)
 const closing = ref(false)
+/* v318：定稿（= 关闭期次）确认弹窗里要列出「本次要推送给谁、每个商品加/减多少」。
+   为什么必须在**弹窗里**先说清：定稿后通知就出去了，事后无法收回；而经理点这一下时
+   并不知道自己上一步在汇总表填的加单量会变成 5 个人的手机通知。 */
+const closeDetail = ref(null)      // { items: [...], people: N }
+const closeDetailErr = ref('')
+const closeExpandPid = ref(0)      // 展开逐人明细的商品
+
+/* 拉本期分配明细，凑出确认弹窗要展示的行。
+   数据源 = `GET /extra-alloc`（**只读**，不重算）—— 与业务员收到的通知**同一份数据**，
+   否则会出现「弹窗说发 3 条、实际按另一份数发了 5 条」。 */
+async function loadCloseDetail(pid) {
+  closeDetail.value = null
+  closeDetailErr.value = ''
+  closeExpandPid.value = 0
+  if (Number(pid) <= 0) return
+  try {
+    const d = await productTargetsApi.extraAlloc(pid)
+    const src = (d && d.data && d.data.items) || {}
+    const items = []
+    const seen = new Set()
+    Object.keys(src).forEach(k => {
+      const it = src[k] || {}
+      const rows = (it.rows || []).filter(x => Math.abs(Number(x.alloc_box) || 0) > 1e-9)
+      if (!rows.length) return
+      const allocated = rows.reduce((s, x) => s + (Number(x.alloc_box) || 0), 0)
+      rows.forEach(x => { if (Number(x.employee_id) > 0) seen.add(Number(x.employee_id)) })
+      items.push({
+        product_id: Number(k),
+        name: it.product_name || ('商品#' + k),
+        verb: allocated >= 0 ? '加单' : '减单',
+        people: rows.length,
+        total: allocated,
+        short: Number(it.short_box) || 0,
+        notFull: it.fully_applied === false && (Number(it.short_box) || 0) > 0,
+        rows: rows.map(x => ({
+          employee_id: Number(x.employee_id) || 0,
+          employee_name: x.employee_name || ('员工' + x.employee_id),
+          ratio: Number(x.ratio) || 0,
+          reported_box: Number(x.reported_box) || 0,
+          alloc_box: Number(x.alloc_box) || 0,
+          final_box: Number(x.final_box) || 0,
+        })),
+      })
+    })
+    closeDetail.value = { items, people: seen.size }
+  } catch (e) {
+    // 读不到不等于"没有" ⇒ 明确说"读取失败"，不要让弹窗看起来像"本期没有加单"
+    closeDetailErr.value = (e && e.message) || '读取加单/减单明细失败'
+  }
+}
 
 function askClose(row) {
   closeTarget.value = row
   closeOpen.value = true
+  loadCloseDetail(row && row.id)
 }
 function onHistoryClose(row) {
   askClose(row)
@@ -9694,12 +10063,24 @@ async function confirmClose() {
   if (Number(row.id) <= 0) { closeOpen.value = false; closeTarget.value = null; toast('合成报单行不可关闭', 'warn'); return }
   closing.value = true
   try {
-    await forecastApi.closePeriod(row.id)
+    const r = await forecastApi.closePeriod(row.id)
     closeOpen.value = false
     closeTarget.value = null
     historyKey.value++            // 重挂往期预报，状态刷新
     await loadPeriods()           // 刷新期次下拉 / 滚动期次
-    toast('已关闭期次：' + (row.name || ''), 'ok')
+    /* v318：回执里带上"通知发了几条、几个人"。这必须显示 —— 经理点了定稿就该知道
+       通知到底出没出去；只回一句「已关闭期次」等于把推送这一步变成不可见的。
+       ⚠️ skipped > 0 = 有人**没有**登录账号 ⇒ 通知没送到他手上（不是"发失败"），
+          要点名提示去员工档案关联账号，否则「系统说通知了、业务员说没收到」。 */
+    const nf = (r && r.notified) || null
+    if (nf && (nf.sent || nf.skipped)) {
+      const bits = ['已定稿：' + (row.name || '')]
+      bits.push(`已通知 ${nf.people} 人（共 ${nf.sent} 条加单/减单明细）`)
+      if (nf.skipped) bits.push(`有 ${nf.skipped} 条未发出：对应员工未关联登录账号，请到「员工档案」补关联`)
+      toast(bits.join('；'), nf.skipped ? 'warn' : 'ok')
+    } else {
+      toast('已定稿：' + (row.name || '') + '（本期无加单/减单，未发送通知）', 'ok')
+    }
   } catch (e) {
     toast('关闭失败: ' + (e.message || ''), 'err')
   } finally {
@@ -9707,29 +10088,85 @@ async function confirmClose() {
   }
 }
 
-/* v219：重开期次 —— 「关闭 = 定稿」的**唯一**补救路径。
-   为什么必须有：`forecast_period_close` 是单向的，而 open 期次又不许删 ⇒ 在补上本入口之前，
-   误关一次 = 永久锁死，且同屏不报任何错。补上之后「关闭」才成为可逆操作。
-   ⚠️ 副作用必须当面说清（不能只在日志里记）：重开会让该期次重新出现在小程序 open 列表里
-   ⇒ **销售又能报单了**。老板以为只是「改个历史数」，实际是把报单通道重新打开了。 */
+/* v219 → v319：这里已拆成**三个语义不同**的动作（用户 2026-09-29 拍板）。
+   历史包袱：v219 的「重开」同时做了 ①让授权角色改数 ②重开销售报单通道 ——
+   而真实场景绝大多数只要 ①（**改一个错数**），却被迫连 ② 一起打开：
+   老板以为只是改个历史数，实际把报单通道重新开了。副作用必须在**确认框里**说清（不能只在日志里记）。 */
 const reopening = ref(false)
+
+async function _doReopen (row, mode, okText) {
+  reopening.value = true
+  try {
+    await forecastApi.reopenPeriod(row.id, mode)
+    historyKey.value++            // 重挂往期预报，状态刷新
+    await loadPeriods()           // 刷新期次下拉
+    toast(okText + '：' + (row.name || ''), 'ok')
+  } catch (e) {
+    toast('操作失败: ' + (e.message || ''), 'err')
+  } finally {
+    reopening.value = false
+  }
+}
+
+/* v319（③）**解锁编辑** —— 只让授权角色能改本期的数，期次**保持已关闭**
+   ⇒ 销售的小程序**照旧报不了单**。副作用最小的那个动作（= 「我只要改个数」的正确选择）。 */
+async function onHistoryUnlock (row) {
+  if (!row) return
+  if (Number(row.id) <= 0) { toast('合成报单行不支持该操作', 'warn'); return }
+  if (reopening.value) return
+  const ok = window.confirm(
+    `解锁编辑期次「${row.name || ''}」？\n\n` +
+    `解锁后你和主管/管理员可以修改本期的报单数据（保存会在通知中心留痕）。\n` +
+    `✅ 销售的小程序报单通道**不会**打开 —— 销售仍然报不了这一期。\n\n` +
+    `如果还想让销售补报单，请改用「恢复报单」。确定解锁吗？`
+  )
+  if (!ok) return
+  await _doReopen(row, 'unlock', '已解锁编辑')
+}
+
+/* v319（③）**恢复报单** —— 本期回到「进行中」，销售可继续报单（= 原「重开」的完整行为）。 */
 async function onHistoryReopen (row) {
   if (!row) return
-  if (Number(row.id) <= 0) { toast('合成报单行不可重开', 'warn'); return }
+  if (Number(row.id) <= 0) { toast('合成报单行不支持该操作', 'warn'); return }
+  if (reopening.value) return
   const ok = window.confirm(
-    `重开期次「${row.name || ''}」？\n\n` +
-    `重开后该期次恢复可编辑，并且【销售的小程序报单通道会重新打开】——销售可以继续报单。\n\n` +
-    `如果只是要改历史数据，改完记得再关闭一次。确定重开吗？`
+    `恢复报单期次「${row.name || ''}」？\n\n` +
+    `本期将回到「进行中」，并且【销售的小程序报单通道会重新打开】—— 销售可以继续报单。\n\n` +
+    `⚠️ 如果只是要改历史数据，请改用「解锁编辑」（那种做法不会打开报单通道）。\n\n` +
+    `确定恢复报单吗？`
+  )
+  if (!ok) return
+  await _doReopen(row, 'full', '已恢复报单')
+}
+
+/* v319（①）**手动推送加单/减单明细**。
+   为什么必须有一个"人点"的出口：自动关单（`scheduler` 直调 db 层、不经端点）**不发通知**
+   ⇒ 那些期次一条都没推出去，而界面原本完全看不出来（v318 的推送只挂在「关闭期次」端点上）。
+   出口定在**人确认的那一次**：自动关单 11:00、授权改单可改到 12:00 —— 若把推送挂在自动关单上，
+   11:00 推的是「一小时后还会被改掉」的版本，而推送**不可撤回**。
+   ⚠️ 服务端**故意不拦重复推送**（人点两次就发两次）：那是明确的人工动作，
+      拦掉反而让"补推一次"这个正当操作做不到。防误点是这里的 confirm 的职责。 */
+async function onHistoryPush (row) {
+  if (!row) return
+  if (Number(row.id) <= 0) { toast('合成报单行不支持该操作', 'warn'); return }
+  if (reopening.value) return
+  const ok = window.confirm(
+    `把期次「${row.name || ''}」的加单/减单明细推送给对应业务员？\n\n` +
+    `推送后消息会出现在相关业务员的「我的通知」里（小程序 / 站内通知中心）。\n` +
+    `⚠️ 消息发出后**无法撤回**；若数据还没改完，建议改完再推。\n\n` +
+    `确定推送吗？`
   )
   if (!ok) return
   reopening.value = true
   try {
-    await forecastApi.reopenPeriod(row.id)
-    historyKey.value++            // 重挂往期预报，状态刷新
-    await loadPeriods()           // 刷新期次下拉
-    toast('已重开期次：' + (row.name || ''), 'ok')
+    const r = await forecastApi.pushExtraAlloc(row.id)
+    const n = (r && r.notified && r.notified.sent) || 0
+    const people = (r && r.notified && r.notified.people) || 0
+    historyKey.value++
+    if (n > 0) toast(`已推送 ${n} 条通知（涉及 ${people} 人）`, 'ok')
+    else toast('本期没有可推送的加单/减单明细', 'warn')
   } catch (e) {
-    toast('重开失败: ' + (e.message || ''), 'err')
+    toast('推送失败: ' + (e.message || ''), 'err')
   } finally {
     reopening.value = false
   }
@@ -9780,7 +10217,14 @@ async function loadPtGap() {
 }
 
 /* 加单列角标的**唯一取值处**（渲染与悬停都读它，免得两处各判一次口径）。
-   返回 {kind, text, gap, alloc}；null = 这个商品本期没有可显示的加单依据。 */
+   返回 {kind, text, gap, alloc, short}；null = 这个商品本期没有可显示的加单依据。
+
+   v318 新增第四态 `short`（**分不满**）：
+     `kind:'done'` 只说「加6」，但经理填的可能是 9 —— 「说加 9 实际只加了 6」这件事此前
+     **只写在服务端 warning 日志里**，界面上完全看不出来。现在角标直接点名「加6 ⚠差3」。
+     🔴 判据用 `fully_applied === false`（**严格等于 false**），不用 `!fully_applied`：
+        旧版后端响应里没有这个键 ⇒ `!undefined` 为真 ⇒ 会对每一行都误报 ⚠。
+        严格比对让「后端还没上线」这一态自然降级为「不显示告警」。 */
 function ptExtraMark(r) {
   const pid = Number(r && r.product_id)
   if (!pid) return null
@@ -9789,13 +10233,546 @@ function ptExtraMark(r) {
   const gap = g ? Number(g.gap_total_box) : null
   const ops = (g && g.operators) || []
   const hasAlloc = !!(a && (a.rows || []).length)
+  // ── v336 第五态「悬空」：**本行填了加单、却一个人都分不到** ────────────────
+  // 用户原话：「这样用户知道**到底加没加上**」。此前这一类**完全静默** ——
+  //   角标不出现、零报错，经理填了 12 箱以为分出去了，实际没有任何落点。
+  // 🔴 判据取「后端下发的 `alloc_members` 是否为空」，**不取**"有没有分配行"：
+  //   后者在编辑态（还没保存）恒为空 ⇒ 会把**每一行**都标成悬空（纯噪音）。
+  //   「有没有人可分」与「保存了没有」无关，它只取决于事实（有人报过 / 有承接人）。
+  if (ptExtraAlert(r) === 'void') {
+    return { kind: 'void', text: '悬空', gap, alloc: null, short: 0 }
+  }
   if (!hasAlloc && !(ops.length && gap > 0)) return null
   if (hasAlloc) {
     // 已分配 ⇒ 角标改为**结果**（经理要知道自己那一笔最终落了什么）
     const d = Number(a.total_delta) || 0
-    return { kind: 'done', text: (d >= 0 ? '加' : '减') + fmt(Math.abs(d)), gap, alloc: a }
+    const short = Number(a.short_box) || 0
+    const notFull = a.fully_applied === false && short > 0
+    return {
+      kind: notFull ? 'short' : 'done',
+      text: (d >= 0 ? '加' : '减') + fmt(Math.abs(d)) + (notFull ? ' ⚠差' + fmt(short) : ''),
+      gap, alloc: a, short: notFull ? short : 0
+    }
   }
-  return { kind: 'gap', text: '缺' + fmt(gap), gap, alloc: null }
+  return { kind: 'gap', text: '缺' + fmt(gap), gap, alloc: null, short: 0 }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v336 · 加/减单分摊「到底加没加上」的**即时反馈**（用户 2026-09-30）
+
+   用户原话：「把加单的那个数字变红，鼠标悬停可以看到这个数是怎么来的，
+   这样用户知道到底加没加上」——并补充「变红只是举例，你按自己的 UI 规范选更好的方案」。
+
+   🔴 为什么**不用红色**（这是本轮唯一需要解释的设计取舍）：
+      红色在本汇总表已被三处占用且语义已固定 ——
+        · `.cell-minus`（加单格**填了负数**= 减单）：红字 + 加粗 + 红框；
+        · 单元格硬错角标 `.cell-err-dot`（重复条码 / 超上限…）；
+        · `.final-neg`（最终下单被减成负数 = **真的算不通**）。
+      再给红色加上「没人可分」这一义，用户就会「看到红就以为这一格填错了」——
+      而**没人可分根本不是填错**：加单量本身完全合法，缺的是别处的数据
+      （没人报过这个商品 / 目标没填承接人）。⇒ 用 `--war`（橙）：
+      与 `moq-below`、角标 `has-gap` 同族语义 —— **值得注意，但不是错误**。
+      红色继续专属「填错了 / 算不通」。
+
+   通道分配（互不遮挡，沿用既有的四通道布局）：
+       数字颜色   · 减单 ⇒ 红（既有，不动）
+                  · 悬空 ⇒ **橙 + 加粗**（新增；负数时红优先，橙条仍给）
+       左侧竖条   · 悬空 ⇒ 橙实线 2px   · 分不满 ⇒ 橙虚线（新增）
+       角标(右上) · `悬空` / `加6 ⚠差3`（既有体系扩展）
+       悬停       · **完整来源**：按什么依据、分给谁各多少、为什么分不出去
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 可分摊对象 —— **前端只读后端下发的那一份**，绝不自己判（v336 单一实现）。
+   后端 `_alloc_members_of()` 同时驱动「保存落库」与「本判据」，三处同源。 */
+function allocMembers(r) {
+  const pid = Number(r && r.product_id)
+  if (!pid) return []
+  const g = ptGap.value[pid] || null
+  return (g && g.alloc_members) || []
+}
+/* 占比来源：'target' = 目标分解档案（可改、全期生效）/ 'reported' = 本期报单量推导（只读） */
+function allocBasis(r) {
+  const pid = Number(r && r.product_id)
+  const g = pid ? (ptGap.value[pid] || null) : null
+  return (g && g.alloc_basis) || ''
+}
+
+/* 加单格的**告警态**（唯一取值处：模板 class、角标、悬停三处都读它）
+     ''      —— 正常：没填 / 已落上 / 只是还没保存
+     'void'  —— **无人可分**：这笔加单不会有任何落点（必须显式告知）
+     'short' —— 已保存且有分配行，但**没分满**（说加 9 实际加了 6） */
+function ptExtraAlert(r) {
+  const eq = Number(r && r.extraQty) || 0
+  if (Math.abs(eq) < 1e-9) return ''                  // 没填 ⇒ 无事发生
+  const a = ptAlloc.value[Number(r.product_id)] || null
+  if (a && (a.rows || []).length) {
+    // 已有分配结果 ⇒ 按**实际结果**判（与角标同源判据）
+    const short = Number(a.short_box) || 0
+    return (a.fully_applied === false && short > 0) ? 'short' : ''
+  }
+  // 还没有分配结果 ⇒ 只有「**一个人都分不到**」才是真问题（保存后也不会有落点）
+  return allocMembers(r).length ? '' : 'void'
+}
+/* 加单格容器的类（左侧竖条走它：在 input 上做 box-shadow 会被单元格裁剪） */
+function ptExtraCellCls(r) {
+  const s = ptExtraAlert(r)
+  return s ? ('xm-' + s) : ''
+}
+
+/* 加单格的悬停说明 —— 直接回答用户那一问：**「这个数是怎么来的 / 到底加没加上」** */
+function ptExtraInputTitle(r) {
+  const eq = Number(r && r.extraQty) || 0
+  if (Math.abs(eq) < 1e-9) return '可填负数 = 减单'
+  const mem = allocMembers(r)
+  const L = ['本格：' + (eq > 0 ? '加' : '减') + ' ' + fmt(Math.abs(eq)) + ' 箱']
+  if (!mem.length) {
+    // v336b：与 `ptExtraTip`（本行加单格悬停）**同源分支** —— 同一件事只能有一个说法，
+    //   否则「悬停说 A、格内提示说 B」。`unmapped_box` > 0 = 报单列头没接上报单人。
+    const g = ptGap.value[Number(r && r.product_id)] || null
+    const _unm = Number(g && g.unmapped_box) || 0
+    L.push('⚠ 这 ' + fmt(Math.abs(eq)) + ' 箱**分不到任何人头上** —— '
+           + (_unm > 0
+              ? '该商品有 ' + fmt(_unm) + ' 箱报单**挂不上人**（报单列头没在「报单配置」里对应到「报单人」）'
+              : '本期没有人报过这个商品')
+           + '，也没有商品目标（或目标没填承接人）。')
+    L.push('保存汇总表后，同样不会有任何人的量被调整。')
+    L.push('要让它生效：'
+           + (_unm > 0 ? '去「报单配置」把该列头对应到报单人，'
+                       : '先让业务员在「报单」里报这个商品，')
+           + '或在「商品目标」里建目标并填承接人。')
+    return L.join('\n')
+  }
+  const _bs = allocBasis(r)
+  L.push('按' + (_bs === 'override'
+                 ? '**本期临时占比**（只影响本期，未改商品目标档案）'
+                 : (_bs === 'reported'
+                    ? '**本期各人报单量**（原本自动推导；可在「分摊」里改成本期专用占比）'
+                    : '**商品目标分解占比**（档案配置，改了全期生效）'))
+         + '分给 ' + mem.length + ' 人：')
+  mem.forEach(m => {
+    const nm = m.employee_name || ('员工' + m.employee_id)
+    const al = eq * (Number(m.ratio) || 0) / 100
+    L.push('· ' + nm + '：占比 ' + fmt(m.ratio) + '% ⇒ '
+           + (al >= 0 ? '加' : '减') + ' ' + fmt(Math.abs(al)) + ' 箱'
+           + '（本期报 ' + fmt(m.reported_box) + ' 箱）')
+  })
+  L.push(mem.length === 1
+    ? '只有 1 人可承接 ⇒ 保存汇总表时**自动全部给他**，不必手动分摊。'
+    : '保存汇总表时自动生效；要调占比，点本格右下角的「分摊」。')
+  return L.join('\n')
+}
+
+/* 「分摊」按钮的悬停说明 —— 依据必须说清（两种来源改不改得动完全不同） */
+function ptAllocBtnTitle(r) {
+  const _bs = allocBasis(r)
+  const src = _bs === 'override' ? '本期临时占比（只影响本期）'
+    : (_bs === 'reported' ? '本期各人报单量（该商品本月没有目标；改动会存成本期专用占比）'
+                          : '商品目标分解占比')
+  return '把这个加单/减单分到各业务员：按「' + src + '」分；可在此直接改占比或加单量'
+}
+
+/* v318 起：本行**能不能打开「按比例分摊」**。
+   v336 两处改动（用户拍板方案 B）：
+     ① **放宽** —— 判据从「有目标 + 有承接人」改为「**可分摊对象 ≥ 2 人**」。
+        无目标商品的承接人 = 本期报单人（后端 `alloc_members` 唯一判定），
+        所以「只要填了加单数字、且有人可分」入口就出现。
+     ② **收紧** —— **只有 1 人时不弹窗**：分摊是恒等映射（全部给他），
+        弹窗纯属打扰；改由加单格悬停告知「保存时自动全部给他」。
+   ⚠️ 判据取「可分摊对象」，**不取**「有没有角标」—— 角标还要求"差额 > 0"，
+      而经理在**差额为 0** 时同样可能想预分一笔加单。 */
+function hasAllocTarget(r) {
+  return allocMembers(r).length >= 2
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v318 · 一键分摊（预演台）
+
+   定位：**不是再发明一次分摊**。算法（后端 `domain/product_targets.allocate`）、比例档案
+   （`product_target_alloc.ratio`）都早已存在；本弹窗只做「一屏预览 + 可改比例 + 实时校验」。
+
+   🔴 三条纪律（绕开就会重演本项目反复栽的同一类坑）：
+     ① **预览必须调后端**（`/extra-alloc/preview`），前端**绝不另写一份 allocate**：
+        减单的「夹断到 0 后按相对占比重分」是边界敏感的，两份实现必然在边界上给出两个答案
+        —— 而这页的数字要拿去跟业务员对账（「同屏两个同名数对不上」）。
+     ② **比例写档案**（`PUT /api/product-targets/{tid}`），不是本期一次性覆盖 —— 用户原文
+        「系统既定分摊比例」指的就是档案。⚠️ 副作用：**全期生效**，弹窗里必须红字说清。
+     ③ **加单量仍随「保存汇总表」落库**（本弹窗只把它回填到本行）—— 与既有落库时机一致，
+        不新增第二条写路径。
+   ══════════════════════════════════════════════════════════════════════════ */
+const allocOpen = ref(false)
+const allocBusy = ref(false)          // 正在读 setup / 正在应用
+const allocPrev = ref(false)          // 正在预演（只影响按钮文案，不锁输入）
+/* ── v336：本商品的分摊占比是不是**推导出来的**（无目标 ⇒ 按本期报单量）──────────
+   `true` 时：比例**只读**（它由报单事实推出，不由人手改）、无档案可写、
+             「应用」= 只把加单量回填本行；界面文案全部换成"按报单量"口径。
+   🔴 判据取**后端 setup 的 `basis`**，不在前端猜（猜 = 第二份实现，迟早与后端分叉）。 */
+const allocIsDerived = computed(() =>
+  String((allocSetup.value && allocSetup.value.basis) || '') === 'reported')
+/* ── v339（P1）：占比是**本期临时设定**的 ──────────────────────────────────────
+   `true` 时：占比可改，改动存进「本期临时占比」、**只影响本期**（不写商品目标档案）。
+   老板原话：「**L2 的比例『临时改只影响本期』放 P1**」。
+   🔴 判据取后端 setup 的 `basis`（与 `allocIsDerived` 同一条纪律：不在前端猜 —— 猜就是
+      第二份实现，迟早与后端分叉）。 */
+const allocIsOverride = computed(() =>
+  String((allocSetup.value && allocSetup.value.basis) || '') === 'override')
+/* 占比**能不能改** —— v339 起判据只有一条：本期有没有可分摊对象。
+   ⚠️ 旧版把 `reported`（按报单量推导）设为**只读** —— 那等于对用户说
+      "想按本月实际情况调？先去建个商品目标吧"，而他要的只是**这一期**的分法。
+   · target   ⇒ 改 = 写档案（**全期生效**），既有行为不变；
+   · reported ⇒ 改 = 存本期临时占比（v339 新增，只影响本期）；
+   · override ⇒ 继续改本期那一份（再改就覆盖）。 */
+const allocRatioEditable = computed(() => !!allocSetup.value && !allocFlags.value.no_members)
+const allocErr = ref('')
+const allocRow = ref(null)            // 本次要分摊的**编辑态行**（回填加单量写在这里）
+const allocSetup = ref(null)          // setup 接口的 data
+const allocRows = ref([])             // 预演结果（**唯一权威**：加单/定稿两列直接读它）
+const allocSummary = ref(null)        // 预演 summary（fully_applied / ratio_gap / clip_gap）
+const allocRatioTotal = ref(0)
+const allocRatioOk = ref(false)
+const allocTargetId = ref(0)
+const allocFlags = ref({})
+const allocTotalRaw = ref('')         // 总量输入框的**原串**（见下方"为什么存原串"）
+const allocRatiosRaw = ref({})        // {eid: '占比原串'}
+const allocAllocsRaw = ref({})        // {eid: '加单原串'}（显示用；每轮预演后回填）
+const allocArchiveRatios = ref({})    // 档案原比例（供「恢复档案原比例」）
+const allocFocusEid = ref(0)          // 当前聚焦的「加单(箱)」输入框所属人（防预演回填打断输入）
+let _allocSeq = 0
+let _allocTimer = null
+
+/* 为什么三列数字都存**原串**而不直接存 number：
+   `Number("12.")` = 12 ⇒ 若边打边把数字写回 `:value`，用户**永远打不出小数点**
+   （敲了 `.` 立刻被抹掉）——与编辑网格 `numCommit` 的注释踩的是同一件事。
+   故：输入期只做全角折算 + 存原串；**离开这一格（@change）**才收敛成数字并触发联动。 */
+const _r3 = (v) => Math.round((Number(v) || 0) * 1000) / 1000
+const _r2 = (v) => Math.round((Number(v) || 0) * 100) / 100
+const _allocPid = () => Number((cross.value && cross.value.period && cross.value.period.id) || 0)
+
+function allocRowRef(r) {
+  // 模板里的 `r` 就是 `cross.rows` 的元素（编辑态唯一实例）⇒ 一般直接可用；
+  // 这里再按 product_id 定一次位，避免"传进来的其实是只读表那份副本"时把值写丢。
+  const pid = Number(r && r.product_id)
+  const rows = (cross.value && cross.value.rows) || []
+  return rows.find(x => Number(x.product_id) === pid) || r
+}
+
+function syncAllocAllocsFromRows() {
+  const m = {}
+  ;(allocRows.value || []).forEach(x => {
+    const e = Number(x.employee_id)
+    if (e !== Number(allocFocusEid.value || 0)) m[e] = String(_r3(x.alloc_box))
+  })
+  // 正在打字的那一格保留用户原串（预演回填不得打断输入）
+  const fe = Number(allocFocusEid.value || 0)
+  if (fe && allocAllocsRaw.value[fe] != null) m[fe] = allocAllocsRaw.value[fe]
+  allocAllocsRaw.value = m
+}
+
+async function runAllocPreview() {
+  const data = allocSetup.value
+  const periodId = _allocPid()
+  const pid = Number(data && data.product && data.product.id) || 0
+  if (!data || !periodId || !pid) return
+  const seq = ++_allocSeq
+  allocPrev.value = true
+  try {
+    const ratios = Object.keys(allocRatiosRaw.value).map(k => ({
+      employee_id: Number(k), ratio: _allocNum(allocRatiosRaw.value[k]),
+    }))
+    const d = await productTargetsApi.extraAllocPreview({
+      periodId, productId: pid,
+      totalDelta: _allocNum(allocTotalRaw.value),
+      ratios,
+    })
+    if (seq !== _allocSeq) return              // 过期响应直接丢弃（连点/连改会并发多个请求）
+    const dd = (d && d.data) || null
+    allocRows.value = (dd && dd.rows) || []
+    allocSummary.value = (dd && dd.summary) || null
+    allocRatioTotal.value = dd ? Number(dd.ratio_total) : 0
+    allocRatioOk.value = dd ? !!dd.ratio_ok : false
+    allocTargetId.value = dd ? (Number(dd.target_id) || 0) : 0
+    allocFlags.value = (dd && dd.flags) || {}
+    allocErr.value = ''
+    syncAllocAllocsFromRows()
+  } catch (e) {
+    if (seq !== _allocSeq) return
+    allocErr.value = (e && e.message) || '预演失败'
+  } finally {
+    if (seq === _allocSeq) allocPrev.value = false
+  }
+}
+function allocPreviewSoon() {
+  if (_allocTimer) clearTimeout(_allocTimer)
+  _allocTimer = setTimeout(() => { _allocTimer = null; runAllocPreview() }, 260)
+}
+
+async function openAlloc(row) {
+  if (!row) return
+  const pid = Number(row.product_id) || 0
+  // ── v336（方案 B）：**单人可承接 ⇒ 不弹窗**（分摊是恒等映射，弹窗纯属打扰）──────
+  //   按钮本就不会出现（`hasAllocTarget` 要求 ≥2 人），这里是**纵深防御**：
+  //   万一从别的路径到达（键盘、旧缓存、深链），也走同一条规则，
+  //   而不是弹出"只有一个人"的列表让经理白点一次。
+  //   🔴 关键：**必须 toast 说清**，不能静默返回 —— 用户点了没反应会以为坏了。
+  const _mem = allocMembers(row)
+  if (_mem.length === 1) {
+    const _nm = _mem[0].employee_name || ('员工' + _mem[0].employee_id)
+    toast(`本商品本期只有「${_nm}」一人能承接 —— 保存汇总表时会自动把全部加/减单给他，`
+          + `不需要手动分摊`, 'ok')
+    return
+  }
+  if (!_mem.length) {
+    toast('本商品本期没有人能承接这笔加/减单 —— 先让业务员在「报单」里报这个商品，'
+          + '或在「商品目标」里建目标并填承接人', 'warn')
+    return
+  }
+  const periodId = _allocPid()
+  if (!pid || !periodId) { toast('当前没有可分摊的期次（合成「今日报单」没有期次）', 'warn'); return }
+  allocRow.value = row
+  allocOpen.value = true
+  allocSetup.value = null
+  allocRows.value = []
+  allocSummary.value = null
+  allocErr.value = ''
+  allocFlags.value = {}
+  allocTargetId.value = 0
+  allocRatioOk.value = false
+  allocRatioTotal.value = 0
+  allocArchiveRatios.value = {}
+  allocRatiosRaw.value = {}
+  allocAllocsRaw.value = {}
+  allocFocusEid.value = 0
+  allocTotalRaw.value = String(_r3(row.extraQty))
+  allocBusy.value = true
+  try {
+    const d = await productTargetsApi.extraAllocSetup(periodId, pid)
+    // 期间用户可能关了、或又点了别的商品 ⇒ 只在"还是这一个商品"时才落盘
+    if (!allocOpen.value || !allocRow.value || Number(allocRow.value.product_id) !== pid) return
+    const data = (d && d.data) || null
+    allocSetup.value = data
+    if (data) {
+      // 总量的初值：优先用接口给的"经理填的"（本行可能还没进编辑），否则用本行当前值
+      const cur = Number(data.total_delta) || 0
+      if (cur) allocTotalRaw.value = String(_r3(cur))
+      const arch = {}, raw = {}
+      ;(data.members || []).forEach(m => {
+        const e = Number(m.employee_id) || 0
+        if (!e) return
+        arch[e] = Number(m.ratio) || 0
+        raw[e] = String(_r2(m.ratio))
+      })
+      allocArchiveRatios.value = arch
+      allocRatiosRaw.value = raw
+    }
+    await runAllocPreview()
+  } catch (e) {
+    allocErr.value = (e && e.message) || '读取分摊依据失败'
+    toast('读取分摊依据失败：' + allocErr.value, 'err')
+  } finally {
+    allocBusy.value = false
+  }
+}
+function closeAlloc() { allocOpen.value = false; allocRow.value = null }
+
+/* 总量（改完离开这一格 ⇒ 联动重算） */
+function onAllocTotalInput(e) { numInput(e, (v) => { allocTotalRaw.value = v }) }
+function onAllocTotalCommit(e) {
+  const v = _allocNum(e && e.target ? e.target.value : allocTotalRaw.value)
+  allocTotalRaw.value = String(v)
+  loadAllocArchivedRatiosIfEmpty()
+  runAllocPreview()
+}
+/* 占比（同上；比例始终是"输入源"，预演**不回写**它） */
+function onAllocRatioInput(e, eid) { numInput(e, (v) => { allocRatiosRaw.value[eid] = v }) }
+function onAllocRatioCommit(e, eid) {
+  const v = _allocNum(e && e.target ? e.target.value : allocRatiosRaw.value[eid])
+  allocRatiosRaw.value[eid] = String(v)
+  runAllocPreview()
+}
+function loadAllocArchivedRatiosIfEmpty() {
+  // setup 没回来时（极少数：接口失败）用户仍可能改总量 ⇒ 至少让比例有一份可算的值
+  const raw = allocRatiosRaw.value || {}
+  if (Object.keys(raw).length) return
+  const arch = allocArchiveRatios.value || {}
+  const m = {}
+  Object.keys(arch).forEach(k => { m[k] = String(_r2(arch[k])) })
+  allocRatiosRaw.value = m
+}
+
+/* 加单(箱) 直接改 ⇒ **反向回推比例**：rᵢ := aᵢ / Σa × 100，并把总量改为 Σa。
+   为什么双向都要收敛：只改 aᵢ 而不改 rᵢ 会让 Σaᵢ ≠ 总量，而 `allocate()` 是按占比算的
+   ⇒ 下一次预演会把用户刚填的数**改回去**（"填了没用"）。两条路径必须同时收敛。
+   🔴 归一化是**公开的界面规则**（不是 `allocate` 的第二份实现）：它只做"按权重缩放"，
+     不碰夹断/重分 —— 那部分仍只由后端算。 */
+function onAllocAllocInput(e, eid) { numInput(e, (v) => { allocAllocsRaw.value[eid] = v }) }
+function onAllocAllocCommit(e, eid) {
+  const rows = allocRows.value || []
+  if (!rows.length) return
+  const v = _allocNum(e && e.target ? e.target.value : allocAllocsRaw.value[eid])
+  allocAllocsRaw.value[eid] = String(v)
+  const want = {}          // {eid: 用户想要的加单量}
+  rows.forEach(x => {
+    const k = Number(x.employee_id)
+    want[k] = (k === Number(eid)) ? v
+      : _allocNum(allocAllocsRaw.value[k] != null ? allocAllocsRaw.value[k] : _r3(x.alloc_box))
+  })
+  const sum = Object.keys(want).reduce((s, k) => s + (Number(want[k]) || 0), 0)
+  if (Math.abs(sum) < 1e-9) { toast('各人的加单量合计为 0，无法反推占比', 'warn'); runAllocPreview(); return }
+  // 归一化到 Σ=100（保留 2 位；尾差补到**绝对值最大**的那一项，避免末位 99.99/100.01 抖动）
+  const keys = Object.keys(want)
+  const raw = keys.map(k => (Number(want[k]) || 0) / sum * 100)
+  const rnd = raw.map(x => Math.round(x * 100) / 100)
+  let resid = Math.round((100 - rnd.reduce((s, x) => s + x, 0)) * 100) / 100
+  if (Math.abs(resid) >= 0.005) {
+    let bi = 0
+    rnd.forEach((x, i) => { if (Math.abs(raw[i]) > Math.abs(raw[bi])) bi = i })
+    rnd[bi] = Math.round((rnd[bi] + resid) * 100) / 100
+  }
+  const newRaw = {}
+  keys.forEach((k, i) => { newRaw[k] = String(rnd[i]) })
+  allocRatiosRaw.value = newRaw
+  allocTotalRaw.value = String(_r3(sum))
+  runAllocPreview()
+}
+
+/* 平均分配：Σ 精确 = 100，尾差给最后一人（与 `ProductTarget.vue::splitEven` 同规则） */
+function allocSplitEven() {
+  const rows = allocRows.value || []
+  if (!rows.length) return
+  const n = rows.length
+  const base = Math.round((100 / n) * 100) / 100
+  const raw = {}
+  rows.forEach((x, i) => {
+    const e = Number(x.employee_id)
+    raw[e] = String(i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base)
+  })
+  allocRatiosRaw.value = raw
+  runAllocPreview()
+}
+function allocResetRatios() {
+  const arch = allocArchiveRatios.value || {}
+  const raw = {}
+  Object.keys(arch).forEach(k => { raw[k] = String(_r2(arch[k])) })
+  allocRatiosRaw.value = raw
+  runAllocPreview()
+}
+function allocRatiosChanged() {
+  const arch = allocArchiveRatios.value || {}
+  const raw = allocRatiosRaw.value || {}
+  const ks = Object.keys(raw)
+  if (ks.length !== Object.keys(arch).length) return true
+  for (const k of ks) {
+    if (Math.abs(_allocNum(raw[k]) - (Number(arch[k]) || 0)) > 0.005) return true
+  }
+  return false
+}
+/* `parseNumInput` 解析失败时会**保留原串**（这是它的既有契约，见 Q18 注释）⇒ 这里必须再收敛
+   成有限数字，否则 `Math.abs('abc')` = NaN 会顺手把整块界面染成 NaN。 */
+function _allocNum(v) {
+  const n = parseNumInput(v)
+  return (typeof n === 'number' && isFinite(n)) ? n : 0
+}
+function allocTotalNum() { return _allocNum(allocTotalRaw.value) }
+function allocAllocNum(eid) {
+  const raw = allocAllocsRaw.value[eid]
+  if (raw != null) return _allocNum(raw)
+  const r = (allocRows.value || []).find(x => Number(x.employee_id) === Number(eid))
+  return r ? Number(r.alloc_box) || 0 : 0
+}
+
+/* 应用：① 比例写目标档案（全期生效，仅在改动时写）② 加单量回填本行（仍随「保存」落库） */
+async function applyAlloc() {
+  const data = allocSetup.value, row = allocRow.value
+  if (!data || !row || allocBusy.value) return
+  if (allocRatioOk.value !== true) {
+    toast(`占比合计 ${fmt(allocRatioTotal.value)}%，必须等于 100% 才能应用到目标档案`, 'warn'); return
+  }
+  const tid = Number(allocTargetId.value) || 0
+  // ── v339（P1）：占比存到哪 —— **两条不同的写路**，由 `basis` 决定（判据来自后端）──
+  //   · 'target'                ⇒ 写**商品目标档案**（`PUT /product-targets/{tid}`），
+  //                                 **全期生效**（v318 既有行为，不变）；
+  //   · 'reported' / 'override' ⇒ 写**本期临时占比**（`PUT .../extra-alloc/override`），
+  //                                 **只影响本期**、不碰档案（v339 新增）。
+  //   🔴 旧实现把 'reported' 的 `changed` 直接置 `false` ⇒ 用户改了比例、点「应用」、
+  //      看到「记得点保存」、保存后**比例回到原样** —— 而且**全程零报错**。
+  //      这正是本项目反复栽的那类「界面允许你改、保存后无声丢失」。
+  const _basis = String((allocSetup.value && allocSetup.value.basis) || 'target')
+  const _derived = (_basis === 'reported')
+  const _ovr = (_basis === 'override')
+  // 本期临时占比这条路（L2 推导 / 已被覆盖）**不需要**目标档案 ⇒ 没有 tid 也合法
+  const _periodPath = (_derived || _ovr)
+  if (!tid && !_periodPath) {
+    toast('该商品本月没有启用的目标，比例无处可存（请先到「商品目标」页建目标）', 'err'); return
+  }
+  const changed = allocRatiosChanged()
+  const _pid = Number((data.product && data.product.id) || 0)
+  const _periodId = _allocPid()
+  allocBusy.value = true
+  try {
+    if (changed) {
+      if (_periodPath) {
+        // v339：本期临时占比（**只影响本期**）。整组提交 —— 占比是一组相互约束的值（Σ=100），
+        //   逐行 upsert 会让并发读取侧读到"合计不是 100%"的中间态。
+        await productTargetsApi.extraAllocOverride({
+          periodId: _periodId, productId: _pid,
+          ratios: (allocRows.value || []).map(x => ({
+            employee_id: Number(x.employee_id),
+            ratio: _allocNum(allocRatiosRaw.value[Number(x.employee_id)]),
+          })),
+        })
+      } else {
+        // 全量提交（`_write_allocs` 是整体替换）—— 保持与档案同样的排序（sort_no = 数组下标）
+        const allocs = (allocRows.value || []).map(x => ({
+          employee_id: Number(x.employee_id),
+          employee_name: x.employee_name || '',
+          ratio: _allocNum(allocRatiosRaw.value[Number(x.employee_id)]),
+        }))
+        await productTargetsApi.update(tid, { allocs })
+      }
+    }
+    row.extraQty = allocTotalNum()
+    saveDraftNow()
+    // toast 必须按**实际写了什么**说 —— 说错就是让用户对"全期比例变没变"产生错误预期。
+    toast(_periodPath
+      ? (changed
+        ? '已保存本期临时占比（**只影响本期**，没改商品目标档案），并把加单量回填到本行 —— 记得点「保存」'
+        : `已把加单量回填到本行 —— 本商品本期按**各人报单量**自动分给 ${(allocRows.value || []).length} 人，记得点「保存」`)
+      : (changed
+        ? '已更新该商品的目标档案占比（全期生效），并把加单量回填到本行 —— 记得点「保存」'
+        : '已把加单量回填到本行 —— 记得点「保存」'), 'ok')
+    closeAlloc()
+  } catch (e) {
+    toast('应用失败：' + ((e && e.message) || '未知错误'), 'err')
+  } finally {
+    allocBusy.value = false
+    loadPtGap()        // 比例/分配可能已变 ⇒ 刷新角标与悬停（只读；失败静默）
+  }
+}
+
+/* v339：**清除本期临时占比** —— 回到自动判据（有档案按档案、无档案按报单量）。
+   这是「改错了要能退回去」的**唯一**入口：没有它，用户只能把每个人手动敲回原值，
+   而且**永远回不到"没设过"的状态**（`basis` 会一直是 override，界面也就一直说"你改过"，
+   可他其实想撤销）。
+   ⚠️ 只清占比、**不动加单量** —— 加单量是另一件事，仍随「保存汇总表」落库。 */
+async function allocClearOverride() {
+  const data = allocSetup.value
+  if (!data || allocBusy.value) return
+  const _pid = Number((data.product && data.product.id) || 0)
+  const _periodId = _allocPid()
+  if (!_pid || !_periodId) { toast('当前没有可分摊的期次', 'warn'); return }
+  allocBusy.value = true
+  try {
+    // ratios 传空数组 = 清除（后端语义：空即撤销覆盖、回落到自动判据）
+    await productTargetsApi.extraAllocOverride({
+      periodId: _periodId, productId: _pid, ratios: [],
+    })
+    toast('已清除本期临时占比 —— 该商品恢复为自动判据（有目标按目标、没有则按本期报单量）', 'ok')
+    closeAlloc()
+  } catch (e) {
+    toast('清除失败：' + ((e && e.message) || '未知错误'), 'err')
+  } finally {
+    allocBusy.value = false
+    loadPtGap()
+  }
 }
 
 /* 悬停说明 = 「这一格加单量是怎么来的」的完整算路：差额怎么算 → 是否已按占比分到人。
@@ -9804,8 +10781,31 @@ function ptExtraTip(r) {
   const pid = Number(r && r.product_id)
   const g = ptGap.value[pid] || null
   const a = ptAlloc.value[pid] || null
-  if (!g && !a) return []
+  const _void = ptExtraAlert(r) === 'void'
+  if (!g && !a && !_void) return []
   const L = []
+  // ── v336：**悬空**（本行填了加单，但一个人都分不到）—— 放在最前，因为它最要紧 ────
+  // 此前这一类**完全静默**：角标不出现、零报错，用户无从知道「到底加没加上」。
+  if (_void) {
+    const eq = Number(r && r.extraQty) || 0
+    L.push(`本商品本期${eq > 0 ? '加' : '减'} ${fmt(Math.abs(eq))} 箱 —— **分不到任何人头上**`)
+    // v336b：成因有两类，**必须分开说** —— 否则「有人报过、只是报单列头没接上员工」
+    //   会被说成「本期没有人报过这个商品」（**假话**），经理会去查一个不存在的问题。
+    //   判据取自后端下发的 `unmapped_box`（>0 才下发）：报单列头在「报单配置」里
+    //   没对应到「报单人」⇒ 那部分量进不了分摊。生产实测确有此类（某期次某商品 18 箱全挂空）。
+    const _unm = Number(g && g.unmapped_box) || 0
+    if (_unm > 0) {
+      L.push(`本期该商品有 ${fmt(_unm)} 箱报单**挂不上人**（报单列头没在「报单配置」`
+             + `里对应到「报单人」）⇒ 这部分不参与分摊。`)
+      L.push('要让它生效：去「报单配置」把该列头对应到报单人，'
+             + '或在「商品目标」里建目标并填分解承接人。')
+    } else {
+      L.push('本期没有人报过这个商品，该商品也没有启用目标（或目标没填分解承接人）'
+             + '⇒ 保存汇总表后也不会有任何人的量被调整。')
+      L.push('要让它生效：先让业务员在「报单」里报这个商品，'
+             + '或在「商品目标」里建目标并填承接人。')
+    }
+  }
   if (g && (g.operators || []).length) {
     const avg = Number(g.avg_box) || 0
     L.push(`差额合计 ${fmt(g.gap_total_box)} 箱 —— 均单目标 ${fmt(avg)} 箱，`
@@ -9825,8 +10825,18 @@ function ptExtraTip(r) {
   }
   if (a && (a.rows || []).length) {
     const d = Number(a.total_delta) || 0
-    L.push(`已按占比分配（经理保存汇总表时生效）：本商品共${d >= 0 ? '加' : '减'} ${fmt(Math.abs(d))} 箱`
-           + `　＝ 各人占比 × ${fmt(Math.abs(d))} 箱`)
+    // v336：**依据必须说出来** —— 占比来源的**含义与影响范围完全不同**
+    //   （'target' 改了就全期生效；'reported' 是推导值；'override' 是本期临时设定）。
+    //   同屏都是「30%」，不说依据用户根本不知道哪个能改、改了会波及多远。
+    //   v339 起第三类：`'override'` = 本期临时占比（只影响本期，未改档案）。
+    const _basisTxt = a.basis === 'override'
+      ? '按**本期临时占比**（只影响本期，未改商品目标档案）'
+      : (a.basis === 'reported'
+        ? '按**本期各人报单量**推导的占比（该商品本月没有商品目标）'
+        : '按**商品目标分解占比**（档案配置）')
+    L.push(`已分配（保存汇总表时生效）：本商品共${d >= 0 ? '加' : '减'} ${fmt(Math.abs(d))} 箱`
+           + `　＝ ${_basisTxt} × ${fmt(Math.abs(d))} 箱`
+           + (a.operator ? `　· 操作人：${a.operator}` : ''))
     ;(a.rows || []).forEach(o => {
       const nm = o.employee_name || ('员工' + o.employee_id)
       const al = Number(o.alloc_box) || 0
@@ -9834,6 +10844,22 @@ function ptExtraTip(r) {
              + `原报 ${fmt(o.reported_box)} ⇒ 定稿 ${fmt(o.final_box)} 箱`)
     })
     L.push('减单时某人的报量不足会被夹到 0，缺口再分给还有余量的人（保证「说减多少就真减多少」）')
+    /* v318：分不满必须**当面说清缺口来自哪** —— 否则经理只看到「我说加 60、实际只加了 54」，
+       而系统一声不响（此前只写服务端 warning 日志）。两类成因分开讲，因为它们要改的地方不同：
+         · 占比合计不足 100% ⇒ 去改商品目标的分解占比；
+         · 减单时有人报量不够被夹断 ⇒ 那是数据事实，不是配置错，改占比也没用。 */
+    const _short = Number(a.short_box) || 0
+    if (a.fully_applied === false && _short > 0) {
+      // 🔴 v336：成因必须**按依据分支** —— `'reported'`（按报单量推导）的占比合计
+      //   **恒等于 100%**，不可能出现"占比缺口"。照旧文案会指着一个根本不存在的
+      //   配置错误让用户去改（改了也没用），还会让人怀疑系统算错了。
+      const _why = a.basis === 'reported'
+        ? '缺口只可能来自「减单时有人报量不够被夹到 0」（按报单量推导的占比合计恒为 100%）'
+        : '缺口来自「该商品目标分解的占比合计不足 100%」或「减单时有人报量不够被夹到 0」'
+      L.push(`⚠ 分不满：经理填的是 ${fmt(a.requested_box)} 箱，实际只分出去 ${fmt(Math.abs(d))} 箱，`
+             + `还差 ${fmt(_short)} 箱 —— ${_why}。（点「改单」进入编辑态后，本格会出现「分摊」按钮，`
+             + `可打开「按比例分摊」核对）`)
+    }
   } else if (g && (g.operators || []).length) {
     L.push('尚未按占比分配 —— 在下方「加单(箱)」填好总量后点保存，系统才会分到各人。')
   }
@@ -10034,7 +11060,7 @@ async function loadCross() {
           常驻一段说明。两条路给的是同一个事实，只是生命周期不同。 */
     if (Number((e && e.status) || 0) === 403) {
       crossDenied.value = true
-      toast('你的角色没有查看报单汇总的权限（仅管理员 / 老板 / 主管可看）', 'warn')
+      toast('你的角色没有查看报单汇总的权限（仅管理员 / 老板 / 主管 / 财务文员可看）', 'warn')
     } else {
       toast('交叉表加载失败: ' + (e.message || ''), 'error')
     }
@@ -11138,6 +12164,79 @@ th.sortable:hover{color:var(--p-dark)}
 .pt-tip i+i{margin-top:2px}
 /* 编辑格里 tip 挂在 td 上（不在 `.tip-wrap` 内）⇒ 悬停面自己声明；定位沿用 `.tip` 本体 */
 .pt-xmtd:hover .pt-tip-abs{display:block}
+/* ── v318（一键分摊 + 分不满点名）────────────────────────────────────────────
+   · 「分摊」入口刻意**不复用角标**：角标压在 input 的右上角且 `pointer-events:none`
+     （见上一段注释：它不能挡住"点进这一格输数字"这个最常用动作）。
+     新按钮放**右下角**，与角标不重叠、也不压输入区；只在"该商品本月有目标"时才渲染。
+   · 第四态角标 `has-short`（**分不满** = 经理填的 > 实际分出去的）用危险色：
+     它是**要人去处理的告警**，不是"已完成"那种回执，两者必须一眼能分开。 */
+.pt-alloc-btn{position:absolute;bottom:0;right:1px;z-index:4;
+  font-size:9px;line-height:1;padding:1px 3px;letter-spacing:-.2px;
+  border:1px solid var(--bd);border-radius:3px;background:var(--bg);color:var(--t3);cursor:pointer}
+.pt-alloc-btn:hover{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
+.pt-xm-b.has-short{color:var(--danger-txt)}
+.pt-xm.has-short .pt-xm-b{color:var(--danger-txt)}
+.pt-xm.has-short{border-bottom-color:var(--danger-txt)}
+/* ── v336：加单格「到底加没加上」的视觉通道（悬空 / 分不满）───────────────────
+   🔴 用**琥珀 `--warn-amber`** 而不是红 —— 理由见 Forecast.vue 里 `ptExtraAlert()` 上方
+      那段说明：红色在本表已被「减单(负数)」「硬错」「算不通」三处占用且语义固定，
+      而「没人可分」**不是这一格填错了**（加单量本身合法，缺的是别处的数据）。
+      ⚠️ 用 `--warn-amber`（不是 `--war`）：前者是**为文字可读性**按主题分别调过的
+      （浅色 #854F0B / 深色 #e2b274），后者是固定亮橙，在浅色白底上对比不足。
+   左侧竖条用 `box-shadow: inset`（不占布局、不受 td 裁剪）；`void` 实线、`short` 虚线。 */
+.pt-xmtd.xm-void{box-shadow:inset 2px 0 0 var(--warn-amber)}
+.pt-xmtd.xm-short{background-image:repeating-linear-gradient(to bottom,var(--warn-amber) 0 4px,transparent 4px 8px);background-repeat:no-repeat;background-position:left top;background-size:2px 100%}
+.cell-input.cell-qty.xm-alert{color:var(--warn-amber);font-weight:600}
+/* 负数（减单）的红**优先**于"悬空"的琥珀 —— 数值符号是最基础的一层语义。
+   两个信号同时在时：**颜色给符号、左侧竖条仍给悬空**（两者都不丢）。 */
+.cell-input.cell-qty.xm-alert.cell-minus{color:var(--danger-txt)}
+.pt-xm-b.has-void,.pt-xm.has-void .pt-xm-b{color:var(--warn-amber)}
+/* ── v318：关闭期次确认弹窗里的「定稿后将推送的明细」 ── */
+.close-modal{width:min(660px,94vw)}
+.close-nf{margin:10px 0 2px;padding:9px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2)}
+.close-nf-hd{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px}
+.close-nf-none{margin:4px 0;font-size:12px;color:var(--t3);line-height:1.6}
+.close-nf-none.bad{color:var(--danger-txt)}
+.close-nf-wrap{max-height:216px;overflow:auto;border:1px solid var(--bd);border-radius:4px;background:var(--bg)}
+.close-nf-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.close-nf-tbl th{position:sticky;top:0;z-index:1;background:var(--bg3);color:var(--t2);font-weight:600;text-align:left;padding:5px 7px;border-bottom:1px solid var(--bd);white-space:nowrap}
+.close-nf-tbl td{padding:5px 7px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--t1)}
+.close-nf-tbl .num{text-align:right}
+.close-nf-tbl tr.not-full td{background:var(--warn-amber-bg)}
+.cn-name{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cn-exp{font-size:11px;padding:1px 6px;border:1px solid var(--bd);border-radius:3px;background:var(--bg);color:var(--t3);cursor:pointer}
+.cn-exp:hover{border-color:var(--p-dark);color:var(--p-dark)}
+.cn-detail td{background:var(--bg3)}
+.cn-p{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--t2);padding:2px 0;line-height:1.6}
+.cn-p.bad{color:var(--danger-txt)}
+.cn-pname{min-width:64px;font-weight:600;color:var(--t1)}
+.cn-add{color:var(--p-dark);font-weight:600}
+.cn-cut{color:var(--danger-txt);font-weight:600}
+.close-nf-sum{margin:7px 0 0;font-size:12px;color:var(--t2);line-height:1.6}
+/* ── v318：一键分摊弹窗（预演台） ── */
+.alloc-modal{width:min(720px,95vw)}
+.alloc-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px}
+.alloc-top label{font-size:13px;font-weight:600;color:var(--t1)}
+.alloc-num{width:96px;text-align:right}
+.alloc-unit{font-size:12px;color:var(--t3)}
+.alloc-conv{font-size:12px;color:var(--t3)}
+.alloc-note{background:var(--warn-amber-bg);border-radius:6px;padding:6px 8px;color:var(--warn-amber)}
+.alloc-tbl-wrap{max-height:290px;overflow:auto;border:1px solid var(--bd);border-radius:4px;background:var(--bg)}
+.alloc-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.alloc-tbl th{position:sticky;top:0;z-index:1;background:var(--bg3);color:var(--t2);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
+.alloc-tbl td{padding:5px 8px;border-bottom:1px solid var(--bd);color:var(--t1)}
+.alloc-tbl .num{text-align:right}
+.alloc-mini{width:74px;text-align:right;padding:2px 5px;font-size:12.5px}
+/* v336：占比「只读」态 —— 来源是本期报单量推导（客观事实），不是可配置的档案比例。
+   视觉上必须一眼看出"这格改不了"，否则用户会反复点进去以为输入框坏了。 */
+.alloc-mini.alloc-ro{background:var(--bg2);color:var(--t2);cursor:not-allowed;border-style:dashed}
+.alloc-empty{text-align:center;color:var(--t3);padding:14px 0}
+.alloc-neg{color:var(--danger-txt);font-weight:600}
+.alloc-sum{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 0;font-size:12px;color:var(--t2)}
+.alloc-sum .ok{color:var(--p-dark);font-weight:600}
+.alloc-sum .bad{color:var(--danger-txt);font-weight:600}
+.alloc-actions{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--bd)}
+.alloc-spacer{flex:1}
 /* v277（需求 5/6）：加单填负数 = 减单，必须一眼能认出来（否则会被当成手误删掉）。
    与「单价」列手工录入的红字口径一致：变色 + 加粗，不改数字本身。 */
 .cell-input.cell-minus{color:var(--danger-txt);font-weight:600;border-color:var(--danger-txt)}

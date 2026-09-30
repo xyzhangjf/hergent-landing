@@ -55,6 +55,32 @@ export const useAppStore = defineStore('app', () => {
           "放行"却会让每个角色凭空多出「定时任务 / AI 团队」，看起来就像权限失效。 */
   const permsRev = ref('')
   const customRoles = ref(null)
+  /* v335（2026-09-30）：**动作轴** —— 本账号在**当前租户**下的「模块 → 可用动作」，
+     来自 `/api/auth/permissions` 的 `permissions_detail`（后端 `core.user_module_actions`，
+     v334 上线）。用途：页内**按钮级门禁** —— `canDo('data','create')` 决定「新增」按钮画不画。
+
+     🔴 为什么必须由后端下发、不许前端自己推：动作轴的真实边界在后端 RBAC 中间件
+        （`server.py::rbac_middleware`，动作由 **HTTP 方法**推导：GET=read／POST=create／
+        PUT·PATCH=update／DELETE=delete，另有 `_READ_ONLY_POST` 把「用 POST 做的查询」纠偏成 read）。
+        前端若要自己算，就得抄一份「接口 → 模块」表（304 条、且**顺序敏感**）—— 那是本仓
+        反复栽的「同一条规则抄两份」。所以这里只做**翻译**，不做判断。
+
+     🔴 **门禁用的模块是「接口的模块」，不是「页面的模块」**（本轮最容易写错的一条）：
+        `constants/pages.js` 的 `module` 决定**入口显不显示**，与接口归属经常不同 ——
+        实测：客户档案页 `module:'crm'` 而 `/api/contacts` 归 **data**；
+        渠道与价格页 `module:null` 而写接口归 **data**；员工档案页 `module:'hr'`
+        而账号那批（`/api/users/*`）归 **data**。按页面模块判 ⇒ 造出新的「假入口」。
+
+     三态（与 `canModule`/`canCap` 同一条纪律，不要在这里另写一套）：
+        `null` = **还不知道**（未登录 / 接口失败）⇒ `canDo()` 一律 true（不隐藏按钮）。
+        `{'*': [动作…]}`            ⇒ 通配模块（admin 的 `["*"]` 收敛而来）。
+        `{模块: [动作…]}` 且含该模块 ⇒ 看动作在不在列表里。
+        `{…}` 但**不含**该模块      ⇒ false —— 该角色根本没这个模块，后端必 403。
+     🔴 最后那条是 fail-closed，所以**模块键写错会整页按钮消失**（不是静默放过）。
+        防线是静态护栏 `.workbuddy/tools/v335-button-gate-check.py`：
+        每个 `canDo('M', …)` 的 M 都必须 ∈ 后端 `_PATH_MODULE_MAP` 的值域，
+        且必须在该页允许的模块白名单内。 */
+  const permActs = ref(null)
   /* v266 套餐与能力（来自 `/api/auth/permissions` 的 `plan` / `capabilities`）。
      权威源在后端 `core._PLAN_CAPS`，前端**不另抄一份能力表**（那正是漂移源）。
      用途：决定「带走类」能力是否可用（批量导出 / API 拉取）。
@@ -108,7 +134,22 @@ export const useAppStore = defineStore('app', () => {
       permsRev.value = String((d && d.perms_rev) || '')
       const cr = d && d.custom_roles
       customRoles.value = Array.isArray(cr) ? cr.map(String) : []
-      if (d && d.user && !user.name) {
+      // v335：动作轴（页内按钮门禁的数据源）。后端「只加不改」追加的字段。
+      //   🔴 形态守卫不能省：`perms` 拿到的是数组、`permissions_detail` 是对象，
+      //      后端若哪天改回不返回，`{}`(真空对象) 与 `null`(不知道) 语义相反 ——
+      //      `{}` 会让 `canDo` 判定「没有这个模块」⇒ **把所有人的写按钮全藏掉**。
+      //      所以只认「非空对象」，其余一律当"不知道"（fail-open）。
+      const pa = d && d.permissions_detail
+      permActs.value = (pa && typeof pa === 'object' && !Array.isArray(pa) && Object.keys(pa).length)
+        ? pa : null
+      // v326（2026-09-29）：**去掉原来的 `!user.name` 守卫**（原先只在首次拉到时才落一次）。
+      //   背景：老板在员工档案里把员工姓名从「赵仓管」改成「郝洋」，该员工登录后
+      //   右上角**仍显示「赵仓管」**。后端那条路已修（改名会联动 `users.display_name`，
+      //   见 `erp_db.sync_employee_account_display_name`），但前端这份**只在 `user.name`
+      //   为空时才赋值** ⇒ 同一个会话里永远吃不到新名字。
+      //   名字的权威在后端 ⇒ 每次拉到就覆盖，语义才对（`|| user.name` 只在
+      //   `display_name` 与 `username` **都**为空时兜住旧值，不至于把名字擦成空串）。
+      if (d && d.user) {
         user.name = d.user.display_name || d.user.username || user.name
       }
     } catch (e) {
@@ -122,6 +163,8 @@ export const useAppStore = defineStore('app', () => {
       //       `[]` 的含义是"已确认没有任何角色被改过"，与"不知道"是两回事。
       customRoles.value = null
       permsRev.value = ''
+      // v335：动作轴同理 —— 拉不到就是"不知道"，`canDo()` 放行（不藏按钮）。
+      permActs.value = null
     }
     return perms.value
   }
@@ -131,6 +174,24 @@ export const useAppStore = defineStore('app', () => {
     const p = perms.value
     if (!p) return true
     return p.indexOf('*') >= 0 || p.indexOf(m) >= 0
+  }
+
+  /* v325（2026-09-29）：**AI 入口的唯一定义处** —— 「这个账号能不能用 AI」= 有没有 `chat` 模块。
+     为什么单独包一层、而不是各处直写 `canModule('chat')`：
+       ① 本仓有 **5 个 AI 入口**（顶部栏按钮 / ⌘K 快捷键 / 命令面板条目 / 工作台晨报 /
+          预报页「让 Hermes 分析」）。判据一旦抄成五份，将来改模块键名必漂移
+          —— 本项目反复栽在"同一条规则抄多份"上。
+       ② 读代码的人看到 `canUseAi()` 一眼知道这是**AI 能力闸**，不是某个业务模块。
+     🔴 三态语义沿用 `canModule`（**不要在这里另写一套**）：
+        `perms === null`（未登录 / 接口抖动）⇒ **true**，即"不知道就不隐藏"
+        —— 一次抖动把老板的 AI 按钮藏起来，比员工多点一下（随后被后端 403 兜住）坏得多。
+        `[]`（已加载、确实没权限）⇒ false ⇒ 隐藏。
+     🔴 这只是**体验层**：真边界在服务端 `_check_perm`（`chat` 模块）。
+        实测依据 —— v281（2026-09-26）已封堵 `/hermes/` 直连（nginx `return 403;`）、
+        前端 `hermesChat` 只打 `/api/ai/copilot/chat`（归 `chat`）⇒ 后端拦得住，不是假封锁。
+        改这块前请复验这两条（见 `core._DEFAULT_PERMS` 的 v325 注释）。 */
+  function canUseAi() {
+    return canModule('chat')
   }
 
   /* ---- v296 权限联动：权限被别处改过时，本会话自动跟上 -------------------------------
@@ -206,6 +267,9 @@ export const useAppStore = defineStore('app', () => {
     // 会让 `refreshPermsIfChanged()` 认为"没变过"从而永不重拉。串味方式与 perms 同族。
     permsRev.value = ''
     customRoles.value = null
+    // v335：动作轴也必须清 —— 与 `perms` 同族串味（换账号后仍留着上一个人的写权限，
+    //       会把TA没权的「新增/删除」按钮画出来）。方向与 `perms` 一致：清成"不知道"⇒ 放行。
+    permActs.value = null
   }
 
   /** v266 该套餐能力是否可用（如 `bulk_export` / `api`）。未知（未加载/失败）⇒ true。 */
@@ -213,6 +277,40 @@ export const useAppStore = defineStore('app', () => {
     const c = caps.value
     if (!c) return true
     return c[k] === true
+  }
+
+  /**
+   * v335：**动作轴**判定 —— 某模块的某个动作当前可用吗（页内**按钮级门禁**读它）。
+   *
+   * 判据与后端 `core._perm_granted` **同构**（`permActs` 由 `loadPerms()` 落）。
+   *
+   * @param {string} module 后端 **接口**所属模块。🔴 **不是** `constants/pages.js` 的页面 `module`
+   *   —— 两者经常不同（客户档案页 `crm` vs `/api/contacts` 的 `data`；渠道价格页 `null` vs
+   *   写接口的 `data`；员工档案页 `hr` vs `/api/users/*` 的 `data`）。按页面模块判 = 造新假入口。
+   * @param {'read'|'create'|'update'|'delete'} action 动作。🔴 它由 **HTTP 方法**推导
+   *   （POST=create / PUT=update / DELETE=delete），**不是业务语义** —— 所以「停用/启用」
+   *   （`POST …/toggle`）在服务端属于 `create`，本判据必须照抄这个事实，否则门禁会撒谎。
+   * @returns {boolean} true = 画这个按钮
+   *
+   * 🔴 三态（与 `canModule`/`canCap` 同一条纪律）：
+   *   `permActs === null`（不知道）⇒ **true**（不隐藏；一次接口抖动不该让老板的按钮消失）。
+   *   模块**不在**字典里 ⇒ **false** —— 该角色根本没这个模块，后端必 403。
+   *   模块在字典里 ⇒ 动作在不在列表里（`'*'` 视为通配）。
+   * ⚠️ 两个参数都给了「空值 ⇒ true」的守卫：本函数是 fail-closed 的，若调用点手滑传了
+   *    空值就会**把整页按钮全藏掉**。空 `module`/`action` 是代码缺陷、不是权限事实，
+   *    一律放行（护栏 `v335-button-gate-check.py` 另要求两者必须是字符串字面量）。
+   * ⚠️ 这只是**体验层**：真边界永远是服务端 `_check_perm`。藏按钮只省一次白点，
+   *    **不是**安全边界（手敲接口照样被 403 兜住）。
+   */
+  function canDo(module, action) {
+    if (!module || !action) return true          // 代码缺陷 ⇒ 放行（见上方守卫说明）
+    const pa = permActs.value
+    if (!pa) return true                         // 不知道 ⇒ 不隐藏
+    const star = pa['*']                          // admin 的 ["*"] ⇒ {'*': [全部动作]}
+    if (Array.isArray(star)) return star.includes('*') || star.includes(action)
+    const acts = pa[module]
+    if (!Array.isArray(acts)) return false       // 该角色没有这个模块
+    return acts.includes('*') || acts.includes(action)
   }
 
   /* ---- AI 会话持久化 — localStorage 按会话分组，刷新不丢，可接着聊 ---- */
@@ -434,9 +532,10 @@ export const useAppStore = defineStore('app', () => {
   return {
     ui, user, demo, chat,
     toast, setTheme,
-    perms, permsTenant, loadPerms, canModule, resetPerms,
+    perms, permsTenant, loadPerms, canModule, canUseAi, resetPerms,
     permsRev, customRoles, refreshPermsIfChanged,
     plan, caps, canCap,
+    permActs, canDo,
     loadSessions, loadSessionsFromServer, saveCurrentSession, newChatSession, openChatSession, deleteChatSession,
     clearChatCache,
     loadAiRoles, setAiRole, latestSessionOfRole
@@ -451,6 +550,11 @@ export const store = useAppStore(pinia)
 // 具名函数导出：委托到单例 store 上的同名 action
 export const toast = (...a) => store.toast(...a)
 export const setTheme = (...a) => store.setTheme(...a)
+// v335：页内**按钮级门禁**的模板用法 —— `import { toast, canDo } from '../store'`
+//   然后 `v-if="canDo('data', 'create')"`。页面大多只 import 了 `toast`（没有 `store`），
+//   给一个具名导出就不必为了一个判据去改 12 个页面的 import 列表（少动一行少一处夹带）。
+//   🔴 判据仍只有 `store.canDo` 一处实现 —— 这里只是转发，不要在这里补逻辑。
+export const canDo = (...a) => store.canDo(...a)
 export const loadSessions = (...a) => store.loadSessions(...a)
 export const saveCurrentSession = (...a) => store.saveCurrentSession(...a)
 export const loadSessionsFromServer = (...a) => store.loadSessionsFromServer(...a)

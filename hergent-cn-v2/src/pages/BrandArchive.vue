@@ -3,7 +3,7 @@
     <div class="page-hd">
       <div>
         <h2>品牌档案</h2>
-        <span class="page-sub">维护品牌主档 · 支撑品牌目标与返利 · 服务无 API 的舟谱类用户</span>
+        <span class="page-sub">维护品牌主档 · 支撑品牌目标与返利</span>
       </div>
     </div>
 
@@ -11,12 +11,12 @@
     <div class="card ba-panel">
       <div class="panel-hd">
         <b>品牌主档</b>
-        <span class="tag info">商品 brand 为轻量文本，这里做规范层，不强制外键</span>
       </div>
 
       <!-- 新增品牌 -->
       <div class="ba-add-row">
-        <button class="btn btn-primary btn-sm" @click="openCreate">+ 添加品牌</button>
+        <!-- v335 按钮级门禁：POST /api/brands ⇒ 模块 data / 动作 create -->
+        <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" @click="openCreate">+ 添加品牌</button>
       </div>
 
       <div v-if="loading" class="state-empty">加载中…</div>
@@ -41,9 +41,11 @@
                 </span>
               </td>
               <td class="ba-ops">
-                <button class="btn btn-ghost btn-sm" @click="openEdit(b)">编辑</button>
-                <button v-if="b.is_active !== 0" class="btn btn-ghost btn-sm danger" @click="askDisable(b)">停用</button>
-                <button v-else class="btn btn-ghost btn-sm" @click="brandToggle(b.id, 1)">启用</button>
+                <!-- v335 按钮级门禁：编辑=PUT /api/brands/{id} ⇒ data/update；
+                     停用·启用=**POST** /api/brands/{id}/toggle ⇒ data/**create**（动作由 HTTP 方法推导） -->
+                <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" @click="openEdit(b)">编辑</button>
+                <button v-if="b.is_active !== 0 && canDo('data', 'create')" class="btn btn-ghost btn-sm danger" @click="askDisable(b)">停用</button>
+                <button v-else-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" @click="brandToggle(b.id, 1)">启用</button>
               </td>
             </tr>
           </tbody>
@@ -56,7 +58,6 @@
     <div class="card ba-panel">
       <div class="panel-hd">
         <b>待审品牌</b>
-        <span class="tag warn">导入 / 连接器发现的未匹配品牌先入这里，人工确认后再归一（决策③逐步归一）</span>
       </div>
 
       <div v-if="pendingLoading" class="state-empty">加载中…</div>
@@ -68,19 +69,22 @@
               <span class="ba-ref">命中 {{ p.ref_count }} 次</span>
             </div>
             <div class="ba-pending-meta">
-              <span v-if="p.source">来源：{{ p.source }}</span>
+              <span v-if="p.source">来源：{{ brandSrcLabel(p.source) }}</span>
               <span v-if="p.created_at">发现于：{{ p.created_at }}</span>
             </div>
           </div>
           <div class="ba-pending-actions">
             <input v-model="p._canonical" class="input ba-canonical" :placeholder="p.raw_name" style="width:150px">
-            <button class="btn btn-primary btn-sm" :disabled="!canonicalOf(p)" @click="resolve(p, 'create')">新建为品牌</button>
-            <select v-model="p._mergeTarget" class="input ba-merge" style="width:150px">
+            <!-- v335 按钮级门禁：三者都打 **POST** /api/brands/pending/{id}/resolve
+                 ⇒ 模块 data、动作 **create**（`merge` / `dismiss` 在业务上是"改"，
+                    但后端动作由 HTTP 方法推导 ⇒ 三个入口同一个动作，门禁必须与后端一致） -->
+            <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" :disabled="!canonicalOf(p)" @click="resolve(p, 'create')">新建为品牌</button>
+            <select v-if="canDo('data', 'create')" v-model="p._mergeTarget" class="input ba-merge" style="width:150px">
               <option value="">合并到已有品牌…</option>
               <option v-for="b in activeBrands" :key="b.id" :value="b.name">{{ b.name }}</option>
             </select>
-            <button class="btn btn-ghost btn-sm" :disabled="!p._mergeTarget" @click="resolve(p, 'merge')">合并</button>
-            <button class="btn btn-ghost btn-sm ba-notbrand" title="标记为「不是品牌」：只从待审队列移除，不改动任何商品数据" @click="askDismiss(p)">不是品牌</button>
+            <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" :disabled="!p._mergeTarget" @click="resolve(p, 'merge')">合并</button>
+            <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm ba-notbrand" title="标记为「不是品牌」：只从待审队列移除，不改动任何商品数据" @click="askDismiss(p)">不是品牌</button>
           </div>
         </div>
       </div>
@@ -156,7 +160,7 @@
 import Icon from '../components/Icon.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/client'
-import { toast } from '../store'
+import { toast, canDo } from '../store'
 
 const loading = ref(false)
 const pendingLoading = ref(false)
@@ -164,6 +168,19 @@ const brands = ref([])
 const pending = ref([])
 
 const activeBrands = computed(() => brands.value.filter(b => b.is_active !== 0))
+
+/* 🔴 brand_pending.source 是后端内部标识（生产实测 backfill / unit_test / selftest），
+   直接渲染会把英文枚举印在界面上 ⇒ 映射成中文；兜底也必须是中文。 */
+function brandSrcLabel(s) {
+  return ({
+    backfill: '历史数据自动补齐',
+    write: '从商品档案发现',
+    manual: '手工添加',
+    import: '导入时发现',
+    unit_test: '测试数据',
+    selftest: '自检数据',
+  })[s] || '自动发现'
+}
 
 /* ---- 新建 / 编辑（统一弹窗） ---- */
 const formOpen = ref(false)

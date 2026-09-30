@@ -31,7 +31,7 @@
       </div>
     </div>
     <p v-if="leadErr" class="ap-warn">⚠ {{ leadErr }}</p>
-    <p class="ap-derive">到货日 = 报单日{{ form.order_first_date ? '（' + form.order_first_date + '）' : '' }} + {{ leadValid ? form.order_lead_days : '?' }} 天<template v-if="firstArrivalDate"> = <b>{{ firstArrivalDate }}</b>（{{ arrivalWeekday }}）</template>。按<b>自然日</b>计算，不跳周末/节假日（与后端算法一致）；手动改到货日会自动反推提前天数。</p>
+    <p class="ap-derive">到货日 = 报单日{{ form.order_first_date ? '（' + form.order_first_date + '）' : '' }} + {{ leadValid ? form.order_lead_days : '?' }} 天<template v-if="firstArrivalDate"> = <b>{{ firstArrivalDate }}</b>（{{ arrivalWeekday }}）</template>。按<b>自然日</b>计算，不跳周末/节假日；手动改到货日会自动反推提前天数。</p>
 
     <div class="ap-sec">② 到货产出</div>
     <div class="form-grid2">
@@ -43,7 +43,7 @@
       </div>
     </div>
     <p v-if="arrivalPreview && arrivalPreview.source==='arrival'" class="ap-warn">
-      ⚠ 还没填「首次报单日」，均单暂按旧到货排程算（本月 {{ arrivalPreview.count }} 次、口径 {{ arrivalPreview.source }}）。填了首次报单日后自动改用报单节奏，与下方预览表同源。
+      ⚠ 还没填「首次报单日」，均单暂按旧到货排程算（本月 {{ arrivalPreview.count }} 次）。填了首次报单日后自动改用报单节奏，与下方预览表一致。
       <button type="button" class="ap-adopt" @click="$emit('open-migrate')">从旧排程反推</button>
     </p>
 

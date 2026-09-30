@@ -3,7 +3,7 @@
     <div class="page-hd">
       <div>
         <h2>报单配置</h2>
-        <span class="page-sub">把"系统全称 ↔ 报单简称(列头) ↔ 单型"一次性配好，员工小程序报单不再碰列名</span>
+        <span class="page-sub">把"系统全称 ↔ 报单简称(列头) ↔ 单型"一次性配好，报单人（员工 / 外部客户）小程序报单不再碰列名</span>
       </div>
     </div>
 
@@ -57,7 +57,8 @@
           </div>
         </div>
         <div class="tp-actions">
-          <button class="btn btn-primary btn-sm" :disabled="tpSaving" @click="saveProfile">
+          <!-- v335 按钮级门禁：PUT /api/forecast/business-profile ⇒ 模块 data / 动作 update -->
+          <button v-if="canDo('data', 'update')" class="btn btn-primary btn-sm" :disabled="tpSaving" @click="saveProfile">
             {{ tpSaving ? '保存中…' : '保存' }}
           </button>
         </div>
@@ -69,7 +70,7 @@
     <div v-if="health" class="health-bar" :class="{ ok: !hasProblem }" @click="healthOpen = !healthOpen">
       <span class="hb-dot"></span>
       <template v-if="hasProblem">
-        配置体检：<b>{{ health.unmapped_count }}</b> 个门店未配置 · <b>{{ health.alias_conflicts.length }}</b> 个别名冲突 · <b>{{ health.unassigned_count }}</b> 名员工未分配
+        配置体检：<b>{{ health.unmapped_count }}</b> 个门店未配置 · <b>{{ health.alias_conflicts.length }}</b> 个别名冲突 · <b>{{ health.unassigned_count }}</b> 名员工未分配<template v-if="health.unassigned_ext_count"> · <b>{{ health.unassigned_ext_count }}</b> 个外部客户未配门店</template>
         <span class="hb-toggle">{{ healthOpen ? '收起' : '展开' }}</span>
       </template>
       <template v-else>配置体检：全部正常</template>
@@ -88,6 +89,12 @@
       <div v-if="health.unassigned_employees.length" class="hd-sec">
         <b class="hd-t">尚未配置报单的员工</b>
         <div class="chip-row"><span v-for="e in health.unassigned_employees" :key="e.id" class="chip">{{ e.name }}</span></div>
+      </div>
+      <!-- v317：已开小程序号、但**一条报单配置都没有**的外部客户。
+           不列出来的话，这号就是「能登录、点进去没有任何可报门店」，而且完全不报错。 -->
+      <div v-if="(health.unassigned_externals || []).length" class="hd-sec">
+        <b class="hd-t war">已开号但没配门店的外部客户（小程序里没东西可选）</b>
+        <div class="chip-row"><span v-for="x in health.unassigned_externals" :key="x.id" class="chip">{{ x.name }}</span></div>
       </div>
     </div>
 
@@ -115,7 +122,8 @@
             <span class="lb-arrow">→</span>
             <span>{{ l.store_name }}</span>
             <span v-if="l.store_active === 0" class="tag danger">门店已停用</span>
-            <button class="btn btn-ghost btn-sm danger lb-revoke" @click="askLegacyRevoke(l)">收回</button>
+            <!-- v335 按钮级门禁：DELETE /api/report-mappings/legacy-stores/… ⇒ data/delete -->
+            <button v-if="canDo('data', 'delete')" class="btn btn-ghost btn-sm danger lb-revoke" @click="askLegacyRevoke(l)">收回</button>
           </span>
         </li>
       </ul>
@@ -123,8 +131,10 @@
 
     <!-- 工具栏：新建配置为数据区唯一主操作（实底主色），Excel 导入描边次之 -->
     <div class="toolbar">
-      <button class="btn btn-primary" @click="openCreate">+ 新建配置</button>
-      <button class="btn btn-ghost btn-sm" @click="importOpen = true">Excel 批量导入</button>
+      <!-- v335 按钮级门禁：新建=POST /api/report-mappings ⇒ data/create；
+           Excel 导入=POST /api/report-mappings/import ⇒ data/create -->
+      <button v-if="canDo('data', 'create')" class="btn btn-primary" @click="openCreate">+ 新建配置</button>
+      <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" @click="importOpen = true">Excel 批量导入</button>
     </div>
 
     <!-- 列表 -->
@@ -132,13 +142,18 @@
       <table class="tbl">
         <thead>
           <tr>
-            <th>员工</th><th>对象类型</th><th>对象全称</th><th>简称(列头)</th>
+            <th>报单人</th><th>对象类型</th><th>对象全称</th><th>简称(列头)</th>
             <th>单型</th><th>取价渠道</th><th>仓库(调拨)</th><th>状态</th><th class="ops">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="m in list" :key="m.id" :class="{ stopped: m.is_active === 0 }">
-            <td>{{ m.employee_name || '—' }}</td>
+            <td>
+              {{ m.person_name || m.employee_name || '—' }}
+              <!-- v317：标出「这一行的报单人不是员工」。不标的话，同名的店与外部客户在
+                   列表里长得一样，停用/编辑时容易改错行（列表是唯一能一眼看到全量配置的地方）。 -->
+              <span v-if="m.subject_kind === 'external'" class="tag purple" title="外部客户（分销商）账号 —— 在「员工档案 › 外部客户账号」里开通">外部客户</span>
+            </td>
             <td><span class="tag" :class="typeClass(m.counterparty_type)">{{ typeLabel(m.counterparty_type) }}</span></td>
             <td>{{ m.counterparty_name || m.system_name || '—' }}</td>
             <td><b>{{ m.report_alias }}</b></td>
@@ -153,9 +168,11 @@
               <span v-else class="tag suc">启用中</span>
             </td>
             <td class="ops">
-              <button class="btn btn-ghost btn-sm" @click="openEdit(m)">编辑</button>
-              <button v-if="m.is_active !== 0" class="btn btn-ghost btn-sm danger" @click="askDisable(m)">停用</button>
-              <button v-else class="btn btn-ghost btn-sm" @click="toggle(m.id, 1)">启用</button>
+              <!-- v335 按钮级门禁：编辑=PUT /api/report-mappings/{mid} ⇒ data/update；
+                   停用·启用=**POST** …/{mid}/toggle ⇒ data/**create**（动作由 HTTP 方法推导） -->
+              <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" @click="openEdit(m)">编辑</button>
+              <button v-if="m.is_active !== 0 && canDo('data', 'create')" class="btn btn-ghost btn-sm danger" @click="askDisable(m)">停用</button>
+              <button v-else-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" @click="toggle(m.id, 1)">启用</button>
             </td>
           </tr>
           <tr v-if="!list.length"><td colspan="9" class="empty">暂无报单配置，点「新建配置」或「Excel 批量导入」开始</td></tr>
@@ -180,12 +197,22 @@
             <div class="form-grp">
               <div class="sub-sec">归属</div>
               <div class="field" :class="{ err: errors.employee_id }">
-                <label>员工 <i class="req">*</i></label>
-                <select v-model="form.employee_id" :disabled="!!editId" @change="onEmpChange">
-                  <option value="0">请选择</option>
-                  <option v-for="e in refs.employees" :key="e.id" :value="e.id">{{ e.name }}</option>
+                <!-- v317：「员工」→「报单人」。外部客户（分销商）也在这一个下拉里，
+                     用 optgroup 分组而不是两个控件 —— 分成两个会让人以为要各配一次。 -->
+                <label>报单人 <i class="req">*</i></label>
+                <select v-model="subjectKey" :disabled="!!editId" @change="onEmpChange">
+                  <option value="">请选择</option>
+                  <optgroup v-if="refs.employees.length" label="员工">
+                    <option v-for="e in refs.employees" :key="'e' + e.id" :value="'employee:' + e.id">{{ e.name }}</option>
+                  </optgroup>
+                  <optgroup v-if="refs.externals.length" label="外部客户（分销商）">
+                    <option v-for="x in refs.externals" :key="'x' + x.id" :value="'external:' + x.id">{{ x.name }}{{ x.is_active ? '' : '（已禁用）' }}</option>
+                  </optgroup>
                 </select>
                 <span v-if="errors.employee_id" class="field-err">{{ errors.employee_id }}</span>
+                <span v-if="!editId && !refs.externals.length" class="al-note">
+                  还没有外部客户账号？先<button type="button" class="lnk-btn" @click="goEmployees">去员工档案开通</button>，再回来给他配门店。
+                </span>
               </div>
             </div>
 
@@ -195,7 +222,7 @@
               <div class="field" :class="{ err: errors.counterparty_type }">
                 <label>对象类型 <i class="req">*</i></label>
                 <div class="seg">
-                  <button v-for="t in types" :key="t.v" class="seg-btn" :class="{ on: form.counterparty_type === t.v }" @click="onType(t.v)">{{ t.label }}</button>
+                  <button v-for="t in typeOptions" :key="t.v" class="seg-btn" :class="{ on: form.counterparty_type === t.v }" @click="onType(t.v)">{{ t.label }}</button>
                 </div>
                 <span v-if="errors.counterparty_type" class="field-err">{{ errors.counterparty_type }}</span>
               </div>
@@ -241,7 +268,7 @@
                      **四条写路径**也一律硬拒（判据唯一实现 `report_mapping_find_same_object`）。 -->
                 <span v-if="objExisting.length" class="al-hint err">
                   这个{{ typeLabel(form.counterparty_type) }}已经有一条活跃配置了：{{
-                    objExisting.map(x => '「' + x.alias + '」' + (x.employee_name ? '（' + x.employee_name + '）' : '')).join('、')
+                    objExisting.map(x => '「' + x.alias + '」' + ((x.person_name || x.employee_name) ? '（' + (x.person_name || x.employee_name) + '）' : '')).join('、')
                   }} —— 同一对象只能有一条，再配一条会把汇总表和舟谱模板拆成两列、数量分家。
                   <b>保存会被拒绝</b>：若只是要换人负责，请改那一条配置，或先把它停用。
                 </span>
@@ -346,7 +373,7 @@
                 <span class="hint">
                   这两个仓会写进舟谱<b>调拨单</b>的「调出仓 / 调入仓」两列。
                   源仓留空则用「默认业务仓」；目标仓留空则用该员工档案里的<b>个人仓</b>。
-                  仓库还没建？去「档案管理 → 仓库档案」先建。（v294 起才真正生效）
+                  仓库还没建？去「档案管理 → 仓库档案」先建。
                 </span>
               </template>
             </div>
@@ -366,7 +393,7 @@
         <div v-if="disableOpen" class="df-modal">
           <div class="df-modal-hd"><b>停用配置</b><button class="df-x" @click="disableOpen = false"><Icon name="close"/></button></div>
           <div class="df-modal-body">
-            <p class="warn-text">停用后该对象不再出现在员工报单下拉中，且不计入报单汇总。已落库的历史报单不受影响。</p>
+            <p class="warn-text">停用后该对象不再出现在员工报单下拉中，且不计入报单汇总。已保存的历史报单不受影响。</p>
           </div>
           <div class="df-modal-ft">
             <button class="btn btn-ghost" @click="disableOpen = false">取消</button>
@@ -388,7 +415,7 @@
               确认收回「{{ revokeTarget.employee_name || ('员工 #' + revokeTarget.employee_id) }}」
               对「{{ revokeTarget.store_name }}」的报单资格？
             </p>
-            <p class="hint">收回后，该员工在小程序里不再能选这家门店报单。<b>不影响</b>已落库的历史报单与应收。</p>
+            <p class="hint">收回后，该员工在小程序里不再能选这家门店报单。<b>不影响</b>已保存的历史报单与应收。</p>
           </div>
           <div class="df-modal-ft">
             <button class="btn btn-ghost" @click="revokeOpen = false">取消</button>
@@ -408,7 +435,7 @@
             <p class="hint">
               模板表头（7 列）：员工 / 对象类型 / 对象全称 / 简称(列头) / 单型 / 源仓 / 目标仓。
               对象类型填 store（门店）或 self_warehouse（本人仓）。
-              <b>单型那一列从 v294 起由「对象类型」自动决定</b>（填了不生效，见上方单型说明）——
+              <b>单型那一列由「对象类型」自动决定</b>（填了不生效，见上方单型说明）——
               源仓 / 目标仓只对本人仓（调拨）有意义。
             </p>
             <label class="upload-btn">选择 Excel 文件
@@ -435,12 +462,24 @@ import AutoPeriodBlock from '../components/forecast/AutoPeriodBlock.vue'
 import ReminderConfig from '../components/forecast/ReminderConfig.vue'
 import ConfigCard from '../components/forecast/ConfigCard.vue'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
+/* v317：页内跳转入口同判据（见 goEmployees）。 */
+import { canSee } from '../constants/pages'
 import { reportMappingApi, priceChannelApi, businessProfileApi } from '../api/modules'
 import { api } from '../api/client'
-import { toast } from '../store'
+import { toast, canDo } from '../store'
 
 const list = ref([])
-const refs = reactive({ employees: [], contacts: [], warehouses: [] })
+const router = useRouter()
+/* v317：给「还没有外部客户账号」的提示条一个**真入口**。
+   🔴 入口同判据（与 `EmployeeArchive::goConnect` 同规矩）：能进「报单配置」的人
+      **不一定**能进员工档案 ⇒ 不判就会出现「点了没反应 / 被弹回工作台」的假入口。 */
+function goEmployees() {
+  if (!canSee('/archive/employees')) { toast('你没有访问「员工档案」的权限', 'warn'); return }
+  router.push('/archive/employees')
+}
+// v317：`externals` = 外部客户（分销商）账号名册（后端按租户收口后下发）。
+const refs = reactive({ employees: [], contacts: [], warehouses: [], externals: [] })
 const health = ref(null)
 const healthOpen = ref(false)
 // 历史门店授权（旧「员工档案 → 分配门店」留下的、尚未纳入报单配置的门店）。
@@ -474,12 +513,48 @@ const types = [
   { v: 'self_warehouse', label: '本人仓' },
 ]
 
+/* 🔴 v317（2026-09-29）：报单人新增**外部客户（分销商）**一维。
+   背景：v308 给外部客户开了「只登小程序」的账号，但报单配置里没有他们的位置
+   （员工下拉只列 `hr_employees`）⇒ 客户开完号，小程序里**永远没有可报对象**。
+   本页现在按主体给出可选对象类型：
+     · 员工       → 门店 / 本人仓（本人仓要绑 `hr_employees.warehouse_id`）
+     · 外部客户   → **只有门店**（他没有员工档案，谈不上「个人仓」；后端也硬拒）
+   两面同口径：后端 `report_mapping_create` 对外部客户配「本人仓」直接返错。 */
+const isExternalSubject = computed(() => Number(form.external_user_id) > 0)
+const typeOptions = computed(() => (isExternalSubject.value ? types.filter(t => t.v !== 'self_warehouse') : types))
+
+/** 「报单人」下拉的绑定值：`employee:12` / `external:999908` / `''`。
+ *  用一个字符串键而不是两个下拉，是为了让「员工和外部客户是同一件事的两种取值」在界面上
+ *  一眼可见 —— 分成两个控件会让人以为要各配一次。 */
+const subjectKey = computed({
+  get() {
+    if (Number(form.external_user_id) > 0) return 'external:' + form.external_user_id
+    if (Number(form.employee_id) > 0) return 'employee:' + form.employee_id
+    return ''
+  },
+  set(v) {
+    const s = String(v || '')
+    const i = s.indexOf(':')
+    form.employee_id = 0
+    form.external_user_id = 0
+    if (i <= 0) return
+    const kind = s.slice(0, i)
+    const id = Number(s.slice(i + 1)) || 0
+    if (!id) return
+    if (kind === 'external') form.external_user_id = id
+    else form.employee_id = id
+  },
+})
+
 // 历史 `customer` → `store`。只做**词汇归一**（与后端 normalize_report_cp_type 同义），
 // 不在这里做任何权限/合法性判断。
 function normalizeCpType(t) { return t === 'customer' ? 'store' : t }
 
 const form = reactive({
-  employee_id: 0, counterparty_type: 'store', counterparty_id: 0,
+  // v317：报单人**两维** —— 员工（`employee_id`）或外部客户（`external_user_id`）。
+  // 后端二者必居其一且不可同传（见 `erp_db.report_mapping_create`）。
+  employee_id: 0, external_user_id: 0,
+  counterparty_type: 'store', counterparty_id: 0,
   system_name: '', report_alias: '', src_wh: 0, dst_wh: 0,
   channel_id: 0,
 })
@@ -575,6 +650,8 @@ function channelShow(m) {
 
 const hasProblem = computed(() => health.value && (
   health.value.unmapped_count > 0 || health.value.alias_conflicts.length > 0 || health.value.unassigned_count > 0
+  // v317：老后端不给 `unassigned_ext_count` ⇒ `|| 0` 兜底，页面在老后端上行为不变。
+  || (health.value.unassigned_ext_count || 0) > 0
 ))
 
 const objOptions = computed(() => {
@@ -680,7 +757,9 @@ const aliasHint = computed(() => {
   if (entry) {
     const others = aliasOthers(entry)
     if (others.length) {
-      const who = others.map(u => u.employee_name || ('员工#' + u.employee_id)).join('、')
+      // v317：报单人两维 —— 外部客户行没有 `employee_name`，用后端统一给的 `person_name`；
+      // 都取不到才回落「员工#id」（保持既有措辞，不新增第三种叫法）。
+      const who = others.map(u => u.person_name || u.employee_name || ('员工#' + u.employee_id)).join('、')
       return { tone: 'err', text: `该简称已被「${who}」使用 —— 简称在租户内唯一，保存会被拒绝。请换一个名字，或先停用那一条配置。` }
     }
     const landed = entry.sources.includes('report')   // 报单真的用过它 = 汇总表真有这一列
@@ -820,18 +899,11 @@ async function loadRefs() {
     refs.employees = r.employees || []
     refs.contacts = r.contacts || []
     refs.warehouses = r.warehouses || []
+    // v317：老后端（未升级）不会给这个键 ⇒ 回落空数组，页面对老后端仍可用（只是没有这一组选项）。
+    refs.externals = r.externals || []
   } catch (e) { toast(e.message || '加载选项失败', 'err') }
 }
 
-function resetForm() {
-  form.employee_id = 0; form.counterparty_type = 'store'; form.counterparty_id = 0
-  form.system_name = ''; form.report_alias = ''
-  form.src_wh = 0; form.dst_wh = 0
-  form.channel_id = 0
-  objKeyword.value = ''; objOpen.value = false
-  // v295：新建时清空「已手改」标记 —— 否则上一轮的编辑残留会挡住自动解析
-  aliasTouched.value = false; aliasFrom.value = ''; aliasOpen.value = false
-}
 function onType(t) {
   form.counterparty_type = t
   form.counterparty_id = 0
@@ -847,8 +919,21 @@ function onType(t) {
   applySuggestAlias()
 }
 function onEmpChange() {
-  clearErr('employee_id')   // v297：员工已选 ⇒ 上一轮「请选择员工」立即失效
-  // 切换员工时，若当前为本人仓类型则重新解析其个人仓
+  clearErr('employee_id')   // v297：报单人已选 ⇒ 上一轮「请选择报单人」立即失效
+  // v317：切到**外部客户**时，对象类型只可能是「门店」——
+  // 「本人仓」要读 `hr_employees.warehouse_id`，外部客户没有员工档案。
+  // 这里主动把类型扳回门店并清空已选对象：否则会留下「类型=本人仓 + 报单人=外部客户」
+  // 这种界面上说得通、一保存就被后端拒的组合（用户只会看到一句莫名其妙的报错）。
+  if (isExternalSubject.value && form.counterparty_type === 'self_warehouse') {
+    form.counterparty_type = 'store'
+    form.counterparty_id = 0
+    form.system_name = ''
+    objKeyword.value = ''
+    clearErr('counterparty_id')
+    applySuggestAlias()
+    return
+  }
+  // 切换报单人时，若当前为本人仓类型则重新解析其个人仓
   if (form.counterparty_type === 'self_warehouse') {
     if (selectedEmpWh.value) {
       form.counterparty_id = selectedEmpWh.value.id
@@ -861,11 +946,24 @@ function onEmpChange() {
   }
 }
 
+function resetForm() {
+  form.employee_id = 0; form.external_user_id = 0
+  form.counterparty_type = 'store'; form.counterparty_id = 0
+  form.system_name = ''; form.report_alias = ''
+  form.src_wh = 0; form.dst_wh = 0
+  form.channel_id = 0
+  objKeyword.value = ''; objOpen.value = false
+  // v295：新建时清空「已手改」标记 —— 否则上一轮的编辑残留会挡住自动解析
+  aliasTouched.value = false; aliasFrom.value = ''; aliasOpen.value = false
+}
 function openCreate() { editId.value = 0; resetForm(); clearErrors(); editOpen.value = true }
 function openEdit(m) {
   clearErrors()
   editId.value = m.id
   form.employee_id = m.employee_id
+  // v317：报单人两维都要回填 —— 只回填 `employee_id` 会让外部客户那类行在下拉里显示
+  // 「请选择」，用户一保存就把报单人抹掉（而且界面当时看着是"正常"的）。
+  form.external_user_id = m.external_user_id || 0
   // v203：历史 `customer` 行归一成 `store` 再进表单 —— ① 类型分段控件里已无「客户」项，
   // 不归一则**没有任何按钮处于选中态**（用户第一反应是「这页坏了」）；
   // ② 保存时自然写回 store，存量数据在用户编辑时零迁移脚本收敛。
@@ -894,7 +992,9 @@ function openEdit(m) {
 
 async function save() {
   const errs = {}
-  if (!form.employee_id) errs.employee_id = '请选择员工'
+  // v317：报单人两维任一即可。错误键仍用 `employee_id`（模板里那个字段的锚点），
+  // 但文案必须说「报单人」—— 否则给外部客户配的人会以为自己漏填了某个叫"员工"的框。
+  if (!form.employee_id && !form.external_user_id) errs.employee_id = '请选择报单人'
   if (!form.counterparty_id) errs.counterparty_id = '请选择对象'
   if (!form.report_alias || !form.report_alias.trim()) errs.report_alias = '请填写报单简称（列头）'
   // v295：撞名**本地预检** —— 名册已知被他人占用时直接标红，不必等后端拒绝
@@ -914,7 +1014,8 @@ async function save() {
   saving.value = true
   try {
     const body = {
-      employee_id: Number(form.employee_id), counterparty_type: form.counterparty_type,
+      employee_id: Number(form.employee_id), external_user_id: Number(form.external_user_id),
+      counterparty_type: form.counterparty_type,
       counterparty_id: Number(form.counterparty_id), system_name: form.system_name,
       report_alias: form.report_alias,
       // v294：单型一律送**派生值**（后端也会同样派生一遍，双保险 —— 即使客户端被改坏，
@@ -1114,6 +1215,11 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile(); loadAlia
 .al-tag.war{background:rgba(var(--war-rgb),.14);color:var(--war)}
 .al-tag.mine{background:var(--p-bg);color:var(--p-dark)}
 /* 输入框下方那行判定：绿=接管既有列 / 黄=会新增一列 / 红=撞名会被拒 */
+/* v317：报单人下拉下方的引导行（「还没有外部客户账号？去员工档案开通」）。
+   中性灰而不是告警色 —— 它描述的是"还没有这种数据"，不是配置出错。 */
+.al-note{font-size:11.5px;line-height:1.6;color:var(--t3)}
+.lnk-btn{border:none;background:none;color:var(--p);cursor:pointer;font-size:11.5px;padding:0 2px;font-family:inherit;text-decoration:underline}
+.lnk-btn:hover{color:var(--p-dark)}
 .al-hint{font-size:11.5px;line-height:1.55;padding:6px 9px;border-radius:var(--radius-sm)}
 .al-hint.ok{color:var(--suc);background:rgba(var(--suc-rgb),.10)}
 .al-hint.warn{color:var(--war);background:rgba(var(--war-rgb),.10)}

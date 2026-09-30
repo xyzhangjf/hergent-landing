@@ -21,7 +21,6 @@
                    🔴 **角色名与产品名重复时不渲染** —— 默认角色就叫「经营副驾」，
                       直接拼会得到「AI 经营副驾 · 经营副驾」（生产探针当场抓到的观感缺陷）。 -->
               <b>AI 经营副驾<span v-if="titleRoleSuffix" class="cp-title-role"> · {{ titleRoleSuffix }}</span></b>
-              <span class="cp-sub">Hermes · 随时在侧</span>
             </div>
           </div>
           <div class="cp-actions">
@@ -558,7 +557,7 @@
       <div v-if="!showHistory && showPager" class="cp-pager">
         <div class="cp-pager-hd">
           <b>本期经营一页纸</b>
-          <span class="cp-pager-sub">四宫格 + 异常清单 · 数据来自你的真实库表</span>
+          <span class="cp-pager-sub">四宫格 + 异常清单</span>
           <button class="cp-pager-back" @click="showPager=false">← 返回对话</button>
         </div>
 
@@ -662,6 +661,8 @@ import { useCardTrigger, extractCard, extractCardIntent, stripAllFences, extract
 import { useVoiceInput } from '../composables/useVoiceInput'
 import { renderMd, splitMedia } from '../utils/md'
 import { useRouter } from 'vue-router'   // M1：斜杠命令「跳转页面」用
+// v311：`drillTo` 前置判据用（见该函数处注释）。判据唯一实现在 `constants/pages.js`。
+import { canSee, pageTitle } from '../constants/pages'
 
 const router = useRouter()
 
@@ -792,6 +793,18 @@ async function loadPager() {
   }
 }
 function drillTo(hash) {
+  /* v311（2026-09-28）：**先判权限再跳**。
+     🔴 为什么必须在这里判：本函数是直接改 `location.hash`，路由守卫**会**接住这次导航，
+        发现角色不够就把人弹回工作台并提示「没有「xxx」这一页的访问权限」——
+        于是卡片写着「回款（应收）」、点下去却被弹回来，用户只会以为系统坏了。
+        入口自己先判，就不会有那一跳（本项目的「假入口」家族）。
+     ⚠️ 消息措辞与守卫保持一致（都用 `pageTitle`），避免同一次拒绝出现两种说法。
+     ⚠️ 判据走 `canSee`（→ `pages.js` 一张表），**不要**在这里写角色硬编码。 */
+  const p = String(hash || '').replace(/^#/, '')
+  if (p && !canSee(p)) {
+    store.toast('没有「' + (pageTitle(p) || p) + '」的访问权限', 'warn')
+    return
+  }
   showPager.value = false
   store.ui.copilotOpen = false
   window.location.hash = hash
@@ -828,7 +841,7 @@ async function saveAsReport() {
   savingReport.value = true
   try {
     await api('/api/ai/reports', { method: 'POST', body: { title, content, source: 'copilot' } })
-    store.toast('已存为报告，可在「AI 中心」回看')
+    store.toast('已存为报告，可在「AI 引擎 › 产出与用量」回看')
   } catch (e) {
     store.toast((e && e.message) || '保存失败', 'error')
   } finally {
@@ -1086,23 +1099,9 @@ function onDocPointerDown(e) {
   if (showAddMenu.value && !inside('.cp-add')) showAddMenu.value = false
 }
 function pickRole(r) {
+  const prev = store.chat.currentRole
   setAiRole(r.role_id)
   showRoleMenu.value = false
-}
-
-function close() { store.ui.copilotOpen = false; showPager.value = false }
-
-async function toggleSources(i) {
-  if (openSources.value === i) { openSources.value = -1; return }
-  openSources.value = i
-  try {
-    const d = await api('/api/memory')
-    sources.value = d.user || []
-  } catch (e) {
-    sources.value = []
-  const prev = store.chat.currentRole
-  }
-}
   if (!r || r.role_id === prev) return
   // v319（L2）：切换必须**看得见**。此前只换头像 —— 老板既不知道"切没切成功"，
   //   也不知道"从哪一条开始换了人答"，而历史头像还会被追溯改写（既存缺陷）。
@@ -1136,6 +1135,20 @@ function resumeSession() {
   const t = resumeTarget.value
   if (!t) return
   openSession(t.id)
+}
+
+function close() { store.ui.copilotOpen = false; showPager.value = false }
+
+async function toggleSources(i) {
+  if (openSources.value === i) { openSources.value = -1; return }
+  openSources.value = i
+  try {
+    const d = await api('/api/memory')
+    sources.value = d.user || []
+  } catch (e) {
+    sources.value = []
+  }
+}
 
 function clear() {
   store.chat.messages = []
@@ -1180,20 +1193,6 @@ function formatDailyLogForAI(logs) {
 const aiGuard = ref(localStorage.getItem('hergent_ai_guard') || 'advise')  // advise=只建议（默认）/ execute=允许执行
 // H1：Web 副驾服从后台 AI 模式（auto/readonly/disabled），修复"后台关 AI 但副驾仍可用"的越权口子
 const aiMode = ref('auto')  // auto=正常 / readonly=强制只建议 / disabled=完全停用
-/* 权限下拉（对齐 WorkBuddy 的 permission chip）：把"AI 会怎么做"摆到台面上，不再只靠 hover 提示。
-   （原 `toggleAiGuard` 二态直切已由本下拉取代，函数一并删除，避免死代码。）
-   ⚠️ 硬门禁仍在服务端 `ai_mode`；这里只是让老板看懂软开关的含义。 */
-const showGuardMenu = ref(false)
-function toggleGuardMenu() {
-  if (aiMode.value === 'readonly') return          // 只读时按钮本就 disabled，双保险
-  const on = !showGuardMenu.value; closeMenus('guard'); showGuardMenu.value = on
-}
-function pickGuard(mode) {
-  if (mode === 'execute' && aiMode.value === 'readonly') { showGuardMenu.value = false; return }
-  aiGuard.value = mode
-  localStorage.setItem('hergent_ai_guard', mode)
-  showGuardMenu.value = false
-}
 
 /* v319（L2）：**生效的**权限档 = 角色档 ⊕ 租户 AI 模式（都只能收窄）。
    为什么必须与后端同口径：后端 `role_caps()` 就是这么算的（模式非 auto ⇒ 一律 advise）。
@@ -1231,6 +1230,22 @@ const resumeTarget = computed(() => {
   if (!s || s.id === store.chat.currentId) return null
   return s
 })
+/* 权限下拉（对齐 WorkBuddy 的 permission chip）：把"AI 会怎么做"摆到台面上，不再只靠 hover 提示。
+   （原 `toggleAiGuard` 二态直切已由本下拉取代，函数一并删除，避免死代码。）
+   ⚠️ 硬门禁仍在服务端 `ai_mode`；这里只是让老板看懂软开关的含义。 */
+const showGuardMenu = ref(false)
+function toggleGuardMenu() {
+  if (aiMode.value === 'readonly') return          // 只读时按钮本就 disabled，双保险
+  const on = !showGuardMenu.value; closeMenus('guard'); showGuardMenu.value = on
+}
+function pickGuard(mode) {
+  // v319（L2）：角色已配权限档 ⇒ 前端这个**软开关退位**（决定权在角色，去「设置 › AI 团队」改）
+  if (roleGuardLocked.value) { showGuardMenu.value = false; return }
+  if (mode === 'execute' && aiMode.value === 'readonly') { showGuardMenu.value = false; return }
+  aiGuard.value = mode
+  localStorage.setItem('hergent_ai_guard', mode)
+  showGuardMenu.value = false
+}
 
 /* 🔴 「模型选择」已于 2026-09-25 整体下架（老板选 B）——前后端代码一并移除，不留死 UI 逻辑。
    根因：Hermes 未配 `model_routes` ⇒ 请求里的 model 匹配不到路由、**静默回落默认模型**
@@ -1240,8 +1255,6 @@ const resumeTarget = computed(() => {
 /* ---- 「＋」变菜单（P3/R10，对齐 WorkBuddy 的 `addMenu`）----
    🔴 只放**真能用的**入口：三项走的是同一个 `onFile` 流程，只是**预筛的文件类型**不同。
       菜单的价值是让老板知道"能给 AI 什么"，而不是新增能力（不塞假条目——假条目点了没反应更伤信任）。
-  // v319（L2）：角色已配权限档 ⇒ 前端这个**软开关退位**（决定权在角色，去「设置 › AI 团队」改）
-  if (roleGuardLocked.value) { showGuardMenu.value = false; return }
    ⚠️ 智能导入不是独立入口：它由 onFile 识别到表格后自动弹确认面板（`.cp-smart`）。 */
 const showAddMenu = ref(false)
 const fileAccept = ref('.xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp,.pdf')
@@ -1735,7 +1748,7 @@ async function send() {
     // 全量数据由 Hermes 经 spreadsheet MCP 工具按 file_id 静默读取，避免截断预览误导模型心算。
     const parts = attachments.value.map(a => {
       const head = `【附件：${a.file_name}${a.rows ? `（${a.rows} 行）` : ''}】`
-      return `${head}（已上传，Hermes 将经表格工具读取全量数据）`
+      return `${head}（已上传，AI 已读取全量数据）`
     })
     content = parts.join('\n\n') + (q ? `\n\n我的问题：${q}` : '\n\n请分析这份数据。')
     // H2：图片转为视觉块（base64 直传 Hermes 视觉模型，无需 Hermes 回连后端）
@@ -1775,6 +1788,8 @@ async function send() {
   } catch (_) { /* 静默降级 */ }
 
   // P0-③ 动作分级护栏：只建议档显式注入行为边界（信任透明化 + 未来写能力护栏）
+  //   ⚠️ v319 起这一条与「角色权限档」同向但不同源：本开关是**租户级**，角色档是**角色级**。
+  //      两者都只能收窄，叠加是双保险；后端 `role_caps` 已把租户 AI 模式并进角色 guard。
   if (aiGuard.value === 'advise') {
     sysCtx = (sysCtx ? sysCtx + '\n\n' : '') + AI_GUARD_HINT
   }
@@ -1798,8 +1813,6 @@ async function streamReply(payload) {
   const { content, sys, roleId, q, tableFiles, files, vision } = payload
   store.chat.error = ''
   store.chat.messages.push({ role: 'user', content, files: files || [], vision: vision && vision.length ? vision : null })
-  //   ⚠️ v319 起这一条与「角色权限档」同向但不同源：本开关是**租户级**，角色档是**角色级**。
-  //      两者都只能收窄，叠加是双保险；后端 `role_caps` 已把租户 AI 模式并进角色 guard。
   // v319（L2）：把**回答时的角色**快照进消息 —— 历史署名与头像从此不再随后续切换被改写
   store.chat.messages.push({ role: 'assistant', content: '', tools: [],
                              roleId: roleId || '', roleMeta: roleMetaOf(roleId) })
@@ -1823,6 +1836,9 @@ async function streamReply(payload) {
       store.chat.messages.filter(m => m.content && !m.isSwitch).map(m => ({ role: m.role, content: m.vision || m.content })),
       {
         system: sys,
+        // v319（L2）：把角色 id 交给后端 —— 能力边界（技能包 / 数据范围 / 权限档）
+        // 由服务端按角色裁决，前端不再拥有"我说我是谁"的权力。
+        roleId,
         timeout: isHeavy ? CHAT_TIMEOUT_LONG : CHAT_TIMEOUT_NORMAL,
         // v309：把中止信号传到 fetch —— 不加这一行，「停止」按钮就只是个换了图标的摆设。
         // 中止后浏览器掐断连接 ⇒ 后端 Starlette 关闭上游生成器 ⇒ Hermes 那次运行随之断开。
@@ -1837,9 +1853,6 @@ async function streamReply(payload) {
             : last.tools.find(x => x.name === step.name && x.status === 'running')
           if (step.phase === 'start') {
             if (step.id && last.tools.some(x => x.id === step.id)) return   // 同 id 重复 running 不重复加
-        // v319（L2）：把角色 id 交给后端 —— 能力边界（技能包 / 数据范围 / 权限档）
-        // 由服务端按角色裁决，前端不再拥有"我说我是谁"的权力。
-        roleId,
             last.tools.push({
               id: step.id || '',
               name: step.name,
@@ -2241,20 +2254,6 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-retry{margin-left:8px;padding:3px 12px;border:1px solid var(--dan);border-radius:8px;background:transparent;color:var(--dan);font-size:12px;cursor:pointer;vertical-align:middle}
 .cp-retry:hover{background:var(--dan);color:#fff}
 
-.cp-foot{padding:12px 16px;border-top:1px solid var(--border-subtle);flex-shrink:0;background:var(--bg)}
-.cp-atts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.cp-att{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--p-bg);border:1px solid var(--p);border-radius:10px;font-size:12px;color:var(--p-dark);max-width:100%}
-.cp-att-ic{font-size:13px}
-.cp-att-name{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cp-att-meta{font-size:11px;color:var(--p-dark);opacity:.7}
-.cp-att-x{border:none;background:none;color:var(--p-dark);cursor:pointer;font-size:12px;padding:0 2px;opacity:.6}
-.cp-att-x:hover{opacity:1}
-.cp-plus{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0}
-.cp-plus:hover{background:var(--bg4);color:var(--t1)}
-.cp-att-loading{background:var(--bg2);border-color:var(--border-subtle);color:var(--t2)}
-.cp-att-spin{display:inline-flex;animation:cp-spin 1s linear infinite}
-@keyframes cp-spin{to{transform:rotate(360deg)}}
-.cp-composer{position:relative;display:flex;flex-direction:column;gap:8px;padding-top:8px;border:1px solid var(--bd);border-radius:24px;background:var(--bg3);transition:border-color .2s,box-shadow .2s}
 /* v319（L2）：常驻「将由谁回答」行 + 角色切换分隔标记 + 角色决定权限档的说明 */
 .cp-who{display:flex;align-items:center;gap:6px;padding:0 2px 8px;font-size:12px;color:var(--t3);flex-wrap:wrap}
 .cp-who-av{display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--p-bg);color:var(--p-dark);font-size:12px;line-height:1;flex-shrink:0;overflow:hidden}
@@ -2278,6 +2277,20 @@ watch(() => store.chat.messages.length, scrollBottom)
 .cp-switch-resume:hover{color:var(--p);border-color:var(--p)}
 /* v320：历史列表里「这段是谁开的」小标签（归属为空则不渲染 = 存量会话界面不变） */
 .cp-hist-role{display:inline-block;padding:0 5px;margin-right:5px;border-radius:var(--radius-md);background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;color:var(--t3)}
+.cp-foot{padding:12px 16px;border-top:1px solid var(--border-subtle);flex-shrink:0;background:var(--bg)}
+.cp-atts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.cp-att{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--p-bg);border:1px solid var(--p);border-radius:10px;font-size:12px;color:var(--p-dark);max-width:100%}
+.cp-att-ic{font-size:13px}
+.cp-att-name{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-att-meta{font-size:11px;color:var(--p-dark);opacity:.7}
+.cp-att-x{border:none;background:none;color:var(--p-dark);cursor:pointer;font-size:12px;padding:0 2px;opacity:.6}
+.cp-att-x:hover{opacity:1}
+.cp-plus{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0}
+.cp-plus:hover{background:var(--bg4);color:var(--t1)}
+.cp-att-loading{background:var(--bg2);border-color:var(--border-subtle);color:var(--t2)}
+.cp-att-spin{display:inline-flex;animation:cp-spin 1s linear infinite}
+@keyframes cp-spin{to{transform:rotate(360deg)}}
+.cp-composer{position:relative;display:flex;flex-direction:column;gap:8px;padding-top:8px;border:1px solid var(--bd);border-radius:24px;background:var(--bg3);transition:border-color .2s,box-shadow .2s}
 .cp-composer:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 4px var(--p-bg)}
 .cp-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:0 10px 10px}
 .cp-tools{display:flex;align-items:center;gap:4px;flex:0 1 auto;min-width:0}

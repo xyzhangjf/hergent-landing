@@ -3,7 +3,7 @@
     <div class="page-hd split">
       <div>
         <h2>定时任务</h2>
-        <span class="page-sub">AI 副驾的定时任务，由 Hermes 引擎调度，到点自动执行 · 结论可推送企业微信</span>
+        <span class="page-sub">AI 副驾的定时任务，到点自动执行 · 结论可推送企业微信</span>
       </div>
       <button class="btn btn-primary" @click="openCreate">新建任务</button>
     </div>
@@ -112,7 +112,7 @@
       <div class="exec-hd">
         <div>
           <b>执行记录</b>
-          <p class="sub">任务到点自动跑后的结果会回流到这里，也可在「AI 中心」回看报告</p>
+          <p class="sub">任务到点自动跑后的结果会回流到这里，也可在「AI 引擎 › 产出与用量」回看报告</p>
         </div>
         <button class="btn btn-ghost btn-sm" :disabled="execLoading" @click="loadExecutions">{{ execLoading ? '刷新中…' : '刷新' }}</button>
       </div>

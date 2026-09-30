@@ -1,8 +1,8 @@
 <template>
   <div class="page">
     <div class="page-hd flush">
-      <h2>AI 中心</h2>
-      <span class="page-sub">副驾产出固化 · 用量配额 · 个性化洞察 · 长期画像</span>
+      <h2>产出与用量</h2>
+      <span class="page-sub">AI 干了什么活（报告 · 经营洞察 · 长期画像）· 花了多少（用量配额 · 价值账单）</span>
     </div>
     <div class="ops-hint">
       <span>数据备份、健康看板、审计日志等运维能力已移入</span>
@@ -56,7 +56,7 @@
         <div v-for="r in reports" :key="r.id" class="rep-item">
           <div class="rep-main" @click="openReport(r)">
             <div class="rep-title">{{ r.title }}</div>
-            <div class="rep-meta">{{ r.source }} · {{ fmt(r.created_at) }}</div>
+            <div class="rep-meta">{{ repSrcLabel(r.source) }} · {{ fmt(r.created_at) }}</div>
           </div>
           <div class="rep-ops">
             <button class="btn btn-sm btn-ghost" @click="openReport(r)">查看</button>
@@ -71,7 +71,7 @@
     <div class="card quota-card">
       <div class="panel-hd">
         <b>用量与配额</b>
-        <span class="page-sub">本租户当月 AI 调用计量（字符量近似）</span>
+        <span class="page-sub">本月 AI 用量</span>
       </div>
       <div v-if="quota" class="quota">
         <div class="quota-row">
@@ -179,7 +179,7 @@
           </div>
           <div v-if="calEntry" class="cal-tip">
             <template v-if="calEntry.shareable">属算法参数：确认后会计入跨租户行业口径（只共享参数名与量级，不含金额 / 客户 / 进货价）</template>
-            <template v-else>属商业秘密：只在本租户沉淀，不会进入跨租户共享层</template>
+            <template v-else>属商业秘密：只在你这里沉淀，不会与别家共享</template>
           </div>
         </template>
       </div>
@@ -196,7 +196,7 @@
             <div class="prop-title">
               <span class="prop-mod">{{ MOD_LABEL[p.module] || p.module }}</span>
               <span class="prop-name">{{ p.title || '（无标题）' }}</span>
-              <span class="prop-st" :class="'st-' + p.status">{{ ST_LABEL[p.status] || p.status }}</span>
+              <span class="prop-st" :class="'st-' + p.status">{{ ST_LABEL[p.status] || '未知' }}</span>
             </div>
             <div v-if="p.rationale" class="prop-why">{{ p.rationale }}</div>
             <div v-if="changesText(p.changes)" class="prop-chg">{{ changesText(p.changes) }}</div>
@@ -219,7 +219,6 @@
     <div class="card insight-card">
       <div class="panel-hd">
         <b>AI 经营洞察</b>
-        <span class="page-sub">LLM 读真实数据，跨表因果，区别于规则模板</span>
       </div>
       <div class="tb-group tb-right" style="margin-bottom:12px">
         <button class="btn btn-sm btn-primary" :disabled="insighting" @click="genInsight">
@@ -238,16 +237,15 @@
       <!-- T1-3 溯源：读了几张表 / 每项按什么口径 / 由几行算出来的 -->
       <div v-if="provenance.length" class="prov">
         <div class="prov-hd">
-          这份结论读了 <b>{{ tablesRead.length }}</b> 张表、共 <b>{{ rowsTotal }}</b> 行数据
+          这份结论共参考 <b>{{ rowsTotal }}</b> 行数据
         </div>
         <div class="prov-tb">
           <div class="prov-tr prov-th">
-            <span>指标</span><span>数据源表</span><span>口径</span>
+            <span>指标</span><span>口径</span>
             <span class="num">行数</span><span class="num">取值</span>
           </div>
           <div v-for="p in provenance" :key="p.key" class="prov-tr" :class="'pv-' + p['状态']">
             <span>{{ p['指标'] }}</span>
-            <span>{{ p['数据源表'] }}</span>
             <span>{{ p['口径'] }}</span>
             <span class="num">{{ p['行数'] }}</span>
             <span class="num">
@@ -260,7 +258,7 @@
         <div class="prov-warn" v-if="unscannedBatches">
           另有 {{ unscannedBatches }} 个在库批次没录到期日、未纳入临期扫描 —— 所以「临期风险低」不等于库存健康。
         </div>
-        <div class="prov-tip">口径 = 这个数是怎么算出来的。照着「数据源表 + 口径」两列，你可以自己在系统里复算一遍。</div>
+        <div class="prov-tip">口径 = 这个数是怎么算出来的。</div>
       </div>
     </div>
 
@@ -412,6 +410,12 @@ function srcLabel(p) {
   if (p.source === 'loop') return '经验闭环自动提案（同口径反复改写触发）'
   if (p.source === 'manual') return '口径记录入口提交'
   return 'AI 提案'
+}
+
+/* 报告的来源同样不许把英文枚举直接印在界面上（生产实测 ai_reports.source = 'copilot'）。
+   兜底也用中文 —— 后端将来加新枚举值时，漏的是中文而不是英文。 */
+function repSrcLabel(s) {
+  return ({ copilot: 'AI 副驾对话', loop: '经验闭环自动生成', manual: '手工创建' })[s] || 'AI 副驾'
 }
 
 /* ==================== T1-5 记录一次口径 ====================
@@ -723,7 +727,7 @@ async function refreshProfile() {
 .prov-hd{font-size:12.5px;color:var(--t2);margin-bottom:8px}
 .prov-hd b{color:var(--p-dark);font-size:13.5px}
 .prov-tb{display:flex;flex-direction:column;border:1px solid var(--border-subtle);border-radius:9px;overflow:hidden}
-.prov-tr{display:grid;grid-template-columns:112px 1.15fr 1.9fr 52px 108px;gap:8px;padding:7px 10px;font-size:12px;color:var(--t2);border-top:1px solid var(--border-subtle)}
+.prov-tr{display:grid;grid-template-columns:112px 1fr 52px 108px;gap:8px;padding:7px 10px;font-size:12px;color:var(--t2);border-top:1px solid var(--border-subtle)}
 .prov-tr:first-child{border-top:none}
 .prov-tr.prov-th{background:var(--bg3);color:var(--t3);font-weight:600;font-size:11.5px}
 .prov-tr .num{text-align:right;font-variant-numeric:tabular-nums}

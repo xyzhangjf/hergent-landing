@@ -39,14 +39,26 @@ export const forecastApi = {
   updatePeriod: (pid, body) => api(`/api/forecast/periods/${pid}`, { method: 'PATCH', body }),
   // 2026-09-17：复制期次。`copyPeriod` = 新建一个期次并只带源期的**商品清单**；
   // `seedPeriod` = 把源期清单填入**已存在**的期次（空期次用，不必先删再建）。
-  // 🔴 两者都刻意**不带**报单数量 / 加单 / 定稿 —— 加单与定稿的归属键是
-  //    (period_start, period_end) 日期窗口而不是期次 id，带过来会让两期**共用同一份**。
+  // 🔴 两者都刻意**不带**报单数量 / 加单 / 定稿 —— 带过来会让两期**共用同一份**。
+  //    （v319 订正：原文写「归属键是 (period_start, period_end) 日期窗口」—— **已过时**。
+  //      加单分配自 v279 起归属键就是 `period_id`；定稿更是从来就挂在期次状态上。
+  //      结论不变（仍不带），但那句旧理由会误导后来者以为窗口是键，故予更正。）
   copyPeriod: (pid, body) => api(`/api/forecast/periods/${pid}/copy`, { method: 'POST', body }),
   seedPeriod: (pid, body) => api(`/api/forecast/periods/${pid}/seed`, { method: 'POST', body }),
   closePeriod: (pid) => api(`/api/forecast/periods/${pid}/close`, { method: 'POST' }),
   // v219：关闭（=定稿）此前是**单向**的，误点一次即永久锁死、无补救 ⇒ 重开是唯一补救路径。
   // ⚠️ 副作用必须让用户知道：重开后该期次重新出现在小程序 open 列表 ⇒ **销售又能报单了**。
-  reopenPeriod: (pid) => api(`/api/forecast/periods/${pid}/reopen`, { method: 'POST' }),
+  // 🔴 v319（2026-09-29）：拆成两个语义不同的动作 ——
+  //    `mode='unlock'`（解锁编辑）：status **不动**，只记「人工接管」⇒ 授权角色可改数，
+  //       但**销售报单通道不开**。副作用最小，「我只要改个数」的正确选择。
+  //    `mode='full'`（恢复报单，默认）：status 回 open，销售可继续报单（= v219 行为）。
+  //    不传 mode 时走 full，旧调用方行为逐字不变。
+  reopenPeriod: (pid, mode) => api(`/api/forecast/periods/${pid}/reopen`
+    + (mode === 'unlock' ? '?mode=unlock' : ''), { method: 'POST' }),
+  // v319：把本期的加单/减单明细**手动推送**给业务员。
+  //   为什么需要：自动关单（调度器直调 db 层）不发通知 ⇒ 那些期次一条都没推，
+  //   界面也不会说（v318 的推送挂在「关闭期次」端点上）。出口定在**人确认的那一次**。
+  pushExtraAlloc: (pid) => api(`/api/forecast/periods/${pid}/push-alloc`, { method: 'POST' }),
   deletePeriod: (pid) => api(`/api/forecast/periods/${pid}`, { method: 'DELETE' }),
   periodOrders: (periodId) => api(`/api/forecast/orders/${periodId}`),
   submitOrder: (body) => api('/api/forecast/orders', { method: 'POST', body }),
@@ -466,6 +478,30 @@ export const productTargetsApi = {
      **不重算** —— 算归 `save-matrix`（经理保存那一刻的结果），这里只把存下来的结果拿出来给
      hover 展示用。重算会出现「保存时按 8 人算、悬停时按 9 人算」两套结果。 */
   extraAlloc: (periodId) => api(`/api/product-targets/extra-alloc?period_id=${periodId}`),
+  /* v318（需求：一键分摊按钮）—— 弹窗的**初始状态**（只读）。
+     只服务「点了某一个商品的角标」这一次点击，所以**不**塞进 extraAlloc（那个每次开表都调全表）。 */
+  extraAllocSetup: (periodId, productId) =>
+    api(`/api/product-targets/extra-alloc/setup?period_id=${periodId}&product_id=${productId}`),
+  /* v318：**只读预演** —— 给定总量与（可选的）覆盖占比，返回逐人分配结果。
+     🔴 必须走后端：减单的「夹断到 0 后按相对占比重分」是边界敏感的，前端另写一份
+        必然在边界上给出第二个答案（本项目反复栽的「同屏两个同名数对不上」）。
+     本接口一个字节都不写 —— 比例落档案走 `update()`，加单量落库仍随汇总结表的保存。 */
+  extraAllocPreview: ({ periodId, productId, totalDelta, ratios }) =>
+    api('/api/product-targets/extra-alloc/preview', {
+      method: 'POST',
+      body: { period_id: periodId, product_id: productId, total_delta: totalDelta, ratios: ratios || [] },
+    }),
+  /* v339（P1）：**保存 / 清除本期临时占比** —— 只影响本期，**不写商品目标档案**。
+     老板原话：「L2 的比例『临时改只影响本期』放 P1」。
+     `ratios` 传**空数组** = 清除覆盖 ⇒ 该商品回落到自动判据（有档案按档案、无档案按报单量）。
+     🔴 与 `update()`（写档案、**全期生效**）是两条不同的路，绝不能混：写档案会让该商品
+        **本月所有期次**的加单分摊都跟着变，而这个接口**只改本期**。
+     后端三道校验（都在服务端）：Σ 必须 = 100 / 每个人本来就能分摊（不许凭空造人）/ 占比非负。 */
+  extraAllocOverride: ({ periodId, productId, ratios }) =>
+    api('/api/product-targets/extra-alloc/override', {
+      method: 'PUT',
+      body: { period_id: periodId, product_id: productId, ratios: ratios || [] },
+    }),
   /* v277（S3）：**就地补商品的大单位换算**。后端三道校验（当前必须真缺 / 补完必须真能折箱
      且能摊出各级单位 / 大单位名不得撞名），任一不过返 400 并带中文原因。 */
   fixConversion: (productId, largeUnit, largeRatio) =>
@@ -755,7 +791,8 @@ export const zhoupuApi = {
       method: 'POST', body: fd, timeout: 15000, raw: true
     })
   },
-  /* v274（2026-09-25）：通道状态 —— 给「能力中心 › 连接器 › ERP 数据源」那张卡用，
+  /* v274（2026-09-25）：通道状态 —— 给「AI 引擎 › 连接器 › ERP 数据源」那张卡用，
+     （容器 v311 前叫「能力中心」，路由仍是 `/connect`）
      读的是导入成功后落的**回执**（后端 system_config 里的 zhoupu_import_receipt）。
      ⚠️ 读数含义 = 「这个通道最近一次动作」，**不是**「库里现在有多少张舟谱单」——
         别拿它当业务量统计（有人手工删过单就会与库不一致）。 */

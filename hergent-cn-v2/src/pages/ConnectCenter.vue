@@ -6,6 +6,11 @@
       <button class="cc-tab" :class="{ active: tab === 'expert' }" @click="tab = 'expert'">专家</button>
       <button class="cc-tab" :class="{ active: tab === 'skill' }" @click="tab = 'skill'">技能</button>
       <button class="cc-tab" :class="{ active: tab === 'evolution' }" @click="tab = 'evolution'; loadEvolution()">进化日志</button>
+      <!-- v311（2026-09-28）：原侧栏一级项「AI 中心」并进本容器当第 5 个页签。
+           本页签即原 `/ai-hub` 那一页（组件直接复用 AiHub.vue，**没有复制第二份实现**）。
+           ⚠️ 它的可见性比本容器**窄**（与本容器同为管理岗）—— 两者已对齐，不会误伤；
+              见 `constants/pages.js` 的 `/ai-hub` 行（roles + lock 一起给，缺 lock 收紧是假的）。 -->
+      <button class="cc-tab" :class="{ active: tab === 'output' }" @click="tab = 'output'">产出与用量</button>
     </div>
 
     <!-- ===== 进化日志 Tab（AI 自进化可见化）===== -->
@@ -70,7 +75,7 @@
 
         <div v-if="!ccView.supported" class="cc-unsupported">
           <Icon name="shield"/>
-          <span>当前环境未启用多租户网关（需服务端安装 Hermes）。界面可预览，保存凭证暂不生效。</span>
+          <span>界面可预览，保存凭证暂不生效。</span>
         </div>
 
         <!-- 配了渠道却没绑角色 → AI 回复永远推不到手机（后端静默跳过，此前无处可查） -->
@@ -132,7 +137,7 @@
           <!-- 渠道被安全锁定：Hermes 连续输错 5 次会锁 1 小时，且锁定期间不签发新码 -->
           <div v-if="pairLocked.length" class="cc-pair-lock">
             <Icon name="alert-triangle"/>
-            <span>配对已暂停：{{ pairLocked.map(l => (ccChannel(l.channel).label || l.channel) + ' 约 ' + l.minutes + ' 分钟').join('、') }}后自动解锁。原因：连续填错 5 次配对码（Hermes 安全策略），等待期间请勿再试。</span>
+            <span>配对已暂停：{{ pairLocked.map(l => (ccChannel(l.channel).label || l.channel) + ' 约 ' + l.minutes + ' 分钟').join('、') }}后自动解锁。原因：连续填错 5 次配对码，等待期间请勿再试。</span>
           </div>
 
           <div v-if="pairPending.length" class="cc-pair-pending">
@@ -231,7 +236,7 @@
           </div>
           <div class="cc-mcp-txt">
             <div class="cc-mcp-title">添加 MCP 服务器</div>
-            <div class="cc-mcp-desc">把外部系统按 MCP 协议接进来（开发中，暂未开放）</div>
+            <div class="cc-mcp-desc">把外部系统按 MCP 协议接进来</div>
           </div>
         </div>
       </div>
@@ -244,12 +249,13 @@
     </template>
 
     <!-- ===== 技能 Tab ===== -->
-    <template v-else>
+    <!-- v311：原来的 `v-else` 改成显式条件 —— 因为后面要再接一个 `v-else-if`。
+         留着 `v-else` 会把新页签吃掉（`v-else` 必须最后，跟着它的模板一律进不来）。 -->
+    <template v-else-if="tab === 'skill'">
       <!-- 平台能力（引擎基础设施）：P2-1 接出 Hermes 5 个技能基础设施模块（只读，不可由租户开关） -->
       <div class="cc-section">
         <div class="panel-hd">
           <b>平台能力（引擎基础设施）</b>
-          <span class="page-sub">Hermes 引擎自带的技能系统底层能力，系统内置、始终运行</span>
         </div>
         <div v-if="infraModules.length" class="sk-grid">
           <div v-for="m in infraModules" :key="m.name" class="card sk-card infra">
@@ -259,7 +265,7 @@
                 <div class="sk-title">{{ m.title }}</div>
                 <div class="sk-name">{{ m.name }}</div>
               </div>
-              <span class="sk-badge" :class="{ on: m.status === 'active' }">{{ m.status === 'active' ? '运行中' : m.status }}</span>
+              <span class="sk-badge" :class="{ on: m.status === 'active' }">{{ m.status === 'active' ? '运行中' : '未启用' }}</span>
             </div>
             <div class="sk-what">{{ m.description }}</div>
           </div>
@@ -275,7 +281,7 @@
         </div>
 
         <div v-if="skillLoading" class="state-empty">加载技能中…</div>
-        <div v-else-if="!aiSkills.length" class="state-empty">Hermes 技能未连接，请检查 Hermes API server。</div>
+        <div v-else-if="!aiSkills.length" class="state-empty">AI 技能暂时连不上，请稍后重试。</div>
 
         <template v-else>
           <!-- AI 自进化技能 -->
@@ -366,7 +372,6 @@
               </button>
             </div>
             <div class="cc-modal-body">
-              <p class="cc-modal-tip">开通/停用工作流，未开通的不会出现在卡片里。不同客户可以开不同组合。</p>
               <div v-for="w in workflows" :key="w.key" class="mg-row">
                 <div class="mg-info">
                   <span class="wf-icon" style="width:26px;height:26px;font-size:13px">{{ w.icon }}</span>
@@ -384,6 +389,17 @@
           </div>
         </Transition>
       </Teleport>
+    </template>
+
+    <!-- ===== 产出与用量 Tab（v311：原侧栏「AI 中心」并入本容器） =====
+         AI 干了什么活（我的报告 / 经营洞察 / 长期画像）+ 花了多少（用量配额 / 价值账单）。
+         ⚠️ 组件是**直接复用** `AiHub.vue`，不是复制一份实现 —— 复制就会有两个同源页面漂移。
+         外层 `.cc-embed` 只做一件事：压掉子页自己的页头（标题 + 副标题，无操作按钮），
+         否则嵌进来会出现「页签已说一遍 + 页内又说一遍」的双层标题。 -->
+    <template v-else-if="tab === 'output'">
+      <div class="cc-embed">
+        <AiHub />
+      </div>
     </template>
 
     <!-- 渠道配置弹窗（飞书 / 企业微信 / 钉钉 / QQ 共用；引导词复刻桌面版） -->
@@ -527,6 +543,8 @@ import { workflowApi, aiSkillsApi, zhoupuApi } from '../api/modules'
 import { api } from '../api/client'
 import { canImportZhoupu } from '../constants/roles'
 import RoleManage from './RoleManage.vue'
+// v311：产出与用量页签 —— 直接复用原「AI 中心」页面组件（同一份实现，不复制）。
+import AiHub from './AiHub.vue'
 import DataLedger from '../components/DataLedger.vue'
 
 const router = useRouter()
@@ -1222,6 +1240,12 @@ onUnmounted(stopStatusPoll)
 .cc-tab.active::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--p-dark);border-radius:2px}
 
 .cc-section{margin-bottom:26px}
+/* v311：嵌入「产出与用量」时压掉子页自己的页头。
+   ⚠️ 只藏页头、**不要**照抄 `.page-hd{display:none}` 那种"连工具条一起藏"的写法 ——
+   Archive.vue 踩过这个坑（把子页的操作按钮一起藏了，按钮全部点不到，真机 E2E 才发现）。
+   AiHub 的页头只有 h2 + 副标题、没有按钮，所以这里整块藏是安全的；
+   一旦 AiHub 以后往页头里放按钮，这条规则必须改成"只藏标题块"（对齐 Archive.vue 的写法）。 */
+.cc-embed :deep(.page-hd){display:none}
 .panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .panel-hd b{font-size:14px;font-weight:500}
 

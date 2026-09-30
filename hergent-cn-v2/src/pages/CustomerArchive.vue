@@ -8,12 +8,18 @@
       <div class="cas-actions">
         <span class="cas-stat" v-if="total !== null"><b>{{ total }}</b>&nbsp;个客户</span>
         <span class="sync-state" :class="connState">{{ connLabel }}</span>
-        <button class="btn btn-ghost btn-sm" :disabled="syncBusy" @click="onSync">
+        <!-- v335 按钮级门禁：本页三个写入口的接口都归后端模块 **data**
+             （`/api/datasources`、`/api/contacts`、`/api/import` —— 注意**不是**本页的 `crm`，
+               `pages.js` 的 `module` 只管入口显不显示，与接口归属是两回事）：
+               同步=POST /api/datasources/v2/*/sync ⇒ create
+               新增客户=POST /api/contacts ⇒ create
+               导入=POST /api/import/execute ⇒ create -->
+        <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" :disabled="syncBusy" @click="onSync">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
           {{ syncBusy ? '同步中…' : '同步 ERP' }}
         </button>
-        <button class="btn btn-primary btn-sm" @click="openAdd">+ 新增客户</button>
-        <button class="btn btn-ghost btn-sm" @click="openImport">导入</button>
+        <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" @click="openAdd">+ 新增客户</button>
+        <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" @click="openImport">导入</button>
       </div>
     </div>
 
@@ -56,7 +62,11 @@
                 {{ Number(c.ar_balance) > 0 ? money(c.ar_balance) : '—' }}
               </td>
               <td>{{ fmtDate(c.last_order) }}</td>
-              <td class="cas-ops"><button class="btn btn-ghost btn-sm" @click="openEdit(c)">编辑</button></td>
+              <td class="cas-ops">
+                <!-- v335 按钮级门禁：编辑 = PUT /api/contacts/{id} ⇒ data/update
+                     （弹窗里的「保存」不再重复判 —— 入口已藏就进不去） -->
+                <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" @click="openEdit(c)">编辑</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -89,7 +99,7 @@
           <div class="cas-modal-body">
             <p class="cas-tip">
               只摆真实在用的字段；点「更多字段」可填编码 / 结算方式等。
-              <template v-if="editTarget">保存时<b>只提交你真的改过的字段</b>，没动的一律不写。</template>
+              <template v-if="editTarget">没改动的项目会<b>保持原样</b>，不会被动到。</template>
             </p>
             <div class="cas-form">
               <label class="cas-f"><span>客户名称 <i>*</i></span>
@@ -210,7 +220,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { importApi } from '../api/modules'
-import { toast } from '../store'
+import { toast, canDo } from '../store'
 /* v291：页内跳转入口同判据（见 goConnect）。 */
 import { canSee } from '../constants/pages'
 

@@ -89,10 +89,11 @@
       </div>
 
       <div class="ap-actions">
-        <button class="btn btn-primary" :disabled="busy || !dirty" @click="save">
+        <!-- v335 按钮级门禁：PUT /api/forecast/auto-period ⇒ 模块 data / 动作 update -->
+        <button v-if="canDo('data', 'update')" class="btn btn-primary" :disabled="busy || !dirty" @click="save">
           {{ busy ? '保存中…' : '保存' }}
         </button>
-        <span v-if="state.dry_run" class="ap-warnchip">演练中：只记日志，不实际建表/关单</span>
+        <span v-if="state.dry_run" class="ap-warnchip">演练中</span>
       </div>
   </ConfigCard>
 </template>
@@ -100,7 +101,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { autoPeriodApi } from '../../api/modules'
-import { toast } from '../../store'
+import { toast, canDo } from '../../store'
 import ConfigCard from './ConfigCard.vue'
 
 const open = ref(true)

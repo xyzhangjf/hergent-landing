@@ -3,16 +3,21 @@
     <div class="page-hd split">
       <div>
         <h2>商品档案</h2>
-        <span class="page-sub">浏览与维护商品主档 · <b>点行尾「编辑」改名称/规格/价格/描述等（只提交你真的改过的字段）</b> · 品牌、进价、到货周期三列也支持行内直接点改</span>
+        <span class="page-sub">浏览与维护商品主档 · <b>点行尾「编辑」改名称/规格/价格/描述等（没改动的会保持原样）</b> · 品牌、进价、到货周期三列也支持行内直接点改</span>
       </div>
       <div class="pa-actions">
         <span class="pa-stat" v-if="total !== null"><b>{{ total }}</b>&nbsp;个商品</span>
-        <button v-if="missingFactoryCount > 0" class="btn btn-ghost btn-sm pa-fp-btn" @click="openBatchFp"
+        <!-- v335 按钮级门禁：本页写接口都归后端模块 data（与页面 module 一致）。
+             补进价 = POST /api/products/batch-factory-price ⇒ create（该面板内还有
+             「进价必填」开关，是 PUT /api/forecast/factory-price-gate ⇒ update；
+             面板入口按**更低门槛**的 create 收起 —— 没有 create 就整条补价链都用不了） -->
+        <button v-if="missingFactoryCount > 0 && canDo('data', 'create')" class="btn btn-ghost btn-sm pa-fp-btn" @click="openBatchFp"
                 title="进价 ＝ 厂家跟你结算的价（元/箱），算「本期需付款」用的就是它。这里可逐行填，也可导出清单批量补">
           <Icon name="edit"/> 补进价<span class="pa-fp-n">{{ missingFactoryCount }}</span>
         </button>
-        <button class="btn btn-primary btn-sm" @click="openAdd">+ 新增</button>
-        <button class="btn btn-ghost btn-sm" @click="openImport">导入</button>
+        <!-- 新增 = POST /api/products/bulk-upsert ⇒ data/create；导入 = POST /api/import/execute ⇒ data/create -->
+        <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" @click="openAdd">+ 新增</button>
+        <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" @click="openImport">导入</button>
         <button class="btn btn-ghost btn-sm" @click="exportXlsx">导出</button>
       </div>
     </div>
@@ -124,14 +129,18 @@
                 <!-- v165/v226：档案进价列为空、但历史进价列有值时，直接显示解析后的价
                      （不显示「未录」，否则用户会以为要重录一遍，而付款额其实已经在用那个值）。 -->
                 <span v-else-if="fpEff(p).from === 'purchase'" class="pa-fp-from" @click="startEditFp(p)"
-                      title="取自档案里的历史进价列（元/小单位，实测等于标准售价）—— 这里只代表「档案里有价」，不代表能算金额；算「本期需付款」用的是元/箱的「进价」，点这里可直接填一个">取进价 {{ money(fpEff(p).v) }}</span>
+                      title="取自档案里的历史进价列（元/小单位，数值上等于标准售价）—— 这里只代表「档案里有价」，不代表能算金额；算「本期需付款」用的是元/箱的「进价」，点这里可直接填一个">取进价 {{ money(fpEff(p).v) }}</span>
                 <span v-else class="pa-fp-miss" title="点这里填进价（档案里两个进价列都是空的）" @click="startEditFp(p)">未录</span>
               </td>
               <td class="num">{{ p.safety_stock != null ? p.safety_stock : '—' }}</td>
               <td>
                 <span class="pa-status" :class="p.is_active === 0 ? 'off' : 'on'">{{ p.is_active === 0 ? '停用' : '启用' }}</span>
               </td>
-              <td class="pa-ops"><button class="btn btn-ghost btn-sm" @click="openDetail(p)">编辑</button></td>
+              <td class="pa-ops">
+                <!-- v335 按钮级门禁：编辑=PUT /api/products/{id} ⇒ data/update
+                     （弹窗内的「保存」/「停用此商品」不再重复判 —— 入口已藏） -->
+                <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" @click="openDetail(p)">编辑</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -328,7 +337,9 @@
                     </tr>
                   </tbody>
                 </table>
-                <button type="button" class="btn btn-ghost btn-sm" :disabled="savingPrices" @click="saveUnitPrices()">{{ savingPrices ? '保存中…' : '保存价格矩阵' }}</button>
+                <!-- v335 按钮级门禁：PUT /api/products/{pid}/unit-prices ⇒ data/update
+                     （价格矩阵这一块可直接打开，不受上面「编辑」入口影响 ⇒ 单独判） -->
+                <button v-if="canDo('data', 'update')" type="button" class="btn btn-ghost btn-sm" :disabled="savingPrices" @click="saveUnitPrices()">{{ savingPrices ? '保存中…' : '保存价格矩阵' }}</button>
               </div>
             </div>
 
@@ -587,7 +598,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { api } from '../api/client'
 import { productsApi, importApi } from '../api/modules'
 import * as XLSX from 'xlsx'
-import { toast } from '../store'
+import { toast, canDo } from '../store'
 /* v184b：到货周期文案 / 解析的**唯一实现**（与「本期预报」主表共用同一份，见该文件注释）。
    本页若自己再写一份格式化 = 第二份拷贝 = 静默漂移（同一商品两处显示不一致）。 */
 import { arrivalCycleText, parseArrivalDays, ARRIVAL_MAX } from '../utils/arrival.js'

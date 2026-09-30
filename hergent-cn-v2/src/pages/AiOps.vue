@@ -199,7 +199,7 @@
       <div v-if="fallbackList.length" class="fb-list">
         <div v-for="f in fallbackList" :key="f.id" class="fb-row">
           <span class="fb-when">{{ fmt(f.at) }}</span>
-          <span class="fb-kind" :class="f.kind">{{ f.kind }}</span>
+          <span class="fb-kind" :class="f.kind">{{ FB_KIND_LABEL[f.kind] || '异常' }}</span>
           <span class="fb-reason">{{ f.reason }}</span>
           <span v-if="f.notified" class="fb-tag notify">已通知</span>
           <span v-if="f.acked" class="fb-tag ack">已确认</span>
@@ -216,6 +216,9 @@ import { api } from '../api/client'
 import { store } from '../store'
 
 const backupStatus = ref(null)
+/* 🔴 后端 ai_fallback_log.kind 实际取值是英文枚举（failure / low_confidence）
+   ⇒ 必须映射成中文再渲染；兜底也必须是中文，否则遇到新枚举又漏英文出去。 */
+const FB_KIND_LABEL = { failure: '调用失败', low_confidence: '置信度偏低' }
 const backups = ref([])
 const running = ref(false)
 const lastRestore = ref(null)

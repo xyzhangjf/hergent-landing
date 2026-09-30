@@ -32,13 +32,14 @@
       <div v-for="(e, i) in errors" :key="'e' + i" class="ir-sub-i">第 {{ e.row }} 行 · {{ e.msg }}</div>
     </div>
 
-    <!-- 撤销区。三种状态要能被分辨：可撤销 / 已撤销 / 不支持撤销（并说为什么不支持）。
-         「不支持」也要显示原因 —— 静默没有按钮，用户只会以为功能坏了。 -->
+    <!-- 撤销区。四种状态要能被分辨：可撤销 / 已撤销 / 无权撤销 / 不支持撤销（并说为什么不支持）。
+         「不支持」与「无权」都要显示原因 —— 静默没有按钮，用户只会以为功能坏了。 -->
     <div v-if="result.batch_id" class="ir-act">
-      <button v-if="result.undoable" class="btn btn-ghost btn-sm" :disabled="busy || undone" @click="doUndo">
+      <button v-if="canUndo" class="btn btn-ghost btn-sm" :disabled="busy || undone" @click="doUndo">
         {{ undone ? '已撤销，记录已删除' : (busy ? '撤销中…' : '撤销这次导入') }}
       </button>
-      <span v-if="result.undoable && !undone" class="ir-tip">只删掉这次新加的记录，之前录入的不受影响。</span>
+      <span v-if="canUndo && !undone" class="ir-tip">只删掉这次新加的记录，之前录入的不受影响。</span>
+      <span v-else-if="result.undoable && !hasUndoPerm" class="ir-tip">你没有撤销导入的权限，如需撤销请联系管理员。</span>
       <span v-else-if="!result.undoable" class="ir-tip">{{ result.undo_reason }}</span>
     </div>
   </div>
@@ -46,7 +47,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { toast } from '../store'
+import { toast, canDo } from '../store'
 import { importApi } from '../api/modules'
 
 /* 导入回执 —— 商品 / 库存 / 员工 / 报单矩阵四处导入**共用同一份实现**。
@@ -91,6 +92,16 @@ const warns = computed(() => allErrs.value.filter(e => e.type === 'warn'))
 const errors = computed(() => allErrs.value.filter(e => e.type !== 'duplicate' && e.type !== 'warn'))
 const failCount = computed(() => errors.value.length)
 const existing = computed(() => (props.result && props.result.existing) || [])
+
+/* v335（2026-09-30）**按钮级门禁**：撤销 = `POST /api/import/receipts/{id}/undo`
+   ⇒ 后端模块 `data`、动作 **`create`**。
+   🔴 `create` 不是笔误 —— 后端动作由 **HTTP 方法**推导（POST=create），这个撤销端点就是 POST。
+      门禁必须照抄这个事实，自己按"业务语义"改成 `delete` 就会与后端判据不一致（撒谎）。
+   🔴 为什么把「后端说可撤」与「你有权撤」分成两个 computed 再用三个分支显示：
+      只写一个合并判据时，会出现「按钮藏着、旁边却留着『只删掉这次新加的记录』那行说明」；
+      而权限不足时又什么都不显示（静默）—— 本仓明令「不支持要显示原因」。 */
+const hasUndoPerm = computed(() => canDo('data', 'create'))
+const canUndo = computed(() => !!props.result && !!props.result.undoable && hasUndoPerm.value)
 
 async function doUndo() {
   if (!props.result || !props.result.batch_id) return
