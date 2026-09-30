@@ -10319,6 +10319,75 @@ function ptExtraCellCls(r) {
   return s ? ('xm-' + s) : ''
 }
 
+/* ── v342：「报单挂不上人」的**成因**必须分类说清（老板 2026-09-30 拍板 A）────────
+   旧文案一律说「报单列头没在「报单配置」里对应到「报单人」」——
+   生产实测这是**假话**：分销商「唐成」清清楚楚列在「报单配置」里、状态正常，
+   只是登记为**外部客户账号**。经理照着这句话去翻配置 ⇒ **永远翻不出问题**。
+
+   🔴 判据唯一来源 = 后端下发的 `unmapped_split`（`avg-target` 的 `unmapped_split`），
+      与后端「归谁头上」用的是同一份判据 ⇒ 界面说的原因不可能与系统做法分叉：
+      · external —— 外部客户账号（分销商）。**按既定口径不参与内部业绩分摊**，无需处理；
+      · inactive —— 该列头的配置**已停用**（v343）：停用后不再计入报单汇总。**有正门** ——
+                    去「报单配置」点「启用」即可恢复 ⇒ 属于**要处理**的那一类（要给指引）；
+      · nomap    —— 列头从没在「报单配置」里登记过（如经理自建的「备货」列）；
+      · empty    —— 登记了，但没绑定报单人。
+   拿不到 `unmapped_split`（后端未上线 / 老版本）⇒ **降级为中性说法**，
+   **绝不**再把「没在「报单配置」里对应」当成唯一原因 —— 那等于把假话又写回去。
+
+   ⚠️ 两处（本行加单格悬停 / 编辑格内提示）**必须共用这两个函数** ——
+      同一件事只能有一个说法，各写一遍就是 v336b 修过的那个病（悬停说 A、格内说 B）。 */
+function unmappedSplit(g) {
+  const sp = (g && g.unmapped_split) || null
+  return (sp && typeof sp === 'object') ? sp : null
+}
+
+/* 成因说明（多行）。总量为 0 ⇒ 返回空数组（调用方走「本期没人报过」那条分支）。 */
+function unmappedCauseLines(g) {
+  const tot = Number(g && g.unmapped_box) || 0
+  if (!(tot > 0)) return []
+  const sp = unmappedSplit(g)
+  if (!sp) {
+    // 后端没给分类 ⇒ **中性**说法：列出可能性，不下断言（不说假话是第一原则）
+    return ['这 ' + fmt(tot) + ' 箱报单没能算到任何人头上：可能是报单列头没在「报单配置」里'
+            + '对应到报单人，也可能该列头是**外部客户账号**（外部客户的报量不参与内部分摊），'
+            + '还可能该列头的配置**已经停用**（停用后不再计入报单汇总）。']
+  }
+  const L = []
+  const ext = sp.external || null
+  const inactive = sp.inactive || null      // v343：配置已停用 ⇒ 不再计入报单汇总
+  const nomap = sp.nomap || null
+  const empty = sp.empty || null
+  if (ext) {
+    L.push('其中 ' + fmt(ext.box) + ' 箱来自**外部客户账号**（' + (ext.columns || []).join('、')
+           + '）—— 外部客户的分销报量**不参与内部业绩分摊**，属正常，不用处理。')
+  }
+  if (inactive) {
+    L.push((ext ? '另有 ' : '') + fmt(inactive.box) + ' 箱的报单列头（'
+           + (inactive.columns || []).join('、') + '）在「报单配置」里**已经停用** —— '
+           + '停用后该列不再计入报单汇总。要恢复请把那条配置**启用**。')
+  }
+  if (nomap) {
+    L.push((ext || inactive ? '另有 ' : '') + fmt(nomap.box) + ' 箱的报单列头（'
+           + (nomap.columns || []).join('、') + '）**还没在「报单配置」里对应到报单人**。')
+  }
+  if (empty) {
+    L.push((ext || inactive || nomap ? '另有 ' : '') + fmt(empty.box) + ' 箱的报单列头（'
+           + (empty.columns || []).join('、') + '）在「报单配置」里**已登记、但没有绑定报单人**。')
+  }
+  return L
+}
+
+/* 修复路径（**只针对真要处理的那几类**）。只有外部客户 ⇒ 返回空串（不多给无用指引）。 */
+function unmappedFixLine(g) {
+  const sp = unmappedSplit(g)
+  if (!sp) return '要让它生效：去「报单配置」把该列头对应到报单人。'
+  const need = []
+  if (sp.nomap || sp.empty) need.push('把该列头对应到报单人')
+  if (sp.inactive) need.push('把已停用的那条**启用**')   // v343：停用有正门（可启用恢复）
+  if (!need.length) return ''                            // 只有外部客户 ⇒ 无需处理
+  return '要让它生效：去「报单配置」' + need.join('，或') + '。'
+}
+
 /* 加单格的悬停说明 —— 直接回答用户那一问：**「这个数是怎么来的 / 到底加没加上」** */
 function ptExtraInputTitle(r) {
   const eq = Number(r && r.extraQty) || 0
@@ -10328,18 +10397,22 @@ function ptExtraInputTitle(r) {
   if (!mem.length) {
     // v336b：与 `ptExtraTip`（本行加单格悬停）**同源分支** —— 同一件事只能有一个说法，
     //   否则「悬停说 A、格内提示说 B」。`unmapped_box` > 0 = 报单列头没接上报单人。
+    // v342：**成因分类**说清（旧版一律赖到「报单配置没对应」上 —— 对分销商列头是假话），
+    //   分类判据与文案共用 `unmappedCauseLines` / `unmappedFixLine`，两处不再各写一遍。
     const g = ptGap.value[Number(r && r.product_id)] || null
     const _unm = Number(g && g.unmapped_box) || 0
     L.push('⚠ 这 ' + fmt(Math.abs(eq)) + ' 箱**分不到任何人头上** —— '
-           + (_unm > 0
-              ? '该商品有 ' + fmt(_unm) + ' 箱报单**挂不上人**（报单列头没在「报单配置」里对应到「报单人」）'
-              : '本期没有人报过这个商品')
+           + (_unm > 0 ? '该商品的报单有一部分没接上人' : '本期没有人报过这个商品')
            + '，也没有商品目标（或目标没填承接人）。')
+    unmappedCauseLines(g).forEach(x => L.push(x))
     L.push('保存汇总表后，同样不会有任何人的量被调整。')
-    L.push('要让它生效：'
-           + (_unm > 0 ? '去「报单配置」把该列头对应到报单人，'
-                       : '先让业务员在「报单」里报这个商品，')
-           + '或在「商品目标」里建目标并填承接人。')
+    if (_unm > 0) {
+      const _fix = unmappedFixLine(g)
+      if (_fix) L.push(_fix)
+    } else {
+      L.push('要让它生效：先让业务员在「报单」里报这个商品，'
+             + '或在「商品目标」里建目标并填承接人。')
+    }
     return L.join('\n')
   }
   const _bs = allocBasis(r)
@@ -10793,12 +10866,14 @@ function ptExtraTip(r) {
     //   会被说成「本期没有人报过这个商品」（**假话**），经理会去查一个不存在的问题。
     //   判据取自后端下发的 `unmapped_box`（>0 才下发）：报单列头在「报单配置」里
     //   没对应到「报单人」⇒ 那部分量进不了分摊。生产实测确有此类（某期次某商品 18 箱全挂空）。
+    // v342：改成**三类分离**（外部客户 / 未登记 / 登记未绑人）—— 旧文案把三种混成一句
+    //   「没在「报单配置」里对应到「报单人」」，而生产上真正的成因是**外部客户账号**，
+    //   那句话对「唐成」是假的（他在配置里、状态正常）⇒ 经理永远翻不出问题。
     const _unm = Number(g && g.unmapped_box) || 0
     if (_unm > 0) {
-      L.push(`本期该商品有 ${fmt(_unm)} 箱报单**挂不上人**（报单列头没在「报单配置」`
-             + `里对应到「报单人」）⇒ 这部分不参与分摊。`)
-      L.push('要让它生效：去「报单配置」把该列头对应到报单人，'
-             + '或在「商品目标」里建目标并填分解承接人。')
+      unmappedCauseLines(g).forEach(x => L.push(x))
+      const _fix = unmappedFixLine(g)
+      if (_fix) L.push(_fix)
     } else {
       L.push('本期没有人报过这个商品，该商品也没有启用目标（或目标没填分解承接人）'
              + '⇒ 保存汇总表后也不会有任何人的量被调整。')
