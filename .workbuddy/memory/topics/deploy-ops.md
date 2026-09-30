@@ -20,9 +20,11 @@
   - **2026-09-12 复现**：`rsync --dry-run --delete server/ /opt/hergent-erp/` 列出将删 `.hermes/`、`hermes-engine/.hermes/node/...node_modules`、`.cache/uv/...`、`.local/state/hermes/`、`incident_20260812/`。**结论：`deploy.sh` 与任何带 `--delete` 的整目录 rsync 一律不要用于后端**（会删 Hermes 运行时）。dry-run 必须先跑。
 - ⚠️ `rsync -aR src/./f.py` 的 `/./` 截断在本机**不生效** → 文件会被推到目标子目录（**2026-09-12 再次发生**：误建 `/opt/hergent-erp/server/`，已 `rm -f` 三文件 + `rmdir` 清理）。**后端部署一律用 `scp <本地文件> root@…:/opt/hergent-erp/<同名路径>` 逐个显式目标路径**；部署后 `grep -c <新符号> /opt/hergent-erp/<文件>` 验证落点，**别信 rsync 的 OK**。
   - 落点自检命令：`ls -l /opt/hergent-erp/erp_db.py` 时间戳应更新；`grep -c 'forecast_period_default' /opt/hergent-erp/erp_db.py` 应 >0。
+  - 🔴 **2026-09-23 再踩同名变体**：源路径带子目录前缀（如 `routers/forecast_submissions.py`）时，**scp 会拍平前缀**，若目标写成目录 `/opt/hergent-erp/` 则落到死文件 `/opt/hergent-erp/forecast_submissions.py`（root 属主），而真实 `/opt/hergent-erp/routers/` 仍是旧版 ⇒ 改动根本没上线、且零报错。⇒ 源带子目录时，目标必须写成**完整路径** `scp routers/forecast_submissions.py root@h:/opt/hergent-erp/routers/forecast_submissions.py`；部署后 `grep -c <新符号> /opt/hergent-erp/routers/<文件>` 验证落点，并 `rm -f` 误落的扁平死文件。
   - 服务运行路径 = `/opt/hergent-erp/`（`WorkingDirectory=/opt/hergent-erp`，`ExecStart=/usr/bin/python3 server.py`），**不是** `/opt/hergent-erp/server/`。
 - ⚠️ **`erp.hergent.cn` 是第二个前端面（旧 vanilla+Vite 前端），2026-09-13 已恢复上线**（此前 `/opt/static` 丢失致整站 404）。构建/部署/验证见下节「第二个前端面」。
 - 服务器上跑单测：先 `. /opt/hergent-erp/.env`（缺 `ERP_SECRET` 会 RuntimeError），再 `sys.path.insert(0,'/opt/hergent-erp')`。
+- ⚠️ **后端生产依赖（非 git 管理，须人工补装）**：`python-docx==1.2.0` 已 `pip install` 到**系统 python3**（`/usr/bin/python3`）。用于 `/api/meeting/export-docx` 生成 `.docx` 周报。若整目录重部署到新机或系统 python 重装，须先 `python3 -m pip install python-docx`，否则该端点 500（代码已 `try/except` 兜底返回 500 提示，不会拖垮其他接口）。
 
 ## 第二个前端面：erp.hergent.cn（旧前端 static/）
 - **源码**：`hergent-erp/static/`（vanilla JS + Vite，`src/main.js` 按 index.html 顺序 side-effect import 全模块；`vite.config.js` 用 `exposeTopLevelGlobals` 插件把列 0 顶层声明挂回 `window`，模拟旧多 `<script>` 加载序）。
@@ -31,15 +33,15 @@
 - `static/dist/` **不被 git 跟踪**（构建产物），`static/` 源码与 `static/js/modules/*` 才是提交对象。
 - **验证工具**（laozhangai-product/.workbuddy/tools/）：`erp-site-restore-e2e.js`（18 项真机断言：200／资源零 404／登录／主壳渲染／徽标／登录后接口无 401、5xx／无 pageerror）、`erp-shell-probe.js`（布局盒模型+祖先链+级联）、`erp-dom-structure.js`（关 JS 只看 HTML 解析出的真实 DOM 结构）。
 - ⚠️ 旧前端登录后顶栏徽标、引导、更新日志等由 `localStorage`/cookie 驱动；E2E 里要显式关掉引导遮罩（按钮文案：知道了／下一步／跳过／完成／开始使用）。
-- ⚠️ 该站 `#loginOverlay` 里的测试账号提示是给审核用的 `admin/admin123`；真机验证用 `mptest/Mptest@1`（tenant1，sales 角色），sales 角色会刷一批 RBAC 403 toast（chat/reports/accounts 模块），属正常，不是故障。
+- ⚠️ 该站 `#loginOverlay` 里的测试账号提示是给审核用的 `admin/admin123`；真机验证**原**用 `mptest/Mptest@1`（tenant1，sales 角色）—— 🔴 **该账号 2026-09-26 已删**（提审账号清退），改用 `liuxiaoding`/`liushantao` 或新建专用验证号。sales 角色会刷一批 RBAC 403 toast（chat/reports/accounts 模块），属正常，不是故障。
 
 
 ## E2E 账号
 - `POST /api/auth/demo-login`：demo 租户（tenant10）只读，token 在顶层，不污染数据。
-- tenant1：`mptest/Mptest@1`（X-Tenant-Id:1，sales 角色，可访问 rebate-rules）；`mptestsp/Mpsup@1`（supervisor，访问 rebate-rules 会 403，属正常）。
+- 🔴 tenant1：`mptest/Mptest@1`（X-Tenant-Id:1，sales 角色，可访问 rebate-rules）与 `mptestsp/Mpsup@1`（supervisor，访问 rebate-rules 会 403，属正常）**已于 2026-09-26 删除** —— 提审账号清退，见 `docs/ops/2026-09-26-提审账号清理记录.md`。tenant1 身份改用 `liuxiaoding`（sales，员工4）／`liushantao`（sales，员工6），或新建专用验证号；也可按 §下面「读 `sessions` 表取存量 token」的办法。
 - ⭐ **真机 E2E 最省事的入口 = 登录页的「先看看演示效果（免注册）」按钮**（2026-09-13 实测，脚本见 `.workbuddy/tools/expiry-caliber-v157-e2e.js`）：
   点击后直接落到 `#/workbench`（演示租户，顶栏标「演示模式 · 模拟数据」），**无需任何凭据**。
-  用 puppeteer 走 UI 填表登录 `mptest` 实测**未成功**（填完点「登 录」仍停在登录页），
+  用 puppeteer 走 UI 填表登录 `mptest` 实测**未成功**（填完点「登 录」仍停在登录页；该账号 2026-09-26 已删），
   故 UI 自动化优先走演示入口；确需 tenant1 身份时改用上面的 HTTP 直打（读 `sessions` 表取
   存量 token，见 `.workbuddy/tools/` 里 v157 的 `verify_v157_http.py` 模式）。
 - ⭐ **tenant10（演示租户）是唯一「有完整效期数据」的租户**：10 个批次全部带 `expiry_date`、
@@ -894,3 +896,1052 @@ v218 §10.7 给 P2-1 写的验收是「取不到才回退明细价；**存量行
 - 🔴 **启动期列对账（v131e）只对「已存在的表」补列** ⇒ **新表不会被自动建出来**。加列 = 主库 `_safe_migrate` 一次即可（租户库自动补，日志 `[schema-sync] … 补列(+N)`）；**加表 = 必须在查询函数内 `CREATE TABLE IF NOT EXISTS` 自举**，否则生产租户库里表根本不存在，接口第一次写才炸（或像本次若不在函数内建，PRAGMA 检查会看到「列有、表没有」）。
 - 实证：商品档案价格矩阵新表 `product_unit_prices`（v239），`ensure_unit_price_table()` 在 `get/set_unit_prices` 入口调用；部署后 E2E 证明「表在建库里被自动创建」。
 - 验收顺序建议：**先 PRAGMA 看列 → 再看 `sqlite_master` 看表 → 最后做读写往返**。只查列会漏掉「表没建」这一类静默失败。
+
+**§v253 用临时索引提交后，真索引会 stale —— 必须窄范围复位（2026-09-23 实测）**
+- 场景：并发会话可能把它的文件预暂存进 `.git/index`，为免夹带，改用
+  `GIT_INDEX_FILE=/tmp/x.idx` + `git read-tree HEAD` + `git add` + `git commit -F` ⇒ **完全不碰真索引**。
+- 🔴 **代价（原纪律没写全）**：`git commit` 只更新**临时**索引 ⇒ 真 `.git/index` 里**你那些文件的条目仍钉在「提交前的 HEAD」**
+  ⇒ 提交完成那一刻，真索引相对**新** HEAD 就成了一组**反向改动**。实测 17 文件那笔：`git diff --cached --stat` = `41 insertions(+), 93 deletions(-)`
+  —— 恰好是那笔提交的**倒放**；`git status` 出现 `MM`。
+- 🔴 **危害**：此后任何会话跑一次**不带 pathspec 的 `git commit`**（提交整个索引）⇒ 把这些文件**静默回退成旧版**
+  （提交信息可能写的是别的事）。**这就是「临时索引提交后必须复位共享索引」那条纪律的现场。**
+- **判据**：提交后立刻 `git diff --cached --name-only` —— 若不是「提交前那些别人的文件」、而是**你自己的提交文件**，
+  就说明真索引已 stale。旁证：`.git/index` 的 mtime 仍是提交前的时间。
+- **复位（窄范围，不动工作区、不动别人的暂存）**：
+  `git reset -q HEAD -- <你本次提交的文件...>`；复位前先证 `git diff --cached --stat <旧HEAD>` 为空
+  （= 索引本就是提交前的干净态 ⇒ 复位零风险）。复位后 `--cached` 归 0、你的文件 `git status --short` 不再出现。
+- ⚠️ **别用 `git read-tree HEAD` 全量复位**（会清掉并发会话的暂存）；也**别指望「用真索引直接提交」来规避**
+  —— 那条路会被别人的预暂存污染（两害取其轻：走临时索引 + 补这条收尾）。
+- ⭐ 配套三条同批纪律（同一轮验证有效）：① **提交前**跑 `dep-closure-check.py`，判据是「**本轮新引入的未解析引用 = 0（减基线）**」；
+  ② **未跟踪文件的可达性审计**：本次 `report_column.py` 未跟踪但被 `forecast_submissions.py` 引用，
+  关键是查 **`git show HEAD:<引用方> | grep -c <被引用符号>` = 0** ⇒ 不入库**不构成坏提交**；
+  ③ **收尾三方逐字节**：`git show HEAD:<f>` == 工作区 == 生产 `/opt/hergent-erp` md5 全等 ⇒ 「提交 == 上线」不变量成立。
+
+## §v264b 🔴🔴 生产 `assets/` 并集 ⇒ `dist-pair-check.py` 会配到**旧世代**，给出**反向结论**（2026-09-24 实测，最贵的一条）
+
+**先把量级钉死**：`/opt/hergent-cn-v2/assets/` 实测 **324 个文件 / 仅 53 个去hash基名 ≈ 6 代残留**
+（`rsync --delete` 只删"它上一次同步过"的文件；历史上用 `scp`/`cp`/失败 rsync 落地的世代会**永久留下**）。
+
+**后果**：`dist-pair-check.py` 按「去 hash 基名」配对时**可能挑中 5 小时前那一代**，
+于是报出 **12 项「字节数不同 = 本次真实内容改动」**，而真相是 **1 项**（只有我改的那个 chunk）。
+**差一步就会误判成「夹带了别人的在途改动」而停手/回滚。**
+
+**✅ 正确基线 = 用 `index.html` 的 mtime 反查「生效批次」**（`rsync -a` 保留源 mtime ⇒
+同一批文件 mtime **完全相同**且 == 构建时刻）：
+
+```bash
+ssh root@47.113.224.140 "stat -c '%y' /opt/hergent-cn-v2/index.html"       # 例 2026-09-24 19:59:09
+EPOCH=$(date -j -f "%Y-%m-%d %H:%M:%S" "2026-09-24 19:59:09" +%s)           # macOS
+ssh root@47.113.224.140 "cd /opt/hergent-cn-v2 && find . -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' \) \
+  -newermt '@$((EPOCH-2))' ! -newermt '@$((EPOCH+2))' | sed 's|^\./||' | sort" > /tmp/live_list.txt
+mkdir -p /tmp/online_live/assets && rsync -a --files-from=/tmp/live_list.txt \
+  root@47.113.224.140:/opt/hergent-cn-v2/ /tmp/online_live/
+python3 .workbuddy/tools/dist-pair-check.py /tmp/online_live hergent-cn-v2/dist
+```
+基线正确时读数 = **56 文件（53 assets + index.html + 少量）**，而不是 324。
+
+**配套判据**：报告必须同时看两行 —— ① `✅ 去hash基名集合完全一致（无 chunk 新增/删除）`；
+② `--- 字节数不同的基名：N 个`，且 **N == 我这次真正改动的 chunk 数**。
+v264b 两批实测 **N=1**（`ProductTarget.js` Δ-176）与 **N=1**（`index.css` Δ+75）。
+**N 大于预期 ⇒ 先按本节重新取基线，再怀疑夹带。**
+
+**⛔ 绝不要为了"让 assets 干净"手工 `rm` 线上旧 chunk** —— 基线能靠 mtime 分离，
+但手工删生产静态目录**不可逆**，删错一代就是线上 404。要清就走下一次正常 `rsync --delete`。
+
+⚠️ 同族（已在本文件别处）：**判别串只在「生效批次」里查** —— 直接全目录扫会得到反向结论。
+
+---
+
+## §admin-release 🔴 hergent-admin 的发布与**一键回退**（2026-09-24 落地并生产验证）
+
+**先说结论：`hergent-admin` 的部署纪律与 cn-v2 相反 —— 这里 `rsync` 绝不带 `--delete`。**
+
+**为什么**：产物是**内容哈希命名**（`index-<hash>.js` / `.css`），本应天然支持回滚；
+但 `--delete` 会把上一版产物删掉 ⇒ **回滚能力被部署动作自己清掉**。
+（2026-09-24 前几轮的部署正是这么干的，还把"顺手清残留"当成优点汇报过。）
+
+**🔴 版本单位是「index.html 快照」，不是一个 hash** ——
+js 与 css 的哈希**各自独立生成**，按单个 hash 回退会拼出「**旧 JS + 新 CSS**」的错配组合
+（页面可能崩）。快照天然记录了成对引用。这是设计上最容易踩的一步。
+
+**脚本**：`hergent-admin/scripts/release.sh` → 部署到 `/opt/hergent-admin/scripts/`
+| 子命令 | 作用 |
+|---|---|
+| `snapshot` | 把当前 `index.html` 记为一个版本（**部署后立刻执行**） |
+| `list` | 列出可回退版本（含产物是否还在、哪个是当前） |
+| `rollback <id>` | 回退；`<id>` 可用完整 id / js 哈希 / css 哈希。**回退前自动为当前版本留档** |
+| `prune [N]` | 只保留最近 N 个版本（默认 5），并清理**无人引用**的产物；**绝不删当前在用**的 |
+
+**标准部署流程（顺序不可换）**
+```bash
+# ① 首次或部署前：把线上现状留档（否则部署后就没得回退了）
+ssh root@… 'bash /opt/hergent-admin/scripts/release.sh snapshot'
+# ② 同步 —— ⚠️ 不要加 --delete
+rsync -av dist/ root@…:/opt/hergent-admin/
+# ③ 记录新版本 + 控制体积
+ssh root@… 'bash /opt/hergent-admin/scripts/release.sh snapshot && bash /opt/hergent-admin/scripts/release.sh prune 5'
+```
+回退：`release.sh list` 找到目标 → `release.sh rollback <js-hash>` → 用**公网** `index.html`
+核对引用是否**成对**变化（不要用 `grep "A\|B"`，会静默失败；用 python 解析）。
+
+**生产实测（2026-09-24，真实回退+前滚，非模拟）**
+回退前 `CX7gJPED/CJ8SAhRW` → `rollback OA5Y7RtY` → 公网 index.html 成对变为
+`index-OA5Y7RtY.js + index-BSIqhgTj.css`（旧产物 HTTP **200**）→ `rollback CX7gJPED` 恢复
+→ `prune 5` 保留 2 个版本、清理 0 个。三层 md5 全等。
+
+**与 cn-v2 的关系（别急着改）**：`/opt/hergent-cn-v2` 一次构建 53+ chunk，**保留历史体积涨得快**，
+且本文件上面那套「按 mtime 分离基线」的差分判据**依赖目录不太脏** ⇒
+cn-v2 是否也改成"保留历史 + 快照回退"是**一个取舍决策，不要单方面改**。
+（现状：cn-v2 的 assets 实际是历次构建的并集，本身就已留有回退材料，只是没有回退入口。）
+
+---
+
+## §v266 「同工作区多会话并行」下的提交与部署判据（2026-09-24 实测）
+
+背景：本仓长期有**多个 AI 会话在同一工作区并行工作**。v266 那一轮实测到：cn-v2 工作区
+有 **15 个文件**属他人在途改动、后端有 **18 个脏文件**，且**同一文件里既有他们的改动也有我的**。
+以下五条是那轮真正救命的判据，按发现顺序：
+
+### 1️⃣ 部署前：逐文件 diff「生产 ↔ 工作区」，差异必须**只有我的改动**
+不是看 `git status`，而是把生产文件拉下来逐文件 `diff`。
+v266 实测后端 5 个文件 diff 出来恰好只有我的 hunk（2–3 处）⇒ 才敢 scp。
+🔴 顺带证实了一个反直觉事实：**「git 里的在途改动」往往早已部署到生产**
+（`core.py` 的 `manageable_user_ids` 在生产有、在 HEAD 里没有）——即
+**「已部署从未提交」**。所以 scp 工作区文件**不等于**上线半成品，前提是先做本 diff。
+
+### 2️⃣ 部署前：查「源码 mtime 是否晚于上次部署时刻」
+这是判断「我的构建是否夹带了他在途改动」的唯一可靠判据。
+v266 实测：生产 cn-v2 的 `index.html` mtime = 22:31:38（十几分钟前，别人部署的），
+而我 22:39 第一次构建时 `src` 下晚于 22:31:38 的文件**只有我改的 2 个** ⇒ 安全。
+到 22:48 第二次构建时，`Forecast.vue`/`ProductTarget.vue`/`Shell.vue` 等在 22:46–22:48
+密集写入 ⇒ **第二次构建夹带他们在途改动 ⇒ 不部署**，保留 22:43 已验证版本。
+
+### 3️⃣ 提交前：可达性审计（`git ls-files` 查新增 import 的目标是否入库）
+🔴 v266 最重要的发现：**HEAD 本身可能就是坏的** ——
+`routers/platform.py:503` 已 `from core import manageable_user_ids`，而 HEAD 版 `core.py`
+**没有这个定义** ⇒ **从库中检出即 ImportError，服务根本起不来**。
+判据：列出待提交文件里所有新增的 `from X import Y`，逐个 `git ls-files` 查目标是否入库。
+v266 据此：**连带提交** v254 的 helper + `users_in_tenants`（依赖链，均已部署运行），
+**拒绝提交 `server.py`**（其工作区版新增 4 个**未入库** router 的 import ⇒ 提交即造出新的坏提交）。
+⚠️ `git`、`python -m py_compile`、`node --check` **都不会报**这种坏 —— 只有从库中检出才会炸。
+
+### 4️⃣ 挑 hunk：**不要用 `-U0`**，用 `-U3/-U6` + 显式白名单 + 文本块重放
+`-U0` 会把**同一个逻辑改动拆成多个 hunk**，其中几个不含任何可识别的标记
+（v266 实测 `_check_perm` 重写被拆成 8 个 hunk，删掉 `if tenant_id is None:` 那几行不含 marker）
+⇒ marker 法会**静默丢改动**（提交后语法都过，但少了几行）。
+改用：`-U3`（或 `-U6`）让逻辑块合并 → **显式列出要保留的 hunk 头** → 对每个保留 hunk，
+用它的 old 文本块在 `git show HEAD:<file>` 上做**恰好匹配 1 次的替换**（匹配 0 次或 >1 次直接报错退出）。
+这比推算 `+new_start` 可靠得多。
+🔴 还会遇到**混合 hunk**（别人的 12 行 + 我的 1 行挤在同一个 hunk 里）——只能 HAND_FIX 手工补那一行。
+
+### 5️⃣ 编号：起号前**双仓实搜**，且改号**按 token 精确**、绝不全局替换
+v266 实测撞号：**v264** 已被 `routers/product_targets.py`（商品目标管理，还派生了 `v264c`）占用，
+**v265** 被 `forecast_audit.py`（数据新鲜度）占用 ⇒ 改用 **v266**。
+改号时 `erp_db.py` 里**同一个文件**既有他们的 `v264_product_targets`（迁移名，动不得）
+也有我的 `v264` ⇒ 按「行内容含我的独有措辞」筛选，改 23 处，`v264_product_targets` 保持原样。
+
+### 6️⃣ 补：起号搜索的范围要含 `tools/` 与 `outputs/`，且**记忆文件自身会污染搜索**
+v266 复查时发现：**v265 在 laozhangai-product 的占用有 18 处**，其中 `hergent-cn-v2/src`
+就有 4 个文件（`ProductTarget.vue` / `CommandPalette.vue` / `Forecast.vue` / `router/index.js`），
+另有 `.workbuddy/tools/v265-e2e.mjs`、`outputs/v265-商品目标页签与数据新鲜度-2026-09-24/`。
+⇒ 我起号时只搜了 `server/` 与 `src/`，**漏了 tools 与 outputs** —— 差点只凭后端就断定 v265 可用。
+**规程**：起号搜索必须覆盖 `server|src` + `.workbuddy/tools` + `outputs` + **两个仓库**，
+且用 `-e` 多模式（`\|` 在 zsh 下静默失效）。
+
+⚠️ **另一个反噬**：写完记忆后，`vNNN` 会出现在 `MEMORY.md` / `topics/*.md` / 当日 log 里，
+**下次搜索会把这些命中当成"已被占用"** ⇒ 复核时要按「是否含该轮独有措辞」区分
+（v266 复查：两仓 23 处里后端 11 / 前端 12，与改号脚本报告的完全吻合 ⇒ 无他人占用）。
+
+---
+
+# §v277 线上「生效入口 chunk」会被并行会话接管 —— 别拿 chunk 名等值当判据（2026-09-25）
+
+**现象**：同一晚我 22:44 部署的批次是 `index-CrgMJlhB.js` → `Forecast-BcKPuXdb.js`；
+到 23:00 再查，`/opt/hergent-cn-v2/index.html` 已指向 **`index-BT1dOmCB.js` → `Forecast-DIPz-dmz.js`** ——
+**不是我构建的那一份**。此时若按「入口 chunk 名 == 我构建的 chunk 名」判「我的改动上线了吗」，
+会得出「没上线」的**错误结论**并触发一次多余的（且危险的）重部署。
+
+**根因**：另一个并行会话从**同一个工作区**又跑了一次 `npm run build && rsync`。
+它把我的 `Forecast.vue` 一起打进去了（所以我的功能在），但因为**别的文件**也变了（`CopilotDrawer.vue`，
+被 `Forecast.vue` 引用、同 chunk 打包），chunk hash 换了名字。
+⇒ `Forecast.js` 换 hash、`Forecast.css` **不换**（那侧只改了 script，没改 style）。
+
+## 🔴 正确判据：不看 chunk 名，看三条内容证据
+
+1. **特征串**：在**生效的**那个 chunk 里 `grep` 本次新增的字符串（判据要选「本期新增 + 不会被压缩改名」的**字符串字面量**）。
+   ⚠️ 别用函数名/变量名 —— 压缩后会被改名（实测 `ptExtraMark` / `loadPtGap` 在**自己**构建的产物里也是 0 命中）。
+2. **CSS 逐字节**：同名 CSS 文件 ⇒ 同内容 ⇒ 我的样式改动完整。`md5sum` 对照自己构建产物的记录值。
+3. **scopeId 反推**（最强）：Vue SFC 的 `data-v-<8hex>` == `sha256(<仓库相对路径> + <源码>)[:8]`。
+   线上 CSS/JS 里的 scopeId 与**当前工作区源码**算出的一致 ⇒ **线上产物 ≡ 当前源码**。
+   ```python
+   import hashlib
+   rel = 'src/pages/Forecast.vue'
+   print(hashlib.sha256((rel + open(rel, encoding='utf-8').read()).encode()).hexdigest()[:8])
+   ```
+
+## 🔴 结论纪律
+
+**三条内容证据都通过 ⇒ 不重部署。**
+理由：线上已含我的全部改动且已证与源码一致时，重部署只会把对方**在途**的改动一起打上去（或打一半 ⇒ 半成品上线）。
+「我的 chunk 名不见了」不等于「我的代码没上线」。
+
+**顺带**：`assets/` 是历次构建**并集** ⇒ 目录里能看到 4 个同尺寸的 `Forecast-*.js`（不同 md5）属于正常现象，
+不是"构建出错"。判别串只在**生效批次**里查。
+
+## §v279 后端小改动上线记录（2026-09-26）—— 顺带一条「换库文件必须重启」的铁律
+
+**改动规模**：4 个后端文件、纯后端、无前端产物 ⇒ 不需要 build、不需要 rsync 前端。
+
+| 步 | 做法 | 关键点 |
+|---|---|---|
+| 1 | 备份 4 库 | `backups/2026-09-26/{erp,tenant_1,tenant_9,tenant_10}.db.bak-v279-keychange-<ts>`；**备份前先记前置快照**（`period_id` 列在不在、旧索引清单），否则事后无法证明"改动前后" |
+| 2 | `scp` 具名文件到 FLAT 根 | 4 文件**逐文件双侧 md5 全等**；**不用 `--delete`**（会删掉 `hermes-engine/`、`.cache/uv/` 等运行时目录） |
+| 3 | `chown hergent:hergent` + `rm -rf __pycache__` + `py_compile` | 三件都要；`__pycache__` 不清可能加载旧字节码 |
+| 4 | `systemctl restart hergent-erp` | 看启动日志里 `[schema-sync] tenant_N.db 补列(+M): [...]` 与「告警 0 条」 |
+| 5 | 落点自检 | **要看到具体计数**（`period_id=有` / 旧索引残留=无 / `PRAGMA index_list` 三索引 / `probe=OK`），不是"返回 200 就行" |
+
+**验收判据分两层**：
+- **schema 层**：`PRAGMA table_info` 看列、`PRAGMA index_list` 看索引（**不能只看"表在不在"**）。
+- **行为层**：起一个隔离沙箱租户跑 E2E（36/36）。**沙箱从生产克隆**（`Connection.backup()`，不是 `cp`）⇒
+  schema 天然与生产同构；用完**销毁并清连接缓存**。
+
+### 🔴 铁律：换 / 删库文件后**必须重启**（幽灵 inode）
+
+服务运行中删除并重建 `tenant_<id>.db` ⇒ `db/connection.py::_sqlite_cache` 里的句柄仍指向
+**已被删除的旧 inode**：写入落进幽灵文件、读取返回旧数据。
+🔴 **`conn.execute("SELECT 1")` 对已删句柄照样成功** ⇒ 任何"跑一句 SQL 看看通不通"的自证都不成立。
+**顺序：先删文件 → 再 restart。**（详见 `backend-invariants.md`「幽灵 inode」段。）
+
+**沙箱销毁的完整顺序**（照抄 `验收工具/07-沙箱销毁.py`）：
+① 删 `user_tenants` 行 → ② 删 `tenants` 行 → ③ 删 `tenant_9997.db{,-wal,-shm}` →
+④ **root 侧** `systemctl restart`（`runuser -u hergent` 做不了，见 `local-machine-pitfalls.md §10`）→
+⑤ 复核 `tenants` 列表 + health 200。
+
+### ⚠️ 一个「判定生产是否被人动过」的便宜判据（本轮用到）
+
+不要拿 `git status` 有一堆 `M` 当"有并行会话在途" —— 那是常态。
+**更决定性的是**：拿**上一轮部署记录里的 md5** 与**当前生产逐文件比对**；
+若**完全一致** ⇒ 证明"生产仍是上一轮那版、之后无人部署过" ⇒ 本轮 md5 差异**全部来自我自己**。
+（本轮 v279 就是这样排除「并行会话在途」的。）
+
+---
+
+## §v282（2026-09-26）前端上线：**chunk 文件名不可信**，只能比字节
+
+> 全文方法论见技能 `hergent-parallel-session-safety` **§八**。这里只记 Hergent 专属事实与判据。
+
+### 事实（本轮实测）
+
+- 线上前端 `/opt/hergent-cn-v2` 是**历次构建的并集**：本轮上传前 **251** 个 assets，上传后 **280** 个。
+  ⇒ **上传绝不加 `--delete`**；**回滚只需还原 `index.html` 一个文件**（旧 chunk 都在）。
+- 本轮**只改 2 个源文件**，却让 **53 个产物里 29 个改名**。原因：rollup 的 chunk hash 对
+  **模块遍历顺序**敏感 ⇒ 一个文件被改动/重写会**级联改名**。
+  🔴 **⇒ 文件名相同/不同都不能推断内容相同/不同。**
+- 生产 `index.html` md5 与「**构建前**的本地 `dist/index.html`」一致 ⇒
+  构建前那份 dist **就是线上生效批次**。
+  🔴 所以**构建前必须** `ls dist/assets | sort > before.txt` ——
+  vite 的 `emptyOutDir: true` 会让每次构建把 `dist` **整个重建、旧名字当场消失**。
+
+### 判据：按「逻辑名前缀」比**字节大小**
+
+```python
+# ⚠️ chunk hash 是 base64url，**含 `-` 和 `_`**（如 Shell-CT9Duu0-.js 的 hash = CT9Duu0-）
+#    用 [A-Za-z0-9_]{6,} 会漏掉尾部 `-` ⇒ 前缀提取失败 ⇒ 误报一堆 DIFF。
+PRE = re.compile(r"^(.*)-([A-Za-z0-9_-]{8})\.(js|css)$")
+```
+
+**v282 干净结果**（这才是「没夹带」的样子）：
+
+```
+逐字节相同 : 51 / 53
+不同 :  Forecast-*.js   384328 → 384500  (+172 字节)   ← 我改的 Forecast.vue
+       Rebate-*.js     168661 → 169132  (+471 字节)   ← 我改的 TargetFormModal.vue
+```
+
+⇒ **差异必须精确等于「我改的源文件」对应的 chunk**；出现没碰过的 chunk 大小也变了 ⇒ **停手**。
+
+### 🔴🔴 绝不用 `git stash` 做「去掉我的改动」的对照构建
+
+v282 用 `git stash push -- <我的2个文件>` 做对照，差点**回退别人已上线的功能**：
+`Forecast.vue` 里同时叠着**另一个会话 v265 的 ~28 KB 未提交改动**（`/* v265：销量数据新鲜度告警 */`、
+`.audit-stale`），**且这些已在 19:36 上线**。`git stash` 把整个文件恢复到上个提交 ⇒ **别人的改动一起被移走**。
+
+**唯一可靠的发现判据 = 动手前记字节数**：
+`Forecast.vue` 原本 **771661** → 暂存后 **743279** = **差 28382 字节**，而我只加了两处 toast（几百字节）。
+产物侧同源可交叉验证：`Forecast` 的 css 线上 **99202** vs 我的构建 **88315**（−10.9 KB）。
+
+**正确姿势**：
+
+| 需求 | 做法 |
+|---|---|
+| 「去掉我的改动」做对照 | **别还原源码** —— 直接比**产物字节**（本页判据）|
+| 想要 HEAD 的产物 | `git archive HEAD \| tar -x -C <新目录>`（**零污染**，不动工作区）|
+| 改任何共享源文件前 | **先 `cp` 整份备份 ＋ 记字节数**（v282 靠它全额恢复，md5 逐字一致）|
+
+### 前端验收四条（缺一不可）
+
+1. 生产 `index.html` md5 == 本地 `dist/index.html` md5
+2. 生产 `index.html` 引用的 chunk **文件名**与本地一致
+3. 关键 chunk 的**字节数**与本地逐字节一致
+4. `curl` 200 ＋ **真机探针 `console_errors == 0`**
+
+**真机探针**（本机**没有** `agent-browser`；用仓库自带的 `playwright` ＋ 系统 Chrome）：
+
+```bash
+cd hergent-cn-v2 && NODE_PATH=$PWD/node_modules node probe.js
+# chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+#                   headless: true, args: ['--no-sandbox','--disable-gpu'] })
+# 只读：不登录、不点按钮、不提交表单；监听 console / pageerror / requestfailed
+```
+
+**回滚备份**（跟后端一样，落 `/opt/hergent-cn-v2/_rollback/`）：
+`cp -a /opt/hergent-cn-v2/index.html /opt/hergent-cn-v2/_rollback/index.html.pre-vNNN.<ts>`
+
+---
+
+## §v294（2026-09-27）前端「能不能整体发」的判据 —— 先识别线上生效版，再比 API 超集
+
+**背景**：工作区里除我的 7 个前端文件外，还躺着 ~20 个**并行会话**的在途改动。
+上一轮据此判「不能发前端」（会集体夹带半成品）。**本轮该前提被线上事实推翻** —— 修正过程本身就是判据。
+
+### ① 先回答「线上当前生效的是哪一版」：前端没有源，只能顺着 index 摸
+
+```bash
+ssh ... 'grep -o -E "[A-Za-z0-9_-]+-[A-Za-z0-9_-]{8}\.(js|css)" /opt/hergent-cn-v2/assets/index-<生效入口>.js | sort -u'
+```
+
+本轮实测：线上生效 `index-pzGALkCj.js` 里**已经在引用 `ZhoupuImport-BGUZHXXy.js`**
+⇒ **线上本就在跑并行会话的功能**，「第一次把半成品推上线」的担心不成立。
+
+### ② 再比 API 超集：「会被撤回的接口 = 0」才允许整体发
+
+```bash
+# 线上生效那套 chunk（①的清单，tar 打包拉回）与本次构建产物，各抽 /api/... 集合
+comm -13 live.txt ws.txt   # 新增 —— 要确认后端已支持
+comm -23 live.txt ws.txt   # 🔴 会被撤回的 —— 必须为 0
+```
+
+本轮：撤回 **0**；新增里唯一实质接口 = `/api/warehouses/full`（后端早有）。
+⇒ 整体发布**功能只增不减、不会撞不存在的端点**。
+
+### 🔴 三条别踩
+
+1. **线上生效版 ≠ git HEAD ≠ 工作区**。本轮三者互不相等（HEAD 构建 51 个产物里仅 18 个与线上逐字节相同）。
+   ⇒ **别拿 HEAD 当基线**：从 HEAD 构建再上传会把线上**已有功能回退**（本轮若发 HEAD 版，舟谱导入路由直接消失）。
+2. **线上 `assets/` 是历次构建并集**（511 个文件；同一逻辑名有 18 个不同 hash）
+   ⇒ 判断「生效版本」**只能靠 index 引用链**，不能靠「目录里有没有某个 chunk」。
+3. **「HEAD 基线 + 我的 hunk」在交织文件上不可行**：本轮 `ReportMapping.vue` 里我的改动与别人的
+   （`ConfigCard` / `ReminderConfig` / 字段级校验）**同在函数段内交织**，机械拼 hunk 必失败。
+
+### 附：不动主工作区做基线构建
+
+```bash
+git worktree add --detach /tmp/xx HEAD
+ln -sfn <repo>/hergent-cn-v2/node_modules /tmp/xx/hergent-cn-v2/node_modules   # ⚠️ 子目录，别链到 worktree 根
+cd /tmp/xx/hergent-cn-v2 && npx vite build --outDir /tmp/xx-build --emptyOutDir
+git worktree remove --force /tmp/xx && git worktree prune
+```
+
+### 后端「升级期兼容兜底」范式（本轮新增）
+
+新判据上线时，**老客户端传不出新字段** ⇒ 直接硬拒 = 「看得见点不通」（用户明确定义为坏体验）。
+写法：**只在无歧义时纠偏**（缺省口径不匹配、且另一口径**正好**匹配）；真撞号时两口径**都在** map
+⇒ 不命中、如实 403，**绝不静默报到另一个对象**（那比 403 更坏）。
+见 `routers/forecast_submissions.py::create_submission`（`_kind_given` 分支）。
+
+---
+
+## §v295（2026-09-27）🔴🔴 「生产无 X」这个结论**有保质期** —— 隔离构建上线后必须回头查入口 chunk
+
+**这是 §v294「先识别线上生效版」的**时间维度**补充，比它更狠：生效版**会在你核查完之后被换掉**。**
+
+### 实测时间线（同一天，约 20 分钟内）
+
+| 时刻 | 事件 |
+|---|---|
+| 19:0x | 我核对「生产**无** v296」（后端无 `cron`/`bid` 模块；租户 `role_permissions` 只有 4 项；前端注册表无 `lock`） |
+| — | 据此做**隔离构建**（worktree 里把 v296 的行为回退掉），只上我的 v295 |
+| **19:08** | 并行会话：`core.py` 加 `cron`/`bid` 到 `_ALL_MODULES` |
+| **19:12** | 并行会话：`server.py` 路径映射拆分 + **我的 `alias-pool` 端点也在里面** |
+| **19:13** | 并行会话：前端 assets 整目录更新（入口换成 `index-DSWRn-Sd.js`） |
+| **19:21** | 并行会话：`hergent-erp` 服务重启 |
+
+⇒ 我 19:0x 的结论在 **19:12 就失效了**。**隔离构建的意义随之消失** —— 它只会把 v296 回退掉。
+
+### 🔴 纪律
+
+1. **隔离构建（"只上我这份"）上线后，必须回头查一次「入口 chunk 是否已换人」**：
+
+```bash
+curl -s https://hergent.cn/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js'   # 当前生效入口
+```
+
+   别拿「我传过了」「双侧 md5 一致」当结论 —— 那只证明**你那一刻**传成功了。
+
+2. **`ls -lt /opt/hergent-cn-v2/assets/` 只反映「历次构建并集」**（本项目常态 511 文件、同一逻辑名 18 个 hash）
+   ⇒ 目录里有什么、时间戳新不新，**都判不出谁在生效**。唯一判据 = **index.html 的引用链**。
+
+3. **确定"我的功能还在不在"要按特征串，不要按文件名**（§v282 同源）：
+
+```bash
+# 从入口顺着找页面 chunk，再逐条数特征串
+grep -o "Forecast-[A-Za-z0-9_-]*\.js" index-DSWRn-Sd.js | sort -u
+for s in "点选历史列头" "接管汇总表既有列头" "相近的列头"; do grep -c "$s" Forecast-*.js; done
+```
+
+4. **并行会话的构建常常"顺手"把你的改动一起带上**（本轮即是：他们的构建跑在**同一工作区**，
+   我的 v295 源码被一起编进去了 ⇒ **零损失**）。所以别急着补救，**先把事实核清楚**：
+   - 我的源码是否在线上（特征串）→ 在
+   - 他们的改动是否成套（后端 + 租户迁移 + 前端齐不齐）→ 成套（租户 `supervisor` 的授权已从 4 项补到 5 项，加了 `cron`）
+   - 有没有人因此丢入口（`boss` 未被租户覆盖 ⇒ 走 `_DEFAULT_PERMS`，含 `cron`+`bid`）→ 没丢
+
+### 附带判据：怎么确认「某个页面入口有没有因为权限拆分而消失」
+
+拆模块（v296 把 `/api/cron` 从 `data` 拆成 `cron`）这类改动，**最容易的破坏是"老板自己看不见菜单了"**。
+判据链条（缺一条就能得出反向结论）：
+
+1. `core.py::_ALL_MODULES` 是否含新模块名（否则 `canModule` 恒 false）
+2. `_DEFAULT_PERMS` 里**目标角色的默认值**是否含新模块
+3. **该角色是否被租户库 `role_permissions` 覆盖过** —— 🔴 覆盖是**整表**语义，
+   `_DEFAULT_PERMS` 对**配过的角色完全无效**（本项目 v293 已踩：给角色加模块必须**双改**）
+4. 租户库那行的 `permissions` 里到底有没有它
+
+本轮四项都查了，才敢说"入口没丢"。
+
+---
+
+## §v296：改**数据 + 代码**同时上线时的顺序、备份与只读开关
+
+### 上线顺序：**先迁库 → 后部署代码 → 再重启**
+
+v296 给 `data` 拆出 `cron`/`bid`（补法是**纯新增**：旧代码只判旧模块、新模块无人读）
+⇒ **迁库瞬间零行为变化**，先迁最安全。
+若反过来（先部署代码 + 库还没迁），会出现一段「新代码 + 未迁库 ⇒ 老租户定时任务 403」的窗口，
+而页面照样打得开 ⇒ **进得去、拉不到、零报错**（最难查的一类）。
+
+### 生产库备份：用 `VACUUM INTO`，**不要 `cp`**
+
+活库带 `-wal`/`-journal`，`cp` 出来的是**不一致**的文件（数据页与 WAL 未合并）⇒ 回滚时可能缺最近事务。
+`VACUUM INTO` 是 SQLite 官方的一致性快照（生产 3.37 ✓，源只读、目标是已合并的副本）。
+本轮落地：`/opt/hergent-erp/_rollback/v296-pre-<ts>/`（含 `tenant_*.db` / `erp.db` 快照
+＋ `role_permissions.snapshot.json` 精确快照 ＋ 回滚命令）。见 `tools/v296-prod-backup.py`。
+
+### 🔴 `immutable=1` 的分界（本轮又用了一次，别再搞反）
+
+| 场景 | URI | 为什么 |
+|---|---|---|
+| **生产活库** | `file:...?mode=ro`（**不带** `immutable`） | 带了会**无视 WAL** ⇒ 读到**过期页**，把"刚迁好的库"读成"还没迁" |
+| **静态备份 / 快照** | `file:...?mode=ro&immutable=1` | 副本不会被并发写 ⇒ 加上可跳过锁协商，更快更稳 |
+
+⇒ 只读探针/迁移脚本应**显式提供 `--live` 开关**切换这两者，别写死一种。
+（本轮 `v296-data-split-migrate.py` 就是这么做的：默认副本带 `immutable=1`，`--live` 去掉。）
+
+### 🔴 只读复验要作为**独立一步**（部署后再读一次）
+
+迁移脚本带 `--apply` 会写盘；**验收不能复用那次输出**（那是"我做的事"的证据）。
+部署完成后**再以 `--live` 只读跑一遍**，断言「将变更的行 = 0」（全部已是目标态）
+＋「破坏性收紧 = 0」＋「有意的收紧/放开各几处并说明原因」⇒ 这才是"终态"的证据。
+
+### 受控提交的两条边界（`scoped_stage_by_marker.py`）
+
+1. **工具不支持 `deleted`**，而且它**断言「索引内容 == 我的文件清单」**（防止夹带并行会话预暂存的文件）
+   ⇒ **删除项必须另起一次提交**（`git add -A -- <paths>` 后单独 commit）。**这不是漏交，是工具边界**，
+   要在提交说明里写明，否则下一次复核会误判成"索引没复位"。
+2. **混合 hunk 物理不可拆时就"披露式纳入"**：若别人的 token 与我的改动**落在同一行**
+   （v296 的 `core.py`：另一会话的 `sales` 与我的 `cron`/`bid` 同行），hunk 代数（`trim_plus_head` /
+   `keep_plus_slice` / `drop_plus_lines`）**只能整行取舍** ⇒ 判定顺序应是：
+   ① 先看**整块 defer** 会不会让提交版与已做的迁移/已验证的生产**自相矛盾**（会 ⇒ 不能 defer）；
+   ② 再看**纳入后**会不会真的把未验证的行为带进库（该 token 生产已在跑 ⇒ 不会）；
+   ③ 两条都过 ⇒ **整块纳入 + 在提交说明里点名**（并写进交付报告遗留段）。
+   ⚠️ 反面写法：只把"我的那半个 token"落下而丢掉其解释注释 ⇒ 后续读者看到无来由的字。
+
+### 🔴 「生产无 X」有保质期 —— 而且**判据要能判别**
+
+同一天有并行会话时，我 19:13 构建、19:2x 部署；**v295 会话在 19:21 也部署过一次构建**。
+⇒ 上线后**必须回头核「入口 chunk 是不是我的」**，且判据要挑**这一轮新增且无条件渲染**的串：
+
+```bash
+LIVE=$(curl -s https://hergent.cn/ | grep -o 'index-[A-Za-z0-9_-]*\.js' | head -1)
+curl -s -o /tmp/live.js "https://hergent.cn/assets/$LIVE"
+grep -c 'module:"cron"' /tmp/live.js     # v296 才有（旧版是 module:"data"）
+# 懒载页要单独取：入口 chunk 里没有 Settings 的文案
+SET=$(grep -o 'Settings-[A-Za-z0-9_-]*\.js' /tmp/live.js | head -1)
+curl -s -o /tmp/set.js "https://hergent.cn/assets/$SET"
+cmp -s /tmp/set.js dist/assets/$SET && echo 逐字节相同
+```
+
+⚠️ `ls -lt assets/` 只能看到**并集**（历次构建共存），看不出谁生效；chunk **名相同**也不等于**内容相同**。
+✅ 本轮结论：`index-DSWRn-Sd.js` 含 `module:"cron"`×1 / `module:"bid"`×1 / `module:"data"`×0，
+且线上 `Settings-D4lBtoxX.js` 与本地构建**逐字节相同** ⇒ 没被换人。
+
+
+---
+
+## §v297 三条新判据（2026-09-27）
+
+### 一、🔴 **校验类改动必须先清数据，再上线**（否则会锁住用户自己）
+
+给写入口加「唯一性 / 一致性」校验时，**存量违规数据**会让新门槛**反过来锁住用户**：
+用户面对两条老数据，**改哪一条都被拒**。
+
+📏 v297 实证（影子探针）：`report_mapping` 同一对象有 id=3 与 id=7 两条活跃配置
+⇒ 上线后**连 id=3（另一个门店）的保存都失败**。数字写死的判别力断言：**硬拒 6 / 放行 9**。
+
+⇒ **上线顺序固定为：① 备份 → ② 清存量违规数据 → ③ 上后端 → ④ 上前端**。
+清理脚本必须自带：前置断言 + `BEGIN IMMEDIATE` + rowcount 校验 + 前后 dump + `DRY` 开关。
+先跑 `DRY=1` 看影响行数，再跑真写。
+
+### 二、🔴 站点路径：`hergent.cn/**admin/**` 不是本前端
+
+| URL | nginx | 内容 |
+|---|---|---|
+| `hergent.cn/` | `root /opt/hergent-cn-v2`（server 级 `root`） | **本前端**（`hergent-cn-v2`，AI 经营副驾/ERP） |
+| `hergent.cn/admin/` | `location ^~ /admin/ { alias /opt/hergent-admin/; }` | **另一套应用** |
+
+⇒ **核验入口 chunk 必须查 `https://hergent.cn/`（根）**。查 `/admin/` 会拿到**完全无关**的文件，
+会得出"我的部署不见了"的**假警报**（本轮真踩：先 curl 了 `/admin/index.html`，
+看到 `index-BG2Yswu1.js` 以为入口被换，实际那是 `/opt/hergent-admin/`）。
+
+### 三、懒载页的 chunk **名** ≠ 源文件名
+
+`ReportMapping.vue` 编出来的 chunk 叫 **`Forecast-*.js`**（与 Forecast 同组），
+不是 `ReportMapping-*.js`。⇒ **按源文件名去 `ls assets/` 找判别串会找不到**（返回 0 命中，很像"没编进去"）。
+✅ 正确做法：**按判别串反查** —— `grep -l '<本页唯一文案>' assets/*.js`，拿到真实 chunk 名再比 md5。
+
+```bash
+# 判据串挑「本轮新增 + 无条件渲染」的，例如 v297 的「历史列头名册」
+grep -l '历史列头名册' /tmp/v297-fe-out2/assets/*.js   # -> Forecast--QyUWvz5.js
+md5sum /opt/hergent-cn-v2/assets/Forecast--QyUWvz5.js  # 双侧比
+```
+
+📏 v297 双侧一致结论：入口 `index-Dkx67J8_.js` `39547ad1…`；功能 chunk `Forecast--QyUWvz5.js` `7474ef4b…`。
+⚠️ 部署期间**并行会话在中途加了数据**（`report_mapping` id=8）并构建过 `index-DTlhaApR` 系 —— 已按"按逻辑名比字节"确认未回退。
+
+### 四、自检文件本身也会成为泄漏源
+
+脱敏自检脚本**不要把待查模式原文打印进结果文件**（否则 `02-脱敏自检.txt` 自己就含口令串）。
+⇒ 结果文件一律写「**类别 + 打码**」，只有扫描**计数**是实数。
+
+---
+
+## §v299 systemd 沙箱会挡住「服务内部 sudo/exec 出去取数据」—— 且故障会伪装成 HTTP 200（2026-09-27）
+
+### 1. 🔴 判据：沙箱是**挂载命名空间**，`sudo`/`exec` **都不重置它**
+
+`ProtectHome=true` 等价于把 `/home`、`/root`、`/run/user` 挂成 **mode 700 的空 tmpfs**。
+systemd 的 mount namespace 是**进程级继承**的 ⇒ 服务里 `subprocess.run(["sudo","-u","root",脚本])`
+**照样看不到 `/root`**，即使那一刻已经是 root。
+⇒ 排查口径：**「在 SSH 里手动跑同样的命令是好的」不能证明服务里也好** ——
+必须**在服务的沙箱内**复刻（见 §2），否则会误判成"脚本/user 权限问题"。
+
+> 实证：`hermes_cron_bridge.py` 在 SSH 下 `ok:true` + 真实任务；从 service 的 `sudo -u root` 却是
+> `FileNotFoundError: /root/.hermes/cron` → `OSError: [Errno 30] Read-only file system: '/root/.hermes'`。
+> 故障**不在脚本、不在 sudoers**，在命名空间。
+
+### 2. ✅ 只读侦察术：`systemd-run` 1:1 复刻沙箱做**正反例**探针（先证后改）
+
+```bash
+# 复刻：把 service 的沙箱属性逐条搬过来（含 sudo 路径所需的 NoNewPrivileges=false）
+systemd-run --unit=probe-x --collect --wait --pipe -q \
+  -p User=<svcuser> -p Group=<svcgrp> \
+  -p ProtectSystem=full -p PrivateTmp=true -p NoNewPrivileges=false -p UMask=0007 \
+  -p ProtectHome=true \
+  -p ReadWritePaths=/opt/app -p ReadWritePaths=/opt/data \
+  sudo -u root /path/to/bridge list
+```
+- **A 段＝现状**（复现故障）、**B 段＝候选改法**（必须真修好）⇒ 两段都跑才有判别力。
+- ⚠️ `PrivateTmp=true` ⇒ 探针脚本**不能放 `/tmp`**（看不到），要放 ReadWritePaths 里的目录。
+- ⚠️ 可写性要有**硬证**且**反例**：`/bin/sh -c 'touch <dir>/.p && echo WRITABLE && rm -f <dir>/.p'`
+  必须配一条「**不给写权时会怎样**」的对照，否则 `WRITABLE` 可能是假绿。
+- ✅ 这样做的好处：**一次重启就完成修复**（方案在动生产前已被证明），而不是"改→重启→发现不对→再改"。
+
+### 3. 🔴 错解：`ProtectHome=true` ＋ `BindPaths=/root/.hermes` **无效**
+
+通用判据：**父目录不可 traverse 时，子挂载点无用。**
+`/root` 被挂成 mode 700 ⇒ 走不到 `/root/.hermes`，`BindPaths` 白挂（实测仍 `Permission denied`）。
+⇒ 正解是 `ProtectHome=read-only`（**保留真实的 `/root` 及其 `drwx-----x`**）
+＋ `ReadWritePaths=<要写的那棵子树>`。
+
+### 4. 爆炸半径最小：**新增** drop-in，不动原来那个
+
+```
+/etc/systemd/system/hergent-erp.service.d/10-sandbox.conf   # 原文件，不动
+/etc/systemd/system/hergent-erp.service.d/11-<name>.conf    # 新增，按文件名字典序后加载
+```
+- **单值指令**（`ProtectHome`）在后面的 drop-in 里写 = **覆盖**；
+  **list 指令**（`ReadWritePaths`）则**累加**。
+- 验证生效：`systemctl show <svc> -p ProtectHome -p ReadWritePaths`（**必须实测**，别只看文件）。
+- 回滚 = 删这个文件 + `daemon-reload` + `restart`。**在 drop-in 注释里写清回滚方式与暴露面评估。**
+
+### 5. 🔒 放开沙箱前必须**实测**暴露面，不能推测
+
+```bash
+# 三问：还能枚举吗？还能读私钥吗？新增可见的到底是什么？
+systemd-run ... /bin/ls -la /root                  # 期望仍 Permission denied
+systemd-run ... /bin/sh -c 'ls -ld /root/.ssh; head -c 20 /root/.ssh/id_rsa'   # 期望仍 Permission denied
+```
+本轮实测结论：`/root` 是 `drwx-----x`（other 只有 `x` 无 `r`）⇒ **本来就不能枚举**；
+`/root/.ssh` 是 `drwx------ root root` ⇒ 仍读不到。**新增可见仅"世界可读"的文件** ⇒ 暴露面≈零新增。
+⇒ 判据：**先量"本来就有多少"，再谈"新增了多少"** —— 别忘了对比"加沙箱**之前**是什么样"。
+
+### 6. 🔴 部署验收：「**接口 200**」只等于「闸门放行」，不等于「数据正常」
+
+本轮故障的完整形态是 **HTTP 200 ＋ 正文是 traceback**。任何"验通不通"的脚本若只看状态码 ⇒ **判成绿**。
+⇒ 部署后的接口验收**必须分两层**：
+1. **闸门层**：`401`（未认证）/ `403`（模块没过）/ `200`（过了闸门）；
+2. **正文层**：解析 JSON、**关键业务字段非空**、且**不含 `Traceback` / `Traceback` 类错误串**。
+
+并且判据要**能判别**（挑一个**新旧版本取值必然不同**的串）——
+若挑"两版都有"的串，则部署成没成都是一样的读数，**给了你假的信心**。
+
+### 7. 上游失败**不要编码成 200**
+
+本项目 Hermes bridge 的既有约定是 `_out({"ok": False, "error": ...})` 但仍返回 HTTP 200，
+前端只有 catch 分支能显示错误 ⇒ **永远等不到非 2xx** ⇒ 故障被渲染成"空数据、零报错"。
+⇒ **修复范式**：加一层 `_xxx_or_502()`，上游失败一律 **502**（前端**零改动**即能显示错误），
+并把"空结果"与"权威数据源"对照后再决定是否采信（⚠️ **读不到权威源就保持沉默**，不可误报）。
+
+---
+
+# §v305（2026-09-28）① 中间产物「过期」事故 ② 多会话在途时的**隔离构建四步法**
+
+## 一、🔴 最贵的操作事故：**产物生成早于最后一次编辑 ⇒ 上传了旧代码**
+
+**现象**：受控提交时发现生产调度器**仍含已废弃的 `max(1, int(cfg["lead_hours"]) - 1)` clamp**
+—— 而我明明已改成「不篡改用户值 ＋ 调度层跳过 final」。
+
+**根因**：`/tmp/scheduler.prod7.py` 生成于 **15:15**，本地 `scheduler.py` **15:17 又改过**
+⇒ 上传的是**15:15 那一版**。本地是对的、产物是旧的、生产因此是错的。
+
+**判别法（关键）**：产物 `v305` 计数 **32 < 工作区 35**，且 `diff` 里冒出那条 clamp 行。
+🔴 **`md5` 对此完全无能为力** —— 过期产物同样有**稳定的 md5**，
+「本地 md5 == 产物 md5」这条检查**永远发现不了"产物比本地旧"**。
+
+**修法**：`python3 /tmp/make_prod_scheduler.py <本地源> <产物路径>`
+（⚠️ **该脚本必须带两个参数**，漏参报 `IndexError`）→ 新 md5 `56a75f5d3d6c7e67f73effd8021f812c`
+→ 备份 `scheduler.py.bak-v305b-*` → 重传 → `py_compile` → restart → **复验 `clamp=0 / v305=35`**。
+
+⇒ **新增铁律**：**凡"生成中间产物再上传"的流程**（`make_prod_*.py` 这类剥离脚本、打包、transpile）：
+
+1. 产物必须在**最后一次编辑之后**重建（改完源码 = 作废已生成的产物）；
+2. 上传前用**计数 / 判别串**（本轮：`v305=35`、`clamp=0`）自证**新鲜**；
+   **md5 只能证"一致"，不能证"新鲜"**；
+3. 本地改一次 ⇒ 重新生成一次 ⇒ 重新计数一次。**不要复用上一次的产物。**
+
+## 二、多会话并行的前端上线：**隔离构建四步法**
+
+老板的判据是「上线后不能有人说功能没了」。工作区 `src/` 常含**多个会话的在途改动**，故：
+
+### 步骤 1 · API 超集比对（判「会不会撤回线上功能」）
+
+```bash
+# 线上产物里出现过的接口 vs 工作区产物里出现的接口
+comm -23 online_apis.txt workspace_apis.txt   # ⇒ 应【为空】= 无接口会被撤回
+```
+本轮实测：线上 257 vs 工作区 280 ⇒ **差集为空**，无功能回退。
+
+### 步骤 2 · 找「工作区有、生产后端没有」的接口 ⇒ **摘入口，不是摘代码**
+
+本轮发现 **5 个接口生产后端不存在**（`/api/commitments*`、`/api/collections/aging`、
+`/api/collections/payments`、`/api/import/mapping-memory`、`/api/import/receipts`、`/api/ai/experience/*`）
+—— 属**其他会话未上线**的工作。
+
+🔴 **关键判断**：`CollectionsCard` **挂载即请求**且**静默降级成空态**
+⇒ 上线后会把工作台首页变成**说假话的空卡片**（用户看到"没有数据"，实际是"接口不存在"）。
+⇒ **在隔离构建副本里摘掉入口**（`Workbench.vue` 的 `<CollectionsCard />`、`Rebate.vue` 的「厂家承诺」页签），
+加 `v-if="false"` ＋ **写明原因的注释**。**工作区源码不动**（那是别人的活儿，由他们提交）。
+
+⇒ **通用判据**：**接口不存在 ≠ 页面报错**。若组件**挂载即请求 + catch 里静默降级**，
+它就是一颗"上线即说谎"的雷 —— **必须摘入口**。判别法：`grep` 该组件 `onMounted` 里有没有请求、
+`catch` 里是不是只置空。
+
+### 步骤 3 · 隔离 outDir 构建（规避构建竞态）
+
+```bash
+vite build --outDir /tmp/v305-fe-dist --emptyOutDir     # 绝不写共享 dist/
+```
+**理由**：共享 `dist/` 是别人也可能在写的目录 ⇒「我的构建成果被别人替换」是真实竞态。
+（另：`vite build` 若目标是 `dist/` 会被 **safe-delete 护栏**挡，
+需 `CODEBUDDY_SAFE_DELETE_ENABLED=0`。）
+
+### 步骤 4 · 差集 ＋ 判别串双向核验，再 `rsync -a`（**不带 `--delete`**）
+
+- 差集：**仅线上有 = 空**（否则就是撤回）。
+- 判别串：新功能的串**必须命中**（本轮 `你以管理者身份改单`/`授权改单`/`免打扰`/`截止后汇总给主管`/
+  `新期次发布时通知`/`自动关单` 全落在 `Forecast-*.js`），被摘功能的面包屑串**必须 0 命中**
+  （`客户回款`/`collections/aging`/`commitmentsApi`）。
+- ⚠️ **判别串必须从源码原文取，不能凭记忆**（凭记忆写过两个错串 ⇒ 得到 2 个"0 命中" ⇒ 差点误判"没编译进去"）。
+- `rsync -a` 后 `chown -R hergent:hergent`，再 **5/5 md5 双侧一致**。
+
+## 三、其他（本轮验证过的小结论）
+
+- **受控提交里 `diff 本地 生产` 的方向**：`<` = 本地（第一个文件）/ **`>` = 生产**。
+  要拿「生产独有行」必须 `grep '^>'` —— 我第一轮把 `<` 当成生产独有，方向搞反了。
+- **超长产物（`scheduler.py` 600+ 行 diff）塞进受控提交**的做法：
+  `git reset -q HEAD --` 归零 → `git add` 普通文件 → `git hash-object -w <产物>`
+  ＋ `git update-index --cacheinfo 100644,<blob>,<path>` ⇒ 索引恰好 5 个文件，
+  再用 `git commit -F`（**不带 pathspec**）。暂存版 md5 必须 == 产物 md5（自证）。
+- **`systemd-run` 取输出**：`--quiet` 会让输出消失 ⇒ 去掉它，
+  统一 `--property=StandardOutput=file:/tmp/xxx.txt` ＋ `cat` 回读；
+  **不要**加 `PrivateTmp=true`（会让 file: 路径跑进私有 tmp）。
+
+## §v306c 「你说修好了，我点了还是失败」—— 先查用户那页是不是旧包（2026-09-28）
+
+### 1. 现象与判据（这一步先做，别急着改代码）
+
+老板反馈「下载失败」（Chrome 下载记录里 3 条「无法从网站上提取文件」）。
+**第一件事不是改代码，是判「用户手上跑的是哪一版」**：
+
+| 读数 | 结论 |
+| --- | --- |
+| 服务端现役 `Shell-*.js` 里**有**本轮新增的判别串（`有新版本可用` 等） | 服务器上的代码是对的 |
+| `ls -lt assets/` 全停在**我那次部署的时间**（没有人在我之后构建） | 没被并行会话覆盖 |
+| 真实点击探针（Playwright）**全绿**：200 / 45,452 字节 | 生产端链路是通的 |
+
+⇒ 三条同时成立时，问题**几乎必然在客户端那一版**。
+
+🔴 **硬判据（本次新学到的、可直接复用的判别法）**：
+**「失败出现在 Chrome 的下载记录里」本身就是「跑的是旧代码」的证据。**
+- 旧代码 = 裸 `<a href>` ⇒ 普通链接跳转 ⇒ 不带 `Authorization` ⇒ 401 ⇒ Chrome 记一条
+  **「无法从网站上提取文件」**（导航型下载，会被 Chrome 记录并标记失败）。
+- 新代码 = `fetch`（带头）→ blob → `a.download` ⇒ **失败时只弹页内提示，根本不会产生下载记录**
+  （`fetch` 失败压根不会触发导航）。
+⇒ 所以「下载记录里有那一行」= 旧码在跑。**不需要看时间戳、不需要问用户点了哪个按钮。**
+
+### 2. 为什么 SPA 特别容易出这一坑
+
+`hergent.cn` 是 SPA：页面一打开就把 JS 留在内存里跑，**服务器重新部署对它毫无影响**。
+老板那个 15:20 打开、一直没刷新的标签页，16:14 我部署完之后**仍然是旧代码** ——
+于是「你说修好了，我点了还是失败」，且**零提示**，只能靠人猜。这是最费时间的一类问题。
+
+已排除的旁支（都查过，都不是）：
+- 不是缓存策略：`index.html` 是 `cache-control: no-cache, no-store, must-revalidate`，
+  assets 是哈希名 + `immutable` ⇒ **Cmd+R 就够**，不需要清缓存。
+- 不是 Service Worker（全仓 `serviceWorker|registerSW|workbox` **零命中**）。
+- 不是别的域名：`/etc/nginx/sites-enabled/hergent` 只有一个 server 段
+  （`server_name hergent.cn www.hergent.cn`，`root /opt/hergent-cn-v2`），没有第二份副本。
+
+### 3. 根治：根组件挂「部署自检」（v306c 已上线）
+
+`src/composables/useAppUpdate.js` ＋ `App.vue` 底部小胶囊（「有新版本可用 · 点击刷新」）。
+
+判据（**不依赖任何后端配合**）：产物是哈希文件名 ⇒ 比对
+**「当前页面正在跑的入口 chunk 名」** vs **「服务器上 `index.html` 现在引用的入口 chunk 名」**，
+不同 = 手上这版是旧的。取当前名字：`script[type="module"][src*="/assets/index-"]`，
+**再兜底遍历所有 `script[src]`**（有的构建不带 `type=module`）。
+
+🔴 设计约束（都踩过考虑过）：
+- **不自动刷新**：老板可能正在输入框里打字，替他刷新会丢内容 ⇒ 只提示、人来点。
+- **失败静默**：网络抖动/离线/异常页（抽不到入口名）一律不报，**防恒真误报**。
+- **位置**：底部居中（`bottom:140px`，上移 44px 与 toast 错开）—— 页头与左侧导航都是
+  **不可遮挡区**（挡了就是「控件物理不可达」，见 `frontend-ui` 那条铁律）。
+- 检查时机：mount ＋ `focus` ＋ `visibilitychange` ＋ 5 分钟定时。
+
+验证（两侧都要）：
+- Node 打桩跑**真模块**（esbuild `--alias:vue=<桩>`，13/13）：
+  旧页面+新服务器⇒`true`；**最新页面+新服务器⇒`false`（防恒真）**；fetch 抛错⇒静默；
+  取不到当前名⇒**不发请求**；服务器 HTML 异常⇒不误报；卸载后不再请求。
+- 真机（`PROBE_BASE=https://hergent.cn`）：最新页面**提示数 = 0**（不误报）＋
+  用 `page.route('**/index.html*')` 把响应改成假入口名 ⇒ **提示数 = 1**、文案含「点击刷新」、
+  位置 `y=727`（>400 不压页头）、点击**真的触发重新加载**（load 2→3）。
+
+---
+
+## §v312（2026-09-28）🔴🔴 `server.py` 生产版 ≠ 本地版 **且两个方向都分叉** ⇒ 必须 hunk 移植
+
+### 一、怎么发现（这三步要按顺序做）
+
+```bash
+md5sum 本地/server/server.py          # e3e06400715491f119dc3ad103eabcbb
+ssh root@47.113.224.140 md5sum /opt/hergent-erp/server.py   # cb1f7876532670145c3b202ce546ce9c
+git -C 本地 status --short server/server.py    # 干净
+```
+
+🔴 **判据**：`md5 不等` **＋** `git status 干净` ⇒ **不能推断"生产旧一点"** ——
+只能得出「**两边各自有对方没有的东西**」（双向分叉）。**必须逐 hunk 归因**，不许猜。
+
+### 二、本轮归因结果（两条，方向相反）
+
+| 方向 | 内容 | 后果（若直接 scp 整个文件） |
+|---|---|---|
+| 生产**落后** | 缺 `from routers.commitments import router as commitments_router` ＋ `app.include_router(commitments_router)`（v303） | 🔴 且 **`/opt/hergent-erp/routers/commitments.py` 根本不存在**（`ls` = No such file）⇒ 覆盖后 **ImportError，服务起不来** |
+| 生产**领先** | `server.py:1403` 注释是 `v307：login_scope`，HEAD 只有 `v308` | 覆盖后**抹掉别人已上线的留痕** |
+
+🔴 **教训**：「本地 ≠ 生产」时，**先 `ls` 那个 import 的目标文件在不在** —— 一个 `No such file`
+就能立刻判死「整文件覆盖」这条路，比读 diff 快得多。
+
+### 三、hunk 移植配方（本轮实操通过）
+
+```bash
+# ① 取生产版副本（三份文件都取）
+ssh root@… 'cat /opt/hergent-erp/server.py' > /tmp/v312-prod/server.py
+# ② 生成我的 diff（以本地版为"目标"，生产版为"基线"）
+cp /tmp/v312-prod/server.py /tmp/v312-prod/server.py.mine
+diff -u /tmp/v312-prod/server.py /本地/server/server.py > /tmp/v312-prod/server.mine.diff
+# ③ 只打属于我的 hunk（本轮 4 处：-1083,7 / -1095,7 / -1124,11 / -1158,6）
+cd /tmp/v312-prod && patch -p0 server.py.mine < server.mine.diff
+# ④ 🔴 自证：打完的 vs 本地版，**只应剩生产独有那几处**
+diff -u /tmp/v312-prod/server.py.mine /本地/server/server.py
+```
+
+✅ **通过判据**：第 ④ 步的输出**只有**生产独有那 3 处（`commitments_router` ×2 ＋ `v307` 注释），
+**且行数与我事先数的一致**（本轮 28 行）⇒ 证明①我的 4 处全打上了 ②没夹带任何别的东西。
+
+🔴 **必查的重叠**：先确认「生产独有 hunk 的行号区间」与「我的 hunk 区间」**零重叠**
+（本轮生产独有 = 887/982/1403，我的 = 1083/1095/1124/1158）。重叠了就得上三方合并，不能盲打。
+
+### 四、隔离构建里「还原别人的在途改动」
+
+worktree 里 `checkout HEAD` 得到的是 **HEAD 版**；但我这次要构建的 3 个文件**混着别人 v311 的在途改动**
+（同一文件同时含我的改动与别人的未提交改动）。
+
+**配方**：worktree = HEAD ＋ 我的 3 个文件 → 在**构建树里**逐处把 v311 字样**还原成 HEAD 措辞**
+（**源仓库不动**，绝不 `git stash`）→ 构建 → **自证 `v311` 特征串 0 命中、我的串全命中**。
+🔴 **只看 md5/构建成功都判不了这件事** —— 必须用**特征串计数**。
+
+### 五、上线顺序（本轮）
+
+1. 在线备份（sqlite `backup` API，三库 `integrity_check=ok`）＋ 三源文件 `.orig` ＋ `MANIFEST.txt`
+   ⇒ `/opt/hergent-erp/backups/pre-v312-20260928-215544/`
+2. 后端（hunk 移植后的三文件）scp → `chown hergent:hergent` → 重启 `hergent-erp`
+   → 查日志见 `(Started server process)` / `Application startup complete`、**零报错**
+3. **运行时探针**：确认新表 `role_end` **已下发到主库 ＋ tenant_1 ＋ tenant_10**，且覆盖行 = **0**
+   （⇒ 现网行为逐字不变）
+4. 影子库单测（33/33）
+5. 前端 rsync（**绝不 `--delete`**）→ 核验生产 `index.html` md5 与本地一致 ＋ 入口 chunk 名
+6. HTTP 冒烟 200 ＋ 抽查单测 chunk 里含新文案
+
+🔴 **第 3 步不能省**：`Application startup complete` 只证明"没崩"，不证明"新表真的下到了每个租户库"。
+
+---
+
+## §v313（2026-09-28 23:3x）🔴🔴🔴 「还有哪些没部署」的正确侦察口径：**全量 md5 扫描**，不是 `git status`
+
+### 一、踩实的坑：只扫 `git status` 会**漏掉一整类文件**
+
+老板问「其它对话都停了，帮我检查全仓还有哪些没提交部署，一起上线」。我第一遍的做法是：
+「取 `git status` 有改动的文件 → 和生产 md5 对比 → 上传」。结果**漏了 3 个文件**，
+其中 `db/queries/finance.py` 直接导致 `erp_db.py` 上传后 **import 失败**：
+
+```
+ImportError: cannot import name 'income_order_create' from 'db.queries.finance'
+```
+
+**漏的原因**：那 3 个文件**已经在 HEAD 里**（v313 会话提交过，`git status` 干净），
+但**生产从未部署过**。⇒ `git status` 只回答「本地工作区 vs HEAD」，**回答不了「HEAD vs 生产」**。
+
+✅ **正确判据**：`未部署 = 本地 server/**/*.py ≠ 生产 /opt/hergent-erp/**/*.py`
+（**去掉 `server/` 前缀**做全量 md5 对比），**与文件是否被 git 标记改动无关**。
+本轮实测：210 个 py ⇒ 207 相同、**3 个不同**（`db/queries/finance.py` / `db/queries/purchases.py` /
+`routers/zhoupu_documents.py`），**0 个生产缺失**。
+
+### 二、🔴 上传后、重启前，**必须做一次 import 干跑**（本次救了场）
+
+```bash
+ssh root@… 'cd /opt/hergent-erp && set -a && . ./.env && set +a && python3 -c "
+import sys; sys.path.insert(0,\"/opt/hergent-erp\")
+import erp_db, core, routers.commitments, routers.zhoupu_documents   # 本轮动到的模块
+print(\"ALL IMPORTS OK\")"'
+```
+
+- 🔴 **必须 `. .env`**（`set -a` + `set +a`）：否则 `core.py` 抛
+  `RuntimeError: ERP_SECRET environment variable is required` —— **这是假红**，别当成代码问题。
+- ✅ 这条干跑在**重启之前**就抓住了上面那个 ImportError ⇒ 服务**一秒都没停**。
+  若不干跑、直接 `systemctl restart` ⇒ 服务起不来 = **真事故**。
+- ⚠️ 副作用：干跑会**真的执行** `erp_db` 的迁移（本轮触发 `[schema-sync] … 补列(+1)`）。
+  这是重启本来也会做的，**但有备份才敢跑**。
+
+### 三、本轮全量部署清单与读数
+
+| 项 | 内容 |
+|---|---|
+| 上线内容 | 后端 **20 个文件**（17 个 `git status` 差异 + 3 个全量扫描补出）＋ 前端全量构建 |
+| 首次上线 | **v303 厂家承诺台账**（`routers/commitments.py` **从未进过 git 也从未上过生产**） |
+| 一并上线 | v311 侧栏重构（前端）· v312 角色登录端（我，已在）· v313 舟谱导入（后端） |
+| 安全加固 | ① `experience_loop.py` 红线判据 **黑名单 → 白名单 fail-closed** ② `import_zhoupu.py` **移除硬编码密码 `hergent2026`**（v281）③ `expense_order_create` 修 arity + `cur` 未定义 |
+| 备份 | `/opt/hergent-erp/backups/pre-v313-20260928-233039/`（**7 库** integrity=ok ＋ 17 源文件） |
+| 验收 | 逐文件 md5 **20/20** 一致 · 服务 active · 启动零报错 · `/api/health` **200** · openapi 路径 **1208** 条含 `commitments` · 列对账补 `purchase_order_items.unit` 到 tenant_1/tenant_10 · 前端 index.html md5 本地==生产 `1f7c548f…` · 线上 `index-nEOsNKoP.js` 200 · 真机探针 **26/26**、零 console 错误 |
+
+### 四、两个「判据必须先自证判别力」的实证（本轮各一次）
+
+1. **我的自动扫描脚本第一版判据是「纯删除 hunk ≥1 才算风险」⇒ 假绿**。
+   它抓不到**替换型 hunk** 里藏的生产独有内容（如 `server.py` 那两行 `v307：login_scope` 注释）。
+   ⇒ 修正：**所有 `-` 行都要人工过一遍**，不能只看"有没有纯删除 hunk"。
+2. **API 超集比对脚本报 24 个"前端引用但后端没有"⇒ 全是假阳性**。
+   成因：① `from '../api/modules.js'` 这类 **import 路径**被当成接口 ② `${...}` 模板变量归一化不全
+   ③ 字符串拼接前缀（`/api/ai` + sub）。
+   ⇒ 正解：**按前缀去后端 openapi 里查**，逐个定性。
+   结论：真缺失只有 `/api/inventory/near-expiry`，且 `nearExpiryList` **零调用方**（首次纳入前端源码就有，非本轮引入）
+   ⇒ 死代码，不发请求，无害。
+   ⚠️ **反直觉但重要**：后端这次是**全量同步**（本地==生产）⇒ "前端用了后端没有的接口"只可能是**代码本身的 bug**，
+   不再是"部署不同步"问题 —— 判据要跟着部署方式变。
+
+---
+
+## §v327（2026-09-29）前端上线：**归因基准 = 上次构建产物目录**（比配生产快得多）
+
+本轮只改了 5 个 `.vue` 的文案，却出现 **32 对 chunk 改名**（chunk 名 = 内容哈希 ⇒ 一个文件变，整张 import 图都改名）。
+所以「这次到底动了什么」**绝不能按文件名判**。本轮找到一条**零成本**的归因路径：
+
+### 1. ⭐ 先认「线上那一份」= 上次部署的 `dist/` 目录
+
+上一轮构建目录 `dist-v326c/index.html` 的 md5 **正好等于生产 `index.html`**（`8bb3b8fe…`）
+⇒ **它**就是线上的等价物 ⇒ 可直接本地比对，**不必再从生产下载配对**：
+
+```bash
+diff -rq dist-v326c dist-v326d        # 旧构建 vs 新构建
+```
+
+判据：**只数 `differ` 行**（本轮 = **1**，只有 `index.html`）；
+`Only in` ×32 / ×32 全是**级联改名**，一条都不能算"夹带"。
+⇒ 🔴 **`dist-v32X` 目录别删**，它是下一次的基准。
+
+### 2. ⭐ 穿透改名 + 变量重排的**终判**：中文串集合差
+
+`diff -rq` 只说"文件不同"，不说"是不是我改的"。终判用**中文串集合差**：
+新构建独有 **6** 条 / 基线独有 **11** 条，**逐条对得上我的改动** ⇒ 零夹带、零回滚。
+
+⚠️ **归一化逐字符比对不是终判** —— 压缩后局部变量名**按分配顺序重排**（`n/zn/h` → `O/Kn/w`）、
+scoped `data-v-xxx` 重算，都会让"归一化后仍不同"变成假阳性。
+
+### 3. ⭐ 一步验「本地 == 生产」：`rsync -c`
+
+```bash
+rsync -naci --no-perms dist/assets/ root@…:/opt/hergent-cn-v2/assets/
+```
+
+输出**全是 `.f..t....`**（只有时间戳、**没有 `>f` 传输行**）⇒ **内容 100% 一致**。
+⚠️ **别加 `--no-times`** —— 与 `-c` 同用会让校验失效，还**伪装成"全部一致"**。
+
+### 4. ⚠️ 定点 grep 找不到 ≠ 没上线
+
+本轮 `ReportMapping.vue` 的 4 处文案**并进了 `Forecast-*.js`**（**不在同名 chunk 里**）⇒
+搜同名 chunk 一无所获，差点误判成"没进包"。
+⇒ **先 `grep -rl "<串>" .` 定位到哪个 chunk，再下结论**；且判别串要①**取自源码原文**②正反两侧都查。
+
+---
+
+## §v329 旧前端 `erp.hergent.cn` = **停用待整合**，不是废弃（2026-09-29）
+
+老板原话：「erp.hergent.cn 暂时不用，但计划未来几周要一个 erp 版本，把现在的 AI 副驾和
+erp.hergent.cn 进行整合」。
+
+### 🔴 判据：**停用 ≠ 废弃 ⇒ 权限一律不收缩**
+
+v328 批次③ 因「旧前端在用」撤回了 `guide.sales/buying/stock`、`driver.stock`、`staff.stock`
+三项收缩，当时给的解除条件是「若旧前端废弃即可执行」—— **老板给的是「停用待整合」，
+条件没解除，反而更危险**：
+
+- 现在收缩 ⇒ 整合那天页面被拉回来、权限已撤 ⇒ **老功能复活即坏**（页面在、点开全 403），
+  是**最难归因**的故障形状（没人会怀疑是几个月前一次"无害"的权限收缩）；
+- 不收缩 ⇒ 现在零成本（本来就没人用功能）。
+
+⇒ **除已上线的两项外一律不动**，攒到整合日一次性处理。
+
+### 实测证据（不靠印象）
+
+| 项 | 实测 |
+|---|---|
+| 站点状态 | `https://erp.hergent.cn/` → **HTTP 200 / 72667 B** ⇒ **仍在线，没下线** |
+| 今日访问 | 6 次，**全 `GET /`、零 `/api/` 业务调用** ⇒ 没人用**功能**，但**入口开着**；另 1 条 CVE 扫描器（401） |
+| 部署根 | 生产 `/opt/hergent-erp/static` |
+| 🔴 三套前端并存 | `erp.hergent.cn` → `/opt/hergent-erp/static`；`hergent.cn` → `/opt/hergent-cn-v2`；`hergent.cn/**admin/**` → **`/opt/hergent-admin/`（第三套）** |
+| 旧前端规模 | 136 文件，扫出 **10 个在用模块**（stock 17/41、accounts 12/39、data 8/8、hr 7/15、sales 7/16、buying 4/11、dashboard 3/4、reports 2/2、payroll 1/4、chat 1/3） |
+
+🔴 **旧前端没有按角色隐藏页面的机制**（136 文件仅 `app.js` 一处 `ROLE_` 判据）
+⇒ 撤模块权限的后果**不是"少几个菜单"**，而是**页面照样显示、点开全部 403**。
+
+### 常驻护栏（本轮新增，只读）
+
+`.workbuddy/tools/legacy-erp-module-map.py`：
+**G1** 旧前端在用的模块必须仍在 `core._ALL_MODULES`（摘走 ⇒ 整合日必 403）／
+**G2** 冻结清单 10 项逐条给「现在能否收缩」／
+**G3 反例自证**（`stock` 须 >0、假模块须 =0 —— **防脚本恒绿失去判别力**）。
+⇒ 未来任何一轮要摘模块，先跑它；红了就别摘。
+
+### 整合前必查清单（六条）
+
+1. 先跑护栏（红了说明这几个月模块被摘过，先补回再整合）
+2. 🔴 `driver-board.js` 调 `sales`，而 `driver` 默认只有 `dashboard`+`stock` ⇒ **司机看板 403**（定去留）
+3. 🔴 旧前端须**逐页补角色门槛** —— 否则整合后所有页面对所有人可见（**工作量最大，别低估**）
+4. 三张模块表对齐：权限页 16 / 旧前端实际用 10 / 新前端直调仅 `chat`+`payroll`（其余走 `pages.js`）
+5. 定清是**一套前端还是两个域名两套**（别三套并存）
+6. 停用期考虑下线或挂维护页，别留"能打开但没人维护"的敞口
+
+### ⚠️ 战略风险（已提给老板，待拍板）
+
+「ERP 版本」与 2026-08-22 战略基线（**不自研 ERP、只做 AI 层**）的关系**取决于给谁用**：
+A **自用** —— 真实交易系统是舟谱，hergent-erp 只能当影子账，双写会重演"两个目标不同源"；
+B **对外卖经销商** —— = 自研 ERP 卖客户，与战略**直接冲突**且是记忆里标的最大风险。
+⇒ **先定死定义再动工**，这个答案决定后面 80% 的工作量。
+
+
+
+---
+
+## 🔴 v336（2026-09-30）：上线前必须做「**归一 hash 的生效集对账**」
+
+### 病根：生产 `assets/` 是**历次构建并集** ⇒ 拿并集当基线 = 满屏假差异
+
+实测 `/opt/hergent-cn-v2/assets/` 有 **1900** 个文件。任何「生产有、本机没有」的清单
+**不能**当成「我漏传了」——绝大多数是历史构建残留。`ls -lt assets/` 只是**并集**（时间序列），
+看不出**哪个包正在生效**。
+
+### 正确判据：从**入口 chunk 出发可达的生效集**，归一 hash 后逐字节比
+
+把 chunk 名里的 8 位 hash 归一为 `-HHHHHHHH` 再比，绕开「chunk 改名」的噪音。
+
+**四段输出（缺一不可）**：
+1. 生效集内、归一后**逐字节相同**的数量（v336 实测 **52 / 54**）
+2. 差异清单（实测**仅** `Forecast.js` / `.css`，正是本轮改的文件）
+3. 🔴 **生产生效但本机缺失** ⇒ **必须为 0**，否则你的构建会**回退线上功能**
+4. 本机有、生产生效集没有（无害的 stub / 同 md5 副本）
+
+### ⛔ 两个不能用的判据
+
+- 🔴 **不要解析「逻辑名」**（去掉 hash 反推 `Forecast.js`）。hash **可以含 `-` 和 `_`**
+  （实测 `ConnectCenter-Ck9_b_X-.js`、`Dashboard-e-9v13yt.js`）⇒ `rsplit('-',1)` 或
+  「最后一段是 hash」的正则会**解析错基名** ⇒ v336 第一版据此报出「**27 个变更**」的**假警报**。
+- ✅ **稳健判据：比「本地 md5 是否已存在于生产并集里」** —— **完全不解析名字**。
+  两者配合：名字归一判「字节是否变」，md5 集合判「是否存在」。
+
+### hash 级联实证：**chunk 名什么都判不了**
+
+`RoleAvatar` / `Dashboard` / `Icon` 新旧版**只差一行入口引用**
+（`"./index-Cs1JqQS0.js"` → `"./index-DKz0oR4v.js"`），**字节数完全相同**。
+⇒ 「一堆 chunk 都变了」**不要慌**，先归一化对照；真正的改动往往只有一个文件。
+
+### 顺带：`md5 -r *.js *.css` 与 `md5sum` 清单**排序不同**
+
+zsh 按展开排序（`.css` 在 `.js` 前），生产侧 `find`/`ls` 次序又不同。
+**别用 `sort -k2`**（macOS `sort` 没有 `-k2`）；在 Python 里 `sort(key=lambda kv: kv[1])` 重排后逐行比。
+
+### 🔴 后端：生产是 **FLAT 布局**，别按本机路径拼
+
+本机 `server/domain/product_targets.py`，生产是 **`/opt/hergent-erp/domain/product_targets.py`**。
+照本机路径拼会得到 `md5sum: No such file or directory`，**看起来像「文件没传上去」**，
+实际只是路径错。**后端上线判据** = 四文件双侧 md5 全等
+（v336：`domain/product_targets.py` / `routers/product_targets.py` /
+`routers/forecast_submissions.py` / `erp_db.py` **4/4**）。
+
+### 顺带：`grep` 老坑第 5 次 —— 括号里的 `\|` 也算多模式
+
+```bash
+curl -s https://host/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.\(js\|css\)'   # 返回空、exit 1
+curl -s https://host/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js'             # 立刻命中
+```
+
+⇒ 差点误判「首页没生效」。**纪律升级**：不止「多条模式用 `-e`」，**`\(a\|b\)` 也属多模式**。
+
+
+### 🔴 快照有保质期（v336 实测）
+
+「归一 hash 的生效集对账」需要三份输入：全量 assets 快照、生效集清单、`index.html`。
+**三者必须同批拉取**。实测踩过：assets 快照 17:04 拉、17:14 又上了 v336b，
+之后再拿 17:14 的 `index.html` 去比 17:04 的快照 ⇒ 报出「生产生效、本地缺失 1 个」
+的**假警报**（看起来像"有人在我之后传了新入口"）。
+
+⇒ **③（生产生效、本地缺失）非 0 时，第一件事是重取三者再跑**，再谈夹带。
+
+**已固化脚本**（可复用，含入口自检 ＋ md5 存在性第二判据，退出码 2 = 别上线）：
+`~/.workbuddy/skills/hergent-frontend-deploy-verify/scripts/assets-scope-diff.py`

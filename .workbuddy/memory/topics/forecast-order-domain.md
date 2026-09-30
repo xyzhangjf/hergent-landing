@@ -2188,6 +2188,11 @@ qty_to = qty_from × per_case(to) / per_case(from)      # 不是 × from / to（
 - `forecast_barcode_units` **表保留、不删**（与 P3「降级归档」同口径）：读路径保留为兼容层，
   **新增人工指定一律走商品档案**，别再往那个表加数据（第 2 份拷贝会漂移）。
 
+## 🔴 客户列永不收（2026-09-22 v248 拍板）
+- 交叉表的 `cross.units` = **客户（订货方）列**，且是**跨期持久名册**——载入处注释原文「即使当期无报单，也保留客户列」（Forecast.vue L3754 附近，`d.all_units`）。
+- 🔴 任何「收空列/压缩宽度」类优化**只准动主档列**（保质期这类档案缺口）；**客户列整列空也必须显示**——文员按名册对照谁没报。v247 把空客户列收掉，用户看到「只剩东津一列」当即否决，v248 修正（commit `4121726`）。
+- 判空列用 `flatItems`（全量行），别用 `vsWindow`（虚拟滚动窗口，列会闪烁）。
+
 ## §商品目标管理 · 口径已**全部**拍板（D1~D5 + D5-A 建议态）（2026-09-24 · **仅方案，未动代码**）
 - 方案文档：`outputs/商品目标管理-需求梳理与开发计划-2026-09-24/01-需求梳理与开发计划.md`（674 行；D1~D4 已落定；**D5 当日被用户订正**为「加单列预填 = 均单剩余 − 本期报单合计」，同日回 `A` ⇒ 预填 = **建议态**）。**起号前重搜**（记忆里已见 v262 ⇒ 至少 v263 起）。
 - **D1 已达成**：取 `rebate_achievements`（`dimension='product'`）；**未填 ⇒ 视为 0**（照常算，不退化成"提示不出来"）。
@@ -2223,5 +2228,760 @@ qty_to = qty_from × per_case(to) / per_case(from)      # 不是 × from / to（
 - 🔴 **数据链（核实过的真路径，实现时照走）**：
   `report_mapping.employee_id → report_alias` ⨝ `forecast_submissions.store_name` ⨝ `forecast_submission_items`（`product_id`/`quantity`/`unit`）→ ÷ `perCase` 折箱 → 减均单目标。
   生产实测 `report_mapping` 5 行：员工6→`'刘善涛'`（`self_warehouse`/调拨单）、员工7→`'东津'`（永辉东津店/自提）⇒ **`report_alias` 就是报单表的 `store_name`，两边同源**，名字匹配在这里是可靠的。
-- 🔴 **必须先修的隐患**：`forecast_submissions.store_id` **39 行里 38 行为 0**（只有 `store_name` 有值）⇒ 目前只能按名字匹配 ⇒ **改名即断链**（历史报单归不到人，且零报错）。P0 要写对 `store_id`（带 `counterparty_id`）+ 存量名字↔ID 对账 + 目标页告警。
+- ✅ **该隐患 v264c（2026-09-24）已修写端**：`forecast_submissions.store_id` **39 行里 38 行为 0**（只有 `store_name` 有值）⇒ 只能按名字匹配 ⇒ **改名即断链且零报错**。
 - 旁证：`employee_stores` 在 `tenant_1/9/10` **全为 0 行**（历史层已收敛）⇒ 门店范围的权威是 **`report_mapping`**，不是 `employee_stores`（v200/v203 已确立）；`hr_employees` **没有 role 列**，别指望用它判"业务员"。
+
+---
+
+## v264c · 报单「列名 ↔ 报单对象」对账（2026-09-24，已上线）
+
+**要回答的问题**：汇总表里的客户列，有多少对得上「报单配置」(`report_mapping`)？
+对不上 ⇒ 落库 `store_id=0` ⇒ 「逐人实报」只能靠**名字**匹配，报单配置里一改名就断链，**而且零报错**。
+
+- 🔴 **R9 真身（推翻方案文档的假设）**：38 行 `store_id=0` **不是**小程序写的（`store_id<=0` 直接 400）、
+  **也不是** Excel 导入写的（走 `resolve_alias_to_contact`，解不到退 0 + 回执点名），
+  **是 Web `save_matrix` 第 864 行硬编码 `{"id": 0, "name": cname}`**。
+  · 指纹取证法：38 行**同一秒批量创建**（`16:13:21`×19 / `23:24:52`×19）+ `total_qty=0` + `updated_by` 空；
+    唯一带 id 的那行（id=715）有 `updated_by=张俊峰` ⇒ **批量同秒 + 无操作人 = 代码写的，不是人点的**。
+- **修法两条硬约束**（改动时若漏掉任一条都会静默出错）：
+  1. 解析走**唯一实现** `db.resolve_alias_to_contact`，且必须放在 **`get_db_tx()` 写事务之前** ——
+     它内部**另开连接**读 `report_mapping`，与写事务**互锁**（SQLite）。
+  2. `store_name` **仍传汇总表列名**，**不能**换成 contacts 系统全称 —— 换了会与 Excel 导入落库的名字
+     **裂成两列且永不合并**（v247 用户报障的原形）。
+- **可见性（避免"修了没人知道"）**：
+  · 新只读端点 **`GET /api/product-targets/mapping-audit`**（v264c）—— 三态
+    `mapped` / `same_name_only`（**只在 contacts 有名，仍落 0，不猜**）/ `unknown`；
+    返回 `unmapped_count` + `unmapped[]` + `columns[]` + `caliber`（**对象**，不是字符串）。
+  · 目标页顶部告警条（`ProductTarget.vue::.pt-audit`）—— `v-if="audit && audit.unmapped_count > 0"`，
+    配齐则**整条消失**（不留常态噪音）；**刻意为不加深链**（报单配置是预报页里的页签、无独立路由，加深链 = 死链）。
+  · `save-matrix` 回执增 `unmapped_columns`。
+- 🔴 **新增路由必须显式登记 `_PATH_MODULE_MAP`**：判据是**字面前缀**，
+  `"/api/product-targets".startswith("/api/products")` = **False** ⇒ 不登记会 403（不是 404）。
+- ⚠️ **存量 38 行未回填**（沙箱断言已固化"本次不回填"）。原因两条：
+  ① 19 个列名只有 **3 个**能解析出 id（东津 2868 / 刘善涛 9 / 美联保康 2225），11 个只有同名 contacts、5 个连同名都没有；
+  ② `forecast_submission_list` 范围 = `(user_id=? OR store_id IN 授权门店)` ⇒ 回填会让 `role='导入'` 的行
+     进入**门店负责人小程序「我的报单」列表**。三条路（不动 / 只回填 3 个 / 配全后全量）待用户拍板。
+- 🔴 **单位同源（陷阱 B 已修）**：`/api/products/fill-search` 此前下发 `p.unit`，而 Web 汇总表「单位」列取
+  `order_unit` 优先、空回退 `unit` ⇒ **两把尺子**。v264c 改为**同一份 SQL 片段** `db.order_unit_sql(alias)`
+  （erp_db 已转发，**别手抄第二份**），并增 `unit_raw` 键（人工指定值原样，空=跟随档案）。
+  生产实测**唯一命中 id=1596**（`unit='瓶'` / `order_unit='组'`）⇒ 修前小程序显示「瓶」、Web 显示「组」。
+  ⚠️ 老租户库可能**没有 `order_unit` 列** ⇒ 整条 SELECT 抛错会被外层 `except Exception` **静默吞成空列表** ⇒ 按 `cols` 自适应。
+
+### ⚠️ 与「目标与返利」里那个「商品目标」不是一回事（2026-09-24 核实）
+- 返利域的「商品目标」= `rebate_target_rules` 里 **`dimension='product'` 的一条返利规则**（与「品牌目标」同表同表单，只差维度；`Rebate.vue:257 openCreate('product')` 只是预设维度）。**不分解到人**，单位可自由文本，作用 = 算返利。
+- 报单域的（本页）「商品目标」= `product_targets` + `product_target_alloc`，**一律按箱、分解到人、驱动报单**。**两者不可互相替代、也不该合并**（一个答"能拿多少返利"、一个答"这单该报多少"）。
+- 🔴 **本页只读依赖返利域两处**：到货日历 ← `rebate_target_rules(dimension='brand')`；**已达成 ← `rebate_achievements(dimension='product')`**。
+- 🔴 **锚点不同源隐患**：返利域 `scope_key = resolveProductKey(scope_name)`，**查不到 byName/byBarcode 时原样存字符串**；本页锚点是 `products.id` ⇒ `_achieved_map` 只能宽松匹配 ⇒ 名字对不上就**静默把已达成读成 0**（均单偏大、零报错）。**要让两端同为 product_id，正确修法是拦在返利域写入侧**（查不到商品就拒绝保存），不是在读侧继续放宽。
+
+### 🔴 页签 vs 侧栏入口：商品目标归属（2026-09-24 核实，未拍板）
+- `/api/forecast` / `/api/forecast-submissions` / `/api/product-targets` **三者同属 `data` 模块** ⇒ 挂进预报页 tab **零权限变更**。
+- 🔴 **挂载范式照抄 `ReportMapping`**（别自创）：那是 page 级组件塞进 tab 的成例，靠
+  `.config-panel :deep(.page){padding:0;margin:0}` + `:deep(.page-hd){display:none}` 收掉页头与内边距。
+  `ProductTarget.vue` 根结构逐字同构 ⇒ 直接复用同两条 CSS。
+- 🔴 **`ProductTarget.vue` 零路由耦合**（无 useRoute/useRouter）⇒ 可原样挂；全站入口仅 4 处
+  （Shell 桌面侧栏 / Shell 移动抽屉 / CommandPalette / router），**无跨页深链** ⇒ 挪位成本≈0。
+- ✅ **依赖闭环**：它唯一只读依赖「报单配置」(`report_mapping`) 正是同页第三个 tab ⇒ 告警条终于能互跳（原为"无独立路由不能加深链"）。
+- ⚠️ 返利域 `dimension='product'` 那个「商品目标」字面撞车**不会因此消失** ⇒ 互指说明仍要做。
+
+---
+
+## 🔴 三层数据模型：报单 / 提货 / 达成（2026-09-24 生产只读核实）
+
+> **用户纠正**：「业务员报的数和他最终提货的数可能不一样」⇒ **报单是判断、提货是事实，两者不可互代**。
+> 任何"达成"口径都**不能取报单量**（我曾误按报单量算，已作废）。
+
+| 层 | 表 | 生产实况 | 时间 | 能挂到业务员？ |
+|---|---|---|---|---|
+| ① 报单（业务员报） | `forecast_submissions` + `_items` | 39 单 / 47 明细 / 9 商品 | **2026-09 起** | `store_id` **38/39=0** ❌ |
+| ② 提货（最终提的） | `sale_orders` + `sale_order_items` | **580 单 / 15,539 明细 / 115 商品** | **2026-04-02~06-15** | `operator_id` 580 单**全同一人** ❌ |
+| ③ 达成（返利用） | `rebate_achievements` | 4 行，全 `brand`，全 `manual` | 2026-08/09 | 5 维全无人 ❌ |
+
+**① 与 ② 在时间上一天都不重叠** ⇒ 这就是为什么"报 vs 提"现在算不出来。
+
+### 🔴 但两者天生是配对的（关键）
+- `sale_orders.note` **580/580（100%）**写法固定：
+  `报单批次:新版4月2报单-4月6到货 | 客户栏:唐成`
+  ⇒ 可解析出 **38 个报单批次 × 23 个客户栏**。
+- **报单汇总表的 19 个列名 ↔ 23 个客户栏，交集 16 个**（东津/刘善涛/刘小顶/刘正宝/吾悦/周运潘/唐成/成丽/易胜琳/毛辉/民发/王琴…）
+  ⇒ **报单的「客户列」原本就是从舟谱「客户栏」抄来的同一套名字**（这就是 mapping-audit 那 19 个列名的来源）。
+- 四个锚点体检：
+  · **商品** ✅ 报单 9 个商品**全部**命中提货的 115 个（两边都是 `products.id`）
+  · **客户** ⚠️ 靠名字（19 里 16 同名），**没有结构化外键**
+  · **批次** ⚠️ 提货 100% 带批次名，但 `4月10报单-4月14到货` 与系统期次名 `2026-09-25 报单期次` **格式不同**；且 4~6 月那批**在 `forecast_periods` 里没有对应期次**
+  · **业务员** ❌ 报单侧 `store_id` 大面积 0；提货侧 `operator_id` 580 单全同一人
+
+### 🔴 提货数据的来源与断流
+- `server/import_zhoupu.py` = **一次性脚本**（`system_config.key='zhoupu_imported'` 跑过不再跑），
+  导 `/opt/hergent-erp/舟谱模版/` 下 **12 个 Excel** 的历史存量（商品/客户/供应商档案、上次售价、库存成本期初、应收应付期初、科目、员工列表、采销订单）。
+- `import_trade_orders()` 读 `采销管理/销售订单-自提.xlsx`（header_row=4）→ `order_type='self_pickup'`；
+  `销售订单-车销…xlsx`（header_row=2）→ `order_type='vehicle_sale'`。
+- ⚠️ **修正**：生产 `order_type` **全是 `self_pickup`** ⇒ **车销那批 0 行**（`except … print()` 静默吞掉）。
+  此前「覆盖自提（分销/永辉/美廉）与调拨（车销）」的说法**只有前半对**。
+- ✅ **挂人的零件已设计好**：`operator_id` 取**舟谱导出的「业务员」列**（`item.get('业务员','')`），车销分支另取 `送货司机`→`driver_id`。
+  ⇒ 生产全同一人 ⇒ **是源 Excel 那一列的问题，不是代码写死**。
+
+### 🔴🔴 连带缺陷：预报页「AI 建议下单量」用的是三个月前的销量
+- `routers/forecast_audit.py`（v107 审核引擎；前端 `Forecast.vue:2089`「日均销量」列在消费它）：
+  `_avg_daily_sales()` 与 `/products` 批量版窗口都用
+  `date((SELECT MAX(order_date) FROM sale_orders), '-30 days')`。
+- 生产 `MAX(order_date)` = **2026-06-15** ⇒ 实际窗口 = **2026-05-16 ~ 06-15**，**落后今天 101 天**。
+- 后果：**285 个在售商品里 180 个日均销量 = 0** ⇒ 判定退化为「近30天无销售数据，无法自动建议，请人工判断」。
+  **不报错、数字看起来正常** ⇒ 「**恒定值 ≠ 当前事实**」型静默失效。
+- ⚠️ **根因不在那条 SQL**（用 `MAX` 而非 `now` 是**有意**的：防数据滞后时窗口空掉），
+  **在"没有持续更新 `sale_orders` 的通道"**。⇒ 正确修法是**建持续导入通道 + 加数据新鲜度告警**，
+  不是把 `MAX` 改成 `date('now')`（那会在导入滞后时把窗口打空，反而更糟）。
+
+### 量纲（已核，避免误判）
+- 提货与报单**同一口径**（都是可报单位）。CD杯8杯：提货单笔 6/24/120 vs 报单 12 ⇒ 同量级。
+- 「提货 12272 vs 报单 12」是**范围差**（提货=4~6 月 580 单合计；报单=某期次 39 单），**不是量纲差**。
+- 提货单笔 quantity：max/min/avg = 1530/1/24.15；≤5 的占 800/15539。
+- `sale_order_items` 15,539 行 **100% 有 product_id 且 100% join 得上 `products`**；`sale_orders` 580 单 **100% join 得上 `contacts`**（23 客户）。
+  ⇒ **提货侧数据质量比报单侧干净得多**（报单侧 store_id 38/39=0）。
+
+### 待用户确认的业务定义（**别猜**）
+「最终提货的数」可能指：① 客户/业务员从仓库**提走**（= 这 580 单自提销售单）；② 向**厂家提到**的货（= 进货 `purchase_orders`）；③ 客户**终端实际卖掉**（动销）。
+三个数不同、锚点也不同。
+
+### 建议排序（曾把顺序搞反）
+★1 **建持续导入通道**（舟谱销售/发货数据 → `sale_orders`，即战略里的「Excel 上传」路）—— 是「报 vs 提」「达成」「日均销量」**三件事的共同地基**；
+★2 `forecast_audit` 加**数据新鲜度告警**（零依赖、立刻可做）；
+3 「报 vs 提」对账（批次 × 客户 × 商品）；
+4 业务员「我的达成」只读页；
+5 `rebate_achievements` 加「人」维度。
+
+---
+
+## §v273 **已上线**：新建期次自动沿用「上一期」商品清单（2026-09-25 · `df5d386` / `bf92a02`）
+
+> 本节是「用户报『按此前设计应自动带出上一期的商品信息和报单人信息，实际没带』」的**收口结论**。
+> 「桶 × 归属键」矩阵见上文 §跨期复制；本节补的是**判定『上一期』的锚点**与**两条常被问错的实情**。
+
+### 🔴 「上一期」必须锚 **业务时间序 `order_start`**，不能锚 `id`
+
+```sql
+SELECT id FROM forecast_periods WHERE order_start < ? AND id != ?
+ORDER BY order_start DESC, id DESC LIMIT 1      -- erp_db.forecast_period_prev_id()
+```
+- 严格 `<`（不是 `<=`，也不是「id 最大值」）。
+- 本库实测 **id 序与时间序是交错的**（历史数据），按 id 取会取到**更晚**的期次。
+- `exclude_id` 用于「建完再沿用」的场景，防止把自己选成上一期。
+- 前端 `npPrevPeriod` computed 与它**逐字同源**（锚 `order_start`、严格 `<`、并列取 id 更大者）
+  ⇒ 前端显示的期次名 == 后端将要复制的源，不会「显示的是 A、复制的是 B」。
+
+### 🔴 两条常被问错的实情（别照着用户原话直接做）
+
+| 用户原话 | 实情 | 处置 |
+|---|---|---|
+| 「自动带出**报单人信息**」 | 报单人列取自 `forecast_submission_summary()` 的 `all_units` —— `forecast_submissions.store_name` 的**全历史聚合名册**，注释明确「**不按期次过滤**」（实测 19 人）。**它本来就与新建期次无关，不需要复制、也不会因新建期次而丢失** | 不做「复制报单人」这件事；用户看到列没了，是因为**表格区正处于空态**（无进行中期次），不是数据缺失 |
+| 「新建完为啥表格是空的」 | 服务端已复制了商品清单，但**前端此时还没有进行中的期次** ⇒ 表格区空态 | 靠**回执提示**说清「带过来几个」，而不是让人猜 |
+
+### 改法要点（三条，都有理由）
+
+1. **复用 v184 的 `forecast_period_seed`，不新写复制逻辑** —— 它是**唯一**复制实现
+   （`INSERT OR IGNORE` 幂等、带 `origin='seeded'`、连 v202 的 `sort_no` 模板行序一起带）。
+   `origin` 是**导入能精确替换而不与上期品叠加**的前提，绕过它就会复活
+   「模版 159 个品、导入后 275 个品」那个老 bug。
+2. **默认 `seed_from_prev: bool = True` 放在后端**（`FcPeriodCreate`）⇒ 老前端不发这个字段
+   也直接获得新行为；前端只是**加可见 + 可撤销**的开关。
+3. **`scheduler._auto_period_open` 同步加沿用** —— 用户截图里的正是「系统**自动**创建的期次」，
+   只改手工入口等于没修。自动开期与手工新建**行为必须一致**。
+
+### 🔴 前端设计判据：不做静默自动，要「默认开 + 可见 + 可撤销」
+
+v182 评审已否掉「静默自动复制」：**静默灌数据会让人以为在新建、实际在改旧的**。
+`npPrevPeriod` 为 null 时**整个勾选框不渲染**（v-if）—— 没有上一期还摆一个勾了也不生效的框
+= **假旋钮**。回执提示按**四分法**分开说：没勾 / 带到 N 个 / 上一期自己也空 / 压根没有上一期。
+🔴 **③④ 混成一句话会让用户以为「上一期的清单丢了」**（`src_name` 非空是区分③④的唯一判据）。
+
+### 🔴 前端视觉坑（v273b）：`max-width + nowrap + 省略号` 专挑**尾部**藏
+
+初版给标签加 `max-width:260px;white-space:nowrap;text-overflow:ellipsis`，
+1440 下把「沿用上一期「张记乳品演示期次-2026-09」的**商品清单**」截成「…的…」——
+**恰好把最关键的三个字藏掉了**（截图实测）。期次名本来就长，限宽只会**稳定地**藏尾部。
+⇒ 改成 `white-space:normal; max-width:420px; min-width:0; overflow-wrap:anywhere`：
+文字永远完整、行宽不够自己折行、不挤按钮。
+**判据（探针可自动查）**：`span.scrollWidth - span.clientWidth > 1` = 被截断。
+
+### 验收证据（可直接引用）
+
+- **隔离沙箱 `tenant_9997` 真机端到端 7/7**：默认请求 `copied=3` 且落库 `origin='seeded'`；
+  `seed_from_prev:false` ⇒ `copied=0`；锚点早于最早期 ⇒ `copied=0` 且 `src_id=0`；
+  反向窗口仍 400；内外网 health 200。沙箱销毁后 `ZERO_RESIDUE=true`、
+  源库 `business_check verdict=ok`。
+- **离线单测**：`test_auto_period_v242.py` 22/22（含新增⑨⑩⑪⑫）、
+  `test_period_prev_v273.py` 9/9（内存 SQLite，**故意让 id 序与时间序交错**）。
+- **无头只读真机探针**（公开演示租户，**绝不点创建**）：勾选框可见、默认勾选；
+  标签显示的期次名与按后端口径**独立算出**的逐字一致；点击可切 true→false→true；
+  `spanClipped=false`；「取消/创建」仍可见。
+- ⚠️ **单测替身铁律**：给 `install()` 新增调用口子（`forecast_period_prev_id` /
+  `forecast_period_seed`）**必须同时补 `FakeDB` 替身**，否则单测会掉进真实 `erp_db`
+  ⇒ **连生产库**。这条与「新增调用口」是一体两面，写代码时就要一起加。
+
+---
+
+## 🔴 均单提示的**前置是三件套**，缺任一都**静默不显示**（v279f · 2026-09-26 生产实证）
+
+小程序报单页那行浅色「均单目标 N X」要出现，必须**三件事同时成立**：
+
+| # | 前提 | 不满足时的表现 | 判据 |
+|---|---|---|---|
+| ① | 该商品**本月**有目标 | `flags.no_target` | `product_targets WHERE period_month='YYYY-MM' AND product_id=?` |
+| ② | 该商品有**大单位换算** | `flags.no_convert` | `unit_display_map(0, arc)` 非空 ⇐ `large_ratio > 0` |
+| ③ | 该**品牌**有启用的**到货规则** | `flags.no_rule`（← **本轮新确认的这一条**） | `_arrival_ctx(brand)` 查 `rebate_target_rules WHERE dimension='brand' AND is_active=1 AND (scope_key=? OR scope_name=?)` |
+
+🔴 **③ 是最隐蔽的一条**：它按**品牌名精确匹配**，没有兜底、没有模糊匹配、没有默认规则。
+生产实测（2026-09-26）：`dimension='brand'` 只有 **`蒙牛低温`** 与 **`简爱`** 两条，而
+**`蒙牛鲜奶` 有 37 个商品（其中 27 个在本期报单清单里）** ⇒ **这 27 行永远不会有提示，且零报错**。
+⇒ 新增/改名品牌时必须同步建到货规则，否则该品牌全部商品静默失去均单提示。
+（`_arrival_ctx` 的 `reason` 有两种：`no_rule` = 品牌没规则 / `no_dates` = 规则算不出日期。两者都**不许猜一个次数**。）
+
+**本轮实例**：`id=1596`（报单单位 `组` ≠ 档案单位 `瓶`，是生产**唯一**这种商品）
+补完 ② 后 `no_convert` 消失，但**仍缺 ③**（品牌 `蒙牛鲜奶`）⇒ 它的 D20 判据**依然不可观测**。
+⇒ 「补了换算 = 提示会出现」是**错的**，别再把 ② 当成充分条件。
+
+### 顺带：补换算会把「组」的口径从错的 24 改成对的 6
+
+`1596` 补前 `large_ratio=0` 走**规格串回退**（`spec='24'` 纯数字 ⇒ 「1 箱 = 24 组」），
+补后走档案（`large=件/24`、`medium=组/4` ⇒ `per_case('组') = 24/4 = 6`）。
+⇒ 同一个「组」，**4 倍的差**。凡看到「缺换算的商品却有合理的均单数」，先怀疑是不是回退分支凑出来的。
+
+---
+
+## 🔴 v273 的「自动沿用上一期清单」在**上一期本身为空**时，会**静默复制 0 行并逐期传染**（v279f 实证）
+
+日志是决定性证据（`journalctl -u hergent-erp | grep auto_period`）：
+
+```
+Sep 24 16:05  已创建期次#18 (2026-09-24~2026-09-25)                              ← 无「沿用」段（v273 之前建成）
+Sep 26 16:02  已创建期次#19 (2026-09-26~2026-09-27)，
+              沿用上一期「2026-09-25 报单期次」0 个商品                          ← v273 执行了，但复制到 0 行
+```
+
+- `create_period`（`routers/forecast.py:310`）与 `scheduler._auto_period`（`scheduler.py:1022`）**都**会沿用，
+  源由 `forecast_period_prev_id(order_start)` 按**业务时间序**取（不是 id 序）。
+- 复制走 `_period_copy_products` / `forecast_period_seed`（v184 唯一实现），`INSERT OR IGNORE`，
+  幂等且带 `sort_no`（v202）。
+- ⚠️ **失败会告警、成功但 0 行不告警**：`try/except` 只覆盖异常；`added == 0` 是**正常返回**，
+  日志里就是一句「0 个商品」。⇒ 只要有一期清单为空（v273 之前的期次、或导入失败），**后面每一期都为空**。
+- **后果**：`fill-search` 的数据源是 `forecast_import_products`（v215 起改为「期次商品清单」，**空集不 fail-open**）
+  ⇒ **清单 0 行 = 小程序报单页完全空白**，而服务日志一切正常。
+- **手动补法（正规路径）**：`POST /api/forecast/periods/{源pid}/seed` body `{target_period_id: 目标pid}`
+  （目标必须是 `open`）。本轮的 `17 → 19` 就是这样补的，`added=154`。
+
+### ✅ v282（2026-09-26）：给「沿用得到 0 个商品」加了告警（**三条入口全覆盖**）
+
+**病根（判据层面）**：`forecast_period_seed` 原返回值里 `skipped = src_count − added`，
+在「源有 N 条、但目标已有同商品被幂等跳过」与「**源自己就是 0 条**」两种 case 下**都是 0**
+⇒ 调用方**根本分辨不出**这两种 0。v273 的静默复制正是踩在这里。
+
+**改法（4 处）**：
+
+| 文件 | 改动 |
+|---|---|
+| `erp_db.py` | `forecast_period_seed` 返回值**多带 `src_count`** |
+| `routers/forecast.py` | `_carry_empty_warn(src_id, src_name, src_count)` = **唯一文案实现**；`create_period` / `seed_period` 两处回传 `carry_warn` ＋ `[v282][carry-empty]` 日志 |
+| `scheduler.py` | `_auto_period_open`（**原先只有一行 print、用户完全看不见**）补 `_alert_carry_empty()` |
+| `Forecast.vue` | `createPeriod()` / `seedFromPrev()` 在 `added=0` 时走 **warn 色**且文案**可操作** |
+
+**三条硬约束（改回去就出 bug）**：
+
+- 🔴 `message_send` 必须**显式传** `event_key="forecast_carry_empty"` —— 不传会走 `norm_event_key(title)`，
+  把标题里的期次号**抹掉** ⇒ 与其它通知**串键**；同时 `MESSAGE_DEDUP_WINDOW=86400`（24 小时）防刷屏。
+- 🔴 `src_id <= 0`（压根**没有**上一期）**不算异常**，返回空文案 —— 首期建表不该报警。
+- 推送复用既有 `_push_tenant_channels(tid, ...)`（租户配了渠道走租户渠道，否则回落全局 webhook）。
+
+**单测**：`tests/test_auto_period_v242.py` **36/36**（含 ⑬–⑰ 五组共 15 条新断言）、
+`tests/test_period_prev_v273.py` **9/9**。
+**踩过的坑**：替身 `_seed` 原来返回固定 `src_name=f"期次{src}"` ⇒ 告警文案里的名字**永远测不到**；
+改为**按真实实现从 fake.periods 里读 name**。
+
+---
+
+## 报单配置（ReportMapping）四个「名不副实」判据 — 2026-09-27 专项分析
+
+> 全文：`docs/报单配置-问题分析与改进方案-2026-09-27.md`。**动手改这个页面前必读本节。**
+
+**① 「本人仓 / 调拨」在小程序端整条链路不存在（不是配置问题）**
+- 读端 `erp_db.py::employee_stores_get` **只查 `contacts`**，子查询限定 `counterparty_type IN ('store','customer')`；
+  而「本人仓」行的 `counterparty_id` 存的是 **`warehouses.id`** ⇒ **配了也永不进小程序下拉**。
+- 写端 `routers/forecast_submissions.py::create_submission`（≈163-167）用**同一函数**做 403 门禁 ⇒ 直调 API 也 403。
+- ⇒ 判据：**「对象」有两套 id 空间（contacts / warehouses），任何只认 `contacts` 的读端都会静默吞掉本人仓。**
+- 前置：本人仓行强依赖 `hr_employees.warehouse_id`，未配则 `report_mapping_create` **直接返回错误**（存不下去）。
+
+**② `order_template`（单型）后端零消费 —— 是「第二事实源」，不是可填字段**
+- 自提 / 调拨的真实判据 = **`counterparty_type`**（`routers/forecast.py:1394`：`== "self_warehouse"` → 调拨表，否则自提表）。
+- `order_template` 全后端只有**写 + 回显**（`erp_db.py:6985/7011/7057/7141`、`server.py:5510/5518`）。
+- ⇒ 手填「调拨单」+ 类型「门店」= **UI 显示与生成模板自相矛盾**。修法：**由 `counterparty_type` 派生**（保留 DB 列，因 Excel 导入表头契约有「单型」必填）。
+
+**③ `src_wh` / `dst_wh`（源仓 / 目标仓）同样零消费**
+- `forecast.py:1313` 把 `dst_wh` 放进投影后**再无读取**；`src_wh` 连投影都没有。
+- 调拨行实际：`row[1] = prof["warehouse"]`（租户默认仓 = 调出仓）、`row[2] = dst_name`（对象名/员工名拼）。
+- ⇒ 「配了等于没配」。修法二选一：让模板真读它（**需先做影响面评估**）／从 UI 撤下。
+
+**④ 「一人多对象」数据层**其实支持**（`report_mapping` **无 UNIQUE**，查重**只看 `report_alias`**）
+- 所以「不支持一人多店」的真因是 ① + 前置 + 可用性（列表 `ORDER BY id DESC` 无按员工分组/无筛选）。
+- ⚠️ **副作用**：`(员工, 对象类型, 对象)` **可重复配** ⇒ 舟谱聚合键是 `(alias, entity)` ⇒ **同店生成 2 张单**；
+  汇总表列头则 `report_column.py` 取 id 最小者 ⇒ 另一列永远空。
+- ⚠️ 旧文档 `新用户自主操作全流程.md:143` 仍写「动作 B『门店』可勾选多家」—— **该入口 2026-09-19 已删**，文档已过期。
+
+🔴 **顺带（高）：`GET /api/report-mappings` 有 SQL 注入** —— `erp_db.py:6957`
+`w += f" AND counterparty_type='{counterparty_type}'"`，值来自查询串、**无白名单/无类型校验**，仅 `_auth` 一道门
+⇒ `' UNION SELECT ... --` 可读本租户库任意表（含 `hr_employees.id_card / bank_account`）。
+⚠️ 同一函数里 `employee_id` **有 `int()` 强校验**（`f"AND employee_id={int(...)}"`）—— **只有 `counterparty_type` 漏了** ⇒ 修它一处即可。
+
+💡 **「简称(列头)点选」的数据源已存在**：`all_units`（`erp_db.py:18028`，租户级历史列头名册 + `forecast_hidden_units` 已删列黑名单）。
+建议抽成 `db.forecast_unit_names()` **单一实现** + 新增轻量端点供本页用；
+🔴 **别**让配置页去调 `/api/forecast-submissions/summary`（受 `SUMMARY_ROLES` 门禁、且跑整张汇总太重）。
+
+### ✅ v295 **已上线**：报单简称 = 历史列头名册点选 + 自动解析（2026-09-27）
+
+> 上面那条建议**已落地**，但**没有**叫 `forecast_unit_names()` —— 实际实现是
+> `erp_db.py::report_mapping_alias_pool()` + `GET /api/report-mappings/alias-pool`。
+> 比原建议多一层：名册**三来源合并**，而不只是 `all_units`。看到"按 `all_units` 做点选"的旧建议，
+> 以本行为准。
+
+**名册三来源**：`mapping`（已配置简称，**含停用行**）／`report`（报单**真落地过**的列头）／`hidden`（被隐藏的列头）。
+生产实测 `7 / 19 / 2`，去重后 **24**。
+
+🔴🔴 **本领域最容易写错的判据**：**「名字在名册里」≠「不会新增列」**。
+
+- 名册里有名字**只来自 `mapping` 源** —— 某人配过它，但**从来没有报单真的用它**。
+  这种名字保存后**照样给汇总表新增一列**。
+  📏 实测条数（v297 复核，口径 = 名字而非行）：生产快照 **3 个**（`美联（保康店）` / `永辉东津店` / `永诺（江山店）`）；
+  ⚠️ v295 曾记「7 个」= 把**活跃配置行数**当成了**名字数**，已纠正。
+- 生产实例：**`美联（保康店）` 就在名册里**（某条配置配了它），而历史列头实际叫 **`美联保康`**。
+  若按"在名册里 = 安全"提示用户，就是**骗用户**（用户会以为数据会落进既有的那一列）。
+- ⇒ 三态判据，**顺序不能换**：
+  1. `used_by` 里有**别人** ⇒ **err**（简称租户内唯一，保存必被拒）
+  2. 否则 `sources` 含 `report` **或** 该列 `hidden` ⇒ **ok**（接管既有列 / 把隐藏列恢复出来）
+  3. 否则 ⇒ **warn**（保存后会新增一列）
+
+**名册口径与 `all_units` 的「有意不同」**：名册**不过滤** `forecast_hidden_units`，并给它标「已隐藏」。
+理由：**点它 = 把那一列恢复出来**。照 `all_units` 那样过滤掉，用户就**没有任何入口**恢复被删过的列头。
+⇒ 别把两者"统一"掉。
+
+**`suggest`（对象 → 简称）四级降级**：
+① 该对象**活跃**配置简称 ② 该对象**停用**配置简称 ③ 该对象**最近一次报单**列头 ④ 名册名字**最相近**。
+- ④ 是**不得不加**的：**39 条报单里 38 条 `store_id=0`**（v264c 之前写的）⇒ ③ 在真实数据上几乎全空。
+- 实测救回 `美联（保康店）`→`美联保康`、`永辉东津店`→`东津`、`刘小顶仓`→`刘小顶`。
+- 用户**手改/点选后不再覆盖**；**编辑既有配置时故意不自动解析**（否则会把别行的简称填到这一行）。
+
+**顺带修掉的同族隐患**：**同一对象两条活跃配置**（生产一例：同一门店两条配置、简称不同）
+⇒ Excel 模板按 `report_mapping_list` **逐条**生成客户列 = 同一个门店出**两列**。
+简称唯一约束**拦不住**（两条简称不同）⇒ v295 在**选对象那一刻**警告，**v297 起升级为硬拦**（见下）。
+
+完整验收（影子库探针含注入判别力 ＋ 真机 17/17 四路对照）见 `version-history.md §v295`；
+报告 `outputs/报单简称列头名册-2026-09-27/`。
+
+---
+
+## §v297 名册准入判据（`listed`）+ 同一对象唯一活跃配置（硬拦）
+
+> 拍板：「1.清；2.要」。交付件 `outputs/报单简称名册准入-同一对象唯一约束-2026-09-27/`。
+
+### 一、`listed` —— 「是不是**真实列头**」的**唯一准入判据**
+
+```python
+# report_mapping_alias_pool 第 ⑥ 步
+_it["listed"] = ("report" in _it["sources"]) or ("hidden" in _it["sources"])
+```
+
+- 🔴 **`aliases` 仍保留全量**，只有**展示**这一层被收窄。删掉"配过没落地"的名字会**弄坏三处**：
+  撞名检测（`used_by`）、同对象查重、`suggest` 的 ④ 级"最相近"降级。
+- `stats.total` = **真实列头数**（表头数字必须等于用户数得出来的条数，否则"看着少一个"）；新增 `configured_only`。
+- 前端 `aliasFiltered` 过滤 `a.listed`；`aliasTotal` 优先取 `stats.total`（缺失回落数组长度）。
+- 📏 v297 清理后线上：`{total:21, in_use:5, hidden:2, configured_only:2}`。
+
+### 二、同一对象只能有一条活跃配置 —— 三处**唯一实现**
+
+| 函数 | 职责 |
+|---|---|
+| `report_cp_kind(counterparty_type)` | 类型 → 归类轴（`warehouse` / `store`）。**唯一判据实现** |
+| `report_mapping_find_same_object(db, ctype, cid, exclude_id=0)` | 返回冲突活跃行或 `None` |
+| `report_mapping_same_object_error(row, system_name)` | **唯一**错误文案（四条写路径逐字复用） |
+
+🔴 **两个必须踩过的坑**：
+1. **必须按「类型轴」比，不能只比 id** —— `counterparty_id` 在仓库表 / 门店表里**各自独立编号**
+   （仓库 7 ≠ 门店 7）⇒ 只有 `report_cp_kind` 同为 `store`（或同为 `warehouse`）才算撞。
+2. **必须归一化历史写法** —— `counterparty_type` 库里有**两种写法**：`store` 与早期别名 `customer`
+   （`REPORT_CP_ALIASES = {"customer": "store"}`）。裸 `counterparty_type = ?` 会**漏掉**历史行。
+
+**四条写路径全部接入**：`create`（查重后）/ `update`（用**改后**的 id 查、`exclude_id=mid`）/
+`toggle`（🔴 **只拦「启用」方向** —— 防「先停用旧的 → 再启用新的」绕过）/ `import`（**含批内自撞**）。
+前端 `save()` 另加本地预检（体验层）；**权威在后端**。
+
+### 三、🔴 上线顺序铁律：**必须先清数据，再上线**
+
+新门槛会**锁住用户自己**。影子探针实测：**id=7 仍在活跃时，对 id=3（另一个对象）的保存也被拒**
+—— 两条挂在同一对象上，其中一条不清理，**两条都改不动**。
+⇒ 本次严格执行「先清数据 → 再上后端 → 再上前端」。
+
+### 四、同轮修掉的前端静默失效
+
+`toggle()` 原先**没检查 `res.error`** ⇒ 后端拒绝、界面却提示"已启用" = **静默失效**。已补：
+```js
+if (res && res.error) { toast(res.error, 'err'); return }
+```
+另新增 `clearErr(k)` **单字段清错**（`pickObj`/`onType`/`onAliasInput`/`pickAlias`/`onEmpChange` 各调一次）
+—— 否则改掉字段后，上一轮**针对旧对象**的红字仍挂在新对象下面（真机截图 03 抓到）。
+
+---
+
+## 🔴 销售单据的「类型」靠 `order_no` **前缀**区分，不是 `status`（2026-09-27 实测）
+
+`sale_orders`（22,505 行）的 `status` **全部是 `signed`** ⇒ **按 status 过滤筛不出任何东西**。
+真实语义在单号前缀：
+
+| 前缀 | 含义 | 行数 | 特征 |
+|---|---|---|---|
+| `XS` | **销售单** | 18,311 | 真正的"卖出去" |
+| `TH` | **退货单** | 3,943 | `quantity` 为**负** |
+| `DB` | **内部调拨单** | 251 | `customer_id` 指向 `contacts.type='employee'`，金额 0，= 内部领用 |
+
+🔴 **任何「本月销售 / 动销 / 开单门店」的统计，必须先 `substr(order_no,1,2)='XS'`**：
+
+- 不排除 ⇒ 门店数**虚高**：同一事实两个口径 = 全部前缀 **319 家** vs 只算 XS **311 家**
+- `DB` 单的 `customer_id` 是**员工** ⇒ 直接计入会把员工算成"门店"
+- `TH` 单带负数量，**业务上要保留**，但**门店口径要单独决定**（默认不计入"已开单门店"）
+
+⚠️ **这条踩过一次真的结论错误**：把 33 家当成"铺货门店"，正确是 **27 家**（差 6 = 调拨/退货带出的门店）。
+⇒ **算任何销售口径之前，先 dump 一次前缀分布自证判别力。**
+
+## 🔴 门店「业务员归属」的真身 = `contacts.assigned_salesperson`（不是 `employee_id`）
+
+| 字段 | 非空数 | 说明 |
+|---|---|---|
+| `assigned_salesperson` | **565 / 702** | ✅ **真身**。建档期写入（`updated_at` 全为 2026-06-29） |
+| `employee_id` | **0** | ❌ 全空 —— **名字最像"负责业务员"，却没有数据** |
+| `service_employee_id` / `dedicated_employee_id` / `service_employee` | 0 | ❌ 全空 |
+| `assigned_route` / `delivery_route` | 0 | ❌ 全空 |
+
+🔴 **`contacts` 表有 70+ 列**，且**同一语义有多个候选列名** ⇒
+**查「某数据到底有没有」时，必须 `PRAGMA table_info` 扫完所有列再下否定结论**（见 `hergent-capability-reality-audit` 第二十六种伪装）。
+
+**按业务员统计门店时的已知脏点**（分母会略偏大）：
+- **11 条**门店档案的名字恰好等于员工姓名（11 位员工各 1 条）⇒ 分母虚增 ≈1.6%
+- 少量门店用简称（如「零售」「唐成」类）走单 —— 是真实业务，不要清洗
+
+---
+
+# §v305（2026-09-28）关单后「授权改单」＋ 舟谱模板空数据的两条独立病根
+
+**触发**：老板「**关单后通知不做，但关单后要支持主管/文员等有 web 端权限的人能够改单，
+也要支持导出舟谱导入模版，这两个你要确认一下，我试了好像不可以**」。
+
+## 一、🔴 老板说的「这两个不行」是**两条互不相关的病**（本轮最重要的一条方法论）
+
+| 报障 | 真根因 | 层次 |
+|---|---|---|
+| 关单后**不能改单** | `forecast_period_writable(pid)` **两道锁同时命中**（`status != 'open'` ∨ `order_end < 今天`） | **权限硬锁** |
+| 关单后**不能导出舟谱模版** | `_fetch_submissions` **只取 `role='导入'`** ⇒ 老板自己录的单**结构上进不了模板** | **取数条件** |
+
+**判别力自证（实测，真库只读）**：同为 `closed` 的两个期次 ——
+`_build_zhoupu_data("2026-09-27","2026-09-27")`（#19，角色 `boss 2 / sales 1`）⇒ **`zt_rows=0`**；
+`_build_zhoupu_data("2026-09-22","2026-09-23")`（#17，角色 `导入 19 / boss 1`）⇒ **`zt_rows=3`**。
+⇒ **同为关闭期次却一个 0 一个 3** ⇒ **空数据跟"关不关单"没有因果关系**。
+⇒ 教训：老板把两件事并在一句里说「这两个不行」时，**必须分别复现再下笔**；
+照「都是关单引起的」一起改，会把第二条改成错的。
+
+## 二、`forecast_period_writable` 的**两道锁**（写入口唯一判据）
+
+```python
+def forecast_period_writable(pid, db_conn=None, allow_closed=False):
+    ...
+    if allow_closed:            # 🔴 v305：放在「期次不存在」检查【之后】
+        return (True, "")       #    ⇒ 不存在的期次**仍然拒绝**
+    if (p.get("status") or "open") != "open":
+        return (False, "该期次已定稿（关闭），不能再修改；如需改动请到「往期预报」里先点「重开」")
+    ...
+    if order_end < 今天:
+        return (False, "...")   # 第二道锁：日期截止
+```
+
+- 🔴 **`allow_closed` 的位置是安全关键**：必须在确认「期次真实存在」之后才让开，否则会变成
+  「任何 pid 都放行」的洞。
+- 🔴 **本函数不做角色判断** —— 它只负责「开通道」；**判角色是调用方的事**
+  （`routers/forecast_submissions.py::save_matrix` 传 `allow_closed = 用户角色 in SUMMARY_ROLES`）。
+  这样职责单一：**同一个锁被给销售和给主管用，是两条不同的授权决定，不能混进锁里。**
+
+## 三、授权改单的正确做法（**窄门**，不是"重开"）
+
+**错解（此前唯一出路）**：`forecast_period_reopen` —— 但重开会让**销售又能报单** ⇒
+「主管想改一个字要放开全公司」的**死结**。
+
+**正解（v305）**：
+1. 角色白名单 = **`SUMMARY_ROLES`（`admin`/`boss`/`supervisor`）** —— **复用权威名单，零新增清单**
+   （老板拍板「管理员/老板/主管」）。前端镜像 `constants/roles.js::FORECAST_SUMMARY_ROLES`，
+   两侧由 `role-registry-consistency-check.py` 做 AST 一致性校验。
+2. 放行时**额外算一次**严格口径：`_closed_edit = not forecast_period_writable(pid)[0]`
+   —— 即「本次保存**本来会 409**，是靠授权才写进来的」。**这个布尔必须回传给前端**（见 §四）。
+3. 留痕**必须在事务提交之后**：`print("[v305][closed-edit] 期次#%s（%s~%s）被授权修改：by=%s role=%s …")`
+   ＋ `db.message_send("已关闭期次被修改", ..., "notice", "系统", event_key="forecast_closed_edit_%s" % pid)`。
+   ⚠️ 老板明确「**关单后通知不做**」⇒ **只留痕（站内信 ＋ 日志），不推送**。
+4. ⚠️ `_closed_edit = False` **必须在 `if pid > 0` 之前初始化**（否则小 pid 分支 UnboundLocalError）。
+
+## 四、前端：**受权者要"看不见锁"，但要"看得见留痕"**
+
+```js
+const canEditClosedPeriod = computed(() => canViewForecastSummary((store.user && store.user.role) || ''))
+const periodLocked = computed(() => {
+  if (canEditClosedPeriod.value) return false        // 授权角色【不看】锁
+  return periodClosed.value || periodDeadlinePassed.value
+})
+const closedEditMode = computed(
+  () => canEditClosedPeriod.value && (periodClosed.value || periodDeadlinePassed.value))
+```
+
+- `saveEdits` 里 `if (!canEditClosedPeriod.value) { …return }`；回执拼接
+  `+ (r.closed_edit ? '（已关闭期次 · 授权改单）' : '')`；
+- 三处「改单」按钮 `:title` = `closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : …`
+  ⇒ **上线后生产实读该串即为验收判据**。
+
+## 五、舟谱模板：**按老板口径"保持现状，但把原因提示清楚"**
+
+- **不放宽取数**（`_fetch_submissions` 仍只取 `role='导入'` —— 这是**设计如此**：模板导的是厂家侧下单）。
+- 新增 `_zhoupu_empty_reason(tid, start, end)`（`routers/forecast.py`）替代原来干巴巴的
+  `raise HTTPException(400, "本期无自提订单数据…")`：查角色分布 `GROUP BY role`，文案明说
+  「与期次是否关闭**无关**」「`boss`/`sales` 等角色的单**不参与模板生成**」＋ 给**可操作的下一步**。
+- 🔴 顺手补一个洞：`zhoupu-all`（合并包）**此前没有任何空检查** ⇒ 两份都空时会**静默下载一个空包**。
+
+## 六、验收
+
+判据台 **76/0**；影子库真调写接口 **7/0**（`admin`/`boss`/`supervisor` → 200 ＋ `closed_edit=True`；
+`sales`/`staff` → **409**；**反例对照 → `closed_edit=False`**；站内信留痕 **1** 条）；舟谱文案 **5/0**。
+
+⚠️ **负对照必须把两道锁都拆掉**：影子库 §2 第一版只把 `status` 改 `open`、没改 `order_end`
+（该期次 `order_end` 已过期 ⇒ 严格口径**仍拒** ⇒ `closed_edit` 仍 True）——
+**读数与"标志恒真"一模一样，差点误判**。正解：`UPDATE forecast_periods SET status='open', order_end=?, order_end_date=?`
+同时用未来日期（`2099-12-31`）。
+
+
+## 🔴 加单/减单通知 与「定稿」三义（2026-09-29 核实）
+
+### 「定稿」在系统里是**三个不同的东西**（最易混，动这块前必读）
+| # | 名称 | 前端 | 接口 | 现状行为 |
+|---|---|---|---|---|
+| ① | 保存汇总表 | `Forecast.vue:128`(只读态)/`:1044`(编辑态) `saveEdits` | `POST /forecast-submissions/save-matrix`（`forecast_submissions.py:779`） | 落 `forecast_period_confirm`（"保存即完成审批"）；**v277 需求 7 的加单/减单通知在此发出**（`:1204-1209`） |
+| ② | 确认定稿 | `Forecast.vue:456` `doAdopt` | AI 补货建议采纳，写 `final_qty` | **不发通知**；注释 `:434` 自称"唯一定稿出口"（就通知而言是误导） |
+| ③ | **关闭期次** | `Forecast.vue:2341` `confirmClose`（弹窗 `:2328-2345`） | `POST /forecast/periods/{pid}/close`（`forecast.py:508-515`） | **真·终态**：锁编辑 + 关小程序报单通道；文案「关闭 = 定稿」(`:2338`)；**只审计留痕，一条通知都不发** |
+- ⇒ 用户口中「整个预报订单定稿」= **③**；**但通知现挂在 ①** ⇒ 任何"定稿后推送"需求都要先拍这个出口。
+- 反向补救 = `POST /periods/{pid}/reopen`（`forecast.py:518-534`）。
+- ⚠️ 若把推送迁到 ③：`event_key` 现为 `forecast_extra_alloc|<period_id>|<pid>`，去重窗口 86400s ⇒ **"关→重开→再关"第二次会被折叠** ⇒ 键里须带**定稿轮次**。
+
+### 🔴 加单/减单通知的收件人**键错位**（高危，2026-09-29 核实仍未修）
+- 写端 `_notify_extra_allocs`（`forecast_submissions.py:760,773`）：`uid = int(r["employee_id"])` → `recipients=str(uid)`；`employee_id` = **`product_target_alloc.employee_id` = `hr_employees.id`**（`routers/product_targets.py:162` 明证）。
+- 读端 `messages.py:46-64::_visible_where`：`recipients` 非空时**只与 `users.id` / `username` 比**。
+- ⇒ **两把不同的键** ⇒ 后果二选一，**都不报错**：① 某 `users.id` 恰等于另一人的 `employee_id` ⇒ **送错人**；② 无 user 命中 ⇒ **无人可见**（行照常落库）。收件人非空 ⇒ 不是广播、不是泄露，是**静默错投**。
+- 正确同族实现（工资条早已修）：`salary_send.py:253-260` 用 `employee_account_map()[eid]["id"]` 解析；**取不到账号则不投递** + warning；`message_send` 的 `recipients` **必须关键字传**（第 4 位是 `sender`，见 `notification-center.md`）。
+- ⚠️ `_notify_extra_allocs` 的 docstring「`recipients` 传的是 employee_id……与工资条 `salary_send` 同一用法」（`:746-748`）**已过期**，会误导下一个改动者。
+- 修法 + 双侧验收判据见 `docs/预报-一键分摊与定稿推送-设计方案与开发计划-2026-09-29.md`（P0-1）。
+
+### 分摊链路（复用清单 —— 改这块**不要重写算法**）
+- 算法 `plan_extra_allocs`（`routers/product_targets.py:744`，**只算不写**；**唯一调用点** `forecast_submissions.py:984`，且**必须在写事务之外** —— 内部读走 `get_db()` 另开连接，事务内调用会互锁）+ 纯函数 `domain/product_targets.py::allocate`：
+  - 加单：`alloc_i = D × ratio_i/100`（**绝对比例，不归一化**）
+  - 减单：`take_i = min(|D|×ratio_i/100, reported_box_i)` **夹断到 ≥0**，被夹掉的 `clip_gap` 在**还有余量的人之间按相对占比**重分（≤64 轮）
+  - `clip_gap`（报量不足，会重分）与 `ratio_gap`（占比合计 <100，**不重分**、如实上报）**分开算**
+- 比例真身 = `product_target_alloc.ratio`：`_validate_allocs`（`product_targets.py:393-411`）**硬校验 Σ=100（容差 0.01）**；`_write_allocs`（`:414-423`）是 **DELETE+INSERT 整体替换**，`target_qty = 总量 × ratio/100`。
+- 读取 `GET /api/product-targets/extra-alloc?period_id=`（`product_targets.py:856`）→ `items[pid].rows[]`（`ratio`/`reported_box`/`alloc_box`/`final_box`）+ `caliber`；前端 `Forecast.vue:9787` → `ptAlloc`/`ptGap`；展示 `ptExtraMark()` `:9797`（现只有「缺N」/「加N」两态，**无"分不满"态**）。
+- 🔴 **禁止前端另写一份 allocate**（夹断/重分是边界敏感的 ⇒ 必然两套口径）。要做保存前预览，就加**后端 dry-run 端点**。
+- 按人明细表 `forecast_extra_alloc` 的**归属键 = `period_id`**（v279；窗口列只作展示，不参与任何读写条件）；清空条件也用 `period_id`（"填回 0 再保存"要能清掉上一版分配）。
+- 四个**静默分支**（界面不点名、只留日志）：无 `active` 目标 / 无分解明细 / `store_name` 在 `report_mapping` 无别名 / 占比合计 < 100。
+
+### 🔴 v318（2026-09-29 **已上线**）：一键分摊（预演台）＋ 分不满点名 ＋ 定稿确认弹窗
+
+上面「分摊链路」那份清单**已按它落地**，逐条对照（**没有重写算法**）：
+
+- **预览走后端 dry-run** ⇒ 新增 `POST /api/product-targets/extra-alloc/preview`（**只读**）：
+  入参 `{period_id, product_id, total_delta, ratios[]}`，内部喂**同一个** `domain/product_targets.py::allocate`。
+  生产实测三态（tenant_1 / 期次 21 / 商品 1556，占比 40/30/30）：
+
+  | 场景 | `allocated` | `unassigned` | `ratio_gap` | `clip_gap` | `fully_applied` |
+  |---|---|---|---|---|---|
+  | `total_delta=+60` | 60 | 0 | 0 | 0 | **true** |
+  | `total_delta=-60`（`reported_box` 全 0 ⇒ 夹断到 ≥0） | 0 | 60 | 0 | 60 | false |
+  | 占比改 80%（= 配置不全） | 48 | 12 | **12** | 0 | **false** |
+
+  ⇒ 加单 `60 × 40%/30%/30% = 24/18/18`；减单被夹到 ≥0；`ratio_gap` **不重分**、如实上报 —— 与纯函数口径**逐字一致**。
+- **新增 `GET /api/product-targets/extra-alloc/setup`**（弹窗初始状态）：回
+  `period` / `product`（含 `large_ratio`、`box_unit`）/ `target` / `members[]`（`ratio`、`reported_box`、`target_qty`）/
+  `total_delta` / `alloc` / `flags` / **`caliber`（把口径原话回给界面，避免前端自己组织措辞）**。
+  ⚠️ 期次不存在回 **404**，不是 200 空壳。
+- **`GET /extra-alloc` 扩字段**：新增 `allocated_box` / `short_box` / `fully_applied` / `product_name`；
+  **`total_delta` 历史语义不变（仍 = Σalloc）**；`requested_box` 读 `forecast_extra_qty`（**窗口取期次自身**）。
+- **前端两处新 UI**（`Forecast.vue`）：
+  - 「分摊」按钮 **只在编辑态**出现（`v-if="hasAllocTarget(r)"`，判据 = `ptGap[pid].operators` 非空）；
+    **不加主工具栏按钮**（用户长期偏好：新功能并入既有出口）。
+  - `ptExtraMark` 增第四态 `kind:'short'` → 文案 `加6 ⚠差3`；判据 **`a.fully_applied === false && short > 0`**
+    —— **严格等于 `false`**：旧后端无此字段时是 `undefined`，写 `!undefined` 会**误报**。`ptExtraTip` 同时点名缺口成因（占比不足 / 被夹到 0）。
+  - 定稿弹窗：标题「确认定稿 · 关闭期次」，按钮「取消，继续修改」/「确定定稿」/`定稿并推送中…`；
+    文案明说**将推送给相关人员**（改前 `saveCloses` 用的是 `确认关闭`/`关闭中`，中文串差集里正能看到这两条被删）。
+- 🔴 **前端数字输入铁律照旧**：`toHalfNum()`（NFKC 折全角）+ `parseNumInput()`（解析失败**保留原串**）
+  ⇒ 中间态存**原串**，只在 `@change` 收敛；占比输入**从不**被预演结果回填（否则用户正在打的字被吃掉）。
+
+---
+
+## v319c · 期次状态三件套（留痕 / 豁免 / 两语义重开）＋ 付款口径改「报单+加单」
+
+🔴 **「定稿」全站唯一口径 = `forecast_periods.status == 'closed'`**。曾经并存两套：
+① 审核台「确认定稿」写 `forecast_audit_decisions` —— **已废弃**（界面自述「历史流程，仅用于追溯」，
+生产 tenant_1 **0 行**，5 个期次 status 全 closed）；② 关闭期次。
+`forecast_order_board` 的 `finalized` 列读的是 ① ⇒ **恒 false** ⇒ 历史页「状态=已关闭 / 定稿=未定稿」
+**自相矛盾**（两列说的是同一件事）。⚠️ 判据键也**别用日期窗口** —— 期次改一次 `order_end` 就永久失配
+（v279 已把加单归属改成 `period_id`，此处曾漏改）。
+
+**五列**（`erp_db.py`：权威建表 DDL ＋ `_safe_migrate` **两处齐**才叫改了 schema ——
+`CREATE TABLE IF NOT EXISTS` 不给已存在的表补列，本项目铁律）：
+
+| 列 | 语义 | 陷阱 |
+|---|---|---|
+| `closed_at` / `closed_by` | 关闭时刻 / 操作人（自动 = `'系统'`） | ⚠️ 本表**根本没有 `updated_at` 列**，不能拿它当关闭时刻 |
+| `closed_mode` | `'manual'` \| `'auto'` | 两条路径**行为不同**（自动**不发**通知）⇒ 不落库就 = 同一 status 两种含义**不可判** |
+| `reopened_at` | **自动关单的豁免键** | 语义单一：非空 = 人已接管。**关闭时不回填**；🔴 **期次已 open 时绝不写**（否则种下「本期永不被自动关单」的静默副作用） |
+| `alloc_pushed_at` | 加单/减单通知**最后一次真正推送**时刻 | 用**时刻**不用布尔（要能答「哪期还没推」「上次何时推的」）；`''` 且已 closed ⇒ 界面标「尚未推送」＋手动推送按钮 |
+
+🔴 **自动关单会撤销人工操作**：`scheduler._check_auto_period` 的分支是 `elif now >= 关单时刻`
+（**过点后每轮无条件重试**）⇒ 人工重开 **2~5 分钟**内必被撤销（生产日志实证 2026-09-27：
+**2分38秒 / 5分09秒**）⇒ 自动路径必须带 `AND COALESCE(reopened_at,'')=''`。
+🔴 **自动关单零留痕**：`_auto_period_close` **直调 db 层、不经端点** ⇒ 端点上的 `_audit_period_op`
+**全被绕过**，而表里又没有关闭时间列 ⇒「谁在何时怎么关的」只能翻 journalctl，**日志一滚答案永久丢失**。
+⇒ 硬标准：**「这条状态是怎么变成这样的」必须能只用数据库回答**；留痕由 db 层自己写。
+
+**重开拆两语义**（老板拍板）：`mode=unlock`（**解锁编辑**）只写 `reopened_at`、**status 不动**
+（销售照旧报不了单，副作用最小 —— 「我只要改一个错数」的正确选择）；`mode=full`（**恢复报单**）
+= 原 v219 行为，🔴 **默认值取 full 以保证旧调用方向后兼容**。
+
+**付款金额 = (报单箱 + 加单箱) × 箱价**，唯一实现 `routers/product_targets.period_order_amount()`
+（`/payments/compute` 与 `/payments/preview` **共用** —— 两处各写一份必然漂移，而这笔钱要拿去付厂家）：
+- 报单箱 = `_reported_box_map()`（权威，**不含加单**）；加单箱 = `forecast_extra_alloc.alloc_box`
+  （🔴 **已是箱，只汇总不重算**）；箱价 = `_case_price_map()`（`factory_price` 优先，否则
+  `sale_price × per_case` —— **先折箱**）；`period_id_by_window()` 反查期次（同窗口取最大 id）。
+- 🔴 **旧口径读 `forecast_audit_decisions`（0 行）⇒ 金额恒 0 ⇒ `gap = max(0, 0−balance) = 0`
+  ⇒ 界面显示绿色「需付款 ¥0」** —— 数字 0、颜色绿、零报错，而真实值约 **¥4657**。
+  「**零值即健康**」的又一实证。
+- 🔴 **诚实回报不可省**：`no_price_rows` / `no_ratio_rows` 是「金额偏小」的**唯一线索**
+  （生产 472 商品**有进价仅 158、有标准售价仅 58** ⇒ 经常非 0，**不是罕见分支**）。
+  ⚠️ `no_ratio_rows` 判据必须写 `_qty > 0 and ob <= 0` —— **不能**写 `box == 0`
+  （报单量本来就是 0 的商品 box 也是 0，那**不算**缺换算）。
+- ⚠️ **`db.queries.products.boxes_of()` 按设计保留 3 位小数**（注释：「同前端 `boxesOf`，
+  便于与用户 Excel 逐行对账」）⇒ 金额 = Σ(round3(箱) × 箱价)，会出现**分位级差异**
+  （实测 `每日鲜酪 1 桶 ÷ 16 = 0.0625 → 0.062`，×116.64 少 **0.058 元**）。
+  **这是既有约定、不是缺陷** —— 它与用户在汇总表看到的「合计(箱)」逐字一致，别去"修"它。
+- ⚠️ **旧前端兼容**：`erp.hergent.cn` 的付款卡片读的是 `r.need_to_pay`，而接口一直只返回 `need_pay`
+  ⇒ 那个三元判断**恒走 else** ⇒ 恒绿色「¥0」且「确认已付款」按钮**永不出现**（叠加后界面看着完全正常）。
+  ⇒ 现在**两个键都给**（缓存住老包的前端也立刻对）＋ `static/` 源码同步改成 `need_pay`。
+
+## 🔴 v323（2026-09-29）商品目标「月份锚点」= **到货月**，不是报单月
+
+老板报障原话：「我刚用刘小顶的小程序账号报单，现在应该报 10 月的单，但系统仍显示 9 月份的商品目标」。**已只读取证、未改码、未上线。**
+
+**唯一病根（4 个读点同一错法，全在 `routers/product_targets.py`）**：
+`pmonth = _month_of(period["order_start"])` —— 用**报单窗口开始日**的月份去查 `product_targets.period_month`。
+⇒ 跨月期次（报单在本月、到货在次月）必然读成**上个月的目标桶**。
+
+| 读点 | 行 | 影响 |
+|---|---|---|
+| `avg-target` | ~1451 | **小程序/Web 报单的「均单目标」＋加单预填**（老板看到的那个） |
+| `_report_extra_alloc_split` | ~957 | 加单按业务员分摊时查不到 10 月目标 ⇒ 静默不分 |
+| `_target_and_members` | ~1143 | 加单预览「本月无目标」 |
+| `plan_extra_allocs` 回显 `product.month` | ~1247 | 界面回显错月份 |
+
+🔴 **判据/口径链**：`pmonth` 同时决定四件事 —— ① 目标取哪个月 ② 已达成 `_achieved_map(pmonth)`（键 `strftime('%Y-%m', so.order_date)`）③ 剩余期次 `_arrival_ctx(brand, *_month_pair(pmonth))` ④ 加单归属。**改锚点必须四处同源**，否则出现「10 月目标 ÷ 10 月剩余期次 − 9 月已达成」的**混月算式**（零报错）。
+
+**生产实证（tenant_1，2026-09-29 15:40）**：
+- 唯一 open 期次 **id=21**：报单 `2026-09-28~09-29`、**到货 `2026-10-03`** ⇒ 报单月 2026-09 vs 到货月 **2026-10**。
+- `product_targets`：`2026-09` **3 条**（0蔗糖5连包 150箱／红枣预制瓶450g 400箱／**现代牧场0乳糖软牛奶185ml 120箱**）；`2026-10` **1 条**（0蔗糖5连包 **1000箱**，老板 **15:37:52** 刚建）。
+- ⇒ 老板**已经建了 10 月目标，报单端却读不到** —— 这正是「系统仍显示 9 月目标」的现象。
+- **分母也一起错**：`arrival_summary(蒙牛鲜奶, 2026-09)` = 15 个到货日（9/1…9/29），`remaining_periods(today=09-29)` = **1**；`2026-10` = 16 个（10/1…10/31），remaining = **16** ⇒ 同一目标 `120 ÷ 1 = 120 箱` vs `120 ÷ 16 = 7.5 箱`，**分母差 16 倍**。
+- 改对后 「现代牧场0乳糖软牛奶」在 10 月**没有目标** ⇒ 会**彻底不提示**（设计如此：取不到=不提示）⇒ **必须先补建 10 月目标再切锚点**。
+
+**「每月底必现」的规律（算法层公理，非偶发）**：
+`蒙牛低温/蒙牛鲜奶` 规则 = `order_mode=interval` / `order_cadence_days=2` / `order_lead_days=4` / `order_first_date=2026-08-28`
+⇒ 报单日 = 奇数日、**到货日 = 报单日 + 4** ⇒ **每个月最后 2 期**的报单日（如 9/27、9/29）到货落在次月（10/1、10/3）⇒ 这两期的目标月份**必然**滞后一个月，每月固定复发（每期持续 2 天：报单窗口 = `报单日-1 ~ 报单日`）。
+🔴 **报单窗口铁律**：`T_open = 报单日 - 1`（`order_max_early_days=1`）⇒ 到货 10/1 的报单窗口是 9/26–9/27，**9/29 时已关闭** ⇒ `remaining_periods` 那个「到货日 ≥ 今天」判据**常年多算 1 期**（10 月口径 16 vs 真值 15）。
+
+**唯一实现（建议新增，别在 4 处各写一遍）**：
+```python
+def _target_month_of_period(p):
+    """本期商品目标月份 = 到货月（唯一实现）。
+    降级链任一命中即停，**绝不返回空**（返回空 = 4 个读点全部静默零目标）：
+      arrival_date → order_end → order_start → 今天"""
+    for k in ("arrival_date", "order_end", "order_start"):
+        m = _month_of((p or {}).get(k) or "")
+        if m:
+            return m
+    return _month_of(_date.today().isoformat())
+```
+⚠️ **不动的两处**：`start/end` 仍取期次窗口（**报单量归集**口径本就应该按报单窗口，与目标月份是两件事）；`create_target` 里 `_arrival_ctx(brand, *_month_pair(pm))` 的 `pm` = **目标月份本身**（用户手选），本来就对。
+⚠️ **`ProductTarget.vue` 默认月份 `month` = 自然月**（`new Date()`，L413）⇒ 月底建目标默认落在**当月**，是同一个认知错的第二现场。
+🔴 **运营层必须同步**：切锚点后**每月底最后 2 个报单期之前**必须建好次月目标，否则月底那期「一条目标都不提示」。
+
+
+
+---
+
+## 🔴 v336（2026-09-30）：加单/减单分摊 —— **L1 / L2 双层分流** ＋ `basis` 留痕
+
+### 业务口径
+
+用户在预报主表的「加单」列填一个数字（正=加、负=减），系统要**把这个量分摊到各报单人头上**
+并留痕（谁改的、按什么依据分的）。分流规则：
+
+| 层 | 触发条件 | 占比来源 | 性质 |
+|---|---|---|---|
+| **L1** | 该商品**有启用目标** **且** 目标里**已填分解承接人** | `product_target_alloc.ratio`（人工设定的业务份额） | **改了全期生效** |
+| **L2** | 无目标 / 目标**没填**承接人 | **本期各人报单量**推导出的占比 | **客观事实，只读** |
+
+### 🔴 为什么必须新增 `basis` 列
+
+两层最终都落进**同一列** `ratio` ⇒ 光看 `ratio` **分不清**「这是人定的份额」还是
+「这是本期报单量推的」。所以必须新增 `basis`，取值：
+
+- `'target'` —— L1
+- `'reported'` —— L2
+- `''`（空串）—— **无人可分**
+
+### 🔴 不变量：`'reported'` 的占比 **Σ 恒 = 100**
+
+`ratios_from_reported()` 把尾差**归一到最大项** ⇒ Σ 恒为 100 ⇒ `allocate()` 里的
+`ratio_gap` **恒为 0**。
+
+**这条不变量的用处**：L2 场景下「分不满」**只可能**来自**减单夹断**（某人的量不够减，
+不能给他减成负数）⇒ 界面文案**必须按 `basis` 分支**，不能一套话讲到底。
+
+### 🔴 `employee_id = 0` 是**不能猜**的
+
+`_reported_by_operator()` 遇到「报单列名在 `report_mapping.report_alias` 里没有映射」时，
+把该量归到 **`employee_id = 0`**，**不猜是谁**。这份量单独作为 `unmapped_box` 上报。
+
+- **分母只算可分摊的人**（不含 `eid = 0`）—— 否则界面会误报「占比合计不足 100%」。
+- 前端拿到 `unmapped_box > 0` 时，文案必须说「**报单列头没在「报单配置」里对应到「报单人」**」，
+  **不能**说「本期没有人报过这个商品」（那是假话）。
+
+**生产实测**：`report_mapping` 只有 **8** 个有效别名；全库 **17** 个商品的报单列名能映射到员工；
+**`唐成` 的别名绑在 `employee_id = 0`（无效）⇒ 其报单永远分不到人**。
+⇒ 这是「数据配置问题」而非代码问题，须在「报单配置」页（`ReportMapping.vue`）改正。
+
+### 触发形态（老板拍板「B 方案」）
+
+「**入口即时出现 ＋ 单人静默自动分摊**」：
+
+- `allocMembers(r).length >= 2` ⇒ 立即长出「分摊」按钮
+- `== 1` ⇒ **不弹窗**（只有一个人可承接时，分摊是**恒等映射**，弹窗纯骚扰）
+  但**仍下发** `alloc_members` 供留痕
+- `== 0` ⇒ 「悬空」态（见 `frontend-ui.md` 的状态色一节）
+
+### 🔴 写入侧的硬约束：**行长度恒为 12**
+
+`plan_extra_allocs()` 产 **11** 元素元组（含末尾 `basis`），写入端
+（`routers/forecast_submissions.py`）必须补第 **12** 列 `operator`。
+
+少补 ⇒ `executemany` 抛 `Incorrect number of bindings` ⇒ **整个 save-matrix 报 500**。
+⇒ 加列的**完成判据**不是「列加上了」，而是「**所有写入端行长度一致 ＋ 端到端保存成功**」。
+
+### 🔴 建表/加列的坑
+
+`ALTER TABLE ADD COLUMN` 是 SQLite 里**唯一不幂等**的 DDL（`CREATE ... IF NOT EXISTS` 都能重跑），
+必须**单独**走一次 `_safe_migrate`——因为它常和一堆幂等语句写在**同一个 `executescript()`** 里，
+加列那条一抛错**后面全部语句都不执行**，而前面已执行的已生效 ⇒ 库停在**半迁移**状态且**零报错**。
+
+本批两条：`v336_fea_basis_col` / `v336_fea_operator_col`（`erp_db.py`）。

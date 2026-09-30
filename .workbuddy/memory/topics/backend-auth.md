@@ -217,11 +217,31 @@ SQLite 的 `PRAGMA database_list` 回的是**解析过 symlink** 的路径（mac
 要么从 `submission_summary` 名单里摘掉它。小程序 `APPROVER_ROLES` 与本名单逐字一致，
 改哪边都要三处同步。
 
-### 缺口 B（P2）：「只允许登录小程序」**做不到硬隔离**
-`routers/auth.py` 登录成功后**无任何端校验**；`Login.vue:250/258` 处理完 `require_password_change`
-一律 `router.push('/workbench')` ⇒ `staff` 账号**照样能登 hergent.cn**（只是侧栏按
-`_DEFAULT_PERMS["staff"]=["data","chat","stock"]` 过滤后只剩几项）。
+### 缺口 B（P2）：「只允许登录小程序」**做不到硬隔离** —— 🔴 2026-09-27 复核并**更正一句错话**
+`routers/auth.py` 登录成功后**无任何端校验**；`Login.vue` 处理完 `require_password_change`
+一律 `router.push('/workbench')`（4 处：`258/286/316/371`）⇒ `staff` 账号**照样能登 hergent.cn**。
 即「业务员只能用小程序」**在权限上成立、在门禁上不成立**；硬隔离需新增端白名单列或按角色设端约束。
+
+🔴 **2026-09-27 更正（老板实测触发，原话「改成员工角色后 web 端也能登录」）**：
+原文这句「（只是侧栏按 `_DEFAULT_PERMS["staff"]` 过滤后**只剩几项**）」是**基于 v206 设计的推断，实测证伪** ⇒
+`Shell.vue` 侧栏 **12 条菜单里只有 2 条装了门禁**（`canViewForecastSummary(role)` 预报订货、
+`store.canModule('payroll')` 算工资；手机抽屉同），路由表**只有 `/zhoupu-import` 一处 `meta.roles`**
+⇒ staff 登录后**能看到/能打开 10 项**（工作台/返利/货损/档案/渠道/能力中心/招投标/定时任务/AI 中心/设置
+—— 只隐藏了「预报订货」「算工资」两条），
+只是**点进去后**接口才 403。**「机制存在」≠「覆盖完整」**。
+⚙️ 另新增两条结构性事实（本轮实测）：
+- **`/api/auth` 整段在 `_PUBLIC_PATHS`**（`server.py:655`）⇒ RBAC 中间件在登录请求上**根本不执行** ⇒
+  想约束「从哪个端登录」，**只能写在登录端点内部**，放中间件里 100% 无效。
+- **登录端点必然豁免 RBAC**（登录时还不知道你是谁）⇒ 任何情况都不要指望「角色 → 模块权限」能管住"能不能登录"。
+- ⚠️ **别给 login 加"必带头"的硬门槛**：小程序请求虽集中封装在 `miniprogram/utils/api.js`，
+  但**存量已发布版本不带新头**，且小程序有备案/审核周期 ⇒ 硬判会把存量小程序用户**全部挡在门外**。
+  要做得 **fail-open**（缺头视为小程序），并留可回滚开关。
+
+🧪 **触发本条的表述陷阱（值得单记）**：`EmployeeArchive.vue` 角色下拉里 `staff` 的标注是
+`「员工（仅小程序 · 报单 / AI 对话 / 库存）」`——**「仅小程序」说的是"模块权限只够撑小程序那批接口"，
+不是"仅能从小程序登录"**；而同页 `:148` 又写着「可登录**网页端**与**预报小程序**」⇒ **同页两句话相反**。
+凡遇「角色/权限按端区分」的需求，**先分清他要的是「能力」还是「入口」**，两者实现层完全不同。
+
 
 ### 缺口 C（P3）：role 无白名单 —— ✅ **2026-09-19 已修（后端 `cb69a5d`）**
 原状：`routers/forecast_submissions.py`（开账号，直接透传 `d.get("role","staff")`）与
@@ -450,3 +470,497 @@ def role_reject_detail(role):   return "角色不合法：%s。可选角色：%s
   （桌面 :48 / 移动 :96），其余（含「目标与返利」「档案管理」）**全部裸奔**。权限必须落在服务端。
 - 🔴 **写操作的角色级收口要靠路由内显式校验**（`_auth` 只验登录，不验角色）——
   例：`routers/rebate_achievements.py::upsert_achievement` 只有 `_auth(request)`。
+
+
+## 🔴 v292（2026-09-27）「权限变了没」怎么让别的会话知道：内容指纹 + 极轻端点
+
+### 新增（都在 `core.py` / `routers/auth.py`，纯只读派生，**不新增写操作**）
+| 函数 / 端点 | 作用 |
+|---|---|
+| `core.perms_rev(tid=None)` | 本租户自定义权限表的**内容指纹**：`_canon_perms` 归一 → `json.dumps(sort_keys, separators)` → sha1 前 12 位。空表 ⇒ 固定常量。 |
+| `core.custom_roles(tid=None)` | 本租户**真实改过**权限的角色名（升序）。前端用它决定"内置 `roles` 门槛是否让位"。 |
+| `core._canon_perms(v)` | 两种合法形态（list `["stock"]` / dict `{"stock":["read"]}`）→ 同一形状（模块名升序去重）。**只比模块集合，不比动作**。 |
+| `GET /api/auth/permissions` | **只加不改** `perms_rev` + `custom_roles` 两个键。 |
+| `GET /api/auth/perms-rev` | 极轻端点，只回 `{perms_rev, tenant_id}`。供前端每 60 秒 / 切回标签页比对。`_auth` 就够（不回权限内容、不回角色名）。 |
+
+### 🔴 为什么版本号用「内容指纹」而不是时间戳
+`updated_at` 会因为「保存了一次但内容没变」而变化 ⇒ 前端每次比对都不同、每次都要重拉整份权限表，把「每 60 秒一个几十字节的比对」放大成「每 60 秒一次全量拉取」。指纹只认内容。
+
+### 🔴🔴 最贵的那一条：`custom_roles` 必须按「**内容 ≠ 内置默认**」判，不能按「表里有行」
+设置页「保存权限」是**逐角色全量 POST**（`savePerms` 遍历整张矩阵）⇒ 老板点过一次保存，**每个角色都会在租户库留一行**（值与内置默认逐字相同）。
+若按「有行」判 ⇒ `roles` 轴对**所有正常租户**整体失效 = 把 v291 的「按角色收窄入口」悄悄拆掉，**且不报任何错**。
+实测判据（离线单测）：全量回写（boss/staff 值与默认相同）⇒ `custom_roles` 返回 `[]`；把 staff 的 `chat` 去掉 ⇒ 返回 `['staff']`；租户自定义角色 `库管`（不在 `_DEFAULT_PERMS`）只要有非空模块即入选；空权限的自定义角色不入选。
+生产实测 tenant_1：表里 2 行（`supervisor`、`库管`），两者都**真差异** ⇒ 此时两种判法恰好同解（所以"只跑一次生产"**证不出**这条判据的价值，必须靠离线对照）。
+
+### 其它纪律
+- **`/api/auth/permissions` 被小程序共用**（`miniprogram/utils/perm.js:99` 权限闸 + `pages/login/login.js:141`）⇒ **只能加键，不能改/删既有键**。本轮新增只加两个键，小程序侧零影响。
+- `/api/auth/*` 在 `_TENANT_PUBLIC_PREFIXES` 里 ⇒ 租户上下文恒为 `None` ⇒ 新端点必须与 `/permissions` 一样走 `effective_tenant_key(u)`（请求上下文无值时按用户首个租户回落），否则会拿 `_NO_TENANT` 那份"只有内置默认"的表来算版本。
+- `custom_roles` 会把租户自定义角色（如 `库管`）算作"被改过"。对它们**无影响** —— `roles.js::roleIn()` 对**未知角色是 fail-open**（返回 true），它们本来就通过所有角色门槛。
+- ~~🔴 顺带记一个**既有洞**（本轮未修）：租户自定义角色（`库管`）能通过**所有** `roles` 门槛（fail-open 是给"启动瞬间空角色"设计的，被"真未知角色"借用了）⇒ 配了 `库管` 的账号会看到「设置 / AI 团队」入口，点进去被 `_admin` 403。要修得让 `roleIn` 区分"空串（未知=未加载）"与"非规范角色名（配置漂移）"。~~
+  ✅ **v296 已修**：`roleIn()` 现在把「未知」分两判 —— **空串 = 未加载 ⇒ 放行**（启动竞态，技术性）；
+  **非空但不在 `ROLE_NAMES` ⇒ 收紧**。生产 `custom_roles` 实测含 `库管` ⇒ 当时确实是活洞。
+  ⚠️ 分工：`roleIn` 判**内置门槛**（真未知**先收紧再查名单** ⇒ 对它恒 false）；「让位」不经它，走 `roleGateOpen` ③。
+
+---
+
+## v296：给一个**粗模块**做「拆细」时的三处缺一不可（`data` → `cron` / `bid`）
+
+**病因**：`data` 一条模块管 **83 个接口前缀**，业务名却叫「档案管理」。老板勾「档案管理」（本意只给档案），
+`/api/cron`、`/api/bid-radar` 的接口权限一并被授 ⇒ 与「用户配置优先（让位）」叠加后，侧栏凭空多出「定时任务」。
+**拆细是让位规则的**前置修复**：让位的前提是「勾了这个模块 = 想开这一页」，`data` 不满足。**
+
+| 处 | 位置 | 少了它会怎样 |
+|---|---|---|
+| ① | `core._ALL_MODULES` | 权限页**勾不到**新模块（界面上根本没这一项） |
+| ② | `server.py::_PATH_MODULE_MAP` | 接口**仍按旧模块**裁决（拆了也不生效） |
+| ③ | **迁移脚本** | 老租户里"原本靠 `data` 就能调"的角色**全部 403**，而页面照样打得开 ⇒ **进得去、拉不到、零报错** |
+
+🔴 **迁移判据必须是「谁原本真能调」**，而不是「凡含旧模块就补」：
+写死**产品默认**就持有旧模块的角色名（`/api/cron` 旧 = `data` ⇒ boss/sales/staff/supervisor；
+`/api/bid-radar` 旧 = **`reports`** ⇒ boss/accountant **＋ sales**，因为 `pages.js` 名单要求它）；
+**客户手工勾出来的旧模块权限不补** —— 那正是要消除的连带。写成"凡含 `data` 就补" = 把原问题原样带过去。
+🔴 **部署顺序：先迁库 → 后部署代码 → 再重启。** 补新模块是**纯新增**（旧代码只判旧模块、新模块无人读）⇒
+迁库瞬间**零行为变化**；反过来会有"新代码 + 未迁库"的 403 窗口。
+
+### 🔴 `_PATH_MODULE_MAP` 的匹配语义：**首个 `startswith` 命中即停（按插入顺序）**
+
+⇒ **更早的泛化前缀会静默遮蔽更晚的精确键**。v296 实测：**全表 301 键里有 13 条被遮蔽**，
+其中 **12 条遮蔽者与被遮蔽者同模块**（无害）；**跨模块的只有 2 条**：
+
+- `/api/bid-radar`(想归 `data`) ← **`/api/bi`(reports)** 吞 —— ⚠️ v296 前的真实状况：这条**一直是死映射**，
+  实际按 `reports` 鉴权，而**代码注释与 `pages.js` 都写着"归 data"，两处都错**；后果是**假入口**
+  （pages 放 sales 进、sales 没有 `reports` ⇒ 点进去必 403）。✅ v296 已把精确键提到 `/api/bi` **之前**。
+- `/api/pricing-settings`(hr) ← `/api/pricing`(sales) 吞 —— **既有，v296 未动**（动它 = 改 `pricing` 域鉴权，需单独评估）。
+
+**可复用做法**：拆模块/加映射前，先跑一遍「遮蔽审计」（对每个键，找**第一个** `startswith` 命中的表项，
+看是否 != 它自己）；**加新键时把精确键放在泛化键之前**，并在注释里写明"这不是排版偏好"。
+**验收要用正反例**：`/api/bid-radar` 403→200 **且** `/api/bi/summary`、`/api/reports/export` **仍 403**
+—— 只有反例能证明"遮蔽解除了、而 `reports` 域**没有**被顺手放宽"。
+
+---
+
+## 「设置 › 权限」与「员工档案 › 账号」是**两条链**（2026-09-27 双链审计实测）
+
+> 完整报告：`outputs/权限配置双链审计-2026-09-27/00-权限配置双链审计报告.md`｜取证脚本 `perms-dual-chain-audit.py`。**本轮零代码改动。**
+
+### 分层（标准 RBAC 两层，**别合并**）
+
+| | A 链「设置 › 权限」 | B 链「员工档案 › 账号与权限」 |
+|---|---|---|
+| 语义 | **角色 × 模块** —— 这个角色能干什么 | **账号 × 角色** —— 这个人是谁 |
+| 粒度 | 模块级（勾 = 该模块全动作） | 账号级（1 主角色 + N 兼任，v266） |
+| 落库 | **租户库** `tenant_<id>.db::role_permissions`（每租户一份） | **主库** `erp.db::users.role / roles`（全局单表） |
+| 写接口 | `POST /api/role-permissions`（+ `/detail` CRUD 版） | `PUT /api/users/{uid}/role`｜开账号 `POST /api/forecast-submissions/staff-accounts` |
+| 读接口 | `GET /api/role-permissions` + `/api/permissions/modules` | 员工列表 enrichment（`erp_db.py:6908` 下发 `account_role/account_roles/account_user_id`） |
+| 鉴权 | 四端点一律 `core._admin`（admin/boss）＋ 中间件**豁免模块判定**（防自锁） | `_assert_user_manageable`（admin/boss **且**目标在同企业内，v254 防跨租户接管） |
+
+### 🔴 唯一的接触面 = `core.known_roles(tid)` = `_DEFAULT_PERMS.keys() ∪ perms_for(tid).keys()`
+
+**只在 B 链写入时校验**（开账号 / 改角色）⇒ 方向是「A 定义 → B 引用」，是对的（不另抄角色清单）。
+**但它只接了「写」，没接「读」和「提示」** ⇒ 于是有三处断点：
+
+1. **A 链配得出、B 链指派不了**：`EmployeeArchive.vue::ROLE_OPTIONS` 是**前端写死 8 项**（= 内置角色），
+   不含租户自定义角色；而 `known_roles(tid)` **含**它们 ⇒ **后端放行、UI 走不通**。
+   · 实测：`tenant_1` 的 `库管` 在 `role_permissions` 里有 4 个模块（客户真配过），
+     但 `users.role` 里 **0 个 `库管`** ⇒ **配了没人用（死配置）**，且只能手改库才指得上。
+   · 🔴 **这类漂移结构上不可能有构建期护栏** —— 护栏是静态的，自定义角色是运行时数据
+     ⇒ 只能改成**从后端动态取值域**（这是唯一解，不是优化）。
+2. **自定义角色对 `module: null` 的页面拿不到让位**：`pages.js::roleGateOpen` ③ 要求 `r.module` 非空。
+   而 `/archive` `/rebate` `/loss` `/forecast` 的 `module` 都是 `null` ⇒ 自定义角色**一律 false**。
+   ⇒ 客户给 `库管` 勾了「档案管理」，它**进不去「档案管理」页**（勾了等于没勾，零提示）。
+3. **B 链改角色无缓存失效 / 无版本号**：`UPDATE users SET role=?` 之后没有任何 rev bump
+   ⇒ 该用户**当前会话照旧**，要重新登录才生效。
+
+### 🔴 生效时机对照（两链**不对称**，是排查「改了没生效」的第一判据）
+
+| | A 链 | B 链 |
+|---|---|---|
+| 缓存 | `_PERMS_CACHE[tid]`，`reload_perms(tid)` **只失效本租户** | **无缓存** |
+| 版本号 | `perms_rev(tid)` 内容指纹（sha1 前 12 位），前端轮询比对 | **无** |
+| 本会话 | `syncStorePerms()` 当场重拉 | **不变**（要重登） |
+| 其它会话 | 最迟 **1 分钟**（`perms_rev` 轮询） | 重登后 |
+
+### 五份角色名清单（护栏覆盖静态，覆盖不了运行时）
+
+① 后端 `core._DEFAULT_PERMS`（**权威**）② 网页端 `constants/roles.js::ROLE_NAMES`
+③ 小程序 `utils/roles.js::ROLE_TEXT` ④ `EmployeeArchive.vue::ROLE_OPTIONS`（🔴 **v300 起不再是「清单」** —— 已改为 **`computed` 动态值域**）
+⑤ `Settings.vue::ROLE_LABELS`（措辞更长，故意留本地）
+护栏 = `.workbuddy/tools/role-registry-consistency-check.py`（AST 解析后端，**v300 起 44/44**）。
+
+### ✅ 「适用端」文案漂移（v300 **已修**，判据订正而非改期望）
+
+~~`ROLE_OPTIONS` 的 label 写「会计（仅网页端 …）」，而 `_DEFAULT_PERMS` 里 8 个角色全都有 `chat`~~
+⇒ **v300 的处置 = 订正「判据本身」**：「能用小程序」从「有 `data` **或** `chat`」
+**收窄为仅有 `data`**（理由：`chat` 自 v292/v293 起**全员持有**，已失去区分度）。
+「适用端」文案收敛为 **`constants/roles.js::ROLE_END` 全站唯一一份**（`ROLE_END_LABEL` 出中文），
+`canUseMiniProgram()` 也改成走它 ⇒ **注释与函数体同源**（原先注释说 data|chat、函数体用硬编码数组，
+**同一函数两套口径**的毛病也一并消除）。
+
+### ✅ 护栏的 1 条**假红**（v300 **已修** —— 但根因不在"窗口太紧"）
+
+~~断言「开账号接口接入了白名单」FAIL，真因 = 正则窗口 `[\s\S]{0,900}?` 太紧~~
+⇒ **v300 处置**：F 段 5 条窗口判据**全部换成 AST 结构判据** `func_body_has(path, funcname, needle)`
+（`ast.get_source_segment` 只取**函数自己源码段**，**不受注释长度影响**；返回 `True`/`False`/`None` 三态）。
+🔴 并且 **needle 必须带 `(`** —— v300 判别力自证抓出：把 `normalize_role` 改成 `normalize_role_DISABLED`
+后护栏**不报红**，因为改名后的调用**仍含子串** `normalize_role`。
+⇒ 判据 = 「**真的是一次调用**」，不是「出现过这几个字」。
+
+### 🟡 `_DEFAULT_PERMS` 迭代 vs 租户库**整表覆盖**（实测存量差异）
+
+`Settings.vue::savePerms` 是**按整张矩阵逐角色 POST** ⇒ 点过一次「保存权限」就在租户库固化 8 行，
+此后所有默认值变更**对该租户失效**。实测：`tenant_10` 的 `staff` 少 `chat`（v292 的默认没生效）、
+`supervisor` 少 `sales`（v293 的默认没生效）⇒ 该租户主管**看返利冲刺看板 = 页面进得去、数据恒空、零报错**。
+✅ **v300 已补漏**（`tenant_10` 的 `staff` += `chat`、`supervisor` += `sales`；工具
+`.workbuddy/tools/perms-tenant-backfill.py`，判据四条见本文末 §v300）—— `perms_rev`
+`df85b80274d3` → `41e1332af26a`，`tenant_1` **逐字符不变**。
+⇒ **改 `_DEFAULT_PERMS` 时必须同步查「哪些租户已固化」**（v293 注释已写明，但该租户库当时没改）。
+⚠️ 反向证明 `custom_roles` 的**内容判据**是对的：`tenant_10` 的 `boss`/`sales`/`guide`/`driver`
+四行与内置默认**逐字相同** ⇒ 若按「表里有行」判，这四个角色会被误判成「改过」⇒ `roles` 门槛整体失效。
+
+### 🟡 `boss` 行里有 3 个「幽灵模块」
+
+`tenant_10` 的 `boss` 行含 `ops-workbench` / `perf` / `goals`，而 `_ALL_MODULES` **只有 17 项、不含这三者**
+⇒ 权限页**不渲染**它们，但它们在数组中生效（`_perm_granted` 认）。非缺陷（v296 已修「保存时静默抹掉」），
+但要知道**UI 上少三行 ≠ 它们不存在**。
+
+---
+
+## 🔴 v300（2026-09-27）双链的**缝合**：动态值域 + 存量补漏 + 护栏换 AST
+
+上游 = `outputs/权限配置双链审计-2026-09-27/`（只读）；本轮 = `outputs/权限双链治理-2026-09-27/`。
+
+### 1. 唯一接触面终于**接上「读」与「提示」**（此前只接了「写」）
+
+- 接触面 = `core.known_roles(tid)` = `_DEFAULT_PERMS.keys() ∪ perms_for(tid).keys()`。
+  它原先**只在 B 链写入时**被用来校验（**放行自定义角色**）⇒ **后端通、UI 断**。
+- **实证的「死配置」**：`tenant_1` 的真角色 `库管`（配了 4 个模块）不在写死的 8 项里
+  ⇒ 生产 `users.role` 里 **0 个 `库管`** —— **配了，没人能用**。
+- 🔴 **修法 = 前端下拉改 `computed` 动态值域**：`loadRoleCatalog()` 打 `GET /api/role-permissions`，
+  **403/异常 ⇒ 静默降级内置 8 项**（指派角色本不该由这些角色做 ⇒ 不弹错）。
+  label 的三档优先级 = **`ROLE_END`（产品定义）→ `roleCatalog`（后端实况）→ `canUseMiniProgram`（共享兜底）**。
+- 新增 `roleDisplay(r)`：内置走共享表、**本租户自定义角色显示原名**、真未知仍走 `未知角色(x)`。
+
+### 2. 🔴🔴 `is_custom` ≠ 「这是自定义角色」（读真实 payload 才暴露）
+
+`GET /api/role-permissions` 的产物里 `is_custom = role in custom`（即**租户库有行**）。
+实测 **`tenant_10` 有 7 个角色 `is_custom: true` —— 全是内置角色**
+（`boss`/`accountant`/`sales`/`guide`/`driver`/`staff`/`supervisor`）；`tenant_1` 的 `supervisor` 同样。
+⇒ **前端若拿 `is_custom` 当「是不是自定义角色」的判据，内置角色会被重复列一遍**（名字也重复）。
+⇒ 唯一正确判据 = 「**名字是否在 canonical 集合里**」（`roles.js::isCanonicalRole`）。
+已固化为 E2E 断言：用真数据当反例，断言**内置「主管」只出现 1 次**。
+
+### 3. 存量补漏的四条判据（**宁可漏补，不可误补**）
+
+补模块 `M` 当且仅当四条**同时**成立：
+① `M ∈ _DEFAULT_PERMS[role]` ② 租户行**缺** `M` ③ `M ∈ 白名单`（本轮 = `chat`→全部内置角色、`sales`→仅 `supervisor`）
+④ **租户行模块集 ⊆ 默认值**（= 客户**没改造过**这一行）。
+⇒ 反例：行里多了 `payroll`（客户自己加的）⇒ **整行跳过**。单测 **12/0**。
+
+### 4. 🔴 补漏的**隐藏副作用**：让位状态（必须每次重验）
+
+`custom_roles(tid)` 判据 = 「**内容 ≠ 内置默认**」（**不是**"表里有行"），
+它决定 `pages.js::roleGateOpen` ③ 的**让位**（让该角色过**内置 `roles` 门槛**）。
+⇒ 补漏若补得「**恰好等于默认**」，该角色会**退出 `custom_roles`** ⇒ 页面对它**重新收窄**
+（= 拿走一个用户看不见的功能，**零报错**）。
+**v300 实测两边 `custom_roles` 均未变**（`tenant_10` 的 `staff`/`supervisor` 仍各缺 `bid`）⇒ 无副作用。
+⚠️ **下次把白名单放开到 `bid`，必须重验这一条。**
+
+### 5. 🔴 `perms_for` 有缓存、`perms_rev`/`custom_roles` 没有 ⇒ 冷读 ≠ 热读
+
+`perms_for(tid)` 带**进程级缓存 `_PERMS_CACHE`、无 TTL**，只有**两个保存接口**会调
+`reload_perms(tid)` 手动失效；而 `perms_rev`/`custom_roles` 走 `_read_custom_perms` **直读库不缓存**。
+⇒ 新进程探针证明的是「**库里**是什么」，**不等于**运行中进程读到什么。
+⇒ 让两者等价 = **重启**（无别的轻量办法 —— `reload_perms` 只在保存接口里，那些都要 admin/boss token）。
+v300 实测重启 **约 1 秒**（`21:53:15 → 21:53:20`）。
+
+### 6. `/api/role-permissions` 的**双重把关**（设计如此，别的 403 文案别混）
+
+`server.py:655` 映射表登记 `"/api/role-permissions": "hr"`，但**整族被 RBAC 模块判定豁免**
+（防"老板误撤自己的 `hr` 后打不开唯一能改回来的页面"），读端改用 `_admin(request)` **按角色名**把关。
+⇒ sales 收到 `{"detail":"Forbidden"}`（`_admin`）；而 `/api/employees` 收到模块门禁的
+「你的角色「业务员」没有「人事档案」的使用权限」。**两条 403 文案不同，各属各的门**。
+
+### 7. v310 登录端（`login_scope`）的四条硬判据
+
+- **唯一源 = `core.ROLE_LOGIN_SCOPE` + `default_login_scope_for_role()`**；前端 `roles.js::ROLE_END`
+  是它的**镜像**（护栏 D2 段逐项比对）。🔴 这份映射**天然会被写成两份**（前端要下拉默认值、
+  后端要建号兜底）⇒ **只改一端 = 静默绕过**（界面看着收紧、开出来的号照样能登网页端）。
+  未登记角色 ⇒ `both`（宁可放宽）。
+- **判据只能写在 `routers/auth.py::login` 内部**（`/api/auth` 整段在 `_PUBLIC_PATHS`，RBAC 中间件对登录请求不执行）。
+  缺 `X-Client` ⇒ **视为小程序**（存量小程序不带头且已备案，必带 = 当场切断所有小程序登录）；
+  端被拒**不记失败尝试**（否则累加到「5 次锁 30 分钟」把人误锁）；`LOGIN_SCOPE_ENFORCE=0` 一键停用。
+- **建号默认值两处都要接**：`erp_db.staff_account_create`（不传 ⇒ 角色默认）+ `routers/forecast_submissions::create_staff_account`；
+  显式传值优先（保住手动开通）。非法值**只在路由层 400**，内部函数只收敛。
+- **存量回填**：在线备份用 sqlite **`backup` API**（别 `cp`，库正在被写）；**只动当前是 `both`/空的行**
+  （人工值不碰 ⇒ 幂等）；改前改后各留逐行快照 + `rollback.sql`。
+  现行值（v310）：`sales ×3 = mini`，`admin/boss/supervisor` 仍 `both`。
+
+### 8. v312 角色级「登录端」= **内置默认 ⊕ 租户覆盖**（与 `_DEFAULT_PERMS` 同构）
+
+**范式**：`_DEFAULT_PERMS`（代码常量）⊕ `role_permissions`（租户库表）→ 本轮把"端"做成**同一范式**：
+`builtin_role_end`（代码常量）⊕ `role_end`（租户库表），**读取一律走 `core.role_end_for(role, tid)`**。
+⇒ 与 §7 的铁律**完全同源**：**「改一端」= 静默绕过**（这次是三处：内置默认 / 前端镜像 / 建号默认值）。
+
+**核心函数（`core.py`）**
+| 函数 | 职责 | 🔴 易错点 |
+|---|---|---|
+| `MINI_MODULES` | 「手机端真实在用」的模块**唯一源** | 只驱动**只读**列；**不做可勾选**（做成可勾 = 假开关） |
+| `builtin_role_end(role)` | 出厂默认（`ROLE_LOGIN_SCOPE` **只在这里被直读**） | 别的任何地方再读它 = 绕过了租户覆盖 |
+| `role_end_for(role, tid)` | **唯一取值口**；遇覆盖 `{0,0}` **回落内置** | 别在调用处自己拼 `builtin ⊕ custom` |
+| `role_end_is_custom(role, tid)` | = **覆盖表里有这一行** | **故意**与 `custom_roles` 的**按内容**判据不同（端只两个布尔，按内容判会把"正好配成内置值"误判成自定义） |
+| `default_login_scope_for_role` | = `end_to_scope(role_end_for(...))` | v310 时它**直读 `ROLE_LOGIN_SCOPE`** ⇒ v312 后若漏改这一处，**界面收紧但开出的号照样登网页端** |
+| `end_to_scope(end)` | `{web,mini}` → `'web'/'mini'/'both'` | 前端 `roles.js::endToScope` 是**镜像**，取值域须逐项一致 |
+
+**表下发（`erp_db.py`）**：`role_end` DDL 必须**三处齐**（§洞一的老账）——
+① `_safe_migrate('v312_role_end', ddl)`（主库）；② **`ddl_map["role_end"] = ddl`**（各租户库，`for _t, ddl in ddl_map.items()`）；
+③ 列对账 `_sync_tenant_columns_on`。⚠️ `master_ddl` 在函数**更早处**采集 ⇒ **后建的表不进 `ddl_map` 就只落主库**，
+租户库查询报 `no such table`；而 `get_all_role_end` 有兜底 ⇒ 表现为「**页面恒空、零报错**」。
+
+**防自锁三件套**（`role_end` 是能把人锁在门外的表）
+1. **两端不可同时关** ⇒ 路由层 400（关完该角色谁都登不进，**连改回来的页面也进不去**）。
+2. `ROLE_END_PROTECTED = ("admin","boss")` **电脑端禁关** ⇒ 400。
+3. `role_end_for` 遇 `{0,0}` **回落内置**（宁可放宽）⇒ 兜住任何绕过路由层的脏写入。
+
+**API（`server.py`）**
+- `GET /api/permissions/modules`：每模块增只读 `"mini"`。
+- `GET /api/role-permissions`：每角色增 `end` / `end_is_custom` / `end_builtin` / `default_login_scope` / `end_locked_web`。
+  🔴 它调的是公开取值口 **`role_end_for`**（不是 `role_end_map`）—— 写探针时别认错。
+- `POST /api/role-permissions/end`：三条把关（`normalize_role` 白名单 / `not web and not mini` 400 / 保护角色关电脑端 400）；
+  与内置**同值即 `delete_role_end`（删行）**；写后 `reload_role_end(tid)` 失效缓存。
+- `DELETE /api/role-permissions/end/{role_name}`：恢复出厂。
+- 缓存按租户分键：`_ROLE_END_CACHE` / `reload_role_end(tid)` / `current_tenant_key()`。
+
+**前端联动（`EmployeeArchive.vue`）**
+- 角色政策**改了不影响在用人**（`accounts.login_scope` 是账号自己的值，**不是动态派生**）⇒ 避免"改角色把在用人锁在门外"。
+- 不一致才提示（`df-mismatch`）＋ `alignAccScope()` **一键对齐**。
+- 🔴 **`accScopeTouched`**：没手工改过 ⇒ 提交时**省略** `login_scope`（后端按角色政策取默认）；手工改过才发。
+  **防的是"前端拿自己猜的默认值静默覆盖掉租户刚在权限页配的政策"**。
+
+
+## §v326 人名存两份：档案名（权威）vs 账号显示名
+
+- 权威 = 租户库 `hr_employees.name`；右上角读的是主库 `users.display_name`
+  （`routers/auth.py::get_permissions` 返回的 `user`）。
+- 员工档案「开通账号」**写两份**（前端传 `display_name: editTarget.value.name`）
+  ⇒ **先改名后开户**两份一致；**先开户后改名必然分叉**。同一个名字，结果取决于操作顺序
+  ⇒ 判定为**漏写**，不要拿"两套东西"替它辩护。
+- 修法（v326 已上线）：`erp_db.sync_employee_account_display_name(emp_id, new_name)`，
+  由 `PUT /api/employees/{eid}` 在**真改名**（`name != old_name`）时调用，返回 `(affected, error)`；
+  失败**不抛异常**（档案名此时已落库，抛 500 会让用户以为没改成而重试），以 `rename_error` 回带前端。
+- 🔴 三条不可省的约束：
+  ① 关联判据用**唯一实现** `_emp_link_expr(...)` —— ⚠️ 别名必须传**表名 `users`**：
+     SQLite 的 `UPDATE` **不支持表别名**，传 `"u"` 抛 `no such column: u.employee_id`，
+     而异常被兜底分支吞掉 ⇒ 返回 `(0,"")`、界面只看到「保存成功但名字没变」（单测 A 段当场抓到）。
+  ② 租户收口：`users.employee_id` 是**租户内**的 `hr_employees.id` ⇒ 必须用 `user_tenants` 过滤，
+     否则会把 A 租户的员工改名同步到 B 租户里 id 相同的账号 = **跨租户串改**。
+  ③ `IFNULL(users.external_ref,'')=''`：外部客户（分销商）账号那列名字是「客户名称」，另一套语义（v308/v317）。
+- 🔴 **已知耦合（改 sales 员工姓名前必须先决定是否回填）**：`sale_orders.operator_id` 存的是
+  **业务员中文姓名**（'程欢欢' 3184 行 / '张俊峰' 2034 行 …），而 `core._doc_owner_ok()` 判定
+  sales 角色能否看一张单，比的正是 `operator_id == user.display_name`
+  ⇒ 改 `display_name` 会让该员工**历史单据归属断链**（现场表现 =「我的单子都不见了」，且是 404 静默）。
+  🔴 **限定语别丢**：`_doc_owner_ok(order, user)` 的**第一行**是 `if user.get("role") != "sales": return True`
+  ⇒ 这条耦合**只对 sales 成立**；改 **boss / accountant / warehouse / supervisor / driver** 的名字
+  **不影响**单据可见性（曾据此误判「改 boss 名会接上/断掉 376 行」，当场纠正）。
+- 🔴 **改名不跟随的四处（别顺手一起改，各有独立语义）**：
+  ① `warehouses.name`（「王会计仓」/「赵仓管仓」）= **按员工名派生的仓库名**，员工改名后**不跟随**（既有行为）；
+  ② `salary_details.employee_name` = 工资明细**生成时的姓名快照** ⇒ 改它等于**篡改历史凭证**；
+  ③ `tenant_members.display_name` = `tenant_id=3` 的**种子行**，与本租户真实账号无关；
+  ④ `tenant_1.db` 里**也有一张 `users` 表**（6 行 demo：admin/boss/accountant/sales/warehouse/driver）
+     —— **废弃表，别查它**。活库判据：登录走**主库**（`db/connection.py::_sqlite_connect` 用
+     `_tenant_db.get() or DB_PATH`，而若登录时**还没有租户上下文** ⇒ 取 `DB_PATH` 主库）。
+- 存量（**已全部对齐 2/2**）：emp 5（郝洋 ↔ 赵仓管）、uid 999905（boss，档案名「符号」↔ 账号「王会计」，
+  2026-09-29 老板拍板按档案名对齐 ⇒ `sync(emp=3,「符号」) 影响 1 行`，复扫**分叉数 = 0**）。
+  验收判据两层：① 库层 `hr_employees.name == users.display_name`；② **接口层**
+  `POST /api/auth/login` 与 `GET /api/auth/permissions` 返回的 `user.display_name` 即前端右上角取值
+  （用测试账号实测：返回的正是各自的档案名）。
+- **无用户级缓存**：`display_name` 每次鉴权直读 ⇒ 改后即时生效，不必重启服务
+  （但 SPA 内存里已持有的 `user` 对象要重登/刷新才刷新）。
+
+## §v328 「权限名 ↔ 它真正对应的功能」一致性（2026-09-29 落地）
+
+- 🔴 **幽灵模块**的判据 = `server.py::_PATH_MODULE_MAP` 里**没有任何接口前缀映射到它**。
+  有勾选框却 0 映射 ⇒ 勾与不勾**完全等价**（= 假配置）。v328 删掉 `marketing` / `settings`，
+  并摘掉 `ops-workbench` / `perf`（它们连 `_ALL_MODULES` 都没进 ⇒ "持有却看不见"的隐形遗产）。
+  `goals` 是**反向**的：它有 `/api/goals` 映射却没登记 ⇒ 本轮**补进** `_ALL_MODULES`（可配）。
+- 🔴 **删模块必须三处同批**（v296 那条纪律的同一形态）：① `core._ALL_MODULES`
+  ② `server.py::list_modules` 的译名表（含 `_MODULE_CN` 403 文案表）
+  ③ **迁移脚本清存量**（`tools/v328-drop-ghost-modules.py`）。
+  漏 ③ 的后果：裁决上无害（0 接口），但**权限页一直显示那个勾**（读的是
+  `{**_DEFAULT_PERMS, **custom}`），假配置继续摆在老板面前。存量实测 tenant_1/10 各 4 行。
+- 🔴 **造角色：堵后门必须与开正门同批**。
+  后门 = `POST /api/role-permissions` 只判非空 ⇒ 任意字符串落库 ⇒ 拼错的名字变成
+  **永不命中的死配置**，还会进 `known_roles()` 变成"可派发的合法角色"（派给谁谁全员 403）。
+  正门 = `POST /api/role-permissions/new`（v328 新增，可 `from_role` 复制权限与登录端）。
+  校验唯一实现 = `core.validate_role_name(role, tid, allow_new)`：内置恒合法；自定义须过
+  长度 ≤16 与符号黑名单，且 `allow_new=False` 时还得**已存在于本租户**
+  （⚠️ 判"本租户"而不是 `known_roles()` 全局 —— 否则 A 客户的角色名在 B 客户也算合法）。
+- 🔴 **改角色不动登录端**（`PUT /api/users/{uid}/role`）：v307 契约是「账号事实优先」，
+  自动改 = 静默收回一个人的登录能力。v328 的做法是**把漂移摆到台面上**：端点返回
+  `default_login_scope` / `login_scope` / `scope_drift`，前端在 `scope_drift` 时弹
+  「按新角色对齐吗？」（默认建议对齐、但**不静默**）。
+- 🔴 **许诺差距（本轮真正的产品问题）**：多数页面入口走 `pages.js` 的**角色门槛**（`module: null`），
+  勾模块**不会**让它们出现 ⇒ 界面在许诺一件兑现不了的事。修法不是改判据（判据是对的），
+  是把「勾了会怎样」写进界面：`core.MODULE_IMPACT` 分 `entries`（入口跟着变）与
+  `feeds`（入口不变、页面里的数据要靠它）。护栏 §G 段逐项比对它与 `pages.js`。
+- 🔴 **旧前端是收缩默认权限的前置条件**：`erp.hergent.cn`（`hergent-erp/static`）与新前端
+  **共用后端**，且旧前端**没有按角色隐藏页面**的机制 ⇒ 页面对所有人显示、靠后端 403 兜
+  ⇒ 撤模块的后果是「页面还在、点开全 403」，比"不给看"更糟。v328 实测：
+  `stock` 被旧前端 17 个文件调用（含 `mobile.html` 扫码链路）、`sales` 7 个（含 `driver-board.js`
+  司机看板）、`buying` 4 个 ⇒ guide/driver/staff 的这些模块**一律不撤**。
+  只撤了 `cron`/`bid`（旧前端 0 调用 + 小程序只调 `data`）。
+  ⚠️ 顺带  发现既有缺陷：`driver-board.js` 调的是 **sales** 模块，而 driver 默认只有
+  `dashboard`+`stock` ⇒ 司机看板对 driver 默认 403（待老板确认该页是否已废弃）。
+
+## 🔴 v332（2026-09-29）：`forecast-audit` 拆模块 ＋ **租户覆盖行漂移**（主管缺 `data`）
+
+- **病灶一（模块归属错）**：`/api/forecast-audit/*`（审核 / 定稿 / 采纳 / 厂家返利视图）整段归
+  `stock`，且**全程只有 `_auth()`、无任何角色白名单** ⇒ 后果两头都错：
+  · **过授权**：持 `stock` 的司机 / 导购 / 销售**都能调 `/audit-period/adopt` 把报单定稿**；
+  · **该有的没有**：主管（无 `stock`）看得见「预报订货管理」入口，却审核不了、返利区恒空。
+  ✅ 拆独立窄模块 `forecast-audit`，默认给 **admin / boss / supervisor** —— 与
+  `forecast_submissions.py::SUMMARY_ROLES` **逐项对齐**（能看全公司汇总的人 = 该能审核它的人）。
+  🔴 **顺序陷阱**：`/api/forecast-audit` 也 `startswith("/api/forecast")`（归 `data`），
+  而 `_PATH_MODULE_MAP` 是**首个命中即停** ⇒ 登记行必须在 `/api/forecast` **之前**；
+  验收判据不是"写没写"，而是**实测解析到哪一个**（拆错就会把 `data` 域的人放进来）。
+- **病灶二（真根因，最隐蔽）**：`tenant_1.db::role_permissions` 的 `supervisor` 行是
+  **2026-08-30 写入后冻结**的，**缺 `data`** —— 而代码 `_DEFAULT_PERMS['supervisor']` 一直有它。
+  `perms_for` = `{**默认, **租户}` **按角色整表覆盖** ⇒ 租户行一旦存在，代码侧对默认表的
+  任何增改（v293 加 sales、v296 加 cron/bid、v325 撤 chat、v330 加 messages）**都不会同步**。
+  ✅ 迁移**只补不删**；查法 = 把每个库的每一行与期望表逐项比（`tools/v332-perms-drift-audit.py`，
+  只读）。🔴 **同类遗留**（本轮**只报告不动手**，收紧权限须单独拍板）：租户库 `sales`/`staff`
+  **多出** `cron`/`bid`（v328 撤默认时未迁库 ⇒ **收紧对老租户无效**）、`tenant_10 accountant` 多 `bid`。
+- 🔴 **验收入口铁律**：**401 / 403 都发生在「路由存不存在」之前**（RBAC 中间件在路由匹配之前
+  按模块裁决）⇒ 验证路由/权限**必须用有权限角色的令牌**，并逐条写**期望状态码**；全程只读 GET。
+  ⚠️ **别借用户身份**：生产 `sessions` 里通常已有同角色的其它会话（本轮用的是"微信审核-主管"），
+  优先用它，避免冒用老板/报障人的会话。
+
+## 🔴 v334（2026-09-30）：**动作轴（action）细粒度** —— 「四层全通、前端没接上」＋三处静默失效
+
+老板给舟谱截图问「为什么没有更细粒度的权限配置」。**答案不是没做，是做了但读不到** —— 这一类
+「功能齐备却整条失联」的形状在本仓反复出现（v333b 的 `is_default` 同族），判据值得记死。
+
+### 1. 机械原因：`list` 形态把 `action` **短路**掉（这是第一判据，先查它）
+
+`core._perm_granted(perms, module, action)` 兼容两种形态：
+- `dict` = 新版细粒度：`{模块: [动作…]}` ⇒ **真的会读 `action`**；
+- `list` = legacy：分支写着 `return module in perms` ⇒ **`action` 参数被忽略、恒等于「全动作」**。
+
+⇒ 生产两库**16 行 `role_permissions` 全是 `list`** ⇒ 动作轴**从未被读过一次** ⇒ 界面没有承载动作的列，
+**是必然结果，不是漏做**。
+🔴 **判据**：问「某条权限到底有没有被读」时，**先看库里那一行的形态**，不要看有没有 UI 控件。
+
+### 2. 四层链路（改/查都按这四层走，缺一层就白改）
+
+| 层 | 位置 | 作用 |
+|---|---|---|
+| ① 方法 → 动作 | `server.py` 中间件 | `GET=read`／`POST=create`／`PUT=update`／`DELETE=delete` |
+| ② 门禁 | `server.py` RBAC 中间件 | 用 `_PATH_MODULE_MAP` 判模块 + 动作 |
+| ③ 判定 | `core._perm_granted` | `dict` 形态才看动作 |
+| ④ 存储 | `role_permissions.permissions`（JSON 列，**整列覆盖**） | 形态即 `list`/`dict` |
+
+### 3. 三处静默失效（v334 全修；同族改动必逐条排查）
+
+- 🔴 **(a) 双写端点互相拍平**：`POST /api/role-permissions`（收 `list`）与
+  `POST /api/role-permissions/detail`（收 `dict`）写**同一行的同一列**，而
+  `erp_db.save_role_permissions` 是**整列覆盖** ⇒ 用户在旧矩阵上保存一次，**细配被静默拍平成 `list`、
+  零报错**。修法：`core.normalize_perms_shape()` 收敛形态 ＋ `core.merge_module_list_into()`
+  **旧矩阵保存时沿用已有动作**（两处都有的模块保留 `existing`；新勾选给全动作；取消则移除）。
+  ⇒ **可复用判据：同一列有 >1 个写端点时，先确认它们写的是不是同一种形态。**
+- 🔴 **(b) 端点漏角色名校验**：`/detail` 没接 v328 的 `core.validate_role_name` ⇒ **造角色后门**
+  （可凭任意角色名落库）。**加新写端点时必须回头对齐 v328 的三道校验，否则后门复活。**
+- 🔴 **(c) 只读 POST 被判成 `create`**：11 条「用 POST 做的查询」在动作轴下要求 `create` ⇒
+  用户「收紧写权限」取消「新增」时**误伤整条 AI 副驾**。修法：`server._READ_ONLY_POST` 白名单
+  （`_READ_ONLY_POST = tuple(...)`，中间件把 `action` 从 `create` **纠偏成 `read`**）。
+  ⚠️ **白名单宁缺勿滥**：157 个 POST 端点**无法自动分类** ——
+  ① 按 HTTP 方法误伤面过大；② 看函数体内写 SQL **136/157 查不到**（写操作下沉在 `erp_db`）；
+  ③ 看 `db.*` 调用名会把 `employees/{eid}/toggle`、`users/{uid}/password` **误判成只读**。
+  三次自动尝试全失败 ⇒ **只能人工核定**。
+
+### 4. 🔴 **零迁移的诀窍**：`_DEFAULT_PERMS` 保持 `list` 不动
+
+`list` 天然 = 「全动作」⇒ 出厂默认行为**逐条不变** ⇒ **不需要任何迁移脚本**，配 **504 项等价性硬证明**
+（内置角色 × 模块 × 四动作，新旧判据结果全等）。⇒ **可复用：给某轴「加细粒度」时，把旧形态定义成
+「该轴的满值」，就能把迁移成本降到 0**（同 v312 登录端「内置默认 ⊕ 租户覆盖」的思路）。
+
+### 5. 下发口（**只增不改**！）
+
+`routers/auth.py::/permissions` 增 `"permissions_detail": user_module_actions(u)` ——
+该接口**被微信小程序共用** ⇒ 只加字段、不动旧字段。`user_module_actions` = 多角色**并集取宽**；
+`admin` 的 `["*"]` ⇒ `{"*": [全部动作]}`。
+
+### 6. 一条「主动不做」的边界（避免造假开关）
+
+**不照抄舟谱的「导出／导入」两列**：动作轴由 **HTTP 方法推导**，而导出/导入**都是 `POST`**、
+不是方法级语义 ⇒ 硬做只会造出**点了不生效的假开关**（比不做更糟）。
+⇒ **判据：新开关必须能指到一条真正的服务端判定；指不到就不做，并如实说明。**
+
+### 7. v334 落点 / 验证
+
+- 后端：`core.py`（`normalize_perms_shape`／`merge_module_list_into`／`user_module_actions` ＋
+  `_ALL_ACTIONS`／`_ALL_MODULES`）、`server.py`（`_READ_ONLY_POST` ＋ 中间件纠偏 ＋ 两保存端点收敛）、
+  `routers/auth.py`（`permissions_detail`）。
+- 前端：**只动 `Settings.vue` 一个文件** —— 权限 tab 内「按角色配置 / 批量总览」切换；角色列表 →
+  点进单角色详情（模块分组 × 四动作列 ＋ 整行全选）；旧矩阵包进 `v-if="permView==='matrix'"`
+  **原样保留**（这就是「不影响已有权限」的界面落法）。
+  🔴 **不做新路由**：`/roles` 已被 AI 团队占用；`/settings` 的 `module: null` 是**刻意**的（避免老板自锁）。
+- 测试：`server/tests/test_role_action_matrix_v334.py` **42/42**（A 等价性 504 项／B 细粒度生效／
+  C `admin` 通配／D 四形态矩阵／E merge 不丢动作含反例自证／F 白名单可达性**静态 AST 提取**
+  —— ⚠️ **不能 `import server`**，会拉起整个 app 要 `DEEPSEEK_API_KEY`／G 影子库端到端）。
+  ⚠️ 影子库隔离**变量名是 `ERP_DB_PATH` 且必须赋值**（`setdefault` 无效），并加自证断言
+  `assert abspath(db.DB_PATH) == abspath(MASTER)`。
+- 上线：3 个后端文件 ＋ **重启**（`perms_for` 缓存**无 TTL**）；前端 `index.html` `290477ab…`
+  三方一致、assets **1772 → 1803 只增不删**。回滚锚 `/root/backup_v334_20260930-133310/`。
+- ⚠️ **起号撞车**：同日另一会话已占 `v334`（对外材料）⇒ 本线登记为 **`v334-角色权限细粒度`**
+  （代码产物已落盘 `v334_*`，**不重命名**）。
+
+## §v335 🔴 门禁的模块键必须取「**接口的模块**」，不是「页面的模块」（2026-09-30）
+
+**v335 = 把动作轴从接口层下沉到页内按钮**（前端 16 文件 157 处。后端**零改动**）。
+
+### ① 🔴 唯一最容易写错的判据
+
+`constants/pages.js` 的 `module` 只决定**入口显不显示**，**与接口归属经常不同**。按页面模块写门禁
+= 造「假入口」（按钮亮着、一点 403）。实测分歧（本轮活体验证）：
+
+| 页面 | 页面 `module` | 写接口实际归属 |
+|---|---|---|
+| 客户档案 | `crm` | **data**（`/api/contacts`） |
+| 员工档案 | `hr` | **data**（账号六件套 `/api/users/*`） |
+| 渠道与价格 | `null` | **data** |
+| 库存效期补录 | `stock` | **data**（`/api/import/*`） |
+
+⇒ 权威源只能是后端 `_PATH_MODULE_MAP`（护栏 **AST 直读 `server.py`**，不维护第二份清单）。
+
+### ② 🔴 动作 = HTTP 方法，不是业务语感（写错就会「门禁撒谎」）
+
+`GET=read`／`POST=create`／`PUT·PATCH=update`／`DELETE=delete`。反直觉实例：
+**「停用/启用」「重置密码」「撤销导入」「保存价格矩阵」「结算」「申领」「审核通过/驳回/冲销」全是 `create`**。
+「编辑规则」按钮其实是**两种动作**（新建 POST / 编辑 PUT）⇒ 同一按钮须按状态二选一。
+
+### ③ 🔴 只读 POST 白名单漏了**同族兄弟** —— `simulate-batch`（真实发现，待修）
+
+`_READ_ONLY_POST` 已登记 `/api/rebate-contracts/simulate`，**却漏了 `/api/rebate-rules/simulate-batch`**
+（`routers/rebate_rules.py:2059`，文档原文「把返利算法唯一留在后端」，同族 `/simulate` 注明「What-if 用，**不落库**」）
+⇒ RBAC 按 HTTP 方法判成 **`create`**。**后果**：`/rebate` 默认 tab（仪表盘）**一加载就发 11 次**该 POST；
+角色若被收窄成只读，**这一页一打开就 403**，且前端 `catch` 吞掉 ⇒ **图表静默空白、零报错**。
+**修法**：补 `/api/rebate-rules/simulate`（`startswith` 前缀一并覆盖 `-batch`）。
+
+⚠️ 另 7 条语义只读的 POST 待逐个判定：`/api/forecast/supplier-po`、`/api/product-targets/extra-alloc/preview`、
+`/api/forecast-audit/compute`、`/api/forecast-audit/audit-period`、`/api/forecast/nl-edit`、
+`/api/import/preview`、`/api/forecast/rebate-gap`。**本轮刻意不门禁这批**（否则「权限收紧」会被错做成「功能残缺」）。
+
+### ④ 🔴 生产权限值的**形态**决定门禁今天是否可见
+
+`role_permissions` 三库（`erp.db` 1 行 / `tenant_1.db` 9 行 / `tenant_10.db` 7 行）**全部仍是旧格式 `list`**，
+新格式 `dict` **0** 行。但**接口下发的是 dict** —— `normalize_perms_shape` 把 `list` **展开成全动作**：
+
+```json
+{"dashboard":["read","create","update","delete"], … "data":["read","create","update","delete"] …}
+```
+
+⇒ **`permActs` 非 null（门禁代码路径真的在跑）、但每个模块都恒真** ⇒
+**「零回归」由数据保证；门禁只在管理员主动收窄动作后跟手** ⇒ 上线当天**界面上看不到任何变化**。
+要看到效果必须去权限页取消某角色的某个动作勾选。⚠️ 因此「零回归」与「门禁有效」**会互相掩盖**，
+验证必须用**响应改写**（见 `frontend-ui.md §v335`）。
+
+### ⑤ `/api/commitments*` 仍未登记 `_PATH_MODULE_MAP`（独立主题，恒 403）

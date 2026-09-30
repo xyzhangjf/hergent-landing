@@ -43,3 +43,16 @@
 - 报告：docs/hermes-update-monitor/2026-09-09.md（目录共 4 份，无需清理）。
 - 环境备注：GitHub Releases/PyPI WebFetch 均直连成功，无需本机代理。另：项目 MEMORY.md 超限 9389 字符已压缩至 ~3k。
 - 升级触发条件未变：headless/server 发行说明、cron bridge/config 迁移/18765 兼容修复、或波及 v0.19.0 的严重安全公告。
+
+## 2026-09-28（例行周检）
+- 结论：**A 无需升级，维持生产 v0.19.0**。
+- 官方最新：GitHub 已推进至 **v2026.9.24 = v0.21.5**（2026-09-24）；自 09-09 全量核查后新增 4 tag：v2026.9.11(v0.21.2)/v2026.9.14(v0.21.3)/v2026.9.21(v0.21.4)/v2026.9.24(v0.21.5)。PyPI 仍停 0.19.0（滞后）。
+- 浅克隆 v2026.9.24 到 /tmp/hermes-295-src（7059 py，72MB，保留）对 5 耦合点做 grep 核查，结果与 v0.21.1 一致：
+  - ① /v1/chat/completions：proxy(server.py:180) + api_server.py:1615 仍在 → 兼容
+  - ② /v1/skills：api_server.py:87/1603/2780 已恢复且返回 {object,list,data} → 兼容（比 v0.20.6 评估更宽松，ai_skills.py 无需改）
+  - ③ **cron bridge 全仓零命中仍未回归 → 升级=定时任务全挂（否决项不变）**
+  - ④ config：api_server.py:1179 读 extra.cors_origins/env；config_loader 桥接 platforms.api_server.{port,key,host,cors_origins,model_name}→extra；mcp_servers 顶层仍读 → 软迁移仍须 staging 实测
+  - ⑤ SOUL.md：config.py:501(home/SOUL.md) + run_turn_runner:1001 discovery 仍原样注入 → 兼容
+- 4 个新 patch tag 均为桌面/多 profile/state.db/网关会话修复，无 hergent 需要项 → 维持 A。安全触发未达阈值（PyPI 旧漏洞≤0.12.0+飞书 webhook 不波及单 profile 服务端）。
+- 报告：docs/hermes-update-monitor/2026-09-28.md（目录现 7 份，无需清理）。
+- 升级触发条件未变：headless/server 发行说明、cron bridge/config 迁移/18765 兼容修复、或波及 v0.19.0 的严重安全公告。

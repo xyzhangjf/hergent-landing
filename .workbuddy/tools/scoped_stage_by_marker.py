@@ -3081,7 +3081,277 @@ SPEC_SELF_DROP = ("fe", [
      "gone": []},
 ])
 
+# ── v273（2026-09-25）：新建期次「沿用上一期商品清单」 ─────────────────────
+# 基线：be HEAD=5f359b1 / fe HEAD=7e2c3b4
+# 取证（逐 hunk 读全文 + `git diff -U0 | awk '/^@@/{...}'`）：
+#  · routers/forecast.py  3 个 hunk **全部**是本轮（import logging / FcPeriodCreate.seed_from_prev
+#                         / create_period 末尾复用 forecast_period_seed 并回传 copied+src_name）
+#                         ⇒ 3/3 keep_all
+#  · scheduler.py         7 个 hunk 只有 os=1023 是本轮（`_auto_period_open` 里建完期次后沿用）；
+#                         其余 6 个（1255/1257/1267/1271/1279/1283）全是
+#                         `_forecast_store_owner_map` / `push_forecast_reminder_current`
+#                         —— 即「报单提醒控制面板」那批在途改动（HEAD 5f359b1 只抢救了 85 行）
+#                         ⇒ own_hunks=[1023]
+#  · erp_db.py            13 个 hunk 只有 os=15698 是本轮（新增 `forecast_period_prev_id`）；
+#                         其余 12 个分属 v264 商品目标 / _calculate_promotion_uplift / gl import /
+#                         forecast_period_writable / confirm_workflow_advice / v259 删除 / P2-4
+#                         ⇒ own_hunks=[15698]
+#  · tests/test_auto_period_v242.py  8 个 hunk 全是本轮（seed_added 记录 + prev_id/seed 替身
+#                         + 新增用例⑨⑩⑪⑫）⇒ keep_all
+#  · tests/test_period_prev_v273.py  HEAD 无 ⇒ new_file
+SPEC_BE_V273 = ("be", [
+    # ⚠️ present 的串必须落在**本文件**里（§5.8 的教训：我第一版写了
+    #    `def forecast_period_prev_id(...)` 当 forecast.py 的断言 —— 那个定义在 **erp_db.py**，
+    #    forecast.py 里一次都没有 ⇒ 恒假红、白跑一轮）。
+    {"file": "server/routers/forecast.py", "keep_all": True,
+     "present": ["seed_from_prev: bool = True",
+                 'db.forecast_period_prev_id(b["order_start"], exclude_id=pid)'],
+     "gone": []},
+    {"file": "server/scheduler.py", "own_hunks": [1023],
+     "present": ["forecast_period_prev_id"],
+     "gone": []},
+    {"file": "server/erp_db.py", "own_hunks": [15698],
+     "present": ["def forecast_period_prev_id(order_start, exclude_id=0):"],
+     "gone": []},
+    {"file": "server/tests/test_auto_period_v242.py", "keep_all": True,
+     "present": ["def __init__(self, rules, periods=None, seed_added=0):",
+                 "⑨ v273 开表即沿用上一期清单"],
+     "gone": []},
+    {"file": "server/tests/test_period_prev_v273.py", "new_file": True, "gone": []},
+])
+
+# 前端：Forecast.vue 34 个 hunk 里本轮 7 个 —— 153(template 勾选框) /
+#   2421(np 加 seed_from_prev) / 9686(createPeriod 四结局回执) / 9689 + 9950(两处复位) /
+#   9994(npPrevPeriod computed) / 10744(CSS)。
+#   其余 27 个分属 v265（商品目标页签 / 销量新鲜度）、v267（无汇总权限）、
+#   v2026-09-23（截止硬锁）、v202（按钮 btn-retry）等在途工作。
+# 🔴 os=2421 是**混合块**：我的 `+` 是 4 行注释 + 改后的 np；它的 `+` 尾行是
+#    `const activeTab = ... | 'target'（v265 加「商品目标」）`（v265 会话在途的注释）。
+#    两者在**相邻两行**上同时改动 ⇒ `-U0` 必合成一个 `-2421,2 +2488,6`，五种切分键
+#    都表达不了「只保留旧侧第 2 行」。唯一干净解是改造源码（把 seed_from_prev 从 np 初值
+#    里挪走），但那要重构并重新验收**已上线并 md5 对齐**的产物 ⇒ 判定不划算。
+#    **处置：整块认领，并在提交信息里显式披露这一行注释夹带**（性质同 §5.26 第 1 条：
+#    整行/整块只能整体取舍时，取"不会让提交版语义自相矛盾"的那一侧）。该注释纯文字、
+#    运行时零影响；v265 的实现仍留在工作区，由其作者提交。
+SPEC_FE_V273 = ("fe", [
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "own_hunks": [153, 2421, 9686, 9689, 9950, 9994, 10744],
+     "present": ["seed_from_prev: true })",
+                 "const npPrevPeriod = computed(() => {",
+                 "沿用上一期「{{ npPrevPeriod.name }}」的商品清单",
+                 ".np-fld-chk>span{font-size:12px;color:var(--t1);white-space:normal"],
+     "gone": []},
+])
+
+# ══ v278（2026-09-25）：副驾输入框对齐 WorkBuddy + 企微会话进 Web 历史 + SOUL 单一权威源 ══
+# 🔴 起号取证：v274（舟谱入口迁移）/ v275（roles.js 路由守卫）/ v276（已提交）/ v277 均**已被占用**
+#    （且 v274/v275 是**今日在途**，只在源码与 git diff 里，MEMORY.md 里没有）⇒ 取 v278。
+# 基线：fe HEAD=bf92a02 · be HEAD=eba0f65（2026-09-25 现取）
+SPEC_BE_V278 = ("be", [
+    # 本文件 2 个 hunk **全属本轮**（IM 会话同步 + SOUL 体检/下发端点）⇒ keep_all
+    {"file": "server/routers/ai_assist.py", "keep_all": True,
+     "present": ["③b IM 渠道会话 → Web 历史 打通（2026-09-25）",
+                 "_sync_im_sessions(c, db.get_tenant_context() or 1)",
+                 "③c SOUL.md 单一权威源：漂移体检 / 下发（2026-09-25）",
+                 "soul_sync.status()"],
+     "gone": []},
+    # SOUL.md 权威源（本机副本 -> 仓库，供下发/体检读写）
+    {"file": "server/prompts/SOUL.md", "new_file": True, "gone": []},
+    # 下发/体检模块
+    {"file": "server/soul_sync.py", "new_file": True,
+     "present": ["def sync() -> dict:", "def status() -> dict:", "def _inspect(p: Path, src_md5: str) -> dict:"],
+     "gone": []},
+    # ⚠️ 整份代理层**从未入库**（已在生产运行）；本轮只改了模型白名单一处
+    {"file": "server/routers/copilot_proxy.py", "new_file": True,
+     "present": ["_ALLOWED_MODELS = {DEFAULT_MODEL}", "async def copilot_chat(request: Request):"],
+     "gone": ["SELECTABLE_MODELS", "/copilot/models"]},
+])
+
+SPEC_FE_V278 = ("fe", [
+    # ── 主改动：输入框对齐 WorkBuddy（本轮 21/64 hunk；其余 42 个属历史在途）──
+    # 归属取证：逐 hunk 读全文（非按行号/关键词猜）。os=301 是混合块（我删框外提示 `-`、
+    # 别人的模式横幅 `+` 被 diff 配对）⇒ split_minus_only 只落 `-` 侧。
+    {"file": "hergent-cn-v2/src/components/CopilotDrawer.vue",
+     "own_hunks": [254, 258, 284, 291, 301, 569, 571, 573, 575, 637, 864, 1363, 1379, 1384,
+                   1386, 1394, 1405, 1407, 1410, 1413, 1472, 1483],
+     "split_minus_only": [301],
+     "present": ["给 AI 一份材料", "AI 可以怎么做", "只给建议", "可直接执行",
+                 "INPUT_MIN_H = 48", "cp-inhint", "模型选择已于 2026-09-25 下架",
+                 "function closeMenus(except) {"],
+     "dropped": ["<div v-if=\"aiMode === 'disabled'\" class=\"cp-mode-banner disabled\">"],
+     "gone": ["cp-foot-hint"]},
+    {"file": ".workbuddy/tools/composer-metrics-probe.mjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/guard-chip-probe.mjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/model-picker-probe.mjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/add-menu-probe.mjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/inline-hint-probe.mjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/model-picker-removed-probe.mjs", "new_file": True, "gone": []},
+    {"file": ".workbuddy/memory/2026-09-25.md", "new_file": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/AI输入框对比与优化建议-2026-09-25.md", "new_file": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/内联提示-字数.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/内联提示-空态.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/加号菜单.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/我方-390.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/我方-桌面.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/权限chip-只读态.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/模型选择-菜单.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/现场-抽屉右下.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/现场-放大3倍.png", "new_file": True, "binary": True, "gone": []},
+    {"file": "outputs/输入框对比-2026-09-25/老板窗口尺寸-放大字号.png", "new_file": True, "binary": True, "gone": []},
+])
+
+# ---------------------------------------------------------------------------
+# v313（2026-09-28）邮件对账 M0.0 + M0.1 —— 舟谱「收入明细表 / 费用明细表 / 采购单明细」导入落地。
+#
+#  归属取证：**逐 hunk 读全文**（不是按行号/关键词猜）。
+#    · `zhoupu_documents.py`：32 hunk 全部是本轮的。HEAD 里**已含** v274 回执 / v271 纪律
+#      （`git show HEAD:… | grep -c _RECEIPT_KEY` == 3），且 HEAD **没有** `do_import_money` /
+#      `zhoupu_income` ⇒ 剩下的 diff 无历史在途。⇒ keep_all。
+#    · `db/queries/finance.py`（3 hunk）/ `purchases.py`（3 hunk）：整份都是本轮。
+#      （新增行里出现的 v269/v268/v296/v271 是**我自己注释里引用的先例**，不是别人的改动
+#        —— 用版本号当归属判据会在这一处误判。）
+#    · `server/erp_db.py`：**混合文件**，5 hunk 里只有 3 个是我的（os=73 / 77 / 11042），
+#      另两个是并行会话的 v312 `role_end`（os≈952 / 2494）⇒ own_hunks + dropped 取证。
+#      已核：那四个 v312 判别串在 HEAD 里计数 **0**、工作区 >0 ⇒ `dropped` 断言可用。
+#
+#  🔴 本轮抓到并修掉一个**真缺陷**（钱单据路径的 `orders_total` 口径 —— 被过滤的单会从
+#     `orders_total` 与各分项里**同时**消失 ⇒ 会计恒等式两侧同为 0、照样成立却失去判别力）。
+#     详见提交信息与 `docs/邮件对账-方案与开发计划-2026-09-28.md` 的「缺陷 E」。
+# ---------------------------------------------------------------------------
+SPEC_BE_V313 = ("be", [
+    {"file": "server/routers/zhoupu_documents.py", "keep_all": True,
+     "present": ["def do_import_money(conn, ref, fp, kind, sheet, header_row, bind",
+                 "pre_blocked = set()",
+                 "def _money_note(head, order_no):",
+                 "_ALLOW_TYPES = {",
+                 "def _pre_block(no, bucket):"],
+     "gone": []},
+    {"file": "server/db/queries/finance.py", "keep_all": True,
+     "present": ["from contextlib import nullcontext",
+                 "def income_order_create(itype, contact_id, amount, category_id=0",
+                 "def income_order_list(itype='', contact_id=0, limit=100):"],
+     "gone": []},
+    {"file": "server/db/queries/purchases.py", "keep_all": True,
+     "present": ["from contextlib import nullcontext",
+                 "def purchase_order_create(supplier_id, items, warehouse_id=1"],
+     "gone": []},
+    # 🔴 混合文件：只认领我的 3 个 hunk（`own_hunks` 取的是 `@@ -<旧侧起始行>`，不是 hunk 序号）。
+    #    os=73   新增「幽灵符号读数会变」的警告注释
+    #    os=77   具名导出 `income_order_create, income_order_list,`
+    #    os=11042 新增 `v313_poi_unit` 迁移
+    #    ⚠️ 让出的两个（v312 role_end）**必须用 dropped 取证**：它们是别人「已上线未提交」的
+    #       在途改动，绝不能进我这次提交（否则 HEAD 里出现半截 v312 ⇒ 租户库缺表 500）。
+    {"file": "server/erp_db.py", "own_hunks": [73, 77, 11042],
+     "present": ["v313（2026-09-28）起下述新增导出",
+                 "income_order_create, income_order_list,",
+                 "v313_poi_unit"],
+     "dropped": ["role_end_ddl", "def get_all_role_end", "def save_role_end",
+                 "def delete_role_end"],
+     "gone": []},
+    {"file": "docs/邮件对账-方案与开发计划-2026-09-28.md", "new_file": True, "gone": []},
+])
+
+# v313b：档案别名（contacts.alias）+ 生产建档。与 be-v313 同一条线，是它的第二批。
+#   背景：2026-08 采购明细里 `蒙牛酸奶`（福宝户头）与 `蒙牛酸奶（湖北恒滋）`（恒滋户头）
+#   **同时存在**，是两个签约主体 ⇒ 任何「去括号归一化」都会把恒滋的钱静默挂到福宝账上。
+#   ⇒ 只能靠**逐条显式别名**（存数据库，将来界面上可自己维护）。
+#   🔴 客户侧同理：美联名下 15 家店，`美联（卞和店）` 去括号会与全部店撞车。
+SPEC_BE_V313B = ("be", [
+    {"file": "server/routers/zhoupu_documents.py", "keep_all": True,
+     "present": ["def _split_alias(raw):",
+                 "self._alias, self.amb_alias = {}, set()",
+                 "self.has_alias = any(x[1] ==",
+                 "别名为什么排在**最前面**"],
+     "gone": []},
+    # 🔴 混合文件：只认领 `v313_contact_alias` 那一个 hunk（旧侧起始行 11061）。
+    #    同批让出的两个 hunk 是并行会话 v312 role_end 的**在途改动**，用 dropped 取证。
+    {"file": "server/erp_db.py", "own_hunks": [11061],
+     "present": ["v313_contact_alias"],
+     "dropped": ["role_end_ddl", "def get_all_role_end", "def save_role_end",
+                 "def delete_role_end"],
+     "gone": []},
+    # 档案缺口清单（含客户名/供应商名，远端 private 才提交）
+    # ⚠️ 同名的 .xlsx **不进本 spec**：它是二进制，工具按 utf-8 读文件会直接崩
+    #    （`UnicodeDecodeError: 0xc7`）。它是新文件、无夹带风险 ⇒ 提交后单独 `git add`。
+    {"file": "docs/档案缺口清单-2026-08-舟谱单据.md", "new_file": True, "gone": []},
+])
+
+# v313b 的工具侧：档案缺口清单生成器 + 生产授权写入 + 副本验收。
+#   全部是新文件（untracked）⇒ 无夹带风险。
+#   ⚠️ 定义必须放在 SPECS 字典**之外**（放在字典字面量内部是 SyntaxError —— 本轮踩过一次）。
+SPEC_FE_V313B = ("fe", [
+    # 只读导出生产档案最小快照（供本地做缺口清单，不含价格/金额列）
+    {"file": ".workbuddy/tools/v313-export-archive-snapshot.py", "new_file": True, "gone": []},
+    # 缺口清单生成器：复用**生产代码**的匹配函数，期望值从 xlsx 独立数出
+    {"file": ".workbuddy/tools/v313-archive-gap.py", "new_file": True, "gone": []},
+    # 只读核查员工档案存放位置（contacts.type='employee' vs hr_employees 两套）
+    {"file": ".workbuddy/tools/v313-emp-probe.py", "new_file": True, "gone": []},
+    # 🔴 生产授权写入：默认 dry-run，`--apply` 才写；先备份、按主键、rowcount 断言
+    {"file": ".workbuddy/tools/v313-prod-archive-write.py", "new_file": True, "gone": []},
+    # 副本上跑真实 RefIndex 验收（含「先验后部署」开关 HERGENT_SRC）
+    {"file": ".workbuddy/tools/v313-fix-type-and-verify.py", "new_file": True, "gone": []},
+])
+
+# v313c：邮件对账 M0.2（放开客户/内部侧）+ M0.3（execute 真跑 + 回滚）+ 剩余档案补建。
+#   BE 侧只有一个文件，且 11 个 hunk 全是本轮的（已逐个核过首行）。
+SPEC_BE_V313C = ("be", [
+    {"file": "server/routers/zhoupu_documents.py", "new_file": False,
+     "present": [
+         '_INTERNAL_CONTACT = "内部往来"',
+         "self.any_id = {}",
+         "def contact_id_for(self, btype, name):",
+         'cid = ref.contact_id_for(btype, cname)',
+         'cur_head = {"type": btype,',
+         '"zhoupu_income": ("supplier", "customer", "internal"),',
+     ],
+     # 旧写法必须**已经不在**提交版里（写死 supplier / 只放行 supplier）
+     "gone": ['cid = ref.sup_id(cname)\n'],
+     # 11 个 hunk 全为本轮（已逐个打印首行核对）⇒ keep_all 会自证「暂存版 == 工作区」
+     "keep_all": True},
+])
+
+SPEC_FE_V313C = ("fe", [
+    # M0.2 验收：三类单据各就其位 + 反例（客户单不得落供应商池）+ 判别力自证
+    {"file": ".workbuddy/tools/v313c-m02-verify.py", "new_file": True, "gone": []},
+    # M0.3 验收：真跑 + **逐单**可解释 + 幂等重跑 + 整库回滚
+    {"file": ".workbuddy/tools/v313c-m03-execute.py", "new_file": True, "gone": []},
+    # 🔴 生产授权写入：建商品「简爱…135mL*2杯*12组」（条码 6970618573316）
+    {"file": ".workbuddy/tools/v313c-prod-product.py", "new_file": True, "gone": []},
+    # 🔴 生产授权写入：建「内部往来」承载档案（API 类型白名单不支持 internal ⇒ 直连库）
+    {"file": ".workbuddy/tools/v313c-prod-internal-contact.py", "new_file": True, "gone": []},
+    # 只读探查生产 contacts 表形态（为直连插入备齐必填列）
+    {"file": ".workbuddy/tools/v313c-probe-contacts.py", "new_file": True, "gone": []},
+    # 缺口清单生成器：口径从 M0.1 更新为 M0.2 全量（已提交过，本轮是文案更新）
+    {"file": ".workbuddy/tools/v313-archive-gap.py", "new_file": False,
+     "present": [
+         "【节 1】M0.2 全量口径",
+         "## 四、补建记录",
+         "档案缺口已清零",
+     ],
+     # 旧口径标题必须已经不在
+     "gone": ["M0.1 实际口径（只放行供应商侧）", "下一批（M0.2：客户单 / 内部单）"],
+     # 6 个 hunk 全是本轮文案更新 ⇒ keep_all 自证
+     "keep_all": True},
+])
+
+# FE 侧（同属 v313 邮件对账 M0）：本轮为查清三份舟谱财务单据而新写的探针 + 验收脚本。
+#   ⚠️ 本文件（`scoped_stage_by_marker.py`）**本轮不提交** —— 它同时含 4 个并行会话的
+#      在途 spec（V273 FE/BE、V278 FE/BE），属「已跟踪文件横跨两件事」⇒ 完全不动它。
+SPEC_FE_V313 = ("fe", [
+    # 结构 dump：证明舟谱 `<dimension ref="A1"/>` 是假的（必须 reset_dimensions）
+    {"file": ".workbuddy/tools/v310j-header-by-reset.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v310k-purchase-cols.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v310l-income-expense-cols.py", "new_file": True, "gone": []},
+    # 供应商侧精确读数（逐字对齐表头，避免把「往来单位」当「单号」）
+    {"file": ".workbuddy/tools/v313-supplier-side.py", "new_file": True, "gone": []},
+    # M0.0 落库能力验收 22 项 / M0.1 导入管线验收 40 项（均走影子库）
+    {"file": ".workbuddy/tools/v313-m0-verify.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/v313-m01-verify.py", "new_file": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
+           "be-v278": SPEC_BE_V278, "fe-v278": SPEC_FE_V278,
+         "be-v273": SPEC_BE_V273, "fe-v273": SPEC_FE_V273,
          "self": SPEC_SELF, "self-drop": SPEC_SELF_DROP,
          "be-v219": SPEC_BE_V219, "fe-v219": SPEC_FE_V219,
          "fe-v173": SPEC_V173_FE, "be-v173": SPEC_V173_BE, "fe-v176": SPEC_FE_V176,
@@ -3197,7 +3467,17 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v206-menu-perm": SPEC_FE_V206_MENU_PERM,
          "fe-v214-halfnum": SPEC_FE_V214_HALFNUM,
          "fe-v214-memory": SPEC_FE_V214_MEMORY,
-         "fe-v215-namesug": SPEC_FE_V215_NAMESUG}
+         "fe-v215-namesug": SPEC_FE_V215_NAMESUG,
+         # v313：邮件对账 M0.0 + M0.1（舟谱收入/费用/采购明细导入）。
+         #   混合文件 `erp_db.py` 按 own_hunks 挑，让出并行会话的 v312 role_end。
+         "be-v313": SPEC_BE_V313,
+         "be-v313b": SPEC_BE_V313B,
+         # v313 FE 侧：本轮的舟谱单据 dump/验收探针（全是新文件）。
+         "fe-v313": SPEC_FE_V313,
+         "fe-v313b": SPEC_FE_V313B,
+         # v313c：M0.2 放开客户/内部侧 + M0.3 execute 真跑与回滚 + 剩余档案补建。
+         "be-v313c": SPEC_BE_V313C,
+         "fe-v313c": SPEC_FE_V313C}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,

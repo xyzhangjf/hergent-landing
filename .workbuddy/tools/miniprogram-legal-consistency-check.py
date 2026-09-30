@@ -303,7 +303,18 @@ def group_f():
     check(g, '隐私设置页可写入统计开关', 'OPT_OUT_KEY' in ps and 'setStorageSync' in ps)
     check(g, '隐私设置页可撤回同意（清除 fs_privacy_agreed）',
           'fs_privacy_agreed' in ps and 'removeStorageSync' in ps)
-    check(g, '隐私设置页撤回后清登录态', "fs_token" in ps and 'reLaunch' in ps)
+    # 「撤回后清登录态」有两种合规形态，两路都认：
+    #   ① 本页直接清（本文件出现字面 fs_token）
+    #   ② 委托 utils/session.js 的 logout()——2026-09-20 P1-1 起改为此形态，除本机清态外
+    #      还会通知服务端销毁会话（比 ① 更强），但本文件里因此不再有 fs_token 字样。
+    # 旧判据只认 ① ⇒ 代码改进后变成**假阴性**（工具失灵，不是代码漏了）。真正的判据应是
+    # 「本页触发了清态，且被委托方确实清了 fs_token」。
+    sess = read(os.path.join(MINI, 'utils', 'session.js'))
+    clears_locally = 'fs_token' in ps
+    delegates_ok = ('logout' in ps and 'removeStorageSync' in sess
+                    and "removeStorageSync('fs_token')" in sess)
+    check(g, '隐私设置页撤回后清登录态',
+          (clears_locally or delegates_ok) and 'reLaunch' in ps)
 
     check(g, '隐私设置页有统计开关（switch 组件）',
           '<switch' in read(os.path.join(PAGES, 'privacy-settings', 'privacy-settings.wxml')))

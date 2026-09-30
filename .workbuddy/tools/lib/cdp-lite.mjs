@@ -157,6 +157,27 @@ function makePage(c) {
       await sleep(settleMs)
       return page.eval('location.href').catch(() => url)
     },
+    /** 🔴 启动前注入：脚本在**每个新文档的任何页面脚本之前**执行。
+     *
+     *  什么时候非它不可：要给探针装「boot 期就要生效」的桩。
+     *  实例（2026-09-24 v267 真实踩过）：前端 `store.loadPerms()` 在 **boot 期**拉
+     *  `/api/auth/permissions` 并把 `user.role` 落进 store，**同一租户只拉一次（有缓存）**。
+     *  于是「导航完再 `window.fetch = ...`」这条路**根本打不进去** —— 请求早发完了，
+     *  而且再调 loadPerms 也不会重发（`perms.value !== null` 就直接 return）。
+     *  表现极具迷惑性：探针里 `__stubCalls.perm === 0`、页面停在旧行为，
+     *  看起来像「桩写错了」，其实是**时机错了**。
+     *
+     *  ⚠️ 返回的 identifier **必须**在用完后 `removeInitScript` —— 它对该 page 的**所有后续
+     *     导航**持续生效，不摘掉会把后面的相位一起污染（正例被桩喂过 ⇒ 整个探针作废）。
+     */
+    async addInitScript(source) {
+      const r = await c.send('Page.addScriptToEvaluateOnNewDocument', { source })
+      return (r && r.result && r.result.identifier) || ''
+    },
+    async removeInitScript(identifier) {
+      if (!identifier) return
+      await c.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    },
     async screenshot(path) {
       const r = await c.send('Page.captureScreenshot', { format: 'png' })
       const data = r.result && r.result.data

@@ -50,6 +50,14 @@
 - 计数文件 `<PAIRING_DIR>/_rate_limits.json`：`{平台:用户id}=限流时间戳`、`_failures:<平台>`=失败次数、`_lockout:<平台>`=解禁时间戳。
 - `list_pending()` 显示的 `code` 是 **hash 前 8 位十六进制**，不是配对码，只能当"能区分条目"的编号。
 
+### 文件回传诊断（2026-09-29 v331）
+- 企微智能机器人长连接**支持上传临时素材**（`aibot_upload_media_init/chunk/finish`），命令格式正确时三步应全部 `errcode=0`。
+- 若日志出现两类失败：**`Timeout sending media to WeCom`**（15s 无响应）或 **`846609: aibot websocket not subscribed`**，根因通常是**运行中那条连接已被服务端废弃**（企微官方：同一机器人同时只允许一条有效长连接，被顶掉/半死的旧连接仍存活但订阅失效）。
+- 控制实验：用同一份凭据**另建一条新连接**跑完整 upload 流程：
+  · 若新连接成功、旧连接失败 ⇒ 确认是订阅态问题，不是格式/凭据问题。
+- 修复路径（Hermes 代码补丁）：识别订阅态失效 → **主动断链** → 等既有 listen loop 重连重订阅 → **重试一次**。**不自建第二条连接**（那正是互踢来源）。
+- 已落地补丁：`/opt/hergent-erp/tools/hermes_wecom_media_patch.py`（幂等、备份、`--selftest` 5 分支）。生效需重启租户 gateway。
+
 ### 验证手法（可复用）
 - 端到端自检必须**以 `hergent` 身份**跑（`runuser -u hergent -- …`），否则写的文件属主是 root，网关读不到。
 - 脚本要带**断言**：错码必须 `ok=False`、错码**不能**进 approved、真码 `ok=True`、revoke 后 approved 为空。

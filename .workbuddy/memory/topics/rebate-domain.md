@@ -259,3 +259,215 @@
   该月无分解 / 单期裸年月在生效月内 / 在生效月外）。
 - ⭐ **护栏写法**：用 `git show HEAD:` 导出**改动前**的 domain 跑同一份 fixtures，旧代码下
   C22/C24 返利须为 0（期望 95000 / 19500）—— 否则新用例只是同义反复。
+
+---
+
+## 🔴 「生效期」字段的**真实作用面**（2026-09-27 排查 → 当天 v292 实施完毕）
+
+用户报：「目标填了 10 月，生效截止却填 9/30 —— 会不会挡掉 10 月？」以及
+「生效截止改成 12/31 后，预报页**返利冲刺面板**的『返利周期截止』也变 12/31，剩余到货次数跟着变」。
+
+### 一、生效期到底影响什么（分层，**别一概而论**）
+
+| 规则形态 | 生效期的作用 | 依据 |
+|---|---|---|
+| **有月度分解**（年度目标，本租户 3 条全是）| 🔴 **完全无作用** —— 适用月份 = `monthly_amounts` 的键 | `covered_months()` 首个分支直接 `return`，**根本不读** `effective_*` |
+| `period_type='year'` 但无分解 | **有作用**：12 个月按生效期展开 | 否则会把年度总额当每月目标 |
+| 单期规则（无分解）| **有作用**：`month_in_range(ym, s, e)`；且 `effective_start` **决定目标落在哪个月** | `monthTargetOf`：单期额归位到 `effective_start` 所在月 |
+
+⇒ **结论：对「年度 + 有分解」的规则，生效期只是个"启用/停用"标记，不裁剪任何月份。**
+用户场景①（10 月目标 + 截止 9/30）⇒ **10 月的目标 / 达成 / 返利 / 排行 / 图表全部正常**，实测
+`rule_covers_month(rule11, 2026, 10) = True`（规则 11 分解 = `['09','10']`，生效期却只写到 09-30）。
+⚠️ **副作用**：用户以为"截止 9/30 就停用了 10 月" —— **这个字段做不到**；要停用只能改 `is_active`。
+
+### 二、唯一被污染的消费点：冲刺面板把生效期当「返利周期截止」
+
+`hergent-cn-v2/src/pages/Forecast.vue:9209-9216`：
+```js
+const rebateCampaignEnd = computed(() => {
+  const rules = (rebateRules.value || []).filter(x => x.is_active !== 0 && x.effective_end)
+  if (rules.length) return rules.map(r => String(r.effective_end)).sort().slice(-1)[0]  // ← 全局字符串 max
+  const p = cross.value.period; return p && p.order_end ? p.order_end : null
+})
+```
+**两个错**：① 取**全部**活跃规则的 max（不过滤 `ruleCoversMonth`、不过滤品牌）⇒ 别的品牌/别的月份的
+生效期会把窗口拉长；② 语义上它根本不是"本月返利周期"。消费点三处全吃这个值：
+`rebateSprintOrders`(9219) / 逐行 `orders`(9334 及 `countWeekdayArrivalsInWindow` 9329) / 文案(486)。
+
+**生产实测（tenant_1，今天 2026-09-27，3 条规则生效期全 = 2026-09-30；冲刺月 = 期次19 到货月 = 2026-10）**：
+
+| 口径 | 截止日 | 剩余天数 | 剩余到货次数 |
+|---|---|---|---|
+| ① 当前代码 `max(effective_end)` | 2026-09-30 | 4 | **2** |
+| ② 用户改成 12-31 | 2026-12-31 | 96 | **48** |
+| ③ **应有**：冲刺月(2026-10)月末 | 2026-10-31 | 35 | **18** |
+
+⇒ 当前 **2 次** vs 应有 **18 次** ⇒ **均单建议被放大 9 倍**；改 12-31 则反向摊薄。**两个都错。**
+⇒ 同屏自相矛盾：`sprintTimeProgress`(9369) 按**月**算时间进度，同比的"返利周期"却按**全局 max**。
+
+### 三、正确口径（用户明确）：「返利按月算 ⇒ 周期截止 = 冲刺月的月末」
+
+冲刺月 = `rebateSprintMonth`（v116 L1：期次的 `arrival_date` 优先，即**到货月**）⇒ 截止日 = 该月最后一天。
+⚠️ 边界：冲刺月已过（补报场景）时 `daysLeft ≤ 0`，当前代码硬兜底 `return 1`
+（`9224` / `9334` 都是 `: 1`）会**掩盖"到货窗口已关"**这一事实，应改成显式文案而非假装还有 1 次。
+
+### 四、附带发现（同一次排查）
+
+- 🔴 **`arrival_count_override`（「本月到货次数」，品牌维度，如蒙牛低温=15）在冲刺面板零消费**
+  —— `Forecast.vue` 里出现 **0 次**；后端只在 CRUD/校验/`auto-period-preview` 用到。
+  ⇒ 用户配的「本月 15 次」与面板显示的「剩余 N 次」是**两套互不相干的数**。
+- 🔴 **兼容版试算仍按日粒度拦生效期**：`routers/rebate_rules.py:1984` 的
+  `_effective_contains(...)` 在**不传 `rule_id`** 的旧契约路径上仍在跑；
+  主契约（传 `rule_id`）已在 `2016` 行把生效期清空。前端只用传 `rule_id` 的 `/simulate-batch`，
+  但**外部/脚本/旧前端**走旧契约时会重现「10 月试算恒 0」。
+
+### 五、✅ v292 已实施（2026-09-27 当天落地，用户一句「全做」，四项全做）
+
+| # | 改动 | 落点 | 关键实现 |
+|---|---|---|---|
+| P0-1 | 截止日 = 冲刺月月末 | `Forecast.vue` | 新增 `rebateSprintMonthEnd`：`new Date(y, m, 0)` 取月末。🔴 **禁 `toISOString()`**（那是 UTC ⇒ 月初/月末各差一天）；取不到冲刺月时兜底回 `cross.period.order_end` |
+| P0-2 | 撤掉假兜底 | `Forecast.vue` | `rebateSprintOrders` 两处 `return 1` → `return 0`；并把 `windowClosed` **提到 `mode` 分支之前** —— 否则 weekday 分支 `Math.max(1, 0) = 1` 依旧是"还有 1 次" |
+| P1 | 面板吃配置值 | `Forecast.vue` | `arrival_count_override` 从该文件 **0 次出现** → 真消费：`orders = min(ov, max(1, round(ov × daysLeft / daysInSprintMonth)))`，与 `arrival_schedule.arrival_summary` 的「override **覆盖整月次数**」语义同源；新增 `ovFromConfig` / `sprintOverrideNames`，摘要点名「**X 按你在「到货节奏」里配置的本月到货次数折算**」 |
+| P2-1 | 文案正名 | `TargetFormModal.vue` / `Rebate.vue` / `rebate_rules.py::RULE_FIELD_LABELS` | 「生效开始/结束」→「**规则启用日 / 规则停用日**」，详情区标题「生效区间」→「**规则启停区间**」；加提示「这两个日期只管整条规则启停，**不决定它在哪几个月生效**；某月是否参与请看「月度分解」；要整条停用请改「启用」开关」 |
+| P2-2 | 撤第二实现 | `rebate_rules.py:1984` | **删掉本地 `_effective_contains`**（v186 收敛时漏网的最后一处），换成同源 `rule_covers_date(rule, ref)` —— 注意它**只吃 dict**，旧路径的 `r` 是 sqlite Row ⇒ 必须**先 `_row_to_dict(r)`** 再判 |
+
+**修后真实值**（期次 19「2026-09-27 报单期次」/ 到货月 2026-10 / 配置整月 15 次）：截止日 `2026-10-31`、表头剩 **18** 次、明细行 **15** 次（`整月 15 次（手动配置）`）。
+**修前对照**：`2026-09-30` / **2** 次 / `2 天/次`（窗口只剩 4 天）。
+
+**验证四层**：离线算式 34/34；P2-2 端到端 `FAIL=0`；真实输入新旧对照 12/12；夹带判据通过（53 vs 53 chunk，差异仅 `Forecast.js(+1299)/Rebate.js(+334)/index.js(+108)`）。
+**线上核对（chunk 名判不了内容）**：入口 chunk 被并行会话改名（我构建的 `index-CsSaEYlO.js` → 线上 `index-DOMPut21.js`；`Forecast-BZXVdx8p` → `Forecast-Zoh5bmno`）⇒ **按 v282 判据只认特征串**：`Forecast-Zoh5bmno.js` 命中「本月到货窗口已结束 / 本期到货窗口已结束 / 手动配置 / 整月 / 剩余缺口无法再靠报单追补」，`Rebate-_xS-ofby.js` 命中「规则启停区间 / 规则启用日×2 / 规则停用日×2」且**旧文案「生效区间」= 0**，TargetFormModal 4 句提示全内联在 Rebate chunk ⇒ 判定「线上 == 我的版本，**不重部署**」。后端 md5 双侧一致 `aed811ccc1ab82be345b41e7017d67ad`，`_effective_contains` 只剩注释。
+
+### 六、✅ 同域第二处缺陷 —— **v293 当天已修完**（用户回「1.需要；2.要」= 修法 A + 修法 B 都做）
+
+**症状**：主管（supervisor）能进「预报订货管理」页面，但页面里的**返利冲刺看板恒空**，且**零提示**。
+
+**机制 = 页面可见性名单 ≠ 页面内数据接口的模块权限**：
+
+| 环节 | 判据 | supervisor 是否满足 |
+|---|---|---|
+| 能否进 `/forecast` | `constants/pages.js` → `FORECAST_SUMMARY_ROLES = ['admin','boss','supervisor']` | ✅ |
+| 能否读 `/api/rebate-rules` | 该接口映射到 **`sales` 模块** | ❌ `403 MODULE_DENIED module=sales` |
+
+supervisor 的实际模块授权（**租户库覆盖优先于 `_DEFAULT_PERMS`**）：`tenant_1.db::role_permissions` id=2 = `["data","dashboard","chat"]`；主库 `erp.db` 同角色 = `["data","dashboard"]` —— **两处都没有 `sales`**。
+
+- **修法 A（业务拍板）**：给 supervisor 授 `sales`。🔴 必须**同时改两处**（`core.py::_DEFAULT_PERMS` **和** `tenant_1.db::role_permissions` 覆盖行）；只改 `_DEFAULT_PERMS` 对 tenant_1 **无效**（注释已写明「supervisor / 库管 有自定义覆盖」）。
+- **修法 B（应做，与 A 无关）**：`Forecast.vue::loadRebateRules` 现为 `catch (e) { rebateRules.value = [] }` —— **静默吞 403**，用户只看到空面板，无从知道是被权限挡了。必须区分「本来就没有规则」与「没权限看」并显式提示（R8 纪律）。
+
+#### ✅ v293 实施结果（2026-09-27，用户答「1.需要 2.要」）
+
+| 项 | 落点 | 关键实现 |
+|---|---|---|
+| A-1 | `server/core.py::_DEFAULT_PERMS["supervisor"]` | 加 `sales`（原 15 行注释扩写，说明「缺 sales 的后果不是少入口，而是页面进得去、数据恒空、零报错」） |
+| A-2 | `erp.db` + `tenant_1.db::role_permissions` | `supervisor` 行 `json.loads` → `append('sales')` → 复读自证。tenant_1 实际值 `["data","dashboard","chat","sales"]`（**这才是 tenant_1 生效的那份**）；`tenant_10.db` 演示租户**只盘点不改** |
+| B-1 | `Forecast.vue` 新增 `rebateRulesErr` | `catch` 里按 `e.status === 403` 分流：403 → 「你的角色没有查看返利规则的权限，需要管理员在「设置 › 权限」里为该角色勾上「销售」模块」；其余 → 「返利规则读取失败：+ message」（超时/5xx 各自说清） |
+| B-2 | `Forecast.vue` **常显行** | `.sprint-banner` 复用（零新增 CSS），位置在 `v-show="rebateSprintOpen"` 的 `.panel-body` **之前** ⇒ **折叠状态也可见**（否则用户看到"有标题没内容"的空卡片，与静默失效无异） |
+| B-3 | `Forecast.vue` 展开态**空态分叉** | `v-else-if="rebateRulesErr"` 单列一条；`v-else` 保留原「尚未配置品牌/商品返利目标」。🔴 **403 绝不能复用那条空态** —— 那会让主管以为是自己没配目标，是把用户往错方向引 |
+
+**实证**：`mptestsp` 的 `GET /api/rebate-rules` **403 `MODULE_DENIED module=sales` → 200 真实规则**；线上回读 v293 四条新文案各命中 1，v292 四条回归文案保留；线上 Forecast chunk 字节 = 本地 **386470 完全相同**；真机 **PASS=14 FAIL=0**（详见下）。
+**备份可回滚**：`/opt/hergent-erp/backups/v293-erp.db.20260927-153653.bak`（17MB）、`v293-tenant_1.db.20260927-153653.bak`（31.6MB）。
+
+🔴 **交付纪律（本轮实证有效）**：`core.py` 改前先 `diff` 生产 vs 本地 —— 确认**只差我这 18 行**（无他人未集成改动）才敢 scp；否则 scp 会**回退别人的在途功能**。改共享文件前先 `cp` 备份 + 记字节数。
+
+**判别力备忘（下次别再白跑）**：提审双账号各占一半 —— `mptestsp`(supervisor) 看得到页面、v293 前接口 403；`mptest`(sales) 接口 200 但被路由守卫弹回 `#/workbench`（侧栏无「预报订货管理」）。v293 后 `mptestsp` **首次能跑完整看板真机验收**（#542 随之闭环）。
+
+#### 🔴 真机探针的判别力自证（v292 探针缺陷，v293 修正）
+
+v292 探针 `v292-sprint-caliber-e2e.mjs` 曾报 **FAIL=1**：「与到货月月末一致（2026-10-31）→ 实际 2026-09-30」。
+**根因是探针的错，不是产品的错**：它把「接口返回的**首个**期次（id 19，到货月 2026-10）」当成「页面**正在看**的期次」，而页面 `curPeriod` 指向**期次 17**（到货月 2026-09-23）⇒ 页面算 09-30，探针拿 10-31 去比。
+**更深的教训**：即使选中期次 19，若「到货月月末」**恰好等于**「规则停用日」，该场景对新旧口径也**无判别力**。本次选 17 反而安全纯属巧合。
+
+⇒ v293 另写 `tools/v293-sprint-discriminating-e2e.mjs`，两条硬纪律：
+1. **主动切期次**（驱动 `select.sel-period` 的 change 事件，等价用户手选），不再依赖"接口首个 = 页面选中"。
+2. **先自证判别力再断言**：`discriminating = tEnd && tEnd !== OLD_STALE_END`（月末 ≠ 旧口径错值 `2026-09-30`）；不满足则**抛错退出，不硬凑 PASS**。
+
+实测：期次 19 到货月 2026-10 → 月末 `2026-10-31` ≠ 旧值 `2026-09-30` ⇒ 有判别力 → 截止日 `2026-10-31`、剩次 18（独立复算一致）、明细「整月 15 次（手动配置）」、无权限提示、控制台 0 错误 = **PASS=14 FAIL=0**。
+
+
+
+### 为什么需要它
+
+**到货节奏只能存在 `rebate_target_rules` 表里** ⇒ 想给某品牌配节奏，就**必须建一条「规则」**。
+但原校验「目标值必须大于 0」＋「比例返利率须在 (0,1]」把这条路封死
+⇒ **逼用户编一个假目标**（污染返利 / 达成 / KPI）。v282 为它开了**正门**。
+
+### 唯一判定实现
+
+`routers/rebate_rules.py::_row_rhythm_only(row)`（**定义在 `validate_rule` 之前**，入参是规则 dict）：
+
+```python
+# 目标为 0、且没有月度分解；同时**至少有一项节奏配置**（报单或到货，日期/周期/星期几任一）
+def _row_rhythm_only(row):
+    if not isinstance(row, dict):
+        return False
+    try:
+        tv = float(row.get("target_value") or 0)
+    except (TypeError, ValueError):
+        tv = 0.0
+    if tv > 0 or _parse_monthly(row.get("monthly_amounts")):
+        return False
+
+    def _n(k):
+        try:
+            return int(row.get(k) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    return (bool(str(row.get("order_first_date") or "").strip())
+            or _n("order_cadence_days") > 0
+            or bool(str(row.get("order_weekdays") or "").strip())
+            or _n("arrival_cadence_days") > 0
+            or bool(str(row.get("arrival_weekdays") or "").strip()))
+```
+
+**三处同时放行**：
+
+| 位置 | 行为 | 备注 |
+|---|---|---|
+| `validate_rule` | 目标 0 / 返利率 0 **放行** | ⚠️ `if` 判据仍用 `_has_rhythm`，**刻意保留**原「目标 0 ＋ 无节奏」的报错文案 |
+| `detect_conflicts` | **跳过节奏规则**（判重两侧都跳）| 得给 SQL **补上节奏列**，否则读不到判定依据 |
+| `sync_month_lock` | **不占任何月份锁** | 见下 |
+
+### 🔴 为什么「不占月」是铁律
+
+年度规则若**没有月度分解**，`covered_months(rule)` 算的是 **12 个月（整年）**。
+一旦参与占锁 ⇒ **把该品牌整年锁死** ⇒ 用户以后建**真实返利目标**会被 **409** 打回。
+
+### 为什么 `target_value=0` 是安全的
+
+`domain/rebate_calc.py:257`：
+`ach = (basis / target) if target and target > 0 else None`
+⇒ 达成率 `None`、**不除零**、`rebate_amount = 0`、不触发任何返利。
+生产实测 `simulate` 返回 `"note": "无目标值，无法计算达成率"`。
+
+### 单测护栏（不许被放松）
+
+`tests/test_rhythm_only_rule_v282.py` **17/17**，必须**同时**证明两件事：
+
+- 节奏规则占 **0** 个月份锁 ✓
+- **普通目标规则照常判重** ✓、**照常占 12 个月份锁** ✓（判重/占锁**没被放松**）
+
+E 段用 `sqlite3 :memory:` 建 `rebate_target_rules` ＋ `rebate_rule_month_lock` **真表**，
+调**真实函数**（不是替身）。生产实测：`rebate_rule_month_lock` 写前 **13** → 写后 **13**（新规则占 **0**）。
+
+### 生产实例：规则 id=11「蒙牛鲜奶到货节奏（同蒙牛低温）」
+
+逐字段照抄 `蒙牛低温`(id=10)：`order_first_date='2026-08-28'` / `order_cadence_days=2` /
+`order_lead_days=4` / `order_max_early_days=1` / `arrival_mode='interval'` /
+`arrival_cadence_days=2` / `arrival_first_dom=1` / `arrival_count_override=15`
+＋ `target_value=0` / `rebate_rate=0` / `is_active=1`。
+
+🔴 **`auto_period_enabled` 必须为 0** —— `scheduler._check_auto_period` 只把**第一条**开着的规则当
+`carrier`（参与排程的集合 = 所有有 `order_first_date` 的规则 ＋ carrier 兜底），
+设 1 会与「蒙牛低温」**抢排程归属**、期次日期变得不确定。
+
+**A/B 对照（`排程A-B对照.py`，5/5）**：加规则前后自动开表排程**期次日期逐条不变**
+（去掉显示层 `brands` / `brand_detail` 后 JSON **全等**；`main_brand` 仍是 `蒙牛低温`；`missed` 为空）。
+唯一差异 = 每条期次的 `brands` 多一个 `蒙牛鲜奶`，其 `(early_days, arrival_date)` 与 `蒙牛低温` **逐字相同**。
+
+### 业务后果（这才是建它的目的）
+
+到货规则是**均单提示「三件套」的第 ③ 条**（① 本月有目标 ② 有大单位换算 ③ 品牌有到货规则）。
+建完这条后，`蒙牛鲜奶` 的 **37 个商品**（本期清单内 **27 个**）的均单提示**第一次真正可显示**。
+实测 `avg-target?period_id=19&product_ids=1596,...`：
+`蒙牛鲜奶 reason='' effective_count=15 remaining=2` ⇒ `1596` 的
+`no_target` / `no_convert` / `no_rule` / `no_dates` **四类 flag 全清**。

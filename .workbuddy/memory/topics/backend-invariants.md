@@ -8,6 +8,48 @@
 - ⭐ RBAC 权限**权威副本在主库 `erp.db.role_permissions`**（`core._load_perms()` 读它，改后须**重启**刷新进程内 `ROLE_PERMS`）；`tenant_1.db.role_permissions` 是**不参与鉴权的遗留表**（改它无效）。
 - 登录错 5 次锁 15 分（详见 `backend-auth.md`）。
 
+## 🔴🔴 同路径路由**按注册顺序遮蔽** ——「本地有这个 `@app.get`」≠「线上它生效」（v317 实证，2026-09-29）
+
+**症状**：前端某个列表**恒空且零报错** —— 接口 200、控制台干净、数据确实存在、渲染代码也对。
+
+**机制**：`server.py` 里 `include_router(...)`（含 `platform_router`，约 **1012 行**）**早于**文件底部用装饰器注册的路由（如 `@app.get("/api/users")` 在 **1522 行**）执行 ⇒ **FastAPI 按注册顺序匹配，先命中即返回**。当 `routers/platform.py` 里也有 `@router.get("/users")`（`prefix="/api"`）时，**同一路径注册两次**，`server.py` 那份是**死路由** —— 🔴 **任何在那里加的字段都不会生效**（v317 就差点白改）。
+
+**生产实测（唯一可靠判据）**：借**运行进程的 env** 导入 `server` 后打印 `app.routes`：
+```bash
+ssh root@<host> 'cd /opt/hergent-erp && while IFS= read -r -d "" kv; do \
+  case "$kv" in ERP_SECRET=*|DEEPSEEK_API_KEY=*|ENV=*) export "$kv";; esac; \
+  done < /proc/$(systemctl show -p MainPID --value hergent-erp)/environ && \
+  /usr/bin/python3 -c "
+import sys; sys.path.insert(0,\".\")
+import server
+seen={}
+for r in server.app.routes:
+    p=getattr(r,\"path\",None); m=sorted(getattr(r,\"methods\",None) or [])
+    if p and p.startswith(\"/api/users\"):
+        ep=getattr(r,\"endpoint\",None)
+        seen.setdefault(p,[]).append(\",\".join(m)+\" -> \"+getattr(ep,\"__module__\",\"?\")+\".\"+getattr(ep,\"__name__\",\"?\"))
+for p in sorted(seen):
+    for v in seen[p]: print(p, v)
+"'
+```
+v317 当时的输出：
+```
+/api/users GET -> routers.platform.list_users      ← 先注册，胜出
+/api/users GET -> server.list_users                ← 后注册，永不执行
+/api/users/{uid}/display-name PUT -> server.set_user_display_name   ← 单次注册，可达
+```
+⚠️ **直接 `import server` 会因缺 `ERP_SECRET` / `DEEPSEEK_API_KEY` 抛 `RuntimeError`** ⇒ 必须从 `/proc/<pid>/environ` 借环境；**只读 `.env` 不够**（未必含全部键）。
+
+**更省事的判据**：带凭证 `curl` 看**返回形状** —— 命中 `routers/platform.py` 那份回 `{"success":true,"data":[…],"total":N}`（`api()` 解包后前端拿到**裸数组**）；**形状与你在改的那份代码对不上 ⇒ 你改的那份没生效**。
+
+**修法两条路**（v317 选 ②）：
+1. 在 `routers/platform.py` 就地合并字段（两处实现从此必须同步，易再分叉）；
+2. ⭐ **换数据源**（优选）：改用**租户侧**已有端点（如 `/api/report-mappings/refs`）—— 租户上下文天然正确、字段齐、模块归属清晰，且**只在租户库上跑**、体积可控。
+
+**顺带踩到的过期注释**：`routers/platform.py::list_users` 的 docstring 写着「前端无调用方（已 grep 确认）」，该前提在本轮已失效（前端确实在调它）。🔴 **「生产没有 X」／「无人调用 X」都有保质期** —— 引用旧结论前必须回头复核。
+
+**通用纪律**：给某个已有接口**加字段之前**，先确认**线上生效的是哪一份实现**。`grep` 命中 `@app.get(...)` **不能证明它生效**。
+
 ## 数据层铁律
 - **新增列登记【三处】**：① `_row_to_dict` ② INSERT/UPDATE SQL ③ `update_rule` 局部元组（**漏③静默丢弃**）+ `erp_db.py` 迁移项。
 - ⭐ **新表不能只靠 `_safe_migrate`**（只跑当前上下文库）→ ①DDL 顶部常量 ②进 `_ensure_tenant_module_tables()` 的 `ddl_map` ③业务入口首行调懒建表。
@@ -356,6 +398,18 @@ SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='<表名>';
 🔴 **只查「表在不在」会漏** —— 这正是「恒空且零报错」的静默失效族。
 逐库跑：`erp.db` + 所有 `tenant_*.db`。
 
+🔴 **同一陷阱的「列」版本（v302 实证：`GET /api/period-close/status` 必崩 500）**：
+`erp_db.period_close_status()` 查 `SELECT month,status,closed_at FROM accounting_periods`，
+而建表语句 v131d 只有 `month/status/created_at` ⇒ **对所有租户 100% 崩**（不是偶发）。
+两层坑：① `SELECT 1 FROM t LIMIT 1` 这类守卫**只验表、不验列**，挡不住列缺失；
+② 守卫句被**单独**包在 try 里、而**真正会崩的 SELECT 在 try 之外** ⇒ 守卫一次都没起作用，异常直接 500。
+⇒ 修法 = 把**整段查询**纳入 try，且失败记 **warning**（原先记 `debug` = 把真实故障吞成静默失效）。
+
+🔴 **修「查了不存在的列」之前，先判该列本该不该有**（补列 vs 改 SQL 的分水岭）：
+查**有没有写入方 + 有没有消费方**。两者皆无 ⇒ **改 SQL 去掉**（补一个恒为空的列 = 造假字段）；
+有写入方 ⇒ 补列并登记启动期对账。v302 判据：全仓零写入方（`set_accounting_period` 只写 `month,status`）
+＋ 前端零引用 ⇒ 改 SQL；关账状态本就由 `status` 表达，真正的结转事实另在 `period_closures` 表。
+
 ## 洞二：窗口当主键 —— `save_matrix` 写一套窗口、`GET /extra-alloc` 读另一套
 
 **机制**：
@@ -499,4 +553,102 @@ assert os.path.realpath({r[1]: r[2] for r in m.execute("PRAGMA database_list")}[
 
 **善后模板**：`cp erp.db backups/<tag>/` → 用权威函数写回原值 → 用**只读**方式自证
 （`_verify_password` 正例 True / 反例 False）→ 只读复查全库影响面 → 删影子目录。
+
+---
+
+# §v310 导入双管线 + 「`hasattr` 扫不到」的一类缺陷（2026-09-28）
+
+## 洞一：舟谱导出若走通用导入管线 = **静默 0 行**
+
+**判据（看两处即知是不是舟谱导出）**：
+① 文件**首行是标题**（「采购明细报表」「收入单明细表」），第 2 行「导出时间：…」，
+第 3–4 行是**筛选条件块**（条件名 + 取值两行），**真表头在第 5 行**；
+② `xl/worksheets/sheet1.xml` 里的 `<dimension ref="A1"/>` **与实际列数严重不符**。
+
+实测三个真实舟谱导出文件（**正反对照**）：
+
+| 读取方式 | 采购明细 | 收入明细 | 费用明细 |
+|---|---|---|---|
+| `read_only=True` | max_row=**1** | **1** | **1** |
+| `read_only=False` | **1140** | **20** | **240** |
+| 丢失 | 1139 | 19 | 239 |
+
+而 **`routers/import_router.py` 里 5 处读表全部 `read_only=True`**（全仓 15 处全是）⇒
+这类文件在它眼里「只有一列一个格子」⇒ **「成功返回 0 行」且零报错**。
+
+**正解**：走 `routers/zhoupu_documents.py` —— 它第 59 行已写明并处理：
+> `· 读舟谱导出`**必须** `ws.reset_dimensions()`：它写的 `<dimension>` 是错的，
+> openpyxl `read_only=True` 时 `max_column` 会恒为 1，表现为「这个表只有一列」。
+
+**新增一种「舟谱导出形态」** = `SPECS` 加一条（`fields`/`required`/`sheet`）+ `do_import()` 加一个落库分支。
+`detect_file` / `bind_columns` / `iter_rows` / `RefIndex` / 单号切块 / 后台任务 / 回执 **全部复用**。
+⚠️ 新增 `SPECS` 的 `sheet` 名必须与既有互不相同（实测 5 个 sheet 名天然不同，可靠）；
+`required` 必须选**区分度高**的列，否则形态之间互相误判。
+
+**探针（必须两侧都跑，别只看一侧）**：
+`for m in (True, False): load_workbook(p, read_only=m).worksheets[0].max_row`
+—— 两侧不一致 ⇒ 该文件必须走 `zhoupu_documents`。
+
+## 洞二：`hasattr` 审计**结构上扫不到**「名字存在但签名/函数体错」
+
+- **A 类 · 已知幽灵符号族**：`db.income_order_create` / `income_order_list` / `income_category_list`
+  **未导出到 `erp_db`**（`routers/finance.py` 调用）。本轮用同一判据复现：
+
+  ```
+  erp_db.py 模块级绑定名 1163 个；`db.<attr>` 去重 960 个；erp_db 未绑定 = 101 个
+  routers/finance.py 占 29 个   ← 与 2026-09-15 登记的「29 个」读数一字不差 ⇒ 扫描有效、问题在册
+  ```
+  ⇒ **处置照在册结论**：半成品端点**该删不该补**；导入管线要落库就**在 `db/queries/` 新增函数**（绕过路由）。
+
+- **B 类 · `hasattr` 通过但调不通（本轮新发现）**：`expense_order_create`
+  ① 定义 **8 个形参** vs `routers/finance.py:579/589` 传 **15 个实参**
+  ⇒ `TypeError: takes from 3 to 8 positional arguments but 15 were given`；
+  ② 函数体内 `cur.lastrowid` 的 **`cur` 从未赋值** ⇒ 参数对齐后 `type='customer'/'supplier'` 仍 `NameError`。
+
+  🔴 **教训**：`hasattr` 只回答「名字在不在」，**回答不了「能不能调通」**。必须补两只探针：
+  - **正反对照 arity 探针**：`f(*([0]*15))` 应 `TypeError`；`f(*([0]*8))` 应抛**非 TypeError**
+    （证明 arity 通过、已进函数体）—— 两侧都跑才有判别力；
+  - **AST 扫未绑定名**：函数体内 `Store` 集合 − `Load` 集合（`cur` 就是这么找出来的）。
+  - 现有 `tools/undefined-call-scan.py` 是**未绑定名**扫描器，但它**指向了 `laozhangai-product` 仓**，
+    扫不到 `hergent-erp/server`；且 `db.<attr>` 那一族要用 **AST + `erp_db` 绑定名差集**（见 `v310i2-ghost-static.py`）。
+
+## 🔴 连带事实：「有表、有页面」≠「能写入」
+
+`erp.db` / `tenant_1.db` / `tenant_2.db` **三套库**里 `income_orders` 与 `expense_orders` **全部 0 行**。
+⇒ 判「某功能到底能不能用」，**读行数比读代码快**；`created_at` 为空/表恒 0 行 = 写入路径从未成功过。
+
+## 🔴 权限矩阵三张表 + 一条「只改默认值等于没改」（v325，2026-09-29）
+
+**改任何「默认权限」之前，先读完这三条：**
+
+1. **`_DEFAULT_PERMS` 只管「没被租户库覆盖」的角色。** 实测 `tenant_1` 有 **2 行**覆盖（`库管`/`supervisor`）、
+   `tenant_10` 有 **7 行** ⇒ 只改出厂默认，对**存量租户几乎无效**，且**全链路零报错**。
+   ⇒ 「改了默认值没效果」不是缓存问题，是**双源模型**本身。**必须同批迁库**。
+   （判据用 `core.custom_roles(tid)`，**不是** `role in perms_for(tid)` —— 后者恒真，因为 `perms_for`
+   返回的是「内置 ⊕ 覆盖」的**全量**合并结果。本轮实测踩过。）
+2. **权限表缓存无 TTL。** `perms_for(tid)` 是**进程级**缓存，`perms_rev`（版本号）与 `custom_roles`
+   才直读库。⇒ **迁库/直改库之后必须重启服务**，否则读数还是旧的。改**运行中代码**同理。
+3. **`_ALL_MODULES`（权限页可勾项）与 `_PATH_MODULE_MAP`（接口真裁决）是两回事，可能不同步。**
+   现状：`goals` **在** `_PATH_MODULE_MAP`（`/api/goals`）但**不在** `_ALL_MODULES` ⇒ 权限页不渲染；
+   `ops-workbench` / `perf` 两边都没有路径映射 = **死名字**。
+   🔴 **但这不会丢数据**：`GET /api/role-permissions` 返回 `{**_DEFAULT_PERMS, **custom}` **原文**，
+   且 **v296** 已把前端「按 `known` 过滤未知模块」删掉（`Settings.vue`：「**不认识 ≠ 丢掉**」）
+   ⇒ 保存时逐字回传。**后端「不登记」与前端「不过滤」两条必须同时成立**，缺一条就变成
+   「老板点一次保存，`goals` 从租户库静默消失」（零报错）。测试已固化 `known.has(p)` 不许回归。
+
+**撤权限比补权限危险**（补权错了只是多给，撤权错了会把客户自己配的东西一起弄没）⇒ 六条纪律见
+`tools/perms-tenant-revoke-chat.py`：① 绝不碰 admin/boss ② **绝不删行**（删行 ⇒ 角色回落内置默认、
+**丢掉客户自己加的模块**）③ 保持 list/dict 原形态 ④ 除目标模块外动到别的 ⇒ **整行跳过 + 告警**
+⑤ 幂等 ⑥ 坏 JSON 不猜。另加：备份失败要 **fail-fast**（否则跑到半途失败、输出像"跑过了"而数据未改）；
+**幂等重跑不得覆盖 `rollback.sql`**（空文件盖掉上一份 = 回滚能力静默丢失，而"跑第二遍确认幂等"是标准流程）。
+
+**`admin` 是 legacy 通配 `["*"]`**，不列模块名 ⇒ 任何「数一数谁有 X 模块」的判据**必须展开通配**
+（`m in mods or '*' in mods`，即 `core._perm_granted` 的语义），否则会把 admin 漏掉、
+得出"默认只有 boss 有"的错读数。本轮实测踩到。
+
+**AI 能力闸 = `chat` 模块**（`/api/chat`、`/api/ai`、`/api/ai/skills`、`/api/chat-attachment`、`/api/correct`）。
+出厂默认只 `admin`/`boss`；`chat` **必须在 `_ALL_MODULES` 里**（否则老板勾不到 = 「预留入口」落空）。
+撤 `chat` 是**真封锁**，前提是这两条同时成立（改前复验）：`/hermes/` 直连已被 nginx `return 403;`
+封堵（v281）、前端 `hermesChat` 只打 `/api/ai/copilot/chat`。已固化为护栏 F3 段（`.workbuddy/tools/role-registry-consistency-check.py`）。
+
 

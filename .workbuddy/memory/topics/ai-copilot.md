@@ -238,6 +238,8 @@ A5 **把网页副驾网关从 root 降权**（**不是停** —— 它是 nginx 
 
 ## 排查副驾"回复是否正常"的标准取数路径
 1. **真实回复在 `tenant_N.db` 的 `chat_sessions.messages_json`**（`erp.db` 没有这张表）—— 按 `updated_at desc` 找最新一条，**不要造数**。
+1b. **企微（IM 渠道）对话原文在租户 Hermes 的 `state.db`**：`/opt/hermes-tenants/hergent_t1/state.db` 的 `messages` 表（列 `session_id/role/timestamp/tool_name/content`；session key 见 `sessions/sessions.json`，如 `agent:main:wecom:dm:ZhangJunFeng` → `20260911_153316_f57750b7`）。timestamp 是 Unix 秒（北京时间 +8）。**mode=ro 打开**；本地写探针 scp 上去跑（`.workbuddy/tools/probe-wecom-session*.py`）。企微侧文本回复另有 `logs/gateway.log` 的 inbound/response 行可对时间轴。
+1c. 🔴 **「文件发给我了」必须查 `gateway.log` 的 `Failed to send media`**（2026-09-29 实证）：老板记忆中「PPT 用企微发给我了」，日志里是 `Timeout sending media to WeCom`，次日同文件再发是 `errcode 846609 aibot websocket not subscribed` —— **企微 MEDIA 文件回传从未成功过**（文本回复不受影响）。**用户的记忆 ≠ 送达事实；凡「已交付」类断言一律以出站日志为准。** 待修缺陷。
 2. 逐条打印 `role` + 附加字段 + 正文；**先数 assistant 条数**：>1 基本就是本文的双链路问题。
 3. 卡片字段：`type/title/summary/metrics/points/items/source/status` + 兜底卡多出 `chart/actions`（**有无 `chart`+`actions` 是区分两条链路的快捷判据**）。
 4. 是否推送到 IM → `journalctl -u hergent-erp | grep 'roles/.*/push'` + 查 `erp.db` 的 `ai_role_channels`（`role_config=NULL` 即 `push_scope='all'`）。
@@ -525,3 +527,29 @@ L1 上下文语义 = 切换时二选一「新开/继续」+ 继续时 system 显
 L2 真差别 = `ai_roles` 扩 `skills/tools/model/data_scope/guard` + **后端裁剪** + 角色权限 ∩ 用户权限(fail-closed) + per-role 审计配额。
 **战略含义**：角色字段设计 = 「行业 skill pack + 数据范围 + 渠道」的**打包单位**；不补则"AI 团队"永远停在头像切换器，
 而它占的 UI 位置（会话级配置）反而在**承诺**它做不到的事。
+
+## v319 · 角色能力三轴已落地（L2，2026-09-29）
+
+上面那条 L2「该补什么」**已经做了**。以下是落地后的事实底账，别再当成"待补"：
+
+- **三轴字段**：`ai_roles.skills` / `data_scope` / `guard`（**主库 erp.db**，不在租户库 ⇒ 无 ddl_map 三处齐问题）。
+- 🔴 **空值 = 继承现状**（技能全给 / 随用户模块权限 / 随租户 AI 模式）——**这是存量零行为变化的唯一保证**。
+  改成 fail-closed 会让老板一升级就发现副驾不会订货了，**且零报错**。单测 `test_B1` 看守。
+- 🔴 **唯一取值口 = `ai_roles.role_caps(tid, role_id, user_modules, ai_mode)`**。
+  所有消费方（代理拼 system / 执行面裁决 / 前端展示）都必须走它 —— 别在别处自己拼 `skills ∪ data_scope`。
+  三个"∩"：技能 ∩ 目录、数据范围 ∩ **用户模块权限**、权限档 ∩ **租户 AI 模式**（都只能收窄）。
+- 🔴 **`guard` 与 `ai_mode` 的关系**：`ai_mode` 取值是 `auto/readonly/disabled`（**不是 full**），
+  存 `system_config` 表，读口 = `erp_db.get_ai_mode()`。**曾经凭印象写成 `settings` 表 + `full`**：
+  那样 `mode_allows_execute` 恒 False ⇒ 全员降级成"只给建议"，零报错。
+- 🔴 **剥离前端人设要试两个前缀**（先长后短：`system_prompt`（含协议）→ `persona_raw`）：
+  前端 system =「人设 + 上下文」，只试长前缀时"前端缓存旧人设"那一路**静默剥不掉 ⇒ 人设下发两遍**。
+  判据 = **精确前缀匹配**，不匹配就整段保留（宁可多一份人设，绝不误删经营画像/日志）。
+- 🔴 **前端 system 原本混在 `messages[0]`**，后端读独立字段 `d.system` ⇒ 后端权威拼装**被整条绕过且现象正常**。
+  后端已改为"先剥离 messages 里的 system 再加回"。改这条链的人先确认 `E5` 用例。
+- **执行面硬拦截**在 `hermes_core.execute_tool(..., ai_role)`，角色来源 = **专用头 `X-AI-Role`**
+  （🔴 **不许从 `body.role` 取** —— 桌面版的 `role` 里 `accountant` 与 WEB 内置 AI 角色同名，
+  从 body 取会让桌面版普通对话被拦下写操作）。当前**无调用方带该头 ⇒ 未通电**（刻意的零变化）。
+- **前端呈现**：消息级角色快照（`m.roleMeta`，修掉"切角色追溯改写历史署名"）、切换分隔标记（`isSwitch`，
+  **发送时必须过滤**）、常驻「将由 X 回答」、`RoleManage` 能力配置弹窗（可选项来自 `/api/ai/role-catalog`）。
+
+🔴 **未做**：数据范围的**执行面**拦截（现为提示词层软边界）；`/api/bot/*` 的 token 洞（见今日日志 v319 段）。
