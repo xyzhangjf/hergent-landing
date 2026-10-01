@@ -471,3 +471,155 @@ E 段用 `sqlite3 :memory:` 建 `rebate_target_rules` ＋ `rebate_rule_month_loc
 实测 `avg-target?period_id=19&product_ids=1596,...`：
 `蒙牛鲜奶 reason='' effective_count=15 remaining=2` ⇒ `1596` 的
 `no_target` / `no_convert` / `no_rule` / `no_dates` **四类 flag 全清**。
+
+---
+
+## 🔴 v360（2026-10-01）：比例返利**允许填 0** —— 「区分『空』与『0』」是动手前提
+
+**用户诉求**：目标与返利模块创建品牌目标 / 商品目标时，返利框填 `0`（含 `0.00`）应能保存，
+表达「**当月确实没有返利**」；空值 / 负数 / 非数字的拦截**保持不变**。
+
+### 一、🔴 难点不是「改边界」，而是「区分三者」
+
+```
+_coerce_num('')    → 0
+_coerce_num('abc') → 0     ← 三者完全同形
+float('0')         → 0
+```
+
+⇒ 只把 `0 <` 放宽成 `0 <=`，会**同时放行空值与非数字**（用户明确要求这两者继续拦）
+⇒ 判据必须**两段式**：先判「**是不是显式给出的数字**」，再判「在不在 `[0,1]`」。
+
+**新增 `_is_num_like(v)`（`server/routers/rebate_rules.py`，紧跟 `_coerce_num` 之后）**
+```python
+def _is_num_like(v):
+    if v is None or isinstance(v, bool):
+        return False          # 🔴 bool 是 int 子类 ⇒ float(True)=1，不显式挡会被当合法 100% 放行
+    if isinstance(v, (int, float)):
+        return True
+    if isinstance(v, str):
+        s = v.strip()
+        if not s:
+            return False      # 空串 / 纯空白 ⇒ False
+        try:
+            float(s); return True
+        except ValueError:
+            return False
+    return False
+```
+实测取值：`0` / `0.0` / `'0'` / `'0.00'` / `-0.1` / `1` ⇒ **True**；
+`''` / `'   '` / `None` / `'abc'` / `True` / `False` / dict / list ⇒ **False**。
+🔴 **负数是数字**（返回 True）⇒ 落在**范围**那一段 ⇒ 仍然被拦 —— 这正是「负数校验不变」的实现方式。
+
+**判据本体（原一行 → 两段式）**
+```python
+if rebate_basis == "rate" and not _has_mr and not rhythm_only:
+    if not _is_num_like(r.get("rebate_rate")):
+        errors.append("比例返利(rebate_rate)必须是数字（本月确实没有返利请填 0，不要留空或填非数字）")
+    elif not (0 <= rebate_rate <= 1):
+        errors.append("比例返利(rebate_rate)须在 [0,1] 之间(如 0.03=3%；填 0 = 本月无返利)")
+```
+
+### 二、三处同病（本轮一并收敛）
+
+| # | 位置 | 症状 |
+|---|---|---|
+| ① | `hergent-cn-v2/src/components/rebate/useRebateTargetForm.js` 月表过滤 | `Number(r.ratePct) > 0` 把用户填的 0 当「没填」**丢掉** |
+| ② | `server/routers/rebate_rules.py` `validate_rule` | `not (0 < rebate_rate <= 1)` 判 0 非法（且**分不清空与 0**） |
+| ③ | `hergent-cn-v2/src/pages/Rebate.vue` 两处展示 | truthy 判定把**已合法保存的 0** 显示成「—」（看起来像"没填"） |
+
+### 三、🔴 ① 才是真金白银的那条 —— `resolve_month_rate` 的「向前找」陷阱
+
+`monthly_rates` = `{}`（9 月被丢掉）⇒ `resolve_month_rate` 取 9 月返利率时会
+**向前回绕找最近有值的月**（既有语义）⇒ **把 10 月的 10% 静默套到 9 月**，
+**凭空多出返利、且零报错**。比「填 0 存不了」贵得多。
+
+**修法**（两行过滤条件**故意不对称**，注释里写明「别顺手统一」）：
+```js
+// 金额：金额 0 万元 = 该月没有目标 = 留空 ⇒ 0 绝不能落库 ⇒ truthy 是对的
+if (r.amtWan != null && Number(r.amtWan) > 0) monthlyAmounts[r.mm] = Math.round(Number(r.amtWan) * 10000)
+// 返利率：0 = 有效业务事实（该月无返利）⇒ 显式给出的数字一律落库
+if (r.ratePct != null && r.ratePct !== '' && !isNaN(Number(r.ratePct))) {
+  monthlyRates[r.mm] = Math.round(Number(r.ratePct) * 1000) / 100000
+}
+```
+🔴 **`ratePct` 单位是「百分数」**（界面框「返利率（%）」placeholder「如 10」= 10%）
+⇒ 换算 `Math.round(pct * 1000) / 100000`，`10 ⇒ 0.1`。
+**写成 `0.1` 表示的是 0.1% ⇒ `0.001`**（本轮护栏踩过这个坑，是护栏自己写错、不是代码错）。
+
+### 四、🔴 「空值」这条判据**只能落在前端**
+
+后端分不清「空」与「0」（经 `_coerce_num` 完全同形）⇒ 前端补：
+
+1. `defaultForm().rebate_rate` 初值 `0` ⇒ **`''`**
+   （否则用户什么都不动、初值 0 也会被当成"填了 0"）。
+2. `TargetFormModal.vue` `save()`：
+```js
+if (f.trigger_mode === 'on_target' && f.rebate_basis === 'rate') {
+  const _rr = f.rebate_rate
+  const _rrBlank = (_rr === '' || _rr == null)
+  if (!monthlyOn.value && (_rrBlank || isNaN(Number(_rr)))) {
+    toast('请填写返利值 —— 本月确实没有返利请填 0，不要留空', 'error'); return
+  }
+  if (!_rrBlank && (Number(_rr) < 0 || Number(_rr) > 1)) {
+    toast('返利比例须 0~1（如 0.02 = 2%；填 0 = 本月无返利）', 'error'); return
+  }
+}
+```
+🔴 必须有 `!monthlyOn.value` 守卫 —— 月度分解下 `f.rebate_rate` 是「**最早非零月**」的
+投影值（`rebate_rules.py` 约 1127-1131 行兜底逻辑），在那里判空会**误报**。
+
+### 五、月份锁：**只认 `monthly_amounts`**
+
+`covered_months()` 有 `amounts` 就**只按它的键**展开 ⇒ 只填了返利率的月**不占锁**，
+`monthly_rates` 里放 0 **不会白占月份、挡别的规则**。
+反过来，金额侧的 `> 0` 过滤**必须保留**（金额 0 万元 = 该月没有目标 = 留空）。
+
+### 六、刻意未动（**观察项 O**）
+
+- `fixed` 模式 `rebate_amount = 0` **仍拦**（固定金额 0 存不进库）。用户没提，**不动**。
+- `rhythm_only`（只配节奏不设目标，见上文 §v282）路径不动。
+- **返利试算侧零改动**：`domain/rebate_calc.py` 早有
+  `if basis <= 0 or rate <= 0: return 0.0, False` ⇒ 不除零、不产生返利。**无需改**。
+
+### 七、连带确认的既有契约
+
+`update_rule` **先 merge 现有行**（白名单逐字段覆盖 `merged = dict(existing)`）
+⇒ `Rebate.vue` 的**局部更新** `update(r.id, { is_active })` **不会被新判据误伤**（已实测钉住）。
+
+### 八、验收读数（四层）
+
+- **护栏 39 条全绿**（`server/tools/v360-rebate-zero-harness.py`）：
+  A 0 放行 · B 仍拦 · C 月度语义 · D 兼容 · E **真跑前端函数** · F 坏法对照。
+  🔴 **E 组价值**：`useRebateTargetForm.js` 是**零依赖纯 ESM**（文件头写明「可在 node 下直接跑单测」）
+  ⇒ 用 `node --input-type=module` **直接 import 前端函数**，比源码字符串钉强得多。
+- **真机端点**：`POST /api/rebate-rules/validate`（`rebate_rules.py:1968`，**仅校验不落库**，零写入入口）
+  `0` / `0.0` / `'0'` / `'0.00'` 全放行；`''` / `'abc'` / `-0.1` / `1.5` 全被拦，
+  且报错文案分别落在「必须是数字」与「须在 [0,1]」**两段**。
+- **构建归因**：56 对 asset 全配对，**54 个归一化后逐字节相同**，只有
+  `Rebate-*.js +271 B` / `Rebate-*.css +0 B` 真变（后者是 Vue scoped CSS 的 scopeId 随内容变）⇒ **零夹带**。
+- **界面端到端 18 通过 / 0 失败**：真实写库 + `DELETE ...?hard=1` 硬删除自清理
+  ⇒ 生产规则数 **3 → 4 → 5 → 3** 自证零残留。
+
+### 九、🔴 两条「假绿」教训（探针纪律，跨域通用）
+
+1. **`closed === false` 在「弹窗**从未打开**」时也成立** ⇒ 把"从没打开"误判成"创建成功后关闭"。
+   ⇒ 纪律：**凡是「某事之后状态应为 X」的断言，都必须先证明「某事之前状态不是 X」**。
+2. **探针漏传参数** ⇒ 4 条对照全用默认值 `rebate_rate=0` 在跑 ⇒ 全部报"无错误"（假绿）。
+   ⇒ 纪律：**对照组必须至少有一条报错，否则先怀疑参数没传进去**。
+
+### 十、业务测试用「空闲品牌」
+
+生产 `tenant_1` 4 个品牌里**只有「新希望」2026 年无任何目标**
+（`蒙牛低温` 12 个月全占、`蒙牛鲜奶` / `简爱` 各占 9/10）
+⇒ 测试**必须换品牌或换年份**，否则撞月份锁 409。
+
+### 十一、上线记录
+
+- 后端 `hergent-erp` commit **`15825fc`**（2 files / +401 −2，含护栏）
+- 前端 `hergent-cn-v2` commit **`e01dea5`**（3 files / +49 −5）
+- 生产入口 `index-1ZfsDoC9.js`；assets **2456 → 2486（+30，与差集精确吻合）**；
+  线上 `index.html` md5 双侧全等；备份 `/root/backup/v360/`
+- 生产现状取证（改动前）：`tenant_1.rebate_target_rules` 共 **3 条**
+  （全 `brand` + `rate`），**0 条含 `monthly_rates=0`**、**0 条** `rebate_rate=0 且有目标值`、
+  `fixed` 模式 **0 条** ⇒ **缺陷今天还看不出，用户正要开始用**（这也是本轮值得修的原因）。
