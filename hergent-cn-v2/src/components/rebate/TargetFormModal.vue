@@ -618,7 +618,23 @@ async function save() {
   if (f.order_first_date && !leadValid.value) {
     toast(leadErr.value || '「提前天数」须为 0~30 的整数', 'error'); return
   }
-  if (f.trigger_mode === 'on_target' && f.rebate_basis === 'rate' && (f.rebate_rate < 0 || f.rebate_rate > 1)) { toast('返利比例须 0~1', 'error'); return }
+  // v360：比例返利**允许填 0**（= 本月确实没有返利），但**留空 / 非数字仍然拦**。
+  //   🔴 这条「空值」判据只能在前端做：后端 `_coerce_num('', 0)` 与 `float('0')` 都得到 0，
+  //      光看后端根本无法把「没填」与「显式填 0」分开（故 defaultForm 的初值特意用 ''，
+  //      见 useRebateTargetForm.js 的注释）。后端另有一条同源判据 `_is_num_like` 兜底直连 API。
+  //   为什么只判单值模式（!monthlyOn）：月度分解下 f.rebate_rate 是「最早非零月」的**投影值**，
+  //      由月表算出（下方 monthlyOn 分支），不是用户直接填的那一格 —— 在那里判空会误报。
+  //   月度模式下的「空」由月表门槛负责：「请至少填写一个月的返利率」（只认真正填过的月）。
+  if (f.trigger_mode === 'on_target' && f.rebate_basis === 'rate') {
+    const _rr = f.rebate_rate
+    const _rrBlank = (_rr === '' || _rr == null)
+    if (!monthlyOn.value && (_rrBlank || isNaN(Number(_rr)))) {
+      toast('请填写返利值 —— 本月确实没有返利请填 0，不要留空', 'error'); return
+    }
+    if (!_rrBlank && (Number(_rr) < 0 || Number(_rr) > 1)) {
+      toast('返利比例须 0~1（如 0.02 = 2%；填 0 = 本月无返利）', 'error'); return
+    }
+  }
   if (f.dimension === 'brand' && f.scope_name && !props.brandOptions.includes(f.scope_name)) { toast('品牌「' + f.scope_name + '」不在品牌档案中，请先创建', 'error'); return }
   if (f.dimension === 'brand' && f.scope_name) f.scope_key = f.scope_name.trim()
   if (f.dimension === 'product' && f.scope_name) f.scope_key = resolveProductKey(f.scope_name)

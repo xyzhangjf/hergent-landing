@@ -920,8 +920,12 @@
                 <tbody>
                   <tr v-for="mm in MONTHS_12" :key="mm">
                     <td>{{ mm }} 月</td>
+                    <!-- 上面金额用 truthy 判是**对的**：金额 0 = 该月没有目标，本就该显示「—」。
+                         下面是 v360 改的：返利率用 `!= null` 判 —— 用户填的 **0%**（该月确实没有返利）
+                         是有效值，若沿用 truthy 会被显示成「—」，看起来像"没填"（静默）。
+                         两行不对称是有意的，别顺手统一。 -->
                     <td>{{ detailRule.monthly_amounts && detailRule.monthly_amounts[mm] ? '¥' + fmt(detailRule.monthly_amounts[mm]) : '—' }}</td>
-                    <td class="dt-ok">{{ detailRule.monthly_rates && detailRule.monthly_rates[mm] ? (detailRule.monthly_rates[mm] * 100).toFixed(1) + '%' : '—' }}</td>
+                    <td class="dt-ok">{{ detailRule.monthly_rates && detailRule.monthly_rates[mm] != null ? (detailRule.monthly_rates[mm] * 100).toFixed(1) + '%' : '—' }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1662,7 +1666,10 @@ function dimText(d) { return d === 'brand' ? '品牌' : d === 'product' ? '单�
 function periodText(p) { return { month: '月', quarter: '季', year: '年', custom: '自定义' }[p] || p }
 function triggerText(t) { return t === 'on_target' ? '达成即返' : t === 'tiered' ? '阶梯' : t }
 function rebateText(r) {
-  if (r.rebate_basis === 'rate') return r.rebate_rate ? (r.rebate_rate * 100).toFixed(1) + '%' : '—'
+  // v360：rate 用 `!= null` 判 —— 用户填的 **0%**（该目标确实没有返利）是**有效值**，
+  //   用 truthy 会把已合法保存的 0 显示成「—」，看起来像"没填"（静默，且与「保存时 0 是允许的」自相矛盾）。
+  //   下面 fixed 那行**保持 truthy**：固定金额 0 目前仍被后端拦（存不进库），显示「—」不产生歧义。
+  if (r.rebate_basis === 'rate') return (r.rebate_rate != null && r.rebate_rate !== '') ? (r.rebate_rate * 100).toFixed(1) + '%' : '—'
   return r.rebate_amount ? '¥' + r.rebate_amount : '—'
 }
 function fmtTarget(r) {

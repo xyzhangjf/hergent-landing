@@ -142,8 +142,24 @@ export function buildMonthlyPayloads(rows) {
   const monthlyRates = {}
   const monthlyTiers = {}
   for (const r of (rows || [])) {
+    // 🔴 v360：下面两行的过滤条件**故意不对称**，别顺手「统一」掉：
+    //   · amtWan > 0 —— 金额 0 万元 = **该月没有目标**（= 留空）。0 绝不落库：
+    //     否则 12 个月各多出一格 0，`covered_months`（只认 monthly_amounts）会把整年
+    //     都算成「已占用」⇒ 白占月份锁、挡住别的规则。
+    //   · ratePct    —— 返利率 0% 是**有效业务事实**（该月厂家确实没返利），**必须存下来**。
+    //     旧写法用 `> 0` 把它当空丢掉，造成两个后果（本轮修的就是它）：
+    //       ① 用户填的 0 静默消失 ⇒ 后端 monthly_rates 为空 ⇒ 保存报
+    //          「请至少填写一个月的返利率」（表象：**填 0 存不了**）；
+    //       ② 更贵的一条：`resolve_month_rate` 对「该月不在 rates 里」的规则会**向前找**
+    //          最近有值的月 ⇒ 9 月填的 0 丢掉后，会把 10 月的 10% **静默套到 9 月**，
+    //          凭空多出返利（真金白银的错，且零报错）。
+    //   · `!== ''` 是为了把「留空」与「显式填 0」分开：emptyMonthlyRows 用 null 表示未填，
+    //     用户敲 0 后是 number 0。用户要求「空值校验不变」⇒ 空仍由 save() 拦，
+    //     所以这里必须区分，不能只判 `!= null`。
     if (r.amtWan != null && Number(r.amtWan) > 0) monthlyAmounts[r.mm] = Math.round(Number(r.amtWan) * 10000)
-    if (r.ratePct != null && Number(r.ratePct) > 0) monthlyRates[r.mm] = Math.round(Number(r.ratePct) * 1000) / 100000
+    if (r.ratePct != null && r.ratePct !== '' && !isNaN(Number(r.ratePct))) {
+      monthlyRates[r.mm] = Math.round(Number(r.ratePct) * 1000) / 100000
+    }
     const ts = buildTiersPayload(r.tiers)
     if (ts.length) monthlyTiers[r.mm] = ts
   }
@@ -238,7 +254,12 @@ export function defaultForm({ presetDim = 'brand', defaultCadence = 2, currentYe
     target_value: 0,
     trigger_mode: 'on_target', trigger_threshold: 1,
     target_year: currentYear, target_unit: '',
-    tiers_json: '', rebate_basis: 'rate', rebate_rate: 0, rebate_amount: 0,
+    tiers_json: '', rebate_basis: 'rate',
+    // 🔴 v360：初值是 `''` 而**不是** 0 —— 这样「用户没填」与「用户显式敲了 0」在前端可区分。
+    //    验收要求是「填 0 能存、留空仍然拦」，而这两件事在后端**分不开**：
+    //    `_coerce_num('', 0)` 与 `float('0')` 都得到 0。所以这个区分只能落在前端，
+    //    初值必须与「用户敲的 0」不同值，故用空串。save() 里据此拦住未填。
+    rebate_rate: '', rebate_amount: 0,
     effective_start: '', effective_end: '', priority: 0, is_active: 1,
     scale_type: 'non_graduated', rounding_mode: 'half_up', rounding_digits: 2,
     // 旧到货语义（v121 起 UI 不再编辑，保留只为未迁移老规则的回退口径）
