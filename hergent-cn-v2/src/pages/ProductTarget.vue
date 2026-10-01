@@ -147,6 +147,9 @@
                       <b>分解到人</b>
                       <span class="pt-quiet">
                         Σ 分解 = {{ fmt(r.alloc_total) }} 箱（必须等于目标 {{ fmt(r.target_qty) }} 箱）
+                        <b v-if="allocTotalGap(r)" class="pt-alloc-bad">
+                          —— 差 {{ fmt(allocTotalGap(r)) }} 箱
+                        </b>
                       </span>
                     </div>
                     <table class="pt-sub">
@@ -289,8 +292,10 @@
 
               <label class="pt-lb">目标量（箱）</label>
               <div class="pt-qty">
+                <!-- v358：总量是落定的**分母** ⇒ 它一改，各人的分摊数量必须跟着重算。
+                     以**比例**为源（"只改总量"不该动比例），与后端「只改目标量」那条分支同规则。 -->
                 <input v-model.number="form.target_qty" type="number" min="0" step="1"
-                       class="fld pt-qty-in" aria-label="目标量">
+                       class="fld pt-qty-in" aria-label="目标量" @change="onTargetQtyCommit">
                 <span class="pt-qty-u">{{ pickedUnit || '箱' }}</span>
                 <!-- 🔴 v264b：这里**必须**复用 convText(p)，不能自己拼。
                      原实现拼的是「pickedPerCase + 小单位名」，而那个值是
@@ -325,26 +330,47 @@
               <div class="pt-col">
                 <div class="pt-col-hd">
                   <b>分解到人</b>
-                  <span class="pt-sigma" :class="sigmaOk ? 'ok' : 'bad'">
-                    合计 {{ fmt(sigmaPct) }}%
-                    {{ sigmaOk ? '' : (sigmaPct < 100 ? '，还差 ' + fmt(100 - sigmaPct) + '%'
-                                                      : '，多了 ' + fmt(sigmaPct - 100) + '%') }}
+                  <!-- v358：合计条改成一个数说完两件事 —— 因为**它们本来就是一件事**
+                       （Σ比例=100 ⟺ Σ数量=目标量，见 script 里的论证）。
+                       摆两个独立的百分比/箱数只会让人以为要同时满足两个条件。 -->
+                  <span class="pt-sigma" :class="qtyOk ? 'ok' : 'bad'">
+                    合计 {{ fmt(qtySum) }} 箱 / 目标 {{ fmt(qtyTotal) }} 箱
+                    · {{ fmt(sigmaPct) }}%{{ qtyOk ? '' : qtyGapText }}
                   </span>
                   <button class="btn btn-ghost btn-sm pt-split" @click="splitEven">平均分配</button>
                 </div>
                 <div class="pt-col-bd">
                   <table class="pt-sub pt-sub-in">
                     <thead>
-                      <tr><th>承接人</th><th class="num">占比%</th><th class="num">目标(箱)</th><th></th></tr>
+                      <!-- v358：两列都可填。谁被编辑谁就是「源」，另一列由后端落定后回填。 -->
+                      <tr><th>承接人</th><th class="num">占比%</th><th class="num">分摊数量(箱)</th><th></th></tr>
                     </thead>
                     <tbody>
                       <tr v-for="m in members" :key="m.employee_id">
                         <td>{{ m.employee_name }}</td>
                         <td class="num">
-                          <input v-model.number="m.ratio" type="number" min="0" max="100" step="1"
-                                 class="fld pt-ratio" :aria-label="m.employee_name + ' 占比'">
+                          <!-- 🔴 必须 `type="text"`：`type="number"` 会把中文输入法打出的
+                               `１２。５` **静默改成 `125`**（小数点被吃掉、数量放大 10 倍），
+                               而且没有任何提示。改成 text 后原串原样收下来，交给后端归一。 -->
+                          <input class="fld pt-num" type="text" inputmode="decimal"
+                                 :class="{ 'pt-num-bad': allocBad['r:' + m.employee_id] }"
+                                 :aria-label="m.employee_name + ' 分摊比例'"
+                                 :value="allocFocus === ('r:' + m.employee_id) ? allocRaw : fmt(m.ratio)"
+                                 @focus="onAllocFocus($event, 'ratio', m.employee_id)"
+                                 @input="onAllocInput($event, 'ratio', m.employee_id)"
+                                 @change="onAllocCommit($event, 'ratio', m.employee_id)"
+                                 @blur="onAllocBlur('ratio', m.employee_id)">
                         </td>
-                        <td class="num">{{ fmt(allocBox(m)) }}</td>
+                        <td class="num">
+                          <input class="fld pt-num" type="text" inputmode="decimal"
+                                 :class="{ 'pt-num-bad': allocBad['q:' + m.employee_id] }"
+                                 :aria-label="m.employee_name + ' 分摊数量（箱）'"
+                                 :value="allocFocus === ('q:' + m.employee_id) ? allocRaw : fmt(m.target_qty)"
+                                 @focus="onAllocFocus($event, 'qty', m.employee_id)"
+                                 @input="onAllocInput($event, 'qty', m.employee_id)"
+                                 @change="onAllocCommit($event, 'qty', m.employee_id)"
+                                 @blur="onAllocBlur('qty', m.employee_id)">
+                        </td>
                         <td>
                           <button class="btn-icon" title="移除" @click="rmMember(m.employee_id)">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -353,7 +379,7 @@
                         </td>
                       </tr>
                       <tr v-if="!members.length">
-                        <td colspan="4" class="pt-quiet">从左栏点员工加入。至少要 1 人、占比合计 100%。</td>
+                        <td colspan="4" class="pt-quiet">从左栏点员工加入。至少要 1 人，分摊数量合计要等于目标量。</td>
                       </tr>
                     </tbody>
                   </table>
@@ -361,11 +387,16 @@
               </div>
             </div>
 
+            <div v-if="allocErr" class="pt-save-err">{{ allocErr }}</div>
+            <div v-if="allocHasBad" class="pt-save-err">
+              有一格不是数字，已按 0 计 —— 请改成数字（支持中文输入法打出的全角数字与中文句号，
+              例如「３３。３」会自动当作 33.3）。
+            </div>
             <div v-if="saveErr" class="pt-save-err">{{ saveErr }}</div>
           </div>
 
           <div class="pt-modal-ft">
-            <span class="pt-quiet">目标量{{ editing ? '' : '与分解比例' }}保存后立即生效</span>
+            <span class="pt-quiet">目标量{{ editing ? '' : '与分解' }}保存后立即生效</span>
             <button class="btn btn-ghost btn-sm" @click="closeModal">取消</button>
             <button class="btn btn-primary btn-sm" :disabled="!canSave || saving" @click="save">
               {{ saving ? '保存中…' : '保存' }}
@@ -623,6 +654,13 @@ function gapClass(r) {
   const g = gapOf(r)
   return g > 0 ? 'pt-gap-pos' : (g < 0 ? 'pt-gap-neg' : '')
 }
+/* v358：列表里「Σ 分解 vs 目标」的差。**只在真的差出来时才说话** ——
+   落定之后两者本该精确相等，所以正常态一个字都不显示（本项目对纯状态文案零容忍）；
+   0.001 级以下视为相等（旧规则存下来的历史行可能有这点尾差，不该吓用户）。 */
+function allocTotalGap(r) {
+  const d = Math.round(((Number(r.alloc_total) || 0) - (Number(r.target_qty) || 0)) * 1000) / 1000
+  return Math.abs(d) < 0.0005 ? 0 : d
+}
 function avgOf(r) {
   const it = avgById.value[String(r.product_id)]
   if (!it) return null
@@ -696,19 +734,159 @@ const candEmps = computed(() => {
     return String(e.name || '').includes(kw)
   })
 })
-const sigmaPct = computed(() =>
-  Math.round(members.value.reduce((s, m) => s + (Number(m.ratio) || 0), 0) * 100) / 100)
-const sigmaOk = computed(() => Math.abs(sigmaPct.value - 100) <= 0.01)
+/* ══ v358：分解到人 = 比例(%) ↔ 数量(箱) **双向联动** ════════════════════════════════
+   用户 2026-10-01：「目前仅支持填写分摊比例，分摊数量只能由比例自动推算，无法手动填写。
+   请调整该功能，使分摊数量支持手动填写，并实现分摊比例与分摊数量的双向联动 …
+   且需保证两者数值与总量始终一致、不出现误差。」
+
+   🔴🔴 先立住那条**唯一不变量**（否则每步都会走偏）：
+       Σ比例 = Σ(数量ᵢ ÷ 总量 × 100) = 100 × Σ数量ᵢ ÷ 总量
+       ⇒ **Σ比例 = 100 ⟺ Σ数量 = 总量** —— 两个守恒式**不是两条约束，是一条**。
+       既然只有一条，就只能有一个源头 ⇒ **数量是守恒侧，比例由数量反算**。
+       （反过来把比例当源头、数量由 `round(总量×比例/100, 3)` 派生，四舍五入后
+        Σ数量 会差 0.001 级 —— 旧实现正是这么算的：总量 101、比例 33.33/33.33/33.34
+        ⇒ 33.663/33.663/33.673 ⇒ Σ=100.999，而界面上就写着「Σ 分解 必须等于 目标」。）
+
+   🔴 三条纪律（改这段前先读）：
+     ① **落定只在后端**（`POST /product-targets/alloc-preview`）。本页不做任何本地换算 ——
+        与文件头第 ① 条纪律同一条。旧版本在这里自己算了一份：`allocBox` 走 **2 位**、
+        后端存 **3 位** ⇒ 总量=7 时**同一屏上一个显示 6.99、一个存 7**（本轮实测）。
+        本页只负责「记住用户正在打哪一格 + 把原串发过去 + 渲染返回值」。
+     ② **源侧原样**：用户刚敲的那一格，回填不得改写它 —— 否则敲到一半的数字会被后端
+        的四舍五入值顶掉（"填了不算"）。所以用 `allocFocus` 记住正在输入的格，
+        在它失焦 / 本次落定回来之前，一直显示用户自己的原始串。
+     ③ 数字格一律 `type="text"`：`type="number"` 会把中文输入法的 `１２。５`
+        **静默改成 `125`**（小数点被吃掉、数量放大 10 倍，且零提示）。
+        归一（全角数字 / 中文句号 → 半角）由后端既有唯一实现 `normalize_num_text` 做。 */
+const allocBusy = ref(false)
+const allocFocus = ref('')      // 'r:<eid>' / 'q:<eid>'；'' = 当前没有格子在输入
+const allocRaw = ref('')        // 那一格的**原始串**（未解析）
+const allocBad = ref({})        // { 'r:3': true } —— 后端判定为非数字的格（标红）
+const allocErr = ref('')
+let _allocSeq = 0               // 过期响应丢弃（连改会并发多个请求）
+
+const _r2v = (v) => Math.round((Number(v) || 0) * 100) / 100
+const _r3v = (v) => Math.round((Number(v) || 0) * 1000) / 1000
+
+const sigmaPct = computed(() => _r2v(members.value.reduce((s, m) => s + (Number(m.ratio) || 0), 0)))
+const sigmaOk = computed(() => Math.abs(sigmaPct.value - 100) <= 0.005)
+/* 数量侧的两个数由**已落定的行值**相加而来（不是再算一遍口径：这些数就是后端刚发回来的，
+   相加只是把它们摆到一起）。判据用 0.005 箱的容差 —— 落定之后本该**精确**相等，
+   这点余量只用来吸收浮点加法噪声，真缺口是箱级/十箱级，绝不会被这点容差放过。 */
+const qtySum = computed(() => _r3v(members.value.reduce((s, m) => s + (Number(m.target_qty) || 0), 0)))
+const qtyTotal = computed(() => Number(form.target_qty) || 0)
+/* 🔴 目标量 > 0 必须并进判据：目标量还没填时它是 0，而各人数量也全是 0 ⇒ **两个 0 恰好
+     相等**，合计条会亮绿灯说"对上了"，用户以为填完了。这类「两个空值阴差阳错对上」是
+     本项目反复付学费的形态。后端 `_validate_allocs` 用的是**同一条**判据（同款理由）。 */
+const qtyOk = computed(() =>
+  qtyTotal.value > 0 && members.value.length > 0
+  && Math.abs(qtySum.value - qtyTotal.value) <= 0.005)
+const qtyGapText = computed(() => {
+  if (qtyOk.value || !members.value.length) return ''
+  if (!(qtyTotal.value > 0)) return '，请先填目标量'   // 没有分母 ⇒ 别报一个假的"还差 N 箱"
+  const d = _r3v(qtySum.value - qtyTotal.value)
+  if (Math.abs(d) < 0.0005) return ''
+  return d > 0 ? ('，多了 ' + fmt(d) + ' 箱') : ('，还差 ' + fmt(-d) + ' 箱')
+})
+const allocHasBad = computed(() => Object.keys(allocBad.value).length > 0)
+
 const canSave = computed(() => {
   if (!editing.value) {
     if (!form.product_id || !form.period_month) return false
-    if (!(Number(form.target_qty) > 0)) return false
-  } else if (!(Number(form.target_qty) > 0)) return false
-  return sigmaOk.value && members.value.length > 0
+  }
+  // 目标量是分母 ⇒ 没有它就无从判「Σ数量 = 目标量」（编辑态、新建态都要过这一关）；
+  // 上一版把它在 `else if` 里又写了一遍，属同一条判据写两处 ⇒ 收成一处。
+  if (!(Number(form.target_qty) > 0)) return false
+  // v358：门禁从「Σ比例 = 100」改为「**Σ数量 = 目标量**」—— 两者等价（见上方论证），
+  //   但数量这条能同时钉住两列。再叠一条「没有非数字的格」，否则坏格子会以 0 混进合计。
+  return qtyOk.value && !allocHasBad.value && members.value.length > 0
 })
 
-function allocBox(m) {
-  return Math.round((Number(form.target_qty) || 0) * (Number(m.ratio) || 0)) / 100
+/* ── 落定：把「谁改了、改成了什么」交给后端，拿回落定后的两列 ─────────────────────
+   `axis` = 'ratio' | 'qty'（用户改的是哪一列）；`raw` = 那一格的**原始串**（未解析）。
+   ⚠️ `eid` 传 `null` = 这一轮**没有任何格子被单独改写**（例如只改了目标量）——
+      此时两列都按当前值算，`source` 只决定「谁是源」。 */
+const allocKey = (axis, eid) => (axis === 'ratio' ? 'r:' : 'q:') + eid
+
+async function runAllocSettle(axis, eid, raw) {
+  if (!members.value.length) return
+  const key = allocKey(axis, eid)
+  const seq = ++_allocSeq
+  allocBusy.value = true
+  allocErr.value = ''
+  try {
+    const allocs = members.value.map(m => {
+      const same = (eid != null) && Number(m.employee_id) === Number(eid)
+      return {
+        employee_id: m.employee_id,
+        ratio: (same && axis === 'ratio') ? raw : m.ratio,
+        target_qty: (same && axis === 'qty') ? raw : m.target_qty,
+      }
+    })
+    const d = await productTargetsApi.allocPreview({
+      targetQty: Number(form.target_qty) || 0, source: axis, allocs,
+    })
+    if (seq !== _allocSeq) return                 // 过期响应直接丢弃
+    const by = {}
+    ;(d.items || []).forEach(x => { by[Number(x.employee_id)] = x })
+    members.value = members.value.map(m => {
+      const x = by[Number(m.employee_id)]
+      return x ? { ...m, ratio: x.ratio, target_qty: x.target_qty } : m
+    })
+    const bad = {}
+    ;((d.meta && d.meta.bad) || []).forEach(b => {
+      // 只认这两列（后端还会回一条 `field:'total'`，那是总量格的问题，本页总量格是数值框、
+      //   走不到这里；显式挡掉免得它落到某一行上）。
+      if (b.field === 'ratio' || b.field === 'qty') bad[allocKey(b.field, b.employee_id)] = true
+    })
+    allocBad.value = bad
+    /* 这一格的落定值已经回来了 ⇒ 收起原始串、显示落定值。
+       🔴 两道都要判：① 聚焦格还是它；② **原始串没变** —— 用户按回车提交后又接着敲，
+         这两个条件不同时成立，此时**绝不能**把还在打字的格子顶掉。 */
+    if (allocFocus.value === key && allocRaw.value === raw) allocFocus.value = ''
+  } catch (e) {
+    if (seq === _allocSeq) allocErr.value = e?.message || '联动计算失败'
+  } finally {
+    if (seq === _allocSeq) allocBusy.value = false
+  }
+}
+
+function onAllocFocus(e, axis, eid) {
+  allocFocus.value = allocKey(axis, eid)
+  allocRaw.value = String((e && e.target && e.target.value) != null ? e.target.value : '')
+}
+function onAllocInput(e, axis, eid) {
+  allocFocus.value = allocKey(axis, eid)
+  allocRaw.value = String((e && e.target && e.target.value) != null ? e.target.value : '')
+}
+function onAllocBlur(axis, eid) {
+  if (allocFocus.value === allocKey(axis, eid)) allocFocus.value = ''
+}
+/* 离开这一格（失焦 / 回车）⇒ 提交给后端联动。
+   ⚠️ **中间态不在 @input 里收敛**：`Number("12.")` = 12，边打边收敛会让用户永远打不出小数点；
+      而原串一直留在框里又不能让后端判「非数字」—— 所以只有「离开这一格」时收敛。 */
+function onAllocCommit(e, axis, eid) {
+  const raw = String((e && e.target && e.target.value) != null ? e.target.value : allocRaw.value)
+  allocRaw.value = raw
+  allocFocus.value = allocKey(axis, eid)
+  runAllocSettle(axis, eid, raw)
+}
+/* 目标量改了 ⇒ 以**比例**为源重新落定（"只改总量"不该动比例，数量跟着新总量走）。
+   与后端 `update_target` 里「只改目标量、不给新分解」那条分支**同一条规则**。
+   `eid=null` = 这一轮没有哪个格子被单独改写。 */
+function onTargetQtyCommit() {
+  if (!members.value.length) return
+  runAllocSettle('ratio', null, null)
+}
+
+/* 清掉「正在输入的格 / 原始串 / 标红 / 上次错误」—— 开弹窗、换商品、关弹窗都要清，
+   否则上一轮的中间态会带进下一轮（本项目反复栽的「弹窗带记忆」）。 */
+function resetAllocState() {
+  allocFocus.value = ''
+  allocRaw.value = ''
+  allocBad.value = {}
+  allocErr.value = ''
+  _allocSeq += 1              // 让在途响应作废，别把新弹窗的值覆盖掉
 }
 
 async function openNew() {
@@ -725,6 +903,7 @@ async function openNew() {
   pickedProd.value = null
   fixFor.value = 0
   fixMsg.value = ''
+  resetAllocState()          // v358：上一轮的点名/原始串/标红不得带进新弹窗
   modal.value = true
   if (!prods.value.length) await searchProducts()
   if (!emps.value.length) await loadEmps()
@@ -736,12 +915,21 @@ function openEdit(r) {
   form.product_id = r.product_id
   form.period_month = r.period_month
   form.target_qty = Number(r.target_qty) || null
+  // v358：两列都要带回来（数量列现在是可编辑的，缺了它会显示成 0 ⇒ 用户一打开就以为分解没了）
   members.value = (r.allocs || []).map(a => ({
-    employee_id: a.employee_id, employee_name: a.employee_name, ratio: a.ratio,
+    employee_id: a.employee_id, employee_name: a.employee_name,
+    ratio: Number(a.ratio) || 0, target_qty: Number(a.target_qty) || 0,
   }))
   ekw.value = ''
+  resetAllocState()
   modal.value = true
   if (!emps.value.length) loadEmps()
+  /* 打开时先按**比例**为源落定一次。
+     为什么必须做：历史行的逐人数量是旧规则 `round(总量 × 比例 ÷ 100, 3)` 存的，
+     Σ 可能差 0.001 级 ⇒ 不归一的话，用户一打开弹窗就看到「还差 0.002 箱」这种
+     莫名其妙的红字，而那个差根本不是他造成的。以比例为源归一同时**不动比例**，
+     是这里损失最小的做法。 */
+  if (members.value.length) runAllocSettle('ratio', null, null)
 }
 
 function closeModal() { modal.value = false; editing.value = null }
@@ -851,12 +1039,18 @@ async function submitFix(p) {
 function isPicked(id) { return members.value.some(m => m.employee_id === id) }
 function addMember(e) {
   if (isPicked(e.id)) return
-  members.value.push({ employee_id: e.id, employee_name: e.name, ratio: 0 })
+  // v358：要带 `target_qty` —— 少了它这一行的数量列会是 undefined，
+  //   而"保留原始串"的显示逻辑会把它渲染成空白（看起来像这一行没分解）。
+  members.value.push({ employee_id: e.id, employee_name: e.name, ratio: 0, target_qty: 0 })
   // 首次加入时自动平均，省掉「加一个人再手填占比」这一步
   if (members.value.length === 1) members.value[0].ratio = 100
+  /* 加人后要重落定：新人是 0% ⇒ 比例合计仍是 100、数量对照样守恒，
+     但**具体到每一行的数量**要由后端重算（尾差补给谁可能变化）。 */
+  runAllocSettle('ratio', null, null)
 }
 function rmMember(id) {
   members.value = members.value.filter(m => m.employee_id !== id)
+  runAllocSettle('ratio', null, null)
 }
 function splitEven() {
   const n = members.value.length
@@ -872,6 +1066,8 @@ function splitEven() {
       acc = Math.round((acc + base) * 100) / 100
     }
   })
+  // v358：比例定了 ⇒ 数量由后端落定（本页不自己乘总量 —— 那就是第二份口径）
+  runAllocSettle('ratio', null, null)
 }
 
 async function save() {
@@ -882,6 +1078,10 @@ async function save() {
       employee_id: m.employee_id,
       employee_name: m.employee_name,
       ratio: Number(m.ratio) || 0,
+      // v358：**逐人数量也要落库**。两列都给，且两列都来自后端落定的那一份 ——
+      //   后端 `_write_allocs` 见数量就以数量为准反算比例（服务端唯一实现），
+      //   所以即便这里算错，库里也不会出现「Σ分摊数量 ≠ 目标量」的行。
+      target_qty: Number(m.target_qty) || 0,
     }))
     if (editing.value) {
       await productTargetsApi.update(editing.value.id, {
@@ -983,6 +1183,8 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-spec{font-size:11.5px;color:var(--t2)}
 .pt-brand{color:var(--t2);white-space:nowrap}
 .pt-quiet{color:var(--t2)}
+/* v358：列表里「Σ 分解 ≠ 目标」只在**真的差出来**时才红字 —— 正常态零文案。 */
+.pt-alloc-bad{color:var(--danger-txt)}
 .pt-gap-pos{color:var(--ok-green)}
 .pt-gap-neg{color:var(--danger-txt);font-weight:600}
 
@@ -1107,7 +1309,13 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-split{margin-left:auto;height:28px}
 .pt-sub-in{max-width:none}
 .pt-sub-in th{position:static}
-.pt-ratio{width:74px;height:28px;text-align:right}
+/* ── v358：分解到人的两个数字格（占比% / 分摊数量箱）──
+   两列都可以填、且**会互相回填**（谁被编辑谁是源），所以两边同宽同形态 ——
+   宽度按「3 位小数的箱数」（如 33.333）留够，否则末位会被截掉看不见。 */
+.pt-num{width:88px;height:28px;text-align:right}
+/* 后端判定为非数字的格（`meta.bad`）⇒ 标红。**不静默按 0 混进合计**：
+   全角/中文标点已由后端归一，走到这里的确实是"不是数字"，必须让用户看见。 */
+.pt-num-bad{border-color:var(--danger-txt);background:var(--danger-bg)}
 .pt-save-err{margin-top:12px;padding:9px 11px;border-radius:var(--radius-sm);
   background:var(--danger-bg);color:var(--danger-txt);font-size:12.5px;line-height:1.6}
 

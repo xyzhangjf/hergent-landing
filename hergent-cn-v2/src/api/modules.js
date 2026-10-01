@@ -474,6 +474,19 @@ export const productTargetsApi = {
   /* v264c：报单「列名 ↔ 报单对象」对账（**只读**）。用于目标页顶部告警 ——
      列名没配进「报单配置」时，该列落库 store_id=0 ⇒「逐人实报」只能靠名字匹配。 */
   mappingAudit: () => api('/api/product-targets/mapping-audit'),
+  /* v358：分解「比例 ↔ 数量」的**落定预演** —— **只读**，一个字节都不写。
+     🔴 落定只在后端。前端另写一份 JS 版，两边迟早算不到一起去 —— 旧版本就是这么错的：
+        前端 `allocBox` 走 **2 位**小数、后端存 **3 位**，于是总量=7、比例 33.33/33.33/33.34 时
+        **同一屏上一个显示 6.99、一个存 7**。
+     `source` = 用户**刚改过**的那一侧（'ratio' | 'qty'）；两个字段一律发**原始串** ——
+     归一（全角数字 / 中文句号 → 半角）由后端既有唯一实现 `normalize_num_text` 做。
+     （前端确实已有一份 `toHalfNum`，但它是 `Forecast.vue` 的**页内私有函数**、没提取成
+     共享 util ⇒ 本页复用不了；在本页另写一份就等于**第三份**归一实现。） */
+  allocPreview: ({ targetQty, source, allocs }) =>
+    api('/api/product-targets/alloc-preview', {
+      method: 'POST',
+      body: { target_qty: targetQty, source, allocs: allocs || [] },
+    }),
   /* v277（需求 6 读取端）：加/减单的**按比例分配明细**。只读 `forecast_extra_alloc`，
      **不重算** —— 算归 `save-matrix`（经理保存那一刻的结果），这里只把存下来的结果拿出来给
      hover 展示用。重算会出现「保存时按 8 人算、悬停时按 9 人算」两套结果。 */
