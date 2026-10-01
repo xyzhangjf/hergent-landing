@@ -481,11 +481,13 @@ export const productTargetsApi = {
      `source` = 用户**刚改过**的那一侧（'ratio' | 'qty'）；两个字段一律发**原始串** ——
      归一（全角数字 / 中文句号 → 半角）由后端既有唯一实现 `normalize_num_text` 做。
      （前端确实已有一份 `toHalfNum`，但它是 `Forecast.vue` 的**页内私有函数**、没提取成
-     共享 util ⇒ 本页复用不了；在本页另写一份就等于**第三份**归一实现。） */
-  allocPreview: ({ targetQty, source, allocs }) =>
+     共享 util ⇒ 本页复用不了；在本页另写一份就等于**第三份**归一实现。）
+     v359：`locked` = **用户显式敲过的行**（employee_id 数组）。这些行在源轴上的值原样
+     保留，剩余量由后端分给其余行 —— 也就是「自动配平」。空数组 = 谁都不动（v358 老行为）。 */
+  allocPreview: ({ targetQty, source, allocs, locked }) =>
     api('/api/product-targets/alloc-preview', {
       method: 'POST',
-      body: { target_qty: targetQty, source, allocs: allocs || [] },
+      body: { target_qty: targetQty, source, allocs: allocs || [], locked: locked || [] },
     }),
   /* v277（需求 6 读取端）：加/减单的**按比例分配明细**。只读 `forecast_extra_alloc`，
      **不重算** —— 算归 `save-matrix`（经理保存那一刻的结果），这里只把存下来的结果拿出来给

@@ -337,6 +337,9 @@
                     合计 {{ fmt(qtySum) }} 箱 / 目标 {{ fmt(qtyTotal) }} 箱
                     · {{ fmt(sigmaPct) }}%{{ qtyOk ? '' : qtyGapText }}
                   </span>
+                  <!-- v359：自动配平必须**说出来**。能自动改数，就得能自动交代"改了谁" ——
+                       否则「填一格、旁边几格自己变了」就是本项目最忌讳的静默改数。 -->
+                  <span v-if="allocAutoCount" class="pt-auto-hint">已自动配平 {{ allocAutoCount }} 人</span>
                   <button class="btn btn-ghost btn-sm pt-split" @click="splitEven">平均分配</button>
                 </div>
                 <div class="pt-col-bd">
@@ -353,7 +356,8 @@
                                `１２。５` **静默改成 `125`**（小数点被吃掉、数量放大 10 倍），
                                而且没有任何提示。改成 text 后原串原样收下来，交给后端归一。 -->
                           <input class="fld pt-num" type="text" inputmode="decimal"
-                                 :class="{ 'pt-num-bad': allocBad['r:' + m.employee_id] }"
+                                 :class="{ 'pt-num-bad': allocBad['r:' + m.employee_id],
+                                           'pt-num-auto': allocAutoIds.has(Number(m.employee_id)) }"
                                  :aria-label="m.employee_name + ' 分摊比例'"
                                  :value="allocFocus === ('r:' + m.employee_id) ? allocRaw : fmt(m.ratio)"
                                  @focus="onAllocFocus($event, 'ratio', m.employee_id)"
@@ -363,7 +367,8 @@
                         </td>
                         <td class="num">
                           <input class="fld pt-num" type="text" inputmode="decimal"
-                                 :class="{ 'pt-num-bad': allocBad['q:' + m.employee_id] }"
+                                 :class="{ 'pt-num-bad': allocBad['q:' + m.employee_id],
+                                           'pt-num-auto': allocAutoIds.has(Number(m.employee_id)) }"
                                  :aria-label="m.employee_name + ' 分摊数量（箱）'"
                                  :value="allocFocus === ('q:' + m.employee_id) ? allocRaw : fmt(m.target_qty)"
                                  @focus="onAllocFocus($event, 'qty', m.employee_id)"
@@ -747,7 +752,7 @@ const candEmps = computed(() => {
         Σ数量 会差 0.001 级 —— 旧实现正是这么算的：总量 101、比例 33.33/33.33/33.34
         ⇒ 33.663/33.663/33.673 ⇒ Σ=100.999，而界面上就写着「Σ 分解 必须等于 目标」。）
 
-   🔴 三条纪律（改这段前先读）：
+   🔴 四条纪律（改这段前先读）：
      ① **落定只在后端**（`POST /product-targets/alloc-preview`）。本页不做任何本地换算 ——
         与文件头第 ① 条纪律同一条。旧版本在这里自己算了一份：`allocBox` 走 **2 位**、
         后端存 **3 位** ⇒ 总量=7 时**同一屏上一个显示 6.99、一个存 7**（本轮实测）。
@@ -757,12 +762,24 @@ const candEmps = computed(() => {
         在它失焦 / 本次落定回来之前，一直显示用户自己的原始串。
      ③ 数字格一律 `type="text"`：`type="number"` 会把中文输入法的 `１２。５`
         **静默改成 `125`**（小数点被吃掉、数量放大 10 倍，且零提示）。
-        归一（全角数字 / 中文句号 → 半角）由后端既有唯一实现 `normalize_num_text` 做。 */
+        归一（全角数字 / 中文句号 → 半角）由后端既有唯一实现 `normalize_num_text` 做。
+     ④ **自动配平（v359）必须可见**：`allocLocked` 记「用户敲过的行」（服务端据此把它们
+        钉住、只把剩余分给其余行），`allocAuto` 记「这一轮系统动过的行」并给它们上色。
+        两条缺一不可 —— 少了 `allocLocked`，配平会把用户刚填的数抹掉；少了 `allocAuto`，
+        「填一格、旁边几格自己变了」就成了静默改数。 */
 const allocBusy = ref(false)
 const allocFocus = ref('')      // 'r:<eid>' / 'q:<eid>'；'' = 当前没有格子在输入
 const allocRaw = ref('')        // 那一格的**原始串**（未解析）
 const allocBad = ref({})        // { 'r:3': true } —— 后端判定为非数字的格（标红）
 const allocErr = ref('')
+/* ── v359 自动配平的两个集合（用数组而不是 Set：整份替换才算一次响应式更新，语义最直白）──
+   `allocLocked` = **用户显式敲过的行**。后端在源轴上把它们钉住，剩余量分给其余行。
+     ⚠️ 它**不是**「最后编辑的那一行」，而是**累积**的：用户依次给 A、B、C 填数，三行都会被
+       钉住 —— 否则填第三个人时，第一个人的数会被"配平"改掉，用户会以为系统在乱改。
+   `allocAuto`   = 上一轮**被系统自动配平的行**（只驱动视觉标记，不参与计算）。
+   🔴 两者都只在 `resetAllocState()`（开新建 / 开编辑）与「平均分配」里清空 —— 弹窗不许带记忆。 */
+const allocLocked = ref([])
+const allocAuto = ref([])
 let _allocSeq = 0               // 过期响应丢弃（连改会并发多个请求）
 
 const _r2v = (v) => Math.round((Number(v) || 0) * 100) / 100
@@ -789,6 +806,10 @@ const qtyGapText = computed(() => {
   return d > 0 ? ('，多了 ' + fmt(d) + ' 箱') : ('，还差 ' + fmt(-d) + ' 箱')
 })
 const allocHasBad = computed(() => Object.keys(allocBad.value).length > 0)
+/* v359：被系统自动配平的行 —— 模板用 Set 做 O(1) 命中（数组每次 `includes` 是 O(n)，
+   而这段在 v-for 里会跑「行数 × 2 格」次）。 */
+const allocAutoIds = computed(() => new Set((allocAuto.value || []).map(Number)))
+const allocAutoCount = computed(() => allocAutoIds.value.size)
 
 const canSave = computed(() => {
   if (!editing.value) {
@@ -825,6 +846,11 @@ async function runAllocSettle(axis, eid, raw) {
     })
     const d = await productTargetsApi.allocPreview({
       targetQty: Number(form.target_qty) || 0, source: axis, allocs,
+      /* v359：把**锁定集合的快照**一并发出 —— 服务端据此把用户敲过的行钉住，
+         只把剩余量分给其余行（自动配平）。
+         ⚠️ 必须传快照 `[...]`：响应回来时锁定集合可能已被用户的下一次编辑改过，
+            但**这一轮**的结果必须与它当时的输入一致；否则会出现"结果对应的是上一轮的锁"。 */
+      locked: [...allocLocked.value],
     })
     if (seq !== _allocSeq) return                 // 过期响应直接丢弃
     const by = {}
@@ -840,6 +866,9 @@ async function runAllocSettle(axis, eid, raw) {
       if (b.field === 'ratio' || b.field === 'qty') bad[allocKey(b.field, b.employee_id)] = true
     })
     allocBad.value = bad
+    /* v359：把「这一轮系统动了哪几行」记下来（为空 ⇒ 清掉上一轮的标记）。
+       ⚠️ 放在过期响应判断**之后**：过期响应连 `members` 都不该改，更不该改标记。 */
+    allocAuto.value = ((d.meta && d.meta.auto_filled) || []).map(Number)
     /* 这一格的落定值已经回来了 ⇒ 收起原始串、显示落定值。
        🔴 两道都要判：① 聚焦格还是它；② **原始串没变** —— 用户按回车提交后又接着敲，
          这两个条件不同时成立，此时**绝不能**把还在打字的格子顶掉。 */
@@ -869,6 +898,13 @@ function onAllocCommit(e, axis, eid) {
   const raw = String((e && e.target && e.target.value) != null ? e.target.value : allocRaw.value)
   allocRaw.value = raw
   allocFocus.value = allocKey(axis, eid)
+  /* 🔴 v359：**先入锁、再落定**。顺序反了会有个很难查的症状 ——
+     用户刚敲 70 的那一行在同一轮里仍被当作"自由行"，于是它被自己的配平重算掉，
+     表现为「填了 70、一松手变成 33.33」（用户会说"填了不算"，而这正是本页第 ② 条纪律
+     要防的那件事，只是一个新的成因）。 */
+  if (eid != null && !allocLocked.value.some(x => Number(x) === Number(eid))) {
+    allocLocked.value = [...allocLocked.value, Number(eid)]
+  }
   runAllocSettle(axis, eid, raw)
 }
 /* 目标量改了 ⇒ 以**比例**为源重新落定（"只改总量"不该动比例，数量跟着新总量走）。
@@ -886,6 +922,10 @@ function resetAllocState() {
   allocRaw.value = ''
   allocBad.value = {}
   allocErr.value = ''
+  /* v359：锁定集合与自动配平标记也要清 —— 打开「编辑」时若不清理，上一次弹窗敲过的行
+     会**跨弹窗**继续被钉住，表现为「新建的目标里怎么填都不配平」（而界面上看不出原因）。 */
+  allocLocked.value = []
+  allocAuto.value = []
   _allocSeq += 1              // 让在途响应作废，别把新弹窗的值覆盖掉
 }
 
@@ -1050,11 +1090,19 @@ function addMember(e) {
 }
 function rmMember(id) {
   members.value = members.value.filter(m => m.employee_id !== id)
+  /* v359：他走了，锁定集合里也要删掉 —— 否则同名同 id 再加回来时是"幽灵锁定"，
+     表现为「新加的人怎么填都不参与配平」，而界面完全看不出原因。 */
+  allocLocked.value = allocLocked.value.filter(x => Number(x) !== Number(id))
   runAllocSettle('ratio', null, null)
 }
 function splitEven() {
   const n = members.value.length
   if (!n) return
+  /* v359：点「平均分配」= 用户明确要求**推倒重排** ⇒ 先清锁定。
+     不清的话，此前敲过的行仍按"源轴原样"钉着，平均出来的比例会被它们的旧值顶掉 ——
+     症状是「按钮点了没反应」（其实是它的效果被锁抵消了）。 */
+  allocLocked.value = []
+  allocAuto.value = []
   // 与后端 `suggest_ratios` 同规则：前 n-1 人取两位小数，最后一人兜差额 ⇒ Σ 恒 = 100
   const base = Math.floor((100 / n) * 100) / 100
   let acc = 0
@@ -1306,6 +1354,8 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-sigma{font-size:12.5px;font-weight:600}
 .pt-sigma.ok{color:var(--ok-green)}
 .pt-sigma.bad{color:var(--danger-txt)}
+/* v359：自动配平的**文字交代** —— 光有格子变蓝还不够，得有一句话说明发生了什么。 */
+.pt-auto-hint{margin-left:8px;font-size:12px;font-weight:600;color:var(--info-blue)}
 .pt-split{margin-left:auto;height:28px}
 .pt-sub-in{max-width:none}
 .pt-sub-in th{position:static}
@@ -1316,6 +1366,12 @@ onMounted(() => { load(month.value); loadAudit() })
 /* 后端判定为非数字的格（`meta.bad`）⇒ 标红。**不静默按 0 混进合计**：
    全角/中文标点已由后端归一，走到这里的确实是"不是数字"，必须让用户看见。 */
 .pt-num-bad{border-color:var(--danger-txt);background:var(--danger-bg)}
+/* v359：被**系统自动配平**的格 —— 必须与「用户自己敲的格」在视觉上分得开，
+   否则「填一格、旁边几格自己变了」就是一次静默改数。
+   用既有主题变量 `--info-blue-bg`（浅/深色主题各有一套值），不新造颜色。 */
+.pt-num-auto{border-color:var(--info-blue);background:var(--info-blue-bg)}
+/* 标红优先于标蓝：一格既坏又被配平过时，要说的是「它坏了」。 */
+.pt-num-bad.pt-num-auto{border-color:var(--danger-txt);background:var(--danger-bg)}
 .pt-save-err{margin-top:12px;padding:9px 11px;border-radius:var(--radius-sm);
   background:var(--danger-bg);color:var(--danger-txt);font-size:12.5px;line-height:1.6}
 
