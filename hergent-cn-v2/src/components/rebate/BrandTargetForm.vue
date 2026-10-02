@@ -34,13 +34,17 @@
   <!-- 到货与报单节奏（品牌方排产节点，品牌页独有）
        v242：③ 报单自动化已移至「预报订单 → 报单配置」 -->
   <ArrivalRhythmBlock
-    :form="form" :arrival-preview="arrivalPreview"
+    :form="form" :arrival-preview="arrivalPreview" :skips-dirty="skipsDirty"
+    :skip-effect="skipEffect"
     :first-arrival-date="firstArrivalDate"
     :arrival-weekday="arrivalWeekday" :lead-err="leadErr" :lead-valid="leadValid" :is-order-wk="isOrderWk"
     @lead-input="$emit('lead-input', $event)"
     @arrival-change="$emit('arrival-change', $event)"
     @toggle-wk="$emit('toggle-wk', $event)"
     @open-migrate="$emit('open-migrate')"
+    @toggle-skip="$emit('toggle-skip', $event)"
+    @reset-skips="$emit('reset-skips')"
+    @align-count="$emit('align-count')"
   />
 </template>
 
@@ -61,6 +65,10 @@ defineProps({
   ruleTiers: { type: Array, required: true },
   scaleOptions: { type: Array, default: () => [] },
   arrivalPreview: { type: Object, default: null },
+  /** v364：本月到货停单是否被改过（决定保存时要不要写 rebate_arrival_skips） */
+  skipsDirty: { type: Boolean, default: false },
+  /** v365：保存后由后端回执的「哪几期报单期次不再自动新建」（人话，逐条） */
+  skipEffect: { type: Array, default: () => [] },
   firstArrivalDate: { type: String, default: '' },
   arrivalWeekday: { type: String, default: '' },
   leadErr: { type: String, default: '' },
@@ -71,6 +79,8 @@ defineEmits([
   'update:annualTarget', 'update:annualRate', 'clear-monthly',
   'add-tier', 'remove-tier', 'add-month-tier', 'remove-month-tier',
   'lead-input', 'arrival-change', 'toggle-wk', 'open-migrate',
+  // v364：本月到货停单（点日期 / 恢复系统推算 / 按日历对齐次数）
+  'toggle-skip', 'reset-skips', 'align-count',
 ])
 </script>
 

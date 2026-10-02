@@ -70,7 +70,7 @@
             :monthly-sum-wan="monthlySumWan" :annual-target-wan="annualTargetWan" :annual-rate-pct="annualRatePct"
             :annual-rate-placeholder="annualRatePlaceholder" :monthly-filled-count="monthlyFilledCount"
             :legacy-notice="legacyNotice" :rule-tiers="ruleTiers" :scale-options="scaleOptions"
-            :arrival-preview="arrivalPreview"
+            :arrival-preview="arrivalPreview" :skips-dirty="skipsDirty" :skip-effect="skipEffect"
             :first-arrival-date="firstArrivalDate" :arrival-weekday="arrivalWeekday" :lead-err="leadErr"
             :lead-valid="leadValid" :is-order-wk="isOrderWk"
             @update:annual-target="v => (annualTargetWan = v)"
@@ -80,6 +80,7 @@
             @add-month-tier="addMonthTier" @remove-month-tier="removeMonthTier"
             @lead-input="onLeadInput" @arrival-change="onArrivalChange"
             @toggle-wk="toggleOrderWk" @open-migrate="openMigrate"
+            @toggle-skip="toggleSkip" @reset-skips="resetSkips" @align-count="alignCount"
           />
           <ProductTargetForm
             v-else
@@ -112,8 +113,15 @@
           </div>
         </div>
         <div class="modal-ft">
-          <button class="btn btn-ghost" @click="close">取消</button>
-          <button class="btn btn-primary" @click="save">{{ editing ? '保存' : '创建' }}</button>
+          <!-- 已经保存成功了就不再给「取消」（那会让人以为还能撤掉这次保存） -->
+          <button v-if="!(skipEffect && skipEffect.length)" class="btn btn-ghost" @click="close">取消</button>
+          <!-- v365：保存后如果「停单/取消停单」顺带改变了期次，面板会**留在原地**把回执给用户看
+               （关掉了就等于没说过 —— 这条回执的价值恰恰在于"用户几周后才会发现期次少了一期"，
+                一闪而过或根本不显示都等于没提醒）。此时主按钮变成「关闭」。 -->
+          <button v-if="skipEffect && skipEffect.length" class="btn btn-primary" @click="close">
+            关闭
+          </button>
+          <button v-else class="btn btn-primary" @click="save">{{ editing ? '保存' : '创建' }}</button>
         </div>
       </div>
     </Transition>
@@ -200,6 +208,36 @@ const arrivalPreview = ref(null)
 const formNameRef = ref(null)
 const showMigrate = ref(false)
 const migrateInfo = ref(null)
+
+/* ---------------- v364：本月到货「停单 / 次数」——按月作用域 ----------------
+   🔴 这两个状态**不属于规则本身**，而是「规则 × 某个月」的一条记录
+      （后端 rebate_arrival_skips，唯一索引 rule_id+ym）。
+      为什么不能继续塞进 form：以前它是规则上的列 `arrival_count_override` —— **永久列**，
+      10 月填的次数会一路生效到 11、12 月，用户想回到系统推算只能每月手动改一次；
+      而"停一单"这件事则完全没地方表达（旧列只有"几次"，没有"哪一天"）。
+      用户原话：「改动的这个规则只保持到这个月，下个月自动以系统推算为准。」
+      ⇒ 按月存是唯一能满足它的数据模型，所以它天然不是表单字段。 */
+const skips = ref({ skip_dates: '', count_override: null })
+/** 打开面板时的快照 —— 只用来判断"用户动过没有"（决定保存时要不要写这张表） */
+const loadedSkips = ref({ skip_dates: '', count_override: null })
+/**
+ * v365：**保存后**由后端回执的「这次停单让哪几期的报单期次不再自动新建」。
+ *   🔴 必须由后端算、不由前端推 —— 到货日↔期次是「期次.arrival_date == 停单日」的
+ *      等值关系，且期次的报单窗口**可能落在上一个月**（到货 10-05 ⇒ 报单窗口 9/30~10/01）。
+ *      前端看不到「本租户有没有开自动建表」「这一期是不是已经建好了」，自己推必然说错。
+ *   改动未落库时**立刻清空**（别拿旧结论当现状）。
+ */
+const skipEffect = ref([])
+/** 面板对应的自然月（与后端 arrival-preview / arrival-skips 的缺省口径一致 = 今天所在月） */
+const ymNow = computed(() => {
+  const d = new Date()
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+})
+const skipsDirty = computed(() => {
+  const a = skips.value || {}, b = loadedSkips.value || {}
+  return String(a.skip_dates || '') !== String(b.skip_dates || '')
+    || (a.count_override ?? null) !== (b.count_override ?? null)
+})
 
 const isBrandForm = computed(() => !!form.value && form.value.dimension === 'brand')
 const isBrandMonthly = computed(() => isBrandForm.value && form.value.target_type === 'amount')
@@ -410,7 +448,13 @@ async function loadArrivalPreview() {
   if (f.arrival_first_dom) params.set('first_dom', f.arrival_first_dom)
   if (f.arrival_cadence_days) params.set('cadence_days', f.arrival_cadence_days)
   if (f.arrival_weekdays != null) params.set('weekdays', f.arrival_weekdays)
-  if (f.arrival_count_override) params.set('override', f.arrival_count_override)
+  /* v364：本月到货安排（停单日 + 次数覆盖）**按月**传，不再走 f.arrival_count_override 那个永久列。
+     · skip_dates **空串也要传** —— 后端用 `is not None` 判断"显式传了"，空串 = 显式清掉停单；
+       不传的话后端会去读库里已存的记录，预览就会和表单上正在编辑的状态不一致。
+     · override 只在真的填了数字时传（缺省 -1 = 无覆盖）。 */
+  params.set('skip_dates', String(skips.value.skip_dates || ''))
+  const _co = skips.value.count_override
+  if (_co != null && Number(_co) > 0) params.set('override', String(_co))
   params.set('target_value', tv)
   try {
     const r = await api('/api/rebate-rules/arrival-preview?' + params.toString())
@@ -419,7 +463,8 @@ async function loadArrivalPreview() {
 }
 watch(
   () => [form.value.arrival_mode, form.value.arrival_first_dom, form.value.arrival_cadence_days,
-         form.value.arrival_weekdays, form.value.arrival_count_override, form.value.target_type, targetWan.value,
+         form.value.arrival_weekdays, skips.value.skip_dates, skips.value.count_override,
+         form.value.target_type, targetWan.value,
          form.value.target_value, monthlySumWan.value, form.value.order_mode, form.value.order_first_date,
          form.value.order_cadence_days, form.value.order_weekdays, form.value.order_lead_days],
   () => {
@@ -430,6 +475,157 @@ watch(
 onBeforeUnmount(() => {
   if (_apTimer) clearTimeout(_apTimer)
 })
+
+/* ---------------- v364：本月到货停单（点日期）/ 恢复系统推算 / 按日历对齐次数 ---------------- */
+/** 该月停单日：CSV ↔ 数组的**唯一**转换口（两处各写一遍 split 就会漂移） */
+function skipList(s) {
+  return String((s && s.skip_dates) || '').split(',').map(x => x.trim()).filter(Boolean)
+}
+/** 立刻重算预览，不等 300ms 防抖 —— 点日期是离散动作，等防抖只让人觉得"点了没反应" */
+function _refreshNow() {
+  if (_apTimer) clearTimeout(_apTimer)
+  loadArrivalPreview()
+}
+/**
+ * 点一下某天 = 这一天不进货 / 再点一下恢复。
+ * 🔴 **不改节奏**：停掉 10-05，10-07 照常到（用户原话：「不会因为停单而改变」）——
+ *    后端 apply_month_skips 只从日历里剔除这一天，不重排后续日期。
+ */
+function toggleSkip(d) {
+  const cur = skipList(skips.value)
+  const i = cur.indexOf(d)
+  if (i >= 0) cur.splice(i, 1); else cur.push(d)
+  cur.sort()
+  skips.value = { ...skips.value, skip_dates: cur.join(',') }
+  skipEffect.value = []      // v365：改动还没落库 ⇒ 立刻撤掉上一版的影响说明（别拿旧结论当现状）
+  _refreshNow()
+}
+/** 恢复系统推算：停单日与次数覆盖一起清掉（= 后端删该月记录的效果），**只对本月** */
+function resetSkips() {
+  skips.value = { skip_dates: '', count_override: null }
+  skipEffect.value = []
+  _refreshNow()
+}
+/**
+ * 「次数」与「日历」对不上时，采信**日历**（停了几天的天数才是真的）。
+ * 存量迁移过来的旧值只有次数、没有哪一天 ⇒ 用户改报单周期后两者必然打架，
+ * 这个按钮给一条明确的收敛路径，而不是让用户自己猜"以哪个为准"。
+ */
+function alignCount() {
+  skips.value = { ...skips.value, count_override: null }
+  skipEffect.value = []
+  _refreshNow()
+}
+/** 读该规则**本月**已存的到货安排。读不到就按"本月没调过"（与面板缺省显示一致），不阻断编辑。 */
+async function loadMonthSkips(rid) {
+  if (!rid) { loadArrivalPreview(); return }
+  const [_y, _m] = ymNow.value.split('-').map(Number)
+  try {
+    const r = await rebateApi.arrivalSkips(rid, _y, _m)
+    // skip_dates_stored = 库里**原样存的那串**（不是 summary.skipped：后者只含"确实落在
+    // 当前系统日历里"的日子，回读会丢，再存一次就把用户停的那天悄悄抹掉）。
+    const sd = (r && r.skip_dates_stored) || ''
+    const co = (r && r.count_override != null) ? Number(r.count_override) : null
+    skips.value = { skip_dates: sd, count_override: co }
+    loadedSkips.value = { skip_dates: sd, count_override: co }
+  } catch (e) {
+    /* 读失败（表未就绪 / 网络）：按"本月没调过"显示。真正保存时后端会**明确报错**，
+       不会静默吞掉用户的改动 —— 所以这里不提示也不阻断。 */
+  }
+  loadArrivalPreview()
+}
+/**
+ * 把本月调整落库。返回 `{err, affected}`：`err` 空串 = 成功；`affected` = 后端回执的
+ * 「哪几期的报单期次（不再 / 恢复）自动新建」。
+ * 🔴 `count_override` 只在**确实存在或确实被清掉**时才带这个键：后端用 `in body` 判断
+ *    "动没动"，不传 = 保留原值。否则用户点一下停单日，就会把迁移来的「15 次」静默抹成
+ *    按日历算的 16 次。
+ */
+async function saveMonthSkips(rid) {
+  if (!skipsDirty.value) return { err: '', affected: null }
+  if (!rid) return { err: '规则编号没拿到，请重新打开这条规则再保存一次', affected: null }
+  const [_y, _m] = ymNow.value.split('-').map(Number)
+  const _coNow = skips.value.count_override
+  const _coWas = loadedSkips.value.count_override
+  const body = {
+    year: _y,
+    month: _m,
+    skip_dates: String(skips.value.skip_dates || ''),
+  }
+  if (_coNow != null || _coWas != null) {
+    body.count_override = (_coNow != null && Number(_coNow) > 0) ? Number(_coNow) : null
+  }
+  try {
+    const res = await rebateApi.saveArrivalSkips(rid, body)
+    loadedSkips.value = { ...skips.value }
+    return { err: '', affected: (res && res.affected_periods) || null }
+  } catch (e) {
+    return { err: (e && e.message) || '未知错误', affected: null }
+  }
+}
+
+/**
+ * v365：把「这次调整让哪几期的报单期次不再自动新建」翻成人话。
+ * 🔴 为什么必须说：停单的直觉后果只有「少一次到货」，真实后果还包含「那一期的报单窗口
+ *    不会再自动开」—— 用户看不到这一层，几周后只会发现「期次怎么少了一期」而无从追溯。
+ * 🔴 同时如实区分「还有没有实际影响」：期次已建好 / 填报窗口已过 ⇒ 明说不影响，
+ *    别把已经无关的事渲染成"已排除"，那是制造虚假的紧张感。
+ */
+function _skipEffectLines(af) {
+  if (!af || !af.computed) return []
+  const list = af.affected || []
+  if (!list.length) {
+    if (af.brand_joins === false) {
+      return ['该品牌还没填「首次报单日」，所以停单只影响到货次数和均单，'
+        + '不会影响报单期次（期次是按品牌报单节奏自动建的）。']
+    }
+    return ['本月停的这几天不在报单期次序列上，不影响自动建期次。']
+  }
+  const lines = []
+  list.forEach(p => {
+    const who = `${p.arrival_date} 到货的那一期（报单日 ${p.order_date}）`
+    const still = (p.still_arriving || []).filter(Boolean)
+    const tail = p.existed
+      ? `（期次#${p.period_id} 已经建好了）`
+      : '（它会在填报窗口打开时自动建出来）'
+    // 🔴 取消停单（effect=restore）要用「恢复」的措辞，而且**不能**再劝用户去别的品牌点掉 ——
+    //    他刚做的动作就是把停单取消掉，还叫他去点掉另一个品牌是彻底的反向指引。
+    //    后端已按「摘掉这一条规则之后」算结论（不是"取消前"），所以这里的 p.excluded 是
+    //    **取消之后**的事实：只要还有任一品牌那天送货，这一期就会照建。
+    if (p.effect === 'restore') {
+      if (!p.excluded) {
+        lines.push(`${who} 会恢复自动新建：${still.join('、')}那天有货到${tail}。`)
+      } else {
+        lines.push(`${who} 仍不会自动新建：那天所有品牌都没货到。`)
+      }
+      return
+    }
+    // 🔴 必须按后端的**最终结论** p.excluded 分支：只停了部分品牌时这一期**照建**。
+    //    若只看「有没有被列进 affected」就说"不再自动新建"，就与后端结论相反。
+    if (!p.excluded) {
+      lines.push(`${who}仍会按期建：${still.join('、')}那天还有货到${tail}。`
+        + `要让这一天整批都不建，请到「${still.join('、')}」的到货节奏里也点掉 ${p.arrival_date}。`)
+      return
+    }
+    const act = '不再自动新建'
+    let t2
+    if (p.existed) {
+      t2 = `但这一期已经建好了（期次#${p.period_id}），系统不会去动它 —— 要作废请手工关单`
+    } else if (p.window === 'past') {
+      t2 = '它的填报窗口已经过了，本来也不会再自动建 —— 需要的话请手工新建'
+    } else if (p.window === 'open') {
+      t2 = '它的填报窗口正开着，但系统没建它'
+    } else {
+      t2 = `它将在 ${p.open_at} 打开填报，届时不会自动建表`
+    }
+    lines.push(`${who} ${act}，${t2}。`)
+  })
+  if (!af.auto_enabled) {
+    lines.push('⚠ 当前是「手动建表」模式，自动建期次本来就没在跑；'
+      + '切回「自动建表」之后上面的结论才起作用。')
+  }
+  return lines
+}
 
 /* ---------------- 旧到货排程 → 报单节奏 反推 ---------------- */
 function openMigrate() {
@@ -501,7 +697,9 @@ function resolveProductKey(key) {
 }
 
 /* ---------------- 打开 / 关闭 / 保存 ---------------- */
-watch(() => props.open, (v) => { if (v) init() })
+// v365：每次打开都清掉上一版「停单影响期次」回执 —— 面板是常驻组件（父层只切 open），
+//   不清的话下次打开会看到**上一次停单**的结论，而库里的状态可能早变了（界面骗人）。
+watch(() => props.open, (v) => { if (v) { skipEffect.value = []; init() } })
 // v128：弹窗内「编辑这条」会就地切到 edit 模式（open 不变），靠这个 watch 重新初始化
 watch(() => [props.mode, props.rule && props.rule.id], () => { if (props.open) init() })
 
@@ -515,17 +713,28 @@ function init() {
     form.value = { ...r }
     if (form.value.target_year == null) form.value.target_year = currentYear
     if (form.value.target_unit == null) form.value.target_unit = ''
+    /* v364：`arrival_count_override` 是规则上的**永久**列，已被"按月"的口径取代
+       （后端也在启动期把它迁移到本月记录并清空）。这里显式置 null，保证即使某个老租户
+       库里还残留着值，保存时也不会把它再写回去、重新变成跨月生效的坑。 */
+    form.value.arrival_count_override = null
     ruleTiers.value = parseRuleTiers(r.tiers_json)
     targetWan.value = (Number(r.target_value) || 0) / 10000
     arrivalPreview.value = null
+    // 本月停单先按"没调过"起步（预览立刻出系统推算），再异步补上库里已存的那份
+    skips.value = { skip_dates: '', count_override: null }
+    loadedSkips.value = { skip_dates: '', count_override: null }
     const { notice } = fillMonthlyFromRule(monthlyRows.value, r, { isBrandMonthly: form.value.dimension === 'brand' && form.value.target_type === 'amount' })
     legacyNotice.value = notice
-    loadArrivalPreview()
+    loadMonthSkips(r.id)
   } else if (props.mode === 'dup' && r) {
     editing.value = false
     form.value = duplicateForm(r, { defaultCadence: props.defaultCadence, currentYear })
     targetWan.value = (Number(r.target_value) || 0) / 10000
     arrivalPreview.value = null
+    // 复制的是"规则"，**不复制本月停单** —— 停单是本月的事实，不是规则的一部分。
+    // （新规则此刻还没有 id，本来也无处可存；保存时若用户点过日历会随 save 一起落库。）
+    skips.value = { skip_dates: '', count_override: null }
+    loadedSkips.value = { skip_dates: '', count_override: null }
     ruleTiers.value = parseRuleTiers(r.tiers_json)
     const { notice } = fillMonthlyFromRule(monthlyRows.value, r, { isBrandMonthly: form.value.dimension === 'brand' && form.value.target_type === 'amount' })
     legacyNotice.value = notice
@@ -534,6 +743,8 @@ function init() {
     form.value = defaultForm({ presetDim: props.presetDim, defaultCadence: props.defaultCadence, currentYear })
     targetWan.value = 0
     arrivalPreview.value = null
+    skips.value = { skip_dates: '', count_override: null }
+    loadedSkips.value = { skip_dates: '', count_override: null }
     ruleTiers.value = []
     legacyNotice.value = ''
     monthlyRows.value = emptyMonthlyRows()
@@ -667,14 +878,33 @@ async function save() {
     f.tiers_json = ''
   }
   try {
+    let _rid = 0
     if (editing.value) {
       await rebateApi.update(f.id, f)
+      _rid = Number(f.id) || 0
     } else {
-      await rebateApi.create(f)
+      const res = await rebateApi.create(f)
+      // create 返回 {"success":true,"id":N,"rule":{...}}（api() 不解 data 层 ⇒ 直接取 id）
+      _rid = Number((res && (res.id || (res.rule && res.rule.id))) || 0)
     }
-    toast(editing.value ? '已保存' : '已创建', 'success')
-    close()
+    /* v364：本月到货调整**单独**落库（只写这一个月）。
+       为什么放在规则保存**之后**：新建时此刻才拿到 rule_id。
+       为什么失败**不回滚**规则：用户填的是一整张目标表，不能因为"停单这一栏没存下"
+       整表白填 —— 但必须**明确告诉他哪部分没存下**，不能静默。
+       （后端在数据表未就绪时返回 503 而不是假装成功，就是为了让这句话有意义。） */
+    const _skipRes = await saveMonthSkips(_rid)
+    if (_skipRes.err) {
+      toast('规则已保存；本月到货调整没保存成功：' + _skipRes.err, 'error')
+    } else {
+      /* v365：停单还会改变「系统会不会自动建那一期」，用户看不到这一层 ——
+         把后端回执留在面板上（不是一闪而过的 toast）。 */
+      skipEffect.value = _skipEffectLines(_skipRes.affected)
+      toast(editing.value ? '已保存' : '已创建', 'success')
+    }
     emit('saved')
+    /* v365：有回执就**不关面板** —— 让用户看完再自己关（主按钮此时是「关闭」）。
+       没有回执时保持原来的行为（保存完即关）。 */
+    if (!skipEffect.value.length) close()
   } catch (e) {
     if (e.status === 409 && e.payload && Array.isArray(e.payload.conflicts) && e.payload.conflicts.length) {
       emit('conflict', {

@@ -69,13 +69,31 @@
           <span>未来 {{ state.preview.length }} 期</span>
           <span v-if="live" class="ap-strong">{{ live }}</span>
         </div>
+        <!-- v365：被「不到货」标记排除的期次 —— **不静默**。
+             为什么不能只是少几行：用户会以为系统坏了，而真实原因是他在
+             「目标与返利 → 到货节奏」里点过某天「不到货」。必须在这里把因果说清楚。 -->
+        <div v-if="state.excluded_count" class="ap-excl">
+          <template v-if="offRows.length">
+            下表 {{ offRows.length }} 期已标记<b>「不到货」</b>，系统<b>不会</b>自动新建它们
+            （{{ offRows.map(p => p.arrival_date).join('、') }}）<template
+              v-if="state.excluded_count > offRows.length">；更远的排程里还有
+              {{ state.excluded_count - offRows.length }} 期同样不会建</template>。
+          </template>
+          <template v-else>
+            更远的排程里有 {{ state.excluded_count }} 期已标记<b>「不到货」</b>，系统<b>不会</b>自动新建。
+          </template>
+          改法：「目标与返利 → 到货节奏」里点一下那一天，或点「恢复系统推算」。
+        </div>
         <table class="ap-tbl">
           <thead><tr><th>报单日</th><th>开放 → 关单</th><th>到货</th><th>本期应报</th></tr></thead>
           <tbody>
-            <tr v-for="p in state.preview" :key="p.order_date">
+            <tr v-for="p in state.preview" :key="p.order_date" :class="{ 'ap-row-off': p.excluded }">
               <td>{{ p.order_date }}</td>
               <td class="ap-dim">{{ p.open_date }} {{ times.open }} → {{ p.close_date }} {{ times.close }}</td>
-              <td>{{ p.arrival_date }}</td>
+              <td>
+                {{ p.arrival_date }}
+                <span v-if="p.excluded" class="ap-offchip" :title="p.exclude_reason">不到货 · 不会建</span>
+              </td>
               <td>
                 <span v-for="b in p.brand_detail" :key="b.name" class="ap-brand">{{ b.name }}<i v-if="b.early_days"> 提前{{ b.early_days }}天</i></span>
                 <span v-if="!p.brand_detail.length" class="ap-dim">—</span>
@@ -110,6 +128,8 @@ const state = reactive({
   enabled: 0, rule_id: 0, brand: '', occupied_by: '',
   times: { open: '20:00', close: '10:00', supplier: '12:00' },
   cadence: null, candidates: [], next: null, preview: [], warnings: [], dry_run: 0,
+  // v365：本次排程内有几期因「不到货」不再自动新建（后端算、前端只展示）
+  excluded_count: 0,
 })
 const form = reactive({
   enabled: 0, rule_id: 0,
@@ -117,6 +137,8 @@ const form = reactive({
 })
 
 const times = computed(() => state.times || {})
+/** v365：预览表里被「不到货」排除的行（用来点名是哪几期） */
+const offRows = computed(() => (state.preview || []).filter(p => p.excluded))
 const dirty = computed(() => {
   if ((state.enabled ? 1 : 0) !== form.enabled) return true
   if (!form.enabled) return false
@@ -225,6 +247,11 @@ onMounted(load)
 .ap-warn{margin:6px 0;font-size:12px;color:var(--danger,#c0392b);background:rgba(192,57,43,.08);border-radius:var(--radius-xs, 6px);padding:6px 9px;line-height:1.55}
 .ap-prev{margin-top:10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px;background:var(--bg2)}
 .ap-prev-hd{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--t3);margin-bottom:8px}
+/* v365：被「不到货」排除的期次 —— 说明条 + 行内标记。颜色全走既有令牌，零硬编码色 */
+.ap-excl{margin:0 0 8px;font-size:12px;color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs, 6px);padding:6px 9px;line-height:1.6}
+.ap-row-off td{color:var(--t3);text-decoration:line-through}
+.ap-row-off .ap-offchip{text-decoration:none}
+.ap-offchip{display:inline-block;margin-left:6px;font-size:11px;padding:1px 6px;border-radius:var(--radius-xs, 4px);background:rgba(var(--war-rgb),.14);color:var(--war);text-decoration:none}
 .ap-tbl{width:100%;border-collapse:collapse;font-size:12px}
 .ap-tbl th{text-align:left;color:var(--t3);font-weight:500;padding:4px 6px;border-bottom:1px solid var(--border-subtle)}
 .ap-tbl td{padding:5px 6px;border-bottom:1px solid var(--border-subtle);vertical-align:middle}

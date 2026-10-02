@@ -1380,9 +1380,11 @@ function dup(r) {
   showForm.value = true
 }
 
-// 表单保存成功（由 TargetFormModal 回调）：关弹窗 + 刷新列表
+// 表单保存成功（由 TargetFormModal 回调）：刷新列表
+//   v365：**不再在这里关弹窗** —— 当「停单/取消停单」顺带改变了报单期次时，要留在原地
+//   让用户把回执看完（关掉了就等于没说过）；由表单自己决定何时 close()
+//   （close → @close → showForm=false），无回执时行为与从前完全一致。
 async function onRuleSaved() {
-  showForm.value = false
   await loadRules()
 }
 
