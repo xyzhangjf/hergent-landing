@@ -46,6 +46,11 @@ export const forecastApi = {
   copyPeriod: (pid, body) => api(`/api/forecast/periods/${pid}/copy`, { method: 'POST', body }),
   seedPeriod: (pid, body) => api(`/api/forecast/periods/${pid}/seed`, { method: 'POST', body }),
   closePeriod: (pid) => api(`/api/forecast/periods/${pid}/close`, { method: 'POST' }),
+  // v368：**作废**一个「本不该建」的期次（那批货不到）。
+  //   🔴 与 `closePeriod` 的区别不是措辞：关闭 = 定稿（会推加单/减单通知）；
+  //      作废 = 撤销（后端走 db 层、**不发通知**），且 `closed_mode='void'` 让历史页
+  //      能把它与「已关闭」区分开。数据全留，`reopenPeriod` 能救回来。
+  voidPeriod: (pid) => api(`/api/forecast/periods/${pid}/void`, { method: 'POST' }),
   // v219：关闭（=定稿）此前是**单向**的，误点一次即永久锁死、无补救 ⇒ 重开是唯一补救路径。
   // ⚠️ 副作用必须让用户知道：重开后该期次重新出现在小程序 open 列表 ⇒ **销售又能报单了**。
   // 🔴 v319（2026-09-29）：拆成两个语义不同的动作 ——

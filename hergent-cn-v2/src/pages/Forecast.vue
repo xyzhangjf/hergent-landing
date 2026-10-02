@@ -2313,7 +2313,7 @@
     </div>
     </template>
 
-    <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" @reopen="onHistoryReopen" @unlock="onHistoryUnlock" @push="onHistoryPush" @rename="openPeriodEdit" @copy="openPeriodCopy" />
+    <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" @reopen="onHistoryReopen" @unlock="onHistoryUnlock" @push="onHistoryPush" @rename="openPeriodEdit" @copy="openPeriodCopy" @void="onHistoryVoid" />
 
     <!-- 报单配置（原档案管理独立页，整合为标签页） -->
     <div v-if="activeTab === 'config'" class="config-panel">
@@ -10125,6 +10125,30 @@ async function onHistoryUnlock (row) {
 }
 
 /* v319（③）**恢复报单** —— 本期回到「进行中」，销售可继续报单（= 原「重开」的完整行为）。 */
+/* v368③：一键作废 —— 关掉一个「本不该建」的期次（那批货不到）。
+   🔴 确认框必须讲清**两件事**，缺一件用户就不敢点 / 会点错：
+     ① 为什么轮到它：到货日已标记「不到货」（把日期摆出来，让他自己对得上）；
+     ② 点了会失去什么：**数据全保留、可恢复**（用户真正怕的是"报单被删了"）。
+   它跟「关闭」不是一回事：关闭是定稿（会推通知），作废是撤销（不推通知）。 */
+async function onHistoryVoid (row) {
+  if (!row) return
+  if (Number(row.id) <= 0) { toast('合成报单行不支持该操作', 'warn'); return }
+  const ok = window.confirm(
+    `作废期次「${row.name || ''}」？\n\n` +
+    `这一期的到货日（${row.arrival_date || '—'}）已标记「不到货」—— 那批货不来，这一期本不该建。\n\n` +
+    `作废只是把它关掉、让开自动建表的路：【报单数据全部保留】，之后仍可用「恢复报单」找回来。\n\n` +
+    `确定作废吗？`
+  )
+  if (!ok) return
+  try {
+    await forecastApi.voidPeriod(row.id)
+    toast(`已作废「${row.name || ''}」：不再占用自动建表的路（数据保留，可恢复）`, 'success')
+    historyKey.value++            // 重挂往期预报，自动重载看板
+    await loadPeriods()
+  } catch (e) {
+    toast(e.message || '作废失败', 'error')
+  }
+}
 async function onHistoryReopen (row) {
   if (!row) return
   if (Number(row.id) <= 0) { toast('合成报单行不支持该操作', 'warn'); return }

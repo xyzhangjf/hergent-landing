@@ -588,29 +588,32 @@ function _skipEffectLines(af) {
     const tail = p.existed
       ? `（期次#${p.period_id} 已经建好了）`
       : '（它会在填报窗口打开时自动建出来）'
-    // 🔴 取消停单（effect=restore）要用「恢复」的措辞，而且**不能**再劝用户去别的品牌点掉 ——
-    //    他刚做的动作就是把停单取消掉，还叫他去点掉另一个品牌是彻底的反向指引。
-    //    后端已按「摘掉这一条规则之后」算结论（不是"取消前"），所以这里的 p.excluded 是
-    //    **取消之后**的事实：只要还有任一品牌那天送货，这一期就会照建。
+    // 🔴 v368（老板拍板）：排除判定已从「全停才排除」改为「**任一品牌停 ⇒ 整期不建**」。
+    //    ⇒ 四种情形**必须**分开说，合并任何一种都会让界面与后端结论相反：
+    //      skip+excluded   不再自动新建（并交代谁跟着一起停了）
+    //      restore+excluded **仍不建**（还有别的品牌那天停着 —— 要点名是谁）
+    //      restore+!excluded 会恢复自动新建
+    //      skip+!excluded  理论上不存在（打了就必中），留着当护栏，不许静默吞掉
+    const off = (p.skipped_brands || []).filter(Boolean)
     if (p.effect === 'restore') {
       if (!p.excluded) {
-        lines.push(`${who} 会恢复自动新建：${still.join('、')}那天有货到${tail}。`)
+        lines.push(`${who} 会恢复自动新建${tail}。`)
       } else {
-        lines.push(`${who} 仍不会自动新建：那天所有品牌都没货到。`)
+        lines.push(`${who} 仍不会自动新建：「${off.join('、') || '其它品牌'}」那天仍标记不到货`
+          + '（只要有任一品牌不到货，这一期就整期不建）。')
       }
       return
     }
-    // 🔴 必须按后端的**最终结论** p.excluded 分支：只停了部分品牌时这一期**照建**。
-    //    若只看「有没有被列进 affected」就说"不再自动新建"，就与后端结论相反。
     if (!p.excluded) {
-      lines.push(`${who}仍会按期建：${still.join('、')}那天还有货到${tail}。`
-        + `要让这一天整批都不建，请到「${still.join('、')}」的到货节奏里也点掉 ${p.arrival_date}。`)
+      // 护栏：v368 下打了就必中，走到这里说明后端口径又变了 ⇒ 说"照建"并点名，不许装作没事。
+      lines.push(`${who}仍会按期建：${still.join('、')}那天还有货到${tail}。`)
       return
     }
     const act = '不再自动新建'
     let t2
     if (p.existed) {
-      t2 = `但这一期已经建好了（期次#${p.period_id}），系统不会去动它 —— 要作废请手工关单`
+      // v368：已建好的期次现在有「一键作废」入口了 —— 指引必须跟着改，不能再说"手工关单"
+      t2 = `但这一期已经建好了（期次#${p.period_id}），系统不会去动它 —— 不需要的话，到期次列表里「一键作废」`
     } else if (p.window === 'past') {
       t2 = '它的填报窗口已经过了，本来也不会再自动建 —— 需要的话请手工新建'
     } else if (p.window === 'open') {
@@ -619,6 +622,12 @@ function _skipEffectLines(af) {
       t2 = `它将在 ${p.open_at} 打开填报，届时不会自动建表`
     }
     lines.push(`${who} ${act}，${t2}。`)
+    // v368：如实交代「谁其实有货、但跟着这一期一起不建」—— 判据改成"任一停就不建"之后，
+    //       不说这句用户会以为"另一个品牌也不到货"，那就是界面与事实相反。
+    if (still.length) {
+      lines.push(`注意：「${still.join('、')}」${p.arrival_date}那天其实有货到，`
+        + '但只要有任一品牌不到货，这一期就整期不建 —— 要给它们单独报单，请手动新建期次。')
+    }
   })
   if (!af.auto_enabled) {
     lines.push('⚠ 当前是「手动建表」模式，自动建期次本来就没在跑；'

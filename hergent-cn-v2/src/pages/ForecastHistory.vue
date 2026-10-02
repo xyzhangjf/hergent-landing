@@ -4,6 +4,15 @@
       <h3>预报订单历史</h3>
       <span class="hint">按报单期次汇总，点击查看该期汇总表明细</span>
     </div>
+    <!-- v368④：「本期少了 N 期」说明 —— 到货日被标记「不到货」的期次，自动建表
+         不会再建；下面这些是**用户点停单之前**就建出来的。不说清楚会有两种误读：
+         「这几期怎么自己冒出来了」／「期次怎么少了一期」（v365 定的不静默原则）。
+         🔴 独立于下面的 loading/empty 分支（表格本身照常渲染，说明只是加在上面）。 -->
+    <div v-if="!loading && skipped.length" class="hist-skip">
+      <b>{{ skipped.length }}</b> 期的到货日已标记「不到货」（{{ skippedDates }}）——
+      这批货不来了，自动建表不会再建它们；下面这几期是<b>标记之前</b>就建好的，
+      不需要的话点「一键作废」（只关掉、数据保留，可恢复）。
+    </div>
     <div v-if="loading" class="history-loading">加载中…</div>
     <div v-else-if="!list.length" class="history-empty">暂无历史预报期次</div>
     <div v-else class="table-wrap">
@@ -31,17 +40,28 @@
               <div v-if="row.reopened_at" class="hd-sub ok">人工接管 · {{ shortTs(row.reopened_at) }}</div>
             </td>
             <td>{{ row.order_start || '—' }} ~ {{ row.order_end || '—' }}</td>
-            <td>{{ row.arrival_date || '—' }}</td>
+            <td>
+              {{ row.arrival_date || '—' }}
+              <!-- v368③：这一期的到货日被标记「不到货」⇒ 当面点出来，它是「一键作废」的依据 -->
+              <div v-if="row.arrival_skipped" class="hd-sub warn">那天不到货</div>
+            </td>
             <td class="num">{{ fmt(row.reporter_count) }}</td>
             <td class="num">{{ fmt(row.total_qty) }}</td>
             <td class="num">¥{{ fmt(row.total_amount) }}</td>
-            <td><span class="tag" :class="row.status === 'open' ? 'ok' : 'info'">{{ row.status === 'open' ? '进行中' : '已关闭' }}</span></td>
+            <td>
+              <!-- v355：`stale_open`（后端给）⇒ 这一期虽仍是「进行中」，报单窗口却已过去。
+                   标签从绿色换成琥珀色 —— 它标的是**挡路**，不是"正常进行中"。 -->
+              <!-- v368：作废（closed_mode='void'）**必须**有自己的标签 ——
+                   它和「已关闭」不是一回事：已关闭 = 正常走完流程；已作废 = 那批货
+                   根本不来、这一期本不该建。混着显示会让用户以为"这期正常结束了"。 -->
+              <span class="tag" :class="statusTag(row).cls" :title="statusTag(row).title">{{ statusTag(row).text }}</span>
+            </td>
             <td>
               <!-- v319 修复：此列此前判据读 `forecast_audit_decisions`（已废弃的审核台表，
                    生产 0 行）⇒ **恒显示「未定稿」**，与左侧「状态=已关闭」自相矛盾
                    （两列说的是同一件事：关闭即定稿）。现在判据 = `status==='closed'`。
                    副行给出「谁在何时怎么定的稿」—— 以前只能翻服务日志，日志一滚就永久丢失。 -->
-              <span class="tag" :class="row.finalized ? 'ok' : 'info'">{{ row.finalized ? '已定稿' : '未定稿' }}</span>
+              <span class="tag" :class="finalTag(row).cls">{{ finalTag(row).text }}</span>
               <div v-if="row.finalized" class="hd-sub">{{ closeHint(row) }}</div>
             </td>
             <td>
@@ -66,6 +86,16 @@
               <button v-if="row.status === 'open' && Number(row.id) > 0 && canDo('data', 'update')" class="btn btn-sm btn-ghost" @click="$emit('rename', row)">修改</button>
               <!-- A6 修复 (2026-07-24)：合成行（id<0，如「2026-07-24 报单」）无真实期次记录，
                    关闭/删除会打到无效 id（UPDATE 0 行或误触数据），故屏蔽 -->
+              <!-- v368：作废入口 —— 只给「还是 open 且 到货日被标记不到货」的期次。
+                   🔴 为什么必须是这两个条件的**交集**：
+                     · 已关闭的期次不需要作废（它已经不挡路了）；
+                     · 没被标记不到货的期次不该出现这个按钮（那不是"误建"，
+                       给它一个「作废」只会让人误以为关单有什么问题）。
+                   🔴 语义必须写在按钮上：作废 = **关掉它、让开自动建表的路**，数据保留 ——
+                      用户怕的是"点了会不会把报单删了"（真删才删数据，作废不删）。 -->
+              <button v-if="row.status === 'open' && Number(row.id) > 0 && row.arrival_skipped && canDo('data', 'create')"
+                      class="btn btn-sm btn-ghost danger" @click="$emit('void', row)"
+                      title="这一期的到货日已标记「不到货」⇒ 作废：关掉它、让开自动建表的路；数据保留，可恢复">一键作废</button>
               <button v-if="row.status === 'open' && Number(row.id) > 0 && canDo('data', 'create')" class="btn btn-sm btn-ghost" @click="$emit('close', row)">关闭</button>
               <template v-if="row.status !== 'open' && Number(row.id) > 0">
                 <!-- 🔴 v319（用户拍板）：关闭态给出**两个语义不同**的入口，不再是一个笼统的「重开」。
@@ -93,16 +123,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { forecastApi } from '../api/modules'
 /* v335：按钮级门禁 —— 本组期次动作全部落在 `/api/forecast/periods*`（模块 `data`，见后端
    `_PATH_MODULE_MAP` 的 `/api/forecast` 键），动作按 HTTP 方法判：关闭/解锁/恢复/推送/复制 = POST
-   ⇒ `create`；修改 = PATCH ⇒ `update`；删除 = DELETE ⇒ `delete`。「查看」是纯读，不门禁。 */
+   ⇒ `create`；修改 = PATCH ⇒ `update`；删除 = DELETE ⇒ `delete`。「查看」是纯读，不门禁。
+   🆕 v368「一键作废」= POST /api/forecast/periods/{pid}/void ⇒ 同为 `data` / `create`。 */
 import { canDo } from '../store'
 
-const emit = defineEmits(['view', 'delete', 'close', 'rename', 'copy', 'reopen', 'unlock', 'push'])
+const emit = defineEmits(['view', 'delete', 'close', 'rename', 'copy', 'reopen', 'unlock', 'push', 'void'])
 const list = ref([])
+const skipped = ref([])
 const loading = ref(false)
+/* v368④：把「到货日被标记不到货」的日期去重后点名 —— 用户要对得上他在「到货节奏」里
+   点掉的那一天，光说"有 N 期"他没法确认自己点对了没有。 */
+const skippedDates = computed(() =>
+  [...new Set((skipped.value || []).map(s => s.arrival_date).filter(Boolean))].join('、'))
 
 function fmt(n) {
   if (n == null || n === '') return '—'
@@ -117,13 +153,44 @@ function shortTs(t) {
   return m ? m[1] + ' ' + m[2] : s
 }
 
-/* v319：定稿来源说明 —— 「系统自动关单 · 09-29 11:18」/「人工定稿 · 张三 · 09-27 20:04」。
+/* v368：状态标签 —— 三条互斥路径，顺序**不可调换**（作废 > 过期未关 > 进行中 > 已关闭）。
+   🔴 作废必须排第一：那一期 status 已经是 closed，若先判 status 就会落到「已关闭」，
+      把"这一期本不该存在"显示成"正常走完了流程"。 */
+function statusTag(row) {
+  // 🔴 `closed_mode==='void'` **必须**同时判 `status !== 'open'`：
+  //   「恢复报单」（reopen）只把 status 改回 open，**不清** closed_mode（v319 的留痕语义：
+  //   留痕不该被后续操作抹掉）。若这里只看 closed_mode，重开后的期次会一直显示
+  //   「已作废」—— 而它明明又是「进行中」了 ⇒ 界面与状态自相矛盾。
+  if (row.closed_mode === 'void' && row.status !== 'open') {
+    return { text: '已作废', cls: 'info', title: '这一期的到货日已标记「不到货」⇒ 已作废（数据保留，可恢复）' }
+  }
+  if (row.status === 'open') {
+    return row.stale_open
+      ? { text: '进行中 · 已过截止日', cls: 'warn', title: '本期报单截止日已过，但还挂着「进行中」—— 它会挡住新一期的自动创建' }
+      : { text: '进行中', cls: 'ok', title: '' }
+  }
+  return { text: '已关闭', cls: 'info', title: '' }
+}
+
+/* v368：定稿列 —— 🔴 作废**不算定稿**。
+   `finalized` 的判据是 `status==='closed'`，而作废也会把 status 关掉 ⇒ 若直接照它显示，
+   这一行就会同时写着「已作废」（状态列）和「已定稿」（定稿列）—— 两列互相打架，
+   用户会以为"这期既作废了又定稿了"。作废是**撤销**，流程没走完 ⇒ 显示「未定稿」，
+   真正的原因由副行 closeHint 交代（「已作废（那批货不到）· 谁 · 何时」）。 */
+function finalTag(row) {
+  if (row.closed_mode === 'void') return { text: '未定稿', cls: 'info' }
+  return row.finalized ? { text: '已定稿', cls: 'ok' } : { text: '未定稿', cls: 'info' }
+}
+
+/* v319：定稿来源说明 —— 「系统到点自动关单 · 09-29 11:18」/「人工定稿 · 张三 · 09-27 20:04」。
    ⚠️ 区分 auto / manual 不是装饰：自动关单**不发通知**（加单/减单那个），
       所以这两种定稿在后一列的表现不同（自动的那些会停在「尚未推送」）。
    ⚠️ 历史期次这三列是空的（v319 才加列）⇒ 显示「—」，**不假装知道**。 */
 function closeHint(row) {
-  const mode = row.closed_mode === 'auto' ? '系统自动关单'
-    : (row.closed_mode === 'manual' ? '人工定稿' : '')
+  const mode = row.closed_mode === 'void' ? '已作废（那批货不到）'
+    : (row.closed_mode === 'auto_reap' ? '系统自动回收（报单窗口已过）'
+      : (row.closed_mode === 'auto' ? '系统到点自动关单'
+        : (row.closed_mode === 'manual' ? '人工定稿' : '')))
   const who = String(row.closed_by || '')
   const whoTxt = (who && who !== '系统') ? who : ''
   const ts = shortTs(row.closed_at)
@@ -136,8 +203,11 @@ async function load() {
   try {
     const d = await forecastApi.orderBoard()
     list.value = d.board || []
+    // v368③：后端算、前端只展示 —— 判据与自动建表的排除判定同源，界面不自己重算
+    skipped.value = d.skipped || []
   } catch (e) {
     list.value = []
+    skipped.value = []
   } finally {
     loading.value = false
   }
@@ -151,6 +221,12 @@ onMounted(load)
 .history-hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
 .history-hd h3 { font-size: 16px; font-weight: 600; margin: 0; }
 .history-hd .hint { font-size: 12px; color: var(--t3); }
+/* v368④：「本期少了 N 期」说明条 —— 颜色全走既有令牌（零硬编码色，深色自动跟随）。
+   与 `.ap-excl`（报单自动化面板里那条）同族：都用主色 6% 底 + 主深字。 */
+.hist-skip {
+  margin: 0 0 12px; font-size: 12px; line-height: 1.65; color: var(--p-dark);
+  background: rgba(var(--p-rgb), .06); border-radius: var(--radius-xs, 6px); padding: 7px 10px;
+}
 .history-loading, .history-empty { color: var(--t3); padding: 40px 0; text-align: center; font-size: 13px; }
 /* 列数从 9 增到 10（v319 新增「加单通知」列）⇒ 最小宽度同步放宽，避免操作列被压成两行 */
 .history-tbl { min-width: 1060px; }
