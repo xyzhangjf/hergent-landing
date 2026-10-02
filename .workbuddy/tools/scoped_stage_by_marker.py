@@ -3455,6 +3455,75 @@ SPEC_FE_V365_TOOL = ("fe", [
     {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
 ])
 
+# ── v368：停单排除升级（任一停即不建）+ 一键作废 + 期次列表说明 ──────────────
+SPEC_BE_V368 = ("be", [
+    # 两文件本轮独占（attribution 实测：他轮标记 0）⇒ keep_all 拿「== 工作区」自证
+    {"file": "server/domain/arrival_schedule.py", "keep_all": True, "gone": []},
+    {"file": "server/routers/rebate_rules.py", "keep_all": True, "gone": []},
+    # 两个验收脚本：v368 就地反转了 v365 的旧断言（按技能 §5.49，不删不新建）
+    {"file": "server/tools/v365-period-exclude-purecheck.py", "keep_all": True, "gone": []},
+    {"file": "server/tools/v365-period-exclude-harness.py", "keep_all": True, "gone": []},
+    # 🔴 forecast.py 是**长期在途文件**（18 个 -U0 hunk，本轮占 5 个）⇒ 必须正向切。
+    #   让出的 13 个：135（v355 `_auto_reap_on` 定义）、1475/1485/1489/1491/1675/
+    #   1681/1689/1692/1696/1698（v361 导出配置拦截那段）、
+    #   **291/293（本轮的 `list_periods` skipped 增补 —— 见下）**。
+    #   认领的 5 个：276（`_periods_skipped` 定义）、298/300（`order_board` 的
+    #   docstring 与 body）、343（`create_period` 手动建表契约注释）、646（void 端点）。
+    #
+    # 🔴🔴 为什么**让出** 291/293（本轮自己的改动）：293 那个 hunk 是 `-1/+16`，
+    #   里面我的 5 行（`"skipped"` / `"skipped_dates"` + 3 行注释）与并发会话 v355 的
+    #   11 行（`open_stale` / `auto_reap_on` + 注释）**交错**，且**共用同一个收尾 `}`**
+    #   —— 要切开就必须**改行内容**（把 `}` 挪到 `skipped_dates` 行尾），
+    #   工具的 plus 侧手术（trim/drop/keep）都做不到。而 291 让出后 293 里的
+    #   `_open` 会变成未使用变量 ⇒ 两个一起让出，代码才干净。
+    #   ⇒ 取「宁可少提交、不可多夹带」：**工作区与生产仍含这两处**（功能完整），
+    #     只是 git 里 `GET /periods` 的那份增补暂缺（历史页走 `/order-board`，已提）。
+    {
+        "file": "server/routers/forecast.py",
+        "exclude_hunks": [135, 291, 293, 1475, 1485, 1489, 1491, 1675, 1681,
+                          1689, 1692, 1696, 1698],
+        "gone": [],
+    },
+])
+
+SPEC_FE_V368 = ("fe", [
+    # 🔴 Forecast.vue 是**长期在途文件**（38 个 -U0 hunk，本轮占 2 个）⇒ 必须正向认领：
+    #   2316（模板 `@void="onHistoryVoid"`）、10127（`onHistoryVoid` 函数 +24 行）。
+    #   其余 36 个是 v347 / v355 / v364 等在途，一个都不收。
+    {"file": "hergent-cn-v2/src/pages/Forecast.vue",
+     "own_hunks": [2316, 10127], "gone": []},
+    # ForecastHistory.vue：18 hunk 里让出 3 个在途（31 = v355 过期未关注释、
+    # 122 = v355 auto_reap 注释、164 = v355 `.hd-sub.warn` 样式），其余 15 个属本轮。
+    {"file": "hergent-cn-v2/src/pages/ForecastHistory.vue",
+     "exclude_hunks": [31, 122, 164], "gone": []},
+    # api/modules.js：#0（49，`voidPeriod`）属本轮；#1（187，v364 到货停单接口）在途 ⇒ 让出。
+    {"file": "hergent-cn-v2/src/api/modules.js", "exclude_hunks": [187], "gone": []},
+    {"file": "hergent-cn-v2/src/components/rebate/TargetFormModal.vue",
+     "keep_all": True, "gone": []},
+    # 本轮新增探针 + v365 界面探针的就地反转
+    {"file": ".workbuddy/tools/v368-void-and-anybrand-ui-probe.mjs", "new_file": True, "gone": []},
+    # 🔴 v365 的界面探针当时**没入库**（HEAD 里没有它）⇒ 用 new_file，不是 keep_all。
+    #   本轮就地反转了它的 1.6/1.7 两条旧口径断言（技能 §5.49），随本轮一起入。
+    {"file": ".workbuddy/tools/v365-period-exclude-ui-probe.mjs", "new_file": True, "gone": []},
+    # 交付目录（说明 + 4 张裁剪截图；PNG 无 hunk ⇒ 只能整文件，逐字节自证）
+    {"file": "outputs/停单排除升级与一键作废-v368-2026-10-02/交付说明-v368.md",
+     "new_file": True, "gone": []},
+    {"file": "outputs/停单排除升级与一键作废-v368-2026-10-02/01-只停一个品牌-回执说不再自动新建.png",
+     "new_file": True, "binary": True},
+    {"file": "outputs/停单排除升级与一键作废-v368-2026-10-02/02-期次列表-说明条与一键作废按钮.png",
+     "new_file": True, "binary": True},
+    {"file": "outputs/停单排除升级与一键作废-v368-2026-10-02/03-作废后-状态变已作废.png",
+     "new_file": True, "binary": True},
+    {"file": "outputs/停单排除升级与一键作废-v368-2026-10-02/04-深色模式-说明条与已作废行.png",
+     "new_file": True, "binary": True},
+])
+
+# ── v368 工具自身：两份 spec 登记（＋ 两条新的切分形态，见提交信息）──────────
+SPEC_FE_V368_TOOL = ("fe", [
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py",
+     "own_hunks": [3457, 3594], "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
            "be-v278": SPEC_BE_V278, "fe-v278": SPEC_FE_V278,
          "be-v273": SPEC_BE_V273, "fe-v273": SPEC_FE_V273,
@@ -3591,7 +3660,10 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v365": SPEC_FE_V365,
          # v365 工具自身：本轮 spec 登记 + binary `KeyError: 'gone'` 修复。
          #   ⚠️ 这条**必须在 SPEC_FE_V365 之后**跑（它要把上面两条 spec 一起入库）。
-         "fe-v365-tool": SPEC_FE_V365_TOOL}
+         "fe-v365-tool": SPEC_FE_V365_TOOL,
+         "be-v368": SPEC_BE_V368,
+         "fe-v368": SPEC_FE_V368,
+         "fe-v368-tool": SPEC_FE_V368_TOOL}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
