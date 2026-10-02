@@ -3349,6 +3349,112 @@ SPEC_FE_V313 = ("fe", [
     {"file": ".workbuddy/tools/v313-m01-verify.py", "new_file": True, "gone": []},
 ])
 
+# ── v365：停单不再自动建期次（含 v364 的按月停单底层 —— 两者**必须同批**）──────
+# 归属依据（逐 hunk 打印首行 + 版本标记串核对过，不按行号猜）：
+#   · 本轮 = **v364 + v365**。为什么不能只提 v365：v365 的排除判定要读 v364 新建的
+#     `rebate_arrival_skips` 表（`erp_db.rebate_arrival_skip_map`）⇒ 只提 v365 会让
+#     HEAD 变成「表不存在 ⇒ 恒返回 {}」的**静默失效**（本轮最忌讳的失败形态）。
+#   · 让出（他人的、已在生产上但未提交）：v354/v355（僵尸 open 期次回收）、
+#     v361（舟谱导出「未登记报单对象」拦截）、v366（并发会话的开放通知渠道开关）。
+#   · 生产实测（2026-10-02 21:40）：本 5 个后端文件「工作区 == 生产」**逐字节相同**。
+#     ⇒ keep_all 的文件提交后 HEAD == 生产；混合文件按 hunk 让出他人的部分。
+SPEC_BE_V365 = ("be", [
+    # 全部 hunk 属 v364+v365（grep 他轮标记 = 0）→ keep_all 拿「== 工作区」自证
+    {"file": "server/domain/arrival_schedule.py", "keep_all": True, "gone": []},
+    {"file": "server/routers/rebate_rules.py", "keep_all": True, "gone": []},
+    # ── 新脚本（本轮的纯函数自证 + 影子库 A/B harness）──
+    {"file": "server/tools/v365-period-exclude-purecheck.py", "new_file": True, "gone": []},
+    {"file": "server/tools/v365-period-exclude-harness.py", "new_file": True, "gone": []},
+    # 让他人的 v354/v355：`forecast_period_stale_open` / `forecast_period_close(mode=...)`
+    # 等 5 个 hunk（os=17386/17490/17520/17612/17713）。
+    # 保留的 3 个：v364 建表 + 存量迁移（1629）、v364 租户补丁段双保险（1907）、
+    # v365 `rebate_arrival_skip_map`（17136）。
+    {
+        "file": "server/erp_db.py",
+        "exclude_hunks": [17386, 17490, 17520, 17612, 17713],
+        "gone": [],
+    },
+    # 让他人的 v354/v355/v366（14 个 hunk）：
+    #   1213  v366 `_notify_period_opened(..., open_time=)` 调用
+    #   1248  v366 `_alert_carry_empty` 的「刻意不读 channels.wecom」注释
+    #   1296/1305/1308/1317/1318/1321/1332/1336/1340  v366 `_notify_period_opened`
+    #         的签名 + docstring + 渠道开关（inapp/wecom）+ 窗口印到分 + 留痕改造
+    #   1391  v354 `_alert_stale_reaped` + `_reap_stale_open_periods` 定义（+92 行）
+    #   1411  v354 `_reap_stale_open_periods(now_str, dry)` 调用
+    #   1434  v366 `_auto_period_open(p, dry, close_time=ct, open_time=ot)` 调用
+    # 保留的 4 个：1136（我的 `_EXCLUDED_LOGGED`，**同 hunk 交错**，见下）、
+    #   1400（`_skips = db.rebate_arrival_skip_map(conn)`）、1425（`skips_by_rule=_skips`）、
+    #   1432（被排除期次 `continue` 的整段）。
+    {
+        "file": "server/scheduler.py",
+        "exclude_hunks": [1213, 1248, 1296, 1305, 1308, 1317, 1318, 1321, 1332,
+                          1336, 1340, 1391, 1411, 1434],
+        # 🔴 同 hunk 交错（os=1136，old_count=1 / plus=8）：`-U0` 把「我的 7 行插入
+        #   （v365 日志去重集合）」与「v366 改的 `_auto_period_open` 签名」并成了一个
+        #   1→8 的替换。落 `+` 前 7 行 + **保留旧侧行** ⇒ 提交版 = 我的 7 行 + 旧签名。
+        #   为何必须保留旧签名：v366 那半（签名加 `open_time=""`）与它的调用处
+        #   （os=1213/1434，同样不提交）是一套；只留签名会得到「有参无实参」，
+        #   只留调用会 TypeError。两侧一起留在工作区 ⇒ HEAD 自洽。
+        "keep_plus_before_minus": {1136: 7},
+        "gone": [],
+    },
+    # 让他人的 v355/v361（13 个 hunk）：
+    #   135   v355 `_auto_reap_on()` 定义
+    #   278/281  v355 `list_periods` 的 `open_stale` / `auto_reap_on` 两字段
+    #   1463/1473/1477/1479/1663/1669/1677/1680/1684/1686  v361 舟谱导出
+    #         「未登记报单对象」拦截 + 导出回执新增一段
+    # 保留的 11 个全是 v365：`_auto_period_view(..., skips_by_rule=None)` 签名与
+    #   docstring（139/163）、`excluded_count`（175/198）、`if p.get("excluded")` 跳过
+    #   下一次动作候选（180）、`build_period_plan(..., skips_by_rule=)`（173）、
+    #   两个 GET/PUT 里读 `skips`（210/224）与三处 `_auto_period_view(..., skips)` 调用
+    #   （212/236/262）。
+    {
+        "file": "server/routers/forecast.py",
+        "exclude_hunks": [135, 278, 281, 1463, 1473, 1477, 1479, 1663, 1669,
+                          1677, 1680, 1684, 1686],
+        "gone": [],
+    },
+])
+
+# ── v365 前端侧 ───────────────────────────────────────────────────────────────
+# 5 个源文件 grep 他轮标记 = 0（`ArrivalRhythmBlock.vue` 那 1 处命中的是**我的注释在
+#   复述 v362 的教训**「写死色会在深色下变成白块（v362 踩过）」，不是他人代码）。
+SPEC_FE_V365 = ("fe", [
+    {"file": "hergent-cn-v2/src/components/rebate/TargetFormModal.vue",
+     "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/components/rebate/BrandTargetForm.vue",
+     "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/components/rebate/ArrivalRhythmBlock.vue",
+     "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/components/forecast/AutoPeriodBlock.vue",
+     "keep_all": True, "gone": []},
+    {"file": "hergent-cn-v2/src/pages/Rebate.vue", "keep_all": True, "gone": []},
+    # ── 本轮新增的探针 / 工具（可复用资产）──
+    {"file": ".workbuddy/tools/v365-api-probe.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/vite-chunk-cascade-diff.py", "new_file": True, "gone": []},
+    {"file": ".workbuddy/tools/hunk-attribution-report.py", "new_file": True, "gone": []},
+    # ── 交付目录（说明 + 5 张裁剪截图；PNG 无 hunk ⇒ 只能整文件，逐字节自证）──
+    {"file": "outputs/停单不再自动建期次-v365-2026-10-02/交付说明-v365.md",
+     "new_file": True, "gone": []},
+    {"file": "outputs/停单不再自动建期次-v365-2026-10-02/01-只停一个品牌-回执说仍会按期建.png",
+     "new_file": True, "binary": True},
+    {"file": "outputs/停单不再自动建期次-v365-2026-10-02/02-两个品牌都停-回执说不再自动新建.png",
+     "new_file": True, "binary": True},
+    {"file": "outputs/停单不再自动建期次-v365-2026-10-02/03-报单自动化预览-排除行划线并挂标记.png",
+     "new_file": True, "binary": True},
+    {"file": "outputs/停单不再自动建期次-v365-2026-10-02/04-深色模式-排除说明与划线行.png",
+     "new_file": True, "binary": True},
+    {"file": "outputs/停单不再自动建期次-v365-2026-10-02/05-取消停单-回执说会恢复自动新建.png",
+     "new_file": True, "binary": True},
+])
+
+# ── v365 工具自身：本轮新增的两个 spec 登记 ＋ binary 文件必崩的修复 ──────────
+SPEC_FE_V365_TOOL = ("fe", [
+    # 3 个 hunk 全属本轮：`SPEC_BE_V365`/`SPEC_FE_V365` 定义（+99）／`SPECS` 注册（1→6）／
+    #   `main()` 里 `for s in spec["gone"]` → `(spec.get("gone") or [])`（1→6）。
+    {"file": ".workbuddy/tools/scoped_stage_by_marker.py", "keep_all": True, "gone": []},
+])
+
 SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
            "be-v278": SPEC_BE_V278, "fe-v278": SPEC_FE_V278,
          "be-v273": SPEC_BE_V273, "fe-v273": SPEC_FE_V273,
@@ -3477,7 +3583,15 @@ SPECS = {"v171": SPEC_V171, "be-v163": SPEC_BE_V163, "fe-v163": SPEC_FE_V163,
          "fe-v313b": SPEC_FE_V313B,
          # v313c：M0.2 放开客户/内部侧 + M0.3 execute 真跑与回滚 + 剩余档案补建。
          "be-v313c": SPEC_BE_V313C,
-         "fe-v313c": SPEC_FE_V313C}
+         "fe-v313c": SPEC_FE_V313C,
+         # v365：停单不再自动建期次（后端 = v364+v365 同批；前端 = 回执 + 排除说明）。
+         #   混合文件按 exclude_hunks 让出他人的 v354/v355/v361/v366（均已上线未提交）。
+         #   起号依据：MEMORY 号表截至 v364，工作区已出现并发会话的 v366 ⇒ 无撞车。
+         "be-v365": SPEC_BE_V365,
+         "fe-v365": SPEC_FE_V365,
+         # v365 工具自身：本轮 spec 登记 + binary `KeyError: 'gone'` 修复。
+         #   ⚠️ 这条**必须在 SPEC_FE_V365 之后**跑（它要把上面两条 spec 一起入库）。
+         "fe-v365-tool": SPEC_FE_V365_TOOL}
 
 def git(*a, **kw):
     return subprocess.run(["git", "-C", REPO] + list(a), capture_output=True,
@@ -3934,7 +4048,12 @@ def main():
             bad += 0 if ok else 1
             print("  %s 本轮特征 %-46s 暂存=%d 工作区=%d" % ("ok " if ok else "BAD", s[:46], a, b))
 
-        for s in spec["gone"]:
+        # 🔴 2026-10-02 v365 修：这里原为 `spec["gone"]` ⇒ **binary 文件必然 KeyError**。
+        #   上面 3666 行有一条断言「binary 不该有 gone 名单」，而本行又硬取该键 ——
+        #   两者自相矛盾 ⇒ 任何 `{"new_file": True, "binary": True}` 的 spec（交付目录里的
+        #   PNG 截图）都会在跑完二进制自证后当场抛 KeyError，整个 spec 半途而废。
+        #   与同段 `spec.get("present", [])` 对齐即可（空名单 == 无该检查）。
+        for s in (spec.get("gone") or []):
             a, b = out.count(s), wt.count(s)
             ok = a == 0 and b == 0
             bad += 0 if ok else 1
