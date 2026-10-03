@@ -93,8 +93,9 @@ Page({
   /* v370（2026-10-03）：商品行「库存 · 日均」整段文案 —— 老板选项 A + B + C。
      · **A 带单位**：原来写死「库存 745 · 日均 6852.97」两个数都不带单位，
        而同屏的「均单目标 248 包」是带单位的 ⇒ 同页标注不一致，必被误读。
-       单位取 **`unit_raw`（档案单位）**而不是 `unit`（报单单位）：库存与出库明细
-       都是**账面口径**，按档案小单位记；两者生产上 449 个商品里只有 1 个不同。
+     · **v371 单位与报单对齐**（老板追加：「库存/日均的单位要和报单对齐，有中单位就
+       显示中单位，没有中单位才显示小单位」）⇒ 单位与数值**都取后端折算好的
+       `disp_unit` / `*_disp`**，本页**不自己乘换算比**（后端 `per_case` 是唯一权威）。
      · **A 库存显示「你所在仓」**：后端只在**这个人真有本人仓**时下发 `my_stock`；
        没有本人仓（外部客户 / boss）时**缺这个键** ⇒ 这里回退「全公司」并**如实写出来**，
        绝不把全公司数字说成「你的仓」。
@@ -107,20 +108,32 @@ Page({
      · 数字与单位之间**留一个空格**（与同屏「均单目标 248 包」同一排版口径）。 */
   _metaText(it, hasMyWh) {
     if (!it) return ''
-    const u = (it.unit_raw || it.unit || '').trim()
+    // 🔴 v371：单位与数值都取后端**折算好的那一对**（`disp_unit` + `stock_disp` /
+    //    `stock_all_disp` / `avg_disp`）。前端**不做任何单位换算** —— 老板口径是
+    //    「有中单位就显示中单位」，换算规则由后端 `per_case`（唯一权威）算；
+    //    这里自己乘一遍就是第二份实现，必然漂移。
+    //    ⚠️ 老版本后端不下发这些键 ⇒ 下面的三元逐级回落到 v370 字段，**向前兼容**。
+    const u = (it.disp_unit || it.unit_raw || it.unit || '').trim()
     const parts = []
-    // 库存：优先本人仓；缺键 = 不适用 ⇒ 退回全公司合计并说清楚
-    let stock = null
-    let scope = ''
+    // 库存：优先本人仓；没有本人仓 ⇒ 回退全公司合计并**如实写出来**
+    // 🔴 **判「有没有本人仓」用 `my_stock`（v370 的键，语义 = 本人仓存在性）**，
+    //    **不用 `stock_disp`** —— v371 加折算键时若顺手把判据也换掉，v370 的字段就被
+    //    遗忘：后端一旦回滚到 v370，前端会把**所有人的库存**都写成「全公司库存」
+    //    （零报错、界面看着正常）。两个字段各司其职：存在性看 `my_stock`，值看 `stock_disp`。
+    let stock = 0
+    let scope = '全公司库存'
     if (hasMyWh && it.my_stock !== undefined && it.my_stock !== null) {
-      stock = Number(it.my_stock) || 0
+      // v371 有 `stock_disp`（已折算到中单位）；v370 后端没有 ⇒ 回落 `my_stock` 原值
+      stock = Number(it.stock_disp !== undefined && it.stock_disp !== null
+        ? it.stock_disp : it.my_stock) || 0
       scope = '本人仓'
     } else {
-      stock = Number(it.current_stock) || 0
-      scope = '全公司库存'
+      stock = Number(it.stock_all_disp !== undefined && it.stock_all_disp !== null
+        ? it.stock_all_disp : it.current_stock) || 0
     }
     if (stock > 0) parts.push(scope + ' ' + this._numText(stock) + ' ' + (u || '件'))
-    const avg = Number(it.avg_daily_sales) || 0
+    const avg = Number(it.avg_disp !== undefined && it.avg_disp !== null
+      ? it.avg_disp : it.avg_daily_sales) || 0
     if (avg > 0) parts.push('日均 ' + Math.round(avg) + ' ' + (u || '件'))
     return parts.length ? parts.join(' · ') : '暂无库存与销量数据'
   },
