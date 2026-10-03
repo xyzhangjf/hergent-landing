@@ -90,6 +90,62 @@ Page({
      （第二次覆盖第一次，结果虽然不重复落单，但用户会看到两次"提交成功"）。
      实例锁在函数第一行就置位，绕开 setData 的异步窗口。 */
   _submitLock: false,
+  /* v370（2026-10-03）：商品行「库存 · 日均」整段文案 —— 老板选项 A + B + C。
+     · **A 带单位**：原来写死「库存 745 · 日均 6852.97」两个数都不带单位，
+       而同屏的「均单目标 248 包」是带单位的 ⇒ 同页标注不一致，必被误读。
+       单位取 **`unit_raw`（档案单位）**而不是 `unit`（报单单位）：库存与出库明细
+       都是**账面口径**，按档案小单位记；两者生产上 449 个商品里只有 1 个不同。
+     · **A 库存显示「你所在仓」**：后端只在**这个人真有本人仓**时下发 `my_stock`；
+       没有本人仓（外部客户 / boss）时**缺这个键** ⇒ 这里回退「全公司」并**如实写出来**，
+       绝不把全公司数字说成「你的仓」。
+     · **C 库存为 0 整段不显示库存**：老板原话「库存为 0 时不显示」。
+       ⚠️ 与「没有本人仓」严格分开：前者是真有 0 库存，后者是不适用。
+     · **日均 0 照常显示**（那是事实陈述：近 30 天确实没卖）；但库存与日均**都没有**
+       时显示「暂无库存与销量数据」，**不拿 0 冒充数据**（R8）。
+     · 日均四舍五入到整数：它是**参考值**（不像均单要照着填单），显示 6852.97 只会
+       让销售以为是精确到小数点的实测值。
+     · 数字与单位之间**留一个空格**（与同屏「均单目标 248 包」同一排版口径）。 */
+  _metaText(it, hasMyWh) {
+    if (!it) return ''
+    const u = (it.unit_raw || it.unit || '').trim()
+    const parts = []
+    // 库存：优先本人仓；缺键 = 不适用 ⇒ 退回全公司合计并说清楚
+    let stock = null
+    let scope = ''
+    if (hasMyWh && it.my_stock !== undefined && it.my_stock !== null) {
+      stock = Number(it.my_stock) || 0
+      scope = '本人仓'
+    } else {
+      stock = Number(it.current_stock) || 0
+      scope = '全公司库存'
+    }
+    if (stock > 0) parts.push(scope + ' ' + this._numText(stock) + ' ' + (u || '件'))
+    const avg = Number(it.avg_daily_sales) || 0
+    if (avg > 0) parts.push('日均 ' + Math.round(avg) + ' ' + (u || '件'))
+    return parts.length ? parts.join(' · ') : '暂无库存与销量数据'
+  },
+
+  /* v370：销量数据新鲜度提示文案（老板选项 B）。
+     🔴 这条提示的价值全在「**说清那个日均是哪段时间的**」：
+       后端 `sales_freshness` 带的 `window_start/window_end` 才是日均的真实区间
+       （锚在最后一笔单，**不是**「近 30 天」）。只说「8 天没更新」而不给区间，
+       用户仍会把它当今天的行情。
+     ⚠️ 分档措辞：>30 天属「已停更」而不是「有点旧」—— 语气不同，行动也不同
+       （前者该去查为什么没单，后者只是知道一下）。
+     ⚠️ `fresh`（≤7 天）返回空串 ⇒ 模板整条不渲染，不拿正常状态占界面。 */
+  _freshText(f) {
+    if (!f || !f.max_date) return ''
+    const days = Number(f.days_stale) || 0
+    if (days <= 7) return ''
+    const win = (f.window_start || '') + ' ~ ' + (f.window_end || '')
+    if (days > 30) {
+      return '销量数据已停更 ' + days + ' 天（最后一笔 ' + f.max_date +
+        '）：商品旁的「日均」是 ' + win + ' 这 30 天的平均，不代表现在'
+    }
+    return '销量数据已 ' + days + ' 天未更新（最后一笔 ' + f.max_date +
+      '）：「日均」按 ' + win + ' 这 30 天算'
+  },
+
   /* v264c（2026-09-24）：均单目标（方案 §5.1）—— 提示用，**只读、不参与任何写入**。
      · `_avgMap`  = pid(字符串) -> 后端 `/avg-target` 的那一项（**原样存**，含 flags 与 per_unit）
      · `_avgPid`  = 已拉过哪一期（避免每次 onShow / 翻页重复请求）
@@ -975,7 +1031,14 @@ Page({
       const d = await request('/api/products/fill-search' + q)
       if (seq !== this._seq) return
       const qm = this._qtyMap || {}
-      const list = (d.items || []).map(it => Object.assign({}, it, { qty: qm[it.id] || 0 }))
+      /* v370：**每次重铺都重算**「库存 · 日均」整段文案（含分页追加）。
+         🔴 必须在数据构造时算，不能事后 patch 数组 —— `my_stock` 是后端按**本人仓**
+         算的，换账号 / 换仓范围后旧文案会留在界面上，零报错地显示着别人的库存。 */
+      const hasMyWh = (d.my_warehouses || []).length > 0
+      const list = (d.items || []).map(it => Object.assign({}, it, {
+        qty: qm[it.id] || 0,
+        metaText: this._metaText(it, hasMyWh)
+      }))
       const total = typeof d.total === 'number' ? d.total : list.length
       const products = append ? this.data.products.concat(list) : list
       // P1-2: 重建 id->下标索引（供 setQty/_syncRow O(1) 定位）
@@ -989,7 +1052,10 @@ Page({
         loadingMore: false,
         initialLoading: false,
         loadError: '',
-        listScope: d.scope || ''
+        listScope: d.scope || '',
+        // v370：本人仓口径 + 销量新鲜度（都只增键，旧字段语义不变）
+        hasMyWh: hasMyWh,
+        salesFresh: this._freshText(d.sales_freshness)
       }
       /* 空态现在有**三种互斥成因**，各自的可行动作完全不同，绝不能用同一句话糊过去：
            · 筛选后为空  → 去掉某个条件即可，用户自己就能解决；

@@ -189,3 +189,10 @@
 .err-bar .dock-btn-main{background:#dc2626}
 /* 结果卡显示时加大页面底部留白 —— 否则列表末尾（含"已显示全部 N 项"）会被卡片永久遮住 */
 .page-with-result{padding-bottom:660rpx}
+
+/* v370（2026-10-03）：销量数据新鲜度提示条。
+   与 .pending-bar（橙色 = 你该做什么）刻意**不同色**：这一条是"数据可信度说明"，
+   不是待办 —— 用中性灰蓝，视觉层级低于进度条，避免销售把提示当成催单。 */
+.fresh-bar{display:flex;align-items:stretch;margin:12rpx 32rpx 0;background:#f1f5f9;border:1rpx solid #cbd5e1;border-radius:14rpx;overflow:hidden}
+.fresh-accent{width:6rpx;background:#94a3b8;flex:none}
+.fresh-text{font-size:22rpx;color:#475569;line-height:1.5;padding:14rpx 24rpx;flex:1;min-width:0}

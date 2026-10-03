@@ -157,13 +157,33 @@
          还写「共」会让人以为本期就这么多（而 Web 端显示的是另一个数）。 -->
     <text class="prod-head-n">{{kw || brandSel || freqOn ? '匹配 ' : '共 '}}{{total}} 项</text>
   </view>
+
+  <!-- v370（2026-10-03）：销量数据新鲜度提示（老板选项 B）。
+       🔴 为什么必须有：「日均」的统计窗口锚在**库里最后一笔销售单**（不是今天），
+       数据停更时那个数会静默漂移 —— 生产实测最后一笔 2026-09-25、已停更 8 天，
+       而报单页**一个字都不说**，销售只会以为那就是今天的行情。
+       ⚠️ 只在「不新鲜」时渲染（≤7 天不提示，>30 天措辞更重，见 js 分档）；
+          整条不渲染时商品列表自然上移，不留空白。
+       与 pending-bar 同族（"你现在该关注这件事"），用中性灰蓝底避免与橙色进度条抢眼。 -->
+  <view class="fresh-bar" wx:if="{{salesFresh}}">
+    <view class="fresh-accent"></view>
+    <text class="fresh-text">{{salesFresh}}</text>
+  </view>
+
   <view class="prod-list">
     <!-- 行内填报：直接在这一行填数量，已填行高亮；库存/日均辅助判断 -->
     <view class="prod-row {{item.qty ? 'prod-row-on' : ''}}" wx:for="{{products}}" wx:key="id">
       <view class="prod-info">
         <view class="prod-name">{{item.name}}</view>
         <view class="prod-spec">{{item.spec || ''}} · {{item.unit || '件'}}</view>
-        <view class="prod-meta">库存 {{item.current_stock || 0}} · 日均 {{item.avg_daily_sales || 0}}</view>
+        <!-- v370：**带单位 + 库存 0 不显示 + 说清是哪个仓的库存**。
+             整段文案由 js 的 `metaText()` 生成 —— 模板不做任何数字判断
+             （「0 到底是不适用还是真没有」只有 js 知道：`my_stock` 缺键 = 不适用）。
+             · 库存为 0 ⇒ 整段不显示库存（老板选项 C），避免「库存 0」被当成"必须报 0"；
+             · 有本人仓 ⇒ 写「本人仓」；没有（外部客户 / boss）⇒ 写「全公司库存」，
+               绝不把全公司数字说成"你的仓"；
+             · 两者都没数据 ⇒ 显示「暂无库存与销量数据」，**不用 0 冒充**。 -->
+        <view class="prod-meta">{{item.metaText}}</view>
         <!-- v264c（2026-09-24）：均单目标（浅色提示，用户要求"不要抢眼"）。
              空串 = 这个商品没有可显示的目标（没设目标 / 缺单位换算 / 剩余期次为 0）
              ⇒ 整行不渲染 —— 不显示「0」，也不说「无法计算」（R8：不拿 0 冒充）。
