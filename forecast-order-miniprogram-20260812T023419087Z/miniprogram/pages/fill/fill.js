@@ -208,7 +208,18 @@ Page({
        就把「报单」这件主事挡住；
      · 与后端催单**同源**（后端复用调度器那一份口径），小程序**不做任何二次计算** ——
        一旦在这里自己算一遍，就会出现"页面说的"和"催单催的"两把尺子。
-     · 文案里的数字一律带中文单位（"个单元"），不用英文缩写。 */
+     · 文案里的数字一律带中文单位（"个单元"），不用英文缩写。
+     ── v369（2026-10-03 · 老板原话：「这个信息不应该让所有报单人都知道，报单人只需要
+        知道自己还有几家没报就可以了」）────────────────────────────────────
+     ⚠️ 后端按 `scope` 分两种口径（判据 = **角色**：`sales`/`distributor` 算纯报单，
+        `admin`/`boss`/`supervisor`/`accountant` 算管理角色）：
+       · `scope='self'`（销售 / 分销商）—— **只给** `my_missing`，
+         `units_total/reported/missing` 一律 0（全局家数不下发，避免互相比较）。
+         ⇒ 这里**绝不能**再拿 `units_missing` 去渲染「本期还有 N 个单元没报单」，
+           否则等于把后端刚藏起来的全局又拼回界面（后端改了就白改）。
+       · `scope='all'`（老板 / 主管 / 财务）—— 全局计数照旧，用于催单。
+     ⚠️ `scope='self'` 且 `my_missing` 为空 ⇒ **不渲染**：自己名下没有待报，
+       就不要在报单页顶上挂一条纯噪音的条子。 */
   async loadPending(force) {
     const now = Date.now()
     if (!force && this._pendingAt && (now - this._pendingAt) < 60000) return
@@ -217,10 +228,26 @@ Page({
       const d = await request('/api/forecast-submissions/pending-summary')
       if (!d || !d.ok) return
       const names = d.my_missing || []
+      const selfOnly = d.scope === 'self'          // v369：只看自己
+      const end = (d.period && d.period.order_end) || ''
+      if (selfOnly) {
+        // 报单人：主句只说「你负责的几家店还没报」，副句**不带任何全局计数**。
+        const patch = {
+          pending: d,
+          pendingOn: !!(d.has_period && names.length > 0),
+          pendingTitle: '你负责的 ' + names.length + ' 家店还没报单',
+          pendingSub: '',
+        }
+        if (names.length) {
+          patch.pendingSub = names.slice(0, 2).join('、') + (names.length > 2 ? ' 等' : '')
+            + (end ? ' · 截止 ' + end : '')
+        }
+        this.setData(patch)
+        return
+      }
       const total = d.units_total || 0
       const reported = d.units_reported || 0
       const missing = d.units_missing || 0
-      const end = (d.period && d.period.order_end) || ''
       // 有"我负责的门店"时优先说这个 —— 销售能直接对上自己该做的事；
       // 没有归属绑定时退化为全局进度（fail-safe，不显示一个空的主语）。
       const title = names.length
