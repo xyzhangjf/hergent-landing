@@ -2841,6 +2841,9 @@ import ProductTarget from './ProductTarget.vue'
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText } from '../utils/arrival.js'
 import { pyInitials, PY_OK } from '../utils/pinyin.js'
+/* v379（P0·E-13）：打印改走仓内既有可打印页基建（PayrollWorkflow / LossWorkflow / AiHub 已在用）。
+   原实现是裸 `window.print()` —— 428 行 × 30 列交给浏览器，无分页/无重复表头/无横版 ⇒ 一片乱码。 */
+import { openPrintable } from '../utils/printable.js'
 // 角色词汇（规范角色名 + 历史视图令牌归一）—— 前端唯一来源，见文件顶部说明
 // v267：加 `canViewForecastSummary` —— 报单汇总的角色白名单（= 后端 SUMMARY_ROLES 的前端镜像，
 //   有 AST 护栏）。本页用它①提前拦掉那个注定 403 的请求 ②把「无权限」与「加载失败」分开说。
@@ -5507,6 +5510,11 @@ async function conflictOverride() {
    本函数先尝试按「列名 = 客户列」建立映射，命中则按行匹配商品名后写入数量；
    未命中返回 false，由 onPaste 回退到主档粘贴逻辑。 */
 function tryPasteCross(block) {
+  /* v379（P0·C-2）：与区块粘贴共用 `pasteCellEmpty`，且**只有一种语义：源格为空就跳过**。
+     🔴 曾经设计过「Alt 覆盖空值」出口，已**撤除** —— 实测 `ClipboardEvent` 只有 `clipboardData`，
+        `'altKey' in new ClipboardEvent('paste') === false` ⇒ 真实 paste 事件上 `e.altKey` 恒为
+        undefined，那个分支**永远不会进**（＝假旋钮）；且 macOS 的 Option+V 在 Chrome 里是输入「√」
+        而非粘贴。要清空某些格请：先选中 → Delete，再粘贴。 */
   if (!block.length || block[0].length < 2) return false
   const head = block[0]
   const nameIdx = head.findIndex(h => /名称|品名|货品|商品/.test(String(h == null ? '' : h).trim()))
@@ -5523,7 +5531,7 @@ function tryPasteCross(block) {
   const dataRows = block.slice(1)
   if (!dataRows.length) return false
   snapshot()
-  let added = 0, updated = 0, bad = 0, skipped = 0
+  let added = 0, updated = 0, bad = 0, skipped = 0, blank = 0
   dataRows.forEach(cells => {
     const nm = String(cells[nameIdx] == null ? '' : cells[nameIdx]).trim()
     if (!nm) { skipped++; return }
@@ -5534,15 +5542,19 @@ function tryPasteCross(block) {
       added++
     } else updated++
     map.forEach(({ bi, c }) => {
-      writeCellVal(ri, c, cells[bi])
+      /* v379（C-2 同源）：客户列里的空格 = 「这一期这个客户没报这个商品」⇒ 不覆盖原值 */
+      const v = cells[bi]
+      if (pasteCellEmpty(v)) { blank++; return }
+      writeCellVal(ri, c, v)
       if (cellInvalid(ri, c)) bad++
     })
   })
   gotoRowPage(cross.value.rows.length - 1)
   toast(`已按客户列粘贴：新增 ${added} 个商品 · 更新 ${updated} 个商品`
     + (skipped ? ` · 跳过 ${skipped} 行（无商品名称）` : '')
+    + (blank ? ` · 跳过 ${blank} 个空格（原值保留）` : '')
     + (bad ? ` · ${bad} 格不合法（已标红）` : '')
-    + '（改完点「保存」）', bad || skipped ? 'warn' : 'ok')
+    + '（改完点「保存」）', bad || skipped || blank ? 'warn' : 'ok')
   return true
 }
 
@@ -5550,6 +5562,8 @@ function onPaste(e) {
   const cd = e.clipboardData || window.clipboardData
   const text = cd ? cd.getData('text') : ''
   if (!text) return
+  /* v379（P0·C-2）：两条粘贴路径（区块 / 交叉表）**只有一种空格语义：跳过**（防误清原值）。
+     不再传递任何「策略」参数 —— 曾经按 `e.altKey` 分流，实测 paste 事件上读不到修饰键（假旋钮），已撤。 */
   // 编辑态且已选中单元格 → 区块单元格粘贴（还原 Excel 选区黏贴体验）
   if (editMode.value && selected.value.r >= 0) {
     e.preventDefault()
@@ -6002,19 +6016,80 @@ function blankRow() {
     sale_price: 0, factory_price: 0, purchase_price: 0, safety_stock: 0, expiry_days: 0, product_code: '', dist_price: 0,
     price: 0, qtyByUnit: {}, ai: null }
 }
-function selectCell(r, c, shift) {
+function selectCell(r, c) {
   /* v377：键盘导航 / 单击单元格一律回到单元格轴。不在这里复位就会出现
      「selAxis 还是 row、selRange 已被清空」的错位态：界面没有任何高亮，
      右键却按行菜单弹 —— 用户完全无从理解。 */
+  /* v379：原第三参数 `shift`（扩选）已**删除** —— 它的语义是「从**当前活动格**扩一格」
+     而不是「从锚点扩」，逐步按下会越括越小（第二次按 Shift+↓ 反而把 4 行缩回 2 行）。
+     扩选现在只有唯一实现：`extendSelTo` / `extendSel`。
+     ⇒ 不要在本题内加回 shift 分支，需要扩选请调上面那两个。 */
   selAxis.value = 'cell'
-  if (shift && selected.value.r >= 0) {
-    selAnchor.value = { r: selected.value.r, c: selected.value.c }
-    selRange.value = normRange(selAnchor.value.r, selAnchor.value.c, r, c)
-  } else {
-    selAnchor.value = { r, c }
-    selRange.value = null
-  }
+  selAnchor.value = { r, c }
+  selRange.value = null
   selected.value = { r, c }
+}
+/* v379（P0·B-3/B-4/B-5）：**Shift 扩选的唯一实现** —— 键盘四向、Shift+Home·End、
+   Ctrl+Shift+方向键、Ctrl+Shift+End 全部共用这一对函数。Excel 有两条硬约定：
+     ① **活动格不跟着跑**：Shift 推的是「推进端」（离锚点较远的那一端），锚点原地不动。
+        本表原本就同构 —— 拖选时 `selected` 也停在起点（见 _beginCellDrag）⇒ 不引入新语义，
+        也因此「Shift+↓×3 再 Ctrl+D」能按 Excel 语义从选区首行向下填。
+     ② **推进的基线是选区当前边界，不是活动格**：否则第二次按 Shift+↓ 会从锚点+1 重算，
+        把刚括起来的 4 行又缩回 2 行（这正是 `selectCell(r,c,true)` 不能直接复用的原因 ——
+        它的 shift 分支每次都把锚点重置成「当前活动格」）。
+   🔴 另一个隐形死因（旧 `Ctrl+Shift+方向键` 实际无效的根因）：扩选后调 `focusCell(新格)`，
+      焦点会**同步**触发模板上的 @focus → `onFocusCell` → 无参 `selectCell(r,c)` ⇒ `selRange = null`，
+      刚建好的选区当场被擦掉。鼠标拖选之所以没事，是因为它的 focus 发生在建立选区**之前**。
+      ⇒ 扩选期间**不调 focusCell**：焦点留在锚点的输入框上，不触发 @focus，选区自然存活；
+        视口另用 `followEdge` 跟随推进端（否则 428 行表里 Shift+↓ 会「选区在长、屏幕不动」）。
+   ⚠️ 返回推进端坐标（供 followEdge 用）；越界 / 无可扩基线时返回 null。 */
+function extendSelTo(r, c) {
+  const maxR = gridMaxR(), maxC = gridMaxC()
+  if (maxR < 0 || maxC < 0) return null
+  const cur = selRange.value
+  const aR = cur ? selAnchor.value.r : selected.value.r
+  const aC = cur ? selAnchor.value.c : selected.value.c
+  if (aR < 0 || aC < 0) return null
+  const tr = Math.max(0, Math.min(maxR, r)), tc = Math.max(0, Math.min(maxC, c))
+  selAxis.value = 'cell'                      // 扩选后仍是单元格轴（与 selectCell 同源）
+  selAnchor.value = { r: aR, c: aC }
+  selRange.value = normRange(aR, aC, tr, tc)
+  return { r: tr, c: tc }
+}
+/* 沿一个方向把推进端再推一格。`dr` / `dc` 只给一个：纵向扩选不得改横向宽度（反之亦然）——
+   而「推进端取较远那端」自然就保住了另一轴的跨度（推进端 = 该轴的另一端 ⇒ 归一后跨度不变）。 */
+function extendSel(dr, dc) {
+  const cur = selRange.value
+  const aR = cur ? selAnchor.value.r : selected.value.r
+  const aC = cur ? selAnchor.value.c : selected.value.c
+  if (aR < 0 || aC < 0) return null
+  const pR = cur ? (Math.abs(cur.r1 - aR) >= Math.abs(cur.r0 - aR) ? cur.r1 : cur.r0) : aR
+  const pC = cur ? (Math.abs(cur.c1 - aC) >= Math.abs(cur.c0 - aC) ? cur.c1 : cur.c0) : aC
+  if (dr) return extendSelTo(pR + dr, pC)
+  if (dc) return extendSelTo(pR, pC + dc)
+  return null
+}
+/* v379：扩选后把**推进端**滚进视口。焦点留在锚点（见 extendSelTo 注释），
+   因此没有任何浏览器默认行为会去滚推进端。
+   ⚠️ 开了分页必须先翻到推进端所在页 —— 它在别的页时被 `v-show` 藏着，量不到也就滚不到。 */
+function followEdge(er, ec) {
+  /* v379（P0·B-3）修正：扩选时**视口必须跟着推进端走**（否则选区在长、屏幕不动 ＝ 用户以为键盘坏了）。
+     🔴 这里**不能**用 `focusCell()` 去顺带滚动 —— 它会 `el.focus()`，而模板上的 `@focus` 是**同步**的
+        `onFocusCell` → 第一句就是 `selectCell(r, c)`（无 shift 参数）⇒ 刚扩出的选区被当场清空。
+        （这正是旧 `Ctrl+Shift+方向键` 扩选长期失效的同一个坑，见 selectCell 顶部注释。）
+     ⚠️ 也**不能**只靠 `keepCellClear()`：它只调 `wrap.scrollTop += …`，而 `.table-wrap` 未必是
+        真正的滚动约束者（实测：页面有 2 个 `.table-wrap`，且该容器高度可撑出视口、由窗口滚动）。
+        实测症状：Shift+↓×15 后推进端 input 仍在视口下方约 330px。
+     ⇒ 用 `scrollIntoView({block:'nearest'})`：它会把**所有**可滚动祖先 + 窗口一起算进去，
+        且「已经可见时什么都不做」＝ 逐行推进不会抖。随后的 `keepCellClear` 专门修
+        「停在粘性列 / 粘性表头底下」那一档（原生最小滚动解决不了），两者互补、都不是多余的。 */
+  gotoRowPage(er)
+  nextTick(() => {
+    const el = document.querySelector(`input[data-r="${er}"][data-c="${ec}"]`)
+    if (!el) return
+    if (el.scrollIntoView) el.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    keepCellClear(el)
+  })
 }
 /* v210（需求②的连带缺陷，同批修）：**键盘跳到的格子不能被粘性列 / 粘性表头遮住**。
    🔴 为什么必须显式处理 —— 浏览器原生 focus() 的「滚进视口」是**最小滚动**语义：只把目标格
@@ -6194,6 +6269,13 @@ function onGridKey(e) {
     e.preventDefault(); clearRange(); return
   }
   if (selected.value.r < 0) return
+  /* v379（P0·B-1/B-2）：**带 Ctrl/Meta 的组合键必须整体让位给下面的专属分支**。
+     🔴 旧链条里裸方向键 / Home / End 这几个分支**都没排除 ctrl**，会先一步命中 ⇒
+        `Ctrl+End`、`Ctrl+方向键` 整族**永远走不到**（连 `lastDataPos()` 都成了死代码）。
+        症状是「按 Ctrl+↓ 只往下一格」—— 像功能没做，其实是**分支顺序**问题。
+     ⚠️ 别改成「把 ctrl 分支往上挪」：那要移动 5 个分支，diff 大得多、更容易与并行会话冲突。
+     ⚠️ PageUp / PageDown **不在此列**（没有 ctrl 专属分支，不存在可达性问题，保持原行为）。 */
+  const navMod = e.ctrlKey || e.metaKey
   if (e.key === 'Enter') {
     e.preventDefault(); r = Math.min(maxR, r + (e.shiftKey ? -1 : 1)); selectCell(r, c); focusCell(r, c)
   } else if (e.key === 'Tab') {
@@ -6201,14 +6283,27 @@ function onGridKey(e) {
     if (c < 0) { c = maxC; r = Math.max(0, r - 1) }
     if (c > maxC) { c = 0; r = Math.min(maxR, r + 1) }
     selectCell(r, c); focusCell(r, c)
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault(); r = Math.min(maxR, r + 1); selectCell(r, c); focusCell(r, c)
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault(); r = Math.max(0, r - 1); selectCell(r, c); focusCell(r, c)
-  } else if (e.key === 'ArrowRight') {
-    e.preventDefault(); c = Math.min(maxC, c + 1); selectCell(r, c); focusCell(r, c)
-  } else if (e.key === 'ArrowLeft') {
-    e.preventDefault(); c = Math.max(0, c - 1); selectCell(r, c); focusCell(r, c)
+  } else if (!navMod && e.key === 'ArrowDown') {
+    /* v379（P0·B-3）：Shift+方向键 = **从锚点扩选**（Excel 最核心的选区手势）。
+       此前四个 Arrow 分支**都不判 shiftKey** ⇒ Shift+↓ 只是移动一格、选区不长大，
+       而 Ctrl+Shift+↓ 却"看起来有" —— 同族不一致，用户会以为键盘坏了。
+       ⚠️ 扩选走 extendSel + followEdge，**不能**跟普通移动共用 selectCell/focusCell：
+          focusCell 会把选区的锚点重置掉（见 extendSelTo 顶部注释）。 */
+    e.preventDefault()
+    if (e.shiftKey) { const m = extendSel(1, 0); if (m) followEdge(m.r, m.c) }
+    else { r = Math.min(maxR, r + 1); selectCell(r, c); focusCell(r, c) }
+  } else if (!navMod && e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (e.shiftKey) { const m = extendSel(-1, 0); if (m) followEdge(m.r, m.c) }
+    else { r = Math.max(0, r - 1); selectCell(r, c); focusCell(r, c) }
+  } else if (!navMod && e.key === 'ArrowRight') {
+    e.preventDefault()
+    if (e.shiftKey) { const m = extendSel(0, 1); if (m) followEdge(m.r, m.c) }
+    else { c = Math.min(maxC, c + 1); selectCell(r, c); focusCell(r, c) }
+  } else if (!navMod && e.key === 'ArrowLeft') {
+    e.preventDefault()
+    if (e.shiftKey) { const m = extendSel(0, -1); if (m) followEdge(m.r, m.c) }
+    else { c = Math.max(0, c - 1); selectCell(r, c); focusCell(r, c) }
   } else if (e.key === 'F2') {
     /* v210：F2 = 进入**输入态**（Excel 同款：光标落末尾、内容保留）。
        原实现是 { select: true } = 全选，与「单击」完全等价 ⇒ 用户按 F2 想改一位数字，
@@ -6229,10 +6324,16 @@ function onGridKey(e) {
     clearSel()
     selected.value = { r: -1, c: -1 }
   /* ---- Q22：补齐大表定位快捷键（428 行只靠滚轮找商品效率极低） ---- */
-  } else if (e.key === 'Home') {
-    e.preventDefault(); c = 0; selectCell(r, c); focusCell(r, c)
-  } else if (e.key === 'End') {
-    e.preventDefault(); c = maxC; selectCell(r, c); focusCell(r, c)
+  } else if (!navMod && e.key === 'Home') {
+    /* v379（B-1/B-4）：`!navMod` 是 Ctrl+Home 可达的前提（旧写法被这一支抢走 ⇒ 见 navMod 注释）；
+       Shift+Home = 扩选到行首（Excel 同款，与 Shift+方向键共用 extendSelTo）。 */
+    e.preventDefault()
+    if (e.shiftKey) { const m = extendSelTo(r, 0); if (m) followEdge(m.r, m.c) }
+    else { c = 0; selectCell(r, c); focusCell(r, c) }
+  } else if (!navMod && e.key === 'End') {
+    e.preventDefault()
+    if (e.shiftKey) { const m = extendSelTo(r, maxC); if (m) followEdge(m.r, m.c) }
+    else { c = maxC; selectCell(r, c); focusCell(r, c) }
   } else if (e.key === 'PageDown') {
     e.preventDefault(); r = Math.min(maxR, r + 20); selectCell(r, c); focusCell(r, c); gotoRowPage(r)
   } else if (e.key === 'PageUp') {
@@ -6248,9 +6349,11 @@ function onGridKey(e) {
     }
     /* v219 打磨③：Ctrl+**Shift**+方向键 = 从当前格**扩展选区**到连续数据边界（Excel 同款）。
        此前只支持不带 Shift 的跳转 ⇒ 要选一整片连续行只能鼠标拖，428 行表里极易拖过头。 */
-    if (e.shiftKey) selectCell(nr, c, true)
-    else selectCell(nr, c)
-    focusCell(nr, c); gotoRowPage(nr)
+    /* v379（B-3 同族）：扩选改走 extendSelTo + followEdge ——
+       原写法 `selectCell(nr,c,true)` 紧跟 `focusCell(nr,c)`，焦点**同步**触发
+       onFocusCell → 无参 selectCell ⇒ selRange 当场被清空，**扩选等于没做**（只是活动格动了）。 */
+    if (e.shiftKey) { const m = extendSelTo(nr, c); if (m) followEdge(m.r, m.c) }
+    else { selectCell(nr, c); focusCell(nr, c); gotoRowPage(nr) }
   } else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') {
     e.preventDefault()
     let nr = r
@@ -6259,9 +6362,8 @@ function onGridKey(e) {
       if (nv === '' || nv === null || nv === undefined || Number(nv) === 0) break
       nr--
     }
-    if (e.shiftKey) selectCell(nr, c, true)
-    else selectCell(nr, c)
-    focusCell(nr, c); gotoRowPage(nr)
+    if (e.shiftKey) { const m = extendSelTo(nr, c); if (m) followEdge(m.r, m.c) }
+    else { selectCell(nr, c); focusCell(nr, c); gotoRowPage(nr) }
   } else if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
     /* 补齐 Ctrl+左右：原先**只有上下两个方向**，左右没实现 ⇒ 按下去毫无反应，
        与「键盘坏了」长得完全一样（不报错、就是不动）。语义与上下同源：
@@ -6274,9 +6376,15 @@ function onGridKey(e) {
       if (nv === '' || nv === null || nv === undefined || Number(nv) === 0) break
       nc += step
     }
-    if (e.shiftKey) selectCell(r, nc, true)
-    else selectCell(r, nc)
-    focusCell(r, nc); gotoRowPage(r)
+    if (e.shiftKey) { const m = extendSelTo(r, nc); if (m) followEdge(m.r, m.c) }
+    else { selectCell(r, nc); focusCell(r, nc); gotoRowPage(r) }
+  } else if ((e.ctrlKey || e.metaKey) && e.key === 'Home') {
+    /* v379（P0·B-1）：Ctrl+Home = 回整表左上角（Excel 同款）。
+       旧实现**只有裸 Home**（= 本行首列），而那个分支没排除 ctrl ⇒ 按 Ctrl+Home 得到的是
+       「本行第 1 格」，用户以为跳到了表头。与 B-2（Ctrl+End 不可达）同根：**分支顺序**。 */
+    e.preventDefault()
+    if (e.shiftKey) { const m = extendSelTo(0, 0); if (m) followEdge(m.r, m.c) }
+    else { selectCell(0, 0); focusCell(0, 0); gotoRowPage(0) }
   } else if ((e.ctrlKey || e.metaKey) && e.key === 'End') {
     /* v219 打磨①：跳到**最后一处有数据**的格（Excel 的 Ctrl+End）。
        与 Ctrl+方向键的区别：后者只在本列/本行的**连续**数据里走、遇空格就停；
@@ -6285,7 +6393,10 @@ function onGridKey(e) {
     e.preventDefault()
     const p = lastDataPos()
     if (p.r < 0) { toast('当前表格还没有填入任何数据', 'warn'); return }
-    selectCell(p.r, p.c); focusCell(p.r, p.c); gotoRowPage(p.r)
+    /* v379（B-5）：Ctrl+Shift+End = 从锚点扩选到已用区右下角（Excel 同款）——
+       与 Ctrl+Shift+方向键 共用 extendSelTo + followEdge。 */
+    if (e.shiftKey) { const m = extendSelTo(p.r, p.c); if (m) followEdge(m.r, m.c) }
+    else { selectCell(p.r, p.c); focusCell(p.r, p.c); gotoRowPage(p.r) }
   }
 }
 // 右键上下文菜单（插入/删除行、插入/删除列、清空内容）
@@ -6953,24 +7064,29 @@ function healthClass(pid) {
   if (s == null) return ''
   return s < 60 ? 'pf-warn' : (s < 80 ? 'pf-mid' : 'pf-ok')
 }
-// 通用 xlsx 构建（导出全部 / 导出选中行复用）
-function buildXlsx(rows, fname) {
-  if (!rows.length) { toast('没有可导出的数据', 'warn'); return }
+/* v379：**表头与行的口径只许有一份**（打印与「导出 Excel」共用）——
+   原来只有导出写了这一套。若给打印另抄一份，迟早「我屏幕上看到的」≠「我打出来的」。 */
+function gridHeaders() {
   const headers = ['商品名称']
   visibleCols.value.forEach(c => { if (c.key !== 'name') headers.push(c.label) })
   cross.value.units.forEach(u => headers.push(u.name))
   headers.push('下单金额(进价)')
   headers.push('建议')
-  const data = [headers]
-  rows.forEach(r => {
-    const line = []
-    line.push(r.name || '')
-    visibleCols.value.forEach(c => { if (c.key !== 'name') line.push(c.fmt ? (r[c.key] != null ? r[c.key] : '') : (r[c.key] || '')) })
-    cross.value.units.forEach(u => line.push(r.qtyByUnit[u.name] || 0))
-    line.push(amountValue(r) || 0)
-    line.push(r.suggest || 0)
-    data.push(line)
-  })
+  return headers
+}
+function gridRowCells(r) {
+  const line = [r.name || '']
+  visibleCols.value.forEach(c => { if (c.key !== 'name') line.push(c.fmt ? (r[c.key] != null ? r[c.key] : '') : (r[c.key] || '')) })
+  cross.value.units.forEach(u => line.push(r.qtyByUnit[u.name] || 0))
+  line.push(amountValue(r) || 0)
+  line.push(r.suggest || 0)
+  return line
+}
+// 通用 xlsx 构建（导出全部 / 导出选中行复用）
+function buildXlsx(rows, fname) {
+  if (!rows.length) { toast('没有可导出的数据', 'warn'); return }
+  const data = [gridHeaders()]
+  rows.forEach(r => { data.push(gridRowCells(r)) })
   const ws = XLSX.utils.aoa_to_sheet(data)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, '预报单')
@@ -7826,14 +7942,10 @@ function _beginCellDrag(ri, ci, e, wasFocus) {
   if (!_dragEditing && e.preventDefault) e.preventDefault()
   _dragAxis = 'cell'
   selAxis.value = 'cell'
-  if (e.shiftKey && selected.value.r >= 0) {
-    selAnchor.value = { r: selected.value.r, c: selected.value.c }
-    selRange.value = normRange(selAnchor.value.r, selAnchor.value.c, ri, ci)
-  } else {
-    selAnchor.value = { r: ri, c: ci }
-    selRange.value = null
-    selected.value = { r: ri, c: ci }
-  }
+  /* v379：Shift+点击 的「扩选」与键盘扩选**共用唯一实现**（这里原来手抄了一份同样的逻辑）。
+     两条分支都不动 `selected` —— Shift 扩选时活动格留在锚点（与拖选、与 Excel 同口径）。 */
+  if (e.shiftKey && selected.value.r >= 0) extendSelTo(ri, ci)
+  else selectCell(ri, ci)
 }
 /* 行号格 / 计算列 / 操作列（没有统一列号的格）→ 行轴。
    这些格里的按钮与图标角标要**放行**，不抢它们的点击（角标自己还 stop 了 mousedown）。 */
@@ -7926,6 +8038,15 @@ function scrollRowIntoView(ri) {
     if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'nearest' })
   })
 }
+/* v379（P0·C-2）：粘贴时「源格为空该不该覆盖」只有**这一个判据** ——
+   区块粘贴（pasteRegion）与交叉表粘贴（tryPasteCross）共用，不再两处各写一套。
+   空格一律**不覆盖**（= Excel 的「跳过空单元格」语义）。
+   🔴 为什么算数据事故级：从微信 / Excel 复制一批数量时，源表里的空单元格会把本表已有数据
+      **静默清零**（用户以为「只更新了有数的那些格」），且全程不报任何错。
+   ✅ 要真覆盖（把这些格清掉）就按住 Alt / Option 粘贴 —— 与 Excel 的开关同义，只是默认取反：
+      本表里「空」表达的是「这一期不报」，不是「把它清掉」。 */
+function pasteCellEmpty(v) { return v === '' || v === null || v === undefined }
+
 // 区块单元格粘贴：从选中格（或选区左上角）起逐格写入，行超界自动补空商品行、列超界截断
 function pasteRegion(text) {
   const block = parseTSV(text)
@@ -7938,18 +8059,30 @@ function pasteRegion(text) {
   const maxC = visibleCols.value.length + unitCount() - 1
   let useCols = cols, truncated = false
   if (sc + cols - 1 > maxC) { useCols = Math.max(0, maxC - sc + 1); truncated = true }
-  const needRows = sr + rows
+  if (useCols <= 0) { toast('选区右侧没有可写入的列', 'warn'); return }
+  /* v379：**先算清哪些格真要写**再动数据 —— 全空的粘贴不该补空商品行、也不该留一条撤销记录。 */
+  const writes = []
+  let skipped = 0
+  for (let i = 0; i < rows; i++)
+    for (let j = 0; j < useCols; j++) {
+      const v = (block[i] || [])[j]
+      if (pasteCellEmpty(v)) { skipped++; continue }
+      writes.push({ r: sr + i, c: sc + j, v })
+    }
+  if (!writes.length) { toast('粘贴内容为空，未改动任何数据', 'warn'); return }
+  /* 补行按**实际会写到的最后一行**算 —— 尾行整行是空格时不该白白带出一个空商品行 */
+  const needRows = writes[writes.length - 1].r + 1
   while (cross.value.rows.length < needRows) cross.value.rows.push(blankRow())
   snapshot()
   // Q13：粘贴后立即统计非法格，不再等到「保存」才告诉用户埋了雷
   let bad = 0
-  for (let i = 0; i < rows; i++)
-    for (let j = 0; j < useCols; j++) {
-      writeCellVal(sr + i, sc + j, block[i][j])
-      if (cellInvalid(sr + i, sc + j)) bad++
-    }
+  for (const w of writes) {
+    writeCellVal(w.r, w.c, w.v)
+    if (cellInvalid(w.r, w.c)) bad++
+  }
   gotoRowPage(sr)
   toast(`已粘贴 ${rows}×${useCols}` + (truncated ? '（右侧列超出表格已截断）' : '')
+    + (skipped ? `，跳过 ${skipped} 个空格（原值保留）` : '')
     + (bad ? `，其中 ${bad} 格不合法（已标红，需修正后才能保存）` : ''), bad ? 'warn' : 'ok')
 }
 /* v377：窗口失焦（切 App / 系统弹窗抢焦点）时 mouseup 收不到 ⇒ `dragging` 会永远停在 true，
@@ -8695,7 +8828,54 @@ function exportDiffXlsx() {
 }
 
 // P4-9 打印 / PDF
-function printGrid() { window.print() }
+/* v379（P0·E-13 / G-10）：原实现是**假按钮** —— 裸 `window.print()`，把 428 行 × 30 列
+   直接交给浏览器：没有分页、没有跨页重复表头、没有横版 ⇒ 打出来是一片乱码。
+   而仓内**已有**可打印页基建（`utils/printable.js`，PayrollWorkflow / LossWorkflow / AiHub 在用），
+   本页一直没接上。现改走它，并补三件它默认不给、而宽表必须要的东西：
+     · 横向 A4（竖版一页塞不下 30 列）
+     · 跨页自动重复表头（`thead{display:table-header-group}`）
+     · 行内不断页（`break-inside:avoid`）
+   ⚠️ 行口径与「导出 Excel」**同源**（`filteredRowsForExport` + `gridHeaders`/`gridRowCells`）——
+      屏幕 / 导出 / 打印必须是同一份数据，否则用户会拿着两份不同的单子去对账。 */
+const PRINT_CSS = `
+  /* printable.js 的版式是「单栏文档」（max-width:820px）⇒ 宽表要自己撑开 */
+  .doc{max-width:none;padding:20px 24px;}
+  .doc-body table.pg{width:auto;min-width:100%;font-size:11px;}
+  .doc-body table.pg th,.doc-body table.pg td{padding:3px 6px;white-space:nowrap;border:1px solid #d7dbe0;}
+  .doc-body table.pg thead th{background:#f2f5f7;}
+  @page{size:A4 landscape;margin:8mm;}
+  @media print{
+    .doc{padding:0 4mm;}
+    .doc-body table.pg{font-size:9px;}
+    .doc-body thead{display:table-header-group;}
+    .doc-body tr{break-inside:avoid;}
+  }
+`
+function printGrid() {
+  const rows = filteredRowsForExport()
+  if (!rows.length) { toast('没有可打印的数据', 'warn'); return }
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const body = '<style>' + PRINT_CSS + '</style>'
+    + '<table class="pg"><thead><tr>'
+    + gridHeaders().map(h => '<th>' + esc(h) + '</th>').join('')
+    + '</tr></thead><tbody>'
+    + rows.map(r => '<tr>' + gridRowCells(r).map(v => '<td>' + esc(v) + '</td>').join('') + '</tr>').join('')
+    + '</tbody></table>'
+  const pname = (cross.value.period && cross.value.period.name) || '预报单'
+  /* 🔴 打了筛选却不说 = 给用户一张「看着像全部、其实是子集」的单子（拿去对账就出事）。
+     只列**生效的筛选名**，不复述条件、不枚举明细（hergent-ui-copy-guard）。 */
+  const filt = []
+  if ((filterText.value || findText.value || '').trim()) filt.push('搜索')
+  if (colFilter.value && colFilter.value.val) filt.push('列筛选')
+  if (hideZeroReport.value) filt.push('仅显示有报单')
+  openPrintable({
+    title: pname + ' · 预报订单汇总表',
+    subtitle: `共 ${rows.length} 个商品` + (filt.length ? `（已筛选：${filt.join('、')}）` : ''),
+    filename: pname + '-预报订单汇总表',
+    bodyHtml: body,
+  })
+}
 
 // P4-10 配方化列方案（租户隔离 + 云端就绪：后端 /api/forecast/column-schemes 下发，localStorage 兜底）
 const SCHEME_KEY = () => 'forecast_col_schemes_' + (auth.user?.id || 'default')
