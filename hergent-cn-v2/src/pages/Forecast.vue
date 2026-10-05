@@ -1152,13 +1152,13 @@
                   <button class="col-cfg gear" @click.stop="showColMenu = !showColMenu" title="列设置"><Icon name="settings"/></button>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'seq')" @click.stop></span>
                 </th>
-                <th v-for="(c, ci) in visibleCols" :key="c.key" scope="col" :class="['th', c.cls, { frozen: c.fixed || c.key === frozenExtra, 'sel-col': isColHL(ci) }]" :aria-current="selected.r >= 0 && selected.c === ci ? 'true' : null" :aria-selected="isColHL(ci) ? 'true' : null" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" @mousedown="onHeadDown(ci, $event)" @mouseover="onHeadOver(ci)" @contextmenu.prevent="openHdrCtx($event, c.key, 'master')">
+                <th v-for="(c, ci) in visibleCols" :key="c.key" scope="col" :class="['th', c.cls, { frozen: c.fixed || c.key === frozenExtra, 'sel-col': inColSpan(ci), 'cur-col-hd': isCurColHd(ci) }]" :aria-current="isCurColHd(ci) ? 'true' : null" :aria-selected="inColSpan(ci) ? 'true' : null" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" @mousedown="onHeadDown(ci, $event)" @mouseover="onHeadOver(ci)" @contextmenu.prevent="openHdrCtx($event, c.key, 'master')">
                   <div class="th-in">
                     <span>{{ c.label }}</span>
                   </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, c.key)" @click.stop></span>
                 </th>
-                <th v-for="(u, ui) in cross.units" :key="u.name" class="qty-th" scope="col" :class="{ 'sel-col': isColHL(visibleCols.length + ui) }" :aria-current="selected.r >= 0 && selected.c === visibleCols.length + ui ? 'true' : null" :aria-selected="isColHL(visibleCols.length + ui) ? 'true' : null" @mousedown="onHeadDown(visibleCols.length + ui, $event)" @mouseover="onHeadOver(visibleCols.length + ui)" @contextmenu.prevent="openHdrCtx($event, u.name, 'qty', ui)">
+                <th v-for="(u, ui) in cross.units" :key="u.name" class="qty-th" scope="col" :class="{ 'sel-col': inColSpan(visibleCols.length + ui), 'cur-col-hd': isCurColHd(visibleCols.length + ui) }" :aria-current="isCurColHd(visibleCols.length + ui) ? 'true' : null" :aria-selected="inColSpan(visibleCols.length + ui) ? 'true' : null" @mousedown="onHeadDown(visibleCols.length + ui, $event)" @mouseover="onHeadOver(visibleCols.length + ui)" @contextmenu.prevent="openHdrCtx($event, u.name, 'qty', ui)">
                   <div class="cust-hd">
                     <input :value="u.name" class="cell-input cell-cust" @change="renameCol(ui, $event.target.value)" :title="u.role || '报单单元'">
                     <button class="col-del" @click="delCol(ui)" title="删除该客户列"><Icon name="close"/></button>
@@ -1188,9 +1188,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'sel-row': selected.r === ri, 'row-sel': inRowSpan(ri), 'cond-warn': condWarnOn && rowWarnArr[ri] === 'low', 'new-row': r._new }" :aria-selected="inRowSpan(ri) ? 'true' : null" v-show="rowShown(ri)">
+              <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'cur-row-hd': isCurRowHd(ri), 'row-sel': inRowSpan(ri), 'cond-warn': condWarnOn && rowWarnArr[ri] === 'low', 'new-row': r._new }" :aria-selected="inRowSpan(ri) ? 'true' : null" :aria-current="isCurRowHd(ri) ? 'true' : null" v-show="rowShown(ri)">
                 <td class="td seq-cell" :class="{ 'row-bad': errRowSet.has(ri) }" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)"><span class="seq-num">{{ ri + 1 }}</span></td>
-                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'sel-col': isColHL(ci), 'range-sel': inRange(ri, ci), invalid: cellIssueAt(ri, ci) !== '', flash: isFlash(ri, ci) }]" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" :data-r="ri" :data-c="ci" :title="cellIssueAt(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
+                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'sel-col': inColSpan(ci), 'range-sel': inRange(ri, ci), invalid: cellIssueAt(ri, ci) !== '', flash: isFlash(ri, ci) }]" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" :data-r="ri" :data-c="ci" :title="cellIssueAt(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
                   <template v-if="c.key === 'name'">
                     <!-- v215：商品名候选**自建面板**（替掉原生 datalist）。
                          🔴 为什么必须自建：datalist 的过滤由浏览器定（Safari 只认前缀）、
@@ -1250,7 +1250,7 @@
                   <span v-if="cellIssueAt(ri, ci)" class="cell-err-dot" :title="cellIssueAt(ri, ci)" @mousedown.stop.prevent @click.stop="showCellErr(ri, ci)" aria-label="查看此格的错误原因"><Icon name="alert-triangle"/></span>
                   <span v-if="selAxis === 'cell' && selected.r === ri && selected.c === ci" class="fill-handle" @mousedown.prevent.stop="startFill(ri, ci, $event)" title="拖拽填充"></span>
                 </td>
-                <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'sel-col': isColHL(visibleCols.length + ui), 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellIssueAt(ri, visibleCols.length + ui) !== '', 'warn-low': rowWarnArr[ri] === 'low', 'warn-short': rowWarnArr[ri] === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0, flash: isFlash(ri, visibleCols.length + ui) }" :style="heatOf(r, u.name).style" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellIssueAt(ri, visibleCols.length + ui) || heatOf(r, u.name).title || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
+                <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'sel-col': inColSpan(visibleCols.length + ui), 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellIssueAt(ri, visibleCols.length + ui) !== '', 'warn-low': rowWarnArr[ri] === 'low', 'warn-short': rowWarnArr[ri] === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0, flash: isFlash(ri, visibleCols.length + ui) }" :style="heatOf(r, u.name).style" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellIssueAt(ri, visibleCols.length + ui) || heatOf(r, u.name).title || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
                   <!-- v211（P1-2）：补 `inputmode` —— 触屏设备（平板 / 手机开网页）点这一格直接弹**数字键盘**。
                        ⚠️ 不能只靠 `type="number"`：iOS 会弹数字键盘，但部分安卓浏览器不给 ⇒ 加 inputmode 是双保险。
                        ⚠️ 只有**数量**用 numeric（整数）；单价有 `step="0.01"`（两位小数）必须用 decimal，
@@ -7744,16 +7744,25 @@ function setAxisRange(axis, a0, a1) {
 }
 function inRowSpan(ri) { return selAxis.value === 'row' && inRange(ri, 0) }
 function inColSpan(ci) { return selAxis.value === 'col' && inRange(0, ci) }
-/* 列高亮：单元格轴保留原有的「当前列淡高亮」，列轴改为覆盖整个列区间。 */
-function isColHL(ci) {
-  if (selAxis.value === 'col') return inRange(0, ci)
-  /* v377：行轴下**不再**画「当前列」。原样留着的话，整行选中时表头还会有一列是
-     500 字重 + 2px 下划线、行内还有一格带 1px 左右描边 —— 看上去「行和列同时选中了」，
-     正好把「行/列互斥」这条规则在界面上推翻。列轴才是唯一该出现列高亮的时候。
-     （被点的那一格仍有 `.selected` 的 2px 描边 = 锚点提示，那是格子级的，不冒充列选中。） */
-  if (selAxis.value === 'row') return false
-  return selected.value.r >= 0 && selected.value.c === ci
+/* ---- v378：把「选中跨度」与「定位指示」拆成两条互不重叠的通道 ----
+   ① **选中跨度** spanHas()：有矩形用矩形、没有（单击）用活动格 —— 它回答的是
+      「哪些格 / 行 / 列**真的被选中了**」，是**唯一**允许在数据区上色的依据。
+      ⚠️ `selected.r < 0` 这个守卫不能丢：Esc 之后 selRange 已为 null 而 selected 可能仍有值
+         （clearSel 只清 selRange 与轴，不清 selected），少了它冷启动就会点亮一整行/一整列。
+   ② **定位指示** isCurColHd() / isCurRowHd()：**只画在表头 / 行号格**，且**只在单元格轴**。
+      它表达的是「我在这一行/这一列」，**不是选中** —— 因此强度必须低于选中态，
+      且**永不进入数据区**。
+   🔴 旧实现把这两个语义混成了一个类（`sel-col`）+ 一个令牌（`--p-bg`）+ 一条整行底
+      （`tr.sel-row > td`）⇒ 「随便点一格，整列整行看上去都被选中了」。
+      本次改造要修的正是这件事：数据区的底色只能来自真选区。 */
+function spanHas(axis, i) {
+  const sr = selRange.value
+  if (sr) return axis === 'c' ? (i >= sr.c0 && i <= sr.c1) : (i >= sr.r0 && i <= sr.r1)
+  if (selected.value.r < 0) return false
+  return axis === 'c' ? selected.value.c === i : selected.value.r === i
 }
+function isCurColHd(ci) { return selAxis.value === 'cell' && ci >= 0 && spanHas('c', ci) }
+function isCurRowHd(ri) { return selAxis.value === 'cell' && ri >= 0 && spanHas('r', ri) }
 function selCol(ci) { if (ci >= 0 && ci <= gridMaxC()) setAxisRange('col', ci, ci) }
 function selRow(ri) { if (ri >= 0 && ri <= gridMaxR()) setAxisRange('row', ri, ri) }
 function selAllRows() { if (gridMaxR() >= 0) setAxisRange('row', 0, gridMaxR()) }
@@ -12903,9 +12912,22 @@ th.sortable:hover{color:var(--p-dark)}
 /* ---- Excel 式交互视觉（选中/行列高亮/填充柄/右键菜单） ---- */
 .edit-tbl td{position:relative}
 .cross-tbl td.selected{outline:2px solid var(--p);outline-offset:-2px;background:var(--p-bg);z-index:3}
-.cross-tbl tr.sel-row > td{background:rgba(6,182,212,.05)}
-/* 列选中：表头 = 青底 + 青字 + 2px 主色下划线（与全站激活态 .main-tab.on::after 同一语法）。
-   表体 = 左右 1px 主色边线 + 6% 半透明青覆盖（box-shadow inset 实现，不抢 background）。 */
+/* ---- v378：「定位指示」（弱通道）—— 只画在**表头 / 行号格**，永不进入数据区 ----
+   语义：这是「我在哪一列 / 哪一行」的**指位**，**不是选中**。对照 Excel：点一个单元格时，
+   行号与列标变灰（定位），而数据区的其他格**一点颜色都不上**（选中只发生在真选区）。
+   🔴 三条设计约束，缺一条就会退回本次要修的缺陷：
+     ① **只在表头 / 行号格**：数据区一旦被「当前行/当前列」上色，用户就会以为整行整列被选中；
+     ② **强度必须低于选中态**：只用中性灰、无主色、无下划线、不加粗；选中态才用青底 + 青字 + 2px 下划线；
+     ③ **不抢 box-shadow**：用 background-image 叠一层（而不是 box-shadow），
+        否则会把冻结列的 1px 分隔线（.frozen 的 box-shadow）整条顶掉。
+   ⚠️ 令牌 `--t3-rgb` 两套主题都有定义（浅 161,161,166 / 深 142,142,147）⇒ 深浅自适应、零裸色值。 */
+.cross-tbl th.cur-col-hd{background-image:linear-gradient(rgba(var(--t3-rgb),.16),rgba(var(--t3-rgb),.16))}
+.cross-tbl tr.cur-row-hd > td.seq-cell{background-image:linear-gradient(rgba(var(--t3-rgb),.16),rgba(var(--t3-rgb),.16))}
+/* 列**选中**（强通道，只在列轴出现）：表头 = 青底 + 青字 + 2px 主色下划线
+   （与全站激活态 .main-tab.on::after 同一语法）。
+   表体 = 左右 1px 主色边线 + 6% 半透明青覆盖（box-shadow inset 实现，不抢 background）。
+   🔴 v378 起本类**只由 `inColSpan()` 驱动** —— 单元格轴下改用 `cur-col-hd`（中性灰弱态）。
+   两个类由两条互斥的判据驱动，永不同时命中；`--p-bg` 因此只表达「选中」一种含义。 */
 .cross-tbl th.sel-col{background:var(--p-bg);color:var(--p-ink);font-weight:500;box-shadow:inset 0 -2px 0 var(--p)}
 .cross-tbl td.sel-col{box-shadow:inset 1px 0 0 var(--p-border),inset -1px 0 0 var(--p-border),inset 0 0 0 100vmax var(--p-bg)}
 /* v377：行轴选中 —— 用 tr 级类**一次覆盖整行**（含计算列 / 操作列：它们没有统一列号，
