@@ -578,7 +578,9 @@
               <div class="cp-pg-ic" style="background:#fff1e6;color:#ea580c"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
               <div class="cp-pg-t">货损</div>
               <div class="cp-pg-v">{{ pagerData.loss ? pagerData.loss.expiring_soon + ' 个' : '—' }}</div>
-              <div class="cp-pg-s" v-if="pagerData.loss">14天内临期 · 短保风险 {{ pagerData.loss.short_sku }} 个SKU</div>
+              <!-- v389：天数**不能写死** —— 后端已改按货损配方阈值算，写死 14 天就会出现
+                   「库里按 7 天判、界面写着 14 天」。口径变了，「短保风险」也随之改名「涉及 N 个商品」。 -->
+              <div class="cp-pg-s" v-if="pagerData.loss">{{ pagerData.loss.threshold_days || 7 }} 天内临期 · 涉及 {{ pagerData.loss.short_sku }} 个商品</div>
               <div class="cp-pg-s" v-else>暂无临期数据</div>
             </div>
             <!-- 回款 -->
