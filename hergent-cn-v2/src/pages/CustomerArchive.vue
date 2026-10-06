@@ -44,7 +44,7 @@
         <table class="tbl">
           <thead>
             <tr>
-              <th>客户名称</th><th>业态</th><th>片区</th><th>老板 / 电话</th>
+              <th>客户名称</th><th>业态</th><th>片区</th><th>配送线路</th><th>老板 / 电话</th>
               <th>负责业务员</th><th class="num">应收余额</th><th>最近下单</th><th></th>
             </tr>
           </thead>
@@ -53,6 +53,7 @@
               <td class="cas-name">{{ c.name }}</td>
               <td>{{ c.channel || '—' }}</td>
               <td>{{ c.region || '—' }}</td>
+              <td>{{ c.delivery_route || '—' }}</td>
               <td>
                 <span v-if="c.boss_name">{{ c.boss_name }}</span><span v-else class="cas-miss">未填</span>
                 <span v-if="c.boss_phone" class="cas-phone">{{ c.boss_phone }}</span>
@@ -116,6 +117,17 @@
                 <input v-model="form.boss_name" class="input" placeholder="如 张老板"></label>
               <label class="cas-f"><span>老板电话</span>
                 <input v-model="form.boss_phone" class="input" placeholder="门店老板的手机号"></label>
+              <!-- v386：配送线路。与「片区」同族（都是"怎么找到/送到这家店"），
+                   但**追加为核心 6 格之后的第 7 格**（`.cas-form` 是 `1fr 1fr` 两列网格）
+                   —— 前 6 个字段的栅格位置一格不动（行 1-3 原样），对已经熟悉这页的人零视觉扰动。
+                   代价：第 7 格独占行 4 左格，右格留白（后面「地址 / 备注」都是 `cas-f-full` 通栏，
+                   填不了这一格）。若哪天要消掉这块留白，正解是**再补一个字段**或把本格改通栏，
+                   不是往前挪 —— 往前挪会把 负责业务员/老板姓名/老板电话 三格整体位移。
+                   `list="cas-route-list"` 的候选**从库里现取**（后端 contact_options 的
+                   safe 白名单已补 delivery_route）—— 不这么做的话，用户会把
+                   「城东线」「城东线路」填成两种值，而档案匹配是按名字匹配的（v316 已付过代价）。 -->
+              <label class="cas-f"><span>配送线路 <em>选已有或手填</em></span>
+                <input v-model="form.delivery_route" class="input" list="cas-route-list" placeholder="如 城东线"></label>
               <label class="cas-f cas-f-full"><span>地址</span>
                 <input v-model="form.address" class="input" placeholder="门店地址"></label>
               <label class="cas-f cas-f-full"><span>备注</span>
@@ -209,6 +221,7 @@
     <datalist id="cas-biz-list"><option v-for="b in bizOptions" :key="'b' + b" :value="b"></option></datalist>
     <datalist id="cas-region-list"><option v-for="r in regionOptions" :key="'r' + r" :value="r"></option></datalist>
     <datalist id="cas-emp-list"><option v-for="s in salesOptions" :key="'s' + s" :value="s"></option></datalist>
+    <datalist id="cas-route-list"><option v-for="r in routeOptions" :key="'rt' + r" :value="r"></option></datalist>
   </div>
 </template>
 
@@ -240,6 +253,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil((total.value || 0) / pag
 const bizOptions = ref([])
 const regionOptions = ref([])
 const salesOptions = ref([])
+const routeOptions = ref([])
 
 /* ---- ERP 同步 ---- */
 const chanjetLinked = ref(false)
@@ -259,7 +273,8 @@ const connLabel = computed(() => {
    ⚠️ 后端 `contact_create` / `contact_update` 各有自己的 allowed 白名单；
       两边不对齐就是「填了不生效、零报错」那一族缺陷（v316 修过一次）。
       往这里加字段时，**必须同时确认那两个白名单里有它**。 */
-const FORM_FIELDS = ['name', 'channel', 'region', 'assigned_salesperson', 'boss_name', 'boss_phone',
+const FORM_FIELDS = ['name', 'channel', 'region', 'delivery_route', 'assigned_salesperson',
+                     'boss_name', 'boss_phone',
                      'address', 'note', 'code', 'mnemonic', 'phone', 'settlement_method',
                      'credit_days', 'credit_limit']
 const NUM_FIELDS = ['credit_days', 'credit_limit']
@@ -334,6 +349,7 @@ async function loadOptions() {
     bizOptions.value = o.channel || []
     regionOptions.value = o.region || []
     salesOptions.value = o.assigned_salesperson || []
+    routeOptions.value = o.delivery_route || []
   } catch (e) { /* 候选是增强项，失败不影响主流程 */ }
 }
 
