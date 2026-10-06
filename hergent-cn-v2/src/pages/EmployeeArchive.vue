@@ -861,9 +861,22 @@ async function saveEmployeeCore() {
       const created = await employeeApi.create(body)
       toast('已创建员工', 'ok')
       isCreate.value = false
-      // 用新档案继续填充弹窗，便于立即开通登录账号
-      openEdit(created)
-      loadEmployees()
+      // 🔴 v383（2026-10-06）修：**不能把创建回执当员工行**。
+      //    `POST /api/employees` 只回 `{success, employee_id}`（见 server.py）——早先这里
+      //    直接 `openEdit(created)`，而 `resetEditForm` 是**逐字段**取 `src.x || ''`
+      //    ⇒ 刚输入的姓名/编号/岗位……**每一项都被清成空**（不是抛错、是静默清空）：
+      //      姓名框当场变空，用户以为"没保存上"，只能关窗重新点编辑。
+      //    同一残留还让 `editTarget.id` 成为 `undefined` ⇒ `createAccountInEdit` 发出
+      //    `employee_id: undefined`，后端 `int(... or 0)` 兜成 **0 = 外部客户语义**
+      //    （可能静默造出不挂员工档案的孤儿账号）。
+      //    ⇒ 改为**按 id 回列表取回完整档案**再进编辑态：`has_account` /
+      //      `account_user_id` 这类派生字段只有列表接口会补，拿到它们才能接着开通账号。
+      const newId = Number((created && (created.employee_id ?? created.id)) || 0)
+      await loadEmployees()
+      const fresh = newId ? employees.value.find(x => x.id === newId) : null
+      // 兜底：列表里找不到（被过滤 / 接口异常）也**绝不退回残缺对象** ——
+      //    至少带上 id 与本次提交的字段，保证姓名不被清空、后续开通账号能带上正确 employee_id。
+      openEdit(fresh || Object.assign({ id: newId }, body))
       return { ok: true, created: true }
     }
     const r = await employeeApi.update(editTarget.value.id, body)
@@ -959,15 +972,22 @@ async function confirmTransfer() {
 // 在"编辑员工"弹窗内开通账号（仅当该员工尚无账号时显示）
 async function createAccountInEdit() {
   if (accBusy.value || !editTarget.value) return
+  // 🔴 v383（2026-10-06）：**必须先拿得到员工 id**。
+  //    后端 `staff_account_create` 把 `employee_id` 兜成 `int(d.get(...) or 0)`，
+  //    而 `0` 在本接口是**外部客户（分销商）语义**（走 `external_ref` 分支、跳过员工校验）
+  //    ⇒ 档案还没落库就点开通，会静默造出一个不挂员工档案的账号（页面上看不出来）。
+  const empId = Number((editTarget.value && editTarget.value.id) || 0)
+  if (!empId) { toast('请先点击「保存」建立员工档案，再开通账号', 'err'); return }
   // v289：与上面 resetAccPwd 同一口径（同 PWD_HINT），避免"两个密码框两套说法"。
   if (!pwdOk(accForm2.password)) { toast('初始密码需' + PWD_HINT, 'err'); return }
   accBusy.value = true
   try {
     await staffAccountApi.createAccount({
-      employee_id: editTarget.value.id,
+      employee_id: empId,
       username: accForm2.username.trim(),
       password: accForm2.password,
-      display_name: editTarget.value.name,
+      // 显示名兜底到表单里的姓名 —— 同族的"姓名被清空"不让它在这里复现
+      display_name: editTarget.value.name || editForm.name.trim(),
       role: accForm2.role,
       // v312：**没手工改过就不带这个字段**（空串 ⇒ 后端按该角色的端政策取默认值，
       //   见 `routers/forecast_submissions.py` 的 `raw_scope is None or not strip()` 分支）。
