@@ -1000,7 +1000,31 @@ async function createAccountInEdit() {
     //    让用户接着配角色 / 密码；关窗同样会丢掉档案区未保存的改动。
     await loadEmployees()
     const fresh = employees.value.find(x => x.id === (editTarget.value && editTarget.value.id))
-    if (fresh) editTarget.value = fresh
+    if (fresh) {
+      editTarget.value = fresh
+      // 🔴 v384（2026-10-06）：**必须同步账号区编辑态** —— 这是老板报的
+      //    「开通账号时选了『导购』，点完却跳回『员工』」的根因。
+      //
+      //    开通前是「无账号」态，右侧那几行编辑态是 `resetEditForm(src)` 时由
+      //    `syncRoleEdit(src)` 落下的 —— 而**开通前**那个 `src` 上根本没有账号，
+      //    于是 `src.account_role` 为空 ⇒ 落到默认值 `'staff'`（**员工**）。
+      //    开通成功后本函数只换了 `editTarget`（界面据此从「无账号」切到「已有账号」），
+      //    **却没有再调一次 `syncRoleEdit`** ⇒ 角色下拉停在那个默认值上，
+      //    而库里已是 `guide` ⇒ 用户以为"刚选的导购没存上"。
+      //
+      //    危害不止显示：`accRoleDirty` = (`accRoleEdit`≠库里的 `account_role`)
+      //    = `'staff'≠'guide'` = **恒真** ⇒ 界面冒出「有未保存的改动」，
+      //    用户顺手点一次右下角**唯一**的「保存」（v382 合并保存后极易触发）就会
+      //    走 `saveAccRoleCore('staff', …)` —— **把刚开通的「导购」真的改回「员工」**。
+      //    ⇒ 刷新列表后**同一处**（与 saveAll 结尾、saveAccScopeCore 后一致）补同步，
+      //      `accRoleEdit` / `accRolesEdit` / `accScopeEdit` / `accScopeBase` 一次对齐到库里实况。
+      syncRoleEdit(fresh)
+    } else {
+      // 列表里找不到该员工（被搜索框过滤 / 接口异常）⇒ 界面会退回「未开通」态，
+      // 而库里其实已经开好了。**不静默** —— 否则用户会重复点「开通账号」，
+      // 再被后端「该员工已有关联账号」拒绝，看起来像系统坏了。
+      toast('账号已开通，但列表未刷到该员工，请点「刷新」查看', 'warn')
+    }
   } catch (e) { toast(e.message || '开通失败', 'err') }
   finally { accBusy.value = false }
 }
