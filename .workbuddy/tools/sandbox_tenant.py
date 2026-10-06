@@ -309,25 +309,30 @@ def cmd_down(a):
     uids = []
     lookup = None
     try:
-        # 三级查找，任一级命中即用 —— 目标：**只要租户清了，账号与绑定关系一定清掉**
-        # ① 首选 up 落盘的 user_id（最可靠，不受 --user 默认值错配影响）
+        # 🔴 v383（2026-10-06）改：查找口径由「三级任一级命中即用（if not uids 串联）」
+        #    → **并集**。旧实现下 `meta.user_id` 几乎总是命中 ⇒ ②③ 两级**永不执行**，
+        #    于是「真机探针在沙箱里**新建**的账号」（属于本沙箱租户、但 id ≠ meta.user_id）
+        #    永远清不掉。实测残留：1 个 user(`staff`, 手机号用户名) + 1 行 user_tenants，
+        #    而 ZERO_RESIDUE 仍报 true —— 因为复核用 `username=sbx_verify`，新账号用的是
+        #    手机号 ⇒ 复核查不见（**假绿**）。这正是本仓「静默洞」的同一族。
+        #    ⚠️ 并集里「按 tenant_id 反查」是**精确等值**（`tenant_id = <沙箱 id>`），
+        #       不是 id 范围 ⇒ 对生产租户(1/10)零风险。**绝不要**写成 `user_id >= N`
+        #       之类范围条件：本仓生产真实员工的 users.id 正落在 9998xx–9999xx 段
+        #       （沙箱 up 用 users 自增 lastrowid，与生产 max(id) **天然相邻**）
+        #       —— 2026-10-06 曾据此误删 10 行生产 member 关系，见 §事故记录。
+        uid_set = set()
+        levels = []
+        # ① up 落盘的 user_id（最可靠，不受 --user 默认值错配影响）
         if meta.get("user_id"):
-            uids = [meta["user_id"]]
-            lookup = "meta.user_id"
-        # ② 其次按 --user 用户名查
-        if not uids:
-            rows = mc.execute("SELECT id FROM users WHERE username=?", (a.user,)).fetchall()
-            uids = [r["id"] for r in rows]
-            if uids:
-                lookup = "username:%s" % a.user
-        # ③ 兜底：按 tenant_id 反查 user_tenants
-        if not uids:
-            rows = mc.execute("SELECT user_id FROM user_tenants WHERE tenant_id=?", (a.id,)).fetchall()
-            uids = [r["user_id"] for r in rows]
-            if uids:
-                lookup = "user_tenants.tenant_id:%d" % a.id
-        if not uids:
-            lookup = "none"
+            uid_set.add(int(meta["user_id"])); levels.append("meta.user_id")
+        # ② 按 --user 用户名查
+        for r in mc.execute("SELECT id FROM users WHERE username=?", (a.user,)).fetchall():
+            uid_set.add(int(r["id"])); levels.append("username")
+        # ③ 按 tenant_id 反查 user_tenants（**始终执行**，不再是兜底）
+        for r in mc.execute("SELECT user_id FROM user_tenants WHERE tenant_id=?", (a.id,)).fetchall():
+            uid_set.add(int(r["user_id"])); levels.append("user_tenants.tenant_id")
+        uids = sorted(uid_set)
+        lookup = "+".join(sorted(set(levels))) if levels else "none"
         for t in ("sessions", "user_tenants"):
             if uids:
                 q = "DELETE FROM %s WHERE user_id IN (%s)" % (t, ",".join("?" * len(uids)))
@@ -353,12 +358,35 @@ def cmd_down(a):
                 "DELETE FROM users WHERE id IN (%s)" % ",".join("?" * len(uids)), uids).rowcount
         else:
             removed["users"] = 0
+        # 🔴 v383 补：扫描主库**所有含 `tenant_id` 列的表**，按 `tenant_id = <沙箱 id>`
+        #    **精确等值**清理。此前只清 tenants / user_tenants，而 `ai_roles`、
+        #    `llm_call_log` 等表**也有 tenant_id** ⇒ 沙箱跑一次真机探针就留下残留行
+        #    （实测 4 + 11 行），ZERO_RESIDUE 却仍报 true（复核清单里没有它们）。
+        #    安全性：沙箱 id ≥ SANDBOX_MIN(9997)，生产租户只有 1 / 10 ⇒ 等值删除不会误伤。
+        _handled = {"tenants", "user_tenants", "users", "sessions", "password_reset_codes"}
+        for _t in [r["name"] for r in mc.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]:
+            if _t in _handled:
+                continue
+            try:
+                _cols = [r["name"] for r in mc.execute("PRAGMA table_info(%s)" % _t).fetchall()]
+            except sqlite3.Error:
+                continue
+            if "tenant_id" not in _cols:
+                continue
+            _n = mc.execute("DELETE FROM %s WHERE tenant_id=?" % _t, (a.id,)).rowcount
+            if _n:
+                removed["tenant_id@%s" % _t] = _n
         removed["tenants"] = mc.execute("DELETE FROM tenants WHERE id=?", (a.id,)).rowcount
         mc.commit()
 
+        # 🔴 v383 改：`users` 复核从「按 username」→ **按并集 uids**。
+        #    旧实现查 `username=sbx_verify`，而沙箱里新建的账号用户名是**手机号** ⇒
+        #    复核恒 0，即便残留 1 个 user 也报 ZERO_RESIDUE=true（**假绿**）。
         left = {
             "tenants": mc.execute("SELECT COUNT(*) c FROM tenants WHERE id=?", (a.id,)).fetchone()["c"],
-            "users": mc.execute("SELECT COUNT(*) c FROM users WHERE username=?", (a.user,)).fetchone()["c"],
+            "users": (mc.execute("SELECT COUNT(*) c FROM users WHERE id IN (%s)"
+                                 % ",".join("?" * len(uids)), uids).fetchone()["c"] if uids else 0),
             # ⚠️ sessions 无 tenant_id 列 → 只能按 user_id 复核
             "sessions": _count_sessions(mc, uids),
             "user_tenants": mc.execute("SELECT COUNT(*) c FROM user_tenants WHERE tenant_id=?", (a.id,)).fetchone()["c"],
@@ -368,6 +396,22 @@ def cmd_down(a):
                            % ",".join("?" * len(uids)), uids).fetchone()["c"]
                 if (_have_prc and uids) else 0),
         }
+        # 🔴 v383 补：残留复核也覆盖「所有含 tenant_id 列的表」——
+        #    否则「已清但复核清单里没有」= 静默残留（正是 ai_roles / llm_call_log 的成因）。
+        for _t in [r["name"] for r in mc.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]:
+            if _t in _handled:
+                continue
+            try:
+                _cols = [r["name"] for r in mc.execute("PRAGMA table_info(%s)" % _t).fetchall()]
+            except sqlite3.Error:
+                continue
+            if "tenant_id" not in _cols:
+                continue
+            _c = mc.execute("SELECT COUNT(*) c FROM %s WHERE tenant_id=?" % _t,
+                            (a.id,)).fetchone()["c"]
+            if _c:
+                left["tenant_id@%s" % _t] = _c
     finally:
         mc.close()
 
@@ -420,7 +464,8 @@ def main():
     dn.add_argument("--id", type=int, required=True)
     dn.add_argument("--src", type=int, default=10, help="克隆源（用于复核 sha256）")
     dn.add_argument("--user", default="sbx_verify",
-                    help="与 up 时一致；即便忘传也有三级兜底（meta.user_id → username → tenant_id 反查 user_tenants）")
+                    help="与 up 时一致；即便忘传也会**并集**定位（meta.user_id ∪ username "
+                         "∪ tenant_id 反查 user_tenants）—— 能覆盖探针在沙箱里新建的账号")
     dn.set_defaults(func=cmd_down)
 
     a = ap.parse_args()
