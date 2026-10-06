@@ -100,6 +100,13 @@ export const router = createRouter({
             // v294：仓库档案 —— 员工「个人仓」与报单模板「源仓/目标仓」的上游主档。
             // 继承父级 `/archive` 的可见性规则（module:null + BIZ_ROLES），无需单独登记。
             { path: 'warehouses', component: Archive, meta: { title: '档案管理' } },
+            // v387（2026-10-06）批次 1.2：供应商档案 = 第 7 个页签。
+            //   与 warehouses 同构：**必须**在这里登记，否则刷新 `/archive/suppliers`
+            //   会静默落回「员工档案」页签（URL 与内容对不上，见 Archive.vue::tabFromPath）。
+            //   继承父级 `/archive` 的可见性规则（`module:'data'` + BIZ_ROLES）；
+            //   `pages.js` 里另有一条同名精确登记行（那是 `canSee` 的**唯一真源**，
+            //   这里只负责路由可达 —— 两处都写是刻意的，缺任一处就是"假入口"或"假封锁"）。
+            { path: 'suppliers', component: Archive, meta: { title: '档案管理' } },
             // v311（2026-09-28）：渠道与价格并入本容器当第 6 个页签。
             // 🔴 它是**唯一一个不继承父级门槛**的子路由：`/archive` 是 BIZ_ROLES（含主管/业务员），
             //    而价格只给老板/管理员/会计 ⇒ 必须在 `pages.js` 里给 `/archive/prices` 单独登记

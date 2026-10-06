@@ -17,6 +17,8 @@
       <BrandArchive v-if="activeTab === 'brands'" />
       <ProductArchive v-if="activeTab === 'products'" />
       <WarehouseArchive v-if="activeTab === 'warehouses'" />
+      <!-- v387（2026-10-06）批次 1.2：供应商档案 = 第 7 个页签 -->
+      <SupplierArchive v-if="activeTab === 'suppliers'" />
       <PriceChannels v-if="activeTab === 'prices'" />
     </div>
   </div>
@@ -30,6 +32,10 @@ import CustomerArchive from './CustomerArchive.vue'
 import BrandArchive from './BrandArchive.vue'
 import ProductArchive from './ProductArchive.vue'
 import WarehouseArchive from './WarehouseArchive.vue'
+// v387（2026-10-06）批次 1.2：供应商档案（`contacts.type='supplier'`）—— 第 7 个页签。
+//   它装的不是新数据：生产 tenant_1 早有 **38 家供应商**（舟谱导入进来的），
+//   只是**一直没有页面**能看/能改它们 ⇒ 本页是"补入口"，不是"新功能"。
+import SupplierArchive from './SupplierArchive.vue'
 // v311：渠道与价格并入本容器当第 6 个页签（侧栏不再单列）。见模板里那段门禁说明。
 import PriceChannels from './PriceChannels.vue'
 import { canSee } from '../constants/pages'
@@ -41,6 +47,11 @@ function tabFromPath(p) {
   if (p.endsWith('/products')) return 'products'
   if (p.endsWith('/brands')) return 'brands'
   if (p.endsWith('/warehouses')) return 'warehouses'
+  // v387（2026-10-06）：`/archive/suppliers` 必须在这里登记，否则**刷新该 URL 会静默
+  //   落回「员工档案」页签**（URL 与内容对不上，且没有任何报错）。
+  //   ⚠️ 判据顺序：`/suppliers` 与 `/customers` 互不冲突，但两者都必须排在最后那行
+  //      `return ... ? 'customers' : 'employees'` **之前** —— 那行是兜底分支。
+  if (p.endsWith('/suppliers')) return 'suppliers'
   // v311：`/archive/prices` —— 顺序无所谓（各分支互斥），但必须在这里登记，
   //   否则刷新 `/archive/prices` 会静默落回「员工档案」页签（URL 与内容对不上）。
   if (p.endsWith('/prices')) return 'prices'
@@ -63,6 +74,7 @@ function goTab(t) {
 const TABS = [
   { key: 'employees',  path: '/archive/employees',  label: '员工档案' },
   { key: 'customers',  path: '/archive/customers',  label: '客户档案' },
+  { key: 'suppliers',  path: '/archive/suppliers',  label: '供应商档案' },
   { key: 'brands',     path: '/archive/brands',     label: '品牌档案' },
   { key: 'products',   path: '/archive/products',   label: '商品档案' },
   { key: 'warehouses', path: '/archive/warehouses', label: '仓库档案' },

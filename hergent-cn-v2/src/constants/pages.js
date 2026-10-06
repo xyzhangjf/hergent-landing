@@ -236,6 +236,19 @@ export const PAGE_RULES = {
   '/archive/brands':     { title: '品牌档案', module: 'data',  roles: BIZ_ROLES, cat: 'biz' },
   '/archive/products':   { title: '商品档案', module: 'data',  roles: BIZ_ROLES, cat: 'biz' },
   '/archive/warehouses': { title: '仓库档案', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  // v387（2026-10-06）批次 1.2：新增「供应商档案」页签（档案管理第 7 个页签）。
+  //   轴的选择理由：与**同容器的兄弟页签**同轴（品牌 / 商品都用 `module:'data'` + `BIZ_ROLES`），
+  //   不另立窄名单。三点权衡（记下来免得后人重推）：
+  //     ① 若挂 `module:'inventory'`：进销存能力**当前默认只有 boss 持有**（v380 闸门）⇒
+  //        会计连供应商都录不了；而供应商主档是**档案能力**的一部分，不是采购执行能力。
+  //     ② 若用 `module:null` + 窄 roles：会变成 `/archive/prices` 那种"产品硬锁、客户配不了"页面；
+  //        供应商不像价格体系那样需要硬锁，没必要占一个不可配置位。
+  //     ③ 与兄弟页签不同轴 ⇒ 用户会问「档案管理里别的都有、为什么就这个没有」= 支持成本。
+  //   ⚠️ 敏感面处置（**在页面层，不在门禁层**）：`bank_account` 是加密列（SENSITIVE_FIELDS）
+  //      ⇒ **列表不展示开户行/账号**，只在编辑弹窗里可填可改。若哪天老板要求业务员看不到
+  //      供应商页，改这一行的 roles 即可（一行改动，无需动后端）。
+  //   `title` 用页签自己的名字（不是「档案管理」）—— 它是守卫那句「你没有访问「xxx」的权限」的文案。
+  '/archive/suppliers':  { title: '供应商档案', module: 'data', roles: BIZ_ROLES, cat: 'biz' },
 
   // 算工资：**只挂 module、不挂 roles** —— 这是 2026-09-19 拆出 `payroll` 窄模块时的明确契约：
   //   「会计能不能算工资按客户差异，由各租户在权限页自行授予」（见后端 `_DEFAULT_PERMS` 注释）。

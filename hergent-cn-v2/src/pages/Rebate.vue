@@ -1044,7 +1044,8 @@
                   <option value="">— 选择 —</option>
                   <option v-for="o in contactOptions" :key="o.id" :value="o.id">{{ o.name }}</option>
                 </select>
-                <span v-if="!contactOptions.length" class="cf-hint" style="color:var(--dan);font-size:12px">未找到厂家档案，请在「档案管理 → 供应商」先录入厂家（如 蒙牛），或勾选上方按名称直录</span>
+                <span v-if="!contactOptions.length" class="cf-hint" style="color:var(--dan);font-size:12px">未找到厂家档案，请先
+                  <button type="button" class="cf-jump" @click="goArchivePage('/archive/suppliers', '供应商档案')">到「档案管理 › 供应商档案」录入厂家</button>（如 蒙牛），或勾选上方按名称直录</span>
               </div>
               <div class="form-row" v-else>
                 <label>合作方名称（直接填写）</label>
@@ -1056,7 +1057,8 @@
                   <option value="">— 选择已录入的品牌 —</option>
                   <option v-for="b in brandList" :key="b.id" :value="b.id">{{ b.name }}</option>
                 </select>
-                <span v-if="!brandList.length" class="cf-hint" style="color:var(--war);font-size:12px">暂无品牌档案，可先到「档案管理 → 品牌档案」录入；不选品牌则合同视为覆盖全部品牌</span>
+                <span v-if="!brandList.length" class="cf-hint" style="color:var(--war);font-size:12px">暂无品牌档案，可先
+                  <button type="button" class="cf-jump" @click="goArchivePage('/archive/brands', '品牌档案')">到「档案管理 › 品牌档案」录入</button>；不选品牌则合同视为覆盖全部品牌</span>
               </div>
             </div>
             <!-- Step 2 年度与比例 -->
@@ -1208,8 +1210,12 @@
 import Icon from '../components/Icon.vue'
 import CommitmentsTab from '../components/CommitmentsTab.vue'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { toast, canDo } from '../store'
+/* v387（2026-10-06）：页内跳转入口的**同判据** —— 下面 `goArchivePage()` 用它。
+   🔴 不判就是"假入口"：能进返利的人不一定能进那个档案页（如会计进不了员工档案）。
+      唯一源仍是 `constants/pages.js`（本文件不另写一份名单）。 */
+import { canSee } from '../constants/pages'
 import { rebateApi } from '../api/modules'
 import { api } from '../api/client.js'
 import TargetFormModal from '../components/rebate/TargetFormModal.vue'
@@ -1228,6 +1234,18 @@ const mainTab = ref('dashboard')
 const rules = ref([])
 // v242b：「报单配置」页的「改节奏」深链落点 —— #/rebate?edit_rule=<id> 直接打开该规则
 const _route = useRoute()
+const _router = useRouter()
+
+/* v387（2026-10-06）：把「档案管理 → xx」这类**提示文案**变成真能点到的入口。
+   背景：`合约` 弹窗里原本有两句指路文案（「档案管理 → 供应商」「档案管理 → 品牌档案」），
+   但它们是**死文本** —— 一句指向当时**并不存在**的页面（供应商档案页 v387 才有），
+   另一句虽然指向存在的页面却点不动。老板按提示去找，找不到就以为系统坏了。
+   现在：统一走本函数，**判据同源**（`canSee`）+ 目标页不存在/无权限时给一句可读的 toast，
+   而不是把用户推进一个空白页。 */
+function goArchivePage(path, label) {
+  if (!canSee(path)) { toast('你没有访问「' + label + '」的权限', 'warn'); return }
+  _router.push(path)
+}
 let _routeEditDone = false
 function _applyRouteEdit() {
   if (_routeEditDone) return
@@ -3602,6 +3620,14 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 .cf-mo-sum span{font-size:13px;color:var(--p-dark)}
 .cf-mo-sum b{font-size:18px;color:var(--p);font-weight:600}
 .cf-tip b{color:var(--t1)}
+/* v387（2026-10-06）：「档案管理 › xx」指路文案里的跳转按钮。
+   原先是死文本（一句指向当时不存在的页面）⇒ 做成真入口。
+   ⚠️ 因为这两句 .cf-hint 是**内联设色**（--dan / --war），按钮不能再跟着变色，
+      否则出现两种红/橙互相打架 —— 固定用主交互色 + 下划线，视觉上明确"这里能点"。 */
+.cf-jump{background:none;border:none;padding:0;margin:0;font:inherit;color:var(--p-dark);
+  text-decoration:underline;cursor:pointer}
+.cf-jump:hover{color:var(--p-deep)}
+.cf-jump:focus-visible{outline:2px solid var(--p-dark);outline-offset:2px;border-radius:2px}
 /* §1.1 向导步骤条 + 引用按钮 + 预览 */
 .cf-wizard-actions{display:flex;gap:6px;margin-left:auto}
 .cf-steps{display:flex;gap:6px;padding:12px 18px 0;border-bottom:1px solid var(--border-subtle)}
