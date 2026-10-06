@@ -89,7 +89,28 @@
         <nav class="sb-nav">
           <template v-for="g in navGroups" :key="g.label">
             <div class="sb-grp">{{ g.label }}</div>
-            <router-link v-for="it in g.items" :key="it.path" :to="it.path" class="sb-item"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span></router-link>
+            <!-- v388（2026-10-07）批次 2：条目现在有两种形态，由 `resolveNavItem` 判定：
+                 ① 扁平直达项 `{path,name,icon}` —— 行为与 v311 完全一致；
+                 ② 职能区 `{key,name,icon,groups}` —— 一级项**不是页面**（不是 router-link），
+                    悬停展开弹窗、点击固定（触屏兜底）。
+                 🔴 分支判据只有 `it.groups`（结构本身），**没有**任何权限判据 ——
+                    可见性一律由 `canSee(path)` 在 `resolveNavItem` 里收口（v291/v311 纪律）。 -->
+            <template v-for="it in g.items" :key="it.key || it.path">
+              <router-link v-if="!it.groups" :to="it.path" class="sb-item"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span></router-link>
+              <div v-else class="sb-area" :class="{open: openArea === it.key, pinned: pinnedArea === it.key}"
+                   @mouseenter="areaEnter(it.key, $event)" @mouseleave="areaLeave">
+                <button type="button" class="sb-item sb-area-btn" :aria-expanded="openArea === it.key" @click="areaToggle(it.key, $event)"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span><Icon name="chevron-right" :size="13" class="sb-caret" /></button>
+                <Teleport to="body">
+                  <div v-if="openArea === it.key" class="sb-pop" :style="popStyle"
+                       @mouseenter="areaKeep" @mouseleave="areaLeave">
+                    <template v-for="sg in it.groups" :key="sg.label">
+                      <div v-if="sg.label" class="sb-pop-hd">{{ sg.label }}</div>
+                      <router-link v-for="x in sg.items" :key="x.path" :to="x.path" class="sb-pop-item" @click="areaClose"><Icon :name="x.icon" :size="15" /><span>{{ x.name }}</span></router-link>
+                    </template>
+                  </div>
+                </Teleport>
+              </div>
+            </template>
           </template>
         </nav>
       </aside>
@@ -233,7 +254,33 @@ const NAV = [
   {
     label: '配置',
     items: [
-      { path: '/archive', name: '档案管理', icon: 'book' },
+      /* v388（2026-10-07）批次 2 · 侧栏骨架 L0：`档案管理` 由**扁平直达项**升级为
+         **职能区（area）** —— 悬停展开弹窗、内含 7 个页签直达链接。这是「先只落地档案管理区」
+         的试点：本区整区没有「创建」动作，所以验骨架时不会碰到批次 3 的「双入口（行内创建）」。
+         🔴 结构 = `{ key, name, icon, groups:[{ label, items }] }` —— **带 `groups` 的条目
+            不再是一个页面**（见模板里 `.sb-area` 与 `.sb-pop` 的分支），批次 3 的 L1
+            「行内创建」就挂在 `groups[].items[]` 上，所以这一步必须先把结构立起来。
+         🔴 可见性**仍然只走** `canSee(path)`（→ `pages.js`）：弹窗只负责**排版**，
+            模板里**不补任何 `v-if`**（v291 纪律）；空列/空弹窗由 `navGroups` 计算属性收口
+            （v311 纪律：标题与显隐都从条目算出来，绝不写第二份判据）。
+         ⚠️ `path` 刻意**不写** —— 一级项是"分区"不是页面。`/archive` 路由本身**保留**
+            （已存书签/深链照常可达，落回第一个可见页签）。
+         ⚠️ 图标名必须真实存在于 `Icon.vue`（写错不报错，静默变齿轮）。
+            本表 7 个图标：users / building / store / gift / package / toolbox / coins —— 全部在库。 */
+      {
+        key: 'archive', name: '档案管理', icon: 'book',
+        groups: [
+          { label: '', items: [
+            { path: '/archive/employees',  name: '员工档案',   icon: 'users' },
+            { path: '/archive/customers',  name: '客户档案',   icon: 'building' },
+            { path: '/archive/suppliers',  name: '供应商档案', icon: 'store' },
+            { path: '/archive/brands',     name: '品牌档案',   icon: 'gift' },
+            { path: '/archive/products',   name: '商品档案',   icon: 'package' },
+            { path: '/archive/warehouses', name: '仓库档案',   icon: 'toolbox' },
+            { path: '/archive/prices',     name: '渠道与价格', icon: 'coins' }
+          ] }
+        ]
+      },
       // ⚠️ 名字是「AI 引擎」不是「能力中心」—— v311 更名，理由见 `pages.js` 该行注释。
       //   路由仍是 `/connect`（**不改路径**：它是已上线深链，改名只动显示名）。
       { path: '/connect', name: 'AI 引擎', icon: 'brain' },
@@ -265,15 +312,113 @@ const mnavItems = computed(() => {
     .filter(it => it && canSee(it.path))
 })
 
+/**
+ * v388（2026-10-07）批次 2 · 侧栏骨架 L0：把 `NAV` 里的一条条目解析成「可渲染的东西」。
+ *
+ * 一条条目现在有两种形态：
+ *   ① 扁平直达项 `{ path, name, icon }` —— 仍按 `canSee(path)` 收窄；
+ *   ② 职能区 `{ key, name, icon, groups:[{ label, items }] }` —— 先把每列按 `canSee` 收窄、
+ *      再丢掉**空列**；**全列皆空 ⇒ 整个一级项返回 `null`（隐藏）**。
+ *
+ * 🔴 为什么收口放在这里、而不是模板里补 `v-if`：
+ *    v311 立下的规矩是「标题与显隐都从条目算出来」。若在模板里另写一份判据
+ *    （例如 `v-if="it.groups.some(...)"`），就与这里的判断形成**两份实现** ——
+ *    一旦漂移就会出现「有弹窗、里面空着」或「有内容、弹窗不出现」，
+ *    正是本项目反复在修的「规则抄多份」。
+ */
+function resolveNavItem(it) {
+  if (it.groups) {
+    const groups = it.groups
+      .map(sg => ({ label: sg.label, items: sg.items.filter(x => canSee(x.path)) }))
+      .filter(sg => sg.items.length)
+    return groups.length ? { ...it, groups } : null
+  }
+  return canSee(it.path) ? it : null
+}
+
 /** 桌面侧栏：按 `canSee` 收窄，**并丢掉空组**（否则导购/司机会看到两个空标题）。 */
 const navGroups = computed(() => NAV
-  .map(g => ({ label: g.label, items: g.items.filter(it => canSee(it.path)) }))
+  .map(g => ({ label: g.label, items: g.items.map(resolveNavItem).filter(Boolean) }))
   .filter(g => g.items.length))
 
-/** 手机抽屉：同一份表，再减掉底部栏那三项。 */
+/**
+ * 手机抽屉：同一份表，再减掉底部栏那三项。
+ * 手机端**不做悬停**（批次 2 · 2.5）—— 职能区直接**平铺**成它内部的所有条目。
+ * 🔴 平铺必须走**同一份** `resolveNavItem` 结果：桌面弹窗里因权限被隐藏的列，
+ *    手机端也不能露出来，否则就变成"屏幕尺寸决定权限"（这类洞本项目出过多次）。
+ */
 const drawerGroups = computed(() => NAV
-  .map(g => ({ label: g.label, items: g.items.filter(it => canSee(it.path) && !MNAV_PATHS.includes(it.path)) }))
+  .map(g => ({
+    label: g.label,
+    items: g.items
+      .map(resolveNavItem)
+      .filter(Boolean)
+      .flatMap(it => it.groups ? it.groups.flatMap(sg => sg.items) : [it])
+      .filter(it => !MNAV_PATHS.includes(it.path))
+  }))
   .filter(g => g.items.length))
+
+/* ---------------------------------------------------------------------------
+   v388（2026-10-07）批次 2：职能区悬停弹窗的开关
+   ---------------------------------------------------------------------------
+   `openArea`   = 当前展开的区（鼠标悬停或被点击固定，都会置它）
+   `pinnedArea` = 被**点击固定**住的区（触屏/无鼠标设备的兜底；点第二次取消）
+   🔴 为什么要 180ms **延时收起**：指针从一级项移向弹窗时，必然要划过两者之间
+      那一小段（`.sb-pop` 与 `.sb-area` 之间留了 8px 对齐边距）—— 即时收起会让弹窗
+      在指针抵达之前就消失，表现为"鼠标一往下移，弹窗就没了"。舟谱是即时收起，
+      这是主动改良（计划 §四 · 2.2 明写 180ms）。
+   --------------------------------------------------------------------------- */
+const openArea = ref('')
+const pinnedArea = ref('')
+let _closeTimer = null
+
+/* 🔴🔴 弹窗为什么要 **Teleport 到 body**（这是本轮第三个坑，也是最隐蔽的一个）：
+   1) `.sb-nav{overflow-y:auto}` 会把 `overflow-x` 一并算成 `auto` ⇒ 向外展开的弹窗被裁掉；
+   2) 改用 `position:fixed` 后**仍然点不到** —— 探针的命中测试（`elementFromPoint`）
+      抓到真相：该坐标下被命中的是页面正文的 `SPAN.tag`，弹窗**根本不在命中树上**。
+      也就是说：`overflow` 的裁剪对 fixed 后代**照样生效**（"包含块在裁剪祖先之上就免疫"
+      这条推论在 `.sidebar` 带 `backdrop-filter` 的复合情形下不成立）。
+   3) 把弹窗挪出 `.sidebar` 这棵子树（Teleport 到 body）之后，两个问题**同时消失**：
+      不再被任何祖先裁剪，且包含块回到视口 ⇒ 坐标就是 `getBoundingClientRect` 的视口值，
+      不需要再换算 `backdrop-filter` 造成的包含块偏移。
+   ⇒ 代价：弹窗不再是 `.sb-area` 的 DOM 后代，"鼠标从一级项移进弹窗"会触发 `.sb-area`
+      的 mouseleave。补偿 = 弹窗自己挂 `mouseenter`（取消收起计时器）+ `mouseleave`，
+      配合本来就要做的 180ms 延时，指针跨过那段 8px 缝隙时不会闪断。 */
+const popStyle = ref({ top: '0px', left: '0px' })
+function _placePop(ev) {
+  const el = ev && ev.currentTarget
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  popStyle.value = { top: (r.top - 6) + 'px', left: (r.right + 8) + 'px' }
+}
+
+function areaKeep() {
+  if (_closeTimer) { clearTimeout(_closeTimer); _closeTimer = null }
+}
+function areaEnter(key, ev) {
+  areaKeep()
+  _placePop(ev)
+  openArea.value = key
+}
+function areaLeave() {
+  if (pinnedArea.value) return                    // 已固定 ⇒ 不随鼠标离开而收起
+  if (_closeTimer) clearTimeout(_closeTimer)
+  _closeTimer = setTimeout(() => { openArea.value = ''; _closeTimer = null }, 180)
+}
+/** 触屏兜底：点一级项 = 固定/取消固定弹窗（一级项本身**不是页面**，所以不导航）。 */
+function areaToggle(key, ev) {
+  if (pinnedArea.value === key) { pinnedArea.value = ''; openArea.value = '' }
+  else { _placePop(ev); pinnedArea.value = key; openArea.value = key }
+}
+/** 弹窗里点走一个页签后收起（无论固定与否）—— 否则弹窗会一直挂在屏幕上。 */
+function areaClose() {
+  if (_closeTimer) { clearTimeout(_closeTimer); _closeTimer = null }
+  pinnedArea.value = ''
+  openArea.value = ''
+}
+/* v388：弹窗的「跟随收起」两处 `watch` 见下方（必须写在 `useRoute()` **之后**）：
+   `const route` 有 TDZ，提前引用会 `ReferenceError`。 */
+onBeforeUnmount(() => { if (_closeTimer) clearTimeout(_closeTimer) })
 
 // 通知偏好（本地）：徽标要扣掉「被你收起的类」，且必须与面板共用同一份规则、同一个算法
 // —— 两边各算一遍 = 同屏两个数字对不上。
@@ -281,6 +426,14 @@ import { badgeFromGroups } from '../composables/useNotiPrefs'
 
 const router = useRouter()
 const route = useRoute()
+
+/* v388（2026-10-07）批次 2：切换路由 / 折叠侧栏时收起悬停弹窗。
+   折叠后 `.sb-area` 已被 `display:none`，而弹窗是 `position:fixed` —— 它**不受**父级
+   `display` 影响，留着就是"漂在空处的一块"。
+   ⚠️ 这两行**必须**写在 `useRoute()` **之后**：`const route` 处于 TDZ，提前引用会
+      `ReferenceError`（构建期不报、页面运行才炸 —— 本轮实测踩到过）。 */
+watch(() => route.fullPath, areaClose)
+watch(() => store.ui.sidebarOpen, areaClose)
 
 /* v291（2026-09-27）：`canSee(path)` 直接引自 `constants/pages.js` 的页面注册表 ——
    本模板 24 处菜单项（桌面侧栏 12 + 手机底栏 3 + 手机抽屉 9）全部走它。
@@ -547,6 +700,39 @@ function stopResize() {
       看起来像侧栏顶部被压塌了（移动端 `.md-group-hd` 同理，见下）。 */
 .sb-grp{font-size:11px;color:var(--t3);letter-spacing:.8px;padding:14px 10px 4px}
 .sb-grp:first-child{padding-top:2px}
+
+/* ---------------------------------------------------------------------------
+   v388（2026-10-07）批次 2 · 职能区（area）+ 悬停弹窗
+   ---------------------------------------------------------------------------
+   全部复用既有变量（--bg / --p-bg / --p-dark / --t1 / --t2 / --t3 / --bd /
+   --glass-bg-strong / --glass-blur），**不新造任何色值** —— 深色模式换的只是
+   变量取值，这里不需要第二份暗色规则（v362/363/367 的幽灵变量教训）。
+   🔴 弹窗**不能**用 `position:absolute; left:100%` —— 实测会被祖先 `.sb-nav` 的
+      `overflow-y:auto` 裁掉（`overflow-y:auto` 会把 `overflow-x` 一并算成 `auto`），
+      表现为"hover 了但弹窗不出现"。故坐标由 JS 实测后写进 `:style`，见 `_placePop`。
+      `.sb-area` 仍需 `position:relative` 作为语义锚点（不含定位职责）。 */
+.sb-area{position:relative}
+.sb-area-btn{font:inherit;border:none;background:none;cursor:pointer;text-align:left}
+.sb-area.open>.sb-area-btn{background:var(--p-bg);color:var(--p-dark);font-weight:500}
+.sb-area.pinned>.sb-area-btn{box-shadow:inset 0 0 0 1px var(--bd)}
+.sb-caret{margin-left:auto;opacity:.55;transition:transform .15s}
+.sb-area.open .sb-caret{transform:rotate(90deg)}
+
+/* ⚠️ 弹窗是 `<Teleport to="body">` + `position:fixed`：
+   · 不能在 `.sb-area` 里用 `position:absolute; left:100%` —— 会被 `.sb-nav` 的
+     `overflow-y:auto` 裁掉；
+   · 也不能"留在原地 + 只改成 fixed" —— 实测（探针 `elementFromPoint`）**照样被裁**：
+     坐标处命中的是正文元素，弹窗不在命中树上 ⇒ 看得见、点不到。
+   · Teleport 出侧栏子树后，裁剪消失、包含块回到视口，坐标即 `getBoundingClientRect` 值。 */
+.sb-pop{position:fixed;min-width:168px;
+  background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+  border:1px solid var(--bd);border-radius:12px;padding:6px;z-index:30;
+  box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.sb-pop-hd{font-size:11px;color:var(--t3);letter-spacing:.8px;padding:6px 10px 2px}
+.sb-pop-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:8px;
+  color:var(--t2);text-decoration:none;font-size:13px;white-space:nowrap;transition:all .15s}
+.sb-pop-item:hover{background:var(--bg);color:var(--t1)}
+.sb-pop-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 
 .md-group-hd{font-size:11px;font-weight:500;color:var(--t3);padding:14px 20px 4px;letter-spacing:.8px}
 
