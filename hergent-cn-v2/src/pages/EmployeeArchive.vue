@@ -81,7 +81,7 @@
         <table class="tbl">
           <thead><tr>
             <th>员工</th><th>岗位</th><th class="num">底薪/月</th>
-            <th>登录账号</th><th title="个人仓 = 该员工报「本人仓」调拨单时的目标仓；在「编辑」里设置">个人仓</th><th>可报门店</th><th></th>
+            <th>登录账号</th><th>可报门店</th><th></th>
           </tr></thead>
           <tbody>
             <tr v-for="e in employees" :key="e.id" :class="{ stopped: e.is_active === 0 }">
@@ -103,12 +103,11 @@
                   :title="'兼任角色：' + roleDisplay(r)"
                 >+{{ roleDisplay(r) }}</span>
               </td>
-              <!-- v294：个人仓 —— 一眼看出「这个人能不能报本人仓的调拨单」。
-                   `warehouseName` 查不到时回落到 id，绝不显示空白（空白会被读成"没问题"）。 -->
-              <td>
-                <span v-if="e.warehouse_id" class="df-wh">{{ warehouseName(e.warehouse_id) || ('仓库 #' + e.warehouse_id) }}</span>
-                <span v-else class="df-muted">未设</span>
-              </td>
+              <!-- v381（2026-10-06）：个人仓列**已移除** —— 「设个人仓」的唯一入口搬到
+                   「预报订单管理 → 报单配置」（老板拍板 Q2=B：弹窗与列表列都撤）。
+                   理由与 2026-09-19「门店」那次收敛同源：它本就是报单域的属性，
+                   且它的**唯一读取方**是 `report_mapping_create/update` 的本人仓分支。
+                   在这里留一列只读展示，只会让用户以为"要在这儿改"。 -->
               <!-- 2026-09-19 收敛：门店配置入口已移出员工档案，本列只读展示数量。
                    数据 = 报单配置派生 ∪ 历史授权（见后端 employee_stores_get）。 -->
               <td class="num" title="在「预报订单管理 → 报单配置」里为该员工配门店，配了即授权其小程序可报">  {{ (e.store_ids || []).length }} 家</td>
@@ -185,28 +184,12 @@
               </div>
             </section>
 
-            <!-- v294：报单身份 —— 个人仓。
-                 它是「本人仓」调拨单的**前置条件**（后端 report_mapping_create 的
-                 self_warehouse 分支会读它）；留空则该员工在报单配置里选「本人仓」会被拒。 -->
-            <section class="df-sec">
-              <div class="df-sec-title">报单身份</div>
-              <div class="df-edit-grid">
-                <label class="df-field">
-                  <span>个人仓</span>
-                  <select v-model.number="editForm.warehouse_id" class="input">
-                    <option :value="0">未设 —— 不可报本人仓的调拨单</option>
-                    <option v-for="w in warehouses" :key="w.id" :value="Number(w.id)">{{ w.name }}</option>
-                  </select>
-                </label>
-              </div>
-              <p v-if="!warehouses.length" class="df-tip df-warn">
-                还没有仓库档案。请先到「档案管理 → 仓库档案」新建一个仓（如「刘小顶仓」），再回来指派。
-              </p>
-              <p v-else class="df-tip">
-                指派后，该员工才能在「预报订单管理 → 报单配置」里以<b>本人仓</b>为对象建调拨单 ——
-                报单对象自动锁定为这个仓，报不了别人的仓（防选错）。
-              </p>
-            </section>
+            <!-- v381（2026-10-06）：原「报单身份 › 个人仓」分区**已移除**。
+                 它搬到了「预报订单管理 → 报单配置」：新建/编辑一条「本人仓」映射时，
+                 对象那一格现在是**仓库下拉**，选了即存（后端回写 `hr_employees.warehouse_id`）。
+                 ⇒ 会计 / 主管终于能设个人仓了（旧入口归 `hr` 模块，他们进不来、403 被静默吞）。
+                 后端 `PUT /api/employees/{eid}` 的 `warehouse_id` 白名单**仍然保留**
+                 （兼容脚本与回滚），只是界面不再从这里发。 -->
 
             <!-- 薪酬与账户 -->
             <section class="df-sec">
@@ -520,7 +503,7 @@ import { api } from '../api/client'
 import { toast, store, canDo } from '../store'
 /* v291：页内跳转入口同判据（见 goConnect）。 */
 import { canSee } from '../constants/pages'
-import { employeeApi, importApi, staffAccountApi, warehouseApi } from '../api/modules'
+import { employeeApi, importApi, staffAccountApi } from '../api/modules'
 // 角色中文名 —— 前端唯一来源（constants/roles.js 顶部有完整说明与权威源出处）
 // v300：另取 `ROLE_END`/`ROLE_END_LABEL`（「适用端」标注的唯一来源）与 `canUseMiniProgram`
 //   （降级判据）—— 下拉 label 由它们**生成**，不再手写「小程序」字样。
@@ -544,12 +527,9 @@ const editForm = reactive({
   name: '', employee_no: '', position: '', hire_date: '', id_card: '',
   bank_name: '', bank_account: '', social_insurance_city: '',
   social_insurance_base: null, housing_fund_base: null, base_salary: null,
-  // 🔴 v294（2026-09-27）「个人仓」—— 0 = 未设。
-  //    它是「本人仓」报单映射的**前置条件**：`erp_db.report_mapping_create` 的
-  //    self_warehouse 分支会读 `hr_employees.warehouse_id`，为 0 时直接拒存并提示
-  //    「该员工未配置本人仓」。此前三处后端白名单都漏了它、前端也没这个输入框
-  //    ⇒ 这一项**在任何界面都写不进去**（用户报障：「员工档案里没有设置个人仓的入口」）。
-  warehouse_id: 0,
+  // v381：原「个人仓」字段（`warehouse_id`）已移出本表单 ——
+  // 入口搬到「预报订单管理 → 报单配置」（「本人仓」映射的对象那一格）。
+  // 理由：它的唯一读取方是 `report_mapping_create/update`，放在员工档案是错位。
 })
 /* v290（2026-09-27）：「人事档案有没有被改过」的基线快照。
    打开弹窗时由 resetEditForm 存一份，关窗前拿它和当前 editForm 比 —— 见 tryCloseEdit。 */
@@ -784,29 +764,9 @@ async function loadEmployees() {
   finally { loading.value = false }
 }
 
-/* ---- 仓库主档（v294）：个人仓下拉的数据源 ----
-   入口在「档案管理 → 仓库档案」（同一份 `/api/warehouses/full`）。
-
-   🔴 失败时**静默降级为空数组、不弹错**（与「同步」按钮的失败语义刻意不同）：
-   个人仓是**可选字段**，拉不到仓库列表不该阻塞员工档案本身的编辑 ——
-   真要弹错，应该是"用户要用它时"提示，而不是"打开页面就报警"。
-   但下拉会因此只剩「未设」一项，所以模板里对空列表给了显式文案，避免看起来像坏了。 */
-const warehouses = ref([])
-async function loadWarehouses() {
-  try {
-    warehouses.value = await warehouseApi.list() || []
-  } catch {
-    warehouses.value = []
-  }
-}
-/* 行内展示：把 warehouse_id 翻成仓名。查不到（仓已删 / 未设）返回空串，
-   由调用处决定显示什么 —— 不在这里造「未知仓库」这种文案。 */
-function warehouseName(id) {
-  const wid = Number(id) || 0
-  if (!wid) return ''
-  const w = warehouses.value.find(x => Number(x.id) === wid)
-  return w ? (w.name || '') : ''
-}
+/* ---- v381：原「仓库主档」整块已删除（`warehouses` / `loadWarehouses` / `warehouseName`）。
+   它只服务于已搬走的「个人仓」下拉与列表列 —— 留着就是死代码（`warehouseApi` 的 import
+   也一并去掉，否则会变成"看着像在用、其实没人调"的误导）。 */
 
 /* ---- 完整编辑弹窗（新增 / 编辑共用同一弹窗） ---- */
 function resetEditForm(e) {
@@ -822,9 +782,7 @@ function resetEditForm(e) {
   editForm.social_insurance_base = src.social_insurance_base != null ? src.social_insurance_base : null
   editForm.housing_fund_base = src.housing_fund_base != null ? src.housing_fund_base : null
   editForm.base_salary = e ? (salaryOf(e) || null) : null
-  // v294：个人仓（0 = 未设）。转 Number 是必需的 —— `<select>` 的 v-model 会得到字符串
-  // "3"，而 `report_mapping_create` 那边读出来要和仓库 id 比大小；统一在入口归一。
-  editForm.warehouse_id = Number(src.warehouse_id) || 0
+  // v381：`warehouse_id` 不再回填（字段已移出本表单）。
   // 账号区状态复位
   accForm2.username = ''
   accForm2.password = ''
@@ -876,9 +834,8 @@ async function saveEmployee() {
     social_insurance_city: f.social_insurance_city || undefined,
     social_insurance_base: f.social_insurance_base != null ? f.social_insurance_base : undefined,
     housing_fund_base: f.housing_fund_base != null ? f.housing_fund_base : undefined,
-    // v294：个人仓**恒发送**（含 0）—— 「取消绑定」是一个有效意图，
-    // 若按其它字段那样用 `|| undefined` 省略，清空就永远存不下去（静默不生效）。
-    warehouse_id: Number(f.warehouse_id) || 0,
+    // v381：`warehouse_id` 不再随本表单提交（入口已搬到报单配置）。
+    // 后端 `PUT /api/employees/{eid}` 的白名单**仍保留**它以兼容脚本与回滚。
   }
   if (f.base_salary != null) body.salary_structure = JSON.stringify({ base_salary: f.base_salary })
   try {
@@ -1529,7 +1486,6 @@ async function doImportEmployees() {
 
 onMounted(() => {
   loadEmployees()
-  loadWarehouses()   // v294：个人仓下拉的数据源（失败静默降级，见函数注释）
   loadRoleCatalog()  // v300：角色下拉的动态值域（403/失败静默降级为内置 8 项，见函数注释）
   probeConnectors()
   loadExtAccounts()  // v308：外部客户账号（失败静默 —— 无权限就当"没有"，不打断整页）
@@ -1572,7 +1528,7 @@ onMounted(() => {
 /* 账号/门店 */
 .df-acc{font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 /* v294：个人仓（有仓 = 可用色标出，未设 = 弱化 —— 后者是需要老板去补的状态） */
-.df-wh{font-size:12px;padding:2px 8px;border-radius:8px;background:rgba(var(--p-rgb,.2),.12);color:var(--p);white-space:nowrap}
+/* v381：`.df-wh`（个人仓行内标签）已随列表列删除。 */
 .df-muted{font-size:11px;color:var(--t3)}
 .df-acc.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .df-role{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;margin-left:6px;background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--teal,#0ea5a4);white-space:nowrap}

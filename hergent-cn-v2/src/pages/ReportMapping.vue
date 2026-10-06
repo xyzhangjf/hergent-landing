@@ -227,8 +227,13 @@
                 <span v-if="errors.counterparty_type" class="field-err">{{ errors.counterparty_type }}</span>
               </div>
               <div class="field" :class="{ err: errors.counterparty_id }">
-                <label>{{ typeLabel(form.counterparty_type) }}全称 <i class="req">*</i></label>
-                <div v-if="form.counterparty_type !== 'self_warehouse'" class="combo" ref="objCombo">
+                <!-- 🔴 v381（2026-10-06）：「设个人仓」的入口从**员工档案**搬到这里。
+                     原先这一格是只读框，员工没设个人仓时显示「请先在员工档案设置其个人仓」
+                     —— 对会计 / 主管是**死胡同**：他们进不去员工档案（`/api/employees/*` 归
+                     `hr` 模块，403 被静默吞 ⇒ 列表恒空零报错），却在报单配置里被要求去那儿设。
+                     现在本人仓也走**仓库下拉**（即选即存），保存时后端回写 `hr_employees.warehouse_id`。 -->
+                <label>{{ objFieldLabel }} <i class="req">*</i></label>
+                <div class="combo" ref="objCombo">
                   <input
                     class="combo-input"
                     v-model="objKeyword"
@@ -249,17 +254,19 @@
                       :class="{ on: i === objHi, sel: c.id === Number(form.counterparty_id) }"
                       @mousedown.prevent="pickObj(c)"
                       @mouseenter="objHi = i"
-                    >{{ c.name }}<span v-if="c.id === Number(form.counterparty_id)" class="combo-sel"><Icon name="check"/></span></div>
-                    <div v-if="!objFiltered.length" class="combo-empty">无匹配结果</div>
+                    >{{ c.name }}<span v-if="isSelfWh && whOwnerMap[c.id]" class="combo-note">已被 {{ whOwnerMap[c.id] }} 占用</span><span v-if="c.id === Number(form.counterparty_id)" class="combo-sel"><Icon name="check"/></span></div>
+                    <div v-if="!objFiltered.length" class="combo-empty">
+                      <template v-if="isSelfWh && !refs.warehouses.length">还没有仓库档案 —— 请先到「档案管理 → 仓库档案」新建一个仓</template>
+                      <template v-else>无匹配结果</template>
+                    </div>
                   </div>
                 </div>
-                <div v-else class="ro-box">
-                  <template v-if="selectedEmpWh">
-                    <span class="ro-name">{{ selectedEmpWh.name }}</span>
-                    <span class="ro-tag">本人仓（按员工自动带出）</span>
-                  </template>
-                  <span v-else class="ro-warn">该员工未配置本人仓，请先在员工档案设置其个人仓</span>
-                </div>
+                <!-- v381：本人仓的唯一性**就地拦**（与后端 `_resolve_self_warehouse` 同判据：
+                     一个仓只能属于一个员工）。不拦的话后端会报错，而报错点离病因很远
+                     （员工 B 建映射撞的是「同一对象只能有一条活跃配置」v297）。 -->
+                <span v-if="isSelfWh && currentWhOwner" class="field-err">
+                  这个仓已指派给「{{ currentWhOwner }}」—— 一个仓只能属于一个员工，请换一个，或先改他那条配置
+                </span>
                 <span v-if="errors.counterparty_id" class="field-err">{{ errors.counterparty_id }}</span>
                 <!-- v297（用户 2026-09-27 拍板「要」）：同一对象被配了**第二条**活跃配置 ⇒
                      Excel 模板会为它生成两列、汇总表裂两列（简称唯一约束拦不住，因为两条简称不同）。
@@ -372,7 +379,7 @@
                 </div>
                 <span class="hint">
                   这两个仓会写进舟谱<b>调拨单</b>的「调出仓 / 调入仓」两列。
-                  源仓留空则用「默认业务仓」；目标仓留空则用该员工档案里的<b>个人仓</b>。
+                  源仓留空则用「默认业务仓」；目标仓留空则用上面选定的<b>个人仓</b>。
                   仓库还没建？去「档案管理 → 仓库档案」先建。
                 </span>
               </template>
@@ -654,17 +661,39 @@ const hasProblem = computed(() => health.value && (
   || (health.value.unassigned_ext_count || 0) > 0
 ))
 
+// 🔴 v381：本人仓 = 对象轴上的一个值，但它的**落点**是员工属性（`hr_employees.warehouse_id`）。
+//    下面几条 computed 就是「本人仓」与「门店」共用同一格下拉时的差异面。
+const isSelfWh = computed(() => form.counterparty_type === 'self_warehouse')
+
 const objOptions = computed(() => {
-  if (form.counterparty_type === 'self_warehouse') return refs.warehouses
+  if (isSelfWh.value) return refs.warehouses
   return refs.contacts
 })
+
+/* 已把某仓当个人仓的员工：仓 id → 员工名（**排除当前报单人** —— 编辑自己那条时不该显示"被自己占用"）。
+   v381 新增约束「一个仓只能属于一个员工」（A1 语义：一人一仓）—— 这条 map 是它的前端那一半，
+   后端那一半是 `erp_db._resolve_self_warehouse`（唯一写实现）。 */
+const whOwnerMap = computed(() => {
+  const m = {}
+  const cur = Number(form.employee_id)
+  for (const e of refs.employees) {
+    const w = Number(e.warehouse_id) || 0
+    if (w && e.id !== cur) m[w] = e.name
+  }
+  return m
+})
+
+// 当前选中的仓被谁占用（无占用 ⇒ 空串）。用于字段级红字，与后端返错**同判据**。
+const currentWhOwner = computed(() => (isSelfWh.value ? (whOwnerMap.value[Number(form.counterparty_id)] || '') : ''))
 
 // 对象下拉：可模糊查找的 combobox（门店数量大，原生 select 难翻）
 const objKeyword = ref('')
 const objOpen = ref(false)
 const objHi = ref(0)
 const objCombo = ref(null)
-const objPlaceholder = computed(() => `搜索${typeLabel(form.counterparty_type)}名称…`)
+// v381：本人仓那一格显示「个人仓」而不是「本人仓全称」（后者读起来不知所云）。
+const objFieldLabel = computed(() => (isSelfWh.value ? '个人仓' : `${typeLabel(form.counterparty_type)}全称`))
+const objPlaceholder = computed(() => (isSelfWh.value ? '搜索仓库名称…' : `搜索${typeLabel(form.counterparty_type)}名称…`))
 const objFiltered = computed(() => {
   const k = (objKeyword.value || '').trim().toLowerCase()
   const list = objOptions.value || []
@@ -865,7 +894,9 @@ const whMap = computed(() => {
   return m
 })
 
-// 本人仓强绑定：选中的员工是否已配置个人仓，则自动带出其本人仓
+// v381：选中员工的**既有**个人仓 —— 只作**下拉初值**（不再是只读的"强绑定"）。
+// 员工还没设个人仓 ⇒ null，用户在下面那格下拉里**直接指派**（这正是本次从员工档案
+// 搬过来的能力）；已设 ⇒ 自动带出，用户也可以在下拉里改成别的仓（后端会回写）。
 const selectedEmpWh = computed(() => {
   const e = refs.employees.find(x => x.id === Number(form.employee_id))
   if (!e || !e.warehouse_id) return null
@@ -910,10 +941,12 @@ function onType(t) {
   form.system_name = ''
   objKeyword.value = ''
   clearErr('counterparty_id')   // v297：换轴（门店↔本人仓）等同于换对象
-  // 本人仓：对象自动带出该员工的个人仓
+  // 本人仓：对象自动带出该员工的个人仓（v381：同时把仓名填进下拉输入框 ——
+  // 下拉"选中"的显示靠 objKeyword，只设 counterparty_id 的话框里是空的）
   if (t === 'self_warehouse' && selectedEmpWh.value) {
     form.counterparty_id = selectedEmpWh.value.id
     form.system_name = selectedEmpWh.value.name
+    objKeyword.value = selectedEmpWh.value.name
   }
   // v295：换类型 = 换对象，简称跟着重新解析（未手改时才会覆盖）
   applySuggestAlias()
@@ -942,6 +975,8 @@ function onEmpChange() {
       form.counterparty_id = 0
       form.system_name = ''
     }
+    // v381：下拉显示名跟着走（换人 ⇒ 仓可能不同；新人无个人仓 ⇒ 清空让用户自己选）
+    objKeyword.value = selectedEmpWh.value ? selectedEmpWh.value.name : ''
     applySuggestAlias()
   }
 }
@@ -981,12 +1016,11 @@ function openEdit(m) {
   form.src_wh = m.src_wh || 0
   form.dst_wh = m.dst_wh || 0
   form.channel_id = m.channel_id || 0
-  // 回填对象下拉显示名（本人仓走只读框，无需回填）
+  // 回填对象下拉显示名。v381：本人仓**也要回填** —— 它现在是一个可编辑的仓库下拉，
+  // 不回填就是空白，用户一保存就把已选的仓抹成"未选"，而界面当时看着是正常的。
   objKeyword.value = ''
-  if (m.counterparty_type !== 'self_warehouse') {
-    const f = objOptions.value.find(c => c.id === m.counterparty_id)
-    if (f) objKeyword.value = f.name
-  }
+  const _f = objOptions.value.find(c => c.id === m.counterparty_id)
+  if (_f) objKeyword.value = _f.name
   editOpen.value = true
 }
 
@@ -995,7 +1029,12 @@ async function save() {
   // v317：报单人两维任一即可。错误键仍用 `employee_id`（模板里那个字段的锚点），
   // 但文案必须说「报单人」—— 否则给外部客户配的人会以为自己漏填了某个叫"员工"的框。
   if (!form.employee_id && !form.external_user_id) errs.employee_id = '请选择报单人'
-  if (!form.counterparty_id) errs.counterparty_id = '请选择对象'
+  // v381：本人仓漏选时的文案要说「个人仓」—— 说"对象"用户不知道指哪个框。
+  // 同一条也由后端 `_resolve_self_warehouse` 兜（会返「请选择该员工的个人仓」），
+  // 这里只是早一步告知，不用等一次失败往返。
+  if (!form.counterparty_id) errs.counterparty_id = isSelfWh.value ? '请选择该员工的个人仓' : '请选择对象'
+  // v381：一个仓只能属于一个员工（A1 语义）。front 就地拦，判据与后端 `_resolve_self_warehouse` 一致。
+  else if (currentWhOwner.value) errs.counterparty_id = `该仓已指派给「${currentWhOwner.value}」，一个仓只能属于一个员工`
   if (!form.report_alias || !form.report_alias.trim()) errs.report_alias = '请填写报单简称（列头）'
   // v295：撞名**本地预检** —— 名册已知被他人占用时直接标红，不必等后端拒绝
   // （后端 dup 检查仍在，这里只是「早一步如实告知」，不是替代校验）
@@ -1193,10 +1232,8 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile(); loadAlia
 .seg-btn.on{background:var(--p);border-color:var(--p);color:#fff}
 
 .warn-text{font-size:13px;color:var(--war);line-height:1.7}
-.ro-box{display:flex;align-items:center;gap:8px;height:36px;padding:0 11px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg2);font-size:13px}
-.ro-name{font-weight:600;color:var(--t1)}
-.ro-tag{font-size:11px;color:var(--teal);background:rgba(var(--teal-rgb),.12);padding:2px 8px;border-radius:6px}
-.ro-warn{color:var(--war);font-size:12px}
+/* v381：`.ro-box` / `.ro-name` / `.ro-tag` / `.ro-warn`（本人仓**只读框**）已随入口迁移删除 ——
+   本人仓现在走**仓库下拉**（见模板「对象定义」），不再是只读展示。这四个类是死 CSS，别再加回来。 */
 .combo{position:relative;width:100%}
 .combo-input{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 28px 0 11px;font-size:13px;background:var(--bg);color:var(--t1)}
 .combo-input:focus{outline:none;border-color:var(--p)}
@@ -1206,6 +1243,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadProfile(); loadAlia
 .combo-item.on{background:var(--bg2)}
 .combo-item.sel{color:var(--p);font-weight:600}
 .combo-sel{color:var(--p);font-size:12px;flex:none}
+.combo-note{font-size:11px;color:var(--war);flex:none}
 .combo-empty{padding:10px;text-align:center;font-size:12px;color:var(--t3)}
 /* v295：报单简称名册 —— 面板表头（sticky，滚动时仍看得见来源说明）、状态标签、三态提示 */
 .al-hd{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px -4px 4px;padding:6px 10px 7px;font-size:11.5px;color:var(--t3);background:var(--bg);border-bottom:1px solid var(--border-subtle)}
