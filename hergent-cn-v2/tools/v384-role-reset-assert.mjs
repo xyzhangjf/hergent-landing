@@ -98,15 +98,58 @@ function extractConst(name) {
   return src.slice(start, nl < 0 ? undefined : nl)
 }
 
-/** 抠出 `const NAME = computed(() => { ... })` 的整份声明（跨行）。 */
+/** 从 `(` 起做**圆括号**配对（同样跳过注释/字符串）。 */
+function matchParen(s, open) {
+  let i = open
+  let d = 0
+  let st = null
+  while (i < s.length) {
+    const c = s[i]
+    const n = s[i + 1]
+    if (!st) {
+      if (c === '/' && n === '/') { st = '//'; i += 2; continue }
+      if (c === '/' && n === '*') { st = '/*'; i += 2; continue }
+      if (c === "'" || c === '"' || c === '`') { st = c; i += 1; continue }
+      if (c === '(') d += 1
+      else if (c === ')') { d -= 1; if (d === 0) return i }
+      i += 1
+    } else if (st === '//') { if (c === '\n') st = null; i += 1 }
+    else if (st === '/*') { if (c === '*' && n === '/') { st = null; i += 2; continue } i += 1 }
+    else { if (c === '\\') { i += 2; continue } if (c === st) st = null; i += 1 }
+  }
+  return -1
+}
+
+/** 抠出 `const NAME = computed( ... )` 的整份声明（跨行）。
+ *
+ *  🔴 别改回"从 `=>` 之后找第一个 `{` 再配对"那种写法 —— 它有个**静默失效**：
+ *     `computed(() => a && b)` 这种**表达式体**没有花括号，于是它会一路找到
+ *     **后面某个不相干函数**的 `{`，把那段源码当成这个 computed 的身体。
+ *     实测踩过（v385 写判据时）：`accDraftWanted` 抠成了邻居 `anyDirty` 的哥哥，
+ *     运行到 `if (anyDirty.value)` 才以 `ReferenceError` 炸开 —— 而炸开都算好运，
+ *     更坏的情况是**换了一个恰好能跑的对象**，判据从此测的是别的东西。
+ *     ⇒ 一律按 `computed(` 那个**圆括号**配对取声明，对两种函数体都成立。 */
 function extractComputed(name) {
-  const re = new RegExp(`(?:^|\\n)[ \\t]*const[ \\t]+${name}[ \\t]*=[ \\t]*computed\\([ \\t]*\\([ \\t]*\\)[ \\t]*=>[ \\t]*`)
+  const re = new RegExp(`(?:^|\\n)[ \\t]*const[ \\t]+${name}[ \\t]*=[ \\t]*computed\\(`)
   const m = re.exec(src)
   if (!m) throw new Error('找不到 computed：' + name)
-  const brace = bodyStart(src, m.index + m[0].length)
-  const end = matchBrace(src, brace)
-  if (brace < 0 || end < 0) throw new Error('computed 括号配对失败：' + name)
-  return `const ${name} = computed(() => ${src.slice(brace, end + 1)})`
+  const start = m.index + (m[0][0] === '\n' ? 1 : 0)
+  const openParen = m.index + m[0].length - 1
+  const end = matchParen(src, openParen)
+  if (end < 0) throw new Error('computed 括号配对失败：' + name)
+  return src.slice(start, end + 1)
+}
+
+/** 抠一个**可有可无**的函数。
+ *
+ *  🔴 为什么需要它：本脚本的 `--expect-broken` 模式要拿**修复前的历史版本**去跑
+ *     （证明判据有判别力），而历史版本不一定有当前这些函数。
+ *     例：v385 把 `createAccountInEdit` 拆成了 `createAccountCore` + wrapper ——
+ *     拿 v385 之前的源码进来看，core 是不存在的（那时 wrapper 是自包含的、也不调用它）。
+ *     硬抠就会以 `找到不到函数：createAccountCore` 中止，工具对历史版本失效。
+ *  ⚠️ 但**绝不静默跳过**：缺失时打印一行说明，否则"工具少测了一个函数"没人知道。 */
+function extractFnOptional(name) {
+  try { return extractFn(name) } catch (_) { return null }
 }
 
 const CONSTS = ['PWD_MIN', 'PWD_HINT']
@@ -114,7 +157,12 @@ const FUNCS = [
   'snapshotForm', 'salaryOf', 'pwdOk', 'extraRolesOf', 'syncRoleEdit', 'resetEditForm',
   'openCreate', 'openEdit', 'saveEmployeeCore', 'createAccountInEdit',
 ]
-const PARTS = CONSTS.map(extractConst).concat(FUNCS.map(extractFn))
+const CORE = extractFnOptional('createAccountCore')
+if (!CORE) {
+  console.log('[INFO] 源码里没有 createAccountCore —— 按 v385 之前的版本来跑' +
+              '（wrapper 自包含，行为等价）')
+}
+const PARTS = CONSTS.map(extractConst).concat(CORE ? [CORE] : []).concat(FUNCS.map(extractFn))
   .concat([extractComputed('accRoleDirty')]).join('\n\n')
 
 /* ============ 二、把真源码装进一个可调用对象 ============ */
