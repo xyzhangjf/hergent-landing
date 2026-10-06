@@ -241,34 +241,42 @@
                 <button v-if="canDo('data', 'create')" class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || !pwdOk(accForm2.password)" @click="createAccountInEdit">开通账号</button>
               </div>
               <div v-else class="df-acc-manage df-acc-card">
-                <!-- v290（2026-09-27）：把「独立保存」这件事**画出来**。
-                     这一段原先与上面两段外观完全一样，用户看不出"哪里到哪里算一个保存单位"，
-                     于是很自然地以为底部那个最显眼的「保存」能把整页都存下来 —— 而它只管人事档案。
-                     ⇒ 边框 = 保存边界：卡片以内各自保存，卡片以外归底部「保存基本信息」。 -->
+                <!-- v382（2026-10-06）：**保存单位从「行」改回「整个弹窗」**。
+                     这里原先是三套独立保存（保存角色 / 保存可登录端 / 保存基本信息），
+                     v290 还给卡片画了边框表达"保存边界到哪儿为止"。但那个设计反复出问题：
+                     用户改完档案顺手改角色、只点了其中一个保存 ⇒ 另一处随关窗无声消失
+                     （v290 只把它从"必消失"降级成"要确认"）。老板直接要求合并。
+                     ⇒ 现在**只有一个保存入口**（弹窗右下角「保存」），一次提交全部改动。
+                     卡片保留边框 —— 它现在的语义是**分组**（这块属于登录账号），不再是"保存边界"。 -->
                 <div class="df-acc-card-hd">
                   <span class="df-acc-card-t">账号与权限</span>
                   <span v-if="accAnyDirty" class="df-dirty-tag">有未保存的改动</span>
                 </div>
-                <p class="df-acc-card-tip">以下每一项都<b>各自独立保存</b>：改完点它自己那一行的按钮，与弹窗底部的「保存基本信息」互不影响。</p>
+                <p class="df-acc-card-tip">下面改完<b>不用单独保存</b> —— 和人事档案一起，点右下角「保存」一次提交。</p>
                 <p class="df-acc-sum">登录账号：<b>{{ editTarget.account_username }}</b> · {{ roleDisplay(editTarget.account_role) }}<template v-if="extraRolesOf(editTarget).length">（兼任 {{ extraRolesOf(editTarget).map(roleDisplay).join('、') }}）</template> · <span :class="editTarget.account_active ? 'on' : 'off'">{{ editTarget.account_active ? '启用中' : '已禁用' }}</span> · 可登录：{{ loginScopeLabel(editTarget.account_login_scope || roleEndScope(editTarget.account_role)) }}</p>
-                <div class="df-acc-row">
+                <!-- v382：主角色那一行原来右侧有个「保存角色」按钮 —— 已删（合并到底部「保存」）。
+                     补一个「角色」标签：删掉按钮后这一行只剩孤零零一个下拉，与下面「可登录端」
+                     那行不对称、也看不出这格是干嘛的。
+                     🔴 同时把整行挂到 `canDo('data','update')` 下（与原先按钮同轴）：
+                     没有该权限的角色本来也点不动那个按钮，但下拉**当时是可见可改的** ⇒
+                     改完却没处存 = "看得见存不了"。宁可看不见。 -->
+                <div v-if="canDo('data', 'update')" class="df-acc-row">
+                  <span class="df-acc-exp-label">角色</span>
                   <select v-model="accRoleEdit" class="input acc-role">
                     <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
-                  <!-- v335 按钮级门禁：PUT /api/users/{uid}/role ⇒ data/update -->
-                  <button v-if="canDo('data', 'update')" class="btn btn-primary btn-sm" :disabled="accBusy || !accRoleDirty" @click="saveAccRole">保存角色</button>
                 </div>
                 <!-- v307 可登录端：默认按岗位给出（如「员工」默认仅小程序），**可手动改**。
                      ⚠️ 两项说明写在界面上，因为它俩正是最容易误解的地方：
                        ① 这只管「能不能登录这个端」，**能看哪些页面仍由角色决定**；
                        ② 改了**不影响已登录的人**，只在他下次登录时生效。 -->
-                <div class="df-acc-row">
+                <!-- v382：这一行原有的「保存」按钮同样已删（合并到底部）。
+                     与上面角色行一起挂 `canDo('data','update')`。 -->
+                <div v-if="canDo('data', 'update')" class="df-acc-row">
                   <span class="df-acc-exp-label">可登录端</span>
                   <select v-model="accScopeEdit" class="input acc-role" aria-label="可登录端">
                     <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
-                  <!-- v335 按钮级门禁：PUT /api/users/{uid}/login-scope ⇒ data/update -->
-                  <button v-if="canDo('data', 'update')" class="btn btn-primary btn-sm" :disabled="accBusy || !accScopeDirty" @click="saveAccScope">保存</button>
                 </div>
                 <!-- v312：**只提示、不自动改**。
                      老板在权限页改了某角色的端之后，这个账号的端不会跟着变（刻意的，见下）。
@@ -286,7 +294,7 @@
                 <!-- v266 角色可叠加：兼任角色**只增加权限**，不改上面的主角色。
                      主角色决定「这个人是干嘛的」（销售只看自己的单、能不能用小程序…）；
                      兼任让一个人同时干两份活（如 业务员 + 库管、会计 + 主管）。 -->
-                <div class="df-acc-row df-acc-extra">
+                <div v-if="canDo('data', 'update')" class="df-acc-row df-acc-extra">
                   <span class="df-acc-extra-tip">兼任角色（可多选，只加权限）</span>
                   <div class="df-extra-chips">
                     <button
@@ -353,7 +361,9 @@
 
           <div class="df-modal-ft">
             <button class="btn btn-ghost" @click="tryCloseEdit">取消</button>
-            <button class="btn btn-primary" :disabled="!editForm.name.trim()" @click="saveEmployee">保存基本信息</button>
+            <!-- v382：**全弹窗唯一保存入口** —— 人事档案 + 登录账号（角色 / 兼任 / 可登录端）
+                 一次提交完。原来这三处是三个按钮、三套端点，点漏一个就有一处改动静默消失。 -->
+            <button class="btn btn-primary" :disabled="accBusy || !editForm.name.trim()" @click="saveAll">保存</button>
           </div>
         </div>
       </Transition>
@@ -820,8 +830,16 @@ function openEdit(e) {
   editOpen.value = true
 }
 
-async function saveEmployee() {
-  if (!editForm.name.trim()) { toast('请输入员工姓名', 'err'); return }
+/* v382（2026-10-06）：由「底部保存按钮的处理函数」降级为 **saveAll 的第一步**（人事档案，含新建）。
+   返回 `{ok, created, renamed, renameError}`：
+     · `created=true` = 刚新建成功（弹窗已切到编辑态）⇒ saveAll 本轮到此为止 ——
+       与原行为一致：创建后**不关窗**，好让用户接着开通登录账号；
+     · `renamed` = 改名连带同步了登录账号显示名（供汇总 toast 说明）；
+     · `renameError` = 后端明确回了同步失败原因（已在此处单独以 err 报出，别再叠一条成功提示）。
+   ⚠️ 原先末尾那段「按 `accAnyDirty` 决定关不关窗」已**上移**到 saveAll：合并后
+      "还有没有别的没存"要等后面两步跑完才知道，第一步自己判会误判（那时账号区必然还是 dirty）。 */
+async function saveEmployeeCore() {
+  if (!editForm.name.trim()) { toast('请输入员工姓名', 'err'); return { ok: false } }
   const f = editForm
   const body = {
     name: f.name.trim(),
@@ -846,34 +864,25 @@ async function saveEmployee() {
       // 用新档案继续填充弹窗，便于立即开通登录账号
       openEdit(created)
       loadEmployees()
-    } else {
-      const r = await employeeApi.update(editTarget.value.id, body)
-      loadEmployees()
-      // 🔴 v326（2026-09-29）：**改名会联动该员工的登录账号显示名**（后端已改，见
-      //    `erp_db.sync_employee_account_display_name`）。这里要接住它的回执：
-      //      ① 后端明确回带了失败原因 ⇒ **说出来**（否则"名字改了但账号没改"又变回
-      //         一个只能靠用户自己发现的静默问题 —— 本轮修的就是这个）；
-      //      ② 真的同步到了账号 ⇒ `force` 重拉一次身份：若改的正是**自己**，
-      //         右上角当场跟着变（`loadPerms` 默认幂等，不 force 会直接 return 缓存）；
-      //         改的是别人也无害（一次轻请求）。
-      const renamed = Number((r && r.account_renamed) || 0)
-      if (r && r.rename_error) {
-        toast('基本信息已保存，但登录账号名称没同步成功：' + r.rename_error, 'err')
-      } else {
-        toast(renamed > 0 ? '已保存（登录账号名称已同步）' : '已保存', 'ok')
-      }
-      if (renamed > 0) store.loadPerms(true)
-      // 🔴 v290（2026-09-27）：**保存成功后是否关窗，要看账号区干不干净**。
-      //    原来是无条件 `editOpen = false` —— 若用户"改完档案又改了角色、然后点底部保存"，
-      //    角色那处改动会随关窗无声消失（这正是评审报告里的路径②）。
-      //    现在：账号区干净才关；否则留在弹窗里，并明确告诉他还有什么没存。
-      if (accAnyDirty.value) {
-        toast('基本信息已保存；登录账号区还有未保存的改动', 'warn')
-      } else {
-        editOpen.value = false
-      }
+      return { ok: true, created: true }
     }
-  } catch (e2) { toast(e2.message || '保存失败', 'err') }
+    const r = await employeeApi.update(editTarget.value.id, body)
+    loadEmployees()
+    // 🔴 v326（2026-09-29）：**改名会联动该员工的登录账号显示名**（后端已改，见
+    //    `erp_db.sync_employee_account_display_name`）。这里要接住它的回执：
+    //      ① 后端明确回带了失败原因 ⇒ **说出来**（否则"名字改了但账号没改"又变回
+    //         一个只能靠用户自己发现的静默问题 —— 本轮修的就是这个）；
+    //      ② 真的同步到了账号 ⇒ `force` 重拉一次身份：若改的正是**自己**，
+    //         右上角当场跟着变（`loadPerms` 默认幂等，不 force 会直接 return 缓存）；
+    //         改的是别人也无害（一次轻请求）。
+    const renamed = Number((r && r.account_renamed) || 0)
+    const renameError = (r && r.rename_error) || ''
+    if (renameError) {
+      toast('基本信息已保存，但登录账号名称没同步成功：' + renameError, 'err')
+    }
+    if (renamed > 0) store.loadPerms(true)
+    return { ok: true, created: false, renamed, renameError }
+  } catch (e2) { toast(e2.message || '保存失败', 'err'); return { ok: false } }
 }
 
 /* ---- 停用 / 启用 ---- */
@@ -1175,24 +1184,33 @@ function syncRoleEdit(e) {
 }
 
 /* v307 判脏：与「打开弹窗时的原值」比，而不是与后端值比 ——
-   本弹窗里多项改动各自独立保存，保存后 `editTarget` 会刷新，若拿它比会把
-   "刚保存完的这一项"误判成仍在修改（界面上「有未保存的改动」标签不消失）。 */
+   saveAll 提交成功后 `editTarget` 会被刷新（那是**库里的值**），若拿它当基准，
+   刚存进去的这一项会被误判成"仍在修改"（界面上「有未保存的改动」标签不消失）。
+   v382 合并保存后这条更关键：合并流程走完会统一刷新一次，基准必须是"打开弹窗时的原值"。 */
 const accScopeDirty = computed(() => accScopeEdit.value !== accScopeBase.value)
 
-async function saveAccScope() {
-  if (accBusy.value || !editTarget.value || !editTarget.value.account_user_id) return
-  accBusy.value = true
+/* v382（2026-10-06）：由「独立保存按钮的处理函数」降级为 **saveAll 里的一个写库步骤**。
+   不再自管 `accBusy`（并发由唯一入口 saveAll 挡）、不再自报成功 toast（由 saveAll 汇总一条）、
+   **也不再自己刷新 + `syncRoleEdit`**。
+   🔴 最后这条是合并保存必须改的关键点（已实测推演）：
+      原实现保存完会 `syncRoleEdit(fresh)`，那会把 `accScopeEdit` / `accScopeBase` 一起
+      重写成**库里的值**。合并后若先存角色、再存端，这一步就会把**用户刚改的端**悄悄抹掉
+      （编辑态被覆盖、`accScopeDirty` 归零 ⇒ 后面判"没改动"直接跳过，改动静默消失）。
+      ⇒ 写库步骤一律**只用传入的快照值**，刷新统一由 saveAll 在最后做一次。 */
+async function saveAccScopeCore(scope) {
+  const t = editTarget.value
+  if (!t || !t.account_user_id) return false
   try {
-    await api(`/api/users/${editTarget.value.account_user_id}/login-scope`, {
+    await api(`/api/users/${t.account_user_id}/login-scope`, {
       method: 'PUT',
-      body: { login_scope: accScopeEdit.value },
+      body: { login_scope: scope },
     })
-    toast('可登录端已保存', 'ok')
-    await loadEmployees()
-    const fresh = employees.value.find(x => x.id === (editTarget.value && editTarget.value.id))
-    if (fresh) { editTarget.value = fresh; syncRoleEdit(fresh) }
-  } catch (e) { toast(e.message || '保存失败', 'err') }
-  finally { accBusy.value = false }
+    return true
+  } catch (e) {
+    // 后端对"改自己"会 400（把自己锁在门外）⇒ 如实转达，别吞掉。
+    toast(e.message || '可登录端保存失败', 'err')
+    return false
+  }
 }
 
 /* ---- v312：角色端政策 ↔ 账号实际端的**差异提示与一键对齐** ----------------------
@@ -1232,12 +1250,16 @@ async function alignAccScope() {
 }
 
 /* ==== v290（2026-09-27）「未保存改动」的统一判据 ==============================
-   为什么要有这一组：这个弹窗里「人事档案」与「登录账号」是**两套独立保存**
-   （两套端点、字段零交集 —— 这是对的，别去合并）；但原先**任何一处保存成功
-   都会关掉整个弹窗**，于是"先改 A、再改 B、只点了一个保存"⇒ 另一处随关窗
-   **无声消失**（零提示、零报错，比 v289 那个"至少还报错"的缺陷更隐蔽）。
-   现在分两步治：① 保存成功不再一律关窗（见各 save / rename 函数）
-              ② 关窗前统一问一句 —— 就是下面的 tryCloseEdit。
+   为什么要有这一组：这个弹窗里的改动落在**两套端点**上（人事档案 `/api/employees/*` 与
+   登录账号 `/api/users/*`，字段零交集 —— 端点这层仍然不合并，各写各的）；
+   但原先**任何一处保存成功都会关掉整个弹窗**，于是"先改 A、再改 B、只点了一个保存"
+   ⇒ 另一处随关窗**无声消失**（零提示、零报错，比 v289 那个"至少还报错"的缺陷更隐蔽）。
+   v290 先治了这个：① 保存成功不再一律关窗 ② 关窗前统一问一句 —— 就是下面的 tryCloseEdit。
+   🔴 **v382（2026-10-06）又往前走了一步**：三个保存按钮并成一个「保存」（见 saveAll），
+      ⇒ "点漏一个"这个错误路径从根上没有了。但**这组判据一条都不能删**：
+      `tryCloseEdit` 仍要拦住"改了却没保存就点取消/✕/遮罩"（例如只改了「改登录名」那个
+      独立动作、或改了档案没点保存），而 `accAnyDirty` 还负责 saveAll 之后判断
+      "账号区是不是还有没提交的独立动作"。⇒ 合并的是**按钮**，不是**判据**。
    ⚠️ 判据只在**这里**写一份，不要在各个按钮里再抄一遍（本项目三次栽在"规则抄多份"）。 */
 const formDirty = computed(() => JSON.stringify(editForm) !== formSnap.value)
 const accAnyDirty = computed(() =>
@@ -1257,32 +1279,35 @@ function tryCloseEdit() {
   editOpen.value = false
 }
 
-// 修改已有账号的角色（v266：主角色 + 兼任角色一起提交）
-async function saveAccRole() {
-  if (accBusy.value || !editTarget.value || !editTarget.value.account_user_id) return
-  accBusy.value = true
+/* v382：同 saveAccScopeCore —— 降级为 saveAll 的写库步骤（主角色 + 兼任角色一起提交）。
+   入参 `role` / `roles` 是**调用方抄好的快照值**：不能在这里读 `accRoleEdit`，
+   因为 saveAll 前一步的刷新可能已经把它覆盖掉（见 saveAccScopeCore 的注释）。
+   入参 `askDrift` = 角色变了、但账号的端与角色默认不一致时，要不要**当场问一句**。
+   🔴 合并保存后可能出现"用户自己改了端 + 也改了角色"：这时**用户的显式选择优先**，
+      saveAll 会传 `askDrift=false` 跳过询问 —— 否则"按新角色对齐"会把他刚选的端覆盖掉。
+   返回 `{ok, scopeHandled}`：`scopeHandled=true` 表示这次已顺手把端写进库了，
+   saveAll 的第三步就不必再写一遍。 */
+async function saveAccRoleCore(role, roles, askDrift) {
+  const t = editTarget.value
+  if (!t || !t.account_user_id) return { ok: false, scopeHandled: false }
+  const uid = t.account_user_id
   try {
-    const extras = accRolesEdit.value.filter(r => r && r !== accRoleEdit.value)
-    const uid = editTarget.value.account_user_id
     const r = await api(`/api/users/${uid}/role`, {
       method: 'PUT',
-      body: { role: accRoleEdit.value, roles: extras },
+      body: { role, roles },
     })
-    toast(extras.length
-      ? `角色已保存（兼任 ${extras.map(roleDisplay).join('、')}）`
-      : '角色已保存', 'ok')
 
     // v328 G1：**角色换了，登录范围不会跟着换** —— 账号的"能从哪儿登录"是既成事实，
     //   后端刻意不自动改（有人可能兼任两职、就是要两端）。但**不说就是坑**：
     //   把「导购（仅网页端）」改成「业务员（仅小程序）」后，这个人照样能登网页端，
     //   与角色政策相悖，而界面上一声不吭 ⇒ 老板根本不知道有这回事。
     //   ⇒ 后端返回 `scope_drift` ⇒ 这里当场问一句，让老板自己点头。
-    if (r && r.scope_drift && r.default_login_scope) {
-      const nm = (editTarget.value && editTarget.value.name) || '该员工'
+    if (askDrift && r && r.scope_drift && r.default_login_scope) {
+      const nm = t.name || '该员工'
       const want = loginScopeLabel(r.default_login_scope)
       const now = loginScopeLabel(r.login_scope)
       const yes = window.confirm(
-        `「${nm}」的角色已改为「${roleDisplay(accRoleEdit.value)}」，` +
+        `「${nm}」的角色已改为「${roleDisplay(role)}」，` +
         `但他现在能登录的范围还是 ${now}（新角色的默认是 ${want}）。\n\n` +
         `要按新角色对齐成 ${want} 吗？`
       )
@@ -1293,23 +1318,93 @@ async function saveAccRole() {
             body: { login_scope: r.default_login_scope },
           })
           toast('已按新角色对齐登录范围', 'ok')
+          return { ok: true, scopeHandled: true }
         } catch (e2) {
           // 后端对"改自己"会 400（把自己锁在门外）⇒ 如实转达，别吞掉。
           toast(e2.message || '登录范围未改动', 'err')
+          // ⚠️ 对齐失败也返回 handled=false：交给第三步按**用户原本选的值**再试一次 ——
+          //    否则"对齐失败"会连带把他本来就想选的端一起丢掉。
         }
       }
     }
-    // 🔴 v290（2026-09-27）：**关窗 → 就地刷新**。
-    //    原来这里是 `editOpen.value = false`（关掉整个弹窗），而弹窗里「人事档案」与
-    //    「账号区」是两套独立保存 ⇒ 用户"改完岗位顺手改角色、点保存角色"，
-    //    岗位那处改动就随着关窗**无声消失**（零提示、零报错）。
-    //    v289 那个缺陷至少还会报错；这个是"消失得和保存成功一模一样"，更隐蔽。
-    //    现在：只刷新本区状态，弹窗留着 —— 让用户自己看见还有哪些没存。
+    return { ok: true, scopeHandled: false }
+  } catch (e) {
+    toast(e.message || '角色保存失败', 'err')
+    return { ok: false, scopeHandled: false }
+  }
+}
+
+/* ==== v382（2026-10-06）**合并保存** ==============================================
+   老板要求：把「保存角色」「保存」「保存基本信息」三个按钮合并成一个「保存」。
+   背景：这三处原本是**三套端点 + 三个按钮、各自独立保存**。v290 还专门给卡片画了边框
+   来表达"保存边界到哪儿为止" —— 可那设计本身反直觉：用户改完档案顺手改角色、只点了
+   其中一个保存 ⇒ 那处改动随关窗**静默消失**（v290 只把它从"必丢"降级成"关窗前问一句"）。
+   ⇒ 现在弹窗右下角是**全窗口唯一保存入口**，一次提交全部改动。
+
+   🔴 三条必须守住的：
+     ① **顺序固定**：基本信息 → 角色/兼任 → 可登录端。基本信息放最前，是因为新建时
+        必须先有员工档案（后两步依赖 `account_user_id`，新建态根本没有账号）。
+     ② **只用快照值**：两个账号步骤的编辑态会被彼此的 `syncRoleEdit(fresh)` 覆盖
+        （详见 saveAccScopeCore 的注释）⇒ 进函数**前**先把要存的值抄下来，步骤内部不许读编辑态。
+     ③ **刷新只做一次**：全部写完统一 `loadEmployees()` + 刷新 `editTarget` + `syncRoleEdit`；
+        中间不刷新 —— 否则前一步的刷新会覆盖后一步还没用到的编辑态。
+
+   🔴 **失败即停**：任一步失败就不再往下（后面多半也会失败），**不关窗**、报错、保留现场 ——
+      宁可让用户看见"只存了一半"，也不能关窗假装全成功。 */
+async function saveAll() {
+  if (accBusy.value) return
+  accBusy.value = true
+  try {
+    const t = editTarget.value
+    const hasAcc = !!(t && t.has_account && t.account_user_id)
+    // 只有"已开通账号 + 有 data/update 权限"才谈得上后面两步
+    // （没权限时那几行控件已被 v-if 收起来，这里再判一次是防止脏标记残留时误发请求）
+    const canAcc = hasAcc && canDo('data', 'update')
+    // ② 快照：必须在第一次写库**之前**抄，写库后编辑态就可能被刷新覆盖
+    const snap = {
+      role: accRoleEdit.value,
+      roles: accRolesEdit.value.filter(r => r && r !== accRoleEdit.value),
+      scope: accScopeEdit.value,
+      roleDirty: accRoleDirty.value,
+      scopeDirty: accScopeDirty.value,
+    }
+    // ① 人事档案（含新建）
+    const r1 = await saveEmployeeCore()
+    if (!r1.ok) return
+    if (r1.created) return              // 新建成功 ⇒ 弹窗已切编辑态，本轮到此为止
+    // ② 角色 / 兼任
+    let scopeHandled = false
+    if (canAcc && snap.roleDirty) {
+      // 用户自己改了端 ⇒ 不问"要不要按新角色对齐"（那会把他显式选的端覆盖掉）
+      const r2 = await saveAccRoleCore(snap.role, snap.roles, !snap.scopeDirty)
+      if (!r2.ok) return
+      scopeHandled = r2.scopeHandled
+    }
+    // ③ 可登录端（若上一步已按新角色对齐写入过，就不重复写一遍）
+    if (canAcc && snap.scopeDirty && !scopeHandled) {
+      const r3 = await saveAccScopeCore(snap.scope)
+      if (!r3.ok) return
+    }
+    // 三步都过 ⇒ 刷新一次，让摘要行 / 脏标签 / 编辑态都对齐到库里的最新值
     await loadEmployees()
-    const fresh = employees.value.find(x => x.id === (editTarget.value && editTarget.value.id))
+    const fresh = employees.value.find(x => x.id === (t && t.id))
     if (fresh) { editTarget.value = fresh; syncRoleEdit(fresh) }
-  } catch (e) { toast(e.message || '更新失败', 'err') }
-  finally { accBusy.value = false }
+
+    // 「改登录名」「重置密码」是**独立动作**（各有自己的按钮与提交时机），不在本次合并范围内。
+    // 若它们有没提交的内容，就别把窗关掉 —— 关了同样静默丢。
+    const pending = nameDirty.value || String(accPwdEdit.value || '').length > 0
+    if (pending) {
+      toast('已保存；「改登录名 / 重置密码」里还有没提交的内容', 'warn')
+      return
+    }
+    if (!r1.renameError) {
+      const didAcc = canAcc && (snap.roleDirty || snap.scopeDirty)
+      toast(r1.renamed > 0
+        ? '已保存（登录账号名称已同步）'
+        : (didAcc ? '已保存（含登录账号设置）' : '已保存'), 'ok')
+    }
+    editOpen.value = false
+  } finally { accBusy.value = false }
 }
 
 /* v288（2026-09-27）改登录账号名。
@@ -1596,9 +1691,10 @@ onMounted(() => {
 .df-acc-sum .off{color:var(--t3)}
 .df-acc-create{display:flex;flex-direction:column;gap:12px}
 .df-acc-manage{display:flex;flex-direction:column;gap:12px}
-/* v290：账号区**带边框的卡片** —— 边框 = 保存边界。
-   这一段是「各自独立保存」的，卡片以外的两段归弹窗底部的「保存基本信息」。
-   画个框，用户就能一眼看出"一个保存单位"到哪儿为止（原来三段外观完全一样，无从分辨）。 */
+/* v290 画的卡片边框，v382 后语义已变：**不再是「保存边界」，只是分组**。
+   原先这一段是「各自独立保存」的（卡片以内自己存，卡片以外归底部「保存基本信息」），
+   边框用来告诉用户"一个保存单位"到哪儿为止；v382 把三个保存按钮并成一个之后，
+   **整窗只有一个保存入口**，边框只剩"这块属于登录账号"的分组含义。 */
 .df-acc-card{border:1px solid var(--border-subtle);border-radius:12px;padding:14px 14px 15px;background:var(--bg2);gap:11px}
 .df-acc-card-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .df-acc-card-t{font-size:12.5px;font-weight:600;color:var(--t1)}
