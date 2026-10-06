@@ -39,6 +39,8 @@ const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
 const AiHub = () => import('../pages/AiHub.vue')
 const PriceChannels = () => import('../pages/PriceChannels.vue')
+// v380（2026-10-06）：进销存（老板自研新能力，脚手架占位页）
+const Inventory = () => import('../pages/Inventory.vue')
 // v265（2026-09-24）：ProductTarget 不再由路由懒加载 —— 它已收进 Forecast.vue 当第 4 个页签
 // （静态 import，随 Forecast chunk 一起加载）。旧路由 /product-target 保留 redirect，见下。
 
@@ -118,7 +120,10 @@ export const router = createRouter({
         //      群里的链接都还留着 `#/price-channels`，删掉就是白屏。
         { path: 'price-channels', redirect: { path: '/archive/prices' } },
         { path: 'settings', component: Settings, meta: { title: '设置' } },
-        { path: 'bid-radar', component: BidRadar, meta: { title: '招投标雷达' } }
+        { path: 'bid-radar', component: BidRadar, meta: { title: '招投标雷达' } },
+        // v380（2026-10-06）：进销存 —— 角色门禁在 `constants/pages.js` 的 `/inventory` 行
+        //   （ADMIN_ROLES + lock），这里只登记路由；深链由守卫按同一份表拦。
+        { path: 'inventory', component: Inventory, meta: { title: '进销存' } }
       ]
     }
   ]

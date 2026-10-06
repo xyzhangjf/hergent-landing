@@ -281,6 +281,14 @@ export const PAGE_RULES = {
   // v296：接口从 `data` 拆到独立模块 `cron`。动机见文件头 §二之三 ——
   //   「老板给某角色勾『档案管理』，却连带放开了定时任务」这件事，根因是 `data` 粒度太粗。
   '/cron':            { title: '定时任务',     module: 'cron',      roles: ADMIN_ROLES, cat: 'admin' },
+  // v380（2026-10-06）：进销存 —— 老板自研新能力，**开发闸门：默认只 boss/admin 可见**。
+  //   🔴 为什么 `lock: true`：本行是**窄名单**（ADMIN_ROLES ≤2），挂的 `module: 'inventory'`
+  //      目前只有 boss（admin 经 `["*"]`）持有 ⇒ 若不加锁，`roleGateOpen` 第 ③ 档「让位」会
+  //      在本租户为某个自定义角色改过权限后，把进销存**对那个角色放开**（v345 的活洞同款）。
+  //      现在是「先自用」阶段，连客户配置都不放开才是老板要的「其他人看不到」。
+  //   ⚠️ 将来要卖给客户 / 开给库管、会计等，**改这一行**（加进 `roles` 名单，或撤 `lock`），
+  //      不要在前端 Shell.vue 里另写 `v-if`（那是 v206 老形态，会造出假入口）。
+  '/inventory':       { title: '进销存',       module: 'inventory', roles: ADMIN_ROLES, lock: true, cat: 'admin' },
   // AI 团队（管 AI 团队成员与提示词）—— 配置页，同「设置」一族。
   // 🔴 v296 `lock: true`：它挂的 `module: 'chat'` 而**每个角色都持有 chat**（`_DEFAULT_PERMS`
   //    里 staff/driver/guide 全有）⇒ 一旦「用户配置优先」让位生效，任何被改过权限的角色

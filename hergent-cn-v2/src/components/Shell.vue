@@ -216,7 +216,11 @@ const NAV = [
       { path: '/workbench', name: '经营工作台', icon: 'grid' },
       { path: '/forecast', name: '预报订货管理', icon: 'line-chart' },
       { path: '/rebate', name: '目标与返利', icon: 'target' },
-      { path: '/bid-radar', name: '招投标雷达', icon: 'search' }
+      { path: '/bid-radar', name: '招投标雷达', icon: 'search' },
+      // v380（2026-10-06）：进销存 —— 老板自研新能力。⚠️ 这里只登记**名字/图标/路径**，
+      //   可见性由 `canSee('/inventory')`（→ pages.js 的 `/inventory` 行：ADMIN_ROLES + lock）裁决，
+      //   不要在这里写角色判断（v291 纪律）。
+      { path: '/inventory', name: '进销存', icon: 'package' }
     ]
   },
   {
