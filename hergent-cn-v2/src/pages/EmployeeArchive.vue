@@ -208,37 +208,55 @@
             <!-- 登录账号（整合原"开账号"入口：员工的人事档案与登录账号在同一处管理） -->
             <section class="df-sec">
               <div class="df-sec-title">登录账号</div>
-              <div v-if="isCreate" class="df-acc-hint">
-                <p class="df-tip">保存员工后，可在此为其开通登录账号。</p>
-              </div>
-              <div v-else-if="!editTarget || !editTarget.has_account" class="df-acc-create">
-                <!-- v307：原文案写死「可登录**网页端**与**预报小程序**」，与下面新加的
-                     「可登录端」下拉可能相反（选了员工 ⇒ 默认仅小程序）⇒ 改成跟随所选值。
-                     这类"同屏两句互相矛盾"的措辞，正是老板得出「权限没生效」结论的来源。 -->
-                <p class="df-tip">该员工暂无登录账号。开通后可登录：<b>{{ loginScopeLabel(accForm2.login_scope) }}</b> —— 默认值按所选角色给出，可随时在下方调整；能进哪些页面由角色决定。</p>
-                <label class="df-field"><span>手机号 / 账号</span><input v-model="accForm2.username" class="input" placeholder="如 13800000001"></label>
-                <label class="df-field"><span>初始密码</span><input v-model="accForm2.password" class="input" type="text" :placeholder="PWD_HINT"></label>
-                <label class="df-field"><span>角色 / 权限</span>
-                  <select v-model="accForm2.role" class="input acc-role">
-                    <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-                  </select>
-                </label>
-                <label class="df-field"><span>可登录端</span>
-                  <select v-model="accForm2.login_scope" class="input acc-role" @change="accScopeTouched = true">
-                    <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-                  </select>
-                </label>
-                <!-- v312：把「这个默认值是从哪来的」写出来 —— 它来自「设置 › 权限」里给该角色配的端。
-                     不写的话，老板改完权限页来这里看不到变化（或看到旧值），会以为没生效。 -->
-                <p class="df-tip df-scope-src">
-                  该角色在「设置 › 权限」里配的默认端：<b>{{ loginScopeLabel(roleEndScope(accForm2.role)) }}</b>
-                  <template v-if="accScopeTouched && accForm2.login_scope !== roleEndScope(accForm2.role)">
-                    ；本次已手工改为 <b>{{ loginScopeLabel(accForm2.login_scope) }}</b>。
-                    <button type="button" class="df-mini-lnk" @click="accScopeTouched = false; accForm2.login_scope = roleEndScope(accForm2.role)">改回角色默认</button>
-                  </template>
-                </p>
-                <!-- v335 按钮级门禁：开通账号=POST /api/forecast-submissions/staff-accounts ⇒ data/create -->
-                <button v-if="canDo('data', 'create')" class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || !pwdOk(accForm2.password)" @click="createAccountInEdit">开通账号</button>
+              <!-- v385（2026-10-06）：**新建态与未开通态共用同一块表单** ——
+                   老板要求照舟谱的做法，把「新建员工 / 选角色 / 开账号」放进一屏、一次提交。
+                   原实现在 `isCreate` 时只画一行「保存员工后，可在此为其开通登录账号」，
+                   账号表单要等档案落库、弹窗切到编辑态才长出来 ⇒ 用户得走两遍。
+                   ⚠️ 两个状态**必须共用同一份 v-model**（`accForm2`）：拆成两套绑定就会出现
+                     "在一个状态里填的值，切到另一个状态就没了"——那正是老板反复踩的坑。 -->
+              <div v-if="isCreate || !editTarget || !editTarget.has_account" class="df-acc-create">
+                <!-- 🔴 没有开账号权限时**整块收起**（与 v382「宁可看不见」同轴）。
+                     反例：把字段画出来、只把按钮藏起来 ⇒ 用户填完发现没处存，
+                     而下方的「创建员工」按钮还会把这些输入**静默丢掉**。 -->
+                <template v-if="canDo('data', 'create')">
+                  <!-- 新建态：说明这块和档案一起提交；未开通态：说明开通后能登录哪个端。 -->
+                  <p v-if="isCreate" class="df-tip">一起开号就把下面几项填上；暂时不开号就留空 —— 右下角一次提交。</p>
+                  <!-- v307：原文案写死「可登录**网页端**与**预报小程序**」，与下面新加的
+                       「可登录端」下拉可能相反（选了员工 ⇒ 默认仅小程序）⇒ 改成跟随所选值。
+                       这类"同屏两句互相矛盾"的措辞，正是老板得出「权限没生效」结论的来源。 -->
+                  <p v-else class="df-tip">该员工暂无登录账号。开通后可登录：<b>{{ loginScopeLabel(accForm2.login_scope) }}</b> —— 默认值按所选角色给出，可随时在下方调整；能进哪些页面由角色决定。</p>
+                  <label class="df-field"><span>手机号 / 账号</span><input v-model="accForm2.username" class="input" placeholder="如 13800000001"></label>
+                  <label class="df-field"><span>初始密码</span><input v-model="accForm2.password" class="input" type="text" :placeholder="PWD_HINT"></label>
+                  <label class="df-field"><span>角色 / 权限</span>
+                    <!-- v385：角色一改，「可登录端」会自动重取该角色的默认端 ——
+                         已有 `watch(() => accForm2.role)` 负责（见脚本区），此处**不再重复实现**。
+                         合并到一屏后角色与端同屏可见，这条同步变得更显眼：
+                         不同步就会出现"我选了导购、端还停在员工那个"（同屏两句互相矛盾）。 -->
+                    <select v-model="accForm2.role" class="input acc-role">
+                      <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                    </select>
+                  </label>
+                  <label class="df-field"><span>可登录端</span>
+                    <select v-model="accForm2.login_scope" class="input acc-role" @change="accScopeTouched = true">
+                      <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                    </select>
+                  </label>
+                  <!-- v312：把「这个默认值是从哪来的」写出来 —— 它来自「设置 › 权限」里给该角色配的端。
+                       不写的话，老板改完权限页来这里看不到变化（或看到旧值），会以为没生效。 -->
+                  <p class="df-tip df-scope-src">
+                    该角色在「设置 › 权限」里配的默认端：<b>{{ loginScopeLabel(roleEndScope(accForm2.role)) }}</b>
+                    <template v-if="accScopeTouched && accForm2.login_scope !== roleEndScope(accForm2.role)">
+                      ；本次已手工改为 <b>{{ loginScopeLabel(accForm2.login_scope) }}</b>。
+                      <button type="button" class="df-mini-lnk" @click="accScopeTouched = false; accForm2.login_scope = roleEndScope(accForm2.role)">改回角色默认</button>
+                    </template>
+                  </p>
+                  <!-- v385：新建态的提交入口**不在这里** —— 它与档案共用右下角那一个按钮
+                       （文案随账号草稿变：填了=「创建并开通账号」，没填=「创建员工」）。
+                       这一屏出现两个"开通"按钮，用户会不知道点哪个。 -->
+                  <!-- v335 按钮级门禁：开通账号=POST /api/forecast-submissions/staff-accounts ⇒ data/create -->
+                  <button v-if="!isCreate && canDo('data', 'create')" class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || !pwdOk(accForm2.password)" @click="createAccountInEdit">开通账号</button>
+                </template>
+                <p v-else class="df-tip">开通登录账号需要相应权限，当前角色没有 —— 请联系管理员。</p>
               </div>
               <div v-else class="df-acc-manage df-acc-card">
                 <!-- v382（2026-10-06）：**保存单位从「行」改回「整个弹窗」**。
@@ -362,8 +380,10 @@
           <div class="df-modal-ft">
             <button class="btn btn-ghost" @click="tryCloseEdit">取消</button>
             <!-- v382：**全弹窗唯一保存入口** —— 人事档案 + 登录账号（角色 / 兼任 / 可登录端）
-                 一次提交完。原来这三处是三个按钮、三套端点，点漏一个就有一处改动静默消失。 -->
-            <button class="btn btn-primary" :disabled="accBusy || !editForm.name.trim()" @click="saveAll">保存</button>
+                 一次提交完。原来这三处是三个按钮、三套端点，点漏一个就有一处改动静默消失。
+                 v385（2026-10-06）：新建态这一个按钮**顺带把账号也开了** ——
+                 文案随账号草稿变（`footerBtnLabel`），填了就承诺"创建并开通账号"。 -->
+            <button class="btn btn-primary" :disabled="accBusy || !editForm.name.trim()" @click="saveAll">{{ footerBtnLabel }}</button>
           </div>
         </div>
       </Transition>
@@ -969,25 +989,27 @@ async function confirmTransfer() {
 // 缺 key 时旧写法 `ROLE_NAMES[r] || r` 会把英文原样显示，与「正常英文值」看不出区别。
 // 现在 roleName 对未知角色返回 `未知角色( xxx )`，让漂移在下一次看界面时就暴露。
 
-// 在"编辑员工"弹窗内开通账号（仅当该员工尚无账号时显示）
-async function createAccountInEdit() {
-  if (accBusy.value || !editTarget.value) return
+/** v385（2026-10-06）：开通账号的**唯一实现** —— 只做事、只返回结果，**不弹 toast**。
+ *  两个调用方措辞不同，提示交给调用方：
+ *    ① 编辑态点「开通账号」 ⇒ `createAccountInEdit()`；
+ *    ② 新建态一次提交「创建并开通账号」 ⇒ `saveAll()`（它要报的是"员工已创建，账号已开通"）。
+ *  返回 `{ok:true, listMissed?}` / `{ok:false, detail}`。
+ *  ⚠️ 入参 `emp` **显式传入**（不在这里读 `editTarget`）—— `saveAll` 的前一步刚把
+ *     `editTarget` 换成新建出来的那一行，传参比读全局更不容易在后续改动里跑偏。 */
+async function createAccountCore(emp) {
+  const empId = Number((emp && emp.id) || 0)
   // 🔴 v383（2026-10-06）：**必须先拿得到员工 id**。
   //    后端 `staff_account_create` 把 `employee_id` 兜成 `int(d.get(...) or 0)`，
   //    而 `0` 在本接口是**外部客户（分销商）语义**（走 `external_ref` 分支、跳过员工校验）
   //    ⇒ 档案还没落库就点开通，会静默造出一个不挂员工档案的账号（页面上看不出来）。
-  const empId = Number((editTarget.value && editTarget.value.id) || 0)
-  if (!empId) { toast('请先点击「保存」建立员工档案，再开通账号', 'err'); return }
-  // v289：与上面 resetAccPwd 同一口径（同 PWD_HINT），避免"两个密码框两套说法"。
-  if (!pwdOk(accForm2.password)) { toast('初始密码需' + PWD_HINT, 'err'); return }
-  accBusy.value = true
+  if (!empId) return { ok: false, detail: '员工档案尚未建立' }
   try {
     await staffAccountApi.createAccount({
       employee_id: empId,
       username: accForm2.username.trim(),
       password: accForm2.password,
       // 显示名兜底到表单里的姓名 —— 同族的"姓名被清空"不让它在这里复现
-      display_name: editTarget.value.name || editForm.name.trim(),
+      display_name: (emp && emp.name) || editForm.name.trim(),
       role: accForm2.role,
       // v312：**没手工改过就不带这个字段**（空串 ⇒ 后端按该角色的端政策取默认值，
       //   见 `routers/forecast_submissions.py` 的 `raw_scope is None or not strip()` 分支）。
@@ -995,38 +1017,52 @@ async function createAccountInEdit() {
       //   把它发上去会静默覆盖租户实际配置。
       login_scope: accScopeTouched.value ? accForm2.login_scope : '',
     })
-    toast('账号已开通', 'ok')
     // v290（2026-09-27）：不关窗 —— 开通后刷新即就地切到「已有账号」态，
     //    让用户接着配角色 / 密码；关窗同样会丢掉档案区未保存的改动。
     await loadEmployees()
-    const fresh = employees.value.find(x => x.id === (editTarget.value && editTarget.value.id))
-    if (fresh) {
-      editTarget.value = fresh
-      // 🔴 v384（2026-10-06）：**必须同步账号区编辑态** —— 这是老板报的
-      //    「开通账号时选了『导购』，点完却跳回『员工』」的根因。
-      //
-      //    开通前是「无账号」态，右侧那几行编辑态是 `resetEditForm(src)` 时由
-      //    `syncRoleEdit(src)` 落下的 —— 而**开通前**那个 `src` 上根本没有账号，
-      //    于是 `src.account_role` 为空 ⇒ 落到默认值 `'staff'`（**员工**）。
-      //    开通成功后本函数只换了 `editTarget`（界面据此从「无账号」切到「已有账号」），
-      //    **却没有再调一次 `syncRoleEdit`** ⇒ 角色下拉停在那个默认值上，
-      //    而库里已是 `guide` ⇒ 用户以为"刚选的导购没存上"。
-      //
-      //    危害不止显示：`accRoleDirty` = (`accRoleEdit`≠库里的 `account_role`)
-      //    = `'staff'≠'guide'` = **恒真** ⇒ 界面冒出「有未保存的改动」，
-      //    用户顺手点一次右下角**唯一**的「保存」（v382 合并保存后极易触发）就会
-      //    走 `saveAccRoleCore('staff', …)` —— **把刚开通的「导购」真的改回「员工」**。
-      //    ⇒ 刷新列表后**同一处**（与 saveAll 结尾、saveAccScopeCore 后一致）补同步，
-      //      `accRoleEdit` / `accRolesEdit` / `accScopeEdit` / `accScopeBase` 一次对齐到库里实况。
-      syncRoleEdit(fresh)
-    } else {
-      // 列表里找不到该员工（被搜索框过滤 / 接口异常）⇒ 界面会退回「未开通」态，
-      // 而库里其实已经开好了。**不静默** —— 否则用户会重复点「开通账号」，
-      // 再被后端「该员工已有关联账号」拒绝，看起来像系统坏了。
-      toast('账号已开通，但列表未刷到该员工，请点「刷新」查看', 'warn')
-    }
-  } catch (e) { toast(e.message || '开通失败', 'err') }
-  finally { accBusy.value = false }
+    const fresh = employees.value.find(x => x.id === empId)
+    if (!fresh) return { ok: true, listMissed: true }
+    editTarget.value = fresh
+    // 🔴 v384（2026-10-06）：**必须同步账号区编辑态** —— 这是老板报的
+    //    「开通账号时选了『导购』，点完却跳回『员工』」的根因。
+    //
+    //    开通前是「无账号」态，右侧那几行编辑态是 `resetEditForm(src)` 时由
+    //    `syncRoleEdit(src)` 落下的 —— 而**开通前**那个 `src` 上根本没有账号，
+    //    于是 `src.account_role` 为空 ⇒ 落到默认值 `'staff'`（**员工**）。
+    //    开通成功后本函数只换了 `editTarget`（界面据此从「无账号」切到「已有账号」），
+    //    **却没有再调一次 `syncRoleEdit`** ⇒ 角色下拉停在那个默认值上，
+    //    而库里已是 `guide` ⇒ 用户以为"刚选的导购没存上"。
+    //
+    //    危害不止显示：`accRoleDirty` = (`accRoleEdit`≠库里的 `account_role`)
+    //    = `'staff'≠'guide'` = **恒真** ⇒ 界面冒出「有未保存的改动」，
+    //    用户顺手点一次右下角**唯一**的「保存」（v382 合并保存后极易触发）就会
+    //    走 `saveAccRoleCore('staff', …)` —— **把刚开通的「导购」真的改回「员工」**。
+    //    ⇒ 刷新列表后**同一处**（与 saveAll 结尾、saveAccScopeCore 后一致）补同步，
+    //      `accRoleEdit` / `accRolesEdit` / `accScopeEdit` / `accScopeBase` 一次对齐到库里实况。
+    syncRoleEdit(fresh)
+    return { ok: true }
+  } catch (e) { return { ok: false, detail: e.message || '开通失败' } }
+}
+
+// 在"编辑员工"弹窗内开通账号（仅当该员工尚无账号时显示）
+async function createAccountInEdit() {
+  if (accBusy.value || !editTarget.value) return
+  // 🔴 v383：先拿 id —— 判据与 `createAccountCore` 的同一条（档案没落库就开通，
+  //    会产生不挂员工档案的孤儿账号）。在这里提前拦，是为了给出更贴界面的提示语。
+  const empId = Number((editTarget.value && editTarget.value.id) || 0)
+  if (!empId) { toast('请先点击「保存」建立员工档案，再开通账号', 'err'); return }
+  // v289：与上面 resetAccPwd 同一口径（同 PWD_HINT），避免"两个密码框两套说法"。
+  if (!pwdOk(accForm2.password)) { toast('初始密码需' + PWD_HINT, 'err'); return }
+  accBusy.value = true
+  try {
+    const r = await createAccountCore(editTarget.value)
+    if (!r.ok) { toast(r.detail, 'err'); return }
+    toast('账号已开通', 'ok')
+    // 列表里找不到该员工（被搜索框过滤 / 接口异常）⇒ 界面会退回「未开通」态，
+    // 而库里其实已经开好了。**不静默** —— 否则用户会重复点「开通账号」，
+    // 再被后端「该员工已有关联账号」拒绝，看起来像系统坏了。
+    if (r.listMissed) toast('账号已开通，但列表未刷到该员工，请点「刷新」查看', 'warn')
+  } finally { accBusy.value = false }
 }
 
 /* ---- v308 外部客户账号（分销商）---------------------------------------------
@@ -1243,17 +1279,25 @@ const accScopeDirty = computed(() => accScopeEdit.value !== accScopeBase.value)
       ⇒ 写库步骤一律**只用传入的快照值**，刷新统一由 saveAll 在最后做一次。 */
 async function saveAccScopeCore(scope) {
   const t = editTarget.value
-  if (!t || !t.account_user_id) return false
+  if (!t || !t.account_user_id) return { ok: false }
   try {
     await api(`/api/users/${t.account_user_id}/login-scope`, {
       method: 'PUT',
       body: { login_scope: scope },
     })
-    return true
+    // 🔴 v385（2026-10-06）修：**必须返回 `{ok}`，不能返回裸布尔**。
+    //    v382 把本函数降级成 saveAll 的写库步骤时，调用点写的是 `if (!r3.ok) return`
+    //    —— 而这里返回的是 `true`/`false` ⇒ `r3.ok` 恒为 `undefined` ⇒ `!undefined` 恒真
+    //    ⇒ **saveAll 在写完可登录端后必然提前返回**，后面的"刷新 + 成功提示 + 关窗"全被跳过。
+    //    现象：只改「可登录端」再点保存 ⇒ 库里**真的改了**，但界面不刷新、不弹任何提示、
+    //    窗口也不关，而且脏标签还在 ⇒ 用户以为没保存，再点、再点……
+    //    教训同族：**两个兄弟函数（saveAccRoleCore 返回 `{ok}`）的返回形状必须一致**，
+    //    不一致时"写错了也不会报错"，只是静默走另一条分支。
+    return { ok: true }
   } catch (e) {
     // 后端对"改自己"会 400（把自己锁在门外）⇒ 如实转达，别吞掉。
     toast(e.message || '可登录端保存失败', 'err')
-    return false
+    return { ok: false }
   }
 }
 
@@ -1311,6 +1355,23 @@ const accAnyDirty = computed(() =>
   || accScopeDirty.value
 )
 const anyDirty = computed(() => formDirty.value || accAnyDirty.value)
+
+/* v385（2026-10-06）：新建态「要不要顺手把账号也开出来」的**唯一判据**。
+   🔴 按钮文案（`footerBtnLabel`）与 `saveAll` 的提交动作**共用这一个** ——
+      分成两份就会出现"按钮写着『创建并开通账号』、实际只建了档案"，
+      文案与行为不符就是对用户撒谎（本页栽过的同族问题已经不止一次）。
+   判据三项缺一不可：
+     · `isCreate`  —— 只有新建态才谈得上"一次提交"；编辑态走 v382 的「保存」；
+     · `canDo('data','create')` —— 开账号走的是员工数据接口，与建档案的 `hr` 是**两个权限轴**，
+       没有它就没有开账号的入口（模板里那块表单也会整块收起）；
+     · 登录名非空 —— 账号选填：留空即"只建档案"。 */
+const accDraftWanted = computed(() =>
+  isCreate.value && canDo('data', 'create') && !!accForm2.username.trim()
+)
+/** 右下角按钮的文案。**它叫什么是承诺**，必须与 accDraftWanted 同源。 */
+const footerBtnLabel = computed(() =>
+  !isCreate.value ? '保存' : (accDraftWanted.value ? '创建并开通账号' : '创建员工')
+)
 
 /** 关闭编辑弹窗的**唯一入口**（遮罩 / ✕ / 取消 三处都走它，别再直接写 editOpen=false）。 */
 function tryCloseEdit() {
@@ -1394,9 +1455,21 @@ async function saveAccRoleCore(role, roles, askDrift) {
         中间不刷新 —— 否则前一步的刷新会覆盖后一步还没用到的编辑态。
 
    🔴 **失败即停**：任一步失败就不再往下（后面多半也会失败），**不关窗**、报错、保留现场 ——
-      宁可让用户看见"只存了一半"，也不能关窗假装全成功。 */
+      宁可让用户看见"只存了一半"，也不能关窗假装全成功。
+
+   ==== v385（2026-10-06）**新建态一次提交** =====================================
+   老板要求照舟谱的做法：新建员工 / 选角色 / 开账号**一屏一次完成**，不要分两步。
+   ⇒ 新建态的第 ① 步之后**就地接着开账号**（`r1.created` 分支），账号那几项留空则跳过。
+   🔴 为什么不是"真原子"：员工档案在**租户库** `hr_employees`、账号在**平台主库** `users`
+      —— 跨两个库，SQLite 没有分布式事务 ⇒ 第 2 步可能失败。
+      所以失败路径必须**存在且可自愈**（见 r1.created 分支里的两件事）。 */
 async function saveAll() {
   if (accBusy.value) return
+  // 🔴 v385：新建态的"顺手开账号"要**先校验、再落库**。
+  //    顺序反过来（先建档案、再发现密码不合规）就会留下"档案已建、账号没开成"的半成品 ——
+  //    能提前发现的问题不该留到写库之后。判据与 `footerBtnLabel` 同源（`accDraftWanted`）。
+  const wantAcc = accDraftWanted.value
+  if (wantAcc && !pwdOk(accForm2.password)) { toast('初始密码需' + PWD_HINT, 'err'); return }
   accBusy.value = true
   try {
     const t = editTarget.value
@@ -1412,10 +1485,39 @@ async function saveAll() {
       roleDirty: accRoleDirty.value,
       scopeDirty: accScopeDirty.value,
     }
+    // v385：**账号草稿**也要抄一份 —— `saveEmployeeCore` 新建成功后会 `openEdit(fresh)`，
+    //   而 `openEdit` → `resetEditForm` 会把账号区清成"刚打开弹窗时该有的初值"
+    //   （登录名/密码清空、角色落回 staff）。用户刚在这一屏填的东西必须活到第 2 步，
+    //   否则等于让他在同一个弹窗里重敲一遍 —— 那正是"合并成一屏"要消灭的东西。
+    const accSnap = {
+      username: accForm2.username, password: accForm2.password,
+      role: accForm2.role, login_scope: accForm2.login_scope,
+      scopeTouched: accScopeTouched.value,
+    }
     // ① 人事档案（含新建）
     const r1 = await saveEmployeeCore()
     if (!r1.ok) return
-    if (r1.created) return              // 新建成功 ⇒ 弹窗已切编辑态，本轮到此为止
+    if (r1.created) {
+      // 🔴 v385：**新建成功 ⇒ 就地接着把账号开出来**（用户填了才开）。
+      //    这就是老板要的"一个界面完成"—— 从前到这一句就结束了，用户得自己再点一次开通。
+      // 🔴 失败路径必须可自愈（跨库无事务，详见函数头）：
+      //      ① 把刚填的账号草稿**恢复**回去 —— 否则用户要重敲登录名和密码；
+      //      ② **不关窗**：此刻界面已切到「未开通账号」态，同一块表单 + 「开通账号」按钮
+      //         就在眼前，用户改掉原因（如登录名撞车）再点一次即可，不必重走任何流程。
+      if (wantAcc) {
+        Object.assign(accForm2, accSnap)
+        accScopeTouched.value = accSnap.scopeTouched
+        const r2 = await createAccountCore(editTarget.value)
+        if (!r2.ok) {
+          toast('员工档案已建好，但登录账号没开成：' + r2.detail + '。请在下方改好后点「开通账号」', 'err')
+          return
+        }
+        toast(r2.listMissed
+          ? '员工已创建、账号已开通，但列表未刷到该员工，请点「刷新」查看'
+          : '员工已创建，登录账号已开通', r2.listMissed ? 'warn' : 'ok')
+      }
+      return              // 新建成功 ⇒ 弹窗已切编辑态，本轮到此为止
+    }
     // ② 角色 / 兼任
     let scopeHandled = false
     if (canAcc && snap.roleDirty) {
@@ -1729,7 +1831,9 @@ onMounted(() => {
 .df-field .req{color:var(--dan);font-style:normal;font-weight:600}
 
 /* 登录账号区 */
-.df-acc-hint{margin-top:-2px}
+/* v385：`.df-acc-hint`（原「新建态那行提示」的容器，只有 margin-top:-2px）已随
+   合并一屏而删除 —— 新建态现在复用 `df-acc-create` 那块表单，类名不再被引用。
+   留着就是死 CSS：下次有人想"调一下新建态提示的间距"会改到这里，而它根本不生效。 */
 .df-acc-sum{font-size:12.5px;color:var(--t2);margin:0 0 2px;line-height:1.6}
 .df-acc-sum .on{color:var(--suc);font-weight:600}
 .df-acc-sum .off{color:var(--t3)}
