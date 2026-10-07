@@ -83,7 +83,7 @@ const COMMANDS = [
         现在统一查表，"哪条忘了配"在结构上不可能发生。 */
   { id: 'workbench', group: '页面', icon: 'grid', title: '经营工作台', path: '/workbench',
     when: () => canSee('/workbench') },
-  { id: 'forecast', group: '页面', icon: 'activity', title: '预报订货管理', path: '/forecast',
+  { id: 'forecast', group: '页面', icon: 'activity', title: '预报订单管理', path: '/forecast',
     when: () => canSee('/forecast') },
   { id: 'rebate', group: '页面', icon: 'target', title: '目标与返利', path: '/rebate',
     when: () => canSee('/rebate') },

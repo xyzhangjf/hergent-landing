@@ -54,7 +54,10 @@ export const router = createRouter({
       children: [
         { path: '', redirect: '/workbench' },
         { path: 'workbench', component: Workbench, meta: { title: '经营工作台' } },
-        { path: 'forecast', component: Forecast, meta: { title: '预报订货管理' } },
+        // 🔴 v390（2026-10-07）：`meta.title` 与 `pages.js::PAGE_RULES['/forecast'].title`、
+        //    `Shell.vue::NAV` 显示名**必须逐字一致** —— 它就是路由守卫那句
+        //    「你没有访问「xxx」的权限」的文案，不一致就等于「提示比界面早一代」。
+        { path: 'forecast', component: Forecast, meta: { title: '预报订单管理' } },
         { path: 'rebate', component: Rebate, meta: { title: '目标与返利' } },
         // v265（2026-09-24）：商品目标已收进「预报订货管理」当第 4 个页签。
         // 🔴 旧路由**保留为 redirect，不能直接删**：书签 / 浏览器历史 / 命令面板里还留着

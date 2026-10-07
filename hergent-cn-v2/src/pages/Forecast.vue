@@ -28,8 +28,8 @@
     <div v-if="forecastDenied" class="gate-bar" role="status">
       <Icon name="alert-triangle"/>
       <span class="gate-txt">
-        <b>你的角色没有「预报订货管理」的权限</b>，这一页的期次和报单都读不到 ——
-        这不是系统故障。需要老板在「设置 › 权限」里，为你的角色勾上「预报订货管理」。
+        <b>你的角色没有「预报订单管理」的权限</b>，这一页的期次和报单都读不到 ——
+        这不是系统故障。需要老板在「设置 › 权限」里，为你的角色勾上「预报订单管理」。
       </span>
     </div>
 

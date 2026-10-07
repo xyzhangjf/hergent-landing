@@ -193,7 +193,10 @@ export const PAGE_RULES = {
   //      **全部已持 `forecast`**（v347 同批改 `_DEFAULT_PERMS` ＋ 迁租户库）⇒ 对谁都不隐藏。
   //      库管 / 分销商 / 一线角色**不持** `forecast` ⇒ 入口消失、深链被拦、接口 403
   //      （此前是"看得见、点进去页内恒空"＝本项目定义的**假入口**，消失才是修复）。
-  '/forecast':        { title: '预报订货管理', module: 'forecast',  roles: FORECAST_SUMMARY_ROLES, cat: 'biz' },
+  // 🔴 v390（2026-10-07）：`title` 由「预报订**货**管理」统一为「预报订**单**管理」（老板拍板）。
+  //   这个名字有 **8 份**（含后端 2 份），必须同一批改 —— 清单见 `core.py::MODULE_LABEL["forecast"]`
+  //   上方那段；少改一处就会出现「守卫提示 / 权限页 比界面早一代」的文案漂移。
+  '/forecast':        { title: '预报订单管理', module: 'forecast',  roles: FORECAST_SUMMARY_ROLES, cat: 'biz' },
   // v333（2026-09-30）：补 `module: 'sales'`。此前是 `module: null`（只看角色名单）。
   //   老板原话：「角色权限界面怎么没有『预报订单管理和返利与目标』的权限配置框」——
   //   🔴 根因有两层，这是第二层：**权限页上根本没有任何一个框能控制本页**。

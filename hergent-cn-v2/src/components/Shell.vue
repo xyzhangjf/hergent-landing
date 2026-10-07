@@ -89,30 +89,34 @@
                 新增条目前先确认名字在库：`grep -o -E "^  [a-z0-9-]+:" components/Icon.vue`。
              ⚠️ 条目顺序 = 数组顺序；判据在 `NAV` 之外的 `canSee` 已无第二份，别在模板里补。 -->
         <nav class="sb-nav">
-          <template v-for="g in navGroups" :key="g.label">
-            <div class="sb-grp">{{ g.label }}</div>
-            <!-- v388（2026-10-07）批次 2：条目现在有两种形态，由 `resolveNavItem` 判定：
-                 ① 扁平直达项 `{path,name,icon}` —— 行为与 v311 完全一致；
-                 ② 职能区 `{key,name,icon,groups}` —— 一级项**不是页面**（不是 router-link），
-                    悬停展开弹窗、点击固定（触屏兜底）。
-                 🔴 分支判据只有 `it.groups`（结构本身），**没有**任何权限判据 ——
-                    可见性一律由 `canSee(path)` 在 `resolveNavItem` 里收口（v291/v311 纪律）。 -->
-            <template v-for="it in g.items" :key="it.key || it.path">
-              <router-link v-if="!it.groups" :to="it.path" class="sb-item"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span></router-link>
-              <div v-else class="sb-area" :class="{open: openArea === it.key, pinned: pinnedArea === it.key}"
-                   @mouseenter="areaEnter(it.key, $event)" @mouseleave="areaLeave">
-                <button type="button" class="sb-item sb-area-btn" :aria-expanded="openArea === it.key" @click="areaToggle(it.key, $event)"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span><Icon name="chevron-right" :size="13" class="sb-caret" /></button>
-                <Teleport to="body">
-                  <div v-if="openArea === it.key" class="sb-pop" :style="popStyle"
-                       @mouseenter="areaKeep" @mouseleave="areaLeave">
-                    <template v-for="sg in it.groups" :key="sg.label">
-                      <div v-if="sg.label" class="sb-pop-hd">{{ sg.label }}</div>
-                      <router-link v-for="x in sg.items" :key="x.path" :to="x.path" class="sb-pop-item" @click="areaClose"><Icon :name="x.icon" :size="15" /><span>{{ x.name }}</span></router-link>
-                    </template>
-                  </div>
-                </Teleport>
-              </div>
-            </template>
+          <!-- v390（2026-10-07）：**8 项平铺**（2 直达 + 6 职能区），分组标题已去掉。
+               条目形态由 `resolveNavItem` 的**返回值**决定（有 `groups` ⇒ 职能区），
+               ⚠️ 这里**没有任何权限判据** —— 不可见的条目在 `navItems` 里就已经是 null 了
+               （v291/v311 纪律：模板只负责排版本，判据只有 `canSee(path)` 一处）。 -->
+          <template v-for="it in navItems" :key="it.key || it.path">
+            <router-link v-if="!it.groups" :to="it.path" class="sb-item"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span></router-link>
+            <div v-else class="sb-area" :class="{open: openArea === it.key, pinned: pinnedArea === it.key, cur: areaCur(it)}"
+                 @mouseenter="areaEnter(it.key, $event)" @mouseleave="areaLeave">
+              <button type="button" class="sb-item sb-area-btn" :aria-expanded="openArea === it.key" @click="areaToggle(it.key, $event)"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span><Icon name="chevron-right" :size="13" class="sb-caret" /></button>
+              <Teleport to="body">
+                <div v-if="openArea === it.key" class="sb-pop" :style="popStyle"
+                     @mouseenter="areaKeep" @mouseleave="areaLeave">
+                  <template v-for="sg in it.groups" :key="sg.label">
+                    <div v-if="sg.label" class="sb-pop-hd">{{ sg.label }}</div>
+                    <!-- v390 · L1「双入口」：一行 = 两个可点区域。
+                         左 = 对象名 → 列表页（或页内页签）；右 = 「创建」→ 新建页。
+                         ⚠️ 右边的「＋」是否出现，**已经**在 `resolveNavItem` 里按
+                            `canDo(create.module,'create')` 判过了 ⇒ 模板里不补判据。 -->
+                    <div v-for="x in sg.items" :key="x.path + (x.tab || '')" class="sb-pop-row">
+                      <router-link :to="navTo({ path: x.path, tab: x.tab })" class="sb-pop-item" :class="{cur: isCur(x)}" @click="areaClose"><Icon :name="x.icon" :size="15" /><span>{{ x.name }}</span></router-link>
+                      <router-link v-if="x.create" :to="navTo(x.create.to)" class="sb-pop-new"
+                                   :title="x.create.title || ('新建' + x.name)"
+                                   :aria-label="x.create.title || ('新建' + x.name)" @click="areaClose"><Icon name="plus" :size="13" /><span>创建</span></router-link>
+                    </div>
+                  </template>
+                </div>
+              </Teleport>
+            </div>
           </template>
         </nav>
       </aside>
@@ -149,10 +153,18 @@
           <div class="md-grab"></div>
           <!-- v311（2026-09-28）：手机抽屉与桌面侧栏**共用同一份 `NAV`**（去掉底部栏已有的三项），
                分组与显隐一起算。⚠️ 桌面清干净了、手机还留着旧入口，是这类改造最常见的漏 ——
-               所以两边都从这里取，别再手写第二份。 -->
-          <template v-for="g in drawerGroups" :key="g.label">
-            <div class="md-group-hd">{{ g.label }}</div>
-            <router-link v-for="it in g.items" :key="it.path" :to="it.path" class="md-item" @click="store.ui.mobileDrawer=false"><Icon :name="it.icon" :size="18" />{{ it.name }}</router-link>
+               所以两边都从这里取，别再手写第二份。
+               v390：分组标题从「经营 / 核算 / 配置」改由**职能区自己的名字**当路标
+               （8 项平铺后没有组名了，而平铺出来有 15+ 条，没有路标比桌面还难找）。
+               ⚠️ **手机端「＋」（§七 要求抽屉条目右侧放 ＋）本轮刻意没做**，理由：
+                  本轮唯一带 `create` 的条目是「历史期次」，它的 `path` = `/forecast`
+                  属底部栏三项之一 ⇒ 按上面的规则**不会出现在抽屉里** ⇒ 现在写这段
+                  就是一段**永远不可达的死分支**（本项目反复栽在"看起来做了、实际没到位"）。
+                  批次 5 的进销存条目（`/inventory/purchase` 等，不在底部栏）落地时，
+                  连同这一行一起加 —— 那时它才真的能被点到。 -->
+          <template v-for="g in drawerGroups" :key="g.label || g.items[0].path">
+            <div v-if="g.label" class="md-group-hd">{{ g.label }}</div>
+            <router-link v-for="it in g.items" :key="it.path" :to="navTo({ path: it.path, tab: it.tab })" class="md-item" @click="store.ui.mobileDrawer=false"><Icon :name="it.icon" :size="18" />{{ it.name }}</router-link>
           </template>
         </div>
       </Transition>
@@ -198,7 +210,7 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { store, toast, setTheme, clearChatCache } from '../store'
+import { store, toast, setTheme, clearChatCache, canDo } from '../store'
 import { auth, api, resetTenantContext } from '../api/client'
 import CopilotDrawer from './CopilotDrawer.vue'
 import NotificationPanel from './NotificationPanel.vue'
@@ -207,92 +219,197 @@ import WeatherWidget from './WeatherWidget.vue'
 import IdleTimeout from './IdleTimeout.vue'
 import Icon from './Icon.vue'
 import { messagesApi } from '../api/modules'
-/* v267：侧栏「预报订货管理」按角色可见性 —— 判据是后端同一份白名单的前端镜像
-   （`roles.js::FORECAST_SUMMARY_ROLES`，护栏 AST 校验）。见下方 v-if 处注释。 */
+/* v267：侧栏「预报订单管理」（v390 前的名字是「预报订货管理」）按角色可见性 —— 判据是
+   后端同一份白名单的前端镜像（`roles.js::FORECAST_SUMMARY_ROLES`，护栏 AST 校验）。
+   v291 起它已收敛进 `pages.js`：本文件只调 `canSee(path)`，不自己写名单。 */
 import { canSee } from '../constants/pages'
 
 /* ---------------------------------------------------------------------------
-   v311（2026-09-28）：侧栏导航表 —— 桌面侧栏与手机抽屉的**唯一来源**
+   v311（2026-09-28）：侧栏导航表 —— 桌面侧栏 / 手机底栏 / 手机抽屉的**唯一来源**
    ---------------------------------------------------------------------------
-   需求（老板）：「对侧栏做一次整理，更简洁、易用、美观」，两处结构变更：
-     · 「渠道与价格」→ 并入「档案管理」当第 6 个页签（侧栏不再单列）
-     · 「AI 中心」  → 并入「AI 引擎」（原「能力中心」更名）当第 5 个页签（侧栏不再单列）
-   结果：侧栏 12 项平铺 → **3 组 10 项**（分组标题：经营 / 核算 / 配置）。
+   当时的两次结构变更：「渠道与价格」并入档案管理当页签、「AI 中心」并入 AI 引擎当页签，
+   侧栏从 12 项平铺变 **3 组 10 项**（分组标题：经营 / 核算 / 配置）。
+   ⚠️ **v390（2026-10-07）已把分组标题去掉**（改为 8 项平铺 + 6 个职能区弹窗）——
+      结构与取舍见紧邻下方的 v390 段；本段只保留 v311 留下的那条**方法论**，它仍然成立：
 
-   🔴 为什么把导航写成表、而不是继续手写 `<router-link>`（这是本次最关键的一个决定）：
-      加了分组标题之后，标题只有在「本组至少有一项可见」时才该出现。若标题的显示条件
-      另写一份清单（`paths.some(canSee)`），就与各条目的 `v-if` 组成**两份判据** ——
-      漂移那天会出现「有标题、下面空着」（导购/司机就会命中：核算与配置两组对他全空）
-      或「有条目、没有标题」。这正是本项目反复在修的"规则抄多份"。
-      表驱动之后，标题**由条目算出来**，结构上不可能不一致。
+   🔴 为什么把导航写成表、而不是继续手写 `<router-link>`（v311 最关键的一个决定）：
+      分组标题只有在「本组至少有一项可见」时才该出现。若标题的显示条件另写一份清单
+      （`paths.some(canSee)`），就与各条目的判据组成**两份实现** —— 漂移那天会出现
+      「有标题、下面空着」或「有条目、没有标题」。表驱动之后，标题**由条目算出来**，
+      结构上不可能不一致。**v390 的「空列 / 空区自动隐藏」是同一条纪律的延续**：
+      不是模板里补 `v-if`，而是让 `resolveNavItem` 从条目算出来。
 
    ⚠️ 判据全部落在 `canSee(path)`（→ `constants/pages.js` 一张表）。
       **不要**在这里写角色硬编码，也**不要**在模板里再补 `v-if`：
       v291 立下的规矩是「要改'谁看得见哪一页'，只改 (pages.js)」。
-   ⚠️ 图标名必须真实存在于 `Icon.vue`（自带 50+ 个）。写错**不报错** ——
-      `Icon.vue:144` 的兜底是 `ICONS.settings`，会静默显示成齿轮，肉眼很难发现配错了。
+   ⚠️ 图标名必须真实存在于 `Icon.vue`（自带 70+ 个）。写错**不报错** ——
+      `Icon.vue` 的兜底是 `ICONS.settings`，会静默显示成齿轮，肉眼很难发现配错了。
    --------------------------------------------------------------------------- */
 const NAV = [
+  /* ---------------------------------------------------------------------------
+     v390（2026-10-07）批次 3 · 侧栏 L1–L2：**8 项（2 直达 + 6 职能区）**
+     ---------------------------------------------------------------------------
+     老板拍板（依据《侧边栏归类结构重规划》v5 §10.3.4）：
+       · 一级项由「3 组 11 项」改为 **8 项平铺** —— 并且**去掉分组标题**：6 个职能区
+         本身就是归类，再叠一层 11px 小字既占高度，「核算」这种只剩 2 项的组
+         还会显得比内容重（老板 2026-10-07 二次确认时选的就是这一版）。
+       · 「订货管理」→「**预报订单管理**」（弹窗按 `Forecast.vue` **现成的 4 个页签**组织）；
+       · 「目标与返利」**补回为直达项**（§10.3：它页内 6 页签、侧栏本就只应有一个入口 ——
+         与 v303/v375 那两条「不新增侧栏」的约定一致）；
+       · 「进销存」由扁平项**升级成职能区**：采购 / 销售 / 库存 / 往来 / 其他 **5 列先立住**，
+         批次 5 的页面落位后自动补齐。空列由 `resolveNavItem` 收口 ⇒ **不会露出空标题**。
+
+     条目有两种形态（判据就是结构本身 —— `it.groups` 在不在，**没有任何权限判断**）：
+
+       ① 扁平直达项 `{ path, name, icon }`
+          一级项**就是页面**（模板渲染成 `<router-link>`）。
+
+       ② 职能区 `{ key, name, icon, path?, groups: [{ label, items }] }`
+          · `groups` —— 弹窗里的分列。一级项**不是一个页面**（模板渲染成 `<button>`，
+            悬停展开 / 点击固定，见下方 `areaToggle`）。
+          · `path`（可选）—— 本区的**准入锚点页**，只有两个用途，且都只有一份实现：
+              a) 权限闸门：`canSee(path)`（→ `pages.js`，**不在这里另立角色名单**）；
+              b) 手机底部栏按它取名字/图标（`mnavItems`，见 `MNAV_PATHS`）。
+          🔴 有的区写了 `path`、有的没写 —— 这是**判断**，不是遗漏；理由写在 `resolveNavItem`。
+
+     🔴 三条不许破的约束：
+       1. **可见性唯一源 = `canSee(path)` → `pages.js`**。弹窗只负责**排版**，模板里
+          **不补任何 `v-if`**（v291 纪律）；空列 / 空区由 `resolveNavItem` 算出来收口
+          （v311 纪律：标题与显隐都从条目算，绝不写第二份判据）。
+       2. **一级项的 `path` 不是 `to`** —— 职能区的一级项永不导航（`/archive` 这类
+          已存书签的路由**保留**，深链照常可达，落回第一个可见页签）。
+       3. **图标名必须真实存在于 `Icon.vue`** —— 写错**不报错**：`Icon.vue` 的兜底是
+          `ICONS.settings`，会静默显示成齿轮。本表用到的名字已逐个核对在库。
+     -------------------------------------------------------------------------- */
+  /* ① 直达（与 v303/v375「页内页签型模块不新增侧栏」同族：一页 + 页内页签 ⇒ 不做弹窗） */
+  { path: '/workbench', name: '经营工作台', icon: 'grid' },
+
+  /* ② 预报订单管理 › —— 4 个页签本来就是同一页：`Forecast.vue::setTab` 读写 `?tab=`
+     （v265）⇒ 弹窗条目直接带 `tab` 就能直达，**零新页**。这也是 L1「双入口」的试点区。 */
   {
-    label: '经营',
-    items: [
-      { path: '/workbench', name: '经营工作台', icon: 'grid' },
-      { path: '/forecast', name: '预报订货管理', icon: 'line-chart' },
-      { path: '/rebate', name: '目标与返利', icon: 'target' },
-      { path: '/bid-radar', name: '招投标雷达', icon: 'search' },
-      // v380（2026-10-06）：进销存 —— 老板自研新能力。⚠️ 这里只登记**名字/图标/路径**，
-      //   可见性由 `canSee('/inventory')`（→ pages.js 的 `/inventory` 行：ADMIN_ROLES + lock）裁决，
-      //   不要在这里写角色判断（v291 纪律）。
-      { path: '/inventory', name: '进销存', icon: 'package' }
+    key: 'forecast', name: '预报订单管理', icon: 'line-chart', path: '/forecast',
+    groups: [
+      { label: '预报订单', items: [
+        /* 🔴 本节唯一挂 `create` 的条目（L1 双入口试点，计划 §3.1）：
+           · 左半（对象名）→ `/forecast?tab=history`（历史期次 = 列表页）；
+           · 右半「＋」→ `/forecast`（默认 `summary` = 本期预报 / 新建期次那一页）。
+           `module: 'data'` 取自**页面自己的既有口径** —— `Forecast.vue` 里 9 处「新建期次 /
+           创建 / 推送审批」按钮判的就是 `canDo('data','create')`；这里**照抄同一个键**，
+           不新造（v335 纪律：页内门禁判的是**接口模块**，写错键会 fail-closed 把按钮全藏掉）。 */
+        { path: '/forecast', tab: 'history', name: '历史期次', icon: 'history',
+          create: { to: '/forecast', module: 'data', title: '新建本期预报（期次）' } },
+        { path: '/forecast', tab: 'config',  name: '报单配置', icon: 'wrench' },
+        { path: '/forecast', tab: 'target',  name: '商品目标', icon: 'bars' }
+      ] }
     ]
   },
+
+  /* ③ 进销存 › —— v380 自研新能力。🔴 `path: '/inventory'` 是本区的**闸门**，必须有：
+     区内「库存效期补录」挂的是**宽模块** `stock`（BIZ_ROLES ∩ stock ⇒ 业务员/会计/主管都可能有），
+     若不设闸门，一个叫「进销存」的区会出现在这些人侧栏里 —— 而按 v380 闸门它**只该给老板/管理员**。
+     ⚠️ 采购/销售/往来三列**先立住**（空数组）⇒ 被 `resolveNavItem` 过滤掉，界面上不出现空标题；
+        批次 5 把页面落进来时，只需要往对应列里加条目，不动结构。 */
   {
-    label: '核算',
-    items: [
-      { path: '/loss-accounting', name: '货损核算', icon: 'receipt' },
-      { path: '/payroll', name: '算工资', icon: 'coins' }
+    key: 'psi', name: '进销存', icon: 'package', path: '/inventory',
+    groups: [
+      { label: '采购', items: [] },
+      { label: '销售', items: [] },
+      // 「库存效期补录」是**已上线**的页面（`/data-fill`），此前不在侧栏（只能从设置页/
+      // 货损页的「去补录」按钮进）⇒ 本次按 §5.3 归位到库存列。它的 `module` 是 `stock`，
+      // 所以本区必须靠上面的 `path: '/inventory'` 闸门兜住（见本区注释）。
+      { label: '库存', items: [
+        { path: '/data-fill', name: '库存效期补录', icon: 'paste' }
+      ] },
+      { label: '往来', items: [] },
+      { label: '其他', items: [
+        // v380 占位页（`Inventory.vue` 82 行）—— 进销存工作台，批次 5 会扩成 4 个 KPI。
+        { path: '/inventory', name: '进销存总览', icon: 'activity' }
+      ] }
     ]
   },
+
+  /* ④ 直达 —— §10.3.3 方案 A：它页内 6 页签，「弹窗里只有一条 = 比内容还重」 */
+  { path: '/rebate', name: '目标与返利', icon: 'target' },
+
+  /* ⑤ 核算 › —— 损耗列**两条都挂**（老板 2026-10-07 拍板，与计划 §5.3 一致）：
+     `/loss`（货损计算工作流）与 `/loss-accounting`（货损核算）曾是同一模块 `stock` 下的两页，
+     v349 才把核算拆成窄模块 `loss` ⇒ 两条在侧栏并列才看得出是"一条链的两端"。 */
   {
-    label: '配置',
-    items: [
-      /* v388（2026-10-07）批次 2 · 侧栏骨架 L0：`档案管理` 由**扁平直达项**升级为
-         **职能区（area）** —— 悬停展开弹窗、内含 7 个页签直达链接。这是「先只落地档案管理区」
-         的试点：本区整区没有「创建」动作，所以验骨架时不会碰到批次 3 的「双入口（行内创建）」。
-         🔴 结构 = `{ key, name, icon, groups:[{ label, items }] }` —— **带 `groups` 的条目
-            不再是一个页面**（见模板里 `.sb-area` 与 `.sb-pop` 的分支），批次 3 的 L1
-            「行内创建」就挂在 `groups[].items[]` 上，所以这一步必须先把结构立起来。
-         🔴 可见性**仍然只走** `canSee(path)`（→ `pages.js`）：弹窗只负责**排版**，
-            模板里**不补任何 `v-if`**（v291 纪律）；空列/空弹窗由 `navGroups` 计算属性收口
-            （v311 纪律：标题与显隐都从条目算出来，绝不写第二份判据）。
-         ⚠️ `path` 刻意**不写** —— 一级项是"分区"不是页面。`/archive` 路由本身**保留**
-            （已存书签/深链照常可达，落回第一个可见页签）。
-         ⚠️ 图标名必须真实存在于 `Icon.vue`（写错不报错，静默变齿轮）。
-            本表 7 个图标：users / building / store / gift / package / toolbox / coins —— 全部在库。 */
-      {
-        key: 'archive', name: '档案管理', icon: 'book',
-        groups: [
-          { label: '', items: [
-            { path: '/archive/employees',  name: '员工档案',   icon: 'users' },
-            { path: '/archive/customers',  name: '客户档案',   icon: 'building' },
-            { path: '/archive/suppliers',  name: '供应商档案', icon: 'store' },
-            { path: '/archive/brands',     name: '品牌档案',   icon: 'gift' },
-            { path: '/archive/products',   name: '商品档案',   icon: 'package' },
-            { path: '/archive/warehouses', name: '仓库档案',   icon: 'toolbox' },
-            { path: '/archive/prices',     name: '渠道与价格', icon: 'coins' }
-          ] }
-        ]
-      },
+    key: 'acct', name: '核算', icon: 'audit',
+    groups: [
+      { label: '损耗', items: [
+        { path: '/loss', name: '货损计算工作流', icon: 'flame' },
+        { path: '/loss-accounting', name: '货损核算', icon: 'receipt' }
+      ] },
+      { label: '薪酬', items: [
+        { path: '/payroll', name: '算工资', icon: 'coins' }
+      ] }
+    ]
+  },
+
+  /* ⑥ 经营分析 › —— 「经营趋势」(`/dashboard`) 此前**不在侧栏**（只在首页有卡片），
+     本次按 §5.3 归位。⚠️ 计划文档 §五 还列了「利润分析 / 业财报表 / 往来报表」三列，
+     但它们**页面都还没做** —— 不在这里立空列（立了也看不见，反而给人"已经做了"的错觉）；
+     等页面落位时按本表结构加列即可。 */
+  {
+    key: 'analytics', name: '经营分析', icon: 'bar-chart',
+    groups: [
+      { label: '经营概览', items: [
+        { path: '/dashboard', name: '经营趋势', icon: 'trending-up' }
+      ] },
+      { label: '市场情报', items: [
+        { path: '/bid-radar', name: '招投标雷达', icon: 'search' }
+      ] }
+    ]
+  },
+
+  /* ⑦ 档案管理 › —— 🔴 **故意不写 `path`**（与 ②③ 相反，理由见 `resolveNavItem`）：
+     7 个页签各自挂不同模块，容器 `/archive` 反而**更窄**（`data` ∧ BIZ_ROLES）⇒
+     拿它当闸门会藏掉「会计（有 crm、无 data）看得见渠道与价格」这条正确行为。
+     列名对齐舟谱的「XX 相关」；`/archive/prices`（渠道与价格）挂在商品相关 —— 它是
+     「商品在不同渠道的价格」，且与兄弟页签同容器。 */
+  {
+    key: 'archive', name: '档案管理', icon: 'book',
+    groups: [
+      { label: '商品相关', items: [
+        { path: '/archive/products',   name: '商品档案',   icon: 'package' },
+        { path: '/archive/brands',     name: '品牌档案',   icon: 'gift' },
+        { path: '/archive/prices',     name: '渠道与价格', icon: 'coins' }
+      ] },
+      { label: '往来相关', items: [
+        { path: '/archive/customers',  name: '客户档案',   icon: 'building' },
+        { path: '/archive/suppliers',  name: '供应商档案', icon: 'store' }
+      ] },
+      { label: '组织相关', items: [
+        { path: '/archive/employees',  name: '员工档案',   icon: 'users' }
+      ] },
+      { label: '仓储相关', items: [
+        { path: '/archive/warehouses', name: '仓库档案',   icon: 'toolbox' }
+      ] }
+    ]
+  },
+
+  /* ⑧ 系统 › —— 三列全部是**管理岗**页面（`/connect` 走 ADMIN_ROLES；`/cron`、`/settings`
+     另带 `lock: true`）⇒ 整区天然只有管理员看得到，不需要再加闸门。 */
+  {
+    key: 'system', name: '系统', icon: 'settings',
+    groups: [
       // ⚠️ 名字是「AI 引擎」不是「能力中心」—— v311 更名，理由见 `pages.js` 该行注释。
       //   路由仍是 `/connect`（**不改路径**：它是已上线深链，改名只动显示名）。
-      { path: '/connect', name: 'AI 引擎', icon: 'brain' },
-      { path: '/cron', name: '定时任务', icon: 'clock' },
-      { path: '/settings', name: '设置', icon: 'settings' }
+      { label: 'AI 能力', items: [ { path: '/connect',  name: 'AI 引擎', icon: 'brain' } ] },
+      { label: '自动化', items: [ { path: '/cron',     name: '定时任务', icon: 'clock' } ] },
+      { label: '系统设置', items: [ { path: '/settings', name: '设置', icon: 'wrench' } ] }
     ]
   }
 ]
 
-/** 手机底部栏已有的三项 —— 抽屉里不再重复出现（保持 v311 之前的行为）。 */
+/**
+ * 手机底部栏已有的三项 —— 抽屉里不再重复出现（保持 v311 之前的行为）。
+ *
+ * ⚠️ 这里是「哪几项属于底部栏」这个**设计意图**的声明（与权限无关）。
+ *    v390 起 `/forecast` 是**职能区的锚点**（不再是扁平项）⇒ `mnavItems` 两种形态
+ *    都按 `path` 取（职能区的 `path` 就是它的锚点页），名字/图标仍只有 `NAV` 一份。
+ */
 const MNAV_PATHS = ['/workbench', '/forecast', '/rebate']
 
 /**
@@ -306,59 +423,100 @@ const MNAV_PATHS = ['/workbench', '/forecast', '/rebate']
  * ⇒ 现在从 `NAV` 里**按路径取**（名字、图标、路径都只有一份）。
  * `MNAV_PATHS` 保留为「哪几项属于底部栏」这个**设计意图**的声明（与权限无关），
  * 抽屉的排除项也读它 —— 不再有第三份。
+ *
+ * ⚠️ v390：职能区也要能在底部栏落一个点 ⇒ 先把区**投影成扁平项的形状**再取，
+ *    这样下面的 `find / filter / canSee` 三段与模板**都不用分叉**（否则就是两份判据）。
  */
 const mnavItems = computed(() => {
-  const all = NAV.flatMap(g => g.items)
+  const all = NAV.map(it => it.groups ? { path: it.path, name: it.name, icon: it.icon } : it)
   return MNAV_PATHS
     .map(p => all.find(it => it.path === p))
-    .filter(it => it && canSee(it.path))
+    .filter(it => it && it.path && canSee(it.path))
 })
 
 /**
- * v388（2026-10-07）批次 2 · 侧栏骨架 L0：把 `NAV` 里的一条条目解析成「可渲染的东西」。
+ * NAV 里的「目标」写法 → vue-router 的 `to`。
  *
- * 一条条目现在有两种形态：
- *   ① 扁平直达项 `{ path, name, icon }` —— 仍按 `canSee(path)` 收窄；
- *   ② 职能区 `{ key, name, icon, groups:[{ label, items }] }` —— 先把每列按 `canSee` 收窄、
- *      再丢掉**空列**；**全列皆空 ⇒ 整个一级项返回 `null`（隐藏）**。
+ * 两种写法（**只有这一处解释**）：
+ *   · `'/forecast'`                —— 普通路径，直接当 `to`；
+ *   · `{ path, tab }` / 条目自带 `tab` —— 页内页签，翻成 `{ path, query:{ tab } }`。
+ *
+ * 🔴 为什么不把 `?tab=` 直接写进 `path`：`path` 同时是**权限判据的键**
+ *    （`canSee(path)` → `pages.js`）。虽然 `ruleFor` 也会 `split('?')[0]`，
+ *    但把它留在 `path` 里就多了一层"依赖某个函数顺手剥掉查询串"的隐式契约 ——
+ *    探针、护栏、文档三处都得跟着记住这件事。分开写则一眼可读。
+ */
+function navTo(loc) {
+  if (!loc) return ''
+  if (typeof loc === 'string') return loc
+  return loc.tab ? { path: loc.path, query: { tab: loc.tab } } : loc.path
+}
+
+/**
+ * v390（2026-10-07）批次 3：把 `NAV` 里的一条条目解析成「可渲染的东西」——
+ * **全站唯一的收窄实现**（桌面侧栏 / 手机底栏 / 手机抽屉三处共用它）。
+ *
+ * 两种形态：
+ *   ① 扁平直达项 —— `canSee(path)` 不过 ⇒ `null`（隐藏）；
+ *   ② 职能区 —— ⒈ 先过本区的**准入锚点**（若声明了 `path`）；⒉ 每列按 `canSee` 收窄；
+ *      ⒊ 丢掉空列；⒋ 全列皆空 ⇒ 整个一级项 `null`。
  *
  * 🔴 为什么收口放在这里、而不是模板里补 `v-if`：
  *    v311 立下的规矩是「标题与显隐都从条目算出来」。若在模板里另写一份判据
  *    （例如 `v-if="it.groups.some(...)"`），就与这里的判断形成**两份实现** ——
  *    一旦漂移就会出现「有弹窗、里面空着」或「有内容、弹窗不出现」，
  *    正是本项目反复在修的「规则抄多份」。
+ *
+ * 🔴 职能区为什么要有一个**可选的** `path` 闸门（这是本轮唯一的真判断，不是顺手加的）：
+ *    区的可见性默认 = 「任一子条目可见」。这对**档案管理**是对的、对**进销存**是错的：
+ *      · 进销存区内的「库存效期补录」(`/data-fill`) 挂的是**宽模块** `stock`
+ *        （BIZ_ROLES ∩ stock：业务员 / 会计 / 主管都可能有）⇒ 不设闸门时，一个叫
+ *        「进销存」的区会冒到这些人侧栏里，而 v380 闸门要求它**只给老板 / 管理员**。
+ *      · 档案管理**故意不设**：7 个页签各挂不同模块（`hr`/`crm`/`data`/`stock`），
+ *        而容器 `/archive` 反而**更窄**（`data` ∧ BIZ_ROLES）⇒ 拿它当闸门会把
+ *        「会计（有 `crm`、无 `data`）看得见『渠道与价格』」这条**正确行为**藏掉。
+ *    ⇒ 判据仍是 `canSee(path)` 一处实现，只是「拿哪个 `path` 当锚点」由数据声明。
+ *
+ * 🔴 `create`（L1 双入口）也在这里收口 —— **只读角色不该看到「＋」**
+ *    （显示一个点下去 403 的按钮，比不显示更糟）。判据是 `canDo(create.module,'create')`：
+ *    与页面内按钮**同一个键、同一个函数**（v335 纪律：`module` 取**接口**所属模块，
+ *    写错键会 fail-closed 把入口全藏掉）。没配 `create` 就是没有，不猜。
  */
 function resolveNavItem(it) {
   if (it.groups) {
+    if (it.path && !canSee(it.path)) return null
     const groups = it.groups
-      .map(sg => ({ label: sg.label, items: sg.items.filter(x => canSee(x.path)) }))
+      .map(sg => ({
+        label: sg.label,
+        items: sg.items
+          .filter(x => canSee(x.path))
+          .map(x => (x.create && !canDo(x.create.module, 'create')) ? { ...x, create: null } : x)
+      }))
       .filter(sg => sg.items.length)
     return groups.length ? { ...it, groups } : null
   }
   return canSee(it.path) ? it : null
 }
 
-/** 桌面侧栏：按 `canSee` 收窄，**并丢掉空组**（否则导购/司机会看到两个空标题）。 */
-const navGroups = computed(() => NAV
-  .map(g => ({ label: g.label, items: g.items.map(resolveNavItem).filter(Boolean) }))
-  .filter(g => g.items.length))
+/** 桌面侧栏：8 项平铺（v390 去掉分组标题 —— 6 个职能区本身就是归类）。 */
+const navItems = computed(() => NAV.map(resolveNavItem).filter(Boolean))
 
 /**
  * 手机抽屉：同一份表，再减掉底部栏那三项。
- * 手机端**不做悬停**（批次 2 · 2.5）—— 职能区直接**平铺**成它内部的所有条目。
+ * 手机端**不做悬停**（批次 2 · 2.5）—— 职能区直接**平铺**成它内部的所有条目，
+ * 并以**区名当路标**（否则 15+ 条无标题平铺，比桌面还难找）。
  * 🔴 平铺必须走**同一份** `resolveNavItem` 结果：桌面弹窗里因权限被隐藏的列，
  *    手机端也不能露出来，否则就变成"屏幕尺寸决定权限"（这类洞本项目出过多次）。
+ * ⚠️ 排除底部栏那三项按**条目自己的路径**判：`/forecast` 的 3 个页签条目路径也是
+ *    `/forecast` ⇒ 它们不在抽屉里重复出现（那一页的页内页签本来就能切）。
  */
 const drawerGroups = computed(() => NAV
-  .map(g => ({
-    label: g.label,
-    items: g.items
-      .map(resolveNavItem)
-      .filter(Boolean)
-      .flatMap(it => it.groups ? it.groups.flatMap(sg => sg.items) : [it])
-      .filter(it => !MNAV_PATHS.includes(it.path))
-  }))
-  .filter(g => g.items.length))
+  .map(resolveNavItem)
+  .filter(Boolean)
+  .map(it => it.groups
+    ? { label: it.name, items: it.groups.flatMap(sg => sg.items).filter(x => !MNAV_PATHS.includes(x.path)) }
+    : (MNAV_PATHS.includes(it.path) ? null : { label: '', items: [it] }))
+  .filter(g => g && g.items.length))
 
 /* ---------------------------------------------------------------------------
    v388（2026-10-07）批次 2：职能区悬停弹窗的开关
@@ -437,11 +595,47 @@ const route = useRoute()
 watch(() => route.fullPath, areaClose)
 watch(() => store.ui.sidebarOpen, areaClose)
 
-/* v291（2026-09-27）：`canSee(path)` 直接引自 `constants/pages.js` 的页面注册表 ——
-   本模板 24 处菜单项（桌面侧栏 12 + 手机底栏 3 + 手机抽屉 9）全部走它。
+/* ---------------------------------------------------------------------------
+   v390（2026-10-07）批次 3：**当前页高亮**（弹窗条目 + 一级项两级）
+   ---------------------------------------------------------------------------
+   🔴 为什么不能直接用 `router-link-active`：弹窗里「历史期次 / 报单配置 / 商品目标」
+      三条的 `to` 是**同一个 path、不同 query**（`/forecast?tab=…`）。vue-router 的
+      `router-link-active` 按 **matched 路由记录**判，不看 query ⇒ **三条会同时高亮**。
+      这在本轮真机验证时一眼可见（3 条一起变蓝＝分不清自己在哪个页签）。
+
+   ⇒ 改成自己算：**path 相同 且 tab 相同**才算当前。对不带 `tab` 的条目（绝大多数）
+     退化成"path 相同"，与旧行为一致；`.cur` 是**唯一**的高亮来源，
+     所以不存在"两套判据各亮一半"。
+   --------------------------------------------------------------------------- */
+function isCur(x) {
+  if (!x || route.path !== x.path) return false
+  return String((route.query && route.query.tab) || '') === String(x.tab || '')
+}
+
+/** 一级项高亮：本区声明了锚点、且正停在锚点页 ⇒ 亮；或**任一子条目**是当前页 ⇒ 亮。
+ *  §七「当前页高亮」要求一级项也亮 —— 否则站在 `/archive/products` 时侧栏毫无指示。 */
+function areaCur(it) {
+  if (it.path && route.path === it.path) return true
+  return !!(it.groups && it.groups.some(sg => sg.items.some(isCur)))
+}
+
+/* v291（2026-09-27）：`canSee(path)` 直接引自 `constants/pages.js` 的页面注册表。
    🔴 别再在任何地方写 `v-if="store.user.role === 'boss'"` 这类硬编码角色判断 ——
-      那样写出来的"第 25 个入口"注定与注册表漂移（本项目 v267 的假入口、
-      v275 的假封锁都是这么来的）。要改"谁看得见哪一页"，只改 `constants/pages.js` 一张表。 */
+      那样写出来的下一个入口注定与注册表漂移（本项目 v267 的假入口、
+      v275 的假封锁都是这么来的）。要改"谁看得见哪一页"，只改 `constants/pages.js` 一张表。
+
+   ⚠️ v390（2026-10-07）**计数订正**：本段原写「本模板 24 处菜单项（桌面侧栏 12 +
+      手机底栏 3 + 手机抽屉 9）全部走它」—— 那个**字面计数已不成立**，别再拿它当基线：
+        · v311 起三面已改成**表驱动**（读同一张 `NAV`），本轮的 `resolveNavItem` 再把
+          收窄**抽成一份实现** ⇒ 模板里现在**一处判据都没有**（v291 那条纪律的终点）。
+        · `canSee(` 在 Shell.vue 全文只剩 **3 处调用、2 个定义**：
+            - `resolveNavItem`（2 处：职能区准入锚点 + 条目本身）—— **唯一收窄实现**；
+            - `mnavItems`（1 处：底部栏那三项按 `path` 取）。
+          ⇒ 三个渲染面（桌面侧栏 / 手机底栏 / 手机抽屉）**共用**它，「面数」不再等于暴露面。
+      🔴 护栏同步：`role-registry-consistency-check.py` 的 F2 段 v390 已把判据从
+         「数 `canSee('/x')` 字面出现次数」改成**按数据流判**（消费 `NAV` 的面，其定义闭包
+         里必须出现 `canSee(`）—— 否则本次重构会让那条断言**永久变红**，
+         而"永远红的断言"正是本项目最贵的坑（见该脚本 v325 段自述）。 */
 
 /* ---------------------------------------------------------------------------
    v275（2026-09-25）：被路由守卫拒了以后的落地提示
@@ -694,17 +888,13 @@ function stopResize() {
 .sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;color:var(--t2);text-decoration:none;font-size:13px;transition:all .15s}
 .sb-item:hover{background:var(--bg);color:var(--t1)}
 .sb-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
-/* v311：侧栏分组标题（经营 / 核算 / 配置）。
-   样式刻意**轻**：11px、字色 --t3（最浅一档）、不写 font-weight 600 ——
-   分组标题是"路标"不是"条目"，比条目抢眼就会把侧栏切成三块硬邦邦的隔断，
-   反而更不清爽。上间距 14px 相当于一条看不见的分隔线，不另画 border。
-   ⚠️ `:first-child` 去掉第一组的上边距：否则「经营」之上会多出一段空白，
-      看起来像侧栏顶部被压塌了（移动端 `.md-group-hd` 同理，见下）。 */
-.sb-grp{font-size:11px;color:var(--t3);letter-spacing:.8px;padding:14px 10px 4px}
-.sb-grp:first-child{padding-top:2px}
+/* ⚠️ v390（2026-10-07）：原 `.sb-grp`（分组标题：经营 / 核算 / 配置）**已随分组一起删除**
+   —— 它是 v311 为「3 组 10 项」加的，v390 改成 8 项平铺后模板里已无引用，
+   留着就是一条**永不命中的死规则**（本项目纪律：死 CSS 与死代码同罪，会被后人当成"还在用"）。
+   若将来要恢复分组标题，连同模板里的 `<div class="sb-grp">` 一起加回来即可。 */
 
 /* ---------------------------------------------------------------------------
-   v388（2026-10-07）批次 2 · 职能区（area）+ 悬停弹窗
+   v388（2026-10-07）批次 2 · 职能区（area）+ 悬停弹窗 ／ v390 批次 3 扩展
    ---------------------------------------------------------------------------
    全部复用既有变量（--bg / --p-bg / --p-dark / --t1 / --t2 / --t3 / --bd /
    --glass-bg-strong / --glass-blur），**不新造任何色值** —— 深色模式换的只是
@@ -717,6 +907,9 @@ function stopResize() {
 .sb-area-btn{font:inherit;border:none;background:none;cursor:pointer;text-align:left}
 .sb-area.open>.sb-area-btn{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 .sb-area.pinned>.sb-area-btn{box-shadow:inset 0 0 0 1px var(--bd)}
+/* v390：一级项「当前页高亮」（§七 要求）—— 与扁平项的 `.router-link-active`
+   **视觉完全一致**，否则同一屏上两种"当前页"长得不一样。判定见 `areaCur()`。 */
+.sb-area.cur>.sb-area-btn{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 .sb-caret{margin-left:auto;opacity:.55;transition:transform .15s}
 .sb-area.open .sb-caret{transform:rotate(90deg)}
 
@@ -731,10 +924,25 @@ function stopResize() {
   border:1px solid var(--bd);border-radius:12px;padding:6px;z-index:30;
   box-shadow:0 8px 24px rgba(0,0,0,.12)}
 .sb-pop-hd{font-size:11px;color:var(--t3);letter-spacing:.8px;padding:6px 10px 2px}
+/* v390：弹窗里的一行 = **两个可点区域**（左：对象名 → 列表/页签；右：「创建」→ 新建页）。
+   `.sb-pop-row` 用 flex 让左边吃掉剩余宽度、右边 `flex-shrink:0` 固定不缩 ——
+   条目名字长短不一时，右边的「创建」仍然**左右对齐**（§八 风险 6：靠分离度防误触）。 */
+.sb-pop-row{display:flex;align-items:center;gap:4px}
+.sb-pop-row>.sb-pop-item{flex:1;min-width:0;width:auto}
 .sb-pop-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:8px;
   color:var(--t2);text-decoration:none;font-size:13px;white-space:nowrap;transition:all .15s}
 .sb-pop-item:hover{background:var(--bg);color:var(--t1)}
-.sb-pop-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
+/* 🔴 v390：高亮判据由 `.router-link-active` 换成 `.cur`（判定见 `isCur()` 段注释）——
+   「历史期次 / 报单配置 / 商品目标」三条的 `to` 是**同一 path、不同 query**，
+   vue-router 按 matched 路由记录判 active ⇒ 不加改动会**三条一起亮**（真机可见）。
+   `.cur` 由我们自己算（path 与 tab 都比），因此它是弹窗里**唯一**的高亮来源。 */
+.sb-pop-item.cur{background:var(--p-bg);color:var(--p-dark);font-weight:500}
+/* 行尾「创建」（L1 双入口的右半区）。桌面用**文字**而非纯图标：横向空间够，
+   「创建」不需要学习成本（§七：手机端横向紧才改用 `＋`，那随批次 5 一起做）。 */
+.sb-pop-new{display:flex;align-items:center;gap:3px;flex-shrink:0;padding:6px 9px;border-radius:8px;
+  background:var(--p-bg);color:var(--p-dark);text-decoration:none;font-size:12px;
+  white-space:nowrap;transition:all .15s}
+.sb-pop-new:hover{background:var(--p);color:#fff}
 
 .md-group-hd{font-size:11px;font-weight:500;color:var(--t3);padding:14px 20px 4px;letter-spacing:.8px}
 

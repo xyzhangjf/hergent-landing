@@ -91,6 +91,8 @@ ERPDB_PY = _p('ROLE_REG_ERPDB', os.path.join(ERP_REPO, 'server', 'erp_db.py'))
 STORE_JS = _p('ROLE_REG_STORE', os.path.join(FE_SRC, 'store', 'index.js'))
 CMDPAL = _p('ROLE_REG_CMDPAL', os.path.join(FE_SRC, 'components', 'CommandPalette.vue'))
 WORKBENCH = _p('ROLE_REG_WORKBENCH', os.path.join(FE_SRC, 'pages', 'Workbench.vue'))
+# v349：权限页「行」的呈现层唯一源（行 = 侧栏功能，勾选举仍写回后端模块名）
+PERMVIEW_JS = _p('ROLE_REG_PERMVIEW', os.path.join(FE_SRC, 'constants', 'permView.js'))
 
 # 允许出现在前端清单里的**非**后端角色（各有理由，别随手往这里加）：
 EXTRA_OK = {
@@ -439,6 +441,110 @@ def fe_page_modules():
             r"'(/[A-Za-z0-9_/\-]+)':\s*\{\s*title:\s*'([^']+)'[^}]*?module:\s*'([^']+)'", src):
         out.setdefault(m.group(3), []).append(m.group(2))
     return out
+
+
+def _js_page_null_titles(path):
+    """`pages.js` → 所有 `module: null` 的页面**标题**集合（= 权限页上不该有开关的页）。
+
+    🔴 判读纪律（本机 §13 同族）：只认 `module:` 后紧跟 `null`（含空格差异），
+       且**先剥整行注释** —— 本仓注释里就写着「module: null」，不剥会把注释里的样例
+       当成真实配置。"""
+    src = read(path) or ''
+    body = '\n'.join(l for l in src.split('\n') if not l.strip().startswith('//'))
+    return set(re.findall(r"title:\s*'([^']+)'[^}]*?module:\s*null", body))
+
+
+def _js_permview(src):
+    """解析 `permView.js` → `(模块值列表, 固定行名列表, 全部行名列表)`。
+
+    识别两类行：
+      · `module: 'xxx'`  ⇒ 可勾行（写回后端模块 `xxx`）
+      · `module: null`   ⇒ 只读固定行（行名记入第二项，供与 `pages.js` 比对）
+
+    🔴 同样必须先剥整行注释：本文件注释密度极高，注释里既有 `module: null` 也有模块名，
+       不剥会产出"注释里的样例"这种幽灵行。"""
+    if not src:
+        return [], [], []
+    body = '\n'.join(l for l in src.split('\n') if not l.strip().startswith('//'))
+    mods, fixed, names = [], [], []
+    for m in re.finditer(r"name:\s*'([^']+)'\s*,\s*module:\s*(?:'([^']+)'|null)", body):
+        names.append(m.group(1))
+        if m.group(2):
+            mods.append(m.group(2))
+        else:
+            fixed.append(m.group(1))
+    return mods, fixed, names
+
+
+def _js_perm_groups(src):
+    """`permView.js` → `PERM_SIDEBAR_GROUPS` 的**组名列表（按定义顺序）**。
+
+    组对象的写法是 `{ name: 'X', tab: 'Y', items: [...] }`，而**行**对象是
+    `{ name: 'X', module: ... }` ⇒ 用「`name` 后紧跟 `tab:`」这个特征只认组、不认行。
+    ⚠️ 只在 `PERM_SIDEBAR_GROUPS` 数组内取（`PERM_MORE_GROUP` 也是
+       `name:, tab:` 形状，不收进来 —— 它不在侧栏一级项里）。
+    🔴 先剥整行注释：本文件注释密度极高，且注释里就写着字段样例。
+    """
+    if not src or 'PERM_SIDEBAR_GROUPS' not in src:
+        return []
+    end = src.find('export const PERM_MORE_GROUP')
+    block = src[src.index('PERM_SIDEBAR_GROUPS'):end if end > 0 else len(src)]
+    body = '\n'.join(l for l in block.split('\n') if not l.strip().startswith('//'))
+    return re.findall(r"name:\s*'([^']+)'\s*,\s*tab:\s*'[^']*'", body)
+
+
+def _shell_nav_names(src):
+    """`Shell.vue` → `NAV` 表里**一级项**的 `name` 列表（按表内顺序）。
+
+    🔴 为什么必须**按括号配平**扫、而不是正则 `name: 'X'`：`NAV` 的条目里嵌着
+       `groups[].items[]`，同样有 `name:` ⇒ 纯正则会连子条目名字一起吃进来
+       （本轮实测：会把「历史期次 / 报单配置 / 商品目标」也算成一级项）。
+    🔴 扫之前**必须剥注释**：v390 在 NAV 的注释里写了 `{ key, name, icon, path?, groups: [… ] }`
+       这种**含花括号的样例**，不剥会把括号配平算乱（同族纪律见 `strip_js_comments`）。
+    """
+    code = strip_js_comments(src)
+    i = code.find('const NAV = [')
+    if i < 0:
+        return []
+    j = code.index('[', i)
+    # 先按 `[` / `]` 配对取出整个数组（⚠️ 数组**没有**外层花括号 ⇒ 不能拿"depth 回 0"
+    #   当数组结束信号 —— 那会在**第一个条目闭合时**就停手，本轮实测只抓到一个名字）。
+    bdepth, k, end = 0, j, None
+    while k < len(code):
+        if code[k] == '[':
+            bdepth += 1
+        elif code[k] == ']':
+            bdepth -= 1
+            if bdepth == 0:
+                end = k
+                break
+        k += 1
+    if end is None:
+        return []
+    block = code[j + 1:end]
+    # 再在数组内取**深度 1** 的对象（= 一级项），各取其 `name`。
+    names, depth, start = [], 0, None
+    for idx, c in enumerate(block):
+        if c == '{':
+            depth += 1
+            if depth == 1:
+                start = idx + 1
+        elif c == '}':
+            if depth == 1 and start is not None:
+                m = re.search(r"\bname:\s*'([^']+)'", block[start:idx])
+                if m:
+                    names.append(m.group(1))
+                start = None
+            depth -= 1
+    return names
+
+
+def _js_str_assign(src, var):
+    """取 `export const VAR = 'value'` 的字面量值（没有则返回 None）。"""
+    if not src:
+        return None
+    m = re.search(r"%s\s*=\s*'([^']+)'" % re.escape(var), src)
+    return m.group(1) if m else None
 
 
 def fe_role_options(src):
@@ -1023,49 +1129,90 @@ def main():
     #         —— **行数是数据，面数才是暴露面**。
     #      ③ 只有在表里**确实有** /forecast 时，②的面数才计入（否则表被删了还虚增）。
     #    反例自证（本判据必须能转红）：把 `navGroups` 的 `canSee` 注入删掉 ⇒ 面数掉到 2。
-    _lit_links = re.findall(r"""<router-link[^>]*?to="/forecast"[^>]*?>""", sh_src)
+    #    ⚠️ 上面这段 v325 的实现**已在 v390 被替换**（`navGroups` 这个 computed 本身已不存在，
+    #       `mnavItems`/`drawerGroups` 也不再各自 `canSee`，而是共用 `resolveNavItem`）——
+    #       见紧邻下方 v390 段。保留原文只为记下"同一病因连犯三次"这段历史。
+    # 🔴 2026-10-07（v390）**第四次订正** —— 前两版判据都**绑在写法上**，写法一重构即失效：
+    #    · v291 版数字面 `canSee('/forecast')` 出现次数 → v311 改表驱动后**假红**；
+    #    · v311 版数「哪个 `v-for` 列表的定义体里带 `.filter(...canSee(`」→ v388 把收窄抽成
+    #      `resolveNavItem`、v390 又把模板改成 `navItems`/`drawerGroups` 之后**再次假红**
+    #      （那条断言本会话实测红过一整天，正是本脚本自己在 v325 段痛斥的
+    #       "永远红的断言会训练所有人忽略红色输出"）。
+    #    ⇒ 本次改成**按数据流判**，与写法解耦：
+    #      ① 找出「消费 `NAV` 的渲染面」= 定义体里出现 `NAV` 的那些 `v-for` 列表名；
+    #      ② 从每个面出发算**定义闭包**（顺着它引用的其它顶层 `const`/`function` 名走）；
+    #      ③ 闭包里必须**至少出现一次 `canSee(`** ⇒ 该面受门禁。
+    #    这样判据落在**契约**上（面最终走到 canSee），而不是落在某一层的函数名上 ——
+    #    无论将来把收窄再抽一层，只要链路没断就绿；一旦有人删掉 `resolveNavItem` 里的
+    #    `canSee`，③ 立刻报红（下一条反例自证就是拿这个动作做的）。
+    _lit_links = re.findall(r"""<router-link[^>]*?\bto="/forecast"[^>]*?>""", sh_src)
     _lit_gated = [t for t in _lit_links
                   if re.search(r"""v-if="[^"]*(?:canSee\('/forecast'\)|canViewForecastSummary\()""", t)]
     _naked = len(_lit_links) - len(_lit_gated)
-    _nav_rows = re.findall(r"""\{\s*path:\s*'/forecast'""", sh_src)
-    _nav_filtered = bool(re.search(r"canSee\(\s*[a-z]+\.path\s*\)", sh_src))
+    # NAV 里是否真的挂着 /forecast（v390 起主入口写作 `path: '/forecast'`，可能是区的锚点、
+    #   也可能是弹窗里的一个条目 ⇒ 判据放宽到"`{ ... path: '/forecast'`"两种形态都算）。
+    _nav_rows = re.findall(r"""\{\s*[^{}]*?\bpath:\s*'/forecast'""", sh_src)
     _render_lists = sorted(set(re.findall(r"""v-for="\s*\w+\s+in\s+(\w+)\s*\"""", sh_src)))
+    _all_names = sorted(set(re.findall(
+        r"""(?:const|let|var|function)\s+([A-Za-z_$][\w$]*)""", sh_src)))
 
-    def _def_body(src, name, cap=900):
-        """取 `const <name> = ...` 的**函数体切片**，切到下一条顶层声明为止。
+    def _def_body(src, name, cap=1400):
+        """取 `const NAME = ...` / `function NAME(...)` 的**定义体切片**，切到下一条顶层声明。
 
-        🔴 为什么不能直接用「`<name>` 之后 N 字内的 `canSee`」：那就是本判据前两版的
-           病根 —— 窗口会**跨出定义边界**，串到下一个 computed 的 `canSee` 上，
-           于是"抹掉某个面的门禁"也测不出来（反例自证当场红给看）。按边界切才测得准。
+        🔴 为什么不能直接用「`<name>` 之后 N 字内的 `canSee`」：窗口会**跨出定义边界**，
+           串到下一个 computed 的 `canSee` 上 ⇒ "抹掉某个面的门禁"也测不出来（假绿）。
+        🔴 v390 用**空行**当边界（顶层声明之间必有空行），不再用"下一条 `const`"：
+           后者在定义体里出现**缩进的局部 `const`**（本轮 `mnavItems` 里就有 `const all = …`）
+           时会**提前截断**，把同一面切成两段 —— 于是"整面是否有 canSee"判错。
         """
-        m = re.search(r"""(?:const|let|var)\s+""" + re.escape(name) + r"""\s*=""", src)
+        m = re.search(r"""(?:const|let|var)\s+""" + re.escape(name) + r"""\s*=[ \t]*"""
+                      r"""|function\s+""" + re.escape(name) + r"""\s*\(""", src)
         if not m:
             return ''
         body = src[m.end():m.end() + cap]
-        cut = re.search(r"""\n(?=(?:const|let|var|function|import|export|/\*)\s)""", body)
+        cut = re.search(r"""\n[ \t]*\n""", body)
         return body[:cut.start()] if cut else body
 
-    def _gated_of(src):
-        return [n for n in _render_lists
-                if re.search(r"""\.filter\([\s\S]{0,120}?canSee\(""", _def_body(src, n))]
+    def _closure(src, name, seen=None):
+        """`name` 的定义闭包（顺着它引用的其它顶层名递归）—— 用来判"面最终是否走到 canSee"。"""
+        seen = seen if seen is not None else set()
+        if name in seen:
+            return seen
+        seen.add(name)
+        body = _def_body(src, name)
+        for ref in _all_names:
+            if ref != name and re.search(r"""\b%s\b""" % re.escape(ref), body):
+                _closure(src, ref, seen)
+        return seen
 
+    def _gated_of(src):
+        """受门禁的渲染面 = 消费 `NAV` 且其定义闭包里出现 `canSee(` 的那些 `v-for` 列表。"""
+        out = []
+        for n in _render_lists:
+            if 'NAV' not in _def_body(src, n):
+                continue                       # 不是 NAV 派生面 ⇒ 不在本判据范围
+            if any('canSee(' in _def_body(src, d) for d in _closure(src, n)):
+                out.append(n)
+        return sorted(out)
+
+    _nav_surfaces = sorted(n for n in _render_lists if 'NAV' in _def_body(sh_src, n))
     _gated_surfaces = _gated_of(sh_src)
-    _tbl_gated = len(_gated_surfaces) if _nav_rows else 0
-    _total_gated = len(_lit_gated) + _tbl_gated
+    _ungated = [n for n in _nav_surfaces if n not in _gated_surfaces]
+    _total_gated = len(_gated_surfaces) if _nav_rows else 0
     check('Shell.vue 每个 /forecast 入口都带门禁（≥2 个渲染面，且无裸入口）',
           _total_gated >= 2 and _naked == 0,
-          '字面门禁 %d 面 / 表驱动门禁 %d 面%s / 裸入口 %d 处'
-          % (len(_lit_gated), _tbl_gated,
-             ('（' + '、'.join(_gated_surfaces) + '）') if _gated_surfaces else '', _naked))
-    check('Shell.vue 导航表里的 /forecast 条目真的过了 canSee（表里有序、不过滤 = 假入口）',
-          (not _nav_rows) or _nav_filtered or bool(_gated_surfaces), '')
-    # 反例自证：证明上面这条判据**真的会红**（不是恒绿的空转断言）
-    _probe = sorted(_render_lists)[0] if _render_lists else ''
-    _mut = sh_src.replace('items.filter(it => canSee(it.path))',
-                          'items.filter(it => true)', 1) if _probe else sh_src
-    check('反例自证：抹掉一个渲染面的 canSee ⇒ 面数必须掉下来（判据有判别力）',
-          bool(_probe) and _mut != sh_src and len(_gated_of(_mut)) < _tbl_gated,
-          '原 %d 面 → 抹掉后 %d 面' % (_tbl_gated, len(_gated_of(_mut))))
+          'NAV 派生渲染面 %d 个（受门禁 %d%s）/ 裸入口 %d 处'
+          % (len(_nav_surfaces), _total_gated,
+             ('；未受门禁: ' + '、'.join(_ungated)) if _ungated else '', _naked))
+    check('Shell.vue 每个 NAV 派生渲染面都受门禁（任一漏过 canSee = 对全员可见的假入口）',
+          (not _nav_rows) or (not _ungated),
+          ('未受门禁的面: ' + '、'.join(_ungated)) if _ungated else '')
+    # 反例自证：把收窄实现里的 `canSee(` 全部抹掉 ⇒ 受门禁的面必须掉到 0（判据有判别力）
+    _mut = re.sub(r"""canSee\(""", 'CANSEE_OFF(', sh_src) if _nav_surfaces else sh_src
+    _mut_gated = _gated_of(_mut)
+    check('反例自证：抹掉收窄实现里的 canSee ⇒ 受门禁的渲染面必须掉下来（判据有判别力）',
+          bool(_nav_surfaces) and len(_mut_gated) < len(_gated_surfaces),
+          '原 %d 面 → 抹掉后 %d 面' % (len(_gated_surfaces), len(_mut_gated)))
     fore_src = read(FORECAST)
     check('Forecast.vue 两条路都接了（summaryDenied 按角色预判 + crossDenied 服务端拒绝）',
           'summaryDenied' in fore_src and 'crossDenied' in fore_src)
@@ -1126,8 +1273,11 @@ def main():
           not miss_ai,
           ('缺: %s' % miss_ai) if miss_ai else
           '共 %d 条: %s' % (len(chat_prefixes), ', '.join(chat_prefixes)))
-    lbl_i = server_src.find('"chat":"')
-    chat_label = server_src[lbl_i + len('"chat":"'):].split('"', 1)[0] if lbl_i > 0 else ''
+    # v347（2026-09-30）：取显示名的位置从"server.py 内联的那份"改为**唯一源** `core.MODULE_LABEL`。
+    #   ⚠️ 顺带修掉一个**脆弱判据**：原实现是 `server_src.find('"chat":"')` —— 它假设
+    #      「键与值之间的冒号后**没有空格**」。唯一源那份写的是 `"chat": "…"`（有空格），
+    #      于是即使表还在，这条也会读出 '' 而假红。按 AST 取值不再依赖排版。
+    chat_label = (_py_literal(CORE_PY, 'MODULE_LABEL') or {}).get('chat', '')
     check('权限页里 `chat` 的显示名带**成本提示**（老板得在勾之前就看见「消耗积分」）',
           '积分' in chat_label,
           '显示名 = %r（退回纯「AI对话」= 成本在勾之前不可见）' % chat_label)
@@ -1214,6 +1364,45 @@ def main():
     fake = sorted(set(all_mods) - mapped)
     check('凡是能勾的模块都有接口映射（防"勾了不生效"的假配置）', not fake,
           '无映射: %s（勾与不勾完全等价）' % fake)
+    # v347（2026-09-30）：**模块译名表不许缺项，也不许有第二份**。
+    #   ① 缺项 ⇒ `server._module_cn()` 回落原始模块名 ⇒ 用户看到
+    #      「你的角色「业务员」没有「cron」的使用权限」—— 把内部枚举值渲染给业务员看，
+    #      正是 v331 / v338 / v339 明令禁止的那类文案。实测（v347 前）缺 7 个：
+    #      bid / cron / forecast-audit / goals / messages / projects / tasks。
+    #   ② 比缺项更要命的是"**两份表取值不同**"：权限页行名（原在 `list_modules()` 里内联）
+    #      与 403 译名（原 `server._MODULE_CN`）此前是**两份手抄清单**，19 项里 **10 项不一致**
+    #      ⇒ 403 文案让用户去开通一个**权限页上不存在的开关**
+    #      （`data` 权限页叫「档案管理」、403 里叫「报单数据」；`accounts` 是「收付款」vs
+    #      「财务账目」…）。这不是"不好看"，而是**把用户指到错误的地方**，他照着找找不到。
+    #   ⇒ v347 把两处合并为 `core.MODULE_LABEL` **唯一源**（server 侧 `_MODULE_CN` 只是别名）。
+    #      下面四条把它焊死：键集 ≡ `_ALL_MODULES`、无死键、反例有判别力、server 侧无第二份。
+    label = _py_literal(CORE_PY, 'MODULE_LABEL') or {}
+    miss_lb = sorted(set(all_mods) - set(label))
+    check('模块译名表 `MODULE_LABEL`（唯一源）覆盖全部可配模块（缺项 = 403 渲染内部键）',
+          not miss_lb, '缺译名: %s（用户会看到「没有「xxx」的使用权限」这种内部键）' % miss_lb)
+    extra_lb = sorted(set(label) - set(all_mods))
+    check('模块译名表没有死键（不在 `_ALL_MODULES` 里 = 永不命中）',
+          not extra_lb, '死键: %s（v328 删模块时漏删的译名）' % extra_lb)
+    mut_lb = set(label) - {'cron'}
+    check('反例自证：从译名表里抹掉一个模块 ⇒ 上面那条必须转红（判据有判别力）',
+          bool(label) and bool(set(all_mods) - mut_lb),
+          '抹掉 cron 后缺口 %d 个（0 = 判据失效）' % len(set(all_mods) - mut_lb))
+    # 唯一源纪律：`_MODULE_CN` 必须是别名（不是字面量），且 `list_modules()` 真的消费唯一源
+    srv_src = read(SERVER_PY)
+    _cn_literal = _py_literal(SERVER_PY, '_MODULE_CN') is not None
+    _consumes = 'MODULE_LABEL.get(m, m)' in srv_src
+    check('403 译名表 = 唯一源的别名（server 侧不许再手抄第二份）',
+          (not _cn_literal) and _consumes,
+          ('_MODULE_CN 仍是字面量字典 ⇒ 两份表会再次漂移' if _cn_literal
+           else ('list_modules() 未消费 MODULE_LABEL ⇒ 行名与 403 译名会再次分家'
+                 if not _consumes else '已别名到 MODULE_LABEL，list_modules() 已消费它')))
+    # 🔴 正反两侧自证判别力（本机纪律 §12：探针必须先自证判别力，否则"绿"没有意义）：
+    #   · 负侧 = `server.py` 里的 `_MODULE_CN` 读不出字面量（⇒ 它已是别名）；
+    #   · 正侧 = 同一个 `_py_literal` 对**已知的字面量字典** `core.MODULE_IMPACT` 必须回 dict。
+    #   缺了正侧的话，"读不出字面量"也可能只是因为判据坏了 —— 那样这条绿是假的。
+    check('反例自证：`_py_literal` 对字面量字典确实回 dict（⇒ 上面那条真有判别力）',
+          isinstance(_py_literal(CORE_PY, 'MODULE_IMPACT'), dict),
+          '正侧样本 = `MODULE_IMPACT`（已知字面量）；读不出 ⇒ 判据失灵，上条的"非字面量"不可信')
     # 说明不漂移：`entries` 必须与 pages.js 里挂了 module 的页面逐项一致
     pg = fe_page_modules()
 
@@ -1234,6 +1423,62 @@ def main():
     check('反例自证：抹掉 pages.js 里一页的 module ⇒ 上面那条必须转红（判据有判别力）',
           bool(pg.get('dashboard')) and bool(_entry_mismatch(pg_mut)),
           '抹掉后差异数 %d' % len(_entry_mismatch(pg_mut)))
+    print('')
+
+    # ---------------------------------------------------------------- v349：权限页呈现层唯一源
+    # 老板原话：「权限项重新设计为：①侧栏暴露的功能模块 ②是否可使用 AI ③Web 端 ④小程序端」。
+    # ⇒ 新增 `hergent-cn-v2/src/constants/permView.js`：行 = **侧栏功能**（不再是后端模块名）。
+    # 🔴 它是**展示层**的映射，勾选举仍写回原模块名（路线 A）⇒ 三条必须焊死：
+    #    (a) 里头的 `module` 值必须都是真实模块（写错 = 勾了不生效 = 界面说假话）；
+    #    (b) 21 个模块必须**全覆盖**（permView + AI 行）⇒ 漏一个就从界面上消失；
+    #    (c) `module: null` 的固定行必须**真的**是 `pages.js` 里 `module: null` 的页
+    #        （若那页已经有模块了还标 fixed ⇒ 老板永远找不到那个开关）。
+    pv_src = read(PERMVIEW_JS)
+    pv_mods, pv_fixed, pv_names = _js_permview(pv_src)
+
+    bad_pv = sorted(m for m in pv_mods if m not in set(all_mods))
+    check('权限页呈现层 `permView.js` 的模块值全部真实存在（写错 = 勾了不生效）',
+          not bad_pv, '不存在的模块: %s（勾它不会有任何效果）' % bad_pv)
+
+    ai_mod = _js_str_assign(pv_src, 'PERM_AI_MODULE') or 'chat'
+    covered = set(pv_mods) | {ai_mod}
+    missed = sorted(set(all_mods) - covered)
+    dup = sorted(m for m in set(pv_mods) if list(pv_mods).count(m) > 1)
+    check('后端 %d 个模块在权限页上**全覆盖且不重复**（漏一个 = 该开关从界面消失）' % len(all_mods),
+          not missed and not dup,
+          '未出现: %s%s' % (missed, ('；重复: %s' % dup) if dup else ''))
+
+    # (c) 固定行 ↔ pages.js 的 `module: null` 必须对得上
+    null_pages = _js_page_null_titles(PAGES_JS)
+    wrong_fixed = sorted(n for n in pv_fixed if n not in null_pages)
+    check('只读固定行（module: null）确实对应 pages.js 里没有模块的页',
+          not wrong_fixed,
+          '标了 fixed 但那页其实有模块: %s ⇒ 老板会永远找不到它的开关' % wrong_fixed)
+    # 反例自证：从「无模块页」集合里抹掉一个固定行名 ⇒ 上条必须转红（否则绿是假的）
+    if pv_fixed:
+        victim = sorted(pv_fixed)[0]
+        still = sorted(n for n in pv_fixed if n not in (null_pages - {victim}))
+        check('反例自证：抹掉一个「无模块页」⇒ 上面那条必须转红（判据有判别力）',
+              bool(still),
+              '抹掉「%s」后仍有 %d 个固定行对不上 ⇒ 判据有效' % (victim, len(still)))
+
+    # (d) v390（2026-10-07）：**组名 ↔ `Shell.vue::NAV` 一级项名**，逐项且同序。
+    #   老板拍板「权限页域页签完全按侧栏 8 项 1:1」⇒ 这条从注释里的"愿望"变成硬断言。
+    #   🔴 它挡的是一类**很安静**的病：侧栏加/改/删了一个一级项，权限页没跟上 ⇒
+    #      老板照着侧栏那个名字去权限页找开关，**找不到那一行**
+    #      （而两边单独看都"正常"）。⚠️ 本文件头v390之前写着「护栏会锁侧栏项与 NAV 一致」，
+    #      但护栏里**根本没有**这条断言 —— 那正是"注释声称有护栏、实际没有"，
+    #      本轮把这个假声称补成真断言（要么写进护栏，要么删掉那句注释，不许含糊）。
+    nav_names = _shell_nav_names(read(SHELL_VUE))
+    pv_groups = _js_perm_groups(pv_src)
+    check('权限页的组名与 Shell.vue NAV 的一级项名**逐项同序**（老板拍板 1:1）',
+          bool(nav_names) and nav_names == pv_groups,
+          'NAV=%s / permView=%s' % (nav_names, pv_groups))
+    # 反例自证：从 NAV 名单里去掉一个 ⇒ 上面那条必须转红（否则它只是恒绿的空转断言）
+    check('反例自证：NAV 少一个一级项 ⇒ 上面那条必须转红（判据有判别力）',
+          bool(nav_names) and (nav_names[1:] != pv_groups),
+          '去掉首项后 NAV=%s（%d 项）vs permView（%d 项）'
+          % (nav_names[1:], len(nav_names) - 1, len(pv_groups)))
     print('')
 
     print('-' * 62)

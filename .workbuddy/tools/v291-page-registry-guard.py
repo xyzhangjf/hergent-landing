@@ -11,12 +11,23 @@
     只有拿「入口实际引用到的路径」去比「表里登记的路径」才会现形。
 
 判据（任一不满足即退出码 1）：
-    A. Shell.vue / CommandPalette.vue 里 `canSee('/x')` 引用到的**每一个**路径，
-       都必须在 PAGE_RULES 里登记。
+    A. Shell.vue / CommandPalette.vue 里引用到的**每一个**路径，都必须在 PAGE_RULES 里登记。
+       引用 = `canSee('/x')` 字面量 ∪ **`Shell.vue` NAV 表里的 `path: '/x'`**（v390 起）。
     B. router/index.js 里每个**有组件**的子路由（非 redirect），也必须在表里登记。
        （redirect-only 的路由豁免 —— 它不渲染页面，keeper 不适用。）
     C. 反向提示：表里登记但三个入口都没引用的路径 —— 只提示不失败
        （`/zhoupu-import`、`/loss`、`/dashboard`、`/data-fill` 这类是深链/页内跳转专用，正常）。
+
+🔴 v390（2026-10-07）判据 A 的**输入**扩了 —— 这是**修判据**，不是放宽：
+    v388/v390 把侧栏改成**表驱动**（读同一张 `NAV`，`canSee` 只在 `resolveNavItem`/`mnavItems`
+    里各调一次，模板里 0 处判据）⇒ 旧判据那套「从 `Shell.vue` 正则抓 `canSee('/x')` 字面量」
+    会抓到 **0 个**，于是本条**恒绿但什么也没查**（覆盖面对称地消失了 —— 比红灯更危险）。
+    新输入 = `path: '/x'`：表驱动下**每一条 `path` 都真的会被 `canSee` 判一次**
+    （扁平项判自己；职能区判准入锚点 `path` + 每个条目的 `path`）⇒ 未登记仍会 fail-open
+    （`ruleFor` 返 null ⇒ 放行）⇒ 必须登记。改的是"从哪儿取引用"，判的方向一字未动。
+    ⚠️ 取引用前**先剥注释**：本仓注释刻意引用被禁止的写法本身
+       （v390 就在 NAV 注释里写了 `path: '/inventory'`），不剥会把"注释里提到的路径"
+       当成真实入口引用（同族纪律见 `role-registry-consistency-check.py::strip_js_comments`）。
 
 用法：python3 .workbuddy/tools/v291-page-registry-guard.py
 """
@@ -43,13 +54,40 @@ for p in sorted(registered):
     print('   ' + p)
 
 # ---------- 2. 入口引用了哪些 ----------
+def _strip_comments(s):
+    """抹掉 `<!-- -->` / `/* */` / `//` 注释。判据只许看**行为**，不许看"提及行为"。
+
+    🔴 本仓注释刻意引用被禁止的写法本身（v390 就在 NAV 注释里写了 `path: '/inventory'`）；
+       不剥会把注释里提到的路径当成真实入口引用（同族纪律见
+       `role-registry-consistency-check.py::strip_js_comments`）。
+    ⚠️ `//` 只在其前面是行首或空白时才当注释 —— 否则 `http://` 会被截掉。
+    """
+    s = re.sub(r"<!--[\s\S]*?-->", " ", s)
+    s = re.sub(r"/\*[\s\S]*?\*/", " ", s)
+    return '\n'.join(re.sub(r"(^|\s)//.*$", r"\1", ln) for ln in s.split('\n'))
+
+
 def refs(path):
-    s = path.read_text(encoding='utf-8')
+    s = _strip_comments(path.read_text(encoding='utf-8'))
     return set(re.findall(r"canSee\('(/[a-z0-9/-]+)'\)", s))
 
-shell_refs = refs(SHELL)
+
+def nav_paths(path):
+    """v390：`Shell.vue` NAV 表里声明的入口路径（`path: '/x'`）—— 见文件头判据 A 的说明。
+
+    表驱动下这些 `path` **每一条都会被 `canSee` 判一次**，所以它们与 `canSee('/x')`
+    字面量**同等**受"必须登记"的约束。取之前先剥注释（注释里也写着 `path: '/…'`）。
+    ⚠️ 只取**带引号的字符串字面量**：`{ path: it.path }` / `{ path: route.path }`
+       这类是取值（不是新路径），不会被抓到。
+    """
+    s = _strip_comments(path.read_text(encoding='utf-8'))
+    return set(re.findall(r"\bpath:\s*'(/[a-z0-9/-]+)'", s))
+
+
+shell_refs = refs(SHELL) | nav_paths(SHELL)
 palette_refs = refs(PALETTE)
-print('\nShell.vue 引用 %d 个 / CommandPalette.vue 引用 %d 个' % (len(shell_refs), len(palette_refs)))
+print('\nShell.vue 引用 %d 个（含 NAV 表 %d 个）/ CommandPalette.vue 引用 %d 个'
+      % (len(shell_refs), len(nav_paths(SHELL)), len(palette_refs)))
 
 used = shell_refs | palette_refs
 missing_a = sorted(used - registered)

@@ -1002,7 +1002,7 @@ const SLASH_COMMANDS = [
     prompt: '算一下这个月货损，按品类和原因拆解，指出异常。' },
   // —— 跳转页面（跳转时收起抽屉）——
   { cmd: '/工作台', group: '跳转页面', icon: 'grid', title: '经营工作台', path: '/workbench' },
-  { cmd: '/预报', group: '跳转页面', icon: 'activity', title: '预报订货管理', path: '/forecast' },
+  { cmd: '/预报', group: '跳转页面', icon: 'activity', title: '预报订单管理', path: '/forecast' },
   { cmd: '/返利政策', group: '跳转页面', icon: 'target', title: '目标与返利', path: '/rebate' },
   { cmd: '/商品目标', group: '跳转页面', icon: 'bars', title: '商品目标', path: '/product-target', module: 'data' },
   { cmd: '/算工资', group: '跳转页面', icon: 'coins', title: '算工资工作流', path: '/payroll', module: 'payroll' }

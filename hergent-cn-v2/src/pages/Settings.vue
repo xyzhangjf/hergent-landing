@@ -207,13 +207,23 @@
                   <!-- v349：只读固定行（`module: null`）—— 只说清它归谁管，**不给勾选框**。
                        画一个勾了不生效的框 = 界面说假话（本项目红线）。 -->
                   <div v-if="m.fixed" class="pm-mod-fixed">{{ m.fixed }}</div>
-                  <!-- v333：这个勾管哪些**页面**。数据源 = 后端 `MODULE_IMPACT.entries`，
-                       与 `pages.js` 的 `module` 由护栏逐项锁定，前端不自己再推一份。 -->
-                  <div v-else-if="pageNamesFor(m).length" class="pm-mod-pages">
-                    对应页面：{{ pageNamesFor(m).join('、') }}
-                  </div>
-                  <div v-else-if="m.note" class="pm-mod-pages">{{ m.note }}</div>
-                  <div v-else class="pm-mod-pages pm-mod-nopage">{{ PERM_NO_PAGE_NOTE }}</div>
+                  <template v-else>
+                    <!-- v333：这个勾管哪些**页面**。数据源 = 后端 `MODULE_IMPACT.entries`，
+                         与 `pages.js` 的 `module` 由护栏逐项锁定，前端不自己再推一份。 -->
+                    <div v-if="pageNamesFor(m).length" class="pm-mod-pages">
+                      对应页面：{{ pageNamesFor(m).join('、') }}
+                    </div>
+                    <!-- 🔴 v390（2026-10-07）：`note` 与上面的 `entries` 改回**可并存**
+                         （原来是 `v-else-if` 二选一）。起因：v390 把「经营看板」行改名为
+                         「经营趋势」后，该行**同时**有了 `entries: ['经营趋势']` 与一句
+                         补充说明（"首页的今日销售额 / 毛利 / 回款也跟它一起开关"）——
+                         二选一的写法会把后半句**静默顶掉**（数据仍在 `permView.js` 里，
+                         界面上却看不见）。一条规则（"这个勾管什么"）不该因为有没有
+                         页面入口而少说一半。仍无内容时才落到下面那句 `PERM_NO_PAGE_NOTE`。 -->
+                    <div v-if="m.note" class="pm-mod-pages">{{ m.note }}</div>
+                    <div v-if="!pageNamesFor(m).length && !m.note"
+                         class="pm-mod-pages pm-mod-nopage">{{ PERM_NO_PAGE_NOTE }}</div>
+                  </template>
                 </td>
                 <td v-for="a in permActions" :key="'pc-' + m.id + '-' + a" class="ctr">
                   <span v-if="m.fixed" class="pm-fixed-mark" :title="m.fixed">不在此配</span>
