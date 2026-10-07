@@ -249,3 +249,48 @@ grep -n   "v206"  .workbuddy/tools/scoped_stage_by_marker.py          # ③ 已�
    传达纠正信息，并在交付报告里列为「未处理待接手」——
    硬拆同一行没法只提交一半，整块认领＝**夹带别人的在途改动**。
 
+
+---
+
+## 🔴 新增「主体维度」后，必须扫出**所有读旧维度**的消费点（v340，2026-09-30）
+
+**事实链**：
+- **v317**（09-29）给「报单人」加了**第二维 = 外部客户（分销商）**：`report_mapping.external_user_id`。
+  `erp_db.py:957` 明写「`external_user_id` 非空 = 该行属于**外部客户账号**，此时 `employee_id` **恒 0**」，
+  且**刻意不另加 `subject_kind` 列**（两列即漂移源）。
+  同一批还改了：`_report_subject_stores_impl(kind, sid)`（**过滤列随主体切换**）、
+  `report_mapping_list` / `report_mapping_create`（两列一起写，支持员工↔外部客户互转）、
+  `mini` 端 `login_scope`。
+- **但 `routers/product_targets.py::_reported_by_operator()`（v277 写的）没跟上**：
+  ```python
+  for r in c.execute("SELECT employee_id, report_alias FROM report_mapping").fetchall():
+      eid = _int(r["employee_id"])
+      if eid > 0 and al:        # 🔴 外部客户 eid 恒 0 ⇒ 整维被静默丢弃
+          alias_map[al] = eid
+  ```
+  ⇒ 所有「报单人是外部客户」的列头，报量**全部掉进 `eid=0` 桶**。
+  `ratios_from_reported()` 再把 `eid<=0` 计入 `unmapped` 并**排除出分母** ⇒
+
+**症状（生产实测，期次 #21 / 商品 1475）**：
+- `_reported_by_operator(21, …, [1475])` 返回 **`{1475: {0: 18.0}}`** —— 只有 eid=0 一个桶；
+- `_alloc_members_of(…)` → `members=[]`、`basis=''`、`unmapped=18.0`
+  ⇒ **界面显示「本期没有可分摊对象」，而该商品本期明明有 18 箱（180 桶）报单。**
+- 「唐成」**配置完全正确**：`users.id=999908`、`role='distributor'`、`login_scope='mini'`、
+  `contacts.id=2860 type=customer`、`report_mapping.report_alias='唐成'`、`is_active=1`。
+  **不是漏配 —— 是代码不认这一维。**
+
+**影响面**：全库报单 738 ⇒ **接不上人 199（27.0%）** = 唐成 99 + 备货 100；
+**期次 #21 是 100% 接不上**（该期有量的列只有「备货」100 与「唐成」99，两个都挂不上）。
+
+**连带病灶（更咬人）**：v336b 加的两处悬停文案无条件说
+「报单列头没在「报单配置」里对应到「报单人」」——
+**对唐成是假话**（他配了），经理会去翻一个**根本没配错**的配置，而且**永远翻不出问题**。
+
+**通用判据（本条才是铁律）**：
+> **加一维主体 = 加一条平行链路。** 只写自己那处，其他消费点会**静默按旧维度解释** ——
+> 不报错、数字看着有、位次也像。⇒ 动手时必须
+> `grep -n "<旧维度列名>" <所有读这张表的地方>`，逐处问一句
+> **「这一维换成新主体时，这里还成立吗？」**
+
+**同族**：`contacts.channel_id` 列从未创建过（永久落兜底价、零报错）；
+「只下发表不下发索引」（v211→v277→v339 三犯）。都属于**同一类：新东西只加在半路上**。

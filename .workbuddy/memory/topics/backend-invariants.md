@@ -652,3 +652,99 @@ assert os.path.realpath({r[1]: r[2] for r in m.execute("PRAGMA database_list")}[
 封堵（v281）、前端 `hermesChat` 只打 `/api/ai/copilot/chat`。已固化为护栏 F3 段（`.workbuddy/tools/role-registry-consistency-check.py`）。
 
 
+## 🔴🔴 导入管线的「三份映射表 + 表头写死第 1 行」（2026-09-30 全量实证）
+
+**背景**：用户提出高频上传（库存/应收应付/订单明细/收款流水）"必须先下载模板再复制粘贴"不现实，
+要求评估"导出即上传"。核查结论：**基础设施已具备约八成**（8 类目 + 三级识别 + 表头指纹记忆 +
+列映射确认界面 + 回执撤销**全部已存在**），瓶颈**不在功能缺失**，在下面三条。
+
+**① 列映射表有**三份**，且已分叉（同族"同一规则抄多份"坑）**
+- 主链路：`routers/import_router.py::COLUMN_PATTERNS`（**子串匹配**，别名最全）
+- 一步导入 `/one-shot`：函数内自带的精确 `mapping_alias`（只 3 类目）
+- 智能识别 `/smart-parse`：`_mapping_for()` 内自带 `alias`（6 类目，**精确匹配**）
+- 🔴 **已分叉实证**：**「进价」在 `/one-shot` 写向 `purchase_price`（已降级的历史列），
+  在 `/smart-parse` 写向 `factory_price`（权威列）** ⇒ 同一份数据走不同入口进不同的列。
+- 加字段/改口径时**必须同时改三处**，否则静默不一致。
+
+**② 表头一律取文件第 1 行**（`/preview`、`/one-shot`、`/smart-parse` 三处均 `headers = rows[0]`）
+- 且 `openpyxl.load_workbook(..., read_only=True)` ⇒ **拿不到合并单元格**（多级表头无法处理）。
+- 真实导出件前面常有「标题 / 公司名 / 导出时间」⇒ 表头取错。**且不会失败**：实测
+  「库存查询表」这行标题因含「库存」被识别成 **数量列** ⇒ 系统显示"已识别"，用户点确认 ⇒ **整表列错位**。
+
+**③ 识别器「从不拒绝」，只静默错位**（匹配 = 子串包含 + 首个命中者赢；关键词含大量泛词）
+2026-09-30 探针实测三例（`tools/import-recognition-probe.py`，AST 提取关键词表 + 逐字复现算法）：
+- 舟谱订单明细「**客户名称**」→ 被判成 **`product_name`**（泛词「名称」）
+- 舟谱应收「应收 / **已收** / **未收** 金额」三列 → **都映射到同一「金额」字段**（落库后列覆盖前列）
+- 「单据日期」→ 被映射成 `due_date`
+⇒ **这解释了用户为何宁可复制粘贴到模板 —— 用户的选择是理性的**。
+
+**④ 其余两条已实证的缺口**
+- **尾部合计行无专门剔除**：执行体只跳"整行为空"；合计行是否被拦住取决于其名称列能否匹配上档案 ⇒ **看运气**。
+- **指纹记忆命中条件 = 表头去空格后逐字节相同 + 含列顺序**（`_headers_fingerprint`）⇒ 真实导出件表头微变即失效。
+
+**⑤ 类目与入口的现状（别误判"没入口"）**
+8 类目**已全部建好**（含 `receivables` / `order_items` / `payment_receipts`）。
+有专门页面的只有 `products`(商品档案) / `employees`(员工档案) / `inventory`(DataFill 库存效期)；
+**其余（客户/应收/订单明细/专属价/收款流水）在 `components/DataLedger.vue`（数据台账）弹窗里传**
+—— 判定表 = `CAT_META[cat].page`（`page` 为空即走弹窗），**改类目入口只改这一处**。
+
+**⑥ 竞品表头命中率**（同一探针）：畅捷通 44% / 金蝶 38%。关键列（名称/数量）能中，
+但**成本价、结存金额、保质期截止日期、主计量单位大量未命中** ⇒ 能导进去但**丢成本与效期数据**。
+
+**可复跑**：`python3 .workbuddy/tools/import-recognition-probe.py`（只读；不连库不联网）。
+**完整方案评估**（三层方案 + 诚实边界）见 `docs/导入方案评估-从导出到入库-2026-09-30.md`。
+
+
+
+---
+
+# 🔴🔴 v352（2026-10-01）第四种静默洞：**租户上下文里读 `tenants` = 读影子表（0 行）**
+
+## 一、症状与机制
+
+```python
+set_tenant_context(1)
+rows = db.tenant_list()          # ← 期望拿到主库的租户登记表
+print(len(rows))                 # ← 实际 0（或只有租户库自己那张空表的内容）
+```
+
+- `erp_db.tenant_list()` 走 `_connect()`，而 `_connect()` 是**租户感知**的：
+  有租户上下文 ⇒ 返回**租户库**。于是 `SELECT * FROM tenants` 打到的是
+  **租户库自己的 `tenants` 表**。
+- 生产实测（2026-10-01，只读探针）：`tenant_1.db`、`tenant_10.db` 里那张表
+  **都是 0 行**（主库有的 6 行历史租户也不在里面）⇒ 租户属性被读成
+  **"没有这个租户"**，**全程零报错**。
+- 后果形态：`for t in (db.tenant_list() or []): labels[t['id']] = ...` 这类
+  **静默变成"什么都不做"**；若下游据此判"非生产租户 / 未登记 ⇒ 不推送"，
+  就会**静默停发全部通知**（比报错更难发现）。
+
+> 判据：**"跨租户"或"读租户属性"的查询，一律不能走 `_connect()`。**
+> 同族的正确做法（`core.py` 已有先例）：
+> - `core.tenant_is_readonly(tid)` → `SELECT readonly FROM tenants WHERE id=?`，走 `_master_db()`
+> - `erp_db.tenant_list_page()` 文档明写「直连主库只读、绕过租户上下文」
+> ⇒ v352 新增 **`erp_db.tenant_master_all(active_only=False)`**：直连主库读全量 tenants；
+> 返回 **`None` = 读失败（未知）**，**`[]` = 确实没有租户** —— 两者语义不同，调用方须分开处理
+> （多租户判断上，`None` 应按**最保守方向**处理）。
+
+## 二、怎么自证（别只读代码）
+
+```bash
+# 生产只读探针：每个租户库里那张影子表有几行
+python3 - <<'PY'
+import sqlite3, glob, os
+for p in sorted(glob.glob("/opt/hergent-erp/tenant_*.db")):
+    c = sqlite3.connect("file:%s?mode=ro" % p, uri=True)
+    t = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tenants'")]
+    n = len(list(c.execute("SELECT id FROM tenants"))) if t else None
+    print(os.path.basename(p), "有影子表" if t else "无影子表", "行数=%s" % n)
+    c.close()
+PY
+```
+实测输出形态：`tenant_1.db 有影子表 行数=0` / `tenant_10.db 有影子表 行数=0`。
+
+## 三、连带纪律：**"有表"≠"有内容"，且"内容为空"要往"读错库/读错上下文"上想**
+
+这类洞与已有的三种静默洞同族（**恒空恒 0 且零报错**）：
+只下发表不下发索引 / 窗口当主键 / 白名单漏字段 / **本条的影子表**。
+遇到"某个判断看起来永远不成立、但日志干净"，先问三句：
+① 这表是**哪个库**的？② 当前在**哪个租户上下文**？③ 这个"空"是**真没有**还是**读错了地方**？

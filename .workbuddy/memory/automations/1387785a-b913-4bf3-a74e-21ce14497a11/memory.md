@@ -56,3 +56,12 @@
 - 4 个新 patch tag 均为桌面/多 profile/state.db/网关会话修复，无 hergent 需要项 → 维持 A。安全触发未达阈值（PyPI 旧漏洞≤0.12.0+飞书 webhook 不波及单 profile 服务端）。
 - 报告：docs/hermes-update-monitor/2026-09-28.md（目录现 7 份，无需清理）。
 - 升级触发条件未变：headless/server 发行说明、cron bridge/config 迁移/18765 兼容修复、或波及 v0.19.0 的严重安全公告。
+
+## 2026-10-05（例行周检）
+- 结论：**A 无需升级，维持生产 v0.19.0**。
+- 官方最新：GitHub 仍止于 **v2026.9.24 = v0.21.5**（2026-09-24），自 09-28 全量核查后**无新 tag**；PyPI 仍停 0.19.0（滞后）。
+- 环境变化：/tmp/hermes-295-src 旧克隆内容被 /tmp 清理清空（仅空目录壳），本次重新 curl codeload 拉 tar.gz（72MB→210M/7059 py）还原，对 5 耦合点做真实复测（非沿用记忆）。
+- 5 耦合点复测结果与 09-28 逐条一致：①/v1/chat/completions proxy server.py:180 + api_server.py:1615 兼容；②/v1/skills 已恢复 api_server.py:87/1603/2768 兼容；③ **cron bridge 全仓零命中仍未回归（否决项不变）**；④ cors_origins/api_server 旧键由 config_loader.py:146/313 自动桥接 extra（软迁移），mcp_servers 顶层仍读；⑤ SOUL.md 仍被 config.py:501 读取注入 兼容。
+- v0.21.5 新能力 90% 桌面向，hergent 增益≈0；无新修复/安全公告需裁决 → 维持 A。
+- 报告：docs/hermes-update-monitor/2026-10-05.md（目录共 8 份，无需清理）。
+- 升级触发条件未变：headless/server 发行说明、cron bridge/config 迁移/18765 兼容修复、或波及 v0.19.0 的严重安全公告。

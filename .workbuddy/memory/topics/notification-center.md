@@ -325,6 +325,74 @@ elif nodes.get("final", True):
 `tenant_1` 已存提醒配置（2026-09-23 保存，`wecom=false` / `summary=true`）—— 归一化**只在键缺失时兜底**，
 **已存值会盖过新默认** ⇒ 老板看到的面板可能仍是旧的 `wecom=off`。**未擅自改写用户数据**（改写 = 替用户改口径）。
 
+---
+
+# §通知核实（2026-10-02）**受众由 `event_key` 推导** ＋ 三处「声明 ≠ 实现」
+
+**触发**：老板收到企微期次开通通知后问三件事（时分能否配置 / 文案能否自定义 / 各报单人能否各自收到）。
+
+## 一、🔴 本仓铁律：**不传 `recipients` ≠ 广播**（2026-09-29 起）
+
+```python
+# db/queries/finance.py::message_send
+**受众**（2026-09-29 起）：不在这里传参，而是**由 `event_key` 经 `audience_for_event()` 推导**
+```
+- **唯一实现** = `db/queries/finance.py` 的 `_AUDIENCE_EXACT`（精确键）＋ `_AUDIENCE_PREFIX_RAW`（前缀键）
+  ＋ `audience_for_event()`（前缀按**长度降序**、首个命中即停）＋ `message_visible()`（读端必须调它）
+- `AUDIENCE_ALL = "*"`（**目前无使用方**）；`DEFAULT_AUDIENCE = "admin,boss"`（**未登记 ⇒ 只给管理端**）
+- 🔴 **定向优先**：`message_visible` 里 `recipients` 非空 ⇒ **只看它、不再叠加角色**
+  ⇒ 「给某人的定向通知」不会因为角色恰好在受众里而漏给别人（工资条/催报靠这条）
+- ⇒ **新增通知类型必须同步登记那张表**，否则它静默落 DEFAULT（业务线收不到、管理端多看）
+
+**已登记（报单线）**：`本期报单已开放` / `预报催单` / `预报·新期次` / 前缀
+`预报·新期次` / `预报催单` / `forecast_remind_emp_` / `forecast_period_open_` / `forecast_extra_alloc`
+⇒ 一律 = `admin,boss,sales,supervisor,distributor,staff`（**六角色**，覆盖全部能报单的角色）。
+
+⚠️ **踩过的坑**：`push_forecast_summary` 调 `message_send(...)` 时**没传 `recipients`** ⇒
+我初判「广播、与面板文案『收件人：管理员/老板』不符」。**实际它落 `DEFAULT_AUDIENCE='admin,boss'`，
+与面板文案一致**（`forecast_summary_*` 未登记任何受众）。
+⇒ **在本仓，"不传 recipients" 已经不是"广播"的同义词 —— 必须去查受众表。**
+（`hergent-capability-reality-audit` 第二十六种「审计者自己的口径错」的又一实例：
+**肯定式判断可以粗糙，否定式判断必须穷举到唯一实现**。）
+
+## 二、🔴 「精确到时分」类问题必须**分三层**答（否则必答错）
+
+| 层 | 问什么 | 报单窗口实测（2026-10-02） |
+|---|---|---|
+| **记录层** | 数据存的粒度？ | `forecast_periods.order_start/order_end` = `TEXT`，生产**7 期全 10 字符**（`YYYY-MM-DD`）⇒ 只到天。**时分不在期次上**，在 `rebate_target_rules.auto_open_time/auto_close_time/supplier_deadline_time` |
+| **执行层** | 系统**几点真的开/关**？ | **到分** —— `T_open = order_start @ open_time`、`T_close = order_end @ close_time`（`scheduler._period_close_at`）。生产规则 id=10 = 16:00/21:00/22:00，与通知里的「关单时刻 2026-10-03 21:00」**互相印证** |
+| **闸门层** | **能不能提交**按什么判？ | 🔴 **只到天** —— `forecast_period_writable` = `oe < today`（`erp_db.py:17840`），纯字符串比较 |
+
+**配置入口**：侧栏「预报订货管理」→ 页签「**报单配置**」→ 卡片「**报单自动化**」（三个 `<input type="time">`，`AutoPeriodBlock.vue`）
+／卡片「**报单提醒设置**」（渠道/节点/提前量/免打扰，`ReminderConfig.vue`）。期次窗口本身是三处 `<input type="date">`。
+
+### 🔴 硬技术风险（改之前必须知道）
+**不能**把 `order_end` 直接写成 `'2026-10-03 21:00'` —— `oe < today` 两侧都是字符串，
+`'2026-10-03 21:00' < '2026-10-03'` = **False**（同前缀下更长者更大）⇒ **当天永远不被锁，闸门静默失效**。
+要做得改判据（先截前 10 位再比），**不是加个时间输入框就行**。
+
+## 三、三处「声明 ≠ 实现」
+
+| # | 声明 | 实现 | 结论 |
+|---|---|---|---|
+| 1 | 面板「提醒渠道 → 企业微信」是**所有提醒**的开关 | `push_forecast_reminder_current`(2013) 与 `push_forecast_summary`(2103) **都读**；**但 `_notify_period_opened`(1334) 不读** ⇒ 无条件推租户渠道 | 🔴 **真缺陷**。tenant_1 面板 `wecom:false`，而老板确实在企微收到了开放通知 ⇒ **面板说关了却照推** |
+| 2 | 汇总「收件人：管理员/老板」 | 未登记 ⇒ `DEFAULT_AUDIENCE='admin,boss'` | ✅ 实际一致，**不是缺陷** |
+| 3 | 有「消息模板」能力（`message_templates` 表 + `GET/POST /api/msg-templates` + 预置 3 条） | 前端**零引用**（`msg-templates`/`message_templates`/`模板管理` 全 0）；报单三条通知**都硬编码**在 `scheduler.py`，不读它 | 孤儿能力 ⇒ **报单通知无法自定义文案**，而这个机制看着像"已经能配" |
+
+## 四、受众速查（写侧实况）
+
+| 通知 | `event_key` | 站内信受众 | 企微 |
+|---|---|---|---|
+| 本期报单已开放（`new_period`） | `forecast_period_open_<pid>` | 六角色**同一条**（不是各人一条） | 🔴 无条件推（不读 `channels.wecom`） |
+| 催报（`lead` / `final`） | `forecast_remind_emp_<eid>` ＋ `recipients=<uid>` | **定向优先 ⇒ 只发本人**；未绑定/停用/失败 ⇒ 广播兜底给管理员（fail-closed） | 读 `channels.wecom`；受免打扰（`_in_quiet_hours`，**只挡企微、站内信不受影响**） |
+| 截止后汇总（`summary`） | `forecast_summary_<pid>` | `admin,boss` | 读 `channels.wecom` |
+
+**「各报单人各自收到」的前提三件套**（缺任一 ⇒ 退化为广播兜底，**不丢但也不是"只给他"**）：
+① 门店有负责人且 `employee_id>0`（`report_mapping`）② 该员工有**启用中**登录账号（`employee_account_map`）
+③ `channels.inapp` 开。
+⚠️ tenant_1 实测：9 个报单列头里**只有 5 个能接上人**（`唐成` = 外部客户账号不参与；三个永诺系已停用；其余 `nomap` 从未登记）
+⇒ **「按销售定向」能否真生效，取决于报单列头的挂人完整度，不取决于开关**。
+
 
 ## 🔴 「定向到了，但送错人 / 无人可见」——写端键用错（2026-09-29 新增案例）
 
@@ -552,3 +620,352 @@ db.message_send("库存预警", msg, "warning", "经营副驾")   # 第 4 位 = 
 **自定义角色**（如 tenant_1 的「库管」）**不在受众规则表里** ⇒ 落到 `DEFAULT（admin,boss）`
 ⇒ **看不到任何通知**。建议：受众规则表支持"自定义角色 → 受众"配置，
 或按该角色**拥有的模块**推受众（有 `stock` ⇒ 库存/效期类）。**别假装它不存在。**
+
+---
+
+# 🔴 v351（2026-10-01）通知**到了不该到的人**？——先分清三种「不该到」
+
+> 用户报告：「我的账号看到这条**测试企业**的通知，这是不应该发生的。」
+> 通知标题 = `10月01日 经营卡简报 · 测试企业A`。**查完发现：投递与隔离都对，错的是"标题里拼了内部租户名"。**
+
+## 〇、铁律：这四种情况**看起来一样、坏的地方完全不同**
+
+| 用户的话 | 真身 | 判据 |
+|---|---|---|
+| 「收到了**别的租户**的通知」 | 跨租户写 / 读 / 渠道串台 | 必须**实测反证**，别凭代码读 |
+| 「收到了**不该我看的类别**」 | 受众规则（`message_visible`）错 | 查 `event_key` → `audience_for_event` |
+| 「标题/正文里有**内部标识**」 | **文案层泄漏**（本轮） | 查标题**是怎么拼出来的** |
+| 「**不该发**的租户发了出去」 | 渠道选择 + 兜底（本轮 D3） | 查 `_push_tenant_channels` 的两条分支 |
+
+## 一、三层查法（本轮实测有效，每层都要**反证**而不是"读代码觉得对"）
+
+1. **写端·落哪个库** —— 逐库 `message_center` 扫标题，再看**反向关键字命中数**
+   （`tenant_10 库中「测试企业」= 0` / `tenant_1 库中「张记乳品」= 0` ⇒ 零串台）。
+2. **读端·怎么收口** —— 🔴 **用「别的租户的账号」去实打一次**，而不是只读中间件代码：
+   ```
+   演示账号(demo_boss, tenant 10) GET /api/messages?limit=60 → 200，1987 条，
+                                        含「测试企业」= 0 条            ⇒ 不串读
+   同一令牌 GET /api/messages?tenant_id=1                    → 403 无权访问该租户 ⇒ 拒越租户
+   ```
+   租户解析优先级（`server.py` 租户中间件）：`X-Tenant-Id` 头 → `hergent_tenant` cookie
+   → `?tenant_id=` → **都没有则取该用户 `user_tenants[0]`**；带 id 时先 `check_user_tenant` 校验
+   （非成员 403），`/api/messages` 在 `_TENANT_REQUIRED_PREFIXES` 内。
+3. **渠道·推给谁** —— `_push_tenant_channels` ①租户配了渠道只走租户 ②**没配就回落全局 webhook**；
+   实况用 `journalctl | grep "hermes send --to wecom"` 抓**真实出站**（比读代码可信）：
+   ```
+   08:05:02 sudo: USER=hergent_t1 COMMAND=hermes send --to wecom -s '10月01日 经营卡简报 · 测试企业A' …
+   08:05:08 [Notify] [X] 企业微信未配置（WECOM_WEBHOOK_URL 为空）：本条未发送 - … 张记乳品（演示）
+   ```
+   订阅方：`/opt/hermes-tenants/hergent_t1/channel_directory.json` → `wecom:[{id:"ZhangJunFeng"}]`。
+
+## 二、🔴 D1 · 病根：**用户可见的标题里拼了内部租户名**
+
+`server/scheduler.py::_push_copilot_brief_current`：
+
+```python
+suffix = f" · {tenant_label}" if tenant_label else ""
+title = f"{today} 经营卡简报{suffix}"     # ← tenant_label 来自主库 tenants.name
+```
+
+- 租户名是**内部标识**，不该出现在客户看到的通知里；本例它还是**注册种子名**（见 D2），
+  于是看起来像系统故障。
+- 🔴 **连带缺陷更隐蔽**：`message_send` 未传 `event_key` ⇒ `ekey = norm_event_key(title)`
+  ⇒ **落库的 `event_key` 也带租户名**（实测 `经营卡简报 · 测试企业A`）。
+  而前端「按类静音 / 频率 / 暂停」**全挂在这个键上** ⇒
+  **租户一旦改名，用户已设的静音规则全部静默失效**（换名字继续进来）。
+- **正解**：站内标题**永不带租户名**；只有走**多方共享的全局渠道**才需要区分，
+  而那时应标识**目标渠道**，不是把租户名硬编进标题再反推事件键。
+- ⚠️ 改标题必须与 D3 同批：否则全局兜底场景会失去区分度。
+
+## 三、🔴 D2 · 承载真实数据的租户名字还是种子名
+
+```
+主库 tenants 全量： id=1 name='测试企业A' subdomain='测试企业a'
+                    id=10 name='张记乳品（演示）' subdomain='demo'
+tenant_1  = 真实业务（11 名员工 / 21,364 条通知 / 「54 个在库批次未录到期日」与既有记录逐字吻合）
+tenant_10 = 演示（1 人，readonly）
+```
+⇒ 「测试企业A」会持续出现在**站内标题 + 企业微信推送 + 任何引用 `tenants.name` 的地方**。
+
+## 四、⚠️ D3 · 渠道兜底是一颗多租户地雷（今天没爆）
+
+`_push_tenant_channels`：①租户配过渠道→只走租户（防串台）②**完全没配→回落全局 webhook**
+（注释自陈「保持既有单租户行为不回退」）。而全局 webhook 的口径是
+**「一个部署一个企微群」**（`notify/wecom_notify.py::get_wecom_webhook` 自己写明）。
+⇒ 今天没爆只因**全局 webhook 恰好没配**（主库 `system_config.wecom_webhook_url` 空、
+环境变量无 `WECOM_WEBHOOK_URL`）。**一旦为收某租户简报而配上它，
+所有"没配渠道的租户"（含演示租户与未来第二家客户）的简报都进同一个群。**
+
+🔴 对照：`server.py:5375` 对「今日经营要务」这条推送**明确写了**
+`# 演示租户不推送（避免演示数据推到老板企微）`（判据 `tenants.subdomain == 'demo'`）
+—— **同一份保护在简报这条路径上完全不存在**。
+⇒ 修法：简报路径补「演示/测试租户不推送」+「多租户下禁止回落全局 webhook（fail-closed）」。
+
+## 五、受众侧无问题（排除项）
+
+`finance.py::_AUDIENCE_EXACT["经营卡简报"] = "admin,boss,accountant"`；报告人 `role=boss` ⇒ 合法可见。
+`message_visible()` 两轴（`recipients` 定向优先 → 否则 `roles_in_audience`）**本轮判定正确**。
+
+## 六、本轮取证命令（全部只读）
+
+```bash
+# 各库消息落位 + 用户/租户/会话绑定
+scp /tmp/v351-leak-probe.py root@…:/tmp/ && ssh … 'python3 /tmp/v351-leak-probe.py'
+ssh … 'python3 /tmp/v351-content-probe.py'          # 简报正文全文比对 + 渠道配置
+python3 /tmp/v351-readprobe.py                       # 跨租户读测试（1 次 demo-login）
+ssh … 'cat /opt/hermes-tenants/hergent_t1/channel_directory.json'
+ssh … 'journalctl --since "2026-10-01 07:55" --until "2026-10-01 08:20" | grep -i -e brief -e push'
+```
+副作用：1 次 `demo-login`（新增 1 条会话记录）。**未改任何生产代码/数据、未重启。**
+诊断全文：`docs/通知标题泄漏内部租户名-诊断-2026-10-01.md`
+
+---
+
+# ✅ v352（2026-10-01）v351 三个缺陷的**修法**（已上线，真机验收过）
+
+> 承上节 §v351 的诊断。用户拍板 **A + B + D**（租户名 = 湖北福宝商贸有限公司）。
+> 提交 `506d766`（6 文件，+289/−21），已推送。交付报告：
+> `docs/v352-简报标题与多租户推送闸门-修复交付-2026-10-01.md`。
+
+## 一、A · 标题去名 + **事件键固定**（这才是根）
+
+```python
+_BRIEF_EVENT_KEY = "经营卡简报"                       # 固定值
+title = f"{today} 经营卡简报"                         # 不再拼 tenant_label
+db.message_send(title, content, "notice", "经营副驾", event_key=_BRIEF_EVENT_KEY)
+```
+
+🔴 **必须显式传 `event_key`**，不能只改标题 —— 因为 `message_send()` 不传时会
+`norm_event_key(title)` 现算。只改标题不改键，键会跟着新标题变（`经营卡简报`），
+**存量行的旧键 `经营卡简报 · <租户名>` 会与新行分成两组**（面板里同一件事两个分组、
+静音要设两次）。判据：**凡是"标题不拼租户名"的改动，必须同批把事件键钉死**。
+
+## 二、D · 两道闸门收进 `_push_tenant_channels`（**唯一实现**）
+
+| 闸门 | 判据 | 方向 |
+|---|---|---|
+| ① 非生产租户不外发 | `tenants.readonly=1` **或** `subdomain='demo'`，**或该租户不在登记表** | 宁可少发 |
+| ② 多租户禁回落全局 | 登记租户数 **≥ 2** ⇒ 未配渠道的租户**不回落**全局 webhook | 读不到即按多租户 |
+
+- 单租户部署**保留**回落（历史行为不误伤）；生产今天 2 个租户 ⇒ 已 fail-closed 生效。
+- ⚠️ 收在**被调用方**而不是调用点：`_push_tenant_channels` 有 6 个调用方
+  （简报 / carry-empty / 期次开放 / AI 提醒 / 广播 / 汇总），写在调用点必然漏。
+
+## 三、🔴 本轮踩到的坑：**租户上下文里读 `tenants` = 读影子表（0 行）**
+
+`db.tenant_list()` 走 `_connect()`（租户感知）。在 `set_tenant_context(tid)` **之后**
+调用 ⇒ 读到的是**租户库自己的 `tenants` 表**；生产实测 `tenant_1.db` / `tenant_10.db`
+里那张表 **都是 0 行** ⇒ 租户属性被**静默读成"没有这个租户"**，**零报错**。
+
+⇒ 新增 `erp_db.tenant_master_all()`（**直连主库**，返回 `None` 表"读失败"）。
+**凡跨租户判断 / 读租户属性，一律用它。** 详见 `backend-invariants.md`。
+
+## 四、可复跑的真机探针配方（**零写入**，以后验"通知里会显示什么"照抄）
+
+```python
+# ① 读端：调真处理函数，只把"身份从哪来"换掉（真 SQL / 真受众 / 真分组照跑）
+import core, asyncio
+from starlette.requests import Request
+from routers import messages as M
+from db.connection import set_tenant_context
+set_tenant_context(1)
+def run(user, roles=None):                      # roles 给非 None ⇒ 做负对照
+    oa, orl = core._auth, core.user_roles
+    core._auth = lambda r: user
+    if roles is not None: core.user_roles = lambda uu: list(roles)
+    try:
+        return asyncio.run(M.briefing(Request({"type":"http","method":"GET",
+            "path":"/api/messages/briefing","root_path":"","headers":[],
+            "query_string":b"","scheme":"http","server":("127.0.0.1",8700),
+            "client":("127.0.0.1",1)})))
+    finally:
+        core._auth, core.user_roles = oa, orl
+
+# ② 写端（看"下次会写成什么"而不落库）：把 _build_copilot_brief_lines 的**唯一写点**
+#    log_daily_metric 与 message_send / _push_tenant_channels 全部打桩
+#    ⚠️ 只打 message_send 不够 —— _build_copilot_brief_lines 里有 10 处 db.log_daily_metric
+# ③ 零写入自证：跑前跑后对租户库做**内容指纹**（行数 / id 和 / 长度和），不靠 mtime
+```
+
+**负对照不可省**：同一个用户、同一份数据，仅把角色换成不在受众内的角色
+（如 `sales`）⇒ 该群组必须消失；否则你证明不了"探针有判别力"。
+
+## 五、收尾结论（给用户的话术模板）
+
+先给**「是 / 不是跨租户泄漏」的明确判定 + 反证证据**（这是老板最怕的），
+再给**真正的问题**与选项表。**不要**把文案缺陷写成安全事件，也**不要**因为隔离没坏
+就说"一切正常" —— 他确实看到了不该看到的东西，只是坏点不同。
+
+---
+
+# 🔴 v366（2026-10-02 已上线）「同一个开关，不同调用方遵守程度不同」＋ 报单窗口印到分
+
+老板原话（三点决策 + 两问）：
+> 「1.要；2.要；3.不需要。另外，唐成这类虽然是外部客户，但也需要在企微收到通知。
+>   还有，我如何给员工和外部客户配置企业微信，现在系统里有入口吗？」
+
+- **①「要」** = 让面板的「企业微信」开关**管住报单开放通知**（此前该通知**绕过**开关）
+- **②「要」** = 开放通知的「报单窗口」那行**加时分**
+- **③「不需要」** = 期次表单本身填时分 —— **不做**（会静默破坏截止闸门，已当面警告）
+- **④** = 外部客户也要收企微 ⇒ **是需求，但当前做不到**（见下 §三）
+- **⑤** = 企微配置入口 ⇒ **有，三环节齐全**（见下 §四）
+
+## 一、🔴 病根：**同一个开关，三个调用方遵守程度不同**
+
+报单提醒域（`scheduler.py`）里有**三个**会外发的兄弟函数，对
+`_forecast_reminder_cfg()["channels"]["wecom"]` 的处理**不一致**：
+
+| 函数 | 读 `channels.wecom`？ | 结果 |
+|---|---|---|
+| `push_forecast_reminder_current`（当期提醒） | ✅ 读 | 关掉即不推 |
+| `push_forecast_summary`（汇总） | ✅ 读 | 关掉即不推 |
+| **`_notify_period_opened`（开放通知）** | ❌ **不读** | **关掉照样推** ⇒ 老板看到的现象 |
+
+⇒ **判据**：查「一个开关有没有生效」，**不能只看它在哪里被读，要列出全部调用方逐个核对**。
+「有开关」≠「开关管用」；`_forecast_reminder_cfg().get("channels")` 存在，不代表每个调用方都取它。
+
+**修法**（`_notify_period_opened`）：
+- 站内信受 `channels.inapp`、企微受 `channels.wecom`，**两侧关闭都留痕**（承接《R8》：「关掉」与「发送失败」在日志里必须可区分）：
+  ```
+  [Scheduler][v366] 面板已关闭「站内信」⇒ 期次#N 开放通知不落通知中心
+  [Scheduler][v366] 面板已关闭「企业微信」⇒ 期次#N 开放通知不出站（站内=已发/已关）
+  ```
+- ⚠️ **行为变更**：tenant_1 面板当前 `wecom=false` ⇒ 改后开放通知**不再推企微**。
+  **未擅自改用户配置**；要收须老板自己去「报单配置 → 报单提醒设置」勾上「企业微信」。
+
+## 二、报单窗口印到分（`2026-10-02 ~ 2026-10-03` → `… 16:00 ~ … 21:00`）
+
+- 关闭时刻与开放时刻**同源** = `_auto_period_times()`（读 `rebate_target_rules`，与自动关单**同一个锚**）⇒ 绝不会"通知说的时刻"与"系统真关单时刻"不一致
+- 链路：`_check_auto_period()` 传 `close_time=ct, open_time=ot` → `_auto_period_open(p, dry, close_time="", open_time="")` → `_notify_period_opened(..., open_time=...)`
+- **拿不到时刻时自动退化纯日期**（`("%s %s") if open_time else str(os_ or "")`），**不印空串**
+- 原来单独一行的「关单时刻：…」**合并进窗口行**（少一行噪音）
+- 真库影子验收落库正文：
+  ```
+  本期报单已开放，请各销售开始报单。
+  报单窗口：2026-10-05 16:00 ~ 2026-10-06 21:00
+  到货日：2026-10-08
+  请在窗口结束前完成报单，到期系统会自动关单。
+  ```
+
+## 三、🔴 外部客户（`role=distributor`）**收得到站内信，收不到企微**——两层原因
+
+**第一层（业务）**：企微智能机器人是**企业内部应用**。外部客户不在组织架构内，
+**无法完成配对**（配对的前提是"对方给机器人发消息拿到码"）⇒ 这一层**无解**，
+不是配置问题。要覆盖外部客户，只能换通道（短信 / 微信服务号 / 小程序订阅消息）。
+
+**第二层（实现）**：`hermes_tenants.send_message(tenant_id, channel, title, content)`
+```python
+targets = [channel]
+... append _approved_users ...
+if rc == 0:
+    return True          # 🔴 推成功 home channel 就返回
+                         #    ⇒ _approved_users 列表**根本不遍历**
+```
+⇒「各人各自收到」在当前实现下**不可能**（生产 `wecom-approved.json` 只 `ZhangJunFeng` 一人）。
+这不是"漏配了人"，是**分发的设计缺口**。
+
+**✅ 已核实：唐成已在收站内信，无需改动**
+- 生产 `users.id=999908 唐成 role=distributor roles='' external_ref=唐成`
+- 受众规则表 `_AUDIENCE_EXACT / _AUDIENCE_PREFIX_RAW`（唯一实现，`db/queries/finance.py`）：
+  `forecast_period_open_` → `"admin,boss,sales,supervisor,distributor,staff"`（**含 `distributor`**）；
+  精确键 `"本期报单已开放"` 同受众
+- 真函数 `message_visible` 判 **True**；**负对照** `accountant` = **False**（证明判据有牙齿）
+- 小程序有独立 `pages/messages` 页，数据源同为 `GET /api/messages`
+
+## 四、企微配置入口 —— **有，三环节齐全**（回答老板第 ⑤ 问）
+
+| 环节 | 位置 | 后端 |
+|---|---|---|
+| ① 填凭证 | 能力中心 → **连接器** Tab → 「企业微信」卡片「去连接」填 **Bot ID + Secret**（**租户级一份凭证**） | `hermes_tenants.apply_channel(tid, "wecom", cfg)` 写租户 `.env` 并重启网关 |
+| ② 配对审批 | 同页「**配对审批**」：同事给机器人发消息 → 机器人回 8 位配对码 → 管理员填码批准 | `ai_channels.pairing_list / pairing_approve / pairing_revoke` → `GET/POST /api/ai/channels/pairings{,/approve,/revoke}` |
+| ③ 已授权 | 同页「已授权」列表 | `pages/ConnectCenter.vue` |
+
+🔴 **配对码只存加盐 SHA-256**，明文只在「机器人回复对方」那条里 ⇒ 后端 `pairing_list`
+**不返回配对码**，管理员须**向对方索要**后手填；连填错 **5 次锁定 1 小时**
+（`PAIRING_CODE_TTL` / `_lockout_until`）。
+`CHANNEL_SPECS['wecom'] = {label:"企业微信", fields:[{key:"bot_id",env:"WECOM_BOT_ID"},{key:"secret",env:"WECOM_SECRET"}]}`。
+
+## 五、同族登记表（**分三类**，防止后人把"不在域内"当 bug 修／把该读的漏读）
+
+| 类 | 成员 | 断言 |
+|---|---|---|
+| `read` | `_notify_period_opened`、`push_forecast_reminder_current`、`push_forecast_summary` | **必须**读 `channels.wecom` |
+| `exempt` | `_alert_carry_empty`（自动建期次但商品清单为空 ⇒ 小程序报单页全白） | 刻意**不读**，但**必须留书面理由** |
+| `out` | `_push_copilot_cards_brief`、`_check_ai_reminders` | **反向断言：不该读**该开关（不同域） |
+
+**`_alert_carry_empty` 的书面豁免理由**（写进代码注释，别删）：
+> 这是**系统异常告警**，不是"报单提醒"。用户关掉提醒渠道的意图是"少打扰"，
+> 不是"系统坏了也别告诉我"；把故障告警混进提醒开关，等于给"静默失效"多开一条合法通道。
+> ⇒ 若要动它，先回答：用户关掉开关时，是否真愿意连"清单空了"也不知道？
+
+## 六、验收这一域（本轮配方，照抄）
+
+| 手段 | 文件 | 读数 |
+|---|---|---|
+| 判据台（真源码 `ast.get_source_segment` 抠函数 + 假依赖命名空间 exec） | `tools/v366-open-notice-verify.py` | **PASS=61 / FAIL=4**（4 条**全是故意造的旧口径坏副本** ⇒ 判别力自证成立） |
+| 生产只读真值 | 一次性 `/tmp` 脚本 | **5 / 0** |
+| 影子库真机（真函数 + 真库副本 + `_push_tenant_channels` 收集器替身 ⇒ **零外发**） | `tools/v366-shadow-verify.py` | **12 / 0** |
+
+🔴 **两条教训（本轮踩实）**：
+1. **夹具缺默认值 ⇒ 真源码段假红**：A4「窗口行含开放时刻」在**真源码上也 FAIL**，
+   差点误判成产品缺陷。根因 = 夹具没给 `open_time`。修法 `kw.setdefault("open_time","16:00")`。
+   ⇒ **真源码段出现 FAIL，先查夹具，别先改产品**。
+2. **D 段把"不在该域"误判成"刻意豁免"** ⇒ 被要求"留理由"而假红。
+   修法：**分三类**，`out` 类改**反向断言**（不该读该开关）。
+
+## 七、号表与部署
+
+- 号表已登 **v366**；⚠️ **v365 被他线占用但号表未登**（「停单 ⇒ 期次不再自动新建」）
+  ⇒ **下一轮起号从 v367 起**，且起号前**必实搜**两仓 `tools/` 与他线 `git log`
+- 生产：`/opt/hergent-erp/scheduler.py` 双侧 md5 **`e061f5ea310e4267d2cc81ddec3c02a8`**，
+  `active` · `/api/health` 200 · 0 traceback；生产计数 **`v364=0 / v365=0 / v366=7`**（**零夹带**）
+- 受众速查补充：`forecast_period_open_` 受众 = `admin,boss,sales,supervisor,distributor,staff`
+
+## 八、触达通道选型（v366 之后，2026-10-02 核实）
+
+🔴 **期次真实频率 = 2 天一期**（`forecast_periods.order_start_date`：`09-20/22/24/26/28/30`、`10-02`）
+   ⇒ **约 15 期/月**。任何"每月几条"的估算**先来查这张表**，别口算（我曾口算成 5-6 期/月）。
+
+### 三条外部触达路的判定（结论：只有短信能"自动 + 必达 + 无需用户每次授权"）
+
+| 路 | 能否自动每期必达 | 卡点 |
+|---|---|---|
+| **企微** | ❌ | 企微智能机器人是**企业内部应用**，外部客户不在组织架构 ⇒ **配对跑不起来**；且 `send_message` 的 `if rc==0: return True` 使 `_approved_users` **永不遍历** |
+| **服务号模板消息** | ❌ | 老「模板消息」2024 年底已停新增、存量逐步下线 ⇒ 现在只剩「订阅通知」，限制同小程序：**点一次授权发一条**；认证服务号**每月只能群发 4 次**，15 期/月 根本不够 |
+| **小程序订阅消息** | ❌ | 「工具→效率」类目**拿不到长期订阅**（长期订阅只给政务/医疗/交通/金融/教育）；一次性授权 ⇒ 忘点或勾"总是拒绝"就永久静默且零报错 |
+| **短信** | ✅ | 无授权限制、必达。代价：付费 + **10~15 个工作日企业报备** |
+
+### 短信的决定性优势 = 零身份绑定
+
+生产 `users.phone` 已有 **7 个真实 11 位手机号**（张俊峰/刘善涛/符号/郝洋/唐成/仲嫚嫚/程欢欢）；
+另有 3 个假值须过滤：`mptest` / `mptestsp` / `liuxiaoding`。
+⇒ 短信**不需要**新建 `openid`/`unionid`（全库目前**没有任何微信身份字段**）—— B/C 都要先建这个。
+
+### 代码侧现状（决定工作量）
+
+- `hermes_tenants.CHANNEL_SPECS` **只有 feishu/wecom/dingtalk/qq**，**无 sms**；
+  `_push_tenant_channels()` 走 Hermes `send`（长连接收发）⇒ **短信是全新出站，不能复用**。
+- `invite_codes.py` / `password_reset.py` 里网关是占位域名 `sms-api.example.com` 且**无密钥**
+  ⇒ **短信从未真发过一次**（`db._sms_code_cache` 恒空、`REGISTER_MODE=invite` 时发码直接 400）。
+- 🔴 唐成 `login_scope='mini'` ⇒ **他只能登小程序**（曾误判"他不用小程序"）⇒ C 对他并非完全无效，
+  但仍受一次性授权约束，不改变"短信是唯一自动必达"的结论。
+
+### 阿里云硬约束（2026-10-02 公示值，别凭记忆）
+
+- 通知短信 **0.045 元/条**（按量 ≤10万条/月）；**套餐包更贵**（1000 条 50 元 = 0.05）⇒ **不买包**。
+- **必须企业认证**：个人账号自用资质**无法通过签名实名制报备**。
+- 签名须**企事业单位名/产品名**，**中性签名一律驳回**（「客服通知」「温馨提示」不行）。
+- 签名报备要**法人姓名 + 身份证号**。
+- 时长：资质 ≈2 工作日 → 签名/模板 ≈2 小时 → **运营商实名报备 7~10 工作日**（未报备 ⇒ `PORT_NOT_REGISTERED`）。
+- **70 字内计 1 条**（含【签名】6 字），超了按 67 字/条拆分 ⇒ 模板文案必须数过字。
+- 频率：通知短信同签名同模板同号码 **50 条/天** ⇒ 15 条/月 远低于限，不是瓶颈。
+- 成本：只发唐成 **0.68 元/月**；7 人全发 **4.7 元/月** ⇒ **钱不是问题，门槛是报备周期**。
+
+### 🔴 短信独有的工程约束（其它通道没有）
+
+1. **它是唯一花钱的通道** ⇒ 必须有**月度条数硬上限**，超了停发 + 告警（防 bug 循环发把钱烧光）。
+2. **发送失败必须分类留痕**（余额不足 / 未报备 / 限流 / 号码非法），**不许静默吞**。
+3. **产品建议：短信做"兜底"不做"广播"** —— 15 条/月 对外部客户近骚扰；
+   「开放后 N 小时仍未报单才发」⇒ 会看小程序的人永远收不到，只补真漏的人。
+
+完整方案：`docs/短信通知方案-外部客户触达-2026-10-02.md`（待老板拍板，代码未动）。
