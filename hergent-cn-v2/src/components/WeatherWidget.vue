@@ -97,14 +97,14 @@
               @click="pinPt = pinPt === p.i ? -1 : p.i"
             ></div>
 
-            <!-- 拐点：降温标「降」、升温橙色圆点（HTML 定位，避免 SVG 拉伸把圆点压成椭圆） -->
+            <!-- 拐点：降温标「降」（蓝）、升温标「升」（橙）；HTML 定位，避免 SVG 拉伸把圆点压成椭圆 -->
             <span
               v-for="p in markedPoints"
               :key="'m' + p.i"
               class="wx-trend-dot"
               :class="[p.mark, { last: p.last }]"
               :style="{ left: p.x + '%', top: p.y + '%' }"
-            ><em v-if="p.mark === 'down'">降</em></span>
+            ><em v-if="p.mark === 'down'">降</em><em v-else-if="p.mark === 'up'">升</em></span>
 
             <div v-if="activePt >= 0" class="wx-trend-tip" :class="{ pinned: pinPt >= 0 }" :style="tipStyle">{{ tipText }}</div>
           </div>
@@ -606,7 +606,7 @@ onBeforeUnmount(() => {
 .wx-hb.work{background:var(--hd-work)}
 .wx-d-ic{font-size:22px;line-height:1}
 .wx-d-t{font-size:11px;color:var(--t1);font-variant-numeric:tabular-nums}
-.wx-d-pop{font-size:11px;color:#2b8a3e}
+.wx-d-pop{font-size:11px;color:var(--ok-green)}
 
 /* 温度趋势线：与上方日卡片行同父容器，宽度/内边距/圆角一致 */
 .wx-trend-wrap{position:relative;overflow:hidden;margin-top:2px;padding-top:5px;border-top:1px solid var(--glass-border)}

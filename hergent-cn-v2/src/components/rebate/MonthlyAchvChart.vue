@@ -617,7 +617,7 @@ function onHover(mo, i, key) {
 /* v185 R1：合并后的图例里「深色段」色块与前半句之间要留一口气 */
 .lg-sep { margin-left: 8px; }
 /* 灰轨道示意：上半深灰（达成位）＋下半浅灰（未达位）—— 与柱体两段结构同形 */
-.lg-track { background: linear-gradient(180deg, #cbd5e1 0%, #cbd5e1 45%, #e2e8f0 45%, #e2e8f0 100%); }
+.lg-track { background: linear-gradient(180deg, var(--bd) 0%, var(--bd) 45%, var(--border-subtle) 45%, var(--border-subtle) 100%); }
 .lg-line { width: 12px !important; height: 0 !important; border: 0 !important; border-top: 1px dashed #d97706 !important; border-radius: 0 !important; }
 .lg-deep { background: linear-gradient(180deg, #0e7490 0%, #0e7490 50%, #06b6d4 50%, #06b6d4 100%); }
 
@@ -625,7 +625,7 @@ function onHover(mo, i, key) {
 .mac-body { height: 468px; }
 .mac-skel { display: flex; align-items: flex-end; gap: 6px; padding: 10px 0; }
 .sk-col { flex: 1; display: flex; align-items: flex-end; gap: 2px; height: 100%; }
-.sk-col span { flex: 1; background: var(--border-subtle, #e2e8f0); border-radius: 2px; animation: macpulse 1.2s ease-in-out infinite; }
+.sk-col span { flex: 1; background: var(--border-subtle); border-radius: 2px; animation: macpulse 1.2s ease-in-out infinite; }
 @keyframes macpulse { 0%, 100% { opacity: .45; } 50% { opacity: .9; } }
 .mac-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--t3); font-size: 13px; }
 

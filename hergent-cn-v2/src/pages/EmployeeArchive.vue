@@ -1792,7 +1792,7 @@ onMounted(() => {
 /* v317：外部客户弹窗宽度 —— 比「停用确认」略宽（要放 2 列字段 + 两行说明），
    比「编辑员工」（680px）窄，因为它没有薪酬那一大块。 */
 .ext-modal{width:min(560px,94vw)}
-.df-role.stopped{background:#e5e7eb !important;color:#9aa0a6 !important}
+.df-role.stopped{background:var(--st-draft-bg) !important;color:var(--st-draft-txt) !important}
 /* v266 兼任角色徽标：用**虚框**而非实底，与主角色实底徽标在视觉上分层
    —— 一眼看出「哪个是这个人的本职、哪个是兼的」。 */
 .df-role-extra{background:transparent !important;border:1px dashed rgba(var(--teal-rgb,14,165,164),.55);color:var(--teal,#0ea5a4)}
@@ -1813,7 +1813,7 @@ onMounted(() => {
 
 /* 停用视觉 */
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
-.stopped-tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:8px;background:#e5e7eb;color:#6b7280}
+.stopped-tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:8px;background:var(--st-draft-bg);color:var(--st-draft-txt)}
 .btn.danger{color:var(--dan)}
 .btn-danger{background:var(--dan);color:#fff;border:none}
 .btn-danger:hover{filter:brightness(.95)}

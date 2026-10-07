@@ -567,7 +567,7 @@
           <div class="cp-pager-grid">
             <!-- 预报达成 -->
             <div class="cp-pg-card" @click="drillTo('#/forecast')">
-              <div class="cp-pg-ic" style="background:#eaf2ff;color:#2563eb"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+              <div class="cp-pg-ic" style="background:var(--info-blue-bg);color:var(--info-blue)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
               <div class="cp-pg-t">预报达成</div>
               <div class="cp-pg-v">{{ pagerData.forecast ? pagerData.forecast.done_pct + '%' : '—' }}</div>
               <div class="cp-pg-s" v-if="pagerData.forecast">已报 {{ pagerData.forecast.submitted_stores }}/{{ pagerData.forecast.total_stores }} 门店 · 预报 ¥{{ fmtWan(pagerData.forecast.amount) }}</div>
@@ -575,7 +575,7 @@
             </div>
             <!-- 货损 -->
             <div class="cp-pg-card" @click="drillTo('#/loss')">
-              <div class="cp-pg-ic" style="background:#fff1e6;color:#ea580c"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+              <div class="cp-pg-ic" style="background:var(--warn-amber-bg);color:var(--warn-amber)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
               <div class="cp-pg-t">货损</div>
               <div class="cp-pg-v">{{ pagerData.loss ? pagerData.loss.expiring_soon + ' 个' : '—' }}</div>
               <!-- v389：天数**不能写死** —— 后端已改按货损配方阈值算，写死 14 天就会出现
@@ -585,7 +585,7 @@
             </div>
             <!-- 回款 -->
             <div class="cp-pg-card" @click="drillTo('#/ai-hub')">
-              <div class="cp-pg-ic" style="background:#ecfdf5;color:#059669"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+              <div class="cp-pg-ic" style="background:var(--ok-green-bg);color:var(--ok-green)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
               <div class="cp-pg-t">回款（应收）</div>
               <div class="cp-pg-v">¥{{ pagerData.ar ? fmtWan(pagerData.ar.balance) : '—' }}</div>
               <div class="cp-pg-s" v-if="pagerData.ar">逾期 ¥{{ fmtWan(pagerData.ar.overdue_amount) }} · {{ pagerData.ar.overdue_count }} 笔</div>
@@ -593,7 +593,7 @@
             </div>
             <!-- 返利 -->
             <div class="cp-pg-card" @click="drillTo('#/rebate')">
-              <div class="cp-pg-ic" style="background:#f3e8ff;color:#7c3aed"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg></div>
+              <div class="cp-pg-ic" style="background:var(--violet-bg);color:var(--violet)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg></div>
               <div class="cp-pg-t">返利</div>
               <div class="cp-pg-v">¥{{ pagerData.rebate ? fmtWan(pagerData.rebate.expected_rebate) : '—' }}</div>
               <div class="cp-pg-s" v-if="pagerData.rebate">{{ pagerData.rebate.contracts }} 份合同 · 达成 ¥{{ fmtWan(pagerData.rebate.achieved) }}</div>
@@ -973,7 +973,11 @@ function onHistSearch() {
 const suggestions = ['今天该订什么货？', '算一下这个月货损', '哪些客户该催款了？', '核对我该拿多少返利']
 
 /* ---- M1：对话内斜杠命令（输入 / 唤起快捷指令） ----
-   复用命令面板（CommandPalette）的范式：分组 + 键盘导航 + `store.canModule` 权限过滤 + Icon。
+   复用命令面板（CommandPalette）的范式：分组 + 键盘导航 + 权限过滤 + Icon。
+   🔴 v341（2026-09-30）：过滤从「只看 `store.canModule`」升级为**两轴**（与侧栏/守卫同源）——
+      模块轴（本租户有没有买这个能力）＋ 入口轴（`canSee(c.path)`：角色门槛）。
+      只有命令面板一直是两轴；斜杠命令此前漏了入口轴 ⇒ `/预报`、`/返利政策` 对
+      不在角色名单里的人仍显示（假入口）。见下方 `slashMatches` 处注释。
    形态取「输入框上方的内联浮层」而非全屏模态 —— 这是斜杠命令的标准形态，不打断输入。
    两类命令：prompt（选中即发送一条预置提问）/ path（跳转页面，跳转时收起抽屉）。 */
 const slashIndex = ref(0)
@@ -1012,6 +1016,14 @@ const slashMatches = computed(() => {
   if (slashQuery.value === null) return []
   const kw = slashQuery.value
   return SLASH_COMMANDS.filter(c => (!c.module || store.canModule(c.module)) &&
+    /* 🔴 v341（2026-09-30）：跳转类命令必须**再过一遍入口判据**。
+       此前这里只判模块轴（`store.canModule`），而 `/预报`（roles = `FORECAST_SUMMARY_ROLES`
+       只放管理员/老板/主管）与 `/返利政策`（roles = `BIZ_ROLES`）都带**角色硬门槛** ⇒
+       不在名单的角色（含租户自建的自定义角色）会看到命令、点了被路由守卫弹回工作台
+       —— 正是本项目的「假入口」（入口在、点进去被拒）。
+       判据唯一实现仍是 `canSee()`（→ `constants/pages.js` 一张表），此处**不另写名单**；
+       模块轴保留（它多拦一层"本租户没买这个能力"）。 */
+    (!c.path || canSee(c.path)) &&
     (!kw || c.cmd.slice(1).toLowerCase().includes(kw) || c.title.includes(kw)))
 })
 const slashOpen = computed(() => slashQuery.value !== null && !slashDismissed.value && slashMatches.value.length > 0)
@@ -2361,8 +2373,8 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
    🔵 不需要窄屏隐藏：字数**只在有内容时**出现，而有内容时占位文字不渲染 ⇒ 天然不会重叠。 */
 .cp-inhint{position:absolute;top:21px;right:15px;font-size:11px;line-height:22px;color:var(--t3);pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cp-mode-banner{font-size:12px;padding:6px 10px;border-radius:8px;margin-top:7px;text-align:center;line-height:1.4}
-.cp-mode-banner.disabled{background:#fdecea;color:#c0392b}
-.cp-mode-banner.readonly{background:#fff7e6;color:#b9770e}
+.cp-mode-banner.disabled{background:var(--danger-bg);color:var(--danger-txt)}
+.cp-mode-banner.readonly{background:var(--warn-amber-bg);color:var(--warn-amber)}
 
 /* P0-③ AI 权限护栏开关 */
 .cp-guard-btn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 11px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}

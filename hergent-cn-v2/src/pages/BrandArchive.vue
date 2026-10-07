@@ -328,10 +328,10 @@ onMounted(() => {
 .ba-ops{white-space:nowrap}
 .ba-ops .btn{margin-left:6px}
 
-.ba-stopped-tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:8px;background:#e5e7eb;color:#6b7280}
+.ba-stopped-tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:8px;background:var(--st-draft-bg);color:var(--st-draft-txt)}
 .ba-status{font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t3)}
 .ba-status.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
-.ba-status.off{background:rgba(var(--t3-rgb,156,163,175),.14);color:var(--t3)}
+.ba-status.off{background:rgba(var(--t3-rgb),.14);color:var(--t3)}
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
 
 /* 待审 */

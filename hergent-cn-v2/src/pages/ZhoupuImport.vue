@@ -300,7 +300,7 @@ onMounted(async () => {
 .zp-hd{margin-bottom:14px}
 .zp-title{font-size:20px;font-weight:600;margin:0 0 6px;color:var(--t1)}
 .zp-sub{margin:0;font-size:13px;line-height:1.7;color:var(--t2)}
-.zp-card{background:var(--card,#fff);border:1px solid var(--line,rgba(0,0,0,.08));
+.zp-card{background:var(--bg2);border:1px solid var(--bd);
   border-radius:12px;padding:16px 18px;margin-bottom:14px}
 .zp-rules{display:grid;gap:8px}
 .zp-rule{font-size:13px;line-height:1.8;color:var(--t2)}
@@ -308,40 +308,40 @@ onMounted(async () => {
 .zp-file{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .zp-file-input{font-size:13px}
 .zp-file-name{font-size:13px;color:var(--t2)}
-.zp-btn{padding:7px 16px;border-radius:8px;border:1px solid var(--line,rgba(0,0,0,.12));
-  background:var(--card,#fff);color:var(--t1);font-size:13px;cursor:pointer}
+.zp-btn{padding:7px 16px;border-radius:8px;border:1px solid var(--bd);
+  background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer}
 .zp-btn:disabled{opacity:.5;cursor:not-allowed}
-.zp-btn.zp-primary{background:var(--pri,#2563eb);border-color:var(--pri,#2563eb);color:#fff}
-.zp-hint{margin:8px 0 0;font-size:12px;color:var(--t3,var(--t2));line-height:1.7}
-.zp-err{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--dan-bg,rgba(220,38,38,.08));
-  color:var(--dan,#dc2626);font-size:13px}
+.zp-btn.zp-primary{background:var(--p-dark);border-color:var(--p-dark);color:#fff}
+.zp-hint{margin:8px 0 0;font-size:12px;color:var(--t3);line-height:1.7}
+.zp-err{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--dan-bg);
+  color:var(--dan);font-size:13px}
 .zp-h2{margin:0 0 12px;font-size:15px;font-weight:600;color:var(--t1)}
 .zp-h3{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--t1)}
 .zp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:14px}
-.zp-stat{border:1px solid var(--line,rgba(0,0,0,.08));border-radius:8px;padding:10px 12px}
+.zp-stat{border:1px solid var(--bd);border-radius:8px;padding:10px 12px}
 .zp-stat span{display:block;font-size:12px;color:var(--t2);margin-bottom:4px}
 .zp-stat b{font-size:15px;font-weight:600;color:var(--t1)}
-.zp-stat.zp-ok b{color:var(--ok,#16a34a)}
-.zp-stat.zp-warn b{color:var(--warn-amber,#854F0B)}
+.zp-stat.zp-ok b{color:var(--ok-green)}
+.zp-stat.zp-warn b{color:var(--warn-amber)}
 .zp-running,.zp-done{margin:12px 0;padding:10px 14px;border-radius:8px;font-size:13px}
 /* v271 进度条 */
-.zp-bar{height:8px;border-radius:4px;background:var(--line,rgba(0,0,0,.08));overflow:hidden}
-.zp-bar-in{height:100%;background:var(--pri,#2563eb);border-radius:4px;transition:width .4s ease}
+.zp-bar{height:8px;border-radius:4px;background:var(--bd);overflow:hidden}
+.zp-bar-in{height:100%;background:var(--p-dark);border-radius:4px;transition:width .4s ease}
 /* 分母未知时的流动条：宽度固定 35% 左右滑来滑去，告诉用户「在动，只是算不出百分比」 */
 .zp-bar-idle{width:35%;animation:zp-slide 1.2s ease-in-out infinite}
 @keyframes zp-slide{0%{margin-left:-35%}100%{margin-left:100%}}
 .zp-prog-txt{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--t2)}
-.zp-prog-txt b{color:var(--pri,#2563eb)}
-.zp-running{background:var(--warn-amber-bg,rgba(186,117,23,.12));color:var(--warn-amber,#854F0B)}
-.zp-done{background:var(--ok-bg,rgba(22,163,74,.1));color:var(--ok,#16a34a)}
+.zp-prog-txt b{color:var(--p-dark)}
+.zp-running{background:var(--warn-amber-bg);color:var(--warn-amber)}
+.zp-done{background:var(--ok-green-bg);color:var(--ok-green)}
 .zp-fold{margin-top:14px;font-size:13px;color:var(--t2)}
 .zp-fold summary{cursor:pointer;padding:6px 0}
 .zp-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
-.zp-tbl th{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line,rgba(0,0,0,.1));
+.zp-tbl th{text-align:left;padding:7px 10px;border-bottom:1px solid var(--bd);
   color:var(--t2);font-weight:500;font-size:12px}
-.zp-tbl td{padding:7px 10px;border-bottom:1px solid var(--line,rgba(0,0,0,.06));color:var(--t1)}
+.zp-tbl td{padding:7px 10px;border-bottom:1px solid var(--bd);color:var(--t1)}
 .zp-tbl .zp-num{text-align:right}
 .zp-miss,.zp-warnbox{margin-top:16px}
-.zp-link{margin-top:8px;background:none;border:none;color:var(--pri,#2563eb);
+.zp-link{margin-top:8px;background:none;border:none;color:var(--p-dark);
   font-size:13px;cursor:pointer;padding:0}
 </style>

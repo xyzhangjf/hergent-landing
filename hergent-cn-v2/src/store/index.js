@@ -23,7 +23,7 @@ export const useAppStore = defineStore('app', () => {
     theme: 'light',
     mobileDrawer: false,   // 手机"更多"抽屉
     copilotOpen: false,    // AI 副驾全局抽屉
-    toast: null
+    toasts: []             // 通知栈（v362）：最多 3 条，长文案不自动消失 —— 见下方 toast()
   })
   const user = reactive({
     name: '',
@@ -101,9 +101,45 @@ export const useAppStore = defineStore('app', () => {
   })
 
   // ---- actions ----
-  function toast(msg, type = 'info') {
-    ui.toast = { msg, type, id: Date.now() }
-    setTimeout(() => { ui.toast = null }, 3000)
+  /* 通知（toast）—— v362 三处修正
+     🔴 ① **长文案不再自动消失**。此前一律 3000ms；而「为什么导不出舟谱模板」这类业务
+        解释有 200~400 字（后端 `_zhoupu_empty_reason`），3 秒根本读不完 ⇒
+        2026-10-02 报障「弹窗内容较多，当前自动关闭的展示时间过短，用户来不及看完」。
+        现在：文案 ≥ STICKY_LEN 字 ⇒ **不自动关闭**，改为「点 × 按钮 / 点弹窗外任意处」
+        手动关；短文案按长度给 3~6 秒。
+     🔴 ② **多条不再互相顶掉**。此前是**单槽位**，后一条瞬间覆盖前一条 —— 例：`zhoupuGen`
+        先 `toast('已下载…','ok')` 紧接着 `toast('提示：…','warn')`，前者**一次都看不到**
+        （且两条同毫秒触发时 `Date.now()` 作 id 会撞成同一个 Vue key）。改成栈，最多 3 条。
+     ③ 类型名 `err/ok/warn` 与 `error/success` 全站两种写法都有 —— 样式在 App.vue 一并认。
+     返回本条 id；调用方可用 `dismissToast(id)` 提前关掉，不理会也行。 */
+  const TOAST_MAX = 3
+  const STICKY_LEN = 60          // 字数阈值：达到即视为「说明型」⇒ 不自动关闭
+  let _toastSeq = 0
+  const _toastTimers = new Map()
+
+  function dismissToast(id) {
+    const i = ui.toasts.findIndex(t => t.id === id)
+    if (i >= 0) ui.toasts.splice(i, 1)
+    const h = _toastTimers.get(id)
+    if (h) { clearTimeout(h); _toastTimers.delete(id) }
+  }
+
+  function toast(msg, type = 'info', opts) {
+    const text = (msg == null ? '' : String(msg))
+    const o = opts || {}
+    const sticky = o.sticky != null ? !!o.sticky : text.length >= STICKY_LEN
+    const id = ++_toastSeq
+    ui.toasts.push({ id, msg: text, type, sticky })
+    while (ui.toasts.length > TOAST_MAX) {
+      const old = ui.toasts.shift()
+      const h = _toastTimers.get(old.id)
+      if (h) { clearTimeout(h); _toastTimers.delete(old.id) }
+    }
+    // 短文案按时长自动关闭（越长的给越久，上限 6s）；长文案交给用户手关
+    if (!sticky)
+      _toastTimers.set(id, setTimeout(() => dismissToast(id),
+        Math.min(6000, 3000 + text.length * 30)))
+    return id
   }
 
   function setTheme(t) {
@@ -531,7 +567,7 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     ui, user, demo, chat,
-    toast, setTheme,
+    toast, dismissToast, setTheme,
     perms, permsTenant, loadPerms, canModule, canUseAi, resetPerms,
     permsRev, customRoles, refreshPermsIfChanged,
     plan, caps, canCap,
