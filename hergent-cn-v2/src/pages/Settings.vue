@@ -26,20 +26,56 @@
 
     <!-- ==================== 权限（仅角色权限矩阵；成员/账号归位「员工档案」） ==================== -->
     <template v-if="tab === 'perm'">
-      <!-- v334：两种入口。默认「按角色配置」（对标舟谱：列表 → 点进某角色细配），
-           旧的横向矩阵收进「批量总览」原样保留 —— 此前的使用习惯一点不变。 -->
-      <div class="module-tabs perm-views">
-        <button :class="{ on: permView === 'list' || permView === 'detail' }"
-                @click="permView = 'list'">按角色配置</button>
-        <button :class="{ on: permView === 'matrix' }" @click="permView = 'matrix'">批量总览</button>
-      </div>
+      <!-- ============ v351（2026-10-01，路线 A）：权限页只剩**一个**写法 ============
+           老板拍板走路线 A：**「批量总览」不再是一个页签**，它原来的两个用途拆开 ——
+             · 「配权限」→ 归到**每个角色自己的配置页**（唯一写入口）；
+             · 「几家角色横向比一比」→ 降级为角色列表右上角的**「查看对比」只读弹窗**。
+
+           🔴 为什么必须这么改（v350 那个 P0 的病根）：
+           原先两个视图**写同一行同一列、却是两种数据形态** ——
+             矩阵视图写 list（`perms[角色] = [模块…]`），详情视图写 dict（`{模块: [动作]}`）。
+           于是「老板的 hr/data 是必选」这条安全规则**只在矩阵视图实现**，详情视图零防护
+           ⇒ 在详情页取消一个勾就能把 boss 的 `hr` 写空 ⇒ 权限页永久自锁（只能改库救回）。
+           v350 是给两处各补一份判据（同一规则**抄了两份**）；本版是**把第二个写入口删掉** ——
+           规则自然只剩一份，结构上不可能再漏。 -->
 
       <!-- ============ 视图一：角色列表（对标舟谱图 1）============ -->
       <template v-if="permView === 'list'">
         <div class="card">
           <div class="panel-hd">
             <b>角色与权限</b>
+            <div class="tb-group tb-right">
+              <!-- 🔴 v351：原先这三件事挤在矩阵视图的工具栏最右侧（搜索框 + 新建角色 +
+                   「全部恢复默认」+ 「保存权限」）。矩阵撤掉后，两个**整页级低频**动作挪到这里；
+                   「保存」则只在**角色配置页**里出现（它保存的是那一个角色）。 -->
+              <button class="btn btn-sm" @click="compareOpen = true"
+                      title="所有角色横向比一比（只能看，不能改）">查看对比</button>
+              <button class="btn btn-sm" @click="newRoleOpen = !newRoleOpen"
+                      title="拿一个现成角色做底子，另存成一个新角色">新建角色</button>
+              <button class="btn btn-sm" @click="resetAllRoles"
+                      title="把所有系统自带角色恢复成默认设置（自建角色不受影响）">全部恢复默认</button>
+            </div>
           </div>
+
+          <!-- v328 批次 ⑥：新建角色的**内联**表单（不弹窗 —— 本页已有横向滚动的表格，
+               再叠一层模态会让"在哪儿点"变成猜谜）。v351：跟着按钮从矩阵挪到本视图。 -->
+          <div v-if="newRoleOpen" class="pm-new">
+            <div class="pm-new-row">
+              <input v-model="newRoleName" class="fld pm-new-name" maxlength="16"
+                     placeholder="新角色名，如「库管」" aria-label="新角色名">
+              <select v-model="newRoleFrom" class="fld" aria-label="权限来源">
+                <option value="">不复制，从空白开始</option>
+                <option v-for="role in permRoles" :key="'nf-' + role.name" :value="role.name">
+                  复制「{{ roleLabel(role.name) }}」的权限
+                </option>
+              </select>
+              <button class="btn btn-sm btn-primary" :disabled="permLoading" @click="createRole">创建</button>
+              <button class="btn btn-sm" @click="newRoleOpen = false">取消</button>
+            </div>
+            <p class="pm-new-tip">创建后它立刻出现在下面的表格里，接着点「配置权限」勾它的权限即可。
+              名字最多 16 个字，不能和系统自带角色重名。</p>
+          </div>
+
           <table class="perm-role-table">
             <thead>
               <tr>
@@ -60,6 +96,10 @@
                 <td class="pr-end">{{ loginScopeLabel(endToScope(r.end)) }}</td>
                 <td class="ctr">
                   <button class="btn btn-sm" @click="openRoleDetail(r.name)">配置权限</button>
+                  <!-- v351：从矩阵列头挪过来。判据仍是 `is_custom`（= 本租户有覆盖行）——
+                       系统自带角色被改过也照样能单独恢复，正是老板要的"这个改坏了，退回去"。 -->
+                  <button v-if="r.is_custom" class="btn btn-sm btn-ghost" @click="resetRole(r.name)"
+                          title="恢复该角色的默认权限">恢复默认</button>
                 </td>
               </tr>
               <tr v-if="!permRoles.length">
@@ -67,15 +107,20 @@
               </tr>
             </tbody>
           </table>
+          <p class="pr-tip">
+            点「配置权限」进入这个角色的明细。<b>同一个角色只有一个配权限的地方</b> ——
+            改了就是真的改了，不会出现"这里改了那里没变"。
+          </p>
         </div>
       </template>
 
-      <!-- ============ 视图二：单个角色的详情配置（对标舟谱图 2）============ -->
+      <!-- ============ 视图二：单个角色的详情配置（对标舟谱图 2 · **唯一写入口**）============ -->
       <template v-if="permView === 'detail'">
         <div class="card toolbar">
           <div class="tb-group">
             <button class="btn btn-sm btn-ghost" @click="permView = 'list'">← 角色列表</button>
             <span class="tb-title">角色：{{ roleLabel(permDetailRole) }}</span>
+            <span v-if="roleDuty(permDetailRole)" class="tb-sub">{{ roleDuty(permDetailRole) }}</span>
           </div>
           <div class="tb-group tb-right">
             <button class="btn btn-sm btn-primary"
@@ -86,237 +131,232 @@
           </div>
         </div>
 
+        <!-- ============ ③④ 登录端 —— 置顶（原型第 2 条）============
+             它回答的是"这个角色的人**从哪儿进来**"，与下面"进来之后能干什么"是两件事，
+             分开放才读得清（原先它是矩阵里的一行，藏在 20 行模块中间）。
+             🔴 它是**角色政策**（给该角色新建账号时 `login_scope` 的默认值），不是账号事实 ——
+                已存在的账号仍可单独改，两者不一致时员工档案会标出来，**不会**在这里被静默覆盖。 -->
+        <div class="card">
+          <div class="panel-hd"><b>登录端 · 这个角色的人从哪儿进来</b></div>
+          <div v-if="permDetailLoading || !curRole" class="pr-empty">加载中…</div>
+          <template v-else>
+            <label class="end-row end-row-web">
+              <input type="checkbox"
+                     :checked="curRole.end.web"
+                     :disabled="curRole.end_locked_web"
+                     :title="curRole.end_locked_web ? '老板 / 管理员的电脑端不能关闭 —— 关掉后将无法进入后台改回来' : ''"
+                     @change="toggleEnd(curRole, 'web', $event)">
+              <span>允许使用电脑端（网页）</span>
+            </label>
+            <label class="end-row end-row-mini">
+              <input type="checkbox" :checked="curRole.end.mini" @change="toggleEnd(curRole, 'mini', $event)">
+              <span>允许使用手机端（小程序）</span>
+            </label>
+            <div class="end-sum">
+              新账号的默认可登录端：<b>{{ loginScopeLabel(endToScope(curRole.end)) }}</b>
+              <button v-if="curRole.end_is_custom" class="btn-mini" style="margin-left:8px"
+                      title="把该角色的登录端恢复为默认设置" @click="resetRoleEnd(curRole)">恢复默认</button>
+            </div>
+          </template>
+        </div>
+
+        <!-- ============ ① 功能模块 —— **域页签**（原型第 3 条）============
+             🔴 「更多」**不再折叠**（老板 2026-10-01 拍板）：原先是一条长列表 + 把「更多」折起来，
+                找东西得先在长列表里扫；改成页签后点一下就到那一类，再折叠就是多余的两次点击。 -->
         <div class="card">
           <div class="panel-hd">
-            <b>功能模块权限</b>
+            <b>功能权限 · 这个角色能用哪些功能</b>
+            <div class="tb-group tb-right">
+              <div class="tb-search">
+                <Icon name="search"/>
+                <input v-model="moduleQuery" class="fld" placeholder="搜索功能…" aria-label="搜索功能">
+              </div>
+              <!-- v350：搜索是**查找**不是筛选 ⇒ 给命中数，否则"其余行变淡"会被当成没反应 -->
+              <span v-if="searchHitKeys" class="tb-hit">
+                {{ searchHitKeys.size ? '找到 ' + searchHitKeys.size + ' 个' : '没有匹配的功能' }}
+              </span>
+            </div>
           </div>
+
+          <div v-if="permGroups.length" class="domtabs">
+            <button v-for="g in permGroups" :key="'dt-' + g.name"
+                    :class="{ on: g.name === (curDomain || {}).name }"
+                    @click="detailDomain = g.name">
+              {{ g.tab || g.name }}
+              <!-- 搜索时改显**命中数**（无命中的域自然会露出来，用户知道该点哪个） -->
+              <span class="cnt">{{ domainCount(g) }}</span>
+            </button>
+          </div>
+
           <div v-if="permDetailLoading" class="pr-empty">加载中…</div>
           <table v-else class="perm-detail-table">
             <thead>
               <tr>
-                <th class="pd-mod">功能模块</th>
+                <th class="pd-mod">功能</th>
                 <th v-for="a in permActions" :key="'ph-' + a" class="ctr" :title="permActionHints[a]">
                   {{ permActionLabels[a] }}
                 </th>
-                <th class="ctr">整行</th>
+                <th class="ctr" style="width:104px">整行</th>
               </tr>
             </thead>
             <tbody>
-              <template v-for="g in groupedModules" :key="'dg-' + g.name">
-                <tr class="pm-sec">
-                  <td :colspan="permActions.length + 2">{{ g.name }}</td>
-                </tr>
-                <tr v-for="m in g.items" :key="'dm-' + m.id">
-                  <td class="pd-mod">
-                    <div class="pm-mod-lb">{{ m.label }}</div>
-                    <div v-if="pageNamesFor(m).length" class="pm-mod-pages">对应页面：{{ pageNamesFor(m).join('、') }}</div>
-                  </td>
-                  <td v-for="a in permActions" :key="'pc-' + m.id + '-' + a" class="ctr">
-                    <input type="checkbox"
-                           :checked="!!(permDetail[m.id] || {})[a]"
-                           @change="toggleDetail(m.id, a, $event)">
-                  </td>
-                  <td class="ctr">
-                    <button class="btn btn-sm btn-ghost" @click="toggleRowAll(m.id)">
-                      {{ rowAllOn(m.id) ? '取消整行' : '整行全选' }}
-                    </button>
-                  </td>
-                </tr>
-              </template>
+              <tr v-for="m in detailRows" :key="'dm-' + m.id"
+                  :class="{ 'pm-row-dim': isDimmed(m) }">
+                <td class="pd-mod">
+                  <div class="pm-mod-lb">{{ m.rowName || m.label }}</div>
+                  <!-- v349：只读固定行（`module: null`）—— 只说清它归谁管，**不给勾选框**。
+                       画一个勾了不生效的框 = 界面说假话（本项目红线）。 -->
+                  <div v-if="m.fixed" class="pm-mod-fixed">{{ m.fixed }}</div>
+                  <!-- v333：这个勾管哪些**页面**。数据源 = 后端 `MODULE_IMPACT.entries`，
+                       与 `pages.js` 的 `module` 由护栏逐项锁定，前端不自己再推一份。 -->
+                  <div v-else-if="pageNamesFor(m).length" class="pm-mod-pages">
+                    对应页面：{{ pageNamesFor(m).join('、') }}
+                  </div>
+                  <div v-else-if="m.note" class="pm-mod-pages">{{ m.note }}</div>
+                  <div v-else class="pm-mod-pages pm-mod-nopage">{{ PERM_NO_PAGE_NOTE }}</div>
+                </td>
+                <td v-for="a in permActions" :key="'pc-' + m.id + '-' + a" class="ctr">
+                  <span v-if="m.fixed" class="pm-fixed-mark" :title="m.fixed">不在此配</span>
+                  <!-- 🔴 v350 P0 / v351 仍是本页**唯一**的勾选框位置：
+                       `isLockedModule` 是「必选项」的**单一实现**（渲染层 + 行为层共用）。
+                       v351 撤掉矩阵视图后，这条规则在结构上只剩这一处，不可能再漏一份。 -->
+                  <input v-else type="checkbox"
+                         :checked="!!(permDetail[m.id] || {})[a]"
+                         :disabled="isLockedModule(permDetailRole, m.id)"
+                         :title="isLockedModule(permDetailRole, m.id) ? '必选项，不可取消' : ''"
+                         @change="toggleDetail(m.id, a, $event)">
+                </td>
+                <td class="ctr">
+                  <span v-if="m.fixed" class="pm-fixed-mark">—</span>
+                  <!-- 「整行全选」对必选项同样危险（点一下＝改掉该行 4 个勾）⇒ 一并上锁。 -->
+                  <button v-else class="btn btn-sm btn-ghost"
+                          :disabled="isLockedModule(permDetailRole, m.id)"
+                          :title="isLockedModule(permDetailRole, m.id) ? '必选项，不可取消' : ''"
+                          @click="toggleRowAll(m.id)">
+                    {{ rowAllOn(m.id) ? '取消整行' : '整行全选' }}
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!detailRows.length">
+                <td :colspan="permActions.length + 2" class="pr-empty">这个分类下没有可配置的功能</td>
+              </tr>
             </tbody>
           </table>
           <p class="pr-tip">
-            一个模块四个勾都不勾 = 这个角色看不到这一块（侧栏入口与页内数据都会一起关掉）。
+            一个功能四个勾都不勾 = 这个角色看不到这一块（侧栏入口与页内数据都会一起关掉）。
             勾了什么就真的生效什么：取消「查看」后，这个角色连这一块的数据都读不到。
           </p>
         </div>
-      </template>
 
-      <!-- ============ 视图三：旧的横向矩阵（批量总览，原样保留）============ -->
-      <template v-if="permView === 'matrix'">
-      <!-- 角色权限：角色 × 模块矩阵 -->
-      <div class="card toolbar">
-        <div class="tb-group">
-          <span class="tb-title">角色权限</span>
+        <!-- ============ ② 是否可使用 AI —— 独立一块（原型第 4 条）============
+             它不属于任何一个业务域（不是一个页面），混在功能列表里会被当成"又一个模块"。
+             🔴 口径要说准：关掉它 = 关掉**发起新对话**（`/api/ai/copilot/chat` 归 chat）；
+             `/api/ai/sessions`、`search-chat`、`media` 豁免模块判定 ⇒ 历史会话与附件仍可读
+             （且只读自己的）。别说成"关掉 AI 就全断了"，那是假话。
+             ⚠️ 勾选举**仍然写回 `chat` 模块**（`PERM_AI_MODULE`）—— 后端零改动。 -->
+        <div class="card">
+          <div class="panel-hd"><b>允许使用 AI · 问副驾 / 让 AI 分析</b></div>
+          <div v-if="permDetailLoading" class="pr-empty">加载中…</div>
+          <template v-else>
+            <label class="end-row end-row-ai">
+              <input type="checkbox"
+                     :checked="detailModuleOn(PERM_AI_MODULE)"
+                     title="勾选即允许该角色使用 AI"
+                     @change="toggleAi($event)">
+              <span>允许这个角色使用 AI</span>
+            </label>
+            <p class="pr-tip" style="margin-top:8px">
+              关掉后不能发起新对话；已经存在的会话与附件仍然可以查看（只看自己的）。
+            </p>
+          </template>
         </div>
-        <div class="tb-group tb-right">
-          <div class="tb-search">
-            <Icon name="search"/>
-            <input v-model="moduleQuery" class="fld" placeholder="搜索模块…" aria-label="搜索模块">
-          </div>
-          <!-- v328 批次 ⑥：新建角色 / 全部恢复出厂。放在这里而不是工具栏最右侧，
-               避免和「保存权限」挤成一排 —— 保存是高频动作，这两个是低频。 -->
-          <button class="btn btn-sm" @click="newRoleOpen = !newRoleOpen"
-                  title="拿一个现成角色做底子，另存成一个新角色">新建角色</button>
-          <button class="btn btn-sm" @click="resetAllRoles"
-                  title="把所有系统自带角色恢复成默认设置（自建角色不受影响）">全部恢复默认</button>
-          <button class="btn btn-sm btn-primary" :disabled="permSaving || permLoading" @click="savePerms">
-            {{ permSaving ? '保存中…' : '保存权限' }}
+
+        <!-- 使用说明：**默认收起**（v326）。留着的两句仍是功能的一部分，不是装饰 ——
+             权限页最容易犯的错是「许诺一件它兑现不了的事」。 -->
+        <div class="card">
+          <button type="button" class="pm-help-tb"
+                  :aria-expanded="permHelpOpen ? 'true' : 'false'"
+                  @click="permHelpOpen = !permHelpOpen">
+            <Icon :name="permHelpOpen ? 'chevron-down' : 'chevron-right'"/>
+            使用说明
           </button>
-        </div>
-      </div>
-
-      <div class="card">
-        <!-- 使用说明：**默认收起**（v326，2026-09-29）。
-             🔴 为什么收起：这里原先常驻 8 段「为什么这么设计」的实现说明 —— 版本号（v296/v311/v312）、
-                模块键名、「角色门槛让位」规则、产品内置模块名单、两处归位……。
-                那些是写给维护者的，不是写给老板的：它们不解释任何老板看得见的行为，
-                却会被当成「系统坏了」的线索去读。⇒ 默认收起，只留一行入口。
-             ⚠️ 留下来的两句仍是**功能的一部分**，不是装饰：权限页最容易犯的错是「许诺一件它兑现
-                不了的事」—— 老板勾了模块、界面没变，就会认定系统坏了（而系统一声不吭）。
-                所以只留两件事：什么时候生效 / 哪些账号会跟着变 ——
-                全部业务语言，不带任何实现细节。
-             ⚠️ v331c：原先还有第三句「手机端那列是什么」，随该只读列一起删掉了
-                （列已不存在，留着就是解释一个看不见的东西）。 -->
-        <button
-          type="button"
-          class="pm-help-tb"
-          :aria-expanded="permHelpOpen ? 'true' : 'false'"
-          @click="permHelpOpen = !permHelpOpen"
-        >
-          <Icon :name="permHelpOpen ? 'chevron-down' : 'chevron-right'"/>
-          使用说明
-        </button>
-        <div v-if="permHelpOpen" class="pm-help">
-          <p>保存后<b>立即生效</b>。已经存在的账号<b>不会被自动改动</b>；员工档案里会把这些账号
-            标成「与角色配置不一致」，可一键按角色对齐。</p>
-          <p>老板与管理员的「员工管理」「档案管理」为必选、不可取消 —— 防止把自己锁在门外。</p>
-        </div>
-
-        <!-- v328 批次 ⑥：新建角色的**内联**表单（不弹窗 —— 本页卡片内已有横向滚动的表格，
-             再叠一层模态会让"在哪儿点"变成猜谜）。 -->
-        <div v-if="newRoleOpen" class="pm-new">
-          <div class="pm-new-row">
-            <input v-model="newRoleName" class="fld pm-new-name" maxlength="16"
-                   placeholder="新角色名，如「库管」" aria-label="新角色名">
-            <select v-model="newRoleFrom" class="fld" aria-label="权限来源">
-              <option value="">不复制，从空白开始</option>
-              <option v-for="role in permRoles" :key="'nf-' + role.name" :value="role.name">
-                复制「{{ roleLabel(role.name) }}」的权限
-              </option>
-            </select>
-            <button class="btn btn-sm btn-primary" :disabled="permSaving" @click="createRole">创建</button>
-            <button class="btn btn-sm" @click="newRoleOpen = false">取消</button>
+          <div v-if="permHelpOpen" class="pm-help" style="margin-bottom:0">
+            <p>保存后<b>立即生效</b>。已经存在的账号<b>不会被自动改动</b>；员工档案里会把这些账号
+              标成「与角色配置不一致」，可一键按角色对齐。</p>
+            <p>老板与管理员的「员工管理」「档案管理」为必选、不可取消 —— 防止把自己锁在门外。</p>
           </div>
-          <p class="pm-new-tip">创建后它立刻出现在下面的表格里，接着勾它的权限即可。
-            名字最多 16 个字，不能和系统自带角色重名。</p>
         </div>
+      </template>
 
-        <div v-if="permLoading" class="state-empty"><div class="skel-line" style="width:40%;margin:0 auto"></div></div>
-        <div v-else-if="!filteredModules.length" class="state-empty">没有匹配的模块</div>
-        <div v-else class="table-wrap">
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th class="pm-mod-col">权限项</th>
-                <!-- v328：列头换成与员工档案**同一个短名**，补充职责走悬浮提示。 -->
-                <th v-for="role in permRoles" :key="role.name" class="ctr"
-                    :title="roleDuty(role.name) ? roleLabel(role.name) + '：' + roleDuty(role.name) : ''">
-                  <div class="pm-col-hd">{{ roleLabel(role.name) }}</div>
-                  <!-- v328 G4：**自定义角色的"让位盲区"** 必须写在脸上。
-                       业务页（目标与返利 / 档案管理 / 货损…）的入口走**角色门槛**，自定义角色
-                       不在任何门槛名单里 ⇒ 给它勾再多模块，那些页面也**不会多出来**。
-                       这是刻意设计（防止"造一个角色就全开"），但**不说**客户就会认定权限没生效。
-                       🔴 判据 = `isCanonicalRole(role.name)`（= 名字在 `ROLE_NAMES` 里），
-                       **不是** `role.is_custom`（那是"本租户有覆盖行"，内置角色照样为 true ⇒
-                       会把「主管」「业务员」都标成自定义角色，见 `backend-auth.md §2`），
-                       **也不是** `role.is_default` —— 该字段后端确实下发（`role in _DEFAULT_PERMS`），
-                       但 `loadPerms()` 的对象字面量**没搬它** ⇒ `undefined` ⇒ `!undefined` 恒真 ⇒
-                       **每一列都标「自定义角色」**（2026-09-30 老板报障的原样）。
-                       用 `name` 判就结构上不可能被这种"白名单漏搬字段"再咬一次。 -->
-                  <div v-if="!isCanonicalRole(role.name)" class="pm-col-sub pm-col-custom"
-                       >自定义角色</div>
-                  <div v-if="role.end_is_custom" class="pm-col-sub">登录端已改</div>
-                  <button
-                    v-if="role.is_custom"
-                    class="btn-mini"
-                    @click="resetRole(role.name)"
-                    title="恢复该角色的默认权限"
-                  >恢复默认</button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- v312 第一条轴：**登录端** —— 这个角色的人可以从哪个端登录。
-                   与下面的模块矩阵同表（列对齐），但语义完全不同：端 = 入口，模块 = 能力。 -->
-              <tr class="pm-sec"><td :colspan="permRoles.length + 1">① 登录端 · 这个角色从哪儿登录</td></tr>
-              <tr>
-                <td class="pm-end-lb">允许使用电脑端（网页）</td>
-                <td v-for="role in permRoles" :key="'ew-' + role.name" class="ctr">
-                  <input
-                    type="checkbox"
-                    :checked="role.end.web"
-                    :disabled="role.end_locked_web"
-                    :title="role.end_locked_web ? '老板 / 管理员的电脑端不能关闭 —— 关掉后将无法进入后台改回来' : ''"
-                    @change="toggleEnd(role, 'web', $event)"
-                  >
-                </td>
-              </tr>
-              <tr>
-                <td class="pm-end-lb">允许使用手机端（小程序）</td>
-                <td v-for="role in permRoles" :key="'em-' + role.name" class="ctr">
-                  <input
-                    type="checkbox"
-                    :checked="role.end.mini"
-                    @change="toggleEnd(role, 'mini', $event)"
-                  >
-                </td>
-              </tr>
-              <tr class="pm-end-sum">
-                <td class="pm-end-lb">新账号的默认可登录端</td>
-                <td v-for="role in permRoles" :key="'es-' + role.name" class="ctr">
-                  <span class="pm-end-tag" :class="{ on: role.end_is_custom }">{{ loginScopeLabel(endToScope(role.end)) }}</span>
-                  <button
-                    v-if="role.end_is_custom"
-                    class="btn-mini"
-                    title="把该角色的登录端恢复为默认设置"
-                    @click="resetRoleEnd(role)"
-                  >恢复</button>
-                </td>
-              </tr>
-
-              <tr class="pm-sec"><td :colspan="permRoles.length + 1">② 功能模块 · 这个角色能用哪些功能</td></tr>
-              <!-- v328 批次 ⑥：按业务域分组渲染（组头可整组勾选）。 -->
-              <template v-for="g in groupedModules" :key="g.name">
-                <tr class="pm-grp">
-                  <td class="pm-grp-lb">{{ g.name }}</td>
-                  <td v-for="role in permRoles" :key="g.name + '-' + role.name" class="ctr">
-                    <input
-                      type="checkbox"
-                      :checked="groupChecked(g, role)"
-                      title="整组勾选 / 取消"
-                      @change="toggleGroup(g, role, $event)"
-                    >
+      <!-- ============ 「查看对比」只读弹窗（原「批量总览」的**看**那一半）============
+           🔴 v351：为什么降级成弹窗 —— 跨角色对比本来只是"看一眼"，
+           为它保留一个**可写**视图正是 v350 那个自锁缺陷的病根
+           （同一行同一列、两套读写路径）。
+           🔴 本弹窗里**没有任何 input / @click 能写**，只有 ✓ 与 — 两种只读标记 ——
+           结构上不可能再从第二个地方改权限。 -->
+      <div v-if="compareOpen" class="cmp-mask" @click.self="compareOpen = false">
+        <div class="cmp-dlg">
+          <div class="panel-hd">
+            <b>角色权限对比（只读）</b>
+            <div class="tb-group tb-right">
+              <button class="btn btn-sm" @click="compareOpen = false">关闭</button>
+            </div>
+          </div>
+          <p class="pr-tip">
+            这里只能看，不能改。要改请回到对应角色的配置页 ——
+            这样就不会有"在两个地方各勾一半"的问题。
+          </p>
+          <div v-if="permLoading" class="pr-empty">加载中…</div>
+          <div v-else class="cmp-wrap">
+            <table class="cmp-table">
+              <thead>
+                <tr>
+                  <th class="cmp-first">权限项</th>
+                  <th v-for="role in permRoles" :key="'ch-' + role.name" class="ctr">
+                    <div class="pm-col-hd">{{ roleLabel(role.name) }}</div>
+                    <div v-if="!isCanonicalRole(role.name)" class="pm-col-sub pm-col-custom">自定义角色</div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="pm-sec"><td :colspan="permRoles.length + 1">登录端</td></tr>
+                <tr>
+                  <td class="cmp-first">允许使用电脑端（网页）</td>
+                  <td v-for="role in permRoles" :key="'cw-' + role.name" class="ctr">
+                    <span class="cmp-mark" :class="{ on: role.end.web }">{{ role.end.web ? '✓' : '—' }}</span>
                   </td>
                 </tr>
-                <tr v-for="m in g.items" :key="m.id">
-                  <td class="pm-mod-cell">
-                    <div class="pm-mod-lb">{{ m.label }}</div>
-                    <!-- v333：这个勾选框管哪些**页面**。数据源 = 后端
-                         `MODULE_IMPACT.entries`（由接口随模块表下发，见 `pageNamesFor`）——
-                         **不是**前端再推一份映射：该表与 `pages.js` 的 `module` 由护栏
-                         `role-registry-consistency-check.py` 逐项锁定，改一侧必同步另一侧。
-                         老板是照页面名找开关的，模块名（"档案管理""销售管理"）对不上他认识的页面。 -->
-                    <div v-if="pageNamesFor(m).length" class="pm-mod-pages">
-                      对应页面：{{ pageNamesFor(m).join('、') }}
-                    </div>
-                  </td>
-                  <td v-for="role in permRoles" :key="role.name + '-' + m.id" class="ctr">
-                    <input
-                      type="checkbox"
-                      :checked="roleHas(role, m.id)"
-                      :disabled="isLockedModule(role.name, m.id)"
-                      :title="isLockedModule(role.name, m.id) ? '必选项，不可取消' : ''"
-                      @change="togglePerm(role, m.id, $event)"
-                    >
+                <tr>
+                  <td class="cmp-first">允许使用手机端（小程序）</td>
+                  <td v-for="role in permRoles" :key="'cm-' + role.name" class="ctr">
+                    <span class="cmp-mark" :class="{ on: role.end.mini }">{{ role.end.mini ? '✓' : '—' }}</span>
                   </td>
                 </tr>
-              </template>
-            </tbody>
-          </table>
+                <tr class="pm-sec"><td :colspan="permRoles.length + 1">是否可使用 AI</td></tr>
+                <tr>
+                  <td class="cmp-first">允许使用 AI</td>
+                  <td v-for="role in permRoles" :key="'ca-' + role.name" class="ctr">
+                    <span class="cmp-mark" :class="{ on: roleHas(role, PERM_AI_MODULE) }">{{ roleHas(role, PERM_AI_MODULE) ? '✓' : '—' }}</span>
+                  </td>
+                </tr>
+                <template v-for="g in permGroups" :key="'cg-' + g.name">
+                  <tr class="pm-sec"><td :colspan="permRoles.length + 1">{{ g.tab || g.name }}</td></tr>
+                  <tr v-for="m in g.items" :key="'cr-' + m.id">
+                    <td class="cmp-first">
+                      {{ m.rowName || m.label }}
+                      <span v-if="m.fixed" class="pm-fixed-mark">·不在此配</span>
+                    </td>
+                    <td v-for="role in permRoles" :key="role.name + '-' + m.id" class="ctr">
+                      <span v-if="m.fixed" class="pm-fixed-mark">—</span>
+                      <span v-else class="cmp-mark" :class="{ on: roleHas(role, m.id) }">{{ roleHas(role, m.id) ? '✓' : '—' }}</span>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-      </template>
     </template>
 
     <!-- ==================== AI 配置 ==================== -->
@@ -378,9 +418,9 @@
         <div class="panel-hd">
           <b>数据维护</b>
         </div>
-        <div class="set-row" style="justify-content:space-between">
+        <div class="set-row" style="justify-content:space-between" v-if="canSee('/data-fill')">
           <p class="set-desc">员工档案、客户档案在左侧「档案管理」中维护；此处用于补录库存批次效期。</p>
-          <button class="btn btn-sm btn-primary" @click="router.push('/data-fill')">库存效期补录</button>
+          <button class="btn btn-sm btn-primary" @click="goDataFill">库存效期补录</button>
         </div>
       </div>
     </template>
@@ -403,6 +443,12 @@ import AiOps from './AiOps.vue'
 //   🔴 统一名字的由来：权限页列头原先是另一套（"财务 / 文员"、"员工（小程序）"），
 //      与员工档案下拉里的"会计"、"员工"**不是同一个名字** ⇒ 跨页对照时会当成两个角色。
 import { loginScopeLabel, endToScope, ROLE_NAMES, ROLE_HINTS, isCanonicalRole } from '../constants/roles'
+import { canSee } from '../constants/pages'
+// v349：权限页的**行**改为由 `permView.js` 定义（行 = 侧栏功能，而不是后端模块名）。
+//   行名 / 分组 / 只读固定行 /「更多」折叠，全部在那一个文件里改，本页不再内联第二份。
+import {
+  PERM_SIDEBAR_GROUPS, PERM_MORE_GROUP, PERM_AI_MODULE, PERM_NO_PAGE_NOTE,
+} from '../constants/permView'
 
 const router = useRouter()
 const rtab = useRoute()
@@ -413,6 +459,17 @@ function switchTab(t) {
   tab.value = t
   if (t === 'perm') loadPerms()
   if (t === 'ai') loadMemory()
+}
+
+/* v341（2026-09-30）：「库存效期补录」按钮的守卫。
+   目标是 `/data-fill`（模块 `stock` + 业务管理岗），与设置页自身的门槛**不是同一条**
+   —— 设置页能进 ≠ 这一页能进。原先按钮直接 `router.push('/data-fill')` 没有任何判据，
+   权限被收窄的账号点下去只会被路由守卫弹回工作台（看起来像"点了没反应"）。
+   现在按钮本身也按同一份 `PAGE_RULES` 决定显不显示（见模板 `v-if`），
+   这里再守一道，防的是"渲染后权限被改"的窗口期。 */
+function goDataFill() {
+  if (!canSee('/data-fill')) { toast('你没有访问「库存效期补录」的权限，请联系管理员', 'warn'); return }
+  router.push('/data-fill')
 }
 
 /* ---- AI 副驾连接检测 ----
@@ -502,7 +559,6 @@ const CRITICAL_MODULES = ['hr', 'data']
 const permRoles = ref([])
 const modules = ref([])
 const permLoading = ref(false)
-const permSaving = ref(false)
 const moduleQuery = ref('')
 const permHelpOpen = ref(false)   // v326：使用说明默认收起（见模板注释）
 
@@ -511,11 +567,16 @@ const permHelpOpen = ref(false)   // v326：使用说明默认收起（见模板
    的权限配置」。后端 `GET/POST /api/role-permissions/detail`（`{模块: [动作]}`）**早已具备**
    —— 此前前端从未接上，于是界面上只有"勾模块"这一档。本轮补上，补齐"勾到动作"。
 
-   三条视图，**旧矩阵原样保留**（零回归）：
-     · `list`   角色列表（默认）—— 对标舟谱图 1：角色名 / 类型 / 可登录端 / 操作
-     · `detail` 单角色细配 —— 对标舟谱图 2：模块分组 × 查看 / 新增 / 修改 / 删除
-     · `matrix` 旧的横向矩阵 —— 保留作"批量总览与对比"，此前的使用习惯不受影响 */
+   v351（2026-10-01，老板拍板走**路线 A**）：**只剩两个视图，且只有一个能写**：
+     · `list`   角色列表 —— 对标舟谱图 1：角色名 / 类型 / 可登录端 / 操作（含「查看对比」）
+     · `detail` 单角色细配 —— 对标舟谱图 2：登录端 / 域页签 × 查看·新增·修改·删除 / AI
+     · ~~`matrix` 旧的横向矩阵~~ ⇒ **已删除**，降级为 `compareOpen` 只读弹窗。
+   🔴 这不是"少了个功能"，是**修掉病根**：两个可写视图写同一行同一列（list 形态 vs dict 形态）
+      ⇒ 「老板 hr/data 必选」这条规则必然要在两处各写一遍 ⇒ v350 那个"改一个勾就能把权限页
+      永久锁死"的缺陷。**删掉第二个写入口 = 规则只剩一份 = 结构上不可能再漏。** */
 const permView = ref('list')
+const compareOpen = ref(false)      // v351：「查看对比」只读弹窗（原「批量总览」的"看"那一半）
+const detailDomain = ref('')        // v351：详情页当前选中的**域页签**（'经营'/'核算'/'配置'/'更多'）
 const permDetailRole = ref('')
 const permDetail = ref({})          // {模块: {read:bool, create:bool, update:bool, delete:bool}}
 const permDetailLoading = ref(false)
@@ -551,38 +612,80 @@ function roleHas(role, mid) { return role.perms.includes(mid) }
    五组，组头可整组勾选 —— 从"勾 15 次"降到"想清楚 5 件事"。
    ⚠️ 分组只是**显示层**，勾选举仍是模块粒度（后端与保存逻辑零改动）。
    🔴 未归类模块兜底进「其他」组 —— 将来加了新模块忘了归组，也不会从界面上消失。 */
-const MODULE_GROUPS = [
-  { name: '数据与报单', mods: ['data', 'cron', 'bid'] },
-  // v333：给以下模块归组。此前它们**没有归属** ⇒ 全部落进兜底的「其他」组
-  //   （上次盘点是 6 个：dashboard / goals / forecast-audit / tasks / projects / messages）。
-  //   兜底组本来是"将来加模块忘了归组也不消失"的保险，结果变成了垃圾抽屉 ——
-  //   老板要在「其他」里找「经营目标」「预报审核与定稿」，与本次"找不到框"的问题同源。
-  //   🔴 `forecast-audit` **单独一组**，刻意不并进「数据与报单」：后端 v332 拆它的原话
-  //      就是"否则权限页上它会被误勾给一线岗位"，而组头「整组勾选」会把它连带送出去
-  //      （正是要防的事）。单独成组后组头勾选 ≡ 只勾它自己。
-  //      ⚠️ 组名用「预报」而非模块全名，避免组头与模块行出现两行同样的字。
-  { name: '预报', mods: ['forecast-audit'] },
-  // v333：`goals`「经营目标」归入本组 —— 它与「目标与返利」是同一套业务（同一页取数）。
-  { name: '销售与库存', mods: ['sales', 'buying', 'stock', 'crm', 'goals'] },
-  { name: '财务', mods: ['accounts', 'reports', 'payroll'] },
-  { name: '人事与协同', mods: ['hr', 'tasks', 'projects', 'messages'] },
-  { name: '看板', mods: ['dashboard'] },
-  { name: 'AI', mods: ['chat'] },
-]
-const groupedModules = computed(() => {
-  const list = filteredModules.value
-  const byId = new Map(list.map(m => [m.id, m]))
+/* v349：**分组定义搬到 `constants/permView.js`** —— 行改成"侧栏功能"，不再是 20 个后端模块名。
+   本页只负责把它**合成**成可渲染的行（后端下发的 `modules` 提供 `entries` / `label` / `id`）。
+
+   🔴 合成时三类行要分清：
+     · 有 `module` 的 ⇒ 真实可勾行，`id` 就是模块键（保存时写回它，**不是**行名）；
+     · `module: null` 的 ⇒ **只读固定行**（`id` 用 `__fixed_` 前缀合成，保存时**必须过滤掉**）。
+       🔴 为什么必须给固定行而不是让它"消失"：`module: null` 的页（首页 / AI 引擎 / 设置）
+       入口由**角色轴**裁决，`pages.js` 的让位规则第③档明确"没有 module ⇒ 不让位"
+       ⇒ 就算画个勾也**不会生效**。"消失"会被当成缺功能，"可勾但不生效"是界面说假话
+       ⇒ 只剩第三条路：显示出来 + 一句话说清为什么不在这里配。
+     · `PERM_AI_MODULE`（chat）⇒ **不进任何组**，独立渲染成「② 是否可使用 AI」一行。
+
+   ⚠️ `entries` 为空的模块（`buying`/`accounts`/`reports`…）**不是**漏配 —— 它们是纯数据闸门
+      （`accounts` 一只手管 61 条接口），只是侧栏上没有对应页面 ⇒ 行下写「数据权限 · 不影响侧栏」。 */
+function synthRows(items, byId) {
   const out = []
-  const used = new Set()
-  for (const g of MODULE_GROUPS) {
-    const items = g.mods.map(id => byId.get(id)).filter(Boolean)
-    items.forEach(it => used.add(it.id))
-    if (items.length) out.push({ name: g.name, items })
+  for (const it of items) {
+    if (it.module) {
+      const m = byId.get(it.module)
+      // 后端没下发该模块 ⇒ 不渲染（而不是画一个勾了不生效的行）
+      if (!m) continue
+      out.push({ ...m, rowName: it.name, fixed: null, note: it.pages || '' })
+    } else {
+      out.push({ id: '__fixed_' + it.name, label: it.name, rowName: it.name,
+                 fixed: it.fixed, entries: [] })
+    }
   }
-  const rest = list.filter(m => !used.has(m.id))
-  if (rest.length) out.push({ name: '其他', items: rest })
+  return out
+}
+
+/* v351：**折叠机制整体删除**（`collapsedGroups` / `toggleGroupCollapse` / `collapsed` 字段）。
+   老板 2026-10-01 拍板「不折叠」—— 域页签本身就是"点一下就到那一类"的入口，
+   再叠一层"先展开再找"是多余的两次点击（原先折叠是因为「更多」那 11 行会淹掉上面 10 个功能，
+   现在它们各自在页签里，谁也淹不掉谁）。 */
+const permGroups = computed(() => {
+  /* 🔴 v350 结论保留：**组内行 = 全量模块**，与搜索词无关（搜索只影响"淡化"，见 `searchHitKeys`）。
+     于是"整组/整行的作用范围"、用户所见、DOM 里真实存在的行，是**同一份 `items`**
+     —— 这正是它比"过滤 + 另存 allItems"更稳的地方：没有第二份需要同步的列表。
+     🔴 v351：**加 `tab`（域页签上的短名）** —— 组名「更多（子页面与数据权限）」当页签名太长，
+        但**单一源仍在 `permView.js`**（本页不另定义短名，否则又是同一条规则抄两份）。 */
+  const byId = new Map(modules.value.map(m => [m.id, m]))
+  const out = []
+  for (const g of PERM_SIDEBAR_GROUPS) {
+    const items = synthRows(g.items, byId)
+    if (items.length) out.push({ name: g.name, tab: g.tab || g.name, items })
+  }
+  const more = synthRows(PERM_MORE_GROUP.items, byId)
+  if (more.length) {
+    out.push({ name: PERM_MORE_GROUP.name, tab: PERM_MORE_GROUP.tab || PERM_MORE_GROUP.name, items: more })
+  }
   return out
 })
+
+/* ---- v351：详情视图（本页**唯一**的读写视图）用的三个派生量 --------------------------
+   🔴 域页签只是**导航**，不是"筛选" —— 它一次只显示一个域的行，页面上**没有任何批量控件
+      跨域作用**（「整行全选」只作用于它自己那一行）⇒ 不存在 v350 那种"作用范围 ≠ 所见"的风险。
+      这也是能放心用页签、而不必像搜索那样"淡化"的原因。 */
+/** 当前正在配置的角色对象（登录端卡片要用它的 `end` / `end_is_custom`）。 */
+const curRole = computed(() => permRoles.value.find(r => r.name === permDetailRole.value) || null)
+/** 生效的域：用户选过就用它，否则**默认第一个**（模块表异步到达，不能把默认值写死成某个组名）。 */
+const curDomain = computed(() => {
+  const gs = permGroups.value
+  if (!gs.length) return null
+  return gs.find(g => g.name === detailDomain.value) || gs[0]
+})
+/** 当前域的行（含 `module: null` 的只读固定行 —— 它们**必须**显示，只是不给勾选框）。 */
+const detailRows = computed(() => (curDomain.value ? curDomain.value.items : []))
+/** 域页签上的数字：没搜索时 = 该域行数；搜索时 = **命中数**（无命中的域自然露出 0，
+ *  ⇒ 用户知道该点哪个页签，不会以为"搜索没反应"）。 */
+function domainCount(g) {
+  const s = searchHitKeys.value
+  if (!s) return g.items.length
+  return g.items.filter(m => s.has(m.id)).length
+}
 
 /* v333（2026-09-30）：模块行下面显示「对应页面」＝ 该模块**真的会让哪些页面入口出现/消失**。
    🔴 起因是老板原话：「角色权限界面怎么没有『预报订单管理和返利与目标』的权限配置框」。
@@ -603,27 +706,40 @@ const groupedModules = computed(() => {
       宁可空着，也不写"用于其他"这种等于没说的占位（同样是 v331 清掉的噪音）。 */
 function pageNamesFor(m) { return (m && m.entries) || [] }
 
-/** 组头复选框：组内**可改**的模块全都勾上了才打勾（锁定的必选项不算"可改"）。 */
-function groupChecked(g, role) {
-  const free = g.items.filter(m => !isLockedModule(role.name, m.id))
-  return free.length > 0 && free.every(m => roleHas(role, m.id))
-}
-/** 组头整组勾选/取消（只动**未锁定**的项 —— 老板的 hr/data 是防自锁的必选项）。 */
-function toggleGroup(g, role, ev) {
-  const on = !!ev.target.checked
-  for (const m of g.items) {
-    if (isLockedModule(role.name, m.id)) continue
-    const has = roleHas(role, m.id)
-    if (on && !has) role.perms.push(m.id)
-    else if (!on && has) role.perms = role.perms.filter(x => x !== m.id)
-  }
-}
+/* v351：**组头整组勾选已删除**（`groupChecked` / `toggleGroup`）。
+   它们只服务于横向矩阵（"角色 × 组"的一格勾一整组）。矩阵撤掉后，详情视图是**按角色**的，
+   一行只有一个角色，已经没有"整组"这个概念 —— 保留它就是留一条没有界面的写路径。 */
 
-const filteredModules = computed(() => {
+/* 🔴 v350 搜索 = **查找**，不是筛选。
+   为什么最终是"淡化"而不是"过滤" —— 中间版本踩过两次，记下来免得再犯：
+     ① 拿 `moduleQuery` 过滤行 ⇒ 它是**跨视图共享**的同一个 ref，在「批量总览」里搜过之后
+        切到「按角色配置」，整个矩阵只剩 1 行（用户会以为权限丢了）；
+     ② 把搜索限制在矩阵视图 + 给组头另存一份 `allItems`（让"整组勾选"作用于整组）——
+        看着对了，实则更糟：过滤态下**未命中的行根本不在 DOM 里** ⇒ 点组头会
+        **静默改掉用户看不见的行**（原来只是组头状态显示得不准，现在是改错了东西）。
+   ⇒ 终版：所有行始终在 DOM，命中的正常显示、其余**淡化**。
+   v351：搜索框现在只在**详情视图**里（矩阵已撤），判据随之改为 `permView !== 'detail'` 返 `null`
+      —— 这个"视图守卫"刻意保留：`moduleQuery` 仍是跨视图共享的 ref，将来若再加视图，
+      不守就会重演 ①。
+   ⚠️ 匹配**行名**（`rowName`，老板看到的那个名字）**或**后端模块名 ——
+      只比 `label` 会漏：行名「目标与返利」对应的后端名是「销售管理」，搜前者原本搜不到。 */
+const searchHitKeys = computed(() => {
   const q = moduleQuery.value.trim().toLowerCase()
-  if (!q) return modules.value
-  return modules.value.filter(m => (m.label || '').toLowerCase().includes(q))
+  if (!q || permView.value !== 'detail') return null   // null = 不做淡化
+  const s = new Set()
+  for (const g of permGroups.value) {
+    for (const m of g.items) {
+      const row = (m.rowName || '').toLowerCase()
+      const lbl = (m.label || '').toLowerCase()
+      if (row.includes(q) || lbl.includes(q)) s.add(m.id)
+    }
+  }
+  return s
 })
+function isDimmed(m) {
+  const s = searchHitKeys.value
+  return !!s && !s.has(m.id)
+}
 
 /* 权限值有两种合法形态（见后端 `core._DEFAULT_PERMS` 注释）：
      · legacy list：`["stock","data"]`
@@ -642,7 +758,22 @@ function permsToModules(v) {
 async function loadPerms() {
   permLoading.value = true
   try {
-    const [r, m] = await Promise.all([api('/api/role-permissions'), api('/api/permissions/modules')])
+    /* 🔴 v350 P0：**拆掉 `Promise.all` 的耦合**（这是"权限页永久锁死"的直接成因）。
+       原先任一请求失败 ⇒ 整个 try 落进 catch ⇒ `permRoles.value = []` ⇒ 页面一片空白，
+       而它**正是唯一能把权限改回来的页面**（自救通道被自己掐断）。
+       病根：本页依赖的「模块清单」`/api/permissions/modules` 映射到 `hr`，
+       与它管理的对象**同一条模块轴** ⇒ boss 的 `hr` 一旦被撤，页面就再也打不开。
+       拆开后：角色列表不依赖模块表也能渲染（详情走 `/detail`，是独立端点，且已豁免模块判定）；
+       最坏退化成"功能模块那一栏空着 + 一句提示"，而不是白屏。
+       ⚠️ 拉不到模块表 ⇒ `known` 为空 ⇒ 下面的"必选模块回补"不生效（不知道有哪些模块就不瞎补），
+          且 `permGroups` 全空 —— 这是**看得见**的降级，不是静默失效。 */
+    const r = await api('/api/role-permissions')
+    let m = { modules: [] }
+    try {
+      m = await api('/api/permissions/modules')
+    } catch (e2) {
+      toast('功能模块清单读取失败（' + ((e2 && e2.message) || '') + '）：权限页将以受限模式显示', 'warn')
+    }
     modules.value = m.modules || []
     const known = new Set(modules.value.map(x => x.id))
     permRoles.value = Object.entries(r.roles || {})
@@ -689,23 +820,24 @@ async function loadPerms() {
   }
 }
 
-function togglePerm(role, mid, ev) {
-  if (isLockedModule(role.name, mid)) return
-  const on = ev.target.checked
-  role.perms = on ? [...new Set([...role.perms, mid])] : role.perms.filter(p => p !== mid)
-}
+/* v351：矩阵的 `togglePerm`（按模块整体勾选）已删除 —— 它只服务于横向矩阵。
+   详情视图有自己的动作级写法（`toggleDetail` / `toggleRowAll` / `toggleAi`），
+   而且**必须**用动作级：`/detail` 端点是 dict 形态，用模块级勾选会丢动作粒度。
+   🔴 保留 `roleHas`：它仍被「查看对比」只读弹窗使用（那里只判"有没有这个模块"）。 */
 
 /* ---- v334：单角色细粒度配置（模块 × 动作）-----------------------------------------
-   数据源是**专门的端点** `GET /api/role-permissions/detail`，与上面旧矩阵那份（list 形态）
-   **各走各的**：这样两条界面互不干扰，旧矩阵的行为一个字都不变。
-
-   🔴 为什么保存必须走 `/detail`（dict 形态）而不是旧端点（list 形态）：
+   数据源是**专门的端点** `GET /api/role-permissions/detail`。
+   🔴 为什么保存必须走 `/detail`（dict 形态）：
       在细粒度界面上，用户表达的是"这个模块只给查看、不给改" —— list 形态**装不下**这个意图。
       后端已做形态收敛 + 合并（`core.normalize_perms_shape` / `merge_module_list_into`），
-      两个端点写进库的形态一致，所以这里选 dict 端点是**语义最完整**的那条路。 */
+      所以选 dict 端点是**语义最完整**的那条路。
+   🔴 v351：`/api/role-permissions`（list 形态）在本页**只剩读取**（`loadPerms` 拿角色清单与
+      登录端），**不再有任何写入** —— 这是路线 A 的核心：一个写路径，不可能两边打架。 */
 function openRoleDetail(name) {
   permDetailRole.value = name
   permView.value = 'detail'
+  detailDomain.value = ''      // v351：换角色时回到第一个域（避免停在上一个角色看过的域）
+  moduleQuery.value = ''       // v351：不把上一个角色的搜索词带过来
   loadRoleDetail(name)
 }
 
@@ -732,6 +864,11 @@ async function loadRoleDetail(name) {
 }
 
 function toggleDetail(mid, act, ev) {
+  /* 🔴 v350 P0：必选项的**第二道**校验（渲染层已 `disabled`）。
+     为什么两层都要：`disabled` 只挡鼠标，挡不住"渲染后角色被换掉"的窗口期，
+     也挡不住将来有人重写模板时漏掉 `:disabled` —— 而这一漏就是**权限页永久自锁**。
+     v351：矩阵视图撤掉后，`isLockedModule` 已是本页**唯一**的写判据（不再有第二处实现）。 */
+  if (isLockedModule(permDetailRole.value, mid)) return
   const cur = { ...(permDetail.value[mid] || {}) }
   cur[act] = !!ev.target.checked
   permDetail.value = { ...permDetail.value, [mid]: cur }
@@ -743,11 +880,39 @@ function rowAllOn(mid) {
   return permActions.every(a => !!cur[a])
 }
 
-function toggleRowAll(mid) {
-  const on = !rowAllOn(mid)
+/** 该模块**是否有任意一个动作**（「允许使用 AI」那个单勾读它）。
+ *  🔴 不读某个固定动作（比如 `read`）：后端判"这个模块给不给"看的是**有没有动作**，
+ *     挑一个写死就会造出"看起来关着、其实开着"的假开关。 */
+function detailModuleOn(mid) {
+  const cur = permDetail.value[mid] || {}
+  return permActions.some(a => !!cur[a])
+}
+
+/** 把某模块的四个动作**整体**置为开/关。
+ *  🔴 唯一的"一次改多个勾"的实现 —— `toggleRowAll` 与 `toggleAi` 都走它，
+ *     不会出现两处各写一遍、日后只改一处的情形。调用方**必须**先过 `isLockedModule`。 */
+function setModuleAll(mid, on) {
   const cur = {}
   for (const a of permActions) cur[a] = on
   permDetail.value = { ...permDetail.value, [mid]: cur }
+}
+
+function toggleRowAll(mid) {
+  /* 🔴 v350 P0：本函数对必选项尤其危险 —— 它把整行 4 个勾**一次改掉**。
+     老板的 `hr`（员工管理）在矩阵视图里是锁死的，但本视图原先点一下「取消整行」就全没了。
+     ⇒ 与 `toggleDetail` 共用同一个判据（单一实现）。 */
+  if (isLockedModule(permDetailRole.value, mid)) return
+  setModuleAll(mid, !rowAllOn(mid))
+}
+
+/** 「允许使用 AI」的单勾（v351 独立成块）。
+ *  ⚠️ 它写回的仍是**模块 `chat` 的四个动作**（`PERM_AI_MODULE`）—— 后端零改动，
+ *     而"整模块开/关"正是矩阵时代那个勾的语义（`role.perms` 里有没有 `chat`）。
+ *  ⚠️ 刻意**不**为它加 `isLockedModule` 判断：`chat` 不在 `CRITICAL_MODULES` 里，
+ *     加了反而会掩盖"以后谁把它加进 CRITICAL_MODULES 就该同步上锁"这件事 ——
+ *     真要上锁，加的是同一份 `CRITICAL_MODULES`，判据仍然只有一份。 */
+function toggleAi(ev) {
+  setModuleAll(PERM_AI_MODULE, !!ev.target.checked)
 }
 
 async function saveRoleDetail() {
@@ -764,14 +929,56 @@ async function saveRoleDetail() {
       const on = permActions.filter(a => acts && acts[a])
       if (on.length) perms[mid] = on
     }
+    /* 🔴 v350 P0：**提交前强制回补**保护角色的关键模块 —— 这是"自我锁死"的最后一道闸。
+       即便界面被绕过（旧缓存包、脚本调用、将来新增的视图），也不会把 boss 的 `hr` / `data` 写空。
+       判据与界面上的 `isLockedModule` **同源**（`PROTECTED_ROLES` × `CRITICAL_MODULES`）。
+       ⚠️ 为什么不能只靠界面 `disabled`：库里**已经**可能有一份被改坏的配置，
+         那种租户只有靠"再保存一次"才能自愈 —— 而详情页是唯一能写 dict 形态的入口。 */
+    if (PROTECTED_ROLES.includes(name)) {
+      const known = new Set(modules.value.map(x => x.id))
+      for (const c of CRITICAL_MODULES) {
+        if (known.has(c) && !(perms[c] && perms[c].length)) perms[c] = [...permActions]
+      }
+    }
     await api('/api/role-permissions/detail', {
       method: 'POST',
       body: { role_name: name, permissions: perms },
     })
-    // 旧矩阵那份数据也要跟着刷新（同一张表，别让两套界面显示不一致）
-    await loadPerms(true)
+
+    /* 🔴 v351：登录端**并入本页保存**。
+       原先它由矩阵那个「保存权限」按钮连同所有角色一起提交；矩阵撤掉后，登录端卡片就在
+       本页顶部，用户点了「保存」却只存了功能权限、登录端没存 —— 那就是**界面说假话**。
+       ⚠️ 只在真改过时才发请求（与加载时快照 `endBase` 比对）：既省往返，
+          也避免"给每个角色都写一行"（`end_is_custom` 是拿"有没有这一行"当判据的）。 */
+    const role = permRoles.value.find(r => r.name === name)
+    let endSaved = false
+    if (role && endKey(role.end) !== role.endBase) {
+      await api('/api/role-permissions/end', {
+        method: 'POST',
+        body: { role_name: name, allow_web: !!role.end.web, allow_mini: !!role.end.mini },
+      })
+      endSaved = true
+    }
+
+    /* 🔴 v350 P0-2（切视图静默丢输入）：**不 `loadPerms(true)` 整表重拉**。
+       原先重拉会把 `permRoles` 整个重建 ⇒ 别处尚未保存的勾选**全丢且零提示**。
+       改为**只增量更新本角色**：`perms` 的键 ≡ 该角色拥有的模块。
+       ⚠️ v296 纪律「不认识 ≠ 丢掉」在这里同样成立：`permRoles[].perms` 可能带着
+         `_ALL_MODULES` 之外的遗留键（它们只用于逐字回传），增量更新时**必须原样保留**。 */
+    if (role) {
+      const knownIds = new Set(modules.value.map(x => x.id))
+      const legacy = (role.perms || []).filter(p => !knownIds.has(p))
+      role.perms = [...Object.keys(perms), ...legacy]
+      /* 登录端就地更新快照与「已改过」标记（**不重拉**）：
+         走到这里说明 `endKey(end) !== endBase`，即用户确实改过 ⇒ 它现在与本租户的覆盖行
+         一致。把 `end_is_custom` 置真只是让「恢复默认」按钮露出来 —— 那是个**只读安全**的
+         保守方向（多露一个按钮 ≠ 少存一次改动）。反过来说，若要在这里把它置回假，
+         就得知道"内置默认是什么"，那等于在本页再推一份 `ROLE_END`，是同一规则抄两份。 */
+      role.endBase = endKey(role.end)
+      role.end_is_custom = true
+    }
     await syncStorePerms()
-    toast('「' + roleLabel(name) + '」的权限已保存', 'success')
+    toast('「' + roleLabel(name) + '」的权限已保存' + (endSaved ? '（含登录端）' : ''), 'success')
   } catch (e) {
     toast('保存失败：' + (e.message || ''), 'error')
   } finally {
@@ -835,45 +1042,17 @@ async function syncStorePerms() {
   return !!store.perms
 }
 
-async function savePerms() {
-  permSaving.value = true
-  try {
-    // ① 功能模块（两条轴里下面那条）—— 保持既有行为：按角色逐条 POST。
-    for (const role of permRoles.value) {
-      await api('/api/role-permissions', {
-        method: 'POST',
-        body: { role_name: role.name, permissions: role.perms },
-      })
-    }
-    // ② 登录端（v312，上面那条）—— **只提交真改过的角色**（与加载时快照比对）。
-    //    没改的一律不发请求：既省往返，也避免"给每个角色都写一行"。
-    //    （后端对"与内置同值"的角色本来也会删行 ⇒ 两步一起保证覆盖表里只留真被改过的角色，
-    //      这也正是 `end_is_custom` 能拿"有没有这一行"当判据的前提。）
-    let endSaved = 0
-    for (const role of permRoles.value) {
-      if (endKey(role.end) === role.endBase) continue
-      await api('/api/role-permissions/end', {
-        method: 'POST',
-        body: { role_name: role.name, allow_web: !!role.end.web, allow_mini: !!role.end.mini },
-      })
-      endSaved++
-    }
-    // ③ 落库后按**服务端事实**重画勾选与「登录端已改」标记 —— 不靠本地猜测。
-    if (endSaved) await loadPerms()
-    if (await syncStorePerms()) {
-      toast(endSaved
-        ? '已保存：功能模块 + 登录端（' + endSaved + ' 个角色改动）'
-        : '权限已保存', 'success')
-    } else {
-      // 拉不回来（网络/401）⇒ 老实说"没核对上"，别继续许诺"已生效"。
-      toast('权限已保存，请刷新页面确认', 'warn')
-    }
-  } catch (e) {
-    toast('保存失败：' + ((e && e.message) || ''), 'error')
-  } finally {
-    permSaving.value = false
-  }
-}
+/* v351：**`savePerms`（矩阵的「保存权限」批量提交）整体删除**。
+   它是本页唯一的 list 形态写入口 —— 路线 A 要的就是"一个角色一个写路径"：
+     · 功能模块 → 详情页 `POST /api/role-permissions/detail`（dict 形态）
+     · 登录端   → 详情页 `POST /api/role-permissions/end`（单角色，随保存一起走）
+   🔴 删掉它的**直接收益**：`POST /api/role-permissions`（list 形态）在本页不再有调用方。
+      那个端点与 `/detail` 写的是**同一行**，两套形态并存正是 v350 自锁缺陷的土壤。
+   ⚠️ 端点本身**保留**（后端不动、其它调用方不动）—— 这里删的只是本页的调用。
+
+   同批删掉的还有「全部保存」这条路径带来的一个老问题：它需要"批量未保存状态"这个概念
+   （勾了没存、切走了就丢），而 v350 的 P0-2 就是在给这个概念打补丁。
+   **现在每次改动都落在某一个角色上、点保存即入库 ⇒ "未保存的批量勾选"这个概念消失了。** */
 
 async function resetRole(name) {
   if (!confirm(`确认把「${roleLabel(name)}」的权限恢复为默认？`)) return
@@ -1011,18 +1190,29 @@ onMounted(() => {
 .pm-mod-col{min-width:120px}
 /* v328：模块名 + 下面一行「勾了会怎样」。
    副文案刻意用小字、次级色 —— 它是**说明**，不能抢了模块名的视觉重量（老板找的是模块名）。 */
-.pm-mod-cell{padding-top:7px;padding-bottom:7px}
 .pm-mod-lb{font-size:12.5px;color:var(--t1);line-height:1.5}
 /* v333：模块行下面的「对应页面」—— 让老板按页面名找到开关。
    刻意做得比模块名更淡更小（它是**索引**不是正文），且不加背景/边框，
    否则一整列小色块会把表格又切碎（样式纪律见文件头那段）。 */
 .pm-mod-pages{font-size:11px;color:var(--t3);line-height:1.45;margin-top:1px}
+/* v349：三种副文案要**分得开**，否则老板看不出"这一个到底能不能勾"：
+     · `pm-mod-pages`  = 对应页面（可勾行）／数据权限说明
+     · `pm-mod-fixed`  = 只读固定行 —— **不给勾选框**，用强调色把"为什么不能关"说清
+     · `pm-fixed-mark` = 勾列里那个「不在此配」占位（替代勾选框，避免空格子被当成"没配"） */
+.pm-mod-fixed{font-size:11px;color:var(--t2);line-height:1.45;margin-top:2px;opacity:.85}
+.pm-mod-nopage{font-style:normal;opacity:.75}
+.pm-fixed-mark{font-size:10.5px;color:var(--t3);opacity:.7;white-space:nowrap}
+/* v350：搜索 = **查找**而非筛选 —— 未命中的行「淡化」而不是消失。
+   行永远在 DOM 里，「整行全选」的作用范围才 ≡ 用户所见。
+   用 `td` 而不是 `tr`（tr 上的 opacity 会影响行背景与边框的表现，各浏览器不一致）。 */
+.pm-row-dim td{opacity:.32}
+/* 搜索框旁的命中数 —— 没有它，"其余行变淡"会被当成搜索没反应。 */
+.tb-hit{font-size:12px;color:var(--t3);white-space:nowrap}
 /* ==================== v334（2026-09-30）：角色列表 + 单角色细粒度权限 ====================
    对标舟谱的「角色列表 → 点进某角色细配」两步式。样式纪律沿用本文件既有约定：
    颜色**一律走 CSS 变量**（`--t1/--t2/--t3`、`--bd`、`--bg2/--bg3`、`--p-*`），
    **不写死色值** —— 写死会在深色模式下变成不可读的白底黑字
    （本仓专门修过一轮深色模式：原生控件白底、下拉列表白底都是同一类病）。 */
-.perm-views{margin-bottom:12px}
 .perm-role-table{width:100%;border-collapse:collapse;font-size:13px}
 .perm-role-table th,.perm-role-table td{padding:9px 10px;border-bottom:1px solid var(--bd);text-align:left}
 .perm-role-table th{font-weight:600;color:var(--t2);background:var(--bg3)}
@@ -1045,37 +1235,78 @@ onMounted(() => {
 .perm-detail-table .ctr{text-align:center}
 .pd-mod{min-width:240px}
 .perm-detail-table input[type="checkbox"]{width:15px;height:15px;cursor:pointer}
-/* v328 批次 ⑥：域分组的组头行 + 新建角色表单。
-   组头用浅底 + 小字，与「分节标题行」(pm-sec) 的主色**刻意不同** ——
-   分节是"①②两条轴"，组头只是"这一堆模块归一类"，层级不一样，不能长得像。 */
-.pm-grp td{background:var(--bg3)}
-.pm-grp-lb{font-size:12px;font-weight:600;color:var(--t2);padding-left:14px}
+/* 「整行全选 / 取消整行」是 4 个字，88px 的列里会折成两行 ⇒ 不换行 + 略放宽列宽。
+   🔴 折行不只是难看：它让每一行的高度随文案变化，扫读时"行"的边界会漂。 */
+.perm-detail-table .ctr button{white-space:nowrap}
+/* v328 批次 ⑥：新建角色表单（v351 跟着「新建角色」按钮从矩阵挪到角色列表页）。 */
 .pm-new{margin:0 0 10px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
 .pm-new-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pm-new-name{width:180px}
 .pm-new-tip{font-size:11.5px;color:var(--t3);margin:7px 0 0;line-height:1.6}
 .ctr{text-align:center}
 .pm-col-hd{font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:4px}
-.pm-me{margin-left:6px}
-.pm-role{width:170px}
 
-/* v331c（2026-09-29）：两条轴的分节标题行 + 登录端行。
+/* v331c（2026-09-29）：分节标题行（v351 起只用于「查看对比」只读弹窗）。
    🔴 分节标题由「整行色带」改成「左侧层级小标题」—— 老板原话：那条铺满表宽的横条
-      「把整个界面分成上下两块，非常不美观」。只改分隔**样式**，不动两轴本身
-      （登录端 = 入口 / 功能模块 = 能力，两者正交，同表才需要标题来分层）。
-   ⚠️ 仍用 `td` 而不是 `th`（它在 tbody 里，随内容滚动）；仍要与「业务域组头」
-      （`pm-grp` 浅底小字）明确区分 —— 否则老板会把「允许使用手机端」读成又一个功能模块。
-   ⚠️ v331c 同时删掉了只读「手机端」列的样式（`.pm-mini-col` / `.pm-mini-on` / `.pm-na`）：
-      那一列标的是"小程序代码是否调了该模块的接口"，**勾不了、改不了**，是纯标注。 */
+      「把整个界面分成上下两块，非常不美观」。
+   ⚠️ 仍用 `td` 而不是 `th`（它在 tbody 里，随内容滚动）；仍要与普通行明确区分，
+      否则老板会把「登录端」读成又一个功能模块。 */
 .pm-sec td{background:transparent;border-top:1px solid var(--bd);color:var(--t1);font-size:12.5px;font-weight:600;padding:14px 10px 5px}
 .pm-sec:first-child td{border-top:0;padding-top:2px}
-.pm-end-lb{font-size:12.5px;color:var(--t1)}
-.pm-end-sum td{background:var(--bg2)}
 .pm-col-sub{font-size:11px;color:var(--t3);margin-bottom:2px}
 /* v328 G4：自定义角色的标记要能被看见（它是"为什么勾了没反应"的答案所在）。 */
 .pm-col-custom{color:var(--warn,#b7791f);cursor:help}
-.pm-end-tag{font-size:11.5px;padding:1px 7px;border-radius:9px;background:var(--bg3);color:var(--t2);white-space:nowrap}
-.pm-end-tag.on{background:var(--p-bg);color:var(--p-dark)}
+
+/* ==================== v351（2026-10-01）路线 A：单一写入口 + 只读对比 ====================
+   🔴 样式上的核心主张：**用户看见的边界 = 实际的写边界**。
+      路线 A 的全部意义是"一个角色只有一处能改"，所以详情页刻意分成三张卡
+      （登录端 / 功能权限 / 允许使用 AI）—— 每一张都是一个可写的边界，不会再出现
+      "这张表里有些格子改了不算数"那种界面。 */
+
+/* 详情页头那一小句职责（走 `roleDuty`，与员工档案同一个来源 —— 不另写文案）。 */
+.tb-sub{font-size:12px;color:var(--t3)}
+
+/* 登录端（置顶卡片）：一行一个开关 + 一行"新账号默认值"小结。
+   与下面那张功能权限表**刻意长得不一样** —— 它是"从哪儿进来"（角色政策），
+   不是"进来之后能干什么"，两者正交（v331c 定的口径，v351 只是把它从矩阵搬到这里）。 */
+.end-row{display:flex;align-items:center;gap:8px;padding:7px 0;font-size:13px;color:var(--t1);cursor:pointer}
+.end-row input[type="checkbox"]{width:15px;height:15px;cursor:pointer}
+.end-sum{margin-top:8px;padding:8px 12px;border-radius:var(--radius-md);background:var(--bg2);
+         font-size:12.5px;color:var(--t2)}
+
+/* 域页签（经营 / 核算 / 配置 / 更多）—— 取代"一条长列表 + 默认折叠「更多」"。
+   🔴 做成**胶囊**而不是下划线页签：它与页面顶部那个「账号 / 权限 / AI」主标签页**层级不同**
+      （主标签换的是整页内容，这里只换一张卡里的一张表）。长得一样会让老板以为"点一下整页都换了"。
+   ⚠️ 「更多」**不折叠**（老板 2026-10-01 拍板）：页签已经解决了"11 行淹掉 10 个功能"的问题，
+      再叠一层展开/收起就是多余的两次点击。 */
+.domtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.domtabs button{border:1px solid var(--bd);background:var(--bg);color:var(--t2);
+  border-radius:999px;padding:5px 14px;font-size:13px;cursor:pointer;transition:all .15s}
+.domtabs button:hover{border-color:var(--p);color:var(--p-dark)}
+.domtabs button.on{background:var(--p-bg);border-color:var(--p);color:var(--p-dark);font-weight:600}
+/* 页签上的数字：没搜索时 = 该域有几行；搜索时 = 命中几个。
+   无命中的域会自然露出 0 ⇒ 用户知道该点哪个，不会以为"搜索没反应"。 */
+.domtabs .cnt{color:var(--t3);font-weight:400;margin-left:3px;font-size:12px}
+.domtabs button.on .cnt{color:var(--p-dark);opacity:.75}
+
+/* ---- 只读对比弹窗（原「批量总览」的"看"那一半）----
+   🔴 里面**只有 ✓ / —**，没有任何 input / 写绑定 —— 结构上不可能从第二个地方改权限。
+   ⚠️ 遮罩点空白处关闭；`position:fixed` 不依赖父级是否有 transform/overflow。 */
+.cmp-mask{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:900;
+          display:flex;align-items:center;justify-content:center;padding:24px}
+.cmp-dlg{background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-lg);
+         width:min(1080px,96vw);max-height:86vh;overflow:auto;padding:18px;
+         box-shadow:0 18px 48px rgba(0,0,0,.28)}
+.cmp-wrap{overflow:auto;max-height:calc(86vh - 150px)}
+.cmp-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+.cmp-table th,.cmp-table td{padding:7px 10px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+.cmp-table th{font-weight:600;color:var(--t2);background:var(--bg3);position:sticky;top:0;z-index:1}
+.cmp-table .ctr{text-align:center}
+/* 第一列（权限项）横向滚动时钉住 —— 否则角色一多就不知道自己正在看哪一行。 */
+.cmp-table .cmp-first{position:sticky;left:0;background:var(--bg);z-index:2}
+.cmp-table thead .cmp-first{background:var(--bg3);z-index:3}
+.cmp-mark{font-size:13px;color:var(--t3)}
+.cmp-mark.on{color:var(--suc);font-weight:700}
 
 /* 分页：沿用 Forecast .pager */
 .pager{display:flex;gap:10px;align-items:center;margin-top:10px;font-size:12px}

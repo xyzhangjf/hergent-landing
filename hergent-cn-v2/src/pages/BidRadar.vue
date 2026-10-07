@@ -17,7 +17,8 @@
       <div class="kpi">
         <div class="kpi-label">累计商机</div>
         <div class="kpi-val">{{ meta.total === null ? '—' : meta.total }}</div>
-        <div class="kpi-sub">条公开招投标信息</div>
+        <!-- 区域被记住/选中后这个数就是该地区口径，必须写明 —— 否则与右侧「覆盖省份」并列会被读成全国数 -->
+        <div class="kpi-sub">{{ f.region ? regionLabel(f.region) + '范围内公开招投标' : '条公开招投标信息' }}</div>
       </div>
       <div class="kpi">
         <div class="kpi-label">近 3 日新增</div>
@@ -52,12 +53,18 @@
     <!-- 筛选栏 -->
     <div class="br-filters">
       <input v-model.trim="f.keyword" class="br-inp" placeholder="搜标题 / 采购人关键词" @input="onSearch" />
-      <select v-model="f.region" class="br-inp" @change="reload">
+      <select v-model="f.region" class="br-inp" aria-label="地区" @change="onRegionChange">
         <option value="">全部地区（{{ meta.regionHit }} 个省有商机）</option>
-        <option v-for="r in meta.regions" :key="r.value" :value="r.value" :disabled="!r.count">
+        <!-- 无数据的省不可手选；但「已记住的当前省」放行 —— 否则某些浏览器会把选中项
+             回落显示成首个选项，出现「看着是湖北、实际查的是全部地区」的假象。 -->
+        <option v-for="r in meta.regions" :key="r.value" :value="r.value" :disabled="!r.count && r.value !== f.region">
           {{ r.name }}{{ r.count ? `（${r.count}）` : '（无）' }}
         </option>
       </select>
+      <button v-if="savedRegion && f.region === savedRegion" type="button" class="br-def" @click="clearRegionPref" title="取消默认地区">
+        <span class="br-def-tag">默认</span>{{ regionLabel(f.region) }}
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
       <select v-model="f.type" class="br-inp" @change="reload">
         <option value="">全部类型</option>
         <option v-for="t in meta.types" :key="t" :value="t">{{ t }}</option>
@@ -77,10 +84,19 @@
       <button class="br-btn" @click="reload">查询</button>
     </div>
 
+    <!-- 区域兜底提示：记住的地区已从可查询清单消失时，说明原因而不是静默改写用户选择 -->
+    <div v-if="regionNotice" class="br-notice">{{ regionNotice }}</div>
+
     <!-- 列表 -->
     <div v-if="loading" class="br-state">加载中…</div>
+    <!-- 请求失败 ≠ 无数据：原实现把两者都渲染成「暂无匹配」，会把 403/超时误报成「该地区没商机」 -->
+    <div v-else-if="loadError" class="br-state br-empty">
+      <p class="br-empty-t">加载失败：{{ loadError }}</p>
+      <button class="br-btn br-empty-b" type="button" @click="load">重试</button>
+    </div>
     <div v-else-if="!items.length" class="br-state br-empty">
-      暂无匹配的招投标信息。可放宽筛选条件，或等待次日自动抓取。
+      <p class="br-empty-t">{{ emptyText }}</p>
+      <button v-if="f.region" class="br-btn br-empty-b" type="button" @click="showAllRegions">查看全部地区</button>
     </div>
     <table v-else class="br-tbl">
       <thead>
@@ -132,12 +148,24 @@ import { api } from '../api/client'
 const items = ref([])
 const loading = ref(false)
 const recentCount = ref(0)
+const loadError = ref('')          // 请求失败原因（与「真的没有数据」分开呈现，避免误报）
+const regionNotice = ref('')       // 记住的地区已失效时的一句话说明
 const meta = reactive({ total: null, regions: [], types: [], sources: [], fetched_at: '', regionHit: 0 })
+
+/* 区域偏好（v357）：记住用户选的地区，下次打开自动带出、直接只查该地区。
+   存储键与既有的 br_last_visit 同前缀同粒度（浏览器级）。region 值就是省名（如「湖北」），
+   跨账号语义不变；真失效时由 ensureRegionValid() 兜底清除，不会把用户卡在空白页。 */
+const LS_REGION = 'br_region'
+function _lsGet(k) { try { return localStorage.getItem(k) || '' } catch (e) { return '' } }  // 隐私模式/禁用存储时别抛
+function _lsSet(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k) } catch (e) {} }
+
+const savedRegion = ref(_lsGet(LS_REGION))     // 已记住的地区（空字符串 = 用户未选择）
 const f = reactive({
-  keyword: '', region: '', type: '', source: '', date_from: '', date_to: '', capex: false,
+  keyword: '', region: savedRegion.value, type: '', source: '', date_from: '', date_to: '', capex: false,
   page: 1, page_size: 50
 })
 let _searchTimer = null
+let _regionChecked = false         // 「记住的地区是否仍有效」只校验一次，避免反复重载
 
 // 日期助手：用于「近 3 日」窗口与「新」角标判定
 function fmtDate(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
@@ -175,6 +203,56 @@ function isNew(it) {
   const t = c.getTime()
   if (t > lastVisitMs.value) return true
   if (NOW_MS - t <= 24 * 3600 * 1000) return true
+  return false
+}
+
+/* ---- 区域偏好：记住 / 取消 / 兜底 ---------------------------------------- */
+function regionLabel(v) {
+  const hit = (meta.regions || []).find(r => r.value === v)
+  return hit ? hit.name : v        // 清单尚未返回时退回原值（value 本身就是省名）
+}
+function onRegionChange() {
+  _lsSet(LS_REGION, f.region)
+  savedRegion.value = f.region
+  regionNotice.value = ''
+  reload()
+}
+function clearRegionPref() {
+  // 只取消「记住」，不动当前筛选 —— 用户可能还想接着看这个省，只是不想下次默认看它
+  _lsSet(LS_REGION, '')
+  savedRegion.value = ''
+}
+function showAllRegions() {
+  // 从「该地区没数据」兜底进来：切回全部地区，并一并取消记住（否则下次打开又空一次）
+  f.region = ''
+  onRegionChange()
+}
+
+/* 空结果归因：0 条可能是「该地区确实没商机」，也可能是别的筛选卡住了 —— 两者提示不同 */
+const emptyText = computed(() => {
+  if (!f.region) return '暂无匹配的招投标信息。可放宽筛选条件，或等待次日自动抓取。'
+  const hit = (meta.regions || []).find(r => r.value === f.region)
+  if (hit && !hit.count) {
+    return `${hit.name}当前暂无商机（数据每日 07:10 自动更新），可先看全部地区或等次日抓取。`
+  }
+  return `${hit ? hit.name : f.region}没有符合当前筛选条件的商机，可放宽关键词 / 类型 / 日期后重试。`
+})
+
+/* 兜底一：记住的地区已不在可查询清单里（省份清单调整 / 历史脏值 /「其他」分组消失）
+   ⇒ 清掉记忆并回落全部地区，同时说明原因，不让用户停在一条永远 0 条的空白列表上。
+   ⚠️ 清单没拿到（请求失败）时**绝不能**判定失效 —— 否则一次 403/超时就把用户的记忆清掉。 */
+function ensureRegionValid() {
+  if (_regionChecked || !f.region) return false
+  if (!(meta.regions || []).length) return false
+  _regionChecked = true
+  if (!(meta.regions || []).some(r => r.value === f.region)) {
+    const gone = regionLabel(f.region)
+    f.region = ''
+    _lsSet(LS_REGION, '')
+    savedRegion.value = ''
+    regionNotice.value = `之前记住的地区「${gone}」已不在可查询范围内，已切换为全部地区。`
+    return true
+  }
   return false
 }
 
@@ -220,6 +298,8 @@ function toggleRecent() {
 
 async function load() {
   loading.value = true
+  loadError.value = ''
+  let needRefetch = false            // 记住的地区已失效 ⇒ 本轮结束后用「全部地区」重查一次
   try {
     const res = await api(`/api/bid-radar?${buildQuery()}`, { method: 'GET' })
     items.value = res.items || []
@@ -231,18 +311,28 @@ async function load() {
     // 但此处此前漏了赋值 → 筛选栏「全部来源」下拉与 KPI 概览条的来源数恒为空。
     meta.sources = res.sources || []
     meta.fetched_at = res.fetched_at || ''
+    // 首次拿到清单后校验一次「记住的地区」是否仍可查询（只在首次，且不会递归进 try）
+    needRefetch = ensureRegionValid()
     // 近 3 日新增计数（独立轻量查询，规避「按浏览器当天」白天恒为 0 的误导）
-    const t = await api(`/api/bid-radar?date_from=${RECENT_FROM}&page_size=1`, { method: 'GET' })
+    // 🔴 必须带上当前 region：否则锁定「湖北」时，KPI 会出现「累计商机 12（湖北）」
+    //    与「近 3 日新增 300（全国）」两个同名并排却不同口径的数字。
+    const t = await api(`/api/bid-radar?date_from=${RECENT_FROM}&page_size=1${f.region ? '&region=' + encodeURIComponent(f.region) : ''}`, { method: 'GET' })
     recentCount.value = t.total || 0
     // 记录本次打开时间，供下次访问判断「自上次打开后新增」
     if (!_persisted) { try { localStorage.setItem(LS_KEY, String(Date.now())) } catch (e) {} _persisted = true }
   } catch (e) {
+    // 失败原因要留着：原先这里与「真的没有数据」共用同一个空状态，会把 403/超时
+    // 说成「暂无匹配的招投标信息」，用户据此以为该地区没商机（静默误导）。
+    loadError.value = e && e.message ? e.message : '请求失败'
     items.value = []
     meta.total = 0
     recentCount.value = 0
   } finally {
     loading.value = false
   }
+  // 放到 finally 之后：若写在 try 里 `return load()`，finally 会先把 loading 置回 false，
+  // 重查期间页面会闪一下空状态。
+  if (needRefetch) await load()
 }
 
 onMounted(load)
@@ -265,6 +355,13 @@ onMounted(load)
 .br-chip.on{background:var(--p);color:#fff;border-color:var(--p)}
 
 .br-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+/* 「默认地区」chip：只在当前区域 == 已记住的区域时出现，点击取消记住（弱化样式，不与主按钮抢视线） */
+.br-def{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 10px;border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:10px;font-size:12px;cursor:pointer;white-space:nowrap}
+.br-def:hover{filter:brightness(.97)}
+.br-def-tag{font-size:10px;font-weight:600;letter-spacing:.5px;opacity:.7}
+.br-def svg{opacity:.55}
+.br-def:hover svg{opacity:1}
+.br-notice{margin-bottom:12px;padding:9px 12px;border-radius:10px;font-size:12px;color:var(--t2);background:var(--bg3);border:1px solid var(--border-subtle)}
 .br-inp{height:38px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--bg2);color:var(--t1);font-size:13px;outline:none}
 .br-inp:focus{border-color:var(--p)}
 .br-filters input[type=date]{width:150px}
@@ -276,6 +373,7 @@ onMounted(load)
 
 .br-state{padding:48px;text-align:center;color:var(--t3);font-size:14px}
 .br-empty{color:var(--t2)}
+.br-empty-t{margin:0 0 14px;line-height:1.7}
 
 /* 表格已置于 .card 内（卡片自带边框与圆角），故去掉自身的边框/圆角，避免双层描边 */
 .br-tbl{width:100%;border-collapse:collapse;font-size:13px}

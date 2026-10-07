@@ -38,6 +38,11 @@
               <!-- v319：人工接管过（重开/解锁过）⇒ 当面说明。否则用户会疑惑「为什么这期没被
                    到点自动关掉」——那是 v319 的豁免在起作用（人已把这期拿回来处理）。 -->
               <div v-if="row.reopened_at" class="hd-sub ok">人工接管 · {{ shortTs(row.reopened_at) }}</div>
+              <!-- v355：过期未关 ⇒ 这一行**正挡着自动建表创建下一期**。此前它显示为绿色
+                   「进行中」，与"其实早已报不了单"正好相反（生产实证 2026-09-29~10-01：
+                   连着两天零提示，只靠"报单页是空的"才发现）。
+                   判据 = 后端 `forecast_order_board` 的 `stale_open`（与报单硬锁同源）。 -->
+              <div v-if="row.stale_open" class="hd-sub warn">已过报单截止日 · 挡住下一期创建</div>
             </td>
             <td>{{ row.order_start || '—' }} ~ {{ row.order_end || '—' }}</td>
             <td>
@@ -185,6 +190,14 @@ function finalTag(row) {
 /* v319：定稿来源说明 —— 「系统到点自动关单 · 09-29 11:18」/「人工定稿 · 张三 · 09-27 20:04」。
    ⚠️ 区分 auto / manual 不是装饰：自动关单**不发通知**（加单/减单那个），
       所以这两种定稿在后一列的表现不同（自动的那些会停在「尚未推送」）。
+   🆕 v355（2026-10-01）：再分出 `auto_reap`（**报单窗口已过、被系统回收**）。
+      🔴 为什么必须分：`auto` 与 `auto_reap` **都无人操作、`closed_by` 都是「系统」**，
+         只有 mode 分得清。此前两者同值 ⇒「你重开过、系统替你收了尾」这件事被显示成
+         「系统到点正常关单」—— 用户看不出自己那一步操作留下了什么后果。
+      ⚠️ 与后端 `forecast_period_close` 的 mode 契约**同批改**（后端只写、这里只读）。
+   🆕 v368：再分出 `void`（**作废** —— 那批货不到，这一期本不该建）。
+      与后端的 `void_period` 端点同批改；不在这里分支 ⇒ 界面把它当成「人工定稿」，
+      等于告诉用户"这期正常结束了"，而事实是"这期是错误产物"。
    ⚠️ 历史期次这三列是空的（v319 才加列）⇒ 显示「—」，**不假装知道**。 */
 function closeHint(row) {
   const mode = row.closed_mode === 'void' ? '已作废（那批货不到）'
@@ -238,4 +251,7 @@ onMounted(load)
 /* 单元格副行（定稿来源 / 人工接管 / 推送时刻）—— 11px + nowrap，不参与换行争夺 */
 .hd-sub { font-size: 11px; color: var(--t3); margin-top: 3px; white-space: nowrap; }
 .hd-sub.ok { color: var(--suc); }
+/* v355：过期未关的副行 —— 琥珀色（与同行状态标签同色系）。
+   ⚠️ 用变量而非硬编码：`styles/variables.css` 亮 / 暗两套都有 `--warn-amber` 定义。 */
+.hd-sub.warn { color: var(--warn-amber); }
 </style>

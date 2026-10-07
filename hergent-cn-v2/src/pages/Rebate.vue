@@ -1,11 +1,15 @@
 <template>
   <div class="page">
-    <!-- 主 Tab：仪表盘 / 目标与返利 / 达成填报 / 返利结算 -->
+    <!-- 主 Tab：仪表盘 / 目标配置 / 达成填报 / 返利结算 / 结算节奏 / 厂家承诺 -->
     <div class="main-tabs">
       <button class="main-tab" :class="{ on: mainTab === 'dashboard' }" @click="switchTab('dashboard')">仪表盘</button>
-      <button class="main-tab" :class="{ on: mainTab === 'rules' }" @click="mainTab = 'rules'">目标与返利</button>
+      <button class="main-tab" :class="{ on: mainTab === 'rules' }" @click="mainTab = 'rules'">目标配置</button>
       <button class="main-tab" :class="{ on: mainTab === 'achv' }" @click="switchTab('achv')">达成填报</button>
       <button class="main-tab" :class="{ on: mainTab === 'contracts' }" @click="switchTab('contracts')">返利结算</button>
+      <!-- v375：结算节奏（每月几号交上月的核销资料 / 几号上账）。它是「返利结算」的**前置配置**，
+           故紧挨着排在它后面；同为页内页签，不新增侧栏。配置由本页消费成「本月结算日历」，
+           不是只写不读的死配置。 -->
+      <button class="main-tab" :class="{ on: mainTab === 'settle' }" @click="switchTab('settle')">结算节奏</button>
       <!-- v303：承诺台账作为第 5 个页签，不新增侧栏 —— 老板想起"返利对不对得上"时，
            必然同时想起"他还答应给我补陈列费"（两边都是"该给我的钱"）。 -->
       <button class="main-tab" :class="{ on: mainTab === 'promises' }" @click="switchTab('promises')">厂家承诺</button>
@@ -40,7 +44,7 @@
         <div v-if="achvLoading" class="state-empty">加载中…</div>
         <div v-else-if="!dashboardModel || !dashboardModel.items.length" class="state-empty">
           <div class="se-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
-          <p v-if="!rules.length">暂无返利规则，请先在「目标与返利」创建品牌 / 商品目标。
+          <p v-if="!rules.length">暂无返利规则，请先在「目标配置」创建品牌 / 商品目标。
             <!-- v132：全页空态唯一入口，直达创建（原「去创建目标」只切 tab，还要再点一次） -->
             <!-- v335：按钮级门禁 —— 目标创建走 POST /api/rebate-rules ⇒ 动作 create -->
             <button v-if="canDo('sales', 'create')" class="btn btn-primary btn-sm" style="display:block;margin:10px auto 0" @click="openCreate('brand')">去创建品牌目标</button>
@@ -350,7 +354,7 @@
 
         <div v-if="achvLoading" class="state-empty">加载中…</div>
         <div v-else-if="!achvRows.length" class="state-empty">
-          <p>本月还没有可填报的行。请先在「目标与返利」创建品牌 / 商品目标，或直接「Excel 导入」达成数据。</p>
+          <p>本月还没有可填报的行。请先在「目标配置」创建品牌 / 商品目标，或直接「Excel 导入」达成数据。</p>
         </div>
         <div v-else class="table-wrap">
           <table class="tbl">
@@ -1067,7 +1071,7 @@
                 <div class="form-row"><label>年度</label><input v-model="contractForm.year" class="input" placeholder="如 2026"></div>
                 <div class="form-row"><label>返利比例</label><input v-model.number="contractForm.rebate_pct" class="input" type="number" min="0" step="0.1" placeholder="百分点，如 3 = 3%"></div>
               </div>
-              <p class="cf-tip">阶梯 / 档位返利在「目标与返利」中按品牌、单品单独配置；此处填年度整体返利比例基准。</p>
+              <p class="cf-tip">阶梯 / 档位返利在「目标配置」中按品牌、单品单独配置；此处填年度整体返利比例基准。</p>
             </div>
             <!-- Step 3 月度分解 -->
             <div v-if="contractStep===3">
@@ -1201,6 +1205,10 @@
 
     <!-- v303：厂家承诺台账（第 5 个页签）。数据由组件自己在 onMounted 拉，
          所以 switchTab('promises') 不需要预加载分支 —— 切走再切回会自动重挂载刷新。 -->
+    <!-- v375：结算节奏（配置面）—— 与「返利结算」（执行面）分开：一个月初配一次、可逆，
+         一个期末执行、不可逆（结算/冲销落账改不回来）。 -->
+    <SettlementScheduleTab v-if="mainTab === 'settle'" />
+
     <CommitmentsTab v-if="mainTab === 'promises'" />
 
   </div>
@@ -1209,6 +1217,7 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import CommitmentsTab from '../components/CommitmentsTab.vue'
+import SettlementScheduleTab from '../components/rebate/SettlementScheduleTab.vue'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast, canDo } from '../store'
