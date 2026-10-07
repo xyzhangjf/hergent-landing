@@ -13,6 +13,11 @@
       </div>
     </div>
 
+    <!-- v395：退单入口先立，但后端**尚无退货单接口** ⇒ 明说，不让人以为建出来的是退货单 -->
+    <div v-if="isReturn" class="state-empty isn-note">
+      退货单功能开发中 —— 当前这张保存后是<b>普通销售单</b>，不是退单。
+    </div>
+
     <div class="card isn-hd">
       <div class="isn-f">
         <label class="isn-lb">客户 <span class="isn-req">必填</span></label>
@@ -21,6 +26,13 @@
         <select v-model.number="form.customer_id" class="input isn-sel">
           <option :value="0" disabled>请选择客户</option>
           <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </div>
+      <!-- v395：出货方式 —— 由 URL 的 `?type=` 预置（见脚本处注释），仍可改。 -->
+      <div class="isn-f">
+        <label class="isn-lb">出货方式</label>
+        <select v-model="form.order_type" class="input isn-sel">
+          <option v-for="o in TYPE_OPTIONS" :key="o.value" :value="o.value">{{ o.text }}</option>
         </select>
       </div>
       <div class="isn-f">
@@ -112,13 +124,23 @@
       （`sale_order_deliver` 的状态前置）。前端擅自传别的值会让新单无法发货。
    🔴 **幂等键**：进页面生成一次，提交成功后作废 ⇒ 双击/网络重试不会开出两张单。 */
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import { psiApi } from '../../api/psi'
 import { toast } from '../../store'
-import { fmtMoney } from '../../constants/psiLabels'
+import { fmtMoney, ORDER_TYPE, ORDER_TYPE_OPTIONS } from '../../constants/psiLabels'
 
 const router = useRouter()
+const route = useRoute()
+
+/* 🔴 v395（2026-10-08）：出货方式**从 URL 预置** —— 侧栏「自提订单 / 车销订单 /
+   调拨单」右侧的「＋」带 `?type=`，进来就选好了，不用每次手选（后端默认
+   `order_type='self_pickup'`；不预置的话，从车销入口新建的单会落到自提名下）。
+   ⚠️ 退单入口（`kind=return`）目前**没有后端退货单接口** ⇒ 明说，不静默建普通单。 */
+const _qType = String((route.query && route.query.type) || '')
+const isReturn = String((route.query && route.query.kind) || '') === 'return'
+/* 新建页的「出货方式」选项 = 词表全档（**不含**筛选用的「全部方式」那一项） */
+const TYPE_OPTIONS = Object.entries(ORDER_TYPE).map(([value, v]) => ({ value, text: v.text }))
 
 const saving = ref(false)
 const customers = ref([])
@@ -130,6 +152,8 @@ const prodKw = ref('')
 const form = ref({
   customer_id: 0, warehouse_id: 0,
   delivery_date: '', delivery_address: '', note: '',
+  /* 未知 `type` 一律落回自提（与后端默认值一致，不把脏 query 传下去） */
+  order_type: ORDER_TYPE[_qType] ? _qType : 'self_pickup',
 })
 const items = ref([])
 
@@ -201,6 +225,7 @@ async function submit () {
       warehouse_id: form.value.warehouse_id,
       delivery_date: form.value.delivery_date || '',
       delivery_address: form.value.delivery_address || '',
+      order_type: form.value.order_type || 'self_pickup',
       note: form.value.note || '',
       idempotency_key: idemKey,
       items: items.value.map(r => ({
@@ -244,6 +269,9 @@ onMounted(async () => {
 <style scoped>
 .inv-page { display: block }
 .isn-acts { display: flex; gap: 8px; flex-wrap: wrap }
+/* v395：退单入口的「开发中」说明条（明说，不静默建普通单） */
+.isn-note { margin-bottom: 12px; text-align: left }
+.isn-note b { color: var(--t1) }
 .isn-hd { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px }
 .isn-f { display: flex; flex-direction: column; gap: 4px }
 .isn-f-grow { flex: 1; min-width: 160px }

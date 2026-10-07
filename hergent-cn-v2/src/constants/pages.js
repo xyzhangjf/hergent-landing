@@ -370,6 +370,12 @@ export const PAGE_RULES = {
   //    （能进页面、改任何一项都被 403）。锁是显式声明：即使它因 `module: null` 天然不会让位，
   //    也照样标上 —— 后人给它补 module 时，锁还在。
   '/settings':        { title: '设置',         module: null,        roles: ADMIN_ROLES, lock: true, cat: 'admin' },
+  // v395（2026-10-08）：打印 —— 入口先立、页面为占位骨架。
+  //   🔴 `module: null` = **只读页**（v348–351 纪律）：本页现在不写任何数据，
+  //      将来要存打印配置时，必须先给它一个真实模块键再开写 —— 别直接放开。
+  //   🔴 不给 `lock`：它没有「改权限」这类入口，锁的语义（防假入口）不适用；
+  //      ADMIN_ROLES 已经把它收在管理岗。
+  '/print':           { title: '打印',         module: null,        roles: ADMIN_ROLES, cat: 'admin' },
   // 舟谱单据导入：名单来自后端 `zhoupu_documents.py::_guard()`（AST 护栏逐项比对）。
   // 侧栏已撤掉入口（迁进 AI 引擎卡片），但深链与卡片都走本行。
   '/zhoupu-import':   { title: '舟谱单据导入', module: null,        roles: ZHOUPU_IMPORT_ROLES, cat: 'admin' }

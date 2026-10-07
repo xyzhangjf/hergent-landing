@@ -2,12 +2,12 @@
   <div class="inv-page">
     <div class="page-hd split">
       <div>
-        <h2>销售单</h2>
-        <span class="page-sub">出货台账</span>
+        <h2>{{ title }}</h2>
+        <span class="page-sub">{{ subTitle }}</span>
       </div>
       <div class="is-acts">
-        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="go('/inventory/sale/new')">
-          <Icon name="plus" :size="14" />新建销售单
+        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="go(newTo)">
+          <Icon name="plus" :size="14" />新建{{ title }}
         </button>
         <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
           <Icon name="refresh" :size="14" />刷新
@@ -117,13 +117,25 @@
       本页有 2.2 万张单、按页拉 50 行，前端过滤只会作用于当前这一页 ⇒ 用户会看到
       「筛选后还有 50 条」这种假结果。 */
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import { psiApi } from '../../api/psi'
 import { canDo } from '../../store'
 import { SO_STATUS, ORDER_TYPE, ORDER_TYPE_OPTIONS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
 
 const router = useRouter()
+const route = useRoute()
+
+/* 🔴 v395（2026-10-08）：单据类型**从 URL 读** —— 侧栏「自提订单 / 自提退单 /
+   车销订单 / 车销退单 / 调拨单」五个入口是**同一条 path、不同 query**，
+   没有这一段的话，点哪个进去都是同一张未筛选的列表 ⇒ 入口是假的。
+   · `type` → 出货方式（`ORDER_TYPE` 的键）；未知值忽略（不许把脏 query 带进筛选）；
+   · `kind=return` → 该出货方式 **且 状态=退货**（后端 `sale_orders.status='returned'`）；
+   · `kind=order` → 结果里**排除**退货行（退单独立成单之前唯一可用的区分口径）。 */
+const _qType = String((route.query && route.query.type) || '')
+const _qKind = String((route.query && route.query.kind) || '')
+const _kindOrder = _qKind === 'order'
+
 const loading = ref(true)
 const err = ref('')
 const rows = ref([])
@@ -132,7 +144,25 @@ const customers = ref([])
 const limit = 50
 const offset = ref(0)
 
-const f = ref({ status: '', order_type: '', customer_id: 0, date_from: '', date_to: '' })
+const f = ref({ status: _qKind === 'return' ? 'returned' : '',
+  order_type: ORDER_TYPE[_qType] ? _qType : '', customer_id: 0, date_from: '', date_to: '' })
+
+/* 页头随入口变（自提订单 / 车销退单 / 调拨单 …）—— 让人一眼确认筛选真的生效了，
+   而不是点五个入口都看到同一张「销售单」。 */
+const title = computed(() => {
+  const t = f.value.order_type ? textOf(ORDER_TYPE, f.value.order_type, '') : ''
+  const k = _qKind === 'return' ? '退单' : (_qKind === 'order' ? '订单' : '')
+  return t ? `${t}${k}` : '销售单'
+})
+const subTitle = computed(() => title.value === '销售单'
+  ? '出货台账' : `按「${title.value}」筛选的出货台账`)
+/* 「＋」带同一份 `type` / `kind` 进新建页 ⇒ 新单落在对应入口下（不靠手选） */
+const newTo = computed(() => {
+  const q = {}
+  if (ORDER_TYPE[_qType]) q.type = _qType
+  if (_qKind) q.kind = _qKind
+  return { path: '/inventory/sale/new', query: q }
+})
 
 const canWrite = computed(() => canDo('inventory', 'create'))
 const hasFilter = computed(() => !!(f.value.status || f.value.order_type || f.value.customer_id
@@ -155,7 +185,10 @@ async function load (resetPage = true) {
       psiApi.listSales({ ...f.value, limit, offset: offset.value }),
       customers.value.length ? Promise.resolve(null) : psiApi.refs('customers', '', 200),
     ])
-    rows.value = d.orders || []
+    let list = d.orders || []
+    /* 「订单」入口要排除退货行（见上方 URL 读取处的口径说明） */
+    if (_kindOrder) list = list.filter(r => r.status !== 'returned')
+    rows.value = list
     total.value = Number(d.total || 0)
     if (refs && Array.isArray(refs.customers)) customers.value = refs.customers
   } catch (e) {

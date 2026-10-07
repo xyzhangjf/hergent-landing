@@ -2,12 +2,12 @@
   <div class="inv-page">
     <div class="page-hd split">
       <div>
-        <h2>采购单</h2>
-        <span class="page-sub">向供应商进货的单据</span>
+        <h2>{{ isReturn ? '采购退货单' : '采购单' }}</h2>
+        <span class="page-sub">{{ isReturn ? '退给供应商的退货单据' : '向供应商进货的单据' }}</span>
       </div>
       <div class="ip-acts">
-        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="go('/inventory/purchase/new')">
-          <Icon name="plus" :size="14" />新建采购单
+        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="go(isReturn ? '/inventory/purchase/new?kind=return' : '/inventory/purchase/new')">
+          <Icon name="plus" :size="14" />{{ isReturn ? '新建采购退货单' : '新建采购单' }}
         </button>
         <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
           <Icon name="refresh" :size="14" />刷新
@@ -107,13 +107,23 @@
    🔴 状态一律走 `psiLabels` 的中文映射，**不许出现 `received`/`draft` 这类英文值**
       （后端加新状态时，兜底也是中文「未知」，见 `textOf` 的默认参数）。 */
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import { psiApi } from '../../api/psi'
 import { canDo } from '../../store'
 import { PO_STATUS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
 
 const router = useRouter()
+const route = useRoute()
+
+/* 🔴 v395（2026-10-08）：侧栏「采购单 / 采购退货单」是**同一条 path、不同 query**，
+   这里必须读 URL 预置筛选，否则点哪个进去都一样 ⇒ 入口就是假的。
+   · `kind=return` → 状态=已退货（`PO_STATUS.returned`）；
+   · `kind=order`  → 结果里**排除**已退货行（退货独立成单之前的唯一区分口径）。 */
+const _qKind = String((route.query && route.query.kind) || '')
+const _kindOrder = _qKind === 'order'
+const isReturn = _qKind === 'return'
+
 const loading = ref(true)
 const err = ref('')
 const rows = ref([])
@@ -122,7 +132,7 @@ const suppliers = ref([])
 const limit = 50
 const offset = ref(0)
 
-const f = ref({ status: '', supplier_id: 0, date_from: '', date_to: '' })
+const f = ref({ status: isReturn ? 'returned' : '', supplier_id: 0, date_from: '', date_to: '' })
 
 const canWrite = computed(() => canDo('inventory', 'create'))
 const hasFilter = computed(() => !!(f.value.status || f.value.supplier_id || f.value.date_from || f.value.date_to))
@@ -142,7 +152,10 @@ async function load (resetPage = true) {
       psiApi.listPurchases({ ...f.value, limit, offset: offset.value }),
       suppliers.value.length ? Promise.resolve(null) : psiApi.refs('suppliers', '', 200),
     ])
-    rows.value = d.orders || []
+    let list = d.orders || []
+    /* 「采购单」入口要排除已退货行（见上方 URL 读取处的口径说明） */
+    if (_kindOrder) list = list.filter(r => r.status !== 'returned')
+    rows.value = list
     total.value = Number(d.total || 0)
     if (refs && Array.isArray(refs.suppliers)) suppliers.value = refs.suppliers
   } catch (e) {

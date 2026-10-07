@@ -34,6 +34,8 @@ const CustomerArchive = () => import('../pages/CustomerArchive.vue')
 const ArchiveShell = () => import('../pages/ArchiveShell.vue')
 const Archive = () => import('../pages/Archive.vue')
 const Settings = () => import('../pages/Settings.vue')
+// v395（2026-10-08）：打印 —— 入口先立（老板点名「很重要」），本页为占位骨架。
+const Print = () => import('../pages/Print.vue')
 const CronJobs = () => import('../pages/CronJobs.vue')
 const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
@@ -145,6 +147,9 @@ export const router = createRouter({
         //      群里的链接都还留着 `#/price-channels`，删掉就是白屏。
         { path: 'price-channels', redirect: { path: '/archive/prices' } },
         { path: 'settings', component: Settings, meta: { title: '设置' } },
+        // v395：`/print?tab=templates|settings|logs` —— 三个入口共用本页（页签进 URL），
+        //   与 `/forecast` 的页签同构 ⇒ 不为每个入口造页面。可见性见 `pages.js` 的 `/print` 行。
+        { path: 'print', component: Print, meta: { title: '打印' } },
         { path: 'bid-radar', component: BidRadar, meta: { title: '招投标雷达' } },
         // v380（2026-10-06）：进销存 —— 角色门禁在 `constants/pages.js` 的 `/inventory` 行
         //   （ADMIN_ROLES + lock），这里只登记路由；深链由守卫按同一份表拦。

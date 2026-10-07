@@ -101,19 +101,27 @@
               <Teleport to="body">
                 <div v-if="openArea === it.key" class="sb-pop" :style="popStyle"
                      @mouseenter="areaKeep" @mouseleave="areaLeave">
-                  <template v-for="sg in it.groups" :key="sg.label">
+                  <!-- 🔴 v395（2026-10-08）：**分组横向并排成列**（对齐舟谱弹窗形态）。
+                       改之前每个 `sg`（分组）的标题与条目是**平铺**在 `.sb-pop` 里的
+                       ⇒ 168px 窄条从上往下堆成两坨；现在一个 `sg` = 一列（`.sb-pop-col`），
+                       列标题置顶 + 列间竖分隔线（样式见 `.sb-pop-col`）。
+                       ⚠️ 只多了「列」这一层容器：**判据仍然只有 `canSee(path)` 一处**，
+                       空列早已由 `resolveNavItem` 过滤（不会露出空标题）。 -->
+                  <div v-for="sg in it.groups" :key="sg.label" class="sb-pop-col">
                     <div v-if="sg.label" class="sb-pop-hd">{{ sg.label }}</div>
                     <!-- v390 · L1「双入口」：一行 = 两个可点区域。
                          左 = 对象名 → 列表页（或页内页签）；右 = 「创建」→ 新建页。
                          ⚠️ 右边的「＋」是否出现，**已经**在 `resolveNavItem` 里按
                             `canDo(create.module,'create')` 判过了 ⇒ 模板里不补判据。 -->
-                    <div v-for="x in sg.items" :key="x.path + (x.tab || '')" class="sb-pop-row">
-                      <router-link :to="navTo({ path: x.path, tab: x.tab })" class="sb-pop-item" :class="{cur: isCur(x)}" @click="areaClose"><Icon :name="x.icon" :size="15" /><span>{{ x.name }}</span></router-link>
+                    <!-- v395：`key` 必须带上 `q` —— 「自提订单 / 自提退单 / 车销订单 …」
+                         是**同一 path、不同 query** 的几条，只按 path 拼 key 会重复。 -->
+                    <div v-for="x in sg.items" :key="x.path + (x.tab || '') + (x.q ? JSON.stringify(x.q) : '')" class="sb-pop-row">
+                      <router-link :to="navTo({ path: x.path, tab: x.tab, q: x.q })" class="sb-pop-item" :class="{cur: isCur(x)}" @click="areaClose"><Icon :name="x.icon" :size="15" /><span>{{ x.name }}</span></router-link>
                       <router-link v-if="x.create" :to="navTo(x.create.to)" class="sb-pop-new"
                                    :title="x.create.title || ('新建' + x.name)"
                                    :aria-label="x.create.title || ('新建' + x.name)" @click="areaClose"><Icon name="plus" :size="13" /><span>创建</span></router-link>
                     </div>
-                  </template>
+                  </div>
                 </div>
               </Teleport>
             </div>
@@ -328,13 +336,33 @@ const NAV = [
          `module: 'inventory'` 取自**本能力自己的模块名**（`server.py::_PATH_MODULE_MAP` 里
          `/api/psi` 归 `inventory`）—— 照抄同一个键，不新造（v335 纪律：键写错会 fail-closed
          把「＋」全藏掉）。收口在 `resolveNavItem`：`canDo('inventory','create')`。 */
+      /* 🔴 v395（2026-10-08）：单据类型**进 URL**（`q`）—— 按舟谱「采销管理」的
+         「业态 × 订单/退单」拆入口，但**仍是同一批列表页与新建页，零新页**：
+           · 左半（条目名）→ `/inventory/sale?type=…&kind=…`（列表页按此预筛选）；
+           · 右半「＋」→ `/inventory/sale/new` 带同一份 `q` ⇒ 新建页**预置单据类型**，
+             不让人每次都手选出货方式。
+         ⚠️ 老板 2026-10-08 拍板两条：① **没有访销业态**（舟谱有的「访销订单/退单」
+             我们不立）；② **先立入口** —— 车销与退单目前生产零数据，能力后补。 */
       { label: '采购', items: [
-        { path: '/inventory/purchase', name: '采购单', icon: 'inbox',
-          create: { to: '/inventory/purchase/new', module: 'inventory', title: '新建采购单' } }
+        { path: '/inventory/purchase', name: '采购单', icon: 'inbox', q: { kind: 'order' },
+          create: { to: { path: '/inventory/purchase/new', q: { kind: 'order' } }, module: 'inventory', title: '新建采购单' } },
+        { path: '/inventory/purchase', name: '采购退货单', icon: 'undo', q: { kind: 'return' },
+          create: { to: { path: '/inventory/purchase/new', q: { kind: 'return' } }, module: 'inventory', title: '新建采购退货单' } }
       ] },
       { label: '销售', items: [
-        { path: '/inventory/sale', name: '销售单', icon: 'receipt',
-          create: { to: '/inventory/sale/new', module: 'inventory', title: '新建销售单' } }
+        { path: '/inventory/sale', name: '自提订单', icon: 'store', q: { type: 'self_pickup', kind: 'order' },
+          create: { to: { path: '/inventory/sale/new', q: { type: 'self_pickup', kind: 'order' } }, module: 'inventory', title: '新建自提订单' } },
+        { path: '/inventory/sale', name: '自提退单', icon: 'undo', q: { type: 'self_pickup', kind: 'return' },
+          create: { to: { path: '/inventory/sale/new', q: { type: 'self_pickup', kind: 'return' } }, module: 'inventory', title: '新建自提退单' } },
+        { path: '/inventory/sale', name: '车销订单', icon: 'smartphone', q: { type: 'vehicle_sale', kind: 'order' },
+          create: { to: { path: '/inventory/sale/new', q: { type: 'vehicle_sale', kind: 'order' } }, module: 'inventory', title: '新建车销订单' } },
+        { path: '/inventory/sale', name: '车销退单', icon: 'undo', q: { type: 'vehicle_sale', kind: 'return' },
+          create: { to: { path: '/inventory/sale/new', q: { type: 'vehicle_sale', kind: 'return' } }, module: 'inventory', title: '新建车销退单' } }
+      ] },
+      /* 调拨在舟谱里是独立一列（我方 `order_type=transfer`，本就走销售单列表）⇒ 同样独立。 */
+      { label: '调拨', items: [
+        { path: '/inventory/sale', name: '调拨单', icon: 'refresh', q: { type: 'transfer', kind: 'order' },
+          create: { to: { path: '/inventory/sale/new', q: { type: 'transfer', kind: 'order' } }, module: 'inventory', title: '新建调拨单' } }
       ] },
       // 「库存查询」(`/inventory/stock`，默认按到期日升序) 与「库存效期补录」(`/data-fill`)：
       // 前者是本轮新页；后者是**已上线**页面，此前不在侧栏（只能从设置页 / 货损页的
@@ -423,7 +451,16 @@ const NAV = [
       //   路由仍是 `/connect`（**不改路径**：它是已上线深链，改名只动显示名）。
       { label: 'AI 能力', items: [ { path: '/connect',  name: 'AI 引擎', icon: 'brain' } ] },
       { label: '自动化', items: [ { path: '/cron',     name: '定时任务', icon: 'clock' } ] },
-      { label: '系统设置', items: [ { path: '/settings', name: '设置', icon: 'wrench' } ] }
+      { label: '系统设置', items: [ { path: '/settings', name: '设置', icon: 'wrench' } ] },
+      /* v395（2026-10-08）：**打印**入口 —— 老板点名「先立，这个很重要」。
+         三条指向**同一个打印页**的不同页签（`?tab=`，与 `Forecast` 同构）⇒ 零多余页面。
+         ⚠️ 本轮页面是**占位骨架**（`pages/Print.vue`）：入口与 URL 先立住，
+         模板/纸张/小票机等能力随后补 —— 与「先立入口」一致，不留死链（点了有页面）。 */
+      { label: '打印', items: [
+        { path: '/print', tab: 'templates', name: '打印模板', icon: 'template' },
+        { path: '/print', tab: 'settings',  name: '打印设置', icon: 'settings' },
+        { path: '/print', tab: 'logs',      name: '打印记录', icon: 'history' }
+      ] }
     ]
   }
 ]
@@ -474,7 +511,11 @@ const mnavItems = computed(() => {
 function navTo(loc) {
   if (!loc) return ''
   if (typeof loc === 'string') return loc
-  return loc.tab ? { path: loc.path, query: { tab: loc.tab } } : loc.path
+  /* v395：条目可再带 `q`（任意 query，与 `tab` 同一套机制）—— 销售单据的
+     `type`（自提/车销/调拨）与 `kind`（订单/退单）就靠它进 URL
+     ⇒ 同一列表页的多个入口能各自直达、各自可分享，不必为每个单据类型造新页。 */
+  const query = { ...(loc.tab ? { tab: loc.tab } : {}), ...(loc.q || {}) }
+  return Object.keys(query).length ? { path: loc.path, query } : loc.path
 }
 
 /**
@@ -574,7 +615,11 @@ function _placePop(ev) {
   const el = ev && ev.currentTarget
   if (!el) return
   const r = el.getBoundingClientRect()
-  popStyle.value = { top: (r.top - 6) + 'px', left: (r.right + 8) + 'px' }
+  /* v395：弹窗从 168px 窄条变成**横向多列面板** ⇒ 宽度不再固定（列数越多越宽）。
+     这里按「到视口右边缘还剩多少」给一个上限（留 24px 余量）：列数多到放不下时，
+     由 `.sb-pop` 的 `flex-wrap` 折行，绝不把列挤没或溢出屏幕。 */
+  const maxW = Math.max(280, window.innerWidth - r.right - 24)
+  popStyle.value = { top: (r.top - 6) + 'px', left: (r.right + 8) + 'px', maxWidth: maxW + 'px' }
 }
 
 function areaKeep() {
@@ -634,7 +679,15 @@ watch(() => store.ui.sidebarOpen, areaClose)
    --------------------------------------------------------------------------- */
 function isCur(x) {
   if (!x || route.path !== x.path) return false
-  return String((route.query && route.query.tab) || '') === String(x.tab || '')
+  if (String((route.query && route.query.tab) || '') !== String(x.tab || '')) return false
+  /* v395：`q` 也要**逐键相等**才算当前 —— 否则「自提订单 / 自提退单 / 车销订单 …」
+     这几条是**同一 path、不同 query**，会像 v390 那三条页签一样**一起亮**。
+     （`.cur` 是弹窗里唯一的高亮来源，判据必须自己算全。） */
+  const q = x.q || {}
+  for (const k of Object.keys(q)) {
+    if (String((route.query && route.query[k]) || '') !== String(q[k])) return false
+  }
+  return true
 }
 
 /** 一级项高亮：本区声明了锚点、且正停在锚点页 ⇒ 亮；或**任一子条目**是当前页 ⇒ 亮。
@@ -944,11 +997,19 @@ function stopResize() {
    · 也不能"留在原地 + 只改成 fixed" —— 实测（探针 `elementFromPoint`）**照样被裁**：
      坐标处命中的是正文元素，弹窗不在命中树上 ⇒ 看得见、点不到。
    · Teleport 出侧栏子树后，裁剪消失、包含块回到视口，坐标即 `getBoundingClientRect` 值。 */
-.sb-pop{position:fixed;min-width:168px;
+/* v395（2026-10-08）：**横向多列面板**（对齐舟谱）。改之前是纵向窄条堆叠。
+   `flex-wrap:wrap` 是列数过多时的兜底（配合 `_placePop` 给的 `maxWidth`）。 */
+.sb-pop{position:fixed;min-width:168px;display:flex;align-items:flex-start;flex-wrap:wrap;
   background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
   border:1px solid var(--bd);border-radius:12px;padding:6px;z-index:30;
   box-shadow:0 8px 24px rgba(0,0,0,.12)}
-.sb-pop-hd{font-size:11px;color:var(--t3);letter-spacing:.8px;padding:6px 10px 2px}
+/* 一个分组 = 一列。列宽自适应：`min-width` 保底、`max-width` 防某列过长，
+   条目名字长的列自然更宽（同舟谱「设置」弹窗各列宽窄不一）。 */
+.sb-pop-col{flex:1 1 auto;min-width:124px;max-width:240px;padding:0 8px 2px}
+.sb-pop-col + .sb-pop-col{border-left:1px solid var(--bd)}
+/* 列标题：粗体置顶 + 下方细分隔线（同舟谱「采销管理」弹窗）。 */
+.sb-pop-hd{font-size:11px;font-weight:600;color:var(--t2);letter-spacing:.8px;
+  padding:6px 4px 5px;margin-bottom:4px;border-bottom:1px solid var(--bd)}
 /* v390：弹窗里的一行 = **两个可点区域**（左：对象名 → 列表/页签；右：「创建」→ 新建页）。
    `.sb-pop-row` 用 flex 让左边吃掉剩余宽度、右边 `flex-shrink:0` 固定不缩 ——
    条目名字长短不一时，右边的「创建」仍然**左右对齐**（§八 风险 6：靠分离度防误触）。 */
