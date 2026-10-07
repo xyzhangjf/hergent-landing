@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v391 · 进销存薄壳 /api/psi — 交付说明</title>
+<style>
+  :root{
+    --bg:#f6f8fa; --card:#fff; --line:#e3e8ef; --txt:#1f2733; --dim:#5b6878;
+    --brand:#0d7d75; --brand-bg:#e6f4f2; --ok:#0f7b3f; --ok-bg:#e8f6ee;
+    --warn:#8a5a00; --warn-bg:#fdf4e3; --no:#b3261e; --no-bg:#fdecea;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:40px 28px 80px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:.2px}
+  .sub{color:var(--dim);font-size:13.5px;margin-bottom:26px}
+  h2{font-size:18px;margin:38px 0 12px;padding-left:11px;border-left:4px solid var(--brand)}
+  h3{font-size:15px;margin:22px 0 8px;color:var(--dim);font-weight:600}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f0f3f7;font-weight:600}
+  code{background:#eef1f5;padding:1px 5px;border-radius:4px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .tag{display:inline-block;padding:1px 8px;border-radius:20px;font-size:12px;font-weight:600}
+  .t-ok{background:var(--ok-bg);color:var(--ok)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  .t-no{background:var(--no-bg);color:var(--no)}
+  .t-brand{background:var(--brand-bg);color:var(--brand)}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}
+  .kpi div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kpi b{display:block;font-size:22px;color:var(--brand);line-height:1.3}
+  .kpi span{font-size:12.5px;color:var(--dim)}
+  ul{margin:8px 0 8px 20px;padding:0}
+  li{margin:5px 0}
+  .num{color:var(--brand);font-weight:700}
+  .note{background:var(--warn-bg);border:1px solid #efd9a8;border-radius:10px;padding:14px 16px;font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>v391 · 进销存薄壳 <code>/api/psi</code>（15 端点）</h1>
+<div class="sub">
+  批次 4 ｜ 已上线 <b>2026-10-07 12:24</b> ｜ 后端 <code>a96ad3d</code>（<code>hergent-erp</code>）<br>
+  目标文档：<code>docs/开发计划-侧栏重构与进销存-2026-10-06.md</code> §六
+</div>
+
+<h2>一、交付</h2>
+<div class="kpi">
+  <div><b>15</b><span>进销存接口（计划原写 14，漏数 stock/summary）</span></div>
+  <div><b>14 / 15</b><span>纯委派既有函数 / 唯一例外 receive</span></div>
+  <div><b>37 / 37</b><span>功能级验收（影库 + 真源码）</span></div>
+  <div><b>13 / 13</b><span>真 HTTP 验收（起真 app 打真请求）</span></div>
+  <div><b>5 / 5</b><span>公网冒烟（真生产）</span></div>
+</div>
+
+<div class="card">
+  <b>一句话</b>：进销存的「后端入口」已经通了 —— 15 个接口全部挂在新能力 <code>inventory</code> 下，
+  <b>默认只有老板（和管理员）能访问</b>，其他角色一律 <code>403</code>。
+  业务规则<b>一行都没重写</b>：采购、销售全部转发给现有代码，所以<b>信用额度、促销、FEFO 先进先出扣减、批次留痕的行为与老页面逐字相同</b>。
+</div>
+
+<h3>15 个接口</h3>
+<table>
+  <tr><th style="width:64px">组</th><th>路径</th><th>方法</th><th>实现</th></tr>
+  <tr><td rowspan="2">基础</td><td><code>/api/psi/meta</code></td><td>GET</td><td>本模块自述（模块名/标签/权限）</td></tr>
+  <tr><td><code>/api/psi/refs</code></td><td>GET</td><td>下拉候选（供应商/客户/仓库/商品）</td></tr>
+  <tr><td rowspan="3">库存</td><td><code>/api/psi/stock</code></td><td>GET</td><td>库存明细，<b>默认按到期日升序</b></td></tr>
+  <tr><td><code>/api/psi/stock/summary</code></td><td>GET</td><td>合计 + <b>效期缺失行数</b>（只读投影）</td></tr>
+  <tr><td><code>/api/psi/stock/expiring</code></td><td>GET</td><td>临期清单（阈值走公共常量）</td></tr>
+  <tr><td rowspan="4">采购</td><td><code>/api/psi/purchase-orders</code></td><td>GET / POST</td><td>委派既有 handler</td></tr>
+  <tr><td><code>/api/psi/purchase-orders/{id}</code></td><td>GET</td><td>委派</td></tr>
+  <tr><td><code>/api/psi/purchase-orders/{id}/confirm</code></td><td>POST</td><td>委派（入库存批次）</td></tr>
+  <tr><td><code>/api/psi/purchase-orders/{id}/receive</code></td><td>POST</td><td><span class="tag t-warn">不委派</span> 直连真函数（见下）</td></tr>
+  <tr><td rowspan="4">销售</td><td><code>/api/psi/sale-orders</code></td><td>GET / POST</td><td>委派（<b>信用校验在里面</b>）</td></tr>
+  <tr><td><code>/api/psi/sale-orders/{id}</code></td><td>GET</td><td>委派</td></tr>
+  <tr><td><code>/api/psi/sale-orders/{id}/deliver</code></td><td>POST</td><td>委派（<b>FEFO 扣减在里面</b>）</td></tr>
+  <tr><td><code>/api/psi/sale-orders/{id}/sign</code></td><td>POST</td><td>委派</td></tr>
+</table>
+<p style="font-size:13px;color:var(--dim)">※ 合计 = 基础 2 + 库存 3 + 采购 5（列表中 list 的 GET/POST 合并为一行显示）+ 销售 5 = <b>15</b>。</p>
+
+<h2>二、变更</h2>
+<table>
+  <tr><th style="width:230px">文件</th><th>改动</th><th>为什么</th></tr>
+  <tr>
+    <td><code>routers/psi.py</code><br><span style="color:var(--dim);font-size:12.5px">+450 −17</span></td>
+    <td>v380 脚手架（36 行）→ 15 端点薄壳</td>
+    <td>进销存需要独立入口，且必须与既有 <code>/api/purchase-orders</code>（归 <code>buying</code>）、
+        <code>/api/sale-orders</code>（归 <code>sales</code>）<b>分开</b> —— 否则业务员/导购会顺着老接口一起能进进销存</td>
+  </tr>
+  <tr>
+    <td><code>db/queries/purchases.py</code><br><span style="color:var(--dim);font-size:12.5px">+9 −1</span></td>
+    <td>给 <code>inventory_adjust(...)</code> 补一个 <code>db_conn</code> 参数</td>
+    <td><span class="tag t-no">修既有缺陷</span> 少这个参数时它会<b>另开一条数据库连接</b>去写，
+        而外层已经持有写事务 ⇒ <b>必然</b>「数据库被锁」。实测：不开任何并发、单独跑也 100% 失败
+        ⇒ <b>这个「分批收货」功能此前一次都没成功过</b></td>
+  </tr>
+</table>
+
+<h3>三条纪律（写进了文件头）</h3>
+<ul>
+  <li><b>不复制业务规则</b> —— 信用额度、促销、FEFO、批次留痕一律用既有函数的结果；出现第二个实现就是缺陷</li>
+  <li><b>不新增表、不改既有表</b></li>
+  <li><b>失败必须显式</b> —— 要能区分「真的没有」与「参数没传对」；<b>恒为 0 且零报错 = 静默失效</b></li>
+</ul>
+
+<h3>两个值得说的实现细节</h3>
+<table>
+  <tr><th style="width:170px">事项</th><th>说明</th></tr>
+  <tr>
+    <td><b>唯一不转发的接口</b><br><code>…/receive</code>（分批到货）</td>
+    <td>既有的那个函数<b>本身是坏的</b>：它调用 <code>db.purchase_order_partial_receive</code>，
+        但这个函数<b>没有被导出</b>到运行环境 ⇒ 老页面点「分批收货」必然报 500。
+        所以新接口<b>直接调用真正的实现</b>，校验和错误提示与老代码逐行对齐。
+        <br><span class="tag t-warn">老页面那条未动</span> 改动面在老代码区域、不在本批范围 —— 见「需确认事项 ①」</td>
+  </tr>
+  <tr>
+    <td><b>批次号 / 到期日</b>在采购建单时</td>
+    <td>老代码会<b>把这两个字段悄悄丢掉</b>（不报错、不落库）。低温奶的效期全靠入库这一刻登记，
+        静默丢掉 = 「看着成功了、其实没记」。新接口检测到就<b>明确报错</b>，不让它悄悄消失。
+        <br><span style="color:var(--dim);font-size:12.5px">登记批次/效期的正路是「采购单确认（入库）」那一步，本批只是不让人误以为可以在这里填。</span></td>
+  </tr>
+</table>
+
+<h2>三、部署</h2>
+<table>
+  <tr><th style="width:230px">文件</th><th>本地 HEAD</th><th>生产（改前）</th><th>判读</th></tr>
+  <tr><td><code>routers/psi.py</code></td><td><code>c2358266…</code></td><td><code>c2358266…</code></td><td><span class="tag t-ok">完全相同</span> 生产就是「本地 − 本轮改动」</td></tr>
+  <tr><td><code>db/queries/purchases.py</code></td><td><code>c292e9c6…</code></td><td><code>c292e9c6…</code></td><td><span class="tag t-ok">完全相同</span></td></tr>
+  <tr><td><code>server.py</code></td><td><code>327e868b…</code></td><td><code>327e868b…</code></td><td><span class="tag t-ok">三方全等 ⇒ 不需要动</span></td></tr>
+</table>
+<div class="note">
+  <b>为什么 <code>server.py</code> 不用传？</b>上一版（v380）已经把「<code>/api/psi</code> → 进销存」这条权限映射和路由注册上线了。
+  <b>判据看的是「生产文件的指纹 vs 本地已提交版本的指纹」，不是「本地有没有这行」</b> ——
+  本地也有这两处，若据此以为「要连 <code>server.py</code> 一起传」，就会把<b>别人还没上线的改动</b>一起带上去。
+</div>
+
+<h4 style="margin:18px 0 6px;font-size:13.5px;color:var(--dim)">部署链路与判据</h4>
+<ul>
+  <li>备份 → <code>/root/backup_psi_20261007/</code>（两份，指纹与生产原始值一致，可回滚）</li>
+  <li>上传 2 个文件 → <b>双侧指纹复核一致</b> → 修所有权 → 清字节码缓存</li>
+  <li><b>重启前先做一次「导入干跑」</b>：服务<b>一秒都没停</b>，先确认 15 个接口都注册上了、要修的代码已生效</li>
+  <li>重启 → <code>health=200</code> / 服务 <code>active</code> / 启动以来 <b>报错计数 0</b></li>
+  <li><b>生效判据</b>：文件时间 <code>12:24:09</code> <b>早于</b> 进程启动 <code>12:24:56</code> ⇒ 正在跑的进程必然读到了新文件</li>
+  <li>落点逐条自检（能看到具体计数）、确认无影子目录、确认<b>没有幽灵租户库</b></li>
+</ul>
+
+<h2>四、验收</h2>
+<h3>计划里的验收判据 —— 逐字达成</h3>
+<table>
+  <tr><th>判据</th><th>结果</th></tr>
+  <tr><td>老板 <code>GET /api/psi/stock</code> → <b>200</b></td><td><span class="tag t-ok">200</span>（返回 54 条库存）</td></tr>
+  <tr><td>非老板 → <b>403</b> 且说明是<b>模块拒绝</b>（不是只读闸门）</td>
+      <td><span class="tag t-ok">403</span> <code>MODULE_DENIED</code> / <code>inventory</code> / <b>「进销存」</b></td></tr>
+</table>
+
+<h3>三层验证，各证不同的事</h3>
+<table>
+  <tr><th style="width:150px">层</th><th>做法</th><th>结果</th><th>它<b>不能</b>证明什么</th></tr>
+  <tr><td>功能级</td><td>快照库 + 真源码，直接调接口函数</td><td><span class="tag t-ok">37 / 37</span></td><td>绕过了权限中间件 ⇒ 证明不了 200/403</td></tr>
+  <tr><td><b>真 HTTP</b></td><td>起真的后台服务，打真请求</td><td><span class="tag t-ok">13 / 13</span></td><td>证明不了生产环境（时区/配置差异）</td></tr>
+  <tr><td>公网冒烟</td><td>打真生产 <code>hergent.cn</code></td><td><span class="tag t-ok">5 / 5</span></td><td>只覆盖了非老板角色</td></tr>
+</table>
+
+<h3>「这条判据真的有区分力吗」—— 四条反例</h3>
+<table>
+  <tr><th style="width:60px">#</th><th>反例</th><th>期望</th><th>说明</th></tr>
+  <tr><td>1</td><td>同一个非老板账号，去访问<b>它本来就该能访问的</b>模块</td><td>200</td><td>证明那个 403 <b>来自进销存闸门</b>，不是「这个角色什么权限都没有」</td></tr>
+  <tr><td>2</td><td>访问一个<b>不属于任何已登记模块</b>的路径</td><td>403 但代码是 <code>MODULE_NOT_CONFIGURED</code></td><td>两种 403 的<b>错误码不同</b> ⇒ 证明 <code>/api/psi</code> 确实被识别成「进销存」模块，而不是「没配置」的兜底</td></tr>
+  <tr><td>3</td><td>不带任何登录凭证</td><td>401</td><td>证明「认证」在「授权」之前</td></tr>
+  <tr><td>4</td><td>老板访问一个<b>不存在</b>的进销存路径</td><td>404</td><td>证明这条前缀既不是「一律拒绝」也不是「一律放行」</td></tr>
+</table>
+<p style="font-size:13px;color:var(--dim)">
+  ※ 第 2 条是本轮<b>自我纠错</b>的产物：最初写的是「非老板访问不存在的进销存路径 ⇒ 应 403」，
+  但它与第 1 条<b>结果完全一样</b>（权限中间件在路由匹配之前就拦下了）⇒ <b>等于什么都没验证</b>。换成比较两种错误码之后才有区分力。
+</p>
+
+<h3>顺带查明的一处失效</h3>
+<div class="note">
+  生产上 54 条库存记录的 <b>批次号与到期日 100% 是空的</b> ⇒ 「按到期日排序」「只看可售」「临期预警」这三个功能
+  <b>在当前数据上没有任何判别力</b>（怎么写都会通过）。为此在验收里<b>人工注入了 3 条测试批次</b>
+  （已过期 / 即将临期 / 正常）把取值范围撑开，这三条断言才真正被验证过。
+  <br><b>⇒ 也说明：进销存要真正跑起来，第一步是让采购入库把批次和效期登记进去。</b>
+</div>
+
+<h2>五、需确认事项</h2>
+<p>以下 <b>7 条都是本轮实测发现的既有情况</b>（<span class="tag t-ok">非本批引入</span>），其中 ① 是本批<b>刻意没动</b>的，其余供后续排期。</p>
+<table>
+  <tr><th style="width:34px">#</th><th>情况</th><th>影响</th><th>本批处置</th></tr>
+  <tr>
+    <td>①</td><td>老页面的「分批收货」必报 500 —— <code>erp_db</code> 没有导出 <code>purchase_order_partial_receive</code></td>
+    <td>老进销存入口的该功能一直不可用</td>
+    <td><span class="tag t-warn">刻意未修</span> 改动面在老代码区域、不在本批范围。<b>新接口已绕过此问题可正常用</b>；老页面那条要不要顺手修，请拍板</td>
+  </tr>
+  <tr>
+    <td>②</td><td>同一函数另有「内在死锁」（少传一个连接参数）</td>
+    <td>零并发也 100% 失败 —— 此前一次都成功不了</td>
+    <td><span class="tag t-ok">本批已修</span></td>
+  </tr>
+  <tr>
+    <td>③</td><td>采购单主表 <b>81 张</b>，但明细表只有 <b>10 行</b>（2026-06 那批 79 张、¥898,012.73）</td>
+    <td>历史导入<b>把明细丢了</b> ⇒ 采购明细类报表/成本追溯不可用</td>
+    <td>待定：是否要回溯补</td>
+  </tr>
+  <tr>
+    <td>④</td><td>在售商品 <b>91.7%</b>（333 / 363）没有「报单单位」</td>
+    <td>报单单位规则的下游全要走兜底分支</td>
+    <td>待定：是否批量补档案</td>
+  </tr>
+  <tr>
+    <td>⑤</td><td>库存的<b>批次号 / 到期日 100% 为空</b>（54 行）</td>
+    <td>FEFO、临期预警、货损核算<b>当前都没有数据可算</b></td>
+    <td>随「采购入库登记效期」逐步填</td>
+  </tr>
+  <tr>
+    <td>⑥</td><td>仓库档案里有 <b>2 个</b>「默认仓」（临期仓 / 总仓）</td>
+    <td>取「默认仓」的代码行为不确定</td>
+    <td>待定：是否只保留一个</td>
+  </tr>
+  <tr>
+    <td>⑦</td><td>702 个客户<b>全部没有设信用额度</b></td>
+    <td>信用管控功能<b>在当前数据上不会触发</b>（代码语义是对的）</td>
+    <td>待定：是否需要启用</td>
+  </tr>
+</table>
+
+<h2>六、下一步</h2>
+<div class="card">
+  <b>批次 5 · 进销存 P0 八页</b>（计划 §七）—— 8 条页面路由，全部继承 <code>/inventory</code> 那一行的权限（不需要改权限表）。
+  <br><b>P0 完成定义</b>：能完整跑通一条真实单据链 —— 采购 → 入库（记批次效期）→ 销售 → 出库（FEFO）→ 查库存，<b>全程只有老板账号能进</b>。
+  <br><span style="color:var(--dim);font-size:13px">注：八页里的「采购新建」把「批次号 + 到期日」设为必填，正是为了解开上面 ⑤。</span>
+</div>
+
+</div>
+</body>
+</html>
