@@ -844,3 +844,15 @@ const SAMPLER = (sels) => `JSON.stringify((function(){
 
 
 
+
+## §37 · 本会话**读不了图片**，读图一律走 OCR
+
+- 模型侧 Read 图片会返回「不支援图片 / Content filtered」⇒ **不能凭"我读过图"下结论**。
+  曾据此把文档转述当成「原图实证」表述过（v394 轮），属**错误归因** —— 已由 `topics/competitor-zhoupudata.md` 用真 OCR 覆盖纠正。
+- **解法（本机可用）**：macOS 自带 `/usr/bin/swift`，用 Vision 做中文 OCR，无需装包：
+  `.workbuddy/tools/ocrcli.swift`（`swiftc -O ocrcli.swift -o ocrcli`），
+  输出 `x|y|w|h\t文本`（归一化坐标，原点左上）⇒ **能还原列结构**（同 y≈ 列标题、同 x≈ 同一列）。
+  · 关键参数：`recognitionLanguages=["zh-Hans","en-US"]`、`usesLanguageCorrection=false`、
+    `recognitionLevel=.accurate`；排序按 y 后按 x（容差 0.006）。
+  · 截取面板区用 `awk -F'\t' '{split($1,a,"|"); if (a[2]+0>=0.17 && a[2]+0<=0.45) print}'`。
+  · Swift 坑：`boundingBox` 是 **CGFloat**，元组类型注解写 `Double` 编译不过。
