@@ -2513,3 +2513,53 @@ git rev-parse HEAD^{tree}                  # 与 amend 前比对：必须相等
 ```
 本轮实测：`d55feb9` → `35ab946`，树 hash **未变**、`--stat` 仍 1 文件。
 ⚠️ amend 会**改 hash** ⇒ 所有已写入记忆/交付物的旧 hash 必须**同步替换**（本轮 5 个文件各 1 处）。
+
+## §v392 进销存八页前后端受控上线（2026-10-07 · ✅已上线 · 后端 `1eeabcf` / 前端 `15fa937`）
+
+### 1. 后端：只传 4 个业务文件（「生产 md5 == 本地 HEAD」是最强起点）
+
+动手前跑双侧 md5（`git show HEAD:<f> | md5 -q` vs 生产 `md5sum`），结果 **4/4 全等**
+⇒ 生产恰是「本地 − 本轮改动」的干净切片，**只传这 4 个文件**：
+
+| 文件 | md5（生产 == HEAD） |
+|---|---|
+| `routers/psi.py` | `25c640bb950a999d25ccb9fbea1b7ae5` |
+| `db/queries/purchases.py` | `ada85fd4d40043e4a2f9b57cbcaec265` |
+| `db/queries/sales.py` | `6360d23b40020e36b9c6a82a5b0fb136` |
+| `routers/sales.py` | `3727339ba2377838491474f92fd11488` |
+
+⚠️ 本地路径带 `server/` 前缀（`server/routers/psi.py`），**生产是 FLAT 无 `server/`**
+（`/opt/hergent-erp/routers/psi.py`）—— 核 HEAD md5 时必须写 `server/…`。
+⚠️ **写 `git show HEAD:routers/psi.py` 会 `fatal: path does not exist`**（本仓文件全在 `server/` 下）。
+
+**落点时间戳（可复算）**：生产 4 文件 mtime `12:51:57–12:51:59`，
+`hergent-erp.service` 的 `ActiveEnterTimestamp=12:52:11` ⇒ **文件 mtime < 进程启动时刻 = 部署有效**；
+前端 `index.html` mtime `13:05:41`。
+
+### 2. ⚠️ 核验落点 = `hergent.cn/`（根），**不是 `/admin/`**
+
+本轮**真踩一遍**：上传完 curl `https://hergent.cn/admin/` 拿到 `index-BG2Yswu1.js`，
+一度以为「我的部署没生效」。实际 `/admin/` = `alias /opt/hergent-admin/`（**第三套历史前端**），
+与 cn-v2 无关。**唯一有效判据 = 公网 `https://hergent.cn/`**（`vite base:'/'`、读 `/opt/hergent-cn-v2/`）。
+（另见本页 §「三套前端并存」表。）
+
+### 3. 「生产 `assets/` 是并集」⇒ 零夹带必须换基线
+
+`/opt/hergent-cn-v2/assets` 实测 **3048 个 js**（历次构建并集）⇒ 拿它做基线**毫无判别力**。
+改用**生产生效集**（从 `index.html` 递归解析依赖闭包，本项目 56–58 个）作第二基线：
+
+`v392-entry-zero-sneak-verify.py` 读数 = **75 = 未改 27 ＋ 全新 19 ＋ 纯 hash 级联 28 ＋ 入口 1**；
+其中「纯 hash 级联 28」= hash 归一化后与生产**逐字相同** ⇒ **0 个源码真变化**；
+入口 1 为**纯增量**（不许出现 `delete`/`replace`，每个 `insert` 段的字符串字面量必须 ⊆ 8 条子路由允许清单）。判别力 4/4。
+
+### 4. 后端起效判据（不只看 md5）
+
+`md5` 相等只证**文件到位**，不证**进程已加载**。追加两条：
+① `systemctl restart hergent-erp.service` 后 `health=200` / `active`；
+② **生产进程内实测**：`. /opt/hergent-erp/.env` 后打 `GET /api/psi/meta`
+⇒ **200** 且 body 含「v392：明细批次三列已可落库」。
+
+### 5. 上传纪律
+
+`scp` 具名文件、**绝不 `rsync --delete`**（并集基线）；用 `COPYFILE_DISABLE=1`
+避免 macOS `._*` AppleDouble 混入生产根。
