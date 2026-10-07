@@ -114,6 +114,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../store'
+import { canSee } from '../constants/pages'
 import { importApi } from '../api/modules'
 import Icon from './Icon.vue'
 import ImportMapping from './ImportMapping.vue'
@@ -260,8 +261,15 @@ function statusOf(it) {
 }
 
 function go(cat) {
+  /* v341（2026-09-30）：目标页路径来自 CAT_META（**配置表**，不是写死的字面量）——
+     写代码的人手上没有具体 path，于是只判了「这一格有没有目标页」，没判「你有没有权进」。
+     这正是本项目反复栽的那类漏判据：**凡路径来自配置/后端下发/数组的跳转最容易漏守卫**。
+     现在与目标页入口同判据（`canSee` 同一壳、同一份 PAGE_RULES），
+     避免点下去被路由守卫弹回工作台 —— 用户看到的是「点了没反应」的假入口。 */
   const p = metaOf(cat).page
-  if (p) router.push(p)
+  if (!p) return
+  if (!canSee(p)) { toast('你没有访问该类数据维护页的权限，请联系管理员', 'warn'); return }
+  router.push(p)
 }
 
 /* ---------- 上传弹窗 ---------- */
@@ -381,8 +389,8 @@ onMounted(load)
 .dl-last{font-size:11.5px;color:var(--t3)}
 .dl-tag{flex:0 0 auto;font-size:11px;padding:3px 9px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .dl-tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
-.dl-tag.stale{background:rgba(245,158,11,.14);color:#b45309}
-.dl-tag.empty,.dl-tag.err{background:rgba(239,68,68,.12);color:#b91c1c}
+.dl-tag.stale{background:var(--warn-amber-bg);color:var(--warn-amber)}
+.dl-tag.empty,.dl-tag.err{background:rgba(var(--dan-rgb),.12);color:var(--danger-txt)}
 .dl-btn{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;
   border-radius:8px;font-size:12px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer}
 .dl-btn:hover{border-color:var(--p-dark);color:var(--p-dark)}

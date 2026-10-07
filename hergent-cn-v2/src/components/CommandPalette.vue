@@ -128,7 +128,8 @@ const filtered = computed(() => {
   /* v206：先按权限收窄（未配 module 的条目一律保留），再按关键词过滤。
      v267：加**第二条轴** `when`（角色级门禁）。为什么要新轴而不是复用 `module`：
        `module` 只能表达「本租户有没有这个模块」，表达不了「同一模块下按角色区分」——
-       报单汇总正是后者（`/api/forecast` 归 `data`，业务员持有 `data`）。 */
+       报单汇总正是后者（`/api/forecast` 归 `data`，业务员持有 `data`；v347 起该前缀
+       已改归窄模块 `forecast`，但**这不改变本轴的结论** —— 同一模块下仍可能按角色区分）。 */
   const pool = COMMANDS.filter(c => (!c.module || store.canModule(c.module)) && (!c.when || c.when()))
   const kw = q.value.trim().toLowerCase()
   if (!kw) return pool

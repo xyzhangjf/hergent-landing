@@ -316,12 +316,24 @@ import { aiExperienceApi } from '../api/modules'
 import { store } from '../store'
 import { openPrintable } from '../utils/printable'
 import { renderMd } from '../utils/md'
+import { roleIn } from '../constants/roles'
+import { ADMIN_ROLES } from '../constants/pages'
 
 const reports = ref([])
 const savingReport = ref(false)
 const quota = ref(null)
 const quotaForm = ref({ tier: 'free' })
-const isAdmin = ref(false)
+/* v341（2026-09-30）：原先这里读 `localStorage.hergent_v2_user` 自己判 `role === 'admin' || 'boss'`。
+   两个毛病：① **角色名硬编码**，仓里已有一份 `ADMIN_ROLES`，两份早晚漂移；
+   ② 读的是**登录那一刻的快照**，老板事后改了这个账号的角色，本页仍按旧角色显示/隐藏
+      （而全站其它判据都在 `store.user.role` 上响应式重算）—— 这就是又一例「UI 没跟随权限」。
+   改成跟全站同源：`store.user.role`（由 `/api/auth/permissions` 下发，v296 权限变更后自动重拉）
+   ＋ 共享常量 `ADMIN_ROLES`。`roleIn` 的三态语义沿用全仓约定：未加载（空串）⇒ 放行，
+   真·未知角色 ⇒ 收紧（见 `constants/roles.js::roleIn`）。
+   ⚠️ 没顺手加**模块轴**（`canDo`）：本页两个动作（改套餐 / 采纳─驳回口径提案）走的是
+   `/api/ai/quota` 与 `/api/ai/recipe-proposals/*`，其后端模块键未核实 —— 猜一个键写上去，
+   写错会把**所有人的按钮一起藏掉**（`canDo` 对未知模块 fail-closed）。这一步留待核后端后单独做。 */
+const isAdmin = computed(() => roleIn(store.user.role, ADMIN_ROLES))
 const insight = ref('')
 const insightAt = ref('')
 const insighting = ref(false)
@@ -338,10 +350,6 @@ onMounted(() => {
   loadProfile()
   loadProposals()
   loadParams()
-  try {
-    const u = JSON.parse(localStorage.getItem('hergent_v2_user') || '{}')
-    isAdmin.value = u && (u.role === 'admin' || u.role === 'boss')
-  } catch (_) {}
 })
 
 function fmt(t) {

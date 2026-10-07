@@ -1,12 +1,12 @@
 <template>
   <div class="page">
     <div class="module-tabs">
-      <!-- v332（2026-09-29）：页签改为**按可见性判据生成**（下方 `tabs`），不再是 5 个裸按钮。
-           🔴 不过滤的后果就是本项目定义的**假入口**：本容器的门槛比页签宽
-              （`/archive` 走 `moduleAny`：hr/crm/data/stock 任一可用即显示这一项），
-              而每个页签各属一个模块 —— 员工→`hr`、客户→`crm`、品牌/商品→`data`、仓库→`stock`。
-              于是「侧栏有『档案管理』、点『员工档案』却报权限不足」（2026-09-29 主管与会计的原报障）。
-           ⚠️ 判据仍是 `canSee(path)`（唯一源 = `constants/pages.js`），不在这里另写一份。 -->
+      <!-- v341（2026-09-30）：页签**按可见性判据生成**（下方 `tabs`），不再是裸按钮。
+           🔴 判据仍是 `canSee(path)`（唯一源 = `constants/pages.js`），不在这里另写一份。
+              容器门槛（`/archive`）已改为单值 `module:'data'`，与「设置」里的「档案管理」
+              开关同源；页签各属一个模块（员工→`hr`、客户→`crm`、品牌/商品/供应商→`data`、
+              仓库→`stock`），独立判据、各自隐藏 —— 撤掉 data 后容器入口即消失，不再"失效"。
+           （页签数：v387 起 **7** 个 —— 员工/客户/供应商/品牌/商品/仓库/渠道与价格。） -->
       <button v-for="t in tabs" :key="t.key"
               :class="{ on: activeTab === t.key }" @click="goTab(t.key)">{{ t.label }}</button>
     </div>
@@ -68,9 +68,14 @@ function goTab(t) {
   if (route.path !== target) router.replace(target)
 }
 
-/* v332（2026-09-29）：六个页签的定义表 —— **顺序 = 用户心智顺序**（人 → 客户 → 品牌 → 商品
+/* v332（2026-09-29）：页签的定义表 —— **顺序 = 用户心智顺序**（人 → 客户 → 品牌 → 商品
    → 仓库 → 价格），不要按模块分组重排；`path` 必须与 `constants/pages.js` 的登记行逐条对应
-   （那是可见性的唯一源，这里只负责渲染）。 */
+   （那是可见性的唯一源，这里只负责渲染）。
+   v387（2026-10-06）：插入「供应商档案」。位置 = **客户档案之后**（第 3 位）——
+   与「客户 / 供应」成对的心智顺序一致（都是"往来单位"），且**排在品牌/商品之前**：
+   供应商是品牌与商品的上游（你在哪个品牌下有什么商品，取决于你从哪家进货）。
+   ⚠️ 改动本表**必须**同批确认三处：本表 / `pages.js` 的 `/archive/suppliers` 行 /
+   `router/index.js` 的 `archive.children` —— 缺任一处即「假入口」或「假封锁」。 */
 const TABS = [
   { key: 'employees',  path: '/archive/employees',  label: '员工档案' },
   { key: 'customers',  path: '/archive/customers',  label: '客户档案' },
@@ -89,7 +94,8 @@ const tabs = computed(() => TABS.filter(t => canSee(t.path)))
    🔴 它**不是**防御性代码，是必修：`/archive` 的路由 redirect 是**写死**
       `/archive/employees` 的，而员工档案要 `hr` 模块 —— 没有 `hr` 的角色（如主管）
       一进来就落在**不可见**的页签上：页签条一个都不渲染、面板空白，用户只会报「档案管理打不开」。
-   这里把它落到第一个可见页签。`tabs` 为空不会发生（父级 `moduleAny` 保证至少一个模块可用）；
+   这里把它落到第一个可见页签。v341 起容器门槛改为 `module:'data'`，故只要能进本容器（持 data）
+   就至少能看到「品牌档案 / 商品档案 / 供应商档案 / 渠道与价格」四个 data 页签，`tabs` 不会为空；
    真为空时**不 replace**，以免把用户推进重定向死循环。 */
 watch(tabs, (list) => {
   if (!list.length) return

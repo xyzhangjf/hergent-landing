@@ -139,10 +139,12 @@
           <span class="la-chip la-chip-quiet">数据截至 {{ updatedAt || '—' }}</span>
           <label class="la-pricing">
             <span>计价口径</span>
-            <!-- v335 按钮级门禁：改口径即写库（PUT /api/loss/accounting/config）⇒ 模块 stock / 动作 update。
+            <!-- v335 按钮级门禁：改口径即写库（PUT /api/loss/accounting/config）⇒ 模块 loss / 动作 update。
+                 v349：模块键由 `stock` 改 `loss` —— 页内门禁判的是**接口模块**，而本页接口
+                 已整体归 `loss`（`/api/loss/accounting` 排在 `/api/loss` 之前，首个前缀命中即停）。
                  这是个**写控件**不是按钮，故用 :disabled 而不是 v-if —— 隐藏会让这一栏凭空消失，
                  而当前口径本身是用户该看见的事实。 -->
-            <select v-model="pricing" class="input la-sel-sm" aria-label="计价口径" :disabled="!canDo('stock', 'update')" @change="onChangePricing">
+            <select v-model="pricing" class="input la-sel-sm" aria-label="计价口径" :disabled="!canDo('loss', 'update')" @change="onChangePricing">
               <option value="sale">售价</option>
               <option value="cost">成本价（进货价）</option>
             </select>
@@ -157,8 +159,8 @@
           <!-- v335 按钮级门禁：重算=POST /api/loss/accounting/recompute ⇒ stock/create；
                结账·反结账=POST …/close · …/reopen ⇒ stock/create
                （「上传数据」打的是只读预览 POST，后端 `_READ_ONLY_POST` 纠偏成 read ⇒ 不门禁） -->
-          <button v-if="canDo('stock', 'create')" class="btn btn-ghost btn-sm" :disabled="busy" @click="doRecompute">重算</button>
-          <button v-if="canDo('stock', 'create')" class="btn btn-ghost btn-sm" @click="toggleClose">{{ isClosed ? '反结账' : '结账' }}</button>
+          <button v-if="canDo('loss', 'create')" class="btn btn-ghost btn-sm" :disabled="busy" @click="doRecompute">重算</button>
+          <button v-if="canDo('loss', 'create')" class="btn btn-ghost btn-sm" @click="toggleClose">{{ isClosed ? '反结账' : '结账' }}</button>
           <button class="btn btn-ghost btn-sm" @click="openRoles">叫法映射</button>
           <button class="btn btn-ghost btn-sm" @click="openHealth">
             数据体检<span v-if="healthBadge" class="la-badge">{{ healthBadge }}</span>
@@ -174,7 +176,7 @@
         <span v-if="dirtyCount" class="la-dirty">已改 <b>{{ dirtyCount }}</b> 格未保存</span>
         <span v-else class="la-quiet">尚未修改</span>
         <!-- v335 按钮级门禁：PUT /api/loss/accounting/manual ⇒ stock/update -->
-        <button v-if="canDo('stock', 'update')" class="btn btn-primary btn-sm" :disabled="!dirtyCount || saving" @click="saveManual">
+        <button v-if="canDo('loss', 'update')" class="btn btn-primary btn-sm" :disabled="!dirtyCount || saving" @click="saveManual">
           {{ saving ? '保存中…' : '保存并重算' }}
         </button>
         <button class="btn btn-ghost btn-sm" :disabled="saving" @click="cancelEdit">放弃修改</button>
@@ -291,7 +293,7 @@
                   <span v-else class="la-grp-den la-grp-noratio">无分母 · 不给率</span>
                   <span class="la-grp-desc">{{ groupMeta(g.row_kind).desc }}</span>
                   <button
-                    v-if="editMode && isMulti(g.row_kind) && canDo('stock', 'update')"
+                    v-if="editMode && isMulti(g.row_kind) && canDo('loss', 'update')"
                     class="la-add"
                     @click="openSubject(g.row_kind)"
                   >+ 添加{{ g.row_kind === 'store' ? '门店' : '业务员' }}</button>
@@ -420,7 +422,7 @@
             <div class="la-modal-ft">
               <button class="btn btn-ghost btn-sm" @click="closeModal">取消</button>
               <!-- v335 按钮级门禁：PUT /api/loss/accounting/roles/{role} ⇒ stock/update -->
-              <button v-if="canDo('stock', 'update')" class="btn btn-primary btn-sm" :disabled="saving" @click="saveRoles">保存显示名</button>
+              <button v-if="canDo('loss', 'update')" class="btn btn-primary btn-sm" :disabled="saving" @click="saveRoles">保存显示名</button>
             </div>
           </template>
 
@@ -461,7 +463,7 @@
             <div class="la-modal-ft">
               <button class="btn btn-ghost btn-sm" @click="closeModal">取消</button>
               <!-- v335 按钮级门禁：PUT /api/loss/accounting/subjects ⇒ stock/update（PUT 即 update） -->
-              <button v-if="canDo('stock', 'update')" class="btn btn-primary btn-sm" :disabled="saving || !subjectForm.subject_key.trim()" @click="saveSubject">添加</button>
+              <button v-if="canDo('loss', 'update')" class="btn btn-primary btn-sm" :disabled="saving || !subjectForm.subject_key.trim()" @click="saveSubject">添加</button>
             </div>
           </template>
 

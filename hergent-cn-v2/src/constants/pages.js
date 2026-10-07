@@ -181,7 +181,19 @@ export const PAGE_RULES = {
   //      而除这三者外没有角色能看见本页（名单与后端 `SUMMARY_ROLES` 逐项一致、有 AST 护栏）。
   //   ⚠️ 页面内的「审核 / 定稿」「厂家返利」另外依赖 `forecast-audit`（v332 新拆的窄模块），
   //      它**不**参与本行可见性判断 —— 缺它只是那两块不可用，页面本身仍有意义。
-  '/forecast':        { title: '预报订货管理', module: 'data',      roles: FORECAST_SUMMARY_ROLES, cat: 'biz' },
+  // 🔴 v347（2026-09-30）：`module: 'data'` → **`'forecast'`**（从 `data` 拆出的新窄模块）。
+  //   动机：`data` 是「档案管理」，而库管（自定义角色）持有它 —— 他管商品/客户档案，
+  //   与"报单"毫无关系，却因此**看见了本页**（本租户动过他的权限 ⇒ 让位生效）。
+  //   这与 v296 拆 `cron`/`bid`、v332 拆 `forecast-audit` 是**同一招**：拆细模块，让
+  //   「勾了这一项」重新等于「想开这一页」（文件头 §二之三）。
+  //   ✅ 为什么**不**改判 `lock`：加锁是"产品硬拦，客户也放不开"；而本页该由
+  //      「勾了 `forecast`」这条正门控制 —— 客户想给自定义角色放开就在权限页勾它，
+  //      勾完入口自动出现、数据层也通（两条轴同源）。lock 是留给配置类页面的。
+  //   ⚠️ 影响面（已逐角色核过）：名单里四类人（管理员 / 老板 / 主管 / 会计）
+  //      **全部已持 `forecast`**（v347 同批改 `_DEFAULT_PERMS` ＋ 迁租户库）⇒ 对谁都不隐藏。
+  //      库管 / 分销商 / 一线角色**不持** `forecast` ⇒ 入口消失、深链被拦、接口 403
+  //      （此前是"看得见、点进去页内恒空"＝本项目定义的**假入口**，消失才是修复）。
+  '/forecast':        { title: '预报订货管理', module: 'forecast',  roles: FORECAST_SUMMARY_ROLES, cat: 'biz' },
   // v333（2026-09-30）：补 `module: 'sales'`。此前是 `module: null`（只看角色名单）。
   //   老板原话：「角色权限界面怎么没有『预报订单管理和返利与目标』的权限配置框」——
   //   🔴 根因有两层，这是第二层：**权限页上根本没有任何一个框能控制本页**。
@@ -212,23 +224,40 @@ export const PAGE_RULES = {
   //      属于本项目定义的**假入口**，消失才是修复）。老板若要让会计看货损核算，
   //      正门是「设置 › 权限」给会计勾「仓库管理」——勾完入口会自动出现（本行不再写死名单）。
   //   🔴 加 `module` **只会更严**，不会放宽任何东西：`canSeePage` 是 `roles ∧ module`。
-  '/loss-accounting': { title: '货损核算',     module: 'stock',     roles: BIZ_ROLES,   cat: 'biz' },
+  // v349（2026-09-30）：`module` 由 `stock` **改挂新窄模块 `loss`**（老板原话：
+  //   「货损核算要单独一个开关」）。此前它与 `/loss`（货损计算工作流）、`/data-fill`、
+  //   `/archive/warehouses` **共用 `stock` 一个开关** ⇒ 想关「货损核算」必须连关 3 页。
+  //   ✅ 拆得动是因为接口边界本来就干净：`routers/loss_accounting.py` 的 prefix
+  //      = `/api/loss/accounting`，与 `routers/loss_workflow.py` 的 `/api/loss` 完全分离；
+  //      本页数据 **100% 来自 `/api/loss/accounting/*`**（已逐条 grep 复核）。
+  //   ✅ 等价性：v349 迁移脚本给**所有持 `stock` 的角色**补了 `loss` ⇒ 挂上新模块后
+  //      谁都不会"突然看不见"（那才是变更，不是拆分）。
+  //   ⚠️ 同类约束不变：`canSeePage` = `roles ∧ module`，加/换 `module` 只会更严或等价。
+  //   🔴 配套必改项：`LossAccounting.vue` 里 6 处 `canDo('stock', …)` 按钮门禁要同步改成
+  //      `canDo('loss', …)` —— v335 的页内门禁用的是**接口模块**，写错键会 fail-closed
+  //      ⇒ 整页按钮消失（v335 踩过的坑）。
+  '/loss-accounting': { title: '货损核算',     module: 'loss',      roles: BIZ_ROLES,   cat: 'biz' },
   // v332b（2026-09-30）：补 `module: 'stock'`。本页两条数据链都在 `stock`
   //   （`/api/batch/expiry-scan`、`/api/inventory/near-expiry`）；**导入那一步**调
   //   `/api/import/*`（归 `data`）—— 主管本来有 `data`，会计由 v333 拿到 `data`
   //   ⇒ 两类人都能整页走通（只有 `stock` 会卡在导入）。
   '/data-fill':       { title: '库存效期补录', module: 'stock',     roles: BIZ_ROLES,   cat: 'biz' },
-  // 档案管理：`/archive/employees|customers|brands|products|warehouses` 五个子路由自动继承本行。
+  // 档案管理：`/archive/employees|customers|brands|products|warehouses|prices` 六个子路由自动继承本行。
   //   ⚠️ 子路由**必须**全部在 router/index.js 的 /archive children 里登记；父级只解析到
   //      `/archive` 这一段，多出的路径段不会自动继承、会落到 404。
-  // 🔴 v332（2026-09-29）：本容器是**唯一**需要「任一模块」语义的地方 —— 五个页签分属四个模块
-  //    （员工→hr、客户→crm、品牌/商品→data、仓库→stock），**任一可用这一页就有意义** ⇒ 用 `moduleAny`。
-  //    若照别处那样挂单值 `module`，要么把有权限的人挡在门外，要么把没权限的人放进来，两头都错。
-  //    ⚠️ 页签本身**还要**逐条登记（下方五行）：父级只决定「侧栏这一项出不出现」，
-  //      页签是否渲染由 `ruleFor('/archive/xxx')` 判 —— 两道缺一就会出现
-  //      「进得去档案管理、点『员工档案』却 403」（2026-09-29 主管与会计的真实报障）。
-  '/archive':         { title: '档案管理',     moduleAny: ['hr', 'crm', 'data', 'stock'], roles: BIZ_ROLES, cat: 'biz' },
-  // v332：五个页签逐条登记自己的模块（`ruleFor` 精确匹配优先，会盖住父级的 `moduleAny`）。
+  // 🔴 v341（2026-09-30）：本容器改为**单值 `module: 'data'`**，与「设置 › 权限」里的
+  //    「档案管理」开关**同源**（那一行就是 `data` 模块）。这样"取消某角色的档案管理权限"
+  //    才会真正让侧栏入口消失 —— 此前用 `moduleAny`（hr/crm/data/stock 任一可用即显示），
+  //    主管虽被撤了 `data`，却仍持有 `stock`（v332b 为让他用「货损核算」而授予），
+  //    于是入口照常出现（老板 2026-09-30 报障）。
+  //   ⚠️ 为什么改成单值不会误伤其他角色：BIZ_ROLES（admin/boss/accountant/sales/supervisor）
+  //      中只有"被撤掉 data 的主管"在撤后仍持其它档案模块（stock）；其余四类都自带 `data`，
+  //      入口照常显示。非 BIZ_ROLES 的司机/导购/员工/分销商本就被角色门槛挡在门外，与模块无关。
+  //   ⚠️ 页签**仍**逐条登记（下方六行）：父级只决定「侧栏这一项出不出现」，页签是否渲染由
+  //      `ruleFor('/archive/xxx')` 判（员工→hr、客户→crm、品牌/商品/渠道价→data、仓库→stock）——
+  //      两道缺一就会出现「进得去档案管理、点『员工档案』却 403」（2026-09-29 主管与会计的真实报障）。
+  '/archive':         { title: '档案管理',     module: 'data', roles: BIZ_ROLES, cat: 'biz' },
+  // v332：六个页签逐条登记自己的模块（`ruleFor` 精确匹配优先，会盖住父级的 `module:'data'`）。
   //   ⚠️ `title` 用**页签自己的名字**（不是统一叫「档案管理」）—— 它是路由守卫那句
   //      「你没有访问「xxx」的权限」的文案；写具体的名字，用户才知道自己缺的是哪个模块。
   '/archive/employees':  { title: '员工档案', module: 'hr',    roles: BIZ_ROLES, cat: 'biz' },
@@ -257,7 +286,14 @@ export const PAGE_RULES = {
   // 招投标雷达：v296 起接口归**独立模块 `bid`**（原归 `data`）⇒ 勾「档案管理」不再连带放开本页。
   //   角色门槛保留：`bid` 模块本身仍可能被客户授给任意角色，而这一页天然只给这几类人。
   //   给业务员留一个：招投标情报正是跑业务的人用得上的东西。
-  '/bid-radar':       { title: '招投标雷达',   module: 'bid',       roles: [...ADMIN_ROLES, 'sales'], cat: 'biz' },
+  // 🔴 v347（2026-09-30）**给主管补进名单**（老板原话：「『招投标雷达』要给主管看」）。
+  //   此前主管能看到本页，靠的是**让位**（他持 `bid` ＋ 本租户改过他的权限）—— 那是一条
+  //   隐式路径：v345 全站审计正是在排查它时才顺带发现"主管持 `bid`"。隐式改**显式**两个好处：
+  //     ① 不再依赖「本租户曾动过这个角色的权限」这个前提（新租户 / 没动过权限的租户同样成立）；
+  //     ② 名单即文档 —— 与产品意图一致，后人不必再去推断"他为什么看得见"。
+  //   ⚠️ **不加 `lock`**：本行是**显式放行**，而"让位"那条正门要留给自定义角色
+  //      （客户可自行在权限页给某个角色授 `bid`）。
+  '/bid-radar':       { title: '招投标雷达',   module: 'bid',       roles: [...ADMIN_ROLES, 'sales', 'supervisor'], cat: 'biz' },
 
   /* —— admin：管理岗（ADMIN_ROLES） —— */
   // v311（2026-09-28）：**渠道与价格并入「档案管理」当第 6 个页签**，侧栏不再单列。
@@ -293,7 +329,23 @@ export const PAGE_RULES = {
   '/ai-hub':          { title: '产出与用量',   module: 'chat',      roles: ADMIN_ROLES, lock: true, cat: 'admin' },
   // v296：接口从 `data` 拆到独立模块 `cron`。动机见文件头 §二之三 ——
   //   「老板给某角色勾『档案管理』，却连带放开了定时任务」这件事，根因是 `data` 粒度太粗。
-  '/cron':            { title: '定时任务',     module: 'cron',      roles: ADMIN_ROLES, cat: 'admin' },
+  //
+  // 🔴 v345（2026-09-30）`lock: true` —— **本行曾经就是一个活洞**。
+  //   v296 拆模块时按「谁原本真能调 `/api/cron`」做迁移，把 `cron` **补给了
+  //   boss / sales / staff / supervisor**（见 `tools/v296-data-split-migrate.py` 的目标角色表）。
+  //   而本行的 `roles` 只有 ADMIN_ROLES —— 两者一叠加，让位规则就被踩中：
+  //   老板只要**动过某个角色一次权限**（`custom_roles` 含该角色），第 ③ 档就让位，
+  //   改由 module 轴单独裁决 ⇒ **持有 `cron` 的主管立刻看到「定时任务」**。
+  //   生产实测（`tools/v345-cron-delegate-e2e.mjs`）：
+  //     · 主管 + 未改过权限 ⇒ 不出现（名单拦得住）
+  //     · 主管 + 改过权限（且持 cron）⇒ **出现** ← 老板报障原话「郝洋不该看到我的定时任务」
+  //   加 `lock` 后：与 `/ai-hub`、`/roles`、`/settings` 三行同族 ——
+  //   「定时任务」是**租户级配置页**（页面副标题：AI 副驾的定时任务，结论可推送企业微信），
+  //   产品上只给老板与管理员，**连客户配置也放不开**（`ADMIN_ROLES` 的注释原文就是这么写的：
+  //   「只要配置类页面（价格 / 接入 / 定时任务）—— 老板与管理员」）。
+  //   ⚠️ 影响面（已核实）：主管 / 会计 / 业务员 / 员工 / 司机 失去本页**入口**；
+  //      老板与管理员不受影响。本页此前对他们是"误得"，不是既有业务能力。
+  '/cron':            { title: '定时任务',     module: 'cron',      roles: ADMIN_ROLES, lock: true, cat: 'admin' },
   // v380（2026-10-06）：进销存 —— 老板自研新能力，**开发闸门：默认只 boss/admin 可见**。
   //   🔴 为什么 `lock: true`：本行是**窄名单**（ADMIN_ROLES ≤2），挂的 `module: 'inventory'`
   //      目前只有 boss（admin 经 `["*"]`）持有 ⇒ 若不加锁，`roleGateOpen` 第 ③ 档「让位」会
@@ -364,7 +416,7 @@ function roleGateOpen(r, role, customRoles) {
  *
  * 模块轴两种语义（v332 补第二种）：
  *   · `module`（单值）  = **必须有它**；
- *   · `moduleAny`（数组）= **至少有一个**（容器页：档案管理五个页签分属四个模块）。
+ *   · `moduleAny`（数组）= **至少有一个**（容器页可选语义：子页签分属多个模块时；现无页面使用，保留为支持的写法）。
  *
  * @param {string} path      路由路径
  * @param {string} role      `store.user.role`
@@ -378,15 +430,15 @@ export function canSeePage(path, role, canModule, customRoles) {
   if (!roleGateOpen(r, role, customRoles)) return false
   /* v332（2026-09-29）：模块轴拆成两种语义，缺一不可 ——
        · `module`    单值 = **必须有它**（"整页数据都归这一个模块"的页面）；
-       · `moduleAny` 数组 = **至少有一个**（容器页：任一页签可用，这一页就有意义）。
+       · `moduleAny` 数组 = **至少有一个**（容器页可选语义：子页签分属多个模块时；`/archive` 已于 v341 改为单值 `module`，见上文）。
      🔴 两处都遵守同一条纪律：**权限还没拉到（`canModule` 不是函数）⇒ 放行**。
         依据是既有的「拉不到 ≠ 没权限」（见 `store.canModule` 的三态语义）——
         启动瞬间把老板的入口藏掉、半秒后再冒出来，比"多点一下"（随后被后端 403 兜住）坏得多。
         ⚠️ `moduleAny` 这条**特别容易写错**：空 `some()` 天然返回 false ⇒ 漏了这层守卫
         就会在"权限未加载"时把容器页整页隐藏，而且**只在启动那一下可见**（极难复现）。
-     ⚠️ 无关的模块键**不参与**判断：例如 `/forecast` 的 `module: 'data'` 不含
-        `forecast-audit` —— 缺后者只是页内「审核/定稿」与「厂家返利」两块不可用，
-        页面本身仍有意义（详见 `PAGE_RULES` 该行注释）。 */
+    ⚠️ 无关的模块键**不参与**判断：例如 `/forecast` 的 `module: 'forecast'` 不含
+       `forecast-audit` —— 缺后者只是页内「审核/定稿」与「厂家返利」两块不可用，
+       页面本身仍有意义（详见 `PAGE_RULES` 该行注释）。 */
   const has = typeof canModule === 'function'
   if (r.module) {
     if (!has) return true

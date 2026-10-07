@@ -3,7 +3,14 @@
     <!-- Bento 布局 -->
     <div class="bento">
       <!-- KPI 横条（顶部紧凑统计带） -->
-      <div class="card kpi-strip">
+      <!-- v349（2026-09-30）：本条**按「经营看板」模块**隐藏 —— 老板拍板「经营看板默认
+           只给老板和管理员」，而本条的数据源 `/api/dashboard/today-profit` 正归 `dashboard`。
+           🔴 为什么要显式 `v-if` 而不是靠数据兜底：`kpis` 在 `dashData` 为 null 时会返回
+           「¥— / **加载中**」的骨架 ⇒ 没权限的人会看到一条**永远加载中**的 KPI 条 ——
+           比空卡片更糟，因为它暗示"马上就有数据"（v347 刚修过同族的"无说明空壳"）。
+           另一处 `recentActions` 只参与「是否空账套」的 computed、**不渲染 DOM**，故无需处理。
+           而「今日经营要务」「近效期预警」本来就有 `v-if="数据.length"` ⇒ 空了自动隐藏。 -->
+      <div class="card kpi-strip" v-if="store.canModule('dashboard')">
         <div class="kpi" v-for="k in kpis" :key="k.label">
           <div class="kpi-label">{{ k.label }}</div>
           <div class="kpi-val" :class="k.cls">{{ k.val }}</div>

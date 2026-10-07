@@ -138,7 +138,7 @@
           <span class="quota-sub">{{ p.key }} · size={{ p.size }}</span>
         </div>
       </div>
-      <div v-if="recipeImportWarn" class="quota-sub" style="color:#c92a2a">{{ recipeImportWarn }}</div>
+      <div v-if="recipeImportWarn" class="quota-sub" style="color:var(--danger-txt)">{{ recipeImportWarn }}</div>
 
       <!-- 版本历史 / 回滚 -->
       <div class="recipe-ver" style="margin-top:16px;border-top:1px solid var(--border-subtle);padding-top:14px">
@@ -146,7 +146,7 @@
           <span>配方版本历史 <span class="quota-sub">（每次导入/回滚自动快照，覆盖有解药）</span></span>
           <button class="btn btn-sm btn-ghost" :disabled="verLoading" @click="loadVersions">{{ verLoading ? '加载中…' : '刷新版本' }}</button>
         </div>
-        <div v-if="verError" class="quota-sub" style="color:#c92a2a">{{ verError }}</div>
+        <div v-if="verError" class="quota-sub" style="color:var(--danger-txt)">{{ verError }}</div>
         <div v-if="verList && verList.length" class="ver-list" style="margin-top:10px">
           <div v-for="v in verList" :key="v.id" class="obs-row" style="align-items:center">
             <span class="obs-prov-tag">{{ recipeLabel(v.key) }}</span>
@@ -463,23 +463,23 @@ async function ackFallback() {
 .bk-date{font-size:14px;font-weight:600;color:var(--t1)}
 .restore-box{margin-top:14px;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:10px}
 .restore-row{display:flex;align-items:center;gap:10px;padding:4px 0}
-.bd-tag{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#e9ecef;color:#495057}
-.bd-tag.ok{background:#d3f9d8;color:#2b8a3e}
-.bd-tag.err{background:#ffe3e3;color:#c92a2a}
+.bd-tag{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:var(--bg3);color:var(--t2)}
+.bd-tag.ok{background:var(--ok-green-bg);color:var(--ok-green)}
+.bd-tag.err{background:var(--st-rejected-bg);color:var(--st-rejected-txt)}
 
 /* 健康看板 */
-.obs-warn{color:#c92a2a}
+.obs-warn{color:var(--danger-txt)}
 .obs-prov,.obs-fail{margin-top:14px;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:10px}
 .obs-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;gap:10px}
-.obs-prov-tag{font-size:13px;font-weight:600;color:var(--t1);padding:2px 8px;background:#e7f5ff;border-radius:4px}
-.obs-fail-tag{font-size:12px;color:#c92a2a;background:#fff5f5;padding:2px 8px;border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.obs-prov-tag{font-size:13px;font-weight:600;color:var(--t1);padding:2px 8px;background:var(--info-blue-bg);border-radius:4px}
+.obs-fail-tag{font-size:12px;color:var(--danger-txt);background:var(--danger-bg);padding:2px 8px;border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 
 /* 审计日志 */
 .audit-list{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow:auto}
 .audit-row{display:grid;grid-template-columns:120px 100px 90px 1fr 80px;gap:8px;padding:6px 10px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:6px;font-size:12px;align-items:center}
 .audit-when{color:var(--t2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .audit-user{font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.audit-mod{background:#e7f5ff;color:#1971c2;padding:2px 6px;border-radius:4px;text-align:center;font-weight:600}
+.audit-mod{background:var(--info-blue-bg);color:var(--info-blue);padding:2px 6px;border-radius:4px;text-align:center;font-weight:600}
 .audit-act{color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .audit-hash{color:var(--t2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;text-align:right}
 
@@ -488,10 +488,10 @@ async function ackFallback() {
 .fb-row{display:grid;grid-template-columns:130px 100px 1fr auto;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:6px;font-size:12px;align-items:center}
 .fb-when{color:var(--t2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .fb-kind{padding:2px 8px;border-radius:4px;text-align:center;font-weight:600;font-size:11px}
-.fb-kind.failure{background:#ffe3e3;color:#c92a2a}
-.fb-kind.low_confidence{background:#fff3bf;color:#b08900}
+.fb-kind.failure{background:var(--st-rejected-bg);color:var(--st-rejected-txt)}
+.fb-kind.low_confidence{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .fb-reason{color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fb-tag{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600}
-.fb-tag.notify{background:#d0ebff;color:#1864ab}
-.fb-tag.ack{background:#d3f9d8;color:#2b8a3e}
+.fb-tag.notify{background:var(--info-blue-bg);color:var(--info-blue)}
+.fb-tag.ack{background:var(--ok-green-bg);color:var(--ok-green)}
 </style>

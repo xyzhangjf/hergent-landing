@@ -542,6 +542,7 @@ import { toast, store } from '../store'
 import { workflowApi, aiSkillsApi, zhoupuApi } from '../api/modules'
 import { api } from '../api/client'
 import { canImportZhoupu } from '../constants/roles'
+import { canSee } from '../constants/pages'
 import RoleManage from './RoleManage.vue'
 // v311：产出与用量页签 —— 直接复用原「AI 中心」页面组件（同一份实现，不复制）。
 import AiHub from './AiHub.vue'
@@ -639,8 +640,15 @@ async function toggleWorkflow(w) {
 }
 
 function openWorkflow(w) {
-  if (w.ready && w.path) router.push(w.path)
-  else toast(w.name + ' 未开通', 'info')
+  /* v341（2026-09-30）：`w.path` 由后端 `/api/workflows` 下发（**配置驱动**）——
+     原先只判了 `w.ready`（= 这个插件有没有给本租户开通），没判 `canSee(w.path)`
+     （= 当前这个人有没有权进那一页）。两者不是一回事：开通是租户级事实，可见性是账号级事实。
+     🔴 通用规律：凡跳转路径来自配置/后端下发/数组的入口最容易漏判据。
+     这里不把「未开通」和「无权限」合成一句话 —— 两者对用户的下一步动作完全不同。 */
+  if (!w.ready) { toast(w.name + ' 未开通', 'info'); return }
+  if (!w.path) return
+  if (!canSee(w.path)) { toast('你没有访问「' + w.name + '」的权限，请联系管理员', 'warn'); return }
+  router.push(w.path)
 }
 
 /* ===== 连接手机：Hermes 官方通道（应用凭证 + 长连接 + 配对码审批） =====
@@ -1334,7 +1342,7 @@ onUnmounted(stopStatusPoll)
 .sk-badge{font-size:10px;padding:2px 7px;border-radius:8px;background:var(--bg3);color:var(--t3);flex-shrink:0;align-self:flex-start}
 .sk-card.infra{border-left:3px solid #3b82f6}
 .sk-card.infra .sk-ic{color:#3b82f6}
-.sk-badge.on{background:rgba(34,197,94,.16);color:#16a34a}
+.sk-badge.on{background:rgba(var(--suc-rgb),.14);color:var(--suc)}
 .sk-what{font-size:12.5px;color:var(--t2);line-height:1.65}
 .sk-when{font-size:11.5px;color:var(--p-dark);background:var(--p-bg);padding:6px 10px;border-radius:8px;line-height:1.5}
 @media(max-width:768px){.sk-grid{grid-template-columns:1fr}}
@@ -1398,7 +1406,7 @@ onUnmounted(stopStatusPoll)
 .ev-sk-hd{display:flex;align-items:center;gap:10px;margin:14px 0 10px}
 .ev-sk-hd b{font-size:13px;color:var(--t1)}
 .ev-jump{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 4px;padding:11px 14px;border:1px dashed var(--bd);border-radius:10px;background:var(--bg2);cursor:pointer}
-.ev-jump:hover{border-color:#3b6cff;background:#f5f9ff}
+.ev-jump:hover{border-color:var(--p);background:var(--p-bg)}
 .ev-jump-txt{font-size:13px;color:var(--t1)}
 .ev-jump-go{font-size:13px;font-weight:500;color:#3b6cff;white-space:nowrap}
 .ev-runs{display:flex;flex-direction:column;gap:10px}

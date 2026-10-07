@@ -190,6 +190,26 @@ export const rebateApi = {
   simulateBatch: (body) => api('/api/rebate-rules/simulate-batch', { method: 'POST', body }),
   // v113：枚举元信息（计法 / 舍入等下拉候选）
   meta: () => api('/api/rebate-rules/meta'),
+  /* v364（2026-10-02）：本月到货「停单 / 次数」按月作用域。
+     旧实现把「本月到货次数」当成规则上的**永久**列 ⇒ 一旦填过，之后每个月都跟着走，
+     用户想下月回到系统推算只能每月手动改一次。改为按月附着在规则上（rebate_arrival_skips）：
+     · 读：不传 year/month 默认当月；
+     · 写：PUT 只写**这一个月**，不存在=按系统推算；DELETE 立刻恢复系统推算。 */
+  arrivalSkips: (id, year, month) => {
+    const q = new URLSearchParams()
+    if (year) q.set('year', String(year))
+    if (month) q.set('month', String(month))
+    const qs = q.toString()
+    return api(`/api/rebate-rules/${id}/arrival-skips` + (qs ? '?' + qs : ''))
+  },
+  saveArrivalSkips: (id, body) => api(`/api/rebate-rules/${id}/arrival-skips`, { method: 'PUT', body }),
+  clearArrivalSkips: (id, year, month) => {
+    const q = new URLSearchParams()
+    if (year) q.set('year', String(year))
+    if (month) q.set('month', String(month))
+    const qs = q.toString()
+    return api(`/api/rebate-rules/${id}/arrival-skips` + (qs ? '?' + qs : ''), { method: 'DELETE' })
+  },
 }
 
 /* ---- 年度返利合同（v113：计法 / 舍入 / 算式链） ---- */
@@ -687,6 +707,20 @@ export const commitmentsApi = {
   done: (id, body = { status: 'done' }) => api(`/api/commitments/${id}/done`, { method: 'POST', body }),
   remove: (id) => api(`/api/commitments/${id}`, { method: 'DELETE' }),
   scanDue: () => api('/api/commitments/scan-due', { method: 'POST' }),
+}
+
+/* ---- v375 结算节奏（核销资料提交日 / 上账日）----
+   2026-10-04 用户口径：结算是**按月**的真业务 —— 本月提交上月的核销资料、本月上账，
+   **不同厂家不一样**（"但大部分如此"）⇒ 需求是"提供配置页、让用户自己配"，
+   因此前端**不写死任何默认日期**，默认值只是后端给的起手值、用户可改。
+   配置由后端派生「本月该干什么」（`this_month` / `calendar`）并被本页消费 ——
+   不是只写不读的孤岛（对照 `rebate_target_rules.contract_id` 那个"列在、后端在读、
+   前端无写入入口"的死入口）。 */
+export const rebateSettlementApi = {
+  list: (ym = '') => api('/api/rebate-settlement' + (ym ? '?ym=' + encodeURIComponent(ym) : '')),
+  create: (body) => api('/api/rebate-settlement', { method: 'POST', body }),
+  update: (id, body) => api(`/api/rebate-settlement/${id}`, { method: 'PUT', body }),
+  remove: (id) => api(`/api/rebate-settlement/${id}`, { method: 'DELETE' }),
 }
 
 /* ---- 通知中心（P0-1a：把只写不读的 message_center 接出来）----
