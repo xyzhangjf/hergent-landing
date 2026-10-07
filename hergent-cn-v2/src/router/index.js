@@ -39,8 +39,23 @@ const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
 const AiHub = () => import('../pages/AiHub.vue')
 const PriceChannels = () => import('../pages/PriceChannels.vue')
-// v380（2026-10-06）：进销存（老板自研新能力，脚手架占位页）
-const Inventory = () => import('../pages/Inventory.vue')
+/* v392（2026-10-07）批次 5：进销存从「v380 单页脚手架」扩成 **1 容器 + 8 页**。
+   🔴 拆开而不是塞进一个 8 段 v-if 的大页面：进销存是**一条链**
+      （采购 → 入库 → 销售 → 出库 → 查库存），每段都有自己的列表/详情/表单，
+      合在一起会变成第二个 Forecast.vue（1400 行）—— 改动面与回归面都失控。
+   🔴 可见性**一点没变**：8 条子路由全部继承父级 `/inventory` 那一行
+      （`constants/pages.js:359`，`module:'inventory'` + `ADMIN_ROLES` + `lock:true`）——
+      `ruleFor()` 是「精确匹配 → 逐级去掉尾段再匹配」⇒ 只要父行不变，子页自动同门槛。
+      **`pages.js` 一字不改**（这是本批的硬约束，见计划 §七 细节 3）。 */
+const InventoryShell = () => import('../pages/inventory/InventoryShell.vue')
+const InvWorkbench = () => import('../pages/inventory/InvWorkbench.vue')
+const InvPurchaseList = () => import('../pages/inventory/InvPurchaseList.vue')
+const InvPurchaseNew = () => import('../pages/inventory/InvPurchaseNew.vue')
+const InvPurchaseDetail = () => import('../pages/inventory/InvPurchaseDetail.vue')
+const InvSaleList = () => import('../pages/inventory/InvSaleList.vue')
+const InvSaleNew = () => import('../pages/inventory/InvSaleNew.vue')
+const InvSaleDetail = () => import('../pages/inventory/InvSaleDetail.vue')
+const InvStock = () => import('../pages/inventory/InvStock.vue')
 // v265（2026-09-24）：ProductTarget 不再由路由懒加载 —— 它已收进 Forecast.vue 当第 4 个页签
 // （静态 import，随 Forecast chunk 一起加载）。旧路由 /product-target 保留 redirect，见下。
 
@@ -133,7 +148,27 @@ export const router = createRouter({
         { path: 'bid-radar', component: BidRadar, meta: { title: '招投标雷达' } },
         // v380（2026-10-06）：进销存 —— 角色门禁在 `constants/pages.js` 的 `/inventory` 行
         //   （ADMIN_ROLES + lock），这里只登记路由；深链由守卫按同一份表拦。
-        { path: 'inventory', component: Inventory, meta: { title: '进销存' } }
+        // v392（2026-10-07）批次 5：扩成 1 容器 + 8 子路由（容器 = 页内二级导航）。
+        //   🔴 `path: ''`（空串）的「工作台」是必需的：没有它，访问 `/inventory` 时
+        //      父级匹配到了却**没有子记录可渲染** ⇒ 页签条在、内容空白。
+        //   🔴 **不要**给父级加 `redirect: '/inventory'` —— 那是自指重定向（`/inventory` → `/inventory`），
+        //      vue-router 会报重定向循环。空串子路由已经承担了「索引页」的角色。
+        //   🔴 `purchase/new` 必须排在 `purchase/:id` **之前**：vue-router 按声明顺序匹配，
+        //      反序会让「新建」被 `:id` 吃掉（`id='new'` ⇒ 详情页 404 文案）。
+        {
+          path: 'inventory',
+          component: InventoryShell,
+          children: [
+            { path: '', component: InvWorkbench, meta: { title: '进销存' } },
+            { path: 'purchase',      component: InvPurchaseList,   meta: { title: '采购单' } },
+            { path: 'purchase/new',  component: InvPurchaseNew,    meta: { title: '新建采购单' } },
+            { path: 'purchase/:id',  component: InvPurchaseDetail, meta: { title: '采购单详情' } },
+            { path: 'sale',          component: InvSaleList,       meta: { title: '销售单' } },
+            { path: 'sale/new',      component: InvSaleNew,        meta: { title: '新建销售单' } },
+            { path: 'sale/:id',      component: InvSaleDetail,     meta: { title: '销售单详情' } },
+            { path: 'stock',         component: InvStock,          meta: { title: '库存查询' } }
+          ]
+        }
       ]
     }
   ]
