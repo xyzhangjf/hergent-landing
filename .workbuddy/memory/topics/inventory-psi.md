@@ -167,3 +167,81 @@
 - 🔴 **本轮踩到**：hash 两级级联让 **38 个 chunk 改名**，只传「入口 + 我改的两个」
   ⇒ 页面动态 import 全 404（curl 同 URL 却 200）⇒ **必须整包上传** →
   `deploy-ops.md §6`。
+
+---
+
+## 10. UI 规范范式与三类重复件欠账（v394 批次 6.4）
+
+**唯一权威文档 = `hergent-cn-v2/docs/UI-SPEC.md`**（⚠️ **不是**仓根的 `docs/UI-SPEC.md`），
+代码层唯一权威 = `src/styles/variables.css`；两者不一致 ⇒ **以 variables.css 为准，并立即回头改文档**。
+v394 新增 **§8 业务模块范式（参考实现：进销存）** ⇒ 进销存八页从此是**全站新模块的抄写模板**；
+本节是它在 memory 侧的索引。
+
+### 10.1 容器 + 三件套（§8.1 六条容器规则）
+
+`InventoryShell.vue` = 容器（**自己就是 `.page page-default`，不给子页再套一层**）；
+子页 = 列表 / 新建 / 详情（**下钻页不挂页签**）。
+
+| # | 规则 |
+|---|---|
+| 1 | 容器的类就是 `.page`，子页不再套一层 |
+| 2 | 页签由**路径**推导（`tabFromPath(p)`）⇒ 刷新/深链/前进后退自洽，**不存 state** |
+| 3 | 下钻页（详情）不挂页签 |
+| 4 | `path:''` 索引子路由**必需**（否则 `/inventory` 空白） |
+| 5 | 父级**禁自指** `redirect`（`redirect` 指回父路径 ⇒ 循环） |
+| 6 | `:id` 路由必排 `new` 之后（`purchase/new` 须先注册） |
+
+### 10.2 页面前缀分配（§8.2）
+
+| 页 | 前缀 | 页 | 前缀 |
+|---|---|---|---|
+| `InvWorkbench` | `iw-` | `InvSaleList` | `isl-` |
+| `InvPurchaseList` | `ip-` | `InvSaleNew` | `isn-` |
+| `InvPurchaseNew` | `ipn-` | `InvSaleDetail` | `isd-` |
+| `InvPurchaseDetail` | `ipd-` | `InvStock` | `is-` |
+| 跨页 / 容器级 | `inv-` | | |
+
+🔴 **前缀冲突实例**：`.is-acts` 被 `InvSaleList` 与 `InvStock` **各定义一次** —— 两者都是
+**scoped** ⇒ **既不报错也不互相覆盖**，正是 §6.2「同一视觉语言不写第二份」的**静默漂移形态**；
+**它不会自己暴露**，只能靠类差集扫出来。
+
+### 10.3 状态与文案纪律（§8.3）
+
+- **词表唯一源 = `src/constants/psiLabels.js`**（`PO_STATUS`/`SO_STATUS`/`DELIVERY_STATUS`/`ORDER_TYPE`/`EXPIRY_STATUS`）；
+  界面**只走** `textOf(map, v, fallback)` + `tagOf(map, v)` ⇒ **禁英文枚举直出**（v339 第四类病灶）。
+- `textOf` 的兜底是中文「未知」而**不是空串** ⇒ **未知值不静默留空**。
+- **阈值（30/90 天等）由后端给，前端不写死。**
+- **`fmtMoney` 唯一实现**（也在 `psiLabels.js`）⇒ 见 §六：模板调它而 script 漏 import
+  ⇒ **整页崩 + 父页签一起消失**（v392b）。
+
+### 10.4 三类重复件欠账（§8.4，**只登记、未整改**）
+
+| 应为全局类 | 处数 | 共同实现 | 出现在 |
+|---|---|---|---|
+| `.page-acts`（页头右侧操作区） | **9 处 / 8 名** | `display:flex;gap:8px;flex-wrap:wrap`（**7 处逐字相同**；`.iw-acts` 多 `align-items:center`；`.pa-actions` 是 `gap:10px`） | 进销存 8 页（`.is-acts` 被两页各定义一次）＋ `ProductArchive.vue` |
+| `.page-pager`（列表分页条） | **3** | 三份**逐字相同** | `.ip-page` / `.isl-page` / `.is-page` |
+| `.page-filter`（筛选容器） | **3** | 三份**逐字相同** | `.ip-filter` / `.isl-filter` / `.is-filter` |
+
+🔴 **新增判据**：**同一选择器的定义在站内出现 ≥3 次（且逐字相同）⇒ 必须上提为全局类**；
+仅 2 次且未来可能分化 ⇒ 可暂缓，但须在上述表格登记。
+⚠️ 整改面 = **8 个页面 + 全站共享层** ⇒ **另立批次**，不要塞进业务改动里同批上。
+
+⚠️ **规范自身的一处已知欠账**（同批修掉的另一处）：§3.2 的通用示例原先写 `pa-actions`，
+而 `pa-` 是**商品档案的页面前缀**、定义只在 `ProductArchive.vue` 的 scoped 里
+⇒ **规范示例自己违反了 §6.3**，现已改为占位符 `XX-acts`。
+
+### 10.5 403 探针的判据（自 `MEMORY.md §三` 下沉）
+
+**403 必须读 `error_code`，不能只看状态码** —— 同一个 403 背后至少有四种闸门：
+
+| `error_code` | 意义 |
+|---|---|
+| `MODULE_DENIED` | 模块 / 能力闸门拒绝（进销存 = `inventory`；业务员实测即此码 —— **是模块拒绝，不是只读闸门**） |
+| `READONLY_TENANT` | 演示租户**只读**闸门拒绝 |
+| `TENANT_FORBIDDEN` | 跨租户拒绝 |
+| `UNAUTHENTICATED`（401） | 未登录（认证中间件**先于路由**返回） |
+
+🔴 **「同码 = 零判别力」**：被拒场景与对照场景返回**同一个** `error_code` ⇒
+该探针**什么也没证明**。两处实证：① 越权探针 `POST /api/users/999890/password`
+在演示租户恒回 `READONLY_TENANT` ⇒ 连续多日**判据失效**（被只读闸门拦下，不再证明越权防守）；
+② 匿名请求打到**不存在**的端点**同样回 401**（鉴权中间件先于路由）⇒ 用它判「端点存不存在」零判别力。
