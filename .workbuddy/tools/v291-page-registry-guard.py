@@ -84,20 +84,71 @@ def nav_paths(path):
     return set(re.findall(r"\bpath:\s*'(/[a-z0-9/-]+)'", s))
 
 
+def covered(p):
+    """模拟 pages.js::ruleFor 的「逐级去尾段」匹配 —— 判据 A / B **共用同一个模型**。
+
+    🔴 v393（2026-10-07）：判据 A 原先用「精确集合成员」（`used - registered`）判，
+       与判据 B 用的 `covered()` **不是同一个模型** ⇒ 把「靠父级继承门禁」的入口
+       误报成"未登记 ⇒ fail-open"。实例：`/inventory/purchase` 没单独登记，
+       但它继承 `/inventory`（`module:'inventory'` + `ADMIN_ROLES` + `lock:true`）——
+       实测 `ruleFor('/inventory/purchase')` 与父行**逐字段相同**、连 `:id` 参数段
+       （`/inventory/purchase/123`）也一样（v392 探针 20/20）。**它根本没有 fail-open。**
+
+    ⚠️ 这是**修判据**，不是放宽：A 与 B 现在共享同一份「什么算已覆盖」的实现
+       （同族纪律：一条规则只能有一个模型）。本判据真正要防的漏登记
+       （**无任何已登记祖先**，如 `/payroll-not-registered`）照样报红。
+       ⇒ 顺带把「靠继承」的那几条**显式打印出来**，不再藏在"没报错"里。
+    """
+    while p:
+        if p in registered:
+            return True
+        i = p.rfind('/')
+        if i <= 0:
+            return False
+        p = p[:i]
+    return False
+
+
+# ---------- 2.1 判据自证：covered() 必须先证明自己"分得清" ----------
+# 🔴 纪律（同族：`hergent-e2e-readonly-probe`）：判据也要有判别力。
+#    两侧各取真实路径：3 例"必须有门禁" + 3 例"必须没有门禁"。写死 N/M。
+#    若哪天有人把 covered() 改成恒 True（= 判据 A 恒绿、覆盖面对称消失），这里立刻变红。
+_SELFTEST = [
+    ('/inventory',                True),   # 已登记
+    ('/inventory/purchase',       True),   # 未登记，但继承 /inventory（v393 修复目标）
+    ('/inventory/purchase/123',   True),   # `:id` 参数段同样继承
+    ('/payroll-not-registered',   False),  # 无任何已登记祖先 ⇒ 真正的 fail-open（护栏存在理由）
+    ('/inventoryx',               False),  # 前缀相似 ≠ 继承（是逐段去尾，不是前缀匹配）
+    ('/',                         False),  # 根路径不豁免
+]
+print('\n--- 判据自证：covered()（6 例 = 3 应覆盖 / 3 应不覆盖）---')
+_bad_self = []
+for _p, _exp in _SELFTEST:
+    _got = covered(_p)
+    if _got is not _exp:
+        _bad_self.append('%s 期望 %s 实得 %s' % (_p, _exp, _got))
+    print('   %-28s 期望 %-5s 实得 %-5s %s' % (_p, _exp, _got, '✅' if _got is _exp else '❌'))
+if _bad_self:
+    fail.append('自证: covered() 判别力失效 → %s' % '; '.join(_bad_self))
+
+
 shell_refs = refs(SHELL) | nav_paths(SHELL)
 palette_refs = refs(PALETTE)
 print('\nShell.vue 引用 %d 个（含 NAV 表 %d 个）/ CommandPalette.vue 引用 %d 个'
       % (len(shell_refs), len(nav_paths(SHELL)), len(palette_refs)))
 
 used = shell_refs | palette_refs
-missing_a = sorted(used - registered)
-print('\n--- 判据 A：入口引用但**未登记**（fail-open ⇒ 静默失去门禁）---')
+inherited = sorted(p for p in used if p not in registered and covered(p))
+missing_a = sorted(p for p in used if not covered(p))
+print('\n--- 判据 A：入口引用但**无门禁**（未登记 且 无已登记祖先 ⇒ fail-open）---')
+if inherited:
+    print('   ℹ️ 靠父级继承门禁（正常，非缺陷）：%s' % ' '.join(inherited))
 if missing_a:
     for p in missing_a:
         print('   ❌ %s' % p)
-        fail.append('A: %s 被入口引用但未登记' % p)
+        fail.append('A: %s 被入口引用但无门禁（未登记且无已登记祖先）' % p)
 else:
-    print('   ✅ 无（每个被引用的路径都已登记）')
+    print('   ✅ 无（每个被引用的路径要么已登记、要么继承自已登记祖先）')
 
 # ---------- 3. router 里有组件的子路由 ----------
 # 🔴 按**缩进层级**取：只取 `{` 缩进为 8 空格的那一层（= Shell 的直接 children）。
@@ -127,18 +178,6 @@ for i, ln in enumerate(rlines):
     if 'redirect' in m.group(2) and 'component' not in m.group(2):
         continue
     routes.add('/' + seg)
-
-
-def covered(p):
-    """模拟 pages.js::ruleFor 的「逐级去尾段」匹配。"""
-    while p:
-        if p in registered:
-            return True
-        i = p.rfind('/')
-        if i <= 0:
-            return False
-        p = p[:i]
-    return False
 
 
 missing_b = sorted(p for p in routes if not covered(p))
