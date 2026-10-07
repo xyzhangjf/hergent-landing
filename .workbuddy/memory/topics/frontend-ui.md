@@ -3001,3 +3001,57 @@ v388 只把「档案管理」升成职能区验骨架（当时 1 个区），本
 v390 把输入扩为 **∪ `NAV` 表里的 `path: '/x'`**（0 → 20 个），并做正反两侧判别力自证
 （注释里注入 `/ghost-cmt-v390` 不被抓；`NAV` 里注入 `/ghost-real-v390` 立刻被报未登记）。
 ⇒ **纪律：改了数据源形态（手写 → 表驱动）后，回头查一遍"护栏的输入还在不在"。**
+
+---
+
+## §v393 · 侧栏入口落位（批次 6.1）＋ 手机抽屉的两个坑
+
+### 1. 🔴🔴 `.md-sheet` 从来没有滚动容器 ⇒ 内容高于视口时**顶部永久够不到**（v393b 修）
+
+```css
+/* 改前：只有 bottom:0 —— 内容高了就把整个盒子顶出屏幕 */
+.md-sheet{position:fixed;left:0;right:0;bottom:0; …}
+/* 改后 */
+.md-sheet{ … max-height:calc(100vh - 96px); max-height:calc(100dvh - 96px);
+           overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; …}
+```
+
+实测（390×844）：改前 `sheetH=1258 / top=-414 / scrollH==clientH==1258`；
+`position:fixed` **不随页面滚动**，抽屉**自身也不可滚** ⇒ 顶部 414px 谁也够不到。
+改后 `sheetH=748 / top=96 / canScrollSheet=true`。
+
+⚠️ **是既有缺陷、不是挂入口引入的**：改动前 17 条时内容已 1102px（同样超 844），
+只是只切 258px、不易察觉；**+3 条**把它放大成显性断点。
+⇒ 纪律：**给「固定定位的溢出容器」加内容时，先量一次「内容高 vs 视口高」**。
+
+### 2. 🔴🔴 判「元素是否在用户眼前」**必须按视口判**，拿容器自身矩形当参照 = 恒真假绿
+
+我第一版写的是：
+
+```js
+// ❌ 拿「抽屉自己的矩形」当参照 —— 而抽屉自己也在屏外（top=-414）
+const ok = hd.getBoundingClientRect().top >= sheet.getBoundingClientRect().top - 2
+// hd.top(-386) >= sheet.top(-414) ⇒ 恒真 ⇒ 全绿，而用户根本看不见
+```
+
+✅ 正解（与 `hergent-chart-render-verify` / 探针技能 §4 同源）：
+
+```js
+const vh = window.innerHeight || document.documentElement.clientHeight
+const inView = (e) => { const b = e.getBoundingClientRect(); return b.height > 0 && b.top >= -1 && b.bottom <= vh + 1 }
+// 并且要**真的把该试的滚动手段都试一遍**，再下「不可达」的结论：
+sheet.scrollTop = 0; window.scrollTo(0, 0); hd.scrollIntoView({block:'start'})
+```
+
+🔴 **配套事实：探针用 JS `.click()` 能点到屏外元素。**
+所以「点『＋』落到 `/inventory/purchase/new`」这条断言在**顶部不可达**时**照样 PASS**
+—— 它证的是「元素在 DOM 里且绑了事件」，**证不了「用户点得到」**。
+⇒ **「可达性」必须单独立断言，不能靠「能点到」代替。**
+
+### 3. 手机抽屉的「＋」为什么曾是**永不可达的死分支**
+
+v390 手机端**刻意不做**「＋」，注释里写的理由是
+「唯一带 `create` 的条目 path=`/forecast` 属底部栏三项 ⇒ 永不进抽屉」。
+v393 进销存条目（`/inventory/purchase`、`/inventory/sale`）**不在底部栏** ⇒ 这行才第一次真的可执行。
+⇒ 同理那条**判据**：`create` 是否会出现，取决于**条目 path 在不在 `MNAV_PATHS` 里**，
+不是「抽屉有没有写这段模板」。

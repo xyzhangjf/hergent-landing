@@ -2563,3 +2563,41 @@ git rev-parse HEAD^{tree}                  # 与 amend 前比对：必须相等
 
 `scp` 具名文件、**绝不 `rsync --delete`**（并集基线）；用 `COPYFILE_DISABLE=1`
 避免 macOS `._*` AppleDouble 混入生产根。
+
+### 6. 🔴🔴 「上传」不等于「传我改的那两个文件」—— hash 级联会让你漏传几十个 chunk（v393）
+
+**症状**：探针突然整屏红，控制台报
+`TypeError: Failed to fetch dynamically imported module: https://hergent.cn/assets/Workbench-*.js`，
+而 **`curl` 取同一个 URL 却返回 200**（因为**旧名**的同名文件还在并集里 ⇒ 看着「文件都在」）。
+
+**根因**：vite 的内容 hash 是**两级级联**——
+改一个源文件 ⇒ 它的 chunk 改名 ⇒ **入口 `index-*.js` 的 `__vite__mapDeps` 数组变** ⇒
+所有 importer 的 chunk 也跟着改名。v393 实测：只改了 `Shell.vue`，
+**38 个 chunk 的名字全变了**（内容逐字相同，纯级联）。
+我按「只传我改的那两个」推了 `index.html` ＋ `Shell-*.js` ＋ `Shell-*.css`
+⇒ 浏览器按**新名**去取 → **404**。
+
+**判据（唯一可信的）**：
+
+```bash
+ls dist-*/assets > /tmp/local.txt
+ssh root@<host> 'ls /opt/hergent-cn-v2/assets' > /tmp/prod.txt
+comm -23 <(sort /tmp/local.txt) <(sort /tmp/prod.txt)   # ⇒ 必须为空
+```
+
+⚠️ **「双侧 md5 全等」只证明「我传的都到了」，完全不证明「该传的都传了」** ——
+v393 第一版 md5 spot-check 了 5 个文件**全部 ✅**，实际漏了 37 个。
+⇒ **上传后必跑一次「缺失=0」**，md5 是补充证据、不是替代品。
+⇒ 最省事的正确做法：**整包 tar 上传**（`index.html` ＋ `assets/` 整个目录），
+并集基线天然容忍重复覆盖，且**绝不 `--delete`**。
+
+**顺带一条同级教训 —— 用 `git show HEAD:` 做「改动前」对照时先确认改动提交了没**：
+
+```
+git show HEAD:path/Shell.vue > /tmp/pre.vue      # ❌ 若改动**已提交**，HEAD 就是「改动后」
+git show cdb152e^:path/Shell.vue > /tmp/pre.vue  # ✅ 取那个 commit 的**父**提交
+```
+
+v393 实测：拿 `HEAD:` 跑静态探针得到「新旧完全相同」（17 条 vs 17 条），
+一度以为判据失效 —— 其实是我把**已提交**的版本当成了「改动前」。
+⇒ **自证方式：先比一下两个文件（`cmp` / 字节数 / 条数），不同才算拿到了对照版。**

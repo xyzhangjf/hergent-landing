@@ -116,3 +116,54 @@
 - 上传：tar 管道 / rsync，**绝不 `--delete`**（生产 `assets/` 是历次构建**并集**）。
 - 后端 FLAT `/opt/hergent-erp/`，服务 `hergent-erp.service`（:8700），重启后判据取
   `/api/psi/meta` 的文案里是否含本轮标记（**md5 一致 ≠ 进程已加载**）。
+
+---
+
+## 9. 侧栏入口落位（v393 批次 6.1）—— 「八页上线了但点不到」
+
+**背景 = 计划 §七/§八 的显性断点**：批次 5（v392）八页全链上线时，按纪律**刻意没动
+`Shell.vue` 的 `NAV`** ⇒ 当时**只有 boss 手敲 URL 能进**，其余角色连 URL 都被守卫拦
+（`/inventory` 行 = `module:'inventory'` ＋ `ADMIN_ROLES` ＋ `lock:true`）。
+⇒ 对**用户可见面**等于「功能做了却没接上」。
+
+### 9.1 落位后的 NAV 形状（`Shell.vue`）
+
+| 列 | 条目 | `create`（L1 双入口） |
+|---|---|---|
+| 采购 | `/inventory/purchase` | `/inventory/purchase/new`（标题「新建采购单」） |
+| 销售 | `/inventory/sale` | `/inventory/sale/new`（标题「新建销售单」） |
+| 库存 | `/inventory/stock`、`/data-fill`（库存效期补录） | — |
+| 往来 | **留空**（等往来账模块；`resolveNavItem` 会丢掉空列 ⇒ 弹窗里不出现） | — |
+| 其他 | `/inventory`（进销存总览） | — |
+
+🔴 **`pages.js` 一字未改** —— 7 条子路由逐字继承 `/inventory` 那一行
+（`ruleFor` 逐级去尾匹配）。**加入口 ≠ 加权限行**。
+
+### 9.2 「进销存」区为什么必须有 `path` 闸门（复用 v390 的判断）
+
+区内的「库存效期补录」`/data-fill` 挂的是**宽模块 `stock`**（业务员/会计/主管都可能有）
+⇒ 不设 `path` 闸门时，一个叫「进销存」的区会**冒到这些人侧栏**。
+⇒ 判据仍是 `canSee('/inventory')` 一处实现，只是「拿哪个 path 当锚点」由数据声明。
+真机反例（同令牌桩成 `sales`）：**整个区消失**，且同页仍有「经营工作台」等无关入口
+（排掉「整个 app 被换掉」这个假阴性）。
+
+### 9.3 手机抽屉的「＋」
+
+- 桌面弹窗写「**＋ 创建**」二字（横向有余量）；手机只放 `＋` 图形。
+- 两者**同一个 `create` 数据源**，`resolveNavItem` 已按 `canDo(module,'create')` 收口，
+  模板里**不补判据**（v311/v390 纪律：标题与显隐都从条目算出来）。
+- ⚠️ **手机端曾刻意留空这段模板**（当时唯一带 `create` 的条目属底部栏 ⇒ 永不进抽屉）
+  ⇒ 现在是**真能点到**的，不是死分支。
+- 🔴 但「能点到」需要在**手机抽屉可滚**的前提下才成立 —— 见 `frontend-ui §v393`
+  （`.md-sheet` 原本没有 `max-height`/`overflow`，顶部够不到）。
+
+### 9.4 验收与部署判据
+
+- 真机探针 `tools/v393-nav-entry-e2e.mjs` **32/32**（五相位，含 P4 反例、P5 零写入运行时取证）。
+- 静态探针 `tools/v393-inventory-nav-entry-probe.mjs`（**PASS 39 / FAIL 0**；
+  用 `SHELL_PATH` 指向改动前的 `Shell.vue` 跑 ⇒ **26 / 13**，判别力自证）。
+- 落点自检 = 公网 `https://hergent.cn/` 入口 chunk 名 ＋ 新 chunk 200；
+  **`/admin/` 是 `alias /opt/hergent-admin/` 的另一份历史前端，与 cn-v2 无关**。
+- 🔴 **本轮踩到**：hash 两级级联让 **38 个 chunk 改名**，只传「入口 + 我改的两个」
+  ⇒ 页面动态 import 全 404（curl 同 URL 却 200）⇒ **必须整包上传** →
+  `deploy-ops.md §6`。

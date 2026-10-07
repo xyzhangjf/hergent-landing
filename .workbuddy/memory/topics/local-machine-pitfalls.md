@@ -762,5 +762,57 @@ grep -oE 'th\.cur-col-hd\[data-v-[0-9a-z]{8}\]\{[^}]*\}'
   真正的沙箱号是 999926/999928/999930/999932；**当前 max(id) = 999921** ⇒ 已全清。
   ⇒ 判据要**取"沙箱实际用到的号"**（或 `> 本轮最大沙箱号`），不要拍一个整数段。
 
+---
+
+## §34 用 `git show HEAD:` 做「改动前」对照时，先确认改动**提交了没**（v393 实测）
+
+做「判别力自证」（拿改动**前**的源文件跑同一批断言，必须变红）时，习惯写法是
+
+```bash
+git show HEAD:hergent-cn-v2/src/components/Shell.vue > /tmp/Shell.head.vue
+SHELL_PATH=/tmp/Shell.head.vue node tools/<探针>.mjs
+```
+
+🔴 **但这个写法只在「改动尚未提交」时成立。** 本轮 `Shell.vue` 的入口挂接**已经提交**
+（`cdb152e`）⇒ `HEAD:` 取到的就是**改动后**的版本 ⇒ 探针读到「新旧完全相同」
+（抽屉 17 条 = 17 条、进销存 5 条 = 5 条），**看起来像判据失效**，实际是我拿错了对照版。
+
+✅ 正解 —— 取**那个 commit 的父提交**：
+
+```bash
+git show cdb152e^:hergent-cn-v2/src/components/Shell.vue > /tmp/Shell.pre.vue
+cmp -s /tmp/Shell.pre.vue hergent-cn-v2/src/components/Shell.vue \
+  && echo '🔴 两份相同 ⇒ 对照版拿错了，判据无效' || echo '✅ 两份不同 ⇒ 可用于判别力自证'
+```
+
+⇒ **纪律：任何「改动前 vs 改动后」的对照，先 `cmp` 一次自证两份**不同**，再跑断言。**
+（同族：`git show <commit>^:` 里的 `^` 只退一级；若该文件被多次提交，要退到真正那次之前。）
+
+**顺带**：`git ls-files | grep '<中文>'` 在本机会因为 git 输出对非 ASCII 路径做八进制转义
+而**匹配不到**（看起来像「文件没被跟踪」）⇒ 用 `git log --oneline -- <路径>` 或
+`git status --porcelain -- <路径>` 判断跟踪状态，别用 `ls-files | grep`。
+
+---
+
+## §35 `git commit -m "..."` 里的**反引号会被 zsh 当命令替换**（v393 实测，静默吞字）
+
+双引号内的反引号在本机 zsh 下照样做**命令替换** —— 不是「原样传字符串」：
+
+```bash
+git commit -m "P3 点「＋」落 `/purchase/new`，深链用 `/?__r=` 强制新文档"
+# zsh 先执行 `/purchase/new` 与 `/?__r=` ⇒ 前者 "no such file or directory"、
+# 后者 "no matches found"，**替换成空串** ⇒ 提交信息里那两处**直接消失**，
+# 而 git 提交**照样成功**（退出码 0），不比对 message 就发现不了。
+```
+
+🔴 **这是「静默丢内容」，与本项目其它静默失效同族**（写进去了但少了东西，零报错）。
+✅ 三种安全写法（任选）：
+1. **不用反引号**，改「」或直接写路径 —— 最省事；
+2. 反引号**转义**：`\`path\``（本会话 `dfd7315`/`2e700be` 就是这么写的，复查过未受损）；
+3. **写进消息文件再 `-F`**：`git commit -F /tmp/msg.txt`（多行长消息首选，且能随意用反引号）。
+⇒ **纪律：含反引号 / `$(` / `*` / `?` 的长提交信息，一律走 `-F 文件`；
+提交后 `git log -1 --format=%B | grep <关键词>` 自证关键串还在。**
+（同族已在 memory 里：heredoc 经 `ssh` 吞引号、`grep "A\|B"` 静默失效。）
+
 
 
