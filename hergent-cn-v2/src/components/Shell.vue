@@ -983,7 +983,17 @@ function stopResize() {
    下拉的页面里，触发按钮会浮在模态之上、可点穿（实测 3/3 按钮遮挡）。
    仍低于系统级：空闲超时 9998 / toast 9999 / ErrorBoundary 99999。 */
 .md-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1125}
-.md-sheet{position:fixed;left:0;right:0;bottom:0;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:16px 16px 0 0;padding:8px 0 calc(12px + env(safe-area-inset-bottom));z-index:1130}
+/* 🔴 v393（2026-10-07）：抽屉**必须自己滚** —— 这是挂入口时实测暴露的既有缺陷。
+   原样式只有 `bottom:0`、**没有 `max-height` 也没有 `overflow`** ⇒ 内容高于视口时
+   （桌面侧栏清干净后抽屉涨到 20 条 ≈ 1258px）整个盒子被向上顶，`top` 变成负值；
+   而 `position:fixed` 元素**不随页面滚动** ⇒ **顶部那一段永久够不到**。
+   实测 390×844：切掉 414px，而「进销存」组（本次新挂的入口 + 两处「＋」）就在最顶部
+   ⇒ 等于「挂上了、手机上点不到」。
+   加 `max-height` + `overflow-y:auto` 后，同样的内容改成**在抽屉内滚动**，顶部可达。
+   ⚠️ 为什么是 `100vh - 96px` 而不是 `100vh`：留出上方一段，让用户仍能看出这是个
+      **底部弹层**、并且点得到 `.md-overlay` 关掉它。`dvh` 那行是移动端浏览器
+      地址栏收放导致 `vh` 偏大的兜底（不支持 `dvh` 的旧内核自动忽略第二行）。 */
+.md-sheet{position:fixed;left:0;right:0;bottom:0;max-height:calc(100vh - 96px);max-height:calc(100dvh - 96px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:16px 16px 0 0;padding:8px 0 calc(12px + env(safe-area-inset-bottom));z-index:1130}
 .md-grab{width:36px;height:4px;border-radius:2px;background:var(--bd);margin:6px auto 10px}
 /* v393：抽屉一行 = 左「条目」+（可选）右「＋」。`.md-row` 让左边吃掉剩余宽度、
    右边固定不缩 —— 与桌面 `.sb-pop-row` 同一套版式（名字长短不一时「＋」仍然右对齐）。 */
