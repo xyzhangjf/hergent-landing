@@ -241,11 +241,18 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 ```html
 <div class="page-hd split">
   <div><h2>标题</h2><span class="page-sub">副标题</span></div>
-  <div class="pa-actions">…右侧操作区…</div>
+  <div class="XX-acts">…右侧操作区…</div>
 </div>
 ```
 
 `.page-hd`（基线对齐，下边距 18px）、`.split`（两端对齐）、`.flush`（去掉下边距）。
+
+> 🔴 **右侧操作区目前没有全局件 —— 这是本规范的一处已知欠账**。
+> 本示例原先写的是 `pa-actions`，但 `pa-` 是**商品档案的页面前缀**（§6.1），
+> 该类的定义只在 `ProductArchive.vue` 的 **scoped** 里 ⇒ **规范示例自己违反了 §6.3**。
+> 实况（2026-10-07 实测）：`ProductArchive.vue` 与进销存八页**各写一份**，共 8 份 `.XX-acts`
+> （7 份逐字相同）。⇒ 按 §6.2 它**早已满足「被第二个页面需要」**，应当上提为全局类
+> `.page-acts`；欠账清单与判据见 **§8.4**（本轮只登记，未整改）。
 
 ### 3.3 断点
 
@@ -356,8 +363,99 @@ docs/UI-SPEC.md            本文件
 
 ---
 
-## 8. 版本记录
+## 8. 业务模块范式（参考实现：进销存）
+
+> 本节登记**模块级**的共用范式 —— 不是新令牌、新全局类，而是「一个新业务模块该怎么搭」的口径。
+> 参考实现 = 进销存（`src/pages/inventory/`，九文件，v392 上线）。
+> **本节全部数据来自 2026-10-07 对源码的实测**，不是设计意图。
+
+### 8.1 页面结构：容器 + 三件套
+
+一个模块 = **1 个容器页 + 每个实体 3 个页面**：
+
+| 角色 | 例（进销存） | 路径 |
+|---|---|---|
+| 容器（页签 + 子路由出口） | `InventoryShell.vue` | `/inventory` |
+| 列表 | `InvPurchaseList.vue` | `/inventory/purchase` |
+| 新建 | `InvPurchaseNew.vue` | `/inventory/purchase/new` |
+| 详情 | `InvPurchaseDetail.vue` | `/inventory/purchase/:id` |
+
+**容器规则**（`InventoryShell.vue` 的注释即契约）：
+
+1. **容器自己就是 `.page`**，子页**只给页头与内容**、不再套 `.page`
+   ⇒ 避免 `.page` 嵌套（padding 叠加），也就不需要 `:deep(.page){padding:0}` 这类补丁。
+2. 页签用**全站唯一的 `.main-tabs` / `.main-tab`**（§2.5），不许再写第二份。
+3. **页签由路径推导**，不用本地状态 ⇒ 刷新 / 深链 / 浏览器前进后退都自洽。
+4. **下钻页不挂页签**（新建/详情留在所属页签下）——再挂一个页签 = 把「一次任务」拆成两个并列入口。
+5. `path: ''`（空串）索引子路由**必需**（否则访问 `/inventory` 命中空路由）；
+   且父级**不得** `redirect` 指向自身（自指重定向 ⇒ 无限循环）。
+6. 带参数路由（`:id`）**必须排在**同前缀静态路由（`new`）**之后**，否则 `/new` 被 `:id` 吃掉。
+
+### 8.2 页面前缀分配
+
+页面私有类一律带前缀（§6.1）。**进销存的实际分配**（一页一个，不许复用）：
+
+| 页面 | 前缀 | 页面 | 前缀 |
+|---|---|---|---|
+| `InvWorkbench` | `iw-` | `InvSaleList` | `isl-` |
+| `InvPurchaseList` | `ip-` | `InvSaleNew` | `isn-` |
+| `InvPurchaseNew` | `ipn-` | `InvSaleDetail` | `isd-` |
+| `InvPurchaseDetail` | `ipd-` | `InvStock` | `is-` |
+| 跨页（容器级） | `inv-` | | |
+
+> 🔴 **前缀冲突实例**：`.is-acts` 同时定义在 `InvSaleList.vue` 与 `InvStock.vue`。
+> 两边都是 scoped ⇒ **不会互相覆盖、也就不会报错**，但改一处不会同步另一处
+> ⇒ 这正是 §6.2 所说的**静默漂移**。新增页面时**先查前缀是否已被占用**。
+
+### 8.3 状态与文案：词表是唯一源
+
+1. 🔴 **界面上一律不出现英文枚举**。后端可能返回 `received` / `partial` / `self_pickup`，
+   界面必须显示「已入库 / 部分入库 / 自提」。
+2. 词表**唯一来源** = `src/constants/psiLabels.js`（每张表都对着后端 CHECK 约束核过）。
+3. 取值只走两个函数，页面**不许自己 `switch`**：
+
+   ```html
+   <span class="tag" :class="tagOf(PO_STATUS, r.status)">{{ textOf(PO_STATUS, r.status) }}</span>
+   ```
+
+   - `textOf`：未知值**不静默留空**，回落「未知」（后端加新状态时界面看得出来）。
+   - `tagOf`：返回 `.tag` 的修饰类（`ok` / `warn` / `bad` / `info` / 空 = 中性）。
+4. **状态徽标 = 全局 `.tag` + 词表**，页面不再自造徽标类。
+5. **阈值由后端给**：效期档位用接口返回的 `thresholds`，**不在前端写死 30 / 90**
+   （写死就是第二份实现，必漂移）。
+6. 金额显示**唯一实现** = `psiLabels.js` 的 `fmtMoney`，页面只 `import`。
+   > 教训（v392b，**上线后真机才抓到**）：它原被**七个页面各抄一份**，唯独
+   > `InvPurchaseNew.vue` 漏抄 ⇒ 模板调 `fmtMoney` 时运行期抛 `TypeError` ⇒
+   > **整页被兜底替换、连带父容器的页签一起消失**，而**构建 / 路由探针 / 枚举检查 /
+   > 文案审计四道全绿**。⇒ 一条规则只留一个实现；「同一规则抄多份」的漏抄那份以**整页崩**的形式爆。
+
+### 8.4 复用全局件与已知欠账
+
+八页**大量复用既有全局件**（实测用量：`.card` 25、`.page` 17、`.btn-primary` 14、
+`.state-empty` 15、`.table-wrap` 9、`.kpi-strip` 1、`.main-tabs` 2）。
+
+🔴 **进销存全模块零新增全局令牌、零新增全局类** —— 实测 `variables.css` 无任何
+进销存痕迹。这符合「页面私有类不必上提」的边界，是**正面样本**。
+
+> ⚠️ **但重复件是反面样本（已知欠账，本轮只登记未整改）**：下列三类**逐字相同**却各页各写一份，
+> 已满足 §6.2「被第二个页面需要就该上提」的条件：
+>
+> | 候选全局类 | 份数 | 重复定义值 | 出现处 |
+> |---|---|---|---|
+> | `.page-acts`（页头右侧操作区） | **9 处 / 8 名** | `display:flex;gap:8px;flex-wrap:wrap`（**7 处逐字相同**；`.iw-acts` 多 `align-items:center`；`.pa-actions` 为 `gap:10px`） | 进销存 8 页（`.is-acts` 被两页各定义一次）＋ `ProductArchive.vue` |
+> | `.page-pager`（列表分页条） | **3** | `flex;align-items:center;gap:8px;justify-content:flex-end;padding-top:12px;flex-wrap:wrap` | `.ip-page` / `.isl-page` / `.is-page`（**逐字相同**） |
+> | `.page-filter`（筛选容器） | **3** | `flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px` | `.ip-filter` / `.isl-filter` / `.is-filter`（**逐字相同**） |
+>
+> 🔴 **新增判据**（本次实测归纳，与 §1.6 阴影那条同源）：
+> **同一选择器的定义在站内出现 ≥ 3 次（且逐字相同）⇒ 必须上提为全局类**；
+> 仅 2 次且未来可能分化 ⇒ 可暂缓，但须在本节登记。
+
+---
+
+## 9. 版本记录
 
 | 版本 | 日期 | 内容 |
 |---|---|---|
 | v1.0 | 2026-09-22 | 首版。基于 2026-09-22 商品档案 UI 审查建立；同批补齐层级/字号/间距令牌、`.btn-danger`、输入禁用与只读态、表单错误态，并新增 Tab 面板/次级卡片/复选组/价格矩阵等可复用件。 |
+| v367 | 2026-10-02 | §1.6 新增**页面特型阴影例外清单**；§1.7 新增 **§1.7.1 页面级浮层档**（11 档令牌 ＋ 全局层/页面层分界 ＋ 迁移纪律）。配套代码：`Forecast.vue` 18 处 z-index 字面量 → 令牌、`.spark-th` 补居中、`.btn-retry` 补危险底（新令牌 `--danger-solid`）、`App.vue` 错误类补 `role="alert"`。⚠️ 本文件该次补档**当时未提交**，2026-10-07 并行会话停止后补提交。 |
+| v392 | 2026-10-07 | 新增 **§8 业务模块范式（参考实现：进销存）**：容器+三件套、前缀分配、词表唯一源、`.tag` 徽标纪律、`fmtMoney` 唯一实现、复用件清单与**重复件欠账表**；修正 §3.2 示例**误用页面私有类 `pa-actions`**（规范示例自己违反 §6.3）；新增「同一选择器出现 ≥3 次即须上提」判据。 |
