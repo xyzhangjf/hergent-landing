@@ -89,7 +89,8 @@
 
 ## 三、编号约定（⚠️ 起号前必做）
 
-已用到 **v390**（v374 空号；v386–v389 由并行会话起，非本会话）。起号：① 读号表 ② 实搜**未提交文件**（只看 git log 不够，已撞过号）＋两仓 git log；**下轮从 v391 起**。明细 → `topics/version-history.md`。
+已用到 **v391**（v374 空号；v386–v389 由并行会话起，非本会话）。起号：① 读号表 ② 实搜**未提交文件**（只看 git log 不够，已撞过号）＋两仓 git log；**下轮从 v392 起**。明细 → `topics/version-history.md`。
+🔴 **v391**（后端 `a96ad3d`，✅已上线）批次 4 · **进销存薄壳 `/api/psi` 15 端点**；能力轴 `inventory`、**默认只 boss**（admin 靠 `["*"]`）；**唯一不可委派 = `receive`**（`erp_db` 未 re-export `purchase_order_partial_receive` ⇒ 老前端分批收货 500）；🔴 判据取**两种 403 的 `error_code`**（`MODULE_DENIED` vs `MODULE_NOT_CONFIGURED`，同码 = 零判别力）；同批修 `inventory_adjust` 缺 `db_conn` 的**内在死锁**（零并发 100% 复现）→ `topics/version-history.md §v391`
 🔴 **跨会话判「谁的改动」比可 grep 特征串、不比字节差大小**（`Δ±几字节` 可能只是压缩抖动）→ `frontend-ui §v376/377`。
 
 ## 四、主体 / 脱敏
