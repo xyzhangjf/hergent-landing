@@ -156,15 +156,22 @@
                所以两边都从这里取，别再手写第二份。
                v390：分组标题从「经营 / 核算 / 配置」改由**职能区自己的名字**当路标
                （8 项平铺后没有组名了，而平铺出来有 15+ 条，没有路标比桌面还难找）。
-               ⚠️ **手机端「＋」（§七 要求抽屉条目右侧放 ＋）本轮刻意没做**，理由：
-                  本轮唯一带 `create` 的条目是「历史期次」，它的 `path` = `/forecast`
-                  属底部栏三项之一 ⇒ 按上面的规则**不会出现在抽屉里** ⇒ 现在写这段
-                  就是一段**永远不可达的死分支**（本项目反复栽在"看起来做了、实际没到位"）。
-                  批次 5 的进销存条目（`/inventory/purchase` 等，不在底部栏）落地时，
-                  连同这一行一起加 —— 那时它才真的能被点到。 -->
+               v393（2026-10-07）批次 6.1：**手机端「＋」补上了**（§七 要求抽屉条目右侧放 ＋）。
+                  当初刻意留空是因为「唯一带 `create` 的条目 = 历史期次，而它的 `path`
+                  `/forecast` 属底部栏 ⇒ 不会出现在抽屉里」—— 写下来就是**永不执行的死分支**。
+                  现在进销存条目（`/inventory/purchase`、`/inventory/sale`，**不在底部栏**）
+                  已落地 ⇒ 这一行才真的能被点到。桌面弹窗写「创建」二字（横向有余量），
+                  手机横向紧 ⇒ 只放 `＋` 图形（与 `sb-pop-new` 同一个 `create` 数据源，
+                  `resolveNavItem` 已按 `canDo` 收口，模板里不补判据）。 -->
           <template v-for="g in drawerGroups" :key="g.label || g.items[0].path">
             <div v-if="g.label" class="md-group-hd">{{ g.label }}</div>
-            <router-link v-for="it in g.items" :key="it.path" :to="navTo({ path: it.path, tab: it.tab })" class="md-item" @click="store.ui.mobileDrawer=false"><Icon :name="it.icon" :size="18" />{{ it.name }}</router-link>
+            <div v-for="it in g.items" :key="it.path + (it.tab || '')" class="md-row">
+              <router-link :to="navTo({ path: it.path, tab: it.tab })" class="md-item" @click="store.ui.mobileDrawer=false"><Icon :name="it.icon" :size="18" />{{ it.name }}</router-link>
+              <router-link v-if="it.create" :to="navTo(it.create.to)" class="md-item-new"
+                           :title="it.create.title || ('新建' + it.name)"
+                           :aria-label="it.create.title || ('新建' + it.name)"
+                           @click="store.ui.mobileDrawer=false"><Icon name="plus" :size="16" /></router-link>
+            </div>
           </template>
         </div>
       </Transition>
@@ -307,22 +314,40 @@ const NAV = [
   /* ③ 进销存 › —— v380 自研新能力。🔴 `path: '/inventory'` 是本区的**闸门**，必须有：
      区内「库存效期补录」挂的是**宽模块** `stock`（BIZ_ROLES ∩ stock ⇒ 业务员/会计/主管都可能有），
      若不设闸门，一个叫「进销存」的区会出现在这些人侧栏里 —— 而按 v380 闸门它**只该给老板/管理员**。
-     ⚠️ 采购/销售/往来三列**先立住**（空数组）⇒ 被 `resolveNavItem` 过滤掉，界面上不出现空标题；
-        批次 5 把页面落进来时，只需要往对应列里加条目，不动结构。 */
+
+     v393（2026-10-07）批次 6.1：批次 5 的八页**已上线但只能手敲 URL**，本次把入口挂进来。
+     🔴 **不给每条 `path` 单独登记权限**：`pages.js` 里只有 `/inventory` 一行
+        （`module:'inventory'` + `ADMIN_ROLES` + `lock:true`），八条子路由靠 `ruleFor`
+        **逐级去尾匹配**继承它 —— 已实测 20/20（计划 §七 硬约束③：**不改 `pages.js`**）。
+     ⚠️ 「往来」列**仍是空数组**：往来账页面还没做 ⇒ 被 `resolveNavItem` 过滤掉，
+        界面上不出现空标题。页面做出来时往这一列加条目即可，**不要**先把标题立起来。 */
   {
     key: 'psi', name: '进销存', icon: 'package', path: '/inventory',
     groups: [
-      { label: '采购', items: [] },
-      { label: '销售', items: [] },
-      // 「库存效期补录」是**已上线**的页面（`/data-fill`），此前不在侧栏（只能从设置页/
-      // 货损页的「去补录」按钮进）⇒ 本次按 §5.3 归位到库存列。它的 `module` 是 `stock`，
-      // 所以本区必须靠上面的 `path: '/inventory'` 闸门兜住（见本区注释）。
+      /* 🔴 L1「双入口」（计划 §3.1）：左半（条目名）→ 列表页；右半「＋ / 创建」→ 独立新建页。
+         `module: 'inventory'` 取自**本能力自己的模块名**（`server.py::_PATH_MODULE_MAP` 里
+         `/api/psi` 归 `inventory`）—— 照抄同一个键，不新造（v335 纪律：键写错会 fail-closed
+         把「＋」全藏掉）。收口在 `resolveNavItem`：`canDo('inventory','create')`。 */
+      { label: '采购', items: [
+        { path: '/inventory/purchase', name: '采购单', icon: 'inbox',
+          create: { to: '/inventory/purchase/new', module: 'inventory', title: '新建采购单' } }
+      ] },
+      { label: '销售', items: [
+        { path: '/inventory/sale', name: '销售单', icon: 'receipt',
+          create: { to: '/inventory/sale/new', module: 'inventory', title: '新建销售单' } }
+      ] },
+      // 「库存查询」(`/inventory/stock`，默认按到期日升序) 与「库存效期补录」(`/data-fill`)：
+      // 前者是本轮新页；后者是**已上线**页面，此前不在侧栏（只能从设置页 / 货损页的
+      // 「去补录」按钮进）⇒ v390 按 §5.3 归位到本列。⚠️ 后者的 `module` 是**宽模块**
+      // `stock`，所以本区必须靠上面的 `path: '/inventory'` 闸门兜住（见本区注释）。
       { label: '库存', items: [
+        { path: '/inventory/stock', name: '库存查询', icon: 'package' },
         { path: '/data-fill', name: '库存效期补录', icon: 'paste' }
       ] },
       { label: '往来', items: [] },
       { label: '其他', items: [
-        // v380 占位页（`Inventory.vue` 82 行）—— 进销存工作台，批次 5 会扩成 4 个 KPI。
+        // 进销存工作台（v392 起真身 = `pages/inventory/InvWorkbench.vue`：4 个 KPI +
+        // 临期六档 chips；v380 的 82 行占位页 `Inventory.vue` 已删）。
         { path: '/inventory', name: '进销存总览', icon: 'activity' }
       ] }
     ]
@@ -960,8 +985,16 @@ function stopResize() {
 .md-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1125}
 .md-sheet{position:fixed;left:0;right:0;bottom:0;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:16px 16px 0 0;padding:8px 0 calc(12px + env(safe-area-inset-bottom));z-index:1130}
 .md-grab{width:36px;height:4px;border-radius:2px;background:var(--bd);margin:6px auto 10px}
+/* v393：抽屉一行 = 左「条目」+（可选）右「＋」。`.md-row` 让左边吃掉剩余宽度、
+   右边固定不缩 —— 与桌面 `.sb-pop-row` 同一套版式（名字长短不一时「＋」仍然右对齐）。 */
+.md-row{display:flex;align-items:center}
+.md-row>.md-item{flex:1;min-width:0;width:auto}
 .md-item{display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;border:none;background:none;font-size:15px;color:var(--t1);text-align:left}
 .md-item:active{background:var(--bg4)}
+/* 手机端「＋」（L1 双入口的右半区）：横向紧 ⇒ 纯图标（桌面 `.sb-pop-new` 用「＋ 创建」文字）。
+   ⚠️ 命中区靠 36×36 撑住，别缩成 16px 图标本身；`margin-right` 与条目右侧留白对齐。 */
+.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:14px;border-radius:10px;background:var(--p-bg);color:var(--p-dark);text-decoration:none}
+.md-item-new:active{background:var(--p);color:#fff}
 .fade-enter-active,.fade-leave-active{transition:opacity .2s}
 .fade-enter-from,.fade-leave-to{opacity:0}
 .sheet-enter-active,.sheet-leave-active{transition:transform .25s ease}
