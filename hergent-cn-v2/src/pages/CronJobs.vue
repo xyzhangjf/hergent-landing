@@ -55,10 +55,11 @@
     <div v-else class="tbl-wrap">
       <table class="tbl">
         <thead>
-          <tr><th>任务</th><th>定时</th><th>状态</th><th>下次运行</th><th style="text-align:right">操作</th></tr>
+          <tr><th class="seq-th">序号</th><th>任务</th><th>定时</th><th>状态</th><th>下次运行</th><th style="text-align:right">操作</th></tr>
         </thead>
         <tbody>
-          <tr v-for="j in jobs" :key="j.id">
+          <tr v-for="(j, i) in jobs" :key="j.id">
+            <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
             <td>{{ j.name || '(未命名)' }}</td>
             <td class="num">{{ scheduleLabel(j) }}</td>
             <td><span class="tag" :class="isPaused(j) ? 'bad' : 'ok'">{{ isPaused(j) ? '已暂停' : '运行中' }}</span></td>

@@ -78,9 +78,10 @@
         这个月还没有商品目标。点右上「新建目标」开始建第一条。
       </div>
       <div v-else class="pt-wrap">
-        <table class="pt-tbl">
+        <table class="pt-tbl seq-host">
           <thead>
             <tr>
+              <th class="seq-th">序号</th>
               <th class="pt-th-prod">商品</th>
               <th>品牌</th>
               <th class="num">目标(箱)</th>
@@ -96,8 +97,9 @@
             </tr>
           </thead>
           <tbody>
-            <template v-for="r in rows" :key="r.id">
+            <template v-for="(r, ri) in rows" :key="r.id">
               <tr :class="{ 'pt-row-open': openId === r.id }">
+                <td class="seq-cell"><span class="seq-num">{{ ri + 1 }}</span></td>
                 <td class="pt-prod">
                   <button class="pt-exp" :title="openId === r.id ? '收起分解' : '展开分解'"
                           @click="toggle(r.id)">
@@ -141,7 +143,7 @@
                 </td>
               </tr>
               <tr v-if="openId === r.id" class="pt-detail-row">
-                <td :colspan="10">
+                <td :colspan="11">
                   <div class="pt-detail">
                     <div class="pt-detail-hd">
                       <b>分解到人</b>

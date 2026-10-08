@@ -532,15 +532,29 @@ table.tbl tr:last-child td{border-bottom:none}
 table.tbl tbody tr:hover{background:var(--bg2)}
 table.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 
-/* 序号列（全站唯一源，v401 上提自 Forecast.vue）——
+/* 序号列（全站唯一源，v401 上提自 Forecast.vue；v402 扩到非 .tbl 的自定义表）——
    判据见 UI-SPEC §2.6.1：这张表会不会被用户说成「第几行那个」？会说 ⇒ 就要有序号列。
    列宽 46px：对齐本期预报 <colgroup> 里 colW('seq')=46。Forecast 里曾写 42px，那是**不参与
    布局的陈旧值**（该表 table-layout:fixed，宽度由 colgroup 决定），此处统一到 46 并删掉那份副本。
    宿主写法：<th class="seq-th">序号</th> / <td class="seq-cell"><span class="seq-num">1</span></td>。
-   需要横向冻结的宽表（如 .cross-tbl）请各页自行补 sticky，不在这里默认开启。 */
-table.tbl .seq-th{width:46px;min-width:46px;text-align:center;padding:8px 4px;vertical-align:middle}
-table.tbl .seq-cell{width:46px;min-width:46px;text-align:center;padding:6px 4px;vertical-align:middle;color:var(--t3);font-size:12px}
-table.tbl .seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
+   需要横向冻结的宽表（如 .cross-tbl）请各页自行补 sticky，不在这里默认开启。
+
+   🔴 选择器为什么是两组并列：全站有两类表 —— ① 标准表 `class="tbl"`（走 table.tbl 前缀）；
+   ② 各页自定义表（`pc-tb` / `pt-tbl` / `br-tbl` / `la-ml-tbl` …，各自带一份自己的 th/td 样式）。
+   后者**不能改挂 `tbl` 类** —— 会与它自身的 `.xx-tbl td{padding:…}` 同 specificity 相撞、按源码
+   顺序互相覆盖、破坏现有排版。于是统一再加一个**无样式的中性标记类 `seq-host`** ⇒ 全局选择器
+   只改序号格、不碰其余单元格（具体的 specificity 写法见下一段）。⛔ 页面里除 `.tbl` / `.seq-host`
+   外不许再抄这三条。
+
+   🔴 **为什么写成 `th.seq-th` / `td.seq-cell`（而不是裸 `.seq-th`）** —— v402 真机探针抓出的：
+   5 个页面（报单配置 / 招投标雷达 / 货损核算 / 商品目标 / 渠道与价格）的**表头没居中、列宽 50≠46**。
+   根因不是"没生效"，是**被页面 scoped 样式同分覆盖**：Vue scoped 会给 `.xx-tbl th{text-align:left;padding:…}`
+   补上 `[data-v-xxx]` ⇒ specificity 从 (0,1,1) **升到 (0,2,1)**，与本规则原先的 `table.seq-host .seq-th`
+   **(0,2,1) 同分**，而页面 CSS 在全局之后加载 ⇒ 后者胜，`text-align` 与 `padding` 一起被夺走。
+   写作 `table.seq-host th.seq-th` = **(0,2,2)** ⇒ 稳压 scoped 的 (0,2,1)，无论加载顺序。 */
+table.tbl th.seq-th, table.seq-host th.seq-th{width:46px;min-width:46px;text-align:center;padding:8px 4px;vertical-align:middle}
+table.tbl td.seq-cell, table.seq-host td.seq-cell{width:46px;min-width:46px;text-align:center;padding:6px 4px;vertical-align:middle;color:var(--t3);font-size:12px}
+table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
 
 /* 标签行 */
 .tag-row{display:flex;gap:6px;flex-wrap:wrap}

@@ -73,7 +73,7 @@
         <table class="tbl isn-tbl">
           <thead>
             <tr>
-              <th class="isn-c-prod">商品</th>
+              <th class="seq-th">序号</th><th class="isn-c-prod">商品</th>
               <th class="num isn-c-qty">数量</th>
               <th class="isn-c-unit">单位</th>
               <th class="num isn-c-price">单价</th>
@@ -83,6 +83,7 @@
           </thead>
           <tbody>
             <tr v-for="(row, i) in items" :key="i">
+              <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td>
                 <select v-model.number="row.product_id" class="input isn-in" @change="onPick(row)">
                   <option :value="0" disabled>请选择商品</option>

@@ -27,10 +27,11 @@
       <div v-else-if="rows.length" class="table-wrap">
         <table class="tbl">
           <thead><tr>
-            <th>仓库名称</th><th>地址</th><th>联系人</th><th>联系电话</th><th>角色</th><th></th>
+            <th class="seq-th">序号</th><th>仓库名称</th><th>地址</th><th>联系人</th><th>联系电话</th><th>角色</th><th></th>
           </tr></thead>
           <tbody>
-            <tr v-for="w in rows" :key="w.id">
+            <tr v-for="(w, i) in rows" :key="w.id">
+              <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td>
                 {{ w.name }}
                 <span class="wh-id">DB{{ w.id }}</span>

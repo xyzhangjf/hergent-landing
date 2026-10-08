@@ -19,6 +19,7 @@
       <table class="tbl history-tbl">
         <thead>
           <tr>
+            <th class="seq-th">序号</th>
             <th>期次名称</th>
             <th>下单区间</th>
             <th>到货日期</th>
@@ -32,7 +33,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in list" :key="row.id" :class="{ active: row.status === 'open' }">
+          <tr v-for="(row, i) in list" :key="row.id" :class="{ active: row.status === 'open' }">
+            <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
             <td>
               <b>{{ row.name || '—' }}</b>
               <!-- v319：人工接管过（重开/解锁过）⇒ 当面说明。否则用户会疑惑「为什么这期没被

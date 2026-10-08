@@ -276,13 +276,14 @@
         <table class="tbl">
           <thead>
             <tr>
-              <th>规则名称</th><th>维度</th><th>周期</th><th>作用对象</th>
+              <th class="seq-th">序号</th><th>规则名称</th><th>维度</th><th>周期</th><th>作用对象</th>
               <th class="num">目标值</th><th>触发</th><th>返利</th>
               <th>生效期</th><th>状态</th><th></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in filteredRules" :key="r.id">
+            <tr v-for="(r, i) in filteredRules" :key="r.id">
+              <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td>{{ r.rule_name }}</td>
               <td><span class="tag info">{{ dimText(r.dimension) }}</span></td>
               <td>{{ periodText(r.period_type) }}<span v-if="r.is_monthly" class="tag ok" style="margin-left:6px" title="按 12 个月分解目标与返利">月分解</span></td>
@@ -358,14 +359,15 @@
                      所以这一列永远是「所选那个月的目标」：年度规则取该月的月度分解额
                      （monthTargetOf → monthly_amounts[MM]），单期规则在生效起始月取整额。
                      至于是哪一种，由右侧新增的「周期」列显式标出，用户不必再自己选口径。 -->
-                <th>维度</th><th>作用对象</th><th>周期</th><th class="num">本月目标</th>
+                <th class="seq-th">序号</th><th>维度</th><th>作用对象</th><th>周期</th><th class="num">本月目标</th>
                 <th class="num">实际达成金额</th><th class="num">实际达成数量</th>
                 <th class="num">实际返利（元）</th>
                 <th class="num">达成率</th><th>来源</th><th></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in achvRows" :key="row.key">
+              <tr v-for="(row, i) in achvRows" :key="row.key">
+                <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td><span class="tag info">{{ dimText(row.dimension) }}</span></td>
                 <td>{{ row.scope_name || row.scope_key }}</td>
                 <!-- v173：目标规则的周期口径（读数，不是选项）。它只说明「本月目标」是怎么
@@ -425,6 +427,7 @@
           <table class="tbl">
             <thead>
               <tr>
+                <th class="seq-th">序号</th>
                 <th>月份</th>
                 <th class="num">月度目标</th>
                 <th class="num">实际达成</th>
@@ -433,7 +436,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in yearMonthRows" :key="r.m">
+              <tr v-for="(r, i) in yearMonthRows" :key="r.m">
+                <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>{{ r.m }} 月</td>
                 <td class="num">{{ r.targetText }}</td>
                 <td class="num">{{ r.achText }}</td>

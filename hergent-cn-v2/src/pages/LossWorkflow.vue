@@ -143,9 +143,10 @@
         </div>
         <div class="table-wrap">
           <table class="tbl">
-            <thead><tr><th>商品</th><th>批次</th><th>效期</th><th class="num">剩余</th><th class="num">数量</th><th class="num">单价</th><th class="num">损耗</th><th>建议</th></tr></thead>
+            <thead><tr><th class="seq-th">序号</th><th>商品</th><th>批次</th><th>效期</th><th class="num">剩余</th><th class="num">数量</th><th class="num">单价</th><th class="num">损耗</th><th>建议</th></tr></thead>
             <tbody>
               <tr v-for="(it, i) in result.items" :key="i">
+                <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>{{ it.product_name }}<span v-if="it.spec" class="lf-spec">{{ it.spec }}</span></td>
                 <td>{{ it.batch_no || '—' }}</td>
                 <td>{{ it.expiry_date || '—' }}</td>

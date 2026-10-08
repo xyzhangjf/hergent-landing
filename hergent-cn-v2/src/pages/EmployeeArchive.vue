@@ -36,12 +36,13 @@
       <div v-else-if="extAccounts.length" class="table-wrap">
         <table class="tbl">
           <thead><tr>
-            <th>客户</th><th>登录账号</th><th>可登录端</th>
+            <th class="seq-th">序号</th><th>客户</th><th>登录账号</th><th>可登录端</th>
             <th class="num" title="在「预报订单管理 → 报单配置」里为该客户配的门店数；配了小程序才报得了单">可报门店</th>
             <th>状态</th><th></th>
           </tr></thead>
           <tbody>
-            <tr v-for="u in extAccounts" :key="u.id" :class="{ stopped: !u.is_active }">
+            <tr v-for="(u, i) in extAccounts" :key="u.id" :class="{ stopped: !u.is_active }">
+              <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td>{{ extNameOf(u) }}</td>
               <td>{{ u.username }}</td>
               <td>{{ loginScopeLabel(u.login_scope) }}</td>
@@ -80,11 +81,12 @@
       <div v-else-if="employees.length" class="table-wrap">
         <table class="tbl">
           <thead><tr>
-            <th>员工</th><th>岗位</th><th class="num">底薪/月</th>
+            <th class="seq-th">序号</th><th>员工</th><th>岗位</th><th class="num">底薪/月</th>
             <th>登录账号</th><th>可报门店</th><th></th>
           </tr></thead>
           <tbody>
-            <tr v-for="e in employees" :key="e.id" :class="{ stopped: e.is_active === 0 }">
+            <tr v-for="(e, i) in employees" :key="e.id" :class="{ stopped: e.is_active === 0 }">
+              <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td>
                 {{ e.name }}
                 <span v-if="e.employee_no" class="df-no">{{ e.employee_no }}</span>

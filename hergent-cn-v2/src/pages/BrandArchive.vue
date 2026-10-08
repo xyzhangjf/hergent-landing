@@ -23,11 +23,12 @@
       <div v-else-if="brands.length" class="table-wrap">
         <table class="tbl">
           <thead><tr>
-            <th>品牌</th><th>厂商</th><th>等级</th>
+            <th class="seq-th">序号</th><th>品牌</th><th>厂商</th><th>等级</th>
             <th class="num">关联商品</th><th>状态</th><th></th>
           </tr></thead>
           <tbody>
-            <tr v-for="b in brands" :key="b.id" :class="{ stopped: b.is_active === 0 }">
+            <tr v-for="(b, i) in brands" :key="b.id" :class="{ stopped: b.is_active === 0 }">
+              <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td>
                 {{ b.name }}
                 <span v-if="b.is_active === 0" class="ba-stopped-tag">已停用</span>

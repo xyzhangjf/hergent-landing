@@ -65,6 +65,7 @@
           <table class="tbl">
             <thead>
               <tr>
+                <th class="seq-th">序号</th>
                 <th>商品</th>
                 <th>规格</th>
                 <th>仓库</th>
@@ -77,7 +78,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in rows" :key="r.id">
+              <tr v-for="(r, i) in rows" :key="r.id">
+                <td class="seq-cell"><span class="seq-num">{{ offset + i + 1 }}</span></td>
                 <td>{{ r.product_name || ('商品 ' + r.product_id) }}</td>
                 <td>{{ r.spec || '—' }}</td>
                 <td>{{ r.warehouse_name || ('仓库 ' + r.warehouse_id) }}</td>

@@ -60,6 +60,7 @@
           <table class="tbl">
             <thead>
               <tr>
+                <th class="seq-th">序号</th>
                 <th>商品</th>
                 <th>规格</th>
                 <th class="num">数量</th>
@@ -70,7 +71,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="it in items" :key="it.id">
+              <tr v-for="(it, i) in items" :key="it.id">
+                <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>{{ it.product_name || ('商品 ' + it.product_id) }}</td>
                 <td>{{ it.spec || '—' }}</td>
                 <td class="num">{{ fmtQty(it.quantity) }}</td>

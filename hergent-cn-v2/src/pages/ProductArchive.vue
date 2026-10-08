@@ -45,7 +45,7 @@
       <div v-else-if="products.length" class="table-wrap">
         <table class="tbl">
           <thead><tr>
-            <th>名称</th><th>条码</th><th>规格</th><th>单位</th>
+            <th class="seq-th">序号</th><th>名称</th><th>条码</th><th>规格</th><th>单位</th>
             <!-- v233：报单单位 —— 主表「单位」列与舟谱模板「*单位」列的**共同来源**。
                  与左边的「单位」分开成列，因为它们是**两个概念**（混在一格正是 v217 的病根）：
                    · 「单位」= 档案单位（舟谱「小单位」语义，用于档案对账/价格档位）
@@ -65,7 +65,8 @@
             <th>品牌</th><th class="num">标准售价</th><th class="num" title="进价 ＝ 厂家跟你结算的价（元/箱），算「本期需付款」用的就是它。可留空：留空则按档案里的历史进价列取；点格子可直接改">进价</th><th class="num">安全库存</th><th>状态</th><th></th>
           </tr></thead>
           <tbody>
-            <tr v-for="p in products" :key="p.id" :class="{ stopped: p.is_active === 0 }">
+            <tr v-for="(p, i) in products" :key="p.id" :class="{ stopped: p.is_active === 0 }">
+              <td class="seq-cell"><span class="seq-num">{{ (page - 1) * pageSize + i + 1 }}</span></td>
               <td class="pa-name">{{ p.name }}</td>
               <td class="pa-mono">{{ p.barcode || '—' }}</td>
               <td>{{ p.spec || '—' }}</td>

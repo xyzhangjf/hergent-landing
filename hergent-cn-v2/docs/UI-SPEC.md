@@ -287,16 +287,21 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 | 数字形态 | `.seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}` —— **等宽数字**，否则 1↔10 切换时数字左右跳 |
 | ⛔ 不可配置 | 序号列**不在列设置清单里** ⇒ **不可隐藏、不可拖序、不可删除**。它是齿轮的宿主，被藏掉会连入口一起消失 |
 
-**序号列的 CSS 只此一份**（v401 上提；落实 §8.4「同一选择器在站内 ≥3 次且逐字相同 ⇒ 必须上提」——
-`Forecast.vue` ＋ 两个进销存列表页 = 3 处使用 ⇒ 触发）：
+**序号列的 CSS 只此一份**（v401 上提、**v402 扩 `seq-host`**；落实 §8.4「同一选择器在站内 ≥3 次
+且逐字相同 ⇒ 必须上提」—— v401 时 `Forecast.vue` ＋ 两个进销存列表页 = 3 处 ⇒ 触发；
+v402 铺开后共 21 页 / 25 张表复用**同一份**）：
 
 ```css
 /* src/styles/variables.css —— 表格区（紧接 table.tbl .num 之后） */
-table.tbl .seq-th{width:46px;min-width:46px;text-align:center;padding:8px 4px;vertical-align:middle}
-table.tbl .seq-cell{width:46px;min-width:46px;text-align:center;padding:6px 4px;vertical-align:middle;color:var(--t3);font-size:12px}
-table.tbl .seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
+table.tbl .seq-th, table.seq-host .seq-th{width:46px;min-width:46px;text-align:center;padding:8px 4px;vertical-align:middle}
+table.tbl .seq-cell, table.seq-host .seq-cell{width:46px;min-width:46px;text-align:center;padding:6px 4px;vertical-align:middle;color:var(--t3);font-size:12px}
+table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
 ```
 
+> **两组并列选择器的分工**：`table.tbl` 前缀给标准表；`table.seq-host` 前缀给各页自定义表
+> （见「五、B」—— 它们**不能**改挂 `tbl` 类，会破坏自身排版）。后者 specificity **0,2,1**
+> 稳压各表自身的 `.xx-tbl td` **0,1,1**，所以只改序号格、不碰其余单元格。
+>
 > ⚠️ **横向冻结不在这份全局规则里**：`position:sticky;left:0` ＋ `z-index`（表体 6 ／ 表头 9）
 > 是**宽表特有**需求，由各页按需自己补 —— 基准实现见 `Forecast.vue` 的
 > `.cross-tbl .seq-th` / `.cross-tbl .seq-cell` 三条。**列少、不横向滚动的只读清单不要加 sticky。**
@@ -336,22 +341,75 @@ table.tbl .seq-num{display:inline-block;min-width:18px;text-align:center;font-va
 >
 > ⚠️ 两个**一起出现**才完整：齿轮的宿主就是序号列表头 ⇒ **要齿轮就必须同时有序号列**，反之不然。
 
-**五、全站现状（v401：试点两页已接入，其余未铺开）**
+**五、全站现状（v402：序号列已铺开至 21 页 / 25 张清单表）**
 
-已接入序号列（**只加序号、不加齿轮、不加 sticky** —— 列固定、列少、不横向滚动）：
+**A. 标准 `table.tbl` 列表页**（走 `table.tbl .seq-*`）
 
-| 页面 | 列数 | 序号取值 |
-|---|---|---|
-| `/inventory/purchase`（`InvPurchaseList.vue`） | 7 → 8 | `offset + i + 1` |
-| `/inventory/sale`（`InvSaleList.vue`） | 8 → 9 | `offset + i + 1` |
+| 页面 | 路由 | 序号取值 | 备注 |
+|---|---|---|---|
+| 品牌档案 | `/archive/brands` | `i + 1` | |
+| 客户档案 | `/archive/customers` | `(page - 1) * pageSize + i + 1` | 前端分页 `page/pageSize=20` |
+| 员工档案 · 外部客户账号 | `/archive/employees` | `i + 1` | 本页**第 1 张**表 |
+| 员工档案 · 在职员工 | `/archive/employees` | `i + 1` | 本页**第 2 张**表 |
+| 商品档案 | `/archive/products` | `(page - 1) * pageSize + i + 1` | 14 列；`pageSize=50` |
+| 仓库档案 | `/archive/warehouses` | `i + 1` | |
+| 供应商档案 | `/archive/suppliers` | `(page - 1) * pageSize + i + 1` | 前端分页 `pageSize=20` |
+| 采购单列表 | `/inventory/purchase` | `offset + i + 1` | v401 试点 |
+| 销售单列表 | `/inventory/sale` | `offset + i + 1` | v401 试点 |
+| 库存查询 | `/inventory/stock` | `offset + i + 1` | 服务端 `offset` 分页 |
+| 采购单详情 · 分批到货录入 | `/inventory/purchase/:id` | `i + 1` | 可编辑录入网格 |
+| 采购单详情 · 商品明细 | `/inventory/purchase/:id` | `i + 1` | |
+| 销售单详情 · 商品明细 | `/inventory/sale/:id` | `i + 1` | |
+| 新建采购单 · 明细录入 | `/inventory/purchase/new` | `i + 1` | 可编辑录入网格 |
+| 新建销售单 · 明细录入 | `/inventory/sale/new` | `i + 1` | 可编辑录入网格 |
+| 目标与返利 · 规则清单 | `/rebate` | `i + 1` | |
+| 目标与返利 · 达成清单 | `/rebate` | `i + 1` | |
+| 目标与返利 · 月度分解 | `/rebate` | `i + 1` | ≤12 行 |
+| 货损计算工作流 · 命中明细 | `/loss` | `i + 1` | |
+| 算工资 · 员工工资明细 | `/payroll` | `i + 1` | |
+| 定时任务 | `/cron` | `i + 1` | |
+| 历史期次 | `/forecast?tab=history` | `i + 1` | `ForecastHistory.vue` |
+| 报单配置 | `/forecast?tab=config` | `i + 1` | `ReportMapping.vue`；空态行 `colspan 9 → 10` |
 
-> ⚠️ **分页表的序号必须是 `offset + i + 1`** —— 这两页是 offset/limit 分页（每页 50 条），
-> 写 `i + 1` 会让第 2 页又从 1 开始。编号**跨页连续**才是对的。
-> 它们**不需要**列设置齿轮：列集合固定、没有可加的主档列。
+**B. 非 `.tbl` 自定义表**（走 `table.seq-host .seq-*`，**必须给 `<table>` 加 `seq-host` 类**）
 
-`col-cfg` 齿轮仍**只在** `Forecast.vue`；`seq-th` / `seq-cell` / `seq-num` 已上提全局、并被上述两页复用。
-其余页面（进销存其余 6 页 / 各档案页 / 返利 / 工资 / 舟谱导入 …）**尚未接入**，
-表头首列分别是「单号 / 商品 / 名称 / 客户名称 / 供应商名称 …」。
+| 页面 | 路由 | table class | 序号取值 | 备注 |
+|---|---|---|---|---|
+| 渠道与价格 · 客户专属价 | `/archive/prices` | `pc-tb seq-host` | `cpOffset + i + 1` | 服务端分页 `cpOffset` |
+| 渠道与价格 · 商品价格 | `/archive/prices` | `pc-tb seq-host` | `mxOffset + i + 1` | 空态行 `colspan 5 → 6` |
+| 商品目标 | `/forecast?tab=target` | `pt-tbl seq-host` | `ri + 1` | 展开行 `colspan 10 → 11` |
+| 招投标雷达 | `/bid-radar` | `br-tbl seq-host` | `i + 1` | |
+| 货损核算 · 月度分析 | `/loss-accounting` | `la-ml-tbl seq-host` | `i + 1` | ≤12 行 |
+
+> 🔴 **为什么要有 `seq-host`**：全站有两类表 —— ① 标准表 `class="tbl"`；② 各页自定义表
+> （`pc-tb` / `pt-tbl` / `br-tbl` / `la-ml-tbl` …，各自带一份**互不相同**的 th/td 样式，
+> 如 `.pt-tbl th` 是 `position:sticky` + `--bg3`、`.pc-tb` 是 12.5px）。后者**不能改挂 `tbl` 类**
+> —— 会与它自身的 `.xx-tbl td{padding:…}` 同 specificity 相撞、按源码顺序互相覆盖、破坏排版。
+> 于是统一再加一个**无样式的中性标记类 `seq-host`** ⇒ 全局选择器写
+> `table.tbl .seq-*, table.seq-host .seq-*`（后者 specificity **0,2,1** 稳压各表自身的
+> `.xx-tbl td` **0,1,1**）⇒ 只改序号格、不碰其余单元格。
+> **新增这类表时 `class="xx-tbl seq-host"` 两件都要写。**
+
+> ⚠️ **分页表的序号必须跨页连续**：`offset + i + 1` / `(page - 1) * pageSize + i + 1` /
+> `cpOffset + i + 1` —— 写 `i + 1` 会让第 2 页又从 1 开始。**先确认该页用的是哪种分页**再写下标。
+
+**C. 有意不铺的页面**（按「四、」判据）
+
+| 页面 | 原因 |
+|---|---|
+| 库存效期补录 `/data-fill` | 表单录入表，无 `v-for` 数据行 |
+| 舟谱单据导入 `/zhoupu-import` | 3 列诊断表（列名映射 / 原因统计） |
+| 设置 `/settings` | 权限配置表，不是业务清单 |
+| 经营工作台 `/workbench` | 看板短表（≤6 行，如 `expiryData.slice(0,6)`） |
+| 进销存工作台 `/inventory` | 4 列 KPI 小表 |
+| 弹窗内只读明细（返利修改日志 `achv-log-wrap`、品牌冲突 `cf-tbl`） | 「弹窗内明细预览」不需要 |
+| 货损核算的 `la-tbl` / `la-mini` 审计与概念表 | 审计 / 说明性质，非逐行清单 |
+
+**D. 齿轮（列设置入口）仍只在 `/forecast`** —— 判据是「列集合会不会变」：全站只有本期预报有
+「可加主档列 / 可拖序 / 列方案」，其余页列集合固定 ⇒ 按「四、」**不需要**齿轮。
+（v402 起 `seq-host` 让**序号列**可低成本复用，但**齿轮不是样式、是与列数据集绑定的功能**，
+不要给固定列页面硬套。）
+
 ⇒ 本节是**全站约定**，接入时按本节做，**别把首列改成别的语义再另开一个设置入口**。
 
 **六、两处偏差已在 v401 修复（改前实测留档，作回归基线）**
@@ -939,3 +997,4 @@ NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
 | v399 | 2026-10-08 | 重写 **§3.1 为「页面容器与留白（统一留白规范）」**：以 `/forecast`（本期预报，实测占宽比 100% / 左右 0px）为**唯一基准**；建立**四层留白模型**（L0 侧栏 → L1 `.view-wrap{padding:20px}` → L2 `.page`（默认全宽）→ L3 `.card{padding:18px}`）；三条硬规则（页根不再加左右内距／默认全宽不套档位／页根禁写 `max-width`·`margin:0 auto`·左右 `padding`）；**例外白名单**（唯一使用者 `Print.vue` `.page-default`；`.page-reading` 无使用者）；新增**占宽比**量化判据与「必须在 ≥1600 视口取值」的说明。新增 **§7.4 留白真机只读审计**（`v399-layout-gap-probe.mjs`，含判别力自证）；**§8.1 补「容器 ↔ 子页宽度契约」**（容器只给 `.page` 不给档位／子页零宽度声明／**一个模块只能有一处给 `.page`**，并辨析厚壳 `InventoryShell` vs 薄壳 `ArchiveShell` 两种合规形态）。配套代码：`inventory/InventoryShell.vue` 去 `.page-default`（**8 个子页留白的唯一根因**）、`ZhoupuImport.vue` 去掉自拍 `max-width:960px;margin:0 auto` 与叠加的左右 `padding`；`variables.css` 修正两处**与实况不符**的「档位当前未启用 / 目前全站无页面启用」注释为写实况。生产探针 17/17 PASS（改前基线 A 面已留档）。 |
 | v400 | 2026-10-08 | 新增 **§2.6.1 列设置入口与序号列（统一约定）**：先**确认现有实现**再立规 —— 基准实现 = `/forecast` 的 `.cross-tbl`（查看态）/ `.edit-tbl`（改单态）。① **列设置 = 表头第一列（序号列）里的 `<button class="col-cfg gear" title="列设置"><Icon name="settings"/></button>`**：**线性 SVG 齿轮（2 段 path、`stroke:currentColor`、`fill:none`），不是 emoji 齿轮（U+2699 / U+FE0F）**；无边框 / 透明底 / 默认 `--t3` / hover `--bg3` + `--p-dark`，只走令牌（深色自动跟随）；查看态与改单态**共用**一个 `showColMenu`。② **序号 = 同列表体**（`td.seq-cell > .seq-num`）**落在齿轮正下方**：1 基连续（`it.seq` / `ri + 1`）、跟随筛选分组重排、`tabular-nums` 等宽数字、列宽权威源 = `<colgroup>` `colW('seq')` **46px**（可拖宽；`.seq-th`/`.seq-cell` 里的 `42px` 是**不参与布局的陈旧值**）、`sticky left:0` 且表头 `z-index:9` > 表体 `6`。③ 序号列**不在列设置清单里**（不可隐藏/拖序/删除 —— 它是齿轮宿主，藏掉会连入口一起消失）。④ **适用范围与触发条件表**（可编辑网格/逐行核对清单**必须**有；卡片/表单/短 KPI 表不需要）；「要齿轮就必须同时有序号列，反之不然」。⑤ 全站现状实测：`col-cfg`/`seq-th`/`seq-cell`/`seq-num` **只在 `Forecast.vue`**，其余 28 个含表页面尚未接入 ⇒ 本节是**全站约定**。⑥ **登记两处已知偏差**（待对齐，非文档错）：齿轮未居中（序号比齿轮**右偏 4px**，成因 `.th-in{justify-content:space-between}` + 单子元素）、列设置菜单**不从齿轮下方弹出**（锚在工具条 `.col-config-bar` 的 `top:38px;left:0`，**Δt=−15px 压在齿轮上**）。配套：新增探针 `v400-col-cfg-probe.mjs`（**两相位** `impl`=现况 36 PASS/0 FAIL、`spec`=契约恰好红那 2 条 ⇒ 判据非恒真；含三条反例自证）、新增 **§7.5** 几何审计说明、新增一致性自检 `v400-spec-colcfg-consistency.py`（A 类名 ／ B 数值 ／ C 机制 ／ D 反例：零 emoji 齿轮、齿轮源码恰好 2 处、`defaultColOrder` 不含 `seq`、全站零复用）。**本轮只立规范、未改实现**（两处偏差留待决策）。 |
 | v401 | 2026-10-08 | **修 v400 登记的两处偏差 ＋ 序号列上提全局 ＋ 试点接入**。① **偏差①齿轮居中**：查看态补 `.th-in > .col-cfg{margin-inline:auto}`（根因 `space-between` ＋ 单子元素 ⇒ 被顶到左边）；改单态是 `<th>` 直接子元素、本就居中，未动。② **偏差②菜单锚定齿轮**：`.col-menu` / `.edit-col-menu` 由 `position:absolute;top:38px;left:0` 改 **`position:fixed`**；位置改由新增的 `toggleColMenu(e)` 按齿轮 `getBoundingClientRect()` 现算 —— 默认正下方 `gap:6px`、下方越界上翻、右侧越界先右对齐再贴边（`pad:8px`）；**并配 `maxHeight` 限高**（按上下可用空间取大侧、优先下方，保底 160px）—— 首版**只移位不限高**被真机探针当场抓出：清单实测高 **543px**、可用空间仅 ~520px ⇒ 上翻与贴底**都放不下**、仍盖住齿轮；首帧用兜底尺寸（320）摆位、`nextTick` 按真实尺寸校正；`window` 的 `scroll`（**捕获阶段**）与 `resize` 直接收起；两态共用这一份逻辑（`showColMenu` 唯一）。③ **序号列 CSS 上提**：按 §8.4「≥3 次且逐字相同 ⇒ 必须上提」，新增全站唯一源 `variables.css` 的 `table.tbl .seq-th / .seq-cell / .seq-num`（列宽**统一 46px**，删除 `Forecast.vue` 里 `42px` 陈旧副本三条）；`.cross-tbl` 的 `sticky` / `z-index` 冻结规则**保留在页面**（宽表特有，不上提，也不给只读清单）。④ **试点接入**：`InvPurchaseList.vue`（7→8 列）与 `InvSaleList.vue`（8→9 列）加序号列，取值 `offset + i + 1`（**跨页连续**，offset/limit 分页）；**只加序号、不加齿轮、不加 sticky**。⑤ **文档**：§2.6.1 六处同步（① 补居中、② 列宽改 46 并加唯一源 CSS 块、③ 菜单改 `fixed` ＋ 定位表、⑤ 现状改「试点已接入」、⑥ 偏差改「v401 已修」并说明 `spec`/`impl` 相位反转）；§7.3 自检行更新（扫描面加 `variables.css` ＋ 两页、D 类新增「菜单不得写死 `top:38px`」）；§7.5 补相位反转说明；§9 本行。⑥ **验收**：一致性自检 `v400-spec-colcfg-consistency.py` 改写后 **ALL PASS**（D4 拆两族：`.col-cfg` 仍只 Forecast；`.seq-th`/`.seq-cell`/`.seq-num` 唯一源 = `variables.css` 且只被两页复用；新增 **D6** 菜单定位契约 = `fixed` ＋ **剥注释后**不写死 `top:38px`/`left:0`，含反例自证 D6f）；真机探针 `v400-col-cfg-probe.mjs` **两相位互补**：`spec`（现在时）**53 PASS / 0 FAIL**、`impl`（v400 基线）**53 PASS / 2 FAIL**（恰红「齿轮未居中」「菜单遮盖齿轮」⇒ 相位反转成立、判据非恒真）；新增 **P7** 试点页断言（采购 8 列 / 销售 9 列：表头「序号」＋ `.seq-th` ＋ 46px ＋ 居中 ＋ 首行 = 1 ＋ **非 sticky** ＋ 零写入）全绿。部署 `dist-v401b` 增量覆盖（**不带 `--delete`**，回滚点 39 个与 `backups/` 完好），双侧 md5 一致。 |
+| v402 | 2026-10-08 | **序号列铺开至全站 ＋ 全局选择器扩 `seq-host` ＋ 抓出并修 scoped 同分覆盖**。① **铺开**：按「四、」判据给 **21 页 / 25 张清单表**加序号列 —— A 组标准 `table.tbl`（档案 6 页 / 库存查询 / 单据详情与新建 5 页 / 返利 3 表 / 货损工作流 / 算工资 / 定时任务 / 历史期次 / 报单配置），B 组非 `.tbl` 自定义表 5 张（`pc-tb`×2 / `pt-tbl` / `br-tbl` / `la-ml-tbl`）。取值按各页**真实分页方式**：`i + 1` ／ `offset + i + 1` ／ `(page - 1) * pageSize + i + 1` ／ `cpOffset + i + 1`。空态行 `colspan` 同步 +1（报单配置 9→10、商品价格 5→6、商品目标 10→11）。② **全局选择器扩 `seq-host`**：各页自定义表**不能改挂 `tbl` 类**（会与自身 `.xx-tbl td{padding:…}` 同分相撞、按源码顺序互相覆盖、破坏排版）⇒ 新增**无样式的中性标记类** ⇒ 选择器写 `table.tbl … , table.seq-host …`。③ 🔴 **真机探针抓出的真缺陷（首轮 FAIL 5 页）**：`.seq-th` 的 `text-align:center`（连 `padding`）**被页面 scoped 样式同分覆盖** —— Vue scoped 给 `.xx-tbl th{text-align:left;…}` 补 `[data-v-xxx]` ⇒ specificity 从 (0,1,1) **升到 (0,2,1)**，与原先的 `table.seq-host .seq-th` **(0,2,1) 同分**、而页面 CSS 后加载 ⇒ 后者胜（表头左对齐、列宽 50≠46）。**修法** = 选择器写成 `table.seq-host th.seq-th` / `td.seq-cell` ⇒ **(0,2,2)** 稳压 scoped 的 (0,2,1)，**与加载顺序无关**。④ **探针**：新增 `v402-seq-probe.mjs`（21 页逐个走生产：表头「序号」＋ `.seq-th` ＋ 46px ＋ 居中 ＋ 首行 = 1 ＋ 零写请求；无数据页报 **SKIP** 而非 FAIL，并打印页内表清单供人工确认）。⑤ **既有瑕疵（非本轮引入，取证留档）**：`POST /api/rebate-rules/simulate-batch` 是**纯试算不落库**，却**未登记**后端 `_READ_ONLY_POST`（名单里只有名字相近的 `/api/rebate-contracts/simulate`）⇒ 后端仍按 `create` 鉴权、`sales` 无 create 的角色会 403 ⇒ 探针把它排除但**显式报出条数**。⑥ **验收**：语法校验 21/21、隔离构建 `dist-v402b`、增量部署（**不带 `--delete`**，回滚点 41 个）、双侧 md5 一致；真机探针 **PASS 145 / FAIL 0 / SKIP 3**（SKIP = 无数据空态：返利无规则 / 工资未核算 / 货损未跑）。⑦ 有意不铺的 7 类页面见「五、C」（表单录入 / 诊断表 / 权限表 / 看板短表 / 弹窗明细 / 审计说明表）。 |

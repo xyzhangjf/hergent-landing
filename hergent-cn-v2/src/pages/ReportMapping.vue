@@ -142,12 +142,13 @@
       <table class="tbl">
         <thead>
           <tr>
-            <th>报单人</th><th>对象类型</th><th>对象全称</th><th>简称(列头)</th>
+            <th class="seq-th">序号</th><th>报单人</th><th>对象类型</th><th>对象全称</th><th>简称(列头)</th>
             <th>单型</th><th>取价渠道</th><th>仓库(调拨)</th><th>状态</th><th class="ops">操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="m in list" :key="m.id" :class="{ stopped: m.is_active === 0 }">
+          <tr v-for="(m, i) in list" :key="m.id" :class="{ stopped: m.is_active === 0 }">
+            <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
             <td>
               {{ m.person_name || m.employee_name || '—' }}
               <!-- v317：标出「这一行的报单人不是员工」。不标的话，同名的店与外部客户在
@@ -175,7 +176,7 @@
               <button v-else-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" @click="toggle(m.id, 1)">启用</button>
             </td>
           </tr>
-          <tr v-if="!list.length"><td colspan="9" class="empty">暂无报单配置，点「新建配置」或「Excel 批量导入」开始</td></tr>
+          <tr v-if="!list.length"><td colspan="10" class="empty">暂无报单配置，点「新建配置」或「Excel 批量导入」开始</td></tr>
         </tbody>
       </table>
     </div>

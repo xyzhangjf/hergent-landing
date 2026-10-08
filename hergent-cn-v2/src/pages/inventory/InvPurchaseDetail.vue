@@ -53,10 +53,11 @@
         <div class="table-wrap">
           <table class="tbl">
             <thead>
-              <tr><th>商品</th><th class="num">订购</th><th class="num">已到</th><th class="num">这次到货</th></tr>
+              <tr><th class="seq-th">序号</th><th>商品</th><th class="num">订购</th><th class="num">已到</th><th class="num">这次到货</th></tr>
             </thead>
             <tbody>
-              <tr v-for="g in recvGroups" :key="g.product_id">
+              <tr v-for="(g, i) in recvGroups" :key="g.product_id">
+                <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>{{ g.name }}</td>
                 <td class="num">{{ fmtQty(g.ordered) }}</td>
                 <td class="num">{{ fmtQty(g.received) }}</td>
@@ -83,6 +84,7 @@
           <table class="tbl">
             <thead>
               <tr>
+                <th class="seq-th">序号</th>
                 <th>商品</th>
                 <th class="num">数量</th>
                 <th>单位</th>
@@ -95,7 +97,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="it in items" :key="it.id">
+              <tr v-for="(it, i) in items" :key="it.id">
+                <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>{{ it.product_name || ('商品 ' + it.product_id) }}</td>
                 <td class="num">{{ fmtQty(it.quantity) }}</td>
                 <td>{{ it.unit || '—' }}</td>

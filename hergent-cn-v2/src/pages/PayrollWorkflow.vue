@@ -139,11 +139,12 @@
         <div v-if="result.results?.length" class="table-wrap">
           <table class="tbl">
             <thead><tr>
-              <th>员工</th><th class="num">基本工资</th><th class="num">提成</th><th class="num">绩效</th>
+              <th class="seq-th">序号</th><th>员工</th><th class="num">基本工资</th><th class="num">提成</th><th class="num">绩效</th>
               <th class="num">应发</th><th class="num">社保</th><th class="num">个税</th><th class="num">实发</th>
             </tr></thead>
             <tbody>
               <tr v-for="(r, i) in result.results" :key="r.employee_id || i">
+                <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>{{ r.employee_name }}</td>
                 <td class="num">¥{{ fmt(r.breakdown?.base_salary) }}</td>
                 <td class="num">¥{{ fmt(r.breakdown?.commission) }}</td>

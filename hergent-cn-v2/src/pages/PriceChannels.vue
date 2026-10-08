@@ -109,15 +109,16 @@
 
       <div v-if="cpLoading" class="pc-empty">正在加载客户专属价…</div>
       <template v-else-if="cpRows.length">
-        <table class="pc-tb">
+        <table class="pc-tb seq-host">
           <thead>
             <tr>
-              <th>客户</th><th>商品</th><th>规格</th>
+              <th class="seq-th">序号</th><th>客户</th><th>商品</th><th>规格</th>
               <th>小单位价</th><th>中单位价</th><th>大单位价</th><th>更新时间</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in cpRows" :key="r._k" :class="{ dirty: cpDirty[r._k] }">
+            <tr v-for="(r, i) in cpRows" :key="r._k" :class="{ dirty: cpDirty[r._k] }">
+              <td class="seq-cell"><span class="seq-num">{{ cpOffset + i + 1 }}</span></td>
               <td class="pc-name">
                 {{ r.customer_name || ('#' + r.customer_id) }}
                 <span v-if="r.customer_code" class="pc-spec">编码 {{ r.customer_code }}</span>
@@ -319,12 +320,13 @@
             价格是<b>「填了就覆盖」</b>（价格表每月会变，所以不是"只补空"）。留空不动已录的价；要清空就填 <b>0</b>。
           </div>
           <div v-if="mxLoading" class="pc-empty">正在加载商品…</div>
-          <table v-else class="pc-tb">
+          <table v-else class="pc-tb seq-host">
             <thead>
-              <tr><th>商品</th><th>条码</th><th>该渠道商品编码</th><th>该渠道价格</th><th>状态</th></tr>
+              <tr><th class="seq-th">序号</th><th>商品</th><th>条码</th><th>该渠道商品编码</th><th>该渠道价格</th><th>状态</th></tr>
             </thead>
             <tbody>
-              <tr v-for="r in mxRows" :key="r.id" :class="{ dirty: mxDirty[r.id] }">
+              <tr v-for="(r, i) in mxRows" :key="r.id" :class="{ dirty: mxDirty[r.id] }">
+                <td class="seq-cell"><span class="seq-num">{{ mxOffset + i + 1 }}</span></td>
                 <td class="pc-name">{{ r.name }}<span v-if="r.spec" class="pc-spec">规格 {{ r.spec }}</span></td>
                 <td class="pc-mono">{{ r.barcode || '—' }}</td>
                 <td><input v-model="mxEdit[r.id].external_code" class="pc-in" @input="touch(r.id)"/></td>
@@ -334,7 +336,7 @@
                   <span v-else class="pc-miss">未录</span>
                 </td>
               </tr>
-              <tr v-if="!mxRows.length"><td colspan="5" class="pc-empty">没有匹配的商品</td></tr>
+              <tr v-if="!mxRows.length"><td colspan="6" class="pc-empty">没有匹配的商品</td></tr>
             </tbody>
           </table>
           <div class="pc-pager">

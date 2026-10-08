@@ -44,12 +44,13 @@
         <table class="tbl">
           <thead>
             <tr>
-              <th>客户名称</th><th>业态</th><th>片区</th><th>配送线路</th><th>老板 / 电话</th>
+              <th class="seq-th">序号</th><th>客户名称</th><th>业态</th><th>片区</th><th>配送线路</th><th>老板 / 电话</th>
               <th>负责业务员</th><th class="num">应收余额</th><th>最近下单</th><th></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="c in items" :key="c.id">
+            <tr v-for="(c, i) in items" :key="c.id">
+              <td class="seq-cell"><span class="seq-num">{{ (page - 1) * pageSize + i + 1 }}</span></td>
               <td class="cas-name">{{ c.name }}</td>
               <td>{{ c.channel || '—' }}</td>
               <td>{{ c.region || '—' }}</td>

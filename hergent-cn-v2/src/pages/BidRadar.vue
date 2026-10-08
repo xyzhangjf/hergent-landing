@@ -98,9 +98,10 @@
       <p class="br-empty-t">{{ emptyText }}</p>
       <button v-if="f.region" class="br-btn br-empty-b" type="button" @click="showAllRegions">查看全部地区</button>
     </div>
-    <table v-else class="br-tbl">
+    <table v-else class="br-tbl seq-host">
       <thead>
         <tr>
+          <th class="seq-th">序号</th>
           <th class="c-date">发布日</th>
           <th class="c-type">类型</th>
           <th class="c-src">来源</th>
@@ -112,6 +113,7 @@
       </thead>
       <tbody>
         <tr v-for="(it, i) in items" :key="it.url">
+          <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
           <td class="c-date">{{ it.date }}</td>
           <td class="c-type"><span class="tag" :class="tagClass(it.type)">{{ it.type }}</span></td>
           <td class="c-src"><span class="src" :class="sourceTagClass(it.source)">{{ it.source_name }}</span></td>

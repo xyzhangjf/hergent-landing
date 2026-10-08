@@ -42,11 +42,12 @@
                    开户行 / 银行账号各只有 3 家、营业执照号 0 家、备注 3 家 ⇒ **不放**，
                    它们只在编辑弹窗里（放上去就是 35/38 行显示「—」的噪音列；
                    且银行账号是加密列，不该默认铺在列表上）。 -->
-              <th>供应商名称</th><th>供应商类别</th><th>对接人</th><th>电话</th><th></th>
+              <th class="seq-th">序号</th><th>供应商名称</th><th>供应商类别</th><th>对接人</th><th>电话</th><th></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="c in items" :key="c.id">
+            <tr v-for="(c, i) in items" :key="c.id">
+              <td class="seq-cell"><span class="seq-num">{{ (page - 1) * pageSize + i + 1 }}</span></td>
               <td class="sup-name">{{ c.name }}</td>
               <td>{{ c.supplier_category || '—' }}</td>
               <td>{{ c.contact_person || '—' }}</td>

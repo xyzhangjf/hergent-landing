@@ -67,9 +67,10 @@
         </div>
         <div v-if="!monthList.length" class="state-empty">这个区间还没有月份。</div>
         <div v-else class="la-ml-wrap">
-          <table class="la-ml-tbl">
+          <table class="la-ml-tbl seq-host">
             <thead>
               <tr>
+                <th class="seq-th">序号</th>
                 <th>月份</th>
                 <th class="num">货损净额</th>
                 <th class="num">货损净率</th>
@@ -83,6 +84,7 @@
             <tbody>
               <tr v-for="(m, i) in monthList" :key="m.period"
                   :class="{ 'la-ml-cur': m.period === period, 'la-ml-hid': m.hidden }">
+                <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td class="la-ml-m">
                   <b>{{ m.period }}</b>
                   <u v-if="m.period === period" class="la-ml-badge">当前</u>
