@@ -3213,3 +3213,58 @@ Q1 **A** 刷新在名称**左侧**（确认那个圆环就是刷新）｜Q2 **B*
   同批修掉 `tabTitles.js` 的自述错误（注释自称导出 `tabTitle`，实际在 `composables/useTabs.js`）。
 - ⚠️ **未动**：`CLAUDE.md`（自述"桌面版历史规范"、当前主产品入口是 `HANDOFF.md`）与
   `HANDOFF.md`（交接文档，**已落后 2 个月**）—— 留作「需确认事项」，不擅自改。
+
+---
+
+## v399 统一留白规范（2026-10-08）—— 以「本期预报」为基准，单据页对齐全宽
+
+🔴 **一句话**：**「大段留白」的唯一根因是页根多写了一个档位类，不是"很多地方都窄"。**
+`inventory/InventoryShell.vue:22` 的 `.page page-default` ⇒ 全局 `.page-default{max-width:1200px}`＋
+`.page{margin-inline:auto}` ⇒ **8 个子页全被压在 1200px 居中**。去掉档位，8 个子页**一个字没改**。
+
+**四层留白模型**（`UI-SPEC.md §3.1`，唯一权威仍是 `variables.css`）：
+
+| 层 | 载体 | 值 | 备注 |
+|---|---|---|---|
+| L0 | 侧栏 | `--sidebar-w:248px` | — |
+| L1 | `.view-wrap` | `padding:20px`（`≤768px` `14px 12px …`） | **页面留白"只有这一层"** |
+| L2 | `.page` | `margin-inline:auto`，**默认不设 max-width = 全宽** | 禁写 `max-width`/`margin:0 auto`/左右 `padding` |
+| L3 | `.card` | `padding:18px`（`--sp-5`） | — |
+
+**硬判据（可量化，不靠观感）**：
+- **占宽比 = 页面实际宽 ÷ 内容区可用宽**（`.view-wrap.clientWidth − 左右 padding`）。**<100% 即结构性留白**。
+- 🔴 **必须在 ≥1600 视口取**：1440 下 1200px 限宽只差 **8px**（量不出），1920 下差 **424px**。
+- 左右留白应**对称**（差 ≤8px 记为滚动条/亚像素）。
+- 探针 `.workbuddy/tools/v399-layout-gap-probe.mjs`：**相位感知**（`V399_EXPECT=before|after`，
+  两相位期望**相反** ⇒ 判据不可能恒真），含判别力自证 + 零写入审计。
+- 可视对照 `.workbuddy/tools/v399-layout-shot.mjs`：用**注入还原**旧规则（`.page{max-width:1200px}`）
+  在同一页截 A/B，**并自证注入生效**（还原后必须量到 1200/216，与改前基线逐项吻合）。
+
+**改动前后（@1920）**：
+
+| 页面 | 改前 | 改后 |
+|---|---|---|
+| 本期预报（基准） | `.page` / 100% / 0–0 | 不变 |
+| 进销存 8 页 | `.page.page-default` / 73.5% / **216–216** | `.page` / **100%** / **0–0** |
+| 舟谱导入 | `.zp-wrap`（**无 `.page`**）/ 960px / 58.8% / 336–336 | `.page zp-wrap` / **100%** / **0–0** |
+| 打印（**白名单**） | `.page-default` / 73.5% | **保持不变**（有意） |
+
+**白名单（`UI-SPEC.md §3.1` 登记，改一处登记一处）**：唯一使用者 = `Print.vue`（`.page-default` 1200px，
+纯阅读/设置型，卡片自身 720px 靠页容器居中）。`.page-reading`（900px）**当前无使用者**。
+
+🔴 **两条会复发的坑**：
+1. **"文档里的『当前无使用者』必须每次改动后回查"** —— `variables.css` 第 102–103 行与 366–369 行
+   两处注释都写「（当前未启用）/ 目前全站无页面启用」，而实况是 `Print.vue` 与当时的 `InventoryShell.vue`
+   **都在用**。假注释比没有注释更坏：下一轮的人会据此以为"档位是死代码"而删掉白名单那一个。
+2. **模板串禁裸反引号**（又踩一次）：探针 `MEASURE` 模板串内写了 `` `.page` `` ⇒ `"...is not a function`。
+
+**其他登记**：
+- **全站页面根容器普查（39 个 `.vue`）**：根为 `.page` 的 30 个（合规）；**限宽 2 个**（`Print.vue` 白名单 +
+  `InventoryShell.vue` 已修）；**非 `.page` 的只有 `Login.vue`**（全屏居中，独立，不适用本规范）。
+  ⚠️ `ForecastHistory.vue`（`.card.history-card`）与 `AiOps.vue`（`.aops`）**不是页面根** ——
+  分别嵌在 `Forecast.vue` 的 `history` 页签与 `Settings.vue` 里 ⇒ **不进本规范范围**（别误列）。
+- **内层业务容器**：进销存 8 个 `.inv-page` 全是 `display:block`、**零 max-width**（只有 640px 断点）⇒
+  容器改宽度即自动铺满。**这是"改一处而不是改八处"的结构前提。**
+- **容器宽度的两种合规形态**：**厚壳**（`InventoryShell` 自带 `.page`，子页只给页头与内容）vs
+  **薄壳**（`ArchiveShell` 全文件只有 `<router-view/>`，各 tab 页自带 `.page`）。
+  **判据 = "全模块给 `.page` 的地方恰好一处"**，而不是选了哪种壳（两处都给 = 嵌套叠加）。
