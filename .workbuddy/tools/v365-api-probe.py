@@ -92,6 +92,7 @@ U, P = creds()
 # 这两个日子是生产真实到货日（2026-10-09 ⇒ 报单日 10-05；10-13 ⇒ 报单日 10-09）
 D_REAL = "2026-10-09"
 D_NOISE = "2026-10-10"          # 不是到货日 ⇒ 不该影响任何期次
+D_EXIST = "2026-10-07"          # v368：生产期次#23 的到货日（测「已存在期次」的 skipped）
 R_MILK_LOW, R_MILK_FRESH = 10, 11
 
 sec("0. 登录 + 运行前快照（复原用）")
@@ -139,7 +140,7 @@ try:
     ok("2.5 起点：当前没有停单 ⇒ 无期次被排除（快照也确实是空）",
        all(not (v or "").strip() for v in SNAP.values()), SNAP)
 
-    sec("3. 反例：只停**一个**品牌 ⇒ 回执必须说「照建」并点名另一品牌")
+    sec("3. 只停**一个**品牌 ⇒ [v368 反转] 回执必须说「不再自动新建」并交代谁跟着停")
     st, r1 = put_skips(R_MILK_LOW, TOK, D_REAL)
     dd1 = r1.get("data") or {}
     af1 = dd1.get("affected_periods") or {}
@@ -151,14 +152,21 @@ try:
     a_hit = [x for x in (af1.get("affected") or []) if x.get("arrival_date") == D_REAL]
     ok("3.5 🔴 10-09 那一期被列进 affected（打中了）", len(a_hit) == 1, af1.get("affected"))
     p1 = a_hit[0] if a_hit else {}
-    ok("3.6 🔴🔴 但它的**最终结论** excluded=False —— 界面不能据此说「不再自动新建」",
-       p1.get("excluded") is False, (p1.get("excluded"), p1.get("reason")))
-    ok("3.7 并点名那天照常到货的品牌（蒙牛鲜奶）",
+    # 🔴🔴 v368 反转（老板拍板）：原判「全停才排除」⇒ 现「**任一品牌停 ⇒ 整期不建**」。
+    #     旧文（v365）：「excluded=False —— 界面不能据此说『不再自动新建』」—— 已失效，勿照抄。
+    ok("3.6 [v368 反转 v365] 🔴🔴 它的**最终结论** excluded=**True** —— 界面必须说"
+       "「不再自动新建」（任一品牌不到货 ⇒ 整期不建）",
+       p1.get("excluded") is True, (p1.get("excluded"), p1.get("reason")))
+    ok("3.7 并点名那天照常到货的品牌（蒙牛鲜奶）—— 判据变了，交代义务没变",
        "蒙牛鲜奶" in (p1.get("still_arriving") or []), p1.get("still_arriving"))
-    ok("3.8 reason 里写明「仍按期建表」", "仍按期建表" in (p1.get("reason") or ""), p1.get("reason"))
+    ok("3.7b 🆕 v368：`skipped_brands` 点名「是谁停的」（界面说「谁仍标记不到货」要靠它）",
+       "蒙牛低温" in (p1.get("skipped_brands") or []), p1.get("skipped_brands"))
+    ok("3.8 [v368 反转 v365] reason 里写明「不再自动新建期次」+「整期不建」",
+       "不再自动新建" in (p1.get("reason") or "") and "整期不建" in (p1.get("reason") or ""),
+       p1.get("reason"))
     ok("3.9 window=future（填报窗口 10-04 16:00 才开）", p1.get("window") == "future", p1.get("window"))
-    ok("3.10 excluded_count 回执 = 0（这一轮什么都没排除）",
-       int(af1.get("excluded_count") or 0) == 0, af1.get("excluded_count"))
+    ok("3.10 [v368 反转 v365] excluded_count 回执 = 1（只停一个品牌也会排除这一期）",
+       int(af1.get("excluded_count") or 0) == 1, af1.get("excluded_count"))
     st, r1b = put_skips(R_MILK_LOW, TOK, D_REAL + "," + D_NOISE)
     d1b = r1b.get("data") or {}
     ok("3.11 反向：10-10 不是到货日 ⇒ 不产生新的 affected 条目",
@@ -198,9 +206,11 @@ try:
     ok("5.1 DELETE 放行（200）", st == 200, st)
     ok("5.2 回执里 effect=restore（语义：这些期次会**恢复**）",
        a3 and a3[0].get("effect") == "restore", (a3 or [{}])[0].get("effect"))
-    ok("5.3 🔴🔴 取消鲜奶之后 excluded=**False**（低温仍停，但鲜奶恢复送货 ⇒ 部分停 ⇒ 照建）。"
-       "若按「取消前」算会得到 True ⇒ 界面说「不再自动新建」= 与后端结论相反",
-       a3 and a3[0].get("excluded") is False, (a3 or [{}])[0])
+    ok("5.3 [v368 反转 v365] 🔴🔴 取消鲜奶之后 excluded=**True** —— 低温仍停 ⇒ 任一品牌停就不建。"
+       "界面要说「仍不会自动新建」，说「会恢复」就是与后端结论相反",
+       a3 and a3[0].get("excluded") is True, (a3 or [{}])[0])
+    ok("5.3b 🆕 v368：`skipped_brands` 点名「还在停的是谁」（蒙牛低温）⇒ 界面才能说清楚",
+       a3 and a3[0].get("skipped_brands") == ["蒙牛低温"], (a3 or [{}])[0].get("skipped_brands"))
     ok("5.4 still_arriving 点名刚取消的那一家（蒙牛鲜奶）",
        a3 and a3[0].get("still_arriving") == ["蒙牛鲜奶"], (a3 or [{}])[0].get("still_arriving"))
     ok("5.5 回执 skip_dates_stored 已清空", (dd3.get("skip_dates_stored") or "") == "",
@@ -228,6 +238,55 @@ try:
     ok("6.2 未带 token 的 PUT 被拦（写路径没裸奔）", st in (401, 403), st)
     st, _ = req("GET", "/api/forecast/auto-period")
     ok("6.3 /api/forecast/auto-period 未带 token ⇒ 401/403", st in (401, 403), st)
+
+    sec("8. 🆕 v368：期次列表的 skipped（④「本期少了 N 期」）与一键作废端点（③）")
+    st, lp0 = req("GET", "/api/forecast/periods", TOK)
+    ok("8.1 GET /api/forecast/periods 返回 200 且带 skipped 键", st == 200 and "skipped" in lp0,
+       (st, list(lp0.keys())[:8]))
+    ok("8.2 🔴 无停单 ⇒ skipped 为空、skipped_dates 为空（不误报：不能把正常期次说成「货不来」）",
+       lp0.get("skipped") == [] and lp0.get("skipped_dates") == [],
+       (lp0.get("skipped"), lp0.get("skipped_dates")))
+    ok("8.3 既有字段一个没少（periods / current / open / open_stale / auto_reap_on）",
+       all(k in lp0 for k in ("periods", "current", "open", "open_stale", "auto_reap_on")),
+       list(lp0.keys()))
+    # 生产真实期次#23：报单日 2026-10-03 / 到货 2026-10-07 / status=open
+    # ⇒ 把 10-07 标记「不到货」，它就变成「本不该建」的那一期（v368③的受众）。
+    # 🔴 只写停单表（v364 的表）、不建期次 —— 建 open 期次会挡住自动建表（v354/355 死锁）。
+    st8, r8 = put_skips(R_MILK_LOW, TOK, D_EXIST)
+    ok("8.4 标记 10-07 不到货 ⇒ PUT 200", st8 == 200, st8)
+    st, lp1 = req("GET", "/api/forecast/periods", TOK)
+    sk1 = lp1.get("skipped") or []
+    hit23 = [s for s in sk1 if s.get("arrival_date") == D_EXIST]
+    ok("8.5 🔴 skipped 点名了已存在的那一期（④的数据来源）", bool(hit23), sk1)
+    ok("8.6 该项带 id / name / arrival_date / status 四件套（界面要显示 + 要作废）",
+       hit23 and all(k in hit23[0] for k in ("id", "name", "arrival_date", "status")),
+       (hit23 or [{}])[0])
+    ok("8.7 它是「还没作废」的 open 期次（界面据此才显示「一键作废」按钮）",
+       hit23 and hit23[0].get("status") == "open", (hit23 or [{}])[0].get("status"))
+    ok("8.8 skipped_dates 去重列出到货日（界面点名用）",
+       lp1.get("skipped_dates") == [D_EXIST], lp1.get("skipped_dates"))
+    st, ob1 = req("GET", "/api/forecast/order-board", TOK)
+    bd1 = ob1.get("board") or []
+    r23 = next((r for r in bd1 if str(r.get("arrival_date") or "") == D_EXIST), None)
+    ok("8.9 🔴 GET /order-board 行内 arrival_skipped=1（历史页据此显示「那天不到货」+ 按钮）",
+       r23 is not None and r23.get("arrival_skipped") == 1, r23 and r23.get("arrival_skipped"))
+    ok("8.10 未打中的期次 arrival_skipped=0（不是整表都标）",
+       all(int(r.get("arrival_skipped") or 0) == 0
+           for r in bd1 if str(r.get("arrival_date") or "") != D_EXIST))
+    # 🔴 void 端点存在性判据：404 的 detail 是我们自己写的「期次不存在或已删除」，
+    #    而 FastAPI 路由不存在时 detail 是 "Not Found" ⇒ 两者可区分 ⇒ 断言有判别力。
+    #    用 999999（必然不存在）⇒ 零副作用，不碰生产在用的期次。
+    st, vd = req("POST", "/api/forecast/periods/999999/void", TOK)
+    ok("8.11 🔴 作废端点**已注册**：POST /periods/999999/void ⇒ 404 且 detail 是我们那条"
+       "（若路由不存在，detail 会是 FastAPI 的 Not Found）",
+       st == 404 and "期次不存在" in str(vd.get("detail") or ""), (st, vd.get("detail")))
+    st, _ = req("POST", "/api/forecast/periods/999999/void")
+    ok("8.12 作废端点未带 token ⇒ 401/403（写路径没裸奔）", st in (401, 403), st)
+    # 复原：清掉这一节写的停单（finally 还会再兜一次）
+    del_skips(R_MILK_LOW, TOK)
+    st, lp2 = req("GET", "/api/forecast/periods", TOK)
+    ok("8.13 复原后 skipped 回到空（不留下脏数据）",
+       (lp2.get("skipped") or []) == [], lp2.get("skipped"))
 
 finally:
     sec("7. 复原（无论前面成败都执行）")
