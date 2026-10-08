@@ -3316,3 +3316,89 @@ Q1 **A** 刷新在名称**左侧**（确认那个圆环就是刷新）｜Q2 **B*
 **工具**：`v400-col-cfg-probe.mjs`（**两相位** `impl`=现况 36/0、`spec`=契约恰好红那 2 条 ⇒ 判据非恒真；
 三条反例自证：全表只有 1 个齿轮 / 齿轮内是 SVG 且 `textContent=''` / 清单无「序号」）、
 `v400-col-cfg-shot.mjs`（放大截图）、`v400-spec-colcfg-consistency.py`（A 类名/B 数值/C 机制/D 反例，ALL PASS）。
+
+---
+
+## v401 · 两处偏差已修 ＋ 序号列上提全局 ＋ 两试点页接入（2026-10-08 · ✅已上线）
+
+🔴 **v400 登记的两处偏差「已从规范相位翻转到实现相位」** —— 这正是 §2.6.1 偏差表的 `spec`/`impl`
+**相位反转**：改了实现，实现侧由红转绿，`spec` 由绿转红。
+
+### ① 齿轮居中 —— 单子元素 + `space-between` 的坑
+
+- **根因**：查看态齿轮包在 `.th-in`，而
+  `.th-in{display:flex;align-items:center;gap:5px;justify-content:space-between}`。
+  ⚠️ **表头单元格里只有一个子元素** ⇒ **`space-between` 对单子元素等价于 `flex-start`** ⇒ 齿轮被推到**左**边。
+  （**这是本轮最值得记的一条**：`justify-content:space-between` 在单子元素上**不居中、而是靠左**。）
+- **修法**：查看态补 `.th-in > .col-cfg{margin-inline:auto}`（`auto` 外边距吃掉剩余空间）。
+- **改单态本来就对**：那里的齿轮是 `<th class="th seq-th">` 的**直接子元素**，靠
+  `.seq-th{text-align:center}` 居中 ⇒ **不受影响**（所以只补查看态那一侧）。
+- **真机**：齿轮 cx=**307** / 序号 cx=**307** ⇒ **Δ=0px**（改前 303 vs 307）。
+
+### ② 菜单锚定齿轮 —— 坐标系错位 + 🔴 **必须配对限高**
+
+- **根因**：`.col-menu{position:absolute;top:38px;left:0}` 挂在**工具条** `.col-config-bar`
+  （`position:relative`）下，而齿轮实际长在**表头单元格**里 ⇒ **两者根本不在同一坐标系**。
+- **修法**：`position:fixed` + JS 按 `gear.getBoundingClientRect()` 算视口坐标；新增
+  `toggleColMenu` / `placeColMenu` / `colMenuGear` / `colMenuEl` / `colMenuStyle` /
+  `closeColMenuOnViewportChange` + `watch(showColMenu,…)` + `onMounted`/`onBeforeUnmount` 成对注册。
+  **滚动/改窗口直接收起**：挂 `window` 且用**捕获阶段** `addEventListener('scroll', …, true)`
+  ⇒ **一个监听同时覆盖**页面滚动与表格内部 `.table-wrap` 的滚动（✅ 已验：全站 `.page`/`.view-wrap`/`.content`
+  稳态**无 `transform`/`filter`/`perspective`** ⇒ `position:fixed` 参照系安全）。
+- 🔴 **本轮最贵的新发现**：**光「越界就移位」是不够的，必须配 `max-height` 限高**。
+  首版 `dist-v401` 真机探针当场抓出 **52 PASS / 1 FAIL**（`menu.t=529 < gear.b=545`、覆盖齿轮=true）。
+  根因：本期预报列清单实测高 **543px**，而齿轮下方只剩 ~520px、上方 ~511px
+  ⇒ **上翻与贴底都放不下**，落到「贴底」分支照样压住齿轮。
+  **「移位不配限高，契约在几何上无解。」**
+- **修法**：`placeColMenu` 先算 `spaceBelow = vh - pad - (r.bottom + gap)` /
+  `spaceAbove = r.top - gap - pad`，取**更大一侧**（优先下方）作为 `maxHeight`
+  （另加 `Math.max(160, …)` 保底）；`top = useBelow ? r.bottom + gap : Math.max(pad, r.top - gap - maxH)`。
+- **结果**：`dist-v401b` **53 PASS / 0 FAIL**（`menu.t=551 > gear.b=545`、`Δl=0`、高 **543→521**）。
+
+### ③ 序号列上提全局（§8.4 判据触发）
+
+- **判据**：§8.4「同一选择器定义出现 **≥3 次**（逐字相同）⇒ 必须上提」。序号列供
+  Forecast + 两试点页 = **3 处** ⇒ 触发。
+- `variables.css` 新增 **`table.tbl .seq-th` / `.seq-cell` / `.seq-num`**（基样式：列宽 46 / 居中 /
+  灰字 / 等宽数字）；⚠️ **横向冻结不在这份规则里**（需要的宽表如 `.cross-tbl` 各页自补 `sticky`）。
+- **列宽统一 46px**：权威源 = `<colgroup>` 的 `colW('seq')` = `COL_DEFAULTS.seq = 46`；
+  原 `42px` 是**不参与布局的陈旧值**（该表 `table-layout:fixed`，宽度由 `<colgroup>` 决定）⇒ 统一 46 并删副本。
+- Forecast 里所有用 `seq-cell`/`seq-th`/`seq-num` 的 `<table>` **全部带 `.tbl` 类** ⇒ `table.tbl .seq-*` 全覆盖。
+  `Forecast.vue` 删三条 scoped 副本，保留 `.cross-tbl` 冻结三条（sticky 各页自补）。
+
+### ④ 两试点页接入（进销存采购 / 销售列表）
+
+| 页 | 文件 | 列数 | 序号写法 |
+|---|---|---|---|
+| 采购单列表 | `inventory/InvPurchaseList.vue` | 7→**8** | `offset + i + 1` |
+| 销售单列表 | `inventory/InvSaleList.vue` | 8→**9** | `offset + i + 1` |
+
+🔴 **两页是 `offset/limit=50` 分页 ⇒ 序号必须 `offset + i + 1`（跨页连续），不是 `i + 1`。**
+**分页表的序号是「全局行号」，不是「本页行号」** —— 这是接入 §2.6.1 时**最容易错的一处**。
+不加齿轮（当前列集合固定）、不加 sticky（不需要横向冻结）。
+
+### ⑤ 验收（四道全绿）
+
+- 三份一致性自检 `--strict` 全绿：`v395-spec-shell-consistency.py` / `v396-spec-tabbar-consistency.py` /
+  **`v400-spec-colcfg-consistency.py` ALL PASS**（含 **D5/D6f 两条反例自证**：混入
+  `.col-menu{position:absolute;top:38px;left:0}` ⇒ D6b/D6c 必转 FAIL）。
+- 真机探针 **`spec` 相位 53 PASS / 0 FAIL**；**`impl` 相位 53 PASS / 2 FAIL**
+  （恰红「齿轮未居中」「菜单遮盖齿轮」）⇒ **相位反转成立、判据非恒真**。
+- 真机数据：采购页 `thCount=8`/`numCount=50`、销售页 `thCount=9`/`numCount=100`；两页
+  `th0Text="序号"`、`cellPos=static`（非 sticky）、`nums=["1","2","3"]`、**零写请求**；
+  `col0=46px` vs `col1=210px`（**判别力对照**：不是所有列都 46）。
+- 部署：留回滚点 `index.html.bak-v401-pre-20261008-153145`、**绝不 `--delete`**、
+  assets **3679→3723**（并集）、**双侧 md5 完全一致**。
+
+### ⑥ 两条新纪律
+
+- 🔴 **「移位」必须与「限高」配对**：`position:fixed` 浮层要真正「不遮挡触发按钮」，
+  只有「越界就移位」是**不够的** —— 两侧空间都不足时**必须靠 `max-height` 压进去**。
+  判据 = `menu.top > gear.bottom`，且**要用真实数据量跑**（列少了根本量不出问题）。
+- 🔴 **相位反转是「判据非恒真」的证据**：`spec`/`impl` 两相位在修好后应当**恰好互补**
+  （`spec` 全绿 / `impl` 恰红那几条）。**别只跑一侧** —— 只跑一侧无法证明判据有判别力。
+
+**工具**：`v400-spec-colcfg-consistency.py`（v401 扩：B 类删三条假绿判据改验 `position:fixed`、
+单列加「序号列宽上提全局」、D4 拆 `[D4a]`/`[D4b]`/`[D4c]` 三族、新增 `[D6]` 菜单定位契约 6 条含反例）、
+`v400-col-cfg-probe.mjs`（v401 改：默认相位 `impl`→`spec`、新增 `MEASURE_LIST` + `P7` 段跑两试点页、
+P5 三条断言改写含「菜单位置由 inline style 给」）。
