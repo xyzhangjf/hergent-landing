@@ -219,6 +219,12 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 > 🔴 `.main-tabs` / `.main-tab` 是**全站唯一一份**。页面自造 Tab 会导致视觉逐轮漂移
 > （2026-09-22 实测：商品档案自造的 `pa-tabs/pa-tab` 全仓零 CSS 定义）。
 
+> ⚠️ **用途已收窄（v396）**：本节的页内 Tab 现在**只用于「同一个弹窗 / 同一张表单内部的分区」**
+> （参照实现：`ProductArchive.vue` 编辑弹窗的 4 个表单分区）。
+> **「模块有哪些子页」不再用页内 Tab** —— 改由 **§3.5 全局标签栏** 承载
+> （`/rebate`、`/loss-accounting`、`/print`、`/archive`、`/inventory` 的页内页签条已于 v396 **退役**）。
+> 判据一句话：**是"表单分区"就用本节；是"模块导航"就用 §3.5。**
+
 ### 2.6 表格与数据件
 
 `.table-wrap` + `table.tbl`（表头 `--bg2`、13px、`--t3`）、`.tbl .num`（右对齐等宽数字）、
@@ -333,6 +339,120 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 > ⚠️ 已知欠账：`.sb-pop` 的 `z-index:30` 仍是**字面量**，未走 §1.7 的浮层档令牌。
 > 侧栏是全局常驻层、与其它浮层不冲突，故暂缓；一旦出现遮挡问题，先建令牌再改。
 
+### 3.5 全局标签栏（v396）
+
+**形态来源**：竞品舟谱（截图库 `/Users/zhangjunfeng/Documents/舟谱截图/` 的 `舟谱导航标签截图.png`）。
+OCR + 像素实测：标签栏的 4 个标签 = 侧栏弹窗「商品相关」列的**前 4 个条目**、顺序一致
+⇒ **点一个开一个、累积**；标签形态 = `⟳ 名称 ×`；**激活标签白底（亮度 255）、其余灰底（228）**。
+（2026-10-06 的老截图同位置为空 ⇒ 存在**无标签态**。）
+
+> 🔴 **两种语义，别混**（本节存在的根本原因）：
+>
+> | 语义 | 形态 | 回答的问题 | v396 后 |
+> |---|---|---|---|
+> | **模块内页签**（`.main-tabs`） | 页面内固定一条 | 「**这个模块有哪些页**」 | **已退役**（仅编辑弹窗的表单分区页签保留，见 §2.5） |
+> | **打开历史标签栏**（`.tabbar`） | 内容区顶部常驻 | 「**我打开过哪些页**」 | **新立**，模块导航改走这条 |
+>
+> 混用会让同一屏同时出现「固定 5 个页签」+「累积 8 个标签」，用户分不清哪个是"全部"。
+
+> ⚠️ **当前唯一的过渡态：`/forecast`（预报主表）** —— 它的**页内页签条本轮未退役**
+> （`EXPLODED_PATHS` 刻意不含它）⇒ 该页**同时**有「固定页签条」与「全局标签栏」。
+> 这是**已知暂留**、不是设计意图；后续统一时按 §3.5 的退役三步走
+> （`Forecast.vue` 的 `TAB_KEYS` = `summary/history/config/target` **已在 `SUB_TITLES` 登记好标题** ⇒ 只差入口与抽屉两步）。
+
+**DOM 契约**（`components/TabBar.vue`，**逐字取自源码**，两层：条 → 项）：
+
+```html
+<div v-if="tabs.length" class="tabbar">
+  <div class="tb-strip" ref="stripEl">
+    <button v-for="t in tabs" :key="t.key" type="button" class="tab-item"
+            :class="{ on: t.key === activeKey }" :title="t.title" @click="go(t)">
+      <span class="tab-ic tab-refresh" role="button" @click.stop="refresh(t)"><Icon name="refresh" :size="12" /></span>
+      <span class="tab-title">{{ t.title }}</span>
+      <span class="tab-ic tab-close" role="button" @click.stop="close(t)"><Icon name="close" :size="12" /></span>
+    </button>
+  </div>
+  <div v-if="hidden.length" class="tab-more">
+    <button type="button" class="tab-more-btn"><span>更多</span><span class="tab-more-n">{{ hidden.length }}</span></button>
+    <div v-if="moreOpen" class="tab-more-menu">…</div>
+  </div>
+  <div v-if="moreOpen" class="tab-more-mask" @click="moreOpen = false"></div>
+</div>
+```
+
+> 🔴 **`.tb-strip` 是「全集渲染 + `overflow:hidden` 裁剪」**：`v-for` 渲染**全部**标签（不是只渲染可见的 n 个）
+> —— 被裁的元素仍有布局宽度，`offsetWidth` 才读得到 ⇒ **这是测量的前提**。
+> 被裁的索引由 `measure()` 算出（逐个累加 `offsetWidth + GAP`），列进右侧「更多」。
+
+| 类 | 作用 | 关键值（逐字） |
+|---|---|---|
+| `.tabbar` | 条体 | `display:flex;align-items:center;gap:6px;padding:6px 20px`、`background:var(--bg2)`、`border-bottom:1px solid var(--border-subtle)`、`flex-shrink:0`、`position:relative`、`z-index:6` |
+| `.tb-strip` | 标签容器 | `flex:1;min-width:0;display:flex;gap:4px;overflow:hidden` |
+| `.tab-item` | 单个标签（`<button>`） | `height:28px`、`padding:0 7px 0 5px`、圆角 8px、12.5px、**`max-width:200px`**；`.on` = `background:var(--bg)` ＋ `--shadow-sm` ＋ `font-weight:600` ＋ `border-color:var(--border-subtle)` |
+| `.tab-ic` | 刷新 / 关闭小钮（`16×16`）；两个**语义变体** = `.tab-refresh` / `.tab-close` | `border-radius:5px`、`color:var(--t3)`；hover ⇒ `--p-bg` 底 + `--p-dark` 字 |
+| `.tab-item.on .tab-refresh` | 激活标签的刷新钮 | `color:var(--p-dark)` |
+| `.tab-item.on .tab-close` | 激活标签的关闭钮 | `color:var(--t3)` |
+| `.tab-title` | 标题 | `overflow:hidden;text-overflow:ellipsis;white-space:nowrap` |
+| `.tab-more` / `.tab-more-btn` | 溢出入口 | `position:relative`；按钮高 28px、圆角 8px、`gap:5px` |
+| `.tab-more-n` | **隐藏数量角标** | `min-width:16px;height:16px`、`--p-bg` 底 + `--p-dark` 字、11px/600 |
+| `.tab-more-menu` | 溢出**下拉本体** | `position:absolute;top:34px;right:0;min-width:180px;max-height:320px;overflow-y:auto`、`z-index:40` |
+| `.tab-more-mask` | 点外部收起 | `position:fixed;inset:0;z-index:30` |
+
+**六条硬规则**：
+
+1. **点一个开一个、累积**（不是"切页"）—— 标签 = 打开历史；同 `path` 同 `query` 视为同一个，**不重复开**。
+2. **⟳ 刷新在名称左侧**、`×` 关闭在右侧。刷新语义**两分**：**当前标签** ⇒ 刷新计数 +1、组件重建；
+   **非当前标签** ⇒ 先切过去（切换本身即重建）⇒ 不需要额外刷新手势。
+3. **关掉当前标签去左邻**；**关尽最后一个 ⇒ 回首页**（`/workbench`，并立刻开出「经营工作台」标签）。
+4. **上限 18**，超出淘汰**最久未激活**的（`at` 最小者），**永不淘汰当前标签**。
+5. **内存态**：浏览器刷新 / 重登只还原**当前那一个**（由路由推出），**不落 localStorage** ⇒ 登出时 `resetTabs()`。
+6. **手机端（≤768px）不出标签栏**（`display:none`），维持底部栏 + 抽屉；`@media print` 同样隐藏。
+
+**布局约束 —— 内容区必须两层**（否则标签栏会跟着页面一起滚走）：
+
+```css
+.content{flex:1;min-width:0;display:flex;flex-direction:column;overflow:visible;background:var(--bg)}
+.view-wrap{flex:1;min-height:0;overflow-y:auto;padding:20px}
+```
+
+> 🔴 `.content` 用 `overflow:visible` 而**不是** `hidden`：`.tab-more-menu` 是绝对定位的溢出下拉，
+> `overflow:hidden` 会把它**裁掉**（下拉永远看不见）。溢出兜底由既有的 `.body{overflow:hidden}` 负责。
+> 🔴 `<component :key="viewKey">` 的 `viewKey` **只含刷新计数、不含 `route.fullPath`** ——
+> 含 `fullPath` 会让「页内切 `?tab=`」把整页组件重建、数据一起重拉（`Forecast.vue` 6000+ 行）。
+> 跨 `path` 切换时组件类型本身就变了 ⇒ Vue 自然重建，无需 `key` 参与。
+
+**标签标题：四层回落**（唯一源 = `constants/tabTitles.js` 的 `SUB_TITLES`）：
+
+```
+SUB_TITLES[path][query.tab] → SUB_TITLES[path]._default → PAGE_RULES[path].title → meta.title / pageTitle
+```
+
+> 🔴 **`pageTitle` 必须排在 `PAGE_RULES[path]` 精确命中之后**：`pageTitle` 走 `ruleFor`（**逐级去尾**）
+> ⇒ `/inventory/purchase` 会继承 `/inventory` 的「进销存」，导致**三个子页标签同名**。
+> 这是 v396 探针抓出的**真缺陷**（原实现直接用 `pageTitle`，采购单/销售单/库存查询全叫「进销存」）。
+
+**URL 归一**：`/rebate` ≡ `/rebate?tab=dashboard` —— `openTab` 按 `DEFAULT_SUB_KEY[path]` 注入默认子页，
+侧栏高亮改用 `effTab(path, tab)` 比较 ⇒ 否则会开出**两条同名标签**且侧栏当前项不亮。
+
+**退役纪律**（「模块内页签退役」的必需配套，缺任一环就把用户关在门外）：
+
+| 缺了哪一环 | 后果 |
+|---|---|
+| 侧栏入口未升级（仍是直达项） | 子页**再也点不到** |
+| 手机抽屉未摊平（`EXPLODED_PATHS`） | 手机端标签栏不出 ⇒ 子页**在手机上永久失联** |
+| 只删模板、留下 `TABS`/`goTab` **死代码** | 下一轮改的人以为它还在生效 |
+
+> 参照实现：`/rebate`「目标与返利」由**直达项升级为职能区**（两组共六条）；`/loss-accounting` 补「货损填报」。
+> ⚠️ `.main-tabs` **并没有全站消失** —— `ProductArchive.vue` 编辑弹窗的 4 个表单分区页签**保留**
+> （那是**表单分区**，语义仍属 §2.5 的页内 Tab，不是模块导航）。
+
+**验收**：真机探针 `.workbuddy/tools/v396-tabbar-probe.mjs`（13 相位，生产实测 **PASS 50 / FAIL 0**）。
+判据必须含：点一开一**累积**、关尽**回首页**、`≤768px display:none`、溢出「更多」**真的渲染出行**、零写请求。
+> ⚠️ 探针自身两个坑（都出过**假红**）：**别硬编码标签索引**（按标题找）、**别硬编码标签条数期望**（以上一步实测值为基线）。
+
+**静态一致性自检**（改了本节或 `TabBar.vue` 后必跑，防规范与实现脱节）：
+`.workbuddy/tools/v396-spec-tabbar-consistency.py --strict` —— A 类名 / B 数值 / C 机制 / D 反例禁令，当前 **ALL PASS**。
+
 ---
 
 ## 4. 交互与状态
@@ -429,6 +549,42 @@ docs/UI-SPEC.md            本文件
 2. 是否新增了全局类？→ 同步更新本文件 §2。
 3. 是否修改了既有选择器？→ 列出受影响页面（全局层是共享的）。
 4. 页面上是否有同名字面量值？→ 一并替换为令牌。
+
+### 7.3 文档 ↔ 源码「标识符」审计（v396 补）
+
+§7.1 管的是「**模板** vs **样式**」；这条管「**文档** vs **源码**」——
+规范里的 DOM 契约、类名、常量名是**给人照抄的**，写错一个字，下一轮的人就抄错一个字。
+
+**血泪例子**：v396 写本节 §3.5 的 DOM 契约时**凭印象**写了 `.tab-more-pop`，
+而源码里是 **`.tab-more-menu`**（连带 `.tab-more-btn` / `.tab-more-n` / `max-width:200px` 也一并漏了）。
+文档看上去"挺完整"，但按它抄**一定抄不出东西**。
+
+```python
+# 脚本：.workbuddy/tools/v396-spec-tabbar-consistency.py（§3.5 ↔ TabBar/Shell/useTabs/tabTitles）
+# 抽文档里引用的类名（.xxx）− 抽 src/**/*.{vue,css,js} 里出现的类名 ⇒ 差集必须为空
+# 再塞一个不存在的类名做**反例**，证明这套判据确实有判别力（否则恒真）
+```
+
+**已有的两份一致性自检**（改完规范/实现后跑，`--strict` 有 FAIL 即 exit 1）：
+
+| 脚本 | 管什么 |
+|---|---|
+| `.workbuddy/tools/v395-spec-shell-consistency.py` | §3.4 侧栏浮层面板 ↔ `Shell.vue` |
+| `.workbuddy/tools/v396-spec-tabbar-consistency.py` | §3.5 全局标签栏 ↔ `TabBar.vue` / `Shell.vue` / `useTabs.js` / `tabTitles.js`（A 类名 ／ B 数值 ／ C 机制 ／ D 反例禁令） |
+
+> ⚠️ **判据自身两个坑**（v396 首版 13 项假红，只有 1 项是真缺陷）：
+> ① **规范侧的期望串不要带反引号** —— 文档里多个值常合写在一个反引号对内
+> （`` `display:flex;align-items:center;gap:6px;padding:6px 20px` ``），要求「独立反引号对」会假红 10 项；
+> ② **反例禁令必须跑在剥掉注释的源码上** —— `pageTitle(path)`、`main-tabs` 都在**注释**里出现，
+> 裸 `in` 判断会被注释满足 ⇒ 判据恒真/恒假。
+
+> 🔴 **扫描范围必须含 `src/styles/*.css`**：只扫 `components/*.vue` 会**假报缺失**
+> （`.tab-pane` 定义在 `variables.css:594`）—— 同「搜不到先排除搜错了范围」。
+> ⚠️ 文档里的**通配写法**（`.sb-pop-*`）会让正则抓出伪影 ⇒ 正则须排除 `*` 与词内连字符。
+
+**同样适用于**：常量名（`MAX_TABS` / `EXPLODED_PATHS` / `SUB_TITLES`）、
+函数名（`effTab` / `showInDrawer` / `evictOldest`）、以及**引用的具体数值**（上限 18、`max-height:320px`）。
+**引用了什么，就逐字 grep 一次** —— 这是「判别串逐字取自源码」在**文档侧**的对称要求。
 
 ---
 
@@ -529,3 +685,4 @@ docs/UI-SPEC.md            本文件
 | v367 | 2026-10-02 | §1.6 新增**页面特型阴影例外清单**；§1.7 新增 **§1.7.1 页面级浮层档**（11 档令牌 ＋ 全局层/页面层分界 ＋ 迁移纪律）。配套代码：`Forecast.vue` 18 处 z-index 字面量 → 令牌、`.spark-th` 补居中、`.btn-retry` 补危险底（新令牌 `--danger-solid`）、`App.vue` 错误类补 `role="alert"`。⚠️ 本文件该次补档**当时未提交**，2026-10-07 并行会话停止后补提交。 |
 | v392 | 2026-10-07 | 新增 **§8 业务模块范式（参考实现：进销存）**：容器+三件套、前缀分配、词表唯一源、`.tag` 徽标纪律、`fmtMoney` 唯一实现、复用件清单与**重复件欠账表**；修正 §3.2 示例**误用页面私有类 `pa-actions`**（规范示例自己违反 §6.3）；新增「同一选择器出现 ≥3 次即须上提」判据。 |
 | v395 | 2026-10-08 | 新增 **§3.4 侧栏一级项浮层面板（横向分列）**：分组 = 列、列宽自适应、列标题置顶+分隔线、`maxWidth` 防溢出、移动端维持纵向、**读图必须走 OCR 不许转述**、同页多入口三环节连锁（`navTo.q` / `isCur` 逐键比 / `key` 带 `q`）与「入口必须真筛选」纪律、几何判据 + 反例自证的验收法；并登记 `.sb-pop` 的 `z-index` 未令牌化这一欠账。配套代码：`Shell.vue`（模板 + `.sb-pop-*` CSS + `_placePop`）、销售/采购列表与新建页读 URL 预置、新增 `pages/Print.vue`（打印列占位）。 |
+| v396 | 2026-10-08 | 新增 **§3.5 全局标签栏**：两种语义辨析（模块内页签 =「这个模块有哪些页」vs 标签栏 =「我打开过哪些页」）、DOM 契约与类表、六条硬规则（点一开一累积／⟳ 在名称左／关尽回首页／上限 18 淘汰最久未激活／内存态不落 localStorage／手机端不出）、内容区两层与 `overflow:visible` 的必要性、`:key` 只含刷新计数、**标签标题四层回落**（`pageTitle` 逐级去尾 ⇒ 三个子页同名，探针抓出的真缺陷）、URL 归一 `effTab`、**退役纪律三条**；并修订 **§2.5 页内 Tab 用途收窄**（只用于弹窗内的表单分区）。配套代码：新增 `components/TabBar.vue` / `composables/useTabs.js` / `constants/tabTitles.js`；改 `Shell.vue`（内容区两层 + NAV 升级为职能区 + 手机抽屉 `EXPLODED_PATHS`）与 5 个页面（`inventory/InventoryShell` / `Archive` / `Print` / `Rebate` / `LossAccounting`）退役页签条。同批新增 **§7.3 文档↔源码「标识符」审计** 与**静态一致性自检**（`v396-spec-tabbar-consistency.py`：A 类名 / B 数值 / C 机制 / D 反例禁令，ALL PASS）；登记 **`/forecast` 为唯一过渡态**（页内页签暂留，勿照抄）。验收探针 `v396-tabbar-probe.mjs` 生产实测 50/50。 |

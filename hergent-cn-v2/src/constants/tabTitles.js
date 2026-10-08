@@ -13,7 +13,8 @@
                             经 `pageTitle(path)` 读。**那里是权威，本文件不重复登记。**
      · 子页标题（按 tab） → 本文件。键 = `path`，值 = `{ tabKey: '中文名', _default: '…' }`。
 
-   取标题的唯一入口是 `tabTitle(path, query)`（本文件导出）—— 调用方**不要**自己
+   取标题的唯一入口是 `tabTitle(path, query, metaTitle)` —— **实现在 `composables/useTabs.js`**
+   （本文件只供数据，不定义函数）—— 调用方**不要**自己
    先查 `SUB_TITLES` 再回落 `pageTitle`，那样"回落顺序"就会出现第二份实现。
 
    🔴 `_default` 的含义：该 path **不带 `tab` 参数**时落在哪个子页 ——
