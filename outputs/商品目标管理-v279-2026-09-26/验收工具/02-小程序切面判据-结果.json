@@ -1,0 +1,242 @@
+[
+ {
+  "id": "D18a",
+  "ok": true,
+  "msg": "1556 行渲染出均单提示且单位=行内单位",
+  "detail": "\"均单目标 600 提\""
+ },
+ {
+  "id": "D18b",
+  "ok": true,
+  "msg": "avgNum 与后端 per_unit[行内单位] 同源",
+  "detail": "600 vs per_unit[提]=600"
+ },
+ {
+  "id": "D18c",
+  "ok": true,
+  "msg": "规格行与提示里的单位是同一个字符串",
+  "detail": "规格=\"8 · 提\" 提示=\"均单目标 600 提\""
+ },
+ {
+  "id": "D18d",
+  "ok": true,
+  "msg": "字号小于商品名且非加粗（不抢眼）",
+  "detail": "prod-avg 22rpx < prod-name 30rpx"
+ },
+ {
+  "id": "D18e",
+  "ok": true,
+  "msg": "浅青底 + 青字（与品牌色同族）",
+  "detail": ".prod-avg{display:inline-block;margin-top:6rpx;padding:2rpx 10rpx;border-radius:8rpx; background:#ecfeff;color:#0891b2;font-size:22rpx;line-height:1.5}"
+ },
+ {
+  "id": "D18f",
+  "ok": true,
+  "msg": "本期 154 行里只有设了目标的 1 行出提示",
+  "detail": "出提示行数=1"
+ },
+ {
+  "id": "D19a",
+  "ok": true,
+  "msg": "no_target 行 avgText 一律空串（不是「均单目标 0」）",
+  "detail": "异常行数=0"
+ },
+ {
+  "id": "D19b",
+  "ok": true,
+  "msg": "直调真实 _avgText/_avgNum：no_target ⇒ 空串/0，且不含「无法计算」",
+  "detail": "\"\""
+ },
+ {
+  "id": "D19c",
+  "ok": true,
+  "msg": "只带 no_convert（即使 per_unit 有值）⇒ 一样不出提示：缺换算就不给数",
+  "detail": "avgNum=0"
+ },
+ {
+  "id": "D19d",
+  "ok": true,
+  "msg": "只带 no_window（剩余期次 0）⇒ 同样不出提示",
+  "detail": "avgNum=0"
+ },
+ {
+  "id": "D19e",
+  "ok": true,
+  "msg": "唯一例外：done（本期已达标）给**准确结论**而不是留空",
+  "detail": "本期已达标"
+ },
+ {
+  "id": "D20a",
+  "ok": true,
+  "msg": "沙箱样本确实是「报单单位 ≠ 档案小单位」",
+  "detail": "order_unit=提 / 档案=袋"
+ },
+ {
+  "id": "D20b",
+  "ok": true,
+  "msg": "后端 per_unit 里有「提」这个键（兜底分支被真实触发）",
+  "detail": "keys=箱/袋/提"
+ },
+ {
+  "id": "D20c",
+  "ok": true,
+  "msg": "兜底键的值由同一权威换算算出（75箱 × 8 = 600），不是另一条公式",
+  "detail": "600 = 75 × 8"
+ },
+ {
+  "id": "D20d",
+  "ok": true,
+  "msg": "真实 _avgNum/_avgText 用行内单位「提」取到值",
+  "detail": "均单目标 600 提"
+ },
+ {
+  "id": "D20e",
+  "ok": true,
+  "msg": "反例：缺「提」键 ⇒ 提示整行消失（静默失效，正是要防的）",
+  "detail": "无键时 avgNum=0"
+ },
+ {
+  "id": "D20f",
+  "ok": true,
+  "msg": "对照：同数据用「袋」也取得到；unit 为空一律 0（不猜单位）",
+  "detail": "袋=600"
+ },
+ {
+  "id": "D21a",
+  "ok": true,
+  "msg": "_lowList() 用 cart[].id 命中、单位取 cart[].unit（与 _avgNums 同源）",
+  "detail": "[{\"name\":\"0蔗糖5连包 +3到货\",\"unit\":\"提\",\"qty\":5,\"target\":600}]"
+ },
+ {
+  "id": "D21b",
+  "ok": true,
+  "msg": "先弹「有 1 个商品低于均单目标」",
+  "detail": "有 1 个商品低于均单目标"
+ },
+ {
+  "id": "D21c",
+  "ok": true,
+  "msg": "明细行 = 「商品名 已填 / 均单 N 单位」",
+  "detail": "\"0蔗糖5连包 +3到货 5 / 均单 600 提\""
+ },
+ {
+  "id": "D21d",
+  "ok": true,
+  "msg": "按钮文案 = 继续提交 / 返回修改",
+  "detail": "继续提交 | 返回修改"
+ },
+ {
+  "id": "D21e",
+  "ok": true,
+  "msg": "点「返回修改」⇒ 不提交、已填数量一项不动、不进 submitting 态",
+  "detail": "modal 次数=1 cart=5"
+ },
+ {
+  "id": "D21f",
+  "ok": true,
+  "msg": "点「继续提交」⇒ 继续走原有提交确认（顺序正确）",
+  "detail": "[\"有 1 个商品低于均单目标\",\"确认提交预报？\"]"
+ },
+ {
+  "id": "D21g",
+  "ok": true,
+  "msg": "在「确认提交预报？」处取消 ⇒ 依然不落库（不因为提醒过就放行）",
+  "detail": "submitting=undefined"
+ },
+ {
+  "id": "D21h",
+  "ok": true,
+  "msg": "cart 项的 unit 取自商品行 p.unit（与 applyAvgToRows 同一字段）⇒ 比对是同源的",
+  "detail": "setQty 写 cart + _syncRow 改 cart 两处均用 p.unit"
+ },
+ {
+  "id": "D21i",
+  "ok": true,
+  "msg": "从「上次报单」带入时也用 it.unit（快照里存的就是行单位），三处同源",
+  "detail": ""
+ },
+ {
+  "id": "D22a",
+  "ok": true,
+  "msg": "qty == target ⇒ 不在 low 列表（严格 q < t）",
+  "detail": ""
+ },
+ {
+  "id": "D22b",
+  "ok": true,
+  "msg": "不弹均单提醒，直奔原有提交确认",
+  "detail": "[\"确认提交预报？\"]"
+ },
+ {
+  "id": "D22c",
+  "ok": true,
+  "msg": "边界：599 提醒 / 601 不提醒",
+  "detail": "1 / 0"
+ },
+ {
+  "id": "D22d",
+  "ok": true,
+  "msg": "没填数量（0）不算低于目标（否则每单都弹）",
+  "detail": "0"
+ },
+ {
+  "id": "D23a",
+  "ok": true,
+  "msg": "期次 18 已出提示",
+  "detail": ""
+ },
+ {
+  "id": "D23b",
+  "ok": true,
+  "msg": "期次 19：_avgMapPid(18) ≠ curPid(19) ⇒ 一行都不贴（零报错的错贴被挡住）",
+  "detail": "贴出=0 setData次数=0"
+ },
+ {
+  "id": "D23c",
+  "ok": true,
+  "msg": "反例对照：键对上一次就贴 1 行 ⇒ 证明 D23b 的 0 是校验生效、不是\"没数据\"",
+  "detail": "伪造pid后贴出=1"
+ },
+ {
+  "id": "D23d",
+  "ok": true,
+  "msg": "切回 18 提示恢复",
+  "detail": ""
+ },
+ {
+  "id": "D23e",
+  "ok": true,
+  "msg": "同期次二次调用 loadAvgTargets 直接短路（不重复打接口）",
+  "detail": "_avgPid=18"
+ },
+ {
+  "id": "D24a",
+  "ok": true,
+  "msg": "avg-target 失败时 loadAvgTargets **不抛**（提示失败不阻断页面）",
+  "detail": "no throw"
+ },
+ {
+  "id": "D24b",
+  "ok": true,
+  "msg": "只是没有提示（不弹错、不打卡 loading）",
+  "detail": ""
+ },
+ {
+  "id": "D24c",
+  "ok": true,
+  "msg": "失败不记缓存 ⇒ 下次进页/切期次可重试",
+  "detail": "_avgPid=\"\""
+ },
+ {
+  "id": "D24d",
+  "ok": true,
+  "msg": "报单与提交完全正常（无均单数据时直接走提交确认）",
+  "detail": "[\"确认提交预报？\"]"
+ },
+ {
+  "id": "D24e",
+  "ok": true,
+  "msg": "全程无 toast 报错",
+  "detail": "[]"
+ }
+]

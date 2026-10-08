@@ -1,0 +1,151 @@
+# 验收原始输出（2026-09-26 · 生产样板 + 库清理）
+
+> 逐字摘自当轮实际输出，未加工。脚本见 `../验收工具/`。
+
+## 01 · 写入（真实接口）
+
+```
+改前 avg-target: {"1556": {"unit":"包","achieved":0.0,   "flags":{"no_target":true}},
+                  "1494": {"unit":"瓶","achieved":280.0, "flags":{"no_target":true}},
+                  "1596": {"unit":"组","achieved":32.5,  "flags":{"no_convert":true,"unit_mismatch":true,"no_target":true}}}
+改前 行数键: {'cnt_products':471,'cnt_product_targets':0,'cnt_product_target_alloc':0,
+             'cnt_forecast_extra_alloc':0,'cnt_forecast_import_products':924,
+             'cnt_sale_order_items':142858,'cnt_sale_orders':22505,
+             'cnt_product_change_logs':466,'cnt_imp19':0}
+
+阶段 1 · 在线备份
+   /opt/hergent-erp/backups/2026-09-26/erp.db.bak-v279f-sample-20260926-194216        17100800 B
+   /opt/hergent-erp/backups/2026-09-26/tenant_1.db.bak-v279f-sample-20260926-194216   31539200 B
+
+阶段 2 · 真实接口写
+   令牌已注入（sessions 列：token,user_id,created_at,expires_at,ip_address,user_agent_hash,last_activity）uid=2
+   W1 PUT products/1596                -> 200 {"success": true}
+   W2 POST product-targets pid=1556    -> 200 {"ok":true,"id":1,"period_month":"2026-09","product_id":1556,
+                                              "names":["张俊峰","刘善涛","刘小顶"],
+                                              "arrival_dates":["2026-09-01","2026-09-03",…],"effective_count":15}
+   W2 POST product-targets pid=1494    -> 200 {"ok":true,"id":2,…}
+   W3 POST periods/17/seed             -> 200 {"success":true,"added":154,"skipped":0,"before":0,"after":154,
+                                              "src_name":"2026-09-23 报单期次"}
+   令牌残留 = 0
+```
+
+## 02 · 验收（修正读取方式后，21/22）
+
+```
+A. 1596 换算（改后 vs 备份=改前）
+   改前: {"id":1596,"spec":"24","unit":"瓶","order_unit":"组","medium_unit":"","medium_ratio":0.0,
+          "large_unit":"","large_ratio":0.0,"updated_at":"2026-09-15 23:03:54"}
+   改后: {"id":1596,"spec":"24","unit":"瓶","order_unit":"组","medium_unit":"组","medium_ratio":4.0,
+          "large_unit":"件","large_ratio":24.0,"updated_at":"2026-09-26 19:42:17"}
+   PASS 1596.medium_unit / medium_ratio / large_unit / large_ratio
+   PASS 1596.unit 未动 / order_unit 未动 / spec 未动
+
+B. 目标与分配
+   (1,'2026-09',1556,'0蔗糖5连包 +3到货',150.0,'箱',15,'active','boss')
+   (2,'2026-09',1494,'蒙牛酸牛奶红枣预制瓶450g*15瓶',400.0,'箱',15,'active','boss')
+   alloc (1,7,'张俊峰',40.0,60.0) (1,6,'刘善涛',30.0,45.0) (1,4,'刘小顶',30.0,45.0)
+   alloc (2,7,'张俊峰',40.0,160.0)(2,6,'刘善涛',30.0,120.0)(2,4,'刘小顶',30.0,120.0)
+   PASS 目标行数=2 / created_by={'boss'} / 分配行数=6 / Σratio=100.0
+
+C. 期次19 清单
+   PASS 期次19 清单行数=154 / 期次18 仍为 0 / 期次17 未动 154
+   PASS 清单总行数 924 → 1078 / origin='seeded' 行 = 154
+
+D. 「不该变的」逐表对照（备份 vs 现网）
+   行数有差异的表: [('products_fts_data',27,28), ('products_fts_idx',25,26),
+                    ('product_change_logs',466,470), ('forecast_config',25,26),
+                    ('forecast_import_products',924,1078),
+                    ('product_targets',0,2), ('product_target_alloc',0,6)]
+   → 后 3 张 = 本轮预期；前 4 张 = 连锁（留痕 / 审计 / FTS 索引），已逐条查清（见 10-连锁变化归因.py）
+
+E. 读端（真接口）
+   fill-search p19 total = 154
+   id=1556 unit='包' achieved=0.0   avg=75.0 per_unit={"箱":75.0,"包":600.0}  flags={}
+   id=1494 unit='瓶' achieved=280.0 avg=60.0 per_unit={"件":60.0,"瓶":900.0}  flags={}
+   id=1596 unit='组' achieved=32.5  avg=None per_unit=null flags={'unit_mismatch':True,'no_target':True}
+   PASS 1596 无 no_convert / 仍有 unit_mismatch
+   extra-alloc?period_id=19 -> 200
+
+F. 1596 品牌与到货规则
+   (1204,'蒙牛现代牧场0乳糖软牛奶185ml*24瓶','蒙牛鲜奶','瓶','',   '件',24.0)
+   (1596,'现代牧场0乳糖软牛奶185ml+2到货（分开单独下单）','蒙牛鲜奶','瓶','组','件',24.0)
+   (1556,'0蔗糖5连包 +3到货','蒙牛低温','包','包','箱',8.0)
+   (1494,'蒙牛酸牛奶红枣预制瓶450g*15瓶','蒙牛低温','瓶','','件',15.0)
+   到货规则(dimension=brand): [('简爱',1), ('蒙牛低温',1)]        ← 没有「蒙牛鲜奶」
+   蒙牛鲜奶 商品数=37（其中在本期清单 27）｜蒙牛低温 在本期清单 73
+   product_change_logs: 466 → 470
+```
+
+## 03 · 写入的完整审计痕迹（`forecast_config`）
+
+```
+{'kind':'audit:19','payload':'[{"at":"2026-09-26T19:42:17.371810","by":"张俊峰","action":"period_seed",
+ "detail":"「2026-09-23 报单期次」→「2026-09-27 报单期次」｜新增 154 个商品（不含报单数量 / 加单 / 定稿）",
+ "ref_id":""}]','updated_at':'2026-09-26T19:42:17.371890'}
+```
+
+## 04 · 商品档案留痕（`product_change_logs`）
+
+```
+{id:470, product_id:1596, user_name:'张俊峰', action:'update', field:'medium_ratio', old:'0.0', new:'4',  at:'2026-09-26 19:42:17'}
+{id:469, product_id:1596, user_name:'张俊峰', action:'update', field:'medium_unit',  old:'',    new:'组', at:'2026-09-26 19:42:17'}
+{id:468, product_id:1596, user_name:'张俊峰', action:'update', field:'large_ratio',  old:'0.0', new:'24', at:'2026-09-26 19:42:17'}
+{id:467, product_id:1596, user_name:'张俊峰', action:'update', field:'large_unit',   old:'',    new:'件', at:'2026-09-26 19:42:17'}
+```
+
+## 05 · 清理前取证
+
+```
+/opt/hergent-erp/tenant_9.db          2125824 B  09-26 00:16  md5=82be69ddf0a24544
+/opt/hergent-erp/tenant_9.db-shm        32768 B  09-26 19:43
+/opt/hergent-erp/tenant_9.db-wal            0 B  09-26 19:32
+/opt/hergent-erp/db/tenant_1.db             0 B  09-24 16:43  md5=d41d8cd98f00b204
+
+tenant_9.db：表数 = 360，非空表 = [products_fts_data(2), products_fts_config(1),
+             contacts_fts_data(2), contacts_fts_config(1), role_permissions(1)]
+             全库业务行数合计 = 7      ← 无任何业务数据
+             role_permissions 行: [(1,'supervisor','["data","dashboard"]','2026-09-17 15:42:34')]
+db/tenant_1.db：大小 0，表数 0
+```
+
+## 06 · 清理与重启验证
+
+```
+备份: tenant_9.db.bak-v279f-orphan-20260926-194412  2125824 B  tables=361
+      db-tenant_1.db.bak-v279f-shell-20260926-194412  0 B
+删除: tenant_9.db / -wal / -shm / db/tenant_1.db   → 全部 removed
+残留: 无
+tenants: [(1,'测试企业A'),(10,'张记乳品（演示）')]    tenant_id=9 成员行: 0
+现役 tenant_*.db: ['/opt/hergent-erp/tenant_1.db','/opt/hergent-erp/tenant_10.db']
+
+重启后:
+   is-active: active      health=200
+   journalctl 中 "tenant-scan" 出现次数 = 0        ← 此前每次启动一条「跳过 1 个疑似租户库文件」
+   journalctl 中 "跳过"        出现次数 = 0
+   [hermes_tenants] 保活拉起网关 tenant=1 → {'ok':True,'state':'running'}   （预期行为）
+```
+
+## 07 · 自动建期次的日志（清单为空的成因链）
+
+```
+Sep 22 16:30  [Scheduler] auto_period: 已创建期次#17 (2026-09-22~2026-09-23, 到货 2026-09-27)      ← 无「沿用」段（v273 之前）
+Sep 23 10:03  [Scheduler] auto_period: 已关闭期次#17 (报单日 2026-09-23)
+Sep 24 16:05  [Scheduler] auto_period: 已创建期次#18 (2026-09-24~2026-09-25, 到货 2026-09-29)      ← 无「沿用」段（v273 之前）
+Sep 25 10:04  [Scheduler] auto_period: 已关闭期次#18 (报单日 2026-09-25)
+Sep 26 16:02  [Scheduler] auto_period: 已创建期次#19 (2026-09-26~2026-09-27, 到货 2026-10-01)，
+              沿用上一期「2026-09-25 报单期次」0 个商品                                          ← v273 执行了，但复制到 0 行
+```
+
+## 08 · 自我纠错：FTS 误判的复核
+
+```
+products_fts DDL: CREATE VIRTUAL TABLE products_fts USING fts5(
+    name, spec, barcode, brand, category, alias, pinyin, pinyin_first, product_id UNINDEXED)
+   ⇒ 商品 id 在 product_id 列，**不在 rowid**；按 rowid 查必然 miss。
+
+按正确列名复核:
+   含 1556/1494/1596 的 FTS 行: [(1494,'蒙牛酸牛奶红枣预制瓶450g*15瓶'),
+                                 (1556,'0蔗糖5连包 +3到货'),
+                                 (1596,'现代牧场0乳糖软牛奶185ml+2到货（分开单独下单）')]
+   FTS 覆盖商品数 = 471   products 行数 = 471     ⇒ 无缺陷
+```

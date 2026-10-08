@@ -1,0 +1,676 @@
+[DB] SQLite engine — /opt/hergent-erp/erp.db
+{
+ "_import": "ok",
+ "perms_table_tenant1": {
+  "admin": [
+   "*"
+  ],
+  "boss": [
+   "dashboard",
+   "ops-workbench",
+   "data",
+   "sales",
+   "buying",
+   "stock",
+   "accounts",
+   "crm",
+   "marketing",
+   "hr",
+   "payroll",
+   "projects",
+   "perf",
+   "goals",
+   "reports",
+   "chat",
+   "tasks"
+  ],
+  "accountant": [
+   "dashboard",
+   "accounts",
+   "reports",
+   "marketing",
+   "chat"
+  ],
+  "sales": [
+   "dashboard",
+   "ops-workbench",
+   "sales",
+   "buying",
+   "stock",
+   "crm",
+   "data",
+   "chat"
+  ],
+  "guide": [
+   "dashboard",
+   "ops-workbench",
+   "sales",
+   "buying",
+   "stock",
+   "crm",
+   "chat"
+  ],
+  "driver": [
+   "dashboard",
+   "stock",
+   "chat"
+  ],
+  "staff": [
+   "data",
+   "chat",
+   "stock"
+  ],
+  "supervisor": [
+   "data",
+   "dashboard",
+   "chat"
+  ],
+  "库管": [
+   "dashboard",
+   "stock",
+   "data",
+   "chat"
+  ]
+ },
+ "perms_table_tenant1_keys": [
+  "accountant",
+  "admin",
+  "boss",
+  "driver",
+  "guide",
+  "sales",
+  "staff",
+  "supervisor",
+  "库管"
+ ],
+ "matrix": {
+  "admin": {
+   "modules_from_user_modules": [
+    "*"
+   ],
+   "read_ok": [
+    "dashboard",
+    "ops-workbench",
+    "data",
+    "sales",
+    "buying",
+    "stock",
+    "accounts",
+    "crm",
+    "marketing",
+    "hr",
+    "payroll",
+    "projects",
+    "reports",
+    "chat",
+    "tasks",
+    "settings"
+   ],
+   "read_denied": [],
+   "check_mod_not_in_map": true,
+   "is_admin_style": true
+  },
+  "boss": {
+   "modules_from_user_modules": [
+    "dashboard",
+    "ops-workbench",
+    "data",
+    "sales",
+    "buying",
+    "stock",
+    "accounts",
+    "crm",
+    "marketing",
+    "hr",
+    "payroll",
+    "projects",
+    "perf",
+    "goals",
+    "reports",
+    "chat",
+    "tasks"
+   ],
+   "read_ok": [
+    "dashboard",
+    "ops-workbench",
+    "data",
+    "sales",
+    "buying",
+    "stock",
+    "accounts",
+    "crm",
+    "marketing",
+    "hr",
+    "payroll",
+    "projects",
+    "reports",
+    "chat",
+    "tasks"
+   ],
+   "read_denied": [
+    "settings"
+   ],
+   "check_mod_not_in_map": false,
+   "is_admin_style": false
+  },
+  "accountant": {
+   "modules_from_user_modules": [
+    "dashboard",
+    "accounts",
+    "reports",
+    "marketing",
+    "chat"
+   ],
+   "read_ok": [
+    "dashboard",
+    "accounts",
+    "marketing",
+    "reports",
+    "chat"
+   ],
+   "read_denied": [
+    "ops-workbench",
+    "data",
+    "sales",
+    "buying",
+    "stock",
+    "crm",
+    "hr",
+    "payroll",
+    "projects",
+    "tasks",
+    "settings"
+   ],
+   "check_mod_not_in_map": false,
+   "is_admin_style": false
+  },
+  "sales": {
+   "modules_from_user_modules": [
+    "dashboard",
+    "ops-workbench",
+    "sales",
+    "buying",
+    "stock",
+    "crm",
+    "data",
+    "chat"
+   ],
+   "read_ok": [
+    "dashboard",
+    "ops-workbench",
+    "data",
+    "sales",
+    "buying",
+    "stock",
+    "crm",
+    "chat"
+   ],
+   "read_denied": [
+    "accounts",
+    "marketing",
+    "hr",
+    "payroll",
+    "projects",
+    "reports",
+    "tasks",
+    "settings"
+   ],
+   "check_mod_not_in_map": false,
+   "is_admin_style": false
+  },
+  "guide": {
+   "modules_from_user_modules": [
+    "dashboard",
+    "ops-workbench",
+    "sales",
+    "buying",
+    "stock",
+    "crm",
+    "chat"
+   ],
+   "read_ok": [
+    "dashboard",
+    "ops-workbench",
+    "sales",
+    "buying",
+    "stock",
+    "crm",
+    "chat"
+   ],
+   "read_denied": [
+    "data",
+    "accounts",
+    "marketing",
+    "hr",
+    "payroll",
+    "projects",
+    "reports",
+    "tasks",
+    "settings"
+   ],
+   "check_mod_not_in_map": false,
+   "is_admin_style": false
+  },
+  "driver": {
+   "modules_from_user_modules": [
+    "dashboard",
+    "stock",
+    "chat"
+   ],
+   "read_ok": [
+    "dashboard",
+    "stock",
+    "chat"
+   ],
+   "read_denied": [
+    "ops-workbench",
+    "data",
+    "sales",
+    "buying",
+    "accounts",
+    "crm",
+    "marketing",
+    "hr",
+    "payroll",
+    "projects",
+    "reports",
+    "tasks",
+    "settings"
+   ],
+   "check_mod_not_in_map": false,
+   "is_admin_style": false
+  },
+  "staff": {
+   "modules_from_user_modules": [
+    "data",
+    "chat",
+    "stock"
+   ],
+   "read_ok": [
+    "data",
+    "stock",
+    "chat"
+   ],
+   "read_denied": [
+    "dashboard",
+    "ops-workbench",
+    "sales",
+    "buying",
+    "accounts",
+    "crm",
+    "marketing",
+    "hr",
+    "payroll",
+    "projects",
+    "reports",
+    "tasks",
+    "settings"
+   ],
+   "check_mod_not_in_map": false,
+   "is_admin_style": false
+  },
+  "supervisor": {
+   "modules_from_user_modules": [
+    "data",
+    "dashboard",
+    "chat"
+   ],
+   "read_ok": [
+    "dashboard",
+    "data",
+    "chat"
+   ],
+   "read_denied": [
+    "ops-workbench",
+    "sales",
+    "buying",
+    "stock",
+    "accounts",
+    "crm",
+    "marketing",
+    "hr",
+    "payroll",
+    "projects",
+    "reports",
+    "tasks",
+    "settings"
+   ],
+   "check_mod_not_in_map": false,
+   "is_admin_style": false
+  }
+ },
+ "_PATH_MODULE_MAP_count": 301,
+ "staff_allowed_prefixes": [
+  "/api/active-sessions -> data",
+  "/api/addresses -> data",
+  "/api/admin -> data",
+  "/api/ai -> chat",
+  "/api/ai/skills -> chat",
+  "/api/announcements -> data",
+  "/api/api-stats -> data",
+  "/api/approval-delegates -> data",
+  "/api/approval-steps -> data",
+  "/api/approval-workflows -> data",
+  "/api/archive-approvals -> data",
+  "/api/archive-old -> data",
+  "/api/archive-relations -> data",
+  "/api/assembly -> stock",
+  "/api/atp -> stock",
+  "/api/attachments -> data",
+  "/api/audit -> data",
+  "/api/auto-rules -> data",
+  "/api/barcode -> stock",
+  "/api/batch -> stock",
+  "/api/batch-archive -> data",
+  "/api/batch-delete -> data",
+  "/api/batch-operation -> stock",
+  "/api/batch-trace -> stock",
+  "/api/bid-radar -> data",
+  "/api/brands -> data",
+  "/api/bundles -> data",
+  "/api/catalog-health -> stock",
+  "/api/chat -> chat",
+  "/api/chat-attachment -> chat",
+  "/api/check-duplicate -> data",
+  "/api/combo-rules -> data",
+  "/api/comments -> data",
+  "/api/commission-rules -> data",
+  "/api/competitor-info -> data",
+  "/api/consignment -> stock",
+  "/api/contact-persons -> data",
+  "/api/contacts -> data",
+  "/api/correct -> chat",
+  "/api/cost-anomaly -> stock",
+  "/api/credit-schemes -> data",
+  "/api/cron -> data",
+  "/api/custom-fields -> data",
+  "/api/datasources -> data",
+  "/api/departments -> data",
+  "/api/display-checks -> data",
+  "/api/doc-templates -> data",
+  "/api/documents -> data",
+  "/api/duplicates -> data",
+  "/api/export -> data",
+  "/api/favorites -> data",
+  "/api/fefo -> stock",
+  "/api/field-permissions -> data",
+  "/api/forecast -> data",
+  "/api/forecast-audit -> stock",
+  "/api/forecast-submissions -> data",
+  "/api/gdpr -> data",
+  "/api/import -> data",
+  "/api/import-template -> data",
+  "/api/inventory -> stock",
+  "/api/last-prices -> data",
+  "/api/login-logs -> data",
+  "/api/loss -> stock",
+  "/api/meeting -> data",
+  "/api/memory -> data",
+  "/api/merge -> data",
+  "/api/merge-contacts -> data",
+  "/api/merge-products -> data",
+  "/api/near-expiry -> stock",
+  "/api/notification-prefs -> data",
+  "/api/notifications -> data",
+  "/api/numbering-rules -> data",
+  "/api/ocr -> data",
+  "/api/params -> data",
+  "/api/pick-list -> stock",
+  "/api/pick-waves -> stock",
+  "/api/price-channels -> data",
+  "/api/product-attributes -> data",
+  "/api/product-barcodes -> data",
+  "/api/product-categories -> data",
+  "/api/product-suppliers -> data",
+  "/api/product-targets -> data",
+  "/api/product-templates -> data",
+  "/api/product-variants -> data",
+  "/api/products -> data",
+  "/api/qc -> stock",
+  "/api/related-products -> data",
+  "/api/report-mappings -> data",
+  "/api/route-optimizer -> stock",
+  "/api/safety-stock -> stock",
+  "/api/saved-filters -> data",
+  "/api/scheduled-tasks -> data",
+  "/api/search -> data",
+  "/api/shipping-methods -> stock",
+  "/api/signatures -> data",
+  "/api/skills -> data",
+  "/api/snapshots -> data",
+  "/api/stock-freezes -> stock",
+  "/api/stock-locks -> stock",
+  "/api/stock-take -> stock",
+  "/api/store-tiers -> data",
+  "/api/subcontract -> stock",
+  "/api/substitutes -> data",
+  "/api/supplier-price-comparison -> data",
+  "/api/tags -> data",
+  "/api/trace-batch -> stock",
+  "/api/transfer -> stock",
+  "/api/unit-archive -> data",
+  "/api/unit-conversions -> stock",
+  "/api/users -> data",
+  "/api/validation-rules -> data",
+  "/api/variants -> data",
+  "/api/vehicle-load -> stock",
+  "/api/vehicle-return -> stock",
+  "/api/vehicle-sales -> stock",
+  "/api/vehicle-stock -> stock",
+  "/api/vehicles -> stock",
+  "/api/warehouses -> stock",
+  "/api/wastage -> stock",
+  "/api/wms -> stock",
+  "/api/workflows -> data",
+  "/api/zhoupu-forms -> data"
+ ],
+ "staff_allowed_count": 122,
+ "staff_denied_count": 179,
+ "audit_logs_liu": [
+  {
+   "id": 1275,
+   "user_name": "13871706296",
+   "action": "修改密码",
+   "module": "auth",
+   "ref_id": "999900",
+   "detail": "",
+   "created_at": "2026-09-27 11:34:46"
+  },
+  {
+   "id": 1274,
+   "user_name": "13871706296",
+   "action": "登录成功 (IP: 27.27.120.118)",
+   "module": "auth",
+   "ref_id": "999900",
+   "detail": "",
+   "created_at": "2026-09-27 11:34:28"
+  },
+  {
+   "id": 1272,
+   "user_name": "boss",
+   "action": "修改角色 999900 -> staff",
+   "module": "auth",
+   "ref_id": "999900",
+   "detail": "",
+   "created_at": "2026-09-27 11:31:23"
+  },
+  {
+   "id": 1265,
+   "user_name": "boss",
+   "action": "修改登录账号 999900: liushantao → 13871706296（手机号随账号同步）",
+   "module": "auth",
+   "ref_id": "999900",
+   "detail": "",
+   "created_at": "2026-09-27 09:12:33"
+  }
+ ],
+ "sessions_all_for_999900": [
+  {
+   "n": 0,
+   "first": null,
+   "last": null
+  }
+ ],
+ "sessions_columns": [
+  "token",
+  "user_id",
+  "created_at",
+  "expires_at",
+  "ip_address",
+  "user_agent_hash",
+  "last_activity"
+ ],
+ "audit_logs_columns": [
+  "id",
+  "user_name",
+  "action",
+  "module",
+  "ref_id",
+  "detail",
+  "created_at",
+  "prev_hash",
+  "current_hash"
+ ],
+ "audit_recent_auth": [
+  {
+   "user_name": "boss",
+   "action": "登录成功 (IP: 27.27.120.118)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 11:37:46"
+  },
+  {
+   "user_name": "13871706296",
+   "action": "登出",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 11:37:41"
+  },
+  {
+   "user_name": "13871706296",
+   "action": "修改密码",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 11:34:46"
+  },
+  {
+   "user_name": "13871706296",
+   "action": "登录成功 (IP: 27.27.120.118)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 11:34:28"
+  },
+  {
+   "user_name": "boss",
+   "action": "登出",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 11:33:46"
+  },
+  {
+   "user_name": "boss",
+   "action": "修改角色 999900 -> staff",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 11:31:23"
+  },
+  {
+   "user_name": "boss",
+   "action": "登录成功 (IP: 27.27.120.118)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 11:30:16"
+  },
+  {
+   "user_name": "boss",
+   "action": "登出",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 11:11:31"
+  },
+  {
+   "user_name": "mptestsp",
+   "action": "登录成功 (IP: 27.27.120.118)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 11:00:54"
+  },
+  {
+   "user_name": "boss",
+   "action": "登录成功 (IP: 27.27.120.118)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 10:40:11"
+  },
+  {
+   "user_name": "boss",
+   "action": "登出",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 09:52:20"
+  },
+  {
+   "user_name": "boss",
+   "action": "登出",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 09:52:20"
+  },
+  {
+   "user_name": "boss",
+   "action": "修改登录账号 999900: liushantao → 13871706296（手机号随账号同步）",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 09:12:33"
+  },
+  {
+   "user_name": "boss",
+   "action": "登录成功 (IP: 27.27.120.118)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 08:42:35"
+  },
+  {
+   "user_name": "boss",
+   "action": "登录成功 (IP: 27.27.120.118)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 08:39:44"
+  },
+  {
+   "user_name": "boss",
+   "action": "登录成功 (IP: 27.27.120.118)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-27 08:33:03"
+  },
+  {
+   "user_name": "boss",
+   "action": "登出",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-26 21:48:20"
+  },
+  {
+   "user_name": "mptestsp",
+   "action": "登录成功 (IP: 127.0.0.1)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-26 21:27:07"
+  },
+  {
+   "user_name": "mptest",
+   "action": "登录成功 (IP: 127.0.0.1)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-26 21:27:07"
+  },
+  {
+   "user_name": "mptestsp",
+   "action": "登录成功 (IP: 127.0.0.1)",
+   "module": "auth",
+   "detail": "",
+   "created_at": "2026-09-26 21:24:27"
+  }
+ ]
+}

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v385 交付说明 · 新建员工 / 选角色 / 开账号 一屏一次完成</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --t1:#1f2328; --t2:#57606a; --t3:#8b949e;
+    --bd:#e3e6ea; --ok:#137333; --okbg:#e8f5ec; --bad:#b42318; --badbg:#fdecea;
+    --warn:#9a6700; --warnbg:#fff8e5; --teal:#0d7d7a; --tealbg:#e6f4f3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#16181d; --card:#1e2128; --t1:#e6e8eb; --t2:#a9b0b8; --t3:#7d848d;
+      --bd:#2c3038; --ok:#5cc27e; --okbg:#17291d; --bad:#f0837a; --badbg:#2c1a18;
+      --warn:#e0b64d; --warnbg:#2b2416; --teal:#4fd1c5; --tealbg:#14292a;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);
+       font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;padding:36px 22px 64px}
+  h1{font-size:23px;margin:0 0 6px;letter-spacing:.2px}
+  .sub{color:var(--t2);font-size:13.5px;margin-bottom:26px}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;
+        padding:18px 20px;margin:0 0 16px}
+  h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  h2 .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;
+        border-radius:6px;background:var(--tealbg);color:var(--teal);font-size:12.5px;font-weight:700}
+  p{margin:0 0 10px}
+  ul{margin:0 0 10px;padding-left:20px}
+  li{margin:5px 0}
+  code{background:rgba(127,127,127,.13);padding:1.5px 5px;border-radius:5px;
+       font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:6px 0 12px}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:rgba(127,127,127,.07);font-weight:600;color:var(--t2);font-size:13px}
+  .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;font-weight:600}
+  .ok{background:var(--okbg);color:var(--ok)}
+  .bad{background:var(--badbg);color:var(--bad)}
+  .warn{background:var(--warnbg);color:var(--warn)}
+  .teal{background:var(--tealbg);color:var(--teal)}
+  .lead{border-left:3px solid var(--teal);background:var(--tealbg);
+        padding:12px 16px;border-radius:0 10px 10px 0;margin:0 0 18px}
+  .lead b{color:var(--teal)}
+  .muted{color:var(--t2);font-size:13.5px}
+  .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 14px}
+  .kpi div{flex:1 1 150px;background:var(--bg);border:1px solid var(--bd);
+           border-radius:10px;padding:10px 12px}
+  .kpi .v{font-size:20px;font-weight:700;letter-spacing:.3px}
+  .kpi .k{font-size:12px;color:var(--t2);margin-top:2px}
+  .flow{font-size:13.5px;color:var(--t2);line-height:2.1}
+  .flow em{font-style:normal;color:var(--bad);font-weight:600}
+  .shot{width:100%;border:1px solid var(--bd);border-radius:10px;display:block;margin:6px 0 4px}
+  .cap{font-size:12.5px;color:var(--t3);margin:0 0 16px}
+  .ba{display:flex;gap:14px;flex-wrap:wrap}
+  .ba>div{flex:1 1 300px;min-width:260px}
+  .ba h4{margin:0 0 6px;font-size:13.5px}
+  .pre{border:1px solid var(--bd);border-radius:10px;padding:12px 14px;background:var(--bg);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>v385 交付说明</h1>
+  <div class="sub">新建员工 / 选角色 / 开账号改为「一屏一次完成」 · 2026-10-06 · 已上线（hergent.cn）</div>
+
+  <div class="lead">
+    <b>一句话结论：已按舟谱的做法改好了 —— 现在新建员工时，员工信息、角色、登录账号在同一个弹窗里填完，
+    右下角点<b>一次</b>「创建并开通账号」，档案和账号一起建好。账号不想现在开也行，留空即为「只建档案」。</b><br>
+    <span class="muted">技术上有一处必须说清楚：员工档案和登录账号存在<b>两个不同的数据库</b>里，
+    SQLite 没有跨库事务，所以「一次点击」本质上是两次写入。我把失败路径做成了<b>可自愈</b>的 ——
+    万一第二步没成，窗口不关、账号信息保留、当场就能改好重试，绝不会留下「档案建了、账号没开、还查不出原因」的半成品。</span>
+  </div>
+
+  <div class="kpi">
+    <div><div class="v">1 次点击</div><div class="k">同时建好员工档案 + 登录账号</div></div>
+    <div><div class="v">1 个文件</div><div class="k">改动范围（EmployeeArchive.vue）</div></div>
+    <div><div class="v">22 / 22</div><div class="k">真机验收断言全部通过</div></div>
+    <div><div class="v">0 项</div><div class="k">额外夹带的改动</div></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">1</span>你的需求 &amp; 可行性判断</h2>
+    <p>你说：<span class="muted">「截图是舟谱的新建员工界面，我们能否采用一样的方式，新建员工 / 选择角色和创建账号在一个界面完成，不要分两步。」</span></p>
+    <p><b>结论：能做，而且值得做。</b>原来的实现确实是两遍 —— 新建时账号那一栏只有一句灰字「保存员工后，可在此为其开通登录账号」，
+    你得先保存一次、等弹窗切成「编辑员工」，账号表单才会长出来，再填一遍再点「开通账号」。</p>
+    <table>
+      <tr><th style="width:150px">项</th><th>改之前</th><th>改之后</th></tr>
+      <tr><td>新建时账号表单</td><td>看不见，只有一句提示</td><td><span class="tag ok">同屏可见</span>和员工信息一起填</td></tr>
+      <tr><td>提交按钮</td><td>「保存」，保存完还得再找「开通账号」</td><td><span class="tag ok">一个</span>文案随账号草稿变</td></tr>
+      <tr><td>操作次数</td><td>保存 → 等切换 → 再填账号 → 再点开通（<b>两遍</b>）</td><td><b>填完点一下</b></td></tr>
+      <tr><td>账号必填吗</td><td>—</td><td>选填：留空 = 只建档案</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">2</span>改成了什么样（真机截图）</h2>
+    <p>这是新建弹窗的实拍。<b>弹窗标题就是「新建员工」</b>，员工信息下面直接就是「登录账号」——
+    手机号、初始密码、角色、可登录端，全在同一屏；右下角那一个按钮写着「创建并开通账号」。</p>
+    <img class="shot" src="v385-新建员工一屏一次完成-提交前.png" alt="提交前的「新建员工」弹窗：员工信息与登录账号同屏，右下角按钮为「创建并开通账号」">
+    <p class="cap">提交前 · 账号区提示：「一起开号就把下面几项填上；暂时不开号就留空 —— 右下角一次提交。」</p>
+    <p>点下去之后（<b>只点了这一个按钮</b>）：员工档案建好、账号也开好，界面就地切到「已有账号」态，
+    下面两句提示分别说明「已创建员工」和「员工已创建，登录账号已开通」。</p>
+    <img class="shot" src="v385-新建员工一屏一次完成-真机验收.png" alt="点击一次后：员工已创建、账号已开通，界面切到已有账号态">
+    <p class="cap">提交后 · 账号显示 <code>13800008585 · 导购 · 启用中 · 可登录：仅小程序</code>（就是弹窗里刚选的那个角色）</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">3</span>几个关键设计（为什么不那么写）</h2>
+    <ul>
+      <li><b>两个状态共用同一块表单。</b>「新建态」和「未开通账号态」用的是同一份数据绑定。
+          如果拆成两套，就会出现「在一个状态里填的值，切到另一个状态就没了」—— 这正是合并成一屏要消灭的东西。</li>
+      <li><b>按钮文案和实际行为同源。</b>「创建员工」还是「创建并开通账号」，由同一个判断（账号草稿是否填了）决定，
+          按钮上写什么、点下去就做什么。分成两份就会出现「按钮写着开号、实际只建了档案」——
+          文案和行为不符就是对用户撒谎。</li>
+      <li><b>密码先校验、再落库。</b>顺序反过来（先建档案、再发现密码不合规）就会留下「档案已建、账号没开成」的半成品。
+          能提前发现的问题不该留到写库之后。</li>
+      <li><b>失败不关窗、账号草稿保留。</b>跨库两次写入，第二步理论上可能失败（比如登录名撞车）。
+          这时窗口不关、界面停在「未开通账号」态、刚填的登录名和密码都还在，
+          改掉原因再点一次即可 —— 不用重走任何流程，也不会静默丢掉你填过的东西。</li>
+      <li><b>没有开账号权限时，整块收起。</b>只把按钮藏起来是不够的 ——
+          那样用户会把账号信息填完，然后发现没处存，而且底下「创建员工」还会把输入<b>静默丢掉</b>。
+          所以权限不足时这一整块都不显示，只留一句「需要相应权限请联系管理员」。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">4</span>顺手修掉的一个真 bug（跟本次改造无关）</h2>
+    <p>改动过程中发现并修了一处 <b>v382 遗留</b>的静默故障，症状是：</p>
+    <p class="muted">「在员工档案里<b>只改「可登录端」</b>（其它什么都不动），点右下角保存 —— 数据库里<b>真的改好了</b>，
+    但界面不刷新、不弹任何提示、窗口也不关，而且「有未保存的改动」的标记还挂在那里，让你以为没保存成功。」</p>
+    <p><b>根因：</b>保存流程里有个函数返回值形状和它的兄弟函数不一致 ——
+    兄弟返回的是「结果对象」，它返回的是一个「是/否」。调用处按「结果对象」去读，读到的永远是空，
+    于是判定为失败、提前返回，后面的 <b>「刷新界面 + 成功提示 + 关窗」三步全被跳过</b>。</p>
+    <p><b>已修：</b>返回值改成与兄弟函数一致，并加了断言锁死（见下一节 L 组）。
+    纪律上记一条：<b>同一族的两个函数，返回形状必须一致</b> —— 不一致时「写错了也不会报错」，只是静默走另一条分支。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">5</span>怎么验证的（不是"我看着像对了"）</h2>
+    <table>
+      <tr><th style="width:190px">验证层</th><th>做法</th><th style="width:120px">结果</th></tr>
+      <tr>
+        <td>离线行为级断言<br><span class="muted">35 条</span></td>
+        <td>从页面源码里原样抠出真实函数，配桩真跑：<br>
+            G 一次提交发两个写请求 / H 账号选填 / I 不留半成品 / J 失败可自愈 / K 无权限退化 / L 只改可登录端</td>
+        <td><span class="tag ok">35 / 0</span></td>
+      </tr>
+      <tr>
+        <td>判据自证判别力<br><span class="muted">5 处变异</span></td>
+        <td>把源码故意改坏一处（如「新建后不接着开账号」「失败静默」「返回裸布尔」），
+            要求<b>指定断言必须变红</b> —— 防止判据写在纸上、和源码脱节</td>
+        <td><span class="tag ok">5 / 5 如期变红</span></td>
+      </tr>
+      <tr>
+        <td>真机验收<br><span class="muted">22 条</span></td>
+        <td>用<b>线上正式产物</b> + <b>隔离沙箱租户</b>（从真实库克隆）跑完整流程；
+            自带安全断言：凡写请求必须带沙箱租户号，越界即判红</td>
+        <td><span class="tag ok">22 / 0</span></td>
+      </tr>
+      <tr>
+        <td>零夹带</td>
+        <td>构建产物与线上逐字节比，并用「归一化」把 Vite 的 chunk 改名级联剔掉</td>
+        <td><span class="tag ok">真实差异仅 2 项<br>（就是本页）</span></td>
+      </tr>
+      <tr>
+        <td>沙箱零残留</td>
+        <td>销毁后独立复核主库：沙箱号相关行全 0、库文件已清、残留账号 0、生产租户完好</td>
+        <td><span class="tag ok">ZERO_RESIDUE</span></td>
+      </tr>
+    </table>
+    <p class="muted">过程中还修掉两个<b>判据自身</b>的缺陷（不是产品缺陷），都记进了这一次的提交说明：
+    ① 判据工具抠源码时对「表达式体」写法会抓错范围，导致误报；
+    ② 真机探针用「命中任意关键词就返回」读提示语，会把中间态当成最终结果、造成假红。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">6</span>上线信息</h2>
+    <table>
+      <tr><th style="width:190px">项</th><th>值</th></tr>
+      <tr><td>改动文件</td><td><code>hergent-cn-v2/src/pages/EmployeeArchive.vue</code>（1 个）</td></tr>
+      <tr><td>提交</td><td><code>8170560</code> 产品改动 · <code>b8dc23f</code> 判据工具入库</td></tr>
+      <tr><td>部署方式</td><td>并集上传（<b>不带删除</b>），31 个文件；旧产物保留</td></tr>
+      <tr><td>线上入口</td><td><code>assets/index-BbM1w6na.js</code></td></tr>
+      <tr><td>本页产物</td><td><code>assets/Archive-vBHlH_mD.js</code>（143397 B）<br><code>assets/Archive-saQz4WVm.css</code>（30985 B）</td></tr>
+      <tr><td>首页校验</td><td><code>index.html</code> 本地 / 线上 md5 一致：<code>58808e71…5626f5</code></td></tr>
+      <tr><td>公网抽查</td><td>首页与三个资源 <b>全部 200</b>；本轮 5 个特征串各命中 1 次；旧类名 <code>df-acc-hint</code> 已彻底消失</td></tr>
+    </table>
+    <p class="muted">⚠️ 一处需要知会并行会话的地方：线上 <code>Archive.css</code> 里还含<b>另一条工作线</b>的 2 行深色模式改动
+    （把「停用」标签改成跟随主题变量）。那 2 行在本次构建时已在工作区里、因此已经上线，
+    但<b>不由本次提交认领</b> —— 我提交时刻意把它们还原，留在工作区等它的作者提交。所以仓库 HEAD 的 CSS 与线上 CSS 相差这 2 行，属预期。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">7</span>需要你确认 / 已知边界</h2>
+    <ul>
+      <li><b>要你确认的：</b>打开「档案管理 › 员工档案 › ＋添加员工」，看这一屏是不是你要的样子
+          （标题「新建员工」、账号区同屏、右下角「创建并开通账号」）。</li>
+      <li><b>本次没做的（按你上一轮的选择）：</b>没加「部门」下拉；角色下拉没做两级联选（先选大类、再选细分），
+          仍是现在的单层下拉。要的话可以下一轮补。</li>
+      <li><b>账号仍是选填。</b>不填登录名 = 只建档案，按钮会自动变成「创建员工」—— 这是按你定的口径做的。</li>
+      <li><b>跨库这一步的固有边界：</b>员工档案和登录账号在两个库里，不存在"要么都成、要么都不成"的原子保证。
+          我能做到的是<b>失败可见、现场保留、就地重试</b>，做不到"绝不会有中间状态"——这一点不能对你打包票。</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

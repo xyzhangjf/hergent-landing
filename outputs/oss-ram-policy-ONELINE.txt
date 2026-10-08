@@ -1,0 +1,1 @@
+{"Version":"1","Statement":[{"Effect":"Allow","Action":"oss:*","Resource":["acs:oss:*:*:hergent-backup","acs:oss:*:*:hergent-backup/*"]}]}

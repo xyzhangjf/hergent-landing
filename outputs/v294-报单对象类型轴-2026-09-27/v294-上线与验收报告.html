@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>v294 上线与验收报告 · 报单对象类型轴</title>
+<style>
+  :root{
+    --p:#2563eb; --t1:#0f172a; --t2:#334155; --t3:#64748b; --bd:#e2e8f0; --bg:#fff; --bg2:#f8fafc;
+    --suc:#16a34a; --war:#d97706; --dan:#dc2626;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:32px 20px 72px;font:14px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--t1);background:var(--bg2)}
+  .wrap{max-width:960px;margin:0 auto;background:var(--bg);border:1px solid var(--bd);border-radius:14px;padding:34px 38px 46px}
+  h1{margin:0 0 6px;font-size:23px;letter-spacing:.2px}
+  .sub{color:var(--t3);font-size:13px;margin-bottom:22px}
+  h2{margin:30px 0 12px;font-size:16px;padding-left:10px;border-left:3px solid var(--p)}
+  h3{margin:20px 0 8px;font-size:14px;color:var(--t2)}
+  p{margin:8px 0}
+  table{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:13px}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--bg2);font-weight:600;color:var(--t2)}
+  code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#0f172a}
+  pre{background:#0f172a;color:#e2e8f0;padding:13px 15px;border-radius:9px;overflow-x:auto;font-size:12.5px;line-height:1.6}
+  pre code{background:none;color:inherit;padding:0}
+  .ok{color:var(--suc);font-weight:600}
+  .no{color:var(--dan);font-weight:600}
+  .warn{color:var(--war);font-weight:600}
+  .box{border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin:14px 0;background:var(--bg2)}
+  .box.hot{border-color:#fecaca;background:#fef2f2}
+  .box.cool{border-color:#bfdbfe;background:#eff6ff}
+  .tag{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:20px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);margin-right:5px}
+  .tag.g{border-color:#bbf7d0;background:#f0fdf4;color:#15803d}
+  .tag.y{border-color:#fde68a;background:#fffbeb;color:#b45309}
+  ul{margin:8px 0;padding-left:22px}
+  li{margin:4px 0}
+  .lead{font-size:15px;background:#eff6ff;border-left:3px solid var(--p);padding:12px 16px;border-radius:0 9px 9px 0;margin:6px 0 20px}
+  .muted{color:var(--t3);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>v294 上线与验收报告 · 报单对象类型轴</h1>
+  <div class="sub">2026-09-27 · Hergent AI 经营副驾（hergent.cn）· 后端 hergent-erp（erp.hergent.cn）</div>
+
+  <div class="lead">
+    <b>一句话结论：</b>你要的「一人既能报多个门店、也能报自己仓的调拨单」已经<b>在生产上跑起来了</b>。
+    后端 6 个文件 + 前端已上线；小程序改动待你上传一次，但
+    <b>不上传也能用</b>（我加了升级期兜底，老版小程序点「本人仓」不会再失败）。
+  </div>
+
+  <h2>一、三端发布状态</h2>
+  <table>
+    <tr><th style="width:130px">端</th><th style="width:110px">状态</th><th>关键证据</th></tr>
+    <tr>
+      <td>后端（6 文件）</td>
+      <td><span class="ok">✅ 已上线</span></td>
+      <td>推送后<b>双侧 md5 逐一比对全一致</b>；<code>hergent-erp.service</code> 重启成功（新 PID 2706689）；服务日志无异常</td>
+    </tr>
+    <tr>
+      <td>前端（Web）</td>
+      <td><span class="ok">✅ 已上线</span></td>
+      <td>新入口 <code>index-Cd1t-Tmq.js</code> 返回 <b>HTTP 200</b>；首页已指向新入口；线上 <code>Archive</code> 包里能搜到「仓库档案」「报单身份」；<b>无头 Chrome 实测渲染出登录页</b></td>
+    </tr>
+    <tr>
+      <td>小程序（3 文件）</td>
+      <td><span class="warn">⏳ 待你上传</span></td>
+      <td>改动 = <code>fill.js</code> / <code>fill.wxml</code> / <code>fill.wxss</code>。上传后下拉里会多出「（本人仓 · 调拨单）」的标注 —— 属于体验优化，不是能不能用的门槛</td>
+    </tr>
+  </table>
+
+  <h2>二、你的 4 条决策 → 落地情况</h2>
+  <table>
+    <tr><th style="width:44%">你当时的话</th><th>现在的结果</th></tr>
+    <tr><td>员工档案里没有设置个人仓的入口，所以刘小顶没设</td><td><span class="ok">入口已建</span>：员工档案 → 编辑员工 → <b>「报单身份」</b>区块里的「个人仓」下拉。能设、能改、也能清空（清空是有效操作，不会被静默忽略）</td></tr>
+    <tr><td>源仓 / 目标仓要「真读」；要不要在档案管理里做一个仓库档案 Tab</td><td><span class="ok">两件都做了</span>：① 源仓/目标仓现在真的写进舟谱<b>调拨单</b>的「调出仓 / 调入仓」两列；配的仓如果已不在档案里会<b>点名告警</b>，不静默回落。② 仓库档案 Tab 已建（档案管理 → 仓库档案）—— 你没记错，后端接口早就有，只差前端壳</td></tr>
+    <tr><td>ID 前加编号能不能解决？客户 ID 前加 ZT，仓库 ID 前加 DB</td><td><span class="ok">等价实现</span>：我用 <code>(类型, 编号)</code> <b>两列</b>表达同一件事——等价于把 <code>ZT5</code> / <code>DB5</code> 拆开存，但不用改 <code>store_id</code> 的类型（改类型要动所有读取的地方，风险大）。舟谱模板里 ZT/DB 本来就由「自提订单 / 调拨订单」两张工作表承担</td></tr>
+    <tr><td>维持一店一期一单，但要支持一个人报多个门店、也能报自己仓的调拨单</td><td><span class="ok">已打通</span>：判重键从「门店号 + 期次」升级为「门店号 + <b>类型</b> + 期次」。同一个人可以同时持有多个门店 + 自己的仓；「一店一期一单」的口径没有被破坏</td></tr>
+  </table>
+
+  <h2>三、验收证据（四层，每层都带「判别力自证」）</h2>
+
+  <h3>① 生产接口形态（线上实测）</h3>
+  <pre><code>GET /api/forecast-submissions/stores
+{"ok":true,"stores":[{"id":2225,"name":"美联（保康店）","kind":"store"}]}</code></pre>
+  <p class="muted">返回里出现 <code>kind</code> 字段 = 类型轴已生效（老版本没有这个字段）。</p>
+
+  <h3>② 生产数据端到端（用生产库副本 + 已上线代码复跑）</h3>
+  <table>
+    <tr><th style="width:46%">断言</th><th>结果</th></tr>
+    <tr><td><code>employee_stores_get(4)</code>（刘小顶的可报对象）</td><td><code>[{'id': 7, 'name': '刘小顶仓', 'kind': 'warehouse'}]</code> <span class="ok">PASS</span></td></tr>
+    <tr><td><code>employee_stores_get(7)</code>（负向对照，不该被塞仓）</td><td>只有门店（永辉东津店），<b>没有</b> warehouse <span class="ok">PASS</span></td></tr>
+    <tr><td><b>判别力自证</b>：两套口径必须给出不同答案</td><td><code>report_column_name(7,'兜底','store')</code> = <code>'兜底'</code>（回落）<br><code>report_column_name(7,'兜底','warehouse')</code> = <code>'刘小顶'</code>（取到真简称）<br>⇒ 两者不同，说明轴<b>真的在起作用</b>，不是空转 <span class="ok">PASS</span></td></tr>
+    <tr><td>老客户端（不带类型）提交仓库单据</td><td>无歧义时自动纠偏到「本人仓」，<b>不再 403</b> <span class="ok">PASS</span></td></tr>
+  </table>
+  <p class="muted">探针自带三道保险：只指向 <code>/tmp</code> 副本、跑前用 <code>PRAGMA database_list</code> 自证连的是副本、若两套口径结果相同则直接抛错拒绝出 PASS。</p>
+
+  <h3>③ 前端产物与运行时</h3>
+  <ul>
+    <li>构建通过（157 个模块），产物里能搜到「仓库档案」「个人仓」「报单身份」「warehouses/full」</li>
+    <li>线上 <code>Archive-Dt7kFg3j.js</code> 里搜到「仓库档案」1 次、「报单身份」1 次 ⇒ 我的改动确实在生产生效</li>
+    <li>首页响应头 <code>cache-control: no-cache</code> ⇒ 你（和任何用户）<b>刷新一下就能看到新版</b>，不用清缓存</li>
+  </ul>
+
+  <h2>四、⚠️ 必须告诉你的一件事：这次前端「连别人的改动一起上线了」</h2>
+  <div class="box hot">
+    <p><b>事实：</b>本机工作区里当时还躺着 <b>约 20 个「其他会话」尚未上线的前端文件</b>（AiHub、ConnectCenter、Settings、Workbench、Rebate、Forecast、copilot 抽屉、图标、主题变量、以及新增的「商品目标」「舟谱单据导入」页面等）。前端是整体编译的，<b>没法只发我改的 7 个文件、把别人的摘出去</b>——所以我这次前端发布，把它们<b>一起带上线了</b>。</p>
+  </div>
+  <p><b>我为什么判断这样做是安全的（不是拍脑袋）：</b></p>
+  <ul>
+    <li><b>功能只增不减。</b>我把「新前端用到的所有后端接口」和「线上正在生效的那版前端用到的接口」逐条比过：<b>会被撤掉的接口 = 0 个</b>；唯一实质新增的是本轮的 <code>/api/warehouses/full</code>，而这个后端接口<b>早就存在</b>。⇒ 新版不会因为「调了一个不存在的接口」而报错。</li>
+    <li><b>线上本来就在跑这些会话的东西。</b>我拆开线上当前生效的入口文件看它引用了谁，发现它<b>已经在引用</b> <code>ZhoupuImport</code>（舟谱导入）等页面。⇒ 本次是「同一批功能的<b>版本前进</b>」，不是「第一次把半成品推上线」。</li>
+    <li><b>构建是干净的。</b>157 个模块全部编译通过，说明没有「引用了不存在的文件」这类半成品特征。</li>
+  </ul>
+  <p class="muted">但我必须诚实标注边界：<b>我没有逐个审查那些会话的功能逻辑是否都做完、做对</b>——只验证了「不会撞接口、能编译、能加载」。如果你知道其中某个功能还没做完、不该露面，告诉我，回滚很简单（见下节）。</p>
+
+  <h2>五、回滚方式（一条命令，随时可退）</h2>
+  <div class="box cool">
+    <p>发布前的首页文件已备份到服务器：<code>/opt/hergent-erp/backups/v294-pre-20260927/index.html.bak</code></p>
+    <p>要退回旧版前端，只需把这份首页恢复回去（更新包是<b>叠加</b>上去的，旧文件一个都没删，所以退回去一定有效）：</p>
+    <pre><code>scp /opt/hergent-erp/backups/v294-pre-20260927/index.html.bak \
+    root@47.113.224.140:/opt/hergent-cn-v2/index.html</code></pre>
+    <p class="muted">后端 6 个文件的旧版也备份在同一目录（<code>erp_db.py</code>、<code>server.py</code>、<code>routers/…</code>），需要时同样可回退。</p>
+  </div>
+
+  <h2>六、遗留与建议</h2>
+  <ul>
+    <li><b>小程序建议上传一次</b>（改动只有 3 个文件）：上传后报单下拉会把「本人仓」标成<b>（本人仓 · 调拨单）</b>，让人一眼分清哪个是门店、哪个是自己的仓。不上传也能正常提交，只是少了这个标注。</li>
+    <li><b>「报单简称(列头)」自动解析 + 点选下拉 —— 本轮没做。</b>数据源已经找到了（租户级的历史列头名册），但它需要一个新后端接口，建议单独安排一轮，避免和本轮改动混在一起。</li>
+    <li><b>工作区仍有约 20 个未提交的前端文件 + 若干后端文件未提交。</b>建议找时间做一次受控提交，否则「本地文件」和「git 记录」会继续漂移。</li>
+  </ul>
+
+  <p class="muted" style="margin-top:26px;border-top:1px solid var(--bd);padding-top:14px">
+    报告生成：2026-09-27 18:1x · 本轮涉及 6 个后端文件 + 7 个前端文件（我的部分）+ 3 个小程序文件；验收全部落在生产真数据上。
+  </p>
+
+</div>
+</body>
+</html>

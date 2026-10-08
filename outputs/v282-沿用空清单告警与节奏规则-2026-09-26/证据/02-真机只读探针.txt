@@ -1,0 +1,13 @@
+http_status   = 200
+final_url     = https://hergent.cn/#/login
+title         = Hergent · AI 经营副驾
+scripts       = ["https://hergent.cn/assets/index-HO4f0L3a.js"]
+stylesheets   = ["https://hergent.cn/assets/index-CSOmVdY6.css","https://hergent.cn/assets/Login-Gv9Rkpi8.css"]
+app_children  = 1
+body_text     = "Hergent · AI 经营副驾\n\n低温奶经销商的经营好帮手\n\n登录\n免费注册\n用户名\n密码\n忘记密码？\n登 录\n先看看演示效果（免注册）\n\n© 2026 湖北省小赫智体数字科技有限公司\n鄂ICP备2026027973号-1 · 用户协议 · 隐私政策"
+console_errors= 0
+console_warns = 0
+chunk_probe:
+    /assets/index-HO4f0L3a.js -> 200 129014B
+    /assets/Forecast-C90Aw5BU.js -> 200 350153B
+    /assets/Rebate-BYcamHN2.js -> 200 155853B

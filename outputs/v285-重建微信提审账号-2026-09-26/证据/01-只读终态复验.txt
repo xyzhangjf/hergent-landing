@@ -1,0 +1,50 @@
+==========================================================================
+【1】账号字段（直读主库 · 只读）
+==========================================================================
+   {'id': 999903, 'username': 'mptest', 'display_name': '微信审核-销售', 'role': 'sales', 'is_active': 1, 'employee_id': 11, 'password_changed': 1}
+   {'id': 999904, 'username': 'mptestsp', 'display_name': '微信审核-主管', 'role': 'supervisor', 'is_active': 1, 'employee_id': 12, 'password_changed': 1}
+  [PASS] 两个提审账号都存在
+  [PASS] mptest：绑了员工(11) 且 is_active=1 且 password_changed=1
+  [PASS] mptestsp：绑了员工(12) 且 is_active=1 且 password_changed=1
+   -- user_tenants（能否进 tenant 1）
+      {'user_id': 999903, 'tenant_id': 1, 'role': 'member', 'username': 'mptest'}
+      {'user_id': 999904, 'tenant_id': 1, 'role': 'member', 'username': 'mptestsp'}
+
+==========================================================================
+【2】员工与报单配置（直读租户库 · 只读）
+==========================================================================
+   员工 {'id': 11, 'name': '微信审核-销售', 'employee_no': 'WXTEST01', 'position': '微信审核专用（提审临时）', 'is_active': 1}
+   员工 {'id': 12, 'name': '微信审核-主管', 'employee_no': 'WXTEST02', 'position': '微信审核专用（提审临时）', 'is_active': 1}
+   配置 {'id': 6, 'employee_id': 11, 'report_alias': '美联（保康店）', 'system_name': '美联（保康店）', 'order_template': '自提订单', 'counterparty_id': 2225, 'counterparty_type': 'store', 'is_active': 1}
+   配置 {'id': 7, 'employee_id': 12, 'report_alias': '永辉东津店', 'system_name': '永辉东津店', 'order_template': '自提订单', 'counterparty_id': 2868, 'counterparty_type': 'store', 'is_active': 1}
+   活跃配置总数 = 5（原 3 + 新 2）
+
+==========================================================================
+【3】真实登录（审核员视角 —— 这是提审成败的判据）
+==========================================================================
+  [PASS] 阴性对照：无令牌 401
+   (原始登录响应结构) keys=['success', 'token', 'csrf_token', 'user', 'tenant_id', 'plan', 'capabilities', 'require_password_change', 'message']
+  [PASS] 登录 mptest
+  [PASS]    mptest 不强制改密
+  [PASS]    mptest 的 /stores 200 且非空（提审红线）
+  [PASS]       含目标门店 id=2225
+      可见门店 = [(2225, '美联（保康店）')]
+      当前期次 = 19
+  [PASS] 登录 mptestsp
+  [PASS]    mptestsp 不强制改密
+  [PASS]    mptestsp 的 /stores 200 且非空（提审红线）
+  [PASS]       含目标门店 id=2868
+      可见门店 = [(2868, '永辉东津店')]
+      当前期次 = 19
+
+==========================================================================
+【4】清理登录测试会话（不留无主凭证）
+==========================================================================
+   登录测试产生会话 = 2 条
+   清理后残留 = 0（期望 0）
+  [PASS] 登录测试会话已清空
+   sessions 总数 = 3
+
+==========================================================================
+结果: 13/13 PASS
+==========================================================================

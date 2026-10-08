@@ -1,0 +1,49 @@
+==========================================================================
+v285 提审账号清退   GO=False   TS=20260926-212715
+==========================================================================
+
+【0】定位结果
+   uids  = [999903, 999904]  （username IN ('mptest', 'mptestsp')）
+   eids  = [11, 12]  （name IN ('微信审核-销售', '微信审核-主管')）
+   mids  = [6, 7]  （employee_id∈eids 且 alias∈('美联（保康店）', '永辉东津店')）
+
+【0b】门店安全性前置（删配置会不会让门店没人报单）
+   门店 2225（美联（保康店））：其它 active 配置 = [{'id': 2, 'employee_id': 4, 'report_alias': '美联保康'}] ✅ 安全
+   门店 2868（永辉东津店）：其它 active 配置 = [{'id': 3, 'employee_id': 7, 'report_alias': '东津'}] ✅ 安全
+
+【1】删前快照
+   {"main.users": 8, "main.user_tenants": 8, "main.sessions": 3, "main.tenants": 2, "t1.hr_employees": 10, "t1.report_mapping": 7, "t1.forecast_submissions": 39, "t1.forecast_submission_items": 47, "t1.contacts": 755, "t1.employee_stores": 0, "t1.forecast_periods": 4, "台账.audit_logs": 308, "台账.login_attempts": 0, "台账.ai_usage": 37}
+
+【2】[DRY] 跳过备份
+
+【3】删除（DRY=True）
+   -- 主库 erp.db
+   users                          账号本体                               命中 2
+   user_tenants                   企业成员关系                             命中 2
+   sessions                       登录会话（干净）                           命中 0
+   -- 租户库 tenant_1.db
+   report_mapping                 报单配置（本次新增）                         命中 2
+   hr_employees                   员工档案                               命中 2
+   mp_events                      小程序埋点（user_id）                     命中 0
+   chat_sessions                  AI 副驾会话（user_id）                   命中 0
+   salary_details                 工资草稿                               命中 0
+   -- 报单相关表列名：
+      forecast_submissions = ['id', 'user_id', 'role', 'store_id', 'store_name', 'order_date', 'status', 'total_qty', 'total_amount', 'note', 'created_at', 'period_id', 'updated_by', 'updated_at']
+      forecast_submission_items = ['id', 'submission_id', 'product_id', 'product_name', 'spec', 'unit', 'quantity', 'price', 'amount', 'barcode', 'ordering_entity']
+   forecast_submissions           审核员提交的报单                           命中 0
+   （该账号无报单 ⇒ 无需级联）
+
+   -- 台账（**刻意不删**，技能 §14.1）
+   audit_logs                     [t1] 保留 308 行
+   audit_logs                     [main] 保留 1260 行
+   login_attempts                 [t1] 保留 0 行
+   login_attempts                 [main] 保留 797 行
+   ai_usage                       [main] 保留 37 行
+
+【4】快照差集
+   台账行数：{'台账.audit_logs': (308, 308), '台账.login_attempts': (0, 0), '台账.ai_usage': (37, 37)}
+   ✅ 无「非预期变化」的表
+
+==========================================================================
+DRY 模式：未做任何删除。
+==========================================================================

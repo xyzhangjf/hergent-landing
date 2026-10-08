@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v292 返利冲刺看板口径修复 · 交付说明</title>
+<style>
+  :root {
+    --ink: #1f2329;
+    --ink2: #5c6670;
+    --ink3: #8a939c;
+    --line: #e6e8eb;
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --brand: #0f6e56;
+    --brand-bg: #e1f5ee;
+    --warn: #ba7517;
+    --warn-bg: #faeeda;
+    --danger: #a32d2d;
+    --danger-bg: #fcebeb;
+    --ok: #1d9e75;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: var(--bg); color: var(--ink);
+    font: 400 15px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; letter-spacing: .2px; }
+  .sub { color: var(--ink2); font-size: 13px; margin-bottom: 24px; }
+  h2 {
+    font-size: 17px; font-weight: 600; margin: 32px 0 12px;
+    padding-left: 10px; border-left: 3px solid var(--brand);
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 14px;
+  }
+  .lead {
+    background: var(--brand-bg); border: 1px solid #9fe1cb;
+    border-radius: 12px; padding: 16px 20px; margin-bottom: 22px;
+    font-size: 15px;
+  }
+  .lead b { color: var(--brand); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 500; color: var(--ink2); font-size: 13px; background: #fafbfc; }
+  tr:last-child td { border-bottom: 0; }
+  code {
+    font: 400 13px/1.5 "SF Mono", Menlo, Consolas, monospace;
+    background: #f1f3f5; padding: 1px 5px; border-radius: 4px; color: #3c4650;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .pill {
+    display: inline-block; font-size: 12px; padding: 2px 9px;
+    border-radius: 999px; background: var(--brand-bg); color: var(--brand); font-weight: 500;
+  }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .pill.danger { background: var(--danger-bg); color: var(--danger); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 680px) { .grid2 { grid-template-columns: 1fr; } }
+  .mini { font-size: 13px; color: var(--ink2); }
+  .mini b { color: var(--ink); font-weight: 500; }
+  .big { font-size: 26px; font-weight: 600; letter-spacing: -.5px; }
+  .big.red { color: var(--danger); }
+  .big.green { color: var(--ok); }
+  .todo { list-style: none; padding: 0; margin: 0; }
+  .todo li { padding: 12px 0; border-bottom: 1px dashed var(--line); }
+  .todo li:last-child { border-bottom: 0; }
+  .todo .q { font-weight: 500; margin-bottom: 4px; }
+  .foot { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink3); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>返利冲刺看板「返利周期截止」口径修复</h1>
+  <div class="sub">v292 · 2026-09-27 · 已上线（hergent.cn + 后端）</div>
+
+  <div class="lead">
+    你问的「品牌目标的生效时间到底管什么」—— 结论是：<b>对填了「月度分解」的年度目标，生效日期完全不起作用</b>，某个月参不参与返利只看那个月在「月度分解」里有没有填数。<br>
+    但顺着这个问题挖出了一处<b>真错</b>：预报页的「返利冲刺看板」把<strong>规则的停用日期</strong>当成了「返利周期截止」，导致剩余到货次数被算错。本次已修好上线。
+  </div>
+
+  <h2>一、真实数据下的效果对照</h2>
+  <div class="card">
+    <p class="mini" style="margin:0 0 12px">
+      同一份真实数据：报单期次 19（到货月 <b>2026-10</b>）· 两条品牌规则停用日均为 <b>2026-09-30</b> · 品牌配置的「本月到货次数」= <b>15 次</b>
+    </p>
+    <div class="grid2">
+      <div class="card" style="margin:0; border-color:#f7c1c1">
+        <div class="pill danger">修前</div>
+        <div style="margin:10px 0 4px" class="mini">返利周期截止</div>
+        <div class="big">2026-09-30</div>
+        <div style="margin:10px 0 4px" class="mini">剩余到货次数</div>
+        <div class="big red num">2 次</div>
+        <div style="margin-top:8px" class="mini">明细按「2 天/次」算；窗口其实只剩 4 天<br>（截止日被钉在一个<b>已经过去的月份</b>）</div>
+      </div>
+      <div class="card" style="margin:0; border-color:#9fe1cb">
+        <div class="pill">修后</div>
+        <div style="margin:10px 0 4px" class="mini">返利周期截止</div>
+        <div class="big">2026-10-31</div>
+        <div style="margin:10px 0 4px" class="mini">剩余到货次数</div>
+        <div class="big green num">18 次</div>
+        <div style="margin-top:8px" class="mini">截止日 = <b>到货月月末</b>；明细行显示<br>「整月 15 次（手动配置）」，与你配的 15 次对上了</div>
+      </div>
+    </div>
+    <p class="mini" style="margin:14px 0 0">
+      ⚠️ 修前的 <b>2 次</b> 会把「均单建议报多少」放大好几倍；而如果当初把停用日改到年底，旧口径会算成 <b>48 次</b>、又把建议摊薄 —— <b>两个方向都错，看板完全跟着停用日期漂</b>。这就是你观察到的现象。
+    </p>
+  </div>
+
+  <h2>二、这次一共改了五处</h2>
+  <div class="card" style="padding:0">
+    <table>
+      <thead>
+        <tr><th style="width:64px">编号</th><th style="width:38%">改了什么</th><th>为什么</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="pill">P0-1</span></td>
+          <td>截止日改为「<b>冲刺月的月末</b>」</td>
+          <td>返利是按月算的，周期截止就该是本月最后一天。修前取的是「所有活跃规则停用日里最大的那个」，跟本月无关。</td>
+        </tr>
+        <tr>
+          <td><span class="pill">P0-2</span></td>
+          <td>撤掉「窗口已关闭，还假装有 1 次」的兜底</td>
+          <td>原来到期后仍返回 1 次，会把「本月已无到货机会」这个事实藏起来。现在如实显示 0，并给明确文案。</td>
+        </tr>
+        <tr>
+          <td><span class="pill">P1</span></td>
+          <td>面板开始读你在「到货节奏」里配的<b>本月到货次数</b></td>
+          <td>这个配置项以前在这个页面上<b>一次都没被读过</b>（出现 0 次）。你配 15 次、面板却按天数除，是两套互不相干的数。现在按「15 次 × 剩余天数占比」折算，并在摘要里点名是哪几个品牌在用配置值。</td>
+        </tr>
+        <tr>
+          <td><span class="pill">P2-1</span></td>
+          <td>字段改名：「生效开始 / 生效结束」→「<b>规则启用日 / 规则停用日</b>」</td>
+          <td>这两个日期只管「这条规则整体开不开」，<b>不决定它在哪几个月生效</b>。原名容易让人以为「停用日 = 目标只到那天」，就是这次疑问的来源。表单里已加一行说明。</td>
+        </tr>
+        <tr>
+          <td><span class="pill">P2-2</span></td>
+          <td>后端「兼容版试算」路径改用同一条判据</td>
+          <td>这条老路径还留着一份按天比大小的旧判断，是之前统一口径时<b>漏掉的最后一处</b>。同一份数据会得出两个答案，已换成与主路径同一个函数，并删掉那份旧实现。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>三、怎么确认真的上线了</h2>
+  <div class="card">
+    <p class="mini" style="margin:0 0 10px">
+      构建产物的文件名是内容哈希，<b>改了任一个文件，一大批文件名都会跟着变</b>，所以「文件名对不对」根本不能用来判断线上是不是我的版本。判断依据只有一条：<b>线上文件里有没有出现本轮新写的文字</b>。
+    </p>
+    <table>
+      <tbody>
+        <tr><td style="width:44%">线上页面主包</td><td>命中「本月到货窗口已结束」「手动配置」「整月」等本轮新增文案 ✓</td></tr>
+        <tr><td>线上返利页包</td><td>命中「规则启停区间」「规则启用日」「规则停用日」；<b>旧文案「生效区间」出现 0 次</b> ✓</td></tr>
+        <tr><td>后端文件</td><td>本地与服务器 <code>md5</code> <b>完全一致</b>；旧函数只剩注释、无调用；服务运行中 ✓</td></tr>
+      </tbody>
+    </table>
+    <p class="mini" style="margin:12px 0 0">
+      另外四层验证全绿：离线算式 34/34 · 后端端到端 0 失败 · 真实输入新旧对照 12/12 · 无夹带（前后各 53 个包，差异精确落在本轮改动的 3 个文件上）。
+    </p>
+  </div>
+
+  <h2>四、需要你决定的两件事</h2>
+  <div class="card">
+    <ul class="todo">
+      <li>
+        <div class="q">① 要不要给「主管」开通查看返利规则的权限？</div>
+        <div class="mini">
+          新发现：<b>主管能进入「预报订货管理」页面，但页面里的返利冲刺看板永远是空的</b>。原因是页面对主管开放，可看板取数要的「销售」模块主管没有 —— 两边名单没对齐。<br>
+          如果主管本来就该盯返利冲刺，那就给他加这个模块（<span class="pill warn">需要你拍板</span>，后端权限表和租户权限表要同时改，改一处无效）。
+        </div>
+      </li>
+      <li>
+        <div class="q">② 要不要让「看板为空」这件事有提示？</div>
+        <div class="mini">
+          现在的情况是：取数被拒（403）时，代码<b>默默当成「没有规则」</b>，什么都不显示、也不报错 —— 用户只会以为没数据。<br>
+          建议不管①做不做，都把这两种情况分开提示（「本来没有规则」vs「你没权限看」）。<span class="pill">零风险，纯提示</span>
+        </div>
+      </li>
+      <li>
+        <div class="q">③ 真机复验需要你的账号</div>
+        <div class="mini">
+          我手上的两个测试账号各占一半：主管账号能进页面但取不到规则（403），销售账号取得到规则但进不去页面（被挡回工作台）。<br>
+          <b>需要你用老板账号打开「预报订货管理」看一眼</b>：截止日应为 <b>2026-10-31</b>、剩余次数与配置的 15 次口径一致。我可以带着探针跑，也可以你自己看一眼截图给我。
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    本次改动落在 4 个文件：前端 3 个（预报页、返利页、目标表单弹窗），后端 1 个（返利规则路由）。<br>
+    线上部署采用覆盖方式、保留旧包，可随时回滚。工作区另有 24 个前端改动 + 4 个新文件属前几轮已完成但未提交的内容，已随本次构建一并上线，与本次无关。
+  </div>
+
+</div>
+</body>
+</html>

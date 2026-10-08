@@ -1,0 +1,4224 @@
+{
+ "allocs": [
+  {
+   "employee_id": 6,
+   "employee_name": "刘善涛",
+   "ratio": 10
+  },
+  {
+   "employee_id": 4,
+   "employee_name": "刘小顶",
+   "ratio": 30
+  },
+  {
+   "employee_id": 7,
+   "employee_name": "张俊峰",
+   "ratio": 60
+  }
+ ],
+ "product_arc": {
+  "id": 1556,
+  "name": "0蔗糖5连包 +3到货",
+  "spec": "8",
+  "unit": "袋",
+  "order_unit": "提",
+  "large_unit": "箱",
+  "large_ratio": 8.0,
+  "medium_unit": "",
+  "medium_ratio": 0.0
+ },
+ "create_target": {
+  "http": 200,
+  "resp": {
+   "ok": true,
+   "id": 1,
+   "period_month": "2026-09",
+   "product_id": 1556,
+   "names": [
+    "刘善涛",
+    "刘小顶",
+    "张俊峰"
+   ],
+   "arrival_dates": [
+    "2026-09-01",
+    "2026-09-03",
+    "2026-09-05",
+    "2026-09-07",
+    "2026-09-09",
+    "2026-09-11",
+    "2026-09-13",
+    "2026-09-15",
+    "2026-09-17",
+    "2026-09-19",
+    "2026-09-21",
+    "2026-09-23",
+    "2026-09-25",
+    "2026-09-27",
+    "2026-09-29"
+   ],
+   "effective_count": 15
+  }
+ },
+ "period": {
+  "id": 18,
+  "name": "2026-09-25 报单期次",
+  "order_start_date": "2026-09-24",
+  "order_end_date": "2026-09-25",
+  "arrival_date": "2026-09-29",
+  "status": "open",
+  "created_at": "2026-09-24 08:01:13",
+  "order_start": "2026-09-24",
+  "order_end": "2026-12-31"
+ },
+ "save_matrix": {
+  "http": 200,
+  "resp": {
+   "success": true,
+   "saved_customers": 4,
+   "saved_items": 4,
+   "unmapped_columns": [],
+   "hidden_units": 1,
+   "matrix_rev": "2ecabc97535e95a1",
+   "matrix_at": "2026-09-26 00:25:57",
+   "order_date": "2026-09-24",
+   "confirmed": {
+    "by": "微信审核-主管"
+   },
+   "extra_alloc": {},
+   "notified": 0
+  }
+ },
+ "fill_search": {
+  "http": 200,
+  "resp": {
+   "ok": true,
+   "items": [
+    {
+     "id": 1475,
+     "name": "蒙牛红枣酸牛奶1000g*10桶",
+     "spec": "10",
+     "unit": "桶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "桶",
+     "current_stock": 274,
+     "avg_daily_sales": 132.27
+    },
+    {
+     "id": 1535,
+     "name": "低脂高钙（恒滋下单）",
+     "spec": "6",
+     "unit": "组",
+     "sale_price": 14.5555555555556,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1495,
+     "name": "蒙牛酸牛奶原味桶1100g*10桶",
+     "spec": "10",
+     "unit": "桶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "桶",
+     "current_stock": 535,
+     "avg_daily_sales": 117.93
+    },
+    {
+     "id": 1537,
+     "name": "CD杯（16连）",
+     "spec": "6",
+     "unit": "组",
+     "sale_price": 15.1444444444444,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1538,
+     "name": "CD杯8杯",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 7.66666666666667,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1476,
+     "name": "蒙牛红枣圆周杯100g*16杯*6组",
+     "spec": "6",
+     "unit": "组",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 8,
+     "avg_daily_sales": 6.6
+    },
+    {
+     "id": 1477,
+     "name": "蒙牛红枣圆周杯100g*8*12组",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 27,
+     "avg_daily_sales": 94.77
+    },
+    {
+     "id": 1458,
+     "name": "蒙牛单果粒草莓圆周杯100g*8杯*12组",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 186,
+     "avg_daily_sales": 225.13
+    },
+    {
+     "id": 1460,
+     "name": "蒙牛单果粒黄桃圆周杯100g*8杯*12组",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 261,
+     "avg_daily_sales": 166.6
+    },
+    {
+     "id": 1484,
+     "name": "蒙牛零蔗糖风味板酸牛奶100g*8杯*12组",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 85.6
+    },
+    {
+     "id": 1539,
+     "name": "160红枣5连杯",
+     "spec": "8",
+     "unit": "条",
+     "sale_price": 8.61111111111111,
+     "order_unit": "条",
+     "unit_raw": "条",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1540,
+     "name": "160原味5连杯",
+     "spec": "8",
+     "unit": "条",
+     "sale_price": 8.33333333333333,
+     "order_unit": "条",
+     "unit_raw": "条",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1541,
+     "name": "每日鲜酪",
+     "spec": "16",
+     "unit": "组",
+     "sale_price": 8.1,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1542,
+     "name": "每日鲜酪牛油果",
+     "spec": "16",
+     "unit": "组",
+     "sale_price": 8.86666666666667,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1543,
+     "name": "每日鲜酪蓝莓+3发货(2.5.8.11.14.17.20.23.26.29）",
+     "spec": "16",
+     "unit": "组",
+     "sale_price": 8.86666666666667,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1587,
+     "name": "每日鲜酪青青柚子125g*2杯+3到货（2.6.9.13.16.20.23.27.30）",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 7.22222222222222,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1588,
+     "name": "每日鲜酪桂花马蹄125g*2杯+3到货（2.6.9.13.16.20.23.27.30）",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 7.22222222222222,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1292,
+     "name": "蒙牛每日鲜酪原味风味发酵乳预制杯100g*48杯（带盖）",
+     "spec": "48",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1494,
+     "name": "蒙牛酸牛奶红枣预制瓶450g*15瓶",
+     "spec": "15",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 151,
+     "avg_daily_sales": 159.07
+    },
+    {
+     "id": 1454,
+     "name": "蒙牛大果粒草莓三角杯260g*24杯",
+     "spec": "24",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 24,
+     "avg_daily_sales": 25.73
+    },
+    {
+     "id": 1455,
+     "name": "蒙牛大果粒蓝莓三角杯260g*24杯",
+     "spec": "24",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 24,
+     "avg_daily_sales": 22.33
+    },
+    {
+     "id": 1456,
+     "name": "蒙牛大果粒芦荟+黄桃三角杯260g*24杯",
+     "spec": "24",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 20,
+     "avg_daily_sales": 13.0
+    },
+    {
+     "id": 1457,
+     "name": "蒙牛大果粒桑椹+椰果三角杯260g*24杯",
+     "spec": "24",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 9.4
+    },
+    {
+     "id": 1481,
+     "name": "蒙牛老酸奶原味140g*24杯",
+     "spec": "24",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 616,
+     "avg_daily_sales": 325.13
+    },
+    {
+     "id": 1593,
+     "name": "老酸奶PE瓶160g+6到货（2.5.7.9.12.14.16.19.21.23.26.28.30）",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 113.33
+    },
+    {
+     "id": 1293,
+     "name": "友芝友老酸奶桂花酒酿小圆子135g*24杯",
+     "spec": "135g*24杯",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1294,
+     "name": "友芝友老酸奶樱花味白桃小圆子135g*24杯",
+     "spec": "135g*24杯",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1546,
+     "name": "友芝友致纯缤纷果粒圆周杯90g*8杯+4到货（31.4.8.12.16.20.24）",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 10.2222222222222,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1395,
+     "name": "友芝友益生菌红枣风味酸牛奶圆周杯100g*8杯*12组",
+     "spec": "100g*8杯*12组",
+     "unit": "组",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1547,
+     "name": "友芝友益生菌原味圆周杯100g*8杯+4到货，双号下单",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 7.33333333333333,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1191,
+     "name": "冠益乳果蔬冠冠紫甘蓝黑莓黑加仑混合口味利乐冠200g×24瓶（零食）",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1190,
+     "name": "冠益乳果蔬冠冠莲雾红甜菜树莓混合口味利乐冠200g×24瓶（零食）",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1189,
+     "name": "冠益乳大果粒青提芦荟风味发酵乳利乐冠250g*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 29.13
+    },
+    {
+     "id": 1166,
+     "name": "冠益乳大果粒水蜜桃草莓桑葚风味发酵乳利乐冠250g*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 22.93
+    },
+    {
+     "id": 1466,
+     "name": "蒙牛冠益乳草莓味250g*24罐",
+     "spec": "24",
+     "unit": "罐",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "罐",
+     "current_stock": 156,
+     "avg_daily_sales": 79.93
+    },
+    {
+     "id": 1468,
+     "name": "蒙牛冠益乳黄桃味250g*24罐",
+     "spec": "24",
+     "unit": "罐",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "罐",
+     "current_stock": 298,
+     "avg_daily_sales": 83.8
+    },
+    {
+     "id": 1277,
+     "name": "蒙牛冠益乳爆果珠酸奶蓝莓马蹄爆珠250g*24罐",
+     "spec": "24",
+     "unit": "罐",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "罐",
+     "current_stock": 0,
+     "avg_daily_sales": 52.13
+    },
+    {
+     "id": 1276,
+     "name": "蒙牛冠益乳爆珠酸奶柠檬凤梨燕麦爆珠250g*24罐",
+     "spec": "24",
+     "unit": "罐",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "罐",
+     "current_stock": 0,
+     "avg_daily_sales": 48.4
+    },
+    {
+     "id": 1436,
+     "name": "冠益乳健字号原味风味发酵乳200*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 92.2
+    },
+    {
+     "id": 1315,
+     "name": "蒙牛阿慕乐奶皮子原味酸奶135g*24杯",
+     "spec": "24",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 370.23
+    },
+    {
+     "id": 1510,
+     "name": "蒙牛优益C原味340ml*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 573,
+     "avg_daily_sales": 374.17
+    },
+    {
+     "id": 1280,
+     "name": "蒙牛优益C原味300ml*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 269.97
+    },
+    {
+     "id": 1505,
+     "name": "蒙牛优益C百香果味330g×24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 57,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1202,
+     "name": "蒙牛优益C乳酸菌味活菌型乳酸菌风味饮品330ml*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.8
+    },
+    {
+     "id": 1549,
+     "name": "小优原味",
+     "spec": "10",
+     "unit": "板",
+     "sale_price": 7.22222222222222,
+     "order_unit": "板",
+     "unit_raw": "板",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1550,
+     "name": "小优0蔗糖+3到货（2.6.10.14.18.22.26.30）",
+     "spec": "10",
+     "unit": "板",
+     "sale_price": 7.22222222222222,
+     "order_unit": "板",
+     "unit_raw": "板",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1551,
+     "name": "小优草莓+3发货（单号排期，双号订单）",
+     "spec": "10",
+     "unit": "板",
+     "sale_price": 5.94444444444444,
+     "order_unit": "板",
+     "unit_raw": "板",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1552,
+     "name": "小优青提+3发货（双号排期，单号订单）",
+     "spec": "10",
+     "unit": "板",
+     "sale_price": 5.94444444444444,
+     "order_unit": "板",
+     "unit_raw": "板",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1511,
+     "name": "蒙牛优益C原味800ml*12瓶",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 37,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1388,
+     "name": "蒙牛嚼拌食光巧克力谷物脆风味酸牛乳预制杯180g*16杯",
+     "spec": "16",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 23.4
+    },
+    {
+     "id": 1397,
+     "name": "蒙牛双拼果粒0蔗糖柚见芝士樱桃蓝莓味90g*8杯*12组",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 19.4
+    },
+    {
+     "id": 1555,
+     "name": "褐色百利包+4到货",
+     "spec": "8",
+     "unit": "包",
+     "sale_price": 8.88888888888889,
+     "order_unit": "包",
+     "unit_raw": "包",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1556,
+     "name": "0蔗糖5连包 +3到货",
+     "spec": "8",
+     "unit": "提",
+     "sale_price": 8.55555555555556,
+     "order_unit": "提",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1479,
+     "name": "蒙牛嚼酸奶草莓味150g*15袋",
+     "spec": "15",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 306,
+     "avg_daily_sales": 165.6
+    },
+    {
+     "id": 1480,
+     "name": "蒙牛嚼酸奶黄桃味150g*15袋",
+     "spec": "15",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 144,
+     "avg_daily_sales": 176.77
+    },
+    {
+     "id": 1231,
+     "name": "蒙牛嚼酸奶燕麦黄桃味150g*15袋（零食系统）",
+     "spec": "15",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 290.47
+    },
+    {
+     "id": 1230,
+     "name": "蒙牛嚼酸奶燕麦草莓味150g*15袋（零食系统）",
+     "spec": "15",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 299.97
+    },
+    {
+     "id": 1557,
+     "name": "嚼酸奶菠萝甜橙味150g*5袋+4到货（单号下单）",
+     "spec": "8",
+     "unit": "包",
+     "sale_price": 12.2222222222222,
+     "order_unit": "包",
+     "unit_raw": "包",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1558,
+     "name": "嚼酸奶哈密瓜味150g*5袋+4到货（单号下单）",
+     "spec": "8",
+     "unit": "包",
+     "sale_price": 12.2222222222222,
+     "order_unit": "包",
+     "unit_raw": "包",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1493,
+     "name": "蒙牛双拼果粒90g*8杯*12组",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 310,
+     "avg_daily_sales": 45.37
+    },
+    {
+     "id": 1503,
+     "name": "蒙牛消健原味爱克林180g*10袋",
+     "spec": "10",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 80,
+     "avg_daily_sales": 18.67
+    },
+    {
+     "id": 1208,
+     "name": "蒙牛消健青柑柠檬风味爱克林180g×24袋",
+     "spec": "24",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 216.43
+    },
+    {
+     "id": 1209,
+     "name": "蒙牛消健荔枝蜜瓜风味爱克林180g×24袋",
+     "spec": "24",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 233.23
+    },
+    {
+     "id": 1559,
+     "name": "蒙牛轻食BOX原味195g+3到货（暂时不定）",
+     "spec": "24",
+     "unit": "件",
+     "sale_price": 8.86666666666667,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1317,
+     "name": "每日鲜酪0蔗糖厚乳酪原味风味酸奶预制杯400g*16杯",
+     "spec": "16",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 42.43
+    },
+    {
+     "id": 1560,
+     "name": "0蔗糖草莓百利包+3发货(4.8.12.16.20.24.28）",
+     "spec": "8",
+     "unit": "包",
+     "sale_price": 9.55555555555556,
+     "order_unit": "包",
+     "unit_raw": "包",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1254,
+     "name": "蒙牛果纤维青提牛油果混合味200g*10瓶*6组",
+     "spec": "60",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 23.07
+    },
+    {
+     "id": 1255,
+     "name": "蒙牛果纤维芭乐菠萝混合味200g*10瓶*6组",
+     "spec": "60",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 23.17
+    },
+    {
+     "id": 1265,
+     "name": "蒙牛高钙早餐苹果羽衣甘蓝牛油果燕麦百利包150*12袋",
+     "spec": "12",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 265.93
+    },
+    {
+     "id": 1264,
+     "name": "蒙牛高钙早餐玉米青稞藜麦燕麦百利包150*12袋",
+     "spec": "12",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1260,
+     "name": "蒙牛冠益乳酸奶大满罐活力原味380g*18瓶",
+     "spec": "18",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": -0.7
+    },
+    {
+     "id": 1259,
+     "name": "蒙牛冠益乳酸奶大满罐活力果蔬味380g*18瓶",
+     "spec": "18",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1258,
+     "name": "蒙牛冠益乳酸奶大满罐活力谷蔬味380g*18瓶",
+     "spec": "18",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1451,
+     "name": "蒙牛阿慕乐黄桃味酸奶210g*12瓶",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 2,
+     "avg_daily_sales": 0.4
+    },
+    {
+     "id": 1561,
+     "name": "阿慕乐礼盒果10瓶+4到货（单号下单）",
+     "spec": "6",
+     "unit": "提",
+     "sale_price": 36.6666666666667,
+     "order_unit": "提",
+     "unit_raw": "提",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1563,
+     "name": "百红5连包+4到货（单号下单）",
+     "spec": "8",
+     "unit": "包",
+     "sale_price": 8.55555555555556,
+     "order_unit": "包",
+     "unit_raw": "包",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1523,
+     "name": "现代牧场鲜牛奶百利包180ML*12袋",
+     "spec": "12",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 1914,
+     "avg_daily_sales": 1021.8
+    },
+    {
+     "id": 1526,
+     "name": "现代牧场鲜牛奶桶装1500ML*6桶",
+     "spec": "6",
+     "unit": "桶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "桶",
+     "current_stock": 17,
+     "avg_daily_sales": 16.07
+    },
+    {
+     "id": 1441,
+     "name": "每日鲜语4.0低脂轻鲜牛奶450ml*12瓶",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 22,
+     "avg_daily_sales": 23.23
+    },
+    {
+     "id": 1448,
+     "name": "每日鲜语鲜牛奶250ml*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 58,
+     "avg_daily_sales": 41.93
+    },
+    {
+     "id": 1444,
+     "name": "每日鲜语4.0鲜牛奶250ml*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 23,
+     "avg_daily_sales": 31.33
+    },
+    {
+     "id": 1447,
+     "name": "每日鲜语鲜牛奶1000ml*8瓶",
+     "spec": "8",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 8,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1283,
+     "name": "每日鲜语优护A2β-酪蛋白鲜牛奶250ml*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1443,
+     "name": "每日鲜语4.0鲜牛奶1000ml*8瓶",
+     "spec": "8",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 6.47
+    },
+    {
+     "id": 1446,
+     "name": "每日鲜语屋顶包鲜牛奶950ml*12盒",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1524,
+     "name": "现代牧场鲜牛奶屋顶包450ML*12盒",
+     "spec": "12",
+     "unit": "盒",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "盒",
+     "current_stock": 5,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1316,
+     "name": "现代牧场基础鲜牛奶屋顶包200ml*12盒",
+     "spec": "12",
+     "unit": "盒",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "盒",
+     "current_stock": 0,
+     "avg_daily_sales": 4.4
+    },
+    {
+     "id": 1525,
+     "name": "现代牧场鲜牛奶960g*12盒",
+     "spec": "12",
+     "unit": "盒",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "盒",
+     "current_stock": 277,
+     "avg_daily_sales": 129.33
+    },
+    {
+     "id": 1301,
+     "name": "每日鲜语小鲜语3.6全脂鲜牛奶450ml*12瓶",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 44.97
+    },
+    {
+     "id": 1284,
+     "name": "蒙牛鲜牛奶PET瓶180ml*24瓶（零食渠道）",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 40.77
+    },
+    {
+     "id": 1594,
+     "name": "小鲜语荔浦芋生牛乳185ml（零食渠道）（2.6.10.14.18.22.26.30）分开单独下单",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 63.57
+    },
+    {
+     "id": 1328,
+     "name": "每日鲜语小鲜语五种鲜活营养全脂鲜牛乳PET瓶250ml*24瓶（零食渠道）",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 25.53
+    },
+    {
+     "id": 1327,
+     "name": "蒙牛鲜牛奶屋顶包950ml*12盒（零食渠道）",
+     "spec": "12",
+     "unit": "盒",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "盒",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1272,
+     "name": "蒙牛高钙鲜牛奶950ml*12盒（鸣鸣很忙5890）",
+     "spec": "12",
+     "unit": "盒",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "盒",
+     "current_stock": 0,
+     "avg_daily_sales": 191.93
+    },
+    {
+     "id": 1596,
+     "name": "现代牧场0乳糖软牛奶185ml+2到货（分开单独下单）",
+     "spec": "24",
+     "unit": "组",
+     "sale_price": 0.0,
+     "order_unit": "组",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 32.4
+    },
+    {
+     "id": 1598,
+     "name": "小鲜语绿莎莎生牛乳绿豆奶185ml（4.8.12.16.20.24.28）分开单独下单",
+     "spec": "24",
+     "unit": "组",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1387,
+     "name": "每日鲜语双蛋白牛奶巴旦木调制乳250ml*24",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 5.83
+    },
+    {
+     "id": 1386,
+     "name": "每日鲜语双蛋白牛奶巴旦木调制乳720ml*12",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.03
+    },
+    {
+     "id": 1168,
+     "name": "蒙牛云上有机鲜牛奶",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1599,
+     "name": "每日鲜语优护A2β-酪蛋白原味鲜牛奶PET瓶720ml",
+     "spec": "12",
+     "unit": "件",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1502,
+     "name": "蒙牛鲜牛奶780ml*12",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1325,
+     "name": "蒙牛一斤鲜牛奶500g*10袋",
+     "spec": "10",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 280.2
+    },
+    {
+     "id": 1263,
+     "name": "蒙牛3.6蛋白鲜牛奶450ml*12瓶（鸣鸣很忙）",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1565,
+     "name": "简爱酸奶滑滑100g*6杯*8组",
+     "spec": "8",
+     "unit": "组",
+     "sale_price": 14.8194444444444,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1566,
+     "name": "简爱酸奶滑滑 100g*3*16",
+     "spec": "16",
+     "unit": "组",
+     "sale_price": 7.70138888888889,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1567,
+     "name": "简爱树莓滑滑 100g*3*16",
+     "spec": "16",
+     "unit": "组",
+     "sale_price": 8.57638888888889,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1568,
+     "name": "3原料裸酸奶100g*3*16",
+     "spec": "16",
+     "unit": "件",
+     "sale_price": 7.33333333333333,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1232,
+     "name": "简爱配餐滑滑100g*24杯（配餐-含盖含吸管）",
+     "spec": "24",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 89.63
+    },
+    {
+     "id": 1570,
+     "name": "身体知道益生菌酸奶 110克*4瓶*8组",
+     "spec": "8",
+     "unit": "件",
+     "sale_price": 14.0138888888889,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1243,
+     "name": "简爱原味裸酸奶家庭装1.08kg*9瓶",
+     "spec": "9",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 5.93
+    },
+    {
+     "id": 1571,
+     "name": "简爱裸百香果酸奶（家庭装）1.08kg*9瓶",
+     "spec": "9",
+     "unit": "件",
+     "sale_price": 22.1728395061728,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1245,
+     "name": "简爱原味酸奶230g*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 154.1
+    },
+    {
+     "id": 1244,
+     "name": "简爱百香果酸奶230g*24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 115.67
+    },
+    {
+     "id": 1572,
+     "name": "简爱®️葡里萄气酸牛奶全家桶1.08kg*9瓶",
+     "spec": "9",
+     "unit": "件",
+     "sale_price": 22.1728395061728,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1205,
+     "name": "简爱0%蔗糖原味135g*24杯",
+     "spec": "24",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 4.8
+    },
+    {
+     "id": 1573,
+     "name": "简爱0%蔗糖·原味 135g*4杯*6组",
+     "spec": "6",
+     "unit": "组",
+     "sale_price": 18.0,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1574,
+     "name": "简爱0%蔗糖酸奶·原味 135g*6杯*4组",
+     "spec": "4",
+     "unit": "件",
+     "sale_price": 26.0277777777778,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1575,
+     "name": "父爱配方™️原味吸吸酸奶·0%蔗糖100g*6*6",
+     "spec": "6",
+     "unit": "件",
+     "sale_price": 26.8888888888889,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1576,
+     "name": "父爱配方™️果蔬吸吸酸奶·4%蔗糖100g*6*6",
+     "spec": "6",
+     "unit": "件",
+     "sale_price": 26.8888888888889,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1252,
+     "name": "简爱父爱配方果蔬吸吸酸奶4%蔗糖100g*36袋",
+     "spec": "36",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 25.4
+    },
+    {
+     "id": 1253,
+     "name": "简爱父爱配方原味吸吸酸奶0%蔗糖100g*36袋",
+     "spec": "36",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 26.17
+    },
+    {
+     "id": 1577,
+     "name": "父爱配方™️西梅苹果吸吸酸奶·0%蔗糖100g*36袋",
+     "spec": "36",
+     "unit": "件",
+     "sale_price": 4.47530864197531,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1578,
+     "name": "父爱配方™️西梅苹果吸吸酸奶·0%蔗糖100g*6袋*6组",
+     "spec": "6",
+     "unit": "件",
+     "sale_price": 26.8888888888889,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1227,
+     "name": "父爱配方吸吸酸奶2%蔗糖（复合葡萄）100g*36袋",
+     "spec": "36",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 1.2
+    },
+    {
+     "id": 1579,
+     "name": "父爱配方™️吸吸酸奶·2%蔗糖（复合葡萄）100g*6*6",
+     "spec": "6",
+     "unit": "件",
+     "sale_price": 26.8888888888889,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1250,
+     "name": "简爱轻食酸奶0%蔗糖400g*12盒",
+     "spec": "12",
+     "unit": "盒",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "盒",
+     "current_stock": 0,
+     "avg_daily_sales": 15.8
+    },
+    {
+     "id": 1251,
+     "name": "简爱轻食酸奶4%蔗糖400g*12盒",
+     "spec": "12",
+     "unit": "盒",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "盒",
+     "current_stock": 0,
+     "avg_daily_sales": 12.37
+    },
+    {
+     "id": 1569,
+     "name": "简爱裸酸奶 100g*12杯*4组",
+     "spec": "4",
+     "unit": "组",
+     "sale_price": 21.3888888888889,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1580,
+     "name": "简爱0蔗糖高钙滑滑 100g*3杯*16组",
+     "spec": "16",
+     "unit": "组",
+     "sale_price": 8.16666666666667,
+     "order_unit": "",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1233,
+     "name": "简爱果蔬沙拉酸奶猕猴桃羽衣甘蓝120克*40袋",
+     "spec": "10",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1234,
+     "name": "简爱果蔬沙拉酸奶草莓甜菜复合果蔬120克*40袋",
+     "spec": "10",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1249,
+     "name": "简爱超级桶草莓风味发酵乳360克*12瓶",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 6.63
+    },
+    {
+     "id": 1242,
+     "name": "简爱超级桶原味风味发酵乳360g*12瓶",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 57.13
+    },
+    {
+     "id": 1238,
+     "name": "简爱超级桶百香果风味发酵乳360克*12瓶",
+     "spec": "12",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.8
+    },
+    {
+     "id": 1581,
+     "name": "简爱父爱配方酸奶冻冻乐 原味 风味发酵乳 60g*6袋*9组",
+     "spec": "9",
+     "unit": "件",
+     "sale_price": 18.0,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1582,
+     "name": "简爱父爱配方酸奶冻冻乐芒果百香果味 风味发酵乳 60g*6袋*9组",
+     "spec": "9",
+     "unit": "件",
+     "sale_price": 21.6049382716049,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1583,
+     "name": "简爱 超级顺LGG益生菌酸奶  风味发酵乳330克*12瓶",
+     "spec": "12",
+     "unit": "件",
+     "sale_price": 7.77777777777778,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1248,
+     "name": "简爱超级桶荔枝杨梅风味发酵乳360克*12瓶",
+     "spec": "360克*12瓶",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 5.53
+    },
+    {
+     "id": 1239,
+     "name": "简爱生牛乳米布丁凝固态调制乳135g*24杯",
+     "spec": "135g*24杯",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 232.6
+    },
+    {
+     "id": 1584,
+     "name": "简爱生牛乳米布丁 凝固态调制乳135g*2杯*12组",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 8.63888888888889,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1585,
+     "name": "简爱焦糖牛奶布丁 凝固态调制乳（100g+焦糖蜂蜜酱 8g） *24杯",
+     "spec": "24",
+     "unit": "件",
+     "sale_price": 7.2,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1586,
+     "name": "简爱焦糖牛奶布丁 凝固态调制乳（100g*2杯+焦糖蜂蜜酱8g*2包）*12组",
+     "spec": "12",
+     "unit": "组",
+     "sale_price": 14.4,
+     "order_unit": "组",
+     "unit_raw": "组",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1201,
+     "name": "简爱原味酸奶吸吸乐100g*40袋",
+     "spec": "100g*40袋",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 6.67
+    },
+    {
+     "id": 1600,
+     "name": "简爱超级果蔬草莓甜菜 风味发酵乳 360克*12瓶",
+     "spec": "12",
+     "unit": "件",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1601,
+     "name": "简爱超级果蔬猕猴桃羽衣甘蓝风味发酵乳 360克*12瓶",
+     "spec": "12",
+     "unit": "件",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1602,
+     "name": "简爱开菲尔经典风味 风味发酵乳760克*9瓶",
+     "spec": "9",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "瓶",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1603,
+     "name": "简爱开菲尔凤梨椰子风味发酵乳760克*9瓶",
+     "spec": "9",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "瓶",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1604,
+     "name": "简爱开菲尔香草荔枝风味发酵乳760克*9瓶",
+     "spec": "9",
+     "unit": "件",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1605,
+     "name": "简爱甜橙滑滑100克*3杯*16组",
+     "spec": "16",
+     "unit": "件",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1606,
+     "name": "简爱PROTÑ‌ 0蔗糖原味高蛋白希腊酸奶135mLx2杯x12组",
+     "spec": "12",
+     "unit": "件",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "件",
+     "current_stock": 0,
+     "avg_daily_sales": 0.0
+    },
+    {
+     "id": 1607,
+     "name": "简爱light 0%蔗糖轻饮酸奶风味发酵乳760克x9瓶",
+     "spec": "9",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "瓶",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 1.8
+    },
+    {
+     "id": 1595,
+     "name": "简爱light 0%蔗糖轻拌酸奶风味发酵乳120克x24杯",
+     "spec": "24",
+     "unit": "杯",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "杯",
+     "current_stock": 0,
+     "avg_daily_sales": 17.73
+    },
+    {
+     "id": 1597,
+     "name": "简爱香柚梨裸酸奶风味发酵乳220克x24瓶",
+     "spec": "24",
+     "unit": "瓶",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "瓶",
+     "current_stock": 0,
+     "avg_daily_sales": 38.03
+    },
+    {
+     "id": 1608,
+     "name": "简爱酸奶吸吸乐黄皮百香果味100克x40袋（通路版）",
+     "spec": "40",
+     "unit": "袋",
+     "sale_price": 0.0,
+     "order_unit": "",
+     "unit_raw": "袋",
+     "current_stock": 0,
+     "avg_daily_sales": 8.0
+    }
+   ],
+   "total": 154,
+   "scope": "period",
+   "period_id": 18
+  }
+ },
+ "avg_target": {
+  "http": 200,
+  "resp": {
+   "period": {
+    "id": 18,
+    "name": "2026-09-25 报单期次",
+    "order_start": "2026-09-24",
+    "order_end": "2026-12-31"
+   },
+   "month": "2026-09",
+   "today": "2026-09-26",
+   "arrivals": {
+    "蒙牛低温": {
+     "dates": [
+      "2026-09-01",
+      "2026-09-03",
+      "2026-09-05",
+      "2026-09-07",
+      "2026-09-09",
+      "2026-09-11",
+      "2026-09-13",
+      "2026-09-15",
+      "2026-09-17",
+      "2026-09-19",
+      "2026-09-21",
+      "2026-09-23",
+      "2026-09-25",
+      "2026-09-27",
+      "2026-09-29"
+     ],
+     "effective_count": 15,
+     "reason": "",
+     "remaining": 2,
+     "total": 15
+    }
+   },
+   "items": {
+    "1166": {
+     "product_id": 1166,
+     "product_name": "冠益乳大果粒水蜜桃草莓桑葚风味发酵乳利乐冠250g*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 26.375,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1168": {
+     "product_id": 1168,
+     "product_name": "蒙牛云上有机鲜牛奶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1189": {
+     "product_id": 1189,
+     "product_name": "冠益乳大果粒青提芦荟风味发酵乳利乐冠250g*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 30.875,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1190": {
+     "product_id": 1190,
+     "product_name": "冠益乳果蔬冠冠莲雾红甜菜树莓混合口味利乐冠200g×24瓶（零食）",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1191": {
+     "product_id": 1191,
+     "product_name": "冠益乳果蔬冠冠紫甘蓝黑莓黑加仑混合口味利乐冠200g×24瓶（零食）",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1201": {
+     "product_id": 1201,
+     "product_name": "简爱原味酸奶吸吸乐100g*40袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 5.0,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1202": {
+     "product_id": 1202,
+     "product_name": "蒙牛优益C乳酸菌味活菌型乳酸菌风味饮品330ml*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1205": {
+     "product_id": 1205,
+     "product_name": "简爱0%蔗糖原味135g*24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 5.0,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1208": {
+     "product_id": 1208,
+     "product_name": "蒙牛消健青柑柠檬风味爱克林180g×24袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 232.625,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1209": {
+     "product_id": 1209,
+     "product_name": "蒙牛消健荔枝蜜瓜风味爱克林180g×24袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 258.167,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1227": {
+     "product_id": 1227,
+     "product_name": "父爱配方吸吸酸奶2%蔗糖（复合葡萄）100g*36袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 1.0,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1230": {
+     "product_id": 1230,
+     "product_name": "蒙牛嚼酸奶燕麦草莓味150g*15袋（零食系统）",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 535.933,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1231": {
+     "product_id": 1231,
+     "product_name": "蒙牛嚼酸奶燕麦黄桃味150g*15袋（零食系统）",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 514.933,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1232": {
+     "product_id": 1232,
+     "product_name": "简爱配餐滑滑100g*24杯（配餐-含盖含吸管）",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 112.042,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1233": {
+     "product_id": 1233,
+     "product_name": "简爱果蔬沙拉酸奶猕猴桃羽衣甘蓝120克*40袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1234": {
+     "product_id": 1234,
+     "product_name": "简爱果蔬沙拉酸奶草莓甜菜复合果蔬120克*40袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1238": {
+     "product_id": 1238,
+     "product_name": "简爱超级桶百香果风味发酵乳360克*12瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 1.0,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1239": {
+     "product_id": 1239,
+     "product_name": "简爱生牛乳米布丁凝固态调制乳135g*24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 272.417,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1242": {
+     "product_id": 1242,
+     "product_name": "简爱超级桶原味风味发酵乳360g*12瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 130.25,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1243": {
+     "product_id": 1243,
+     "product_name": "简爱原味裸酸奶家庭装1.08kg*9瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 19.778,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1244": {
+     "product_id": 1244,
+     "product_name": "简爱百香果酸奶230g*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 126.667,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1245": {
+     "product_id": 1245,
+     "product_name": "简爱原味酸奶230g*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 171.167,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1248": {
+     "product_id": 1248,
+     "product_name": "简爱超级桶荔枝杨梅风味发酵乳360克*12瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 12.5,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1249": {
+     "product_id": 1249,
+     "product_name": "简爱超级桶草莓风味发酵乳360克*12瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 14.083,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1250": {
+     "product_id": 1250,
+     "product_name": "简爱轻食酸奶0%蔗糖400g*12盒",
+     "unit": "盒",
+     "box_unit": "盒",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 34.583,
+     "achieved_unit": "盒",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1251": {
+     "product_id": 1251,
+     "product_name": "简爱轻食酸奶4%蔗糖400g*12盒",
+     "unit": "盒",
+     "box_unit": "盒",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 26.917,
+     "achieved_unit": "盒",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1252": {
+     "product_id": 1252,
+     "product_name": "简爱父爱配方果蔬吸吸酸奶4%蔗糖100g*36袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 17.861,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1253": {
+     "product_id": 1253,
+     "product_name": "简爱父爱配方原味吸吸酸奶0%蔗糖100g*36袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 18.472,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1254": {
+     "product_id": 1254,
+     "product_name": "蒙牛果纤维青提牛油果混合味200g*10瓶*6组",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 10.333,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1255": {
+     "product_id": 1255,
+     "product_name": "蒙牛果纤维芭乐菠萝混合味200g*10瓶*6组",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 10.383,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1258": {
+     "product_id": 1258,
+     "product_name": "蒙牛冠益乳酸奶大满罐活力谷蔬味380g*18瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1259": {
+     "product_id": 1259,
+     "product_name": "蒙牛冠益乳酸奶大满罐活力果蔬味380g*18瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1260": {
+     "product_id": 1260,
+     "product_name": "蒙牛冠益乳酸奶大满罐活力原味380g*18瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.111,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1263": {
+     "product_id": 1263,
+     "product_name": "蒙牛3.6蛋白鲜牛奶450ml*12瓶（鸣鸣很忙）",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1264": {
+     "product_id": 1264,
+     "product_name": "蒙牛高钙早餐玉米青稞藜麦燕麦百利包150*12袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1265": {
+     "product_id": 1265,
+     "product_name": "蒙牛高钙早餐苹果羽衣甘蓝牛油果燕麦百利包150*12袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 611.833,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1272": {
+     "product_id": 1272,
+     "product_name": "蒙牛高钙鲜牛奶950ml*12盒（鸣鸣很忙5890）",
+     "unit": "盒",
+     "box_unit": "盒",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 417.083,
+     "achieved_unit": "盒",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1276": {
+     "product_id": 1276,
+     "product_name": "蒙牛冠益乳爆珠酸奶柠檬凤梨燕麦爆珠250g*24罐",
+     "unit": "罐",
+     "box_unit": "罐",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 50.708,
+     "achieved_unit": "罐",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1277": {
+     "product_id": 1277,
+     "product_name": "蒙牛冠益乳爆果珠酸奶蓝莓马蹄爆珠250g*24罐",
+     "unit": "罐",
+     "box_unit": "罐",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 55.708,
+     "achieved_unit": "罐",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1280": {
+     "product_id": 1280,
+     "product_name": "蒙牛优益C原味300ml*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 298.083,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1283": {
+     "product_id": 1283,
+     "product_name": "每日鲜语优护A2β-酪蛋白鲜牛奶250ml*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1284": {
+     "product_id": 1284,
+     "product_name": "蒙牛鲜牛奶PET瓶180ml*24瓶（零食渠道）",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 48.958,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1292": {
+     "product_id": 1292,
+     "product_name": "蒙牛每日鲜酪原味风味发酵乳预制杯100g*48杯（带盖）",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1293": {
+     "product_id": 1293,
+     "product_name": "友芝友老酸奶桂花酒酿小圆子135g*24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1294": {
+     "product_id": 1294,
+     "product_name": "友芝友老酸奶樱花味白桃小圆子135g*24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1301": {
+     "product_id": 1301,
+     "product_name": "每日鲜语小鲜语3.6全脂鲜牛奶450ml*12瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 101.167,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1315": {
+     "product_id": 1315,
+     "product_name": "蒙牛阿慕乐奶皮子原味酸奶135g*24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 411.208,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1316": {
+     "product_id": 1316,
+     "product_name": "现代牧场基础鲜牛奶屋顶包200ml*12盒",
+     "unit": "盒",
+     "box_unit": "盒",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1317": {
+     "product_id": 1317,
+     "product_name": "每日鲜酪0蔗糖厚乳酪原味风味酸奶预制杯400g*16杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 64.125,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1325": {
+     "product_id": 1325,
+     "product_name": "蒙牛一斤鲜牛奶500g*10袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 756.7,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1327": {
+     "product_id": 1327,
+     "product_name": "蒙牛鲜牛奶屋顶包950ml*12盒（零食渠道）",
+     "unit": "盒",
+     "box_unit": "盒",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1328": {
+     "product_id": 1328,
+     "product_name": "每日鲜语小鲜语五种鲜活营养全脂鲜牛乳PET瓶250ml*24瓶（零食渠道）",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 27.625,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1386": {
+     "product_id": 1386,
+     "product_name": "每日鲜语双蛋白牛奶巴旦木调制乳720ml*12",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": -0.583,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1387": {
+     "product_id": 1387,
+     "product_name": "每日鲜语双蛋白牛奶巴旦木调制乳250ml*24",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 7.083,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1388": {
+     "product_id": 1388,
+     "product_name": "蒙牛嚼拌食光巧克力谷物脆风味酸牛乳预制杯180g*16杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 37.5,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1395": {
+     "product_id": 1395,
+     "product_name": "友芝友益生菌红枣风味酸牛奶圆周杯100g*8杯*12组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1397": {
+     "product_id": 1397,
+     "product_name": "蒙牛双拼果粒0蔗糖柚见芝士樱桃蓝莓味90g*8杯*12组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 41.583,
+     "achieved_unit": "组",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1436": {
+     "product_id": 1436,
+     "product_name": "冠益乳健字号原味风味发酵乳200*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 71.792,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1441": {
+     "product_id": 1441,
+     "product_name": "每日鲜语4.0低脂轻鲜牛奶450ml*12瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 48.167,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1443": {
+     "product_id": 1443,
+     "product_name": "每日鲜语4.0鲜牛奶1000ml*8瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 20.125,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1444": {
+     "product_id": 1444,
+     "product_name": "每日鲜语4.0鲜牛奶250ml*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 31.917,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1446": {
+     "product_id": 1446,
+     "product_name": "每日鲜语屋顶包鲜牛奶950ml*12盒",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1447": {
+     "product_id": 1447,
+     "product_name": "每日鲜语鲜牛奶1000ml*8瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1448": {
+     "product_id": 1448,
+     "product_name": "每日鲜语鲜牛奶250ml*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 47.75,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1451": {
+     "product_id": 1451,
+     "product_name": "蒙牛阿慕乐黄桃味酸奶210g*12瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 1.0,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1454": {
+     "product_id": 1454,
+     "product_name": "蒙牛大果粒草莓三角杯260g*24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 25.792,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1455": {
+     "product_id": 1455,
+     "product_name": "蒙牛大果粒蓝莓三角杯260g*24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 22.625,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1456": {
+     "product_id": 1456,
+     "product_name": "蒙牛大果粒芦荟+黄桃三角杯260g*24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 14.417,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1457": {
+     "product_id": 1457,
+     "product_name": "蒙牛大果粒桑椹+椰果三角杯260g*24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 9.917,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1458": {
+     "product_id": 1458,
+     "product_name": "蒙牛单果粒草莓圆周杯100g*8杯*12组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 478.167,
+     "achieved_unit": "组",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1460": {
+     "product_id": 1460,
+     "product_name": "蒙牛单果粒黄桃圆周杯100g*8杯*12组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 339.5,
+     "achieved_unit": "组",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1466": {
+     "product_id": 1466,
+     "product_name": "蒙牛冠益乳草莓味250g*24罐",
+     "unit": "罐",
+     "box_unit": "罐",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 86.542,
+     "achieved_unit": "罐",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1468": {
+     "product_id": 1468,
+     "product_name": "蒙牛冠益乳黄桃味250g*24罐",
+     "unit": "罐",
+     "box_unit": "罐",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 91.417,
+     "achieved_unit": "罐",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1475": {
+     "product_id": 1475,
+     "product_name": "蒙牛红枣酸牛奶1000g*10桶",
+     "unit": "桶",
+     "box_unit": "桶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 331.4,
+     "achieved_unit": "桶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1476": {
+     "product_id": 1476,
+     "product_name": "蒙牛红枣圆周杯100g*16杯*6组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 27.0,
+     "achieved_unit": "组",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1477": {
+     "product_id": 1477,
+     "product_name": "蒙牛红枣圆周杯100g*8*12组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 208.917,
+     "achieved_unit": "组",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1479": {
+     "product_id": 1479,
+     "product_name": "蒙牛嚼酸奶草莓味150g*15袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 293.867,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1480": {
+     "product_id": 1480,
+     "product_name": "蒙牛嚼酸奶黄桃味150g*15袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 315.2,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1481": {
+     "product_id": 1481,
+     "product_name": "蒙牛老酸奶原味140g*24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 361.0,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1484": {
+     "product_id": 1484,
+     "product_name": "蒙牛零蔗糖风味板酸牛奶100g*8杯*12组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 185.417,
+     "achieved_unit": "组",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1493": {
+     "product_id": 1493,
+     "product_name": "蒙牛双拼果粒90g*8杯*12组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 101.167,
+     "achieved_unit": "组",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1494": {
+     "product_id": 1494,
+     "product_name": "蒙牛酸牛奶红枣预制瓶450g*15瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 280.0,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1495": {
+     "product_id": 1495,
+     "product_name": "蒙牛酸牛奶原味桶1100g*10桶",
+     "unit": "桶",
+     "box_unit": "桶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 305.0,
+     "achieved_unit": "桶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1502": {
+     "product_id": 1502,
+     "product_name": "蒙牛鲜牛奶780ml*12",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1503": {
+     "product_id": 1503,
+     "product_name": "蒙牛消健原味爱克林180g*10袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 50.0,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1505": {
+     "product_id": 1505,
+     "product_name": "蒙牛优益C百香果味330g×24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1510": {
+     "product_id": 1510,
+     "product_name": "蒙牛优益C原味340ml*24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 423.375,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1511": {
+     "product_id": 1511,
+     "product_name": "蒙牛优益C原味800ml*12瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1523": {
+     "product_id": 1523,
+     "product_name": "现代牧场鲜牛奶百利包180ML*12袋",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 2344.25,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1524": {
+     "product_id": 1524,
+     "product_name": "现代牧场鲜牛奶屋顶包450ML*12盒",
+     "unit": "盒",
+     "box_unit": "盒",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1525": {
+     "product_id": 1525,
+     "product_name": "现代牧场鲜牛奶960g*12盒",
+     "unit": "盒",
+     "box_unit": "盒",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 274.5,
+     "achieved_unit": "盒",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1526": {
+     "product_id": 1526,
+     "product_name": "现代牧场鲜牛奶桶装1500ML*6桶",
+     "unit": "桶",
+     "box_unit": "桶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 75.0,
+     "achieved_unit": "桶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1535": {
+     "product_id": 1535,
+     "product_name": "低脂高钙（恒滋下单）",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1537": {
+     "product_id": 1537,
+     "product_name": "CD杯（16连）",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1538": {
+     "product_id": 1538,
+     "product_name": "CD杯8杯",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1539": {
+     "product_id": 1539,
+     "product_name": "160红枣5连杯",
+     "unit": "条",
+     "box_unit": "条",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1540": {
+     "product_id": 1540,
+     "product_name": "160原味5连杯",
+     "unit": "条",
+     "box_unit": "条",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1541": {
+     "product_id": 1541,
+     "product_name": "每日鲜酪",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1542": {
+     "product_id": 1542,
+     "product_name": "每日鲜酪牛油果",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1543": {
+     "product_id": 1543,
+     "product_name": "每日鲜酪蓝莓+3发货(2.5.8.11.14.17.20.23.26.29）",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1546": {
+     "product_id": 1546,
+     "product_name": "友芝友致纯缤纷果粒圆周杯90g*8杯+4到货（31.4.8.12.16.20.24）",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1547": {
+     "product_id": 1547,
+     "product_name": "友芝友益生菌原味圆周杯100g*8杯+4到货，双号下单",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1549": {
+     "product_id": 1549,
+     "product_name": "小优原味",
+     "unit": "板",
+     "box_unit": "板",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1550": {
+     "product_id": 1550,
+     "product_name": "小优0蔗糖+3到货（2.6.10.14.18.22.26.30）",
+     "unit": "板",
+     "box_unit": "板",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1551": {
+     "product_id": 1551,
+     "product_name": "小优草莓+3发货（单号排期，双号订单）",
+     "unit": "板",
+     "box_unit": "板",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1552": {
+     "product_id": 1552,
+     "product_name": "小优青提+3发货（双号排期，单号订单）",
+     "unit": "板",
+     "box_unit": "板",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1555": {
+     "product_id": 1555,
+     "product_name": "褐色百利包+4到货",
+     "unit": "包",
+     "box_unit": "包",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1556": {
+     "product_id": 1556,
+     "product_name": "0蔗糖5连包 +3到货",
+     "unit": "提",
+     "box_unit": "袋",
+     "reported_box": 45.0,
+     "reported_qty": 360.0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "unit_mismatch": true
+     },
+     "avg_box": 75.0,
+     "prefill_box": 30.0,
+     "remaining_periods": 2,
+     "total_periods": 15,
+     "target_box": 150.0,
+     "target_unit": "箱",
+     "target_id": 1,
+     "prefill_per_unit": {
+      "箱": 30.0,
+      "袋": 240.0,
+      "提": 240.0
+     },
+     "avg_per_unit": {
+      "箱": 75.0,
+      "袋": 600.0,
+      "提": 600.0
+     },
+     "per_unit": {
+      "箱": 75.0,
+      "袋": 600.0,
+      "提": 600.0
+     },
+     "operators": [
+      {
+       "employee_id": 6,
+       "employee_name": "刘善涛",
+       "ratio": 10.0,
+       "reported_box": 5.0,
+       "gap_box": 70.0
+      },
+      {
+       "employee_id": 4,
+       "employee_name": "刘小顶",
+       "ratio": 30.0,
+       "reported_box": 8.0,
+       "gap_box": 67.0
+      },
+      {
+       "employee_id": 7,
+       "employee_name": "张俊峰",
+       "ratio": 60.0,
+       "reported_box": 12.0,
+       "gap_box": 63.0
+      }
+     ],
+     "gap_total_box": 200.0
+    },
+    "1557": {
+     "product_id": 1557,
+     "product_name": "嚼酸奶菠萝甜橙味150g*5袋+4到货（单号下单）",
+     "unit": "包",
+     "box_unit": "包",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1558": {
+     "product_id": 1558,
+     "product_name": "嚼酸奶哈密瓜味150g*5袋+4到货（单号下单）",
+     "unit": "包",
+     "box_unit": "包",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1559": {
+     "product_id": 1559,
+     "product_name": "蒙牛轻食BOX原味195g+3到货（暂时不定）",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1560": {
+     "product_id": 1560,
+     "product_name": "0蔗糖草莓百利包+3发货(4.8.12.16.20.24.28）",
+     "unit": "包",
+     "box_unit": "包",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1561": {
+     "product_id": 1561,
+     "product_name": "阿慕乐礼盒果10瓶+4到货（单号下单）",
+     "unit": "提",
+     "box_unit": "提",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1563": {
+     "product_id": 1563,
+     "product_name": "百红5连包+4到货（单号下单）",
+     "unit": "包",
+     "box_unit": "包",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1565": {
+     "product_id": 1565,
+     "product_name": "简爱酸奶滑滑100g*6杯*8组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1566": {
+     "product_id": 1566,
+     "product_name": "简爱酸奶滑滑 100g*3*16",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1567": {
+     "product_id": 1567,
+     "product_name": "简爱树莓滑滑 100g*3*16",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1568": {
+     "product_id": 1568,
+     "product_name": "3原料裸酸奶100g*3*16",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1569": {
+     "product_id": 1569,
+     "product_name": "简爱裸酸奶 100g*12杯*4组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1570": {
+     "product_id": 1570,
+     "product_name": "身体知道益生菌酸奶 110克*4瓶*8组",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1571": {
+     "product_id": 1571,
+     "product_name": "简爱裸百香果酸奶（家庭装）1.08kg*9瓶",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1572": {
+     "product_id": 1572,
+     "product_name": "简爱®️葡里萄气酸牛奶全家桶1.08kg*9瓶",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1573": {
+     "product_id": 1573,
+     "product_name": "简爱0%蔗糖·原味 135g*4杯*6组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1574": {
+     "product_id": 1574,
+     "product_name": "简爱0%蔗糖酸奶·原味 135g*6杯*4组",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1575": {
+     "product_id": 1575,
+     "product_name": "父爱配方™️原味吸吸酸奶·0%蔗糖100g*6*6",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1576": {
+     "product_id": 1576,
+     "product_name": "父爱配方™️果蔬吸吸酸奶·4%蔗糖100g*6*6",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1577": {
+     "product_id": 1577,
+     "product_name": "父爱配方™️西梅苹果吸吸酸奶·0%蔗糖100g*36袋",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1578": {
+     "product_id": 1578,
+     "product_name": "父爱配方™️西梅苹果吸吸酸奶·0%蔗糖100g*6袋*6组",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1579": {
+     "product_id": 1579,
+     "product_name": "父爱配方™️吸吸酸奶·2%蔗糖（复合葡萄）100g*6*6",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1580": {
+     "product_id": 1580,
+     "product_name": "简爱0蔗糖高钙滑滑 100g*3杯*16组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1581": {
+     "product_id": 1581,
+     "product_name": "简爱父爱配方酸奶冻冻乐 原味 风味发酵乳 60g*6袋*9组",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1582": {
+     "product_id": 1582,
+     "product_name": "简爱父爱配方酸奶冻冻乐芒果百香果味 风味发酵乳 60g*6袋*9组",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1583": {
+     "product_id": 1583,
+     "product_name": "简爱 超级顺LGG益生菌酸奶  风味发酵乳330克*12瓶",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1584": {
+     "product_id": 1584,
+     "product_name": "简爱生牛乳米布丁 凝固态调制乳135g*2杯*12组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1585": {
+     "product_id": 1585,
+     "product_name": "简爱焦糖牛奶布丁 凝固态调制乳（100g+焦糖蜂蜜酱 8g） *24杯",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1586": {
+     "product_id": 1586,
+     "product_name": "简爱焦糖牛奶布丁 凝固态调制乳（100g*2杯+焦糖蜂蜜酱8g*2包）*12组",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1587": {
+     "product_id": 1587,
+     "product_name": "每日鲜酪青青柚子125g*2杯+3到货（2.6.9.13.16.20.23.27.30）",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1588": {
+     "product_id": 1588,
+     "product_name": "每日鲜酪桂花马蹄125g*2杯+3到货（2.6.9.13.16.20.23.27.30）",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1593": {
+     "product_id": 1593,
+     "product_name": "老酸奶PE瓶160g+6到货（2.5.7.9.12.14.16.19.21.23.26.28.30）",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 278.333,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1594": {
+     "product_id": 1594,
+     "product_name": "小鲜语荔浦芋生牛乳185ml（零食渠道）（2.6.10.14.18.22.26.30）分开单独下单",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 75.625,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1595": {
+     "product_id": 1595,
+     "product_name": "简爱light 0%蔗糖轻拌酸奶风味发酵乳120克x24杯",
+     "unit": "杯",
+     "box_unit": "杯",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 18.667,
+     "achieved_unit": "杯",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1596": {
+     "product_id": 1596,
+     "product_name": "现代牧场0乳糖软牛奶185ml+2到货（分开单独下单）",
+     "unit": "组",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 32.5,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_convert": true,
+      "unit_mismatch": true,
+      "no_target": true
+     }
+    },
+    "1597": {
+     "product_id": 1597,
+     "product_name": "简爱香柚梨裸酸奶风味发酵乳220克x24瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 42.875,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1598": {
+     "product_id": 1598,
+     "product_name": "小鲜语绿莎莎生牛乳绿豆奶185ml（4.8.12.16.20.24.28）分开单独下单",
+     "unit": "组",
+     "box_unit": "组",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1599": {
+     "product_id": 1599,
+     "product_name": "每日鲜语优护A2β-酪蛋白原味鲜牛奶PET瓶720ml",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1600": {
+     "product_id": 1600,
+     "product_name": "简爱超级果蔬草莓甜菜 风味发酵乳 360克*12瓶",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1601": {
+     "product_id": 1601,
+     "product_name": "简爱超级果蔬猕猴桃羽衣甘蓝风味发酵乳 360克*12瓶",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1602": {
+     "product_id": 1602,
+     "product_name": "简爱开菲尔经典风味 风味发酵乳760克*9瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1603": {
+     "product_id": 1603,
+     "product_name": "简爱开菲尔凤梨椰子风味发酵乳760克*9瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1604": {
+     "product_id": 1604,
+     "product_name": "简爱开菲尔香草荔枝风味发酵乳760克*9瓶",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1605": {
+     "product_id": 1605,
+     "product_name": "简爱甜橙滑滑100克*3杯*16组",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1606": {
+     "product_id": 1606,
+     "product_name": "简爱PROTÑ‌ 0蔗糖原味高蛋白希腊酸奶135mLx2杯x12组",
+     "unit": "件",
+     "box_unit": "件",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 0.0,
+     "achieved_unit": "",
+     "achieved_unit_assumed": "",
+     "achieved_src": "",
+     "flags": {
+      "no_convert": true,
+      "no_target": true
+     }
+    },
+    "1607": {
+     "product_id": 1607,
+     "product_name": "简爱light 0%蔗糖轻饮酸奶风味发酵乳760克x9瓶",
+     "unit": "瓶",
+     "box_unit": "瓶",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 5.444,
+     "achieved_unit": "瓶",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    },
+    "1608": {
+     "product_id": 1608,
+     "product_name": "简爱酸奶吸吸乐黄皮百香果味100克x40袋（通路版）",
+     "unit": "袋",
+     "box_unit": "袋",
+     "reported_box": 0.0,
+     "reported_qty": 0,
+     "achieved_box": 6.0,
+     "achieved_unit": "袋",
+     "achieved_unit_assumed": "",
+     "achieved_src": "sales",
+     "flags": {
+      "no_target": true
+     }
+    }
+   },
+   "notes": {},
+   "caliber": {
+    "avg": "均单剩余(箱) = (月目标 − 已达成) ÷ 剩余可报期次",
+    "achieved": "已达成优先取「达成填报」里填的；没填的商品 ⇒ 从当月销售单明细（已发货/已签收）自动汇总（v277）。每行 achieved_src 标出来源。",
+    "prefill": "加单预填(箱) = 均单剩余 − 本期报单合计（**归位**口径；不含加单）",
+    "remaining": "剩余可报期次 = 整月到货日历中「今天及以后」的到货日个数",
+    "suggest": "预填值默认是**建议态**：不点采纳就不参与分配 / 定稿 / 通知（D5-A）",
+    "gap": "差额合计(箱) = Σ 各承接人 max(0, 均单目标 − 该人本期报单)；**超报不抵扣**别人的缺口（否则会掩盖真实缺口）。承接人 = 目标分解时选的人。"
+   }
+  }
+ }
+}

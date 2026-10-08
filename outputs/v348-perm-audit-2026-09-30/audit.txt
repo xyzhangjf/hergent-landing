@@ -1,0 +1,113 @@
+v348 权限维度盘点（只读）
+后端 /Users/zhangjunfeng/Documents/hergent-erp/server/core.py
+前端 /Users/zhangjunfeng/Documents/laozhangai-product/hergent-cn-v2/src/pages/Settings.vue
+
+==============================================================================
+A. 侧栏 10 项 × 后端模块 × 权限页有没有一行能关掉它
+==============================================================================
+#    组        侧栏项              路由             挂的模块               权限页上对应哪一行
+1    经营       经营工作台              /workbench         —                    ◀ 无 —— 权限页上没有任何一行管它
+2    经营       预报订货管理             /forecast          预报订货管理               预报订货管理（forecast）
+3    经营       目标与返利              /rebate            销售管理                 销售管理（sales）
+4    经营       招投标雷达              /bid-radar         招投标雷达                招投标雷达（bid）
+5    核算       货损核算               /loss-accounting   仓库管理                 仓库管理（stock）
+6    核算       算工资                /payroll           算工资                  算工资（payroll）
+7    配置       档案管理               /archive           档案管理                 档案管理（data）
+8    配置       AI 引擎              /connect           —                    ◀ 无 —— 权限页上没有任何一行管它
+9    配置       定时任务               /cron              定时任务                 定时任务（cron）
+10   配置       设置                 /settings          —                    ◀ 无 —— 权限页上没有任何一行管它
+
+==============================================================================
+A2. 「侧栏有入口、权限页上却没有任何一行能关掉它」的页面（= 老板说的『缺失的配置入口』）
+==============================================================================
+  · 经营工作台        /workbench        module=None  lock=False
+  · AI 引擎        /connect          module=None  lock=False
+  · 设置           /settings         module=None  lock=True
+  —— 第二类：**能关，但行名对不上 / 一个开关管一串页**（老板照侧栏名找不到它）：
+  · 侧栏「目标与返利」/rebate
+      权限页那一行叫「销售管理」，它同时管 1 个页面入口：目标与返利
+  · 侧栏「货损核算」/loss-accounting
+      权限页那一行叫「仓库管理」，它同时管 4 个页面入口：货损核算、货损计算工作流、库存效期补录、仓库档案
+  · 侧栏「档案管理」/archive
+      权限页那一行叫「档案管理」，它同时管 3 个页面入口：档案管理、品牌档案、商品档案
+
+==============================================================================
+B. 后端 19 个模块 × 接口前缀条数 × 侧栏是否有入口
+==============================================================================
+模块键              权限页行名                接口数      小程序        对应页面入口（MODULE_IMPACT.entries）
+dashboard        经营看板                 2                   经营趋势
+data             档案管理                 79       ✓          档案管理、品牌档案、商品档案  feeds→ 舟谱单据导入
+sales            销售管理                 36                  目标与返利  feeds→ 货损核算
+buying           采购管理                 16                  （无入口页）
+stock            仓库管理                 34                  货损核算、货损计算工作流、库存效期补录、仓库档案
+accounts         收付款                  61                  （无入口页）
+crm              客户关系                 7                   客户档案
+hr               员工管理                 28                  员工档案
+payroll          算工资                  10                  算工资
+projects         项目管理                 2                   （无入口页）
+goals            经营目标                 1                   （无入口页）
+reports          数据报表                 14                  （无入口页）
+chat             AI功能（消耗积分）           5                   产出与用量、AI 团队  feeds→ AI 引擎
+tasks            任务与项目                1                   （无入口页）
+cron             定时任务                 1                   定时任务
+bid              招投标雷达                1                   招投标雷达
+messages         消息通知                 1        ✓          （无入口页）
+forecast         预报订货管理               1                   预报订货管理
+forecast-audit   预报审核与定稿              1                   （无入口页）  feeds→ 预报订货管理
+
+B2. 勾了在**新前端**看不到任何变化的模块（entries 与 feeds 都空） —— 共 7 个：
+  · buying         采购管理             接口前缀 16 条
+  · accounts       收付款              接口前缀 61 条
+  · projects       项目管理             接口前缀 2 条
+  · goals          经营目标             接口前缀 1 条
+  · reports        数据报表             接口前缀 14 条
+  · tasks          任务与项目            接口前缀 1 条
+  · messages       消息通知             接口前缀 1 条
+
+==============================================================================
+C. 后端权限族端点 × 前端是否调用
+==============================================================================
+方法       端点                                             前端调用
+GET      /api/permissions/modules                       ✓
+GET      /api/role-permissions                          ✓
+POST     /api/role-permissions                          ✓
+POST     /api/role-permissions/new                      ✓
+DELETE   /api/role-permissions/{role_name}              ✗ 从未调用
+POST     /api/role-permissions/end                      ✓
+DELETE   /api/role-permissions/end/{role_name}          ✗ 从未调用
+GET      /api/role-permissions/detail                   ✓
+POST     /api/role-permissions/detail                   ✓
+
+==============================================================================
+D. 接口已下发、但权限页**从未读取**的字段
+==============================================================================
+modules[].mini                 未读     该模块在小程序端有没有真实功能（v312 加的只读标记，v331c 把那一列删了）
+modules[].feeds                未读     入口不受它管、但页内数据要靠它读（v333 起前端刻意不显示）
+roles[].is_default             未读     该角色是不是系统自带（后端 `role in _DEFAULT_PERMS`）
+roles[].end_builtin            未读     登录端的内置默认值（用于「恢复默认」比对）
+roles[].default_login_scope    未读     该角色新账号的默认可登录端（单值）
+detail.modules / detail.actions 未读     细粒度端点的模块表与动作表（前端自己硬编码了 `permActions`）
+
+==============================================================================
+E. 四类维度的后端「已有积木」核对
+==============================================================================
+① 功能模块  → `_ALL_MODULES`（19 项）＋ `role_permissions.permissions`    已有
+② 可用 AI   → 模块 `chat`（AI功能（消耗积分））＋ 5 条接口前缀      已有，但混在模块列表里
+③ 网页端    → `role_end(role_name, allow_web, allow_mini)` 表              已有
+④ 小程序端  → 同上（同一行两列）                                          已有
+
+端的内置默认（`ROLE_LOGIN_SCOPE`）与不可关名单：
+   accountant     web
+   admin          both   ← 电脑端不可关
+   boss           both   ← 电脑端不可关
+   distributor    mini
+   driver         web
+   guide          mini
+   sales          mini
+   staff          mini
+   supervisor     both
+
+动作轴（后端已有、v334 才接上前端）：_ALL_ACTIONS = ['read', 'create', 'update', 'delete']
+默认权限表角色数 = 9：accountant、admin、boss、distributor、driver、guide、sales、staff、supervisor
+
+判定：解锁 ①②③④ 四类维度所需的后端积木**全部已存在**，缺的只是权限页的**行来源**（现在按后端模块出行，而不是按侧栏功能出行）。

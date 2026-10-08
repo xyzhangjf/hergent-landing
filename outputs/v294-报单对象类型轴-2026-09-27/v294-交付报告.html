@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v294 报单对象类型轴 · 交付说明</title>
+<style>
+  :root {
+    --ink: #1f2329;
+    --ink2: #5c6670;
+    --ink3: #8a939c;
+    --line: #e6e8eb;
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --brand: #0f6e56;
+    --brand-bg: #e1f5ee;
+    --warn: #ba7517;
+    --warn-bg: #faeeda;
+    --danger: #a32d2d;
+    --danger-bg: #fcebeb;
+    --ok: #1d9e75;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: var(--bg); color: var(--ink);
+    font: 400 15px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; letter-spacing: .2px; }
+  .sub { color: var(--ink2); font-size: 13px; margin-bottom: 22px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 18px 20px; margin: 0 0 16px;
+  }
+  h2 {
+    font-size: 16px; font-weight: 600; margin: 0 0 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  h2 .n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 5px; font-size: 12px;
+    background: var(--brand-bg); color: var(--brand); font-weight: 700;
+  }
+  p { margin: 8px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0 2px; }
+  th, td { border: 1px solid var(--line); padding: 7px 9px; text-align: left; vertical-align: top; }
+  th { background: #f2f4f6; font-weight: 600; color: var(--ink2); white-space: nowrap; }
+  td code, p code, li code {
+    font: 500 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: #f2f4f6; border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 4px; word-break: break-all;
+  }
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    padding: 1px 6px; border-radius: 4px; white-space: nowrap;
+  }
+  .t-ok { background: var(--brand-bg); color: var(--brand); }
+  .t-warn { background: var(--warn-bg); color: var(--warn); }
+  .t-danger { background: var(--danger-bg); color: var(--danger); }
+  ul, ol { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .kv { font-size: 13px; color: var(--ink2); }
+  .box {
+    border-left: 3px solid var(--brand); background: var(--brand-bg);
+    padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 13.5px;
+  }
+  .box.warn { border-color: var(--warn); background: var(--warn-bg); }
+  .box.danger { border-color: var(--danger); background: var(--danger-bg); }
+  .mono { font: 500 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .no { color: var(--danger); font-weight: 600; }
+  .foot { color: var(--ink3); font-size: 12px; text-align: center; margin-top: 26px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>v294 · 报单对象类型轴（一人可报多门店 + 自己仓）</h1>
+  <div class="sub">2026-09-27 · 对应你的 4 条决策 · <span class="tag t-ok">代码已就绪</span> <span class="tag t-warn">未部署</span></div>
+
+  <div class="card">
+    <h2><span class="n">一</span>交付</h2>
+    <p>你说的四件事全部落到代码里了：<strong>员工档案补「个人仓」入口</strong>、<strong>源仓/目标仓真读</strong>、
+      <strong>档案管理新增「仓库档案」Tab</strong>、<strong>一人可报多门店 + 同时可报自己仓的调拨单</strong>。
+      另外顺手修掉一处我自己上轮发现的高危 SQL 注入。</p>
+    <p>改动共 <strong>15 个文件</strong>（后端 7 · 前端 5 · 小程序 3），四轮验收全部通过。
+      <strong>但没有上线</strong>——原因和三个方案在第五节，需要你拍一个。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">二</span>变更清单</h2>
+    <table>
+      <tr><th>问题</th><th>改了什么</th><th>文件 · 位置</th><th>预期效果</th><th>验证方式</th></tr>
+      <tr>
+        <td><span class="tag t-danger">高</span> 员工档案根本没有「个人仓」入口，所以刘小顶没设</td>
+        <td>三个写白名单补 <code>warehouse_id</code>（建/改两个接口 + db 层），员工档案新增「报单身份」区块（下拉 + 未建仓提示），表格新增「个人仓」列</td>
+        <td><code>erp_db.py:6858</code> · <code>server.py:5266 / :5288</code> · <code>EmployeeArchive.vue</code></td>
+        <td>能设、能改、<strong>能清空</strong>（传 0）</td>
+        <td>读代码 + 前端构建产物含「报单身份」</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-danger">高</span> 本人仓在服务端永不出现（下拉没有、直调 API 也 403）</td>
+        <td><code>employee_stores_get</code> 并入报单配置里 active 的 <code>self_warehouse</code> 映射，每项补 <code>kind</code></td>
+        <td><code>erp_db.py:18470</code></td>
+        <td>小程序下拉出现「××仓（本人仓 · 调拨单）」；越权门禁同时放行</td>
+        <td><strong>生产真数据</strong>：<code>employee_stores_get(4)</code> → <code>[{id:7, name:'刘小顶仓', kind:'warehouse'}]</code>；负向对照 <code>(7)</code> 只有 store</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-danger">高</span> 门店 id 与仓库 id 是两套自增空间，会撞号 → 同期次两单互相覆盖（静默丢单）+ 越权</td>
+        <td>新增<b>类型轴</b> <code>store_kind</code>（'store' | 'warehouse'）：幂等键、越权门禁、汇总表列名、舟谱模板分组、小程序本地缓存键全部按 <code>(id, kind)</code></td>
+        <td><code>erp_db.py</code>（2 处建表 + ALTER + <code>_norm_store_kind</code> + list/summary）· <code>forecast_submissions.py</code> · <code>db/queries/report_column.py</code> · <code>routers/forecast.py</code> · 小程序 <code>fill.js</code></td>
+        <td>「门店 5」与「仓库 5」是两个对象，不再互相命中</td>
+        <td>探针 D/D0：同一 id 按两种 kind 取到<strong>不同</strong>来源（真数据 id=9 → warehouse 得「刘善涛」/ store 回落兜底）</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-warn">中</span> 「单型」后端零消费 ⇒ 界面写「调拨单」、模板却放进「自提订单」表</td>
+        <td>单型改由对象类型<b>派生</b>（<code>order_template_for</code>，三条写路径唯一实现）；前端改成只读并显示派生值；Excel 导入不再把它算必填</td>
+        <td><code>erp_db.py:6943</code> · <code>server.py:5535</code> · <code>ReportMapping.vue</code></td>
+        <td>「界面上写的」与「系统实际做的」永远同一件事</td>
+        <td>探针 B：<code>self_warehouse</code>→调拨单，其余→自提订单（含 <code>None</code>）</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-warn">中</span> 「源仓 / 目标仓」配了等于没配（<code>src_wh</code> 连投影都没有，<code>dst_wh</code> 无读取方）</td>
+        <td>舟谱模板<b>真读</b>两列：调出仓 = 源仓 → 默认业务仓；调入仓 = 目标仓 → 对象 id → 显示名 → 原有拼接；配的仓已不在档案时<b>点名告警</b>而不是静默回落</td>
+        <td><code>routers/forecast.py:1311 / :1433</code></td>
+        <td>调拨行按你选的仓出，仓改名/被删会明确告诉你</td>
+        <td>读代码（改前全仓 grep 无读取方）+ 告警文案入包</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-warn">中</span> 档案管理里没有仓库维护界面</td>
+        <td>新增「仓库档案」Tab：列表（名称 + <code>DB{id}</code> 编号徽标 / 地址 / 联系人 / 电话 / 默认仓）+ 新建 / 编辑 / 删除；403 与「真的没有」分开呈现</td>
+        <td><code>WarehouseArchive.vue</code>（新建）· <code>Archive.vue</code> · <code>router/index.js</code> · <code>constants/pages.js</code> · <code>api/modules.js</code>（<code>warehouseApi</code>）</td>
+        <td>仓库可自助维护，不再依赖脚本</td>
+        <td>前端构建产物含「仓库档案」，路由 <code>/archive/warehouses</code> 已登记</td>
+      </tr>
+      <tr>
+        <td><span class="tag">低</span> 仓库「地址」删空后点保存，值又回来（改不掉的输入框）</td>
+        <td><code>update_warehouse</code> 语义二分：<code>None</code> = 不动这一列，<code>''</code> = 清空；调用方去掉 <code>or ""</code> 压制</td>
+        <td><code>erp_db.py:9660</code> · <code>routers/inventory.py:166</code></td>
+        <td>仓库字段能真正清空；老调用（只传名字）行为不变</td>
+        <td>读代码 + 缺省值 <code>None</code> 保证兼容</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-danger">高危</span> <b>SQL 注入</b>：<code>GET /api/report-mappings?counterparty_type=</code> 原始字符串直插 SQL</td>
+        <td>改参数化（<strong>语义逐字不变</strong>，仍是精确匹配、仍不归一）</td>
+        <td><code>erp_db.py:6978</code>（原 <code>:6989</code>）</td>
+        <td>本租户低权限账号不能再读 <code>hr_employees</code> 的身份证 / 银行账号</td>
+        <td>判别力探针：正常查询 3 行，恒真注入 0 行、UNION 注入 0 行</td>
+      </tr>
+      <tr>
+        <td><span class="tag">配套</span> 小程序不认类型轴</td>
+        <td><code>kind</code> 贯穿：对象键改 <code>wh_{id}</code>、切店比 <code>(id, kind)</code>、购物车/快照/提交键同源、最近门店按 <code>kind\|name</code> 去重、列表加「本人仓」徽标</td>
+        <td><code>fill.js</code> · <code>fill.wxml</code> · <code>fill.wxss</code></td>
+        <td>同一个人的「门店 5」与「仓库 5」在本地不再串车</td>
+        <td><code>node --check</code> 通过（小程序真机需上传后验）</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">三</span>构建 / 验收证据</h2>
+    <ul>
+      <li><b>后端语法</b>：7 个文件 <code>ast.parse</code> 全过。</li>
+      <li><b>前端构建</b>：<code>vite build</code> 成功（157 modules），「仓库档案 / 个人仓 / 报单身份 / 本人仓 · 调拨单」均在对应 chunk 内。<span class="kv">（构建到临时目录，未动 <code>dist/</code>）</span></li>
+      <li><b>影子库探针</b>（隔离 <code>/tmp</code>，跑前 <code>PRAGMA database_list</code> 自证）：类型轴归一 / 单型派生 / 老表补列 / 按类型取简称，<b class="ok">全绿</b>。</li>
+      <li><b>生产真数据</b>：<code>forecast_submissions</code> 39 行存量全部回填 <code>store</code>（无 NULL）；仓库 id=9 在 warehouse 口径取到真简称、在 store 口径回落兜底 ⇒ 类型轴确实有判别力。</li>
+      <li><b>端到端</b>：<code>employee_stores_get(4)</code>（刘小顶）→ 含 <code>kind='warehouse'</code> 的「刘小顶仓」；<code>(7)</code>（张俊峰）→ 只有门店，未被塞仓。</li>
+      <li><b>部署门禁</b>：生产 vs 本地 6 个后端文件逐行 diff = <code>+174 / −25</code>，<strong>逐字都是本轮改动，零夹带</strong>。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">四</span>对着你的 4 条决策</h2>
+    <ol>
+      <li><b>「员工档案里没有设置个人仓的入口」</b> —— 已建。顺带确认：<code>hr_employees.warehouse_id</code> 这一列早在 v107 就存在，缺的只是<strong>写入白名单和界面</strong>；生产库里刘小顶的 <code>warehouse_id</code> 其实<strong>已经有值（=7）</strong>，之前是「有数据、没入口、更没出口」。</li>
+      <li><b>「真读」+「要不要做个仓库档案 Tab」</b> —— 真读已做；Tab 已建。<strong>后端确实早就有</strong>（<code>/api/warehouses/full</code> 及 create/update/delete），只差前端一个壳。</li>
+      <li><b>「ID 前加 ZT / DB 编号」</b> —— 用 <code>(kind, id)</code> <b>两列</b>表达了同一件事：等价于把 <code>ZT5</code> / <code>DB5</code> 拆开，但<strong>不改 <code>store_id</code> 的类型</strong>（改类型要动所有读端，风险远大于收益）。舟谱模板里 <code>ZT/DB</code> 前缀本来就分别由「自提订单 / 调拨订单」两张工作表承担，前端不加前缀（避免动列名契约）。<br>
+        <span class="kv">补一句实话：当前真数据其实<b>没撞号</b>——门店 id 在 2214～2969，仓库 id 在 1～10。但轴必须留着，否则你哪天建到第 2213 个门店就会静默出事。</span></li>
+      <li><b>「维持一店一期一单，但一人可同时报多门店 + 自己仓」</b> —— 维持住了。幂等键从 <code>(store_id, period_id)</code> 升级为 <code>(store_id, store_kind, period_id)</code>，所以 <code>(7,'store')</code> 与 <code>(7,'warehouse')</code> 是两张各自独立的单，「一店一期一单」的口径没被破坏。</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">五</span>需确认事项（我故意没上线）</h2>
+    <div class="box danger">
+      <b>这一版必须三端同步发，我不能一个人发完：</b>
+      <ol>
+        <li><b>小程序</b>：老版小程序不带 <code>kind</code>。后端一上线，刘小顶下拉里会多出「刘小顶仓」这一条，但他一点提交就是 <b>403「无权向该对象报单」</b> —— 等于给他一个看得见、点不通的入口。只有小程序一起更新才顺。</li>
+        <li><b>前端</b>：本仓此刻有 <strong>约 18 个并行会话未上线的在途改动</strong>（AiHub / ConnectCenter / Dashboard / ImportMapping / Loss* / Payroll / Rebate / Settings / Workbench / ZhoupuImport… 共 22 个 chunk 与线上不同）。现在构建上线，等于<strong>顺手把别人的半成品一起推上去</strong>。</li>
+      </ol>
+    </div>
+    <table>
+      <tr><th>方案</th><th>内容</th><th>代价</th></tr>
+      <tr>
+        <td><b>A</b></td>
+        <td>只发后端 6 个文件 + 重启</td>
+        <td>刘小顶会看到一条点了 403 的入口（其余人无感）</td>
+      </tr>
+      <tr>
+        <td><b>B</b> <span class="tag t-ok">推荐</span></td>
+        <td>后端 + 小程序一起：我先发后端并把小程序改动清单给你，你在微信开发者工具上传一次（反正要提审）</td>
+        <td>需要你花几分钟走一次上传</td>
+      </tr>
+      <tr>
+        <td><b>C</b></td>
+        <td>等前端并行会话的工作落定后，三端一起发</td>
+        <td>要等；但「仓库档案」Tab 与单型只读界面同时到用户面前，最完整</td>
+      </tr>
+    </table>
+    <p class="kv">回我 <b>A / B / C</b> 即可。<span class="kv">另外：你第 3 问里的「报单简称自动解析列头 + 点选」本轮没做——数据源已经找到（租户级历史列头名册 <code>all_units</code>），但需要新增一个轻量端点，建议单独一轮。</span></p>
+  </div>
+
+  <div class="foot">Hergent · v294 交付说明 · 生成于 2026-09-27</div>
+</div>
+</body>
+</html>

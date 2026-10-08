@@ -1,0 +1,46 @@
+生产真值（照抄 tenant_1.db::role_permissions，v349 迁移后实测）：
+  主管 supervisor      = ["data","sales","stock","bid","messages","forecast","forecast-audit","loss"]
+  主管（只去 loss）     = ["data","sales","stock","bid","messages","forecast","forecast-audit"]
+  业务员 sales         = ["sales","buying","stock","crm","data","messages","loss"]  ← 无 dashboard
+  老板 boss            = ["dashboard","data","sales","buying","stock","loss"] …（有 dashboard）
+  custom_roles         = ["supervisor","库管"]
+  ✅ 真账号登录（mptest）　→ OK:sales:1
+
+① 基线（不改写 —— 先证登录态与页面本身是活的）
+  ✅ /api/auth/permissions 被调用（判据真的跑过）　→ 1 次
+  ✅ 侧栏正常渲染　→ nav=1
+  基线侧栏: 经营工作台 | 目标与返利 | 货损核算 | 档案管理
+
+② 货损核算单独开关（主管真值 · 单变量：只去掉 `loss`）
+  ✅ 自证：页面收到的模块清单 = 主管真值（含 loss）　→ ["data","sales","stock","bid","messages","forecast","forecast-audit","loss"]
+  主管侧栏: 经营工作台 | 预报订货管理 | 目标与返利 | 招投标雷达 | 货损核算 | 档案管理
+  ✅ 🔴 目标③ - 正向：主管持 `loss` ⇒ 侧栏**有**「货损核算」　→ true
+  ✅ 自证：只去掉了 `loss`（其余逐项不变 ⇒ 单变量）　→ ["data","sales","stock","bid","messages","forecast","forecast-audit"]
+  去掉 loss 后侧栏: 经营工作台 | 预报订货管理 | 目标与返利 | 招投标雷达 | 档案管理
+  ✅ 🔴 目标③ - 反向：只去掉 `loss` ⇒ 「货损核算」**消失**（此前要连关 3 页）　→ false
+  ✅ 对照：同一份权限下「档案管理」仍在（他持 data ⇒ 不是把整个仓库关了）　→ true
+
+③ 经营看板默认只给老板和管理员（首页 KPI 条按 `canModule(dashboard)` 显隐）
+  ✅ 自证：业务员真值（**无 dashboard**、有 loss）　→ ["sales","buying","stock","crm","data","messages","loss"]
+  ✅ 🔴 目标①：业务员（无「经营看板」）首页 **KPI 条不渲染** —— 不是"永远加载中"的空壳　→ kpi-strip 出现 0 次
+  ✅ 对照：首页没有残留「加载中」字样（无说明空壳已被消除）　→ 命中=false
+  ✅ 🔴 单变量对照：只加回 `dashboard` ⇒ KPI 条**出现**（证明上一条是它造成的）　→ kpi-strip 出现 1 次
+  ✅ 老板（有「经营看板」）首页 KPI 条正常渲染（防误伤）　→ kpi-strip 出现 1 次
+
+④ 权限页四类维度 + 只读固定行 + 「更多」折叠（管理员视角）
+  ✅ 权限矩阵已渲染（「批量总览」子视图）　→ 621 字符
+  ✅ 维度①「登录端 · 这个角色从哪儿登录」在　→ 命中=true
+  ✅ 🔴 维度②「是否可使用 AI」**独立成段**（不再混在 20 行模块里）　→ 命中=true
+  ✅ 维度③「功能模块」在　→ 命中=true
+  ✅ 🔴 侧栏 10 项功能 + 经营看板 **全部出现在权限页行里**　→ 11/11 齐全
+  ✅ 🔴 `module: null` 的三页渲染成**只读说明「不在此配」**（不给假勾选框）　→ 不在此配 ×12
+  ✅ 「经营工作台」说明了为什么不能关（不是让它凭空消失）　→ 命中=true
+  ✅ 🔴 目标④：「更多（子页面与数据权限）」**默认折叠** ⇒ 「采购管理」不可见　→ 可见=false
+  ✅ 点击组头后展开 ⇒ 「采购管理」可见（折叠是真的可展开，不是隐藏了）　→ 可见=true
+
+⑤ 只读自证
+  ✅ 全程无业务写请求（唯一非 GET 是探针自身的 login）　→ ["login(探针自身)"]
+  ✅ 页面零 JS 报错　→ 0 条
+
+======================================================================
+总判定: ✅ 全绿（24 通过 / 0 失败）

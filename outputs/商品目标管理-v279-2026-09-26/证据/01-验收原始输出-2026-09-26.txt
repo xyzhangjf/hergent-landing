@@ -1,0 +1,224 @@
+v279 验收原始输出留档（2026-09-26 00:1x–00:3x）
+======================================================================
+全部命令均为「本地脚本 → scp → 远端执行」或「本地 Node 直跑」，
+无手工输入的数字；下面为逐轮原样输出（已去掉与本轮无关的行）。
+======================================================================
+
+
+【1】DDL 迁移链本地验证 —— 20/20
+----------------------------------------------------------------------
+四场景：老库升级 / 全新库 / 幂等（复刻 _is_idempotent_migration_error 判据）
+        / 唯一索引行为对照（旧键「另一期次同窗口行被误拒」vs 新键「不同 period_id 窗口列相同允许」）
+脚本：验收工具/08-DDL迁移链验证.py
+结果：20/20 全绿
+
+
+【2】部署前置快照 —— 4 库均无 period_id、旧三索引齐备
+----------------------------------------------------------------------
+备份文件（backups/2026-09-26/）：
+  -rw------- erp.db.bak-v279-keychange-20260926-001437          17092608  Sep 25 23:13
+  -rw------- tenant_1.db.bak-v279-keychange-20260926-001437     31506432  Sep 25 23:13
+  -rw------- tenant_9.db.bak-v279-keychange-20260926-001437      2125824  Sep 25 22:32
+  -rw------- tenant_10.db.bak-v279-keychange-20260926-001437     2977792  Sep 26 00:14
+
+
+【3】双侧 md5 逐文件全等 —— 4/4
+----------------------------------------------------------------------
+本地（~/Documents/hergent-erp/server）        生产（/opt/hergent-erp）
+0c415fe3dc95592d85ab94d9445865e7  erp_db.py                        == 同
+ad2f45125d8c8daca3fd70c326c198ab  db/indexes.py                    == 同
+ecb7498d9647f5cdd6e16f6baff0fe3b  routers/product_targets.py       == 同
+ac7e9005498050a1b3575b9ffd31f3c8  routers/forecast_submissions.py  == 同
+
+
+【4】重启后启动日志（关键几行）
+----------------------------------------------------------------------
+[schema-sync] tenant_1.db 补列(+1): ['forecast_extra_alloc.period_id']
+[schema-sync] tenant_9.db 补列(+1): ['forecast_extra_alloc.period_id']
+[schema-sync] tenant_10.db 补列(+1): ['forecast_extra_alloc.period_id']
+[schema-sync] tenant_9997.db 补列(+1): ['forecast_extra_alloc.period_id']
+4 个库有差异，补列 4 个，告警 0 条
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8700
+127.0.0.1:xxxxx - "GET /health HTTP/1.1" 200 OK
+
+
+【5】5 库 schema 终态核对（脚本 验收工具/10-五库schema核对.py）
+----------------------------------------------------------------------
+每库：period_id=有 / 旧索引残留=无 / idx=['idx_fea_emp','idx_fea_periodid_prod','uq_fea_periodid_prod_emp'] / probe=OK
+
+
+【6】后端 E2E —— 36/36（隔离沙箱 tenant_9997）
+----------------------------------------------------------------------
+STEP 3 请求体窗口错位（start=A_START, end=B_END='2026-09-25'）：
+  S3a 保存成功
+  S3b 落库 3 行
+  S3c period_id 全 18
+  S3d 落库窗口 == 期次窗口 A（不锚请求体窗口 B）
+  S3e 按 B 查 ⇒ 0 行
+  S3h 逐人 占比/原报/加/定稿 = 10/5/6/11 · 30/8/18/26 · 60/12/36/48
+  S3i Σ=60
+STEP 4（★核心）改期次 order_end A→C 后：
+  S4a  按【当前】期次窗口查 ⇒ 0 行（= v277 的 GET 此刻读到的结果）
+  S4a2 按【落库时】窗口查   ⇒ 仍 3 行
+  S4b  按 period_id 查      ⇒ 仍 3 行
+  S4c  HTTP GET 仍返回      ⇒ 3 行
+  S4d  改窗口前后落库数据逐字节相同 ⇒ 是
+  S4e  回执窗口已更新为新值
+STEP 5 幂等：重复保存不产生重复行；清空加单清掉旧分配
+STEP 6 通知：event_key='forecast_extra_alloc|18|1556'，收件人 ['6','4','7']
+STEP 7 avg-target：顶层 items（无 data 包裹）+ per_unit={'箱':75.0,'包':600.0} + operators[].gap_box
+
+
+【7】生产零污染证明（脚本 验收工具/11-零污染取证.py）
+----------------------------------------------------------------------
+备份文件：/opt/hergent-erp/backups/2026-09-26/tenant_1.db.bak-v279-keychange-20260926-001437
+  forecast_extra_alloc         tenant_1 行数=0      ⇒ 0 ✓（本轮写入全落在沙箱）
+  product_targets              tenant_1 行数=0      ⇒ 0 ✓
+  product_target_alloc         tenant_1 行数=0      ⇒ 0 ✓
+  -- 与改前备份逐表比行数
+  forecast_submissions         prod=39     bak=39
+  forecast_submission_items    prod=47     bak=47
+  forecast_periods             prod=3      bak=3
+  forecast_extra_alloc         prod=0      bak=0
+  product_targets              prod=0      bak=0
+  product_target_alloc         prod=0      bak=0
+  sale_orders                  prod=22505  bak=22505
+  sale_order_items             prod=142858 bak=142858
+  products                     prod=471    bak=471
+  contacts                     prod=755    bak=755
+  message_center               prod=21332  bak=21332
+  -- 期次 18 逐字段
+  period18 prod = {'id':18,'name':'2026-09-25 报单期次','status':'closed','order_start':'2026-09-24','order_end':'2026-09-25'}
+  period18 bak  = 同上
+  equal = True
+  -- schema 差异（有意为之，不算污染）
+  prod: period_id=True  idx=['idx_fea_emp','idx_fea_periodid_prod','uq_fea_periodid_prod_emp']
+  bak : period_id=False idx=['idx_fea_emp','idx_fea_period','uq_fea_periodid_prod_emp']
+结论：业务表全等 ⇒ 生产业务数据零污染 ✓
+
+
+【8】生产「报单单位 ≠ 档案单位」核查（脚本 验收工具/04-生产报单单位核查.py）
+----------------------------------------------------------------------
+生产商品总数 = 471
+order_unit != unit 的商品数 = 1
+   id=1596 unit='瓶' order_unit='组' large_unit='' large_ratio=0.0 medium_ratio=0.0 spec='24' 有换算=False name=现代牧场0乳糖软牛奶185ml+2到货（分开单独下单）
+有单位换算（large_ratio 或 medium_ratio > 0）的商品数 = 425
+forecast_extra_alloc 行数 = 0
+
+
+【9】小程序切面判据 —— 40/40（本地 Node 22.22.2 跑真实 fill.js 代码）
+----------------------------------------------------------------------
+源文件: fill.js
+提取函数行号: loadAvgTargets@L705 · applyAvgToRows@L730 · _avgNum@L753 · _avgText@L767
+              _numText@L778 · _lowList@L786 · _doSubmit@L1056 · _subKey@L424 · _lastKey@L420
+样本商品: id=1556 行内unit=提 档案unit_raw=袋 后端unit=提 avg_box=75 flags={"unit_mismatch":true}
+
+=== D18 报单行出现均单目标（浅色） ===
+  [PASS] D18a 1556 行渲染出均单提示且单位=行内单位  << "均单目标 600 提"
+  [PASS] D18b avgNum 与后端 per_unit[行内单位] 同源  << 600 vs per_unit[提]=600
+  [PASS] D18c 规格行与提示里的单位是同一个字符串  << 规格="8 · 提" 提示="均单目标 600 提"
+  [PASS] D18d 字号小于商品名且非加粗（不抢眼）  << prod-avg 22rpx < prod-name 30rpx
+  [PASS] D18e 浅青底 + 青字（与品牌色同族）  << .prod-avg{...background:#ecfeff;color:#0891b2;font-size:22rpx...}
+  [PASS] D18f 本期 154 行里只有设了目标的 1 行出提示  << 出提示行数=1
+
+=== D19 没目标时不显示 0 ===
+  （真实数据面：no_target=153 行，no_convert=22 行）
+  [PASS] D19a no_target 行 avgText 一律空串（不是「均单目标 0」）  << 异常行数=0
+  [PASS] D19b 直调真实 _avgText/_avgNum：no_target ⇒ 空串/0，且不含「无法计算」  << ""
+  （注意：沙箱 no_convert 行的 flags={"no_convert":true,"no_target":true} ⇒ 与 no_target 重叠，需隔离）
+  [PASS] D19c 只带 no_convert（即使 per_unit 有值）⇒ 一样不出提示：缺换算就不给数  << avgNum=0
+  [PASS] D19d 只带 no_window（剩余期次 0）⇒ 同样不出提示  << avgNum=0
+  [PASS] D19e 唯一例外：done（本期已达标）给**准确结论**而不是留空  << 本期已达标
+
+=== D20 提示单位 = 输入框单位（防两把尺子）★硬标准 ===
+  [PASS] D20a 沙箱样本确实是「报单单位 ≠ 档案小单位」  << order_unit=提 / 档案=袋
+  [PASS] D20b 后端 per_unit 里有「提」这个键（兜底分支被真实触发）  << keys=箱/袋/提
+  [PASS] D20c 兜底键的值由同一权威换算算出（75箱 × 8 = 600），不是另一条公式  << 600 = 75 × 8
+  [PASS] D20d 真实 _avgNum/_avgText 用行内单位「提」取到值  << 均单目标 600 提
+  [PASS] D20e 反例：缺「提」键 ⇒ 提示整行消失（静默失效，正是要防的）  << 无键时 avgNum=0
+  [PASS] D20f 对照：同数据用「袋」也取得到；unit 为空一律 0（不猜单位）  << 袋=600
+
+=== D21 低于目标 ⇒ 提交前提醒一次 ★硬标准 ===
+  [PASS] D21a _lowList() 用 cart[].id 命中、单位取 cart[].unit（与 _avgNums 同源）  << [{"name":"0蔗糖5连包 +3到货","unit":"提","qty":5,"target":600}]
+  [PASS] D21b 先弹「有 1 个商品低于均单目标」
+  [PASS] D21c 明细行 = 「商品名 已填 / 均单 N 单位」  << "0蔗糖5连包 +3到货 5 / 均单 600 提"
+  [PASS] D21d 按钮文案 = 继续提交 / 返回修改  << 继续提交 | 返回修改
+  [PASS] D21e 点「返回修改」⇒ 不提交、已填数量一项不动、不进 submitting 态  << modal 次数=1 cart=5
+  [PASS] D21f 点「继续提交」⇒ 继续走原有提交确认（顺序正确）  << ["有 1 个商品低于均单目标","确认提交预报？"]
+  [PASS] D21g 在「确认提交预报？」处取消 ⇒ 依然不落库  << submitting=undefined
+  [PASS] D21h cart 项的 unit 取自商品行 p.unit（与 applyAvgToRows 同一字段）⇒ 比对是同源的
+  [PASS] D21i 从「上次报单」带入时也用 it.unit，三处同源
+
+=== D22 不低于目标 ⇒ 不打扰 ===
+  [PASS] D22a qty == target ⇒ 不在 low 列表（严格 q < t）
+  [PASS] D22b 不弹均单提醒，直奔原有提交确认  << ["确认提交预报？"]
+  [PASS] D22c 边界：599 提醒 / 601 不提醒  << 1 / 0
+  [PASS] D22d 没填数量（0）不算低于目标（否则每单都弹）  << 0
+
+=== D23 切期次后提示跟着换 ===
+  [PASS] D23a 期次 18 已出提示
+  [PASS] D23b 期次 19：_avgMapPid(18) ≠ curPid(19) ⇒ 一行都不贴  << 贴出=0 setData次数=0
+  [PASS] D23c 反例对照：伪造 _avgMapPid='19' ⇒ 立刻贴 1 行（证明 D23b 的 0 是校验生效、不是"没数据"）
+  [PASS] D23d 切回 18 提示恢复
+  [PASS] D23e 同期次二次调用 loadAvgTargets 直接短路  << _avgPid=18
+
+=== D24 目标接口失败不影响报单 ===
+  [PASS] D24a avg-target 失败时 loadAvgTargets 不抛  << no throw
+  [PASS] D24b 只是没有提示（不弹错、不是 loading）
+  [PASS] D24c 失败不记缓存 ⇒ 下次进页/切期次可重试  << _avgPid=""
+  [PASS] D24d 报单与提交完全正常  << ["确认提交预报？"]
+  [PASS] D24e 全程无 toast 报错  << []
+
+================================================================
+v279 小程序切面判据：40/40 通过
+硬标准 D19/D20/D21：ALL PASS
+================================================================
+
+
+【10】沙箱销毁（脚本 验收工具/07-沙箱销毁.py）
+----------------------------------------------------------------------
+0 · 销毁前
+  tenants      : [(1, '测试企业A'), (10, '张记乳品（演示）'), (9997, 'V279沙箱')]
+  user_tenants : 1 行(9997)
+  sbx 文件      : ['tenant_9997.db', 'tenant_9997.db-wal', 'tenant_9997.db-shm']
+1 · 注销租户
+  user_tenants 删除 1 行 / tenants 删除 1 行
+  残留 user_tenants(9997) = 0 / 残留 tenants(9997) = 0
+  tenants      : [(1, '测试企业A'), (10, '张记乳品（演示）')]
+2 · 删除沙箱库文件
+  rm tenant_9997.db / -wal / -shm
+  残留同名文件: 无 ✓
+3 · 重启服务（清 _sqlite_cache 里的野句柄）
+  ⚠️ 该脚本用 runuser -u hergent 执行 ⇒ systemctl restart rc=1「Interactive authentication required」
+     （预期内，见 local-machine-pitfalls §10）⇒ 改由 root 侧单独执行
+  root 侧 restart 后：is-active=active，health=200
+  启动日志：`[tenant-scan] 跳过 1 个疑似租户库文件…：tenant_9.db=不在主库 tenants 登记表内（或已停用）`（孤儿库，预期）
+            `[hermes_tenants]` 保活拉起网关 tenant=1 → ok
+  现役租户 = [1, 10]，tenant_9997 残留 0/0，文件已删
+
+
+【11】「已达成」取值链生产复核（脚本 验收工具/14-已达成链路复核.py）
+----------------------------------------------------------------------
+商品总数 = 471
+rebate_achievements product 维度：全库 0 行 / 本月 2026-09 为 0 行
+销售单汇总口径命中商品数 = 151
+这些商品的明细数量合计 = 780592.00（明细行 19919 条）
+-- 本月销售单状态分布
+   status='signed'       单数=2594
+-- 样本（前 8 个有量的商品）
+   id=1161   unit='瓶'  spec='185ml×24瓶'  large_unit='件'  large_ratio=24.0
+   id=1166   unit='瓶'  spec='24'          large_unit='件'  large_ratio=24.0
+   id=1175   unit='瓶'  spec='255ml*12瓶'  large_unit='件'  large_ratio=12.0
+   id=1176   unit='瓶'  spec='255ml*12瓶'  large_unit='件'  large_ratio=12.0
+   id=1177   unit='杯'  spec='125g*24杯'   large_unit='件'  large_ratio=24.0
+   id=1178   unit='瓶'  spec='150g*24瓶'   large_unit='件'  large_ratio=24.0
+   id=1179   unit='瓶'  spec='150g*24瓶'   large_unit='件'  large_ratio=24.0
+   id=1180   unit='杯'  spec='120g*3杯*10组' large_unit='件'  large_ratio=30.0
+本月建过目标的商品数 = 0
+其中**本月有销售**（能算出非 0 已达成）的 = 0 []
+
+⇒ 结论：
+   ① v277 补的「销售单自动汇总已达成」在生产真能用（151 个商品能算出非 0）
+   ② 人工填报（rebate_achievements product 维度）全库 0 行
+   ③ 🔴 本月商品目标 0 行 ⇒ 小程序上线后要先在 Web 端建目标才会看到均单提示（业务前置，非缺陷）

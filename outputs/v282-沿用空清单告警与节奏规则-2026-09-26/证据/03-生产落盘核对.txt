@@ -1,0 +1,16 @@
+=== 本地 dist/index.html md5 ===
+690d00141e77706fbf2e5e0372a83728
+
+=== 生产侧 ===
+690d00141e77706fbf2e5e0372a83728  /opt/hergent-cn-v2/index.html
+assets/index-HO4f0L3a.js
+assets/index-CSOmVdY6.css
+384500 /opt/hergent-cn-v2/assets/Forecast-C90Aw5BU.js
+129454 /opt/hergent-cn-v2/assets/index-HO4f0L3a.js
+169132 /opt/hergent-cn-v2/assets/Rebate-BYcamHN2.js
+assets 总数: 280
+回滚备份: index.html.pre-v282.20260926_202232
+
+=== 站点探针 ===
+index.html 200
+Forecast   200

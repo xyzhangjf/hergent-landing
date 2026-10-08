@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v384 交付说明 · 开通账号后角色回退「员工」</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --t1:#1f2328; --t2:#57606a; --t3:#8b949e;
+    --bd:#e3e6ea; --ok:#137333; --okbg:#e8f5ec; --bad:#b42318; --badbg:#fdecea;
+    --warn:#9a6700; --warnbg:#fff8e5; --teal:#0d7d7a; --tealbg:#e6f4f3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#16181d; --card:#1e2128; --t1:#e6e8eb; --t2:#a9b0b8; --t3:#7d848d;
+      --bd:#2c3038; --ok:#5cc27e; --okbg:#17291d; --bad:#f0837a; --badbg:#2c1a18;
+      --warn:#e0b64d; --warnbg:#2b2416; --teal:#4fd1c5; --tealbg:#14292a;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);
+       font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;padding:36px 22px 64px}
+  h1{font-size:23px;margin:0 0 6px;letter-spacing:.2px}
+  .sub{color:var(--t2);font-size:13.5px;margin-bottom:26px}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;
+        padding:18px 20px;margin:0 0 16px}
+  h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  h2 .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;
+        border-radius:6px;background:var(--tealbg);color:var(--teal);font-size:12.5px;font-weight:700}
+  p{margin:0 0 10px}
+  ul{margin:0 0 10px;padding-left:20px}
+  li{margin:5px 0}
+  code{background:rgba(127,127,127,.13);padding:1.5px 5px;border-radius:5px;
+       font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:6px 0 12px}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:rgba(127,127,127,.07);font-weight:600;color:var(--t2);font-size:13px}
+  .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;font-weight:600}
+  .ok{background:var(--okbg);color:var(--ok)}
+  .bad{background:var(--badbg);color:var(--bad)}
+  .warn{background:var(--warnbg);color:var(--warn)}
+  .teal{background:var(--tealbg);color:var(--teal)}
+  .lead{border-left:3px solid var(--teal);background:var(--tealbg);
+        padding:12px 16px;border-radius:0 10px 10px 0;margin:0 0 18px}
+  .lead b{color:var(--teal)}
+  .muted{color:var(--t2);font-size:13.5px}
+  .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 14px}
+  .kpi div{flex:1 1 150px;background:var(--bg);border:1px solid var(--bd);
+           border-radius:10px;padding:10px 12px}
+  .kpi .v{font-size:20px;font-weight:700;letter-spacing:.3px}
+  .kpi .k{font-size:12px;color:var(--t2);margin-top:2px}
+  .flow{font-size:13.5px;color:var(--t2);line-height:2.1}
+  .flow em{font-style:normal;color:var(--bad);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>v384 交付说明</h1>
+  <div class="sub">开通账号时选了「导购」，点完却显示「员工」 · 2026-10-06 · 已修复并上线</div>
+
+  <div class="lead">
+    <b>一句话结论：不是你的操作错了，也不是数据没存上 —— 后台存的一直是「导购」，
+    只是界面在开通成功后没有刷新右侧那一栏。</b><br>
+    <span class="muted">已修复并上线；无需修改任何数据（全公司 13 个已开账号员工里，
+    <b>没有一个人</b>因此被改错角色）。</span>
+  </div>
+
+  <div class="kpi">
+    <div><div class="v">guide</div><div class="k">吴敏在后台的真实角色（导购）</div></div>
+    <div><div class="v">0 人</div><div class="k">受此问题影响的历史员工</div></div>
+    <div><div class="v">20 / 25</div><div class="k">离线断言 / 真机验收 全部通过</div></div>
+    <div><div class="v">0 项</div><div class="k">额外夹带的改动</div></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">1</span>问题本身</h2>
+    <p>你报的现象：给「吴敏」创建账号时角色已选「导购」，点完「开通账号」后界面显示成「员工」。</p>
+    <p class="muted">先查了后台数据库（只读）：吴敏这条账号存的是 <code>role=guide</code>（导购）、
+    登录端 <code>mini</code>（仅小程序）—— <b>都是对的</b>。所以问题出在界面，不在保存。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">2</span>为什么会这样（三层叠加）</h2>
+    <div class="flow">
+      ① 开通账号前，右侧那几栏是「<b>开通表单</b>」，里面还没有账号信息，角色先按默认值「员工」摆着；<br>
+      ② 开通成功后，页面切换到「<b>已有账号</b>」那一栏 —— 这一栏的角色值本该重新读一遍账号实况；<br>
+      ③ <em>但代码漏了「重新读一遍」这一步</em> ⇒ 新界面沿用了第①步那个默认值「员工」。
+    </div>
+    <p style="margin-top:12px">🔴 <b>它不只是显示错，还有一次"顺手把改动写回去"的风险</b>：
+    界面一边显示「员工」、数据库一边是「导购」，系统会认为"你改了角色还没保存"，
+    于是跳出「有未保存的改动」提示。这时如果你顺手点一下弹窗右下角那个<b>唯一</b>的「保存」
+    （上一版刚把三个保存按钮合并成一个），就会把「导购」<b>真的改回「员工」</b>。</p>
+    <p class="muted">已实测确认：你的吴敏<b>没有</b>被改回（后台仍是导购），因为没点那一下。全公司也无人中招。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">3</span>改法</h2>
+    <p>开通成功后，在<b>刷新员工列表的同一处</b>，把右侧那一栏的角色 / 兼任 / 可登录端
+    <b>一起重新读一遍</b>（与页面其它两处保存路径完全一致的做法）。</p>
+    <p class="muted">另外补了一处「不静默」：万一开通成功了但列表一时没刷到这个人，
+    会明确提示你去刷新，而不是让你以为没开成功、反复去点「开通账号」。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">4</span>验证（四路，都留了证据）</h2>
+    <table>
+      <tr><th style="width:150px">验证方式</th><th>结果</th></tr>
+      <tr>
+        <td>离线行为断言<br><span class="muted">把真实代码原样拿出来跑</span></td>
+        <td><span class="tag ok">20/0 通过</span><br>
+            修复后：角色停在「导购」、不再出现「有未保存的改动」<br>
+            <span class="muted">反向对照（旧代码）：角色读到「员工」、「有未保存的改动」为真
+            —— 精确复现了你看到的现象</span></td>
+      </tr>
+      <tr>
+        <td>打包前后对比<br><span class="muted">防止带出别人的在途改动</span></td>
+        <td><span class="tag ok">零夹带</span><br>
+            56 个产物里 55 个逐字节一致；唯一变化的那 1 个，341 处差异中 340 处是
+            压缩器重命名，<b>剩下 1 处正是这次新加的提示语</b></td>
+      </tr>
+      <tr>
+        <td>真机端到端<br><span class="muted">线上真实页面 + 隔离测试账号</span></td>
+        <td><span class="tag ok">25/0 通过</span><br>
+            完整走一遍：新建员工 → 选「导购」→ 开通 → 界面显示「导购」，
+            且写入只发生在隔离环境、没碰任何真实数据</td>
+      </tr>
+      <tr>
+        <td>生产数据体检<br><span class="muted">只读</span></td>
+        <td><span class="tag ok">无受害者</span><br>
+            13 个已开账号员工：吴敏=导购、刘正宝/程欢欢=业务员、
+            谢雯/仲嫚嫚=财务文员… <b>没有一个是「员工」</b>，无需修数据</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">5</span>上线与提交</h2>
+    <table>
+      <tr><th style="width:120px">项目</th><th>值</th></tr>
+      <tr><td>部署方式</td><td>增量同步，<b>不删除</b>任何历史文件（旧版本仍可随时回退）</td></tr>
+      <tr><td>线上入口</td><td><code>index-CpqbzmUS.js</code>（含新逻辑的文件已确认命中修复提示语）</td></tr>
+      <tr><td>线上校验</td><td>首页与 4 个关键文件双侧指纹一致；3 个公网地址全部正常</td></tr>
+      <tr><td>代码提交</td><td><code>0b63645</code> 修复 · <code>32f7324</code> 判据工具 · <code>25a7e82</code> 取证脚本</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">6</span>如实交代：本轮踩到的两个坑</h2>
+    <p><b>① 测试探针一度"假通过"。</b>页面里「开通表单」和「已有账号」那两栏各有一个下拉框，
+    内部标记完全相同。探针第一版按"可见的第一个"去读，结果界面没切换时读到了
+    <b>开通表单</b>那个 —— 而它显示的值恰好也是刚选的「导购」，于是把一个本该失败的核心检查
+    读成了通过。<b>已改为按区域精确定位，并加了一道"先确认界面真的切换了"的前置检查。</b></p>
+    <p><b>② 隔离测试环境踩到"幽灵文件"。</b>复用上一次的测试编号时，服务进程仍握着
+    已被删除的旧数据库文件句柄，导致新建员工的数据"写进去了却读不出来"
+    （接口返回成功、列表里就是没有）。<b>换一个从未用过的测试编号即恢复。</b>
+    —— 这是<b>测试环境</b>的问题，与产品无关；也正是它让上一版的探针没那么可信，这次一并堵上了。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">7</span>需要你做的（一句话）</h2>
+    <p>打开员工档案页后，请<b>强制刷新一次</b>（Mac：<code>Cmd + Shift + R</code>）再操作 —— 浏览器可能还留着旧版本。
+    之后给新员工开账号时，选完角色点「开通账号」，右侧会正确显示你所选的角色。</p>
+    <p class="muted">顺带提醒：如果界面上出现「有未保存的改动」，先确认那条提示是不是真的
+    （本次已修掉这种"假的未保存"）。真需要改角色时，改完点右下角的「保存」即可。</p>
+  </div>
+
+</div>
+</body>
+</html>

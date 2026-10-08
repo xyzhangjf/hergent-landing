@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v390 · 侧栏重构为 8 项职能区 — 交付说明</title>
+<style>
+  :root{
+    --bg:#f6f8fa; --card:#fff; --line:#e3e8ef; --txt:#1f2733; --dim:#5b6878;
+    --brand:#0d7d75; --brand-bg:#e6f4f2; --ok:#0f7b3f; --ok-bg:#e8f6ee;
+    --warn:#8a5a00; --warn-bg:#fdf4e3; --no:#b3261e; --no-bg:#fdecea;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:40px 28px 80px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:.2px}
+  .sub{color:var(--dim);font-size:13.5px;margin-bottom:26px}
+  h2{font-size:18px;margin:38px 0 12px;padding-left:11px;border-left:4px solid var(--brand)}
+  h3{font-size:15px;margin:22px 0 8px;color:var(--dim);font-weight:600}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f0f3f7;font-weight:600}
+  code{background:#eef1f5;padding:1px 5px;border-radius:4px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .tag{display:inline-block;padding:1px 8px;border-radius:20px;font-size:12px;font-weight:600}
+  .t-ok{background:var(--ok-bg);color:var(--ok)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  .t-no{background:var(--no-bg);color:var(--no)}
+  .t-brand{background:var(--brand-bg);color:var(--brand)}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}
+  .kpi div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kpi b{display:block;font-size:22px;color:var(--brand);line-height:1.3}
+  .kpi span{font-size:12.5px;color:var(--dim)}
+  figure{margin:16px 0}
+  figure img{width:100%;border:1px solid var(--line);border-radius:10px;display:block;background:#fff}
+  figcaption{font-size:12.5px;color:var(--dim);margin-top:7px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.two{grid-template-columns:1fr}}
+  ul{margin:8px 0 8px 20px;padding:0}
+  li{margin:5px 0}
+  .num{color:var(--brand);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>v390 · 侧栏重构为 8 项职能区 + L1 双入口「＋」</h1>
+<div class="sub">
+  批次 3 ｜ 已上线 <b>2026-10-07 11:05</b> ｜ 前端 <code>a3596c3</code> ／ 后端 <code>35ab946</code><br>
+  目标文档：<code>docs/侧边栏归类结构重规划-2026-10-06.md</code> §10.3.4 终版图
+</div>
+
+<h2>一、交付</h2>
+<div class="kpi">
+  <div><b>8 项</b><span>侧栏一级项（2 直达 + 6 弹窗）</span></div>
+  <div><b>13 文件</b><span>前端受控提交 +1721 −199</span></div>
+  <div><b>114/114</b><span>护栏硬断言</span></div>
+  <div><b>42 / 25</b><span>真机探针 新/旧 全绿</span></div>
+  <div><b>3</b><span>零夹带真变化文件数</span></div>
+</div>
+
+<h3>新的侧栏结构</h3>
+<table>
+  <tr><th style="width:34px">#</th><th>一级项</th><th>形态</th><th>说明</th></tr>
+  <tr><td>1</td><td><b>经营工作台</b></td><td><span class="tag t-brand">直达</span></td><td>一页 + 页内内容 ⇒ 不做弹窗</td></tr>
+  <tr><td>2</td><td><b>预报订单管理</b> ›</td><td><span class="tag t-brand">职能区</span></td><td>历史期次（带 <b>＋创建</b>）／报单配置／商品目标 —— 同一页的三个页签</td></tr>
+  <tr><td>3</td><td><b>进销存</b> ›</td><td><span class="tag t-brand">职能区</span></td><td>库存效期补录／进销存总览。⚠️ <b>只对管理员/老板可见</b></td></tr>
+  <tr><td>4</td><td><b>目标与返利</b></td><td><span class="tag t-brand">直达</span></td><td>方案 A：保持独立直达项</td></tr>
+  <tr><td>5</td><td><b>核算</b> ›</td><td><span class="tag t-brand">职能区</span></td><td>损耗（货损计算工作流 ＋ 货损核算 <b>两条都挂</b>）／薪酬（算工资）</td></tr>
+  <tr><td>6</td><td><b>经营分析</b> ›</td><td><span class="tag t-brand">职能区</span></td><td>经营概览（经营趋势）／市场情报（招投标雷达）</td></tr>
+  <tr><td>7</td><td><b>档案管理</b> ›</td><td><span class="tag t-brand">职能区</span></td><td>商品相关／往来相关／组织相关／仓储相关（共 7 页签）</td></tr>
+  <tr><td>8</td><td><b>系统</b> ›</td><td><span class="tag t-brand">职能区</span></td><td>AI 能力／自动化／系统设置</td></tr>
+</table>
+<p style="font-size:13.5px;color:var(--dim)">
+  分组标题（原「经营／核算／配置」）已按要求<b>去掉，8 项平铺</b>；
+  「预报订单管理」一级项<b>点击 = 固定弹窗，不导航</b>。
+</p>
+
+<h2>二、变更（逐文件）</h2>
+<table>
+  <tr><th style="width:210px">文件</th><th>改了什么</th></tr>
+  <tr><td><code>src/components/Shell.vue</code></td>
+      <td><code>NAV</code> 整表重写为 8 项；<code>resolveNavItem</code> 仍是<b>全站唯一收窄实现</b>（模板里 0 处权限判据）；新增 <code>navTo()</code> / <code>isCur()</code> / <code>areaCur()</code>；高亮由 <code>.router-link-active</code> 换成 <code>.cur</code>；手机抽屉改用<b>区名当路标</b>；新增 L1「＋」的渲染与门禁</td></tr>
+  <tr><td><code>src/constants/permView.js</code></td>
+      <td>权限页域页签由 3 组重排为 <b>8 组</b>（组名逐项同序 = 侧栏一级项名）；行名「经营看板」→「<b>经营趋势</b>」</td></tr>
+  <tr><td><code>src/pages/Settings.vue</code></td>
+      <td>「对应页面」与补充说明改回<b>可并存</b>（原 <code>v-else-if</code> 二选一会把后半句静默顶掉）</td></tr>
+  <tr><td><code>src/constants/pages.js</code> · <code>router/index.js</code> · <code>Forecast.vue</code> · <code>CommandPalette.vue</code> · <code>CopilotDrawer.vue</code></td>
+      <td>页面名统一：预报订<b>货</b>管理 → 预报订<b>单</b>管理（该名全仓共 <b>8 份</b>，本次同一批全改）</td></tr>
+  <tr><td>后端 <code>server/core.py</code></td>
+      <td><code>MODULE_LABEL['forecast']</code> / <code>MODULE_IMPACT['forecast'].entries</code> / <code>['forecast-audit'].feeds</code> 随改名同步；<b>顺手修 v387 遗留</b>：<code>data.entries</code> 补「供应商档案」</td></tr>
+</table>
+
+<h2>三、构建 / 部署</h2>
+<table>
+  <tr><th style="width:180px">项目</th><th>读数</th></tr>
+  <tr><td>构建目录</td><td><code>dist-v390-1-4</code>（工作区全量，<b>不用干净版</b>）</td></tr>
+  <tr><td>上传</td><td><code>rsync</code> <b>无 <code>--delete</code></b>（并集），59 个文件 / 1.6 MB</td></tr>
+  <tr><td>备份</td><td><code>index.html.bak-v390-20261007-110210</code>（md5 <code>7ced080e…</code>）</td></tr>
+  <tr><td>双侧 md5</td><td><span class="tag t-ok">6/6 全等</span> <code>index.html</code> · <code>index-DH7rVEh5.js</code> · <code>Shell-DDfss4_e.js</code> · <code>Shell-DdA4TYa8.css</code> · <code>Settings-DaW9emf_.js</code> · <code>index-DQ1t-4Q1.css</code></td></tr>
+  <tr><td>零夹带（生产生效集 58 个）</td>
+      <td>只在生产有 <b>0</b>（无回滚风险）· 只在新构建有 <b>0</b>（无夹带新页面）· 真变化 <b>仅 3 项</b>：<code>Shell.js</code> +1872 / <code>Shell.css</code> +378 / <code>Settings.js</code> +315，其余 30 项 Δ+0（纯 hash 级联改名）</td></tr>
+  <tr><td>公网内容级</td><td>入口 <code>index-DH7rVEh5.js</code> 已生效；A/B 同一探针：<code>预报订货管理</code> 旧 <b>8</b> → 新 <b>0</b>，<code>经营看板</code> 旧 3 → 新 <b>2</b>（剩 2 处在 Forecast 的 BI 面板，与权限页行名无关），阴性对照两侧均 0</td></tr>
+  <tr><td><b>后端</b> <code>core.py</code></td>
+      <td>生产扁平路径 <code>/opt/hergent-erp/core.py</code>。备份 <code>core.py.bak-v390-20261007-111845</code> → 上传 → 双侧 md5 <b>全等</b> <code>0fea7c20…</code> → 生产 <code>py_compile</code> OK → <code>systemctl restart hergent-erp.service</code>（active，监听 <code>127.0.0.1:8700</code>）</td></tr>
+  <tr><td>后端生效实测</td>
+      <td><span class="tag t-ok">已实测</span> 在生产进程环境里 <code>import core</code>：<br>
+        <code>MODULE_LABEL['forecast'] = 预报订单管理</code><br>
+        <code>IMPACT['forecast'].entries = ['预报订单管理']</code><br>
+        <code>IMPACT['forecast-audit'].feeds = ['预报订单管理']</code><br>
+        <code>IMPACT['data'].entries = ['档案管理','品牌档案','商品档案','<b>供应商档案</b>']</code></td></tr>
+  <tr><td>公网冒烟</td><td><code>erp.hergent.cn/api/auth/permissions</code> <b>401</b> · <code>/api/permissions/modules</code> <b>401</b>（服务存活）· <code>hergent.cn</code> <b>200</b> · 入口 js <b>200</b></td></tr>
+</table>
+
+<h2>四、对齐效果（截图）</h2>
+
+<figure>
+  <img src="new-01-侧栏-boss.png" alt="侧栏 8 项">
+  <figcaption><b>桌面侧栏（老板）</b> —— 8 项平铺，无分组标题；6 个职能区带 <code>›</code> 与右侧箭头。</figcaption>
+</figure>
+
+<div class="two">
+  <figure>
+    <img src="new-03-预报订单管理弹窗.png" alt="预报订单管理弹窗">
+    <figcaption><b>预报订单管理 ›</b> —— 「历史期次」右侧多出 <b>＋创建</b>（L1 双入口）；三条子条目都带页内页签。</figcaption>
+  </figure>
+  <figure>
+    <img src="new-02-进销存弹窗.png" alt="进销存弹窗">
+    <figcaption><b>进销存 ›</b> —— <b>空列（采购/销售/往来）自动不出现</b>，只剩「库存」「其他」两组。</figcaption>
+  </figure>
+</div>
+
+<figure>
+  <img src="new-05-手机抽屉.png" alt="手机抽屉">
+  <figcaption><b>手机端抽屉</b> —— 8 项平铺后没有组名，改用<b>职能区自己的名字当路标</b>（进销存／核算／经营分析／档案管理／系统）；底部栏三项不重复出现。</figcaption>
+</figure>
+
+<figure>
+  <img src="new-06-权限页-分析域.png" alt="权限页">
+  <figcaption><b>权限管理页</b> —— 域页签 <b>9 个</b>（工作台／预报订单／进销存／返利／核算／分析／档案／系统／更多），与侧栏 8 项<b>逐项 1:1</b>；「经营趋势」行下方同时显示「对应页面」与首页影响面说明。</figcaption>
+</figure>
+
+<h2>五、需确认事项</h2>
+<div class="card">
+  <ul>
+    <li><span class="tag t-warn">待你拍板</span> <b>进销存 ›「其他」这一列的名字</b> —— 目前放的是「进销存总览」（v380 占位页）。批次 5 会扩成 4 个 KPI，届时是留在「其他」还是改成「总览」，需要你定。</li>
+    <li><span class="tag t-warn">待你拍板</span> <b>「目标与返利」要不要也做成职能区</b> —— 本轮按<b>方案 A</b> 保持独立直达项。若日后返利页内部再拆出多页，可再评估。</li>
+    <li><span class="tag t-warn">待你拍板</span> <b>L1「＋」只在桌面端</b> —— 手机端刻意没做（唯一带「＋」的条目属底部栏三项，永不进抽屉，写了就是死分支）。若你希望手机上也能一键新建，需要先改底部栏规则。</li>
+    <li><span class="tag t-brand">无需动作</span> <b>「经营看板」还有 2 处在 Forecast 页</b> —— 那是「经营看板 BI」面板的按钮与标题（既有功能，不是权限页行名），本轮<b>没动也不该动</b>。</li>
+    <li><span class="tag t-ok">已订正</span> <b>开发计划文档 257–259 行已从「改名三处」更正为实测值</b> —— 真身是 <b>前端 8 文件 / 9 处 + 后端 6 行</b>，漏掉的全是跨页提示文案（<code>Forecast.vue</code> 页内无权限提示、<code>CommandPalette</code> / <code>CopilotDrawer</code> 搜索标题）。已随 <code>6b4b66c</code> 提交（含逐角色终值表 + 号表指针 v390 → <b>v391</b>）。</li>
+  </ul>
+</div>
+
+<h2>六、遗留与风险</h2>
+<div class="card">
+  <ul>
+    <li><span class="tag t-ok">已入库</span> 本轮改动已<b>受控提交</b>三轮：前端 <code>a3596c3</code>（13 文件）· 后端 <code>35ab946</code>（1 文件，amend 自 <code>d55feb9</code>，<code>HEAD^{tree}</code> 未变）· 文档订正 <code>6b4b66c</code>（1 文件）。均未夹带并行会话的在途改动（<code>docs/UI-SPEC.md</code> 的 v367 改动与 <code>v365-api-probe.py</code> <b>刻意未纳入</b>）。</li>
+    <li><span class="tag t-ok">上线后回查</span> <code>https://hergent.cn/</code> 入口 = <code>index-DH7rVEh5.js</code>（md5 <code>c826bb0e4b8bcbf592c30e803c19dc4d</code>）；<code>erp.hergent.cn</code> 探活 <b>401</b>（服务在）。</li>
+    <li><span class="tag t-ok">无回滚风险</span> 零夹带 ② 只在生产有 = 0。</li>
+    <li><span class="tag t-warn">仍需真机自看</span> 探针是<b>无头浏览器 + 权限桩</b>，覆盖了渲染与门禁判据；<b>真账号登录后的手感</b>（悬停展开延时、弹窗位置）建议你亲手点一遍。</li>
+    <li><span class="tag t-no">收尾抓到并已补</span> <b>后端 core.py 一开始根本没部署</b> —— 前端三层验收全绿也发现不了：探针桩掉了 <code>/api/permissions/modules</code>，用的是<b>从本地 core.py 抽的</b> payload ⇒ 只证前端渲染、证不了生产后端。若不补，线上会真实存在「侧栏新名／权限页旧名」。已补部署并实测（见上表），纪律已入库：<b>前后端同批改文案 ⇒ 两侧各出部署判据</b>。</li>
+  </ul>
+</div>
+
+<p style="margin-top:34px;font-size:12.5px;color:var(--dim)">
+  验收工具：<code>.workbuddy/tools/role-registry-consistency-check.py</code>（114/114）·
+  <code>v390-nav-role-matrix.mjs</code>（11/11）·
+  <code>v390-sidebar-render-probe.mjs</code>（新 42/0 · 旧 25/0）·
+  <code>dist-zero-embed-check.py</code>（零夹带四路）
+</p>
+
+</div>
+</body>
+</html>

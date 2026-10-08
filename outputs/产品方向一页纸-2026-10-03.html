@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Hergent 产品方向 · 一页纸</title>
+<style>
+  @page { size: A4; margin: 9mm 10mm 7mm 10mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: #111;
+    font-size: 8.9pt;
+    line-height: 1.42;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page { width: 190mm; }
+
+  /* ---------- 页头 ---------- */
+  .hd { border-bottom: 2.2pt solid #111; padding-bottom: 2.4mm; margin-bottom: 2.8mm; }
+  .hd h1 { font-size: 16.5pt; margin: 0 0 1mm 0; letter-spacing: .3pt; }
+  .hd .meta { font-size: 8.1pt; color: #444; }
+  .hd .meta b { color: #111; }
+
+  /* ---------- 一句话 ---------- */
+  .hero {
+    border: 1.4pt solid #111; border-left: 4pt solid #111;
+    padding: 2.6mm 3mm; margin-bottom: 3mm; background: #f6f6f4;
+  }
+  .hero .t { font-size: 12.0pt; font-weight: 700; line-height: 1.34; }
+  .hero .s { font-size: 8.7pt; margin-top: 1.1mm; color: #333; }
+
+  /* ---------- 小节 ---------- */
+  h2 {
+    font-size: 9.4pt; margin: 0 0 1.5mm 0; padding-left: 2.2mm;
+    border-left: 2.6pt solid #111; line-height: 1.25;
+  }
+  h2 span { font-size: 7.6pt; font-weight: 400; color: #666; margin-left: 1.4mm; }
+  .sec { margin-bottom: 2.9mm; }
+  p { margin: 0 0 1.2mm 0; }
+  .tight { margin-bottom: .7mm; }
+
+  /* ---------- 表格 ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: 8.4pt; }
+  th, td { border: .6pt solid #b8b8b8; padding: 1.15mm 1.5mm; text-align: left; vertical-align: top; line-height: 1.36; }
+  th { background: #ececea; font-weight: 700; }
+  td.k { background: #f7f7f5; font-weight: 700; width: 17mm; white-space: nowrap; }
+  .num { width: 6mm; text-align: center; font-weight: 700; background: #f7f7f5; }
+
+  /* ---------- 两栏 ---------- */
+  .cols { display: flex; gap: 4.5mm; }
+  .cols > div { flex: 1; }
+
+  /* ---------- 列表 ---------- */
+  ol, ul { margin: 0; padding-left: 4.2mm; }
+  li { margin-bottom: .85mm; }
+  li b { font-weight: 700; }
+
+  /* ---------- 强调条 ---------- */
+  .rule {
+    border: .8pt solid #555; padding: 1.6mm 2.2mm; margin: 0 0 2.6mm 0;
+    background: #f2f2f0; font-size: 8.7pt;
+  }
+  .flow { font-size: 8.7pt; margin: 0 0 1.4mm 0; }
+  .flow b { font-weight: 700; }
+  .arrow { color: #666; }
+
+  /* ---------- 页脚 ---------- */
+  .ft { border-top: .8pt solid #b8b8b8; margin-top: 2.4mm; padding-top: 1.4mm; font-size: 7.6pt; color: #666; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hd">
+    <h1>Hergent 产品方向 · 一页纸</h1>
+    <div class="meta">
+      <b>2026-10-03 定稿</b> ｜ 打印张贴 · 以后凡是判断「这个要不要做」，先看这一页 ｜ 对应文档：<b>产品定位梳理与建议-2026-10-03.md</b>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="t">我们做的不是软件，是一个「老板的 AI 数字员工」。</div>
+    <div class="s">别的软件让你 <b>操作</b> 它；我们让你 <b>吩咐</b> 它。 —— 报单、返利、货损、对账、算工资，是它该干的活；ERP、Excel、连接器，是它拿数据的管道；它干的每一件活，都留着账（谁 · 何时 · 按哪条规则 · 算出多少）。</div>
+  </div>
+
+  <div class="sec">
+    <h2>一、主线没变过，只是第四次给它起名字</h2>
+    <div class="flow">
+      Hermes 一键安装工具 <span class="arrow">→</span> 自研 ERP <span class="arrow">→</span> AI 经营副驾 <span class="arrow">→</span> <b>AI 数字员工</b>
+    </div>
+    <p style="margin:0;color:#333;">
+      前三个名字说的是「它<b>怎么被做出来</b>」；这次说的是「它<b>是什么</b>」。不变的主线只有一句：
+      <b>让不懂技术的经销商老板，拥有一个懂他生意的 AI。</b>
+    </p>
+  </div>
+
+  <div class="sec">
+    <h2>二、一个目的 · 三条供给<span>四部分不是并列关系</span></h2>
+    <table>
+      <tr><th style="width:19mm;">角色</th><th>是什么</th><th style="width:52mm;">现在怎么排</th></tr>
+      <tr><td class="k">目的</td><td><b>AI 数字员工</b>（AI 团队 / 角色与能力边界 / 越用越聪明）</td><td>主体，<b>现在做</b></td></tr>
+      <tr><td class="k">供给 1</td><td><b>数据底盘</b>：报单 / 到货 / 效期 / 对账 —— 接住「一台 ERP 都没有」的客户</td><td><b>现在做，范围收窄</b>（不提「做 ERP」）</td></tr>
+      <tr><td class="k">供给 2</td><td>连接第三方 ERP（畅捷通 / 金蝶 / 用友 / 管家婆）</td><td><b>不预投</b>：有真实客户了，再按他在用的那家做</td></tr>
+      <tr><td class="k">供给 3</td><td>硬件（智能音箱 / 桌面助手）</td><td><b>远期</b>；只把「<b>语音交互</b>」提前（手机端就能做）</td></tr>
+    </table>
+    <p class="tight" style="margin-top:1.3mm;"><b>铁律：</b>报单助手、ERP、连接第三方 —— 全都是为「给 AI 员工喂数据」服务的，不是独立的产品线。</p>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="sec">
+        <h2>三、两种交互方式</h2>
+        <ol style="margin:0;">
+          <li><b>直接问 AI</b>：<b>支持语音问、语音答</b>，像问一个人类员工。</li>
+          <li><b>传统查询与录入</b>：① 老板要自己看；② 有些事人更快；③ <b>不敢全信 AI 时，要能亲手翻到那一笔</b>。</li>
+        </ol>
+        <p class="tight" style="margin-top:1.1mm;color:#333;">第 ③ 条是<b>信任</b>问题，不是效率问题 —— <b>「可验证」是 B 端 AI 的入场券</b>。</p>
+      </div>
+    </div>
+    <div>
+      <div class="sec">
+        <h2>四、讲差异化，顺序不能反</h2>
+        <p class="tight"><b>③ 客户自己长出来的经验 <span class="arrow">→</span> ② 行业口径 <span class="arrow">→</span> ① 专属工具</b></p>
+        <ul style="margin:0;">
+          <li><b>① 专属工具</b>（报单助手等）：<b>能抄</b>，有钱有人几个月就抄走。</li>
+          <li><b>② 行业口径</b>（数字怎么定义）：<b>难抄</b>，要「两端都坐过」的人。</li>
+          <li><b>③ 越用越了解他的生意</b>：<b>追不上</b> —— 时间是唯一不能压缩的成本。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>五、六条不跑偏的纪律<span>每次动手前扫一遍</span></h2>
+    <table>
+      <tr><td class="num">1</td><td style="width:44mm;"><b>别讲成「什么都能干」</b></td><td>产品上叫「AI 团队」，对外讲「<b>一个员工、几个工种</b>」。你交付的是<b>系统</b>，不是组织 —— 否则必被问「你的 AI 会计离职了吗」。</td></tr>
+      <tr><td class="num">2</td><td><b>不卖 ERP、不做财务总账</b></td><td>但数据底盘<b>必须接得住没有 ERP 的客户</b>。准确切分 = 不做<b>财务总账</b>，做<b>业务底盘</b>。</td></tr>
+      <tr><td class="num">3</td><td><b>受制于第三方的，不当地基</b></td><td>连接器按客户做、不预研（他们会自己做 AI，也可能限制我们）。先把自己的骨架做出来：<b>档案 → 期次 → 单据 → 对账</b>，有它则接谁都是写个适配器。</td></tr>
+      <tr><td class="num">4</td><td><b>硬件不进验证期</b></td><td>它会稀释那句最有说服力的承诺：「<b>3 个月、最少的钱，只回答一个问题</b>」。入口问题手机上已经解决了。</td></tr>
+      <tr><td class="num">5</td><td><b>对外材料不写「永久 / 绝不」</b></td><td>对<b>未来</b>的全称判断没有代码可核，只会在战略演进后变成错话（BP 第 194 行就是这样改掉的）。</td></tr>
+      <tr><td class="num">6</td><td><b>数字必须能追责</b></td><td>每个数字都能追到规则与留痕；<b>「0」和「没数据」必须分开</b>；读不到就<b>直接拒答</b>，不许猜。</td></tr>
+    </table>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="sec">
+        <h2>六、验证期只回答一个问题</h2>
+        <p class="tight">「<b>经销商老板愿不愿意要一个能直接问、不用换系统、数字能对账的 AI 员工？</b>」</p>
+        <p class="tight">3 个月 · 最少的钱 · 只回答这一个问题。</p>
+        <p style="margin:0;color:#333;"><b>外部客户数 = 0</b> —— 这是现在最重要的事实，<b>不要美化</b>。</p>
+      </div>
+    </div>
+    <div>
+      <div class="sec">
+        <h2>七、已有实物（不是愿景）</h2>
+        <ul style="margin:0;">
+          <li>侧边栏真有「<b>AI 团队</b>」页（配角色 / 职责 / 能力边界）</li>
+          <li>租户技能库 15 个里 <b>8 个是 AI 自己写的</b>（<b>created_by: agent</b>）</li>
+          <li>19 天单会话：老板说 24 句，<b>它自己动手 213 次</b></li>
+          <li>两层持久记忆 + 生产里躺着 <b>7 份 Word / 1 份 12 页 PPT</b></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="rule">
+    <b>一句话记住：</b>新叙事不需要新开发 —— 它是对<b>已有实物</b>的更准描述。所以不必等产品做完再改口径；也不必为了新方向去铺大摊子。
+  </div>
+
+  <div class="ft">
+    <span>Hergent · 产品方向一页纸 ｜ 来源：2026-10-03 战略梳理 + 第七轮 BP 口径修正</span>
+    <span>第 1 页 / 共 1 页</span>
+  </div>
+
+</div>
+</body>
+</html>

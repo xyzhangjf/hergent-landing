@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>v383 交付说明 · 员工档案保存后姓名被清空（附事故交代）</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --txt:#1f2328; --sub:#5b6572;
+    --ok:#0f8a4a; --okbg:#eaf7ef; --err:#c02626; --errbg:#fdeceb; --warn:#9a6a00; --warnbg:#fff7e0;
+    --code:#f2f4f6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:32px 20px;background:var(--bg);color:var(--txt);
+       font:15px/1.75 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:960px;margin:0 auto}
+  h1{font-size:24px;margin:0 0 6px;letter-spacing:.2px}
+  .lead{color:var(--sub);font-size:14px;margin:0 0 24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:20px 22px;margin:0 0 18px}
+  h2{font-size:17px;margin:0 0 12px;padding-left:10px;border-left:4px solid #2f6feb}
+  h3{font-size:14px;margin:18px 0 8px;color:var(--sub)}
+  p{margin:8px 0}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f0f2f5;font-weight:600;white-space:nowrap}
+  code{background:var(--code);padding:1px 6px;border-radius:5px;
+       font:13px/1.5 ui-monospace,Menlo,Consolas,monospace}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .t-ok{background:var(--okbg);color:var(--ok)}
+  .t-err{background:var(--errbg);color:var(--err)}
+  .t-warn{background:var(--warnbg);color:var(--warn)}
+  ul{margin:8px 0;padding-left:22px}
+  li{margin:4px 0}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+  .kv b{color:var(--sub);font-weight:600;white-space:nowrap}
+  .alert{border-left:4px solid var(--err);background:var(--errbg);padding:14px 16px;border-radius:0 10px 10px 0}
+  .foot{color:var(--sub);font-size:12.5px;text-align:center;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>v383 交付说明</h1>
+  <p class="lead">员工档案 · 新建保存后姓名被清空　｜　2026-10-06　｜　另附一次真实事故的如实交代</p>
+
+  <div class="card">
+    <h2>一句话结论</h2>
+    <p>报的问题<strong>已修好并上线</strong>：新建员工点「保存」后，姓名不再被清空，可以<strong>接着直接给同一个人开通账号</strong>，不用关窗重新点编辑。</p>
+    <p>同时如实交代：执行过程中我<strong>误删了 10 行生产数据</strong>（员工的租户归属），<strong>4 分钟内已 100% 恢复并逐人验证</strong>，线上业务未受影响。详见第 3 节。</p>
+  </div>
+
+  <div class="card">
+    <h2>1. 修了什么</h2>
+    <table>
+      <tr><th style="width:96px">环节</th><th>内容</th></tr>
+      <tr>
+        <td><b>现象</b></td>
+        <td>新建员工 → 填姓名 → 点「保存」→ <strong>姓名框当场变空</strong>，看起来像"没保存上"，只能关掉弹窗重新点「编辑」才能继续开通账号。</td>
+      </tr>
+      <tr>
+        <td><b>原因</b></td>
+        <td>三个小问题叠在一起：①后台新建接口<strong>只回一个编号</strong>、不回完整员工信息；②前端把"编号"当成"员工"来用；③界面回填是<strong>逐项取值、取不到就清空</strong>（不报错）——所以姓名被静默抹掉。</td>
+      </tr>
+      <tr>
+        <td><b>顺带发现的隐患</b></td>
+        <td>同一个原因还会让"开通账号"把员工编号发成 <code>0</code>，而后台把 <code>0</code> 理解成<strong>外部客户</strong>（分销商）——可能悄悄建出一个<strong>不挂员工档案的账号</strong>，页面上看不出来。已一并堵住。</td>
+      </tr>
+      <tr>
+        <td><b>改法</b></td>
+        <td>保存后<strong>按编号回列表取回完整员工档案</strong>再进编辑态（"是否已开通账号"这类信息只有列表接口才有，拿到它才能接着开通）；取不到编号时直接提示「请先点击保存建立员工档案」，不再发错误请求。</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>2. 验收证据（三道，全绿）</h2>
+    <table>
+      <tr><th style="width:130px">层级</th><th>怎么验的</th><th style="width:104px">结果</th></tr>
+      <tr>
+        <td>行为级</td>
+        <td>把页面里<strong>真实的函数代码原样抠出来</strong>，装上替身真跑一遍（含"保存后立刻开通账号"路径）</td>
+        <td><span class="tag t-ok">27 通过 / 0 失败</span></td>
+      </tr>
+      <tr>
+        <td>反例自证</td>
+        <td>把同一套断言拿去跑<strong>修复前</strong>的旧代码，必须失败才算验得住</td>
+        <td><span class="tag t-ok">13 项如期失败</span></td>
+      </tr>
+      <tr>
+        <td>真机</td>
+        <td>用线上正式产物 + 隔离的测试租户，无头浏览器点完整流程</td>
+        <td><span class="tag t-ok">24 通过 / 0 失败</span></td>
+      </tr>
+    </table>
+    <h3>真机关键读数</h3>
+    <ul>
+      <li>保存后出现「已创建员工」回执，<strong>姓名仍在输入框里</strong>（修复前是空串）</li>
+      <li>弹窗标题自动切到「编辑员工 · &lt;姓名&gt;」，「开通账号」表单正常出现</li>
+      <li>开通账号请求里带的员工编号<strong>与新建返回的编号一致</strong>（17 = 17），不是 <code>0</code></li>
+      <li>所有写请求都带测试租户标识，未触碰真实租户</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="alert">
+      <h2 style="border-color:#c02626">3. 如实交代：一次真实的生产数据误删（已恢复）</h2>
+      <p><b>性质</b>　清理隔离测试租户时，我<strong>手工写了一条范围条件很宽的删除命令</strong>，误删了 <strong>10 行生产数据</strong>（员工的「租户归属」记录）。</p>
+      <p><b>影响窗口</b>　19:16–19:20，约 <strong>4 分钟</strong>。</p>
+      <p><b>影响面</b>　这 10 个账号在窗口内<strong>访问不到本公司租户</strong>。名单：符号（老板）、郝洋、唐成（分销商）、程欢欢、谢雯、刘正宝、刘善涛、仲嫚嫚，以及小程序提审账号 mptest / mptestsp。</p>
+      <p><b>为什么"范围条件"会伤到真数据</b>　测试租户的账号编号是<strong>自动递增</strong>的，而线上真实员工的编号正好也排在这附近，<strong>两段号紧挨着</strong>——所以"编号大于某值就删"必然扫到真实员工。这是根本原因。</p>
+      <p><b>恢复</b>　给现网库先留快照 → 从<strong>当日凌晨 2 点的自动备份</strong>补回 8 行；余下 2 行（今天新建、备份里还没有）按同一口径补齐。</p>
+      <p><b>验证（两条独立判据）</b></p>
+      <ul>
+        <li>与备份逐项比对：<strong>漏恢复 0 行、字段不一致 0 处</strong></li>
+        <li>用<strong>后台真实的权限判断语句</strong>逐人复算：11 个生产账号<strong>全部恢复正常</strong>（<span class="tag t-ok">全 YES</span>）</li>
+      </ul>
+      <p><b>残留清理</b>　测试租户产生的账号、AI 记录、日志行已<strong>按精确编号</strong>逐条清除；服务正常、接口返回 200。</p>
+      <p><b>已做的加固（防再犯）</b></p>
+      <ul>
+        <li>清理工具改为<strong>按精确编号清理</strong>，并自动扫描所有带租户号的表——原来只扫两张表，漏了 AI 记录和调用日志</li>
+        <li>顺带修掉工具里两个"看起来成功、其实没清干净"的漏洞（清不掉新账号、残留检查查不到）</li>
+        <li>纪律写进项目记忆：<strong>清理生产库只许精确等值；删之前先数一遍、数字与预期不符就必须停手</strong></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>4. 提交记录</h2>
+    <table>
+      <tr><th style="width:300px">内容</th><th style="width:110px">提交</th><th>仓库</th></tr>
+      <tr><td>前端修复（员工档案姓名被清空）</td><td><code>6003859</code></td><td>laozhangai-product</td></tr>
+      <tr><td>清理工具加固（精确清理 + 全表核查）</td><td><code>acb11e7</code></td><td>laozhangai-product</td></tr>
+      <tr><td>判据工具入库（4 个脚本）</td><td><code>411e955</code></td><td>laozhangai-product</td></tr>
+      <tr><td>事故取证脚本（逐人验权限）</td><td><code>3757edb</code></td><td>hergent-erp</td></tr>
+    </table>
+    <p style="margin-top:12px"><b>线上状态</b>　入口文件 <code>index-vm9HVJHQ.js</code>；线上包含新逻辑的代码块已确认命中修复后的提示语 <span class="tag t-ok">已上线</span></p>
+    <p><b>版本号</b>　本轮用 v383；下一轮从 <b>v384</b> 起（号表已更新）。</p>
+  </div>
+
+  <p class="foot">本说明由执行过程直接生成，读数均来自实际命令输出；事故部分未做任何掩饰或淡化。</p>
+</div>
+</body>
+</html>

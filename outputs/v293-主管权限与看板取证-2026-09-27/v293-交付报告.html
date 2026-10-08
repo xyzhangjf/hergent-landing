@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v293 主管返利看板解锁 · 交付说明</title>
+<style>
+  :root {
+    --ink: #1f2329;
+    --ink2: #5c6670;
+    --ink3: #8a939c;
+    --line: #e6e8eb;
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --brand: #0f6e56;
+    --brand-bg: #e1f5ee;
+    --warn: #ba7517;
+    --warn-bg: #faeeda;
+    --danger: #a32d2d;
+    --danger-bg: #fcebeb;
+    --ok: #1d9e75;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: var(--bg); color: var(--ink);
+    font: 400 15px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; letter-spacing: .2px; }
+  .sub { color: var(--ink2); font-size: 13px; margin-bottom: 24px; }
+  h2 {
+    font-size: 17px; font-weight: 600; margin: 32px 0 12px;
+    padding-left: 10px; border-left: 3px solid var(--brand);
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 14px;
+  }
+  .lead {
+    background: var(--brand-bg); border: 1px solid #9fe1cb;
+    border-radius: 12px; padding: 16px 20px; margin-bottom: 22px;
+    font-size: 15px;
+  }
+  .lead b { color: var(--brand); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 500; color: var(--ink2); font-size: 13px; background: #fafbfc; }
+  tr:last-child td { border-bottom: 0; }
+  code {
+    font: 400 13px/1.5 "SF Mono", Menlo, Consolas, monospace;
+    background: #f1f3f5; padding: 1px 5px; border-radius: 4px; color: #3c4650;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .pill {
+    display: inline-block; font-size: 12px; padding: 2px 9px;
+    border-radius: 999px; background: var(--brand-bg); color: var(--brand); font-weight: 500;
+  }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .pill.danger { background: var(--danger-bg); color: var(--danger); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 680px) { .grid2 { grid-template-columns: 1fr; } }
+  .mini { font-size: 13px; color: var(--ink2); }
+  .mini b { color: var(--ink); font-weight: 500; }
+  .big { font-size: 26px; font-weight: 600; letter-spacing: -.5px; }
+  .big.red { color: var(--danger); }
+  .big.green { color: var(--ok); }
+  .todo { list-style: none; padding: 0; margin: 0; }
+  .todo li { padding: 12px 0; border-bottom: 1px dashed var(--line); }
+  .todo li:last-child { border-bottom: 0; }
+  .todo .q { font-weight: 500; margin-bottom: 4px; }
+  .foot { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink3); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>主管返利看板解锁 · 权限授予 + 失败原因显性化</h1>
+  <div class="sub">v293 · 2026-09-27 · 已上线（hergent.cn + 后端权限表）· 已真机验收</div>
+
+  <div class="lead">
+    你回答的两件事 <b>① 给主管开通权限（需要）</b>、<b>② 看板为空要有提示（要）</b> —— 都已落地并各自验证通过。<br>
+    额外收获：上一轮卡住的真机验收这轮<b>跑通了</b>，而且顺带发现上一轮的验收脚本本身有个错，已修正（见第三节末尾）。
+  </div>
+
+  <h2>一、主管现在能看什么了</h2>
+  <div class="card">
+    <p class="mini" style="margin:0 0 12px">
+      用提审主管账号 <code>mptestsp</code> 实测同一支「返利规则」接口
+    </p>
+    <div class="grid2">
+      <div class="card" style="margin:0; border-color:#f7c1c1">
+        <div class="pill danger">修前</div>
+        <div style="margin:10px 0 4px" class="mini">主管读返利规则</div>
+        <div class="big red">403</div>
+        <div style="margin-top:8px" class="mini">被拒：<code>MODULE_DENIED module=sales</code><br>页面进得去，看板<b>恒空且零提示</b>，还显示成「尚未配置品牌/商品返利目标」——<b>会把主管引向「是不是我自己没配目标」</b></div>
+      </div>
+      <div class="card" style="margin:0; border-color:#9fe1cb">
+        <div class="pill">修后</div>
+        <div style="margin:10px 0 4px" class="mini">主管读返利规则</div>
+        <div class="big green">200</div>
+        <div style="margin-top:8px" class="mini">返回真实规则；冲刺看板正常显示品牌目标缺口与均单建议；右侧「剩 N 次到货」与配置口径一致</div>
+      </div>
+    </div>
+    <p class="mini" style="margin:14px 0 0">
+      ⚠️ 有一点容易误期待：本次加的是<b>后端模块权限</b>，<b>不会让主管的左侧菜单多出任何入口</b>。
+      前端「哪些页面可见」走的是另一套名单（按角色），与这次加的模块无关 —— 这次只打开「页面里那块数据读得到」。
+    </p>
+  </div>
+
+  <h2>二、两处改动，分别改了什么</h2>
+  <div class="card" style="padding:0">
+    <table>
+      <thead>
+        <tr><th style="width:72px">改动</th><th style="width:32%">做了什么</th><th>为什么 / 效果</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="pill">A-1</span></td>
+          <td>代码里的默认权限表给「主管」加上「销售」模块</td>
+          <td>管的是<b>还没被单独配过权限的租户</b>（含以后新开的租户）。写成默认值，就不再依赖手工插库。</td>
+        </tr>
+        <tr>
+          <td><span class="pill">A-2</span></td>
+          <td>两个权限库里的「主管」那一行，加上「销售」</td>
+          <td>🔴 <b>这处才是你这家租户真正生效的那份</b>。见下节说明。</td>
+        </tr>
+        <tr>
+          <td><span class="pill">B-1</span></td>
+          <td>取数被拒时<b>记住原因</b>，不再默默当成「没有数据」</td>
+          <td>「没权限看」和「本来就没有」是两件完全不同的事。现在会明说：<b>「你的角色没有查看返利规则的权限，需要管理员在「设置 › 权限」里为该角色勾上「销售」模块」</b>。其他失败（超时 / 服务异常）也各自说清。</td>
+        </tr>
+        <tr>
+          <td><span class="pill">B-2</span></td>
+          <td>在<b>折叠状态也能看见</b>的位置加一行提示</td>
+          <td>否则用户看到的是「有标题、没内容」的空卡片，要点开才发现是空的 —— 那跟静默失败没区别。</td>
+        </tr>
+        <tr>
+          <td><span class="pill">B-3</span></td>
+          <td>展开后的空提示<b>分叉</b>成两种</td>
+          <td>被权限挡住时，<b>不再复用</b>「尚未配置品牌 / 商品返利目标」那句话 —— 那句话会把主管引向「是不是我没配目标」，方向全错。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>三、一个必须记住的机制：给角色加权限要改「两处」</h2>
+  <div class="card">
+    <p style="margin:0 0 12px">
+      系统里的角色权限有<b>两份</b>，生效规则是「<b>这家租户单独配过的，就整份覆盖掉代码里的默认值</b>」：
+    </p>
+    <table>
+      <thead>
+        <tr><th style="width:36%">改哪里</th><th>管什么</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>代码里的默认权限表<br><code>core.py</code></td>
+          <td>只管<b>没被这家租户单独配过</b>的角色 —— 例如以后新开的租户。</td>
+        </tr>
+        <tr>
+          <td>这家租户权限库里的那一行<br><code>tenant_1.db</code></td>
+          <td>🔴 <b>你这家租户真正生效的那份。</b>因为「主管」这个角色以前被单独配过，所以代码里的默认值对它<b>完全不起作用</b>。</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="mini" style="margin:12px 0 0">
+      ⇒ 结论：<b>只改代码、这家租户不会变；只改这家租户、以后新租户又不会变</b>。两处必须同时改（本次两处都改了）。
+      另外 <b>改权限库不需要重启服务</b>，立即生效；只有改代码才需要重启 —— 这条对以后自助开权限也有用。
+    </p>
+  </div>
+
+  <h2>四、怎么确认真的生效了（四层）</h2>
+  <div class="card">
+    <table>
+      <tbody>
+        <tr><td style="width:34%">① 接口层</td><td>主管账号读返利规则：<b>403 → 200</b>，并返回真实规则 ✓</td></tr>
+        <tr><td>② 线上文件</td><td>线上页面里命中本轮新写的 4 句文案各 1 次（含「你的角色没有查看返利规则的权限」）；上一轮的 4 句仍在（无回退）✓</td></tr>
+        <tr><td>③ 无夹带</td><td>构建前后各 53 个包，<b>只有 1 个包的字节数变了</b>，且精确对应本轮改的唯一一个前端文件 ✓</td></tr>
+        <tr><td>④ 真机</td><td>主管账号真机跑完看板：截止日 <code>2026-10-31</code>（= 到货月月末）、「剩 18 次到货」与独立复算一致、明细显示「整月 15 次（手动配置）」、未出现权限提示、控制台 0 报错 ⇒ <b>14 项全过</b> ✓</td></tr>
+      </tbody>
+    </table>
+    <p class="mini" style="margin:12px 0 0">
+      ⚠️ 判断「线上是不是我的版本」<b>不能看文件名</b> —— 构建产物的文件名是内容哈希，改一个文件也会让一大批文件名跟着变（本次就有一个我没碰的文件名字变了、内容一字未改）。唯一可信的判据是<b>比「逻辑名 + 字节数」</b>，以及<b>线上文件里有没有出现本轮新写的文字</b>。
+    </p>
+  </div>
+
+  <h2>五、顺带修正了上一轮的验收脚本</h2>
+  <div class="card">
+    <p style="margin:0 0 10px">
+      上一轮的验收脚本报过 1 项失败：「截止日与到货月月末不一致」。查下来<b>是脚本自己的错，不是产品的错</b>：
+    </p>
+    <ul class="mini" style="margin:0; padding-left:20px">
+      <li>脚本把「接口返回的<b>第一条</b>期次」当成了「页面<b>正在看</b>的那条」，而页面上选中的是另一条 ⇒ 拿两个不同期次的月末去比，必然对不上。</li>
+      <li>更深一层：就算选中同一条，如果那个「到货月月末」<b>恰好等于</b>规则停用日，这个场景<b>本来就区分不出新旧口径</b> —— 那时无论怎么跑，结果都是「通过」，但证明不了任何东西。</li>
+    </ul>
+    <p class="mini" style="margin:10px 0 0">
+      ⇒ 新脚本加了两条硬纪律：<b>① 先主动把期次切到有代表性的那条；② 先证明「这个场景能区分新旧口径」，证明不了就直接报错停下，不硬凑通过。</b>
+      这条纪律已写进探针技能，以后所有真机验收都按它来。
+    </p>
+  </div>
+
+  <h2>六、遗留事项</h2>
+  <div class="card">
+    <ul class="todo">
+      <li>
+        <div class="q">小程序仍待你在微信开发者工具里发版</div>
+        <div class="mini">代码已改完并验证，但「上传 → 提审 → 发布」必须在微信开发者工具里手动完成（我这边出网受限）。</div>
+      </li>
+      <li>
+        <div class="q">工作区还有一批「已上线但未提交」的改动</div>
+        <div class="mini">属前几轮已完成的功能（已随构建上线），尚未纳入 git 提交。需要的话我可以做一次<b>按改动归属</b>的受控提交。</div>
+      </li>
+      <li>
+        <div class="q">给「主管」是否还要加别的模块，可按需再收</div>
+        <div class="mini">本次只加了「销售」（返利全家族所需的那一个）。若主管还要用别的页面，按同样「两处一起改」的方式处理。</div>
+      </li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    本次改动落在 3 个文件（后端 1 个权限表 + 2 个权限库；前端 1 个预报页），另有 2 份技能与项目记忆的同步更新。<br>
+    改动前已对权限库做<b>整库快照</b>、对生产代码做<b>逐行比对</b>确认只含本次改动；线上部署采用覆盖方式、保留旧包，可随时回滚。
+  </div>
+
+</div>
+</body>
+</html>

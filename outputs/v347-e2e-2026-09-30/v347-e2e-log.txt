@@ -1,0 +1,55 @@
+生产真值（照抄 role_permissions，不凭想象）：
+  主管 supervisor = ["dashboard","sales","stock","bid","messages","forecast","forecast-audit"]
+  库管          = ["dashboard","stock","data","messages"]
+  老板 boss     = ["dashboard","data","sales","buying","stock","accounts","crm","hr"] …
+  custom_roles  = ["supervisor","库管"]
+  ✅ 真账号登录（mptest）　→ OK:sales:1
+
+① 基线（不改写 —— 先证登录态与页面本身是活的）
+  ✅ 侧栏正常渲染（非错误卡片）　→ nav=1 items=4
+  ✅ /api/auth/permissions 被调用（判据真的跑过）　→ 1 次
+  ✅ 基线权限正文可读（自证桩未生效）　→ {"list":["dashboard","sales","buying","stock","crm","data","messages"],"cr":["accountant","supervisor","库管"],"role":"sales"}
+  基线侧栏: 经营工作台 | 目标与返利 | 货损核算 | 档案管理
+
+② 主管真值（无 data、无 cron、有 bid + forecast）
+  ✅ 自证：页面收到的模块清单 = 主管真值　→ ["dashboard","sales","stock","bid","messages","forecast","forecast-audit"]
+  ✅ 自证：身份已改写为 supervisor　→ supervisor
+  ✅ 侧栏仍在渲染（不是整页崩了）　→ items=5
+  主管侧栏: 经营工作台 | 预报订货管理 | 目标与返利 | 招投标雷达 | 货损核算
+  ✅ 🔴 目标②：「招投标雷达」**看得见**（老板要求）　→ true
+  ✅ 主管仍看得见「预报订货管理」（他在 FORECAST_SUMMARY_ROLES）　→ true
+  ✅ 🔴 目标①：「定时任务」**看不见**（郝洋报障）　→ false
+  ✅ 对照：同页「货损核算」仍在（stock 在 ⇒ 不是把菜单全藏了）　→ true
+  ✅ 🔴 深链：主管敲 `#/cron` 被拦回（hash 不再是 /cron）　→ hash=/workbench
+
+③ 库管真值（持 data、**无 forecast**、无 bid/cron）
+  ✅ 自证：页面收到的模块清单 = 库管真值　→ ["dashboard","stock","data","messages"]
+  ✅ 自证：身份已改写为「库管」　→ 库管
+  ✅ 侧栏仍在渲染（不是整页崩了）　→ items=3
+  库管侧栏: 经营工作台 | 货损核算 | 档案管理
+  ✅ 🔴 目标③：库管**看不见**「预报订货管理」（v347 拆模块）　→ false
+  ✅ 对照：库管仍看得见「档案管理」（他持 data ⇒ 不是把他封死了）　→ true
+  ✅ 库管也看不见「定时任务」　→ false
+  深链 hash: /forecast
+  ✅ 深链能进容器（守卫按"让位"放行 —— 与"入口消失"不矛盾）　→ hash=/forecast
+  ✅ 🔴 但页内 `/api/forecast/*` 请求 **403**（数据层已关 ⇒ 真进去也是空页）　→ 403 /api/forecast/columns ｜ 403 /api/forecast/periods
+  ✅ 🔴 页面上给出了「你的角色没有「预报订货管理」的权限」的**常驻**说明（不是白屏、不是假数据）　→ 你的角色没有「预报订货管理」的权限，这一页的期次和报单都读不到 —— 这不是系统故障。需要老板在「设置 › 权限」里，为你的角色勾上「预报订货管理」。
+  ✅ 同一页没有渲染出任何期次（只剩「— 选择期次 —」占位 ⇒ 不存在"看起来有数据"）　→ 1 个 option
+
+④ 单变量对照：库管 + 只**多给 forecast 一个模块**
+  ✅ 🔴 单变量对照：「预报订货管理」**重新出现**（⇒ 翻转来自 module 轴，不是"库管被无条件封死"）　→ true
+
+⑤ 防误伤：老板真值
+  老板侧栏: 经营工作台 | 预报订货管理 | 目标与返利 | 招投标雷达 | 货损核算 | 算工资 | 档案管理 | AI 引擎 | 定时任务 | 设置
+  ✅ 老板仍看得见「预报订货管理」　→ true
+  ✅ 老板仍看得见「定时任务」（他自己的）　→ true
+  ✅ 老板仍看得见「招投标雷达」　→ true
+
+⑥ 只读自证
+  ✅ 全程非 GET 请求只有登录/注销（零业务写入）　→ ["login(探针自身)"]
+  ✅ 无 4xx/5xx 异常请求（401/403 属探针预期的权限拒绝）　→ （无）
+  ✅ 零 console/page error　→ （无）
+
+==================================================
+总判定: ✅ 全绿（29 通过 / 0 失败）
+截图目录: /Users/zhangjunfeng/Documents/laozhangai-product/outputs/v347-e2e-2026-09-30

@@ -1,0 +1,21 @@
+==========================================================================
+v285 重建微信提审账号   DRY=True   TS=20260926-212716
+==========================================================================
+
+【0】预检
+  -- 现有 report_mapping（看 order_template 合法值 + alias 占用）
+     id=1 emp=6 alias='刘善涛' tpl='调拨单' active=1
+     id=2 emp=4 alias='美联保康' tpl='自提订单' active=1
+     id=3 emp=7 alias='东津' tpl='自提订单' active=1
+     id=4 emp=7 alias='永诺旗舰店' tpl='自提订单' active=0
+     id=5 emp=7 alias='永诺（江山店）' tpl='自提订单' active=0
+     id=6 emp=11 alias='美联（保康店）' tpl='自提订单' active=1
+     id=7 emp=12 alias='永辉东津店' tpl='自提订单' active=1
+  order_template 实测既有值 = ['调拨单', '自提订单']
+  -- 目标账号是否已存在：[{'id': 999903, 'username': 'mptest', 'employee_id': 11, 'role': 'sales', 'is_active': 1, 'password_changed': 1}, {'id': 999904, 'username': 'mptestsp', 'employee_id': 12, 'role': 'supervisor', 'is_active': 1, 'password_changed': 1}]
+  -- users 水位 = 999904 ⇒ 新号预计 999905 / 999906
+  -- 是否已有同名员工：[{'id': 11, 'name': '微信审核-销售'}, {'id': 12, 'name': '微信审核-主管'}]
+  -- 目标门店 2225: {'id': 2225, 'name': '美联（保康店）', 'type': 'customer', 'is_active': 1}
+  -- 目标门店 2868: {'id': 2868, 'name': '永辉东津店', 'type': 'customer', 'is_active': 1}
+
+[DRY] 预检结束，未做任何写入。

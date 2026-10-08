@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hergent · 权限页目标形态原型（路线 A）</title>
+<style>
+:root{
+  --p:#06b6d4; --p-dark:#0891b2; --p-deep:#0e7490; --p-bg:rgba(6,182,212,.06); --p-border:rgba(6,182,212,.28);
+  --suc:#34c759; --dan:#ff3b30; --warn:#b7791f; --warn-bg:#fdf6e3; --warn-bd:#e6cfa0;
+  --bg:#ffffff; --bg2:#f5f5f7; --bg3:#fafafa; --bg4:#f0f0f2;
+  --t1:#1d1d1f; --t2:#6e6e73; --t3:#a1a1a6; --bd:#e5e5ea;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:16px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.06);
+}
+html[data-theme="dark"]{
+  --p:#22d3ee; --p-dark:#06b6d4; --p-deep:#0891b2; --p-bg:rgba(6,182,212,.10); --p-border:rgba(34,211,238,.30);
+  --suc:#30d158; --dan:#ff453a; --warn:#e2b274; --warn-bg:rgba(186,117,23,.16); --warn-bd:rgba(226,178,116,.35);
+  --bg:#161618; --bg2:#0f0f11; --bg3:#1c1c1f; --bg4:#232326;
+  --t1:#f5f5f7; --t2:#a1a1a6; --t3:#6e6e73; --bd:#2c2c30;
+  --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg2);color:var(--t1);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px;margin:0 auto;padding:22px 20px 90px}
+
+/* ---- 顶部 ---- */
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.top h1{font-size:17px;margin:0;font-weight:650}
+.top .sub{font-size:12.5px;color:var(--t3)}
+.top .sp{margin-left:auto;display:flex;gap:8px;align-items:center}
+.tgl{border:1px solid var(--bd);background:var(--bg);color:var(--t2);border-radius:var(--radius-sm);
+  padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.tgl:hover{border-color:var(--p);color:var(--p-dark)}
+.tgl.on{background:var(--p-bg);border-color:var(--p-border);color:var(--p-deep);font-weight:600}
+
+/* ---- 视图切换 ---- */
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--bd);padding-bottom:2px;margin-bottom:16px}
+.tabs button{border:none;background:transparent;color:var(--t2);font:500 14px inherit;padding:8px 14px;cursor:pointer;
+  border-radius:var(--radius-sm) var(--radius-sm) 0 0;position:relative}
+.tabs button:hover{color:var(--p)}
+.tabs button.on{color:var(--p-dark);font-weight:650}
+.tabs button.on::after{content:'';position:absolute;left:0;right:0;bottom:-3px;height:2px;background:var(--p);border-radius:2px}
+
+/* ---- 卡片 ---- */
+.card{background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{font-size:14px;margin:0 0 14px;font-weight:650}
+.card-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.card-hd h2{margin:0}
+.card-hd .sp{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+/* ---- 按钮 ---- */
+.btn{border:1px solid var(--bd);background:var(--bg);color:var(--t2);border-radius:var(--radius-sm);
+  padding:6px 13px;font:500 12.5px inherit;cursor:pointer}
+.btn:hover{border-color:var(--p);color:var(--p-dark)}
+.btn.pri{background:var(--p-dark);border-color:var(--p-dark);color:#fff}
+.btn.pri:hover{background:var(--p-deep);border-color:var(--p-deep);color:#fff}
+.btn.gho{border-color:transparent;background:transparent}
+.btn.gho:hover{background:var(--bg3)}
+
+/* ---- 表格 ---- */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:middle}
+th{font-weight:600;color:var(--t2);background:var(--bg3);font-size:12.5px}
+.ctr{text-align:center}
+input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:var(--p-dark);margin:0}
+input[type=checkbox]:disabled{cursor:not-allowed;opacity:.45}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:var(--bg3);color:var(--t2)}
+.tag.cus{background:var(--p-bg);color:var(--p-deep)}
+.rolename{font-weight:600}
+.modname{font-size:12.5px;color:var(--t1)}
+.modsub{font-size:11px;color:var(--t3);margin-top:1px}
+.fixed-note{font-size:11px;color:var(--t2);opacity:.85;margin-top:2px}
+.fixed-mark{font-size:10.5px;color:var(--t3);opacity:.7;white-space:nowrap}
+.mono{font-variant-numeric:tabular-nums}
+
+/* ---- 域页签 ---- */
+.domtabs{display:flex;gap:4px;margin:0 0 14px;flex-wrap:wrap}
+.domtabs button{border:1px solid var(--bd);background:var(--bg);color:var(--t2);border-radius:999px;
+  padding:5px 14px;font:500 12.5px inherit;cursor:pointer}
+.domtabs button:hover{border-color:var(--p-border);color:var(--p-dark)}
+.domtabs button.on{background:var(--p-bg);border-color:var(--p-border);color:var(--p-deep);font-weight:650}
+.domtabs .cnt{color:var(--t3);font-weight:400;margin-left:4px}
+.dom-pane{display:none}
+.dom-pane.on{display:block}
+
+/* ---- 登录端 / AI 卡 ---- */
+.endrow{display:flex;align-items:center;gap:10px;padding:9px 0;flex-wrap:wrap}
+.endrow label{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;min-width:200px}
+.endrow .hint{font-size:11.5px;color:var(--t3)}
+.endsum{font-size:12px;color:var(--t2);background:var(--bg2);border-radius:var(--radius-sm);padding:8px 12px;margin-top:6px;display:inline-block}
+
+/* ---- 改动批注 ---- */
+.chg{position:relative;outline:2px dashed var(--warn-bd);outline-offset:4px;border-radius:var(--radius-sm)}
+.chg::after{content:attr(data-c);position:absolute;top:-10px;left:-10px;background:var(--warn);color:#fff;
+  font:700 10px/1 inherit;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 5px;z-index:5}
+body:not(.show-notes) .chg{outline:none}
+body:not(.show-notes) .chg::after{display:none}
+/* ---- 改动批注 ----
+   刻意做成**文档流内的块**（由脚本搬到页面顶部），不用 fixed 浮层：
+   浮层会遮住表格右侧的「删除 / 整行」两列（实测踩过）。 */
+.notes{background:var(--bg);border:1px solid var(--warn-bd);border-radius:var(--radius-lg);
+  padding:16px 20px;margin-bottom:16px;display:none}
+body.show-notes .notes{display:block}
+.notes h3{margin:0 0 10px;font-size:13px;font-weight:650}
+.notes ol{margin:0;padding-left:20px;font-size:12.5px;color:var(--t2);line-height:1.75}
+.notes li{margin-bottom:8px}
+.notes li b{color:var(--t1)}
+
+/* ---- 对比弹窗 ----
+   🔴 开关类名必须是 `dlg-open`，**不能**叫 `dlg`：`body` 会带上这个类，
+   而下面 `.dlg{display:none;position:fixed;...}` 会**同样命中 body 自己**
+   ⇒ 一点「查看对比」整页消失（实测踩过，纯白屏）。 */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.42);display:none;z-index:70}
+body.dlg-open .mask{display:block}
+.dlg{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(1080px,94vw);max-height:86vh;overflow:auto;
+  background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:20px;display:none;z-index:71}
+body.dlg-open .dlg{display:block}
+.dlg table{font-size:12.5px}
+.dlg th:first-child,.dlg td:first-child{position:sticky;left:0;background:var(--bg);z-index:2}
+.dlg thead th:first-child{background:var(--bg3)}
+.on-mark{color:var(--p-dark);font-weight:700}
+.off-mark{color:var(--t3)}
+.readonly-hint{font-size:12px;color:var(--t3);margin:0 0 12px}
+.hl{outline:2px dashed var(--warn-bd);outline-offset:3px;border-radius:6px}
+body:not(.show-notes) .hl{outline:none}
+</style>
+</head>
+<body class="show-notes">
+<div class="wrap">
+
+  <div class="top">
+    <h1>设置 › 权限</h1>
+    <span class="sub">目标形态原型 · 路线 A（单一写入口 + 只读对比）</span>
+    <span class="sp">
+      <button class="tgl on" id="btnNotes">改动批注</button>
+      <button class="tgl" id="btnTheme">深色</button>
+    </span>
+  </div>
+
+  <div class="tabs">
+    <button class="on" data-view="v1">视图 1 · 角色与权限</button>
+    <button data-view="v2">视图 2 · 单个角色配置</button>
+  </div>
+
+  <!-- ==================== 视图 1 ==================== -->
+  <section id="v1">
+    <div class="card">
+      <div class="card-hd chg" data-c="1">
+        <h2>角色与权限</h2>
+        <span class="sp">
+          <button class="btn" id="btnCompare">查看对比</button>
+        </span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:26%">角色名称</th>
+            <th style="width:16%">角色类型</th>
+            <th style="width:22%">可登录</th>
+            <th class="ctr" style="width:16%">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="rolename">老板</td><td><span class="tag">系统自带</span></td><td>电脑端</td>
+            <td class="ctr"><button class="btn" data-role="老板">配置权限</button></td></tr>
+          <tr><td class="rolename">主管</td><td><span class="tag">系统自带</span></td><td>电脑端 + 小程序</td>
+            <td class="ctr"><button class="btn" data-role="主管">配置权限</button></td></tr>
+          <tr><td class="rolename">财务/文员</td><td><span class="tag">系统自带</span></td><td>电脑端</td>
+            <td class="ctr"><button class="btn" data-role="财务/文员">配置权限</button></td></tr>
+          <tr><td class="rolename">业务员</td><td><span class="tag">系统自带</span></td><td>小程序</td>
+            <td class="ctr"><button class="btn" data-role="业务员">配置权限</button></td></tr>
+          <tr><td class="rolename">库管</td><td><span class="tag cus">自定义角色</span></td><td>电脑端</td>
+            <td class="ctr"><button class="btn" data-role="库管">配置权限</button></td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--t3);margin:12px 2px 0;line-height:1.7">
+        点「配置权限」进入这个角色的明细。<b>同一个角色只有一个配权限的地方</b> ——
+        改了就是真的改了，不会出现"这里改了那里没变"。
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================== 视图 2 ==================== -->
+  <section id="v2" style="display:none">
+
+    <div class="card">
+      <div class="card-hd">
+        <button class="btn gho" id="btnBack">← 角色列表</button>
+        <h2 style="margin-left:4px">角色：<span id="curRole">主管</span></h2>
+        <span class="sp"><button class="btn pri">保存</button></span>
+      </div>
+      <p style="font-size:12px;color:var(--t3);margin:0">保存后立即生效。已经存在的账号不会被自动改动；员工档案里会把不一致的账号标出来，可一键对齐。</p>
+    </div>
+
+    <!-- ③④ 登录端 -->
+    <div class="card chg" data-c="2">
+      <h2>登录端 · 这个角色的人从哪儿进来</h2>
+      <div class="endrow">
+        <label><input type="checkbox" checked> 允许使用电脑端（网页）</label>
+        <span class="hint">关掉后，这个角色的人打不开网页后台</span>
+      </div>
+      <div class="endrow">
+        <label><input type="checkbox" checked> 允许使用手机端（小程序）</label>
+        <span class="hint">关掉后，这个角色的人用不了小程序</span>
+      </div>
+      <div class="endsum">新账号的默认可登录端：<b>电脑端 + 小程序</b></div>
+    </div>
+
+    <!-- ① 功能模块 -->
+    <div class="card chg" data-c="3">
+      <h2>功能权限 · 这个角色能用哪些功能</h2>
+      <div class="domtabs" id="domTabs">
+        <button class="on" data-dom="d1">经营 <span class="cnt">5</span></button>
+        <button data-dom="d2">核算 <span class="cnt">2</span></button>
+        <button data-dom="d3">配置 <span class="cnt">4</span></button>
+        <button data-dom="d4">更多 <span class="cnt">11</span></button>
+      </div>
+
+      <div class="dom-pane on" id="d1">
+        <table>
+          <thead><tr>
+            <th style="width:46%">功能</th>
+            <th class="ctr">查看</th><th class="ctr">新增</th><th class="ctr">修改</th><th class="ctr">删除</th>
+            <th class="ctr" style="width:88px">整行</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="modname">经营工作台</div>
+                <div class="fixed-note">所有人都能进 —— 它是登录后的落地页，关掉会让员工登进来就白屏</div></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">—</span></td>
+            </tr>
+            <tr>
+              <td><div class="modname">经营看板</div>
+                <div class="modsub">经营趋势 · 以及首页的今日销售额 / 毛利 / 回款</div></td>
+              <td class="ctr"><input type="checkbox"></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><input type="checkbox"></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><button class="btn gho">整行全选</button></td>
+            </tr>
+            <tr>
+              <td><div class="modname">预报订货管理</div><div class="modsub">对应页面：预报订货管理</div></td>
+              <td class="ctr"><input type="checkbox" checked></td><td class="ctr"><input type="checkbox" checked></td>
+              <td class="ctr"><input type="checkbox" checked></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><button class="btn gho">整行全选</button></td>
+            </tr>
+            <tr>
+              <td><div class="modname">目标与返利</div><div class="modsub">对应页面：目标与返利</div></td>
+              <td class="ctr"><input type="checkbox" checked></td><td class="ctr"><input type="checkbox" checked></td>
+              <td class="ctr"><input type="checkbox"></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><button class="btn gho">整行全选</button></td>
+            </tr>
+            <tr>
+              <td><div class="modname">招投标雷达</div><div class="modsub">对应页面：招投标雷达</div></td>
+              <td class="ctr"><input type="checkbox" checked></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><input type="checkbox"></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><button class="btn gho">整行全选</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="dom-pane" id="d2">
+        <table>
+          <thead><tr>
+            <th style="width:46%">功能</th>
+            <th class="ctr">查看</th><th class="ctr">新增</th><th class="ctr">修改</th><th class="ctr">删除</th>
+            <th class="ctr" style="width:88px">整行</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="modname">货损核算</div><div class="modsub">对应页面：货损核算</div></td>
+              <td class="ctr"><input type="checkbox" checked></td><td class="ctr"><input type="checkbox" checked></td>
+              <td class="ctr"><input type="checkbox"></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><button class="btn gho">整行全选</button></td>
+            </tr>
+            <tr>
+              <td><div class="modname">算工资</div><div class="modsub">对应页面：算工资</div></td>
+              <td class="ctr"><input type="checkbox"></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><input type="checkbox"></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><button class="btn gho">整行全选</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="dom-pane" id="d3">
+        <table>
+          <thead><tr>
+            <th style="width:46%">功能</th>
+            <th class="ctr">查看</th><th class="ctr">新增</th><th class="ctr">修改</th><th class="ctr">删除</th>
+            <th class="ctr" style="width:88px">整行</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="modname">档案管理</div><div class="modsub">对应页面：档案管理、品牌档案、商品档案</div></td>
+              <td class="ctr"><input type="checkbox" checked></td><td class="ctr"><input type="checkbox" checked></td>
+              <td class="ctr"><input type="checkbox" checked></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><button class="btn gho">整行全选</button></td>
+            </tr>
+            <tr>
+              <td><div class="modname">AI 引擎</div>
+                <div class="fixed-note">只有管理员能进（按角色判定）；页内数据跟着下面的「允许使用 AI」一起开关</div></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">—</span></td>
+            </tr>
+            <tr>
+              <td><div class="modname">定时任务</div><div class="modsub">对应页面：定时任务</div></td>
+              <td class="ctr"><input type="checkbox"></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><input type="checkbox"></td><td class="ctr"><input type="checkbox"></td>
+              <td class="ctr"><button class="btn gho">整行全选</button></td>
+            </tr>
+            <tr>
+              <td><div class="modname">设置</div>
+                <div class="fixed-note">只有管理员能进 —— 它就是权限页本身，关掉后谁都改不回来</div></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">不在此配</span></td>
+              <td class="ctr"><span class="fixed-mark">—</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="dom-pane" id="d4">
+        <table>
+          <thead><tr>
+            <th style="width:46%">功能</th>
+            <th class="ctr">查看</th><th class="ctr">新增</th><th class="ctr">修改</th><th class="ctr">删除</th>
+            <th class="ctr" style="width:88px">整行</th>
+          </tr></thead>
+          <tbody id="moreBody"></tbody>
+        </table>
+        <p style="font-size:12px;color:var(--t3);margin:12px 2px 0;line-height:1.7">
+          这一组没有侧栏一级入口（是子页面或纯数据闸门）。<b>不影响侧栏的，勾了在菜单上看不到变化</b>，
+          但它们管着页面里的数据能不能读，所以不能删。
+        </p>
+      </div>
+    </div>
+
+    <!-- ② 可用 AI -->
+    <div class="card chg" data-c="4">
+      <div class="endrow" style="padding:0">
+        <label style="min-width:0"><input type="checkbox"> <b>允许使用 AI</b>（问副驾 / 让 AI 分析）</label>
+        <span class="hint">关掉后不能发起新对话；已经存在的会话和附件仍然可以查看（只看自己的）</span>
+      </div>
+    </div>
+
+  </section>
+
+</div>
+
+<!-- 改动清单 -->
+<div class="notes">
+  <h3>这一版和现在有什么不同</h3>
+  <ol>
+    <li><b>「批量总览」不再是一个页签</b>：它原来的两个用途分开处理 ——
+      「配权限」归到<b>每个角色自己的配置页</b>（唯一写入口）；
+      「几家角色横向比一比」变成右上角<b>「查看对比」只读弹窗</b>（只能看，不能改）。
+      <b>好处</b>：同一个权限只有一处能改，不会再出现"这里改了、那里没变"。</li>
+    <li><b>登录端挪到页面顶部</b>：它回答的是"这个角色从哪儿进来"，
+      和下面"进来之后能干什么"是两件事，分开放才读得清。</li>
+    <li><b>功能按域分成四个页签</b>（经营 / 核算 / 配置 / 更多）：
+      现在是一条长列表 + 把「更多」默认折起来，找东西要先在长列表里扫。
+      改成页签后，点一下就到那一类，<b>不用先展开再找</b>。</li>
+    <li><b>「允许使用 AI」单独一块</b>：它不属于任何一个业务域（不是一个页面），
+      混在功能列表里会被当成又一个模块。<b>它不是开关某一个页面，是开关"能不能问 AI"这件事</b>。</li>
+  </ol>
+  <h3 style="margin-top:14px">没有照抄舟谱的三处（照抄会造出假开关）</h3>
+  <ol start="5">
+    <li>舟谱每一行的权限列不同（档案管理是"查看/编辑/导出/导入"，设置只有"查看"）。
+      我们的系统里"新增/修改/删除"是由操作类型自动定的，<b>没有"导出/导入"这种独立边界</b>，
+      硬套会画出点了不生效的勾。</li>
+    <li>舟谱有个「其他」列 —— 我们不建。归不了类的应该显示成"不在此配"并说清原因，
+      而不是塞进一个叫"其他"的筐里。</li>
+    <li>舟谱行内还有"电脑端/手机端"两列，那是<b>菜单级</b>的端归属；
+      我们的登录端是按<b>角色</b>定的（一个角色一个），所以只在页面顶部放两个开关。</li>
+  </ol>
+</div>
+
+<div class="mask" id="mask"></div>
+<div class="dlg" id="dlg">
+  <div class="card-hd">
+    <h2>角色权限对比（只读）</h2>
+    <span class="sp"><button class="btn" id="btnCloseDlg">关闭</button></span>
+  </div>
+  <p class="readonly-hint">这里只是看，不能改。要改请回到对应角色的配置页 —— 这样就不会有"在两个地方各勾一半"的问题。</p>
+  <div id="cmpTable"></div>
+</div>
+
+<script>
+var ROLES = ['老板','主管','财务/文员','业务员','库管'];
+var GRP = [
+  { dom:'经营', items:[
+    { n:'经营工作台', fixed:'所有角色' },
+    { n:'经营看板', v:['y','n','n','n','n'] },
+    { n:'预报订货管理', v:['y','y','y','y','y'] },
+    { n:'目标与返利', v:['y','y','y','y','n'] },
+    { n:'招投标雷达', v:['y','y','n','n','n'] },
+  ]},
+  { dom:'核算', items:[
+    { n:'货损核算', v:['y','y','y','y','y'] },
+    { n:'算工资', v:['y','n','n','n','n'] },
+  ]},
+  { dom:'配置', items:[
+    { n:'档案管理', v:['y','y','y','y','y'] },
+    { n:'AI 引擎', fixed:'只有管理员' },
+    { n:'定时任务', v:['y','n','n','n','n'] },
+    { n:'设置', fixed:'只有管理员' },
+  ]},
+  { dom:'更多', items:[
+    { n:'仓库管理', v:['y','y','y','y','y'] },
+    { n:'员工管理', v:['y','n','n','n','n'] },
+    { n:'客户关系', v:['y','n','y','y','n'] },
+    { n:'预报审核与定稿', v:['y','y','y','n','n'] },
+    { n:'采购管理', v:['y','n','y','y','n'] },
+    { n:'收付款', v:['y','n','y','n','n'] },
+    { n:'数据报表', v:['y','n','y','n','n'] },
+    { n:'项目管理', v:['y','n','n','n','n'] },
+    { n:'经营目标', v:['y','n','n','n','n'] },
+    { n:'任务与项目', v:['y','n','n','n','n'] },
+    { n:'消息通知', v:['y','y','n','y','y'] },
+  ]},
+];
+
+/* 更多域的表格 */
+var mb = document.getElementById('moreBody');
+GRP[3].items.forEach(function(it){
+  var tr = document.createElement('tr');
+  var c0 = '<td><div class="modname">'+it.n+'</div>';
+  c0 += (it.v ? '' : '<div class="modsub">数据权限 · 不影响侧栏</div>') + '</td>';
+  var c = c0;
+  for (var i=0;i<4;i++){
+    c += '<td class="ctr">' + (it.v ? '<input type="checkbox">' : '<span class="fixed-mark">不在此配</span>') + '</td>';
+  }
+  c += '<td class="ctr">' + (it.v ? '<button class="btn gho">整行全选</button>' : '<span class="fixed-mark">—</span>') + '</td>';
+  tr.innerHTML = c;
+  mb.appendChild(tr);
+});
+
+/* 视图切换 */
+var tabs = document.querySelectorAll('.tabs button');
+tabs.forEach(function(b){
+  b.onclick = function(){
+    tabs.forEach(function(x){ x.classList.remove('on') });
+    b.classList.add('on');
+    document.getElementById('v1').style.display = (b.dataset.view==='v1') ? '' : 'none';
+    document.getElementById('v2').style.display = (b.dataset.view==='v2') ? '' : 'none';
+  };
+});
+document.getElementById('btnBack').onclick = function(){ tabs[0].click() };
+document.querySelectorAll('[data-role]').forEach(function(b){
+  b.onclick = function(){
+    document.getElementById('curRole').textContent = b.dataset.role;
+    tabs[1].click();
+    window.scrollTo({ top:0, behavior:'smooth' });
+  };
+});
+
+/* 域页签 */
+var dt = document.querySelectorAll('#domTabs button');
+dt.forEach(function(b){
+  b.onclick = function(){
+    dt.forEach(function(x){ x.classList.remove('on') });
+    b.classList.add('on');
+    document.querySelectorAll('.dom-pane').forEach(function(p){ p.classList.remove('on') });
+    document.getElementById(b.dataset.dom).classList.add('on');
+  };
+});
+
+/* 对比弹窗 */
+function buildCmp(){
+  var h = '<table><thead><tr><th>功能</th>';
+  ROLES.forEach(function(r){ h += '<th class="ctr">'+r+'</th>' });
+  h += '</tr></thead><tbody>';
+  GRP.forEach(function(g){
+    h += '<tr><td colspan="'+(ROLES.length+1)+'" style="background:var(--bg2);font-weight:650;font-size:12px;color:var(--t2)">'+g.dom+'</td></tr>';
+    g.items.forEach(function(it){
+      h += '<tr><td>'+it.n+'</td>';
+      if (it.fixed){
+        h += '<td class="ctr" colspan="'+ROLES.length+'" style="color:var(--t3);font-size:12px">'+it.fixed+'（不在此配）</td>';
+      } else {
+        it.v.forEach(function(v){
+          h += '<td class="ctr">' + (v==='y' ? '<span class="on-mark">✓</span>' : '<span class="off-mark">—</span>') + '</td>';
+        });
+      }
+      h += '</tr>';
+    });
+  });
+  h += '</tbody></table>';
+  document.getElementById('cmpTable').innerHTML = h;
+}
+buildCmp();
+document.getElementById('btnCompare').onclick = function(){ document.body.classList.add('dlg-open') };
+document.getElementById('btnCloseDlg').onclick = function(){ document.body.classList.remove('dlg-open') };
+document.getElementById('mask').onclick = function(){ document.body.classList.remove('dlg-open') };
+
+/* 把「改动批注」搬到页面顶部：它默认就是打开的，摆在右下角会盖住表格右侧两列。 */
+document.querySelector('.wrap').insertBefore(
+  document.querySelector('.notes'),
+  document.querySelector('.tabs')
+);
+
+/* 批注 / 主题 */
+document.getElementById('btnNotes').onclick = function(){
+  document.body.classList.toggle('show-notes');
+  this.classList.toggle('on', document.body.classList.contains('show-notes'));
+};
+document.getElementById('btnTheme').onclick = function(){
+  var d = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', d ? 'light' : 'dark');
+  this.textContent = d ? '深色' : '浅色';
+};
+</script>
+</body>
+</html>
