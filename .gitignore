@@ -72,10 +72,8 @@ desktop-app/*.tar.gz
 /artifacts/**/*.png
 # vNNN 验证截图（本地保留）
 .workbuddy/outputs/**/*.png
-# automation-prompts 旧版 + credits 去重前快照
+# automation-prompts 旧版 + credits 去重前快照（含租户账号数据，不入库）
 /backups/
-# 小程序仓的解压快照（目录名带 ISO 时间戳）
-/forecast-order-miniprogram-*/
 # vite 配置热重载临时产物
 /hergent-admin/*.timestamp-*.mjs
 # 工具的 HEAD 快照临时文件
