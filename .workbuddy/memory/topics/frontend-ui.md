@@ -3562,3 +3562,73 @@ CSS 解析器把这堆乱码**连同紧随其后的 `table.tbl th.seq-th{…}` �
 修法：`.ipl-c-st`/`.ipl-c-time` 加 `white-space:nowrap`；`.ipl-c-sup`/`.ipl-c-cat`
 加 `overflow:hidden;text-overflow:ellipsis;white-space:nowrap`；表 `min-width` 1600→1700。
 🔴 **教训**：列宽够不够不是算出来的 —— **必须在真机截图里逐列看**（文字折行是"宽度不足"的唯一显性证据）。
+
+### ⑧ 页内三页签 + `?tab=` 驱动（v404 采购单详情页）
+
+**形态**：`InvPurchaseDetail.vue` 页头（返回/复制/打印/分批到货/确认入库）＋
+`.main-tabs`（三个 `.main-tab`，`:class="{on: tab===t.key}"`）＋ `.tab-pane`
+（`v-if` / `v-else-if` / `v-else` ⇒ **同一时刻只渲染 1 个 pane**）。
+复用的全是既有全局件，**零新增全局类**（页面私有类一律 `.ipd-*`）。
+
+**🔴 三页签由 `?tab=` query 驱动**（可分享链接 + 浏览器后退可用；缺省 `detail`）：
+```js
+const oid = computed(() => Number(route.params.id))
+const TABS = [{key:'detail',text:'采购订单详情'},{key:'payments',text:'货款'},{key:'inbound',text:'入库单'}]
+const tab = computed(() => {
+  const k = String((route.query && route.query.tab) || '')
+  return TABS.some(t => t.key === k) ? k : 'detail'   // 非法值必须回落，不能渲染空白
+})
+function pickTab (k) { router.replace({ path: route.path, query: k === 'detail' ? {} : { tab: k } }) }
+watch(oid, loadAll)          // ① 路由参数变化必须重新取数
+async function loadAll () { /* Promise.all 三个端点并发 */ }
+```
+
+**🔴🔴 `oid` 必须 `computed` + `watch(oid, loadAll)`**（本批的命门）：
+vue-router 对「**同 route record、只有 params 变化**」会**复用组件实例、不重跑 `setup`**
+⇒ 把 `oid` 写成一次性常量，从 A 单点到 B 单会**仍显示 A 单**，而且**零报错**。
+（v403 已在 `kind` 上踩过同一坑；v404 把它做成探针命门，并**在旧构建上现场复现**：
+`hash` 已是单 10、页头仍是 `CD260628000002`。）
+**判据写法**：**只改 `location.hash`、不 reload**，然后断言
+①页头单号变了 ②**接口派生出的字段也跟着变**（证明三个端点都重取了，不是只换了个标题）
+③再加一条「**不等于**旧值」的反向对照。
+
+### ⑨ 🔴 一类专项缺陷：「同一屏两个说法互相打脸」（v404 一次抓到四条）
+
+形态都是**页面自己算出来的一句话**，与**同屏另一个数字/事实**矛盾。四条实例：
+
+| # | 症状 | 根因 | 修法 |
+|---|---|---|---|
+| ① | 提示写「库存和**应付**都已生成」，右边「应付金额」却是 `—` | `statusHint` 对 `status==='received'` 无条件宣称 | 先看 `pay.ap_exists`，按它分叉 |
+| ② | 无应付行的单，付款提示写「**已经结清**」 | 只按 `unpaid_amount === 0` 判断 | 真相是「**没有**应付单」，不是「结清了」 |
+| ③ | 无应付行但未结 > 0 时，付款按钮**可点**、点了必被后端拒 | `canPay` 只判 `unpaid > 0` | `canPay = apExists && hasDue` |
+| ④ | 未结金额 `¥0.00` 被染 `--danger` **告急红** | `.ipd-amt-due{color:var(--danger)}` 无条件挂 | 新增 `hasDue`，**真欠钱才红** |
+
+🔴 **通用判据**：**凡是"状态 → 一句话"的映射，都要先问"这句话里的每个断言，同屏有没有别的
+元素在说反话"**。`received` / 「已入库」**不等于**「应付已生成」/「已结算」——
+状态只描述**这一半**，另一半（应付、入库单、批次）各有各的存在性，必须**各自查、各自说**。
+
+### ⑩ 探针方法论：判别力靠**相位反转**，不靠"全绿"（v404 三组实证）
+
+🔴 **一个判据只要没有"改前必须红"的证据，就有可能是恒真式。**
+本轮把这条做成可复用的工具链：
+
+`v404-oldserver.mjs` = 本地静态服务（服务**指定 dist 目录**）＋ **`/api/*` 反代生产**。
+于是**同一套断言**可以跑在任意历史构建上：
+
+| 目标 | 结果 |
+|---|---|
+| 生产 `dist-v404c`（最终） | **51 PASS / 0 FAIL** |
+| 已上线 **v403 旧构建**（同一套断言） | **10 PASS / 36 FAIL** ⇒ 36 条新判据确有判别力 |
+| 修复提示前的 `dist-v404` | **45 / 4**（恰红那 4 条） |
+| 修复染色前的 `dist-v404b` | **50 / 1**（恰红那 1 条） |
+
+🔴 **反转模式必须自动跳过截图** —— 否则反转跑会把正例的证据图**覆盖掉**
+（本轮真踩过一次，得重跑才刷回来）。约定：探针读 `V404_BASE` 判定是否反转模式。
+
+**⚠️ 本机坑（复发两次，已入 `local-machine-pitfalls.md`）**：
+① 静态服务用 `cmd &` 起在 Bash 调用里 **活不过当次调用**（下次调用时端口已关，症状是
+Chrome 落到 `chrome-error://chromewebdata/`、`localStorage` 报 "Access is denied"）⇒
+必须用工具的**后台运行**能力常驻。
+② 采样函数**返回对象时不要再 `JSON.stringify` 一次**（外层已统一序列化）⇒
+套两层会让读到的字段变**字符串**，`d.x.y` 恒 `undefined`，**判据静默恒真/恒假**。
+

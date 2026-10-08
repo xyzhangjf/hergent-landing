@@ -245,3 +245,78 @@ v394 新增 **§8 业务模块范式（参考实现：进销存）** ⇒ 进销�
 该探针**什么也没证明**。两处实证：① 越权探针 `POST /api/users/999890/password`
 在演示租户恒回 `READONLY_TENANT` ⇒ 连续多日**判据失效**（被只读闸门拦下，不再证明越权防守）；
 ② 匿名请求打到**不存在**的端点**同样回 401**（鉴权中间件先于路由）⇒ 用它判「端点存不存在」零判别力。
+
+---
+
+## v404 · 采购单详情页三页签（端点 17 → 20）
+
+**新增三条端点**（`server/routers/psi.py`）：
+
+| 方法 | 路径 | 语义 |
+|---|---|---|
+| GET | `/api/psi/purchase-orders/{oid}/payments` | 应付 + 付款流水（聚合） |
+| POST | `/api/psi/purchase-orders/{oid}/payments` | **登记付款**（写；期间门禁 + 防超付） |
+| GET | `/api/psi/purchase-orders/{oid}/inbound` | 入库单（**派生视图，不建表**） |
+
+### 🔴 应付行（`receivables`）的真相 —— 生产只有「没有」这一态
+- `receivables` 共 **181 行**，其中 **`ref_type='purchase'` = 0 行**。
+- 应付行**唯一生成点** = `purchases.py:358`（在 `purchase_order_confirm` 内）。
+- ⇒ 舟谱导入的历史单（`CD…` 前缀，79 张）**只有表头、零明细、从没走过 confirm** ⇒ 永远没有应付行。
+- ⇒ 「货款」页签在真实数据上**只能看到「无应付」这一态**；要真正用起来，得让新单走 `confirm`
+  （或给历史单补应付行）。**这是产品级待办，不是 bug**。
+- 所以「无应付」**必须**与「已结清」区分：`ap_amount = None` ⇒ 界面 `—`；
+  文案说「这张单没有对应的应付单，不用登记付款。」，**不许**说「已经结清」。
+
+### 🔴 为什么自建 `purchase_payment_create`，不复用 `fi.payment_create`
+`fi.payment_create` 的 `ref_id` 语义是 **`receivables.id`（应收/应付表的行号）**，
+**不是业务单据号** ⇒ 传采购单 id 会**改到另一张应收行**，且**零报错**。
+⇒ 应付行一律用 **`type='ap' AND ref_type='purchase' AND ref_id=<采购单id>`** 定位。
+
+`purchase_payment_create` 五条安全性质（缺一不可）：
+1. `amount > 0`
+2. **防超付**（`amount <= ap_unpaid`）
+3. **期间门禁**（`check_period_open`）
+4. **三处同步**：`receivables(ap).paid_amount/status` → `purchase_orders.paid_amount` → `cash_flow`
+5. **无应付行直接拒**（不静默创建）
+
+凭证：`auto_journal_for_payment(pid, db_conn=db)` ⇒ 借 2202 / 贷 1002。
+
+### 🔴 `check_period_open` 的 import 与 check **必须分开写**
+`purchase_order_confirm` 里二者裹在同一 `try` ⇒ **关账被拒会被当成 import 失败吞掉**。
+钱的操作不能这样 —— 关账回执必须原样透出（实测回执：`{'error': '会计期间 2026-10 已关闭，无法操作'}`）。
+
+### 🔴 修掉的恒真静默 bug：`received_qty` 从不落库
+- `purchase_order_confirm` **从不写 `received_qty`**（只有 `purchase_order_partial_receive` 会写）
+  ⇒ **整单全收后 `status='received'` 而每行 `received_qty` 仍是 0**。
+- 消费方 `ap_invoices` 的收货匹配用 `SUM(poi.received_qty * unit_price)` ⇒ **发票永远匹配不上**
+  （静默、恒定、零报错）。`procurement_planner._get_on_order_qty` 按 `status` 过滤，**不受影响**。
+- 修法：整单全收时 `UPDATE purchase_order_items SET received_qty = quantity WHERE id = ?`。
+- 改前核扰动面：生产 `received_qty>0` **0 行** / `ap_invoices` **0 行** ⇒ 零扰动。
+
+### 🔴 入库单 = 派生视图（不建表）
+- `inbound_orders` 相关两张表**存在但空（0 行）且无任何指向采购单的列** ⇒ 无法关联。
+- 入库单号由**源单号派生**：`CD260628000002` → `RK260628000002`；返回 `derived: true`。
+- `empty` 专指「**还没有入库单**」（≠ 没有明细行）：
+  - 草稿单 ⇒ `{empty: true, reason: '这张单还是草稿，没有入库单。', status, order_no}`
+  - 已入库单 ⇒ `empty: false` + `head`（含派生单号）+ `items`（可能为空数组）
+- 不存在的单 ⇒ **404**（`{ok:false, detail:'订单不存在', code:404}`）。
+
+### 单位回退链（`poi.unit` 生产大量为空串）
+新增**不重名**投影，原 `unit` 键保持不动：
+```sql
+COALESCE(NULLIF(poi.unit,''), p.unit, '') AS unit_label
+```
+⚠️ `sqlite3.Row["unit"]` 取**第一个**同名列（即 `poi.unit`）—— 所以投影**必须换名**，
+不能直接写成 `AS unit`。
+
+### 内部 id 不许流到界面
+`operator_id` / `creator_name` / `operator_name` 一律经 `_creator_names` 解析成姓名
+（读**主库** `users`；`users` 与 `hr_employees` 是**两套编号**，不可代用）。
+反例自证纪律：**反例也要先核实、不能凭印象挑** —— 第一版挑 `psi_list_purchase_orders`，
+而它**也**调了 `_creator_names`（v403 加创建人列时接的）⇒ **假红**；改用 `psi_meta`。
+
+### 验收
+`v404-shadow-verify.py` **103 PASS / 0 FAIL**（7 Phase）—— 含 Phase 1「不加列不建表」
+（列数与列名集合与改动前**完全一致**）、Phase 5 **相位反转**（Phase 0 断言在改动后必须失败）、
+Phase 6 AST 接线断言。真机只读 `v404-probe.mjs` **51/0**。
+

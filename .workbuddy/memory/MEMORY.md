@@ -40,7 +40,7 @@
   · 🔴 生产 `assets/` 是历次构建**并集**（上传**绝不 `--delete`**）；加列靠启动期对账 ⇒ 读 `[schema-sync] … 补列(+N)`
   · 🔴 **共享工作区替你上线**：别人整包构建带上你的在途改动 ⇒ 改完尽早提交别冒认；线上第三态 ⇒ scope-id 摘 hunk 重建
   · 🔴 **后端判据 = 生产 md5 == HEAD md5**；前端构建前必查 `src` mtime → 技能 §8.6
-  · 🔴 **v378 零夹带四路**（基名+字节／**全 token 归一**／`scopeId`／vs **生产生效集**）；增量面 `find -newermt` ⇒ **恰好 N 个**才在途；零写入猴补必带「监控已安装」护栏 `§v378`；**v393** 上传必整包（只传入口+改的两件 = 动态 import 404；判据 `comm -23` 缺失=0）`§v393`
+  · 🔴 **v378 零夹带四路**（基名+字节／**全 token 归一**／`scopeId`／vs **生产生效集**）`§v378`｜**v393** 上传必整包（少传 = 动态 import 404）`§v393`｜🔴 判据写**「内容差异」不写「文件名差异」**（哈希**级联**）`§v404`
 
 - 🔴 **受控提交** → `deploy-ops §v230/§v381` ＋**依赖闭包**（新 import 须在 HEAD）→ 技能 `hergent-scoped-commit`
 
@@ -65,9 +65,10 @@
 
 - **进销存（自研 ERP 交易层，v391 薄壳 → v392 八页）** → `topics/inventory-psi.md`
   · 🔴 八页**继承父行门槛、`pages.js` 一字不改**（`ruleFor` 逐级去尾）；`path:''` 索引子路由**必需**；父级 `redirect` 自指报循环；`purchase/new` 必排 `:id` 前
-  · 🔴 **入库批次三列**：明细 INSERT 不写 ⇒ `confirm` 读空 ⇒ 生产 `inventory` 54 行效期**全空**（v392 已修）；批次号空 ⇒ `batch_in` 每行新建不累加
+  · 🔴 **入库批次三列**：明细 INSERT 不写 ⇒ `confirm` 读空 ⇒ 生产 `inventory` 效期**全空**（v392 修）；批次号空 ⇒ `batch_in` 每行新建不累加
   · 🔴 **FEFO**：过期批次不可售、无到期日排最后、**不足整体拒绝不部分扣**；`sale_order_deliver` 只收 `draft`；`sale_order_list` 返回 `{'orders','total'}` **非行列表**；`order_type` 必**追加参数表末尾**
-  · 🔴 **v392b**：模板调 `fmtMoney` 而 script 漏 import ⇒ **整页崩 + 父页签一起消失**；四探针全绿 ⇒ 收敛唯一实现 + 护栏 `v392b-template-symbol-guard.py`
+  · 🔴 **v392b** 模板调 `fmtMoney` 漏 import ⇒ **整页崩＋父页签一起消失**；护栏 `v392b-template-symbol-guard.py`
+  · 🔴 **v403/404** 采购重塑＋详情三页签（`?tab=`）：`oid`/`kind` 必 `computed`+`watch`（**同 record 换 params 复用实例** ⇒ 显示旧单零报错）；创建人**必读主库 `users`**（与 `hr_employees` **两套编号**）；`fi.payment_create` 的 `ref_id`=**`receivables.id`** ⇒ 传单 id **改错行**；`confirm` **从不写 `received_qty`**（已修）；**入库单＝派生视图不建表**
 - 🔴 **积分已冻结**：口径 = **套餐档位**；`credits.py` 写端点**停用别修**
 - **报单/小程序/品牌/员工账号/提审/均单目标** → `topics/miniprogram-and-brand-data.md`
   · 「能登录」≠「能干活」：`/api/auth` 豁免 RBAC；角色缺 `data` ⇒ 每动作 403；`password_changed=0` = 首登必改密
@@ -90,12 +91,12 @@
 ## 二、技能路由 → `topics/skill-routing.md`（唯一源；本节只留高频）
 
 - 🔴 `hergent-pre-launch-audit`（上线前体检 31 项含 H 面文案）｜`hergent-external-material-pdf`（对外材料/脱敏/PDF）
-- 🔴 `hergent-scoped-commit`｜`hergent-parallel-session-safety`（**比字节不比名**）｜`hergent-rebate-caliber-consistency`（数字对不上/0 被当空）｜`hergent-chart-render-verify`
+- 🔴 `hergent-scoped-commit`｜`hergent-parallel-session-safety`（**比字节不比名**）｜`hergent-rebate-caliber-consistency`｜`hergent-chart-render-verify`
 
 ## 三、编号约定（⚠️ 起号前必做）
 
-已用到 **v396**（⚠️ **v393 同号两用**；**v393b**=抽屉补丁；v374 空号）。起号：① 读号表 ② 实搜**未提交文件**＋两仓 git log；**下轮从 v397 起**。明细 → `topics/version-history.md`。
-🔴 **v391/392**（`a96ad3d`/`1eeabcf`/`15fa937`✅）进销存薄壳 15 端点 ⇒ **八页全链**；`inventory` 默认只 boss；**唯一不可委派 = `receive`**；403 判据看 `error_code` → `inventory-psi.md`
+已用到 **v404**（⚠️ v393 同号两用；**v405**＝`/forecast` 页签退役，另一会话）。起号：① 读号表 ② 实搜**未提交文件**＋两仓 git log；**下轮从 v406 起**。→ `topics/version-history.md`
+🔴 **v391/392** 进销存薄壳 15 端点 ⇒ **八页全链**；`inventory` 默认只 boss；**唯一不可委派 = `receive`**；403 判据看 `error_code`
 🔴 跨会话判「谁的改动」**比特征串不比字节差**；「同一规则抄多份」⇒ 漏抄那份**整页崩** `§v376/377`
 
 ## 四、主体 / 脱敏
@@ -105,4 +106,4 @@ hergent-cn-v2（`laozhangai-product`）｜hergent-erp（FastAPI+SQLite）｜🔴
 
 ## 五、本机坑 → `topics/local-machine-pitfalls.md`（§10–§41）
 
-🔴 五条最常踩：`grep "A\|B"` 静默失效 ⇒ `-e`；`&&` 短路；`| head -N` 截命中；**zsh 通配无匹配 abort 整条**；**探针别放 `/tmp`**。**探针先自证判别力**；**判据取值域须与输入同宽**；CDP 注入须在 navigate 后；**模板串禁裸反引号**；**读图先用 `Read`**、OCR 作第二通道（`§37`）；**`git show HEAD:` 对照前先判改动是否已提交（已 ⇒ 取 `<commit>^:`）**。其余（CSS／sqlite3／zsh 不分词）→ `§10–§41`
+🔴 五条最常踩：`grep "A\|B"` 静默失效 ⇒ `-e`；`&&` 短路；`| head -N` 截命中；**zsh 通配无匹配 abort 整条**；**探针别放 `/tmp`**。→ 全部 `§10–§42`（含**相位反转自证判别力**／**模板串禁裸反引号**／`cmd &` 活不过调用）

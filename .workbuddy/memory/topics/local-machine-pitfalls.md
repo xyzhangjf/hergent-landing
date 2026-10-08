@@ -842,6 +842,12 @@ const SAMPLER = (sels) => `JSON.stringify((function(){
 ⚠️ **与 §35 同源但不同层**：§35 是 **shell 吞反引号**（`git commit -m` 被 zsh 命令替换），
 本条是 **JS 模板字符串被反引号提前闭合** —— 一个丢内容，一个报语法错。**反引号在本项目是高频雷区。**
 
+🔴 **复发（2026-10-08 v404）**：又在探针里踩一次 —— 往 PAGE 采样器的模板串注释里写了
+`` `JSON.stringify` `` ⇒ `SyntaxError: Unexpected identifier 'JSON'`。**症状与上面逐字同型**
+（报错指向注释里的词，真凶是上一行的反引号）。
+⇒ **纪律再加一条**：**往模板串里加注释时，先自查这一行有没有反引号**；
+本轮是「同一个坑第二次」，说明光记录不够 —— **改完必须立刻 `node --check`**（成本 1 秒）。
+
 
 
 
@@ -970,3 +976,45 @@ export V403_TOKEN=$(ssh … 'python3 /tmp/x.py boss' | cut -f3)
 `env | grep -c V403_TOKEN` 或直接在子进程里 `node -e "console.log(!!process.env.V403_TOKEN)"`。
 
 **③（同族复述）** 多模式 `grep` 一律 `-e A -e B`；`grep "A\|B"` 在本环境会**静默返回空**（看起来像"没有匹配"）。
+
+---
+
+## §42 · 🔴 四条新坑（2026-10-08 v404 实测，全部**真的误过一次**）
+
+### ① 用 `cmd &` 起的后台服务**活不过当次 Bash 调用**
+```bash
+# ❌ 下一次调用时端口已关
+node .workbuddy/tools/xxx-server.mjs > /tmp/log 2>&1 &
+sleep 2; curl -s http://127.0.0.1:8799/      # 本次调用内 OK
+#   ⇒ 下一次调用：curl 得到 502/000、Chrome 落到 chrome-error://chromewebdata/
+#     报错极具迷惑性：「Access is denied for this document」（其实是 about:blank/错误页
+#     的 origin 不透明 ⇒ localStorage 被拒 —— 看起来像"前端代码坏了"）
+```
+✅ **用工具的「后台运行」能力**（`run_in_background`）常驻，再在后续调用里驱动它。
+**判据**：先 `curl --noproxy '*' -o /dev/null -w '%{http_code}'` 拿到 **200**，再起浏览器。
+⚠️ 顺带：本机 `HTTP_PROXY` 存在时，`curl` 打 `127.0.0.1` 也要带 `--noproxy '*'`。
+
+### ② 采样函数**返回对象时不要再 `JSON.stringify` 一次**
+外层（PAGE 采样）已经统一序列化 ⇒ 再套一层，读到的字段就是**字符串**，
+`d.duePaint.color` 恒 `undefined` ⇒ **判据静默恒真/恒假**（本轮 P2.12/P2.13 因此误报 FAIL）。
+**判据**：`typeof 读到的字段 === 'object'`，或干脆打印整块原始值人眼核一次。
+
+### ③ 「零夹带」判据要写**内容差异**，不要写**文件名差异**
+`comm -23 <(本地构建 assets) <(生产 assets)` 报「缺失 41」**不是工具 bug**（排序 / CR /
+路径前缀 / 双侧抽样 `ls` 都排除了）—— 那 41 个正是**改名了的 chunk**，因为
+**Vite 的 chunk 哈希会级联**：改 `psi.js` ⇒ `modules` 换名 ⇒ 所有 **import 它**的 chunk
+的 **import 字符串**变了 ⇒ 自己也换名（**改 2 个源文件可以让 41 个 chunk 全改名**）。
+✅ **正确判据 = 逐模块比字节**（按「首个 `-` 之前的模块名 + 扩展名」配对）：
+```
+模块键 N 个一一对应（无新增无缺失）＋ 绝大多数**字节完全相同**（只差 import 路径里的 chunk 名）
+＋ 少数内容有差异的模块必须**逐条可解释**
+```
+v404 实测：77 键一一对应、**74 个字节完全相同**、3 个真有差异（且全是本批改动面）。
+
+### ④ 复查「文件是不是我的」**比 mtime，不比印象**
+多会话并行时，`git status` 只告诉你「谁脏了」，不告诉你**谁改的**。
+本轮：另一会话 19:06 改了 `Forecast.vue`/`Shell.vue`/`UI-SPEC.md`，
+我最后一次构建 **19:02:36** ⇒ 核 mtime 才能判定「我的产物零夹带」。
+**收尾纪律**：❌ 不要 `git add -A`；✅ 逐个 `git add <我的文件>`，**`git diff --cached --name-only` 复核条数**再 commit。
+
+---
