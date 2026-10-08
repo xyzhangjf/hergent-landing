@@ -207,6 +207,34 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 | `.kpi-strip` | 顶部概览条（默认 5 项，`.cols-N` 覆盖） |
 | `.tab-pane` | 与 `.main-tabs` 配套的 Tab 内容面板 |
 
+#### 2.4.1 页面底部动作条（贴底 · v403）
+
+**适用**：单据录入页 / 表单页（参照实现 `InvPurchaseNew.vue` 的 `.ipn-bottom`）。
+**判据**：合计在左、主次动作在右，**内容不足一屏时也必须落在视口最底一行**（对齐舟谱），
+不是"跟在明细表后面"。舟谱那条看着"天然在底部"，是因为它的明细网格会撑满剩余高度；
+我们的明细表只有一两行时，不专门处理就会浮在页面中间。
+
+**两半必须成对存在**（缺任一半都会退化成"紧贴内容"）：
+
+| 半 | 位置 | 职责 |
+|---|---|---|
+| **高度链** | 容器（如 `inventory/InventoryShell.vue` 的 `.page`） | `.page{display:flex;flex-direction:column;min-height:100%}` ＋ `.page > :deep(*){flex:1 1 auto;min-width:0}` |
+| **推底** | 页面（如 `InvPurchaseNew.vue`） | 页根 `display:flex;flex-direction:column`；动作条 `position:sticky;bottom:0` ＋ **`margin-top:auto`** ＋ `margin:0 -20px -20px -20px`（负边距抵消 `.view-wrap{padding:20px}` ⇒ 满宽且贴得住） |
+
+> 🔴 **为什么会断**：`min-height:100%` 是**百分比**，要沿祖先链逐级解析出确定高度。
+> 链是 `.view-wrap`（`flex:1`，确定 ✅）→ **容器 `.page`（块级、高度 auto ❌）** → 页根。
+> 断在中间那层 ⇒ 百分比退化成 `auto`，`margin-top:auto` 没有富余空间可吸 ⇒
+> **数值看着全对、实际不生效**，且不报任何错。读代码判不出来，只能量出来。
+
+> 🔴 **`flex:1 1 auto` 不能写成 `flex:1`**（= `1 1 0%`）：基准尺寸为 0 时条目被压成一屏高、
+> 内容溢出到框外、容器不再随内容变高 ⇒ **长页面直接失去滚动**。`flex-basis:auto` 让
+> 基准 = 内容高度：内容高一屏时容器照常变高（可滚），矮一屏时靠 `grow` 撑满（可推底）。
+
+**验收判据（可证伪，必须量几何）**：`滚动容器内容盒下沿 − 动作条下沿` **≤ 2px**；
+并配两条反例自证 —— ① 同页明细表下沿离底沿应 **> 50px**（证明判据不是"页面上随便什么都贴底"）；
+② 长列表页**仍可滚动**且滚到底后分页器可见（证明容器改动没把长页压死）。
+实现见 `.workbuddy/tools/v403-probe.mjs` 的 `C8/C8b/C8c` 与 `A16/A17`。
+
 ### 2.5 页内 Tab（全站唯一一份）
 
 ```html
@@ -998,3 +1026,4 @@ NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
 | v400 | 2026-10-08 | 新增 **§2.6.1 列设置入口与序号列（统一约定）**：先**确认现有实现**再立规 —— 基准实现 = `/forecast` 的 `.cross-tbl`（查看态）/ `.edit-tbl`（改单态）。① **列设置 = 表头第一列（序号列）里的 `<button class="col-cfg gear" title="列设置"><Icon name="settings"/></button>`**：**线性 SVG 齿轮（2 段 path、`stroke:currentColor`、`fill:none`），不是 emoji 齿轮（U+2699 / U+FE0F）**；无边框 / 透明底 / 默认 `--t3` / hover `--bg3` + `--p-dark`，只走令牌（深色自动跟随）；查看态与改单态**共用**一个 `showColMenu`。② **序号 = 同列表体**（`td.seq-cell > .seq-num`）**落在齿轮正下方**：1 基连续（`it.seq` / `ri + 1`）、跟随筛选分组重排、`tabular-nums` 等宽数字、列宽权威源 = `<colgroup>` `colW('seq')` **46px**（可拖宽；`.seq-th`/`.seq-cell` 里的 `42px` 是**不参与布局的陈旧值**）、`sticky left:0` 且表头 `z-index:9` > 表体 `6`。③ 序号列**不在列设置清单里**（不可隐藏/拖序/删除 —— 它是齿轮宿主，藏掉会连入口一起消失）。④ **适用范围与触发条件表**（可编辑网格/逐行核对清单**必须**有；卡片/表单/短 KPI 表不需要）；「要齿轮就必须同时有序号列，反之不然」。⑤ 全站现状实测：`col-cfg`/`seq-th`/`seq-cell`/`seq-num` **只在 `Forecast.vue`**，其余 28 个含表页面尚未接入 ⇒ 本节是**全站约定**。⑥ **登记两处已知偏差**（待对齐，非文档错）：齿轮未居中（序号比齿轮**右偏 4px**，成因 `.th-in{justify-content:space-between}` + 单子元素）、列设置菜单**不从齿轮下方弹出**（锚在工具条 `.col-config-bar` 的 `top:38px;left:0`，**Δt=−15px 压在齿轮上**）。配套：新增探针 `v400-col-cfg-probe.mjs`（**两相位** `impl`=现况 36 PASS/0 FAIL、`spec`=契约恰好红那 2 条 ⇒ 判据非恒真；含三条反例自证）、新增 **§7.5** 几何审计说明、新增一致性自检 `v400-spec-colcfg-consistency.py`（A 类名 ／ B 数值 ／ C 机制 ／ D 反例：零 emoji 齿轮、齿轮源码恰好 2 处、`defaultColOrder` 不含 `seq`、全站零复用）。**本轮只立规范、未改实现**（两处偏差留待决策）。 |
 | v401 | 2026-10-08 | **修 v400 登记的两处偏差 ＋ 序号列上提全局 ＋ 试点接入**。① **偏差①齿轮居中**：查看态补 `.th-in > .col-cfg{margin-inline:auto}`（根因 `space-between` ＋ 单子元素 ⇒ 被顶到左边）；改单态是 `<th>` 直接子元素、本就居中，未动。② **偏差②菜单锚定齿轮**：`.col-menu` / `.edit-col-menu` 由 `position:absolute;top:38px;left:0` 改 **`position:fixed`**；位置改由新增的 `toggleColMenu(e)` 按齿轮 `getBoundingClientRect()` 现算 —— 默认正下方 `gap:6px`、下方越界上翻、右侧越界先右对齐再贴边（`pad:8px`）；**并配 `maxHeight` 限高**（按上下可用空间取大侧、优先下方，保底 160px）—— 首版**只移位不限高**被真机探针当场抓出：清单实测高 **543px**、可用空间仅 ~520px ⇒ 上翻与贴底**都放不下**、仍盖住齿轮；首帧用兜底尺寸（320）摆位、`nextTick` 按真实尺寸校正；`window` 的 `scroll`（**捕获阶段**）与 `resize` 直接收起；两态共用这一份逻辑（`showColMenu` 唯一）。③ **序号列 CSS 上提**：按 §8.4「≥3 次且逐字相同 ⇒ 必须上提」，新增全站唯一源 `variables.css` 的 `table.tbl .seq-th / .seq-cell / .seq-num`（列宽**统一 46px**，删除 `Forecast.vue` 里 `42px` 陈旧副本三条）；`.cross-tbl` 的 `sticky` / `z-index` 冻结规则**保留在页面**（宽表特有，不上提，也不给只读清单）。④ **试点接入**：`InvPurchaseList.vue`（7→8 列）与 `InvSaleList.vue`（8→9 列）加序号列，取值 `offset + i + 1`（**跨页连续**，offset/limit 分页）；**只加序号、不加齿轮、不加 sticky**。⑤ **文档**：§2.6.1 六处同步（① 补居中、② 列宽改 46 并加唯一源 CSS 块、③ 菜单改 `fixed` ＋ 定位表、⑤ 现状改「试点已接入」、⑥ 偏差改「v401 已修」并说明 `spec`/`impl` 相位反转）；§7.3 自检行更新（扫描面加 `variables.css` ＋ 两页、D 类新增「菜单不得写死 `top:38px`」）；§7.5 补相位反转说明；§9 本行。⑥ **验收**：一致性自检 `v400-spec-colcfg-consistency.py` 改写后 **ALL PASS**（D4 拆两族：`.col-cfg` 仍只 Forecast；`.seq-th`/`.seq-cell`/`.seq-num` 唯一源 = `variables.css` 且只被两页复用；新增 **D6** 菜单定位契约 = `fixed` ＋ **剥注释后**不写死 `top:38px`/`left:0`，含反例自证 D6f）；真机探针 `v400-col-cfg-probe.mjs` **两相位互补**：`spec`（现在时）**53 PASS / 0 FAIL**、`impl`（v400 基线）**53 PASS / 2 FAIL**（恰红「齿轮未居中」「菜单遮盖齿轮」⇒ 相位反转成立、判据非恒真）；新增 **P7** 试点页断言（采购 8 列 / 销售 9 列：表头「序号」＋ `.seq-th` ＋ 46px ＋ 居中 ＋ 首行 = 1 ＋ **非 sticky** ＋ 零写入）全绿。部署 `dist-v401b` 增量覆盖（**不带 `--delete`**，回滚点 39 个与 `backups/` 完好），双侧 md5 一致。 |
 | v402 | 2026-10-08 | **序号列铺开至全站 ＋ 全局选择器扩 `seq-host` ＋ 抓出并修 scoped 同分覆盖**。① **铺开**：按「四、」判据给 **21 页 / 25 张清单表**加序号列 —— A 组标准 `table.tbl`（档案 6 页 / 库存查询 / 单据详情与新建 5 页 / 返利 3 表 / 货损工作流 / 算工资 / 定时任务 / 历史期次 / 报单配置），B 组非 `.tbl` 自定义表 5 张（`pc-tb`×2 / `pt-tbl` / `br-tbl` / `la-ml-tbl`）。取值按各页**真实分页方式**：`i + 1` ／ `offset + i + 1` ／ `(page - 1) * pageSize + i + 1` ／ `cpOffset + i + 1`。空态行 `colspan` 同步 +1（报单配置 9→10、商品价格 5→6、商品目标 10→11）。② **全局选择器扩 `seq-host`**：各页自定义表**不能改挂 `tbl` 类**（会与自身 `.xx-tbl td{padding:…}` 同分相撞、按源码顺序互相覆盖、破坏排版）⇒ 新增**无样式的中性标记类** ⇒ 选择器写 `table.tbl … , table.seq-host …`。③ 🔴 **真机探针抓出的真缺陷（首轮 FAIL 5 页）**：`.seq-th` 的 `text-align:center`（连 `padding`）**被页面 scoped 样式同分覆盖** —— Vue scoped 给 `.xx-tbl th{text-align:left;…}` 补 `[data-v-xxx]` ⇒ specificity 从 (0,1,1) **升到 (0,2,1)**，与原先的 `table.seq-host .seq-th` **(0,2,1) 同分**、而页面 CSS 后加载 ⇒ 后者胜（表头左对齐、列宽 50≠46）。**修法** = 选择器写成 `table.seq-host th.seq-th` / `td.seq-cell` ⇒ **(0,2,2)** 稳压 scoped 的 (0,2,1)，**与加载顺序无关**。④ **探针**：新增 `v402-seq-probe.mjs`（21 页逐个走生产：表头「序号」＋ `.seq-th` ＋ 46px ＋ 居中 ＋ 首行 = 1 ＋ 零写请求；无数据页报 **SKIP** 而非 FAIL，并打印页内表清单供人工确认）。⑤ **既有瑕疵（非本轮引入，取证留档）**：`POST /api/rebate-rules/simulate-batch` 是**纯试算不落库**，却**未登记**后端 `_READ_ONLY_POST`（名单里只有名字相近的 `/api/rebate-contracts/simulate`）⇒ 后端仍按 `create` 鉴权、`sales` 无 create 的角色会 403 ⇒ 探针把它排除但**显式报出条数**。⑥ **验收**：语法校验 21/21、隔离构建 `dist-v402b`、增量部署（**不带 `--delete`**，回滚点 41 个）、双侧 md5 一致；真机探针 **PASS 145 / FAIL 0 / SKIP 3**（SKIP = 无数据空态：返利无规则 / 工资未核算 / 货损未跑）。⑦ 有意不铺的 7 类页面见「五、C」（表单录入 / 诊断表 / 权限表 / 看板短表 / 弹窗明细 / 审计说明表）。 |
+| v403 | 2026-10-08 | **采购订单重塑（进销存内重塑，对齐舟谱）＋ 新增 §2.4.1 底部动作条契约**。① **列表页** `InvPurchaseList.vue` 整体重写：18 列（复选框 ＋ **序号** ＋ 舟谱 17 具名列——单据编号/供应商/供应商类别/订单数量/仓库/状态/订单金额/入库金额/已结款/未结款/审核时间/单据日期/创建人/备注/打印数/操作）；**状态页签带计数**（`counts` 由**不含 `status` 的 `base_where`** 算，故"全部=81"而"当前筛选只有 2 行"不矛盾——SQL 排除而非前端 filter）；`tfoot` 合计行；舟谱式分页器（共 N 条 / 页码窗 / 20·50·100 条每页 / 跳至）；筛选区「更多选项▾」（仓库/创建人/只看已标记）；**批量操作 7 项**（单据打印/添加备注/单据标记/删除标记/单据审核/单据反审核/单据取消，逐单回执 `{id, ok, reason?}`）。② **新建页** `InvPurchaseNew.vue` 整体重写：表单头 5 字段、供应商信息条、明细 12 列（**含批次号/到期日必填**）、「保存 ⌄」双下拉 3 项（保存 / 保存并审核 / 保存并新增下一张）、支持 `?copy=<id>`（**批次三列刻意不带**，到货时重填）。③ **后端加列补齐**（主库 `_safe_migrate` ＋ 租户库列清单**两处缺一不可**）：`audit_time` / `print_count` / `received_amount` / `source` / `mark`；`psi.py` 端点 15 → **17**（新增 `batch` 与 `{id}/print`）；新增 `_bad_doc_dates` 复用既有 `strptime` 手法（**同一件事不写第二种实现**）。④ 🔴 **修一处静默丢失**：`PurchaseOrderCreate` 模型里**从来没有** `expected_date` / `order_date` 字段，而路由用 `getattr(body, …)` 去取 ⇒ Pydantic `extra='ignore'` 把前端传来的「预计到货日期」**静默丢弃**（不报错也不落库）——既有页"填了等于没填"。⑤ 🔴 **创建人必须读主库 `users`**：`users` 在 `_TENANT_COL_SYNC_SKIP`（主库专属），且**`users` 与 `hr_employees` 是两套编号、同 id 指向不同人**（实测 2 个冲突）⇒ 员工档案**不能**当创建人下拉的代用品（会显示成另一个人，零报错）。⑥ **新增 §2.4.1**：底部动作条的「高度链 ＋ 推底」两半契约、`flex:1 1 auto` 不能写成 `flex:1` 的原因、几何判据与反例自证。⑦ **三处换行修复**（真机截图抓出）：状态徽标/日期/供应商名折行 ⇒ `.ipl-c-st`/`.ipl-c-time` 加 `nowrap`、`.ipl-c-sup`/`.ipl-c-cat` 加省略号三件套、表 `min-width` 1600→1700。⑧ **验收**：后端影子库 `v403-shadow-verify.py` **69/69**（6 Phase，含 5 条反例自证）；前端真机只读 `v403-probe.mjs` **39/39**（含 `Z` 面反例：采购单判据拿到库存查询必须不成立；`C8` 几何贴底 gap=0px、`C8b` 明细表距底 510px 证判据非恒真；`A16/A17` 长页滚动回归护栏）。部署：后端 7 文件双侧 md5 一致 ＋ `systemctl restart`，前两库 `purchase_orders` 均 **17 列**；前端 `dist-v403` 全量同步（本地构建集 − 生产 = **0 缺失**，**不带 `--delete`**）＋ `chown` ＋ 关键 chunk 4/4 md5 一致。 |

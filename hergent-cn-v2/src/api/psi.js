@@ -39,9 +39,15 @@ export const psiApi = {
 
   /* ---- 基础资料（建单下拉） ---- */
   /**
-   * 四类基础资料。`kind` = `all` | `warehouses` | `suppliers` | `customers` | `products`（可逗号组合）。
+   * 基础资料。`kind` = `all` | `warehouses` | `suppliers` | `customers` | `products` | `users`
+   * （可逗号组合）。
    * 🔴 702 客户 / 473 商品，**必须带 keyword 搜**，别整表拉。
    * 🔴 `products[].order_unit` 是「报单单位」唯一权威来源，填数量前先判它。
+   * 🔴 `users`（v403）= 单据「创建人」筛选下拉的选项，读**主库账号**。
+   *    后端主库不可读时**不返回这个键** ⇒ 调用方要 `Array.isArray(d.users)` 判存在，
+   *    不存在就把这一项藏起来。**不要**改用员工档案顶替：`hr_employees` 与 `users`
+   *    是两套编号（实测 users id=2=张俊峰 / hr_employees id=2=王老板，id=7 才是张俊峰），
+   *    同一个 id 会显示成另一个人 —— 选出来的单据归属是错的，而且不报错。
    */
   refs: (kind = 'all', keyword = '', limit = 200) =>
     api(`/api/psi/refs${qs({ kind, keyword, limit })}`),
@@ -62,12 +68,54 @@ export const psiApi = {
   stockExpiring: (days = 30) => api(`/api/psi/stock/expiring${qs({ days })}`),
 
   /* ---- 采购 ---- */
-  /** @param {object} p `{status, supplier_id, date_from, date_to, limit, offset}` */
+  /**
+   * 采购单列表。
+   * @param {object} p `{status, supplier_id, date_from, date_to, keyword, warehouse_id,
+   *                     creator, only_marked, exclude_status, limit, offset}`
+   *   · `keyword`        单号 / 供应商名 / 备注 模糊匹配
+   *   · `creator`        创建人（用户 id）
+   *   · `only_marked`    只看「已标记」
+   *   · `exclude_status` 服务端排除的状态（逗号分隔）。
+   *     🔴 侧栏「采购单 / 采购退货单」是**同一条 path + 不同 query**：排除必须在 SQL 里做。
+   *        前端「先分页、再从当页过滤」会让每页少几行、`total` 对不上、翻页静默跳记录。
+   * @returns `{orders, total, counts, summary, limit, offset}`
+   *   · `counts`  按状态计数（**忽略 `status` 筛选、保留其它筛选**）⇒ 状态页签上的数字。
+   *     键 = 各状态值 + `all`；某状态为 0 时**不会出现该键**，取值一律用 `counts[k] || 0`。
+   *   · `summary` `{order_amount, received_amount, paid_amount, unpaid_amount, count}` —— 底部合计行。
+   *   · 每行额外带 `creator_name`（创建人姓名，后端读主库解析，**可能为空串**）
+   *     ＋ `has_items`（是否有明细行）。
+   *     🔴 `has_items=false` 的行（历史导入单只落了表头）其「订单数量 / 入库金额」是
+   *        **真没有**，界面必须显示 `—` 而不是 `0` —— 后者会被读成「入库了 0 元」。
+   */
   listPurchases: (p = {}) => api(`/api/psi/purchase-orders${qs(p)}`),
 
   /**
+   * 批量操作（对齐舟谱「批量操作 ▾」）。
+   * @param {'approve'|'unapprove'|'cancel'|'print'|'mark'|'unmark'|'note'} op
+   * @param {number[]} ids 单据 id
+   * @param {object} [extra] `{mark}`（op=mark）/ `{note}`（op=note）
+   * @returns `{op, op_label, requested, ok_count, fail_count, results[], counts?, mark?}`
+   *   🔴 后端**逐单回报** `results[].{id, ok, reason?}`，从不回一个笼统的 success。
+   *      「批量审核 20 张、实际成了 12 张」必须让用户看见 —— 所以这里**不能**只看 `ok_count`
+   *      就弹"操作成功"，要把失败的那几张连同 `reason` 一并说出来。
+   */
+  batchPurchases: (op, ids, extra = {}) =>
+    api('/api/psi/purchase-orders/batch', { method: 'POST', body: { op, ids, ...extra } }),
+
+  /**
+   * 单张「打印」计数（+1）。
+   * 🔴 只记数、不生成文件 —— 真正的打印是浏览器 `window.print()`。落库是必须的：
+   *    「打印数」是判断「这张单到底打没打给供应商」的依据，只在前端打印的话刷新即归 0。
+   */
+  printPurchase: (id) => api(`/api/psi/purchase-orders/${id}/print`, { method: 'POST' }),
+
+  /**
    * 建采购单。
-   * body: `{supplier_id, warehouse_id, note?, expected_date?, items:[{product_id, quantity, unit_price, unit?, batch_no?, expiry_date?, production_date?}]}`
+   * body: `{supplier_id, warehouse_id, note?, order_date?, expected_date?,
+   *         items:[{product_id, quantity, unit_price, unit?, batch_no?, expiry_date?, production_date?}]}`
+   *   · `order_date` 单据日期（`YYYY-MM-DD`，留空 = 建单当天）—— 用来补录昨天的到货单。
+   *     ⚠️ v403 之前这个字段**不在后端模型里**，传了会被静默丢弃；现在真的落库。
+   *   · `expected_date` 预计到货日期（同一批修复，此前也是被丢掉的）。
    * 🔴 `batch_no` / `expiry_date` 是低温奶效期的**唯一登记时机**（v392 起真的会落库）：
    *    入库时 `purchase_order_confirm` 逐行读这两列交给 `batch_in`。
    *    `expiry_date` 必须是 `YYYY-MM-DD`，否则后端 400（原因：脏日期会让 SQLite 的
