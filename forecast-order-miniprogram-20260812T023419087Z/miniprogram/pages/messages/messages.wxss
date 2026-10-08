@@ -1,0 +1,42 @@
+/* 我的通知（v318）
+   配色沿用全站：主色 #06b6d4；未读用左侧实心点 + 白底卡片（已读卡片压灰一点，
+   一眼能扫出"哪些还没看"）；加单/减单标签用文字区分（不用 emoji，全站图标规范）。 */
+.page{min-height:100vh;background:#f5f5f7;padding-bottom:60rpx}
+
+.hd{display:flex;align-items:center;justify-content:space-between;padding:20rpx 32rpx 4rpx;background:#f5f5f7}
+.segs{display:flex;background:#e9e9ee;border-radius:12rpx;padding:4rpx}
+.seg{font-size:26rpx;color:#3a3a3c;padding:8rpx 24rpx;border-radius:10rpx;line-height:1.2}
+.seg.on{background:#fff;color:#06b6d4;font-weight:600}
+.hact{font-size:26rpx;color:#06b6d4;padding:8rpx 4rpx}
+
+.err{margin:16rpx 32rpx 0;padding:16rpx 20rpx;background:#ffeceb;border-radius:12rpx;
+     font-size:24rpx;color:#c0392b;line-height:1.5}
+
+.list{padding:16rpx 32rpx 0}
+.msg{background:#fff;border-radius:16rpx;padding:22rpx 24rpx;margin-bottom:16rpx;position:relative}
+/* 已读：整体降饱和 —— 让未读的"亮"出来（收件箱要能一眼扫） */
+.msg:not(.unread){opacity:.72}
+.msg.open{opacity:1}
+.msg-hd{display:flex;align-items:center}
+.dot{width:14rpx;height:14rpx;border-radius:50%;background:#ff3b30;flex:none;margin-right:10rpx}
+.tag{font-size:22rpx;line-height:1.6;padding:2rpx 12rpx;border-radius:8rpx;flex:none;margin-right:10rpx}
+.tag-add{color:#0e7490;background:#e0f7fb}
+.tag-cut{color:#b45309;background:#fdf1de}
+.tag-sys{color:#5a5a60;background:#f2f2f7}
+.msg-title{font-size:28rpx;font-weight:600;color:#1d1d1f;flex:1;min-width:0;
+           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-time{font-size:22rpx;color:#a1a1a6;flex:none;margin-left:12rpx}
+.msg-prev{display:block;font-size:25rpx;color:#5a5a60;line-height:1.6;margin-top:10rpx;
+          overflow:hidden;text-overflow:ellipsis;display:-webkit-box;
+          -webkit-box-orient:vertical;-webkit-line-clamp:2}
+/* 展开态：正文换行必须原样保留（后端正文是多行算路："原有报单 ⇒ 调整后"分两行） */
+.msg-body{display:block;font-size:25rpx;color:#3a3a3c;line-height:1.7;margin-top:10rpx;white-space:pre-wrap}
+.msg-ft{display:flex;align-items:center;justify-content:space-between;margin-top:14rpx;
+        padding-top:12rpx;border-top:1rpx solid #f2f2f7}
+.msg-from{font-size:22rpx;color:#a1a1a6}
+.msg-tr{font-size:22rpx;color:#a1a1a6}
+
+.empty{text-align:center;color:#86868b;font-size:26rpx;padding:120rpx 0}
+.more{text-align:center;color:#a1a1a6;font-size:24rpx;padding:24rpx 0}
+.foot-note{padding:36rpx 48rpx 20rpx;text-align:center;font-size:22rpx;color:#a1a1a6;line-height:1.6}
+.foot-note .hl{color:#06b6d4}

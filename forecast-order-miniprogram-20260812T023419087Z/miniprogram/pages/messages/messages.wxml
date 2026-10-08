@@ -1,0 +1,48 @@
+<view class="page">
+  <!-- 顶部：筛选 + 全部已读。两个数字都给（未读 / 全部）—— 只给一个的话，
+       「筛到未读」之后用户会不知道一共有多少条、以为自己漏看了。 -->
+  <view class="hd">
+    <view class="segs">
+      <view class="seg {{unreadOnly ? '' : 'on'}}" bindtap="setTab" data-only="0">全部 {{total}}</view>
+      <view class="seg {{unreadOnly ? 'on' : ''}}" bindtap="setTab" data-only="1">未读 {{unread}}</view>
+    </view>
+    <view class="hact" bindtap="markAll">全部已读</view>
+  </view>
+
+  <!-- 读不到 ≠ 没有：错误必须显式说出来，且不伪装成空列表 -->
+  <view class="err" wx:if="{{err}}">读取通知失败：{{err}}（下拉可重试）</view>
+
+  <view class="list" wx:if="{{items.length}}">
+    <view class="msg {{item.unread ? 'unread' : ''}} {{openId === item.id ? 'open' : ''}}"
+          wx:for="{{items}}" wx:key="id" bindtap="toggle" data-id="{{item.id}}">
+      <view class="msg-hd">
+        <view class="dot" wx:if="{{item.unread}}"></view>
+        <text class="tag tag-{{item.tagCls}}">{{item.tag}}</text>
+        <text class="msg-title">{{item.title}}</text>
+        <text class="msg-time">{{item.timeText}}</text>
+      </view>
+      <!-- 收起时只显示首行摘要：收件箱要先能"扫"，再谈读细节。
+           ⚠️ 摘要用 js 里拼好的 `preview`（已把换行折成空格）—— WXML 里没法对文本做换行折叠，
+              而 `white-space:pre-wrap` 与 `-webkit-line-clamp` 同时用会互相打架（一个要保留换行、
+              一个要多行截断），两者只能取一个。 -->
+      <text class="msg-prev" wx:if="{{openId !== item.id}}">{{item.preview}}</text>
+      <text class="msg-body" wx:else>{{item.content}}</text>
+      <view class="msg-ft" wx:if="{{openId === item.id}}">
+        <text class="msg-from">{{item.sender || '系统'}}</text>
+        <text class="msg-tr" wx:if="{{item.triggers > 1}}">同类通知被打包 {{item.triggers}} 次</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:elif="{{!err && !loading}}">
+    {{unreadOnly ? '没有未读通知' : '还没有通知'}}
+  </view>
+
+  <view class="more" wx:if="{{loadingMore}}">正在加载…</view>
+  <view class="more" wx:elif="{{items.length && !hasMore}}">— 没有更多了 —</view>
+  <view class="more" wx:if="{{loading && !items.length}}">正在加载…</view>
+
+  <view class="foot-note">
+    加单 / 减单明细在本期预报<text class="hl">定稿</text>后发送；已读状态在网页端与小程序共用。
+  </view>
+</view>
