@@ -2601,3 +2601,53 @@ git show cdb152e^:path/Shell.vue > /tmp/pre.vue  # ✅ 取那个 commit 的**父
 v393 实测：拿 `HEAD:` 跑静态探针得到「新旧完全相同」（17 条 vs 17 条），
 一度以为判据失效 —— 其实是我把**已提交**的版本当成了「改动前」。
 ⇒ **自证方式：先比一下两个文件（`cmp` / 字节数 / 条数），不同才算拿到了对照版。**
+
+---
+
+## §v398 交接文档根治：把「文档说的」对齐「生产实测的」（2026-10-08 · 文档层修复，无上线）
+
+> 不是上线批次，归类到这里是因为：修的两条**全是部署指令**。
+
+### 1. 🔴🔴 两处 `rsync --delete` 是**会毁生产**的指令（本轮修正）
+
+- **病灶**：旧 `HANDOFF.md` §三 与 `hergent-cn-v2/CLAUDE.md` §5 都教
+  `rsync -a --delete dist/ root@…:/opt/hergent-cn-v2/`。
+- **实测反证**（2026-10-08）：
+
+  | 项 | 实测 |
+  |---|---|
+  | 一次干净构建 `dist/assets/` | **76** 文件 |
+  | 生产 `/opt/hergent-cn-v2/assets/` | **3637** 文件（3365 js + 272 css）/ **166 MB** = 历次构建**并集** |
+  | 生产同层**服务器侧**资产 | `backups/`、`_rollback/`、**37 个** `index.html.bak-*` —— **都不在 dist 里** |
+
+- **后果**：`--delete` 一次删掉 **3561 个历史 chunk**（浏览器缓存的旧 `index.html` / 旧 chunk 的
+  动态 `import()` 当场 404）＋ **全部回滚资产**。
+- **修法**：去 `--delete`，改**增量覆盖**；生效判据 = **生产 `index.html` 引用的那一个入口 chunk**
+  （`grep -o "assets/index-[A-Za-z0-9_-]*\.js" /opt/hergent-cn-v2/index.html`），
+  而不是"我本地生成了 `index-XXX.js`"（hash **两级级联** ⇒ chunk 名什么都判不了）。
+- 🔴 与本文件早先那条「并集基线天然容忍重复覆盖，且**绝不 `--delete`**」是**同一件事** ——
+  知识早就在 topics 里，**错的是两份对外文档**。
+  ⇒ 规矩：**改了部署规矩要回头改文档**，否则下一个人照旧做。
+
+### 2. 🔴 "归档"必须落在**被跟踪**的目录
+
+- 原计划把根 `CLAUDE.md` 的桌面版规范归档到 `backup/`，但 `.gitignore:14` 把 `backup/` **整个忽略** ⇒
+  归档**不进版本库**，两份文档里的引用对新克隆 = **死链**。
+- 改放 `docs/archive/CLAUDE-desktop-20261008.md`（`docs/` 被跟踪、未被 ignore）。
+- ⇒ **判据**：`git check-ignore -v <路径>` 不匹配 **且** `git status --porcelain -- <路径>` 能看见它。
+
+### 3. 文档 vs 实测 的**过期项清单**（旧 `HANDOFF.md`，逐条实测推翻）
+
+| 旧文档 | 实测（2026-10-08） |
+|---|---|
+| 「Web 端 13 页面」 | **39** 个 `.vue`（`pages/` 30 + `pages/inventory/` 9） |
+| 「小程序 4 页面」 | **10** 个 page |
+| 「租户库 `tenant_1..N`」 | **只有 2 个**（`tenant_1` 真实业务 / `tenant_10` 演示） |
+| 「13 个 commit 未推」 | 前端 **68** / 后端 **11** |
+| 「tenant_1 430商品/730客户/580订单」 | **473 / 759 / 22505** |
+| 「`CLAUDE.md` 内容已归档到 `backup/`」 | 当时**根本没这个文件**（本轮才真做） |
+| 列出 `/forecast-approve`、`/reconciliation` 两页 | 路由里**零引用**（`Reconciliation.vue` v197 撤、`ForecastApprove` 从未注册） |
+| §八**明文写出**生产 Hermes 网关 key | 改为"只写位置不写值"；三份文档扫描（**网关 key 字面前缀** / `ghp_` / `sk-`）= **0 命中** |
+
+⇒ 🔴 **纪律**：交付 / 交接类文档，凡是**数字与路径**，写之前先跑一次只读探针
+（三层核对：声明有 / 代码真读写 / 生产真有 → 技能 `hergent-capability-reality-audit`）。
