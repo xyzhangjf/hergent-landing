@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>进销存 · 信息架构与原型图</title>
+<style>
+  :root{
+    --p:#06b6d4; --p-dark:#0891b2; --p-deep:#0e7490; --p-bg:rgba(6,182,212,.06);
+    --bg:#ffffff; --bg2:#f5f5f7; --bd:#e5e5ea;
+    --t1:#1d1d1f; --t2:#6e6e73; --t3:#a1a1a6;
+    --dan:#dc2626; --dan-bg:#fef2f2;
+    --war:#b45309; --war-bg:#fffbeb;
+    --suc:#16a34a; --suc-bg:#f0fdf4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg2);color:var(--t1);line-height:1.6;font-size:14px;
+    padding:32px 20px 60px}
+  .wrap{max-width:1080px;margin:0 auto}
+  header.top{background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;border-radius:16px;
+    padding:28px 32px;margin-bottom:24px;box-shadow:0 6px 24px rgba(8,145,178,.18)}
+  header.top h1{font-size:24px;font-weight:600;margin-bottom:8px}
+  header.top p{font-size:13px;opacity:.92}
+  .tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;
+    margin-right:6px;background:rgba(255,255,255,.2)}
+  section{margin-bottom:28px}
+  .sec-title{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .sec-title h2{font-size:18px;font-weight:600}
+  .sec-title .num{width:26px;height:26px;border-radius:8px;background:var(--p-dark);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}
+  .card{background:var(--bg);border:1px solid var(--bd);border-radius:14px;padding:22px;
+    box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  /* 优先级色块 */
+  .p0{background:#fff1f2;border-color:#fecdd3;color:#be123c}
+  .p1{background:#fffbeb;border-color:#fde68a;color:#b45309}
+  .p2{background:#ecfeff;border-color:#a5f3fc;color:#0e7490}
+  .prio{display:inline-flex;align-items:center;height:22px;padding:0 10px;border-radius:6px;
+    font-size:12px;font-weight:700;letter-spacing:.5px}
+  table.mod{width:100%;border-collapse:collapse;font-size:13px}
+  table.mod th{text-align:left;padding:10px 12px;color:var(--t2);font-weight:500;
+    background:var(--bg2);border-bottom:1px solid var(--bd);font-size:12px}
+  table.mod td{padding:12px;border-bottom:1px solid var(--bd);vertical-align:top}
+  table.mod tr:last-child td{border-bottom:none}
+  .mod-name{font-weight:600}
+  .mod-use{color:var(--t2)}
+  /* 信息架构树 */
+  .ia{font-size:13px}
+  .ia-node{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;
+    margin-bottom:8px}
+  .ia-root{background:var(--p-dark);color:#fff;border:none;font-weight:600;font-size:14px}
+  .ia-branch{margin-left:26px;padding-left:16px;border-left:2px solid var(--bd);margin-bottom:8px}
+  .ia-item{display:flex;align-items:center;gap:10px;padding:7px 0}
+  .ia-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .dot-p0{background:#e11d48}.dot-p1{background:#d97706}.dot-p2{background:#06b6d4}
+  .ia-label{flex:1}
+  .ia-note{color:var(--t3);font-size:12px}
+  /* 页面布局线框图 */
+  .wf{border:1.5px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:18px;background:#fff}
+  .wf-bar{background:var(--bg2);border-bottom:1px solid var(--bd);padding:8px 12px;font-size:12px;
+    color:var(--t2);display:flex;align-items:center;gap:8px}
+  .wf-bar b{color:var(--t1);font-size:13px}
+  .wf-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+  .wf-row{display:flex;gap:12px}
+  .box{border:1px solid var(--bd);border-radius:8px;background:var(--bg2);min-height:40px;
+    display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:12px;
+    padding:6px 10px;text-align:center}
+  .box.primary{border-color:var(--p);background:var(--p-bg);color:var(--p-deep);font-weight:600}
+  .box.kpi{flex:1;background:#fff;border:1px solid var(--bd);flex-direction:column;gap:2px;min-height:64px}
+  .box.kpi b{font-size:18px;color:var(--t1)}
+  .box.kpi span{font-size:11px;color:var(--t3)}
+  .grow{flex:1}
+  .table-mock{border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+  .table-mock .th{display:flex;background:var(--bg2);border-bottom:1px solid var(--bd);font-size:11px;color:var(--t2)}
+  .table-mock .th span,.table-mock .tr span{flex:1;padding:8px 10px;border-right:1px solid var(--bd)}
+  .table-mock .th span:last-child,.table-mock .tr span:last-child{border-right:none}
+  .table-mock .tr{display:flex;border-bottom:1px solid var(--bd);font-size:12px}
+  .table-mock .tr:last-child{border-bottom:none}
+  .badge-inline{display:inline-block;padding:1px 8px;border-radius:6px;font-size:11px;font-weight:600}
+  .hint{color:var(--t3);font-size:12px;margin-top:4px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--t2);margin-top:10px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>进销存 · 信息架构与原型图</h1>
+    <p>老板自研能力 · 先自用（仅 boss 账号可见）→ 跑顺后卖给经销商</p>
+    <p style="margin-top:8px">
+      <span class="tag">P0 最小闭环</span>
+      <span class="tag">P1 低温奶完整性</span>
+      <span class="tag">P2 进阶变现</span>
+    </p>
+  </header>
+
+  <!-- 一、模块清单 -->
+  <section>
+    <div class="sec-title"><span class="num">1</span><h2>模块清单（用途 + 优先级）</h2></div>
+    <div class="card">
+      <table class="mod">
+        <thead><tr><th style="width:120px">优先级</th><th style="width:180px">模块</th><th>用途（一句话）</th><th style="width:220px">低温奶/你的业务要点</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="prio p0">P0 · 第一版</span></td>
+            <td class="mod-name">基础档案</td>
+            <td class="mod-use">所有单据的「字典」：商品 / 供应商 / 客户 / 仓库</td>
+            <td>商品含条码、三档单位与换算、品牌；供应商=蒙牛厂家；客户=门店/分销商/永辉等</td>
+          </tr>
+          <tr>
+            <td><span class="prio p0">P0 · 第一版</span></td>
+            <td class="mod-name">采购进货</td>
+            <td class="mod-use">采购单 → 入库，记进货价、数量、批次、效期</td>
+            <td>到货即入库；批次号 + 到期日必须在入库那一刻就登记（否则效期就算不准）</td>
+          </tr>
+          <tr>
+            <td><span class="prio p0">P0 · 第一版</span></td>
+            <td class="mod-name">销售出货</td>
+            <td class="mod-use">销售单 → 出库，记售价、数量；含车销 / 访销 / 自提</td>
+            <td>三种出货场景：车销（沿街配送）、访销（门店下单）、自提（分销/永辉/美廉）</td>
+          </tr>
+          <tr>
+            <td><span class="prio p0">P0 · 第一版</span></td>
+            <td class="mod-name">库存查询</td>
+            <td class="mod-use">按商品 / 仓库 / 批次 / 效期查实时库存</td>
+            <td>「现在还剩多少、最早哪天到期」—— 这是替代舟谱后每天都要看的那一眼</td>
+          </tr>
+          <tr>
+            <td><span class="prio p1">P1 · 第二版</span></td>
+            <td class="mod-name">效期与批次</td>
+            <td class="mod-use">临期预警、批次追溯、先进先出</td>
+            <td>低温奶保质期短，临期 7 天内必须能一眼拉出来 —— 这是你的核心痛点</td>
+          </tr>
+          <tr>
+            <td><span class="prio p1">P1 · 第二版</span></td>
+            <td class="mod-name">盘点</td>
+            <td class="mod-use">定期盘点、盘盈盘亏、调整库存</td>
+            <td>库存账实要对得上；盘点差异要能留痕</td>
+          </tr>
+          <tr>
+            <td><span class="prio p1">P1 · 第二版</span></td>
+            <td class="mod-name">调拨</td>
+            <td class="mod-use">双仓 / 门店之间调货</td>
+            <td>东津、吾悦两门店之间的货要能互相调</td>
+          </tr>
+          <tr>
+            <td><span class="prio p1">P1 · 第二版</span></td>
+            <td class="mod-name">往来账</td>
+            <td class="mod-use">应收（客户）/ 应付（供应商）+ 收付款</td>
+            <td>谁欠我多少钱、我欠厂家多少钱、回款进度 —— 钱的闭环</td>
+          </tr>
+          <tr>
+            <td><span class="prio p2">P2 · 第三版</span></td>
+            <td class="mod-name">进销存报表</td>
+            <td class="mod-use">毛利 / 周转 / 滞销 / 效期分布</td>
+            <td>经营分析，也是将来「卖点」—— 经销商最缺的就是看得懂的经营账</td>
+          </tr>
+          <tr>
+            <td><span class="prio p2">P2 · 第三版</span></td>
+            <td class="mod-name">赠品管理</td>
+            <td class="mod-use">厂家赠品政策、赠品进出库</td>
+            <td>蒙牛赠品政策常见，赠品成本要能单独算</td>
+          </tr>
+          <tr>
+            <td><span class="prio p2">P2 · 第三版</span></td>
+            <td class="mod-name">与既有能力打通</td>
+            <td class="mod-use">报单 → 采购建议；返利；货损</td>
+            <td>复用你已做好的预报订货、返利、货损核算，形成闭环</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="hint">注：P0 四块是「替代舟谱」的最小闭环 —— 没这四块，你没法把业务从舟谱迁过来；P1 补齐低温奶的效期与钱的闭环；P2 才是对外卖的增值点。</div>
+    </div>
+  </section>
+
+  <!-- 二、信息架构 -->
+  <section>
+    <div class="sec-title"><span class="num">2</span><h2>信息架构（导航结构）</h2></div>
+    <div class="card ia">
+      <div class="ia-node ia-root">进销存（侧栏一级入口 · 仅 boss 可见）</div>
+
+      <div class="ia-branch">
+        <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label"><b>工作台</b> <span class="ia-note">— 进销存首页：今日进货 / 出货 / 库存总额 / 临期条数</span></span></div>
+      </div>
+
+      <div class="ia-branch">
+        <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label"><b>基础档案</b></span></div>
+        <div class="ia-branch">
+          <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label">商品档案 <span class="ia-note">条码 / 三档单位 / 换算 / 品牌</span></span></div>
+          <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label">供应商档案 <span class="ia-note">蒙牛厂家等</span></span></div>
+          <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label">客户档案 <span class="ia-note">门店 / 分销商 / 永辉 / 美廉</span></span></div>
+        </div>
+      </div>
+
+      <div class="ia-branch">
+        <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label"><b>采购进货</b></span></div>
+        <div class="ia-branch">
+          <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label">采购单 <span class="ia-note">新建 / 列表 / 审核</span></span></div>
+          <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label">入库单 <span class="ia-note">登记批次 + 到期日</span></span></div>
+        </div>
+      </div>
+
+      <div class="ia-branch">
+        <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label"><b>销售出货</b></span></div>
+        <div class="ia-branch">
+          <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label">销售单 <span class="ia-note">车销 / 访销 / 自提</span></span></div>
+          <div class="ia-item"><span class="ia-dot dot-p1"></span><span class="ia-label">退货单</span></div>
+          <div class="ia-item"><span class="ia-dot dot-p1"></span><span class="ia-label">调拨单 <span class="ia-note">双仓 / 门店调货</span></span></div>
+        </div>
+      </div>
+
+      <div class="ia-branch">
+        <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label"><b>库存</b></span></div>
+        <div class="ia-branch">
+          <div class="ia-item"><span class="ia-dot dot-p0"></span><span class="ia-label">库存查询 <span class="ia-note">实时 + 批次 + 效期</span></span></div>
+          <div class="ia-item"><span class="ia-dot dot-p1"></span><span class="ia-label">效期预警 <span class="ia-note">临期 7 天清单</span></span></div>
+          <div class="ia-item"><span class="ia-dot dot-p1"></span><span class="ia-label">盘点 <span class="ia-note">盘盈盘亏</span></span></div>
+        </div>
+      </div>
+
+      <div class="ia-branch">
+        <div class="ia-item"><span class="ia-dot dot-p1"></span><span class="ia-label"><b>往来账</b></span></div>
+        <div class="ia-branch">
+          <div class="ia-item"><span class="ia-dot dot-p1"></span><span class="ia-label">应收 <span class="ia-note">客户欠款 / 回款</span></span></div>
+          <div class="ia-item"><span class="ia-dot dot-p1"></span><span class="ia-label">应付 <span class="ia-note">欠供应商 / 付款</span></span></div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span><i style="background:#e11d48"></i>P0 第一版</span>
+        <span><i style="background:#d97706"></i>P1 第二版</span>
+        <span><i style="background:#06b6d4"></i>P2 第三版</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 三、页面布局 -->
+  <section>
+    <div class="sec-title"><span class="num">3</span><h2>核心页面布局（线框）</h2></div>
+
+    <!-- 工作台 -->
+    <div class="card" style="margin-bottom:18px">
+      <div class="wf-bar"><b>页面 ① 进销存工作台</b>（登录后 / 点「进销存」落地）</div>
+      <div class="wf-body">
+        <div class="wf-row">
+          <div class="box kpi"><b>¥ 库存总额</b><span>按成本价 · 万元</span></div>
+          <div class="box kpi"><b>今日进货</b><span>金额 + 单数</span></div>
+          <div class="box kpi"><b>今日出货</b><span>金额 + 单数</span></div>
+          <div class="box kpi"><b style="color:#dc2626">临期 7 天</b><span>条数 · 点击直达清单</span></div>
+        </div>
+        <div class="wf-row">
+          <div class="box grow">近 7 天进货 / 出货趋势（小柱状图）</div>
+          <div class="box grow">应收待回款 Top 客户</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 单据页 -->
+    <div class="card" style="margin-bottom:18px">
+      <div class="wf-bar"><b>页面 ② 采购单 / 销售单（单据页，共用同一套骨架）</b></div>
+      <div class="wf-body">
+        <div class="wf-row">
+          <div class="box" style="width:120px">单号（自动）</div>
+          <div class="box" style="width:140px">日期</div>
+          <div class="box grow">供应商 / 客户（下拉选档案）</div>
+          <div class="box" style="width:110px">仓库</div>
+          <div class="box" style="width:90px">状态</div>
+        </div>
+        <div class="table-mock">
+          <div class="th"><span>商品</span><span>单位</span><span>数量</span><span>单价</span><span>批次号</span><span>到期日</span><span>小计</span></div>
+          <div class="tr"><span>蒙牛纯甄 200g</span><span>箱</span><span>20</span><span>52</span><span>B20261001</span><span>2026-10-28</span><span>1040</span></div>
+          <div class="tr"><span>特仑苏 250ml×12</span><span>箱</span><span>10</span><span>65</span><span>B20261002</span><span>2026-10-30</span><span>650</span></div>
+        </div>
+        <div class="wf-row" style="justify-content:flex-end">
+          <div class="box" style="width:160px">合计：¥ 1690</div>
+          <div class="box primary" style="width:110px">保存单据</div>
+        </div>
+        <div class="hint">🔴 批次号 + 到期日是「效期」的前提 —— 入库/出货这一刻必须登记，否则后面效期预警算不准。</div>
+      </div>
+    </div>
+
+    <!-- 库存查询 -->
+    <div class="card">
+      <div class="wf-bar"><b>页面 ③ 库存查询</b>（每天看「还剩多少 + 最早哪天到期」）</div>
+      <div class="wf-body">
+        <div class="wf-row">
+          <div class="box" style="width:140px">筛选：商品</div>
+          <div class="box" style="width:120px">筛选：仓库</div>
+          <div class="box" style="width:120px">筛选：效期（≤ 7 天）</div>
+          <div class="box grow"></div>
+          <div class="box primary" style="width:90px">导出</div>
+        </div>
+        <div class="table-mock">
+          <div class="th"><span>商品</span><span>仓库</span><span>批次号</span><span>到期日</span><span>剩余</span><span>剩余天数</span><span style="flex:.5">状态</span></div>
+          <div class="tr"><span>纯甄 200g</span><span>东津仓</span><span>B20261001</span><span>2026-10-28</span><span>15 箱</span><span style="color:#dc2626">22 天</span><span style="flex:.5"><span class="badge-inline" style="background:#fffbeb;color:#b45309">临期</span></span></div>
+          <div class="tr"><span>特仑苏 250ml</span><span>吾悦仓</span><span>B20261002</span><span>2026-11-08</span><span>33 箱</span><span>33 天</span><span style="flex:.5"><span class="badge-inline" style="background:#f0fdf4;color:#16a34a">正常</span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer style="text-align:center;color:var(--t3);font-size:12px;margin-top:28px">
+    进销存能力闸门脚手架 · v380 · 2026-10-06 · 当前仅 boss 账号可见
+  </footer>
+</div>
+</body>
+</html>
