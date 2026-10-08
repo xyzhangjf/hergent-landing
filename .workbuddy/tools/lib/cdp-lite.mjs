@@ -178,8 +178,17 @@ function makePage(c) {
       if (!identifier) return
       await c.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
     },
-    async screenshot(path) {
-      const r = await c.send('Page.captureScreenshot', { format: 'png' })
+    /**
+     * 截图。`opts.clip` = `{ x, y, width, height, scale? }`（CSS 像素）。
+     * 🔴 v396 实测教训：**本函数原来只接 `path` 一个参数**，多余的 `{clip}` 被**静默吞掉**
+     *    ⇒ 调用方以为截了「标签栏条带」，落盘其实是**整页 1440×900**（两张图字节数完全相同
+     *    是唯一线索）。静默忽略参数的 API 比报错危险得多 —— 所以这里显式声明并透传。
+     */
+    async screenshot(path, opts) {
+      const params = { format: 'png' }
+      if (opts && opts.clip) params.clip = opts.clip
+      if (opts && opts.fromSurface === false) params.fromSurface = false
+      const r = await c.send('Page.captureScreenshot', params)
       const data = r.result && r.result.data
       if (!data) return ''
       fs.writeFileSync(path, Buffer.from(data, 'base64'))
