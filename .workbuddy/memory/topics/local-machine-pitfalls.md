@@ -845,10 +845,23 @@ const SAMPLER = (sels) => `JSON.stringify((function(){
 
 
 
-## §37 · 本会话**读不了图片**，读图一律走 OCR
+## §37 · 读图能力：**先 Read，OCR 当第二通道**（2026-10-08 v403 更正）
 
-- 模型侧 Read 图片会返回「不支援图片 / Content filtered」⇒ **不能凭"我读过图"下结论**。
-  曾据此把文档转述当成「原图实证」表述过（v394 轮），属**错误归因** —— 已由 `topics/competitor-zhoupudata.md` 用真 OCR 覆盖纠正。
+> 🔴 **本条原标题为「本会话读不了图片，读图一律走 OCR」—— 已过期，2026-10-08 实测推翻。**
+> v403 轮里 `Read` 工具**能直接渲染 PNG**（读了 `outputs/采购订单重塑-v403-2026-10-08/01-*.png`
+> 与舟谱 `创建采购订单截图.png`，并**靠读图当场抓出 3 处文字折行** —— 状态徽标「草稿」折两行、
+> 日期 `2026-07-23` 折行、供应商名折行）。
+> ⇒ **纠正后的纪律**：**能用 `Read` 就先用 `Read`**（视觉判断：折行 / 对齐 / 留白 / 色块 / 图标形状，
+> 一步到位、不用拼坐标）；**OCR 不再是唯一通道**，但它仍有不可替代的两点：
+> ① 给出**归一化坐标**（`x|y|w|h`）⇒ 能还原列结构、能写**几何判据**（"这个控件在不在那个下面"）；
+> ② 给出**逐字文本**，不受模型"看个大概"的影响（文案逐字对齐类验收应走 OCR 或 DOM 取值）。
+> ⚠️ 两条都还要受同一条约束：**"我读过图"必须能被证伪** —— 说"图上写着 X"时，要么引用 OCR 行，要么
+> 指出图里可复核的位置（第几列第几行）。别把文档转述冒充原图实证（v394 那一轮的教训仍然成立）。
+> 历史背景（当时确实读不了）：模型侧 Read 图片会返回「不支援图片 / Content filtered」。
+
+**（以下为 OCR 通道的既有记录，仍然有效）**
+
+- 曾据此把文档转述当成「原图实证」表述过（v394 轮），属**错误归因** —— 已由 `topics/competitor-zhoupudata.md` 用真 OCR 覆盖纠正。
 - **解法（本机可用）**：macOS 自带 `/usr/bin/swift`，用 Vision 做中文 OCR，无需装包：
   `.workbuddy/tools/ocrcli.swift`（`swiftc -O ocrcli.swift -o ocrcli`），
   输出 `x|y|w|h\t文本`（归一化坐标，原点左上）⇒ **能还原列结构**（同 y≈ 列标题、同 x≈ 同一列）。
@@ -922,3 +935,38 @@ LC_ALL=C comm -23 /tmp/_srv.txt /tmp/_loc.txt | wc -l             # → 假报 6
 - ⚠️ 别把两张图搞混：本轮一度以为 `4-返利结算` 含手机号，实际那行 `0.283|0.358|15391599966`
   是**图 2** 的（**同一 y 坐标、不同图**）⇒ 判据要**逐图跑**，不要跨图复用 OCR 读数。
 
+
+## §41 · zsh 的两个「看起来对、其实没生效」（循环分词 / 环境变量传递）（2026-10-08 v403 实测）
+
+**① 循环变量不做分词 —— `for f in $FILES` 只跑一次。**
+
+```zsh
+# ❌ 反例（v403 部署校验时踩到）
+FILES="assets/a.js assets/b.js assets/index-x.css"
+for f in $FILES; do md5 -q "dist-v403/$f"; done
+#   → md5: dist-v403/assets/a.js assets/b.js assets/index-x.css: No such file or directory
+#     即 $FILES 被当成**一个**参数（zsh 默认不做 word splitting，与 bash 不同）
+
+# ✅ 正解
+files=(assets/a.js assets/b.js assets/index-x.css)
+for f in "${files[@]}"; do echo "$(md5 -q "dist-v403/$f")  $f"; done
+```
+
+🔴 **同一个字符串在 `ssh '…'` 里却正常工作** —— 因为远端是 `sh`/`bash`、会分词。
+⇒ **症状是"本地脚本莫名其妙报单个拼起来的长路径"**，先想这条，别去怀疑文件不存在。
+
+**② `VAR=$(…)` 不进子进程环境 —— 必须 `export`。**
+
+```zsh
+# ❌ 取到了值、脚本却说"缺 TOKEN"
+V403_TOKEN=$(ssh … 'python3 /tmp/x.py boss' | cut -f3)   # 只是 shell 变量
+… node probe.mjs                                          # 子进程看不到它
+# ✅
+export V403_TOKEN=$(ssh … 'python3 /tmp/x.py boss' | cut -f3)
+```
+
+⚠️ **陷阱点**：中间夹一句 `echo "token len: ${#V403_TOKEN}"` 会**正常打印长度（如 43）**，
+让人以为"值取到了、是脚本的问题" ⇒ 实为**变量没导出**。判据：
+`env | grep -c V403_TOKEN` 或直接在子进程里 `node -e "console.log(!!process.env.V403_TOKEN)"`。
+
+**③（同族复述）** 多模式 `grep` 一律 `-e A -e B`；`grep "A\|B"` 在本环境会**静默返回空**（看起来像"没有匹配"）。

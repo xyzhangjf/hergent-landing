@@ -3493,3 +3493,72 @@ CSS 解析器把这堆乱码**连同紧随其后的 `table.tbl th.seq-th{…}` �
 `v402-check-syntax.py`（抽 `<script setup>` 跑 `node --check`）、`v402-seq-probe.mjs`（全站真机只读探针）、
 `v402-spec-seq-consistency.py`（A/B/C/D/E 五族，含 CSS 注释配对护栏）、
 `v402-scan-tables.py`/`v402-scan-list-tables.py`（扫全站表 / 提列表页 v-for 与分页标识符）。
+
+## v403 · 采购订单重塑（进销存内重塑，对齐舟谱）+ 新增 UI-SPEC §2.4.1（2026-10-08 · ✅已上线）
+
+素材 = `/Users/zhangjunfeng/Documents/舟谱截图/采购订单`（实测 **9 张**）＋舟谱导出近 30 天采购数据。
+落地 = 改现有 `/inventory/purchase` 三页（**不另起一套**）、复用 `/api/psi` 与既有闸门。
+
+### ① 底部动作条「贴视口底沿」= 两半成对（新立规 → UI-SPEC §2.4.1）
+
+舟谱那条看着天然贴底，是因为它的**明细网格撑满剩余高度**；我们明细只有一两行时会**浮在页面中间**。
+
+| 半 | 位置 | 内容 |
+|---|---|---|
+| 高度链 | 容器（`inventory/InventoryShell.vue` 的 `.page`） | `.page{display:flex;flex-direction:column;min-height:100%}` ＋ `.page > :deep(*){flex:1 1 auto;min-width:0}` |
+| 推底 | 页面（`InvPurchaseNew.vue`） | 页根竖排 ＋ 动作条 `position:sticky;bottom:0` ＋ **`margin-top:auto`** ＋ `margin:0 -20px -20px -20px` |
+
+🔴 **为什么会断**：`min-height:100%` 是**百分比**，要沿祖先链解析出确定高度。链 =
+`.view-wrap`（`flex:1` ✅）→ **中间层 `.page`（块级、高度 auto ❌）** → `.inv-page`。
+断在中间 ⇒ 百分比退化成 `auto`、`margin-top:auto` 无富余空间可吸 ⇒
+**数值全对、实际不生效、零报错**。**读代码判不出来，只能量几何。**
+
+🔴 **`flex:1 1 auto` 不能写成 `flex:1`**（= `1 1 0%`）：基准 0 ⇒ 条目被压成一屏高、内容溢出框外、
+容器不再随内容变高 ⇒ **长页面直接失去滚动**（无报错）。`flex-basis:auto` 让基准 = 内容高度 ⇒ 长页照常滚、短页靠 grow 撑满。
+
+**判据（可证伪）**：`滚动容器内容盒下沿 − 动作条下沿` **≤ 2px**；反例两条 ——
+① 同页明细表下沿离底沿 **> 50px**（证明判据不是"页面上随便什么都贴底"）；
+② 长列表页**仍可滚**且滚到底后分页器可见（证明容器改动没把长页压死）。
+工具：`.workbuddy/tools/v403-probe.mjs` 的 `C8/C8b/C8c` ＋ `A16/A17`。
+
+### ② 状态页签「计数」与「当前筛选行数」不矛盾 —— `counts` 走 `base_where`
+
+页签 = 全部81/草稿2/待审批0/已确认0/已入库79/部分入库0/已取消0，而当前筛选只有 2 行 ——
+**不是 bug**：`counts` 用**不含 `status` 的 `base_where`** 算（否则「全部」会跟着当前筛选一起变）。
+且**排除逻辑走 SQL 而非前端 filter**（`exclude_status`）⇒ 反例判据：
+`kind=order` 下**没有**「已退货」页签、表体**零个**已退货徽标（前端 filter 会让页签和行数都对不上）。
+
+### ③ 「没有」≠「是零」：`has_items` 是一等事实
+
+79 张 `CD` 前缀舟谱导入单**只有表头、零明细行** ⇒ 「订单数量 / 入库金额 / 未结款」显示 **`—`**，
+不是 `¥0.00`（金额列同族：`moneyOrDash` / `qtyText` / `unpaidText` 三个谓词，
+与 §8.3「未知值不静默留空」同源 —— 这里是反向：**真有值的 0 要显示 0**，没值的才 `—`）。
+对照：`打印数` **必须显示 `0` 而不是 `—`**（那就是个真计数）。
+
+### ④ 创建人下拉**必须**读主库 `users`（两套编号同 id 指向不同人）
+
+- `users` 在 `_TENANT_COL_SYNC_SKIP`（主库专属；租户库同名表是**历史克隆残留**，只有 6 行种子 vs 主库 16 行）。
+- 🔴 **更坏的一点**：`users` 与 `hr_employees` **是两套编号、同 id 指向不同人**（实测 2 个冲突：
+  `id=2` 张俊峰 vs 王老板、`id=4` 张记乳品（演示）vs 刘小顶）⇒ 拿员工档案当创建人下拉的**代用品**，
+  不是"筛出来恒空"，而是**显示成另一个人且零报错**。
+- 收敛为唯一读取口 `_main_users()`（`tenant_scope(None)`）；主库不可读时 `refs` **不返回该键**（而非返回空数组）。
+
+### ⑤ 🔴 同 path 不同 query ⇒ vue-router **复用组件实例、不重跑 setup**
+
+从「采购单」切「采购退货单」（两个侧栏入口同 path 不同 query）时，标题 / 页签条 / 行状态**全都不跟着变**。
+根因：`kind` 被写成**一次性常量**。修法：`kind = computed(() => route.query.kind || '')` ＋
+`watch(kind, () => { f.value = baseFilter(); load() })`。
+（同族记录见 `Shell.vue:149` 那条 `:key="viewKey"` 只含刷新计数、不含 `fullPath` 的注释 —— **同一条约束的两面**。）
+
+### ⑥ 探针竞态：Vue 响应式更新是**异步**的
+
+同步连点 3 行复选框只登记 2 条；**间隔 250ms** 连点 3/3 正确；「全选」则正常。
+⇒ **页面无 bug，是探针自己的假阴性**。所有"点完立刻读 DOM"的地方必须 `await` 一拍（≥250ms）。
+（截图上"点了没反应"的灰色读数，先怀疑工具，再怀疑产品。）
+
+### ⑦ 三处换行 = 真机截图才看得见
+
+状态徽标「草稿」折两行、日期 `2026-07-23` 折行、供应商名折行（表 `min-width` 1600 时）。
+修法：`.ipl-c-st`/`.ipl-c-time` 加 `white-space:nowrap`；`.ipl-c-sup`/`.ipl-c-cat`
+加 `overflow:hidden;text-overflow:ellipsis;white-space:nowrap`；表 `min-width` 1600→1700。
+🔴 **教训**：列宽够不够不是算出来的 —— **必须在真机截图里逐列看**（文字折行是"宽度不足"的唯一显性证据）。
