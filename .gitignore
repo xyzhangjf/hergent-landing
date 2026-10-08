@@ -56,3 +56,27 @@ desktop-app/*.tar.gz
 *.db
 *.db-wal
 *.db-shm
+
+# ── 2026-10-08 v406：未跟踪资产归档 —— 「可再生的体积黑洞」不入库（本地保留）──
+# 判据同 2026-09-21 的 png 政策：这些是**交付证据/二进制产物**，其 md/py 源已入库，
+#   入库只会让仓库体积翻数倍（本次实测 PDF 25MB + eml 4.2MB + png 3.1MB ≈ 32MB）。
+# ⚠️ 全部锚定到「证据目录」，**不碰**产品资源（avatars/·landing-page/·小程序图标 等）。
+# ⚠️ gitignore 不支持行尾内联注释（`#` 会被并入 pattern ⇒ 静默失效），注释必须独占一行。
+#   若要真入库某一件，用 `git add -f`。
+#
+# BP/一页纸等导出物（md 源在 outputs/*.md、tools/md2pdf.js）
+/outputs/**/*.pdf
+# 邮件草稿（含 BP 附件，4.2MB）
+/outputs/**/*.eml
+# artifacts/ 已跟踪文件全是 md 交付说明 ⇒ png 整体排除（含子目录）
+/artifacts/**/*.png
+# vNNN 验证截图（本地保留）
+.workbuddy/outputs/**/*.png
+# automation-prompts 旧版 + credits 去重前快照
+/backups/
+# 小程序仓的解压快照（目录名带 ISO 时间戳）
+/forecast-order-miniprogram-*/
+# vite 配置热重载临时产物
+/hergent-admin/*.timestamp-*.mjs
+# 工具的 HEAD 快照临时文件
+/hergent-cn-v2/tools/.v*-head-*.vue
