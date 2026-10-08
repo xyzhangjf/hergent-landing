@@ -51,18 +51,31 @@
 # 流程
 mv dist /tmp/hergent-dist-bak-$(date +%s) && \
   npm run build && \
-  rsync -a --no-owner --no-group --delete dist/ \
+  rsync -a --no-owner --no-group dist/ \
     root@47.113.224.140:/opt/hergent-cn-v2/ && \
   ssh -i ~/.ssh/id_ed25519 root@47.113.224.140 \
     "chown -R hergent:hergent /opt/hergent-cn-v2/"
 
-# 验证
+# 验证①：生产 index.html 真正引用哪个入口 chunk（唯一判据）
+ssh -i ~/.ssh/id_ed25519 root@47.113.224.140 \
+  'grep -o "assets/index-[A-Za-z0-9_-]*\.js" /opt/hergent-cn-v2/index.html'
+# 验证②：该 chunk 取 200
 curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
-  https://hergent.cn/assets/<main-hash>.js
+  https://hergent.cn/assets/<上面拿到的hash>.js
 # 期望：200
 ```
+
+🔴 **`rsync` 绝不加 `--delete`**（2026-10-08 修正；本文档旧版本曾写 `--delete`，照做会毁生产）：
+- 一次干净构建的 `dist/assets/` 只有 **76** 个文件；生产 `/opt/hergent-cn-v2/assets/` 是**历次构建的并集 = 3637 个文件 / 166 MB**；
+- 生产同层还有**服务器侧**的 `backups/`、`_rollback/`、37 个 `index.html.bak-*` —— **都不在 dist 里**；
+- ⇒ `--delete` 会一次删掉 **3561 个历史 chunk**（浏览器缓存的旧 `index.html` / 旧 chunk 的动态 `import()` 当场 404）+ **全部回滚资产**。
+- ⇒ 正确姿势：**增量覆盖、永不删除**。
+
+⚠️ **chunk 名什么都判不了**：Vite 的 hash 是**两级级联**（改任一 chunk ⇒ `__vite__mapDeps` 变 ⇒ 入口与所有 importer 一起改名）。判据只能是"生产 `index.html` 引用的那一个"，不能是"我本地生成了 `index-XXX.js`"。
+
 - nginx 纯静态，无需 restart
 - 路由：`/api/` → 8700（后端），`/hermes/` → 18765（Hermes）
+- 全产品现状 / 后端部署 / 数据库拓扑 → 根 `HANDOFF.md`
 
 ### 6. 设计令牌（设计铁律）
 - 双主题：`variables.css`（`--p` 品牌青 `#06b6d4` 等）
@@ -121,6 +134,7 @@ hergent-cn-v2/
 4. ❌ 不带真实登录态测 401 / 403 路径（probeSession 不生效就修复）
 5. ❌ 不用 deploy 三连（mv/build/rsync 必须 `&&` 链）
 6. ❌ 不用 `<Icon>` 组件而自造 SVG（统一站点图标）
+7. ❌ `rsync --delete` 到 `/opt/hergent-cn-v2/`（会删掉 3561 个历史 chunk 与 `_rollback/`，见 §5）
 
 ---
 
