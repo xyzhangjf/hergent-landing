@@ -2,23 +2,29 @@
   <!-- v129：全屏时给根节点挂 grid-fs-on，用于把主工具栏弹层容器降回普通层级（见样式区注释） -->
   <!-- v135：AI 副驾抽屉打开时挂 copilot-on，同理收掉主工具栏弹层的超高 z-index，避免三个触发按钮浮在抽屉之上 -->
   <div class="page" :class="{ 'grid-fs-on': gridFullscreen, 'copilot-on': store.ui.copilotOpen }">
-    <!-- 模块级标签页：本期预报 / 历史期次（历史分析工具改在汇总表工具箱「对比分析」组，见下） -->
-    <div class="module-tabs">
-      <button :class="{ on: activeTab === 'summary' }" @click="setTab('summary')">本期预报</button>
-      <button :class="{ on: activeTab === 'history' }" @click="setTab('history')">历史期次</button>
-      <button :class="{ on: activeTab === 'config' }" @click="setTab('config')">报单配置</button>
-      <!-- v265（2026-09-24）：商品目标收进本页当第 4 个页签（原为侧栏独立入口）。
-           为什么放这里：它**唯一的只读依赖**「报单配置」就是隔壁那个 tab（读 report_mapping
-           算逐人实报），两者又同属 `data` 权限模块（零权限变更）。放同页后依赖闭环、
-           且消掉侧栏「目标与返利 / 商品目标」并排两个"目标"的困惑。
-           点 tab 走 setTab() 而不是直接赋值：要同步 URL（?tab=target），旧链 /product-target 才能 redirect 过来。 -->
-      <button :class="{ on: activeTab === 'target' }" @click="setTab('target')">商品目标</button>
-    </div>
+    <!-- 🔴 v405（2026-10-08）：**本页的页内模块页签条已退役** ——
+         原先是 `本期预报 / 历史期次 / 报单配置 / 商品目标` 四个按钮排成一条
+         （类名 `.module-tabs`，v405 连同其样式块一并净删除）。
+         为什么删：本页原是全站**最后一处**「页内固定页签条 ＋ 全局标签栏」并存的过渡态
+         （`docs/UI-SPEC.md §3.5`）—— 两条同时在屏上，用户分不清哪个回答
+         「这个模块有哪些页」、哪个回答「我打开过哪些页」。现在四个子页**各自是一个标签**、
+         点一个开一个、可单独关；入口在侧栏「预报订单管理」职能区的弹窗
+         （`Shell.vue::NAV` 的 4 条）与手机底部栏，页内不再重复摆一遍全集。
+         ⚠️ `activeTab` 仍保留，但它**只由 URL 的 `?tab=` 驱动**（`setTab()` 写、
+            下方 `watch(route.query.tab)` 读）—— 顶部标签栏的标题也只认 URL，
+            所以任何子页切换都必须写 URL；只改 `activeTab` 会让「标签栏写着历史期次、
+            页面却显示本期主表」（`onViewHistory` 就是按这条修的一处）。
+         ⚠️ 四个子页的归属**没有变**（v265 既定口径）：`summary` = 本期预报（主表），
+            `config` = 报单配置（原档案管理独立页），`target` = 商品目标（原侧栏独立页；
+            它**唯一的只读依赖**就是隔壁的报单配置 ⇒ 同页依赖闭环，也消掉了侧栏
+            「目标与返利 / 商品目标」两个"目标"并排的困惑）。
+         ⚠️ 历史分析工具不在页签里 —— 它在汇总表工具箱的「对比分析」组（见下）。 -->
 
     <!-- 🔴 v347（2026-09-30）：**模块权限**被拒时的常驻说明（判据与理由见代码区 `forecastDenied`）。
          位置有两处讲究：
-         ① 放在 `.module-tabs` **之下、四个页签之外** —— 权限是**整页**的事，不能只在「本期预报」
+         ① 放在页面**最顶部、四个子页之外** —— 权限是**整页**的事，不能只在「本期预报」
             里说；否则用户切到「历史期次」就再也看不到原因（那才是最容易让人以为"数据没了"的状态）。
+            （v405 页签条退役后本处位置未变，只是"之下"改成了"最顶部"。）
          ② 复用 `.gate-bar`（与「没有进行中期次」同一条横幅）⇒ 零新增 CSS，视觉上与旁边那条
             「需要你动手」的横幅同级。两者现实中**互斥**（权限被拒时根本问不到期次，
             `noOpenPeriod` 恒假），不会叠成两条。
@@ -2816,10 +2822,12 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
-// 🔴 v265：`useRouter` 与 `useRoute` **必须同时导入** —— 下方 `setTab()`（页签同步 URL）用了
-//    `useRouter()`。曾因两者被分开编辑（import 行只留 useRoute、`const router = useRouter()`
-//    留着），构建不报错、`node --check` 也不报，但**运行期 ReferenceError 直接崩掉整个预报页**
+// 🔴 v265：`useRouter` 与 `useRoute` **必须同时导入** —— `setTab()`（写 `?tab=`）用 `useRouter()`，
+//    底部 `watch(() => route.query.tab)` 用 `useRoute()`。曾因两者被分开编辑（import 行只留
+//    useRoute、`const router = useRouter()` 留着），构建不报错、`node --check` 也不报，
+//    但**运行期 ReferenceError 直接崩掉整个预报页**
 //    （ErrorBoundary 捕获，用户看到的是白屏/错误页）。改这一行前先 grep 全文的 `useRouter(`。
+//    ⚠️ v405 页签条退役后这两个都**还在用**（别以为"页签删了就不用 router 了"）。
 import { useRoute, useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
 import { store, toast, canDo } from '../store'
@@ -5829,14 +5837,22 @@ watch([brandCandidates, () => route.query.brand], () => {
   toast(`已按来源页品牌筛选：${hit.join('、')}`, 'success')
 }, { immediate: true })
 
-/* v265：页签与 URL 同步（`#/forecast?tab=target`）。
+/* v265：子页与 URL 同步（`#/forecast?tab=target`）。
    为什么必须同步、不能只用一个 ref：
      ① 旧链 `#/product-target` 改成 redirect 到 `?tab=target` —— 不同步就落在「本期预报」上，
         用过书签的人会以为这个功能没了；
-     ② 同页互跳要能表达（商品目标页顶部那条映射告警 → 切「报单配置」tab 修完再切回来，
+     ② 同页互跳要能表达（商品目标页顶部那条映射告警 → 切「报单配置」修完再切回来，
         v-if 重挂 ⇒ onMounted 的 loadAudit() 自动重跑 ⇒ 告警自己消失）；
-     ③ 刷新 / 收藏 / 后退时能停在原页签。
-   只把**非默认**页签写进 URL：默认 summary 不写，保持 /forecast 干净（与本节 brand 参数同一风格）。 */
+     ③ 刷新 / 收藏 / 后退时能停在原子页。
+   只把**非默认**子页写进 URL：默认 summary 不写，保持 /forecast 干净（与本节 brand 参数同一风格）。
+
+   🔴 v405（2026-10-08）页内页签条退役后，本函数的**角色变了**（读注释的人最容易在这里走错）：
+     · 它不再是"页签按钮的 click 处理器"（那些按钮已删）—— 现在**唯一的调用方是页内互跳**
+       （`onViewHistory`：历史期次列表点「查看」⇒ 回本期预报）；
+     · 而它顺带做的那半件事（**写 URL**）成了不可省略的一步：顶部标签栏的标题**只认 URL**
+       （`composables/useTabs.js::tabKey`），只改 `activeTab` 不写 URL ⇒
+       标签栏写着「历史期次」而页面显示本期主表。
+     · `TAB_KEYS` 仍是"合法子页"的唯一名单 —— 下面的 `watch` 也读它，别只改一处。 */
 const TAB_KEYS = ['summary', 'history', 'config', 'target']
 const setTab = (t) => {
   const v = TAB_KEYS.includes(t) ? t : 'summary'
@@ -10705,7 +10721,13 @@ function switchView(m) {
 function onViewHistory(row) {
   curPeriod.value = row.id
   viewPeriod.value = row
-  activeTab.value = 'summary'
+  /* 🔴 v405（2026-10-08）：这里**必须**走 `setTab('summary')`，不能再直接 `activeTab.value = 'summary'`。
+     页内页签条退役后，「我现在在哪一页」只剩**顶部标签栏**一个指示，而标签栏标题
+     只认 URL（`useTabs.js::tabKey`）。直接赋值会把 `?tab=history` 留在地址里
+     ⇒ 标签栏写着「历史期次」、页面显示的却是本期主表（同屏自相矛盾）。
+     走 `setTab` 会一并写 URL（默认子页不写 tab ⇒ 地址变 `/forecast`），
+     标签栏随即按"打开过的页"累积出「本期预报」这一条（v396 语义）。 */
+  setTab('summary')
   viewMode.value = 'cross'
   editMode.value = false
   loadCross()
@@ -12611,11 +12633,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.module-tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--bd);padding-bottom:2px}
-.module-tabs button{border:none;background:transparent;color:var(--t2);font-size:14px;font-weight:500;padding:8px 14px;border-radius:var(--radius-sm) var(--radius-sm) 0 0;cursor:pointer;position:relative}
-.module-tabs button:hover{color:var(--p)}
-.module-tabs button.on{color:var(--p);font-weight:600}
-.module-tabs button.on::after{content:'';position:absolute;left:0;right:0;bottom:-3px;height:2px;background:var(--p);border-radius:2px}
+/* v405（2026-10-08）：`.module-tabs` 的样式块已随页签条一起删除（净删除，无迁移遗漏）。
+   ⚠️ 别把它当成"全站消失"：`Settings.vue`（设置）页内那一条同名的 `.module-tabs`
+      是**另一个页面**自己的分区导航，与这里无关，未在本次范围内。
+   ⚠️ 弹窗 / 表单内部的**分区**页签仍走全局的 `.main-tabs`（见 `styles/variables.css`），
+      那不是模块导航，不受本次退役影响。 */
 /* 报单配置嵌入为标签页时，去掉其自身 .page 包裹的内边距，并隐藏与标签重复的小标题（独立深链页不受影响） */
 .config-panel :deep(.page){padding:0;margin:0}
 .config-panel :deep(.page-hd){display:none}
