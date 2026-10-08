@@ -10,7 +10,8 @@
              页内页签由全局标签栏（`components/TabBar.vue`）取代。
 
        🔴 为什么容器自己仍是 `.page`（而不是像 `ArchiveShell` 那样只放 `<router-view/>`）：
-           进销存的 8 个子页**只给页头与内容**，宽度与内距由容器给。
+           进销存的 8 个子页**只给页头与内容**，容器语义与内距由外层统一负责
+           （容器给 `.page`，内距由全局外壳 `.view-wrap` 给，见 UI-SPEC §3.1/§8.1）。
            若让子页各自再套一层 `.page`，就会出现 `.page` 嵌套（padding 叠加），
            只能靠 `:deep(.page){padding:0}` 反打补丁 —— 多一处补丁多一处漂移。
            退役页签只是删掉了那段 `<div class="main-tabs">`，容器契约一字未变。
@@ -18,8 +19,17 @@
        ⚠️ 页签表（TABS）/ `tabFromPath` / `goTab` **一并删除**，不留死代码：
           它们的职责已由「路由 + 标签栏」承担（路由仍是唯一真相）。
           子路由可见性仍由 `constants/pages.js` 的 `/inventory` 行逐级继承，
-          本文件不做任何权限判断（v393 纪律：`pages.js` 一字不改）。 -->
-  <div class="page page-default">
+          本文件不做任何权限判断（v393 纪律：`pages.js` 一字不改）。
+
+       🔴 v399（2026-10-08）**容器只给 `.page`，不给宽度档位**（原为 `.page.page-default`）：
+           进销存 8 个子页全是**单据 / 表格密集页**，按 UI-SPEC §3.1 必须是**全宽**。
+           改前 `.page-default{max-width:1200px}` + `.page{margin-inline:auto}` 把 8 页
+           压在 1200px 居中 —— 1920 视口实测：页面 1200 / 内容区 1632 / 左右各空 216px
+           （占宽比 73.5%），而基准页「本期预报」是 100% / 0px。这就是老板说的
+           「左右两侧存在大量留白」。去掉档位后与基准页同构。
+           ⚠️ 别再加回来：宽屏取舍在「表格能不能少一次横向滚动」，不在"看着不空"。
+           子页 8 个 `.inv-page` 只有 `display:block`、零宽度声明 ⇒ 容器一改即自动铺满。 -->
+  <div class="page">
     <router-view />
   </div>
 </template>

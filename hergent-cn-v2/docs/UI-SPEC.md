@@ -236,11 +236,62 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 
 ## 3. 布局与响应式
 
-### 3.1 页面容器
+### 3.1 页面容器与留白（统一留白规范 · v399）
 
-- 一律用 `.page`（自动水平居中），不要各自写 `max-width` 与 `margin:0 auto`。
-- 需要限宽时按语义选档：`.page-reading`（900px，阅读/表单型）、`.page-default`（1200px，内容型）。
-- 表格密集页与工作台型页面**不套档位**（全宽）。
+**基准页 = `/forecast`（预报订单管理 › 本期预报）**。实测 1920 视口下它**占宽比 100%、左右留白 0px**——
+这就是全站唯一基准，其余页面（尤其**单据页**）一律向它对齐，而不是反过来。
+
+**四层留白模型**（从视口到内容。每层只管一件事，**同一种间距不许由两层各给一次**）：
+
+| 层 | 载体 | 值 | 谁给的 |
+|---|---|---|---|
+| L0 视口 → 侧栏 | 侧栏 | `--sidebar-w`（248px） | 全局 |
+| L1 内容区 | `.view-wrap` | `padding:20px`；`≤768px` 时 `14px 12px calc(72px + env(safe-area-inset-bottom))` | 全局（`Shell.vue`） |
+| L2 页面容器 | `.page` | `margin-inline:auto`。**默认不设 `max-width` ⇒ 全宽** | 全局（`variables.css` §②） |
+| L3 卡片 | `.card` | `padding:18px`（`--sp-5`） | 全局（§2.4） |
+
+**三条硬规则**：
+
+1. **页面留白只有一层** —— 由全局外壳 `.view-wrap` 给 20px。**页根不再加左右内距。**
+   页根写 `padding-left/right` 会与外壳**叠加**：`ZhoupuImport.vue` 原写 `padding:20px 20px 60px`
+   ⇒ 实际左右 40px（实测占宽比掉到 58.8%）。
+2. **页面容器默认全宽，不套宽度档位**。表格密集页 / **单据页** / 工作台 / 看板一律全宽——
+   宽屏的取舍在「表格能不能少一次横向滚动」，不在「看着空不空」。
+3. **禁止在页根写 `max-width` / `margin:0 auto` / 左右 `padding`** 这三件事。
+   需要「阅读宽度」时，把宽度落在**卡片 / 表单 / 文本块**上，不落在页面上：
+   例 `Print.vue` 的 `.pr-card{max-width:720px}`、`RoleManage.vue` 的 `.rm-caps-form{max-width:560px}`。
+
+**例外白名单**（档位来自 `variables.css` 的 `.page-reading` / `.page-default`。
+**在本节登记，改一处登记一处**——未登记即视为违规）：
+
+| 页面 | 档位 | 值 | 理由 |
+|---|---|---|---|
+| `Print.vue` | `.page-default` | 1200px | 纯阅读 / 设置型（打印模板·设置·记录），卡片自身 720px，靠页容器居中 |
+| *（无）* | `.page-reading` | 900px | **当前无使用者**（保留档位；持续无使用者则应删除） |
+
+> 🔴 **历史教训**：2026-09-11 之前 19 个页面各写一份宽度，实测并存 **900 / 980 / 1180 / 960 / 全宽**
+> 五档。「本期预报」当年改为全宽后，注释里写成「全站无页面启用档位」——**与实况不符**：
+> 当时 `Print.vue` 与 `InventoryShell.vue` 都在用 `.page-default`。v399 一并改为写实况。
+> ⇒ **文档里的「当前无使用者」必须每次改动后回查，否则它会变成一句会骗人的话。**
+
+**怎么判定（可量化，不靠观感）**：**占宽比 = 页面实际宽 ÷ 内容区可用宽**
+（内容区可用宽 = `.view-wrap` 的 `clientWidth − 左右 padding`）。**< 100% 即存在结构性留白**。
+
+- ⚠️ **必须在 ≥1600 视口取判据**：1440 下 1200px 限宽只差 **8px**（量不出问题），1920 下差 **424px**。
+- 左右留白应**对称**（`gapL`/`gapR` 差 ≤8px 记为滚动条 / 亚像素，不算偏移）。
+- 探针：`.workbuddy/tools/v399-layout-gap-probe.mjs`（只读真机、零写入、含**判别力自证**——
+  基准页与进销存页必须量到**不同**结构，否则判据本身没有区分力，跑出"全绿"也无意义）。
+
+**基准判定表（1920 视口实测）**：
+
+| 页面 | 页根 | `max-width` | 占宽比 | 左右留白 |
+|---|---|---|---|---|
+| 本期预报（**基准**） | `.page` | — | **100%** | **0 / 0** |
+| 进销存 8 页（v399 **前**） | `.page.page-default` | 1200px | 73.5% | 216 / 216 |
+| 舟谱导入（v399 **前**） | `.zp-wrap`（连 `.page` 都没有） | 960px | 58.8% | 336 / 336 |
+
+**内层业务容器**（子页根，如进销存 `.inv-page`）：**零宽度声明**（只 `display:block`），
+随容器自动铺满 —— 这样改容器宽度就只改一处，子页不用动。
 
 ### 3.2 页头
 
@@ -586,6 +637,23 @@ docs/UI-SPEC.md            本文件
 函数名（`effTab` / `showInDrawer` / `evictOldest`）、以及**引用的具体数值**（上限 18、`max-height:320px`）。
 **引用了什么，就逐字 grep 一次** —— 这是「判别串逐字取自源码」在**文档侧**的对称要求。
 
+### 7.4 页面留白（占宽比）真机只读审计（v399 补）
+
+§3.1 的「占宽比」不能靠读 CSS 心算（`.page-default{max-width:1200px}` 到底有没有生效、
+外壳 `padding` 有没有叠加，只有浏览器知道）。判据是**几何**，就用几何去量：
+
+```bash
+# 脚本：.workbuddy/tools/v399-layout-gap-probe.mjs（只读真机 https://hergent.cn，零写入）
+V399_TOKEN=$(ssh -o BatchMode=yes root@47.113.224.140 'python3 /tmp/v392-probe-tokens.py boss' | cut -f3) \
+NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
+  /Users/zhangjunfeng/.workbuddy/binaries/node/versions/22.22.2-6/bin/node \
+    .workbuddy/tools/v399-layout-gap-probe.mjs
+```
+
+**它必须自带判别力自证**（否则"全绿"没有意义）：同一轮里同时量「基准页（预期 ratio≈100、`maxWidth=none`）」
+与「进销存页（预期 ratio<95、`maxWidth=1200px`）」，**两组必须不同**；相同即 FAIL。
+判据固定取 **1920 视口**（1440 下差额只剩 8px，测不出问题）。
+
 ---
 
 ## 8. 业务模块范式（参考实现：进销存）
@@ -615,6 +683,18 @@ docs/UI-SPEC.md            本文件
 5. `path: ''`（空串）索引子路由**必需**（否则访问 `/inventory` 命中空路由）；
    且父级**不得** `redirect` 指向自身（自指重定向 ⇒ 无限循环）。
 6. 带参数路由（`:id`）**必须排在**同前缀静态路由（`new`）**之后**，否则 `/new` 被 `:id` 吃掉。
+
+**容器 ↔ 子页 宽度契约（v399 补）**：
+
+- **容器只给 `.page`，不给宽度档位。** 单据 / 表格密集模块（进销存就是）一律**全宽**，
+  口径见 §3.1。⚠️ `InventoryShell.vue` 原写 `.page.page-default` ⇒ 8 个子页全部被压在
+  1200px 居中（1920 视口左右各空 216px），这正是「单据界面大量留白」的唯一根因。
+- 子页根（`.inv-page`）**零宽度声明**（只 `display:block`）⇒ 容器改宽度时子页自动跟随，不用动 8 个文件。
+- 子页**也不给左右内距** —— 内距只由 `.view-wrap` 给一层（§3.1 硬规则 1）。
+- **一个模块只能有一处给 `.page`**，不许两处都给（会嵌套叠加）：
+  - **厚壳**（`InventoryShell.vue`）：容器自带 `.page`，子页只给页头与内容 —— 进销存走这条；
+  - **薄壳**（`ArchiveShell.vue`，全文件只有 `<router-view/>`）：容器不给 `.page`，由各 tab 页自带 —— 档案管理走这条。
+  两种都合规；**判据是"全模块给 `.page` 的地方恰好一处"**，而不是选了哪种壳。
 
 ### 8.2 页面前缀分配
 
@@ -686,3 +766,4 @@ docs/UI-SPEC.md            本文件
 | v392 | 2026-10-07 | 新增 **§8 业务模块范式（参考实现：进销存）**：容器+三件套、前缀分配、词表唯一源、`.tag` 徽标纪律、`fmtMoney` 唯一实现、复用件清单与**重复件欠账表**；修正 §3.2 示例**误用页面私有类 `pa-actions`**（规范示例自己违反 §6.3）；新增「同一选择器出现 ≥3 次即须上提」判据。 |
 | v395 | 2026-10-08 | 新增 **§3.4 侧栏一级项浮层面板（横向分列）**：分组 = 列、列宽自适应、列标题置顶+分隔线、`maxWidth` 防溢出、移动端维持纵向、**读图必须走 OCR 不许转述**、同页多入口三环节连锁（`navTo.q` / `isCur` 逐键比 / `key` 带 `q`）与「入口必须真筛选」纪律、几何判据 + 反例自证的验收法；并登记 `.sb-pop` 的 `z-index` 未令牌化这一欠账。配套代码：`Shell.vue`（模板 + `.sb-pop-*` CSS + `_placePop`）、销售/采购列表与新建页读 URL 预置、新增 `pages/Print.vue`（打印列占位）。 |
 | v396 | 2026-10-08 | 新增 **§3.5 全局标签栏**：两种语义辨析（模块内页签 =「这个模块有哪些页」vs 标签栏 =「我打开过哪些页」）、DOM 契约与类表、六条硬规则（点一开一累积／⟳ 在名称左／关尽回首页／上限 18 淘汰最久未激活／内存态不落 localStorage／手机端不出）、内容区两层与 `overflow:visible` 的必要性、`:key` 只含刷新计数、**标签标题四层回落**（`pageTitle` 逐级去尾 ⇒ 三个子页同名，探针抓出的真缺陷）、URL 归一 `effTab`、**退役纪律三条**；并修订 **§2.5 页内 Tab 用途收窄**（只用于弹窗内的表单分区）。配套代码：新增 `components/TabBar.vue` / `composables/useTabs.js` / `constants/tabTitles.js`；改 `Shell.vue`（内容区两层 + NAV 升级为职能区 + 手机抽屉 `EXPLODED_PATHS`）与 5 个页面（`inventory/InventoryShell` / `Archive` / `Print` / `Rebate` / `LossAccounting`）退役页签条。同批新增 **§7.3 文档↔源码「标识符」审计** 与**静态一致性自检**（`v396-spec-tabbar-consistency.py`：A 类名 / B 数值 / C 机制 / D 反例禁令，ALL PASS）；登记 **`/forecast` 为唯一过渡态**（页内页签暂留，勿照抄）。验收探针 `v396-tabbar-probe.mjs` 生产实测 50/50。 |
+| v399 | 2026-10-08 | 重写 **§3.1 为「页面容器与留白（统一留白规范）」**：以 `/forecast`（本期预报，实测占宽比 100% / 左右 0px）为**唯一基准**；建立**四层留白模型**（L0 侧栏 → L1 `.view-wrap{padding:20px}` → L2 `.page`（默认全宽）→ L3 `.card{padding:18px}`）；三条硬规则（页根不再加左右内距／默认全宽不套档位／页根禁写 `max-width`·`margin:0 auto`·左右 `padding`）；**例外白名单**（唯一使用者 `Print.vue` `.page-default`；`.page-reading` 无使用者）；新增**占宽比**量化判据与「必须在 ≥1600 视口取值」的说明。新增 **§7.4 留白真机只读审计**（`v399-layout-gap-probe.mjs`，含判别力自证）；**§8.1 补「容器 ↔ 子页宽度契约」**（容器只给 `.page` 不给档位／子页零宽度声明／**一个模块只能有一处给 `.page`**，并辨析厚壳 `InventoryShell` vs 薄壳 `ArchiveShell` 两种合规形态）。配套代码：`inventory/InventoryShell.vue` 去 `.page-default`（**8 个子页留白的唯一根因**）、`ZhoupuImport.vue` 去掉自拍 `max-width:960px;margin:0 auto` 与叠加的左右 `padding`；`variables.css` 修正两处**与实况不符**的「档位当前未启用 / 目前全站无页面启用」注释为写实况。生产探针 17/17 PASS（改前基线 A 面已留档）。 |

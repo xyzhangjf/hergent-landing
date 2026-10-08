@@ -1,5 +1,11 @@
 <template>
-  <div class="zp-wrap">
+  <!-- 🔴 v399（2026-10-08）页面宽度收敛：本页根容器原先自己写了
+       `.zp-wrap{max-width:960px;margin:0 auto;padding:20px 20px 60px}`
+       —— 这是**全站第四档宽度**（900/1200 之外又加 960），而且左右各 20px 内距
+       与外壳 `.view-wrap{padding:20px}` 叠加成 40px ⇒ 1920 视口实测占宽比仅 58.8%，
+       左右各空 336px（同期「本期预报」是 100% / 0）。违反 UI-SPEC §3.1。
+       现在：根容器改为 `.page`（沿用全局容器，不拍宽度），宽度交回全局。 -->
+  <div class="page zp-wrap">
     <header class="zp-hd">
       <div>
         <h1 class="zp-title">舟谱单据导入</h1>
@@ -296,7 +302,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.zp-wrap{max-width:960px;margin:0 auto;padding:20px 20px 60px}
+/* 🔴 v399：宽度与左右内距一律交回全局层（`.page` + `.view-wrap`）。
+   本页只保留「底部留白 60px」（页面自身的内容性间距，与宽度无关）。
+   不要再在这里写 max-width / margin:0 auto / padding 左右 —— 见 UI-SPEC §3.1。 */
+.zp-wrap{padding:0 0 60px}
 .zp-hd{margin-bottom:14px}
 .zp-title{font-size:20px;font-weight:600;margin:0 0 6px;color:var(--t1)}
 .zp-sub{margin:0;font-size:13px;line-height:1.7;color:var(--t2)}
