@@ -320,3 +320,29 @@ COALESCE(NULLIF(poi.unit,''), p.unit, '') AS unit_label
 （列数与列名集合与改动前**完全一致**）、Phase 5 **相位反转**（Phase 0 断言在改动后必须失败）、
 Phase 6 AST 接线断言。真机只读 `v404-probe.mjs` **51/0**。
 
+---
+
+## 采购订单对标舟谱（只读分析，2026-10-08）
+
+交付：`outputs/采购订单对标舟谱-差异清单与优化建议-2026-10-08.md`
+（15 张舟谱截图 vs 我方三页前端 + 两后端文件；✅34 / ⚠️9 / ❌17）。
+
+ 🔴 **假入口（必修）**：侧栏「采购退货单」`create.to` = `/inventory/purchase/new?kind=return`
+（`hergent-cn-v2/src/components/Shell.vue:395-396`），但 `InvPurchaseNew.vue` **只读 `copy`、不读 `kind`**
+⇒ 「新建采购退货单」建出**普通采购单**；而退货单列表按 `status='returned'` 过滤 ⇒ 永远看不到它。
+**通用判据：`create.to` 里的 query 必须被目标页真的读走，否则「入口」是假的**（与 v390/393
+「无 path 闸门 ⇒ 整区冒给不该看的人」同族：都要验「跳过去之后真的对吗」）。
+
+ 🔴 **退货台账分叉**：`erp_db.py:5205 purchase_return_create` 建 `purchase_returns` 行 +
+`inventory_adjust(-qty)` + 冲减 AP，**但不回写 `purchase_orders.status`**（全后端无
+`SET status='returned'`）⇒ 「已退货」页签恒 0、详情「已到货」仍显示全收。
+旧接口 `server.py:2936 POST /api/purchase-returns` **可用**，缺的是新前端入口 + 状态回写。
+⚠️ 部分退货落 `returned` 还是 `partial` 是**产品口径问题，改之前必须先确认**。
+
+**列差**：舟谱 29 列 vs 我方 17 列。缺 请购单号 / 经办人 / 部门 / 单据来源 / 入库时间 / 创建时间 /
+审核人 / 最后操作·打印人时。**最大 UI 缺口 = 列设置**（显示隐藏 + 冻结 + 拖动排序 + 恢复默认）——
+可复用 `Forecast.vue` 的列配置范式（`UI-SPEC §8`；`v400-spec-colcfg-consistency.py` 已把它写成规范）。
+**已有承接、加列即可用**：`departments` 表（`erp_db.py:2441`）、`users.department_id`（`:2405`）、
+`contacts.code`（`:2393` 供应商编码）、`contacts.supplier_category`（`:2400`）。
+**加列范式照 v403**：`_safe_migrate` 与**租户列同步**（`erp_db.py:812-816` ↔ `:1189-1193`）**两处都要 patch**。
+
