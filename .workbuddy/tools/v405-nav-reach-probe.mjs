@@ -90,8 +90,14 @@ dw.forEach((x) => console.log('    ' + (x.show ? '进抽屉' : '归底部栏') +
 ok('③a 三个带 tab 的子页进抽屉', dw.filter((x) => x.tab).every((x) => x.show), JSON.stringify(dw.filter((x) => x.tab).map((x) => x.name)))
 ok('③b 无 tab 的「本期预报」归底部栏（抽屉里不重复）', dw.filter((x) => !x.tab).every((x) => !x.show), JSON.stringify(dw.filter((x) => !x.tab).map((x) => x.name)))
 const sHistory = items.find((x) => x.tab === 'history')
-ok('③c 「＋」（create）只挂在历史期次那一条上（其显示另受 canDo 收口）',
-  !!sHistory.create && items.filter((x) => x.create).length === 1, JSON.stringify(items.filter((x) => x.create).map((x) => x.name)))
+/* 🔴 v407（2026-10-08）：原 ③c「「＋」只挂在历史期次那一条上」**已作废** ——
+   那个 `create` 的 `to` 与「本期预报」条目同是 `/forecast` ⇒ 老板判「功能重复」，
+   已撤掉。本区现 **零 `＋`**（L1 双入口机制本身保留，进销存区 7 条仍在用 ——
+   反例自证见 `v407-nav-forecast-create-probe.mjs`）。 */
+ok('③c 本区已无任何「＋」（v407 撤掉与「本期预报」重复的那条 create）',
+  items.filter((x) => x.create).length === 0, JSON.stringify(items.filter((x) => x.create).map((x) => x.name)))
+ok('③d 「历史期次」条目本身仍在（撤的是「＋」，不是条目）',
+  !!sHistory && sHistory.name === '历史期次', JSON.stringify(sHistory))
 
 section('④ 反证（判据不是恒真）')
 const bogus = { path: '/forecast', tab: 'ZZ_NOT_EXIST' }

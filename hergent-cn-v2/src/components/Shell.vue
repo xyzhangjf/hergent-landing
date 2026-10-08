@@ -326,7 +326,8 @@ const NAV = [
 
   /* ② 预报订单管理 › —— 4 个子页本来就是同一页：`Forecast.vue` 用 URL 的 `?tab=` 区分子页
      （v265，`TAB_KEYS` = `summary/history/config/target`）⇒ 弹窗条目直接带 `tab` 就能直达，
-     **零新页**。这也是 L1「双入口」的试点区。
+     **零新页**。（原为 L1「双入口」试点区；🔴 **v407 起本区不再挂 `create`** ——
+        四条全是**单入口**，原因见下方「历史期次」条目的注释。）
      🔴 v405（2026-10-08）：该页的**页内页签条已退役** ⇒ 本弹窗（桌面）是这四个子页的
         **唯一常规入口**，手机上另由抽屉摊平 + 底部栏承担（见 `EXPLODED_PATHS` 注释）。
         少一条就会把某个子页关在门外（`summary` 那条就是这么补上的）。 */
@@ -340,17 +341,24 @@ const NAV = [
            `canDo('data','create')` 收口 ⇒ **只读角色会进不去本页的主表**。
            条目不带 `tab` ⇒ 落在默认子页 `summary`（`SUB_TITLES['/forecast']._default`），
            与底部栏 `/forecast` 是同一个落点（`isCur` 靠 `effTab` 归一，见其注释）。
-           ⚠️ 它与下面「历史期次」行的「＋」`to` 相同（都是 `/forecast`）——这不是重复：
-           本条是**导航**（去主表），那个「＋」是 L1 双入口的**动作**（新建期次）。 */
+           🔴 **v407（2026-10-08）**：它与下面「历史期次」行的「＋」落点曾有完全相同
+           （都是 `/forecast`）⇒ 老板判定「功能重复」，**那个「＋」已删除**。
+           故自本条起判据收紧：**它是本页主表在桌面弹窗里的唯一入口** ——
+           删掉它，只读角色就再也进不去主表（比 v405 时更硬）。 */
         { path: '/forecast', name: '本期预报', icon: 'grid' },
-        /* 🔴 本节唯一挂 `create` 的条目（L1 双入口试点，计划 §3.1）：
-           · 左半（对象名）→ `/forecast?tab=history`（历史期次 = 列表页）；
-           · 右半「＋」→ `/forecast`（默认 `summary` = 本期预报 / 新建期次那一页）。
-           `module: 'data'` 取自**页面自己的既有口径** —— `Forecast.vue` 里 9 处「新建期次 /
-           创建 / 推送审批」按钮判的就是 `canDo('data','create')`；这里**照抄同一个键**，
-           不新造（v335 纪律：页内门禁判的是**接口模块**，写错键会 fail-closed 把按钮全藏掉）。 */
-        { path: '/forecast', tab: 'history', name: '历史期次', icon: 'history',
-          create: { to: '/forecast', module: 'data', title: '新建本期预报（期次）' } },
+        /* 🔴 v407（2026-10-08）：本条**原挂 `create`**（L1 双入口试点，计划 §3.1）——
+           那个右半「＋／创建」的 `to` 是 `/forecast`，与**上一行「本期预报」同一落点**
+           ⇒ 老板判定「功能重复」，要求撤掉。现回归**单入口**：
+           只有左半 对象名 → `/forecast?tab=history`（历史期次 = 列表页）。
+
+           ⚠️ 撤的是**本条这一份 `create` 数据**，不是 L1 双入口机制本身 ——
+             机制与 `canDo(create.module,'create')` 收口原样留在 `resolveNavItem`，
+             进销存区（采购单/采购退货单/自提·车销·调拨各单）7 条仍在用；
+             本区只是**不再需要**它（四个子页都是纯导航）。
+           ⚠️ 「新建期次」这个**动作**没消失 —— 它落在「本期预报」页内
+             （`Forecast.vue` 9 处新建/创建/推送审批按钮判 `canDo('data','create')`）；
+             本条目自始至终只负责**导航**，从不负责那个动作。 */
+        { path: '/forecast', tab: 'history', name: '历史期次', icon: 'history' },
         { path: '/forecast', tab: 'config',  name: '报单配置', icon: 'wrench' },
         { path: '/forecast', tab: 'target',  name: '商品目标', icon: 'bars' }
       ] }
