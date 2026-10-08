@@ -7,13 +7,14 @@
       </div>
     </div>
 
-    <!-- 🔴 当前页签只从 URL 的 `?tab=` 读（与 `Forecast.vue` 同构）：
-         侧栏三条入口各带自己的 `tab` ⇒ 直达、可分享、刷新不丢。 -->
-    <div class="main-tabs">
-      <router-link v-for="t in TABS" :key="t.key" class="main-tab" :class="{ on: tab === t.key }"
-                   :to="{ path: '/print', query: { tab: t.key } }">{{ t.name }}</router-link>
-    </div>
-
+    <!-- 🔴 v396（2026-10-08）**退役模块内页签**（老板 Q3 A）：原来这里一排
+         「打印模板 / 打印设置 / 打印记录」，点侧栏任一条进来都会看到**整组**
+         —— 正是老板说的「点一个字段，把整个模块所有标签全展示出来」。
+         现在三条各自成为一个**标签**（侧栏「系统 › 打印」列已是三条入口，
+         见 `Shell.vue` 的 `NAV`），页内只渲染当前页签的内容。
+         ⚠️ 页签定义表 `TABS` **保留**：退役后它仍有两个用途 ——
+            由 `?tab=` 算出当前页（未知/缺失兜底第一个），以及卡片正文的取数。
+            删了它，`/print` 就没有"当前是哪一页"的概念了。 -->
     <div class="card pr-card">
       <div class="pr-hd">
         <h3>{{ cur.name }}</h3>

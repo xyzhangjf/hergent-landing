@@ -1,16 +1,17 @@
 <template>
   <div class="page">
-    <div class="module-tabs">
-      <!-- v341（2026-09-30）：页签**按可见性判据生成**（下方 `tabs`），不再是裸按钮。
-           🔴 判据仍是 `canSee(path)`（唯一源 = `constants/pages.js`），不在这里另写一份。
-              容器门槛（`/archive`）已改为单值 `module:'data'`，与「设置」里的「档案管理」
-              开关同源；页签各属一个模块（员工→`hr`、客户→`crm`、品牌/商品/供应商→`data`、
-              仓库→`stock`），独立判据、各自隐藏 —— 撤掉 data 后容器入口即消失，不再"失效"。
-           （页签数：v387 起 **7** 个 —— 员工/客户/供应商/品牌/商品/仓库/渠道与价格。） -->
-      <button v-for="t in tabs" :key="t.key"
-              :class="{ on: activeTab === t.key }" @click="goTab(t.key)">{{ t.label }}</button>
-    </div>
+    <!-- 🔴 v396（2026-10-08）**退役模块内页签**（老板 Q3 A）：
+         原来这里铺一排固定页签（员工/客户/供应商/品牌/商品/仓库/渠道与价格），
+         点侧栏任何一条进来都会看到**整组** ⇒ 正是老板说的
+         「点一个字段，把整个模块的所有标签全展示出来」。
+         现在各自成为一个**标签**（对齐舟谱「点一个开一个」）：侧栏「档案管理」
+         弹窗里 7 个条目各开一个标签（`Shell.vue` 的 `NAV` 已齐），
+         页内不再有页签条。
 
+         ⚠️ 下方 `TABS` / `tabs` + 兜底 `watch` **必须保留** —— 它们退役后唯一的用途是
+            「落在不可见页签时自动落到第一个可见页」（v332 必修项）：
+            `/archive/employees` 要 `hr` 模块，没有 `hr` 的角色（如主管）一进来就落在
+            不可见页上；删掉兜底 = 页签没了、面板也空白，用户只会报「档案管理打不开」。 -->
     <div class="archive-panel">
       <EmployeeArchive v-if="activeTab === 'employees'" />
       <CustomerArchive v-if="activeTab === 'customers'" />
@@ -104,34 +105,10 @@ watch(tabs, (list) => {
 </script>
 
 <style scoped>
-.module-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--bd);
-  padding-bottom: 2px;
-}
-.module-tabs button {
-  border: none;
-  background: transparent;
-  color: var(--t2);
-  font-size: 14px;
-  font-weight: 500;
-  padding: 8px 14px;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  cursor: pointer;
-  position: relative;
-}
-.module-tabs button:hover { color: var(--p); }
-.module-tabs button.on { color: var(--p); font-weight: 600; }
-.module-tabs button.on::after {
-  content: '';
-  position: absolute;
-  left: 0; right: 0; bottom: -3px;
-  height: 2px;
-  background: var(--p);
-  border-radius: 2px;
-}
+/* v396：`.module-tabs` 的样式块已随页签条一起删除（净删除，无迁移遗漏）。
+   ⚠️ 它本就是 UI-SPEC §6.2「同一视觉语言不写第二份」的一处历史欠账 ——
+      全站页签早已统一用全局 `.main-tabs`，本页私有的这份从来就是重复；
+      而全局 `.main-tabs` 本轮也退出了这些模块（改由标签栏承担）。 */
 .archive-panel :deep(.page) { padding: 0; margin: 0; }
 /* 嵌入时隐藏子页面各自标题，避免与父级 tab 重复。
    ⚠️ 2026-09-13 真机 E2E 修正：原规则 `.page-hd{display:none}` 把**整块**页头藏了，

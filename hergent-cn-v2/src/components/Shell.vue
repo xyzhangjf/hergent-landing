@@ -134,11 +134,30 @@
 
       <!-- 内容区 -->
       <main class="content">
-        <router-view v-slot="{ Component }">
-          <Transition name="page" mode="out-in">
-            <component :is="Component" />
-          </Transition>
-        </router-view>
+        <!-- v396（2026-10-08）：**全局标签栏** —— 语义是「**我打开过哪些页**」
+             （对齐舟谱），不再是「这个模块有哪些页」。
+
+             🔴 为什么放在 `.content` 里、`router-view` **之外**：
+                它在滚动区之外 ⇒ 长页面滚动时标签栏不跟着滚走（舟谱也是这样固定的）。
+                为此 `.content` 从「自己滚」改成「flex 纵向 + 内层 `.view-wrap` 滚」
+                （原 `overflow-y:auto;padding:20px` 移到了 `.view-wrap` 上）。
+
+             ⚠️ 标签栏自己处理三件事：溢出收进「更多」（Q5 B）、
+                ⟳ 刷新当前标签、× 关闭标签 —— Shell 只负责**导航决策**。 -->
+        <TabBar @refresh="onTabRefresh" @close="onTabClose" />
+        <div class="view-wrap">
+          <!-- 🔴 `:key="viewKey"` 只含**刷新计数**，不含 `route.fullPath` —— 这是刻意的：
+               含 fullPath 会让「页内切 tab」（`?tab=` 变化）把整页组件重建，
+               连数据一起重拉（`Forecast.vue` 有 6000+ 行、切个页签重载一次代价很大）。
+               同 path 不同 query 的状态同步由各页**自己 watch 路由**完成
+               （`Rebate.vue` / `LossAccounting.vue` 已是这么写的）。
+               而跨 path 切换时组件类型本身就变了 ⇒ Vue 自然重建，无需 key 帮忙。 -->
+          <router-view v-slot="{ Component }">
+            <Transition name="page" mode="out-in">
+              <component :is="Component" :key="viewKey" />
+            </Transition>
+          </router-view>
+        </div>
       </main>
     </div>
 
@@ -233,11 +252,16 @@ import CommandPalette from './CommandPalette.vue'
 import WeatherWidget from './WeatherWidget.vue'
 import IdleTimeout from './IdleTimeout.vue'
 import Icon from './Icon.vue'
+import TabBar from './TabBar.vue'
 import { messagesApi } from '../api/modules'
 /* v267：侧栏「预报订单管理」（v390 前的名字是「预报订货管理」）按角色可见性 —— 判据是
    后端同一份白名单的前端镜像（`roles.js::FORECAST_SUMMARY_ROLES`，护栏 AST 校验）。
    v291 起它已收敛进 `pages.js`：本文件只调 `canSee(path)`，不自己写名单。 */
 import { canSee } from '../constants/pages'
+/* v396（2026-10-08）：全局标签栏状态（模块级单例，见该文件头）。 */
+import { useTabs } from '../composables/useTabs'
+/* v396：`effTab` = 「有效子页」—— URL 省了 `?tab=` 时按默认子页算（见该文件头）。 */
+import { effTab } from '../constants/tabTitles'
 
 /* ---------------------------------------------------------------------------
    v311（2026-09-28）：侧栏导航表 —— 桌面侧栏 / 手机底栏 / 手机抽屉的**唯一来源**
@@ -381,8 +405,31 @@ const NAV = [
     ]
   },
 
-  /* ④ 直达 —— §10.3.3 方案 A：它页内 6 页签，「弹窗里只有一条 = 比内容还重」 */
-  { path: '/rebate', name: '目标与返利', icon: 'target' },
+  /* ④ 目标与返利 › —— v396（2026-10-08）：由**直达项升级为职能区**。
+     🔴 这不是"顺手多做一个弹窗"，而是**退役页签的必需配套**：
+        该页原有 6 个页内页签（仪表盘/目标配置/达成填报/返利结算/结算节奏/厂家承诺），
+        本轮按 Q3 A 全部退役 ⇒ 若侧栏仍只有一条「目标与返利」，那 5 个子页就
+        **再也到不了**（退役后侧栏弹窗是唯一入口）。
+     ⚠️ `path: '/rebate'` 是本区闸门：`pages.js` 的 `/rebate` 行带 `roles`（销售相关），
+        拿它当锚点与旧直达项**完全同源**，可见性一字未变。
+     分两列（舟谱的"分组横排"）：目标（看数 / 配目标 / 填报）+ 返利（结算 / 节奏 / 承诺）。
+     ⚠️ 条目自带 `tab` ⇒ `navTo` 会翻成 `?tab=`；URL 省略 tab 时按 `tabTitles.js`
+        的 `_default` 归一（`/rebate` ≡ `/rebate?tab=dashboard`），标签不会重复。 */
+  {
+    key: 'rebate', name: '目标与返利', icon: 'target', path: '/rebate',
+    groups: [
+      { label: '目标', items: [
+        { path: '/rebate', tab: 'dashboard', name: '仪表盘',   icon: 'activity' },
+        { path: '/rebate', tab: 'rules',     name: '目标配置', icon: 'target' },
+        { path: '/rebate', tab: 'achv',      name: '达成填报', icon: 'edit' }
+      ] },
+      { label: '返利', items: [
+        { path: '/rebate', tab: 'contracts', name: '返利结算', icon: 'receipt' },
+        { path: '/rebate', tab: 'settle',    name: '结算节奏', icon: 'calendar' },
+        { path: '/rebate', tab: 'promises',  name: '厂家承诺', icon: 'shield' }
+      ] }
+    ]
+  },
 
   /* ⑤ 核算 › —— 损耗列**两条都挂**（老板 2026-10-07 拍板，与计划 §5.3 一致）：
      `/loss`（货损计算工作流）与 `/loss-accounting`（货损核算）曾是同一模块 `stock` 下的两页，
@@ -392,7 +439,11 @@ const NAV = [
     groups: [
       { label: '损耗', items: [
         { path: '/loss', name: '货损计算工作流', icon: 'flame' },
-        { path: '/loss-accounting', name: '货损核算', icon: 'receipt' }
+        /* v396：`/loss-accounting` 拆成两条 —— 该页原有 2 个页内页签（仪表盘 / 数据填报），
+           本轮按 Q3 A 退役 ⇒ 必须在这里各自成为条目，否则「数据填报」在手机上无处可去
+           （手机端标签栏按 Q6 A 不出，抽屉是唯一入口）。 */
+        { path: '/loss-accounting', tab: 'dashboard', name: '货损核算', icon: 'receipt' },
+        { path: '/loss-accounting', tab: 'fill',      name: '货损填报', icon: 'edit' }
       ] },
       { label: '薪酬', items: [
         { path: '/payroll', name: '算工资', icon: 'coins' }
@@ -576,12 +627,32 @@ const navItems = computed(() => NAV.map(resolveNavItem).filter(Boolean))
  * ⚠️ 排除底部栏那三项按**条目自己的路径**判：`/forecast` 的 3 个页签条目路径也是
  *    `/forecast` ⇒ 它们不在抽屉里重复出现（那一页的页内页签本来就能切）。
  */
+/**
+ * v396（2026-10-08）：**页内页签已退役**的 path 名单（本轮 5 处，见 Q3 A）。
+ *
+ * 🔴 为什么手机抽屉需要这份名单：抽屉原来靠「path 在 `MNAV_PATHS` 里」来避免
+ *    与底部栏重复。但退役页签后，「目标与返利」的 6 个子页**只剩侧栏弹窗一个入口**，
+ *    而手机端标签栏按 Q6 A **不出**（`≤768px` 隐藏）⇒ 若抽屉仍把它整区滤掉，
+ *    手机上就**再也打不开**「目标配置 / 达成填报 / 返利结算 / 结算节奏 / 厂家承诺」。
+ *    ⇒ 规则改为：底部栏那**一项本身**不重复出现，但它的**子页条目**要摊平列出来。
+ * ⚠️ `/forecast` **故意不在**名单里：它的页内页签本轮未退役，手机上页内本来就能切，
+ *    不必在抽屉里再摊一次（保持 v311 的原有行为）。
+ */
+const EXPLODED_PATHS = ['/inventory', '/archive', '/print', '/rebate', '/loss-accounting']
+
+/** 抽屉里是否显示某条目（唯一实现在此，模板与其他面不重复判）。 */
+function showInDrawer(x) {
+  if (!MNAV_PATHS.includes(x.path)) return true
+  if (!EXPLODED_PATHS.includes(x.path)) return false
+  return !!(x.tab || (x.q && Object.keys(x.q).length))
+}
+
 const drawerGroups = computed(() => NAV
   .map(resolveNavItem)
   .filter(Boolean)
   .map(it => it.groups
-    ? { label: it.name, items: it.groups.flatMap(sg => sg.items).filter(x => !MNAV_PATHS.includes(x.path)) }
-    : (MNAV_PATHS.includes(it.path) ? null : { label: '', items: [it] }))
+    ? { label: it.name, items: it.groups.flatMap(sg => sg.items).filter(showInDrawer) }
+    : (showInDrawer(it) ? { label: '', items: [it] } : null))
   .filter(g => g && g.items.length))
 
 /* ---------------------------------------------------------------------------
@@ -657,6 +728,55 @@ import { badgeFromGroups } from '../composables/useNotiPrefs'
 const router = useRouter()
 const route = useRoute()
 
+/* ---------------------------------------------------------------------------
+   v396（2026-10-08）批次 7：**全局标签栏**（对齐舟谱）
+   ---------------------------------------------------------------------------
+   背景（老板原话）：「点击弹窗中的单个字段，会把整个模块的所有标签全部展示出来，
+   这个行为是错误的」⇒ 退役「模块内固定页签」（5 处），改为「点一个开一个」的
+   打开历史标签栏。状态在 `composables/useTabs.js`，UI 在 `components/TabBar.vue`。
+
+   🔴 **路由是唯一真相**：只要 `route.fullPath` 变了，就确保有对应标签并激活它；
+     点标签 / 关标签要走哪条路，也全部由这里算出来 ⇒ TabBar 组件里没有导航逻辑。
+     ⚠️ `immediate: true` 是必需的：首屏加载完的那一刻就要有**第一个**标签，
+        否则标签栏在第一次跳转前是空的（而它本该显示"当前在哪一页"）。
+   --------------------------------------------------------------------------- */
+const { tabs, activeKey, openTab, closeTab, resetTabs } = useTabs()
+
+/** ⟳ 刷新：**只重建当前标签的组件**（`viewKey` 里只含这个计数，见模板注释）。 */
+const viewTick = ref(0)
+const viewKey = computed(() => 'v' + viewTick.value)
+
+watch(() => route.fullPath, () => { openTab(route) }, { immediate: true })
+
+/** 标签 → vue-router 的 `to`（无 query 时给字符串，避免 URL 上多一个空 `?`）。 */
+function tabLink(t) {
+  return Object.keys(t.query || {}).length ? { path: t.path, query: t.query } : t.path
+}
+
+function onTabRefresh(key) {
+  const t = tabs.value.find(x => x.key === key)
+  if (!t) return
+  /* 非当前标签：**切过去本身就是重载**（组件按路由重建）⇒ 不再叠一次强制刷新，
+     否则会"刷两次"（先重建、又 bump tick 再重建）。 */
+  if (key !== activeKey.value) { router.push(tabLink(t)); return }
+  viewTick.value++
+}
+
+/**
+ * 关闭标签。
+ * 🔴 三条分支必须分清（这是最容易写成"点一下别人的 ×，人却被踢走"的地方）：
+ *   · 关的是**非当前**标签 ⇒ 只移除，**不导航**；
+ *   · 关的是当前、还有邻居 ⇒ 去**右邻**（没有则左邻）—— 与浏览器标签一致；
+ *   · 全关完了 ⇒ **回首页**（Q2 B；首页会立刻开出一个「经营工作台」标签，
+ *     所以永远不会出现"一个标签都没有"的空白态）。
+ */
+function onTabClose(key) {
+  const r = closeTab(key)
+  if (!r.removed || !r.wasActive) return
+  if (r.next) router.push(tabLink(r.next))
+  else router.push('/workbench')
+}
+
 /* v388（2026-10-07）批次 2：切换路由 / 折叠侧栏时收起悬停弹窗。
    折叠后 `.sb-area` 已被 `display:none`，而弹窗是 `position:fixed` —— 它**不受**父级
    `display` 影响，留着就是"漂在空处的一块"。
@@ -679,7 +799,9 @@ watch(() => store.ui.sidebarOpen, areaClose)
    --------------------------------------------------------------------------- */
 function isCur(x) {
   if (!x || route.path !== x.path) return false
-  if (String((route.query && route.query.tab) || '') !== String(x.tab || '')) return false
+  /* v396：tab 这一维改走 `effTab` —— 条目写了默认 tab、URL 却省了 `?tab=` 时，
+     两者**是同一页**（否则 `/rebate` 与 `/rebate?tab=dashboard` 会各亮各的）。 */
+  if (effTab(x.path, route.query && route.query.tab) !== effTab(x.path, x.tab)) return false
   /* v395：`q` 也要**逐键相等**才算当前 —— 否则「自提订单 / 自提退单 / 车销订单 …」
      这几条是**同一 path、不同 query**，会像 v390 那三条页签一样**一起亮**。
      （`.cur` 是弹窗里唯一的高亮来源，判据必须自己算全。） */
@@ -827,7 +949,7 @@ function openProfile() {
   profileOk.value = false
   profileOpen.value = true
 }
-function doLogout() { userMenuOpen.value = false; logout() }
+function doLogout() { userMenuOpen.value = false; resetTabs(); logout() }
 async function saveProfile() {
   profileSaving.value = true
   profileMsg.value = ''
@@ -1032,7 +1154,15 @@ function stopResize() {
 
 .md-group-hd{font-size:11px;font-weight:500;color:var(--t3);padding:14px 20px 4px;letter-spacing:.8px}
 
-.content{flex:1;overflow-y:auto;padding:20px;background:var(--bg)}
+/* v396（2026-10-08）：内容区从「自己滚」改为「**标签栏 + 滚动区**」两层。
+   🔴 为什么必须分两层：标签栏要**钉住不滚**（长页面滚动时它得一直在），
+      所以它不能待在滚动容器里面。padding 从 `.content` 移到 `.view-wrap`，
+      标签栏才能通栏到边（与顶栏同宽），而页面内容呼吸感一字未变。
+   ⚠️ `.content` 用 `overflow:visible`（不是 hidden）：标签栏右侧的「更多」下拉是
+      绝对定位，`overflow:hidden` 会把它裁掉。溢出的兜底由 `.body{overflow:hidden}`
+      负责 —— 它已是既有规则。 */
+.content{flex:1;min-width:0;display:flex;flex-direction:column;overflow:visible;background:var(--bg)}
+.view-wrap{flex:1;min-height:0;overflow-y:auto;padding:20px}
 
 .page-enter-active,.page-leave-active{transition:opacity .18s,transform .18s}
 .page-enter-from{opacity:0;transform:translateY(6px)}
@@ -1110,6 +1240,8 @@ function stopResize() {
   /* v311b：底部栏名字改回与侧栏**同源**（「工作台」→「经营工作台」等）后变长，
      窄屏（320px / 4 格 ≈ 80px）下不许换行把图标顶歪；也防「预报订货管理」挤出格。 */
   .mnav-item span{white-space:nowrap}
-  .content{padding:14px 12px calc(72px + env(safe-area-inset-bottom))}
+  /* v396：padding 从 `.content` 移到了 `.view-wrap`（标签栏要通栏、且不随页面滚）；
+     手机端标签栏整条隐藏（Q6 A），所以这里只补底部安全区，视觉与原来一致。 */
+  .view-wrap{padding:14px 12px calc(72px + env(safe-area-inset-bottom))}
 }
 </style>

@@ -5,16 +5,13 @@
       <span class="page-sub">月度核算 · 期间流水口径</span>
     </div>
 
-    <!-- ══ 主 Tab：看数 / 录数分开（对齐「目标与返利」页的同一套 .main-tabs） ══
-         为什么要分：录数是"对着表格填"，看图是"回头看走势"。两者同屏时表格会被图表挤到
-         屏幕外 —— 此前只能靠"录入态把整段趋势收起"来兜，而用户一进录入态就以为图没了，
-         还得在编辑条里写一句话解释。分 tab 后这层补丁和那句话都不需要了。
-         默认落在「仪表盘」（与「目标与返利」一致：老板每天先看数，录数是手段）。
-         🔴 样式在 `styles/variables.css` 的全局层，全站唯一一份 —— 本页不重复定义。 -->
-    <div class="main-tabs">
-      <button class="main-tab" :class="{ on: mainTab === 'dashboard' }" @click="switchTab('dashboard')">仪表盘</button>
-      <button class="main-tab" :class="{ on: mainTab === 'fill' }" @click="switchTab('fill')">数据填报</button>
-    </div>
+    <!-- 🔴 v396（2026-10-08）**退役模块内页签**（老板 Q3 A）：
+         原来这里两个页签（仪表盘 / 数据填报），点侧栏任一条进来都会看到**整组**。
+         现在各自成为一个**标签**：侧栏「核算 › 损耗」列已是三条
+         （货损计算工作流 / 货损核算 / 货损填报，见 `Shell.vue` 的 `NAV`），
+         页内不再有页签条。
+         ⚠️ `mainTab` 仍在，但**改由 URL 的 `?tab=` 驱动**（见下方脚本区那段注释）
+            —— 否则从弹窗点「货损填报」进来，URL 与页面、标签栏三者会互相矛盾。 -->
 
     <!-- ══ 仪表盘 Tab（只读）══════════════════════════════════════════════
          区间筛选 + 按月一览 + 趋势图。数据**全部**来自 GET /api/loss/accounting/trend
@@ -514,7 +511,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+/* v396（2026-10-08）：主 Tab 改由 URL 的 `?tab=` 驱动（页签条已退役）⇒ 需要路由。 */
+import { useRoute, useRouter } from 'vue-router'
 import { toast, canDo } from '../store'
 import { lossAccountingApi } from '../api/modules'
 import LossDashboard from '../components/LossDashboard.vue'
@@ -533,6 +532,47 @@ import LossDashboard from '../components/LossDashboard.vue'
       若有顶层求值引用到它，定义靠后会直接抛 "Cannot access before initialization"
       （返利页 v123 踩过同一个坑）。 */
 const mainTab = ref('dashboard')
+
+/* ---------------------------------------------------------------------------
+   v396（2026-10-08）：**主 Tab 改由 URL 的 `?tab=` 驱动**（此前是纯本地状态）
+   ---------------------------------------------------------------------------
+   为什么必须改：页签条按 Q3 A 退役 ⇒ 页内没有切换按钮了，唯一入口是侧栏弹窗
+   （它带 `?tab=`）。若 `mainTab` 仍是本地 ref：
+     · 从弹窗点「货损填报」进来，URL 是 `?tab=fill` 而页面停在仪表盘（对不上）；
+     · **更糟**：标签栏的标题取自 URL ⇒ 显示「货损填报」而页面是仪表盘，界面在说谎。
+   归一规则与 `constants/tabTitles.js` 的 `_default` 一致：省略 tab ⇒ dashboard。
+   ⚠️ 两页读的是**同一份** trend + bootstrap（见 `switchTab` 处原注释），
+      所以这里**不需要**按 tab 触发取数。
+   --------------------------------------------------------------------------- */
+const _route = useRoute()
+const _router = useRouter()
+const LOSS_TAB_KEYS = ['dashboard', 'fill']
+
+function lossTabFromUrl(q) {
+  const t = String((q && q.tab) || '')
+  return LOSS_TAB_KEYS.indexOf(t) >= 0 ? t : 'dashboard'
+}
+
+/* 首屏就按 URL 落地（写在 setup 同步段，渲染前生效，无闪烁）。 */
+mainTab.value = lossTabFromUrl(_route.query)
+
+/* 浏览器前进/后退、或点标签栏切到本页的另一个子页 ⇒ 跟着 URL 走。 */
+watch(() => (_route.query || {}).tab, function () {
+  const t = lossTabFromUrl(_route.query)
+  if (t !== mainTab.value) mainTab.value = t
+})
+
+/** 把子页写进 URL。🔴 已经是目标状态就不 replace —— 重复 `router.replace` 同一 URL
+ *  会抛 "Avoided redundant navigation"，而且多产生一次无意义的路由记录。 */
+function syncLossTabUrl(t) {
+  const cur = String((_route.query || {}).tab || '')
+  const want = (t === 'dashboard') ? '' : t
+  if (cur === want) return
+  const q = { ...(_route.query || {}) }
+  if (t === 'dashboard') delete q.tab   // 默认子页省略 ⇒ `/loss-accounting` 与 `?tab=dashboard` 同义
+  else q.tab = t
+  _router.replace({ path: _route.path, query: q })
+}
 
 const loading = ref(true)
 const busy = ref(false)
@@ -864,6 +904,10 @@ async function loadTrend() {
    （返利页按需拉取，是因为它两个 tab 的数据集**不同**；本页两个 tab 读的是同一份
      trend + bootstrap。） */
 function switchTab(t) {
+  /* v396：页签条退役后本函数只剩**页内**入口在用（`blockIfDirty` 的「切到填报页」、
+     以及「去补录 / 去填报」这类按钮）。切页的同时把 `?tab=` 写进 URL ——
+     标签栏与侧栏高亮读的都是 URL。 */
+  syncLossTabUrl(t)
   if (t === mainTab.value) return
   mainTab.value = t
 }

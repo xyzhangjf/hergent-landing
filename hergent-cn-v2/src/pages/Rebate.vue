@@ -1,19 +1,13 @@
 <template>
   <div class="page">
-    <!-- 主 Tab：仪表盘 / 目标配置 / 达成填报 / 返利结算 / 结算节奏 / 厂家承诺 -->
-    <div class="main-tabs">
-      <button class="main-tab" :class="{ on: mainTab === 'dashboard' }" @click="switchTab('dashboard')">仪表盘</button>
-      <button class="main-tab" :class="{ on: mainTab === 'rules' }" @click="mainTab = 'rules'">目标配置</button>
-      <button class="main-tab" :class="{ on: mainTab === 'achv' }" @click="switchTab('achv')">达成填报</button>
-      <button class="main-tab" :class="{ on: mainTab === 'contracts' }" @click="switchTab('contracts')">返利结算</button>
-      <!-- v375：结算节奏（每月几号交上月的核销资料 / 几号上账）。它是「返利结算」的**前置配置**，
-           故紧挨着排在它后面；同为页内页签，不新增侧栏。配置由本页消费成「本月结算日历」，
-           不是只写不读的死配置。 -->
-      <button class="main-tab" :class="{ on: mainTab === 'settle' }" @click="switchTab('settle')">结算节奏</button>
-      <!-- v303：承诺台账作为第 5 个页签，不新增侧栏 —— 老板想起"返利对不对得上"时，
-           必然同时想起"他还答应给我补陈列费"（两边都是"该给我的钱"）。 -->
-      <button class="main-tab" :class="{ on: mainTab === 'promises' }" @click="switchTab('promises')">厂家承诺</button>
-    </div>
+    <!-- 🔴 v396（2026-10-08）**退役模块内页签**（老板 Q3 A）：
+         原来这里一排 6 个页签（仪表盘 / 目标配置 / 达成填报 / 返利结算 / 结算节奏 / 厂家承诺），
+         点侧栏任一条进来都会看到**整组** —— 正是老板说的
+         「点一个字段，把整个模块所有标签全展示出来」。
+         现在六个页面各自成为一个**标签**：侧栏「目标与返利」弹窗里 6 条入口
+         （`Shell.vue` 的 `NAV`，分「目标 / 返利」两列），页内不再有页签条。
+         ⚠️ `mainTab` 仍在，但**改由 URL 的 `?tab=` 驱动**（见下方脚本区那段注释）
+            —— 否则从弹窗点「返利结算」进来，URL 与页面、标签栏三者会互相矛盾。 -->
 
     <!-- ===== 仪表盘 Tab（A：实际返利全景 / 档位进度 / 预警，默认落地） ===== -->
     <template v-if="mainTab === 'dashboard'">
@@ -1245,6 +1239,61 @@ const rules = ref([])
 const _route = useRoute()
 const _router = useRouter()
 
+/* ---------------------------------------------------------------------------
+   v396（2026-10-08）：**主 Tab 改由 URL 的 `?tab=` 驱动**（此前是纯本地状态）
+   ---------------------------------------------------------------------------
+   为什么必须改：页签条按 Q3 A 退役 ⇒ 页内没有切换按钮了，唯一入口是侧栏弹窗
+   （它带 `?tab=`）。若 `mainTab` 仍是本地 ref：
+     · 从弹窗点「返利结算」进来，URL 是 `?tab=contracts` 而页面停在仪表盘（对不上）；
+     · **更糟**：标签栏的标题取自 URL ⇒ 显示「返利结算」而页面是仪表盘，界面在说谎。
+   归一规则与 `constants/tabTitles.js` 的 `_default` 一致：省略 tab ⇒ dashboard。
+   ⚠️ 取数不受影响：本页 `onMounted` 是**全量加载**（见文件末那一行），
+      任意 mainTab 落地都拿得到数据；`switchTab` 里的按需加载只是增量优化。
+   --------------------------------------------------------------------------- */
+const TAB_KEYS = ['dashboard', 'rules', 'achv', 'contracts', 'settle', 'promises']
+
+function tabFromUrl(q) {
+  const t = String((q && q.tab) || '')
+  return TAB_KEYS.indexOf(t) >= 0 ? t : 'dashboard'
+}
+
+/* 首屏就按 URL 落地（`_route` 已可用；写在 setup 同步段，渲染前生效，无闪烁）。 */
+mainTab.value = tabFromUrl(_route.query)
+
+/** 切页的**唯一实现**（取数 + 状态同步）—— `switchTab`（页内按钮）与路由 watch 都走它。 */
+async function applyTab(t) {
+  if (t === mainTab.value) return
+  // v173：两个月签都用月度键（YYYY-MM），月份恒双向同步。
+  if (t === 'dashboard') dashMonth.value = achvMonth.value
+  else if (t === 'achv') achvMonth.value = normAchvMonth(dashMonth.value)
+  mainTab.value = t
+  if (t === 'achv') { await loadAchievements(achvMonth.value); await loadYearAchievements() }
+  else if (t === 'dashboard') await loadAchievements(dashMonth.value)
+  else if (t === 'contracts') await loadContracts()
+}
+
+/* 浏览器前进/后退、或点标签栏切到本页的另一个子页 ⇒ 跟着 URL 走。 */
+watch(() => (_route.query || {}).tab, function () {
+  const t = tabFromUrl(_route.query)
+  if (t !== mainTab.value) applyTab(t)
+})
+
+/** 把子页写进 URL（`replace`：切页签不产生历史记录，与退役前行为一致）。
+ *  🔴 已经是目标状态就不 replace —— 重复 `router.replace` 同一 URL 会抛
+ *     "Avoided redundant navigation"（vue-router 4），而且会多出一条无意义的路由记录。
+ *     唯一的例外：URL 上还挂着一次性的 `edit_rule`，那种情况必须清掉它。 */
+function syncTabUrl(t) {
+  const q0 = _route.query || {}
+  const cur = String(q0.tab || '')
+  const want = (t === 'dashboard') ? '' : t
+  if (cur === want && !q0.edit_rule) return
+  const q = { ...q0 }
+  delete q.edit_rule                    // 一次性编辑指令，消费过就不要再带回 URL
+  if (t === 'dashboard') delete q.tab   // 默认子页省略 ⇒ `/rebate` 与 `?tab=dashboard` 同义
+  else q.tab = t
+  _router.replace({ path: _route.path, query: q })
+}
+
 /* v387（2026-10-06）：把「档案管理 → xx」这类**提示文案**变成真能点到的入口。
    背景：`合约` 弹窗里原本有两句指路文案（「档案管理 → 供应商」「档案管理 → 品牌档案」），
    但它们是**死文本** —— 一句指向当时**并不存在**的页面（供应商档案页 v387 才有），
@@ -1555,7 +1604,9 @@ function onAnomalyClick(a) {
   if (!a || a.type !== 'conflict') return
   // 目标重复 → 冲突只发生在「已启用」规则之间，故切到目标与返利并只保留启用规则
   filterActive.value = '1'
-  mainTab.value = 'rules'
+  /* v396：走 `switchTab`（不再直接赋 `mainTab`）—— 它会把 `?tab=rules` 同步进 URL，
+     否则页签条退役后「标签栏标题」与「页面显示」会对不上。 */
+  switchTab('rules')
   toast('重复目标只可能出现在「已启用」规则之间，已为你筛出启用规则', 'warn')
 }
 
@@ -1877,16 +1928,14 @@ function resolveProductKey(key) {
   return byBarcode.get(s) || byName.get(s.toLowerCase()) || s
 }
 
+/* v396（2026-10-08）：页签条退役后，本函数只剩**页内**入口在用（异常区分流、
+   预警区跳转、以及各处「去填报 / 看规则」按钮）。切页逻辑已抽到 `applyTab`，
+   URL 同步抽到 `syncTabUrl` —— 三处（页内按钮 / 路由 watch / 弹窗直达）共用同一份实现。
+   🔴 先同步 URL 再切页：标签栏读的是 URL ⇒ 两者同时到位，不会出现"标题先说、
+      页面后到"的错位帧。 */
 async function switchTab(t) {
-  // v173：两个月签都用月度键（YYYY-MM），月份恒双向同步。原来「仅月口径同步」的例外
-  //   是季/年键会破坏仪表盘的 YYYY-MM 格式 —— 那个例外本身就是在补偿桶口径不一致，
-  //   现在桶只有一个月度桶，例外随之取消（在达成填报里换了月份，切到仪表盘就是同一个月）。
-  if (t === 'dashboard') dashMonth.value = achvMonth.value
-  else if (t === 'achv') achvMonth.value = normAchvMonth(dashMonth.value)
-  mainTab.value = t
-  if (t === 'achv') { await loadAchievements(achvMonth.value); await loadYearAchievements() }
-  else if (t === 'dashboard') await loadAchievements(dashMonth.value)
-  else if (t === 'contracts') await loadContracts()
+  syncTabUrl(t)
+  await applyTab(t)
 }
 
 /** 「周期」列的 hover 说明：讲清「本月目标」这个数是怎么来的 / 为什么为空。
@@ -3283,7 +3332,10 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchiev
 /* 主 Tab：目标规则 / 达成填报
    🔴 2026-09-18 起 .main-tabs / .main-tab 已上提到 `styles/variables.css`（全局层）——
    货损核算页要照本页的样子分 tab，两页必须共用同一份，故此处不再重复定义。
-   本页的 @media print 里仍隐藏 .main-tabs（只作用于本页，见文件末尾）。 */
+   🔴 v396（2026-10-08）：**本页的页签条已退役**（Q3 A）⇒ 这里不再有 `.main-tabs` 元素。
+      全站那份全局样式仍在（`Forecast.vue` 还用它），本页只是不再消费；
+      文件末尾 `@media print` 里对 `.main-tabs` 的隐藏规则**保留不动**（它同时
+      隐藏 toolbar 等真正还在的块，且多一条不匹配的选择器无副作用）。 */
 
 /* 达成填报 Tab */
 .achv-card{padding:16px}

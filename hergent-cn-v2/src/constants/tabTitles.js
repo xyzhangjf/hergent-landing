@@ -1,0 +1,91 @@
+/* ============================================================================
+   tabTitles.js —— 「子页签标题」唯一源（v396，2026-10-08）
+   ============================================================================
+
+   用途：全局标签栏（`components/TabBar.vue`）给**同一个 path、不同 `?tab=`** 的
+   页面起名字。没有它，`/rebate?tab=achv` 与 `/rebate?tab=rules` 会**同名**
+   （都叫「目标与返利」）⇒ 标签栏里两条一模一样的标签，分不清谁是谁。
+
+   ---------------------------------------------------------------------------
+   🔴 与 `pages.js::pageTitle(path)` 的分工（**不要**互相抄）
+   ---------------------------------------------------------------------------
+     · 主标题（按 path）  → `constants/pages.js` 的 `PAGE_RULES[path].title`，
+                            经 `pageTitle(path)` 读。**那里是权威，本文件不重复登记。**
+     · 子页标题（按 tab） → 本文件。键 = `path`，值 = `{ tabKey: '中文名', _default: '…' }`。
+
+   取标题的唯一入口是 `tabTitle(path, query)`（本文件导出）—— 调用方**不要**自己
+   先查 `SUB_TITLES` 再回落 `pageTitle`，那样"回落顺序"就会出现第二份实现。
+
+   🔴 `_default` 的含义：该 path **不带 `tab` 参数**时落在哪个子页 ——
+       注意它写的是**子页 key**（不是中文名），这样一处定义同时服务三件事：
+         · 标签标题回落（`tabTitle('/rebate', {})` → SUB_TITLES['/rebate']['dashboard'] = '仪表盘'）；
+         · 标签 key 归一（`/rebate` 与 `/rebate?tab=dashboard` **必须是同一个标签**，
+           否则点弹窗「仪表盘」进来会看到两条同名标签）；
+         · 侧栏当前项高亮（URL 省略 tab 时，仍要认出停在哪个子页，见 `effTab`）。
+       若某 path 没有 `_default` ⇒ 它没有子视图，回落主标题（`pageTitle`）。
+
+   🔴 tabKey 必须与页面里 `?tab=` 的**实际取值逐字一致**（改任一侧都要同步）：
+       · `Rebate.vue`        的 `mainTab`   —— dashboard / rules / achv / contracts / settle / promises
+       · `LossAccounting.vue` 的 `mainTab`   —— dashboard / fill
+       · `Print.vue`         的 `TABS`      —— templates / settings / logs
+       · `Forecast.vue`      的 `TAB_KEYS`  —— summary / history / config / target
+       写错的后果是**静默**的：标签只会显示主标题（看着"也能用"），
+       直到同 path 开第二个标签才发现两条同名。
+   ========================================================================= */
+
+export const SUB_TITLES = {
+  '/rebate': {
+    _default: 'dashboard',
+    dashboard: '仪表盘',
+    rules: '目标配置',
+    achv: '达成填报',
+    contracts: '返利结算',
+    settle: '结算节奏',
+    promises: '厂家承诺'
+  },
+  '/loss-accounting': {
+    _default: 'dashboard',
+    dashboard: '货损核算',
+    fill: '货损填报'
+  },
+  '/print': {
+    _default: 'templates',
+    templates: '打印模板',
+    settings: '打印设置',
+    logs: '打印记录'
+  },
+  '/forecast': {
+    _default: 'summary',
+    summary: '本期预报',
+    history: '历史期次',
+    config: '报单配置',
+    target: '商品目标'
+  }
+}
+
+/** path → 默认子页 key（只从上面的 `_default` 派生，不再手抄第二份名单）。 */
+export const DEFAULT_SUB_KEY = Object.keys(SUB_TITLES).reduce(function (m, p) {
+  const d = SUB_TITLES[p]._default
+  if (d) m[p] = d
+  return m
+}, {})
+
+/**
+ * 「**有效 tab**」—— 把 URL 省略的默认 tab 补全后再比较。
+ *
+ * 🔴 为什么必须有它：`/rebate`（无 tab）实际渲染的就是仪表盘，而侧栏「仪表盘」那条的
+ *    `to` 是 `/rebate?tab=dashboard`。若高亮直接拿 `''` 和 `'dashboard'` 比 ⇒
+ *    **两条都不亮**（用户站在仪表盘上，侧栏却不告诉他"你在这")。
+ *    同理标签 key 也要归一，否则同一个页面会开出两个标签。
+ * ⚠️ 没有子页的 path（绝大多数）两边都返回 `''` ⇒ 退化成原行为，不受影响。
+ */
+export function effTab(path, tab) {
+  const t = String(tab || '')
+  if (t) return t
+  return DEFAULT_SUB_KEY[path] || ''
+}
+
+/** 该 path 是不是「有子页签的页」（用于探针与文档自证，不参与渲染判据）。 */
+export function hasSubTabs(path) {
+  return !!SUB_TITLES[path]
+}
