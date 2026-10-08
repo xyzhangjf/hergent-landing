@@ -125,9 +125,27 @@ for name, s_need, c_need in PAIRS:
 
 # v401：序号列的基础样式已**上提全局**（唯一源 = variables.css），不再是 Forecast.vue 私有，
 #   ⇒ 单独判（代码侧要落在 variables.css 上，而不是靠 Forecast 里的 COL_DEFAULTS）。
-ck(('46px' in sec) and ('table.tbl .seq-th{width:46px;min-width:46px' in vars_css),
-   '%-22s 规范 ∧ variables.css 唯一源（46px）' % '序号列宽上提全局',
-   'spec=%s vars=%s' % ('46px' in sec, 'table.tbl .seq-th{width:46px;min-width:46px' in vars_css))
+#
+# 🔴 2026-10-08 回查时修一处**护栏自身烂掉**：本断言原先写死字面量
+#   `'table.tbl .seq-th{width:46px;min-width:46px' in vars_css`，
+#   而 **v402 已把选择器改成 `table.tbl th.seq-th, table.seq-host th.seq-th`**
+#   （为压过 Vue scoped 补 `[data-v-xxx]` 后的 (0,2,1) 同分覆盖；详见 UI-SPEC §2.6.1 与 v402 行）
+#   ⇒ 该断言**自 v402 起恒 FAIL**，只因 v402 之后没人再跑这个脚本而没被看见。
+#   ⇒ 改为「**剥注释 + 剥空白后按选择器片段**判」：v401 单臂（`.seq-th`）与 v402 双臂
+#   （`th.seq-th` + `table.seq-host`）两种形态都认，且要求 46px 落在**真规则**上、不在注释里。
+#   ⚠️ 别退回写死字面量 —— 这正是本条失守的成因。
+_vars_css_nc = re.sub(r'\s+', '', strip_comments(vars_css))
+_SEQ46_RE = r'table\.tbl(?:th\.seq-th|\.seq-th)[^{]*\{width:46px;min-width:46px'
+_seq46 = bool(re.search(_SEQ46_RE, _vars_css_nc))
+# 反例自证：把 46px 换成别的值 ⇒ 上式必须转 False（证明判据不是恒真）
+_seq46_probe = bool(re.search(_SEQ46_RE, _vars_css_nc.replace('width:46px;min-width:46px',
+                                                              'width:99px;min-width:99px')))
+ck(('46px' in sec) and _seq46,
+   '%-22s 规范 ∧ variables.css 唯一源（46px，剥注释/空白后按选择器片段判）' % '序号列宽上提全局',
+   'spec=%s vars=%s' % ('46px' in sec, _seq46))
+ck((not _seq46_probe) and _seq46,
+   '%-22s ★反例自证：把 46px 改成 99px 后上式确实转 False' % '序号列宽上提全局',
+   'probe=%s（应为 False）' % _seq46_probe)
 
 # ---------- C. 关键机制 ----------
 print('\n[C] 关键机制（§2.6.1 点了名，代码必须有）')

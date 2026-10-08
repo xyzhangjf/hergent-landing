@@ -6,41 +6,42 @@
 
 - **前端**（页面/样式/表格/数字格/工具栏/选中高亮/Excel 对标/hash 路由/文案/页内门禁/深色）→ `topics/frontend-ui.md`
   · 撤入口 ≠ 撤路由（手敲 URL 照进）⇒ `meta.roles`+`roleIn()`；全屏图层坑 `§v209`
-  · 🔴 入口可见性唯一源 = `pages.js`（`module`×`roles`；窄名单行必 `lock`；未登记 = 失门禁）；守卫**只判角色轴** ⇒ 页内挂横幅；模块名唯一源 = `MODULE_LABEL`
+  · 🔴 入口可见性唯一源 = `pages.js`（`module`×`roles`；窄名单行必 `lock`；未登记=失门禁）；守卫**只判角色轴** ⇒ 页内挂横幅；模块名唯一源 = `MODULE_LABEL`
   · 🔴 **v348–351** `permView.js` 唯一源、`module:null`=**只读**；多写入口 ⇒ 规则单一实现；搜索 = **查找非筛选**、域页签≡作用
   · 🔴 **v296/300** `roleIn`「未知」两判；`data` 拆 `cron`/`bid`；档案角色下拉 = 动态值域（403 静默降级）；「适用端」唯一源 = `ROLE_END`
   · 🔴 **v331/338/339** 文案三禁：细节／复述／枚举值 ⇒ 技能 `hergent-ui-copy-guard`；**v335** `canDo(模块,动作)` 三态 fail-open、键错 ⇒ 整页按钮消失
-  · 🔴 **v357** 雷达 `region`=裸省名、记忆顶层同步读；**v362/363/367** 深色（基类反色 ⇒ 白块、28 幽灵变量）
+  · 🔴 **v357** 雷达 `region`=裸省名、记忆顶层同步读；**v362/363/367** 深色（基类反色⇒白块）
   · 🔴 **v377** 三轴（cell/row/col）互斥、行轴满宽/列轴满高；进轴前必 `commitPendingEdit`；轴判据 = 列元数据非 DOM `§v377`
-  · 🔴 **v378**「选中跨度」≠「定位指示」必两条通道（混成 1 类 ⇒ 点 1 格亮 154 格）；上色只来自 `spanHas()`；⚠️ `selected.r<0` 守卫不可丢 `§v378`
-  · 🔴 **Excel 对标**：网格能力只在 `Forecast.vue`；过期注释当事实＋「写了」≠「可达」`§Excel对标`｜**v379**（未上线）`§v379`
+  · 🔴 **v378**「选中跨度」≠「定位指示」必两条通道；上色只来自 `spanHas()`；⚠️ `selected.r<0` 守卫不可丢 `§v378`
+  · 🔴 **Excel 对标**：网格能力只在 `Forecast.vue`；过期注释当事实＋「写了」≠「可达」`§Excel对标`｜**v379**（未上线）
   · 🔴 **v382** 弹窗三按钮合一、写库前必抄快照 `§v382`｜**v383/384** 换 `editTarget` 必配重建编辑态 `§v383/384`
   · 🔴 **v385** 新建员工/选角色/开账号一屏一次完成；两态共用一份 v-model；**密码先校验再落库** `§v385`
   · 🔴 **v390/393** 侧栏 **8 项职能区**+L1「＋」；**无 `path` 闸门 ⇒ 整区冒给不该看的人**（收窄唯一口 = `resolveNavItem`）；**v393b 抽屉缺 `max-height` ⇒ 顶部够不到**；判「在眼前」**按视口判** `§v390·§v393`
-  · 🔴 **v394** UI-SPEC §8 进销存范式：**同选择器 ≥3 次且逐字同 ⇒ 上提全局类**（欠账 `.page-acts` 9 处）；深色 = **沿祖先链 alpha 合成**＋**白块=亮且近灰** `§v394`
+  · 🔴 **v394** UI-SPEC §8：**同选择器 ≥3 次且逐字同 ⇒ 上提全局类**（欠账 `.page-acts` 9 处）；深色=沿祖先链 alpha 合成 `§v394`
   · 🔴 **v395/396** 弹窗**横向分列**；**模块内页签退役 ⇒ 标签栏**（点一开一／⟳左／关尽回首页／上限18；退役必补入口）`§v396`
-  · 🔴 **v403** 动作条贴底=高度链+`margin-top:auto`两半（非`flex:1`）；`counts` 不含 status 的 `base_where`；创建人读主库 `users` `§v403`
+  · 🔴 **v403** 动作条贴底=高度链+auto两半（非`flex:1`）；`counts` 不含 status 的 `base_where`；创建人读主库 `users` `§v403`
+  · 🔴 **v404/补档** 页内 Tab **第三类**=单据视图（每实例都要这几面 ⇒ **禁塞标签栏**）`§v404`
 
 - **后端**（权限/账号/DB/报 500/路由遮蔽/角色授权/幽灵模块/动作轴/只读 POST）→ `topics/backend-invariants.md` + `backend-auth.md`
   · 🔴 **v317** 路由遮蔽：同路径**先注册者胜** ⇒ 加字段前必验生效的是哪份
   · RBAC 最外层 ⇒ `_check_perm` 时无租户，须显式传 `tenant_id=`；参数错回 500 = `ValidationError`
-  · 🔴 恒空恒 0 且零报错 = 静默失效 ⇒ `tools/undefined-call-scan.py`；读数「碰巧对」⇒ 先问「恒定值=当前事实？」
+  · 🔴 恒空恒 0 且零报错 = 静默失效⇒`tools/undefined-call-scan.py`；读数「碰巧对」⇒ 先问「恒定值=当前事实？」
   · 🔴 静默洞四条：**只下发表不下发索引**／**窗口当主键**（v279）／**白名单漏字段**／**租户上下文读 `tenants` 撞影子表**（v352）
   · 🔴 **幽灵 inode**：换库+连接缓存 ⇒ 句柄仍指已删 inode ⇒ **先删后重启**；`DB_PATH` **两份** ⇒ 影子库**两处都 patch**（v289）
   · 🔴 **代码默认 vs 租户覆盖**：`_DEFAULT_PERMS` 只管未被租户库覆盖的角色 ⇒ 改默认必同批迁库；`perms_for` 缓存无 TTL ⇒ 必重启；判「谁有 X」须展开 `admin` 的 `["*"]` `§v333/334`
-  · 🔴 映射**首个 `startswith` 即停**；拆模块**三处缺一**；`is_custom` **≠**「自定义角色」⇒ 用 `isCanonicalRole` `backend-auth.md §2`
+  · 🔴 映射**首个 `startswith` 即停**；拆模块**三处缺一**；`is_custom` **≠**「自定义角色」⇒ 用 `isCanonicalRole` `backend-auth §2`
   · 🔴 **v328** 幽灵模块（0 映射却有勾选框）／造角色**堵后门+开正门**／改角色不动登录端 `§v328`
   · 🔴 **v335** 门禁用**接口模块**非页面模块；动作 = HTTP 方法（停用/重置密码/审核 = `create`）；`_READ_ONLY_POST` 漏 `simulate-batch` `§v335`
 
 - **部署 / 上线 / 旧前端 `static/`**（构建/夹带/chunk 改名/生效集）→ `topics/deploy-ops.md`（§v230/277/293/297/**v329 停用≠废弃**）
-  · 🔴 路径别靠记忆：后端 FLAT `/opt/hergent-erp/`；前端**根** `/opt/hergent-cn-v2`；⚠️ `admin/` = alias `/opt/hergent-admin/` ⇒ 核验查**根**
+  · 🔴 路径别靠记忆：后端 FLAT `/opt/hergent-erp/`；前端**根** `/opt/hergent-cn-v2`；⚠️ `admin/`=alias `/opt/hergent-admin/` ⇒ 核验查**根**
   · 🔴 **chunk 名什么都判不了**（hash 级联**两级**：改任一 chunk ⇒ `__vite__mapDeps` 变 ⇒ 入口＋所有 importer 改名）
   · 🔴 **「生产无 X」有保质期**（发版后必回查入口 chunk）；⚠️ 沙箱 `ProtectHome=true` 挡「服务内取数」⇒ 页面空零报错；**接口 200 ≠ 数据正常**
   · 🔴 **绝不用 `git stash`** 做对照构建（会移走别人**已上线**改动）⇒ 改共享文件前**先 `cp` 备份+记字节数**；中间产物须在**最后编辑之后**重建；多会话 ⇒ **隔离 outDir**
   · 🔴 生产 `assets/` 是历次构建**并集**（上传**绝不 `--delete`**）；加列靠启动期对账 ⇒ 读 `[schema-sync] … 补列(+N)`
   · 🔴 **共享工作区替你上线**：别人整包构建带上你的在途改动 ⇒ 改完尽早提交别冒认；线上第三态 ⇒ scope-id 摘 hunk 重建
   · 🔴 **后端判据 = 生产 md5 == HEAD md5**；前端构建前必查 `src` mtime → 技能 §8.6
-  · 🔴 **v378 零夹带四路**（基名+字节／**全 token 归一**／`scopeId`／vs **生产生效集**）`§v378`｜**v393** 上传必整包（少传 = 动态 import 404）`§v393`｜🔴 判据写**「内容差异」不写「文件名差异」**（哈希**级联**）`§v404`
+  · 🔴 **v378 零夹带四路**（基名+字节／**全 token 归一**／`scopeId`／vs **生产生效集**）`§v378`｜**v393** 上传必整包（少传=动态import404）｜🔴 判据写**「内容差异」不写「文件名差异」**（哈希**级联**）`§v404`
 
 - 🔴 **受控提交** → `deploy-ops §v230/§v381` ＋**依赖闭包**（新 import 须在 HEAD）→ 技能 `hergent-scoped-commit`
 
@@ -68,7 +69,7 @@
   · 🔴 **入库批次三列**：明细 INSERT 不写 ⇒ `confirm` 读空 ⇒ 生产 `inventory` 效期**全空**（v392 修）；批次号空 ⇒ `batch_in` 每行新建不累加
   · 🔴 **FEFO**：过期批次不可售、无到期日排最后、**不足整体拒绝不部分扣**；`sale_order_deliver` 只收 `draft`；`sale_order_list` 返回 `{'orders','total'}` **非行列表**；`order_type` 必**追加参数表末尾**
   · 🔴 **v392b** 模板调 `fmtMoney` 漏 import ⇒ **整页崩＋父页签一起消失**；护栏 `v392b-template-symbol-guard.py`
-  · 🔴 **v403/404** 采购重塑＋详情三页签（`?tab=`）：`oid`/`kind` 必 `computed`+`watch`（**同 record 换 params 复用实例** ⇒ 显示旧单零报错）；创建人**必读主库 `users`**（与 `hr_employees` **两套编号**）；`fi.payment_create` 的 `ref_id`=**`receivables.id`** ⇒ 传单 id **改错行**；`confirm` **从不写 `received_qty`**（已修）；**入库单＝派生视图不建表**
+  · 🔴 **v403/404** 采购重塑＋详情三页签（`?tab=`）：`oid`/`kind` 必 `computed`+`watch`（同 record 换 params 复用实例⇒显示旧单零报错）；创建人**必读主库 `users`**（与 `hr_employees` **两套编号**）；`fi.payment_create` 的 `ref_id`=**`receivables.id`** ⇒ 传单 id **改错行**；`confirm` **从不写 `received_qty`**（已修）；**入库单＝派生视图不建表**
 - 🔴 **积分已冻结**：口径 = **套餐档位**；`credits.py` 写端点**停用别修**
 - **报单/小程序/品牌/员工账号/提审/均单目标** → `topics/miniprogram-and-brand-data.md`
   · 「能登录」≠「能干活」：`/api/auth` 豁免 RBAC；角色缺 `data` ⇒ 每动作 403；`password_changed=0` = 首登必改密
@@ -95,7 +96,7 @@
 
 ## 三、编号约定（⚠️ 起号前必做）
 
-已用到 **v404**（⚠️ v393 同号两用；**v405**＝`/forecast` 页签退役，另一会话）。起号：① 读号表 ② 实搜**未提交文件**＋两仓 git log；**下轮从 v406 起**。→ `topics/version-history.md`
+已用到 **v404**（⚠️ v393 同号两用；v405＝`/forecast` 页签退役）。起号：① 读号表 ② 实搜**未提交文件**＋两仓 git log；**下轮从 v406 起**。→ `topics/version-history.md`
 🔴 **v391/392** 进销存薄壳 15 端点 ⇒ **八页全链**；`inventory` 默认只 boss；**唯一不可委派 = `receive`**；403 判据看 `error_code`
 🔴 跨会话判「谁的改动」**比特征串不比字节差**；「同一规则抄多份」⇒ 漏抄那份**整页崩** `§v376/377`
 
@@ -104,6 +105,6 @@
 hergent-cn-v2（`laozhangai-product`）｜hergent-erp（FastAPI+SQLite）｜🔴 脱敏红线：返利率/进货价/客户名/区域销量/厂家政策。
 🔴 仓内含**生产凭据明文** ⇒ 远端须 private、**入库前跑凭据扫描**；个人 PII 不落 `outputs/`（环境变量＋打码＋`grep` 自证 0）。
 
-## 五、本机坑 → `topics/local-machine-pitfalls.md`（§10–§41）
+## 五、本机坑 → `topics/local-machine-pitfalls.md`（§10–§43）
 
-🔴 五条最常踩：`grep "A\|B"` 静默失效 ⇒ `-e`；`&&` 短路；`| head -N` 截命中；**zsh 通配无匹配 abort 整条**；**探针别放 `/tmp`**。→ 全部 `§10–§42`（含**相位反转自证判别力**／**模板串禁裸反引号**／`cmd &` 活不过调用）
+🔴 五条最常踩：`grep "A\|B"` 静默失效 ⇒ `-e`；`&&` 短路；`| head -N` 截命中；**zsh 通配无匹配 abort 整条**；**探针别放 `/tmp`**。→ 全部 `§10–§43`（含**相位反转自证判别力**／**模板串禁裸反引号**／**自检断言禁写死字面量**／`cmd &` 活不过调用）
