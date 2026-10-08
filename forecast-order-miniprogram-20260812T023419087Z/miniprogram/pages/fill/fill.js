@@ -53,6 +53,21 @@ Page({
        ⚠️ 「继续修改」是唯一出口 —— 它同时也是防重复提交的一环（见 submit()）。 */
     submitResult: null,        // 提交成功回执卡数据；非空即显示，显示期间底部提交栏让位
     submitError: null,         // 提交失败错误条 { msg, retryable, kind, hint }
+    /* v393（2026-10-07）：**提交前明细核对层**。
+       用户原话：「提交报单的时候，弹窗里边能不能显示本次提交的这个订单的明细，
+                 让用户可以检查自己。如果不合适，可以直接点取消，然后返回去再修改。」
+       为什么必须**自绘**而不能用 `wx.showModal`：它的 content 是**纯文本**，而一次报单
+       常几十项（本项目单期清单实测 154 行）⇒ 塞进弹窗只能显示前几行，
+       **看不全就等于没检查**，反而给出"我核对过了"的错觉。
+       为什么**改单路径也要它**：原实现里 `dup` 存在时直接 `confirmed = true`，
+       **跳过一切确认界面** ⇒ 恰恰是"改了数量重报"这个最需要核对明细的场景，
+       用户反而一个商品都看不到（详见 `_doSubmit()` 里的说明）。
+       ⚠️ 标题沿用「确认提交预报？」—— D21/D22/D24 三条验收的锚点就是这串文案，
+          本次只换载体（原生弹窗 → 页内层），文案一字不改，既有验收串全部继续成立。 */
+    confirmOpen: false,        // 明细核对层是否展开
+    confirmRows: [],           // 明细行 [{ key, name, spec, qty, unit, low }]；low ∈ ''|'未达标'|'未填'
+    confirmDup: null,          // 改单场景 { sid, count, qty }；非空 ⇒ 层内提示"将更新这一单"
+    confirmLow: 0,             // 本单内低于均单目标的项数（>0 ⇒ 层内顶部汇总一行）
     /* v304（2026-09-28）：本期报单进度提醒条 —— 「还有几个单元没报 / 我负责的还没报」。
        为什么要有它：企微/站内信是**推出去**，而销售每天必开小程序 —— 这是**零授权、必达**的
        那一条（微信订阅消息对「工具→效率」这类目拿不到长期订阅，只能一次性授权，
@@ -90,6 +105,13 @@ Page({
      （第二次覆盖第一次，结果虽然不重复落单，但用户会看到两次"提交成功"）。
      实例锁在函数第一行就置位，绕开 setData 的异步窗口。 */
   _submitLock: false,
+  /* v393（2026-10-07）：明细核对层的 Promise 兑现句柄 —— 见 `_askConfirm()`。
+     `_askConfirm()` 返回一个挂在这里的 Promise，由 `confirmSubmit()`（true）或
+     `cancelConfirm()`（false）兑现。放实例属性而非 data：它是"谁在等这个框"的内部
+     状态，页面不渲染它（进 data 只会白跑一次 setData）。
+     ⚠️ 两个出口都必须**先清空再兑现** —— 否则第二次提交会去 resolve 一个已经结束的
+        Promise（不报错、静默失效，提交会像"点了没反应"）。 */
+  _confirmResolve: null,
   /* v370（2026-10-03）：商品行「库存 · 日均」整段文案 —— 老板选项 A + B + C。
      · **A 带单位**：原来写死「库存 745 · 日均 6852.97」两个数都不带单位，
        而同屏的「均单目标 248 包」是带单位的 ⇒ 同页标注不一致，必被误读。
@@ -1559,6 +1581,61 @@ Page({
     this.setData({ submitResult: null })
   },
 
+  /* ==================== v393（2026-10-07）：提交前「明细核对层」 ====================
+     用户原话：「提交报单的时候，弹窗里边能不能显示本次提交的这个订单的明细，让用户可以
+               检查自己。如果不合适，可以直接点取消，然后返回去再修改。」
+     · 它**取代的只是最后一步**「确认提交预报？」那个原生弹窗；
+       未达标提醒、改单（dup）提醒两条**原样保留**（它们各有验收依赖，见 `_doSubmit()`）。
+     · 「返回修改」= 只关掉这一层，**一个已填数量都不动**（购物车本来就在本机 Storage 里，
+       关个层更不会碰它）—— 这正是用户要的"点取消，然后返回去再修改"。 */
+  _askConfirm() {
+    const { cart } = this.data
+    /* 未达标标记：只标注**本单里**的商品。
+       `_lowList()` 是按**整期目标表**遍历的（所以它也会列出"完全没填"的商品），
+       而没填的商品根本不进 cart ⇒ 不属于"本次提交的明细"，不列进来。
+       ⚠️ `_avgHolder === false` 的短路与 `_doSubmit()` 里那条提醒**同一判据**：
+          非目标承接人（如分销商唐成）不拿别人的目标来给他标红。 */
+    const lowMap = {}
+    ;(this._avgHolder === false ? [] : this._lowList()).forEach(x => {
+      lowMap[String(x.id)] = x.empty ? '未填' : '未达标'
+    })
+    // 行序 = cart 顺序 = 用户填报顺序；**绝不重排**（商品顺序是后端契约，见 _lowList 注释）
+    const rows = cart.map(c => ({
+      key: c.key,
+      name: c.name,
+      spec: c.spec || '',
+      qty: c.qty,
+      unit: c.unit || '',
+      low: lowMap[String(c.id)] || ''
+    }))
+    const dup = wx.getStorageSync(this._subKey()) || null
+    return new Promise(res => {
+      this._confirmResolve = res
+      this.setData({
+        confirmOpen: true,
+        confirmRows: rows,
+        confirmLow: rows.filter(r => r.low).length,
+        confirmDup: (dup && dup.sid) ? dup : null
+      })
+    })
+  },
+  /* 层内「确认提交」—— 兑现 Promise(true)，`_doSubmit()` 接着发请求。 */
+  confirmSubmit() {
+    const r = this._confirmResolve
+    this._confirmResolve = null      // 先清空再兑现（否则下次提交会 resolve 一个已结束的 Promise）
+    this.setData({ confirmOpen: false })
+    if (r) r(true)
+  },
+  /* 层内「返回修改」—— 兑现 Promise(false) ⇒ `_doSubmit()` 直接 return。
+     ⚠️ 这里**只关层**：不清 cart、不清行内数量、不写 Storage。 */
+  cancelConfirm() {
+    const r = this._confirmResolve
+    this._confirmResolve = null
+    this.setData({ confirmOpen: false })
+    if (r) r(false)
+  },
+  noop() {},   // v393: 阻断弹层内部的点击/滑动冒泡到遮罩（照 login.js 的 A3 范式）
+
   /* v224：单号一键复制 —— 结果卡上的单号必须**能被拿去用**（对账、报给主管、找回这一单）。 */
   copySid() {
     const sid = (this.data.submitResult || {}).sid
@@ -1570,7 +1647,9 @@ Page({
   },
 
   async _doSubmit() {
-    const { cart, store, period, cartQty } = this.data
+    // v393：`cartQty` 从解构里去掉 —— 原来只有那个「共 N 项 / M 件」的 showModal 用它，
+    //       现在件数由明细层从 `confirmRows` 自己算，留着就是一个没人读的变量。
+    const { cart, store, period } = this.data
     if (!cart.length) {
       wx.showToast({ title: '还没填数量，先在商品行填数量', icon: 'none' })
       return
@@ -1643,7 +1722,6 @@ Page({
        也会让人按"新增"去理解对账。现在三件事一次说清：改的是哪一单、单号不变、不会多一条。
        ⚠️ showModal 的 content 是**纯文本**，不要写 markdown 强调符号（`**` 会原样显示）。 */
     const dup = wx.getStorageSync(this._subKey())
-    let confirmed = false
     if (dup && dup.sid) {
       const ok = await new Promise(res => {
         wx.showModal({
@@ -1656,22 +1734,17 @@ Page({
         })
       })
       if (!ok) { wx.switchTab({ url: '/pages/mine/mine' }); return }
-      confirmed = true
     }
-    // 二期 Q2: 首次提交也加一次性确认（展示门店/期次/数量摘要，防误触提交）
-    if (!confirmed) {
-      const ok = await new Promise(res => {
-        wx.showModal({
-          title: '确认提交预报？',
-          content: `门店：${store.name}\n期次：${period.name || period.display || ''}\n共 ${cart.length} 项 / ${cartQty} 件`,
-          confirmText: '确认提交', cancelText: '再检查',
-          confirmColor: '#06b6d4',
-          success: (r) => res(!!r.confirm),
-          fail: () => res(false)
-        })
-      })
-      if (!ok) return
-    }
+    /* v393（2026-10-07）：最后一步改为**明细核对层**（取代原「确认提交预报？」原生弹窗）。
+       🔴 本次修的洞：原实现是 `if (!confirmed)` —— 于是 **dup 存在时（= 改单）整段被跳过**，
+          改数量重报的人**看不到任何核对界面**。而改单恰恰是最需要核对明细的场景
+          （用户原话：「让用户可以检查自己…如果不合适，也可以直接点取消，然后返回去再修改」）。
+          ⇒ 现在**无条件**走这一层：首次提交与改单一视同仁。
+       ⚠️ 标题仍是「确认提交预报？」—— D21 / D22 / D24 三条验收的锚点就是这串文案，
+          本次只换载体（原生弹窗 → 页内层），文案一字不改，验收串继续成立。
+       ⚠️ 这层只负责"确认/取消"；「返回修改」不动任何已填数量（见 `cancelConfirm()`）。 */
+    const okConfirm = await this._askConfirm()
+    if (!okConfirm) return
     this.setData({ submitting: true, pendingSubmit: false })
     try {
       // v108-fix: 不再传 price/role（铁律①报单人不看金额；role 由后端按 token 校验）

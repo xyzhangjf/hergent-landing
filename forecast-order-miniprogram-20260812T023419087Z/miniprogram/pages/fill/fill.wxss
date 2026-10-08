@@ -196,3 +196,36 @@
 .fresh-bar{display:flex;align-items:stretch;margin:12rpx 32rpx 0;background:#f1f5f9;border:1rpx solid #cbd5e1;border-radius:14rpx;overflow:hidden}
 .fresh-accent{width:6rpx;background:#94a3b8;flex:none}
 .fresh-text{font-size:22rpx;color:#475569;line-height:1.5;padding:14rpx 24rpx;flex:1;min-width:0}
+
+/* ==================== v393（2026-10-07）：提交前「明细核对层」 ====================
+   用户原话：「提交报单的时候，弹窗里边能不能显示本次提交的这个订单的明细…如果不合适，
+             可以直接点取消，然后返回去再修改。」
+   ⚠️ 层级：z-index 30 —— 必须**高于** .bottom-dock(10) 与 .back-top(20)，
+      否则提交栏 / 回顶按钮会从半屏层下面透出来，看起来像"层没盖住"。
+   ⚠️ 面板竖向 flex + 列表自己滚（scroll-view）：明细几十项时，
+      底部那两个按钮**始终停在原地**（不能让列表把按钮顶出屏幕 ——
+      那正是"想取消却找不到取消按钮"的成因，而取消是这一层最不能缺的出口）。 */
+.cf-mask{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.45);z-index:30;display:flex;align-items:flex-end}
+.cf-sheet{width:100%;background:#fff;border-radius:24rpx 24rpx 0 0;max-height:78vh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+.cf-hd{padding:32rpx 32rpx 20rpx;border-bottom:1rpx solid #f0f0f2}
+.cf-title{font-size:32rpx;font-weight:600;color:#1d1d1f}
+.cf-sub{display:block;font-size:24rpx;color:#86868b;margin-top:8rpx}
+.cf-dup{margin:20rpx 32rpx 0;background:#fff7ed;border:1rpx solid #fed7aa;border-radius:14rpx;padding:16rpx 20rpx;font-size:24rpx;color:#9a3412;line-height:1.5}
+.cf-sum{margin:20rpx 32rpx 0;background:#fef2f2;border:1rpx solid #fecaca;border-radius:14rpx;padding:16rpx 20rpx;font-size:24rpx;color:#b91c1c}
+.cf-body{flex:1;min-height:0;padding:8rpx 32rpx 0}
+.cf-row{display:flex;align-items:center;gap:16rpx;padding:20rpx 0;border-bottom:1rpx solid #f0f0f2}
+.cf-row-low{background:#fffafa}
+.cf-info{flex:1;min-width:0}
+.cf-name{font-size:28rpx;color:#1d1d1f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cf-spec{font-size:22rpx;color:#86868b;margin-top:4rpx}
+.cf-qty{font-size:30rpx;font-weight:600;color:#1d1d1f;flex:0 0 auto}
+.cf-row-low .cf-qty{color:#dc2626}
+.cf-flag{font-size:20rpx;color:#dc2626;background:#fef2f2;border:1rpx solid #fecaca;border-radius:8rpx;padding:4rpx 10rpx;flex:0 0 auto}
+.cf-empty{padding:48rpx 0;text-align:center;font-size:26rpx;color:#86868b}
+.cf-foot{padding:20rpx 32rpx 24rpx;border-top:1rpx solid #e5e5ea}
+.cf-total{font-size:26rpx;color:#1d1d1f;margin-bottom:16rpx}
+.cf-acts{display:flex;gap:16rpx}
+.cf-acts .dock-btn{flex:1}
+/* 「返回修改」复用 .dock-btn-plain，但它默认是结果卡那支绿（#047857）——
+   在这一层里绿色会跟"确认成功"联想在一起，而它其实是**取消**。改成中性灰。 */
+.cf-acts .dock-btn-plain{color:#3a3a3c;border-color:#e5e5ea}
