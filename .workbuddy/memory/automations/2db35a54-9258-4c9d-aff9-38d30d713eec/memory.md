@@ -106,6 +106,18 @@
 
 ---
 
+## 最近执行：2026-10-08
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-07 02:00→10-08 02:00。实质新增＝进销存（PSI）模块：前端 19 文件（18 个新 inventory 页＋api/psi.js/psiLabels.js/pages.js/permView.js/router/index.js 接线）＋ 后端 hergent-erp/server 10 个 .py（routers/psi.py / domain/batch_tracker.py / db/queries/purchases.py / db/queries/sales.py / routers/sales.py 等，属 v391/v392）。**全部已提交**（a96ad3d/1eeabcf/v393 系列），无未提交产品源码。
+- 结果：高 0 / 中 0 / 低 3（新增，均为新建 PSI 详情页原生 `window.confirm`：InvPurchaseDetail.vue:205、InvSaleDetail.vue:162/:185，同族历史 L6）。
+- 历史遗留 7 项（均低，连续多轮）：H1 前端 fire-and-forget 15 处（17→15，useCardTrigger.js 不再命中）/ H2 后端 print 7 处（import_router.py:966/1283/1303/1361 + forecast_submissions.py:773/785/1291）/ H3 v-html 已缓解残 4 处 / H4 BidRadar 内联 svg(:5/:66) / L5 rebate_settlement.py:47/156 缺键3 / L6 SettlementScheduleTab.vue:377 原生 confirm / L7 同文件:274 品牌加载静默。
+- 本轮闭环：无（新增模块非修复）。正向：H1 计数 17→15。
+- 工作进展：**进销存 PSI 八页全链正式落库提交**（工作台 KPI/批次级库存 FEFO 查询/采购销售 CRUD）；长期脏前端工作区经「让 git 追上生产」批次（a920119/57815ac/23000bf）闭合，hergent-cn-v2/src 当前无未提交产品源码。
+- 未提交：窗口文件全已提交；剩余未跟踪＝outputs/ 交付文档、forecast-order-miniprogram/（已排除）、.workbuddy 工具、hergent-erp 的 tools/tests 与 static/dist-* 构建产物。
+- UI 规范：PSI 八页**零硬编码颜色**（grep `#xxxxxx` 零命中）、复用唯一 `.main-tabs`、无 v-html；唯偏离＝3 处原生 confirm（同族 L6）。
+- 安全核查：psi.py SQL 全白名单 where+参数化、每端点 `_auth`、request.json 包 except→400；batch_tracker FEFO 逻辑正确、无裸 except；psi.py `/receive` 显式绕过老链路 AttributeError→500 坏函数。零新增注入/鉴权/异常回归。
+- 报告落盘：docs/code-review/2026-10-08.md（目录 19 份 ≤30，无需清理）。
+
 ## 最近执行：2026-10-07
 - 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
 - 范围：窗口 10-06 02:00→10-07 02:00。落地改动＝前端 5 文件 M（pages.js / Shell.vue / Archive.vue / EmployeeArchive.vue / Rebate.vue，+104/−35）；后端 hergent-erp/server 10 个 .py 窗口内 mtime 但 git 干净（v380–v388 已提交），无未提交后端代码。
