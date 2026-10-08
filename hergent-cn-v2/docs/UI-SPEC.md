@@ -261,11 +261,18 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 **只用令牌上色**（禁硬编码色值）⇒ 深色模式自动跟随，无需页面自己适配。
 图标是 `<Icon>` 线性组件而非 emoji，与全站「装饰性 emoji → `<Icon>` 线性 SVG」的图标纪律同源。
 
-齿轮的定位上下文是表头单元格内的 `.th-in`（**它决定了齿轮横向落在哪**，见下方「已知偏差」）：
+齿轮的定位上下文是表头单元格内的 `.th-in`：
 
 ```css
 .th-in{display:flex;align-items:center;gap:5px;justify-content:space-between}
+.th-in > .col-cfg{margin-inline:auto}   /* 必须 —— 见下 */
 ```
+
+🔴 **`.th-in > .col-cfg{margin-inline:auto}` 不是可选装饰**：序号列格子里**只有齿轮一个子元素**，
+而 `justify-content:space-between` 对单个子元素**等价于 `flex-start`** ⇒ 齿轮被顶到格子左侧、
+与表体 `.seq-num` 的居中线错开（v400 真机量到**右偏 4px**，v401 已修）。
+`margin-inline:auto` 吃掉剩余空间，把它拉回正中。
+（改单态的齿轮是 `<th>` 的**直接子元素**、靠 `.seq-th{text-align:center}` 居中，不经过 `.th-in`，本就不受影响。）
 
 **二、序号：与齿轮同列，落在齿轮正下方**
 
@@ -273,17 +280,47 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 |---|---|
 | 位置 | **表体、与齿轮同一列**（`td.seq-cell`）里的 `.seq-num`。⛔ 不另起一列、⛔ 不放行尾 |
 | 取值 | **1 基连续**（查看态 `it.seq`、改单态 `ri + 1`），跟随**筛选 / 分组后的当前可见行序**重排 |
-| 列宽 | 权威来源 = `<colgroup>` 的 `colW('seq')`，默认 **46px**（`COL_DEFAULTS.seq`），**可拖宽** —— 因 `.cross-tbl` / `.edit-tbl` 是 `table-layout:fixed` |
-| ⚠️ 陈旧值 | `.seq-th` / `.seq-cell` 里另写的 `42px` **不参与布局**（colgroup 胜）—— 属待清理，**勿照抄** |
+| 列宽 | **全站唯一源 = `variables.css` 的 `table.tbl .seq-th` / `.seq-cell`，写死 46px**（v401 上提）。宽表的**权威来源**仍是 `<colgroup>` 的 `colW('seq')`，默认 **46px**（`COL_DEFAULTS.seq`）、**可拖宽** —— 因 `.cross-tbl` / `.edit-tbl` 是 `table-layout:fixed` |
+| 宿主写法 | 表头 `<th class="seq-th">序号</th>`；表体 `<td class="seq-cell"><span class="seq-num">1</span></td>` |
+| ⛔ 别再抄 CSS | **页面里不要再写 `.seq-th` / `.seq-cell` / `.seq-num` 三条规则** —— v401 起已在全局层（见下） |
 | 冻结 | 横向滚动必须随左冻结区粘住：`position:sticky; left:0`；表体 `z-index:6`／表头 `z-index:9`（**表头必须更高**，否则横向滚来的普通表头会盖住它） |
 | 数字形态 | `.seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}` —— **等宽数字**，否则 1↔10 切换时数字左右跳 |
 | ⛔ 不可配置 | 序号列**不在列设置清单里** ⇒ **不可隐藏、不可拖序、不可删除**。它是齿轮的宿主，被藏掉会连入口一起消失 |
 
+**序号列的 CSS 只此一份**（v401 上提；落实 §8.4「同一选择器在站内 ≥3 次且逐字相同 ⇒ 必须上提」——
+`Forecast.vue` ＋ 两个进销存列表页 = 3 处使用 ⇒ 触发）：
+
+```css
+/* src/styles/variables.css —— 表格区（紧接 table.tbl .num 之后） */
+table.tbl .seq-th{width:46px;min-width:46px;text-align:center;padding:8px 4px;vertical-align:middle}
+table.tbl .seq-cell{width:46px;min-width:46px;text-align:center;padding:6px 4px;vertical-align:middle;color:var(--t3);font-size:12px}
+table.tbl .seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
+```
+
+> ⚠️ **横向冻结不在这份全局规则里**：`position:sticky;left:0` ＋ `z-index`（表体 6 ／ 表头 9）
+> 是**宽表特有**需求，由各页按需自己补 —— 基准实现见 `Forecast.vue` 的
+> `.cross-tbl .seq-th` / `.cross-tbl .seq-cell` 三条。**列少、不横向滚动的只读清单不要加 sticky。**
+> `Forecast.vue` 里原先那份 `42px` 副本（不参与布局的陈旧值）v401 已删。
+
 **三、列设置清单（齿轮点开的面板）**
 
-`.col-menu`（`position:absolute; top:38px; left:0`，`max-height:70vh`）+ `.col-menu-list`
+`.col-menu`（**`position:fixed`**、`max-height:70vh`、`min-width:300px`）+ `.col-menu-list`
 （每行 = 拖拽手柄 `⠿` + checkbox + 列名）。**清单里只放可配置列**（主档列 / 客户列）——
-**不含序号列，也不含合计 / 计算列**。
+**不含序号列，也不含合计 / 计算列**。改单态另叠 `.edit-col-menu`（只覆盖 `z-index` 与 `max-width:420px`）。
+
+🔴 **面板位置必须由 JS 按齿轮现算，不许写死 `top` / `left`**（v401 定）：
+
+| 项 | 约定 |
+|---|---|
+| 定位 | `position:fixed` ＋ 内联 `top`/`left`（**视口坐标**），由 `toggleColMenu(e)` 读 `e.currentTarget.getBoundingClientRect()` 算出 |
+| 默认 | 齿轮**正下方**、间距 `gap:6px`；左缘与齿轮左缘对齐 |
+| 越界 | 下方放不下 ⇒ **上翻**到齿轮上方；右侧越界 ⇒ 改右对齐 ⇒ 仍越界则贴视口右边（四周留 `pad:8px`） |
+| 🔴 **必须限高** | **`maxHeight` 由 JS 按可用空间现算**（`spaceBelow = vh − pad − (gear.bottom + gap)`；上方同理），取**更大的一侧**且优先下方；另加 `Math.max(160, …)` 保底。**光"越界就移位"不够** —— 本期预报列清单实测高 **543px**，而齿轮下方只剩 ~520px、上方 ~511px ⇒ 上翻与贴底**都放不下**，菜单照样盖住齿轮。**移位必须与限高配对**，否则"不遮挡触发按钮"根本不成立 |
+| 尺寸校正 | 首帧还量不到菜单 ⇒ 先按兜底尺寸（320）摆位，`nextTick` 后再用真实 `offsetWidth` 校正（**避免先闪一下**） |
+| 滚动 / 改窗口 | 面板是 `fixed`（脱离文档流），任何滚动或 `resize` 都会让它与齿轮脱位 ⇒ 监听 `window` 的 `scroll`（**捕获阶段**，一个监听同时覆盖页面滚动与表格内部滚动）与 `resize`，**直接收起** |
+| ⛔ 禁止 | 写死 `top:38px; left:0` 挂在工具条 `.col-config-bar` 上 —— 那是 v400 之前的错法：齿轮在表头、工具条在**另一坐标系** ⇒ 菜单从左上压下并**盖住齿轮**（实测 Δt=−15px） |
+
+查看态与改单态**共用同一份**定位逻辑（`showColMenu` 唯一；齿轮各自把自身 DOM 存进 `colMenuGear`）。
 
 **四、适用范围与触发条件**
 
@@ -299,23 +336,39 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 >
 > ⚠️ 两个**一起出现**才完整：齿轮的宿主就是序号列表头 ⇒ **要齿轮就必须同时有序号列**，反之不然。
 
-**五、全站现状（v400 实测：尚未铺开）**
+**五、全站现状（v401：试点两页已接入，其余未铺开）**
 
-`col-cfg` / `seq-th` / `seq-cell` / `seq-num` 在 `src/**` 里**只**出现在 `Forecast.vue`。
-其余 28 个含表格的页面（进销存 8 页 / 各档案页 / 返利 / 工资 / 舟谱导入 …）**目前既无序号列、
-也无列设置入口**，表头首列分别是「单号 / 商品 / 名称 / 客户名称 / 供应商名称 …」。
+已接入序号列（**只加序号、不加齿轮、不加 sticky** —— 列固定、列少、不横向滚动）：
+
+| 页面 | 列数 | 序号取值 |
+|---|---|---|
+| `/inventory/purchase`（`InvPurchaseList.vue`） | 7 → 8 | `offset + i + 1` |
+| `/inventory/sale`（`InvSaleList.vue`） | 8 → 9 | `offset + i + 1` |
+
+> ⚠️ **分页表的序号必须是 `offset + i + 1`** —— 这两页是 offset/limit 分页（每页 50 条），
+> 写 `i + 1` 会让第 2 页又从 1 开始。编号**跨页连续**才是对的。
+> 它们**不需要**列设置齿轮：列集合固定、没有可加的主档列。
+
+`col-cfg` 齿轮仍**只在** `Forecast.vue`；`seq-th` / `seq-cell` / `seq-num` 已上提全局、并被上述两页复用。
+其余页面（进销存其余 6 页 / 各档案页 / 返利 / 工资 / 舟谱导入 …）**尚未接入**，
+表头首列分别是「单号 / 商品 / 名称 / 客户名称 / 供应商名称 …」。
 ⇒ 本节是**全站约定**，接入时按本节做，**别把首列改成别的语义再另开一个设置入口**。
 
-**六、已知偏差（真机实测，登记为待对齐 —— 不是文档写错，是实现待改）**
+**六、两处偏差已在 v401 修复（改前实测留档，作回归基线）**
 
-| 偏差 | 实测（1920 视口） | 成因 |
+v400 立本节时登记了两处真机偏差；**v401 已按本节修掉实现**（文档与实现对齐）：
+
+| 偏差 | 改前实测（1920 视口） | v401 修法 |
 |---|---|---|
-| 齿轮**未居中**在序号列上（序号比齿轮**右偏 4px**） | 齿轮 cx=303 ／ 序号 cx=307 | `.th-in{justify-content:space-between}` + 表头**只有一个子元素** ⇒ 齿轮被推到**左**边；表头内距 7/7、内容宽 32px |
-| 列设置菜单**不从齿轮下方弹出**，反从**左上压下并盖住齿轮** | 菜单 top=510 ／ 齿轮 top=525 ⇒ **Δt=−15px**，Δl=−8px | `.col-menu` 锚在**工具条** `.col-config-bar` 的 `top:38px; left:0`，而非齿轮 |
+| 齿轮**未居中**在序号列上（序号比齿轮**右偏 4px**） | 齿轮 cx=303 ／ 序号 cx=307 | 查看态补 `.th-in > .col-cfg{margin-inline:auto}`（根因：`space-between` ＋ 单子元素 ⇒ 被推到左边）；改单态本就居中，未动 |
+| 列设置菜单**不从齿轮下方弹出**，反从**左上压下并盖住齿轮** | 菜单 top=510 ／ 齿轮 top=525 ⇒ **Δt=−15px**，Δl=−8px | `.col-menu` / `.edit-col-menu` 由 `position:absolute;top:38px;left:0` 改 **`position:fixed`**；位置改由 `toggleColMenu` 按齿轮 `getBoundingClientRect()` 现算，**并配 `maxHeight` 限高**（见「三、」—— 首版只移位不限高，被真机探针抓出仍遮挡：清单高 543px 放不进 ~520px 的可用空间） |
 
 判定方式：探针 `.workbuddy/tools/v400-col-cfg-probe.mjs` 分**两相位** ——
-`V400_EXPECT=impl`（记录**现况**，36 PASS / 0 FAIL）与 `V400_EXPECT=spec`（量**本节契约**，
-恰好红上面这 2 条）。**同一条量在两相位取相反期望 ⇒ 判据不可能恒真。**
+`V400_EXPECT=impl`（记录 **v400 改前现况**，36 PASS / 0 FAIL）与
+`V400_EXPECT=spec`（量**本节契约**，v400 时恰好红上面这 2 条）。
+**v401 修完后：`spec` 相位应转全绿（原红那 2 条变绿）；`impl` 相位会在那 2 条上转红** ——
+这不是回归，正是「同一条量在两相位取**相反**期望 ⇒ 判据不可能恒真」的自证。
+⇒ **看回归请认 `spec` 相位**（它量的是本节的现在时）。
 
 ---
 
@@ -707,7 +760,7 @@ docs/UI-SPEC.md            本文件
 |---|---|
 | `.workbuddy/tools/v395-spec-shell-consistency.py` | §3.4 侧栏浮层面板 ↔ `Shell.vue` |
 | `.workbuddy/tools/v396-spec-tabbar-consistency.py` | §3.5 全局标签栏 ↔ `TabBar.vue` / `Shell.vue` / `useTabs.js` / `tabTitles.js`（A 类名 ／ B 数值 ／ C 机制 ／ D 反例禁令） |
-| `.workbuddy/tools/v400-spec-colcfg-consistency.py` | §2.6.1 列设置入口与序号列 ↔ `Forecast.vue` / `Icon.vue`（A 类名 ／ B 数值 ／ C 机制 ／ D 反例：零 emoji 齿轮、齿轮源码恰好 2 处、`defaultColOrder` 不含 `seq`、全站零复用） |
+| `.workbuddy/tools/v400-spec-colcfg-consistency.py` | §2.6.1 列设置入口与序号列 ↔ `Forecast.vue` / `Icon.vue` / `variables.css` / 两个进销存列表页（A 类名 ／ B 数值 ／ C 机制 ／ D 反例：零 emoji 齿轮、齿轮源码恰好 2 处、`defaultColOrder` 不含 `seq`、**菜单不得写死 `top:38px`**） |
 
 > ⚠️ **判据自身两个坑**（v396 首版 13 项假红，只有 1 项是真缺陷）：
 > ① **规范侧的期望串不要带反引号** —— 文档里多个值常合写在一个反引号对内
@@ -754,9 +807,14 @@ NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
     .workbuddy/tools/v400-col-cfg-probe.mjs
 ```
 
-**两相位 = 判据的判别力自证**：同一条量在 `impl` 取**现况**期望、在 `spec` 取**契约**期望，
-两相位结果必须**不同**（现况 36 PASS / 0 FAIL；契约恰好红「齿轮同轴 ≤2px」与「菜单不遮挡齿轮」2 条）。
+**两相位 = 判据的判别力自证**：同一条量在 `impl` 取 **v400 改前现况**期望、在 `spec` 取**本节契约**
+（现在时）期望，两相位结果必须**不同**。v400 时是「`impl` 36 PASS / 0 FAIL、`spec` 恰好红 2 条」；
+**v401 修完后反转**为「`spec` 全绿、`impl` 红那 2 条」—— 方向变了，但**两相位仍必须不同**。
 若两相位都给全绿 ⇒ 判据是**恒真**的，跑出来的"通过"没有意义。
+
+> ⚠️ **v401 起判红的相位变了**：查回归认 `spec`（它量的是本节的现在时）；
+> `impl` 是**历史基线**，它在「齿轮居中」/「菜单不遮挡齿轮」这两条上**应该**是红的 ——
+> 红正是在证明这两处已经修掉了。
 
 **它同时证伪了三件事**（用反例，不是用正面例）：
 ① 全表**只有 1 个**齿轮（第 2 列表头不得有）；② 齿轮内是 **SVG**（`textContent` 为空、
@@ -880,3 +938,4 @@ NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
 | v396 | 2026-10-08 | 新增 **§3.5 全局标签栏**：两种语义辨析（模块内页签 =「这个模块有哪些页」vs 标签栏 =「我打开过哪些页」）、DOM 契约与类表、六条硬规则（点一开一累积／⟳ 在名称左／关尽回首页／上限 18 淘汰最久未激活／内存态不落 localStorage／手机端不出）、内容区两层与 `overflow:visible` 的必要性、`:key` 只含刷新计数、**标签标题四层回落**（`pageTitle` 逐级去尾 ⇒ 三个子页同名，探针抓出的真缺陷）、URL 归一 `effTab`、**退役纪律三条**；并修订 **§2.5 页内 Tab 用途收窄**（只用于弹窗内的表单分区）。配套代码：新增 `components/TabBar.vue` / `composables/useTabs.js` / `constants/tabTitles.js`；改 `Shell.vue`（内容区两层 + NAV 升级为职能区 + 手机抽屉 `EXPLODED_PATHS`）与 5 个页面（`inventory/InventoryShell` / `Archive` / `Print` / `Rebate` / `LossAccounting`）退役页签条。同批新增 **§7.3 文档↔源码「标识符」审计** 与**静态一致性自检**（`v396-spec-tabbar-consistency.py`：A 类名 / B 数值 / C 机制 / D 反例禁令，ALL PASS）；登记 **`/forecast` 为唯一过渡态**（页内页签暂留，勿照抄）。验收探针 `v396-tabbar-probe.mjs` 生产实测 50/50。 |
 | v399 | 2026-10-08 | 重写 **§3.1 为「页面容器与留白（统一留白规范）」**：以 `/forecast`（本期预报，实测占宽比 100% / 左右 0px）为**唯一基准**；建立**四层留白模型**（L0 侧栏 → L1 `.view-wrap{padding:20px}` → L2 `.page`（默认全宽）→ L3 `.card{padding:18px}`）；三条硬规则（页根不再加左右内距／默认全宽不套档位／页根禁写 `max-width`·`margin:0 auto`·左右 `padding`）；**例外白名单**（唯一使用者 `Print.vue` `.page-default`；`.page-reading` 无使用者）；新增**占宽比**量化判据与「必须在 ≥1600 视口取值」的说明。新增 **§7.4 留白真机只读审计**（`v399-layout-gap-probe.mjs`，含判别力自证）；**§8.1 补「容器 ↔ 子页宽度契约」**（容器只给 `.page` 不给档位／子页零宽度声明／**一个模块只能有一处给 `.page`**，并辨析厚壳 `InventoryShell` vs 薄壳 `ArchiveShell` 两种合规形态）。配套代码：`inventory/InventoryShell.vue` 去 `.page-default`（**8 个子页留白的唯一根因**）、`ZhoupuImport.vue` 去掉自拍 `max-width:960px;margin:0 auto` 与叠加的左右 `padding`；`variables.css` 修正两处**与实况不符**的「档位当前未启用 / 目前全站无页面启用」注释为写实况。生产探针 17/17 PASS（改前基线 A 面已留档）。 |
 | v400 | 2026-10-08 | 新增 **§2.6.1 列设置入口与序号列（统一约定）**：先**确认现有实现**再立规 —— 基准实现 = `/forecast` 的 `.cross-tbl`（查看态）/ `.edit-tbl`（改单态）。① **列设置 = 表头第一列（序号列）里的 `<button class="col-cfg gear" title="列设置"><Icon name="settings"/></button>`**：**线性 SVG 齿轮（2 段 path、`stroke:currentColor`、`fill:none`），不是 emoji 齿轮（U+2699 / U+FE0F）**；无边框 / 透明底 / 默认 `--t3` / hover `--bg3` + `--p-dark`，只走令牌（深色自动跟随）；查看态与改单态**共用**一个 `showColMenu`。② **序号 = 同列表体**（`td.seq-cell > .seq-num`）**落在齿轮正下方**：1 基连续（`it.seq` / `ri + 1`）、跟随筛选分组重排、`tabular-nums` 等宽数字、列宽权威源 = `<colgroup>` `colW('seq')` **46px**（可拖宽；`.seq-th`/`.seq-cell` 里的 `42px` 是**不参与布局的陈旧值**）、`sticky left:0` 且表头 `z-index:9` > 表体 `6`。③ 序号列**不在列设置清单里**（不可隐藏/拖序/删除 —— 它是齿轮宿主，藏掉会连入口一起消失）。④ **适用范围与触发条件表**（可编辑网格/逐行核对清单**必须**有；卡片/表单/短 KPI 表不需要）；「要齿轮就必须同时有序号列，反之不然」。⑤ 全站现状实测：`col-cfg`/`seq-th`/`seq-cell`/`seq-num` **只在 `Forecast.vue`**，其余 28 个含表页面尚未接入 ⇒ 本节是**全站约定**。⑥ **登记两处已知偏差**（待对齐，非文档错）：齿轮未居中（序号比齿轮**右偏 4px**，成因 `.th-in{justify-content:space-between}` + 单子元素）、列设置菜单**不从齿轮下方弹出**（锚在工具条 `.col-config-bar` 的 `top:38px;left:0`，**Δt=−15px 压在齿轮上**）。配套：新增探针 `v400-col-cfg-probe.mjs`（**两相位** `impl`=现况 36 PASS/0 FAIL、`spec`=契约恰好红那 2 条 ⇒ 判据非恒真；含三条反例自证）、新增 **§7.5** 几何审计说明、新增一致性自检 `v400-spec-colcfg-consistency.py`（A 类名 ／ B 数值 ／ C 机制 ／ D 反例：零 emoji 齿轮、齿轮源码恰好 2 处、`defaultColOrder` 不含 `seq`、全站零复用）。**本轮只立规范、未改实现**（两处偏差留待决策）。 |
+| v401 | 2026-10-08 | **修 v400 登记的两处偏差 ＋ 序号列上提全局 ＋ 试点接入**。① **偏差①齿轮居中**：查看态补 `.th-in > .col-cfg{margin-inline:auto}`（根因 `space-between` ＋ 单子元素 ⇒ 被顶到左边）；改单态是 `<th>` 直接子元素、本就居中，未动。② **偏差②菜单锚定齿轮**：`.col-menu` / `.edit-col-menu` 由 `position:absolute;top:38px;left:0` 改 **`position:fixed`**；位置改由新增的 `toggleColMenu(e)` 按齿轮 `getBoundingClientRect()` 现算 —— 默认正下方 `gap:6px`、下方越界上翻、右侧越界先右对齐再贴边（`pad:8px`）；**并配 `maxHeight` 限高**（按上下可用空间取大侧、优先下方，保底 160px）—— 首版**只移位不限高**被真机探针当场抓出：清单实测高 **543px**、可用空间仅 ~520px ⇒ 上翻与贴底**都放不下**、仍盖住齿轮；首帧用兜底尺寸（320）摆位、`nextTick` 按真实尺寸校正；`window` 的 `scroll`（**捕获阶段**）与 `resize` 直接收起；两态共用这一份逻辑（`showColMenu` 唯一）。③ **序号列 CSS 上提**：按 §8.4「≥3 次且逐字相同 ⇒ 必须上提」，新增全站唯一源 `variables.css` 的 `table.tbl .seq-th / .seq-cell / .seq-num`（列宽**统一 46px**，删除 `Forecast.vue` 里 `42px` 陈旧副本三条）；`.cross-tbl` 的 `sticky` / `z-index` 冻结规则**保留在页面**（宽表特有，不上提，也不给只读清单）。④ **试点接入**：`InvPurchaseList.vue`（7→8 列）与 `InvSaleList.vue`（8→9 列）加序号列，取值 `offset + i + 1`（**跨页连续**，offset/limit 分页）；**只加序号、不加齿轮、不加 sticky**。⑤ **文档**：§2.6.1 六处同步（① 补居中、② 列宽改 46 并加唯一源 CSS 块、③ 菜单改 `fixed` ＋ 定位表、⑤ 现状改「试点已接入」、⑥ 偏差改「v401 已修」并说明 `spec`/`impl` 相位反转）；§7.3 自检行更新（扫描面加 `variables.css` ＋ 两页、D 类新增「菜单不得写死 `top:38px`」）；§7.5 补相位反转说明；§9 本行。⑥ **验收**：一致性自检 `v400-spec-colcfg-consistency.py` 改写后 **ALL PASS**（D4 拆两族：`.col-cfg` 仍只 Forecast；`.seq-th`/`.seq-cell`/`.seq-num` 唯一源 = `variables.css` 且只被两页复用；新增 **D6** 菜单定位契约 = `fixed` ＋ **剥注释后**不写死 `top:38px`/`left:0`，含反例自证 D6f）；真机探针 `v400-col-cfg-probe.mjs` **两相位互补**：`spec`（现在时）**53 PASS / 0 FAIL**、`impl`（v400 基线）**53 PASS / 2 FAIL**（恰红「齿轮未居中」「菜单遮盖齿轮」⇒ 相位反转成立、判据非恒真）；新增 **P7** 试点页断言（采购 8 列 / 销售 9 列：表头「序号」＋ `.seq-th` ＋ 46px ＋ 居中 ＋ 首行 = 1 ＋ **非 sticky** ＋ 零写入）全绿。部署 `dist-v401b` 增量覆盖（**不带 `--delete`**，回滚点 39 个与 `backups/` 完好），双侧 md5 一致。 |

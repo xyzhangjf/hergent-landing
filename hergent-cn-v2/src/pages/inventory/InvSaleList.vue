@@ -73,6 +73,7 @@
           <table class="tbl">
             <thead>
               <tr>
+                <th class="seq-th">序号</th>
                 <th>单号</th>
                 <th>客户</th>
                 <th class="num">金额</th>
@@ -84,7 +85,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in rows" :key="r.id" class="isl-row" @click="go('/inventory/sale/' + r.id)">
+              <tr v-for="(r, i) in rows" :key="r.id" class="isl-row" @click="go('/inventory/sale/' + r.id)">
+                <td class="seq-cell"><span class="seq-num">{{ offset + i + 1 }}</span></td>
                 <td class="isl-no">{{ r.order_no || ('#' + r.id) }}</td>
                 <td>{{ r.customer_name || '—' }}</td>
                 <td class="num">¥{{ fmtMoney(r.total_amount) }}</td>

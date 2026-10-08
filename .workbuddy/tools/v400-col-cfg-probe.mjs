@@ -28,12 +28,15 @@
  *    （`Forecast.vue:1151-1154` 表头 + `:1192` 表体）。
  *
  * 🔴 两相位（同一脚本，期望相反 ⇒ 判据非恒真）：
- *   V400_EXPECT=impl（默认）量**现况事实**；V400_EXPECT=spec 量 **§2.6.1 理想契约**。
- *   两条量会给出相反结论（齿轮横向偏移 / 菜单锚点），跑 spec 恰好红那两条 = "规范 ≠ 现况"的差值。
+ *   V400_EXPECT=spec（**默认**；v401 起应**全绿**）量 **§2.6.1 契约 = 现在时**；
+ *   V400_EXPECT=impl 量 **v400 改前历史基线**（齿轮偏移 >2px / 菜单压住齿轮 / 菜单 absolute）。
+ *   v400 时是「impl 全绿、spec 恰好红 2 条」；**v401 修完后反转**为「spec 全绿、impl 红那 2 条」——
+ *   方向变了，但**两相位仍必须不同**；`impl` 判红正是「这两处确实被改掉了」的证据。
+ *   ⚠️ **看回归认 `spec`**（它量的是本节的现在时）；impl 只是留档，别拿它当当前事实。
  *
  * 运行：
  *   V400_TOKEN=$(ssh -o BatchMode=yes root@47.113.224.140 'python3 /tmp/v392-probe-tokens.py boss' | cut -f3) \
- *   V400_EXPECT=impl \       # impl = 现况事实（默认）；spec = §2.6.1 理想契约
+ *   V400_EXPECT=spec \       # spec = §2.6.1 契约（默认，v401 起全绿）；impl = v400 改前基线
  *   NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
  *   /Users/zhangjunfeng/.workbuddy/binaries/node/versions/22.22.2-6/bin/node \
  *     .workbuddy/tools/v400-col-cfg-probe.mjs
@@ -43,12 +46,13 @@ import { launch } from './lib/cdp-lite.mjs'
 const BASE = 'https://hergent.cn'
 const TOKEN = process.env.V400_TOKEN || ''
 const TENANT = '1'
-/* 相位：impl（**现况事实**，默认）/ spec（**§2.6.1 理想契约**）。
+/* 相位：spec（**§2.6.1 契约 = 现在时**，默认，v401 起应全绿）/ impl（**v400 改前历史基线**）。
    两相位对**同两条**几何量给出**相反**期望 ⇒ 判据不可能恒真：
-     · 齿轮↔序号 的横向中心差：现况 4px（左偏）；契约要求 ≤2px（同轴）。
-     · 列设置菜单锚点：现况**压在齿轮上**（menu.top 高于 gear.top）；契约要求从齿轮下方展开。
-   跑 impl 应体现在况、跑 spec 应恰好红这几条 —— 这才是"规范 ≠ 现况"的量化差。 */
-const EXPECT = process.env.V400_EXPECT || 'impl'
+     · 齿轮↔序号 横向中心差：v400 现况 4px（左偏）；契约要求 ≤2px（同轴）。
+     · 菜单锚点：v400 现况**压在齿轮上**（menu.top ≤ gear.bottom）；契约要求从齿轮下方展开。
+   v400 时「impl 全绿 / spec 红这 2 条」；**v401 修完后反转**成「spec 全绿 / impl 红这 2 条」。
+   ⚠️ 回归认 spec。 */
+const EXPECT = process.env.V400_EXPECT || 'spec'
 
 const PASS = []
 const FAIL = []
@@ -203,6 +207,9 @@ const OPEN_MENU = `(async function(){
     var m0 = menu.getBoundingClientRect();
     out.menuRect = { t: Math.round(m0.top), l: Math.round(m0.left), w: Math.round(m0.width), h: Math.round(m0.height) };
     out.menuPos = getComputedStyle(menu).position;
+    /* v401：位置由 toggleColMenu 写 inline style（视口坐标），不再来自 CSS 写死值 */
+    out.menuInlineTop = menu.style.top || '';
+    out.menuInlineLeft = menu.style.left || '';
     out.menuDH = { t: out.menuRect.t - out.gearRect.t, l: out.menuRect.l - out.gearRect.l };
     /* 菜单锚在哪个父节点下 */
     var host = menu.closest('.col-config-bar') || menu.parentElement;
@@ -221,6 +228,38 @@ const OPEN_MENU = `(async function(){
   gear.click();
   await new Promise(function(r){ setTimeout(r, 250); });
   out.menuClosed = !document.querySelector('.col-menu');
+  return JSON.stringify(out);
+})();`
+
+/* ── v401 试点页：进销存采购 / 销售列表的序号列 ──
+   判据：表头第一列 =「序号」且带 .seq-th、列宽 46px（全局唯一源生效）、居中；
+   表体 .seq-num 1 基连续、**非** sticky（只读清单不加冻结）。
+   空表时只验表头、行断言自动跳过（免得"没数据"被记成失败）。 */
+const MEASURE_LIST = `(function(){
+  var out = { hash: location.hash };
+  var tbl = document.querySelector('.table-wrap table.tbl');
+  if (!tbl) { out.err = 'no table.tbl'; return JSON.stringify(out); }
+  var ths = tbl.querySelectorAll('thead > tr > th');
+  out.thCount = ths.length;
+  var th0 = ths[0];
+  out.th0Text = th0 ? th0.textContent.trim().replace(/\\s+/g, ' ') : null;
+  out.th0Cls = th0 ? String(th0.className).trim() : null;
+  if (th0) {
+    var a = getComputedStyle(th0);
+    out.th0Align = a.textAlign;
+    out.th0W = Math.round(th0.getBoundingClientRect().width);
+  }
+  var nums = tbl.querySelectorAll('tbody td.seq-cell .seq-num');
+  out.numCount = nums.length;
+  out.nums = [];
+  for (var i = 0; i < Math.min(3, nums.length); i++) out.nums.push(nums[i].textContent.trim());
+  var sc = tbl.querySelector('tbody td.seq-cell');
+  if (sc) {
+    var s = getComputedStyle(sc);
+    out.cellAlign = s.textAlign;
+    out.cellPos = s.position;
+    out.cellW = Math.round(sc.getBoundingClientRect().width);
+  }
   return JSON.stringify(out);
 })();`
 
@@ -311,12 +350,18 @@ const main = async () => {
     const om = JSON.parse(await p.eval(OPEN_MENU))
     console.log('  菜单 = ' + JSON.stringify(om))
     ok('P5 点齿轮能开列设置菜单', om.menuOpen === true)
-    ok('P5 菜单是浮层（position:absolute）', om.menuPos === 'absolute', 'pos=' + om.menuPos)
+    /* v401：菜单从「相对工具条 absolute ＋ 写死 top:38px」改为「相对视口 fixed ＋ JS 算坐标」。 */
+    ok('P5 菜单是视口浮层（position:fixed，v401 起）', om.menuPos === 'fixed', 'pos=' + om.menuPos)
     ok('P5 ★菜单里**没有**「序号」这一项（序号列不可被隐藏）',
       om.menuHasSeq === false, 'labels=' + (om.menuLabelCount || 0) + ' 项, hasSeq=' + om.menuHasSeq)
     ok('P5 菜单里有多个可配置列（清单非空）', (om.menuLabelCount || 0) >= 5, 'count=' + om.menuLabelCount)
-    ok('P5 菜单锚在表格工具条内（.col-config-bar）', /col-config-bar/.test(String(om.menuHostCls)),
+    /* ⚠️ v401 起这条只验 **DOM 挂载点**（菜单仍留在工具条节点内，是刻意的最小改动）——
+       定位**不再依赖**这个宿主的坐标系，改由齿轮 rect 算视口坐标（见下一条）。 */
+    ok('P5 菜单 DOM 仍挂在表格工具条内（定位不依赖该宿主）', /col-config-bar/.test(String(om.menuHostCls)),
       'host=' + om.menuHostCls)
+    ok('P5 ★菜单位置由 inline style 给（top/left 非空，不再来自 CSS 写死值）',
+      !!(om.menuInlineTop && om.menuInlineLeft),
+      'inline top=' + JSON.stringify(om.menuInlineTop) + ' left=' + JSON.stringify(om.menuInlineLeft))
     /* 🔴 实测事实：`.col-menu{position:absolute;top:38px;left:0}` 锚在**工具条**上，
        而不是齿轮正下方 ⇒ 在查看态它落在齿轮**左上**、并把齿轮盖住。 */
     const covers = (om.menuRect && om.gearRect)
@@ -342,6 +387,37 @@ const main = async () => {
     ok('P6 ★整轮零写请求', wl.length === 0, 'writes=' + (wl.length ? wl.join(' ; ') : '0'))
     ok('P6 页面无 console.error / 未捕获异常', (p.errors || []).length === 0,
       (p.errors || []).slice(0, 2).join(' || '))
+
+    /* ⚠️ goto = Page.navigate（**完整导航**）⇒ initScript 在新文档重跑、__WRITES 归零，
+       所以 P7 每页各自验一次零写入，别指望 P6 的计数器还管用。 */
+    section('P7 试点页：进销存采购 / 销售列表的序号列（v401 新增接入）')
+    for (const pair of [['采购单', '/#/inventory/purchase'], ['销售单', '/#/inventory/sale']]) {
+      const label = pair[0], path = pair[1]
+      await p.goto(BASE + path, 4000)
+      let lm = {}
+      try { lm = JSON.parse(await p.eval(MEASURE_LIST)) } catch (e) { lm = { err: String(e.message) } }
+      for (let i = 0; i < 4 && (lm.err || lm.thCount == null); i++) {
+        await sleep(2000)
+        try { lm = JSON.parse(await p.eval(MEASURE_LIST)) } catch (e) { lm = { err: String(e.message) } }
+      }
+      console.log('  ' + label + ' = ' + JSON.stringify(lm))
+      ok('P7 ' + label + ' 页面已渲染出 table.tbl', !lm.err, lm.err || ('th 数=' + lm.thCount))
+      ok('P7 ' + label + ' ★表头第一列 = 「序号」', lm.th0Text === '序号', 'th0=' + JSON.stringify(lm.th0Text))
+      ok('P7 ' + label + ' 序号列表头带 .seq-th', /seq-th/.test(String(lm.th0Cls)), 'cls=' + lm.th0Cls)
+      ok('P7 ' + label + ' ★列宽 ≈46px（全局唯一源生效）',
+        lm.th0W != null && Math.abs(lm.th0W - 46) <= 4, 'w=' + lm.th0W)
+      ok('P7 ' + label + ' 表头居中（.seq-th text-align:center）', lm.th0Align === 'center', 'align=' + lm.th0Align)
+      if (lm.numCount > 0) {
+        ok('P7 ' + label + ' ★首行序号 = 1（offset + i + 1 的 i=0）', lm.nums[0] === '1', 'nums=' + lm.nums.join(','))
+        ok('P7 ' + label + ' ★表体格居中且**非** sticky（只读清单不加冻结）',
+          lm.cellAlign === 'center' && lm.cellPos !== 'sticky', 'align=' + lm.cellAlign + ' pos=' + lm.cellPos)
+        ok('P7 ' + label + ' 序号格宽 ≈46px', lm.cellW != null && Math.abs(lm.cellW - 46) <= 4, 'w=' + lm.cellW)
+      } else {
+        ok('P7 ' + label + ' 当前无数据行 ⇒ 只验表头（行断言自动跳过）', true, 'numCount=0')
+      }
+      const w2 = JSON.parse(await p.eval('JSON.stringify(window.__WRITES || [])'))
+      ok('P7 ' + label + ' ★本页零写请求', w2.length === 0, 'writes=' + (w2.length ? w2.join(' ; ') : '0'))
+    }
 
     section('汇总（相位 ' + EXPECT + '）')
     console.log('  PASS=' + PASS.length + '  FAIL=' + FAIL.length)

@@ -532,6 +532,16 @@ table.tbl tr:last-child td{border-bottom:none}
 table.tbl tbody tr:hover{background:var(--bg2)}
 table.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 
+/* 序号列（全站唯一源，v401 上提自 Forecast.vue）——
+   判据见 UI-SPEC §2.6.1：这张表会不会被用户说成「第几行那个」？会说 ⇒ 就要有序号列。
+   列宽 46px：对齐本期预报 <colgroup> 里 colW('seq')=46。Forecast 里曾写 42px，那是**不参与
+   布局的陈旧值**（该表 table-layout:fixed，宽度由 colgroup 决定），此处统一到 46 并删掉那份副本。
+   宿主写法：<th class="seq-th">序号</th> / <td class="seq-cell"><span class="seq-num">1</span></td>。
+   需要横向冻结的宽表（如 .cross-tbl）请各页自行补 sticky，不在这里默认开启。 */
+table.tbl .seq-th{width:46px;min-width:46px;text-align:center;padding:8px 4px;vertical-align:middle}
+table.tbl .seq-cell{width:46px;min-width:46px;text-align:center;padding:6px 4px;vertical-align:middle;color:var(--t3);font-size:12px}
+table.tbl .seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
+
 /* 标签行 */
 .tag-row{display:flex;gap:6px;flex-wrap:wrap}
 .tag{

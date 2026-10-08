@@ -673,7 +673,7 @@
         <!-- 列配置条 -->
           <div class="col-config-bar">
             <div v-if="showColMenu && !editMode" class="col-menu-overlay" @click="showColMenu=false"></div>
-            <div v-if="showColMenu && !editMode" class="col-menu" @click.stop>
+            <div v-if="showColMenu && !editMode" class="col-menu" ref="colMenuEl" :style="colMenuStyle" @click.stop>
               <div class="col-menu-hd"><span>显示列（拖拽排序，<Icon name="check"/> 显示）</span><button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button></div>
               <div class="col-menu-view">
                 <label class="basis-toggle">分组
@@ -853,7 +853,7 @@
                 <th v-for="(col, ci) in colOrderList" :key="col.key" :class="['th', colCls(col), { frozen: isFrozen(col), sortable: canSort(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')" :aria-sort="ariaSort(col)" @click="onHeadClick(col)" @contextmenu.prevent="openHdrCtx($event, col.key, col.type)">
                   <div class="th-in">
                     <template v-if="col.type === 'seq'">
-                      <button class="col-cfg gear" @click.stop="showColMenu = !showColMenu" title="列设置"><Icon name="settings"/></button>
+                      <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings"/></button>
                     </template>
                     <template v-else>
                       <span>{{ col.label }}<span v-if="canSort(col)" class="sort-ind"><Icon v-if="sortInd(col.key)" :name="sortInd(col.key)"/></span></span>
@@ -1110,7 +1110,7 @@
             <span v-if="brandSel.length" class="filter-chip" :title="'按品牌（供货方）筛选'">品牌 ∈ {{ brandSel.length }} 个 <button class="chip-x" @click="brandSel = []" aria-label="清除品牌筛选"><Icon name="close"/></button></span>
           </div>
           <div v-if="showColMenu" class="col-menu-overlay" @click="showColMenu=false"></div>
-          <div v-if="showColMenu" class="col-menu edit-col-menu" @click.stop>
+          <div v-if="showColMenu" class="col-menu edit-col-menu" ref="colMenuEl" :style="colMenuStyle" @click.stop>
             <div class="col-menu-hd"><span>显示列（拖拽排序，<Icon name="check"/> 显示）</span><button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button></div>
             <ul class="col-menu-list">
               <!-- v192：判定统一走 isLockedCol()，与查看态菜单、toggleCol、quickHide 同源。
@@ -1149,7 +1149,7 @@
             <thead>
               <tr>
                 <th class="th seq-th" scope="col">
-                  <button class="col-cfg gear" @click.stop="showColMenu = !showColMenu" title="列设置"><Icon name="settings"/></button>
+                  <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings"/></button>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'seq')" @click.stop></span>
                 </th>
                 <th v-for="(c, ci) in visibleCols" :key="c.key" scope="col" :class="['th', c.cls, { frozen: c.fixed || c.key === frozenExtra, 'sel-col': inColSpan(ci), 'cur-col-hd': isCurColHd(ci) }]" :aria-current="isCurColHd(ci) ? 'true' : null" :aria-selected="inColSpan(ci) ? 'true' : null" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" @mousedown="onHeadDown(ci, $event)" @mouseover="onHeadOver(ci)" @contextmenu.prevent="openHdrCtx($event, c.key, 'master')">
@@ -4023,6 +4023,63 @@ const defaultColOrder = () => [{ key: 'name', label: '商品名称', fixed: true
 const colOrder = ref(defaultColOrder())
 const colVis = ref({ name: true })
 const showColMenu = ref(false)
+// ── 列设置菜单定位（v401）────────────────────────────────────────────
+// 定位从「相对工具条 absolute + 写死 top:38px」改为「相对视口 fixed + JS 算坐标」。
+// 根因：齿轮长在表格 thead 的序号列里，与 .col-config-bar 不同源，写死坐标必然错位
+// （实测菜单反从工具条左上压下、盖住齿轮，Δt=-15px）。
+// 两态（查看 / 改单）共用这一份逻辑：showColMenu 唯一，齿轮各自把自身 DOM 存进 colMenuGear。
+const colMenuGear = ref(null)   // 触发菜单的那个齿轮元素
+const colMenuEl = ref(null)     // 菜单根节点（用来量真实尺寸）
+const colMenuStyle = ref({})    // 算出的视口坐标，绑到菜单 :style
+
+function placeColMenu() {
+  const g = colMenuGear.value
+  if (!g) return
+  const r = g.getBoundingClientRect()
+  const m = colMenuEl.value
+  const mw = m ? m.offsetWidth : 320     // 首帧还没渲染，先按兜底尺寸摆，nextTick 再校正
+  const pad = 8   // 与视口边缘的最小间距
+  const gap = 6   // 菜单与齿轮的间距
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  // 水平：优先与齿轮左缘对齐 → 右越界则改右对齐 → 仍越界则贴右边
+  let left = r.left
+  if (left + mw > vw - pad) left = r.right - mw
+  if (left < pad) left = pad
+  if (left + mw > vw - pad) left = Math.max(pad, vw - pad - mw)
+  // 垂直：**先定可用空间，再用 max-height 把菜单压进去**。
+  //   ⚠️ 光「越界就移位」是不够的（v401 首版真机实测踩到）：列清单实测高 543px，
+  //   而齿轮下方只剩 ~520px、上方 ~511px ⇒ 上翻与贴底都放不下 ⇒ 菜单仍会盖住齿轮。
+  //   所以「移位」必须与「限高」配对，否则契约（不遮挡触发按钮）根本不成立。
+  const spaceBelow = vh - pad - (r.bottom + gap)
+  const spaceAbove = r.top - gap - pad
+  const useBelow = spaceBelow >= spaceAbove          // 优先下方；只有上方更大才上翻
+  const maxH = Math.max(160, useBelow ? spaceBelow : spaceAbove)
+  const top = useBelow ? (r.bottom + gap) : Math.max(pad, r.top - gap - maxH)
+  colMenuStyle.value = { left: left + 'px', top: top + 'px', maxHeight: maxH + 'px' }
+}
+
+function toggleColMenu(e) {
+  if (showColMenu.value) { showColMenu.value = false; return }
+  colMenuGear.value = e && e.currentTarget ? e.currentTarget : null
+  colMenuStyle.value = {}
+  showColMenu.value = true
+  placeColMenu()          // 首帧先用兜底尺寸摆位，避免闪一下
+  nextTick(placeColMenu)  // 渲染完成后按真实尺寸校正
+}
+watch(showColMenu, (v) => { if (!v) colMenuGear.value = null })
+
+// 面板是 fixed（脱离文档流），任何滚动或改窗口都会让它与齿轮脱位 ⇒ 直接收起。
+// 挂 window 且用捕获阶段：一个监听同时覆盖页面滚动与表格内部 .table-wrap 的滚动。
+function closeColMenuOnViewportChange() { if (showColMenu.value) showColMenu.value = false }
+onMounted(() => {
+  window.addEventListener('scroll', closeColMenuOnViewportChange, true)
+  window.addEventListener('resize', closeColMenuOnViewportChange)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', closeColMenuOnViewportChange, true)
+  window.removeEventListener('resize', closeColMenuOnViewportChange)
+})
 
 function _persistCols() {
   try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify({ order: colOrder.value, vis: colVis.value })) } catch (e) {}
@@ -12670,7 +12727,12 @@ onMounted(async () => {
 /* ---- 列配置条 + 菜单 ---- */
 .col-config-bar{position:relative;display:flex;align-items:center;gap:10px;padding:0;flex-wrap:wrap}
 .btn-xs{padding:3px 9px;font-size:12px;border-radius:var(--radius-sm)}
-.col-menu{position:absolute;top:38px;left:0;z-index:var(--z-page-menu);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:10px 12px;min-width:300px;max-height:70vh;overflow:auto}
+/* 列设置菜单：定位改由 JS 负责（toggleColMenu 读齿轮 getBoundingClientRect 算视口坐标）。
+   原先是 position:absolute;top:38px;left:0 —— 相对 .col-config-bar 定位，而齿轮实际长在
+   表格 thead 的序号列里，两者不在同一坐标系 ⇒ 菜单从工具条左上角压下、盖住齿轮（实测 Δt=-15px）。
+   改 fixed 后由 inline top/left 给位置：默认齿轮正下方，下方越界上翻、右侧越界贴边。
+   查看态与改单态两处菜单共用同一份定位逻辑（showColMenu 唯一）。 */
+.col-menu{position:fixed;z-index:var(--z-page-menu);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:10px 12px;min-width:300px;max-height:70vh;overflow:auto}
 .col-menu-hd{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .col-menu-view{margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--bd);display:flex;flex-direction:column;gap:6px;width:72%}
 .col-menu-view .basis-toggle{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:8px}
@@ -12699,11 +12761,16 @@ onMounted(async () => {
 .col-menu-schemes .scheme-name-ipt{flex:1;min-width:0;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:3px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
 .col-menu-schemes .scheme-name-ipt:focus{border-color:var(--p);outline:2px solid var(--p);outline-offset:-2px}
 .col-menu-schemes .scheme-btn{flex:1;justify-content:center}
-.edit-col-menu{position:absolute;top:38px;left:0;z-index:var(--z-page-menu-sub);max-width:420px}
+/* 改单态菜单：同上，跟随 .col-menu 一起改 fixed（只覆盖 z-index 与宽度上限）。 */
+.edit-col-menu{position:fixed;z-index:var(--z-page-menu-sub);max-width:420px}
 .col-menu-reset{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;justify-content:flex-end}
 .th-in{display:flex;align-items:center;gap:5px;justify-content:space-between}
+/* 序号列表头（.th-in）里只有一个子元素——齿轮，而 space-between 对单个子元素
+   等价于 flex-start ⇒ 齿轮被顶到格子左侧，与表体 .seq-num 的居中轴线错开。
+   用 auto 外边距吃掉剩余空间，让它在 46px 宽的序号列里回到正中。
+   改单态的齿轮是 <th> 的直接子元素、靠 .seq-th{text-align:center} 居中，本就正确，不受影响。 */
+.th-in > .col-cfg{margin-inline:auto}
 .col-cfg{border:none;background:transparent;color:var(--t3);cursor:pointer;font-size:11px;padding:0 2px;line-height:1;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
-.col-cfg:hover{color:var(--p-dark)}
 .col-cfg:hover{color:var(--p-dark)}
 /* P1-② 表格去线：去掉表体行分隔线，行区分完全交给斑马纹 + hover（已存在），
    40+ 列大表视觉更透气；表头底线 / 列合计顶线 / 分组头底线保留（结构性分隔）。 */
@@ -12778,8 +12845,9 @@ th.sortable:hover{color:var(--p-dark)}
 .col-resizer::after{content:'';position:absolute;right:3px;top:8%;height:84%;width:2px;border-radius:2px;background:var(--resizer-bg)}
 .col-resizer:hover::after,.col-resizer.active::after{background:var(--p)}
 .table-wrap.edit-grid-wrap{flex:1 1 auto;min-height:0;max-height:72vh;overflow:auto;max-width:100%}
-.seq-th{width:42px;min-width:42px;text-align:center;padding:8px 4px;vertical-align:middle}
-.seq-cell{width:42px;min-width:42px;text-align:center;padding:6px 4px;vertical-align:middle;color:var(--t3);font-size:12px}
+/* v401：序号列的**基础样式**（列宽 46 / 居中 / 灰字 / 等宽数字）已上提为全站唯一源 —— 见
+   src/styles/variables.css 的 table.tbl .seq-th / .seq-cell / .seq-num，页面里别再抄一份。
+   本节只保留 **Forecast 特有的宽表横向冻结** 规则（下面几条）。 */
 /* 序号列冻结（v176）：横向滚动时保持可见 —— 「商品名称」之前这一列不许被滚走。
    ① 必须 sticky + **不透明**底色：sticky 只改绘制位置，透明底会把滚过来的内容透出来；
    ② 底色与既有冻结列 .frozen 完全一致（表体 var(--bg) / 表头 var(--bg3) / 表尾 var(--bg3)），
@@ -12789,12 +12857,11 @@ th.sortable:hover{color:var(--p-dark)}
       两个表尾的底色由下面第 3 行单独兜回 var(--bg3)，否则会被第 1 行（0,2,0 > .col-total td 的 0,1,1）染白；
    ④ z-index：单元格 6（与 .frozen 同级）、表头 **9** —— 表头必须高于既有 thead th(7) 与 th.frozen(8)，
       否则横向滚过来的普通表头会盖在序号表头上（同为 sticky，z 相同时后出现者胜）；
-   ⑤ 权威列宽是 <colgroup> 的 colW('seq')（.cross-tbl/.edit-tbl 为 table-layout:fixed），
-      本处的 42px 是陈旧值、不参与布局；冻结列的右移量见 v184 的 frozenLeftOf()。 */
+   ⑤ 权威列宽是 <colgroup> 的 colW('seq')（.cross-tbl/.edit-tbl 为 table-layout:fixed）；
+      冻结列的右移量见 v184 的 frozenLeftOf()。 */
 .cross-tbl .seq-th,.cross-tbl .seq-cell{position:sticky;left:0;background:var(--bg);z-index:6}
 .cross-tbl thead .seq-th,.cross-tbl thead .seq-cell{background:var(--bg3);z-index:9}
 .cross-tbl .col-total .seq-cell,.cross-tbl .foot-row .seq-cell{background:var(--bg3)}
-.seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
 .gear{padding:2px 4px;border:none;background:transparent;cursor:pointer;font-size:14px;line-height:1;color:var(--t3);border-radius:var(--radius-sm)}
 .gear:hover{background:var(--bg3);color:var(--p-dark)}
 .col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:2px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden;box-shadow:0 -2px 5px rgba(15,23,42,.06)}
