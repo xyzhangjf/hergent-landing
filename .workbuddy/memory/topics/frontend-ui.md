@@ -3408,3 +3408,88 @@ P5 三条断言改写含「菜单位置由 inline style 给」）、
 ② 中轴线画在 `th0` 水平中点，并给齿轮与 `.seq-num` 画红框，**红线应同时平分两者**（改前齿轮框会
 整体偏在左侧，一眼可判）；③ stdout 打出的数字必须与 `v400-col-cfg-probe.mjs` 的 `spec` 相位互证。
 ⚠️ `outputs/` 的 PNG **不入库**（依 v400 先例：**脚本入库、产物不入库**）。
+
+## v402 · 序号列铺开全站 21 页 ＋ 全局选择器扩 `seq-host`（2026-10-08 · ✅已上线）
+
+**老板指令**：「**1.铺开；2.一起铺；3.暂时不动**」—— 逐条回答 v401 交付摘要的三项「需确认事项」。
+
+### ① 全站有两类表 ⇒ 序号列必须用「中性标记类」，不能改挂 `.tbl`
+
+| 类 | 成员 | 序号宿主写法 |
+|---|---|---|
+| A 标准表 | `class="tbl"`（16 页） | `table.tbl th.seq-th{…}`（靠 `table.tbl` 前缀） |
+| B 自定义表 | `pc-tb`/`pt-tbl`/`br-tbl`/`la-ml-tbl`（5 张） | 加**无样式的中性类** `seq-host` ⇒ `table.seq-host th.seq-th{…}` |
+
+🔴 **B 组为什么不能改挂 `tbl` 类**：各页 `.xx-tbl td{padding:…}` 自带一份单元格样式，挂上 `tbl` 会与
+`table.tbl td{…}` **同 specificity 相撞**、按源码顺序互相覆盖 ⇒ 破坏现有排版。改用**只多做一件事**的
+中性标记类 `seq-host`：它本身无样式，唯一作用是「给全局序号规则一个可命中的宿主」，**除序号格外不碰任何单元格**。
+⛔ 页面里除 `.tbl`/`.seq-host` 外，**不许再抄** `.seq-th`/`.seq-cell`/`.seq-num` 这三条（唯一源 = `variables.css`）。
+
+### ② 🔴🔴 Vue scoped 把 specificity 抬一级 ⇒ 全局类必须写满到 (0,2,2)
+
+**现场**：`dist-v402` 部署后首跑探针 → 5 页（报单配置/招投标雷达/货损核算/商品目标/渠道与价格）
+**表头没居中、列宽 50≠46**。不是「没生效」，是**被页面 scoped 样式同分覆盖**。
+
+- Vue scoped 会给 `.xx-tbl th{text-align:left;padding:…}` 补上 `[data-v-xxx]` ⇒ specificity **从 (0,1,1) 升到 (0,2,1)**。
+- 全局首版写 `table.seq-host .seq-th` = **(0,2,1)** ⇒ **同分**，而**页面 CSS 后加载** ⇒ 页面胜，
+  `text-align:center` 与 `padding:8px 4px` **一起被夺走**（表现为「表头左对齐、列宽 50≠46」）。
+- 🔴 **修法 = 把选择器提到 (0,2,2)**：写 `table.seq-host th.seq-th` / `td.seq-cell`（**元素+类+类**）⇒
+  稳压 scoped 的 (0,2,1)，**与加载顺序无关**。这就是「为什么写成 `th.seq-th` 而不是裸 `.seq-th`」的原因。
+
+⇒ **一般化纪律**：往全局层上提样式、又要覆盖各页 scoped 的同名单元格规则时，**必须假设 scoped 会 +1 级**，
+全局选择器要写到 (0,2,2) 及以上（多一个元素限定符），别指望「后定义就赢」。
+
+### ③ 🔴 CSS 注释块 `*/` 位置错误会吞掉紧随的规则（本轮最严重的自伤）
+
+修 ② 时，一次 Edit 的 `new_string` 把说明文字写到了 `*/` **之外**（注释块已在上一行闭合）⇒ 成了**裸文本**；
+CSS 解析器把这堆乱码**连同紧随其后的 `table.tbl th.seq-th{…}` 规则一起吞掉** ⇒ **全站序号列立刻失效**
+（探针从 **133 PASS 掉到 104 PASS** 的现场证据，`dist-v402b`）。
+
+- **修法**：删掉中间多余的 `*/`，让注释块延续到末尾。
+- 🔴 **判定 = `/*` 与 `*/` 数量必须相等**（本轮 `/*`=149 / `*/`=149、`{`=145 / `}`=145）。
+- **固化护栏**：写进 `v402-spec-seq-consistency.py` 的 `[B]` 类 4 条判据（B1 `/*`==`*/`、B2 `{`==`}`、
+  B3 序号规则紧跟 `*/` 之后无裸文本夹缝、B4 无「注释外裸文本」特征）＋ `[E]` 反例自证。
+
+### ④ 各页真实分页方式（决定序号取值）—— 别一律写 `i + 1`
+
+| 页 | 分页 | 序号取值 |
+|---|---|---|
+| Supplier/Customer/ProductArchive | **前端** `page`/`pageSize` | `(page-1)*pageSize+i+1` |
+| InvStock | **服务端 offset** | `offset+i+1` |
+| PriceChannels | **服务端** `cpOffset`/`mxOffset` | `cpOffset+i+1` / `mxOffset+i+1` |
+| 其余页 | 无分页 | `i+1` |
+
+🔴 **加序号列后 `colspan` 必须同步 +1**（空态行 / 展开行）：ReportMapping 9→10、PriceChannels 5→6、ProductTarget 10→11。
+⚠️ **分页表的序号必须跨页连续**（`offset+i+1` 而非 `i+1`），已在 UI-SPEC §2.6.1 单列一段警告。
+
+### ⑤ 齿轮（列设置入口）**没有**跟着铺 —— 这是按规范判据执行，不是漏做
+
+老板答「一起铺」，但 AI 核实后**仍只在 `/forecast`**，依据 §2.6.1「四、」判据原文：
+「长清单只读表（列固定、语义稳定）⇒ 序号建议有、**齿轮不需要**」「**列的集合会不会变**（可加主档列/可隐藏/可拖序）？
+**会 ⇒ 要有齿轮**」。全站**只有本期预报**列集合会变，其余页列固定 ⇒ 按规范本身就不需要齿轮。
+已在 §2.6.1 新增「**D. 齿轮仍只在 `/forecast`**」段显式写明：**齿轮不是样式、是与列数据集绑定的功能，
+不要给固定列页面硬套**。（⇒ 以后遇到同类「一起铺」指令，**先用判据筛，再据实回话**，而不是硬铺。）
+
+### ⑥ 验收（四道全绿）
+
+- 真机只读探针 `v402-seq-probe.mjs`：**PASS=147 / FAIL=0 / SKIP=3**（21 页 × 8 条断言；
+  每页测：表头首列=序号 / 带 `.seq-th` / 列宽≈46 / 居中 / 首个 `.seq-num`=1 / 号格居中 / 号格宽≈46 / **零写请求**）。
+- SKIP 3 页**合理**（目标与返利 / 货损计算工作流 / 算工资 —— 无数据时空态**不渲染 `<table>`**，探针报 SKIP 并打印页内表清单）。
+- 一致性自检 `v402-spec-seq-consistency.py --strict`：**36/36 ALL PASS**（含 `[E]` 反例自证）。
+- 隔离构建 `dist-v402`→`v402b`→**`dist-v402c`** 三次均留回滚点（39→40→**42**）、**绝不 `--delete`**、
+  `chown -R hergent:hergent`、**双侧 md5 一致**。
+- 🔴 探针「零写请求」有 1 类**误报要处理**：`POST /api/rebate-rules/simulate-batch`（Shell 多页预取的批量返利试算）；
+  探针**排除该路径但显式报出排除条数**，避免「静默放过」。
+
+### ⑦ 本轮发现的既有瑕疵（非 v402 引入，登记待修）
+
+🔴 **`POST /api/rebate-rules/simulate-batch` 未登记后端只读 POST 白名单**：`server.py:741` 的
+`_READ_ONLY_POST` 含 `/api/price-change/preview`、`/api/rebate-contracts/simulate`、`/api/products/compare`、
+`/api/pricing/match`、`/api/einvoice/verify`、`/api/product-targets/alloc-preview`、`/api/ai-query` 等，
+**`simulate-batch` 不在其中**（名单里只有**名字相近但路径不同**的 `/api/rebate-contracts/simulate`）
+⇒ 后端仍按 `create` 动作鉴权 ⇒ `sales` 无 create 的角色会 **403**。
+
+**工具**：`v402-apply-seq.py`（受控批量插入器，43 条三元组，**每条 `old` 必须恰命中 1 次**否则整批不写）、
+`v402-check-syntax.py`（抽 `<script setup>` 跑 `node --check`）、`v402-seq-probe.mjs`（全站真机只读探针）、
+`v402-spec-seq-consistency.py`（A/B/C/D/E 五族，含 CSS 注释配对护栏）、
+`v402-scan-tables.py`/`v402-scan-list-tables.py`（扫全站表 / 提列表页 v-for 与分页标识符）。
