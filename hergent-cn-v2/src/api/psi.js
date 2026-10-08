@@ -132,6 +132,36 @@ export const psiApi = {
   receivePurchase: (id, body) =>
     api(`/api/psi/purchase-orders/${id}/receive`, { method: 'POST', body }),
 
+  /* ---- 详情页「货款 / 入库单」两个 tab（v404）---- */
+
+  /**
+   * 「货款」：订单信息 + 付款流水。
+   * 返回 `{order: {...}, payments: [...]}`。
+   *   · `order.ap_amount` / `ap_unpaid_amount` **可能是 `null`** —— 含义是「这张单没有应付记录」
+   *     （舟谱导入的历史单没走过入库确认），界面必须显示 `—`，**不要当 0**。
+   *   · `order.unpaid_amount`（未结）才是唯一口径：`max(0, received_amount − paid_amount)`。
+   *   · `payments[].operator_name` 由后端解析（**界面不许印内部账号 id**）。
+   */
+  getPurchasePayments: (id) => api(`/api/psi/purchase-orders/${id}/payments`),
+
+  /**
+   * 登记一笔付款。body: `{amount, account?, note?}`。
+   * 🔴 后端会拒的四种情况（都会返回 400 + 中文原因）：金额 ≤ 0、超过未结金额、
+   *    会计期间已关闭、这张单没有应付记录。**不要在界面上替它判断后就静默不发** ——
+   *    那道判据的唯一实现就在后端，前端再写一份必然漂移。
+   */
+  createPurchasePayment: (id, body) =>
+    api(`/api/psi/purchase-orders/${id}/payments`, { method: 'POST', body }),
+
+  /**
+   * 「入库单」：这张单的到货入库明细。
+   * 返回 `{empty, reason?, derived, head, items, summary}`。
+   *   · `empty=true` ⇒ 只有一个 `reason`（人话，如「这张单还是草稿，没有入库单。」），
+   *     **没有 `items`** ⇒ 界面走空态，不要渲染一张全 0 的表。
+   *   · `head.inbound_no` 由源单号生成（`CD…` → `RK…`），是**展示用编号**。
+   */
+  getPurchaseInbound: (id) => api(`/api/psi/purchase-orders/${id}/inbound`),
+
   /* ---- 销售 ---- */
   /**
    * @param {object} p `{status, customer_id, date_from, date_to, operator_id, driver_id, order_type}`
