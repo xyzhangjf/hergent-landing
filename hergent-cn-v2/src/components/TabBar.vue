@@ -1,5 +1,10 @@
 <template>
   <!-- ══ 全局标签栏（v396，2026-10-08）══════════════════════════════════════
+       v417f（2026-10-09）：**由「独立一行」改为「并入顶栏」**——
+         舟谱实证：它的标签与 logo 同处一条顶栏，不单独占一行。
+         本组件现在渲染在 `Shell.vue` 的 `.topbar` 内部（品牌与右侧动作区之间），
+         由 `.tabbar{flex:1;min-width:0}` 吃掉中间剩余宽度。
+         🔴 唯一约束不变：**必须在滚动区之外**（顶栏本来就不滚）。
        语义 = 「**我打开过哪些页**」（对齐舟谱），**不是**「这个模块有哪些页」。
        数据在 `composables/useTabs.js`（模块级单例），本组件只负责排版与交互。
 
@@ -159,8 +164,12 @@ function close(t) {
 </script>
 
 <style scoped>
-.tabbar{display:flex;align-items:center;gap:6px;padding:6px 20px;background:var(--bg2);
-  border-bottom:1px solid var(--border-subtle);flex-shrink:0;position:relative;z-index:6}
+/* v417f：并入顶栏 ⇒ 不再是一条"带底色的通栏"，而是顶栏里的一块弹性区。
+   🔴 **不要**给 `.tabbar` 加 `overflow:hidden`：右侧「更多」的下拉是
+      `position:absolute`，会被它裁掉（裁剪发生在 `.tb-strip` 上就够了）。
+   ⚠️ `flex:1;min-width:0` 是必须的：没有 `min-width:0`，flex 项不会收缩到
+      内容宽度以下 ⇒ 标签一多就把右侧动作区顶出屏幕。 */
+.tabbar{display:flex;align-items:center;gap:6px;flex:1;min-width:0;position:relative}
 .tb-strip{flex:1;min-width:0;display:flex;gap:4px;overflow:hidden}
 
 .tab-item{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:28px;

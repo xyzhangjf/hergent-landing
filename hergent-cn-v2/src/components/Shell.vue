@@ -7,6 +7,14 @@
         <b>Hergent</b><span class="tb-sub">AI 经营副驾</span>
         <span v-if="store.demo" class="tb-demo">演示模式 · 模拟数据</span>
       </div>
+      <!-- v417f（2026-10-09）：**标签栏并入顶栏**（对齐舟谱）。
+           舟谱实证（截图库 `~/Documents/舟谱截图/采购订单/创建采购订单截图.png`）：
+           它的标签（`客户档案 × … 采购订单 | 创建采购订单 ×`）与 logo
+           **同处一条深色顶栏**，不单独占一行；我们原做成独立 41px 一行。
+           🔴 语义不变（v396）：仍是「**我打开过哪些页**」，不是「这个模块有哪些页」。
+           中间这块由 TabBar.vue 的 `.tabbar` 撑开（`flex:1;min-width:0`），
+           放不下时按 Q5 B 收进「更多」⇒ **不会挤掉右侧动作区**。 -->
+      <TabBar @refresh="onTabRefresh" @close="onTabClose" />
       <div class="tb-ai">
         <WeatherWidget />
         <!-- v325（2026-09-29）：AI 入口按权限收窄 —— 无 `chat` 模块就不渲染。
@@ -134,17 +142,12 @@
 
       <!-- 内容区 -->
       <main class="content">
-        <!-- v396（2026-10-08）：**全局标签栏** —— 语义是「**我打开过哪些页**」
-             （对齐舟谱），不再是「这个模块有哪些页」。
-
-             🔴 为什么放在 `.content` 里、`router-view` **之外**：
-                它在滚动区之外 ⇒ 长页面滚动时标签栏不跟着滚走（舟谱也是这样固定的）。
-                为此 `.content` 从「自己滚」改成「flex 纵向 + 内层 `.view-wrap` 滚」
-                （原 `overflow-y:auto;padding:20px` 移到了 `.view-wrap` 上）。
-
-             ⚠️ 标签栏自己处理三件事：溢出收进「更多」（Q5 B）、
-                ⟳ 刷新当前标签、× 关闭标签 —— Shell 只负责**导航决策**。 -->
-        <TabBar @refresh="onTabRefresh" @close="onTabClose" />
+        <!-- v417f（2026-10-09）：标签栏已从此地**移入顶栏**（见上方 `.topbar` 内）。
+             🔴 唯一不能破的约束（v396 原话）：标签栏必须在**滚动区之外**，
+                否则长页面滚动时标签会跟着滚走。移进顶栏后仍在滚动区之外
+                （顶栏本来就不滚）⇒ 省下独立一行约 41px，全站受益。
+                `.content` 的「flex 纵向 + 内层 `.view-wrap` 滚」结构**不变**，
+                只是少了一个 `flex-shrink:0` 的兄弟。 -->
         <div class="view-wrap">
           <!-- 🔴 `:key="viewKey"` 只含**刷新计数**，不含 `route.fullPath` —— 这是刻意的：
                含 fullPath 会让「页内切 tab」（`?tab=` 变化）把整页组件重建，
@@ -1090,11 +1093,13 @@ function stopResize() {
 .shell{display:flex;flex-direction:column;height:100vh;background:radial-gradient(1200px 420px at 72% -8%,rgba(6,182,212,.07),transparent 60%),var(--bg2)}
 .topbar{height:var(--topbar-h);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 20px;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--glass-border);flex-shrink:0;z-index:10}
 .tb-demo{margin-left:10px;font-size:11px;background:rgba(255,149,0,.15);color:#b76e00;padding:2px 10px;border-radius:8px}
-.tb-brand{display:flex;align-items:center;gap:8px}
+/* v417f：标签栏插进顶栏中间 ⇒ 左右三组**都不许收缩**，否则标签一多就把
+   右侧动作区（通知 / 主题 / 用户）挤没了。收缩只由中间的 `.tabbar` 承担。 */
+.tb-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .tb-brand-logo{width:22px;height:22px;border-radius:5px;display:block}
 .tb-brand b{font-size:16px;font-weight:600;letter-spacing:.2px}
 .tb-sub{font-size:12px;color:var(--t3);padding:3px 8px;border-radius:8px;background:var(--p-bg);color:var(--p-dark)}
-.tb-right{display:flex;align-items:center;gap:8px}
+.tb-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .tb-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2)}
 .tb-btn:hover{background:var(--bg2);color:var(--p-dark)}
 /* 通知铃铛：未读数用中文数目直接显示，不用英文缩写 */
@@ -1102,7 +1107,7 @@ function stopResize() {
 .tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--dan);color:#fff;font-size:10px;line-height:15px;text-align:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
 .tb-user{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer}
 
-.tb-ai{display:flex;align-items:center;gap:12px}
+.tb-ai{display:flex;align-items:center;gap:12px;flex-shrink:0}
 .tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:18px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
 .tb-copilot:hover{background:var(--p);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .tb-cp-ic{display:flex;align-items:center;justify-content:center}
@@ -1270,7 +1275,8 @@ function stopResize() {
   /* v311b：底部栏名字改回与侧栏**同源**（「工作台」→「经营工作台」等）后变长，
      窄屏（320px / 4 格 ≈ 80px）下不许换行把图标顶歪；也防「预报订货管理」挤出格。 */
   .mnav-item span{white-space:nowrap}
-  /* v396：padding 从 `.content` 移到了 `.view-wrap`（标签栏要通栏、且不随页面滚）；
+  /* v396：padding 从 `.content` 移到了 `.view-wrap`（标签栏不随页面滚）；
+     v417f：标签栏已并入顶栏，这里不再为它预留通栏空间。
      手机端标签栏整条隐藏（Q6 A），所以这里只补底部安全区，视觉与原来一致。 */
   .view-wrap{padding:14px 12px calc(72px + env(safe-area-inset-bottom))}
 }
