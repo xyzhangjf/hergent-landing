@@ -1255,6 +1255,14 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 /* v408（P1-1）库存两列 + v409（P2-1）单位列加宽（64→92px）。等宽数字 + 不换行：
    数量右对齐成一列才好扫读。`min-width` 相应放大：1730 → 1758px（单位列 +28px）。 */
 .ipn-tbl { min-width: 1758px }
+/* v417c：明细表**紧凑行高**（对照舟谱：单屏可见行数 5 → 8）。
+   全局 `table.tbl td{padding:10px 14px}`（variables.css:530）是给「读数表」定的，
+   填报网格要更密 —— 纵向 10→5px、行内控件 30→28px ⇒ 单行 ≈51 → ≈39px。
+   🔴 选择器**必须**带 `table.ipn-tbl`：写成 `.ipn-tbl td` 的 specificity 低于全局
+      `table.tbl td`，会**静默失效**（样式看着写了、实际没生效）。 */
+table.ipn-tbl th { padding: 7px 12px }
+table.ipn-tbl td { padding: 5px 12px }
+table.ipn-tbl td.seq-cell { padding: 5px 4px }
 .ipn-c-stk { width: 88px; font-variant-numeric: tabular-nums; white-space: nowrap }
 .ipn-stk-none { color: var(--t3); font-size: 12px }
 /* 「实际有货、一件都不可售（全过期）」——必须扎眼，否则用户以为有货能卖 */
@@ -1264,13 +1272,25 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 /* v409（P2-1）：单位列从 64px 放到 92px —— 里面现在是一个下拉 + 一行换算小字，
    64px 会让「件」这种单字单位的下拉被挤成 40px，点开选项时文字被截断。 */
 .ipn-c-unit { width: 92px }
-.ipn-unit-sel { height: 30px; padding: 0 4px }
+.ipn-unit-sel { height: 28px; padding: 0 4px }
 /* 换算 / 折价小字：**弱化色 + 不换行**，它是解释不是数据（数据仍以输入框里的为准）。
    ⚠️ 不加 `white-space: nowrap` 时「= 40 袋」会在窄列里断成两行，把行高顶起来。 */
+/* v417c：换算小字从「行内第二行」改为「指向该格才浮出的浮层」。
+   原来三格（单位 / 采购价 / 订单数量）各自多一行 ⇒ 多档单位商品一选中，
+   行高 51→66px、单屏行数掉三成。改成绝对定位浮层后**不占行高**：
+   鼠标指向该格或键盘聚焦才出现，`pointer-events:none` 不挡点击。 */
+.ipn-c-unit, .ipn-c-price, .ipn-c-qty { position: relative }
 .ipn-conv {
-  margin-top: 2px; font-size: 11px; color: var(--t3);
-  white-space: nowrap; font-variant-numeric: tabular-nums;
+  display: none; position: absolute; z-index: 6;
+  left: 2px; top: calc(100% - 4px);
+  padding: 1px 6px; white-space: nowrap; pointer-events: none;
+  font-size: 11px; color: var(--t2); font-variant-numeric: tabular-nums;
+  background: var(--bg); border: 1px solid var(--bd);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);
 }
+.ipn-c-unit:hover .ipn-conv, .ipn-c-unit:focus-within .ipn-conv,
+.ipn-c-price:hover .ipn-conv, .ipn-c-price:focus-within .ipn-conv,
+.ipn-c-qty:hover .ipn-conv, .ipn-c-qty:focus-within .ipn-conv { display: block }
 .ipn-c-ref { width: 96px; color: var(--t2) }
 .ipn-c-price, .ipn-c-qty { width: 94px }
 .ipn-c-amt { width: 104px }
@@ -1279,7 +1299,7 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 /* v408（P1-2）行备注：选填短文本，给足宽度但不抢主列 */
 .ipn-c-note { width: 180px }
 .ipn-c-op { width: 104px; white-space: nowrap }
-.ipn-in { width: 100%; height: 30px }
+.ipn-in { width: 100%; height: 28px }
 .ipn-in.num { text-align: right; font-variant-numeric: tabular-nums }
 .ipn-amt { font-variant-numeric: tabular-nums; white-space: nowrap }
 .ipn-unit { font-size: 13px; color: var(--t1) }
