@@ -1440,6 +1440,15 @@ table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
 .ipn-v:focus { outline: none; box-shadow: inset 0 0 0 1px var(--p-dark) }
 .ipn-v.num { text-align: right; font-variant-numeric: tabular-nums }
 .ipn-v.is-ph { color: var(--t3) }
+/* v417k：本页自带更紧的行高（scoped specificity 高于全局），故紧凑档要**在这里**再收一档，
+   否则开关对采购页无效（全局那条打不破 scoped 规则）—— 这是「开关全局生效」最容易漏的一处。 */
+[data-density="compact"] table.ipn-tbl td { padding: 1px 8px }
+[data-density="compact"] table.ipn-tbl th { padding: 3px 8px }
+[data-density="compact"] .ipn-v { min-height: 16px; line-height: 16px }
+/* 行内控件三处**一并**收（只收 .ipn-in 会让单位下拉/批次按钮仍撑着行高 = 半截生效） */
+[data-density="compact"] .ipn-in,
+[data-density="compact"] .ipn-unit-sel,
+[data-density="compact"] .ipn-batch-btn { height: 20px }
 /* v417i 批次格：常显摘要 + 点开小面板 */
 .ipn-c-batch { position: relative }
 .ipn-batch-btn {

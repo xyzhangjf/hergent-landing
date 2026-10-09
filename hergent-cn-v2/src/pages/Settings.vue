@@ -21,6 +21,14 @@
           <b class="set-lb">界面主题</b>
           <button class="btn btn-sm btn-ghost" @click="toggleTheme">切换为 {{ store.ui.theme === 'light' ? '深色' : '浅色' }}</button>
         </div>
+        <!-- v417k（P2）：表格密度开关。放在「界面主题」旁边而不是每张表上 ——
+             密度是**人**的偏好（这台屏幕多大、这人眼神如何），不是**某张表**的属性。
+             写进 `useDensity`：本机即时生效 + 云端跨设备同步（复用 /api/ui/col-prefs）。 -->
+        <div class="set-row">
+          <b class="set-lb">表格密度</b>
+          <button class="btn btn-sm btn-ghost" @click="switchDensity">{{ densityLabel }}</button>
+          <span class="set-desc">{{ densityHint }}</span>
+        </div>
       </div>
     </template>
 
@@ -442,6 +450,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { store, setTheme, toast } from '../store'
+import { density, setDensity } from '../composables/useDensity'
 import { api } from '../api/client'
 import Icon from '../components/Icon.vue'
 import AiOps from './AiOps.vue'
@@ -1137,6 +1146,22 @@ async function resetAllRoles() {
 /* ---- 其它 ---- */
 function toggleTheme() {
   setTheme(store.ui.theme === 'light' ? 'dark' : 'light')
+}
+
+/* ---- v417k：表格密度 ----
+   🔴 为什么云端写失败也要给用户看见（不能只 console.warn）：
+   用户是**显式点了按钮**，预期就是"存上了"。若弱网时静默只改本机，
+   换台电脑又跳回舒适档，用户会认为是 bug 而不是网络问题 —— 且无法自查。
+   故云端失败时如实提示「本机已生效、云端没存上」，把两件事讲清楚。 */
+const densityLabel = computed(() => density.value === 'compact' ? '切换为舒适' : '切换为紧凑')
+const densityHint = computed(() =>
+  density.value === 'compact' ? '当前紧凑：行高更小，一屏能多看几行' : '当前舒适：行高宽松，看得更清楚'
+)
+async function switchDensity () {
+  const next = density.value === 'compact' ? 'cozy' : 'compact'
+  const saved = await setDensity(next)
+  if (saved) toast(next === 'compact' ? '已切换为紧凑' : '已切换为舒适', 'success')
+  else toast('本机已切换，但没能存到云端 —— 换台设备可能会跳回原样', 'warn')
 }
 
 onMounted(() => {

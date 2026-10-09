@@ -532,6 +532,23 @@ table.tbl tr:last-child td{border-bottom:none}
 table.tbl tbody tr:hover{background:var(--bg2)}
 table.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 
+/* v417k 密度开关（P2）：**舒适 = 上表原值**（不动默认），紧凑 = 下面的覆盖。
+   开关值写在 `<html data-density="compact">`（见 `composables/useDensity.js`）。
+   🔴 为什么尺寸只在这里算一遍：密度若由各页自己判断再各写一套 padding，
+      就又变成「同一规则抄多份 ⇒ 漏抄的那页不跟随」；这里统一由**祖先属性**驱动，
+      全站 `table.tbl`（列表 / 报表）一律生效，页面零改动。
+   specificity：`[data-density] table.tbl td` = (0,2,2) > 原 `table.tbl td` = (0,1,2) ⇒ 稳定覆盖。 */
+[data-density="compact"] table.tbl th{padding:5px 10px}
+[data-density="compact"] table.tbl td{padding:4px 10px}
+[data-density="compact"] table.tbl th.seq-th,
+[data-density="compact"] table.seq-host th.seq-th{padding:5px 4px}
+[data-density="compact"] table.tbl td.seq-cell,
+[data-density="compact"] table.seq-host td.seq-cell{padding:3px 4px}
+/* 紧凑档把行内控件一起收矮，否则格子矮了、控件还是 32px，行高压不下来 */
+[data-density="compact"] table.tbl .input,
+[data-density="compact"] table.tbl input,
+[data-density="compact"] table.tbl select{height:24px}
+
 /* 序号列（全站唯一源，v401 上提自 Forecast.vue；v402 扩到非 .tbl 的自定义表）——
    判据见 UI-SPEC §2.6.1：这张表会不会被用户说成「第几行那个」？会说 ⇒ 就要有序号列。
    列宽 46px：对齐本期预报 <colgroup> 里 colW('seq')=46。Forecast 里曾写 42px，那是**不参与
