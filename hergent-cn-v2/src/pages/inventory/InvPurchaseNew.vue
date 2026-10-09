@@ -293,9 +293,11 @@
               <th class="num ipn-c-price">采购价</th>
               <th class="num ipn-c-qty">订单数量</th>
               <th class="num ipn-c-amt">订单金额</th>
-              <th class="ipn-c-batch">批次号 <span class="ipn-opt">选填</span></th>
-              <th class="ipn-c-date">到期日 <span class="ipn-opt">选填</span></th>
-              <th class="ipn-c-date">生产日期</th>
+              <!-- v417i：批次三列（批次号 / 到期日 / 生产日期）合并成一列「批次信息」，
+                   点开小面板填写 —— 15 列 ⇒ 13 列，横向滚动彻底消失。
+                   三者都是**低频选填**字段（v417 已把批次号、到期日改为选填）：
+                   常驻占 3 列宽，换来的是每次开单都要横向滚动找它们。 -->
+              <th class="ipn-c-batch">批次信息 <span class="ipn-opt">选填</span></th>
               <!-- v408（P1-2）行备注：**记在明细行上**（不是整单备注）。舟谱同列。 -->
               <th class="ipn-c-note">行备注</th>
               <th class="ipn-c-op">操作</th>
@@ -304,21 +306,24 @@
           <tbody>
             <tr v-for="(row, i) in items" :key="row.uid">
               <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-              <td class="ipn-c-prod">
-                <select v-model.number="row.product_id" class="input ipn-in" @change="onPick(row)">
+              <td class="ipn-c-prod" @click="cellOn(row, 'prod')">
+                <select v-if="isCellOn(row, 'prod')" v-model.number="row.product_id" v-focus
+                        class="input ipn-in" @change="onPick(row)" @blur="cellOff" @keydown.esc="cellOff">
                   <option :value="0" disabled>请选择商品</option>
                   <option v-for="p in prodOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
                 </select>
+                <span v-else class="ipn-v" tabindex="0" :class="{ 'is-ph': !row.product_id }"
+                      @keydown.enter.prevent="cellOn(row, 'prod')">{{ prodName(row) || '选商品' }}</span>
               </td>
               <td class="ipn-c-code">{{ row.barcode || (row.product_id ? '—' : '') }}</td>
-              <td class="ipn-c-unit">
-                <!-- v409（P2-1）：单位改成**三档下拉**（小 / 中 / 大）。档位清单来自后端
-                     `unit_options`（商品档案里真正存在的档，缺一档就少一项 —— 不给空档位）。 -->
-                <select v-if="unitOptionsOf(row).length" v-model="row.unit"
-                        class="input ipn-in ipn-unit-sel" :title="row.convText || row.unit">
+              <td class="ipn-c-unit" @click="cellOn(row, 'unit')">
+                <select v-if="isCellOn(row, 'unit') && unitOptionsOf(row).length" v-model="row.unit" v-focus
+                        class="input ipn-in ipn-unit-sel" :title="row.convText || row.unit"
+                        @blur="cellOff" @keydown.esc="cellOff">
                   <option v-for="o in unitOptionsOf(row)" :key="o.key" :value="o.name">{{ o.name }}</option>
                 </select>
-                <span v-else class="ipn-unit none">先选商品</span>
+                <span v-else class="ipn-v" tabindex="0" :class="{ 'is-ph': !row.unit }"
+                      @keydown.enter.prevent="cellOn(row, 'unit')">{{ row.unit || (row.product_id ? '—' : '') }}</span>
                 <div v-if="row.convText" class="ipn-conv">{{ row.convText }}</div>
               </td>
               <!-- v417g：空行不再铺「先选商品」占位（对齐舟谱空行干净）——
@@ -330,29 +335,59 @@
                 <span v-if="row.product_id" :title="stockTitle(row)">{{ stockText(row, 'quantity') }}</span>
               </td>
               <td class="num ipn-c-ref">{{ row.product_id && row.purchase_price ? '¥' + fmtMoney(row.purchase_price) : '' }}</td>
-              <td class="ipn-c-price">
-                <input v-model="row.unit_price" class="input ipn-in num" inputmode="decimal" :placeholder="row.product_id ? '0.00' : ''" />
+              <td class="ipn-c-price" @click="cellOn(row, 'price')">
+                <input v-if="isCellOn(row, 'price')" v-model="row.unit_price" v-focus
+                       class="input ipn-in num" inputmode="decimal" @blur="cellOff" @keydown.esc="cellOff" />
+                <span v-else class="ipn-v num" tabindex="0"
+                      @keydown.enter.prevent="cellOn(row, 'price')">{{ row.unit_price || '' }}</span>
                 <!-- v409（P2-1）双单位采购价：舟谱是「100 / 5/箱」两行，这里在所选档单价下面
                      补一行折小单位价。**只在所选档不是小档时显示**（是小档时两行数字相同）。 -->
                 <div v-if="ratioOf(row) > 1 && basePriceOf(row)" class="ipn-conv">
                   折 {{ fmtMoney(basePriceOf(row)) }} 元/{{ row.baseUnit || '小单位' }}
                 </div>
               </td>
-              <td class="ipn-c-qty">
-                <input v-model="row.quantity" class="input ipn-in num" inputmode="decimal" :placeholder="row.product_id ? '0' : ''" />
+              <td class="ipn-c-qty" @click="cellOn(row, 'qty')">
+                <input v-if="isCellOn(row, 'qty')" v-model="row.quantity" v-focus
+                       class="input ipn-in num" inputmode="decimal" @blur="cellOff" @keydown.esc="cellOff" />
+                <span v-else class="ipn-v num" tabindex="0"
+                      @keydown.enter.prevent="cellOn(row, 'qty')">{{ row.quantity || '' }}</span>
                 <!-- v409：折小单位数量 —— 让用户**下单时就看见**库存会进多少（不是事后才发现）。 -->
                 <div v-if="ratioOf(row) > 1 && baseQtyOf(row)" class="ipn-conv">
                   = {{ baseQtyOf(row) }} {{ row.baseUnit || '小单位' }}
                 </div>
               </td>
               <td class="num ipn-amt">{{ row.product_id ? '¥' + fmtMoney(rowAmount(row)) : '' }}</td>
-              <td class="ipn-c-batch">
-                <input v-model.trim="row.batch_no" class="input ipn-in" :placeholder="row.product_id ? '如 20261101' : ''" />
+              <!-- v417i：批次三字段收进这一格的小面板。格内**常显摘要**（有批次号显示批次号、
+                   有到期日显示「到期 xxxx-xx-xx」），一眼能看出这行有没有填批次，不用点开才知道。 -->
+              <td class="ipn-c-batch" :class="{ 'has-val': batchText(row) }">
+                <button type="button" class="ipn-batch-btn" :disabled="!row.product_id"
+                        :title="batchText(row) || '点开填写批次号 / 到期日 / 生产日期（选填）'"
+                        @click.stop="toggleBatch(row)">
+                  <span class="ipn-batch-txt">{{ batchText(row) || (row.product_id ? '填写' : '') }}</span>
+                  <Icon name="chevron-down" :size="12" />
+                </button>
+                <div v-if="batchOpen === row.uid" class="ipn-batch-pop" @click.stop>
+                  <label class="ipn-bp-row">
+                    <span class="ipn-bp-lb">批次号</span>
+                    <input v-model.trim="row.batch_no" v-focus class="input ipn-in" placeholder="如 20261101" />
+                  </label>
+                  <label class="ipn-bp-row">
+                    <span class="ipn-bp-lb">到期日</span>
+                    <input type="date" v-model="row.expiry_date" class="input ipn-in" />
+                  </label>
+                  <label class="ipn-bp-row">
+                    <span class="ipn-bp-lb">生产日期</span>
+                    <input type="date" v-model="row.production_date" class="input ipn-in" />
+                  </label>
+                  <p class="ipn-bp-tip">空着也能保存：系统会给这批自动编号，无到期日的批次在出库时排最后。</p>
+                  <button type="button" class="ipn-bp-done" @click.stop="batchOpen = ''">完成</button>
+                </div>
               </td>
-              <td class="ipn-c-date"><input type="date" v-model="row.expiry_date" class="input ipn-in" :class="{ 'ipn-dim': !row.product_id }" /></td>
-              <td class="ipn-c-date"><input type="date" v-model="row.production_date" class="input ipn-in" :class="{ 'ipn-dim': !row.product_id }" /></td>
-              <td class="ipn-c-note">
-                <input v-model.trim="row.note" maxlength="200" class="input ipn-in" :placeholder="row.product_id ? '选填' : ''" />
+              <td class="ipn-c-note" @click="cellOn(row, 'note')">
+                <input v-if="isCellOn(row, 'note')" v-model.trim="row.note" v-focus maxlength="200"
+                       class="input ipn-in" @blur="cellOff" @keydown.esc="cellOff" />
+                <span v-else class="ipn-v" tabindex="0"
+                      @keydown.enter.prevent="cellOn(row, 'note')">{{ row.note || '' }}</span>
               </td>
               <td class="ipn-c-op">
                 <button class="ipn-ic" title="在这一行下面插一行" @click="insertAfter(i)"><Icon name="plus" :size="14" /></button>
@@ -458,6 +493,27 @@ const route = useRoute()
 
 const saving = ref(false)
 const saveOpen = ref(false)
+/* v417j 激活格（对照舟谱最终档）：**点哪格，哪格才是输入框**；其余格渲染成文本。
+   🔴 为什么不用「整行激活」：整行切换会让鼠标扫过的行高忽高忽低（抖动），
+      而舟谱实际也是**格级**激活。格级切换时行高恒定（文本行高），密度收益才拿得到。
+   ⚠️ 已知边界：Tab 键顺序导航会退化（只有激活格是 input，Tab 出去即失焦退出编辑）。
+      本页是鼠标为主的单据填报（老板场景），Enter/Esc 与点击均可进出编辑态。 */
+const activeCell = ref('')
+const cellKey = (row, f) => `${row.uid}:${f}`
+const isCellOn = (row, f) => activeCell.value === cellKey(row, f)
+function cellOn (row, f) { activeCell.value = cellKey(row, f) }
+function cellOff () { activeCell.value = '' }
+
+/** 非激活态要显示商品名（不是 product_id）—— 从下拉的同一份清单取，避免另存一份名字导致两处不同步。 */
+function prodName (row) {
+  const p = prodOptions.value.find(x => Number(x.id) === Number(row.product_id))
+  return p ? p.name : ''
+}
+// v417i：批次小面板当前打开在哪一行（存 uid；'' = 都没开）
+const batchOpen = ref('')
+/* v417j 激活格：元素一挂载就聚焦 —— 配合 v-if「点哪格哪格才变输入框」，
+   省掉 nextTick + querySelector 那一套（那些写法会因为时序问题漏焦）。 */
+const vFocus = { mounted: el => { try { el.focus() } catch (_) {} } }
 const approveOpen = ref(false)
 const suppliers = ref([])
 const warehouses = ref([])
@@ -594,6 +650,19 @@ function fmtQty (v) {
   const n = Number(v || 0)
   if (!isFinite(n)) return '0'
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100)
+}
+
+/** v417i：批次格常显摘要 —— 有批次号显示批次号，否则显示到期日，都没有则空（由调用方显示「填写」）。
+    🔴 不这么做：三字段收进面板后，用户在表格上**看不出这行填没填批次**，必须逐行点开才知道 ——
+       这正是「把信息藏起来换密度」最常见的代价，故摘要必须常显。 */
+function batchText (row) {
+  if (row.batch_no) return row.batch_no
+  if (row.expiry_date) return `到期 ${row.expiry_date}`
+  return ''
+}
+
+function toggleBatch (row) {
+  batchOpen.value = batchOpen.value === row.uid ? '' : row.uid
 }
 
 function stockText (row, key) {
@@ -1119,7 +1188,7 @@ async function submitReturn () {
 }
 
 function back () { router.push('/inventory/purchase') }
-function onDocClick () { saveOpen.value = false; approveOpen.value = false }
+function onDocClick () { saveOpen.value = false; approveOpen.value = false; batchOpen.value = '' }
 
 /** 基础资料（供应商 / 商品 / 仓库 / 部门 / 主库账号）。
 
@@ -1298,7 +1367,8 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 /* v417g：列宽整体收窄（对齐舟谱「操作列永远可见、无横向滚动」）——
    min-width 1758 → ~1600，1920 屏（侧栏+页边距后可视 ~1670px）放得下 15 列；
    同时单元格横向 padding 12→8px（纵向不动，v417e 的 33px 行高不受影响）。 */
-.ipn-tbl { min-width: 1604px }
+/* v417i：批次三列合一 ⇒ 少 2 列（原 1604px ⇒ 1372px），配合列宽收窄，横向滚动消失。 */
+.ipn-tbl { min-width: 1372px }
 /* v417g：单元格横向 padding 12→8px（纵向不动 —— v417e 的 33px 行高不受影响）。
    🔴 选择器**必须**带 `table.ipn-tbl`：写成 `.ipn-tbl td` 的 specificity 低于全局
       `table.tbl td{padding:10px 14px}`（variables.css:530），会**静默失效**
@@ -1335,8 +1405,8 @@ table.ipn-tbl td.seq-cell { padding: 2px 4px }
 .ipn-c-ref { width: 86px; color: var(--t2) }
 .ipn-c-price, .ipn-c-qty { width: 86px }
 .ipn-c-amt { width: 92px }
-.ipn-c-batch { width: 118px }
-.ipn-c-date { width: 132px }
+/* v417i：原来 118(批次号) + 132×2(两个日期) = 382px ⇒ 现在一列 150px 装摘要 + 小面板入口 */
+.ipn-c-batch { width: 150px }
 /* v417g：未选商品的行，日期输入淡显（浏览器自带的「年/月/日」占位没法改色，
    只能整体降透明度；选中商品即恢复，输入不受影响）。 */
 .ipn-in.ipn-dim { opacity: .38 }
@@ -1359,6 +1429,40 @@ table.ipn-tbl td.seq-cell { padding: 2px 4px }
       但格子**仍是 input**（不是换成文本再切换），可点可键盘 Tab，零交互回归风险。 */
 table.ipn-tbl .ipn-in:not(:focus) { background: transparent }
 table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
+/* v417j 文本态（未激活的格）：行高比输入框态矮约 5px —— 这就是本档密度收益的来源。
+   🔴 不加 `overflow:hidden + ellipsis` 会怎样：商品名一长就把列撑宽、把表格推出横向滚动，
+      等于把刚省下的宽度又吐回去了。 */
+.ipn-v {
+  display: block; min-height: 18px; line-height: 18px; padding: 0 4px;
+  font-size: 13px; color: var(--t1); cursor: text;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ipn-v:focus { outline: none; box-shadow: inset 0 0 0 1px var(--p-dark) }
+.ipn-v.num { text-align: right; font-variant-numeric: tabular-nums }
+.ipn-v.is-ph { color: var(--t3) }
+/* v417i 批次格：常显摘要 + 点开小面板 */
+.ipn-c-batch { position: relative }
+.ipn-batch-btn {
+  display: flex; align-items: center; gap: 4px;
+  width: 100%; height: 22px; padding: 0 4px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; cursor: pointer; font-size: 13px; color: var(--t1);
+}
+.ipn-batch-btn:hover { border-color: var(--bd) }
+.ipn-batch-btn:disabled { cursor: default; opacity: .45 }
+.ipn-batch-txt { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ipn-batch-pop {
+  position: absolute; z-index: 20; right: 0; top: calc(100% - 2px); width: 236px;
+  padding: 8px; background: var(--bg); border: 1px solid var(--bd);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+}
+.ipn-bp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px }
+.ipn-bp-lb { flex: none; width: 52px; font-size: 12px; color: var(--t3) }
+.ipn-bp-tip { margin: 0 0 6px; font-size: 11px; line-height: 1.4; color: var(--t3) }
+.ipn-bp-done {
+  width: 100%; height: 26px; border: 1px solid var(--bd); border-radius: var(--radius-sm);
+  background: var(--bg2); cursor: pointer; font-size: 12px; color: var(--t1);
+}
 .ipn-in.num { text-align: right; font-variant-numeric: tabular-nums }
 .ipn-amt { font-variant-numeric: tabular-nums; white-space: nowrap }
 .ipn-unit { font-size: 13px; color: var(--t1) }
