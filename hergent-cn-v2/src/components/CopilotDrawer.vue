@@ -1481,7 +1481,10 @@ async function applyProposal(m, action) {
 
 /* ---- P0-① 反馈纠错：对/错 → 落 memory（错可填纠正） ---- */
 async function submitFeedback(m, type) {
-  if (m.feedback) return
+  // 乐观高亮：先亮，再发请求；失败回滚。去掉原 `if (m.feedback) return` 守卫，
+  // 否则「点赞↔点踩」无法互相切换（toggleFeedback 切到另一种类型时会被这里拦死）。
+  const prev = m.feedback
+  m.feedback = type
   let correction = ''
   if (type === 'bad') {
     correction = (window.prompt('哪里不对？（可选填，帮 AI 记住）', '') || '').trim()
@@ -1496,11 +1499,11 @@ async function submitFeedback(m, type) {
       method: 'POST',
       body: { original_input: original, ai_result: m.content, feedback: type, correction }
     })
-    m.feedback = type
     if (type === 'bad' && correction) store.toast('已记下纠正，下次改进')
     else if (type === 'good') store.toast('感谢反馈')
     else store.toast('已记录')
   } catch (e) {
+    m.feedback = prev   // 请求失败回滚高亮，避免「亮了却没存上」的静默不一致
     console.warn('[copilot] feedback failed:', e.message)
   }
 }
