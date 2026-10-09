@@ -80,6 +80,53 @@ export const EXPIRY_STATUS = {
   unknown:  { text: '日期异常', tag: 'bad' },
 }
 
+/* ---- 单据来源（`purchase_orders.source`）----
+   取值域对着**写入口**核过（v408）：
+     · `purchase.py:344`        → `'manual'`（新前端界面手工建单）
+     · `zhoupu_documents.py:751`→ `'zhoupu'`（舟谱导入；生产 79 张历史单走这条，未走 confirm）
+     · `hermes_core.py:543`     → `'ai'`（AI 副驾代建）
+     · `''`                     → v403 之前建的存量单，**没有来源标注**
+   🔴 空值**不猜成「手工」** —— 那是把「不知道」写成事实。显示为 `—`（与 has_items 的口径纪律同源）。 */
+export const PO_SOURCE = {
+  manual: { text: '手工录入', tag: 'info' },
+  zhoupu: { text: '舟谱导入', tag: 'warn' },
+  ai:     { text: 'AI 代建',  tag: 'ok' },
+}
+
+/* 列表「单据来源」筛选项：空值 = 全部（后端空串即不过滤）
+   🔴 `__none__` 是**哨兵**（不是真实来源值）= 只看「未标注来源」的单。
+      为什么必须有这一项：生产 81 张采购单的 `source` **全部是空串**（v403 之前建的存量单，
+      被 `ADD COLUMN … DEFAULT ''` 填成空）。只给「手工录入 / 舟谱导入 / AI 代建」三项的话，
+      老板选「舟谱导入」会得到**空列表且零提示**，读成「没有舟谱导入的单」——
+      而实际有 79~81 张。宁可多一个「未标注来源」，也不要一个会骗人的空结果。
+      后端同名哨兵在 `db/queries/purchases.py::purchase_order_list`（两处必须同时改）。 */
+export const PO_SOURCE_OPTIONS = [
+  { value: '', text: '全部来源' },
+  ...Object.entries(PO_SOURCE).map(([value, v]) => ({ value, text: v.text })),
+  { value: '__none__', text: '未标注来源' },
+]
+
+/* ---- 采购结算单状态（`purchase_settlements.status`，v408 P1-9 新增实体）----
+   取值域与后端 `db/queries/purchases.py::SETTLEMENT_STATUS` **同一份口径**：
+   draft / confirmed / void。改一处必须改另一处。
+   ⚠️ `void` 的中文是「已作废」不是「已取消」：结算单作废后**占用随之释放**、单据能重新
+      进别的结算单，这与「取消」（什么都没发生过）不是一回事，混用词会让人以为单据被退回。 */
+export const SETTLEMENT_STATUS = {
+  draft:     { text: '草稿',   tag: 'info' },
+  confirmed: { text: '已确认', tag: 'ok' },
+  void:      { text: '已作废', tag: 'bad' },
+}
+export const SETTLEMENT_STATUS_OPTIONS = [
+  { value: '', text: '全部状态' },
+  ...Object.entries(SETTLEMENT_STATUS).map(([value, v]) => ({ value, text: v.text })),
+]
+
+/* ---- 结算明细的单据类型（`purchase_settlement_items.ref_type`）---- */
+export const SETTLEMENT_REF_TYPE = {
+  purchase:        { text: '采购入库', tag: 'info' },
+  purchase_return: { text: '采购退货', tag: 'bad' },
+}
+
 /* ---- 取值 ---- */
 /**
  * 取中文标签。未知值**不静默留空** —— 回落到 `fallback`（默认「未知」）。
@@ -116,8 +163,11 @@ export function fmtMoney(n) {
    ⚠️ 写法受 `hergent-ui-copy-guard` 约束：不讲实现细节（版本号 / 表名 / 内部流程名）、
       不复述眼前已有的按钮或表头。只保留「用户不看就会做错事」的信息。 */
 export const PSI_NOTES = {
-  /** 单位口径 —— 与后端 `refs._meta.note` 同口径 */
-  unit: '数量按商品档案的「报单单位」填写，不用自己换算。',
+  /** 单位口径 —— 与后端 `refs._meta.note` 同口径。
+      v409（P2-1）改写：三档全给之后，单位**由用户在下拉里选**（不再是"只能按报单单位填"），
+      换算与入库折算都是系统的事。旧文案「按报单单位填写」会把新的三档下拉说成不可用。
+      ⚠️ 用户视角：只说"选一个单位、换算不用你算"，不提 `base_ratio` / 量纲 / 后端。 */
+  unit: '选一个单位下单就行，换算和入库折算都由系统按商品档案算，不用自己乘。',
   /** 效期口径 —— 回答「为什么要填」 */
   expiry: '登记到期日之后，临期预警和「先出最早到期」才会自动生效。',
   /** 库存为空的引导 */

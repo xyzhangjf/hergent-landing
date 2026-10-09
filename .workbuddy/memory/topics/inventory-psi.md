@@ -346,3 +346,284 @@ Phase 6 AST 接线断言。真机只读 `v404-probe.mjs` **51/0**。
 `contacts.code`（`:2393` 供应商编码）、`contacts.supplier_category`（`:2400`）。
 **加列范式照 v403**：`_safe_migrate` 与**租户列同步**（`erp_db.py:812-816` ↔ `:1189-1193`）**两处都要 patch**。
 
+
+---
+
+## v409（P2-1）三档单位：入库量纲必须统一到小单位
+
+> ⚠️ 本小节 2026-10-09 从 `MEMORY.md` **下沉**而来（原文只存在于索引层，域记忆缺失）。
+
+🔴 **明细可按小/中/大下单 ⇒ 入库量纲必须统一到小单位**；否则库存与成本两套量纲混用，且**零报错**。
+
+- **换算唯一实现 = `db/queries/units.py`**（纯函数）。前端**只负责显示、不做判定**（同一规则不能抄两份）。
+- 明细落两列快照：`base_ratio`（换算比快照）／`base_qty`（折小单位数量）；**两处登记**（主库 + 租户清单）。
+- `confirm` / `partial_receive` 用 `_poi_base_qty` / `_poi_base_price` **成对折算**。
+  🔴 只折数量不折价 ⇒ `cost_price` **错一个量级且零报错**。
+- `received_qty` **刻意不折**（它是对账用的原始量，折了就对不上单据）。
+- 🔴 `medium_ratio` **混类型**（空串 191 行）⇒ 一律 `CAST` / `float(x or 0)`；
+  SQL 裸比较 `>0` 有 **191 行假阳性**。
+- 老行两列（`large_ratio`/`medium_ratio`）为 0 ⇒ 回退 `quantity`，与改前**逐字一致**（兼容基线）。
+- `conversion_text` ≠ `products.spec` —— **不可互相替换**（前者=换算说明，后者=规格）。
+
+## v410（P2-3）最后操作 / 最后打印 人+时间
+
+- 表列：`purchase_orders` 加 4 列 `last_op_at/by`、`last_print_at/by`（`TEXT DEFAULT ''`），**两处登记**。
+- 🔴 **盖章唯一实现** `_po_stamp`（UPDATE）+ `_po_stamp_insert`（INSERT），9 个写函数埋点；11 条路由通路传登录人。
+- 四条硬口径：① 盖章只 1 个实现（各写一份 ⇒ 改口径必漏且零报错）② **没传人 ⇒ 整对不盖章**（只写一半 =
+  「有时间没人」的自相矛盾行，P1-7 审核人吃过这亏）③ **打印只盖 print 章不盖 op 章**（否则"最后操作人"
+  恒等于"最后打印人"，两列重复）④ `auditor_id` **保留首次** / `last_op_by` **刷本次**，规则**相反**
+  ⇒ approve 必须传**两个**人。
+- 四类人 id（creator/auditor/op/print）合并成**一次** `_creator_names` 查询（各查一遍 = 列表查询随列数线性放大）。
+- 探针 `tools/v410-p21-last-op/` **109/109**。关键证据：F7 打印后 `last_op_by` 不变；
+  F10+F11 换人二审 `auditor_id` 保持 301 而 `last_op_by` 刷成 302；F14 全表无矛盾行。
+
+## v411（P2-4）列设置云端持久化
+
+🔴 **先分清三条轴，别重复造**：
+- 列**有哪些**（不可删/自定义列定义与值）= `db/queries/forecast_columns.py` + `custom_fields` + `/api/forecast/columns`（早已上线）
+- 列**具名多套方案**（手工点保存）= `/api/forecast/column-schemes`（`forecast_config` KV）+ `Forecast.vue` 列方案下拉（早已上线）
+- 列**此刻这一套**（顺序/可见性/冻结列）= **v411 新增**（此前只有三处 localStorage）
+
+- 新表 `ui_col_prefs`：**主键只有 `page`，无 `user_id`** ⇒ 口径 = **租户级**（依据 `forecast_hidden_units`：
+  「同一张表不同账号看到不同的列 = 第二套口径」）。白名单三页 `forecast`/`purchase`/`settlement`。
+- 唯一实现 = `db/queries/ui_prefs.py`（`col_pref_get` **没存过返回 `None`** 与"存了空"可区分）
+  ＋ `composables/useColPrefs.js`（`pull`/`push` debounce 800ms/`flush`/`syncFromCloud`）。
+- 🔴 新表**必须显式进 `ddl_map`**（`master_ddl` 在 init_db 更早处采集完 ⇒ 此刻建的表它看不见；
+  不下发 = 租户库 `no such table` 500）。与 `mp_events`/`role_end` 同款配方。
+- 🔴 `/api/ui` **未登记** `_PATH_MODULE_MAP` ⇒ fail-closed 403。**不能**挑一个模块登记（三页跨
+  `data`/`inventory` 两个模块，登任一另一个就存不上）⇒ 照 `/api/ai/sessions` **豁免模块判定**
+  （只读写自己的偏好；认证仍强制）。豁免必须在 **`_check_perm(...)` 调用行之前** return。
+
+### 🔴 四条硬口径（后来人别改歪）
+1. **`pull()` 必须分开返回 `ok` 与 `cfg`**：「云端没有」`{ok:true,cfg:null}` ⇒ **把本地推上去**；
+   「网络失败」`{ok:false,cfg:null}` ⇒ **什么都别做**。混成一个 null ⇒ 弱网静默用本地**覆盖云端**
+   且下次联网回不来（**数据损失**，不是同步）。
+2. **响应形态异常（网关 HTML / 后端未升级）也算失败**，不算"云端没有"。
+3. **整体覆盖，不做逐字段合并**（合并造出"顺序来自 A 设备、可见性来自 B 设备"的第三种状态）。
+4. **失败只 `console.warn` 不弹 toast**（拖列不是显式保存动作）；对照「保存为方案」是显式动作 ⇒ 必须提示。
+
+### 过期注释（本仓「注释当事实」又一例）
+`erp_db.py` 原写「**已被删除的** `forecast_col_schemes`」—— **并没有被删**：三函数 + 建表语句都在，
+真实状态 = **全仓零调用**（无端点；前端走的是同名 localStorage 键 `forecast_col_schemes_<user_id>`）。
+已改成如实描述；v411 **不复用**它（按 user_id 隔离 + 名字绑死 forecast）。
+
+### 探针自身 5 个坑
+1. `ast.literal_eval` **不认 `64 * 1024`**（BinOp）⇒ 静默 None，把"有上限"判成"没上限"。用 compile+eval。
+2. `_check_perm` 锚点必须用**调用行**，不是 `from core import` 行 —— 拿后者把"豁免有效"误判成"失效"。
+3. 判据窗口「`apply` 往后 300~400 字符」**越界**到后面的 `persistCols` 定义 ⇒ 误报。要**精确抽函数体**。
+4. 判据测**语义同构**不是**排版逐字**（两处 DDL `)))` vs `)) )`）。`norm_ddl` 归一括号内侧空白。
+5. `'purchase '`（尾空格）被 strip 接受是**有意的容错**（URL `%20`），不是"漏拦"。
+
+### 取证与产物
+- 探针 `tools/v411-p24-colprefs/` **98/98**（后端 47 + 前端 51）。前端探针**真跑** composable
+  （剥 import + 注入替身 + **假计时器**）—— 因为口径 1 是**运行期行为**，文本判据测不到。
+- 构建 `dist-v411b`（⚠️ `dist-v411a` 二次覆盖时 vite `emptyDir` 失败 ⇒ 换隔离目录，符合"隔离 outDir"纪律）。
+  产物核对：三页 chunk 都 import **同一个** `useColPrefs-*.js`；`col-prefs?page=` 只在唯一实现里。
+- 与列设置规范：**未新增宿主页** ⇒ 白名单不动；`COL_STORAGE_KEY` **不升版**；自检 ALL PASS。
+  主动自律：定位（`useColMenu`）与持久化（`useColPrefs`）**分两个 composable**，各守一件事。
+
+## v412（P2-5）合并动作按钮：保存并打印 / 审核并打印
+
+🔴 **先按「碰不碰库存」分族，别按复杂度分**：
+- 保存并打印 = 建单 + 打印（**两步都是既有动作，不改变任何数据**）→ 可做
+- 审核并打印 = 审核 + 打印（同上）→ 可做
+- 审核并入库 = 审核 + **写库存**（`confirm` ⇒ `batch_in` 真加）；审核并发货 = 审核 + **扣库存**（FEFO 真扣）
+  → 各把库存推一格 ⇒ **要先问业务时点**，不是先问成本
+
+**后端零改动、零新增端点**：审核复用列表页那条同一个 `/batch`（`op=approve`）；打印复用
+`POST /purchase-orders/{id}/print`。改动只在两个 .vue。
+
+### 动手前核出来的两条真身（别凭名字猜）
+- **销售单没有「审核」**：无 `sale_order_approve`；`confirmed` 只是**外部导入的初始状态**；
+  `sale_order_deliver` 的 WHERE = **`status='draft'`** ⇒ 「审核并发货」不是"合并两个按钮"，
+  而是**先给销售单加一条审核流程**（`draft→confirmed→delivered` + 放开 `deliver` 判据）——新流程，
+  且直接改**扣库存**的入口条件。
+- **采购 `confirm` 是一次性全收**（`status='received'` + 每行 `batch_in`），而「审核」发生在**货到之前**、
+  「入库」在**货到之后** ⇒ 合并会诱导"货没到先把账做上" = **库存虚增**（且批次/效期多半空 ⇒ FEFO 与临期预警失真）。
+  若真要做，应做成「审核后**打开入库确认弹窗**」，**不直接写库**。
+
+### 🔴 四条硬口径
+1. **`_printNow` 刻意不含 `busy` 守卫**。`doApprovePrint` 审核时已 `busy=true`，里面若再判一次
+   ⇒ 「审核成功了、纸没出来」**且零报错**（静默半截，又是「恒空恒 0 且零报错」那一族）。
+   互斥交给**调用方**。反例探针 E10/E11 双向自证。
+2. **审核失败 ⇒ 一张都不打印**：印一张状态还写「待审批」的单给供应商，比不打印更糟
+   （供应商照没审批的量备货）。先取回执确认 `ok_count` 再打印。
+3. **先 `loadAll()` 再打印**：审核改的是**状态 / 审核时间 / 审核人**三样，不刷就印 = 纸上状态是旧的。
+4. **打印前先摘 `?print=1`，且只认首次**：不摘 ⇒ F5 一次又印一张、`print_count` 再 +1，
+   而那个计数是判断「到底打没打给供应商」的**唯一依据**。摘参数在打印**之前**。
+
+### 前端判据必须与后端 WHERE 逐字对齐
+`canAudit = ['pending_approval','draft','confirmed']` ↔ `purchase_order_approve` 的
+`WHERE id=? AND status IN (...)`。前端多给 = 点了才知道不行；少给 = 按钮消失且零报错。
+
+### 老板拍板（v412 收尾）
+- **审核并入库 = 「审核后弹入库确认」**（做了）：审核成功后**只拉起** `doConfirm()`，**不直接写库**。
+  🔴 调 `doConfirm` **之前必须先把 `busy` 放开** —— 真身自带 `busy` 守卫，拿 `true` 进去直接 return
+  ⇒「审核好了、确认没出来」且**零报错**。另有 `canConfirm` 不满足时**如实说**、不去调注定失败的入库。
+- **审核并发货 = 不做**：销售单没有审核环节（见下），落它要先新增审批流程 + 改扣库存入口条件。
+- **UI 形态**：两个审核动作收进**一个下拉**（主按钮「审核并打印」+ 箭头「审核并入库」），
+  **复用打印组 `.ipd-pm*` 类**（不写第二份定位）；`onDocClick` **同时**关 `printOpen` 与 `auditOpen`。
+
+### 🔴 既有隐患（本轮发现，未动）
+`sale_order_deliver` 的 WHERE 只认 `status='draft'`，而 `sale_order_cancel` 认
+`('draft','confirmed','pending_approval')` ⇒ 库里**确实有** `confirmed`/`pending_approval` 的销售单
+（外部导入会产生）⇒ 这些单**永远发不了货**。与 P2-5 无关，单独一件事。
+
+### 探针
+`tools/v412-p25-approve-print/probe_p25fe.mjs`（**仅 fe**）**56/56**。关键条**真跑**（node:vm 抽源码 + 注入替身）：
+E2 调序、E6 失败时打印调用数 0、E10/E11 busy 守卫反例、F2 摘参数定序、F4/F5 只打一次、F7 读数失败不打印、
+C1/C2 跨仓判据集合相同、G1/G4 `?print=1` 有无、H6 `doApproveReceive` 体内无 `confirmPurchase(`、
+H7/H8/H9 调 `doConfirm` 时 `busy` 已 false 且放行语句位置在前、H10/H13/H14 失败或不可入库时不进入库环节。
+构建 `dist-v412b`（⚠️ 按钮改结构后**必须重建**；`dist-v412a` 是改前的）。
+探针自身三坑：`calls.filter(c => c === 'replace')` 但推的是**数组** ⇒ 恒 0 假失败；反例写成
+`.then ? true : true` 恒真（等于没测）；末尾误留 `consy()` 占位；vm 导出对象漏加新函数名 ⇒ `not a function` 崩。
+
+---
+
+## §v414（P2-6）采购退货「转单为」—— 已完成，未部署
+
+### 业务边界（先把三项砍到一项）
+报告写「转销售 / 调拨 / 退货」三项，实查后**只有退货有承接实体**：销售单实体虽有（`sale_orders`），
+但「采购进货 → 销售出货」之间**没有业务流转关系**；进销存**没有调拨单实体**。
+⇒ 「转单为」下拉保留三项（对齐舟谱），另两项 `disabled` + 各自一句原因。
+老板拍板 **B：跳独立退货建单页**（`/inventory/purchase/new?kind=return&from_po=<oid>`）。
+
+### 🔴 六条硬口径
+1. **数量与单价成对是小单位**：`quantity` 折小单位、`unit_price` 折「元/小单位」。
+   只折数量不折价 ⇒ 金额差 ratio 倍**且零报错**（与 v409 在 `confirm` 那条同源）。
+   可退预览给的就是这一对默认值，前端**不许再乘除一次**。
+2. **可退上限唯一实现在后端**（`purchase_order_return_preview`）；前端那道是提前告知，
+   拦不住直接打接口的人 —— 退货是**不可逆**的库存动作。
+3. **ratio 读快照**（`base_ratio`，反推 `base_qty/quantity` 兜底，拿不到返 **0** 不是 1），
+   **不现查商品档案**：换算是下单那一刻的事实。
+4. **`returned` 必须进「可退单」白名单**（`status IN ('received','partial','returned')`）——
+   v408(P0-3)「有退货即落 returned」使**部分退货的单也变 returned**，排除它 ⇒ 退不了第二批
+   （搜不到 = 静默假否定）。⚠️ 状态只是**粗筛**，真能不能退看余量。
+5. **新端点走 `/api/psi`**（自动继承 `inventory` 闸门 = 只 boss），**不复用** `/api/purchase-returns`
+   （归 `buying` ⇒ 闸门漏；且它 `return HTTPException(...)` **不 raise** ⇒ 客户端拿 500 不是 detail）。
+6. **`kind`/`from_po`/`copy` 必须 computed + watch**：`/inventory/purchase/new` 是**同一条 path**，
+   `?kind` 变了 vue-router **复用同一实例** ⇒ `onMounted` 不再跑、页面停在旧模式且**零报错**
+   （同 v403 的 `oid`/`kind`）。初始化必须抽成**可重入**的 `reinit()`。
+
+### 实现要点
+- `purchases.py`：`_poi_ratio(itd)` / `_poi_received_base_qty(itd, status)`（已入库折小单位的**唯一实现**，
+  `received_qty>0` 走折算、否则 `status='received'` 回退 `_poi_base_qty`）/ `purchase_order_return_preview(oid)`
+  （每行 base_qty/received/returned/returnable/金额 + **人话的不可退原因**）/ `purchase_order_list(returnable=)`。
+  ⚠️ 已退量按 **`product_name`** 关联 —— `purchase_return_items` **没有 `product_id` 列**（DDL 实测）。
+  ⚠️ 预览**刻意不返回「可退总数量」**：不同商品小单位不同，跨商品求和是**伪指标**，只回金额。
+- `routers/psi.py`：`GET …/return-preview`（带 `_doc_owner_ok`）、`POST …/return`（**上限在后端强制**，
+  失败一律 `raise`）。`routers/purchase.py::list_purchases` 接收并**透传** `returnable`（不透传 = 筛选框没反应）。
+- `erp_db.py`：**re-export** `purchase_order_return_preview`（漏了 = AttributeError → 500）。
+- 前端：`psi.js`（`returnPreview`/`returnPurchase`）、`InvPurchaseNew.vue`（`kind=return` 模式：原单选择
+  `listPurchases({returnable:1})` + 只读供应商/仓库 + 可退明细表**只填数量** + 退货原因）、
+  `InvPurchaseDetail.vue`（「转单为 ▾」复用 `.ipd-pm*`）。
+- **顺带修好 P0-2 假入口**：`Shell.vue` **一字未改** —— 侧栏「新建采购退货单」的 `create`
+  在 New 页真支持 `kind` 后**自己变真**；两处入口同一份实现。
+
+### 探针 / 构建
+`tools/v414-p26-return/probe_p26.py` **37/37**（影子库真跑 + 反例）、`probe_p26fe.mjs` **41/41**
+（`node:vm` 抽 SFC 真源码；**FE-F9 跨仓白名单同一集合**）。`sfc-ctx-symbol-guard` 0 未定义符号；
+`v400` 列设置自检 ALL PASS。构建 `dist-v414a`。
+⚠️ 产物 hash 变了但产物里 grep 不到注释 ⇒ Rollup chunk hash 基于 minify **之前**的代码
+（注释影响 hash、不影响字节）—— 别拿 chunk hash 当内容判据。
+⚠️ **起号撞车**：v413 已被同日另一会话（副驾超时修复）占用 ⇒ 改 v414。
+号段是跨会话资源，起号前要**实搜同日在途改动**，不能只读号表。
+
+## §v415（P2-7）采购单自定义字段 —— 已完成，未部署
+
+**老板拍板 A：最小闭环** —— 复用既有元数据引擎，只驱动 4 面（建单录入 / 详情展示 /
+列表列 + 列设置齿轮 / 导出 CSV），类型只给「文本 / 数字」；**不做**按字段筛选、**不做**打印模板。
+交付形态 = **空引擎**（一条字段都不预置），用户随时在列设置面板里自建。
+
+### 唯一实现与作用域
+- 元数据引擎的**唯一实现** = `db/queries/forecast_columns.py`（文件头 docstring 第 ⑦ 条）。
+  ⚠️ 文件名保留历史名（报单矩阵时代），它现在是**全系统**自定义列的唯一实现。
+- 新增第二个作用域 `MODULE_PURCHASE_ORDERS = "purchase_orders"`；注册表 `_TARGETS`
+  （`table` / `pk_label` / `prefix` / `protected`）+ `_target(module)`。
+  🔴 **未知 module 抛 ValueError，绝不回落 products**（回落 = 往商品档案写脏数据）。
+- 14 个函数（`list_columns` / `is_protected` / `add_column` / `update_column` / `delete_column` /
+  `set_values` / `_purge_values` / …）**全部**带 `module` 参数。
+- 类型白名单 `_TYPES = ("text", "number")`（模块级）；新增 `validate_extra(module, values)`。
+
+### 🔴 六条硬口径
+1. **`extra` 空则不进 INSERT 列清单** —— 本仓**第六次**用这个范式。一个字段都不填时，
+   建单 SQL 与改动前**逐字一致**（老接口/老调用方/老测试零影响）。
+2. **加数据库列必须两处都写**：主库 `_safe_migrate("v415_po_extra_json", …)` +
+   租户库 `_ensure_tenant_module_tables` 列对账清单。只写一处 ⇒ 「自家有、新租户没有」，**零报错**。
+3. 🔴 **采购单域 `protected=True` ⇒ `_ensure` 一行都不写**。⚠️ 这条**必须靠反例证明**：
+   探针 **C1** 把 `tgt["protected"]` 换成 `PROTECTED_COLUMNS` ⇒ 采购单域被写入 **5 行**系统列
+   （原为 0）。不配反例，「零写入」可能是**恒真**断言（因为压根没跑到）。
+4. **类型一律按字符串发出**（建单页数字字段也不 `Number()`）：`Number('abc')`=NaN ⇒
+   `JSON.stringify` 变 `null` ⇒ 后端当「清空」⇒ **填了乱字符、保存后是空的、零报错**。
+5. 🔴 **详情页 `saveExtra` 送「全部」字段（含空串）**，不是"只送改动过的"：
+   空串在后端 = **清空该字段**（删键），"没提交这个键" = 保持原值。
+   只送改动键 ⇒ 用户删空后保存，**界面空、库里还有**（静默假成功）。反例 FE-G16。
+6. 🔴 **列表页 `onMounted` 必须"先拉定义、再同步云端"**：`applySaved()` 以"已知列"过滤云端那份
+   顺序 ⇒ 反序会让自定义键被当**未知列整个滤掉**，只能作为"新列"补到**末尾**
+   （顺序静默丢失、零报错）。探针 FE-C2a/C2b 真跑复现。
+
+### 实现要点
+- 后端：`purchases.py::purchase_order_create(..., extra=None)`（**校验放在 `with get_db()` 之外**；
+  INSERT 尾部 `if _extra:` 才 append `extra_json`）；`list`/`get` 返回前 `load_extra(...)` 顶掉原始键。
+  `routers/purchase.py::PurchaseOrderCreate` 加 `extra: dict` + `try/except ValueError → 400`。
+  `routers/psi.py` 新增 5 条端点：`GET/POST /purchase-custom-fields`、
+  `PUT/DELETE /purchase-custom-fields/{key}`、`POST /purchase-orders/{id}/extra`（`skipped` 非空 ⇒ **raise 400**）。
+- 前端：`api/psi.js`（5 方法，唯一网络层）；**新建** `composables/purchaseCustomFields.js`
+  = 三页共用的唯一实现：
+  - `customColDef(c)` —— 服务端定义 → **与 `PO_COLS` 逐字同形**的列定义
+    （`{key,label,w:110,on:false,num,clip,custom:true}`）。🔴 **同形是关键**：列表页所有"列"的判断
+    （可见性/顺序/宽度/取值/导出）都靠这个形状 ⇒ 一旦为自定义列分叉出一套，就得处处写两个分支，
+    漏一处就是"自定义列不参与排序/导出"这类静默缺陷。
+  - `extraValOf(m,key)` / `extraVal(r,key)` —— **两条入口共用一个实现**（详情页拿到"字典本身"
+    `order.extra`，列表页拿到"行" `r.extra`）。🔴 **数字 0 原样返回 0，不返回 `''`**（「没有」≠「是零」）。
+  - `usePurchaseCustomFields()` 控制器返回 `{defs, raw, ok, err, loaded, loadDefs, addField,
+    renameField, removeField}`。🔴 **`loadDefs` 不抛**：读到 0 个 ≠ 没读到（前者正常显示"新增"，
+    后者**不能给新增入口**——判据全在服务端，读不到时新增必然失败）；读失败**不清空** `defs`（降级但可用）。
+    `addField`/`renameField` 成功后**重拉定义**（服务端是唯一源，本地拼的那份迟早分岔）。
+- `InvPurchaseList.vue`：删 `PO_COL_MAP` ⇒ `ALL_COLS = computed(() => PO_COLS.concat(customDefs.value))`
+  + `colMap`；`defaultColOrder()` 追加自定义键（**漏了 ⇒ 「恢复默认」把它们从面板整片抹掉**）；
+  `defaultColVis()` 给 `false`；`mergeCustomCols()` **增量合并**（🔴 不能重跑 `applySaved()`，
+  否则覆盖用户已拖的顺序）；`applyAddField()` 里对**当场新建**的键置 `true`（加了看不见 = 静默假成功，
+  与"升级不惊扰"不矛盾）；`colText` 首部加 `_d.custom` 分支（自定义键是随机 `p_xxxxxxxx`，
+  不可能在 switch 里逐条列举）；`delField` 用 `window.confirm` 提示值会一并清除
+  并**如实报 `purged_products`**（历史键名，语义 = 被清掉的**采购单张数**，别按字面读成商品数）。
+- `InvPurchaseNew.vue`：`extra` 随单**同事务**提交（不另调 `/extra`，避免"单成了、字段没了"的
+  静默半截）；`cfPayload` **只发非空值**。
+- `InvPurchaseDetail.vue`：`cfFilled`（只含有值）/ `cfShow`（有定义 && (有值 || 可写)）/
+  `openExtra`（草稿 = 全字段，含空串）/ `saveExtra`（见硬口径 5）；
+  `reloadOrder` **只重取单据**（不用 `loadAll()` ⇒ 不整页闪、不连带重取货款/入库/附件；
+  也不拿本地刚提交的值顶替——后端会归一 `'5.0'`→`5`，本地那份是**另一个事实**）。
+  ⚠️ `cfDefs` 等 ref 必须声明在 `loadAll` **之前**（`const` 暂时性死区）。
+
+### 与列设置规范的契合
+- **齿轮是列设置唯一入口** ⇒ 「新增字段」入口长在**列设置面板内部**（`.col-menu-add`），
+  **没往工具栏加按钮**（符合老板既定偏好）。
+- 新增列**默认收起**（`on:false`）；⚠️ 唯一例外 = 用户当场新建的那个（见上）。
+- `COL_STORAGE_KEY` **未升版**（仍 `hergent_purchase_cols_v1`）—— 自定义键是**增量并入**
+  `colOrder`/`colVis`，不是换一套存储。
+- **未新增齿轮宿主页** ⇒ 白名单三处（实现 + UI-SPEC §2.6.1「五、D」+ 自检 `GEAR_HOSTS`）**一字不改**。
+- 新增的三个面板输入框类（`.ipl-cm-in` / `.ipl-cm-sel` / `.ipl-cm-i`）**刻意不上提全局** ——
+  上提的触发条件是**跨文件**各写一份（§8），本处只在**同一个 SFC 的 scoped 样式**里。
+
+### 探针 / 构建
+- `tools/v415-p27-extracols/probe_p27.py` **71/71**（结构 A 组 / 影子库真跑 B 组 / 3 条反例 C 组）。
+  关键真跑：B5a `purged_products=2`；B8 `_ensure` 零写入；B3c 空串→`None`；B4e 空串 ⇒ **删键**；
+  B3f number 列非数字 ⇒ ValueError（不是静默变 0）；B6b `_target('')` ⇒ ValueError（空串不默认 products）。
+- `tools/v415-p27-extracols/probe_p27fe.mjs` **108/108**（`node:vm` 抽 SFC 真源码；真跑 composable
+  而非替身）+ 6 条反例自证。
+- `v400-spec-colcfg-consistency.py --strict` **ALL PASS**；`sfc-ctx-symbol-guard.mjs` 三个进货页
+  **0 未定义符号**；构建 `dist-v415a`（2.40s）成功。
+- ⚠️ 前端探针必须**真跑 composable**（`purchaseCustomFields.js` 先装进独立 VM 取回真身，再注入页面沙箱）——
+  替身它就是"把唯一实现换掉"，探针立刻失去意义。
+
+### 探针自身的坑（供后来人）
+1. `noImport` 只剥 `import` 不够 —— composable 是 `.js`，还有 `export const` / `export function`
+   / `export default` 三形态，都要剥（统一走一个 `stripModule` 入口）。
+2. **模块级 `const` 的暂时性死区**：加载器（`bootList`）要用到 `LIST_CLEAN`，而它声明在调用点**之后**
+   ⇒ 运行时报 "Cannot access before initialization"。缓存要挂**函数对象属性**，不要用模块级 `let`。
+3. `ast.literal_eval` 读不了含 `ast.Name` 的注册表（`_TARGETS` 值里引用了 `PROTECTED_COLUMNS`）
+   ⇒ 改成**装载一遍再读**（顺带证明"抽真身"这条路通）。
+4. 路由收集若返回 `{path: (verb, fn)}`，同路径的 GET/POST 与 PUT/DELETE 会**互相覆盖**
+   （4 条压成 2 条）⇒ 改成返回**列表**，并配反例自证。
+5. 影子库读要用"每次新开连接"的 `q1()` —— 复用一条长命连接会读到 SQLite 的**旧快照**，
+   让"写成功了没"变成假判据。

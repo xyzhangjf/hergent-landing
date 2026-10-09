@@ -2845,6 +2845,11 @@ import ForecastHistory from './ForecastHistory.vue'
 import ReportMapping from './ReportMapping.vue'
 // v265：商品目标（原侧栏独立页）收进本页当第 4 个页签
 import ProductTarget from './ProductTarget.vue'
+/* v408：列设置菜单的开合与定位上提为**唯一实现**（采购单列表接入齿轮后成为第二个宿主页）。
+   契约见 UI-SPEC §2.6.1「三、」：fixed + JS 现算坐标 + 必须限高 + 滚动/改窗口收起。 */
+import { useColMenu } from '../composables/useColMenu.js'
+// v411（P2-4）：列设置云端持久化（换设备 / 清缓存不再丢列）。
+import { useColPrefs } from '../composables/useColPrefs.js'
 /* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText } from '../utils/arrival.js'
@@ -4030,97 +4035,74 @@ const defaultColOrder = () => [{ key: 'name', label: '商品名称', fixed: true
 )
 const colOrder = ref(defaultColOrder())
 const colVis = ref({ name: true })
-const showColMenu = ref(false)
-// ── 列设置菜单定位（v401）────────────────────────────────────────────
+// ── 列设置菜单定位（v401 立契约，v408 上提为共享 composable）──────────────
 // 定位从「相对工具条 absolute + 写死 top:38px」改为「相对视口 fixed + JS 算坐标」。
 // 根因：齿轮长在表格 thead 的序号列里，与 .col-config-bar 不同源，写死坐标必然错位
 // （实测菜单反从工具条左上压下、盖住齿轮，Δt=-15px）。
-// 两态（查看 / 改单）共用这一份逻辑：showColMenu 唯一，齿轮各自把自身 DOM 存进 colMenuGear。
-const colMenuGear = ref(null)   // 触发菜单的那个齿轮元素
-const colMenuEl = ref(null)     // 菜单根节点（用来量真实尺寸）
-const colMenuStyle = ref({})    // 算出的视口坐标，绑到菜单 :style
+// 🔴 v408：整段逻辑（placeColMenu / toggleColMenu / 滚动收起）已抽到**唯一实现**
+//   `src/composables/useColMenu.js` —— 采购单列表（/inventory/purchase）接入齿轮后成为
+//   第二个宿主页；两态（查看 / 改单）＋两页共用同一份定位契约，避免各写一份必然漂移。
+const { showColMenu, colMenuEl, colMenuStyle, toggleColMenu } = useColMenu()
 
-function placeColMenu() {
-  const g = colMenuGear.value
-  if (!g) return
-  const r = g.getBoundingClientRect()
-  const m = colMenuEl.value
-  const mw = m ? m.offsetWidth : 320     // 首帧还没渲染，先按兜底尺寸摆，nextTick 再校正
-  const pad = 8   // 与视口边缘的最小间距
-  const gap = 6   // 菜单与齿轮的间距
-  const vw = window.innerWidth
-  const vh = window.innerHeight
-  // 水平：优先与齿轮左缘对齐 → 右越界则改右对齐 → 仍越界则贴右边
-  let left = r.left
-  if (left + mw > vw - pad) left = r.right - mw
-  if (left < pad) left = pad
-  if (left + mw > vw - pad) left = Math.max(pad, vw - pad - mw)
-  // 垂直：**先定可用空间，再用 max-height 把菜单压进去**。
-  //   ⚠️ 光「越界就移位」是不够的（v401 首版真机实测踩到）：列清单实测高 543px，
-  //   而齿轮下方只剩 ~520px、上方 ~511px ⇒ 上翻与贴底都放不下 ⇒ 菜单仍会盖住齿轮。
-  //   所以「移位」必须与「限高」配对，否则契约（不遮挡触发按钮）根本不成立。
-  const spaceBelow = vh - pad - (r.bottom + gap)
-  const spaceAbove = r.top - gap - pad
-  const useBelow = spaceBelow >= spaceAbove          // 优先下方；只有上方更大才上翻
-  const maxH = Math.max(160, useBelow ? spaceBelow : spaceAbove)
-  const top = useBelow ? (r.bottom + gap) : Math.max(pad, r.top - gap - maxH)
-  colMenuStyle.value = { left: left + 'px', top: top + 'px', maxHeight: maxH + 'px' }
+/** 当前列配置的**整体**（顺序 + 可见性一起存/取）。 */
+function _colCfg () { return { order: colOrder.value, vis: colVis.value } }
+/** 只写 localStorage（**不触发云端推送**）—— 云端值落下来时用它回写本地缓存。 */
+function _writeLocal () {
+  try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(_colCfg())) } catch (e) {}
 }
-
-function toggleColMenu(e) {
-  if (showColMenu.value) { showColMenu.value = false; return }
-  colMenuGear.value = e && e.currentTarget ? e.currentTarget : null
-  colMenuStyle.value = {}
-  showColMenu.value = true
-  placeColMenu()          // 首帧先用兜底尺寸摆位，避免闪一下
-  nextTick(placeColMenu)  // 渲染完成后按真实尺寸校正
-}
-watch(showColMenu, (v) => { if (!v) colMenuGear.value = null })
-
-// 面板是 fixed（脱离文档流），任何滚动或改窗口都会让它与齿轮脱位 ⇒ 直接收起。
-// 挂 window 且用捕获阶段：一个监听同时覆盖页面滚动与表格内部 .table-wrap 的滚动。
-function closeColMenuOnViewportChange() { if (showColMenu.value) showColMenu.value = false }
-onMounted(() => {
-  window.addEventListener('scroll', closeColMenuOnViewportChange, true)
-  window.addEventListener('resize', closeColMenuOnViewportChange)
+// v411（P2-4）：列设置云端持久化。此前只有 localStorage ⇒ 换设备 / 清缓存即丢。
+// 🔴 与本页既有的「列方案」（`/api/forecast/column-schemes`，具名多套、要手工点保存）
+//    是**两条不同的轴**：那条存"我保存过的几套方案"，这条存"我此刻正在用的这一套"。
+//    用户顺手拖一下列不该被要求先去给方案起个名字。
+const colPrefs = useColPrefs('forecast', {
+  apply: (cfg) => {
+    // 🔴 与本地**逐字相同**就什么都不做：汇总表的列顺序一变会重排整张矩阵，
+    //    用户在编辑中被打断（或冻结点错位）的代价远大于"少一次赋值"。
+    //    云端覆盖是**跨设备不一致时**才该发生的事 —— 那正是用户想要的。
+    if (JSON.stringify(_colCfg()) === JSON.stringify(cfg)) return
+    applySaved(cfg); _writeLocal()
+  },
+  snapshot: _colCfg,
 })
-onBeforeUnmount(() => {
-  window.removeEventListener('scroll', closeColMenuOnViewportChange, true)
-  window.removeEventListener('resize', closeColMenuOnViewportChange)
-})
-
 function _persistCols() {
-  try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify({ order: colOrder.value, vis: colVis.value })) } catch (e) {}
+  _writeLocal()
+  colPrefs.push(_colCfg())     // 云端（debounce，失败只留痕不打断）
+}
+/** 把一份存下来的配置应用到界面。`p` 为空/非法 ⇒ 保持默认（原逻辑：无存档不改状态）。 */
+function applySaved (p) {
+  if (!p || typeof p !== 'object') return
+  if (p.order && Array.isArray(p.order)) {
+    // 合并新增的主档列（若元数据有新增而存储没有）
+    const have = new Set(p.order.map(c => c.key))
+    const merged = p.order.filter(c => c.key === 'name' || c.custom || MASTER_COL_DEFS.find(m => m.key === c.key))
+    /* v184：新列落位分两类 —— **固定列**插到「商品名称」之后（它参与左侧冻结区的宽度累加，
+       位置错 = 冻结偏移错），普通新列仍追加到末尾（不打乱用户已排好的顺序）。
+       ⚠️ 老用户的 localStorage 里没有新固定列，走的正是这条 splice 分支。 */
+    MASTER_COL_DEFS.forEach(m => {
+      if (have.has(m.key)) return
+      const item = { key: m.key, label: m.label, cls: m.cls }
+      if (m.fixed) {
+        const ni = merged.findIndex(c => c.key === 'name')
+        merged.splice(ni < 0 ? 0 : ni + 1, 0, item)
+      } else merged.push(item)
+    })
+    // 确保 name 在第一且 fixed
+    const nameFirst = merged.find(c => c.key === 'name')
+    if (nameFirst) { nameFirst.fixed = true; nameFirst.label = '商品名称' }
+    colOrder.value = merged
+  }
+  if (p.vis) colVis.value = Object.assign({ name: true }, p.vis)
 }
 function loadCols() {
   try {
     const raw = localStorage.getItem(COL_STORAGE_KEY)
     if (!raw) return
-    const p = JSON.parse(raw)
-    if (p.order && Array.isArray(p.order)) {
-      // 合并新增的主档列（若元数据有新增而存储没有）
-      const have = new Set(p.order.map(c => c.key))
-      const merged = p.order.filter(c => c.key === 'name' || c.custom || MASTER_COL_DEFS.find(m => m.key === c.key))
-      /* v184：新列落位分两类 —— **固定列**插到「商品名称」之后（它参与左侧冻结区的宽度累加，
-         位置错 = 冻结偏移错），普通新列仍追加到末尾（不打乱用户已排好的顺序）。
-         ⚠️ 老用户的 localStorage 里没有新固定列，走的正是这条 splice 分支。 */
-      MASTER_COL_DEFS.forEach(m => {
-        if (have.has(m.key)) return
-        const item = { key: m.key, label: m.label, cls: m.cls }
-        if (m.fixed) {
-          const ni = merged.findIndex(c => c.key === 'name')
-          merged.splice(ni < 0 ? 0 : ni + 1, 0, item)
-        } else merged.push(item)
-      })
-      // 确保 name 在第一且 fixed
-      const nameFirst = merged.find(c => c.key === 'name')
-      if (nameFirst) { nameFirst.fixed = true; nameFirst.label = '商品名称' }
-      colOrder.value = merged
-    }
-    if (p.vis) colVis.value = Object.assign({ name: true }, p.vis)
+    applySaved(JSON.parse(raw))
   } catch (e) {}
 }
 loadCols()
+// v411：云端列配置优先（**刻意不 await** —— 不拖慢汇总表首屏；本地那份已由 loadCols 应用）。
+onMounted(() => { colPrefs.syncFromCloud() })
 
 // 品牌下拉候选（来自 brands 档案表）：编辑网格品牌列以 datalist 形式提供候选，同时允许手填新建（决策②）
 const brandOptions = ref([])
@@ -12747,53 +12729,10 @@ onMounted(async () => {
 .fc-name{min-width:200px}
 
 /* ---- 列配置条 + 菜单 ---- */
-.col-config-bar{position:relative;display:flex;align-items:center;gap:10px;padding:0;flex-wrap:wrap}
-.btn-xs{padding:3px 9px;font-size:12px;border-radius:var(--radius-sm)}
-/* 列设置菜单：定位改由 JS 负责（toggleColMenu 读齿轮 getBoundingClientRect 算视口坐标）。
-   原先是 position:absolute;top:38px;left:0 —— 相对 .col-config-bar 定位，而齿轮实际长在
-   表格 thead 的序号列里，两者不在同一坐标系 ⇒ 菜单从工具条左上角压下、盖住齿轮（实测 Δt=-15px）。
-   改 fixed 后由 inline top/left 给位置：默认齿轮正下方，下方越界上翻、右侧越界贴边。
-   查看态与改单态两处菜单共用同一份定位逻辑（showColMenu 唯一）。 */
-.col-menu{position:fixed;z-index:var(--z-page-menu);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:10px 12px;min-width:300px;max-height:70vh;overflow:auto}
-.col-menu-hd{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.col-menu-view{margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--bd);display:flex;flex-direction:column;gap:6px;width:72%}
-.col-menu-view .basis-toggle{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:8px}
-.col-menu-view select{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:2px 6px;font-size:12px;background:var(--bg);color:var(--t1);width:100%}
-.col-menu select:focus{border-color:var(--p);outline:2px solid var(--p);outline-offset:-2px}
-.col-menu-x{border:none;background:transparent;color:var(--t3);cursor:pointer;font-size:13px;line-height:1;padding:2px 4px;border-radius:var(--radius-sm);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
-.col-menu-x:hover{background:var(--bg3);color:var(--p-dark)}
-.col-menu-overlay{position:fixed;inset:0;z-index:var(--z-page-overlay)}
-.col-menu-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
-.col-menu-list li{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:var(--radius-sm);font-size:var(--fs-sm)}
-.col-menu-list li:hover{background:var(--bg3)}
-.col-menu-list li.locked{color:var(--t2);font-weight:500}
-.col-menu-list li.hidden{opacity:.5}
-.col-menu-list li .drag{cursor:grab;color:var(--t3);font-size:12px;user-select:none}
-.col-menu-list li.locked .drag{visibility:hidden}
-.col-menu-list label{display:flex;align-items:center;gap:5px;flex:1;cursor:pointer}
-.col-menu-list input[type=checkbox]{accent-color:var(--p);width:14px;height:14px;cursor:pointer}
-.col-menu-del{border:none;background:none;color:var(--t3);cursor:pointer;font-size:11px;padding:1px 4px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center}
-.col-menu-del:hover{color:var(--dan);background:var(--dan-bg)}
-.col-menu-add{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.col-menu-add .cm-label{font-size:11px;color:var(--t3);margin-right:2px}
-.col-menu-schemes{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;flex-direction:column;gap:6px}
-.col-menu-schemes .cm-label{font-size:11px;color:var(--t3);margin-right:2px}
-.col-menu-schemes select{font-size:12px;padding:3px 6px;border-radius:var(--radius-sm);border:1px solid var(--bd);background:var(--bg);color:var(--t1);width:100%}
-.col-menu-schemes .scheme-row{display:flex;gap:6px}
-.col-menu-schemes .scheme-name-ipt{flex:1;min-width:0;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:3px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
-.col-menu-schemes .scheme-name-ipt:focus{border-color:var(--p);outline:2px solid var(--p);outline-offset:-2px}
-.col-menu-schemes .scheme-btn{flex:1;justify-content:center}
-/* 改单态菜单：同上，跟随 .col-menu 一起改 fixed（只覆盖 z-index 与宽度上限）。 */
-.edit-col-menu{position:fixed;z-index:var(--z-page-menu-sub);max-width:420px}
-.col-menu-reset{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;justify-content:flex-end}
-.th-in{display:flex;align-items:center;gap:5px;justify-content:space-between}
-/* 序号列表头（.th-in）里只有一个子元素——齿轮，而 space-between 对单个子元素
-   等价于 flex-start ⇒ 齿轮被顶到格子左侧，与表体 .seq-num 的居中轴线错开。
-   用 auto 外边距吃掉剩余空间，让它在 46px 宽的序号列里回到正中。
-   改单态的齿轮是 <th> 的直接子元素、靠 .seq-th{text-align:center} 居中，本就正确，不受影响。 */
-.th-in > .col-cfg{margin-inline:auto}
-.col-cfg{border:none;background:transparent;color:var(--t3);cursor:pointer;font-size:11px;padding:0 2px;line-height:1;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
-.col-cfg:hover{color:var(--p-dark)}
+/* 🔴 v408：`.col-config-bar` / `.col-menu*` / `.col-cfg` / `.gear` / `.th-in` / `.btn-xs`
+   已**整体上提全局**（`src/styles/variables.css`「列设置」段）—— 采购单列表
+   （`/inventory/purchase`）接入齿轮后成为第二个宿主页，两页共用同一份外观与定位契约。
+   本文件不再保留副本（本仓「同一选择器 ≥3 次且逐字相同 ⇒ 必须上提」，UI-SPEC §8.4）。 */
 /* P1-② 表格去线：去掉表体行分隔线，行区分完全交给斑马纹 + hover（已存在），
    40+ 列大表视觉更透气；表头底线 / 列合计顶线 / 分组头底线保留（结构性分隔）。 */
 .cross-tbl tbody td{padding:7px 7px;white-space:nowrap}
@@ -12884,8 +12823,7 @@ th.sortable:hover{color:var(--p-dark)}
 .cross-tbl .seq-th,.cross-tbl .seq-cell{position:sticky;left:0;background:var(--bg);z-index:6}
 .cross-tbl thead .seq-th,.cross-tbl thead .seq-cell{background:var(--bg3);z-index:9}
 .cross-tbl .col-total .seq-cell,.cross-tbl .foot-row .seq-cell{background:var(--bg3)}
-.gear{padding:2px 4px;border:none;background:transparent;cursor:pointer;font-size:14px;line-height:1;color:var(--t3);border-radius:var(--radius-sm)}
-.gear:hover{background:var(--bg3);color:var(--p-dark)}
+/* v408：`.gear` 已上提全局（variables.css「列设置」段），此处不再保留副本。 */
 .col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:2px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden;box-shadow:0 -2px 5px rgba(15,23,42,.06)}
 .col-total-bar>table{transform:translateX(var(--foot-sl,0));will-change:transform}
 .cross-amt-note{margin:10px 2px 0;font-size:12px;line-height:1.6;color:var(--t3)}
@@ -13758,7 +13696,6 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .grp-toggle svg.ico,.exp-chev svg.ico{width:14px;height:14px;vertical-align:middle}
 .name-badges svg.ico{width:12px;height:12px;vertical-align:middle;margin-left:2px}
 .filter-chip .chip-x svg.ico{width:12px;height:12px;vertical-align:middle}
-.col-menu-hd svg.ico{width:13px;height:13px;vertical-align:-2px}
 .empty-ico svg.ico{width:40px;height:40px;opacity:.35}
 .ctx-menu button svg.ico{width:14px;height:14px;vertical-align:-2px;margin-right:6px}
 .link-btn svg.ico{width:14px;height:14px;vertical-align:-2px}

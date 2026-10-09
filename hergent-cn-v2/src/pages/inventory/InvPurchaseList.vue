@@ -64,6 +64,37 @@
         <label class="check-item ipl-chk-mark">
           <input type="checkbox" v-model="f.only_marked" @change="load()" />只看已标记
         </label>
+        <!-- v408（P1-3）单据来源 / 打印状态 / 商品 三个筛选。
+             🔴 三者的「全部」值都是**空串**（不是 0）—— `psi.js` 的 `qs()` 会把空串、
+                0、false 一律**不发**该参数，后端默认值也是空 ⇒ 语义一致。
+             ⚠️ 这里**没有**「审核人」筛选 —— 不是因为没有数据：v408（P1-7）起后端
+                已经记 `auditor_id` 了。是**本轮只做列不做筛**（报告只要求列），且真要加
+                必须先定「审核人为空的历史单怎么筛」（占绝大多数 ⇒ 需要一个「未标注」选项）。
+                见 `baseFilter()` 里的同期注释。 -->
+        <div class="ipl-f">
+          <label class="ipl-lb">单据来源</label>
+          <select v-model="f.source" class="input ipl-sel" @change="load()">
+            <option v-for="o in PO_SOURCE_OPTIONS" :key="o.value || 'all'" :value="o.value">{{ o.text }}</option>
+          </select>
+        </div>
+        <div class="ipl-f">
+          <label class="ipl-lb">打印状态</label>
+          <select v-model="f.print_state" class="input ipl-sel" @change="load()">
+            <option value="">全部</option>
+            <option value="printed">已打印</option>
+            <option value="unprinted">未打印</option>
+          </select>
+        </div>
+        <div class="ipl-f">
+          <label class="ipl-lb">商品</label>
+          <input v-model.trim="f.product_keyword" class="input ipl-sel"
+                 placeholder="商品名 / 条码" @keyup.enter="load()" />
+        </div>
+        <!-- 🔴 「只看已标记」必须留在**最后**：它的样式是 `margin-left:auto`
+             （推到本行最右）。插在它后面的控件会被一起推到右侧、跟前面几项断开。 -->
+        <label class="check-item ipl-chk-mark">
+          <input type="checkbox" v-model="f.only_marked" @change="load()" />只看已标记
+        </label>
       </div>
     </div>
 
@@ -131,7 +162,14 @@
     <div v-else-if="!rows.length" class="card">
       <div class="state-empty">
         <div class="se-ic"><Icon name="inbox" :size="22" /></div>
-        <p>{{ hasFilter || f.status ? '当前条件下没有单据。' : '还没有单据。' }}</p>
+        <p>{{ hasFilter || f.status ? '当前条件下没有单据。' : (isReturn ? '还没有退过货。' : '还没有单据。') }}</p>
+        <!-- v414（P2-6）退货页签的**空态出口**：退货不能凭空建 —— 它必须挂一张**已入库**的采购单。
+             不给这句，用户在这个空页面上只能看到「还没有退过货」，而侧栏那个「新建」进去也要先选原单
+             ⇒ 两头都不说，等于没路。这里直接把那条路写出来。 -->
+        <p v-if="isReturn && !hasFilter && !f.status"
+           style="margin-top:6px;font-size:12px;color:var(--t3);line-height:1.5">
+          退货单是从一张<b>已入库</b>的采购单转出来的：打开那张单，点「转单为 → 采购退货」。
+        </p>
         <button v-if="canWrite && !isReturn" class="btn btn-primary btn-sm" style="margin-top:12px"
                 @click="goNew()">
           <Icon name="plus" :size="14" />新建采购单
@@ -142,74 +180,82 @@
     <div v-else class="card ipl-card">
       <div class="table-wrap">
         <table class="tbl ipl-tbl" :class="{ 'print-one': !!printOnly }">
+          <!-- 列宽**权威来源**（本表 table-layout:fixed ⇒ 声明值即硬值）。
+               左侧冻结区的 sticky 偏移 0 / 36 / 82 / 212 依赖这三个宽度不被内容撑开。
+               ⛔ 别在 scoped CSS 里再给这些列写 width —— 那就是第二个真相来源。 -->
+          <colgroup>
+            <col :style="{ width: CHK_W + 'px' }" />
+            <col :style="{ width: SEQ_W + 'px' }" />
+            <col v-for="c in visibleCols" :key="'cg-' + c.key" :style="{ width: c.w + 'px' }" />
+            <col :style="{ width: OP_W + 'px' }" />
+          </colgroup>
           <thead>
             <tr>
-              <th class="ipl-c-chk">
+              <th class="ipl-c-chk ipl-frz-chk">
                 <input ref="headChk" type="checkbox" :checked="allChecked" title="全选本页" @change="toggleAll" />
               </th>
-              <th class="seq-th">序号</th>
-              <th class="ipl-c-no">单据编号</th>
-              <th class="ipl-c-sup">供应商</th>
-              <th class="ipl-c-cat">供应商类别</th>
-              <th class="num ipl-c-qty">订单数量</th>
-              <th class="ipl-c-wh">仓库</th>
-              <th class="ipl-c-st">状态</th>
-              <th class="num ipl-c-amt">订单金额</th>
-              <th class="num ipl-c-amt">入库金额</th>
-              <th class="num ipl-c-pay">已结款</th>
-              <th class="num ipl-c-pay">未结款</th>
-              <th class="ipl-c-time">审核时间</th>
-              <th class="ipl-c-time">单据日期</th>
-              <th class="ipl-c-by">创建人</th>
-              <th class="ipl-c-note">备注</th>
-              <th class="num ipl-c-print">打印数</th>
+              <!-- 🔴 §2.6.1「一、」：齿轮长在**序号列表头**格子里、是该格**唯一**的按钮，
+                   包在 `.th-in` 里（`.th-in > .col-cfg{margin-inline:auto}` 把它拉回格子正中）。
+                   ⛔ 不放工具栏、⛔ 不放别的表头列。 -->
+              <th class="seq-th ipl-frz-seq">
+                <div class="th-in">
+                  <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" /></button>
+                </div>
+              </th>
+              <th v-for="c in visibleCols" :key="c.key"
+                  :class="[{ num: c.num, 'ipl-clip': c.clip,
+                             'ipl-frz-key': c.key === FIXED_FROZEN, 'ipl-frz-x': isFrz2(c) }]">{{ c.label }}</th>
               <th class="ipl-c-op">操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(r, i) in rows" :key="r.id"
                 :class="{ 'print-target': printOnly === r.id, 'ipl-on': selected.includes(r.id) }">
-              <td class="ipl-c-chk">
+              <td class="ipl-c-chk ipl-frz-chk">
                 <input type="checkbox" :value="r.id" v-model="selected" />
               </td>
-              <td class="seq-cell"><span class="seq-num">{{ offset + i + 1 }}</span></td>
-              <td class="ipl-c-no">
-                <a class="ipl-link strong" @click.prevent="go('/inventory/purchase/' + r.id)"
-                   :href="'#/inventory/purchase/' + r.id">{{ r.order_no || ('#' + r.id) }}</a>
-                <span v-if="r.mark" class="ipl-mark" :title="'标记：' + r.mark">
-                  <Icon name="target" :size="12" />
-                </span>
+              <!-- §2.6.1「二、」：序号 = 服务端分页 ⇒ 必须 `offset + i + 1`（写 i+1 第 2 页会从 1 重来） -->
+              <td class="seq-cell ipl-frz-seq"><span class="seq-num">{{ offset + i + 1 }}</span></td>
+              <td v-for="c in visibleCols" :key="c.key"
+                  :class="[{ num: c.num, 'ipl-clip': c.clip,
+                             'ipl-frz-key': c.key === FIXED_FROZEN, 'ipl-frz-x': isFrz2(c) }]">
+                <template v-if="c.key === 'order_no'">
+                  <a class="ipl-link strong" @click.prevent="go('/inventory/purchase/' + r.id)"
+                     :href="'#/inventory/purchase/' + r.id">{{ r.order_no || ('#' + r.id) }}</a>
+                  <span v-if="r.mark" class="ipl-mark" :title="'标记：' + r.mark">
+                    <Icon name="target" :size="12" />
+                  </span>
+                </template>
+                <template v-else-if="c.key === 'status'">
+                  <span class="tag" :class="tagOf(PO_STATUS, r.status)">{{ textOf(PO_STATUS, r.status) }}</span>
+                </template>
+                <template v-else-if="c.key === 'source'">
+                  <span v-if="r.source" class="tag" :class="tagOf(PO_SOURCE, r.source)">{{ textOf(PO_SOURCE, r.source) }}</span>
+                  <span v-else>—</span>
+                </template>
+                <template v-else-if="MONEY_COLS.includes(c.key)">{{ moneyCell(r, c.key) }}</template>
+                <template v-else>{{ cellVal(r, c.key) }}</template>
               </td>
-              <td class="ipl-c-sup">{{ r.supplier_name || '—' }}</td>
-              <td class="ipl-c-cat">{{ r.supplier_category || '—' }}</td>
-              <td class="num ipl-c-qty">{{ qtyText(r) }}</td>
-              <td class="ipl-c-wh">{{ whName(r.warehouse_id) }}</td>
-              <td class="ipl-c-st">
-                <span class="tag" :class="tagOf(PO_STATUS, r.status)">{{ textOf(PO_STATUS, r.status) }}</span>
-              </td>
-              <td class="num ipl-c-amt">¥{{ fmtMoney(r.total_amount) }}</td>
-              <td class="num ipl-c-amt">{{ moneyOrDash(r, r.received_amount) }}</td>
-              <td class="num ipl-c-pay">¥{{ fmtMoney(r.paid_amount) }}</td>
-              <td class="num ipl-c-pay">{{ unpaidText(r) }}</td>
-              <td class="ipl-c-time">{{ (r.audit_time || '').slice(0, 10) || '—' }}</td>
-              <td class="ipl-c-time">{{ (r.order_date || '').slice(0, 10) || '—' }}</td>
-              <td class="ipl-c-by">{{ r.creator_name || '—' }}</td>
-              <td class="ipl-c-note" :title="r.note || ''">{{ r.note || '—' }}</td>
-              <td class="num ipl-c-print">{{ Number(r.print_count || 0) }}</td>
               <td class="ipl-c-op">
                 <button class="ipl-link" :disabled="printing" @click="rowPrint(r)">打印</button>
                 <button class="ipl-link" :disabled="!canWrite" @click="rowCopy(r)">复制</button>
               </td>
             </tr>
           </tbody>
+          <!-- 合计行**跟随列设置**：每个可见列都出一格，金额列落值、其余留空。
+               写死 colspan 会在列被隐藏/重排后错位（原来就是 colspan="8" / "6"）。 -->
           <tfoot>
             <tr>
-              <td colspan="8" class="ipl-ft-lb">总计</td>
-              <td class="num ipl-ft-num">¥{{ fmtMoney(summary.order_amount) }}</td>
-              <td class="num ipl-ft-num">¥{{ fmtMoney(summary.received_amount) }}</td>
-              <td class="num ipl-ft-num">¥{{ fmtMoney(summary.paid_amount) }}</td>
-              <td class="num ipl-ft-num">¥{{ fmtMoney(summary.unpaid_amount) }}</td>
-              <td colspan="6"></td>
+              <td :colspan="2" class="ipl-ft-lb ipl-frz-span2">总计</td>
+              <td v-for="c in visibleCols" :key="'ft-' + c.key"
+                  :class="[{ num: c.num, 'ipl-ft-num': MONEY_COLS.includes(c.key),
+                             'ipl-frz-key': c.key === FIXED_FROZEN, 'ipl-frz-x': isFrz2(c) }]">
+                <template v-if="c.key === 'total_amount'">¥{{ fmtMoney(summary.order_amount) }}</template>
+                <template v-else-if="c.key === 'received_amount'">¥{{ fmtMoney(summary.received_amount) }}</template>
+                <template v-else-if="c.key === 'paid_amount'">¥{{ fmtMoney(summary.paid_amount) }}</template>
+                <template v-else-if="c.key === 'unpaid'">¥{{ fmtMoney(summary.unpaid_amount) }}</template>
+              </td>
+              <td class="ipl-c-op"></td>
             </tr>
           </tfoot>
         </table>
@@ -232,6 +278,79 @@
                  @keyup.enter="doJump" />
           页
         </span>
+      </div>
+    </div>
+
+    <!-- 列设置面板（UI-SPEC §2.6.1「三、」）——
+         类名 / 结构与 `/forecast` **逐字一致**（`.col-menu` + `.col-menu-hd` + `.col-menu-view`
+         + `.col-menu-list` + `.col-menu-reset`），样式已上提全局 ⇒ 两页观感同源。
+         位置与限高由 `useColMenu` 按齿轮 `getBoundingClientRect()` 现算（inline top/left/maxHeight），
+         所以这层的 DOM 位置不影响布局。 -->
+    <div v-if="showColMenu" class="col-menu-overlay" @click="showColMenu = false"></div>
+    <div v-if="showColMenu" ref="colMenuEl" class="col-menu" :style="colMenuStyle" @click.stop>
+      <div class="col-menu-hd">
+        <span>显示列（拖拽排序）</span>
+        <button class="col-menu-x" @click="showColMenu = false" title="关闭"><Icon name="close" /></button>
+      </div>
+      <div class="col-menu-view">
+        <label class="basis-toggle">冻结列
+          <select v-model="frozenKey" @change="onFreezeChange" aria-label="冻结列">
+            <option v-for="o in FREEZE_OPTIONS" :key="o.key" :value="o.key">{{ o.label }}</option>
+          </select>
+        </label>
+      </div>
+      <ul class="col-menu-list">
+        <template v-for="(k, ci) in colOrder" :key="k">
+          <li v-if="colMap[k]"
+              :class="{ locked: k === FIXED_FROZEN, hidden: colVis[k] === false }"
+              :draggable="k !== FIXED_FROZEN"
+              @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
+            <span class="drag">⠿</span>
+            <label><input type="checkbox" :checked="colVis[k] !== false" :disabled="k === FIXED_FROZEN"
+                          @click.prevent="toggleCol(k)"> {{ colMap[k].label }}</label>
+            <!-- v415：自定义字段的改名 / 删除，长在**它自己那一行**里 ——
+                 本页没有表头右键菜单，面板是列管理唯一的家（§2.6.1 也不许往工具栏加按钮）。 -->
+            <template v-if="colMap[k].custom">
+              <input v-if="renameKey === k" :ref="setRenameEl" v-model.trim="renameVal"
+                     class="ipl-cm-in" placeholder="字段名称（≤12 字）" maxlength="12"
+                     @click.stop @keyup.enter="applyRename(k)" @keyup.esc="cancelRename" />
+              <template v-else>
+                <button class="ipl-cm-i" title="改字段名（已经填过的值不受影响）"
+                        @click.stop="startRename(k)">改名</button>
+                <button v-if="canDelCol" class="col-menu-del" title="删除字段（连同所有单据上已填的值）"
+                        @click.stop="delField(k)"><Icon name="close" /></button>
+              </template>
+            </template>
+          </li>
+        </template>
+      </ul>
+      <!-- v415（P2-7）自定义字段：新增入口。
+           🔴 读定义失败时**不给表单**，只说明原因 —— 判据（名字长度 / 重名 / 配额）全在服务端，
+              读不到定义时新增必然失败，让用户在一个注定失败的表单上填东西是不诚实的。
+           🔴 「新增字段」与「新增一行列」不是一回事：这里建的是**服务端字段**（有稳定 key、
+              所有单据共用、换设备还在），不是往当前表格里插一列本地列。 -->
+      <div class="col-menu-add">
+        <span class="cm-label"><Icon name="plus" /> 自定义字段</span>
+        <span v-if="!defsOk" class="ipl-cm-err" :title="defsErr">
+          字段配置没读到，暂时不能新增（{{ defsErr || '原因未知' }}）
+        </span>
+        <template v-else-if="addOpen">
+          <input ref="addEl" v-model.trim="addName" class="ipl-cm-in" maxlength="12"
+                 placeholder="字段名称（≤12 字）" @keyup.enter="applyAddField" @keyup.esc="cancelAddField" />
+          <select v-model="addType" class="ipl-cm-sel" aria-label="字段类型">
+            <option value="text">文本</option>
+            <option value="number">数字</option>
+          </select>
+          <button class="btn btn-xs btn-ghost" :disabled="addBusy" @click="applyAddField">
+            {{ addBusy ? '提交中…' : '确认' }}
+          </button>
+          <button class="btn btn-xs btn-ghost" @click="cancelAddField">取消</button>
+        </template>
+        <button v-else-if="canAddCol" class="btn btn-xs btn-ghost" @click="startAddField">新增字段</button>
+        <span v-else class="ipl-cm-err">当前账号没有新增字段的权限</span>
+      </div>
+      <div class="col-menu-reset">
+        <button class="btn btn-ghost btn-xs" @click="resetCols">恢复默认</button>
       </div>
     </div>
 
@@ -275,7 +394,19 @@ import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import { psiApi } from '../../api/psi'
 import { canDo, toast } from '../../store'
-import { PO_STATUS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
+import { PO_STATUS, PO_SOURCE, PO_SOURCE_OPTIONS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
+import { downloadCsv, localDateStamp } from '../../utils/csv'
+/* v408：列设置菜单的开合与定位走**唯一实现**（UI-SPEC §2.6.1「三、」）。
+   本页与 `/forecast` 同属齿轮宿主白名单（§2.6.1「五、D」）⇒ 共用同一份契约，不另写一份。 */
+import { useColMenu } from '../../composables/useColMenu.js'
+// v411（P2-4）：列设置云端持久化。此前只在 localStorage ⇒ 换设备 / 清缓存即丢且零提示。
+import { useColPrefs } from '../../composables/useColPrefs.js'
+/* v415（P2-7）采购单自定义字段。**列清单不再只有上面那张静态表** ——
+   用户自建的字段由服务端注册表下发（唯一源 = `server/db/queries/forecast_columns.py`）。
+   归一（服务端定义 → 与 `PO_COLS` 逐字同形的列定义）与取值（`r.extra[key]`）抽在
+   composable 里，因为**列表页 / 新建页 / 详情页三处都要**用；
+   在页面里各抄一份就是"同一条规则抄多份 ⇒ 漏抄那份出错"（本仓一类专项缺陷）。 */
+import { usePurchaseCustomFields, extraVal } from '../../composables/purchaseCustomFields.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -316,11 +447,455 @@ const headChk = ref(null)
 
 const PAGE_SIZES = [20, 50, 100]
 
+/* ══════════════════════════════════════════════════════════════════════════
+   列设置（UI-SPEC **§2.6.1「列设置入口与序号列」**）
+   ──────────────────────────────────────────────────────────────────────────
+   🔴 规范契合点（逐条对应 §2.6.1）：
+     「一、」齿轮 = `<button class="col-cfg gear">` + `<Icon name="settings"/>`（线性，**不是** emoji），
+            长在**序号列表头**的 `.th-in` 里、是该格**唯一**按钮；⛔ 不放工具栏。
+     「二、」序号列 = `.seq-th` / `.seq-cell` / `.seq-num`（样式唯一源在 variables.css），
+            取值 `offset + i + 1`（服务端分页 ⇒ 必须跨页连续）；**不在列清单里**（不可隐藏/拖序/删除）。
+     「三、」面板 = `.col-menu` + `.col-menu-list` + `.col-menu-reset`，`position:fixed` 且位置与限高
+            由 `useColMenu`（共享件）按齿轮 `getBoundingClientRect()` **现算** —— 不写死 top/left。
+     「五、D」宿主页白名单 = `/forecast`（v400 基准）＋ `/inventory/purchase`（v408 起）。
+   ──────────────────────────────────────────────────────────────────────────
+   🔴 为什么列宽写在**这里**而不是 CSS 里：本表 `table-layout:fixed`，宽度权威来源只能是
+      `<colgroup>`（`colW()/c.w`）。CSS 里再写一份 `width` 就是**第二个真相来源**，改一处必然漂移。
+      左侧冻结区的 sticky 偏移（0 / 36 / 82）也依赖这三个宽度是**硬值**，不能靠内容撑。
+
+   `on` = 默认是否显示。**默认集 = v403 原有的 15 列** ⇒ 改造前后默认观感零变化；
+   新增列（数据早已在库，P0-1 是「后端零改动」）默认**收起**，由用户按需勾选 ——
+   对应报告「✗ 明确不做」第 2 条：**不硬编码满列**（满列会让表格失去节奏）。
+   ══════════════════════════════════════════════════════════════════════════ */
+const PO_COLS = [
+  // —— v403 已有的 15 列（`on: true` = 默认显示）——
+  { key: 'order_no',          label: '单据编号',   w: 130, on: true },
+  { key: 'supplier',          label: '供应商',     w: 150, on: true, clip: true },
+  { key: 'supplier_category', label: '供应商类别', w: 96,  on: true, clip: true },
+  { key: 'qty',               label: '订单数量',   w: 104, on: true, num: true },
+  { key: 'warehouse',         label: '仓库',       w: 88,  on: true },
+  { key: 'status',            label: '状态',       w: 84,  on: true },
+  { key: 'total_amount',      label: '订单金额',   w: 104, on: true, num: true },
+  { key: 'received_amount',   label: '入库金额',   w: 104, on: true, num: true },
+  { key: 'paid_amount',       label: '已结款',     w: 96,  on: true, num: true },
+  { key: 'unpaid',            label: '未结款',     w: 96,  on: true, num: true },
+  { key: 'audit_time',        label: '审核时间',   w: 108, on: true },
+  { key: 'order_date',        label: '单据日期',   w: 108, on: true },
+  { key: 'creator_name',      label: '创建人',     w: 84,  on: true },
+  { key: 'note',              label: '备注',       w: 150, on: true, clip: true },
+  { key: 'print_count',       label: '打印数',     w: 64,  on: true, num: true },
+  // —— v408 新增 4 列：数据**早已在库**（`source`/`created_at`/`expected_date`/`mark`），
+  //    列表接口 `SELECT po.*` 已回 ⇒ **后端零改动**。默认收起（`on` 缺省 = false），用户自选。
+  { key: 'source',            label: '单据来源',   w: 90 },
+  { key: 'created_at',        label: '创建时间',   w: 108 },
+  { key: 'expected_date',     label: '预计到货',   w: 108 },
+  { key: 'mark',              label: '标记',       w: 90,  clip: true },
+  // —— v408（P1-7）再补 2 列：入库时间 / 审核人 ——
+  //    ⚠️ 两者**都不是**「后端零改动」：
+  //      · `received_at`（P0-6 加的列）`SELECT po.*` 已带 ⇒ 这列本身后端零改动；
+  //      · `auditor_name` 是**端点层解析出来的**（库里只存 `auditor_id`），且 `auditor_id`
+  //        是 P1-7 才加的列 + 两个 approve 调用方才开始传人 ⇒ **前端依赖后端本次改动**。
+  //    ⚠️ 因此老后端（未部署 P1-7）上这两列**恒为 `—`** —— 这是可降级的，不是崩溃：
+  //       `colText` 对缺值一律返回 `''`，界面显示 `—`（本仓铁律：**「没有」≠「是零」**）。
+  //    默认收起：沿用本文件既定规则（新增列默认收起，不硬编码满列）。
+  { key: 'received_at',       label: '入库时间',   w: 108 },
+  { key: 'auditor_name',      label: '审核人',     w: 84 },
+  // —— v410（P2-3）再补 4 列：最后操作人/时间、最后打印人/时间 ——
+  //    ⚠️ **全部依赖本次后端改动**（不像 v408 那 4 列是「后端零改动」）：
+  //      · `last_op_at` / `last_print_at` 是 v410 新加的列；
+  //      · `last_op_name` / `last_print_name` 是端点层现解析出来的（库里只存 id）。
+  //    ⇒ 老后端（未部署 v410）上这四列**恒为 `—`**。这是**可降级**的，不是崩溃：
+  //      `colText` 对缺值一律返回 `''`，界面显示 `—`（本仓铁律：**「没有」≠「是零」**，
+  //      不许显示 `0` 也不许显示当前时间充数）。
+  //    🔴 为什么「最后打印」与「打印数」是两列而不是合并：打印数只答「打过几次」，
+  //      答不出「谁打的、什么时候打的」—— 老板真正要的是后者（"小李到底打没打"）。
+  //    默认收起：沿用本文件既定规则（新增列默认收起，不硬编码满列）。
+  { key: 'last_op_at',        label: '最后操作时间', w: 108 },
+  { key: 'last_op_name',      label: '最后操作人',   w: 96 },
+  { key: 'last_print_at',     label: '最后打印时间', w: 108 },
+  { key: 'last_print_name',   label: '最后打印人',   w: 96 },
+]
+const COL_STORAGE_KEY = 'hergent_purchase_cols_v1'
+
+/* ══ v415（P2-7）自定义字段：列清单 = 静态 21 列 ＋ 服务端下发的自定义列 ══════════
+   🔴 「字段的定义」权威在**服务端**（`db/queries/forecast_columns.py`，采购单作用域）。
+      前端不造 key、不存定义、也不在本地留一份"哪些字段存在"的判据 ——
+      本地造 key（`cust_xxx`）只活在这台浏览器，服务端引用不到，换设备后这一列连同
+      它上面的数据一起消失（报单矩阵 v161 之前就是这个行为）。
+   🔴 归一后的自定义列与 `PO_COLS` 的项**逐字同形**（`{key,label,w,num,clip,custom}`）
+      ⇒ 下面所有"列"的判断（可见性 / 顺序 / 宽度 / 取值 / 导出）**不需要为自定义列分叉**。
+      唯一的差别是 `custom:true`（面板里可改名 / 可删）与 `on:false`（默认收起）。
+   ⚠️ 读定义失败时 `defsOk=false`：已渲染的列**不清空**（降级但可用），
+      但「新增字段」入口会**藏起来并说明原因** —— 判据是服务端的，读不到就不能让用户
+      在一个必然失败的表单上填东西（fail-closed）。
+   ══════════════════════════════════════════════════════════════════════════ */
+const {
+  defs: customDefs, ok: defsOk, err: defsErr,
+  loadDefs, addField, renameField, removeField,
+} = usePurchaseCustomFields()
+/** 全部列（静态在前、自定义在后）。**列的一切判断都走它**，不再直接读 `PO_COLS`。 */
+const ALL_COLS = computed(() => PO_COLS.concat(customDefs.value))
+const colMap = computed(() => Object.fromEntries(ALL_COLS.value.map(c => [c.key, c])))
+/** 新增字段 = `inventory` 模块的 create；删字段会**连带清掉**所有单据上的值 ⇒ 用 delete 轴。 */
+const canAddCol = computed(() => canDo('inventory', 'create'))
+const canDelCol = computed(() => canDo('inventory', 'delete'))
+
+/* 左侧**固定冻结区**（§2.6.1「二、」的冻结约定 + Forecast 的「固定列强制归位」）：
+   复选框列 → 序号列 → 单据编号列。三者恒可见、恒冻结，偏移是硬值。
+   ⛔ 单据编号不可隐藏：藏了它这张表就只剩金额，无法定位单据（行操作「打印 / 复制」也随之失去锚点）。 */
+const CHK_W = 36
+const SEQ_W = 46
+const OP_W = 96
+const FIXED_FROZEN = 'order_no'
+const LEFT_CHK = 0
+const LEFT_SEQ = CHK_W                                  // 36
+const LEFT_FROZEN = CHK_W + SEQ_W                       // 82
+const LEFT_FROZEN2 = CHK_W + SEQ_W + 130                // 212 = 82 + 单据编号列宽
+/** 「冻结列」下拉的可选项 —— 只列语义上值得左侧常驻的列（金额/日期冻结意义不大）。 */
+const FREEZE_OPTIONS = [
+  { key: 'none', label: '不冻结' },
+  { key: 'supplier', label: '供应商' },
+  { key: 'supplier_category', label: '供应商类别' },
+  { key: 'source', label: '单据来源' },
+  { key: 'warehouse', label: '仓库' },
+  { key: 'status', label: '状态' },
+  { key: 'note', label: '备注' },
+]
+
+const { showColMenu, colMenuEl, colMenuStyle, toggleColMenu } = useColMenu()
+
+function defaultColOrder () {
+  /* 🔴 自定义列**也要进默认顺序**（追加在末尾）。为什么不省掉这一步：
+     `resetCols()` 与 `applySaved()` 都以它为基准重建 `colOrder`，而 `colOrder` 是列设置面板的
+     **唯一数据源** —— 漏了自定义列，「恢复默认」会把它们从面板里整片抹掉
+     （要等下次进页面重新拉定义才回来，用户读成「我的字段不见了」）。 */
+  return PO_COLS.map(c => c.key).concat(customDefs.value.map(c => c.key))
+}
+function defaultColVis () {
+  const v = {}
+  // `on === true` 才默认显示（缺省 = 收起）。**未标注的新列自动落在「收起」** ⇒
+  // 升级时老用户不会平白多出几列，需自己勾选。
+  PO_COLS.forEach(c => { v[c.key] = c.on === true })
+  /* v415：自定义列同样**默认收起**（与静态新增列同一条规则，不硬编码满列）。
+     ⚠️ 唯一的例外在 `applyAddField()`：用户在面板里**当场新增**的那个字段会立刻可见 ——
+        加了却看不见会被读成"没加上"（静默假成功），与"升级时别平白多出几列"不矛盾：
+        这是用户刚刚显式要求的列，不是系统塞给他的。 */
+  customDefs.value.forEach(c => { v[c.key] = false })
+  return v
+}
+const colOrder = ref(defaultColOrder())
+const colVis = ref(defaultColVis())
+const frozenKey = ref(FIXED_FROZEN)
+const colDragFrom = ref(-1)
+
+/** 可见列（顺序 = 用户拖拽后的顺序；固定列**强制归位**在最左，第二冻结列紧随其后）。 */
+const visibleCols = computed(() => {
+  const arr = colOrder.value
+    // 固定冻结列**永远可见**：localStorage 里若有脏值把它关掉，会连带齿轮的宿主与行操作锚点一起消失
+    .filter(k => colMap.value[k] && (k === FIXED_FROZEN || colVis.value[k] !== false))
+    .map(k => colMap.value[k])
+  const head = arr.filter(c => c.key === FIXED_FROZEN)
+  let rest = arr.filter(c => c.key !== FIXED_FROZEN)
+  const fk = frozenKey.value
+  if (fk && fk !== 'none') {
+    const hit = rest.find(c => c.key === fk)
+    // 冻的那列被隐藏了 ⇒ 不冻（否则会在 212px 处留一个空槽，后续列全被挤开）
+    if (hit) rest = [hit].concat(rest.filter(c => c.key !== fk))
+  }
+  return head.concat(rest)
+})
+/** 是否落在**第二冻结位**（212px）。固定列自带冻结，不参与这条。 */
+function isFrz2 (c) { return frozenKey.value !== 'none' && c.key === frozenKey.value && c.key !== FIXED_FROZEN }
+
+/** 只写 localStorage（**不触发云端推送**）—— 云端值落下来时用它回写本地缓存。 */
+function _writeLocal () {
+  try {
+    localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(_colCfg()))
+  } catch (e) { /* 隐私模式 / 配额满：列设置退化为「本次会话有效」，不打断列表使用 */ }
+}
+/** 当前列配置的**整体**（顺序 + 可见性 + 冻结列三者互相约束，必须一起存）。 */
+function _colCfg () {
+  return { order: colOrder.value, vis: colVis.value, frozen: frozenKey.value }
+}
+const colPrefs = useColPrefs('purchase', {
+  // 云端那份**整体覆盖**本地：不做逐字段合并 —— 合并会产生"顺序来自 A 设备、
+  // 可见性来自 B 设备"的第三种状态，两边都没见过它（见 useColPrefs 文件头）。
+  // 🔴 与本地**逐字相同**则直接返回：省一次无谓的表格重排。
+  apply: (cfg) => {
+    if (JSON.stringify(_colCfg()) === JSON.stringify(cfg)) return
+    applySaved(cfg)
+    _writeLocal()
+  },
+  snapshot: _colCfg,
+})
+function persistCols () {
+  _writeLocal()
+  colPrefs.push(_colCfg())     // 云端（debounce，失败只留痕不打断）
+}
+/** 把一份存下来的配置应用到界面。`saved` 为 null/非法 ⇒ 回默认。 */
+function applySaved (saved) {
+  const defOrder = defaultColOrder()
+  if (saved && Array.isArray(saved.order) && saved.order.length) {
+    const known = saved.order.filter(k => colMap.value[k])
+    // 升级后**新登记的列**追加到末尾，并沿用其默认可见性（老用户不会平白多出几列）
+    const added = defOrder.filter(k => !known.includes(k))
+    colOrder.value = known.concat(added)
+    const v = defaultColVis()
+    Object.keys(v).forEach(k => {
+      if (saved.vis && typeof saved.vis[k] === 'boolean') v[k] = saved.vis[k]
+    })
+    colVis.value = v
+    frozenKey.value = (typeof saved.frozen === 'string' && saved.frozen) ? saved.frozen : FIXED_FROZEN
+  } else {
+    colOrder.value = defOrder
+    colVis.value = defaultColVis()
+    frozenKey.value = FIXED_FROZEN
+  }
+  // 存下来的冻结列可能已不在可选项里（例如列被撤了）⇒ 退回不冻，避免一个永远不生效的下拉
+  if (!FREEZE_OPTIONS.some(o => o.key === frozenKey.value)) frozenKey.value = 'none'
+  colVis.value[FIXED_FROZEN] = true      // 固定冻结列恒可见（脏值兜底）
+}
+function loadCols () {
+  let saved = null
+  try { saved = JSON.parse(localStorage.getItem(COL_STORAGE_KEY) || 'null') } catch (e) { saved = null }
+  applySaved(saved)
+}
+loadCols()
+
+function toggleCol (k) {
+  if (k === FIXED_FROZEN) return                 // 固定列不参与显隐（勾选框已 disabled）
+  colVis.value = { ...colVis.value, [k]: !(colVis.value[k] !== false) }
+  persistCols()
+}
+function onColDragStart (ci) { colDragFrom.value = ci }
+function onColDrop (ci) {
+  const from = colDragFrom.value
+  colDragFrom.value = -1
+  if (from < 0 || from === ci) return
+  const a = colOrder.value.slice()
+  const [moved] = a.splice(from, 1)
+  if (!moved) return
+  a.splice(ci, 0, moved)
+  colOrder.value = a
+  persistCols()
+}
+/** 恢复默认（顺序 + 显隐 + 冻结列）—— 报告 P0-1 的「恢复默认」。 */
+function resetCols () {
+  colOrder.value = defaultColOrder()
+  colVis.value = defaultColVis()
+  frozenKey.value = FIXED_FROZEN
+  persistCols()
+  toast('列设置已恢复默认', 'success')
+}
+function onFreezeChange () { persistCols() }
+function colW (k) { const c = colMap.value[k]; return c ? c.w : 90 }
+
+/* ══ v415（P2-7）自定义字段：定义加载 + 并入列清单 ══════════════════════════════
+   🔴 合并必须是**增量的**（只补缺的），不能重跑 `applySaved()` —— 后者会以本地/云端那份
+      配置为基准**整片重建** `colOrder`，而此刻用户可能已经拖过列、勾过列 ⇒ 覆盖 = 静默
+      丢用户的调整。
+   🔴 显隐只给**本地还没有记录**的键补默认（收起）：
+      `colVis` 里已有的值代表用户勾过 / 云端下来的，每次进页面覆盖一遍就是静默重置用户选择。
+   ══════════════════════════════════════════════════════════════════════════ */
+async function loadCustomCols () {
+  await loadDefs()
+  mergeCustomCols()
+}
+function mergeCustomCols () {
+  const keys = customDefs.value.map(c => c.key)
+  if (!keys.length) return
+  const have = new Set(colOrder.value)
+  const add = keys.filter(k => !have.has(k))
+  if (add.length) colOrder.value = colOrder.value.concat(add)
+  const vis = { ...colVis.value }
+  let changed = false
+  keys.forEach(k => { if (!(k in vis)) { vis[k] = false; changed = true } })
+  if (changed) colVis.value = vis
+}
+
+/* ══ v415（P2-7）字段管理：新增 / 改名 / 删除 ══════════════════════════════════
+   入口**只在列设置面板里** —— 面板本来就是"管列"的地方，且 §2.6.1 规定齿轮是列设置的
+   唯一入口（不再往工具栏加按钮）。
+   🔴 三件事的判据**全在服务端**（名字非空 / ≤12 字 / 不重名 / 类型合法 / 整个租户 30 个上限）：
+      这里只把 400 原文照显，**不预判**。前端再写一份"名字太长了"就是第二份实现。
+   🔴 为什么有「改名」：没有它，用户填错一个字段名就只能「删除再新建」，而删除会
+      **连带清掉所有单据上已填的值**（不可恢复）。后端 `update_column` 本就支持改名，
+      前端不给入口 = 那条能力不可达（「写了 ≠ 可达」）。
+   ══════════════════════════════════════════════════════════════════════════ */
+const addOpen = ref(false)
+const addName = ref('')
+const addType = ref('text')
+const addBusy = ref(false)
+const addEl = ref(null)
+const renameKey = ref('')
+const renameVal = ref('')
+const renameEl = ref(null)
+/** `:ref` 的函数式用法：v-for 里用字符串 ref 会收成一个数组，靠它精确拿到那**一个**输入框。 */
+function setRenameEl (el) { if (el) renameEl.value = el }
+
+function startAddField () {
+  addName.value = ''
+  addType.value = 'text'
+  addOpen.value = true
+  nextTick(() => { if (addEl.value) addEl.value.focus() })
+}
+function cancelAddField () { addOpen.value = false; addName.value = '' }
+
+async function applyAddField () {
+  const name = addName.value.trim()
+  if (!name) { toast('请填写字段名称', 'warn'); return }
+  if (addBusy.value) return
+  addBusy.value = true
+  try {
+    const col = await addField(name, addType.value)
+    /* 新字段**立刻可见**并落在列清单末尾 —— 加了却看不见会被读成"没加上"（静默假成功）。
+       ⚠️ 列设置面板本来就在屏幕上（用户是从这里点的），新行会连同勾选框一起出现，
+          这里把勾选状态一并置真，语义是"你要的列，给你打开"。 */
+    colOrder.value = colOrder.value.concat([col.key])
+    colVis.value = { ...colVis.value, [col.key]: true }
+    persistCols()
+    addOpen.value = false
+    addName.value = ''
+    toast(`已新增字段「${col.label || name}」，可在表格里直接填写`, 'success')
+  } catch (e) {
+    toast(e.message || '新增字段失败', 'error')
+  } finally {
+    addBusy.value = false
+  }
+}
+
+function startRename (k) {
+  const c = colMap.value[k]
+  if (!c || !c.custom) return
+  renameVal.value = c.label || ''
+  renameKey.value = k
+  nextTick(() => {
+    if (renameEl.value) {
+      renameEl.value.focus()
+      if (renameEl.value.select) renameEl.value.select()
+    }
+  })
+}
+function cancelRename () { renameKey.value = ''; renameVal.value = '' }
+
+async function applyRename (k) {
+  const name = renameVal.value.trim()
+  if (!name) { toast('字段名称不能为空', 'warn'); return }
+  try {
+    // `renameField` 内部会**重拉定义**（服务端是唯一源）⇒ 这里不本地改写 label，
+    // 免得出现"本地那份"和"服务端那份"两个显示名的来源。
+    await renameField(k, name)
+    cancelRename()
+    toast(`已改名为「${name}」（已填的值不受影响）`, 'success')
+  } catch (e) {
+    // 后端会拒重名 / 超长（400 + 人话），原样显示
+    toast(e.message || '改名失败', 'error')
+  }
+}
+
+/** 删除字段。**必须确认** —— 服务端在同一事务里清掉所有单据上该字段的值，不可恢复。 */
+async function delField (k) {
+  const c = colMap.value[k]
+  if (!c || !c.custom) return
+  if (!window.confirm(`删除字段「${c.label}」？\n\n`
+    + '所有采购单上这个字段已经填过的值会一并清除，无法恢复。\n'
+    + '（只是想改个名字的话，点「改名」。）')) return
+  try {
+    const r = await removeField(k)
+    colOrder.value = colOrder.value.filter(x => x !== k)
+    const vis = { ...colVis.value }
+    delete vis[k]
+    colVis.value = vis
+    // 当前页内存里的值也一并摘掉，避免表里那一列还挂着刚被服务端清掉的残影
+    rows.value.forEach(row => {
+      if (row.extra && typeof row.extra === 'object') delete row.extra[k]
+    })
+    persistCols()
+    /* 🔴 `purged_products` 是 **products 时代的历史键名**，语义 = **被清掉该键的采购单张数**。
+       必须如实报出来：「删了字段、N 张单上的值也一起没了」是用户要知道的事；
+       静默清掉就是数据损失而不告知。别按字面读成"被清理的商品数"。 */
+    const n = Number((r && r.purged_products) || 0)
+    toast(n ? `已删除字段「${c.label}」，并清除了 ${n} 张单据上该字段的值`
+            : `已删除字段「${c.label}」`, 'success')
+  } catch (e) {
+    toast(e.message || '删除字段失败', 'error')
+  }
+}
+
+/** 单元格的**纯文本**取值 —— 导出与表格共用同一套口径，避免「同屏两个说法」。 */
+function colText (r, k) {
+  /* v415：自定义字段的值住在 `purchase_orders.extra_json`，由列表端点解析成 `r.extra`
+     （与商品档案同一个 `load_extra`）。**必须先判这一支** —— 自定义键是服务端随机的
+     `p_xxxxxxxx`，不可能在下面的 switch 里逐条列举。
+     ⚠️ 缺值 `''` ⇒ 界面显示 `—`；数字 `0` **原样返回 0**（不写成 `''`）——
+        本仓铁律：**「没有」≠「是零」**，把 0 当空会谎报"没填"。 */
+  const _d = colMap.value[k]
+  if (_d && _d.custom) return extraVal(r, k)
+  switch (k) {
+    case 'order_no': return r.order_no || ('#' + r.id)
+    case 'supplier': return r.supplier_name || ''
+    case 'supplier_category': return r.supplier_category || ''
+    case 'source': return r.source ? textOf(PO_SOURCE, r.source) : ''
+    case 'qty': return r.has_items
+      ? (Number(r.order_qty || 0) + (r.order_unit ? ' ' + r.order_unit : '')) : ''
+    case 'warehouse': return whName(r.warehouse_id) === '—' ? '' : whName(r.warehouse_id)
+    case 'status': return textOf(PO_STATUS, r.status)
+    case 'total_amount': return Number(r.total_amount || 0)
+    case 'received_amount': return r.has_items ? Number(r.received_amount || 0) : ''
+    case 'paid_amount': return Number(r.paid_amount || 0)
+    case 'unpaid': return r.has_items
+      ? Number(r.received_amount || 0) - Number(r.paid_amount || 0) : ''
+    case 'audit_time': return (r.audit_time || '').slice(0, 10)
+    case 'order_date': return (r.order_date || '').slice(0, 10)
+    case 'created_at': return (r.created_at || '').replace('T', ' ').slice(0, 16)
+    case 'expected_date': return (r.expected_date || '').slice(0, 10)
+    // v408（P1-7）两列。⚠️ 缺值一律 `''` ⇒ 模板显示 `—`（**不**显示 `0` / 「无」）。
+    //   · `received_at` 取到分钟（与「创建时间」同口径）：它是**动作时刻**，同一天可能到货多次，
+    //     只显示日期等于丢掉「什么时候收完的」这个信息；列宽 108 装得下 16 字符。
+    //   · `auditor_name` 是**端点层解析出来的**（库里只存 `auditor_id`），老后端上没有这个键 ⇒ `''`。
+    case 'received_at': return (r.received_at || '').replace('T', ' ').slice(0, 16)
+    case 'auditor_name': return r.auditor_name || ''
+    // v410（P2-3）四列。⚠️ 缺值一律 `''` ⇒ 模板显示 `—`（**不**显示 `0` / 「无」/
+    //   「未知用户」）。两个时间列取到**分钟**（与「创建时间 / 入库时间」同口径）：
+    //   「最后操作」的价值在于定位到**某一次动作**，只显示日期会丢掉「上午改的还是下午改的」。
+    case 'last_op_at': return (r.last_op_at || '').replace('T', ' ').slice(0, 16)
+    case 'last_op_name': return r.last_op_name || ''
+    case 'last_print_at': return (r.last_print_at || '').replace('T', ' ').slice(0, 16)
+    case 'last_print_name': return r.last_print_name || ''
+    case 'creator_name': return r.creator_name || ''
+    case 'note': return r.note || ''
+    case 'print_count': return Number(r.print_count || 0)
+    case 'mark': return r.mark || ''
+  }
+  return ''
+}
+/** 表格里的展示值：**空值一律 `—`**（不把「没有」写成 0 / 空串）。金额格由模板单独处理。 */
+function cellVal (r, k) {
+  const t = colText(r, k)
+  return (t === '' || t === null || t === undefined) ? '—' : t
+}
+/** 金额格统一走 ¥ 前缀；`has_items=false` 的「入库金额 / 未结款」→ `—`（不要伪造 ¥0.00）。 */
+const MONEY_COLS = ['total_amount', 'received_amount', 'paid_amount', 'unpaid']
+function moneyCell (r, k) {
+  if ((k === 'received_amount' || k === 'unpaid') && !r.has_items) return '—'
+  if (k === 'unpaid') return '¥' + fmtMoney(Number(r.received_amount || 0) - Number(r.paid_amount || 0))
+  return '¥' + fmtMoney(r[k])
+}
+
+
 /** 筛选初值：退货单入口把状态钉在「已退货」（页签条也因此不渲染）。 */
 function baseFilter () {
   return {
     status: isReturn.value ? 'returned' : '', supplier_id: 0, date_from: '', date_to: '',
     keyword: '', warehouse_id: 0, creator: '', only_marked: false,
+    /* v408（P1-3）三个新筛选。**默认空 = 不筛**，与后端默认值逐一对应：
+       `source`（精确）/ `print_state`（printed|unprinted）/ `product_keyword`（商品名或条码）。
+       ⚠️ 仍然没有「审核人」筛选框：v408（P1-7）起后端**已经记** `auditor_id` 了，但
+          ① 报告只要求「列」，不要求筛（超范围不加）；② 真要加必须先定「审核人为空的历史单
+          怎么筛」（占绝大多数）⇒ 需要像 P1-3 那样配一个「未标注」选项，是独立取舍。
+          ⚠️ 下面「后端从不记录采购单审核人」这类旧说法已作废 —— 见后端
+          `purchase_order_approve` 的 v408 段。**列**已加（见 PO_COLS 的 `auditor_name`）。 */
+    source: '', print_state: '', product_keyword: '',
   }
 }
 const f = ref(baseFilter())
@@ -332,7 +907,11 @@ const canWrite = computed(() => canDo('inventory', 'create'))
 const allChecked = computed(() => rows.value.length > 0 && selected.value.length === rows.value.length)
 const hasFilter = computed(() => !!(
   f.value.supplier_id || f.value.date_from || f.value.date_to || f.value.keyword ||
-  f.value.warehouse_id || f.value.creator || f.value.only_marked
+  f.value.warehouse_id || f.value.creator || f.value.only_marked ||
+  /* v408（P1-3）🔴 三个新筛选**必须**也列进来：`hasFilter` 决定空结果时说
+     「还没有采购单」还是「没有符合条件的结果（可清空筛选）」——漏一个就会出现
+     「明明筛了商品、页面上说一张单都没有」，用户会以为数据丢了。 */
+  f.value.source || f.value.print_state || f.value.product_keyword
 ))
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))
 const page = computed(() => Math.floor(offset.value / limit.value) + 1)
@@ -376,22 +955,9 @@ const whMap = computed(() => {
 })
 function whName (id) { return whMap.value[id] || '—' }
 
-function qtyText (r) {
-  if (!r.has_items) return '—'
-  const q = Number(r.order_qty || 0)
-  if (!q) return '0'
-  const n = Number.isInteger(q) ? String(q) : String(Math.round(q * 100) / 100)
-  return r.order_unit ? `${n} ${r.order_unit}` : n
-}
-function moneyOrDash (r, v) { return r.has_items ? `¥${fmtMoney(v)}` : '—' }
-/* 未结款 = 入库金额 − 已结款（与舟谱同口径：已结款 + 未结款 = **入库金额**）。
-   入库金额未知 ⇒ 未结款也未知 ⇒ `—`（不能用「订单金额 − 已结款」代替：那是把还没入库
-   的那部分当成欠款，凭空多算）。 */
-function unpaidText (r) {
-  if (!r.has_items) return '—'
-  return `¥${fmtMoney(Number(r.received_amount || 0) - Number(r.paid_amount || 0))}`
-}
-
+/* ⚠️ 原先这里的 `qtyText` / `moneyOrDash` / `unpaidText` 三个「格内格式化」函数 v408 已删：
+   列设置把单元格取值收敛到 `colText`（纯文本，导出复用）＋ `moneyCell`（金额格）两处；
+   再留一份页面私有实现就是**第二个真相来源** —— 表格与导出必然漂移。 */
 async function load (resetPage = true) {
   if (resetPage) offset.value = 0
   loading.value = true
@@ -555,36 +1121,24 @@ async function rowPrint (r) {
 }
 function rowCopy (r) { router.push(`/inventory/purchase/new?copy=${r.id}`) }
 
-/* ---- 导出（当前勾选，未勾选则导出当前页）---- */
-function csvCell (v) {
-  const s = String(v === null || v === undefined ? '' : v)
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
+/* ---- 导出（当前勾选，未勾选则导出当前页）----
+   🔴 v408：导出**跟随列设置**（顺序 + 显隐）—— 表里看到什么就导出什么。
+      写死一份固定列会出现「表里没有的列被导出」与「表里有的列导不出」两个说法，
+      而「同屏两个说法互相打脸」正是本仓一类专项缺陷。取值一律走 `colText`（唯一口径）。
+   🔴 v408（P1-5）：CSV 的转义 / BOM / 文件名日期戳**上提到 `utils/csv.js`** ——
+      详情页这一轮也要导出，规则留在页面里就变成两份（漏抄那份会静默输出乱码）。
+      顺带修掉一个真问题：原先文件名用 `toISOString()`（**UTC**）⇒ 北京时间凌晨 0–8 点
+      导出的文件标的是**前一天**，用户按文件名归档会以为导错了。改用 `localDateStamp()`。 */
 function doExport () {
   const list = selected.value.length
     ? rows.value.filter(r => selected.value.includes(r.id))
     : rows.value
   if (!list.length) return
-  const head = ['单据编号', '供应商', '供应商类别', '订单数量', '仓库', '状态', '订单金额',
-    '入库金额', '已结款', '未结款', '审核时间', '单据日期', '创建人', '备注', '打印数']
-  const body = list.map(r => [
-    r.order_no || r.id, r.supplier_name || '', r.supplier_category || '',
-    r.has_items ? (Number(r.order_qty || 0) + (r.order_unit ? ` ${r.order_unit}` : '')) : '',
-    whName(r.warehouse_id),
-    textOf(PO_STATUS, r.status), Number(r.total_amount || 0),
-    r.has_items ? Number(r.received_amount || 0) : '',
-    Number(r.paid_amount || 0),
-    r.has_items ? Number(r.received_amount || 0) - Number(r.paid_amount || 0) : '',
-    (r.audit_time || '').slice(0, 10), (r.order_date || '').slice(0, 10),
-    r.creator_name || '', r.note || '', Number(r.print_count || 0),
-  ])
-  const csv = [head, ...body].map(row => row.map(csvCell).join(',')).join('\r\n')
-  const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `采购单-${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+  const cols = visibleCols.value
+  if (!cols.length) { toast('当前没有可导出的列，请先在列设置里勾选', 'warn'); return }
+  const head = cols.map(c => c.label)
+  const body = list.map(r => cols.map(c => colText(r, c.key)))
+  downloadCsv(`采购单-${localDateStamp()}.csv`, [head, ...body])
 }
 
 /* 分页器的页码窗（当前页居中，最多 7 个） */
@@ -599,6 +1153,15 @@ const pageNums = computed(() => {
 function onDocClick () { batchOpen.value = false }
 onMounted(async () => {
   document.addEventListener('click', onDocClick)
+  /* 🔴 v415：**先**拉自定义字段定义，**再**同步云端列配置。
+     反过来的话会有一条静默的丢列路径：`applySaved()` 以"已知列"过滤云端那份顺序，
+     而此刻 `colMap` 里还没有自定义键 ⇒ 它们在 `known` 里被滤掉，只能作为"新增列"补到
+     末尾（顺序丢了，且不会报错）。先拿定义，云端那份的顺序就被完整认下来。 */
+  await loadCustomCols()
+  // v411：云端列配置优先。**刻意不 await** —— 列设置的同步不该拖慢列表首屏；
+  // 本地那份已经在 `loadCols()` 里应用过了，云端到了再覆盖（覆盖时列顺序会闪一次，
+  // 但换来的是"换设备也一致"）。
+  colPrefs.syncFromCloud()
   await loadBase()
   await load()
 })
@@ -685,26 +1248,42 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-rlist { margin: 0; padding-left: 18px; width: 100% }
 .ipl-result .ipl-link { margin-left: auto }
 
-/* 表格 */
+/* 表格
+   🔴 v408：列宽**不再写在这里** —— 本表 `table-layout:fixed`，宽度权威来源是模板里的
+      `<colgroup>`（见脚本「列设置」段）。原先每个 `.ipl-c-*` 各写一份 `width`，与 colgroup
+      并存就是**第二个真相来源**（改一处必然漂移），且内容一撑就会把列撑宽、错开冻结偏移。
+      这里只留**排版语义**（对齐 / 裁剪）。 */
 .ipl-card { padding: 0; overflow: hidden }
-.ipl-tbl { min-width: 1700px }
-.ipl-c-chk { width: 36px; text-align: center }
-.ipl-c-no { width: 130px }
-/* 供应商/类别名可能很长 ⇒ 省略号，不换行（换行会把行高撑成两行，整表失去节奏） */
-.ipl-c-sup { width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.ipl-c-cat { width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.ipl-c-qty { width: 104px }
-.ipl-c-wh { width: 88px }
-/* 🔴 状态徽标与日期必须 nowrap：窄列下「草稿」「已入库」「2026-07-23」会被折断成两行 */
-.ipl-c-st { width: 84px; white-space: nowrap }
-.ipl-c-amt { width: 104px }
-.ipl-c-pay { width: 96px }
-.ipl-c-time { width: 108px; white-space: nowrap }
-.ipl-c-by { width: 84px }
-.ipl-c-note { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--t2) }
-.ipl-c-print { width: 64px }
-.ipl-c-op { width: 96px; white-space: nowrap }
+.ipl-tbl { min-width: 1700px; table-layout: fixed }
+/* fixed 布局下声明宽度即硬值 ⇒ 内容超出只能裁，不让任何一格把列撑宽 */
+.ipl-tbl th, .ipl-tbl td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ipl-clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ipl-c-chk { text-align: center }
+.ipl-c-op { text-align: right }
 .ipl-tbl td.num { font-variant-numeric: tabular-nums }
+
+/* ---- 左侧冻结区（UI-SPEC §2.6.1「二、」的冻结约定）----
+   偏移是**硬值**：复选框 0 / 序号 36 / 固定冻结列（单据编号）82 / 第二冻结列 212。
+   表头 z-index **必须高于**表体，否则横滚过来的普通表头会盖住冻结表头。 */
+.ipl-frz-chk   { position: sticky; left: 0;     z-index: 6 }
+.ipl-frz-seq   { position: sticky; left: 36px;  z-index: 6 }
+.ipl-frz-key   { position: sticky; left: 82px;  z-index: 6 }
+.ipl-frz-x     { position: sticky; left: 212px; z-index: 6 }
+.ipl-frz-span2 { position: sticky; left: 0;     z-index: 6 }
+.ipl-tbl thead th.ipl-frz-chk, .ipl-tbl thead th.ipl-frz-seq,
+.ipl-tbl thead th.ipl-frz-key, .ipl-tbl thead th.ipl-frz-x { z-index: 9 }
+/* 表体冻结格必须有**自己的底色**（`td` 本身透明 ⇒ 滚过去的内容会从底下透出来）。
+   三种态各自覆盖：常态 `--bg` / 行 hover `--bg2` / 已勾选 `--p-bg`。 */
+.ipl-tbl tbody td.ipl-frz-chk, .ipl-tbl tbody td.ipl-frz-seq,
+.ipl-tbl tbody td.ipl-frz-key, .ipl-tbl tbody td.ipl-frz-x { background: var(--bg) }
+.ipl-tbl tbody tr:hover td.ipl-frz-chk, .ipl-tbl tbody tr:hover td.ipl-frz-seq,
+.ipl-tbl tbody tr:hover td.ipl-frz-key, .ipl-tbl tbody tr:hover td.ipl-frz-x { background: var(--bg2) }
+.ipl-tbl tbody tr.ipl-on td.ipl-frz-chk, .ipl-tbl tbody tr.ipl-on td.ipl-frz-seq,
+.ipl-tbl tbody tr.ipl-on td.ipl-frz-key, .ipl-tbl tbody tr.ipl-on td.ipl-frz-x { background: var(--p-bg) }
+/* 合计行在最底层叠里，取 7（低于表头的 9、高于普通格） */
+.ipl-tbl tfoot td.ipl-frz-span2, .ipl-tbl tfoot td.ipl-frz-key,
+.ipl-tbl tfoot td.ipl-frz-x { z-index: 7 }
+
 .ipl-on { background: var(--p-bg) }
 .ipl-mark { display: inline-flex; margin-left: 4px; color: var(--war); vertical-align: middle }
 
@@ -714,6 +1293,33 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 .ipl-ft-lb { text-align: center; color: var(--t1) }
 .ipl-ft-num { color: var(--t1) }
+
+/* ══ v415（P2-7）列设置面板里的「自定义字段」块 ══════════════════════════════
+   外壳 `.col-menu-add` / `.col-menu-del` / `.cm-label` 是**全局层已有**的件
+   （`variables.css`，与 `/forecast` 面板同源）⇒ 直接复用，不另抄一份定位。
+   这里只补三样本页独有的小件：行内输入框 / 类型下拉 / 失败说明。
+   🔴 不复用 `.col-menu-schemes .scheme-name-ipt`：它被**后代选择器**限定在
+      `.col-menu-schemes` 容器内，放到 `.col-menu-add` 里不会生效（引用了会假绿）。 */
+.ipl-cm-in {
+  flex: 1; min-width: 0; height: 24px; padding: 0 6px; font-size: 12px;
+  border: 1px solid var(--bd); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--t1);
+}
+.ipl-cm-in:focus { border-color: var(--p); outline: 2px solid var(--p); outline-offset: -2px }
+.ipl-cm-sel {
+  height: 24px; padding: 0 4px; font-size: 12px; flex: none;
+  border: 1px solid var(--bd); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--t1);
+}
+/* 行内「改名」按钮：比照 `.col-menu-del` 的体量，但**不用**它的红色 hover ——
+   改名不是破坏性动作，染红会让人以为改个名也会丢数据。 */
+.ipl-cm-i {
+  border: none; background: none; color: var(--t3); cursor: pointer;
+  font-size: 11px; padding: 1px 4px; border-radius: var(--radius-sm); flex: none;
+}
+.ipl-cm-i:hover { color: var(--p-dark); background: var(--bg2) }
+/* 读定义失败 / 无权限的说明：**必须显式**（藏起来用户会以为这页没有这个功能） */
+.ipl-cm-err { font-size: 11px; color: var(--danger-txt); line-height: 1.4; flex-basis: 100% }
 
 /* 分页器（对齐舟谱：共 N 条记录 + 页码 + 每页条数 + 跳至） */
 .ipl-pager {
@@ -750,12 +1356,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* 打印：只留数据表；单张打印时只留那一行。合计行在打印稿里略去（复选框/操作列被隐藏，
    tfoot 的 colspan 会错位 ⇒ 与其印一行错位的数字，不如不印）。 */
 @media print {
-  .page-hd, .ipl-filter, .ipl-tabs, .ipl-tb, .ipl-result, .ipl-pager, .ipl-mask { display: none !important }
+  .page-hd, .ipl-filter, .ipl-tabs, .ipl-tb, .ipl-result, .ipl-pager, .ipl-mask,
+  .col-menu, .col-menu-overlay { display: none !important }
   .ipl-card { border: none; box-shadow: none }
   .ipl-card .table-wrap { overflow: visible; border: none; border-radius: 0 }
-  .ipl-tbl { min-width: 0; width: 100% }
+  /* 打印稿一次性摊开 ⇒ 回到 auto 布局按纸张宽度收缩；fixed + colgroup 硬宽会溢出纸面 */
+  .ipl-tbl { min-width: 0; width: 100%; table-layout: auto }
   .ipl-c-chk, .ipl-c-op { display: none !important }
   .ipl-tbl tfoot, .ipl-mark { display: none !important }
+  /* 冻结是屏幕上的滚动手感；打印时 sticky 只会把几列叠在一起 */
+  .ipl-frz-chk, .ipl-frz-seq, .ipl-frz-key, .ipl-frz-x, .ipl-frz-span2 { position: static !important }
   .ipl-tbl.print-one tbody tr:not(.print-target) { display: none !important }
   .ipl-on { background: transparent !important }
 }
