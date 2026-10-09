@@ -666,6 +666,7 @@ import RoleAvatar from './RoleAvatar.vue'   // v322：角色头像唯一渲染�
 import { ref, shallowRef, nextTick, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { store, loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession, loadAiRoles, setAiRole } from '../store'
 import { hermesChat, api, auth, CHAT_TIMEOUT_NORMAL, CHAT_TIMEOUT_LONG } from '../api/client'
+import { isHeavyTurn, shouldInjectTableHint, spreadsheetSoftHint } from '../utils/copilotTurn'
 import { importApi } from '../api/modules'
 import { chatAttachmentApi, aiPagerApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
@@ -1674,37 +1675,9 @@ function jumpTo(idx) {
 // 由 Hermes 自行规划参数并调用 spreadsheet_* 工具对整表精确计算。
 // 关键约束：强制走工具、严禁 terminal/execute_code/write_file——避免模型自行写脚本导致长任务
 // 超时、前端 SSE 断开误报"离线"（14:10 已发生一次 11 轮 terminal 任务导致掉线）。
-// tableFiles: 上传的 Excel/CSV 附件数组（含 file_id / file_name），可能 1 个或多个。
-function spreadsheetSoftHint(tableFiles) {
-  const n = tableFiles.length
-  const list = tableFiles.map(f => `- ${f.file_name}: file_id=${f.file_id}`).join('\n')
-  const header = [
-    '',
-    '【表格数据说明】用户上传了以下 Excel/CSV（均已存于后端，你必须通过工具读取，严禁直接读文件内容）：',
-    list,
-  ]
-  const common = [
-    '【强制】处理这些表格【只能】使用 spreadsheet_summary / spreadsheet_query / spreadsheet_reconcile_files 工具对【全部数据】精确计算。',
-    '【严禁】使用 terminal / execute_code / write_file / read_file 等工具处理这些文件——这些无法可靠解析 Excel，且会令任务长时间运行导致连接超时中断。',
-    '请严格基于 spreadsheet 工具返回的真实结果回答，不要心算、不要估算、不要编造。',
-  ]
-  if (n >= 2) {
-    // 多文件：明确指令用跨文件对账工具，严禁自行写脚本合并
-    return [
-      ...header,
-      `用户上传了 ${n} 个文件，【若要对账/对比两份独立文件】，必须调用 ` +
-        'spreadsheet_reconcile_files(file_a=<其中一个 file_id>, file_b=<另一个 file_id>, key=对账键列, amount=金额列) 做跨文件对账（不要自行写脚本合并两个文件）。',
-      '调用前请先用 spreadsheet_summary 分别看清两个文件的 sheet 名与列名，再传准确的 key / amount / sheet 参数。',
-      ...common,
-    ].join('\n')
-  }
-  return [
-    ...header,
-    '先用 spreadsheet_summary(file_id) 看清工作表与列结构；再按问题调用：',
-    '  单文件内两表对账用 spreadsheet_query(op=match, sheet_a=, sheet_b=, key=, amount=)、分组汇总用 op=groupby、总计用 op=sum。',
-    ...common,
-  ].join('\n')
-}
+// 表格软提示实现已迁移到 utils/copilotTurn.js（spreadsheetSoftHint / shouldInjectTableHint），
+// 支持「本轮无附件、但会话历史带表」也注入约束（防模型退回 terminal 乱翻导致长任务超时）。
+// 上方 Plan A 说明仍适用。
 
 let lastPayload = null   // 最近一次发送载荷，供「重试」使用（含表格软提示）
 
@@ -1801,7 +1774,7 @@ async function send() {
   //      永远要传，后端会把它们排在能力授权书之后并显式标注"非指令"。
   const rolePrompt = currentRole.value ? currentRole.value.system_prompt : ''
   let sysCtx = ''
-  if (tableFiles.length) sysCtx = (sysCtx ? sysCtx + '\n' : '') + spreadsheetSoftHint(tableFiles)
+  if (shouldInjectTableHint({ tableFiles, messages: store.chat.messages })) sysCtx = (sysCtx ? sysCtx + '\n' : '') + spreadsheetSoftHint(tableFiles)
 
   // P0-② 时间锚点：老板问「昨天/上周」时，把每日经营日志注入 AI 上下文（静默，失败不阻断）
   const anchorDays = timeAnchorDays(q)
@@ -1861,8 +1834,10 @@ async function streamReply(payload) {
   let cardIntent = null
 
   try {
-    // 分级超时（P1）：对账/复盘/汇总/报表等长任务放宽到 5 分钟，普通对话 3 分钟
-    const isHeavy = /对账|复盘|汇总|报表|经营分析|reconcil/i.test((q || '') + ' ' + (content || ''))
+    // 分级超时（P1-v413）：对账/复盘/汇总/报表等长任务放宽到 CHAT_TIMEOUT_LONG。
+    // 🔴 必须用 isHeavyTurn（不是朴素正则）——它还会「短确认词继承上轮轻重」+
+    // 「会话碰过表格即算长任务」，否则「要/继续」这类追问会退回 3 分钟被掐断。
+    const isHeavy = isHeavyTurn({ q, content, messages: store.chat.messages })
     await hermesChat(
       // 🔴 分隔标记（isSwitch）必须排除：它只是给人看的分隔线，不是对话内容；
       //    发上去会让模型把"已切换角色"当成用户说过的话（污染上下文）。
