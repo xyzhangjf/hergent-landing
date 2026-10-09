@@ -179,8 +179,11 @@
           <!-- P1-1：供应商维度应付余额 / 预付余额（跨该供应商全部单据，不是本单）。
                数据来自货款 tab 同源的 `pay.order.supplier_payable` / `supplier_prepay`；
                货款数据未加载时显示 `—`。让老板在详情页就看到「这供应商我们还欠多少、预先付了多少」。 -->
-          <div class="ipd-f"><span class="ipd-lb">供应商应付余额</span><span>{{ (pay && pay.order) ? ('¥' + fmtMoney(pay.order.supplier_payable)) : '—' }}</span></div>
-          <div class="ipd-f"><span class="ipd-lb">供应商预付余额</span><span>{{ (pay && pay.order) ? ('¥' + fmtMoney(pay.order.supplier_prepay)) : '—' }}</span></div>
+          <!-- 🔴 取值层级：`pay` 本身就是 `p.order`（见 `pay.value = (p && p.order) || {}`），
+               再写一层 `.order` ⇒ 恒 undefined ⇒ 这两个余额**永远显示「—」**（对账依据凭空消失，
+               且界面不报错，是典型的静默失效）。 -->
+          <div class="ipd-f"><span class="ipd-lb">供应商应付余额</span><span>{{ (pay && pay.supplier_id) ? ('¥' + fmtMoney(pay.supplier_payable)) : '—' }}</span></div>
+          <div class="ipd-f"><span class="ipd-lb">供应商预付余额</span><span>{{ (pay && pay.supplier_id) ? ('¥' + fmtMoney(pay.supplier_prepay)) : '—' }}</span></div>
           <div v-if="o.note" class="ipd-f ipd-f-grow"><span class="ipd-lb">备注</span><span>{{ o.note }}</span></div>
           <!-- v415（P2-7）补充信息（自定义字段）。
                🔴 **只列有值的** —— 字段可以随时加（上限 30 个），全铺出来会淹掉真正要看的。

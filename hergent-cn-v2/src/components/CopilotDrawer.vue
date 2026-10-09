@@ -295,9 +295,16 @@
                   <div v-if="shareOpen === i" class="cp-share-menu" @click.stop>
                     <button @click="shareCopy(m, 'reply')">复制回复</button>
                     <button @click="shareCopy(m, 'qa')">复制问答</button>
+                    <button @click="shareCopyLink()">复制页面链接</button>
+                    <button @click="shareQR()">生成二维码</button>
                   </div>
                 </div>
-                <div v-if="shareOpen === i" class="cp-share-backdrop" @click="shareOpen = null"></div>
+                <div v-if="qrUrl" class="cp-qr" @click.stop>
+                  <img :src="qrUrl" alt="二维码" />
+                  <p>用微信「扫一扫」打开此页，再点右上角「···」分享到聊天或朋友圈</p>
+                  <button class="cp-qr-close" @click="qrUrl = null">关闭</button>
+                </div>
+                <div v-if="shareOpen === i || qrUrl" class="cp-share-backdrop" @click="shareOpen = null; qrUrl = null"></div>
               </div>
             </div>
           </div>
@@ -677,6 +684,33 @@
         </div>
       </div>
     </Transition>
+
+    <!-- v426 P0-3：结构化纠错面板（取代浏览器原生输入弹窗）
+         复用既有浮层范式（同 cp-fwd：Teleport + 居中蒙层），层级 z-index 与转发面板一致。 -->
+    <Transition name="fade">
+      <div v-if="corr.open" class="cp-corr-mask" @click="corrSkip">
+        <div class="cp-corr" @click.stop>
+          <div class="cp-corr-hd">
+            <b>哪里不对？</b>
+            <button class="cp-icon-btn" @click="corrSkip"><Icon name="close"/></button>
+          </div>
+          <p class="cp-corr-sub">选一项原因、再写一句正确答案，AI 下次遇到同类问题就会改过来。</p>
+          <div class="cp-corr-chips">
+            <button v-for="c in CORR_REASONS" :key="c" class="cp-corr-chip" :class="{ on: corr.cat === c }" @click="corr.cat = c; corr.hint = ''">{{ c }}</button>
+          </div>
+          <textarea class="cp-corr-text" v-model="corr.text" rows="3" :placeholder="corrPlaceholder" @input="corr.hint = ''"></textarea>
+          <label class="cp-corr-forever">
+            <input type="checkbox" v-model="corr.forever" />
+            <span>以后都按这个来（升级为长期口径）</span>
+          </label>
+          <p v-if="corr.hint" class="cp-corr-hint">{{ corr.hint }}</p>
+          <div class="cp-corr-ops">
+            <button class="btn btn-ghost btn-sm" @click="corrSkip">不用了</button>
+            <button class="btn btn-primary btn-sm" @click="corrSubmit">提交纠正</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -697,6 +731,7 @@ import { renderMd, splitMedia } from '../utils/md'
 import { useRouter } from 'vue-router'   // M1：斜杠命令「跳转页面」用
 // v311：`drillTo` 前置判据用（见该函数处注释）。判据唯一实现在 `constants/pages.js`。
 import { canSee, pageTitle } from '../constants/pages'
+import QRCode from 'qrcode'   // v424：分享→生成二维码（微信扫一扫）
 
 const router = useRouter()
 
@@ -1472,12 +1507,16 @@ async function applyProposal(m, action) {
 }
 
 /* ---- P0-① 反馈纠错：对/错 → 落 memory（错可填纠正） ---- */
-async function submitFeedback(m, type) {
-  if (m.feedback) return
-  let correction = ''
-  if (type === 'bad') {
-    correction = (window.prompt('哪里不对？（可选填，帮 AI 记住）', '') || '').trim()
-  }
+async function submitFeedback(m, type, correction = '') {
+  // 乐观高亮：先亮，再发请求；失败回滚。去掉原 `if (m.feedback) return` 守卫，
+  // 否则「点赞↔点踩」无法互相切换（toggleFeedback 切到另一种类型时会被这里拦死）。
+  //
+  // v426 P0-3：纠正文本改为**由调用方传入**（来自下方自绘纠错面板），本函数不再弹窗。
+  // 原写法在这里直接调用浏览器原生的输入弹窗 —— 对一个不懂技术的老板来说
+  // 就是「弹个框、不知道写啥、直接回车」⇒ 落库的 correct_result 为空 ⇒ 闭环照样不闭。
+  const prev = m.feedback
+  m.feedback = type
+  correction = (correction || '').trim()
   const idx = store.chat.messages.indexOf(m)
   let original = ''
   for (let k = idx - 1; k >= 0; k--) {
@@ -1488,11 +1527,11 @@ async function submitFeedback(m, type) {
       method: 'POST',
       body: { original_input: original, ai_result: m.content, feedback: type, correction }
     })
-    m.feedback = type
     if (type === 'bad' && correction) store.toast('已记下纠正，下次改进')
     else if (type === 'good') store.toast('感谢反馈')
     else store.toast('已记录')
   } catch (e) {
+    m.feedback = prev   // 请求失败回滚高亮，避免「亮了却没存上」的静默不一致
     console.warn('[copilot] feedback failed:', e.message)
   }
 }
@@ -1553,7 +1592,66 @@ async function toggleFeedback(m, type) {
     m.feedback = ''
     return
   }
-  await submitFeedback(m, type)
+  // v426 P0-3：点踩时先弹出「结构化纠错面板」收集正确答案，再落库。
+  // 不能像点赞那样直接发请求 —— 那样 correction 恒为空，点踩就退化成一个纯粹的情绪统计，
+  // 「点踩 + 填纠正 → 下次不再犯」这条闭环等于没闭上。
+  if (type === 'bad') {
+    await openCorrectionSheet(m)
+    return
+  }
+  await submitFeedback(m, type, '')
+}
+
+/* ---- v426 P0-3：结构化纠错面板（取代浏览器原生输入弹窗） ----
+
+   🔴 为什么必须有它：整个「反馈 → 记忆 → 下次改进」闭环里，**只有这一步需要人类产出**。
+      前面所有环节（前端传输、后端落库、中文召回、注入提示词）都已在上轮打通，
+      唯独这一环是个光秃秃的系统输入框 ⇒ 老板大概率写一句「不对」或干脆回车
+      ⇒ 库里的 `correct_result` 是空的 ⇒ **召回算法再准也没东西可召回**。
+
+   设计约束（刻意做薄，别做成表单）：
+      · 最多三项：① 原因分类（点一下就选中）② 正确答案（一句话）③ 是否长期口径
+      · 「不用了」永远可点 —— 只想点个踩、不想写字的人不能被卡住
+      · 什么都不填就点提交 ⇒ **明确提示**，绝不静默关闭
+*/
+const CORR_REASONS = ['数字不对', '口径不对', '只说了情况，没给建议', '认错商品或客户', '其他']
+const CORR_PLACEHOLDER = {
+  '数字不对': '正确的数字应该是：',
+  '口径不对': '正确的算法/口径是：',
+  '只说了情况，没给建议': '你希望它直接给出什么建议：',
+  '认错商品或客户': '正确的商品名或客户名是：',
+  '其他': '哪里不对：',
+}
+const corr = ref({ open: false, cat: '', text: '', forever: false, hint: '' })
+let corrResolve = null         // 面板关闭时的兑现口（Promise 写法，调用方 await 即可）
+
+const corrPlaceholder = computed(() => CORR_PLACEHOLDER[corr.value.cat] || '正确答案应该是：')
+
+function openCorrectionSheet(m) {
+  corr.value = { open: true, cat: '', text: '', forever: false, hint: '' }
+  return new Promise((resolve) => {
+    corrResolve = async (payload) => {   // payload: null=不纠正，string=纠正文本
+      corr.value.open = false
+      corrResolve = null
+      resolve()
+      await submitFeedback(m, 'bad', payload || '')
+    }
+  })
+}
+
+function corrSubmit() {
+  const text = (corr.value.text || '').trim()
+  if (!corr.value.cat && !text) {
+    corr.value.hint = '请先在上面选一项原因，或直接写一句正确答案'
+    return
+  }
+  const parts = [corr.value.cat, text].filter(Boolean)
+  const forever = corr.value.forever ? '【长期口径：以后遇到同类问题都按这个来】' : ''
+  corrResolve && corrResolve(parts.join('：') + forever)
+}
+
+function corrSkip() {
+  corrResolve && corrResolve(null)
 }
 
 // 朗读 / 停止朗读（Web Speech API）
@@ -1610,6 +1708,24 @@ async function shareCopy(m, kind) {
   const ok = await copyText(text)
   shareOpen.value = null
   store.toast(ok ? (kind === 'qa' ? '已复制问答' : '已复制回复') : '复制失败')
+}
+
+// v424：复制当前页面链接（粘进微信即可分享）；生成二维码（手机微信扫一扫）
+async function shareCopyLink() {
+  const url = window.location.href
+  const ok = await copyText(url)
+  shareOpen.value = null
+  store.toast(ok ? '已复制页面链接' : '复制失败，请手动复制网址')
+}
+
+const qrUrl = ref(null)
+async function shareQR() {
+  try {
+    qrUrl.value = await QRCode.toDataURL(window.location.href, { width: 168, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } })
+  } catch (e) {
+    store.toast('二维码生成失败')
+  }
+  shareOpen.value = null
 }
 
 /* ---- P0-② AI 待办提醒：记下 → 落 ai_reminders，scheduler 到点推送 ---- */
@@ -2685,4 +2801,32 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-share-menu button{text-align:left;padding:7px 10px;border:none;background:transparent;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer}
 .cp-share-menu button:hover{background:var(--b2,#f1f5f9)}
 .cp-share-backdrop{position:fixed;inset:0;z-index:20;background:transparent}
+
+/* v424：分享→二维码弹层（微信扫一扫） */
+.cp-qr{position:absolute;bottom:36px;left:0;z-index:31;display:flex;flex-direction:column;align-items:center;gap:8px;width:188px;padding:12px;background:#fff;border:1px solid var(--b2,#e5e7eb);border-radius:12px;box-shadow:0 8px 28px rgba(15,23,42,.18)}
+.cp-qr img{width:168px;height:168px;display:block;border-radius:6px}
+.cp-qr p{margin:0;font-size:12px;line-height:1.5;color:var(--t3,#94a3b8);text-align:center}
+.cp-qr-close{padding:6px 14px;border:none;border-radius:7px;background:var(--b2,#f1f5f9);color:var(--t1);font-size:13px;cursor:pointer}
+.cp-qr-close:hover{background:#e9eef5}
+
+/* v426 P0-3：结构化纠错面板（取代浏览器原生输入弹窗）
+   🔴 背景一律走 **var(--bg)**，绝不写 `background:#fff` —— 写死白底就是本项目反复发作的
+      「深色模式下剩一块白板」老毛病（cp-qr 那份已经是反面教材）。
+   🔴 token 全部取 variables.css 里真实存在的（--p-dark/--p-bg/--p-border/--t2/--t3/--bd），
+      且选中态沿用本文件既有 `.cp-chip:hover` 的配色口径，不另造一套。 */
+.cp-corr-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:960;display:flex;align-items:center;justify-content:center;padding:20px}
+.cp-corr{width:min(380px,92vw);background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.cp-corr-hd{display:flex;align-items:center;justify-content:space-between}
+.cp-corr-hd b{font-size:14px;font-weight:600;color:var(--t1)}
+.cp-corr-sub{margin:0;font-size:12px;line-height:1.6;color:var(--t3)}
+.cp-corr-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cp-corr-chip{padding:5px 11px;border:1px solid var(--bd);border-radius:16px;background:var(--bg);font-size:12px;color:var(--t2);cursor:pointer;transition:all .15s}
+.cp-corr-chip:hover{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
+.cp-corr-chip.on{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg);font-weight:600}
+.cp-corr-text{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;background:var(--bg2);color:var(--t1);font-size:13px;line-height:1.6;resize:vertical;font-family:inherit}
+.cp-corr-text:focus{outline:none;border-color:var(--p-dark)}
+.cp-corr-forever{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--t2);cursor:pointer;user-select:none}
+.cp-corr-forever input{width:14px;height:14px;margin:0;cursor:pointer;accent-color:var(--p-dark)}
+.cp-corr-hint{margin:0;font-size:12px;color:var(--danger)}
+.cp-corr-ops{display:flex;justify-content:flex-end;gap:8px}
 </style>
