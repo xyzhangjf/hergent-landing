@@ -250,12 +250,15 @@
       <p class="ipn-tip">
         <Icon name="lightbulb" :size="14" />
         <span>{{ PSI_NOTES.unit }} {{ PSI_NOTES.expiry }}</span>
+        <button class="ipn-tip-link" type="button" @click="showStockTip = !showStockTip">
+          库存口径 {{ showStockTip ? '收起' : '展开' }}
+        </button>
       </p>
-      <!-- v408（P1-1）：把库存两列的**仓口径**写在明面上。
+      <!-- v408（P1-1）：库存两列的**仓口径**，默认折叠，点「展开」才显示 —— 对齐舟谱「一行小字」的疏朗感。
            🔴 不写会发生什么：用户默认它是「全部仓合计」（舟谱那种），于是在总仓 / 临期仓
               之间看到「同一个商品两个数」，得出「系统算错了」的结论 —— 正是要避免的
               「同屏两个数对不上」。仓名跟着「入库仓库」下拉实时变。 -->
-      <p class="ipn-tip ipn-tip-stk">
+      <p v-if="showStockTip" class="ipn-tip ipn-tip-stk">
         <Icon name="package" :size="14" />
         <span v-if="stockState === 'err'">
           库存读取失败：可用 / 实际库存两列显示 <b>—</b>，意思是「不知道」，不是 0。
@@ -528,6 +531,8 @@ const totalAmount = computed(() => items.value.reduce((s, r) => s + rowAmount(r)
    🔴 退货模式不显示这条、也不发请求（仓库下拉都没必要拉余额）。 */
 const supBal = ref(null)
 const supBalLoading = ref(false)
+// v417：商品明细上方的「库存口径」提示默认折叠（首屏更疏朗，对齐舟谱），点「展开」才显示
+const showStockTip = ref(false)
 async function loadSupplierBalance (sid) {
   supBal.value = null
   const id = Number(sid || 0)
@@ -862,6 +867,9 @@ async function submit (mode) {
       /* v415（P2-7）自定义字段：**随单同事务**落库（不另调 /extra，避免"单成了、字段没了"
          的半截状态）。一个都没填 ⇒ `{}` ⇒ 后端「空则不加列」⇒ 建单 SQL 与改动前逐字一致。 */
       extra: cfPayload.value,
+      /* v417（B 语义「保存并审核」）：新建/复制态直接建为已审核 confirmed（自己保存自己审核，
+         一步到位，不再二次调审核接口）；编辑态不加 status，保留 update + 批量审核原语。 */
+      status: (mode === 'approve' && !editId.value) ? 'confirmed' : '',
       items: items.value.map(r => ({
         product_id: r.product_id,
         quantity: Number(r.quantity),
@@ -887,18 +895,24 @@ async function submit (mode) {
     no = (r && r.order_no) || oid || ''
 
     if (mode === 'approve') {
-      /* 「保存并审核」：走**同一个审核原语**（不在这里重写规则）。
-         审核失败必须如实说出来 —— 例如单据已被别人审过 / 已入库。 */
-      let note = ''
-      try {
-        const b = await psiApi.batchPurchases('approve', [oid])
-        const f = (b.results || []).find(x => !x.ok)
-        if (b.ok_count) note = '，已审核'
-        else note = `，但审核未成功：${(f && f.reason) || '未说明原因'}`
-      } catch (e) {
-        note = `，但审核未成功：${e.message || '接口报错'}`
+      if (editId.value) {
+        /* 编辑态：仍走「更新 + 同一个审核原语」（update 不支持直接 confirmed），
+           把单推到已审核，与新建态一致的业务语义；失败如实报出来。 */
+        let note = ''
+        try {
+          const b = await psiApi.batchPurchases('approve', [oid])
+          const f = (b.results || []).find(x => !x.ok)
+          if (b.ok_count) note = '，已审核'
+          else note = `，但审核未成功：${(f && f.reason) || '未说明原因'}`
+        } catch (e) {
+          note = `，但审核未成功：${e.message || '接口报错'}`
+        }
+        toast(`采购单已保存（${no}）${note}`, note.includes('未成功') ? 'warn' : 'success')
+      } else {
+        // v417（B 语义）：新建/复制态已在 body 里带 `status='confirmed'` 一步建为已审核，
+        // 自己保存自己审核，无需二次调审核接口。
+        toast(`采购单已保存并审核（${no}），待入库`, 'success')
       }
-      toast(`采购单已保存（${no}）${note}`, note.includes('未成功') ? 'warn' : 'success')
     } else if (mode === 'print') {
       /* v412（P2-5）：打印对话框由详情页在数据就位后拉起 —— 这里先说清"接下来会发生什么"，
          否则用户会盯着这张还在编辑态的表单猜「打印怎么还没出来」。 */
@@ -1121,7 +1135,7 @@ async function reinit () {
   if (!refsOk.value) await loadRefs()
   if (editId.value) await loadEdit(editId.value)
   else if (copyId.value) await loadCopy(copyId.value)
-  else addRow()
+  else for (let i = 0; i < 5; i++) items.value.push(blankRow())
 }
 
 onMounted(async () => {
@@ -1201,6 +1215,13 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
   font-size: 12px; color: var(--t2); margin: 0 0 10px;
 }
 .ipn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
+/* v417：库存口径「展开/收起」链接按钮（无边框、像文字链接，对齐舟谱一行小字的疏朗感） */
+.ipn-tip-link {
+  margin-left: auto; padding: 0 2px; border: 0; background: none; cursor: pointer;
+  font-size: 12px; color: var(--p-dark); text-decoration: underline dotted;
+  white-space: nowrap;
+}
+.ipn-tip-link:hover { color: var(--p-ink) }
 /* v408（P1-1）库存口径说明行：紧贴上一行提示，视觉上算同一组 */
 .ipn-tip-stk { margin-top: -6px }
 .ipn-tip-stk svg { color: var(--t3) }
