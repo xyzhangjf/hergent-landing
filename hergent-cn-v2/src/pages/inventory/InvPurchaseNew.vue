@@ -349,8 +349,8 @@
                 <input v-model.trim="row.note" maxlength="200" class="input ipn-in" placeholder="选填" />
               </td>
               <td class="ipn-c-op">
-                <button class="ipn-link" title="在这一行下面插一行" @click="insertAfter(i)">新增</button>
-                <button class="ipn-link danger" title="删除这一行" @click="removeRow(i)">删除</button>
+                <button class="ipn-ic" title="在这一行下面插一行" @click="insertAfter(i)"><Icon name="plus" :size="14" /></button>
+                <button class="ipn-ic danger" title="删除这一行" @click="removeRow(i)"><Icon name="trash" :size="14" /></button>
               </td>
             </tr>
           </tbody>
@@ -367,18 +367,36 @@
         金额较大时，保存后会先进入「待审批」，审批通过才能确认入库。
       </span>
       <div class="ipn-save">
-        <button class="btn btn-primary btn-sm ipn-save-main" :disabled="saving" @click="submit('save')">
-          <Icon name="save" :size="14" />{{ saving ? '提交中…' : '保存' }}
-        </button>
-        <button class="btn btn-primary btn-sm ipn-save-caret" :disabled="saving"
-                title="更多保存方式" @click.stop="saveOpen = !saveOpen">
-          <span class="ipn-caret" :class="{ up: saveOpen }"></span>
-        </button>
-        <div v-if="saveOpen" class="ipn-menu" @click.stop>
-          <button class="ipn-mi" @click="submit('save')">保存</button>
-          <button class="ipn-mi" @click="submit('print')">保存并打印</button>
-          <button class="ipn-mi" @click="submit('approve')">保存并审核</button>
-          <button class="ipn-mi" @click="submit('new')">保存并新增下一张</button>
+        <!-- 保存 ▾ -->
+        <div class="ipn-dd">
+          <button class="btn btn-ghost btn-sm ipn-dd-main" :disabled="saving" @click="submit('save')">
+            <Icon name="save" :size="14" />{{ saving ? '提交中…' : '保存' }}
+          </button>
+          <button class="btn btn-ghost btn-sm ipn-dd-caret" :disabled="saving"
+                  title="更多保存方式" @click.stop="saveOpen = !saveOpen">
+            <span class="ipn-caret" :class="{ up: saveOpen }"></span>
+          </button>
+          <div v-if="saveOpen" class="ipn-menu" @click.stop>
+            <button class="ipn-mi" @click="submit('save')">保存</button>
+            <button class="ipn-mi" @click="submit('new')">保存并新增</button>
+            <button class="ipn-mi" @click="submit('print')">保存并打印</button>
+          </div>
+        </div>
+        <!-- 保存并审核 ▾（主按钮，对齐舟谱双下拉） -->
+        <div class="ipn-dd">
+          <button class="btn btn-primary btn-sm ipn-dd-main" :disabled="saving" @click="submit('approve')">
+            <Icon name="check" :size="14" />{{ saving ? '提交中…' : '保存并审核' }}
+          </button>
+          <button class="btn btn-primary btn-sm ipn-dd-caret" :disabled="saving"
+                  title="更多审核方式" @click.stop="approveOpen = !approveOpen">
+            <span class="ipn-caret" :class="{ up: approveOpen }"></span>
+          </button>
+          <div v-if="approveOpen" class="ipn-menu" @click.stop>
+            <button class="ipn-mi" @click="submit('approve')">保存并审核</button>
+            <button class="ipn-mi" @click="submit('approveNew')">审核并新增</button>
+            <button class="ipn-mi" @click="submit('approvePrint')">审核并打印</button>
+            <button class="ipn-mi ipn-mi-disabled" @click="submit('approveIssue')">审核并发单 <span class="ipn-mi-tag">待接口</span></button>
+          </div>
         </div>
       </div>
     </div>
@@ -434,6 +452,7 @@ const route = useRoute()
 
 const saving = ref(false)
 const saveOpen = ref(false)
+const approveOpen = ref(false)
 const suppliers = ref([])
 const warehouses = ref([])
 const products = ref([])
@@ -869,7 +888,7 @@ async function submit (mode) {
       extra: cfPayload.value,
       /* v417（B 语义「保存并审核」）：新建/复制态直接建为已审核 confirmed（自己保存自己审核，
          一步到位，不再二次调审核接口）；编辑态不加 status，保留 update + 批量审核原语。 */
-      status: (mode === 'approve' && !editId.value) ? 'confirmed' : '',
+      status: ((mode === 'approve' || mode === 'approveNew' || mode === 'approvePrint' || mode === 'approveIssue') && !editId.value) ? 'confirmed' : '',
       items: items.value.map(r => ({
         product_id: r.product_id,
         quantity: Number(r.quantity),
@@ -885,6 +904,10 @@ async function submit (mode) {
     /* P1-4：编辑模式走 `updatePurchase`（整单重写，已入库由后端 400 拒）；新建 / 复制走 `createPurchase`。
        `no` 在编辑态取不到 order_no ⇒ 用 oid 兜底，提示串照常成立。 */
     let r, oid, no
+    const isApprove = mode === 'approve' || mode === 'approveNew' || mode === 'approvePrint' || mode === 'approveIssue'
+    const isPrint = mode === 'print' || mode === 'approvePrint'
+    const isNew = mode === 'new' || mode === 'approveNew'
+    const isIssue = mode === 'approveIssue'
     if (editId.value) {
       r = await psiApi.updatePurchase(Number(editId.value), body)
       oid = Number(editId.value) || 0
@@ -894,7 +917,7 @@ async function submit (mode) {
     }
     no = (r && r.order_no) || oid || ''
 
-    if (mode === 'approve') {
+    if (isApprove) {
       if (editId.value) {
         /* 编辑态：仍走「更新 + 同一个审核原语」（update 不支持直接 confirmed），
            把单推到已审核，与新建态一致的业务语义；失败如实报出来。 */
@@ -907,13 +930,15 @@ async function submit (mode) {
         } catch (e) {
           note = `，但审核未成功：${e.message || '接口报错'}`
         }
-        toast(`采购单已保存（${no}）${note}`, note.includes('未成功') ? 'warn' : 'success')
+        const tail = isIssue ? '，发单功能待后端接口' : ''
+        toast(`采购单已保存（${no}）${note}${tail}`, note.includes('未成功') ? 'warn' : 'success')
       } else {
         // v417（B 语义）：新建/复制态已在 body 里带 `status='confirmed'` 一步建为已审核，
         // 自己保存自己审核，无需二次调审核接口。
-        toast(`采购单已保存并审核（${no}），待入库`, 'success')
+        const tail = isIssue ? '，发单功能待后端接口' : '，待入库'
+        toast(`采购单已保存并审核（${no}）${tail}`, 'success')
       }
-    } else if (mode === 'print') {
+    } else if (isPrint) {
       /* v412（P2-5）：打印对话框由详情页在数据就位后拉起 —— 这里先说清"接下来会发生什么"，
          否则用户会盯着这张还在编辑态的表单猜「打印怎么还没出来」。 */
       toast(`采购单已保存（${no}），正在打开打印`, 'success')
@@ -921,7 +946,7 @@ async function submit (mode) {
       toast(`采购单已保存（${no}）`, 'success')
     }
 
-    if (mode === 'new') {
+    if (isNew) {
       // 编辑态下「再开一张」应跳出编辑上下文（否则路由仍带 ?edit= 会改到同一张单）
       if (editId.value) { router.replace('/inventory/purchase/new'); return }
       resetForNext(); return
@@ -930,7 +955,7 @@ async function submit (mode) {
        都在那儿），所以这里只带一个 `?print=1` 过去，由详情页在数据**加载完成后**触发打印。
        🔴 不能在这一页直接 `window.print()`：本页是**编辑态表单**（输入框 / 下拉 / 按钮 /
           空行都在），印出来是「屏幕」不是「单据」；供应商名与合计也要等保存回读才准。 */
-    const _q = mode === 'print' ? '?print=1' : ''
+    const _q = isPrint ? '?print=1' : ''
     if (oid) router.replace('/inventory/purchase/' + oid + _q)
     else router.replace('/inventory/purchase')
   } catch (e) {
@@ -1069,7 +1094,7 @@ async function submitReturn () {
 }
 
 function back () { router.push('/inventory/purchase') }
-function onDocClick () { saveOpen.value = false }
+function onDocClick () { saveOpen.value = false; approveOpen.value = false }
 
 /** 基础资料（供应商 / 商品 / 仓库 / 部门 / 主库账号）。
 
@@ -1268,6 +1293,17 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 .ipn-link + .ipn-link { margin-left: 10px }
 .ipn-link:hover { text-decoration: underline }
 .ipn-link.danger { color: var(--danger-txt) }
+/* v417b：行内「新增 / 删除」由文字链接改**图标按钮** —— 对齐舟谱逐行操作的密度：
+   15 列表格里文字链接让「操作」列变宽、且扫读时和行备注混在一起。 */
+.ipn-ic {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; cursor: pointer;
+  border: 1px solid var(--bd); border-radius: var(--radius-sm);
+  background: var(--bg2); color: var(--t2);
+}
+.ipn-ic + .ipn-ic { margin-left: 4px }
+.ipn-ic:hover { color: var(--t1); border-color: var(--t3) }
+.ipn-ic.danger { color: var(--danger-txt) }
 
 /* 底部动作条。四条外边距各司其职，缺一条都会退化成「浮在页面中间」：
 
@@ -1296,6 +1332,21 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 .ipn-save-caret {
   width: 28px; padding: 0; border-left: 1px solid rgba(255, 255, 255, .35);
   border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
+/* v417b：双下拉（保存 ▾ / 保存并审核 ▾）—— 每个 `.ipn-dd` 自成一个「主按钮 + caret」组，
+   菜单定位相对**自己这一组**（不是相对整个动作条），否则两个菜单会叠在同一处。 */
+.ipn-dd { position: relative; display: inline-flex }
+.ipn-dd-main { border-top-right-radius: 0; border-bottom-right-radius: 0 }
+.ipn-dd-caret {
+  width: 28px; padding: 0; margin-left: -1px;
+  border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
+/* 「待接口」的菜单项：**能点但说明白没实现** —— 不隐藏（隐藏会让人以为从没有这功能），
+   也不伪装成已可用（点了没反应才是真静默失效）。 */
+.ipn-mi-disabled { color: var(--t3); cursor: default }
+.ipn-mi-tag {
+  margin-left: 4px; padding: 0 4px; font-size: 10px; color: var(--t3);
+  border: 1px solid var(--bd); border-radius: 6px;
 }
 .ipn-caret {
   width: 0; height: 0;
