@@ -274,8 +274,8 @@
               <th class="num ipn-c-price">采购价</th>
               <th class="num ipn-c-qty">订单数量</th>
               <th class="num ipn-c-amt">订单金额</th>
-              <th class="ipn-c-batch">批次号 <span class="ipn-req">必填</span></th>
-              <th class="ipn-c-date">到期日 <span class="ipn-req">必填</span></th>
+              <th class="ipn-c-batch">批次号 <span class="ipn-opt">选填</span></th>
+              <th class="ipn-c-date">到期日 <span class="ipn-opt">选填</span></th>
               <th class="ipn-c-date">生产日期</th>
               <!-- v408（P1-2）行备注：**记在明细行上**（不是整单备注）。舟谱同列。 -->
               <th class="ipn-c-note">行备注</th>
@@ -375,10 +375,12 @@
 <script setup>
 /* 新建采购单 —— 数据源：`POST /api/psi/purchase-orders`（委派既有建单逻辑）。
    ------------------------------------------------------------------
-   🔴 「批次号 + 到期日」必填**不是 UI 偏好，是数据正确性的前提**：
-      入库 `batch_in` 只在批次号非空时才按 (商品, 仓库, 批次号) **累加**同一行；
-      批次号为空会**每行新建** ⇒ 同一批货入库两次会出现两行、数量对不上。
-      到期日为空则该批次进入「无到期日」，临期预警与「先出最早到期」对它不生效。
+   🔴 v417：「批次号 + 到期日」改为**选填**（不是 UI 偏好变化，是后端已兜住）：
+      原担心「批次号为空 ⇒ batch_in 每行新建」——该问题 v392 已在后端修掉：
+      `purchases.py` 的 confirm 在批次号为空时自动生成默认批次号 `today-oid`，
+      故留空不再写出空批次、也不会出现重复行。
+      到期日留空 ⇒ 该批次进「无到期日」桶（FEFO 排最后），临期预警对它不生效 —— 属可接受语义。
+      只有「填了到期日却格式非法」才在前端拦截（见 validate()）。
 
    🔴 v409（P2-1）单位**三档全给**（小 / 中 / 大，档位由后端 `unit_options` 下发）：
       默认取商品档案的「报单单位」，没设则回落**小单位**并显弱色（不静默）。
@@ -726,9 +728,11 @@ function validate () {
     if (!r.product_id) return `${at}：请选择商品`
     if (!(Number(r.quantity) > 0)) return `${at}：数量要大于 0`
     if (Number(r.unit_price) < 0 || r.unit_price === '') return `${at}：请填写采购价`
-    if (!String(r.batch_no || '').trim()) return `${at}：请填写批次号（同一批货靠它合并库存）`
-    if (!String(r.expiry_date || '').trim()) return `${at}：请填写到期日`
-    if (!DATE_RE.test(r.expiry_date)) return `${at}：到期日格式不正确，请用日期选择器选`
+    // v417：批次号 + 到期日改为**选填**（老板快速建单不必每次都填）。
+    //   · 批次号留空 ⇒ 后端 confirm 自动生成默认批次号（today-oid），不会写出空批次；
+    //   · 到期日留空 ⇒ 该批次进「无到期日」桶（FEFO 排最后），临期预警对它不生效；
+    //   · 只有「填了到期日却格式非法」才拦截，避免把非法字符串送后端。
+    if (r.expiry_date && !DATE_RE.test(r.expiry_date)) return `${at}：到期日格式不正确，请用日期选择器选`
     if (r.production_date && !DATE_RE.test(r.production_date)) return `${at}：生产日期格式不正确`
   }
   return ''
