@@ -195,8 +195,11 @@
       </div>
     </div>
 
-    <!-- 供应商信息条（舟谱那一条「应付余额 / 预付余额」的位置；这里只放**真有的数据**） -->
-    <div v-if="!isReturn" class="ipn-strip">
+    <!-- 供应商信息条（舟谱那一条「应付余额 / 预付余额」的位置；这里只放**真有的数据**）。
+         v417g：未选供应商时整条隐藏 —— 空态下「供应商:未选择 / 已录 N 项 / 合计」
+         与上方表单、明细标题行、底部合计**三处重复**，白占一行（对齐舟谱：那行的
+         存在意义就是余额，没供应商就没有余额可看）。选中后即出现。 -->
+    <div v-if="!isReturn && selSupplier" class="ipn-strip">
       <span class="ipn-si">
         <span class="ipn-sk">供应商</span>
         <b>{{ selSupplier ? selSupplier.name : '未选择' }}</b>
@@ -307,7 +310,7 @@
                   <option v-for="p in prodOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
                 </select>
               </td>
-              <td class="ipn-c-code">{{ row.barcode || '—' }}</td>
+              <td class="ipn-c-code">{{ row.barcode || (row.product_id ? '—' : '') }}</td>
               <td class="ipn-c-unit">
                 <!-- v409（P2-1）：单位改成**三档下拉**（小 / 中 / 大）。档位清单来自后端
                      `unit_options`（商品档案里真正存在的档，缺一档就少一项 —— 不给空档位）。 -->
@@ -318,17 +321,17 @@
                 <span v-else class="ipn-unit none">先选商品</span>
                 <div v-if="row.convText" class="ipn-conv">{{ row.convText }}</div>
               </td>
+              <!-- v417g：空行不再铺「先选商品」占位（对齐舟谱空行干净）——
+                   选商品前的引导只在单位格留一处，库存两列空着。 -->
               <td class="num ipn-c-stk">
-                <span v-if="!row.product_id" class="ipn-stk-none">先选商品</span>
-                <span v-else :class="{ danger: isAllExpired(row) }" :title="stockTitle(row)">{{ stockText(row, 'saleable_quantity') }}</span>
+                <span v-if="row.product_id" :class="{ danger: isAllExpired(row) }" :title="stockTitle(row)">{{ stockText(row, 'saleable_quantity') }}</span>
               </td>
               <td class="num ipn-c-stk">
-                <span v-if="!row.product_id" class="ipn-stk-none">先选商品</span>
-                <span v-else :title="stockTitle(row)">{{ stockText(row, 'quantity') }}</span>
+                <span v-if="row.product_id" :title="stockTitle(row)">{{ stockText(row, 'quantity') }}</span>
               </td>
-              <td class="num ipn-c-ref">{{ row.purchase_price ? '¥' + fmtMoney(row.purchase_price) : '—' }}</td>
+              <td class="num ipn-c-ref">{{ row.product_id && row.purchase_price ? '¥' + fmtMoney(row.purchase_price) : '' }}</td>
               <td class="ipn-c-price">
-                <input v-model="row.unit_price" class="input ipn-in num" inputmode="decimal" placeholder="0.00" />
+                <input v-model="row.unit_price" class="input ipn-in num" inputmode="decimal" :placeholder="row.product_id ? '0.00' : ''" />
                 <!-- v409（P2-1）双单位采购价：舟谱是「100 / 5/箱」两行，这里在所选档单价下面
                      补一行折小单位价。**只在所选档不是小档时显示**（是小档时两行数字相同）。 -->
                 <div v-if="ratioOf(row) > 1 && basePriceOf(row)" class="ipn-conv">
@@ -336,20 +339,20 @@
                 </div>
               </td>
               <td class="ipn-c-qty">
-                <input v-model="row.quantity" class="input ipn-in num" inputmode="decimal" placeholder="0" />
+                <input v-model="row.quantity" class="input ipn-in num" inputmode="decimal" :placeholder="row.product_id ? '0' : ''" />
                 <!-- v409：折小单位数量 —— 让用户**下单时就看见**库存会进多少（不是事后才发现）。 -->
                 <div v-if="ratioOf(row) > 1 && baseQtyOf(row)" class="ipn-conv">
                   = {{ baseQtyOf(row) }} {{ row.baseUnit || '小单位' }}
                 </div>
               </td>
-              <td class="num ipn-amt">¥{{ fmtMoney(rowAmount(row)) }}</td>
+              <td class="num ipn-amt">{{ row.product_id ? '¥' + fmtMoney(rowAmount(row)) : '' }}</td>
               <td class="ipn-c-batch">
-                <input v-model.trim="row.batch_no" class="input ipn-in" placeholder="如 20261101" />
+                <input v-model.trim="row.batch_no" class="input ipn-in" :placeholder="row.product_id ? '如 20261101' : ''" />
               </td>
-              <td class="ipn-c-date"><input type="date" v-model="row.expiry_date" class="input ipn-in" /></td>
-              <td class="ipn-c-date"><input type="date" v-model="row.production_date" class="input ipn-in" /></td>
+              <td class="ipn-c-date"><input type="date" v-model="row.expiry_date" class="input ipn-in" :class="{ 'ipn-dim': !row.product_id }" /></td>
+              <td class="ipn-c-date"><input type="date" v-model="row.production_date" class="input ipn-in" :class="{ 'ipn-dim': !row.product_id }" /></td>
               <td class="ipn-c-note">
-                <input v-model.trim="row.note" maxlength="200" class="input ipn-in" placeholder="选填" />
+                <input v-model.trim="row.note" maxlength="200" class="input ipn-in" :placeholder="row.product_id ? '选填' : ''" />
               </td>
               <td class="ipn-c-op">
                 <button class="ipn-ic" title="在这一行下面插一行" @click="insertAfter(i)"><Icon name="plus" :size="14" /></button>
@@ -373,7 +376,7 @@
         <!-- 保存 ▾ -->
         <div class="ipn-dd">
           <button class="btn btn-ghost btn-sm ipn-dd-main" :disabled="saving" @click="submit('save')">
-            <Icon name="save" :size="14" />{{ saving ? '提交中…' : '保存' }}
+            {{ saving ? '提交中…' : '保存' }}
           </button>
           <button class="btn btn-ghost btn-sm ipn-dd-caret" :disabled="saving"
                   title="更多保存方式" @click.stop="saveOpen = !saveOpen">
@@ -388,7 +391,7 @@
         <!-- 保存并审核 ▾（主按钮，对齐舟谱双下拉） -->
         <div class="ipn-dd">
           <button class="btn btn-primary btn-sm ipn-dd-main" :disabled="saving" @click="submit('approve')">
-            <Icon name="check" :size="14" />{{ saving ? '提交中…' : '保存并审核' }}
+            {{ saving ? '提交中…' : '保存并审核' }}
           </button>
           <button class="btn btn-primary btn-sm ipn-dd-caret" :disabled="saving"
                   title="更多审核方式" @click.stop="approveOpen = !approveOpen">
@@ -1270,25 +1273,25 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 .ipn-tip-stk b { color: var(--t1) }
 
 /* v408（P1-1）库存两列 + v409（P2-1）单位列加宽（64→92px）。等宽数字 + 不换行：
-   数量右对齐成一列才好扫读。`min-width` 相应放大：1730 → 1758px（单位列 +28px）。 */
-.ipn-tbl { min-width: 1758px }
-/* v417c：明细表**紧凑行高**（对照舟谱：单屏可见行数 5 → 8）。
-   全局 `table.tbl td{padding:10px 14px}`（variables.css:530）是给「读数表」定的，
-   填报网格要更密 —— 纵向 10→5px、行内控件 30→28px ⇒ 单行 ≈51 → ≈39px。
+   数量右对齐成一列才好扫读。 */
+/* v417g：列宽整体收窄（对齐舟谱「操作列永远可见、无横向滚动」）——
+   min-width 1758 → ~1600，1920 屏（侧栏+页边距后可视 ~1670px）放得下 15 列；
+   同时单元格横向 padding 12→8px（纵向不动，v417e 的 33px 行高不受影响）。 */
+.ipn-tbl { min-width: 1604px }
+/* v417g：单元格横向 padding 12→8px（纵向不动 —— v417e 的 33px 行高不受影响）。
    🔴 选择器**必须**带 `table.ipn-tbl`：写成 `.ipn-tbl td` 的 specificity 低于全局
-      `table.tbl td`，会**静默失效**（样式看着写了、实际没生效）。 */
-table.ipn-tbl th { padding: 5px 12px }
-table.ipn-tbl td { padding: 3px 12px }
+      `table.tbl td{padding:10px 14px}`（variables.css:530），会**静默失效**
+      （样式看着写了、实际没生效）。 */
+table.ipn-tbl th { padding: 5px 8px }
+table.ipn-tbl td { padding: 3px 8px }
 table.ipn-tbl td.seq-cell { padding: 3px 4px }
-.ipn-c-stk { width: 88px; font-variant-numeric: tabular-nums; white-space: nowrap }
-.ipn-stk-none { color: var(--t3); font-size: 12px }
+.ipn-c-stk { width: 78px; font-variant-numeric: tabular-nums; white-space: nowrap }
 /* 「实际有货、一件都不可售（全过期）」——必须扎眼，否则用户以为有货能卖 */
 .ipn-c-stk .danger { color: var(--danger-txt) }
-.ipn-c-prod { min-width: 260px }
-.ipn-c-code { width: 116px; color: var(--t2); font-variant-numeric: tabular-nums }
-/* v409（P2-1）：单位列从 64px 放到 92px —— 里面现在是一个下拉 + 一行换算小字，
-   64px 会让「件」这种单字单位的下拉被挤成 40px，点开选项时文字被截断。 */
-.ipn-c-unit { width: 92px }
+.ipn-c-prod { min-width: 240px }
+.ipn-c-code { width: 100px; color: var(--t2); font-variant-numeric: tabular-nums }
+/* v409（P2-1）：单位列 64→92px 是给「下拉 + 换算浮层」的；v417g 浮层已不占宽，收到 84px。 */
+.ipn-c-unit { width: 84px }
 .ipn-unit-sel { height: 26px; padding: 0 4px }
 /* 换算 / 折价小字：**弱化色 + 不换行**，它是解释不是数据（数据仍以输入框里的为准）。
    ⚠️ 不加 `white-space: nowrap` 时「= 40 袋」会在窄列里断成两行，把行高顶起来。 */
@@ -1308,14 +1311,26 @@ table.ipn-tbl td.seq-cell { padding: 3px 4px }
 .ipn-c-unit:hover .ipn-conv, .ipn-c-unit:focus-within .ipn-conv,
 .ipn-c-price:hover .ipn-conv, .ipn-c-price:focus-within .ipn-conv,
 .ipn-c-qty:hover .ipn-conv, .ipn-c-qty:focus-within .ipn-conv { display: block }
-.ipn-c-ref { width: 96px; color: var(--t2) }
-.ipn-c-price, .ipn-c-qty { width: 94px }
-.ipn-c-amt { width: 104px }
-.ipn-c-batch { width: 124px }
-.ipn-c-date { width: 142px }
+.ipn-c-ref { width: 86px; color: var(--t2) }
+.ipn-c-price, .ipn-c-qty { width: 86px }
+.ipn-c-amt { width: 92px }
+.ipn-c-batch { width: 118px }
+.ipn-c-date { width: 132px }
+/* v417g：未选商品的行，日期输入淡显（浏览器自带的「年/月/日」占位没法改色，
+   只能整体降透明度；选中商品即恢复，输入不受影响）。 */
+.ipn-in.ipn-dim { opacity: .38 }
 /* v408（P1-2）行备注：选填短文本，给足宽度但不抢主列 */
-.ipn-c-note { width: 180px }
-.ipn-c-op { width: 104px; white-space: nowrap }
+.ipn-c-note { width: 150px }
+/* v417g：操作列 **sticky 右贴** —— 即便窄屏出横向滚动，「新增/删除」也永远够得着
+   （对齐舟谱：操作列永远可见）。border-collapse:collapse 下 sticky 边框会丢，
+   用 inset box-shadow 当左边分割线；行悬停时跟着换 bg2，不然悬停行上这块是「洞」。 */
+.ipn-tbl th.ipn-c-op, .ipn-tbl td.ipn-c-op {
+  position: sticky; right: 0; z-index: 2;
+  background: var(--bg);
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+}
+.ipn-tbl th.ipn-c-op { background: var(--bg2) }
+.ipn-tbl tbody tr:hover td.ipn-c-op { background: var(--bg2) }
 .ipn-in { width: 100%; height: 26px }
 .ipn-in.num { text-align: right; font-variant-numeric: tabular-nums }
 .ipn-amt { font-variant-numeric: tabular-nums; white-space: nowrap }
