@@ -18,6 +18,10 @@
             `config` = 报单配置（原档案管理独立页），`target` = 商品目标（原侧栏独立页；
             它**唯一的只读依赖**就是隔壁的报单配置 ⇒ 同页依赖闭环，也消掉了侧栏
             「目标与返利 / 商品目标」两个"目标"并排的困惑）。
+         🔴 v424（2026-10-10）：`config`（报单配置）**再拆成四页** ——
+            `config`＝报单对象 / `config-auto`＝报单自动化 / `config-remind`＝报单提醒设置
+            / `config-template`＝模板参数（原先这四块挤在同一张长页上，首屏放不下）。
+            于是本页合法子页从 4 个变 7 个（见下方 `TAB_KEYS`）。
          ⚠️ 历史分析工具不在页签里 —— 它在汇总表工具箱的「对比分析」组（见下）。 -->
 
     <!-- 🔴 v347（2026-09-30）：**模块权限**被拒时的常驻说明（判据与理由见代码区 `forecastDenied`）。
@@ -2403,9 +2407,34 @@
 
     <ForecastHistory v-if="activeTab === 'history'" :key="historyKey" @view="onViewHistory" @delete="onHistoryDelete" @close="onHistoryClose" @reopen="onHistoryReopen" @unlock="onHistoryUnlock" @push="onHistoryPush" @rename="openPeriodEdit" @copy="openPeriodCopy" @void="onHistoryVoid" />
 
-    <!-- 报单配置（原档案管理独立页，整合为标签页） -->
-    <div v-if="activeTab === 'config'" class="config-panel">
+    <!-- 🔴 v424（2026-10-10）：「报单配置」由**一张长页面**拆成**四张独立子页** ——
+         原先它把「运行参数」（报单自动化 / 报单提醒设置 / 模板参数）压在上半屏、
+         把「报单对象」列表压在下半屏 ⇒ 首屏放不下全部配置项，用户必须上翻才能看全。
+         现在四条各自成一页、各自是一个标签（`?tab=` 四个取值），入口在侧栏
+         「预报订单管理 › 报单配置」那一列（`Shell.vue::NAV`）。
+         ⚠️ 四条的**归属没有变**：`config` 仍是「报单对象」（原档案管理独立页的主体，
+            也是旧深链 `?tab=config` 的落点 —— `ProductTarget` / `EmployeeArchive`
+            的「去修配置」按钮都指它），三条新键只是把原先同页的三块拆出来。
+         ⚠️ 页内没有第二份入口（v405 起本页页签条已退役）—— 少一条就等于把那个子页
+            关在门外。加/删任何一条都要同步 `TAB_KEYS`、`SUB_TITLES['/forecast']` 与 `NAV`。 -->
+    <!-- 报单对象（原档案管理独立页，v265 整合为标签页；v424 起 = 「报单配置」的第 1 个子页） -->
+    <div v-if="activeTab === 'config'" class="rcfg-obj">
       <ReportMapping />
+    </div>
+
+    <!-- 报单自动化（v242 迁入；v424 由「运行参数」区拆出为独立子页） -->
+    <div v-else-if="activeTab === 'config-auto'">
+      <AutoPeriodBlock />
+    </div>
+
+    <!-- 报单提醒设置（v2026-09-23 从设置页迁入；v424 拆出为独立子页） -->
+    <div v-else-if="activeTab === 'config-remind'">
+      <ReminderConfig />
+    </div>
+
+    <!-- 模板参数（v160；v424 拆出为独立子页，卡片本体已抽到 components/forecast/TemplateParams.vue） -->
+    <div v-else-if="activeTab === 'config-template'">
+      <TemplateParams />
     </div>
 
     <!-- 商品目标（v265：原侧栏独立页，收进本页当第 4 个页签）
@@ -2843,6 +2872,11 @@ import ImportMapping from '../components/ImportMapping.vue'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ForecastHistory from './ForecastHistory.vue'
 import ReportMapping from './ReportMapping.vue'
+// v424：「报单配置」的四条子页 —— 除上面的「报单对象」外，另外三块各自是一个现成组件
+//      （原先它们与报单对象挤在同一张长页面上，见模板区顶部注释）。
+import AutoPeriodBlock from '../components/forecast/AutoPeriodBlock.vue'
+import ReminderConfig from '../components/forecast/ReminderConfig.vue'
+import TemplateParams from '../components/forecast/TemplateParams.vue'
 // v265：商品目标（原侧栏独立页）收进本页当第 4 个页签
 import ProductTarget from './ProductTarget.vue'
 /* v408：列设置菜单的开合与定位上提为**唯一实现**（采购单列表接入齿轮后成为第二个宿主页）。
@@ -2920,7 +2954,7 @@ const showNewPeriod = ref(false)
 //   「新建期次时应自动带出上一个期次的商品信息」。表单里给的是**可见可撤销**的勾选项，
 //   不做静默自动（v182 设计评审的结论：静默灌数据会让人以为在新建、实际在改旧的）。
 const np = ref({ name: '', order_start: '', order_end: '', arrival: '', seed_from_prev: true })
-const activeTab = ref('summary') // 'summary' | 'history' | 'config' | 'target'（v265 加「商品目标」）
+const activeTab = ref('summary') // 'summary' | 'history' | 'config' | 'config-auto' | 'config-remind' | 'config-template' | 'target'（v265 加「商品目标」；v424 把「报单配置」拆成四页）
 
 /* ---- P0-1 交叉表视图 ---- */
 const viewMode = ref('cross')
@@ -5835,7 +5869,11 @@ watch([brandCandidates, () => route.query.brand], () => {
        （`composables/useTabs.js::tabKey`），只改 `activeTab` 不写 URL ⇒
        标签栏写着「历史期次」而页面显示本期主表。
      · `TAB_KEYS` 仍是"合法子页"的唯一名单 —— 下面的 `watch` 也读它，别只改一处。 */
-const TAB_KEYS = ['summary', 'history', 'config', 'target']
+/* v424：本页合法子页的**唯一名单**（`setTab` 写 URL、下面的 `watch` 读 URL 都只认它）。
+   🔴 四条 `config*` 是「报单配置」按入口拆出的四个子页（见模板区顶部注释）；
+      `config` 仍是「报单对象」，且是**旧深链** `?tab=config` 的落点，不许删。
+      加/删任何一条都要同步 `constants/tabTitles.js::SUB_TITLES['/forecast']` 与 `Shell.vue::NAV`。 */
+const TAB_KEYS = ['summary', 'history', 'config', 'config-auto', 'config-remind', 'config-template', 'target']
 const setTab = (t) => {
   const v = TAB_KEYS.includes(t) ? t : 'summary'
   const cur = (v === 'summary') ? '' : v
@@ -12621,8 +12659,14 @@ onMounted(async () => {
    ⚠️ 弹窗 / 表单内部的**分区**页签仍走全局的 `.main-tabs`（见 `styles/variables.css`），
       那不是模块导航，不受本次退役影响。 */
 /* 报单配置嵌入为标签页时，去掉其自身 .page 包裹的内边距，并隐藏与标签重复的小标题（独立深链页不受影响） */
-.config-panel :deep(.page){padding:0;margin:0}
-.config-panel :deep(.page-hd){display:none}
+/* v424：`.config-panel` 随四页拆分改名 `.rcfg-obj`（它只剩「报单对象」这一页在用）；
+   `.rcfg-obj :deep(.page){padding:0;margin:0}` 去掉内嵌页自身的容器边距（与外壳叠加会双倍）。
+   🔴 原来的 `.config-panel :deep(.page-hd){display:none}` **已撤** —— 那时整页只有一个标签名
+      「报单配置」，藏掉 h2 避免与标签重名；现在本页叫「报单对象」，
+      **改挂 `.target-panel` 那条成例**：只藏 h2（与标签同名），保留副标题
+      （「把系统全称 ↔ 报单简称(列头) ↔ 单型…」）—— 那句是业务口径，标签上看不出来。 */
+.rcfg-obj :deep(.page){padding:0;margin:0}
+.rcfg-obj :deep(.page-hd h2){display:none}
 /* v265 商品目标嵌入为标签页：同 config-panel 成例收掉内边距与重复标题。
    与报单配置唯一的差别 —— **只藏 <h2>「商品目标」（与页签同名），保留副标题**
    「按月设总量 · 分解到人 · 期次自动认领」：那句是业务口径，页签上看不出来。 */

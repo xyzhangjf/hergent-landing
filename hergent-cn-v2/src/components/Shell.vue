@@ -327,13 +327,16 @@ const NAV = [
   /* ① 直达（与 v303/v375「页内页签型模块不新增侧栏」同族：一页 + 页内页签 ⇒ 不做弹窗） */
   { path: '/workbench', name: '经营工作台', icon: 'grid' },
 
-  /* ② 预报订单管理 › —— 4 个子页本来就是同一页：`Forecast.vue` 用 URL 的 `?tab=` 区分子页
-     （v265，`TAB_KEYS` = `summary/history/config/target`）⇒ 弹窗条目直接带 `tab` 就能直达，
-     **零新页**。（原为 L1「双入口」试点区；🔴 **v407 起本区不再挂 `create`** ——
-        四条全是**单入口**，原因见下方「历史期次」条目的注释。）
-     🔴 v405（2026-10-08）：该页的**页内页签条已退役** ⇒ 本弹窗（桌面）是这四个子页的
+  /* ② 预报订单管理 › —— 全部子页本来就是同一页：`Forecast.vue` 用 URL 的 `?tab=` 区分子页
+     （v265；🔴 v424 起 `TAB_KEYS` = `summary/history/config/config-auto/config-remind/config-template/target`
+     —— 共 **7** 个，其中 4 个 `config*` 是「报单配置」按入口拆出的四页，见下方第二列）
+     ⇒ 弹窗条目直接带 `tab` 就能直达，**零新页**。
+     （原为 L1「双入口」试点区；🔴 **v407 起本区不再挂 `create`** ——
+        各条全是**单入口**，原因见下方「历史期次」条目的注释。）
+     🔴 v405（2026-10-08）：该页的**页内页签条已退役** ⇒ 本弹窗（桌面）是这些子页的
         **唯一常规入口**，手机上另由抽屉摊平 + 底部栏承担（见 `EXPLODED_PATHS` 注释）。
-        少一条就会把某个子页关在门外（`summary` 那条就是这么补上的）。 */
+        少一条就会把某个子页关在门外（`summary` 那条就是这么补上的；v424 补的是
+        「报单对象」那一列共 4 条 —— 它们原先是同一张长页面里的四块）。 */
   {
     key: 'forecast', name: '预报订单管理', icon: 'line-chart', path: '/forecast',
     groups: [
@@ -362,8 +365,31 @@ const NAV = [
              （`Forecast.vue` 9 处新建/创建/推送审批按钮判 `canDo('data','create')`）；
              本条目自始至终只负责**导航**，从不负责那个动作。 */
         { path: '/forecast', tab: 'history', name: '历史期次', icon: 'history' },
-        { path: '/forecast', tab: 'config',  name: '报单配置', icon: 'wrench' },
         { path: '/forecast', tab: 'target',  name: '商品目标', icon: 'bars' }
+      ] },
+
+      /* 🔴 v424（2026-10-10）：**「报单配置」由一条条目升为一个分组**（第二列）。
+         为什么：报单配置原是一张长页面，把「运行参数」（报单自动化 / 报单提醒设置 /
+         模板参数）压在上半屏、「报单对象」列表压在下半屏 ⇒ **首屏放不下全部配置项**，
+         用户必须上翻才能看全。拆成四个入口后，四条**同列纵向排列**、一屏可见。
+         ⚠️ 顺序 = **使用频率**（老板口径：从上到下、常用的在前）：
+             ① 报单对象 —— 日常改配置就是改它（门店/仓 ↔ 报单人的对应表）；
+             ② 报单自动化 —— 看/调开表关单节奏与未来期次预览；
+             ③ 报单提醒设置 —— 偶尔调催报策略；
+             ④ 模板参数 —— 装好后基本不动（公司名 / 业务员 / 部门）。
+         调整顺序只需改本列条目次序，**不要**动 URL 键（那是深链与标签栏的身份）。
+         ⚠️ 这四条各自是一个 `?tab=` 子页（`Forecast.vue::TAB_KEYS`）——
+            本条只负责导航；四个子页**没有**页内页签条（v405 起退役）⇒ 本列是它们
+            在桌面上的**唯一常规入口**，手机上另由抽屉摊平（见 `EXPLODED_PATHS`）。
+            🔴 删任意一条 = 把那个子页关在门外（本条与 v405「本期预报」那条同理）。 */
+      { label: '报单配置', items: [
+        /* 报单对象：`tab=config` 这个键**不许改** —— 它是旧深链的落点
+           （`ProductTarget.vue::goReportMapping` 与 `EmployeeArchive.vue`
+           的「去修配置」都写死 `?tab=config`），改名即断链。 */
+        { path: '/forecast', tab: 'config',          name: '报单对象',     icon: 'link' },
+        { path: '/forecast', tab: 'config-auto',     name: '报单自动化',   icon: 'refresh' },
+        { path: '/forecast', tab: 'config-remind',   name: '报单提醒设置', icon: 'bell' },
+        { path: '/forecast', tab: 'config-template', name: '模板参数',     icon: 'template' }
       ] }
     ]
   },

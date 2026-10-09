@@ -29,7 +29,13 @@
        · `Rebate.vue`        的 `mainTab`   —— dashboard / rules / achv / contracts / settle / promises
        · `LossAccounting.vue` 的 `mainTab`   —— dashboard / fill
        · `Print.vue`         的 `TABS`      —— templates / settings / logs
-       · `Forecast.vue`      的 `TAB_KEYS`  —— summary / history / config / target
+       · `Forecast.vue`      的 `TAB_KEYS`  —— summary / history / config /
+                                             config-auto / config-remind / config-template / target
+         ⚠️ v424（2026-10-10）：`config` 由「报单配置」改名为「**报单对象**」——
+            报单配置已从一张长页面拆成四个子页（见 `Shell.vue::NAV`「报单配置」分组），
+            四页的标题必须**互不相同**，否则标签栏里会并排出现四条「报单配置」，
+            分不清谁是谁（本文件存在的理由，见文件头）。`config` 这个 **URL 键不许改**：
+            它是旧深链的落点（`ProductTarget` / `EmployeeArchive` 的「去修配置」写死 `?tab=config`）。
        写错的后果是**静默**的：标签只会显示主标题（看着"也能用"），
        直到同 path 开第二个标签才发现两条同名。
    ========================================================================= */
@@ -59,7 +65,11 @@ export const SUB_TITLES = {
     _default: 'summary',
     summary: '本期预报',
     history: '历史期次',
-    config: '报单配置',
+    // v424：「报单配置」拆成四页后，四个标题必须互不相同（原 `config` 叫「报单配置」）
+    config: '报单对象',
+    'config-auto': '报单自动化',
+    'config-remind': '报单提醒设置',
+    'config-template': '模板参数',
     target: '商品目标'
   }
 }
