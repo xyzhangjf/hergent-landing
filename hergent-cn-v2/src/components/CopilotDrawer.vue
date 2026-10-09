@@ -128,7 +128,7 @@
                 <div v-if="openThink === i" class="mt-body">{{ m.reasoning }}</div>
               </div>
               <div class="msg-bubble">
-                <div v-if="m.role === 'assistant' && m.content" class="md" v-html="renderMd(mediaView(m.content).text)"></div>
+                <div v-if="m.role === 'assistant' && m.content" class="md" v-html="renderMd(mediaView(m.content).text)" @click="onCopilotTocClick"></div>
                 <!-- 等待动画：只在「正在流式 + 这是最后一条 + 还没收到内容」时显示。
                      判据必须带上 streaming —— 请求超时/报错/取消时 streaming 立刻变 false，
                      组件随之卸载，不会留在气泡里一直跳（原先只看内容为空，中断后会常驻）。 -->
@@ -705,6 +705,15 @@ function mediaView(content) {
   if (_mvCache.size > 400) _mvCache.clear()
   _mvCache.set(key, v)
   return v
+}
+/* P1-b：TOC 锚点跳转 —— 点击目录项平滑滚动到对应标题，**不**改 URL hash（避免破坏 hash 路由）。 */
+function onCopilotTocClick(e) {
+  const el = e && e.target && e.target.closest ? e.target.closest('.md-toc-link') : null
+  if (!el) return
+  const anchor = el.getAttribute('data-anchor')
+  if (!anchor) return
+  const target = document.getElementById(anchor)
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 function mediaFiles(m) {
   return m && m.role === 'assistant' && m.content ? mediaView(m.content).files : []
@@ -2523,4 +2532,28 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .md code{background:var(--bg2,#f3f4f6);padding:1px 4px;border-radius:4px;font-size:.9em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .md pre{background:var(--bg2,#f3f4f6);padding:8px;border-radius:6px;overflow-x:auto;margin:6px 0}
 .md pre code{background:none;padding:0}
+/* —— P1-a 代码块：语言标签 + 行号（对标 WorkBuddy 代码块范式） —— */
+.md-codeblock{margin:6px 0;border:1px solid var(--b2,#e5e7eb);border-radius:8px;overflow:hidden;background:var(--bg2,#f3f4f6)}
+.md-codeblock__bar{display:flex;align-items:center;padding:4px 10px;background:var(--bg3,#e9eef3);border-bottom:1px solid var(--b2,#e5e7eb)}
+.md-codeblock__lang{font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--t3,#94a3b8);text-transform:uppercase}
+.md-codeblock .md-pre{margin:0;border-radius:0;background:transparent;padding:8px 0}
+.md-ln{display:block;white-space:pre}
+.md-ln-no{display:inline-block;width:2.2em;margin-right:10px;text-align:right;color:var(--t3,#94a3b8);user-select:none;-webkit-user-select:none}
+.md-ln-tx{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em}
+/* —— P1-b 长回复目录（TOC），可折叠，点击跳转 —— */
+.md-toc{margin:8px 0;padding:8px 12px;border:1px solid var(--b2,#e5e7eb);border-radius:8px;background:var(--bg3,#eef2f6)}
+.md-toc__title{font-size:12px;font-weight:700;color:var(--t2,#475569);cursor:pointer;user-select:none}
+.md-toc-list{margin:6px 0 0;padding-left:0;list-style:none}
+.md-toc-li{margin:2px 0;line-height:1.5}
+.md-toc-li.lv3{padding-left:14px}
+.md-toc-link{color:var(--p,#06b6d4);cursor:pointer;font-size:13px}
+.md-toc-link:hover{text-decoration:underline}
+/* —— P2-a / P3-a 引用块：区分 AI 结论 / 引用资料 / 关键结论卡片 —— */
+.md blockquote.md-quote--ai{border-left-color:var(--p,#06b6d4);background:rgba(6,182,212,.06)}
+.md blockquote.md-quote--src{border-left-color:var(--t3,#94a3b8);background:rgba(148,163,184,.08);color:var(--t2,#64748b)}
+.md blockquote.md-quote--key{border-left-color:#f59e0b;background:rgba(245,158,11,.10);color:var(--t1)}
+.md blockquote.md-quote--key .md-quote__tag{display:inline-block;margin-bottom:2px;padding:0 6px;border-radius:4px;background:#f59e0b;color:#fff;font-size:11px;font-weight:700;line-height:1.7}
+/* —— P2-b 表格：横向滚动容器 + 表头吸顶 —— */
+.md-table-wrap{margin:8px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.md th{position:sticky;top:0;z-index:1}
 </style>

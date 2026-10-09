@@ -55,11 +55,11 @@ export function renderMd(src) {
   //    绝不允许出现在老板眼前——含历史会话里已残留的、以及模型漏打/写错语言标签的卡片 JSON。
   const body = stripAllFences(src)
 
-  // 1) 抽取围栏代码块，避免被后续行内/块规则破坏
+  // 1) 抽取围栏代码块（保留语言标签），避免被后续行内/块规则破坏
   const codes = []
-  const text = body.replace(/```[a-zA-Z0-9]*\n?([\s\S]*?)```/g, (_, code) => {
+  const text = body.replace(/```([a-zA-Z0-9]*)\n?([\s\S]*?)```/g, (_, lang, code) => {
     const idx = codes.length
-    codes.push(code.replace(/\n$/, ''))
+    codes.push({ lang: (lang || '').trim(), code: code.replace(/\n$/, '') })
     return ` C${idx} `
   })
 
@@ -70,6 +70,15 @@ export function renderMd(src) {
 
   const lines = text.split(/\r?\n/)
   const out = []
+  const toc = []
+  // 标题 slug（用于 TOC 锚点 id；兼容中文）
+  const slugOf = (s) => {
+    let base = String(s).trim().toLowerCase()
+      .replace(/[`*_~]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/[^\w一-龥-]/g, '')
+    return base || 'h'
+  }
   let i = 0
   let para = []
 
@@ -86,7 +95,17 @@ export function renderMd(src) {
     const cm = line.match(/^ C(\d+) $/)
     if (cm) {
       flushPara()
-      out.push('<pre><code>' + esc(codes[+cm[1]]) + '</code></pre>')
+      const c = codes[+cm[1]]
+      const lang = (c.lang || '').toUpperCase()
+      const lineEls = c.code.split('\n').map((ln, n) =>
+        `<span class="md-ln"><span class="md-ln-no">${n + 1}</span><span class="md-ln-tx">${esc(ln)}</span></span>`
+      ).join('')
+      out.push(
+        '<div class="md-codeblock">' +
+        '<div class="md-codeblock__bar"><span class="md-codeblock__lang">' + (lang || 'CODE') + '</span></div>' +
+        '<pre class="md-pre"><code class="md-code">' + lineEls + '</code></pre>' +
+        '</div>'
+      )
       i++; continue
     }
 
@@ -98,7 +117,14 @@ export function renderMd(src) {
     if (hm) {
       flushPara()
       const lv = hm[1].length
-      out.push(`<h${lv} class="md-h md-h${lv}">${esc(hm[2].trim())}</h${lv}>`)
+      const txt = hm[2].trim()
+      const disp = txt.replace(/[`*_~]/g, '')
+      let base = slugOf(txt)
+      let id = 'md-' + base
+      let k = 2
+      while (toc.some((t) => t.id === id)) { id = 'md-' + base + '-' + k; k++ }
+      toc.push({ lv, text: disp, id })
+      out.push(`<h${lv} id="${id}" class="md-h md-h${lv}">${esc(txt)}</h${lv}>`)
       i++; continue
     }
 
@@ -110,7 +136,19 @@ export function renderMd(src) {
       flushPara()
       const quote = []
       while (i < lines.length && /^\s*>\s?/.test(lines[i])) { quote.push(lines[i].replace(/^\s*>\s?/, '')); i++ }
-      out.push('<blockquote class="md-quote">' + quote.map((l) => esc(l)).join('<br>') + '</blockquote>')
+      const raw = quote.join('\n').trim()
+      let cls = 'md-quote md-quote--ai'
+      let tag = ''
+      const keyM = raw.match(/^\s*(?:\*{1,2})?(结论|重点|注意|提醒|关键|建议)(?:\*{1,2})?\s*[:：]/)
+      if (keyM) {
+        cls = 'md-quote md-quote--key'; tag = keyM[1]
+        // 去掉正文里重复的「**结论**：」前缀，避免和徽标重复
+        quote[0] = quote[0].replace(/^\s*(?:\*{1,2})?(?:结论|重点|注意|提醒|关键|建议)(?:\*{1,2})?\s*[:：]\s*/, '')
+      } else if (/(来源[:：]|引自|——\s*$)/.test(raw)) {
+        cls = 'md-quote md-quote--src'
+      }
+      const tagHtml = tag ? `<span class="md-quote__tag">${esc(tag)}</span>` : ''
+      out.push(`<blockquote class="${cls}">${tagHtml}` + quote.map((l) => esc(l)).join('<br>') + '</blockquote>')
       continue
     }
 
@@ -122,8 +160,8 @@ export function renderMd(src) {
       i += 2
       const rows = []
       while (i < lines.length && lines[i].includes('|') && !/^\s*$/.test(lines[i])) { rows.push(parseRow(lines[i])); i++ }
-      let t = '<table class="md-table"><thead><tr>' + head.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
-      t += rows.map((r) => '<tr>' + r.map((c) => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>'
+      let t = '<div class="md-table-wrap"><table class="md-table"><thead><tr>' + head.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
+      t += rows.map((r) => '<tr>' + r.map((c) => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table></div>'
       out.push(t)
       continue
     }
@@ -151,13 +189,23 @@ export function renderMd(src) {
   }
   flushPara()
 
-  // 行内格式：行内代码、粗体、斜体（跳过 <pre> 代码块）
+  // 行内格式：行内代码、粗体、斜体（跳过 <pre> 代码块与代码块容器）
   const inline = (s) => s
     .replace(/`([^`]+?)`/g, '<code class="md-code">$1</code>')
     .replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>')
     .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<i>$2</i>')
 
-  return out
-    .map((b) => (b.startsWith('<pre>') ? b : inline(b)))
+  let html = out
+    .map((b) => (b.startsWith('<pre>') || b.startsWith('<div class="md-codeblock">') ? b : inline(b)))
     .join('')
+
+  // P1-b：长回复（≥3 个标题）自动生成可折叠目录（点击跳转，不触发 hash 路由）
+  if (toc.length >= 3) {
+    const items = toc.map((t) =>
+      `<li class="md-toc-li lv${t.lv}"><span class="md-toc-link" data-anchor="${t.id}">${esc(t.text)}</span></li>`
+    ).join('')
+    html = `<details class="md-toc" open><summary class="md-toc__title">目录</summary><ul class="md-toc-list">${items}</ul></details>` + html
+  }
+
+  return html
 }
