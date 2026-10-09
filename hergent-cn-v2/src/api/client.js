@@ -267,6 +267,51 @@ export async function api(path, opts = {}) {
   }
 }
 
+/* 🔴 二进制下载专用（v408 P1-8 附件下载）—— **不能**用 `api()`：
+     · `api()` 一律 `res.json()` ⇒ 拿到的是空对象，文件根本取不回来；
+     · 也不能 `<a href="...">` 直接跳：鉴权是 **Bearer 头**（token 在 localStorage，
+       不是 cookie）⇒ 浏览器跳转**不会**带上它，后端只会回 401。
+   所以必须自己 fetch 成 blob 再触发下载。放在**本文件**是因为只有这里知道鉴权头怎么拼 ——
+   放到页面里再拼一份就是第二个真相来源（token 头一改就漂移）。
+   返回 `Blob`；失败抛 `Error`（带 `status`），错误文案优先用后端的 detail。 */
+export async function apiBlob(path, { timeout = 60000 } = {}) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeout)
+  try {
+    const res = await fetch(path, {
+      method: 'GET',
+      headers: {
+        ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
+        // 与 api() 同一条纪律：显式租户头优先级高于后端 cookie，避免残留 cookie 锁死
+        ...(auth.tenant ? { 'X-Tenant-Id': String(auth.tenant) } : {})
+      },
+      signal: ctrl.signal
+    })
+    if (!res.ok) {
+      let msg = `下载失败 (${res.status})`
+      try {
+        const d = await res.json()
+        if (d && (d.detail || d.message || d.error)) msg = d.detail || d.message || d.error
+      } catch { /* 非 JSON（如 nginx 的 HTML 错误页）⇒ 沿用状态文案 */ }
+      const e = new Error(msg)
+      e.status = res.status
+      throw e
+    }
+    return await res.blob()
+  } catch (e) {
+    if (e && e.name === 'AbortError') {
+      const err = new Error(`下载超时（${Math.round(timeout / 1000)} 秒未响应）`)
+      err.name = 'TimeoutError'
+      err.timeout = true
+      err.status = 0
+      throw err
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /* ============================================================
    Hermes 通道 —— 一律经**本仓后端代理** `/api/ai/copilot/chat`
    （后端再直连 127.0.0.1:18765；网关凭据只存在于服务端 .env）
@@ -276,10 +321,12 @@ export async function api(path, opts = {}) {
       已被封堵；Key 与直连路径一并撤除，前端不再持有任何网关凭据。
    ============================================================ */
 
-/* Hermes 流式超时分级（P1）：普通对话 3 分钟；长任务（对账/复盘/报表等
-   工具循环）5 分钟。hermesChat 默认 300000 保持兼容，调用方按任务轻重显式传 timeout。 */
+/* Hermes 流式超时分级（P1-v413）：普通对话 3 分钟；长任务（对账/复盘/报表等
+   工具循环）10 分钟（原 5 分钟，实测大额跨文件对账常跑满被掐断）。
+   仅作安全上限——用户点「停止」可随时中止；WorkBuddy 对生成本身不设墙钟上限，
+   本值只是兜底防止后端静默死亡时前端卡在「生成中」。 */
 export const CHAT_TIMEOUT_NORMAL = 180000
-export const CHAT_TIMEOUT_LONG = 300000
+export const CHAT_TIMEOUT_LONG = 600000
 
 /* 🔴 v309（2026-09-28）外部中止信号支持 —— 让「停止生成」成为可能。
    对齐 WorkBuddy 的做法（其 SendButton 是 `handleClick = loading ? onCancel : onSend`，
