@@ -265,18 +265,39 @@
                 </div>
               </div>
 
-              <!-- 反馈纠错（P0-①：对/错，错可填纠正 → 记忆自进化） -->
-              <div v-if="m.role === 'assistant' && m.content && !store.chat.streaming" class="cp-feedback">
-                <span v-if="m.feedback === 'good'" class="cp-fb-done">✓ 有帮助</span>
-                <span v-else-if="m.feedback === 'bad'" class="cp-fb-done">已记下，下次改进</span>
-                <template v-else>
-                  <button class="cp-fb-btn" title="有帮助" @click="submitFeedback(m, 'good')">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+              <!-- v423：单轮对话底部操作栏（对齐 WorkBuddy message-actions）：
+                   复制 / 点赞 / 点踩 / 朗读 / 重新生成 / 分享 + 当前模型标识。
+                   只在「有内容且非正在流式输出的最后一条」时显示（流式时只露出气泡，避免干扰）。 -->
+              <div v-if="m.role === 'assistant' && m.content && !(store.chat.streaming && i === store.chat.messages.length - 1)" class="cp-msg-actions">
+                <span class="cp-mdl" :title="modelBadge.title">
+                  <Icon :name="modelBadge.icon" :size="13" />
+                  <span class="cp-mdl-tx">{{ modelBadge.label }}</span>
+                </span>
+                <button class="cp-act" title="复制" @click="copyMsg(m)">
+                  <Icon name="copy" :size="15" />
+                </button>
+                <button class="cp-act" :class="{ on: m.feedback === 'good' }" title="点赞" @click="toggleFeedback(m, 'good')">
+                  <Icon name="thumbs-up" :size="15" />
+                </button>
+                <button class="cp-act" :class="{ on: m.feedback === 'bad' }" title="点踩" @click="toggleFeedback(m, 'bad')">
+                  <Icon name="thumbs-down" :size="15" />
+                </button>
+                <button class="cp-act" :class="{ on: readingId === i }" :title="readingId === i ? '停止朗读' : '朗读'" @click="toggleRead(m, i)">
+                  <Icon :name="readingId === i ? 'volume-x' : 'volume-2'" :size="15" />
+                </button>
+                <button class="cp-act" title="重新生成" :disabled="store.chat.streaming" @click="regenerate(i)">
+                  <Icon name="rotate-ccw" :size="15" />
+                </button>
+                <div class="cp-share">
+                  <button class="cp-act" :class="{ on: shareOpen === i }" title="分享" @click.stop="toggleShare(i)">
+                    <Icon name="share-2" :size="15" />
                   </button>
-                  <button class="cp-fb-btn" title="说错了" @click="submitFeedback(m, 'bad')">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
-                  </button>
-                </template>
+                  <div v-if="shareOpen === i" class="cp-share-menu" @click.stop>
+                    <button @click="shareCopy(m, 'reply')">复制回复</button>
+                    <button @click="shareCopy(m, 'qa')">复制问答</button>
+                  </div>
+                </div>
+                <div v-if="shareOpen === i" class="cp-share-backdrop" @click="shareOpen = null"></div>
               </div>
             </div>
           </div>
@@ -1476,6 +1497,121 @@ async function submitFeedback(m, type) {
   }
 }
 
+/* ---- v423：单轮对话底部操作栏（对齐 WorkBuddy message-actions） ----
+   复制 / 点赞 / 点踩 / 朗读 / 重新生成 / 分享 + 当前模型标识。 */
+const readingId = ref(null)      // 正在朗读的助手消息下标（同时只允许一条）
+const shareOpen = ref(null)      // 打开的分享菜单对应的消息下标
+
+// 当前模型/智能体标识（WorkBuddy 在消息栏左侧展示所用模型）
+const modelBadge = computed(() => {
+  const r = currentRole.value
+  const label = (r && r.name) || '经营副驾'
+  return { label, icon: 'bot', title: `当前由「${label}」回答` }
+})
+
+// 纯前端复制（带非安全上下文兜底）
+async function copyText(t) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(t)
+      return true
+    }
+  } catch (_) { /* 落到兜底 */ }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = t
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+    return true
+  } catch (_) { return false }
+}
+
+// 去掉 Markdown 噪音，便于朗读/复制纯文本
+function stripMarkdownText(s) {
+  return (s || '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/[*_~>#]/g, ' ')
+    .replace(/\|/g, ' ')
+    .replace(/\n{2,}/g, '\n')
+    .trim()
+}
+
+// 复制本条回复
+async function copyMsg(m) {
+  const ok = await copyText(m.content || '')
+  store.toast(ok ? '已复制回复' : '复制失败，请手动选择')
+}
+
+// 点赞 / 点踩（可再点取消，对齐 WorkBuddy 的 toggle 语义）
+async function toggleFeedback(m, type) {
+  if (m.feedback === type) {
+    m.feedback = ''
+    return
+  }
+  await submitFeedback(m, type)
+}
+
+// 朗读 / 停止朗读（Web Speech API）
+function toggleRead(m, i) {
+  if (!('speechSynthesis' in window)) { store.toast('当前浏览器不支持朗读'); return }
+  if (readingId.value === i) {
+    window.speechSynthesis.cancel()
+    readingId.value = null
+    return
+  }
+  window.speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(stripMarkdownText(m.content))
+  u.lang = 'zh-CN'
+  u.onend = () => { if (readingId.value === i) readingId.value = null }
+  u.onerror = () => { if (readingId.value === i) readingId.value = null }
+  window.speechSynthesis.speak(u)
+  readingId.value = i
+}
+
+// 重新生成：移除本条助手回复及其之后所有内容，复用其前的用户消息重跑（语义同 WorkBuddy 的 resend）
+async function regenerate(i) {
+  if (store.chat.streaming) return
+  const msgs = store.chat.messages
+  if (i < 0 || i >= msgs.length || msgs[i].role !== 'assistant') return
+  msgs.splice(i)                       // 删掉本条及之后（下游轮次一并失效，符合"重生成覆盖后续"）
+  const userMsg = msgs[msgs.length - 1]
+  if (!userMsg || userMsg.role !== 'user') return
+  const roleId = (currentRole.value && currentRole.value.role_id) || ''
+  const rolePrompt = currentRole.value ? currentRole.value.system_prompt : ''
+  lastPayload = {
+    content: userMsg.content,
+    sys: rolePrompt,
+    roleId,
+    q: userMsg.content,
+    tableFiles: [],
+    files: userMsg.files || [],
+    vision: userMsg.vision || null
+  }
+  streamReply(lastPayload, true)
+}
+
+function toggleShare(i) {
+  shareOpen.value = shareOpen.value === i ? null : i
+}
+
+// 分享：复制回复 / 复制问答（带前文用户问题）
+async function shareCopy(m, kind) {
+  const idx = store.chat.messages.indexOf(m)
+  let q = ''
+  for (let k = idx - 1; k >= 0; k--) {
+    if (store.chat.messages[k].role === 'user') { q = store.chat.messages[k].content; break }
+  }
+  const text = kind === 'qa' ? `${q}\n\n${m.content}` : (m.content || '')
+  const ok = await copyText(text)
+  shareOpen.value = null
+  store.toast(ok ? (kind === 'qa' ? '已复制问答' : '已复制回复') : '复制失败')
+}
+
 /* ---- P0-② AI 待办提醒：记下 → 落 ai_reminders，scheduler 到点推送 ---- */
 async function applyReminder(m, action) {
   if (m.reminderStatus) return
@@ -1815,10 +1951,13 @@ async function send() {
 
 /* 流式发送核心：成功才触发卡片/推送并落盘；失败（含超时中断）只移除半截气泡、
    给出分级错误，绝不误报「离线」或追发卡片请求（P0 评审炸弹 #4）。 */
-async function streamReply(payload) {
+async function streamReply(payload, reuseUserMsg = false) {
   const { content, sys, roleId, q, tableFiles, files, vision } = payload
   store.chat.error = ''
-  store.chat.messages.push({ role: 'user', content, files: files || [], vision: vision && vision.length ? vision : null })
+  // v423：regenerate 时用户消息已在对话里（上一条），不再重复 push，避免重复气泡
+  if (!reuseUserMsg) {
+    store.chat.messages.push({ role: 'user', content, files: files || [], vision: vision && vision.length ? vision : null })
+  }
   // v319（L2）：把**回答时的角色**快照进消息 —— 历史署名与头像从此不再随后续切换被改写
   store.chat.messages.push({ role: 'assistant', content: '', tools: [],
                              roleId: roleId || '', roleMeta: roleMetaOf(roleId) })
@@ -2531,4 +2670,19 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* —— P2-b 表格：横向滚动容器 + 表头吸顶 —— */
 .md-table-wrap{margin:8px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 .md th{position:sticky;top:0;z-index:1}
+
+/* —— v423：单轮对话底部操作栏（对齐 WorkBuddy message-actions） —— */
+.cp-msg-actions{display:flex;align-items:center;gap:1px;margin-top:8px;padding-top:8px;border-top:1px solid var(--b2,#eef1f5)}
+.cp-mdl{display:inline-flex;align-items:center;gap:4px;margin-right:8px;padding:2px 8px;border:1px solid var(--b2,#e6e9ee);border-radius:999px;color:var(--t3,#94a3b8);font-size:11px;line-height:1.6;user-select:none;white-space:nowrap}
+.cp-mdl .ico{opacity:.85}
+.cp-act{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:none;background:transparent;border-radius:6px;color:var(--t2,#64748b);cursor:pointer;transition:background .12s,color .12s}
+.cp-act:hover{background:var(--b2,#eef1f5);color:var(--t1)}
+.cp-act:disabled{opacity:.4;cursor:not-allowed}
+.cp-act.on{color:var(--p,#3b82f6)}          /* 点赞/点踩/朗读/分享激活态：主色高亮 */
+.cp-act.on:hover{background:transparent}
+.cp-share{position:relative;display:inline-flex}
+.cp-share-menu{position:absolute;bottom:36px;left:0;z-index:30;display:flex;flex-direction:column;min-width:124px;padding:4px;background:#fff;border:1px solid var(--b2,#e5e7eb);border-radius:10px;box-shadow:0 6px 20px rgba(15,23,42,.14)}
+.cp-share-menu button{text-align:left;padding:7px 10px;border:none;background:transparent;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer}
+.cp-share-menu button:hover{background:var(--b2,#f1f5f9)}
+.cp-share-backdrop{position:fixed;inset:0;z-index:20;background:transparent}
 </style>
