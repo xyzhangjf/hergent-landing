@@ -295,9 +295,16 @@
                   <div v-if="shareOpen === i" class="cp-share-menu" @click.stop>
                     <button @click="shareCopy(m, 'reply')">复制回复</button>
                     <button @click="shareCopy(m, 'qa')">复制问答</button>
+                    <button @click="shareCopyLink()">复制页面链接</button>
+                    <button @click="shareQR()">生成二维码</button>
                   </div>
                 </div>
-                <div v-if="shareOpen === i" class="cp-share-backdrop" @click="shareOpen = null"></div>
+                <div v-if="qrUrl" class="cp-qr" @click.stop>
+                  <img :src="qrUrl" alt="二维码" />
+                  <p>用微信「扫一扫」打开此页，再点右上角「···」分享到聊天或朋友圈</p>
+                  <button class="cp-qr-close" @click="qrUrl = null">关闭</button>
+                </div>
+                <div v-if="shareOpen === i || qrUrl" class="cp-share-backdrop" @click="shareOpen = null; qrUrl = null"></div>
               </div>
             </div>
           </div>
@@ -697,6 +704,7 @@ import { renderMd, splitMedia } from '../utils/md'
 import { useRouter } from 'vue-router'   // M1：斜杠命令「跳转页面」用
 // v311：`drillTo` 前置判据用（见该函数处注释）。判据唯一实现在 `constants/pages.js`。
 import { canSee, pageTitle } from '../constants/pages'
+import QRCode from 'qrcode'   // v424：分享→生成二维码（微信扫一扫）
 
 const router = useRouter()
 
@@ -1610,6 +1618,24 @@ async function shareCopy(m, kind) {
   const ok = await copyText(text)
   shareOpen.value = null
   store.toast(ok ? (kind === 'qa' ? '已复制问答' : '已复制回复') : '复制失败')
+}
+
+// v424：复制当前页面链接（粘进微信即可分享）；生成二维码（手机微信扫一扫）
+async function shareCopyLink() {
+  const url = window.location.href
+  const ok = await copyText(url)
+  shareOpen.value = null
+  store.toast(ok ? '已复制页面链接' : '复制失败，请手动复制网址')
+}
+
+const qrUrl = ref(null)
+async function shareQR() {
+  try {
+    qrUrl.value = await QRCode.toDataURL(window.location.href, { width: 168, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } })
+  } catch (e) {
+    store.toast('二维码生成失败')
+  }
+  shareOpen.value = null
 }
 
 /* ---- P0-② AI 待办提醒：记下 → 落 ai_reminders，scheduler 到点推送 ---- */
@@ -2685,4 +2711,11 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-share-menu button{text-align:left;padding:7px 10px;border:none;background:transparent;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer}
 .cp-share-menu button:hover{background:var(--b2,#f1f5f9)}
 .cp-share-backdrop{position:fixed;inset:0;z-index:20;background:transparent}
+
+/* v424：分享→二维码弹层（微信扫一扫） */
+.cp-qr{position:absolute;bottom:36px;left:0;z-index:31;display:flex;flex-direction:column;align-items:center;gap:8px;width:188px;padding:12px;background:#fff;border:1px solid var(--b2,#e5e7eb);border-radius:12px;box-shadow:0 8px 28px rgba(15,23,42,.18)}
+.cp-qr img{width:168px;height:168px;display:block;border-radius:6px}
+.cp-qr p{margin:0;font-size:12px;line-height:1.5;color:var(--t3,#94a3b8);text-align:center}
+.cp-qr-close{padding:6px 14px;border:none;border-radius:7px;background:var(--b2,#f1f5f9);color:var(--t1);font-size:13px;cursor:pointer}
+.cp-qr-close:hover{background:#e9eef5}
 </style>
