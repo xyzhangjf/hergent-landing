@@ -496,6 +496,16 @@
               </div>
             </div>
           </div>
+          <!-- v408：AI 生成内容免责提示 —— 常驻于**聊天输入框下方**（composer 之后、模式横幅之前）。
+               展示位置：footer 内、输入框卡片正下方，整行居中、低对比灰字，不抢视线。
+               触发逻辑：抽屉打开即常驻显示（每次进入副驾都能看到），不依赖是否已发问/已收到回复 ——
+                       与 ChatGPT/Claude 的「AI 可能犯错」提示同范式（被动免责，而非条件触发）。
+                       若日后想改成「仅在收到首条 AI 回复后显示」，把 v-if 换成
+                       `v-if="store.chat.messages.some(m => m.role === 'assistant')"` 即可。 -->
+          <div class="cp-ai-note" role="note" aria-live="polite">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span>内容由AI生成，请核实重要信息</span>
+          </div>
           <div v-if="aiMode === 'disabled'" class="cp-mode-banner disabled">AI 已停用（后台设置）。当前无法对话，请联系管理员开启。</div>
         <div v-else-if="aiMode === 'readonly'" class="cp-mode-banner readonly">只读模式：AI 仅给建议，不会执行任何写操作。</div>
         </footer>
@@ -2375,6 +2385,10 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-mode-banner{font-size:12px;padding:6px 10px;border-radius:8px;margin-top:7px;text-align:center;line-height:1.4}
 .cp-mode-banner.disabled{background:var(--danger-bg);color:var(--danger-txt)}
 .cp-mode-banner.readonly{background:var(--warn-amber-bg);color:var(--warn-amber)}
+/* v408：AI 生成内容免责提示 —— 输入框正下方，整行居中、低对比灰字，不抢视线。
+   用 --t3（次要文字色）而非警示红：这是常驻免责声明，不是报错/危险。 */
+.cp-ai-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;font-size:11.5px;line-height:1.4;color:var(--t3,#94a3b8);user-select:none}
+.cp-ai-note svg{flex-shrink:0;opacity:.85}
 
 /* P0-③ AI 权限护栏开关 */
 .cp-guard-btn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 11px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
@@ -2488,17 +2502,21 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 }
 
 /* 副驾回复 Markdown 渲染（B 层：让格式协议生效，仍先转义防 XSS） */
-.md{font-size:13px;line-height:1.65;word-break:break-word}
-.md p{margin:0 0 6px}
+/* v408：回复排版对标 WorkBuddy `prose` —— 强化标题层级与纵向节奏，便于经销商一眼扫清结构。
+   🔴 此前 h1/h2/h3 仅 1.05/1/0.94em，几乎与正文同高 ⇒ 长回复「平铺一片、没有骨架」。
+   现在拉到 1.45/1.22/1.06em 并加大段间距，层级一眼可辨（仍受气泡宽度约束，不溢出）。 */
+.md{line-height:1.7;font-size:14.5px;color:var(--t1);overflow-wrap:anywhere}
+.md p{margin:0 0 8px}
 .md p:last-child{margin-bottom:0}
-.md h1,.md h2,.md h3{margin:8px 0 4px;font-weight:600;line-height:1.3;color:var(--t1)}
-.md-h1{font-size:1.05em}
-.md-h2{font-size:1em}
-.md-h3{font-size:.94em}
-.md ul,.md ol{margin:4px 0;padding-left:20px}
-.md li{margin:2px 0}
-.md table{border-collapse:collapse;margin:6px 0;font-size:.9em;width:100%}
-.md th,.md td{border:1px solid var(--b2,#e5e7eb);padding:4px 8px;text-align:left;vertical-align:top}
+.md h1,.md h2,.md h3{margin:12px 0 6px;font-weight:700;line-height:1.3;color:var(--t1)}
+.md-h1{font-size:1.45em}
+.md-h2{font-size:1.22em}
+.md-h3{font-size:1.06em}
+.md ul,.md ol{margin:6px 0;padding-left:22px}
+.md li{margin:3px 0}
+/* 表格：长编码/单号/金额在窄气泡里易溢出 ⇒ 单元格允许换行（不撑破布局） */
+.md table{border-collapse:collapse;margin:8px 0;font-size:.9em;width:100%;table-layout:fixed}
+.md th,.md td{border:1px solid var(--b2,#e5e7eb);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}
 .md th{background:var(--bg2,#f3f4f6);font-weight:600}
 .md blockquote{margin:6px 0;padding:4px 10px;border-left:3px solid var(--p,#06b6d4);background:rgba(6,182,212,.06);color:var(--t2,#475569);border-radius:0 6px 6px 0}
 .md hr{border:none;border-top:1px solid var(--b2,#e5e7eb);margin:8px 0}
