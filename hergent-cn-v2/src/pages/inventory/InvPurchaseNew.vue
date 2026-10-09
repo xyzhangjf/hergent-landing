@@ -1,11 +1,15 @@
 <template>
   <div class="inv-page">
     <div class="page-hd split">
-      <div>
+      <div class="ipn-hd-t">
         <h2>{{ pageTitle }}</h2>
         <span class="page-sub">{{ pageSub }}</span>
       </div>
       <div class="ipn-acts">
+        <template v-if="!isReturn">
+          <input v-model.trim="prodKw" class="input ipn-prod-kw" placeholder="输入商品名筛选下面的商品下拉" />
+          <button class="btn btn-ghost btn-sm" @click="addRow()"><Icon name="plus" :size="14" />加一行</button>
+        </template>
         <button class="btn btn-ghost btn-sm" :disabled="saving" @click="back">返回列表</button>
       </div>
     </div>
@@ -19,7 +23,7 @@
 
          退货**必须**挂一张原采购单 —— 后端 `purchase_return_create` 要用它取供应商与
          仓库，所以这里不是"可选的关联"，而是整张单据的入口：没选原单就没有可退明细。 -->
-    <div v-if="isReturn" class="card ipn-hd">
+    <div v-if="isReturn" class="ipn-hd ipn-hd-flat">
       <div class="ipn-f ipn-f-sup">
         <label class="ipn-lb">原采购单 <span class="ipn-req">必填</span></label>
         <div class="ipn-sup-pick">
@@ -66,7 +70,7 @@
 
     <!-- 退货明细：商品 / 单位由后端的可退预览**给定**，用户只填「退多少」。
          🔴 商品列不可选 —— 能退的只有这张单买过的货；给个商品下拉等于允许退没买过的东西。 -->
-    <div v-if="isReturn" class="card ipn-body">
+    <div v-if="isReturn" class="ipn-body">
       <div class="ipn-bar">
         <b>退货明细</b>
         <div class="ipn-ret-quick">
@@ -140,7 +144,7 @@
     </div>
 
     <!-- 表单头（对齐舟谱：*供应商 / *仓库 / 单据日期 / 预计到货 / 备注 0-500） -->
-    <div v-if="!isReturn" class="card ipn-hd">
+    <div v-if="!isReturn" class="ipn-hd ipn-hd-flat">
       <div class="ipn-f ipn-f-sup">
         <label class="ipn-lb">供应商 <span class="ipn-req">必填</span></label>
         <div class="ipn-sup-pick">
@@ -224,7 +228,7 @@
          ③ 类型只有文本 / 数字两种，数字框用 `inputmode=decimal` 唤起数字键盘
             （**不在前端判"是不是数字"**：判据唯一实现在后端，这里判一遍就是第二份，
              而两份在边界上必然分岔 —— 发原字符串、由后端 400 报人话）。 -->
-    <div v-if="!isReturn && cfDefs.length" class="card ipn-hd">
+    <div v-if="!isReturn && cfDefs.length" class="ipn-hd ipn-hd-flat">
       <div v-for="c in cfDefs" :key="c.key" class="ipn-f">
         <label class="ipn-lb">{{ c.label }}</label>
         <input v-model="extra[c.key]" class="input ipn-cf-in"
@@ -240,25 +244,24 @@
     </p>
 
     <!-- 明细 -->
-    <div v-if="!isReturn" class="card ipn-body">
+    <div v-if="!isReturn" class="ipn-body">
       <div class="ipn-bar">
         <b>商品明细</b>
-        <input v-model.trim="prodKw" class="input ipn-prod-kw" placeholder="输入商品名筛选下面的商品下拉" />
-        <button class="btn btn-ghost btn-sm" @click="addRow()"><Icon name="plus" :size="14" />加一行</button>
+        <span class="ipn-cnt">{{ items.length }} 项</span>
+        <button class="ipn-tip-link" type="button" @click="showNotes = !showNotes">
+          口径说明 {{ showNotes ? '收起' : '展开' }}
+        </button>
       </div>
 
-      <p class="ipn-tip">
+      <p v-if="showNotes" class="ipn-tip">
         <Icon name="lightbulb" :size="14" />
         <span>{{ PSI_NOTES.unit }} {{ PSI_NOTES.expiry }}</span>
-        <button class="ipn-tip-link" type="button" @click="showStockTip = !showStockTip">
-          库存口径 {{ showStockTip ? '收起' : '展开' }}
-        </button>
       </p>
       <!-- v408（P1-1）：库存两列的**仓口径**，默认折叠，点「展开」才显示 —— 对齐舟谱「一行小字」的疏朗感。
            🔴 不写会发生什么：用户默认它是「全部仓合计」（舟谱那种），于是在总仓 / 临期仓
               之间看到「同一个商品两个数」，得出「系统算错了」的结论 —— 正是要避免的
               「同屏两个数对不上」。仓名跟着「入库仓库」下拉实时变。 -->
-      <p v-if="showStockTip" class="ipn-tip ipn-tip-stk">
+      <p v-if="showNotes" class="ipn-tip ipn-tip-stk">
         <Icon name="package" :size="14" />
         <span v-if="stockState === 'err'">
           库存读取失败：可用 / 实际库存两列显示 <b>—</b>，意思是「不知道」，不是 0。
@@ -551,7 +554,7 @@ const totalAmount = computed(() => items.value.reduce((s, r) => s + rowAmount(r)
 const supBal = ref(null)
 const supBalLoading = ref(false)
 // v417：商品明细上方的「库存口径」提示默认折叠（首屏更疏朗，对齐舟谱），点「展开」才显示
-const showStockTip = ref(false)
+const showNotes = ref(false)
 async function loadSupplierBalance (sid) {
   supBal.value = null
   const id = Number(sid || 0)
@@ -1186,8 +1189,18 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 .inv-page { display: flex; flex-direction: column; min-height: 100% }
 .ipn-acts { display: flex; gap: 8px; flex-wrap: wrap }
 
+/* v417d（对照舟谱：单屏行数 ↑）页头单行 —— 标题与副标题回到**同一基线行**（原为竖排两行）。
+   全局 `.page-hd` 的「内联 / 堆叠」由模板结构分派：外面包一层 div 就会回落到两行，
+   故这里只给内层容器定对齐，**不动全局类**（16~17 个页面共用它）。 */
+.ipn-hd-t { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0 }
+
 /* 表单头 */
 .ipn-hd { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px }
+/* v417d 去卡片包裹：本页「单头表单 / 明细」两块不再套 `.card` 的框。
+   页面底 `.content{background:var(--bg)}` 与 `.card{background:var(--bg)}` 同色 ——
+   那个框本来只是 border+shadow，去掉不影响配色（深色同理）。
+   scoped 属性把特异性抬到 0,2,0 > 全局 `.card` 的 0,1,0，覆盖必然生效（无需 !important）。 */
+.ipn-hd-flat { padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none }
 .ipn-f { display: flex; flex-direction: column; gap: 4px }
 .ipn-f-grow { flex: 1; min-width: 180px }
 .ipn-f-sup { min-width: 300px }
@@ -1233,8 +1246,12 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 .ipn-strip-amt { color: var(--p-ink); font-variant-numeric: tabular-nums }
 
 /* 明细卡 */
-.ipn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px }
-.ipn-prod-kw { width: 240px; height: 32px; margin-left: auto }
+/* v417d：明细工具条由「两行」（工具条 + 口径提示）压成「一行」——
+   筛选框与「加一行」上移到页头，这里只留「商品明细 + 项数 + 口径说明（默认折叠）」。
+   折叠态下明细上方只占这一行，展开才补回说明文字（省约 26px ≈ 0.7 行）。 */
+.ipn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
+/* 上移到页头后的商品筛选框（原在明细工具条内，靠 margin-left:auto 靠右；现在不需要） */
+.ipn-prod-kw { width: 240px; height: 30px }
 .ipn-tip {
   display: flex; align-items: flex-start; gap: 6px;
   font-size: 12px; color: var(--t2); margin: 0 0 10px;
@@ -1390,7 +1407,7 @@ table.ipn-tbl td.seq-cell { padding: 5px 4px }
   .ipn-hd { align-items: stretch }
   .ipn-f, .ipn-kw, .ipn-sel, .ipn-date { width: 100%; min-width: 0 }
   .ipn-sup-pick { flex-direction: column }
-  .ipn-prod-kw { width: 100%; margin-left: 0 }
+  .ipn-prod-kw { width: 100% }
   .ipn-bottom { margin-inline: 0; padding-inline: 0 }
 }
 </style>
