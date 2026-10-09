@@ -838,16 +838,34 @@ async function loadEdit (oid) {
       但等到提交后才报错、还要用户回头找是哪一行，是没必要的往返。 */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
+/* v417h：**哪些行算明细**的唯一判据 —— 选了商品的行才算（预设/手动加的空行不算）。
+   🔴 为什么要单独抽一个函数：有了预设空行后，「校验哪些行」和「提交哪些行」必须同源。
+      两处各写一份过滤 ⇒ 改一处漏一处：要么用户被要求填满 10 行才能保存，
+      要么 10 条空明细落库（后端不拦空行）。校验与提交都调它。 */
+function pickedRows () {
+  const out = []
+  items.value.forEach((r, i) => { if (Number(r.product_id) > 0) out.push({ r, idx: i + 1 }) })
+  return out
+}
+
 function validate () {
   if (!form.value.supplier_id) return '请先选择供应商'
   if (!form.value.warehouse_id) return '请选择入库仓库'
   if (form.value.order_date && !DATE_RE.test(form.value.order_date)) return '单据日期格式不正确，请用日期选择器选'
   if (form.value.expected_date && !DATE_RE.test(form.value.expected_date)) return '预计到货日期格式不正确，请用日期选择器选'
-  if (!items.value.length) return '请至少添加一行商品明细'
+  // v417h：预设空行不参与校验（否则用户必须填满 10 行才能保存）。
+  //   但「填了数量/价格却没选商品」是半截操作 ⇒ 明确报错，不静默丢弃。
   for (let i = 0; i < items.value.length; i++) {
     const r = items.value[i]
-    const at = `第 ${i + 1} 行`
-    if (!r.product_id) return `${at}：请选择商品`
+    if (Number(r.product_id) > 0) continue
+    if (Number(r.quantity) > 0 || (r.unit_price !== '' && r.unit_price != null)) {
+      return `第 ${i + 1} 行：填了数量或采购价，但还没选商品`
+    }
+  }
+  const picked = pickedRows()
+  if (!picked.length) return '请至少选一行商品明细：选商品、填数量与采购价'
+  for (const { r, idx } of picked) {
+    const at = `第 ${idx} 行`
     if (!(Number(r.quantity) > 0)) return `${at}：数量要大于 0`
     if (Number(r.unit_price) < 0 || r.unit_price === '') return `${at}：请填写采购价`
     // v417：批次号 + 到期日改为**选填**（老板快速建单不必每次都填）。
@@ -895,7 +913,8 @@ async function submit (mode) {
       /* v417（B 语义「保存并审核」）：新建/复制态直接建为已审核 confirmed（自己保存自己审核，
          一步到位，不再二次调审核接口）；编辑态不加 status，保留 update + 批量审核原语。 */
       status: ((mode === 'approve' || mode === 'approveNew' || mode === 'approvePrint' || mode === 'approveIssue') && !editId.value) ? 'confirmed' : '',
-      items: items.value.map(r => ({
+      // v417h：只提交选了商品的行（预设空行不落库）—— 与 validate 同源，都走 pickedRows()
+      items: pickedRows().map(({ r }) => ({
         product_id: r.product_id,
         quantity: Number(r.quantity),
         unit_price: Number(r.unit_price),
@@ -1166,7 +1185,9 @@ async function reinit () {
   if (!refsOk.value) await loadRefs()
   if (editId.value) await loadEdit(editId.value)
   else if (copyId.value) await loadCopy(copyId.value)
-  else for (let i = 0; i < 5; i++) items.value.push(blankRow())
+  // v417h：预设 10 行（原 5 行）—— 舟谱同屏 14 行的观感；配合行高 33→约 27px，
+  //       单屏可见行数 5 → 约 10 行。空行不落库（submit 前会过滤掉没选商品的行）。
+  else for (let i = 0; i < 10; i++) items.value.push(blankRow())
 }
 
 onMounted(async () => {
@@ -1282,9 +1303,9 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
    🔴 选择器**必须**带 `table.ipn-tbl`：写成 `.ipn-tbl td` 的 specificity 低于全局
       `table.tbl td{padding:10px 14px}`（variables.css:530），会**静默失效**
       （样式看着写了、实际没生效）。 */
-table.ipn-tbl th { padding: 5px 8px }
-table.ipn-tbl td { padding: 3px 8px }
-table.ipn-tbl td.seq-cell { padding: 3px 4px }
+table.ipn-tbl th { padding: 4px 8px }
+table.ipn-tbl td { padding: 2px 8px }
+table.ipn-tbl td.seq-cell { padding: 2px 4px }
 .ipn-c-stk { width: 78px; font-variant-numeric: tabular-nums; white-space: nowrap }
 /* 「实际有货、一件都不可售（全过期）」——必须扎眼，否则用户以为有货能卖 */
 .ipn-c-stk .danger { color: var(--danger-txt) }
@@ -1292,7 +1313,7 @@ table.ipn-tbl td.seq-cell { padding: 3px 4px }
 .ipn-c-code { width: 100px; color: var(--t2); font-variant-numeric: tabular-nums }
 /* v409（P2-1）：单位列 64→92px 是给「下拉 + 换算浮层」的；v417g 浮层已不占宽，收到 84px。 */
 .ipn-c-unit { width: 84px }
-.ipn-unit-sel { height: 26px; padding: 0 4px }
+.ipn-unit-sel { height: 22px; padding: 0 4px }
 /* 换算 / 折价小字：**弱化色 + 不换行**，它是解释不是数据（数据仍以输入框里的为准）。
    ⚠️ 不加 `white-space: nowrap` 时「= 40 袋」会在窄列里断成两行，把行高顶起来。 */
 /* v417c：换算小字从「行内第二行」改为「指向该格才浮出的浮层」。
@@ -1331,7 +1352,13 @@ table.ipn-tbl td.seq-cell { padding: 3px 4px }
 }
 .ipn-tbl th.ipn-c-op { background: var(--bg2) }
 .ipn-tbl tbody tr:hover td.ipn-c-op { background: var(--bg2) }
-.ipn-in { width: 100%; height: 26px }
+.ipn-in { width: 100%; height: 22px }
+/* v417h（对照舟谱·行密度）：**浏览态扁平化** —— 未聚焦的格不铺底色、只留极淡描边，
+   整行看起来像「一排文���」，鼠标指向或键盘聚焦才浮起成可编辑的框。
+   🔴 不这么做的代价：15 列全画成带底色的输入框，视觉噪音重、扫读时找不到当前行；
+      但格子**仍是 input**（不是换成文本再切换），可点可键盘 Tab，零交互回归风险。 */
+table.ipn-tbl .ipn-in:not(:focus) { background: transparent }
+table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
 .ipn-in.num { text-align: right; font-variant-numeric: tabular-nums }
 .ipn-amt { font-variant-numeric: tabular-nums; white-space: nowrap }
 .ipn-unit { font-size: 13px; color: var(--t1) }
