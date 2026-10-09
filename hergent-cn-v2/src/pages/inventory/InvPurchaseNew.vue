@@ -197,6 +197,16 @@
         <span class="ipn-sk">供应商</span>
         <b>{{ selSupplier ? selSupplier.name : '未选择' }}</b>
       </span>
+      <!-- P1-1：选了供应商即显示它的**跨单**应付 / 预付余额，开单前就知道「还欠这供应商多少 / 预先付了多少」。
+           读取中显示 `…`；读失败 / 没读到显示 `—`（「不知道」，不编成 0，本仓铁律）；读到了即便 ¥0.00 也照实显示。 -->
+      <span v-if="selSupplier" class="ipn-si">
+        <span class="ipn-sk">应付余额</span>
+        <b class="ipn-strip-amt">{{ supBalLoading ? '…' : (supBal ? '¥' + fmtMoney(supBal.payable) : '—') }}</b>
+      </span>
+      <span v-if="selSupplier" class="ipn-si">
+        <span class="ipn-sk">预付余额</span>
+        <b class="ipn-strip-amt">{{ supBalLoading ? '…' : (supBal ? '¥' + fmtMoney(supBal.prepaid) : '—') }}</b>
+      </span>
       <span v-if="selSupplier && Number(selSupplier.credit_days) > 0" class="ipn-si">
         <span class="ipn-sk">账期</span><b>{{ Number(selSupplier.credit_days) }} 天</b>
       </span>
@@ -442,14 +452,20 @@ const kind = computed(() => String((route.query && route.query.kind) || 'order')
 const isReturn = computed(() => kind.value === 'return')
 const fromPoQ = computed(() => Number((route.query && route.query.from_po) || 0) || 0)
 const copyId = computed(() => Number((route.query && route.query.copy) || 0) || 0)
+/* P1-4：编辑一张已存采购单。`?edit=oid` 来自详情页的「编辑」按钮；只有状态 ∈ 可编辑三态
+   （draft / pending_approval / cancelled）才允许编辑，其余状态在 `loadEdit` 里拦下并退回详情页。 */
+const editId = computed(() => Number((route.query && route.query.edit) || 0) || 0)
 
 const pageTitle = computed(() => isReturn.value
   ? '新建采购退货单'
-  : (copyId.value ? '复制采购单' : '新建采购单'))
+  : (editId.value ? '编辑采购单'
+                  : (copyId.value ? '复制采购单' : '新建采购单')))
 const pageSub = computed(() => isReturn.value
   ? '对已入库的采购单退货：按可退数量填，提交后扣库存并把原单标记为「已退货」'
-  : (copyId.value ? '按原单带出商品与价格，批次与到期日按这次到货重填'
-                  : '进货登记，到货后按这里的批次与到期日入库'))
+  : (editId.value
+       ? '可改供应商、明细与备注；已入库 / 在途的单不能在此改，请到详情页处理'
+       : (copyId.value ? '按原单带出商品与价格，批次与到期日按这次到货重填'
+                       : '进货登记，到货后按这里的批次与到期日入库')))
 
 function todayISO () {
   const d = new Date()
@@ -504,6 +520,29 @@ const prodOptions = computed(() => {
 })
 const selSupplier = computed(() => suppliers.value.find(s => s.id === form.value.supplier_id) || null)
 const totalAmount = computed(() => items.value.reduce((s, r) => s + rowAmount(r), 0))
+
+/* P1-1：选了供应商即拉它的**跨单**应付 / 预付余额（后端 `supplier_balance`），开单前就知道
+   「还欠这供应商多少 / 预先付了多少」。
+   🔴 `supBal` 为 null = 没读到 / 读失败 ⇒ 界面显示 `—`（「不知道」不编成 0，本仓铁律）；
+      读取中显示 `…`；读成功才显示金额（含 ¥0.00，那是真·不欠，与「不知道」是两回事）。
+   🔴 退货模式不显示这条、也不发请求（仓库下拉都没必要拉余额）。 */
+const supBal = ref(null)
+const supBalLoading = ref(false)
+async function loadSupplierBalance (sid) {
+  supBal.value = null
+  const id = Number(sid || 0)
+  if (!id) return
+  supBalLoading.value = true
+  try {
+    const d = await psiApi.supplierBalance(id)
+    supBal.value = { payable: Number(d.payable || 0), prepaid: Number(d.prepaid || 0) }
+  } catch (e) {
+    supBal.value = null   // 如实显示 —，不假装 0
+  } finally {
+    supBalLoading.value = false
+  }
+}
+watch(() => form.value.supplier_id, (v) => { if (isReturn.value) return; loadSupplierBalance(v) })
 
 /* ══ v408（P1-1）可用库存 / 实际库存 ═══════════════════════════════════════
    🔴 口径（用户已拍定）：「**用户在页面选的什么仓库就显示该仓库的可用库存**」
@@ -711,6 +750,59 @@ async function loadCopy (oid) {
   }
 }
 
+/* ---- 编辑：按已存单带出**全部可编辑字段**（含批次 / 到期日 / 自定义字段） -----------------
+   🔴 与复制模式刻意不同：复制是「买新一批货」，批次三列与自定义字段**刻意不带**（那是上一单的事实）；
+      而编辑是「改这一单」，所以批次 / 到期日**照带可改**（用户要改的是这一批货的批次），自定义字段也照带保留。
+   🔴 闸门在前端先拦一遍：只有可编辑三态（draft / pending_approval / cancelled）才允许进来；
+      已入库等状态后端 `purchase_order_update` 也会 400 拒，但先拦能给明白话、避免白拉数据。
+   🔴 自定义字段：从 `order.extra` 预填进 `extra.value`（只填仍在注册表里的键），保存时随 `cfPayload`
+      一并发出 ⇒ 不会因"没重新填"就把原值清空（后端 `extra={}` 会清空 extra_json，必须预填）。 */
+async function loadEdit (oid) {
+  try {
+    const d = await psiApi.getPurchase(oid)
+    const o = d.order || {}
+    const editable = ['draft', 'pending_approval', 'cancelled']
+    if (!editable.includes(o.status)) {
+      toast(`这张单是「${poStatusText(o.status || '')}」，已入库 / 在途，不能在本页编辑；要改请走「退货」或回详情页`, 'warn')
+      router.replace('/inventory/purchase/' + oid)
+      return
+    }
+    form.value.supplier_id = Number(o.supplier_id || 0)
+    form.value.warehouse_id = Number(o.warehouse_id || 0)
+    form.value.order_date = o.order_date || todayISO()
+    form.value.expected_date = o.expected_date || ''
+    form.value.note = o.note || ''
+    form.value.handler = String(o.handler ?? '')
+    form.value.department_id = Number(o.department_id ?? 0)
+    items.value = (d.items || []).map(it => {
+      const r = blankRow()
+      r.product_id = Number(it.product_id || 0)
+      r.quantity = it.quantity === null || it.quantity === undefined ? '' : String(it.quantity)
+      r.unit_price = it.unit_price === null || it.unit_price === undefined ? '' : String(it.unit_price)
+      r.unit = String(it.unit || '')
+      r.batch_no = String(it.batch_no || '')
+      r.expiry_date = it.expiry_date || ''
+      r.production_date = it.production_date || ''
+      r.note = String(it.note || '')
+      applyProduct(r)
+      return r
+    })
+    if (!items.value.length) addRow()
+    // v415：自定义字段照带（仅仍在注册表里的键）
+    const ex = (o.extra && typeof o.extra === 'object') ? o.extra : {}
+    const e = {}
+    cfDefs.value.forEach(c => {
+      const v = ex[c.key]
+      if (v !== undefined && v !== null && String(v).trim() !== '') e[c.key] = String(v)
+    })
+    extra.value = e
+    toast('已载入这张单，修改后保存即可', 'info')
+  } catch (e) {
+    toast(e.message || '原单读取失败', 'error')
+    addRow()
+  }
+}
+
 /* ---- 提交前校验：**逐项显式报错**，不静默放过任何一行 --------------------------
    ⚠️ 日期格式在这里也校验一次：后端会 400（脏日期会让按日期筛选与排序静默出错），
       但等到提交后才报错、还要用户回头找是哪一行，是没必要的往返。 */
@@ -782,9 +874,17 @@ async function submit (mode) {
         note: String(r.note || '').trim(),
       })),
     }
-    const r = await psiApi.createPurchase(body)
-    const oid = r && (r.order_id || r.id)
-    const no = (r && r.order_no) || oid || ''
+    /* P1-4：编辑模式走 `updatePurchase`（整单重写，已入库由后端 400 拒）；新建 / 复制走 `createPurchase`。
+       `no` 在编辑态取不到 order_no ⇒ 用 oid 兜底，提示串照常成立。 */
+    let r, oid, no
+    if (editId.value) {
+      r = await psiApi.updatePurchase(Number(editId.value), body)
+      oid = Number(editId.value) || 0
+    } else {
+      r = await psiApi.createPurchase(body)
+      oid = r && (r.order_id || r.id)
+    }
+    no = (r && r.order_no) || oid || ''
 
     if (mode === 'approve') {
       /* 「保存并审核」：走**同一个审核原语**（不在这里重写规则）。
@@ -807,7 +907,11 @@ async function submit (mode) {
       toast(`采购单已保存（${no}）`, 'success')
     }
 
-    if (mode === 'new') { resetForNext(); return }
+    if (mode === 'new') {
+      // 编辑态下「再开一张」应跳出编辑上下文（否则路由仍带 ?edit= 会改到同一张单）
+      if (editId.value) { router.replace('/inventory/purchase/new'); return }
+      resetForNext(); return
+    }
     /* v412（P2-5）「保存并打印」：打印对象是**详情页那张单据**（单头 / 明细 / 合计 / 供应商
        都在那儿），所以这里只带一个 `?print=1` 过去，由详情页在数据**加载完成后**触发打印。
        🔴 不能在这一页直接 `window.print()`：本页是**编辑态表单**（输入框 / 下拉 / 按钮 /
@@ -1013,8 +1117,10 @@ async function reinit () {
   poOptions.value = []
   items.value = []
   extra.value = {}          // v415：切模式 / 换单 ⇒ 自定义字段的清空（不留上一单的值）
+  supBal.value = null       // P1-1：切模式 / 换单 ⇒ 供应商余额复位（重新选供应商会再拉）
   if (!refsOk.value) await loadRefs()
-  if (copyId.value) await loadCopy(copyId.value)
+  if (editId.value) await loadEdit(editId.value)
+  else if (copyId.value) await loadCopy(copyId.value)
   else addRow()
 }
 

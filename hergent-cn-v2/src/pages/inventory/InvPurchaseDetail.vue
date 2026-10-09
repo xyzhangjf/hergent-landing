@@ -29,6 +29,12 @@
         <button class="btn btn-ghost btn-sm" :disabled="busy" @click="doCopy">
           <Icon name="copy" :size="14" />复制
         </button>
+        <!-- P1-4 独立编辑入口：仅对「尚未入库」的单（草稿 / 待审批 / 已取消）开放。
+             ⚠️ 已确认 / 已入库 / 部分入库 / 已退货的单库存与应付已落账，走「编辑」会改已发生的事实
+             ⇒ 这里不放按钮（这类单请用「转单为 → 采购退货」）。与后端 `purchase_order_update` 的闸门一致。 -->
+        <button v-if="canWrite && canEdit" class="btn btn-ghost btn-sm" :disabled="busy" @click="doEdit">
+          <Icon name="edit" :size="14" />编辑
+        </button>
         <!-- v414（P2-6）「转单为」。对齐舟谱的同名入口，但**只留真有承接实体的那一项**：
                · 采购退货 —— 真做（跳退货建单页，带原单号预填可退明细）；
                · 销售单 / 调拨单 —— 后两项**置灰**并各写一句为什么：
@@ -170,6 +176,11 @@
           <div class="ipd-f"><span class="ipd-lb">经办人</span><span>{{ o.handler_name || '—' }}</span></div>
           <div class="ipd-f"><span class="ipd-lb">部门</span><span>{{ o.department_name || '—' }}</span></div>
           <div class="ipd-f"><span class="ipd-lb">审核时间</span><span>{{ o.audit_time || '—' }}</span></div>
+          <!-- P1-1：供应商维度应付余额 / 预付余额（跨该供应商全部单据，不是本单）。
+               数据来自货款 tab 同源的 `pay.order.supplier_payable` / `supplier_prepay`；
+               货款数据未加载时显示 `—`。让老板在详情页就看到「这供应商我们还欠多少、预先付了多少」。 -->
+          <div class="ipd-f"><span class="ipd-lb">供应商应付余额</span><span>{{ (pay && pay.order) ? ('¥' + fmtMoney(pay.order.supplier_payable)) : '—' }}</span></div>
+          <div class="ipd-f"><span class="ipd-lb">供应商预付余额</span><span>{{ (pay && pay.order) ? ('¥' + fmtMoney(pay.order.supplier_prepay)) : '—' }}</span></div>
           <div v-if="o.note" class="ipd-f ipd-f-grow"><span class="ipd-lb">备注</span><span>{{ o.note }}</span></div>
           <!-- v415（P2-7）补充信息（自定义字段）。
                🔴 **只列有值的** —— 字段可以随时加（上限 30 个），全铺出来会淹掉真正要看的。
@@ -355,6 +366,14 @@
             <div class="ipd-row"><span class="ipd-lb">订单编号</span><span class="ipd-mono">{{ pay.order_no || '—' }}</span></div>
             <div class="ipd-row"><span class="ipd-lb">供应商名称</span><span>{{ pay.supplier_name || '—' }}</span></div>
             <div class="ipd-row"><span class="ipd-lb">已预付</span><span>¥{{ fmtMoney(pay.prepaid_amount) }}</span></div>
+            <!-- P1-2：本采购单归属的结算单号（可能多张；已作废的标出）。数据来自后端 `pay.settlements`。
+                 没被结算过 ⇒ `—`（不是 0、也不是空串伪装）。让老板在货款页一眼看到「这张单进了哪几张结算单」。 -->
+            <div class="ipd-row"><span class="ipd-lb">结算单号</span>
+              <span v-if="pay.settlements && pay.settlements.length">
+                <span v-for="s in pay.settlements" :key="s.id" class="ipd-settle">{{ s.settle_no }}<i v-if="s.status === 'void'" class="ipd-settle-void">（已作废）</i></span>
+              </span>
+              <span v-else>—</span>
+            </div>
             <div class="ipd-row"><span class="ipd-lb">订单金额</span><span>¥{{ fmtMoney(pay.total_amount) }}</span></div>
             <div class="ipd-row"><span class="ipd-lb">入库金额</span><span>{{ moneyOrDash(pay.received_amount, hasItems) }}</span></div>
             <div class="ipd-row"><span class="ipd-lb">应付金额</span><span>{{ apAmountText }}</span></div>
@@ -750,6 +769,10 @@ const transOpen = ref(false)
    ⚠️ 这只是**粗筛**（还没算余量）：真正「还能退多少」由退货页的可退预览逐行算。 */
 const canTransfer = computed(() =>
   canWrite.value && ['received', 'partial', 'returned'].includes(String(o.value.status || '')))
+// P1-4：只有未入库的单可编辑（草稿 / 待审批 / 已取消）。已入库等状态在后端的 `purchase_order_update`
+// 会被拒，这里同步收起按钮，省掉「点了才知道不行」那一轮（与后端闸门逐字对齐）。
+const canEdit = computed(() =>
+  canWrite.value && ['draft', 'pending_approval', 'cancelled'].includes(String(o.value.status || '')))
 const transBlockTip = computed(() => {
   const s = String(o.value.status || '')
   if (s === 'draft') return '这张单还是草稿，没有入库，没有货可退'
@@ -1134,6 +1157,10 @@ async function doReceive () {
 
 function doCopy () {
   router.push('/inventory/purchase/new?copy=' + oid.value)
+}
+// P1-4：跳新建页的 edit 模式（带本单 id 预填），由新建页负责拉单 + 渲染可编辑表单。
+function doEdit () {
+  router.push('/inventory/purchase/new?edit=' + oid.value)
 }
 
 /* 打印 = 浏览器打印 + （可选）记一次打印数。记数必须落库：刷新后那个数字还在，

@@ -90,6 +90,34 @@
           <input v-model.trim="f.product_keyword" class="input ipl-sel"
                  placeholder="商品名 / 条码" @keyup.enter="load()" />
         </div>
+        <!-- P1-3：部门 / 经办人 / 审核人 / 标记内容 四个筛选。全部默认空 = 不筛（与后端默认值一致）。 -->
+        <div class="ipl-f">
+          <label class="ipl-lb">部门</label>
+          <select v-model.number="f.department_id" class="input ipl-sel" @change="load()">
+            <option :value="0">全部部门</option>
+            <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
+          </select>
+        </div>
+        <div class="ipl-f">
+          <label class="ipl-lb">经办人</label>
+          <select v-model="f.handler" class="input ipl-sel" @change="load()">
+            <option value="">全部经办人</option>
+            <option v-for="u in creators" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
+          </select>
+        </div>
+        <div class="ipl-f">
+          <label class="ipl-lb">审核人</label>
+          <select v-model="f.auditor" class="input ipl-sel" @change="load()">
+            <option value="">全部审核人</option>
+            <option value="__none__">未标注</option>
+            <option v-for="u in creators" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
+          </select>
+        </div>
+        <div class="ipl-f">
+          <label class="ipl-lb">标记内容</label>
+          <input v-model.trim="f.mark" class="input ipl-sel"
+                 placeholder="标记含关键字" @keyup.enter="load()" />
+        </div>
         <!-- 🔴 「只看已标记」必须留在**最后**：它的样式是 `margin-left:auto`
              （推到本行最右）。插在它后面的控件会被一起推到右侧、跟前面几项断开。 -->
         <label class="check-item ipl-chk-mark">
@@ -433,6 +461,7 @@ const counts = ref({})
 const suppliers = ref([])
 const warehouses = ref([])
 const creators = ref([])
+const departments = ref([])
 
 const limit = ref(20)
 const offset = ref(0)
@@ -479,6 +508,10 @@ const PO_COLS = [
   { key: 'received_amount',   label: '入库金额',   w: 104, on: true, num: true },
   { key: 'paid_amount',       label: '已结款',     w: 96,  on: true, num: true },
   { key: 'unpaid',            label: '未结款',     w: 96,  on: true, num: true },
+  // —— P1-5（采购退货单列表）退货金额列：数据来自后端 `return_total`（该单对应退货记录的合计）。
+  //   🔴 `returnOnly: true` ⇒ 只在「采购退货单」视图出现（普通采购单没有退货金额概念，
+  //      强行显示只会造成满屏 ¥0.00 的假象）；`on` 缺省收起，由 visibleCols 强制在退货视图显示。
+  { key: 'return_amount',     label: '退货金额',   w: 104, num: true, returnOnly: true },
   { key: 'audit_time',        label: '审核时间',   w: 108, on: true },
   { key: 'order_date',        label: '单据日期',   w: 108, on: true },
   { key: 'creator_name',      label: '创建人',     w: 84,  on: true },
@@ -592,7 +625,13 @@ const colDragFrom = ref(-1)
 const visibleCols = computed(() => {
   const arr = colOrder.value
     // 固定冻结列**永远可见**：localStorage 里若有脏值把它关掉，会连带齿轮的宿主与行操作锚点一起消失
-    .filter(k => colMap.value[k] && (k === FIXED_FROZEN || colVis.value[k] !== false))
+    .filter(k => {
+      const c = colMap.value[k]
+      if (!c) return false
+      // 🔴 `returnOnly` 列（退货金额）只在「采购退货单」视图出现：普通采购单没有退货金额概念。
+      if (c.returnOnly) return isReturn.value
+      return k === FIXED_FROZEN || colVis.value[k] !== false
+    })
     .map(k => colMap.value[k])
   const head = arr.filter(c => c.key === FIXED_FROZEN)
   let rest = arr.filter(c => c.key !== FIXED_FROZEN)
@@ -866,6 +905,8 @@ function colText (r, k) {
     case 'note': return r.note || ''
     case 'print_count': return Number(r.print_count || 0)
     case 'mark': return r.mark || ''
+    // P1-5：退货金额（仅退货视图出现）。数据 = 后端 `return_total`（该单对应退货记录合计）。
+    case 'return_amount': return isReturn.value ? Number(r.return_total || 0) : ''
   }
   return ''
 }
@@ -875,10 +916,11 @@ function cellVal (r, k) {
   return (t === '' || t === null || t === undefined) ? '—' : t
 }
 /** 金额格统一走 ¥ 前缀；`has_items=false` 的「入库金额 / 未结款」→ `—`（不要伪造 ¥0.00）。 */
-const MONEY_COLS = ['total_amount', 'received_amount', 'paid_amount', 'unpaid']
+const MONEY_COLS = ['total_amount', 'received_amount', 'paid_amount', 'unpaid', 'return_amount']
 function moneyCell (r, k) {
   if ((k === 'received_amount' || k === 'unpaid') && !r.has_items) return '—'
   if (k === 'unpaid') return '¥' + fmtMoney(Number(r.received_amount || 0) - Number(r.paid_amount || 0))
+  if (k === 'return_amount') return '¥' + fmtMoney(Number(r.return_total || 0))
   return '¥' + fmtMoney(r[k])
 }
 
@@ -889,13 +931,15 @@ function baseFilter () {
     status: isReturn.value ? 'returned' : '', supplier_id: 0, date_from: '', date_to: '',
     keyword: '', warehouse_id: 0, creator: '', only_marked: false,
     /* v408（P1-3）三个新筛选。**默认空 = 不筛**，与后端默认值逐一对应：
-       `source`（精确）/ `print_state`（printed|unprinted）/ `product_keyword`（商品名或条码）。
-       ⚠️ 仍然没有「审核人」筛选框：v408（P1-7）起后端**已经记** `auditor_id` 了，但
-          ① 报告只要求「列」，不要求筛（超范围不加）；② 真要加必须先定「审核人为空的历史单
-          怎么筛」（占绝大多数）⇒ 需要像 P1-3 那样配一个「未标注」选项，是独立取舍。
-          ⚠️ 下面「后端从不记录采购单审核人」这类旧说法已作废 —— 见后端
-          `purchase_order_approve` 的 v408 段。**列**已加（见 PO_COLS 的 `auditor_name`）。 */
+       `source`（精确）/ `print_state`（printed|unprinted）/ `product_keyword`（商品名或条码）。 */
     source: '', print_state: '', product_keyword: '',
+    /* P1-3 再补四个筛选（部门 / 经办人 / 审核人 / 标记内容）。全部默认空 = 不筛，
+       与后端 `purchase_order_list` 的默认值逐一对应：
+         · `department_id` 精确匹配部门 id（0 = 不筛）
+         · `handler`       精确匹配经办人 id（空 = 不筛）
+         · `auditor`       精确匹配审核人 id；`__none__` 哨兵 = 只看「未标注审核人」
+         · `mark`          标记内容模糊匹配（含子串） */
+    department_id: 0, handler: '', auditor: '', mark: '',
   }
 }
 const f = ref(baseFilter())
@@ -911,7 +955,9 @@ const hasFilter = computed(() => !!(
   /* v408（P1-3）🔴 三个新筛选**必须**也列进来：`hasFilter` 决定空结果时说
      「还没有采购单」还是「没有符合条件的结果（可清空筛选）」——漏一个就会出现
      「明明筛了商品、页面上说一张单都没有」，用户会以为数据丢了。 */
-  f.value.source || f.value.print_state || f.value.product_keyword
+  f.value.source || f.value.print_state || f.value.product_keyword ||
+  /* P1-3 四个新筛选同样必须列进来，理由同上。 */
+  f.value.department_id || f.value.handler || f.value.auditor || f.value.mark
 ))
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))
 const page = computed(() => Math.floor(offset.value / limit.value) + 1)
@@ -983,7 +1029,7 @@ async function load (resetPage = true) {
 
 async function loadBase () {
   try {
-    const refs = await psiApi.refs('warehouses,suppliers,users', '', 200)
+    const refs = await psiApi.refs('warehouses,suppliers,users,departments', '', 200)
     warehouses.value = refs.warehouses || []
     suppliers.value = refs.suppliers || []
     /* 🔴 创建人下拉的选项必须来自**后端主库 users**（`operator_id` 存的就是用户 id）。
@@ -992,6 +1038,8 @@ async function loadBase () {
        会显示成另一个人，选出来的归属是错的却零报错。后端读不到主库时**不返回 `users` 键**，
        这里保持空数组 ⇒ 页面把这一项藏起来（比放一个假下拉诚实）。 */
     creators.value = Array.isArray(refs.users) ? refs.users : []
+    // P1-3：部门下拉。后端 `get_departments()` 自带 `is_active=1` ⇒ 只列在用的部门。
+    departments.value = Array.isArray(refs.departments) ? refs.departments : []
   } catch (e) {
     // 基础资料拉不到不阻塞列表 —— 但要说出来，不静默
     toast(e.message || '基础资料读取失败', 'error')

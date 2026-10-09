@@ -167,6 +167,19 @@ export const psiApi = {
    */
   createPurchase: (body) => api('/api/psi/purchase-orders', { method: 'POST', body }),
 
+  /**
+   * P1-4 编辑一张尚未入库的采购单（draft / pending_approval / cancelled）。
+   * 后端 `purchase_order_update` 会整单重写（表头 + 删旧明细重插），已入库的单返回 400 拒绝。
+   */
+  updatePurchase: (id, body) =>
+    api(`/api/psi/purchase-orders/${id}`, { method: 'PUT', body }),
+
+  /**
+   * P1-1 供应商维度应付余额 / 预付余额（跨该供应商全部单据）。
+   * 新建采购单选了供应商即调，让老板开单前就看到「这供应商我们还欠多少、预先付了多少」。
+   */
+  supplierBalance: (sid) => api(`/api/psi/suppliers/${sid}/balance`),
+
   getPurchase: (id) => api(`/api/psi/purchase-orders/${id}`),
 
   /** 确认 → **到货入库**：逐行 `batch_in`（记批次/效期）+ 应付 + 凭证 + 加权成本。 */
