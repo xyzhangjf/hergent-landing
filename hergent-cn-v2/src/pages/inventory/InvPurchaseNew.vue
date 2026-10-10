@@ -6,10 +6,6 @@
         <span class="page-sub">{{ pageSub }}</span>
       </div>
       <div class="ipn-acts">
-        <template v-if="!isReturn">
-          <input v-model.trim="prodKw" class="input ipn-prod-kw" placeholder="输入商品名筛选下面的商品下拉" />
-          <button class="btn btn-ghost btn-sm" @click="addRow()"><Icon name="plus" :size="14" />加一行</button>
-        </template>
         <button class="btn btn-ghost btn-sm" :disabled="saving" @click="back">返回列表</button>
       </div>
     </div>
@@ -147,13 +143,37 @@
     <div v-if="!isReturn" class="ipn-hd ipn-hd-flat">
       <div class="ipn-f ipn-f-sup">
         <label class="ipn-lb">供应商 <span class="ipn-req">必填</span></label>
-        <div class="ipn-sup-pick">
-          <input v-model.trim="supKw" class="input ipn-kw" placeholder="输入名称搜索"
-                 @keyup.enter="loadSuppliers" />
-          <select v-model.number="form.supplier_id" class="input ipn-sel">
-            <option :value="0" disabled>请选择供应商</option>
-            <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
-          </select>
+        <!-- v428：搜索框 + 下拉选择**合并为单个组合框**。输入即按「名称 或 编号」本地
+             模糊匹配（编号来自 refs 新增的 `code` 字段），下拉直接点选；未从下拉点选时
+             失焦自动还原成「当前已选供应商名」，不允许留下无对应供应商的自由文本。 -->
+        <div class="ipn-sup-combo" ref="supComboRef">
+          <input
+            ref="supInputRef"
+            v-model="supQuery"
+            class="input ipn-sup-input"
+            placeholder="输入名称或编号搜索供应商"
+            autocomplete="off"
+            @focus="onSupFocus"
+            @input="onSupInput"
+            @keydown.down.prevent="supMove(1)"
+            @keydown.up.prevent="supMove(-1)"
+            @keydown.enter.prevent="supEnter"
+            @keydown.esc.prevent="supClose"
+            @blur="onSupBlur"
+          />
+          <ul v-if="supOpen && supMatches.length" class="ipn-sup-list">
+            <li
+              v-for="(s, i) in supMatches"
+              :key="s.id"
+              :class="{ active: i === supActive }"
+              @mousedown.prevent="supChoose(s)"
+              @mouseenter="supActive = i"
+            >
+              <span class="ipn-sup-name">{{ s.name }}</span>
+              <span v-if="s.code" class="ipn-sup-code">{{ s.code }}</span>
+            </li>
+          </ul>
+          <div v-else-if="supOpen && supQuery && !supMatches.length" class="ipn-sup-empty">没有匹配的供应商</div>
         </div>
       </div>
       <!-- v408（P0-5）经办人 / 部门 —— 对齐舟谱建单表单里的 `*经办人` / `*部门`。
@@ -191,7 +211,9 @@
       </div>
       <div class="ipn-f ipn-f-grow">
         <label class="ipn-lb">备注 <span class="ipn-cnt">{{ (form.note || '').length }}/500</span></label>
-        <input v-model.trim="form.note" maxlength="500" class="input" placeholder="选填" />
+        <!-- v428：同排其它输入框都是 32px（.ipn-sel/.ipn-date/.ipn-kw），备注框原本只用
+             全局 .input（默认 40px）⇒ 整行高低不齐。补 ipn-note-in 收成 32px，对齐。 -->
+        <input v-model.trim="form.note" maxlength="500" class="input ipn-note-in" placeholder="选填" />
       </div>
     </div>
 
@@ -275,7 +297,7 @@
         </span>
       </p>
 
-      <div v-if="!items.length" class="state-empty">还没有明细，点右上角「加一行」开始。</div>
+      <div v-if="!items.length" class="state-empty">还没有明细，点击任意行末尾的 <Icon name="plus" :size="14" /> 按钮添加一行。</div>
 
       <div v-else class="table-wrap">
         <table class="tbl ipn-tbl">
@@ -525,8 +547,6 @@ const products = ref([])
       hr_employees id=2=王老板），同一个 id 会显示成另一个人、选出来归属是错的且零报错。 */
 const users = ref([])
 const departments = ref([])
-const supKw = ref('')
-const prodKw = ref('')
 /* v414（P2-6）：`kind` / `from_po` / `copy` **全部走 computed + watch**，不取一次性常量。
    🔴 为什么：`/inventory/purchase/new` 是**同一条 path**，`?kind=order` ↔ `?kind=return`
       切换时 vue-router **复用同一个组件实例**（path 没变）⇒ `onMounted` 不会再跑，
@@ -597,11 +617,7 @@ const cfPayload = computed(() => {
   return o
 })
 
-const prodOptions = computed(() => {
-  const k = prodKw.value.trim().toLowerCase()
-  if (!k) return products.value
-  return products.value.filter(p => (p.name || '').toLowerCase().includes(k))
-})
+const prodOptions = computed(() => products.value)
 const selSupplier = computed(() => suppliers.value.find(s => s.id === form.value.supplier_id) || null)
 const totalAmount = computed(() => items.value.reduce((s, r) => s + rowAmount(r), 0))
 
@@ -802,14 +818,64 @@ function onPick (row) {
   if (!row.unit_price && row.purchase_price > 0) row.unit_price = String(row.purchase_price)
 }
 
-async function loadSuppliers () {
-  try {
-    const d = await psiApi.refs('suppliers', supKw.value, 200)
-    suppliers.value = d.suppliers || []
-  } catch (e) {
-    toast(e.message || '供应商读取失败', 'error')
-  }
+/* v428：供应商「搜索 + 选择」合一的组合框（combobox）。
+   🔴 不再是两个框：输入即按「名称 或 编号」本地模糊匹配，下拉直接点选。
+      编号来自后端 `refs` 新增的 `code` 字段（psi.py 投影已补 `code`）。
+   🔴 为什么本地过滤、不打接口：供应商全量已由 `loadRefs` 一次拉全（≤500），本地
+      `includes` 瞬时、无网络抖动；且编号搜索要靠前端拿到 `code` 才能做。
+   🔴 一旦开始打字 ⇒ 清空旧选择（`form.supplier_id=0`），validate() 才能如实反映
+      「还没选」；失焦若没点选则把输入框文字还原成「当前已选供应商名」，不允许留自由文本。
+   🔴 下拉最多列 50 条（500 全量里筛）；键盘 ↑/↓ 移动、Enter 选中、Esc 关闭。 */
+const supQuery = ref('')
+const supOpen = ref(false)
+const supActive = ref(0)
+const supComboRef = ref(null)
+const supInputRef = ref(null)
+
+const supMatches = computed(() => {
+  const q = supQuery.value.trim().toLowerCase()
+  const list = suppliers.value
+  if (!q) return list.slice(0, 50)
+  return list.filter(s =>
+    (s.name || '').toLowerCase().includes(q) ||
+    (s.code || '').toLowerCase().includes(q)
+  ).slice(0, 50)
+})
+
+/** 把输入框文字同步成「当前已选供应商名」—— 供 loadEdit / loadCopy 外部带单后回填。 */
+function syncSupQuery () {
+  const s = suppliers.value.find(x => x.id === Number(form.value.supplier_id))
+  supQuery.value = s ? s.name : ''
 }
+function onSupFocus () { supOpen.value = true; supActive.value = 0 }
+function onSupInput () {
+  // 打字 = 重新搜索 ⇒ 清掉旧选择，避免「框里写着 A、实际选着 B」的错配
+  form.value.supplier_id = 0
+  supOpen.value = true
+  supActive.value = 0
+}
+function onSupBlur () {
+  // 还原成当前已选供应商名（没选就空着），不让自由文本残留
+  supQuery.value = selSupplier.value ? selSupplier.value.name : ''
+  supOpen.value = false
+}
+function supMove (d) {
+  if (!supOpen.value) { supOpen.value = true; return }
+  const n = supMatches.value.length
+  if (!n) return
+  supActive.value = (supActive.value + d + n) % n
+}
+function supEnter () {
+  const s = supMatches.value[supActive.value]
+  if (s) supChoose(s)
+}
+function supChoose (s) {
+  if (!s) return
+  form.value.supplier_id = s.id
+  supQuery.value = s.name
+  supOpen.value = false
+}
+function supClose () { supOpen.value = false }
 
 /* ---- 复制：按原单带出商品与价格。**批次三列刻意不带** ----------------------------
    🔴 复制一张旧单去买新的一批货，批次号/到期日一定是**新的** —— 沿用旧值会让
@@ -822,6 +888,8 @@ async function loadCopy (oid) {
     form.value.supplier_id = Number(o.supplier_id || 0)
     form.value.warehouse_id = Number(o.warehouse_id || 0)
     form.value.note = o.note || ''
+    // v428：把组合框输入框文字回填成已选供应商名（suppliers 已在 reinit 里 loadRefs 拉全）
+    syncSupQuery()
     // v408（P0-5）：经办人 / 部门是**业务归属**，复制一张单多半还是同一个人办、
     // 同一个部门 ⇒ 一并带出（可改）。⚠️ 用 `??` 不用 `||`：`department_id` 为 0
     // 是合法值（"不指定"），`||` 会把它当假值吞掉 —— 结果一样但语义会误导后来人。
@@ -868,6 +936,8 @@ async function loadEdit (oid) {
     }
     form.value.supplier_id = Number(o.supplier_id || 0)
     form.value.warehouse_id = Number(o.warehouse_id || 0)
+    // v428：把组合框输入框文字回填成已选供应商名
+    syncSupQuery()
     form.value.order_date = o.order_date || todayISO()
     form.value.expected_date = o.expected_date || ''
     form.value.note = o.note || ''
@@ -909,8 +979,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /* v417h：**哪些行算明细**的唯一判据 —— 选了商品的行才算（预设/手动加的空行不算）。
    🔴 为什么要单独抽一个函数：有了预设空行后，「校验哪些行」和「提交哪些行」必须同源。
-      两处各写一份过滤 ⇒ 改一处漏一处：要么用户被要求填满 10 行才能保存，
-      要么 10 条空明细落库（后端不拦空行）。校验与提交都调它。 */
+      两处各写一份过滤 ⇒ 改一处漏一处：要么用户被要求填满 15 行才能保存，
+      要么 15 条空明细落库（后端不拦空行）。校验与提交都调它。 */
 function pickedRows () {
   const out = []
   items.value.forEach((r, i) => { if (Number(r.product_id) > 0) out.push({ r, idx: i + 1 }) })
@@ -922,7 +992,7 @@ function validate () {
   if (!form.value.warehouse_id) return '请选择入库仓库'
   if (form.value.order_date && !DATE_RE.test(form.value.order_date)) return '单据日期格式不正确，请用日期选择器选'
   if (form.value.expected_date && !DATE_RE.test(form.value.expected_date)) return '预计到货日期格式不正确，请用日期选择器选'
-  // v417h：预设空行不参与校验（否则用户必须填满 10 行才能保存）。
+  // v417h：预设空行不参与校验（否则用户必须填满 15 行才能保存）。
   //   但「填了数量/价格却没选商品」是半截操作 ⇒ 明确报错，不静默丢弃。
   for (let i = 0; i < items.value.length; i++) {
     const r = items.value[i]
@@ -954,7 +1024,6 @@ function resetForNext () {
     handler: form.value.handler, department_id: form.value.department_id }
   form.value = keep
   items.value = [blankRow()]
-  prodKw.value = ''
   // v415：自定义字段是**这一张单**的信息（如厂家结算单号）⇒ 连开下一张时清空，
   // 不沿用 —— 沿用会让新单继承上一单的事实，比留空更危险。
   extra.value = {}
@@ -1231,7 +1300,6 @@ async function reinit () {
   saveOpen.value = false
   if (isReturn.value) {
     items.value = []
-    prodKw.value = ''
     poKw.value = ''
     retReason.value = ''
     retError.value = ''
@@ -1254,9 +1322,9 @@ async function reinit () {
   if (!refsOk.value) await loadRefs()
   if (editId.value) await loadEdit(editId.value)
   else if (copyId.value) await loadCopy(copyId.value)
-  // v417h：预设 10 行（原 5 行）—— 舟谱同屏 14 行的观感；配合行高 33→约 27px，
-  //       单屏可见行数 5 → 约 10 行。空行不落库（submit 前会过滤掉没选商品的行）。
-  else for (let i = 0; i < 10; i++) items.value.push(blankRow())
+  // v417h：预设 15 行（原 5 行、v417h 改 10 行）—— 舟谱同屏 14 行的观感；配合行高
+  //       33→约 27px，单屏可见行数 5 → 约 15 行。空行不落库（submit 前会过滤掉没选商品的行）。
+  else for (let i = 0; i < 15; i++) items.value.push(blankRow())
 }
 
 onMounted(async () => {
@@ -1322,7 +1390,32 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 /* v415（P2-7）自定义字段的输入框：固定宽度（字段名 ≤12 字 + 值 ≤200 字，160px 够看一屏），
    不跟着 `.ipn-f-grow` 撑满 —— 它们是一组等宽的短字段，不是主字段。 */
 .ipn-cf-in { width: 160px; height: 32px }
+/* 退货模式「原采购单」搜索框 + 下拉：仍是两框并列（与采购单供应商组合框不同，这里保留旧式）。
+   v428 把采购单的供应商选择改成了组合框，但原采购单选择器不动。 */
 .ipn-sup-pick { display: flex; gap: 6px }
+/* v428：供应商组合框（搜索 + 选择 合一）。相对定位撑起下拉，下拉绝对定位盖在输入框下方。 */
+.ipn-sup-combo { position: relative; flex: 1; min-width: 0 }
+.ipn-sup-input { height: 32px; padding: 0 10px }
+.ipn-sup-list {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.ipn-sup-list li {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--t1);
+}
+.ipn-sup-list li.active, .ipn-sup-list li:hover { background: var(--bg2) }
+.ipn-sup-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ipn-sup-code { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
+.ipn-sup-empty {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
+  padding: 10px; background: var(--bg); border: 1px solid var(--bd);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 12px; color: var(--t3);
+}
+/* v428：备注框与同排其它输入框同高（全局 .input 默认 40px，会高低不齐） */
+.ipn-note-in { height: 32px; padding: 0 10px }
 .ipn-kw { width: 130px; height: 32px }
 .ipn-sel { min-width: 170px; height: 32px }
 .ipn-date { height: 32px }
@@ -1343,8 +1436,6 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
    筛选框与「加一行」上移到页头，这里只留「商品明细 + 项数 + 口径说明（默认折叠）」。
    折叠态下明细上方只占这一行，展开才补回说明文字（省约 26px ≈ 0.7 行）。 */
 .ipn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
-/* 上移到页头后的商品筛选框（原在明细工具条内，靠 margin-left:auto 靠右；现在不需要） */
-.ipn-prod-kw { width: 240px; height: 30px }
 .ipn-tip {
   display: flex; align-items: flex-start; gap: 6px;
   font-size: 12px; color: var(--t2); margin: 0 0 10px;
@@ -1562,7 +1653,6 @@ table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
   .ipn-hd { align-items: stretch }
   .ipn-f, .ipn-kw, .ipn-sel, .ipn-date { width: 100%; min-width: 0 }
   .ipn-sup-pick { flex-direction: column }
-  .ipn-prod-kw { width: 100% }
   .ipn-bottom { margin-inline: 0; padding-inline: 0 }
 }
 </style>
