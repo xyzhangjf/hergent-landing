@@ -326,7 +326,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, i) in items" :key="row.uid">
+            <tr v-for="(row, i) in items" :key="row.uid" :data-uid="row.uid">
               <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td class="ipn-c-prod" @click="openProd(row)">
                 <div v-if="isCellOn(row, 'prod')" class="ipn-prod-combo">
@@ -510,7 +510,7 @@
       `purchase_order_items.note`（`_safe_migrate` + 租户清单**两处**成对加列），
       明细 INSERT 走「**空则不加列**」⇒ 不填时 SQL 与改动前逐字一致。
       ⚠️ 与表头的整单「备注」**不是一回事**：前者是"这一行为什么这么订"，后者是"整单说明"。 */
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import { psiApi } from '../../api/psi'
@@ -792,8 +792,22 @@ function blankRow () {
   }
 }
 function addRow () { items.value.push(blankRow()) }
-function insertAfter (i) { items.value.splice(i + 1, 0, blankRow()) }
+function insertAfter (i) {
+  const r = blankRow()
+  items.value.splice(i + 1, 0, r)
+  // v430：新增行后把新行滚入可见区 —— 否则底部 sticky 的「合计」条会盖住刚加的那一行
+  //   （插入后浏览器不自动滚动，新行落在被合计条遮住的底部视口带里）。
+  scrollRowIntoView(r.uid)
+}
 function removeRow (i) { items.value.splice(i, 1) }
+
+// 把指定 uid 的明细行滚入视口（贴着底部 sticky 合计条上方留白处，不被它盖住）。
+function scrollRowIntoView (uid) {
+  nextTick(() => {
+    const el = document.querySelector(`.ipn-tbl tbody tr[data-uid="${uid}"]`)
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  })
+}
 
 /** 从商品档案带出单位 / 条码 / 参考成本价（价格可改）。
     v409（P2-1）：单位改成**三档可选**（小 / 中 / 大），档位清单由后端 `unit_options` 下发。
@@ -1590,6 +1604,9 @@ table.ipn-tbl td.seq-cell { padding: 2px 4px }
 }
 .ipn-tbl th.ipn-c-op { background: var(--bg2) }
 .ipn-tbl tbody tr:hover td.ipn-c-op { background: var(--bg2) }
+/* v430：明细行在滚动容器里滚入可见区时，底部要留给 sticky「合计」条 ~50px 的留白，
+   否则 scrollIntoView 会把行底顶到视口最底、正好被合计条盖住。 */
+.ipn-tbl tbody tr { scroll-margin-bottom: 64px }
 .ipn-in { width: 100%; height: 22px }
 /* v417h（对照舟谱·行密度）：**浏览态扁平化** —— 未聚焦的格不铺底色、只留极淡描边，
    整行看起来像「一排文���」，鼠标指向或键盘聚焦才浮起成可编辑的框。
