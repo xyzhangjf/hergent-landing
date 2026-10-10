@@ -1710,11 +1710,11 @@ table.ipn-tbl td.seq-cell { padding: 2px 4px }
    否则 scrollIntoView 会把行底顶到底、正好被合计条盖住。 */
 .ipn-tbl tbody tr { scroll-margin-bottom: 32px }
 .ipn-in { width: 100%; height: 22px }
-/* v417h（对照舟谱·行密度）：**浏览态扁平化** —— 未聚焦的格不铺底色、只留极淡描边，
+/* v417h（对照舟谱·行密度）：**浏览态扁平化** —— 仍铺与表单头「供应商框」一致的底色（var(--bg3)）、只留极淡描边，
    整行看起来像「一排文���」，鼠标指向或键盘聚焦才浮起成可编辑的框。
    🔴 不这么做的代价：15 列全画成带底色的输入框，视觉噪音重、扫读时找不到当前行；
       但格子**仍是 input**（不是换成文本再切换），可点可键盘 Tab，零交互回归风险。 */
-table.ipn-tbl .ipn-in:not(:focus) { background: transparent }
+table.ipn-tbl .ipn-in:not(:focus) { background: var(--bg3) }
 table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
 /* v417j 文本态（未激活的格）：行高比输入框态矮约 5px —— 这就是本档密度收益的来源。
    🔴 不加 `overflow:hidden + ellipsis` 会怎样：商品名一长就把列撑宽、把表格推出横向滚动，
