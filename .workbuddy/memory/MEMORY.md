@@ -26,6 +26,8 @@
   · 🔴 **v427** 侧栏「系统」分组「AI 引擎」(`/connect`)／「设置」(`/settings`) 由单入口拆成各 5 条独立子页（与 v424 同构）：
     `ConnectCenter.vue`／`Settings.vue` **撤页签条** + `?tab=` 驱动 5 子页 + **`watch(() => route.query.tab)`**（同组件复用不重挂）；
     `NAV`／`CONNECT_TABS`/`SETTINGS_TABS`／`tabTitles.js` **四处键名逐字对齐**；图标只用 `Icon.vue` 已存在名（写错静默变齿轮）`§v427`
+  · 🔴 **v428** 「连接器」(`/connect?tab=connector`) 再拆成 3 个独立子页：`连接手机`(`im`)/`配对审批`(`pairing`)/`业务数据源`(`datasource`)；从「AI 能力」组挪出、新建「连接与集成」组（「AI 能力」只留纯 AI 的 4 项）。
+    `ConnectCenter.vue` 原 `connector` 大模板拆成 `im`/`pairing`/`datasource` 三个 `v-else-if`，`CONNECT_TABS`/`normConnectTab`/默认 tab 改 `im`；`tabTitles.js` 的 `/connect` 子标题 `connector`→`im/pairing/datasource`；图标 `smartphone`/`approve`/`store`（逐字 grep 核验存在）`§v428`
 
 - **后端**（权限/账号/DB/报 500/路由遮蔽/角色授权/幽灵模块/动作轴/只读 POST）→ `topics/backend-invariants.md` + `backend-auth.md`
   · 🔴 **v317** 路由遮蔽：同路径**先注册者胜** ⇒ 加字段前必验生效的是哪份
