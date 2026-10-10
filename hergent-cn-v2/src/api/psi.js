@@ -451,6 +451,59 @@ export const psiApi = {
 
   /** 签收 —— 后端生成应收（AR）并按账期算到期日。 */
   signSale: (id) => api(`/api/psi/sale-orders/${id}/sign`, { method: 'POST' }),
+
+  /* ---- 销售退货（v441，自提退单 / 车销退单建单页）-----------------------
+     🔴 走 `/api/psi/...` 而**不是**既有的 `POST /api/return-orders`：那条归 `sales`
+        模块（业务员 / 会计 / 导购都持有）⇒ 用它等于把「进销存只给老板」的能力闸门
+        当场作废；且它**不做任何上限校验**（想退多少退多少）。`/api/psi` 前缀由后端
+        `_PATH_MODULE_MAP` 裁决为 `inventory`（默认只有 boss/admin 持有）。
+     🔴 **销售数量只有一个量纲**：`sale_order_items` 的 DDL 里**没有**换算比列
+        （不像 `purchase_order_items` 有 v409 加的 `base_qty` / `base_ratio` 快照）
+        —— 所以这里**没有** `base_*` 系列字段，`quantity` 就是原销售单行「单位」那一列
+        的口径。前端**不许**再乘 / 除一次（那是第二份换算实现，必然与建单路径分岔）。
+     ------------------------------------------------------------------- */
+
+  /**
+   * 销售退货**可退预览**：这张销售单每行还能退多少。
+   * @returns `{order, can_return, reason, items, total_amount, note}`
+   *   · `items[].{product_id, product_name, unit, quantity, delivered_qty,
+   *               returned_qty, returnable_qty, unit_price, amount}`
+   *   · `order.{id, order_no, customer_id, customer_name, warehouse_id, warehouse_name,
+   *            order_type, status, order_date, delivery_date, total_amount}`
+   *   🔴 「已发货」的判据是**状态**（`delivered` / `signed`），**不是** `delivery_status`
+   *      列 —— 该列在本仓**没有任何代码路径写过**（实测租户库恒为空），拿它判会恒判
+   *      「没发货」⇒ 可退量恒 0，界面看着像「退完了」，其实还能退（静默假否定）。
+   *   🔴 `can_return=false` 时 `reason` **一定**有人话原因（「这张单还没发货，没有货可退。」
+   *      /「这张单的货已经全部退完了。」/「这张单没有明细行，没有可退的货。」/
+   *      已退量读取失败），界面照显 —— 不许让用户对着一个点不动的按钮猜为什么。
+   *   ⚠️ `total_amount` 是**可退金额**；**没有**「可退总数量」这种字段 —— 不同行的单位
+   *      不同（袋 / 瓶 / 盒），跨商品求数量和一个没有意义的伪指标。
+   *   ⚠️ `note` 是给用户看的口径说明（含「源销售单状态不回写」）—— 原样显示，
+   *      页面不要自己另写一套口径文案。
+   */
+  returnSalePreview: (id) => api(`/api/psi/sale-orders/${id}/return-preview`),
+
+  /**
+   * 落一张**销售退货单**（回增库存 + 冲减客户应收）。
+   * @param {number} id 原销售单 id
+   * @param {object} body
+   *        `{reason?: string, idempotency_key?: string,
+   *          items: [{product_id, product_name, quantity, unit_price}]}`
+   *   🔴 `quantity` / `unit_price` 的口径**就是** `returnSalePreview()` 给的那一对
+   *      （原销售单行口径），**不要再乘 / 除**。
+   *   🔴 可退上限（`quantity ≤ 可退余量`）**唯一强制在后端** —— 前端也拦一次只是为了
+   *      少一次往返，不代表可以省掉：前端拦不住直接打接口的人，而退货是**不可逆**的
+   *      库存动作，多退的货在账上凭空消失。后端 400 的中文原因**原样显示**即可。
+   *   🔴 `idempotency_key`：同一次提交的重复点击 / 网络重试必须传**同一个 key**
+   *      （页面用 `newIdemKey()` 在进入退货模式时生成一次、提交时复用）—— 后端据此
+   *      查重，命中即返回原退货单，**不会**二次冲减应收；不传则可能落下两张退货单。
+   *   ⚠️ 后端**不回写源销售单状态**（`sale_orders.status` 参与
+   *      draft→confirmed→delivered→signed 状态机，塞个 `returned` 进去会让源单从状态机
+   *      掉出来）⇒ 退完后列表上那张单还是「已发货」。**别在前端自己改状态假装回写了**，
+   *      「有没有退过货」一律以预览的「已退 / 可退」两列为准。
+   */
+  returnSale: (id, body) =>
+    api(`/api/psi/sale-orders/${id}/return`, { method: 'POST', body }),
 }
 
 export default psiApi

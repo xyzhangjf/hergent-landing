@@ -341,7 +341,7 @@
           <thead>
             <tr>
               <th class="seq-th col-gear-th">
-                <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
+                <button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
               </th>
               <th class="ipn-c-prod">商品</th>
               <th v-if="isVisible('code')" class="ipn-c-code">条码</th>
@@ -469,26 +469,14 @@
         </table>
       </div>
 
-      <!-- 列设置面板（开发规范 §2.6.1「三、」：齿轮 + 固定定位面板，位置/限高由 useColMenu 现算） -->
-      <div v-if="showColMenu" class="col-menu-overlay" @click="showColMenu = false"></div>
-      <div v-if="showColMenu" ref="colMenuEl" class="col-menu" :style="colMenuStyle" @click.stop>
-        <div class="col-menu-hd">
-          <span>显示列</span>
-          <button class="col-menu-x" @click="showColMenu = false" title="关闭"><Icon name="close" /></button>
-        </div>
-        <ul class="col-menu-list">
-          <li v-for="c in DETAIL_COLS" :key="c.key" :class="{ locked: c.core }">
-            <label>
-              <input type="checkbox" :checked="isVisible(c.key)" :disabled="c.core"
-                     @click.prevent="toggleCol(c.key)" />
-              {{ c.label }}<span v-if="c.core" class="col-core-tag">固定</span>
-            </label>
-          </li>
-        </ul>
-        <div class="col-menu-reset">
-          <button class="btn btn-ghost btn-xs" @click="resetCols">恢复默认</button>
-        </div>
-      </div>
+      <!-- 列设置面板（共享组件 · 《进销存建单页开发规范》§4）。
+           v442：原先是本页**内联**的 overlay + 面板 + 一份 scoped 的 `.col-menu*` 样式
+           （40 行）。v432 起这套已上提为全站唯一实现（`styles/col-menu.css` + `ColMenuPanel.vue`
+           + `useColSettings`）—— 那份全局 CSS 与本页原 scoped 版本**逐字节相同**，
+           故收敛后视觉与交互零变化，只是不再留第二份拷贝。
+           定位/限高由组件内部的 useColMenu 按齿轮 `getBoundingClientRect()` 现算。 -->
+      <ColMenuPanel ref="panel" :col-list="DETAIL_COLS" :is-visible="isVisible"
+                    :toggle-col="toggleCol" :reset-cols="resetCols" />
     </div>
 
     <!-- 底部动作条（对齐舟谱：合计在左、动作在右下）。
@@ -579,8 +567,8 @@ import { PSI_NOTES, fmtMoney, PO_STATUS, textOf } from '../../constants/psiLabel
 /* v415（P2-7）采购单自定义字段。定义与值读取抽在 composable 里（列表页 / 详情页共用），
    本页只用它的「定义」与「类型」两件事：按类型给文本框 / 数字框。 */
 import { usePurchaseCustomFields } from '../../composables/purchaseCustomFields.js'
-import { useColMenu } from '../../composables/useColMenu.js'
-import { useColPrefs } from '../../composables/useColPrefs.js'
+import { useColSettings } from '../../composables/useColSettings.js'
+import ColMenuPanel from '../../components/ColMenuPanel.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -598,10 +586,15 @@ const isCellOn = (row, f) => activeCell.value === cellKey(row, f)
 function cellOn (row, f) { activeCell.value = cellKey(row, f) }
 function cellOff () { activeCell.value = '' }
 
-/* v432：明细表「列设置」齿轮（开发规范 §2.6.1「三、」）。
+/* 明细表「列设置」齿轮（《进销存建单页开发规范》§4）。
    把原「序号」表头格换成标准化的列设置齿轮；面板可勾选**可选列**的显隐，
    固定列（商品 / 单位 / 采购价 / 订单数量 / 订单金额 / 操作）恒定显示、不可关。
-   面板位置与限高由 useColMenu 按齿轮 `getBoundingClientRect()` 现算；可见性落云端（useColPrefs）。 */
+   v442：收敛到全站共享实现 —— `useColSettings`（列清单 + 可见性 + 云端持久化）
+   ＋ `ColMenuPanel.vue`（面板 + 现算定位）＋ `styles/col-menu.css`（长相）。
+   云端偏好键**仍是 `purchase-new`**（useColSettings 把它透传给 useColPrefs）
+   ⇒ 用户已保存的列显隐设置原样保留，不会因为这次收敛被重置。
+   收敛前本页自带一份 `useColMenu` + `useColPrefs` + colVis/isVisible 的手写实现，
+   与本 composable 逻辑等价（逐行核对过）但**是第二份**。 */
 const DETAIL_COLS = [
   { key: 'prod',  label: '商品',     core: true },
   { key: 'code',  label: '条码',     core: false },
@@ -616,41 +609,9 @@ const DETAIL_COLS = [
   { key: 'note',  label: '行备注',   core: false },
   { key: 'op',    label: '操作',     core: true },
 ]
-const _detailDefaultVis = () => {
-  const v = {}
-  DETAIL_COLS.forEach(c => { if (!c.core) v[c.key] = true })
-  return v
-}
-const colVis = ref(_detailDefaultVis())
-function isVisible (key) {
-  const c = DETAIL_COLS.find(x => x.key === key)
-  if (!c) return true
-  return c.core || colVis.value[key] !== false
-}
-const { showColMenu, colMenuEl, colMenuStyle, toggleColMenu } = useColMenu()
-const colPrefs = useColPrefs('purchase-new', {
-  // 云端整体覆盖本地（顺序/冻结这里没有，只存可见性），与列表页同一条约束。
-  apply: (cfg) => {
-    if (cfg && cfg.vis) {
-      const v = _detailDefaultVis()
-      Object.keys(v).forEach(k => { if (typeof cfg.vis[k] === 'boolean') v[k] = cfg.vis[k] })
-      colVis.value = v
-    }
-  },
-  snapshot: () => ({ vis: colVis.value }),
-})
-function persistCols () { colPrefs.push({ vis: colVis.value }) }
-function toggleCol (key) {
-  const c = DETAIL_COLS.find(x => x.key === key)
-  if (!c || c.core) return
-  colVis.value = { ...colVis.value, [key]: !(colVis.value[key] !== false) }
-  persistCols()
-}
-function resetCols () {
-  colVis.value = _detailDefaultVis()
-  persistCols()
-}
-onMounted(() => { colPrefs.syncFromCloud() })
+const { isVisible, toggleCol, resetCols } = useColSettings('purchase-new', DETAIL_COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
 /** 非激活态要显示商品名（不是 product_id）—— 从下拉的同一份清单取，避免另存一份名字导致两处不同步。 */
 function prodName (row) {
@@ -1928,6 +1889,14 @@ table.ipn-tbl td.seq-cell { padding: 2px 4px }
 .ipn-c-amt { width: 92px }
 /* v417i：原来 118(批次号) + 132×2(两个日期) = 382px ⇒ 现在一列 150px 装摘要 + 小面板入口 */
 .ipn-c-batch { width: 150px }
+/* v442：`.has-val` 在模板里被绑定（`:class="{ 'has-val': batchText(row) }"`），
+   但**全仓没有任何 `.has-val` 规则** —— 是 UI-SPEC §7.1「类差集审计」查出来的
+   「零样式定义」类（构建零报错、肉眼也看不出，因为没效果）。
+   这里按它当初的意图补上：没填批次时格内那两个字是**占位**（"填写"），要比真值弱一档。
+   ⚠️ 不删这个绑定：它承载的「这格填了没有」语义是模板作者写下的意图，
+      删掉就再也看不出来；补一条规则才是把意图落地。
+      与 `.ipn-v.is-ph`、`.isn-unit.none` 对占位文字的处理同一条口径（`var(--t3)`）。 */
+.ipn-c-batch:not(.has-val) .ipn-batch-txt { color: var(--t3) }
 /* v417g：未选商品的行，日期输入淡显（浏览器自带的「年/月/日」占位没法改色，
    只能整体降透明度；选中商品即恢复，输入不受影响）。 */
 .ipn-in.ipn-dim { opacity: .38 }
@@ -2092,35 +2061,9 @@ table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
   .ipn-hd-box .ipn-f .ipn-date { width: auto; flex: 1; min-width: 0 }
 }
 
-/* v432：列设置齿轮 + 面板（开发规范 §2.6.1「三、」，与采购单列表/预报同源观感）。
-   定位由 useColMenu 注入 inline（position:fixed + left/top/maxHeight），这里只管长相。 */
-.col-gear-th { width: 44px; text-align: center; padding: 0 4px }
-.col-cfg.gear {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; padding: 0; border: 0; background: transparent;
-  color: var(--t2); cursor: pointer; border-radius: var(--radius-sm);
-}
-.col-cfg.gear:hover { background: var(--bg2); color: var(--t1) }
-.col-menu-overlay { position: fixed; inset: 0; z-index: calc(var(--z-sticky, 50) + 10) }
-.col-menu {
-  position: fixed; z-index: calc(var(--z-sticky, 50) + 11);
-  width: 240px; background: var(--bg); border: 1px solid var(--border-subtle);
-  border-radius: var(--radius); box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
-  display: flex; flex-direction: column; overflow: hidden;
-}
-.col-menu-hd {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; border-bottom: 1px solid var(--border-subtle);
-  font-weight: 600; font-size: 13px; color: var(--t1);
-}
-.col-menu-x { border: 0; background: transparent; cursor: pointer; color: var(--t2); padding: 2px; border-radius: var(--radius-sm) }
-.col-menu-x:hover { background: var(--bg2); color: var(--t1) }
-.col-menu-list { list-style: none; margin: 0; padding: 6px; overflow: auto }
-.col-menu-list li { display: flex; align-items: center; padding: 6px 8px; border-radius: var(--radius-sm); font-size: 13px; color: var(--t1) }
-.col-menu-list li:hover { background: var(--bg2) }
-.col-menu-list li.locked { opacity: .65 }
-.col-menu-list li label { display: flex; align-items: center; gap: 8px; cursor: pointer }
-.col-menu-list li.locked label { cursor: default }
-.col-core-tag { font-size: 11px; color: var(--t2); background: var(--bg2); border-radius: 4px; padding: 0 5px; margin-left: 2px }
-.col-menu-reset { padding: 8px 12px; border-top: 1px solid var(--border-subtle) }
+/* v442：本页的 `.col-gear-th` / `.col-cfg.gear` / `.col-menu*` scoped 样式块**已删除**。
+   那段是 v432 之前的本地拷贝；v432 起全站唯一实现是 `src/styles/col-menu.css`
+   （与本页原那份逐字节相同，故收敛后视觉零变化）。
+   🔴 不要在本页（或任何页面）再写回这几个类 —— 见《进销存建单页开发规范》§4 与
+      UI-SPEC §2.6.1「三、」。 */
 </style>
