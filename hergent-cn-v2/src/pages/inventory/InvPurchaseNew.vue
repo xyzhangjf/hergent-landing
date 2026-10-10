@@ -328,14 +328,24 @@
           <tbody>
             <tr v-for="(row, i) in items" :key="row.uid">
               <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-              <td class="ipn-c-prod" @click="cellOn(row, 'prod')">
-                <select v-if="isCellOn(row, 'prod')" v-model.number="row.product_id" v-focus
-                        class="input ipn-in" @change="onPick(row)" @blur="cellOff" @keydown.esc="cellOff">
-                  <option :value="0" disabled>请选择商品</option>
-                  <option v-for="p in prodOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
-                </select>
+              <td class="ipn-c-prod" @click="openProd(row)">
+                <div v-if="isCellOn(row, 'prod')" class="ipn-prod-combo">
+                  <input :value="row._pkw" class="input ipn-in" placeholder="输入名称或条码搜索"
+                         v-focus @input="onProdKw(row, $event)"
+                         @keydown.down.prevent="pkMove(row, 1)" @keydown.up.prevent="pkMove(row, -1)"
+                         @keydown.enter.prevent="pkEnter(row)" @keydown.esc.prevent="pkBlur(row)"
+                         @blur="pkBlur(row)" />
+                  <ul v-if="row._popen && prodMatches(row).length" class="ipn-prod-list">
+                    <li v-for="(p, i) in prodMatches(row)" :key="p.id" :class="{ active: i === row._pactive }"
+                        @mousedown.prevent="pkChoose(row, p)" @mouseenter="row._pactive = i">
+                      <span class="ipn-prod-name">{{ p.name }}</span>
+                      <span v-if="p.barcode" class="ipn-prod-bar">{{ p.barcode }}</span>
+                    </li>
+                  </ul>
+                  <div v-else-if="row._popen && row._pkw && !prodMatches(row).length" class="ipn-prod-empty">没有匹配的商品</div>
+                </div>
                 <span v-else class="ipn-v" tabindex="0" :class="{ 'is-ph': !row.product_id }"
-                      @keydown.enter.prevent="cellOn(row, 'prod')">{{ prodName(row) || '选商品' }}</span>
+                      @keydown.enter.prevent="openProd(row)">{{ prodName(row) || '选商品' }}</span>
               </td>
               <td class="ipn-c-code">{{ row.barcode || (row.product_id ? '—' : '') }}</td>
               <td class="ipn-c-unit" @click="cellOn(row, 'unit')">
@@ -771,6 +781,8 @@ function blankRow () {
   return {
     uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false,
     unit_price: '', barcode: '', purchase_price: 0,
+    // v430：商品组合框 per-row 临时状态（不参与提交；输入框词 / 下拉开关 / 高亮项）
+    _pkw: '', _popen: false, _pactive: 0,
     batch_no: '', expiry_date: '', production_date: '',
     // v408（P1-2）行备注。**刻意不参与 `validate()`**：它是选填，且后端是
     // 「空则不加列」⇒ 不填时 SQL 与改动前逐字一致。
@@ -817,6 +829,50 @@ function onPick (row) {
   applyProduct(row)
   if (!row.unit_price && row.purchase_price > 0) row.unit_price = String(row.purchase_price)
 }
+
+/* v430：商品「名称 + 条码」模糊查找组合框（行内 per-row 临时状态，避免多行实例互相串）。
+   🔴 与供应商组合框同一范式：本地 includes 匹配（商品全量由 loadRefs 拉全）、键盘 ↑/↓/Enter/Esc、
+      li 用 mousedown.prevent 防 input blur 掉下拉。
+   🔴 选中后走既有 onPick(row) —— 单位 / 条码 / 采购价等完整信息由 applyProduct 一次性带出，
+      与改前「选 <select> 选项触发 @change=onPick」行为完全一致。 */
+function openProd (row) {
+  cellOn(row, 'prod')
+  row._pkw = prodName(row) || ''   // 已选商品 ⇒ 默认词即其名（便于继续搜）；空行 ⇒ 空，列全部
+  row._popen = true
+  row._pactive = 0
+}
+function onProdKw (row, e) { row._pkw = e.target.value; row._pactive = 0; row._popen = true }
+function prodMatches (row) {
+  const q = (row._pkw || '').trim().toLowerCase()
+  const list = products.value
+  if (!q) return list.slice(0, 50)
+  // 包含式模糊匹配：名称或条码任一含关键词即命中
+  return list.filter(p =>
+    (p.name || '').toLowerCase().includes(q) ||
+    (p.barcode || '').toLowerCase().includes(q)
+  ).slice(0, 50)
+}
+function pkMove (row, d) {
+  const m = prodMatches(row); const n = m.length
+  if (!n) return
+  let i = row._pactive + d
+  if (i < 0) i = n - 1
+  if (i >= n) i = 0
+  row._pactive = i
+}
+function pkChoose (row, p) {
+  if (!p) return
+  row.product_id = p.id
+  onPick(row)              // 带出单位/条码/采购价等完整信息
+  row._pkw = ''
+  row._popen = false
+  cellOff()
+}
+function pkEnter (row) {
+  const m = prodMatches(row)
+  if (m.length) pkChoose(row, m[row._pactive] || m[0])
+}
+function pkBlur (row) { row._popen = false; cellOff() }
 
 /* v428：供应商「搜索 + 选择」合一的组合框（combobox）。
    🔴 不再是两个框：输入即按「名称 或 编号」本地模糊匹配，下拉直接点选。
@@ -1416,6 +1472,27 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 }
 /* v428：备注框与同排其它输入框同高（全局 .input 默认 40px，会高低不齐） */
 .ipn-note-in { height: 32px; padding: 0 10px }
+/* v430：商品组合框（名称 + 条码 模糊查找），样式对齐供应商组合框（同用 --bg/--bd/--t1 变量） */
+.ipn-prod-combo { position: relative; flex: 1; min-width: 0 }
+.ipn-prod-combo .ipn-in { width: 100% }
+.ipn-prod-list {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.ipn-prod-list li {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--t1);
+}
+.ipn-prod-list li.active, .ipn-prod-list li:hover { background: var(--bg2) }
+.ipn-prod-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ipn-prod-bar { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
+.ipn-prod-empty {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
+  padding: 10px; background: var(--bg); border: 1px solid var(--bd);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 12px; color: var(--t3);
+}
 .ipn-kw { width: 130px; height: 32px }
 .ipn-sel { min-width: 170px; height: 32px }
 .ipn-date { height: 32px }
