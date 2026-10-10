@@ -28,6 +28,8 @@
     `NAV`／`CONNECT_TABS`/`SETTINGS_TABS`／`tabTitles.js` **四处键名逐字对齐**；图标只用 `Icon.vue` 已存在名（写错静默变齿轮）`§v427`
   · 🔴 **v428** 「连接器」(`/connect?tab=connector`) 再拆成 3 个独立子页：`连接手机`(`im`)/`配对审批`(`pairing`)/`业务数据源`(`datasource`)；从「AI 能力」组挪出、新建「连接与集成」组（「AI 能力」只留纯 AI 的 4 项）。
     `ConnectCenter.vue` 原 `connector` 大模板拆成 `im`/`pairing`/`datasource` 三个 `v-else-if`，`CONNECT_TABS`/`normConnectTab`/默认 tab 改 `im`；`tabTitles.js` 的 `/connect` 子标题 `connector`→`im/pairing/datasource`；图标 `smartphone`/`approve`/`store`（逐字 grep 核验存在）`§v428`
+  · 🔴 **v429** 「业务数据源」(`/connect?tab=datasource`) 再拆成 3 个独立子页：`ERP 数据源`(`erp`)/`数据台账`(`datasource`，更名)/`MCP 连接`(`mcp`)；「连接与集成」组 3→5 项（连接手机/配对审批/ERP 数据源/数据台账/MCP 连接）。
+    `ConnectCenter.vue` 原 `datasource` 大模板拆成 `erp`/`datasource`/`mcp` 三个 `v-else-if`，`CONNECT_TABS` 插入 `erp`/`mcp`；`tabTitles.js` 的 `/connect` 子标题 `datasource`→`ERP 数据源`/`数据台账`/`MCP 连接`；图标 `store`(沿用)/`list`/`link`（`database`/`plug`/`server` 不存在 ⇒ 不用）`§v429`
 
 - **后端**（权限/账号/DB/报 500/路由遮蔽/角色授权/幽灵模块/动作轴/只读 POST）→ `topics/backend-invariants.md` + `backend-auth.md`
   · 🔴 **v317** 路由遮蔽：同路径**先注册者胜** ⇒ 加字段前必验生效的是哪份
