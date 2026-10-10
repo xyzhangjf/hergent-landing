@@ -3,7 +3,7 @@
     <div class="page-hd split">
       <div class="ipn-hd-t">
         <h2>{{ pageTitle }}</h2>
-        <span class="page-sub">{{ pageSub }}</span>
+        <span v-if="pageSub" class="page-sub">{{ pageSub }}</span>
       </div>
       <div class="ipn-acts">
         <!-- v438：附件入口（对齐舟谱建单页右上角的「上传附件」）。
@@ -695,7 +695,7 @@ const pageSub = computed(() => isReturn.value
   : (editId.value
        ? '可改供应商、明细与备注；已入库 / 在途的单不能在此改，请到详情页处理'
        : (copyId.value ? '按原单带出商品与价格，批次与到期日按这次到货重填'
-                       : '进货登记，到货后按这里的批次与到期日入库')))
+                       : '')))
 
 function todayISO () {
   const d = new Date()
