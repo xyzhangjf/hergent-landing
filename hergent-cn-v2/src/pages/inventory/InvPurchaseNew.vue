@@ -303,15 +303,17 @@
         <table class="tbl ipn-tbl">
           <thead>
             <tr>
-              <th class="seq-th">序号</th>
+              <th class="seq-th col-gear-th">
+                <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
+              </th>
               <th class="ipn-c-prod">商品</th>
-              <th class="ipn-c-code">条码</th>
+              <th v-if="isVisible('code')" class="ipn-c-code">条码</th>
               <th class="ipn-c-unit">单位</th>
               <!-- v408（P1-1）库存两列：口径 = **本页所选「入库仓库」**（不是全部仓的合计）。
                    数量来自 `/api/psi/stock/by-product`，按商品聚合（不是批次级）。 -->
-              <th class="num ipn-c-stk" title="可销售的库存（已过期批次须报损，不计入）">可用库存</th>
-              <th class="num ipn-c-stk" title="该仓全部批次的数量合计（含已过期）">实际库存</th>
-              <th class="num ipn-c-ref">参考成本价</th>
+              <th v-if="isVisible('stk')" class="num ipn-c-stk" title="可销售的库存（已过期批次须报损，不计入）">可用库存</th>
+              <th v-if="isVisible('stk2')" class="num ipn-c-stk" title="该仓全部批次的数量合计（含已过期）">实际库存</th>
+              <th v-if="isVisible('ref')" class="num ipn-c-ref">参考成本价</th>
               <th class="num ipn-c-price">采购价</th>
               <th class="num ipn-c-qty">订单数量</th>
               <th class="num ipn-c-amt">订单金额</th>
@@ -319,9 +321,9 @@
                    点开小面板填写 —— 15 列 ⇒ 13 列，横向滚动彻底消失。
                    三者都是**低频选填**字段（v417 已把批次号、到期日改为选填）：
                    常驻占 3 列宽，换来的是每次开单都要横向滚动找它们。 -->
-              <th class="ipn-c-batch">批次信息 <span class="ipn-opt">选填</span></th>
+              <th v-if="isVisible('batch')" class="ipn-c-batch">批次信息 <span class="ipn-opt">选填</span></th>
               <!-- v408（P1-2）行备注：**记在明细行上**（不是整单备注）。舟谱同列。 -->
-              <th class="ipn-c-note">行备注</th>
+              <th v-if="isVisible('note')" class="ipn-c-note">行备注</th>
               <th class="ipn-c-op">操作</th>
             </tr>
           </thead>
@@ -347,7 +349,7 @@
                 <span v-else class="ipn-v" tabindex="0" :class="{ 'is-ph': !row.product_id }"
                       @keydown.enter.prevent="openProd(row)">{{ prodName(row) || '选商品' }}</span>
               </td>
-              <td class="ipn-c-code">{{ row.barcode || (row.product_id ? '—' : '') }}</td>
+              <td v-if="isVisible('code')" class="ipn-c-code">{{ row.barcode || (row.product_id ? '—' : '') }}</td>
               <td class="ipn-c-unit" @click="cellOn(row, 'unit')">
                 <select v-if="isCellOn(row, 'unit') && unitOptionsOf(row).length" v-model="row.unit" v-focus
                         class="input ipn-in ipn-unit-sel" :title="row.convText || row.unit"
@@ -360,13 +362,13 @@
               </td>
               <!-- v417g：空行不再铺「先选商品」占位（对齐舟谱空行干净）——
                    选商品前的引导只在单位格留一处，库存两列空着。 -->
-              <td class="num ipn-c-stk">
+              <td v-if="isVisible('stk')" class="num ipn-c-stk">
                 <span v-if="row.product_id" :class="{ danger: isAllExpired(row) }" :title="stockTitle(row)">{{ stockText(row, 'saleable_quantity') }}</span>
               </td>
-              <td class="num ipn-c-stk">
+              <td v-if="isVisible('stk2')" class="num ipn-c-stk">
                 <span v-if="row.product_id" :title="stockTitle(row)">{{ stockText(row, 'quantity') }}</span>
               </td>
-              <td class="num ipn-c-ref">{{ row.product_id && row.purchase_price ? '¥' + fmtMoney(row.purchase_price) : '' }}</td>
+              <td v-if="isVisible('ref')" class="num ipn-c-ref">{{ row.product_id && row.purchase_price ? '¥' + fmtMoney(row.purchase_price) : '' }}</td>
               <td class="ipn-c-price" @click="cellOn(row, 'price')">
                 <input v-if="isCellOn(row, 'price')" v-model="row.unit_price" v-focus
                        class="input ipn-in num" inputmode="decimal" @blur="cellOff" @keydown.esc="cellOff" />
@@ -391,7 +393,7 @@
               <td class="num ipn-amt">{{ row.product_id ? '¥' + fmtMoney(rowAmount(row)) : '' }}</td>
               <!-- v417i：批次三字段收进这一格的小面板。格内**常显摘要**（有批次号显示批次号、
                    有到期日显示「到期 xxxx-xx-xx」），一眼能看出这行有没有填批次，不用点开才知道。 -->
-              <td class="ipn-c-batch" :class="{ 'has-val': batchText(row) }">
+              <td v-if="isVisible('batch')" class="ipn-c-batch" :class="{ 'has-val': batchText(row) }">
                 <button type="button" class="ipn-batch-btn" :disabled="!row.product_id"
                         :title="batchText(row) || '点开填写批次号 / 到期日 / 生产日期（选填）'"
                         @click.stop="toggleBatch(row)">
@@ -415,7 +417,7 @@
                   <button type="button" class="ipn-bp-done" @click.stop="batchOpen = ''">完成</button>
                 </div>
               </td>
-              <td class="ipn-c-note" @click="cellOn(row, 'note')">
+              <td v-if="isVisible('note')" class="ipn-c-note" @click="cellOn(row, 'note')">
                 <input v-if="isCellOn(row, 'note')" v-model.trim="row.note" v-focus maxlength="200"
                        class="input ipn-in" @blur="cellOff" @keydown.esc="cellOff" />
                 <span v-else class="ipn-v" tabindex="0"
@@ -428,6 +430,27 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- 列设置面板（开发规范 §2.6.1「三、」：齿轮 + 固定定位面板，位置/限高由 useColMenu 现算） -->
+      <div v-if="showColMenu" class="col-menu-overlay" @click="showColMenu = false"></div>
+      <div v-if="showColMenu" ref="colMenuEl" class="col-menu" :style="colMenuStyle" @click.stop>
+        <div class="col-menu-hd">
+          <span>显示列</span>
+          <button class="col-menu-x" @click="showColMenu = false" title="关闭"><Icon name="close" /></button>
+        </div>
+        <ul class="col-menu-list">
+          <li v-for="c in DETAIL_COLS" :key="c.key" :class="{ locked: c.core }">
+            <label>
+              <input type="checkbox" :checked="isVisible(c.key)" :disabled="c.core"
+                     @click.prevent="toggleCol(c.key)" />
+              {{ c.label }}<span v-if="c.core" class="col-core-tag">固定</span>
+            </label>
+          </li>
+        </ul>
+        <div class="col-menu-reset">
+          <button class="btn btn-ghost btn-xs" @click="resetCols">恢复默认</button>
+        </div>
       </div>
     </div>
 
@@ -519,6 +542,8 @@ import { PSI_NOTES, fmtMoney, PO_STATUS, textOf } from '../../constants/psiLabel
 /* v415（P2-7）采购单自定义字段。定义与值读取抽在 composable 里（列表页 / 详情页共用），
    本页只用它的「定义」与「类型」两件事：按类型给文本框 / 数字框。 */
 import { usePurchaseCustomFields } from '../../composables/purchaseCustomFields.js'
+import { useColMenu } from '../../composables/useColMenu.js'
+import { useColPrefs } from '../../composables/useColPrefs.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -535,6 +560,60 @@ const cellKey = (row, f) => `${row.uid}:${f}`
 const isCellOn = (row, f) => activeCell.value === cellKey(row, f)
 function cellOn (row, f) { activeCell.value = cellKey(row, f) }
 function cellOff () { activeCell.value = '' }
+
+/* v432：明细表「列设置」齿轮（开发规范 §2.6.1「三、」）。
+   把原「序号」表头格换成标准化的列设置齿轮；面板可勾选**可选列**的显隐，
+   固定列（商品 / 单位 / 采购价 / 订单数量 / 订单金额 / 操作）恒定显示、不可关。
+   面板位置与限高由 useColMenu 按齿轮 `getBoundingClientRect()` 现算；可见性落云端（useColPrefs）。 */
+const DETAIL_COLS = [
+  { key: 'prod',  label: '商品',     core: true },
+  { key: 'code',  label: '条码',     core: false },
+  { key: 'unit',  label: '单位',     core: true },
+  { key: 'stk',   label: '可用库存', core: false },
+  { key: 'stk2',  label: '实际库存', core: false },
+  { key: 'ref',   label: '参考成本价', core: false },
+  { key: 'price', label: '采购价',   core: true },
+  { key: 'qty',   label: '订单数量', core: true },
+  { key: 'amt',   label: '订单金额', core: true },
+  { key: 'batch', label: '批次信息', core: false },
+  { key: 'note',  label: '行备注',   core: false },
+  { key: 'op',    label: '操作',     core: true },
+]
+const _detailDefaultVis = () => {
+  const v = {}
+  DETAIL_COLS.forEach(c => { if (!c.core) v[c.key] = true })
+  return v
+}
+const colVis = ref(_detailDefaultVis())
+function isVisible (key) {
+  const c = DETAIL_COLS.find(x => x.key === key)
+  if (!c) return true
+  return c.core || colVis.value[key] !== false
+}
+const { showColMenu, colMenuEl, colMenuStyle, toggleColMenu } = useColMenu()
+const colPrefs = useColPrefs('purchase-new', {
+  // 云端整体覆盖本地（顺序/冻结这里没有，只存可见性），与列表页同一条约束。
+  apply: (cfg) => {
+    if (cfg && cfg.vis) {
+      const v = _detailDefaultVis()
+      Object.keys(v).forEach(k => { if (typeof cfg.vis[k] === 'boolean') v[k] = cfg.vis[k] })
+      colVis.value = v
+    }
+  },
+  snapshot: () => ({ vis: colVis.value }),
+})
+function persistCols () { colPrefs.push({ vis: colVis.value }) }
+function toggleCol (key) {
+  const c = DETAIL_COLS.find(x => x.key === key)
+  if (!c || c.core) return
+  colVis.value = { ...colVis.value, [key]: !(colVis.value[key] !== false) }
+  persistCols()
+}
+function resetCols () {
+  colVis.value = _detailDefaultVis()
+  persistCols()
+}
+onMounted(() => { colPrefs.syncFromCloud() })
 
 /** 非激活态要显示商品名（不是 product_id）—— 从下拉的同一份清单取，避免另存一份名字导致两处不同步。 */
 function prodName (row) {
@@ -1763,4 +1842,36 @@ table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
   .ipn-sup-pick { flex-direction: column }
   .ipn-bottom { margin-inline: 0; padding-inline: 0 }
 }
+
+/* v432：列设置齿轮 + 面板（开发规范 §2.6.1「三、」，与采购单列表/预报同源观感）。
+   定位由 useColMenu 注入 inline（position:fixed + left/top/maxHeight），这里只管长相。 */
+.col-gear-th { width: 44px; text-align: center; padding: 0 4px }
+.col-cfg.gear {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; border: 0; background: transparent;
+  color: var(--t2); cursor: pointer; border-radius: var(--radius-sm);
+}
+.col-cfg.gear:hover { background: var(--bg2); color: var(--t1) }
+.col-menu-overlay { position: fixed; inset: 0; z-index: calc(var(--z-sticky, 50) + 10) }
+.col-menu {
+  position: fixed; z-index: calc(var(--z-sticky, 50) + 11);
+  width: 240px; background: var(--bg); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius); box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.col-menu-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-bottom: 1px solid var(--border-subtle);
+  font-weight: 600; font-size: 13px; color: var(--t1);
+}
+.col-menu-x { border: 0; background: transparent; cursor: pointer; color: var(--t2); padding: 2px; border-radius: var(--radius-sm) }
+.col-menu-x:hover { background: var(--bg2); color: var(--t1) }
+.col-menu-list { list-style: none; margin: 0; padding: 6px; overflow: auto }
+.col-menu-list li { display: flex; align-items: center; padding: 6px 8px; border-radius: var(--radius-sm); font-size: 13px; color: var(--t1) }
+.col-menu-list li:hover { background: var(--bg2) }
+.col-menu-list li.locked { opacity: .65 }
+.col-menu-list li label { display: flex; align-items: center; gap: 8px; cursor: pointer }
+.col-menu-list li.locked label { cursor: default }
+.col-core-tag { font-size: 11px; color: var(--t2); background: var(--bg2); border-radius: 4px; padding: 0 5px; margin-left: 2px }
+.col-menu-reset { padding: 8px 12px; border-top: 1px solid var(--border-subtle) }
 </style>
