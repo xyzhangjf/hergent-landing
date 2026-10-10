@@ -6,7 +6,18 @@
         <span class="page-sub">{{ pageSub }}</span>
       </div>
       <div class="ipn-acts">
+        <!-- v438：附件入口（对齐舟谱建单页右上角的「上传附件」）。
+             🔴 建单页**还没有单据 id**，附件无法即时落库 ⇒ 这里选完先「暂存」在本页，
+                点保存拿到 id 后再随单上传（新单 / 编辑态都走同一条路）。
+                退货模式的单据归属不同，先不给入口（不猜、不埋暗坑）。 -->
+        <button v-if="!isReturn" class="btn btn-ghost btn-sm" :disabled="saving" @click="pickAttachments">
+          <Icon name="upload" :size="14" />上传附件<span v-if="stagedFiles.length" class="ipn-at-badge">{{ stagedFiles.length }}</span>
+        </button>
         <button class="btn btn-ghost btn-sm" :disabled="saving" @click="back">返回列表</button>
+        <!-- 隐藏的 file input：真正「选文件」由上面的按钮触发。
+             ⚠️ 不能用 `display:none`（部分浏览器 `.click()` 不触发）；
+             ⚠️ 多选：一次可挑多张图片 / 多个文件。 -->
+        <input ref="attFileEl" type="file" multiple class="ipn-at-file" @change="onAttachPick" />
       </div>
     </div>
 
@@ -215,6 +226,27 @@
              全局 .input（默认 40px）⇒ 整行高低不齐。补 ipn-note-in 收成 32px，对齐。 -->
         <input v-model.trim="form.note" maxlength="500" class="input ipn-note-in" placeholder="选填" />
       </div>
+    </div>
+
+    <!-- v438：附件暂存条 —— 建单页没有单据 id，附件不能即时落库。
+         选完先列在这里，点「保存」拿到 id 后随单上传（详情页「附件」里可见 / 可下）。
+         🔴 文案如实写「保存后随单上传」：不假装已经传上去了；不保存就离开 ⇒ 这几个文件丢弃。 -->
+    <div v-if="!isReturn && (stagedFiles.length || attMsg)" class="ipn-at-bar">
+      <span class="ipn-at-hd">
+        <Icon name="file" :size="14" />
+        本次新增附件<template v-if="stagedFiles.length">（{{ stagedFiles.length }}）</template>
+        <em class="ipn-at-tip">保存后随单上传</em>
+      </span>
+      <ul v-if="stagedFiles.length" class="ipn-at-list">
+        <li v-for="s in stagedFiles" :key="s.key">
+          <span class="ipn-at-nm" :title="s.name">{{ s.name }}</span>
+          <span class="ipn-at-sz">{{ fmtSize(s.size) }}</span>
+          <button class="ipn-at-x" type="button" title="移除" @click="removeStaged(s.key)">
+            <Icon name="close" :size="12" />
+          </button>
+        </li>
+      </ul>
+      <p v-if="attMsg" class="ipn-at-msg">{{ attMsg }}</p>
     </div>
 
     <!-- 供应商信息条（舟谱那一条「应付余额 / 预付余额」的位置；这里只放**真有的数据**）。
@@ -1166,6 +1198,85 @@ function validate () {
   return ''
 }
 
+/* ══ v438 附件（建单页）══════════════════════════════════════════════════════
+   🔴 为什么是「先暂存、保存后上传」而不是选完即传：
+      附件接口是 `/api/psi/purchase-orders/{id}/attachments`，**要单据 id**；而本页在
+      点保存之前**没有 id**（id 由 `createPurchase` 生成）⇒ 选完无处可挂。
+      所以：选中 → 先列在本页（`stagedFiles`）→ 保存拿到 `oid` → 逐个上传。
+   🔴 **不假装已上传**：文案如实写「保存后随单上传」；不保存就离开 ⇒ 这几个文件丢弃
+      （暂存是本页内存态，不是服务端草稿）。
+   🔴 上传失败**不回滚单据**：单据是主体、附件是附属，不能因为一张图失败就把建好的单撤了；
+      改为把失败的文件留在列表里如实报出来（后端同名会拒绝，这类原因必须让用户看到）。
+   ══════════════════════════════════════════════════════════════════════════ */
+const ATT_MAX_MB = 20          // 与后端同口径（详情页由服务端下发 max_mb，这里用默认值兜底）
+const attFileEl = ref(null)
+const stagedFiles = ref([])    // [{ key, name, size, file }]
+const attMsg = ref('')
+let attSeq = 0
+
+function fmtSize (n) {
+  const b = Number(n) || 0
+  if (b >= 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + ' MB'
+  if (b >= 1024) return Math.round(b / 1024) + ' KB'
+  return b + ' B'
+}
+
+function pickAttachments () {
+  attMsg.value = ''
+  if (attFileEl.value) { attFileEl.value.value = ''; attFileEl.value.click() }
+}
+
+/** File → base64（**去掉** `data:...;base64,` 前缀 —— 后端只接受裸 base64）。 */
+function readFileAsBase64 (f) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => {
+      const s = String(r.result || '')
+      const i = s.indexOf(',')
+      resolve(i >= 0 ? s.slice(i + 1) : s)
+    }
+    r.onerror = () => reject(new Error('文件读取失败，请重试'))
+    r.readAsDataURL(f)
+  })
+}
+
+function onAttachPick (ev) {
+  const el = ev.target
+  const picked = Array.from(el.files || [])
+  el.value = ''                       // 清空 ⇒ 再选同一个文件仍会触发 change
+  const tooBig = []
+  picked.forEach(f => {
+    if (f.size > ATT_MAX_MB * 1024 * 1024) { tooBig.push(f.name); return }
+    stagedFiles.value = stagedFiles.value.concat([{ key: ++attSeq, name: f.name, size: f.size, file: f }])
+  })
+  attMsg.value = tooBig.length ? `超过 ${ATT_MAX_MB}MB 未加入：${tooBig.join('、')}` : ''
+}
+
+function removeStaged (key) {
+  stagedFiles.value = stagedFiles.value.filter(x => x.key !== key)
+}
+
+/** 保存拿到 id 后把暂存文件逐个上传。**自己吞异常**（不能连累外层 try：单据已经建好了）。
+ *  @returns {{ok:number, fail:string[]}} 失败的留在 `stagedFiles` 里供用户看见。 */
+async function uploadStaged (oid) {
+  if (!oid || !stagedFiles.value.length) return { ok: 0, fail: [] }
+  let ok = 0
+  const fail = []
+  const left = []
+  for (const s of stagedFiles.value) {
+    try {
+      const b64 = await readFileAsBase64(s.file)
+      await psiApi.uploadPurchaseAttachment(oid, s.name, b64)
+      ok++
+    } catch (e) {
+      fail.push(`${s.name}（${e.message || '上传失败'}）`)
+      left.push(s)
+    }
+  }
+  stagedFiles.value = left
+  return { ok, fail }
+}
+
 function resetForNext () {
   const keep = { supplier_id: form.value.supplier_id, warehouse_id: form.value.warehouse_id,
     order_date: form.value.order_date, expected_date: form.value.expected_date, note: '',
@@ -1176,6 +1287,10 @@ function resetForNext () {
   // v415：自定义字段是**这一张单**的信息（如厂家结算单号）⇒ 连开下一张时清空，
   // 不沿用 —— 沿用会让新单继承上一单的事实，比留空更危险。
   extra.value = {}
+  // v438：暂存附件同理 —— 它属于**刚保存的那张单**。留着会让下一张单"继承"上一张的
+  // 附件（静默挂错单，比丢失更难发现）。失败的几个已在保存时用 toast 报过，这里如实清掉。
+  stagedFiles.value = []
+  attMsg.value = ''
 }
 
 async function submit (mode) {
@@ -1229,6 +1344,12 @@ async function submit (mode) {
     }
     no = (r && r.order_no) || oid || ''
 
+    /* v438：单据已落库、`oid` 到手 ⇒ 把暂存的附件随单上传。
+       🔴 放在「保存成功」之后、「跳转」之前：只有单据真的建成了才有 id 可挂。
+       🔴 `uploadStaged` 自己吞异常 ⇒ 上传失败**不会**走到下面的 catch 去报「保存失败」
+          （那会把已经建好的单说成没建成，是谎报）。 */
+    const attRes = await uploadStaged(oid)
+
     if (isApprove) {
       if (editId.value) {
         /* 编辑态：仍走「更新 + 同一个审核原语」（update 不支持直接 confirmed），
@@ -1256,6 +1377,14 @@ async function submit (mode) {
       toast(`采购单已保存（${no}），正在打开打印`, 'success')
     } else {
       toast(`采购单已保存（${no}）`, 'success')
+    }
+
+    /* v438：附件上传结果**单独报**（不并入上面那句「已保存」）——
+       单据成功与附件失败是两件事，混成一句会让失败被"已保存"盖过去。 */
+    if (attRes.fail.length) {
+      toast(`${attRes.fail.length} 个附件上传失败：${attRes.fail.join('；')}`, 'warn')
+    } else if (attRes.ok) {
+      toast(`已上传 ${attRes.ok} 个附件`, 'success')
     }
 
     if (isNew) {
@@ -1527,22 +1656,29 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
    故这里只给内层容器定对齐，**不动全局类**（16~17 个页面共用它）。 */
 .ipn-hd-t { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0 }
 
-/* 表单头 */
-.ipn-hd { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px }
+/* 表单头。v438（复刻舟谱）：`align-items` 由 flex-end 改 center —— 标签改与框同行后，
+   一行内没有「底部对齐」可言，居中才齐。 */
+.ipn-hd { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; margin-bottom: 12px }
 /* v417d 去卡片包裹：本页「单头表单 / 明细」两块不再套 `.card` 的框。
    页面底 `.content{background:var(--bg)}` 与 `.card{background:var(--bg)}` 同色 ——
    那个框本来只是 border+shadow，去掉不影响配色（深色同理）。
    scoped 属性把特异性抬到 0,2,0 > 全局 `.card` 的 0,1,0，覆盖必然生效（无需 !important）。 */
 .ipn-hd-flat { padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none }
-.ipn-f { display: flex; flex-direction: column; gap: 4px }
-.ipn-f-grow { flex: 1; min-width: 180px }
-.ipn-f-sup { min-width: 300px }
-.ipn-lb { font-size: 12px; color: var(--t3) }
+/* v438（复刻舟谱）：「标签 + 输入框」排**同一行**（原为标签在上、框在下两层）。
+   🔴 这一改是**单头高度的主要来源**：每格由「12px 标签 + 4px 间距 + 32px 框 ≈ 48px」
+      压到 32px，且一行能并更多字段 —— 舟谱建单页那排紧凑感就来自这里。
+   `flex-wrap: wrap` 保留：窄屏 / 字段多时按格换行，不挤成一坨。 */
+.ipn-f { display: flex; flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap }
+.ipn-f-grow { flex: 1; min-width: 240px }
+.ipn-f-sup { min-width: 320px }
+.ipn-lb { font-size: 12px; color: var(--t3); white-space: nowrap; flex: none }
 .ipn-req { color: var(--dan); font-size: 11px }
 /* v408（P0-5）「选填」标记：弱于「必填」的红字 —— 它是提示不是警告 */
 .ipn-opt { color: var(--t3); font-size: 11px }
-/* v414（P2-6）退货模式：表单头下的说明（「只列出进过货的单」）—— 弱色小字 */
-.ipn-hint { font-size: 11px; color: var(--t3); line-height: 1.4; max-width: 340px }
+/* v414（P2-6）退货模式：表单头下的说明（「只列出进过货的单」）—— 弱色小字。
+   v438：`.ipn-f` 改横向排布后，这条说明要**独占一行**（flex-basis:100%），
+   否则会挤在「原采购单」标签与选择器之间，把那一格撑歪。 */
+.ipn-hint { font-size: 11px; color: var(--t3); line-height: 1.4; max-width: 340px; flex-basis: 100% }
 .ipn-hint b { color: var(--t2) }
 /* 只读值（退货模式的供应商 / 退货仓库 / 原单状态）：与输入框**同高同位置**，
    看起来是表单里的一栏，但虚框表示不可改（不要用 disabled input —— 那会让人以为能点开） */
@@ -1586,8 +1722,10 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
   padding: 10px; background: var(--bg); border: 1px solid var(--bd);
   border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 12px; color: var(--t3);
 }
-/* v428：备注框与同排其它输入框同高（全局 .input 默认 40px，会高低不齐） */
-.ipn-note-in { height: 32px; padding: 0 10px }
+/* v428：备注框与同排其它输入框同高（全局 .input 默认 40px，会高低不齐）。
+   v438：`.ipn-f` 改横向后，备注框要自己**吃掉剩余宽度**（flex:1），否则只按
+   原生 size 撑一小截，右半行留白。 */
+.ipn-note-in { flex: 1; min-width: 140px; height: 32px; padding: 0 10px }
 /* v430：商品组合框（名称 + 条码 模糊查找），样式对齐供应商组合框（同用 --bg/--bd/--t1 变量） */
 .ipn-prod-combo { position: relative; flex: 1; min-width: 0 }
 .ipn-prod-combo .ipn-in { width: 100% }
@@ -1610,8 +1748,10 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
   border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 12px; color: var(--t3);
 }
 .ipn-kw { width: 130px; height: 32px }
-.ipn-sel { min-width: 170px; height: 32px }
-.ipn-date { height: 32px }
+/* v438：下拉 / 日期框各收窄 20~30px —— 标签同行后每格宽度 = 标签 + 6px + 控件，
+   控件不瘦身则 7 格换 3 行，「省空间」落空。140px 容得下本租户的仓名 / 部门名。 */
+.ipn-sel { min-width: 140px; height: 32px }
+.ipn-date { width: 140px; height: 32px }
 
 /* 供应商信息条（舟谱「应付/预付余额」的位置） */
 .ipn-strip {
@@ -1623,6 +1763,42 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 .ipn-si { display: inline-flex; align-items: center; gap: 6px }
 .ipn-sk { color: var(--t3); font-size: 12px }
 .ipn-strip-amt { color: var(--p-ink); font-variant-numeric: tabular-nums }
+
+/* ---- 附件暂存条（v438）----------------------------------------------------
+   与「供应商信息条」同族观感（浅底 + 细边 + 圆角），但语义不同：那条是**已有数据**，
+   这条是**尚未落库的待传文件** ⇒ 底色用中性 --bg2 而不是品牌色 --p-bg，
+   不让它看起来像"已生效"。 */
+.ipn-at-bar {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-bottom: 12px; padding: 9px 16px;
+  background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--radius-md);
+  font-size: 13px; color: var(--t1);
+}
+.ipn-at-hd { display: inline-flex; align-items: center; gap: 6px; color: var(--t2); font-size: 12px }
+.ipn-at-tip { color: var(--t3); font-style: normal; margin-left: 2px }
+.ipn-at-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px }
+.ipn-at-list li {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 280px;
+  padding: 2px 4px 2px 10px; background: var(--bg); border: 1px solid var(--bd);
+  border-radius: 999px; font-size: 12px; color: var(--t1);
+}
+.ipn-at-nm { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ipn-at-sz { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
+.ipn-at-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; padding: 0; border: 0; background: transparent;
+  color: var(--t3); cursor: pointer; border-radius: 50%; flex: none;
+}
+.ipn-at-x:hover { background: var(--bg2); color: var(--dan) }
+.ipn-at-msg { margin: 0; font-size: 12px; color: var(--dan) }
+/* 页头按钮上的个数角标（对齐详情页附件入口的角标做法） */
+.ipn-at-badge {
+  margin-left: 5px; padding: 0 6px; border-radius: 8px;
+  background: var(--bg2); color: var(--t2); border: 1px solid var(--bd);
+  font-size: 11px; font-variant-numeric: tabular-nums;
+}
+/* 隐藏的 file input：**不能用 display:none** —— 部分浏览器下 `.click()` 不触发。 */
+.ipn-at-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none }
 
 /* 明细卡 */
 /* v417d：明细工具条由「两行」（工具条 + 口径提示）压成「一行」——
