@@ -274,21 +274,21 @@
             <table class="tbl ipd-tbl">
               <thead>
                 <tr>
-                  <th class="seq-th">序号</th>
+                  <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuGoods" title="列设置"><Icon name="settings" :size="15" /></button></th>
                   <th>商品名称</th>
                   <th>规格</th>
-                  <th>条形码</th>
+                  <th v-if="isVisGoods('barcode')">条形码</th>
                   <th>单位</th>
-                  <th class="num">参考成本价</th>
+                  <th class="num" v-if="isVisGoods('ref')">参考成本价</th>
                   <th class="num">采购价</th>
                   <th class="num">订单数量</th>
                   <th class="num">订单金额</th>
-                  <th>批次号</th>
-                  <th>到期日</th>
+                  <th v-if="isVisGoods('batch')">批次号</th>
+                  <th v-if="isVisGoods('expiry')">到期日</th>
                   <th class="num">已到货</th>
                   <!-- v408（P1-2）行备注（只读回显）。放在**最右**是为了不动 tfoot 的
                        colspan 口算的前半段（见下方 tfoot 注释）。 -->
-                  <th>行备注</th>
+                  <th v-if="isVisGoods('note')">行备注</th>
                   <!-- v408（P1-6）行历史入口。列宽固定（`ipd-hist-th`），因为按钮本身
                        只有「历史」两个字、宽度恒定。 -->
                   <th class="ipd-hist-th">历史</th>
@@ -299,14 +299,14 @@
                   <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                   <td class="ipd-c-name">{{ it.product_name || ('商品 ' + it.product_id) }}</td>
                   <td>{{ it.spec || '—' }}</td>
-                  <td class="ipd-mono">{{ it.product_barcode || '—' }}</td>
+                  <td class="ipd-mono" v-if="isVisGoods('barcode')">{{ it.product_barcode || '—' }}</td>
                   <!-- v409（P2-1）：只读回显所选单位 + **这条进了多少（小单位）**。
                        折小数量只在「所选档不是小档」时出现（是小档时两个数字相同，写出来是噪音）。 -->
                   <td>
                     {{ it.unit_label || '—' }}
                     <span v-if="it.conv_text" class="ipd-conv" :title="it.conv_text">{{ it.conv_text }}</span>
                   </td>
-                  <td class="num">¥{{ fmtMoney(it.product_purchase_price) }}</td>
+                  <td class="num" v-if="isVisGoods('ref')">¥{{ fmtMoney(it.product_purchase_price) }}</td>
                   <td class="num">
                     ¥{{ fmtMoney(it.unit_price) }}
                     <!-- 双单位采购价：折小单位单价（`base_unit_price` 由后端算好下发）。 -->
@@ -319,18 +319,18 @@
                     <span v-if="showBaseQty(it)" class="ipd-conv">= {{ fmtQty(it.base_qty) }} {{ it.base_unit || '小单位' }}</span>
                   </td>
                   <td class="num">¥{{ fmtMoney(it.amount) }}</td>
-                  <td>
+                  <td v-if="isVisGoods('batch')">
                     <span v-if="it.batch_no">{{ it.batch_no }}</span>
                     <span v-else class="tag warn">未登记</span>
                   </td>
-                  <td>
+                  <td v-if="isVisGoods('expiry')">
                     <span v-if="it.expiry_date">{{ it.expiry_date }}</span>
                     <span v-else class="tag warn">未登记</span>
                   </td>
                   <td class="num">{{ fmtQty(it.received_qty) }}</td>
                   <!-- v408（P1-2）行备注。空则 `—`（不编「无」以外的任何词）—— 绝大多数
                        存量行都没填过，写"无备注"会让人以为系统里有这个值。 -->
-                  <td class="ipd-note-cell">{{ it.note || '—' }}</td>
+                  <td class="ipd-note-cell" v-if="isVisGoods('note')">{{ it.note || '—' }}</td>
                   <!-- v408（P1-6）行历史。**显式传参**，不要写成 `@click="openLogs"` ——
                        那样 Vue 会把 `MouseEvent` 当第一个实参塞进 `product_id`
                        （`Number(event)` = NaN ⇒ 过滤条件失效、还会静默返回整单日志）。 -->
@@ -345,18 +345,22 @@
               </tbody>
               <tfoot>
                 <tr>
-                  <td colspan="7">合计</td>
+                  <td :colspan="7 - (isVisGoods('barcode')?0:1) - (isVisGoods('ref')?0:1)">合计</td>
                   <td class="num">{{ fmtQty(sumQty) }}</td>
                   <td class="num">¥{{ fmtMoney(sumAmount) }}</td>
                   <!-- 🔴 加列后这里必须跟着改：表格 **14** 列 = 7 + 2 + 5
                        （7 = 序号…采购价，2 = 数量/金额，5 = 批次号…历史）。
                        少/多一格会让「合计」整行移位、金额错到别的列下面（不报错，纯错位）。
-                       v408 P1-2 加「行备注」时是 7+2+4；P1-6 加「历史」后 = 7+2+5。 -->
-                  <td colspan="5"></td>
+                       v408 P1-2 加「行备注」时是 7+2+4；P1-6 加「历史」后 = 7+2+5。
+                       ⚠️ 列显隐（列设置齿轮）会折叠其中几列 ⇒ 这里两个 colspan 要同步减去被隐藏的列数。 -->
+                  <td :colspan="5 - (isVisGoods('batch')?0:1) - (isVisGoods('expiry')?0:1) - (isVisGoods('note')?0:1)"></td>
                 </tr>
               </tfoot>
             </table>
           </div>
+
+          <ColMenuPanel ref="panelGoods" :col-list="GOODS_COLS" :is-visible="isVisGoods" :toggle-col="toggleGoods" :reset-cols="resetGoods" />
+
         </div>
       </div>
 
@@ -461,55 +465,58 @@
             <div v-else class="table-wrap">
               <table class="tbl ipd-tbl-wide">
                 <thead>
-                  <tr>
-                    <th class="seq-th">序号</th>
-                    <th>生产批号</th>
-                    <th>商品名称</th>
-                    <th>小单位条码</th>
-                    <th>大单位条码</th>
-                    <th>单位换算</th>
-                    <th>单位</th>
-                    <th>入库仓库</th>
-                    <th class="num">订单数量</th>
-                    <th class="num">订单金额</th>
-                    <th class="num">入库数量</th>
-                    <th>生产日期</th>
-                    <th class="num">入库金额</th>
-                    <th class="num">差异数量</th>
-                  </tr>
+                <tr>
+                  <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuIn" title="列设置"><Icon name="settings" :size="15" /></button></th>
+                  <th v-if="isVisIn('batch')">生产批号</th>
+                  <th>商品名称</th>
+                  <th v-if="isVisIn('barcode')">小单位条码</th>
+                  <th v-if="isVisIn('lbarcode')">大单位条码</th>
+                  <th v-if="isVisIn('conv')">单位换算</th>
+                  <th>单位</th>
+                  <th>入库仓库</th>
+                  <th class="num">订单数量</th>
+                  <th class="num">订单金额</th>
+                  <th class="num">入库数量</th>
+                  <th v-if="isVisIn('pdate')">生产日期</th>
+                  <th class="num">入库金额</th>
+                  <th class="num">差异数量</th>
+                </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(it, i) in inb.items" :key="it.id">
                     <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-                    <td>
-                      <span v-if="it.batch_no">{{ it.batch_no }}</span>
-                      <span v-else class="tag warn">未登记</span>
-                    </td>
-                    <td class="ipd-c-name">{{ it.product_name || ('商品 ' + it.product_id) }}</td>
-                    <td class="ipd-mono">{{ it.barcode || '—' }}</td>
-                    <td class="ipd-mono">{{ it.large_barcode || '—' }}</td>
-                    <td>{{ it.spec || '—' }}</td>
-                    <td>{{ it.unit_label || '—' }}</td>
-                    <td>{{ inb.head.warehouse_name || '—' }}</td>
-                    <td class="num">{{ fmtQty(it.order_qty) }}</td>
-                    <td class="num">¥{{ fmtMoney(it.order_amount) }}</td>
-                    <td class="num">{{ fmtQty(it.received_qty) }}</td>
-                    <td>{{ it.production_date || '—' }}</td>
-                    <td class="num">¥{{ fmtMoney(it.recv_amount) }}</td>
-                    <td class="num" :class="{ 'ipd-diff': Number(it.diff_qty) !== 0 }">{{ fmtQty(it.diff_qty) }}</td>
+                  <td v-if="isVisIn('batch')">
+                    <span v-if="it.batch_no">{{ it.batch_no }}</span>
+                    <span v-else class="tag warn">未登记</span>
+                  </td>
+                  <td class="ipd-c-name">{{ it.product_name || ('商品 ' + it.product_id) }}</td>
+                  <td class="ipd-mono" v-if="isVisIn('barcode')">{{ it.barcode || '—' }}</td>
+                  <td class="ipd-mono" v-if="isVisIn('lbarcode')">{{ it.large_barcode || '—' }}</td>
+                  <td v-if="isVisIn('conv')">{{ it.spec || '—' }}</td>
+                  <td>{{ it.unit_label || '—' }}</td>
+                  <td>{{ inb.head.warehouse_name || '—' }}</td>
+                  <td class="num">{{ fmtQty(it.order_qty) }}</td>
+                  <td class="num">¥{{ fmtMoney(it.order_amount) }}</td>
+                  <td class="num">{{ fmtQty(it.received_qty) }}</td>
+                  <td v-if="isVisIn('pdate')">{{ it.production_date || '—' }}</td>
+                  <td class="num">¥{{ fmtMoney(it.recv_amount) }}</td>
+                  <td class="num" :class="{ 'ipd-diff': Number(it.diff_qty) !== 0 }">{{ fmtQty(it.diff_qty) }}</td>
                   </tr>
                 </tbody>
                 <tfoot>
-                  <tr>
-                    <td colspan="10">合计</td>
-                    <td class="num">{{ fmtQty(inb.summary.recv_qty) }}</td>
-                    <td></td>
-                    <td class="num">¥{{ fmtMoney(inb.summary.recv_amount) }}</td>
-                    <td></td>
-                  </tr>
+                <tr>
+                  <td :colspan="10 - (isVisIn('batch')?0:1) - (isVisIn('barcode')?0:1) - (isVisIn('lbarcode')?0:1) - (isVisIn('conv')?0:1)">合计</td>
+                  <td class="num">{{ fmtQty(inb.summary.recv_qty) }}</td>
+                  <td v-if="isVisIn('pdate')"></td>
+                  <td class="num">¥{{ fmtMoney(inb.summary.recv_amount) }}</td>
+                  <td></td>
+                </tr>
                 </tfoot>
               </table>
             </div>
+
+            <ColMenuPanel ref="panelIn" :col-list="INBOUND_COLS" :is-visible="isVisIn" :toggle-col="toggleIn" :reset-cols="resetIn" />
+
           </div>
         </template>
       </div>
@@ -707,6 +714,8 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'
+import ColMenuPanel from '../../components/ColMenuPanel.vue'
+import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
 import { canDo, toast } from '../../store'
 import { PO_STATUS, textOf, tagOf, PSI_NOTES, fmtMoney } from '../../constants/psiLabels'
@@ -714,6 +723,44 @@ import { downloadCsv, localDateStamp } from '../../utils/csv'
 /* v415（P2-7）采购单自定义字段。定义归一 / 取值读取都在 composable 里
    （列表页与新建页共用同一份）⇒ 本页不重复实现"怎么读一个自定义字段的值"。 */
 import { usePurchaseCustomFields, extraValOf } from '../../composables/purchaseCustomFields.js'
+
+/* 列设置：本页有两张独立表格（采购商品明细 / 入库明细），各自一套列清单与显隐状态。 */
+const GOODS_COLS = [
+  { key: 'name', label: '商品名称', core: true },
+  { key: 'spec', label: '规格', core: true },
+  { key: 'barcode', label: '条形码', core: false },
+  { key: 'unit', label: '单位', core: true },
+  { key: 'ref', label: '参考成本价', core: false },
+  { key: 'price', label: '采购价', core: true },
+  { key: 'qty', label: '订单数量', core: true },
+  { key: 'amt', label: '订单金额', core: true },
+  { key: 'batch', label: '批次号', core: false },
+  { key: 'expiry', label: '到期日', core: false },
+  { key: 'rec', label: '已到货', core: true },
+  { key: 'note', label: '行备注', core: false },
+  { key: 'hist', label: '历史', core: true },
+]
+const INBOUND_COLS = [
+  { key: 'batch', label: '生产批号', core: false },
+  { key: 'name', label: '商品名称', core: true },
+  { key: 'barcode', label: '小单位条码', core: false },
+  { key: 'lbarcode', label: '大单位条码', core: false },
+  { key: 'conv', label: '单位换算', core: false },
+  { key: 'unit', label: '单位', core: true },
+  { key: 'wh', label: '入库仓库', core: true },
+  { key: 'oqty', label: '订单数量', core: true },
+  { key: 'oamt', label: '订单金额', core: true },
+  { key: 'rqty', label: '入库数量', core: true },
+  { key: 'pdate', label: '生产日期', core: false },
+  { key: 'ramt', label: '入库金额', core: true },
+  { key: 'diff', label: '差异数量', core: true },
+]
+const { isVisible: isVisGoods, toggleCol: toggleGoods, resetCols: resetGoods } = useColSettings('inv-purchase-detail-goods', GOODS_COLS)
+const { isVisible: isVisIn,    toggleCol: toggleIn,    resetCols: resetIn    } = useColSettings('inv-purchase-detail-inbound', INBOUND_COLS)
+const panelGoods = ref(null)
+const panelIn = ref(null)
+function openColMenuGoods (e) { if (panelGoods.value) panelGoods.value.open(e) }
+function openColMenuIn (e) { if (panelIn.value) panelIn.value.open(e) }
 
 const route = useRoute()
 const router = useRouter()

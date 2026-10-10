@@ -73,14 +73,14 @@
           <table class="tbl">
             <thead>
               <tr>
-                <th class="seq-th">序号</th>
+                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
                 <th>单号</th>
                 <th>客户</th>
                 <th class="num">金额</th>
                 <th>状态</th>
-                <th>出货方式</th>
-                <th>下单日期</th>
-                <th>交货日期</th>
+                <th v-if="isVisible('otype')">出货方式</th>
+                <th v-if="isVisible('odate')">下单日期</th>
+                <th v-if="isVisible('ddate')">交货日期</th>
                 <th></th>
               </tr>
             </thead>
@@ -93,14 +93,16 @@
                 <td>
                   <span class="tag" :class="tagOf(SO_STATUS, r.status)">{{ textOf(SO_STATUS, r.status) }}</span>
                 </td>
-                <td>{{ orderTypeText(r.order_type) }}</td>
-                <td>{{ (r.order_date || '').slice(0, 10) || '—' }}</td>
-                <td>{{ (r.delivery_date || '').slice(0, 10) || '—' }}</td>
+                <td v-if="isVisible('otype')">{{ orderTypeText(r.order_type) }}</td>
+                <td v-if="isVisible('odate')">{{ (r.order_date || '').slice(0, 10) || '—' }}</td>
+                <td v-if="isVisible('ddate')">{{ (r.delivery_date || '').slice(0, 10) || '—' }}</td>
                 <td class="isl-op">查看</td>
               </tr>
             </tbody>
           </table>
         </div>
+
+        <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
 
         <div class="isl-page">
           <span class="isl-cnt">共 {{ total }} 张，第 {{ pageFrom }}–{{ pageTo }} 张</span>
@@ -121,9 +123,21 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
+import { useColSettings } from '../../composables/useColSettings.js'
+import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { psiApi } from '../../api/psi'
 import { canDo } from '../../store'
 import { SO_STATUS, ORDER_TYPE, ORDER_TYPE_OPTIONS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
+
+/* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。 */
+const COLS = [
+  { key: 'otype', label: '出货方式', core: false },
+  { key: 'odate', label: '下单日期', core: false },
+  { key: 'ddate', label: '交货日期', core: false },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('INV-SALE-LIST', COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
 const router = useRouter()
 const route = useRoute()

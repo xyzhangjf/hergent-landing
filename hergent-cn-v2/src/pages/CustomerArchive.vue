@@ -44,26 +44,26 @@
         <table class="tbl">
           <thead>
             <tr>
-              <th class="seq-th">序号</th><th>客户名称</th><th>业态</th><th>片区</th><th>配送线路</th><th>老板 / 电话</th>
-              <th>负责业务员</th><th class="num">应收余额</th><th>最近下单</th><th></th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th><th>客户名称</th><th v-if="isVisible('channel')">业态</th><th v-if="isVisible('region')">片区</th><th v-if="isVisible('route')">配送线路</th><th>老板 / 电话</th>
+              <th v-if="isVisible('sales')">负责业务员</th><th class="num">应收余额</th><th v-if="isVisible('last')">最近下单</th><th></th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(c, i) in items" :key="c.id">
               <td class="seq-cell"><span class="seq-num">{{ (page - 1) * pageSize + i + 1 }}</span></td>
               <td class="cas-name">{{ c.name }}</td>
-              <td>{{ c.channel || '—' }}</td>
-              <td>{{ c.region || '—' }}</td>
-              <td>{{ c.delivery_route || '—' }}</td>
+              <td v-if="isVisible('channel')">{{ c.channel || '—' }}</td>
+              <td v-if="isVisible('region')">{{ c.region || '—' }}</td>
+              <td v-if="isVisible('route')">{{ c.delivery_route || '—' }}</td>
               <td>
                 <span v-if="c.boss_name">{{ c.boss_name }}</span><span v-else class="cas-miss">未填</span>
                 <span v-if="c.boss_phone" class="cas-phone">{{ c.boss_phone }}</span>
               </td>
-              <td>{{ c.assigned_salesperson || '—' }}</td>
+              <td v-if="isVisible('sales')">{{ c.assigned_salesperson || '—' }}</td>
               <td class="num" :class="{ 'cas-ar': Number(c.ar_balance) > 0 }">
                 {{ Number(c.ar_balance) > 0 ? money(c.ar_balance) : '—' }}
               </td>
-              <td>{{ fmtDate(c.last_order) }}</td>
+              <td v-if="isVisible('last')">{{ fmtDate(c.last_order) }}</td>
               <td class="cas-ops">
                 <!-- v335 按钮级门禁：编辑 = PUT /api/contacts/{id} ⇒ data/update
                      （弹窗里的「保存」不再重复判 —— 入口已藏就进不去） -->
@@ -87,6 +87,7 @@
       <div v-else class="state-empty">
         {{ keyword || bizFilter ? '没有匹配的客户，换个条件试试' : '还没有客户档案 —— 点右上角「+ 新增客户」，或用「导入」批量录入' }}
       </div>
+      <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
     </div>
 
     <Teleport to="body">
@@ -228,6 +229,8 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import { useColSettings } from '../composables/useColSettings.js'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'
 import { ref, computed, onMounted } from 'vue'
@@ -236,6 +239,19 @@ import { api } from '../api/client'
 import { importApi } from '../api/modules'
 import { toast, canDo } from '../store'
 /* v291：页内跳转入口同判据（见 goConnect）。 */
+
+/* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。 */
+const COLS = [
+  { key: 'channel', label: '业态', core: false },
+  { key: 'region', label: '片区', core: false },
+  { key: 'route', label: '配送线路', core: false },
+  { key: 'sales', label: '负责业务员', core: false },
+  { key: 'last', label: '最近下单', core: false },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('CUSTOMER-ARCHIVE', COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
+
 import { canSee } from '../constants/pages'
 
 const router = useRouter()

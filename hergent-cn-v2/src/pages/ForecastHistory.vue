@@ -19,16 +19,16 @@
       <table class="tbl history-tbl">
         <thead>
           <tr>
-            <th class="seq-th">序号</th>
+            <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
             <th>期次名称</th>
-            <th>下单区间</th>
-            <th>到货日期</th>
+            <th v-if="isVisible('orderRange')">下单区间</th>
+            <th v-if="isVisible('arrival')">到货日期</th>
             <th class="num">报单人数</th>
             <th class="num">总件数</th>
             <th class="num">下单金额</th>
             <th>状态</th>
-            <th>定稿</th>
-            <th>加单通知</th>
+            <th v-if="isVisible('final')">定稿</th>
+            <th v-if="isVisible('alloc')">加单通知</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -46,8 +46,8 @@
                    判据 = 后端 `forecast_order_board` 的 `stale_open`（与报单硬锁同源）。 -->
               <div v-if="row.stale_open" class="hd-sub warn">已过报单截止日 · 挡住下一期创建</div>
             </td>
-            <td>{{ row.order_start || '—' }} ~ {{ row.order_end || '—' }}</td>
-            <td>
+            <td v-if="isVisible('orderRange')">{{ row.order_start || '—' }} ~ {{ row.order_end || '—' }}</td>
+            <td v-if="isVisible('arrival')">
               {{ row.arrival_date || '—' }}
               <!-- v368③：这一期的到货日被标记「不到货」⇒ 当面点出来，它是「一键作废」的依据 -->
               <div v-if="row.arrival_skipped" class="hd-sub warn">那天不到货</div>
@@ -63,7 +63,7 @@
                    根本不来、这一期本不该建。混着显示会让用户以为"这期正常结束了"。 -->
               <span class="tag" :class="statusTag(row).cls" :title="statusTag(row).title">{{ statusTag(row).text }}</span>
             </td>
-            <td>
+            <td v-if="isVisible('final')">
               <!-- v319 修复：此列此前判据读 `forecast_audit_decisions`（已废弃的审核台表，
                    生产 0 行）⇒ **恒显示「未定稿」**，与左侧「状态=已关闭」自相矛盾
                    （两列说的是同一件事：关闭即定稿）。现在判据 = `status==='closed'`。
@@ -71,7 +71,7 @@
               <span class="tag" :class="finalTag(row).cls">{{ finalTag(row).text }}</span>
               <div v-if="row.finalized" class="hd-sub">{{ closeHint(row) }}</div>
             </td>
-            <td>
+            <td v-if="isVisible('alloc')">
               <!-- v319：只对「本期真有加/减单分配」的期次提示推送 —— 没有分配行就不该出现
                    「尚未推送」（那是**假待办**，会让经理去点一个没内容的动作）。 -->
               <template v-if="Number(row.alloc_count) > 0">
@@ -125,6 +125,7 @@
           </tr>
         </tbody>
       </table>
+      <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
     </div>
   </div>
 </template>
@@ -137,8 +138,30 @@ import { forecastApi } from '../api/modules'
    ⇒ `create`；修改 = PATCH ⇒ `update`；删除 = DELETE ⇒ `delete`。「查看」是纯读，不门禁。
    🆕 v368「一键作废」= POST /api/forecast/periods/{pid}/void ⇒ 同为 `data` / `create`。 */
 import { canDo } from '../store'
+// 列设置齿轮（替换「序号」表头）：复用共享 useColSettings + ColMenuPanel，不新建基础设施。
+import { useColSettings } from '../composables/useColSettings.js'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
+import Icon from '../components/Icon.vue'
 
 const emit = defineEmits(['view', 'delete', 'close', 'rename', 'copy', 'reopen', 'unlock', 'push', 'void'])
+
+/* ---- 列设置齿轮（替换「序号」表头，复用共享 useColSettings）---- */
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
+
+const COLS = [
+  { key: 'name', label: '期次名称', core: true },
+  { key: 'orderRange', label: '下单区间', core: false },
+  { key: 'arrival', label: '到货日期', core: false },
+  { key: 'reporters', label: '报单人数', core: true },
+  { key: 'qty', label: '总件数', core: true },
+  { key: 'amount', label: '下单金额', core: true },
+  { key: 'status', label: '状态', core: true },
+  { key: 'final', label: '定稿', core: false },
+  { key: 'alloc', label: '加单通知', core: false },
+  { key: 'op', label: '操作', core: true },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('forecast-history', COLS)
 const list = ref([])
 const skipped = ref([])
 const loading = ref(false)

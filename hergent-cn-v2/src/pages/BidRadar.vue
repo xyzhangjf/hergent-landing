@@ -101,33 +101,34 @@
     <table v-else class="br-tbl seq-host">
       <thead>
         <tr>
-          <th class="seq-th">序号</th>
-          <th class="c-date">发布日</th>
-          <th class="c-type">类型</th>
-          <th class="c-src">来源</th>
-          <th class="c-buyer">采购人</th>
-          <th class="c-region">地区</th>
+          <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+          <th class="c-date" v-if="isVisible('date')">发布日</th>
+          <th class="c-type" v-if="isVisible('type')">类型</th>
+          <th class="c-src" v-if="isVisible('src')">来源</th>
+          <th class="c-buyer" v-if="isVisible('buyer')">采购人</th>
+          <th class="c-region" v-if="isVisible('region')">地区</th>
           <th>标题</th>
-          <th class="c-link">原文</th>
+          <th class="c-link" v-if="isVisible('link')">原文</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(it, i) in items" :key="it.url">
           <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-          <td class="c-date">{{ it.date }}</td>
-          <td class="c-type"><span class="tag" :class="tagClass(it.type)">{{ it.type }}</span></td>
-          <td class="c-src"><span class="src" :class="sourceTagClass(it.source)">{{ it.source_name }}</span></td>
-          <td class="c-buyer">{{ it.buyer || '—' }}</td>
-          <td class="c-region">{{ it.region }}</td>
+          <td class="c-date" v-if="isVisible('date')">{{ it.date }}</td>
+          <td class="c-type" v-if="isVisible('type')"><span class="tag" :class="tagClass(it.type)">{{ it.type }}</span></td>
+          <td class="c-src" v-if="isVisible('src')"><span class="src" :class="sourceTagClass(it.source)">{{ it.source_name }}</span></td>
+          <td class="c-buyer" v-if="isVisible('buyer')">{{ it.buyer || '—' }}</td>
+          <td class="c-region" v-if="isVisible('region')">{{ it.region }}</td>
           <td class="c-title">
             <span v-if="isNew(it)" class="br-new" title="近 24 小时或本次打开后新入库">新</span>
             <span v-if="it.is_capex" class="br-capex" title="制造端 CAPEX，非配送线索">CAPEX</span>
             {{ it.title }}
           </td>
-          <td class="c-link"><a :href="it.url" target="_blank" rel="noopener" class="br-link">查看 ↗</a></td>
+          <td class="c-link" v-if="isVisible('link')"><a :href="it.url" target="_blank" rel="noopener" class="br-link">查看 ↗</a></td>
         </tr>
       </tbody>
     </table>
+    <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
 
     <!-- 分页 -->
     <div v-if="meta.total > f.page_size" class="br-pager">
@@ -146,8 +147,25 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/client'
+// 列设置齿轮（替换「序号」表头）：复用共享 useColSettings + ColMenuPanel，不新建基础设施。
+import { useColSettings } from '../composables/useColSettings.js'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
+import Icon from '../components/Icon.vue'
 
 const items = ref([])
+// 列设置齿轮（替换「序号」表头，复用共享 useColSettings）。「标题」为永远可见的核心列，其余可隐藏。
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
+const COLS = [
+  { key: 'title', label: '标题', core: true },
+  { key: 'date', label: '发布日', core: false },
+  { key: 'type', label: '类型', core: false },
+  { key: 'src', label: '来源', core: false },
+  { key: 'buyer', label: '采购人', core: false },
+  { key: 'region', label: '地区', core: false },
+  { key: 'link', label: '原文', core: false },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('bid-radar', COLS)
 const loading = ref(false)
 const recentCount = ref(0)
 const loadError = ref('')          // 请求失败原因（与「真的没有数据」分开呈现，避免误报）

@@ -70,14 +70,14 @@
           <table class="la-ml-tbl seq-host">
             <thead>
               <tr>
-                <th class="seq-th">序号</th>
+                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
                 <th>月份</th>
                 <th class="num">货损净额</th>
-                <th class="num">货损净率</th>
-                <th class="num">净额环比</th>
-                <th class="num">净率变化</th>
+                <th v-if="isVisible('rate_net')" class="num">货损净率</th>
+                <th v-if="isVisible('mom_amt')" class="num">净额环比</th>
+                <th v-if="isVisible('mom_rate')" class="num">净率变化</th>
                 <th>结账</th>
-                <th>完整度</th>
+                <th v-if="isVisible('complete')">完整度</th>
                 <th></th>
               </tr>
             </thead>
@@ -93,17 +93,17 @@
                 <td class="num" :class="numCls(m.net_amt)">
                   {{ m.has_data ? wanText(m.net_amt) : '未录入' }}
                 </td>
-                <td class="num" :class="m.rate_net == null ? 'la-void-t' : ''">
+                <td v-if="isVisible('rate_net')" class="num" :class="m.rate_net == null ? 'la-void-t' : ''">
                   {{ m.rate_net == null ? (m.has_data ? '—' : '—') : pctText(m.rate_net) }}
                 </td>
-                <td class="num" :class="momCls(momAmt(i))">{{ momAmtText(i) }}</td>
-                <td class="num" :class="momCls(momRate(i))">{{ momRateText(i) }}</td>
+                <td v-if="isVisible('mom_amt')" class="num" :class="momCls(momAmt(i))">{{ momAmtText(i) }}</td>
+                <td v-if="isVisible('mom_rate')" class="num" :class="momCls(momRate(i))">{{ momRateText(i) }}</td>
                 <td>
                   <span class="la-chip la-chip-mini" :class="m.is_closed ? 'is-closed' : 'is-open'">
                     {{ m.is_closed ? '已结账' : '未结账' }}
                   </span>
                 </td>
-                <td>
+                <td v-if="isVisible('complete')">
                   <span v-if="!m.has_data" class="la-ml-none">未录入</span>
                   <span v-else-if="!m.gaps.length" class="la-ml-ok">完整</span>
                   <span v-else class="la-ml-gap" :title="m.gaps.join('；')">缺 {{ m.gaps.length }} 项</span>
@@ -114,6 +114,7 @@
               </tr>
             </tbody>
           </table>
+          <ColMenuPanel ref="panel" :col-list="LA_ML_COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
         </div>
       </div>
     </template>
@@ -514,6 +515,9 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import Icon from '../components/Icon.vue'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
+import { useColSettings } from '../composables/useColSettings.js'
 /* v396（2026-10-08）：主 Tab 改由 URL 的 `?tab=` 驱动（页签条已退役）⇒ 需要路由。 */
 import { useRoute, useRouter } from 'vue-router'
 import { toast, canDo } from '../store'
@@ -549,6 +553,21 @@ const mainTab = ref('dashboard')
 const _route = useRoute()
 const _router = useRouter()
 const LOSS_TAB_KEYS = ['dashboard', 'fill']
+
+/* v432：按月一览列设置（齿轮 + 可选列显隐）。月份/货损净额/结账/操作为固定列，其余可选。 */
+const LA_ML_COLS = [
+  { key: 'period',  label: '月份',     core: true },
+  { key: 'net_amt', label: '货损净额', core: true },
+  { key: 'rate_net', label: '货损净率', core: false },
+  { key: 'mom_amt', label: '净额环比', core: false },
+  { key: 'mom_rate', label: '净率变化', core: false },
+  { key: 'closed',  label: '结账',     core: true },
+  { key: 'complete', label: '完整度',  core: false },
+  { key: 'op',      label: '操作',     core: true },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('loss-accounting', LA_ML_COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
 function lossTabFromUrl(q) {
   const t = String((q && q.tab) || '')

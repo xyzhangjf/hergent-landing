@@ -5,6 +5,7 @@ import { pinia, setTheme } from './store'
 import { bootstrapTenantContext } from './api/client'
 import { initDensity } from './composables/useDensity'
 import './styles/variables.css'
+import './styles/col-menu.css'   // 列设置齿轮 + 面板（全站 16 个表格页复用，v432）
 
 // 恢复主题
 setTheme(localStorage.getItem('hergent_theme') === 'dark' ? 'dark' : 'light')

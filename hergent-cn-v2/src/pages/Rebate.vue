@@ -276,9 +276,12 @@
         <table class="tbl">
           <thead>
             <tr>
-              <th class="seq-th">序号</th><th>规则名称</th><th>维度</th><th>周期</th><th>作用对象</th>
-              <th class="num">目标值</th><th>触发</th><th>返利</th>
-              <th>生效期</th><th>状态</th><th></th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuRules" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th>规则名称</th><th>维度</th>
+              <th v-if="isVisRules('period')">周期</th><th>作用对象</th>
+              <th v-if="isVisRules('target')" class="num">目标值</th>
+              <th v-if="isVisRules('trigger')">触发</th><th v-if="isVisRules('rebate')">返利</th>
+              <th v-if="isVisRules('eff')">生效期</th><th>状态</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -286,12 +289,12 @@
               <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td>{{ r.rule_name }}</td>
               <td><span class="tag info">{{ dimText(r.dimension) }}</span></td>
-              <td>{{ periodText(r.period_type) }}<span v-if="r.is_monthly" class="tag ok" style="margin-left:6px" title="按 12 个月分解目标与返利">月分解</span></td>
+              <td v-if="isVisRules('period')">{{ periodText(r.period_type) }}<span v-if="r.is_monthly" class="tag ok" style="margin-left:6px" title="按 12 个月分解目标与返利">月分解</span></td>
               <td>{{ r.scope_name || '全部' }}</td>
-              <td class="num">{{ fmtTarget(r) }}</td>
-              <td><span class="tag" :class="r.trigger_mode === 'tiered' ? 'info' : 'ok'">{{ triggerText(r.trigger_mode) }}</span></td>
-              <td>{{ rebateText(r) }}</td>
-              <td class="td-date">{{ r.effective_start || '—' }} ~ {{ r.effective_end || '—' }}</td>
+              <td v-if="isVisRules('target')" class="num">{{ fmtTarget(r) }}</td>
+              <td v-if="isVisRules('trigger')"><span class="tag" :class="r.trigger_mode === 'tiered' ? 'info' : 'ok'">{{ triggerText(r.trigger_mode) }}</span></td>
+              <td v-if="isVisRules('rebate')">{{ rebateText(r) }}</td>
+              <td v-if="isVisRules('eff')" class="td-date">{{ r.effective_start || '—' }} ~ {{ r.effective_end || '—' }}</td>
               <td><span class="tag" :class="statusOf(r).cls">{{ statusOf(r).text }}</span></td>
               <td>
                 <button class="btn-mini" @click="openDetail(r)">详情</button>
@@ -315,6 +318,7 @@
             </tr>
           </tbody>
         </table>
+        <ColMenuPanel ref="panelRules" :col-list="RULES_COLS" :is-visible="isVisRules" :toggle-col="toggleRules" :reset-cols="resetRules" />
       </div>
     </div>
 
@@ -359,10 +363,14 @@
                      所以这一列永远是「所选那个月的目标」：年度规则取该月的月度分解额
                      （monthTargetOf → monthly_amounts[MM]），单期规则在生效起始月取整额。
                      至于是哪一种，由右侧新增的「周期」列显式标出，用户不必再自己选口径。 -->
-                <th class="seq-th">序号</th><th>维度</th><th>作用对象</th><th>周期</th><th class="num">本月目标</th>
-                <th class="num">实际达成金额</th><th class="num">实际达成数量</th>
+                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuAchv" title="列设置"><Icon name="settings" :size="15" /></button></th>
+                <th>维度</th><th>作用对象</th>
+                <th v-if="isVisAchv('period')">周期</th><th class="num">本月目标</th>
+                <th v-if="isVisAchv('ach_amt')" class="num">实际达成金额</th>
+                <th v-if="isVisAchv('ach_qty')" class="num">实际达成数量</th>
                 <th class="num">实际返利（元）</th>
-                <th class="num">达成率</th><th>来源</th><th></th>
+                <th v-if="isVisAchv('rate')" class="num">达成率</th>
+                <th v-if="isVisAchv('source')">来源</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -373,20 +381,20 @@
                 <!-- v173：目标规则的周期口径（读数，不是选项）。它只说明「本月目标」是怎么
                      来的 —— 年度规则取 monthly_amounts 的当月分解额，单期规则在生效起始月
                      取整额。系统按规则自身口径自动取值，用户无需（也无法）在这里切换。 -->
-                <td>
+                <td v-if="isVisAchv('period')">
                   <span v-if="row.periodLabel" class="tag" :title="row.periodTitle">{{ row.periodLabel }}</span>
                   <span v-else :title="row.periodTitle">—</span>
                 </td>
                 <td class="num">{{ row.target_type ? fmtAchvTarget(row) : '—' }}</td>
                 <!-- v335：按钮级门禁 —— 达成三个格子在 `@change` 上自动落库（POST /api/rebate-achievements
                      ⇒ create）。无 create 权限时置灰：数值仍可读（是事实），但改不动、也不会发出写请求。 -->
-                <td class="num">
+                <td v-if="isVisAchv('ach_amt')" class="num">
                   <input class="input num-input" type="number" v-model.number="row.achAmount"
                          :placeholder="row.target_type === 'amount' ? '填金额' : '—'"
                          :disabled="achvSaving[row.key] || !canDo('sales', 'create')"
                          @change="saveAchv(row)" />
                 </td>
-                <td class="num">
+                <td v-if="isVisAchv('ach_qty')" class="num">
                   <input class="input num-input" type="number" v-model.number="row.achQty"
                          :placeholder="row.target_type === 'quantity' ? '填数量' : '—'"
                          :disabled="achvSaving[row.key] || !canDo('sales', 'create')"
@@ -399,8 +407,8 @@
                          :disabled="achvSaving[row.key] || !canDo('sales', 'create')"
                          @change="saveAchv(row)" />
                 </td>
-                <td class="num"><span :class="achvRateCls(row)">{{ achvRateText(row) }}</span></td>
-                <td>
+                <td v-if="isVisAchv('rate')" class="num"><span :class="achvRateCls(row)">{{ achvRateText(row) }}</span></td>
+                <td v-if="isVisAchv('source')">
                   <!-- v160：来源增列「AI 自动回填」—— Hermes 经 API / MCP 与 ERP 对接后写入的是 source='api'，
                        此前会被并进「手工」，看不出这条数是人填的还是机器回的 -->
                   <span class="tag" :class="row.achId ? 'ok' : ''">
@@ -414,6 +422,7 @@
               </tr>
             </tbody>
           </table>
+          <ColMenuPanel ref="panelAchv" :col-list="ACHV_COLS" :is-visible="isVisAchv" :toggle-col="toggleAchv" :reset-cols="resetAchv" />
         </div>
       </div>
 
@@ -1214,6 +1223,7 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
 import CommitmentsTab from '../components/CommitmentsTab.vue'
 import SettlementScheduleTab from '../components/rebate/SettlementScheduleTab.vue'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
@@ -1225,6 +1235,7 @@ import { toast, canDo } from '../store'
 import { canSee } from '../constants/pages'
 import { rebateApi } from '../api/modules'
 import { api } from '../api/client.js'
+import { useColSettings } from '../composables/useColSettings.js'
 import TargetFormModal from '../components/rebate/TargetFormModal.vue'
 import MonthlyAchvChart from '../components/rebate/MonthlyAchvChart.vue'
 import BrandFilter from '../components/rebate/BrandFilter.vue'
@@ -1255,6 +1266,41 @@ const _router = useRouter()
       任意 mainTab 落地都拿得到数据；`switchTab` 里的按需加载只是增量优化。
    --------------------------------------------------------------------------- */
 const TAB_KEYS = ['dashboard', 'rules', 'achv', 'contracts', 'settle', 'promises']
+
+/* v432：返利页多表各自独立的列设置（齿轮 + 可选列显隐）。
+   规则表 / 达成填报表 各一套 useColSettings 实例；「全年月度对比」表仅 1 个可选列（达成率），
+   低于 ≥2 阈值，按规范跳过、不挂齿轮。 */
+const RULES_COLS = [
+  { key: 'name',   label: '规则名称', core: true },
+  { key: 'dim',    label: '维度',     core: true },
+  { key: 'period', label: '周期',     core: false },
+  { key: 'scope',  label: '作用对象', core: true },
+  { key: 'target', label: '目标值',   core: false },
+  { key: 'trigger',label: '触发',     core: false },
+  { key: 'rebate', label: '返利',     core: false },
+  { key: 'eff',    label: '生效期',   core: false },
+  { key: 'status', label: '状态',     core: true },
+  { key: 'op',     label: '操作',     core: true },
+]
+const { isVisible: isVisRules, toggleCol: toggleRules, resetCols: resetRules } = useColSettings('rebate-rules', RULES_COLS)
+const panelRules = ref(null)
+function openColMenuRules (e) { if (panelRules.value) panelRules.value.open(e) }
+
+const ACHV_COLS = [
+  { key: 'dim',       label: '维度',         core: true },
+  { key: 'scope',     label: '作用对象',     core: true },
+  { key: 'period',    label: '周期',         core: false },
+  { key: 'target',    label: '本月目标',     core: true },
+  { key: 'ach_amt',   label: '实际达成金额', core: false },
+  { key: 'ach_qty',   label: '实际达成数量', core: false },
+  { key: 'ach_rebate',label: '实际返利',     core: true },
+  { key: 'rate',      label: '达成率',       core: false },
+  { key: 'source',    label: '来源',         core: false },
+  { key: 'op',        label: '操作',         core: true },
+]
+const { isVisible: isVisAchv, toggleCol: toggleAchv, resetCols: resetAchv } = useColSettings('rebate-achv', ACHV_COLS)
+const panelAchv = ref(null)
+function openColMenuAchv (e) { if (panelAchv.value) panelAchv.value.open(e) }
 
 function tabFromUrl(q) {
   const t = String((q && q.tab) || '')

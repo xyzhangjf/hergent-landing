@@ -45,46 +45,46 @@
       <div v-else-if="products.length" class="table-wrap">
         <table class="tbl">
           <thead><tr>
-            <th class="seq-th">序号</th><th>名称</th><th>条码</th><th>规格</th><th>单位</th>
+            <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th><th>名称</th><th v-if="isVisible('barcode')">条码</th><th v-if="isVisible('spec')">规格</th><th>单位</th>
             <!-- v233：报单单位 —— 主表「单位」列与舟谱模板「*单位」列的**共同来源**。
                  与左边的「单位」分开成列，因为它们是**两个概念**（混在一格正是 v217 的病根）：
                    · 「单位」= 档案单位（舟谱「小单位」语义，用于档案对账/价格档位）
                    · 「报单默认单位」= 实际下单用的单位（可为中单位，如「组」；永不为大单位）
                  真实数据里两者会不同：生产 285 个启用商品中 29 个不同，全是**档案没录过小单位**
                  那批（`unit` 落了默认值「件」）。 -->
-            <th title="报单时使用的单位 —— 主表「单位」列与舟谱模板「*单位」列都用它。留空 = 跟随左边的「单位」；在「编辑 → 包装单位」里可改">报单默认单位</th>
+            <th v-if="isVisible('order_unit')" title="报单时使用的单位 —— 主表「单位」列与舟谱模板「*单位」列都用它。留空 = 跟随左边的「单位」；在「编辑 → 包装单位」里可改">报单默认单位</th>
             <!-- v237：大单位/中单位 —— 舟谱导入自动带出（large_unit/large_ratio、medium_unit/medium_ratio）。
                  主表过去只渲染「单位」(=小单位)，导致经销商在档案里「只看到一个单位」。本列把
                  中单位、大单位也摊开，并显示换算关系（1 中单位=N 小单位、1 大单位=N 小单位），
                  方便核对箱/条/组等包装层级。无该层级时显示「—」。 -->
-            <th title="中单位（如 条/组/板）：1 个中单位含多少个小单位。舟谱导入自动带出，可在此核对包装层级">中单位</th>
-            <th title="大包装（如 件/箱）：1 个大包装含多少个小单位。舟谱导入自动带出，可在此核对包装层级">大包装</th>
+            <th v-if="isVisible('medium_unit')" title="中单位（如 条/组/板）：1 个中单位含多少个小单位。舟谱导入自动带出，可在此核对包装层级">中单位</th>
+            <th v-if="isVisible('large_unit')" title="大包装（如 件/箱）：1 个大包装含多少个小单位。舟谱导入自动带出，可在此核对包装层级">大包装</th>
             <!-- v184b：到货周期（该单品下单后第几天到货）。位置放在「商品身份」块（名称/条码/规格/单位）
                  之后、价格块之前 —— 它是 SKU 属性，不属于价格组（标准售价/进价/分销价）。 -->
-            <th title="该单品下单后第几天到货（如 +3天）。点格子可直接改；留空或 0 = 取消设置">到货周期</th>
-            <th>品牌</th><th class="num">标准售价</th><th class="num" title="进价 ＝ 厂家跟你结算的价（元/箱），算「本期需付款」用的就是它。可留空：留空则按档案里的历史进价列取；点格子可直接改">进价</th><th class="num">安全库存</th><th>状态</th><th></th>
+            <th v-if="isVisible('cycle')" title="该单品下单后第几天到货（如 +3天）。点格子可直接改；留空或 0 = 取消设置">到货周期</th>
+            <th v-if="isVisible('brand')">品牌</th><th class="num">标准售价</th><th class="num" title="进价 ＝ 厂家跟你结算的价（元/箱），算「本期需付款」用的就是它。可留空：留空则按档案里的历史进价列取；点格子可直接改">进价</th><th v-if="isVisible('safety')" class="num">安全库存</th><th>状态</th><th></th>
           </tr></thead>
           <tbody>
             <tr v-for="(p, i) in products" :key="p.id" :class="{ stopped: p.is_active === 0 }">
               <td class="seq-cell"><span class="seq-num">{{ (page - 1) * pageSize + i + 1 }}</span></td>
               <td class="pa-name">{{ p.name }}</td>
-              <td class="pa-mono">{{ p.barcode || '—' }}</td>
-              <td>{{ p.spec || '—' }}</td>
+              <td v-if="isVisible('barcode')" class="pa-mono">{{ p.barcode || '—' }}</td>
+              <td v-if="isVisible('spec')">{{ p.spec || '—' }}</td>
               <td>{{ p.unit || '—' }}</td>
               <!-- v233：报单单位 —— 「有值/跟随」两态（不是「有值/空」）：
                    留空是一等状态（跟随档案单位），不是「没填」。用破折号说不清这件事。 -->
-              <td class="pa-ou-cell">
+              <td v-if="isVisible('order_unit')" class="pa-ou-cell">
                 <span v-if="p.order_unit" class="pa-ou-val"
                       :title="'报单默认单位（人工指定）：' + p.order_unit">{{ p.order_unit }}</span>
                 <span v-else class="pa-ou-follow"
                       title="未单独指定 ⇒ 报单时跟随左边的「单位」">跟随</span>
               </td>
               <!-- v237：大单位/中单位 摊开显示（见表头注释）。无该层级显示「—」。 -->
-              <td class="pa-mu-cell">
+              <td v-if="isVisible('medium_unit')" class="pa-mu-cell">
                 <span v-if="p.medium_unit">{{ p.medium_unit }}<small v-if="Number(p.medium_ratio) > 0"> · 1{{ p.medium_unit }}={{ p.medium_ratio }}{{ p.unit || '小单位' }}</small></span>
                 <span v-else>—</span>
               </td>
-              <td class="pa-lu-cell">
+              <td v-if="isVisible('large_unit')" class="pa-lu-cell">
                 <span v-if="p.large_unit">{{ p.large_unit }}<small v-if="Number(p.large_ratio) > 0"> · 1{{ p.large_unit }}={{ p.large_ratio }}{{ p.unit || '小单位' }}</small></span>
                 <span v-else>—</span>
               </td>
@@ -99,7 +99,7 @@
                      导入是成百行的批量动作，空格子多半只是「这行没意见」；
                      而这里是用户**专门点开某一格**的定向动作，留空只能是「我要清掉它」。
                      故两边都各自显式提示（导入那边写在填写说明里，这里见 saveCycle 的 toast）。 -->
-              <td class="pa-cyc-cell">
+              <td v-if="isVisible('cycle')" class="pa-cyc-cell">
                 <input v-if="editingCycleId === p.id" v-model="editCycle" class="input pa-cyc-input"
                        type="number" min="0" :max="ARRIVAL_MAX" step="1"
                        :title="'填 +几天到货（0~' + ARRIVAL_MAX + '）；留空或 0 = 取消设置'"
@@ -108,7 +108,7 @@
                       title="点这里改（该单品下单后第几天到货）" @click="startEditCycle(p)">{{ arrivalCycleText(p.arrival_lead_days) }}</span>
                 <span v-else class="pa-cyc-none" title="点这里设置：该单品下单后第几天到货（如 3 = +3天）" @click="startEditCycle(p)">未设</span>
               </td>
-              <td class="pa-brand-cell">
+              <td v-if="isVisible('brand')" class="pa-brand-cell">
                 <input v-if="editingId === p.id" v-model="editBrand" class="input pa-brand-input" list="pa-brand-list"
                        @keyup.enter="saveBrand(p)" @blur="saveBrand(p)">
                 <span v-else class="pa-brand" @click="startEditBrand(p)">{{ p.brand || '—' }}</span>
@@ -133,7 +133,7 @@
                       title="取自档案里的历史进价列（元/小单位，数值上等于标准售价）—— 这里只代表「档案里有价」，不代表能算金额；算「本期需付款」用的是元/箱的「进价」，点这里可直接填一个">取进价 {{ money(fpEff(p).v) }}</span>
                 <span v-else class="pa-fp-miss" title="点这里填进价（档案里两个进价列都是空的）" @click="startEditFp(p)">未录</span>
               </td>
-              <td class="num">{{ p.safety_stock != null ? p.safety_stock : '—' }}</td>
+              <td v-if="isVisible('safety')" class="num">{{ p.safety_stock != null ? p.safety_stock : '—' }}</td>
               <td>
                 <span class="pa-status" :class="p.is_active === 0 ? 'off' : 'on'">{{ p.is_active === 0 ? '停用' : '启用' }}</span>
               </td>
@@ -159,6 +159,7 @@
         </div>
       </div>
       <div v-else class="state-empty">没有匹配的商品，调整筛选条件试试</div>
+      <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
     </div>
 
     <!-- v184c：商品「编辑」弹窗（由原「只读详情」升级而来 —— 入口仍是每行那个按钮，**不新增按钮**）。
@@ -593,6 +594,8 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import { useColSettings } from '../composables/useColSettings.js'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'
 import { ref, computed, onMounted, nextTick } from 'vue'
@@ -603,6 +606,21 @@ import { toast, canDo } from '../store'
 /* v184b：到货周期文案 / 解析的**唯一实现**（与「本期预报」主表共用同一份，见该文件注释）。
    本页若自己再写一份格式化 = 第二份拷贝 = 静默漂移（同一商品两处显示不一致）。 */
 import { arrivalCycleText, parseArrivalDays, ARRIVAL_MAX } from '../utils/arrival.js'
+
+/* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。 */
+const COLS = [
+  { key: 'barcode', label: '条码', core: false },
+  { key: 'spec', label: '规格', core: false },
+  { key: 'order_unit', label: '报单默认单位', core: false },
+  { key: 'medium_unit', label: '中单位', core: false },
+  { key: 'large_unit', label: '大包装', core: false },
+  { key: 'cycle', label: '到货周期', core: false },
+  { key: 'brand', label: '品牌', core: false },
+  { key: 'safety', label: '安全库存', core: false },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('PRODUCT-ARCHIVE', COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
 const loading = ref(false)
 const products = ref([])

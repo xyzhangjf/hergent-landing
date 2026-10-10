@@ -73,11 +73,11 @@
         <table class="tbl isn-tbl">
           <thead>
             <tr>
-              <th class="seq-th">序号</th><th class="isn-c-prod">商品</th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th><th class="isn-c-prod">商品</th>
               <th class="num isn-c-qty">数量</th>
-              <th class="isn-c-unit">单位</th>
+              <th class="isn-c-unit" v-if="isVisible('unit')">单位</th>
               <th class="num isn-c-price">单价</th>
-              <th class="num isn-c-amt">金额</th>
+              <th class="num isn-c-amt" v-if="isVisible('amt')">金额</th>
               <th class="isn-c-del"></th>
             </tr>
           </thead>
@@ -91,13 +91,13 @@
                 </select>
               </td>
               <td><input v-model="row.quantity" class="input isn-in num" inputmode="decimal" placeholder="0" /></td>
-              <td>
+              <td v-if="isVisible('unit')">
                 <span v-if="row.unit" class="isn-unit" :class="{ fallback: row.unitFromBase }"
                       :title="row.unitFromBase ? '商品档案里没设「报单单位」，按基础单位显示' : ''">{{ row.unit }}</span>
                 <span v-else class="isn-unit none">先选商品</span>
               </td>
               <td><input v-model="row.unit_price" class="input isn-in num" inputmode="decimal" placeholder="0.00" /></td>
-              <td class="num isn-amt">¥{{ fmtMoney(rowAmount(row)) }}</td>
+              <td class="num isn-amt" v-if="isVisible('amt')">¥{{ fmtMoney(rowAmount(row)) }}</td>
               <td class="isn-c-del">
                 <button class="btn btn-icon btn-sm" title="删除这一行" @click="items.splice(i, 1)">
                   <Icon name="trash" :size="14" />
@@ -105,10 +105,12 @@
               </td>
             </tr>
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
 
-      <div v-if="items.length" class="isn-foot">
+        <ColMenuPanel ref="panel" :col-list="SALE_NEW_COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
+
+        <div v-if="items.length" class="isn-foot">
         <span class="isn-total">合计 <b>¥{{ fmtMoney(totalAmount) }}</b></span>
       </div>
     </div>
@@ -127,12 +129,27 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
+import ColMenuPanel from '../../components/ColMenuPanel.vue'
+import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
 import { toast } from '../../store'
 import { fmtMoney, ORDER_TYPE, ORDER_TYPE_OPTIONS } from '../../constants/psiLabels'
 
 const router = useRouter()
 const route = useRoute()
+
+/* 列设置：本页是录入网格，商品 / 数量 / 单价 / 删除为录入必需（core），
+   单位、金额为派生的展示列，可隐藏。 */
+const SALE_NEW_COLS = [
+  { key: 'prod', label: '商品', core: true },
+  { key: 'qty', label: '数量', core: true },
+  { key: 'unit', label: '单位', core: false },
+  { key: 'price', label: '单价', core: true },
+  { key: 'amt', label: '金额', core: false },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('inv-sale-new', SALE_NEW_COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
 /* 🔴 v395（2026-10-08）：出货方式**从 URL 预置** —— 侧栏「自提订单 / 车销订单 /
    调拨单」右侧的「＋」带 `?type=`，进来就选好了，不用每次手选（后端默认

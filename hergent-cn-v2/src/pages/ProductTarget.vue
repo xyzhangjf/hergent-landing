@@ -81,18 +81,18 @@
         <table class="pt-tbl seq-host">
           <thead>
             <tr>
-              <th class="seq-th">序号</th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
               <th class="pt-th-prod">商品</th>
-              <th>品牌</th>
+              <th v-if="isVisible('brand')">品牌</th>
               <th class="num">目标(箱)</th>
               <th class="num">已达成(箱)</th>
               <th class="num">差额(箱)</th>
               <th class="num">本期报单(箱)</th>
               <!-- v324 P2-A：这两列走的是后端实际读的目标月（= 到货月），与「目标/已达成/差额」
                    （走工具栏筛的月份）可能**不同月**。只在真的不同月时才挂 title，一致时连属性都不渲染。 -->
-              <th class="num" :title="avgColTip || undefined">剩余可报</th>
-              <th class="num" :title="avgColTip || undefined">均单(箱)</th>
-              <th class="num">分解</th>
+              <th class="num" v-if="isVisible('remain')" :title="avgColTip || undefined">剩余可报</th>
+              <th class="num" v-if="isVisible('avg')" :title="avgColTip || undefined">均单(箱)</th>
+              <th class="num" v-if="isVisible('alloc')">分解</th>
               <th class="pt-th-op">操作</th>
             </tr>
           </thead>
@@ -114,17 +114,17 @@
                     <span class="pt-spec">{{ r.name || '—' }}</span>
                   </div>
                 </td>
-                <td class="pt-brand">{{ r.brand || '—' }}</td>
+                <td class="pt-brand" v-if="isVisible('brand')">{{ r.brand || '—' }}</td>
                 <td class="num"><b>{{ fmt(r.target_qty) }}</b></td>
                 <td class="num">{{ fmt(r.achieved_box) }}</td>
                 <td class="num" :class="gapClass(r)">{{ fmt(gapOf(r)) }}</td>
                 <td class="num">{{ repText(r) }}</td>
-                <td class="num pt-quiet">{{ remText(r) }}</td>
-                <td class="num">
+                <td class="num pt-quiet" v-if="isVisible('remain')">{{ remText(r) }}</td>
+                <td class="num" v-if="isVisible('avg')">
                   <b v-if="avgOf(r) != null">{{ fmt(avgOf(r).avg_box) }}</b>
                   <span v-else class="pt-quiet" :title="avgWhy(r)">—</span>
                 </td>
-                <td class="num pt-quiet">{{ (r.allocs || []).length }} 人</td>
+                <td class="num pt-quiet" v-if="isVisible('alloc')">{{ (r.allocs || []).length }} 人</td>
                 <td class="pt-op">
                   <!-- v335 按钮级门禁：改目标量=PUT /api/product-targets/{tid} ⇒ data/update；
                        删除=DELETE 同路径 ⇒ data/delete -->
@@ -143,7 +143,7 @@
                 </td>
               </tr>
               <tr v-if="openId === r.id" class="pt-detail-row">
-                <td :colspan="11">
+                <td :colspan="ptColspan">
                   <div class="pt-detail">
                     <div class="pt-detail-hd">
                       <b>分解到人</b>
@@ -181,6 +181,7 @@
             </template>
           </tbody>
         </table>
+        <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
       </div>
     </div>
 
@@ -449,6 +450,10 @@ import { productTargetsApi, forecastApi } from '../api/modules.js'
 // v277：补换算成功后要给「已写进哪个商品档案」一个明确回执。本页此前只用页内 err 条，
 // 但那行是「列表级」的（会被后续 load 覆盖），而这里是一次单点写操作 ⇒ 用全站 toast。
 import { toast, canDo } from '../store'
+// 列设置齿轮（替换「序号」表头）：复用共享 useColSettings + ColMenuPanel，不新建基础设施。
+import { useColSettings } from '../composables/useColSettings.js'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
+import Icon from '../components/Icon.vue'
 
 /* ══════════════════════════════════════════════════════════════
    商品目标管理（v264）
@@ -481,6 +486,26 @@ const anchor = ref(null)
 const avgMonth = ref('')
 const periodId = ref(0)
 const avgById = ref({})
+
+/* ---- 列设置齿轮（替换「序号」表头，复用共享 useColSettings）---- */
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
+
+const COLS = [
+  { key: 'prod', label: '商品', core: true },
+  { key: 'brand', label: '品牌', core: false },
+  { key: 'target', label: '目标(箱)', core: true },
+  { key: 'achieved', label: '已达成(箱)', core: true },
+  { key: 'gap', label: '差额(箱)', core: true },
+  { key: 'rep', label: '本期报单(箱)', core: true },
+  { key: 'remain', label: '剩余可报', core: false },
+  { key: 'avg', label: '均单(箱)', core: false },
+  { key: 'alloc', label: '分解', core: false },
+  { key: 'op', label: '操作', core: true },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('product-target', COLS)
+// 展开行的明细占满整行：隐藏可选列后实际列数会变，colspan 必须跟着走。
+const ptColspan = computed(() => 1 + COLS.filter(c => isVisible(c.key)).length)
 /* v264c（R9）：报单「列名 ↔ 报单对象」对账（**只读**）。
    null = 还没查 / 查失败 ⇒ 不渲染告警（一次辅助查询失败不该在页面上吓用户）。 */
 const audit = ref(null)

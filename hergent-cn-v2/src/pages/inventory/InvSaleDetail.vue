@@ -60,26 +60,26 @@
           <table class="tbl">
             <thead>
               <tr>
-                <th class="seq-th">序号</th>
+                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
                 <th>商品</th>
-                <th>规格</th>
+                <th v-if="isVisible('spec')">规格</th>
                 <th class="num">数量</th>
-                <th>单位</th>
+                <th v-if="isVisible('unit')">单位</th>
                 <th class="num">单价</th>
                 <th class="num">金额</th>
-                <th>出库批次</th>
+                <th v-if="isVisible('batch')">出库批次</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(it, i) in items" :key="it.id">
                 <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>{{ it.product_name || ('商品 ' + it.product_id) }}</td>
-                <td>{{ it.spec || '—' }}</td>
+                <td v-if="isVisible('spec')">{{ it.spec || '—' }}</td>
                 <td class="num">{{ fmtQty(it.quantity) }}</td>
-                <td>{{ it.unit || '—' }}</td>
+                <td v-if="isVisible('unit')">{{ it.unit || '—' }}</td>
                 <td class="num">¥{{ fmtMoney(it.unit_price) }}</td>
                 <td class="num">¥{{ fmtMoney(it.amount) }}</td>
-                <td>
+                <td v-if="isVisible('batch')">
                   <span v-if="it.batch_no">{{ it.batch_no }}</span>
                   <span v-else class="isd-note">发货后按最早到期批次生成</span>
                 </td>
@@ -87,6 +87,9 @@
             </tbody>
           </table>
         </div>
+
+        <ColMenuPanel ref="panel" :col-list="SALE_DETAIL_COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
+
       </div>
     </template>
   </div>
@@ -102,6 +105,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'
+import ColMenuPanel from '../../components/ColMenuPanel.vue'
+import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
 import { canDo, toast } from '../../store'
 import {
@@ -110,6 +115,19 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+
+const SALE_DETAIL_COLS = [
+  { key: 'prod', label: '商品', core: true },
+  { key: 'spec', label: '规格', core: false },
+  { key: 'qty', label: '数量', core: true },
+  { key: 'unit', label: '单位', core: false },
+  { key: 'price', label: '单价', core: true },
+  { key: 'amt', label: '金额', core: true },
+  { key: 'batch', label: '出库批次', core: false },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('inv-sale-detail', SALE_DETAIL_COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
 const oid = Number(route.params.id)
 const loading = ref(true)

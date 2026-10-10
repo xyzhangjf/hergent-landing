@@ -65,15 +65,15 @@
           <table class="tbl">
             <thead>
               <tr>
-                <th class="seq-th">序号</th>
+                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
                 <th>商品</th>
-                <th>规格</th>
+                <th v-if="isVisible('spec')">规格</th>
                 <th>仓库</th>
-                <th>批次号</th>
-                <th>到期日</th>
-                <th>剩余</th>
+                <th v-if="isVisible('batch')">批次号</th>
+                <th v-if="isVisible('expiry')">到期日</th>
+                <th v-if="isVisible('days')">剩余</th>
                 <th class="num">数量</th>
-                <th class="num">成本价</th>
+                <th class="num" v-if="isVisible('cost')">成本价</th>
                 <th>状态</th>
               </tr>
             </thead>
@@ -81,14 +81,14 @@
               <tr v-for="(r, i) in rows" :key="r.id">
                 <td class="seq-cell"><span class="seq-num">{{ offset + i + 1 }}</span></td>
                 <td>{{ r.product_name || ('商品 ' + r.product_id) }}</td>
-                <td>{{ r.spec || '—' }}</td>
+                <td v-if="isVisible('spec')">{{ r.spec || '—' }}</td>
                 <td>{{ r.warehouse_name || ('仓库 ' + r.warehouse_id) }}</td>
-                <td>{{ r.batch_no || '—' }}</td>
-                <td>{{ r.expiry_date || '—' }}</td>
+                <td v-if="isVisible('batch')">{{ r.batch_no || '—' }}</td>
+                <td v-if="isVisible('expiry')">{{ r.expiry_date || '—' }}</td>
                 <!-- 剩余天数由后端算（与排序、可售判定同源），前端不再拿今天去减 -->
-                <td>{{ daysText(r) }}</td>
+                <td v-if="isVisible('days')">{{ daysText(r) }}</td>
                 <td class="num">{{ fmtQty(r.quantity) }}</td>
-                <td class="num">¥{{ fmtMoney(r.cost_price) }}</td>
+                <td class="num" v-if="isVisible('cost')">¥{{ fmtMoney(r.cost_price) }}</td>
                 <td>
                   <span class="tag" :class="tagOf(EXPIRY_STATUS, r.expiry_status)">
                     {{ textOf(EXPIRY_STATUS, r.expiry_status) }}
@@ -98,6 +98,8 @@
             </tbody>
           </table>
         </div>
+
+        <ColMenuPanel ref="panel" :col-list="STOCK_COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
 
         <div class="is-page">
           <span class="is-cnt">共 {{ total }} 行，第 {{ pageFrom }}–{{ pageTo }} 行</span>
@@ -117,8 +119,25 @@
       手改库存要走去库存效期补录或盘点，不该在这里凭空加。 */
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
+import ColMenuPanel from '../../components/ColMenuPanel.vue'
+import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
 import { EXPIRY_STATUS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
+
+const STOCK_COLS = [
+  { key: 'prod', label: '商品', core: true },
+  { key: 'spec', label: '规格', core: false },
+  { key: 'wh', label: '仓库', core: true },
+  { key: 'batch', label: '批次号', core: false },
+  { key: 'expiry', label: '到期日', core: false },
+  { key: 'days', label: '剩余', core: false },
+  { key: 'qty', label: '数量', core: true },
+  { key: 'cost', label: '成本价', core: false },
+  { key: 'status', label: '状态', core: true },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('inv-stock', STOCK_COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
 const loading = ref(true)
 const err = ref('')

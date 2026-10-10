@@ -139,19 +139,26 @@
         <div v-if="result.results?.length" class="table-wrap">
           <table class="tbl">
             <thead><tr>
-              <th class="seq-th">序号</th><th>员工</th><th class="num">基本工资</th><th class="num">提成</th><th class="num">绩效</th>
-              <th class="num">应发</th><th class="num">社保</th><th class="num">个税</th><th class="num">实发</th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th>员工</th>
+              <th v-if="isVisible('base')" class="num">基本工资</th>
+              <th v-if="isVisible('comm')" class="num">提成</th>
+              <th v-if="isVisible('perf')" class="num">绩效</th>
+              <th class="num">应发</th>
+              <th v-if="isVisible('social')" class="num">社保</th>
+              <th v-if="isVisible('tax')" class="num">个税</th>
+              <th class="num pr-net">实发</th>
             </tr></thead>
             <tbody>
               <tr v-for="(r, i) in result.results" :key="r.employee_id || i">
                 <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>{{ r.employee_name }}</td>
-                <td class="num">¥{{ fmt(r.breakdown?.base_salary) }}</td>
-                <td class="num">¥{{ fmt(r.breakdown?.commission) }}</td>
-                <td class="num">¥{{ fmt(r.breakdown?.performance) }}</td>
+                <td v-if="isVisible('base')" class="num">¥{{ fmt(r.breakdown?.base_salary) }}</td>
+                <td v-if="isVisible('comm')" class="num">¥{{ fmt(r.breakdown?.commission) }}</td>
+                <td v-if="isVisible('perf')" class="num">¥{{ fmt(r.breakdown?.performance) }}</td>
                 <td class="num">¥{{ fmt(r.gross_salary) }}</td>
-                <td class="num">¥{{ fmt(r.deductions_employee?.total_social_ee) }}</td>
-                <td class="num">¥{{ fmt(r.tax_amount) }}</td>
+                <td v-if="isVisible('social')" class="num">¥{{ fmt(r.deductions_employee?.total_social_ee) }}</td>
+                <td v-if="isVisible('tax')" class="num">¥{{ fmt(r.tax_amount) }}</td>
                 <td class="num pr-net">¥{{ fmt(r.net_salary) }}</td>
               </tr>
             </tbody>
@@ -161,6 +168,7 @@
           <p>{{ result.note || '暂无数据' }}</p>
           <button v-if="!result.results?.length" class="btn btn-primary btn-sm" style="margin-top:12px" @click="goDataFill">去补录员工档案 →</button>
         </div>
+        <ColMenuPanel ref="panel" :col-list="PAYROLL_COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
       </div>
 
       <div class="pr-actions" style="justify-content:space-between">
@@ -188,9 +196,11 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../store'
+import { useColSettings } from '../composables/useColSettings.js'
 /* v291：页内跳转入口同判据（见 goDataFill）。 */
 import { canSee } from '../constants/pages'
 import { payrollApi, adviceApi } from '../api/modules'
@@ -198,6 +208,21 @@ import AdvicePanel from '../components/AdvicePanel.vue'
 import { openPrintable } from '../utils/printable'
 
 const router = useRouter()
+
+/* v432：员工工资明细列设置（齿轮 + 可选列显隐）。员工/应发/实发为固定列，其余可选。 */
+const PAYROLL_COLS = [
+  { key: 'emp',    label: '员工',   core: true },
+  { key: 'base',   label: '基本工资', core: false },
+  { key: 'comm',   label: '提成',   core: false },
+  { key: 'perf',   label: '绩效',   core: false },
+  { key: 'gross',  label: '应发',   core: true },
+  { key: 'social', label: '社保',   core: false },
+  { key: 'tax',    label: '个税',   core: false },
+  { key: 'net',    label: '实发',   core: true },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('payroll-workflow', PAYROLL_COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
 function goDataFill() {
   /* v291（2026-09-27）：「去补录」的目标页也受权限保护（/data-fill 只给业务管理岗）——

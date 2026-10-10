@@ -143,22 +143,33 @@
         </div>
         <div class="table-wrap">
           <table class="tbl">
-            <thead><tr><th class="seq-th">序号</th><th>商品</th><th>批次</th><th>效期</th><th class="num">剩余</th><th class="num">数量</th><th class="num">单价</th><th class="num">损耗</th><th>建议</th></tr></thead>
+            <thead><tr>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th>商品</th>
+              <th v-if="isVisible('batch')">批次</th>
+              <th>效期</th>
+              <th v-if="isVisible('remain')" class="num">剩余</th>
+              <th class="num">数量</th>
+              <th v-if="isVisible('price')" class="num">单价</th>
+              <th class="num">损耗</th>
+              <th>建议</th>
+            </tr></thead>
             <tbody>
               <tr v-for="(it, i) in result.items" :key="i">
                 <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>{{ it.product_name }}<span v-if="it.spec" class="lf-spec">{{ it.spec }}</span></td>
-                <td>{{ it.batch_no || '—' }}</td>
+                <td v-if="isVisible('batch')">{{ it.batch_no || '—' }}</td>
                 <td>{{ it.expiry_date || '—' }}</td>
-                <td class="num" :class="it.tier === 'expired' ? 'val-bad' : 'val-warn'">{{ it.days_left }} 天</td>
+                <td v-if="isVisible('remain')" class="num" :class="it.tier === 'expired' ? 'val-bad' : 'val-warn'">{{ it.days_left }} 天</td>
                 <td class="num">{{ fmt(it.quantity) }} {{ it.unit }}</td>
-                <td class="num">¥{{ fmt(it.price) }}</td>
+                <td v-if="isVisible('price')" class="num">¥{{ fmt(it.price) }}</td>
                 <td class="num val-bad">¥{{ fmt(it.loss) }}</td>
                 <td><span class="tag" :class="it.tier === 'expired' ? 'bad' : 'warn'">{{ it.action }}</span></td>
               </tr>
             </tbody>
           </table>
         </div>
+        <ColMenuPanel ref="panel" :col-list="LOSS_COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
       </div>
 
       <div class="lf-actions" style="justify-content:space-between">
@@ -182,9 +193,11 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../store'
+import { useColSettings } from '../composables/useColSettings.js'
 /* v291：页内跳转入口同判据（见 goDataFill）。 */
 import { canSee } from '../constants/pages'
 import { lossApi, adviceApi } from '../api/modules'
@@ -192,6 +205,21 @@ import AdvicePanel from '../components/AdvicePanel.vue'
 import { openPrintable } from '../utils/printable'
 
 const router = useRouter()
+
+/* v432：损耗明细列设置（齿轮 + 可选列显隐）。商品/效期/数量/损耗/建议为固定列，批次/剩余/单价可选。 */
+const LOSS_COLS = [
+  { key: 'prod',   label: '商品',  core: true },
+  { key: 'batch',  label: '批次',  core: false },
+  { key: 'expiry', label: '效期',  core: true },
+  { key: 'remain', label: '剩余',  core: false },
+  { key: 'qty',    label: '数量',  core: true },
+  { key: 'price',  label: '单价',  core: false },
+  { key: 'loss',   label: '损耗',  core: true },
+  { key: 'action', label: '建议',  core: true },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('loss-workflow', LOSS_COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
 function goDataFill() {
   /* v291（2026-09-27）：「去补录」的目标页也受权限保护（/data-fill 只给业务管理岗）——

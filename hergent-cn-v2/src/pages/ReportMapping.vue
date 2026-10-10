@@ -90,8 +90,8 @@
       <table class="tbl">
         <thead>
           <tr>
-            <th class="seq-th">序号</th><th>报单人</th><th>对象类型</th><th>对象全称</th><th>简称(列头)</th>
-            <th>单型</th><th>取价渠道</th><th>仓库(调拨)</th><th>状态</th><th class="ops">操作</th>
+            <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th><th>报单人</th><th v-if="isVisible('ctype')">对象类型</th><th>对象全称</th><th>简称(列头)</th>
+            <th v-if="isVisible('template')">单型</th><th v-if="isVisible('channel')">取价渠道</th><th v-if="isVisible('wh')">仓库(调拨)</th><th>状态</th><th class="ops">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -103,15 +103,15 @@
                    列表里长得一样，停用/编辑时容易改错行（列表是唯一能一眼看到全量配置的地方）。 -->
               <span v-if="m.subject_kind === 'external'" class="tag purple" title="外部客户（分销商）账号 —— 在「员工档案 › 外部客户账号」里开通">外部客户</span>
             </td>
-            <td><span class="tag" :class="typeClass(m.counterparty_type)">{{ typeLabel(m.counterparty_type) }}</span></td>
+            <td v-if="isVisible('ctype')"><span class="tag" :class="typeClass(m.counterparty_type)">{{ typeLabel(m.counterparty_type) }}</span></td>
             <td>{{ m.counterparty_name || m.system_name || '—' }}</td>
             <td><b>{{ m.report_alias }}</b></td>
             <!-- v294：单型列显示**派生值**，不显示库里存的旧值 —— 存量行可能存着与类型
                  矛盾的历史值（"门店 + 调拨单"），显示它等于把错误当事实播出去。
                  派生值才是系统实际会做的事。 -->
-            <td>{{ orderTemplateFor(m.counterparty_type) }}</td>
-            <td>{{ channelShow(m) }}</td>
-            <td class="num">{{ whShow(m) }}</td>
+            <td v-if="isVisible('template')">{{ orderTemplateFor(m.counterparty_type) }}</td>
+            <td v-if="isVisible('channel')">{{ channelShow(m) }}</td>
+            <td v-if="isVisible('wh')" class="num">{{ whShow(m) }}</td>
             <td>
               <span v-if="m.is_active === 0" class="tag danger">已停用</span>
               <span v-else class="tag suc">启用中</span>
@@ -128,6 +128,8 @@
         </tbody>
       </table>
     </div>
+
+    <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
 
     <!-- 新建/编辑抽屉 -->
     <Teleport to="body">
@@ -413,6 +415,8 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import { useColSettings } from '../composables/useColSettings.js'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 /* v317：页内跳转入口同判据（见 goEmployees）。 */
@@ -420,6 +424,17 @@ import { canSee } from '../constants/pages'
 import { reportMappingApi, priceChannelApi } from '../api/modules'
 import { api } from '../api/client'
 import { toast, canDo } from '../store'
+
+/* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。 */
+const COLS = [
+  { key: 'ctype', label: '对象类型', core: false },
+  { key: 'template', label: '单型', core: false },
+  { key: 'channel', label: '取价渠道', core: false },
+  { key: 'wh', label: '仓库(调拨)', core: false },
+]
+const { isVisible, toggleCol, resetCols } = useColSettings('REPORT-MAPPING', COLS)
+const panel = ref(null)
+function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
 const list = ref([])
 const router = useRouter()

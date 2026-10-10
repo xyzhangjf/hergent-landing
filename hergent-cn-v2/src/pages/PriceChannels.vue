@@ -112,8 +112,8 @@
         <table class="pc-tb seq-host">
           <thead>
             <tr>
-              <th class="seq-th">序号</th><th>客户</th><th>商品</th><th>规格</th>
-              <th>小单位价</th><th>中单位价</th><th>大单位价</th><th>更新时间</th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuCust" title="列设置"><Icon name="settings" :size="15" /></button></th><th>客户</th><th>商品</th><th v-if="isVisibleCust('spec')">规格</th>
+              <th>小单位价</th><th>中单位价</th><th>大单位价</th><th v-if="isVisibleCust('updated')">更新时间</th>
             </tr>
           </thead>
           <tbody>
@@ -127,7 +127,7 @@
                 {{ r.product_name || ('#' + r.product_id) }}
                 <span v-if="r.barcode" class="pc-spec">{{ r.barcode }}</span>
               </td>
-              <td class="pc-mono">{{ r.spec || '—' }}</td>
+              <td class="pc-mono" v-if="isVisibleCust('spec')">{{ r.spec || '—' }}</td>
 
               <!-- 小单位价：基准档，始终可填。中/大两档都是从这一档推出来的。 -->
               <td class="pc-px">
@@ -179,10 +179,11 @@
                 <span v-else class="pc-na">该商品无大单位</span>
               </td>
 
-              <td class="pc-mono">{{ fmtDay(r.updated_at) }}</td>
+              <td class="pc-mono" v-if="isVisibleCust('updated')">{{ fmtDay(r.updated_at) }}</td>
             </tr>
           </tbody>
         </table>
+        <ColMenuPanel ref="panelCust" :col-list="COLS_CUST" :is-visible="isVisibleCust" :toggle-col="toggleColCust" :reset-cols="resetColsCust" />
         <div class="pc-pager">
           <button class="btn btn-ghost btn-sm" :disabled="cpOffset <= 0" @click="loadCustPrices(cpOffset - cpLimit)">上一页</button>
           <span>{{ cpPageFrom }}–{{ cpPageTo }} / {{ cpTotal }}</span>
@@ -322,23 +323,24 @@
           <div v-if="mxLoading" class="pc-empty">正在加载商品…</div>
           <table v-else class="pc-tb seq-host">
             <thead>
-              <tr><th class="seq-th">序号</th><th>商品</th><th>条码</th><th>该渠道商品编码</th><th>该渠道价格</th><th>状态</th></tr>
+              <tr><th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuMatrix" title="列设置"><Icon name="settings" :size="15" /></button></th><th>商品</th><th v-if="isVisibleMatrix('barcode')">条码</th><th v-if="isVisibleMatrix('extcode')">该渠道商品编码</th><th>该渠道价格</th><th>状态</th></tr>
             </thead>
             <tbody>
               <tr v-for="(r, i) in mxRows" :key="r.id" :class="{ dirty: mxDirty[r.id] }">
                 <td class="seq-cell"><span class="seq-num">{{ mxOffset + i + 1 }}</span></td>
                 <td class="pc-name">{{ r.name }}<span v-if="r.spec" class="pc-spec">规格 {{ r.spec }}</span></td>
-                <td class="pc-mono">{{ r.barcode || '—' }}</td>
-                <td><input v-model="mxEdit[r.id].external_code" class="pc-in" @input="touch(r.id)"/></td>
+                <td class="pc-mono" v-if="isVisibleMatrix('barcode')">{{ r.barcode || '—' }}</td>
+                <td v-if="isVisibleMatrix('extcode')"><input v-model="mxEdit[r.id].external_code" class="pc-in" @input="touch(r.id)"/></td>
                 <td><input v-model="mxEdit[r.id].price" class="pc-in" @input="touch(r.id)"/></td>
                 <td>
                   <span v-if="Number(mxEdit[r.id].price) > 0" class="pc-ok">已录</span>
                   <span v-else class="pc-miss">未录</span>
                 </td>
               </tr>
-              <tr v-if="!mxRows.length"><td colspan="6" class="pc-empty">没有匹配的商品</td></tr>
+              <tr v-if="!mxRows.length"><td :colspan="mxColspan" class="pc-empty">没有匹配的商品</td></tr>
             </tbody>
           </table>
+          <ColMenuPanel ref="panelMatrix" :col-list="COLS_MATRIX" :is-visible="isVisibleMatrix" :toggle-col="toggleColMatrix" :reset-cols="resetColsMatrix" />
           <div class="pc-pager">
             <button class="btn btn-ghost btn-sm" :disabled="mxOffset <= 0" @click="loadMatrix(mxOffset - mxLimit)">上一页</button>
             <span>{{ mxPageFrom }}–{{ mxPageTo }} / {{ mxTotal }}</span>
@@ -363,8 +365,42 @@ import Icon from '../components/Icon.vue'
 import { ref, computed, onMounted } from 'vue'
 import { priceChannelApi, reportMappingApi, productsApi, custPriceApi } from '../api/modules'
 import { toast, canDo } from '../store'
+// 列设置齿轮（替换「序号」表头）：复用共享 useColSettings + ColMenuPanel，不新建基础设施。
+import { useColSettings } from '../composables/useColSettings.js'
+import ColMenuPanel from '../components/ColMenuPanel.vue'
 
 const loading = ref(false)
+
+/* ---- 列设置齿轮（替换「序号」表头，复用共享 useColSettings）---- */
+/* 两张表各自独立：客户价表 + 渠道价矩阵表，分别记各自的列显隐偏好。 */
+const panelCust = ref(null)
+function openColMenuCust (e) { if (panelCust.value) panelCust.value.open(e) }
+const panelMatrix = ref(null)
+function openColMenuMatrix (e) { if (panelMatrix.value) panelMatrix.value.open(e) }
+
+const COLS_CUST = [
+  { key: 'cust', label: '客户', core: true },
+  { key: 'prod', label: '商品', core: true },
+  { key: 'spec', label: '规格', core: false },
+  { key: 'small', label: '小单位价', core: true },
+  { key: 'medium', label: '中单位价', core: true },
+  { key: 'large', label: '大单位价', core: true },
+  { key: 'updated', label: '更新时间', core: false },
+]
+const { isVisible: isVisibleCust, toggleCol: toggleColCust, resetCols: resetColsCust } =
+  useColSettings('price-channels-cust', COLS_CUST)
+
+const COLS_MATRIX = [
+  { key: 'prod', label: '商品', core: true },
+  { key: 'barcode', label: '条码', core: false },
+  { key: 'extcode', label: '该渠道商品编码', core: false },
+  { key: 'price', label: '该渠道价格', core: true },
+  { key: 'status', label: '状态', core: true },
+]
+const { isVisible: isVisibleMatrix, toggleCol: toggleColMatrix, resetCols: resetColsMatrix } =
+  useColSettings('price-channels-matrix', COLS_MATRIX)
+// 渠道价矩阵表空态行的 colspan 必须跟着可见列数走。
+const mxColspan = computed(() => 1 + COLS_MATRIX.filter(c => isVisibleMatrix(c.key)).length)
 const channels = ref([])
 const stat = ref({})
 const used = ref({})
