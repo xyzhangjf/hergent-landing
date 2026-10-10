@@ -66,8 +66,8 @@
                   统一读 `pages.js` 的 `/forecast` 行（名单仍是 `FORECAST_SUMMARY_ROLES`）。 -->
 
           <!-- v274（2026-09-25）：**舟谱单据导入的侧栏入口已撤掉**，迁进
-               「连接与集成 › 业务数据源 › 舟谱/导出表」（http://…/connect?tab=datasource 那张卡）。
-               （v311 起「能力中心」已更名「AI 引擎」；页面位置与路由 `/connect` 都没动。）
+               「连接与集成 › ERP 数据源 › 舟谱/导出表」（http://…/connect?tab=erp 那张卡）。
+               （v311 起「能力中心」已更名「AI 引擎」；v428/v429 又把「连接器」「业务数据源」逐级拆成独立子页。）
                撤掉的理由：它是一个**一个月用一次**的动作，占一行侧栏不划算；而那一区
                本来就是「接入你的业务系统」的数据源清单（旁边是畅捷通 / 金蝶），
                舟谱导出的两张表就是一个数据来源 ⇒ 归到那里语义更正。
@@ -543,8 +543,9 @@ const NAV = [
       // v427（2026-10-10）：「AI 引擎」由单入口拆成 5 个独立子页（与 v424「报单配置」同构）。
       // v428（2026-10-10）：其中「连接器」再拆成 3 个独立子页（连接手机 / 配对审批 / 业务数据源），
       //   并从本组挪出、单独成「连接与集成」组；本组只留纯 AI 的 4 项。
+      // v429（2026-10-10）：「业务数据源」再拆成 ERP 数据源/数据台账/MCP 连接 三个子页（沿用 v427/v428 同构）。
       //   原页内页签条已退役（v396），改由 URL `?tab=` 驱动；tabKey 与 `constants/tabTitles.js` 一致。
-      //   ⚠️ 图标只用 Icon.vue 已支持的（users/sparkle/history/bars/smartphone/approve/store）；不存在会静默变齿轮。
+      //   ⚠️ 图标只用 Icon.vue 已支持的（users/sparkle/history/bars/smartphone/approve/store/list/link）；不存在会静默变齿轮。
       { label: 'AI 能力', items: [
         { path: '/connect', tab: 'expert',    name: 'AI 团队',  icon: 'users' },
         { path: '/connect', tab: 'skill',     name: '技能库',     icon: 'sparkle' },
@@ -552,10 +553,13 @@ const NAV = [
         { path: '/connect', tab: 'output',    name: '产出与用量', icon: 'bars' }
       ] },
       // v428：连接类独立成组（与上方同源的 ?tab= 驱动）。配对审批图标用 `approve`（审批语义更准）。
+      // v429：业务数据源进一步拆成 ERP 数据源 / 数据台账 / MCP 连接（图标 store/list/link 均已核验存在）。
       { label: '连接与集成', items: [
         { path: '/connect', tab: 'im',         name: '连接手机',   icon: 'smartphone' },
         { path: '/connect', tab: 'pairing',    name: '配对审批',   icon: 'approve' },
-        { path: '/connect', tab: 'datasource', name: '业务数据源', icon: 'store' }
+        { path: '/connect', tab: 'erp',        name: 'ERP 数据源', icon: 'store' },
+        { path: '/connect', tab: 'datasource', name: '数据台账',   icon: 'list' },
+        { path: '/connect', tab: 'mcp',        name: 'MCP 连接',   icon: 'link' }
       ] },
       { label: '自动化', items: [ { path: '/cron', name: '定时任务', icon: 'clock' } ] },
       // v427：「设置」同样拆成 5 个独立子页（与上方同源）。
