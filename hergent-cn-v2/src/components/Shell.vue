@@ -66,7 +66,7 @@
                   统一读 `pages.js` 的 `/forecast` 行（名单仍是 `FORECAST_SUMMARY_ROLES`）。 -->
 
           <!-- v274（2026-09-25）：**舟谱单据导入的侧栏入口已撤掉**，迁进
-               「AI 引擎 › 连接器 › ERP 数据源」（http://…/connect 那张卡）。
+               「连接与集成 › 业务数据源 › 舟谱/导出表」（http://…/connect?tab=datasource 那张卡）。
                （v311 起「能力中心」已更名「AI 引擎」；页面位置与路由 `/connect` 都没动。）
                撤掉的理由：它是一个**一个月用一次**的动作，占一行侧栏不划算；而那一区
                本来就是「接入你的业务系统」的数据源清单（旁边是畅捷通 / 金蝶），
@@ -541,14 +541,21 @@ const NAV = [
     key: 'system', name: '系统', icon: 'settings',
     groups: [
       // v427（2026-10-10）：「AI 引擎」由单入口拆成 5 个独立子页（与 v424「报单配置」同构）。
+      // v428（2026-10-10）：其中「连接器」再拆成 3 个独立子页（连接手机 / 配对审批 / 业务数据源），
+      //   并从本组挪出、单独成「连接与集成」组；本组只留纯 AI 的 4 项。
       //   原页内页签条已退役（v396），改由 URL `?tab=` 驱动；tabKey 与 `constants/tabTitles.js` 一致。
-      //   ⚠️ 图标只用 Icon.vue 已支持的（link/users/sparkle/history/bars）；bar-chart 不存在会静默变齿轮。
+      //   ⚠️ 图标只用 Icon.vue 已支持的（users/sparkle/history/bars/smartphone/approve/store）；不存在会静默变齿轮。
       { label: 'AI 能力', items: [
-        { path: '/connect', tab: 'connector', name: '连接器',     icon: 'link' },
         { path: '/connect', tab: 'expert',    name: 'AI 团队',  icon: 'users' },
         { path: '/connect', tab: 'skill',     name: '技能库',     icon: 'sparkle' },
         { path: '/connect', tab: 'evolution', name: '进化日志',   icon: 'history' },
         { path: '/connect', tab: 'output',    name: '产出与用量', icon: 'bars' }
+      ] },
+      // v428：连接类独立成组（与上方同源的 ?tab= 驱动）。配对审批图标用 `approve`（审批语义更准）。
+      { label: '连接与集成', items: [
+        { path: '/connect', tab: 'im',         name: '连接手机',   icon: 'smartphone' },
+        { path: '/connect', tab: 'pairing',    name: '配对审批',   icon: 'approve' },
+        { path: '/connect', tab: 'datasource', name: '业务数据源', icon: 'store' }
       ] },
       { label: '自动化', items: [ { path: '/cron', name: '定时任务', icon: 'clock' } ] },
       // v427：「设置」同样拆成 5 个独立子页（与上方同源）。

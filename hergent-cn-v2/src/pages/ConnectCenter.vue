@@ -38,8 +38,8 @@
       </div>
     </template>
 
-    <!-- ===== 连接器 Tab ===== -->
-    <template v-if="tab === 'connector'">
+    <!-- ===== 连接手机 Tab（v428：原「连接器」拆出 ?tab=im）===== -->
+    <template v-if="tab === 'im'">
       <div class="cc-section">
         <!-- 对齐桌面「连接手机」：顶部提示条 -->
         <div class="cc-tip-banner" v-if="!ccTipDismissed">
@@ -113,6 +113,13 @@
           <button class="gw-btn" :disabled="gwBusy" @click="recheckAll">重新检测全部</button>
         </div>
 
+      </div>
+
+    </template>
+
+      <!-- ===== 配对审批 Tab（v428：从「连接器」拆出 ?tab=pairing）===== -->
+      <template v-else-if="tab === 'pairing'">
+
         <!-- 配对审批：谁可以跟 AI 对话 -->
         <div class="cc-pair">
           <div class="cc-pair-hd">
@@ -160,9 +167,10 @@
             </div>
           </div>
         </div>
-      </div>
+      </template>
 
-
+      <!-- ===== 业务数据源 Tab（v428：从「连接器」拆出 ?tab=datasource）===== -->
+      <template v-else-if="tab === 'datasource'">
       <div class="cc-section">
         <div class="panel-hd">
           <b>ERP 数据源</b>
@@ -537,11 +545,11 @@ import DataLedger from '../components/DataLedger.vue'
 
 const router = useRouter()
 const route = useRoute()
-const CONNECT_TABS = ['connector', 'expert', 'skill', 'evolution', 'output']
+const CONNECT_TABS = ['im', 'pairing', 'datasource', 'expert', 'skill', 'evolution', 'output']
 function normConnectTab(q) {
-  return CONNECT_TABS.indexOf(q) >= 0 ? q : 'connector'
+  return CONNECT_TABS.indexOf(q) >= 0 ? q : 'im'
 }
-const tab = ref('connector')
+const tab = ref('im')
 /* v427（2026-10-10）：页内页签条退役（v396），改由 URL `?tab=` 驱动。
    侧栏直达 / 深链 / 页内跳转都只认 URL —— 组件不随 query 变化重挂，故用 watch。 */
 function applyConnectTab() {
