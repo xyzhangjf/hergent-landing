@@ -549,11 +549,25 @@ const NAV = [
   {
     key: 'system', name: '系统', icon: 'settings',
     groups: [
-      // ⚠️ 名字是「AI 引擎」不是「能力中心」—— v311 更名，理由见 `pages.js` 该行注释。
-      //   路由仍是 `/connect`（**不改路径**：它是已上线深链，改名只动显示名）。
-      { label: 'AI 能力', items: [ { path: '/connect',  name: 'AI 引擎', icon: 'brain' } ] },
-      { label: '自动化', items: [ { path: '/cron',     name: '定时任务', icon: 'clock' } ] },
-      { label: '系统设置', items: [ { path: '/settings', name: '设置', icon: 'wrench' } ] },
+      // v427（2026-10-10）：「AI 引擎」由单入口拆成 5 个独立子页（与 v424「报单配置」同构）。
+      //   原页内页签条已退役（v396），改由 URL `?tab=` 驱动；tabKey 与 `constants/tabTitles.js` 一致。
+      //   ⚠️ 图标只用 Icon.vue 已支持的（link/users/sparkle/history/bars）；bar-chart 不存在会静默变齿轮。
+      { label: 'AI 能力', items: [
+        { path: '/connect', tab: 'connector', name: '连接器',     icon: 'link' },
+        { path: '/connect', tab: 'expert',    name: 'AI 团队',  icon: 'users' },
+        { path: '/connect', tab: 'skill',     name: '技能库',     icon: 'sparkle' },
+        { path: '/connect', tab: 'evolution', name: '进化日志',   icon: 'history' },
+        { path: '/connect', tab: 'output',    name: '产出与用量', icon: 'bars' }
+      ] },
+      { label: '自动化', items: [ { path: '/cron', name: '定时任务', icon: 'clock' } ] },
+      // v427：「设置」同样拆成 5 个独立子页（与上方同源）。
+      { label: '系统设置', items: [
+        { path: '/settings', tab: 'account', name: '账号与组织', icon: 'users' },
+        { path: '/settings', tab: 'perm',    name: '权限管理',   icon: 'shield' },
+        { path: '/settings', tab: 'ai',      name: 'AI 配置',   icon: 'brain' },
+        { path: '/settings', tab: 'aiops',   name: 'AI 运维',   icon: 'wrench' },
+        { path: '/settings', tab: 'system',  name: '数据与系统', icon: 'package' }
+      ] },
       /* v395（2026-10-08）：**打印**入口 —— 老板点名「先立，这个很重要」。
          三条指向**同一个打印页**的不同页签（`?tab=`，与 `Forecast` 同构）⇒ 零多余页面。
          ⚠️ 本轮页面是**占位骨架**（`pages/Print.vue`）：入口与 URL 先立住，

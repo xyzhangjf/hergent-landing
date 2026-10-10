@@ -1,14 +1,5 @@
 <template>
   <div class="page">
-    <!-- 模块级标签页（沿用「预报订单管理」的 module-tabs 导航） -->
-    <div class="module-tabs">
-      <button :class="{ on: tab === 'account' }" @click="tab = 'account'">账号与组织</button>
-      <button :class="{ on: tab === 'perm' }" @click="switchTab('perm')">权限</button>
-      <button :class="{ on: tab === 'ai' }" @click="switchTab('ai')">AI 配置</button>
-      <button :class="{ on: tab === 'aiops' }" @click="tab = 'aiops'">AI 运维</button>
-      <button :class="{ on: tab === 'system' }" @click="tab = 'system'">数据与系统</button>
-    </div>
-
     <!-- ==================== 账号与组织 ==================== -->
     <template v-if="tab === 'account'">
       <div class="card">
@@ -472,13 +463,23 @@ import {
 const router = useRouter()
 const rtab = useRoute()
 
-/* ---- 模块级标签页 ---- */
+/* ---- 模块级标签页（v427：改为 URL `?tab=` 驱动，页内页签条已退役，见 v396）---- */
+const SETTINGS_TABS = ['account', 'perm', 'ai', 'aiops', 'system']
+function normSettingsTab(q) {
+  return SETTINGS_TABS.indexOf(q) >= 0 ? q : 'account'
+}
 const tab = ref('account')
 function switchTab(t) {
   tab.value = t
   if (t === 'perm') loadPerms()
   if (t === 'ai') loadMemory()
 }
+/* 侧栏直达 / 深链（`/settings?tab=aiops`，见 `AiHub.vue:9`）/ 页内切换都走这一处：
+   URL 是唯一真相，组件不随 query 变化重挂，故要 watch。 */
+function applySettingsTab() {
+  switchTab(normSettingsTab(rtab.query && rtab.query.tab))
+}
+watch(() => rtab.query.tab, () => applySettingsTab())
 
 /* v341（2026-09-30）：「库存效期补录」按钮的守卫。
    目标是 `/data-fill`（模块 `stock` + 业务管理岗），与设置页自身的门槛**不是同一条**
@@ -1165,26 +1166,15 @@ async function switchDensity () {
 }
 
 onMounted(() => {
-  loadMemory()
-  // 支持 ?tab=aiops 深链（「AI 引擎 › 产出与用量」页里的「设置 › AI 运维」入口，
-  // 见 `AiHub.vue:9`；该页 v311 前叫「AI 中心」，路由与 query 名都没变）
-  // 🔴 白名单里**不再有 'onboard'** —— 该标签页已移除（多租户开通改由管理后台负责）。
-  //   旧书签 `?tab=onboard` 会落到默认标签页，不会白屏。
-  const q = rtab.query && rtab.query.tab
-  if (q && ['account', 'perm', 'ai', 'aiops', 'system'].includes(q)) switchTab(q)
+  // v427：改为 URL 驱动（见上方 applySettingsTab）。
+  //   旧注释里的白名单与 onboard 处理已并入 normSettingsTab（不在名单里的落到默认「账号与组织」）。
+  applySettingsTab()
 })
 </script>
 
 <style scoped>
 /* 卡片内距由全局 .card{padding:18px} 兜底（见 variables.css「通用卡片」），
    本页不再重复定义；下方 .toolbar 的 14px 16px 为工具栏专用紧凑间距，特异性更高、保持覆盖。 */
-
-/* 模块级标签页：与「预报订单管理」module-tabs 保持一致 */
-.module-tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--bd);padding-bottom:2px}
-.module-tabs button{border:none;background:transparent;color:var(--t2);font-size:14px;font-weight:500;padding:8px 14px;border-radius:var(--radius-sm) var(--radius-sm) 0 0;cursor:pointer;position:relative}
-.module-tabs button:hover{color:var(--p)}
-.module-tabs button.on{color:var(--p);font-weight:600}
-.module-tabs button.on::after{content:'';position:absolute;left:0;right:0;bottom:-3px;height:2px;background:var(--p);border-radius:2px}
 
 /* 顶部筛选 / 搜索栏：沿用 Forecast 的 toolbar + tb-search */
 .toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:12px}

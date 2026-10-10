@@ -1,18 +1,5 @@
 <template>
   <div class="page">
-    <!-- Tab 栏 -->
-    <div class="cc-tabs">
-      <button class="cc-tab" :class="{ active: tab === 'connector' }" @click="tab = 'connector'">连接器</button>
-      <button class="cc-tab" :class="{ active: tab === 'expert' }" @click="tab = 'expert'">专家</button>
-      <button class="cc-tab" :class="{ active: tab === 'skill' }" @click="tab = 'skill'">技能</button>
-      <button class="cc-tab" :class="{ active: tab === 'evolution' }" @click="tab = 'evolution'; loadEvolution()">进化日志</button>
-      <!-- v311（2026-09-28）：原侧栏一级项「AI 中心」并进本容器当第 5 个页签。
-           本页签即原 `/ai-hub` 那一页（组件直接复用 AiHub.vue，**没有复制第二份实现**）。
-           ⚠️ 它的可见性比本容器**窄**（与本容器同为管理岗）—— 两者已对齐，不会误伤；
-              见 `constants/pages.js` 的 `/ai-hub` 行（roles + lock 一起给，缺 lock 收紧是假的）。 -->
-      <button class="cc-tab" :class="{ active: tab === 'output' }" @click="tab = 'output'">产出与用量</button>
-    </div>
-
     <!-- ===== 进化日志 Tab（AI 自进化可见化）===== -->
     <template v-if="tab === 'evolution'">
       <div class="cc-section">
@@ -29,7 +16,7 @@
         </div>
 
         <!-- v2026-09-13：技能库全量展示下移到「技能」tab，此处仅做引导跳转，消除两页重复展示 -->
-        <div class="ev-jump" @click="tab='skill'">
+        <div class="ev-jump" @click="goTab('skill')">
           <span class="ev-jump-txt">已沉淀 <b>{{ evSkills.total || aiSkills.length || 0 }}</b> 个行业技能</span>
           <span class="ev-jump-go">去技能页查看 →</span>
         </div>
@@ -536,8 +523,8 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
-import { reactive, ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { reactive, ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { toast, store } from '../store'
 import { workflowApi, aiSkillsApi, zhoupuApi } from '../api/modules'
 import { api } from '../api/client'
@@ -549,7 +536,24 @@ import AiHub from './AiHub.vue'
 import DataLedger from '../components/DataLedger.vue'
 
 const router = useRouter()
+const route = useRoute()
+const CONNECT_TABS = ['connector', 'expert', 'skill', 'evolution', 'output']
+function normConnectTab(q) {
+  return CONNECT_TABS.indexOf(q) >= 0 ? q : 'connector'
+}
 const tab = ref('connector')
+/* v427（2026-10-10）：页内页签条退役（v396），改由 URL `?tab=` 驱动。
+   侧栏直达 / 深链 / 页内跳转都只认 URL —— 组件不随 query 变化重挂，故用 watch。 */
+function applyConnectTab() {
+  const t = normConnectTab(route.query && route.query.tab)
+  tab.value = t
+  // 「进化日志」原先是点了页签才拉数据；URL 驱动后深链/侧栏直达都要触发
+  if (t === 'evolution') loadEvolution()
+}
+function goTab(t) {
+  router.push({ path: '/connect', query: { tab: t } })
+}
+watch(() => route.query.tab, () => applyConnectTab())
 
 /* ---- AI 进化日志 ---- */
 const evSkills = ref({ total: 0, items: [] })
@@ -1226,6 +1230,7 @@ const zhoupuTip = computed(() => {
 function openZhoupu() { router.push('/zhoupu-import') }
 
 onMounted(async () => {
+  applyConnectTab()
   await loadChannels()
   // 进页面时若已有渠道在过渡态（刚保存没刷新就离开过），继续轮询到位
   if (ccOrder.value.some(ch => CC_TRANSITION.includes(ccState(ch)))) startStatusPoll()
@@ -1242,11 +1247,6 @@ onUnmounted(stopStatusPoll)
 </script>
 
 <style scoped>
-.cc-tabs{display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:0}
-.cc-tab{padding:10px 18px;border:none;background:none;font-size:14px;color:var(--t2);cursor:pointer;position:relative;font-weight:500}
-.cc-tab.active{color:var(--p-dark)}
-.cc-tab.active::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--p-dark);border-radius:2px}
-
 .cc-section{margin-bottom:26px}
 /* v311：嵌入「产出与用量」时压掉子页自己的页头。
    ⚠️ 只藏页头、**不要**照抄 `.page-hd{display:none}` 那种"连工具条一起藏"的写法 ——
