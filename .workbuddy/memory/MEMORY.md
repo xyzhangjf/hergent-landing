@@ -1,120 +1,32 @@
-# Hergent 项目长期记忆（索引）
+# Hergent 记忆索引（限额 3000 字）
 
-> 限额 14848B ⇒ 新增先下沉 `topics/`。只留**路由 + 召回锚（§）+ 硬判据**。
+> 新增下沉 `topics/`；本文件只留**路由 + 召回锚(§) + 硬判据**。
 
-## 一、路由
+## 路由
+- **前端** → `topics/frontend-ui.md`：🔴 入口唯一源 `pages.js`（未登记=失门禁）`§v209`；🔴 `permView.js` 唯一源、`module:null`=只读 `§v348-351`；🔴 文案三禁⇒技能 `hergent-ui-copy-guard` `§v331/339`；🔴 弹窗三按钮合一/密码先校验 `§v382-385`；🔴 单入口→多子页拆（`?tab=`+`watch`+键名对齐）`§v424/427-429`；🔴 **列设置齿轮**共享 `useColSettings`/`ColMenuPanel`/`col-menu.css`(v432)。
+- **建单/建退单页** → `hergent-cn-v2/docs/进销存建单页开发规范-v441.md`（范本=「创建采购订单」）：🔴 三层高度链(缺一层底条不贴底)；🔴 框式头 `.‹pfx›-hd-box`+`:focus-within`、红 `*` 必填/不写「选填」；🔴 同 path 两 query ⇒ **computed+watch**（`onMounted` 不再跑且零报错）；🔴 幂等键提交成功**立刻换**（不换=第二次静默无效）；🔴 退货成功落点看**源单状态是否回写**（采购回写⇒回列表；销售不回写⇒就地刷新）；🔴 真机探针 `.workbuddy/tools/v441-psi-new-e2e.mjs`（105 PASS）；🔴 类差集审计 `.workbuddy/tools/v441-psi-new-class-audit.py`(自带判别力自证)；🔴 本机 `npm run build` 被 safe-delete 拦 ⇒ 隔离 `outDir dist-vNNN`。
+- 🔴 **探针自己会判错**（v441 实测，先排除再当事实）：`Page.navigate` 到**只差 hash** 的 URL 是**同文档导航**⇒文档不重载、`onMounted` 不跑、`form.*` 留旧值 ⇒ 必须加 `'/?__r='+Date.now()+hash`；`.ipn-ret-tbl` 自带 `-tbl` 类 ⇒ 判「订单模式那张表」要 `:not(.-ret-tbl)`；读数条要**选客户**、退货明细要**选原单**才有（不交互量到的"没有"是设计如此）；重试等到渲染完的判据用 `title` 非空，别用 `hdBox||retTbl`；按钮按**文案**定位别按类名（`.ipn-save-main` 只采购页有，且是"与下拉拼一条去圆角"用的）。
+- 🔴 **采购退货候选「粗筛」缺口（待修）**：`purchase_order_list(returnable=1)` 只按 `po.status IN ('received','partial','returned')` 粗筛，真判据在 `return-preview`。tenant_1 实测候选 **79 张全部不可退**（79 张 `received` 单**全无明细行**，`purchase_order_items` 全库仅 11 行且都在 draft/cancelled）⇒ 下拉给 79 个必然失败的选项，且提示语「只列出**进过货**的单」与事实不符。建议：粗筛补 `AND EXISTS(item)` + 空态文案。探针现走「诚实降级」分支。
+- 🔴 **销售退货单列表恒空（待修）**：`InvSaleList.vue` 的 `kind=return` 筛 `sale_orders.status='returned'`，而全仓**无写入方**（销售退货不回写源单）⇒ 自提/车销退单**左半入口空表**；`kind=order` 的 `.filter(...status!=='returned')` 是恒真前端过滤。
+- **后端** → `topics/backend-invariants.md`+`backend-auth.md`：🔴 路由遮蔽先注册者胜 `§v317`；🔴 静默失效=恒空恒0零报错⇒`tools/undefined-call-scan.py`；🔴 静默洞四(§v279)；🔴 幽灵 inode：先删后重启+`DB_PATH` 两份都 patch `§v289`；🔴 门禁用**接口模块**非页面模块、动作=HTTP 方法 `§v328/335`；🔴 **FastAPI 未声明的 query 参数被静默忽略**（`?limit=300` 被丢、恒回 db 默认值；`psi.py` 委派 `routers.sales.list_sale` 两处都要声明）`§v443`；🔴 委派链只在**唯一源函数**加参数（绕开委派直连 db = 把 B1 数据隔离抄两份）；🔴 `limit<=0` 必须落回默认（SQLite `LIMIT -1`=不限，会把两万行吐出来）。
+- **部署** → `topics/deploy-ops.md`：🔴 后端 FLAT `/opt/hergent-erp/`、前端根 `/opt/hergent-cn-v2`；🔴 chunk 名什么都判不了(hash 级联两级)；🔴 生产 `assets/`=并集(绝不 `--delete`)；🔴 后端判据=生产 md5==HEAD md5、写「内容差异」非「文件名差异」`§v378/404`；🔴 受控提交=按 import 图传递扫→`hergent-scoped-commit`。
+- **预报主表** → `topics/forecast-order-domain.md`：🔴 报单单位永不落大单位(真身 `products.order_unit`)；🔴 价格双轨 `factory_price`=元/箱、`sale_price`=元/小单位；🔴 报单(判断)≠提货(事实)、`forecast_audit` 锚 `MAX(order_date)`；🔴 跨期复制只复制品清单、上一期为空⇒复0行传染 `§v282`；🔴 报单自动化死锁：人工恢复报单期次永久 open 挡死自动建表 `§v354/355`。
+- **返利/目标** → `topics/rebate-domain.md`｜**货损效期** → `topics/expiry-loss-domain.md`：🔴 适用月份=月度分解本身、只写到当月⇒次月规则静默消失 `§v376`；🔴 页面进得去≠页内取数读得到(403 被吞) `§v353`；🔴 到货停单⇒该期次不自动建(§v364)。
+- **进销存(v391→八页)** → `topics/inventory-psi.md`：🔴 八页继承父行门槛、`pages.js` 一字不改；🔴 入库批次三列明细 INSERT 不写⇒效期全空；🔴 FEFO 不足整体拒绝不部分扣、`sale_order_deliver` 只收 `draft`；🔴 销售单无审核、`status='draft'` 已确认单永远发不了货 `§v412`；🔴 列设置上云、自定义字段 `extra` 空则不加列 `§v403/415`；🔴 积分已冻结(`credits.py` 停用别修)。
+- **报单/小程序/品牌** → `topics/miniprogram-and-brand-data.md`：🔴 能登录≠能干活(角色缺 `data`⇒每动作 403)；🔴 均单提示四前置缺任一静默 `§v324`；🔴 报单页 v433/434 常驻一键清空 /「我的提交」复制跨 tab 经 `app.globalData._fsCopy`。
+- **副驾/AI** → `topics/ai-copilot.md`(`ai_tools`=只读 SQL、数量类先 GROUP BY)｜**通知没到人** → `topics/notification-center.md`(四层：跑没跑→内容→`enabled_channels(tid)`→出站)；🔴 标题拼内部租户名=文案泄漏、`event_key` 现算改名即静音 `§v351/352`。
+- **IM** → `topics/im-channels-v131.md`｜**业绩提成** → `topics/sales-reports-and-operator-attribution.md`｜**对账** → `topics/reconciliation-redo.md`。
+- **新用户/价格/换算/客户档案** → `topics/onboarding-and-archive-gate.md`：🔴 价格真身 `customer_prices`、中/大=小×换算比；换算唯一权威 `products.large_ratio/medium_ratio`(判据 `large_ratio>0`)；🔴 客户档案列表必传 `type=customer`。
+- 🔴 **跨域铁律** → `topics/cross-domain-iron-laws.md`。
 
-- **前端**（页面/样式/表格/数字格/工具栏/选中高亮/Excel 对标/hash 路由/文案/页内门禁/深色）→ `topics/frontend-ui.md`
-  · 撤入口 ≠ 撤路由（手敲 URL 照进）⇒ `meta.roles`+`roleIn()`；全屏图层坑 `§v209`
-  · 🔴 入口可见性唯一源 = `pages.js`（`module`×`roles`；窄名单行必 `lock`；未登记=失门禁）；守卫**只判角色轴** ⇒ 页内挂横幅；模块名唯一源 = `MODULE_LABEL`
-  · 🔴 **v348–351** `permView.js` 唯一源、`module:null`=**只读**；多写入口 ⇒ 规则单一实现；搜索 = 查找非筛选
-  · 🔴 **v296/300** `roleIn`「未知」两判；`data` 拆 `cron`/`bid`；档案角色下拉 = 动态值域（403 静默降级）；「适用端」唯一源 = `ROLE_END`
-  · 🔴 **v331/338/339** 文案三禁：细节／复述／枚举值 ⇒ 技能 `hergent-ui-copy-guard`；**v335** `canDo(模块,动作)` 三态 fail-open、键错 ⇒ 整页按钮消失
-  · 🔴 **v357** 雷达 `region`=裸省名、记忆顶层同步读；**v362/363/367** 深色（基类反色⇒白块）
-  · 🔴 **v377/378** 三轴互斥（行轴满宽/列轴满高）、进轴前必 `commitPendingEdit`；「选中跨度」≠「定位指示」两条通道、上色只来自 `spanHas()`；`selected.r<0` 守卫不可丢 `§v377·§v378`
-  · 🔴 **Excel 对标**：网格能力只在 `Forecast.vue`；过期注释当事实＋「写了」≠「可达」`§Excel对标`｜**v379**（未上线）
-  · 🔴 **v382~385** 弹窗三按钮合一／写库前抄快照／换 `editTarget` 必重建编辑态／建员工开账号一屏一次（密码**先校验再落库**）`§v382`~`§v385`
-  · 🔴 **v390/393** 侧栏 **8 项职能区**+L1「＋」；**无 `path` 闸门 ⇒ 整区冒给不该看的人**（收窄唯一口 = `resolveNavItem`）；抽屉缺 `max-height` ⇒ 顶部够不到 `§v390·§v393`
-  · 🔴 **v394** UI-SPEC §8 范式：**同选择器 ≥3 次且逐字同 ⇒ 上提全局类**（欠账 `.page-acts` 9 处）；深色=沿祖先链 alpha 合成 `§v394`
-  · 🔴 **v395/396** 弹窗**横向分列**；**模块内页签退役 ⇒ 标签栏**（点一开一／⟳左／关尽回首页／上限18；退役必补入口）`§v396`
-  · 🔴 **v405** `/forecast` 页签条退役 ⇒ 全站过渡态清零；退役三步（补默认子页条目／`EXPLODED_PATHS`／互跳点必 `setTab` 写 URL）`§v405`
-  · 🔴 **v403** 动作条贴底=高度链+auto两半（非`flex:1`）；`counts` 不含 status 的 `base_where`；创建人读主库 `users` `§v403`
-  · 🔴 **v404/补档** 页内 Tab **第三类**=单据视图（每实例都要这几面 ⇒ **禁塞标签栏**）`§v404`
-  · 🔴 **v424** 「报单配置」拆四页（`config`=报单对象 / `config-auto` / `config-remind` / `config-template`）；
-    弹窗「预报订单管理」1 列→2 列、同列纵向按使用频率；🔴 `config` 键=**旧深链落点不许改**；
-    `TAB_KEYS`／`SUB_TITLES`／`NAV` **三处同批改**，标题四页必须互不相同 `§v424`
-  · 🔴 **v427** 侧栏「系统」分组「AI 引擎」(`/connect`)／「设置」(`/settings`) 由单入口拆成各 5 条独立子页（与 v424 同构）：
-    `ConnectCenter.vue`／`Settings.vue` **撤页签条** + `?tab=` 驱动 5 子页 + **`watch(() => route.query.tab)`**（同组件复用不重挂）；
-    `NAV`／`CONNECT_TABS`/`SETTINGS_TABS`／`tabTitles.js` **四处键名逐字对齐**；图标只用 `Icon.vue` 已存在名（写错静默变齿轮）`§v427`
-  · 🔴 **v428** 「连接器」(`/connect?tab=connector`) 再拆成 3 个独立子页：`连接手机`(`im`)/`配对审批`(`pairing`)/`业务数据源`(`datasource`)；从「AI 能力」组挪出、新建「连接与集成」组（「AI 能力」只留纯 AI 的 4 项）。
-    `ConnectCenter.vue` 原 `connector` 大模板拆成 `im`/`pairing`/`datasource` 三个 `v-else-if`，`CONNECT_TABS`/`normConnectTab`/默认 tab 改 `im`；`tabTitles.js` 的 `/connect` 子标题 `connector`→`im/pairing/datasource`；图标 `smartphone`/`approve`/`store`（逐字 grep 核验存在）`§v428`
-  · 🔴 **v429** 「业务数据源」(`/connect?tab=datasource`) 再拆成 3 个独立子页：`ERP 数据源`(`erp`)/`数据台账`(`datasource`，更名)/`MCP 连接`(`mcp`)；「连接与集成」组 3→5 项（连接手机/配对审批/ERP 数据源/数据台账/MCP 连接）。
-    `ConnectCenter.vue` 原 `datasource` 大模板拆成 `erp`/`datasource`/`mcp` 三个 `v-else-if`，`CONNECT_TABS` 插入 `erp`/`mcp`；`tabTitles.js` 的 `/connect` 子标题 `datasource`→`ERP 数据源`/`数据台账`/`MCP 连接`；图标 `store`(沿用)/`list`/`link`（`database`/`plug`/`server` 不存在 ⇒ 不用）`§v429`
+## 技能路由 → `topics/skill-routing.md`
+🔴 `hergent-pre-launch-audit`｜`hergent-external-material-pdf`｜`hergent-scoped-commit`｜`hergent-parallel-session-safety`(比字节不比名)｜`hergent-rebate-caliber-consistency`｜`hergent-chart-render-verify`｜`hergent-ui-copy-guard`。
 
-- **后端**（权限/账号/DB/报 500/路由遮蔽/角色授权/幽灵模块/动作轴/只读 POST）→ `topics/backend-invariants.md` + `backend-auth.md`
-  · 🔴 **v317** 路由遮蔽：同路径**先注册者胜** ⇒ 加字段前必验生效的是哪份
-  · RBAC 最外层 ⇒ `_check_perm` 时无租户，须显式传 `tenant_id=`；参数错回 500 = `ValidationError`
-  · 🔴 恒空恒 0 且零报错 = 静默失效⇒`tools/undefined-call-scan.py`；读数「碰巧对」⇒ 先问「恒定值=当前事实？」
-  · 🔴 静默洞四条：**只下发表不下发索引**／**窗口当主键**（v279）／**白名单漏字段**／**租户上下文读 `tenants` 撞影子表**（v352）
-  · 🔴 **幽灵 inode**：换库+连接缓存 ⇒ 句柄仍指已删 inode ⇒ **先删后重启**；`DB_PATH` **两份** ⇒ 影子库**两处都 patch**（v289）
-  · 🔴 **代码默认 vs 租户覆盖**：`_DEFAULT_PERMS` 只管未被租户库覆盖的角色 ⇒ 改默认必同批迁库；`perms_for` 缓存无 TTL ⇒ 必重启；判「谁有 X」须展开 `admin` 的 `["*"]` `§v333/334`
-  · 🔴 映射**首个 `startswith` 即停**；拆模块**三处缺一**；`is_custom` **≠**「自定义角色」⇒ 用 `isCanonicalRole` `backend-auth §2`
-  · 🔴 **v328** 幽灵模块（0 映射却有勾选框）／造角色**堵后门+开正门**／改角色不动登录端 `§v328`
-  · 🔴 **v335** 门禁用**接口模块**非页面模块；动作 = HTTP 方法（停用/重置密码/审核 = `create`）；`_READ_ONLY_POST` 漏 `simulate-batch` `§v335`
+## 编号约定
+🔴 已用到 **v443**；号=全局共享序列，多会话并行⇒起号前必读号表+实搜未提交文件/两仓 `git log --all`/同日在途/`git worktree list` → `topics/version-history.md`。
 
-- **部署 / 上线 / 旧前端 `static/`**（构建/夹带/chunk 改名/生效集）→ `topics/deploy-ops.md`（§v230/277/293/297/**v329 停用≠废弃**）
-  · 🔴 路径别靠记忆：后端 FLAT `/opt/hergent-erp/`；前端**根** `/opt/hergent-cn-v2`；⚠️ `admin/`=alias `/opt/hergent-admin/` ⇒ 核验查**根**
-  · 🔴 **chunk 名什么都判不了**（hash 级联**两级**：改任一 chunk ⇒ `__vite__mapDeps` 变 ⇒ 入口＋所有 importer 改名）
-  · 🔴 **「生产无 X」有保质期**（发版后必回查入口 chunk）；⚠️ 沙箱 `ProtectHome=true` 挡「服务内取数」⇒ 页面空零报错；**接口 200 ≠ 数据正常**
-  · 🔴 **绝不用 `git stash`** 做对照构建（会移走别人**已上线**改动）⇒ 改共享文件前**先 `cp` 备份+记字节数**；中间产物须在**最后编辑之后**重建；多会话 ⇒ **隔离 outDir**
-  · 🔴 生产 `assets/` 是历次构建**并集**（上传**绝不 `--delete`**）；加列靠启动期对账 ⇒ 读 `[schema-sync] … 补列(+N)`
-  · 🔴 **共享工作区替你上线**：别人整包构建带上你的在途改动 ⇒ 改完尽早提交别冒认；线上第三态 ⇒ scope-id 摘 hunk 重建
-  · 🔴 **后端判据 = 生产 md5 == HEAD md5**；前端构建前必查 `src` mtime → 技能 §8.6
-  · 🔴 **v378 零夹带四路**（基名+字节／**全 token 归一**／`scopeId`／vs **生产生效集**）`§v378`｜**v393** 上传必整包（少传=动态import404）｜🔴 判据写**「内容差异」不写「文件名差异」**（哈希**级联**）`§v404`
-- 🔴 **受控提交** → `deploy-ops §v230/§v381` ＋**依赖闭包**（新 import 须在 HEAD；🔴 按 import 图**传递**扫，只看 `git status` 会得出「已复核无残留」这个**假结论** —— v415 实测漏 2 个共享件）→ 技能 `hergent-scoped-commit`
+## 主体/脱敏
+hergent-cn-v2(`laozhangai-product`)｜hergent-erp(FastAPI+SQLite)｜🔴 脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；仓内含生产凭据明文⇒远端须 private+入库前跑凭据扫描；PII 不落 `outputs/`。
 
-- **预报主表/期次/导入/到货周期/报单基准/价格单位/分摊/沿用上一期/个人仓归属** → `topics/forecast-order-domain.md`
-  · 🔴 报单单位铁律：永不落大单位（三级中/两级小）⇒ 真身 = `products.order_unit`；改单位必带换算，算不出 ⇒ 退回明细+告警
-  · 🔴 价格**双轨量纲**：`factory_price`=元/箱、`sale_price`=元/小单位；加金额先查覆盖率（厂价 100%、sale 30%）；`store_kind` **不参与定价** `§报单金额口径双轨`
-  · 🔴 报单(判断) ≠ 提货(事实)；`forecast_audit` 窗口锚 `MAX(order_date)` ⇒ 停更即零报错；合成行 `id<0`
-  · 🔴 跨期复制只有「商品清单」该复制（键 = `period_id`）；**上一期为空 ⇒ 复 0 行且逐期传染** ⇒ v282 告警 `§跨期复制`
-  · 🔴 **报单简称名册**三来源 `mapping`/`report`/`hidden`；**v297 准入 = `listed`** ⇒ 在名册 ≠ 不会新增列
-  · 🔴 **v305** 关单后**授权改单** = `allow_closed`（判角色在调用方）；⚠️ **舟谱模板空数据 ≠ 关单**
-  · 🔴 **同一对象只能有一条活跃配置**（v297 **硬拦**四路）⇒ 类型轴 `report_cp_kind`（仓库 7 ≠ 门店 7）＋ 归一历史 `customer`
-  · 🔴 **v361** 舟谱导出：**「未登记 且 有量」才泄漏**；点名告警须限量（响应头 1500B）`§v361`
-  · 🔴 **报单自动化死锁**（v354/355）：人工「恢复报单」的期次**永久 open** ⇒ 挡死此后每期自动建表（零提示）；判据必带 `id>0`（合成行恒 `'open'`）`§v354/355`
-  · 🔴 **v358/359** 分解到人：**Σ比例=100 ⟺ Σ数量=总量** ⇒ 唯一源 = 被编辑侧、另一侧摊尾差；判据必带分母；加单分摊不强制但自动发生 `§v358/359`
-
-- **返利/目标** → `topics/rebate-domain.md`｜**货损/效期**（先分 `/loss` vs `/loss-accounting`）→ `topics/expiry-loss-domain.md`
-  · 🔴 生效期口径：适用月份 = **月度分解本身** ⇒ 唯一实现 `domain/rebate_period.py`；**分解只写到当月 ⇒ 次月整条规则静默消失**（`is_active` 仍 1、零异常）`§v376`
-  · 🔴 **页面进得去 ≠ 页内取数读得到**（v293/v353）：入口走 `roles`、页内走模块权限（返利 = `sales`）；403 被吞 ⇒ 恒空零报错 `backend-auth.md §v353`
-  · 🔴 **只配节奏不设目标**（v282）⇒ `_row_rhythm_only()` 正门；**v360 返利填 0 = 该月无返利**（判据**两段式**）`§v282·§v360`
-  · 🔴 **v373** 结算 = **按月核销、次月上账**（现行「年度合同+12月分解」主体搞反）；`contract_id` 前端无写入入口 ⇒ 筛选恒空 = 假功能 `§v373·§v375`
-  · 🔴 **v364/365/368 到货停单**：只留本月、不改节奏；**停单 ⇒ 该期次不自动建**（`build_period_plan`）；手动建表不读停单；已存在期次 `void` 作废 `§v364·§v365·§v368`
-
-- **进销存（自研 ERP 交易层，v391 薄壳 → v392 八页）** → `topics/inventory-psi.md`
-  · 🔴 八页**继承父行门槛、`pages.js` 一字不改**（`ruleFor` 逐级去尾）；`path:''` 索引子路由**必需**；父级 `redirect` 自指报循环；`purchase/new` 必排 `:id` 前
-  · 🔴 **入库批次三列**：明细 INSERT 不写 ⇒ `confirm` 读空 ⇒ 生产 `inventory` 效期**全空**（v392 修）；批次号空 ⇒ `batch_in` 每行新建不累加
-  · 🔴 **FEFO**：过期批次不可售、无到期日排最后、**不足整体拒绝不部分扣**；`sale_order_deliver` 只收 `draft`；`sale_order_list` 返回 `{'orders','total'}` **非行列表**；`order_type` 必**追加参数表末尾**
-  · 🔴 **v392b** 模板调 `fmtMoney` 漏 import ⇒ **整页崩＋父页签一起消失**；护栏 `v392b-template-symbol-guard.py`
-  · 🔴 **v403/404/409~412/414/415**（采购重塑·详情三页签／**三档单位入库必折小单位**／盖章规矩／列设置上云／合并动作按钮／**退货转单成对小单位·可退上限唯一在后端·`returned` 必进白名单**／**自定义字段**）⇒ 细节在 `§v403·§v404·§v409~§v412·§v414·§v415`
-  · 🔴 **v415（P2-7）自定义字段**：`extra` **空则不加列**；前端三坑＝值发字符串／**先拉定义再同步云端**／`saveExtra` 送全部含空串 ⇒ `§v415`
-  · 🔴 **销售单无「审核」环节**；`sale_order_deliver` 的 WHERE ＝ **`status='draft'`** ⇒ 已确认的单**永远发不了货**（细节 `§v412·§既有隐患`）
-- 🔴 **积分已冻结**：口径 = **套餐档位**；`credits.py` 写端点**停用别修**
-- **报单/小程序/品牌/员工账号/提审/均单目标** → `topics/miniprogram-and-brand-data.md`
-  · 「能登录」≠「能干活」：`/api/auth` 豁免 RBAC；角色缺 `data` ⇒ 每动作 403；`password_changed=0` = 首登必改密
-  · 🔴 **均单提示四前置**（v324）：目标＋换算＋到货规则(无兜底)＋行内单位同源 ⇒ 缺任一静默；月锚=到货月；分母=报单窗口未关
-  · 🔴 **v298 未达标 = `q < target`**（cart 只装 qty>0 ⇒ 未填按 0）；基准 = `_avgMap` 整期全量
-  · 🔴 **v372 两端口径错位**：`order_date` = 期次 `order_start` ≠ 今天 ⇒ 汇总恒空；不传 `period_id` ⇒ 兜底 `forecast_period_default()`
-  · 🔴 **v393 明细核对层**：`showModal` 正文纯文本装不下几十项 ⇒ **自绘半屏**；原 `if(!confirmed)` 使**改单零确认**
-
-- **副驾/AI** → `topics/ai-copilot.md`（`ai_tools` = 只读 SQL；🔴 **数量类先 `GROUP BY`**）｜🔴 **v413** 超时/约束判据=**会话级非本轮** → `utils/copilotTurn.js`｜**通知没到人/收到不该收的** → `topics/notification-center.md`
-  · 🔴 没到人四层查：**跑没跑 → 有无内容 → 通道走向 = `enabled_channels(tid)`（非全局）→ 能否出站**；`_should_run` 无条件记账 = 相位锁死（§v304b）｜**小程序保活** → `topics/miniprogram-keepalive.md`
-  · 🔴 **v351→352**：标题拼内部租户名 = 文案层泄漏；`event_key` 现算 ⇒ 改名即**静音全失效**；**v366** 开关各调用方遵守度不同 ⇒ 外部客户企微不可达
-- **IM 渠道** → `topics/im-channels-v131.md`｜**业绩/提成/龙虎榜** → `topics/sales-reports-and-operator-attribution.md`｜**对账/流水/催收** → `topics/reconciliation-redo.md`
-- **新用户建档/价格方案/单位换算/客户档案** → `topics/onboarding-and-archive-gate.md`
-  · 拦写入不拦浏览、隐式建档优先；🔴 六类档案之外还有员工 + `report_mapping` = 预报第一门槛；`contacts.channel_id` **从未创建过** `§onboarding`
-  · 🔴 价格真身 = `customer_prices`（非 `product_channel_prices`）；「三列并排」存三级单位价；✅ 三档价联动：中/大 = 小 × 换算比 ⇒ 别每档各存独立数（必漂移）
-  · 🔴 换算唯一权威 = `products.large_ratio/medium_ratio`（判据 `large_ratio > 0`，非 `has_multi_unit`）；⚠️ 补换算前先判 `unit` 语义（`'件'`=整箱 ⇒ 反向）
-  · 🔴 客户档案 v316 已上线；列表**必传 `type=customer`**
-- 🔴 **跨域铁律 → `topics/cross-domain-iron-laws.md`** ← 动手前先扫一遍
-
-## 二、技能路由 → `topics/skill-routing.md`（唯一源；本节只留高频）
-
-- 🔴 `hergent-pre-launch-audit`（上线前体检 31 项含 H 面文案）｜`hergent-external-material-pdf`（对外材料/脱敏/PDF）
-- 🔴 `hergent-scoped-commit`｜`hergent-parallel-session-safety`（**比字节不比名**）｜`hergent-rebate-caliber-consistency`｜`hergent-chart-render-verify`
-
-## 三、编号约定（⚠️ 起号前必做）
-
-已用到 **v424**（🔴 订正：旧注「v415 / 下轮从 v416 起」已过期 ⇒ 实况 **v417a~v417k**（全局表格密度开关等）、**v423**（副驾单轮底部操作栏）、**v424**（报单配置拆四页，已提交 f095a86 + 已部署）；**v425/v426**（结构化纠错面板 / 复制页面链接）已合入 `origin/main`。⚠️ v393 同号两用；v406 欠号）。起号：① 读号表 ② 实搜**未提交文件**＋两仓 git log ＋**同日在途改动**＋**`git worktree list`**；**下轮从 v427 起**。→ `topics/version-history.md`
-🔴 **v391/392** 进销存薄壳 15 端点 ⇒ **八页全链**；`inventory` 默认只 boss；**唯一不可委派 = `receive`**；403 判据看 `error_code`
-🔴 跨会话判「谁的改动」**比特征串不比字节差**；「同一规则抄多份」⇒ 漏抄那份**整页崩** `§v376/377`
-
-## 四、主体 / 脱敏
-
-hergent-cn-v2（`laozhangai-product`）｜hergent-erp（FastAPI+SQLite）｜🔴 脱敏红线：返利率/进货价/客户名/区域销量/厂家政策。
-🔴 仓内含**生产凭据明文** ⇒ 远端须 private、**入库前跑凭据扫描**；个人 PII 不落 `outputs/`（环境变量＋打码＋`grep` 自证 0）。
-
-## 五、本机坑 → `topics/local-machine-pitfalls.md`（§10–§43）
-
-🔴 五条最常踩：`grep "A\|B"` 静默失效 ⇒ `-e`；`&&` 短路；`| head -N` 截命中；**zsh 通配无匹配 abort 整条**；**探针别放 `/tmp`**。→ 全量 `§10–§43`
+## 本机坑 → `topics/local-machine-pitfalls.md`(§10–§43)
+🔴 `grep "A\|B"` 静默失效⇒`-e`；`&&` 短路；`| head -N` 截命中；zsh 通配无匹配 abort；探针别放 `/tmp`。
