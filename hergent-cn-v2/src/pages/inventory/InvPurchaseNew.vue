@@ -1418,7 +1418,30 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 
    ⚠️ 若 `InventoryShell` 的容器契约改了（`.page` 不再是竖排 flex），这里要一起看。 */
 .inv-page { display: flex; flex-direction: column; min-height: 100% }
+/* v431：让 `.ipn-body` 成为**唯一占满剩余高度**的滚动容器，表格在内部滚动；
+   其它兄弟元素只取内容高度，不再分走空间（覆盖 InventoryShell `:deep(*)` 的 `flex:1 1 auto`）。
+   这样新增行永远落在 `.ipn-body` 滚动区内，不会被底部合计条盖住。 */
+.inv-page > .page-hd,
+.inv-page > .ipn-hd,
+.inv-page > .ipn-strip,
+.inv-page > .ipn-bottom { flex: 0 0 auto }
 .ipn-acts { display: flex; gap: 8px; flex-wrap: wrap }
+.ipn-body {
+  display: flex; flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.ipn-body > .ipn-bar,
+.ipn-body > .ipn-tip,
+.ipn-body > .state-empty { flex: 0 0 auto }
+.ipn-body > .table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+}
 
 /* v417d（对照舟谱：单屏行数 ↑）页头单行 —— 标题与副标题回到**同一基线行**（原为竖排两行）。
    全局 `.page-hd` 的「内联 / 堆叠」由模板结构分派：外面包一层 div 就会回落到两行，
@@ -1604,9 +1627,9 @@ table.ipn-tbl td.seq-cell { padding: 2px 4px }
 }
 .ipn-tbl th.ipn-c-op { background: var(--bg2) }
 .ipn-tbl tbody tr:hover td.ipn-c-op { background: var(--bg2) }
-/* v430：明细行在滚动容器里滚入可见区时，底部要留给 sticky「合计」条 ~40px 的留白，
-   否则 scrollIntoView 会把行底顶到视口最底、正好被合计条盖住。 */
-.ipn-tbl tbody tr { scroll-margin-bottom: 48px }
+/* v431：明细行在 `.ipn-body` 滚动容器内滚入可见区时，底部留给「合计」条 ~32px 的留白，
+   否则 scrollIntoView 会把行底顶到底、正好被合计条盖住。 */
+.ipn-tbl tbody tr { scroll-margin-bottom: 32px }
 .ipn-in { width: 100%; height: 22px }
 /* v417h（对照舟谱·行密度）：**浏览态扁平化** —— 未聚焦的格不铺底色、只留极淡描边，
    整行看起来像「一排文���」，鼠标指向或键盘聚焦才浮起成可编辑的框。
@@ -1682,23 +1705,14 @@ table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
 .ipn-ic:hover { color: var(--t1); border-color: var(--t3) }
 .ipn-ic.danger { color: var(--danger-txt) }
 
-/* 底部动作条。四条外边距各司其职，缺一条都会退化成「浮在页面中间」：
-
-   `margin-top:auto`  —— **短内容时的推底主力**：在竖排 flex 里吸走所有富余空间，
-                         把动作条压到容器底边。块布局下 `auto` 无效，所以父级必须是 flex。
-   `margin-inline:-20px` / `margin-bottom:-20px`
-                      —— 与 Shell 的 `.view-wrap{padding:20px}`（Shell.vue:1165）**是一对**：
-                         左右 -20px 让动作条满宽（不然左右各留 20px 白边）；
-                         底部 -20px 让粘住时真的贴到滚动容器下沿、不留 20px 空隙
-                         （`sticky` 的可移动范围被 containing block 限死，不给负底边距就贴不到底）。
-                         那份 padding 改了这里必须跟着改 —— 两处唯一的耦合点。
-
-   两种情形分工：内容不足一屏 ⇒ `margin-top:auto` 生效（靠 InventoryShell 打通的高度链）；
-                内容超一屏   ⇒ `auto` 无富余空间可吸，`sticky bottom:0` 接管。 */
+/* v431 底部动作条：改为普通 flex 项，由 `.inv-page` 布局推到 `.ipn-body` 下方。
+   之前用 sticky 是因为 `.ipn-body` 没有独立滚动区，内容超一屏时动作条必须 sticky 才能贴底；
+   现在 `.ipn-body` 自己滚动占满剩余高度，动作条自然落在它下面，无需 sticky，也不会盖住表格最后一行。
+   负边距仍用于抵消 Shell `.view-wrap{padding:20px}`。 */
 .ipn-bottom {
-  position: sticky; bottom: 0; z-index: var(--z-sticky);
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  margin: auto -20px -20px -20px; padding: 8px 20px;
+  flex: 0 0 auto;
+  margin: auto -20px -20px -20px; padding: 4px 20px;
   background: var(--bg); border-top: 1px solid var(--border-subtle);
 }
 .ipn-total { font-size: 14px }
