@@ -7,7 +7,7 @@
  *   A 硬导航：六个入口各自整文档加载 ⇒ 标题逐字 / 非白屏 / 零新增报错
  *   B 逐界面模式落地（**带交互**）：
  *       订单模式 → 选客户后读数条出现（5 项）；字段框 6 格 2 个红 `*`；
- *                 明细表 5 行预设 + 齿轮 + 序号列 46px 居中
+ *                 明细表 15 行预设（v444 起两页同值）+ 齿轮 + 序号列 46px 居中
  *       退货模式 → 选原销售单/原采购单后**退货明细表 9 列 + 行数 > 0** +
  *                 「保存退货单」转为可用（未选单时必须**禁用** = 前置门禁）
  *   C 数据面：下拉候选数与接口真值逐个对账（含 v443 的 `limit` 上限）
@@ -47,6 +47,12 @@ import fs from 'node:fs'
 const BASE = process.env.HG_BASE || 'https://hergent.cn'
 const TOKEN = process.env.V441_TOKEN || ''
 const TENANT = process.env.V441_TENANT || '1'
+/* 🔴 这份 user 必须与 `TOKEN` 是**同一个账号**：前端拿 localStorage 里的
+   `role` 判路由/菜单权限，而 API 请求用的是 token —— 两者不一致时页面会
+   直接被踢到 `#/login`，表现为「量测 {}」（所有字段 undefined），极具迷惑性。
+   换令牌时**必须**跟着改这里（或用 V441_USER_JSON 覆盖）。 */
+const USER_JSON = process.env.V441_USER_JSON ||
+  JSON.stringify({ id: 1, username: 'admin', role: 'admin', roles: ['admin'], name: '管理员' })
 const SHOTS = '/Users/zhangjunfeng/Documents/laozhangai-product/outputs/v441-psi-new'
 try { fs.mkdirSync(SHOTS, { recursive: true }) } catch { /* ignore */ }
 
@@ -65,7 +71,7 @@ const INIT = `
     localStorage.setItem('hergent_v2_token', ${JSON.stringify(TOKEN)});
     localStorage.setItem('hergent_v2_tenant', ${JSON.stringify(TENANT)});
     localStorage.setItem('hergent_v2_csrf', 'probe-csrf');
-    localStorage.setItem('hergent_v2_user', JSON.stringify({ id: 2, username: 'boss', role: 'boss', roles: ['boss'], name: '老板' }));
+    localStorage.setItem('hergent_v2_user', ${JSON.stringify(USER_JSON)});
   } catch (e) {}
 })();
 ;(function(){
@@ -107,8 +113,10 @@ const MEASURE = `(function(){
     out.retTbl = !!q('table.' + root + '-ret-tbl');
     out.ordTbl = !!q('table.' + root + '-tbl:not(.' + root + '-ret-tbl)');
     out.gear   = !!q('.col-cfg.gear');
+    /* v444：必填列的表头带了一枚红星号 ⇒ 取「列名」时先把开头的星号去掉，
+       否则「9 列逐字」会因我加的红心而 FAIL（那是预期变化，不是回归）。 */
     function thead(t){ if(!t) return []; var ths=t.querySelectorAll('thead>tr>th'); var a=[];
-      for(var i=0;i<ths.length;i++) a.push(ths[i].textContent.trim().replace(/\\s+/g,' ')); return a; }
+      for(var i=0;i<ths.length;i++) a.push(ths[i].textContent.trim().replace(/\\s+/g,' ').replace(/^\\*+/,'')); return a; }
     function rows(t){ return t ? t.querySelectorAll('tbody>tr').length : -1; }
     var ot = q('table.' + root + '-tbl:not(.' + root + '-ret-tbl)');
     var rt = q('table.' + root + '-ret-tbl');
@@ -304,9 +312,13 @@ const main = async () => {
       const m = await hardLoad(p, c.hash)
       hard[c.name] = m
       console.log('\n  ▸ ' + c.name + '  ' + c.hash)
+      /* 🔴 `err` 必须一起打出来：量测失败时打印的字段全是 undefined ⇒ JSON.stringify
+         把它们全省略、只留一个 `{}`，看上去像"页面没渲染"，实际是 eval 抛了错。
+         （2026-10-11 实测：被这个空 `{}` 误导了整整四轮。） */
       console.log('    量测 ' + JSON.stringify({
         title: m.title, hdBox: m.hdBox, retTbl: m.retTbl, ordRows: m.ordRows,
         soOpts: m.soOpts, orderType: m.orderType, seqW: m.seqW, gear: m.gear, bodyLen: m.bodyLen,
+        err: m.err || null,
       }))
       ok(`A${idx}.1 ${c.name}：标题 = 「${c.title}」`, m.title === c.title, 'title=' + m.title)
       ok(`A${idx}.2 ${c.name}：页头渲染出来了（非白屏，动作条含「返回列表」）`,
@@ -327,7 +339,8 @@ const main = async () => {
         m.hdBoxF === 6 && m.reqN === 2, 'f=' + m.hdBoxF + ' req=' + m.reqN)
       ok(`B  ${n}：明细表在位、退货明细表**不在**（两分支未互相渗透）`,
         m.ordTbl === true && m.retTbl === false, 'ord=' + m.ordTbl + ' ret=' + m.retTbl)
-      ok(`B  ${n}：出厂预设 5 行空行（销售单口径，采购单是 15 行）`, m.ordRows === 5, 'rows=' + m.ordRows)
+      /* v444：销售页 5 → 15，与采购页同值（规范 §4.1 `PRESET_ROWS = 15`） */
+      ok(`B  ${n}：出厂预设 **15 行**空行（两页同口径，规范 §4.1）`, m.ordRows === 15, 'rows=' + m.ordRows)
       ok(`B  ${n}：出货方式由 \`?type=\` 预置 ⇒「${c.type}」`, m.orderType === c.type,
         'got=' + m.orderType + ' opts=' + m.typeOpts)
       ok(`B  ${n}：表头首列是列设置齿轮（\`.col-cfg.gear\`）`, m.gear === true && m.ordTh[0] === '',
@@ -494,7 +507,8 @@ const main = async () => {
       ['新建自提订单', '新建车销订单', '新建调拨单'].indexOf(z.title) < 0, 'title=' + z.title)
     ok('Z2  root 是 ipn、标题是「新建采购单」（销售页那套 `.isn-*` 判据在此不成立）',
       z.root === 'ipn' && z.title === '新建采购单', 'root=' + z.root + ' title=' + z.title)
-    ok('Z3  采购单 15 行预设 ≠ 销售单 5 行 ⇒ 行数判据有判别力', z.ordRows === 15, 'rows=' + z.ordRows)
+    /* v444：两页都是 15 行 ⇒ 这条不再是「反例」，改成「同值」判据。      反例自证改由 Z1/Z2/Z4 承担（root 与标题在采购页必须不成立）。 */
+    ok('Z3  采购单同样 15 行（规范 §4.1：两页 `PRESET_ROWS` 必须同值）', z.ordRows === 15, 'rows=' + z.ordRows)
     ok('Z4  采购单（订单模式）**没有** `.isn-ret-tbl`（同一判据必须为假）', z.retTbl === false, 'retTbl=' + z.retTbl)
     await p.screenshot(SHOTS + '/Z-采购单.png').catch(() => {})
 

@@ -32,3 +32,22 @@
 .col-menu-list li.locked label { cursor: default }
 .col-core-tag { font-size: 11px; color: var(--t2); background: var(--bg2); border-radius: 4px; padding: 0 5px; margin-left: 2px }
 .col-menu-reset { padding: 8px 12px; border-top: 1px solid var(--border-subtle) }
+
+/* ── v444 列宽拖动（配套 composables/useColResize.js）──────────────────────
+   🔴 手柄用 `float: right` 而**不是** `position: absolute`：
+      absolute 需要 th 自己是 `position: relative`，而全站表格的 th 定位各有各的写法
+      （操作列是 sticky、有的页 th 已被别的规则定位过）——为一个手柄去改它们会牵一片。
+      `float` 在 table-cell 内有效、**不依赖任何定位上下文** ⇒ 零牵连。
+      `margin-right: -7px` 让它压进 th 的右 padding（不占标题的文字宽度）。
+   🔴 平时**透明**、只在 hover / 拖动中显形：15 列常驻一排竖线反而更吵，
+      而"能拖"这件事 hover 时给出反馈就够了（与齿轮按钮同一个显隐口径）。 */
+.col-rsz {
+  float: right; width: 7px; height: 20px; margin-right: -7px;
+  background: transparent; border-radius: 2px; cursor: col-resize;
+}
+.col-rsz:hover { background: var(--p-dark); opacity: .35 }
+/* 拖动进行中：光标钉死为 col-resize（鼠标拖出 th 后光标会跟着元素变，
+   不钉住会闪回默认箭头）+ 禁止选中（否则划过表头把标题刷成蓝色选中块，像坏了）。
+   class 由 useColResize 加在 document.body 上，mouseup 时移除。 */
+body.is-col-resizing { cursor: col-resize; user-select: none }
+body.is-col-resizing .col-rsz { background: var(--p-dark); opacity: .55 }

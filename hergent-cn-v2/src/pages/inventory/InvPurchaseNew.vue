@@ -101,14 +101,16 @@
           <thead>
             <tr>
               <th class="seq-th">序号</th>
-              <th class="ipn-c-prod">商品</th>
-              <th class="ipn-ret-unit">单位</th>
-              <th class="num ipn-c-stk">已入库</th>
-              <th class="num ipn-c-stk">已退</th>
-              <th class="num ipn-c-stk">可退</th>
-              <th class="num ipn-c-qty">退货数量</th>
-              <th class="num ipn-c-price">退货单价</th>
-              <th class="num ipn-c-amt">退货金额</th>
+              <th class="ipn-c-prod" :style="retW('prod')">商品<ColResizeHandle col="prod" :start="retResize" :reset="retReset" /></th>
+              <th class="ipn-ret-unit" :style="retW('unit')">单位<ColResizeHandle col="unit" :start="retResize" :reset="retReset" /></th>
+              <th class="num ipn-c-stk" :style="retW('recv')">已入库<ColResizeHandle col="recv" :start="retResize" :reset="retReset" /></th>
+              <th class="num ipn-c-stk" :style="retW('ret')">已退<ColResizeHandle col="ret" :start="retResize" :reset="retReset" /></th>
+              <th class="num ipn-c-stk" :style="retW('can')">可退<ColResizeHandle col="can" :start="retResize" :reset="retReset" /></th>
+              <!-- v444：必填项统一红 `*` —— 与表单头「供应商」同一枚标记
+                   （`.ipn-req`），判据 = `validateReturn()` 里实际拦的字段。 -->
+              <th class="num ipn-c-qty" :style="retW('qty')"><span class="ipn-req">*</span>退货数量<ColResizeHandle col="qty" :start="retResize" :reset="retReset" /></th>
+              <th class="num ipn-c-price" :style="retW('price')">退货单价<ColResizeHandle col="price" :start="retResize" :reset="retReset" /></th>
+              <th class="num ipn-c-amt" :style="retW('amt')">退货金额<ColResizeHandle col="amt" :start="retResize" :reset="retReset" /></th>
             </tr>
           </thead>
           <tbody>
@@ -343,24 +345,26 @@
               <th class="seq-th col-gear-th">
                 <button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
               </th>
-              <th class="ipn-c-prod">商品</th>
-              <th v-if="isVisible('code')" class="ipn-c-code">条码</th>
-              <th class="ipn-c-unit">单位</th>
+              <!-- v444：必填三列（商品 / 采购价 / 订单数量）打红 `*`，与表单头
+                   「供应商」同一枚 `.ipn-req`；判据 = `validate()` 里实际拦的字段。 -->
+              <th class="ipn-c-prod" :style="wStyle('prod')"><span class="ipn-req">*</span>商品<ColResizeHandle col="prod" :start="startResize" :reset="resetColW" /></th>
+              <th v-if="isVisible('code')" class="ipn-c-code" :style="wStyle('code')">条码<ColResizeHandle col="code" :start="startResize" :reset="resetColW" /></th>
+              <th class="ipn-c-unit" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>
               <!-- v408（P1-1）库存两列：口径 = **本页所选「入库仓库」**（不是全部仓的合计）。
                    数量来自 `/api/psi/stock/by-product`，按商品聚合（不是批次级）。 -->
-              <th v-if="isVisible('stk')" class="num ipn-c-stk" title="可销售的库存（已过期批次须报损，不计入）">可用库存</th>
-              <th v-if="isVisible('stk2')" class="num ipn-c-stk" title="该仓全部批次的数量合计（含已过期）">实际库存</th>
-              <th v-if="isVisible('ref')" class="num ipn-c-ref">参考成本价</th>
-              <th class="num ipn-c-price">采购价</th>
-              <th class="num ipn-c-qty">订单数量</th>
-              <th class="num ipn-c-amt">订单金额</th>
+              <th v-if="isVisible('stk')" class="num ipn-c-stk" :style="wStyle('stk')" title="可销售的库存（已过期批次须报损，不计入）">可用库存<ColResizeHandle col="stk" :start="startResize" :reset="resetColW" /></th>
+              <th v-if="isVisible('stk2')" class="num ipn-c-stk" :style="wStyle('stk2')" title="该仓全部批次的数量合计（含已过期）">实际库存<ColResizeHandle col="stk2" :start="startResize" :reset="resetColW" /></th>
+              <th v-if="isVisible('ref')" class="num ipn-c-ref" :style="wStyle('ref')">参考成本价<ColResizeHandle col="ref" :start="startResize" :reset="resetColW" /></th>
+              <th class="num ipn-c-price" :style="wStyle('price')"><span class="ipn-req">*</span>采购价<ColResizeHandle col="price" :start="startResize" :reset="resetColW" /></th>
+              <th class="num ipn-c-qty" :style="wStyle('qty')"><span class="ipn-req">*</span>订单数量<ColResizeHandle col="qty" :start="startResize" :reset="resetColW" /></th>
+              <th class="num ipn-c-amt" :style="wStyle('amt')">订单金额<ColResizeHandle col="amt" :start="startResize" :reset="resetColW" /></th>
               <!-- v417i：批次三列（批次号 / 到期日 / 生产日期）合并成一列「批次信息」，
                    点开小面板填写 —— 15 列 ⇒ 13 列，横向滚动彻底消失。
                    三者都是**低频选填**字段（v417 已把批次号、到期日改为选填）：
                    常驻占 3 列宽，换来的是每次开单都要横向滚动找它们。 -->
-              <th v-if="isVisible('batch')" class="ipn-c-batch">批次信息</th>
+              <th v-if="isVisible('batch')" class="ipn-c-batch" :style="wStyle('batch')">批次信息<ColResizeHandle col="batch" :start="startResize" :reset="resetColW" /></th>
               <!-- v408（P1-2）行备注：**记在明细行上**（不是整单备注）。舟谱同列。 -->
-              <th v-if="isVisible('note')" class="ipn-c-note">行备注</th>
+              <th v-if="isVisible('note')" class="ipn-c-note" :style="wStyle('note')">行备注<ColResizeHandle col="note" :start="startResize" :reset="resetColW" /></th>
               <th class="ipn-c-op">操作</th>
             </tr>
           </thead>
@@ -569,6 +573,10 @@ import { PSI_NOTES, fmtMoney, PO_STATUS, textOf } from '../../constants/psiLabel
 import { usePurchaseCustomFields } from '../../composables/purchaseCustomFields.js'
 import { useColSettings } from '../../composables/useColSettings.js'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
+/* v444：列宽拖动。与「列显隐」是**两件事**（宽度跟屏幕走、显隐跟租户走），
+   故是独立 composable，理由见 `useColResize.js` 文件头。 */
+import { useColResize } from '../../composables/useColResize.js'
+import ColResizeHandle from '../../components/ColResizeHandle.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -612,6 +620,24 @@ const DETAIL_COLS = [
 const { isVisible, toggleCol, resetCols } = useColSettings('purchase-new', DETAIL_COLS)
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
+
+/* v444 列宽拖动。**订单表与退货表各一份宽度**（同一张表两种模式下列不同、语义也不同，
+   共用一份 key 会互相顶掉）⇒ 两个实例、两个本地存储键。
+   🔴 列宽**不上云**（只存本机 localStorage）：宽度跟「这块屏」走，上云会把 27 寸上
+      拖好的宽度强推给笔记本甚至手机端。列**显隐**才是跨设备一致的偏好（那个已上云）。 */
+const RET_COLS = [
+  { key: 'prod',  label: '商品' },
+  { key: 'unit',  label: '单位' },
+  { key: 'recv',  label: '已入库' },
+  { key: 'ret',   label: '已退' },
+  { key: 'can',   label: '可退' },
+  { key: 'qty',   label: '退货数量' },
+  { key: 'price', label: '退货单价' },
+  { key: 'amt',   label: '退货金额' },
+]
+const { wStyle, startResize, resetColW } = useColResize('purchase-new', DETAIL_COLS)
+const { wStyle: retW, startResize: retResize, resetColW: retReset } =
+  useColResize('purchase-new-ret', RET_COLS)
 
 /** 非激活态要显示商品名（不是 product_id）—— 从下拉的同一份清单取，避免另存一份名字导致两处不同步。 */
 function prodName (row) {
@@ -853,6 +879,9 @@ function basePriceOf (row) {
   if (!p) return 0
   return Math.round((p / ratioOf(row)) * 100) / 100
 }
+
+/** v444：建单页明细表的**出厂预设空行数**。规范 §4.1 —— 两页（采购 / 销售）必须同值。 */
+const PRESET_ROWS = 15
 
 function blankRow () {
   return {
@@ -1572,7 +1601,9 @@ async function reinit () {
   else if (copyId.value) await loadCopy(copyId.value)
   // v417h：预设 15 行（原 5 行、v417h 改 10 行）—— 舟谱同屏 14 行的观感；配合行高
   //       33→约 27px，单屏可见行数 5 → 约 15 行。空行不落库（submit 前会过滤掉没选商品的行）。
-  else for (let i = 0; i < 15; i++) items.value.push(blankRow())
+  // v444：数字收进 `PRESET_ROWS` 常量 —— 规范 §4.1 要求**建单页出厂一律 15 行**，
+  //       两页同值。散着写必然出现「改一页忘另一页」，而这类偏差肉眼很难发现。
+  else for (let i = 0; i < PRESET_ROWS; i++) items.value.push(blankRow())
 }
 
 onMounted(async () => {
@@ -1920,7 +1951,11 @@ table.ipn-tbl td.seq-cell { padding: 2px 4px }
    整行看起来像「一排文���」，鼠标指向或键盘聚焦才浮起成可编辑的框。
    🔴 不这么做的代价：15 列全画成带底色的输入框，视觉噪音重、扫读时找不到当前行；
       但格子**仍是 input**（不是换成文本再切换），可点可键盘 Tab，零交互回归风险。 */
-table.ipn-tbl .ipn-in:not(:focus) { background: var(--bg3) }
+/* v444：底色撤掉（原 `var(--bg3)` ⇒ `transparent`，理由见下面 `.ipn-v` 那段注释）。
+   保留这条规则本身（而不是删掉整行）：全局 `.input{background:var(--bg3)}` 仍在，
+   只有**显式写 transparent** 才能真的撤掉；删规则会让输入框退回全局的灰底 —— 那正是
+   「以为改了、其实没改」的静默失效。 */
+table.ipn-tbl .ipn-in:not(:focus) { background: transparent }
 table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
 /* v417j 文本态（未激活的格）：行高比输入框态矮约 5px —— 这就是本档密度收益的来源。
    🔴 不加 `overflow:hidden + ellipsis` 会怎样：商品名一长就把列撑宽、把表格推出横向滚动，
@@ -1930,11 +1965,18 @@ table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
    只读格（库存/金额/条码…）无框，两态一眼可分。
    🔴 描边用 `inset box-shadow` 而非真 `border`：不占盒模型、不改行高，
       `[data-density=compact]` 下 min-height:16 也不会把文字上下切掉（v417e 密度不受影响）。 */
+/* v444：**撤掉**明细表输入框的底色（`var(--bg3)` ⇒ `transparent`）。
+   v436 加底色的初衷是「让『哪里能填』一眼可辨」，但 15 行 × 13 列铺下来是**满屏灰底方块**，
+   实测下来压过了数据本身（老板原话：「全屏输入框给人感觉确实有点压抑」）。
+   🔴 改成 `transparent` 而**不是**换一个更浅的底色：更浅的灰在深色/浅色主题下都要再调一遍，
+      而「无底 + 极淡描边」在两套主题下都成立，也不会再引入一个要维护的色值。
+   「哪里能填」改由**描边 + hover/focus 反馈**承载（下面两条），不再靠底色。 */
 .ipn-v {
   display: block; min-height: 18px; line-height: 18px; padding: 0 4px;
   font-size: 13px; color: var(--t1); cursor: text;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: var(--bg3); box-shadow: inset 0 0 0 1px var(--bd); border-radius: var(--radius-sm);
+  /* v444：底色撤掉（原 `var(--bg3)`）；**描边保留** —— 它就是「这格能填」的标记。 */
+  background: transparent; box-shadow: inset 0 0 0 1px var(--bd); border-radius: var(--radius-sm);
 }
 .ipn-v:focus { outline: none; box-shadow: inset 0 0 0 1px var(--p-dark) }
 .ipn-v.num { text-align: right; font-variant-numeric: tabular-nums }

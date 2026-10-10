@@ -103,14 +103,16 @@
           <thead>
             <tr>
               <th class="seq-th">序号</th>
-              <th class="isn-c-prod">商品</th>
-              <th class="isn-ret-unit">单位</th>
-              <th class="num isn-c-stk">已发货</th>
-              <th class="num isn-c-stk">已退</th>
-              <th class="num isn-c-stk">可退</th>
-              <th class="num isn-c-qty">退货数量</th>
-              <th class="num isn-c-price">退货单价</th>
-              <th class="num isn-c-amt">退货金额</th>
+              <th class="isn-c-prod" :style="retW('prod')">商品<ColResizeHandle col="prod" :start="retResize" :reset="retReset" /></th>
+              <th class="isn-ret-unit" :style="retW('unit')">单位<ColResizeHandle col="unit" :start="retResize" :reset="retReset" /></th>
+              <th class="num isn-c-stk" :style="retW('dlv')">已发货<ColResizeHandle col="dlv" :start="retResize" :reset="retReset" /></th>
+              <th class="num isn-c-stk" :style="retW('ret')">已退<ColResizeHandle col="ret" :start="retResize" :reset="retReset" /></th>
+              <th class="num isn-c-stk" :style="retW('can')">可退<ColResizeHandle col="can" :start="retResize" :reset="retReset" /></th>
+              <!-- v444：必填项统一红 `*`（与表单头「客户」同一枚 `.isn-req`），
+                   判据 = `validateReturn()` 里实际拦的字段。 -->
+              <th class="num isn-c-qty" :style="retW('qty')"><span class="isn-req">*</span>退货数量<ColResizeHandle col="qty" :start="retResize" :reset="retReset" /></th>
+              <th class="num isn-c-price" :style="retW('price')">退货单价<ColResizeHandle col="price" :start="retResize" :reset="retReset" /></th>
+              <th class="num isn-c-amt" :style="retW('amt')">退货金额<ColResizeHandle col="amt" :start="retResize" :reset="retReset" /></th>
             </tr>
           </thead>
           <tbody>
@@ -241,11 +243,13 @@
           <thead>
             <tr>
               <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
-              <th class="isn-c-prod">商品</th>
-              <th class="num isn-c-qty">数量</th>
-              <th class="isn-c-unit" v-if="isVisible('unit')">单位</th>
-              <th class="num isn-c-price">单价</th>
-              <th class="num isn-c-amt" v-if="isVisible('amt')">金额</th>
+              <!-- v444：必填三列（商品 / 数量 / 单价）打红 `*`，与表单头「客户」
+                   同一枚 `.isn-req`；判据 = `validate()` 里实际拦的字段。 -->
+              <th class="isn-c-prod" :style="wStyle('prod')"><span class="isn-req">*</span>商品<ColResizeHandle col="prod" :start="startResize" :reset="resetColW" /></th>
+              <th class="num isn-c-qty" :style="wStyle('qty')"><span class="isn-req">*</span>数量<ColResizeHandle col="qty" :start="startResize" :reset="resetColW" /></th>
+              <th class="isn-c-unit" v-if="isVisible('unit')" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>
+              <th class="num isn-c-price" :style="wStyle('price')"><span class="isn-req">*</span>单价<ColResizeHandle col="price" :start="startResize" :reset="resetColW" /></th>
+              <th class="num isn-c-amt" v-if="isVisible('amt')" :style="wStyle('amt')">金额<ColResizeHandle col="amt" :start="startResize" :reset="resetColW" /></th>
               <th class="isn-c-del"></th>
             </tr>
           </thead>
@@ -323,6 +327,9 @@ import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
+/* v444：列宽拖动（与列显隐是两件事 —— 宽度跟屏幕走、显隐跟租户走）。 */
+import { useColResize } from '../../composables/useColResize.js'
+import ColResizeHandle from '../../components/ColResizeHandle.vue'
 import { psiApi } from '../../api/psi'
 import { toast } from '../../store'
 /* ⚠️ 刻意**不**复用 `PSI_NOTES.unit`：那句讲的是「三档单位任选、换算由系统算」——
@@ -345,6 +352,23 @@ const SALE_NEW_COLS = [
 const { isVisible, toggleCol, resetCols } = useColSettings('inv-sale-new', SALE_NEW_COLS)
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
+
+/* v444 列宽拖动：**订单表与退货表各一份宽度**（两种模式下列不同、语义也不同，
+   共用一份 key 会互相顶掉）⇒ 两个实例、两个本地存储键。列宽只存本机（不上云），
+   理由见 `useColResize.js` 文件头。 */
+const RET_COLS = [
+  { key: 'prod',  label: '商品' },
+  { key: 'unit',  label: '单位' },
+  { key: 'dlv',   label: '已发货' },
+  { key: 'ret',   label: '已退' },
+  { key: 'can',   label: '可退' },
+  { key: 'qty',   label: '退货数量' },
+  { key: 'price', label: '退货单价' },
+  { key: 'amt',   label: '退货金额' },
+]
+const { wStyle, startResize, resetColW } = useColResize('inv-sale-new', SALE_NEW_COLS)
+const { wStyle: retW, startResize: retResize, resetColW: retReset } =
+  useColResize('inv-sale-new-ret', RET_COLS)
 
 /* ---- URL 驱动的模式（全部 computed，见文件头 🔴）----------------------------
    · `?type=`  出货方式：自提 / 车销 / 调拨。**未知值一律不认**（不把脏 query 传下去，
@@ -416,6 +440,9 @@ function fmtQty (n) {
 }
 function orderTypeText (v) { return textOf(ORDER_TYPE, v, '未标注') }
 function soStatusText (s) { return textOf(SO_STATUS, s) }
+
+/** v444：建单页明细表的**出厂预设空行数**。规范 §4.1 —— 两页（采购 / 销售）必须同值。 */
+const PRESET_ROWS = 15
 
 function blankRow () {
   return { uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false, unit_price: '' }
@@ -698,9 +725,11 @@ async function reinit () {
   soOptions.value = []
   soTotal.value = 0
   if (!refsOk.value) await loadRefs()
-  // 出厂预设 5 行空行（采购建单页是 15 行：采购单动辄十几行货，销售单通常几行）。
-  //   空行不参与校验、不提交（见 `filledRows`）。
-  if (!items.value.length) for (let i = 0; i < 5; i++) items.value.push(blankRow())
+  // v444：预设 **15 行**空行（原 5 行）—— 与采购建单页同一口径（规范 §4.1：
+  //   建单页出厂一律 15 行，空行不参与校验、不提交，见 `filledRows`）。
+  //   🔴 数字写进 `PRESET_ROWS` 常量而不是散在循环里：两页要同值，
+  //      散着写必然会出现「改了一页忘另一页」，而这类偏差肉眼很难发现。
+  if (!items.value.length) for (let i = 0; i < PRESET_ROWS; i++) items.value.push(blankRow())
 }
 
 async function loadRefs () {
@@ -878,6 +907,13 @@ onMounted(async () => {
 .isn-c-stk { width: 86px; font-variant-numeric: tabular-nums; white-space: nowrap }
 .isn-c-del { width: 44px }
 .isn-in { width: 100%; height: 28px }
+/* v444：**撤掉**明细表输入框的底色 —— 全局 `.input{background:var(--bg3)}` 在 15 行 × 7 列
+   铺下来是满屏灰底方块，压过了数据本身（老板原话：「全屏输入框给人感觉确实有点压抑」）。
+   🔴 必须**显式写 transparent** 而不是把规则删掉：删了会让输入框退回全局 `.input` 的
+      灰底 —— 那正是「样式看着改了、实际没生效」的静默失效。
+   「哪里能填」改由 hover / focus 时的描边承载，不再靠底色。
+   与采购建单页同一口径（`InvPurchaseNew.vue` 的 `.ipn-in` / `.ipn-v` 两条）。 */
+table.isn-tbl .isn-in:not(:focus) { background: transparent }
 .isn-in.num { text-align: right; font-variant-numeric: tabular-nums }
 .isn-amt { font-variant-numeric: tabular-nums; white-space: nowrap }
 /* 换算 / 原单数量小字：它是解释不是数据，弱化色 + 不换行（不加 nowrap 会在窄列里
