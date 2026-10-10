@@ -31,8 +31,8 @@
          退货**必须**挂一张原采购单 —— 后端 `purchase_return_create` 要用它取供应商与
          仓库，所以这里不是"可选的关联"，而是整张单据的入口：没选原单就没有可退明细。 -->
     <div v-if="isReturn" class="ipn-hd ipn-hd-flat">
-      <div class="ipn-f ipn-f-sup">
-        <label class="ipn-lb">原采购单 <span class="ipn-req">必填</span></label>
+      <div class="ipn-f ipn-f-sup ipn-f-po">
+        <label class="ipn-lb"><span class="ipn-req">*</span>原采购单</label>
         <div class="ipn-sup-pick">
           <input v-model.trim="poKw" class="input ipn-kw" placeholder="单号 / 供应商"
                  @keyup.enter="loadPoOptions" />
@@ -150,10 +150,12 @@
       </div>
     </div>
 
-    <!-- 表单头（对齐舟谱：*供应商 / *仓库 / 单据日期 / 预计到货 / 备注 0-500） -->
-    <div v-if="!isReturn" class="ipn-hd ipn-hd-flat">
+    <!-- 表单头（对齐舟谱：*供应商 / *仓库 / 单据日期 / 预计到货 / 备注 0-500）
+         v439：外层加 `ipn-hd-box` —— 把每格渲染成**舟谱那样的字段框**：
+         描边框内左侧是标签、右侧是值（原为标签在框外）。见 `.ipn-hd-box` 样式块。 -->
+    <div v-if="!isReturn" class="ipn-hd ipn-hd-flat ipn-hd-box">
       <div class="ipn-f ipn-f-sup">
-        <label class="ipn-lb">供应商 <span class="ipn-req">必填</span></label>
+        <label class="ipn-lb"><span class="ipn-req">*</span>供应商</label>
         <!-- v428：搜索框 + 下拉选择**合并为单个组合框**。输入即按「名称 或 编号」本地
              模糊匹配（编号来自 refs 新增的 `code` 字段），下拉直接点选；未从下拉点选时
              失焦自动还原成「当前已选供应商名」，不允许留下无对应供应商的自由文本。 -->
@@ -188,26 +190,27 @@
         </div>
       </div>
       <!-- v408（P0-5）经办人 / 部门 —— 对齐舟谱建单表单里的 `*经办人` / `*部门`。
-           🔴 做成**选填**（舟谱那边是必填）：存量单（舟谱导入 79 张）都没有这两个值，
+           🔴 做成**选填**（舟谱那边标了 `*`＝必填）：存量单（舟谱导入 79 张）都没有这两个值，
               强制必填会在老板快速建单时直接卡住；且这两个字段眼下只用于归属/统计，
-              不是单据成立的前提。**如实标注「选填」**，不假装必填、也不偷偷默认一个值。
-              要改成必填只需给 `form.handler` 加非空校验并改这两个标签 —— 不涉及后端。 -->
+              不是单据成立的前提。要改成必填只需给 `form.handler` 加非空校验 —— 不涉及后端。
+           v439：**不再挂「选填」小字**（老板要求去掉）—— 无 `*` 即选填是通行读法，
+              与「有 `*`＝必填」配成一对；这不改变上面的校验行为（它们**仍然不是**必填）。 -->
       <div class="ipn-f">
-        <label class="ipn-lb">经办人 <span class="ipn-opt">选填</span></label>
+        <label class="ipn-lb">经办人</label>
         <select v-model="form.handler" class="input ipn-sel">
           <option value="">不指定</option>
           <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
         </select>
       </div>
       <div class="ipn-f">
-        <label class="ipn-lb">部门 <span class="ipn-opt">选填</span></label>
+        <label class="ipn-lb">部门</label>
         <select v-model.number="form.department_id" class="input ipn-sel">
           <option :value="0">不指定</option>
           <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
         </select>
       </div>
       <div class="ipn-f">
-        <label class="ipn-lb">入库仓库 <span class="ipn-req">必填</span></label>
+        <label class="ipn-lb"><span class="ipn-req">*</span>入库仓库</label>
         <select v-model.number="form.warehouse_id" class="input ipn-sel">
           <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
         </select>
@@ -216,15 +219,17 @@
         <label class="ipn-lb">单据日期</label>
         <input type="date" v-model="form.order_date" class="input ipn-date" />
       </div>
-      <div class="ipn-f">
-        <label class="ipn-lb">预计到货日期</label>
-        <input type="date" v-model="form.expected_date" class="input ipn-date" />
-      </div>
+      <!-- v439：撤掉「预计到货日期」输入框（老板拍板：本页不需要）。
+           🔴 `form.expected_date` **照旧加载、照旧提交**（编辑既有单时必须原样写回，
+              整单重写少一个键就等于把原单据的到货日期清空）。只是不再给编辑入口。 -->
       <div class="ipn-f ipn-f-grow">
-        <label class="ipn-lb">备注 <span class="ipn-cnt">{{ (form.note || '').length }}/500</span></label>
+        <label class="ipn-lb">备注</label>
         <!-- v428：同排其它输入框都是 32px（.ipn-sel/.ipn-date/.ipn-kw），备注框原本只用
              全局 .input（默认 40px）⇒ 整行高低不齐。补 ipn-note-in 收成 32px，对齐。 -->
-        <input v-model.trim="form.note" maxlength="500" class="input ipn-note-in" placeholder="选填" />
+        <input v-model.trim="form.note" maxlength="500" class="input ipn-note-in" />
+        <!-- v439：字数计数**从标签里挪到框尾**（对齐舟谱：0/500 挂在框内最右）。
+             留在标签里会挤成「备注：0/500」出现在框左，被读成标签的一部分。 -->
+        <span class="ipn-cnt">{{ (form.note || '').length }}/500</span>
       </div>
     </div>
 
@@ -285,7 +290,7 @@
          ③ 类型只有文本 / 数字两种，数字框用 `inputmode=decimal` 唤起数字键盘
             （**不在前端判"是不是数字"**：判据唯一实现在后端，这里判一遍就是第二份，
              而两份在边界上必然分岔 —— 发原字符串、由后端 400 报人话）。 -->
-    <div v-if="!isReturn && cfDefs.length" class="ipn-hd ipn-hd-flat">
+    <div v-if="!isReturn && cfDefs.length" class="ipn-hd ipn-hd-flat ipn-hd-box">
       <div v-for="c in cfDefs" :key="c.key" class="ipn-f">
         <label class="ipn-lb">{{ c.label }}</label>
         <input v-model="extra[c.key]" class="input ipn-cf-in"
@@ -353,7 +358,7 @@
                    点开小面板填写 —— 15 列 ⇒ 13 列，横向滚动彻底消失。
                    三者都是**低频选填**字段（v417 已把批次号、到期日改为选填）：
                    常驻占 3 列宽，换来的是每次开单都要横向滚动找它们。 -->
-              <th v-if="isVisible('batch')" class="ipn-c-batch">批次信息 <span class="ipn-opt">选填</span></th>
+              <th v-if="isVisible('batch')" class="ipn-c-batch">批次信息</th>
               <!-- v408（P1-2）行备注：**记在明细行上**（不是整单备注）。舟谱同列。 -->
               <th v-if="isVisible('note')" class="ipn-c-note">行备注</th>
               <th class="ipn-c-op">操作</th>
@@ -1172,7 +1177,9 @@ function validate () {
   if (!form.value.supplier_id) return '请先选择供应商'
   if (!form.value.warehouse_id) return '请选择入库仓库'
   if (form.value.order_date && !DATE_RE.test(form.value.order_date)) return '单据日期格式不正确，请用日期选择器选'
-  if (form.value.expected_date && !DATE_RE.test(form.value.expected_date)) return '预计到货日期格式不正确，请用日期选择器选'
+  // v439：本页已撤掉「预计到货日期」输入框 ⇒ 这里只拦**原单据带来的坏值**
+  // （不能再说「请用日期选择器选」，本页已经没有任何选择器可点）。
+  if (form.value.expected_date && !DATE_RE.test(form.value.expected_date)) return '预计到货日期格式不正确（该值来自原单据）'
   // v417h：预设空行不参与校验（否则用户必须填满 15 行才能保存）。
   //   但「填了数量/价格却没选商品」是半截操作 ⇒ 明确报错，不静默丢弃。
   for (let i = 0; i < items.value.length; i++) {
@@ -1279,7 +1286,9 @@ async function uploadStaged (oid) {
 
 function resetForNext () {
   const keep = { supplier_id: form.value.supplier_id, warehouse_id: form.value.warehouse_id,
-    order_date: form.value.order_date, expected_date: form.value.expected_date, note: '',
+    // v439：`expected_date` 不再随单继承 —— 它已没有编辑入口，继承 = 悄悄把上一张的
+    // 到货日期塞进新单（静默错值，比留空危险）。留空。
+    order_date: form.value.order_date, expected_date: '', note: '',
     // v408（P0-5）：连着建几张单，经办人 / 部门通常不变 ⇒ 保留（与供应商、仓库同理）
     handler: form.value.handler, department_id: form.value.department_id }
   form.value = keep
@@ -1658,7 +1667,7 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 
 /* 表单头。v438（复刻舟谱）：`align-items` 由 flex-end 改 center —— 标签改与框同行后，
    一行内没有「底部对齐」可言，居中才齐。 */
-.ipn-hd { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; margin-bottom: 12px }
+.ipn-hd { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px }
 /* v417d 去卡片包裹：本页「单头表单 / 明细」两块不再套 `.card` 的框。
    页面底 `.content{background:var(--bg)}` 与 `.card{background:var(--bg)}` 同色 ——
    那个框本来只是 border+shadow，去掉不影响配色（深色同理）。
@@ -1667,14 +1676,66 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 /* v438（复刻舟谱）：「标签 + 输入框」排**同一行**（原为标签在上、框在下两层）。
    🔴 这一改是**单头高度的主要来源**：每格由「12px 标签 + 4px 间距 + 32px 框 ≈ 48px」
       压到 32px，且一行能并更多字段 —— 舟谱建单页那排紧凑感就来自这里。
-   `flex-wrap: wrap` 保留：窄屏 / 字段多时按格换行，不挤成一坨。 */
-.ipn-f { display: flex; flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap }
-.ipn-f-grow { flex: 1; min-width: 240px }
-.ipn-f-sup { min-width: 320px }
+   `flex-wrap: wrap` 保留：退货模式那格里带 `.ipn-hint`（flex-basis:100%）要靠它换行。
+   🔴 v439 补 `flex: none`：**这一格是原子的，不许被外层压缩** —— 少了它，`flex-shrink`
+      会把「经办人 / 部门 / 入库仓库」这类没有 min-width 的格挤窄，格内的
+      「标签 + 下拉」随即被 `flex-wrap` **拆成上下两行**（老板报障的正是这三格）。
+      改成 flex:none 后，宽度放不下时整格换行，永不把标签与框拆开。 */
+.ipn-f { display: flex; flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap; flex: none }
+/* v439：各格宽度按「6 格一行放得下」重新配平（实测：原宽合计 1480px，
+   1412px 内容宽就挤掉「备注」换行）。现在合计 ≈1250px，1440 屏也一行放得下，
+   宽屏则由「备注」吃掉余量（它是唯一 flex:1 的格）。 */
+.ipn-f-grow { flex: 1; min-width: 160px }
+.ipn-f-sup { min-width: 260px }
+/* v439：退货模式「原采购单」格必须**给死宽度**。它带一句 `.ipn-hint`
+   （`flex-basis:100%`）—— 百分比基会把这一格的 max-content 撑到 691px（实测），
+   而 v439 给 `.ipn-f` 加了 `flex: none`（不再回缩）⇒ 右侧会留一大片空白，
+   把后面「供应商 / 退货仓库 / 原单状态」推到半屏外。380px = 标签 + 选择器（348）+ 余量。 */
+.ipn-f-po { width: 380px }
 .ipn-lb { font-size: 12px; color: var(--t3); white-space: nowrap; flex: none }
-.ipn-req { color: var(--dan); font-size: 11px }
-/* v408（P0-5）「选填」标记：弱于「必填」的红字 —— 它是提示不是警告 */
-.ipn-opt { color: var(--t3); font-size: 11px }
+/* 必填标记。v439 改版：由「必填」两个字改成**红 `*`**（对齐舟谱的 `*供应商：`）——
+   每个必填格省下 2 个字的宽度，一行更容易并下全部字段。
+   `.ipn-opt`（原「选填」弱色标记）已随本轮**整体撤除**（舟谱那边选填不打标），
+   故那条规则一并删掉，不留死 CSS。 */
+.ipn-req { color: var(--dan); font-size: 13px; line-height: 1; margin-right: 2px }
+
+/* ══ v439（复刻舟谱·字段框）════════════════════════════════════════════════
+   舟谱建单头那排是「**一个描边框**里左边标签、右边值」（`*供应商: 🔍`｜`*经办人: 请选择 ▾`），
+   不是「标签在框外、旁边再放一个框」。这里把 `.ipn-f` 本身做成那个框：
+     · 框 = 底色 + 1px 描边 + 圆角 + 左右内距，标签与值都是框内的 flex 子项；
+     · 框内控件**必须去掉自己的边框 / 底色 / 内距** —— 否则「框里再套一个框」。
+       🔴 全局 `.input` 是 `width:100%`：在横排框里会解析成「撑满整框」并把标签挤出去
+          ⇒ 这里一律 `width:auto`，宽度由各控件自己的类显式给（`.ipn-sel`/`.ipn-date`/…）。
+     · 高度：框内控件收到 30px ⇒ 框 = 30 + 上下 1px 边框 = **32px**，与全站输入框同高。
+     · 聚焦高亮**上移到框**（`:focus-within`，色值照抄全局 `.input:focus`）；
+       框内控件的 focus 环要关掉，否则一大一小两层环。
+     · 标签的冒号（`*供应商：`）由 `::after` 生成，**不改模板文案**；
+       必填的 `*` 是模板里的 `<span class="ipn-req">*</span>`（红字，在标签最前）。
+   🔴 只挂 `ipn-hd-box`（建单采购头 + 自定义字段行）：退货模式那排有**只读格**
+      （`.ipn-ro` 的虚框是"这格不可改"的既定语义），不在这里顺手改掉它的观感。 */
+.ipn-hd-box .ipn-f {
+  flex-wrap: nowrap;
+  padding: 0 6px 0 10px; gap: 4px;
+  background: var(--bg3); border: 1px solid var(--bd); border-radius: var(--radius-sm);
+}
+.ipn-hd-box .ipn-f:focus-within { border-color: var(--p-dark); box-shadow: 0 0 0 3px var(--p-bg) }
+.ipn-hd-box .ipn-lb::after { content: '：' }
+.ipn-hd-box .ipn-f .input {
+  width: auto; min-width: 0; height: 30px; padding: 0 2px;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+}
+.ipn-hd-box .ipn-f .input:focus { border-color: transparent; box-shadow: none }
+/* 框内控件宽度（覆盖全局 `.input{width:100%}`——见上）。
+   v439：112 / 120 是**实测**值 —— 本租户仓名「东津仓」3 字、日期串「2026/10/10」
+   都在此宽度内完整显示；再窄会把日期控件的日历图标挤掉。 */
+.ipn-hd-box .ipn-f .ipn-sel { width: 112px }
+.ipn-hd-box .ipn-f .ipn-date { width: 120px }
+.ipn-hd-box .ipn-f .ipn-note-in { flex: 1; width: auto; min-width: 120px }
+.ipn-hd-box .ipn-f .ipn-cf-in { width: 160px }
+/* 供应商组合框：撑满框内剩余宽度（`.ipn-sup-input` 已经是 100%，这里管住外层）*/
+.ipn-hd-box .ipn-f .ipn-sup-combo { flex: 1; min-width: 0 }
+.ipn-hd-box .ipn-f .ipn-sup-input { width: 100% }
+
 /* v414（P2-6）退货模式：表单头下的说明（「只列出进过货的单」）—— 弱色小字。
    v438：`.ipn-f` 改横向排布后，这条说明要**独占一行**（flex-basis:100%），
    否则会挤在「原采购单」标签与选择器之间，把那一格撑歪。 */
@@ -1694,7 +1755,7 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 .ipn-ret-unit { width: 72px; color: var(--t2) }
 /* 底部「退货原因」：吃掉左侧以外的空白，把右侧的保存按钮顶到最右 */
 .ipn-ret-reason { flex: 1; min-width: 220px; height: 32px }
-.ipn-cnt { color: var(--t3); font-variant-numeric: tabular-nums }
+.ipn-cnt { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
 /* v415（P2-7）自定义字段的输入框：固定宽度（字段名 ≤12 字 + 值 ≤200 字，160px 够看一屏），
    不跟着 `.ipn-f-grow` 撑满 —— 它们是一组等宽的短字段，不是主字段。 */
 .ipn-cf-in { width: 160px; height: 32px }
@@ -2023,6 +2084,12 @@ table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
   .ipn-f, .ipn-kw, .ipn-sel, .ipn-date { width: 100%; min-width: 0 }
   .ipn-sup-pick { flex-direction: column }
   .ipn-bottom { margin-inline: 0; padding-inline: 0 }
+  /* v439：窄屏下框内控件要跟着撑满 —— 不写这几条，上面 v439 的定宽规则
+     特异性更高（`.ipn-hd-box .ipn-f .ipn-sel` 0,3,0 > `.ipn-sel` 0,1,0），
+     会把媒体查询的「全宽」顶掉，留下 140px 的短框 + 右半行空白。 */
+  .ipn-hd-box .ipn-f { width: 100% }
+  .ipn-hd-box .ipn-f .ipn-sel,
+  .ipn-hd-box .ipn-f .ipn-date { width: auto; flex: 1; min-width: 0 }
 }
 
 /* v432：列设置齿轮 + 面板（开发规范 §2.6.1「三、」，与采购单列表/预报同源观感）。
