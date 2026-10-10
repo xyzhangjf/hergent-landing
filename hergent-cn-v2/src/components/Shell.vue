@@ -7,14 +7,6 @@
         <b>Hergent</b><span class="tb-sub">AI 经营副驾</span>
         <span v-if="store.demo" class="tb-demo">演示模式 · 模拟数据</span>
       </div>
-      <!-- v417f（2026-10-09）：**标签栏并入顶栏**（对齐舟谱）。
-           舟谱实证（截图库 `~/Documents/舟谱截图/采购订单/创建采购订单截图.png`）：
-           它的标签（`客户档案 × … 采购订单 | 创建采购订单 ×`）与 logo
-           **同处一条深色顶栏**，不单独占一行；我们原做成独立 41px 一行。
-           🔴 语义不变（v396）：仍是「**我打开过哪些页**」，不是「这个模块有哪些页」。
-           中间这块由 TabBar.vue 的 `.tabbar` 撑开（`flex:1;min-width:0`），
-           放不下时按 Q5 B 收进「更多」⇒ **不会挤掉右侧动作区**。 -->
-      <TabBar @refresh="onTabRefresh" @close="onTabClose" />
       <div class="tb-ai">
         <WeatherWidget />
         <!-- v325（2026-09-29）：AI 入口按权限收窄 —— 无 `chat` 模块就不渲染。
@@ -142,12 +134,11 @@
 
       <!-- 内容区 -->
       <main class="content">
-        <!-- v417f（2026-10-09）：标签栏已从此地**移入顶栏**（见上方 `.topbar` 内）。
-             🔴 唯一不能破的约束（v396 原话）：标签栏必须在**滚动区之外**，
-                否则长页面滚动时标签会跟着滚走。移进顶栏后仍在滚动区之外
-                （顶栏本来就不滚）⇒ 省下独立一行约 41px，全站受益。
-                `.content` 的「flex 纵向 + 内层 `.view-wrap` 滚」结构**不变**，
-                只是少了一个 `flex-shrink:0` 的兄弟。 -->
+        <!-- 全局标签栏：独立成行，位于顶栏正下方、滚动区 `.view-wrap` **之前**。
+             🔴 v396 约束：标签栏必须在滚动区之外，否则长页面滚动时标签跟着滚走。
+                放在这里（`.content` 的 flex 纵向第一项、`flex-shrink:0`）⇒ 不滚，
+                同时恢复「顶栏一行 + 标签栏一行」的两行布局（对齐早期版本）。 -->
+        <TabBar @refresh="onTabRefresh" @close="onTabClose" />
         <div class="view-wrap">
           <!-- 🔴 `:key="viewKey"` 只含**刷新计数**，不含 `route.fullPath` —— 这是刻意的：
                含 fullPath 会让「页内切 tab」（`?tab=` 变化）把整页组件重建，
@@ -1121,11 +1112,11 @@ function stopResize() {
 .tb-demo{margin-left:10px;font-size:11px;background:rgba(255,149,0,.15);color:#b76e00;padding:2px 10px;border-radius:8px}
 /* v417f：标签栏插进顶栏中间 ⇒ 左右三组**都不许收缩**，否则标签一多就把
    右侧动作区（通知 / 主题 / 用户）挤没了。收缩只由中间的 `.tabbar` 承担。 */
-.tb-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.tb-brand{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
 .tb-brand-logo{width:22px;height:22px;border-radius:5px;display:block}
 .tb-brand b{font-size:16px;font-weight:600;letter-spacing:.2px}
 .tb-sub{font-size:12px;color:var(--t3);padding:3px 8px;border-radius:8px;background:var(--p-bg);color:var(--p-dark)}
-.tb-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.tb-right{display:flex;align-items:center;gap:8px;flex:1;min-width:0;justify-content:flex-end}
 .tb-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2)}
 .tb-btn:hover{background:var(--bg2);color:var(--p-dark)}
 /* 通知铃铛：未读数用中文数目直接显示，不用英文缩写 */
