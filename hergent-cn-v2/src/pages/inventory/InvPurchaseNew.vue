@@ -1719,10 +1719,16 @@ table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
 /* v417j 文本态（未激活的格）：行高比输入框态矮约 5px —— 这就是本档密度收益的来源。
    🔴 不加 `overflow:hidden + ellipsis` 会怎样：商品名一长就把列撑宽、把表格推出横向滚动，
       等于把刚省下的宽度又吐回去了。 */
+/* v436①：可编辑格的**浏览态**也铺与表单头「供应商框」一致的底色 + 极淡描边
+   （var(--bg3) 底 + var(--bd) 边），使「哪里能填」一眼可辨 —— 可编辑格有框、
+   只读格（库存/金额/条码…）无框，两态一眼可分。
+   🔴 描边用 `inset box-shadow` 而非真 `border`：不占盒模型、不改行高，
+      `[data-density=compact]` 下 min-height:16 也不会把文字上下切掉（v417e 密度不受影响）。 */
 .ipn-v {
   display: block; min-height: 18px; line-height: 18px; padding: 0 4px;
   font-size: 13px; color: var(--t1); cursor: text;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: var(--bg3); box-shadow: inset 0 0 0 1px var(--bd); border-radius: var(--radius-sm);
 }
 .ipn-v:focus { outline: none; box-shadow: inset 0 0 0 1px var(--p-dark) }
 .ipn-v.num { text-align: right; font-variant-numeric: tabular-nums }
