@@ -71,6 +71,31 @@ export const SUB_TITLES = {
     'config-remind': '报单提醒设置',
     'config-template': '模板参数',
     target: '商品目标'
+  },
+  /* v427（2026-10-10）：「AI 引擎」/「设置」由单入口拆成独立子页（与 v424 同构）。
+     v428（2026-10-10）：「连接器」再拆成 连接手机/配对审批/业务数据源 三个子页（从「AI 能力」组挪出新建「连接与集成」组）。
+     v429（2026-10-10）：「业务数据源」再拆成 ERP 数据源/数据台账/MCP 连接 三个子页（沿用 v427/v428 同构）。
+     tabKey 必须逐字对齐 `ConnectCenter.vue::CONNECT_TABS` 与 `Settings.vue::SETTINGS_TABS`，
+     以及 `Shell.vue::NAV` 里各条目的 `tab`。四套取值任一改了都要同步。 */
+  '/connect': {
+    _default: 'im',
+    im: '连接手机',
+    pairing: '配对审批',
+    erp: 'ERP 数据源',
+    datasource: '数据台账',
+    mcp: 'MCP 连接',
+    expert: 'AI 团队',
+    skill: '技能库',
+    evolution: '进化日志',
+    output: '产出与用量'
+  },
+  '/settings': {
+    _default: 'account',
+    account: '账号与组织',
+    perm: '权限管理',
+    ai: 'AI 配置',
+    aiops: 'AI 运维',
+    system: '数据与系统'
   }
 }
 

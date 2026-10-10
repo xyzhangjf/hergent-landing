@@ -1,18 +1,5 @@
 <template>
   <div class="page">
-    <!-- Tab 栏 -->
-    <div class="cc-tabs">
-      <button class="cc-tab" :class="{ active: tab === 'connector' }" @click="tab = 'connector'">连接器</button>
-      <button class="cc-tab" :class="{ active: tab === 'expert' }" @click="tab = 'expert'">专家</button>
-      <button class="cc-tab" :class="{ active: tab === 'skill' }" @click="tab = 'skill'">技能</button>
-      <button class="cc-tab" :class="{ active: tab === 'evolution' }" @click="tab = 'evolution'; loadEvolution()">进化日志</button>
-      <!-- v311（2026-09-28）：原侧栏一级项「AI 中心」并进本容器当第 5 个页签。
-           本页签即原 `/ai-hub` 那一页（组件直接复用 AiHub.vue，**没有复制第二份实现**）。
-           ⚠️ 它的可见性比本容器**窄**（与本容器同为管理岗）—— 两者已对齐，不会误伤；
-              见 `constants/pages.js` 的 `/ai-hub` 行（roles + lock 一起给，缺 lock 收紧是假的）。 -->
-      <button class="cc-tab" :class="{ active: tab === 'output' }" @click="tab = 'output'">产出与用量</button>
-    </div>
-
     <!-- ===== 进化日志 Tab（AI 自进化可见化）===== -->
     <template v-if="tab === 'evolution'">
       <div class="cc-section">
@@ -29,7 +16,7 @@
         </div>
 
         <!-- v2026-09-13：技能库全量展示下移到「技能」tab，此处仅做引导跳转，消除两页重复展示 -->
-        <div class="ev-jump" @click="tab='skill'">
+        <div class="ev-jump" @click="goTab('skill')">
           <span class="ev-jump-txt">已沉淀 <b>{{ evSkills.total || aiSkills.length || 0 }}</b> 个行业技能</span>
           <span class="ev-jump-go">去技能页查看 →</span>
         </div>
@@ -51,8 +38,8 @@
       </div>
     </template>
 
-    <!-- ===== 连接器 Tab ===== -->
-    <template v-if="tab === 'connector'">
+    <!-- ===== 连接手机 Tab（v428：原「连接器」拆出 ?tab=im）===== -->
+    <template v-if="tab === 'im'">
       <div class="cc-section">
         <!-- 对齐桌面「连接手机」：顶部提示条 -->
         <div class="cc-tip-banner" v-if="!ccTipDismissed">
@@ -126,6 +113,13 @@
           <button class="gw-btn" :disabled="gwBusy" @click="recheckAll">重新检测全部</button>
         </div>
 
+      </div>
+
+    </template>
+
+      <!-- ===== 配对审批 Tab（v428：从「连接器」拆出 ?tab=pairing）===== -->
+      <template v-else-if="tab === 'pairing'">
+
         <!-- 配对审批：谁可以跟 AI 对话 -->
         <div class="cc-pair">
           <div class="cc-pair-hd">
@@ -173,74 +167,80 @@
             </div>
           </div>
         </div>
-      </div>
+      </template>
 
-
-      <div class="cc-section">
-        <div class="panel-hd">
-          <b>ERP 数据源</b>
-          <span class="page-sub">接入你的业务系统，AI 副驾直接读真实数据</span>
+      <!-- ===== ERP 数据源 Tab（v429：从「业务数据源」拆出 ?tab=erp）===== -->
+      <template v-else-if="tab === 'erp'">
+        <div class="cc-section">
+          <div class="panel-hd">
+            <b>ERP 数据源</b>
+            <span class="page-sub">接入你的业务系统，AI 副驾直接读真实数据</span>
+          </div>
+          <div class="cc-grid">
+            <!-- 畅捷通 / T+ -->
+            <div class="card cc-card" :class="{ linked: chanjet.linked }" @click="openChanjet">
+              <div class="cc-card-top">
+                <span class="cc-logo" :class="chanjet.linked ? 'cc-logo-chanjet' : ''">畅</span>
+                <span class="cc-state" :class="chanjet.linked ? 'on' : ''">{{ chanjet.linked ? '已连接' : '待授权' }}</span>
+              </div>
+              <div class="cc-name">畅捷通 / T+</div>
+              <div class="cc-desc">授权后同步商品 / 客户 / 供应商</div>
+              <div class="cc-action" :class="chanjet.linked ? 'ghost' : 'primary'">{{ chanjet.linked ? '管理' : '去连接' }}</div>
+            </div>
+            <!-- 金蝶 / 云星空 -->
+            <div class="card cc-card" :class="{ linked: kingdee.linked }" @click="openKingdee">
+              <div class="cc-card-top">
+                <span class="cc-logo" :class="kingdee.linked ? 'cc-logo-kingdee' : ''">金</span>
+                <span class="cc-state" :class="kingdee.linked ? 'on' : ''">{{ kingdee.linked ? '已连接' : '待授权' }}</span>
+              </div>
+              <div class="cc-name">金蝶 / 云星空</div>
+              <div class="cc-desc">授权后同步商品 / 客户 / 供应商 / 库存 / 订单</div>
+              <div class="cc-action" :class="kingdee.linked ? 'ghost' : 'primary'">{{ kingdee.linked ? '管理' : '去连接' }}</div>
+            </div>
+            <!-- 舟谱 / 导出表（v274）：与上面两张并列，但**不是 OAuth** —— 人工上传 Excel 的通道。
+                 故卡片上没有「断开 / 同步」按钮（没有对应语义的动作就不摆按钮）。 -->
+            <div v-if="zhoupuVisible" class="card cc-card" :class="{ linked: zhoupu.connected }"
+                 :title="zhoupuTip" @click="openZhoupu">
+              <div class="cc-card-top">
+                <span class="cc-logo" :class="zhoupu.connected ? 'cc-logo-zhoupu' : ''">舟</span>
+                <span class="cc-state" :class="zhoupu.connected ? 'on' : ''">{{ zhoupuStateText }}</span>
+              </div>
+              <div class="cc-name">舟谱 / 导出表</div>
+              <div class="cc-desc">{{ zhoupuSub }}</div>
+              <div class="cc-action" :class="zhoupu.connected ? 'ghost' : 'primary'">{{ zhoupu.connected ? '再导一份' : '去导入' }}</div>
+            </div>
+          </div>
         </div>
-        <div class="cc-grid">
-          <!-- 畅捷通 / T+ -->
-          <div class="card cc-card" :class="{ linked: chanjet.linked }" @click="openChanjet">
-            <div class="cc-card-top">
-              <span class="cc-logo" :class="chanjet.linked ? 'cc-logo-chanjet' : ''">畅</span>
-              <span class="cc-state" :class="chanjet.linked ? 'on' : ''">{{ chanjet.linked ? '已连接' : '待授权' }}</span>
-            </div>
-            <div class="cc-name">畅捷通 / T+</div>
-            <div class="cc-desc">授权后同步商品 / 客户 / 供应商</div>
-            <div class="cc-action" :class="chanjet.linked ? 'ghost' : 'primary'">{{ chanjet.linked ? '管理' : '去连接' }}</div>
-          </div>
-          <!-- 金蝶 / 云星空 -->
-          <div class="card cc-card" :class="{ linked: kingdee.linked }" @click="openKingdee">
-            <div class="cc-card-top">
-              <span class="cc-logo" :class="kingdee.linked ? 'cc-logo-kingdee' : ''">金</span>
-              <span class="cc-state" :class="kingdee.linked ? 'on' : ''">{{ kingdee.linked ? '已连接' : '待授权' }}</span>
-            </div>
-            <div class="cc-name">金蝶 / 云星空</div>
-            <div class="cc-desc">授权后同步商品 / 客户 / 供应商 / 库存 / 订单</div>
-            <div class="cc-action" :class="kingdee.linked ? 'ghost' : 'primary'">{{ kingdee.linked ? '管理' : '去连接' }}</div>
-          </div>
-          <!-- 舟谱 / 导出表（v274）：与上面两张并列，但**不是 OAuth** —— 人工上传 Excel 的通道。
-               故卡片上没有「断开 / 同步」按钮（没有对应语义的动作就不摆按钮）。 -->
-          <div v-if="zhoupuVisible" class="card cc-card" :class="{ linked: zhoupu.connected }"
-               :title="zhoupuTip" @click="openZhoupu">
-            <div class="cc-card-top">
-              <span class="cc-logo" :class="zhoupu.connected ? 'cc-logo-zhoupu' : ''">舟</span>
-              <span class="cc-state" :class="zhoupu.connected ? 'on' : ''">{{ zhoupuStateText }}</span>
-            </div>
-            <div class="cc-name">舟谱 / 导出表</div>
-            <div class="cc-desc">{{ zhoupuSub }}</div>
-            <div class="cc-action" :class="zhoupu.connected ? 'ghost' : 'primary'">{{ zhoupu.connected ? '再导一份' : '去导入' }}</div>
-          </div>
-        </div>
-      </div>
+      </template>
 
-      <!-- v304：数据台账 —— 与上面「ERP 数据源」**同一件事的另一半**：
-           上面说"数据从哪接进来"，这里说"接得全不全、上次什么时候接的"。
-           刻意放在同一页、同一个 Tab、紧挨着，而不是新开一个侧栏一级入口 ——
-           侧栏那一格 3 天前刚因为「不为一个低频动作占一行」被撤掉（见 ZhoupuImport 的由来）。
+      <!-- ===== 数据台账 Tab（v429：原「业务数据源」更名 ?tab=datasource）===== -->
+      <!-- v304：数据台账 —— 与「ERP 数据源」**同一件事的另一半**：
+           那边说"数据从哪接进来"，这里说"接得全不全、上次什么时候接的"。
+           v429 之前两者同页紧挨；现各自独立成入口（与 v427/v428 同构：一屏一个，不用上翻）。
            组件自带上传弹窗（客户/应收/订单明细/专属价/收款流水 这 5 个**没有导入界面**的类目），
            有专门页面的类目（商品/员工/库存）只给「去上传」跳转 ⇒ 不产生第二套导入入口。 -->
-      <DataLedger />
+      <template v-else-if="tab === 'datasource'">
+        <DataLedger />
+      </template>
 
-      <div class="cc-section">
-        <div class="panel-hd">
-          <b>MCP 连接</b>
-          <span class="page-sub">接入第三方工具与数据源</span>
-        </div>
-        <div class="cc-mcp" @click="toast('MCP 接入即将上线', 'info')">
-          <div class="cc-mcp-ic">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <!-- ===== MCP 连接 Tab（v429：从「业务数据源」拆出 ?tab=mcp）===== -->
+      <template v-else-if="tab === 'mcp'">
+        <div class="cc-section">
+          <div class="panel-hd">
+            <b>MCP 连接</b>
+            <span class="page-sub">接入第三方工具与数据源</span>
           </div>
-          <div class="cc-mcp-txt">
-            <div class="cc-mcp-title">添加 MCP 服务器</div>
-            <div class="cc-mcp-desc">把外部系统按 MCP 协议接进来</div>
+          <div class="cc-mcp" @click="toast('MCP 接入即将上线', 'info')">
+            <div class="cc-mcp-ic">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+            <div class="cc-mcp-txt">
+              <div class="cc-mcp-title">添加 MCP 服务器</div>
+              <div class="cc-mcp-desc">把外部系统按 MCP 协议接进来</div>
+            </div>
           </div>
         </div>
-      </div>
-    </template>
+      </template>
 
     <!-- ===== 专家 Tab（即 AI 团队）===== -->
     <template v-else-if="tab === 'expert'">
@@ -536,8 +536,8 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
-import { reactive, ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { reactive, ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { toast, store } from '../store'
 import { workflowApi, aiSkillsApi, zhoupuApi } from '../api/modules'
 import { api } from '../api/client'
@@ -549,7 +549,24 @@ import AiHub from './AiHub.vue'
 import DataLedger from '../components/DataLedger.vue'
 
 const router = useRouter()
-const tab = ref('connector')
+const route = useRoute()
+const CONNECT_TABS = ['im', 'pairing', 'erp', 'datasource', 'mcp', 'expert', 'skill', 'evolution', 'output']
+function normConnectTab(q) {
+  return CONNECT_TABS.indexOf(q) >= 0 ? q : 'im'
+}
+const tab = ref('im')
+/* v427（2026-10-10）：页内页签条退役（v396），改由 URL `?tab=` 驱动。
+   侧栏直达 / 深链 / 页内跳转都只认 URL —— 组件不随 query 变化重挂，故用 watch。 */
+function applyConnectTab() {
+  const t = normConnectTab(route.query && route.query.tab)
+  tab.value = t
+  // 「进化日志」原先是点了页签才拉数据；URL 驱动后深链/侧栏直达都要触发
+  if (t === 'evolution') loadEvolution()
+}
+function goTab(t) {
+  router.push({ path: '/connect', query: { tab: t } })
+}
+watch(() => route.query.tab, () => applyConnectTab())
 
 /* ---- AI 进化日志 ---- */
 const evSkills = ref({ total: 0, items: [] })
@@ -1226,6 +1243,7 @@ const zhoupuTip = computed(() => {
 function openZhoupu() { router.push('/zhoupu-import') }
 
 onMounted(async () => {
+  applyConnectTab()
   await loadChannels()
   // 进页面时若已有渠道在过渡态（刚保存没刷新就离开过），继续轮询到位
   if (ccOrder.value.some(ch => CC_TRANSITION.includes(ccState(ch)))) startStatusPoll()
@@ -1242,11 +1260,6 @@ onUnmounted(stopStatusPoll)
 </script>
 
 <style scoped>
-.cc-tabs{display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:0}
-.cc-tab{padding:10px 18px;border:none;background:none;font-size:14px;color:var(--t2);cursor:pointer;position:relative;font-weight:500}
-.cc-tab.active{color:var(--p-dark)}
-.cc-tab.active::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--p-dark);border-radius:2px}
-
 .cc-section{margin-bottom:26px}
 /* v311：嵌入「产出与用量」时压掉子页自己的页头。
    ⚠️ 只藏页头、**不要**照抄 `.page-hd{display:none}` 那种"连工具条一起藏"的写法 ——
