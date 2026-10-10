@@ -1604,9 +1604,9 @@ table.ipn-tbl td.seq-cell { padding: 2px 4px }
 }
 .ipn-tbl th.ipn-c-op { background: var(--bg2) }
 .ipn-tbl tbody tr:hover td.ipn-c-op { background: var(--bg2) }
-/* v430：明细行在滚动容器里滚入可见区时，底部要留给 sticky「合计」条 ~50px 的留白，
+/* v430：明细行在滚动容器里滚入可见区时，底部要留给 sticky「合计」条 ~40px 的留白，
    否则 scrollIntoView 会把行底顶到视口最底、正好被合计条盖住。 */
-.ipn-tbl tbody tr { scroll-margin-bottom: 64px }
+.ipn-tbl tbody tr { scroll-margin-bottom: 48px }
 .ipn-in { width: 100%; height: 22px }
 /* v417h（对照舟谱·行密度）：**浏览态扁平化** —— 未聚焦的格不铺底色、只留极淡描边，
    整行看起来像「一排文���」，鼠标指向或键盘聚焦才浮起成可编辑的框。
@@ -1698,7 +1698,7 @@ table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
 .ipn-bottom {
   position: sticky; bottom: 0; z-index: var(--z-sticky);
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  margin: auto -20px -20px -20px; padding: 12px 20px;
+  margin: auto -20px -20px -20px; padding: 8px 20px;
   background: var(--bg); border-top: 1px solid var(--border-subtle);
 }
 .ipn-total { font-size: 14px }
