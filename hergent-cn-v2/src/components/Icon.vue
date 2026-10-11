@@ -3,7 +3,7 @@
     class="ico"
     :width="size"
     :height="size"
-    style="vertical-align:middle"
+    :style="svgStyle"
     :viewBox="fillIcon ? fillIcon.vb : '0 0 24 24'"
     :fill="fillIcon ? 'currentColor' : 'none'"
     :stroke="fillIcon ? 'none' : 'currentColor'"
@@ -230,4 +230,18 @@ const FILL_ICONS = {
 
 const paths = computed(() => ICONS[props.name] || ICONS.settings)
 const fillIcon = computed(() => FILL_ICONS[props.name] || null)
+
+/* 🔴 v455（关键修复）：填充式图标必须用**内联 style** 锁死 fill / stroke，属性绑不住。
+   —— 全局 `src/styles/variables.css` 有一条规则（约 382 行）：
+        .ico{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;…}
+      而 `.ico` 正是本组件 <svg> 的类名。上面的 `fill="…"` / `stroke="…"` 是 SVG
+      **表现属性（presentation attribute）**，优先级最低 —— 会被这条 CSS 整条推翻：
+        · `fill:none` 把填充抹掉；`stroke:currentColor` 又按"描边型"把闭合轮廓重描一遍；
+        · 结果：图标墨迹 60px → 165px（≈ 2.75 倍），肉眼表现就是"线条极粗、镂空被堵死"。
+      （v451 把图标换成 WorkBuddy 原生填充式后即踩此坑 —— 探针只量了尺寸/类名/属性，
+       **没量计算样式**，所以 34 条断言全绿却仍上线了一个"粗一档"的图标，是老板肉眼发现的。）
+   内联 style 优先于任何选择器（除 `!important`），才压得住这条全局规则。 */
+const svgStyle = computed(() => (fillIcon.value
+  ? 'vertical-align:middle;fill:currentColor;stroke:none;stroke-width:0'
+  : 'vertical-align:middle'))
 </script>

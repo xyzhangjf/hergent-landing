@@ -1,5 +1,5 @@
 /**
- * v451-copilot-rating-probe.mjs —— 副驾「点赞 / 点踩」按钮对齐 WorkBuddy 的真机验收
+ * v455-copilot-rating-probe.mjs —— 副驾「点赞 / 点踩」按钮对齐 WorkBuddy 的真机验收
  *
  * 判据来源不是"看着像"，而是从 WorkBuddy.app → app.asar → renderer/assets/lib-chat-ui-*.css
  * （2026-10-11 逐条读出的真实规则）：
@@ -8,13 +8,22 @@
  *   · hover **只换背景** var(--cb-bg-primary-hover) 且**不改字色** · :focus outline:none
  *   · 图标 16px · 按钮间距 8px · 选中态**不改颜色**、只把图标从线框换成实心
  *
+ * 🔴 v455 修正的探针盲区（v451 版放跑了一个肉眼级 bug）：
+ *   v451 断言写的是 `getAttribute('stroke')==='none'` —— **属性存在**，但属性的"生效"完全没验。
+ *   本仓全局 `variables.css` 有 `.ico{fill:none;stroke:currentColor;stroke-width:2;…}`，而图标
+ *   `<svg>` 的类名正是 `.ico`；CSS 优先级高于 SVG 表现属性 ⇒ `stroke="none"` 被整条推翻，
+ *   填充图标被当描边型重画，墨迹 60px→165px（≈2.75 倍），老板一眼看出"线条太粗"，34 条断言却全绿。
+ *   ⇒ 本版所有"样式类"断言一律读 **getComputedStyle**（CSS 层），并额外读 path 自身，
+ *      且用 `--prod` 打旧线上站点时必须**报红**（判别力自证）。
+ *
  * 跑法：本地 dist 静态服务 ＋ 把 `/api` 反代到真实生产后端（**不打桩** —— 打桩的空对象会让
  *       Workbench 等页面读 undefined 而触发 ErrorBoundary，整个页面被换掉、副驾根本不渲染，
  *       表现为"所有断言全 FAIL"，极具迷惑性）。
  *
  * 用法：
- *   node v451-copilot-rating-probe.mjs                  # 打 dist-v451（期望全绿）
- *   node v451-copilot-rating-probe.mjs dist-v449        # 判别力自证（旧产物，期望关键断言 FAIL）
+ *   node v455-copilot-rating-probe.mjs                  # 打 dist-v455（期望全绿）
+ *   node v455-copilot-rating-probe.mjs --prod           # 打生产公网真机
+ *   node v455-copilot-rating-probe.mjs dist-v449        # 判别力自证（旧产物，期望关键断言 FAIL）
  */
 import { launch } from './lib/cdp-lite.mjs'
 import http from 'node:http'
@@ -27,9 +36,9 @@ const ROOT = '/Users/zhangjunfeng/Documents/laozhangai-product/hergent-cn-v2'
    同一条判据、同一套断言，跑在真实站点上 ⇒ 证不了"本地产物对"，才谈得上交付。 */
 const PROD = process.argv.includes('--prod')
 const PROD_URL = 'https://hergent.cn/'
-const DIST = (process.argv[2] && !process.argv[2].startsWith('--')) ? process.argv[2] : 'dist-v451'
+const DIST = (process.argv[2] && !process.argv[2].startsWith('--')) ? process.argv[2] : 'dist-v455'
 const DIR = path.join(ROOT, DIST)
-const SHOT_DIR = '/Users/zhangjunfeng/Documents/laozhangai-product/outputs/v451-rating' + (PROD ? '-prod' : '')
+const SHOT_DIR = '/Users/zhangjunfeng/Documents/laozhangai-product/outputs/v455-rating' + (PROD ? '-prod' : '')
 const API_TARGET = 'https://erp.hergent.cn'
 const ACCT = { username: 'mptestsp', password: 'Mpsup@1' }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -124,6 +133,7 @@ const MEASURE = [
   "var bx=function(e){var r=e.getBoundingClientRect();return{x:+r.left.toFixed(1),w:+r.width.toFixed(1),h:+r.height.toFixed(1),cy:+(r.top+r.height/2).toFixed(1)}};",
   "var tk=function(v){var t=document.createElement('div');t.style.cssText='position:absolute;left:-9999px;background:'+v;document.body.appendChild(t);var c=getComputedStyle(t).backgroundColor;t.remove();return c};",
   "var svg=rates[0]?rates[0].querySelector('svg'):null,pd=svg?svg.querySelector('path'):null;",
+  "var svg2=(rates[1]&&rates[1].querySelector('svg'))||null,pd2=svg2?svg2.querySelector('path'):null;",
   "var gap=null;if(acts.length>=2){var a=bx(acts[0]),b=bx(acts[1]);gap=+(b.x-(a.x+a.w)).toFixed(1)}",
   "return JSON.stringify({",
   " rateCount:rates.length,actCount:acts.length,",
@@ -143,6 +153,13 @@ const MEASURE = [
   /* 第二个按钮（点踩）自己的 viewBox —— 只量 rates[0] 会把「点踩变实心」误判成没变 */
   " vb2:(rates[1]&&rates[1].querySelector('svg'))?rates[1].querySelector('svg').getAttribute('viewBox'):null,",
   " pathN:svg?svg.querySelectorAll('path').length:0,",
+  /* 🔴 v455 新增：读**计算样式（CSS 层）**，而不是 getAttribute（属性层）。
+     属性层会被全局 `variables.css` 的 `.ico{fill:none;stroke:currentColor;stroke-width:2}`
+     整条覆盖 —— 这正是 v451 放跑"线条变粗 2.75 倍"的原因（属性都在、断言全绿、渲染是错的）。
+     判别力自证：拿本探针打**修复前的生产**，这四条必须报红。 */
+  " fillC:gs(svg,'fill'),strokeC:gs(svg,'stroke'),swC:gs(svg,'strokeWidth'),",
+  " pFillC:gs(pd,'fill'),pStrokeC:gs(pd,'stroke'),pSwC:gs(pd,'strokeWidth'),",
+  " fillC2:gs(svg2,'fill'),strokeC2:gs(svg2,'stroke'),pFillC2:gs(pd2,'fill'),pStrokeC2:gs(pd2,'stroke'),",
   " pathD:pd?pd.getAttribute('d').slice(0,20):null,fillRule:pd?pd.getAttribute('fill-rule'):null,",
   " trans:pd?pd.getAttribute('transform'):null,",
   " pressed:rates.map(function(b){return b.getAttribute('aria-pressed')}),",
@@ -218,6 +235,8 @@ async function run(dist, theme, cred) {
 
   console.log('  [原始测量] 通用 .cp-act: ' + m.wA + 'px / radius ' + m.radiusA + ' / 图标 ' + m.svgWA +
     'px / gap ' + m.gap + ' ｜ cp-rate 数 ' + m.rateCount)
+  console.log('  [计算样式] svg: stroke=' + m.strokeC + ' sw=' + m.swC + ' fill=' + m.fillC +
+    ' ｜ path: fill=' + m.pFillC + ' stroke=' + m.pStrokeC + ' ｜ 点踩: stroke=' + m.strokeC2)
   ok(m.rateCount === 2, '点赞/点踩按钮各 1 个', 'rateCount=' + m.rateCount)
   /* 🔴 判别力自证：这两条**不用 .cp-rate 选择器**（旧产物没有该类，靠它失败只能证明"类名不存在"，
      证明不了"值不对"）。用通用 .cp-act 量第一个按钮 ⇒ 旧产物必须报出 28px/6px/15px 才算真判据。 */
@@ -235,8 +254,19 @@ async function run(dist, theme, cred) {
   ok(new Set(m.centers).size === 1, '整行同一中线（模型徽标 + 全部按钮）', 'centers=' + JSON.stringify(m.centers))
   ok(m.svgW === '16' && m.svgH === '16', '图标 16×16（WorkBuddy _icon_）', m.svgW + '×' + m.svgH)
   ok(m.vb === '0 0 15 14' && m.fillRule === 'evenodd' && m.strokeA === 'none' && m.fillA === 'currentColor' && m.pathN === 1,
-    '默认 = WorkBuddy 线框图标（15×14 / fill evenodd / 单路径）',
+    '默认 = WorkBuddy 线框图标（15×14 / fill evenodd / 单路径）·属性层',
     'vb=' + m.vb + ' fr=' + m.fillRule + ' stroke=' + m.strokeA + ' pathN=' + m.pathN)
+  /* 🔴 v455：属性层过了不算数 —— CSS 会整条覆盖 SVG 表现属性，必须验**计算样式**。
+     拿本探针打"修复前"的产线，下面四条必须报红（否则说明断言又恒真了）。 */
+  ok(m.strokeC === 'none', '【计算样式】svg 无描边（全局 .ico 没把填充图标改成描边型）', 'stroke=' + m.strokeC)
+  ok(m.swC === '0px', '【计算样式】svg stroke-width=0', String(m.swC))
+  ok(m.fillC === m.color, '【计算样式】svg 填充 = 字色（填充式图标真的被填充）', m.fillC + ' == ' + m.color)
+  ok(m.pStrokeC === 'none' && m.pSwC === '0px' && m.pFillC === m.color,
+    '【计算样式】path 自身 fill=字色 / stroke=none（防"属性在 svg 上、path 被别的规则描边"）',
+    'fill=' + m.pFillC + ' stroke=' + m.pStrokeC + ' sw=' + m.pSwC)
+  ok(m.strokeC2 === 'none' && m.pFillC2 === m.color,
+    '【计算样式】第二个按钮（点踩）同样达标（两条独立验证，防只修好一个）',
+    'stroke=' + m.strokeC2 + ' fill=' + m.pFillC2)
   ok(m.pressed[0] === 'false' && m.pressed[1] === 'false', '未选中时 aria-pressed=false', JSON.stringify(m.pressed))
 
   const hv = await hover(page, '.cp-msg-actions .cp-act.cp-rate')
@@ -255,6 +285,9 @@ async function run(dist, theme, cred) {
   ok(mg.pressed[0] === 'true', '点赞后 aria-pressed=true', JSON.stringify(mg.pressed))
   ok(mg.vb === '0 0 16 16' && !mg.fillRule,
     '点赞后图标变实心（WorkBuddy 双态：线框→实心）', 'vb=' + mg.vb + ' fillRule=' + mg.fillRule)
+  ok(mg.strokeC === 'none' && mg.pFillC === mg.color,
+    '【计算样式】点赞后实心态：仍无描边 + 确有填充（`.ico` 的 fill:none 也没把它抹掉）',
+    'stroke=' + mg.strokeC + ' fill=' + mg.pFillC)
   ok(mg.color === mg.t2, '点赞后**不改颜色**（WorkBuddy 选中态不靠变色）', mg.color + ' == ' + mg.t2)
   await page.screenshot(path.join(SHOT_DIR, dist + '-' + theme + '-liked.png'))
   await zoom(page, dist, theme + '-liked')
@@ -294,6 +327,8 @@ async function runDark(dist, cred) {
   const m = JSON.parse(await page.eval(MEASURE))
   ok(m.w === 24 && m.radius === '8px', '深色下尺寸/圆角不变', m.w + '×' + m.radius)
   ok(m.t2 === 'rgb(174, 174, 178)' && m.color === m.t2, '深色字色 = --t2(#aeaeb2)，未硬编码浅色', m.color)
+  ok(m.strokeC === 'none' && m.fillC === m.color,
+    '深色下【计算样式】无描边 + 填充 = 字色', 'stroke=' + m.strokeC + ' fill=' + m.fillC)
   const hv = await hover(page, '.cp-msg-actions .cp-act.cp-rate')
   const mh = JSON.parse(await page.eval(MEASURE))
   ok(hv && mh.b2 === 'rgb(58, 58, 60)' && mh.bg === mh.b2, '深色 hover 背景 = --b2(#3a3a3c)', mh.bg + ' == ' + mh.b2)
