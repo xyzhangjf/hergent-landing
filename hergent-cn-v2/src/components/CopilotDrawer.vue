@@ -2962,17 +2962,17 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-act.cp-rate.on{color:var(--t2,#6e6e73)}
 .cp-act.cp-rate.on:hover{background:var(--b2,#ebebeb)}
 .cp-share{position:relative;display:inline-flex}
-.cp-share-menu{position:absolute;bottom:36px;left:0;z-index:30;display:flex;flex-direction:column;min-width:124px;padding:4px;background:#fff;border:1px solid var(--b2,#e5e7eb);border-radius:10px;box-shadow:0 6px 20px rgba(15,23,42,.14)}
+.cp-share-menu{position:absolute;bottom:36px;left:0;z-index:30;display:flex;flex-direction:column;min-width:124px;padding:4px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;box-shadow:0 6px 20px rgba(15,23,42,.14)}
 .cp-share-menu button{text-align:left;padding:7px 10px;border:none;background:transparent;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer}
-.cp-share-menu button:hover{background:var(--b2,#f1f5f9)}
+.cp-share-menu button:hover{background:var(--bg2)}
 .cp-share-backdrop{position:fixed;inset:0;z-index:20;background:transparent}
 
 /* v424：分享→二维码弹层（微信扫一扫） */
-.cp-qr{position:absolute;bottom:36px;left:0;z-index:31;display:flex;flex-direction:column;align-items:center;gap:8px;width:188px;padding:12px;background:#fff;border:1px solid var(--b2,#e5e7eb);border-radius:12px;box-shadow:0 8px 28px rgba(15,23,42,.18)}
+.cp-qr{position:absolute;bottom:36px;left:0;z-index:31;display:flex;flex-direction:column;align-items:center;gap:8px;width:188px;padding:12px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;box-shadow:0 8px 28px rgba(15,23,42,.18)}
 .cp-qr img{width:168px;height:168px;display:block;border-radius:6px}
-.cp-qr p{margin:0;font-size:12px;line-height:1.5;color:var(--t3,#94a3b8);text-align:center}
-.cp-qr-close{padding:6px 14px;border:none;border-radius:7px;background:var(--b2,#f1f5f9);color:var(--t1);font-size:13px;cursor:pointer}
-.cp-qr-close:hover{background:#e9eef5}
+.cp-qr p{margin:0;font-size:12px;line-height:1.5;color:var(--t3);text-align:center}
+.cp-qr-close{padding:6px 14px;border:none;border-radius:7px;background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer}
+.cp-qr-close:hover{background:var(--bd)}
 
 /* v426 P0-3：结构化纠错面板（取代浏览器原生输入弹窗）
    🔴 背景一律走 **var(--bg)**，绝不写 `background:#fff` —— 写死白底就是本项目反复发作的
