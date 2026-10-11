@@ -255,6 +255,24 @@ export const PAGE_RULES = {
   '/wh/expiry-report': { title: '效期预警表',   module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
   '/wh/vehicle-stock': { title: '车辆库存查询', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
   '/wh/stock-alert':   { title: '库存预警',     module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  /* —— v465e（2026-10-11 仓配管理 P1）：「仓库作业」组六页**落真身**的正式登记行 ——
+     🔴 `module:'stock'` 与后端域**逐项一致**：六页的数据源分别是
+        `/api/inbound`、`/api/wh/outbound`、`/api/wh/stocktake`、`/api/wms/*`、
+        `/api/wh/entries`（in/out 两个方向）—— 全部归 `stock`
+        （见 server.py::_PATH_MODULE_MAP，`/api/inbound` 与 `/api/wh` 本批才补上映射）。
+        `roles: BIZ_ROLES` 全员持 `stock` ⇒ 前端可见性与后端鉴权**不可能打架**。
+     🔴 建单下拉的商品/供应商/客户走 `/api/products` + `/api/contacts`（归 `data`，BIZ_ROLES
+        五类人全持）；**刻意不用** `/api/psi/refs`（归 `inventory`，只有 boss/admin）与
+        `/api/customers`（归 `crm`，会计/主管没有）—— 否则会造出「入口可见、一开下拉就 403」的
+        局部假入口（完整论证见 `src/api/wh.js` 头部）。
+     ⚠️ 这六条**同时**从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 盖掉本行）。
+     ⚠️ `/wh/*` 其余条目仍是占位页（module:null + BIZ_ROLES），P2–P3 逐批落真身。 */
+  '/wh/inbound':     { title: '入库单',     module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/outbound':    { title: '出库单',     module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/stocktake':   { title: '盘点单',     module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/strategy':    { title: '出入库策略', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/other-in':    { title: '其它入库单', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/other-out':   { title: '其它出库单', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
   // 档案管理：`/archive/employees|customers|brands|products|warehouses|prices` 六个子路由自动继承本行。
   //   ⚠️ 子路由**必须**全部在 router/index.js 的 /archive children 里登记；父级只解析到
   //      `/archive` 这一段，多出的路径段不会自动继承、会落到 404。
@@ -416,13 +434,12 @@ export const PAGE_RULES = {
        （业务管理岗，与 `/data-fill`、`/loss` 同档）。
    ⚠️ `area` 只是给占位页副标题用的中文名，与权限无关；权限**只**认 `path` 前缀分档。 */
 export const PLACEHOLDER_PAGES = [
-  /* —— 仓配管理（/wh/*）—— */
-  { path: '/wh/inbound',        title: '入库单',           area: '仓配管理' },
-  { path: '/wh/outbound',       title: '出库单',           area: '仓配管理' },
-  { path: '/wh/stocktake',      title: '盘点单',           area: '仓配管理' },
-  { path: '/wh/strategy',       title: '出入库策略',       area: '仓配管理' },
-  { path: '/wh/other-in',       title: '其它入库单',       area: '仓配管理' },
-  { path: '/wh/other-out',      title: '其它出库单',       area: '仓配管理' },
+  /* —— 仓配管理（/wh/*）——
+     🔴 v465c（P0）三页 + v465e（P1）六页**已落真身** ⇒ 从本表移出，改在 `PAGE_RULES`
+        写正式登记行（见该对象里的 v465c / v465e 段）。落真身四步见 docs/仓配模块开发规范.md
+        —— 移出得干净，否则本表合并循环会用 `BIZ_ROLES + module:null` **覆盖**正式行的 `module:'stock'`。
+     本表剩余 = 尚未开发的 P2（盘点差异单/静态盘点×2/损益单/组合单/拆分单）
+        + P3（配送单/司机任务看板/线路设置）。 */
   { path: '/wh/delivery',       title: '配送单',           area: '仓配管理' },
   { path: '/wh/driver-board',   title: '司机任务看板',     area: '仓配管理' },
   { path: '/wh/route-setup',    title: '线路设置',         area: '仓配管理' },

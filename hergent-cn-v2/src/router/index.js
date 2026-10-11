@@ -47,6 +47,16 @@ const Placeholder = () => import('../pages/Placeholder.vue')
 const WhExpiryReport = () => import('../pages/wh/ExpiryReport.vue')
 const WhVehicleStock = () => import('../pages/wh/VehicleStock.vue')
 const WhStockAlert = () => import('../pages/wh/StockAlert.vue')
+/* v465e（2026-10-11 仓配管理 P1）：**仓库作业 6 页落真身**（入库单 / 出库单 / 盘点单 /
+   出入库策略 / 其它入库单 / 其它出库单）。同「落真身四步」，见 docs/仓配模块开发规范.md。
+   🔴 两张「其它出入库」共用 `EntryList.vue` 内核（in/out 两个方向），差异由 `direction` prop
+      注入；本文件按路由登记两个薄壳组件 —— 因为 router 需要**真实组件**、`pages.js` 按路径登记。 */
+const WhInboundList = () => import('../pages/wh/InboundList.vue')
+const WhOutboundList = () => import('../pages/wh/OutboundList.vue')
+const WhStocktake = () => import('../pages/wh/Stocktake.vue')
+const WhStrategy = () => import('../pages/wh/Strategy.vue')
+const WhOtherIn = () => import('../pages/wh/OtherIn.vue')
+const WhOtherOut = () => import('../pages/wh/OtherOut.vue')
 const CronJobs = () => import('../pages/CronJobs.vue')
 const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
@@ -259,6 +269,19 @@ export const router = createRouter({
         { path: 'wh/expiry-report', component: WhExpiryReport, meta: { title: '效期预警表' } },
         { path: 'wh/vehicle-stock', component: WhVehicleStock, meta: { title: '车辆库存查询' } },
         { path: 'wh/stock-alert',   component: WhStockAlert,   meta: { title: '库存预警' } },
+
+        /* v465e（2026-10-11 仓配管理 P1）：**仓库作业 6 页落真身**。
+           🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——
+              这 6 条已从 `PLACEHOLDER_PAGES` 移出，此处是它们唯一的真实路由；
+              `pages.js::PAGE_RULES` 另有正式登记行（**两处都要写**：缺路由 = 假封锁，
+              缺登记 = 假入口）。`meta.title` 与 pages.js 的 title、Shell.vue 的 name
+              必须逐字一致（它就是路由守卫「你没有访问「xxx」的权限」的文案）。 */
+        { path: 'wh/inbound',     component: WhInboundList,  meta: { title: '入库单' } },
+        { path: 'wh/outbound',    component: WhOutboundList, meta: { title: '出库单' } },
+        { path: 'wh/stocktake',   component: WhStocktake,    meta: { title: '盘点单' } },
+        { path: 'wh/strategy',    component: WhStrategy,     meta: { title: '出入库策略' } },
+        { path: 'wh/other-in',    component: WhOtherIn,      meta: { title: '其它入库单' } },
+        { path: 'wh/other-out',   component: WhOtherOut,     meta: { title: '其它出库单' } },
 
         /* v465（2026-10-11）：四新区（仓配管理 / 资金管理 / 数据报表 / 市场营销）的
            **占位页路由** —— 按 `pages.js::PLACEHOLDER_PAGES` 数据驱动批量挂载，

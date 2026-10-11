@@ -482,13 +482,23 @@ const NAV = [
   {
     key: 'wh', name: '仓配管理', icon: 'toolbox',
     groups: [
-      { label: '仓库作业', items: [
+      /* 🔴 v465e（2026-10-11 仓配 P1）：原「仓库作业」一列 6 项**按方向拆成 3 列** ——
+         入库 / 出库 / 盘点与策略。理由：这 6 项是三种**互不相干**的动作
+         （收进来 / 发出去 / 对数与定规矩），平铺一列 6 行要逐行读完才知道谁跟谁是一对；
+         拆成 3 列后「进出」的方向感一眼可见，与舟谱弹窗「同方向相邻」的排法一致。
+         ⚠️ 条目本身一个没增没减（仍 6 项），只是分了列；可见性仍由 `pages.js` 的 `stock` + BIZ_ROLES 决定，
+            本处不补任何判据。列数变多 → `.sb-pop` 的 `flex-wrap` 会在窄屏自动折行，不会挤没。 */
+      { label: '入库', items: [
         { path: '/wh/inbound',      name: '入库单',     icon: 'inbox' },
+        { path: '/wh/other-in',     name: '其它入库单', icon: 'inbox' }
+      ] },
+      { label: '出库', items: [
         { path: '/wh/outbound',     name: '出库单',     icon: 'upload' },
-        { path: '/wh/stocktake',    name: '盘点单',     icon: 'list' },
-        { path: '/wh/strategy',     name: '出入库策略', icon: 'settings' },
-        { path: '/wh/other-in',     name: '其它入库单', icon: 'inbox' },
         { path: '/wh/other-out',    name: '其它出库单', icon: 'upload' }
+      ] },
+      { label: '盘点与策略', items: [
+        { path: '/wh/stocktake',    name: '盘点单',     icon: 'list' },
+        { path: '/wh/strategy',     name: '出入库策略', icon: 'settings' }
       ] },
       { label: '配送作业', items: [
         { path: '/wh/delivery',     name: '配送单',       icon: 'smartphone' },
