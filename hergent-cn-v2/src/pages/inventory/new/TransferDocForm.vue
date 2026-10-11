@@ -94,7 +94,6 @@
       <div class="isn-bar">
         <b>{{ cfg.tblTitle }}</b>
         <span class="isn-cnt">{{ filledRows.length }} 项</span>
-        <input v-model.trim="prodKw" class="input isn-prod-kw" placeholder="输入商品名筛选下面的商品下拉" />
         <button class="btn btn-ghost btn-sm" :disabled="busy" @click="addRow">
           <Icon name="plus" :size="14" />加一行
         </button>
@@ -115,27 +114,28 @@
               <th class="isn-c-prod" :style="wStyle('prod')"><span class="isn-req">*</span>商品<ColResizeHandle col="prod" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-qty" :style="wStyle('qty')"><span class="isn-req">*</span>数量<ColResizeHandle col="qty" :start="startResize" :reset="resetColW" /></th>
               <th class="isn-c-unit" v-if="isVisible('unit')" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>
-              <th class="isn-c-del"></th>
+              <th class="isn-c-op">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, i) in items" :key="row.uid">
+            <tr v-for="(row, i) in items" :key="row.uid" :data-uid="row.uid">
               <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-              <td>
-                <select v-model.number="row.product_id" class="input isn-in" @change="onPick(row)">
-                  <option :value="0" disabled></option>
-                  <option v-for="p in prodOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
-                </select>
+              <td class="isn-c-prod">
+                <ProductCombo :row="row" :products="products" @pick="onPick" />
               </td>
               <td>
                 <input v-model="row.quantity" class="input isn-in num" inputmode="decimal" placeholder="0" />
               </td>
-              <td v-if="isVisible('unit')">
+              <td v-if="isVisible('unit')" class="isn-c-unit">
                 <span v-if="row.unit" class="isn-unit" :class="{ fallback: row.unitFromBase }"
                       :title="row.unitFromBase ? '商品档案里没设「报单单位」，按基础单位显示' : ''">{{ row.unit }}</span>
                 <span v-else class="isn-unit none"></span>
+                <div v-if="row.convText" class="isn-conv">{{ row.convText }}</div>
               </td>
-              <td class="isn-c-del">
+              <td class="isn-c-op">
+                <button class="btn-row-ic" title="在下面插入一行" :disabled="busy" @click="insertAfter(i)">
+                  <Icon name="plus" :size="14" />
+                </button>
                 <button class="btn-row-ic danger" title="删除这一行" :disabled="busy" @click="removeRow(i)">
                   <Icon name="trash" :size="14" />
                 </button>
@@ -208,9 +208,10 @@
 
    反例对照（为什么 `from == to` 要在前端拦一次）：后端也拦（400「调出仓库与
    调入仓库不能是同一个」），前端拦只是为了少一次往返 —— 唯一强制仍在后端。 */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from '../../../components/Icon.vue'
+import ProductCombo from './ProductCombo.vue'
 import ColMenuPanel from '../../../components/ColMenuPanel.vue'
 import { useColSettings } from '../../../composables/useColSettings.js'
 import { useColResize } from '../../../composables/useColResize.js'
@@ -241,7 +242,6 @@ const { wStyle, startResize, resetColW } = useColResize('inv-transfer-new', DOC_
 const busy = ref(false)
 const warehouses = ref([])
 const products = ref([])
-const prodKw = ref('')
 /** 已建但未过账的调拨单 `{id, order_no}`；非空 ⇒ 底部动作切成「过账 / 再开一张」。 */
 const draft = ref(null)
 const done = ref(false)
@@ -259,11 +259,6 @@ function todayISO () {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-const prodOptions = computed(() => {
-  const k = prodKw.value.trim().toLowerCase()
-  if (!k) return products.value
-  return products.value.filter(p => (p.name || '').toLowerCase().includes(k))
-})
 const filledRows = computed(() => items.value.filter(r => Number(r.product_id) > 0))
 const whName = (id) => (warehouses.value.find(w => Number(w.id) === Number(id)) || {}).name || '—'
 const fromWhName = computed(() => (form.value.from_warehouse_id ? whName(form.value.from_warehouse_id) : '未选'))
@@ -273,17 +268,46 @@ const toWhName = computed(() => (form.value.to_warehouse_id ? whName(form.value.
 const PRESET_ROWS = 15
 
 function blankRow () {
-  return { uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false }
+  return { uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false, unitOptions: [], convText: '', baseUnit: '', barcode: '' }
 }
 function addRow () { items.value.push(blankRow()) }
+function insertAfter (i) {
+  const r = blankRow()
+  items.value.splice(i + 1, 0, r)
+  scrollRowIntoView(r.uid)
+}
 function removeRow (i) { items.value.splice(i, 1) }
+function scrollRowIntoView (uid) {
+  nextTick(() => {
+    const el = document.querySelector(`.isn-tbl tbody tr[data-uid="${uid}"]`)
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  })
+}
 
-function onPick (row) {
-  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
-  if (!p) return
+/** 从商品档案带出单位 / 条码 / 换算式提示（调拨单无价格列，不取 purchase_price）。
+    与采购单 applyProduct 同规则：默认档 = order_unit 命中的档位；没设 / 没命中 ⇒ 小档；
+    已有单位（复制旧单 / 编辑）且在档位内则保留，不被档案默认值顶掉。 */
+function applyProduct (row) {
+  const p = products.value.find(x => x.id === row.product_id)
+  if (!p) {
+    row.unitOptions = []; row.convText = ''; row.baseUnit = ''; row.barcode = ''
+    row.unit = ''; row.unitFromBase = false
+    return
+  }
+  row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
+  row.convText = String(p.conv_text || '')
+  row.baseUnit = String(p.unit || '')
   const ou = String(p.order_unit || '').trim()
-  row.unit = ou || String(p.unit || '').trim()
-  row.unitFromBase = !ou && !!row.unit
+  const hit = row.unitOptions.find(o => o.name === ou)
+  const keep = row.unit && row.unitOptions.some(o => o.name === row.unit)
+  if (!keep) {
+    row.unit = hit ? hit.name : (row.unitOptions[0] ? row.unitOptions[0].name : '')
+    row.unitFromBase = !hit && !!row.unit
+  }
+  row.barcode = String(p.barcode || '')
+}
+function onPick (row) {
+  applyProduct(row)
 }
 
 function validate () {
@@ -367,7 +391,6 @@ async function saveAndPost () {
 function resetAll () {
   draft.value = null
   done.value = false
-  prodKw.value = ''
   form.value = {
     /* 调出 / 调入仓**保留**（连开几张多半同一对仓），备注清空。 */
     from_warehouse_id: form.value.from_warehouse_id || 0,
@@ -563,7 +586,6 @@ onMounted(() => { resetAll(); loadRefs() })
 /* 明细工具条 */
 .isn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
 .isn-cnt { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
-.isn-prod-kw { width: 240px; height: 32px; margin-left: auto }
 .isn-tip { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--t2); margin: 0 0 10px }
 .isn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
 .isn-tip b { color: var(--t1) }
@@ -605,7 +627,10 @@ table.isn-tbl td.seq-cell { padding: 2px 4px }
 .isn-c-qty, .isn-c-price, .isn-c-amt { width: 110px }
 .isn-c-unit { width: 76px }
 .isn-c-stk { width: 86px; font-variant-numeric: tabular-nums; white-space: nowrap }
-.isn-c-del { width: 44px }
+.isn-c-op { width: 64px }
+table.isn-tbl th.isn-c-op, table.isn-tbl td.isn-c-op { position: sticky; right: 0; z-index: 2 }
+table.isn-tbl th.isn-c-op { background: var(--bg2) }
+table.isn-tbl tbody tr:hover td.isn-c-op { background: var(--bg2) }
 /* v447：与采购建单页 `.ipn-in` **逐值对齐**（明细格控件高 28 → 22）。
    原值 28px 是本页单独写的，比基准高 6px —— 真机实测它把数据行顶到 62.6px
    （基准 31.8），同屏少放 6 行。字号 / 内距 / 圆角三项同采购页：
@@ -659,7 +684,6 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
   .isn-hd { align-items: stretch }
   .isn-f, .isn-kw, .isn-sel, .isn-date, .isn-addr { width: 100%; min-width: 0 }
   .isn-pick { flex-direction: column }
-  .isn-prod-kw { width: 100%; margin-left: 0 }
   .isn-bottom { margin-inline: 0; padding-inline: 0 }
   /* 窄屏下框内控件要跟着撑满 —— 不写这几条，上面框式规则的定宽特异性更高
      （`.isn-hd-box .isn-f .isn-sel` 0,3,0 > `.isn-sel` 0,1,0），会把媒体查询的

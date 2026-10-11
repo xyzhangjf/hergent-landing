@@ -104,7 +104,6 @@
       <div class="isn-bar">
         <b>{{ cfg.tblTitle }}</b>
         <span class="isn-cnt">{{ filledRows.length }} 项</span>
-        <input v-model.trim="prodKw" class="input isn-prod-kw" placeholder="输入商品名筛选下面的商品下拉" />
         <button class="btn btn-ghost btn-sm" @click="addRow"><Icon name="plus" :size="14" />加一行</button>
       </div>
 
@@ -126,34 +125,31 @@
               <th class="isn-c-unit" v-if="isVisible('unit')" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-price" :style="wStyle('price')"><span class="isn-req">*</span>{{ cfg.priceLabel }}<ColResizeHandle col="price" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-amt" v-if="isVisible('amt')" :style="wStyle('amt')">金额<ColResizeHandle col="amt" :start="startResize" :reset="resetColW" /></th>
-              <th class="isn-c-del"></th>
+              <th class="isn-c-op">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, i) in items" :key="row.uid">
+            <tr v-for="(row, i) in items" :key="row.uid" :data-uid="row.uid">
               <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-              <td>
-                <select v-model.number="row.product_id" class="input isn-in" @change="onPick(row)">
-                  <option :value="0" disabled></option>
-                  <option v-for="p in prodOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
-                </select>
+              <td class="isn-c-prod">
+                <ProductCombo :row="row" :products="products" @pick="onPick" />
               </td>
               <td>
                 <input v-model="row.quantity" class="input isn-in num" inputmode="decimal" placeholder="0" />
               </td>
-              <td v-if="isVisible('unit')">
+              <td v-if="isVisible('unit')" class="isn-c-unit">
                 <span v-if="row.unit" class="isn-unit" :class="{ fallback: row.unitFromBase }"
                       :title="row.unitFromBase ? '商品档案里没设「报单单位」，按基础单位显示' : ''">{{ row.unit }}</span>
                 <span v-else class="isn-unit none"></span>
+                <div v-if="row.convText" class="isn-conv">{{ row.convText }}</div>
               </td>
               <td>
                 <input v-model="row.unit_price" class="input isn-in num" inputmode="decimal" placeholder="0.00" />
               </td>
               <td class="num isn-amt" v-if="isVisible('amt')">¥{{ fmtMoney(rowAmount(row)) }}</td>
-              <td class="isn-c-del">
-                <button class="btn-row-ic danger" title="删除这一行" @click="removeRow(i)">
-                  <Icon name="trash" :size="14" />
-                </button>
+              <td class="isn-c-op">
+                <button class="btn-row-ic" title="在这一行下面插一行" @click="insertAfter(i)"><Icon name="plus" :size="14" /></button>
+                <button class="btn-row-ic danger" title="删除这一行" @click="removeRow(i)"><Icon name="trash" :size="14" /></button>
               </td>
             </tr>
           </tbody>
@@ -200,7 +196,7 @@
       ⇒ 这里只把后端那句原因原样显示。
    🔴 **幂等键**：进页面生成一次，提交成功后作废；退货每次成功后**立刻换键**
       （不换会被后端当成重放 ⇒ 静默什么都不做）。 */
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from '../../../components/Icon.vue'
 import ColMenuPanel from '../../../components/ColMenuPanel.vue'
@@ -212,6 +208,7 @@ import { toast } from '../../../store'
 import { fmtMoney } from '../../../constants/psiLabels'
 import { saleDocConfig } from './docTypes.js'
 import CustomerCombo from './CustomerCombo.vue'
+import ProductCombo from './ProductCombo.vue'
 
 const props = defineProps({
   /* 类型键，见 `docTypes.js` 的 `SALE_DOC_TYPES`。 */
@@ -242,7 +239,6 @@ const products = ref([])
 const users = ref([])
 /* 部门下拉。⚠️ 后端读不到时**不返回这个键**（不是空数组）⇒ 一律 `Array.isArray` 判存在。 */
 const departments = ref([])
-const prodKw = ref('')
 const reason = ref('')
 
 const form = ref({
@@ -269,11 +265,6 @@ function newIdemKey (salt = 'sale') {
   return `psi-${salt}-` + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10)
 }
 
-const prodOptions = computed(() => {
-  const k = prodKw.value.trim().toLowerCase()
-  if (!k) return products.value
-  return products.value.filter(p => (p.name || '').toLowerCase().includes(k))
-})
 const selCustomer = computed(() =>
   customers.value.find(c => Number(c.id) === Number(form.value.customer_id)) || null)
 /** 只把**填过商品**的行算作有效行：空行是给用户预备的，不参与校验、不提交、不计项数。 */
@@ -290,14 +281,40 @@ function rowAmount (r) {
 const PRESET_ROWS = 15
 
 function blankRow () {
-  return { uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false, unit_price: '' }
+  return {
+    uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false, unit_price: '',
+    unitOptions: [], convText: '', baseUnit: '', barcode: '',
+  }
 }
 function addRow () { items.value.push(blankRow()) }
 function removeRow (i) { items.value.splice(i, 1) }
+function insertAfter (i) {
+  const r = blankRow()
+  items.value.splice(i + 1, 0, r)
+  scrollRowIntoView(r.uid)
+}
+function scrollRowIntoView (uid) {
+  nextTick(() => {
+    const el = document.querySelector(`.isn-tbl tbody tr[data-uid="${uid}"]`)
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  })
+}
 
+function applyProduct (row) {
+  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
+  if (!p) {
+    row.unitOptions = []; row.convText = ''; row.baseUnit = ''; row.barcode = ''
+    return
+  }
+  row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
+  row.convText = String(p.conv_text || '')
+  row.baseUnit = String(p.unit || '')
+  row.barcode = String(p.barcode || '')
+}
 function onPick (row) {
   const p = products.value.find(x => Number(x.id) === Number(row.product_id))
   if (!p) return
+  applyProduct(row)
   const ou = String(p.order_unit || '').trim()
   row.unit = ou || String(p.unit || '').trim()
   row.unitFromBase = !ou && !!row.unit
@@ -435,7 +452,6 @@ function reset () {
     order_date: todayISO(), delivery_date: todayISO(), delivery_address: '', note: '',
     department: '',
   }
-  prodKw.value = ''
   reason.value = ''
   items.value = []
   for (let i = 0; i < PRESET_ROWS; i++) items.value.push(blankRow())
@@ -595,7 +611,6 @@ onMounted(() => { reset(); loadRefs() })
 /* 明细工具条 */
 .isn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
 .isn-cnt { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
-.isn-prod-kw { width: 240px; height: 32px; margin-left: auto }
 .isn-tip { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--t2); margin: 0 0 10px }
 .isn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
 .isn-tip b { color: var(--t1) }
@@ -637,7 +652,10 @@ table.isn-tbl td.seq-cell { padding: 2px 4px }
 .isn-c-qty, .isn-c-price, .isn-c-amt { width: 110px }
 .isn-c-unit { width: 76px }
 .isn-c-stk { width: 86px; font-variant-numeric: tabular-nums; white-space: nowrap }
-.isn-c-del { width: 44px }
+.isn-c-op { width: 64px }
+table.isn-tbl th.isn-c-op, table.isn-tbl td.isn-c-op { position: sticky; right: 0; z-index: 2 }
+table.isn-tbl th.isn-c-op { background: var(--bg2) }
+table.isn-tbl tbody tr:hover td.isn-c-op { background: var(--bg2) }
 /* v447：与采购建单页 `.ipn-in` **逐值对齐**（明细格控件高 28 → 22）。
    原值 28px 是本页单独写的，比基准高 6px —— 真机实测它把数据行顶到 62.6px
    （基准 31.8），同屏少放 6 行。字号 / 内距 / 圆角三项同采购页：
@@ -691,7 +709,6 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
   .isn-hd { align-items: stretch }
   .isn-f, .isn-kw, .isn-sel, .isn-date, .isn-addr { width: 100%; min-width: 0 }
   .isn-pick { flex-direction: column }
-  .isn-prod-kw { width: 100%; margin-left: 0 }
   .isn-bottom { margin-inline: 0; padding-inline: 0 }
   /* 窄屏下框内控件要跟着撑满 —— 不写这几条，上面框式规则的定宽特异性更高
      （`.isn-hd-box .isn-f .isn-sel` 0,3,0 > `.isn-sel` 0,1,0），会把媒体查询的

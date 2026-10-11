@@ -183,7 +183,6 @@
         <div class="ipn-bar">
           <b>{{ cfg.tblTitle }}</b>
           <span class="ipn-cnt">{{ filledRows.length }} 项</span>
-          <input v-model.trim="prodKw" class="input ipn-prod-kw" placeholder="输入商品名筛选下面的商品下拉" />
           <button class="btn btn-ghost btn-sm" @click="addRow"><Icon name="plus" :size="14" />加一行</button>
         </div>
 
@@ -204,30 +203,31 @@
                 <th class="ipn-c-unit" v-if="isVisible('unit')" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>
                 <th class="num ipn-c-price" :style="wStyle('price')"><span class="ipn-req">*</span>{{ cfg.priceLabel }}<ColResizeHandle col="price" :start="startResize" :reset="resetColW" /></th>
                 <th class="num ipn-c-amt" v-if="isVisible('amt')" :style="wStyle('amt')">退货金额<ColResizeHandle col="amt" :start="startResize" :reset="resetColW" /></th>
-                <th class="ipn-c-del"></th>
+                <th class="ipn-c-op">操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(row, i) in items" :key="row.uid">
+              <tr v-for="(row, i) in items" :key="row.uid" :data-uid="row.uid">
                 <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-                <td>
-                  <select v-model.number="row.product_id" class="input ipn-in" @change="onPick(row)">
-                    <option :value="0" disabled></option>
-                    <option v-for="p in prodOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
-                  </select>
+                <td class="ipn-c-prod">
+                  <ProductCombo :row="row" :products="products" @pick="onPick" />
                 </td>
                 <td>
                   <input v-model="row.quantity" class="input ipn-in num" inputmode="decimal" placeholder="0" />
                 </td>
-                <td v-if="isVisible('unit')">
+                <td v-if="isVisible('unit')" class="ipn-c-unit">
                   <span v-if="row.unit" class="ipn-unit">{{ row.unit }}</span>
                   <span v-else class="ipn-unit none"></span>
+                  <div v-if="row.convText" class="ipn-conv">{{ row.convText }}</div>
                 </td>
                 <td>
                   <input v-model="row.unit_price" class="input ipn-in num" inputmode="decimal" placeholder="0.00" />
                 </td>
                 <td class="num ipn-amt" v-if="isVisible('amt')">¥{{ fmtMoney(rowAmount(row)) }}</td>
-                <td class="ipn-c-del">
+                <td class="ipn-c-op">
+                  <button class="btn-row-ic" title="在下面插入一行" @click="insertAfter(i)">
+                    <Icon name="plus" :size="14" />
+                  </button>
                   <button class="btn-row-ic danger" title="删除这一行" @click="removeRow(i)">
                     <Icon name="trash" :size="14" />
                   </button>
@@ -283,7 +283,7 @@
      ⇒ 这里不摆这两格。舟谱的退货单头有 `*经办人` / `*部门`，要补得先加列 + 打通
      `purchase_return_create` 与两条端点。详见 `docTypes.js` 的「已知差距」。
    ═══════════════════════════════════════════════════════════════════════════════ */
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../../components/Icon.vue'
 import ColMenuPanel from '../../../components/ColMenuPanel.vue'
@@ -295,6 +295,7 @@ import { toast } from '../../../store'
 import { fmtMoney, PO_STATUS, textOf } from '../../../constants/psiLabels'
 import { purchaseDocConfig, PURCHASE_DOC_TYPES } from './docTypes.js'
 import SupplierCombo from './SupplierCombo.vue'
+import ProductCombo from './ProductCombo.vue'
 
 const props = defineProps({
   /* 单据类型键，见 `docTypes.js` 的 `PURCHASE_DOC_TYPES`。本内核只承载采购退货单。 */
@@ -315,7 +316,6 @@ const saving = ref(false)
 const suppliers = ref([])
 const warehouses = ref([])
 const products = ref([])
-const prodKw = ref('')
 const reason = ref('')
 const form = ref({
   supplier_id: 0, warehouse_id: 0, order_date: '', note: '',
@@ -395,11 +395,6 @@ const items = ref([])
 /** v444 规范 §4.1：建单页明细表的**出厂预设空行数**（三个建单内核同值）。 */
 const PRESET_ROWS = 15
 
-const prodOptions = computed(() => {
-  const k = prodKw.value.trim().toLowerCase()
-  if (!k) return products.value
-  return products.value.filter(p => (p.name || '').toLowerCase().includes(k))
-})
 const selSupplier = computed(() =>
   suppliers.value.find(s => Number(s.id) === Number(form.value.supplier_id)) || null)
 const filledRows = computed(() => items.value.filter(r => Number(r.product_id) > 0))
@@ -411,22 +406,52 @@ function rowAmount (r) {
   return (q && p) ? Math.round(q * p * 100) / 100 : 0
 }
 function blankRow () {
-  /* 🔴 `unit` 取**基础单位**（下面 `onPick` 里赋 `p.unit`），不是 `p.order_unit` ——
+  /* 🔴 `unit` 取**基础单位**（下面 `applyProduct` 里赋 `baseUnit`），不是 `p.order_unit` ——
      见文件头「单位口径」。 */
-  return { uid: ++_uid, product_id: 0, quantity: '', unit: '', unit_price: '' }
+  return { uid: ++_uid, product_id: 0, quantity: '', unit: '', unit_price: '',
+           unitOptions: [], convText: '', baseUnit: '', barcode: '' }
 }
 function addRow () { items.value.push(blankRow()) }
+function insertAfter (i) {
+  const r = blankRow()
+  items.value.splice(i + 1, 0, r)
+  scrollRowIntoView(r.uid)
+}
 function removeRow (i) { items.value.splice(i, 1) }
+function scrollRowIntoView (uid) {
+  nextTick(() => {
+    const el = document.querySelector(`.ipn-tbl tbody tr[data-uid="${uid}"]`)
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  })
+}
 
+/** 从商品档案带出单位 / 条码 / 换算式提示。
+    退货单位口径 = **基础单位**（`products.unit`，见文件头）：`quantity` 直接交给 `inventory_adjust`
+    扣库存、不乘任何 ratio，所以这里**不设**多档单位选择，unit 恒为基础单位。
+    convText 一并带出，悬停单位格可见「1 箱 = 12 袋」之类的换算式提示（与采购单同款）。 */
+function applyProduct (row) {
+  const p = products.value.find(x => x.id === row.product_id)
+  if (!p) {
+    row.unitOptions = []; row.convText = ''; row.baseUnit = ''; row.barcode = ''
+    row.unit = ''
+    return
+  }
+  row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
+  row.convText = String(p.conv_text || '')
+  row.baseUnit = String(p.unit || '')
+  row.barcode = String(p.barcode || '')
+  row.unit = row.baseUnit
+}
 function onPick (row) {
-  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
-  if (!p) return
-  row.unit = String(p.unit || '').trim()
+  applyProduct(row)
   /* 默认带出商品档案的进货价（可改）—— 退货价通常就是当时那个价，让用户少填一次。
      ⚠️ 档案价是「元 / 报单单位」还是「元 / 小单位」本页无从判断，所以**只做预填**，
         不作为计算依据；用户按小单位口径自行核对（`cfg.tip` 里已写明）。 */
-  if (!row.unit_price && Number(p.purchase_price || p.cost_price || 0) > 0) {
-    row.unit_price = String(p.purchase_price || p.cost_price)
+  if (!row.unit_price && Number(row.product_id)) {
+    const p = products.value.find(x => x.id === row.product_id)
+    if (p && Number(p.purchase_price || p.cost_price || 0) > 0) {
+      row.unit_price = String(p.purchase_price || p.cost_price)
+    }
   }
 }
 
@@ -605,9 +630,9 @@ watch([fromPo], () => { reinit() })
    ⚠️ 为什么是**复制**而不是抽成一个共享 css 文件：`<style scoped>` 编译后会给每条
       规则加上 `[data-v-xxx]`（特异性 0,2,0）；抽成全局文件后掉回 (0,1,0)
       ⇒ 会被其它全局规则盖住，§R 的基准**静默漂移**。
-   ⚠️ 本文件**额外**加的只有末尾 `.ipn-c-del` / `.ipn-prod-kw` 两条 —— 采购订单页
-      的明细表没有删除列、也没有商品筛选框，所以共享块里本来就没有这两个类。
-      两条的数值取自销售侧同族规则（`.isn-c-del` / `.isn-prod-kw`），保持全站一致。
+   ⚠️ 本文件与采购订单页**共用**「操作列」`.ipn-c-op`（sticky + 64px 宽），
+      那条规则已在共享块里（与采购订单页同源）；末尾不再挂 `.ipn-c-del` / `.ipn-prod-kw`
+      —— 退货明细表已随 v454 升级为「插行 + 删除」双按钮操作列、并撤掉商品筛选框。
    ⚠️ 块内还留着一些**本页用不到**的规则（`.ipn-sup-combo` / `.ipn-batch-pop` /
       `.ipn-dd` / `.ipn-at-bar` …）。留着不删是有意的：删它们不影响任何渲染，
       而整块保持与 `PurchaseOrderForm.vue` 逐字节相同 ⇒ 将来比对两份样式时
@@ -1160,13 +1185,10 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
    🔴 不要在本页（或任何页面）再写回这几个类 —— 见《进销存建单页开发规范》§4 与
       UI-SPEC §2.6.1「三、」。 */
 
-/* ---- 本页**额外**的两条（采购订单页的明细表没有这两列）--------------------- */
+/* ---- 本页与采购订单页**共用**的「操作列」宽度（采购订单页也有 `.ipn-c-op`）---- */
 
-/* 删除列：与销售侧 `.isn-c-del` 同值（44px）—— 只装一个 26px 的删除按钮 + 内距。 */
-.ipn-c-del { width: 44px }
-
-/* 商品筛选框：与销售侧 `.isn-prod-kw` 同值。`margin-left:auto` 把它与上面的
-   「加一行」按钮一起顶到条尾（`.ipn-bar` 是 flex + wrap）。 */
-.ipn-prod-kw { width: 240px; height: 32px; margin-left: auto }
+/* 操作列：插行 + 删除两个图标按钮，64px 与销售 / 调拨建单页同值。
+   sticky 吸右规则见上方 `table.ipn-tbl th.ipn-c-op`（与采购订单页同源抄来）。 */
+.ipn-c-op { width: 64px }
 
 </style>
