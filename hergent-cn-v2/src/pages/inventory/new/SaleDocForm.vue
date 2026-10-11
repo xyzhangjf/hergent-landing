@@ -134,7 +134,7 @@
               <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td>
                 <select v-model.number="row.product_id" class="input isn-in" @change="onPick(row)">
-                  <option :value="0" disabled>请选择商品</option>
+                  <option :value="0" disabled></option>
                   <option v-for="p in prodOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
                 </select>
               </td>
@@ -144,7 +144,7 @@
               <td v-if="isVisible('unit')">
                 <span v-if="row.unit" class="isn-unit" :class="{ fallback: row.unitFromBase }"
                       :title="row.unitFromBase ? '商品档案里没设「报单单位」，按基础单位显示' : ''">{{ row.unit }}</span>
-                <span v-else class="isn-unit none">先选商品</span>
+                <span v-else class="isn-unit none"></span>
               </td>
               <td>
                 <input v-model="row.unit_price" class="input isn-in num" inputmode="decimal" placeholder="0.00" />

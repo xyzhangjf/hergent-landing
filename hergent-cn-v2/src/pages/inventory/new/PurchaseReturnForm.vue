@@ -212,7 +212,7 @@
                 <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>
                   <select v-model.number="row.product_id" class="input ipn-in" @change="onPick(row)">
-                    <option :value="0" disabled>请选择商品</option>
+                    <option :value="0" disabled></option>
                     <option v-for="p in prodOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
                   </select>
                 </td>
@@ -221,7 +221,7 @@
                 </td>
                 <td v-if="isVisible('unit')">
                   <span v-if="row.unit" class="ipn-unit">{{ row.unit }}</span>
-                  <span v-else class="ipn-unit none">先选商品</span>
+                  <span v-else class="ipn-unit none"></span>
                 </td>
                 <td>
                   <input v-model="row.unit_price" class="input ipn-in num" inputmode="decimal" placeholder="0.00" />

@@ -231,7 +231,7 @@
                   <div v-else-if="row._popen && row._pkw && !prodMatches(row).length" class="ipn-prod-empty">没有匹配的商品</div>
                 </div>
                 <span v-else class="ipn-v" tabindex="0" :class="{ 'is-ph': !row.product_id }"
-                      @keydown.enter.prevent="openProd(row)">{{ prodName(row) || '选商品' }}</span>
+                      @keydown.enter.prevent="openProd(row)">{{ prodName(row) }}</span>
               </td>
               <td v-if="isVisible('code')" class="ipn-c-code">{{ row.barcode || (row.product_id ? '—' : '') }}</td>
               <td class="ipn-c-unit" @click="cellOn(row, 'unit')">
