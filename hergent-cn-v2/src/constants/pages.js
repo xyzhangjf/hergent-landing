@@ -412,46 +412,45 @@ export const PAGE_RULES = {
      🔴 这 28 条已从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 覆盖本行、且失去窄名单）。
      🔴 轴：`[...ADMIN_ROLES, 'accountant']`（钱只给老板/管理员/会计，对齐 `/archive/prices`）；
         `cat: 'admin'`。`title` 必须与 `router/index.js` 的 `meta.title`、`Shell.vue` 的 name 逐字一致。
-     🔴 `module: null` —— **不是"待办"，是当前唯一可选**（2026-10-11 部署实测）：
-        资金后端**已上线**（生产 `/opt/hergent-erp/routers/funds.py` + `funds_db.py`，
-        `server.py` 已 `app.include_router(funds_router)`），但 `core._ALL_MODULES`
-        （`core.py:792`，21 个模块）里**没有 `funds`** ⇒ 此刻若把本段翻成 `'funds'`，
-        `canModule('funds')` 恒 false，而 `canSeePage` = `roles ∧ module`（**加 module 只会更严**）
-        ⇒ **包括 boss 在内所有人都看不到入口**（静默消失，不报错）。
-        要做成可独立开关的能力闸门，必须**三处同批**（缺一即坏）：
-          ① `core._ALL_MODULES` 加 `"funds"`；
-          ② `server.py::_PATH_MODULE_MAP` 加 `/api/funds` → `funds`（否则接口层无闸门）；
-          ③ 给角色补授权（`_DEFAULT_PERMS` / `role_permissions` 表）。
-        ⚠️ 只做①=所有人都看不到；只做③=页面有框但接口不拦（假闸门）。
-        ⇒ **保持 `module: null` 是有意为之**：走纯角色轴（老板/管理员/会计），当前立即可用。 */
-  '/funds/receipt':            { title: '收款单',     module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/customer-fee':       { title: '客户费用单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/advance-receipt':    { title: '预收款单',   module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/writeoff':           { title: '核销单',     module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/sales-settle':       { title: '销货结算单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/return-settle':      { title: '退货结算单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/other-receivable':   { title: '其他应收单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/customer-statement': { title: '客户对账单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/payment':            { title: '付款单',     module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/supplier-fee':       { title: '供应商费用单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/advance-payment':    { title: '预付款单',   module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/purchase-settle':    { title: '采购结算单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/supplier-stmt-detail': { title: '供应商对账明细', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/supplier-stmt':      { title: '供应商对账单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/internal-fee':       { title: '内部费用单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/internal-income':    { title: '内部收入单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/transfer':           { title: '资金调拨单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/balance':            { title: '资金余额表', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/flow':              { title: '资金流水账', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/bank-reconcile':     { title: '银行流水对账', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/staff-debt':         { title: '员工欠款',   module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/cost-query':        { title: '库存成本查询', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/cost-summary':      { title: '库存成本汇总', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/in-cost':            { title: '入库核算单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/out-cost':           { title: '出库核算单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/qty-cost':           { title: '数量成本价', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/cost-adjust':        { title: '成本调价单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/cost-abnormal':      { title: '成本异常调整', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' }
+     🔴 `module: 'funds'`（v469，2026-10-11）—— 资金管理已是**真·能力闸门**。
+        三处同批已就位（缺一即坏，历史教训见 git 上一版注释）：
+          ① `core._ALL_MODULES` 加 `"funds"`（现 22 个模块）；
+          ② `server.py::_PATH_MODULE_MAP` 加 `/api/funds` → `funds`（接口层真闸门）；
+          ③ 角色授权：`_DEFAULT_PERMS` 的 boss / accountant **+ 租户库 `role_permissions` 同批迁移**。
+        ⚠️ ③ 的租户库部分**不可省**：tenant_1 / tenant_10 的 boss / accountant 是**存量整表覆盖**
+           ⇒ 只改 `_DEFAULT_PERMS` 对他们**不生效**（v293/v325/v332/v347 在同一处栽过四次）。
+        🔴 **等价性原则**：迁移前这 28 行是 `module: null` + 纯角色轴（老板/管理员/会计可见）
+           ⇒ 开闸门时**必须给 boss / accountant 补 `funds`**，否则等于"顺手把会计关在资金管理外面"。
+        ⇒ 现在老板在「设置 › 权限 › 资金管理」取消某角色，该角色侧栏的**整个资金管理区立刻消失**
+           （`Shell.vue::resolveNavItem`：列内全部条目不可见 ⇒ 整区隐藏），不再是"只藏入口"。 */
+  '/funds/receipt':            { title: '收款单',     module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/customer-fee':       { title: '客户费用单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/advance-receipt':    { title: '预收款单',   module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/writeoff':           { title: '核销单',     module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/sales-settle':       { title: '销货结算单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/return-settle':      { title: '退货结算单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/other-receivable':   { title: '其他应收单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/customer-statement': { title: '客户对账单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/payment':            { title: '付款单',     module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/supplier-fee':       { title: '供应商费用单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/advance-payment':    { title: '预付款单',   module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/purchase-settle':    { title: '采购结算单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/supplier-stmt-detail': { title: '供应商对账明细', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/supplier-stmt':      { title: '供应商对账单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/internal-fee':       { title: '内部费用单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/internal-income':    { title: '内部收入单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/transfer':           { title: '资金调拨单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/balance':            { title: '资金余额表', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/flow':              { title: '资金流水账', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/bank-reconcile':     { title: '银行流水对账', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/staff-debt':         { title: '员工欠款',   module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/cost-query':        { title: '库存成本查询', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/cost-summary':      { title: '库存成本汇总', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/in-cost':            { title: '入库核算单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/out-cost':           { title: '出库核算单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/qty-cost':           { title: '数量成本价', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/cost-adjust':        { title: '成本调价单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/cost-abnormal':      { title: '成本异常调整', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' }
 }
 
 /* ---------------------------------------------------------------------------
