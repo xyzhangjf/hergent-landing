@@ -273,18 +273,24 @@ export async function api(path, opts = {}) {
        不是 cookie）⇒ 浏览器跳转**不会**带上它，后端只会回 401。
    所以必须自己 fetch 成 blob 再触发下载。放在**本文件**是因为只有这里知道鉴权头怎么拼 ——
    放到页面里再拼一份就是第二个真相来源（token 头一改就漂移）。
-   返回 `Blob`；失败抛 `Error`（带 `status`），错误文案优先用后端的 detail。 */
-export async function apiBlob(path, { timeout = 60000 } = {}) {
+   返回 `Blob`；失败抛 `Error`（带 `status`），错误文案优先用后端的 detail。
+   v456：不再只限 GET —— 支持 `{ method, body }`，供副驾朗读 `/api/ai/tts`（POST 长文本）
+   复用同一套鉴权头 / 超时 / 错误文案逻辑；`GET` 默认值下原有调用方行为完全不变。 */
+export async function apiBlob(path, { timeout = 60000, method = 'GET', body = null } = {}) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeout)
   try {
     const res = await fetch(path, {
-      method: 'GET',
+      method,
       headers: {
         ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
         // 与 api() 同一条纪律：显式租户头优先级高于后端 cookie，避免残留 cookie 锁死
-        ...(auth.tenant ? { 'X-Tenant-Id': String(auth.tenant) } : {})
+        ...(auth.tenant ? { 'X-Tenant-Id': String(auth.tenant) } : {}),
+        // v456：新增 POST + JSON body 支持（副驾朗读 /api/ai/tts 要 POST 长文本；
+        // 长文本不放 URL —— 会被 access log 记录且受 URL 长度限制）。GET 调用方行为不变。
+        ...(body != null ? { 'Content-Type': 'application/json' } : {})
       },
+      body: body != null ? JSON.stringify(body) : undefined,
       signal: ctrl.signal
     })
     if (!res.ok) {

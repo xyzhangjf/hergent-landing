@@ -722,7 +722,7 @@ import ThinkingDots from './ThinkingDots.vue'
 import RoleAvatar from './RoleAvatar.vue'   // v322：角色头像唯一渲染口
 import { ref, shallowRef, nextTick, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { store, loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession, loadAiRoles, setAiRole } from '../store'
-import { hermesChat, api, auth, CHAT_TIMEOUT_NORMAL, CHAT_TIMEOUT_LONG } from '../api/client'
+import { hermesChat, api, apiBlob, auth, CHAT_TIMEOUT_NORMAL, CHAT_TIMEOUT_LONG } from '../api/client'
 import { isHeavyTurn, shouldInjectTableHint, spreadsheetSoftHint } from '../utils/copilotTurn'
 import { importApi } from '../api/modules'
 import { chatAttachmentApi, aiPagerApi } from '../api/modules'
@@ -1656,21 +1656,66 @@ function corrSkip() {
   corrResolve && corrResolve(null)
 }
 
-// 朗读 / 停止朗读（Web Speech API）
-function toggleRead(m, i) {
-  if (!('speechSynthesis' in window)) { store.toast('当前浏览器不支持朗读'); return }
-  if (readingId.value === i) {
-    window.speechSynthesis.cancel()
-    readingId.value = null
-    return
-  }
-  window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(stripMarkdownText(m.content))
+/* ---- v456 朗读：**服务端合成**（微软神经语音）为主，浏览器内置为兜底 ----
+
+   🔴 为什么必须改（实测结论，不是审美偏好）：
+     Chrome（headless 与真实窗口**都一样**）在 macOS 上只暴露 **19 个 Google 在线语音**，
+     其中**中文普通话只有 1 个**（"Google 普通话（中国大陆）"）—— macOS 的系统语音
+     （Tingting / Meijia…）**一个都拿不到**。⇒ 用户说"声音不好听"时**根本没有第二个音色可选**；
+     更严重的是 Windows / Mac / 各浏览器音色各不相同，**每个客户听到的声音不可控**。
+   ⇒ 改为「后端合成 mp3 → 前端播放」（`/api/ai/tts`，edge-tts = 微软神经语音，免费无 key）：
+      所有客户端听到**同一个**自然音色；换音色/语速只改后端，不动前端。
+   ⇒ 服务端不可用（网络 / 上游接口变更 ⇒ 503）时**回落**浏览器内置朗读，保证"至少还能出声"。 */
+const TTS_VOICE_KEY = 'hg_copilot_tts_voice'
+const TTS_VOICE_DEFAULT = 'zh-CN-XiaoxiaoNeural'      // 晓晓（女·亲和）—— 试听后选定
+const ttsVoice = ref((() => {
+  try { return localStorage.getItem(TTS_VOICE_KEY) || TTS_VOICE_DEFAULT } catch { return TTS_VOICE_DEFAULT }
+})())
+let ttsAudio = null        // 当前播放的 Audio（同时只允许一条）
+let ttsObjectUrl = ''      // 用完必须 revoke，否则 Blob 常驻内存
+let ttsSeq = 0             // 请求序号：异步返回时校验"期间是否已被停止/切换"，防"按了停止还在念"
+
+/** 停掉一切正在发声的东西（服务端音频 + 浏览器内置语音），并复位按钮态。 */
+function stopRead() {
+  ttsSeq++
+  if (ttsAudio) { try { ttsAudio.pause() } catch { /* ignore */ } ttsAudio = null }
+  if (ttsObjectUrl) { try { URL.revokeObjectURL(ttsObjectUrl) } catch { /* ignore */ } ttsObjectUrl = '' }
+  if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel() } catch { /* ignore */ } }
+  readingId.value = null
+}
+
+/** 兜底：浏览器内置朗读（只在服务端合成不可用时才走这里）。 */
+function speakLocal(text, i) {
+  if (!('speechSynthesis' in window)) { store.toast('朗读暂不可用，请稍后重试'); readingId.value = null; return }
+  const u = new SpeechSynthesisUtterance(text)
   u.lang = 'zh-CN'
   u.onend = () => { if (readingId.value === i) readingId.value = null }
   u.onerror = () => { if (readingId.value === i) readingId.value = null }
   window.speechSynthesis.speak(u)
+}
+
+// 朗读 / 停止朗读（v456：服务端合成 → 失败回落浏览器内置）
+async function toggleRead(m, i) {
+  if (readingId.value === i) { stopRead(); return }    // 再点一次 = 停止
+  stopRead()                                           // 切换消息时先停掉上一条
+  const text = stripMarkdownText(m.content)
+  if (!text) { store.toast('本条没有可朗读的内容'); return }
   readingId.value = i
+  const seq = ttsSeq
+  try {
+    const blob = await apiBlob('/api/ai/tts', {
+      method: 'POST', body: { text, voice: ttsVoice.value }, timeout: 30000,
+    })
+    if (seq !== ttsSeq || readingId.value !== i) return  // 期间已停止/切换 ⇒ 丢弃结果
+    ttsObjectUrl = URL.createObjectURL(blob)
+    ttsAudio = new Audio(ttsObjectUrl)
+    ttsAudio.onended = () => { if (readingId.value === i) stopRead() }
+    ttsAudio.onerror = () => { if (readingId.value === i) { stopRead(); speakLocal(text, i) } }
+    await ttsAudio.play()
+  } catch (e) {
+    if (seq !== ttsSeq || readingId.value !== i) return
+    speakLocal(text, i)      // 服务端失败：静默回落，不打断用户
+  }
 }
 
 // 重新生成：移除本条助手回复及其之后所有内容，复用其前的用户消息重跑（语义同 WorkBuddy 的 resend）
@@ -2332,9 +2377,11 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onWinResize)
   document.removeEventListener('pointerdown', onDocPointerDown, true)
   resetStopConfirm()   // v309：别把确认态的定时器留在身后
+  stopRead()           // v456：副驾关闭/卸载时别把朗读留在后台继续念
 })
 
-watch(() => store.chat.messages.length, scrollBottom)
+// v456：消息增删（发新消息 / 重新生成会 splice）⇒ 正在朗读的那条可能已不存在，先停掉再滚动
+watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 </script>
 
 <style scoped>
