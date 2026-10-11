@@ -11,21 +11,63 @@
 # 响应信封：成功返回 `{success:true, ...}` 或纯数据；业务错误返回
 #   `{"success": false, "error": "..."}`（前端按 `data.data` 解包，见 client.js）。
 # ============================================================
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List, Any
+import os
 import funds_db as db
 
 funds_router = APIRouter(prefix="/api/funds", tags=["funds"])
 
+# 🔴 租户上下文的**唯一真源**是 server.py 的 tenant_middleware：它对所有 /api/ 业务路由
+#    做 fail-closed 校验，并在放行前 `set_tenant_context(tid)`。本模块**只读**它，
+#    不自己解析 header —— 「第二处租户真相」正是本项目跨租户串数据的经典成因
+#    （参见 server.py 里「/api/role-permissions 移出 master 前缀」那条 P0 注释）。
+#    ⚠️ 注意此处是 `from db.connection import ...`（绝对导入，指向生产的 db 包），
+#       与本文件的 `import funds_db as db` 别名无关，两者不会互相遮蔽。
+try:                                    # 生产：存在 db 包
+    from db.connection import get_tenant_context as _ctx_tenant
+except Exception:                       # 本地自测：仓库内无 db 包
+    _ctx_tenant = None
+
 
 def _tid(req: Request):
-    # 生产由中间件注入；本地自测缺省 1。优先级：头 > query > 1
+    """当前请求的租户 ID。
+    · 生产：取中间件已设的上下文；为空则再用 header 兜底（中间件已校验过其合法性）。
+      🔴 两者都拿不到 ⇒ **403 fail-closed**，绝不默默落到租户 1
+         （默认 1 会让「不带租户头的请求」读到老板的数据 —— 这是数据隔离红线）。
+    · 本地自测：无中间件 ⇒ 用 X-Tenant-Id 头，其次 FUNDS_DEV_TENANT（默认 1）。
+    """
+    if _ctx_tenant is not None:
+        t = _ctx_tenant()
+        if t:
+            _ensure_tables(int(t))
+            return int(t)
+        h = req.headers.get("X-Tenant-Id")
+        if h and str(h).isdigit():
+            _ensure_tables(int(h))
+            return int(h)
+        raise HTTPException(status_code=403, detail="缺少租户上下文")
+    # 本地自测分支
     h = req.headers.get("X-Tenant-Id")
-    if h and h.isdigit():
-        return int(h)
-    return 1
+    tid = int(h) if (h and str(h).isdigit()) else int(os.environ.get("FUNDS_DEV_TENANT", "1"))
+    _ensure_tables(tid)
+    return tid
+
+
+# 🔴 自动建表（幂等）。没有这一步的话，租户首次访问必然撞 `no such table: fund_accounts`，
+#    报 500 —— 而且只在**真实租户**上出现（本地自测因为显式 init 过所以测不出来）。
+#    进程内缓存已确保过的租户，避免每个请求都跑一遍 DDL；多 worker 各跑一次也安全
+#    （init_funds_db 全程 `CREATE TABLE IF NOT EXISTS`）。
+_ENSURED_TENANTS = set()
+
+
+def _ensure_tables(tid: int):
+    if tid in _ENSURED_TENANTS:
+        return
+    db.init_funds_db(tid)
+    _ENSURED_TENANTS.add(tid)
 
 
 # --------------------------- 请求模型 ---------------------------

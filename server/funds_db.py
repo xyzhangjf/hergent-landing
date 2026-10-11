@@ -16,8 +16,25 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, date
 
-# 生产布局：与 erp.db 同目录（每租户一库）。本地自测也走这里，tenant=1 隔离。
-ERP_DIR = os.path.expanduser("~/Library/Application Support/hergent-erp")
+# 库目录解析（🔴 生产部署 v468 实测定论：**绝不能硬编码 macOS 路径** ——
+#   硬编码的 `~/Library/...` 到了 Linux 会展开成 `/root/Library/...`，
+#   结果是「后端能起、接口能通、但每个租户都写到自己的空库里」，最难查的一种）。
+#   · 生产：FLAT 布局，租户库与主库 erp.db 同目录 ⇒ /opt/hergent-erp/tenant_<id>.db。
+#     路径真相**只有一个** —— `db/connection.py` 的 DB_DIR（可被 ERP_DB_PATH 环境变量覆盖）。
+#     此处**复用**而非再写一份，避免「两处路径真相」随迁移漂移。
+#   · 本地自测：仓库内无 db 包 ⇒ 回退 macOS 用户目录，tenant_1 隔离库，与生产互不影响。
+def _resolve_erp_dir():
+    env = os.environ.get("ERP_DB_PATH")
+    if env:
+        return os.path.dirname(os.path.abspath(env))
+    try:
+        from db.connection import DB_DIR as _DB_DIR   # 生产唯一真相源
+        return _DB_DIR
+    except Exception:
+        return os.path.expanduser("~/Library/Application Support/hergent-erp")
+
+
+ERP_DIR = _resolve_erp_dir()
 os.makedirs(ERP_DIR, exist_ok=True)
 
 

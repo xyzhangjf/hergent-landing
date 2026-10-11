@@ -412,10 +412,18 @@ export const PAGE_RULES = {
      🔴 这 28 条已从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 覆盖本行、且失去窄名单）。
      🔴 轴：`[...ADMIN_ROLES, 'accountant']`（钱只给老板/管理员/会计，对齐 `/archive/prices`）；
         `cat: 'admin'`。`title` 必须与 `router/index.js` 的 `meta.title`、`Shell.vue` 的 name 逐字一致。
-     🔴 `module: null` = 当前资金管理后端（`server/funds_api.py`）**尚未并入生产权限域**
-        （本地自测 + 提交待命状态，按用户要求不部署）。**部署时**后端 `app.include_router(funds_router)`
-        并注册 `funds` 模块后，把本段 `module` 翻成 `'funds'` 即可（一字改动、无需动页面）；
-        届时 `canModule('funds')` 为真、窄名单与模块双轴同时生效。 */
+     🔴 `module: null` —— **不是"待办"，是当前唯一可选**（2026-10-11 部署实测）：
+        资金后端**已上线**（生产 `/opt/hergent-erp/routers/funds.py` + `funds_db.py`，
+        `server.py` 已 `app.include_router(funds_router)`），但 `core._ALL_MODULES`
+        （`core.py:792`，21 个模块）里**没有 `funds`** ⇒ 此刻若把本段翻成 `'funds'`，
+        `canModule('funds')` 恒 false，而 `canSeePage` = `roles ∧ module`（**加 module 只会更严**）
+        ⇒ **包括 boss 在内所有人都看不到入口**（静默消失，不报错）。
+        要做成可独立开关的能力闸门，必须**三处同批**（缺一即坏）：
+          ① `core._ALL_MODULES` 加 `"funds"`；
+          ② `server.py::_PATH_MODULE_MAP` 加 `/api/funds` → `funds`（否则接口层无闸门）；
+          ③ 给角色补授权（`_DEFAULT_PERMS` / `role_permissions` 表）。
+        ⚠️ 只做①=所有人都看不到；只做③=页面有框但接口不拦（假闸门）。
+        ⇒ **保持 `module: null` 是有意为之**：走纯角色轴（老板/管理员/会计），当前立即可用。 */
   '/funds/receipt':            { title: '收款单',     module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
   '/funds/customer-fee':       { title: '客户费用单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
   '/funds/advance-receipt':    { title: '预收款单',   module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
