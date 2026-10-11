@@ -104,7 +104,6 @@
       <div class="isn-bar">
         <b>{{ cfg.tblTitle }}</b>
         <span class="isn-cnt">{{ filledRows.length }} 项</span>
-        <button class="btn btn-ghost btn-sm" @click="addRow"><Icon name="plus" :size="14" />加一行</button>
       </div>
 
       <p v-if="cfg.tip" class="isn-tip">
@@ -112,7 +111,7 @@
         <span>{{ cfg.tip }}</span>
       </p>
 
-      <div v-if="!items.length" class="state-empty">还没有明细，点右上角「加一行」开始。</div>
+      <div v-if="!items.length" class="state-empty">还没有明细，点击任意行末尾的 + 按钮添加一行。</div>
 
       <div v-else class="table-wrap">
         <table class="tbl isn-tbl">
@@ -286,7 +285,6 @@ function blankRow () {
     unitOptions: [], convText: '', baseUnit: '', barcode: '',
   }
 }
-function addRow () { items.value.push(blankRow()) }
 function removeRow (i) { items.value.splice(i, 1) }
 function insertAfter (i) {
   const r = blankRow()
