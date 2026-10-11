@@ -342,6 +342,24 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .btn-icon svg{width:16px;height:16px}
 .btn-icon:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .btn-icon:disabled{opacity:.35;cursor:default}
+/* ── 明细表「行内图标按钮」（进销存建单页共用：新增行 / 删除行）────────────────
+   v447：原先是采购建单页 scoped 的 `.ipn-ic`，销售建单页则用了上面的 `.btn-icon`
+   （30×30 无框）—— 同一个「删除这一行」按钮在两页长得不一样，且 **30px 比明细里
+   任何控件都高**，把销售页数据行从 31.8 顶到 35px（同屏少 2 行）。
+   🔴 26px 这个数是**行高的隐性上限**：明细行高 = td 内距(2×2) + 行内最高控件，
+      26 + 4 ≈ 30 ⇒ 恰好落在基准行高 31.8 之内。换成 30px 就会溢出 —— 只看按钮
+      本身完全看不出它跟表格密度有关，这是"改一个图标按钮、表格变松"的路径。
+   尺寸/外观出处：《进销存建单页开发规范》§R.4「行内图标 26×26」。 */
+.btn-row-ic{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;padding:0;cursor:pointer;
+  border:1px solid var(--bd);border-radius:var(--radius-sm);
+  background:var(--bg2);color:var(--t2);transition:color .15s,border-color .15s;
+}
+.btn-row-ic + .btn-row-ic{margin-left:4px}
+.btn-row-ic:hover:not(:disabled){color:var(--t1);border-color:var(--t3)}
+.btn-row-ic.danger{color:var(--danger-txt)}
+.btn-row-ic:disabled{opacity:.35;cursor:default}
 .fld{height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:13px;font-family:inherit}
 .fld:focus{outline:none;border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
 .chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s,border-color .15s}

@@ -275,7 +275,9 @@
               </td>
               <td class="num isn-amt" v-if="isVisible('amt')">¥{{ fmtMoney(rowAmount(row)) }}</td>
               <td class="isn-c-del">
-                <button class="btn btn-icon btn-sm" title="删除这一行" @click="removeRow(i)">
+                <!-- v447：改用全局 `.btn-row-ic`（26×26）—— 原 `btn-icon`(30×30) 比明细里
+                     任何控件都高，把数据行从 31.8 顶到 35px（同屏少 2 行）。 -->
+                <button class="btn-row-ic danger" title="删除这一行" @click="removeRow(i)">
                   <Icon name="trash" :size="14" />
                 </button>
               </td>
@@ -899,6 +901,25 @@ onMounted(async () => {
 /* 底部「退货原因」：吃掉左侧以外的空白，把右侧的保存按钮顶到最右 */
 .isn-ret-reason { flex: 1; min-width: 220px; height: 32px }
 
+/* ══ v447：明细表内距**对齐基准**（「新建采购订单」）════════════════════════════
+   本页原先**一条内距规则都没有** ⇒ 落到全局 `table.tbl th/td{padding:10px 14px}`，
+   真机实测数据行高被顶到 **62.6px**（基准 31.8）、表头 46.5（基准 38.5），
+   同屏只放得下 14.99 行 vs 基准 21.12 行 —— 少 6 行。
+   🔴 选择器**必须**带 `table.isn-tbl`：写成 `.isn-tbl td` 的 specificity (0,1,1)
+      低于全局 `table.tbl td` (0,1,2) ⇒ 静默不生效（这一条与采购建单页同源）。
+   🔴 `td.seq-cell` 那条是**与全局 `table.tbl td.seq-cell`(0,2,2) 打平手**后靠
+      「页面样式后加载」才赢的 —— 采购建单页也是这么做的（实测 2px 4px 生效）。
+      去掉它就退回全局的 `padding:6px 4px`，序号列会自己被顶高、把整行撑起来。 */
+table.isn-tbl th { padding: 4px 8px }
+table.isn-tbl td { padding: 2px 8px }
+table.isn-tbl td.seq-cell { padding: 2px 4px }
+/* 🔴 紧凑档必须**在本页再收一档**（同采购建单页）：全局
+   `[data-density="compact"] table.tbl td{padding:4px 10px}` = (0,2,2) 压过上面的
+   `table.isn-tbl td` (0,1,2) ⇒ 只写普通档的话，开关一打开本页反而比基准更松（半截生效）。 */
+[data-density="compact"] table.isn-tbl th { padding: 3px 8px }
+[data-density="compact"] table.isn-tbl td { padding: 1px 8px }
+[data-density="compact"] .isn-in { height: 20px }
+
 /* 明细表列宽。数量 / 单价 / 金额等宽数字 + 右对齐，成列才好扫读。 */
 .isn-tbl { min-width: 720px }
 .isn-c-prod { min-width: 280px }
@@ -906,7 +927,12 @@ onMounted(async () => {
 .isn-c-unit { width: 76px }
 .isn-c-stk { width: 86px; font-variant-numeric: tabular-nums; white-space: nowrap }
 .isn-c-del { width: 44px }
-.isn-in { width: 100%; height: 28px }
+/* v447：与采购建单页 `.ipn-in` **逐值对齐**（明细格控件高 28 → 22）。
+   原值 28px 是本页单独写的，比基准高 6px —— 真机实测它把数据行顶到 62.6px
+   （基准 31.8），同屏少放 6 行。字号 / 内距 / 圆角三项同采购页：
+   不写就继承全局 `.input`（14px / `0 14px` / radius-md=12），本页 CSS 里看不到这些数。
+   `padding` 取 3px 与采购页同值（1px 真边框 + 3px = 4px 内容内距，与 `.ipn-v` 的 4px 对齐）。 */
+.isn-in { width: 100%; height: 22px; font-size: 13px; padding: 0 3px; border-radius: var(--radius-sm) }
 /* v444：**撤掉**明细表输入框的底色 —— 全局 `.input{background:var(--bg3)}` 在 15 行 × 7 列
    铺下来是满屏灰底方块，压过了数据本身（老板原话：「全屏输入框给人感觉确实有点压抑」）。
    🔴 必须**显式写 transparent** 而不是把规则删掉：删了会让输入框退回全局 `.input` 的

@@ -4,8 +4,8 @@
 
 ## 路由
 - **前端** → `topics/frontend-ui.md`：🔴 入口唯一源 `pages.js`（未登记=失门禁）`§v209`；🔴 `permView.js` 唯一源、`module:null`=只读 `§v348`；🔴 文案三禁⇒`hergent-ui-copy-guard` `§v331`；🔴 单入口→多子页（`?tab=`+`watch`）`§v424`；🔴 列设置齿轮共享 `useColSettings`/`ColMenuPanel`/`col-menu.css`(v432)。
-- **建单/建退单页** → `docs/进销存建单页开发规范-v441.md`（范本=「创建采购订单」）：🔴 三层高度链；🔴 框式头 `.‹pfx›-hd-box`；🔴 同 path 两 query ⇒ **computed+watch**（`onMounted` 不再跑且零报错）；🔴 幂等键成功**立刻换**；🔴 退货落点看**源单状态是否回写**；🔴 **§R 视觉基准**（字号/行高/控件宽高/内距/间距/疏密 = 唯一数值源，**真机 getComputedStyle 实测**，不是读 CSS 推算）；🔴 探针 `v441`(105)/`v444`(38)/`v445`(31)/`v446`(量测)；🔴 类差集审计(自带判别力自证)；🔴 `npm run build` 被 safe-delete 拦 ⇒ 隔离 `outDir dist-vNNN`。
-  - 🔴 **v444→v446 五条**：出厂 15 行 `PRESET_ROWS`｜必填红 `*` 用表单头**同一枚类**｜列宽拖动（`MAX_W`≠720）｜输入框无底色｜**边框三态**（默认 `border-color:transparent`，**不许 `border:none`** 否则抖；必须写回 `.err`/`:disabled`/`[readonly]`）⇒ 细节 `topics/inventory-psi.md`。
+- **建单/建退单页** → `docs/进销存建单页开发规范-v441.md`（范本=「创建采购订单」）：🔴 三层高度链；🔴 框式头 `.‹pfx›-hd-box`；🔴 同 path 两 query ⇒ **computed+watch**（`onMounted` 不再跑且零报错）；🔴 幂等键成功**立刻换**；🔴 退货落点看**源单状态是否回写**；🔴 **§R 视觉基准**（字号/行高/控件宽高/内距/间距/疏密 = 唯一数值源，**真机 getComputedStyle 实测**，不是读 CSS 推算）；🔴 探针 `v441`(105)/`v444`(38)/`v445`(31)/`v446`(量测)/`v447`(22)；🔴 类差集审计(自带判别力自证)；🔴 `npm run build` 被 safe-delete 拦 ⇒ 隔离 `outDir dist-vNNN`。
+  - 🔴 **v444→v447 六条**：出厂 15 行 `PRESET_ROWS`｜必填红 `*` 用表单头**同一枚类**｜列宽拖动（`MAX_W`≠720）｜输入框无底色｜**边框三态**（默认 `border-color:transparent`，**不许 `border:none`** 否则抖；必须写回 `.err`/`:disabled`/`[readonly]`）｜**格态值一致**（`.‹pfx›-in` 只写 w/h ⇒ 字号/内距/圆角**继承**全局 `.input` 而跳；内距 **3px** 补 1px 真边框）+ 🔴 **行高元凶常在图标按钮**（删除按钮 30px 把行 31.8→35，`td` 内距 2×2 + 行内最高控件决定行高）⇒ 细节 `topics/inventory-psi.md`。
   - 🔴 **探针自己会判错**：同文档导航要加 `'/?__r='+Date.now()+hash`；`.ipn-ret-tbl` 用 `:not(.-ret-tbl)`；就绪判据用 `title` 非空；按钮按**文案**定位；**模板串正则双反斜杠**、不能写反引号；**INIT 的 user 必须与 token 同账号**。
 - **后端** → `topics/backend-invariants.md`+`backend-auth.md`：🔴 路由遮蔽先注册者胜 `§v317`；🔴 静默失效=恒空恒0零报错⇒`undefined-call-scan.py`；🔴 幽灵 inode：先删后重启+`DB_PATH` 两份都 patch `§v289`；🔴 门禁用**接口模块**非页面模块 `§v328`；🔴 **FastAPI 未声明的 query 参数被静默忽略**（`?limit=` 被丢）`§v443`；🔴 委派链只在**唯一源函数**加参数；🔴 `limit<=0` 落回默认（`LIMIT -1`=不限）。
 - **部署** → `topics/deploy-ops.md`：🔴 后端 FLAT `/opt/hergent-erp/`、前端根 `/opt/hergent-cn-v2`；🔴 chunk 名什么都判不了(hash 级联两级)；🔴 生产 `assets/`=并集(绝不 `--delete`)；🔴 判据=生产 md5==HEAD md5 `§v378`；🔴 受控提交→`hergent-scoped-commit`。
@@ -21,13 +21,12 @@
 ## 待修（已登记，未动）
 - 🔴 采购退货候选「粗筛」把不可退的也列出：tenant_1 候选 **79 张全部不可退**（全无明细行）⇒ 下拉 79 个必然失败的选项，提示语「只列出进过货的单」与事实不符。建议粗筛补 `AND EXISTS(item)`。
 - 🔴 销售退货单列表恒空：`InvSaleList.vue` 的 `kind=return` 筛 `sale_orders.status='returned'`，而**全仓无写入方**⇒ 退单左半入口空表。
-- 🔴 销售建单页**明细表**未对齐 §R（行高 62.6 vs 31.8；缺 `table.isn-tbl td` 内距）｜🔴 明细格"点激活"时字号 13→14 / 内距 4→14 / 圆角 8→12 跳变（**两页共有**，用户已确认现状可用）。
 
 ## 技能路由 → `topics/skill-routing.md`
 🔴 `hergent-pre-launch-audit`｜`hergent-external-material-pdf`｜`hergent-scoped-commit`｜`hergent-parallel-session-safety`｜`hergent-rebate-caliber-consistency`｜`hergent-chart-render-verify`｜`hergent-ui-copy-guard`。
 
 ## 编号约定
-🔴 已用到 **v446**（号表 → **v447**）；号=全局共享序列⇒起号前必读 `topics/version-history.md` + 实搜未提交文件/两仓 `git log --all`/`git worktree list`。
+🔴 已用到 **v447**（号表 → **v448**）；号=全局共享序列⇒起号前必读 `topics/version-history.md` + 实搜未提交文件/两仓 `git log --all`/`git worktree list`。
 
 ## 主体/脱敏
 hergent-cn-v2(`laozhangai-product`)｜hergent-erp(FastAPI+SQLite)｜🔴 脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；仓内含生产凭据明文⇒远端须 private；PII 不落 `outputs/`。

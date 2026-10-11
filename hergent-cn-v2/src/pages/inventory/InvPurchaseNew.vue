@@ -465,8 +465,8 @@
                       @keydown.enter.prevent="cellOn(row, 'note')">{{ row.note || '' }}</span>
               </td>
               <td class="ipn-c-op">
-                <button class="ipn-ic" title="在这一行下面插一行" @click="insertAfter(i)"><Icon name="plus" :size="14" /></button>
-                <button class="ipn-ic danger" title="删除这一行" @click="removeRow(i)"><Icon name="trash" :size="14" /></button>
+                <button class="btn-row-ic" title="在这一行下面插一行" @click="insertAfter(i)"><Icon name="plus" :size="14" /></button>
+                <button class="btn-row-ic danger" title="删除这一行" @click="removeRow(i)"><Icon name="trash" :size="14" /></button>
               </td>
             </tr>
           </tbody>
@@ -1946,7 +1946,21 @@ table.ipn-tbl td.seq-cell { padding: 2px 4px }
 /* v431：明细行在 `.ipn-body` 滚动容器内滚入可见区时，底部留给「合计」条 ~32px 的留白，
    否则 scrollIntoView 会把行底顶到底、正好被合计条盖住。 */
 .ipn-tbl tbody tr { scroll-margin-bottom: 32px }
-.ipn-in { width: 100%; height: 22px }
+/* v447：把**从全局 `.input` 继承来的**三处值显式写成与「文本态 `.ipn-v`」相同 ——
+   修掉「点激活」那一刻的视觉跳变（真机实测原值：字号 13 → 14、内距 `0 4px` → `0 14px`、
+   圆角 8 → 12，三项**同时**跳，点下去像换了个控件）。
+   🔴 根因是**继承**：`.ipn-in` 只写了 `width/height`，其余走全局 `.input`
+      （`.input{height:40px;padding:0 14px;border-radius:var(--radius-md)}` + 字号由 body 继承 14px）
+      ⇒ 光看本页 CSS 完全看不出这三个数是多少，必须真机 `getComputedStyle` 才量得出来。
+   🔴 方向是「输入态向文本态靠」：文本态是用户首屏看到的形态、也是 §R 的正文口径（13px），
+      点进去应该只多一个「可编辑」的框，而不是换一套字号和内距。
+   🔴 `border-radius` 用 `--radius-sm`(8) 与 `.ipn-v` 一致：22px 高的框配 `--radius-md`(12)
+      偏胶囊，收成 8 才是 §R 的控件圆角档。
+   ⚠️ `padding` 用 3px 不是 4px：输入态有**真边框 1px**（占位），而文本态 `.ipn-v` 的描边是
+      `inset box-shadow`（不占位）⇒ 1 + 3 = 4px，与文本态内距逐像素对齐，点激活时文字左右不动。
+      同理左侧（input 有 border、span 没有），右侧（文字右对齐时按 padding-right 算）。
+      两态对齐后文字位置完全一致，肉眼零跳动。 */
+.ipn-in { width: 100%; height: 22px; font-size: 13px; padding: 0 3px; border-radius: var(--radius-sm) }
 /* v417h（对照舟谱·行密度）：**浏览态扁平化** —— 仍铺与表单头「供应商框」一致的底色（var(--bg3)）、只留极淡描边，
    整行看起来像「一排文���」，鼠标指向或键盘聚焦才浮起成可编辑的框。
    🔴 不这么做的代价：15 列全画成带底色的输入框，视觉噪音重、扫读时找不到当前行；
@@ -2062,15 +2076,10 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
 .ipn-link.danger { color: var(--danger-txt) }
 /* v417b：行内「新增 / 删除」由文字链接改**图标按钮** —— 对齐舟谱逐行操作的密度：
    15 列表格里文字链接让「操作」列变宽、且扫读时和行备注混在一起。 */
-.ipn-ic {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; padding: 0; cursor: pointer;
-  border: 1px solid var(--bd); border-radius: var(--radius-sm);
-  background: var(--bg2); color: var(--t2);
-}
-.ipn-ic + .ipn-ic { margin-left: 4px }
-.ipn-ic:hover { color: var(--t1); border-color: var(--t3) }
-.ipn-ic.danger { color: var(--danger-txt) }
+/* v447：行内图标按钮（新增行 / 删除行）**上提为全局 `.btn-row-ic`**
+   （`styles/variables.css`）—— 原先这里是本页 scoped 的 `.ipn-ic`，而销售建单页
+   用的是全局 `.btn-icon`(30×30)，同一个「删除这一行」在两页既不同尺寸也不同外观，
+   且 30px 把销售页数据行顶高到 35px（基准 31.8）。收敛成一处实现后两页逐值一致。 */
 
 /* v431 底部动作条：改为普通 flex 项，由 `.inv-page` 布局推到 `.ipn-body` 下方。
    之前用 sticky 是因为 `.ipn-body` 没有独立滚动区，内容超一屏时动作条必须 sticky 才能贴底；
