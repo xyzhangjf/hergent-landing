@@ -58,7 +58,7 @@
       </div>
     </div>
 
-    <p class="isn-hint">{{ cfg.hint }}</p>
+    <p v-if="cfg.hint" class="isn-hint">{{ cfg.hint }}</p>
 
     <!-- 读数条：只放**真有的数据**。单据日期那一格是只读的（见表单头注释）。 -->
     <div class="isn-strip">
@@ -99,7 +99,7 @@
         </button>
       </div>
 
-      <p class="isn-tip">
+      <p v-if="cfg.tip" class="isn-tip">
         <Icon name="lightbulb" :size="14" />
         <span>{{ cfg.tip }}</span>
       </p>

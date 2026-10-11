@@ -116,9 +116,7 @@ const SALE_CFG = {
   [SALE_DOC_TYPES.SELF_PICKUP_RETURN]: {
     title: '新建自提退单',
     shortTitle: '自提退单',
-    sub: '退货入库：提交后回增库存，同时冲减这位客户的应收款',
-    hint: '退货**不用**挑原销售单，自己选客户与退货仓库即可；填多少退多少。',
-    tip: '退货数量按商品档案的「报单单位」填写，提交后库存直接回增。',
+    /* 🔴 v459：原 sub/hint/tip 三条内联说明已移除，仅保留业务逻辑，界面更简洁。 */
     whLabel: '退货仓库',
     priceLabel: '退货价',
     tblTitle: '退货明细',
@@ -134,8 +132,7 @@ const SALE_CFG = {
   [SALE_DOC_TYPES.VEHICLE_SALE_ORDER]: {
     title: '新建车销订单',
     shortTitle: '车销订单',
-    sub: '车销送货上门，发货时按最早到期的批次自动扣减',
-    hint: '客户与仓库必填；送货司机选填，不填就是「还没派车」。',
+    /* 🔴 v459：原 sub/hint 两条内联说明已移除（tip 已于 v458 清掉），仅保留业务逻辑。 */
     whLabel: '销售仓库',
     priceLabel: '销售价',
     tblTitle: '商品明细',
@@ -151,9 +148,7 @@ const SALE_CFG = {
   [SALE_DOC_TYPES.VEHICLE_SALE_RETURN]: {
     title: '新建车销退单',
     shortTitle: '车销退单',
-    sub: '退货入库：提交后回增库存，同时冲减这位客户的应收款',
-    hint: '退货**不用**挑原销售单，自己选客户与退货仓库即可；送货司机选填。',
-    tip: '退货数量按商品档案的「报单单位」填写，提交后库存直接回增。',
+    /* 🔴 v459：原 sub/hint/tip 三条内联说明已移除，仅保留业务逻辑，界面更简洁。 */
     whLabel: '退货仓库',
     priceLabel: '退货价',
     tblTitle: '退货明细',
@@ -187,12 +182,8 @@ const PURCHASE_CFG = {
           自相矛盾的组合。 */
     copyTitle: '复制采购单',
     editTitle: '编辑采购单',
-    copySub: '按原单带出商品与价格，批次与到期日按这次到货重填',
-    editSub: '可改供应商、明细与备注；已入库 / 在途的单不能在此改，请到详情页处理',
     shortTitle: '采购订单',
-    sub: '向供应商下单，到货后点「确认入库」才会真正进货与记账',
-    hint: '供应商与入库仓库必填。数量按商品档案的报单单位填写。',
-    tip: '数量按商品档案的「报单单位」填写，入库时会按批次号与到期日登记效期。',
+    /* 🔴 v459：原 copySub/editSub/sub/hint/tip 五条内联说明已移除，复制/编辑模式不再显示副标题（界面更简洁，业务逻辑不变）。 */
     partnerLabel: '供应商',
     whLabel: '入库仓库',
     priceLabel: '采购价',
@@ -247,9 +238,7 @@ const TRANSFER_CFG = {
   [TRANSFER_DOC_TYPES.TRANSFER_ORDER]: {
     title: '新建调拨单',
     shortTitle: '调拨单',
-    sub: '货在两个仓库之间移动，保存后还要点「过账」才会真的动库存',
-    hint: '调出仓库与调入仓库必须是两个不同的仓。过账时会按最早到期的批次扣减。',
-    tip: '数量按商品档案的「报单单位」填写。过账时调出仓扣减、调入仓增加，同一笔事务。',
+    /* 🔴 v459：原 sub/hint/tip 三条内联说明已移除（TransferDocForm 的 hint/tip 已补 v-if 隐藏）。 */
     tblTitle: '调拨明细',
     saveLabel: '保存调拨单',
     idemSalt: 'transfer',

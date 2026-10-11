@@ -3,7 +3,6 @@
     <div class="page-hd split">
       <div class="ipn-hd-t">
         <h2>{{ pageTitle }}</h2>
-        <span v-if="pageSub" class="page-sub">{{ pageSub }}</span>
       </div>
       <div class="ipn-acts">
         <!-- v438：附件入口（对齐舟谱建单页右上角的「上传附件」）。
@@ -530,8 +529,7 @@ const editId = computed(() => Number((route.query && route.query.edit) || 0) || 
 
 const pageTitle = computed(() => editId.value ? cfg.value.editTitle
   : (copyId.value ? cfg.value.copyTitle : cfg.value.title))
-const pageSub = computed(() => editId.value ? cfg.value.editSub
-  : (copyId.value ? cfg.value.copySub : cfg.value.sub))
+/* 🔴 v459：原副标题（sub/copySub/editSub）已从 docTypes 移除，pageSub 计算属性随之删除（避免死代码）。 */
 
 function todayISO () {
   const d = new Date()
