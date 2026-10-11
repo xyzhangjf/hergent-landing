@@ -744,6 +744,22 @@
         </div>
       </div>
     </Transition>
+
+    <!-- v465 截图区域框选遮罩（微信式：选画面 → 拖拽框选 → 确认裁剪 → 进附件） -->
+    <div v-if="snapCrop.show" class="cp-snap-mask" ref="cropMask" tabindex="-1"
+         @mousemove="onCropMove" @mouseup="onCropUp"
+         @keydown.esc="cancelCrop" @keydown.enter="confirmCrop">
+      <div class="cp-snap-stage" ref="cropStage" :style="{ width: snapCrop.dispW + 'px', height: snapCrop.dispH + 'px' }"
+           @mousedown="onCropDown">
+        <img class="cp-snap-img" :src="snapCrop.src" :style="{ width: snapCrop.dispW + 'px', height: snapCrop.dispH + 'px' }" alt="截图预览" draggable="false" />
+        <div class="cp-snap-sel" :style="{ left: snapCrop.rect.x + 'px', top: snapCrop.rect.y + 'px', width: snapCrop.rect.w + 'px', height: snapCrop.rect.h + 'px' }"></div>
+      </div>
+      <div class="cp-snap-hint" @mousedown.stop>拖动鼠标框选要截取的区域，松开后点「确认裁剪」</div>
+      <div class="cp-snap-bar" @mousedown.stop>
+        <button class="cp-snap-btn ghost" @click="cancelCrop">取消</button>
+        <button class="cp-snap-btn" @click="confirmCrop">确认裁剪</button>
+      </div>
+    </div>
   </Teleport>
 </template>
 
@@ -751,7 +767,7 @@
 import Icon from './Icon.vue'
 import ThinkingDots from './ThinkingDots.vue'
 import RoleAvatar from './RoleAvatar.vue'   // v322：角色头像唯一渲染口
-import { ref, shallowRef, nextTick, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, shallowRef, reactive, nextTick, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { store, loadSessions, saveCurrentSession, newChatSession, openChatSession, deleteChatSession, loadAiRoles, setAiRole } from '../store'
 import { hermesChat, api, apiBlob, auth, CHAT_TIMEOUT_NORMAL, CHAT_TIMEOUT_LONG } from '../api/client'
 import { isHeavyTurn, shouldInjectTableHint, spreadsheetSoftHint } from '../utils/copilotTurn'
@@ -2003,8 +2019,17 @@ async function onFile(ev) {
   }
 }
 
-/* ---- M7 截图（剪刀）按钮：点按钮 → 调 getDisplayMedia 选屏/窗 → 抓首帧 → 作为图片附件塞进 attachments ---- */
+/* ---- M7 截图（剪刀）按钮 v465：点按钮 → 选屏/窗 → 抓首帧 → 区域框选 → 裁剪后作为图片附件 ---- */
 const snapping = ref(false)
+const cropMask = ref(null)
+const cropStage = ref(null)
+const snapCrop = reactive({
+  show: false, src: '', fullW: 0, fullH: 0, dispW: 0, dispH: 0,
+  rect: { x: 0, y: 0, w: 0, h: 0 }, dragging: false, dragStart: { x: 0, y: 0 },
+})
+let snapFullCanvas = null
+const clampSnap = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
+
 async function captureScreenshot() {
   if (snapping.value) return
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
@@ -2034,11 +2059,7 @@ async function captureScreenshot() {
     canvas.width = w; canvas.height = h
     canvas.getContext('2d').drawImage(video, 0, 0, w, h)
     if (track) track.stop()
-    const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'))
-    if (!blob) throw new Error('截图生成失败')
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')
-    const file = new File([blob], `截图${stamp}.png`, { type: 'image/png' })
-    await uploadScreenshot(file)
+    openCropEditor(canvas, w, h)
   } catch (e) {
     // 用户取消选屏 / 拒绝授权：静默
     if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError' || (e.message || '').indexOf('Permission denied') >= 0)) return
@@ -2048,6 +2069,74 @@ async function captureScreenshot() {
     snapping.value = false
   }
 }
+
+// v465：抓到整幅画面后，弹全屏遮罩让用户拖拽框选区域
+function openCropEditor(canvas, w, h) {
+  const maxW = Math.floor(window.innerWidth * 0.9)
+  const maxH = Math.floor(window.innerHeight * 0.8)
+  const scale = Math.min(1, maxW / w, maxH / h)
+  snapFullCanvas = canvas
+  snapCrop.fullW = w
+  snapCrop.fullH = h
+  snapCrop.dispW = Math.max(1, Math.round(w * scale))
+  snapCrop.dispH = Math.max(1, Math.round(h * scale))
+  snapCrop.src = canvas.toDataURL('image/png')
+  snapCrop.rect = { x: 0, y: 0, w: 0, h: 0 }
+  snapCrop.dragging = false
+  snapCrop.show = true
+  nextTick(() => { if (cropMask.value) cropMask.value.focus() })
+}
+function onCropDown(e) {
+  if (!snapCrop.show || !cropStage.value) return
+  const r = cropStage.value.getBoundingClientRect()
+  const x = clampSnap(e.clientX - r.left, 0, snapCrop.dispW)
+  const y = clampSnap(e.clientY - r.top, 0, snapCrop.dispH)
+  snapCrop.dragging = true
+  snapCrop.dragStart = { x, y }
+  snapCrop.rect = { x, y, w: 0, h: 0 }
+}
+function onCropMove(e) {
+  if (!snapCrop.dragging || !cropStage.value) return
+  const r = cropStage.value.getBoundingClientRect()
+  const cx = clampSnap(e.clientX - r.left, 0, snapCrop.dispW)
+  const cy = clampSnap(e.clientY - r.top, 0, snapCrop.dispH)
+  const sx = snapCrop.dragStart.x, sy = snapCrop.dragStart.y
+  snapCrop.rect = { x: Math.min(sx, cx), y: Math.min(sy, cy), w: Math.abs(cx - sx), h: Math.abs(cy - sy) }
+}
+function onCropUp() { snapCrop.dragging = false }
+function cancelCrop() { closeCrop() }
+function confirmCrop() {
+  if (!snapFullCanvas) { closeCrop(); return }
+  const scale = snapCrop.fullW / snapCrop.dispW
+  let sx, sy, sw, sh
+  if (snapCrop.rect.w < 4 || snapCrop.rect.h < 4) {
+    // 没框选 → 默认用整图
+    sx = 0; sy = 0; sw = snapCrop.fullW; sh = snapCrop.fullH
+  } else {
+    sx = Math.round(snapCrop.rect.x * scale)
+    sy = Math.round(snapCrop.rect.y * scale)
+    sw = Math.round(snapCrop.rect.w * scale)
+    sh = Math.round(snapCrop.rect.h * scale)
+  }
+  const out = document.createElement('canvas')
+  out.width = sw; out.height = sh
+  out.getContext('2d').drawImage(snapFullCanvas, sx, sy, sw, sh, 0, 0, sw, sh)
+  out.toBlob(async (blob) => {
+    if (!blob) { store.toast('裁剪失败', 'error'); closeCrop(); return }
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')
+    const file = new File([blob], `截图${stamp}.png`, { type: 'image/png' })
+    closeCrop()
+    await uploadScreenshot(file)
+  }, 'image/png')
+}
+function closeCrop() {
+  if (snapCrop.src && snapCrop.src.startsWith('blob:')) URL.revokeObjectURL(snapCrop.src)
+  snapCrop.show = false
+  snapCrop.src = ''
+  snapCrop.rect = { x: 0, y: 0, w: 0, h: 0 }
+  snapFullCanvas = null
+}
+
 async function uploadScreenshot(file) {
   uploading.value = true
   try {
@@ -2931,6 +3020,17 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-snap:hover{background:var(--bg4);color:var(--t1)}
 .cp-snap.busy{opacity:.6;cursor:progress}
 .cp-snap svg{width:14px;height:14px}
+
+/* v465 截图区域框选遮罩（微信式拖拽框选） */
+.cp-snap-mask{position:fixed;inset:0;z-index:980;background:rgba(0,0,0,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;user-select:none;outline:none}
+.cp-snap-stage{position:relative;box-shadow:0 8px 30px rgba(0,0,0,.45);cursor:crosshair;overflow:hidden;background:#222}
+.cp-snap-img{display:block;pointer-events:none;-webkit-user-drag:none;user-select:none}
+.cp-snap-sel{position:absolute;left:0;top:0;width:0;height:0;border:1.5px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.5);box-sizing:border-box;pointer-events:none}
+.cp-snap-hint{color:#fff;font-size:12px;background:rgba(0,0,0,.45);padding:4px 10px;border-radius:6px;pointer-events:none}
+.cp-snap-bar{display:flex;gap:10px}
+.cp-snap-btn{height:34px;padding:0 18px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:13px;cursor:pointer;font-family:inherit}
+.cp-snap-btn.ghost{background:rgba(255,255,255,.18)}
+.cp-snap-btn:hover{filter:brightness(1.08)}
 
 /* M5 转发面板 */
 .cp-fwd-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:960;display:flex;align-items:center;justify-content:center;padding:20px}
