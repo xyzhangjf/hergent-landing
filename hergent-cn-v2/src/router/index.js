@@ -42,6 +42,11 @@ const Print = () => import('../pages/Print.vue')
 /* v465（2026-10-11）：四新区占位骨架 —— 99 页共用这一个组件，由下方 `PLACEHOLDER_PAGES`
    **数据驱动**批量挂载（可见性已逐页登记在 `pages.js::PAGE_RULES`，见那里 v465 段）。 */
 const Placeholder = () => import('../pages/Placeholder.vue')
+/* v465c（2026-10-11 仓配管理 P0）：库存查询三页**落真身** —— 从 `PLACEHOLDER_PAGES`
+   移出、改为独立组件（对齐「落真身四步」，见 docs/仓配模块开发规范.md）。 */
+const WhExpiryReport = () => import('../pages/wh/ExpiryReport.vue')
+const WhVehicleStock = () => import('../pages/wh/VehicleStock.vue')
+const WhStockAlert = () => import('../pages/wh/StockAlert.vue')
 const CronJobs = () => import('../pages/CronJobs.vue')
 const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
@@ -245,6 +250,15 @@ export const router = createRouter({
             { path: 'stock',         component: InvStock,          meta: { title: '库存查询' } }
           ]
         },
+
+        /* v465c（2026-10-11 仓配管理 P0）：**库存查询三页落真身**。
+           🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——
+              这三条已从 `PLACEHOLDER_PAGES` 移出，此处是它们唯一的真实路由；
+              `pages.js::PAGE_RULES` 另有正式登记行（**两处都要写**：缺路由 = 假封锁，
+              缺登记 = 假入口，见 docs/仓配模块开发规范.md 的「落真身四步」）。 */
+        { path: 'wh/expiry-report', component: WhExpiryReport, meta: { title: '效期预警表' } },
+        { path: 'wh/vehicle-stock', component: WhVehicleStock, meta: { title: '车辆库存查询' } },
+        { path: 'wh/stock-alert',   component: WhStockAlert,   meta: { title: '库存预警' } },
 
         /* v465（2026-10-11）：四新区（仓配管理 / 资金管理 / 数据报表 / 市场营销）的
            **占位页路由** —— 按 `pages.js::PLACEHOLDER_PAGES` 数据驱动批量挂载，

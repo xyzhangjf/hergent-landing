@@ -245,6 +245,16 @@ export const PAGE_RULES = {
   //   `/api/import/*`（归 `data`）—— 主管本来有 `data`，会计由 v333 拿到 `data`
   //   ⇒ 两类人都能整页走通（只有 `stock` 会卡在导入）。
   '/data-fill':       { title: '库存效期补录', module: 'stock',     roles: BIZ_ROLES,   cat: 'biz' },
+  /* —— v465c（2026-10-11 仓配管理 P0）：「库存查询」组三页**落真身**的正式登记行 ——
+     🔴 `module:'stock'` 与后端域**逐项一致**：三页的数据源分别是
+        `/api/expiry/forecast`、`/api/vehicles`＋`/api/vehicle-stock/*`、`/api/inventory/low-stock`，
+        全部归 `stock`（见 server.py::_PATH_MODULE_MAP）。`roles: BIZ_ROLES` 全员持 `stock`
+        ⇒ 前端可见性与后端鉴权**不可能打架**（不会出现「入口可见、取数 403」的假入口）。
+     ⚠️ 这三条**同时**从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 盖掉本行）。
+     ⚠️ `/wh/*` 其余条目仍是占位页（module:null + BIZ_ROLES），P1–P3 逐批落真身。 */
+  '/wh/expiry-report': { title: '效期预警表',   module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/vehicle-stock': { title: '车辆库存查询', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/stock-alert':   { title: '库存预警',     module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
   // 档案管理：`/archive/employees|customers|brands|products|warehouses|prices` 六个子路由自动继承本行。
   //   ⚠️ 子路由**必须**全部在 router/index.js 的 /archive children 里登记；父级只解析到
   //      `/archive` 这一段，多出的路径段不会自动继承、会落到 404。
@@ -422,9 +432,10 @@ export const PLACEHOLDER_PAGES = [
   { path: '/wh/pnl',            title: '损益单',           area: '仓配管理' },
   { path: '/wh/combo',          title: '组合单',           area: '仓配管理' },
   { path: '/wh/split',          title: '拆分单',           area: '仓配管理' },
-  { path: '/wh/vehicle-stock',  title: '车辆库存查询',     area: '仓配管理' },
-  { path: '/wh/expiry-report',  title: '效期预警表',       area: '仓配管理' },
-  { path: '/wh/stock-alert',    title: '库存预警',         area: '仓配管理' },
+  /* 🔴 v465c（2026-10-11 仓配 P0）：`/wh/vehicle-stock` / `/wh/expiry-report` / `/wh/stock-alert`
+     三页**已落真身**（不再是占位）⇒ 从本表**移出**，改在 `PAGE_RULES` 写正式登记行
+     （见该对象里的 v465c 段）。落真身四步见 docs/仓配模块开发规范.md —— 移出得干净，
+     否则本表合并循环会用 `BIZ_ROLES + module:null` **覆盖**正式行的 `module:'stock'`。 */
 
   /* —— 资金管理（/funds/*，窄名单：老板/管理员/会计）—— */
   { path: '/funds/receipt',             title: '收款单',           area: '资金管理' },
