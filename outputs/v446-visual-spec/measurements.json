@@ -1,0 +1,1789 @@
+{
+  "vars": {
+    "--fs-xs": "11px",
+    "--fs-sm": "12px",
+    "--fs-base": "13px",
+    "--fs-md": "14px",
+    "--fs-lg": "16px",
+    "--fs-xl": "20px",
+    "--fs-h2": "20px",
+    "--fs-h3": "17px",
+    "--fs-h4": "15px",
+    "--sp-1": "4px",
+    "--sp-2": "8px",
+    "--sp-3": "12px",
+    "--sp-4": "14px",
+    "--sp-5": "18px",
+    "--sp-6": "20px",
+    "--radius-xs": "6px",
+    "--radius-sm": "8px",
+    "--radius-md": "12px",
+    "--radius-lg": "16px",
+    "--bd": "#e5e5ea",
+    "--bg": "#ffffff",
+    "--bg2": "#f5f5f7",
+    "--bg3": "#fafafa",
+    "--bg4": "#f0f0f2",
+    "--p-dark": "#0891b2",
+    "--p-bg": "rgba(6,182,212,.06)",
+    "--p-border": "rgba(6,182,212,.28)",
+    "--p-ink": "#0e7490",
+    "--t1": "#1d1d1f",
+    "--t2": "#6e6e73",
+    "--t3": "#a1a1a6",
+    "--dan": "#ff3b30",
+    "--dan-bg": "rgba(255,59,48,.1)",
+    "--border-subtle": "#ececee",
+    "--shadow-sm": "0 1px 2px rgba(0,0,0,.04),0 1px 6px rgba(0,0,0,.04)",
+    "--shadow-md": "0 4px 16px rgba(0,0,0,.06),0 2px 6px rgba(0,0,0,.04)",
+    "zoom": 1,
+    "density": "cozy"
+  },
+  "pageTitle": {
+    "err": "",
+    "tag": "H2",
+    "cls": "",
+    "rect": {
+      "w": 100,
+      "h": 32,
+      "top": 117,
+      "left": 268
+    },
+    "fontSize": "20px",
+    "fontWeight": "600",
+    "lineHeight": "32px",
+    "color": "rgb(29, 29, 31)",
+    "margin": "0px"
+  },
+  "pageHeadRow": {
+    "err": "",
+    "tag": "DIV",
+    "cls": "ipn-hd-t",
+    "rect": {
+      "w": 100,
+      "h": 32,
+      "top": 117,
+      "left": 268
+    },
+    "display": "flex",
+    "gap": "10px",
+    "alignItems": "baseline",
+    "fontSize": "14px"
+  },
+  "hdBox": {
+    "err": "",
+    "tag": "DIV",
+    "cls": "ipn-f ipn-f-sup",
+    "rect": {
+      "w": 260,
+      "h": 32,
+      "top": 167,
+      "left": 268
+    },
+    "display": "flex",
+    "height": "32px",
+    "padding": "0px 6px 0px 10px",
+    "gap": "4px",
+    "backgroundColor": "rgb(250, 250, 250)",
+    "borderTopWidth": "1px",
+    "borderTopColor": "rgb(229, 229, 234)",
+    "borderRadius": "8px",
+    "alignItems": "center",
+    "flexWrap": "nowrap"
+  },
+  "hdLabel": {
+    "err": "",
+    "tag": "LABEL",
+    "cls": "ipn-lb",
+    "rect": {
+      "w": 56.1,
+      "h": 19.2,
+      "top": 173.4,
+      "left": 279
+    },
+    "fontSize": "12px",
+    "color": "rgb(161, 161, 166)",
+    "whiteSpace": "nowrap",
+    "flex": "0 0 auto",
+    "lineHeight": "19.2px"
+  },
+  "hdReq": {
+    "err": "",
+    "tag": "SPAN",
+    "cls": "ipn-req",
+    "rect": {
+      "w": 6.1,
+      "h": 16,
+      "top": 174.4,
+      "left": 279
+    },
+    "fontSize": "13px",
+    "color": "rgb(255, 59, 48)",
+    "marginRight": "2px",
+    "lineHeight": "13px"
+  },
+  "hdInput": {
+    "err": "",
+    "tag": "INPUT",
+    "cls": "input ipn-sup-input",
+    "rect": {
+      "w": 181.9,
+      "h": 30,
+      "top": 168,
+      "left": 339.1
+    },
+    "height": "30px",
+    "padding": "0px 2px",
+    "borderTopWidth": "0px",
+    "borderTopColor": "rgb(29, 29, 31)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "fontSize": "14px",
+    "width": "181.938px",
+    "boxShadow": "none"
+  },
+  "hdSel": {
+    "err": "",
+    "tag": "SELECT",
+    "cls": "input ipn-sel",
+    "rect": {
+      "w": 112,
+      "h": 30,
+      "top": 168,
+      "left": 601
+    },
+    "width": "112px",
+    "minWidth": "0px",
+    "height": "30px",
+    "padding": "0px 2px",
+    "fontSize": "14px"
+  },
+  "hdDate": {
+    "err": "",
+    "tag": "INPUT",
+    "cls": "input ipn-date",
+    "rect": {
+      "w": 120,
+      "h": 30,
+      "top": 168,
+      "left": 1197.1
+    },
+    "width": "120px",
+    "height": "30px",
+    "padding": "0px 2px",
+    "fontSize": "14px"
+  },
+  "hdLayout": {
+    "err": "",
+    "lines": [
+      [
+        {
+          "lb": "*供应商",
+          "w": 260,
+          "left": 268
+        },
+        {
+          "lb": "经办人",
+          "w": 182,
+          "left": 538
+        },
+        {
+          "lb": "部门",
+          "w": 170,
+          "left": 730
+        },
+        {
+          "lb": "*入库仓库",
+          "w": 202.1,
+          "left": 910
+        },
+        {
+          "lb": "单据日期",
+          "w": 202,
+          "left": 1122.1
+        },
+        {
+          "lb": "备注",
+          "w": 245.9,
+          "left": 1334.1
+        }
+      ]
+    ],
+    "lineCount": 1,
+    "hdRect": {
+      "w": 1312,
+      "h": 32,
+      "top": 167
+    },
+    "sumW": 1262
+  },
+  "hdContainer": {
+    "err": "",
+    "tag": "DIV",
+    "cls": "ipn-hd ipn-hd-flat ipn-hd-box",
+    "rect": {
+      "w": 1312,
+      "h": 32,
+      "top": 167,
+      "left": 268
+    },
+    "display": "flex",
+    "gap": "10px",
+    "flexWrap": "wrap",
+    "marginBottom": "12px",
+    "alignItems": "center"
+  },
+  "strip": {
+    "err": "NOT_FOUND",
+    "sel": ".ipn-strip"
+  },
+  "stripKey": {
+    "err": "NOT_FOUND",
+    "sel": ".ipn-strip .ipn-sk"
+  },
+  "stripAmt": {
+    "err": "NOT_FOUND",
+    "sel": ".ipn-strip .ipn-strip-amt"
+  },
+  "toolbar": {
+    "err": "",
+    "tag": "DIV",
+    "cls": "ipn-bar",
+    "rect": {
+      "w": 1312,
+      "h": 22.4,
+      "top": 211,
+      "left": 268
+    },
+    "display": "flex",
+    "gap": "10px",
+    "alignItems": "center",
+    "marginBottom": "8px",
+    "flexWrap": "wrap"
+  },
+  "toolbarTitle": {
+    "err": "",
+    "tag": "B",
+    "cls": "",
+    "rect": {
+      "w": 56,
+      "h": 22.4,
+      "top": 211,
+      "left": 268
+    },
+    "fontSize": "14px",
+    "fontWeight": "700",
+    "color": "rgb(29, 29, 31)"
+  },
+  "addBtn": {
+    "err": "NOT_FOUND",
+    "sel": ".ipn-btn-add"
+  },
+  "detailTable": {
+    "err": "",
+    "tag": "TABLE",
+    "cls": "tbl ipn-tbl",
+    "rect": {
+      "w": 1372,
+      "h": 515,
+      "top": 241.4,
+      "left": 268
+    },
+    "width": "1372px",
+    "minWidth": "1372px",
+    "fontSize": "13px",
+    "borderCollapse": "collapse",
+    "tableLayout": "auto"
+  },
+  "thCells": {
+    "err": "",
+    "n": 13,
+    "items": [
+      {
+        "i": 0,
+        "cls": "seq-th col-gear-th",
+        "txt": "",
+        "rect": {
+          "w": 46,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 268
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "center",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 1,
+        "cls": "ipn-c-prod",
+        "txt": "*商品",
+        "rect": {
+          "w": 258.5,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 314
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "left",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 2,
+        "cls": "ipn-c-code",
+        "txt": "条码",
+        "rect": {
+          "w": 100,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 572.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(110, 110, 115)",
+        "padding": "4px 8px",
+        "textAlign": "left",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 3,
+        "cls": "ipn-c-unit",
+        "txt": "单位",
+        "rect": {
+          "w": 84,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 672.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "left",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 4,
+        "cls": "num ipn-c-stk",
+        "txt": "可用库存",
+        "rect": {
+          "w": 78,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 756.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "right",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 5,
+        "cls": "num ipn-c-stk",
+        "txt": "实际库存",
+        "rect": {
+          "w": 78,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 834.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "right",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 6,
+        "cls": "num ipn-c-ref",
+        "txt": "参考成本价",
+        "rect": {
+          "w": 86,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 912.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(110, 110, 115)",
+        "padding": "4px 8px",
+        "textAlign": "right",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 7,
+        "cls": "num ipn-c-price",
+        "txt": "*采购价",
+        "rect": {
+          "w": 86,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 998.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "right",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 8,
+        "cls": "num ipn-c-qty",
+        "txt": "*订单数量",
+        "rect": {
+          "w": 86,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 1084.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "right",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 9,
+        "cls": "num ipn-c-amt",
+        "txt": "订单金额",
+        "rect": {
+          "w": 92,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 1170.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "right",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 10,
+        "cls": "ipn-c-batch",
+        "txt": "批次信息",
+        "rect": {
+          "w": 150,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 1262.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "left",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 11,
+        "cls": "ipn-c-note",
+        "txt": "行备注",
+        "rect": {
+          "w": 150,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 1412.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "left",
+        "backgroundColor": "rgb(245, 245, 247)"
+      },
+      {
+        "i": 12,
+        "cls": "ipn-c-op",
+        "txt": "操作",
+        "rect": {
+          "w": 77.5,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 1502.5
+        },
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(161, 161, 166)",
+        "padding": "4px 8px",
+        "textAlign": "left",
+        "backgroundColor": "rgb(245, 245, 247)"
+      }
+    ]
+  },
+  "tdCells": {
+    "err": "",
+    "n": 13,
+    "items": [
+      {
+        "i": 0,
+        "cls": "seq-cell",
+        "txt": "1",
+        "rect": {
+          "w": 46,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 268
+        },
+        "fontSize": "12px",
+        "color": "rgb(161, 161, 166)",
+        "padding": "2px 4px",
+        "textAlign": "center",
+        "height": "31.7969px"
+      },
+      {
+        "i": 1,
+        "cls": "ipn-c-prod",
+        "txt": "选商品",
+        "rect": {
+          "w": 258.5,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 314
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "height": "31.7969px"
+      },
+      {
+        "i": 2,
+        "cls": "ipn-c-code",
+        "txt": "",
+        "rect": {
+          "w": 100,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 572.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(110, 110, 115)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "height": "31.7969px"
+      },
+      {
+        "i": 3,
+        "cls": "ipn-c-unit",
+        "txt": "",
+        "rect": {
+          "w": 84,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 672.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "height": "31.7969px"
+      },
+      {
+        "i": 4,
+        "cls": "num ipn-c-stk",
+        "txt": "",
+        "rect": {
+          "w": 78,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 756.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "right",
+        "height": "31.7969px"
+      },
+      {
+        "i": 5,
+        "cls": "num ipn-c-stk",
+        "txt": "",
+        "rect": {
+          "w": 78,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 834.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "right",
+        "height": "31.7969px"
+      },
+      {
+        "i": 6,
+        "cls": "num ipn-c-ref",
+        "txt": "",
+        "rect": {
+          "w": 86,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 912.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(110, 110, 115)",
+        "padding": "2px 8px",
+        "textAlign": "right",
+        "height": "31.7969px"
+      },
+      {
+        "i": 7,
+        "cls": "ipn-c-price",
+        "txt": "",
+        "rect": {
+          "w": 86,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 998.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "height": "31.7969px"
+      },
+      {
+        "i": 8,
+        "cls": "ipn-c-qty",
+        "txt": "",
+        "rect": {
+          "w": 86,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 1084.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "height": "31.7969px"
+      },
+      {
+        "i": 9,
+        "cls": "num ipn-amt",
+        "txt": "",
+        "rect": {
+          "w": 92,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 1170.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "right",
+        "height": "31.7969px"
+      },
+      {
+        "i": 10,
+        "cls": "ipn-c-batch",
+        "txt": "",
+        "rect": {
+          "w": 150,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 1262.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "height": "31.7969px"
+      },
+      {
+        "i": 11,
+        "cls": "ipn-c-note",
+        "txt": "",
+        "rect": {
+          "w": 150,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 1412.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "height": "31.7969px"
+      },
+      {
+        "i": 12,
+        "cls": "ipn-c-op",
+        "txt": "",
+        "rect": {
+          "w": 77.5,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 1502.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "height": "31.7969px"
+      }
+    ]
+  },
+  "theadRow": {
+    "err": "",
+    "tag": "TR",
+    "cls": "",
+    "rect": {
+      "w": 1372,
+      "h": 38.5,
+      "top": 241.4,
+      "left": 268
+    },
+    "height": "38.5px"
+  },
+  "tbodyRow": {
+    "err": "",
+    "tag": "TR",
+    "cls": "",
+    "rect": {
+      "w": 1372,
+      "h": 31.8,
+      "top": 279.9,
+      "left": 268
+    },
+    "height": "31.7969px"
+  },
+  "colWidths": [
+    {
+      "txt": "",
+      "w": 46,
+      "cls": "seq-th col-gear-th",
+      "align": "center",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "*商品",
+      "w": 258.5,
+      "cls": "ipn-c-prod",
+      "align": "left",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "条码",
+      "w": 100,
+      "cls": "ipn-c-code",
+      "align": "left",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "单位",
+      "w": 84,
+      "cls": "ipn-c-unit",
+      "align": "left",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "可用库存",
+      "w": 78,
+      "cls": "num ipn-c-stk",
+      "align": "right",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "实际库存",
+      "w": 78,
+      "cls": "num ipn-c-stk",
+      "align": "right",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "参考成本价",
+      "w": 86,
+      "cls": "num ipn-c-ref",
+      "align": "right",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "*采购价",
+      "w": 86,
+      "cls": "num ipn-c-price",
+      "align": "right",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "*订单数量",
+      "w": 86,
+      "cls": "num ipn-c-qty",
+      "align": "right",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "订单金额",
+      "w": 92,
+      "cls": "num ipn-c-amt",
+      "align": "right",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "批次信息",
+      "w": 150,
+      "cls": "ipn-c-batch",
+      "align": "left",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "行备注",
+      "w": 150,
+      "cls": "ipn-c-note",
+      "align": "left",
+      "pad": "4px 8px"
+    },
+    {
+      "txt": "操作",
+      "w": 77.5,
+      "cls": "ipn-c-op",
+      "align": "left",
+      "pad": "4px 8px"
+    }
+  ],
+  "cellTextView": {
+    "err": "",
+    "tag": "SPAN",
+    "cls": "ipn-v is-ph",
+    "rect": {
+      "w": 242.5,
+      "h": 18,
+      "top": 286.8,
+      "left": 322
+    },
+    "fontSize": "13px",
+    "lineHeight": "18px",
+    "minHeight": "18px",
+    "height": "18px",
+    "padding": "0px 4px",
+    "color": "rgb(161, 161, 166)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "boxShadow": "none",
+    "textAlign": "start"
+  },
+  "cellInput": {
+    "err": "",
+    "tag": "INPUT",
+    "cls": "input ipn-in num",
+    "rect": {
+      "w": 70,
+      "h": 22,
+      "top": 284.6,
+      "left": 1006.5
+    },
+    "fontSize": "14px",
+    "height": "22px",
+    "padding": "0px 14px",
+    "textAlign": "right",
+    "fontVariantNumeric": "tabular-nums",
+    "color": "rgb(29, 29, 31)"
+  },
+  "rowIconBtn": {
+    "err": "",
+    "tag": "BUTTON",
+    "cls": "ipn-ic",
+    "rect": {
+      "w": 26,
+      "h": 26,
+      "top": 282.4,
+      "left": 1510.5
+    },
+    "width": "26px",
+    "height": "26px",
+    "borderTopWidth": "1px",
+    "borderRadius": "8px",
+    "backgroundColor": "rgb(245, 245, 247)"
+  },
+  "seqCell": {
+    "err": "",
+    "tag": "TD",
+    "cls": "seq-cell",
+    "rect": {
+      "w": 46,
+      "h": 31.8,
+      "top": 279.9,
+      "left": 268
+    },
+    "width": "46px",
+    "minWidth": "46px",
+    "padding": "2px 4px",
+    "fontSize": "12px",
+    "color": "rgb(161, 161, 166)",
+    "textAlign": "center"
+  },
+  "bottom": {
+    "err": "",
+    "tag": "DIV",
+    "cls": "ipn-bottom",
+    "rect": {
+      "w": 1352,
+      "h": 41,
+      "top": 959,
+      "left": 248
+    },
+    "display": "flex",
+    "gap": "12px",
+    "padding": "4px 20px",
+    "margin": "0px -20px -20px",
+    "borderTopWidth": "1px",
+    "borderTopColor": "rgb(236, 236, 238)",
+    "backgroundColor": "rgb(255, 255, 255)",
+    "alignItems": "center",
+    "flexWrap": "wrap"
+  },
+  "total": {
+    "err": "",
+    "tag": "SPAN",
+    "cls": "ipn-total",
+    "rect": {
+      "w": 84,
+      "h": 28.8,
+      "top": 965.6,
+      "left": 268
+    },
+    "fontSize": "14px",
+    "color": "rgb(29, 29, 31)"
+  },
+  "totalNum": {
+    "err": "",
+    "tag": "B",
+    "cls": "",
+    "rect": {
+      "w": 52.3,
+      "h": 21,
+      "top": 968.6,
+      "left": 299.8
+    },
+    "fontSize": "18px",
+    "fontVariantNumeric": "tabular-nums"
+  },
+  "saveBtn": {
+    "err": "",
+    "tag": "BUTTON",
+    "cls": "btn btn-ghost btn-sm ipn-dd-main",
+    "rect": {
+      "w": 52,
+      "h": 32,
+      "top": 964,
+      "left": 1385
+    },
+    "height": "32px",
+    "padding": "0px 12px",
+    "fontSize": "13px",
+    "borderRadius": "8px 0px 0px 8px",
+    "fontWeight": "500"
+  },
+  "rhythm": {
+    "err": "",
+    "blocks": [
+      {
+        "sel": ".page-hd",
+        "top": 117,
+        "h": 32,
+        "bottom": 149,
+        "mb": "18px",
+        "mt": "0px",
+        "pt": "0px",
+        "pb": "0px",
+        "gapToNext": 18
+      },
+      {
+        "sel": ".ipn-hd",
+        "top": 167,
+        "h": 32,
+        "bottom": 199,
+        "mb": "12px",
+        "mt": "0px",
+        "pt": "0px",
+        "pb": "0px"
+      },
+      {
+        "sel": ".ipn-strip",
+        "miss": true
+      },
+      {
+        "sel": ".ipn-bar",
+        "top": 211,
+        "h": 22.4,
+        "bottom": 233.4,
+        "mb": "8px",
+        "mt": "0px",
+        "pt": "0px",
+        "pb": "0px",
+        "gapToNext": -22.4
+      },
+      {
+        "sel": ".ipn-body",
+        "top": 211,
+        "h": 748,
+        "bottom": 959,
+        "mb": "0px",
+        "mt": "0px",
+        "pt": "0px",
+        "pb": "0px",
+        "gapToNext": 0
+      },
+      {
+        "sel": ".ipn-bottom",
+        "top": 959,
+        "h": 41,
+        "bottom": 1000,
+        "mb": "-20px",
+        "mt": "0px",
+        "pt": "4px",
+        "pb": "4px"
+      }
+    ],
+    "doc": {
+      "vw": 1600,
+      "vh": 1000
+    }
+  },
+  "density": {
+    "err": "",
+    "vh": 710,
+    "hHead": 38.5,
+    "hRow": 31.8,
+    "rows": 15,
+    "fitRows": 21.12,
+    "bodyH": 748,
+    "tblW": 1372,
+    "wrapW": 1312,
+    "scrollX": true
+  },
+  "headSticky": {
+    "err": "",
+    "tag": "THEAD",
+    "cls": "",
+    "rect": {
+      "w": 1372,
+      "h": 38.5,
+      "top": 241.4,
+      "left": 268
+    },
+    "position": "static",
+    "top": "auto",
+    "zIndex": "auto",
+    "backgroundColor": "rgba(0, 0, 0, 0)"
+  },
+  "tdCellsNormal": {
+    "err": "",
+    "n": 6,
+    "items": [
+      {
+        "i": 0,
+        "cls": "ipn-c-prod",
+        "txt": "选商品",
+        "rect": {
+          "w": 258.5,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 314
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "lineHeight": "20.8px",
+        "height": "31.7969px"
+      },
+      {
+        "i": 1,
+        "cls": "ipn-c-code",
+        "txt": "",
+        "rect": {
+          "w": 100,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 572.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(110, 110, 115)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "lineHeight": "20.8px",
+        "height": "31.7969px"
+      },
+      {
+        "i": 2,
+        "cls": "ipn-c-unit",
+        "txt": "",
+        "rect": {
+          "w": 84,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 672.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "start",
+        "lineHeight": "20.8px",
+        "height": "31.7969px"
+      },
+      {
+        "i": 3,
+        "cls": "num ipn-c-stk",
+        "txt": "",
+        "rect": {
+          "w": 78,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 756.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "right",
+        "lineHeight": "20.8px",
+        "height": "31.7969px"
+      },
+      {
+        "i": 4,
+        "cls": "num ipn-c-stk",
+        "txt": "",
+        "rect": {
+          "w": 78,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 834.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(29, 29, 31)",
+        "padding": "2px 8px",
+        "textAlign": "right",
+        "lineHeight": "20.8px",
+        "height": "31.7969px"
+      },
+      {
+        "i": 5,
+        "cls": "num ipn-c-ref",
+        "txt": "",
+        "rect": {
+          "w": 86,
+          "h": 31.8,
+          "top": 279.9,
+          "left": 912.5
+        },
+        "fontSize": "13px",
+        "color": "rgb(110, 110, 115)",
+        "padding": "2px 8px",
+        "textAlign": "right",
+        "lineHeight": "20.8px",
+        "height": "31.7969px"
+      }
+    ]
+  },
+  "thNumCells": {
+    "err": "",
+    "n": 4,
+    "items": [
+      {
+        "i": 0,
+        "cls": "num ipn-c-stk",
+        "txt": "可用库存",
+        "rect": {
+          "w": 78,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 756.5
+        },
+        "textAlign": "right",
+        "padding": "4px 8px",
+        "fontSize": "13px"
+      },
+      {
+        "i": 1,
+        "cls": "num ipn-c-stk",
+        "txt": "实际库存",
+        "rect": {
+          "w": 78,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 834.5
+        },
+        "textAlign": "right",
+        "padding": "4px 8px",
+        "fontSize": "13px"
+      },
+      {
+        "i": 2,
+        "cls": "num ipn-c-ref",
+        "txt": "参考成本价",
+        "rect": {
+          "w": 86,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 912.5
+        },
+        "textAlign": "right",
+        "padding": "4px 8px",
+        "fontSize": "13px"
+      },
+      {
+        "i": 3,
+        "cls": "num ipn-c-price",
+        "txt": "*采购价",
+        "rect": {
+          "w": 86,
+          "h": 38.5,
+          "top": 241.4,
+          "left": 998.5
+        },
+        "textAlign": "right",
+        "padding": "4px 8px",
+        "fontSize": "13px"
+      }
+    ]
+  },
+  "cellInputDetail": {
+    "err": "",
+    "tag": "INPUT",
+    "cls": "input ipn-in num",
+    "rect": {
+      "w": 70,
+      "h": 22,
+      "top": 284.6,
+      "left": 1006.5
+    },
+    "boxSizing": "border-box",
+    "padding": "0px 14px",
+    "fontSize": "14px",
+    "lineHeight": "normal",
+    "height": "22px",
+    "width": "70px",
+    "borderTopWidth": "1px",
+    "borderRadius": "12px"
+  },
+  "fontChain": {
+    "err": "",
+    "bodyFs": "14px",
+    "bodyLh": "22.4px",
+    "htmlFs": "16px",
+    "fontSans": "-apple-system, \"system-ui\", \"SF Pro SC\", \"SF Pro Text\", \"Pin",
+    "content": {
+      "w": 1352,
+      "pad": "0px",
+      "mb": "0px",
+      "bg": "rgb(255, 255, 255)",
+      "radius": "0px"
+    },
+    "viewWrap": {
+      "w": 1352,
+      "pad": "20px",
+      "mb": "0px",
+      "bg": "rgba(0, 0, 0, 0)",
+      "radius": "0px"
+    }
+  },
+  "hdSupField": {
+    "err": "",
+    "tag": "DIV",
+    "cls": "ipn-f ipn-f-sup",
+    "rect": {
+      "w": 260,
+      "h": 32,
+      "top": 167,
+      "left": 268
+    },
+    "minWidth": "260px",
+    "width": "260px",
+    "flexBasis": "auto",
+    "flexGrow": "0",
+    "flexShrink": "0"
+  },
+  "hdNoteField": {
+    "err": "",
+    "tag": "INPUT",
+    "cls": "input ipn-note-in",
+    "rect": {
+      "w": 145.1,
+      "h": 30,
+      "top": 168,
+      "left": 1385.1
+    },
+    "width": "145.141px",
+    "minWidth": "120px",
+    "flexGrow": "1",
+    "height": "30px",
+    "padding": "0px 2px"
+  },
+  "toolbarChildren": {
+    "err": "",
+    "n": 3,
+    "items": [
+      {
+        "i": 0,
+        "cls": "",
+        "txt": "商品明细",
+        "rect": {
+          "w": 56,
+          "h": 22.4,
+          "top": 211,
+          "left": 268
+        },
+        "fontSize": "14px",
+        "color": "rgb(29, 29, 31)",
+        "height": "22.3906px",
+        "padding": "0px",
+        "borderRadius": "0px"
+      },
+      {
+        "i": 1,
+        "cls": "ipn-cnt",
+        "txt": "15 项",
+        "rect": {
+          "w": 35.1,
+          "h": 22.4,
+          "top": 211,
+          "left": 334
+        },
+        "fontSize": "14px",
+        "color": "rgb(161, 161, 166)",
+        "height": "22.3906px",
+        "padding": "0px",
+        "borderRadius": "0px"
+      },
+      {
+        "i": 2,
+        "cls": "ipn-tip-link",
+        "txt": "口径说明 展开",
+        "rect": {
+          "w": 79.4,
+          "h": 17,
+          "top": 213.7,
+          "left": 1500.6
+        },
+        "fontSize": "12px",
+        "color": "rgb(8, 145, 178)",
+        "height": "17px",
+        "padding": "0px 2px",
+        "borderRadius": "0px"
+      }
+    ]
+  },
+  "sale": {
+    "hdBox": {
+      "err": "",
+      "tag": "DIV",
+      "cls": "isn-f",
+      "rect": {
+        "w": 294.1,
+        "h": 32,
+        "top": 167,
+        "left": 268
+      },
+      "display": "flex",
+      "height": "32px",
+      "padding": "0px 6px 0px 10px",
+      "gap": "4px",
+      "backgroundColor": "rgb(250, 250, 250)",
+      "borderTopWidth": "1px",
+      "borderTopColor": "rgb(229, 229, 234)",
+      "borderRadius": "8px",
+      "alignItems": "center",
+      "flexWrap": "nowrap"
+    },
+    "hdLabel": {
+      "err": "",
+      "tag": "LABEL",
+      "cls": "isn-lb",
+      "rect": {
+        "w": 44.1,
+        "h": 19.2,
+        "top": 173.4,
+        "left": 279
+      },
+      "fontSize": "12px",
+      "color": "rgb(161, 161, 166)"
+    },
+    "hdInput": {
+      "err": "",
+      "tag": "INPUT",
+      "cls": "input isn-kw",
+      "rect": {
+        "w": 112,
+        "h": 30,
+        "top": 168,
+        "left": 327.1
+      },
+      "height": "30px",
+      "borderTopWidth": "0px",
+      "fontSize": "14px"
+    },
+    "thead": {
+      "err": "",
+      "n": 7,
+      "items": [
+        {
+          "i": 0,
+          "cls": "seq-th col-gear-th",
+          "txt": "",
+          "rect": {
+            "w": 46,
+            "h": 46.5,
+            "top": 322.2,
+            "left": 268
+          },
+          "fontSize": "13px",
+          "color": "rgb(161, 161, 166)",
+          "padding": "8px 4px",
+          "textAlign": "center"
+        },
+        {
+          "i": 1,
+          "cls": "isn-c-prod",
+          "txt": "*商品",
+          "rect": {
+            "w": 794,
+            "h": 46.5,
+            "top": 322.2,
+            "left": 314
+          },
+          "fontSize": "13px",
+          "color": "rgb(161, 161, 166)",
+          "padding": "10px 14px",
+          "textAlign": "left"
+        },
+        {
+          "i": 2,
+          "cls": "num isn-c-qty",
+          "txt": "*数量",
+          "rect": {
+            "w": 110,
+            "h": 46.5,
+            "top": 322.2,
+            "left": 1108
+          },
+          "fontSize": "13px",
+          "color": "rgb(161, 161, 166)",
+          "padding": "10px 14px",
+          "textAlign": "right"
+        },
+        {
+          "i": 3,
+          "cls": "isn-c-unit",
+          "txt": "单位",
+          "rect": {
+            "w": 76,
+            "h": 46.5,
+            "top": 322.2,
+            "left": 1218
+          },
+          "fontSize": "13px",
+          "color": "rgb(161, 161, 166)",
+          "padding": "10px 14px",
+          "textAlign": "left"
+        },
+        {
+          "i": 4,
+          "cls": "num isn-c-price",
+          "txt": "*单价",
+          "rect": {
+            "w": 110,
+            "h": 46.5,
+            "top": 322.2,
+            "left": 1294
+          },
+          "fontSize": "13px",
+          "color": "rgb(161, 161, 166)",
+          "padding": "10px 14px",
+          "textAlign": "right"
+        },
+        {
+          "i": 5,
+          "cls": "num isn-c-amt",
+          "txt": "金额",
+          "rect": {
+            "w": 110,
+            "h": 46.5,
+            "top": 322.2,
+            "left": 1404
+          },
+          "fontSize": "13px",
+          "color": "rgb(161, 161, 166)",
+          "padding": "10px 14px",
+          "textAlign": "right"
+        },
+        {
+          "i": 6,
+          "cls": "isn-c-del",
+          "txt": "",
+          "rect": {
+            "w": 58,
+            "h": 46.5,
+            "top": 322.2,
+            "left": 1514
+          },
+          "fontSize": "13px",
+          "color": "rgb(161, 161, 166)",
+          "padding": "10px 14px",
+          "textAlign": "left"
+        }
+      ]
+    },
+    "rows": {
+      "err": "",
+      "n": 3,
+      "items": [
+        {
+          "i": 0,
+          "cls": "",
+          "txt": "1请选择商品简爱0蔗糖原味高蛋白希腊",
+          "rect": {
+            "w": 1304,
+            "h": 62.6,
+            "top": 368.7,
+            "left": 268
+          },
+          "height": "62.5938px"
+        },
+        {
+          "i": 1,
+          "cls": "",
+          "txt": "2请选择商品简爱0蔗糖原味高蛋白希腊",
+          "rect": {
+            "w": 1304,
+            "h": 62.6,
+            "top": 431.3,
+            "left": 268
+          },
+          "height": "62.5938px"
+        },
+        {
+          "i": 2,
+          "cls": "",
+          "txt": "3请选择商品简爱0蔗糖原味高蛋白希腊",
+          "rect": {
+            "w": 1304,
+            "h": 62.6,
+            "top": 493.9,
+            "left": 268
+          },
+          "height": "62.5938px"
+        }
+      ]
+    },
+    "cellCtl": {
+      "err": "",
+      "tag": "SELECT",
+      "cls": "input isn-in",
+      "rect": {
+        "w": 766,
+        "h": 28,
+        "top": 386,
+        "left": 328
+      },
+      "height": "28px",
+      "fontSize": "14px",
+      "padding": "0px 14px",
+      "borderRadius": "12px",
+      "borderTopWidth": "1px"
+    },
+    "tds": {
+      "err": "",
+      "n": 7,
+      "items": [
+        {
+          "i": 0,
+          "cls": "seq-cell",
+          "txt": "1",
+          "rect": {
+            "w": 46,
+            "h": 62.6,
+            "top": 368.7,
+            "left": 268
+          },
+          "padding": "6px 4px",
+          "height": "62.5938px",
+          "fontSize": "12px",
+          "verticalAlign": "middle"
+        },
+        {
+          "i": 1,
+          "cls": "",
+          "txt": "请选择商品简爱0蔗糖原味高蛋白希腊酸",
+          "rect": {
+            "w": 794,
+            "h": 62.6,
+            "top": 368.7,
+            "left": 314
+          },
+          "padding": "10px 14px",
+          "height": "62.5938px",
+          "fontSize": "13px",
+          "verticalAlign": "middle"
+        },
+        {
+          "i": 2,
+          "cls": "",
+          "txt": "",
+          "rect": {
+            "w": 110,
+            "h": 62.6,
+            "top": 368.7,
+            "left": 1108
+          },
+          "padding": "10px 14px",
+          "height": "62.5938px",
+          "fontSize": "13px",
+          "verticalAlign": "middle"
+        },
+        {
+          "i": 3,
+          "cls": "",
+          "txt": "先选商品",
+          "rect": {
+            "w": 76,
+            "h": 62.6,
+            "top": 368.7,
+            "left": 1218
+          },
+          "padding": "10px 14px",
+          "height": "62.5938px",
+          "fontSize": "13px",
+          "verticalAlign": "middle"
+        },
+        {
+          "i": 4,
+          "cls": "",
+          "txt": "",
+          "rect": {
+            "w": 110,
+            "h": 62.6,
+            "top": 368.7,
+            "left": 1294
+          },
+          "padding": "10px 14px",
+          "height": "62.5938px",
+          "fontSize": "13px",
+          "verticalAlign": "middle"
+        },
+        {
+          "i": 5,
+          "cls": "num isn-amt",
+          "txt": "¥0.00",
+          "rect": {
+            "w": 110,
+            "h": 62.6,
+            "top": 368.7,
+            "left": 1404
+          },
+          "padding": "10px 14px",
+          "height": "62.5938px",
+          "fontSize": "13px",
+          "verticalAlign": "middle"
+        },
+        {
+          "i": 6,
+          "cls": "isn-c-del",
+          "txt": "",
+          "rect": {
+            "w": 58,
+            "h": 62.6,
+            "top": 368.7,
+            "left": 1514
+          },
+          "padding": "10px 14px",
+          "height": "62.5938px",
+          "fontSize": "13px",
+          "verticalAlign": "middle"
+        }
+      ]
+    },
+    "prodCells": {
+      "err": "",
+      "n": 1,
+      "items": [
+        {
+          "i": 0,
+          "cls": "isn-c-prod",
+          "txt": "*商品",
+          "rect": {
+            "w": 794,
+            "h": 46.5,
+            "top": 322.2,
+            "left": 314
+          },
+          "padding": "10px 14px",
+          "height": "46.5px"
+        }
+      ]
+    },
+    "hdLayout": {
+      "err": "",
+      "lines": [
+        [
+          {
+            "lb": "*客户",
+            "w": 294.1,
+            "left": 268
+          },
+          {
+            "lb": "出货方式",
+            "w": 194,
+            "left": 572.1
+          },
+          {
+            "lb": "*出货仓库",
+            "w": 202.1,
+            "left": 776.1
+          },
+          {
+            "lb": "交货日期",
+            "w": 202,
+            "left": 988.1
+          },
+          {
+            "lb": "交货地址",
+            "w": 232,
+            "left": 1200.1
+          }
+        ],
+        [
+          {
+            "lb": "备注",
+            "w": 1304,
+            "left": 268
+          }
+        ]
+      ],
+      "lineCount": 2,
+      "hdRect": {
+        "w": 1304,
+        "h": 74,
+        "top": 167
+      },
+      "sumW": 2428.2
+    },
+    "density": {
+      "err": "",
+      "vh": 985,
+      "hHead": 46.5,
+      "hRow": 62.59,
+      "rows": 15,
+      "fitRows": 14.99,
+      "bodyH": 1054.1,
+      "tblW": 1304,
+      "wrapW": 1304,
+      "scrollX": false
+    }
+  },
+  "probe": {
+    "writes": [],
+    "errs": [],
+    "at": "2026-10-11T00:23:24.855Z",
+    "viewport": "1600x1000"
+  }
+}
