@@ -526,6 +526,9 @@
                 <button class="cp-voice" :class="{ on: recognizing }" title="语音输入" aria-label="语音输入" @click="toggleVoice">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
                 </button>
+                <button class="cp-snap" :class="{ busy: snapping }" title="截图" aria-label="截图" :disabled="snapping" @click="captureScreenshot">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/></svg>
+                </button>
                 <!-- 🔴 v309（2026-09-28）发送 / 停止 = **同一个按钮**（对齐 WorkBuddy 的 SendButton）。
                      对照要点：① `handleClick` 按 loading 分流到 onStop/onSend；
                      ② loading 时**不再 disabled**（WB 的 effectiveDisabled 写成
@@ -2000,6 +2003,68 @@ async function onFile(ev) {
   }
 }
 
+/* ---- M7 截图（剪刀）按钮：点按钮 → 调 getDisplayMedia 选屏/窗 → 抓首帧 → 作为图片附件塞进 attachments ---- */
+const snapping = ref(false)
+async function captureScreenshot() {
+  if (snapping.value) return
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    store.toast('当前浏览器不支持屏幕截图，请用电脑版 Google Chrome 打开副驾后重试', 'warn')
+    return
+  }
+  snapping.value = true
+  let stream
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 1 }, audio: false })
+    const track = stream.getVideoTracks()[0]
+    const video = document.createElement('video')
+    video.srcObject = stream
+    video.muted = true
+    await video.play()
+    // 等首帧就绪再抓（requestVideoFrameCallback 优先，否则退化为延时；1.5s 兜底防卡死）
+    await new Promise((resolve) => {
+      let done = false
+      const fin = () => { if (!done) { done = true; resolve() } }
+      if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(fin)
+      else video.onloadeddata = () => setTimeout(fin, 200)
+      setTimeout(fin, 1500)
+    })
+    const w = video.videoWidth, h = video.videoHeight
+    if (!w || !h) throw new Error('未能读取画面尺寸')
+    const canvas = document.createElement('canvas')
+    canvas.width = w; canvas.height = h
+    canvas.getContext('2d').drawImage(video, 0, 0, w, h)
+    if (track) track.stop()
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'))
+    if (!blob) throw new Error('截图生成失败')
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')
+    const file = new File([blob], `截图${stamp}.png`, { type: 'image/png' })
+    await uploadScreenshot(file)
+  } catch (e) {
+    // 用户取消选屏 / 拒绝授权：静默
+    if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError' || (e.message || '').indexOf('Permission denied') >= 0)) return
+    store.toast('截图失败：' + (e && e.message ? e.message : e), 'error')
+  } finally {
+    if (stream) stream.getTracks().forEach((t) => t.stop())
+    snapping.value = false
+  }
+}
+async function uploadScreenshot(file) {
+  uploading.value = true
+  try {
+    const d = await chatAttachmentApi.upload(file)
+    // H2：图片读 base64 供视觉模型看（与 onFile 同一套）
+    try { d.dataUrl = await readFileAsDataUrl(file) } catch (_) { /* 读不出则退化为纯引用 */ }
+    attachments.value.push(d)
+    store.chat.error = ''
+    store.toast('截图已附到输入框，可补充说明后发送')
+  } catch (e) {
+    store.chat.error = (e && e.message) || '截图上传失败'
+  } finally {
+    uploading.value = false
+    nextTick(() => { if (cpInput.value) cpInput.value.focus() })
+  }
+}
+
 async function doSmartImport() {
   if (!pendingSmartFile || !smartImport.value) return
   smartBusy.value = true
@@ -2861,6 +2926,11 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-voice:hover{background:var(--bg4);color:var(--t1)}
 .cp-voice.on{background:var(--p-dark);color:#fff;animation:cp-voice-pulse 1.2s infinite}
 @keyframes cp-voice-pulse{0%,100%{box-shadow:0 0 0 0 rgba(6,182,212,.4)}50%{box-shadow:0 0 0 5px rgba(6,182,212,0)}}
+/* M7 截图（剪刀）按钮：与 .cp-voice 同款几何（32px 圆形、currentColor 线性图标），对齐 UI 规范 */
+.cp-snap{width:32px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0;border:none;background:none}
+.cp-snap:hover{background:var(--bg4);color:var(--t1)}
+.cp-snap.busy{opacity:.6;cursor:progress}
+.cp-snap svg{width:14px;height:14px}
 
 /* M5 转发面板 */
 .cp-fwd-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:960;display:flex;align-items:center;justify-content:center;padding:20px}
