@@ -153,6 +153,34 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 > 🔴 迁移纪律：**新令牌的值必须与页面既有字面量逐值相同** ⇒ 零视觉变化、相对顺序必然不变。
 > v367 迁移后已自证「剩余字面量 = 0」且「令牌展开值集合 = 原值集合」。
 
+#### 1.8 滚动条（scrollbar，v454 建立）
+
+**目标**：全站上下/左右滚动条加粗到 14px，方便鼠标点中拖动；预报订单交叉表横向滚动条专门加高，解决「横向滚动不易点中」的痛点。
+
+**令牌（已在 `variables.css` 定义，浅/深双主题同名覆盖）**
+
+| 令牌 | 浅色值 | 深色值 | 用途 |
+|---|---|---|---|
+| `--scroll-thumb` | `#c2c2c9` | `#5b5b61` | 滑块（比边框 `--bd` 更深，保证对比度） |
+| `--scroll-thumb-hover` | `#a3a3ac` | `#76767e` | 滑块 hover |
+| `--scroll-track` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.07)` | 轨道（浅灰，便于瞄准点中） |
+
+**全局规则（`variables.css`，全站唯一一份）**
+
+```css
+::-webkit-scrollbar{width:14px;height:14px}
+::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:7px}
+::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
+::-webkit-scrollbar-track{background:var(--scroll-track)}
+*{scrollbar-color:var(--scroll-thumb) var(--scroll-track)}  /* Firefox */
+```
+
+**交叉表例外（页面级，仅 Forecast.vue）**：`.cross-viewport` / `.edit-grid-wrap` 横向 `height:18px`、滑块 `min-height:44px`、圆角 9px，让横向滚动条更好点中（含全屏模式，选择器已覆盖 `.grid-area.is-fs`）。
+
+🔴 **继承规则**：滚动条是 `variables.css` 全局样式，**所有页面（含未来新页）默认自动继承**，不要在页面里再写 `::-webkit-scrollbar` 覆盖全局。
+🔴 **改这项 = 改全站**（见 §0 维护规则 3）。调整粗细/配色只动 `variables.css` 的令牌与全局规则，并**同步本小节**；交叉表加高仅限 Forecast 两个命名容器，不要扩散成全局。
+🔴 数值来自 v454 实测手感决策（8px → 14px / 交叉表横向 18px），非源码令牌直读；若后续要复核，照 §1.7.1 的量测纪律，用无头 Chrome 读 `getComputedStyle` 实测。
+
 ---
 
 ## 2. 组件用法
@@ -1089,3 +1117,4 @@ NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
 | v405 | 2026-10-08 | **`/forecast` 页内页签退役 —— 全站最后一处「页内页签条 ＋ 全局标签栏」并存态消除**（收口 v396 登记的过渡态）。① **删页签条**：`Forecast.vue` 删掉 `.module-tabs` 整块（本期预报 / 历史期次 / 报单配置 / 商品目标），scoped 样式块**净删除**（原地留一行说明，防下轮误判"全站消失"）；`activeTab` / `TAB_KEYS` / `setTab()` 全部**保留**，但角色变了 —— 由"页签按钮的 click 处理器"变为"**页内互跳写 URL 的唯一入口**"。② **补入口**：`Shell.vue::NAV` 的「预报订单管理」职能区补一条**无 `tab`** 的「本期预报」直达条目（落 `_default: summary`）—— 漏掉它，主表在桌面只剩「历史期次」行的「＋」，而那个「＋」受 `canDo('data','create')` 收口 ⇒ **只读角色进不去主表**。③ **手机抽屉摊平**：`EXPLODED_PATHS` 补 `/forecast` —— 漏掉它，手机端（标签栏按 Q6 A 不出）「历史期次 / 报单配置 / 商品目标」**三条永久失联**；`showInDrawer` 的"只放带 `tab`"规则天然把无 `tab` 的「本期预报」留给底部栏，不重复。④ 🔴 **同屏自相矛盾的修复**：`onViewHistory`（历史期次 →「查看」）原为 `activeTab.value = 'summary'`，会把 `?tab=history` 留在地址里 ⇒ **标签栏写着「历史期次」、页面显示本期主表**；改为 `setTab('summary')` 一并写 URL（页签条在时这处不一致被页内高亮掩盖，退役后它成了唯一指示⇒必须修）。⑤ 文档：§3.5 的「过渡态」段改写为**已消除**并留退役三步留档；登记 `Settings.vue` 为 `.module-tabs` 全站**唯一残留**（它是设置页自己的分区导航，非模块导航，不在本次范围）。⑥ 交付前并行会话自检抓到**号冲突**：`v404` 已被在途会话占用（`api/psi.js` / `inventory/InvPurchaseDetail.vue`，未提交）⇒ 本次改用 **v405**（跳号好过同号两用，参照 v393 教训）。 |
 | v407 | 2026-10-08 | **撤掉「预报订单管理」弹窗里与「本期预报」重复的「创建」按钮**（老板原话：「该按钮点击后会跳转到『本期预报』页面，而弹窗中已存在『本期预报』按钮，功能重复，因此无需保留此『创建』按钮」）。① **改动只有一处数据**：`Shell.vue::NAV` 的「历史期次」条目删掉 `create: { to: '/forecast', module: 'data', title: '新建本期预报（期次）' }` —— 它的 `to` 与上一行「本期预报」条目**同是 `/forecast`**，落点完全重合。② 🔴 **两个面同时消失、且是同一份数据源**：桌面弹窗的 `.sb-pop-new`（「＋ 创建」文字）与手机抽屉的 `.md-item-new`（纯 `＋` 图标）都读 `x.create` ⇒ 撤一处即两处收敛，**不存在"桌面撤了手机还在"**。③ 🔴 **只撤数据、不撤机制**：`resolveNavItem` 的 `canDo(create.module,'create')` 收口、`.sb-pop-new` / `.md-item-new` 样式、模板 `v-if="x.create"` 全部**原样保留** —— 进销存区那 7 条（采购单 / 采购退货单 / 自提订单 / 自提退单 / 车销订单 / 车销退单 / 调拨单）仍在用，本区只是不再需要。④ **另三处注释同步改写**（防「过期注释当事实」）：§3.5 退役三步 ② 补 v407 续记；`Shell.vue` 区头「这也是 L1 双入口的试点区」改为「v407 起本区不再挂 `create`」；「本期预报」条目的 v405 注释里那段「它与『历史期次』行的『＋』落点相同**但不是重复**」**已作废重写** —— 该判断正是本轮被老板推翻的那条。⑤ **判据收紧**：撤掉那个「＋」后，「本期预报」条成为**本页主表在桌面弹窗里的唯一入口**（v405 时还有「＋」兜底，现在没有）。⑥ **验收**：新增真机探针 `v407-nav-forecast-create-probe.mjs` —— 含**反例自证**（同一弹窗内进销存区的「＋」必须**仍在**，证明判据能选中而本区是真撤）；同步修订 `v405-nav-reach-probe.mjs` 的 ③c（原断言「＋只挂在历史期次那一条上」⇒ 改为「本区零 `＋`」）。 |
 | v424 | 2026-10-10 | **「报单配置」由一张长页拆成四个独立子页 ＋ 侧栏弹窗升为一个分组（对齐「分层入口」）**。① **起因**：原「报单配置」页＝上半屏「运行参数」三块（报单自动化 / 报单提醒设置 / 模板参数）＋ 下半屏「报单对象」列表 ⇒ **首屏放不下全部配置项、用户须上翻**。② **入口结构**：`Shell.vue::NAV` 的「预报订单管理」由 **1 列变 2 列** —— `预报订单`（本期预报 / 历史期次 / 商品目标，报单配置迁出）＋ **新增 `报单配置`**（报单对象 / 报单自动化 / 报单提醒设置 / 模板参数），**同列纵向、顺序 = 使用频率**；四条仍**全为单入口**（不含 `create`）。③ **四个子页**（`Forecast.vue` 渲染分支 ＋ `TAB_KEYS` 4 → **7**）：`config`＝报单对象（`pages/ReportMapping.vue`，**URL 键不许改** —— `ProductTarget::goReportMapping` / `EmployeeArchive` 的「去修配置」写死 `?tab=config`）／`config-auto`／`config-remind`／`config-template`。④ **抽组件**：新增 `components/forecast/TemplateParams.vue`（模板参数整卡 ＋ `.tp-*` 样式 ＋ `businessProfileApi` 读写**一字未改**地迁出），与既有的 `AutoPeriodBlock.vue` / `ReminderConfig.vue` 同族；`ReportMapping.vue` 相应**净删除**两块 `sec-label` 与 `.tp-*` 样式（死 CSS 不留）。⑤ **标题唯一源同步**：`constants/tabTitles.js::SUB_TITLES['/forecast']` 由 4 键扩到 7 键，且 **`config` 的中文名由「报单配置」改为「报单对象」** —— 四页若同名，标签栏会并排出现四条「报单配置」而分不清谁是谁（本文件存在的理由）。⑥ **页头处理**：`Forecast.vue` 的 `.config-panel` 改名 `.rcfg-obj`，并**改挂「商品目标」成例**（`.target-panel :deep(.page-hd h2){display:none}` 同款）：只藏与标签同名的 `<h2>`、**保留副标题**（业务口径）。⑦ **验收**：`npm run build` 通过（`dist-v424`）；真机只读探针 `.workbuddy/tools/v424-config-split-probe.mjs`（本机 dev 5195 + demo 会话 tenant 10 / boss / 只读）**41 PASS / 0 FAIL**，含六组硬判据 —— 弹窗分列标题与四条顺序、**四条入口 rect 全在视口内且弹窗 `scrollH == clientH`（一屏可见、无需上翻）**、四条各自「URL `?tab=` ↔ 标签栏标题 ↔ 屏上内容」三面一致且**另三块不同屏**、各页控件留存（模板 5 标签 4 输入 / 提醒 1 开关 7 勾选 5 分块 / 自动化 2 段选 3 时刻 1 下拉）、**侧栏当前项高亮认新 tab 键**（`effTab` 归一未被拆页破坏）、**旧深链 `?tab=config` 仍落在报单对象**、全程零 console.error。⑧ **未做**（明确留档）：未提交、未部署（另有 `build/v425`、`build/v426` 两个并行会话在途）；手机抽屉仍按既有规则**摊平**展示（不带子分组标题，七条齐全、无失联）。 |
+| v454 | 2026-10-11 | **全站滚动条加粗 ＋ 新增 §1.8 滚动条基准**。① **起因**：老板反馈全站上下/左右滚动条太细不易点中，预报订单交叉表横向滚动尤其难拖。② **令牌**（新增于 `variables.css`，浅/深双主题同名覆盖）：`--scroll-thumb`（`#c2c2c9`/`#5b5b61`）、`--scroll-thumb-hover`（`#a3a3ac`/`#76767e`）、`--scroll-track`（`rgba(0,0,0,.05)`/`rgba(255,255,255,.07)`）。③ **全局规则**：`::-webkit-scrollbar{width:14px;height:14px}`、滑块圆角 7px、`*:scrollbar-color`（Firefox）；滑块比边框 `--bd` 更深保证对比度、轨道浅灰便于瞄准。④ **交叉表例外**（页面级，仅 `Forecast.vue`）：`.cross-viewport`/`.edit-grid-wrap` 横向 `height:18px`、滑块 `min-height:44px`、圆角 9px（含全屏模式选择器已覆盖）。⑤ 🔴 **继承规则**：滚动条是 `variables.css` 全局样式，**所有页面（含未来新页）默认自动继承**，不要在页面里写 `::-webkit-scrollbar` 覆盖全局；交叉表加高只限两个命名容器，不扩散为全局。⑥ **验收**：干净 HEAD 隔离构建（`git archive HEAD`）→ 生产部署（**不带 `--delete`**，回滚点 `index.html.bak-v454-20261011-125525`）→ 四项关键 assets（index.js / index.css / Forecast.js / Forecast.css）本地构建 md5 与生产在服 md5 **逐字节一致**，零夹带。 |
