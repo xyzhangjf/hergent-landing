@@ -143,16 +143,11 @@
       <div class="ipn-hd ipn-hd-flat ipn-hd-box">
         <div class="ipn-f ipn-f-sup">
           <label class="ipn-lb"><span class="ipn-req">*</span>{{ cfg.partnerLabel }}</label>
-          <!-- 🔴 这里用「搜索框 + 下拉」两件，**不**复用采购订单页那个 v428 组合框。
-              理由：4 个退货页（销售 2 + 采购 1 + 本页）统一用这一套，用户在同族页面间
-              不用换肌肉记忆；组合框那套还带键盘上下选 / 失焦还原等 80 行状态机，
-              在建单「退货」这个更短的流程里收益不抵复杂度。 -->
-          <input v-model.trim="supKw" class="input ipn-kw" placeholder="输入名称搜索供应商"
-                 @keyup.enter="loadSuppliers" />
-          <select v-model.number="form.supplier_id" class="input ipn-sel">
-            <option :value="0" disabled>请选择供应商</option>
-            <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
-          </select>
+          <!-- v428：供应商搜索 + 选择合一的组合框（单一来源：SupplierCombo.vue，
+               与采购订单页共用，保证两页供应商输入框外观 / 尺寸 / 占位 / 下拉 / 交互逐像素一致）。
+               本地按「名称 或 编号」模糊匹配（suppliers 已由 reinit 的 loadRefs 拉全），
+               不再单独打接口搜索。 -->
+          <SupplierCombo v-model="form.supplier_id" :suppliers="suppliers" placeholder="输入名称或编号搜索供应商" />
         </div>
         <div class="ipn-f">
           <label class="ipn-lb"><span class="ipn-req">*</span>{{ cfg.whLabel }}</label>
@@ -299,6 +294,7 @@ import { psiApi } from '../../../api/psi'
 import { toast } from '../../../store'
 import { fmtMoney, PO_STATUS, textOf } from '../../../constants/psiLabels'
 import { purchaseDocConfig, PURCHASE_DOC_TYPES } from './docTypes.js'
+import SupplierCombo from './SupplierCombo.vue'
 
 const props = defineProps({
   /* 单据类型键，见 `docTypes.js` 的 `PURCHASE_DOC_TYPES`。本内核只承载采购退货单。 */
@@ -319,7 +315,6 @@ const saving = ref(false)
 const suppliers = ref([])
 const warehouses = ref([])
 const products = ref([])
-const supKw = ref('')
 const prodKw = ref('')
 const reason = ref('')
 const form = ref({
@@ -432,15 +427,6 @@ function onPick (row) {
         不作为计算依据；用户按小单位口径自行核对（`cfg.tip` 里已写明）。 */
   if (!row.unit_price && Number(p.purchase_price || p.cost_price || 0) > 0) {
     row.unit_price = String(p.purchase_price || p.cost_price)
-  }
-}
-
-async function loadSuppliers () {
-  try {
-    const d = await psiApi.refs('suppliers', supKw.value, 200)
-    suppliers.value = d.suppliers || []
-  } catch (e) {
-    toast(e.message || '供应商读取失败', 'error')
   }
 }
 
@@ -792,27 +778,8 @@ watch([fromPo], () => { reinit() })
 /* 退货模式「原采购单」搜索框 + 下拉：仍是两框并列（与采购单供应商组合框不同，这里保留旧式）。
    v428 把采购单的供应商选择改成了组合框，但原采购单选择器不动。 */
 .ipn-sup-pick { display: flex; gap: 6px }
-/* v428：供应商组合框（搜索 + 选择 合一）。相对定位撑起下拉，下拉绝对定位盖在输入框下方。 */
-.ipn-sup-combo { position: relative; flex: 1; min-width: 0 }
-.ipn-sup-input { height: 32px; padding: 0 10px }
-.ipn-sup-list {
-  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
-  margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto;
-  background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-}
-.ipn-sup-list li {
-  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
-  border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--t1);
-}
-.ipn-sup-list li.active, .ipn-sup-list li:hover { background: var(--bg2) }
-.ipn-sup-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.ipn-sup-code { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
-.ipn-sup-empty {
-  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
-  padding: 10px; background: var(--bg); border: 1px solid var(--bd);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 12px; color: var(--t3);
-}
+/* v428：供应商组合框样式已抽到 SupplierCombo.vue（与采购订单页共用，单一来源）。
+   本页只保留框式头里对组合框的**布局**控制：`.ipn-hd-box .ipn-f .ipn-sup-combo` / `.ipn-sup-input`。 */
 /* v428：备注框与同排其它输入框同高（全局 .input 默认 40px，会高低不齐）。
    v438：`.ipn-f` 改横向后，备注框要自己**吃掉剩余宽度**（flex:1），否则只按
    原生 size 撑一小截，右半行留白。 */

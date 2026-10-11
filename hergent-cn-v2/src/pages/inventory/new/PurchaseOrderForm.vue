@@ -30,35 +30,9 @@
         <!-- v428：搜索框 + 下拉选择**合并为单个组合框**。输入即按「名称 或 编号」本地
              模糊匹配（编号来自 refs 新增的 `code` 字段），下拉直接点选；未从下拉点选时
              失焦自动还原成「当前已选供应商名」，不允许留下无对应供应商的自由文本。 -->
-        <div class="ipn-sup-combo" ref="supComboRef">
-          <input
-            ref="supInputRef"
-            v-model="supQuery"
-            class="input ipn-sup-input"
-            placeholder="输入名称或编号搜索供应商"
-            autocomplete="off"
-            @focus="onSupFocus"
-            @input="onSupInput"
-            @keydown.down.prevent="supMove(1)"
-            @keydown.up.prevent="supMove(-1)"
-            @keydown.enter.prevent="supEnter"
-            @keydown.esc.prevent="supClose"
-            @blur="onSupBlur"
-          />
-          <ul v-if="supOpen && supMatches.length" class="ipn-sup-list">
-            <li
-              v-for="(s, i) in supMatches"
-              :key="s.id"
-              :class="{ active: i === supActive }"
-              @mousedown.prevent="supChoose(s)"
-              @mouseenter="supActive = i"
-            >
-              <span class="ipn-sup-name">{{ s.name }}</span>
-              <span v-if="s.code" class="ipn-sup-code">{{ s.code }}</span>
-            </li>
-          </ul>
-          <div v-else-if="supOpen && supQuery && !supMatches.length" class="ipn-sup-empty">没有匹配的供应商</div>
-        </div>
+        <!-- v428：供应商搜索 + 选择合一的组合框（单一来源：SupplierCombo.vue，
+             与采购退货单页共用，保证两页供应商输入框外观 / 交互逐像素一致）。 -->
+        <SupplierCombo v-model="form.supplier_id" :suppliers="suppliers" />
       </div>
       <!-- v408（P0-5）经办人 / 部门 —— 对齐舟谱建单表单里的 `*经办人` / `*部门`。
            🔴 做成**选填**（舟谱那边标了 `*`＝必填）：存量单（舟谱导入 79 张）都没有这两个值，
@@ -466,6 +440,7 @@ import ColResizeHandle from '../../../components/ColResizeHandle.vue'
 /* v449：单据类型配置（标题 / 仓库标签 / 价格列名 / 列表落点）。**唯一来源** —— 页面里
    不再出现这些文案的第二份。 */
 import { purchaseDocConfig, PURCHASE_DOC_TYPES } from './docTypes.js'
+import SupplierCombo from './SupplierCombo.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -871,65 +846,6 @@ function pkEnter (row) {
 }
 function pkBlur (row) { row._popen = false; cellOff() }
 
-/* v428：供应商「搜索 + 选择」合一的组合框（combobox）。
-   🔴 不再是两个框：输入即按「名称 或 编号」本地模糊匹配，下拉直接点选。
-      编号来自后端 `refs` 新增的 `code` 字段（psi.py 投影已补 `code`）。
-   🔴 为什么本地过滤、不打接口：供应商全量已由 `loadRefs` 一次拉全（≤500），本地
-      `includes` 瞬时、无网络抖动；且编号搜索要靠前端拿到 `code` 才能做。
-   🔴 一旦开始打字 ⇒ 清空旧选择（`form.supplier_id=0`），validate() 才能如实反映
-      「还没选」；失焦若没点选则把输入框文字还原成「当前已选供应商名」，不允许留自由文本。
-   🔴 下拉最多列 50 条（500 全量里筛）；键盘 ↑/↓ 移动、Enter 选中、Esc 关闭。 */
-const supQuery = ref('')
-const supOpen = ref(false)
-const supActive = ref(0)
-const supComboRef = ref(null)
-const supInputRef = ref(null)
-
-const supMatches = computed(() => {
-  const q = supQuery.value.trim().toLowerCase()
-  const list = suppliers.value
-  if (!q) return list.slice(0, 50)
-  return list.filter(s =>
-    (s.name || '').toLowerCase().includes(q) ||
-    (s.code || '').toLowerCase().includes(q)
-  ).slice(0, 50)
-})
-
-/** 把输入框文字同步成「当前已选供应商名」—— 供 loadEdit / loadCopy 外部带单后回填。 */
-function syncSupQuery () {
-  const s = suppliers.value.find(x => x.id === Number(form.value.supplier_id))
-  supQuery.value = s ? s.name : ''
-}
-function onSupFocus () { supOpen.value = true; supActive.value = 0 }
-function onSupInput () {
-  // 打字 = 重新搜索 ⇒ 清掉旧选择，避免「框里写着 A、实际选着 B」的错配
-  form.value.supplier_id = 0
-  supOpen.value = true
-  supActive.value = 0
-}
-function onSupBlur () {
-  // 还原成当前已选供应商名（没选就空着），不让自由文本残留
-  supQuery.value = selSupplier.value ? selSupplier.value.name : ''
-  supOpen.value = false
-}
-function supMove (d) {
-  if (!supOpen.value) { supOpen.value = true; return }
-  const n = supMatches.value.length
-  if (!n) return
-  supActive.value = (supActive.value + d + n) % n
-}
-function supEnter () {
-  const s = supMatches.value[supActive.value]
-  if (s) supChoose(s)
-}
-function supChoose (s) {
-  if (!s) return
-  form.value.supplier_id = s.id
-  supQuery.value = s.name
-  supOpen.value = false
-}
-function supClose () { supOpen.value = false }
-
 /* ---- 复制：按原单带出商品与价格。**批次三列刻意不带** ----------------------------
    🔴 复制一张旧单去买新的一批货，批次号/到期日一定是**新的** —— 沿用旧值会让
       这批货在库里被并进上次那个批次（批次号相同 ⇒ `batch_in` 累加），库存与效期都错。
@@ -941,8 +857,8 @@ async function loadCopy (oid) {
     form.value.supplier_id = Number(o.supplier_id || 0)
     form.value.warehouse_id = Number(o.warehouse_id || 0)
     form.value.note = o.note || ''
-    // v428：把组合框输入框文字回填成已选供应商名（suppliers 已在 reinit 里 loadRefs 拉全）
-    syncSupQuery()
+    // v428：组合框输入框文字由 SupplierCombo 的 watch(modelValue) 自动回填成已选供应商名
+    //        （suppliers 已在 reinit 里 loadRefs 拉全）；这里只设 supplier_id 即可。
     // v408（P0-5）：经办人 / 部门是**业务归属**，复制一张单多半还是同一个人办、
     // 同一个部门 ⇒ 一并带出（可改）。⚠️ 用 `??` 不用 `||`：`department_id` 为 0
     // 是合法值（"不指定"），`||` 会把它当假值吞掉 —— 结果一样但语义会误导后来人。
@@ -989,8 +905,7 @@ async function loadEdit (oid) {
     }
     form.value.supplier_id = Number(o.supplier_id || 0)
     form.value.warehouse_id = Number(o.warehouse_id || 0)
-    // v428：把组合框输入框文字回填成已选供应商名
-    syncSupQuery()
+    // v428：组合框输入框文字由 SupplierCombo 的 watch(modelValue) 自动回填成已选供应商名
     form.value.order_date = o.order_date || todayISO()
     form.value.expected_date = o.expected_date || ''
     form.value.note = o.note || ''
@@ -1519,27 +1434,8 @@ watch([copyId], () => { reinit() })
 /* 退货模式「原采购单」搜索框 + 下拉：仍是两框并列（与采购单供应商组合框不同，这里保留旧式）。
    v428 把采购单的供应商选择改成了组合框，但原采购单选择器不动。 */
 .ipn-sup-pick { display: flex; gap: 6px }
-/* v428：供应商组合框（搜索 + 选择 合一）。相对定位撑起下拉，下拉绝对定位盖在输入框下方。 */
-.ipn-sup-combo { position: relative; flex: 1; min-width: 0 }
-.ipn-sup-input { height: 32px; padding: 0 10px }
-.ipn-sup-list {
-  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
-  margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto;
-  background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-}
-.ipn-sup-list li {
-  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
-  border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--t1);
-}
-.ipn-sup-list li.active, .ipn-sup-list li:hover { background: var(--bg2) }
-.ipn-sup-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.ipn-sup-code { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
-.ipn-sup-empty {
-  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
-  padding: 10px; background: var(--bg); border: 1px solid var(--bd);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 12px; color: var(--t3);
-}
+/* v428：供应商组合框样式已抽到 SupplierCombo.vue（与采购退货单页共用，单一来源）。
+   本页只保留框式头里对组合框的**布局**控制：`.ipn-hd-box .ipn-f .ipn-sup-combo` / `.ipn-sup-input`。 */
 /* v428：备注框与同排其它输入框同高（全局 .input 默认 40px，会高低不齐）。
    v438：`.ipn-f` 改横向后，备注框要自己**吃掉剩余宽度**（flex:1），否则只按
    原生 size 撑一小截，右半行留白。 */

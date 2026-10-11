@@ -1696,3 +1696,10 @@ v441 六界面探针里三条断言「退货模式**没有** `hd-box`」—— �
 | 3 | `?copy=<不存在单号>` 被前端静默吞掉 | 服务端 404，界面仍显示「复制采购单」空表单、零提示 ⇒ 用户分不清「原单为空」与「原单不存在」。探针相位 2 已留证。 |
 | 4 | 调拨单**没有列表页** | v449 只交付建单页；后端 `GET /api/psi/transfer-orders` 已通。 |
 | 5 | `GET /api/ui/col-prefs?page=<key>` 返回 400 | `ui-density` / `purchase-new` 等页面键，**既有**（探针清点发现）。 |
+
+## v450·供应商输入框单一来源（2026-10-11）
+- 🔴 **新建采购单 / 新建采购退货单（不挂原单模式）的供应商输入框现已同一枚组件 `src/pages/inventory/new/SupplierCombo.vue`**（v428 组合框：搜索 + 选择合一、本地按「名称或编号」模糊匹配、下拉点选、打字清空旧选、失焦还原已选名、键盘 ↑/↓/Enter/Esc）。
+- 改造前：采购退货单走「旧两框」写法（`supKw` 输入框 + `<select>` + `loadSuppliers` 打接口），与采购单的 v428 组合框**外观 / 占位 / 下拉 / 交互全不一致**。
+- 改造：抽 `SupplierCombo` 为单一来源，两页 `v-model="form.supplier_id" :suppliers="suppliers"` 共用；占位统一为 `输入名称或编号搜索供应商`；删掉退货页 `supKw`/`loadSuppliers` 与两页内联组合框代码 + 重复 CSS。
+- 🔴 **scoped CSS 坑（已提前排）**：父页 `.ipn-hd-box .ipn-f .ipn-sup-input { width:100% }` 是**父作用域**选择器，打不到组件内部 `<input>`（子元素只带组件自己的 `data-v`，不带父 `data-v`）⇒ 组件内 `.ipn-sup-input` 自写 `width:100%`，不再依赖父规则。组件根 `.ipn-sup-combo` 同时带父子两份 `data-v`，父的 `.ipn-hd-box .ipn-f .ipn-sup-combo { flex:1 }` 仍生效（撑满字段）。
+- 构建 `dist-v450sup`，生产 md5 逐字节一致；**未跑鉴权真机探针**（本机无 Chrome / 无 V449_TOKEN）—— 渲染一致性靠「单一来源 + 上述 scoped 分析」保证，建议老板肉眼核两页。
