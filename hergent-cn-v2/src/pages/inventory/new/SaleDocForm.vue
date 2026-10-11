@@ -24,7 +24,7 @@
          与订单是**同一个表单形态** ⇒ 一套模板 + 配置驱动，差异落在字段标签与提交端点上。
          ⚠️ 这一版**保留**的退单语义：库存回增、冲减客户应收、幂等键、退货原因。
             丢掉的只有「必须先挑原单」这一步（可退上限也就不存在了 —— 老板口径如此）。 -->
-    <div class="isn-hd isn-hd-flat isn-hd-box">
+    <div class="isn-hd isn-hd-flat hd-box">
       <div class="isn-f isn-f-cust">
         <label class="isn-lb"><span class="isn-req">*</span>客户</label>
         <!-- v450：客户选择换成与新建采购单「供应商」逐像素一致的 `CustomerCombo.vue`
@@ -535,26 +535,15 @@ onMounted(() => { reset(); loadRefs() })
    🔴 v448 起**退单模式也挂**（原先刻意不挂，理由已随本轮作废：那排有只读格 ——
       处理方式见下方 `.isn-ro` 的规则）。同一个建单页的两种模式 / 同一批退单入口
       必须是同一套界面。 */
-.isn-hd-box .isn-f {
-  flex-wrap: nowrap;
-  padding: 0 6px 0 10px; gap: 4px;
-  background: var(--bg3); border: 1px solid var(--bd); border-radius: var(--radius-sm);
-}
-.isn-hd-box .isn-f:focus-within { border-color: var(--p-dark); box-shadow: 0 0 0 3px var(--p-bg) }
-.isn-hd-box .isn-lb::after { content: '：' }
-.isn-hd-box .isn-f .input {
-  width: auto; min-width: 0; height: 30px; padding: 0 2px;
-  border: 0; border-radius: 0; background: transparent; box-shadow: none;
-}
-.isn-hd-box .isn-f .input:focus { border-color: transparent; box-shadow: none }
+/* v462：上述 5 条结构性规则已抽到全局 variables.css 的 `.hd-box`（单一来源），本页容器改挂 `.hd-box`，不再重复定义 */
 /* 框内控件宽度（覆盖全局 `.input{width:100%}`——见上）。
    112 / 120 是**实测**值：本租户仓名「东津仓」3 字、日期串「2026/10/10」
    都在此宽度内完整显示；再窄会把日期控件的日历图标挤掉。 */
-.isn-hd-box .isn-f .isn-kw { width: 112px }
-.isn-hd-box .isn-f .isn-sel { width: 112px }
-.isn-hd-box .isn-f .isn-date { width: 120px }
-.isn-hd-box .isn-f .isn-addr { width: 150px }
-.isn-hd-box .isn-f .isn-note-in { flex: 1; width: auto; min-width: 120px }
+.hd-box .isn-f .isn-kw { width: 112px }
+.hd-box .isn-f .isn-sel { width: 112px }
+.hd-box .isn-f .isn-date { width: 120px }
+.hd-box .isn-f .isn-addr { width: 150px }
+.hd-box .isn-f .isn-note-in { flex: 1; width: auto; min-width: 120px }
 
 /* 退货模式的说明（v448：由「原销售单」格内**移到表单头外**）。
    留在框里会把那一格撑到 120px 高、四个框永远不等高；移出后表单头 = 四个 32px 等高的框。
@@ -581,12 +570,12 @@ onMounted(() => { reset(); loadRefs() })
 /* 「原销售单」格宽度放宽到 420px：框式头有 16px 左右内距，且框内控件收掉了全局
    `.input` 的 `width:100%`，380px 装不下「标签 + 搜索框 + 下拉」。
    v448：说明行已挪到框外 ⇒ 这一格与其余三格同是 32px 等高，不再需要 `flex-wrap: wrap`。 */
-.isn-hd-box .isn-f-so { width: 420px }
-/* 🔴 框式头里 `.isn-hd-box .isn-f .input { width: auto }`（0,3,0）会**吃掉**
+.hd-box .isn-f-so { width: 420px }
+/* 🔴 框式头里 `.hd-box .isn-f .input { width: auto }`（0,3,0）会**吃掉**
    `.isn-kw{width:130px}` / `.isn-sel{min-width:140px}`（0,1,0）⇒ 显式写回。
    只限定在「原销售单」格：订单模式那排（含「出货方式」下拉 `.isn-sel`）一个都不动。 */
-.isn-hd-box .isn-f-so .isn-kw { width: 130px }
-.isn-hd-box .isn-f-so .isn-sel { width: 200px; min-width: 0 }
+.hd-box .isn-f-so .isn-kw { width: 130px }
+.hd-box .isn-f-so .isn-sel { width: 200px; min-width: 0 }
 /* 退货模式「原销售单」搜索框 + 下拉：仍是两框并列 */
 .isn-pick { display: flex; gap: 6px }
 .isn-kw { width: 130px; height: 32px }
@@ -709,26 +698,26 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
   .isn-pick { flex-direction: column }
   .isn-bottom { margin-inline: 0; padding-inline: 0 }
   /* 窄屏下框内控件要跟着撑满 —— 不写这几条，上面框式规则的定宽特异性更高
-     （`.isn-hd-box .isn-f .isn-sel` 0,3,0 > `.isn-sel` 0,1,0），会把媒体查询的
+     （`.hd-box .isn-f .isn-sel` 0,3,0 > `.isn-sel` 0,1,0），会把媒体查询的
      「全宽」顶掉，留下 112px 的短框 + 右半行空白。 */
-  .isn-hd-box .isn-f { width: 100% }
-  .isn-hd-box .isn-f .isn-sel,
-  .isn-hd-box .isn-f .isn-date,
-  .isn-hd-box .isn-f .isn-kw,
-  .isn-hd-box .isn-f .isn-addr { width: auto; flex: 1; min-width: 0 }
+  .hd-box .isn-f { width: 100% }
+  .hd-box .isn-f .isn-sel,
+  .hd-box .isn-f .isn-date,
+  .hd-box .isn-f .isn-kw,
+  .hd-box .isn-f .isn-addr { width: auto; flex: 1; min-width: 0 }
 }
 
 /* ══ v449（销售侧拆分）→ v450（客户选择统一组合框）════════════════════════════
-   框式头里 `.isn-hd-box .isn-f .input { width: auto }`（特异性 0,3,0 + scoped 属性）会**吃掉**
+   框式头里 `.hd-box .isn-f .input { width: auto }`（特异性 0,3,0 + scoped 属性）会**吃掉**
    组合框内部 `.ipn-cust-input { width:100% }`（0,1,0）—— 必须**显式写回**，否则组合框
    在框式头里会塌成 auto（与采购单页「供应商」同一个坑，见 `PurchaseOrderForm.vue`
-   的 `.ipn-hd-box .ipn-f .ipn-sup-combo/.ipn-sup-input`）。
+   的 `.hd-box .ipn-f .ipn-sup-combo/.ipn-sup-input`）。
    v450：客户格（自提订单/退单、车销订单/退单 四页共用本内核）换成 `CustomerCombo.vue`，
    与新建采购单「供应商」逐像素一致；这里照搬那两行父作用域规则（语义词 `sup→cust`）
    让组合框在框里撑满。
    ⚠️ `.isn-f-so`（原先给「原销售单」格的 420px）与 `.isn-tbl.isn-ret-tbl`（退货表
       min-width 900px）随 v449 撤掉「选原单 + 独立退货明细表」而**不再被使用**；
       规则留着不删（删它们不影响任何渲染，而留下能让人看出"这里曾经是什么"）。 */
-.isn-hd-box .isn-f .ipn-cust-combo { flex: 1; min-width: 0 }
-.isn-hd-box .isn-f .ipn-cust-input { width: 100% }
+.hd-box .isn-f .ipn-cust-combo { flex: 1; min-width: 0 }
+.hd-box .isn-f .ipn-cust-input { width: 100% }
 </style>

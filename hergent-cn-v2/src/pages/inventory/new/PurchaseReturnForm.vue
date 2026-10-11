@@ -21,7 +21,7 @@
          所以这里是「两条并存的通道」，由**入口**决定走哪条，不是让用户选。
          ════════════════════════════════════════════════════════════════════════ -->
     <template v-if="isAttached">
-      <div class="ipn-hd ipn-hd-flat ipn-hd-box">
+      <div class="ipn-hd ipn-hd-flat hd-box">
         <div class="ipn-f ipn-f-po">
           <label class="ipn-lb">原采购单</label>
           <!-- 🔴 这里**不给搜索 + 下拉**了：本模式只可能从某一张采购单的详情页进来
@@ -140,7 +140,7 @@
          提交走 `POST /api/psi/purchase-return-orders`（v449 新端点）。
          ════════════════════════════════════════════════════════════════════════ -->
     <template v-else>
-      <div class="ipn-hd ipn-hd-flat ipn-hd-box">
+      <div class="ipn-hd ipn-hd-flat hd-box">
         <div class="ipn-f ipn-f-sup">
           <label class="ipn-lb"><span class="ipn-req">*</span>{{ cfg.partnerLabel }}</label>
           <!-- v428：供应商搜索 + 选择合一的组合框（单一来源：SupplierCombo.vue，
@@ -726,28 +726,17 @@ watch([fromPo], () => { reinit() })
        必填的 `*` 是模板里的 `<span class="ipn-req">*</span>`（红字，在标签最前）。
    🔴 v448 起**退单模式也挂**（原先刻意不挂，理由已随本轮作废：那排有只读格 ——
       处理方式见下方 `.ipn-ro` 的框式覆盖规则）。同一个建单页的两种模式必须是同一套界面。 */
-.ipn-hd-box .ipn-f {
-  flex-wrap: nowrap;
-  padding: 0 6px 0 10px; gap: 4px;
-  background: var(--bg3); border: 1px solid var(--bd); border-radius: var(--radius-sm);
-}
-.ipn-hd-box .ipn-f:focus-within { border-color: var(--p-dark); box-shadow: 0 0 0 3px var(--p-bg) }
-.ipn-hd-box .ipn-lb::after { content: '：' }
-.ipn-hd-box .ipn-f .input {
-  width: auto; min-width: 0; height: 30px; padding: 0 2px;
-  border: 0; border-radius: 0; background: transparent; box-shadow: none;
-}
-.ipn-hd-box .ipn-f .input:focus { border-color: transparent; box-shadow: none }
+/* v462：上述 5 条结构性规则已抽到全局 variables.css 的 `.hd-box`（单一来源），本页容器改挂 `.hd-box`，不再重复定义 */
 /* 框内控件宽度（覆盖全局 `.input{width:100%}`——见上）。
    v439：112 / 120 是**实测**值 —— 本租户仓名「东津仓」3 字、日期串「2026/10/10」
    都在此宽度内完整显示；再窄会把日期控件的日历图标挤掉。 */
-.ipn-hd-box .ipn-f .ipn-sel { width: 112px }
-.ipn-hd-box .ipn-f .ipn-date { width: 120px }
-.ipn-hd-box .ipn-f .ipn-note-in { flex: 1; width: auto; min-width: 120px }
-.ipn-hd-box .ipn-f .ipn-cf-in { width: 160px }
+.hd-box .ipn-f .ipn-sel { width: 112px }
+.hd-box .ipn-f .ipn-date { width: 120px }
+.hd-box .ipn-f .ipn-note-in { flex: 1; width: auto; min-width: 120px }
+.hd-box .ipn-f .ipn-cf-in { width: 160px }
 /* 供应商组合框：撑满框内剩余宽度（`.ipn-sup-input` 已经是 100%，这里管住外层）*/
-.ipn-hd-box .ipn-f .ipn-sup-combo { flex: 1; min-width: 0 }
-.ipn-hd-box .ipn-f .ipn-sup-input { width: 100% }
+.hd-box .ipn-f .ipn-sup-combo { flex: 1; min-width: 0 }
+.hd-box .ipn-f .ipn-sup-input { width: 100% }
 
 /* v414（P2-6）退货模式：表单头下的说明（「只列出进过货的单」）—— 弱色小字。
    v438：`.ipn-f` 改横向排布后，这条说明要**独占一行**（flex-basis:100%），
@@ -777,12 +766,12 @@ watch([fromPo], () => { reinit() })
 /* 「原采购单」格宽度放宽到 420px：框式头有 16px 左右内距，且框内控件收掉了全局
    `.input` 的 `width:100%`（见下条），380px 装不下「标签 + 搜索框 + 下拉」。
    v448：说明行已挪到框外 ⇒ 这一格与其余三格同是 32px 等高，不再需要 `flex-wrap: wrap`。 */
-.ipn-hd-box .ipn-f-po { width: 420px }
-/* 🔴 框式头里 `.ipn-hd-box .ipn-f .input { width: auto }`（0,3,0）会**吃掉**
+.hd-box .ipn-f-po { width: 420px }
+/* 🔴 框式头里 `.hd-box .ipn-f .input { width: auto }`（0,3,0）会**吃掉**
    `.ipn-kw{width:130px}` / `.ipn-sel{min-width:140px}`（0,1,0）⇒ 显式写回。
    只限定在「原采购单」格：订单模式那排的控件宽一个都不动。 */
-.ipn-hd-box .ipn-f-po .ipn-kw { width: 130px }
-.ipn-hd-box .ipn-f-po .ipn-sel { width: 200px; min-width: 0 }
+.hd-box .ipn-f-po .ipn-kw { width: 130px }
+.hd-box .ipn-f-po .ipn-sel { width: 200px; min-width: 0 }
 /* 退货明细的工具条（全部可退 / 清零）：推到右侧，不与「退货明细」标题挤在一起 */
 .ipn-ret-quick { display: flex; gap: 8px; margin-left: auto }
 /* 退货明细列少（9 列 vs 采购单 15 列）⇒ 表宽比采购单小一档，别跟着留 1758px 的横向滚动。
@@ -802,7 +791,7 @@ watch([fromPo], () => { reinit() })
    v428 把采购单的供应商选择改成了组合框，但原采购单选择器不动。 */
 .ipn-sup-pick { display: flex; gap: 6px }
 /* v428：供应商组合框样式已抽到 SupplierCombo.vue（与采购订单页共用，单一来源）。
-   本页只保留框式头里对组合框的**布局**控制：`.ipn-hd-box .ipn-f .ipn-sup-combo` / `.ipn-sup-input`。 */
+   本页只保留框式头里对组合框的**布局**控制：`.hd-box .ipn-f .ipn-sup-combo` / `.ipn-sup-input`。 */
 /* v428：备注框与同排其它输入框同高（全局 .input 默认 40px，会高低不齐）。
    v438：`.ipn-f` 改横向后，备注框要自己**吃掉剩余宽度**（flex:1），否则只按
    原生 size 撑一小截，右半行留白。 */
@@ -1167,14 +1156,14 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
   .ipn-sup-pick { flex-direction: column }
   .ipn-bottom { margin-inline: 0; padding-inline: 0 }
   /* v439：窄屏下框内控件要跟着撑满 —— 不写这几条，上面 v439 的定宽规则
-     特异性更高（`.ipn-hd-box .ipn-f .ipn-sel` 0,3,0 > `.ipn-sel` 0,1,0），
+     特异性更高（`.hd-box .ipn-f .ipn-sel` 0,3,0 > `.ipn-sel` 0,1,0），
      会把媒体查询的「全宽」顶掉，留下 140px 的短框 + 右半行空白。 */
-  .ipn-hd-box .ipn-f { width: 100% }
-  .ipn-hd-box .ipn-f .ipn-sel,
-  .ipn-hd-box .ipn-f .ipn-date,
+  .hd-box .ipn-f { width: 100% }
+  .hd-box .ipn-f .ipn-sel,
+  .hd-box .ipn-f .ipn-date,
   /* v448：退货模式「原采购单」格新增了定宽 `.ipn-kw`（见上方框式覆盖规则），
      这里必须一起放开 —— 否则窄屏下它被 130px 钉死，右边留半行空白。 */
-  .ipn-hd-box .ipn-f .ipn-kw { width: auto; flex: 1; min-width: 0 }
+  .hd-box .ipn-f .ipn-kw { width: auto; flex: 1; min-width: 0 }
 }
 
 /* v442：本页的 `.col-gear-th` / `.col-cfg.gear` / `.col-menu*` scoped 样式块**已删除**。

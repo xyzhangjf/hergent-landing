@@ -308,6 +308,21 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 /* Firefox：给出可见颜色（宽度取浏览器默认 auto，比 thin 更粗） */
 *{scrollbar-color:var(--scroll-thumb) var(--scroll-track)}
 
+/* 框式表单头（v462）：采购/销售/退货/调拨 四内核共用 —— 从各页 .ipn-hd-box/.isn-hd-box 抽出的结构性规则（单一来源）。
+   子控件宽度规则（.ipn-sel/.isn-sel 等）仍按各自前缀留在各页 scoped 样式内，仅容器作用域从 .x-hd-box 改名 .hd-box。 */
+.hd-box .ipn-f,.hd-box .isn-f{
+  flex-wrap:nowrap;
+  padding:0 6px 0 10px;gap:4px;
+  background:var(--bg3);border:1px solid var(--bd);border-radius:var(--radius-sm);
+}
+.hd-box .ipn-f:focus-within,.hd-box .isn-f:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
+.hd-box .ipn-lb::after,.hd-box .isn-lb::after{content:'：'}
+.hd-box .ipn-f .input,.hd-box .isn-f .input{
+  width:auto;min-width:0;height:30px;padding:0 2px;
+  border:0;border-radius:0;background:transparent;box-shadow:none;
+}
+.hd-box .ipn-f .input:focus,.hd-box .isn-f .input:focus{border-color:transparent;box-shadow:none}
+
 /* 通用按钮 */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
