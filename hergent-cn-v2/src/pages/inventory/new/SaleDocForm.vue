@@ -27,12 +27,10 @@
     <div class="isn-hd isn-hd-flat isn-hd-box">
       <div class="isn-f isn-f-cust">
         <label class="isn-lb"><span class="isn-req">*</span>客户</label>
-        <input v-model.trim="custKw" class="input isn-kw" placeholder="输入名称搜索客户"
-               @keyup.enter="loadCustomers" />
-        <select v-model.number="form.customer_id" class="input isn-sel">
-          <option :value="0" disabled>请选择客户</option>
-          <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
+        <!-- v450：客户选择换成与新建采购单「供应商」逐像素一致的 `CustomerCombo.vue`
+             （搜索+选择合一的组合框：本地按名称/编号模糊匹配、下拉点选、打字清空旧选、
+             失焦还原已选名、键盘 ↑/↓/Enter/Esc）。仅语义词「供应商→客户」不同，交互照搬。 -->
+        <CustomerCombo v-model="form.customer_id" :customers="customers" />
       </div>
       <!-- 部门：舟谱建单头那一格 `*部门`。我方**选填**（后端 `sale_orders.department`
            是 TEXT，v88 迁移就有，但 v449 之前**没有任何调用方写过它** ⇒ 舟谱导入的
@@ -213,6 +211,7 @@ import { psiApi } from '../../../api/psi'
 import { toast } from '../../../store'
 import { fmtMoney } from '../../../constants/psiLabels'
 import { saleDocConfig } from './docTypes.js'
+import CustomerCombo from './CustomerCombo.vue'
 
 const props = defineProps({
   /* 类型键，见 `docTypes.js` 的 `SALE_DOC_TYPES`。 */
@@ -243,7 +242,6 @@ const products = ref([])
 const users = ref([])
 /* 部门下拉。⚠️ 后端读不到时**不返回这个键**（不是空数组）⇒ 一律 `Array.isArray` 判存在。 */
 const departments = ref([])
-const custKw = ref('')
 const prodKw = ref('')
 const reason = ref('')
 
@@ -305,15 +303,6 @@ function onPick (row) {
   row.unitFromBase = !ou && !!row.unit
   // 客户专属价由后端在建单时套用；这里只是给个**默认值**让用户少填一次（可改）。
   if (!row.unit_price && Number(p.sale_price || 0) > 0) row.unit_price = String(p.sale_price)
-}
-
-async function loadCustomers () {
-  try {
-    const d = await psiApi.refs('customers', custKw.value, 200)
-    customers.value = d.customers || []
-  } catch (e) {
-    toast(e.message || '客户读取失败', 'error')
-  }
 }
 
 function validate () {
@@ -446,7 +435,6 @@ function reset () {
     order_date: todayISO(), delivery_date: todayISO(), delivery_address: '', note: '',
     department: '',
   }
-  custKw.value = ''
   prodKw.value = ''
   reason.value = ''
   items.value = []
@@ -715,14 +703,17 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
   .isn-hd-box .isn-f .isn-addr { width: auto; flex: 1; min-width: 0 }
 }
 
-/* ══ v449（销售侧拆分）══════════════════════════════════════════════════════
-   框式头里 `.isn-hd-box .isn-f .input { width: auto }`（特异性 0,3,0）会**吃掉**
-   `.isn-kw { width:130px }` / `.isn-sel { min-width:140px }`（0,1,0）—— 必须**显式写回**，
-   否则「客户」格里的搜索框与下拉会塌成 auto（v448 在「原销售单」格上踩过同一个坑）。
-   `.isn-f-cust` = 客户格（搜索框 + 下拉两件）。
+/* ══ v449（销售侧拆分）→ v450（客户选择统一组合框）════════════════════════════
+   框式头里 `.isn-hd-box .isn-f .input { width: auto }`（特异性 0,3,0 + scoped 属性）会**吃掉**
+   组合框内部 `.ipn-cust-input { width:100% }`（0,1,0）—— 必须**显式写回**，否则组合框
+   在框式头里会塌成 auto（与采购单页「供应商」同一个坑，见 `PurchaseOrderForm.vue`
+   的 `.ipn-hd-box .ipn-f .ipn-sup-combo/.ipn-sup-input`）。
+   v450：客户格（自提订单/退单、车销订单/退单 四页共用本内核）换成 `CustomerCombo.vue`，
+   与新建采购单「供应商」逐像素一致；这里照搬那两行父作用域规则（语义词 `sup→cust`）
+   让组合框在框里撑满。
    ⚠️ `.isn-f-so`（原先给「原销售单」格的 420px）与 `.isn-tbl.isn-ret-tbl`（退货表
       min-width 900px）随 v449 撤掉「选原单 + 独立退货明细表」而**不再被使用**；
       规则留着不删（删它们不影响任何渲染，而留下能让人看出"这里曾经是什么"）。 */
-.isn-hd-box .isn-f-cust .isn-kw { width: 130px }
-.isn-hd-box .isn-f-cust .isn-sel { width: 200px; min-width: 0 }
+.isn-hd-box .isn-f .ipn-cust-combo { flex: 1; min-width: 0 }
+.isn-hd-box .isn-f .ipn-cust-input { width: 100% }
 </style>

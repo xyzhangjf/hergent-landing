@@ -1703,3 +1703,12 @@ v441 六界面探针里三条断言「退货模式**没有** `hd-box`」—— �
 - 改造：抽 `SupplierCombo` 为单一来源，两页 `v-model="form.supplier_id" :suppliers="suppliers"` 共用；占位统一为 `输入名称或编号搜索供应商`；删掉退货页 `supKw`/`loadSuppliers` 与两页内联组合框代码 + 重复 CSS。
 - 🔴 **scoped CSS 坑（已提前排）**：父页 `.ipn-hd-box .ipn-f .ipn-sup-input { width:100% }` 是**父作用域**选择器，打不到组件内部 `<input>`（子元素只带组件自己的 `data-v`，不带父 `data-v`）⇒ 组件内 `.ipn-sup-input` 自写 `width:100%`，不再依赖父规则。组件根 `.ipn-sup-combo` 同时带父子两份 `data-v`，父的 `.ipn-hd-box .ipn-f .ipn-sup-combo { flex:1 }` 仍生效（撑满字段）。
 - 构建 `dist-v450sup`，生产 md5 逐字节一致；**未跑鉴权真机探针**（本机无 Chrome / 无 V449_TOKEN）—— 渲染一致性靠「单一来源 + 上述 scoped 分析」保证，建议老板肉眼核两页。
+
+## v452·客户输入框单一来源（2026-10-11）
+- 🔴 **自提订单 / 自提退单 / 车销订单 / 车销退单 四页（共用 `SaleDocForm.vue` 内核）的「选择客户」现已与新建采购单「选择供应商」逐像素一致**：新增 `src/pages/inventory/new/CustomerCombo.vue`，为 `SupplierCombo.vue` 的**逐字镜像**（仅语义词 供应商→客户：`suppliers`→`customers`、占位 `输入名称或编号搜索客户`、空态 `没有匹配的客户`、类前缀 `ipn-sup-`→`ipn-cust-`；其余本地按名称/编号模糊匹配、下拉点选、打字清空旧选、失焦还原已选名、键盘 ↑/↓/Enter/Esc 全部照搬）。
+- 改造前：四页的「客户」走旧两框写法（`custKw` 输入框 + `<select>` + `loadCustomers` 打接口按关键词拉客户），与采购单供应商组合框**外观 / 占位 / 下拉 / 交互全不一致**。
+- 改造：四页经 `SaleDocForm.vue` 共用 `<CustomerCombo v-model="form.customer_id" :customers="customers" />`；删掉 `custKw` ref、`loadCustomers` 函数、`reset()` 里的 `custKw.value=''`、模板旧两框、以及 `.isn-hd-box .isn-f-cust .isn-kw/.isn-sel` 两条废宽规则。
+- 🔴 **scoped CSS 坑（同 v450）**：父页 `.isn-hd-box .isn-f .input { width:auto }`（0,3,0 + scoped 属性）会吃掉组件内 `.ipn-cust-input { width:100% }`（0,1,0）⇒ 在框式头里塌成 auto。照搬供应商做法，在 `SaleDocForm.vue` 加两条**父作用域**规则 `.isn-hd-box .isn-f .ipn-cust-combo { flex:1; min-width:0 }` / `.isn-hd-box .isn-f .ipn-cust-input { width:100% }`（写在 `.input` 剥离规则**之后** ⇒ 同权重靠顺序取胜，撑满字段）。组件内 `.ipn-cust-input` 仍自写 `width:100%` 兜底。
+- Vite 把 `CustomerCombo` **内联进 `SaleDocForm-CO-B98dS.js`**（唯一消费者，未拆独立 chunk）—— 四页经 `SaleDocForm` 间接拿到同一份组合框 ⇒ 四页客户选择行为/外观一致。
+- 构建 `dist-v450cust`，生产 md5 逐字节一致（`index.html`=31d22148…、`SaleDocForm-CO-B98dS.js`=205af093…）；**未跑鉴权真机 DOM 探针**（本机无 Chrome / 无 V449_TOKEN），一致性靠「单一来源 CustomerCombo = SupplierCombo 镜像 + 上述 scoped 分析」保证。
+- ⚠️ **校验/提交逻辑零改动**：`validate()` 仍 `if (!form.customer_id) return '请先选择客户'`、`selCustomer` 信息条（信用额度/账期/合计）不变、`loadRefs` 仍一次拉全客户（≤500）供组件本地过滤。

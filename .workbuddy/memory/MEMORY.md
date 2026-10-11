@@ -25,7 +25,10 @@
 🔴 `hergent-pre-launch-audit`｜`scoped-commit`｜`parallel-session-safety`｜`rebate-caliber-consistency`｜`chart-render-verify`｜`ui-copy-guard`｜`external-material-pdf`。
 
 ## 编号约定
-🔴 已用到 **v449**（号表 → **v450**）；号=全局共享序列⇒起号前必读 `topics/version-history.md` + 实搜未提交文件/两仓 `git log --all`/`git worktree list`。
+🔴 已用到 **v452**（号表 → **v453**）；号=全局共享序列⇒起号前必读 `topics/version-history.md` + 实搜未提交文件/两仓 `git log --all`/`git worktree list`。
+
+## 并行开发协议 → topics/parallel-dev-protocol.md
+🔴 多会话并行**总控基准**：**按缝切分 + 门口串行**。含「文件 ownership 总控表」「起号/提交/部署纪律」「红牌停手信号」。开工前先更新 ownership 表，部署前必占串行窗口。
 
 ## 主体/脱敏
 hergent-cn-v2(`laozhangai-product`)｜hergent-erp(FastAPI+SQLite)｜🔴 脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；仓内含生产凭据明文⇒远端须 private；PII 不落 `outputs/`。
