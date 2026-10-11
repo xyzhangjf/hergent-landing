@@ -370,7 +370,11 @@ const main = async () => {
       retData[c.name] = { apiN, before: m }
       console.log('\n  ▸ ' + c.name + '  接口候选=' + apiN + '  下拉=' + m.soOpts + ' 项（含 1 占位）')
 
-      ok(`C  ${n}：**没有**订单模式的字段框 \`.hd-box\`（分支真的换了）`, m.hdBox === false, 'hdBox=' + m.hdBox)
+      /* v448：退货模式**也**挂框式头了（原先刻意不挂）⇒ 不能再用「有没有 hd-box」证明
+         分支切换。这里只验「框式头在位」；**分支确实换了**由紧随其后的判据承担 ——
+         「原单选择器在位」（`.‹pfx›-pick` 是退货分支独有）。 */
+      ok(`C  ${n}：退货模式**也**是框式头（v448 起对齐 §R）`,
+        m.hdBox === true, 'hdBox=' + m.hdBox)
       ok(`C  ${n}：原单选择器在位、首项是禁用占位「请选择…」`,
         m.soSel === true && /^请选择/.test(m.soPh || ''), 'sel=' + m.soSel + ' ph=' + JSON.stringify(m.soPh))
       ok(`C  ${n}：读数条 3 项（可退商品 / 本次退货 / 退货金额）`, m.strip === true && m.stripN === 3,
@@ -457,9 +461,9 @@ const main = async () => {
     ok('E0  起点：自提订单（硬加载）', prev.title === '新建自提订单' && prev.hdBox === true,
       'title=' + prev.title + ' hdBox=' + prev.hdBox)
     const SEQ = [
-      { hash: '#/inventory/sale/new?type=self_pickup&kind=return', title: '新建自提退单', hdBox: false, retTbl: false },
+      { hash: '#/inventory/sale/new?type=self_pickup&kind=return', title: '新建自提退单', hdBox: true, retTbl: false },
       { hash: '#/inventory/sale/new?type=vehicle_sale&kind=order', title: '新建车销订单', hdBox: true, retTbl: false, type: 'vehicle_sale' },
-      { hash: '#/inventory/sale/new?type=vehicle_sale&kind=return', title: '新建车销退单', hdBox: false, retTbl: false },
+      { hash: '#/inventory/sale/new?type=vehicle_sale&kind=return', title: '新建车销退单', hdBox: true, retTbl: false },
       { hash: '#/inventory/sale/new?type=transfer&kind=order', title: '新建调拨单', hdBox: true, retTbl: false, type: 'transfer' },
       { hash: '#/inventory/sale/new?type=self_pickup&kind=order', title: '新建自提订单', hdBox: true, retTbl: false, type: 'self_pickup' },
     ]

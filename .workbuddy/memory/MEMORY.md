@@ -11,7 +11,7 @@
 - **部署** → `topics/deploy-ops.md`：🔴 后端 FLAT `/opt/hergent-erp/`、前端根 `/opt/hergent-cn-v2`；🔴 chunk 名什么都判不了(hash 级联两级)；🔴 生产 `assets/`=并集(绝不 `--delete`)；🔴 判据=生产 md5==HEAD md5 `§v378`；🔴 受控提交→`hergent-scoped-commit`。
 - **预报主表** → `topics/forecast-order-domain.md`：🔴 报单单位永不落大单位(真身 `products.order_unit`)；🔴 价格双轨(箱/小单位)；🔴 报单≠提货、`forecast_audit` 锚 `MAX(order_date)`；🔴 跨期复制只复制品清单⇒复 0 行传染 `§v282`；🔴 自动化死锁 `§v354`。
 - **返利/目标** → `topics/rebate-domain.md`｜**货损效期** → `topics/expiry-loss-domain.md`：🔴 适用月份只写到当月⇒次月规则静默消失 `§v376`；🔴 进得去≠读得到(403 被吞) `§v353`；🔴 到货停单⇒期次不自动建 `§v364`。
-- **进销存(v391→八页)** → `topics/inventory-psi.md`：🔴 八页继承父行门槛、`pages.js` 不改；🔴 入库批次三列不写⇒效期全空；🔴 FEFO 不足整体拒绝、`sale_order_deliver` 只收 `draft`；🔴 销售单无审核⇒已确认单发不了货 `§v412`；🔴 列设置上云、`extra` 空则不加列 `§v403`；🔴 积分已冻结(`credits.py` 别修)。
+- **进销存(v391→八页)** → `topics/inventory-psi.md`：🔴 八页继承父行门槛、`pages.js` 不改；🔴 入库批次三列不写⇒效期全空；🔴 FEFO 不足整体拒绝、`sale_order_deliver` 只收 `draft`；🔴 销售单无审核⇒已确认单发不了货 `§v412`；🔴 列设置上云、`extra` 空则不加列 `§v403`；🔴 **退单模式头 v448 起也套 `-hd-box`**（只读格进框成为"值"、`.‹pfx›-hint` 必须放框外、`-po` 格宽度要显式写回对抗 0,3,0）`§v448`；🔴 积分已冻结(`credits.py` 别修)。
 - **报单/小程序/品牌** → `topics/miniprogram-and-brand-data.md`：🔴 能登录≠能干活(角色缺 `data`⇒403)；🔴 均单提示四前置缺任一静默 `§v324`；🔴 v433/434 一键清空、跨 tab 复制经 `app.globalData._fsCopy`。
 - **副驾/AI** → `topics/ai-copilot.md`(`ai_tools`=只读 SQL、数量类先 GROUP BY)｜**通知没到人** → `topics/notification-center.md`(四层：跑没跑→内容→`enabled_channels(tid)`→出站)；🔴 标题拼内部租户名=文案泄漏、`event_key` 现算改名即静音 `§v351`。
 - **IM** → `topics/im-channels-v131.md`｜**业绩提成** → `topics/sales-reports-and-operator-attribution.md`｜**对账** → `topics/reconciliation-redo.md`。
@@ -26,7 +26,7 @@
 🔴 `hergent-pre-launch-audit`｜`hergent-external-material-pdf`｜`hergent-scoped-commit`｜`hergent-parallel-session-safety`｜`hergent-rebate-caliber-consistency`｜`hergent-chart-render-verify`｜`hergent-ui-copy-guard`。
 
 ## 编号约定
-🔴 已用到 **v447**（号表 → **v448**）；号=全局共享序列⇒起号前必读 `topics/version-history.md` + 实搜未提交文件/两仓 `git log --all`/`git worktree list`。
+🔴 已用到 **v448**（号表 → **v449**）；号=全局共享序列⇒起号前必读 `topics/version-history.md` + 实搜未提交文件/两仓 `git log --all`/`git worktree list`。
 
 ## 主体/脱敏
 hergent-cn-v2(`laozhangai-product`)｜hergent-erp(FastAPI+SQLite)｜🔴 脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；仓内含生产凭据明文⇒远端须 private；PII 不落 `outputs/`。

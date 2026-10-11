@@ -25,7 +25,10 @@
             要选原单），所以模板里是两条并列分支，而不是一堆 `v-if` 混在一张表上。
          退货**必须**挂一张原销售单 —— 后端 `return_order_create` 要用它取客户与仓库，
          所以这里不是"可选的关联"，而是整张单据的入口：没选原单就没有可退明细。 -->
-    <div v-if="isReturn" class="isn-hd isn-hd-flat">
+    <!-- v448：退单模式也挂 `isn-hd-box`（框式字段框），与订单模式逐像素同款 ——
+         原先刻意不挂（理由见 `.isn-hd-box` 样式块），导致「同一个建单页的两种模式 /
+         同一批退单入口」看起来是另一套界面。只读格（`.isn-ro`）随之进框。 -->
+    <div v-if="isReturn" class="isn-hd isn-hd-flat isn-hd-box">
       <div class="isn-f isn-f-so">
         <label class="isn-lb"><span class="isn-req">*</span>原销售单</label>
         <div class="isn-pick">
@@ -37,14 +40,6 @@
               {{ o.order_no || ('#' + o.id) }} · {{ o.customer_name || '—' }} · {{ soStatusText(o.status) }}
             </option>
           </select>
-        </div>
-        <div class="isn-hint">
-          只列出<b>发过货</b>的单（已发货 / 已签收）；草稿、待确认的还没有货可退，不在这里。
-          <template v-if="soLoading"> 正在读取…</template>
-          <template v-else>
-            已载入 <b>{{ soOptions.length }}</b> 张，共 {{ soTotal }} 张<template v-if="soTruncated">（只列最新的 {{ soOptions.length }} 张）</template>。
-            上面的输入框是在<b>已载入的这批</b>里按单号 / 客户名筛，不会重新查一遍。
-          </template>
         </div>
       </div>
       <div class="isn-f">
@@ -60,6 +55,19 @@
         <span class="isn-ro">{{ retOrder ? soStatusText(retOrder.status) : '—' }}</span>
       </div>
     </div>
+
+    <!-- v448：这句说明**挪到表单头外**。留在「原销售单」框里时，它把那一格撑到 120px 高
+         （其余三格只有 32px）⇒ 四个框永远不等高，框式头就不成"一行等高的框"了。
+         现在表单头 = 四个 32px 等高的框（= 规范 §R 的基准形态），说明落到头下方一行。
+         文案里"上面的输入框"仍然成立（表单头就在它上面）。 -->
+    <p v-if="isReturn" class="isn-hint">
+      只列出<b>发过货</b>的单（已发货 / 已签收）；草稿、待确认的还没有货可退，不在这里。
+      <template v-if="soLoading"> 正在读取…</template>
+      <template v-else>
+        已载入 <b>{{ soOptions.length }}</b> 张，共 {{ soTotal }} 张<template v-if="soTruncated">（只列最新的 {{ soOptions.length }} 张）</template>。
+        上面的输入框是在<b>已载入的这批</b>里按单号 / 客户名筛，不会重新查一遍。
+      </template>
+    </p>
 
     <!-- 退货模式的读数条（与销售单那条位置一致：合计在右） -->
     <div v-if="isReturn" class="isn-strip">
@@ -833,8 +841,9 @@ onMounted(async () => {
      · 聚焦高亮**上移到框**（`:focus-within`）；框内控件的 focus 环要关掉，
        否则一大一小两层环。
      · 标签的冒号（`*供应商：`）由 `::after` 生成，**不改模板文案**。
-   🔴 只挂 `isn-hd-box`（订单模式头）：退货模式那排有**只读格**（`.isn-ro` 的虚框是
-      "这格不可改"的既定语义），不在这里顺手改掉它的观感。 */
+   🔴 v448 起**退单模式也挂**（原先刻意不挂，理由已随本轮作废：那排有只读格 ——
+      处理方式见下方 `.isn-ro` 的规则）。同一个建单页的两种模式 / 同一批退单入口
+      必须是同一套界面。 */
 .isn-hd-box .isn-f {
   flex-wrap: nowrap;
   padding: 0 6px 0 10px; gap: 4px;
@@ -856,17 +865,37 @@ onMounted(async () => {
 .isn-hd-box .isn-f .isn-addr { width: 150px }
 .isn-hd-box .isn-f .isn-note-in { flex: 1; width: auto; min-width: 120px }
 
-/* 退货模式：表单头下的说明 —— 弱色小字，**独占一行**（`flex-basis:100%`），
-   否则会挤在标签与选择器之间，把那一格撑歪。 */
-.isn-hint { font-size: 11px; color: var(--t3); line-height: 1.4; max-width: 340px; flex-basis: 100% }
+/* 退货模式的说明（v448：由「原销售单」格内**移到表单头外**）。
+   留在框里会把那一格撑到 120px 高、四个框永远不等高；移出后表单头 = 四个 32px 等高的框。
+   `max-width` 由 340 放到 900：它现在占整行，不必再挤在 380px 的格里反复换行。
+   `-6px` 上边距抵掉表单头那 12px 的下外边距，让说明贴着它说明的那个头。 */
+.isn-hint { font-size: 11px; color: var(--t3); line-height: 1.4; max-width: 900px; margin: -6px 0 12px }
 .isn-hint b { color: var(--t2) }
-/* 只读值：与输入框**同高同位置**，看起来是表单里的一栏，但虚框表示不可改
-   （不要用 disabled input —— 那会让人以为能点开）。 */
+/* 只读值（退货模式的客户 / 退货仓库 / 原单状态）：由原单带出，**改不了**
+   （刻意不用 disabled input —— 那会让人以为点开能改）。
+   v448：退单头改框式后，它**进框成为「值」** —— 与框内控件同款（30px 高 / 无边框 /
+   无底色 / 内距 `0 2px` / 14px），只差不能输入。
+   🔴 撤掉原先的 `1px dashed + --bg2` 虚线框：那套「虚框 = 不可改」是**自造语义**，
+      放进框式头更像「少画了一半的框」。「不可改」交回它该在的地方 ——
+      点不动、没有下拉箭头。
+   `min-width: 112px` = §R.4 里下拉的宽度：**不取下限的话**格宽由值的长短决定
+   （没选原单时值是 `—`，整格只有 74px；一选中又被撑宽）⇒ 表头跟着来回跳。
+   `max-width` + 省略号：客户 / 仓名长度不可控，别让它把这一格撑爆。 */
 .isn-ro {
-  display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px;
-  min-width: 120px; border: 1px dashed var(--bd); border-radius: var(--radius-sm);
-  font-size: 13px; color: var(--t1); background: var(--bg2);
+  display: flex; align-items: center; height: 30px; padding: 0 2px;
+  min-width: 112px; max-width: 260px; flex: none;
+  font-size: 14px; color: var(--t1); background: transparent; border: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* 「原销售单」格宽度放宽到 420px：框式头有 16px 左右内距，且框内控件收掉了全局
+   `.input` 的 `width:100%`，380px 装不下「标签 + 搜索框 + 下拉」。
+   v448：说明行已挪到框外 ⇒ 这一格与其余三格同是 32px 等高，不再需要 `flex-wrap: wrap`。 */
+.isn-hd-box .isn-f-so { width: 420px }
+/* 🔴 框式头里 `.isn-hd-box .isn-f .input { width: auto }`（0,3,0）会**吃掉**
+   `.isn-kw{width:130px}` / `.isn-sel{min-width:140px}`（0,1,0）⇒ 显式写回。
+   只限定在「原销售单」格：订单模式那排（含「出货方式」下拉 `.isn-sel`）一个都不动。 */
+.isn-hd-box .isn-f-so .isn-kw { width: 130px }
+.isn-hd-box .isn-f-so .isn-sel { width: 200px; min-width: 0 }
 /* 退货模式「原销售单」搜索框 + 下拉：仍是两框并列 */
 .isn-pick { display: flex; gap: 6px }
 .isn-kw { width: 130px; height: 32px }
@@ -896,7 +925,12 @@ onMounted(async () => {
 /* 退货明细的工具条（全部可退 / 清零）：推到右侧，不与标题挤在一起 */
 .isn-ret-quick { display: flex; gap: 8px; margin-left: auto }
 /* 退货明细列少（9 列 vs 销售单 7 列）⇒ 表宽给个下限，避免列被压扁 */
-.isn-ret-tbl { min-width: 900px }
+/* 退货明细列少（9 列 vs 销售单 8 列 + 换算，表更窄）⇒ 表宽小一档。
+   🔴 v448 提权重到 `.isn-tbl.isn-ret-tbl`：原先写单类 `.isn-ret-tbl`（0,1,0），
+      在文件里排在 `.isn-tbl { min-width: 720px }`（同为 0,1,0）**之前** ⇒ 被静默吃掉，
+      退货表实际按 720px 渲染（"小一档"从未生效）。同权重靠顺序取胜是隐式的 ——
+      谁把这两条换个位置就又翻回去，故用两个类把意图写死。 */
+.isn-tbl.isn-ret-tbl { min-width: 900px }
 .isn-ret-unit { width: 72px; color: var(--t2) }
 /* 底部「退货原因」：吃掉左侧以外的空白，把右侧的保存按钮顶到最右 */
 .isn-ret-reason { flex: 1; min-width: 220px; height: 32px }

@@ -30,7 +30,10 @@
 
          退货**必须**挂一张原采购单 —— 后端 `purchase_return_create` 要用它取供应商与
          仓库，所以这里不是"可选的关联"，而是整张单据的入口：没选原单就没有可退明细。 -->
-    <div v-if="isReturn" class="ipn-hd ipn-hd-flat">
+    <!-- v448：退单模式也挂 `ipn-hd-box`（框式字段框），与订单模式逐像素同款 ——
+         原先刻意不挂（理由见 `.ipn-hd-box` 样式块），导致「同一个建单页的两种模式」
+         看起来是两套界面。只读格（`.ipn-ro`）随之进框，处理方式见该规则处。 -->
+    <div v-if="isReturn" class="ipn-hd ipn-hd-flat ipn-hd-box">
       <div class="ipn-f ipn-f-sup ipn-f-po">
         <label class="ipn-lb"><span class="ipn-req">*</span>原采购单</label>
         <div class="ipn-sup-pick">
@@ -42,9 +45,6 @@
               {{ o.order_no }} · {{ o.supplier_name || '—' }} · {{ poStatusText(o.status) }}
             </option>
           </select>
-        </div>
-        <div class="ipn-hint">
-          只列出<b>进过货</b>的单；草稿 / 待审批 / 已取消的没有货可退，不在这里。
         </div>
       </div>
       <div class="ipn-f">
@@ -60,6 +60,14 @@
         <span class="ipn-ro">{{ retOrder ? poStatusText(retOrder.status) : '—' }}</span>
       </div>
     </div>
+
+    <!-- v448：这句说明**挪到表单头外**。留在「原采购单」框里时，它把那一格撑到 78px 高
+         （其余三格只有 32px）⇒ 四个框永远不等高，框式头就不成"一行等高的框"了。
+         现在表单头 = 四个 32px 等高的框（= 规范 §R 的基准形态），说明落到头下方一行。
+         文案里"上面的输入框"仍然成立（表单头就在它上面）。 -->
+    <p v-if="isReturn" class="ipn-hint">
+      只列出<b>进过货</b>的单；草稿 / 待审批 / 已取消的没有货可退，不在这里。
+    </p>
 
     <!-- 退货模式的读数条（与采购单那条位置一致：合计 / 金额在左） -->
     <div v-if="isReturn" class="ipn-strip">
@@ -1703,8 +1711,8 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
        框内控件的 focus 环要关掉，否则一大一小两层环。
      · 标签的冒号（`*供应商：`）由 `::after` 生成，**不改模板文案**；
        必填的 `*` 是模板里的 `<span class="ipn-req">*</span>`（红字，在标签最前）。
-   🔴 只挂 `ipn-hd-box`（建单采购头 + 自定义字段行）：退货模式那排有**只读格**
-      （`.ipn-ro` 的虚框是"这格不可改"的既定语义），不在这里顺手改掉它的观感。 */
+   🔴 v448 起**退单模式也挂**（原先刻意不挂，理由已随本轮作废：那排有只读格 ——
+      处理方式见下方 `.ipn-ro` 的框式覆盖规则）。同一个建单页的两种模式必须是同一套界面。 */
 .ipn-hd-box .ipn-f {
   flex-wrap: nowrap;
   padding: 0 6px 0 10px; gap: 4px;
@@ -1731,19 +1739,45 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 /* v414（P2-6）退货模式：表单头下的说明（「只列出进过货的单」）—— 弱色小字。
    v438：`.ipn-f` 改横向排布后，这条说明要**独占一行**（flex-basis:100%），
    否则会挤在「原采购单」标签与选择器之间，把那一格撑歪。 */
-.ipn-hint { font-size: 11px; color: var(--t3); line-height: 1.4; max-width: 340px; flex-basis: 100% }
+/* 退货模式的说明（v448：由「原采购单」格内**移到表单头外**）。
+   留在框里会把那一格撑到 78px 高、四个框永远不等高；移出后表单头 = 四个 32px 等高的框。
+   `max-width` 由 340 放到 900：它现在占整行，不必再挤在 380px 的格里反复换行。
+   `-6px` 上边距用来抵掉表单头那 12px 的下外边距，让说明贴着它说明的那个头。 */
+.ipn-hint { font-size: 11px; color: var(--t3); line-height: 1.4; max-width: 900px; margin: -6px 0 12px }
 .ipn-hint b { color: var(--t2) }
-/* 只读值（退货模式的供应商 / 退货仓库 / 原单状态）：与输入框**同高同位置**，
-   看起来是表单里的一栏，但虚框表示不可改（不要用 disabled input —— 那会让人以为能点开） */
+/* 只读值（退货模式的供应商 / 退货仓库 / 原单状态）：由原单带出，**改不了**
+   （刻意不用 disabled input —— 那会让人以为点开能改）。
+   v448：退单头改框式后，它**进框成为「值」** —— 与框内控件同款（30px 高 / 无边框 /
+   无底色 / 内距 `0 2px` / 14px），只差不能输入。
+   🔴 撤掉原先的 `1px dashed + --bg2` 虚线框：那套「虚框 = 不可改」是**自造语义**
+      （虚框既不是禁用也不是可编辑的既有表示），放进框式头更像「少画了一半的框」。
+      不可改这件事交回它该在的地方 —— 点不动、没有下拉箭头。
+   `min-width: 112px` = §R.4 里下拉的宽度：**不取下限的话**格宽由值的长短决定
+   （没选原单时值是 `—`，整格只有 86px；一选中又被撑宽）⇒ 表头跟着来回跳。
+   `max-width` + 省略号：供应商 / 仓名的长度不可控，别让它把这一格撑爆。 */
 .ipn-ro {
-  display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px;
-  min-width: 120px; border: 1px dashed var(--bd); border-radius: var(--radius-sm);
-  font-size: 13px; color: var(--t1); background: var(--bg2);
+  display: flex; align-items: center; height: 30px; padding: 0 2px;
+  min-width: 112px; max-width: 260px; flex: none;
+  font-size: 14px; color: var(--t1); background: transparent; border: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* 「原采购单」格宽度放宽到 420px：框式头有 16px 左右内距，且框内控件收掉了全局
+   `.input` 的 `width:100%`（见下条），380px 装不下「标签 + 搜索框 + 下拉」。
+   v448：说明行已挪到框外 ⇒ 这一格与其余三格同是 32px 等高，不再需要 `flex-wrap: wrap`。 */
+.ipn-hd-box .ipn-f-po { width: 420px }
+/* 🔴 框式头里 `.ipn-hd-box .ipn-f .input { width: auto }`（0,3,0）会**吃掉**
+   `.ipn-kw{width:130px}` / `.ipn-sel{min-width:140px}`（0,1,0）⇒ 显式写回。
+   只限定在「原采购单」格：订单模式那排的控件宽一个都不动。 */
+.ipn-hd-box .ipn-f-po .ipn-kw { width: 130px }
+.ipn-hd-box .ipn-f-po .ipn-sel { width: 200px; min-width: 0 }
 /* 退货明细的工具条（全部可退 / 清零）：推到右侧，不与「退货明细」标题挤在一起 */
 .ipn-ret-quick { display: flex; gap: 8px; margin-left: auto }
-/* 退货明细列少（9 列 vs 采购单 15 列）⇒ 表宽比采购单小一档，别跟着留 1758px 的横向滚动 */
-.ipn-ret-tbl { min-width: 900px }
+/* 退货明细列少（9 列 vs 采购单 15 列）⇒ 表宽比采购单小一档，别跟着留 1758px 的横向滚动。
+   🔴 v448 提权重到 `.ipn-tbl.ipn-ret-tbl`：原先写单类 `.ipn-ret-tbl`（0,1,0），
+      在文件里排在 `.ipn-tbl { min-width: 1372px }`（同为 0,1,0）**之前** ⇒ 被静默吃掉，
+      退货表实际一直按 1372px 渲染（"列少一档"从未生效）。同权重靠顺序取胜是隐式的，
+      谁把这两条换个位置就又翻回去 —— 所以这里用两个类把意图写死。 */
+.ipn-tbl.ipn-ret-tbl { min-width: 900px }
 .ipn-ret-unit { width: 72px; color: var(--t2) }
 /* 底部「退货原因」：吃掉左侧以外的空白，把右侧的保存按钮顶到最右 */
 .ipn-ret-reason { flex: 1; min-width: 220px; height: 32px }
@@ -2143,7 +2177,10 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
      会把媒体查询的「全宽」顶掉，留下 140px 的短框 + 右半行空白。 */
   .ipn-hd-box .ipn-f { width: 100% }
   .ipn-hd-box .ipn-f .ipn-sel,
-  .ipn-hd-box .ipn-f .ipn-date { width: auto; flex: 1; min-width: 0 }
+  .ipn-hd-box .ipn-f .ipn-date,
+  /* v448：退货模式「原采购单」格新增了定宽 `.ipn-kw`（见上方框式覆盖规则），
+     这里必须一起放开 —— 否则窄屏下它被 130px 钉死，右边留半行空白。 */
+  .ipn-hd-box .ipn-f .ipn-kw { width: auto; flex: 1; min-width: 0 }
 }
 
 /* v442：本页的 `.col-gear-th` / `.col-cfg.gear` / `.col-menu*` scoped 样式块**已删除**。
