@@ -266,11 +266,20 @@
                   <span v-else>—</span>
                 </template>
                 <template v-else-if="MONEY_COLS.includes(c.key)">{{ moneyCell(r, c.key) }}</template>
+                <template v-else-if="c.key === 'expected_date'">
+                  <span>{{ cellVal(r, 'expected_date') }}</span><span v-if="isOverdue(r)" class="ipl-overdue" title="已超过预计到货日期仍未入库">逾期</span>
+                </template>
                 <template v-else>{{ cellVal(r, c.key) }}</template>
               </td>
               <td class="ipl-c-op">
-                <button class="ipl-link" :disabled="printing" @click="rowPrint(r)">打印</button>
-                <button class="ipl-link" :disabled="!canWrite" @click="rowCopy(r)">复制</button>
+                <div class="ipl-op">
+                  <button v-if="!isReturn && canWrite && isEditable(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="goEdit(r)">编辑</button>
+                  <button v-if="canWrite && canApprove(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="rowOp('approve', r)">审核</button>
+                  <button v-if="canWrite && canUnapprove(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="rowOp('unapprove', r)">反审核</button>
+                  <button v-if="canWrite && canCancel(r)" class="ipl-op-btn danger" :disabled="busyOp" @click.stop="rowOp('cancel', r)">取消</button>
+                  <button class="ipl-op-btn" :disabled="printing" @click.stop="rowPrint(r)">打印</button>
+                  <button class="ipl-op-btn" :disabled="!canWrite" @click.stop="rowCopy(r)">复制</button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -479,6 +488,7 @@ const batchOpen = ref(false)
 const lastBatch = ref(null)
 const printing = ref(false)
 const printOnly = ref(0)
+const busyOp = ref(false)
 const headChk = ref(null)
 
 const PAGE_SIZES = [20, 50, 100]
@@ -585,7 +595,7 @@ const canDelCol = computed(() => canDo('inventory', 'delete'))
    ⛔ 单据编号不可隐藏：藏了它这张表就只剩金额，无法定位单据（行操作「打印 / 复制」也随之失去锚点）。 */
 const CHK_W = 36
 const SEQ_W = 46
-const OP_W = 96
+const OP_W = 152
 const FIXED_FROZEN = 'order_no'
 const LEFT_CHK = 0
 const LEFT_SEQ = CHK_W                                  // 36
@@ -1121,24 +1131,42 @@ async function runDlg () {
   try { await fn() } finally { dlg.value.busy = false }
 }
 
+/* 单行 / 批量共用的执行体：调用后端批量端点（单张也走它，后端按 ids 数组处理）。
+   成功/失败逐单回报（失败带原因），刷新当前页让状态/计数/合计同步。 */
+async function runOp (op, ids, extra) {
+  const d = await psiApi.batchPurchases(op, ids, extra)
+  const fails = (d.results || []).filter(x => !x.ok)
+  lastBatch.value = { op_label: d.op_label || op, ok_count: Number(d.ok_count || 0),
+    fail_count: Number(d.fail_count || 0), fails }
+  if (d.fail_count) {
+    toast(`${d.op_label}：成功 ${d.ok_count} 张，失败 ${d.fail_count} 张 —— 失败原因见列表上方`, 'warn')
+  } else {
+    toast(`${d.op_label}完成：${d.ok_count} 张`, 'success')
+  }
+  await load(false)             // 状态/标记/备注都变了，重拉当前页（计数与合计一并更新）
+}
 async function runBatch (op, extra) {
   const ids = [...selected.value]
   if (!ids.length) { toast('请先勾选要操作的单据', 'warn'); return }
   try {
-    const d = await psiApi.batchPurchases(op, ids, extra)
-    const fails = (d.results || []).filter(x => !x.ok)
-    lastBatch.value = { op_label: d.op_label || op, ok_count: Number(d.ok_count || 0),
-      fail_count: Number(d.fail_count || 0), fails }
+    await runOp(op, ids, extra)
     dlg.value.open = false
-    if (d.fail_count) {
-      toast(`${d.op_label}：成功 ${d.ok_count} 张，失败 ${d.fail_count} 张 —— 失败原因见列表上方`, 'warn')
-    } else {
-      toast(`${d.op_label}完成：${d.ok_count} 张`, 'success')
-    }
-    await load(false)             // 状态/标记/备注都变了，重拉当前页（计数与合计一并更新）
   } catch (e) {
     toast(e.message || '批量操作失败', 'error')
   }
+}
+/** 单行操作（审核 / 反审核 / 取消）：复用同一后端端点，仅把 ids 换成单张。
+   取消是危险动作，先弹确认；`busyOp` 防连点。 */
+async function rowOp (op, r) {
+  if (!canWrite.value || busyOp.value) return
+  if (op === 'cancel') {
+    if (!r || !window.confirm(`确认取消单据 #${r.order_no || r.id}？\n\n`
+      + '已入库的单据不会被取消，需要走退货单。此操作不可恢复。')) return
+  }
+  busyOp.value = true
+  try { await runOp(op, [r.id], {}) }
+  catch (e) { toast(e.message || '操作失败', 'error') }
+  finally { busyOp.value = false }
 }
 
 /* ---- 打印（只记数 + 浏览器打印）----
@@ -1178,6 +1206,28 @@ async function rowPrint (r) {
   }
 }
 function rowCopy (r) { router.push(`/inventory/purchase/new?copy=${r.id}`) }
+
+/* —— 单行操作按钮的可见性（与后端 `purchase_order_list` 的状态机一致）——
+   🔴 可见性只由单据状态决定，不臆造后端不支持的动作。编辑入口仅采购订单有
+   （采购退货单按 docTypes 约定无编辑入口）。审核/反审核/取消两态都可用。 */
+function goEdit (r) { router.push(`/inventory/purchase/new?edit=${r.id}`) }
+const EDITABLE = ['draft', 'pending_approval', 'cancelled']
+function isEditable (r) { return !isReturn.value && EDITABLE.includes(r.status) }
+function canApprove (r) { return ['draft', 'pending_approval'].includes(r.status) }
+function canUnapprove (r) { return ['confirmed', 'partial'].includes(r.status) }
+function canCancel (r) { return !['cancelled', 'returned'].includes(r.status) }
+
+/* 到货逾期：有预计到货日期、且至今未入库（非已入库/已退货/已取消）⇒ 标「逾期」。
+   纯前端判断（expected_date 已随列表下发），不依赖后端新接口。 */
+function isOverdue (r) {
+  if (!r || !r.expected_date) return false
+  if (['received', 'returned', 'cancelled'].includes(r.status)) return false
+  const exp = String(r.expected_date).slice(0, 10)
+  if (!exp) return false
+  const t = new Date(); t.setHours(0, 0, 0, 0)
+  const d = new Date(exp + 'T00:00:00')
+  return !isNaN(d.getTime()) && d < t
+}
 
 /* ---- 导出（当前勾选，未勾选则导出当前页）----
    🔴 v408：导出**跟随列设置**（顺序 + 显隐）—— 表里看到什么就导出什么。
@@ -1292,6 +1342,26 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-link.strong { font-weight: 500; font-variant-numeric: tabular-nums }
 .ipl-link:disabled { color: var(--t3); cursor: default; text-decoration: none }
 .ipl-c-op .ipl-link + .ipl-link { margin-left: 10px }
+
+/* 单行操作按钮：复用 .ipl-link 的观感，但改为可换行排布的「操作组」
+   （一行容纳 编辑/审核/反审核/取消/打印/复制，不再只占两格）。 */
+.ipl-tbl td.ipl-c-op { white-space: normal; text-align: right }
+.ipl-op { display: flex; flex-wrap: wrap; gap: 2px 10px; justify-content: flex-end }
+.ipl-op-btn {
+  border: none; background: none; padding: 0; font-size: 13px;
+  color: var(--p-dark); cursor: pointer; white-space: nowrap;
+}
+.ipl-op-btn:hover { text-decoration: underline }
+.ipl-op-btn.danger { color: var(--danger-txt) }
+.ipl-op-btn.danger:hover { background: var(--danger-bg); text-decoration: none }
+.ipl-op-btn:disabled { color: var(--t3); cursor: default; text-decoration: none }
+
+/* 到货逾期标识（纯前端，基于 expected_date + 状态） */
+.ipl-overdue {
+  display: inline-block; margin-left: 6px; padding: 0 6px; height: 16px; line-height: 16px;
+  font-size: 11px; font-weight: 600; border-radius: 8px; vertical-align: middle;
+  color: var(--danger-txt); background: var(--danger-bg);
+}
 
 /* 批量结果条 */
 .ipl-result {
