@@ -1396,3 +1396,47 @@ H7/H8/H9 调 `doConfirm` 时 `busy` 已 false 且放行语句位置在前、H10/
 4. 🔴 **生产上可能没有任何活跃会话** ⇒ `v392-probe-tokens.py boss` 返回**空串**（不是报错）。
    本轮按 v441-prod-probe 的既定做法造临时 admin 会话（user_id=1，1 小时），**用完即删**（核对残留 0）。
 5. 采购页**默认态 tbody 里一个 input 都没有**（v417j「点哪格哪格才是输入框」）⇒ 探针必须先点一格再量。
+
+## v445 明细表输入框「边框三态」（默认无框 → hover 灰 → focus 青+发光）
+
+规范 §4.6；前端两页（`InvPurchaseNew.vue` / `InvSaleNew.vue`），**后端零改动**。
+v444 撤**底色** → v445 撤**边框**，两步合起来才是"默认态整行就是一排文字"。
+
+**三条硬约束**
+1. 只切 `border-color: transparent`，**不许 `border: none`** —— 边框宽度仍 1px ⇒ 盒模型不变 ⇒
+   零尺寸抖动、零行位移（`border:none` 会让输入框宽高各缩 2px，15 行 × 13 列一起跳）。
+2. focus 的"更清晰"靠**换色 + 外发光 box-shadow(3px)**，**不加粗 border**（加粗同样改盒模型）。
+3. hover 与 focus 必须**颜色 + 发光双重区分**，不能只靠深浅（深浅在深色/浅色两套主题下总有一边看不出来）。
+   ⇒ 悬浮**不给**外发光，发光是聚焦专属。
+
+**必须显式写回的三条例外**（🔴 这是本轮最容易漏、漏了就是静默失效的地方）
+- 「默认透明」选择器 `table.ipn-tbl .ipn-in:not(:focus)` 权重 **(0,3,1)**，**高于**全局
+  `.input.err` / `.input:disabled` / `.input[readonly]` 的 **(0,2,0)** ⇒ 不写回会把**校验红框
+  一起变没**。同理禁用/只读会浮框（等于承诺"这格能填"，点了没反应比没框更糟 —— 退货明细
+  `ret_qty` 绑了 `:disabled="!Number(row.returnable_qty)"`，是真实场景）。
+- `.err:focus` 的**红色外发光**也要写回，否则被上面的青色外发光（(0,3,1)）盖成"红框配青光"。
+
+**采购页 `.ipn-v`（v417j 文本态 span）用 `inset box-shadow` 画框**，不用 border：
+它是 span，加 border 会把行高顶起来（紧凑档 min-height:16 会切字）。
+⚠️ 采购页**点激活时行高 18px→22px** 是 v417j 既有设计（文本态矮 5px 是密度收益来源），
+**不是**本轮引入的抖动 ⇒ 零抖动的硬判据放在**销售页**（常驻 input，三态盒模型一字不变）。
+
+## v445 探针（.workbuddy/tools/v445-psi-border-e2e.mjs，31 PASS/0 FAIL/0 SKIP）与它踩的坑
+1. 🔴 **hover 必须用 CDP `Input.dispatchMouseEvent` 真实移动鼠标**：CSS `:hover` 不是能靠加 class
+   伪造的状态，用 JS 加 class 等于自己骗自己。
+2. 过渡有 `.2s` ⇒ 移动/聚焦后**等 450ms 再量**，否则量到过渡中间值（看着像"没实现"）。
+3. 🔴 **CSS 变量取出来是 hex（`#e5e5ea`），computed `border-color` 是 `rgb(...)`** ⇒ 必须换算后再比，
+   否则永远不等、误判成"边框没生效"。
+4. `let s1 = null` 提到 if 块外：`const s1` 声明在 `if (!hs.err) {...}` 里 ⇒ 块外引用
+   `ReferenceError: s1 is not defined`（本轮真的踩了，前半程 18 PASS 后崩在这里）。
+5. **生产取令牌本轮没写库**：`v392-probe-tokens.py` 那套要先有活跃会话，本轮查询发现生产**已有 3 个
+   活跃会话**（boss 就在里面）⇒ 直接只读取用，**没造临时会话、用完也不用删**（比 v444 干净）。
+   取法：`sessions JOIN users`，用 `/api/auth/permissions` + `/api/psi/meta` 双 200 验活。
+   🔴 `USER_JSON` 必须跟着改成 boss（`{id:2, username:'boss', role:'boss', roles:['boss']}`）——
+   boss 的 id 是 **2**（admin 才是 1）。
+
+**实测值（浅色主题）**：`--bd`=rgb(229,229,234)、`--p-dark`=rgb(8,145,178)、`--dan`=rgb(255,59,48)、
+`--p-bg`=rgba(6,182,212,.06)、`--dan-bg`=rgba(255,59,48,.1)。
+销售页三态 `82×28` 与行高 `62.59` 逐像素全等；采购页 `.ipn-v` `242.45×18` 与行高 `31.8` 全等。
+**部署**：`dist-v445`（`InvPurchaseNew-BMbMtrRh.js` / `InvSaleNew-B9ognmAC.js` / `index-DLj3qIQK.js`），
+生产 assets **1882 → 1928**（并集，无 `--delete`）。回归：v441 六界面 105 PASS/0 FAIL。

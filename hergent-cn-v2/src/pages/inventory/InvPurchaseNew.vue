@@ -1955,8 +1955,34 @@ table.ipn-tbl td.seq-cell { padding: 2px 4px }
    保留这条规则本身（而不是删掉整行）：全局 `.input{background:var(--bg3)}` 仍在，
    只有**显式写 transparent** 才能真的撤掉；删规则会让输入框退回全局的灰底 —— 那正是
    「以为改了、其实没改」的静默失效。 */
-table.ipn-tbl .ipn-in:not(:focus) { background: transparent }
-table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
+table.ipn-tbl .ipn-in:not(:focus) { background: transparent; border-color: transparent }
+/* ══ v445：明细表输入框「默认无框」 —— v444 撤底色之后的第二步 ══════════════════
+   默认态连淡描边一起撤掉（整行就是一排文字），**鼠标指到 / 键盘聚焦才浮出框**。
+   🔴 三条硬约束（改错任何一条都会留下难查的坑）：
+     ① 用 `border-color: transparent` 而**不是** `border: none`：边框宽度仍是 1px、
+        盒模型一字不变，hover ⇄ focus 切换时**零尺寸抖动、零行位移**。写 `border:none`
+        输入框会宽高各缩 2px，整行文字跟着跳一下 —— 在 15 行 × 13 列的网格里非常明显。
+     ② focus 的「更清晰」靠**品牌色描边 + 外发光 box-shadow** 叠加，**不加粗 border**
+        （加粗同样改盒模型 ⇒ 同样抖）。外发光不占布局，是这里唯一安全的加强手段。
+     ③ 「默认透明」的 specificity 是 (0,3,1)，会**压过**全局 `.input.err`(0,2,0) 的红色
+        校验框 ⇒ 错误提示会被一起变没（典型静默失效）。所以下面必须显式写回 `.err`、
+        `:disabled`、`[readonly]` 三条例外。 */
+/* 悬浮：淡灰描边，**整行一起浮起**（扫读时一眼知道"这一行能填"，与舟谱同感）。
+   🔴 必须排除 `:disabled` / `[readonly]`：退货明细的「退货数量」在无可退量时是
+   disabled，给它浮框等于承诺"这格能填"，点了没反应。 */
+table.ipn-tbl tr:hover .ipn-in:not(:focus):not(:disabled):not([readonly]) { border-color: var(--bd) }
+/* 聚焦：品牌青描边 + 淡青外发光（与全局 `.input:focus` 同一视觉语言，但把"正在输入
+   这一格"明确标出来 —— 与上面的灰色 hover 是**颜色 + 发光**双重区分，不是深浅之分）。 */
+table.ipn-tbl .ipn-in:focus { border-color: var(--p-dark); box-shadow: 0 0 0 3px var(--p-bg) }
+/* 禁用 / 只读：任何状态都不浮框（全局已给 `cursor:not-allowed` 与弱化字色来表意） */
+table.ipn-tbl .ipn-in:disabled,
+table.ipn-tbl .ipn-in[readonly] { border-color: transparent; box-shadow: none }
+/* 校验错误：红框**默认就要可见**（它是提示不是装饰），不能被"默认无框"吃掉。
+   🔴 连 `:focus` 的外发光也要写回红色 —— 否则上面那条青色发光 (0,3,1) 会盖住
+   全局 `.input.err:focus` (0,3,0) 的红发光，变成"红框 + 青光"的错配色。 */
+table.ipn-tbl .ipn-in.err,
+table.ipn-tbl .ipn-in.err:focus { border-color: var(--dan) }
+table.ipn-tbl .ipn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
 /* v417j 文本态（未激活的格）：行高比输入框态矮约 5px —— 这就是本档密度收益的来源。
    🔴 不加 `overflow:hidden + ellipsis` 会怎样：商品名一长就把列撑宽、把表格推出横向滚动，
       等于把刚省下的宽度又吐回去了。 */
@@ -1975,10 +2001,18 @@ table.ipn-tbl tr:hover .ipn-in:not(:focus) { border-color: var(--bd) }
   display: block; min-height: 18px; line-height: 18px; padding: 0 4px;
   font-size: 13px; color: var(--t1); cursor: text;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  /* v444：底色撤掉（原 `var(--bg3)`）；**描边保留** —— 它就是「这格能填」的标记。 */
-  background: transparent; box-shadow: inset 0 0 0 1px var(--bd); border-radius: var(--radius-sm);
+  /* v445：描边也撤掉（原 `inset 0 0 0 1px var(--bd)`）—— 与 `.ipn-in` 同一口径：
+     默认态**既无底也无框**，「这格能填」完全交给 hover / focus 反馈承载。 */
+  background: transparent; box-shadow: none; border-radius: var(--radius-sm);
 }
-.ipn-v:focus { outline: none; box-shadow: inset 0 0 0 1px var(--p-dark) }
+/* 悬浮：淡灰描边（与 `.ipn-in` 的行 hover 同步浮起，两种态视觉上必须一致 ——
+   否则同一行里 input 格有框、文本格没框，看着像两批控件）。 */
+table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
+/* 聚焦：品牌青描边 + 淡青外发光（比 hover 多一层外发光 ⇒ 区分靠"颜色 + 发光"两处，
+   不是靠深浅，深浅在深色/浅色两套主题下总有一边看不出来）。
+   🔴 描边仍用 `inset box-shadow` 不用真 border：`.ipn-v` 是 span，加 border 会把
+   行高顶起来（v417e 紧凑档 min-height:16 会切字），inset 描边不占盒模型 ⇒ 零抖动。 */
+.ipn-v:focus { outline: none; box-shadow: inset 0 0 0 1px var(--p-dark), 0 0 0 3px var(--p-bg) }
 .ipn-v.num { text-align: right; font-variant-numeric: tabular-nums }
 .ipn-v.is-ph { color: var(--t3) }
 /* v417k：本页自带更紧的行高（scoped specificity 高于全局），故紧凑档要**在这里**再收一档，

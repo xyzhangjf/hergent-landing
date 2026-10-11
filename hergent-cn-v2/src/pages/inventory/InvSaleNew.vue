@@ -913,7 +913,21 @@ onMounted(async () => {
       灰底 —— 那正是「样式看着改了、实际没生效」的静默失效。
    「哪里能填」改由 hover / focus 时的描边承载，不再靠底色。
    与采购建单页同一口径（`InvPurchaseNew.vue` 的 `.ipn-in` / `.ipn-v` 两条）。 */
-table.isn-tbl .isn-in:not(:focus) { background: transparent }
+table.isn-tbl .isn-in:not(:focus) { background: transparent; border-color: transparent }
+/* ══ v445：明细表输入框「默认无框」（与采购建单页 `.ipn-in` 完全同一口径）════════
+   🔴 只切 `border-color` 为 transparent、**不改 border 宽度**：盒模型一字不变 ⇒
+   hover ⇄ focus 切换零尺寸抖动、表格行零位移（写 `border:none` 会让输入框缩 2px）。
+   🔴 「默认透明」specificity (0,3,1) 会压过全局 `.input.err`(0,2,0) ⇒ 错误红框会被
+   一起变没，故 `.err` / `:disabled` / `[readonly]` 三条必须在下面显式写回。 */
+table.isn-tbl tr:hover .isn-in:not(:focus):not(:disabled):not([readonly]) { border-color: var(--bd) }
+table.isn-tbl .isn-in:focus { border-color: var(--p-dark); box-shadow: 0 0 0 3px var(--p-bg) }
+/* 禁用 / 只读：永不浮框（退货明细「退货数量」无可退量时是 disabled，浮框=假承诺） */
+table.isn-tbl .isn-in:disabled,
+table.isn-tbl .isn-in[readonly] { border-color: transparent; box-shadow: none }
+/* 校验错误：红框默认可见；focus 的外发光也要写回红色，否则被上面的青光盖住 */
+table.isn-tbl .isn-in.err,
+table.isn-tbl .isn-in.err:focus { border-color: var(--dan) }
+table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
 .isn-in.num { text-align: right; font-variant-numeric: tabular-nums }
 .isn-amt { font-variant-numeric: tabular-nums; white-space: nowrap }
 /* 换算 / 原单数量小字：它是解释不是数据，弱化色 + 不换行（不加 nowrap 会在窄列里
