@@ -274,23 +274,25 @@
                   <span class="cp-mdl-tx">{{ modelBadge.label }}</span>
                 </span>
                 <button class="cp-act" title="复制" @click="copyMsg(m)">
-                  <Icon name="copy" :size="15" />
+                  <Icon name="copy" :size="16" />
                 </button>
-                <button class="cp-act" :class="{ on: m.feedback === 'good' }" title="点赞" @click="toggleFeedback(m, 'good')">
-                  <Icon name="thumbs-up" :size="15" />
+                <!-- v451：点赞/点踩对齐 WorkBuddy 的 ratingButton —— 尺寸/圆角/hover 用 .cp-rate 覆盖，
+                     选中态靠「线框 → 实心」图标切换表达（不靠变色，同 WorkBuddy 的 RatingBar）。 -->
+                <button class="cp-act cp-rate" :class="{ on: m.feedback === 'good' }" :aria-pressed="m.feedback === 'good'" title="点赞" @click="toggleFeedback(m, 'good')">
+                  <Icon :name="m.feedback === 'good' ? 'thumbs-up-filled' : 'thumbs-up'" :size="16" />
                 </button>
-                <button class="cp-act" :class="{ on: m.feedback === 'bad' }" title="点踩" @click="toggleFeedback(m, 'bad')">
-                  <Icon name="thumbs-down" :size="15" />
+                <button class="cp-act cp-rate" :class="{ on: m.feedback === 'bad' }" :aria-pressed="m.feedback === 'bad'" title="点踩" @click="toggleFeedback(m, 'bad')">
+                  <Icon :name="m.feedback === 'bad' ? 'thumbs-down-filled' : 'thumbs-down'" :size="16" />
                 </button>
                 <button class="cp-act" :class="{ on: readingId === i }" :title="readingId === i ? '停止朗读' : '朗读'" @click="toggleRead(m, i)">
-                  <Icon :name="readingId === i ? 'volume-x' : 'volume-2'" :size="15" />
+                  <Icon :name="readingId === i ? 'volume-x' : 'volume-2'" :size="16" />
                 </button>
                 <button class="cp-act" title="重新生成" :disabled="store.chat.streaming" @click="regenerate(i)">
-                  <Icon name="rotate-ccw" :size="15" />
+                  <Icon name="rotate-ccw" :size="16" />
                 </button>
                 <div class="cp-share">
                   <button class="cp-act" :class="{ on: shareOpen === i }" title="分享" @click.stop="toggleShare(i)">
-                    <Icon name="share-2" :size="15" />
+                    <Icon name="share-2" :size="16" />
                   </button>
                   <div v-if="shareOpen === i" class="cp-share-menu" @click.stop>
                     <button @click="shareCopy(m, 'reply')">复制回复</button>
@@ -2788,14 +2790,26 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .md th{position:sticky;top:0;z-index:1}
 
 /* —— v423：单轮对话底部操作栏（对齐 WorkBuddy message-actions） —— */
-.cp-msg-actions{display:flex;align-items:center;gap:1px;margin-top:8px;padding-top:8px;border-top:1px solid var(--b2,#eef1f5)}
-.cp-mdl{display:inline-flex;align-items:center;gap:4px;margin-right:8px;padding:2px 8px;border:1px solid var(--b2,#e6e9ee);border-radius:999px;color:var(--t3,#94a3b8);font-size:11px;line-height:1.6;user-select:none;white-space:nowrap}
+/* v451：操作栏按钮规格对齐 WorkBuddy。实测依据（WorkBuddy.app → app.asar →
+   renderer/assets/lib-chat-ui-*.css，2026-10-11 逐条读出）——`_actionButton_` / `_ratingButton_` /
+   `_shareButton_` 三处是**同一套规格**：24×24、border:none、radius 8px、padding 0、font-size 0、
+   默认色 var(--cb-text-secondary)（浅色 #666）、hover **只换背景** var(--cb-bg-primary-hover)（#ebebeb）
+   且不改字色、:focus/:focus-visible outline:none、图标 16px、按钮间距 8px。
+   颜色映射到本仓 token：--cb-text-secondary → --t2；--cb-bg-primary-hover → --b2。 */
+.cp-msg-actions{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--b2,#eef1f5)}
+.cp-mdl{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid var(--b2,#e6e9ee);border-radius:999px;color:var(--t3,#94a3b8);font-size:11px;line-height:1.6;user-select:none;white-space:nowrap}
 .cp-mdl .ico{opacity:.85}
-.cp-act{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:none;background:transparent;border-radius:6px;color:var(--t2,#64748b);cursor:pointer;transition:background .12s,color .12s}
-.cp-act:hover{background:var(--b2,#eef1f5);color:var(--t1)}
-.cp-act:disabled{opacity:.4;cursor:not-allowed}
-.cp-act.on{color:var(--p,#3b82f6)}          /* 点赞/点踩/朗读/分享激活态：主色高亮 */
+.cp-act{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:none;background:transparent;border-radius:8px;color:var(--t2,#6e6e73);cursor:pointer;transition:background-color .15s}
+.cp-act:hover{background:var(--b2,#ebebeb)}
+.cp-act:focus,.cp-act:focus-visible{outline:none}
+.cp-act:disabled{opacity:.35;cursor:not-allowed}
+.cp-act.on{color:var(--p,#3b82f6)}          /* 朗读/分享激活态：主色高亮 */
 .cp-act.on:hover{background:transparent}
+/* 点赞/点踩：WorkBuddy 的选中态**不改颜色**，只把图标从线框换成实心（见 Icon.vue 的 FILL_ICONS），
+   所以这里把上面 .cp-act.on 的主色高亮「收回」为默认字色，并保留 hover 背景。
+   两条选择器各多一层类，特异性 (0,3,0)/(0,4,0) > 上面的 (0,2,0)/(0,3,0)，无需 !important。 */
+.cp-act.cp-rate.on{color:var(--t2,#6e6e73)}
+.cp-act.cp-rate.on:hover{background:var(--b2,#ebebeb)}
 .cp-share{position:relative;display:inline-flex}
 .cp-share-menu{position:absolute;bottom:36px;left:0;z-index:30;display:flex;flex-direction:column;min-width:124px;padding:4px;background:#fff;border:1px solid var(--b2,#e5e7eb);border-radius:10px;box-shadow:0 6px 20px rgba(15,23,42,.14)}
 .cp-share-menu button{text-align:left;padding:7px 10px;border:none;background:transparent;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer}
