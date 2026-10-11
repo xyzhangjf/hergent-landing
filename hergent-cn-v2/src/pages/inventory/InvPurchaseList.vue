@@ -143,6 +143,13 @@
           已选择 <b>{{ selected.length }}</b> 条
           <button v-if="selected.length" class="ipl-link" @click="selected = []">清空</button>
         </span>
+        <!-- v470：当前排序的**显式提示**。为什么必须有：排序键对应的列一旦被「列设置」
+             隐藏，表头指示器就跟着消失 —— 顺序的来历就变成**看不见的状态**，用户会以为
+             数据是乱的。这里常显「按 X 升/降序」，并给一键清除。 -->
+        <span v-if="sortKey" class="ipl-selinfo ipl-sortinfo">
+          按<b>{{ sortLabel }}</b>{{ sortDir === 'asc' ? '升序' : '降序' }}
+          <button class="ipl-link" @click="clearSort">清除</button>
+        </span>
       </div>
       <div class="ipl-tb-r">
         <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doExport">
@@ -219,6 +226,7 @@
             <col :style="{ width: CHK_W + 'px' }" />
             <col :style="{ width: SEQ_W + 'px' }" />
             <col v-for="c in visibleCols" :key="'cg-' + c.key" :style="{ width: c.w + 'px' }" />
+            <col v-if="!isReturn" :style="{ width: REL_W + 'px' }" />
             <col :style="{ width: OP_W + 'px' }" />
           </colgroup>
           <thead>
@@ -234,9 +242,16 @@
                   <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" /></button>
                 </div>
               </th>
+              <!-- v470：可排序列 = `SORTABLE`。点击三态循环（降 → 升 → 取消），
+                   由 `onSort()` 重新拉数据（**服务端排序**，不是前端对当前页重排）。
+                   指示器：未排 `sort`（中性 ⇅）→ 升 `arrow-up` → 降 `arrow-down`。 -->
               <th v-for="c in visibleCols" :key="c.key"
-                  :class="[{ num: c.num, 'ipl-clip': c.clip,
-                             'ipl-frz-key': c.key === FIXED_FROZEN, 'ipl-frz-x': isFrz2(c) }]">{{ c.label }}</th>
+                  :class="[{ num: c.num, 'ipl-clip': c.clip, 'ipl-sh': canSort(c),
+                             'ipl-frz-key': c.key === FIXED_FROZEN, 'ipl-frz-x': isFrz2(c) }]"
+                  :aria-sort="ariaSortOf(c)"
+                  :title="canSort(c) ? '点击排序：降序 → 升序 → 取消' : null"
+                  @click="onSort(c)">{{ c.label }}<span v-if="canSort(c)" class="ipl-sort-ind"><Icon :name="sortInd(c.key)" :size="12" /></span></th>
+              <th v-if="!isReturn" class="ipl-c-rel">关联</th>
               <th class="ipl-c-op">操作</th>
             </tr>
           </thead>
@@ -271,6 +286,21 @@
                 </template>
                 <template v-else>{{ cellVal(r, c.key) }}</template>
               </td>
+              <!-- v470 关联单据穿透。三个入口都**不新开页面**：
+                   「入库 / 货款」是采购单详情页的**派生 tab**（`?tab=`），
+                   「退货」是既有采购退货建单页（`?from_po=`，带服务端可退上限）。
+                   ⛔ 退货单视图（isReturn）不给这一列：那些行本身就是退货单，没有"下游"。 -->
+              <td v-if="!isReturn" class="ipl-c-rel">
+                <div class="ipl-rel">
+                  <a class="ipl-link" :href="'#/inventory/purchase/' + r.id + '?tab=inbound'"
+                     @click.prevent="go('/inventory/purchase/' + r.id + '?tab=inbound')">入库</a>
+                  <a class="ipl-link" :href="'#/inventory/purchase/' + r.id + '?tab=payments'"
+                     @click.prevent="go('/inventory/purchase/' + r.id + '?tab=payments')">货款</a>
+                  <a v-if="canReturnFrom(r)" class="ipl-link"
+                     :href="'#/inventory/purchase/return/new?from_po=' + r.id"
+                     @click.prevent="goReturn(r)">退货</a>
+                </div>
+              </td>
               <td class="ipl-c-op">
                 <div class="ipl-op">
                   <button v-if="!isReturn && canWrite && isEditable(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="goEdit(r)">编辑</button>
@@ -296,6 +326,7 @@
                 <template v-else-if="c.key === 'paid_amount'">¥{{ fmtMoney(summary.paid_amount) }}</template>
                 <template v-else-if="c.key === 'unpaid'">¥{{ fmtMoney(summary.unpaid_amount) }}</template>
               </td>
+              <td v-if="!isReturn" class="ipl-c-rel"></td>
               <td class="ipl-c-op"></td>
             </tr>
           </tfoot>
@@ -596,6 +627,9 @@ const canDelCol = computed(() => canDo('inventory', 'delete'))
 const CHK_W = 36
 const SEQ_W = 46
 const OP_W = 152
+/* v470 关联单据穿透列（**仅采购单视图**出现，退货单视图无"下游"可言）。
+   108px = 「入库 / 货款 / 退货」三个两字链接单行放下（含 10px 间隔）后的实测需要宽度。 */
+const REL_W = 108
 const FIXED_FROZEN = 'order_no'
 const LEFT_CHK = 0
 const LEFT_SEQ = CHK_W                                  // 36
@@ -961,8 +995,63 @@ function baseFilter () {
 }
 const f = ref(baseFilter())
 
-/* 入口切换（采购单 ⇄ 采购退货单）⇒ 筛选归零 + 重拉。 */
-watch(kind, () => { f.value = baseFilter(); load() })
+/* ══ v470：表头点击排序（**服务端排序**） ══════════════════════════════════
+   🔴 为什么必须走后端：本列表是**服务端分页**（`limit/offset`）。只对当前页这 20 行
+      重排，看着"排好了"，一翻页就散架（第 2 页是另一批 20 行，排序基准不同）。
+      ⇒ 排序键/方向必须作为查询参数传给 `/api/psi/purchase-orders`，由 SQL 排。
+   🔴 `SORTABLE` 必须与后端白名单 `_PO_ORDER_SQL` **逐键一致**：后端对未知键会
+      **静默回落 `po.id`** ⇒ 少登记一个键的症状是「这一列点了没反应、零报错」，最难查。
+      后端侧取证脚本：`.workbuddy/tools/v470-po-order-sort-probe.py`（27 键全部 SQL 合法）。
+   ⚠️ 排序**不进** `baseFilter()`：它是"怎么看"不是"看哪些" —— 混进筛选会被带进
+      `hasFilter`（空结果文案会答错）、也会被「清空筛选」清掉（用户等于白点）。 */
+const SORTABLE = new Set([
+  'order_no', 'supplier', 'supplier_category', 'qty', 'warehouse', 'status',
+  'total_amount', 'received_amount', 'paid_amount', 'unpaid', 'return_amount',
+  'audit_time', 'order_date', 'creator_name', 'note', 'print_count',
+  'source', 'created_at', 'expected_date', 'mark', 'received_at', 'auditor_name',
+  'last_op_at', 'last_op_name', 'last_print_at', 'last_print_name',
+])
+const sortKey = ref('')
+const sortDir = ref('')            // '' | 'asc' | 'desc'
+function canSort (c) { return SORTABLE.has(c.key) }
+/** 表头指示器图标：未排 → 中性 `sort`（提示"这列能点"）；已排 → 升/降箭头。 */
+function sortInd (key) {
+  if (sortKey.value !== key) return 'sort'
+  return sortDir.value === 'asc' ? 'arrow-up' : 'arrow-down'
+}
+function ariaSortOf (c) {
+  if (!canSort(c) || sortKey.value !== c.key) return 'none'
+  return sortDir.value === 'asc' ? 'ascending' : 'descending'
+}
+function onSort (c) {
+  if (!canSort(c)) return
+  // 三态循环：无 → 降序 → 升序 → 无。第一下给**降序**（与"新单在前"的默认观感一致）。
+  if (sortKey.value !== c.key) { sortKey.value = c.key; sortDir.value = 'desc' }
+  else if (sortDir.value === 'desc') { sortDir.value = 'asc' }
+  else { sortKey.value = ''; sortDir.value = '' }
+  load(true)
+}
+/* 排序提示里的列名。取不到（列定义被删/自定义列下线）就退回 key —— 不显示"未知列"这种
+   编出来的字，但也不能什么都不显示（那又成了看不见的状态）。 */
+const sortLabel = computed(() => {
+  const c = colMap.value[sortKey.value]
+  return c ? c.label : sortKey.value
+})
+function clearSort () {
+  sortKey.value = ''
+  sortDir.value = ''
+  load(true)
+}
+
+/* 入口切换（采购单 ⇄ 采购退货单）⇒ 筛选归零 + 重拉。**排序也一并归零**：
+   同一个排序键在两个视图里可能语义不同（「退货金额」只有退货视图有），
+   带着它过去会让新视图一进来就是一个"莫名其妙的顺序"。 */
+watch(kind, () => {
+  f.value = baseFilter()
+  sortKey.value = ''
+  sortDir.value = ''
+  load()
+})
 
 const canWrite = computed(() => canDo('inventory', 'create'))
 const allChecked = computed(() => rows.value.length > 0 && selected.value.length === rows.value.length)
@@ -1028,6 +1117,9 @@ async function load (resetPage = true) {
   try {
     const p = { ...f.value, limit: limit.value, offset: offset.value }
     if (excludeReturned.value) p.exclude_status = 'returned'
+    /* v470：排序（服务端）。未排序时这两个键**一个都不加** ⇒ 后端回落 `po.id DESC`，
+       与 v470 之前逐字一致（老行为零变化）。 */
+    if (sortKey.value) { p.order_by = sortKey.value; p.order_dir = sortDir.value }
     const d = await psiApi.listPurchases(p)
     rows.value = d.orders || []
     total.value = Number(d.total || 0)
@@ -1071,6 +1163,17 @@ function pickTab (v) { f.value.status = v; load() }
 function goNew () {
   router.push(legacyPurchasePath(isReturn.value ? 'return' : 'order'))
 }
+/* v470：列表行直达「关联单据」（**穿透**，不是新建）。
+   · 入库 / 货款 ⇒ 采购单**详情页的两个派生 tab**（`?tab=inbound|payments`）——
+     它们不是独立单据页，全系统没有"入库单详情路由"（见 InvPurchaseDetail 的 TABS）。
+   · 退货 ⇒ 既有采购退货建单页，`?from_po=` 让服务端给出**可退上限** ——
+     与详情页「转单为 → 采购退货」是**同一落点**（不另造第二条入口）。
+   ⚠️ 只有「已入库 / 部分入库」才给退货入口：其余状态原单没有可退量，
+      点进去只会看到一张空的可退表（造**假入口**是本仓反复付学费的那类）。
+      口径与后端 `returnable=True` 的 `status IN ('received','partial','returned')` 对齐
+      —— 这里不含 `returned`：已退完的单再点退货没有意义。 */
+function canReturnFrom (r) { return ['received', 'partial'].includes(r.status) }
+function goReturn (r) { router.push(legacyPurchasePath('return') + '?from_po=' + r.id) }
 function go (p) { router.push(p) }
 
 function goPage (p) {
@@ -1319,6 +1422,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-tb-l, .ipl-tb-r { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap }
 .ipl-selinfo { font-size: 12px; color: var(--t2) }
 .ipl-selinfo b { color: var(--p-ink); font-variant-numeric: tabular-nums }
+/* v470：排序提示（与「已选择 X 条」同族 —— 都是当前视图的**状态说明**，不是新按钮）。 */
+.ipl-sortinfo { display: inline-flex; align-items: center; gap: 4px }
 .ipl-mw { position: relative }
 .ipl-menu {
   position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-dropdown);
@@ -1388,6 +1493,17 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .ipl-c-chk { text-align: center }
 .ipl-c-op { text-align: right }
+/* ── v470：表头可排序。可点列手型 + hover 高亮；指示器（⇅ 中性 / ↑ 升 / ↓ 降）贴标签后。
+   中性图标常显是**有意的**：不给提示的话，用户根本不知道这几列能点（"功能做了但没人发现"）。 */
+.ipl-tbl thead th.ipl-sh { cursor: pointer; user-select: none }
+.ipl-tbl thead th.ipl-sh:hover { color: var(--p-ink) }
+.ipl-sort-ind { display: inline-flex; vertical-align: middle; margin-left: 3px; color: var(--t3) }
+.ipl-tbl thead th.ipl-sh:hover .ipl-sort-ind { color: var(--p-ink) }
+.ipl-sort-ind svg.ico { width: 12px; height: 12px }
+/* ── v470：关联单据穿透列（**仅采购单视图**）。三链接一行；窄了允许换行但不挤掉操作列。 */
+.ipl-c-rel { text-align: right }
+.ipl-tbl td.ipl-c-rel { white-space: normal }
+.ipl-rel { display: inline-flex; flex-wrap: wrap; gap: 2px 10px; justify-content: flex-end }
 .ipl-tbl td.num { font-variant-numeric: tabular-nums }
 
 /* ---- 左侧冻结区（UI-SPEC §2.6.1「二、」的冻结约定）----
@@ -1490,7 +1606,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   .ipl-card .table-wrap { overflow: visible; border: none; border-radius: 0 }
   /* 打印稿一次性摊开 ⇒ 回到 auto 布局按纸张宽度收缩；fixed + colgroup 硬宽会溢出纸面 */
   .ipl-tbl { min-width: 0; width: 100%; table-layout: auto }
-  .ipl-c-chk, .ipl-c-op { display: none !important }
+  .ipl-c-chk, .ipl-c-rel, .ipl-c-op { display: none !important }
   .ipl-tbl tfoot, .ipl-mark { display: none !important }
   /* 冻结是屏幕上的滚动手感；打印时 sticky 只会把几列叠在一起 */
   .ipl-frz-chk, .ipl-frz-seq, .ipl-frz-key, .ipl-frz-x, .ipl-frz-span2 { position: static !important }
