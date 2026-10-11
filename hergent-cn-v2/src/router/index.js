@@ -96,6 +96,17 @@ const VehicleSaleReturnNew = () => import('../pages/inventory/new/VehicleSaleRet
 const TransferOrderNew = () => import('../pages/inventory/new/TransferOrderNew.vue')
 const InvSaleDetail = () => import('../pages/inventory/InvSaleDetail.vue')
 const InvStock = () => import('../pages/inventory/InvStock.vue')
+/* v465d（2026-10-11 资金管理）：7 张报表页 + 参数化单据引擎（覆盖 17 类资金单据）。
+   🔴 单据引擎 FundsDoc 由 `meta.docType` 驱动（一处组件、28 页复用）；
+      报表页由 `meta.partyType` / `meta.costMode` 驱动。差异全在路由 meta，不在本文件写第二份。
+   🔴 可见性唯一真源在 `pages.js::PAGE_RULES`（窄名单 老板/管理员/会计），这里只负责路由可达。 */
+const FundsDoc = () => import('../pages/funds/FundsDoc.vue')
+const FundsStatement = () => import('../pages/funds/FundsStatement.vue')
+const FundsBalance = () => import('../pages/funds/FundsBalance.vue')
+const FundsFlow = () => import('../pages/funds/FundsFlow.vue')
+const FundsBankReconcile = () => import('../pages/funds/FundsBankReconcile.vue')
+const FundsStaffDebt = () => import('../pages/funds/FundsStaffDebt.vue')
+const FundsCost = () => import('../pages/funds/FundsCost.vue')
 // v265（2026-09-24）：ProductTarget 不再由路由懒加载 —— 它已收进 Forecast.vue 当第 4 个页签
 // （静态 import，随 Forecast chunk 一起加载）。旧路由 /product-target 保留 redirect，见下。
 
@@ -282,6 +293,44 @@ export const router = createRouter({
         { path: 'wh/strategy',    component: WhStrategy,     meta: { title: '出入库策略' } },
         { path: 'wh/other-in',    component: WhOtherIn,      meta: { title: '其它入库单' } },
         { path: 'wh/other-out',   component: WhOtherOut,     meta: { title: '其它出库单' } },
+
+        /* v465d（2026-10-11 资金管理）：**全部 28 页落真身**。
+           🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——
+              这 28 条已从 `PLACEHOLDER_PAGES` 移出，此处是它们唯一的真实路由；
+              `pages.js::PAGE_RULES` 另有正式登记行（**两处都要写**：缺路由 = 假封锁，
+              缺登记 = 假入口，见 docs/资金管理模块开发规范.md 的「落真身四步」）。
+           🔴 17 张单据页共用 `FundsDoc` 引擎，差异只由 `meta.docType` 注入；
+              报表页由 `meta.partyType` / `meta.costMode` 区分。
+           🔴 `meta.title` 与 `pages.js` 的 title、`Shell.vue` 的 name **必须逐字一致**
+              （它就是路由守卫「你没有访问「xxx」的权限」的文案，不一致 = 提示比界面早一代）。 */
+        { path: 'funds/receipt',            component: FundsDoc,       meta: { title: '收款单',     docType: 'receipt' } },
+        { path: 'funds/customer-fee',       component: FundsDoc,       meta: { title: '客户费用单', docType: 'customer-fee' } },
+        { path: 'funds/advance-receipt',    component: FundsDoc,       meta: { title: '预收款单',   docType: 'advance-receipt' } },
+        { path: 'funds/writeoff',           component: FundsDoc,       meta: { title: '核销单',     docType: 'writeoff' } },
+        { path: 'funds/sales-settle',       component: FundsDoc,       meta: { title: '销货结算单', docType: 'sales-settle' } },
+        { path: 'funds/return-settle',      component: FundsDoc,       meta: { title: '退货结算单', docType: 'return-settle' } },
+        { path: 'funds/other-receivable',   component: FundsDoc,       meta: { title: '其他应收单', docType: 'other-receivable' } },
+        { path: 'funds/payment',            component: FundsDoc,       meta: { title: '付款单',     docType: 'payment' } },
+        { path: 'funds/supplier-fee',       component: FundsDoc,       meta: { title: '供应商费用单', docType: 'supplier-fee' } },
+        { path: 'funds/advance-payment',    component: FundsDoc,       meta: { title: '预付款单',   docType: 'advance-payment' } },
+        { path: 'funds/purchase-settle',    component: FundsDoc,       meta: { title: '采购结算单', docType: 'purchase-settle' } },
+        { path: 'funds/internal-fee',       component: FundsDoc,       meta: { title: '内部费用单', docType: 'internal-fee' } },
+        { path: 'funds/internal-income',    component: FundsDoc,       meta: { title: '内部收入单', docType: 'internal-income' } },
+        { path: 'funds/transfer',           component: FundsDoc,       meta: { title: '资金调拨单', docType: 'transfer' } },
+        { path: 'funds/in-cost',            component: FundsDoc,       meta: { title: '入库核算单', docType: 'in-cost' } },
+        { path: 'funds/out-cost',           component: FundsDoc,       meta: { title: '出库核算单', docType: 'out-cost' } },
+        { path: 'funds/cost-adjust',        component: FundsDoc,       meta: { title: '成本调价单', docType: 'cost-adjust' } },
+        { path: 'funds/customer-statement', component: FundsStatement, meta: { title: '客户对账单',     partyType: 'customer' } },
+        { path: 'funds/supplier-stmt',      component: FundsStatement, meta: { title: '供应商对账单',   partyType: 'supplier' } },
+        { path: 'funds/supplier-stmt-detail', component: FundsStatement, meta: { title: '供应商对账明细', partyType: 'supplier' } },
+        { path: 'funds/balance',            component: FundsBalance,   meta: { title: '资金余额表' } },
+        { path: 'funds/flow',              component: FundsFlow,      meta: { title: '资金流水账' } },
+        { path: 'funds/bank-reconcile',    component: FundsBankReconcile, meta: { title: '银行流水对账' } },
+        { path: 'funds/staff-debt',        component: FundsStaffDebt, meta: { title: '员工欠款' } },
+        { path: 'funds/cost-query',        component: FundsCost,      meta: { title: '库存成本查询', costMode: 'query' } },
+        { path: 'funds/cost-summary',      component: FundsCost,      meta: { title: '库存成本汇总', costMode: 'summary' } },
+        { path: 'funds/qty-cost',          component: FundsCost,      meta: { title: '数量成本价',   costMode: 'qty' } },
+        { path: 'funds/cost-abnormal',     component: FundsCost,      meta: { title: '成本异常调整', costMode: 'abnormal' } },
 
         /* v465（2026-10-11）：四新区（仓配管理 / 资金管理 / 数据报表 / 市场营销）的
            **占位页路由** —— 按 `pages.js::PLACEHOLDER_PAGES` 数据驱动批量挂载，

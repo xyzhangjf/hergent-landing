@@ -406,7 +406,44 @@ export const PAGE_RULES = {
   '/print':           { title: '打印',         module: null,        roles: ADMIN_ROLES, cat: 'admin' },
   // 舟谱单据导入：名单来自后端 `zhoupu_documents.py::_guard()`（AST 护栏逐项比对）。
   // 侧栏已撤掉入口（迁进 AI 引擎卡片），但深链与卡片都走本行。
-  '/zhoupu-import':   { title: '舟谱单据导入', module: null,        roles: ZHOUPU_IMPORT_ROLES, cat: 'admin' }
+  '/zhoupu-import':   { title: '舟谱单据导入', module: null,        roles: ZHOUPU_IMPORT_ROLES, cat: 'admin' },
+
+  /* —— v465d（2026-10-11 资金管理）：28 页**落真身**的正式登记行 ——
+     🔴 这 28 条已从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 覆盖本行、且失去窄名单）。
+     🔴 轴：`[...ADMIN_ROLES, 'accountant']`（钱只给老板/管理员/会计，对齐 `/archive/prices`）；
+        `cat: 'admin'`。`title` 必须与 `router/index.js` 的 `meta.title`、`Shell.vue` 的 name 逐字一致。
+     🔴 `module: null` = 当前资金管理后端（`server/funds_api.py`）**尚未并入生产权限域**
+        （本地自测 + 提交待命状态，按用户要求不部署）。**部署时**后端 `app.include_router(funds_router)`
+        并注册 `funds` 模块后，把本段 `module` 翻成 `'funds'` 即可（一字改动、无需动页面）；
+        届时 `canModule('funds')` 为真、窄名单与模块双轴同时生效。 */
+  '/funds/receipt':            { title: '收款单',     module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/customer-fee':       { title: '客户费用单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/advance-receipt':    { title: '预收款单',   module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/writeoff':           { title: '核销单',     module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/sales-settle':       { title: '销货结算单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/return-settle':      { title: '退货结算单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/other-receivable':   { title: '其他应收单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/customer-statement': { title: '客户对账单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/payment':            { title: '付款单',     module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/supplier-fee':       { title: '供应商费用单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/advance-payment':    { title: '预付款单',   module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/purchase-settle':    { title: '采购结算单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/supplier-stmt-detail': { title: '供应商对账明细', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/supplier-stmt':      { title: '供应商对账单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/internal-fee':       { title: '内部费用单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/internal-income':    { title: '内部收入单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/transfer':           { title: '资金调拨单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/balance':            { title: '资金余额表', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/flow':              { title: '资金流水账', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/bank-reconcile':     { title: '银行流水对账', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/staff-debt':         { title: '员工欠款',   module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/cost-query':        { title: '库存成本查询', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/cost-summary':      { title: '库存成本汇总', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/in-cost':            { title: '入库核算单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/out-cost':           { title: '出库核算单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/qty-cost':           { title: '数量成本价', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/cost-adjust':        { title: '成本调价单', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
+  '/funds/cost-abnormal':      { title: '成本异常调整', module: null, roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' }
 }
 
 /* ---------------------------------------------------------------------------
@@ -454,35 +491,6 @@ export const PLACEHOLDER_PAGES = [
      （见该对象里的 v465c 段）。落真身四步见 docs/仓配模块开发规范.md —— 移出得干净，
      否则本表合并循环会用 `BIZ_ROLES + module:null` **覆盖**正式行的 `module:'stock'`。 */
 
-  /* —— 资金管理（/funds/*，窄名单：老板/管理员/会计）—— */
-  { path: '/funds/receipt',             title: '收款单',           area: '资金管理' },
-  { path: '/funds/customer-fee',        title: '客户费用单',       area: '资金管理' },
-  { path: '/funds/advance-receipt',     title: '预收款单',         area: '资金管理' },
-  { path: '/funds/writeoff',            title: '核销单',           area: '资金管理' },
-  { path: '/funds/sales-settle',        title: '销货结算单',       area: '资金管理' },
-  { path: '/funds/return-settle',       title: '退货结算单',       area: '资金管理' },
-  { path: '/funds/other-receivable',    title: '其他应收单',       area: '资金管理' },
-  { path: '/funds/customer-statement',  title: '客户对账单',       area: '资金管理' },
-  { path: '/funds/payment',             title: '付款单',           area: '资金管理' },
-  { path: '/funds/supplier-fee',        title: '供应商费用单',     area: '资金管理' },
-  { path: '/funds/advance-payment',     title: '预付款单',         area: '资金管理' },
-  { path: '/funds/purchase-settle',     title: '采购结算单',       area: '资金管理' },
-  { path: '/funds/supplier-stmt-detail', title: '供应商对账明细',  area: '资金管理' },
-  { path: '/funds/supplier-stmt',       title: '供应商对账单',     area: '资金管理' },
-  { path: '/funds/internal-fee',        title: '内部费用单',       area: '资金管理' },
-  { path: '/funds/internal-income',     title: '内部收入单',       area: '资金管理' },
-  { path: '/funds/transfer',            title: '资金调拨单',       area: '资金管理' },
-  { path: '/funds/balance',             title: '资金余额表',       area: '资金管理' },
-  { path: '/funds/flow',                title: '资金流水账',       area: '资金管理' },
-  { path: '/funds/bank-reconcile',      title: '银行流水对账',     area: '资金管理' },
-  { path: '/funds/staff-debt',          title: '员工欠款',         area: '资金管理' },
-  { path: '/funds/cost-query',          title: '库存成本查询',     area: '资金管理' },
-  { path: '/funds/cost-summary',        title: '库存成本汇总',     area: '资金管理' },
-  { path: '/funds/in-cost',             title: '入库核算单',       area: '资金管理' },
-  { path: '/funds/out-cost',            title: '出库核算单',       area: '资金管理' },
-  { path: '/funds/qty-cost',            title: '数量成本价',       area: '资金管理' },
-  { path: '/funds/cost-adjust',         title: '成本调价单',       area: '资金管理' },
-  { path: '/funds/cost-abnormal',       title: '成本异常调整',     area: '资金管理' },
 
   /* —— 数据报表（/reports/*）—— */
   { path: '/reports/sales-order',    title: '销售订单汇总表',   area: '数据报表' },
@@ -542,14 +550,17 @@ export const PLACEHOLDER_PAGES = [
   { path: '/mkt/buy-gift',            title: '买赠随单返利',    area: '市场营销' }
 ]
 
-/* 合并进 PAGE_RULES（必须在 `PAGE_PATHS` 计算之前 ⇒ 全量可见；见上表头注释）。 */
+/* 合并进 PAGE_RULES（必须在 `PAGE_PATHS` 计算之前 ⇒ 全量可见；见上表头注释）。
+   🔴 v465d：原先的 `money = p.path.startsWith('/funds/')` 分支**已删除** ——
+      28 条 `/funds/*` 已全部落真身、改在 `PAGE_RULES` 写正式行 ⇒ 本表现在只剩
+      仓配 / 数据报表 / 市场营销三区（一律 `BIZ_ROLES` + `cat:'biz'`）。
+      保留那段"钱更窄"的分支会变成**没有任何一行走得到的死代码**，且误导后人。 */
 for (const p of PLACEHOLDER_PAGES) {
-  const money = p.path.startsWith('/funds/')
   PAGE_RULES[p.path] = {
     title: p.title,
     module: null,                                   // 占位页不写数据 ⇒ 只读角色轴（落真身时必须先配真实模块键）
-    roles: money ? [...ADMIN_ROLES, 'accountant'] : BIZ_ROLES,
-    cat: money ? 'admin' : 'biz'
+    roles: BIZ_ROLES,
+    cat: 'biz'
   }
 }
 
