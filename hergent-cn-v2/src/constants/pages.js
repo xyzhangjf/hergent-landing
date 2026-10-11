@@ -381,6 +381,150 @@ export const PAGE_RULES = {
   '/zhoupu-import':   { title: '舟谱单据导入', module: null,        roles: ZHOUPU_IMPORT_ROLES, cat: 'admin' }
 }
 
+/* ---------------------------------------------------------------------------
+   v465（2026-10-11）：四新区**占位页注册表**（数据驱动，99 页一张表）
+   ---------------------------------------------------------------------------
+   背景：老板要求按舟谱形态在侧栏复刻「仓配管理 / 资金管理 / 数据报表 / 市场营销」
+   四个职能区弹窗（列结构对齐舟谱截图），条目落点拍板为「全复刻 + 占位页」：
+     · 有真实页面的条目 → 挂现有路径（`/inventory/stock`、`/data-fill`、`/dashboard`、
+       `/rebate?tab=rules`、调拨单列表+创建）；
+     · 没有的条目 → 挂**共享占位骨架**（`pages/Placeholder.vue`，「开发中」卡）——
+       对齐 v395 打印先例「**先立入口、不留死链**」：URL 先占住、点了有去处，
+       但明写开发中、不写任何业务数据（不造"假功能页"）。
+
+   🔴 本表是这 99 页在 `PAGE_RULES` 的**登记实现**：下方合并循环把它们逐行写进
+      `PAGE_RULES`（放在 `PAGE_PATHS` 计算之前 ⇒ 护栏/命令面板派生工具能看到全量）。
+      某页要落真身时：把该行从本表移出 → 在 `PAGE_RULES` 里写正式登记行 →
+      `router/index.js` 里换成真实组件。**不要**在本表与 `PAGE_RULES` 里同时留一行
+      （合并循环会覆盖 `PAGE_RULES` 里的同键行 —— 顺序是刻意的：占位表是"未落地"态）。
+
+   ⚠️ 权限分档（`module: null` = 只读角色轴，产品内置能力包，客户暂配不了 ——
+      与 `/print` 同一族；将来接真实数据时必须先给该页配一个真实模块键，再开写数据）：
+     · `/funds/*`（资金管理）—— **钱**：`[...ADMIN_ROLES, 'accountant']`
+       （对齐 `/archive/prices` 的窄名单先例；业务员/主管不见「收款单/付款单」）；
+     · 其余三区（`/wh/*` 仓配、`/reports/*` 报表、`/mkt/*` 市场）—— `BIZ_ROLES`
+       （业务管理岗，与 `/data-fill`、`/loss` 同档）。
+   ⚠️ `area` 只是给占位页副标题用的中文名，与权限无关；权限**只**认 `path` 前缀分档。 */
+export const PLACEHOLDER_PAGES = [
+  /* —— 仓配管理（/wh/*）—— */
+  { path: '/wh/inbound',        title: '入库单',           area: '仓配管理' },
+  { path: '/wh/outbound',       title: '出库单',           area: '仓配管理' },
+  { path: '/wh/stocktake',      title: '盘点单',           area: '仓配管理' },
+  { path: '/wh/strategy',       title: '出入库策略',       area: '仓配管理' },
+  { path: '/wh/other-in',       title: '其它入库单',       area: '仓配管理' },
+  { path: '/wh/other-out',      title: '其它出库单',       area: '仓配管理' },
+  { path: '/wh/delivery',       title: '配送单',           area: '仓配管理' },
+  { path: '/wh/driver-board',   title: '司机任务看板',     area: '仓配管理' },
+  { path: '/wh/route-setup',    title: '线路设置',         area: '仓配管理' },
+  { path: '/wh/stocktake-diff', title: '盘点差异单',       area: '仓配管理' },
+  { path: '/wh/stocktake-full', title: '静态盘点单（整仓）', area: '仓配管理' },
+  { path: '/wh/stocktake-part', title: '静态盘点单（部分）', area: '仓配管理' },
+  { path: '/wh/pnl',            title: '损益单',           area: '仓配管理' },
+  { path: '/wh/combo',          title: '组合单',           area: '仓配管理' },
+  { path: '/wh/split',          title: '拆分单',           area: '仓配管理' },
+  { path: '/wh/vehicle-stock',  title: '车辆库存查询',     area: '仓配管理' },
+  { path: '/wh/expiry-report',  title: '效期预警表',       area: '仓配管理' },
+  { path: '/wh/stock-alert',    title: '库存预警',         area: '仓配管理' },
+
+  /* —— 资金管理（/funds/*，窄名单：老板/管理员/会计）—— */
+  { path: '/funds/receipt',             title: '收款单',           area: '资金管理' },
+  { path: '/funds/customer-fee',        title: '客户费用单',       area: '资金管理' },
+  { path: '/funds/advance-receipt',     title: '预收款单',         area: '资金管理' },
+  { path: '/funds/writeoff',            title: '核销单',           area: '资金管理' },
+  { path: '/funds/sales-settle',        title: '销货结算单',       area: '资金管理' },
+  { path: '/funds/return-settle',       title: '退货结算单',       area: '资金管理' },
+  { path: '/funds/other-receivable',    title: '其他应收单',       area: '资金管理' },
+  { path: '/funds/customer-statement',  title: '客户对账单',       area: '资金管理' },
+  { path: '/funds/payment',             title: '付款单',           area: '资金管理' },
+  { path: '/funds/supplier-fee',        title: '供应商费用单',     area: '资金管理' },
+  { path: '/funds/advance-payment',     title: '预付款单',         area: '资金管理' },
+  { path: '/funds/purchase-settle',     title: '采购结算单',       area: '资金管理' },
+  { path: '/funds/supplier-stmt-detail', title: '供应商对账明细',  area: '资金管理' },
+  { path: '/funds/supplier-stmt',       title: '供应商对账单',     area: '资金管理' },
+  { path: '/funds/internal-fee',        title: '内部费用单',       area: '资金管理' },
+  { path: '/funds/internal-income',     title: '内部收入单',       area: '资金管理' },
+  { path: '/funds/transfer',            title: '资金调拨单',       area: '资金管理' },
+  { path: '/funds/balance',             title: '资金余额表',       area: '资金管理' },
+  { path: '/funds/flow',                title: '资金流水账',       area: '资金管理' },
+  { path: '/funds/bank-reconcile',      title: '银行流水对账',     area: '资金管理' },
+  { path: '/funds/staff-debt',          title: '员工欠款',         area: '资金管理' },
+  { path: '/funds/cost-query',          title: '库存成本查询',     area: '资金管理' },
+  { path: '/funds/cost-summary',        title: '库存成本汇总',     area: '资金管理' },
+  { path: '/funds/in-cost',             title: '入库核算单',       area: '资金管理' },
+  { path: '/funds/out-cost',            title: '出库核算单',       area: '资金管理' },
+  { path: '/funds/qty-cost',            title: '数量成本价',       area: '资金管理' },
+  { path: '/funds/cost-adjust',         title: '成本调价单',       area: '资金管理' },
+  { path: '/funds/cost-abnormal',       title: '成本异常调整',     area: '资金管理' },
+
+  /* —— 数据报表（/reports/*）—— */
+  { path: '/reports/sales-order',    title: '销售订单汇总表',   area: '数据报表' },
+  { path: '/reports/purchase',       title: '采购汇总表',       area: '数据报表' },
+  { path: '/reports/transfer',       title: '调拨汇总表',       area: '数据报表' },
+  { path: '/reports/other-inout',    title: '其他出入库汇总表', area: '数据报表' },
+  { path: '/reports/summary',        title: '汇总报表',         area: '数据报表' },
+  { path: '/reports/ar-summary',     title: '应收账款汇总表',   area: '数据报表' },
+  { path: '/reports/ageing',         title: '账龄汇总表',       area: '数据报表' },
+  { path: '/reports/other-receivable', title: '其他应收汇总表', area: '数据报表' },
+  { path: '/reports/fee-summary',    title: '费用单汇总表',     area: '数据报表' },
+  { path: '/reports/income-summary', title: '收入汇总表',       area: '数据报表' },
+  { path: '/reports/account-flow',   title: '账户收支明细',     area: '数据报表' },
+  { path: '/reports/online-receipt', title: '线上收款流水',     area: '数据报表' },
+  { path: '/reports/receipt-detail', title: '收款明细表',       area: '数据报表' },
+  { path: '/reports/payment-detail', title: '付款明细表',       area: '数据报表' },
+  { path: '/reports/presale-goods',  title: '预订货品汇总表',   area: '数据报表' },
+  { path: '/reports/presale-orders', title: '预订货单明细表',   area: '数据报表' },
+  { path: '/reports/fee-usage',      title: '费用使用记录',     area: '数据报表' },
+  { path: '/reports/material-data',  title: '物料数据汇总',     area: '数据报表' },
+  { path: '/reports/material-usage', title: '物料使用汇总',     area: '数据报表' },
+  { path: '/reports/attendance',     title: '考勤统计',         area: '数据报表' },
+  { path: '/reports/visit-log',      title: '拜访记录',         area: '数据报表' },
+  { path: '/reports/visit-achv',     title: '拜访达成',         area: '数据报表' },
+  { path: '/reports/stock-upload',   title: '库存上报分析',     area: '数据报表' },
+  { path: '/reports/company-profit', title: '企业经营利润',     area: '数据报表' },
+  { path: '/reports/customer-profit', title: '客户利润概览',    area: '数据报表' },
+  { path: '/reports/customer-profit-analysis', title: '客户利润分析', area: '数据报表' },
+  { path: '/reports/staff-profit',   title: '员工利润分析',     area: '数据报表' },
+  { path: '/reports/goods-sales',    title: '商品销售分析',     area: '数据报表' },
+  { path: '/reports/customer-rank',  title: '客户销额排名',     area: '数据报表' },
+  { path: '/reports/personal',       title: '个性化报表',       area: '数据报表' },
+
+  /* —— 市场营销（/mkt/*）—— */
+  { path: '/mkt/display',             title: '陈列巡查',        area: '市场营销' },
+  { path: '/mkt/lend',                title: '借货单',          area: '市场营销' },
+  { path: '/mkt/return-goods',        title: '还货单',          area: '市场营销' },
+  { path: '/mkt/writeoff',            title: '市场核销',        area: '市场营销' },
+  { path: '/mkt/inspection',          title: '市场检验',        area: '市场营销' },
+  { path: '/mkt/presale-order',       title: '预订订货单',      area: '市场营销' },
+  { path: '/mkt/order-template',      title: '订货模板',        area: '市场营销' },
+  { path: '/mkt/rebate-template',     title: '返利模板',        area: '市场营销' },
+  { path: '/mkt/fee-contract',        title: '费用合同',        area: '市场营销' },
+  { path: '/mkt/prepay-contract',     title: '先付协议',        area: '市场营销' },
+  { path: '/mkt/supplier-rebate-calc', title: '供应商返利试算', area: '市场营销' },
+  { path: '/mkt/material',            title: '物料档案',        area: '市场营销' },
+  { path: '/mkt/material-use',        title: '物料领用单',      area: '市场营销' },
+  { path: '/mkt/material-scrap',      title: '物料报废单',      area: '市场营销' },
+  { path: '/mkt/material-recycle',    title: '物料回收单',      area: '市场营销' },
+  { path: '/mkt/material-sale',       title: '物料销售单',      area: '市场营销' },
+  { path: '/mkt/material-transfer',   title: '物料调拨单',      area: '市场营销' },
+  { path: '/mkt/combo-gift',          title: '组合搭赠',        area: '市场营销' },
+  { path: '/mkt/flash-price',         title: '限时特价',        area: '市场营销' },
+  { path: '/mkt/gift',                title: '满赠',            area: '市场营销' },
+  { path: '/mkt/discount',            title: '满减',            area: '市场营销' },
+  { path: '/mkt/with-order-rebate',   title: '随单返利',        area: '市场营销' },
+  { path: '/mkt/buy-gift',            title: '买赠随单返利',    area: '市场营销' }
+]
+
+/* 合并进 PAGE_RULES（必须在 `PAGE_PATHS` 计算之前 ⇒ 全量可见；见上表头注释）。 */
+for (const p of PLACEHOLDER_PAGES) {
+  const money = p.path.startsWith('/funds/')
+  PAGE_RULES[p.path] = {
+    title: p.title,
+    module: null,                                   // 占位页不写数据 ⇒ 只读角色轴（落真身时必须先配真实模块键）
+    roles: money ? [...ADMIN_ROLES, 'accountant'] : BIZ_ROLES,
+    cat: money ? 'admin' : 'biz'
+  }
+}
+
 /**
  * 取某路径对应的规则：**精确匹配 → 逐级去掉尾段再匹配**（子路由继承父级）。
  * `/archive/employees` → `/archive`；`/loss-accounting` → 精确命中本行（不会被父级误配）。

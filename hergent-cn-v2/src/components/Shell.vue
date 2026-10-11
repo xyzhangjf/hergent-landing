@@ -284,7 +284,7 @@ import { effTab } from '../constants/tabTitles'
    --------------------------------------------------------------------------- */
 const NAV = [
   /* ---------------------------------------------------------------------------
-     v390（2026-10-07）批次 3 · 侧栏 L1–L2：**8 项平铺**（v390 当时是 2 直达 + 6 职能区；v396 起「目标与返利」由直达项升为职能区 ⇒ **当前 1 直达 + 7 职能区**）
+     v390（2026-10-07）批次 3 · 侧栏 L1–L2：**8 项平铺**（v390 当时是 2 直达 + 6 职能区；v396 起「目标与返利」由直达项升为职能区 ⇒ **当前 1 直达 + 11 职能区**——v465 按舟谱形态补「仓配管理 / 资金管理 / 市场营销 / 数据报表」四区）
      ---------------------------------------------------------------------------
      老板拍板（依据《侧边栏归类结构重规划》v5 §10.3.4）：
        · 一级项由「3 组 11 项」改为 **8 项平铺** —— 并且**去掉分组标题**：6 个职能区
@@ -462,6 +462,107 @@ const NAV = [
     ]
   },
 
+  /* ③b 仓配管理 › —— v465（2026-10-11）：按舟谱「仓配管理」弹窗的**四列结构**复刻
+     （仓库作业 / 配送作业 / 库存作业 / 库存查询；截图见 `~/Documents/舟谱截图/侧边栏弹窗截图`）。
+     条目落点（老板拍板「全复刻 + 占位页」）：
+       · 有真实页面的挂现有路径：调拨单（列表 + 「创建」，与进销存区同款 L1 双入口）、
+         库存查询（`/inventory/stock`）、库存效期补录（`/data-fill`）；
+       · 没有的挂**共享占位骨架**（`/wh/*`，`pages/Placeholder.vue`「开发中」卡）——
+         对齐 v395 打印先例「先立入口、不留死链」，登记与可见性见
+         `pages.js::PLACEHOLDER_PAGES`（v465 段）。
+     🔴 区**不写 `path`**（与 ⑦ 档案管理同理）：区内条目各挂各的模块
+        （`/inventory/stock` 是 ADMIN_ROLES、`/data-fill` 是 stock+BIZ_ROLES、
+        `/wh/*` 是 BIZ_ROLES 占位），拿一个锚点当闸门都会错放或错藏；
+        空区由 `resolveNavItem` 收口（一条都不可见时整区消失）。
+     ⚠️ 与进销存区重复的条目（调拨单/库存查询）是**刻意的**：舟谱两区本就重复挂
+        同一批单据；本侧栏将来若拆区，再收口。 */
+  {
+    key: 'wh', name: '仓配管理', icon: 'toolbox',
+    groups: [
+      { label: '仓库作业', items: [
+        { path: '/wh/inbound',      name: '入库单',     icon: 'inbox' },
+        { path: '/wh/outbound',     name: '出库单',     icon: 'upload' },
+        { path: '/wh/stocktake',    name: '盘点单',     icon: 'list' },
+        { path: '/inventory/sale',  name: '调拨单',     icon: 'refresh', q: { type: 'transfer', kind: 'order' },
+          create: { to: { path: DOC_PATHS.transferOrder }, module: 'inventory', title: '新建调拨单' } },
+        { path: '/wh/strategy',     name: '出入库策略', icon: 'settings' },
+        { path: '/wh/other-in',     name: '其它入库单', icon: 'inbox' },
+        { path: '/wh/other-out',    name: '其它出库单', icon: 'upload' }
+      ] },
+      { label: '配送作业', items: [
+        { path: '/wh/delivery',     name: '配送单',       icon: 'smartphone' },
+        { path: '/wh/driver-board', name: '司机任务看板', icon: 'users' },
+        { path: '/wh/route-setup',  name: '线路设置',     icon: 'link' }
+      ] },
+      { label: '库存作业', items: [
+        { path: '/wh/stocktake-diff', name: '盘点差异单',       icon: 'alert' },
+        { path: '/wh/stocktake-full', name: '静态盘点单（整仓）', icon: 'list' },
+        { path: '/wh/stocktake-part', name: '静态盘点单（部分）', icon: 'list' },
+        { path: '/wh/pnl',            name: '损益单',           icon: 'coins' },
+        { path: '/wh/combo',          name: '组合单',           icon: 'package' },
+        { path: '/wh/split',          name: '拆分单',           icon: 'copy' }
+      ] },
+      { label: '库存查询', items: [
+        { path: '/inventory/stock',  name: '库存查询',     icon: 'package' },
+        { path: '/wh/vehicle-stock', name: '车辆库存查询', icon: 'smartphone' },
+        { path: '/wh/expiry-report', name: '效期预警表',   icon: 'clock' },
+        { path: '/wh/stock-alert',   name: '库存预警',     icon: 'alert' },
+        { path: '/data-fill',        name: '库存效期补录', icon: 'paste' }
+      ] }
+    ]
+  },
+
+  /* ③c 资金管理 › —— v465：按舟谱「资金管理」弹窗四列复刻（客户 / 供应商 / 内部 / 库存成本）。
+     🔴 条目**全部是占位页**（`/funds/*`）—— 往来账/收付款我们还没做（进销存区「往来」列
+        仍是空数组，同一批规划）；先按老板拍板立入口，逐页落真身。
+     🔴 可见性比其它三区**窄一档**：`/funds/*` 在 `pages.js` 登记为
+        `[...ADMIN_ROLES, 'accountant']`（钱的事只给老板/管理员/会计，对齐
+        `/archive/prices` 先例）⇒ 业务员/主管的侧栏**整区不出现**（`resolveNavItem`
+        按条目算，一条不可见 ⇒ 区隐藏）。
+     ⚠️ 「客户对账单」「资金余额表」在数据报表区会**再挂一次**（舟谱两区本就重复）；
+        同一 path 两处入口是合法的（标签栏按 URL 去重）。 */
+  {
+    key: 'funds', name: '资金管理', icon: 'coins',
+    groups: [
+      { label: '客户相关', items: [
+        { path: '/funds/receipt',            name: '收款单',     icon: 'coins' },
+        { path: '/funds/customer-fee',       name: '客户费用单', icon: 'receipt' },
+        { path: '/funds/advance-receipt',    name: '预收款单',   icon: 'payment' },
+        { path: '/funds/writeoff',           name: '核销单',     icon: 'check' },
+        { path: '/funds/sales-settle',       name: '销货结算单', icon: 'receipt' },
+        { path: '/funds/return-settle',      name: '退货结算单', icon: 'undo' },
+        { path: '/funds/other-receivable',   name: '其他应收单', icon: 'receipt' },
+        { path: '/funds/customer-statement', name: '客户对账单', icon: 'list' }
+      ] },
+      { label: '供应商相关', items: [
+        { path: '/funds/payment',             name: '付款单',         icon: 'payment' },
+        { path: '/funds/supplier-fee',        name: '供应商费用单',   icon: 'receipt' },
+        { path: '/funds/advance-payment',     name: '预付款单',       icon: 'payment' },
+        { path: '/funds/purchase-settle',     name: '采购结算单',     icon: 'receipt' },
+        { path: '/funds/supplier-stmt-detail', name: '供应商对账明细', icon: 'list' },
+        { path: '/funds/supplier-stmt',       name: '供应商对账单',   icon: 'list' }
+      ] },
+      { label: '内部相关', items: [
+        { path: '/funds/internal-fee',   name: '内部费用单',   icon: 'receipt' },
+        { path: '/funds/internal-income', name: '内部收入单',  icon: 'coins' },
+        { path: '/funds/transfer',       name: '资金调拨单',   icon: 'refresh' },
+        { path: '/funds/balance',        name: '资金余额表',   icon: 'bars' },
+        { path: '/funds/flow',           name: '资金流水账',   icon: 'list' },
+        { path: '/funds/bank-reconcile', name: '银行流水对账', icon: 'search' },
+        { path: '/funds/staff-debt',     name: '员工欠款',     icon: 'users' }
+      ] },
+      { label: '库存成本', items: [
+        { path: '/funds/cost-query',    name: '库存成本查询', icon: 'search' },
+        { path: '/funds/cost-summary',  name: '库存成本汇总', icon: 'bars' },
+        { path: '/funds/in-cost',       name: '入库核算单',   icon: 'audit' },
+        { path: '/funds/out-cost',      name: '出库核算单',   icon: 'audit' },
+        { path: '/funds/qty-cost',      name: '数量成本价',   icon: 'list' },
+        { path: '/funds/cost-adjust',   name: '成本调价单',   icon: 'edit' },
+        { path: '/funds/cost-abnormal', name: '成本异常调整', icon: 'alert' }
+      ] }
+    ]
+  },
+
   /* ④ 目标与返利 › —— v396（2026-10-08）：由**直达项升级为职能区**。
      🔴 这不是"顺手多做一个弹窗"，而是**退役页签的必需配套**：
         该页原有 6 个页内页签（仪表盘/目标配置/达成填报/返利结算/结算节奏/厂家承诺），
@@ -484,6 +585,52 @@ const NAV = [
         { path: '/rebate', tab: 'contracts', name: '返利结算', icon: 'receipt' },
         { path: '/rebate', tab: 'settle',    name: '结算节奏', icon: 'calendar' },
         { path: '/rebate', tab: 'promises',  name: '厂家承诺', icon: 'shield' }
+      ] }
+    ]
+  },
+
+  /* ④b 市场营销 › —— v465（2026-10-11）：按舟谱「市场营销」弹窗四列复刻
+     （市场管理 / 合约管理 / 物料管理 / 促销活动）。
+     条目落点：除「供应商返利方案」（→ `/rebate?tab=rules` 目标配置，现成的返利规则页）
+     外全部是占位页（`/mkt/*`，见 `pages.js::PLACEHOLDER_PAGES`）。
+     可见性 `BIZ_ROLES`（与目标与返利同档：业务管理岗的事）。
+     🔴 「随单返利/返利模板」等占位页落真身时，注意与 `/rebate` 的**口径分工**：
+        目标与返利管「厂家给我们的返利」，市场营销管「我们给下游的返利/促销」——
+        两边数据源不同，别合并。 */
+  {
+    key: 'mkt', name: '市场营销', icon: 'lightbulb',
+    groups: [
+      { label: '市场管理', items: [
+        { path: '/mkt/display',    name: '陈列巡查', icon: 'search' },
+        { path: '/mkt/lend',       name: '借货单',   icon: 'undo' },
+        { path: '/mkt/return-goods', name: '还货单', icon: 'redo' },
+        { path: '/mkt/writeoff',   name: '市场核销', icon: 'check' },
+        { path: '/mkt/inspection', name: '市场检验', icon: 'alert' }
+      ] },
+      { label: '合约管理', items: [
+        { path: '/mkt/presale-order',      name: '预订订货单',     icon: 'list' },
+        { path: '/mkt/order-template',     name: '订货模板',       icon: 'template' },
+        { path: '/mkt/rebate-template',    name: '返利模板',       icon: 'template' },
+        { path: '/mkt/fee-contract',       name: '费用合同',       icon: 'book' },
+        { path: '/mkt/prepay-contract',    name: '先付协议',       icon: 'receipt' },
+        { path: '/rebate', tab: 'rules',   name: '供应商返利方案', icon: 'target' },
+        { path: '/mkt/supplier-rebate-calc', name: '供应商返利试算', icon: 'edit' }
+      ] },
+      { label: '物料管理', items: [
+        { path: '/mkt/material',          name: '物料档案',   icon: 'package' },
+        { path: '/mkt/material-use',      name: '物料领用单', icon: 'download' },
+        { path: '/mkt/material-scrap',    name: '物料报废单', icon: 'trash' },
+        { path: '/mkt/material-recycle',  name: '物料回收单', icon: 'refresh' },
+        { path: '/mkt/material-sale',     name: '物料销售单', icon: 'store' },
+        { path: '/mkt/material-transfer', name: '物料调拨单', icon: 'import' }
+      ] },
+      { label: '促销活动', items: [
+        { path: '/mkt/combo-gift',        name: '组合搭赠',     icon: 'gift' },
+        { path: '/mkt/flash-price',       name: '限时特价',     icon: 'clock' },
+        { path: '/mkt/gift',              name: '满赠',         icon: 'gift' },
+        { path: '/mkt/discount',          name: '满减',         icon: 'coins' },
+        { path: '/mkt/with-order-rebate', name: '随单返利',     icon: 'target' },
+        { path: '/mkt/buy-gift',          name: '买赠随单返利', icon: 'gift' }
       ] }
     ]
   },
@@ -520,6 +667,68 @@ const NAV = [
       ] },
       { label: '市场情报', items: [
         { path: '/bid-radar', name: '招投标雷达', icon: 'search' }
+      ] }
+    ]
+  },
+
+  /* ⑥b 数据报表 › —— v465（2026-10-11）：按舟谱「数据报表」弹窗的**七列结构**复刻
+     （业财 / 往来 / 资金 / 市场 / 考勤外部 / 经营分析 / 通用报表）。
+     条目落点：除「实时概览」（→ `/dashboard` 经营趋势，现成的企业级看板）外，
+     全部是占位页（`/reports/*`，见 `pages.js::PLACEHOLDER_PAGES`）。可见性 `BIZ_ROLES`。
+     ⚠️ 「客户对账单」（→ `/funds/customer-statement`）与「资金余额表」（→ `/funds/balance`）
+        **复用资金管理区的占位页**：舟谱两区本就重复挂这两张表，同一 path 两处入口合法
+        （标签栏按 URL 去重），占位页也只登记一份。
+     ⚠️ 与 ⑥ 经营分析的分工：经营分析 = 我们自己的经营看板（经营趋势/招投标）；
+        数据报表 = 对齐舟谱的**标准报表清单**（按报表名立页）。两边并列、不互相吞并。 */
+  {
+    key: 'reports', name: '数据报表', icon: 'bar-chart',
+    groups: [
+      { label: '业财报表', items: [
+        { path: '/reports/sales-order',  name: '销售订单汇总表',   icon: 'list' },
+        { path: '/reports/purchase',     name: '采购汇总表',       icon: 'list' },
+        { path: '/reports/transfer',     name: '调拨汇总表',       icon: 'list' },
+        { path: '/reports/other-inout',  name: '其他出入库汇总表', icon: 'list' },
+        { path: '/reports/summary',      name: '汇总报表',         icon: 'bars' }
+      ] },
+      { label: '往来报表', items: [
+        { path: '/reports/ar-summary',      name: '应收账款汇总表', icon: 'list' },
+        { path: '/reports/ageing',          name: '账龄汇总表',     icon: 'clock' },
+        { path: '/funds/customer-statement', name: '客户对账单',    icon: 'list' },
+        { path: '/reports/other-receivable', name: '其他应收汇总表', icon: 'list' },
+        { path: '/reports/fee-summary',     name: '费用单汇总表',   icon: 'list' },
+        { path: '/reports/income-summary',  name: '收入汇总表',     icon: 'list' }
+      ] },
+      { label: '资金报表', items: [
+        { path: '/funds/balance',         name: '资金余额表',   icon: 'bars' },
+        { path: '/reports/account-flow',  name: '账户收支明细', icon: 'list' },
+        { path: '/reports/online-receipt', name: '线上收款流水', icon: 'smartphone' },
+        { path: '/reports/receipt-detail', name: '收款明细表',  icon: 'list' },
+        { path: '/reports/payment-detail', name: '付款明细表',  icon: 'list' }
+      ] },
+      { label: '市场报表', items: [
+        { path: '/reports/presale-goods',  name: '预订货品汇总表', icon: 'list' },
+        { path: '/reports/presale-orders', name: '预订货单明细表', icon: 'list' },
+        { path: '/reports/fee-usage',      name: '费用使用记录',   icon: 'receipt' },
+        { path: '/reports/material-data',  name: '物料数据汇总',   icon: 'bars' },
+        { path: '/reports/material-usage', name: '物料使用汇总',   icon: 'bars' }
+      ] },
+      { label: '考勤外部数据', items: [
+        { path: '/reports/attendance',  name: '考勤统计',     icon: 'clock' },
+        { path: '/reports/visit-log',   name: '拜访记录',     icon: 'book' },
+        { path: '/reports/visit-achv',  name: '拜访达成',     icon: 'check' },
+        { path: '/reports/stock-upload', name: '库存上报分析', icon: 'bars' }
+      ] },
+      { label: '经营分析', items: [
+        { path: '/reports/company-profit',           name: '企业经营利润', icon: 'coins' },
+        { path: '/reports/customer-profit',          name: '客户利润概览', icon: 'bars' },
+        { path: '/reports/customer-profit-analysis', name: '客户利润分析', icon: 'search' },
+        { path: '/reports/staff-profit',             name: '员工利润分析', icon: 'users' },
+        { path: '/reports/goods-sales',              name: '商品销售分析', icon: 'bars' },
+        { path: '/reports/customer-rank',            name: '客户销额排名', icon: 'sort' }
+      ] },
+      { label: '通用报表', items: [
+        { path: '/dashboard',        name: '实时概览',   icon: 'activity' },
+        { path: '/reports/personal', name: '个性化报表', icon: 'edit' }
       ] }
     ]
   },

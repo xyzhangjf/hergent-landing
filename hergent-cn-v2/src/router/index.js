@@ -14,7 +14,7 @@ import { store } from '../store'
 /* v291（2026-09-27）：「哪些角色能进哪些页」已收敛到 `constants/pages.js` 的**页面注册表**。
    本文件不再自己写判据 —— 侧栏 / 命令面板 / 守卫 / 页内跳转读的是同一份表。
    （旧写法是各页 `meta.roles` 自己带名单，只有 1 个页面填了。见文件末尾守卫处注释。） */
-import { ruleFor, pageRoleAllowed } from '../constants/pages'
+import { ruleFor, pageRoleAllowed, PLACEHOLDER_PAGES } from '../constants/pages'
 /* v449：旧建单入口 → 新独立页面的路径解析。**纯数据模块、零副作用**（只导出常量与
    两个纯函数），静态 import 不影响首屏体积，也不会引入循环依赖。 */
 import { legacySalePath, legacyPurchasePath, DOC_PATHS } from '../pages/inventory/new/docTypes.js'
@@ -39,6 +39,9 @@ const Archive = () => import('../pages/Archive.vue')
 const Settings = () => import('../pages/Settings.vue')
 // v395（2026-10-08）：打印 —— 入口先立（老板点名「很重要」），本页为占位骨架。
 const Print = () => import('../pages/Print.vue')
+/* v465（2026-10-11）：四新区占位骨架 —— 99 页共用这一个组件，由下方 `PLACEHOLDER_PAGES`
+   **数据驱动**批量挂载（可见性已逐页登记在 `pages.js::PAGE_RULES`，见那里 v465 段）。 */
+const Placeholder = () => import('../pages/Placeholder.vue')
 const CronJobs = () => import('../pages/CronJobs.vue')
 const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
@@ -241,7 +244,22 @@ export const router = createRouter({
             { path: 'sale/:id',      component: InvSaleDetail,     meta: { title: '销售单详情' } },
             { path: 'stock',         component: InvStock,          meta: { title: '库存查询' } }
           ]
-        }
+        },
+
+        /* v465（2026-10-11）：四新区（仓配管理 / 资金管理 / 数据报表 / 市场营销）的
+           **占位页路由** —— 按 `pages.js::PLACEHOLDER_PAGES` 数据驱动批量挂载，
+           全部指向共享骨架 `Placeholder.vue`（「开发中」卡，不写业务数据）。
+           🔴 可见性的唯一真源在 `pages.js::PAGE_RULES`（`/funds/*` 窄名单、其余 BIZ_ROLES），
+              这里只负责路由可达 —— 两处都写是刻意的（与本仓 `/archive/*` 同一纪律：
+              缺登记行 = 假入口，缺路由 = 假封锁）。
+           🔴 某页落真身时：从 `PLACEHOLDER_PAGES` 移出 → 在 `PAGE_RULES` 写正式行 →
+              这里换成真实组件（`pages.js` 合并循环会覆盖同键行，别两头都留）。
+           ⚠️ `meta.area` 仅用于占位页副标题「XX · 规划能力」。 */
+        ...PLACEHOLDER_PAGES.map(p => ({
+          path: p.path.slice(1),                    // children 用相对路径：'/wh/inbound' → 'wh/inbound'
+          component: Placeholder,
+          meta: { title: p.title, area: p.area }
+        }))
       ]
     }
   ]
