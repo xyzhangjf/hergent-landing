@@ -1594,3 +1594,105 @@ v441 六界面探针里三条断言「退货模式**没有** `hd-box`」—— �
 截图 `outputs/v448-psi-return/{A0,B0,C0,C1}.png`。
 构建 `dist-v448`（`npm run build` 被 safe-delete 拦 ⇒ `npx vite build --outDir dist-v448 --emptyOutDir`）；
 生产 `assets` 2067 → 2113 → 2159 → **2205**（**并集，无 `--delete`**），entry `index-CDpVpG6e.js`。
+
+---
+
+## v449（2026-10-11）：建单页**按单据类型拆成 7 个独立页面** + 两条口径修正
+
+> 老板需求：「进销存建单页面中多个类型的单据目前共用同一个页面，请为每一种不同类型的单据分别建立独立的页面」。
+> 拍板 **A① B① C①**，并追加两条口径：**①「退货单不需要选原采购单/销售单，退货仓库要可以指定」**
+> **②「调拨不需要调拨退单」**。
+> 方案文档：`docs/进销存建单页拆分为独立页面-方案-v449.md`（§7 拍板 / §10 实施与证据 / §11 未修缺陷）。
+
+### 页面结构（7 页 / 4 内核 / 1 唯一源）
+
+| 项 | 内容 |
+|---|---|
+| 薄页面 | `PurchaseOrderNew` / `PurchaseReturnNew` / `SelfPickupOrderNew` / `SelfPickupReturnNew` / `VehicleSaleOrderNew` / `VehicleSaleReturnNew` / `TransferOrderNew` |
+| 共享内核 | `SaleDocForm.vue`（销售 4 种）/ `PurchaseOrderForm.vue` / `PurchaseReturnForm.vue` / `TransferDocForm.vue` |
+| 唯一源 | `src/pages/inventory/new/docTypes.js` —— `DOC_PATHS` + `SALE_CFG`/`PURCHASE_CFG`/`TRANSFER_CFG` + `legacySalePath()`/`legacyPurchasePath()` |
+| 旧页 | `InvPurchaseNew.vue`(2191) / `InvSaleNew.vue`(1028) **已无人引用、已被树摇**（产物无 `InvPurchaseNew-*`/`InvSaleNew-*`），仅留溯源基准 |
+
+**动态差异（真验到了，不是"包含"判据）**：车销订单 8 格（含送货司机）/ 提退单 5 格；
+采购订单 6 格含「部门」/ 采购退货 4 格**无**部门（老板口径：退货只要供应商/客户 + 退货仓库）；
+退单页明细列用**退货价**、订单页用**销售价**；调拨页是**双仓**（调出 + 调入各恰好一处）+ 两步动作。
+
+### 🔴 三条路由/门禁硬判据
+
+1. **`redirect` 返回 location 不指定 `query` 会继承原 query** ⇒ 必须显式 `query: {}`。
+   实测：`sale/new?type=vehicle_sale&kind=return` 会停在 `.../vehicle/return/new?type=vehicle_sale&kind=return`（URL 撒谎）。
+   采购那条口径**不同**：`beforeEnter` 里**只剥 `kind`、保留 `from_po`**（丢了可退预览就没了）。
+2. **门禁无需改**：`ruleFor()` 是「精确匹配 → 逐级去掉尾段再匹配」⇒ 7 条新路径自动继承 `/inventory`
+   那行（`module:'inventory'` + `roles: ADMIN_ROLES` + `lock:true`）；**`pages.js` 不动**。
+3. **`legacySalePath()` 对「调拨 + 退单」无落点**（老板拍板不做调拨退单）⇒ 兜底落「自提订单」并 `console.warn`。
+
+### 🔴🔴 后端三层缺陷：被新端点"第一次调用"才暴露（最重要的一课）
+
+`transfer_order_list` / `transfer_order_get` / `transfer_order_complete` 这三个函数在 v449 之前
+**从未被任何端点调用过**（生产 `transfer_orders` = **0 张**，前端无调拨页）⇒ 缺陷层层叠加、从未暴露：
+
+| 层 | 缺陷 | 症状 |
+|---|---|---|
+| 1 | `transfer_order_complete` 里 `from inventory import inventory_adjust` —— **`server/inventory.py` 根本不存在**（真身在 `db/queries/inventory.py`） | `ModuleNotFoundError`，端点必然 500 |
+| 2 | 同函数 `if "error" in r1:`，而 `inventory_adjust` 成功返回 **`None`** | `TypeError: argument of type 'NoneType' is not iterable` —— **成功路径反而崩**（别处都写 `isinstance(x, dict) and "error" in x`） |
+| 3 | 同函数失败时 `return r1` —— 函数体在 `with get_db_tx()` 里，而 `get_db_tx` **正常退出即 commit** | **半截调拨被提交**：调出仓已扣、调入仓没加 ⇒ **货凭空消失**，接口却返回 error（调用方以为"没成功"）。改 `raise _TransferPostingError` 让事务整体回滚 |
+| 4 | `p + [limit, offset]`，而 `p = ("", ())` / `(status,)` 是 **tuple** | `TypeError: can only concatenate tuple (not "list") to tuple` ⇒ 恒 500 |
+| 5 | `SELECT to.*`，而别名声明是 `to_` ⇒ SQLite 把 `to` 当**关键字 TO** | `sqlite3.OperationalError: near "to": syntax error` |
+
+- 第 4/5 层是**部署当场抓到的**：修好 4 之后**立刻**暴露 5（同一函数，两层叠着）。
+  生产实测 `GET /api/psi/transfer-orders` **500 → 200**、`GET /api/return-orders` **500 → 200**
+  （后者是 v441 就登记「待修」的那条，当时把 500 写成了**预期**断言 ⇒ 修好后必须反转探针口径）。
+- 🔴 **教训**：**「从未被执行过的代码」≠「安全的代码」**。生产 0 行数据的表 + 前端零调用的端点 =
+  缺陷的完美藏身处。新增端点"接通"一条死代码时，要**预期它会炸**，并把第一层修完后再测**第二层**。
+- 🔴 **同族扫描纪律**：全仓 `w, p = (…, (…)) if … else ("", ())` 型 tuple 源共 **7 处**，
+  逐处核对后**只有 `transfer_order_list` / `return_order_list` 会做 `+ [..]` 拼接**
+  （其余 5 处是 tuple 直接传参，安全）。这条结论**固化成 harness 的 D 段动态清点**，
+  防后人只修一处、或"好心"把 5 处安全代码也改了（扩大风险面）。
+
+### 🔴 探针/部署两个新坑（本机坑同族）
+
+- **`dist` 早于源码**：`dist-v449` 是 10:10 构建的，而 `src/router/index.js` 10:17 才修（`query:{}`）
+  ⇒ 产物里**没有**那个修复。**部署前必须比 `outDir` mtime 与源码 mtime**，否则白部署一次。
+- **`sqlite3.Connection` 没有 `rowcount`**（要 cursor 的）⇒ 第一版清理脚本抛 `AttributeError`
+  **且因此未 `commit`**，等于没删。**「清理脚本报错」必须回读基线计数，不能只看它跑过了。**
+
+### 验收（全绿留档）
+
+| 套件 | 结果 |
+|---|---|
+| `server/tools/v449-return-standalone-harness.py`（退货不挂原单 + 反例 + 降级） | **33 PASS / 0 FAIL** |
+| `server/tools/v449-typed-docs-harness.py`（order_type/department 落库 + AST 取证 + 调拨双仓） | **29 PASS / 0 FAIL** |
+| `server/tools/v449-listfix-harness.py`（tuple 修复 + `to_.*` + 判别力自证 + 同族清点） | **26 PASS / 0 FAIL** |
+| `.workbuddy/tools/v449-psi-split-e2e.mjs`（DEV） | **115 PASS / 0 FAIL / 1 SKIP** |
+| 同上（生产 `HG_BASE=https://hergent.cn`） | **115 PASS / 0 FAIL / 1 SKIP**（与 DEV 同绿） |
+| 判别力自证（同一支探针打**生产旧版**） | **54 PASS / 46 FAIL**（46 条全是本轮新断言；相位 0/3/4 两侧同绿 = 不变量） |
+| 写端点「必被拒」4 连（零写入） | 全 **400 + 说人话文案**（`请先选择退货客户` 等），写库行数前后**零变化** |
+
+生产判据：两个端点均 **200**；生产与本地产物（`index.html` + 7 页面 chunk + 4 内核 chunk）
+**双侧 md5 逐字节一致**。生产备份：后端 `.bak-v449-1791685991` / 前端 `index.html.bak-v449-1791686360`。
+
+### 登录态安全（探针协议）
+
+临时会话令牌 `sbx*ad/ds/dp/w*-v449-*`，协议 = **插令牌 → 跑探针 → 删令牌**；
+收尾后生产 `sessions` 回到基线 **1 条**（仅老板本人真实会话），`/tmp` 明文令牌文件全清。
+
+### ⚠️ 仍未验证（诚实边界）
+
+**前端「保存退货单 / 保存并过账」的成功落单从未真机点过** —— v449 全部验收都是**只读**探针。
+已证到「端点接线正确 + 必被拒时 400 说人话 + 后端逻辑影子库 33/29 PASS」，
+但「在界面上点一下、真的落一张单」需要在**生产写一张真实单据** ⇒ 需老板授权或老板自己点一次。
+
+### 补记：v444 的「行高元凶」
+
+明细表**行高由行内最高控件决定** —— 删除按钮 30px 会把行高从 31.8 顶到 35；
+`td` 内距是 2×2。调行高先看**行内有没有图标按钮**，别只盯 `td` 的 padding。
+
+### 待修清单（已登记，本轮**未动**）
+
+| # | 缺陷 | 说明 |
+|---|---|---|
+| 1 | 采购退货候选「粗筛」含不可退单 | tenant_1 候选 **79 张全部不可退**（无明细行），提示语「只列出进过货的单」与事实不符；建议粗筛补 `AND EXISTS(item)`。**v449 后**新退货页默认走「不挂原单」（不列候选），只有从采购单「转单为」进入才用 ⇒ 影响面收窄但**未消失**。 |
+| 2 | 销售退货单列表恒空 | `InvSaleList.vue` 的 `kind=return` 筛 `sale_orders.status='returned'`（**全仓无写入方**）⇒ 退单左半入口空表。**v449 已把后端 `return_order_list` 从 500 修到 200**，但**前端仍筛错表** ⇒ 空表问题依旧；修法 = 前端改走 `GET /api/return-orders`。 |
+| 3 | `?copy=<不存在单号>` 被前端静默吞掉 | 服务端 404，界面仍显示「复制采购单」空表单、零提示 ⇒ 用户分不清「原单为空」与「原单不存在」。探针相位 2 已留证。 |
+| 4 | 调拨单**没有列表页** | v449 只交付建单页；后端 `GET /api/psi/transfer-orders` 已通。 |
+| 5 | `GET /api/ui/col-prefs?page=<key>` 返回 400 | `ui-density` / `purchase-new` 等页面键，**既有**（探针清点发现）。 |

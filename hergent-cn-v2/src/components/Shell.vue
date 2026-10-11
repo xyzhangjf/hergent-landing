@@ -252,6 +252,10 @@ import { messagesApi } from '../api/modules'
    后端同一份白名单的前端镜像（`roles.js::FORECAST_SUMMARY_ROLES`，护栏 AST 校验）。
    v291 起它已收敛进 `pages.js`：本文件只调 `canSee(path)`，不自己写名单。 */
 import { canSee } from '../constants/pages'
+/* v449：进销存 7 个建单页的路径**唯一来源**在 `pages/inventory/new/docTypes.js`。
+   🔴 侧栏这里只引用、不重抄 —— 路径字符串抄两份，改一处漏一处就是一堆静默 404
+      （侧栏点「＋」没反应，而控制台干干净净）。 */
+import { DOC_PATHS } from '../pages/inventory/new/docTypes.js'
 /* v396（2026-10-08）：全局标签栏状态（模块级单例，见该文件头）。 */
 import { useTabs } from '../composables/useTabs'
 /* v396：`effTab` = 「有效子页」—— URL 省了 `?tab=` 时按默认子页算（见该文件头）。 */
@@ -403,32 +407,43 @@ const NAV = [
          `/api/psi` 归 `inventory`）—— 照抄同一个键，不新造（v335 纪律：键写错会 fail-closed
          把「＋」全藏掉）。收口在 `resolveNavItem`：`canDo('inventory','create')`。 */
       /* 🔴 v395（2026-10-08）：单据类型**进 URL**（`q`）—— 按舟谱「采销管理」的
-         「业态 × 订单/退单」拆入口，但**仍是同一批列表页与新建页，零新页**：
+         「业态 × 订单/退单」拆入口。
            · 左半（条目名）→ `/inventory/sale?type=…&kind=…`（列表页按此预筛选）；
-           · 右半「＋」→ `/inventory/sale/new` 带同一份 `q` ⇒ 新建页**预置单据类型**，
-             不让人每次都手选出货方式。
+           · 右半「＋」→ 原为 `/inventory/sale/new` 带同一份 `q`（新建页预置类型）。
+         🔴 **v449（2026-10-11）左半不变、「＋」改了落点**：老板拍板「为每一种不同
+            类型的单据分别建立独立的页面，而不是继续共用同一页面」⇒ 7 种单据各有
+            自己的路径（`DOC_PATHS`），「＋」直接指向它们。见下方那段注释。
          ⚠️ 老板 2026-10-08 拍板两条：① **没有访销业态**（舟谱有的「访销订单/退单」
              我们不立）；② **先立入口** —— 车销与退单目前生产零数据，能力后补。 */
+      /* 🔴 v449（2026-10-11）第二处变化：**「＋」不再需要 `q`**。
+         拆分前所有「＋」都指向同一批新建页，靠 `q` 里的 `type` / `kind` 预置单据类型；
+         现在每种单据有**自己的路径**（`DOC_PATHS`）⇒ 路径本身就把类型说清楚了。
+         ⚠️ **左半（条目名 → 列表）的 `q` 保留不动**：列表页仍是同一批（销售单列表
+            按 `type` / `kind` 预筛选），那条机制没变、也不该变（列表页拆成 5 个
+            是另一件事，不在本轮范围）。
+         ⚠️ 调拨的「＋」现在指向 `/inventory/transfer/new` —— 那是**双仓**调拨单
+            （`transfer_orders` 表），与列表页看到的「舟谱导入的 `order_type=transfer`
+            销售单」**不是同一批数据**。这是已知差距，见 `TransferDocForm.vue` 文件头。 */
       { label: '采购', items: [
         { path: '/inventory/purchase', name: '采购单', icon: 'inbox', q: { kind: 'order' },
-          create: { to: { path: '/inventory/purchase/new', q: { kind: 'order' } }, module: 'inventory', title: '新建采购单' } },
+          create: { to: { path: DOC_PATHS.purchaseOrder }, module: 'inventory', title: '新建采购单' } },
         { path: '/inventory/purchase', name: '采购退货单', icon: 'undo', q: { kind: 'return' },
-          create: { to: { path: '/inventory/purchase/new', q: { kind: 'return' } }, module: 'inventory', title: '新建采购退货单' } }
+          create: { to: { path: DOC_PATHS.purchaseReturn }, module: 'inventory', title: '新建采购退货单' } }
       ] },
       { label: '销售', items: [
         { path: '/inventory/sale', name: '自提订单', icon: 'store', q: { type: 'self_pickup', kind: 'order' },
-          create: { to: { path: '/inventory/sale/new', q: { type: 'self_pickup', kind: 'order' } }, module: 'inventory', title: '新建自提订单' } },
+          create: { to: { path: DOC_PATHS.selfPickupOrder }, module: 'inventory', title: '新建自提订单' } },
         { path: '/inventory/sale', name: '自提退单', icon: 'undo', q: { type: 'self_pickup', kind: 'return' },
-          create: { to: { path: '/inventory/sale/new', q: { type: 'self_pickup', kind: 'return' } }, module: 'inventory', title: '新建自提退单' } },
+          create: { to: { path: DOC_PATHS.selfPickupReturn }, module: 'inventory', title: '新建自提退单' } },
         { path: '/inventory/sale', name: '车销订单', icon: 'smartphone', q: { type: 'vehicle_sale', kind: 'order' },
-          create: { to: { path: '/inventory/sale/new', q: { type: 'vehicle_sale', kind: 'order' } }, module: 'inventory', title: '新建车销订单' } },
+          create: { to: { path: DOC_PATHS.vehicleSaleOrder }, module: 'inventory', title: '新建车销订单' } },
         { path: '/inventory/sale', name: '车销退单', icon: 'undo', q: { type: 'vehicle_sale', kind: 'return' },
-          create: { to: { path: '/inventory/sale/new', q: { type: 'vehicle_sale', kind: 'return' } }, module: 'inventory', title: '新建车销退单' } }
+          create: { to: { path: DOC_PATHS.vehicleSaleReturn }, module: 'inventory', title: '新建车销退单' } }
       ] },
-      /* 调拨在舟谱里是独立一列（我方 `order_type=transfer`，本就走销售单列表）⇒ 同样独立。 */
+      /* 调拨在舟谱里是独立一列；v449 起我方也是独立的页面与数据表（见上）。 */
       { label: '调拨', items: [
         { path: '/inventory/sale', name: '调拨单', icon: 'refresh', q: { type: 'transfer', kind: 'order' },
-          create: { to: { path: '/inventory/sale/new', q: { type: 'transfer', kind: 'order' } }, module: 'inventory', title: '新建调拨单' } }
+          create: { to: { path: DOC_PATHS.transferOrder }, module: 'inventory', title: '新建调拨单' } }
       ] },
       // 「库存查询」(`/inventory/stock`，默认按到期日升序) 与「库存效期补录」(`/data-fill`)：
       // 前者是本轮新页；后者是**已上线**页面，此前不在侧栏（只能从设置页 / 货损页的

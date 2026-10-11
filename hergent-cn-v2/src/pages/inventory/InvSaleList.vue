@@ -60,9 +60,12 @@
       <div class="state-empty">
         <div class="se-ic"><Icon name="receipt" :size="22" /></div>
         <p>{{ hasFilter ? '当前条件下没有销售单。' : '还没有销售单。' }}</p>
+        <!-- v449：原来写死 `/inventory/sale/new`（不带 `type`）⇒ 在「车销退单」页签下
+             点它会建出一张**自提订单**，而且看不出哪里不对。改成跟页签走（`newTo`），
+             文案也跟页头一致（`新建车销退单`），而不是笼统的「新建销售单」。 -->
         <button v-if="canWrite" class="btn btn-primary btn-sm" style="margin-top:12px"
-                @click="go('/inventory/sale/new')">
-          <Icon name="plus" :size="14" />新建销售单
+                @click="go(newTo)">
+          <Icon name="plus" :size="14" />新建{{ title }}
         </button>
       </div>
     </div>
@@ -128,6 +131,10 @@ import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { psiApi } from '../../api/psi'
 import { canDo } from '../../store'
 import { SO_STATUS, ORDER_TYPE, ORDER_TYPE_OPTIONS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
+/* v449：`legacySalePath(type, kind)` 把旧入口的 `?type=&kind=` 解析成**拆分后的独立建单页**
+   路径（未知组合 / 调拨退单落自提订单，并 `console.warn`）。列表页「＋」直接用它，
+   不必再绕一圈旧路径 `/inventory/sale/new`（那条现在只是给旧书签用的重定向）。 */
+import { legacySalePath } from './new/docTypes.js'
 
 /* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。 */
 const COLS = [
@@ -172,13 +179,12 @@ const title = computed(() => {
 })
 const subTitle = computed(() => title.value === '销售单'
   ? '出货台账' : `按「${title.value}」筛选的出货台账`)
-/* 「＋」带同一份 `type` / `kind` 进新建页 ⇒ 新单落在对应入口下（不靠手选） */
-const newTo = computed(() => {
-  const q = {}
-  if (ORDER_TYPE[_qType]) q.type = _qType
-  if (_qKind) q.kind = _qKind
-  return { path: '/inventory/sale/new', query: q }
-})
+/* 「＋」直达**本入口对应的那张独立建单页**（v449 拆页）。
+   · 不再带 `?type=&kind=` 进新建页 —— 每个独立页面已经从 `DOC_TYPE` 常量知道自己是哪种单据，
+     再手选一次反而会让人以为「进错了可以改」。
+   · `transfer|return` 不给落点（调拨没有退单，老板拍板）⇒ 由 `legacySalePath` 兜到自提订单
+     并打 `console.warn`，与旧链接的处理口径完全一致。 */
+const newTo = computed(() => ({ path: legacySalePath(_qType, _qKind) }))
 
 const canWrite = computed(() => canDo('inventory', 'create'))
 const hasFilter = computed(() => !!(f.value.status || f.value.order_type || f.value.customer_id

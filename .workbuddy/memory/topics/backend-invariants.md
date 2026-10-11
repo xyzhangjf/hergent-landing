@@ -748,3 +748,43 @@ PY
 只下发表不下发索引 / 窗口当主键 / 白名单漏字段 / **本条的影子表**。
 遇到"某个判断看起来永远不成立、但日志干净"，先问三句：
 ① 这表是**哪个库**的？② 当前在**哪个租户上下文**？③ 这个"空"是**真没有**还是**读错了地方**？
+
+---
+
+## 🔴 v449（2026-10-11）：**「从未被执行过的代码」≠「安全的代码」** —— 死代码里叠了三层缺陷
+
+**背景**：进销存调拨要接进前端（新建 `GET /api/psi/transfer-orders`），而调拨那套函数
+（`transfer_order_list` / `transfer_order_get` / `transfer_order_complete`）在此前**从未被任何端点调用过**
+—— 生产 `transfer_orders` 表 **0 张**、前端零引用 ⇒ 缺陷**层层叠加、从未暴露**。接上线后一次全炸。
+
+### 抓到的五层（按暴露顺序，修好一层立刻露出下一层）
+
+| 层 | 代码 | 症状 |
+|---|---|---|
+| ① | `from inventory import inventory_adjust` | `ModuleNotFoundError` —— **`server/inventory.py` 根本不存在**（真身在 `db/queries/inventory.py`）⇒ 端点必然 500 |
+| ② | `if "error" in r1:` | `inventory_adjust` **成功时返回 `None`** ⇒ `TypeError: argument of type 'NoneType' is not iterable` —— **成功路径反而崩**。同仓别处都写 `isinstance(x, dict) and "error" in x`，只有这里写歪 |
+| ③ | `if "error" in r1: return r1` | 函数体在 `with get_db_tx() as db:` 里，而 `get_db_tx` **正常退出即 commit** ⇒ 失败时 `return` 会**提交半截调拨**：调出仓已扣、调入仓没加 ⇒ **货凭空消失**，接口却返回 error（调用方以为"没成功、库存没动"）。**必须 `raise` 让事务整体回滚** |
+| ④ | `p + [limit, offset]` | `p` 来自 `w, p = ("WHERE status=? ", (status,)) if status else ("", ())` ⇒ 是 **tuple** ⇒ `TypeError: can only concatenate tuple (not "list") to tuple` ⇒ 恒 500 |
+| ⑤ | `SELECT to.*` | 别名声明是 `to_`，而 SELECT 写了 `to.*` ⇒ SQLite 把 `to` 当**关键字 TO** ⇒ `near "to": syntax error`（④ 修好后**立刻**暴露） |
+
+生产判据：`GET /api/psi/transfer-orders` **500 → 200**、`GET /api/return-orders` **500 → 200**
+（后者是 v441 就登记「待修」的 `return_order_list`，当时把 500 写成了**预期**断言 ⇒ 修好后必须**反转探针口径**）。
+
+### 三条可复用的纪律
+
+1. **接通死代码要预期它会炸，并且修完第一层要再测第二层** —— 五层是一层层露出来的，
+   只修"报出来的那一个错"会反复上线。
+2. **同族扫描要判「类型」而不是判「写法」**：全仓 `w, p = (…, (…)) if … else ("", ())` 型
+   tuple 源共 **7 处**，但**只有 2 处**会做 `+ [..]` 拼接（另外 5 处是 tuple 直接传参，安全）。
+   逐处核对后把结论**固化成 harness 的动态清点断言**（`v449-listfix-harness.py` D 段），
+   防后人只修一处、或"好心"把 5 处安全代码也改了（**扩大风险面**）。
+3. **"表里 0 行"是个强信号**：它同时意味着「**没有任何人用过这条路**」⇒ 这条路上的代码
+   从未被真实数据驱动过，**缺陷密度会异常高**。（对比：同样 0 行的 `return_orders` 也有两层。）
+
+### 🔴 附带踩到的两个工具坑（同族，值得记住）
+
+- **`sqlite3.Connection` 没有 `rowcount`** —— 要**cursor** 的（`cur.rowcount`）。
+  写清理脚本时用错对象 ⇒ 抛 `AttributeError` ⇒ **事务未 commit** ⇒ 等于没删。
+  **「清理脚本报错」必须回读基线计数验证，不能只看它"跑过了"。**
+- **产物可能早于源码**：`dist-v449` 是 10:10 构建的，而 `src/router/index.js` 10:17 才改
+  ⇒ 产物里**没有**那个修复。**部署前必须比 `outDir` mtime 与源码 mtime**（否则安静地部署一份旧代码）。

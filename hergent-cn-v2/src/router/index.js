@@ -15,6 +15,9 @@ import { store } from '../store'
    本文件不再自己写判据 —— 侧栏 / 命令面板 / 守卫 / 页内跳转读的是同一份表。
    （旧写法是各页 `meta.roles` 自己带名单，只有 1 个页面填了。见文件末尾守卫处注释。） */
 import { ruleFor, pageRoleAllowed } from '../constants/pages'
+/* v449：旧建单入口 → 新独立页面的路径解析。**纯数据模块、零副作用**（只导出常量与
+   两个纯函数），静态 import 不影响首屏体积，也不会引入循环依赖。 */
+import { legacySalePath, legacyPurchasePath, DOC_PATHS } from '../pages/inventory/new/docTypes.js'
 
 const Login = () => import('../pages/Login.vue')
 const Shell = () => import('../components/Shell.vue')
@@ -52,10 +55,27 @@ const PriceChannels = () => import('../pages/PriceChannels.vue')
 const InventoryShell = () => import('../pages/inventory/InventoryShell.vue')
 const InvWorkbench = () => import('../pages/inventory/InvWorkbench.vue')
 const InvPurchaseList = () => import('../pages/inventory/InvPurchaseList.vue')
-const InvPurchaseNew = () => import('../pages/inventory/InvPurchaseNew.vue')
+/* 🔴 v449：`InvPurchaseNew.vue` / `InvSaleNew.vue` 两条懒加载常量**已删除** ——
+   拆分后没有任何路由指向它们（对照实验：产物 `dist-v449/assets/` 里已无
+   `InvPurchaseNew-*.js` / `InvSaleNew-*.js`，证明它们本来就是死引用）。
+   两个文件仍在磁盘上（是 7 个新页面「逐段搬移」的溯源基准），**待归档**；
+   但**不要**再把它们挂回路由 —— 那会让同一个业务出现两套建单页，差异会立刻漂移。 */
 const InvPurchaseDetail = () => import('../pages/inventory/InvPurchaseDetail.vue')
 const InvSaleList = () => import('../pages/inventory/InvSaleList.vue')
-const InvSaleNew = () => import('../pages/inventory/InvSaleNew.vue')
+/* ---- v449（2026-10-11）：进销存建单页拆成**7 个独立页面** -------------------
+   🔴 全部走 `new/` 目录下的薄页面 + 3 个配置化内核（见 `pages/inventory/new/docTypes.js`）。
+      这里只登记路由；**差异（标题 / 字段 / 端点 / 列表落点）全在 `docTypes.js`**，
+      不在本文件里写第二份。
+   ⚠️ 拆分前的两个入口 `/inventory/sale/new` 与 `/inventory/purchase/new?kind=…`
+      **保留**（`redirect` / `beforeEnter`）—— 书签、列表页按钮、工作台按钮都还指着它们，
+      删掉就是一堆静默 404。 */
+const PurchaseOrderNew = () => import('../pages/inventory/new/PurchaseOrderNew.vue')
+const PurchaseReturnNew = () => import('../pages/inventory/new/PurchaseReturnNew.vue')
+const SelfPickupOrderNew = () => import('../pages/inventory/new/SelfPickupOrderNew.vue')
+const SelfPickupReturnNew = () => import('../pages/inventory/new/SelfPickupReturnNew.vue')
+const VehicleSaleOrderNew = () => import('../pages/inventory/new/VehicleSaleOrderNew.vue')
+const VehicleSaleReturnNew = () => import('../pages/inventory/new/VehicleSaleReturnNew.vue')
+const TransferOrderNew = () => import('../pages/inventory/new/TransferOrderNew.vue')
 const InvSaleDetail = () => import('../pages/inventory/InvSaleDetail.vue')
 const InvStock = () => import('../pages/inventory/InvStock.vue')
 // v265（2026-09-24）：ProductTarget 不再由路由懒加载 —— 它已收进 Forecast.vue 当第 4 个页签
@@ -166,10 +186,58 @@ export const router = createRouter({
           children: [
             { path: '', component: InvWorkbench, meta: { title: '进销存' } },
             { path: 'purchase',      component: InvPurchaseList,   meta: { title: '采购单' } },
-            { path: 'purchase/new',  component: InvPurchaseNew,    meta: { title: '新建采购单' } },
+            /* v449：`purchase/new` **仍然是采购订单**的路径（不挪），但多了一层
+               `beforeEnter` 把拆分前的 `?kind=return` 送到新的采购退货单页面。
+               🔴 为什么用 `beforeEnter` 而不是 `redirect`：`redirect` 是**无条件**的，
+                  用在这里会把「采购订单」本身也一起重定向走（页面直接打不开）。
+                  `beforeEnter` 返回一个 location = 改道；返回 `undefined` = 照常进入。
+                  这是**条件重定向**唯一干净的写法。 */
+            {
+              path: 'purchase/new',
+              component: PurchaseOrderNew,
+              meta: { title: '新建采购单' },
+              beforeEnter: (to) => {
+                const k = String((to.query && to.query.kind) || '')
+                if (k && k !== 'order') {
+                  /* 🔴 其余 query（尤其 `from_po`）**原样带走**：采购单详情页的
+                     「转单为 → 采购退货」是 `/purchase/new?kind=return&from_po=12`，
+                     丢了 `from_po` 那张单的可退预览就没了（退化成"自己填"）。
+                     带上的 `kind` 要去掉 —— 新页面不再认它，留着会让 URL 撒谎。 */
+                  const q = { ...(to.query || {}) }
+                  delete q.kind
+                  return { path: legacyPurchasePath(k), query: q }
+                }
+              },
+            },
+            { path: 'purchase/return/new', component: PurchaseReturnNew, meta: { title: '新建采购退货单' } },
             { path: 'purchase/:id',  component: InvPurchaseDetail, meta: { title: '采购单详情' } },
             { path: 'sale',          component: InvSaleList,       meta: { title: '销售单' } },
-            { path: 'sale/new',      component: InvSaleNew,        meta: { title: '新建销售单' } },
+            /* v449：拆分前那条共用路径**只做重定向**，不再承载页面。
+               🔴 它**必须**留：`InvSaleList.vue` 的「新建销售单」按钮、空态按钮、
+                  进销存工作台按钮、以及用户书签都还指着 `/inventory/sale/new?...`。
+                  `redirect` 无条件改道正合适（这条路径本来就没有自己的内容）。
+               🔴 未知 `type` / 调拨退单的兜底在 `legacySalePath()` 里（那条函数
+                  同时负责打警告）—— 不要在这里再写一遍分支。 */
+            {
+              path: 'sale/new',
+              redirect: (to) => ({
+                path: legacySalePath(to.query && to.query.type, to.query && to.query.kind),
+                /* 🔴 `query: {}` **不能省**（v449 实测）：vue-router 4 在 redirect 返回的
+                   location **未指定 `query`** 时会**继承原 query** ⇒ 改道后 URL 停在
+                   `.../vehicle/return/new?type=vehicle_sale&kind=return` —— 目标页一个字都不读它，
+                   纯粹是「URL 在撒谎」（且与上面 `purchase/new` 那条 `delete q.kind` 的口径不一致）。
+                   两个销售内核都不用 query ⇒ 这里整体丢掉是安全的（无 `copy` / `edit` / `from_so`
+                   这类需要透传的键；销售侧本来也没有「从原单转退货」的通道，见 docTypes.js 头注）。 */
+                query: {},
+              }),
+            },
+            /* 静态段必须排在 `sale/:id` **之前**：vue-router 4 虽然按
+               「静态 > 参数」打分，但把静态段写在前面能让下面这四条一眼看清归属。 */
+            { path: 'sale/self-pickup/new',        component: SelfPickupOrderNew,  meta: { title: '新建自提订单' } },
+            { path: 'sale/self-pickup/return/new', component: SelfPickupReturnNew, meta: { title: '新建自提退单' } },
+            { path: 'sale/vehicle/new',            component: VehicleSaleOrderNew, meta: { title: '新建车销订单' } },
+            { path: 'sale/vehicle/return/new',     component: VehicleSaleReturnNew, meta: { title: '新建车销退单' } },
+            { path: 'transfer/new',                component: TransferOrderNew,     meta: { title: '新建调拨单' } },
             { path: 'sale/:id',      component: InvSaleDetail,     meta: { title: '销售单详情' } },
             { path: 'stock',         component: InvStock,          meta: { title: '库存查询' } }
           ]

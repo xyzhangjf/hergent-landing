@@ -504,6 +504,83 @@ export const psiApi = {
    */
   returnSale: (id, body) =>
     api(`/api/psi/sale-orders/${id}/return`, { method: 'POST', body }),
+
+  /* ---- v449：**不挂原单**的退货（建单页拆成独立页面时新增）-------------------
+     🔴 上面那两条（`returnPurchase` / `returnSale`）与下面这两条是**两条并存的路**，
+        语义不同，别互相替代：
+          · 上面 = 「对**某一张**已入库 / 已发货的单退货」：明细商品不可选、
+                   数量有「可退上限」（后端按 `已入库−已退` / `已发货−已退` 现算）。
+          · 下面 = 「退货登记」：**不挂原单**，自己选伙伴 + 退货仓库 + 自己填明细，
+                   **没有可退上限**。老板 2026-10-11 口径：「退货单不需要选原采购单 /
+                   销售单，退货仓库要可以指定」。
+        ⇒ 该走哪条由**入口**决定（建单页走下面；详情页「转单为退货」走上面），
+          不是由用户在页面上选 —— 那是两个不同的业务动作。
+     🔴 唯一实现在后端（`db.queries.sales.return_order_create` /
+        `db.purchase_return_create`），本条只负责发请求。
+     ------------------------------------------------------------------- */
+
+  /**
+   * 落一张**不挂原销售单**的退货单（回增库存 + 冲减客户应收）。
+   * @param {object} body
+   *   `{customer_id, warehouse_id, items:[{product_id, product_name, quantity, unit_price}],
+   *     reason?, order_type?, driver_id?, order_date?, note?, idempotency_key?}`
+   *   🔴 `customer_id` 与 `warehouse_id` **都必填**（后端 400「请先选择退货客户」/
+   *      「请选择退货仓库」）—— 拆分前的退货仓库是从原单读的只读值，现在是必选项。
+   *   ⚠️ 后端**没有** `department` 入参（`return_orders` 表没有这一列）⇒ 传了也白传。
+   *   ⚠️ 不会回写任何销售单状态（没有原单可回写；`sale_orders.status` 里那个
+   *      `returned` 全系统无人写、也不是本端点的事）。
+   */
+  createSaleReturn: (body) =>
+    api('/api/psi/sale-return-orders', { method: 'POST', body }),
+
+  /**
+   * 落一张**不挂原采购单**的退货单（扣减库存 + 冲减供应商应付）。
+   * @param {object} body
+   *   `{supplier_id, warehouse_id, items:[{product_id, product_name, quantity, unit_price}],
+   *     reason?, order_date?, note?}`
+   *   🔴 与上面那条镜像：`supplier_id` / `warehouse_id` 都必填。
+   *   ⚠️ 因为是独立退货单，**不会**把任何采购单标成「已退货」
+   *      （那条回写只在 `purchase_order_id` 非 0 时执行）。
+   */
+  createPurchaseReturn: (body) =>
+    api('/api/psi/purchase-return-orders', { method: 'POST', body }),
+
+  /* ---- v449：调拨（真双仓，`transfer_orders` 表）---------------------------- */
+  /**
+   * 调拨单列表（**只读投影**）。
+   * @param {object} p `{status, limit, offset}`；`status` 空串 = 全部
+   * @returns `{success, rows, count}`；每行带 `from_wh_name` / `to_wh_name`（仓名现解析）
+   * 🔴 `limit` / `offset` 后端**显式声明**过（v443 的教训：未声明的 query 参数会被
+   *    FastAPI **静默忽略**，`?limit=` 被丢掉、恒回默认值）。
+   * ⚠️ 这张表与 `sale_orders` 里那些 `order_type='transfer'` 的**舟谱导入单**
+   *    **不是同一批数据**（后者是 `sale_orders` 的行）。同屏对比时别把它们当一回事。
+   */
+  listTransfers: (p = {}) => api(`/api/psi/transfer-orders${qs(p)}`),
+
+  /**
+   * 建调拨单（**双仓**）。建出来是 `status='draft'`，**库存一动没动**。
+   * @param {object} body
+   *   `{from_warehouse_id, to_warehouse_id, note?, items:[{product_id, product_name, quantity}]}`
+   *   · 两仓都必填，且**不能相同**（后端 400）；至少一行明细，数量 > 0。
+   * @returns `{success, order_no, id}` —— `order_no` 形如 `TF…`
+   * 🔴 **没有幂等键**：重复提交就会落下两张草稿。防重只能靠调用方（页面在
+   *    首次成功后立刻停用保存按钮）。这是本接口与其它建单接口的一个真实差别。
+   */
+  createTransfer: (body) => api('/api/psi/transfer-orders', { method: 'POST', body }),
+
+  /**
+   * 调拨**过账** —— 这一步才真的移库（调出仓减、调入仓加，**同一笔事务**）。
+   * @returns `{success: true}`
+   * 🔴 只有 `draft` 能过账；重复过账返回 400（不是静默成功 —— 静默成功会让
+   *    操作员以为库存动过了）。
+   * 🔴 失败是 **400 + 人话**（如「调出仓库存不足」），且**整体回滚**
+   *    （v449 修掉的既有缺陷：原先过账失败会 `return` 一个 error，而 `get_db_tx`
+   *    正常退出即 commit ⇒ 调出仓扣了、调入仓没加，**货凭空消失**而接口只回了失败）。
+   *    页面照显 `e.message` 即可，**不要**在前端自己判库存 —— 负库存守卫的唯一实现
+   *    在 `db.queries.inventory.inventory_adjust`。
+   */
+  completeTransfer: (tid) =>
+    api(`/api/psi/transfer-orders/${tid}/complete`, { method: 'POST' }),
 }
 
 export default psiApi

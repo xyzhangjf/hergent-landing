@@ -191,16 +191,20 @@
       <div class="state-empty">
         <div class="se-ic"><Icon name="inbox" :size="22" /></div>
         <p>{{ hasFilter || f.status ? '当前条件下没有单据。' : (isReturn ? '还没有退过货。' : '还没有单据。') }}</p>
-        <!-- v414（P2-6）退货页签的**空态出口**：退货不能凭空建 —— 它必须挂一张**已入库**的采购单。
-             不给这句，用户在这个空页面上只能看到「还没有退过货」，而侧栏那个「新建」进去也要先选原单
-             ⇒ 两头都不说，等于没路。这里直接把那条路写出来。 -->
+        <!-- v449：退货单**不再必须**挂原采购单（老板拍板：不选原单据 + 退货仓库可指定）。
+             现在两条路都能建：
+               · 直接新建 —— 选供应商 + 退货仓库，自己挑商品（走 `purchase_returns` 新通道）；
+               · 从已入库的采购单转 —— 打开那张单点「转单为 → 采购退货」，服务端会给可退上限。
+             所以这段从「唯一的路」改成「两条路都写出来」，而且**按钮也要放出来**：
+             原来 `v-if="canWrite && !isReturn"` 把退货页签的出口藏掉了 —— 那是按旧口径写的。 -->
         <p v-if="isReturn && !hasFilter && !f.status"
            style="margin-top:6px;font-size:12px;color:var(--t3);line-height:1.5">
-          退货单是从一张<b>已入库</b>的采购单转出来的：打开那张单，点「转单为 → 采购退货」。
+          可以直接新建（选供应商和退货仓库，自己挑商品）；<br>
+          也可以打开一张<b>已入库</b>的采购单，点「转单为 → 采购退货」（会自动带上可退数量上限）。
         </p>
-        <button v-if="canWrite && !isReturn" class="btn btn-primary btn-sm" style="margin-top:12px"
+        <button v-if="canWrite" class="btn btn-primary btn-sm" style="margin-top:12px"
                 @click="goNew()">
-          <Icon name="plus" :size="14" />新建采购单
+          <Icon name="plus" :size="14" />{{ isReturn ? '新建采购退货单' : '新建采购单' }}
         </button>
       </div>
     </div>
@@ -423,6 +427,9 @@ import Icon from '../../components/Icon.vue'
 import { psiApi } from '../../api/psi'
 import { canDo, toast } from '../../store'
 import { PO_STATUS, PO_SOURCE, PO_SOURCE_OPTIONS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
+/* v449：采购侧的两个独立建单页路径（`legacyPurchasePath(kind)` 只做一次判据 ——
+   改判据只改 `docTypes.js` 一处，不在这里再抄一遍 `kind === 'return'`）。 */
+import { legacyPurchasePath } from './new/docTypes.js'
 import { downloadCsv, localDateStamp } from '../../utils/csv'
 /* v408：列设置菜单的开合与定位走**唯一实现**（UI-SPEC §2.6.1「三、」）。
    本页与 `/forecast` 同属齿轮宿主白名单（§2.6.1「五、D」）⇒ 共用同一份契约，不另写一份。 */
@@ -1048,8 +1055,11 @@ async function loadBase () {
 
 function resetFilter () { f.value = baseFilter(); load() }
 function pickTab (v) { f.value.status = v; load() }
+/* v449：直达**本页签对应的独立建单页**（采购单 / 采购退货单各一张页面）。
+   旧写法是 `/inventory/purchase/new?kind=return` 再靠路由 `beforeEnter` 改道 ——
+   能到，但多一跳，且让「旧入口」看起来还像是正常入口。 */
 function goNew () {
-  router.push(isReturn.value ? '/inventory/purchase/new?kind=return' : '/inventory/purchase/new')
+  router.push(legacyPurchasePath(isReturn.value ? 'return' : 'order'))
 }
 function go (p) { router.push(p) }
 
