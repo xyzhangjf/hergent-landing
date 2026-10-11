@@ -1049,6 +1049,8 @@ NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
 | `InvPurchaseNew` | `ipn-` | `InvSaleDetail` | `isd-` |
 | `InvPurchaseDetail` | `ipd-` | `InvStock` | `is-` |
 | 跨页（容器级） | `inv-` | | |
+| `wh/ExpiryReport` 仓配·效期预警表 | `wer-` | `wh/StockAlert` 仓配·库存预警 | `wsa-` |
+| `wh/VehicleStock` 仓配·车辆库存查询 | `wvs-` | 仓配后续页按 `docs/仓配模块开发规范.md` §7 续登记 | — |
 
 > 🔴 **前缀冲突实例**：`.is-acts` 同时定义在 `InvSaleList.vue` 与 `InvStock.vue`。
 > 两边都是 scoped ⇒ **不会互相覆盖、也就不会报错**，但改一处不会同步另一处
@@ -1097,6 +1099,22 @@ NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
 > **同一选择器的定义在站内出现 ≥ 3 次（且逐字相同）⇒ 必须上提为全局类**；
 > 仅 2 次且未来可能分化 ⇒ 可暂缓，但须在本节登记。
 
+### 8.5 模块级开发范式：指针（v465c 补）
+
+§8.1–§8.4 是「**一个页面**怎么搭」的共用口径。**「一个模块从零到上线」的完整流程**
+另立专规 —— 见 **`docs/仓配模块开发规范.md`**（参考实现：仓配管理，2026-10-11 建立）：
+
+| 该专规覆盖 | 要点 |
+|---|---|
+| 模块定位与边界 | 先划「本模块做什么 / 不做什么」；**与既有模块重叠的条目一律剔除**（如「调拨订单」归进销存，仓配不再列） |
+| 后端能力盘点法 | 动手前先查后端**已有**端点与表 ⇒ 新前端多为**接线**而非**重建**；未映射前缀会 403 |
+| 前缀命名与映射三条例 | `_PATH_MODULE_MAP` 首匹配即停；未映射 ⇒ fail-closed 403；嵌套前缀静默失效 |
+| 落真身四步 | `PLACEHOLDER_PAGES` 迁出 → `PAGE_RULES` 加行 → router 真路由（**排在占位 map 之前**）→ `api` 方法 |
+| 页面范式 / 文案与单位 / 前缀分配表 | 直接引用本章 §8.1–§8.4，不重复 |
+
+> 🔴 **分工**：本文件只管**外观与交互令牌**（长什么样、用哪个类）；
+> 模块专规管**流程与接线**（怎么把一个模块从盘点做到上线）。两者交叉引用，不互相抄。
+
 ---
 
 ## 9. 版本记录
@@ -1118,3 +1136,4 @@ NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
 | v407 | 2026-10-08 | **撤掉「预报订单管理」弹窗里与「本期预报」重复的「创建」按钮**（老板原话：「该按钮点击后会跳转到『本期预报』页面，而弹窗中已存在『本期预报』按钮，功能重复，因此无需保留此『创建』按钮」）。① **改动只有一处数据**：`Shell.vue::NAV` 的「历史期次」条目删掉 `create: { to: '/forecast', module: 'data', title: '新建本期预报（期次）' }` —— 它的 `to` 与上一行「本期预报」条目**同是 `/forecast`**，落点完全重合。② 🔴 **两个面同时消失、且是同一份数据源**：桌面弹窗的 `.sb-pop-new`（「＋ 创建」文字）与手机抽屉的 `.md-item-new`（纯 `＋` 图标）都读 `x.create` ⇒ 撤一处即两处收敛，**不存在"桌面撤了手机还在"**。③ 🔴 **只撤数据、不撤机制**：`resolveNavItem` 的 `canDo(create.module,'create')` 收口、`.sb-pop-new` / `.md-item-new` 样式、模板 `v-if="x.create"` 全部**原样保留** —— 进销存区那 7 条（采购单 / 采购退货单 / 自提订单 / 自提退单 / 车销订单 / 车销退单 / 调拨单）仍在用，本区只是不再需要。④ **另三处注释同步改写**（防「过期注释当事实」）：§3.5 退役三步 ② 补 v407 续记；`Shell.vue` 区头「这也是 L1 双入口的试点区」改为「v407 起本区不再挂 `create`」；「本期预报」条目的 v405 注释里那段「它与『历史期次』行的『＋』落点相同**但不是重复**」**已作废重写** —— 该判断正是本轮被老板推翻的那条。⑤ **判据收紧**：撤掉那个「＋」后，「本期预报」条成为**本页主表在桌面弹窗里的唯一入口**（v405 时还有「＋」兜底，现在没有）。⑥ **验收**：新增真机探针 `v407-nav-forecast-create-probe.mjs` —— 含**反例自证**（同一弹窗内进销存区的「＋」必须**仍在**，证明判据能选中而本区是真撤）；同步修订 `v405-nav-reach-probe.mjs` 的 ③c（原断言「＋只挂在历史期次那一条上」⇒ 改为「本区零 `＋`」）。 |
 | v424 | 2026-10-10 | **「报单配置」由一张长页拆成四个独立子页 ＋ 侧栏弹窗升为一个分组（对齐「分层入口」）**。① **起因**：原「报单配置」页＝上半屏「运行参数」三块（报单自动化 / 报单提醒设置 / 模板参数）＋ 下半屏「报单对象」列表 ⇒ **首屏放不下全部配置项、用户须上翻**。② **入口结构**：`Shell.vue::NAV` 的「预报订单管理」由 **1 列变 2 列** —— `预报订单`（本期预报 / 历史期次 / 商品目标，报单配置迁出）＋ **新增 `报单配置`**（报单对象 / 报单自动化 / 报单提醒设置 / 模板参数），**同列纵向、顺序 = 使用频率**；四条仍**全为单入口**（不含 `create`）。③ **四个子页**（`Forecast.vue` 渲染分支 ＋ `TAB_KEYS` 4 → **7**）：`config`＝报单对象（`pages/ReportMapping.vue`，**URL 键不许改** —— `ProductTarget::goReportMapping` / `EmployeeArchive` 的「去修配置」写死 `?tab=config`）／`config-auto`／`config-remind`／`config-template`。④ **抽组件**：新增 `components/forecast/TemplateParams.vue`（模板参数整卡 ＋ `.tp-*` 样式 ＋ `businessProfileApi` 读写**一字未改**地迁出），与既有的 `AutoPeriodBlock.vue` / `ReminderConfig.vue` 同族；`ReportMapping.vue` 相应**净删除**两块 `sec-label` 与 `.tp-*` 样式（死 CSS 不留）。⑤ **标题唯一源同步**：`constants/tabTitles.js::SUB_TITLES['/forecast']` 由 4 键扩到 7 键，且 **`config` 的中文名由「报单配置」改为「报单对象」** —— 四页若同名，标签栏会并排出现四条「报单配置」而分不清谁是谁（本文件存在的理由）。⑥ **页头处理**：`Forecast.vue` 的 `.config-panel` 改名 `.rcfg-obj`，并**改挂「商品目标」成例**（`.target-panel :deep(.page-hd h2){display:none}` 同款）：只藏与标签同名的 `<h2>`、**保留副标题**（业务口径）。⑦ **验收**：`npm run build` 通过（`dist-v424`）；真机只读探针 `.workbuddy/tools/v424-config-split-probe.mjs`（本机 dev 5195 + demo 会话 tenant 10 / boss / 只读）**41 PASS / 0 FAIL**，含六组硬判据 —— 弹窗分列标题与四条顺序、**四条入口 rect 全在视口内且弹窗 `scrollH == clientH`（一屏可见、无需上翻）**、四条各自「URL `?tab=` ↔ 标签栏标题 ↔ 屏上内容」三面一致且**另三块不同屏**、各页控件留存（模板 5 标签 4 输入 / 提醒 1 开关 7 勾选 5 分块 / 自动化 2 段选 3 时刻 1 下拉）、**侧栏当前项高亮认新 tab 键**（`effTab` 归一未被拆页破坏）、**旧深链 `?tab=config` 仍落在报单对象**、全程零 console.error。⑧ **未做**（明确留档）：未提交、未部署（另有 `build/v425`、`build/v426` 两个并行会话在途）；手机抽屉仍按既有规则**摊平**展示（不带子分组标题，七条齐全、无失联）。 |
 | v454 | 2026-10-11 | **全站滚动条加粗 ＋ 新增 §1.8 滚动条基准**。① **起因**：老板反馈全站上下/左右滚动条太细不易点中，预报订单交叉表横向滚动尤其难拖。② **令牌**（新增于 `variables.css`，浅/深双主题同名覆盖）：`--scroll-thumb`（`#c2c2c9`/`#5b5b61`）、`--scroll-thumb-hover`（`#a3a3ac`/`#76767e`）、`--scroll-track`（`rgba(0,0,0,.05)`/`rgba(255,255,255,.07)`）。③ **全局规则**：`::-webkit-scrollbar{width:14px;height:14px}`、滑块圆角 7px、`*:scrollbar-color`（Firefox）；滑块比边框 `--bd` 更深保证对比度、轨道浅灰便于瞄准。④ **交叉表例外**（页面级，仅 `Forecast.vue`）：`.cross-viewport`/`.edit-grid-wrap` 横向 `height:18px`、滑块 `min-height:44px`、圆角 9px（含全屏模式选择器已覆盖）。⑤ 🔴 **继承规则**：滚动条是 `variables.css` 全局样式，**所有页面（含未来新页）默认自动继承**，不要在页面里写 `::-webkit-scrollbar` 覆盖全局；交叉表加高只限两个命名容器，不扩散为全局。⑥ **验收**：干净 HEAD 隔离构建（`git archive HEAD`）→ 生产部署（**不带 `--delete`**，回滚点 `index.html.bak-v454-20261011-125525`）→ 四项关键 assets（index.js / index.css / Forecast.js / Forecast.css）本地构建 md5 与生产在服 md5 **逐字节一致**，零夹带。 |
+| v465c | 2026-10-11 | **新增 §8.5「模块级开发范式：指针」＋ 仓配管理模块 P0（库存查询组三页）落地上线**。① **文档侧**：§8 补 **§8.5** —— 明确分工（本文件管**外观与交互令牌**，新立的 `docs/仓配模块开发规范.md` 管**流程与接线**），并把「模块定位/后端能力盘点法/前缀映射三条例/落真身四步」收敛为指针表格，不再重复抄写；§8.2 前缀表补仓配 P0 三页（`wer-` / `wsa-` / `wvs-`）。② **代码侧**（P0 = 库存查询组）：新增三页 `wh/ExpiryReport.vue`（效期预警表）/ `wh/VehicleStock.vue`（车辆库存查询）/ `wh/StockAlert.vue`（库存预警），全部复用 §8.1–§8.4 成法（`.page` / `.page-hd.split` / `.card.kpi-strip.cols-N` / `.table-wrap>table.tbl` / `.seq-th` / `.seq-cell>span.seq-num` / `.tag.ok|warn|bad` / `.state-empty`），**零新增全局令牌、零新增全局类**；状态与金额一律走 `psiLabels.js`（`textOf` / `tagOf` / `fmtMoney`），阈值由后端返回。③ 🔴 **后端接线（非重建）**：仓配能力在旧后端（`inventory.py` / `vehicles.py`）**已存在** ⇒ 只补 1 个新端点 `GET /api/inventory/low-stock`（库存预警）＋ 给 `get_expiry_forecast()` 的 red/yellow 两段 SELECT 补 `p.unit`；**并修一处历史静默 403** —— `inventory.py` 的 router 前缀是 `/api`（非 `/api/inventory`），`/api/expiry/forecast` 从来没进 `_PATH_MODULE_MAP` ⇒ 属「未映射前缀 fail-closed 403」，本次补 `"/api/expiry": "stock"` 修复。④ 🔴 **`_PATH_MODULE_MAP` 首匹配即停**：前缀是 `startswith` 顺序扫描、命中即返回 ⇒ **嵌套前缀（如 `/api/psi/stock`）注册在更短前缀之后会静默失效**；新端点前缀必须与既有条目**并列或更早**，不能寄望"更具体者胜"。⑤ **权限域核对**：`stock` 域在 `_DEFAULT_PERMS` 里由 8 个角色持有（含 sales/guide/driver/staff），与会话前端 `BIZ_ROLES`（5 角色）**不存在越权差**（前端更窄，后端更宽 ⇒ 前端收口、后端不误拒）。⑥ **验收**：后端影子库烟测通过 ＋ 部署后本地/生产双侧 md5 一致 ＋ 带 boss token 探针三条路径均 200；前端 `dist` 构建 ＋ 增量部署（**不带 `--delete`**）＋ 在服 `index.html` md5 与本地构建**逐字节一致**；真机只读探针 `.workbuddy/tools/v465c-wh-p0-probe.mjs` 生产 **4/4 PASS**（含 1 条占位页**反例自证**：三页真身须无 `.ph-card`、占位页 `#/wh/other-in` 须有）。⑦ 🔴 **部署血缘教训（承 v465）**：上一轮 v465 侧栏四职能区"上线了却看不到"的根因 = 并行会话的 v466 从**隔离 worktree**（`75dda5f`/`481d28a`）构建、**刻意排除**了 v465 的 `Shell.vue` 提交 ⇒ 最后一个写 `index.html` 者胜、v465 的入口 chunk 沦为孤儿。**纪律**：部署必须基于**共享 main HEAD** 构建，且部署后**必须 curl 线上首页核对入口 chunk 名**（不能只信"构建成功"）。 |

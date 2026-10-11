@@ -465,17 +465,20 @@ const NAV = [
   /* ③b 仓配管理 › —— v465（2026-10-11）：按舟谱「仓配管理」弹窗的**四列结构**复刻
      （仓库作业 / 配送作业 / 库存作业 / 库存查询；截图见 `~/Documents/舟谱截图/侧边栏弹窗截图`）。
      条目落点（老板拍板「全复刻 + 占位页」）：
-       · 有真实页面的挂现有路径：调拨单（列表 + 「创建」，与进销存区同款 L1 双入口）、
-         库存查询（`/inventory/stock`）、库存效期补录（`/data-fill`）；
+       · 有真实页面的挂现有路径：库存查询（`/inventory/stock`）、
+         库存效期补录（`/data-fill`）、P0 三页（效期预警表 / 车辆库存查询 / 库存预警）；
        · 没有的挂**共享占位骨架**（`/wh/*`，`pages/Placeholder.vue`「开发中」卡）——
          对齐 v395 打印先例「先立入口、不留死链」，登记与可见性见
          `pages.js::PLACEHOLDER_PAGES`（v465 段）。
      🔴 区**不写 `path`**（与 ⑦ 档案管理同理）：区内条目各挂各的模块
         （`/inventory/stock` 是 ADMIN_ROLES、`/data-fill` 是 stock+BIZ_ROLES、
-        `/wh/*` 是 BIZ_ROLES 占位），拿一个锚点当闸门都会错放或错藏；
+        `/wh/*` 混挂真实页与占位页），拿一个锚点当闸门都会错放或错藏；
         空区由 `resolveNavItem` 收口（一条都不可见时整区消失）。
-     ⚠️ 与进销存区重复的条目（调拨单/库存查询）是**刻意的**：舟谱两区本就重复挂
-        同一批单据；本侧栏将来若拆区，再收口。 */
+     🔴 **v465c（2026-10-11）剔除「调拨单」**：老板明确「调拨订单已在进销存模块实现，
+        须从本模块功能清单中剔除，不再开发」⇒ 本区不再挂 `/inventory/sale?type=transfer`。
+        调拨单的**唯一入口 = 进销存区**（`type:'inventory'` 区内同款条目）。
+        ⚠️ 舟谱原弹窗两区重复挂调拨/库存查询，我方**不照抄这处重复** ——
+        「同一单据只留一个入口」优于「形态复刻」。 */
   {
     key: 'wh', name: '仓配管理', icon: 'toolbox',
     groups: [
@@ -483,8 +486,6 @@ const NAV = [
         { path: '/wh/inbound',      name: '入库单',     icon: 'inbox' },
         { path: '/wh/outbound',     name: '出库单',     icon: 'upload' },
         { path: '/wh/stocktake',    name: '盘点单',     icon: 'list' },
-        { path: '/inventory/sale',  name: '调拨单',     icon: 'refresh', q: { type: 'transfer', kind: 'order' },
-          create: { to: { path: DOC_PATHS.transferOrder }, module: 'inventory', title: '新建调拨单' } },
         { path: '/wh/strategy',     name: '出入库策略', icon: 'settings' },
         { path: '/wh/other-in',     name: '其它入库单', icon: 'inbox' },
         { path: '/wh/other-out',    name: '其它出库单', icon: 'upload' }
