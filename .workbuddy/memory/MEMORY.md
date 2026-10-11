@@ -25,7 +25,7 @@
 🔴 `hergent-pre-launch-audit`｜`scoped-commit`｜`parallel-session-safety`｜`rebate-caliber-consistency`｜`chart-render-verify`｜`ui-copy-guard`｜`external-material-pdf`。
 
 ## 编号约定
-🔴 已用到 **v460**（号表 → **v461**；⚠️ v452~v460 全是 2026-10-11 **同一天**被用掉的，「下轮从 vN 起」当天就可能过期）；号=全局共享序列⇒起号前必读 `topics/version-history.md` + 实搜未提交文件/两仓 `git log --all`/`git worktree list`。🔴 **部署铁律（v460 踩坑订正）**：主应用根=`/opt/hergent-cn-v2`，`/admin/` 是**旧前端 alias**（`/opt/hergent-admin`）两套别混；rsync **必用绝对路径、只同步 `dist-vNNN/` 产物、绝不可把本地仓库根拷进去**（本地根 `index.html` 是营销页，会覆盖生产 SPA 壳）；本仓 `index.html` 已跟踪且是 SPA 壳 ⇒ **不可** `git checkout -- .` / `git clean`（会毁 SPA，因 `assets/` 未跟踪）。
+🔴 已用到 **v461**（号表 → **v462**；⚠️ v452~v461 全是 2026-10-11 **同一天**被用掉的，「下轮从 vN 起」当天就可能过期）；号=全局共享序列⇒起号前必读 `topics/version-history.md` + 实搜未提交文件/两仓 `git log --all`/`git worktree list`。🔴 **部署铁律（v460 踩坑订正，v461 再证）**：主应用根=`/opt/hergent-cn-v2`，`/admin/` alias **`/opt/hergent-admin`** 两套别混（🔴 2026-10-11 15:17 实测该目录 `index.html` 已被一次**错目标 rsync** 覆盖成 SPA 壳、97 个 `assets/` 同时被改写且未留 bak ⇒ 管理后台打不开；恢复=`bash /opt/hergent-admin/scripts/release.sh rollback BG2Yswu1`）；🔴 同日多会话并行**反复互相覆盖部署**（v461 首轮三方 md5 全绿后 40 秒即被覆盖）⇒ 部署必须以「**三方 md5 + 生产真机探针**」当轮复核为准；rsync **必用绝对路径、只同步 `dist-vNNN/` 产物、绝不可把本地仓库根拷进去**（本地根 `index.html` 是营销页，会覆盖生产 SPA 壳）；本仓 `index.html` 已跟踪且是 SPA 壳 ⇒ **不可** `git checkout -- .` / `git clean`（会毁 SPA，因 `assets/` 未跟踪）。
 
 ## 并行开发协议 → topics/parallel-dev-protocol.md
 🔴 多会话并行**总控基准**：**按缝切分 + 门口串行**。含「文件 ownership 总控表」「起号/提交/部署纪律」「红牌停手信号」。开工前先更新 ownership 表，部署前必占串行窗口。

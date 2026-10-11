@@ -482,6 +482,34 @@
                     </div>
                   </div>
                 </div>
+                <!-- v461：朗读声音选择 —— 让老板自己挑「念给他听」的声音。
+                     放在「AI 可以怎么做」之后：二者同属「会影响副驾表现」的设置，胶囊形态一致（图标+当前值+下拉箭头）。
+                     🔴 可选项**只有一个来源** = 后端 `GET /api/ai/tts/voices`（音色白名单与默认值都在后端定义），
+                        前端**不另抄一份名单** —— 否则后端加/换音色时前端不认，界面显示与真实可用的声音会脱节。 -->
+                <div class="cp-ttsv">
+                  <button class="cp-ttsv-btn" :class="{ on: showVoiceMenu }" @click.stop="toggleVoiceMenu"
+                    :title="'朗读声音：' + (ttsVoiceName || '默认') + '（点开选择）'" aria-label="选择朗读声音">
+                    <Icon name="volume-2" :size="12" />
+                    <span class="cp-ttsv-tx">{{ ttsVoiceName || '朗读声音' }}</span>
+                    <svg class="cp-guard-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                  <div v-if="showVoiceMenu" class="cp-role-menu cp-ttsv-menu">
+                    <div class="cp-role-menu-hd">朗读声音<span class="cp-hd-note">· 选好后，下次朗读就用它</span></div>
+                    <div v-if="ttsVoicesLoading" class="cp-role-item locked">
+                      <div class="cp-role-item-tx"><div class="cp-role-item-name">正在读取声音列表…</div></div>
+                    </div>
+                    <template v-else>
+                      <div v-for="v in ttsVoiceOptions" :key="v.id" class="cp-role-item"
+                        :class="{ on: v.id === ttsVoice }" @click.stop="pickTtsVoice(v)">
+                        <div class="cp-role-item-tx">
+                          <div class="cp-role-item-name">{{ v.name }}</div>
+                          <div v-if="voiceDesc(v)" class="cp-role-item-desc">{{ voiceDesc(v) }}</div>
+                        </div>
+                      </div>
+                      <div v-if="ttsVoicesErr" class="cp-ttsv-err">声音列表读取失败，暂时只能用「{{ ttsVoiceName || '默认声音' }}」</div>
+                    </template>
+                  </div>
+                </div>
                 <!-- 🔴 v281（2026-09-26）此处的「自动降级 / 直连通道」开关已**整条撤除**。
                      原因（实测）：它不是用户偏好，而是**通道选择**，且"关"的那一侧会绕过后端的
                      AI 停用管控（`ai_mode` 只在后端代理这条路上做权威判定）；更严重的是那条"直连"
@@ -1177,18 +1205,20 @@ function closeMenus(except) {
   if (except !== 'role') showRoleMenu.value = false
   if (except !== 'guard') showGuardMenu.value = false
   if (except !== 'add') showAddMenu.value = false
+  if (except !== 'voice') showVoiceMenu.value = false   // v461：朗读声音下拉
 }
 function toggleRoleMenu() { const on = !showRoleMenu.value; closeMenus('role'); showRoleMenu.value = on }
 // 点胶囊/菜单以外的任意空白处 → 收起菜单（抽屉内空白 + 抽屉外页面空白都算）。
 // 用捕获阶段 pointerdown，避免被内层 @click.stop 或抽屉遮罩的 click 抢走。
 // 2026-09-25：新增权限下拉后改为「各管各的」——两个菜单各自判断点击是否落在自己容器内。
 function onDocPointerDown(e) {
-  if (!showRoleMenu.value && !showGuardMenu.value && !showAddMenu.value) return
+  if (!showRoleMenu.value && !showGuardMenu.value && !showAddMenu.value && !showVoiceMenu.value) return
   const t = e.target
   const inside = (sel) => !!(t && t.closest && t.closest(sel))
   if (showRoleMenu.value && !inside('.cp-role')) showRoleMenu.value = false
   if (showGuardMenu.value && !inside('.cp-guard')) showGuardMenu.value = false
   if (showAddMenu.value && !inside('.cp-add')) showAddMenu.value = false
+  if (showVoiceMenu.value && !inside('.cp-ttsv')) showVoiceMenu.value = false   // v461
 }
 function pickRole(r) {
   const prev = store.chat.currentRole
@@ -1716,6 +1746,69 @@ async function toggleRead(m, i) {
     if (seq !== ttsSeq || readingId.value !== i) return
     speakLocal(text, i)      // 服务端失败：静默回落，不打断用户
   }
+}
+
+/* ---- v461：朗读声音选择（工具栏「朗读声音」胶囊）----
+
+   可选项来源 = 后端 `GET /api/ai/tts/voices`（**唯一源**：音色白名单 + 默认值都在 `routers/ai_tts.py` 定义）。
+   🔴 前端**不另抄一份名单** —— 否则后端加/换音色时前端不认，界面显示与真实可用的声音会脱节。
+   兜底：清单拉不到（网络/权限）时，菜单至少保留"当前声音"一行，不空白、也不骗人。 */
+const showVoiceMenu = ref(false)
+const ttsVoices = ref([])                          // [{id,name,gender,style}]，来自后端
+const ttsVoiceDefault = ref(TTS_VOICE_DEFAULT)     // 后端下发的默认音色（用作"（默认）"标记与自愈回落）
+const ttsVoicesLoading = ref(false)
+const ttsVoicesErr = ref(false)
+
+/** 当前声音的显示名（清单未到时为空 ⇒ 胶囊回落显示「朗读声音」）。 */
+const ttsVoiceName = computed(() => {
+  const v = ttsVoices.value.find(x => x.id === ttsVoice.value)
+  return (v && v.name) || ''
+})
+/** 菜单项：清单没到时至少给"当前声音"一行，菜单不至于空。 */
+const ttsVoiceOptions = computed(() => {
+  if (ttsVoices.value.length) return ttsVoices.value
+  return [{ id: ttsVoice.value, name: ttsVoiceName.value || '当前声音', gender: '', style: '' }]
+})
+/** 菜单副标题：性别 · 风格（+ 默认标记）。 */
+function voiceDesc(v) {
+  const s = [v.gender, v.style].filter(Boolean).join(' · ')
+  if (v.id === ttsVoiceDefault.value) return s ? s + '（默认）' : '默认声音'
+  return s
+}
+/** 拉取音色清单（只拉一次；失败静默降级，仅置错误标记）。 */
+async function loadTtsVoices() {
+  if (ttsVoices.value.length) return
+  ttsVoicesLoading.value = true
+  ttsVoicesErr.value = false
+  try {
+    const d = await api('/api/ai/tts/voices')
+    const list = (d && d.voices) || []
+    if (list.length) {
+      ttsVoices.value = list
+      if (d.default) ttsVoiceDefault.value = d.default
+      // 自愈：本地存的声音若已不在可用清单里（后端换过名单），回落到默认
+      if (!list.some(v => v.id === ttsVoice.value)) ttsVoice.value = ttsVoiceDefault.value
+    } else {
+      ttsVoicesErr.value = true
+    }
+  } catch (e) {
+    ttsVoicesErr.value = true          // 静默降级：菜单仍可用（只剩"当前声音"一行）
+  } finally {
+    ttsVoicesLoading.value = false
+  }
+}
+function toggleVoiceMenu() {
+  const on = !showVoiceMenu.value
+  closeMenus('voice')                  // 与其它下拉互斥（集中管理，见 closeMenus 注释）
+  showVoiceMenu.value = on
+  if (on) loadTtsVoices()
+}
+/** 选中即生效：写 localStorage（下次进来自动沿用）+ 关菜单；**不打断正在念的那条**（用户语义=「用于后续朗读」）。 */
+function pickTtsVoice(v) {
+  ttsVoice.value = v.id
+  try { localStorage.setItem(TTS_VOICE_KEY, v.id) } catch { /* ignore */ }
+  showVoiceMenu.value = false
+  store.toast('朗读声音已切换为「' + v.name + '」，下次朗读生效')
 }
 
 // 重新生成：移除本条助手回复及其之后所有内容，复用其前的用户消息重跑（语义同 WorkBuddy 的 resend）
@@ -2340,9 +2433,11 @@ watch(() => store.ui.copilotOpen, (v) => {
     loadSessions()
     loadAiRoles()
     loadAiMode()
+    loadTtsVoices()      // v461：提前取音色清单 ⇒ 「朗读声音」胶囊能直接显示当前声音名
     nextTick(() => { if (cpInput.value) cpInput.value.focus() })
   } else {
     showRoleMenu.value = false
+    showVoiceMenu.value = false   // v461
     saveCurrentSession()  // 关闭时落盘
   }
 })
@@ -2355,7 +2450,7 @@ function onKeydown(e) {
      才真的停 —— 防误触。这是 WB 的设计，不要简化成「按一下就停」。 */
   if (!store.ui.copilotOpen || !canStop.value) return
   // 有下拉菜单开着时，Esc 的语义是「收菜单」，不能顺手把 AI 回复也停了
-  if (showAddMenu.value || showRoleMenu.value || showGuardMenu.value) { closeMenus(); return }
+  if (showAddMenu.value || showRoleMenu.value || showGuardMenu.value || showVoiceMenu.value) { closeMenus(); return }
   if (!stopConfirm.value) {
     stopConfirm.value = true
     if (stopConfirmTimer) clearTimeout(stopConfirmTimer)
@@ -2684,6 +2779,15 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-guard-btn:hover{background:var(--bg4);color:var(--t1)}
 .cp-guard-btn.on{border-color:rgba(var(--war-rgb),.5);background:rgba(var(--war-rgb),.14);color:var(--war)}
 .cp-guard-btn.on svg{color:var(--war)}
+/* ---- v461：朗读声音选择（胶囊几何照抄上面 .cp-guard-btn，配色走主色以示"偏好类设置"）---- */
+.cp-ttsv{position:relative;display:inline-flex;flex-shrink:0;min-width:0}
+.cp-ttsv-btn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 11px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .15s,color .15s,border-color .15s;max-width:150px;min-width:0}
+.cp-ttsv-btn svg.ico{color:var(--p);flex-shrink:0;width:12px;height:12px}
+.cp-ttsv-btn:hover{background:var(--bg4);color:var(--t1)}
+.cp-ttsv-btn.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark)}
+.cp-ttsv-tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-ttsv-menu{width:250px}
+.cp-ttsv-err{padding:6px 8px;font-size:11px;color:var(--war)}
 /* 🔴 v281（2026-09-26）：`.cp-proxy-btn` 四条样式已随「副驾代理层用户开关」一并撤除
    （对应模板与 proxyOn/toggleProxy 已删；工具条左组由 4 控件回到 3：＋ / 只给建议 / 团队）。 */
 
