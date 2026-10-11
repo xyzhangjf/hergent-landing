@@ -78,7 +78,7 @@
     </div>
 
     <!-- 说明行**必须在表单头之外**（规范 §2.2）：留在框里会把那一格撑高 ⇒ 框不再等高。 -->
-    <p class="isn-hint">{{ cfg.hint }}</p>
+    <p v-if="cfg.hint" class="isn-hint">{{ cfg.hint }}</p>
 
     <div v-if="selCustomer" class="isn-strip">
       <span class="isn-si">
@@ -107,7 +107,7 @@
         <button class="btn btn-ghost btn-sm" @click="addRow"><Icon name="plus" :size="14" />加一行</button>
       </div>
 
-      <p class="isn-tip">
+      <p v-if="cfg.tip" class="isn-tip">
         <Icon name="lightbulb" :size="14" />
         <span>{{ cfg.tip }}</span>
       </p>

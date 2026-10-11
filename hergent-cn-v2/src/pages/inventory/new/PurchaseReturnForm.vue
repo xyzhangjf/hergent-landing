@@ -3,7 +3,7 @@
     <div class="page-hd split">
       <div class="ipn-hd-t">
         <h2>{{ cfg.title }}</h2>
-        <span class="page-sub">{{ cfg.sub }}</span>
+        <span v-if="cfg.sub" class="page-sub">{{ cfg.sub }}</span>
       </div>
       <div class="ipn-acts">
         <button class="btn btn-ghost btn-sm" :disabled="saving" @click="back">返回列表</button>
@@ -165,7 +165,7 @@
         </div>
       </div>
 
-      <p class="ipn-hint">{{ cfg.hint }}</p>
+      <p v-if="cfg.hint" class="ipn-hint">{{ cfg.hint }}</p>
 
       <div v-if="selSupplier" class="ipn-strip">
         <span class="ipn-si">
@@ -186,7 +186,7 @@
           <button class="btn btn-ghost btn-sm" @click="addRow"><Icon name="plus" :size="14" />加一行</button>
         </div>
 
-        <p class="ipn-tip">
+        <p v-if="cfg.tip" class="ipn-tip">
           <Icon name="lightbulb" :size="14" />
           <span>{{ cfg.tip }}</span>
         </p>
@@ -446,7 +446,7 @@ function onPick (row) {
   applyProduct(row)
   /* 默认带出商品档案的进货价（可改）—— 退货价通常就是当时那个价，让用户少填一次。
      ⚠️ 档案价是「元 / 报单单位」还是「元 / 小单位」本页无从判断，所以**只做预填**，
-        不作为计算依据；用户按小单位口径自行核对（`cfg.tip` 里已写明）。 */
+        不作为计算依据；退货数量按商品档案「小单位」（即明细「单位」列显示项）填写，提交后库存直接扣减。 */
   if (!row.unit_price && Number(row.product_id)) {
     const p = products.value.find(x => x.id === row.product_id)
     if (p && Number(p.purchase_price || p.cost_price || 0) > 0) {
