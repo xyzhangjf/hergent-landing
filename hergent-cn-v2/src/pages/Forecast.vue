@@ -12898,6 +12898,17 @@ th.sortable:hover{color:var(--p-dark)}
 
 /* ---- 表体工程化增强（T1-T8：虚拟滚动/选中/展开/行状态/行操作/空加载态/键盘a11y） ---- */
 .cross-viewport{flex:1 1 auto;min-height:0;min-width:0;max-height:72vh;overflow:auto;position:relative}
+/* v454：交叉表横向滚动条加粗 + 显眼，方便鼠标点中拖动（特别是横向滚动） */
+.cross-viewport::-webkit-scrollbar,
+.edit-grid-wrap::-webkit-scrollbar{height:18px;width:14px}
+.cross-viewport::-webkit-scrollbar-thumb,
+.edit-grid-wrap::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:9px;min-height:44px}
+.cross-viewport::-webkit-scrollbar-thumb:hover,
+.edit-grid-wrap::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
+.cross-viewport::-webkit-scrollbar-track,
+.edit-grid-wrap::-webkit-scrollbar-track{background:var(--scroll-track)}
+/* Firefox：交叉表滚动条可见配色 */
+.cross-viewport,.edit-grid-wrap{scrollbar-color:var(--scroll-thumb) var(--scroll-track)}
 /* 表体全屏按钮：尺寸/图标/颜色/圆角/悬停态与 AI 副驾 .cp-icon-btn 全屏按钮完全对齐 */
 .grid-area{position:relative;display:flex;flex-direction:column;gap:10px}
 .grid-area.is-fs{position:fixed;inset:0;z-index:var(--z-page-fs);background:var(--bg);padding:12px;display:flex;flex-direction:column;gap:10px}

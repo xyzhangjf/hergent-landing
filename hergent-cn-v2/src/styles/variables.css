@@ -81,6 +81,11 @@
   --bd:#e5e5ea;        /* 边框 */
   --border-subtle:#ececee;
 
+  /* 滚动条配色（v454）：滑块比边框更深保证对比度，轨道浅灰便于瞄准点中 */
+  --scroll-thumb:#c2c2c9;          /* 滑块（浅色主题） */
+  --scroll-thumb-hover:#a3a3ac;    /* 悬停加深 */
+  --scroll-track:rgba(0,0,0,.05);  /* 轨道浅灰 */
+
   /* 阴影（苹果风轻阴影） */
   --shadow-sm:0 1px 2px rgba(0,0,0,.04),0 1px 6px rgba(0,0,0,.04);
   --shadow-md:0 4px 16px rgba(0,0,0,.06),0 2px 6px rgba(0,0,0,.04);
@@ -257,6 +262,11 @@
   --bd:#3a3a3c;
   --border-subtle:#333336;
 
+  /* 滚动条配色（v454）：深色下滑块提亮、轨道留痕，保证可见可点中 */
+  --scroll-thumb:#5b5b61;
+  --scroll-thumb-hover:#76767e;
+  --scroll-track:rgba(255,255,255,.07);
+
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow-md:0 4px 16px rgba(0,0,0,.4);
   --shadow-lg:0 12px 40px rgba(0,0,0,.5);
@@ -290,9 +300,13 @@ body{
 }
 button{font-family:inherit;cursor:pointer}
 input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
-::-webkit-scrollbar{width:8px;height:8px}
-::-webkit-scrollbar-thumb{background:var(--bd);border-radius:4px}
-::-webkit-scrollbar-track{background:transparent}
+/* 滚动条：加粗放粗，方便鼠标点击/拖动（v454） */
+::-webkit-scrollbar{width:14px;height:14px}
+::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:7px}
+::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
+::-webkit-scrollbar-track{background:var(--scroll-track)}
+/* Firefox：给出可见颜色（宽度取浏览器默认 auto，比 thin 更粗） */
+*{scrollbar-color:var(--scroll-thumb) var(--scroll-track)}
 
 /* 通用按钮 */
 .btn{
