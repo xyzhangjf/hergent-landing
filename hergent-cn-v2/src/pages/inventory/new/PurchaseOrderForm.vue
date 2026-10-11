@@ -276,12 +276,12 @@
               <td class="num ipn-amt">{{ row.product_id ? '¥' + fmtMoney(rowAmount(row)) : '' }}</td>
               <!-- v417i：批次三字段收进这一格的小面板。格内**常显摘要**（有批次号显示批次号、
                    有到期日显示「到期 xxxx-xx-xx」），一眼能看出这行有没有填批次，不用点开才知道。 -->
-              <td v-if="isVisible('batch')" class="ipn-c-batch" :class="{ 'has-val': batchText(row) }">
+              <td v-if="isVisible('batch')" class="ipn-c-batch" :class="{ 'has-val': batchText(row), 'batch-open': batchOpen === row.uid }">
                 <button type="button" class="ipn-batch-btn" :disabled="!row.product_id"
                         :title="batchText(row) || '点开填写批次号 / 到期日 / 生产日期（选填）'"
                         @click.stop="toggleBatch(row)">
                   <span class="ipn-batch-txt">{{ batchText(row) || (row.product_id ? '填写' : '') }}</span>
-                  <Icon name="chevron-down" :size="12" />
+                  <span class="ipn-batch-caret"><Icon name="chevron-down" :size="12" /></span>
                 </button>
                 <div v-if="batchOpen === row.uid" class="ipn-batch-pop" @click.stop>
                   <label class="ipn-bp-row">
@@ -1708,6 +1708,11 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
 .ipn-batch-btn:hover { border-color: var(--bd) }
 .ipn-batch-btn:disabled { cursor: default; opacity: .45 }
 .ipn-batch-txt { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+/* v460：批次格下拉箭头默认隐藏，hover / 聚焦 / 面板打开时显示（仅隐藏默认态，toggleBatch 交互逻辑不变） */
+.ipn-batch-caret { display: none; flex: none; color: var(--t3) }
+.ipn-batch-btn:not(:disabled):hover .ipn-batch-caret,
+.ipn-c-batch:focus-within .ipn-batch-caret,
+.ipn-c-batch.batch-open .ipn-batch-caret { display: inline-flex }
 .ipn-batch-pop {
   position: absolute; z-index: 20; right: 0; top: calc(100% - 2px); width: 236px;
   padding: 8px; background: var(--bg); border: 1px solid var(--bd);
