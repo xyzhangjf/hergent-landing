@@ -92,7 +92,16 @@
             </thead>
             <tbody>
               <tr v-for="r in permRoles" :key="'rl-' + r.name">
-                <td class="pr-name">{{ roleLabel(r.name) }}</td>
+                <td class="pr-name">
+                  <!-- v476 改名：**行内编辑**（与本页「新建角色」的内联表单同一形态，
+                       不弹窗 —— 这一页本来就是横向表格，再叠一层模态会让"在哪儿点"变成猜谜） -->
+                  <template v-if="renaming === r.name">
+                    <input ref="renameInputEl" v-model="renameInput" class="fld pr-rename-input"
+                           maxlength="16" placeholder="新角色名" aria-label="新角色名"
+                           @keyup.enter="confirmRename" @keyup.esc="cancelRename">
+                  </template>
+                  <template v-else>{{ roleLabel(r.name) }}</template>
+                </td>
                 <td>
                   <span class="pr-type" :class="{ custom: !isCanonicalRole(r.name) }">
                     {{ isCanonicalRole(r.name) ? '系统自带' : '自定义角色' }}
@@ -125,9 +134,41 @@
                             : '删除这个角色（连同它的权限配置一起删掉，不可撤销）'">
                     {{ isCanonicalRole(r.name) ? '恢复默认' : '删除角色' }}
                   </button>
+                  <!-- 🔴 v476 改名入口：**只给自定义角色**。内置角色改名会与后端
+                       `_DEFAULT_PERMS` 脱节（权限仍按旧名发放、新名谁都没有 ⇒ 僵尸角色），
+                       服务端也会拒；这里不给按钮，免得让人去试一个注定失败的路径。 -->
+                  <button v-if="renaming === r.name" class="btn btn-sm btn-primary"
+                          :disabled="renameSaving" @click="confirmRename">
+                    {{ renameSaving ? '改名中…' : '确定' }}
+                  </button>
+                  <button v-if="renaming === r.name" class="btn btn-sm btn-ghost" @click="cancelRename">取消</button>
+                  <button v-else-if="!isCanonicalRole(r.name)" class="btn btn-sm btn-ghost"
+                          @click="startRename(r.name)" title="改这个角色的名字（权限和已分配的人会一起跟着走）">
+                    改名
+                  </button>
                 </td>
               </tr>
-              <tr v-if="!permRoles.length">
+              <!-- 🔴 v476（P1-3）：管理员原来被 `LOCKED_ROLES` 直接从列表里滤掉，
+                   于是「权限配置里怎么没有管理员」是个没有答案的空白 —— 空白比说明更让人
+                   以为出了故障。这里补一行**只读**说明行（不渲染可点的东西），
+                   并把它的人数也显示出来，与其它行同一口径。
+                   ⚠️ 不写进 `permView.js` 的固定行：那条护栏断言「`module:null` 的固定行名
+                   必须命中 pages.js 里**无模块页的标题**」，而管理员不是页面，加进去会把护栏打红。 -->
+              <tr v-if="lockedAdmin" class="pr-locked-row">
+                <td class="pr-name">{{ roleLabel(lockedAdmin.name) }}</td>
+                <td><span class="pr-type">系统自带</span></td>
+                <td class="pr-end">{{ loginScopeLabel(endToScope(lockedAdmin.end)) }}</td>
+                <td class="pr-users">
+                  <span v-if="lockedAdmin.user_count === null" class="pr-unknown">未知</span>
+                  <template v-else>{{ lockedAdmin.user_count }} 人</template>
+                </td>
+                <td class="ctr">
+                  <span class="pr-fixed-mark" title="系统的唯一兜底账号：它的全部权限来自产品内置，不在这里改">
+                    全部权限 · 不在这里改
+                  </span>
+                </td>
+              </tr>
+              <tr v-if="!permRoles.length && !lockedAdmin">
                 <td colspan="5" class="pr-empty">{{ permLoading ? '加载中…' : '没有可配置的角色' }}</td>
               </tr>
             </tbody>
@@ -511,7 +552,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { store, setTheme, toast } from '../store'
 import { density, setDensity } from '../composables/useDensity'
@@ -650,6 +691,11 @@ const PROTECTED_ROLES = ['admin', 'boss']
 const CRITICAL_MODULES = ['hr', 'data']
 
 const permRoles = ref([])
+/* 🔴 v476（P1-3）：管理员在 `LOCKED_ROLES` 里被从**可配置**列表里剔除（它是唯一兜底账号，
+   权限来自产品内置）。但"列表里没有管理员"本身是个**没有答案的空白** ⇒ 另存一份只读行，
+   在表格末尾显示「全部权限 · 不在这里改」+ 它的人数。取的是**同一份后端数据**，
+   不另调接口、不另算口径。 */
+const lockedAdmin = ref(null)
 const modules = ref([])
 const permLoading = ref(false)
 const moduleQuery = ref('')
@@ -893,6 +939,15 @@ async function loadPerms() {
     }
     modules.value = m.modules || []
     const known = new Set(modules.value.map(x => x.id))
+    /* v476（P1-3）：先把 `admin` 摘出来做**只读行** —— 必须在下面 `.filter(LOCKED_ROLES)`
+       **之前**取，否则它已被滤掉、这一行永远拿不到数据。取同一份后端数据，不另调接口。 */
+    lockedAdmin.value = (Object.entries(r.roles || {})
+      .filter(([name]) => LOCKED_ROLES.includes(name))
+      .map(([name, v]) => ({
+        name,
+        user_count: typeof v.user_count === 'number' ? v.user_count : null,
+        end: { web: !!(v.end && v.end.web), mini: !!(v.end && v.end.mini) },
+      })))[0] || null;
     permRoles.value = Object.entries(r.roles || {})
       .map(([name, v]) => ({
         name,
@@ -1225,6 +1280,60 @@ async function resetRole(name) {
   }
 }
 
+/* ---- v476：角色改名（行内编辑）------------------------------------------------
+   🔴 为什么必须有它：在此之前，想把「库管」改成「仓管」只能走
+   「新建一个 → 逐个改派员工 → 删掉旧的」。而**「删掉旧的」正是 v475 才补上守卫的那个
+   破坏性操作** ⇒ 改名这件事此前**没有安全路径**。有了它，就不必再凑那条路。
+   ⚠️ 校验全在后端（`perm_guard.role_rename_plan`）：内置角色不可改、新名不可撞内置/已存在、
+      长度与符号规则与「新建角色」共用同一份判据。这里只负责收集与呈现。
+   ⚠️ 改完**必须同步本会话**（`syncStorePerms`）：老板可能正在用这个角色给自己改权限，
+      而自己的权限来自 `users.role`（后端已一并改好）⇒ 这条是让界面立刻跟上。 */
+const renaming = ref('')
+const renameInput = ref('')
+const renameInputEl = ref(null)
+const renameSaving = ref(false)
+
+function startRename(name) {
+  renaming.value = name
+  renameInput.value = name
+  /* v-for 里的 ref 会拿到数组；这里只有一个在进行，取引用首项即可（拿不到也不影响功能，
+     只是不会自动聚焦 —— 不为了聚焦去引入下一 tick 的时序依赖）。 */
+  nextTick(() => {
+    const el = Array.isArray(renameInputEl.value) ? renameInputEl.value[0] : renameInputEl.value
+    if (el && el.focus) { try { el.focus(); el.select && el.select() } catch (_) {} }
+  })
+}
+function cancelRename() { renaming.value = ''; renameInput.value = '' }
+
+async function confirmRename() {
+  const from = renaming.value
+  const to = String(renameInput.value || '').trim()
+  if (!from) return
+  if (!to) { toast('新名字不能为空', 'error'); return }
+  if (to === from) { cancelRename(); return }
+  if (!confirm(`确认把角色「${roleLabel(from)}」改名为「${to}」？\n\n` +
+               `它的权限配置和已经分配了它的员工会**一起**跟着改。\n` +
+               `（员工那边只是换了个角色名字，权限不变。）`)) return
+  renameSaving.value = true
+  try {
+    const r = await api('/api/role-permissions/rename', {
+      method: 'PUT', body: { from_role: from, to_role: to },
+    })
+    cancelRename()
+    await loadPerms()
+    await syncStorePerms()
+    const n = (r && r.affected_users) || 0
+    toast('已改名为「' + roleLabel(r && r.role_name ? r.role_name : to) + '」'
+          + (n ? '，跟着改了 ' + n + ' 个账号' : '（当前没有账号在用这个角色）'), 'success')
+  } catch (e) {
+    /* 🔴 后端给的是可执行的中文理由（内置角色不可改 / 撞名 / 含空格…）⇒ 原样转达，
+       别改写成技术腔。留在编辑态让人直接改字，不要把输入清掉。 */
+    toast('改名失败：' + (e.message || '未知错误'), 'error')
+  } finally {
+    renameSaving.value = false
+  }
+}
+
 /* v328 批次 ⑥：**新建角色**（拿一个现成角色做底子，另存成一个新角色）。
    🔴 为什么必须有这个入口：后端保存端点在 v328 补了角色名校验 —— **只许改已存在的角色**。
       若不给"新建"留正门，客户就再也没有合法途径造角色了（**堵后门必须同批开正门**，
@@ -1395,6 +1504,10 @@ onMounted(() => {
 .pr-col-users{width:12%}
 .pr-users{white-space:nowrap}
 .pr-unknown{color:var(--dan);font-weight:600}
+/* v476：改名行内编辑 + 管理员只读行 */
+.pr-rename-input{max-width:130px}
+.pr-locked-row td{color:var(--t3)}
+.pr-locked-row .pr-name{color:var(--t2);font-weight:600}
 .pr-name{font-weight:600;color:var(--t1)}
 /* 「自定义角色」用主色小标签，「系统自带」用中性小标签 —— 一眼能分辨，
    且两者都只是"角色类型"的注脚，不需要抢眼到干扰扫读。 */

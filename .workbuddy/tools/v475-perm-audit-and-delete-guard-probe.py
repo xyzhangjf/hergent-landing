@@ -354,5 +354,98 @@ chk('import perm_guard' in srv_src, 'server.py 顶层 import perm_guard')
 chk('perms_change_summary' in core_src and 'def perms_change_summary' in core_src,
     '差异摘要算子落在 core.py（与 normalize_perms_shape 同族）')
 
-print('\n════ v475 权限删除守卫 + 权限审计：%d 通过 / %d 失败 ════' % (PASS[0], PASS[1]))
+# ══════════════════════════════════════════════════════════════════════════
+sec('6 角色改名（v476）—— 跨库两处 + 跨租户隔离')
+# ══════════════════════════════════════════════════════════════════════════
+OLD, NEW = PROBE_ROLE, PROBE_ROLE + '新名'
+
+
+def role_perm(name):
+    rows = [r for r in tenant_rows('role_permissions') if r['role_name'] == name]
+    return rows[0]['permissions'] if rows else None
+
+
+def role_end_of(name):
+    rows = [r for r in tenant_rows('role_end') if r['role_name'] == name]
+    return rows[0] if rows else None
+
+
+async def do_rename(f, t_):
+    return await server.rename_role(FakeReq({'from_role': f, 'to_role': t_}))
+
+
+loop.run_until_complete(server.create_role(FakeReq({'role_name': OLD, 'from_role': 'staff'})))
+loop.run_until_complete(server.save_role_end(
+    FakeReq({'role_name': OLD, 'allow_web': False, 'allow_mini': True})))
+make_user('probe_rn_main', OLD)              # 主角色
+make_user('probe_rn_extra', 'sales', OLD)    # 只挂兼任
+make_user('probe_rn_out', OLD, link_tenant=False)   # **不在本租户**的同名账号
+before_perm = role_perm(OLD)
+before_count = (perm_guard.role_user_counts([1]).get(OLD) or {}).get('total')
+chk(before_perm is not None and role_end_of(OLD) is not None, '起点：角色权限行与登录端覆盖都在')
+chk(before_count == 2, '起点：占用 2 人（主角色 1 + 兼任 1）', before_count)
+
+# ① 校验：内置角色不可改 / 撞内置名 / 已存在同名 / 空名
+for f, t_, label in [('sales', '业务员', '内置角色'),
+                     (OLD, 'sales', '撞内置名'),
+                     (OLD, '库管', '撞已存在的自定义名'),
+                     (OLD, '  ', '新名只有空格'),
+                     (OLD, '库 管', '新名含空格')]:
+    n, why = perm_guard.role_rename_plan(1, f, t_)
+    chk(not n, '拒绝：%s' % label, why[:44])
+
+# ② 真改名
+res = loop.run_until_complete(do_rename(OLD, NEW))
+chk(isinstance(res, dict) and res.get('success') and res.get('role_name') == NEW,
+    '合法改名放行', res)
+chk(res.get('affected_users') == 2 and res.get('primary') == 1 and res.get('extra') == 1,
+    '🔴 报出「跟着改了几个账号」（主 1 / 兼 1）', 'affected=%s primary=%s extra=%s'
+    % (res.get('affected_users'), res.get('primary'), res.get('extra')))
+chk(role_perm(OLD) is None and role_perm(NEW) == before_perm,
+    '🔴 权限行**内容逐字**跟着改名（不是重新生成）')
+chk(role_end_of(OLD) is None and role_end_of(NEW) is not None,
+    '🔴 登录端覆盖也跟着改名（web=0 mini=1）', role_end_of(NEW))
+chk((perm_guard.role_user_counts([1]).get(NEW) or {}).get('total') == 2,
+    '🔴 改名后守卫口径自动跟到新名（占用仍是 2）', perm_guard.role_user_counts([1]).get(NEW))
+chk(OLD not in perm_guard.role_user_counts([1]), '旧名不再被统计（不会留下"半改名"的尸体）')
+
+mrows = {r['username']: (r['role'], r['roles']) for r in
+         (dict(x) for x in [dict(zip(['id', 'username', 'password_hash', 'role', 'roles', 'display_name'], y))
+                            for y in sqlite3.connect(MASTER).execute(
+                                "select id,username,password_hash,role,roles,display_name from users "
+                                "where username like 'probe_rn%'")])}
+chk(mrows.get('probe_rn_main', ('', ''))[0] == NEW, '🔴 主角色已改到新名（主库 users.role）',
+    mrows.get('probe_rn_main'))
+chk(NEW in str(mrows.get('probe_rn_extra', ('', ''))[1]),
+    '🔴 兼任里的旧名也替换了（主库 users.roles）', mrows.get('probe_rn_extra'))
+chk(mrows.get('probe_rn_out', ('', ''))[0] == OLD,
+    '🔴 **不在本租户**的同名账号一个字都没动（跨租户隔离）', mrows.get('probe_rn_out'))
+drop_users('probe_rn_main', 'probe_rn_extra', 'probe_rn_out')
+
+a4 = auth_audits()[0]
+chk('角色改名' in (a4['action'] or '') and OLD in (a4['detail'] or '') and NEW in (a4['detail'] or ''),
+    '改名留痕（角色 + 新旧名 + 改了几个人）', a4['detail'][:60])
+
+# ③ 反例：旁路「内置不可改」这条判据
+_real_plan = perm_guard.role_rename_plan
+perm_guard.role_rename_plan = lambda tid, f, t: (t, '') if t else ('', 'x')
+try:
+    n_bypass, _ = perm_guard.role_rename_plan(1, 'sales', '业务员改的')
+finally:
+    perm_guard.role_rename_plan = _real_plan
+chk(n_bypass == '业务员改的', '反例：旁路校验后内置角色**真的**会被改名 ⇒ 判据有判别力', n_bypass)
+chk(not perm_guard.role_rename_plan(1, 'sales', '业务员改的')[0], '复位后又被拒（探针不污染）')
+
+# ══════════════════════════════════════════════════════════════════════════
+sec('7 P1-3 管理员只读行（前端契约）')
+# ══════════════════════════════════════════════════════════════════════════
+chk('pr-locked-row' in sv, '管理员有独立的只读行（不再是"列表里没有"的空白）')
+chk('lockedAdmin' in sv, 'lockedAdmin 数据源存在')
+chk('全部权限 · 不在这里改' in sv, '只读行写明「全部权限 · 不在这里改」')
+chk('startRename' in sv and 'confirmRename' in sv, '改名有行内编辑与确认')
+chk('/api/role-permissions/rename' in sv, '前端调改名端点')
+chk('LOCKED_ROLES.includes(name)' in sv, '管理员在**被过滤之前**被摘出来（顺序不能反）')
+chk('renaming === r.name' in sv, '行内编辑只在被改名的那一行生效')
+
+print('\n════ v476 角色删除守卫 + 改名 + 审计：%d 通过 / %d 失败 ════' % (PASS[0], PASS[1]))
 sys.exit(1 if PASS[1] else 0)
