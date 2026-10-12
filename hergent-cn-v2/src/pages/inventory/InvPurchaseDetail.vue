@@ -177,7 +177,16 @@
           <div class="ipd-bf"><span class="ipd-lb">经办人</span><span class="ipd-bfv">{{ o.handler_name || '—' }}</span></div>
           <div class="ipd-bf"><span class="ipd-lb">部门</span><span class="ipd-bfv">{{ o.department_name || '—' }}</span></div>
           <div class="ipd-bf"><span class="ipd-lb">仓库</span><span class="ipd-bfv">{{ o.warehouse_name || ('仓库 ' + (o.warehouse_id || '—')) }}</span></div>
-          <div class="ipd-bf"><span class="ipd-lb">备注</span><span class="ipd-bfv ipd-bfv-note">{{ o.note || '—' }}</span></div>
+          <div class="ipd-bf">
+            <span class="ipd-lb">备注</span>
+            <template v-if="editHeader">
+              <input v-model="editNote" class="input ipd-edit-in" maxlength="200" placeholder="选填" />
+            </template>
+            <template v-else>
+              <span class="ipd-bfv ipd-bfv-note">{{ o.note || '—' }}</span>
+              <button v-if="canWrite" class="ipd-pencil" title="编辑备注 / 预计到货" @click="startEdit"><Icon name="pencil" :size="13" /></button>
+            </template>
+          </div>
           <div class="ipd-bf"><span class="ipd-lb">单据日期</span><span class="ipd-bfv">{{ (o.order_date || '').slice(0, 10) || '—' }}</span></div>
           <!-- 金额三项：从独立卡片并入信息带右侧（舟谱同款位置）。三项都真有来源，
                「预算金额」我们没有这个概念，不造。 -->
@@ -195,8 +204,22 @@
             更多信息<span class="ipd-moreinfo-tri" :class="{ up: moreInfoOpen }"></span>
           </button>
           <div v-if="moreInfoOpen" class="ipd-moreinfo-body">
-            <div class="ipd-bf"><span class="ipd-lb">供应商类别</span><span class="ipd-bfv">{{ o.supplier_category || '—' }}</span></div>
-            <div class="ipd-bf"><span class="ipd-lb">预计到货</span><span class="ipd-bfv">{{ o.expected_date || '—' }}</span></div>
+            <div v-if="canSeeSupplierCategory" class="ipd-bf"><span class="ipd-lb">供应商类别</span><span class="ipd-bfv">{{ o.supplier_category || '—' }}</span></div>
+            <div class="ipd-bf">
+              <span class="ipd-lb">预计到货</span>
+              <template v-if="editHeader">
+                <input type="date" v-model="editExpected" class="input ipd-edit-in" />
+              </template>
+              <template v-else>
+                <span class="ipd-bfv">{{ o.expected_date || '—' }}</span>
+                <button v-if="canWrite" class="ipd-pencil" title="编辑备注 / 预计到货" @click="startEdit"><Icon name="pencil" :size="13" /></button>
+              </template>
+            </div>
+            <div v-if="editHeader" class="ipd-edit-actions">
+              <button class="btn btn-primary btn-sm" :disabled="saveBusy" @click="saveHeader">保存</button>
+              <button class="btn btn-ghost btn-sm" :disabled="saveBusy" @click="cancelEdit">取消</button>
+              <span v-if="saveMsg" class="ipd-note" :class="{ 'ipd-err': saveErr }">{{ saveMsg }}</span>
+            </div>
             <div class="ipd-bf"><span class="ipd-lb">创建人</span><span class="ipd-bfv">{{ o.creator_name || '—' }}</span></div>
             <div class="ipd-bf"><span class="ipd-lb">审核时间</span><span class="ipd-bfv">{{ o.audit_time || '—' }}</span></div>
             <!-- P1-1：供应商维度应付余额 / 预付余额（跨该供应商全部单据，不是本单）。
@@ -834,6 +857,61 @@ const showRecv = ref(false)
 const recv = ref({})
 /* v452（O5）「更多信息 ▾」展开开关（默认收起：次要字段不占首屏）。 */
 const moreInfoOpen = ref(false)
+
+/* v452-followup（O13）：敏感字段「供应商类别（临期货）」按能力隐藏。
+   🔴 用既有 capability 体系（`canDo`）收口，而不是手搓角色白名单：
+   —— `accounts` 模块只有 boss / admin / accountant 持有（sales / guide / driver / 库管 都没有），
+      正好满足「销售员不可见、可信财务/老板可见」的口径，且零后端改动、零迁移脚本。
+   —— fail-open 方向取「宽」：`canDo` 在拿不到权限表时返回 true（一次接口抖动不该把老板的字段藏掉）。 */
+const canSeeSupplierCategory = computed(() => canDo('accounts', 'read'))
+
+/* v452-followup（O10）：详情页行内编辑「备注 + 预计到货」两个安全字段。
+   🔴 只放开这两个：它们不触账本 / 库存 / 应付，已确认 / 已入库单也能改
+       （后端 `PUT /api/psi/purchase-orders/{id}/header` 是窄、宽、安全的，与全量编辑端点分开）。
+   🔴 入口只对 `canWrite`（= canDo('inventory','create')，即老板/管理员/会计）可见，销售员看不到。 */
+const editHeader = ref(false)
+const editNote = ref('')
+const editExpected = ref('')
+const saveBusy = ref(false)
+const saveMsg = ref('')
+const saveErr = ref(false)
+function startEdit () {
+  editNote.value = o.value.note || ''
+  editExpected.value = o.value.expected_date || ''
+  editHeader.value = true
+  moreInfoOpen.value = true   // 让收起的「更多信息」展开，保存/取消才看得到
+  saveMsg.value = ''
+  saveErr.value = false
+}
+function cancelEdit () {
+  editHeader.value = false
+  editNote.value = ''
+  editExpected.value = ''
+}
+async function saveHeader () {
+  if (saveBusy.value) return
+  saveBusy.value = true
+  saveMsg.value = ''
+  saveErr.value = false
+  try {
+    const r = await psiApi.updatePurchaseHeader(oid.value, {
+      note: editNote.value, expected_date: editExpected.value,
+    })
+    if (!r || !r.success) throw new Error((r && r.error) || '保存失败')
+    // 本地即时回写，避免整页重拉；与详情页其它本地回写（如确认/付款后）同口径。
+    o.value.note = editNote.value
+    o.value.expected_date = editExpected.value
+    editHeader.value = false
+    saveMsg.value = '已保存'
+    toast('已保存备注 / 预计到货', 'success')
+  } catch (e) {
+    saveErr.value = true
+    saveMsg.value = (e && e.message) || '保存失败'
+  } finally {
+    saveBusy.value = false
+  }
+}
+
 
 const payOpen = ref(false)
 
@@ -1690,6 +1768,21 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   max-width: 240px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; font-weight: 400; color: var(--t2);
 }
+/* v452-followup（O10）：行内编辑 —— 字段旁铅笔图标（不往动作区加按钮，遵守工具栏精简纪律）。 */
+.ipd-pencil {
+  margin-left: 6px; padding: 2px; border: 0; background: transparent; cursor: pointer;
+  color: var(--t3); line-height: 0; border-radius: 5px;
+}
+.ipd-pencil:hover { color: var(--c-blue, #2f6fed); background: rgba(47, 111, 237, .08) }
+.ipd-edit-in {
+  width: 220px; max-width: 100%; padding: 4px 8px; font-size: 13px;
+  border: 1px solid var(--t3, #cfd6e0); border-radius: 6px; background: #fff; color: var(--t1);
+}
+.ipd-edit-actions {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px; padding-top: 10px;
+  border-top: 1px dashed var(--t4, #e6eaf0);
+}
+.ipd-edit-actions .ipd-err { color: #d8453b }
 /* 金额组：`margin-left:auto` 永远贴右（舟谱把总金额放在信息带右侧同一行）。 */
 .ipd-bmoney { margin-left: auto; display: flex; gap: 26px; flex-wrap: wrap }
 .ipd-bm { display: flex; align-items: baseline; gap: 7px; white-space: nowrap }

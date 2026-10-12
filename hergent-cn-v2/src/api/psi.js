@@ -185,6 +185,12 @@ export const psiApi = {
 
   getPurchase: (id) => api(`/api/psi/purchase-orders/${id}`),
 
+  /** v452-followup（O10）：行内编辑采购单表头的「备注 + 预计到货」两个安全字段。
+   *  只改这两个、不限制单据状态（已确认/已入库单也能改，因为它们不影响账本/库存/应付）。
+   *  body: `{ note?, expected_date? }` —— 只传要改的键。 */
+  updatePurchaseHeader: (id, body) =>
+    api(`/api/psi/purchase-orders/${id}/header`, { method: 'PUT', body }),
+
   /** 确认 → **到货入库**：逐行 `batch_in`（记批次/效期）+ 应付 + 凭证 + 加权成本。 */
   confirmPurchase: (id) => api(`/api/psi/purchase-orders/${id}/confirm`, { method: 'POST' }),
 
