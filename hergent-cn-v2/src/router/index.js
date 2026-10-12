@@ -65,6 +65,10 @@ const WhStocktakeDiff = () => import('../pages/wh/StocktakeDiff.vue')
 const WhStaticFreeze = () => import('../pages/wh/StaticFreeze.vue')
 const WhKitOrder = () => import('../pages/wh/KitOrder.vue')
 const WhWastage = () => import('../pages/wh/Wastage.vue')
+/* v465k（2026-10-12 仓配管理 P3）：配送作业 3 页落真身（**各一个组件**，无同构复用）。 */
+const WhDeliveryOrder = () => import('../pages/wh/DeliveryOrder.vue')
+const WhDriverBoard = () => import('../pages/wh/DriverBoard.vue')
+const WhRouteSetup = () => import('../pages/wh/RouteSetup.vue')
 const CronJobs = () => import('../pages/CronJobs.vue')
 const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
@@ -322,6 +326,15 @@ export const router = createRouter({
           meta: { title: '组合单' } },
         { path: 'wh/split',          component: WhKitOrder,      props: { type: 'disassemble' },
           meta: { title: '拆分单' } },
+
+        /* v465k（2026-10-12 仓配管理 P3）：**配送作业 3 页落真身**（各组最后一页 ⇒ 仓配 20 项全数落真身）。
+           🔴 同样必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**；三处都要写
+              （router / `pages.js::PAGE_RULES` / 从 `PLACEHOLDER_PAGES` 移出），缺一即假入口或假封锁。
+           🔴 后端**零改动** —— 8 个端点全是既有的（见 `api/wh.js` P3 段注释）。
+              ⚠️ 上一轮盘点说「P3 后端不存在、要按新建估工」是**错的**，根因写在规范 §8.K。 */
+        { path: 'wh/delivery',     component: WhDeliveryOrder, meta: { title: '配送单' } },
+        { path: 'wh/driver-board', component: WhDriverBoard,   meta: { title: '司机任务看板' } },
+        { path: 'wh/route-setup',  component: WhRouteSetup,    meta: { title: '线路设置' } },
 
         /* v465d（2026-10-11 资金管理）：**全部 28 页落真身**。
            🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——

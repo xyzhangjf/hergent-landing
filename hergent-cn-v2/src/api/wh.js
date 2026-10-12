@@ -240,4 +240,75 @@ export const whApi = {
     { v: 'theft',     t: '丢失' },
     { v: 'other',     t: '其他' },
   ]),
+
+  /* ================= P3 · 配送作业（全部接既有端点，后端零改动） =================
+     🔴 **上一轮盘点说「P3 后端不存在」是错的**，本段是纠错后的事实（2026-10-12 重盘）：
+        · 判据错在哪：① 用了失效的 `grep "A\|B"`（BSD grep 不认 `\|`）⇒ 本地明明有却 grep 不到；
+          ② 拿「未认证 401」当存在性判据 —— 全局中间件对**不存在**的路径同样返 401 ⇒ 零判别力。
+        · 真实情况：配送能力 8 个端点**早已在 `routers/vehicles.py`（prefix `/api`）与
+          `routers/delivery.py`（prefix `/api/delivery`）**，且都已 `include_router`。
+          本地 `server/erp_db.py` 与生产 md5 完全一致 —— 能力一直在，是**我检索错了**。
+
+     🔴 模块归属（`server.py::_PATH_MODULE_MAP`，**首个 startswith 命中即停**）：
+        · `/api/delivery*`  → **sales**（字典里只有 `/api/delivery` 这个键，
+          故 `/api/delivery-tasks` / `/api/delivery-routes` / `/api/delivery-stops/*` 全落 sales）
+        · `/api/vehicles`   → **stock**
+        · `/api/sale-orders`→ sales
+        ⇒ 三页的主数据都在 sales，车辆在 stock。`BIZ_ROLES` 五类角色
+          （admin/boss/accountant/sales/supervisor）**同时持有 sales 与 stock**
+          （`core.py::_DEFAULT_PERMS` 逐个核过）⇒ 不会出现「入口看得见、取数 403」的假入口。
+          ⚠️ `driver` 角色**只有 stock、没有 sales** ⇒ 它不在 BIZ_ROLES 里、进不了仓配页，符合预期。
+
+     ⚠️ 既有实现的两条口径（页面必须照实说，别替后端圆）：
+        ① `get_delivery_tasks()` 的 SQL **硬编码 `delivery_status='assigned'`** ⇒
+           「配送单」页只能看到**已分车的当日任务**，看不到历史已送达/已签收的单。
+           要历史就得走 `/api/sale-orders`（`SELECT so.*` 含全部 delivery_* 列）本地筛 ——
+           本层两个方法都提供，页面按「今日待配送 / 全部」切换时**各用各的**，不混。
+        ② `assign_vehicle()`（分车：写 vehicle_id + driver_id + 'assigned'）**没有 HTTP 端点**
+           ⇒ 本层**不提供**分车方法。前端只能在销售单侧完成分车，本页只读 + 改状态。
+           这是真缺口，登记在 docs/仓配模块开发规范.md，不擅自补后端。 */
+
+  /* —— 司机任务看板 —— `/api/delivery/board?date=` → 原样返回聚合结果（**不是**数组） */
+  boardGet: (date = '') => api(`/api/delivery/board${qs({ date })}`),
+  /* —— 配送任务（= `sale_orders` 里 delivery_status='assigned' 且 order_date=当天）——
+     返回 **裸数组**（`erp_db.get_delivery_tasks` 直接 return list，无信封）。 */
+  taskList: (date = '') => api(`/api/delivery-tasks${qs({ date })}`).then(_list),
+  /* —— 配送状态流转：`assigned` 已分车 / `delivered` 已送达 / `signed` 已签收 / `failed` 配送失败
+     （后端白名单校验，其它值 400）。id 是 **sale_orders.id**。 */
+  taskSetStatus: (id, status) => api(`/api/delivery/${id}/status`, { method: 'POST', body: { status } }),
+  /* —— 历史/全部配送单：销售单列表（`SELECT so.*` ⇒ 含 driver_id / vehicle_id / delivery_status），
+     `{orders, total}` 信封 ⇒ 两个方法分开，页面别发两次请求。 */
+  saleOrdersRaw: (params) => api(`/api/sale-orders${qs(params)}`),
+  saleOrders: (params) => api(`/api/sale-orders${qs(params)}`).then(d => (d && d.orders) || []),
+
+  /* —— 线路设置（`delivery_routes` + `delivery_stops`）—— */
+  routeList: (date = '', status = '') => api(`/api/delivery-routes${qs({ date, status })}`).then(_list),
+  /* body `{name, vehicle_id(>0 必填), driver, date, stops:[{name,address,order_ids:[]}], notes}`
+     ⇒ `{success, id}`。⚠️ Pydantic 校验 `name` 非空、`vehicle_id>0` ⇒ 前端必须先挡。 */
+  routeCreate: (body) => api('/api/delivery-routes', { method: 'POST', body }),
+  /* 优化排序：停靠点 ≥3 且有 lat/lng ⇒ 最近邻；否则按地址字符串排序；≤2 个点直接返回
+     `{optimized:false}`。**返回体随分支变**（有/无 `method`、`stops`）⇒ 页面按字段判，不按形状判。 */
+  routeOptimize: (rid) => api(`/api/delivery-routes/${rid}/optimize`, { method: 'POST' }),
+  /* 停靠点状态：`delivered` 会写 delivered_at；当某路线**全部**停靠点都 delivered ⇒
+     路线自动置 `completed`（`erp_db.delivery_stop_update`）。 */
+  stopUpdate: (sid, status = 'delivered', note = '') =>
+    api(`/api/delivery-stops/${sid}/update`, { method: 'POST', body: { status, note } }),
+
+  /* —— 车辆档案（`vehicles`，归 stock）——
+     ⚠️ 线上 `vehicles` 表 **0 行**，而建线路**必填 vehicle_id>0** ⇒ 线路设置页必须能建车，
+        否则「新建线路」永远点不动。
+     🔴 列表**复用 P0 已有的 `vehicles()`**（`/api/vehicles` 返回裸数组），这里**不**再加一份
+        —— 同一端点两个封装必然漂移（本项目明令禁止）。 */
+  /* body `{name(必填), plate, type, driver, phone}` ⇒ `{success, id}` */
+  vehicleCreate: (body) => api('/api/vehicles', { method: 'POST', body }),
+
+  /* 配送状态 → 中文标签 + 徽标色类（口径与后端白名单一致，前端不自行发挥）。
+     ⚠️ 色类用**本前端**的 `badge-blue/green/red`（`styles/variables.css:556`），
+        不是旧前端 `static/` 的 `bg-info/bg-ok/bg-danger` —— 抄旧的那套在这里是空样式。 */
+  deliveryStatuses: () => ([
+    { v: 'assigned',  t: '已分车', cls: 'badge-blue' },
+    { v: 'delivered', t: '已送达', cls: 'badge-green' },
+    { v: 'signed',    t: '已签收', cls: 'badge-green' },
+    { v: 'failed',    t: '配送失败', cls: 'badge-red' },
+  ]),
 }

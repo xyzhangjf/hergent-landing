@@ -320,6 +320,23 @@ export const PAGE_RULES = {
   '/wh/pnl':            { title: '损益单',           module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   '/wh/combo':          { title: '组合单',           module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   '/wh/split':          { title: '拆分单',           module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* —— v465k（2026-10-12 仓配管理 P3）：「配送作业」组三页**落真身**的正式登记行 ——
+     仓配 20 项至此**全数落真身**（P0 三 + P1 六 + P2 六 + P3 三 + 盘点单/策略等已在前批）。
+     数据源同样是**既有**后端，本轮**零后端改动**：
+       · `/api/delivery-tasks` + `/api/delivery/{id}/status` + `/api/delivery/board`（司机看板）
+       · `/api/delivery-routes`（含 stops）、`/optimize`、`/api/delivery-stops/{id}/update`
+       · `/api/vehicles`（车辆档案，线路设置页要用）
+       · `/api/sale-orders`（「全部配送单」视图 —— 配送单没有独立表，是销售单上的配送字段）
+     🔴 **模块轴取 `sales`**（不是 stock）：`_PATH_MODULE_MAP` 里只有 `/api/delivery` 这一个键，
+        匹配是「首个 startswith 命中即停」⇒ `/api/delivery-tasks|routes|stops` **全部落 sales**。
+        ⚠️ 唯一例外是 `/api/vehicles` → `stock`；`BOSS_ROLES`（= boss）**同时持有 sales 与 stock**
+        （`core.py::_DEFAULT_PERMS` 已核）⇒ 不会出现「入口看得见、取数 403」的假入口。
+        🔴 换角色轴时必须重核这一条 —— 例如 `driver` 只有 stock、没有 sales，放开它就会假入口。
+     ⚠️ 这三条**同时**从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 盖掉本行）。
+     🔴 角色轴同 P0–P2：`BOSS_ROLES + lock`（v472 政策：四区开发期只给老板）。 */
+  '/wh/delivery':     { title: '配送单',       module: 'sales', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/driver-board': { title: '司机任务看板', module: 'sales', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/route-setup':  { title: '线路设置',     module: 'sales', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   // 档案管理：`/archive/employees|customers|brands|products|warehouses|prices` 六个子路由自动继承本行。
   //   ⚠️ 子路由**必须**全部在 router/index.js 的 /archive children 里登记；父级只解析到
   //      `/archive` 这一段，多出的路径段不会自动继承、会落到 404。
@@ -529,12 +546,15 @@ export const PLACEHOLDER_PAGES = [
      🔴 v465c（P0）三页 + v465e（P1）六页**已落真身** ⇒ 从本表移出，改在 `PAGE_RULES`
         写正式登记行（见该对象里的 v465c / v465e 段）。落真身四步见 docs/仓配模块开发规范.md
         —— 移出得干净，否则本表合并循环会用 `BOSS_ROLES + module:null + lock` **覆盖**正式行的 `module:'stock'`。
-     本表剩余 = 尚未开发的 P3（配送单/司机任务看板/线路设置）。
-        ⚠️ P3 注意：实测 `GET /api/delivery/list` = **404** ⇒ 配送单**后端不存在**，
-           开工 P3 要按「新建」而不是「接」来估工（见 docs/仓配模块开发规范.md §2.1）。 */
-  { path: '/wh/delivery',       title: '配送单',           area: '仓配管理' },
-  { path: '/wh/driver-board',   title: '司机任务看板',     area: '仓配管理' },
-  { path: '/wh/route-setup',    title: '线路设置',         area: '仓配管理' },
+     本表在仓配区的条目**已全部落真身**（v465k 后 ⇒ 仓配 20 项零占位）。
+        🔴 **上一行注释里那句「`/api/delivery/list` = 404 ⇒ 配送单后端不存在」是错的**，
+           2026-10-12 重盘推翻：配送 8 个端点一直在（`routers/vehicles.py` + `routers/delivery.py`
+           均已 include_router），是我把「未认证 401」当成了存在性判据（不存在的路径也 401），
+           且用了失效的 `grep "A\|B"`。真正的端点叫 `/api/delivery-tasks`（**不叫 /list**）。
+           纠正过程与纪律见 docs/仓配模块开发规范.md §8.K。 */
+  /* 🔴 v465k（2026-10-12 仓配 P3）：`/wh/delivery` / `/wh/driver-board` / `/wh/route-setup`
+     **已落真身** ⇒ 从本表**移出**，改在 `PAGE_RULES` 写正式登记行（见该对象里的 v465k 段）——
+     移出得干净，否则本表合并循环会用 `BOSS_ROLES + module:null + lock` **覆盖**正式行的 `module:'sales'`。 */
   /* 🔴 v465h（2026-10-11 仓配 P2）：「库存作业」组六页（盘点差异单 / 静态盘点单整仓·部分 /
      损益单 / 组合单 / 拆分单）**已落真身** ⇒ 从本表**移出**，改在 `PAGE_RULES` 写正式登记行
      （见该对象里的 v465h 段）。落真身四步见 docs/仓配模块开发规范.md
