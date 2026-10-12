@@ -83,8 +83,8 @@
             <div class="cc-desc">{{ ccChannel(ch).desc }}</div>
             <div class="cc-roles" v-if="linkedRoles(ch).length">
               <span v-for="r in linkedRoles(ch)" :key="r.role_id" class="cc-role-tag" :title="r.name">
-                <img v-if="r.custom_avatar" :src="avatarUrl(r.role_id)" class="cc-role-av" />
-                <span v-else class="cc-role-av cc-role-av-em">{{ r.avatar }}</span>
+                <RoleAvatar :role="r" img-class="cc-role-av" text-class="cc-role-av cc-role-av-em"
+                            :bust="avBust" fallback="AI" />
               </span>
             </div>
             <div class="cc-ops" v-if="ccChannel(ch).configured">
@@ -435,8 +435,8 @@
               <div class="cc-roles-pick-hd">这些角色能把消息发到你手机<span class="cc-roles-pick-sub">（勾选的角色，它的回复会自动发到本渠道；不勾的不会发）</span></div>
               <div class="cc-chips">
                 <button v-for="r in roles" :key="r.role_id" type="button" class="cc-chip" :class="{ on: modalRoles.has(r.role_id) }" @click="toggleModalRole(r.role_id)">
-                  <img v-if="r.custom_avatar" :src="avatarUrl(r.role_id)" class="cc-chip-av" />
-                  <span v-else class="cc-chip-av cc-chip-av-em">{{ r.avatar }}</span>
+                  <RoleAvatar :role="r" img-class="cc-chip-av" text-class="cc-chip-av cc-chip-av-em"
+                              :bust="avBust" fallback="AI" />
                   <span class="cc-chip-name">{{ r.name }}</span>
                 </button>
               </div>
@@ -536,6 +536,8 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+// v485：头像渲染统一走 RoleAvatar（唯一渲染口），本页不再自写 v-if="custom_avatar"
+import RoleAvatar from '../components/RoleAvatar.vue'
 import { reactive, ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { toast, store } from '../store'
@@ -1002,9 +1004,10 @@ async function applyModalRoles(channel) {
   if (unbound) toast(`已解除 ${unbound} 个角色`, 'ok')
 }
 
-function avatarUrl(roleId) {
-  return '/api/ai/roles/' + roleId + '/avatar?t=' + Date.now()
-}
+// v485：头像渲染交给 RoleAvatar 组件，原 avatarUrl() 随之成为死代码 ⇒ 删除。
+//   保留原有的「避免浏览器缓存旧头像」意图：这里取**进入页面时**的一个稳定时间戳
+//   （而不是每次渲染 Date.now()，那会让 src 每次都变、白白发请求）。
+const avBust = Date.now()
 
 function linkedRoles(channel) {
   return roles.value.filter(r => isLinked(r.role_id, channel))
