@@ -604,8 +604,10 @@ export const psiApi = {
   /* ---- v449：调拨（真双仓，`transfer_orders` 表）---------------------------- */
   /**
    * 调拨单列表（**只读投影**）。
-   * @param {object} p `{status, limit, offset}`；`status` 空串 = 全部
-   * @returns `{success, rows, count}`；每行带 `from_wh_name` / `to_wh_name`（仓名现解析）
+   * @param {object} p `{status, date_from, date_to, keyword, order_by, order_dir, limit, offset}`；
+   *   `status` 空串 = 全部；`date_from`/`date_to` = 创建日期 YYYY-MM-DD（后端区间筛）；
+   *   `keyword` = 商品名模糊；`order_by`/`order_dir` = 服务端排序（白名单见后端 `_TRANSFER_ORDER_SQL`）
+   * @returns `{success, rows, count, total}`；`total` = 过滤后真实总数；每行带 `from_wh_name` / `to_wh_name`
    * 🔴 `limit` / `offset` 后端**显式声明**过（v443 的教训：未声明的 query 参数会被
    *    FastAPI **静默忽略**，`?limit=` 被丢掉、恒回默认值）。
    * ⚠️ 这张表与 `sale_orders` 里那些 `order_type='transfer'` 的**舟谱导入单**

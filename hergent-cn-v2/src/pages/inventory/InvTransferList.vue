@@ -15,8 +15,8 @@
       </div>
     </div>
 
-    <!-- 筛选：仅「状态」一项。后端 `transfer_order_list` 只接受 status 过滤
-         （日期 / 关键字后端暂无对应参数），不放假控件。 -->
+    <!-- 筛选：状态 + 创建日期区间 + 商品关键字（三项均为**后端过滤**，对齐采购/销售列表）。
+         ⚠️ 不放「前端 filter」：本页服务端分页，前端过滤只作用于当前页行数 ⇒ 假结果。 -->
     <div class="card isl-filter">
       <div class="isl-frow">
         <div class="isl-f">
@@ -25,6 +25,18 @@
             <option value="">全部状态</option>
             <option v-for="o in TO_OPTIONS" :key="o.value" :value="o.value">{{ o.text }}</option>
           </select>
+        </div>
+        <div class="isl-f">
+          <label class="isl-lb">创建起</label>
+          <input type="date" v-model="f.date_from" class="input isl-date" @change="load()" />
+        </div>
+        <div class="isl-f">
+          <label class="isl-lb">创建止</label>
+          <input type="date" v-model="f.date_to" class="input isl-date" @change="load()" />
+        </div>
+        <div class="isl-f isl-f-kw">
+          <label class="isl-lb">商品</label>
+          <input v-model.trim="f.keyword" class="input isl-kw" placeholder="商品名" @keyup.enter="load()" />
         </div>
         <div class="isl-fbtns">
           <button class="btn btn-primary btn-sm" :disabled="loading" @click="load()">
@@ -38,6 +50,12 @@
     <div class="isl-tb">
       <div class="isl-tb-l">
         <span class="isl-selinfo">共 <b>{{ total }}</b> 张</span>
+        <!-- v478：当前排序的显式提示。排序键对应列一旦被「列设置」隐藏，表头指示器随之消失，
+             顺序来历就变成看不见的状态，用户会以为数据乱了。这里常显「按 X 升/降序」+ 一键清除。 -->
+        <span v-if="sortKey" class="isl-selinfo isl-sortinfo">
+          按<b>{{ sortLabel }}</b>{{ sortDir === 'asc' ? '升序' : '降序' }}
+          <button class="isl-link" @click="clearSort">清除</button>
+        </span>
       </div>
       <div class="isl-tb-r">
         <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doExport">
@@ -74,9 +92,17 @@
             <tr>
               <!-- 齿轮长在序号列表头格子里（与采购/销售列表同一处） -->
               <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
-              <!-- 🔴 调拨单**没有排序**（后端 `transfer_order_list` 不支持 order_by）⇒ 表头不可点、
-                   不摆排序指示器（摆了点了没反应 = 假控件）。默认按后端 `ORDER BY id DESC`（最新在前）。 -->
-              <th v-for="c in visibleCols" :key="c.key" :class="{ num: c.num }">{{ c.label }}</th>
+              <!-- v478：可排序列 = `SORTABLE`（除「备注」外全可点）。点击三态循环（降 → 升 → 取消），
+                   由 `onSort()` 重新拉数据（**服务端排序**，非前端对当前页重排 —— 本页服务端分页，
+                   对当前页重排"看着排好了"、一翻页就散架）。
+                   指示器：未排 `sort`（中性）→ 升 `arrow-up` → 降 `arrow-down`。 -->
+              <th v-for="c in visibleCols" :key="c.key"
+                  :class="[{ num: c.num, 'isl-sh': canSort(c) }]"
+                  :aria-sort="ariaSortOf(c)"
+                  :title="canSort(c) ? '点击排序：降序 → 升序 → 取消' : null"
+                  @click="onSort(c)">
+                {{ c.label }}<span v-if="canSort(c)" class="isl-sort-ind"><Icon :name="sortInd(c.key)" :size="12" /></span>
+              </th>
               <th class="isl-op-hd"></th>
             </tr>
           </thead>
@@ -137,10 +163,11 @@
    本页才是 `transfer_orders` 的真列表（与 `TransferOrderNew` 同源、归 `inventory` 模块）。
 
    🔴 与采购 / 销售列表的**有意差异**（不是遗漏、不是缺陷）：
-     ① **没有排序**：后端 `transfer_order_list` 只接受 `status/limit/offset`，**没有 `order_by`**
-        参数（与采购 v470 / 销售 v473 的服务端排序不同）。⇒ 表头**不可点击排序**，
-        不摆假的排序指示器（摆了点了没反应 = 假控件，正是本仓反复付学费的那种）。
-        默认按后端 `ORDER BY id DESC`（最新在前）。
+     ① **服务端排序 + 日期/商品筛选**（v478 新增，对齐采购 v470 / 销售 v473）：表头可点击三态
+        排序（降→升→取消，SQL 端做、tiebreaker `to_.id DESC`），筛选区新增「创建日期区间 +
+        商品名」三项**后端过滤**。默认按后端 `ORDER BY to_.id DESC`（最新在前）。
+        ⚠️ 「备注」列**不进**排序白名单（自由文本无意义）⇒ 该列表头不可点 = 有意差异（不是漏做）；
+           若强行点会静默回落 id 排序，反而像是"点了没反应"的假控件。
      ② **没有批量操作**：调拨单没有审核流，后端也没有批量接口；造一排点了 404 的按钮才是缺陷。
      ③ **没有打印数**：后端无 `batchTransfers('print')` 这类计数接口，不造前端自增的假计数。
      ④ **行内动作只有「打印 / 过账」**：过账(`POST /complete`)是唯一真后端动作（草稿→已过账，
@@ -175,6 +202,55 @@ const visibleCols = computed(() => COLS.filter(c => isVisible(c.key)))
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
+/* ── v478：服务端排序 ──────────────────────────────────────────────────────
+   🔴 排序键必须**映射**：列 key（云端列配置主键，不能改）≠ 后端白名单键（`_TRANSFER_ORDER_SQL`）。
+      `SORTABLE` ⊆ 后端白名单，缺一个键 = 点了没反应零报错（最难查的一类）。
+      `note` 不在 `SORTABLE`（自由文本不排，也不在后端白名单）⇒ 该列表头不点。
+   🔴 排序在 SQL 里做：本页服务端分页，前端对当前页重排翻页即散架。
+   ⚠️ 排序**不进** `f`：它是"怎么看"不是"看哪些"，混进 `f` 会被带进 `hasFilter`、被重置清掉。 */
+const SORT_KEY = {
+  order_no: 'order_no',
+  product_name: 'product_name',
+  quantity: 'quantity',
+  status: 'status',
+  created_at: 'created_at',
+  from_wh: 'from_wh_name',
+  to_wh: 'to_wh_name',
+}
+const SORTABLE = new Set(Object.keys(SORT_KEY))
+const sortKey = ref('')
+const sortDir = ref('')
+function canSort (c) { return SORTABLE.has(c.key) }
+function sortInd (colKey) {
+  const k = SORT_KEY[colKey]
+  if (!k || sortKey.value !== k) return 'sort'
+  return sortDir.value === 'asc' ? 'arrow-up' : 'arrow-down'
+}
+function ariaSortOf (c) {
+  if (!canSort(c) || sortKey.value !== SORT_KEY[c.key]) return 'none'
+  return sortDir.value === 'asc' ? 'ascending' : 'descending'
+}
+function onSort (c) {
+  if (!canSort(c)) return
+  const k = SORT_KEY[c.key]
+  // 三态循环：无 → 降序 → 升序 → 无。第一下给**降序**（与"新单在前"默认观感一致）。
+  if (sortKey.value !== k) { sortKey.value = k; sortDir.value = 'desc' }
+  else if (sortDir.value === 'desc') { sortDir.value = 'asc' }
+  else { sortKey.value = ''; sortDir.value = '' }
+  load(true)
+}
+const sortLabel = computed(() => {
+  const k = sortKey.value
+  if (!k) return ''
+  const col = COLS.find(c => SORT_KEY[c.key] === k)
+  return col ? col.label : k
+})
+function clearSort () {
+  sortKey.value = ''
+  sortDir.value = ''
+  load(true)
+}
+
 const router = useRouter()
 const loading = ref(true)
 const err = ref('')
@@ -189,7 +265,7 @@ const limit = ref(50)
 const offset = ref(0)
 const jumpTo = ref('')
 
-function baseFilter () { return { status: '' } }
+function baseFilter () { return { status: '', date_from: '', date_to: '', keyword: '' } }
 const f = ref(baseFilter())
 
 const title = '调拨单'
@@ -197,7 +273,7 @@ const subTitle = '双仓调拨台账（调出仓 → 调入仓）'
 const newTo = { path: DOC_PATHS.transferOrder }
 
 const canWrite = computed(() => canDo('inventory', 'create'))
-const hasFilter = computed(() => !!f.value.status)
+const hasFilter = computed(() => !!(f.value.status || f.value.date_from || f.value.date_to || f.value.keyword))
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))
 const page = computed(() => Math.floor(offset.value / limit.value) + 1)
 const pageFrom = computed(() => (total.value ? offset.value + 1 : 0))
@@ -211,6 +287,12 @@ async function load (resetPage = true) {
   err.value = ''
   try {
     const p = { status: f.value.status, limit: limit.value, offset: offset.value }
+    /* v478：日期/商品筛选（后端过滤）。空值不加键 ⇒ 后端回落"不筛"。 */
+    if (f.value.date_from) p.date_from = f.value.date_from
+    if (f.value.date_to) p.date_to = f.value.date_to
+    if (f.value.keyword) p.keyword = f.value.keyword
+    /* v478：服务端排序。未排序时两个键都不加 ⇒ 后端回落 `to_.id DESC`（旧行为零变化）。 */
+    if (sortKey.value) { p.order_by = sortKey.value; p.order_dir = sortDir.value }
     const d = await psiApi.listTransfers(p)
     rows.value = d.rows || []
     /* 🔴 优先用后端 `total`（v449+ 已补的真总数）；旧 `count` 只是本页行数（≤limit），
@@ -223,7 +305,7 @@ async function load (resetPage = true) {
   }
 }
 
-function resetFilter () { f.value = baseFilter(); load() }
+function resetFilter () { f.value = baseFilter(); sortKey.value = ''; sortDir.value = ''; load() }
 
 /* ---- 分页（服务端分页） ---- */
 function goPage (p) {
@@ -317,6 +399,9 @@ onMounted(load)
 .isl-f { display: flex; flex-direction: column; gap: 4px }
 .isl-lb { font-size: 12px; color: var(--t3) }
 .isl-sel { min-width: 130px; height: 32px }
+.isl-date { height: 32px }
+.isl-f-kw { margin-left: 4px }
+.isl-kw { min-width: 150px; height: 32px }
 .isl-fbtns { display: flex; align-items: center; gap: 8px; margin-left: auto }
 
 .isl-tb { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 12px }
@@ -327,6 +412,12 @@ onMounted(load)
 .isl-card { padding-bottom: 0 }
 .isl-row { cursor: default }
 .isl-no { font-variant-numeric: tabular-nums }
+/* v478：可排序列表头 —— 手型 + 指示器（对齐销售列表 v473） */
+.isl-tbl thead th.isl-sh { cursor: pointer; user-select: none; white-space: nowrap }
+.isl-tbl thead th.isl-sh:hover { color: var(--p-dark) }
+.isl-sort-ind { display: inline-flex; vertical-align: middle; margin-left: 3px; color: var(--t3) }
+.isl-tbl thead th.isl-sh:hover .isl-sort-ind { color: var(--p-ink) }
+.isl-sort-ind svg.ico { width: 12px; height: 12px }
 .isl-op { color: var(--p-dark); white-space: nowrap }
 .isl-op-hd { width: 1% }
 .isl-ops { display: inline-flex; align-items: center; gap: 6px }
@@ -357,13 +448,13 @@ onMounted(load)
   .isl-tbl { min-width: 0; width: 100%; table-layout: auto }
   .isl-op-hd, .isl-op { display: none !important }
   /* 齿轮按钮必须在纸上消失：它是交互控件，印出来读者点不动。 */
-  .isl-tbl thead .col-cfg { display: none !important }
+  .isl-tbl thead .col-cfg, .isl-tbl .isl-sort-ind { display: none !important }
   .isl-tbl.print-one tbody tr:not(.print-target) { display: none !important }
 }
 
 @media (max-width: 640px) {
   .isl-frow { align-items: stretch }
-  .isl-f, .isl-sel { width: 100%; min-width: 0 }
+  .isl-f, .isl-sel, .isl-date, .isl-kw { width: 100%; min-width: 0 }
   .isl-fbtns { margin-left: 0 }
 }
 </style>
