@@ -51,6 +51,10 @@
                    「保存」则只在**角色配置页**里出现（它保存的是那一个角色）。 -->
               <button class="btn btn-sm" @click="compareOpen = true"
                       title="所有角色横向比一比（只能看，不能改）">查看对比</button>
+              <!-- v479：操作日志入口。原「页脚最近变更区块」升级为独立模块 ——
+                   区块形态只有"最近 30 条"一个视野，而追责要的是"按人/按类型/按时间定位某一条"。
+                   🔴 不放 title：按钮名 + 弹窗里的记录本身已表意（本仓纪律：不解释"它会记什么"）。 -->
+              <button class="btn btn-sm" @click="openPermLog">日志</button>
               <button class="btn btn-sm" @click="newRoleOpen = !newRoleOpen"
                       title="拿一个现成角色做底子，另存成一个新角色">新建角色</button>
               <button class="btn btn-sm" @click="resetAllRoles"
@@ -114,7 +118,7 @@
                        而删除守卫正是靠这个数决定放不放行；把"不知道"显示成"没有"，
                        就是界面在骗人（也是守卫 fail-closed 存在的理由）。 -->
                   <span v-if="r.user_count === null" class="pr-unknown"
-                        title="后端暂时读不到占用情况。为安全起见，此时删除会按「有人在用」从严处理。">未知</span>
+                        title="暂时读不到占用情况。为安全起见，此时删除会按「有人在用」从严处理。">未知</span>
                   <template v-else>{{ r.user_count }} 人</template>
                 </td>
                 <td class="ctr">
@@ -177,53 +181,6 @@
             点「配置权限」进入这个角色的明细。<b>同一个角色只有一个配权限的地方</b> ——
             改了就是真的改了，不会出现"这里改了那里没变"。
           </p>
-        </div>
-
-        <!-- ============ v475：最近变更（只读）============
-             🔴 为什么必须有这个区块：本页是全系统**唯一**能改权限的地方（`/settings` 是产品硬锁），
-             而在此之前「改了权限」**不留痕、也无处可查** ⇒ 出了问题只能靠回忆。
-             后端 v475 补齐了 6 个写端点的审计 + 一个读取端点，这里把它显示出来 ——
-             ⚠️ **只写不读等于没做**：审计若只能靠 SQL 查，它在业务上是不存在的。
-             🔴 它是**只读**的：本区块没有任何 input / 写动作，
-             结构上不可能从"看记录"这条路改到权限（与「查看对比」弹窗同一纪律）。 -->
-        <div class="card">
-          <div class="panel-hd">
-            <b>最近变更 · 谁在什么时候改了什么</b>
-            <div class="tb-group tb-right">
-              <button class="btn btn-sm btn-ghost" :disabled="permAuditLoading" @click="loadPermAudit">
-                {{ permAuditLoading ? '刷新中…' : '刷新' }}
-              </button>
-            </div>
-          </div>
-          <p class="pr-tip" style="margin-top:0">
-            权限与账号相关的改动都会记在这里（含给员工换角色）。<b>只保留最近 {{ permAuditLimit }} 条</b>，
-            完整记录在本企业的操作日志表里。
-          </p>
-          <div v-if="permAuditLoading" class="pr-empty">加载中…</div>
-          <div v-else-if="permAuditError" class="pr-empty">{{ permAuditError }}</div>
-          <div v-else-if="!permAudit.length" class="pr-empty">还没有任何变更记录</div>
-          <div v-else class="table-wrap">
-            <table class="pa-table">
-              <thead>
-                <tr>
-                  <th class="pa-when" style="width:150px">时间</th>
-                  <th class="pa-who" style="width:110px">谁</th>
-                  <th class="pa-what">做了什么</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(r, i) in permAudit" :key="'pa-' + (r.id || i)">
-                  <td class="pa-when">{{ r.at || '—' }}</td>
-                  <td class="pa-who">{{ r.who || '—' }}</td>
-                  <td class="pa-what">
-                    <b>{{ r.what }}</b>
-                    <template v-if="r.role"> · 角色「{{ roleLabel(r.role) }}」</template>
-                    <div v-if="r.detail" class="pa-detail">{{ r.detail }}</div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </div>
       </template>
 
@@ -480,6 +437,103 @@
           </div>
         </div>
       </div>
+
+      <!-- ============ v479：操作日志（独立只读模块；原「页脚最近变更区块」升级而来）============
+           🔴 为什么从页脚区块改成弹窗：区块只有"最近 30 条"一个视野，而事后追责真正的问题
+           是"谁 / 什么时候 / 把哪个角色 / 改成了什么样"—— 没有筛选，一行行翻是找不到的。
+           弹窗给五个筛选项（操作人 / 操作类型 / 变更对象 / 关键词 / 起止日期）+ 分页 + 倒序，
+           全部由后端同一个端点在 SQL 里做（不是把全表拉回前端再剪）。
+           🔴 与「查看对比」同纪律：**只读**。弹窗里的 input 只服务于"查记录"，
+           结构上不可能从"看日志"这条路改到权限。 -->
+      <div v-if="permLogOpen" class="cmp-mask" @click.self="permLogOpen = false">
+        <div class="cmp-dlg plog-dlg">
+          <div class="panel-hd">
+            <b>操作日志</b>
+            <div class="tb-group tb-right">
+              <button class="btn btn-sm btn-ghost" :disabled="permLogLoading" @click="loadPermLog">刷新</button>
+              <button class="btn btn-sm" @click="permLogOpen = false">关闭</button>
+            </div>
+          </div>
+
+          <!-- 筛选行。默认**不预筛**：追溯时若被悄悄缩小视野，"上个月是谁改的"会永远查不到。 -->
+          <div class="plog-filters">
+            <select v-model="permLogFilter.type_key" class="fld plog-f-type" aria-label="操作类型">
+              <option value="">全部类型</option>
+              <option v-for="t in permLogTypes" :key="t.key" :value="t.key">
+                {{ t.label }}（{{ t.count }}）
+              </option>
+            </select>
+            <input v-model="permLogFilter.who" class="fld plog-f-who" placeholder="操作人" aria-label="操作人">
+            <input v-model="permLogFilter.role" class="fld plog-f-role"
+                   placeholder="变更对象（角色或账号）" aria-label="变更对象">
+            <input v-model="permLogFilter.keyword" class="fld plog-f-kw" placeholder="关键词（改了什么）"
+                   aria-label="关键词" @keyup.enter="applyPermLogFilter">
+            <span class="plog-f-date">
+              <input v-model="permLogFilter.date_from" type="date" class="fld" aria-label="开始日期">
+              <span class="plog-f-tilde">至</span>
+              <input v-model="permLogFilter.date_to" type="date" class="fld" aria-label="结束日期">
+            </span>
+            <button class="btn btn-sm btn-primary" :disabled="permLogLoading" @click="applyPermLogFilter">查询</button>
+            <button class="btn btn-sm btn-ghost" @click="resetPermLogFilter">重置</button>
+            <span v-if="!permLogLoading && !permLogError" class="plog-count">共 {{ permLogTotal }} 条</span>
+          </div>
+
+          <div v-if="permLogLoading" class="pr-empty">加载中…</div>
+          <div v-else-if="permLogError" class="pr-empty">{{ permLogError }}</div>
+          <!-- 空态分两档：一条记录都没有 / 有筛选没命中。
+               "没数据"和"没搜到"说同一句话，是这类界面最容易犯的误判。 -->
+          <div v-else-if="!permLogItems.length && !permLogFilterActive" class="pr-empty">
+            还没有权限变更记录。在这页改权限、给员工换角色后，记录会出现在这里。
+          </div>
+          <div v-else-if="!permLogItems.length" class="pr-empty">
+            没有符合筛选条件的记录。<button class="btn-mini" @click="resetPermLogFilter">清空筛选</button>
+          </div>
+          <div v-else class="plog-wrap">
+            <table class="pa-table plog-table">
+              <thead>
+                <tr>
+                  <th class="plog-when">时间</th>
+                  <th class="plog-who">操作人</th>
+                  <th class="plog-target">变更对象</th>
+                  <th class="plog-type">操作类型</th>
+                  <th class="plog-detail">变更内容</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in permLogItems" :key="'pl-' + r.src + '-' + r.id">
+                  <td class="plog-when">{{ r.at || '—' }}</td>
+                  <td class="plog-who">{{ r.who || '—' }}</td>
+                  <td class="plog-target" :title="r.target || ''">
+                    <!-- 账号类：新格式是用户名；老格式只有数字 uid —— 明说"账号 #id"，
+                         而不是甩一个裸数字给老板（他不可能知道 999917 是谁）。 -->
+                    <template v-if="r.target_kind === 'role'">{{ roleLabel(r.target) }}</template>
+                    <template v-else-if="r.target_kind === 'account'">
+                      {{ /^\d+$/.test(r.target) ? '账号 #' + r.target : r.target }}
+                    </template>
+                    <template v-else>—</template>
+                  </td>
+                  <td class="plog-type">
+                    <span class="plog-tag" :class="{ danger: r.type_key === 'role_delete' }">{{ r.type_label }}</span>
+                  </td>
+                  <td class="plog-detail">{{ r.detail }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 分页：总数是**过滤后**的总数（后端算的，不让前端猜） -->
+          <div v-if="!permLogLoading && !permLogError && permLogTotal > permLogLimit" class="plog-pager">
+            <button class="btn btn-sm btn-ghost" :disabled="permLogOffset <= 0" @click="permLogPage(-1)">上一页</button>
+            <span class="plog-page-info">
+              第 {{ Math.floor(permLogOffset / permLogLimit) + 1 }} 页 /
+              共 {{ Math.ceil(permLogTotal / permLogLimit) }} 页
+            </span>
+            <button class="btn btn-sm btn-ghost"
+                    :disabled="permLogOffset + permLogLimit >= permLogTotal"
+                    @click="permLogPage(1)">下一页</button>
+          </div>
+        </div>
+      </div>
     </template>
 
     <!-- ==================== AI 配置 ==================== -->
@@ -701,28 +755,74 @@ const permLoading = ref(false)
 const moduleQuery = ref('')
 const permHelpOpen = ref(false)   // v326：使用说明默认收起（见模板注释）
 
-/* ---- v475：最近变更（只读）------------------------------------------------------
-   🔴 这段存在的理由是"审计只写不读 = 没做"：后端补齐 6 个写端点的留痕与一个读取端点后，
-      必须**在这一页把它显示出来** —— 否则日志只能靠 SQL 查，业务上等于不存在。
-   ⚠️ `permAuditError` 必须**如实显示**：端点取不到时写「后端可能还没更新」，
-      绝不静默渲染成"还没有任何变更记录"（那会把"读不到"说成"没有"，正是本页红线）。 */
-const permAudit = ref([])
-const permAuditLoading = ref(false)
-const permAuditError = ref('')
-const permAuditLimit = 30
-async function loadPermAudit() {
-  permAuditLoading.value = true
-  permAuditError.value = ''
+/* ---- v479：操作日志（独立只读模块；替代 v475 的「页脚最近变更区块」）--------------------
+   🔴 为什么升级：区块只有"最近 N 条"一个视野，而追责要回答的是
+      "谁 / 什么时候 / 把哪个角色 / 改成了什么样"—— 五个筛选项 + 分页全部由后端
+      同一个端点在 SQL 里做（不是拉全表回前端剪）。
+   ⚠️ `permLogError` 必须**如实显示**：端点取不到时写清楚原因，
+      绝不静默渲染成"还没有任何变更记录"（那会把"读不到"说成"没有"，正是本页红线）。
+   ⚠️ 自动刷新点（loadPerms 成功后 / 保存角色后 / 改名后）**只在弹窗打开时**触发：
+      关着的时候背景轮询日志没有意义；开着的时候刚改的权限要立刻看得见。 */
+const permLogOpen = ref(false)
+const permLogLoading = ref(false)
+const permLogError = ref('')
+const permLogItems = ref([])
+const permLogTypes = ref([])      // 后端下发的 {key,label,count} —— 中文标签不在前端维护
+const permLogTotal = ref(0)
+const permLogLimit = 50
+const permLogOffset = ref(0)
+const permLogFilter = ref({ type_key: '', who: '', role: '', keyword: '', date_from: '', date_to: '' })
+const permLogFilterActive = computed(() => {
+  const f = permLogFilter.value
+  return !!(f.type_key || f.who || f.role || f.keyword || f.date_from || f.date_to)
+})
+
+async function loadPermLog() {
+  permLogLoading.value = true
+  permLogError.value = ''
   try {
-    const d = await api('/api/role-permissions/audit?limit=' + permAuditLimit)
-    permAudit.value = (d && d.items) || []
+    const f = permLogFilter.value
+    // 🔴 URLSearchParams 而不是手拼：关键词里出现 `&`/`#`/中文时手拼必坏（本仓既有纪律）。
+    const q = new URLSearchParams({ limit: String(permLogLimit), offset: String(permLogOffset.value) })
+    if (f.type_key) q.set('log_type', f.type_key)
+    if (f.who) q.set('who', f.who)
+    if (f.role) q.set('role', f.role)
+    if (f.keyword) q.set('keyword', f.keyword)
+    if (f.date_from) q.set('date_from', f.date_from)
+    if (f.date_to) q.set('date_to', f.date_to)
+    const d = await api('/api/role-permissions/audit?' + q.toString())
+    permLogItems.value = (d && d.items) || []
+    permLogTotal.value = (d && d.total) || 0
+    permLogTypes.value = (d && d.types) || []
   } catch (e) {
-    permAudit.value = []
-    permAuditError.value = '读不到变更记录：' + ((e && e.message) || '未知错误')
+    permLogItems.value = []
+    permLogTotal.value = 0
+    permLogError.value = '读不到变更记录：' + ((e && e.message) || '未知错误')
       + '（若刚部署完，通常是后端还没更新这一版）'
   } finally {
-    permAuditLoading.value = false
+    permLogLoading.value = false
   }
+}
+
+function openPermLog() {
+  permLogOpen.value = true
+  permLogOffset.value = 0        // 每次打开都从第 1 页开始（否则新记录会把翻页位置挪乱）
+  loadPermLog()
+}
+function applyPermLogFilter() {
+  permLogOffset.value = 0
+  loadPermLog()
+}
+function resetPermLogFilter() {
+  permLogFilter.value = { type_key: '', who: '', role: '', keyword: '', date_from: '', date_to: '' }
+  permLogOffset.value = 0
+  loadPermLog()
+}
+function permLogPage(delta) {
+  const next = permLogOffset.value + delta * permLogLimit
+  if (next < 0 || next >= permLogTotal.value) return
+  permLogOffset.value = next
+  loadPermLog()
 }
 
 /* ---- v334（2026-09-30）：细粒度权限（模块 × 动作）---------------------------------------
@@ -993,11 +1093,12 @@ async function loadPerms() {
     toast('权限加载失败：' + (e.message || ''), 'error')
   } finally {
     permLoading.value = false
-    // v475：角色列表每次重载都顺带刷新「最近变更」—— 这是**唯一**的自动刷新点
+    // v479：角色列表每次重载都顺带刷新「操作日志」—— 这是**唯一**的自动刷新点
     //（新建/恢复/删除/改登录端都会走 loadPerms）⇒ 不必在每个动作后各写一遍，
     // 也就不会出现"某条路径改了权限但记录没更新"。
+    // ⚠️ **只在日志弹窗开着时刷**：关着的时候背景请求日志没有意义（v479 起它不再是页内区块）。
     // ⚠️ 不 await：本段与角色列表无关，卡住不该拖慢列表渲染；它自己管 loading / error。
-    loadPermAudit()
+    if (permLogOpen.value) loadPermLog()
   }
 }
 
@@ -1159,9 +1260,10 @@ async function saveRoleDetail() {
       role.end_is_custom = true
     }
     await syncStorePerms()
-    // v475：这里**刻意不整表重拉**（v350 P0-2：切视图/保存时重拉会把未保存输入吃掉），
-    // 但「最近变更」是与角色表无关的独立只读数据 ⇒ 单独刷它，既不违反 P0-2 也不留过期记录。
-    loadPermAudit()
+    // v479：这里**刻意不整表重拉**（v350 P0-2：切视图/保存时重拉会把未保存输入吃掉），
+    // 但「操作日志」是与角色表无关的独立只读数据 ⇒ 弹窗开着就单独刷它，
+    // 既不违反 P0-2 也不留过期记录（关着就不刷，见 loadPerms 同一纪律）。
+    if (permLogOpen.value) loadPermLog()
     toast('「' + roleLabel(name) + '」的权限已保存' + (endSaved ? '（含登录端）' : ''), 'success')
   } catch (e) {
     toast('保存失败：' + (e.message || ''), 'error')
@@ -1271,7 +1373,7 @@ async function resetRole(name) {
     await loadPerms()
     // v296：恢复默认同样是一次权限变更（而且会撤掉该角色的"让位"资格）⇒ 一样要同步本会话。
     await syncStorePerms()
-    await loadPermAudit()
+    if (permLogOpen.value) await loadPermLog()
     toast(builtin ? '已恢复默认权限' : '已删除角色「' + roleLabel(name) + '」', 'success')
   } catch (e) {
     /* 🔴 守卫拒绝时把后端的中文原因**原样转达**（`api` 已抛 message），别改写成技术腔 ——
@@ -1456,14 +1558,38 @@ onMounted(() => {
 /* v326：使用说明默认收起（原先 8 段实现说明常驻在表格上方，见模板里的注释）。 */
 .pm-help-tb{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--t2);background:none;border:0;padding:0;margin:0 0 10px;cursor:pointer}
 .pm-help-tb:hover{color:var(--p-dark)}
-/* ---- v475：最近变更（只读）—— 复用本页表格的视觉语言，不新造一套 ---- */
+/* ---- v479：操作日志（只读弹窗）—— 复用本页表格的视觉语言，不新造一套 ---- */
 .pa-table{width:100%;border-collapse:collapse;font-size:12.5px}
 .pa-table th,.pa-table td{padding:7px 10px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
 .pa-table th{font-weight:600;color:var(--t2);background:var(--bg3)}
-.pa-when{white-space:nowrap;color:var(--t3);font-variant-numeric:tabular-nums}
-.pa-who{white-space:nowrap;font-weight:600;color:var(--t1)}
-.pa-what{color:var(--t1)}
-.pa-detail{margin-top:3px;color:var(--t3);font-size:12px;line-height:1.7;word-break:break-all}
+/* 弹窗比对比弹窗略窄：五列里四列是定宽短列，宽的是"变更内容" */
+.plog-dlg{width:min(1040px,calc(100vw - 48px));display:flex;flex-direction:column}
+/* 筛选行：五个维度一行放不下就换行 —— 绝不横向溢出弹窗 */
+.plog-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 12px}
+.plog-f-type{width:150px}
+.plog-f-who{width:104px}
+.plog-f-role{width:150px}
+.plog-f-kw{flex:1;min-width:130px}
+.plog-f-date{display:inline-flex;align-items:center;gap:6px}
+.plog-f-tilde{color:var(--t3);font-size:12px}
+.plog-count{margin-left:auto;font-size:12px;color:var(--t3);white-space:nowrap}
+/* 表格区独立滚动 + 表头吸附（记录可能很多） */
+.plog-wrap{overflow:auto;max-height:calc(86vh - 280px);border:1px solid var(--bd);border-radius:var(--radius-md)}
+.plog-table th{position:sticky;top:0;z-index:1}
+/* 前四列单行化（否则"账号改名"这类长值把行高撑散，一屏能看的记录数变少）；
+   "变更内容"是唯一允许换行的一列（"新增 26 项（…）"很长）。 */
+.plog-table th,.plog-table td{white-space:nowrap}
+.plog-when{width:148px;color:var(--t3);font-variant-numeric:tabular-nums}
+.plog-who{width:92px;font-weight:600;color:var(--t1)}
+.plog-target{max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.plog-type{width:104px}
+/* 操作类型标签：中性底；「删除角色」是破坏性操作 ⇒ 警示色单独标出，扫一眼就能定位 */
+.plog-tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;
+          background:var(--bg3);color:var(--t2)}
+.plog-tag.danger{background:var(--dan-bg);color:var(--dan);font-weight:600}
+.plog-detail{min-width:260px;white-space:normal;color:var(--t1);line-height:1.7;word-break:break-all}
+.plog-pager{display:flex;gap:10px;align-items:center;margin-top:10px;font-size:12px}
+.plog-page-info{color:var(--t2)}
 .pm-help{margin:0 0 12px;padding:9px 12px;border-radius:var(--radius-md);background:var(--bg3);font-size:12.5px;color:var(--t2);line-height:1.75}
 .pm-help p{margin:0 0 5px}
 .pm-help p:last-child{margin-bottom:0}
