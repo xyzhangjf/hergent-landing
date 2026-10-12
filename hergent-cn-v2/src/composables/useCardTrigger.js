@@ -189,15 +189,33 @@ export function extractProposal(text) {
   if (!m) return null
   try {
     const p = JSON.parse(m[1].trim())
-    const module = PROPOSAL_MODULES.includes(p.module) ? p.module : null
-    if (!module) return null
+    const module = PROPOSAL_MODULES.includes(p.module) ? p.module : ''
     const changes = (p.changes && typeof p.changes === 'object' && !Array.isArray(p.changes)) ? p.changes : null
+    const steps = Array.isArray(p.steps) ? p.steps.filter(s => s && typeof s === 'object') : null
+    // 计划模式闸门（v483）：带 steps 即为「多步执行计划」——AI 先列清单，用户点「执行」才真调写接口。
+    // module 在此分支可选（计划可跨多个模块）。
+    if (steps && steps.length) {
+      return {
+        module,
+        title: typeof p.title === 'string' ? p.title : 'AI 执行计划',
+        rationale: typeof p.rationale === 'string' ? p.rationale : '',
+        steps: steps.map(s => ({
+          action: typeof s.action === 'string' ? s.action : (typeof s.do === 'string' ? s.do : ''),
+          target: typeof s.target === 'string' ? s.target : '',
+          detail: typeof s.detail === 'string' ? s.detail : (typeof s.desc === 'string' ? s.desc : '')
+        })),
+        changes: null
+      }
+    }
+    // 单条配方提案（原逻辑，向后兼容 P2-⑦）：module + changes 仍为必填
+    if (!module) return null
     if (!changes || !Object.keys(changes).length) return null
     return {
       module,
       title: typeof p.title === 'string' ? p.title : '',
       changes,
-      rationale: typeof p.rationale === 'string' ? p.rationale : ''
+      rationale: typeof p.rationale === 'string' ? p.rationale : '',
+      steps: null
     }
   } catch (e) { return null }
 }

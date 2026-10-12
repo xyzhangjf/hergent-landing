@@ -226,26 +226,53 @@
                 </div>
               </div>
 
-              <!-- 配方自进化提案（P2-⑦：AI 发现新口径 → 老板一键采纳/忽略） -->
+              <!-- 配方自进化提案 / 执行计划闸门（P2-⑦ 单条配方 + v483 多步计划） -->
               <div v-if="m.proposal" class="cp-proposal" :class="m.proposalStatus">
-                <div class="cp-prop-hd">
-                  <svg class="cp-prop-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                  <span class="cp-prop-title">{{ m.proposal.title || 'AI 建议调整配方' }}</span>
-                  <span class="cp-prop-module">{{ MODULE_LABEL[m.proposal.module] || m.proposal.module }}</span>
-                </div>
-                <div class="cp-prop-changes">
-                  <span v-for="(v, k) in m.proposal.changes" :key="k" class="cp-prop-change">{{ FIELD_LABEL[k] || k }}：{{ v }}</span>
-                </div>
-                <div v-if="m.proposal.rationale" class="cp-prop-rationale">{{ m.proposal.rationale }}</div>
-                <div v-if="!m.proposalStatus" class="cp-prop-ops">
-                  <button class="cp-prop-btn ghost" :disabled="m.propBusy" @click="applyProposal(m, 'reject')">忽略</button>
-                  <button class="cp-prop-btn primary" :disabled="m.propBusy" @click="applyProposal(m, 'accept')">{{ m.propBusy ? '处理中…' : '采纳并写入配方' }}</button>
-                </div>
-                <div v-else class="cp-prop-done" :class="{ rej: m.proposalStatus === 'rejected' }">
-                  <svg v-if="m.proposalStatus === 'accepted'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  {{ m.proposalStatus === 'accepted' ? '已采纳，口径已写入配方并同步给 AI' : '已忽略此建议' }}
-                </div>
+                <!-- v483：多步执行计划（AI 先列清单，点「执行计划」才按序真调写接口） -->
+                <template v-if="m.proposal.steps">
+                  <div class="cp-prop-hd">
+                    <svg class="cp-prop-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span class="cp-prop-title">{{ m.proposal.title || 'AI 执行计划' }}</span>
+                    <span v-if="m.proposal.module" class="cp-prop-module">{{ MODULE_LABEL[m.proposal.module] || m.proposal.module }}</span>
+                  </div>
+                  <ol class="cp-plan-steps">
+                    <li v-for="(s, i) in m.proposal.steps" :key="i" class="cp-plan-step" :class="stepClass(s)">
+                      <span class="cp-step-dot"></span>
+                      <span class="cp-step-tx">{{ i + 1 }}. {{ s.action }}<template v-if="s.target"> → {{ s.target }}</template><template v-if="s.detail">（{{ s.detail }}）</template></span>
+                    </li>
+                  </ol>
+                  <div v-if="m.proposal.rationale" class="cp-prop-rationale">{{ m.proposal.rationale }}</div>
+                  <div v-if="!m.proposalStatus" class="cp-prop-ops">
+                    <button class="cp-prop-btn ghost" :disabled="m.propBusy || aiMode === 'readonly'" @click="cancelPlan(m)">取消</button>
+                    <button class="cp-prop-btn primary" :disabled="m.propBusy || aiMode === 'readonly'" @click="applyPlan(m)">{{ m.propBusy ? '执行中…' : '执行计划' }}</button>
+                  </div>
+                  <div v-else class="cp-prop-done" :class="{ rej: m.proposalStatus === 'rejected' }">
+                    <svg v-if="m.proposalStatus === 'accepted'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    {{ proposalDoneText(m) }}
+                  </div>
+                </template>
+                <!-- 单条配方提案（原逻辑，向后兼容 P2-⑦） -->
+                <template v-else>
+                  <div class="cp-prop-hd">
+                    <svg class="cp-prop-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    <span class="cp-prop-title">{{ m.proposal.title || 'AI 建议调整配方' }}</span>
+                    <span class="cp-prop-module">{{ MODULE_LABEL[m.proposal.module] || m.proposal.module }}</span>
+                  </div>
+                  <div class="cp-prop-changes">
+                    <span v-for="(v, k) in m.proposal.changes" :key="k" class="cp-prop-change">{{ FIELD_LABEL[k] || k }}：{{ v }}</span>
+                  </div>
+                  <div v-if="m.proposal.rationale" class="cp-prop-rationale">{{ m.proposal.rationale }}</div>
+                  <div v-if="!m.proposalStatus" class="cp-prop-ops">
+                    <button class="cp-prop-btn ghost" :disabled="m.propBusy" @click="applyProposal(m, 'reject')">忽略</button>
+                    <button class="cp-prop-btn primary" :disabled="m.propBusy" @click="applyProposal(m, 'accept')">{{ m.propBusy ? '处理中…' : '采纳并写入配方' }}</button>
+                  </div>
+                  <div v-else class="cp-prop-done" :class="{ rej: m.proposalStatus === 'rejected' }">
+                    <svg v-if="m.proposalStatus === 'accepted'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    {{ proposalDoneText(m) }}
+                  </div>
+                </template>
               </div>
 
               <!-- AI 待办提醒（P0-②：AI 识别「要记得/提醒」→ 记下，到点推送） -->
@@ -609,16 +636,28 @@
               <ResultCard v-if="a.card" :card="a.card" :compact="true" @action="onCardAction" />
               <!-- v306：同样不能裸 href —— 该端点同样要 Authorization（匿名实测 401），
                    点击一律走 downloadAuthed() 带鉴权头取 blob。 -->
-              <a v-else-if="a.file" class="cp-art-file" :href="`/api/chat-attachment/download/${a.file.file_id}`" :download="a.file.file_name" @click.stop.prevent="downloadAuthed(`/api/chat-attachment/download/${a.file.file_id}`, a.file.file_name)">
-                <span class="cp-art-file-ic">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
-                </span>
-                <span class="cp-art-file-tx">
-                  <span class="cp-art-file-name">{{ a.file.file_name }}</span>
-                  <span class="cp-art-file-meta">{{ a.file.rows ? a.file.rows + ' 行 · ' : '' }}点击下载</span>
-                </span>
-                <svg class="cp-art-file-dl" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              </a>
+              <template v-else-if="a.file">
+                <!-- v483 P0-①：图片/视频/HTML 内联预览，文件类仍保留下载入口 -->
+                <div v-if="isPreviewable(a.file)" class="cp-art-prev">
+                  <img v-if="isImage(a.file)" class="cp-art-img" :src="previewSrc(a.file) || undefined" :alt="a.file.file_name" @click.stop="zoomArtifact(a.file)" />
+                  <video v-else-if="isVideo(a.file)" class="cp-art-video" :src="previewSrc(a.file) || undefined" controls preload="metadata" @click.stop></video>
+                  <iframe v-else-if="isHtml(a.file)" class="cp-art-frame" sandbox="allow-scripts" :src="previewSrc(a.file) || undefined" @click.stop></iframe>
+                  <a class="cp-art-dl-row" :href="`/api/chat-attachment/download/${a.file.file_id}`" :download="a.file.file_name" @click.stop.prevent="downloadAuthed(`/api/chat-attachment/download/${a.file.file_id}`, a.file.file_name)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>下载原文件</span>
+                  </a>
+                </div>
+                <a v-else class="cp-art-file" :href="`/api/chat-attachment/download/${a.file.file_id}`" :download="a.file.file_name" @click.stop.prevent="downloadAuthed(`/api/chat-attachment/download/${a.file.file_id}`, a.file.file_name)">
+                  <span class="cp-art-file-ic">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                  </span>
+                  <span class="cp-art-file-tx">
+                    <span class="cp-art-file-name">{{ a.file.file_name }}</span>
+                    <span class="cp-art-file-meta">{{ a.file.rows ? a.file.rows + ' 行 · ' : '' }}点击下载</span>
+                  </span>
+                  <svg class="cp-art-file-dl" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
+              </template>
             </div>
           </div>
         </aside>
@@ -760,6 +799,10 @@
         <button class="cp-snap-btn" @click="confirmCrop">确认裁剪</button>
       </div>
     </div>
+    <!-- v483：生成物预览灯箱（点击缩略图放大看） -->
+    <div v-if="zoomSrc" class="cp-lightbox" @click="zoomSrc = ''">
+      <img :src="zoomSrc" alt="预览大图" @click.stop />
+    </div>
   </Teleport>
 </template>
 
@@ -868,6 +911,62 @@ async function downloadAuthed(url, name) {
     // 网络层失败（断网/超时）也走这里 —— 同样必须让用户看见
     store.toast('下载失败，请检查网络后重试', 'error')
   }
+}
+
+/* ---- v483 P0-①：生成物实时预览（图片/视频/HTML 内联看，不再只给下载链接） ----
+   预览 URL 走 fetchAuthedBlob() 取 blob 再 createObjectURL；URL 缓存在 previewStore，
+   drawer 卸载时统一 revoke（revokeObjectURL 不能同步在 click 后执行，见上方注释）。 */
+const previewStore = reactive({})
+const previewLoading = new Set()
+const zoomSrc = ref('')
+async function fetchAuthedBlob(url) {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
+        ...(auth.tenant ? { 'X-Tenant-Id': String(auth.tenant) } : {}),
+      },
+    })
+    if (!res.ok) {
+      let msg = ''
+      try { msg = (await res.json()).detail || '' } catch (e) { /* 非 JSON 忽略 */ }
+      store.toast(msg || `预览加载失败（${res.status}）`, 'error')
+      return null
+    }
+    return await res.blob()
+  } catch (e) {
+    store.toast('预览加载失败，请检查网络后重试', 'error')
+    return null
+  }
+}
+function fileExt(f) { return (f && f.file_name ? String(f.file_name).split('.').pop() : '').toLowerCase() }
+function isImage(f) { return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(fileExt(f)) }
+function isVideo(f) { return ['mp4', 'webm', 'ogg', 'mov'].includes(fileExt(f)) }
+function isHtml(f) { return ['html', 'htm'].includes(fileExt(f)) }
+function isPreviewable(f) { return isImage(f) || isVideo(f) || isHtml(f) }
+// 触发加载（幂等，previewLoading 防重入）并在就绪后返回 objectURL；空 src 用 undefined 占位避免空请求
+function previewSrc(f) {
+  const id = f && f.file_id
+  if (!id) return ''
+  if (previewStore[id]) return previewStore[id]
+  if (!previewLoading.has(id)) { previewLoading.add(id); loadPreview(f) }
+  return ''
+}
+async function loadPreview(f) {
+  const id = f && f.file_id
+  if (!id) return
+  try {
+    const blob = await fetchAuthedBlob(`/api/chat-attachment/download/${id}`)
+    if (blob) previewStore[id] = URL.createObjectURL(blob)
+  } catch (e) {
+    console.warn('[copilot] preview load failed', e && e.message)
+  } finally {
+    previewLoading.delete(id)
+  }
+}
+function zoomArtifact(f) {
+  const u = previewSrc(f)
+  if (u) zoomSrc.value = u
 }
 
 /* 工具执行情况的展开节奏（对齐 WorkBuddy）：
@@ -1555,6 +1654,68 @@ async function applyProposal(m, action) {
   } finally {
     m.propBusy = false
   }
+}
+
+/* ---- v483 P0-④：多步执行计划闸门 ----
+   AI 先返回 steps 清单，点「执行计划」才按序真调写接口；「取消」零调用。
+   写接口调用只在用户点执行后发生；渲染计划卡时零副作用（不 prefetch、不预校验会改动的对象）。 */
+const PLAN_STEP_HANDLERS = {
+  // 复用配方提案的「落提案→审批」链路（当前唯一已接好的写通道）
+  recipe: async (s, m) => {
+    const created = await api('/api/ai/recipe-proposals', {
+      method: 'POST',
+      body: {
+        module: m.proposal.module || 'loss',
+        title: s.target || m.proposal.title || 'AI 计划步骤',
+        changes: s.detail ? safeJson(s.detail) : {},
+        rationale: m.proposal.rationale,
+        source: 'ai'
+      }
+    })
+    await api(`/api/ai/recipe-proposals/${created.id}/review`, { method: 'POST', body: { action: 'accept' } })
+  }
+}
+function safeJson(t) { try { const j = JSON.parse(t); return (j && typeof j === 'object') ? j : {} } catch (e) { return {} } }
+async function runPlanStep(s, m) {
+  const h = PLAN_STEP_HANDLERS[s.action]
+  if (!h) throw new Error(`暂不支持的步骤类型「${s.action || '空'}」，需后端对接`)
+  return h(s, m)
+}
+function stepClass(s) { return s.status || '' }
+function proposalDoneText(m) {
+  if (m.proposal.steps) {
+    if (m.proposalStatus === 'accepted') return '计划已执行完成'
+    const failed = m.proposal.steps.some(s => s.status === 'fail')
+    return failed ? '计划执行中断，已完成步骤已保留' : '计划已取消'
+  }
+  return m.proposalStatus === 'accepted' ? '已采纳，口径已写入配方并同步给 AI' : '已忽略此建议'
+}
+async function applyPlan(m) {
+  if (!m.proposal || !m.proposal.steps || m.proposalStatus) return
+  m.propBusy = true
+  let ok = true
+  for (let i = 0; i < m.proposal.steps.length; i++) {
+    const s = m.proposal.steps[i]
+    s.status = 'running'
+    try {
+      await runPlanStep(s, m)
+      s.status = 'done'
+      store.toast(`第 ${i + 1} 步完成：${s.action}`)
+    } catch (e) {
+      s.status = 'fail'
+      ok = false
+      store.toast(`第 ${i + 1} 步失败：${e.message || '未知错误'}`, 'error')
+      break   // 中止后续步骤，保留已完成步骤，便于用户续跑/回滚
+    }
+  }
+  m.propBusy = false
+  m.proposalStatus = ok ? 'accepted' : 'rejected'
+  if (ok) saveCurrentSession()
+}
+function cancelPlan(m) {
+  if (!m.proposal || m.proposalStatus) return
+  m.proposalStatus = 'rejected'
+  store.toast('已取消计划')
 }
 
 /* ---- P0-① 反馈纠错：对/错 → 落 memory（错可填纠正） ---- */
@@ -2627,6 +2788,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocPointerDown, true)
   resetStopConfirm()   // v309：别把确认态的定时器留在身后
   stopRead()           // v456：副驾关闭/卸载时别把朗读留在后台继续念
+  // v483：卸载时统一回收预览 blob URL，避免内存泄漏
+  Object.values(previewStore).forEach(u => { try { URL.revokeObjectURL(u) } catch (e) {} })
 })
 
 // v456：消息增删（发新消息 / 重新生成会 splice）⇒ 正在朗读的那条可能已不存在，先停掉再滚动
@@ -2681,6 +2844,26 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
    （气泡底就是 --bg2，卡片再铺 --bg2 会没有对比；--bg 在两套主题下都有对比） */
 .msg-file{margin-top:8px;background:var(--bg)}
 .msg-file .cp-art-file-name{white-space:normal}
+/* v483 P0-①：生成物实时预览样式（跟随浅/深主题） */
+.cp-art-prev{display:flex;flex-direction:column;gap:8px}
+.cp-art-img{max-width:100%;max-height:240px;border-radius:8px;cursor:zoom-in;border:1px solid var(--bd);background:var(--bg3)}
+.cp-art-video{width:100%;max-height:320px;border-radius:8px;background:#000;border:1px solid var(--bd)}
+.cp-art-frame{width:100%;height:320px;border:1px solid var(--bd);border-radius:8px;background:#fff}
+.cp-art-dl-row{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;color:var(--p);font-size:12px;text-decoration:none;cursor:pointer}
+.cp-art-dl-row:hover{text-decoration:underline}
+/* v483 P0-④：多步计划步骤列表 */
+.cp-plan-steps{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.cp-plan-step{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--t1);line-height:1.5}
+.cp-step-dot{width:10px;height:10px;border-radius:50%;margin-top:4px;flex-shrink:0;background:var(--t3);border:1px solid var(--bd)}
+.cp-plan-step.running .cp-step-dot{background:var(--p);animation:cpStepPulse 1s infinite}
+.cp-plan-step.done .cp-step-dot{background:#1a9e57}
+.cp-plan-step.fail .cp-step-dot{background:#e0483a}
+.cp-plan-step.running .cp-step-tx{color:var(--p)}
+.cp-plan-step.fail .cp-step-tx{color:#e0483a}
+@keyframes cpStepPulse{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
+/* v483：预览灯箱 */
+.cp-lightbox{position:fixed;inset:0;z-index:985;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:40px;cursor:zoom-out}
+.cp-lightbox img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
 /* 跳转动效 */
 .msg.flash .msg-bubble{animation:cpFlash 1.2s ease}
 @keyframes cpFlash{0%,100%{box-shadow:0 0 0 0 transparent}30%{box-shadow:0 0 0 3px var(--p-bg)}}
