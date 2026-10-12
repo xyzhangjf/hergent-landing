@@ -1,0 +1,270 @@
+{
+  "probe": "v473-sale-list-align",
+  "at": "2026-10-12T03:24:26.722Z",
+  "listA": {
+    "err": "",
+    "rows": 3,
+    "thTotal": 9,
+    "shCount": 7,
+    "shLabels": [
+      "单号",
+      "客户",
+      "金额",
+      "状态",
+      "出货方式",
+      "下单日期",
+      "交货日期"
+    ],
+    "indCount": 7,
+    "gear": 1,
+    "chip": null,
+    "chipClear": 0,
+    "pgNums": 7,
+    "pgSizes": 4,
+    "pgJump": true,
+    "pgCnt": "共 230 张，第 1–50 张",
+    "moreBtn": true,
+    "subRow": false,
+    "filterLabels": [
+      "状态",
+      "下单起",
+      "下单止"
+    ],
+    "printOne": false,
+    "printTgt": 0,
+    "dlBtns": 2,
+    "opBtns": 3
+  },
+  "sortB1": {
+    "err": "",
+    "rows": 3,
+    "thTotal": 9,
+    "shCount": 7,
+    "shLabels": [
+      "单号",
+      "客户",
+      "金额",
+      "状态",
+      "出货方式",
+      "下单日期",
+      "交货日期"
+    ],
+    "indCount": 7,
+    "gear": 1,
+    "chip": "按金额降序 清除",
+    "chipClear": 1,
+    "pgNums": 7,
+    "pgSizes": 4,
+    "pgJump": true,
+    "pgCnt": "共 230 张，第 1–50 张",
+    "moreBtn": true,
+    "subRow": false,
+    "filterLabels": [
+      "状态",
+      "下单起",
+      "下单止"
+    ],
+    "printOne": false,
+    "printTgt": 0,
+    "dlBtns": 2,
+    "opBtns": 3
+  },
+  "filterC": {
+    "before": {
+      "err": "",
+      "rows": 3,
+      "thTotal": 9,
+      "shCount": 7,
+      "shLabels": [
+        "单号",
+        "客户",
+        "金额",
+        "状态",
+        "出货方式",
+        "下单日期",
+        "交货日期"
+      ],
+      "indCount": 7,
+      "gear": 1,
+      "chip": null,
+      "chipClear": 0,
+      "pgNums": 7,
+      "pgSizes": 4,
+      "pgJump": true,
+      "pgCnt": "共 230 张，第 1–50 张",
+      "moreBtn": true,
+      "subRow": false,
+      "filterLabels": [
+        "状态",
+        "下单起",
+        "下单止"
+      ],
+      "printOne": false,
+      "printTgt": 0,
+      "dlBtns": 2,
+      "opBtns": 3
+    },
+    "after": {
+      "err": "",
+      "rows": 3,
+      "thTotal": 9,
+      "shCount": 7,
+      "shLabels": [
+        "单号",
+        "客户",
+        "金额",
+        "状态",
+        "出货方式",
+        "下单日期",
+        "交货日期"
+      ],
+      "indCount": 7,
+      "gear": 1,
+      "chip": null,
+      "chipClear": 0,
+      "pgNums": 7,
+      "pgSizes": 4,
+      "pgJump": true,
+      "pgCnt": "共 230 张，第 1–50 张",
+      "moreBtn": true,
+      "subRow": true,
+      "filterLabels": [
+        "状态",
+        "下单起",
+        "下单止",
+        "出货方式",
+        "客户"
+      ],
+      "printOne": false,
+      "printTgt": 0,
+      "dlBtns": 2,
+      "opBtns": 3
+    }
+  },
+  "pagerD": {
+    "first": {
+      "err": "",
+      "rows": 3,
+      "thTotal": 9,
+      "shCount": 7,
+      "shLabels": [
+        "单号",
+        "客户",
+        "金额",
+        "状态",
+        "出货方式",
+        "下单日期",
+        "交货日期"
+      ],
+      "indCount": 7,
+      "gear": 1,
+      "chip": null,
+      "chipClear": 0,
+      "pgNums": 7,
+      "pgSizes": 4,
+      "pgJump": true,
+      "pgCnt": "共 230 张，第 1–50 张",
+      "moreBtn": true,
+      "subRow": false,
+      "filterLabels": [
+        "状态",
+        "下单起",
+        "下单止"
+      ],
+      "printOne": false,
+      "printTgt": 0,
+      "dlBtns": 2,
+      "opBtns": 3
+    },
+    "page2": {
+      "err": "",
+      "rows": 3,
+      "thTotal": 9,
+      "shCount": 7,
+      "shLabels": [
+        "单号",
+        "客户",
+        "金额",
+        "状态",
+        "出货方式",
+        "下单日期",
+        "交货日期"
+      ],
+      "indCount": 7,
+      "gear": 1,
+      "chip": null,
+      "chipClear": 0,
+      "pgNums": 7,
+      "pgSizes": 4,
+      "pgJump": true,
+      "pgCnt": "共 230 张，第 51–100 张",
+      "moreBtn": true,
+      "subRow": false,
+      "filterLabels": [
+        "状态",
+        "下单起",
+        "下单止"
+      ],
+      "printOne": false,
+      "printTgt": 0,
+      "dlBtns": 2,
+      "opBtns": 3
+    }
+  },
+  "exportE": {
+    "first": {
+      "name": "销售单-2026-10-12.csv",
+      "head": "单号,客户,金额,状态,出货方式,下单日期,交货日期"
+    },
+    "colmenu": {
+      "err": "",
+      "total": 7,
+      "locked": 4,
+      "opts": [
+        "出货方式",
+        "下单日期",
+        "交货日期"
+      ]
+    },
+    "afterHide": "单号,客户,金额,状态,出货方式,下单日期"
+  },
+  "printF": {
+    "err": "",
+    "rows": 3,
+    "thTotal": 9,
+    "shCount": 7,
+    "shLabels": [
+      "单号",
+      "客户",
+      "金额",
+      "状态",
+      "出货方式",
+      "下单日期",
+      "交货日期"
+    ],
+    "indCount": 7,
+    "gear": 1,
+    "chip": "按金额降序 清除",
+    "chipClear": 1,
+    "pgNums": 7,
+    "pgSizes": 4,
+    "pgJump": true,
+    "pgCnt": "共 230 张，第 1–50 张",
+    "moreBtn": true,
+    "subRow": false,
+    "filterLabels": [
+      "状态",
+      "下单起",
+      "下单止"
+    ],
+    "printOne": true,
+    "printTgt": 1,
+    "dlBtns": 2,
+    "opBtns": 3
+  },
+  "entryG": {
+    "nBefore": 1,
+    "nAfter": 2
+  },
+  "errors": []
+}

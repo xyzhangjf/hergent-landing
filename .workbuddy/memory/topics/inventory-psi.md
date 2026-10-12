@@ -1712,3 +1712,45 @@ v441 六界面探针里三条断言「退货模式**没有** `hd-box`」—— �
 - Vite 把 `CustomerCombo` **内联进 `SaleDocForm-CO-B98dS.js`**（唯一消费者，未拆独立 chunk）—— 四页经 `SaleDocForm` 间接拿到同一份组合框 ⇒ 四页客户选择行为/外观一致。
 - 构建 `dist-v450cust`，生产 md5 逐字节一致（`index.html`=31d22148…、`SaleDocForm-CO-B98dS.js`=205af093…）；**未跑鉴权真机 DOM 探针**（本机无 Chrome / 无 V449_TOKEN），一致性靠「单一来源 CustomerCombo = SupplierCombo 镜像 + 上述 scoped 分析」保证。
 - ⚠️ **校验/提交逻辑零改动**：`validate()` 仍 `if (!form.customer_id) return '请先选择客户'`、`selCustomer` 信息条（信用额度/账期/合计）不变、`loadRefs` 仍一次拉全客户（≤500）供组件本地过滤。
+
+## v473·销售单列表「以采购单列表页为基准」对齐（2026-10-12）
+
+**背景**：老板要求「以采购订单列表页为基准，对进销存模块其他列表页进行优化」。侦察出真正的列表页只有 4 个（`InvPurchaseList` 1623 行 / `InvSaleList` 251 / `InvStock` 231 / `InvPurchaseSettle` 710），并产出能力矩阵。澄清提问后**范围收敛为一个页**：销售单列表 · 全量对齐（排序 / 导出 / 打印 / 筛选折叠 + 筛选折叠含后端改造）。库存查询与采购结算**本轮不做**。
+
+### 一次性修掉三个**既有缺陷**（都不是本轮新引入的）
+1. 🔴 **`offset` 死链 —— 「下一页」一直是死的**。`psi.py::psi_list_sale_orders` 与 `routers/sales.py::list_sale` **都没有声明 `offset`**，而 FastAPI 对未声明的 query 参数**静默丢弃** ⇒ 前端 `next()`/`prev()` 只改页码文案、**内容不动**（tenant 1 有 22505 张单，用户只看得到最新 50 张）。**v443 只修了 `limit` 这一半**（`routers/sales.py` 里那段实测注释「`offset=100` → 与 `offset=0` 同一批 id」就是取证，当时没顺着把 `offset` 补上）。
+2. 🔴 **「订单」入口在**前端**剔退货行**：`load()` 里 `if (_kindOrder) list = list.filter(r => r.status !== 'returned')` —— 那是**在服务端分页之后**对本页 50 行过滤 ⇒ ① 每页显示不足 50 行而 `total` 不减（用户按页数算总数会算错）；② 上了服务端排序后更糟（一页里被剔掉几行，排序结果看着就是断的）。改为服务端 `exclude_status='returned'`。
+3. 🔴 **五个入口是「同 path 不同 query」，而 URL 只读一次**：`_qType`/`_qKind` 原为 setup 里的一次性常量 ⇒ 从侧栏「自提订单」切到「车销订单」时**组件被复用、`onMounted` 不再跑** ⇒ 点另一个入口**页面纹丝不动**、零报错。改 computed + `watch([_qType,_qKind])`（与采购单页 `watch(kind)` 同款）。
+
+### 后端（三层委派链，四参数）
+`server/db/queries/sales.py::sale_order_list`：签名**末尾追加** `order_by=''`, `order_dir=''`, `exclude_status=''`（docstring 原有纪律：本函数 22+ 调用方，**插中间会静默错位**，一律追加末尾）。
+- 新增白名单 **`_SO_ORDER_SQL` 25 键**；`ORDER BY {expr} {dir}, so.id DESC`，非法/缺省键回落 `so.id DESC`（= v473 之前行为）。
+- ⚠️ `customer` → **`c.name`**（JOIN contacts，不是 `customer_id`）：用户点「客户」列要按**名字**排。
+- ⚠️ `unpaid` 库里**没有这一列** → 写表达式 `(COALESCE(so.total_amount,0) - COALESCE(so.received_amount,0))`；写 `so.unpaid` 直接 500。
+`routers/sales.py::list_sale`：+`offset: int = 0` / `order_by` / `order_dir` / `exclude_status`；`offset = max(0, int(offset or 0))` 夹紧；末尾返回改**关键字透传**。B1 数据隔离（`role=='sales'` 强制 `operator_id=本人`）**原地不动**。
+`routers/psi.py::psi_list_sale_orders`：同批声明并关键字透传。
+
+### 前端 `InvSaleList.vue`（251 → 约 470 行）
+- **COLS 从 3 列扩为 7 列**（单号/客户/金额/状态 = `core:true`，出货方式/下单日期/交货日期 = 可选），表头从写死 `<th>` 改成 `v-for="visibleCols"`（排序与导出都需要每列有稳定 `key`）。
+  ✅ **安全**：`useColSettings` 的 `core` 列**不进 `colVis`**（`defaultVis()` 只给非 core 建项），所以云端已存配置 `{otype,odate,ddate}` **逐字不受影响**。
+- 🔴 **列 key ≠ 后端列名** ⇒ 加 `SORT_KEY` **显式映射**：列 key 是 `otype`/`odate`/`ddate`（**云端列配置主键，v449 就在用，不能改名** —— 改名等于把用户调好的列设置静默丢一次），后端白名单用的是库列名 `order_type`/`order_date`/`delivery_date`。**漏了这层映射的症状 = 点了没反应、零报错**。
+- 新增：排序三态（无→降→升→无，每步 `load(true)`）+ 指示器 `sortInd`/`aria-sort` + **排序 chip（含「清除」）**；`doExport`（跟随 `visibleCols`、走 `colText` 唯一口径、`downloadCsv(`${title}-${localDateStamp()}.csv`)`）；`doPrint`/`rowPrint`（纯 `window.print()`，**不记打印数** —— 销售单没有 `batchPrint` 后端能力，⛔ 不造前端自增假计数）；筛选折叠「更多选项」（收 `出货方式`+`客户`）；分页器升级为页码窗 `pageNums` + `PAGE_SIZES` 条/页 + 跳页。
+- ⛔ **不加**「全选 / 批量操作」：销售单**没有审核流**、后端也**没有任何销售单批量接口**（`psiApi.batchPurchases` 只对采购单）⇒ 造一排点了会 404 的按钮才是缺陷。同理**不加**「业务员」筛选（`role=='sales'` 时后端强制覆盖 `operator_id`，放出来就是永远不生效的假控件）。
+- `@media print` 比基准页**多修一处**：隐藏 `.col-cfg`（齿轮）与 `.isl-sort-ind`（排序指示器）—— 采购单列表的 print CSS 漏了这条，齿轮会随序号列印到纸上。
+
+### 探针（三支，全部可复跑）
+- `.workbuddy/tools/v473-so-order-sort-probe.py`（36/36 通过）：① **从源码 AST 抽白名单**（不手抄）② **HTTP 层 `fastapi.testclient`** 打真实路由 —— 🔴 **只有穿过 FastAPI 参数解析层才能证明「参数没被丢弃」**，直接调函数证明不了（函数本来就收 `offset`）③ 反例自证：坏列必须抛错、6 例注入串必须回落且表仍在 ④ tiebreaker 分页无重无漏 ⑤ 前后端白名单交叉校验（前端 `SORT_KEY` 7 键 ⊆ 后端 25 键）⑥ 往**本地库副本**插 300 行同值数据做反例对照。
+- `.workbuddy/tools/v473-sale-list-align-e2e.mjs`（58/58 通过）：打本地 `dist-v473` + mock `/api`（后端未部署），验渲染/三态/键映射/折叠/分页 offset/导出 CSV 内容/单张打印/入口 `exclude_status`/**同文档 hash 导航验 `watch`**/零报错。
+- `.workbuddy/tools/v473-prod-realdata-sort-verify.py`（ALL_PASS）：`ssh root@… "python3 -"` 只读打生产 `tenant_1.db`。白名单取**本地**源码（生产还没部署，取不到），数据用**生产真实 22505 行**。
+
+### 🔴 本机/方法坑（都踩过）
+- **E2E 探针必须先预置登录态**：`localStorage` 的 `hergent_v2_token`/`_tenant`/`_csrf`/`_user` 少一个 ⇒ 路由守卫直接把页面弹到 `#/login` ⇒ 所有量测是 `no-table`、请求数 0，**看起来极像"前端没渲染"**。
+- **模板串里不能写反引号**（v470 已记，本轮又踩）：注释里写 `` `#/login` `` ⇒ 整个 mjs `SyntaxError`。
+- **探针自己的断言会写错**（一次 8 个 FAIL 全是探针的锅）：① 正则字面量里 `\\d` 是"字面反斜杠+d" ⇒ 该写 `\d`；② 普通字符串 `'\\r\\n'` = 字面反斜杠 ⇒ 该写 `'\r\n'`（**双反斜杠规则只在模板串内部成立**）；③ 分页区间按 `limit` 算（`第 1–50 张`），不是按 mock 返回行数。
+- **生产探针的列判据必须给表起别名**：`SELECT COUNT(DISTINCT so.status) FROM sale_orders`（缺 `so`）= 抛错被吞 ⇒ `allsame=None` ⇒ **13 个键全被误判成"排序没生效"**。且**全 NULL 列的 `COUNT(DISTINCT x)` 返回 0 而非 1** ⇒ 判据要写 `<= 1`。
+
+### 诚实边界（务必与老板对齐）
+- **生产未部署**（老板明确要求本轮只留本地待命）⇒ 「后端真的会按这个键排」目前只在**本地库副本 + 生产真实数据（只读 SQL）**上取证，**服务端尚未上线**。
+- **tiebreaker 的必要性未用数据复现**：本地 300 行同值、生产 22505 行同值（`status` 全 `signed`）下，「不带 `, so.id DESC`」的分页拼接**仍然无重无漏**（SQLite 恰好走索引 `idx_sale_orders_status` ⇒ 顺序稳定）。诚实标注为**理论风险**（SQL 不保证同值行相对顺序）+ 待更大/不同计划下验证，**不谎称已复现**。
+- 生产 `sale_orders` 25 个键里 **6 个是全同值/全 NULL**（`status` 全 `signed`、`delivery_date`/`approval_status`/`invoice_status`/`audit_time`/`discount`/`received_amount` 等）⇒ 前端点这些列表头**看不出顺序变化是数据事实**，不是缺陷。前端实际可排的 7 键里 `status` 与 `delivery_date` 属此类。
+
