@@ -10,61 +10,21 @@
         </span>
       </div>
       <div class="ipd-acts">
-        <!-- v408（P1-5）上一条 / 下一条。
-             🔴 口径写在按钮**中间那行字**上（不是只塞 title）：相邻是「**全部采购单**按
-                id 倒序」的相邻，**不跟随**列表页的筛选。不写出来，用户会把它当成
-                「当前筛选结果里的第几条」—— 那是另一个事实（同屏两个口径的坑）。
-             位置读数取不到时**整组不渲染**（`v-if="navText"`），而不是显示 `第 0 / 0 条`。 -->
-        <div v-if="navText || navErr" class="ipd-nav">
-          <button class="btn btn-ghost btn-sm" :disabled="!nb.has_prev || busy"
-                  title="上一条（更新的单）" @click="goNeighbor('prev')">上一条</button>
-          <span v-if="navText" class="ipd-nav-pos">{{ navText }}</span>
-          <!-- 🔴 读失败**要显式**：不显示的话整组消失，用户会读成「这单没有上下条」——
-               而真相是「没读到」。原始原因放 `title`，界面只留一句短话。 -->
-          <span v-else class="ipd-nav-err" :title="navErr">相邻单号读取失败</span>
-          <button class="btn btn-ghost btn-sm" :disabled="!nb.has_next || busy"
-                  title="下一条（更早的单）" @click="goNeighbor('next')">下一条</button>
-        </div>
+        <!-- v452：动作区对齐舟谱口径收敛为「主路径 + 更多 ▾」。
+             主路径只留日常必然用到的：返回 / 编辑 / 导出 / 打印组 / 审核组 / 分批到货 / 确认入库；
+             「上一条下一条 / 复制 / 转单为 / 查看日志 / 附件」收进本块末尾的「更多 ▾」。
+             🔴 上一条 / 下一条**没有删**：它搬了家（更多菜单的「相邻单据」区），
+                口径仍逐字是「全部采购单按 id 倒序」，见那个菜单项里的副标题。 -->
         <button class="btn btn-ghost btn-sm" @click="back">返回列表</button>
-        <button class="btn btn-ghost btn-sm" :disabled="busy" @click="doCopy">
-          <Icon name="copy" :size="14" />复制
-        </button>
         <!-- P1-4 独立编辑入口：仅对「尚未入库」的单（草稿 / 待审批 / 已取消）开放。
              ⚠️ 已确认 / 已入库 / 部分入库 / 已退货的单库存与应付已落账，走「编辑」会改已发生的事实
              ⇒ 这里不放按钮（这类单请用「转单为 → 采购退货」）。与后端 `purchase_order_update` 的闸门一致。 -->
         <button v-if="canWrite && canEdit" class="btn btn-ghost btn-sm" :disabled="busy" @click="doEdit">
           <Icon name="edit" :size="14" />编辑
         </button>
-        <!-- v414（P2-6）「转单为」。对齐舟谱的同名入口，但**只留真有承接实体的那一项**：
-               · 采购退货 —— 真做（跳退货建单页，带原单号预填可退明细）；
-               · 销售单 / 调拨单 —— 后两项**置灰**并各写一句为什么：
-                 采购进货与销售出货之间没有业务流转关系；进销存也**没有「调拨单」实体**
-                 （仓库间移库未上线）。灰显 + 说明 > 放两个点了没反应的假入口。
-             ⚠️ `@click.stop` 必须留着：外层有 document 点击关闭监听（`onDocClick`），
-                不 stop 的话点菜单内部会先被关掉（看起来像"点了没反应"）。 -->
-        <div v-if="canWrite" class="ipd-pm" @click.stop>
-          <button class="btn btn-ghost btn-sm ipd-pm-main" :disabled="busy" @click="transOpen = !transOpen">
-            <Icon name="undo" :size="14" />转单为
-          </button>
-          <button class="btn btn-ghost btn-sm ipd-pm-caret" :class="{ on: transOpen }" :disabled="busy"
-                  title="转单为" @click="transOpen = !transOpen">
-            <span class="ipd-pm-tri" :class="{ up: transOpen }"></span>
-          </button>
-          <div v-if="transOpen" class="ipd-pm-menu ipd-trans-menu">
-            <div class="ipd-pm-hd">转单为</div>
-            <button class="ipd-mi" :disabled="!canTransfer" @click="doTransferReturn">
-              采购退货<span class="ipd-mi-n">{{ canTransfer ? '按可退数量生成一张退货单' : transBlockTip }}</span>
-            </button>
-            <button class="ipd-mi" disabled>
-              销售单<span class="ipd-mi-n">采购进货与销售出货之间没有转单关系</span>
-            </button>
-            <button class="ipd-mi" disabled>
-              调拨单<span class="ipd-mi-n">调拨（仓库间移库）还没上线</span>
-            </button>
-          </div>
-        </div>
         <!-- v408（P1-5）导出明细 CSV。与列表页导出共用 `utils/csv.js`（转义 / BOM / 日期戳
-             只此一份）。列与下面那张明细表**逐列对应**，标签逐字相同。 -->
+             只此一份）。列与下面那张明细表**同序**（v452：含屏幕默认隐藏的批次/到期 ——
+             导出是全量数据场景，屏幕默认值不决定导出行）。 -->
         <button class="btn btn-ghost btn-sm" @click="doExport">
           <Icon name="download" :size="14" />导出
         </button>
@@ -84,11 +44,10 @@
                   title="打印设置" @click="printOpen = !printOpen">
             <span class="ipd-pm-tri" :class="{ up: printOpen }"></span>
           </button>
-          <span class="ipd-pc" :title="'本页显示的是服务端记录的打印次数（重打也计数，除非用「直接打印」）'">
-            已打印 {{ printCount }} 次
-          </span>
+          <!-- v452：打印次数从动作区搬进菜单标题行 —— 它是**读数**不是**动作**，
+               常驻动作区只会挤占主路径；放进菜单既不丢信息，也不占黄金位。 -->
           <div v-if="printOpen" class="ipd-pm-menu">
-            <div class="ipd-pm-hd">打印设置</div>
+            <div class="ipd-pm-hd">打印设置 · 已打印 {{ printCount }} 次</div>
             <button class="ipd-mi" @click="doPrint(true)">
               打印并计数<span class="ipd-mi-n">次数 +1（判断「打没打给供应商」靠它）</span>
             </button>
@@ -100,13 +59,7 @@
             </button>
           </div>
         </div>
-        <button class="btn btn-ghost btn-sm" @click="openLogsAll()">
-          <Icon name="history" :size="14" />查看日志
-        </button>
-        <!-- v408（P1-8）附件入口。角标是**服务端返回的真实个数**，不是「点开才知道」。 -->
-        <button class="btn btn-ghost btn-sm" @click="openAttach()">
-          <Icon name="file" :size="14" />附件<span v-if="attachCount" class="ipd-at-badge">{{ attachCount }}</span>
-        </button>
+        <!-- v452：查看日志 / 附件 已收进下方「更多 ▾」（不是删功能）。 -->
         <!-- v412（P2-5）审核动作组：主按钮「审核并打印」＋ 小箭头里的「审核并入库」。
              🔴 `v-if` 判据与后端 `purchase_order_approve` 的 `WHERE status IN (...)`
                 **逐字对齐**：后端认的三种状态这里都能点，后端不认的（已入库 / 部分入库 /
@@ -142,6 +95,55 @@
         <button v-if="canWrite && canConfirm" class="btn btn-primary btn-sm" :disabled="busy" @click="doConfirm">
           <Icon name="check" :size="14" />{{ busy ? '处理中…' : '确认入库' }}
         </button>
+        <!-- v452（O1）「更多 ▾」：把低频/辅助动作收进一个菜单，动作区回到一行。
+             收录：复制 / 查看日志 / 附件 / 转单为（含两项置灰说明）/ 相邻单据。
+             🔴 全部是**原有能力的搬家**，一个都没删 —— 附件角标、转单为的灰显说明、
+                相邻单的口径副标题都随功能一起搬（见各项 `ipd-mi-n`）。
+             🔴 `@click.stop` 与 `onDocClick` 的配合同打印组：不 stop 的话点菜单内部
+                会先被 document 监听关掉（看起来像"点了没反应"）。
+             🔴 菜单限高可滚（`.ipd-more-menu`）：9 项 + 4 个分组标题，不设上限会把
+                「确认入库」挤出视口。 -->
+        <div class="ipd-pm" @click.stop>
+          <button class="btn btn-ghost btn-sm ipd-pm-main" @click="moreOpen = !moreOpen">
+            <Icon name="bars" :size="14" />更多
+          </button>
+          <button class="btn btn-ghost btn-sm ipd-pm-caret" :class="{ on: moreOpen }" :disabled="busy"
+                  title="更多" @click="moreOpen = !moreOpen">
+            <span class="ipd-pm-tri" :class="{ up: moreOpen }"></span>
+          </button>
+          <div v-if="moreOpen" class="ipd-pm-menu ipd-more-menu">
+            <div class="ipd-pm-hd">单据</div>
+            <button class="ipd-mi" @click="doCopy">
+              复制<span class="ipd-mi-n">照这张单开一张新的</span>
+            </button>
+            <button class="ipd-mi" @click="openLogsAll()">
+              查看日志<span class="ipd-mi-n">建单 / 审核 / 入库 / 付款 / 退货记录</span>
+            </button>
+            <button class="ipd-mi" @click="openAttach()">
+              附件<span class="ipd-mi-n">{{ attachCount ? (attachCount + ' 个，点开管理') : '这张单还没有附件' }}</span>
+            </button>
+            <div class="ipd-pm-hd">转单为</div>
+            <button class="ipd-mi" :disabled="!canTransfer" @click="doTransferReturn">
+              采购退货<span class="ipd-mi-n">{{ canTransfer ? '按可退数量生成一张退货单' : transBlockTip }}</span>
+            </button>
+            <button class="ipd-mi" disabled>
+              销售单<span class="ipd-mi-n">采购进货与销售出货之间没有转单关系</span>
+            </button>
+            <button class="ipd-mi" disabled>
+              调拨单<span class="ipd-mi-n">调拨（仓库间移库）还没上线</span>
+            </button>
+            <!-- 相邻单据：口径逐字保留 v408 那句「全部采购单按 id 倒序」—— 它**不跟随**
+                 列表页筛选（详情页可被深链打开，带不全筛选就会"有时跟有时不跟"）。
+                 读数取不到时（navErr）标题直接说出来，不让两项灰着让人猜。 -->
+            <div class="ipd-pm-hd">相邻单据{{ navErr ? '（读取失败）' : '' }}</div>
+            <button class="ipd-mi" :disabled="!nb.has_prev || busy" @click="goNeighbor('prev')">
+              上一条<span class="ipd-mi-n">{{ navText || navErr || '更近的一张采购单' }}</span>
+            </button>
+            <button class="ipd-mi" :disabled="!nb.has_next || busy" @click="goNeighbor('next')">
+              下一条<span class="ipd-mi-n">{{ navText || navErr || '更早的一张采购单' }}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -162,68 +164,67 @@
 
       <!-- ══════════ 采购订单详情 ══════════ -->
       <div v-if="tab === 'detail'" class="tab-pane">
-        <div class="card ipd-hd">
-          <div class="ipd-f"><span class="ipd-lb">供应商</span><span>{{ o.supplier_name || '—' }}</span></div>
-          <div class="ipd-f"><span class="ipd-lb">供应商类别</span><span>{{ o.supplier_category || '—' }}</span></div>
-          <div class="ipd-f"><span class="ipd-lb">仓库</span><span>{{ o.warehouse_name || ('仓库 ' + (o.warehouse_id || '—')) }}</span></div>
-          <div class="ipd-f"><span class="ipd-lb">单据日期</span><span>{{ (o.order_date || '').slice(0, 10) || '—' }}</span></div>
-          <div class="ipd-f"><span class="ipd-lb">预计到货</span><span>{{ o.expected_date || '—' }}</span></div>
-          <div class="ipd-f"><span class="ipd-lb">创建人</span><span>{{ o.creator_name || '—' }}</span></div>
-          <!-- v408（P0-5）经办人 / 部门。
-               🔴 「创建人」与「经办人」是**两回事**：前者是谁建的单（系统事实），
-                  后者是这张单归谁办（业务归属）。两个格子必须各自独立显示，
-                  都不许拿对方顶替；缺值一律 `—`（存量 79 张舟谱导入单没有这两个值）。 -->
-          <div class="ipd-f"><span class="ipd-lb">经办人</span><span>{{ o.handler_name || '—' }}</span></div>
-          <div class="ipd-f"><span class="ipd-lb">部门</span><span>{{ o.department_name || '—' }}</span></div>
-          <div class="ipd-f"><span class="ipd-lb">审核时间</span><span>{{ o.audit_time || '—' }}</span></div>
-          <!-- P1-1：供应商维度应付余额 / 预付余额（跨该供应商全部单据，不是本单）。
-               数据来自货款 tab 同源的 `pay.order.supplier_payable` / `supplier_prepay`；
-               货款数据未加载时显示 `—`。让老板在详情页就看到「这供应商我们还欠多少、预先付了多少」。 -->
-          <!-- 🔴 取值层级：`pay` 本身就是 `p.order`（见 `pay.value = (p && p.order) || {}`），
-               再写一层 `.order` ⇒ 恒 undefined ⇒ 这两个余额**永远显示「—」**（对账依据凭空消失，
-               且界面不报错，是典型的静默失效）。 -->
-          <div class="ipd-f"><span class="ipd-lb">供应商应付余额</span><span>{{ (pay && pay.supplier_id) ? ('¥' + fmtMoney(pay.supplier_payable)) : '—' }}</span></div>
-          <div class="ipd-f"><span class="ipd-lb">供应商预付余额</span><span>{{ (pay && pay.supplier_id) ? ('¥' + fmtMoney(pay.supplier_prepay)) : '—' }}</span></div>
-          <div v-if="o.note" class="ipd-f ipd-f-grow"><span class="ipd-lb">备注</span><span>{{ o.note }}</span></div>
-          <!-- v415（P2-7）补充信息（自定义字段）。
-               🔴 **只列有值的** —— 字段可以随时加（上限 30 个），全铺出来会淹掉真正要看的。
-               🔴 入口是这一行里的一个小链接，**不**往页头动作区再加按钮（本页动作区已有
-                  十来个控件，且「工具栏不新增按钮」是本项目既定偏好）。 -->
-          <div v-if="cfShow" class="ipd-f ipd-f-grow">
-            <span class="ipd-lb">
-              补充信息
-              <button v-if="canWrite" class="ipd-cf-edit" @click="openExtra">
-                {{ cfFilled.length ? '修改' : '填写' }}
-              </button>
-            </span>
-            <span v-if="cfFilled.length" class="ipd-cf-list">
-              <span v-for="x in cfFilled" :key="x.key" class="ipd-cf-i">
-                <i>{{ x.label }}</i>{{ x.text }}
-              </span>
-            </span>
-            <span v-else class="ipd-cf-none">未填写</span>
-          </div>
-          <!-- 字段定义没读到 ⇒ **如实说一句**。不说的话，用户上次建过字段、这次看不见，
-               会读成「我的字段没了」；真相是"没读到"（值还在库里，字段也还在）。 -->
-          <div v-else-if="cfLoaded && !cfOk" class="ipd-f ipd-f-grow">
-            <span class="ipd-lb">补充信息</span>
-            <span class="ipd-cf-none" :title="cfErr">字段配置没读到，暂时显示不了</span>
+        <!-- v452（O5）单据信息带：对齐舟谱的「单行 compact bar」。
+             原形态是 11 个字段竖排两行的卡片 + 独立金额卡（三层才看到钱）；
+             现在主字段一行横排、金额贴在同一行右侧（舟谱把总金额放在信息带右侧），
+             次要字段收进「更多信息 ▾」—— 一个都没删，只是换了楼层。
+             🔴 保留的两条原纪律：
+                ① 「创建人」与「经办人」是两回事（系统事实 vs 业务归属），各自独立显示；
+                ② 供应商应付/预付余额取值是 `pay.supplier_payable`（`pay` 本身就是
+                    `p.order`，再写一层 `.order` 会恒 undefined ⇒ 永远显示「—」）。 -->
+        <div class="ipd-barhd">
+          <div class="ipd-bf"><span class="ipd-lb">供应商</span><span class="ipd-bfv">{{ o.supplier_name || '—' }}</span></div>
+          <div class="ipd-bf"><span class="ipd-lb">经办人</span><span class="ipd-bfv">{{ o.handler_name || '—' }}</span></div>
+          <div class="ipd-bf"><span class="ipd-lb">部门</span><span class="ipd-bfv">{{ o.department_name || '—' }}</span></div>
+          <div class="ipd-bf"><span class="ipd-lb">仓库</span><span class="ipd-bfv">{{ o.warehouse_name || ('仓库 ' + (o.warehouse_id || '—')) }}</span></div>
+          <div class="ipd-bf"><span class="ipd-lb">备注</span><span class="ipd-bfv ipd-bfv-note">{{ o.note || '—' }}</span></div>
+          <div class="ipd-bf"><span class="ipd-lb">单据日期</span><span class="ipd-bfv">{{ (o.order_date || '').slice(0, 10) || '—' }}</span></div>
+          <!-- 金额三项：从独立卡片并入信息带右侧（舟谱同款位置）。三项都真有来源，
+               「预算金额」我们没有这个概念，不造。 -->
+          <div class="ipd-bmoney">
+            <div class="ipd-bm"><span class="ipd-lb">订单金额</span><b class="ipd-bmv">¥{{ fmtMoney(o.total_amount) }}</b></div>
+            <div class="ipd-bm"><span class="ipd-lb">入库金额</span><b class="ipd-bmv">{{ moneyOrDash(o.received_amount, hasItems) }}</b></div>
+            <div class="ipd-bm"><span class="ipd-lb">应付金额</span><b class="ipd-bmv">{{ apAmountText }}</b></div>
           </div>
         </div>
 
-        <!-- 金额条：只列我们真的有来源的两项（「预算金额」我们没有这个概念，不造） -->
-        <div class="card ipd-money">
-          <div class="ipd-m">
-            <span class="ipd-lb">订单金额</span>
-            <b class="ipd-amt">¥{{ fmtMoney(o.total_amount) }}</b>
-          </div>
-          <div class="ipd-m">
-            <span class="ipd-lb">入库金额</span>
-            <b class="ipd-amt">{{ moneyOrDash(o.received_amount, hasItems) }}</b>
-          </div>
-          <div class="ipd-m">
-            <span class="ipd-lb">应付金额</span>
-            <b class="ipd-amt">{{ apAmountText }}</b>
+        <!-- 更多信息：默认收起。收录原来挤在主卡片里的次要字段 + 补充信息入口。
+             🔴 收起态打印时这些字段不出现 —— 单据打印以主信息带为准（舟谱亦然）。 -->
+        <div class="ipd-moreinfo ipd-noprint">
+          <button class="ipd-moreinfo-tg" @click="moreInfoOpen = !moreInfoOpen">
+            更多信息<span class="ipd-moreinfo-tri" :class="{ up: moreInfoOpen }"></span>
+          </button>
+          <div v-if="moreInfoOpen" class="ipd-moreinfo-body">
+            <div class="ipd-bf"><span class="ipd-lb">供应商类别</span><span class="ipd-bfv">{{ o.supplier_category || '—' }}</span></div>
+            <div class="ipd-bf"><span class="ipd-lb">预计到货</span><span class="ipd-bfv">{{ o.expected_date || '—' }}</span></div>
+            <div class="ipd-bf"><span class="ipd-lb">创建人</span><span class="ipd-bfv">{{ o.creator_name || '—' }}</span></div>
+            <div class="ipd-bf"><span class="ipd-lb">审核时间</span><span class="ipd-bfv">{{ o.audit_time || '—' }}</span></div>
+            <!-- P1-1：供应商维度应付余额 / 预付余额（跨该供应商全部单据，不是本单）。
+                 让老板在详情页就看到「这供应商我们还欠多少、预先付了多少」。 -->
+            <div class="ipd-bf"><span class="ipd-lb">供应商应付余额</span><span class="ipd-bfv">{{ (pay && pay.supplier_id) ? ('¥' + fmtMoney(pay.supplier_payable)) : '—' }}</span></div>
+            <div class="ipd-bf"><span class="ipd-lb">供应商预付余额</span><span class="ipd-bfv">{{ (pay && pay.supplier_id) ? ('¥' + fmtMoney(pay.supplier_prepay)) : '—' }}</span></div>
+            <!-- v415（P2-7）补充信息（自定义字段）。**只列有值的** —— 字段可随时加（上限 30 个），
+                 全铺出来会淹掉真正要看的。入口仍是行内小链接，不往动作区加按钮。 -->
+            <div v-if="cfShow" class="ipd-bf ipd-bf-grow">
+              <span class="ipd-lb">
+                补充信息
+                <button v-if="canWrite" class="ipd-cf-edit" @click="openExtra">
+                  {{ cfFilled.length ? '修改' : '填写' }}
+                </button>
+              </span>
+              <span v-if="cfFilled.length" class="ipd-cf-list">
+                <span v-for="x in cfFilled" :key="x.key" class="ipd-cf-i">
+                  <i>{{ x.label }}</i>{{ x.text }}
+                </span>
+              </span>
+              <span v-else class="ipd-cf-none">未填写</span>
+            </div>
+            <!-- 字段定义没读到 ⇒ **如实说一句**。不说的话，用户上次建过字段、这次看不见，
+                 会读成「我的字段没了」；真相是"没读到"（值还在库里，字段也还在）。 -->
+            <div v-else-if="cfLoaded && !cfOk" class="ipd-bf ipd-bf-grow">
+              <span class="ipd-lb">补充信息</span>
+              <span class="ipd-cf-none" :title="cfErr">字段配置没读到，暂时显示不了</span>
+            </div>
           </div>
         </div>
 
@@ -261,8 +262,13 @@
           </div>
         </div>
 
-        <!-- 商品明细 -->
-        <div class="card">
+        <!-- v452（O2/O6/O7）商品明细：**去卡片壳直铺**（舟谱同款密表 —— 卡片 padding 与
+             hover 阴影在详情页是纯消耗，首屏一半高度被外壳吃掉）；列序对齐舟谱：
+             商品名称 → 条形码 → 单位 → 参考成本价 → 采购价 → 订单数量 → 订单金额 →
+             已到货 →（批次号/到期日默认收进列设置）→ 行备注 → 历史。
+             🔴 批次号 / 到期日**没有删**：`GOODS_COLS` 里标了 `def:false` ⇒ 默认不占屏幕，
+                 要时点表头齿轮打开（云端记住选择）。 -->
+        <div class="ipd-plain">
           <div class="ipd-bar">
             <b>商品明细</b>
             <span class="ipd-note">共 {{ items.length }} 行</span>
@@ -276,18 +282,17 @@
                 <tr>
                   <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuGoods" title="列设置"><Icon name="settings" :size="15" /></button></th>
                   <th>商品名称</th>
-                  <th>规格</th>
                   <th v-if="isVisGoods('barcode')">条形码</th>
                   <th>单位</th>
                   <th class="num" v-if="isVisGoods('ref')">参考成本价</th>
                   <th class="num">采购价</th>
                   <th class="num">订单数量</th>
                   <th class="num">订单金额</th>
+                  <!-- v452：「已到货」从原第 10 列（到期日之后）前移到订单金额之后 ——
+                       舟谱的「入库数量/入库金额」相邻排布，逐行对账时眼睛不用跳列。 -->
+                  <th class="num">已到货</th>
                   <th v-if="isVisGoods('batch')">批次号</th>
                   <th v-if="isVisGoods('expiry')">到期日</th>
-                  <th class="num">已到货</th>
-                  <!-- v408（P1-2）行备注（只读回显）。放在**最右**是为了不动 tfoot 的
-                       colspan 口算的前半段（见下方 tfoot 注释）。 -->
                   <th v-if="isVisGoods('note')">行备注</th>
                   <!-- v408（P1-6）行历史入口。列宽固定（`ipd-hist-th`），因为按钮本身
                        只有「历史」两个字、宽度恒定。 -->
@@ -297,37 +302,49 @@
               <tbody>
                 <tr v-for="(it, i) in items" :key="it.id">
                   <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-                  <td class="ipd-c-name">{{ it.product_name || ('商品 ' + it.product_id) }}</td>
-                  <td>{{ it.spec || '—' }}</td>
+                  <!-- v452（O6）：商品名双行 —— 名称 + 规格小字（舟谱把规格并进商品名，
+                       如「每日鲜酷酪…100*8杯（新）」）。独立「规格」列随之删除：
+                       它与单位列的换算小字说的是同一句话（「1箱=12提」出现两遍），
+                       是双列噪音；规格值一个都没丢（本行小字 + CSV 导出列都在）。 -->
+                  <td class="ipd-c-name">
+                    {{ it.product_name || ('商品 ' + it.product_id) }}
+                    <span v-if="it.spec" class="ipd-spec">{{ it.spec }}</span>
+                  </td>
                   <td class="ipd-mono" v-if="isVisGoods('barcode')">{{ it.product_barcode || '—' }}</td>
                   <!-- v409（P2-1）：只读回显所选单位 + **这条进了多少（小单位）**。
-                       折小数量只在「所选档不是小档」时出现（是小档时两个数字相同，写出来是噪音）。 -->
+                       折小数量只在「所选档不是小档」时出现（是小档时两个数字相同，写出来是噪音）。
+                       这列是全表唯一保留「换算说明」的地方（v452 O6 去重后的落点）。 -->
                   <td>
                     {{ it.unit_label || '—' }}
                     <span v-if="it.conv_text" class="ipd-conv" :title="it.conv_text">{{ it.conv_text }}</span>
                   </td>
-                  <td class="num" v-if="isVisGoods('ref')">¥{{ fmtMoney(it.product_purchase_price) }}</td>
+                  <td class="num" v-if="isVisGoods('ref')">{{ fmtMoney(it.product_purchase_price) }}</td>
                   <td class="num">
-                    ¥{{ fmtMoney(it.unit_price) }}
+                    {{ fmtMoney(it.unit_price) }}
                     <!-- 双单位采购价：折小单位单价（`base_unit_price` 由后端算好下发）。 -->
                     <span v-if="showBasePrice(it)" class="ipd-conv">
                       折 {{ fmtMoney(it.base_unit_price) }} 元/{{ it.base_unit || '小单位' }}
                     </span>
                   </td>
                   <td class="num">
-                    {{ fmtQty(it.quantity) }}
+                    <!-- v452（O4）：数量带单位后缀（舟谱「1件」），不用回头看单位列。 -->
+                    {{ qtyText(it) }}
                     <span v-if="showBaseQty(it)" class="ipd-conv">= {{ fmtQty(it.base_qty) }} {{ it.base_unit || '小单位' }}</span>
                   </td>
-                  <td class="num">¥{{ fmtMoney(it.amount) }}</td>
+                  <!-- v452（O3）：明细金额格**去掉 ¥ 前缀**（舟谱同款：货币符号只出现在
+                       合计行与底部总额条）。一屏少 10+ 处重复符号，金额列更易比大小。 -->
+                  <td class="num">{{ fmtMoney(it.amount) }}</td>
+                  <td class="num">{{ qtyText(it, 'received_qty') }}</td>
                   <td v-if="isVisGoods('batch')">
                     <span v-if="it.batch_no">{{ it.batch_no }}</span>
-                    <span v-else class="tag warn">未登记</span>
+                    <!-- v452（O8）：「未登记」从黄 tag 改灰色文字 —— 2 行商品 4 个黄块
+                         是纯视觉噪音，且"未登记"是状态说明不是警示。 -->
+                    <span v-else class="ipd-none">未登记</span>
                   </td>
                   <td v-if="isVisGoods('expiry')">
                     <span v-if="it.expiry_date">{{ it.expiry_date }}</span>
-                    <span v-else class="tag warn">未登记</span>
+                    <span v-else class="ipd-none">未登记</span>
                   </td>
-                  <td class="num">{{ fmtQty(it.received_qty) }}</td>
                   <!-- v408（P1-2）行备注。空则 `—`（不编「无」以外的任何词）—— 绝大多数
                        存量行都没填过，写"无备注"会让人以为系统里有这个值。 -->
                   <td class="ipd-note-cell" v-if="isVisGoods('note')">{{ it.note || '—' }}</td>
@@ -345,15 +362,23 @@
               </tbody>
               <tfoot>
                 <tr>
-                  <td :colspan="7 - (isVisGoods('barcode')?0:1) - (isVisGoods('ref')?0:1)">合计</td>
+                  <!-- 🔴 v452 重算 colspan（列序与默认显隐都变了，不改就会整体错位）：
+                       现在表格 = 8 固定列 + 5 可选列。
+                       固定：序号(齿轮) / 商品名称 / 单位 / 采购价 / 订单数量 / 订单金额 / 已到货 / 历史
+                       可选：条形码 / 参考成本价 / 批次号 / 到期日 / 行备注
+                       合计标签跨「序号…采购价」= 6 − 隐藏的可选列(条码/参考)；
+                       数量 / 金额 / 已到货三格各就各位；尾格跨「批次…历史」= 4 − 隐藏的可选列。
+                       ⚠️ 以后加列仍要同步这里：错位**不报错**，只是金额对到别的列下面。 -->
+                  <td :colspan="6 - (isVisGoods('barcode')?0:1) - (isVisGoods('ref')?0:1)">合计</td>
                   <td class="num">{{ fmtQty(sumQty) }}</td>
-                  <td class="num">¥{{ fmtMoney(sumAmount) }}</td>
-                  <!-- 🔴 加列后这里必须跟着改：表格 **14** 列 = 7 + 2 + 5
-                       （7 = 序号…采购价，2 = 数量/金额，5 = 批次号…历史）。
-                       少/多一格会让「合计」整行移位、金额错到别的列下面（不报错，纯错位）。
-                       v408 P1-2 加「行备注」时是 7+2+4；P1-6 加「历史」后 = 7+2+5。
-                       ⚠️ 列显隐（列设置齿轮）会折叠其中几列 ⇒ 这里两个 colspan 要同步减去被隐藏的列数。 -->
-                  <td :colspan="5 - (isVisGoods('batch')?0:1) - (isVisGoods('expiry')?0:1) - (isVisGoods('note')?0:1)"></td>
+                  <td class="num">{{ fmtMoney(sumAmount) }}</td>
+                  <!-- v452：合计行补「已到货」合计 —— 订单量 vs 已到货量同屏可比，
+                       是到货对账最常看的一组数（舟谱合计行同样两个数量口径并列）。 -->
+                  <td class="num">{{ fmtQty(sumRecv) }}</td>
+                  <td v-if="isVisGoods('batch')"></td>
+                  <td v-if="isVisGoods('expiry')"></td>
+                  <td v-if="isVisGoods('note')"></td>
+                  <td></td>
                 </tr>
               </tfoot>
             </table>
@@ -361,6 +386,13 @@
 
           <ColMenuPanel ref="panelGoods" :col-list="GOODS_COLS" :is-visible="isVisGoods" :toggle-col="toggleGoods" :reset-cols="resetGoods" />
 
+          <!-- v452（O7）底部总额条：舟谱在表格下方有一条「订单总额」横条 ——
+               对账 / 截图 / 打印时有一个明确的总计锚点（原来只有表内合计行）。 -->
+          <div v-if="items.length" class="ipd-total-bar">
+            <span class="ipd-total-lb">订单总额</span>
+            <b class="ipd-total-amt">¥{{ fmtMoney(sumAmount) }}</b>
+            <span class="ipd-total-note">共 {{ items.length }} 行 · 已到货 {{ fmtQty(sumRecv) }}</span>
+          </div>
         </div>
       </div>
 
@@ -487,7 +519,8 @@
                     <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                   <td v-if="isVisIn('batch')">
                     <span v-if="it.batch_no">{{ it.batch_no }}</span>
-                    <span v-else class="tag warn">未登记</span>
+                    <!-- v452（O8）：与采购明细表同口径，「未登记」改灰色文字（状态说明不是警示）。 -->
+                    <span v-else class="ipd-none">未登记</span>
                   </td>
                   <td class="ipd-c-name">{{ it.product_name || ('商品 ' + it.product_id) }}</td>
                   <td class="ipd-mono" v-if="isVisIn('barcode')">{{ it.barcode || '—' }}</td>
@@ -724,19 +757,23 @@ import { downloadCsv, localDateStamp } from '../../utils/csv'
    （列表页与新建页共用同一份）⇒ 本页不重复实现"怎么读一个自定义字段的值"。 */
 import { usePurchaseCustomFields, extraValOf } from '../../composables/purchaseCustomFields.js'
 
-/* 列设置：本页有两张独立表格（采购商品明细 / 入库明细），各自一套列清单与显隐状态。 */
+/* 列设置：本页有两张独立表格（采购商品明细 / 入库明细），各自一套列清单与显隐状态。
+   v452（O2/O6）采购商品明细列序对齐舟谱（11 列口径）：
+     · 删「规格」列 —— 规格并进商品名单元格的小字（与单位列换算小字说的是同一句话，
+       双列显示是噪音）；规格值本身不丢（单元格小字 + CSV 导出列都在）。
+     · 「批次号 / 到期日」标 `def:false` —— **默认收进列设置**（舟谱详情默认也没有），
+       要时点表头齿轮打开，选择云端持久。数据一个都没删。 */
 const GOODS_COLS = [
   { key: 'name', label: '商品名称', core: true },
-  { key: 'spec', label: '规格', core: true },
   { key: 'barcode', label: '条形码', core: false },
   { key: 'unit', label: '单位', core: true },
   { key: 'ref', label: '参考成本价', core: false },
   { key: 'price', label: '采购价', core: true },
   { key: 'qty', label: '订单数量', core: true },
   { key: 'amt', label: '订单金额', core: true },
-  { key: 'batch', label: '批次号', core: false },
-  { key: 'expiry', label: '到期日', core: false },
   { key: 'rec', label: '已到货', core: true },
+  { key: 'batch', label: '批次号', core: false, def: false },
+  { key: 'expiry', label: '到期日', core: false, def: false },
   { key: 'note', label: '行备注', core: false },
   { key: 'hist', label: '历史', core: true },
 ]
@@ -795,6 +832,8 @@ const payments = ref([])
 const inb = ref({ empty: true, reason: '', head: {}, items: [], summary: {} })
 const showRecv = ref(false)
 const recv = ref({})
+/* v452（O5）「更多信息 ▾」展开开关（默认收起：次要字段不占首屏）。 */
+const moreInfoOpen = ref(false)
 
 const payOpen = ref(false)
 
@@ -808,9 +847,9 @@ const printCount = computed(() => Number(o.value.print_count || 0))
 /* v412（P2-5）审核动作组的下拉开关（主按钮是「审核并打印」，箭头里是「审核并入库」）。
    与 `printOpen` 分开存：两个菜单同时开着会叠在一起，且各自关闭时机不同。 */
 const auditOpen = ref(false)
-/* v414（P2-6）「转单为」的下拉开关（第三个同款下拉，同上：各存一份）。
-   🔴 转单的落点**只有「采购退货」**一个（详见模板里那一段说明）—— 其余两项是灰的。 */
-const transOpen = ref(false)
+/* v452（O1）「更多 ▾」菜单开关。转单为 / 日志 / 附件 / 相邻单据都搬进了这一个菜单，
+   所以 v414 的 `transOpen` 随之退役（删除而非留一个无人设置的开关）。 */
+const moreOpen = ref(false)
 /* 能退货的单 = **进过货**的单。判据与后端 `purchase_order_list(returnable=True)` 的
    白名单**逐字对齐**（`received` / `partial` / `returned`），也与退货建单页选原单的
    候选范围一致 ⇒ 不会出现「详情页说能退、退货页搜不到这张单」。
@@ -836,7 +875,7 @@ const transBlockTip = computed(() => {
     🔴 不在这里做退货本身：退货有自己的一屏（原单 / 可退量 / 数量 / 价格 / 原因），
        塞进这个详情页会变成弹窗套弹窗；而且「转单」的语义就是"去开一张新单"。 */
 function doTransferReturn () {
-  transOpen.value = false
+  moreOpen.value = false
   if (!canTransfer.value) { toast(transBlockTip.value, 'warn'); return }
   router.push('/inventory/purchase/new?kind=return&from_po=' + oid.value)
 }
@@ -879,15 +918,16 @@ function goNeighbor (dir) {
 }
 
 /* ---- 导出明细（v408 P1-5）--------------------------------------------------
-   导出的是**这张单的明细**（不是列表）。列与「采购订单详情」那张表**逐列对应**、
-   标签逐字相同 —— 导出的表头必须能在屏幕上找到同一列，否则就是「两个说法」。
-   🔴 表里显示 `—` 的格子（规格 / 条码 / 单位为空、批次未登记）导出**空串**而不是 `—`：
+   导出的是**这张单的明细**（不是列表）。列序与「采购订单详情」那张表**同序**
+   （v452 起：屏幕默认隐藏的批次 / 到期**仍在导出里** —— 导出是全量数据场景，
+   屏幕默认值不该决定数据行；规格也保留为独立列，Excel 里筛选比小字更好用）。
+   🔴 表里显示 `—` 的格子（条码 / 单位为空、批次未登记）导出**空串**而不是 `—`：
       `—` 会被 Excel 当成文本参与排序筛选，空串才是「没有值」。
    🔴 数量 / 金额导出**纯数字**（不带 `¥`、不带千分位），否则 Excel 里不能求和。 */
 function doExport () {
   if (!items.value.length) { toast('这张单没有明细可导出', 'warn'); return }
   const head = ['序号', '商品名称', '规格', '条形码', '单位', '参考成本价', '采购价',
-    '订单数量', '订单金额', '批次号', '到期日', '已到货', '行备注']
+    '订单数量', '订单金额', '已到货', '批次号', '到期日', '行备注']
   const body = items.value.map((it, i) => [
     i + 1,
     it.product_name || ('商品 ' + it.product_id),
@@ -898,9 +938,9 @@ function doExport () {
     Number(it.unit_price || 0),
     Number(it.quantity || 0),
     Number(it.amount || 0),
+    Number(it.received_qty || 0),
     it.batch_no || '',
     it.expiry_date || '',
-    Number(it.received_qty || 0),
     it.note || '',
   ])
   // 单号进文件名前去掉 Windows/macOS 都不接受的字符（单号是外部系统给的，别假定它干净）
@@ -980,6 +1020,9 @@ const statusHint = computed(() => {
    `amount` 本身是权威金额（外部系统给的），这里只是把它逐行相加，与舟谱一致。 */
 const sumQty = computed(() => items.value.reduce((a, x) => a + Number(x.quantity || 0), 0))
 const sumAmount = computed(() => items.value.reduce((a, x) => a + Number(x.amount || 0), 0))
+/* v452（O7）已到货合计：与订单量合计同屏并列（舟谱合计行同样两个数量口径），
+   到货对账时不用自己心算「订了 124、到了多少」。 */
+const sumRecv = computed(() => items.value.reduce((a, x) => a + Number(x.received_qty || 0), 0))
 
 /* 分批到货：按**商品**聚合（后端按 (order_id, product_id) 找行，同一商品多行只会更新第一行
    ⇒ 前端先把多行合并成一项，语义才与后端一致，不会出现「填了没生效」）。 */
@@ -1000,6 +1043,14 @@ function moneyOrDash (v, hasRow) {
   return hasRow ? ('¥' + fmtMoney(v)) : '—'
 }
 function fmtQty (n) { return Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
+
+/* v452（O4）数量带单位后缀（舟谱「1件」）：读单位列自己那一格太远，
+   数量贴着单位扫读最快。单位缺失（老单）就退回裸数字，不编一个「—」进去。 */
+function qtyText (it, key) {
+  const q = fmtQty(it[key || 'quantity'])
+  const u = it.unit_label
+  return u ? (q + ' ' + u) : q
+}
 
 /* v409（P2-1）折小单位的两行提示 —— **只在所选档不是小档时显示**。
    🔴 判据用后端下发的 `base_ratio`（换算比快照）而不是前端再算一次：
@@ -1547,9 +1598,12 @@ function back () { router.push('/inventory/purchase') }
 
 /* 点空白处关掉「打印设置」菜单（与列表页的批量菜单同一套写法）。
    模板上 `.ipd-pm` 有 `@click.stop`，所以菜单内部的点击不会走到这里死循环关自己。 */
-/* 点页面空白处收起所有下拉（打印组 / 审核组）。两个都要关 ——
-   只关一个的话，点打印按钮时审核菜单会挂在原位不动，看起来像"卡住了"。 */
-function onDocClick () { printOpen.value = false; auditOpen.value = false; transOpen.value = false }
+/* 点页面空白处收起所有下拉（打印组 / 审核组 / 更多）。几个都要关 ——
+   只关一个的话，点打印按钮时审核菜单会挂在原位不动，看起来像"卡住了"。
+   v452：更多菜单里的动作（复制 / 日志 / 附件 / 转单 / 翻单）点了也要收起来，
+   否则菜单挂在页面上跟着 `window.print()` 一起印出去（打印样式只兜了 `.ipd-pm-menu`，
+   但用户视角是"菜单没关"）。 */
+function onDocClick () { printOpen.value = false; auditOpen.value = false; moreOpen.value = false }
 
 onMounted(() => {
   document.addEventListener('click', onDocClick)
@@ -1561,22 +1615,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 <style scoped>
 .inv-page { display: block }
 .ipd-acts { display: flex; gap: 8px; flex-wrap: wrap }
-
-/* ---- 上一条 / 下一条（v408 P1-5）----
-   三件套做成一**片**：两个按钮同宽（`min-width` 对齐），中间那行位置读数不被挤压
-   （`white-space: nowrap` + `tabular-nums`，这样「第 9 / 81 条」→「第 12 / 81 条」时
-   宽度不跳、按钮不会左右位移）。 */
-.ipd-nav {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 2px 6px; border: 1px solid var(--bd); border-radius: var(--radius-md);
-  background: var(--bg2);
-}
-.ipd-nav .btn { min-width: 62px; justify-content: center }
-.ipd-nav-pos {
-  font-size: 12px; color: var(--t2); white-space: nowrap;
-  font-variant-numeric: tabular-nums; padding: 0 2px;
-}
-.ipd-nav-err { font-size: 12px; color: var(--danger); white-space: nowrap; padding: 0 2px }
+/* v452（O8）页头状态 tag 弱化：原 22px 高 + 12px 字与标题争夺视线。
+   状态是单据的属性，不该和「采购单详情」四个字抢主角 —— 收到 20px/11px。 */
+.page-sub .tag { height: 20px; padding: 0 7px; font-size: 11px }
 
 /* ---- 打印设置（v408 P1-4）------------------------------------------------
    主按钮 + 小箭头 + 次数读数 + 下拉菜单 = 一个视觉整体：
@@ -1600,11 +1641,6 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   transition: transform .15s;
 }
 .ipd-pm-tri.up { transform: rotate(180deg) }
-/* 次数读数：`tabular-nums` 让「9 次 → 10 次」时宽度不跳。 */
-.ipd-pc {
-  margin-left: 8px; font-size: 12px; color: var(--t3);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
 
 .ipd-pm-menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: var(--z-dropdown);
@@ -1612,6 +1648,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
 }
+/* v452（O1）「更多 ▾」菜单：收录 9 项 + 4 个分组标题 ⇒ 必须限高可滚，
+   否则矮窗口下会把「确认入库」主按钮挤出视口（点了没反应的另一种形态）。 */
+.ipd-more-menu { min-width: 300px; max-height: 72vh; overflow: auto }
 .ipd-pm-hd { padding: 6px 10px 4px; font-size: 12px; color: var(--t3) }
 .ipd-mi {
   display: block; width: 100%; padding: 7px 10px; border: none; background: none;
@@ -1627,9 +1666,61 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipd-mi:disabled { color: var(--t3); cursor: not-allowed }
 .ipd-mi:disabled:hover { background: none }
 
+/* 注意：`.ipd-hd` / `.ipd-f`（竖排字段卡）**仍被「入库单」页签使用**，不删；
+   v452 起「采购订单详情」页签换用下面这套单行横排的 `.ipd-barhd` / `.ipd-bf`。 */
 .ipd-hd { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; align-items: baseline }
 .ipd-f { display: flex; flex-direction: column; gap: 4px }
 .ipd-f-grow { flex: 1; min-width: 200px }
+
+/* v452（O5）单据信息带：单行 compact bar（舟谱同款）。
+   主字段横排（label 左 value 右），金额组贴右侧；字段多时自然换行不断裂。
+   🔴 底色用 `--bg2` 而不是卡片白底 + 阴影：这是"信息带"不是"卡片"，
+      舟谱同款是一条灰底横条，视觉重量低于表格、高于空白。 */
+.ipd-barhd {
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  gap: 6px 22px; margin-bottom: 10px; padding: 10px 16px;
+  background: var(--bg2); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.ipd-bf { display: flex; align-items: baseline; gap: 7px; white-space: nowrap }
+.ipd-bf-grow { flex: 1; min-width: 220px; white-space: normal }
+.ipd-bfv { font-size: 13px; color: var(--t1); font-weight: 500 }
+/* 备注可长：限宽省略号，全量仍在 title 与展开区里 —— 不把信息带撑翻。 */
+.ipd-bfv-note {
+  max-width: 240px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-weight: 400; color: var(--t2);
+}
+/* 金额组：`margin-left:auto` 永远贴右（舟谱把总金额放在信息带右侧同一行）。 */
+.ipd-bmoney { margin-left: auto; display: flex; gap: 26px; flex-wrap: wrap }
+.ipd-bm { display: flex; align-items: baseline; gap: 7px; white-space: nowrap }
+.ipd-bmv { font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums }
+
+/* v452（O5）更多信息：默认收起的一行次要字段（创建人 / 审核时间 / 预计到货 /
+   供应商类别 / 应付预付余额 / 补充信息）。收起 = 不占首屏，也没丢任何一个字段。 */
+.ipd-moreinfo { margin-bottom: 12px }
+.ipd-moreinfo-tg {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: none; background: none; padding: 2px 0;
+  font-size: 12px; color: var(--t3); cursor: pointer;
+}
+.ipd-moreinfo-tg:hover { color: var(--t2) }
+.ipd-moreinfo-tri {
+  display: block; width: 0; height: 0;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+}
+.ipd-moreinfo-tri.up { transform: rotate(180deg) }
+.ipd-moreinfo-body {
+  display: flex; flex-wrap: wrap; gap: 6px 22px;
+  margin-top: 8px; padding: 10px 16px;
+  background: var(--bg2); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* ---- 以下四条是**原有规则**（v452 改造时一度被误删，已补回）----
+      `.ipd-lb` 全页标签共用；`.ipd-amt`/`.ipd-amt-due` 货款页签在用；
+      `.ipd-mono` 单号/条码在用；`.ipd-conv` 明细表单位列/采购价/数量的
+      折小单位小字在用。删任何一个都是静默失效（样式不报错，只是不生效）。 */
 .ipd-lb { font-size: 12px; color: var(--t3) }
 .ipd-amt { font-size: 16px; font-variant-numeric: tabular-nums }
 .ipd-amt-due { color: var(--danger) }
@@ -1640,10 +1731,6 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   font-size: 11px; color: var(--t3); white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-
-/* 金额条：三项并排（订单 / 入库 / 应付） */
-.ipd-money { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 12px }
-.ipd-m { display: flex; flex-direction: column; gap: 4px }
 
 .ipd-hint {
   display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
@@ -1677,7 +1764,48 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipd-cf-dlg { max-height: 78vh; overflow: auto }
 .ipd-recv-ft .ipd-note { margin-right: auto }
 
-.ipd-tbl { min-width: 1740px }
+/* v452（O2）商品明细**去卡片壳直铺**：舟谱同款密表 —— 表格自己带细边框与圆角，
+   不再套 `.card`（那 18px padding + hover 阴影在详情页是纯消耗）。
+   ⚠️ 去壳后表头底色（`table.tbl th` 的 `--bg2`）与外框同色系，视觉仍是一整张表。 */
+.ipd-plain {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+/* v452（O6）商品名单元格里的规格小字：舟谱把规格并进商品名（如「…100*8杯（新）」）。
+   小字 + 弱色 + 不换行挤压 —— 主名称永远是这一格的主角。 */
+.ipd-spec {
+  display: block; margin-top: 1px;
+  font-size: 11px; color: var(--t3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* v452（O8）「未登记」灰字：原来是黄 tag，2 行商品 4 个黄块是纯噪音；
+   "没登记批次"是状态说明，不是警示（真正的警示走 `ipd-hint` 与确认弹窗）。 */
+.ipd-none { font-size: 12px; color: var(--t3) }
+
+/* v452（O7）底部总额条：舟谱表格下方那条「订单总额」横条。
+   对账 / 截图 / 打印时有一个明确的总计锚点（原来只有表内合计行）。 */
+.ipd-total-bar {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 9px 14px; border-top: 1px solid var(--border-subtle);
+  background: var(--bg2);
+}
+.ipd-total-lb { font-size: 12px; color: var(--t3) }
+.ipd-total-amt { font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums }
+.ipd-total-note { margin-left: auto; font-size: 12px; color: var(--t3) }
+
+/* v452（O9）表格密度对齐舟谱：默认 8px/12px（原 10px/14px）。
+   🔴 排除序号/齿轮两列（它们有自己的窄 padding：全局 `table.tbl th.seq-th` 8px 4px）。
+   🔴 必须给 compact 密度开关配套一条：全局 `[data-density="compact"] table.tbl td`
+      是 (0,2,2)，与这条同分 ⇒ 不写配套的话 compact 档会被这条盖掉，
+      「紧凑模式」用户拿到的是 8px 而不是 4px（静默失效的老形态）。 */
+table.tbl.ipd-tbl th:not(.seq-th),
+table.tbl.ipd-tbl td:not(.seq-cell) { padding: 8px 12px }
+[data-density="compact"] table.tbl.ipd-tbl th:not(.seq-th),
+[data-density="compact"] table.tbl.ipd-tbl td:not(.seq-cell) { padding: 4px 10px }
+
+.ipd-tbl { min-width: 1480px }
 .ipd-tbl-wide { min-width: 1900px }
 .ipd-c-name { min-width: 220px }
 /* v408（P1-2）行备注列：可换行、限宽，否则一条长备注会把整张表撑出去 */
@@ -1763,9 +1891,13 @@ tfoot td { font-weight: 600 }
      自测极难撞到）。一个选择器换掉这个风险。 */
   .ipd-noprint, .ipd-mask, .ipd-pm-menu { display: none !important }
   .card { border: none; box-shadow: none; padding: 0 }
+  /* v452：明细表去壳后（.ipd-plain）打印时同样去边框，与卡片口径一致。 */
+  .ipd-plain { border: none; border-radius: 0 }
   .table-wrap { overflow: visible; border: none; border-radius: 0 }
   .ipd-tbl, .ipd-tbl-wide { min-width: 0; width: 100% }
   .ipd-c-name { min-width: 0 }
+  /* 总额条要印（舟谱打印稿有「订单总额」），但浅色底纹印不出来 ⇒ 补一条实线。 */
+  .ipd-total-bar { background: none; border-top: 1px solid var(--t3) }
 }
 
 @media (max-width: 900px) {
@@ -1774,7 +1906,8 @@ tfoot td { font-weight: 600 }
 
 @media (max-width: 640px) {
   .ipd-hd { gap: 14px }
-  .ipd-money { gap: 18px }
+  .ipd-barhd { gap: 6px 14px }
+  .ipd-bmoney { margin-left: 0; gap: 18px }
   .ipd-recv-ft .ipd-note { width: 100%; margin-right: 0 }
 }
 </style>

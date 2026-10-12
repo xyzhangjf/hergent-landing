@@ -31,10 +31,14 @@ import { useColPrefs } from './useColPrefs.js'
 export function useColSettings (page, colList) {
   const cols = Array.isArray(colList) ? colList : []
 
-  // 默认可见性：core（固定列）恒显示、不参与勾选；可选列默认全开。
+  // 默认可见性：core（固定列）恒显示、不参与勾选；可选列默认全开，
+  // 除非该列显式写 `def: false`（v452：采购单详情把「批次号 / 到期日」收进列设置，
+  // 与舟谱的 11 列口径对齐 —— 数据不删，只是默认不占屏幕）。
+  // ⚠️ 没传 `def` 的页行为不变（仍默认全开）：本 composable 被全站 16 个表格页共用，
+  //    不能为了某一页把全局默认值翻过来。
   function defaultVis () {
     const v = {}
-    cols.forEach(c => { if (!c.core) v[c.key] = true })
+    cols.forEach(c => { if (!c.core) v[c.key] = c.def !== false })
     return v
   }
   const colVis = ref(defaultVis())
