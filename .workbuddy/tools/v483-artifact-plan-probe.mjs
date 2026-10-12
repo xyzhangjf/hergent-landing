@@ -165,7 +165,7 @@ async function run(theme, cred) {
     ok(pv.iframeCount >= 1, theme + ' HTML 文件内联渲染 <iframe.cp-art-frame>', pv.iframeCount)
     ok(pv.iframeSandbox !== null, theme + ' iframe 带 sandbox 属性（XSS 兜底）', pv.iframeSandbox)
     ok(pv.dlRowCount >= 1, theme + ' 预览卡保留下载入口（不回归）', pv.dlRowCount)
-    await page.screenshot({ path: path.join(SHOT_DIR, theme + '-preview.png') }).catch(() => {})
+    await page.screenshot(path.join(SHOT_DIR, theme + '-preview.png')).catch(() => {})
 
     // 计划卡渲染 + 零副作用
     const rp = JSON.parse(await page.eval(READ_PROPOSAL))
