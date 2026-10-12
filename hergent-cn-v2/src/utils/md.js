@@ -68,6 +68,12 @@ export function renderMd(src) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
+  // v486 P1-②：代码块原文要塞进 HTML **属性**（data-code）供复制按钮读取，
+  // 光有 esc() 不够 —— 引号不转义会截断属性、破坏结构。故另加属性级转义。
+  const escAttr = (s) => esc(s)
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
   const lines = text.split(/\r?\n/)
   const out = []
   const toc = []
@@ -102,7 +108,12 @@ export function renderMd(src) {
       ).join('')
       out.push(
         '<div class="md-codeblock">' +
-        '<div class="md-codeblock__bar"><span class="md-codeblock__lang">' + (lang || 'CODE') + '</span></div>' +
+        // v486 P1-②：顶栏加「一键复制」。原文走 data-code 属性（escAttr 转义），
+        // 点击由 CopilotDrawer 的 .md 事件委托统一处理（与 TOC 跳转同一入口）。
+        '<div class="md-codeblock__bar"><span class="md-codeblock__lang">' + (lang || 'CODE') + '</span>' +
+        '<button type="button" class="md-code-copy" data-code="' + escAttr(c.code) + '" title="复制这段内容">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+        '<span class="md-code-copy-tx">复制</span></button></div>' +
         '<pre class="md-pre"><code class="md-code">' + lineEls + '</code></pre>' +
         '</div>'
       )

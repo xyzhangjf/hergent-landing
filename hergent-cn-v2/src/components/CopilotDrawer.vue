@@ -216,14 +216,33 @@
               </div>
 
               <!-- 主动澄清（P0-①：信息不足时 AI 反问 + 结构化选项） -->
-              <div v-if="m.clarify && m.clarify.options && m.clarify.options.length" class="cp-clarify">
-                <div class="cp-clarify-ask">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                  {{ m.clarify.ask }}
-                </div>
-                <div class="cp-clarify-opts">
-                  <button v-for="(o, oi) in m.clarify.options" :key="oi" class="cp-clarify-opt" @click="askFollowup(o)">{{ o.label }}</button>
-                </div>
+              <div v-if="m.clarify && ((m.clarify.questions && m.clarify.questions.length) || (m.clarify.options && m.clarify.options.length))" class="cp-clarify">
+                <!-- v486 P1-⑥ 多组：一次问多个问题，老板在一屏内逐个拍板 -->
+                <template v-if="m.clarify.questions">
+                  <div class="cp-clarify-qhd">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    需要你定 {{ m.clarify.questions.length }} 件事
+                  </div>
+                  <div v-for="(q, qi) in m.clarify.questions" :key="qi" class="cp-clarify-grp">
+                    <div class="cp-clarify-ask">
+                      <span class="cp-clarify-no">{{ qi + 1 }}</span>
+                      <span>{{ q.ask }}</span>
+                    </div>
+                    <div class="cp-clarify-opts">
+                      <button v-for="(o, oi) in q.options" :key="oi" class="cp-clarify-opt" @click="askFollowup(o)">{{ o.label }}</button>
+                    </div>
+                  </div>
+                </template>
+                <!-- 单主题（旧协议，逐字保留） -->
+                <template v-else>
+                  <div class="cp-clarify-ask">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    {{ m.clarify.ask }}
+                  </div>
+                  <div class="cp-clarify-opts">
+                    <button v-for="(o, oi) in m.clarify.options" :key="oi" class="cp-clarify-opt" @click="askFollowup(o)">{{ o.label }}</button>
+                  </div>
+                </template>
               </div>
 
               <!-- 配方自进化提案 / 执行计划闸门（P2-⑦ 单条配方 + v483 多步计划） -->
@@ -613,8 +632,20 @@
         <!-- 右侧 Artifact 面板：聊天产物沉淀处（方案 B）；默认隐藏，新产物自动弹开 -->
         <aside class="cp-artifacts" :class="{'show-art':artOpen,'art-full':artFullscreen}" :style="artFullscreen ? { flex: '1 1 100%' } : (artOpen && !isNarrow ? { flexBasis: artWidth + 'px' } : null)">
           <div class="cp-art-hd">
-            <span class="cp-art-title">本次产物 <span class="cp-art-count">{{ artifacts.length }}</span></span>
+            <!-- v486 P1-⑤：产物 / 待办 双分页 —— AI 记下的待办不再「记完就消失」，
+                 在这里看得见、能完成、能删掉。 -->
+            <div class="cp-art-tabs" role="tablist">
+              <button class="cp-art-tab" :class="{ on: artTab === 'art' }" role="tab" :aria-selected="artTab === 'art'" @click="artTab = 'art'">
+                本次产物 <span class="cp-art-count">{{ artifacts.length }}</span>
+              </button>
+              <button class="cp-art-tab" :class="{ on: artTab === 'todo' }" role="tab" :aria-selected="artTab === 'todo'" @click="openTodoTab">
+                我的待办 <span v-if="todos.length" class="cp-art-count">{{ todos.length }}</span>
+              </button>
+            </div>
             <div class="cp-art-ops">
+              <button v-if="artTab === 'todo'" class="cp-icon-btn" title="刷新待办" @click="loadTodos">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+              </button>
               <button class="cp-icon-btn" :title="artFullscreen ? '退出区域全屏' : '区域全屏'" @click="toggleArtFullscreen">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3m13-5v3a2 2 0 01-2 2h-3"/></svg>
               </button>
@@ -624,6 +655,32 @@
             </div>
           </div>
           <div class="cp-art-body">
+            <!-- v486 P1-⑤：待办分页 -->
+            <template v-if="artTab === 'todo'">
+              <div v-if="todoLoading" class="state-empty">正在加载待办…</div>
+              <div v-else-if="todoErr" class="state-empty">
+                {{ todoErr }}
+                <button class="cp-art-tab" style="margin-top:8px" @click="loadTodos">重试</button>
+              </div>
+              <div v-else-if="!todos.length" class="state-empty">
+                目前没有待办<br/>跟副驾说「记得提醒我…」，它记下的事会出现在这里
+              </div>
+              <div v-for="t in todos" :key="t.id" class="cp-todo">
+                <div class="cp-todo-main">
+                  <span class="cp-todo-title">{{ t.title }}</span>
+                  <span v-if="t.remind_at" class="cp-todo-time">{{ t.remind_at }}<span v-if="t.repeat_rule"> · {{ repeatText(t.repeat_rule) }}</span></span>
+                </div>
+                <div class="cp-todo-ops">
+                  <button class="cp-icon-btn" title="标记完成" @click="todoDone(t)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="cp-icon-btn" title="删除" @click="todoRemove(t)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                  </button>
+                </div>
+              </div>
+            </template>
+            <template v-else>
             <div v-if="!artifacts.length" class="state-empty">
               副驾产出的报告、图表、文件会沉淀在这里<br/>随时回看，不随对话滚走
             </div>
@@ -659,6 +716,7 @@
                 </a>
               </template>
             </div>
+            </template>
           </div>
         </aside>
       </div><!-- /cp-split -->
@@ -857,6 +915,23 @@ function mediaView(content) {
 }
 /* P1-b：TOC 锚点跳转 —— 点击目录项平滑滚动到对应标题，**不**改 URL hash（避免破坏 hash 路由）。 */
 function onCopilotTocClick(e) {
+  // v486 P1-②：代码块「一键复制」—— 与 TOC 跳转共用这一个委托入口
+  // （md.js 渲染的是 v-html 字符串，按钮没法绑 Vue 事件，只能委托）。
+  const cp = e && e.target && e.target.closest ? e.target.closest('.md-code-copy') : null
+  if (cp) {
+    const code = cp.getAttribute('data-code') || ''
+    const tx = cp.querySelector('.md-code-copy-tx')
+    copyText(code).then((ok) => {
+      store.toast(ok ? '已复制代码' : '复制失败，请手动选择')
+      if (!ok || !tx) return
+      // 就地给个「已复制」反馈（2 秒复原）。该 DOM 由 v-html 生成、Vue 不管，
+      // 下次消息重渲染会整体重建，不会残留状态。
+      cp.classList.add('copied')
+      if (tx) tx.textContent = '已复制'
+      setTimeout(() => { cp.classList.remove('copied'); tx.textContent = '复制' }, 2000)
+    })
+    return
+  }
   const el = e && e.target && e.target.closest ? e.target.closest('.md-toc-link') : null
   if (!el) return
   const anchor = el.getAttribute('data-anchor')
@@ -2048,6 +2123,67 @@ async function shareQR() {
   shareOpen.value = null
 }
 
+/* ---- v486 P1-⑤：我的待办（可视管理）—— AI 记下的提醒在这里看得见、能完成、能删 ----
+   后端接口早已齐备（GET/POST/PATCH /api/ai/reminders，ai_assist.py），此前只是**没有界面**，
+   所以「记下就消失」。本段只补前端，后端零改动。 */
+const artTab = ref('art')          // 'art' = 本次产物 | 'todo' = 我的待办
+const todos = ref([])
+const todoLoading = ref(false)
+const todoErr = ref('')
+
+// 后端把「AI 连续兜底失败」也写进同一张表（created_by='ai-fallback'），
+// 那是系统自诊断通知、不是老板的待办 —— 混进来会让面板变成噪音，故在此过滤。
+function isUserTodo(r) { return r && r.created_by !== 'ai-fallback' }
+
+function repeatText(rule) {
+  if (!rule) return ''
+  const map = { once: '一次', daily: '每天', weekly: '每周', monthly: '每月' }
+  return map[rule] || rule
+}
+
+async function loadTodos() {
+  todoLoading.value = true
+  todoErr.value = ''
+  try {
+    const d = await api('/api/ai/reminders')
+    const items = (d && d.items) || []
+    // 已完成/已取消的不进面板（后端已软删，这里只是不展示）
+    todos.value = items.filter(r => r.status !== 'done' && r.status !== 'cancel' && isUserTodo(r))
+  } catch (e) {
+    // 403 = 该角色没有 AI 模块权限（如「主管」未开通）—— 要**说清楚**，不能静默空白
+    const msg = (e && e.message) || ''
+    todoErr.value = /403|权限/.test(msg) ? '没有权限查看待办（需管理员开通 AI 功能）' : '待办加载失败'
+  } finally {
+    todoLoading.value = false
+  }
+}
+
+function openTodoTab() {
+  artTab.value = 'todo'
+  if (!todos.value.length && !todoLoading.value) loadTodos()
+}
+
+async function todoDone(t) {
+  try {
+    await api(`/api/ai/reminders/${t.id}`, { method: 'PATCH', body: { status: 'done' } })
+    todos.value = todos.value.filter(x => x.id !== t.id)
+    store.toast('已完成')
+  } catch (e) {
+    store.toast('操作失败，请重试')
+  }
+}
+
+async function todoRemove(t) {
+  try {
+    // 后端没有物理删除接口，取消即软删（status='cancel'）—— 与「完成」同族、可逆语义
+    await api(`/api/ai/reminders/${t.id}`, { method: 'PATCH', body: { status: 'cancel' } })
+    todos.value = todos.value.filter(x => x.id !== t.id)
+    store.toast('已删除')
+  } catch (e) {
+    store.toast('操作失败，请重试')
+  }
+}
+
 /* ---- P0-② AI 待办提醒：记下 → 落 ai_reminders，scheduler 到点推送 ---- */
 async function applyReminder(m, action) {
   if (m.reminderStatus) return
@@ -2059,6 +2195,8 @@ async function applyReminder(m, action) {
     })
     m.reminderStatus = 'saved'
     saveCurrentSession()
+    // v486 P1-⑤：刚记下的待办要立刻出现在「我的待办」面板里（面板正开着才拉，省一次请求）
+    if (artTab.value === 'todo') loadTodos()
   } catch (e) {
     console.warn('[copilot] save reminder failed:', e.message)
     store.toast('提醒保存失败，请重试')
@@ -2605,7 +2743,8 @@ async function streamReply(payload, reuseUserMsg = false) {
           // 各协议围栏先抽取成结构化数据（澄清 / 提案 / 提醒 / 经营卡），
           // 正文统一在最后一步剥掉全部围栏——不再有「抽到卡片后就不剥 card 围栏」的分支。
           const cl = extractClarify(full)
-          if (cl && cl.options && cl.options.length) last.clarify = cl
+          // v486 P1-⑥：多组（questions）也算「有内容」，否则新协议会被静默丢弃
+          if (cl && ((cl.questions && cl.questions.length) || (cl.options && cl.options.length))) last.clarify = cl
           const prop = extractProposal(full)
           if (prop && !last.proposal) last.proposal = prop
           const rem = extractReminder(full)
@@ -2823,6 +2962,16 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-divider:hover::before,.cp-divider.dragging::before{background:var(--p);width:3px}
 .cp-divider::after{content:'';position:absolute;top:0;bottom:0;left:-5px;right:-5px}
 .cp-art-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
+/* v486 P1-⑤：产物 / 待办 双分页 */
+.cp-art-tabs{display:inline-flex;gap:2px;padding:2px;background:var(--bg2);border-radius:8px}
+.cp-art-tab{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:none;background:transparent;border-radius:6px;font:inherit;font-size:12.5px;color:var(--t2);cursor:pointer;transition:all .15s}
+.cp-art-tab:hover{color:var(--t1)}
+.cp-art-tab.on{background:var(--bg);color:var(--t1);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.cp-todo{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg2)}
+.cp-todo-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.cp-todo-title{font-size:12.5px;color:var(--t1);line-height:1.45;word-break:break-all}
+.cp-todo-time{font-size:11px;color:var(--t3)}
+.cp-todo-ops{display:flex;gap:2px;flex:none}
 .cp-art-title{font-size:13px;font-weight:600;color:var(--t1);display:inline-flex;align-items:center;gap:8px}
 .cp-art-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 7px;border-radius:10px;background:var(--p-bg);color:var(--p-dark);font-size:11px;font-weight:600}
 .cp-art-ops{display:flex;align-items:center;gap:4px}
@@ -3136,6 +3285,11 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* P0-① 主动澄清：AI 反问 + 结构化选项 */
 .cp-clarify{margin-top:8px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
 .cp-clarify-ask{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);margin-bottom:8px}
+/* v486 P1-⑥ 批量结构化决策：多组选项，每组自带序号，组间留分隔线 */
+.cp-clarify-qhd{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--t1);margin-bottom:8px}
+.cp-clarify-grp{padding:8px 0;border-top:1px dashed var(--border-subtle)}
+.cp-clarify-grp:first-of-type{border-top:none;padding-top:0}
+.cp-clarify-no{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--p);color:#fff;font-size:10px;font-weight:700;line-height:1}
 .cp-clarify-ask svg{color:var(--p-dark);flex-shrink:0}
 .cp-clarify-opts{display:flex;flex-direction:column;gap:6px}
 .cp-clarify-opt{padding:7px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);font-size:12.5px;color:var(--t1);cursor:pointer;text-align:left;transition:all .15s}
@@ -3272,6 +3426,10 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .md-codeblock{margin:6px 0;border:1px solid var(--b2,#e5e7eb);border-radius:8px;overflow:hidden;background:var(--bg2,#f3f4f6)}
 .md-codeblock__bar{display:flex;align-items:center;padding:4px 10px;background:var(--bg3,#e9eef3);border-bottom:1px solid var(--b2,#e5e7eb)}
 .md-codeblock__lang{font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--t3,#94a3b8);text-transform:uppercase}
+/* v486 P1-② 代码块一键复制：靠右、低对比，hover 才提亮，不抢代码正文视线 */
+.md-code-copy{margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.md-code-copy:hover{color:var(--p,#06b6d4);border-color:var(--p,#06b6d4);background:var(--bg2,#f3f4f6)}
+.md-code-copy.copied{color:#16a34a;border-color:#16a34a}
 .md-codeblock .md-pre{margin:0;border-radius:0;background:transparent;padding:8px 0}
 .md-ln{display:block;white-space:pre}
 .md-ln-no{display:inline-block;width:2.2em;margin-right:10px;text-align:right;color:var(--t3,#94a3b8);user-select:none;-webkit-user-select:none}

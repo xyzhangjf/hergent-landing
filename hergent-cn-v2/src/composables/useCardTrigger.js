@@ -151,21 +151,44 @@ export function stripIntentFence(text) {
    ```clarify {"ask":"一句话说清要补什么","options":[{"label":"选项A","query":"补全后的完整问法"},{"label":"选项B","query":"..."}]} ```
    - ask = 要补什么；options = 2~3 个可点选项，第一个放推荐项
    - query = 老板点选后真正发送的完整问题（已补全缺失信息）
-   前端解析渲染成可点击选项，围栏本身不出现在正文。 */
+   前端解析渲染成可点击选项，围栏本身不出现在正文。
+
+   v486 P1-⑥ 扩展「批量结构化决策」—— 一次问**多组**（矩阵式决策）：
+   ```clarify {"questions":[{"ask":"选哪个客户？","options":[...]},{"ask":"时间定哪天？","options":[...]}]} ```
+   - 旧协议（ask + options）**完全保留**：返回时 questions 显式为 null，
+     前端据此走原来的单组渲染，老提示词/老 AI 输出零改造。
+   - 新协议优先：只要 questions 里至少有一组带选项，就按多组渲染。 */
 export const CLARIFY_RE = /```clarify\s*\n?\s*(\{[\s\S]*?\})\s*```/i
+
+// 一组选项的归一化：过滤空项、label/query 互为兜底
+function normOptions(list) {
+  return Array.isArray(list)
+    ? list
+        .filter(o => o && (o.label || o.query))
+        .map(o => ({ label: o.label || o.query, query: o.query || o.label }))
+    : []
+}
 
 export function extractClarify(text) {
   const m = (text || '').match(CLARIFY_RE)
   if (!m) return null
   try {
     const c = JSON.parse(m[1].trim())
+    // 新协议：questions 数组（多组决策）
+    if (Array.isArray(c.questions)) {
+      const qs = c.questions
+        .filter(q => q && typeof q === 'object')
+        .map(q => ({
+          ask: typeof q.ask === 'string' ? q.ask : '',
+          options: normOptions(q.options),
+        }))
+        .filter(q => q.options.length)
+      if (qs.length) return { ask: '', options: [], questions: qs }
+    }
+    // 旧协议：单主题（显式补 questions:null —— 契约明确，前端据此分流）
     const ask = typeof c.ask === 'string' ? c.ask : ''
-    const options = Array.isArray(c.options)
-      ? c.options
-          .filter(o => o && (o.label || o.query))
-          .map(o => ({ label: o.label || o.query, query: o.query || o.label }))
-      : []
-    return { ask, options }
+    const options = normOptions(c.options)
+    return { ask, options, questions: null }
   } catch (e) { return null }
 }
 export function stripClarifyFence(text) {
