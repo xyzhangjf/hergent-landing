@@ -152,4 +152,92 @@ export const whApi = {
   wmsPutaway: (productId, warehouseId) =>
     api(`/api/wms/putaway-strategy${qs({ product_id: productId, warehouse_id: warehouseId })}`),
   wmsPickPath: (waveId) => api(`/api/wms/pick-path${qs({ wave_id: waveId })}`),
+
+  /* ================= P2 · 静态盘点单（复用既有 /api/stock-freezes，v108） =================
+     🔴 与 P1 的「盘点单」**不是同一个引擎**，两张表、两套语义，别合并：
+        · `stock_freezes`（本组）= **冻结快照 + 状态标识**。创建时把当前库存拍成明细，
+          盘点期间以快照为计数基准，可随时释放。**它不改库存**。
+        · `wh_stock_takes`（P1）= **录数 + 差异落库存**。
+        ⚠️ 两者**无数据联动**：在本页「释放」不会去动任何盘点期次，反之亦然。
+          这不是疏漏，是既有设计（冻结单 docstring 明写「不强制阻止出库」）——
+          页面口径说明里要写清，否则仓管会以为解冻 = 完成盘点。
+
+     ⚠️ 端点形状（实测 2026-10-11，tenant 1）：
+        · `GET /list` → `{success, data:[…]}`（`_list()` 归一）；**无 scope 参数** ⇒ 整仓/部分按 `scope` 本地筛。
+        · `GET /{fid}` → `{success, data:{…, items:[…]}}`
+        · `POST /create` → `{success, id}`；`scope='partial'` 必须给 `product_ids`，
+          否则**后端直接删单返回 `success:false`**（不报错、不建单）。
+        · `POST /{fid}/release` → `{success}`（仅 `active` 生效，已释放的再点无副作用）。 */
+  freezeList: (limit = 200) => api(`/api/stock-freezes/list${qs({ limit })}`).then(_list),
+  /* 🔴 `api()` **已经**剥掉一层 `{success,data}`（见 client.js:248）⇒ 这里**不能**再 `.data`
+     一次，否则永远得到 `undefined`（v465h 探针实测：点「查看」恒报「冻结单不存在」）。
+     本方法契约 = 「给冻结单对象，或给 null」，故按 `id` 判真身而不是按信封字段。 */
+  freezeGet: (fid) => api(`/api/stock-freezes/${fid}`).then(d => (d && d.id ? d : null)),
+  freezeCreate: (body) => api('/api/stock-freezes/create', { method: 'POST', body }),
+  freezeRelease: (fid) => api(`/api/stock-freezes/${fid}/release`, { method: 'POST' }),
+
+  /* ================= P2 · 组合单 / 拆分单（复用既有 /api/assembly，v108） =================
+     `type` = 'assemble'（组件→组合品）| 'disassemble'（组合品→组件）。
+     "组合单"与"拆分单"是**同一张表两个方向**（`kit_orders.type`）⇒ 一个页面参数化两次。
+
+     ⚠️ 端点形状（实测 2026-10-11）：
+        · `GET /list` → `{success, data:[…]}`；**无 type 参数** ⇒ 两个页面各按 `type` 本地筛。
+        · `GET /{aid}` → `{success, data:{…, items:[…]}}`；`items[].is_input` 1=被消耗、0=被产出。
+        · `POST /create` → `{success, id}`（`items` 后端会**丢掉 quantity≤0 的行**，静默）
+        · `POST /{aid}/confirm` → **执行**：真扣真加库存，返回 `{success, id, total_cost}`；
+          非 draft 返回 `success:false`（前端 `api()` 会在 200 里看到 success:false ⇒ 必须自己查）。
+        · `POST /{aid}/void` → 仅 draft 可作废。
+        ⚠️ 后端的 `GET /summary`（按 type 聚合单数/总成本）**刻意不封装**：本组页面的
+           KPI 与表格必须读**同一个数组**（一次拉全 + 本地计数），接服务端汇总会让
+           「KPI 说 5 单、表里 3 行」成为结构上可能的事。要接就得把列表也改成服务端分页。
+
+     ✅ **批次缺陷已修（v465i，2026-10-11）**：`_asm_apply_inventory` 的扣减侧改走共享原语
+        `gross_deduct`（指定批次只扣该批 / 未指定按效期 / 不足**抛异常**），
+        `assembly_confirm` 捕获后 `success:false` + 整单回滚 —— 不再有「静默夹 0 的幽灵行」。
+        修之前的症状（多批次下扣不动且不报错）已在页面口径里改写，别再照旧文案提示用户。 */
+  kitList: (limit = 200) => api(`/api/assembly/list${qs({ limit })}`).then(_list),
+  /* 同 `freezeGet`：`api()` 已剥一层 `{success,data}`，不能再剥（v465h 探针实测）。 */
+  kitGet: (aid) => api(`/api/assembly/${aid}`).then(d => (d && d.id ? d : null)),
+  kitCreate: (body) => api('/api/assembly/create', { method: 'POST', body }),
+  /* 确认执行：库存真变动。返回 `{success, id, total_cost}`（**没有** data 信封，且
+     status 非 draft 时是 200 + `success:false` ⇒ 调用方必须判 `r.success`）。 */
+  kitConfirm: (aid) => api(`/api/assembly/${aid}/confirm`, { method: 'POST' }),
+  kitVoid: (aid) => api(`/api/assembly/${aid}/void`, { method: 'POST' }),
+
+  /* ================= P2 · 损益单 = 报损单（复用既有 /api/wastage，v92） =================
+     🔴 **不是** `/api/loss/*` —— 那是 AI 货损**核算域**（`/api/loss/recipe` 返回算法配方
+        `threshold_days/pricing/near_loss_pct`），**没有单据列表**。真正的报损单在
+        `domain/wastage_tracker.py` + `wastage_orders`，路由内联在 `server.py`
+        （4075–4121），前缀 `/api/wastage` → 模块 `stock`。
+
+     🔴🔴 **`create` 是一次性生效的库存+账务动作，没有"提交后待审"**：
+        `create_wastage_order()` **立即** `inventory_adjust(-qty)` 扣库存，
+        并**直接落 `status='approved'` + 过账 GL 分录**（`wastage_tracker.py:151`）。
+        ⇒ 页面上「新建报损单」必须二次确认 + 显著提示；撤销走 `reject`（恢复库存 + 冲销分录）。
+        类型→科目映射后端已内置（`expired/damaged`→6401 主营业务成本、`transport`→6601 销售费用、
+        `quality/theft/other`→6602 管理费用）⇒ 前端**不许**再抄一份。
+
+     ⚠️ `GET /list` 返回 `{orders, total}`（**不是** data/items）⇒ 本层归一成数组，
+        `total` 单独用 `wastageTotal()`（同一次请求里拿，别发两次）。
+     ℹ️ `/api/wastage/summary` 与 `/api/wastage/suggest-from-expiry` 曾因 `/api/wastage/{wid}`
+        注册在前而恒 422，v465i 已重排路由修好；**但本层仍不封装** —— KPI 与表格必须读
+        **同一个数组**（一次拉全 + 本地计数），接服务端汇总会让「KPI 说 5 单、表里 3 行」
+        成为结构上可能的事（同上方 assembly `/summary` 的口径）。 */
+  /** 返回 `{orders, total}` 的**原始**形状（列表页要同时用 orders 与 total）。 */
+  wastageListRaw: (params) => api(`/api/wastage/list${qs(params)}`),
+  wastageList: (params) => api(`/api/wastage/list${qs(params)}`).then(d => (d && d.orders) || []),
+  wastageGet: (wid) => api(`/api/wastage/${wid}`),
+  /* body `{type, warehouse_id, items:[{product_id, quantity, cost_price, batch_no, reason_code, note}], note}`
+     ⇒ `{wastage_id, order_no, total_loss, item_count}`（**无** data 信封）。 */
+  wastageCreate: (body) => api('/api/wastage/create', { method: 'POST', body }),
+  wastageReject: (wid) => api(`/api/wastage/${wid}/reject`, { method: 'POST' }),
+  /** 报损类型 → 中文标签（口径与后端 `WASTAGE_TYPES` 一致；**不含科目**，科目由后端落账） */
+  wastageTypes: () => ([
+    { v: 'expired',   t: '过期报损' },
+    { v: 'damaged',   t: '破损报损' },
+    { v: 'transport', t: '运输损耗' },
+    { v: 'quality',   t: '质量问题' },
+    { v: 'theft',     t: '丢失' },
+    { v: 'other',     t: '其他' },
+  ]),
 }

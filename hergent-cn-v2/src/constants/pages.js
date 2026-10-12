@@ -273,6 +273,22 @@ export const PAGE_RULES = {
   '/wh/strategy':    { title: '出入库策略', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
   '/wh/other-in':    { title: '其它入库单', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
   '/wh/other-out':   { title: '其它出库单', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  /* —— v465h（2026-10-11 仓配管理 P2）：「库存作业」组六页**落真身**的正式登记行 ——
+     数据源全部是**既有**后端，本轮**零后端改动**（能力盘点结论见
+     docs/仓配模块开发规范.md §2.1）：
+       · `/api/stock-freezes`（v108）→ 静态盘点单（整仓 / 部分），`scope` 区分
+       · `/api/assembly`（v108）→ 组合单 / 拆分单，`type` 区分
+       · `/api/wastage`（v92，路由在 server.py）→ 损益单（= 报损单）
+       · `/api/wh/stocktake`（v465e）→ 盘点差异单（纯前端视图，N+1 只在点开某期时发生）
+     🔴 这四个前缀**归模块 `stock`**（逐个 `grep` 过 `server.py::_PATH_MODULE_MAP`）⇒
+        与 `/wh/*` 前端可见性同域，无「入口看得见、取数 403」的假入口。
+     ⚠️ 这六条**同时**从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 盖掉本行）。 */
+  '/wh/stocktake-diff': { title: '盘点差异单',       module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/stocktake-full': { title: '静态盘点单（整仓）', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/stocktake-part': { title: '静态盘点单（部分）', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/pnl':            { title: '损益单',           module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/combo':          { title: '组合单',           module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+  '/wh/split':          { title: '拆分单',           module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
   // 档案管理：`/archive/employees|customers|brands|products|warehouses|prices` 六个子路由自动继承本行。
   //   ⚠️ 子路由**必须**全部在 router/index.js 的 /archive children 里登记；父级只解析到
   //      `/archive` 这一段，多出的路径段不会自动继承、会落到 404。
@@ -482,17 +498,17 @@ export const PLACEHOLDER_PAGES = [
      🔴 v465c（P0）三页 + v465e（P1）六页**已落真身** ⇒ 从本表移出，改在 `PAGE_RULES`
         写正式登记行（见该对象里的 v465c / v465e 段）。落真身四步见 docs/仓配模块开发规范.md
         —— 移出得干净，否则本表合并循环会用 `BIZ_ROLES + module:null` **覆盖**正式行的 `module:'stock'`。
-     本表剩余 = 尚未开发的 P2（盘点差异单/静态盘点×2/损益单/组合单/拆分单）
-        + P3（配送单/司机任务看板/线路设置）。 */
+     本表剩余 = 尚未开发的 P3（配送单/司机任务看板/线路设置）。
+        ⚠️ P3 注意：实测 `GET /api/delivery/list` = **404** ⇒ 配送单**后端不存在**，
+           开工 P3 要按「新建」而不是「接」来估工（见 docs/仓配模块开发规范.md §2.1）。 */
   { path: '/wh/delivery',       title: '配送单',           area: '仓配管理' },
   { path: '/wh/driver-board',   title: '司机任务看板',     area: '仓配管理' },
   { path: '/wh/route-setup',    title: '线路设置',         area: '仓配管理' },
-  { path: '/wh/stocktake-diff', title: '盘点差异单',       area: '仓配管理' },
-  { path: '/wh/stocktake-full', title: '静态盘点单（整仓）', area: '仓配管理' },
-  { path: '/wh/stocktake-part', title: '静态盘点单（部分）', area: '仓配管理' },
-  { path: '/wh/pnl',            title: '损益单',           area: '仓配管理' },
-  { path: '/wh/combo',          title: '组合单',           area: '仓配管理' },
-  { path: '/wh/split',          title: '拆分单',           area: '仓配管理' },
+  /* 🔴 v465h（2026-10-11 仓配 P2）：「库存作业」组六页（盘点差异单 / 静态盘点单整仓·部分 /
+     损益单 / 组合单 / 拆分单）**已落真身** ⇒ 从本表**移出**，改在 `PAGE_RULES` 写正式登记行
+     （见该对象里的 v465h 段）。落真身四步见 docs/仓配模块开发规范.md
+     —— 移出得干净，否则本表合并循环会用 `BIZ_ROLES + module:null` **覆盖**正式行的 `module:'stock'`。
+     ⚠️ 上一个"漏移出"的坑见下方 v465c 段。 */
   /* 🔴 v465c（2026-10-11 仓配 P0）：`/wh/vehicle-stock` / `/wh/expiry-report` / `/wh/stock-alert`
      三页**已落真身**（不再是占位）⇒ 从本表**移出**，改在 `PAGE_RULES` 写正式登记行
      （见该对象里的 v465c 段）。落真身四步见 docs/仓配模块开发规范.md —— 移出得干净，

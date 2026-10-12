@@ -57,6 +57,14 @@ const WhStocktake = () => import('../pages/wh/Stocktake.vue')
 const WhStrategy = () => import('../pages/wh/Strategy.vue')
 const WhOtherIn = () => import('../pages/wh/OtherIn.vue')
 const WhOtherOut = () => import('../pages/wh/OtherOut.vue')
+/* v465h（2026-10-11 仓配管理 P2）：库存作业 6 页落真身。
+   只有 **4 个组件** —— 静态盘点整仓/部分共用 `StaticFreeze`（`scope` prop 区分），
+   组合单/拆分单共用 `KitOrder`（`type` prop 区分）。理由见各文件头注释：
+   同构两页拆成两个文件必然漂移。 */
+const WhStocktakeDiff = () => import('../pages/wh/StocktakeDiff.vue')
+const WhStaticFreeze = () => import('../pages/wh/StaticFreeze.vue')
+const WhKitOrder = () => import('../pages/wh/KitOrder.vue')
+const WhWastage = () => import('../pages/wh/Wastage.vue')
 const CronJobs = () => import('../pages/CronJobs.vue')
 const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
@@ -293,6 +301,27 @@ export const router = createRouter({
         { path: 'wh/strategy',    component: WhStrategy,     meta: { title: '出入库策略' } },
         { path: 'wh/other-in',    component: WhOtherIn,      meta: { title: '其它入库单' } },
         { path: 'wh/other-out',   component: WhOtherOut,     meta: { title: '其它出库单' } },
+
+        /* v465h（2026-10-11 仓配管理 P2）：**库存作业 6 页落真身**。
+           🔴 同样必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——
+              这 6 条已从 `PLACEHOLDER_PAGES` 移出，此处是它们唯一的真实路由；
+              `pages.js::PAGE_RULES` 另有正式登记行（**两处都要写**：缺路由 = 假封锁，
+              缺登记 = 假入口，见 docs/仓配模块开发规范.md「落真身四步」）。
+           🔴 4 个组件挂 6 条路由：`props` 用**对象模式**注入，组件内不读 `$route`
+              （读 route 会让两个路由的组件实例行为耦合到 URL，写成 prop 后
+               `StaticFreeze` / `KitOrder` 自身不知道有几个入口，也不必知道）。
+           🔴 `meta.title` 与 `pages.js` 的 title、`Shell.vue` 的 name **必须逐字一致**
+              （它就是路由守卫「你没有访问「xxx」的权限」的文案）。 */
+        { path: 'wh/stocktake-diff', component: WhStocktakeDiff, meta: { title: '盘点差异单' } },
+        { path: 'wh/stocktake-full', component: WhStaticFreeze,  props: { scope: 'full' },
+          meta: { title: '静态盘点单（整仓）' } },
+        { path: 'wh/stocktake-part', component: WhStaticFreeze,  props: { scope: 'partial' },
+          meta: { title: '静态盘点单（部分）' } },
+        { path: 'wh/pnl',            component: WhWastage,       meta: { title: '损益单' } },
+        { path: 'wh/combo',          component: WhKitOrder,      props: { type: 'assemble' },
+          meta: { title: '组合单' } },
+        { path: 'wh/split',          component: WhKitOrder,      props: { type: 'disassemble' },
+          meta: { title: '拆分单' } },
 
         /* v465d（2026-10-11 资金管理）：**全部 28 页落真身**。
            🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——
