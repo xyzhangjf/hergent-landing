@@ -243,10 +243,10 @@
                       <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                     </select>
                   </label>
-                  <!-- v312：把「这个默认值是从哪来的」写出来 —— 它来自「设置 › 权限」里给该角色配的端。
+                  <!-- v312：把「这个默认值是从哪来的」写出来 —— 它来自「档案管理 › 组织相关 › 角色权限」里给该角色配的端。
                        不写的话，老板改完权限页来这里看不到变化（或看到旧值），会以为没生效。 -->
                   <p class="df-tip df-scope-src">
-                    该角色在「设置 › 权限」里配的默认端：<b>{{ loginScopeLabel(roleEndScope(accForm2.role)) }}</b>
+                    该角色在「档案管理 › 角色权限」里配的默认端：<b>{{ loginScopeLabel(roleEndScope(accForm2.role)) }}</b>
                     <template v-if="accScopeTouched && accForm2.login_scope !== roleEndScope(accForm2.role)">
                       ；本次已手工改为 <b>{{ loginScopeLabel(accForm2.login_scope) }}</b>。
                       <button type="button" class="df-mini-lnk" @click="accScopeTouched = false; accForm2.login_scope = roleEndScope(accForm2.role)">改回角色默认</button>
@@ -310,7 +310,7 @@
                   <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-sm" :disabled="accBusy" @click="alignAccScope">按角色对齐</button>
                 </div>
                 <p class="df-tip">只决定这个账号能从哪里登录；能看哪些页面由上面的角色决定。保存后，该账号<b>下次登录</b>时生效。
-                  该角色当前在「设置 › 权限」里配的默认端是 <b>{{ loginScopeLabel(accScopeDefault) }}</b>。</p>
+                  该角色当前在「档案管理 › 角色权限」里配的默认端是 <b>{{ loginScopeLabel(accScopeDefault) }}</b>。</p>
                 <!-- v266 角色可叠加：兼任角色**只增加权限**，不改上面的主角色。
                      主角色决定「这个人是干嘛的」（销售只看自己的单、能不能用小程序…）；
                      兼任让一个人同时干两份活（如 业务员 + 库管、会计 + 主管）。 -->
@@ -573,7 +573,7 @@ function snapshotForm() { formSnap.value = JSON.stringify(editForm) }
  *
  * 🔴 v300（2026-09-27）从「前端写死 8 项」改为「**内置 8 项 + 本租户自定义角色**」。
  *    为什么要改：后端 `core.known_roles(tid)` = 内置 ∪ 本租户自定义，且 `PUT /api/users/{uid}/role`
- *    与开账号接口**都按它放行** —— 但下拉写死 8 项 ⇒ 客户在「设置 › 权限」里配出来的自定义角色
+ *    与开账号接口**都按它放行** —— 但下拉写死 8 项 ⇒ 客户在「档案管理 › 组织相关 › 角色权限」里配出来的自定义角色
  *    （生产实测：tenant_1 的「库管」真配了 4 个模块）**在下拉里选不到** ⇒
  *    后端通、UI 断，配了没人能用的**死配置**（`users.role` 里 0 个 `库管` 即证）。
  *
@@ -620,7 +620,7 @@ function miniCapable(mods) {
 /** v312：某角色**默认**的可登录端（= 给该角色新建账号时，「可登录端」会预填什么）。
  *
  *  🔴 三档优先级，顺序**不能倒**：
- *    ① 后端实况 —— 本租户在「设置 › 权限」为该角色配的端（`r.default_login_scope`）；
+ *    ① 后端实况 —— 本租户在「档案管理 › 组织相关 › 角色权限」为该角色配的端（`r.default_login_scope`）；
  *    ② 出厂默认 —— `roles.js::ROLE_END`（唯一源，有护栏对账）；
  *    ③ 共享判据兜底 `defaultLoginScope()`。
  *    倒过来（先 ② 再 ①）就会出现"权限页刚配好、这里仍按出厂值预填"——同屏两处说法不一致。
@@ -632,7 +632,7 @@ function roleEndScope(role) {
   return defaultLoginScope(role)
 }
 /** 一个角色的「适用端」文字。篇幅优先级：**租户实况 → 出厂定义 → 后端模块实况 → 共享判据兜底**。
- *  ⚠️ v312 起把"租户实况"提到最前 —— 端已经能在「设置 › 权限」里按客户改，
+ *  ⚠️ v312 起把"租户实况"提到最前 —— 端已经能在「档案管理 › 组织相关 › 角色权限」里按客户改，
  *     出厂值 `ROLE_END` 从此只是**默认**，不再是这家客户实际生效的上限。 */
 function endLabelOf(role) {
   const cat = roleCatalog.value
@@ -677,7 +677,7 @@ const accForm2 = reactive({ username: '', password: '', role: 'staff', login_sco
    🔴 它决定提交时**发不发**这个字段（见 `createAccountInEdit`）：没改过就不发，
       由后端按该角色的端政策决定。为什么必须这样 —— 本页的角色表可能因权限不足而
       **降级成出厂默认**（`loadRoleCatalog` 的 403 分支），此时若把前端猜出来的值发上去，
-      会**静默覆盖**这家客户在「设置 › 权限」里的实际配置，而界面看不出任何异常。 */
+      会**静默覆盖**这家客户在「档案管理 › 组织相关 › 角色权限」里的实际配置，而界面看不出任何异常。 */
 const accScopeTouched = ref(false)
 /* v307：换角色 ⇒ 可登录端**重取默认值**（默认跟随角色）；用户手动改过之后
    再换角色会重设，这是刻意的 —— 换角色等于换岗位，沿用上一个岗位的端设置更危险。 */
@@ -1125,7 +1125,7 @@ async function loadExtAccounts() {
 function openExtCreate() {
   extEditId.value = 0
   extForm.name = ''; extForm.username = ''; extForm.password = ''
-  // v312 同源：默认端取「设置 › 权限」里给「分销商」配的端，而不是写死 'mini'。
+  // v312 同源：默认端取「档案管理 › 组织相关 › 角色权限」里给「分销商」配的端，而不是写死 'mini'。
   // 写死的后果 = 权限页改了分销商政策、这里却仍然按老规矩建号（两处口径）。
   extForm.login_scope = roleEndScope('distributor')
   extNameEdit.value = ''; extPwdEdit.value = ''
@@ -1306,10 +1306,10 @@ async function saveAccScopeCore(scope) {
 /* ---- v312：角色端政策 ↔ 账号实际端的**差异提示与一键对齐** ----------------------
    需求原话（老板）：「在设置中为角色配置权限后…该员工只有小程序权限」。
    功能权限那条**本来就是继承**（员工没有自己的模块权限）；端这条是**两层**：
-     · 角色政策（`role_end`，在「设置 › 权限」配）—— 决定**新建账号**的默认值；
+     · 角色政策（`role_end`，在「档案管理 › 组织相关 › 角色权限」配）—— 决定**新建账号**的默认值；
      · 账号事实（`users.login_scope`）—— 建号后仍可单独改（v307 的"保留手动开通"）。
    ⇒ 改角色政策时**不动已有账号**。但必须让老板**看得见**这个差异，所以有下面这一对。 */
-/** 当前所选角色在「设置 › 权限」里配的默认端。 */
+/** 当前所选角色在「档案管理 › 组织相关 › 角色权限」里配的默认端。 */
 const accScopeDefault = computed(() => roleEndScope(accRoleEdit.value))
 /** 这个账号的端 ≠ 它角色的默认端。
  *  🔴 **只用来提示，绝不自动改**：自动对齐会把"当初特意给某人开过网页端"的账号

@@ -92,7 +92,11 @@ export const SUB_TITLES = {
   '/settings': {
     _default: 'account',
     account: '账号与组织',
-    perm: '权限管理',
+    // v474：侧栏入口已归位到「档案管理 › 组织相关 › 角色权限」，故这里与 NAV/页面卡片标题
+    //   逐字统一为「角色权限」（本仓纪律：侧栏显示名 / 标签栏标题 / 页面标题必须逐字一致，
+    //   否则老板跨面对照会当成两个不同的功能）。⚠️ `perm` 这个 **URL 键不许改** —— 它是
+    //   旧深链 `#/settings?tab=perm` 的落点，改了等于让书签失效。
+    perm: '角色权限',
     ai: 'AI 配置',
     aiops: 'AI 运维',
     system: '数据与系统'

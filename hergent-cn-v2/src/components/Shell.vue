@@ -47,7 +47,7 @@
                `constants/pages.js` 的页面注册表。需求原话（老板）：
                「不同角色登录进去后只能看到自己有权限的页面」。
                两条轴（见 pages.js 文件头）：`module` = 本租户有没有买这个能力（客户可在
-               「设置 › 权限」自助勾选）；`roles` = 这一页天然只给哪几类人（产品内置，
+               「档案管理 › 组织相关 › 角色权限」自助勾选）；`roles` = 这一页天然只给哪几类人（产品内置，
                权限页勾选也放不开 —— 价格体系/定时任务这类不该因一次误勾就对全员敞开）。
                🔴 为什么必须有 `roles` 这一轴：`data` 模块覆盖 **83 个接口**（报单要走它），
                   而员工/司机/导购都持有 `data`/`stock` ⇒ 只按模块判，员工登录后能看到
@@ -775,7 +775,30 @@ const NAV = [
         { path: '/archive/suppliers',  name: '供应商档案', icon: 'store' }
       ] },
       { label: '组织相关', items: [
-        { path: '/archive/employees',  name: '员工档案',   icon: 'users' }
+        { path: '/archive/employees',  name: '员工档案',   icon: 'users' },
+        /* v474（2026-10-12）：**角色权限**从「系统 › 系统设置」归位到本列（老板指令：
+           「现在的角色权限在系统--权限管理里，把这个移到侧边栏『档案管理--组织相关』分组」）。
+
+           🔴 **为什么对标舟谱是「并列一项」而不是嵌进员工档案页里**：舟谱原图
+              （`~/Documents/舟谱截图/档案管理/档案管理弹窗.png`）里「员工相关」列下就是
+              **员工与部门 · 角色权限配置** 两项并列；它的「设置」里（`设置弹窗截图.png`）
+              压根没有角色权限 ⇒ 归位方向完全对，但层级是**平级**，故做成兄弟项而非子页。
+              另外 v396（2026-10-08）刚退役"模块内页签"，嵌进员工档案页会逆着刚拍板的方向走。
+
+           ⚠️ **本轮只挪侧栏入口，页面仍复用 `/settings?tab=perm`**（零重构、零风险）：
+              · 深链、书签、群里的旧链接**全部不受影响**（不必加条件重定向）；
+              · `isCur` 走 `effTab` 归一化 ⇒ 停在权限页时高亮落在**档案管理 › 角色权限**，
+                「系统 › 设置」那一列不再亮（`areaCur` 靠 `some(isCur)`，不是路径前缀匹配）；
+              · 「组织相关」列对主管等仍有「员工档案」兜底 ⇒ 不会因加了这一条而露出空列。
+
+           🔴 **判据仍只有 `canSee(path)` 一处**：`/settings` 是 `module:null` + `ADMIN_ROLES`
+              + `lock: true`（`constants/pages.js`）⇒ 只有老板/管理员看得到这一条；别的角色
+              进来它被 `resolveNavItem` 过滤掉，**不会**产生"能点开但一改就 403"的假入口。
+           ⚠️ 将来若要把它升级成真·独立子页 `/archive/roles`（那样连地址都对齐舟谱），
+              照 `/archive/prices` 的先例做，并**必须**给 `#/settings?tab=perm` 补条件重定向
+              ——`Settings.vue::normSettingsTab` 的兜底是 `'account'`，不补就是旧链接静默落到
+              「账号与组织」（URL 与内容对不上、零报错）。 */
+        { path: '/settings', tab: 'perm', name: '角色权限', icon: 'shield' }
       ] },
       { label: '仓储相关', items: [
         { path: '/archive/warehouses', name: '仓库档案',   icon: 'toolbox' }
@@ -811,9 +834,12 @@ const NAV = [
       ] },
       { label: '自动化', items: [ { path: '/cron', name: '定时任务', icon: 'clock' } ] },
       // v427：「设置」同样拆成 5 个独立子页（与上方同源）。
+      // v474：「权限管理」已**移出本组** → 「档案管理 › 组织相关 › 角色权限」（见上方该条注释）。
+      // ⚠️ 这里只剩 4 项，但 `tabTitles.js` 的 `SUB_TITLES['/settings']` 仍**保留 `perm` 键** ——
+      //    深链 `#/settings?tab=perm` 仍然有效（不删 = 旧书签不失效），删它才会让标签栏回落成
+      //    主标题「设置」，那才是真退化。
       { label: '系统设置', items: [
         { path: '/settings', tab: 'account', name: '账号与组织', icon: 'users' },
-        { path: '/settings', tab: 'perm',    name: '权限管理',   icon: 'shield' },
         { path: '/settings', tab: 'ai',      name: 'AI 配置',   icon: 'brain' },
         { path: '/settings', tab: 'aiops',   name: 'AI 运维',   icon: 'wrench' },
         { path: '/settings', tab: 'system',  name: '数据与系统', icon: 'package' }

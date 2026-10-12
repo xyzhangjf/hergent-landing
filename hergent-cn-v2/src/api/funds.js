@@ -4,7 +4,7 @@
    后端 = 资金管理域 `server/funds_api.py`（router prefix = `/api/funds`）。
    全部走既有已映射前缀 `/api/funds`，不新增权限域（前端可见性在
    `pages.js::PAGE_RULES` 里用 `module:'funds'` + 窄名单 `ADMIN_ROLES+accountant`
-   表达，与「设置 › 权限」里的「资金管理」开关同源）。
+   表达，与「档案管理 › 组织相关 › 角色权限」里的「资金管理」开关同源）。
 
    ⚠️ 契约同 `client.js`：`api()` 成功返回 `data.data`（无该字段则返回整包）；
       失败抛 `Error`（挂 `err.status`）。页面必须显示错误，不许 `catch {}` 吞掉。
