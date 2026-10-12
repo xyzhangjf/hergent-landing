@@ -32,21 +32,44 @@ const props = defineProps({
   bust: { type: [String, Number], default: '' }
 })
 
+// v484：后端确认「连内置头像都没有」的角色（自定义角色）记在这里，
+//   避免消息流里每条 AI 消息都发一次注定 404 的请求。
+//   ⚠️ 模块级（跨实例共享）：一旦某处加载成功会立即移除（见 onImgLoad）。
+const NO_AVATAR = new Set()
+
 const src = computed(() => {
   const r = props.role
-  if (!r || !r.custom_avatar || !r.role_id) return ''
+  if (!r || !r.role_id) return ''
+  // v484：🔴 不再要求 custom_avatar=1。
+  //   后端 GET /api/ai/roles/{role_id}/avatar 的回落链是：
+  //     本租户自定义头像 → 主租户(tenant 1) 的内置 3D 人物头像 → 404
+  //   ⇒「本租户没传头像」时会自动拿到 boss 账号那套 3D 人物头像（同一张 PNG），
+  //     只有连内置图都没有（纯自定义角色）才 404 → 回落 emoji。
+  //   此前只认 custom_avatar ⇒ 未上传头像的租户一律显示 🚀（老板实测）。
+  //   bust 存在时（刚上传头像）强制重试，不被 NO_AVATAR 拦住。
+  if (!props.bust && NO_AVATAR.has(r.role_id)) return ''
   return `/api/ai/roles/${r.role_id}/avatar` + (props.bust ? `?t=${props.bust}` : '')
 })
 
-// PNG 加载失败（角色被删 / 文件丢）时退回 emoji —— 免得界面上出现裂图。
+// PNG 加载失败（角色被删 / 连内置图都没有）时退回 emoji —— 免得界面上出现裂图。
 // 挂在 src 上 watch，换角色或重传头像后自动复位重试。
 const failed = ref(false)
 watch(src, () => { failed.value = false })
+
+function onImgError() {
+  if (props.role && props.role.role_id) NO_AVATAR.add(props.role.role_id)
+  failed.value = true
+}
+
+function onImgLoad() {
+  // 加载成功 ⇒ 该角色确实有头像（可能是刚上传的），从黑名单移除让其它位置也显示。
+  if (props.role && props.role.role_id) NO_AVATAR.delete(props.role.role_id)
+}
 
 const text = computed(() => (props.role && props.role.avatar) || props.fallback)
 </script>
 
 <template>
-  <img v-if="src && !failed" :src="src" :class="imgClass" :alt="(role && role.name) || ''" @error="failed = true">
+  <img v-if="src && !failed" :src="src" :class="imgClass" :alt="(role && role.name) || ''" @error="onImgError" @load="onImgLoad">
   <span v-else :class="textClass">{{ text }}</span>
 </template>
