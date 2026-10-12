@@ -54,11 +54,22 @@
         </div>
         <div class="ipl-f">
           <label class="ipl-lb">单据日期从</label>
-          <input type="date" v-model="f.date_from" class="input ipl-date" @change="load()" />
+          <input type="date" v-model="f.date_from" class="input ipl-date" @change="onDateManual" />
         </div>
         <div class="ipl-f">
           <label class="ipl-lb">至</label>
-          <input type="date" v-model="f.date_to" class="input ipl-date" @change="load()" />
+          <input type="date" v-model="f.date_to" class="input ipl-date" @change="onDateManual" />
+        </div>
+        <!-- v479 P0-2：创建时间快捷筛选（舟谱优势项）。点一下自动填日期区间并重拉；高亮当前档；手动改日期框会清掉高亮。 -->
+        <div class="ipl-f ipl-f-quick">
+          <label class="ipl-lb">快捷</label>
+          <div class="ipl-date-quick">
+            <button type="button" class="ipl-qbtn" :class="{ on: quickRange === 'today' }" @click="setDateRange('today')">今</button>
+            <button type="button" class="ipl-qbtn" :class="{ on: quickRange === 'yesterday' }" @click="setDateRange('yesterday')">昨</button>
+            <button type="button" class="ipl-qbtn" :class="{ on: quickRange === '7' }" @click="setDateRange('7')">近7天</button>
+            <button type="button" class="ipl-qbtn" :class="{ on: quickRange === '30' }" @click="setDateRange('30')">近30天</button>
+            <button type="button" class="ipl-qbtn" :class="{ on: quickRange === '' }" @click="clearDateRange">全部</button>
+          </div>
         </div>
         <div class="ipl-fbtns">
           <button class="btn btn-primary btn-sm" :disabled="loading" @click="load()">
@@ -1020,6 +1031,26 @@ function baseFilter () {
 }
 const f = ref(baseFilter())
 
+/* v479 P0-2：创建时间快捷筛选。quickRange 只用于高亮当前档；真实值落在 f.date_from/date_to。 */
+const quickRange = ref('')
+function toLocalISO (d) {
+  // 🔴 用本地时区切片，避免 toISOString() 的 UTC 偏移（北京时间凌晨 0–8 点会算成前一天）
+  const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+  return z.toISOString().slice(0, 10)
+}
+function setDateRange (r) {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const fmt = toLocalISO(today)
+  if (r === 'today') { f.value.date_from = fmt; f.value.date_to = fmt }
+  else if (r === 'yesterday') { const y = new Date(today); y.setDate(today.getDate() - 1); const yf = toLocalISO(y); f.value.date_from = yf; f.value.date_to = yf }
+  else if (r === '7') { const s = new Date(today); s.setDate(today.getDate() - 6); f.value.date_from = toLocalISO(s); f.value.date_to = fmt }
+  else if (r === '30') { const s = new Date(today); s.setDate(today.getDate() - 29); f.value.date_from = toLocalISO(s); f.value.date_to = fmt }
+  quickRange.value = r
+  load()
+}
+function clearDateRange () { f.value.date_from = ''; f.value.date_to = ''; quickRange.value = ''; load() }
+function onDateManual () { quickRange.value = ''; load() }
+
 /* ══ v470：表头点击排序（**服务端排序**） ══════════════════════════════════
    🔴 为什么必须走后端：本列表是**服务端分页**（`limit/offset`）。只对当前页这 20 行
       重排，看着"排好了"，一翻页就散架（第 2 页是另一批 20 行，排序基准不同）。
@@ -1181,7 +1212,7 @@ async function loadBase () {
   }
 }
 
-function resetFilter () { f.value = baseFilter(); load() }
+function resetFilter () { f.value = baseFilter(); quickRange.value = ''; load() }
 function pickTab (v) { f.value.status = v; load() }
 /* v449：直达**本页签对应的独立建单页**（采购单 / 采购退货单各一张页面）。
    旧写法是 `/inventory/purchase/new?kind=return` 再靠路由 `beforeEnter` 改道 ——
@@ -1479,6 +1510,17 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-kw { height: 32px }
 .ipl-sel { min-width: 150px; height: 32px }
 .ipl-date { height: 32px }
+/* v479 P0-2：创建时间快捷筛选按钮组 */
+.ipl-f-quick { gap: 6px }
+.ipl-date-quick { display: flex; gap: 4px; flex-wrap: wrap }
+.ipl-qbtn { height: 30px; padding: 0 10px; border: 1px solid #d9d9d9; background: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; color: #555; transition: all .15s }
+.ipl-qbtn:hover { border-color: #2d6cdf; color: #2d6cdf }
+.ipl-qbtn.on { background: #2d6cdf; border-color: #2d6cdf; color: #fff }
+@media (prefers-color-scheme: dark) {
+  .ipl-qbtn { background: #2a2f3a; border-color: #3a4150; color: #c5ccd6 }
+  .ipl-qbtn:hover { border-color: #4d8bff; color: #4d8bff }
+  .ipl-qbtn.on { background: #4d8bff; border-color: #4d8bff; color: #fff }
+}
 .ipl-fbtns { display: flex; align-items: center; gap: 8px; margin-left: auto }
 .ipl-chk-mark { align-self: flex-end; height: 32px; margin-left: auto }
 
