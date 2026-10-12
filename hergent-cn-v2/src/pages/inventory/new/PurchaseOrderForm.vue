@@ -362,7 +362,7 @@
             <button class="ipn-mi" @click="submit('approve')">保存并审核</button>
             <button class="ipn-mi" @click="submit('approveNew')">审核并新增</button>
             <button class="ipn-mi" @click="submit('approvePrint')">审核并打印</button>
-            <button class="ipn-mi ipn-mi-disabled" @click="submit('approveIssue')">审核并发单 <span class="ipn-mi-tag">待接口</span></button>
+            <button class="ipn-mi" @click="submit('approveIssue')">审核并发单</button>
           </div>
         </div>
       </div>
@@ -1141,8 +1141,8 @@ async function submit (mode) {
 
     if (isApprove) {
       if (editId.value) {
-        /* 编辑态：仍走「更新 + 同一个审核原语」（update 不支持直接 confirmed），
-           把单推到已审核，与新建态一致的业务语义；失败如实报出来。 */
+        /* 编辑态：走「更新 + 同一个审核原语」（update 不支持直接 confirmed），
+           先把单推到已审核，与新建态一致的业务语义；失败如实报出来。 */
         let note = ''
         try {
           const b = await psiApi.batchPurchases('approve', [oid])
@@ -1152,12 +1152,30 @@ async function submit (mode) {
         } catch (e) {
           note = `，但审核未成功：${e.message || '接口报错'}`
         }
-        const tail = isIssue ? '，发单功能待后端接口' : ''
-        toast(`采购单已保存（${no}）${note}${tail}`, note.includes('未成功') ? 'warn' : 'success')
+        // v481（P2-②）：编辑态「审核并发单」—— 先审过（上一步已 confirmed），再发单给供应商。
+        let issueNote = ''
+        if (isIssue) {
+          try {
+            const ir = await psiApi.issuePurchase(oid)
+            issueNote = (ir && ir.ok) ? '，已发单' : `，但发单未成功：${(ir && ir.reason) || '未说明原因'}`
+          } catch (e) {
+            issueNote = `，但发单未成功：${e.message || '接口报错'}`
+          }
+        }
+        toast(`采购单已保存（${no}）${note}${issueNote}`,
+              (note.includes('未成功') || issueNote.includes('未成功')) ? 'warn' : 'success')
       } else {
         // v417（B 语义）：新建/复制态已在 body 里带 `status='confirmed'` 一步建为已审核，
-        // 自己保存自己审核，无需二次调审核接口。
-        const tail = isIssue ? '，发单功能待后端接口' : '，待入库'
+        // 自己保存自己审核，无需二次调审核接口。v481：此刻单已是 confirmed，直接发单。
+        let tail = '，待入库'   // 新建/复制态默认「待入库」
+        if (isIssue && oid) {
+          try {
+            const ir = await psiApi.issuePurchase(oid)
+            tail = (ir && ir.ok) ? '，已发单' : `，但发单未成功：${(ir && ir.reason) || '未说明原因'}`
+          } catch (e) {
+            tail = `，但发单未成功：${e.message || '接口报错'}`
+          }
+        }
         toast(`采购单已保存并审核（${no}）${tail}`, 'success')
       }
     } else if (isPrint) {

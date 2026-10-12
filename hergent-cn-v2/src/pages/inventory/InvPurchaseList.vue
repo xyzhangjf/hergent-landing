@@ -617,6 +617,11 @@ const PO_COLS = [
   //    默认收起：沿用本文件既定规则（新增列默认收起，不硬编码满列）。
   { key: 'received_at',       label: '入库时间',   w: 108 },
   { key: 'auditor_name',      label: '审核人',     w: 84 },
+  // —— v481（P2-①）：列表「参考金额」= 按参考成本价(products.purchase_price)估算的整单成本。
+  //    🔴 与详情页「参考成本价」逐行展示**同一口径**（库里同一列 products.purchase_price），
+  //      只是列表是订单级汇总、详情页是逐行展示。依赖本次后端改动（列表聚合子查询 `ref_amount`）；
+  //      老后端上恒为 `—`（可降级，不是崩溃）。默认收起：新增列默认收起，不硬编码满列。
+  { key: 'ref_amount',        label: '参考金额',   w: 104, num: true },
   // —— v410（P2-3）再补 4 列：最后操作人/时间、最后打印人/时间 ——
   //    ⚠️ **全部依赖本次后端改动**（不像 v408 那 4 列是「后端零改动」）：
   //      · `last_op_at` / `last_print_at` 是 v410 新加的列；
@@ -994,6 +999,8 @@ function colText (r, k) {
     case 'mark': return r.mark || ''
     // P1-5：退货金额（仅退货视图出现）。数据 = 后端 `return_total`（该单对应退货记录合计）。
     case 'return_amount': return isReturn.value ? Number(r.return_total || 0) : ''
+    // v481（P2-①）：导出时按参考金额原值输出（`num` 单元格表格内走 `moneyCell` 自动带 ¥）。
+    case 'ref_amount': return Number(r.ref_amount || 0)
   }
   return ''
 }
@@ -1003,7 +1010,7 @@ function cellVal (r, k) {
   return (t === '' || t === null || t === undefined) ? '—' : t
 }
 /** 金额格统一走 ¥ 前缀；`has_items=false` 的「入库金额 / 未结款」→ `—`（不要伪造 ¥0.00）。 */
-const MONEY_COLS = ['total_amount', 'received_amount', 'paid_amount', 'unpaid', 'return_amount']
+const MONEY_COLS = ['total_amount', 'received_amount', 'paid_amount', 'unpaid', 'return_amount', 'ref_amount']
 function moneyCell (r, k) {
   if ((k === 'received_amount' || k === 'unpaid') && !r.has_items) return '—'
   if (k === 'unpaid') return '¥' + fmtMoney(Number(r.received_amount || 0) - Number(r.paid_amount || 0))

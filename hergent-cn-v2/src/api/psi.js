@@ -174,6 +174,9 @@ export const psiApi = {
   updatePurchase: (id, body) =>
     api(`/api/psi/purchase-orders/${id}`, { method: 'PUT', body }),
 
+  /** 采购单「发单」：把已审核通过（confirmed）的采购单正式下发给供应商（v481 P2-②）。 */
+  issuePurchase: (id) => api(`/api/psi/purchase-orders/${id}/issue`, { method: 'POST' }),
+
   /**
    * P1-1 供应商维度应付余额 / 预付余额（跨该供应商全部单据）。
    * 新建采购单选了供应商即调，让老板开单前就看到「这供应商我们还欠多少、预先付了多少」。
