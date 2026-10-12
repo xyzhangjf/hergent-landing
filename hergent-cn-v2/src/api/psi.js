@@ -545,6 +545,29 @@ export const psiApi = {
   createPurchaseReturn: (body) =>
     api('/api/psi/purchase-return-orders', { method: 'POST', body }),
 
+  /* ---- v450：采购退单附件（建单页「保存后随单上传」的落点）-------------------
+     🔴 与采购单附件（上方 v408 P1-8）**同源但独立命名空间**：退单走
+        `/api/psi/purchase-return-orders/{id}/attachments`，后端 `ref_type='purchase_return'`。
+        不能复用采购单那几个端点 —— 附件按 `(ref_type, ref_id)` 定位归属，
+        共用会让「采购单 #5」与「退货单 #5」的附件互串（零报错的越界）。
+     ⚠️ 上传同为 JSON + base64；20MB 上限，前端先按 `max_mb` 预检。
+     ------------------------------------------------------------------- */
+  /** 退单附件列表。返回 `{items, count, max_mb}`；`items[]` 带 `operator_name`（上传人姓名）。 */
+  getReturnAttachments: (id) => api(`/api/psi/purchase-return-orders/${id}/attachments`),
+
+  /** 上传一个附件到退货单（同名会被后端拒绝 —— 磁盘名按名字拼，同名会覆盖旧文件）。 */
+  uploadReturnAttachment: (id, filename, dataB64) => api(
+    `/api/psi/purchase-return-orders/${id}/attachments`,
+    { method: 'POST', body: { filename, data_b64: dataB64 }, timeout: 120000 }),
+
+  /** 删除退货单的一个附件（后端判断是否还有别的行引用同一文件，再决定删不删盘上文件）。 */
+  deleteReturnAttachment: (id, aid) => api(
+    `/api/psi/purchase-return-orders/${id}/attachments/${aid}`, { method: 'DELETE' }),
+
+  /** 下载退货单附件 —— 走 `apiBlob`（**带 Bearer**），不能 `<a href>`。@returns {Promise<Blob>} */
+  downloadReturnAttachment: (id, aid) => apiBlob(
+    `/api/psi/purchase-return-orders/${id}/attachments/${aid}/download`),
+
   /* ---- v449：调拨（真双仓，`transfer_orders` 表）---------------------------- */
   /**
    * 调拨单列表（**只读投影**）。

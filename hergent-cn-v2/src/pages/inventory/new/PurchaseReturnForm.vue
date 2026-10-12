@@ -6,6 +6,19 @@
         <span v-if="cfg.sub" class="page-sub">{{ cfg.sub }}</span>
       </div>
       <div class="ipn-acts">
+        <!-- v450：附件入口（对齐舟谱建单页右上角「上传附件」；与采购订单建单页 v438 同款）。
+             🔴 建单页**还没有退货单 id**，附件无法即时落库 ⇒ 选完先「暂存」在本页，
+                点保存拿到 id 后随单上传（之后在详情页「附件」里可见 / 可下）。
+             ⚠️ 只在**模式 B（不挂原单）**给入口：模式 A 的单据归属不同
+                （走 `/purchase-orders/{oid}/return`），不猜、不埋暗坑。 -->
+        <template v-if="!isAttached">
+          <button class="btn btn-ghost btn-sm" :disabled="saving" @click="pickAttachments">
+            <Icon name="upload" :size="14" />上传附件<span v-if="stagedFiles.length" class="ipn-at-badge">{{ stagedFiles.length }}</span>
+          </button>
+          <!-- 隐藏的 file input：真正「选文件」由上面的按钮触发。
+               ⚠️ 不能用 `display:none`（部分浏览器 `.click()` 不触发）；多选：一次可挑多张。 -->
+          <input ref="attFileEl" type="file" multiple class="ipn-at-file" @change="onAttachPick" />
+        </template>
         <button class="btn btn-ghost btn-sm" :disabled="saving" @click="back">返回列表</button>
       </div>
     </div>
@@ -150,6 +163,10 @@
           <SupplierCombo v-model="form.supplier_id" :suppliers="suppliers" placeholder="输入名称或编号搜索供应商" />
         </div>
         <div class="ipn-f">
+          <label class="ipn-lb">经办人</label>
+          <span class="ipn-ro">{{ operatorName }}</span>
+        </div>
+        <div class="ipn-f">
           <label class="ipn-lb"><span class="ipn-req">*</span>{{ cfg.whLabel }}</label>
           <select v-model.number="form.warehouse_id" class="input ipn-sel">
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
@@ -161,8 +178,30 @@
         </div>
         <div class="ipn-f ipn-f-grow">
           <label class="ipn-lb">备注</label>
-          <input v-model.trim="form.note" maxlength="200" class="input ipn-note-in" />
+          <input v-model.trim="form.note" maxlength="500" class="input ipn-note-in" />
         </div>
+      </div>
+
+      <!-- v450：附件暂存条 —— 建单页没有退货单 id，附件不能即时落库。
+           选完先列在这里，点「保存」拿到 id 后随单上传（之后在详情页「附件」里可见 / 可下）。
+           🔴 文案如实写「保存后随单上传」：不假装已经传上去；不保存就离开 ⇒ 这几个文件丢弃。
+           与采购订单建单页 v438 逐字同源（`.ipn-at-*` 样式块本就与那边共用，视觉自动一致）。 -->
+      <div v-if="(stagedFiles.length || attMsg)" class="ipn-at-bar">
+        <span class="ipn-at-hd">
+          <Icon name="file" :size="14" />
+          本次新增附件<template v-if="stagedFiles.length">（{{ stagedFiles.length }}）</template>
+          <em class="ipn-at-tip">保存后随单上传</em>
+        </span>
+        <ul v-if="stagedFiles.length" class="ipn-at-list">
+          <li v-for="s in stagedFiles" :key="s.key">
+            <span class="ipn-at-nm" :title="s.name">{{ s.name }}</span>
+            <span class="ipn-at-sz">{{ fmtSize(s.size) }}</span>
+            <button class="ipn-at-x" type="button" title="移除" @click="removeStaged(s.key)">
+              <Icon name="close" :size="12" />
+            </button>
+          </li>
+        </ul>
+        <p v-if="attMsg" class="ipn-at-msg">{{ attMsg }}</p>
       </div>
 
       <p v-if="cfg.hint" class="ipn-hint">{{ cfg.hint }}</p>
@@ -176,6 +215,12 @@
         </span>
         <span class="ipn-si">
           <span class="ipn-sk">退货合计</span><b class="ipn-strip-amt">¥{{ fmtMoney(totalAmount) }}</b>
+        </span>
+        <span class="ipn-si">
+          <span class="ipn-sk">应付余额</span><b>¥{{ fmtMoney(supplierBal ? Number(supplierBal.payable) : 0) }}</b>
+        </span>
+        <span class="ipn-si">
+          <span class="ipn-sk">预付余额</span><b>¥{{ fmtMoney(supplierBal ? Number(supplierBal.prepaid) : 0) }}</b>
         </span>
       </div>
 
@@ -278,9 +323,10 @@
    🔴 页面里**不出现**标题 / 仓库标签 / 伙伴标签 / 价格列名 / 列表落点 / 提示语的字面量
      —— 一律走 `purchaseDocConfig()`（见 `docTypes.js`）。加一种单据只改配置。
 
-   🔴 已知差距（有意不做，登记在案）：`purchase_returns` 表**没有**部门 / 经办人列
-     ⇒ 这里不摆这两格。舟谱的退货单头有 `*经办人` / `*部门`，要补得先加列 + 打通
-     `purchase_return_create` 与两条端点。详见 `docTypes.js` 的「已知差距」。
+   🔴 已知差距（有意不做，登记在案）：`purchase_returns` 表**没有**部门列
+     （经办人列 `operator_id` 已存在，L1 已只读显示当前登录用户，见表头经办人格）。
+     ⇒ 部门格这里不摆。舟谱的退货单头有 `*部门`，要补得先建部门主数据 + 加列 + 打通端点。
+     详见 `docTypes.js` 的「已知差距」。
    ═══════════════════════════════════════════════════════════════════════════════ */
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -290,7 +336,7 @@ import { useColSettings } from '../../../composables/useColSettings.js'
 import { useColResize } from '../../../composables/useColResize.js'
 import ColResizeHandle from '../../../components/ColResizeHandle.vue'
 import { psiApi } from '../../../api/psi'
-import { toast } from '../../../store'
+import { toast, store } from '../../../store'
 import { fmtMoney, PO_STATUS, textOf } from '../../../constants/psiLabels'
 import { purchaseDocConfig, PURCHASE_DOC_TYPES } from './docTypes.js'
 import SupplierCombo from './SupplierCombo.vue'
@@ -396,6 +442,17 @@ const PRESET_ROWS = 15
 
 const selSupplier = computed(() =>
   suppliers.value.find(s => Number(s.id) === Number(form.value.supplier_id)) || null)
+/* L1（B方案·舟谱创建页对齐）：经办人 = 当前登录用户，只读展示（operator_id 已落库于
+   `purchase_returns.operator_id`，后端从登录态自动带；这里只显示、不引入选人逻辑）。 */
+const operatorName = computed(() => (store.user && store.user.name) ? store.user.name : '—')
+/** L1（B方案）：选供应商后拉该供应商应付/预付余额，对齐舟谱创建页「应付金额 / 预付金额」读数。
+    复用现成 `GET /api/psi/suppliers/{sid}/balance`（psi.js:181），只读、不动后端、不动表。 */
+const supplierBal = ref(null)
+watch(() => form.value.supplier_id, async (sid) => {
+  if (!sid) { supplierBal.value = null; return }
+  try { supplierBal.value = await psiApi.supplierBalance(Number(sid)) }
+  catch (e) { supplierBal.value = null }
+})
 const filledRows = computed(() => items.value.filter(r => Number(r.product_id) > 0))
 const totalAmount = computed(() => items.value.reduce((s, r) => s + rowAmount(r), 0))
 
@@ -486,7 +543,23 @@ async function submitStandalone () {
         unit_price: Number(x.unit_price),
       })),
     })
-    toast(`退货单已生成${r && r.return_id ? '（#' + r.return_id + '）' : ''}`, 'success')
+    /* 后端返回 `{success, id, total}`（`createPurchaseReturn`）⇒ 取 `id` 作单据号。
+       ⚠️ 原来这里读的是 `r.return_id` —— 该键后端从不返回 ⇒ 提示里的单号一直是空的（恒不显示）。
+       顺手改成 `r.return_id || r.id`：对后端任一命名都成立。 */
+    const rid = Number((r && (r.return_id || r.id)) || 0)
+    /* v450：单据已落库、`rid` 到手 ⇒ 把暂存的附件随单上传。
+       🔴 放在「保存成功」之后、「跳转」之前：只有单据真建成了才有 id 可挂。
+       🔴 `uploadStaged` 自己吞异常 ⇒ 上传失败**不会**走到下面的 catch 去报「保存失败」
+          （那会把已建好的单说成没建成，是谎报）。 */
+    const attRes = await uploadStaged(rid)
+    toast(`退货单已生成${rid ? '（#' + rid + '）' : ''}`, 'success')
+    /* v450：附件上传结果**单独报**（不并入上面那句「已生成」）——
+       单据成功与附件失败是两件事，混成一句会让失败被「已生成」盖过去。 */
+    if (attRes.fail.length) {
+      toast(`${attRes.fail.length} 个附件上传失败：${attRes.fail.join('；')}`, 'warn')
+    } else if (attRes.ok) {
+      toast(`已上传 ${attRes.ok} 个附件`, 'success')
+    }
     router.push({ path: cfg.value.listPath, query: cfg.value.listQuery || {} })
   } catch (e) {
     // 后端 detail 原样显示（例如「请指定退货供应商」）
@@ -494,6 +567,86 @@ async function submitStandalone () {
   } finally {
     saving.value = false
   }
+}
+
+/* ══ v450 附件（建单页 · 模式 B）══════════════════════════════════════════════════
+   🔴 为什么是「先暂存、保存后上传」而不是选完即传：附件接口是
+      `/api/psi/purchase-return-orders/{id}/attachments`，**要退货单 id**；而本页在
+      点保存之前**没有 id**（id 由 `createPurchaseReturn` 生成）⇒ 选完无处可挂。
+      所以：选中 → 先列在本页（`stagedFiles`）→ 保存拿到 `rid` → 逐个上传。
+   🔴 **不假装已上传**：文案如实写「保存后随单上传」；不保存就离开 ⇒ 这几个文件丢弃
+      （暂存是本页内存态，不是服务端草稿）。
+   🔴 上传失败**不回滚单据**：单据是主体、附件是附属，不能因为一张图失败就把建好的单撤了；
+      改为把失败的文件留在列表里如实报出来（后端同名会拒绝，这类原因必须让用户看到）。
+   ⚠️ 与采购订单建单页（v438）**同一份实现**；`.ipn-at-*` 样式块本就与那边逐字节同源。
+   ══════════════════════════════════════════════════════════════════════════════ */
+const ATT_MAX_MB = 20          // 与后端同口径（列表端点另下发 max_mb，此处用默认值兜底）
+const attFileEl = ref(null)
+const stagedFiles = ref([])    // [{ key, name, size, file }]
+const attMsg = ref('')
+let attSeq = 0
+
+function fmtSize (n) {
+  const b = Number(n) || 0
+  if (b >= 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + ' MB'
+  if (b >= 1024) return Math.round(b / 1024) + ' KB'
+  return b + ' B'
+}
+
+function pickAttachments () {
+  attMsg.value = ''
+  if (attFileEl.value) { attFileEl.value.value = ''; attFileEl.value.click() }
+}
+
+/** File → base64（**去掉** `data:...;base64,` 前缀 —— 后端只接受裸 base64）。 */
+function readFileAsBase64 (f) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => {
+      const s = String(r.result || '')
+      const i = s.indexOf(',')
+      resolve(i >= 0 ? s.slice(i + 1) : s)
+    }
+    r.onerror = () => reject(new Error('文件读取失败，请重试'))
+    r.readAsDataURL(f)
+  })
+}
+
+function onAttachPick (ev) {
+  const el = ev.target
+  const picked = Array.from(el.files || [])
+  el.value = ''                       // 清空 ⇒ 再选同一个文件仍会触发 change
+  const tooBig = []
+  picked.forEach(f => {
+    if (f.size > ATT_MAX_MB * 1024 * 1024) { tooBig.push(f.name); return }
+    stagedFiles.value = stagedFiles.value.concat([{ key: ++attSeq, name: f.name, size: f.size, file: f }])
+  })
+  attMsg.value = tooBig.length ? `超过 ${ATT_MAX_MB}MB 未加入：${tooBig.join('、')}` : ''
+}
+
+function removeStaged (key) {
+  stagedFiles.value = stagedFiles.value.filter(x => x.key !== key)
+}
+
+/** 保存拿到 rid 后把暂存文件逐个上传。**自己吞异常**（不能连累外层 try：单据已经建好了）。
+ *  @returns {{ok:number, fail:string[]}} 失败的留在 `stagedFiles` 里供用户看见。 */
+async function uploadStaged (rid) {
+  if (!rid || !stagedFiles.value.length) return { ok: 0, fail: [] }
+  let ok = 0
+  const fail = []
+  const left = []
+  for (const s of stagedFiles.value) {
+    try {
+      const b64 = await readFileAsBase64(s.file)
+      await psiApi.uploadReturnAttachment(rid, s.name, b64)
+      ok++
+    } catch (e) {
+      fail.push(`${s.name}（${e.message || '上传失败'}）`)
+      left.push(s)
+    }
+  }
+  stagedFiles.value = left
+  return { ok, fail }
 }
 
 /* ══ 模式 A 的逻辑（原样搬移）════════════════════════════════════════════════════ */

@@ -194,15 +194,15 @@ const PURCHASE_CFG = {
     listQuery: { kind: 'order' },
   },
   [PURCHASE_DOC_TYPES.PURCHASE_RETURN]: {
-    title: '新建采购退货单',
+    title: '创建采购退货订单',
     /* ⚠️ 退货单**没有**「复制 / 编辑」入口（列表页不给这两个动作、也没有
        `?copy=` / `?edit=` 的读法）⇒ 这里直接沿用 title 作兜底，
        免得有人后来加了入口却拿到 `undefined` 标题（空白 h2）。
        🔴 v458：原 `sub` / `copySub` / `editSub` / `hint` / `tip` 五条内联说明
        （「把货退回供应商…」「退货不用挑原采购单…」「小单位填写…」）已移除，
        仅保留业务逻辑，界面更简洁。小单位口径的口径说明见 `PurchaseReturnForm` 的 `onPick` 注释。 */
-    copyTitle: '新建采购退货单',
-    editTitle: '新建采购退货单',
+    copyTitle: '创建采购退货订单',
+    editTitle: '创建采购退货订单',
     shortTitle: '采购退货单',
     partnerLabel: '供应商',
     whLabel: '退货仓库',
