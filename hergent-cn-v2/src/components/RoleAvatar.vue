@@ -43,7 +43,9 @@ const src = computed(() => {
   // v484：🔴 不再要求 custom_avatar=1。
   //   后端 GET /api/ai/roles/{role_id}/avatar 的回落链是：
   //     本租户自定义头像 → 主租户(tenant 1) 的内置 3D 人物头像 → 404
-  //   ⇒「本租户没传头像」时会自动拿到 boss 账号那套 3D 人物头像（同一张 PNG），
+  //   ⇒「本租户没传头像」时，会按 role_id 精确匹配到 boss 账号**该角色自己的那一张**
+  //     3D 人物头像（copilot→copilot.png、accountant→accountant.png、cs→cs.png、
+  //     secretary→secretary.png —— 四个角色是四张互不相同的图，不是共用一张），
   //     只有连内置图都没有（纯自定义角色）才 404 → 回落 emoji。
   //   此前只认 custom_avatar ⇒ 未上传头像的租户一律显示 🚀（老板实测）。
   //   bust 存在时（刚上传头像）强制重试，不被 NO_AVATAR 拦住。

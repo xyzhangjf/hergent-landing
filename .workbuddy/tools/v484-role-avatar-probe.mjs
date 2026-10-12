@@ -84,34 +84,58 @@ async function login() {
 //    （store/index.js:538-544），直接注入 Pinia 会被随后的真实数据冲掉（探针实测踩到）。
 //    桩掉它 ⇒ 顶栏/将由X回答/消息三处都拿到我们指定的角色。
 // 头像走 <img>，不经过 fetch ⇒ 仍真实打后端，验证「无自有头像 → 回落 boss 3D PNG」链路。
-const initSrc = (d, theme, customAvatar) => [
+// meta: {role_id,name,avatar,custom_avatar} —— v484 补：可注入**任意角色**，用于验证「不同角色取到不同 3D 头像」
+const initSrc = (d, theme, customAvatar, meta, allRoles) => {
+  const M = meta || { role_id: 'copilot', name: '经营副驾', avatar: '\uD83D\uDE80', custom_avatar: customAvatar, is_active: 1 }
+  const R = allRoles || [M]
+  return [
   "localStorage.setItem('hergent_v2_token'," + JSON.stringify(d.token) + ");",
   "localStorage.setItem('hergent_v2_csrf'," + JSON.stringify(d.csrf_token || '') + ");",
   "localStorage.setItem('hergent_v2_user'," + JSON.stringify(JSON.stringify(d.user || {})) + ");",
   "localStorage.setItem('hergent_v2_tenant'," + JSON.stringify(String(d.tenant_id || 1)) + ");",
   "localStorage.setItem('hergent_theme','" + theme + "');",
   "(function(){var _f=window.fetch?window.fetch.bind(window):null;",
-  "var META={role_id:'copilot',name:'经营副驾',avatar:'🚀',custom_avatar:" + customAvatar + ",is_active:1};",
+  "var META=" + JSON.stringify(M) + ";",
+  "var ALL=" + JSON.stringify(R) + ";",
   "window.__probeMeta=META;",
   "window.fetch=function(u,o){var url=(u&&u.url)||String(u);",
   "if(url.indexOf('/api/ai/roles')>=0&&url.indexOf('/avatar')<0&&url.indexOf('/channels')<0){",
-  "return Promise.resolve(new Response(JSON.stringify({roles:[META],ok:true,success:true}),",
+  "return Promise.resolve(new Response(JSON.stringify({roles:ALL,ok:true,success:true}),",
   "{status:200,headers:{'Content-Type':'application/json'}}));}",
   "return _f?_f(u,o):Promise.reject(new Error('no fetch'));};})();",
-].join('')
+  ].join('')
+}
 
 // 注入「经营副驾」角色：customAvatar=0 模拟未上传头像的租户；=1 模拟 boss 自己
-const mkSetup = (customAvatar) => [
+// meta: 可选，注入任意角色（默认「经营副驾」）
+// 🔴 v484 注意：CopilotDrawer.vue:1287 `currentRole = roles.find(...) || list[0]`
+//    ⇒ 若 roles 里**没有**要切到的角色，会静默回落 list[0]（头像纹丝不动）。
+//    所以切换场景必须把候选角色**全部**注进 roles，否则测的是探针缺陷不是产品。
+const mkSetup = (customAvatar, meta, allRoles) => {
+  const M = meta || { role_id: 'copilot', name: '经营副驾', avatar: '\uD83D\uDE80', custom_avatar: customAvatar, is_active: 1 }
+  const R = allRoles || [M]
+  return [
   "(function(){",
   "var el=document.querySelector('#app');if(!el||!el.__vue_app__)return 'no-app';",
   "var app=el.__vue_app__;var pinia=app.config.globalProperties.$pinia;if(!pinia)return 'no-pinia';",
   "var st=pinia._s.get('app');if(!st)return 'no-store';",
   "st.ui.copilotOpen=true;st.chat.streaming=false;",
-  "var meta={role_id:'copilot',name:'经营副驾',avatar:'🚀',custom_avatar:" + customAvatar + ",is_active:1};",
-  "st.chat.roles=[meta];",
-  "st.chat.currentRole='copilot';",
+  "var meta=" + JSON.stringify(M) + ";",
+  "st.chat.roles=" + JSON.stringify(R) + ";",
+  "st.chat.currentRole=" + JSON.stringify(M.role_id) + ";",
   "st.chat.messages=[{role:'user',content:'今天经营怎么样？'},",
   "{role:'assistant',content:'今日待办 3 项，风险 1 项。',roleMeta:meta}];",
+  "return 'ok';})()",
+  ].join('')
+}
+
+// 在同一页面内切换当前角色 → 验证「不同角色取到不同的 3D 头像」
+const mkSwitch = (roleId) => [
+  "(function(){",
+  "var el=document.querySelector('#app');if(!el||!el.__vue_app__)return 'no-app';",
+  "var st=el.__vue_app__.config.globalProperties.$pinia._s.get('app');if(!st)return 'no-store';",
+  "st.ui.copilotOpen=true;",
+  "st.chat.currentRole=" + JSON.stringify(roleId) + ";",
   "return 'ok';})()",
 ].join('')
 
@@ -164,6 +188,58 @@ async function runCase(browser, url, customAvatar, tag) {
   await page.screenshot(path.join(SHOT_DIR, tag + '.png')).catch(() => {})
 }
 
+// 读顶栏头像：src + 是否已加载 + **字节指纹**（在页面内 fetch 同一 URL 算 FNV-1a + 长度）
+//   为什么不算 md5 而算 FNV：只需证明「四个角色拿到四个**不同**的字节流」，无需抗碰撞。
+const AV_FINGERPRINT = `(function(async){
+  var img=document.querySelector('.cp-ai-img-png');
+  if(!img) return {tag:null,src:null,nw:0,len:0,fp:null};
+  return fetch(img.getAttribute('src'),{credentials:'include'}).then(function(r){
+    if(!r.ok) return {tag:img.tagName,src:img.getAttribute('src'),nw:img.naturalWidth||0,len:-1,fp:'http'+r.status};
+    return r.arrayBuffer().then(function(b){
+      var u=new Uint8Array(b),h=0x811c9dc5;
+      for(var i=0;i<u.length;i++){h^=u[i];h=(h+((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24)))>>>0;}
+      return {tag:img.tagName,src:img.getAttribute('src'),nw:img.naturalWidth||0,len:u.length,fp:h.toString(16)};
+    });
+  });
+})()`
+
+// 场景：4 个内置角色各不相同（对齐老板「boss 账号 4 个角色是 4 张不同 3D 头像」的事实）
+const ROLES = [
+  { role_id: 'copilot',    name: '经营副驾', avatar: '\uD83D\uDE80', len: 96928, custom_avatar: 0, is_active: 1 },
+  { role_id: 'accountant', name: '会计',     avatar: '\uD83E\uDDEE', len: 89033, custom_avatar: 0, is_active: 1 },
+  { role_id: 'cs',         name: '客服助手', avatar: '\uD83D\uDCAC', len: 95862, custom_avatar: 0, is_active: 1 },
+  { role_id: 'secretary',  name: '大秘',     avatar: '\uD83D\uDCDD', len: 98690, custom_avatar: 0, is_active: 1 },
+]
+
+async function runRoleCycleCase(browser, url) {
+  console.log('\n--- 场景 4 角色各异（同页切换 currentRole）---')
+  const page = await browser.newPage()
+  await page.enable()
+  const d = await login()
+  await page.addInitScript(initSrc(d, 'light', 0, ROLES[0], ROLES))
+  await page.goto(url, 5000)
+  const setupRes = await page.eval(mkSetup(0, ROLES[0], ROLES))
+  ok(setupRes === 'ok', 'Pinia 注入成功', setupRes)
+  await sleep(600)
+
+  const seen = []
+  for (const r of ROLES) {
+    const sw = await page.eval(mkSwitch(r.role_id))
+    ok(sw === 'ok', '切换到角色 ' + r.name + '(' + r.role_id + ')', sw)
+    await waitImg(page, '.cp-ai-img-png')
+    const f = await page.eval(AV_FINGERPRINT)
+    console.log('  ' + r.role_id.padEnd(11) + ' nw=' + f.nw + 'px len=' + f.len + 'B fp=' + f.fp + ' src=' + (f.src || ''))
+    ok(f.tag === 'IMG', r.name + '：渲染 <img> 而非 emoji', f.tag)
+    ok(f.nw > 0, r.name + '：图片真实加载成功', f.nw + 'px')
+    ok((f.src || '').indexOf('/api/ai/roles/' + r.role_id + '/avatar') >= 0, r.name + '：src 指向自己角色的头像接口', f.src)
+    ok(f.len === r.len, r.name + '：字节数与 tenant 1 素材一致', f.len + 'B（期望 ' + r.len + 'B）')
+    seen.push({ id: r.role_id, fp: f.fp, len: f.len })
+  }
+  const fps = new Set(seen.map((s) => s.fp))
+  ok(fps.size === seen.length, '四个角色的头像字节指纹两两不同（不是串成一张）', [...fps].join(','))
+  await page.screenshot(path.join(SHOT_DIR, 'role-cycle.png')).catch(() => {})
+}
+
 async function main() {
   let url
   let srv = null
@@ -182,6 +258,7 @@ async function main() {
   try {
     await runCase(browser, url, 0, 'no-own-avatar')
     await runCase(browser, url, 1, 'boss-has-avatar')
+    await runRoleCycleCase(browser, url)
   } finally {
     await browser.close().catch(() => {})
     if (srv) srv.close()
