@@ -120,7 +120,8 @@ export const PERM_SIDEBAR_GROUPS = [
       //      也都归它 ⇒ 用 `pages` 说清，免得老板以为"取消仓配管理只影响仓配那一区"。
       {
         name: '仓配管理', module: 'stock',
-        pages: '同时管「仓库档案」「货损计算工作流」「库存效期补录」三处入口',
+        pages: '同时管「仓库档案」「货损计算工作流」「库存效期补录」三处入口；'
+             + '⚠️ 侧栏「仓配管理」区开发中，目前**只有老板**能看到（产品硬锁）——勾这里不会放开它',
       },
     ],
   },
@@ -133,7 +134,9 @@ export const PERM_SIDEBAR_GROUPS = [
       //   （`Shell.vue::resolveNavItem`：列内条目全不可见 ⇒ 整区隐藏）。
       //   出厂默认给 boss / admin / accountant，与迁移前 `module: null` 的角色轴**等价**
       //   （见 `core._DEFAULT_PERMS` + 租户库 `role_permissions` 的同批迁移）。
-      { name: '资金管理', module: 'funds' },
+      { name: '资金管理', module: 'funds',
+        pages: '⚠️ 侧栏「资金管理」区（28 页）开发中，目前**只有老板**能看到（产品硬锁）'
+             + '——勾这里不会放开它' },
     ],
   },
   {
@@ -155,7 +158,9 @@ export const PERM_SIDEBAR_GROUPS = [
       //   （与《侧边栏归类结构重规划》给本区划的落地范围「订货管理 · 政策与目标」同源）。
       //   🔴 待 `/mkt/*` 落真身时**必须重新分配**：那时本区应改挂它自己的模块，并把
       //      `goals` 挪回「更多」—— 现在这样只是"占位区先有个能勾的开关"，不是终态。
-      { name: '经营目标', module: 'goals' },
+      { name: '经营目标', module: 'goals',
+        pages: '⚠️ 侧栏「市场营销」区开发中，目前**只有老板**能看到（产品硬锁）'
+             + '——勾这里不会放开它（本区页面全是占位页）' },
     ],
   },
   {
@@ -195,7 +200,9 @@ export const PERM_SIDEBAR_GROUPS = [
       //   `reports` 是**纯数据闸门**（管 `/api/reports*` 这批接口）：勾了在侧栏**看不到变化**，
       //   但不勾则报表接口 403 ⇒ 必须留在界面上，否则老板**无从授权**（会落到下面那句
       //   `PERM_NO_PAGE_NOTE`，不是留白）。
-      { name: '数据报表', module: 'reports' },
+      { name: '数据报表', module: 'reports',
+        pages: '⚠️ 侧栏「数据报表」区（30 张标准报表）开发中，目前**只有老板**能看到'
+             + '（产品硬锁）——勾这里不会放开它；放开的是 `/api/reports*` 这批接口' },
     ],
   },
   {

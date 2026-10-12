@@ -152,6 +152,31 @@ export const BIZ_ROLES = ['admin', 'boss', 'accountant', 'sales', 'supervisor']
 export const ADMIN_ROLES = ['admin', 'boss']
 
 /**
+ * 🔴 v472（2026-10-12）：**开发期闸门 —— 只给老板（boss）**。
+ *
+ * 老板原话：「侧边栏『仓配管理、资金管理、市场营销、数据报表』这几个模块还在开发阶段，
+ * 请把他设置成只有我这个 boss 账号可见」。
+ * ⇒ 四区的**全部页面**（仓配 15 + 资金 28 + 报表 30 + 市场 23 + 仓配 P3 占位 3）统一收成
+ *    这一份名单，并**逐行配 `lock: true`**。
+ *
+ * 🔴 为什么必须与 `lock` 成对使用（少一半就是假收紧）：
+ *    `roleGateOpen` 第 ③ 档「用户配置优先」会让位 —— 只要本租户**曾给某个角色改过权限**
+ *    （`custom_roles` 含它），本行又配有 `module`，名单就被越过去、改由模块轴单独裁决
+ *    ⇒ 持有 `stock` 的会计 / 主管会**重新看到整个仓配管理区**。
+ *    这正是 v345 `/cron` 那个活洞的同款（老板原话：「郝洋不该看到我的定时任务」）。
+ *    `lock: true` = 产品硬锁，**连客户在权限页勾选也放不开**。
+ *
+ * 🔴 与 `ADMIN_ROLES` 的差别**只有 admin**：那四区**不给管理员**（老板说的是"只有我这个账号"）。
+ *    将来要把管理员一并放进来 ⇒ 把本常量改成 `['admin', 'boss']` 一行即可。
+ *
+ * ⚠️ 开发完成、要给其他角色放开时，**改本常量与各行的引用，不要在 `Shell.vue` 里另写 `v-if`**
+ *    （那是 v206 老形态，会造出「入口没了、深链还能进」的假封锁）。
+ *    放开时同时要做的两件事：① 撤掉四区的 `lock: true`；② 把 `roles` 换回原档
+ *    （仓配/报表/市场 = `BIZ_ROLES`；资金 = `[...ADMIN_ROLES, 'accountant']`）。
+ */
+export const BOSS_ROLES = ['boss']
+
+/**
  * 页面注册表。键 = 路由路径（**父级即可**，子路由自动继承，见 `ruleFor`）。
  *
  * 字段：
@@ -248,31 +273,36 @@ export const PAGE_RULES = {
   /* —— v465c（2026-10-11 仓配管理 P0）：「库存查询」组三页**落真身**的正式登记行 ——
      🔴 `module:'stock'` 与后端域**逐项一致**：三页的数据源分别是
         `/api/expiry/forecast`、`/api/vehicles`＋`/api/vehicle-stock/*`、`/api/inventory/low-stock`，
-        全部归 `stock`（见 server.py::_PATH_MODULE_MAP）。`roles: BIZ_ROLES` 全员持 `stock`
-        ⇒ 前端可见性与后端鉴权**不可能打架**（不会出现「入口可见、取数 403」的假入口）。
+        全部归 `stock`（见 server.py::_PATH_MODULE_MAP）。
+        ⚠️ v465 时这里是 `roles: BIZ_ROLES`（全员持 `stock` ⇒ 两轴不打架）；**v472 起已成
+        `BOSS_ROLES + lock`** —— 模块轴仍是 `stock`（老板持有，故老板侧照常可见），
+        角色轴收成老板专属。两轴的"不打架"结论对**老板**依然成立。
      ⚠️ 这三条**同时**从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 盖掉本行）。
-     ⚠️ `/wh/*` 其余条目仍是占位页（module:null + BIZ_ROLES），P1–P3 逐批落真身。 */
-  '/wh/expiry-report': { title: '效期预警表',   module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/vehicle-stock': { title: '车辆库存查询', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/stock-alert':   { title: '库存预警',     module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+     🔴 v472（2026-10-12）：`roles` 已由 `BIZ_ROLES` 收成 `BOSS_ROLES` + `lock` ——
+        四区开发期只给老板，见 `BOSS_ROLES` 注释。
+     ⚠️ `/wh/*` 其余条目仍是占位页（module:null + BOSS_ROLES），P1–P3 逐批落真身。 */
+  '/wh/expiry-report': { title: '效期预警表',   module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/vehicle-stock': { title: '车辆库存查询', module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/stock-alert':   { title: '库存预警',     module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   /* —— v465e（2026-10-11 仓配管理 P1）：「仓库作业」组六页**落真身**的正式登记行 ——
      🔴 `module:'stock'` 与后端域**逐项一致**：六页的数据源分别是
         `/api/inbound`、`/api/wh/outbound`、`/api/wh/stocktake`、`/api/wms/*`、
         `/api/wh/entries`（in/out 两个方向）—— 全部归 `stock`
         （见 server.py::_PATH_MODULE_MAP，`/api/inbound` 与 `/api/wh` 本批才补上映射）。
-        `roles: BIZ_ROLES` 全员持 `stock` ⇒ 前端可见性与后端鉴权**不可能打架**。
+        ⚠️ 同上：v472 起角色轴为 `BOSS_ROLES + lock`，模块轴仍为 `stock`。
      🔴 建单下拉的商品/供应商/客户走 `/api/products` + `/api/contacts`（归 `data`，BIZ_ROLES
         五类人全持）；**刻意不用** `/api/psi/refs`（归 `inventory`，只有 boss/admin）与
         `/api/customers`（归 `crm`，会计/主管没有）—— 否则会造出「入口可见、一开下拉就 403」的
         局部假入口（完整论证见 `src/api/wh.js` 头部）。
      ⚠️ 这六条**同时**从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 盖掉本行）。
-     ⚠️ `/wh/*` 其余条目仍是占位页（module:null + BIZ_ROLES），P2–P3 逐批落真身。 */
-  '/wh/inbound':     { title: '入库单',     module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/outbound':    { title: '出库单',     module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/stocktake':   { title: '盘点单',     module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/strategy':    { title: '出入库策略', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/other-in':    { title: '其它入库单', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/other-out':   { title: '其它出库单', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+     🔴 v472（2026-10-12）：`roles` 已由 `BIZ_ROLES` 收成 `BOSS_ROLES` + `lock` —— 同上。
+     ⚠️ `/wh/*` 其余条目仍是占位页（module:null + BOSS_ROLES），P2–P3 逐批落真身。 */
+  '/wh/inbound':     { title: '入库单',     module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/outbound':    { title: '出库单',     module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/stocktake':   { title: '盘点单',     module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/strategy':    { title: '出入库策略', module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/other-in':    { title: '其它入库单', module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/other-out':   { title: '其它出库单', module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   /* —— v465h（2026-10-11 仓配管理 P2）：「库存作业」组六页**落真身**的正式登记行 ——
      数据源全部是**既有**后端，本轮**零后端改动**（能力盘点结论见
      docs/仓配模块开发规范.md §2.1）：
@@ -282,13 +312,14 @@ export const PAGE_RULES = {
        · `/api/wh/stocktake`（v465e）→ 盘点差异单（纯前端视图，N+1 只在点开某期时发生）
      🔴 这四个前缀**归模块 `stock`**（逐个 `grep` 过 `server.py::_PATH_MODULE_MAP`）⇒
         与 `/wh/*` 前端可见性同域，无「入口看得见、取数 403」的假入口。
-     ⚠️ 这六条**同时**从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 盖掉本行）。 */
-  '/wh/stocktake-diff': { title: '盘点差异单',       module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/stocktake-full': { title: '静态盘点单（整仓）', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/stocktake-part': { title: '静态盘点单（部分）', module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/pnl':            { title: '损益单',           module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/combo':          { title: '组合单',           module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
-  '/wh/split':          { title: '拆分单',           module: 'stock', roles: BIZ_ROLES, cat: 'biz' },
+     ⚠️ 这六条**同时**从 `PLACEHOLDER_PAGES` 移出（否则合并循环会用 `module:null` 盖掉本行）。
+     🔴 v472（2026-10-12）：`roles` 已由 `BIZ_ROLES` 收成 `BOSS_ROLES` + `lock` —— 同上。 */
+  '/wh/stocktake-diff': { title: '盘点差异单',       module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/stocktake-full': { title: '静态盘点单（整仓）', module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/stocktake-part': { title: '静态盘点单（部分）', module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/pnl':            { title: '损益单',           module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/combo':          { title: '组合单',           module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/split':          { title: '拆分单',           module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   // 档案管理：`/archive/employees|customers|brands|products|warehouses|prices` 六个子路由自动继承本行。
   //   ⚠️ 子路由**必须**全部在 router/index.js 的 /archive children 里登记；父级只解析到
   //      `/archive` 这一段，多出的路径段不会自动继承、会落到 404。
@@ -439,34 +470,34 @@ export const PAGE_RULES = {
            ⇒ 开闸门时**必须给 boss / accountant 补 `funds`**，否则等于"顺手把会计关在资金管理外面"。
         ⇒ 现在老板在「设置 › 权限 › 资金管理」取消某角色，该角色侧栏的**整个资金管理区立刻消失**
            （`Shell.vue::resolveNavItem`：列内全部条目不可见 ⇒ 整区隐藏），不再是"只藏入口"。 */
-  '/funds/receipt':            { title: '收款单',     module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/customer-fee':       { title: '客户费用单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/advance-receipt':    { title: '预收款单',   module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/writeoff':           { title: '核销单',     module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/sales-settle':       { title: '销货结算单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/return-settle':      { title: '退货结算单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/other-receivable':   { title: '其他应收单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/customer-statement': { title: '客户对账单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/payment':            { title: '付款单',     module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/supplier-fee':       { title: '供应商费用单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/advance-payment':    { title: '预付款单',   module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/purchase-settle':    { title: '采购结算单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/supplier-stmt-detail': { title: '供应商对账明细', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/supplier-stmt':      { title: '供应商对账单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/internal-fee':       { title: '内部费用单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/internal-income':    { title: '内部收入单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/transfer':           { title: '资金调拨单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/balance':            { title: '资金余额表', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/flow':              { title: '资金流水账', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/bank-reconcile':     { title: '银行流水对账', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/staff-debt':         { title: '员工欠款',   module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/cost-query':        { title: '库存成本查询', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/cost-summary':      { title: '库存成本汇总', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/in-cost':            { title: '入库核算单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/out-cost':           { title: '出库核算单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/qty-cost':           { title: '数量成本价', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/cost-adjust':        { title: '成本调价单', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' },
-  '/funds/cost-abnormal':      { title: '成本异常调整', module: 'funds', roles: [...ADMIN_ROLES, 'accountant'], cat: 'admin' }
+  '/funds/receipt':            { title: '收款单',     module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/customer-fee':       { title: '客户费用单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/advance-receipt':    { title: '预收款单',   module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/writeoff':           { title: '核销单',     module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/sales-settle':       { title: '销货结算单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/return-settle':      { title: '退货结算单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/other-receivable':   { title: '其他应收单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/customer-statement': { title: '客户对账单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/payment':            { title: '付款单',     module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/supplier-fee':       { title: '供应商费用单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/advance-payment':    { title: '预付款单',   module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/purchase-settle':    { title: '采购结算单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/supplier-stmt-detail': { title: '供应商对账明细', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/supplier-stmt':      { title: '供应商对账单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/internal-fee':       { title: '内部费用单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/internal-income':    { title: '内部收入单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/transfer':           { title: '资金调拨单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/balance':            { title: '资金余额表', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/flow':              { title: '资金流水账', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/bank-reconcile':     { title: '银行流水对账', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/staff-debt':         { title: '员工欠款',   module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/cost-query':        { title: '库存成本查询', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/cost-summary':      { title: '库存成本汇总', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/in-cost':            { title: '入库核算单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/out-cost':           { title: '出库核算单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/qty-cost':           { title: '数量成本价', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/cost-adjust':        { title: '成本调价单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/cost-abnormal':      { title: '成本异常调整', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' }
 }
 
 /* ---------------------------------------------------------------------------
@@ -488,16 +519,16 @@ export const PAGE_RULES = {
 
    ⚠️ 权限分档（`module: null` = 只读角色轴，产品内置能力包，客户暂配不了 ——
       与 `/print` 同一族；将来接真实数据时必须先给该页配一个真实模块键，再开写数据）：
-     · `/funds/*`（资金管理）—— **钱**：`[...ADMIN_ROLES, 'accountant']`
-       （对齐 `/archive/prices` 的窄名单先例；业务员/主管不见「收款单/付款单」）；
-     · 其余三区（`/wh/*` 仓配、`/reports/*` 报表、`/mkt/*` 市场）—— `BIZ_ROLES`
-       （业务管理岗，与 `/data-fill`、`/loss` 同档）。
+     🔴 **v472（2026-10-12）现行档位 = 四区一律 `BOSS_ROLES + lock: true`**（开发期闸门，
+        只给老板）。此前 v465 的原始分档是「`/funds/*` 走 `[...ADMIN_ROLES,'accountant']`
+        （钱更窄）、其余三区走 `BIZ_ROLES`」—— 那段**已被 v472 取代**，留在这里只为说明
+        将来放开时各自该回哪一档（见 `BOSS_ROLES` 上方注释的"放开时两件事"）。
    ⚠️ `area` 只是给占位页副标题用的中文名，与权限无关；权限**只**认 `path` 前缀分档。 */
 export const PLACEHOLDER_PAGES = [
   /* —— 仓配管理（/wh/*）——
      🔴 v465c（P0）三页 + v465e（P1）六页**已落真身** ⇒ 从本表移出，改在 `PAGE_RULES`
         写正式登记行（见该对象里的 v465c / v465e 段）。落真身四步见 docs/仓配模块开发规范.md
-        —— 移出得干净，否则本表合并循环会用 `BIZ_ROLES + module:null` **覆盖**正式行的 `module:'stock'`。
+        —— 移出得干净，否则本表合并循环会用 `BOSS_ROLES + module:null + lock` **覆盖**正式行的 `module:'stock'`。
      本表剩余 = 尚未开发的 P3（配送单/司机任务看板/线路设置）。
         ⚠️ P3 注意：实测 `GET /api/delivery/list` = **404** ⇒ 配送单**后端不存在**，
            开工 P3 要按「新建」而不是「接」来估工（见 docs/仓配模块开发规范.md §2.1）。 */
@@ -507,12 +538,12 @@ export const PLACEHOLDER_PAGES = [
   /* 🔴 v465h（2026-10-11 仓配 P2）：「库存作业」组六页（盘点差异单 / 静态盘点单整仓·部分 /
      损益单 / 组合单 / 拆分单）**已落真身** ⇒ 从本表**移出**，改在 `PAGE_RULES` 写正式登记行
      （见该对象里的 v465h 段）。落真身四步见 docs/仓配模块开发规范.md
-     —— 移出得干净，否则本表合并循环会用 `BIZ_ROLES + module:null` **覆盖**正式行的 `module:'stock'`。
+     —— 移出得干净，否则本表合并循环会用 `BOSS_ROLES + module:null + lock` **覆盖**正式行的 `module:'stock'`。
      ⚠️ 上一个"漏移出"的坑见下方 v465c 段。 */
   /* 🔴 v465c（2026-10-11 仓配 P0）：`/wh/vehicle-stock` / `/wh/expiry-report` / `/wh/stock-alert`
      三页**已落真身**（不再是占位）⇒ 从本表**移出**，改在 `PAGE_RULES` 写正式登记行
      （见该对象里的 v465c 段）。落真身四步见 docs/仓配模块开发规范.md —— 移出得干净，
-     否则本表合并循环会用 `BIZ_ROLES + module:null` **覆盖**正式行的 `module:'stock'`。 */
+     否则本表合并循环会用 `BOSS_ROLES + module:null + lock` **覆盖**正式行的 `module:'stock'`。 */
 
 
   /* —— 数据报表（/reports/*）—— */
@@ -576,13 +607,16 @@ export const PLACEHOLDER_PAGES = [
 /* 合并进 PAGE_RULES（必须在 `PAGE_PATHS` 计算之前 ⇒ 全量可见；见上表头注释）。
    🔴 v465d：原先的 `money = p.path.startsWith('/funds/')` 分支**已删除** ——
       28 条 `/funds/*` 已全部落真身、改在 `PAGE_RULES` 写正式行 ⇒ 本表现在只剩
-      仓配 / 数据报表 / 市场营销三区（一律 `BIZ_ROLES` + `cat:'biz'`）。
+      仓配 / 数据报表 / 市场营销三区（**v472 起一律 `BOSS_ROLES + lock: true`** + `cat:'biz'`）。
       保留那段"钱更窄"的分支会变成**没有任何一行走得到的死代码**，且误导后人。 */
 for (const p of PLACEHOLDER_PAGES) {
   PAGE_RULES[p.path] = {
     title: p.title,
     module: null,                                   // 占位页不写数据 ⇒ 只读角色轴（落真身时必须先配真实模块键）
-    roles: BIZ_ROLES,
+    /* 🔴 v472（2026-10-12）：占位页三区（仓配 P3 / 数据报表 / 市场营销）同批收成
+       老板专属硬锁 —— 与上面 `PAGE_RULES` 里的正式行同一档，别只改一处。 */
+    roles: BOSS_ROLES,
+    lock: true,
     cat: 'biz'
   }
 }

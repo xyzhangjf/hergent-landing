@@ -470,17 +470,26 @@ const NAV = [
        · 没有的挂**共享占位骨架**（`/wh/*`，`pages/Placeholder.vue`「开发中」卡）——
          对齐 v395 打印先例「先立入口、不留死链」，登记与可见性见
          `pages.js::PLACEHOLDER_PAGES`（v465 段）。
-     🔴 区**不写 `path`**（与 ⑦ 档案管理同理）：区内条目各挂各的模块
-        （`/inventory/stock` 是 ADMIN_ROLES、`/data-fill` 是 stock+BIZ_ROLES、
-        `/wh/*` 混挂真实页与占位页），拿一个锚点当闸门都会错放或错藏；
+     🔴 **v472（2026-10-12）起本区写 `path` 锚点**（原为"故意不写"，见下）：
+        老板要求四区（仓配/资金/市场/报表）开发期**只有 boss 可见** ⇒ 区内的
+        `/inventory/stock`（ADMIN_ROLES）、`/data-fill`（BIZ_ROLES）等**跨区共享条目**
+        仍对别人可见，光收窄 `/wh/*` 条目**拦不住整区**（列内有一条可见 ⇒ 区就冒出来）。
+        ⇒ 按 `resolveNavItem` 的锚点机制，用 `/wh/inbound`（本区自己的页，已是 boss 硬锁）
+        当准入闸门，整区随它一起消失。
+        ⚠️ 代价（**已知且接受**）：锚点比"任一子条目"更严 —— 将来给某个角色单独放开
+        `/data-fill` 之类的共享条目时，本区**仍不会**对他出现。那正是"整区只给老板"的含义。
+     历史决策（v465 原文，留档说明为什么当时不写）：区**不写 `path`**（与 ⑦ 档案管理同类）——
+        区内条目各挂各的模块（`/inventory/stock` 是 ADMIN_ROLES、`/data-fill` 是 stock+BIZ_ROLES、
+        `/wh/*` 混挂真实页与占位页），拿一个锚点当闸门会错放或错藏；
         空区由 `resolveNavItem` 收口（一条都不可见时整区消失）。
+        —— v472 之所以敢反过来写锚点：四区**整区同档**（全 boss 硬锁），"错放/错藏"的前提消失了。
      🔴 **v465c（2026-10-11）剔除「调拨单」**：老板明确「调拨订单已在进销存模块实现，
         须从本模块功能清单中剔除，不再开发」⇒ 本区不再挂 `/inventory/sale?type=transfer`。
         调拨单的**唯一入口 = 进销存区**（`type:'inventory'` 区内同款条目）。
         ⚠️ 舟谱原弹窗两区重复挂调拨/库存查询，我方**不照抄这处重复** ——
         「同一单据只留一个入口」优于「形态复刻」。 */
   {
-    key: 'wh', name: '仓配管理', icon: 'toolbox',
+    key: 'wh', name: '仓配管理', icon: 'toolbox', path: '/wh/inbound',
     groups: [
       /* 🔴 v465e（2026-10-11 仓配 P1）：原「仓库作业」一列 6 项**按方向拆成 3 列** ——
          入库 / 出库 / 盘点与策略。理由：这 6 项是三种**互不相干**的动作
@@ -526,14 +535,14 @@ const NAV = [
   /* ③c 资金管理 › —— v465：按舟谱「资金管理」弹窗四列复刻（客户 / 供应商 / 内部 / 库存成本）。
      🔴 条目**全部是占位页**（`/funds/*`）—— 往来账/收付款我们还没做（进销存区「往来」列
         仍是空数组，同一批规划）；先按老板拍板立入口，逐页落真身。
-     🔴 可见性比其它三区**窄一档**：`/funds/*` 在 `pages.js` 登记为
-        `[...ADMIN_ROLES, 'accountant']`（钱的事只给老板/管理员/会计，对齐
-        `/archive/prices` 先例）⇒ 业务员/主管的侧栏**整区不出现**（`resolveNavItem`
-        按条目算，一条不可见 ⇒ 区隐藏）。
+     🔴 v472（2026-10-12）：本区**已写成 boss 硬锁**（`BOSS_ROLES + lock`）⇒ 补 `path` 锚点
+        `/funds/receipt`，整区只随它显隐。原文（v465）的"比其它三区窄一档
+        （`[...ADMIN_ROLES,'accountant']`，业务员/主管不见）"已被 v472 取代 —— 现在
+        **老板之外的任何人都不见**，包括管理员与会计。
      ⚠️ 「客户对账单」「资金余额表」在数据报表区会**再挂一次**（舟谱两区本就重复）；
         同一 path 两处入口是合法的（标签栏按 URL 去重）。 */
   {
-    key: 'funds', name: '资金管理', icon: 'coins',
+    key: 'funds', name: '资金管理', icon: 'coins', path: '/funds/receipt',
     groups: [
       { label: '客户相关', items: [
         { path: '/funds/receipt',            name: '收款单',     icon: 'coins' },
@@ -604,12 +613,13 @@ const NAV = [
      （市场管理 / 合约管理 / 物料管理 / 促销活动）。
      条目落点：除「供应商返利方案」（→ `/rebate?tab=rules` 目标配置，现成的返利规则页）
      外全部是占位页（`/mkt/*`，见 `pages.js::PLACEHOLDER_PAGES`）。
-     可见性 `BIZ_ROLES`（与目标与返利同档：业务管理岗的事）。
+     🔴 v472（2026-10-12）：可见性由 `BIZ_ROLES` **收成 boss 硬锁**（开发期只给老板）⇒
+        补 `path` 锚点 `/mkt/display`（否则区内那条 `/rebate?tab=rules` 会让整区对谁都露出）。
      🔴 「随单返利/返利模板」等占位页落真身时，注意与 `/rebate` 的**口径分工**：
         目标与返利管「厂家给我们的返利」，市场营销管「我们给下游的返利/促销」——
         两边数据源不同，别合并。 */
   {
-    key: 'mkt', name: '市场营销', icon: 'lightbulb',
+    key: 'mkt', name: '市场营销', icon: 'lightbulb', path: '/mkt/display',
     groups: [
       { label: '市场管理', items: [
         { path: '/mkt/display',    name: '陈列巡查', icon: 'search' },
@@ -685,14 +695,17 @@ const NAV = [
   /* ⑥b 数据报表 › —— v465（2026-10-11）：按舟谱「数据报表」弹窗的**七列结构**复刻
      （业财 / 往来 / 资金 / 市场 / 考勤外部 / 经营分析 / 通用报表）。
      条目落点：除「实时概览」（→ `/dashboard` 经营趋势，现成的企业级看板）外，
-     全部是占位页（`/reports/*`，见 `pages.js::PLACEHOLDER_PAGES`）。可见性 `BIZ_ROLES`。
+     全部是占位页（`/reports/*`，见 `pages.js::PLACEHOLDER_PAGES`）。
+     🔴 v472（2026-10-12）：可见性由 `BIZ_ROLES` **收成 boss 硬锁**（开发期只给老板）⇒
+        补 `path` 锚点 `/reports/sales-order`（否则区内的 `/dashboard`「实时概览」与
+        `/funds/*` 那两条会让整区对别人露出）。
      ⚠️ 「客户对账单」（→ `/funds/customer-statement`）与「资金余额表」（→ `/funds/balance`）
         **复用资金管理区的占位页**：舟谱两区本就重复挂这两张表，同一 path 两处入口合法
         （标签栏按 URL 去重），占位页也只登记一份。
      ⚠️ 与 ⑥ 经营分析的分工：经营分析 = 我们自己的经营看板（经营趋势/招投标）；
         数据报表 = 对齐舟谱的**标准报表清单**（按报表名立页）。两边并列、不互相吞并。 */
   {
-    key: 'reports', name: '数据报表', icon: 'bar-chart',
+    key: 'reports', name: '数据报表', icon: 'bar-chart', path: '/reports/sales-order',
     groups: [
       { label: '业财报表', items: [
         { path: '/reports/sales-order',  name: '销售订单汇总表',   icon: 'list' },

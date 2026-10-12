@@ -364,7 +364,8 @@ export const router = createRouter({
         /* v465（2026-10-11）：四新区（仓配管理 / 资金管理 / 数据报表 / 市场营销）的
            **占位页路由** —— 按 `pages.js::PLACEHOLDER_PAGES` 数据驱动批量挂载，
            全部指向共享骨架 `Placeholder.vue`（「开发中」卡，不写业务数据）。
-           🔴 可见性的唯一真源在 `pages.js::PAGE_RULES`（`/funds/*` 窄名单、其余 BIZ_ROLES），
+           🔴 可见性的唯一真源在 `pages.js::PAGE_RULES`（**v472 起四区一律 `BOSS_ROLES + lock`**：
+              开发期只给老板；此前是「`/funds/*` 窄名单、其余 BIZ_ROLES」），
               这里只负责路由可达 —— 两处都写是刻意的（与本仓 `/archive/*` 同一纪律：
               缺登记行 = 假入口，缺路由 = 假封锁）。
            🔴 某页落真身时：从 `PLACEHOLDER_PAGES` 移出 → 在 `PAGE_RULES` 写正式行 →
