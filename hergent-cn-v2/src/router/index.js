@@ -92,6 +92,11 @@ const InvPurchaseList = () => import('../pages/inventory/InvPurchaseList.vue')
    但**不要**再把它们挂回路由 —— 那会让同一个业务出现两套建单页，差异会立刻漂移。 */
 const InvPurchaseDetail = () => import('../pages/inventory/InvPurchaseDetail.vue')
 const InvSaleList = () => import('../pages/inventory/InvSaleList.vue')
+/* v449+：调拨单**列表页**（真双仓 `transfer_orders`）。此前「调拨单」侧栏入口指向
+   `/inventory/sale?type=transfer`，那张出来的是 `sale_orders` 里 `order_type='transfer'`
+   的**舟谱导入单**（单仓、与真实调拨不是同一批数据）—— 一个指向错误数据集的假入口。
+   现在落到本组件，数据源 `GET /api/psi/transfer-orders`（与建单页同源，归 `inventory` 模块）。 */
+const InvTransferList = () => import('../pages/inventory/InvTransferList.vue')
 /* ---- v449（2026-10-11）：进销存建单页拆成**7 个独立页面** -------------------
    🔴 全部走 `new/` 目录下的薄页面 + 3 个配置化内核（见 `pages/inventory/new/docTypes.js`）。
       这里只登记路由；**差异（标题 / 字段 / 端点 / 列表落点）全在 `docTypes.js`**，
@@ -278,7 +283,12 @@ export const router = createRouter({
             { path: 'sale/self-pickup/return/new', component: SelfPickupReturnNew, meta: { title: '新建自提退单' } },
             { path: 'sale/vehicle/new',            component: VehicleSaleOrderNew, meta: { title: '新建车销订单' } },
             { path: 'sale/vehicle/return/new',     component: VehicleSaleReturnNew, meta: { title: '新建车销退单' } },
-            { path: 'transfer/new',                component: TransferOrderNew,     meta: { title: '新建调拨单' } },
+            /* v449+：调拨单**列表页**（真双仓 `transfer_orders`）。放在 `transfer/new` 之前；
+               静态段顺序无关紧要（vue-router 4 按特异性排序），但同族放一起易读。
+               🔴 不要把这条写成 `transfer/:id` —— 调拨没有详情页，写 `:id` 会让
+                  `transfer/new` 被当成 `transfer/<id=new>` 吃掉（详情页 404 文案会冒出来）。 */
+            { path: 'transfer',     component: InvTransferList,   meta: { title: '调拨单' } },
+            { path: 'transfer/new', component: TransferOrderNew,  meta: { title: '新建调拨单' } },
             { path: 'sale/:id',      component: InvSaleDetail,     meta: { title: '销售单详情' } },
             { path: 'stock',         component: InvStock,          meta: { title: '库存查询' } }
           ]

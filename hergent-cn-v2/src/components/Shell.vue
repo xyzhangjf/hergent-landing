@@ -442,7 +442,7 @@ const NAV = [
       ] },
       /* 调拨在舟谱里是独立一列；v449 起我方也是独立的页面与数据表（见上）。 */
       { label: '调拨', items: [
-        { path: '/inventory/sale', name: '调拨单', icon: 'refresh', q: { type: 'transfer', kind: 'order' },
+        { path: '/inventory/transfer', name: '调拨单', icon: 'refresh',
           create: { to: { path: DOC_PATHS.transferOrder }, module: 'inventory', title: '新建调拨单' } }
       ] },
       // 「库存查询」(`/inventory/stock`，默认按到期日升序) 与「库存效期补录」(`/data-fill`)：

@@ -47,6 +47,15 @@ export const SO_STATUS = {
   cancelled: { text: '已取消', tag: '' },
 }
 
+/* ---- 调拨单状态（`transfer_orders.status`，v449 真双仓）
+     仅 3 个值，无「退货」：调拨没有退单（老板 2026-10-11 口径，舟谱也没有）。
+     `completed` = 已过账（库存真正移动的时刻），与列表「过账」按钮同名（徽标与动作同名纪律）。 */
+export const TRANSFER_STATUS = {
+  draft:     { text: '草稿',   tag: 'info' },
+  completed: { text: '已过账', tag: 'ok' },
+  cancelled: { text: '已取消', tag: '' },
+}
+
 /* ---- 配送状态（`sale_orders.delivery_status`）---- */
 export const DELIVERY_STATUS = {
   '':         { text: '未发货',   tag: '' },
