@@ -166,6 +166,19 @@
           <label class="ipn-lb">经办人</label>
           <span class="ipn-ro">{{ operatorName }}</span>
         </div>
+        <!-- v451（L3）：部门 —— 舟谱退货单头的 `*部门`（截图实见，紧跟在经办人之后）。
+             🔴 数据源 `psi_refs(kind='departments')`（后端 **已存在**，无需新端点）；
+                与采购订单页共用同一个下拉数据源（`departments` 表，`is_active=1` 才可选）。
+             ⚠️ `0 = 不指定`（不是"总部"）：后端只在 `department_id > 0` 时才落库，
+                所以这里给 `0` 一个「请选择」选项，且**不做必填**（舟谱标 `*`，
+                但我方 v451 口径是"选填、不阻塞建单"——见 docTypes.js 的说明）。 -->
+        <div class="ipn-f">
+          <label class="ipn-lb">部门</label>
+          <select v-model.number="form.department_id" class="input ipn-sel">
+            <option :value="0">请选择</option>
+            <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
+          </select>
+        </div>
         <div class="ipn-f">
           <label class="ipn-lb"><span class="ipn-req">*</span>{{ cfg.whLabel }}</label>
           <select v-model.number="form.warehouse_id" class="input ipn-sel">
@@ -228,6 +241,18 @@
         <div class="ipn-bar">
           <b>{{ cfg.tblTitle }}</b>
           <span class="ipn-cnt">{{ filledRows.length }} 项</span>
+          <!-- v451（L3）：舟谱第二行的「按小单位采购」勾选框（截图实见）。
+               🔴 语义（用户 2026-10-12 拍板）：
+                  · **勾选（默认）** ⇒ 单位列锁死商品的**小单位**（= v449 起的现状，
+                    默认行为零变化，老板已跑熟的退货口径不动）；
+                  · **取消勾选** ⇒ 单位列放开**小 / 中 / 大**三档下拉（档位与换算比全由后端
+                    `unit_options` 下发，前端不自己算）。
+               🔴 无论选哪一档，落库都**折成小单位**（后端 `db/queries/units` 唯一实现）——
+                  明细表 `quantity`/`unit_price` 恒为小单位口径，下游"已退量"才不会静默缩水。 -->
+          <label class="ipn-chk" title="勾选后单位固定为商品小单位；取消勾选可选小/中/大三档">
+            <input type="checkbox" v-model="smallUnitOnly" />
+            按小单位采购
+          </label>
         </div>
 
         <p v-if="cfg.tip" class="ipn-tip">
@@ -260,9 +285,17 @@
                   <input v-model="row.quantity" class="input ipn-in num" inputmode="decimal" placeholder="0" />
                 </td>
                 <td v-if="isVisible('unit')" class="ipn-c-unit">
-                  <span v-if="row.unit" class="ipn-unit">{{ row.unit }}</span>
+                  <!-- v451：取消「按小单位采购」后放开三档下拉（档位来自后端 unit_options）。
+                       ⚠️ 选项里没有中/大档的商品（档案没维护）只会有小档一项 ——
+                          这是常态（生产实测 449 个商品只有 74 个中/大档齐全），不是缺陷。 -->
+                  <select v-if="!smallUnitOnly && row.unitOptions && row.unitOptions.length"
+                          v-model="row.unit" class="input ipn-in ipn-unit-sel"
+                          :title="row.convText || row.unit">
+                    <option v-for="o in row.unitOptions" :key="o.key" :value="o.name">{{ o.name }}</option>
+                  </select>
+                  <span v-else-if="row.unit" class="ipn-unit">{{ row.unit }}</span>
                   <span v-else class="ipn-unit none"></span>
-                  <div v-if="row.convText" class="ipn-conv">{{ row.convText }}</div>
+                  <div v-if="unitHint(row)" class="ipn-conv">{{ unitHint(row) }}</div>
                 </td>
                 <td>
                   <input v-model="row.unit_price" class="input ipn-in num" inputmode="decimal" placeholder="0.00" />
@@ -289,9 +322,36 @@
         <input v-model.trim="reason" maxlength="200" class="input ipn-ret-reason"
                placeholder="退货原因（选填，如：破损 / 临期 / 多订）" />
         <div class="ipn-save">
-          <button class="btn btn-primary btn-sm ipn-save-main" :disabled="saving" @click="submitStandalone">
-            <Icon name="save" :size="14" />{{ saving ? '提交中…' : cfg.saveLabel }}
-          </button>
+          <!-- v451（L3）：双下拉 —— 「保存」（落**草稿**，不扣库存/不冲应付，待审核）
+               ｜ 「保存并审核」（建草稿后立即过账）。结构照抄采购订单建单页
+               （`.ipn-dd` / `.ipn-dd-main` / `.ipn-dd-caret` / `.ipn-caret` / `.ipn-menu`
+                样式块本就与那边逐字节共用 ⇒ 视觉自动一致，不新增 CSS）。 -->
+          <div class="ipn-dd">
+            <button class="btn btn-ghost btn-sm ipn-dd-main" :disabled="saving" @click="submitStandalone('save')">
+              {{ saving ? '提交中…' : cfg.saveLabel }}
+            </button>
+            <button class="btn btn-ghost btn-sm ipn-dd-caret" :disabled="saving"
+                    title="更多保存方式" @click.stop="saveOpen = !saveOpen">
+              <span class="ipn-caret" :class="{ up: saveOpen }"></span>
+            </button>
+            <div v-if="saveOpen" class="ipn-menu" @click.stop>
+              <button class="ipn-mi" @click="submitStandalone('save')">保存（存草稿，待审核）</button>
+              <button class="ipn-mi" @click="submitStandalone('saveNew')">保存并新增</button>
+            </div>
+          </div>
+          <div class="ipn-dd">
+            <button class="btn btn-primary btn-sm ipn-dd-main" :disabled="saving" @click="submitStandalone('approve')">
+              {{ saving ? '提交中…' : '保存并审核' }}
+            </button>
+            <button class="btn btn-primary btn-sm ipn-dd-caret" :disabled="saving"
+                    title="更多审核方式" @click.stop="approveOpen = !approveOpen">
+              <span class="ipn-caret" :class="{ up: approveOpen }"></span>
+            </button>
+            <div v-if="approveOpen" class="ipn-menu" @click.stop>
+              <button class="ipn-mi" @click="submitStandalone('approve')">保存并审核</button>
+              <button class="ipn-mi" @click="submitStandalone('approveNew')">审核并新增</button>
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -361,9 +421,20 @@ const saving = ref(false)
 const suppliers = ref([])
 const warehouses = ref([])
 const products = ref([])
+/* v451（L3）：部门下拉的数据源。`psi_refs(kind='departments')` **后端已存在**
+   （v408 P0-5 为采购订单页加的），这里只是同一份数据的第二个消费方 —— 不新增端点。 */
+const departments = ref([])
 const reason = ref('')
+/* v451（L3）：「保存 / 保存并审核」两个下拉菜单的开合态（与采购订单建单页同名同义）。 */
+const saveOpen = ref(false)
+const approveOpen = ref(false)
+/* v451（L3）：「按小单位采购」勾选框。
+   🔴 **默认勾选 = 锁小单位 = v449 起跑熟的现状**（默认行为零变化）；
+      取消勾选才放开 小/中/大 三档下拉。反过来的默认会让"退货数量"的量纲
+      在用户没注意时变一个档位 —— 那正是本页最该防的静默错账。 */
+const smallUnitOnly = ref(true)
 const form = ref({
-  supplier_id: 0, warehouse_id: 0, order_date: '', note: '',
+  supplier_id: 0, warehouse_id: 0, department_id: 0, order_date: '', note: '',
 })
 
 /** 列设置：**新的云端偏好键** `purchase-return-new`。
@@ -495,8 +566,48 @@ function applyProduct (row) {
   row.convText = String(p.conv_text || '')
   row.baseUnit = String(p.unit || '')
   row.barcode = String(p.barcode || '')
-  row.unit = row.baseUnit
+  /* v451（L3）默认档位：
+       · 勾了「按小单位采购」⇒ 恒小单位（= v449 起的现状，行为零变化）；
+       · 没勾 ⇒ 取商品档案「报单单位」命中的那一档，命中不了回落小档。
+     🔴 前端**只做相等匹配**，不重算任何比值 —— `unit_options` 由后端
+        `db/queries/units.unit_options` 算好下发（混类型列 `medium_ratio` 空串
+        在 SQL/JS 两端结论相反，是生产实测过的坑，判定只准有一份）。 */
+  row.unit = smallUnitOnly.value ? row.baseUnit : (defaultUnitOf(row) || row.baseUnit)
 }
+
+/** 该行的默认档位名（不勾「按小单位采购」时用）：命中 `order_unit` 则用它，否则小档。 */
+function defaultUnitOf (row) {
+  const opts = Array.isArray(row.unitOptions) ? row.unitOptions : []
+  if (!opts.length) return ''
+  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
+  const ou = String((p && p.order_unit) || '').trim()
+  if (ou && opts.some(o => o.name === ou)) return ou
+  return opts[0].name
+}
+
+/** 单位格上的换算提示：选了比小单位大的档时，直接告出「折多少小单位」。
+    数据全部取自后端下发的 `unit_options[].ratio`（唯一权威），前端只做乘法显示。 */
+function unitHint (row) {
+  const opts = Array.isArray(row.unitOptions) ? row.unitOptions : []
+  const o = opts.find(x => x.name === row.unit)
+  const q = Number(row.quantity || 0)
+  if (o && Number(o.ratio) > 1 && row.baseUnit) {
+    return q > 0
+      ? `= ${fmtQty(q * Number(o.ratio))} ${row.baseUnit}`
+      : `1${row.unit} = ${fmtQty(o.ratio)}${row.baseUnit}`
+  }
+  return row.convText || ''
+}
+
+/* 勾选框一动就把已有行统一到对应口径 —— 否则"勾着"的行还留着上一刻选的大单位，
+   提交时按大单位折、与用户眼前看到的勾选状态矛盾（静默错账的又一变体）。 */
+watch(smallUnitOnly, (only) => {
+  items.value.forEach(r => {
+    if (!r.baseUnit) return
+    r.unit = only ? r.baseUnit : (defaultUnitOf(r) || r.baseUnit)
+  })
+})
+
 function onPick (row) {
   applyProduct(row)
   /* 默认带出商品档案的进货价（可改）—— 退货价通常就是当时那个价，让用户少填一次。
@@ -524,49 +635,90 @@ function validateStandalone () {
   return ''
 }
 
-async function submitStandalone () {
+/** 提交。`mode`（v451）：
+ *    `save`        保存 → 落**草稿**（不扣库存/不冲应付），完事回列表待审核
+ *    `saveNew`     保存并新增 → 同上，但留在本页重置明细
+ *    `approve`     保存并审核 → 建草稿后**立即过账**（扣库存 + 冲应付 + 回写源单）
+ *    `approveNew`  审核并新增 → 同上，但留在本页重置明细
+ *  🔴 两条路径都是「先建草稿、再（可选）过账」—— **同一条通道**，不在前端分叉出
+ *     第二套建单逻辑；审核走后端 `purchase_return_post`，与"建单即过账"共用同一个效果实现。
+ *  🔴 审核失败**不丢单**：草稿已经落库（退货单是主体），此时如实报「已存为草稿，
+ *     但审核未通过：<后端的原话>」并把用户留在列表里 —— 绝不谎报成"保存失败"。 */
+async function submitStandalone (mode = 'save') {
+  saveOpen.value = false
+  approveOpen.value = false
   const bad = validateStandalone()
   if (bad) { toast(bad, 'warn'); return }
   if (saving.value) return
+  const wantApprove = mode === 'approve' || mode === 'approveNew'
+  const stayOnPage = mode === 'saveNew' || mode === 'approveNew'
   saving.value = true
   try {
     const r = await psiApi.createPurchaseReturn({
       supplier_id: Number(form.value.supplier_id),
       warehouse_id: Number(form.value.warehouse_id),
+      // v451（L3）：部门（0 = 不指定，后端不落库）+ 草稿标记。
+      department_id: Number(form.value.department_id || 0),
       order_date: form.value.order_date || '',
       note: form.value.note || '',
       reason: reason.value.trim(),
+      // 🔴 恒以 `draft:true` 建单：要审核就紧接着调 approve（同一条通道）。
+      //    这样"保存"与"保存并审核"的**建单部分**逐字同款，差别只在多一次过账调用。
+      draft: true,
       items: filledRows.value.map(x => ({
         product_id: x.product_id,
         product_name: (products.value.find(p => Number(p.id) === Number(x.product_id)) || {}).name || '',
         quantity: Number(x.quantity),
         unit_price: Number(x.unit_price),
+        // v451：所选档位名（勾了「按小单位采购」时恒为基础单位名）。后端据此折小单位落库。
+        unit: x.unit || '',
       })),
     })
-    /* 后端返回 `{success, id, total}`（`createPurchaseReturn`）⇒ 取 `id` 作单据号。
+    /* 后端返回 `{success, id, total, status}`（`purchase_return_create`）⇒ 取 `id` 作单据号。
        ⚠️ 原来这里读的是 `r.return_id` —— 该键后端从不返回 ⇒ 提示里的单号一直是空的（恒不显示）。
        顺手改成 `r.return_id || r.id`：对后端任一命名都成立。 */
     const rid = Number((r && (r.return_id || r.id)) || 0)
     /* v450：单据已落库、`rid` 到手 ⇒ 把暂存的附件随单上传。
        🔴 放在「保存成功」之后、「跳转」之前：只有单据真建成了才有 id 可挂。
-       🔴 `uploadStaged` 自己吞异常 ⇒ 上传失败**不会**走到下面的 catch 去报「保存失败」
-          （那会把已建好的单说成没建成，是谎报）。 */
+       🔴 `uploadStaged` 自己吞异常 ⇒ 上传失败**不会**走到下面的 catch 去报「保存失败」。 */
     const attRes = await uploadStaged(rid)
-    toast(`退货单已生成${rid ? '（#' + rid + '）' : ''}`, 'success')
-    /* v450：附件上传结果**单独报**（不并入上面那句「已生成」）——
-       单据成功与附件失败是两件事，混成一句会让失败被「已生成」盖过去。 */
+    /* v451：要审核就立刻过账。**失败不回滚草稿**（单据是主体），只如实报出来。 */
+    let approveErr = ''
+    if (wantApprove && rid) {
+      try { await psiApi.approvePurchaseReturn(rid) }
+      catch (e) { approveErr = (e && e.message) || '审核失败' }
+    }
+    /* v450：附件上传结果**单独报**（不并入单据结果）—— 单据成功与附件失败是两件事。 */
     if (attRes.fail.length) {
       toast(`${attRes.fail.length} 个附件上传失败：${attRes.fail.join('；')}`, 'warn')
     } else if (attRes.ok) {
       toast(`已上传 ${attRes.ok} 个附件`, 'success')
     }
-    router.push({ path: cfg.value.listPath, query: cfg.value.listQuery || {} })
+    const no = rid ? '（#' + rid + '）' : ''
+    if (wantApprove) {
+      if (approveErr) toast(`已存为草稿${no}，但审核未通过：${approveErr}`, 'warn')
+      else toast(`退货单已审核${no}`, 'success')
+    } else {
+      toast(`已存为草稿${no}，待审核`, 'success')
+    }
+    if (stayOnPage) resetForNew()
+    else router.push({ path: cfg.value.listPath, query: cfg.value.listQuery || {} })
   } catch (e) {
-    // 后端 detail 原样显示（例如「请指定退货供应商」）
+    // 后端 detail 原样显示（例如「请指定退货供应商」「库存不足」）
     toast(e.message || '退货失败', 'error')
   } finally {
     saving.value = false
   }
+}
+
+/** 「保存并新增 / 审核并新增」用的重置：明细清回出厂预设行 + 清掉单据级临时态。
+    表头（供应商 / 仓库 / 部门 / 日期）**刻意保留** —— 同一供应商连续退多张是常态。 */
+function resetForNew () {
+  items.value = []
+  for (let i = 0; i < PRESET_ROWS; i++) items.value.push(blankRow())
+  reason.value = ''
+  stagedFiles.value = []
+  attMsg.value = ''
 }
 
 /* ══ v450 附件（建单页 · 模式 B）══════════════════════════════════════════════════
@@ -730,10 +882,13 @@ async function submitAttached () {
 /* ══ 基础资料 / 初始化 ═══════════════════════════════════════════════════════════ */
 async function loadRefs () {
   try {
-    const d = await psiApi.refs('warehouses,suppliers,products', '', 500)
+    const d = await psiApi.refs('warehouses,suppliers,products,departments', '', 500)
     warehouses.value = d.warehouses || []
     suppliers.value = d.suppliers || []
     products.value = d.products || []
+    // v451（L3）：部门下拉。后端读不到时**返回空数组/不返回这个键** ⇒ 回落 `[]`
+    //   （下拉只剩「请选择」）—— 与采购订单页同款降级，不抛错。
+    departments.value = d.departments || []
     // 默认仓：优先 is_default，其次第一个（两个 is_default 时取 id 最小，仅作默认值，用户可改）
     const defs = warehouses.value.filter(w => w.is_default)
     const pick = (defs.length ? defs : warehouses.value).slice().sort((a, b) => a.id - b.id)[0]
@@ -937,6 +1092,15 @@ watch([fromPo], () => { reinit() })
 /* 底部「退货原因」：吃掉左侧以外的空白，把右侧的保存按钮顶到最右 */
 .ipn-ret-reason { flex: 1; min-width: 220px; height: 32px }
 .ipn-cnt { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
+/* v451（L3）：明细工具条里的「按小单位采购」勾选框 —— 推到最右，与左侧
+   「退货明细 + 项数」分开（`margin-left:auto` 在同排 flex 里就是推到右端）。
+   ⚠️ 不要给它加第 4 个宽度约束：`.ipn-bar` 是 `flex-wrap:wrap`，窄屏它会自己换行。 */
+.ipn-chk {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-left: auto; font-size: 12px; color: var(--t2);
+  cursor: pointer; user-select: none; white-space: nowrap;
+}
+.ipn-chk input { margin: 0; cursor: pointer }
 /* v415（P2-7）自定义字段的输入框：固定宽度（字段名 ≤12 字 + 值 ≤200 字，160px 够看一屏），
    不跟着 `.ipn-f-grow` 撑满 —— 它们是一组等宽的短字段，不是主字段。 */
 .ipn-cf-in { width: 160px; height: 32px }

@@ -536,14 +536,47 @@ export const psiApi = {
   /**
    * 落一张**不挂原采购单**的退货单（扣减库存 + 冲减供应商应付）。
    * @param {object} body
-   *   `{supplier_id, warehouse_id, items:[{product_id, product_name, quantity, unit_price}],
-   *     reason?, order_date?, note?}`
+   *   `{supplier_id, warehouse_id, department_id?, draft?, order_date?, note?, reason?,
+   *     items:[{product_id, product_name, quantity, unit_price, unit?}]}`
    *   🔴 与上面那条镜像：`supplier_id` / `warehouse_id` 都必填。
    *   ⚠️ 因为是独立退货单，**不会**把任何采购单标成「已退货」
    *      （那条回写只在 `purchase_order_id` 非 0 时执行）。
+   *
+   *   ── v451（L3）新增三个字段 ──────────────────────────────────────────────
+   *   · `department_id` —— 舟谱退货单头的 `*部门`；`0` = 不指定（后端只在 >0 时落库）。
+   *   · `draft` —— **true = 只落草稿**（`status='draft'`，**不扣库存、不冲应付、不改源单**）；
+   *     false/缺省 = 建单即过账（v449 行为）。草稿之后走 `approvePurchaseReturn(id)` 过账。
+   *   · `items[].unit` —— 所选**档位单位名**（小/中/大之一，取自 `refs().products[].unit_options`）。
+   *     给了它 ⇒ `quantity`/`unit_price` 按该档理解，后端用 `db/queries/units` 折小单位后落库；
+   *     不给 ⇒ 按小单位（老调用方口径，逐字不变）。
+   *     🔴 前端**绝不自己换算**：混类型列 `medium_ratio` 空串在 SQL/JS 两端结论相反（生产实测坑），
+   *        判定只有一份，在后端 `db/queries/units`.
    */
   createPurchaseReturn: (body) =>
     api('/api/psi/purchase-return-orders', { method: 'POST', body }),
+
+  /**
+   * **审核 / 过账**一张草稿采购退货单（v451）：扣库存 + 冲应付 + 回写源单状态。
+   * 🔴 幂等：重复点不会把库存扣两次 —— 后端用条件 UPDATE 乐观锁，第二次数 400
+   *    「这张单已被审核，请刷新后再看」。
+   */
+  approvePurchaseReturn: (id) =>
+    api(`/api/psi/purchase-return-orders/${id}/approve`, { method: 'POST' }),
+
+  /**
+   * 采购退货单列表（v451）。
+   * @param {object} p `{status, limit, offset}`；`status` 空串 = 全部，`'draft'` = 只看待审核草稿。
+   * 🔴 这是**独立退货单与草稿**唯一的列表出口 —— 挂原单的退货靠采购单列表间接可见，
+   *    独立退货单不快照任何采购单状态，此前任何列表里都找不到。
+   */
+  listPurchaseReturns: (p = {}) => {
+    const qs = new URLSearchParams()
+    if (p.status) qs.set('status', p.status)
+    if (p.limit != null) qs.set('limit', String(p.limit))
+    if (p.offset != null) qs.set('offset', String(p.offset))
+    const s = qs.toString()
+    return api(`/api/psi/purchase-return-orders${s ? '?' + s : ''}`)
+  },
 
   /* ---- v450：采购退单附件（建单页「保存后随单上传」的落点）-------------------
      🔴 与采购单附件（上方 v408 P1-8）**同源但独立命名空间**：退单走

@@ -12,6 +12,31 @@
       </div>
     </div>
 
+    <!-- v451（L3）：**待审核退货草稿**。草稿是 v451 引入的新状态 —— 它没扣库存、
+         没冲应付、也没回写任何采购单 ⇒ 在下面那张（基于 `purchase_orders` 的）主列表里
+         **永远不出现**。少了这一条，用户点「保存」之后那张单就等于"消失了"
+         —— 这正是 v451 要消灭的洞（与 v449「独立退货单无列表出口」同源）。
+         🔴 只在「采购退货单」视图显示（采购单没有草稿态）。 -->
+    <div v-if="isReturn && drafts.length" class="card ipl-draft">
+      <div class="ipl-draft-hd">
+        <b>待审核退货草稿</b>
+        <span class="ipl-draft-n">{{ drafts.length }} 张</span>
+        <span class="ipl-draft-tip">草稿未过账：不扣库存、不冲应付，审核后才生效</span>
+      </div>
+      <ul class="ipl-draft-list">
+        <li v-for="d in drafts" :key="d.id">
+          <span class="ipl-draft-id">#{{ d.id }}</span>
+          <span class="ipl-draft-sup">{{ d.supplier_name || '—' }}</span>
+          <span class="ipl-draft-wh">{{ d.warehouse_name || '—' }}</span>
+          <span class="ipl-draft-amt">¥{{ fmtMoney(d.total_amount) }}</span>
+          <span class="ipl-draft-date">{{ String(d.order_date || d.created_at || '').slice(0, 10) }}</span>
+          <button class="btn btn-primary btn-sm" :disabled="approvingId === d.id" @click="approveDraft(d)">
+            {{ approvingId === d.id ? '审核中…' : '审核' }}
+          </button>
+        </li>
+      </ul>
+    </div>
+
     <!-- 筛选：常用项一行 + 「更多选项」展开（对齐舟谱工具栏） -->
     <div class="card ipl-filter">
       <div class="ipl-frow">
@@ -1051,6 +1076,7 @@ watch(kind, () => {
   sortKey.value = ''
   sortDir.value = ''
   load()
+  loadDrafts()                 // v451：草稿条只属于「采购退货单」视图，切页签要跟着变
 })
 
 const canWrite = computed(() => canDo('inventory', 'create'))
@@ -1362,6 +1388,45 @@ const pageNums = computed(() => {
 })
 
 function onDocClick () { batchOpen.value = false }
+
+/* ══ v451（L3）：待审核退货草稿 ═══════════════════════════════════════════════
+   🔴 为什么必须单列一块（而不并进主列表）：主列表的数据源是 `purchase_orders`
+      （退货视图筛 `status='returned'`）。**草稿不快照任何采购单状态**（草稿的定义就是
+      "什么都没发生"）⇒ 它在主列表里永远查不到。这里单独读 `GET /purchase-return-orders?status=draft`。
+   🔴 审核 = `POST /purchase-return-orders/{id}/approve` —— 由后端做扣库存 + 冲应付 +
+      回写源单，前端只发起。成功后**两个列表都要重拉**（草稿少一张、主列表可能多一张
+      已退货的采购单）。
+   ⚠️ 拉不到草稿**不阻塞**主列表（它是附加信息），但**不静默**：toast 一次原因。 */
+const drafts = ref([])
+const approvingId = ref(0)
+
+async function loadDrafts () {
+  if (!isReturn.value) { drafts.value = []; return }
+  try {
+    const d = await psiApi.listPurchaseReturns({ status: 'draft', limit: 50 })
+    drafts.value = d.rows || []
+  } catch (e) {
+    drafts.value = []
+    toast(e.message || '待审核退货草稿读取失败', 'warn')
+  }
+}
+
+async function approveDraft (row) {
+  if (approvingId.value) return
+  approvingId.value = row.id
+  try {
+    await psiApi.approvePurchaseReturn(row.id)
+    toast(`退货单 #${row.id} 已审核（已扣库存并冲减应付）`, 'success')
+    await loadDrafts()
+    await load(false)          // 主列表刷新（源采购单可能刚被标成「已退货」）
+  } catch (e) {
+    toast(e.message || '审核失败', 'error')
+    await loadDrafts()         // 失败可能是"已被别人审过"⇒ 拉一次让界面回到事实
+  } finally {
+    approvingId.value = 0
+  }
+}
+
 onMounted(async () => {
   document.addEventListener('click', onDocClick)
   /* 🔴 v415：**先**拉自定义字段定义，**再**同步云端列配置。
@@ -1375,6 +1440,8 @@ onMounted(async () => {
   colPrefs.syncFromCloud()
   await loadBase()
   await load()
+  // v451（L3）：待审核退货草稿（仅「采购退货单」视图会真去拉）。
+  await loadDrafts()
 })
 onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </script>
@@ -1382,6 +1449,25 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 <style scoped>
 .inv-page { display: block }
 .ipl-acts { display: flex; gap: 8px; flex-wrap: wrap }
+
+/* v451（L3）：待审核退货草稿条 —— 与筛选卡同族观感（`.card`），但用**警示色**左边框
+   提醒"这里有没生效的单"，不与正常数据混同（深色/浅色主题下都靠 --war 一色成立）。
+   margin 与 `.ipl-filter` 对齐（都是 12px 下距）。 */
+.ipl-draft { margin-bottom: 12px; padding: 12px 18px; border-left: 3px solid var(--war) }
+.ipl-draft-hd { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
+.ipl-draft-n { color: var(--war); font-weight: 600; font-variant-numeric: tabular-nums }
+.ipl-draft-tip { font-size: 12px; color: var(--t3) }
+.ipl-draft-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
+.ipl-draft-list li {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 6px 10px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); font-size: 13px; color: var(--t1);
+}
+.ipl-draft-id { font-variant-numeric: tabular-nums; color: var(--t2) }
+.ipl-draft-sup { min-width: 120px; flex: 1 }
+.ipl-draft-wh { color: var(--t3); font-size: 12px }
+.ipl-draft-amt { font-variant-numeric: tabular-nums; color: var(--p-ink) }
+.ipl-draft-date { color: var(--t3); font-size: 12px; font-variant-numeric: tabular-nums }
 
 /* 筛选 */
 .ipl-filter { margin-bottom: 12px }

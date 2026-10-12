@@ -208,7 +208,11 @@ const PURCHASE_CFG = {
     whLabel: '退货仓库',
     priceLabel: '退货价',
     tblTitle: '退货明细',
-    saveLabel: '保存退货单',
+    /* v451（L3）：`保存退货单` → `保存`。因为底部改成了**双下拉**（对齐舟谱的
+       「保存 ▾ ｜ 保存并审核 ▾」），主按钮要短到与 caret 拼成一个复合控件；
+       「保存并审核」是主按钮（品牌色），这里只管左边那颗 ghost 按钮。
+       ⚠️ `saveLabel` 只有本配置（采购退货单）在用，改它不影响别的单据。 */
+    saveLabel: '保存',
     isReturn: true,
     listPath: '/inventory/purchase',
     listQuery: { kind: 'return' },
