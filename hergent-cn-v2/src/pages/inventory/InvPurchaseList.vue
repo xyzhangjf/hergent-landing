@@ -64,11 +64,11 @@
         <div class="ipl-f ipl-f-quick">
           <label class="ipl-lb">快捷</label>
           <div class="ipl-date-quick">
-            <button type="button" class="ipl-qbtn" :class="{ on: quickRange === 'today' }" @click="setDateRange('today')">今</button>
-            <button type="button" class="ipl-qbtn" :class="{ on: quickRange === 'yesterday' }" @click="setDateRange('yesterday')">昨</button>
-            <button type="button" class="ipl-qbtn" :class="{ on: quickRange === '7' }" @click="setDateRange('7')">近7天</button>
-            <button type="button" class="ipl-qbtn" :class="{ on: quickRange === '30' }" @click="setDateRange('30')">近30天</button>
-            <button type="button" class="ipl-qbtn" :class="{ on: quickRange === '' }" @click="clearDateRange">全部</button>
+            <button type="button" class="chip" :class="{ on: quickRange === 'today' }" @click="setDateRange('today')">今</button>
+            <button type="button" class="chip" :class="{ on: quickRange === 'yesterday' }" @click="setDateRange('yesterday')">昨</button>
+            <button type="button" class="chip" :class="{ on: quickRange === '7' }" @click="setDateRange('7')">近7天</button>
+            <button type="button" class="chip" :class="{ on: quickRange === '30' }" @click="setDateRange('30')">近30天</button>
+            <button type="button" class="chip" :class="{ on: quickRange === '' }" @click="clearDateRange">全部</button>
           </div>
         </div>
         <div class="ipl-fbtns">
@@ -1517,17 +1517,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-kw { height: 32px }
 .ipl-sel { min-width: 150px; height: 32px }
 .ipl-date { height: 32px }
-/* v479 P0-2：创建时间快捷筛选按钮组 */
+/* v482：创建时间快捷筛选按钮组 —— 复用全局 .chip（32px / 8px 圆角 / token 化 / 选中青实底），废弃私有 ipl-qbtn 偏蓝硬编码样式 */
 .ipl-f-quick { gap: 6px }
-.ipl-date-quick { display: flex; gap: 4px; flex-wrap: wrap }
-.ipl-qbtn { height: 30px; padding: 0 10px; border: 1px solid #d9d9d9; background: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; color: #555; transition: all .15s }
-.ipl-qbtn:hover { border-color: #2d6cdf; color: #2d6cdf }
-.ipl-qbtn.on { background: #2d6cdf; border-color: #2d6cdf; color: #fff }
-@media (prefers-color-scheme: dark) {
-  .ipl-qbtn { background: #2a2f3a; border-color: #3a4150; color: #c5ccd6 }
-  .ipl-qbtn:hover { border-color: #4d8bff; color: #4d8bff }
-  .ipl-qbtn.on { background: #4d8bff; border-color: #4d8bff; color: #fff }
-}
+.ipl-date-quick { display: flex; gap: 6px; flex-wrap: wrap }
 .ipl-fbtns { display: flex; align-items: center; gap: 8px; margin-left: auto }
 .ipl-chk-mark { align-self: flex-end; height: 32px; margin-left: auto }
 
