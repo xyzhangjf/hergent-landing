@@ -83,6 +83,10 @@
                 <th class="pr-col-name">角色名称</th>
                 <th class="pr-col-type">角色类型</th>
                 <th class="pr-col-end">可登录</th>
+                <!-- 🔴 v475 新增「在用账号」列：**这是"能不能删"的唯一依据**。
+                     没有它，老板只能凭猜 —— 而删掉一个有人用的自定义角色，
+                     会让那些人变成「什么都打不开」且**没有任何界面能救回来**。 -->
+                <th class="pr-col-users">在用账号</th>
                 <th class="ctr">操作</th>
               </tr>
             </thead>
@@ -95,16 +99,36 @@
                   </span>
                 </td>
                 <td class="pr-end">{{ loginScopeLabel(endToScope(r.end)) }}</td>
+                <td class="pr-users">
+                  <!-- 🔴 `user_count === null` = 后端**读不到**占用数（不是 0）。
+                       这里必须显示「未知」而**不能**显示「0 人」—— 0 会被读成"没人用"，
+                       而删除守卫正是靠这个数决定放不放行；把"不知道"显示成"没有"，
+                       就是界面在骗人（也是守卫 fail-closed 存在的理由）。 -->
+                  <span v-if="r.user_count === null" class="pr-unknown"
+                        title="后端暂时读不到占用情况。为安全起见，此时删除会按「有人在用」从严处理。">未知</span>
+                  <template v-else>{{ r.user_count }} 人</template>
+                </td>
                 <td class="ctr">
                   <button class="btn btn-sm" @click="openRoleDetail(r.name)">配置权限</button>
-                  <!-- v351：从矩阵列头挪过来。判据仍是 `is_custom`（= 本租户有覆盖行）——
-                       系统自带角色被改过也照样能单独恢复，正是老板要的"这个改坏了，退回去"。 -->
-                  <button v-if="r.is_custom" class="btn btn-sm btn-ghost" @click="resetRole(r.name)"
-                          title="恢复该角色的默认权限">恢复默认</button>
+                  <!-- 🔴 v475：同一个 `DELETE /api/role-permissions/{role}` 端点，
+                       对两类角色做的是**两件天差地别的事**，按钮名必须说真话：
+                         · 内置角色（sales 等）⇒ 删租户覆盖行 = **恢复默认**，可撤销；
+                         · 自定义角色（如「库管」）⇒ 那一行**就是角色本身**，删掉不可撤销，
+                           且已分配的人会变成"什么都打不开"。
+                       此前两者共用一个写着「恢复默认」的按钮 —— 对自定义角色，
+                       "恢复默认"这件事根本不成立（它没有默认）。 -->
+                  <button v-if="r.is_custom" class="btn btn-sm"
+                          :class="isCanonicalRole(r.name) ? 'btn-ghost' : 'btn-danger'"
+                          @click="resetRole(r.name)"
+                          :title="isCanonicalRole(r.name)
+                            ? '恢复该角色的默认权限'
+                            : '删除这个角色（连同它的权限配置一起删掉，不可撤销）'">
+                    {{ isCanonicalRole(r.name) ? '恢复默认' : '删除角色' }}
+                  </button>
                 </td>
               </tr>
               <tr v-if="!permRoles.length">
-                <td colspan="4" class="pr-empty">{{ permLoading ? '加载中…' : '没有可配置的角色' }}</td>
+                <td colspan="5" class="pr-empty">{{ permLoading ? '加载中…' : '没有可配置的角色' }}</td>
               </tr>
             </tbody>
           </table>
@@ -112,6 +136,53 @@
             点「配置权限」进入这个角色的明细。<b>同一个角色只有一个配权限的地方</b> ——
             改了就是真的改了，不会出现"这里改了那里没变"。
           </p>
+        </div>
+
+        <!-- ============ v475：最近变更（只读）============
+             🔴 为什么必须有这个区块：本页是全系统**唯一**能改权限的地方（`/settings` 是产品硬锁），
+             而在此之前「改了权限」**不留痕、也无处可查** ⇒ 出了问题只能靠回忆。
+             后端 v475 补齐了 6 个写端点的审计 + 一个读取端点，这里把它显示出来 ——
+             ⚠️ **只写不读等于没做**：审计若只能靠 SQL 查，它在业务上是不存在的。
+             🔴 它是**只读**的：本区块没有任何 input / 写动作，
+             结构上不可能从"看记录"这条路改到权限（与「查看对比」弹窗同一纪律）。 -->
+        <div class="card">
+          <div class="panel-hd">
+            <b>最近变更 · 谁在什么时候改了什么</b>
+            <div class="tb-group tb-right">
+              <button class="btn btn-sm btn-ghost" :disabled="permAuditLoading" @click="loadPermAudit">
+                {{ permAuditLoading ? '刷新中…' : '刷新' }}
+              </button>
+            </div>
+          </div>
+          <p class="pr-tip" style="margin-top:0">
+            权限与账号相关的改动都会记在这里（含给员工换角色）。<b>只保留最近 {{ permAuditLimit }} 条</b>，
+            完整记录在本企业的操作日志表里。
+          </p>
+          <div v-if="permAuditLoading" class="pr-empty">加载中…</div>
+          <div v-else-if="permAuditError" class="pr-empty">{{ permAuditError }}</div>
+          <div v-else-if="!permAudit.length" class="pr-empty">还没有任何变更记录</div>
+          <div v-else class="table-wrap">
+            <table class="pa-table">
+              <thead>
+                <tr>
+                  <th class="pa-when" style="width:150px">时间</th>
+                  <th class="pa-who" style="width:110px">谁</th>
+                  <th class="pa-what">做了什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(r, i) in permAudit" :key="'pa-' + (r.id || i)">
+                  <td class="pa-when">{{ r.at || '—' }}</td>
+                  <td class="pa-who">{{ r.who || '—' }}</td>
+                  <td class="pa-what">
+                    <b>{{ r.what }}</b>
+                    <template v-if="r.role"> · 角色「{{ roleLabel(r.role) }}」</template>
+                    <div v-if="r.detail" class="pa-detail">{{ r.detail }}</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </template>
 
@@ -584,6 +655,30 @@ const permLoading = ref(false)
 const moduleQuery = ref('')
 const permHelpOpen = ref(false)   // v326：使用说明默认收起（见模板注释）
 
+/* ---- v475：最近变更（只读）------------------------------------------------------
+   🔴 这段存在的理由是"审计只写不读 = 没做"：后端补齐 6 个写端点的留痕与一个读取端点后，
+      必须**在这一页把它显示出来** —— 否则日志只能靠 SQL 查，业务上等于不存在。
+   ⚠️ `permAuditError` 必须**如实显示**：端点取不到时写「后端可能还没更新」，
+      绝不静默渲染成"还没有任何变更记录"（那会把"读不到"说成"没有"，正是本页红线）。 */
+const permAudit = ref([])
+const permAuditLoading = ref(false)
+const permAuditError = ref('')
+const permAuditLimit = 30
+async function loadPermAudit() {
+  permAuditLoading.value = true
+  permAuditError.value = ''
+  try {
+    const d = await api('/api/role-permissions/audit?limit=' + permAuditLimit)
+    permAudit.value = (d && d.items) || []
+  } catch (e) {
+    permAudit.value = []
+    permAuditError.value = '读不到变更记录：' + ((e && e.message) || '未知错误')
+      + '（若刚部署完，通常是后端还没更新这一版）'
+  } finally {
+    permAuditLoading.value = false
+  }
+}
+
 /* ---- v334（2026-09-30）：细粒度权限（模块 × 动作）---------------------------------------
    需求原话：「按照舟谱截图，从角色列表点进某一角色的详情配置页，按各功能模块做更细粒度
    的权限配置」。后端 `GET/POST /api/role-permissions/detail`（`{模块: [动作]}`）**早已具备**
@@ -803,6 +898,10 @@ async function loadPerms() {
         name,
         perms: permsToModules(v.permissions).filter(p => p !== '*'),
         is_custom: v.is_custom,
+        /* v475：该角色本租户内**有多少账号在用**（主角色 + 只挂兼任）。
+           🔴 后端读不到时给 `null` 而不是 0 —— 0 会被读成"没人用"，
+           而删除守卫正是靠它决定放不放行（守卫 fail-closed，见 server.py::_role_in_use）。 */
+        user_count: typeof v.user_count === 'number' ? v.user_count : null,
         /* v312 登录端（「允许使用电脑端 / 允许使用手机端」）。
            🔴 三条都**从后端字段派生**，不在前端按 `ROLE_END` 重算一遍：
               `ROLE_END` 只是**内置默认**，租户可以在本页覆盖它 —— 若前端拿内置值渲染勾选，
@@ -839,6 +938,11 @@ async function loadPerms() {
     toast('权限加载失败：' + (e.message || ''), 'error')
   } finally {
     permLoading.value = false
+    // v475：角色列表每次重载都顺带刷新「最近变更」—— 这是**唯一**的自动刷新点
+    //（新建/恢复/删除/改登录端都会走 loadPerms）⇒ 不必在每个动作后各写一遍，
+    // 也就不会出现"某条路径改了权限但记录没更新"。
+    // ⚠️ 不 await：本段与角色列表无关，卡住不该拖慢列表渲染；它自己管 loading / error。
+    loadPermAudit()
   }
 }
 
@@ -1000,6 +1104,9 @@ async function saveRoleDetail() {
       role.end_is_custom = true
     }
     await syncStorePerms()
+    // v475：这里**刻意不整表重拉**（v350 P0-2：切视图/保存时重拉会把未保存输入吃掉），
+    // 但「最近变更」是与角色表无关的独立只读数据 ⇒ 单独刷它，既不违反 P0-2 也不留过期记录。
+    loadPermAudit()
     toast('「' + roleLabel(name) + '」的权限已保存' + (endSaved ? '（含登录端）' : ''), 'success')
   } catch (e) {
     toast('保存失败：' + (e.message || ''), 'error')
@@ -1077,15 +1184,44 @@ async function syncStorePerms() {
    **现在每次改动都落在某一个角色上、点保存即入库 ⇒ "未保存的批量勾选"这个概念消失了。** */
 
 async function resetRole(name) {
-  if (!confirm(`确认把「${roleLabel(name)}」的权限恢复为默认？`)) return
+  /* 🔴 v475：按角色类型分叉文案 —— 这不是措辞优化，是**后果不同**。
+     同一个 `DELETE /api/role-permissions/{role}` 端点：
+       · 内置角色 ⇒ 删租户覆盖行 = 恢复默认，**可撤销**（重新配一遍即可）；
+       · 自定义角色 ⇒ 那一行**就是角色本身**，删掉后它从 `core.known_roles()` 消失 ⇒
+         员工档案的角色下拉里选不到它，且**已分配它的账号会全员 403**
+         （`_check_perm` 找不到匹配行），**没有任何界面能救回来**。
+     此前两条路径共用一句「恢复默认」⇒ 对自定义角色说了假话（生产 tenant_1 里真有「库管」）。
+     ⚠️ 文案之外，后端 v475 加了**服务端守卫**（有占用 ⇒ 400 拒绝）；
+        这里的前端只负责把后果讲清楚，**不替代**那道守卫。 */
+  const builtin = isCanonicalRole(name)
+  const role = permRoles.value.find(r => r.name === name)
+  const used = role ? role.user_count : null
+  const lines = builtin
+    ? [`确认把「${roleLabel(name)}」的权限恢复为默认设置？`,
+       '',
+       '只是撤掉本企业对它的改动，随时可以重新配置。']
+    : [`确认【删除】角色「${roleLabel(name)}」？`,
+       '',
+       '这不是「恢复默认」—— 它是本企业自建的角色，删掉就没有了：',
+       '· 它的权限配置会一起删掉，不可撤销；',
+       '· 它会从「档案管理 › 员工档案」的角色下拉里消失；',
+       (typeof used === 'number' && used > 0)
+         ? `· 现在还有 ${used} 个账号在用它，删除前需要先给他们换个角色；`
+         : (used === null
+             ? '· 系统暂时读不到占用账号数，此时删除会按「有人在用」从严处理；'
+             : '· 目前没有账号在用它。')]
+  if (!confirm(lines.join('\n'))) return
   try {
-    await api(`/api/role-permissions/${name}`, { method: 'DELETE' })
+    await api(`/api/role-permissions/${encodeURIComponent(name)}`, { method: 'DELETE' })
     await loadPerms()
     // v296：恢复默认同样是一次权限变更（而且会撤掉该角色的"让位"资格）⇒ 一样要同步本会话。
     await syncStorePerms()
-    toast('已恢复默认权限', 'success')
+    await loadPermAudit()
+    toast(builtin ? '已恢复默认权限' : '已删除角色「' + roleLabel(name) + '」', 'success')
   } catch (e) {
-    toast('恢复失败：' + (e.message || ''), 'error')
+    /* 🔴 守卫拒绝时把后端的中文原因**原样转达**（`api` 已抛 message），别改写成技术腔 ——
+       那条 400 里带着「还有几个账号在用、去哪改派」，正是老板下一步要做的事。 */
+    toast((builtin ? '恢复失败：' : '删除失败：') + (e.message || '未知错误'), 'error')
   }
 }
 
@@ -1211,6 +1347,14 @@ onMounted(() => {
 /* v326：使用说明默认收起（原先 8 段实现说明常驻在表格上方，见模板里的注释）。 */
 .pm-help-tb{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--t2);background:none;border:0;padding:0;margin:0 0 10px;cursor:pointer}
 .pm-help-tb:hover{color:var(--p-dark)}
+/* ---- v475：最近变更（只读）—— 复用本页表格的视觉语言，不新造一套 ---- */
+.pa-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.pa-table th,.pa-table td{padding:7px 10px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
+.pa-table th{font-weight:600;color:var(--t2);background:var(--bg3)}
+.pa-when{white-space:nowrap;color:var(--t3);font-variant-numeric:tabular-nums}
+.pa-who{white-space:nowrap;font-weight:600;color:var(--t1)}
+.pa-what{color:var(--t1)}
+.pa-detail{margin-top:3px;color:var(--t3);font-size:12px;line-height:1.7;word-break:break-all}
 .pm-help{margin:0 0 12px;padding:9px 12px;border-radius:var(--radius-md);background:var(--bg3);font-size:12.5px;color:var(--t2);line-height:1.75}
 .pm-help p{margin:0 0 5px}
 .pm-help p:last-child{margin-bottom:0}
@@ -1244,9 +1388,13 @@ onMounted(() => {
 .perm-role-table th,.perm-role-table td{padding:9px 10px;border-bottom:1px solid var(--bd);text-align:left}
 .perm-role-table th{font-weight:600;color:var(--t2);background:var(--bg3)}
 .perm-role-table .ctr{text-align:center}
-.pr-col-name{width:30%}
-.pr-col-type{width:18%}
-.pr-col-end{width:18%}
+.pr-col-name{width:28%}
+.pr-col-type{width:16%}
+.pr-col-end{width:16%}
+/* v475：「在用账号」列 —— 「未知」用警示色而不是灰成一片，因为它是**不能删**的信号 */
+.pr-col-users{width:12%}
+.pr-users{white-space:nowrap}
+.pr-unknown{color:var(--dan);font-weight:600}
 .pr-name{font-weight:600;color:var(--t1)}
 /* 「自定义角色」用主色小标签，「系统自带」用中性小标签 —— 一眼能分辨，
    且两者都只是"角色类型"的注脚，不需要抢眼到干扰扫读。 */
