@@ -188,8 +188,15 @@
                与 备注 / 预计到货 共用同一个「编辑态」开关，一次保存，不用跳编辑页。
                🔴 仓库在**已入库**的单上禁用：货已经进了某个仓，再改单据上的仓库会让
                   「库存实际在哪」与「单据说在哪」分叉，而且不报错 —— 后端同一条闸门。 -->
+          <!-- v454（R10）信息带「可编辑字段」标记：对齐舟谱 —— 每个能就地改的字段 label 前带 `*`。
+               🔴 只标**真能改**的字段（经办人 / 部门 / 仓库 / 备注）；「供应商」不标 ——
+                  本系统改供应商会牵连应付账与结算单，详情页不放开（见 §3.3 不照搬项）。
+                  舟谱的 `*` 语义是「必填」，这里是「可改」⇒ 信息带末尾有一句图例把话说清，
+                  不让人按舟谱的习惯误读成「不填不让存」。
+               🔴 `v-if="canWrite"` 必须带着：无写权限的人看不到铅笔、也改不了，
+                  给他们标 `*` 是纯误导。 -->
           <div class="ipd-bf">
-            <span class="ipd-lb">经办人</span>
+            <span class="ipd-lb"><i v-if="canWrite" class="ipd-req" title="本页可直接修改">*</i>经办人</span>
             <template v-if="editHeader">
               <select v-model="editHandler" class="input ipd-edit-sel">
                 <option value="">不指定</option>
@@ -199,7 +206,7 @@
             <template v-else><span class="ipd-bfv">{{ o.handler_name || '—' }}</span></template>
           </div>
           <div class="ipd-bf">
-            <span class="ipd-lb">部门</span>
+            <span class="ipd-lb"><i v-if="canWrite" class="ipd-req" title="本页可直接修改">*</i>部门</span>
             <template v-if="editHeader">
               <select v-model.number="editDepartment" class="input ipd-edit-sel">
                 <option :value="0">不指定</option>
@@ -209,7 +216,7 @@
             <template v-else><span class="ipd-bfv">{{ o.department_name || '—' }}</span></template>
           </div>
           <div class="ipd-bf">
-            <span class="ipd-lb">仓库</span>
+            <span class="ipd-lb"><i v-if="canWrite" class="ipd-req" title="本页可直接修改">*</i>仓库</span>
             <template v-if="editHeader">
               <select v-model.number="editWarehouse" class="input ipd-edit-sel" :disabled="whLocked"
                       :title="whLocked ? '这张单已经入库，不能改入库仓库（改了库存与单据会对不上）' : '选择入库仓库'">
@@ -219,7 +226,7 @@
             <template v-else><span class="ipd-bfv">{{ o.warehouse_name || ('仓库 ' + (o.warehouse_id || '—')) }}</span></template>
           </div>
           <div class="ipd-bf">
-            <span class="ipd-lb">备注</span>
+            <span class="ipd-lb"><i v-if="canWrite" class="ipd-req" title="本页可直接修改">*</i>备注</span>
             <template v-if="editHeader">
               <input v-model="editNote" class="input ipd-edit-in" maxlength="200" placeholder="选填" />
               <!-- v453（R3）字数计数：`maxlength` 会在 200 字静默截断（不提示、不报错），
@@ -269,6 +276,14 @@
               </div>
             </template>
           </div>
+        </div>
+
+        <!-- v454（R10）星号图例。舟谱的 `*` 语义是「必填」，这里是「可改」——
+             不给图例的话，从舟谱迁过来的用户会以为「不填不让保存」。
+             🔴 与信息带分开一行、弱字色，因为它不是数据、是说明；
+                打印时隐藏（`ipd-noprint`），纸上不带这句 UI 说明。 -->
+        <div v-if="canWrite" class="ipd-reqnote ipd-noprint">
+          <i class="ipd-req">*</i>表示该字段可在本页直接修改（其余字段只读）
         </div>
 
         <!-- v453：编辑态的「保存 / 取消」**常驻在信息带下方**（原来藏在「更多信息 ▾」里）。
@@ -383,12 +398,18 @@
                   <th class="num">已到货</th>
                   <!-- v453（R4）入库金额（默认收进列设置，见 GOODS_COLS 注释） -->
                   <th class="num" v-if="isVisGoods('ramt')">入库金额</th>
+                  <!-- v454（R12）期望生产日期（默认收进列设置；取值字段待确认，见 GOODS_COLS） -->
+                  <th v-if="isVisGoods('epdate')">期望生产日期</th>
                   <th v-if="isVisGoods('batch')">批次号</th>
                   <th v-if="isVisGoods('expiry')">到期日</th>
                   <th v-if="isVisGoods('note')">行备注</th>
                   <!-- v408（P1-6）行历史入口。列宽固定（`ipd-hist-th`），因为按钮本身
                        只有「历史」两个字、宽度恒定。 -->
-                  <th class="ipd-hist-th">历史</th>
+                  <!-- v454（R11）表头文字对齐舟谱：舟谱这一列叫「操作」（格内是"历史"链接），
+                       我方原来直接把列名叫成「历史」。改成「操作」后，列名表达的是
+                       「这一列放行级动作」，将来加更多行级动作不用再改列名。
+                       ⚠️ 格内按钮文字仍是「历史」—— 动作名没变，只是列名归类。 -->
+                  <th class="ipd-hist-th">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -436,6 +457,10 @@
                   <!-- v453（R4）入库金额 = 已到货数量 × 采购价（本行口径，与「订单金额」同一单价）。
                        🔴 无采购价时显示 `—` 而不是算成 0：`0 元` 会被读成「到了货但没花钱」。 -->
                   <td class="num" v-if="isVisGoods('ramt')">{{ recvAmtText(it) }}</td>
+                  <!-- v454（R12）期望生产日期。🔴 取值字段未确认（见 GOODS_COLS 的 TODO）——
+                       后端没下发时显示 `—`（本仓铁律：缺值不编），**不拿实际生产日期顶替**
+                       （两者是"要求"与"事实"两个口径，顶替会让用户以为供应商按约交了货）。 -->
+                  <td v-if="isVisGoods('epdate')">{{ it.expected_production_date || '—' }}</td>
                   <td v-if="isVisGoods('batch')">
                     <span v-if="it.batch_no">{{ it.batch_no }}</span>
                     <!-- v452（O8）：「未登记」从黄 tag 改灰色文字 —— 2 行商品 4 个黄块
@@ -480,6 +505,9 @@
                   <td class="num">{{ fmtQty(sumRecv) }}</td>
                   <!-- v453（R4）入库金额合计：列序上紧跟「已到货」，这里也必须紧跟它的合计格。 -->
                   <td class="num" v-if="isVisGoods('ramt')">{{ fmtMoney(sumRecvAmt) }}</td>
+                  <!-- v454（R12）期望生产日期无合计（日期列）⇒ 空格占位，但**必须存在**，
+                       否则其后（批次/到期日/行备注/操作）的合计格整体左移一列、静默错位。 -->
+                  <td v-if="isVisGoods('epdate')"></td>
                   <td v-if="isVisGoods('batch')"></td>
                   <td v-if="isVisGoods('expiry')"></td>
                   <td v-if="isVisGoods('note')"></td>
@@ -730,6 +758,15 @@
         <div class="ipd-dlg-hd">{{ logsTitle }}</div>
         <p class="ipd-dlg-msg">{{ logsSub }}</p>
 
+        <!-- v454（R13）双页签对齐舟谱。复用全局 `.main-tabs / .main-tab`（与页内三页签同一套），
+             不另写一份定位 —— 同页两处页签长得一样，用户不用学两套。
+             ⚠️ 行历史态（`logPid`）下不出现：见脚本层 `logTab` 的注释。 -->
+        <div v-if="!logPid" class="main-tabs ipd-logtabs">
+          <button class="main-tab" :class="{ on: logTab === 'order' }" @click="logTab = 'order'">订单日志</button>
+          <button class="main-tab" :class="{ on: logTab === 'logistics' }" @click="logTab = 'logistics'">物流日志</button>
+        </div>
+
+        <template v-if="logTab === 'order'">
         <div v-if="logsLoading" class="state-empty">加载中…</div>
         <div v-else-if="logsErr" class="state-error">
           <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -762,6 +799,24 @@
         </div>
 
         <p v-if="logHint" class="ipd-note ipd-loghint">{{ logHint }}</p>
+        </template>
+
+        <!-- 物流日志页（v454 R13）。
+             TODO(待确认)：本页**无数据源** —— 舟谱这里显示供应商发货 / 运输轨迹，
+                 本系统没有承运商、运单号、轨迹任何一张表（`purchase_orders` 也没有相关列）。
+                 待确认：① 是否有接入计划（厂家 TMS / 司机上报 / 手工填运单号）；
+                 ② 若只做「手工填运单号 + 到货节点」的最小版，字段放采购单头还是新建 `po_shipments`；
+                 ③ 在确认之前**保持空态**，不写死任何占位假数据（会让人以为系统在跟车）。 -->
+        <div v-else class="ipd-logistics">
+          <div class="ipd-empty">
+            <div class="ipd-empty-ic"><Icon name="package" :size="26" /></div>
+            <p>这张单还没有物流信息。</p>
+            <p class="ipd-log-note">
+              舟谱在这一页显示供应商发货与运输轨迹。本系统目前还没有物流数据源
+              —— 是「还没接」，不是「查不到」。
+            </p>
+          </div>
+        </div>
 
         <div class="ipd-dlg-ft">
           <button class="btn btn-ghost btn-sm" @click="logsOpen = false">关闭</button>
@@ -887,6 +942,17 @@ const GOODS_COLS = [
         明细列已经很密，这一列不是人人天天看，默认占屏会挤掉更常用的列。
      ⚠️ 加列必须同步表尾 `<tfoot>`：错位**不报错**，只是金额对到别的列下面（静默）。 */
   { key: 'ramt', label: '入库金额', core: false, def: false },
+  /* v454（R12）期望生产日期：舟谱采购退货单明细里是**常显列**（截图 17「期望生产日期▾」），
+     采购订单明细的列设置里也存在。它表达的是「我方要求供应商哪天生产/交付的货」——
+     低温奶临期判定要用「生产日期 + 保质期」，所以这个**期望值**与到货后登记的
+     `production_date`（入库单页的实际生产日期）是两个口径，不能互相顶替。
+     🔴 `def:false`：**默认收进列设置**，与批次号 / 到期日同一档（上面三列都是"要时再开"）。
+     TODO(待确认)：本列取值字段名与数据来源未确认 —— 暂用 `it.expected_production_date`，
+        后端（`purchase_order_items` / `psi` 明细投影）当前**未下发**该字段 ⇒ 恒显示 `—`。
+        待确认：① 舟谱这个值由谁填（建单时选 / 供应商回填）；② 本系统是否已在某张表存过
+        （不应新建字段名前先查 `production_date` 是否复用了同一列）；③ 若确认不采集，
+        本列应连同 `GOODS_COLS` 条目一起删掉，不留永久空列。 */
+  { key: 'epdate', label: '期望生产日期', core: false, def: false },
   { key: 'batch', label: '批次号', core: false, def: false },
   { key: 'expiry', label: '到期日', core: false, def: false },
   { key: 'note', label: '行备注', core: false },
@@ -1678,6 +1744,13 @@ async function refreshPrintCount () {
       否则用户把「这一行没有入库/退货痕迹」读成「这张单没人动过」。 */
 const logPid = ref(0)
 const logPname = ref('')
+/* v454（R13）日志弹层的页签，对齐舟谱的「订单日志 / 物流日志」两页签。
+   🔴 'order' = 现有那套（建单/审核/入库/付款/退货），数据来自 `psiApi.getPurchaseLogs`。
+   🔴 'logistics' = **占位**：本系统没有物流数据源（没有承运商 / 运单号 / 轨迹表），
+      这一页如实显示"还没接"而不是编几条假轨迹。见模板里的 TODO(待确认)。
+   🔴 行历史态（`logPid > 0`）**不显示这两个页签** —— 行的历史只有出入库痕迹，
+      对某一行谈"物流轨迹"没有业务含义（整单才有）。 */
+const logTab = ref('order')
 const logsTitle = computed(() => logPid.value ? '行历史' : '查看日志')
 const logsSub = computed(() => {
   const no = o.value.order_no || ('#' + oid.value)
@@ -1700,6 +1773,9 @@ async function openLogs (pid = 0, pname = '') {
   logsErr.value = ''
   logs.value = []
   logHint.value = ''
+  /* v454（R13）每次打开都回到「订单日志」页 —— 上次停在物流页、这次打开还停在那儿，
+     用户会以为"日志没了"（其实只是停在另一个页签）。 */
+  logTab.value = 'order'
   try {
     const d = await psiApi.getPurchaseLogs(oid.value, logPid.value)
     logs.value = Array.isArray(d.entries) ? d.entries : []
@@ -2030,6 +2106,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       `.ipd-mono` 单号/条码在用；`.ipd-conv` 明细表单位列/采购价/数量的
       折小单位小字在用。删任何一个都是静默失效（样式不报错，只是不生效）。 */
 .ipd-lb { font-size: 12px; color: var(--t3) }
+/* v454（R10）可编辑字段星号 + 图例。对齐舟谱的 `*` 视觉，但语义是「可改」不是「必填」
+   ⇒ 颜色用主题危险色（与「未结」「错误」同一个红），一行图例把话说清。 */
+.ipd-req { color: var(--danger-txt); font-style: normal; margin-right: 2px; font-weight: 600 }
+.ipd-reqnote {
+  margin: -4px 0 10px; padding: 0 2px;
+  font-size: 12px; color: var(--t3);
+}
+.ipd-reqnote .ipd-req { margin-right: 3px }
 .ipd-amt { font-size: 16px; font-variant-numeric: tabular-nums }
 .ipd-amt-due { color: var(--danger) }
 .ipd-mono { font-variant-numeric: tabular-nums; font-family: var(--font-mono) }
@@ -2205,6 +2289,12 @@ tfoot td { font-weight: 600 }
 .ipd-log-ev { width: 108px; white-space: nowrap }
 .ipd-log-dt { color: var(--t2); word-break: break-all }
 .ipd-loghint { margin: 12px 0 0; line-height: 1.6 }
+/* v454（R13）日志弹层页签：复用全局 `.main-tabs / .main-tab`，只收一档间距 ——
+   弹层里不需要页级页签那么大的上下留白（页级 16px / 10px 18px 在这里会顶掉表体空间）。 */
+.ipd-logtabs { margin-bottom: 12px }
+.ipd-logtabs .main-tab { padding: 8px 14px; font-size: 13px }
+.ipd-logistics { padding: 6px 0 2px }
+.ipd-log-note { margin: 4px 0 0; max-width: 460px; font-size: 12px; color: var(--t3); line-height: 1.7 }
 
 /* ---- 附件（v408 P1-8）----
    ⚠️ 这些是**本页私有**样式：附件 UI 目前只有采购单详情页一处。将来第二处要用时，
