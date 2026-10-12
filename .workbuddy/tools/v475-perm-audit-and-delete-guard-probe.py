@@ -310,6 +310,38 @@ chk('permAuditError' in sv, '审计读不到时如实显示错误（不静默当
 chk('colspan="5"' in sv, '表格新增一列后空态 colspan 同步为 5')
 chk('在用账号' in sv, '角色列表有「在用账号」列')
 
+# 🔴 v475 生产验收时抓到的缺陷：把「没人用的角色」误显示成「未知」。
+#    `role_user_counts` **只包含至少有一个账号的角色** ⇒ 没人用的角色压根不在字典里，
+#    按"字典有没有这个键"推断就会把 0 显示成"不知道"，而删除守卫恰恰靠这个数决定放不放行
+#    ⇒ 界面与守卫口径不一致时，人根本不敢点删除。
+class _FakeRoleCounts(dict):
+    pass
+
+
+_counts_box = {}
+_real_rcs = server._role_user_counts
+server._role_user_counts = lambda tid: _counts_box.get('v')
+_get = server.get_role_perms
+_counts_box['v'] = {'sales': {'primary': 3, 'extra': 0, 'total': 3}}   # 只有 sales 有占用
+d = server.get_role_perms(FakeReq())
+server._role_user_counts = _real_rcs
+_items = d.get('roles') or {}
+_none_valued = [k for k, v in _items.items() if v.get('user_count') is None]
+_zero_valued = [k for k, v in _items.items() if v.get('user_count') == 0]
+chk(len(_none_valued) == 0,
+    '🔴 统计可用时，**没人用的角色是 0 而不是 null**（0 人 ≠ 不知道）',
+    'null 的角色: %s' % (_none_valued[:4] or '无'))
+chk(len(_zero_valued) > 0 and (_items.get('sales') or {}).get('user_count') == 3,
+    '🔴 有占用的角色照常给出真实数字', 'sales=%s 其余 0 的角色数=%d' % ((_items.get('sales') or {}).get('user_count'), len(_zero_valued)))
+_counts_box['v'] = None                                            # 模拟整个统计读不到
+server._role_user_counts = lambda tid: _counts_box.get('v')
+d2 = server.get_role_perms(FakeReq())
+server._role_user_counts = _real_rcs
+_items2 = d2.get('roles') or {}
+chk(all(v.get('user_count') is None and v.get('user_count_known') is False for v in _items2.values()),
+    '🔴 统计**读不到**时才是 null（前端显示「未知」），与"0 人"严格区分',
+    'roles=%d' % len(_items2))
+
 # 提交面必须是「新建独立模块 + server.py + core.py」——erp_db.py 当时混着
 # 别人未提交的 412 行（采购退货 v449/v450），在里面加逻辑就得连带提交他的在途代码。
 core_src = open(os.path.join(SRV, 'core.py'), encoding='utf-8').read()
