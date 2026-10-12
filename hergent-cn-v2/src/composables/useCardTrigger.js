@@ -288,7 +288,7 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
   const save = saveCurrentSession || (() => {})
 
   function pushCard(content, card) {
-    store.chat.messages.push({ role: 'assistant', content, card })
+    store.chat.messages.push({ role: 'assistant', content, card, created_at: Date.now() })
     scroll()
     save()
     // v156 D：确定性经营卡（后端 /api/ai/*-card 聚合接口产出）**不再推 IM**。

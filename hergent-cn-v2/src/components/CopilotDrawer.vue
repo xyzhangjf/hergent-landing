@@ -128,7 +128,7 @@
                 <div v-if="openThink === i" class="mt-body">{{ m.reasoning }}</div>
               </div>
               <div class="msg-bubble">
-                <div v-if="m.role === 'assistant' && m.content" class="md" v-html="renderMd(mediaView(m.content).text)" @click="onCopilotTocClick"></div>
+                <div v-if="m.role === 'assistant' && m.content" class="md" v-html="renderMd(mediaView(m.content).text)" @click="onCopilotTocClick" @change="onCopilotControl"></div>
                 <!-- 等待动画：只在「正在流式 + 这是最后一条 + 还没收到内容」时显示。
                      判据必须带上 streaming —— 请求超时/报错/取消时 streaming 立刻变 false，
                      组件随之卸载，不会留在气泡里一直跳（原先只看内容为空，中断后会常驻）。 -->
@@ -690,6 +690,9 @@
               class="cp-art-item"
               @click="jumpTo(a.index)"
             >
+              <div class="cp-art-meta" v-if="a.created_at || a.source">
+                <span v-if="a.created_at">{{ fmtArtTime(a.created_at) }}</span><span v-if="a.source"> · 来自「{{ a.source }}」</span>
+              </div>
               <ResultCard v-if="a.card" :card="a.card" :compact="true" @action="onCardAction" />
               <!-- v306：同样不能裸 href —— 该端点同样要 Authorization（匿名实测 401），
                    点击一律走 downloadAuthed() 带鉴权头取 blob。 -->
@@ -932,12 +935,49 @@ function onCopilotTocClick(e) {
     })
     return
   }
+  // v487 P2-③：表格→图表开关（点击在表格容器内切换「表格 / 图表」视图）
+  const tog = e && e.target && e.target.closest ? e.target.closest('.md-table-chart-toggle') : null
+  if (tog) {
+    const wrap = tog.closest('.md-table-wrap')
+    const chart = wrap && wrap.querySelector('.md-table-chart')
+    const table = wrap && wrap.querySelector('.md-table')
+    if (chart && table) {
+      const show = chart.hasAttribute('hidden')
+      if (show) chart.removeAttribute('hidden'); else chart.setAttribute('hidden', '')
+      table.style.display = show ? 'none' : ''
+      tog.textContent = show ? '📋 看表格' : '📊 看图表'
+    }
+    return
+  }
   const el = e && e.target && e.target.closest ? e.target.closest('.md-toc-link') : null
   if (!el) return
   const anchor = el.getAttribute('data-anchor')
   if (!anchor) return
   const target = document.getElementById(anchor)
   if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+/* v487 P2-⑦：内联控件（滑块/开关）变更 → 回灌 AI（复用 askFollowup 写草稿并发送）。
+   控件由 md.js 渲染进 v-html，@change 委托到此处；滑块在松手时触发 change（不会逐像素刷屏）。 */
+function onCopilotControl(e) {
+  const el = e && e.target && e.target.closest ? e.target.closest('.md-control-range, .md-switch') : null
+  if (!el) return
+  const wrap = el.closest('.md-control')
+  if (!wrap) return
+  const label = wrap.getAttribute('data-label') || '参数'
+  let value
+  if (el.classList.contains('md-switch')) {
+    const on = !el.classList.contains('on')
+    el.classList.toggle('on', on)
+    el.setAttribute('aria-checked', String(on))
+    wrap.setAttribute('data-value', on ? 'on' : 'off')
+    value = on ? '开启' : '关闭'
+  } else {
+    value = el.value
+    const vEl = wrap.querySelector('.md-control-val')
+    if (vEl) vEl.textContent = value
+    wrap.setAttribute('data-value', value)
+  }
+  askFollowup({ query: `${label}设为${value}`, label: `${label}：${value}` })
 }
 function mediaFiles(m) {
   return m && m.role === 'assistant' && m.content ? mediaView(m.content).files : []
@@ -2488,13 +2528,33 @@ const artifacts = computed(() => {
   for (let i = 0; i < msgs.length; i++) {
     const m = msgs[i]
     if (!m) continue
-    if (m.card) list.push({ index: i, card: m.card })
+    // v487 P2-⑨：来源指令 = 最近一条 user 消息片段（零新接口，数据从消息链取）
+    let source = ''
+    for (let j = i - 1; j >= 0; j--) {
+      if (msgs[j] && msgs[j].role === 'user' && msgs[j].content) {
+        source = String(msgs[j].content).replace(/\s+/g, ' ').trim().slice(0, 14)
+        break
+      }
+    }
+    const base = { created_at: m.created_at || null, source }
+    if (m.card) list.push({ ...base, index: i, card: m.card })
     if (m.files && m.files.length) {
-      for (const f of m.files) if (f && f.file_id) list.push({ index: i, file: f })
+      for (const f of m.files) if (f && f.file_id) list.push({ ...base, index: i, file: f })
     }
   }
   return list.reverse()
 })
+/* v487 P2-⑨：产物生成时间相对化（刚刚 / x 分钟前 / 时:分 / 月日） */
+function fmtArtTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const diff = (Date.now() - ts) / 1000
+  if (diff < 60) return '刚刚'
+  if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前'
+  const pad = (n) => String(n).padStart(2, '0')
+  if (diff < 86400 && d.getDate() === new Date().getDate()) return pad(d.getHours()) + ':' + pad(d.getMinutes())
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日'
+}
 /* 新产物（artifact 数量增加）时自动弹开；数量减少或初始化/切会话不触发，避免误弹。
    必须放在 artifacts 定义之后，否则 watch 初始化取值会触发 const 的 TDZ 报错。 */
 watch(
@@ -3450,6 +3510,26 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* —— P2-b 表格：横向滚动容器 + 表头吸顶 —— */
 .md-table-wrap{margin:8px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 .md th{position:sticky;top:0;z-index:1}
+/* —— v487 P2-③ 表格→图表开关（:deep 因 v-html 注入的 DOM 无 scoped 属性） —— */
+.md :deep(.md-table-bar){display:flex;justify-content:flex-end;margin:2px 0 4px}
+.md :deep(.md-table-chart-toggle){font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;padding:2px 8px;cursor:pointer;transition:color .15s,border-color .15s}
+.md :deep(.md-table-chart-toggle:hover){color:var(--p,#06b6d4);border-color:var(--p,#06b6d4)}
+.md :deep(.md-table-chart){margin:4px 0 2px}
+.md :deep(.md-chart-svg){width:100%;height:96px;display:block}
+.md :deep(.md-chart-legend){display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:11px;color:var(--t2,#475569)}
+.md :deep(.md-chart-lg){display:inline-flex;align-items:center;gap:4px}
+.md :deep(.md-chart-lg i){width:8px;height:8px;border-radius:2px;flex-shrink:0}
+/* —— v487 P2-⑦ 内联交互控件（滑块/开关） —— */
+.md :deep(.md-control){display:inline-flex;align-items:center;gap:8px;margin:2px 10px 2px 0;padding:4px 10px;background:var(--bg2,#f3f4f6);border:1px solid var(--b2,#e5e7eb);border-radius:8px}
+.md :deep(.md-control-lbl){font-size:12px;color:var(--t2,#475569);white-space:nowrap}
+.md :deep(.md-control-range){width:120px;accent-color:var(--p,#06b6d4)}
+.md :deep(.md-control-val){font-size:12px;font-weight:600;color:var(--t1,#0f172a);font-variant-numeric:tabular-nums;min-width:2.5em;text-align:right}
+.md :deep(.md-switch){width:38px;height:22px;border-radius:11px;border:none;background:var(--b2,#e5e7eb);position:relative;cursor:pointer;padding:0;transition:background .15s}
+.md :deep(.md-switch)::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.md :deep(.md-switch.on){background:var(--p,#06b6d4)}
+.md :deep(.md-switch.on)::after{left:18px}
+/* —— v487 P2-⑨ 产物元数据 —— */
+.cp-art-meta{font-size:11px;color:var(--t3,#94a3b8);line-height:1.5;padding:2px 4px 6px;margin-bottom:4px;border-bottom:1px dashed var(--border-subtle)}
 
 /* —— v423：单轮对话底部操作栏（对齐 WorkBuddy message-actions） —— */
 /* v451：操作栏按钮规格对齐 WorkBuddy。实测依据（WorkBuddy.app → app.asar →

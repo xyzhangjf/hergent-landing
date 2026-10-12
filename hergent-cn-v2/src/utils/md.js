@@ -85,6 +85,40 @@ export function renderMd(src) {
       .replace(/[^\w一-龥-]/g, '')
     return base || 'h'
   }
+
+  // v487 P2-③：表格→迷你折线图。数值列（≥2 个数值单元格、且表头非数字）≥2 且数据行≥3 时，
+  // 在表格右上角加「看图表」开关（点击由 CopilotDrawer 事件委托切换）。图表内联 SVG，
+  // 视觉对齐 ResultCard 的 var(--p-dark) 折线风格，零新依赖、零新接口。
+  const isNumCell = (v) => /^-?\d[\d,]*(\.\d+)?%?$/.test(String(v == null ? '' : v).trim())
+  const buildTableChart = (head, rows) => {
+    const numIdx = []
+    for (let c = 0; c < head.length; c++) {
+      if (isNumCell(head[c])) continue            // 表头本身是数字（如年份列）不算数值列
+      let cnt = 0
+      for (const r of rows) if (isNumCell(r[c])) cnt++
+      if (cnt >= 2) numIdx.push(c)
+    }
+    if (numIdx.length < 2 || rows.length < 3) return ''
+    const W = 220, H = 96, pX = 6, pTop = 10, pBot = 16
+    const n = rows.length
+    const pal = ['var(--p-dark)', 'var(--suc)', 'var(--war)', 'var(--dan)', 'var(--violet, #8b5cf6)']
+    let svg = `<line x1="${pX}" y1="${H - pBot}" x2="${W - pX}" y2="${H - pBot}" stroke="var(--border-subtle)" stroke-width="1"/>`
+    numIdx.forEach((c, si) => {
+      const series = rows.map((r) => parseFloat(String(r[c] == null ? '' : r[c]).replace(/[,%]/g, '')) || 0)
+      const min = Math.min(...series), max = Math.max(...series)
+      const span = (max - min) || 1
+      const color = pal[si % pal.length]
+      const pts = series.map((v, k) => {
+        const x = pX + (n <= 1 ? 0 : (k / (n - 1)) * (W - pX * 2))
+        const y = (H - pBot) - ((v - min) / span) * (H - pTop - pBot)
+        return x.toFixed(1) + ',' + y.toFixed(1)
+      }).join(' ')
+      svg += `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
+    })
+    const legend = numIdx.map((c, si) => `<span class="md-chart-lg"><i style="background:${pal[si % pal.length]}"></i>${esc(head[c])}</span>`).join('')
+    return `<div class="md-table-chart" hidden><svg class="md-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${svg}</svg><div class="md-chart-legend">${legend}</div></div>`
+  }
+
   let i = 0
   let para = []
 
@@ -171,7 +205,12 @@ export function renderMd(src) {
       i += 2
       const rows = []
       while (i < lines.length && lines[i].includes('|') && !/^\s*$/.test(lines[i])) { rows.push(parseRow(lines[i])); i++ }
-      let t = '<div class="md-table-wrap"><table class="md-table"><thead><tr>' + head.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
+      const chart = buildTableChart(head, rows)
+      let t = '<div class="md-table-wrap">'
+      if (chart) {
+        t += '<div class="md-table-bar"><button type="button" class="md-table-chart-toggle" title="切换表格 / 图表视图">📊 看图表</button></div>' + chart
+      }
+      t += '<table class="md-table"><thead><tr>' + head.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
       t += rows.map((r) => '<tr>' + r.map((c) => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table></div>'
       out.push(t)
       continue
@@ -201,10 +240,32 @@ export function renderMd(src) {
   flushPara()
 
   // 行内格式：行内代码、粗体、斜体（跳过 <pre> 代码块与代码块容器）
-  const inline = (s) => s
-    .replace(/`([^`]+?)`/g, '<code class="md-code">$1</code>')
-    .replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>')
-    .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<i>$2</i>')
+  // v487 P2-⑦：先抽 [[control: ...]] 轻量围栏渲染成真实交互控件（滑块/开关），变更经
+  //   CopilotDrawer 的 @change 委托回灌 AI。控件 HTML 在已转义文本上注入，不会被二次转义。
+  const inline = (s) => {
+    let r = String(s).replace(/\[\[control:\s*([^\]]+?)\]\]/g, (_m, body) => {
+      const p = String(body).split('|').map((x) => x.trim())
+      const type = (p[0] || 'slider').toLowerCase()
+      const label = p[1] || '参数'
+      if (type === 'switch') {
+        const on = (p[2] || '').toLowerCase() === 'on' || p[2] === '1' || p[2] === 'true'
+        return '<span class="md-control" data-type="switch" data-label="' + escAttr(label) + '" data-value="' + (on ? 'on' : 'off') + '">' +
+          '<label class="md-control-lbl">' + esc(label) + '</label>' +
+          '<button type="button" class="md-switch ' + (on ? 'on' : '') + '" role="switch" aria-checked="' + on + '" data-label="' + escAttr(label) + '"></button>' +
+          '</span>'
+      }
+      const min = p[2] || '0', max = p[3] || '100', step = p[4] || '1', val = p[5] || min
+      return '<span class="md-control" data-type="slider" data-label="' + escAttr(label) + '" data-value="' + escAttr(val) +
+        '" data-min="' + escAttr(min) + '" data-max="' + escAttr(max) + '" data-step="' + escAttr(step) + '">' +
+        '<label class="md-control-lbl">' + esc(label) + '</label>' +
+        '<input type="range" class="md-control-range" min="' + escAttr(min) + '" max="' + escAttr(max) + '" step="' + escAttr(step) + '" value="' + escAttr(val) + '" data-label="' + escAttr(label) + '">' +
+        '<span class="md-control-val">' + esc(val) + '</span></span>'
+    })
+    return r
+      .replace(/`([^`]+?)`/g, '<code class="md-code">$1</code>')
+      .replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>')
+      .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<i>$2</i>')
+  }
 
   let html = out
     .map((b) => (b.startsWith('<pre>') || b.startsWith('<div class="md-codeblock">') ? b : inline(b)))
