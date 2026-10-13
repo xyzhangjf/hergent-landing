@@ -398,8 +398,6 @@
                   <th class="num">已到货</th>
                   <!-- v453（R4）入库金额（默认收进列设置，见 GOODS_COLS 注释） -->
                   <th class="num" v-if="isVisGoods('ramt')">入库金额</th>
-                  <!-- v454（R12）期望生产日期（默认收进列设置；取值字段待确认，见 GOODS_COLS） -->
-                  <th v-if="isVisGoods('epdate')">期望生产日期</th>
                   <th v-if="isVisGoods('batch')">批次号</th>
                   <th v-if="isVisGoods('expiry')">到期日</th>
                   <th v-if="isVisGoods('note')">行备注</th>
@@ -457,10 +455,6 @@
                   <!-- v453（R4）入库金额 = 已到货数量 × 采购价（本行口径，与「订单金额」同一单价）。
                        🔴 无采购价时显示 `—` 而不是算成 0：`0 元` 会被读成「到了货但没花钱」。 -->
                   <td class="num" v-if="isVisGoods('ramt')">{{ recvAmtText(it) }}</td>
-                  <!-- v454（R12）期望生产日期。🔴 取值字段未确认（见 GOODS_COLS 的 TODO）——
-                       后端没下发时显示 `—`（本仓铁律：缺值不编），**不拿实际生产日期顶替**
-                       （两者是"要求"与"事实"两个口径，顶替会让用户以为供应商按约交了货）。 -->
-                  <td v-if="isVisGoods('epdate')">{{ it.expected_production_date || '—' }}</td>
                   <td v-if="isVisGoods('batch')">
                     <span v-if="it.batch_no">{{ it.batch_no }}</span>
                     <!-- v452（O8）：「未登记」从黄 tag 改灰色文字 —— 2 行商品 4 个黄块
@@ -505,9 +499,6 @@
                   <td class="num">{{ fmtQty(sumRecv) }}</td>
                   <!-- v453（R4）入库金额合计：列序上紧跟「已到货」，这里也必须紧跟它的合计格。 -->
                   <td class="num" v-if="isVisGoods('ramt')">{{ fmtMoney(sumRecvAmt) }}</td>
-                  <!-- v454（R12）期望生产日期无合计（日期列）⇒ 空格占位，但**必须存在**，
-                       否则其后（批次/到期日/行备注/操作）的合计格整体左移一列、静默错位。 -->
-                  <td v-if="isVisGoods('epdate')"></td>
                   <td v-if="isVisGoods('batch')"></td>
                   <td v-if="isVisGoods('expiry')"></td>
                   <td v-if="isVisGoods('note')"></td>
@@ -758,15 +749,10 @@
         <div class="ipd-dlg-hd">{{ logsTitle }}</div>
         <p class="ipd-dlg-msg">{{ logsSub }}</p>
 
-        <!-- v454（R13）双页签对齐舟谱。复用全局 `.main-tabs / .main-tab`（与页内三页签同一套），
-             不另写一份定位 —— 同页两处页签长得一样，用户不用学两套。
-             ⚠️ 行历史态（`logPid`）下不出现：见脚本层 `logTab` 的注释。 -->
-        <div v-if="!logPid" class="main-tabs ipd-logtabs">
-          <button class="main-tab" :class="{ on: logTab === 'order' }" @click="logTab = 'order'">订单日志</button>
-          <button class="main-tab" :class="{ on: logTab === 'logistics' }" @click="logTab = 'logistics'">物流日志</button>
-        </div>
-
-        <template v-if="logTab === 'order'">
+        <!-- 🔴 v454 曾在这里加过「订单日志 / 物流日志」双页签，v455 按老板口径撤掉：
+             本系统没有承运商 / 运单号 / 轨迹任何一张表，那一页只能是永久空态，
+             放一个永远查不到东西的页签等于给用户一个假承诺。物流信息将来真接了
+             （厂家 TMS / 手工填运单号）再加页签不迟。 -->
         <div v-if="logsLoading" class="state-empty">加载中…</div>
         <div v-else-if="logsErr" class="state-error">
           <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -799,24 +785,6 @@
         </div>
 
         <p v-if="logHint" class="ipd-note ipd-loghint">{{ logHint }}</p>
-        </template>
-
-        <!-- 物流日志页（v454 R13）。
-             TODO(待确认)：本页**无数据源** —— 舟谱这里显示供应商发货 / 运输轨迹，
-                 本系统没有承运商、运单号、轨迹任何一张表（`purchase_orders` 也没有相关列）。
-                 待确认：① 是否有接入计划（厂家 TMS / 司机上报 / 手工填运单号）；
-                 ② 若只做「手工填运单号 + 到货节点」的最小版，字段放采购单头还是新建 `po_shipments`；
-                 ③ 在确认之前**保持空态**，不写死任何占位假数据（会让人以为系统在跟车）。 -->
-        <div v-else class="ipd-logistics">
-          <div class="ipd-empty">
-            <div class="ipd-empty-ic"><Icon name="package" :size="26" /></div>
-            <p>这张单还没有物流信息。</p>
-            <p class="ipd-log-note">
-              舟谱在这一页显示供应商发货与运输轨迹。本系统目前还没有物流数据源
-              —— 是「还没接」，不是「查不到」。
-            </p>
-          </div>
-        </div>
 
         <div class="ipd-dlg-ft">
           <button class="btn btn-ghost btn-sm" @click="logsOpen = false">关闭</button>
@@ -942,17 +910,9 @@ const GOODS_COLS = [
         明细列已经很密，这一列不是人人天天看，默认占屏会挤掉更常用的列。
      ⚠️ 加列必须同步表尾 `<tfoot>`：错位**不报错**，只是金额对到别的列下面（静默）。 */
   { key: 'ramt', label: '入库金额', core: false, def: false },
-  /* v454（R12）期望生产日期：舟谱采购退货单明细里是**常显列**（截图 17「期望生产日期▾」），
-     采购订单明细的列设置里也存在。它表达的是「我方要求供应商哪天生产/交付的货」——
-     低温奶临期判定要用「生产日期 + 保质期」，所以这个**期望值**与到货后登记的
-     `production_date`（入库单页的实际生产日期）是两个口径，不能互相顶替。
-     🔴 `def:false`：**默认收进列设置**，与批次号 / 到期日同一档（上面三列都是"要时再开"）。
-     TODO(待确认)：本列取值字段名与数据来源未确认 —— 暂用 `it.expected_production_date`，
-        后端（`purchase_order_items` / `psi` 明细投影）当前**未下发**该字段 ⇒ 恒显示 `—`。
-        待确认：① 舟谱这个值由谁填（建单时选 / 供应商回填）；② 本系统是否已在某张表存过
-        （不应新建字段名前先查 `production_date` 是否复用了同一列）；③ 若确认不采集，
-        本列应连同 `GOODS_COLS` 条目一起删掉，不留永久空列。 */
-  { key: 'epdate', label: '期望生产日期', core: false, def: false },
+  /* 🔴 v454 曾加过一列「期望生产日期」，v455 按老板口径**撤掉**：厂家不会因为你期望
+     哪天生产就给你发哪天生产的货，这一列是空想字段，不留永久空列（连同 GOODS_COLS
+     条目、th/td/tfoot 三处一起删）。低温奶临期判定仍只看**实际**生产日期 + 保质期。 */
   { key: 'batch', label: '批次号', core: false, def: false },
   { key: 'expiry', label: '到期日', core: false, def: false },
   { key: 'note', label: '行备注', core: false },
@@ -1744,13 +1704,6 @@ async function refreshPrintCount () {
       否则用户把「这一行没有入库/退货痕迹」读成「这张单没人动过」。 */
 const logPid = ref(0)
 const logPname = ref('')
-/* v454（R13）日志弹层的页签，对齐舟谱的「订单日志 / 物流日志」两页签。
-   🔴 'order' = 现有那套（建单/审核/入库/付款/退货），数据来自 `psiApi.getPurchaseLogs`。
-   🔴 'logistics' = **占位**：本系统没有物流数据源（没有承运商 / 运单号 / 轨迹表），
-      这一页如实显示"还没接"而不是编几条假轨迹。见模板里的 TODO(待确认)。
-   🔴 行历史态（`logPid > 0`）**不显示这两个页签** —— 行的历史只有出入库痕迹，
-      对某一行谈"物流轨迹"没有业务含义（整单才有）。 */
-const logTab = ref('order')
 const logsTitle = computed(() => logPid.value ? '行历史' : '查看日志')
 const logsSub = computed(() => {
   const no = o.value.order_no || ('#' + oid.value)
@@ -1773,9 +1726,6 @@ async function openLogs (pid = 0, pname = '') {
   logsErr.value = ''
   logs.value = []
   logHint.value = ''
-  /* v454（R13）每次打开都回到「订单日志」页 —— 上次停在物流页、这次打开还停在那儿，
-     用户会以为"日志没了"（其实只是停在另一个页签）。 */
-  logTab.value = 'order'
   try {
     const d = await psiApi.getPurchaseLogs(oid.value, logPid.value)
     logs.value = Array.isArray(d.entries) ? d.entries : []
@@ -2289,12 +2239,6 @@ tfoot td { font-weight: 600 }
 .ipd-log-ev { width: 108px; white-space: nowrap }
 .ipd-log-dt { color: var(--t2); word-break: break-all }
 .ipd-loghint { margin: 12px 0 0; line-height: 1.6 }
-/* v454（R13）日志弹层页签：复用全局 `.main-tabs / .main-tab`，只收一档间距 ——
-   弹层里不需要页级页签那么大的上下留白（页级 16px / 10px 18px 在这里会顶掉表体空间）。 */
-.ipd-logtabs { margin-bottom: 12px }
-.ipd-logtabs .main-tab { padding: 8px 14px; font-size: 13px }
-.ipd-logistics { padding: 6px 0 2px }
-.ipd-log-note { margin: 4px 0 0; max-width: 460px; font-size: 12px; color: var(--t3); line-height: 1.7 }
 
 /* ---- 附件（v408 P1-8）----
    ⚠️ 这些是**本页私有**样式：附件 UI 目前只有采购单详情页一处。将来第二处要用时，

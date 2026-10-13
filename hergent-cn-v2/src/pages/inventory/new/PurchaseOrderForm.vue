@@ -3,6 +3,10 @@
     <div class="page-hd split">
       <div class="ipn-hd-t">
         <h2>{{ pageTitle }}</h2>
+        <!-- v455：必填项图例（复刻舟谱创建页右上角那枚橙色小标）。
+             表单头与明细表里的红 `*` 在这里得到统一解释 —— 不写这句，从舟谱迁来的
+             用户会以为 `*` 是装饰，或者反过来以为「经办人没填不让存」。 -->
+        <span class="ipn-legend"><i class="ipn-req">*</i>必填项</span>
       </div>
       <div class="ipn-acts">
         <!-- v438：附件入口（对齐舟谱建单页右上角的「上传附件」）。
@@ -154,6 +158,15 @@
       <div class="ipn-bar">
         <b>{{ cfg.tblTitle }}</b>
         <span class="ipn-cnt">{{ items.length }} 项</span>
+        <!-- v455：「按小单位采购」总闸（复刻舟谱表格工具栏同款开关）。
+             默认关 = 按大单位进货（老板 2026-10-13 口径）；开 ⇒ 全表切成小单位，
+             每行已填的采购价 / 数量按各自比例换算（金额、折小数量都不变）。
+             偏好写 localStorage，下次开单还是这个状态。 -->
+        <label class="ipn-unitsw" :class="{ on: smallUnitMode }"
+               :title="smallUnitMode ? '当前按小单位采购；点一下切回大单位' : '当前按大单位采购；点一下切成小单位'">
+          <input type="checkbox" v-model="smallUnitMode" @change="onSmallUnitMode" />
+          <span class="ipn-unitsw-tx">按小单位采购</span>
+        </label>
         <button class="ipn-tip-link" type="button" @click="showNotes = !showNotes">
           口径说明 {{ showNotes ? '收起' : '展开' }}
         </button>
@@ -192,14 +205,16 @@
               <th class="ipn-c-prod" :style="wStyle('prod')"><span class="ipn-req">*</span>商品<ColResizeHandle col="prod" :start="startResize" :reset="resetColW" /></th>
               <th v-if="isVisible('code')" class="ipn-c-code" :style="wStyle('code')">条码<ColResizeHandle col="code" :start="startResize" :reset="resetColW" /></th>
               <th class="ipn-c-unit" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>
-              <!-- v408（P1-1）库存两列：口径 = **本页所选「入库仓库」**（不是全部仓的合计）。
-                   数量来自 `/api/psi/stock/by-product`，按商品聚合（不是批次级）。 -->
-              <th v-if="isVisible('stk')" class="num ipn-c-stk" :style="wStyle('stk')" title="可销售的库存（已过期批次须报损，不计入）">可用库存<ColResizeHandle col="stk" :start="startResize" :reset="resetColW" /></th>
-              <th v-if="isVisible('stk2')" class="num ipn-c-stk" :style="wStyle('stk2')" title="该仓全部批次的数量合计（含已过期）">实际库存<ColResizeHandle col="stk2" :start="startResize" :reset="resetColW" /></th>
+              <!-- v455：列序对齐舟谱 —— 参考成本价紧邻采购价（订价时对照着看），
+                   库存两列（参考信息）移到订单金额之后。见 DETAIL_COLS 的注释。 -->
               <th v-if="isVisible('ref')" class="num ipn-c-ref" :style="wStyle('ref')">参考成本价<ColResizeHandle col="ref" :start="startResize" :reset="resetColW" /></th>
               <th class="num ipn-c-price" :style="wStyle('price')"><span class="ipn-req">*</span>{{ cfg.priceLabel }}<ColResizeHandle col="price" :start="startResize" :reset="resetColW" /></th>
               <th class="num ipn-c-qty" :style="wStyle('qty')"><span class="ipn-req">*</span>订单数量<ColResizeHandle col="qty" :start="startResize" :reset="resetColW" /></th>
               <th class="num ipn-c-amt" :style="wStyle('amt')">订单金额<ColResizeHandle col="amt" :start="startResize" :reset="resetColW" /></th>
+              <!-- v408（P1-1）库存两列：口径 = **本页所选「入库仓库」**（不是全部仓的合计）。
+                   数量来自 `/api/psi/stock/by-product`，按商品聚合（不是批次级）。 -->
+              <th v-if="isVisible('stk')" class="num ipn-c-stk" :style="wStyle('stk')" title="可销售的库存（已过期批次须报损，不计入）">可用库存<ColResizeHandle col="stk" :start="startResize" :reset="resetColW" /></th>
+              <th v-if="isVisible('stk2')" class="num ipn-c-stk" :style="wStyle('stk2')" title="该仓全部批次的数量合计（含已过期）">实际库存<ColResizeHandle col="stk2" :start="startResize" :reset="resetColW" /></th>
               <!-- v417i：批次三列（批次号 / 到期日 / 生产日期）合并成一列「批次信息」，
                    点开小面板填写 —— 15 列 ⇒ 13 列，横向滚动彻底消失。
                    三者都是**低频选填**字段（v417 已把批次号、到期日改为选填）：
@@ -234,24 +249,28 @@
               </td>
               <td v-if="isVisible('code')" class="ipn-c-code">{{ row.barcode || (row.product_id ? '—' : '') }}</td>
               <td class="ipn-c-unit" @click="cellOn(row, 'unit')">
+                <!-- v455：@change 走 onUnitChange —— 换档位时**按比例换算已填的采购价与数量**，
+                     否则「10 箱 × 100 元/箱」换成「瓶」会静默变成「10 瓶 × 100 元/瓶」：
+                     金额数字不变、意思全变，后端折小单位数量还会少记一整个量级（真金白银）。
+                     🔴 `$event` **必须显式传**：v-model 与 @change 同监听 change，
+                        写 `onUnitChange(row)` 时第二个参数是 undefined ⇒ 新档位读不到 ⇒
+                        换算整段静默跳过（v455 探针实测抓到过，单位变了、价量没换）。 -->
                 <select v-if="isCellOn(row, 'unit') && unitOptionsOf(row).length" v-model="row.unit" v-focus
                         class="input ipn-in ipn-unit-sel" :title="row.convText || row.unit"
-                        @blur="cellOff" @keydown.esc="cellOff">
+                        @change="onUnitChange(row, $event)" @blur="cellOff" @keydown.esc="cellOff">
                   <option v-for="o in unitOptionsOf(row)" :key="o.key" :value="o.name">{{ o.name }}</option>
                 </select>
                 <span v-else class="ipn-v" tabindex="0" :class="{ 'is-ph': !row.unit }"
                       @keydown.enter.prevent="cellOn(row, 'unit')">{{ row.unit || (row.product_id ? '—' : '') }}</span>
                 <div v-if="row.convText" class="ipn-conv">{{ row.convText }}</div>
               </td>
-              <!-- v417g：空行不再铺「先选商品」占位（对齐舟谱空行干净）——
-                   选商品前的引导只在单位格留一处，库存两列空着。 -->
-              <td v-if="isVisible('stk')" class="num ipn-c-stk">
-                <span v-if="row.product_id" :class="{ danger: isAllExpired(row) }" :title="stockTitle(row)">{{ stockText(row, 'saleable_quantity') }}</span>
+              <!-- v455：列序对齐舟谱（参考成本价→采购价→数量→金额→可用/实际库存）。
+                   详见表头与 DETAIL_COLS 的注释；这里只搬格子的先后，逻辑一字未动。 -->
+              <td v-if="isVisible('ref')" class="num ipn-c-ref">
+                <span v-if="row.product_id && refPriceOf(row)">¥{{ fmtMoney(refPriceOf(row)) }}</span>
+                <!-- v455：换了档位就显示档案原价的单位，让「参考成本价为什么变了」有处可查 -->
+                <div v-if="row.product_id && refConvText(row)" class="ipn-conv">{{ refConvText(row) }}</div>
               </td>
-              <td v-if="isVisible('stk2')" class="num ipn-c-stk">
-                <span v-if="row.product_id" :title="stockTitle(row)">{{ stockText(row, 'quantity') }}</span>
-              </td>
-              <td v-if="isVisible('ref')" class="num ipn-c-ref">{{ row.product_id && row.purchase_price ? '¥' + fmtMoney(row.purchase_price) : '' }}</td>
               <td class="ipn-c-price" @click="cellOn(row, 'price')">
                 <input v-if="isCellOn(row, 'price')" v-model="row.unit_price" v-focus
                        class="input ipn-in num" inputmode="decimal" @blur="cellOff" @keydown.esc="cellOff" />
@@ -274,6 +293,14 @@
                 </div>
               </td>
               <td class="num ipn-amt">{{ row.product_id ? '¥' + fmtMoney(rowAmount(row)) : '' }}</td>
+              <!-- v417g：空行不再铺「先选商品」占位（对齐舟谱空行干净）——
+                   选商品前的引导只在单位格留一处，库存两列空着。 -->
+              <td v-if="isVisible('stk')" class="num ipn-c-stk">
+                <span v-if="row.product_id" :class="{ danger: isAllExpired(row) }" :title="stockTitle(row)">{{ stockText(row, 'saleable_quantity') }}</span>
+              </td>
+              <td v-if="isVisible('stk2')" class="num ipn-c-stk">
+                <span v-if="row.product_id" :title="stockTitle(row)">{{ stockText(row, 'quantity') }}</span>
+              </td>
               <!-- v417i：批次三字段收进这一格的小面板。格内**常显摘要**（有批次号显示批次号、
                    有到期日显示「到期 xxxx-xx-xx」），一眼能看出这行有没有填批次，不用点开才知道。 -->
               <td v-if="isVisible('batch')" class="ipn-c-batch" :class="{ 'has-val': batchText(row), 'batch-open': batchOpen === row.uid }">
@@ -330,6 +357,9 @@
             ⇒ 动作条满宽。若那份 padding 改了，这里要跟着改（两处唯一的耦合点）。 -->
     <div class="ipn-bottom">
       <span class="ipn-total">合计 <b>¥{{ fmtMoney(totalAmount) }}</b></span>
+      <!-- v455：快捷键提示（复刻舟谱底部那行 Ctrl+S / Ctrl+Enter）。真快捷键，
+           不是装饰 —— 见脚本层 onHotkey。 -->
+      <span class="ipn-kbd-hint"><kbd>Ctrl</kbd>+<kbd>S</kbd> 保存<em>·</em><kbd>Ctrl</kbd>+<kbd>Enter</kbd> 保存并审核</span>
       <span v-if="totalAmount >= 5000" class="ipn-warn">
         金额较大时，保存后会先进入「待审批」，审批通过才能确认入库。
       </span>
@@ -462,7 +492,12 @@ const saveOpen = ref(false)
 const activeCell = ref('')
 const cellKey = (row, f) => `${row.uid}:${f}`
 const isCellOn = (row, f) => activeCell.value === cellKey(row, f)
-function cellOn (row, f) { activeCell.value = cellKey(row, f) }
+function cellOn (row, f) {
+  /* v455：激活「单位」格时先快照旧档位 —— 换档换算（onUnitChange）要拿它当旧值。
+     这里是单位下拉出现的**唯一入口**，快照放这儿不会漏。 */
+  if (f === 'unit') row._prevUnit = row.unit
+  activeCell.value = cellKey(row, f)
+}
 function cellOff () { activeCell.value = '' }
 
 /* 明细表「列设置」齿轮（《进销存建单页开发规范》§4）。
@@ -478,12 +513,18 @@ const DETAIL_COLS = [
   { key: 'prod',  label: '商品',     core: true },
   { key: 'code',  label: '条码',     core: false },
   { key: 'unit',  label: '单位',     core: true },
-  { key: 'stk',   label: '可用库存', core: false },
-  { key: 'stk2',  label: '实际库存', core: false },
+  /* v455：列序对齐舟谱创建页 —— 舟谱是
+       商品名称 | 条形码 | 单位 | 参考成本价 | 采购价 | 订单数量 | 订单金额 | 可用库存 | 实际库存 | 备注 | 操作
+     原来把「可用/实际库存」插在单位与参考成本价之间（v408 加库存列时的位置），
+     与舟谱逐列对不上。库存两列是**参考信息**（看还有多少货），放到金额之后更合读表逻辑：
+     先看这行订了多少、多少钱，再看仓库还有多少。
+     ⚠️ 只改顺序、不改 key ⇒ 用户已保存的列显隐 / 列宽偏好不受影响（按 key 存）。 */
   { key: 'ref',   label: '参考成本价', core: false },
   { key: 'price', label: '采购价',   core: true },
   { key: 'qty',   label: '订单数量', core: true },
   { key: 'amt',   label: '订单金额', core: true },
+  { key: 'stk',   label: '可用库存', core: false },
+  { key: 'stk2',  label: '实际库存', core: false },
   { key: 'batch', label: '批次信息', core: false },
   { key: 'note',  label: '行备注',   core: false },
   { key: 'op',    label: '操作',     core: true },
@@ -730,12 +771,133 @@ function basePriceOf (row) {
   return Math.round((p / ratioOf(row)) * 100) / 100
 }
 
+/* ══ v455：采购价单位窗口（老板口径 2026-10-13）══════════════════════════════════
+   「进货是按大单位进货，默认采购价格是大单位，但要给用户自己选择的窗口。」
+   落地成两件东西：
+     ① **总闸**：表格工具栏「按小单位采购」开关（复刻舟谱同款）—— 默认关 = 按大单位；
+     ② **细调**：每行单位下拉（v409 就有的三档），关掉总闸也能逐行改。
+   两处都走同一个 `switchRowUnit`，换算规则只有一份。                                            */
+
+/** 「按小单位采购」总闸。默认关（大单位）；偏好存 localStorage —— 老板天天开单，
+    每次重选一遍是纯浪费。读失败（隐私模式等）退回 false，不报错。 */
+const smallUnitMode = ref((() => {
+  try { return localStorage.getItem('ipn_small_unit_mode') === '1' } catch (_) { return false }
+})())
+
+/** 某一行的**默认档名**：总闸开着 ⇒ 小档；否则 ⇒ 现有最大档（`unit_options` 按 小→中→大 排）。
+    🔴 取「最后一个」而不是找 `key==='large'`：两级商品（没有大档）必须落到中档或小档，
+       写死 large 会让这些商品拿到空单位名。 */
+function defaultUnitOf (row) {
+  const opts = unitOptionsOf(row)
+  if (!opts.length) return ''
+  return smallUnitMode.value ? opts[0].name : opts[opts.length - 1].name
+}
+
+/** 把行单位换成 `newName`，并**按比例换算已填的采购价与数量**。
+    🔴 为什么必须换算（这是本函数存在的全部理由）：金额 = 价 × 数量。
+       只换单位不换数，「10 箱 × 100 元/箱」点成「组」会静默变成「10 组 × 100 元/组」——
+       金额数字不变、货少了 12 倍，后端折小单位数量也跟着少记（真金白银，且零报错）。
+    🔴 方向（v455 探针实测抓到我第一版写反了，特此算式化，别再凭直觉改）：
+        1 旧档 = old_ratio 个小单位，1 新档 = new_ratio 个小单位
+        ⇒ 1 旧档 = (old_ratio / new_ratio) 个新档
+        ⇒ **价**（元/档）×(new_ratio / old_ratio)；**量**×(old_ratio / new_ratio)
+        验算：100 元/箱（1箱=12组）→ 组：价 100×1/12 = 8.3333，量 10×12 = 120 ✅
+    🔴 精度（v455 探针实测：价若 rounding 到 2 位，100÷12=8.33、×120=999.60，
+       切回箱又变 99.96 —— 来回切一次丢 4 分，是个**鼠牙**）⇒ 价保留 **4 位**、
+       量保留 **4 位**。金额列仍按 2 位显示（8.3333×120=999.996 → ¥1,000.00），
+       所以「屏幕上看到的金额」在换档前后不变，往返也不漂。
+    🔴 换算比一律用后端下发的 `ratio`（小→该档），本函数不出现第二种换算算法。
+    🔴 算不出比（档位缺失 / ratio≤0）⇒ **只换单位、不换算**，交给用户自己看；
+       绝不猜一个 1 顶上去（猜 1 = 把一箱当成一个）。 */
+function switchRowUnit (row, newName) {
+  const oldName = row.unit
+  row.unit = newName || ''
+  row._prevUnit = row.unit
+  if (!oldName || !newName || oldName === newName) return
+  const o = unitOptionsOf(row).find(x => x.name === oldName)
+  const n = unitOptionsOf(row).find(x => x.name === newName)
+  if (!o || !n || !(Number(o.ratio) > 0) || !(Number(n.ratio) > 0)) return
+  const k = Number(n.ratio) / Number(o.ratio)          // 价 × k、量 ÷ k ⇒ 金额与折小量都不变
+  const p = Number(row.unit_price || 0)
+  if (p > 0) row.unit_price = String(Math.round(p * k * 10000) / 10000)
+  const q = Number(row.quantity || 0)
+  if (q > 0) row.quantity = String(Math.round(q / k * 10000) / 10000)
+}
+
+/** 行内单位下拉的 @change。
+    🔴 旧档位取 `row._prevUnit`（`cellOn(row,'unit')` 时快照的），**不读 `row.unit`：
+       `<select>` 上 v-model 与 @change 同时监听 change，两者触发顺序不写在任何规范里，
+       读 row.unit 有半开概率拿到「已经是新值」—— 那这次换算就静默失效（正是要防的那类 bug）。
+    🔴 必须操作 **row 本体**：`{...row}` 副本上的赋值不会写回响应式行（v455 初版犯过，
+       症状是下拉变了、价量没换算，而且不报错）。 */
+function onUnitChange (row, ev) {
+  const want = String((ev && ev.target && ev.target.value) || '')
+  if (!want) return
+  row.unit = row._prevUnit || row.unit   // 先还原旧档，switchRowUnit 才能按「旧→新」换算
+  switchRowUnit(row, want)
+}
+
+/** 总闸切换：全表所有**已选商品**的行一次切到目标档（空行不带单位，跳过）。
+    🔴 走 `switchRowUnit` ⇒ 每行已填的价 / 量按各自的比例换算，金额与折小数量保持不变。
+    🔴 行内若有人为某行单独选过档，这一下会把它也带过来 —— 舟谱的总闸同样是全表生效，
+       这是「开关」该有的语义；要保留个别行就切完总闸再去行内改回来。 */
+function applyUnitMode () {
+  const want = smallUnitMode.value ? 'small' : 'large'
+  for (const row of items.value) {
+    if (!row.product_id) continue
+    const opts = unitOptionsOf(row)
+    if (!opts.length) continue
+    const target = want === 'small' ? opts[0].name : opts[opts.length - 1].name
+    if (row.unit === target) continue
+    switchRowUnit(row, target)
+  }
+}
+/** 总闸的 @change：落盘偏好 + 全表换算。 */
+function onSmallUnitMode () {
+  try { localStorage.setItem('ipn_small_unit_mode', smallUnitMode.value ? '1' : '0') } catch (_) {}
+  applyUnitMode()
+}
+
+/** 参考成本价按**本行所选档位**折算后显示。
+    🔴 口径（老板 2026-10-13）：档案里的采购价按**大单位**理解（默认按大单位进货）。
+       行内换成小档时这一列必须一起折算 —— 否则「参考成本价 ¥86/箱」摆在
+       「采购价 __ 元/组」旁边，两个数差 12 倍，根本没法对照着填。
+    🔴 方向（与 switchRowUnit 同一条算式，别各写一份）：
+        档案价是「元/大单位」，当前档是「元/ratio 个小单位」
+        ⇒ 显示价 = 档案价 × (当前档 ratio / 大档 ratio)
+        验算：7.22 元/箱（1箱=12组）→ 组：7.22×1/12 = 0.60 元/组 ✅
+        （v455 探针实测：我第一版写成 ×大/当前，算出 86.67 —— 大了 144 倍。）
+    🔴 没有大档的商品**不折算**（档案价是哪个单位的无从判断 ⇒ 不猜，本仓铁律：缺值不编）。
+    🔴 这与 `onPick` 的预填同源：预填值就是折算后的档案价，两者必须永远同一个单位。 */
+function refPriceOf (row) {
+  const p = Number(row.purchase_price || 0)
+  if (!p) return 0
+  const big = unitOptionsOf(row).find(o => o.key === 'large')
+  if (!big) return p
+  const r = ratioOf(row)
+  if (!(r > 0) || r === Number(big.ratio)) return p
+  return Math.round(p * r / Number(big.ratio) * 100) / 100
+}
+/** 折算提示：只在**真的折算过**时出现，写清档案原价和它的单位 —— 可审计，不是静默改数。 */
+function refConvText (row) {
+  const p = Number(row.purchase_price || 0)
+  const big = unitOptionsOf(row).find(o => o.key === 'large')
+  if (!p || !big) return ''
+  const r = ratioOf(row)
+  if (!(r > 0) || r === Number(big.ratio)) return ''
+  return `档案价 ¥${fmtMoney(p)}/${big.name}`
+}
+
 /** v444：建单页明细表的**出厂预设空行数**。规范 §4.1 —— 两页（采购 / 销售）必须同值。 */
 const PRESET_ROWS = 15
 
 function blankRow () {
   return {
-    uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false,
+    uid: ++_uid, product_id: 0, quantity: '', unit: '',
+    // v455：`_prevUnit` = 打开单位下拉时的旧档位。换档位要**按比例换算已填的价/量**
+    //   （否则金额不变、货少一个量级），而 `<select>` 的 change 事件里只能读到新值，
+    //   旧值必须在这里先存一份。不参与提交。
+    _prevUnit: '',
     unit_price: '', barcode: '', purchase_price: 0,
     // v430：商品组合框 per-row 临时状态（不参与提交；输入框词 / 下拉开关 / 高亮项）
     _pkw: '', _popen: false, _pactive: 0,
@@ -766,38 +928,39 @@ function scrollRowIntoView (uid) {
 }
 
 /** 从商品档案带出单位 / 条码 / 参考成本价（价格可改）。
-    v409（P2-1）：单位改成**三档可选**（小 / 中 / 大），档位清单由后端 `unit_options` 下发。
-      · 默认档 = `order_unit`（报单单位）命中的那一档；没设 / 没命中 ⇒ **小档**。
-        ⚠️ 这里按**单位名**匹配（与后端 `units.default_tier` 同一条规则、同一顺序），
-        不是"再算一遍换算" —— 换算比一律读后端给的 `ratio`，本文件不出现 `× ratio` 之外
-        的第二份换算（乘 ≠ 判定：`ratio` 本身就是后端算好的）。
-      · `unitFromBase` 语义随之变化：旧 =「档案没设报单单位、回落基础单位」；
-        现在 =「没设报单单位，默认按小单位」（回落仍发生，但不再是"异常"）。 */
+    v409（P2-1）单位改成**三档可选**（小 / 中 / 大），档位清单由后端 `unit_options` 下发。
+    v455（老板口径 2026-10-13）：默认档从「`order_unit` 命中档 / 小档」改为
+      · 「按小单位采购」开关**开着** ⇒ 小档；
+      · 否则 ⇒ **现有最大档**（没有大档就取中档，再没有就只有小档）。
+      🔴 为什么改：老板原话「进货是按大单位进货，默认采购价格是大单位」。
+         旧默认（order_unit / 小档）与档案价（大单位价）**差一整个量级** ——
+         预填的采购价会被读成「一箱 86 元」而实际是「一组 7.2 元」这类错。
+      ⚠️ 已有单位（复制旧单 / 编辑）且在档位里 ⇒ **保留**，不要被默认值顶掉。 */
 function applyProduct (row) {
   const p = products.value.find(x => x.id === row.product_id)
   if (!p) {
     row.barcode = ''; row.purchase_price = 0
     row.unitOptions = []; row.convText = ''; row.baseUnit = ''; row.unit = ''
-    row.unitFromBase = false
+    row._prevUnit = ''
     return
   }
   row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
   row.convText = String(p.conv_text || '')
   row.baseUnit = String(p.unit || '')
-  const ou = String(p.order_unit || '').trim()
-  const hit = row.unitOptions.find(o => o.name === ou)
   // 已有单位（复制旧单 / 编辑）且在档位里 ⇒ **保留**，不要被档案默认值顶掉。
   const keep = row.unit && row.unitOptions.some(o => o.name === row.unit)
-  if (!keep) {
-    row.unit = hit ? hit.name : (row.unitOptions[0] ? row.unitOptions[0].name : '')
-    row.unitFromBase = !hit && !!row.unit
-  }
+  if (!keep) row.unit = defaultUnitOf(row)
+  row._prevUnit = row.unit
   row.barcode = String(p.barcode || '')
   row.purchase_price = Number(p.purchase_price || 0)
 }
 function onPick (row) {
   applyProduct(row)
-  if (!row.unit_price && row.purchase_price > 0) row.unit_price = String(row.purchase_price)
+  /* v455：预填值走 `refPriceOf`（按本行当前档位折算），不再直接取档案原价。
+     🔴 为什么：总闸「按小单位采购」开着时默认档是小档，此时把**大单位**的档案价
+        原样填进小档的采购价框，一上来就差一整个量级（老板会被这个预填带偏）。
+        走 refPriceOf 后，预填值与「参考成本价」列永远是同一个单位、同一个数。 */
+  if (!row.unit_price && row.purchase_price > 0) row.unit_price = String(refPriceOf(row))
 }
 
 /* v430：商品「名称 + 条码」模糊查找组合框（行内 per-row 临时状态，避免多行实例互相串）。
@@ -1274,11 +1437,32 @@ async function reinit () {
   else for (let i = 0; i < PRESET_ROWS; i++) items.value.push(blankRow())
 }
 
+/* v455：快捷键（复刻舟谱：Ctrl+S 保存 / Ctrl+Enter 保存并审核）。
+   🔴 必须 `preventDefault()`：不拦的话 Ctrl+S 会弹出浏览器「存储此网页」对话框，
+      用户看到的是"没反应"（其实浏览器弹了自己的一套）。
+   🔴 Ctrl 与 Meta（macOS ⌘）都认 —— 老板用 Mac，⌘+S 是肌肉记忆。
+   🔴 `saving` 期间不再触发：重复提交会建出两张单（后端没有幂等键）。 */
+function onHotkey (e) {
+  if (!(e.ctrlKey || e.metaKey)) return
+  const k = String(e.key || '').toLowerCase()
+  if (k === 's') {
+    e.preventDefault()
+    if (!saving.value) submit('save')
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    if (!saving.value) submit('approve')
+  }
+}
+
 onMounted(async () => {
   document.addEventListener('click', onDocClick)
+  window.addEventListener('keydown', onHotkey)
   await reinit()
 })
-onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick)
+  window.removeEventListener('keydown', onHotkey)
+})
 /* 🔴 只监听 `copyId`：`?kind=` / `?from_po=` 现在是**另一条路由**（`PurchaseReturnForm`
    那条），不会再在同一条 path 上变化 ⇒ 监听它们已无意义（v449 拆页面时移除）。 */
 watch([copyId], () => { reinit() })
@@ -1360,6 +1544,17 @@ watch([copyId], () => { reinit() })
    `.ipn-opt`（原「选填」弱色标记）已随本轮**整体撤除**（舟谱那边选填不打标），
    故那条规则一并删掉，不留死 CSS。 */
 .ipn-req { color: var(--dan); font-size: 13px; line-height: 1; margin-right: 2px }
+/* v455：必填项图例（复刻舟谱创建页右上角那枚）。钉在标题右侧，
+   让表单头 / 明细表里散落的红 `*` 有一个统一的解释处。 */
+.ipn-legend {
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-left: 10px; padding: 2px 8px;
+  border: 1px solid var(--border-subtle); border-radius: 999px;
+  background: var(--bg2, #f7f8fa);
+  font-size: 12px; color: var(--t2); vertical-align: middle;
+  transform: translateY(1px);
+}
+.ipn-legend .ipn-req { font-size: 12px; margin-right: 0 }
 
 /* ══ v439（复刻舟谱·字段框）════════════════════════════════════════════════
    舟谱建单头那排是「**一个描边框**里左边标签、右边值」（`*供应商: 🔍`｜`*经办人: 请选择 ▾`），
@@ -1524,6 +1719,19 @@ watch([copyId], () => { reinit() })
    筛选框与「加一行」上移到页头，这里只留「商品明细 + 项数 + 口径说明（默认折叠）」。
    折叠态下明细上方只占这一行，展开才补回说明文字（省约 26px ≈ 0.7 行）。 */
 .ipn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
+/* v455：「按小单位采购」总闸（复刻舟谱表格工具栏同款开关）。
+   🔴 用**原生 checkbox** 而不是自绘开关：设置页 / 权限页全是原生勾选框，
+      同页两套开关长相等于让用户学两次。`accent-color` 让它跟主题色走，
+      不用写一行 transform 动画。 */
+.ipn-unitsw {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--t2); cursor: pointer; user-select: none;
+  white-space: nowrap;
+}
+.ipn-unitsw input { width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: var(--p, #1677ff) }
+.ipn-unitsw:hover { color: var(--t1) }
+.ipn-unitsw.on { color: var(--t1) }
+.ipn-unitsw.on .ipn-unitsw-tx { font-weight: 500 }
 .ipn-tip {
   display: flex; align-items: flex-start; gap: 6px;
   font-size: 12px; color: var(--t2); margin: 0 0 10px;
@@ -1765,6 +1973,16 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
 .ipn-total { font-size: 14px }
 .ipn-total b { font-size: 18px; font-variant-numeric: tabular-nums }
 .ipn-warn { font-size: 12px; color: var(--war) }
+/* v455：底部快捷键提示（复刻舟谱那行 Ctrl+S / Ctrl+Enter）。弱一档字色 ——
+   它是「说明」，不是主操作；真快捷键见脚本层 onHotkey。 */
+.ipn-kbd-hint { font-size: 12px; color: var(--t3); white-space: nowrap }
+.ipn-kbd-hint kbd {
+  display: inline-block; padding: 1px 5px;
+  border: 1px solid var(--border-subtle); border-radius: 4px;
+  background: var(--bg2, #f7f8fa);
+  font-family: inherit; font-size: 11px; line-height: 1.5; color: var(--t2);
+}
+.ipn-kbd-hint em { margin: 0 6px; font-style: normal; color: var(--t3) }
 .ipn-save { position: relative; display: inline-flex; margin-left: auto }
 .ipn-save-main { border-top-right-radius: 0; border-bottom-right-radius: 0 }
 .ipn-save-caret {
