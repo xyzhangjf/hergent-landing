@@ -691,7 +691,7 @@
             </div>
             <div
               v-for="a in artifacts"
-              :key="a.file ? ('f' + a.file.file_id) : ('c' + a.index)"
+              :key="a.file ? ('f' + a.file.file_id) : (a.produced ? ('p' + a.produced.path) : ('c' + a.index))"
               class="cp-art-item"
               @click="jumpTo(a.index)"
             >
@@ -719,6 +719,30 @@
                   <span class="cp-art-file-tx">
                     <span class="cp-art-file-name">{{ a.file.file_name }}</span>
                     <span class="cp-art-file-meta">{{ a.file.rows ? a.file.rows + ' 行 · ' : '' }}点击下载</span>
+                  </span>
+                  <svg class="cp-art-file-dl" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
+              </template>
+              <!-- v489：副驾**产出文件**（MEDIA: 标记）的产物项 —— 与上面「用户上传附件」并列展示，
+                   但取数走 `/api/ai/media`（按路径、需鉴权）而非 chat-attachment（按 file_id）。
+                   对齐 WorkBuddy 结果区：图片/视频/HTML 先内联预览，其余给下载入口。 -->
+              <template v-else-if="a.produced">
+                <div v-if="isPreviewable(a.produced)" class="cp-art-prev">
+                  <img v-if="isImage(a.produced)" class="cp-art-img" :src="producedPreviewSrc(a.produced.path) || undefined" :alt="a.produced.name" @click.stop="zoomProduced(a.produced.path)" />
+                  <video v-else-if="isVideo(a.produced)" class="cp-art-video" :src="producedPreviewSrc(a.produced.path) || undefined" controls preload="metadata" @click.stop></video>
+                  <iframe v-else-if="isHtml(a.produced)" class="cp-art-frame" sandbox="allow-scripts" :src="producedPreviewSrc(a.produced.path) || undefined" @click.stop></iframe>
+                  <a class="cp-art-dl-row" :href="mediaHref(a.produced.path)" :download="a.produced.name" @click.stop.prevent="downloadAuthed(mediaHref(a.produced.path), a.produced.name)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>下载原文件</span>
+                  </a>
+                </div>
+                <a v-else class="cp-art-file" :href="mediaHref(a.produced.path)" :download="a.produced.name" @click.stop.prevent="downloadAuthed(mediaHref(a.produced.path), a.produced.name)">
+                  <span class="cp-art-file-ic">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                  </span>
+                  <span class="cp-art-file-tx">
+                    <span class="cp-art-file-name">{{ a.produced.name }}</span>
+                    <span class="cp-art-file-meta">副驾产出 · 点击下载</span>
                   </span>
                   <svg class="cp-art-file-dl" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </a>
@@ -1086,6 +1110,27 @@ async function loadPreview(f) {
 }
 function zoomArtifact(f) {
   const u = previewSrc(f)
+  if (u) zoomSrc.value = u
+}
+/* ---- v489：副驾**产出文件**（Hermes `MEDIA:<路径>` 标记）的预览 URL ----
+   与上传附件的 previewStore **分开维护**：取数端点不同 ——
+   上传附件按 `file_id` 走 `/api/chat-attachment/download/:id`，
+   产出文件按**路径**走 `/api/ai/media?path=`（两者都需 Authorization，故同样 fetch→blob→objectURL）。 */
+const producedPreview = reactive({})     // path -> objectURL
+const producedPreviewLoading = new Set()
+function producedPreviewSrc(path) {
+  if (!path) return ''
+  if (producedPreview[path]) return producedPreview[path]
+  if (!producedPreviewLoading.has(path)) {
+    producedPreviewLoading.add(path)
+    fetchAuthedBlob(mediaHref(path))
+      .then((b) => { if (b) producedPreview[path] = URL.createObjectURL(b) })
+      .finally(() => producedPreviewLoading.delete(path))
+  }
+  return ''
+}
+function zoomProduced(path) {
+  const u = producedPreviewSrc(path)
   if (u) zoomSrc.value = u
 }
 
@@ -2606,6 +2651,15 @@ const artifacts = computed(() => {
     if (m.files && m.files.length) {
       for (const f of m.files) if (f && f.file_id) list.push({ ...base, index: i, file: f })
     }
+    /* v489：副驾**产出文件**（Hermes `MEDIA:<路径>` 标记）也必须登记进产物集合。
+       🔴 原先它只被当正文装饰 —— `mediaFiles(m)` 只在气泡里渲染一张下载卡，
+          侧栏产物区永远看不到它 ⇒ 表现为「产物只出现在回复区，落不到侧栏产物区」。
+       对齐 WorkBuddy 的产物落位：产物由**显式动作**（`present_files` → 右侧结果区）决定去处；
+          回复里可以留一个「入口」，但**产物本体必须沉淀到侧栏结果区**。
+       `file_name` 是给 isImage/isVideo/isHtml 复用所需的字段名（它们的判据读的是 file_name）。 */
+    for (const pf of mediaFiles(m)) {
+      if (pf && pf.path) list.push({ ...base, index: i, produced: { path: pf.path, name: pf.name, file_name: pf.name } })
+    }
   }
   return list.reverse()
 })
@@ -3060,6 +3114,7 @@ onBeforeUnmount(() => {
   stopRead()           // v456：副驾关闭/卸载时别把朗读留在后台继续念
   // v483：卸载时统一回收预览 blob URL，避免内存泄漏
   Object.values(previewStore).forEach(u => { try { URL.revokeObjectURL(u) } catch (e) {} })
+  Object.values(producedPreview).forEach(u => { try { URL.revokeObjectURL(u) } catch (e) {} })   // v489：产出文件预览同样回收
 })
 
 // v456：消息增删（发新消息 / 重新生成会 splice）⇒ 正在朗读的那条可能已不存在，先停掉再滚动
