@@ -2119,17 +2119,35 @@ function stopRead() {
   readingId.value = null
 }
 
-/** 兜底：浏览器内置朗读（只在服务端合成不可用时才走这里）。 */
-function speakLocal(text, i) {
-  if (!('speechSynthesis' in window)) { store.toast('朗读暂不可用，请稍后重试'); readingId.value = null; return }
+/** 兜底：浏览器内置朗读（只在服务端合成不可用时才走这里）。
+ *  v490：兜底本身也可能"不出声"（本机无中文语音 / 被系统静音 / 被浏览器策略拦截）
+ *        ⇒ 用看门狗明确告知，不再让用户对着"点了没反应"的按钮猜。 */
+function speakLocal(text, i, notice) {
+  if (!('speechSynthesis' in window)) {
+    readingId.value = null
+    store.toast('朗读不可用：当前浏览器不支持语音朗读')
+    return
+  }
+  if (notice) store.toast(notice)
   const u = new SpeechSynthesisUtterance(text)
   u.lang = 'zh-CN'
-  u.onend = () => { if (readingId.value === i) readingId.value = null }
-  u.onerror = () => { if (readingId.value === i) readingId.value = null }
-  window.speechSynthesis.speak(u)
+  let started = false
+  const watchdog = setTimeout(() => {
+    if (!started && readingId.value === i) {
+      readingId.value = null
+      store.toast('朗读没有出声：请检查系统音量或浏览器的语音设置')
+    }
+  }, 1500)
+  u.onstart = () => { started = true; clearTimeout(watchdog) }
+  u.onend = () => { clearTimeout(watchdog); if (readingId.value === i) readingId.value = null }
+  u.onerror = () => { clearTimeout(watchdog); if (readingId.value === i) readingId.value = null }
+  try { window.speechSynthesis.speak(u) } catch (_) {
+    clearTimeout(watchdog); readingId.value = null
+    store.toast('朗读启动失败，请稍后重试')
+  }
 }
 
-// 朗读 / 停止朗读（v456：服务端合成 → 失败回落浏览器内置）
+// 朗读 / 停止朗读（v456：服务端合成 → 失败回落浏览器内置；v490：失败不再静默）
 async function toggleRead(m, i) {
   if (readingId.value === i) { stopRead(); return }    // 再点一次 = 停止
   stopRead()                                           // 切换消息时先停掉上一条
@@ -2145,11 +2163,23 @@ async function toggleRead(m, i) {
     ttsObjectUrl = URL.createObjectURL(blob)
     ttsAudio = new Audio(ttsObjectUrl)
     ttsAudio.onended = () => { if (readingId.value === i) stopRead() }
-    ttsAudio.onerror = () => { if (readingId.value === i) { stopRead(); speakLocal(text, i) } }
-    await ttsAudio.play()
+    ttsAudio.onerror = () => {
+      if (readingId.value !== i) return
+      stopRead()
+      speakLocal(text, i, '在线语音播放失败，已改用浏览器朗读')
+    }
+    try {
+      await ttsAudio.play()
+    } catch (playErr) {
+      if (seq !== ttsSeq || readingId.value !== i) return
+      // v490：异步等待后用户手势可能已过期 ⇒ 浏览器拦截自动播放。给明确指引，不静默。
+      stopRead()
+      store.toast('浏览器拦截了自动播放，请再点一次「朗读」')
+    }
   } catch (e) {
     if (seq !== ttsSeq || readingId.value !== i) return
-    speakLocal(text, i)      // 服务端失败：静默回落，不打断用户
+    // v490：服务端合成失败（如 503）不再静默 —— 明确告知已降级，避免"点了没反应"的困惑。
+    speakLocal(text, i, '在线语音服务暂不可用，已改用浏览器朗读')
   }
 }
 
