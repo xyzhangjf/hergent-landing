@@ -158,7 +158,7 @@ let searchTimer = null
 // 字形视觉风格不一致。加 VS16 对后者是幂等的，整体统一为 Apple Color Emoji 风格。
 const WMO = {
   0: ['晴', '☀️'], 1: ['晴间多云', '🌤️'], 2: ['多云', '⛅️'], 3: ['阴', '☁️'],
-  45: ['雾', '🌫️'], 48: ['雾凇', '🌫️'],
+  45: ['雾', '🌁'], 48: ['雾凇', '🌁'],
   51: ['毛毛雨', '🌦️'], 53: ['小雨', '🌧️'], 55: ['中雨', '🌧️'],
   56: ['冻雨', '🌧️'], 57: ['冻雨', '🌧️'],
   61: ['小雨', '🌧️'], 63: ['中雨', '🌧️'], 65: ['大雨', '🌧️'],
@@ -224,7 +224,7 @@ const dayRows = computed(() => (days.value || []).map((d) => {
     hd,
     hdName: name,
     badge: hd ? (hd.work ? '班' : '休') : '',
-    tip: lab.full + ' ' + lab.week + suffix,
+    tip: lab.full + ' ' + lab.week + ' ' + wmo(d.code)[0] + suffix,
   }
 }))
 
@@ -279,7 +279,10 @@ async function load() {
     city.value = r.city || '—'
     temp.value = r.temp
     code.value = r.code
-    days.value = r.days || []
+    // 过滤「空预报日」：Open-Meteo 16 天预报的最后一天（边界日）早间模型未覆盖，
+    // 会返回 tmax/tmin/code 全为 null 的空行；前端此前无兜底，画出「°/°」+ 🌡️ 回落图。
+    // 这种行对低温奶备货无意义，直接剔除；后端数据补齐后（同一缓存窗口内）会自动出现。
+    days.value = (r.days || []).filter((d) => d.tmax != null && d.tmin != null)
     ready.value = !(r.temp == null)
   } catch (e) {
     city.value = '郑州'
