@@ -611,10 +611,16 @@ const NAV = [
 
   /* ④b 市场营销 › —— v465（2026-10-11）：按舟谱「市场营销」弹窗四列复刻
      （市场管理 / 合约管理 / 物料管理 / 促销活动）。
-     条目落点：除「供应商返利方案」（→ `/rebate?tab=rules` 目标配置，现成的返利规则页）
-     外全部是占位页（`/mkt/*`，见 `pages.js::PLACEHOLDER_PAGES`）。
+     条目落点：全部是占位页（`/mkt/*`，见 `pages.js::PLACEHOLDER_PAGES`）。
+     🔴 v498（2026-10-14）：「合约管理 › 供应商返利方案」**已删除** —— 它指向
+        `/rebate?tab=rules`，与 ④ 目标与返利区的「目标配置」**是同一 path + 同一 tab**
+        ⇒ 侧栏两个入口进同一个界面（老板实测发现，与 v497 删的「实时概览」同一类）。
+        这是 v465 的权宜复用（当时没有独立页面，拿现成的返利规则页顶上），非设计意图。
+        ⚠️ 同列还有一个「供应商返利试算」（`/mkt/supplier-rebate-calc`，占位页），
+        名字相近但**不是同一个东西**，别一起删。
      🔴 v472（2026-10-12）：可见性由 `BIZ_ROLES` **收成 boss 硬锁**（开发期只给老板）⇒
-        补 `path` 锚点 `/mkt/display`（否则区内那条 `/rebate?tab=rules` 会让整区对谁都露出）。
+        补 `path` 锚点 `/mkt/display`（v498 删掉区内那条 `/rebate?tab=rules` 后，
+        区内已全是 `/mkt/*`；锚点保留 —— 它是本区的默认落点，去掉会改变进区行为）。
      🔴 「随单返利/返利模板」等占位页落真身时，注意与 `/rebate` 的**口径分工**：
         目标与返利管「厂家给我们的返利」，市场营销管「我们给下游的返利/促销」——
         两边数据源不同，别合并。 */
@@ -634,7 +640,6 @@ const NAV = [
         { path: '/mkt/rebate-template',    name: '返利模板',       icon: 'template' },
         { path: '/mkt/fee-contract',       name: '费用合同',       icon: 'book' },
         { path: '/mkt/prepay-contract',    name: '先付协议',       icon: 'receipt' },
-        { path: '/rebate', tab: 'rules',   name: '供应商返利方案', icon: 'target' },
         { path: '/mkt/supplier-rebate-calc', name: '供应商返利试算', icon: 'edit' }
       ] },
       { label: '物料管理', items: [
