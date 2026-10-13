@@ -9,6 +9,12 @@
         <button v-if="canWrite" class="btn btn-primary btn-sm" @click="goNew()">
           <Icon name="plus" :size="14" />{{ isReturn ? '新建采购退货单' : '新建采购单' }}
         </button>
+        <!-- v496：页头补「刷新」（规范 §1 第 1 段：页头右侧 = 新建 + 刷新，
+             与销售/调拨列表同款）。工具栏里那颗重复的「新建」同轮删除 ——
+             新建只留页头与空态两处，避免同屏三个入口互相稀释。 -->
+        <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
+          <Icon name="refresh" :size="14" />刷新
+        </button>
       </div>
     </div>
 
@@ -60,17 +66,11 @@
           <label class="ipl-lb">至</label>
           <input type="date" v-model="f.date_to" class="input ipl-date" @change="onDateManual" />
         </div>
-        <!-- v479 P0-2：创建时间快捷筛选（舟谱优势项）。点一下自动填日期区间并重拉；高亮当前档；手动改日期框会清掉高亮。 -->
-        <div class="ipl-f ipl-f-quick">
-          <label class="ipl-lb">快捷</label>
-          <div class="ipl-date-quick">
-            <button type="button" class="chip" :class="{ on: quickRange === 'today' }" @click="setDateRange('today')">今</button>
-            <button type="button" class="chip" :class="{ on: quickRange === 'yesterday' }" @click="setDateRange('yesterday')">昨</button>
-            <button type="button" class="chip" :class="{ on: quickRange === '7' }" @click="setDateRange('7')">近7天</button>
-            <button type="button" class="chip" :class="{ on: quickRange === '30' }" @click="setDateRange('30')">近30天</button>
-            <button type="button" class="chip" :class="{ on: quickRange === '' }" @click="clearDateRange">全部</button>
-          </div>
-        </div>
+        <!-- v496：快捷时间档换**共享件** `QuickRangeChips` + `useQuickRange`
+             （进销存列表页统一设计规范 §3.3；v479 P0-2 引入、v482 换全局 .chip、
+             v496 连逻辑一起上提，三页共用一套口径）。
+             行为不变：点一下自动填日期区间并重拉；高亮当前档；手动改日期框会清掉高亮。 -->
+        <QuickRangeChips :range="quickRange" @pick="pickRange" />
         <div class="ipl-fbtns">
           <button class="btn btn-primary btn-sm" :disabled="loading" @click="load()">
             <Icon name="search" :size="14" />查询
@@ -204,9 +204,8 @@
                     :class="{ danger: a.danger }" @click="pickBatch(a)">{{ a.text }}</button>
           </div>
         </div>
-        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="goNew()">
-          <Icon name="plus" :size="14" />新建
-        </button>
+        <!-- v496：删除工具栏里重复的「新建」（规范 §1：新建只在页头与空态）。
+             页头那颗是同一动作（goNew()），不是功能下线。 -->
       </div>
     </div>
 
@@ -254,9 +253,11 @@
 
     <div v-else class="card ipl-card">
       <div class="table-wrap">
-        <table class="tbl ipl-tbl" :class="{ 'print-one': !!printOnly }">
+        <table class="tbl ipl-tbl psi-tbl" :class="{ 'print-one': !!printOnly }"
+               :style="{ '--psi-frz-1': LEFT_CHK + 'px', '--psi-frz-2': LEFT_SEQ + 'px', '--psi-frz-3': LEFT_FROZEN + 'px', '--psi-frz-4': LEFT_FROZEN2 + 'px' }">
           <!-- 列宽**权威来源**（本表 table-layout:fixed ⇒ 声明值即硬值）。
-               左侧冻结区的 sticky 偏移 0 / 36 / 82 / 212 依赖这三个宽度不被内容撑开。
+               左侧冻结区的 sticky 偏移（0 / 36 / 82 / 212，经 --psi-frz-N 送给全局
+               .psi-frz-N，v496 上提）依赖这三个宽度不被内容撑开。
                ⛔ 别在 scoped CSS 里再给这些列写 width —— 那就是第二个真相来源。 -->
           <colgroup>
             <col :style="{ width: CHK_W + 'px' }" />
@@ -267,13 +268,13 @@
           </colgroup>
           <thead>
             <tr>
-              <th class="ipl-c-chk ipl-frz-chk">
+              <th class="ipl-c-chk psi-frz psi-frz-1">
                 <input ref="headChk" type="checkbox" :checked="allChecked" title="全选本页" @change="toggleAll" />
               </th>
               <!-- 🔴 §2.6.1「一、」：齿轮长在**序号列表头**格子里、是该格**唯一**的按钮，
                    包在 `.th-in` 里（`.th-in > .col-cfg{margin-inline:auto}` 把它拉回格子正中）。
                    ⛔ 不放工具栏、⛔ 不放别的表头列。 -->
-              <th class="seq-th ipl-frz-seq">
+              <th class="seq-th psi-frz psi-frz-2">
                 <div class="th-in">
                   <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" /></button>
                 </div>
@@ -283,7 +284,8 @@
                    指示器：未排 `sort`（中性 ⇅）→ 升 `arrow-up` → 降 `arrow-down`。 -->
               <th v-for="c in visibleCols" :key="c.key"
                   :class="[{ num: c.num, 'ipl-clip': c.clip, 'ipl-sh': canSort(c),
-                             'ipl-frz-key': c.key === FIXED_FROZEN, 'ipl-frz-x': isFrz2(c) }]"
+                             'psi-frz': c.key === FIXED_FROZEN || isFrz2(c),
+                             'psi-frz-3': c.key === FIXED_FROZEN, 'psi-frz-4': isFrz2(c) }]"
                   :aria-sort="ariaSortOf(c)"
                   :title="canSort(c) ? '点击排序：降序 → 升序 → 取消' : null"
                   @click="onSort(c)">{{ c.label }}<span v-if="canSort(c)" class="ipl-sort-ind"><Icon :name="sortInd(c.key)" :size="12" /></span></th>
@@ -293,15 +295,16 @@
           </thead>
           <tbody>
             <tr v-for="(r, i) in rows" :key="r.id"
-                :class="{ 'print-target': printOnly === r.id, 'ipl-on': selected.includes(r.id) }">
-              <td class="ipl-c-chk ipl-frz-chk">
+                :class="{ 'print-target': printOnly === r.id, 'psi-on': selected.includes(r.id) }">
+              <td class="ipl-c-chk psi-frz psi-frz-1">
                 <input type="checkbox" :value="r.id" v-model="selected" />
               </td>
               <!-- §2.6.1「二、」：序号 = 服务端分页 ⇒ 必须 `offset + i + 1`（写 i+1 第 2 页会从 1 重来） -->
-              <td class="seq-cell ipl-frz-seq"><span class="seq-num">{{ offset + i + 1 }}</span></td>
+              <td class="seq-cell psi-frz psi-frz-2"><span class="seq-num">{{ offset + i + 1 }}</span></td>
               <td v-for="c in visibleCols" :key="c.key"
                   :class="[{ num: c.num, 'ipl-clip': c.clip,
-                             'ipl-frz-key': c.key === FIXED_FROZEN, 'ipl-frz-x': isFrz2(c) }]">
+                             'psi-frz': c.key === FIXED_FROZEN || isFrz2(c),
+                             'psi-frz-3': c.key === FIXED_FROZEN, 'psi-frz-4': isFrz2(c) }]">
                 <template v-if="c.key === 'order_no'">
                   <a class="ipl-link strong" @click.prevent="go('/inventory/purchase/' + r.id)"
                      :href="'#/inventory/purchase/' + r.id">{{ r.order_no || ('#' + r.id) }}</a>
@@ -353,10 +356,11 @@
                写死 colspan 会在列被隐藏/重排后错位（原来就是 colspan="8" / "6"）。 -->
           <tfoot>
             <tr>
-              <td :colspan="2" class="ipl-ft-lb ipl-frz-span2">总计</td>
+              <td :colspan="2" class="ipl-ft-lb psi-frz psi-frz-1">总计</td>
               <td v-for="c in visibleCols" :key="'ft-' + c.key"
                   :class="[{ num: c.num, 'ipl-ft-num': MONEY_COLS.includes(c.key),
-                             'ipl-frz-key': c.key === FIXED_FROZEN, 'ipl-frz-x': isFrz2(c) }]">
+                             'psi-frz': c.key === FIXED_FROZEN || isFrz2(c),
+                             'psi-frz-3': c.key === FIXED_FROZEN, 'psi-frz-4': isFrz2(c) }]">
                 <template v-if="c.key === 'total_amount'">¥{{ fmtMoney(summary.order_amount) }}</template>
                 <template v-else-if="c.key === 'received_amount'">¥{{ fmtMoney(summary.received_amount) }}</template>
                 <template v-else-if="c.key === 'paid_amount'">¥{{ fmtMoney(summary.paid_amount) }}</template>
@@ -370,7 +374,7 @@
       </div>
 
       <div class="ipl-pager">
-        <span class="ipl-pg-cnt">共 {{ total }} 条记录</span>
+        <span class="ipl-pg-cnt">共 {{ total }} 条记录，第 {{ pageFrom }}–{{ pageTo }} 条</span>
         <div class="ipl-pg-nums">
           <button class="ipl-pg" :disabled="page <= 1" @click="goPage(page - 1)">‹</button>
           <button v-for="p in pageNums" :key="p" class="ipl-pg" :class="{ on: p === page }"
@@ -518,6 +522,11 @@ import { useColPrefs } from '../../composables/useColPrefs.js'
    composable 里，因为**列表页 / 新建页 / 详情页三处都要**用；
    在页面里各抄一份就是"同一条规则抄多份 ⇒ 漏抄那份出错"（本仓一类专项缺陷）。 */
 import { usePurchaseCustomFields, extraVal } from '../../composables/purchaseCustomFields.js'
+/* v496：快捷时间档改**共享件**（进销存列表页统一设计规范 §3.3）——
+   芯片（组件）与档位逻辑（composable）一起上提，采购 / 销售 / 调拨三页共用一套口径。
+   v479 引入本页、v482 把私有 .ipl-qbtn 换成全局 .chip，本轮连日期算法一并收编。 */
+import { useQuickRange } from '../../composables/useQuickRange.js'
+import QuickRangeChips from '../../components/QuickRangeChips.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -1038,25 +1047,11 @@ function baseFilter () {
 }
 const f = ref(baseFilter())
 
-/* v479 P0-2：创建时间快捷筛选。quickRange 只用于高亮当前档；真实值落在 f.date_from/date_to。 */
-const quickRange = ref('')
-function toLocalISO (d) {
-  // 🔴 用本地时区切片，避免 toISOString() 的 UTC 偏移（北京时间凌晨 0–8 点会算成前一天）
-  const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-  return z.toISOString().slice(0, 10)
-}
-function setDateRange (r) {
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const fmt = toLocalISO(today)
-  if (r === 'today') { f.value.date_from = fmt; f.value.date_to = fmt }
-  else if (r === 'yesterday') { const y = new Date(today); y.setDate(today.getDate() - 1); const yf = toLocalISO(y); f.value.date_from = yf; f.value.date_to = yf }
-  else if (r === '7') { const s = new Date(today); s.setDate(today.getDate() - 6); f.value.date_from = toLocalISO(s); f.value.date_to = fmt }
-  else if (r === '30') { const s = new Date(today); s.setDate(today.getDate() - 29); f.value.date_from = toLocalISO(s); f.value.date_to = fmt }
-  quickRange.value = r
-  load()
-}
-function clearDateRange () { f.value.date_from = ''; f.value.date_to = ''; quickRange.value = ''; load() }
-function onDateManual () { quickRange.value = ''; load() }
+/* v496：快捷时间档走共享 composable（规范 §3.3）。quickRange 仍只用于高亮当前档；
+   真实值落在 f.date_from/date_to（与手动填框同一条路径）。
+   ⚠️ `load` 是函数声明（hoisted）⇒ 这里先引用后定义没问题；改 load 签名要同步核对
+      另外两页（销售/调拨）的调用形状。 */
+const { quickRange, setDateRange, clearDateRange, onDateManual, pickRange } = useQuickRange(f, load)
 
 /* ══ v470：表头点击排序（**服务端排序**） ══════════════════════════════════
    🔴 为什么必须走后端：本列表是**服务端分页**（`limit/offset`）。只对当前页这 20 行
@@ -1131,6 +1126,10 @@ const hasFilter = computed(() => !!(
 ))
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))
 const page = computed(() => Math.floor(offset.value / limit.value) + 1)
+/* v496：分页器区间文案（规范 §6：「共 N 条记录，第 X–Y 条」——与销售/调拨页逐字同款）。
+   区间只在有数据时才有意义；本卡整体在 `rows.length > 0` 时才渲染，故此处 total 必 > 0。 */
+const pageFrom = computed(() => (total.value ? offset.value + 1 : 0))
+const pageTo = computed(() => Math.min(offset.value + limit.value, total.value))
 
 /* 状态页签。顺序 = 业务流：草稿 → 待审批 → 已确认 → 已入库 → 部分入库 → 已退货 → 已取消。
    ⚠️ 每个页签都是**一个真实状态值**（1:1），不发明后端不支持/前端拼出来的复合状态。
@@ -1517,9 +1516,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-kw { height: 32px }
 .ipl-sel { min-width: 150px; height: 32px }
 .ipl-date { height: 32px }
-/* v482：创建时间快捷筛选按钮组 —— 复用全局 .chip（32px / 8px 圆角 / token 化 / 选中青实底），废弃私有 ipl-qbtn 偏蓝硬编码样式 */
-.ipl-f-quick { gap: 6px }
-.ipl-date-quick { display: flex; gap: 6px; flex-wrap: wrap }
+/* v482 曾在此定义私有 .ipl-f-quick / .ipl-date-quick（配全局 .chip）；v496 快捷档整体换
+   共享件 QuickRangeChips.vue，外壳样式随全局 psi-list.css 的 .psi-quick* —— 本页不再保留
+   这两条死规则（模板里也没有这两个类了）。 */
 .ipl-fbtns { display: flex; align-items: center; gap: 8px; margin-left: auto }
 .ipl-chk-mark { align-self: flex-end; height: 32px; margin-left: auto }
 
@@ -1612,11 +1611,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
    🔴 v408：列宽**不再写在这里** —— 本表 `table-layout:fixed`，宽度权威来源是模板里的
       `<colgroup>`（见脚本「列设置」段）。原先每个 `.ipl-c-*` 各写一份 `width`，与 colgroup
       并存就是**第二个真相来源**（改一处必然漂移），且内容一撑就会把列撑宽、错开冻结偏移。
-      这里只留**排版语义**（对齐 / 裁剪）。 */
+      这里只留**排版语义**（对齐 / 裁剪）。
+   v496：`table-layout:fixed` 与「fixed 下声明宽度即硬值 ⇒ 超宽只能裁」的规则已随
+      `.psi-tbl` 上提全局（`styles/psi-list.css`，销售/调拨页同款）；本页只留 min-width
+      这一项**页面值**（列数比销售/调拨多 ⇒ 表格更宽）。 */
 .ipl-card { padding: 0; overflow: hidden }
-.ipl-tbl { min-width: 1700px; table-layout: fixed }
-/* fixed 布局下声明宽度即硬值 ⇒ 内容超出只能裁，不让任何一格把列撑宽 */
-.ipl-tbl th, .ipl-tbl td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ipl-tbl { min-width: 1700px }
 .ipl-clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .ipl-c-chk { text-align: center }
 .ipl-c-op { text-align: right }
@@ -1634,28 +1634,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-tbl td.num { font-variant-numeric: tabular-nums }
 
 /* ---- 左侧冻结区（UI-SPEC §2.6.1「二、」的冻结约定）----
-   偏移是**硬值**：复选框 0 / 序号 36 / 固定冻结列（单据编号）82 / 第二冻结列 212。
-   表头 z-index **必须高于**表体，否则横滚过来的普通表头会盖住冻结表头。 */
-.ipl-frz-chk   { position: sticky; left: 0;     z-index: 6 }
-.ipl-frz-seq   { position: sticky; left: 36px;  z-index: 6 }
-.ipl-frz-key   { position: sticky; left: 82px;  z-index: 6 }
-.ipl-frz-x     { position: sticky; left: 212px; z-index: 6 }
-.ipl-frz-span2 { position: sticky; left: 0;     z-index: 6 }
-.ipl-tbl thead th.ipl-frz-chk, .ipl-tbl thead th.ipl-frz-seq,
-.ipl-tbl thead th.ipl-frz-key, .ipl-tbl thead th.ipl-frz-x { z-index: 9 }
-/* 表体冻结格必须有**自己的底色**（`td` 本身透明 ⇒ 滚过去的内容会从底下透出来）。
-   三种态各自覆盖：常态 `--bg` / 行 hover `--bg2` / 已勾选 `--p-bg`。 */
-.ipl-tbl tbody td.ipl-frz-chk, .ipl-tbl tbody td.ipl-frz-seq,
-.ipl-tbl tbody td.ipl-frz-key, .ipl-tbl tbody td.ipl-frz-x { background: var(--bg) }
-.ipl-tbl tbody tr:hover td.ipl-frz-chk, .ipl-tbl tbody tr:hover td.ipl-frz-seq,
-.ipl-tbl tbody tr:hover td.ipl-frz-key, .ipl-tbl tbody tr:hover td.ipl-frz-x { background: var(--bg2) }
-.ipl-tbl tbody tr.ipl-on td.ipl-frz-chk, .ipl-tbl tbody tr.ipl-on td.ipl-frz-seq,
-.ipl-tbl tbody tr.ipl-on td.ipl-frz-key, .ipl-tbl tbody tr.ipl-on td.ipl-frz-x { background: var(--p-bg) }
-/* 合计行在最底层叠里，取 7（低于表头的 9、高于普通格） */
-.ipl-tbl tfoot td.ipl-frz-span2, .ipl-tbl tfoot td.ipl-frz-key,
-.ipl-tbl tfoot td.ipl-frz-x { z-index: 7 }
+   v496：冻结实现已上提全局 `styles/psi-list.css`（`.psi-frz` + `.psi-frz-1..4`，
+   left 偏移经 `<table :style="--psi-frz-N">` 由本页的 LEFT_* 常量送来 ——
+   那些常量 = colgroup 各列宽之和，改列宽时偏移自动跟着走，不会再漂移）。
+   偏移值：复选框 0 / 序号 36 / 固定冻结列（单据编号）82 / 第二冻结列 212。
+   ⛔ 不要在本文件里再写一份 `.ipl-frz-*`（那就是第二个真相来源）。 */
 
-.ipl-on { background: var(--p-bg) }
 .ipl-mark { display: inline-flex; margin-left: 4px; color: var(--war); vertical-align: middle }
 
 .ipl-tbl tfoot td {
@@ -1735,10 +1719,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   .ipl-tbl { min-width: 0; width: 100%; table-layout: auto }
   .ipl-c-chk, .ipl-c-rel, .ipl-c-op { display: none !important }
   .ipl-tbl tfoot, .ipl-mark { display: none !important }
-  /* 冻结是屏幕上的滚动手感；打印时 sticky 只会把几列叠在一起 */
-  .ipl-frz-chk, .ipl-frz-seq, .ipl-frz-key, .ipl-frz-x, .ipl-frz-span2 { position: static !important }
+  /* 冻结列回静态已随 .psi-frz 上提全局（psi-list.css 的 @media print）—— 三页同一条。 */
   .ipl-tbl.print-one tbody tr:not(.print-target) { display: none !important }
-  .ipl-on { background: transparent !important }
+  .psi-on { background: transparent !important }
 }
 
 @media (max-width: 640px) {

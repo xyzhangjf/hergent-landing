@@ -28,16 +28,19 @@
         </div>
         <div class="isl-f">
           <label class="isl-lb">创建起</label>
-          <input type="date" v-model="f.date_from" class="input isl-date" @change="load()" />
+          <input type="date" v-model="f.date_from" class="input isl-date" @change="onDateManual" />
         </div>
         <div class="isl-f">
           <label class="isl-lb">创建止</label>
-          <input type="date" v-model="f.date_to" class="input isl-date" @change="load()" />
+          <input type="date" v-model="f.date_to" class="input isl-date" @change="onDateManual" />
         </div>
         <div class="isl-f isl-f-kw">
           <label class="isl-lb">商品</label>
           <input v-model.trim="f.keyword" class="input isl-kw" placeholder="商品名" @keyup.enter="load()" />
         </div>
+        <!-- v496：快捷时间档（规范 §3.3）—— 与采购/销售列表同款五枚 chip；
+             手动改上面两个日期框会经 onDateManual 清掉芯片高亮。 -->
+        <QuickRangeChips :range="quickRange" @pick="pickRange" />
         <div class="isl-fbtns">
           <button class="btn btn-primary btn-sm" :disabled="loading" @click="load()">
             <Icon name="search" :size="14" />查询
@@ -49,7 +52,7 @@
 
     <div class="isl-tb">
       <div class="isl-tb-l">
-        <span class="isl-selinfo">共 <b>{{ total }}</b> 张</span>
+        <!-- v496：删除此处的「共 N 张」—— 总数唯一出处 = 分页器左侧（规范 §1）。 -->
         <!-- v478：当前排序的显式提示。排序键对应列一旦被「列设置」隐藏，表头指示器随之消失，
              顺序来历就变成看不见的状态，用户会以为数据乱了。这里常显「按 X 升/降序」+ 一键清除。 -->
         <span v-if="sortKey" class="isl-selinfo isl-sortinfo">
@@ -87,17 +90,29 @@
 
     <div v-else class="card isl-card">
       <div class="table-wrap">
-        <table class="tbl isl-tbl" :class="{ 'print-one': !!printOnly }">
+        <!-- v496：挂 .psi-tbl（全局固定布局 + nowrap/ellipsis，规范 §2.1）+ colgroup
+             定宽（宽度唯一权威）+ 冻结序号/单号两列（--psi-frz-2 = 序号宽），与采购/销售
+             列表同款。⚠️ 调拨**没有详情页** ⇒ 单号保持纯文本（有意差异 D6，不造死链接）。 -->
+        <table class="tbl isl-tbl psi-tbl" :class="{ 'print-one': !!printOnly }"
+               :style="{ '--psi-frz-2': SEQ_W + 'px' }">
+          <colgroup>
+            <col :style="{ width: SEQ_W + 'px' }" />
+            <col v-for="c in visibleCols" :key="'cg-' + c.key" :style="{ width: c.w + 'px' }" />
+            <col :style="{ width: OP_W + 'px' }" />
+          </colgroup>
           <thead>
             <tr>
-              <!-- 齿轮长在序号列表头格子里（与采购/销售列表同一处） -->
-              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <!-- 齿轮长在序号列表头格子里（与采购/销售列表同一处）。
+                   v496：序号列同时是冻结位置 1（psi-frz-1，left:0）。 -->
+              <th class="seq-th col-gear-th psi-frz psi-frz-1"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
               <!-- v478：可排序列 = `SORTABLE`（除「备注」外全可点）。点击三态循环（降 → 升 → 取消），
                    由 `onSort()` 重新拉数据（**服务端排序**，非前端对当前页重排 —— 本页服务端分页，
                    对当前页重排"看着排好了"、一翻页就散架）。
-                   指示器：未排 `sort`（中性）→ 升 `arrow-up` → 降 `arrow-down`。 -->
+                   指示器：未排 `sort`（中性）→ 升 `arrow-up` → 降 `arrow-down`。
+                   v496：单号列同时是冻结位置 2（psi-frz-2，紧贴序号列右侧）。 -->
               <th v-for="c in visibleCols" :key="c.key"
-                  :class="[{ num: c.num, 'isl-sh': canSort(c) }]"
+                  :class="[{ num: c.num, 'isl-sh': canSort(c),
+                             'psi-frz': c.key === 'order_no', 'psi-frz-2': c.key === 'order_no' }]"
                   :aria-sort="ariaSortOf(c)"
                   :title="canSort(c) ? '点击排序：降序 → 升序 → 取消' : null"
                   @click="onSort(c)">
@@ -110,9 +125,11 @@
             <tr v-for="(r, i) in rows" :key="r.id"
                 :class="{ 'print-target': printOnly === r.id }"
                 class="isl-row">
-              <!-- 序号 = 服务端分页 ⇒ 必须 `offset + i + 1` -->
-              <td class="seq-cell"><span class="seq-num">{{ offset + i + 1 }}</span></td>
-              <td v-for="c in visibleCols" :key="c.key" :class="{ num: c.num }">
+              <!-- 序号 = 服务端分页 ⇒ 必须 `offset + i + 1`。
+                   v496：冻结位置 1。 -->
+              <td class="seq-cell psi-frz psi-frz-1"><span class="seq-num">{{ offset + i + 1 }}</span></td>
+              <td v-for="c in visibleCols" :key="c.key"
+                  :class="{ num: c.num, 'psi-frz': c.key === 'order_no', 'psi-frz-2': c.key === 'order_no' }">
                 <template v-if="c.key === 'order_no'">
                   <span class="isl-no">{{ r.order_no || ('#' + r.id) }}</span>
                 </template>
@@ -137,7 +154,7 @@
       <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
 
       <div class="isl-pager">
-        <span class="isl-pg-cnt">共 {{ total }} 张，第 {{ pageFrom }}–{{ pageTo }} 张</span>
+        <span class="isl-pg-cnt">共 {{ total }} 条记录，第 {{ pageFrom }}–{{ pageTo }} 条</span>
         <div class="isl-pg-nums">
           <button class="isl-pg" :disabled="page <= 1" @click="goPage(page - 1)">‹</button>
           <button v-for="p in pageNums" :key="p" class="isl-pg" :class="{ on: p === page }" @click="goPage(p)">{{ p }}</button>
@@ -184,23 +201,33 @@ import { psiApi } from '../../api/psi'
 import { canDo, toast } from '../../store'
 import { TRANSFER_STATUS, textOf, tagOf } from '../../constants/psiLabels'
 import { DOC_PATHS } from './new/docTypes.js'
+/* v496：快捷时间档改共享件（进销存列表页统一设计规范 §3.3）—— 与采购/销售列表
+   同一套芯片 + 同一套日期算法。 */
+import { useQuickRange } from '../../composables/useQuickRange.js'
+import QuickRangeChips from '../../components/QuickRangeChips.vue'
 
 /* 列设置（齿轮）。核心列（单号 / 状态）进本清单 `core:true` ⇒ 不进云端显隐配置、恒显；
-   可选列 key 一旦定下就进云端，改名会丢用户已存配置（故保持稳定）。 */
+   可选列 key 一旦定下就进云端，改名会丢用户已存配置（故保持稳定）。
+   v496：每列补 `w`（列宽）—— 表格改 `table-layout:fixed` 后宽度权威在 `<colgroup>`
+   （规范 §2.1），与采购/销售列表同构。 */
 const COLS = [
-  { key: 'order_no',     label: '单号',     core: true },
-  { key: 'from_wh',      label: '调出仓',   core: false },
-  { key: 'to_wh',        label: '调入仓',   core: false },
-  { key: 'product_name', label: '商品',     core: false },
-  { key: 'quantity',     label: '数量',     core: false, num: true },
-  { key: 'status',       label: '状态',     core: true },
-  { key: 'created_at',   label: '创建时间', core: false },
-  { key: 'note',         label: '备注',     core: false },
+  { key: 'order_no',     label: '单号',     core: true, w: 150 },
+  { key: 'from_wh',      label: '调出仓',   core: false, w: 130 },
+  { key: 'to_wh',        label: '调入仓',   core: false, w: 130 },
+  { key: 'product_name', label: '商品',     core: false, w: 180 },
+  { key: 'quantity',     label: '数量',     core: false, num: true, w: 80 },
+  { key: 'status',       label: '状态',     core: true, w: 84 },
+  { key: 'created_at',   label: '创建时间', core: false, w: 140 },
+  { key: 'note',         label: '备注',     core: false, w: 160 },
 ]
 const { isVisible, toggleCol, resetCols } = useColSettings('INV-TRANSFER-LIST', COLS)
 const visibleCols = computed(() => COLS.filter(c => isVisible(c.key)))
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
+/* v496：序号列宽与全局序号列逐字一致（variables.css `table.tbl th.seq-th{width:46px}`）；
+   冻结偏移 `--psi-frz-2` 也用它。操作列 120px = 「打印 + 过账」两枚按钮 + padding 的实测宽度。 */
+const SEQ_W = 46
+const OP_W = 120
 
 /* ── v478：服务端排序 ──────────────────────────────────────────────────────
    🔴 排序键必须**映射**：列 key（云端列配置主键，不能改）≠ 后端白名单键（`_TRANSFER_ORDER_SQL`）。
@@ -268,6 +295,10 @@ const jumpTo = ref('')
 function baseFilter () { return { status: '', date_from: '', date_to: '', keyword: '' } }
 const f = ref(baseFilter())
 
+/* v496：快捷时间档（规范 §3.3，共享 composable）。quickRange 只用于芯片高亮，
+   真实值落在 f.date_from/date_to；手动改日期框走 onDateManual 清高亮。 */
+const { quickRange, setDateRange, clearDateRange, onDateManual, pickRange } = useQuickRange(f, load)
+
 const title = '调拨单'
 const subTitle = '双仓调拨台账（调出仓 → 调入仓）'
 const newTo = { path: DOC_PATHS.transferOrder }
@@ -305,7 +336,13 @@ async function load (resetPage = true) {
   }
 }
 
-function resetFilter () { f.value = baseFilter(); sortKey.value = ''; sortDir.value = ''; load() }
+function resetFilter () {
+  f.value = baseFilter()
+  sortKey.value = ''
+  sortDir.value = ''
+  quickRange.value = ''          // v496：重置一并清芯片高亮（规范 §3.3）
+  load()
+}
 
 /* ---- 分页（服务端分页） ---- */
 function goPage (p) {
@@ -410,8 +447,11 @@ onMounted(load)
 .isl-selinfo b { color: var(--p-ink); font-variant-numeric: tabular-nums }
 
 .isl-card { padding-bottom: 0 }
+/* v496：固定布局 + colgroup 定宽（规范 §2.1）。min-width = 序号46 + 八列定宽 + 操作120
+   之和（1220px）—— 窄屏由 .table-wrap 横向滚动，列不被内容撑宽。 */
+.isl-tbl { min-width: 1220px }
 .isl-row { cursor: default }
-.isl-no { font-variant-numeric: tabular-nums }
+.isl-no { font-variant-numeric: tabular-nums; font-weight: 500 }
 /* v478：可排序列表头 —— 手型 + 指示器（对齐销售列表 v473） */
 .isl-tbl thead th.isl-sh { cursor: pointer; user-select: none; white-space: nowrap }
 .isl-tbl thead th.isl-sh:hover { color: var(--p-dark) }
@@ -419,7 +459,7 @@ onMounted(load)
 .isl-tbl thead th.isl-sh:hover .isl-sort-ind { color: var(--p-ink) }
 .isl-sort-ind svg.ico { width: 12px; height: 12px }
 .isl-op { color: var(--p-dark); white-space: nowrap }
-.isl-op-hd { width: 1% }
+/* v496：删 `.isl-op-hd{width:1%}` —— 操作列宽进 colgroup（OP_W=120），宽度唯一权威。 */
 .isl-ops { display: inline-flex; align-items: center; gap: 6px }
 .isl-op-btn {
   border: 1px solid var(--bd); background: var(--bg); color: var(--p-dark);

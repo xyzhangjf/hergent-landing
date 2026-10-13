@@ -29,12 +29,15 @@
         </div>
         <div class="isl-f">
           <label class="isl-lb">下单起</label>
-          <input type="date" v-model="f.date_from" class="input isl-date" @change="load()" />
+          <input type="date" v-model="f.date_from" class="input isl-date" @change="onDateManual" />
         </div>
         <div class="isl-f">
           <label class="isl-lb">下单止</label>
-          <input type="date" v-model="f.date_to" class="input isl-date" @change="load()" />
+          <input type="date" v-model="f.date_to" class="input isl-date" @change="onDateManual" />
         </div>
+        <!-- v496：快捷时间档（规范 §3.3）—— 五枚 chip 与采购/调拨列表同源；
+             手动改上面两个日期框会经 onDateManual 清掉芯片高亮。 -->
+        <QuickRangeChips :range="quickRange" @pick="pickRange" />
         <div class="isl-fbtns">
           <button class="btn btn-primary btn-sm" :disabled="loading" @click="load()">
             <Icon name="search" :size="14" />查询
@@ -72,7 +75,8 @@
          点了会 404 的批量按钮才是缺陷。 -->
     <div class="isl-tb">
       <div class="isl-tb-l">
-        <span class="isl-selinfo">共 <b>{{ total }}</b> 张</span>
+        <!-- v496：删除此处的「共 N 张」—— 总数唯一出处 = 分页器左侧（规范 §1）。
+             同屏两处各显示一次总数，是「同屏两个说法」的起点。 -->
         <!-- v473：当前排序的**显式提示**。为什么必须有：排序键对应的列一旦被「列设置」
              隐藏，表头指示器就跟着消失 —— 顺序的来历就变成**看不见的状态**，用户会以为
              数据是乱的。这里常显「按 X 升/降序」，并给一键清除。 -->
@@ -115,17 +119,29 @@
 
     <div v-else class="card isl-card">
       <div class="table-wrap">
-        <table class="tbl isl-tbl" :class="{ 'print-one': !!printOnly }">
+        <!-- v496：挂 .psi-tbl（全局固定布局 + nowrap/ellipsis，规范 §2.1）+ colgroup
+             定宽（宽度唯一权威）+ 冻结序号/单号两列（--psi-frz-2 = 序号宽）。
+             与采购单列表同款：横向滚动由 .table-wrap 负责，列不被内容撑宽。 -->
+        <table class="tbl isl-tbl psi-tbl" :class="{ 'print-one': !!printOnly }"
+               :style="{ '--psi-frz-2': SEQ_W + 'px' }">
+          <colgroup>
+            <col :style="{ width: SEQ_W + 'px' }" />
+            <col v-for="c in visibleCols" :key="'cg-' + c.key" :style="{ width: c.w + 'px' }" />
+            <col :style="{ width: OP_W + 'px' }" />
+          </colgroup>
           <thead>
             <tr>
-              <!-- 齿轮长在**序号列表头**格子里（§2.6.1：不放工具栏、不放别的表头列） -->
-              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <!-- 齿轮长在**序号列表头**格子里（§2.6.1：不放工具栏、不放别的表头列）。
+                   v496：序号列同时是冻结位置 1（psi-frz-1，left:0）。 -->
+              <th class="seq-th col-gear-th psi-frz psi-frz-1"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
               <!-- v473：可排序列 = `SORTABLE`。点击三态循环（降 → 升 → 取消），由 `onSort()`
                    重新拉数据（**服务端排序**，不是前端对当前页重排 —— 本页是服务端分页，
                    对当前 50 行重排「看着排好了」，一翻页就散架）。
-                   指示器：未排 `sort`（中性 ⇅）→ 升 `arrow-up` → 降 `arrow-down`。 -->
+                   指示器：未排 `sort`（中性 ⇅）→ 升 `arrow-up` → 降 `arrow-down`。
+                   v496：单号列同时是冻结位置 2（psi-frz-2，紧贴序号列右侧）。 -->
               <th v-for="c in visibleCols" :key="c.key"
-                  :class="[{ num: c.num, 'isl-sh': canSort(c) }]"
+                  :class="[{ num: c.num, 'isl-sh': canSort(c),
+                             'psi-frz': c.key === 'order_no', 'psi-frz-2': c.key === 'order_no' }]"
                   :aria-sort="ariaSortOf(c)"
                   :title="canSort(c) ? '点击排序：降序 → 升序 → 取消' : null"
                   @click="onSort(c)">
@@ -138,11 +154,16 @@
             <tr v-for="(r, i) in rows" :key="r.id"
                 :class="{ 'print-target': printOnly === r.id }"
                 class="isl-row" @click="go('/inventory/sale/' + r.id)">
-              <!-- 序号 = 服务端分页 ⇒ 必须 `offset + i + 1`（写 i+1 第 2 页会从 1 重来） -->
-              <td class="seq-cell"><span class="seq-num">{{ offset + i + 1 }}</span></td>
-              <td v-for="c in visibleCols" :key="c.key" :class="{ num: c.num }">
+              <!-- 序号 = 服务端分页 ⇒ 必须 `offset + i + 1`（写 i+1 第 2 页会从 1 重来）。
+                   v496：冻结位置 1。 -->
+              <td class="seq-cell psi-frz psi-frz-1"><span class="seq-num">{{ offset + i + 1 }}</span></td>
+              <td v-for="c in visibleCols" :key="c.key"
+                  :class="{ num: c.num, 'psi-frz': c.key === 'order_no', 'psi-frz-2': c.key === 'order_no' }">
                 <template v-if="c.key === 'order_no'">
-                  <span class="isl-no">{{ r.order_no || ('#' + r.id) }}</span>
+                  <!-- v496：单号改**链接**（与采购单列表同款；行点击仍进同一详情页，
+                       link 上 .stop 防止父子两个 handler 各推一次路由）。 -->
+                  <a class="isl-link isl-no" :href="'#/inventory/sale/' + r.id"
+                     @click.stop.prevent="go('/inventory/sale/' + r.id)">{{ r.order_no || ('#' + r.id) }}</a>
                 </template>
                 <template v-else-if="c.key === 'customer'">{{ r.customer_name || '—' }}</template>
                 <template v-else-if="c.key === 'total_amount'">¥{{ fmtMoney(r.total_amount) }}</template>
@@ -164,7 +185,7 @@
       <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
 
       <div class="isl-pager">
-        <span class="isl-pg-cnt">共 {{ total }} 张，第 {{ pageFrom }}–{{ pageTo }} 张</span>
+        <span class="isl-pg-cnt">共 {{ total }} 条记录，第 {{ pageFrom }}–{{ pageTo }} 条</span>
         <div class="isl-pg-nums">
           <button class="isl-pg" :disabled="page <= 1" @click="goPage(page - 1)">‹</button>
           <button v-for="p in pageNums" :key="p" class="isl-pg" :class="{ on: p === page }"
@@ -215,6 +236,10 @@ import { SO_STATUS, ORDER_TYPE, ORDER_TYPE_OPTIONS, textOf, tagOf, fmtMoney } fr
    路径（未知组合 / 调拨退单落自提订单，并 `console.warn`）。列表页「＋」直接用它，
    不必再绕一圈旧路径 `/inventory/sale/new`（那条现在只是给旧书签用的重定向）。 */
 import { legacySalePath } from './new/docTypes.js'
+/* v496：快捷时间档改共享件（进销存列表页统一设计规范 §3.3）—— 与采购/调拨列表
+   同一套芯片 + 同一套日期算法，三页不再各写一份。 */
+import { useQuickRange } from '../../composables/useQuickRange.js'
+import QuickRangeChips from '../../components/QuickRangeChips.vue'
 
 /* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。
    v473：核心列（单号 / 客户 / 金额 / 状态）**进了本清单** —— 表头从写死的 `<th>` 改成
@@ -223,20 +248,27 @@ import { legacySalePath } from './new/docTypes.js'
       已存的列配置（`{otype, odate, ddate}`）**逐字不受影响**，用户调过的显隐不丢。
    ⚠️ 可选列的 key 保持 `otype` / `odate` / `ddate` 不改名：它们 v449 就落云端了，改名等于
       把用户调好的配置静默丢一次（云端那份认不出新键 ⇒ 全按默认开）。后端排序键不同名，
-      由下面 `SORT_KEY` 显式映射。 */
+      由下面 `SORT_KEY` 显式映射。
+   v496：每列补 `w`（列宽）—— 表格改 `table-layout:fixed` 后，宽度权威在 `<colgroup>`
+      （规范 §2.1）；与基准页 `PO_COLS` 同构，导出/列菜单/冻结判断全部复用同一份定义。 */
 const COLS = [
-  { key: 'order_no',     label: '单号',     core: true },
-  { key: 'customer',     label: '客户',     core: true },
-  { key: 'total_amount', label: '金额',     core: true,  num: true },
-  { key: 'status',       label: '状态',     core: true },
-  { key: 'otype',        label: '出货方式', core: false },
-  { key: 'odate',        label: '下单日期', core: false },
-  { key: 'ddate',        label: '交货日期', core: false },
+  { key: 'order_no',     label: '单号',     core: true, w: 150 },
+  { key: 'customer',     label: '客户',     core: true, w: 160 },
+  { key: 'total_amount', label: '金额',     core: true,  num: true, w: 110 },
+  { key: 'status',       label: '状态',     core: true, w: 84 },
+  { key: 'otype',        label: '出货方式', core: false, w: 96 },
+  { key: 'odate',        label: '下单日期', core: false, w: 110 },
+  { key: 'ddate',        label: '交货日期', core: false, w: 110 },
 ]
 const { isVisible, toggleCol, resetCols } = useColSettings('INV-SALE-LIST', COLS)
 const visibleCols = computed(() => COLS.filter(c => isVisible(c.key)))
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
+/* v496：序号列宽与全局序号列逐字一致（variables.css `table.tbl th.seq-th{width:46px}`）；
+   冻结偏移 `--psi-frz-2` 也用它 —— 改序号宽必须同时改这两处（同一常量，不会漂）。
+   操作列 76px = 一枚「打印」按钮 + 单元格 padding 的实测需要宽度。 */
+const SEQ_W = 46
+const OP_W = 76
 
 /* ── v473：服务端排序 ──────────────────────────────────────────────────────
    🔴 为什么排序键要**映射**而不是直接用列 key：列 key（`otype`/`odate`/`ddate`）是
@@ -333,6 +365,10 @@ function baseFilter () {
 }
 const f = ref(baseFilter())
 
+/* v496：快捷时间档（规范 §3.3，共享 composable）。quickRange 只用于芯片高亮，
+   真实值落在 f.date_from/date_to；手动改日期框走 onDateManual 清高亮。 */
+const { quickRange, setDateRange, clearDateRange, onDateManual, pickRange } = useQuickRange(f, load)
+
 /* 页头随入口变（自提订单 / 车销退单 / 调拨单 …）—— 让人一眼确认筛选真的生效了，
    而不是点五个入口都看到同一张「销售单」。 */
 const title = computed(() => {
@@ -393,16 +429,19 @@ function resetFilter () {
   f.value = { status: '', order_type: '', customer_id: 0, date_from: '', date_to: '' }
   sortKey.value = ''
   sortDir.value = ''
+  quickRange.value = ''          // v496：重置一并清芯片高亮（否则"日期已清空、芯片还亮着"）
   load()
 }
 
 /* 入口切换（自提订单 ⇄ 自提退单 ⇄ 车销退单 …）⇒ 筛选归零 + 重拉。**排序也一并归零**：
    同一个排序键在两个视图里可能语义不同，带着它过去会让新视图一进来就是"莫名其妙的顺序"。
+   v496：快捷档高亮同样归零（baseFilter 清掉了日期，芯片不能还亮着）。
    ⚠️ 必须 `watch` 而不是 setup 里读一次：五个入口是**同 path 不同 query**，组件会被复用。 */
 watch([_qType, _qKind], () => {
   f.value = baseFilter()
   sortKey.value = ''
   sortDir.value = ''
+  quickRange.value = ''
   load()
 })
 
@@ -518,7 +557,7 @@ onMounted(load)
 }
 .isl-caret.up { transform: rotate(180deg) }
 
-/* 工具栏：左「共 N 张 + 排序说明」，右「导出 / 打印」 */
+/* 工具栏：左「排序说明」（总数唯一出处 = 分页器左侧，v496 与基准页对齐），右「导出 / 打印」 */
 .isl-tb {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; flex-wrap: wrap; margin: 0 0 12px;
@@ -533,10 +572,16 @@ onMounted(load)
 }
 
 .isl-card { padding-bottom: 0 }
+/* v496：固定布局 + colgroup 定宽（规范 §2.1）。min-width = 序号46 + 七列定宽 + 操作76
+   之和（942px，取整 950）—— 窄屏由 .table-wrap 横向滚动，列不被内容撑宽。 */
+.isl-tbl { min-width: 950px }
 .isl-row { cursor: pointer }
-.isl-no { font-variant-numeric: tabular-nums }
+/* v496：单号是链接（进详情页）。isl-no 保留等宽数字，补 500 字重对齐基准页
+   `.ipl-link.strong` 的观感。 */
+.isl-no { font-variant-numeric: tabular-nums; font-weight: 500 }
 .isl-op { color: var(--p-dark); white-space: nowrap }
-.isl-op-hd { width: 1% }
+/* v496：删 `.isl-op-hd{width:1%}` —— 操作列宽进 colgroup（OP_W=76），
+   宽度唯一权威，不在这里留第二份（基准页 v408 同款纪律）。 */
 /* 行内操作按钮（v473：单张打印）。⚠️ 销售单**没有**审核 / 取消 / 复制这类行内动作
    —— 后端没有对应接口，摆出来就是点了会报错的假按钮。 */
 .isl-ops { display: inline-flex; align-items: center; gap: 6px }

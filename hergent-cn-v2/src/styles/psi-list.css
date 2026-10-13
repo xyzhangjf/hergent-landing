@@ -1,0 +1,57 @@
+/* ============================================================
+   进销存列表页统一规范（v496）—— 采购 / 销售 / 调拨三张列表页共用
+   ------------------------------------------------------------
+   由来：六个列表入口此前两套私有前缀（ipl-* / isl-*）各写一份表格样式，
+   基准页（采购单列表）的冻结列硬偏移 0/36/82/212 只存在于它自己的 scoped 块里，
+   销售/调拨页照不过去。本文件把三页同源的部分上提全局：
+     · .psi-tbl      固定布局 + 单元格 nowrap/ellipsis（宽度权威在 <colgroup>）
+     · .psi-frz-N    左侧冻结列，left 偏移由页面在表元素上用 --psi-frz-N 给出
+     · .psi-quick*   快捷时间档外壳（chips 本体是全局 .chip）
+     · .psi-on       行选中态（采购页批量操作）
+   🔴 改本文件 = 同时改三页：InvPurchaseList / InvSaleList / InvTransferList。
+      加参数、改默认值前必须核对三处调用方（规范文档 §11 共享件清单）。
+   规范全文：docs/进销存列表页统一设计规范-v496.md
+   ============================================================ */
+
+/* ---- 表格：固定布局 ----
+   table-layout:fixed ⇒ 声明宽度即硬值，内容超宽只能裁 —— 不让任何一格把列撑宽、
+   顶开冻结列的 sticky 偏移。宽度唯一权威是页面模板里的 <colgroup>；
+   ⛔ 不准在页面 scoped CSS 里再给列写 width（第二个真相来源，v408 教训）。 */
+.psi-tbl { table-layout: fixed }
+.psi-tbl th, .psi-tbl td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+
+/* ---- 行选中态（采购页批量操作勾选） ---- */
+.psi-tbl tbody tr.psi-on { background: var(--p-bg) }
+
+/* ---- 左侧冻结列 ----
+   位置 1~4 的 left 偏移 = 左侧各列宽之和，每页列宽不同 ⇒ 由页面在 <table> 元素上
+   给 CSS 变量（--psi-frz-1..4），这里只定义"怎么吸"：
+     基准页（采购）：--psi-frz-2:36px（复选框宽） / -3:82px（+序号46）/ -4:212px（+单据编号130）
+     销售/调拨页：   --psi-frz-2:46px（序号宽）
+   z-index：表头 9 > tfoot 7 > 表体 6 —— 表头必须最高，否则横向滚过来的普通表头
+   会盖住冻结表头。 */
+.psi-frz { position: sticky; z-index: 6 }
+.psi-frz-1 { left: var(--psi-frz-1, 0px) }
+.psi-frz-2 { left: var(--psi-frz-2, 36px) }
+.psi-frz-3 { left: var(--psi-frz-3, 82px) }
+.psi-frz-4 { left: var(--psi-frz-4, 212px) }
+.psi-tbl thead th.psi-frz { z-index: 9 }
+.psi-tbl tfoot td.psi-frz { z-index: 7 }
+/* 表体冻结格必须有自己的底色：td 本身透明 ⇒ 横滚过来的内容会从底下透出来。
+   三种态各自覆盖（hover 与全局 table.tbl tr:hover 的 --bg2 对齐；
+   选中行规则排在 hover 之后 ⇒ 勾选行再悬停也保持 --p-bg）。 */
+.psi-tbl tbody td.psi-frz { background: var(--bg) }
+.psi-tbl tbody tr:hover td.psi-frz { background: var(--bg2) }
+.psi-tbl tbody tr.psi-on td.psi-frz { background: var(--p-bg) }
+
+/* ---- 快捷时间档（规范 §3.3；五枚 chip 的 label + 排列外壳） ---- */
+.psi-quick { display: flex; flex-direction: column; gap: 4px }
+.psi-quick-lb { font-size: 12px; color: var(--t3) }
+.psi-quick-row { display: flex; gap: 6px; flex-wrap: wrap }
+
+/* ---- 打印：冻结是屏幕上的滚动手感，纸上 sticky 只会把几列叠在一起 ----
+   （各页 @media print 里另有 .xx-tbl 回 auto 布局的规则，与本条不冲突：
+   同值不同选择器。） */
+@media print {
+  .psi-tbl .psi-frz { position: static !important }
+}
