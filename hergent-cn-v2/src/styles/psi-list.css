@@ -7,6 +7,7 @@
      · .psi-tbl      固定布局 + 单元格 nowrap/ellipsis（宽度权威在 <colgroup>）
      · .psi-frz-N    左侧冻结列，left 偏移由页面在表元素上用 --psi-frz-N 给出
      · .psi-quick*   快捷时间档外壳（chips 本体是全局 .chip）
+     · .psi-tabs     状态页签条 + 计数徽章 .psi-tabn（v498，自采购页上提）
      · .psi-on       行选中态（采购页批量操作）
    🔴 改本文件 = 同时改三页：InvPurchaseList / InvSaleList / InvTransferList。
       加参数、改默认值前必须核对三处调用方（规范文档 §11 共享件清单）。
@@ -49,9 +50,28 @@
 .psi-quick-lb { font-size: 12px; color: var(--t3) }
 .psi-quick-row { display: flex; gap: 6px; flex-wrap: wrap }
 
+/* ---- 状态页签（规范 §2.6.2；共享件 components/StatusTabs.vue） ----
+   由来：v498 把采购页私有的 `.ipl-tabs` / `.ipl-tabn` 上提为三页共用 —— 销售 / 调拨
+   两页原先只有状态**下拉框**，本轮换成同一条页签条（含计数徽章）。
+   条本体复用全局 .main-tabs / .main-tab（variables.css），这里只补两件事：
+     ① 换行（状态档位多：采购 8 档、销售 7 档，窄屏一条放不下）；
+     ② 计数小胶囊（含选中态反色）。
+   ⛔ 各页 scoped CSS 里**不再**留页签样式（第二个真相来源）。 */
+.psi-tabs { flex-wrap: wrap }
+.psi-tabn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 17px; padding: 0 5px; margin-left: 6px;
+  border-radius: 9px; background: var(--bg4); color: var(--t2);
+  font-size: 11px; font-weight: 600; line-height: 1;
+}
+.main-tab.on .psi-tabn { background: var(--p-bg); color: var(--p-ink) }
+
 /* ---- 打印：冻结是屏幕上的滚动手感，纸上 sticky 只会把几列叠在一起 ----
    （各页 @media print 里另有 .xx-tbl 回 auto 布局的规则，与本条不冲突：
    同值不同选择器。） */
 @media print {
   .psi-tbl .psi-frz { position: static !important }
+  /* 页签是**筛选控件**，纸上没有意义 —— 隐藏规则放这里（唯一出处），
+     三页 scoped 的 @media print 里不必再列一遍（列了就是第二份）。 */
+  .psi-tabs { display: none !important }
 }

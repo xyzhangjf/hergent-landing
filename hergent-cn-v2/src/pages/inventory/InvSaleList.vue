@@ -20,13 +20,10 @@
          小屏会折成三行、把列表推到屏幕外。高频的只有「状态 + 下单日期」。 -->
     <div class="card isl-filter">
       <div class="isl-frow">
-        <div class="isl-f">
-          <label class="isl-lb">状态</label>
-          <select v-model="f.status" class="input isl-sel" @change="load()">
-            <option value="">全部状态</option>
-            <option v-for="o in SO_OPTIONS" :key="o.value" :value="o.value">{{ o.text }}</option>
-          </select>
-        </div>
+        <!-- v498：「状态**下拉**」删除 —— 改由筛选区下方的**状态页签**承载（共享件
+             StatusTabs，与采购 / 调拨两页同款）。同一个"按状态分类"的诉求，下拉与页签
+             两套形态并存，在用户视角就是缺陷；页签还多了各档计数。
+             ⚠️ 下拉删除后 `SO_OPTIONS` 一并移除（不再有任何引用）。 -->
         <div class="isl-f">
           <label class="isl-lb">下单起</label>
           <input type="date" v-model="f.date_from" class="input isl-date" @change="onDateManual" />
@@ -69,6 +66,11 @@
              —— 正是本仓反复付学费的那类。要加必须先解掉「销售员能不能看同事的单」这个业务问题。 -->
       </div>
     </div>
+
+    <!-- v498：状态页签（共享件 StatusTabs，与采购 / 调拨两页同一条）。
+         计数来自服务端 `counts`（后端 `sale_order_list` v498 起返回）：忽略 status 筛选、
+         保留其余筛选（含订单入口的 `exclude_status='returned'`）⇒ 切页签数字不漂移。 -->
+    <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab" />
 
     <!-- 工具栏。⚠️ 本页**没有**「全选 / 批量操作」——不是遗漏：销售单没有审核流，
          后端也没有任何销售单批量接口（`psiApi.batchPurchases` 只对采购单）。造一排
@@ -240,6 +242,8 @@ import { legacySalePath } from './new/docTypes.js'
    同一套芯片 + 同一套日期算法，三页不再各写一份。 */
 import { useQuickRange } from '../../composables/useQuickRange.js'
 import QuickRangeChips from '../../components/QuickRangeChips.vue'
+/* v498：状态页签共享件（与采购 / 调拨两页同一条；样式在 psi-list.css 的 .psi-tabs）。 */
+import StatusTabs from '../../components/StatusTabs.vue'
 
 /* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。
    v473：核心列（单号 / 客户 / 金额 / 状态）**进了本清单** —— 表头从写死的 `<th>` 改成
@@ -344,6 +348,7 @@ const loading = ref(true)
 const err = ref('')
 const rows = ref([])
 const total = ref(0)
+const counts = ref({})         // v498：状态页签计数（服务端 counts，见 tabs）
 const customers = ref([])
 const more = ref(false)
 const printing = ref(false)
@@ -393,8 +398,30 @@ const page = computed(() => Math.floor(offset.value / limit.value) + 1)
 const pageFrom = computed(() => (total.value ? offset.value + 1 : 0))
 const pageTo = computed(() => Math.min(offset.value + limit.value, total.value))
 
-const SO_OPTIONS = ['draft', 'confirmed', 'delivered', 'signed', 'rejected', 'returned', 'cancelled']
-  .map(v => ({ value: v, text: textOf(SO_STATUS, v) }))
+/* v498：状态页签档位（替换原「状态下拉」的 `SO_OPTIONS`）。
+   ⚠️ 每个页签都是**一个真实状态值**（1:1），不发明后端不支持 / 前端拼出来的复合状态；
+      零值也照显（`已取消(0)`）——「这一档现在是空的」本身是信息。
+   🔴 两处视图差异（与采购页同构）：
+      · **退单**入口（`kind=return`）= 只有 `returned` 一种状态 ⇒ `tabs = []`（不渲染条）；
+      · **订单**入口（`kind=order`）= 服务端 `exclude_status='returned'` ⇒ 不设「已退货」档
+        （摆一档永远 0 的页签是噪音；无 kind 的通用入口才显示它）。 */
+const TAB_DEFS = [
+  { value: '', text: '全部' },
+  { value: 'draft', text: textOf(SO_STATUS, 'draft') },
+  { value: 'confirmed', text: textOf(SO_STATUS, 'confirmed') },
+  { value: 'delivered', text: textOf(SO_STATUS, 'delivered') },
+  { value: 'signed', text: textOf(SO_STATUS, 'signed') },
+  { value: 'rejected', text: textOf(SO_STATUS, 'rejected') },
+  { value: 'returned', text: textOf(SO_STATUS, 'returned') },
+  { value: 'cancelled', text: textOf(SO_STATUS, 'cancelled') },
+]
+const tabs = computed(() => {
+  if (_qKind.value === 'return') return []      // 退单入口只有一种状态，页签条没有意义
+  return TAB_DEFS
+    .filter(t => !(_kindOrder.value && t.value === 'returned'))
+    .map(t => ({ ...t, count: t.value ? (counts.value[t.value] || 0) : (counts.value.all || 0) }))
+})
+function pickTab (v) { f.value.status = v; load() }
 
 /* 未知出货方式也必须是中文（不许回落英文值） */
 function orderTypeText (v) { return textOf(ORDER_TYPE, v, '未标注') }
@@ -417,6 +444,9 @@ async function load (resetPage = true) {
     ])
     rows.value = d.orders || []
     total.value = Number(d.total || 0)
+    /* v498：状态页签计数（后端 v498 起返回；忽略 status、保留其余筛选 ⇒ 各档数字不漂移）。
+       拿不到就给 `{}` ⇒ 页签全部显示 0（**可降级**：不隐藏页签、不报错）。 */
+    counts.value = d.counts || {}
     if (refs && Array.isArray(refs.customers)) customers.value = refs.customers
   } catch (e) {
     err.value = e.message || '销售单读取失败'
@@ -425,8 +455,16 @@ async function load (resetPage = true) {
   }
 }
 
+/* v498：重置**必须回到 `baseFilter()`**（即"入口初值"）而不是一张写死的空表 ——
+   原先这里写 `{status:'', order_type:'', …}`，会**连带把入口自带的筛选也清掉**：
+     ① 退单入口（`kind=return`）的 `status='returned'` 被清空 ⇒ 点完「重置」，标题仍是
+        「车销退单」，列表却变成**全部状态**（而 v498 起状态由页签承载、退单视图没有页签
+        ⇒ 这个错既看不见、也没控件能改回来）；
+     ② 车销入口的 `order_type` 被清空 ⇒ 标题从「车销订单」变成「销售单」，等于偷偷换了入口。
+   用 `baseFilter()` 与「切换入口」的 watch **逐字同源**（同一件事只有一个说法）：
+   重置只清用户自己加的条件（客户 / 日期 / 状态档），不动"我现在在哪个入口"。 */
 function resetFilter () {
-  f.value = { status: '', order_type: '', customer_id: 0, date_from: '', date_to: '' }
+  f.value = baseFilter()
   sortKey.value = ''
   sortDir.value = ''
   quickRange.value = ''          // v496：重置一并清芯片高亮（否则"日期已清空、芯片还亮着"）

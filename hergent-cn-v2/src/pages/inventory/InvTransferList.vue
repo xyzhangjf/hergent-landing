@@ -19,13 +19,8 @@
          ⚠️ 不放「前端 filter」：本页服务端分页，前端过滤只作用于当前页行数 ⇒ 假结果。 -->
     <div class="card isl-filter">
       <div class="isl-frow">
-        <div class="isl-f">
-          <label class="isl-lb">状态</label>
-          <select v-model="f.status" class="input isl-sel" @change="load()">
-            <option value="">全部状态</option>
-            <option v-for="o in TO_OPTIONS" :key="o.value" :value="o.value">{{ o.text }}</option>
-          </select>
-        </div>
+        <!-- v498：「状态**下拉**」删除 —— 改由筛选区下方的**状态页签**承载（共享件
+             StatusTabs，与采购 / 销售两页同款）。`TO_OPTIONS` 一并移除（无引用）。 -->
         <div class="isl-f">
           <label class="isl-lb">创建起</label>
           <input type="date" v-model="f.date_from" class="input isl-date" @change="onDateManual" />
@@ -49,6 +44,11 @@
         </div>
       </div>
     </div>
+
+    <!-- v498：状态页签（共享件 StatusTabs）。调拨只有 3 个状态值
+         （draft / completed / cancelled；无退货 —— 老板 2026-10-11 口径），故只有三档。
+         计数来自服务端 `counts`（`erp_db.transfer_order_counts`，v498 新增）。 -->
+    <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab" />
 
     <div class="isl-tb">
       <div class="isl-tb-l">
@@ -205,6 +205,8 @@ import { DOC_PATHS } from './new/docTypes.js'
    同一套芯片 + 同一套日期算法。 */
 import { useQuickRange } from '../../composables/useQuickRange.js'
 import QuickRangeChips from '../../components/QuickRangeChips.vue'
+/* v498：状态页签共享件（与采购 / 销售两页同一条；样式在 psi-list.css 的 .psi-tabs）。 */
+import StatusTabs from '../../components/StatusTabs.vue'
 
 /* 列设置（齿轮）。核心列（单号 / 状态）进本清单 `core:true` ⇒ 不进云端显隐配置、恒显；
    可选列 key 一旦定下就进云端，改名会丢用户已存配置（故保持稳定）。
@@ -283,6 +285,7 @@ const loading = ref(true)
 const err = ref('')
 const rows = ref([])
 const total = ref(0)
+const counts = ref({})         // v498：状态页签计数（服务端 counts，见 tabs）
 const printing = ref(false)
 const printOnly = ref(0)
 const busyPost = ref(false)
@@ -310,7 +313,18 @@ const page = computed(() => Math.floor(offset.value / limit.value) + 1)
 const pageFrom = computed(() => (total.value ? offset.value + 1 : 0))
 const pageTo = computed(() => Math.min(offset.value + limit.value, total.value))
 
-const TO_OPTIONS = ['draft', 'completed', 'cancelled'].map(v => ({ value: v, text: textOf(TRANSFER_STATUS, v) }))
+/* v498：状态页签档位（替换原「状态下拉」的 `TO_OPTIONS`）。
+   ⚠️ 三个档位 = `TRANSFER_STATUS` 的**全部**取值（调拨无退货，老板 2026-10-11 口径）
+      ⇒ 不发明第四档；零值照显（「这一档是空的」本身是信息）。 */
+const TAB_DEFS = [
+  { value: '', text: '全部' },
+  { value: 'draft', text: textOf(TRANSFER_STATUS, 'draft') },
+  { value: 'completed', text: textOf(TRANSFER_STATUS, 'completed') },
+  { value: 'cancelled', text: textOf(TRANSFER_STATUS, 'cancelled') },
+]
+const tabs = computed(() => TAB_DEFS.map(
+  t => ({ ...t, count: t.value ? (counts.value[t.value] || 0) : (counts.value.all || 0) })))
+function pickTab (v) { f.value.status = v; load() }
 
 async function load (resetPage = true) {
   if (resetPage) offset.value = 0
@@ -329,6 +343,9 @@ async function load (resetPage = true) {
     /* 🔴 优先用后端 `total`（v449+ 已补的真总数）；旧 `count` 只是本页行数（≤limit），
        用它当总数会让分页器永远只有 1 页。两者都兼容。 */
     total.value = Number(d.total != null ? d.total : d.count || 0)
+    /* v498：状态页签计数（后端 v498 起随响应返回；忽略 status、保留日期/关键字筛选
+       ⇒ 切页签各档数字不漂移）。拿不到给 `{}` ⇒ 页签显示 0（可降级，不报错）。 */
+    counts.value = d.counts || {}
   } catch (e) {
     err.value = e.message || '调拨单读取失败'
   } finally {

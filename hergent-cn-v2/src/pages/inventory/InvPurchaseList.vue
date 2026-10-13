@@ -162,13 +162,9 @@
       </div>
     </div>
 
-    <!-- 状态页签（计数来自服务端 counts：忽略状态筛选、保留其它筛选 ⇒ 切页签数字不漂移） -->
-    <div v-if="tabs.length > 1" class="main-tabs ipl-tabs">
-      <button v-for="t in tabs" :key="t.value || 'all'" class="main-tab"
-              :class="{ on: f.status === t.value }" @click="pickTab(t.value)">
-        {{ t.text }}<span class="ipl-tabn">{{ t.count }}</span>
-      </button>
-    </div>
+    <!-- 状态页签（v498 起用**共享件** StatusTabs —— 销售 / 调拨两页同一个组件、同一套样式；
+         计数来自服务端 counts：忽略状态筛选、保留其它筛选 ⇒ 切页签数字不漂移） -->
+    <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab" />
 
     <!-- 工具栏 -->
     <div class="ipl-tb">
@@ -527,6 +523,9 @@ import { usePurchaseCustomFields, extraVal } from '../../composables/purchaseCus
    v479 引入本页、v482 把私有 .ipl-qbtn 换成全局 .chip，本轮连日期算法一并收编。 */
 import { useQuickRange } from '../../composables/useQuickRange.js'
 import QuickRangeChips from '../../components/QuickRangeChips.vue'
+/* v498：状态页签改共享件（`StatusTabs.vue`）—— 销售 / 调拨两页 v498 起换成同一条页签条，
+   三页共用同一份结构与样式（`.psi-tabs` / `.psi-tabn` 在 psi-list.css）。 */
+import StatusTabs from '../../components/StatusTabs.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -1530,16 +1529,6 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 .ipl-caret.up { transform: rotate(180deg) }
 
-/* 状态页签：复用全局 .main-tabs / .main-tab，这里只加计数小胶囊 */
-.ipl-tabs { flex-wrap: wrap }
-.ipl-tabn {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 20px; height: 17px; padding: 0 5px; margin-left: 6px;
-  border-radius: 9px; background: var(--bg4); color: var(--t2);
-  font-size: 11px; font-weight: 600; line-height: 1;
-}
-.main-tab.on .ipl-tabn { background: var(--p-bg); color: var(--p-ink) }
-
 /* 工具栏 */
 .ipl-tb {
   display: flex; align-items: center; justify-content: space-between;
@@ -1711,7 +1700,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* 打印：只留数据表；单张打印时只留那一行。合计行在打印稿里略去（复选框/操作列被隐藏，
    tfoot 的 colspan 会错位 ⇒ 与其印一行错位的数字，不如不印）。 */
 @media print {
-  .page-hd, .ipl-filter, .ipl-tabs, .ipl-tb, .ipl-result, .ipl-pager, .ipl-mask,
+  /* v498：`.ipl-tabs` 已从本页删掉 —— 页签改共享件后类名是 `.psi-tabs`，
+     其打印隐藏规则已上提 `psi-list.css`（三页唯一出处），这里不再重复列一遍。 */
+  .page-hd, .ipl-filter, .ipl-tb, .ipl-result, .ipl-pager, .ipl-mask,
   .col-menu, .col-menu-overlay { display: none !important }
   .ipl-card { border: none; box-shadow: none }
   .ipl-card .table-wrap { overflow: visible; border: none; border-radius: 0 }
