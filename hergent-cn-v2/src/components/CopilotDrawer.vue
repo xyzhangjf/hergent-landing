@@ -83,6 +83,11 @@
         <div class="cp-chat" :class="{'art-hidden': artFullscreen}">
         <!-- 对话流 -->
         <div class="cp-body" ref="cpBody">
+          <!-- v488：进入副驾自动恢复最近会话期间的加载态，覆盖在对话流上，避免先闪现空白新对话 -->
+          <div v-if="restoringSession" class="cp-restoring">
+            <span class="cp-restoring-spin"></span>
+            <span>正在恢复上次对话…</span>
+          </div>
           <div v-if="!store.chat.messages.length" class="cp-welcome">
             <div class="cp-w-ic">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--p-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
@@ -1104,6 +1109,18 @@ function toolsElapsed(m) {
 const attachments = ref([])
 const uploading = ref(false)
 const showHistory = ref(false)
+// v488：进入副驾自动恢复最近会话的加载态。由 restoreLatestSession() 显式抬起/落下 ——
+// 恢复完成（或回退新建）后置 false，覆盖在对话流上，避免「空白新对话」先闪一下再切到历史会话。
+// 初值 false：恢复只在 copilotOpen 打开分支按需触发（pre-flush 先于渲染跑，能赶在首帧前抬起遮罩）。
+//
+// 🔴 为什么不在 onMounted 里恢复：`<CopilotDrawer/>` 在 Shell.vue 里是**无条件挂载**的，
+//    onMounted 在**开机**就跑（那时抽屉还没打开、遮罩所在的 .cp-body 根本没渲染）⇒
+//    等用户点开时恢复早已完成，遮罩永远不可见，等于没有加载态。所以改为**点开抽屉时**按需恢复。
+const restoringSession = ref(false)
+// v488：「用户主动要一段空白新对话」的意图标记（点「＋ 新对话」/切换标记的「新开对话」会置 true，
+//       打开任一历史会话会置 false）。抽屉重开时凭它决定「要不要自动恢复最近会话」——
+//       否则用户刚点了「新对话」、一关一开又被拽回历史会话，等于新对话入口不可靠。
+const explicitNew = ref(false)
 const isFullscreen = ref(false)
 function toggleFullscreen() {
   isFullscreen.value = !isFullscreen.value
@@ -1278,12 +1295,14 @@ function toggleHistory() {
 }
 
 function newSession() {
+  explicitNew.value = true         // v488：用户主动要空白新对话 ⇒ 抽屉重开时不再自动恢复
   newChatSession()
   showHistory.value = false
   nextTick(() => { if (cpInput.value) cpInput.value.focus() })
 }
 
 function openSession(id) {
+  explicitNew.value = false        // v488：打开了具体会话 ⇒ 撤销「要新对话」的意图
   openChatSession(id)
   showHistory.value = false
   nextTick(() => { if (cpInput.value) cpInput.value.focus() })
@@ -1291,6 +1310,51 @@ function openSession(id) {
 
 function delSession(id) {
   deleteChatSession(id)
+}
+
+/* v488：进入副驾时自动恢复「当前角色」最近一次会话，取代默认空白新对话。
+   ① 按角色维度（latestSessionOfRole 已按 updated_at 取最新）；
+   ② 先等本地缓存 + 服务端对齐完再取最新（服务端可能比本地新/多），期间 restoringSession 遮罩覆盖，不闪空白；
+   ③ 有最近会话 → openChatSession 恢复完整历史并滚到上次浏览位置（底部最新一条）；
+      无会话 / 最近会话失效 → newChatSession 回退新建；
+   ④ 「＋ 新对话」入口保留（newSession 仍可用），用户仍可主动开新会话；
+   ⑤ 切换/新建后 openChatSession 会 bump updated_at，下次进入自动续上刚看的那条（见 store）。 */
+async function restoreLatestSession() {
+  restoringSession.value = true                       // 覆盖层抬起（覆盖在对话流上）
+  // 兜底：任何异常都不让遮罩卡死
+  const safety = setTimeout(() => { restoringSession.value = false }, 6000)
+  try {
+    loadSessions()                                   // 本地优先秒开 + 触发服务端对齐
+    try { await store.loadSessionsFromServer() } catch (_) {}   // 等服务端对齐完再取最新
+    try { await store.loadAiRoles() } catch (_) {}   // 🔴 必须先等角色就绪，再取 rid
+    // 🔴 rid 必须在 loadAiRoles() **之后**取：否则抽屉早于角色加载挂载时，
+    //    currentRole 还是 null ⇒ rid='' ⇒ latestSessionOfRole('') 恒返回 null ⇒
+    //    误判「无历史会话」而回退空白新对话（本轮探针当场抓到，不是推测）。
+    const rid = (currentRole.value && currentRole.value.role_id) || ''
+    const target = store.latestSessionOfRole(rid)
+    if (target && target.id) {
+      explicitNew.value = false
+      openChatSession(target.id)                     // 恢复历史；本地无全文（跨设备）则内部异步补拉
+      if (target.messages && target.messages.length) {
+        await nextTick(); scrollBottom()
+        restoringSession.value = false
+      } else {
+        // 跨设备无本地全文：等异步拉到首条再关遮罩，期间遮罩盖住不闪空白
+        const stop = watch(() => store.chat.messages.length, (n) => {
+          if (n > 0) { stop(); nextTick(() => scrollBottom()); restoringSession.value = false }
+        })
+        setTimeout(() => { stop(); restoringSession.value = false }, 5000)
+      }
+    } else {
+      newChatSession()                               // 无历史会话 / 最近会话失效 ⇒ 回退新建
+      restoringSession.value = false
+    }
+  } catch (_) {
+    try { newChatSession() } catch (_) {}
+    restoringSession.value = false
+  } finally {
+    clearTimeout(safety)
+  }
 }
 
 /* ---- P2-⑤ 跨会话检索：搜索历史对话，命中会话 + 片段预览 ---- */
@@ -1479,6 +1543,7 @@ function pickRole(r) {
 //      所以给按钮、不强制 —— 但把「新开对话」摆在切换那一行，是因为角色换了以后
 //      旧角色的口径会污染新角色（同一段历史里两个角色的话混在一起，模型会串）。
 function startNewFromSwitch() {
+  explicitNew.value = true         // v488：显式「另起一段干净对话」⇒ 同样别再自动恢复
   try { store.newChatSession() } catch (_) {}
   nextTick(() => scrollBottom())
 }
@@ -2944,10 +3009,13 @@ async function loadAiMode() {
 /* 打开抽屉时聚焦输入框 */
 watch(() => store.ui.copilotOpen, (v) => {
   if (v) {
-    loadSessions()
-    loadAiRoles()
     loadAiMode()
     loadTtsVoices()      // v461：提前取音色清单 ⇒ 「朗读声音」胶囊能直接显示当前声音名
+    // v488：本次打开若处于「空白态」（无消息、无当前会话）且用户没主动要新对话
+    //   ⇒ 自动恢复当前角色最近一次会话（带加载态）。已有对话/刚点了「＋ 新对话」则原样展示，不劫持。
+    if (!store.chat.messages.length && !store.chat.currentId && !explicitNew.value) {
+      restoreLatestSession()
+    }
     nextTick(() => { if (cpInput.value) cpInput.value.focus() })
   } else {
     showRoleMenu.value = false
@@ -2974,8 +3042,11 @@ function onKeydown(e) {
   stopReply()
 }
 onMounted(() => {
-  loadSessions()
-  loadAiRoles()
+  // v488：**不在此处恢复会话** —— 组件由 Shell.vue 无条件挂载，onMounted 在开机就跑，
+  //   那时抽屉未打开、加载遮罩（.cp-body）未渲染 ⇒ 恢复会「隐身」完成，遮罩永远看不见。
+  //   改为在 copilotOpen 打开分支按需恢复（见上方 watch）。
+  loadAiMode()
+  loadTtsVoices()          // v461
   onWinResize()
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('resize', onWinResize)
@@ -3130,7 +3201,10 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-icon-btn:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .cp-icon-btn:disabled{opacity:.35;cursor:default}
 
-.cp-body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.cp-body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;position:relative}
+/* v488：进入副驾恢复最近会话时的加载遮罩，覆盖在对话流上，避免先闪空白新对话 */
+.cp-restoring{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg,#fff);color:var(--t3,#94a3b8);font-size:13px}
+.cp-restoring-spin{width:22px;height:22px;border:2.5px solid var(--border-subtle,#e2e8f0);border-top-color:var(--p-dark,#3b5bdb);border-radius:50%;animation:cp-spin .7s linear infinite}
 
 /* 历史会话 */
 .cp-hist{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}

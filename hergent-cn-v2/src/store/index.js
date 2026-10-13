@@ -503,6 +503,9 @@ export const useAppStore = defineStore('app', () => {
     if (!s) return
     chat.currentId = id
     chat.error = ''
+    // v488：打开即视为「最近访问」——让「最近会话」判定实时跟随切换/打开
+    // （否则切到一个旧会话、关掉再进，还会跳回全局最早那条，而不是你刚看的那条）。
+    s.updated_at = Date.now()
     if (s.messages && s.messages.length) {
       chat.messages = s.messages.map(m => ({ ...m }))
     } else {
