@@ -94,6 +94,7 @@
             :items="brandItems"
             :loading="profitLoading"
             :error="profitErr"
+            :empty="pbPriceMissing"
             :empty-text="pbEmptyText"
             :height="240"
             fmt="money"
@@ -110,6 +111,7 @@
             :items="productItems"
             :loading="profitLoading"
             :error="profitErr"
+            :empty="pbPriceMissing"
             :empty-text="pbEmptyText"
             fmt="money"
             :total="profitTotal"
@@ -406,7 +408,14 @@ const custNote = computed(() => {
       此时 brandItems / productItems 滤掉负值后全空，若文案还说「进货价没录」
       是假话；更危险的是那个 -779.9 万会被读成「生意亏大了」。
       ⇒ 判据收紧为**只看收入是否为 0**（成本补没补都适用），文案再按
-        「成本也缺 / 只缺售价」分两档讲真话。 */
+        「成本也缺 / 只缺售价」分两档讲真话。
+   🔴 2026-10-13 晚同轮再抓一个**被补价激活的后端缺陷**（已登记待修）：
+      `get_profit_report` 的 sold_qty 把销售退货的**负数量**也求和了
+      （`sale_order_items.quantity < 0` 是退货行）⇒ 售价没录时
+      `profit = 负数量 × (0 − 进价)` 变成**正数** —— 退货被算成毛利
+      （实测：妙奇奶酪棒草莓 qty=-19、进价 7.19 ⇒ 假毛利 +¥136.61，
+      品牌环图还把它画成 100% 占比）。所以三张图都绑 `:empty="pbPriceMissing"`：
+      收入为 0 时**任何**非零毛利都是假象，一律不画，只讲真话。 */
 const pbBothZero = computed(() => {
   const p = profit.value
   return !!p && Number(p.total_revenue) === 0 && Number(p.total_cost) === 0
