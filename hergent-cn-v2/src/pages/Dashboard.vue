@@ -94,6 +94,7 @@
             :items="brandItems"
             :loading="profitLoading"
             :error="profitErr"
+            :empty-text="pbEmptyText"
             :height="240"
             fmt="money"
             center-label="毛利合计"
@@ -109,6 +110,7 @@
             :items="productItems"
             :loading="profitLoading"
             :error="profitErr"
+            :empty-text="pbEmptyText"
             fmt="money"
             :total="profitTotal"
             export-name="商品毛利排行"
@@ -124,17 +126,34 @@
           :series="catSeries"
           :loading="profitLoading"
           :error="profitErr"
+          :empty="pbPriceMissing"
+          :empty-text="pbEmptyText"
           :height="240"
           fmt="money"
           export-name="品类毛利对比"
           @retry="loadProfit"
         />
       </div>
+
+      <div class="card">
+        <ChartHbar
+          title="客户销额排行"
+          :sub="custSub"
+          :items="custItems"
+          :loading="custLoading"
+          :error="custErr"
+          fmt="money"
+          :name-w="168"
+          export-name="客户销额排行"
+          :note="custNote"
+          @retry="loadCust"
+        />
+      </div>
     </template>
 
     <div v-else class="card dash-hint">
       <b>还有几张图没打开</b>
-      <p>「收支趋势」「品牌毛利结构」「商品毛利排行」「品类毛利对比」读的是数据报表，当前账号还没有这块权限。需要的话，让管理员在「档案管理 › 组织相关 › 角色权限」里给对应角色勾上。</p>
+      <p>「收支趋势」「品牌毛利结构」「商品毛利排行」「品类毛利对比」「客户销额排行」读的是数据报表，当前账号还没有这块权限。需要的话，让管理员在「档案管理 › 组织相关 › 角色权限」里给对应角色勾上。</p>
     </div>
   </div>
 </template>
@@ -303,6 +322,9 @@ const profitTotal = computed(() => {
 })
 const profitTotalText = computed(() => {
   if (!profit.value) return ''
+  // 全 0 时不显示「合计 0元」—— 那会被读成"一分没赚"，而真相是"价没录、算不出来"。
+  // 空着，由下方图内的说明把原因讲清楚（见 pbEmptyText）。
+  if (!(profitTotal.value > 0)) return ''
   const { v, unit } = moneyParts(profitTotal.value)
   return `合计 ${v}${unit}元`
 })
@@ -322,16 +344,88 @@ const catSeries = computed(() => [{
 const catLabels = computed(() =>
   ((profit.value && profit.value.by_category) || []).map((c) => c.category || '未分类'))
 
+/* ---------- 客户销额排行（需 reports 权限） ----------
+   🔴 为什么是「销额」而不是「利润」—— 这一条是实测出来的，不是取名偏好：
+      `get_customer_profitability()` 的口径是 `profit = revenue − cost`，而
+      `cost = Σ(明细数量 × products.purchase_price)`。生产 tenant 1 实测：
+      **已送达 / 已签收的 14.2 万行明细里，有进货价的行数 = 0**（473 个商品中
+      同时有售价+进货价的只有 56 个，且这 56 个一单没卖过）⇒ `cost` 恒为 0
+      ⇒ `profit` 恒等于 `revenue`。照原样画一张「利润排行」，就是把**销售额冒充成利润**，
+      比不画更糟（老板会拿它当毛利去定价）。
+      ⇒ 只取它**真实可信**的那一半：`revenue`（= 订单 `total_amount` 求和，真数）。
+      等商品档案的进货价补齐、后端成本口径成立之后，再把「利润」加回来。
+      另：`margin` 字段同理是被 0 成本抬成 100% 的，一律不展示。 */
+const CUST_TOP = 10
+const cust = ref(null)
+const custLoading = ref(false)
+const custErr = ref('')
+
+async function loadCust() {
+  if (!repOk.value) return
+  custLoading.value = true
+  custErr.value = ''
+  try {
+    const rows = await reportsApi.customerProfitability()
+    cust.value = Array.isArray(rows) ? rows : []
+  } catch (e) {
+    custErr.value = (e && e.message) || '网络或服务暂时不通'
+  } finally {
+    custLoading.value = false
+  }
+}
+
+/** 后端已按销额降序排好，前端只做**展示层**的事：
+    取销额为正的前 N 名（零销额的客户进了横向条没有信息量，只会把榜拉长）。 */
+const custItems = computed(() =>
+  (cust.value || [])
+    .filter((c) => Number(c.revenue) > 0)
+    .slice(0, CUST_TOP)
+    .map((c) => ({ label: c.name || '未命名客户', value: Number(c.revenue) || 0 })))
+const custSub = computed(() => (custItems.value.length ? `前 ${custItems.value.length} 名` : ''))
+const custNote = computed(() => {
+  if (!cust.value || !cust.value.length) return ''
+  const soldTotal = cust.value.filter((c) => Number(c.revenue) > 0).length
+  return `按已送达 / 已签收订单的销售额排名（共 ${soldTotal} 个客户有销额）。` +
+    '这里只排销额：商品档案的进货价多数还没录，毛利暂时算不出来（现在算出来的「毛利」会等于销售额，不能当毛利用）。'
+})
+
+/* ---------- 毛利三图的「跨源一致性」提示 ----------
+   🔴 为什么需要这一段：`/reports/profit-breakdown` 的收入是
+      `Σ(商品销量 × products.sale_price)`、成本是 `Σ(商品销量 × purchase_price)`，
+      两个价都没录时它**只能返回全 0**。于是「品牌毛利结构 / 商品毛利排行 / 品类毛利对比」
+      三张图在生产上是空的 —— 但**空的原因有两种，含义完全相反**：
+        ① 这段时间真没卖货          ⇒ 「还没有数据」是对的；
+        ② 卖了货，只是没录售价/进货价 ⇒ 说「还没有数据」就是**假话**，
+           老板会以为系统坏了，甚至以为毛利真的是 0。
+      判据用**本页已有的真实销售额**（来自 `dashboard.py` 的订单金额）：卖过货却算出 0
+      ⇒ 只可能是②。这是跨源对账，不是复算 —— 前端不重算任何金额。 */
+const pbZero = computed(() => {
+  const p = profit.value
+  return !!p && Number(p.total_revenue) === 0 && Number(p.total_cost) === 0
+})
+/** 「确实卖过货」的证据 —— 用**本页另一张图的真数**，不要用近 7 天趋势：
+ *  实测（2026-10-13）`/api/dashboard/today-profit` 的近 7 天是**整排 0**
+ *  （那一周真没单）⇒ 拿它当判据，判据本身就是 0，什么也证不了。
+ *  而「客户销额排行」的 `revenue` 是**全期已送达订单金额求和**，与 profit-breakdown
+ *  同为全期口径、可直接对照：它非零而 profit-breakdown 全零 ⇒ 只可能是价没录。 */
+const anyCustomerSales = computed(() => (cust.value || []).some((c) => Number(c.revenue) > 0))
+const pbPriceMissing = computed(() => pbZero.value && anyCustomerSales.value)
+const pbEmptyText = computed(() =>
+  pbPriceMissing.value
+    ? '毛利暂时算不出来：商品档案里的售价 / 进货价还没录全（本页下方「客户销额排行」是真实订单金额，说明确实卖过货）。把商品档案的售价与进货价补齐后，这几张图会自动有数。'
+    : '这段时间还没有数据')
+
 /* ---------- 生命周期 ---------- */
 onMounted(() => {
   loadDash()
-  if (repOk.value) { loadTrend(); loadProfit() }
+  if (repOk.value) { loadTrend(); loadProfit(); loadCust() }
 })
 /* 🔴 权限是异步拉回来的：onMounted 那一刻 canModule 可能还是"未知"（判据为假），
    所以必须在它变真之后再补一次 —— 否则老板会看到"没有权限"的提示一闪而过不消失。 */
 watch(repOk, (ok) => {
   if (ok && !trend.value && !trendLoading.value) loadTrend()
   if (ok && !profit.value && !profitLoading.value) loadProfit()
+  if (ok && !cust.value && !custLoading.value) loadCust()
 })
 </script>
 

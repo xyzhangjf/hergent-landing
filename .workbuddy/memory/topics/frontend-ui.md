@@ -3797,4 +3797,51 @@ Chrome 落到 `chrome-error://chromewebdata/`、`localStorage` 报 "Access is de
 - ⚠️ **本次 grep 一个小坑**：`grep -o '.\{0,260\}'` 报 `maximum repetition exceeds 255`
   —— BSD grep 的 `{}` 上限是 255，写 `\{0,300\}` 会**直接报错**（不是静默），换 `[^]]*` 即可。
 
+## 🔴 v455 全局 `.ico` 规则会**覆盖填充式图标**：「属性存在 ≠ 属性生效」
+- `src/styles/variables.css`（约 382 行）有一条全站规则：
+  `.ico{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}`
+- `Icon.vue` 的 `<svg>` 类名**就是 `.ico`**。**CSS 优先级高于 SVG 表现属性** ——
+  `fill="…"` / `stroke="…"` / `stroke-width="…"` 都是 presentation attribute（优先级最低）
+  ⇒ 任何"填充式"图标都会被这条规则改成"描边式"：填充被 `fill:none` 抹掉、
+  闭合轮廓又被 `stroke` 重描一遍。
+- **症状**：图标"变粗"（墨迹 ≈2.4 倍，如 171px vs 同栏 70px）、镂空被堵死；
+  而**构建通过、控制台零报错、`getAttribute` 一切正常**，只有肉眼能发现。
+- **修法（组件自治 —— 绝不要去动全局 `.ico`）**：填充分支用**内联 style** 锁死
+  `style="fill:currentColor;stroke:none;stroke-width:0"`（内联 > 任何选择器，除 `!important`）；
+  退一步也可用类叠类 `.ico.ico-fill{…}`（(0,2,0) > (0,1,0)）。
+  **改 `.ico` 会波及全站 100+ 处描边图标。**
+- 🔴 **验证纪律**：判"样式 / 颜色 / 粗细 / 到底生效没有"一律读 **`getComputedStyle`**，
+  **不要**读 `getAttribute` —— 属性在 ≠ 生效（会被 CSS 覆盖）。v451 探针就是栽在这里：
+  34 条断言全绿，却上线了一颗粗一档的图标，最后是老板肉眼发现的。
+- 取证来源：`app.asar` 里 WorkBuddy 的 `RatingBar` 四图标（`P0t`/`z0t` 线框、`I0t`/`V0t` 实心）
+  **全是纯 `fill`、从不设 `stroke`**；其中线框点赞 `P0t` 是 `width:15 height:14 viewBox:"0 0 15 14"`（**不是 16×16**，别"归一化"），
+  且线框/实心共用同一条 `d`（选中态只换图形、不改颜色）。
+
+---
+
+## §v491 · 🔴 图表唯一源 `src/components/chart/`（2026-10-13，hergent-cn-v2）
+- **唯一实现口（新增图表一律复用，不要再手写 SVG）**：折线/面积 `ChartLine`、柱状四形态 `ChartBar`（`single`/`target`/`grouped`/`stacked`）、环形 `ChartDonut`、横向排行 `ChartHbar`，统一外壳 `ChartFigure.vue`（loading / empty / error+**重试** / note / 导出）。**零第三方依赖**（未引 ECharts）。
+- **颜色只写令牌**：`var(--chart-1..8)` + `--chart-grid` / `--chart-track` / `--chart-up` / `--chart-down` / `--chart-cross`，明暗两套在 `variables.css` 的 `:root` / `:root.dark` ⇒ **零 JS 主题桥接**。
+  ⚠️ **涨红跌绿（`--chart-up/--chart-down`）与成功/危险绿红（`--suc/--dan`）是两个正交体系，不可混用。**
+- 🔴 **导出 PNG 必须内联实际色**：SVG 序列化 → dataURL → `<img>` → canvas 是**孤立文档**（拿不到 `:root`）⇒ 不内联就是**全黑块**。由 `chartTheme.inlineSvg()` 负责；其 `resolveVar` 必须**连 fallback 一起接出**（`var(--x, #fff)` 在 `--x` 未定义时要取 `#fff`，否则整串原样写进导出 SVG）。
+- **几何全在 `chartGeom.js`（纯函数）**：`plotBox / hOf / yOf / barLayout / hbarLayout / lineGeometry / smoothPath / donutArcs`；注意 `hbarLayout` 签名是 **`(items, opts)`** 不是 `(opts)`。数字/单位格式唯一源 `chartFmt.js`（`niceMax` 已从 `rebate/useMonthlyAchv.js` 上提）；tooltip 落位在 `useChartTip.js`。**改柱宽/间距/轴刻度改这里，别在组件里就地算。**
+- **AI 消息内联出图**：`src/utils/md.js` 支持 ```` ```chart ```` / ```` ```chart:bar ```` / ```` ```图表 ```` 三种围栏 → line / bar / donut，占位符 ` H{n} `（与代码块 ` C{n} ` 并列）。🔴 **该分支必须 `i++`**：主循环靠 `i` 前进，只写 `continue` 就是**静默无限循环**（页面看着加载完、实际主线程占死、`evaluate` 零响应、**零 pageerror**）。
+- **验收探针**：`.workbuddy/tools/v491-chart-render-probe.mjs`（12 用例 / **36 断言**）。范式：**成对断言**（「根数」+「实际可见根数」），颜色取 `getComputedStyle(el).fill`（不读 CSS 推算）。
+- 交互接线：`CopilotDrawer.onCopilotTocClick` 有 `.ch-md-segbtn` 分支（切 pane + 切 donut 时收图例）；`.md-table-chart-toggle` 只改内部 `.md-table-chart-toggle-tx` 的文案（**不能直接改 `tog.textContent`，会抹掉按钮里的 SVG 图标**）。
+
+## §v493（2026-10-13）图表补齐「第二刀」—— 客户销额排行 + 毛利图诚实提示 + ChartHbar 名称列修复
+
+**《图表能力补齐开发计划-2026-10-13.md》的真实进度（省得下轮重查）**：**v491 已把 L1 + L2 大部 + L3 大部落地**（`src/components/chart/` 10 文件 + `chart.css` + Dashboard 页四图型 + `md.js` 内联出图）。
+🔴 计划 §四 列的那几页**在 hergent-cn-v2 里还只是占位页**：`/reports/*` 全部来自 `pages.js::PLACEHOLDER_PAGES` → `Placeholder.vue`（`router/index.js:397` 数据驱动批量挂载）；`/wh/pnl` 其实是 `WhWastage.vue`（损益**单**列表，无趋势语义）。⇒ 「页面扩面」= 先把占位页落真身，不是加图。
+🔴 **账龄不可配图**：`ai_tools.py:65-74` 明记 `receivables.due_date` 在生产只有 2 种取值、不真实 ⇒ 计划 §四 的「应收账龄分布」**不做**。
+**剩余真缺口**：L2 只差「柱+线双轴组合图」（当前无干净宿主，硬凑会犯计划 §7.4「别为了图表而图表」）；L3 只差「图表进 PPT / Word」—— Office 由**后端** python-pptx/docx 生成（`sales.py` / `meeting.py` / `ai_assist.py` + `document_archive.py`），**前端不产 PPT，属跨栈集成**。
+
+🔴 **`ChartHbar` 的档位名曾是「画了但看不见」（v493 修）**：模板里名称 `:x="PAD.l - 10"`（= **-2**）配 `text-anchor="end"` ⇒ 整列延伸到 viewBox **左侧之外**；`nameW` 当时只被 `barW` 用来**缩短条形**，从没真的腾出那一列。⇒ 现在 `padL = computed(() => Math.max(60, nameW + 12))`，名称列真实占 `[0, nameW)`、条形从 `padL` 起；`PAD` 里**删掉 `l`**（留着会静默变 `undefined` → NaN）。
+🔴 **教训（可复用）**：该缺陷下 `querySelectorAll('.ch-hb-name').map(textContent)` **照样拿到全部正确名称** ⇒ 只断言「元素存在 / 文字对」的探针**永远抓不到**，还给了虚假安全感。**凡「是否显示出来」，必须按屏幕盒判**（`getBoundingClientRect` 宽度 > 0 且落在容器矩形内）。反例对照：修前 `visible=0/10`，修后 `10/10`。
+
+🔴 **Dashboard 毛利口径的诚实化**：`/reports/profit-breakdown`（`get_profit_report`）与 `/reports/customer-profitability` 的成本都取 `products.purchase_price`。生产 tenant 1 实测：**14.2 万行已送达明细里有进货价的行数 = 0** ⇒ 前者返回**全零**，后者的 `profit ≡ revenue`、`margin` 恒 100%。所以：
+ · v493 新增的图只叫「**客户销额排行**」（取 `revenue`），**刻意不叫利润**；
+ · 用 `pbPriceMissing`（`profit-breakdown` 全零 **且** 客户排行有真数）把三张毛利图的空态从「这段时间还没有数据」换成「**价没录 + 怎么补**」。🔴 判据**不能**取「近 7 天趋势」：实测那 7 天整排 0，判据自身为 0、什么也证不了。
+
+
 

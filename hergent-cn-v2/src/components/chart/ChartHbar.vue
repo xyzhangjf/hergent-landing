@@ -15,20 +15,25 @@
           preserveAspectRatio="none" role="img" :aria-label="ariaLabel" @mouseleave="hide()"
         >
           <template v-for="r in rows" :key="r.label + r.i">
-            <!-- 档位名（左侧，超长截断 —— 排行里"谁"比"全称"重要，截断加点号不换行） -->
-            <text class="ch-hb-name" :x="PAD.l - 10" :y="r.y + rowH / 2 + 4" text-anchor="end">{{ r.name }}</text>
+            <!-- 档位名（左侧独立成列，超长截断 —— 排行里"谁"比"全称"重要，截断加点号不换行）
+                 🔴 v493 修：原来这里是 `:x="PAD.l - 10"`（= 8 - 10 = **-2**）配 `text-anchor="end"`，
+                    于是整列从 -2 往左延伸 ⇒ **全部落在 viewBox 之外，永远看不见**；
+                    `nameW` 当时只被用来"缩短条形"，并没有真的腾出这一列 —— 结果就是
+                    「有值、有名字文本、但屏上一个名字都没有」（DOM 里查得到，肉眼看是空的）。
+                    现在名称列真实占 [0, nameW)，条形从 `padL = nameW + 12` 起。 -->
+            <text class="ch-hb-name" :x="nameW" :y="r.y + rowH / 2 + 4" text-anchor="end">{{ r.name }}</text>
 
             <!-- 轨道（灰底）：让"最长那条"与"容器"的关系可读，而不是悬空一根条 -->
-            <rect class="ch-hb-track" :x="PAD.l" :y="r.y + 6" :width="barW" :height="rowH - 12" rx="3" />
+            <rect class="ch-hb-track" :x="padL" :y="r.y + 6" :width="barW" :height="rowH - 12" rx="3" />
 
             <!-- 条本体 -->
             <rect
-              class="ch-hb-bar" :x="PAD.l" :y="r.y + 6" :width="r.w" :height="rowH - 12" rx="3"
+              class="ch-hb-bar" :x="padL" :y="r.y + 6" :width="r.w" :height="rowH - 12" rx="3"
               :fill="r.color"
             />
 
             <!-- 数值：贴在条端外侧，条短也不会被压住（条端 + 6px，且不小于轨道起点 + 6） -->
-            <text class="ch-hb-val" :x="Math.min(PAD.l + r.w + 6, PAD.l + barW + 6)" :y="r.y + rowH / 2 + 4">{{ fmtVal(r.value) }}</text>
+            <text class="ch-hb-val" :x="Math.min(padL + r.w + 6, padL + barW + 6)" :y="r.y + rowH / 2 + 4">{{ fmtVal(r.value) }}</text>
 
             <!-- 悬停热区：整行 -->
             <rect class="ch-hit" :x="0" :y="r.y" :width="W" :height="rowH"
@@ -92,7 +97,9 @@ const props = defineProps({
 })
 const emit = defineEmits(['retry'])
 
-const PAD = { l: 8, r: 8, t: 6, b: 6 }
+const PAD = { r: 8, t: 6, b: 6 }
+/** 条形起点 = 名称列之后。🔴 v493：名称列必须**真实占位**（旧实现名称画在负 x 上，整列不可见）。 */
+const padL = computed(() => Math.max(60, props.nameW + 12))
 const rootEl = ref(null)
 const svgEl = ref(null)
 const W = ref(520)
@@ -117,7 +124,7 @@ onBeforeUnmount(() => {
 
 const list = computed(() => props.items || [])
 /** 名称区固定宽；数值区留给"¥123.4万"这类最长的串（约 64px） */
-const barW = computed(() => Math.max(40, W.value - PAD.l - props.nameW - 72))
+const barW = computed(() => Math.max(40, W.value - padL.value - 72))
 const autoH = computed(() => PAD.t + Math.max(1, list.value.length) * props.rowH + PAD.b)
 
 /** CJK 按 11px/字、ASCII 按 6px/字 估宽，超出截断加点号（SVG 里没有 text-overflow） */
@@ -169,7 +176,7 @@ function onHover(r) {
     key: 'r' + r.i,
     title: r.label,
     rows: rowsTip,
-    anchorX: Math.round(PAD.l + r.w),
+    anchorX: Math.round(padL.value + r.w),
     halfW: 0,
     top: r.y,
   })

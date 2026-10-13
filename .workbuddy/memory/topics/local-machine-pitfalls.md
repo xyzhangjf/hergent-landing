@@ -1049,3 +1049,54 @@ ck(('46px' in sec) and ('table.tbl .seq-th{width:46px;min-width:46px' in vars_cs
 本轮若只改文档、不跑自检，这条 6 天前就烂掉的护栏**永远不会被发现**。
 
 ---
+
+## §44 · 🔴 无头 Chrome / puppeteer 四坑（2026-10-13 v491 实测，每条都真的卡过）
+
+### ① `networkidle0` 在 **vite dev** 下**永不达成**
+dev server 的 HMR 是**长连接 WebSocket** ⇒ 网络永不 idle ⇒ `goto(..., {waitUntil:'networkidle0'})` **必然** `Navigation timeout`。
+**纪律**：dev 页面一律用 `domcontentloaded`（或 `load`）；要判「数据到了」用**元素/文本出现**，不要用网络空闲。
+
+### ② `waitForFunction` 默认轮询走 `requestAnimationFrame` ⇒ **无头下帧不触发**
+条件明明已满足，函数**永不返回**（表现像卡死，实为没在检查）。
+**纪律**：显式传 `{ polling: 200 }`（或 `'mutation'`）。别信「条件满足就会自己返回」。
+
+### ③ puppeteer `protocolTimeout`（默认 180s）**盖过** `waitForFunction` 自己的 `timeout`
+页面在等待期间发生 **reload**，会把调用挂住 ⇒ **干等 3 分钟**才报错，看着像「探针写错了」。
+**纪律**：探针里凡是「等条件」的调用，同时设 `protocolTimeout`（launch 级）与调用级 `timeout`，并让二者量级一致。
+
+### ④ 生成探针脚本时，`\n` / `\(` 写在 **JS 模板串**里会变成**真换行/真括号**
+典型场景：把一段 CJS 探针作为字符串写进 `.mjs` 模板串 ⇒ 生成出**语法错误**的 CJS（报错位置还很靠后，难认）。
+**纪律**：模板串里写 `\\n` / `\\(`；生成后先 `node --check` 再跑。
+
+### ⑤ 附赠：**纯逻辑死循环**在无头下表现为「页面加载完但零响应」
+`Runtime.callFunctionOn timed out` 连发、**却零 `pageerror`**（因为不抛错，只是主线程被占死）——
+**别急着怀疑 puppeteer/浏览器不兼容**：先在 `about:blank` 跑最小自检（`evaluate(() => 1+1)`）排除环境，
+再把嫌疑函数**逐个在 Node 里直接调**（纯函数可脱离浏览器跑）定位到具体循环。v491 的真凶是
+`md.js` 的出图占位分支漏了 `i++`（占位符分支**只写 `continue` 不写 `i++`** ⇒ 死循环）。
+
+---
+
+## §45 v493 新增三条（全是「看起来通过、其实没验到」的同族）
+
+### ① 🔴 构建失败，但 `| grep -e "error"` **匹配成功 ⇒ exit 0 ⇒ `&&` 照常放行**
+写法：`vite build 2>&1 | grep -e Dashboard -e error && node probe.mjs`。
+构建真的挂了（输出 `error during build:`），可 `grep` **命中了那个 "error" 词** ⇒ 管道退出码 = 0
+⇒ 后面的探针**照跑**，验的却是**上一次的产物**。现象：探针全绿，你会以为改动生效了。
+**纪律**：构建必须 `> log 2>&1` 落盘后**显式判 `$?`**（或 `set -o pipefail`），**永不**用 `| grep` 的退出码
+当中继条件。同理适用于任何「日志里出现 error 字样」的管道。
+
+### ② 🔴 `Page.captureScreenshot` 的 `clip` 是**文档坐标**，且 `captureBeyondViewport` 默认 **false**
+两个坑叠在一起：① 漏 `+ window.scrollY` ⇒ 截到文档顶部；② 元素在**当前视口之外**时**根本不绘制**
+⇒ 落盘是一张**纯白图**。而「纯白图」与「元素没渲染」**长得一模一样**，极易误判。
+**纪律**：先把视口放大到装得下整页（`Emulation.setDeviceMetricsOverride {width,height}`），
+再按文档坐标裁；两张截图的**字节数完全相同**是"区域没变"的可靠线索。
+
+### ③ 🔴 「DOM 里有」≠「看得见」—— 可见性断言要按**屏幕盒**判
+v493 真实缺陷：`ChartHbar` 的名称文本 `x = PAD.l - 10 = -2` 配 `text-anchor="end"` ⇒
+整列落在 viewBox **左侧之外**，屏上一个名字都没有；而 `querySelectorAll('.ch-hb-name').map(textContent)`
+**照样拿到全部正确名称** ⇒ 只断言 textContent 的探针**永远抓不到它**，还顺手给了虚假的安全感。
+**纪律**：凡"是否显示出来"的断言，必须取 `getBoundingClientRect()` 与容器矩形比对
+（宽度 > 0 且落在容器内），不能只看 DOM 存在性。
+
+
+---

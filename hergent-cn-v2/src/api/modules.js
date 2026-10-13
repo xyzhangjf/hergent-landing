@@ -34,7 +34,15 @@ export const reportsApi = {
   trend: (days = 7) => api(`/api/reports/trend?days=${days}`),
   /** 利润结构：{ by_brand:[{brand,revenue,cost,profit,margin,count}], by_category:[...], products:[...], total_revenue, total_cost, total_profit } */
   profitBreakdown: () => api('/api/reports/profit-breakdown'),
-  /** 业务员排行（当月起）：结构由后端给，前端原样画 */
+  /** 客户经营明细：后端给的是**数组**，已按 profit 从高到低排好。
+   *  行结构 = contacts 全字段 + { revenue, cost, profit, margin }。
+   *  🔴 `revenue` 可信（= 已送达/已签收订单 `total_amount` 求和），**其余三个不可信**：
+   *     生产实测（tenant 1）14.2 万行已送达明细里**有进货价的行数 = 0** ⇒ `cost` 恒 0
+   *     ⇒ `profit` 恒等于 `revenue`、`margin` 恒 100%。⇒ 只准拿 `revenue` 画「销额」，
+   *     **不准**把它当利润/毛利画。等商品档案的进货价补齐后再启用利润口径。 */
+  customerProfitability: () => api('/api/reports/customer-profitability'),
+  /** 业务员龙虎榜（当月起）：{ month, has_data, top_sales[], top_payments[], top_new[] }，
+   *  每榜 **前端只取一榜**；后端已过滤 0 值（本月无业绩 ⇒ 空数组，宁可「暂无」不排「¥0」）。 */
   salesLeaderboard: (month = '') => api(`/api/reports/sales-leaderboard${month ? `?month=${month}` : ''}`),
 }
 
