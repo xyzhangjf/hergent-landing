@@ -1,0 +1,135 @@
+/* ============================================================================
+   chart.css —— 图表公共外观（v491）
+   ============================================================================
+   🔴 唯一一份。此前"图表长相"散在 3 个文件里（Dashboard.vue / MonthlyAchvChart.vue /
+      ResultCard.vue 各写一套），改一处忘两处 ⇒ 同一屏两种网格线。
+   🔴 色值**一律**走 `--chart-*` 令牌（见 variables.css 的 v491 段），
+      本文件与任何图表组件里都不许出现硬编码色（`#fff`/`transparent` 除外）。
+   ============================================================================ */
+
+/* —— 图表外壳：标题行 + 图例行 + 画布 —— */
+.ch-fig{display:flex;flex-direction:column;gap:8px;min-width:0}
+.ch-fig-hd{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ch-fig-ti{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
+.ch-fig-ti b{font-size:14px;font-weight:500;color:var(--t1)}
+.ch-fig-sub{font-size:12px;color:var(--t3)}
+.ch-fig-ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* —— 图例 —— */
+.ch-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ch-lg-item{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:default}
+/* 可点击显隐的图例（L2）：视觉上比静态图例多一个"可点"的暗示 —— 悬停加深、关闭态变灰划线 */
+.ch-lg-item.is-hit{cursor:pointer;user-select:none}
+.ch-lg-item.is-hit:hover{color:var(--t1)}
+.ch-lg-item.is-off{opacity:.4;text-decoration:line-through}
+.ch-lg-dot{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+.ch-lg-line{width:12px;height:0;border-top-width:2px;border-top-style:solid;display:inline-block;flex:none}
+
+/* —— 画布：窄屏用横向滚动兜底，绝不压缩到看不清 —— */
+.ch-scroll{position:relative;width:100%;min-width:0;overflow-x:auto;overflow-y:hidden}
+.ch-canvas{position:relative;width:100%}
+.ch-svg{width:100%;display:block}
+.ch-grid{stroke:var(--chart-grid);stroke-width:1;stroke-dasharray:3 3}
+.ch-axis{stroke:var(--bd);stroke-width:1}
+.ch-ax-lb{font-size:11px;fill:var(--t3);font-variant-numeric:tabular-nums}
+.ch-ax-ti{font-size:11px;fill:var(--t3)}
+/* 数据点 / 柱 / 弧的公共画笔。颜色由 :fill / :stroke 绑定令牌给出，此处只定形状 */
+.ch-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.ch-area{stroke:none}
+.ch-bar{rx:2}
+.ch-lbl{font-size:10px;font-variant-numeric:tabular-nums;pointer-events:none}
+/* 折线数据点：默认不显，hover 时放大（由 .is-on 控制） */
+.ch-dot{pointer-events:none;transition:r .12s ease}
+.ch-hit{fill:transparent}
+.ch-ref{stroke-dasharray:4 3;stroke-width:1}
+
+/* —— 三态：载入 / 空 / 错误。错误态**必须**有出口，不许只留骨架屏（本项目铁律）—— */
+.ch-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  font-size:13px;color:var(--t3);text-align:center;padding:0 12px}
+.ch-state-err{color:var(--danger-txt)}
+.ch-state-err .ch-err-ti{font-weight:500}
+.ch-retry{margin-top:2px}
+/* 骨架屏：条形按循环节奏呼吸 —— 与正文同尺寸，避免切态时页面跳一下 */
+.ch-skel{display:flex;align-items:flex-end;gap:6px;padding:10px 0}
+.ch-skel i{flex:1;background:var(--border-subtle);border-radius:2px;animation:chpulse 1.2s ease-in-out infinite}
+@keyframes chpulse{0%,100%{opacity:.45}50%{opacity:.9}}
+
+/* —— tooltip：位置全部由 script 按几何算好，CSS 只保留"翻转"这一件事 ——
+   ⚠️ pointer-events:none 必须保留：盒子挪到被 hover 对象外侧后会盖住相邻元素的悬停区，
+      一旦吃掉事件就换不了点。 */
+.ch-tip{position:absolute;min-width:180px;padding:9px 11px;border-radius:8px;pointer-events:none;
+  background:var(--bg);border:1px solid var(--bd);box-shadow:var(--shadow-md);
+  font-size:12px;z-index:5}
+.ch-tip.to-left{transform:translateX(-100%)}
+.ch-tip b{display:block;margin-bottom:6px;font-size:12px;font-weight:500;color:var(--t1)}
+.ch-tp-row{display:flex;align-items:center;gap:8px;line-height:1.9}
+.ch-tp-k{color:var(--t3);flex:none}
+.ch-tp-v{color:var(--t1);font-variant-numeric:tabular-nums;margin-left:auto}
+.ch-tp-r{color:var(--t2);font-variant-numeric:tabular-nums}
+.ch-tp-r.warn{color:var(--danger-txt)}
+.ch-tp-ex{display:flex;gap:8px;line-height:1.9;border-top:1px solid var(--border-subtle);margin-top:4px;padding-top:4px}
+.ch-tp-ex .ch-tp-v{color:var(--t2)}
+
+/* —— 环形图：中心汇总 + 右侧图例 —— */
+.ch-donut-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.ch-donut-svg{flex:none}
+.ch-donut-lg{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.ch-donut-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);min-width:0}
+.ch-donut-row .ch-lg-dot{width:8px;height:8px;border-radius:2px}
+.ch-donut-row .ch-dn-name{color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch-donut-row .ch-dn-val{margin-left:auto;color:var(--t1);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ch-donut-row .ch-dn-pct{color:var(--t3);font-variant-numeric:tabular-nums;width:46px;text-align:right;flex:none}
+.ch-dn-center-v{font-size:16px;font-weight:600;fill:var(--t1)}
+.ch-dn-center-k{font-size:11px;fill:var(--t3)}
+
+/* —— 横向条形（排行）：标签在左、条在右，数值贴条端 —— */
+.ch-hb-name{font-size:11px;fill:var(--t3)}
+.ch-hb-val{font-size:11px;fill:var(--t1);font-variant-numeric:tabular-nums}
+.ch-hb-track{fill:var(--border-subtle);opacity:.5}
+
+/* —— 脚注 / 说明（"读不到就是读不到"那一族，跨页脚共用长相）—— */
+.ch-note{font-size:12px;color:var(--t3)}
+/* —— 图表操作（导出图片）—— */
+.ch-act{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;font-size:12px;
+  color:var(--t2);background:transparent;border:1px solid var(--bd);border-radius:6px}
+.ch-act:hover{color:var(--t1);background:var(--bg3)}
+.ch-act:disabled{opacity:.5;cursor:default}
+
+/* ============================================================================
+   AI 消息里的内联图表（v491）—— `ch-md-*`
+   ============================================================================
+   🔴 为什么放全局而不是某个组件的 scoped 里：这段 DOM 是 `renderMd()` 用 v-html 注入的，
+      而注入点有三处（副驾抽屉 / 产出与用量 / 工作台的 AI 诊断）。写在任一组件的
+      scoped 样式里，另外两处就**没有长相**（本项目反复踩的"同一能力两处各写一份"）。
+   🔴 尺寸一律用 `width:100%;height:auto` + `preserveAspectRatio="xMidYMid meet"`：
+      整幅等比缩放，**绝不拉扁**（v487 那版是 `none`，没有文字所以看不出来；
+      现在有轴标签，一拉扁数字就变形）。
+   ============================================================================ */
+.ch-md-card{margin:8px 0;padding:10px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--bg2)}
+.ch-md-ti{font-size:12px;font-weight:500;color:var(--t1);margin-bottom:6px}
+.ch-md-svg{width:100%;height:auto;display:block}
+.ch-md-grid{stroke:var(--chart-grid);stroke-width:1;stroke-dasharray:3 3}
+.ch-md-axis{stroke:var(--bd);stroke-width:1}
+.ch-md-ax{font-size:11px;fill:var(--t3);font-variant-numeric:tabular-nums}
+.ch-md-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.ch-md-bar{}
+.ch-md-lbl{font-size:10px;fill:var(--t2);font-variant-numeric:tabular-nums}
+.ch-md-track{opacity:.6}
+.ch-md-cv{font-size:15px;font-weight:600;fill:var(--t1)}
+.ch-md-legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:11px;color:var(--t2)}
+.ch-md-lg{display:inline-flex;align-items:center;gap:4px}
+.ch-md-lg i{width:8px;height:8px;border-radius:2px;flex:none}
+/* 形态切换（走势 / 对比 / 占比） */
+.ch-md-seg{display:inline-flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden;margin-bottom:6px}
+.ch-md-segbtn{padding:2px 9px;font:inherit;font-size:11px;line-height:1.7;background:transparent;border:0;color:var(--t2);cursor:pointer}
+.ch-md-segbtn + .ch-md-segbtn{border-left:1px solid var(--bd)}
+.ch-md-segbtn.on{background:var(--p);color:#fff}
+/* 环形：左图右明细（明细就是图例，名称+数值+占比三件一起看） */
+.ch-md-donut{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ch-md-donut .ch-md-svg{flex:1 1 200px;min-width:150px}
+.ch-md-dl{flex:1 1 180px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.ch-md-drow{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);min-width:0}
+.ch-md-drow i{width:8px;height:8px;border-radius:2px;flex:none}
+.ch-md-dn{color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ch-md-dv{margin-left:auto;color:var(--t1);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ch-md-dp{width:42px;text-align:right;color:var(--t3);font-variant-numeric:tabular-nums;flex:none}

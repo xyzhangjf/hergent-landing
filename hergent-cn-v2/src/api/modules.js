@@ -20,6 +20,24 @@ export const expiryApi = {
   nearExpiryList: () => api('/api/inventory/near-expiry'),
 }
 
+/* ---- 经营报表（v491）：图表的数据源 ----
+   🔴 模块轴 = `reports`（`server.py::_PATH_MODULE_MAP`：`/api/reports` → reports）。
+      可用者 = 老板 / 管理员 / 会计（`core._DEFAULT_PERMS`）。
+      ⇒ 在**「经营趋势」页**用它们是安全的：那一页本身挂 `module:'dashboard'`，
+        而持有 dashboard 的只有老板与管理员（v349 收紧），两人都同时持有 reports。
+      🔴 但页面**仍要按 `canModule('reports')` 给这几块图做门禁** ——
+        将来若把 dashboard 放开给某个不持 reports 的角色，缺门禁就会造出
+        「入口看得见、一进来图全是空的」这种局部假入口（v347/v349 同一族）。
+   后端返回的都是**算好的**成品结构，前端只负责画 —— 不做任何二次计算。 */
+export const reportsApi = {
+  /** 收支趋势：{ labels:[], income:[], expense:[] } */
+  trend: (days = 7) => api(`/api/reports/trend?days=${days}`),
+  /** 利润结构：{ by_brand:[{brand,revenue,cost,profit,margin,count}], by_category:[...], products:[...], total_revenue, total_cost, total_profit } */
+  profitBreakdown: () => api('/api/reports/profit-breakdown'),
+  /** 业务员排行（当月起）：结构由后端给，前端原样画 */
+  salesLeaderboard: (month = '') => api(`/api/reports/sales-leaderboard${month ? `?month=${month}` : ''}`),
+}
+
 /* ---- 预报订货 ---- */
 /* ---- 报单自动化（v242，租户级契约）----
    后端存储**复用** rebate_target_rules 的四列，但前端**只认这套契约**：

@@ -964,7 +964,25 @@ function onCopilotTocClick(e) {
     })
     return
   }
-  // v487 P2-③：表格→图表开关（点击在表格容器内切换「表格 / 图表」视图）
+  // v487 P2-③ / v491：表格↔图表开关 + 图表形态切换（走势 / 对比 / 占比）
+  // 🔴 v491 的一个坑：原实现用 `tog.textContent = …` 换文案，会把按钮里的图标一起抹掉
+  //    （本轮把彩色 emoji 换成线性 SVG 后才显形）⇒ 改为只改 `-tx` 那个 span。
+  const seg = e && e.target && e.target.closest ? e.target.closest('.ch-md-segbtn') : null
+  if (seg) {
+    const box = seg.closest('.md-table-chart')
+    const form = seg.getAttribute('data-form')
+    if (box && form) {
+      box.querySelectorAll('.ch-md-segbtn').forEach((b) => b.classList.toggle('on', b === seg))
+      box.querySelectorAll('.ch-md-pane').forEach((p) => {
+        if (p.getAttribute('data-form') === form) p.removeAttribute('hidden')
+        else p.setAttribute('hidden', '')
+      })
+      // 图例只对折线/柱状有意义；切到「占比」时它由明细自己承担 ⇒ 一并收起
+      const lg = box.querySelector('.ch-md-legend')
+      if (lg) { if (form === 'donut') lg.setAttribute('hidden', ''); else lg.removeAttribute('hidden') }
+    }
+    return
+  }
   const tog = e && e.target && e.target.closest ? e.target.closest('.md-table-chart-toggle') : null
   if (tog) {
     const wrap = tog.closest('.md-table-wrap')
@@ -974,7 +992,8 @@ function onCopilotTocClick(e) {
       const show = chart.hasAttribute('hidden')
       if (show) chart.removeAttribute('hidden'); else chart.setAttribute('hidden', '')
       table.style.display = show ? 'none' : ''
-      tog.textContent = show ? '📋 看表格' : '📊 看图表'
+      const tx = tog.querySelector('.md-table-chart-toggle-tx')
+      if (tx) tx.textContent = show ? '看表格' : '看图表'
     }
     return
   }

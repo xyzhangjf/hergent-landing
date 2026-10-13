@@ -6,6 +6,7 @@ import { bootstrapTenantContext } from './api/client'
 import { initDensity } from './composables/useDensity'
 import './styles/variables.css'
 import './styles/col-menu.css'   // 列设置齿轮 + 面板 + 列宽拖动手柄（全站表格页复用，v432 / v444）
+import './styles/chart.css'      // 图表外壳 / 图例 / 三态 / tooltip / 排行条（全站图表复用，v491）
 
 // 恢复主题
 setTheme(localStorage.getItem('hergent_theme') === 'dark' ? 'dark' : 'light')

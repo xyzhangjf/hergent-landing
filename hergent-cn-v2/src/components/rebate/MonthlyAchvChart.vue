@@ -199,6 +199,12 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { rate, niceMax } from './useMonthlyAchv.js'
 import { tipAnchor, clampTipAnchor } from './tipPlacement.js'
+/* v491：柱体几何上提到通用图表层 —— 本组件的「槽宽 / 柱宽 / 高度 / 刻度」不再自己算。
+   🔴 抽出的判据是**几何逐像素等价**（同一套 slot/gap/bw 公式），不是"重写一遍看着像"：
+      barLayout 的默认参数就是本组件 v162 定下的那组（minBar 12 / maxBar 44 / gapRatio .16），
+      故抽完后 12 个月的柱位、柱宽、量程、刻度与抽出前完全一致（见 v491 探针的等价断言）。 */
+import { barLayout, hOf, yOf, MIN_TRACK_PX } from '../chart/chartGeom.js'
+import { tickValues } from '../chart/chartFmt.js'
 
 const props = defineProps({
   model: { type: Object, default: null },
@@ -247,10 +253,13 @@ const PAD = { l: 52, r: 18, t: 34, b: 30 }
 const plotW = computed(() => W.value - PAD.l - PAD.r)
 const plotH = computed(() => SH.value - PAD.t - PAD.b)
 const plotBase = computed(() => PAD.t + plotH.value)   // 0 刻度线（柱底）
-const GW = computed(() => plotW.value / 12)
-// v162：改为每月单柱 → 柱宽由「半月槽」放宽到「近整月槽」，视觉重量回到单张图的正中
-const GAP = computed(() => Math.max(4, Math.min(12, GW.value * 0.16)))
-const BW = computed(() => Math.max(12, Math.min(44, GW.value - GAP.value * 2)))
+/* v491：槽宽 / 柱宽 / 槽内留白改由通用层算（原是本组件自己的一行公式，现收敛到
+   `chart/chartGeom.js::barLayout` —— 默认参数即本组件 v162 定下的那组，语义不变）。
+   ⚠️ 模板里仍在用 GW / BW 两个名字，故这里保持同名 computed，改的是**来源**不是**用法**：
+      叫它们继续看着像"本地量"，是为了让模板 diff 为零。 */
+const barLay = computed(() => barLayout({ plotW: plotW.value, padL: PAD.l, count: 12 }))
+const GW = computed(() => barLay.value.slot)
+const BW = computed(() => barLay.value.bw)
 
 // 小标题行与两图间距（tooltip 要按 hover 的是哪张图定位，故这几个值必须与 CSS 逐字一致：
 //   SEC_HD 26 = .sec-hd 行高 22px + .mac-sec 的 4px gap；SEC_GAP 16 = .mac-sec + .mac-sec 的 margin-top）
@@ -369,32 +378,29 @@ const LBL_DY_AMT = 18    // 上行（金额）baseline 距柱顶 ＝ 6 + 12px �
    hAmt 是纯等比（无最小高度），当月目标相对全年量程极小（如某月目标只占 0.1%）时
    轨道高度会算成 0.1px —— 屏幕上等于没画，用户会以为"这个月的目标丢了"。
    故给轨道一个 2px 的可见下限：宁可略微夸大小到看不见的量，也不能让柱子消失
-   （精确数值由 tooltip 与柱顶标签承担）。 */
-const MIN_TRACK_PX = 2
+   （精确数值由 tooltip 与柱顶标签承担）。
+   🔴 v491：常量已上提到 `chart/chartGeom.js::MIN_TRACK_PX`（通用柱状图需要同一条保证），
+      此处**改为导入**，不再本地定义 —— 两处各留一个 2 迟早会变成一处 2 一处 3。 */
 
-/** 金额 → 像素高度（等比；min 截断只是防御，量程本就涵盖全部数值） */
-function hAmt(v, max) {
-  const m = Number(max) || 0
-  if (m <= 0) return 0
-  return (Math.min(Math.max(0, Number(v) || 0), m) / m) * plotH.value
-}
+/** 金额 → 像素高度（等比；min 截断只是防御，量程本就涵盖全部数值）
+ *  v491：实现走通用层 `hOf(v, 0, max, plotH)`（本组件恒 0 起，故 lo=0）。 */
+function hAmt(v, max) { return hOf(v, 0, max, plotH.value) }
 /** 金额 → y 坐标 */
-function yAmt(v, max) { return plotBase.value - hAmt(v, max) }
+function yAmt(v, max) { return yOf(v, 0, max, plotBase.value, plotH.value) }
 
-function xGroup(i) { return PAD.l + i * GW.value }
+/** v491：x 位置改由通用层给（`barLayout` 的 xGroup / xBar 与原来的公式逐字等价） */
+function xGroup(i) { return barLay.value.xGroup(i) }
 /** v162：每月单柱 → 在月槽内水平居中 */
-function xBar(i) { return xGroup(i) + (GW.value - BW.value) / 2 }
+function xBar(i) { return barLay.value.xBar(i) }
 
 /** 轴刻度：量程均分 n 段 —— niceMax 的基数 k∈{1,1.5,2,3,5,7.5,10}，除 5 后仍是整洁数值。
  *  v185：段数随密度档（完整 5 / 紧凑 3）。**只改刻度密度，不改量程、不改柱高算法** ——
- *  量程恒为 niceMax(全年 max(目标, 达成))，紧凑档下柱高与刻度的比例关系完全一致。 */
+ *  量程恒为 niceMax(全年 max(目标, 达成))，紧凑档下柱高与刻度的比例关系完全一致。
+ *  v491：段值由通用层 `tickValues` 生成（与原来 `max * i / seg` 逐字等价），y 由 yAmt 给。 */
 function axisTicks(max, n) {
   if (!(max > 0)) return []
   const seg = Number(n) > 0 ? Number(n) : 5
-  return Array.from({ length: seg + 1 }, (_, i) => {
-    const v = (max * i) / seg
-    return { v, y: yAmt(v, max) }
-  })
+  return tickValues(0, max, seg).map((v) => ({ v, y: yAmt(v, max) }))
 }
 
 const salesUnit = computed(() => {

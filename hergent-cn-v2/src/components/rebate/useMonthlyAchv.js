@@ -282,14 +282,10 @@ export function rate(achv, target) {
   return (Number(achv) || 0) / t
 }
 
-/** 双轴量程：向上取整到「好看」的刻度（1/2/5 × 10^n） */
-export function niceMax(v) {
-  const x = Number(v) || 0
-  if (x <= 0) return 1
-  const exp = Math.floor(Math.log10(x))
-  const base = Math.pow(10, exp)
-  for (const k of [1, 1.5, 2, 3, 5, 7.5, 10]) {
-    if (x <= k * base) return k * base
-  }
-  return 10 * base
-}
+/** 双轴量程：向上取整到「好看」的刻度（1/1.5/2/3/5/7.5/10 × 10^n）
+ *
+ *  🔴 v491：实现已上提到通用图表层（`components/chart/chartFmt.js`），此处**只做再导出**。
+ *     为什么不留两份：本函数的消费者现在既有返利图表、也有通用折线/柱状图，
+ *     两份实现漂移的后果是"同一屏两个量程、柱高不可比"——代码不报错，只有真机上不对。
+ *     保留本导出是为了**不动既有调用点**（`MonthlyAchvChart.vue` 一行未改）。 */
+export { niceMax } from '../chart/chartFmt.js'
