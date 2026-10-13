@@ -1754,3 +1754,23 @@ v441 六界面探针里三条断言「退货模式**没有** `hd-box`」—— �
 - **tiebreaker 的必要性未用数据复现**：本地 300 行同值、生产 22505 行同值（`status` 全 `signed`）下，「不带 `, so.id DESC`」的分页拼接**仍然无重无漏**（SQLite 恰好走索引 `idx_sale_orders_status` ⇒ 顺序稳定）。诚实标注为**理论风险**（SQL 不保证同值行相对顺序）+ 待更大/不同计划下验证，**不谎称已复现**。
 - 生产 `sale_orders` 25 个键里 **6 个是全同值/全 NULL**（`status` 全 `signed`、`delivery_date`/`approval_status`/`invoice_status`/`audit_time`/`discount`/`received_amount` 等）⇒ 前端点这些列表头**看不出顺序变化是数据事实**，不是缺陷。前端实际可排的 7 键里 `status` 与 `delivery_date` 属此类。
 
+
+---
+
+## v496 进销存列表页统一设计规范（2026-10-13，已部署，提交 `c8ac326`，未推送）
+
+🔴 **规范全文 = `hergent-cn-v2/docs/进销存列表页统一设计规范-v496.md`（12 节）**。本文只留路由锚点，细节一律以规范为准。
+
+- **适用范围**：7 个路由 → **3 个组件**。`#/inventory/purchase?kind=order|return`（InvPurchaseList）、`#/inventory/sale?type=self_pickup|vehicle_sale&kind=order|return`（InvSaleList 4 变体）、`#/inventory/transfer`（InvTransferList）。同 path 不同 query ⇒ `_qType/_qKind` 必须 **computed + watch**（v473 教训：setup 读一次 + onMounted ⇒ 换入口纹丝不动）。
+- **三页共用件（改一个 = 改三页）**：
+  - `src/composables/useQuickRange.js` —— 快捷档逻辑（`toLocalISO` 本地时区切片；`setDateRange`/`clearDateRange`/`onDateManual`/`pickRange`）
+  - `src/components/QuickRangeChips.vue` —— 五枚 chip：**今 / 昨 / 近7天 / 近30天 / 全部**（复用全局 `.chip`，选中青实底）
+  - `src/styles/psi-list.css`（`main.js` 引入）—— `.psi-tbl`（`table-layout:fixed` + nowrap/ellipsis）、`.psi-frz`+`.psi-frz-1..4`（**偏移经 `--psi-frz-N` CSS 变量由各页 `<table :style>` 从 colgroup 宽度常量送入** ⇒ 改列宽偏移自动跟随）、三态底色（`--bg`/hover `--bg2`/`tr.psi-on` `--p-bg`）、`@media print` 冻结列回落 static
+- **列宽唯一权威 = colgroup**：fixed 布局下声明即硬值；⛔ 不准 scoped CSS 再写列宽（第二个真相来源）。序号列宽 46px 锚定全局 `variables.css` 的 `th.seq-th`。
+- **冻结列类名**：`psi-frz` + `psi-frz-1..4`（采购页四层：复选/序号/主键/关联列；销售与调拨两层：序号/单号）。基准页原 `ipl-frz-*` 与死常量 `LEFT_*` 已被 `:style` 绑定激活。
+- **分页器唯一结构**：「共 N 条记录，第 X–Y 条 | 页码窗≤7 | 条/页 | 跳页」，`pageFrom/pageTo` computed；**总数唯一出处 = 分页器**（销售/调拨原工具栏「共 N 张」已删）。
+- **新建只在页头 + 空态**（基准页工具栏重复新建已删）；页头右侧 = 新建(primary) + 刷新(ghost)。
+- **有意差异（⛔ 不得对齐掉）**：D6 = **调拨无详情页 ⇒ 单号纯文本，不造假链接**（销售/采购单号是链接）；状态页签计数 / 批量操作 / tfoot 合计 / 打印数 / 自定义字段列仅采购页有（后端无销售调拨的 counts/summary/批量接口）；调拨无「更多选项」折叠（4 个筛选项一行放得下）。
+- **业务逻辑零改动**：服务端过滤 / `limit-offset` / `SORTABLE ⊆ _PO_ORDER_SQL|_SO_ORDER_SQL|_TRANSFER_ORDER_SQL` / 权限门 / 批量 / 打印 / 导出 `colText` 全部原样；本工作只动观感与信息架构。
+- 🔴 **生产数据事实（断言设计依据）**：采购单 83、自提订单 22254、调拨单 1；**采购退单 / 自提退单 / 车销订单 / 车销退单生产均 0 行**（真实空态，非缺陷）。⇒ 这四条入口**不能断言「有行」**，必须断言「发出了正确服务端筛选参数」：自提退单=`status=returned&order_type=self_pickup`（即待修项「销售退货列表恒空」的回归防线）、采购退单=`status=returned`、车销订单=`order_type=vehicle_sale`、采购订单=`exclude_status=returned`。
+- 探针 `.workbuddy/tools/v496-psi-list-align-e2e.mjs`（本地服 dist-v496 + `/api` 透传 hergent.cn + 注入 boss 令牌，跑完删令牌）**59/59 全绿**；截图 `outputs/v496-psi-list-align/`。部署入口 `index-CGMfY6ko.js` / `index-4cR5pEMd.css`，8/8 双侧 md5 一致。
