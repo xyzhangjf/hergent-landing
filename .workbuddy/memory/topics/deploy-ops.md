@@ -2651,3 +2651,78 @@ v393 实测：拿 `HEAD:` 跑静态探针得到「新旧完全相同」（17 条
 
 ⇒ 🔴 **纪律**：交付 / 交接类文档，凡是**数字与路径**，写之前先跑一次只读探针
 （三层核对：声明有 / 代码真读写 / 生产真有 → 技能 `hergent-capability-reality-audit`）。
+
+---
+
+## 🔴 v450（2026-10-12）：附件上传在生产**从未能工作** —— `/opt/static/uploads` 不存在且不可写
+
+**症状**：任意附件上传端点（v408 `POST /api/psi/purchase-orders/{oid}/attachments`、
+v450 `POST /api/psi/purchase-return-orders/{oid}/attachments`、通用 `/api/attachments`）返回 **500**，traceback：
+
+```
+File "/opt/hergent-erp/erp_db.py", line 4037, in attachment_create
+    os.makedirs(upload_dir, exist_ok=True)
+PermissionError: [Errno 13] Permission denied: '/opt/hergent-erp/static/uploads'
+```
+
+**根因**：
+- `erp_db.attachment_create` 落盘目录硬编码 `os.path.join(os.path.dirname(__file__), "static", "uploads")`
+  ⇒ 生产 = `/opt/hergent-erp/static/uploads`。
+- `/opt/hergent-erp/static` 是**符号链接** → `../static` = `/opt/static`
+  （旧 ERPNext 静态目录，属主 `UNKNOWN:root`(uid 501)，**755 ⇒ hergent 不可写**）。
+- `/opt/static/uploads` **不存在**，`makedirs` 要在不可写的父目录下建子目录 ⇒ PermissionError。
+
+**为什么一直没暴露**：`attachments` 表**生产 0 行**（没人真传过）—— 端点看着存在、代码看着完整，
+一用就炸（「恒空 = 静默失效」典型；`attachment_get_one` 的 docstring 也自证过同族现象）。
+
+**修法（2026-10-12 已实施，外科式 / 可逆）**：
+```bash
+mkdir -p /opt/static/uploads && chown hergent:hergent /opt/static/uploads && chmod 755 /opt/static/uploads
+```
+- `exist_ok=True` 使其幂等；下载侧 `_po_attach_abs` 的 realpath 前缀校验（root = `/opt/static`）与新目录一致
+  ⇒ 上传 / 下载 / 删除全链通。
+- **无公开暴露**：`hergent.cn`（`/etc/nginx/sites-enabled/hergent`）**不挂** `/static/` location；
+  只有已退役的 `erp.hergent.cn` 有 `/static/ → /opt/static/`。且库里 `file_path` 存的是 `/uploads/{fname}`，
+  nginx 也无 `/uploads` location。
+
+**验收**：v450 沙箱 E2E **11/11 PASS**（建退货单 → 列表空 → 上传 → 同名拒 → 列表带上传人姓名
+→ 下载字节一致 → 跨单据命名空间隔离 → 不存在 404 → 删除 → 归零）。脚本：`server/tools/v450-return-attach-e2e.py`。
+
+**给后来者**：附件上传「500 且 traceback 落在 `attachment_create` 的 `os.makedirs`」
+⇒ 先查 `/opt/static/uploads` 是否存在 / 可写，**不要**去改代码。
+
+---
+
+## §v493 部署前必做：**「入口 chunk 哈希不同」≠ 回退**（本轮差点误判）
+
+**症状**：生产 `index.html` 引的是 `index-CQHI5AV2.js`，本地新构建产出 `index-DpbCmpfK.js`
+⇒ 入口名不同。看着像「本地是旧版 / 会回退线上」。
+
+**为什么最容易骗人**：两份 index **大小完全相同**（166481 B），只有 1096 处字节差
+⇒ **等长替换**。任何「看大小/看行数」的判据在这里都失效，会直接给出错误结论。
+
+**正确定性三步（缺一不可）**：
+
+1. **归一化差集**：把两侧 index 里引用的 chunk 名按 `-[A-Za-z0-9_-]{8}\.(js|css)$` → `-X.$1` 归一化后比集合。
+   本轮结果：两侧各 **152** 个，**仅生产有 = 0 / 仅本地有 = 0**。
+   若出现「仅生产有」项 ⇒ **是真回退，停手**。
+2. **归一化文本相似度**：`difflib.SequenceMatcher` 比归一化后的全文，
+   本轮 **ratio = 1.000000、差异块 = 0、差异字符 = 0** ⇒ 差异 100% 是命名级联。
+3. **根因确认**：本轮改了**共享模块** `src/api/modules.js`（被几乎全部页面 import）
+   ⇒ 全站 chunk 名级联改写 ⇒ index 里的预载/`mapDeps` 清单**等长替换**（8 位 hash 换 8 位 hash）。
+   **凡动 `modules.js` / `store` / `Icon` 一类高扇出模块，入口哈希必变，属预期。**
+
+**夹带审计同样用归一化**：`Shell-*` 生产 195158 == 本地 195158、归一化相似度 **1.000000**、
+emoji 集合两侧完全相同（11 个，含并行会话那份未提交的 🌁）⇒ 未提交改动**两侧同在**，
+既无夹带也无回退（**这就是「工作树构建」在本题里反而是对的原因**）。
+
+**部署动作**：
+- 先备份唯一会被覆盖的文件：`cp -a /opt/hergent-cn-v2/index.html …/index.html.bak-<ts>`；
+- `rsync -rlt --exclude='.DS_Store' <绝对路径>/dist-vNNN/ root@…:/opt/hergent-cn-v2/`，
+  **绝不用 `--delete`**（生产 `assets/` 是历次并集）；
+- 验收：把本地产物清单生成 `md5  relpath` 传上去跑 `md5sum -c`（本轮 **159/159、0 失败**）
+  + 生产 `index.html` md5 双侧比对 + 关键 chunk `HTTP 200`。
+
+**生产真机探针的假绿陷阱**：探针 goto 生产时必须带 **`?__r=<ts>` 缓存破坏**。
+CDN / 浏览器可能命中**上一次部署的** `index.html` ⇒ 探针实际验的是旧产物，全绿但验错了版本。
+

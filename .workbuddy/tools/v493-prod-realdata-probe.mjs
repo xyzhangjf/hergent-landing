@@ -22,11 +22,14 @@ import { launch } from './lib/cdp-lite.mjs'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '../..')
 const DIST = path.join(ROOT, 'hergent-cn-v2/dist-v493')
-const OUT = path.join(ROOT, 'outputs/v493-dashboard')
+/* V493_BASE 存在 ⇒ 跑「生产真机」（部署后验收）；否则跑本地 dist-v493 + /api 透传。
+   两种模式的产物分目录放，避免部署后验收把部署前的截图覆盖掉。 */
+const PROD = (process.env.V493_BASE || '').replace(/\/$/, '')
+const OUT = path.join(ROOT, PROD ? 'outputs/v493-dashboard-prod' : 'outputs/v493-dashboard')
 
 const TOKEN = process.env.V493_TOKEN
 if (!TOKEN) { console.log('🔴 缺 V493_TOKEN'); process.exit(2) }
-if (!fs.existsSync(path.join(DIST, 'index.html'))) { console.log('🔴 dist-v493 不存在，先构建'); process.exit(2) }
+if (!PROD && !fs.existsSync(path.join(DIST, 'index.html'))) { console.log('🔴 dist-v493 不存在，先构建'); process.exit(2) }
 
 const MIME = {
   '.html': 'text/html;charset=utf-8', '.js': 'text/javascript;charset=utf-8',
@@ -93,14 +96,16 @@ function ck(name, ok, extra) { R.push({ name, ok: !!ok, extra: extra === undefin
 
 const main = async () => {
   fs.mkdirSync(OUT, { recursive: true })
-  const { srv, port } = await serve(DIST)
-  const base = 'http://127.0.0.1:' + port
+  const { srv, port } = PROD ? { srv: null, port: 0 } : await serve(DIST)
+  const base = PROD || ('http://127.0.0.1:' + port)
   const browser = await launch({})
   const page = await browser.newPage()
   await page.enable()
   await page.addInitScript(INIT)
 
-  await page.goto(base + '/#/dashboard', 5000)
+  /* 生产模式加 `?__r=` 缓存破坏：CDN / 浏览器可能缓存旧 index.html，
+     而旧 index.html 指向的是**上一次部署的入口 chunk** ⇒ 会拿旧产物验收（假绿）。 */
+  await page.goto(base + (PROD ? '/?__r=' + Date.now() + '#/dashboard' : '/#/dashboard'), 5000)
   const okReady = await until(page, `document.querySelectorAll('.ch-fig,.ch-hb,.ch-donut').length >= 3`)
   ck('页面图表容器出现', okReady)
   // 等「客户销额排行」这张新卡的条画出来
@@ -198,7 +203,7 @@ const main = async () => {
   console.log('毛利三图空态 =', JSON.stringify(snap.profitStates.map((s) => s.state.slice(0, 30))))
 
   await browser.close()
-  srv.close()
+  if (srv) srv.close()
   process.exit(pass === R.length ? 0 : 1)
 }
 main().catch((e) => { console.error('探针崩溃：', e); process.exit(3) })
