@@ -694,11 +694,15 @@ const NAV = [
 
   /* ⑥b 数据报表 › —— v465（2026-10-11）：按舟谱「数据报表」弹窗的**七列结构**复刻
      （业财 / 往来 / 资金 / 市场 / 考勤外部 / 经营分析 / 通用报表）。
-     条目落点：除「实时概览」（→ `/dashboard` 经营趋势，现成的企业级看板）外，
-     全部是占位页（`/reports/*`，见 `pages.js::PLACEHOLDER_PAGES`）。
+     条目落点：全部是占位页（`/reports/*`，见 `pages.js::PLACEHOLDER_PAGES`）。
+     🔴 v497（2026-10-14）：「通用报表 › 实时概览」**已删除** —— 它指向 `/dashboard`，
+        与 ⑥ 经营分析区的「经营趋势」**是同一个页面** ⇒ 侧栏出现两个入口进同一界面、
+        还两个名字（老板实测发现）。这是 v465 的权宜复用（当时「实时概览」没有独立
+        页面，拿现成看板顶上），不是设计意图。删掉它不影响任何功能：该区其余条目
+        本就是占位页（开发中、boss 硬锁），等「实时概览」真有独立页面时再挂回来。
      🔴 v472（2026-10-12）：可见性由 `BIZ_ROLES` **收成 boss 硬锁**（开发期只给老板）⇒
-        补 `path` 锚点 `/reports/sales-order`（否则区内的 `/dashboard`「实时概览」与
-        `/funds/*` 那两条会让整区对别人露出）。
+        补 `path` 锚点 `/reports/sales-order`（否则区内的 `/funds/*` 那两条
+        会让整区对别人露出）。
      ⚠️ 「客户对账单」（→ `/funds/customer-statement`）与「资金余额表」（→ `/funds/balance`）
         **复用资金管理区的占位页**：舟谱两区本就重复挂这两张表，同一 path 两处入口合法
         （标签栏按 URL 去重），占位页也只登记一份。
@@ -751,7 +755,6 @@ const NAV = [
         { path: '/reports/customer-rank',            name: '客户销额排名', icon: 'sort' }
       ] },
       { label: '通用报表', items: [
-        { path: '/dashboard',        name: '实时概览',   icon: 'activity' },
         { path: '/reports/personal', name: '个性化报表', icon: 'edit' }
       ] }
     ]
