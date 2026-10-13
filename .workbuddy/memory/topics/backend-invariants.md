@@ -816,3 +816,17 @@ PY
      必须写 `<= 1`（0 = 全 NULL，1 = 全同值），**ASC 与 DESC 相同在这两种情况下都是预期**。
   🔴 顺带一条业务事实：生产 `sale_orders` 22505 行里 `status` **全部是 `signed`**
   ⇒ 按「状态」排序**看不出任何变化**是数据事实，不是排序没生效。
+
+- 🔴🔴 **P0 待修（v494 补价后实测发现，生产页面已因此显示过假毛利）**：`get_profit_report`
+  （`server/erp_db.py:3520`）两处缺陷，**补价前被 purchase_price 全 0 掩盖、补价后立刻现形**：
+  ① **退货负数量被当成销量** —— `sale_order_items.quantity < 0` 是销售退货行，
+     `profit = sold×sale_price − sold×purchase_price` 里 sold 为负 ⇒ 售价没录时
+     `profit = 负数量×(0−进价)` = **正数**：退货被算成毛利（实测妙奇奶酪棒草莓
+     qty=-19、进价 7.19 ⇒ 假毛利 +¥136.61，品牌环图把它画成 100% 占比）。
+  ② **status 过滤空转** —— `LEFT JOIN sale_orders so ON soi.order_id=so.id AND so.status IN('delivered','signed')`
+     里 `so.*` 一列都没 select ⇒ 过滤形同虚设，draft/cancelled 单的销量也进 sold_qty。
+     **修法**：sold_qty 改子查询 `LEFT JOIN (SELECT soi.product_id, SUM(soi.quantity) q FROM sale_order_items soi JOIN sale_orders so ON soi.order_id=so.id WHERE so.status IN('delivered','signed') GROUP BY soi.product_id) s ON s.product_id=p.id`。
+  止血（v494 已部署前端）：Dashboard 三张毛利图绑 `:empty="pbPriceMissing"`
+  （`profit-breakdown` 收入=0 ⇒ 任何非零毛利都是假象，一律不画）。
+  🔴 **教训**：「数据缺陷被恒 0 掩盖」与「恒 0 本身就是缺陷」是两回事 ——
+  补数的**同一轮**必须重跑依赖该数的下游判据/图表，否则旧缺陷换一身皮继续骗人。
