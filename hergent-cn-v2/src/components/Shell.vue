@@ -616,8 +616,16 @@ const NAV = [
         `/rebate?tab=rules`，与 ④ 目标与返利区的「目标配置」**是同一 path + 同一 tab**
         ⇒ 侧栏两个入口进同一个界面（老板实测发现，与 v497 删的「实时概览」同一类）。
         这是 v465 的权宜复用（当时没有独立页面，拿现成的返利规则页顶上），非设计意图。
-        ⚠️ 同列还有一个「供应商返利试算」（`/mkt/supplier-rebate-calc`，占位页），
-        名字相近但**不是同一个东西**，别一起删。
+     🔴 v499（2026-10-14）：同列「供应商返利试算」（`/mkt/supplier-rebate-calc`，占位页）
+        **也已删除** —— 老板拍板：返利试算这类东西归「目标与返利」模块管（该区已有
+        「返利结算」`/rebate?tab=contracts`），市场营销区不必再挂一条同名的占位入口。
+        ⚠️ v498 时曾标注"名字相近但不是同一个东西、别一起删"—— 那条判断针对的是
+        **误删风险**（两条都叫"供应商返利…"），不是"必须保留"；老板确认后本轮删掉。
+     🔴 **`pages.js::PLACEHOLDER_PAGES` 里那条登记要保留**：本表**不生成路由**，只往
+        `PAGE_RULES` 合并门禁（`BOSS_ROLES + lock: true`）；而 `ruleFor()` 对**未登记
+        path 一律放行**（文件头 §四）⇒ 删登记等于把这条从"老板硬锁"**放宽成所有人
+        可深链进入**。入口撤、门禁留，才是正确组合（与 v497/v498 同处理）。
+        等它落真身时按 v465 的四步走：移出占位表 → 在 `PAGE_RULES` 写正式行 → 挂回入口。
      🔴 v472（2026-10-12）：可见性由 `BIZ_ROLES` **收成 boss 硬锁**（开发期只给老板）⇒
         补 `path` 锚点 `/mkt/display`（v498 删掉区内那条 `/rebate?tab=rules` 后，
         区内已全是 `/mkt/*`；锚点保留 —— 它是本区的默认落点，去掉会改变进区行为）。
@@ -639,8 +647,8 @@ const NAV = [
         { path: '/mkt/order-template',     name: '订货模板',       icon: 'template' },
         { path: '/mkt/rebate-template',    name: '返利模板',       icon: 'template' },
         { path: '/mkt/fee-contract',       name: '费用合同',       icon: 'book' },
-        { path: '/mkt/prepay-contract',    name: '先付协议',       icon: 'receipt' },
-        { path: '/mkt/supplier-rebate-calc', name: '供应商返利试算', icon: 'edit' }
+        { path: '/mkt/prepay-contract',    name: '先付协议',       icon: 'receipt' }
+        /* v499 已删：「供应商返利试算」/mkt/supplier-rebate-calc（见本区注释） */
       ] },
       { label: '物料管理', items: [
         { path: '/mkt/material',          name: '物料档案',   icon: 'package' },
