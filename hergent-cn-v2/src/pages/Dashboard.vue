@@ -386,20 +386,28 @@ const custNote = computed(() => {
   if (!cust.value || !cust.value.length) return ''
   const soldTotal = cust.value.filter((c) => Number(c.revenue) > 0).length
   return `按已送达 / 已签收订单的销售额排名（共 ${soldTotal} 个客户有销额）。` +
-    '这里只排销额：商品档案的进货价多数还没录，毛利暂时算不出来（现在算出来的「毛利」会等于销售额，不能当毛利用）。'
+    '这里只排销额：商品档案的「标准售价」还没录，按目录价算收入的几张毛利图仍然是空的；' +
+    '而且进货价还没覆盖全部有销量的商品，现在算客户利润会把没补上的商品成本当 0、利润虚高。' +
+    '等售价也补上、进货价覆盖全了，再把利润排行加回来。'
 })
 
 /* ---------- 毛利三图的「跨源一致性」提示 ----------
    🔴 为什么需要这一段：`/reports/profit-breakdown` 的收入是
-      `Σ(商品销量 × products.sale_price)`、成本是 `Σ(商品销量 × purchase_price)`，
-      两个价都没录时它**只能返回全 0**。于是「品牌毛利结构 / 商品毛利排行 / 品类毛利对比」
-      三张图在生产上是空的 —— 但**空的原因有两种，含义完全相反**：
+      `Σ(商品销量 × products.sale_price)`、成本是 `Σ(商品销量 × purchase_price)`。
+      「品牌毛利结构 / 商品毛利排行 / 品类毛利对比」三张图空的原因有两种，含义完全相反：
         ① 这段时间真没卖货          ⇒ 「还没有数据」是对的；
-        ② 卖了货，只是没录售价/进货价 ⇒ 说「还没有数据」就是**假话**，
+        ② 卖了货，只是价没录齐      ⇒ 说「还没有数据」就是**假话**，
            老板会以为系统坏了，甚至以为毛利真的是 0。
       判据用**本页已有的真实销售额**（来自 `dashboard.py` 的订单金额）：卖过货却算出 0
-      ⇒ 只可能是②。这是跨源对账，不是复算 —— 前端不重算任何金额。 */
-const pbZero = computed(() => {
+      ⇒ 只可能是②。这是跨源对账，不是复算 —— 前端不重算任何金额。
+   🔴 2026-10-13 晚「以舟谱档案为准补价」后出现**第二种②**（v493）：
+      进货价（purchase_price）已给 190/232 个有销量商品补上，但「标准售价」
+      （sale_price）还没录 ⇒ 收入=0、成本=¥779.9 万、毛利=-¥779.9 万。
+      此时 brandItems / productItems 滤掉负值后全空，若文案还说「进货价没录」
+      是假话；更危险的是那个 -779.9 万会被读成「生意亏大了」。
+      ⇒ 判据收紧为**只看收入是否为 0**（成本补没补都适用），文案再按
+        「成本也缺 / 只缺售价」分两档讲真话。 */
+const pbBothZero = computed(() => {
   const p = profit.value
   return !!p && Number(p.total_revenue) === 0 && Number(p.total_cost) === 0
 })
@@ -407,13 +415,21 @@ const pbZero = computed(() => {
  *  实测（2026-10-13）`/api/dashboard/today-profit` 的近 7 天是**整排 0**
  *  （那一周真没单）⇒ 拿它当判据，判据本身就是 0，什么也证不了。
  *  而「客户销额排行」的 `revenue` 是**全期已送达订单金额求和**，与 profit-breakdown
- *  同为全期口径、可直接对照：它非零而 profit-breakdown 全零 ⇒ 只可能是价没录。 */
+ *  同为全期口径、可直接对照：它非零而 profit-breakdown 收入为 0 ⇒ 只可能是价没录。 */
 const anyCustomerSales = computed(() => (cust.value || []).some((c) => Number(c.revenue) > 0))
-const pbPriceMissing = computed(() => pbZero.value && anyCustomerSales.value)
-const pbEmptyText = computed(() =>
-  pbPriceMissing.value
-    ? '毛利暂时算不出来：商品档案里的售价 / 进货价还没录全（本页下方「客户销额排行」是真实订单金额，说明确实卖过货）。把商品档案的售价与进货价补齐后，这几张图会自动有数。'
-    : '这段时间还没有数据')
+const pbPriceMissing = computed(() => {
+  const p = profit.value
+  return !!p && Number(p.total_revenue) === 0 && anyCustomerSales.value
+})
+/** 进货价也还没录（收入成本双 0）—— 用于文案分档。 */
+const pbCostMissing = computed(() => pbPriceMissing.value && pbBothZero.value)
+const pbEmptyText = computed(() => {
+  if (!pbPriceMissing.value) return '这段时间还没有数据'
+  if (pbCostMissing.value) {
+    return '毛利暂时算不出来：商品档案里的售价 / 进货价还没录全（本页下方「客户销额排行」是真实订单金额，说明确实卖过货）。把商品档案的售价与进货价补齐后，这几张图会自动有数。'
+  }
+  return '进货价已经补上了，但商品档案里的「标准售价」还没录 —— 所以收入算出来是 0、合计毛利那一栏显示成负数。这个负数不是真亏，先别拿它当决策依据。去「商品档案」把标准售价补上，这几张图就会正常。'
+})
 
 /* ---------- 生命周期 ---------- */
 onMounted(() => {
