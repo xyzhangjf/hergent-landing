@@ -817,7 +817,7 @@ PY
   🔴 顺带一条业务事实：生产 `sale_orders` 22505 行里 `status` **全部是 `signed`**
   ⇒ 按「状态」排序**看不出任何变化**是数据事实，不是排序没生效。
 
-- 🔴🔴 **P0 待修（v494 补价后实测发现，生产页面已因此显示过假毛利）**：`get_profit_report`
+- 🔴🔴 **P0 已于 v497 修复（后端仓 845c998，已部署+重启 hergent-erp）**：`get_profit_report`
   （`server/erp_db.py:3520`）两处缺陷，**补价前被 purchase_price 全 0 掩盖、补价后立刻现形**：
   ① **退货负数量被当成销量** —— `sale_order_items.quantity < 0` 是销售退货行，
      `profit = sold×sale_price − sold×purchase_price` 里 sold 为负 ⇒ 售价没录时
