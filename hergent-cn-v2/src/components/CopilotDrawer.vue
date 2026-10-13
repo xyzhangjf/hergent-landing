@@ -170,6 +170,27 @@
                   </span>
                   <svg class="cp-art-file-dl" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </a>
+                <!-- v492：用户**上传**给副驾的附件 —— 留在沟通面板（气泡）里，可下载回看。
+                     🔴 它**不**再登记进侧栏产物区（产物区语义 = 副驾的交付物；用户上传物属**输入**）。
+                     挪到气泡而非直接删，是为了**不静默丢失下载能力**（原下载入口只在侧栏那张卡上）。
+                     端点走 chat-attachment/download（按 file_id、需鉴权），故同样 click→downloadAuthed。 -->
+                <a
+                  v-for="(uf, ufi) in (m.files || [])"
+                  :key="'uf' + ufi"
+                  class="cp-art-file msg-file"
+                  :href="`/api/chat-attachment/download/${uf.file_id}`"
+                  :download="uf.file_name"
+                  @click.prevent="downloadAuthed(`/api/chat-attachment/download/${uf.file_id}`, uf.file_name)"
+                >
+                  <span class="cp-art-file-ic">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                  </span>
+                  <span class="cp-art-file-tx">
+                    <span class="cp-art-file-name">{{ uf.file_name }}</span>
+                    <span class="cp-art-file-meta">{{ uf.rows ? uf.rows + ' 行 · ' : '' }}我上传的 · 点击下载</span>
+                  </span>
+                  <svg class="cp-art-file-dl" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
               </div>
               <!-- 溯源：参考来源 -->
               <button v-if="m.role === 'assistant' && m.content" class="src-tag" @click="toggleSources(i)">
@@ -691,7 +712,7 @@
             </div>
             <div
               v-for="a in artifacts"
-              :key="a.file ? ('f' + a.file.file_id) : (a.produced ? ('p' + a.produced.path) : ('c' + a.index))"
+              :key="a.produced ? ('p' + a.produced.path) : ('c' + a.index)"
               class="cp-art-item"
               @click="jumpTo(a.index)"
             >
@@ -699,30 +720,10 @@
                 <span v-if="a.created_at">{{ fmtArtTime(a.created_at) }}</span><span v-if="a.source"> · 来自「{{ a.source }}」</span>
               </div>
               <ResultCard v-if="a.card" :card="a.card" :compact="true" @action="onCardAction" />
-              <!-- v306：同样不能裸 href —— 该端点同样要 Authorization（匿名实测 401），
-                   点击一律走 downloadAuthed() 带鉴权头取 blob。 -->
-              <template v-else-if="a.file">
-                <!-- v483 P0-①：图片/视频/HTML 内联预览，文件类仍保留下载入口 -->
-                <div v-if="isPreviewable(a.file)" class="cp-art-prev">
-                  <img v-if="isImage(a.file)" class="cp-art-img" :src="previewSrc(a.file) || undefined" :alt="a.file.file_name" @click.stop="zoomArtifact(a.file)" />
-                  <video v-else-if="isVideo(a.file)" class="cp-art-video" :src="previewSrc(a.file) || undefined" controls preload="metadata" @click.stop></video>
-                  <iframe v-else-if="isHtml(a.file)" class="cp-art-frame" sandbox="allow-scripts" :src="previewSrc(a.file) || undefined" @click.stop></iframe>
-                  <a class="cp-art-dl-row" :href="`/api/chat-attachment/download/${a.file.file_id}`" :download="a.file.file_name" @click.stop.prevent="downloadAuthed(`/api/chat-attachment/download/${a.file.file_id}`, a.file.file_name)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    <span>下载原文件</span>
-                  </a>
-                </div>
-                <a v-else class="cp-art-file" :href="`/api/chat-attachment/download/${a.file.file_id}`" :download="a.file.file_name" @click.stop.prevent="downloadAuthed(`/api/chat-attachment/download/${a.file.file_id}`, a.file.file_name)">
-                  <span class="cp-art-file-ic">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
-                  </span>
-                  <span class="cp-art-file-tx">
-                    <span class="cp-art-file-name">{{ a.file.file_name }}</span>
-                    <span class="cp-art-file-meta">{{ a.file.rows ? a.file.rows + ' 行 · ' : '' }}点击下载</span>
-                  </span>
-                  <svg class="cp-art-file-dl" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </a>
-              </template>
+              <!-- 🔴 v492：用户**上传**的附件（a.file）不再进产物区 —— 已从 artifacts 集合移除，
+                   此处原先渲染「用户上传附件」的预览/下载卡。用户上传物属**输入**、不是副驾产物，
+                   只在对话流（气泡 content 的「【附件：…】」）里出现。
+                   保留此注释，避免后人误把用户附件重新登记回产物集合。 -->
               <!-- v489：副驾**产出文件**（MEDIA: 标记）的产物项 —— 与上面「用户上传附件」并列展示，
                    但取数走 `/api/ai/media`（按路径、需鉴权）而非 chat-attachment（按 file_id）。
                    对齐 WorkBuddy 结果区：图片/视频/HTML 先内联预览，其余给下载入口。 -->
@@ -1076,11 +1077,10 @@ async function downloadAuthed(url, name) {
   }
 }
 
-/* ---- v483 P0-①：生成物实时预览（图片/视频/HTML 内联看，不再只给下载链接） ----
-   预览 URL 走 fetchAuthedBlob() 取 blob 再 createObjectURL；URL 缓存在 previewStore，
-   drawer 卸载时统一 revoke（revokeObjectURL 不能同步在 click 后执行，见上方注释）。 */
-const previewStore = reactive({})
-const previewLoading = new Set()
+/* ---- 鉴权取 blob：预览 / 下载统一入口（带 Authorization + X-Tenant-Id） ----
+   v492：原先此处还有「用户上传附件」专用的一套预览缓存（previewStore / previewLoading /
+   previewSrc / loadPreview / zoomArtifact）；随用户附件退出产物区一并移除。
+   现在只由副驾**产出文件**的 producedPreviewSrc（下方）使用本函数。 */
 const zoomSrc = ref('')
 async function fetchAuthedBlob(url) {
   try {
@@ -1107,34 +1107,10 @@ function isImage(f) { return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp']
 function isVideo(f) { return ['mp4', 'webm', 'ogg', 'mov'].includes(fileExt(f)) }
 function isHtml(f) { return ['html', 'htm'].includes(fileExt(f)) }
 function isPreviewable(f) { return isImage(f) || isVideo(f) || isHtml(f) }
-// 触发加载（幂等，previewLoading 防重入）并在就绪后返回 objectURL；空 src 用 undefined 占位避免空请求
-function previewSrc(f) {
-  const id = f && f.file_id
-  if (!id) return ''
-  if (previewStore[id]) return previewStore[id]
-  if (!previewLoading.has(id)) { previewLoading.add(id); loadPreview(f) }
-  return ''
-}
-async function loadPreview(f) {
-  const id = f && f.file_id
-  if (!id) return
-  try {
-    const blob = await fetchAuthedBlob(`/api/chat-attachment/download/${id}`)
-    if (blob) previewStore[id] = URL.createObjectURL(blob)
-  } catch (e) {
-    console.warn('[copilot] preview load failed', e && e.message)
-  } finally {
-    previewLoading.delete(id)
-  }
-}
-function zoomArtifact(f) {
-  const u = previewSrc(f)
-  if (u) zoomSrc.value = u
-}
+/* v492：previewSrc / loadPreview / zoomArtifact（用户上传附件的预览）已随用户附件退出产物区移除。 */
 /* ---- v489：副驾**产出文件**（Hermes `MEDIA:<路径>` 标记）的预览 URL ----
-   与上传附件的 previewStore **分开维护**：取数端点不同 ——
-   上传附件按 `file_id` 走 `/api/chat-attachment/download/:id`，
-   产出文件按**路径**走 `/api/ai/media?path=`（两者都需 Authorization，故同样 fetch→blob→objectURL）。 */
+   取数端点：产出文件按**路径**走 `/api/ai/media?path=`（需 Authorization，故 fetch→blob→objectURL）。
+   v492：用户上传附件已退出产物区，其预览缓存（previewStore）与 previewSrc 一并移除。 */
 const producedPreview = reactive({})     // path -> objectURL
 const producedPreviewLoading = new Set()
 function producedPreviewSrc(path) {
@@ -2697,9 +2673,11 @@ const artifacts = computed(() => {
     }
     const base = { created_at: m.created_at || null, source }
     if (m.card) list.push({ ...base, index: i, card: m.card })
-    if (m.files && m.files.length) {
-      for (const f of m.files) if (f && f.file_id) list.push({ ...base, index: i, file: f })
-    }
+    /* 🔴 v492：用户**上传**给副驾的文件（`m.files`）**不再**登记进产物集合。
+       产物区语义 = 「副驾产出的报告 / 图表 / 文件」；用户发来的材料是**输入**、不是产物，
+       放进产物区会让人误以为「这是 AI 生成的东西」（老板原话：这不应该是副驾的产物）。
+       它们**只**留在对话流里 —— `send()` 已把「【附件：…】」拼进用户消息 content，气泡可见。
+       与 WorkBuddy 语义一致：结果区只放 Agent 的交付物，用户上传物留在会话流。 */
     /* v489：副驾**产出文件**（Hermes `MEDIA:<路径>` 标记）也必须登记进产物集合。
        🔴 原先它只被当正文装饰 —— `mediaFiles(m)` 只在气泡里渲染一张下载卡，
           侧栏产物区永远看不到它 ⇒ 表现为「产物只出现在回复区，落不到侧栏产物区」。
@@ -2816,7 +2794,7 @@ async function send() {
   // 拼装消息：附件解析文本 + 用户问题
   let content = q
   let tableFiles = []   // 上传的 Excel/CSV 附件（含 file_id），供 Hermes 跨文件/单文件全量表计算引用
-  let files = []        // P1-④ 产物栏文件卡片：附件原文件（file_id 可下载回看）
+  let files = []        // v492：附件原文件（file_id），挂在用户消息上供「重新生成」回传 Hermes；**不再**进侧栏产物区
   let visionBlocks = [] // H2：图片视觉块（base64 直传 Hermes 视觉模型）
   if (attachments.value.length) {
     tableFiles = attachments.value.filter(a => a.file_id && /\.(xlsx|csv)$/i.test(a.file_name))
@@ -3161,8 +3139,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocPointerDown, true)
   resetStopConfirm()   // v309：别把确认态的定时器留在身后
   stopRead()           // v456：副驾关闭/卸载时别把朗读留在后台继续念
-  // v483：卸载时统一回收预览 blob URL，避免内存泄漏
-  Object.values(previewStore).forEach(u => { try { URL.revokeObjectURL(u) } catch (e) {} })
+  // v492：卸载时回收**产出文件**预览 blob URL，避免内存泄漏（用户附件预览已随其退出产物区一并移除）
   Object.values(producedPreview).forEach(u => { try { URL.revokeObjectURL(u) } catch (e) {} })   // v489：产出文件预览同样回收
 })
 
@@ -3172,7 +3149,11 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 
 <style scoped>
 .copilot{
-  position:fixed;top:0;right:0;bottom:0;width:min(880px,94vw);
+  /* v492：880 → 1120。原宽在「产物栏打开」时把聊天区压到约 489px，
+     输入框工具条（左＝＋/团队/权限/朗读声音，右＝语音/截图/发送）被迫换行 ——
+     语音·截图·发送掉到第二行。加宽后聊天区约 690px，工具条保持单行。
+     全屏态（.fullscreen width:100vw）与窄屏媒体查询（max-width:760px → 100vw）均不受影响。 */
+  position:fixed;top:0;right:0;bottom:0;width:min(1120px,94vw);
   display:flex;flex-direction:column;
   background:var(--bg);border-left:1px solid var(--bd);
   box-shadow:-12px 0 40px rgba(0,0,0,.12);
