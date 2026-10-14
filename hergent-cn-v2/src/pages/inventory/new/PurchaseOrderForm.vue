@@ -225,8 +225,9 @@
               <th class="num ipn-c-amt" :style="wStyle('amt')">订单金额<ColResizeHandle col="amt" :start="startResize" :reset="resetColW" /></th>
               <!-- v408（P1-1）库存两列：口径 = **本页所选「入库仓库」**（不是全部仓的合计）。
                    数量来自 `/api/psi/stock/by-product`，按商品聚合（不是批次级）。 -->
-              <th v-if="isVisible('stk')" class="num ipn-c-stk" :style="wStyle('stk')" title="可销售的库存（已过期批次须报损，不计入）">可用库存<ColResizeHandle col="stk" :start="startResize" :reset="resetColW" /></th>
+              <th v-if="isVisible('stk')" class="num ipn-c-stk" :style="wStyle('stk')" title="可用可售 = 可销售库存 − 已订未发占用（已过期批次须报损，不计入）">可用可售<ColResizeHandle col="stk" :start="startResize" :reset="resetColW" /></th>
               <th v-if="isVisible('stk2')" class="num ipn-c-stk" :style="wStyle('stk2')" title="该仓全部批次的数量合计（含已过期）">实际库存<ColResizeHandle col="stk2" :start="startResize" :reset="resetColW" /></th>
+              <th v-if="isVisible('stk3')" class="num ipn-c-stk" :style="wStyle('stk3')" title="已确认未发货的销售单对该商品的占用（已订未发，占着可售库存）">占用<ColResizeHandle col="stk3" :start="startResize" :reset="resetColW" /></th>
               <!-- v417i：批次三列（批次号 / 到期日 / 生产日期）合并成一列「批次信息」，
                    点开小面板填写 —— 15 列 ⇒ 13 列，横向滚动彻底消失。
                    三者都是**低频选填**字段（v417 已把批次号、到期日改为选填）：
@@ -308,10 +309,13 @@
               <!-- v417g：空行不再铺「先选商品」占位（对齐舟谱空行干净）——
                    选商品前的引导只在单位格留一处，库存两列空着。 -->
               <td v-if="isVisible('stk')" class="num ipn-c-stk">
-                <span v-if="row.product_id" :class="{ danger: isAllExpired(row) }" :title="stockTitle(row)">{{ stockText(row, 'saleable_quantity') }}</span>
+                <span v-if="row.product_id" :class="{ danger: isOversold(row) }" :title="stockTitle(row)">{{ stockText(row, 'available_quantity') }}</span>
               </td>
               <td v-if="isVisible('stk2')" class="num ipn-c-stk">
                 <span v-if="row.product_id" :title="stockTitle(row)">{{ stockText(row, 'quantity') }}</span>
+              </td>
+              <td v-if="isVisible('stk3')" class="num ipn-c-stk">
+                <span v-if="row.product_id" :class="{ danger: isOversold(row) }" :title="stockTitle(row)">{{ stockText(row, 'occupied_quantity') }}</span>
               </td>
               <!-- v417i：批次三字段收进这一格的小面板。格内**常显摘要**（有批次号显示批次号、
                    有到期日显示「到期 xxxx-xx-xx」），一眼能看出这行有没有填批次，不用点开才知道。 -->
@@ -535,8 +539,9 @@ const DETAIL_COLS = [
   { key: 'price', label: '采购价',   core: true },
   { key: 'qty',   label: '订单数量', core: true },
   { key: 'amt',   label: '订单金额', core: true },
-  { key: 'stk',   label: '可用库存', core: false },
+  { key: 'stk',   label: '可用可售', core: false },
   { key: 'stk2',  label: '实际库存', core: false },
+  { key: 'stk3',  label: '占用',     core: false },
   { key: 'batch', label: '批次信息', core: false },
   { key: 'note',  label: '行备注',   core: false },
   { key: 'op',    label: '操作',     core: true },
@@ -713,15 +718,23 @@ function isAllExpired (row) {
   return !!r && Number(r.quantity) > 0 && Number(r.saleable_quantity) <= 0
 }
 
+/** P0-5 占用锁定：可用可售为负 = 已确认订单量超过可销售库存（超卖预警）。 */
+function isOversold (row) {
+  if (stockState.value !== 'ok') return false
+  const r = stockMap.value[Number(row.product_id)]
+  return !!r && Number(r.available_quantity) < 0
+}
+
 function stockTitle (row) {
   if (stockState.value !== 'ok') return '库存没读到（接口失败），不代表是 0'
   const r = stockMap.value[Number(row.product_id)]
   const w = stockWarehouseLabel.value
   if (!r) return `${w}：没有这个商品的库存`
-  const parts = [`${w}：实际 ${fmtQty(r.quantity)}、可用 ${fmtQty(r.saleable_quantity)}`]
+  const parts = [`${w}：实际 ${fmtQty(r.quantity)}、可销售 ${fmtQty(r.saleable_quantity)}、已订未发占用 ${fmtQty(r.occupied_quantity)}、可用可售 ${fmtQty(r.available_quantity)}`]
   if (Number(r.expired_quantity) > 0) parts.push(`其中 ${fmtQty(r.expired_quantity)} 已过期（须报损）`)
   if (Number(r.no_expiry_quantity) > 0) parts.push(`${fmtQty(r.no_expiry_quantity)} 没有到期日`)
   if (Number(r.batch_rows) > 0) parts.push(`${r.batch_rows} 个批次`)
+  if (Number(r.available_quantity) < 0) parts.push('⚠️ 已超卖：可用可售为负，已确认订单量超过可销售库存')
   return parts.join('；')
 }
 
