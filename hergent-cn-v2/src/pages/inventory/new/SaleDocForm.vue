@@ -452,6 +452,31 @@ async function submit (act = 'save') {
       }
       return
     }
+    // P0-5 软校验：开单时预判"本单确认后会否超卖"，弹二次确认（软警告，不硬拦截；硬闸门在 deliver）。
+    // 口径与硬闸门一致：可用可售已扣其它 confirmed 占用，本单即将 confirm ⇒ 减去本单数量即"确认后可用"。
+    if (stockState.value !== 'ok') await loadStock()
+    const _oversellWarn = []
+    if (stockState.value === 'ok') {
+      const _qtyByPid = {}
+      for (const ln of lines) {
+        const _pid = Number(ln.product_id)
+        if (_pid > 0) _qtyByPid[_pid] = (_qtyByPid[_pid] || 0) + Number(ln.quantity || 0)
+      }
+      for (const _pid of Object.keys(_qtyByPid)) {
+        const _r = stockMap.value[Number(_pid)]
+        if (!_r) continue
+        const _after = Number(_r.available_quantity) - _qtyByPid[_pid]
+        if (_after < 0) {
+          const _p = products.value.find(x => Number(x.id) === Number(_pid))
+          const _name = (_p && (_p.name || _p.product_name)) || ('商品#' + _pid)
+          _oversellWarn.push(`${_name}：本单确认后将超卖 ${fmtQty(-_after)}（当前可用可售 ${fmtQty(_r.available_quantity)}，本单占 ${fmtQty(_qtyByPid[_pid])}）`)
+        }
+      }
+    }
+    if (_oversellWarn.length) {
+      const _ok = window.confirm('⚠️ 超卖预警（开单前提醒，仍可保存）\n\n' + _oversellWarn.join('\n') + '\n\n确认仍要保存这张销售单？')
+      if (!_ok) return
+    }
     const body = {
       customer_id: form.value.customer_id,
       warehouse_id: form.value.warehouse_id,
