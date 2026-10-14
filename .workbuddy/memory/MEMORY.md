@@ -15,6 +15,7 @@
 - **副驾/AI** → `topics/ai-copilot.md`（`ai_tools`=只读 SQL、数量类先 GROUP BY）｜**通知没到人** → `topics/notification-center.md`（四层：跑没跑→内容→`enabled_channels(tid)`→出站；`event_key` 现算改名即静音 `§v351`）｜**IM** → `topics/im-channels-v131.md`｜**业绩提成** → `topics/sales-reports-and-operator-attribution.md`｜**对账** → `topics/reconciliation-redo.md`。
 - **新用户/价格/换算/客户档案** → `topics/onboarding-and-archive-gate.md`：🔴 价格真身 `customer_prices`（中/大=小×换算比）；🔴 换算权威 `products.large_ratio/medium_ratio`（判据 `large_ratio>0`）；🔴 客户档案列表必传 `type=customer`。
 - 🔴 **跨域铁律** → `topics/cross-domain-iron-laws.md`｜🔴 **多会话并行总控** → `topics/parallel-dev-protocol.md`（按缝切分+门口串行；含文件 ownership 总控表、起号/提交/部署纪律、红牌停手信号）。
+- 🔴 **协作规范与交付流程（单一可信源）** → `docs/Hergent-开发团队协作规范与交付流程.md`：角色 RACI / 极简指令协议 / 版本号 `vNNN` 全局序列 / one-Edit-at-a-time+scoped 提交 / 部署三件套落点（后端 `hergent-erp` + 主站 `hergent-cn-v2` + 后台 `hergent-admin`）/ 多租户红线 / 质量关双向断言 / 记忆沉淀 / 五段交付摘要。凡"怎么协作、怎么改、怎么上生产"先读这份；不在本文件的细节下沉 `topics/`。派生两份：`docs/Hergent-发布前自查清单-Checklist.md`（规范最小可勾选版，缺五段摘要=不验收硬卡点）｜`docs/Hergent-代码评审与安全债治理.md`（给技术合伙人的安全专项：S1–S5 安全债【S1–S3 已于 2026-10-14 实核为已闭环，待 erp 后端仓库独立复核】/ 11 共享接口红线 / 多租户评审 / 评审准入清单）。自动闸门 `.workbuddy/tools/pre-delivery-gate.py` 可执行化本清单（A1/B1/B2/C1/C2/B3）。
 
 ## 待修（已登记，未动）→ 详情 `topics/inventory-psi.md` §待修
 🔴 采购退货候选粗筛含不可退｜销售退货列表恒空（**前端筛错表**，后端已修好）｜`?copy=<不存在单号>` 被静默吞（404 仍显示空表单）｜**调拨无列表页**｜`col-prefs?page=<key>` 返回 400。
