@@ -120,10 +120,7 @@ const SALE_CFG = {
     whLabel: '退货仓库',
     priceLabel: '退货价',
     tblTitle: '退货明细',
-    /* 🔴 v500：与采购退货单同一个理由 —— 底部改成了**双下拉**
-       （「保存 ▾ ｜ 保存并审核 ▾」，对齐舟谱），主按钮要短到能与 caret 拼成
-       一个复合控件；「保存并审核」是那颗品牌色主按钮，这里只管左边 ghost 那颗。 */
-    saveLabel: '保存',
+    saveLabel: '保存退货单',
     isReturn: true,
     hasDriver: false,
     hasDept: true,
@@ -155,8 +152,7 @@ const SALE_CFG = {
     whLabel: '退货仓库',
     priceLabel: '退货价',
     tblTitle: '退货明细',
-    /* v500：同上（双下拉主按钮要短），注释在 `SELF_PICKUP_RETURN` 那一份里。 */
-    saveLabel: '保存',
+    saveLabel: '保存退货单',
     isReturn: true,
     hasDriver: true,
     hasDept: true,
