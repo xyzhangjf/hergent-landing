@@ -41,8 +41,12 @@
                  @keyup.enter="loadPoOptions" />
           <select v-model.number="fromPo" class="input ipn-sel" @change="onPickPo">
             <option :value="0" disabled>请选择原采购单</option>
-            <option v-for="o in poOptions" :key="o.id" :value="o.id">
-              {{ o.order_no }} · {{ o.supplier_name || '—' }} · {{ poStatusText(o.status) }}
+            <!-- 🔴 P0-2：已整单退完（status='returned'）的采购单无可退量，直接在下拉禁用，
+                 避免用户选了再被预览页拦下（那道软拦截仍在，这里是提前显式阻断）。
+                 注意：部分退货（status='partial'）但各行也已退完的情况，靠 loadPreview 的
+                 canReturn 软拦截兜底 —— 此处的禁用只覆盖"整单已退完"这种确定态。 -->
+            <option v-for="o in poOptions" :key="o.id" :value="o.id" :disabled="o.status === 'returned'">
+              {{ o.order_no }} · {{ o.supplier_name || '—' }} · {{ poStatusText(o.status) }}<template v-if="o.status === 'returned'">（已退完，不可选）</template>
             </option>
           </select>
         </div>

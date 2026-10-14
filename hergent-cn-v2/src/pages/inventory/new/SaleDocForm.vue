@@ -124,6 +124,9 @@
               <th class="isn-c-unit" v-if="isVisible('unit')" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-price" :style="wStyle('price')"><span class="isn-req">*</span>{{ cfg.priceLabel }}<ColResizeHandle col="price" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-amt" v-if="isVisible('amt')" :style="wStyle('amt')">金额<ColResizeHandle col="amt" :start="startResize" :reset="resetColW" /></th>
+              <th class="num isn-c-stk" v-if="isVisible('stk')" :style="wStyle('stk')" title="可用可售 = 可销售库存 − 已订未发占用（已过期批次须报损，不计入）">可用可售<ColResizeHandle col="stk" :start="startResize" :reset="resetColW" /></th>
+              <th class="num isn-c-stk" v-if="isVisible('stk2')" :style="wStyle('stk2')" title="该仓全部批次的数量合计（含已过期）">实际库存<ColResizeHandle col="stk2" :start="startResize" :reset="resetColW" /></th>
+              <th class="num isn-c-stk" v-if="isVisible('stk3')" :style="wStyle('stk3')" title="已确认未发货的销售单对该商品的占用（已订未发，占着可售库存）">占用<ColResizeHandle col="stk3" :start="startResize" :reset="resetColW" /></th>
               <th class="isn-c-op">操作</th>
             </tr>
           </thead>
@@ -146,6 +149,15 @@
                 <input v-model="row.unit_price" class="input isn-in num" inputmode="decimal" placeholder="0.00" />
               </td>
               <td class="num isn-amt" v-if="isVisible('amt')">¥{{ fmtMoney(rowAmount(row)) }}</td>
+              <td v-if="isVisible('stk')" class="num isn-c-stk">
+                <span v-if="row.product_id" :class="{ danger: isOversold(row) }" :title="stockTitle(row)">{{ stockText(row, 'available_quantity') }}</span>
+              </td>
+              <td v-if="isVisible('stk2')" class="num isn-c-stk">
+                <span v-if="row.product_id" :title="stockTitle(row)">{{ stockText(row, 'quantity') }}</span>
+              </td>
+              <td v-if="isVisible('stk3')" class="num isn-c-stk">
+                <span v-if="row.product_id" :class="{ danger: isOversold(row) }" :title="stockTitle(row)">{{ stockText(row, 'occupied_quantity') }}</span>
+              </td>
               <td class="isn-c-op">
                 <button class="btn-row-ic" title="在这一行下面插一行" @click="insertAfter(i)"><Icon name="plus" :size="14" /></button>
                 <button class="btn-row-ic danger" title="删除这一行" @click="removeRow(i)"><Icon name="trash" :size="14" /></button>
@@ -258,6 +270,9 @@ const DOC_COLS = [
   { key: 'unit', label: '单位', core: false },
   { key: 'price', label: '单价', core: true },
   { key: 'amt', label: '金额', core: false },
+  { key: 'stk', label: '可用可售', core: false },
+  { key: 'stk2', label: '实际库存', core: false },
+  { key: 'stk3', label: '占用', core: false },
 ]
 const { isVisible, toggleCol, resetCols } = useColSettings('inv-sale-new', DOC_COLS)
 const panel = ref(null)
@@ -288,6 +303,75 @@ const form = ref({
    DOM 复用错位（输入框内容跟着串行）。 */
 let _uid = 0
 const items = ref([])
+
+/* ══ P0-5 占用锁定（销售开单侧）：展示"可用可售 = 可销售库存 − 已订未发占用"，
+   从源头防超卖。后端 psi_stock_by_product 已返回 occupied_quantity / available_quantity。
+   逻辑与采购开单页（PurchaseOrderForm.vue）同一份，不另起实现。 ══ */
+const stockMap = ref({})
+const stockState = ref('ok')
+const stockWarehouseLabel = computed(() => {
+  const w = warehouses.value.find(x => x.id === Number(form.value.warehouse_id))
+  return w ? w.name : '全部仓库'
+})
+/** 整数不带小数点（与销售报表口径一致），非整数保留 2 位。 */
+function fmtQty (v) {
+  const n = Number(v || 0)
+  if (!isFinite(n)) return '0'
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100)
+}
+function stockText (row, key) {
+  if (stockState.value !== 'ok') return '—'
+  const r = stockMap.value[Number(row.product_id)]
+  return fmtQty(r ? r[key] : 0)
+}
+/** 实际有货、但一件都不可售（全过期）—— 值得在界面上点出来，否则用户会以为"有货能卖"。 */
+function isAllExpired (row) {
+  if (stockState.value !== 'ok') return false
+  const r = stockMap.value[Number(row.product_id)]
+  return !!r && Number(r.quantity) > 0 && Number(r.saleable_quantity) <= 0
+}
+/** P0-5 占用锁定：可用可售为负 = 已确认订单量超过可销售库存（超卖预警）。 */
+function isOversold (row) {
+  if (stockState.value !== 'ok') return false
+  const r = stockMap.value[Number(row.product_id)]
+  return !!r && Number(r.available_quantity) < 0
+}
+function stockTitle (row) {
+  if (stockState.value !== 'ok') return '库存没读到（接口失败），不代表是 0'
+  const r = stockMap.value[Number(row.product_id)]
+  const w = stockWarehouseLabel.value
+  if (!r) return `${w}：没有这个商品的库存`
+  const parts = [`${w}：实际 ${fmtQty(r.quantity)}、可销售 ${fmtQty(r.saleable_quantity)}、已订未发占用 ${fmtQty(r.occupied_quantity)}、可用可售 ${fmtQty(r.available_quantity)}`]
+  if (Number(r.expired_quantity) > 0) parts.push(`其中 ${fmtQty(r.expired_quantity)} 已过期（须报损）`)
+  if (Number(r.no_expiry_quantity) > 0) parts.push(`${fmtQty(r.no_expiry_quantity)} 没有到期日`)
+  if (Number(r.batch_rows) > 0) parts.push(`${r.batch_rows} 个批次`)
+  if (Number(r.available_quantity) < 0) parts.push('⚠️ 已超卖：可用可售为负，已确认订单量超过可销售库存')
+  return parts.join('；')
+}
+let _stockSeq = 0
+async function loadStock () {
+  const ids = [...new Set(items.value.map(r => Number(r.product_id) || 0).filter(x => x > 0))]
+  if (!ids.length) { stockMap.value = {}; stockState.value = 'ok'; return }
+  const seq = ++_stockSeq
+  try {
+    const d = await psiApi.stockByProduct(ids, Number(form.value.warehouse_id) || 0)
+    if (seq !== _stockSeq) return
+    const m = {}
+    for (const r of (d.rows || [])) m[Number(r.product_id)] = r
+    stockMap.value = m
+    stockState.value = 'ok'
+  } catch (e) {
+    if (seq !== _stockSeq) return
+    stockMap.value = {}
+    stockState.value = 'err'
+    toast(e.message || '库存读取失败', 'error')
+  }
+}
+/* 🔴 用 watch 而不是在 `onPick` / `removeRow` / `insertAfter` 里各调一次：
+   那几处（将来还会更多）**漏一处就是静默显示旧库存**。watch 的输入就是"当前需要查哪些
+   商品 + 哪个仓"，任何一条路径改了它们都会自动重取，不存在漏点。 */
+const _stockKey = computed(() => items.value.map(r => Number(r.product_id) || 0).join(','))
+watch([_stockKey, () => form.value.warehouse_id], () => { loadStock() })
 
 function todayISO () {
   const d = new Date()
@@ -409,6 +493,9 @@ async function submit (act = 'save') {
         draft: true,
         items: lines,
       }
+      /* P0-4 (v504): 销售退单部门落库。return_orders.department 是 TEXT（存部门名），
+         与销售订单的 `sale_orders.department` 同口径；空串不传 ⇒ 后端「空则不写列」。 */
+      if (cfg.value.hasDept && form.value.department) body.department = form.value.department
       const r = await psiApi.createSaleReturn(body)
       idemKey = newIdemKey(cfg.value.idemSalt)
       reason.value = ''
@@ -437,6 +524,31 @@ async function submit (act = 'save') {
          建完单留在建单页会让用户以为没建成（采购退货页也是这个行为）。 */
       router.push({ path: cfg.value.listPath, query: cfg.value.listQuery || {} })
       return
+    }
+    // P0-5 软校验：开单时预判"本单确认后会否超卖"，弹二次确认（软警告，不硬拦截；硬闸门在 deliver）。
+    // 口径与硬闸门一致：可用可售已扣其它 confirmed 占用，本单即将 confirm ⇒ 减去本单数量即"确认后可用"。
+    if (stockState.value !== 'ok') await loadStock()
+    const _oversellWarn = []
+    if (stockState.value === 'ok') {
+      const _qtyByPid = {}
+      for (const ln of lines) {
+        const _pid = Number(ln.product_id)
+        if (_pid > 0) _qtyByPid[_pid] = (_qtyByPid[_pid] || 0) + Number(ln.quantity || 0)
+      }
+      for (const _pid of Object.keys(_qtyByPid)) {
+        const _r = stockMap.value[Number(_pid)]
+        if (!_r) continue
+        const _after = Number(_r.available_quantity) - _qtyByPid[_pid]
+        if (_after < 0) {
+          const _p = products.value.find(x => Number(x.id) === Number(_pid))
+          const _name = (_p && (_p.name || _p.product_name)) || ('商品#' + _pid)
+          _oversellWarn.push(`${_name}：本单确认后将超卖 ${fmtQty(-_after)}（当前可用可售 ${fmtQty(_r.available_quantity)}，本单占 ${fmtQty(_qtyByPid[_pid])}）`)
+        }
+      }
+    }
+    if (_oversellWarn.length) {
+      const _ok = window.confirm('⚠️ 超卖预警（开单前提醒，仍可保存）\n\n' + _oversellWarn.join('\n') + '\n\n确认仍要保存这张销售单？')
+      if (!_ok) return
     }
     const body = {
       customer_id: form.value.customer_id,
@@ -707,6 +819,7 @@ table.isn-tbl td.seq-cell { padding: 2px 4px }
 .isn-tbl { min-width: 720px }
 .isn-c-prod { min-width: 280px }
 .isn-c-qty, .isn-c-price, .isn-c-amt { width: 110px }
+.isn-c-stk .danger { color: var(--danger-txt) }
 .isn-c-unit { width: 76px }
 .isn-c-stk { width: 86px; font-variant-numeric: tabular-nums; white-space: nowrap }
 .isn-c-op { width: 64px }

@@ -52,6 +52,17 @@
         <input :value="form.order_date" class="input isn-date" readonly
                title="调拨单按保存当天记录，不能选别的日期" />
       </div>
+      <div class="isn-f">
+        <label class="isn-lb">部门</label>
+        <select v-model.number="form.department_id" class="input isn-sel">
+          <option :value="0">未选</option>
+          <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
+        </select>
+      </div>
+      <div class="isn-f">
+        <label class="isn-lb">搬运费（元）</label>
+        <input v-model.number="form.handling_fee" type="number" min="0" step="0.01" class="input isn-num" />
+      </div>
       <div class="isn-f isn-f-grow">
         <label class="isn-lb">备注</label>
         <input v-model.trim="form.note" maxlength="200" class="input isn-note-in" />
@@ -239,12 +250,14 @@ const { wStyle, startResize, resetColW } = useColResize('inv-transfer-new', DOC_
 const busy = ref(false)
 const warehouses = ref([])
 const products = ref([])
+const departments = ref([])
 /** 已建但未过账的调拨单 `{id, order_no}`；非空 ⇒ 底部动作切成「过账 / 再开一张」。 */
 const draft = ref(null)
 const done = ref(false)
 
 const form = ref({
   from_warehouse_id: 0, to_warehouse_id: 0, note: '', order_date: '',
+  handling_fee: 0, department_id: 0,
 })
 
 let _uid = 0
@@ -328,6 +341,8 @@ function buildBody () {
     from_warehouse_id: Number(form.value.from_warehouse_id),
     to_warehouse_id: Number(form.value.to_warehouse_id),
     note: form.value.note || '',
+    handling_fee: Number(form.value.handling_fee || 0),
+    department_id: Number(form.value.department_id || 0),
     /* ⚠️ `product_name` 一起带上：后端 `_parse_doc_items` 那一族用它拼错误提示
        （「「蒙牛纯甄」的调拨数量要大于 0」），不带就只能显示「商品 123」。
        `unit_price` **不传** —— 调拨是内部移库，我方明细表没有价格列。 */
@@ -393,6 +408,8 @@ function resetAll () {
     to_warehouse_id: form.value.to_warehouse_id || 0,
     note: '',
     order_date: todayISO(),
+    handling_fee: 0,
+    department_id: 0,
   }
   items.value = []
   for (let i = 0; i < PRESET_ROWS; i++) items.value.push(blankRow())
@@ -410,9 +427,10 @@ function back () {
 
 async function loadRefs () {
   try {
-    const d = await psiApi.refs('warehouses,products', '', 500)
+    const d = await psiApi.refs('warehouses,products,departments', '', 500)
     warehouses.value = d.warehouses || []
     products.value = d.products || []
+    departments.value = Array.isArray(d.departments) ? d.departments : []
     const defs = warehouses.value.filter(w => w.is_default)
     const pick = (defs.length ? defs : warehouses.value).slice().sort((a, b) => a.id - b.id)[0]
     if (pick) form.value.from_warehouse_id = pick.id

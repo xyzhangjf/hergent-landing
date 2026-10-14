@@ -77,14 +77,16 @@ export const psiApi = {
    *           两者语义**恰好一致**（不算 bug，但属于隐含耦合，改 `qs` 的空值规则时要一起看）。
    * @returns `{rows,warehouse_id,warehouse_name,requested,found,hint}`
    *   `rows[].{product_id, batch_rows, quantity, saleable_quantity, expired_quantity,
-   *            no_expiry_quantity}`
+   *            no_expiry_quantity, occupied_quantity, available_quantity}`
    *
-   * 🔴 三个口径，界面必须照着显示，否则会和舟谱对不上号：
-   *    · `quantity`          = **实际库存**（全部批次，含已过期）
-   *    · `saleable_quantity` = **可用库存**（只算可售批次，唯一源 = 后端 `SALEABLE_BATCH_COND`）
+   * 🔴 口径（界面必须照着显示，否则会和舟谱对不上号）：
+   *    · `quantity`           = **实际库存**（全部批次，含已过期）
+   *    · `saleable_quantity`  = **可销售库存**（只算可售批次，唯一源 = 后端 `SALEABLE_BATCH_COND`）
    *    · 差额 `expired_quantity` = 已过期、**须走报损**那部分
-   *    舟谱的「可用」还扣被订单占用；本系统**没有占用/锁定概念**（销售单在 `deliver`
-   *    时才扣库存）⇒ 我方「可用」= **可销售**。
+   *    · `occupied_quantity`  = **已订未发占用**（状态=`confirmed` 的销售单行合计，P0-5 新增）
+   *    · `available_quantity` = **可用可售** = `saleable_quantity − occupied_quantity`（可为负=超卖预警，P0-5 新增）
+   *    舟谱的「可用」= 可销售 − 订单占用；本系统现已实现占用（`deliver` 时才真正扣库存，
+   *    故占用只影响「可用可售」的计算与展示，不改 `draft` 不落账的既有契约）。
    *
    * 🔴 **"没查到" 与 "是 0" 是两件事**：`rows` 里**没有**某个 id ⇒ 查过了、该商品
    *    在该仓真的是 0；只有**请求失败**（抛异常）才该显示 `—`。用失败去显示 0 就是编数。
