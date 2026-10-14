@@ -284,6 +284,14 @@ export const PAGE_RULES = {
   '/wh/expiry-report': { title: '效期预警表',   module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   '/wh/vehicle-stock': { title: '车辆库存查询', module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   '/wh/stock-alert':   { title: '库存预警',     module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* —— v506（2026-10-14 数据报表 P1-3）：**毛利分析落真身**的正式登记行 ——
+     🔴 `module:'reports'` 与数据源一致：本页读 `GET /api/reports/profit-breakdown`，
+        该路径归 `reports`（同 Dashboard 三张毛利图的 `canModule('reports')` 判断）：
+        若这里写成 `module:null` 会退化成「只读占位」语义，写成别的域会造出
+        「入口可见、一开就 403」的局部假入口。
+     🔴 v472 纪律：四区（仓配 / 资金 / 报表 / 市场）开发期**一律 `BOSS_ROLES + lock`**，只给老板。
+     ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
+  '/reports/gross-profit': { title: '毛利分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   /* —— v465e（2026-10-11 仓配管理 P1）：「仓库作业」组六页**落真身**的正式登记行 ——
      🔴 `module:'stock'` 与后端域**逐项一致**：六页的数据源分别是
         `/api/inbound`、`/api/wh/outbound`、`/api/wh/stocktake`、`/api/wms/*`、

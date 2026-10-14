@@ -42,6 +42,10 @@ const Print = () => import('../pages/Print.vue')
 /* v465（2026-10-11）：四新区占位骨架 —— 99 页共用这一个组件，由下方 `PLACEHOLDER_PAGES`
    **数据驱动**批量挂载（可见性已逐页登记在 `pages.js::PAGE_RULES`，见那里 v465 段）。 */
 const Placeholder = () => import('../pages/Placeholder.vue')
+/* v506（2026-10-14 数据报表 P1-3）：**毛利分析落真身** —— 独立真组件，不再进 PLACEHOLDER_PAGES。
+   数据读 `GET /api/reports/profit-breakdown`（= db.get_profit_report），与首页三张毛利图同源；
+   三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）缺一不可。 */
+const ReportsGrossProfit = () => import('../pages/reports/GrossProfit.vue')
 /* v465c（2026-10-11 仓配管理 P0）：库存查询三页**落真身** —— 从 `PLACEHOLDER_PAGES`
    移出、改为独立组件（对齐「落真身四步」，见 docs/仓配模块开发规范.md）。 */
 const WhExpiryReport = () => import('../pages/wh/ExpiryReport.vue')
@@ -302,6 +306,10 @@ export const router = createRouter({
         { path: 'wh/expiry-report', component: WhExpiryReport, meta: { title: '效期预警表' } },
         { path: 'wh/vehicle-stock', component: WhVehicleStock, meta: { title: '车辆库存查询' } },
         { path: 'wh/stock-alert',   component: WhStockAlert,   meta: { title: '库存预警' } },
+
+        /* v506（2026-10-14）：毛利分析（数据报表 P1-3 首张核心报表）。本页**不在** PLACEHOLDER_PAGES，
+           故此条是它唯一的真实路由；`pages.js::PAGE_RULES` 另有正式登记行（两处都要写）。 */
+        { path: 'reports/gross-profit', component: ReportsGrossProfit, meta: { title: '毛利分析' } },
 
         /* v465e（2026-10-11 仓配管理 P1）：**仓库作业 6 页落真身**。
            🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——

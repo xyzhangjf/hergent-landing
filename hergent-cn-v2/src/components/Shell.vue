@@ -760,6 +760,9 @@ const NAV = [
         { path: '/reports/stock-upload', name: '库存上报分析', icon: 'bars' }
       ] },
       { label: '经营分析', items: [
+        /* v506（2026-10-14 数据报表 P1-3）：毛利分析**落真身**，排经营分析组首位
+           —— 本组其余六条仍是占位页；三处登记缺一不可（本侧栏 + pages.js + router）。 */
+        { path: '/reports/gross-profit',             name: '毛利分析',     icon: 'coins' },
         { path: '/reports/company-profit',           name: '企业经营利润', icon: 'coins' },
         { path: '/reports/customer-profit',          name: '客户利润概览', icon: 'bars' },
         { path: '/reports/customer-profit-analysis', name: '客户利润分析', icon: 'search' },
