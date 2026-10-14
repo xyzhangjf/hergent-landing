@@ -42,6 +42,14 @@ const Print = () => import('../pages/Print.vue')
 /* v465（2026-10-11）：四新区占位骨架 —— 99 页共用这一个组件，由下方 `PLACEHOLDER_PAGES`
    **数据驱动**批量挂载（可见性已逐页登记在 `pages.js::PAGE_RULES`，见那里 v465 段）。 */
 const Placeholder = () => import('../pages/Placeholder.vue')
+/* v507（2026-10-14 数据报表 P1-3 续）：均单分析 / 账龄汇总表 / 库存周转 三张落真身。
+   - 均单分析：`POST /api/bi/pivot`（BI 引擎现成指标，零后端改动）
+   - 账龄汇总表：`GET /api/reports/ar-aging`（= db.get_ar_aging，与坏账计提同源）
+     复用既有占位 path `reports/ageing`，**必须先从 PLACEHOLDER_PAGES 移除**，否则被占位页遮蔽。
+   - 库存周转：`GET /api/reports/inventory-turnover`（v507 新增端点） */
+const ReportsAvgOrder = () => import('../pages/reports/AvgOrder.vue')
+const ReportsArAging = () => import('../pages/reports/ArAging.vue')
+const ReportsInventoryTurnover = () => import('../pages/reports/InventoryTurnover.vue')
 /* v506（2026-10-14 数据报表 P1-3）：**毛利分析落真身** —— 独立真组件，不再进 PLACEHOLDER_PAGES。
    数据读 `GET /api/reports/profit-breakdown`（= db.get_profit_report），与首页三张毛利图同源；
    三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）缺一不可。 */
@@ -310,6 +318,11 @@ export const router = createRouter({
         /* v506（2026-10-14）：毛利分析（数据报表 P1-3 首张核心报表）。本页**不在** PLACEHOLDER_PAGES，
            故此条是它唯一的真实路由；`pages.js::PAGE_RULES` 另有正式登记行（两处都要写）。 */
         { path: 'reports/gross-profit', component: ReportsGrossProfit, meta: { title: '毛利分析' } },
+        /* v507：P1-3 剩余三张。均单分析 / 库存周转 为**新建** path；
+           账龄汇总表复用原占位 path `ageing`（已同步从 PLACEHOLDER_PAGES 移除，避免占位页遮蔽真页）。 */
+        { path: 'reports/avg-order', component: ReportsAvgOrder, meta: { title: '均单分析' } },
+        { path: 'reports/ageing', component: ReportsArAging, meta: { title: '账龄汇总表' } },
+        { path: 'reports/inventory-turnover', component: ReportsInventoryTurnover, meta: { title: '库存周转' } },
 
         /* v465e（2026-10-11 仓配管理 P1）：**仓库作业 6 页落真身**。
            🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——
