@@ -331,3 +331,34 @@ export function legacyPurchasePath (kind) {
     ? DOC_PATHS.purchaseReturn
     : DOC_PATHS.purchaseOrder
 }
+
+/* ---------------------------------------------------------------------------
+   列表页「顶部导航标签名」解析（v499 补）—— 进销存 3 个列表页共用单一路由路径，
+   子类型靠 query(kind/type) 区分，而全局标签栏 `tabTitle()` 默认只认 route.meta.title
+   （笼统名）。本函数把「路径 + query」翻译成正确的单据名，**取值一律来自上方 *_CFG
+   的 `shortTitle`**（docTypes 是唯一来源，不在此手抄中文）。
+   返回 null = 不是这三个列表页 ⇒ 调用方回落到原逻辑（建单页/其它页不受影响）。
+   --------------------------------------------------------------------------- */
+export function shortTitleForList (path, query) {
+  const q = query || {}
+  if (path === '/inventory/purchase') {
+    return q.kind === 'return'
+      ? PURCHASE_CFG[PURCHASE_DOC_TYPES.PURCHASE_RETURN].shortTitle
+      : PURCHASE_CFG[PURCHASE_DOC_TYPES.PURCHASE_ORDER].shortTitle
+  }
+  if (path === '/inventory/sale') {
+    const t = String(q.type || 'self_pickup').trim()
+    const k = String(q.kind || 'order').trim()
+    const map = {
+      'self_pickup|order':   SALE_CFG[SALE_DOC_TYPES.SELF_PICKUP_ORDER].shortTitle,
+      'self_pickup|return':  SALE_CFG[SALE_DOC_TYPES.SELF_PICKUP_RETURN].shortTitle,
+      'vehicle_sale|order':  SALE_CFG[SALE_DOC_TYPES.VEHICLE_SALE_ORDER].shortTitle,
+      'vehicle_sale|return': SALE_CFG[SALE_DOC_TYPES.VEHICLE_SALE_RETURN].shortTitle,
+    }
+    return map[`${t}|${k}`] || SALE_CFG[SALE_DOC_TYPES.SELF_PICKUP_ORDER].shortTitle
+  }
+  if (path === '/inventory/transfer') {
+    return TRANSFER_CFG[TRANSFER_DOC_TYPES.TRANSFER_ORDER].shortTitle
+  }
+  return null
+}

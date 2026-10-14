@@ -82,6 +82,7 @@ export function tabKey(path, query) {
    这里**只做一次回落**，绝不把回落逻辑散到调用点（那会变成第二份实现）。 */
 import { SUB_TITLES, DEFAULT_SUB_KEY } from '../constants/tabTitles'
 import { PAGE_RULES, pageTitle } from '../constants/pages'
+import { shortTitleForList } from '../pages/inventory/new/docTypes.js'
 
 export function tabTitle(path, query, metaTitle) {
   const t = String((query && query.tab) || '')
@@ -93,6 +94,11 @@ export function tabTitle(path, query, metaTitle) {
     const d = map._default
     if (d && map[d]) return map[d]
   }
+  /* 🔴 进销存列表页共用单一路由路径、子类型靠 query 区分 ⇒ 标签名必须按 query 解析
+     （否则「采购退货单」标签显示成「采购单」）。取值来自 docTypes.js 唯一来源。
+     建单页是独立路由（shortTitleForList 返回 null），不受影响。 */
+  const nav = shortTitleForList(path, query)
+  if (nav) return nav
   /* 🔴 必须用 `PAGE_RULES[path]` **精确**命中，不能直接 `pageTitle(path)`：
      `pageTitle` 走 `ruleFor`（**逐级去尾**），对 `/inventory/purchase` 会继承到
      `/inventory` 的「进销存」—— 于是「采购单 / 销售单 / 库存查询」三个标签**同名**，
