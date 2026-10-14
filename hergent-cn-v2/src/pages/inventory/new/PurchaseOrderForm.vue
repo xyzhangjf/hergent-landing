@@ -1,5 +1,17 @@
 <template>
   <div class="inv-page">
+    <!-- 🔴 P0-7：复制原单失败（单号不存在 / 接口异常）时展示明确错误态，不让用户误以为已带出源单 -->
+    <div v-if="copyLoadError" class="ipn-copy-err">
+      <div class="ipn-copy-err-ico">!</div>
+      <div class="ipn-copy-err-body">
+        <div class="ipn-copy-err-t">复制原单失败</div>
+        <div class="ipn-copy-err-m">{{ copyLoadError }}</div>
+        <div class="ipn-copy-err-acts">
+          <button class="btn btn-sm" :disabled="saving" @click="router.replace('/inventory/purchase')">返回采购列表重新选单</button>
+          <span class="ipn-copy-err-hint">或在下方手动新建一张采购单</span>
+        </div>
+      </div>
+    </div>
     <div class="page-hd split">
       <div class="ipn-hd-t">
         <h2>{{ pageTitle }}</h2>
@@ -567,6 +579,9 @@ const copyId = computed(() => Number((route.query && route.query.copy) || 0) || 
 /* P1-4：编辑一张已存采购单。`?edit=oid` 来自详情页的「编辑」按钮；只有状态 ∈ 可编辑三态
    （draft / pending_approval / cancelled）才允许编辑，其余状态在 `loadEdit` 里拦下并退回详情页。 */
 const editId = computed(() => Number((route.query && route.query.edit) || 0) || 0)
+/* 🔴 P0-7：复制原单失败时（单号不存在 / 读取异常）的错误态。置位后展示明确错误提示、
+   不渲染可提交的空表单、阻断提交 —— 避免用户以为"复制成功"却填出一张与源单无关的空白单。 */
+const copyLoadError = ref('')
 
 const pageTitle = computed(() => editId.value ? cfg.value.editTitle
   : (copyId.value ? cfg.value.copyTitle : cfg.value.title))
@@ -1012,6 +1027,7 @@ function pkBlur (row) { row._popen = false; cellOff() }
       这批货在库里被并进上次那个批次（批次号相同 ⇒ `batch_in` 累加），库存与效期都错。
       所以这里清空并要求重填，并显式告知用户（不静默）。 */
 async function loadCopy (oid) {
+  copyLoadError.value = ''
   try {
     const d = await psiApi.getPurchase(oid)
     const o = d.order || {}
@@ -1042,8 +1058,10 @@ async function loadCopy (oid) {
        显式说出来，免得用户以为复制漏了东西。 */
     toast('已按原单带出商品与价格；批次号、到期日和自定义字段要按这一单重新登记', 'info')
   } catch (e) {
-    toast(e.message || '原单读取失败', 'error')
-    addRow()
+    /* 🔴 P0-7：复制失败（单号不存在 / 接口异常）⇒ 置错误态、不 addRow、不给可提交的空表单。
+       用户看到明确报错即可决定「返回列表重新选单」或「直接手填新单」。 */
+    copyLoadError.value = e.message || '原单读取失败（单号可能不存在）'
+    toast(copyLoadError.value, 'error')
   }
 }
 
@@ -1696,6 +1714,23 @@ watch([copyId], () => { reinit() })
   padding: 2px 4px 2px 10px; background: var(--bg); border: 1px solid var(--bd);
   border-radius: 999px; font-size: 12px; color: var(--t1);
 }
+
+/* 🔴 P0-7：复制原单失败时的明确错误态横幅 */
+.ipn-copy-err {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin-bottom: 14px; padding: 12px 16px;
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg));
+  border: 1px solid var(--danger); border-radius: var(--radius-md);
+}
+.ipn-copy-err-ico {
+  flex: 0 0 auto; width: 22px; height: 22px; line-height: 22px; text-align: center;
+  font-weight: 700; color: #fff; background: var(--danger); border-radius: 50%;
+}
+.ipn-copy-err-body { display: flex; flex-direction: column; gap: 4px }
+.ipn-copy-err-t { font-weight: 600; color: var(--danger) }
+.ipn-copy-err-m { font-size: 13px; color: var(--t1) }
+.ipn-copy-err-acts { display: flex; align-items: center; gap: 12px; margin-top: 4px }
+.ipn-copy-err-hint { font-size: 12px; color: var(--t3) }
 .ipn-at-nm { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .ipn-at-sz { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
 .ipn-at-x {
