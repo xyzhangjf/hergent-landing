@@ -441,6 +441,9 @@ async function submit (act = 'save') {
         idempotency_key: idemKey,
         items: lines,
       }
+      /* P0-4 (v504): 销售退单部门落库。return_orders.department 是 TEXT（存部门名），
+         与销售订单的 `sale_orders.department` 同口径；空串不传 ⇒ 后端「空则不写列」。 */
+      if (cfg.value.hasDept && form.value.department) body.department = form.value.department
       const r = await psiApi.createSaleReturn(body)
       idemKey = newIdemKey(cfg.value.idemSalt)
       reason.value = ''
