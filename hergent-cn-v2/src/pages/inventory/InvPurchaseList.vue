@@ -82,7 +82,12 @@
         </div>
       </div>
 
-      <div v-if="more" class="ipl-frow ipl-frow-sub">
+      <!-- v500：这一整块「更多选项」里的 8 个筛选项**全是采购单的**（来源 / 打印状态 /
+           商品 / 部门 / 经办人 / 审核人 / 标记 / 创建人）—— 退货端点一个都不认，
+           摆着就是「选了没反应」（FastAPI 静默忽略未声明参数 ⇒ **零报错**的假控件）。
+           退货视图直接不给这一块；它用得上的「仓库」筛选由后端 v500 补上了参数，
+           但那一项在下面单独出现。 -->
+      <div v-if="more && !isReturn" class="ipl-frow ipl-frow-sub">
         <div class="ipl-f">
           <label class="ipl-lb">入库仓库</label>
           <select v-model.number="f.warehouse_id" class="input ipl-sel" @change="load()">
@@ -160,6 +165,22 @@
           <input type="checkbox" v-model="f.only_marked" @change="load()" />只看已标记
         </label>
       </div>
+
+      <!-- v500：退货视图**自己**的「更多选项」。
+           🔴 为什么单开一行而不是往上面那块里塞：上面那块整块是 `v-if="more && !isReturn"`
+              （8 项全是采购单专属），塞进去的话 `isReturn` 与块条件互斥 ⇒ 永远不渲染。
+           ⚠️ 只放**后端真的认**的项：`supplier_id` / `warehouse_id` / `date_*` / `keyword`
+              （后端 v500 补了前两个）。不放「退货原因」独立框 —— 关键字已覆盖
+              「供应商 / 原因 / 单号」，再造一个框就是又一个静默无效的控件。 -->
+      <div v-if="more && isReturn" class="ipl-frow ipl-frow-sub">
+        <div class="ipl-f">
+          <label class="ipl-lb">退货仓库</label>
+          <select v-model.number="f.warehouse_id" class="input ipl-sel" @change="load()">
+            <option :value="0">全部仓库</option>
+            <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <!-- 状态页签（v498 起用**共享件** StatusTabs —— 销售 / 调拨两页同一个组件、同一套样式；
@@ -187,10 +208,14 @@
         <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doExport">
           <Icon name="download" :size="14" />导出
         </button>
-        <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doPrint()">
+        <!-- v500：打印（记数走采购单批量端点）与「批量操作」**都是采购单的** ——
+             它们批量提交的是 `purchase_orders` 的 id。退货行的 id 是另一套编号空间，
+             沿用会在**别的单据**上执行这些动作（静默错账）⇒ 退货视图不给。
+             导出保留：它是纯前端按当前行导出，不涉及后端 id 空间。 -->
+        <button v-if="!isReturn" class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doPrint()">
           <Icon name="print" :size="14" />打印
         </button>
-        <div class="ipl-mw">
+        <div v-if="!isReturn" class="ipl-mw">
           <button class="btn btn-ghost btn-sm" :class="{ on: batchOpen }"
                   :disabled="!canWrite" @click.stop="toggleBatch">
             批量操作<span class="ipl-caret" :class="{ up: batchOpen }"></span>
@@ -302,14 +327,20 @@
                              'psi-frz': c.key === FIXED_FROZEN || isFrz2(c),
                              'psi-frz-3': c.key === FIXED_FROZEN, 'psi-frz-4': isFrz2(c) }]">
                 <template v-if="c.key === 'order_no'">
-                  <a class="ipl-link strong" @click.prevent="go('/inventory/purchase/' + r.id)"
+                  <!-- 🔴 v500：**只有采购单**给详情链接。退货行是 `purchase_returns` 的行，
+                       它的 id 与 `purchase_orders.id` 是**两套编号空间** —— 沿用旧链接会
+                       跳到「另一张不相干的采购单详情页」（#3 可能是任意一张单，零报错）。
+                       退货单目前没有详情页 ⇒ 只显示编号文本（不发明假链接）。 -->
+                  <template v-if="isReturn">{{ r.order_no || ('#' + r.id) }}</template>
+                  <a v-else class="ipl-link strong" @click.prevent="go('/inventory/purchase/' + r.id)"
                      :href="'#/inventory/purchase/' + r.id">{{ r.order_no || ('#' + r.id) }}</a>
                   <span v-if="r.mark" class="ipl-mark" :title="'标记：' + r.mark">
                     <Icon name="target" :size="12" />
                   </span>
                 </template>
                 <template v-else-if="c.key === 'status'">
-                  <span class="tag" :class="tagOf(PO_STATUS, r.status)">{{ textOf(PO_STATUS, r.status) }}</span>
+                  <!-- v500：状态文案/配色随视图（退货单的 confirmed = 已过账，见 PR_STATUS） -->
+                  <span class="tag" :class="tagOf(STATUS_MAP, r.status)">{{ textOf(STATUS_MAP, r.status) }}</span>
                 </template>
                 <template v-else-if="c.key === 'source'">
                   <span v-if="r.source" class="tag" :class="tagOf(PO_SOURCE, r.source)">{{ textOf(PO_SOURCE, r.source) }}</span>
@@ -339,11 +370,18 @@
               <td class="ipl-c-op">
                 <div class="ipl-op">
                   <button v-if="!isReturn && canWrite && isEditable(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="goEdit(r)">编辑</button>
+                  <!-- v500：退货视图的「审核」= 过账草稿（端点与采购单的批量审核**不是一套**） -->
+                  <button v-if="canWrite && canApproveReturn(r)" class="ipl-op-btn"
+                          :disabled="approvingId === r.id" @click.stop="approveDraft(r)">
+                    {{ approvingId === r.id ? '审核中' : '审核' }}
+                  </button>
                   <button v-if="canWrite && canApprove(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="rowOp('approve', r)">审核</button>
                   <button v-if="canWrite && canUnapprove(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="rowOp('unapprove', r)">反审核</button>
                   <button v-if="canWrite && canCancel(r)" class="ipl-op-btn danger" :disabled="busyOp" @click.stop="rowOp('cancel', r)">取消</button>
-                  <button class="ipl-op-btn" :disabled="printing" @click.stop="rowPrint(r)">打印</button>
-                  <button class="ipl-op-btn" :disabled="!canWrite" @click.stop="rowCopy(r)">复制</button>
+                  <!-- v500：打印计数 / 复制依赖**采购单**端点与编号空间 ⇒ 退货视图不给
+                       （给了就是"点了没反应"或"复制出一个空表单"的假入口）。 -->
+                  <button v-if="!isReturn" class="ipl-op-btn" :disabled="printing" @click.stop="rowPrint(r)">打印</button>
+                  <button v-if="!isReturn" class="ipl-op-btn" :disabled="!canWrite" @click.stop="rowCopy(r)">复制</button>
                 </div>
               </td>
             </tr>
@@ -357,7 +395,9 @@
                   :class="[{ num: c.num, 'ipl-ft-num': MONEY_COLS.includes(c.key),
                              'psi-frz': c.key === FIXED_FROZEN || isFrz2(c),
                              'psi-frz-3': c.key === FIXED_FROZEN, 'psi-frz-4': isFrz2(c) }]">
-                <template v-if="c.key === 'total_amount'">¥{{ fmtMoney(summary.order_amount) }}</template>
+                <!-- v500：退货视图的「退货金额」合计读 `summary.return_amount`
+                     （PO 那份键名是 `order_amount`；两个视图各自的后端字段，不混用）。 -->
+                <template v-if="c.key === 'total_amount'">¥{{ fmtMoney(isReturn ? summary.return_amount : summary.order_amount) }}</template>
                 <template v-else-if="c.key === 'received_amount'">¥{{ fmtMoney(summary.received_amount) }}</template>
                 <template v-else-if="c.key === 'paid_amount'">¥{{ fmtMoney(summary.paid_amount) }}</template>
                 <template v-else-if="c.key === 'unpaid'">¥{{ fmtMoney(summary.unpaid_amount) }}</template>
@@ -645,7 +685,50 @@ const PO_COLS = [
   { key: 'last_print_at',     label: '最后打印时间', w: 108 },
   { key: 'last_print_name',   label: '最后打印人',   w: 96 },
 ]
-const COL_STORAGE_KEY = 'hergent_purchase_cols_v1'
+/* ══════════════════════════════════════════════════════════════════════════
+   v500：采购退货单视图的**独立列集**
+   ──────────────────────────────────────────────────────────────────────────
+   🔴 为什么退货视图不能复用 `PO_COLS`：v500 起它查的是**真退货表** `purchase_returns`
+      （此前查 `purchase_orders.status='returned'` —— 那个 `returned` **全系统无人写**
+      ⇒ 该入口一直是空的）。两张表的字段集合**根本不同**：
+        · 退货单没有「订单数量 / 入库金额 / 已结款 / 未结款 / 预计到货 / 打印数 / 来源」；
+        · 退货单有「退货原因 / 关联采购单 / 退货仓库」这些采购单没有的东西。
+      硬套 `PO_COLS` 的结果就是满屏 `—` 与 `¥0.00` —— 本仓铁律：**「没有」≠「是零」**，
+      显示 ¥0.00 是**编数**，比留空更糟（老板会拿它去对账）。
+   🔴 两套列共用**同一套机制**（列设置 / 冻结 / 拖序 / 导出 / 自定义字段面板），
+      只是"列的清单"随视图切换 ⇒ 不新造第二套实现，避免两处漂移。
+   ⚠️ 自定义字段（`usePurchaseCustomFields`）的作用域是**采购单**，退货视图**不带**它们：
+      那些值住在 `purchase_orders.extra_json`，退货行上没有 `extra` ⇒ 恒为 `—`（假象）。
+   ══════════════════════════════════════════════════════════════════════════ */
+/* v500：采购退货单的状态档（真退货表 `purchase_returns` 只有这两档）。
+   🔴 为什么**不**复用 `PO_STATUS`：同一个 `confirmed` 在两张表里是两件事 ——
+      采购单的「已确认」= 还没入库；退货单的「已过账」= 库存已扣、应付已冲。
+      共用一个文案表 ⇒ 老板会把"货已经退回去了"读成"刚下单"（静默的业务误读）。 */
+const PR_STATUS = { draft: '草稿', confirmed: '已过账' }
+/** 当前视图的状态文案表（模板与 `colText` 共用，不写两份）。 */
+const STATUS_MAP = computed(() => (isReturn.value ? PR_STATUS : PO_STATUS))
+const PR_COLS = [
+  { key: 'order_no',     label: '退货单号',   w: 140, on: true },
+  { key: 'supplier',     label: '供应商',     w: 150, on: true, clip: true },
+  { key: 'warehouse',    label: '退货仓库',   w: 100, on: true },
+  { key: 'total_amount', label: '退货金额',   w: 104, on: true, num: true },
+  { key: 'status',       label: '状态',       w: 88,  on: true },
+  { key: 'order_date',   label: '单据日期',   w: 108, on: true },
+  // `src_order_no` = 关联采购单号（挂在某张采购单上的退货才有；独立退货单为空 ⇒ 显示 —）。
+  { key: 'src_order_no', label: '关联采购单', w: 140, on: true },
+  { key: 'reason',       label: '退货原因',   w: 150, on: true, clip: true },
+  { key: 'department',   label: '部门',       w: 88 },
+  { key: 'audit_time',   label: '审核时间',   w: 108, on: true },
+  { key: 'note',         label: '备注',       w: 150, clip: true },
+  { key: 'created_at',   label: '创建时间',   w: 108 },
+]
+/** 当前视图的静态列清单（采购单 / 采购退货单两套）。一切"默认"都走它。 */
+const BASE_COLS = computed(() => (isReturn.value ? PR_COLS : PO_COLS))
+/** 列设置的本地缓存键**按视图分开**：两套列的 key 集合不同，共用一个键会互相覆盖
+    （在采购单页拖好列 → 切到退货页存一份 → 切回采购单时顺序被退货那份冲掉，零报错）。 */
+function colStorageKey () {
+  return isReturn.value ? 'hergent_purchase_return_cols_v1' : 'hergent_purchase_cols_v1'
+}
 
 /* ══ v415（P2-7）自定义字段：列清单 = 静态 21 列 ＋ 服务端下发的自定义列 ══════════
    🔴 「字段的定义」权威在**服务端**（`db/queries/forecast_columns.py`，采购单作用域）。
@@ -663,8 +746,10 @@ const {
   defs: customDefs, ok: defsOk, err: defsErr,
   loadDefs, addField, renameField, removeField,
 } = usePurchaseCustomFields()
-/** 全部列（静态在前、自定义在后）。**列的一切判断都走它**，不再直接读 `PO_COLS`。 */
-const ALL_COLS = computed(() => PO_COLS.concat(customDefs.value))
+/** 全部列（静态在前、自定义在后）。**列的一切判断都走它**，不再直接读 `PO_COLS`。
+    🔴 v500：静态部分随视图在 `PO_COLS` / `PR_COLS` 之间切换；退货视图**不并**自定义列
+       （作用域是采购单，见 `PR_COLS` 上方注释）。 */
+const ALL_COLS = computed(() => BASE_COLS.value.concat(isReturn.value ? [] : customDefs.value))
 const colMap = computed(() => Object.fromEntries(ALL_COLS.value.map(c => [c.key, c])))
 /** 新增字段 = `inventory` 模块的 create；删字段会**连带清掉**所有单据上的值 ⇒ 用 delete 轴。 */
 const canAddCol = computed(() => canDo('inventory', 'create'))
@@ -702,13 +787,13 @@ function defaultColOrder () {
      `resetCols()` 与 `applySaved()` 都以它为基准重建 `colOrder`，而 `colOrder` 是列设置面板的
      **唯一数据源** —— 漏了自定义列，「恢复默认」会把它们从面板里整片抹掉
      （要等下次进页面重新拉定义才回来，用户读成「我的字段不见了」）。 */
-  return PO_COLS.map(c => c.key).concat(customDefs.value.map(c => c.key))
+  return BASE_COLS.value.map(c => c.key).concat(customDefs.value.map(c => c.key))
 }
 function defaultColVis () {
   const v = {}
   // `on === true` 才默认显示（缺省 = 收起）。**未标注的新列自动落在「收起」** ⇒
   // 升级时老用户不会平白多出几列，需自己勾选。
-  PO_COLS.forEach(c => { v[c.key] = c.on === true })
+  BASE_COLS.value.forEach(c => { v[c.key] = c.on === true })
   /* v415：自定义列同样**默认收起**（与静态新增列同一条规则，不硬编码满列）。
      ⚠️ 唯一的例外在 `applyAddField()`：用户在面板里**当场新增**的那个字段会立刻可见 ——
         加了却看不见会被读成"没加上"（静默假成功），与"升级时别平白多出几列"不矛盾：
@@ -749,7 +834,7 @@ function isFrz2 (c) { return frozenKey.value !== 'none' && c.key === frozenKey.v
 /** 只写 localStorage（**不触发云端推送**）—— 云端值落下来时用它回写本地缓存。 */
 function _writeLocal () {
   try {
-    localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(_colCfg()))
+    localStorage.setItem(colStorageKey(), JSON.stringify(_colCfg()))
   } catch (e) { /* 隐私模式 / 配额满：列设置退化为「本次会话有效」，不打断列表使用 */ }
 }
 /** 当前列配置的**整体**（顺序 + 可见性 + 冻结列三者互相约束，必须一起存）。 */
@@ -796,7 +881,7 @@ function applySaved (saved) {
 }
 function loadCols () {
   let saved = null
-  try { saved = JSON.parse(localStorage.getItem(COL_STORAGE_KEY) || 'null') } catch (e) { saved = null }
+  try { saved = JSON.parse(localStorage.getItem(colStorageKey()) || 'null') } catch (e) { saved = null }
   applySaved(saved)
 }
 loadCols()
@@ -977,8 +1062,16 @@ function colText (r, k) {
     case 'source': return r.source ? textOf(PO_SOURCE, r.source) : ''
     case 'qty': return r.has_items
       ? (Number(r.order_qty || 0) + (r.order_unit ? ' ' + r.order_unit : '')) : ''
-    case 'warehouse': return whName(r.warehouse_id) === '—' ? '' : whName(r.warehouse_id)
-    case 'status': return textOf(PO_STATUS, r.status)
+    case 'warehouse': return r.warehouse_name
+      || (whName(r.warehouse_id) === '—' ? '' : whName(r.warehouse_id))
+    /* v500：状态文案随视图走 —— 退货表的 `confirmed` 是「已过账」（已扣库存/冲应付），
+       与采购单的「已确认」（还没入库）**不是一回事**。沿用 `PO_STATUS` 会让老板
+       把"货已经退回去了"读成"刚下单"。 */
+    case 'status': return textOf(isReturn.value ? PR_STATUS : PO_STATUS, r.status)
+    // v500 退货视图两列：`src_order_no` = 关联采购单号；`reason` = 退货原因。
+    case 'src_order_no': return r.src_order_no || ''
+    case 'reason': return r.reason || ''
+    case 'department': return r.department_name || ''
     case 'total_amount': return Number(r.total_amount || 0)
     case 'received_amount': return r.has_items ? Number(r.received_amount || 0) : ''
     case 'paid_amount': return Number(r.paid_amount || 0)
@@ -1030,7 +1123,9 @@ function moneyCell (r, k) {
 /** 筛选初值：退货单入口把状态钉在「已退货」（页签条也因此不渲染）。 */
 function baseFilter () {
   return {
-    status: isReturn.value ? 'returned' : '', supplier_id: 0, date_from: '', date_to: '',
+    /* v500：退货视图的状态档改为「全部 / 草稿 / 已过账」—— 它查的是真退货表，
+       状态只有这两档（不再沿用采购单那个**无人写**的 `returned`）。 */
+    status: '', supplier_id: 0, date_from: '', date_to: '',
     keyword: '', warehouse_id: 0, creator: '', only_marked: false,
     /* v408（P1-3）三个新筛选。**默认空 = 不筛**，与后端默认值逐一对应：
        `source`（精确）/ `print_state`（printed|unprinted）/ `product_keyword`（商品名或条码）。 */
@@ -1107,8 +1202,15 @@ watch(kind, () => {
   f.value = baseFilter()
   sortKey.value = ''
   sortDir.value = ''
+  /* v500：列集随视图切换（采购单 / 采购退货单两套列，见 `PR_COLS`）。
+     🔴 必须**重读**该视图自己的本地缓存：两套列的 key 不同，带着上一套的 `colOrder`
+        过来会整片对不上 `colMap` ⇒ 表格空列、齿轮面板也空（零报错，最难查）。 */
+  loadCols()
   load()
-  loadDrafts()                 // v451：草稿条只属于「采购退货单」视图，切页签要跟着变
+  /* v451 的「待审核草稿卡片条」v500 起**停用**：主列表已经能看见草稿（状态页签
+     「草稿」档 + 行内「审核」按钮），再留一条卡片就是同一件事两个入口 ——
+     两处各改一处会漂移。这里把 `drafts` 清空 ⇒ 模板 `v-if` 恒假，条自然不渲染。 */
+  drafts.value = []
 })
 
 const canWrite = computed(() => canDo('inventory', 'create'))
@@ -1143,11 +1245,24 @@ const TAB_DEFS = [
   { value: 'returned', text: '已退货' },
   { value: 'cancelled', text: '已取消' },
 ]
+/* v500：退货视图的页签 = 真退货表的两档（全部 / 草稿 / 已过账）。
+   🔴 为什么不再 `return []`：v500 之前退货视图查的是 `purchase_orders.status='returned'`
+      ⇒ 只有一种状态，"页签没意义"成立。改查**真退货表** `purchase_returns` 之后，
+      它**真的有** `draft` / `confirmed` 两档（v451 的草稿态）⇒ 正是页签最该出现的地方。
+   ⚠️ 「已过账」对应后端 `confirmed`；页签值传 `confirmed` 时后端走**黑名单**语义
+      （非 draft 全算已过账）⇒ 老数据（`status` 空串）不会被漏掉。 */
+const PR_TAB_DEFS = [
+  { value: '', text: '全部' },
+  { value: 'draft', text: '草稿' },
+  { value: 'confirmed', text: '已过账' },
+]
 const tabs = computed(() => {
-  if (isReturn.value) return []                   // 退货单入口只有一种状态，页签条没有意义
-  return TAB_DEFS
+  const defs = isReturn.value ? PR_TAB_DEFS : TAB_DEFS
+  const n = (t) => (t.value ? (counts.value[t.value] || 0) : (counts.value.all || 0))
+  if (isReturn.value) return PR_TAB_DEFS.map(t => ({ ...t, count: n(t) }))
+  return defs
     .filter(t => !(excludeReturned.value && t.value === 'returned'))
-    .map(t => ({ ...t, count: t.value ? (counts.value[t.value] || 0) : (counts.value.all || 0) }))
+    .map(t => ({ ...t, count: n(t) }))
 })
 
 /* 批量操作菜单（对齐舟谱「批量操作 ▾」展开后的 7 项）。
@@ -1178,6 +1293,26 @@ async function load (resetPage = true) {
   err.value = ''
   try {
     const p = { ...f.value, limit: limit.value, offset: offset.value }
+    /* v500：退货视图走**真退货表**端点 `/api/psi/purchase-return-orders`。
+       🔴 为什么换端点：原先退货视图筛的是 `purchase_orders.status='returned'`，
+          而那个 `returned` **全系统无人写**（v449 的独立退货单不回写任何采购单）
+          ⇒ 该入口建完退货单就看不见，恒空且零报错。
+       ⚠️ 退货端点**没有** `order_by` / `exclude_status` / `summary`：
+          排序键与 `exclude_status` 一律**不传**（传了后端也静默忽略，界面点了没反应）；
+          `summary` 拿不到就给 `{}` ⇒ 合计行显示 ¥0.00 —— 这是**降级不是崩溃**，
+          且退货视图的合计行本来就该由后端补，本轮不做（见 `summary` 注释）。 */
+    if (isReturn.value) {
+      const d = await psiApi.listPurchaseReturns(p)
+      rows.value = d.rows || []
+      total.value = Number(d.total || 0)
+      counts.value = d.counts || {}
+      /* v500：合计行走**后端**（`/purchase-return-orders` 的 `summary`）——
+         不能拿当前页 20 行求和：那会得出一个"像总数但其实只是首屏"的数。 */
+      summary.value = d.summary || {}
+      selected.value = []
+      lastBatch.value = null
+      return
+    }
     if (excludeReturned.value) p.exclude_status = 'returned'
     /* v470：排序（服务端）。未排序时这两个键**一个都不加** ⇒ 后端回落 `po.id DESC`，
        与 v470 之前逐字一致（老行为零变化）。 */
@@ -1190,7 +1325,7 @@ async function load (resetPage = true) {
     selected.value = []          // 换页/换筛选 ⇒ 选择作废（否则会对着看不见的行做批量操作）
     lastBatch.value = null
   } catch (e) {
-    err.value = e.message || '采购单读取失败'
+    err.value = e.message || (isReturn.value ? '采购退货单读取失败' : '采购单读取失败')
   } finally {
     loading.value = false
     await nextTick()
@@ -1378,9 +1513,16 @@ function rowCopy (r) { router.push(`/inventory/purchase/new?copy=${r.id}`) }
 function goEdit (r) { router.push(`/inventory/purchase/new?edit=${r.id}`) }
 const EDITABLE = ['draft', 'pending_approval', 'cancelled']
 function isEditable (r) { return !isReturn.value && EDITABLE.includes(r.status) }
-function canApprove (r) { return ['draft', 'pending_approval'].includes(r.status) }
-function canUnapprove (r) { return ['confirmed', 'partial'].includes(r.status) }
-function canCancel (r) { return !['cancelled', 'returned'].includes(r.status) }
+/* 🔴 三个按钮**只属于采购单**：它们打的是 `/api/psi/purchase-orders/batch` 的
+   approve / unapprove / cancel，而退货表的 id 空间是**另一套**（`purchase_returns`
+   的 id=3 与 `purchase_orders` 的 id=3 是两张不相干的单）。v500 之前退货视图恒空、
+   这些按钮碰不到；改查真表之后若不 gate 掉，点「取消」会**静默取消一张采购单**。 */
+function canApprove (r) { return !isReturn.value && ['draft', 'pending_approval'].includes(r.status) }
+function canUnapprove (r) { return !isReturn.value && ['confirmed', 'partial'].includes(r.status) }
+function canCancel (r) { return !isReturn.value && !['cancelled', 'returned'].includes(r.status) }
+/** v500：退货视图**自己**的「审核」—— 走 `approvePurchaseReturn`（`purchase_returns` 那套端点）。
+    只有 `status === 'draft'` 才给（已过账的单点它是重复过账，后端会拒但界面不该先给假入口）。 */
+function canApproveReturn (r) { return isReturn.value && r.status === 'draft' }
 
 /* 到货逾期：有预计到货日期、且至今未入库（非已入库/已退货/已取消）⇒ 标「逾期」。
    纯前端判断（expected_date 已随列表下发），不依赖后端新接口。 */
@@ -1436,28 +1578,26 @@ function onDocClick () { batchOpen.value = false }
 const drafts = ref([])
 const approvingId = ref(0)
 
+/**
+ * v500：**不再被调用**（主列表已能看见草稿）。保留函数体是为了 `approveDraft` 里
+ * 那两处刷新仍然成立（`loadDrafts()` 退化为清空），以及将来若又要单开草稿视图时
+ * 不用重写。**不要**在 `onMounted` / `watch(kind)` 里把它加回来 —— 见那两处注释。
+ */
 async function loadDrafts () {
-  if (!isReturn.value) { drafts.value = []; return }
-  try {
-    const d = await psiApi.listPurchaseReturns({ status: 'draft', limit: 50 })
-    drafts.value = d.rows || []
-  } catch (e) {
-    drafts.value = []
-    toast(e.message || '待审核退货草稿读取失败', 'warn')
-  }
+  drafts.value = []
 }
 
+/** 审核一张**采购退货草稿**（v451 端点）。行内「审核」按钮（v500）走这一条。 */
 async function approveDraft (row) {
   if (approvingId.value) return
   approvingId.value = row.id
   try {
     await psiApi.approvePurchaseReturn(row.id)
-    toast(`退货单 #${row.id} 已审核（已扣库存并冲减应付）`, 'success')
-    await loadDrafts()
-    await load(false)          // 主列表刷新（源采购单可能刚被标成「已退货」）
+    toast(`退货单 ${row.order_no || ('#' + row.id)} 已审核（已扣库存并冲减应付）`, 'success')
+    await load(false)          // 主列表刷新（该行从「草稿」档移到「已过账」档）
   } catch (e) {
     toast(e.message || '审核失败', 'error')
-    await loadDrafts()         // 失败可能是"已被别人审过"⇒ 拉一次让界面回到事实
+    await load(false)          // 失败可能是"已被别人审过"⇒ 拉一次让界面回到事实
   } finally {
     approvingId.value = 0
   }
@@ -1476,8 +1616,9 @@ onMounted(async () => {
   colPrefs.syncFromCloud()
   await loadBase()
   await load()
-  // v451（L3）：待审核退货草稿（仅「采购退货单」视图会真去拉）。
-  await loadDrafts()
+  /* v500：**不再**调 `loadDrafts()` —— 主列表已经能看见草稿（「草稿」状态页签 +
+     行内「审核」按钮），v451 那条「待审核草稿卡片条」成了同一件事的第二个入口。
+     ⛔ 两个入口的代价不是"多一个按钮"，而是将来改一处漏一处（本仓反复付学费那类）。 */
 })
 onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </script>

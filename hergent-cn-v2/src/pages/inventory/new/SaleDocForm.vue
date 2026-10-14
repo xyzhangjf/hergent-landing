@@ -162,8 +162,41 @@
       <span class="isn-total">{{ cfg.isReturn ? '退货合计' : '合计' }} <b>¥{{ fmtMoney(totalAmount) }}</b></span>
       <input v-if="cfg.isReturn" v-model.trim="reason" maxlength="200" class="input isn-ret-reason"
              placeholder="退货原因（选填，如：破损 / 临期 / 多订）" />
-      <div class="isn-save">
-        <button v-if="!cfg.isReturn" class="btn btn-ghost btn-sm" :disabled="saving" @click="submit('new')">保存并新增</button>
+      <!-- ══ v500：退单底部改**双下拉**，与采购退货页（`PurchaseReturnForm.vue` v451）逐字同构 ══
+           「保存 ▾」      = 落**草稿**（库存不回增、应收不冲减，待审核）
+           「保存并审核 ▾」= 建草稿后**立刻过账**（走 `sale_return_post`）
+           ⚠️ 订单侧**不给**这两个下拉：销售订单**没有**草稿语义（后端 `create_sale`
+              不认 `draft` ⇒ 摆上去点了不会存草稿，是假入口）⇒ 订单仍走下面那块。 -->
+      <div v-if="cfg.isReturn" class="isn-save">
+        <div class="ipn-dd">
+          <button class="btn btn-ghost btn-sm ipn-dd-main" :disabled="saving" @click="submit('save')">
+            {{ saving ? '提交中…' : cfg.saveLabel }}
+          </button>
+          <button class="btn btn-ghost btn-sm ipn-dd-caret" :disabled="saving"
+                  title="更多保存方式" @click.stop="saveOpen = !saveOpen">
+            <span class="ipn-caret" :class="{ up: saveOpen }"></span>
+          </button>
+          <div v-if="saveOpen" class="ipn-menu" @click.stop>
+            <button class="ipn-mi" @click="submit('save')">保存（存草稿，待审核）</button>
+            <button class="ipn-mi" @click="submit('saveNew')">保存并新增</button>
+          </div>
+        </div>
+        <div class="ipn-dd">
+          <button class="btn btn-primary btn-sm ipn-dd-main" :disabled="saving" @click="submit('approve')">
+            {{ saving ? '提交中…' : '保存并审核' }}
+          </button>
+          <button class="btn btn-primary btn-sm ipn-dd-caret" :disabled="saving"
+                  title="更多审核方式" @click.stop="approveOpen = !approveOpen">
+            <span class="ipn-caret" :class="{ up: approveOpen }"></span>
+          </button>
+          <div v-if="approveOpen" class="ipn-menu" @click.stop>
+            <button class="ipn-mi" @click="submit('approve')">保存并审核</button>
+            <button class="ipn-mi" @click="submit('approveNew')">审核并新增</button>
+          </div>
+        </div>
+      </div>
+      <div v-else class="isn-save">
+        <button class="btn btn-ghost btn-sm" :disabled="saving" @click="submit('new')">保存并新增</button>
         <button class="btn btn-primary btn-sm" :disabled="saving" @click="submit('save')">
           <Icon name="save" :size="14" />{{ saving ? '提交中…' : cfg.saveLabel }}
         </button>
@@ -239,6 +272,10 @@ const users = ref([])
 /* 部门下拉。⚠️ 后端读不到时**不返回这个键**（不是空数组）⇒ 一律 `Array.isArray` 判存在。 */
 const departments = ref([])
 const reason = ref('')
+/* v500：退单底部「保存 ▾ / 保存并审核 ▾」两个下拉的开合态
+   （与采购退货页 `PurchaseReturnForm.vue` v451 那两个同名同义）。 */
+const saveOpen = ref(false)
+const approveOpen = ref(false)
 
 const form = ref({
   customer_id: 0, warehouse_id: 0, driver_id: '',
@@ -335,6 +372,8 @@ function validate () {
 }
 
 async function submit (act = 'save') {
+  saveOpen.value = false
+  approveOpen.value = false
   const bad = validate()
   if (bad) { toast(bad, 'warn'); return }
   if (saving.value) return
@@ -346,6 +385,18 @@ async function submit (act = 'save') {
       unit_price: Number(r.unit_price),
     }))
     if (cfg.value.isReturn) {
+      /* v500：四种模式（与采购退货页 v451 同一个 `mode` 语义）——
+           `save`        落**草稿**，回列表待审核
+           `saveNew`     同上，但留在本页重置明细
+           `approve`     建草稿后**立刻过账**
+           `approveNew`  同上，但留在本页重置明细
+         🔴 **恒以 `draft:true` 建单**，要审核就紧接着调 `approveSaleReturn`
+            （后端 `sale_return_post`）—— **同一条通道**，不在前端分叉出第二套
+            建单逻辑；"保存"与"保存并审核"的建单部分逐字同款，差别只在多一次过账调用。
+         🔴 审核失败**不丢单**：草稿已经落库（退货单是主体），此时如实报
+            「已存为草稿，但审核未通过：<后端的原话>」—— 绝不谎报成"保存失败"。 */
+      const wantApprove = act === 'approve' || act === 'approveNew'
+      const stayOnPage = act === 'saveNew' || act === 'approveNew'
       const body = {
         customer_id: form.value.customer_id,
         warehouse_id: form.value.warehouse_id,
@@ -355,17 +406,36 @@ async function submit (act = 'save') {
         note: form.value.note || '',
         reason: reason.value.trim(),
         idempotency_key: idemKey,
+        draft: true,
         items: lines,
       }
       const r = await psiApi.createSaleReturn(body)
       idemKey = newIdemKey(cfg.value.idemSalt)
       reason.value = ''
-      toast(`退货单已生成${r && r.return_id ? '（#' + r.return_id + '）' : ''}`, 'success')
-      if (act === 'new') {
+      /* 后端返回 `{success, return_id, total_amount, status, order_no}`
+         （`db.queries.sales.return_order_create`）⇒ 取 `return_id` 作单据号。 */
+      const rid = Number((r && (r.return_id || r.id)) || 0)
+      let approveErr = ''
+      if (wantApprove && rid) {
+        try { await psiApi.approveSaleReturn(rid) }
+        catch (e) { approveErr = (e && e.message) || '审核失败' }
+      }
+      const no = (r && r.order_no) ? `（${r.order_no}）` : (rid ? `（#${rid}）` : '')
+      if (wantApprove) {
+        if (approveErr) toast(`已存为草稿${no}，但审核未通过：${approveErr}`, 'warn')
+        else toast(`退货单已审核${no}`, 'success')
+      } else {
+        toast(`已存为草稿${no}，待审核`, 'success')
+      }
+      if (stayOnPage) {
         items.value = []
         for (let i = 0; i < PRESET_ROWS; i++) items.value.push(blankRow())
         form.value.note = ''
+        return
       }
+      /* 回列表：草稿要在列表里看得见才能在「草稿」页签里点「审核」——
+         建完单留在建单页会让用户以为没建成（采购退货页也是这个行为）。 */
+      router.push({ path: cfg.value.listPath, query: cfg.value.listQuery || {} })
       return
     }
     const body = {
@@ -691,6 +761,35 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
 .isn-total { font-size: 14px }
 .isn-total b { font-size: 18px; font-variant-numeric: tabular-nums }
 .isn-save { position: relative; display: inline-flex; gap: 8px; margin-left: auto }
+
+/* ══ v500：双下拉（保存 ▾ / 保存并审核 ▾）—— 退单底部用 ═════════════════════
+   ⚠️ 这几条是**从 `PurchaseReturnForm.vue` 抄来的**（不是共用）：那边的样式块是
+      `scoped`，跨组件拿不到 ⇒ 本文件必须自己有一份，否则下拉菜单会渲染成
+      一串裸按钮、caret 也没有三角。与采购订单页 / 采购退货页 / 新建采购单页
+      那三份**逐字节相同** —— 改一处就要改四处（本仓已知的取舍，先保持一致）。 */
+.ipn-dd { position: relative; display: inline-flex }
+.ipn-dd-main { border-top-right-radius: 0; border-bottom-right-radius: 0 }
+.ipn-dd-caret {
+  width: 28px; padding: 0; margin-left: -1px;
+  border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
+.ipn-caret {
+  width: 0; height: 0;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid currentColor; transition: transform .15s;
+}
+.ipn-caret.up { transform: rotate(180deg) }
+.ipn-menu {
+  position: absolute; right: 0; bottom: calc(100% + 6px); z-index: var(--z-dropdown);
+  min-width: 160px; padding: 4px;
+  background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.ipn-mi {
+  display: block; width: 100%; padding: 8px 12px; border: none; background: none;
+  border-radius: var(--radius-sm); text-align: left; font-size: 13px; color: var(--t1);
+}
+.ipn-mi:hover { background: var(--bg2) }
 
 @media (max-width: 640px) {
   .isn-hd { align-items: stretch }

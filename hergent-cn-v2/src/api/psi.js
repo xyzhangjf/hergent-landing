@@ -573,19 +573,42 @@ export const psiApi = {
     api(`/api/psi/purchase-return-orders/${id}/approve`, { method: 'POST' }),
 
   /**
-   * 采购退货单列表（v451）。
-   * @param {object} p `{status, limit, offset}`；`status` 空串 = 全部，`'draft'` = 只看待审核草稿。
+   * 采购退货单列表（v451；v500 起它是「采购退货单」入口的**数据源**）。
+   * @param {object} p `{status, date_from, date_to, keyword, limit, offset}`
+   *   `status` 空串 = 全部，`'draft'` = 只看待审核草稿，其它值 = 已过账（后端黑名单语义）。
+   *   v500 新增 `date_from` / `date_to` / `keyword`（后端区间筛 + 关键字：供应商 / 原因 / 单号）。
+   * @returns `{success, rows, count, total, counts}`
+   *   🔴 `total` = 筛选后真实总数（分页用）；`counts` = 状态页签计数
+   *      （**忽略 status、保留其余筛选** ⇒ 切页签各档数字不动）。
    * 🔴 这是**独立退货单与草稿**唯一的列表出口 —— 挂原单的退货靠采购单列表间接可见，
    *    独立退货单不快照任何采购单状态，此前任何列表里都找不到。
    */
-  listPurchaseReturns: (p = {}) => {
-    const qs = new URLSearchParams()
-    if (p.status) qs.set('status', p.status)
-    if (p.limit != null) qs.set('limit', String(p.limit))
-    if (p.offset != null) qs.set('offset', String(p.offset))
-    const s = qs.toString()
-    return api(`/api/psi/purchase-return-orders${s ? '?' + s : ''}`)
-  },
+  listPurchaseReturns: (p = {}) => api(`/api/psi/purchase-return-orders${qs(p)}`),
+
+  /* ---- v500：销售退货（真表 `return_orders`，自提退单 / 车销退单的数据源）--------
+     🔴 为什么必须新开这一组而不是继续筛 `sale_orders.status='returned'`：
+        那个 `returned` **全系统无人写**（后端注释实证 + 生产实测：22505 行销售单里
+        0 行 returned）⇒ 「自提退单 / 车销退单」两个入口建完退货单就**看不见**，恒空零报错。
+     🔴 与 `listSales` 的关系：订单入口继续走 `/api/psi/sale-orders`；**只有退单入口**
+        改走本组。两条路各查自己的表，不要混。
+     -------------------------------------------------------------------------- */
+  /**
+   * 销售退货单列表。
+   * @param {object} p `{status, order_type, customer_id, date_from, date_to, keyword, limit, offset}`
+   *   🔴 `order_type` 是**区分自提退单 / 车销退单的唯一键**（`'self_pickup'` / `'vehicle_sale'`）。
+   *      不传 ⇒ 两种一起看（通用视图）；两个入口**必须传**，否则两个页面看到同一份数据。
+   *   `status`：空 = 全部，`'draft'` = 草稿，其它 = 已确认。
+   * @returns `{success, rows, count, total, counts}`；每行带 `order_no` / `customer_name` /
+   *   `warehouse_name` / `src_order_no`（原销售单号，独立退货单为空串）/ `order_type`。
+   */
+  listSaleReturns: (p = {}) => api(`/api/psi/sale-return-orders${qs(p)}`),
+
+  /**
+   * **审核 / 过账**一张草稿销售退货单（v500）：回增库存 + 冲减应收，置「已确认」。
+   * 🔴 幂等（与采购侧 `approvePurchaseReturn` 同款）：重复点不会把库存加两次 ——
+   *    后端用条件 UPDATE 乐观锁，第二次返回 400「这张单已被审核，请刷新后再看」。
+   */
+  approveSaleReturn: (id) => api(`/api/psi/sale-return-orders/${id}/approve`, { method: 'POST' }),
 
   /* ---- v450：采购退单附件（建单页「保存后随单上传」的落点）-------------------
      🔴 与采购单附件（上方 v408 P1-8）**同源但独立命名空间**：退单走

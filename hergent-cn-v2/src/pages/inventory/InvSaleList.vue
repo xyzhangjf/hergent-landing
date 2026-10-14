@@ -108,7 +108,8 @@
     <div v-else-if="!rows.length" class="card">
       <div class="state-empty">
         <div class="se-ic"><Icon name="receipt" :size="22" /></div>
-        <p>{{ hasFilter ? '当前条件下没有销售单。' : '还没有销售单。' }}</p>
+        <p>{{ hasFilter ? '当前条件下没有' + (_kindReturn ? '退货单。' : '销售单。')
+                        : (_kindReturn ? '还没有退过货。' : '还没有销售单。') }}</p>
         <!-- v449：原来写死 `/inventory/sale/new`（不带 `type`）⇒ 在「车销退单」页签下
              点它会建出一张**自提订单**，而且看不出哪里不对。改成跟页签走（`newTo`），
              文案也跟页头一致（`新建车销退单`），而不是笼统的「新建销售单」。 -->
@@ -155,7 +156,7 @@
           <tbody>
             <tr v-for="(r, i) in rows" :key="r.id"
                 :class="{ 'print-target': printOnly === r.id }"
-                class="isl-row" @click="go('/inventory/sale/' + r.id)">
+                class="isl-row" @click="onRowClick(r)">
               <!-- 序号 = 服务端分页 ⇒ 必须 `offset + i + 1`（写 i+1 第 2 页会从 1 重来）。
                    v496：冻结位置 1。 -->
               <td class="seq-cell psi-frz psi-frz-1"><span class="seq-num">{{ offset + i + 1 }}</span></td>
@@ -163,8 +164,13 @@
                   :class="{ num: c.num, 'psi-frz': c.key === 'order_no', 'psi-frz-2': c.key === 'order_no' }">
                 <template v-if="c.key === 'order_no'">
                   <!-- v496：单号改**链接**（与采购单列表同款；行点击仍进同一详情页，
-                       link 上 .stop 防止父子两个 handler 各推一次路由）。 -->
-                  <a class="isl-link isl-no" :href="'#/inventory/sale/' + r.id"
+                       link 上 .stop 防止父子两个 handler 各推一次路由）。
+                       🔴 v500：**只有销售订单**给详情链接 —— 退货行的 id 属于
+                       `return_orders`，与 `sale_orders.id` 是**两套编号空间**，
+                       沿用会跳到「另一张不相干的销售单详情」（零报错的越界）。
+                       退货单目前没有详情页 ⇒ 只显示编号文本。 -->
+                  <template v-if="_kindReturn">{{ r.order_no || ('#' + r.id) }}</template>
+                  <a v-else class="isl-link isl-no" :href="'#/inventory/sale/' + r.id"
                      @click.stop.prevent="go('/inventory/sale/' + r.id)">{{ r.order_no || ('#' + r.id) }}</a>
                 </template>
                 <template v-else-if="c.key === 'customer'">{{ r.customer_name || '—' }}</template>
@@ -176,7 +182,14 @@
               </td>
               <td class="isl-op">
                 <div class="isl-ops">
-                  <button class="isl-op-btn" :disabled="printing" @click.stop="rowPrint(r)">打印</button>
+                  <!-- v500：退单视图的「审核」= 过账草稿（回增库存 + 冲减应收）。
+                       只有 `status==='draft'` 才给 —— 已确认的单点它是重复过账。 -->
+                  <button v-if="_kindReturn && canWrite && r.status === 'draft'"
+                          class="isl-op-btn" :disabled="approvingId === r.id"
+                          @click.stop="approveReturn(r)">
+                    {{ approvingId === r.id ? '审核中' : '审核' }}
+                  </button>
+                  <button v-if="!_kindReturn" class="isl-op-btn" :disabled="printing" @click.stop="rowPrint(r)">打印</button>
                 </div>
               </td>
             </tr>
@@ -184,7 +197,9 @@
         </table>
       </div>
 
-      <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
+      <!-- v500：列设置面板**跟随当前视图**（订单 / 退单两套列、两套云端配置，见 `SR_COLS`）。 -->
+      <ColMenuPanel ref="panel" :col-list="activeCOLS" :is-visible="activeIsVisible"
+                    :toggle-col="activeToggleCol" :reset-cols="activeResetCols" />
 
       <div class="isl-pager">
         <span class="isl-pg-cnt">共 {{ total }} 条记录，第 {{ pageFrom }}–{{ pageTo }} 条</span>
@@ -264,15 +279,48 @@ const COLS = [
   { key: 'odate',        label: '下单日期', core: false, w: 110 },
   { key: 'ddate',        label: '交货日期', core: false, w: 110 },
 ]
+/* ── v500：销售**退货**视图的独立列集 ────────────────────────────────────────
+   🔴 为什么不能复用 `COLS`：v500 起退货视图查的是**真退货表** `return_orders`
+      （此前筛 `sale_orders.status='returned'` —— 那个 `returned` 全系统无人写
+      ⇒ 两个退单入口恒空）。两张表字段不同：退货单没有「交货日期」，
+      而有「退货原因 / 退货仓库 / 关联销售单」。硬套 `COLS` 会造出满屏 `—`。
+   🔴 列设置**另用一个 key**（`INV-SALE-RETURN-LIST`）：两套列的 key 集合不同，
+      共用一个键会互相覆盖（在订单页调好的显隐被退单页存的那份冲掉，零报错）。
+   ⚠️ key 沿用 `otype` / `odate`（与 `COLS` 同名同义）⇒ 列设置面板的语义不变。 */
+const SR_COLS = [
+  { key: 'order_no',     label: '退货单号',   core: true, w: 150 },
+  { key: 'customer',     label: '客户',       core: true, w: 160 },
+  { key: 'total_amount', label: '退货金额',   core: true, num: true, w: 110 },
+  { key: 'status',       label: '状态',       core: true, w: 84 },
+  { key: 'wh',           label: '退货仓库',   core: false, w: 100 },
+  { key: 'odate',        label: '退货日期',   core: false, w: 110 },
+  { key: 'srcreason',    label: '退货原因',   core: false, w: 160 },
+  { key: 'srcno',        label: '关联销售单', core: false, w: 150 },
+  { key: 'otype',        label: '出货方式',   core: false, w: 96 },
+]
 const { isVisible, toggleCol, resetCols } = useColSettings('INV-SALE-LIST', COLS)
-const visibleCols = computed(() => COLS.filter(c => isVisible(c.key)))
+const {
+  isVisible: isRetVisible, toggleCol: toggleRetCol, resetCols: resetRetCols,
+} = useColSettings('INV-SALE-RETURN-LIST', SR_COLS)
+/** 当前视图的列清单 / 显隐函数（模板与导出共用，不写两份）。 */
+const activeCOLS = computed(() => (_kindReturn.value ? SR_COLS : COLS))
+const activeIsVisible = computed(() => (_kindReturn.value ? isRetVisible : isVisible))
+const activeToggleCol = computed(() => (_kindReturn.value ? toggleRetCol : toggleCol))
+const activeResetCols = computed(() => (_kindReturn.value ? resetRetCols : resetCols))
+const visibleCols = computed(() =>
+  activeCOLS.value.filter(c => activeIsVisible.value(c.key)))
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
 /* v496：序号列宽与全局序号列逐字一致（variables.css `table.tbl th.seq-th{width:46px}`）；
    冻结偏移 `--psi-frz-2` 也用它 —— 改序号宽必须同时改这两处（同一常量，不会漂）。
    操作列 76px = 一枚「打印」按钮 + 单元格 padding 的实测需要宽度。 */
 const SEQ_W = 46
-const OP_W = 76
+/* 操作列：订单视图 76px（一枚「打印」）；退单视图 132px（「审核」+ 12px 间隔 + padding）。
+   🔴 写死一个数会让退单视图的「审核」被挤出格子（表格是 `table-layout:fixed`，
+      列宽权威在 `<colgroup>` ⇒ 这里必须跟着按钮数变）。 */
+const OP_W_ORDER = 76
+const OP_W_RETURN = 132
+const OP_W = computed(() => (_kindReturn.value ? OP_W_RETURN : OP_W_ORDER))
 
 /* ── v473：服务端排序 ──────────────────────────────────────────────────────
    🔴 为什么排序键要**映射**而不是直接用列 key：列 key（`otype`/`odate`/`ddate`）是
@@ -295,7 +343,9 @@ const SORT_KEY = {
 const SORTABLE = new Set(Object.keys(SORT_KEY))
 const sortKey = ref('')          // 后端键（如 `total_amount`）
 const sortDir = ref('')          // '' | 'asc' | 'desc'
-function canSort (c) { return SORTABLE.has(c.key) }
+/** 🔴 v500：退货端点**没有** `order_by`（后端未实现排序白名单）⇒ 退单视图一律不可排序。
+    不 gate 的话表头照样能点、指示照样变，只是数据纹丝不动 —— 又是「点了没反应零报错」。 */
+function canSort (c) { return !_kindReturn.value && SORTABLE.has(c.key) }
 /** 表头指示器图标：未排 → 中性 `sort`（提示"这列能点"）；已排 → 升/降箭头。 */
 function sortInd (colKey) {
   const k = SORT_KEY[colKey]
@@ -343,6 +393,10 @@ const route = useRoute()
 const _qType = computed(() => String((route.query && route.query.type) || ''))
 const _qKind = computed(() => String((route.query && route.query.kind) || ''))
 const _kindOrder = computed(() => _qKind.value === 'order')
+/* v500：退单视图（自提退单 / 车销退单）。
+   🔴 它的数据源是 `GET /api/psi/sale-return-orders`（真表 `return_orders`），
+      不是 `sale-orders` —— 见 `load()` 里的分支注释。 */
+const _kindReturn = computed(() => _qKind.value === 'return')
 
 const loading = ref(true)
 const err = ref('')
@@ -363,8 +417,9 @@ const jumpTo = ref('')
 /* 筛选初值随入口变（见上方 URL 读取口径） */
 function baseFilter () {
   return {
-    status: _qKind.value === 'return' ? 'returned' : '',
-    order_type: ORDER_TYPE[_qType.value] ? _qType.value : '',
+    /* v500：退单视图的状态档改为「全部 / 草稿 / 已确认」—— 它查的是真退货表
+       `return_orders`（只有这两档），不再沿用销售单那个**无人写**的 `returned`。 */
+    status: '', order_type: ORDER_TYPE[_qType.value] ? _qType.value : '',
     customer_id: 0, date_from: '', date_to: '',
   }
 }
@@ -415,11 +470,21 @@ const TAB_DEFS = [
   { value: 'returned', text: textOf(SO_STATUS, 'returned') },
   { value: 'cancelled', text: textOf(SO_STATUS, 'cancelled') },
 ]
+/* v500：退单视图的页签 = 真退货表 `return_orders` 的两档（全部 / 草稿 / 已确认）。
+   🔴 为什么不再 `return []`：v500 之前退单筛的是 `sale_orders.status='returned'`
+      ⇒ 只有一种状态，"页签没意义"成立；改查真表后它**真的有** `draft` / `confirmed`。 */
+const SR_TAB_DEFS = [
+  { value: '', text: '全部' },
+  { value: 'draft', text: '草稿' },
+  { value: 'confirmed', text: '已确认' },
+]
 const tabs = computed(() => {
-  if (_qKind.value === 'return') return []      // 退单入口只有一种状态，页签条没有意义
+  const n = (t) => (t.value ? (counts.value[t.value] || 0) : (counts.value.all || 0))
+  if (_kindReturn.value) return SR_TAB_DEFS.map(t => ({ ...t, count: n(t) }))
+  if (_qKind.value === 'return') return []      // 兜底：未知 kind 组合仍走旧口径
   return TAB_DEFS
     .filter(t => !(_kindOrder.value && t.value === 'returned'))
-    .map(t => ({ ...t, count: t.value ? (counts.value[t.value] || 0) : (counts.value.all || 0) }))
+    .map(t => ({ ...t, count: n(t) }))
 })
 function pickTab (v) { f.value.status = v; load() }
 
@@ -431,6 +496,23 @@ async function load (resetPage = true) {
   loading.value = true
   err.value = ''
   try {
+    /* v500：退单视图走**真退货表**端点 `/api/psi/sale-return-orders`。
+       🔴 为什么换端点：原先筛 `sale_orders.status='returned'`，而那个 `returned`
+          **全系统无人写**（后端注释实证 + 生产实测：22505 行销售单里 0 行 returned）
+          ⇒ 「自提退单 / 车销退单」建完退货单就看不见，恒空且零报错。
+       🔴 `order_type` **必传**：它是区分自提退单 / 车销退单的唯一键；不传的话
+          两个入口会看到**同一份**数据（后端不筛），用户读成"我点的入口没生效"。
+       ⚠️ 退货端点没有 `order_by` / `exclude_status` ⇒ 这两个键一律不传
+          （传了后端静默忽略，见 `canSort`）。 */
+    if (_kindReturn.value) {
+      const d = await psiApi.listSaleReturns({
+        ...f.value, limit: limit.value, offset: offset.value,
+      })
+      rows.value = d.rows || []
+      total.value = Number(d.total || 0)
+      counts.value = d.counts || {}
+      return
+    }
     const p = { ...f.value, limit: limit.value, offset: offset.value }
     /* v473：排序（服务端）。未排序时这两个键**一个都不加** ⇒ 后端回落 `so.id DESC`，
        与 v473 之前逐字一致（老行为零变化）。 */
@@ -449,7 +531,7 @@ async function load (resetPage = true) {
     counts.value = d.counts || {}
     if (refs && Array.isArray(refs.customers)) customers.value = refs.customers
   } catch (e) {
-    err.value = e.message || '销售单读取失败'
+    err.value = e.message || (_kindReturn.value ? '销售退货单读取失败' : '销售单读取失败')
   } finally {
     loading.value = false
   }
@@ -515,6 +597,10 @@ function colText (r, k) {
     case 'otype': return orderTypeText(r.order_type)
     case 'odate': return (r.order_date || '').slice(0, 10)
     case 'ddate': return (r.delivery_date || '').slice(0, 10)
+    // v500 销售退货视图三个键（`SR_COLS` 用；销售订单行没有这些字段 ⇒ 恒 '' → 显示 —）。
+    case 'wh': return r.warehouse_name || ''
+    case 'srcreason': return r.reason || ''
+    case 'srcno': return r.src_order_no || ''
   }
   return ''
 }
@@ -541,6 +627,31 @@ function doExport () {
   const head = cols.map(c => c.label)
   const body = list.map(r => cols.map(c => colText(r, c.key)))
   downloadCsv(`${title.value}-${localDateStamp()}.csv`, [head, ...body])
+}
+
+/* ---- v500：退单视图的行操作 ----
+   🔴 「审核」= 过账草稿销售退货单（回增库存 + 冲减应收），端点
+      `POST /api/psi/sale-return-orders/{id}/approve`。与采购侧 `approvePurchaseReturn`
+      同款幂等（后端条件 UPDATE 乐观锁）：重复点不会把库存加两次，而是报人话错误。 */
+const approvingId = ref(0)
+function onRowClick (r) {
+  // 退货行没有详情页（且 id 属于另一套编号空间）⇒ 点了什么都不做，不给假跳转。
+  if (_kindReturn.value) return
+  go('/inventory/sale/' + r.id)
+}
+async function approveReturn (row) {
+  if (approvingId.value) return
+  approvingId.value = row.id
+  try {
+    await psiApi.approveSaleReturn(row.id)
+    toast(`退货单 ${row.order_no || ('#' + row.id)} 已审核（已回增库存并冲减应收）`, 'success')
+    await load(false)        // 该行从「草稿」档移到「已确认」档
+  } catch (e) {
+    toast(e.message || '审核失败', 'error')
+    await load(false)        // 失败可能是"已被别人审过"⇒ 拉一次让界面回到事实
+  } finally {
+    approvingId.value = 0
+  }
 }
 
 /* ---- 打印（浏览器打印，纯前端）----
