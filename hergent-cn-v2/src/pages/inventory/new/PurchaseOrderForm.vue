@@ -1,5 +1,17 @@
 <template>
   <div class="inv-page">
+    <!-- 🔴 P0-7：复制原单失败（单号不存在 / 接口异常）时展示明确错误态，不让用户误以为已带出源单 -->
+    <div v-if="copyLoadError" class="ipn-copy-err">
+      <div class="ipn-copy-err-ico">!</div>
+      <div class="ipn-copy-err-body">
+        <div class="ipn-copy-err-t">复制原单失败</div>
+        <div class="ipn-copy-err-m">{{ copyLoadError }}</div>
+        <div class="ipn-copy-err-acts">
+          <button class="btn btn-sm" :disabled="saving" @click="router.replace('/inventory/purchase')">返回采购列表重新选单</button>
+          <span class="ipn-copy-err-hint">或在下方手动新建一张采购单</span>
+        </div>
+      </div>
+    </div>
     <div class="page-hd split">
       <div class="ipn-hd-t">
         <h2>{{ pageTitle }}</h2>
@@ -213,8 +225,9 @@
               <th class="num ipn-c-amt" :style="wStyle('amt')">订单金额<ColResizeHandle col="amt" :start="startResize" :reset="resetColW" /></th>
               <!-- v408（P1-1）库存两列：口径 = **本页所选「入库仓库」**（不是全部仓的合计）。
                    数量来自 `/api/psi/stock/by-product`，按商品聚合（不是批次级）。 -->
-              <th v-if="isVisible('stk')" class="num ipn-c-stk" :style="wStyle('stk')" title="可销售的库存（已过期批次须报损，不计入）">可用库存<ColResizeHandle col="stk" :start="startResize" :reset="resetColW" /></th>
+              <th v-if="isVisible('stk')" class="num ipn-c-stk" :style="wStyle('stk')" title="可用可售 = 可销售库存 − 已订未发占用（已过期批次须报损，不计入）">可用可售<ColResizeHandle col="stk" :start="startResize" :reset="resetColW" /></th>
               <th v-if="isVisible('stk2')" class="num ipn-c-stk" :style="wStyle('stk2')" title="该仓全部批次的数量合计（含已过期）">实际库存<ColResizeHandle col="stk2" :start="startResize" :reset="resetColW" /></th>
+              <th v-if="isVisible('stk3')" class="num ipn-c-stk" :style="wStyle('stk3')" title="已确认未发货的销售单对该商品的占用（已订未发，占着可售库存）">占用<ColResizeHandle col="stk3" :start="startResize" :reset="resetColW" /></th>
               <!-- v417i：批次三列（批次号 / 到期日 / 生产日期）合并成一列「批次信息」，
                    点开小面板填写 —— 15 列 ⇒ 13 列，横向滚动彻底消失。
                    三者都是**低频选填**字段（v417 已把批次号、到期日改为选填）：
@@ -296,10 +309,13 @@
               <!-- v417g：空行不再铺「先选商品」占位（对齐舟谱空行干净）——
                    选商品前的引导只在单位格留一处，库存两列空着。 -->
               <td v-if="isVisible('stk')" class="num ipn-c-stk">
-                <span v-if="row.product_id" :class="{ danger: isAllExpired(row) }" :title="stockTitle(row)">{{ stockText(row, 'saleable_quantity') }}</span>
+                <span v-if="row.product_id" :class="{ danger: isOversold(row) }" :title="stockTitle(row)">{{ stockText(row, 'available_quantity') }}</span>
               </td>
               <td v-if="isVisible('stk2')" class="num ipn-c-stk">
                 <span v-if="row.product_id" :title="stockTitle(row)">{{ stockText(row, 'quantity') }}</span>
+              </td>
+              <td v-if="isVisible('stk3')" class="num ipn-c-stk">
+                <span v-if="row.product_id" :class="{ danger: isOversold(row) }" :title="stockTitle(row)">{{ stockText(row, 'occupied_quantity') }}</span>
               </td>
               <!-- v417i：批次三字段收进这一格的小面板。格内**常显摘要**（有批次号显示批次号、
                    有到期日显示「到期 xxxx-xx-xx」），一眼能看出这行有没有填批次，不用点开才知道。 -->
@@ -523,8 +539,9 @@ const DETAIL_COLS = [
   { key: 'price', label: '采购价',   core: true },
   { key: 'qty',   label: '订单数量', core: true },
   { key: 'amt',   label: '订单金额', core: true },
-  { key: 'stk',   label: '可用库存', core: false },
+  { key: 'stk',   label: '可用可售', core: false },
   { key: 'stk2',  label: '实际库存', core: false },
+  { key: 'stk3',  label: '占用',     core: false },
   { key: 'batch', label: '批次信息', core: false },
   { key: 'note',  label: '行备注',   core: false },
   { key: 'op',    label: '操作',     core: true },
@@ -567,6 +584,9 @@ const copyId = computed(() => Number((route.query && route.query.copy) || 0) || 
 /* P1-4：编辑一张已存采购单。`?edit=oid` 来自详情页的「编辑」按钮；只有状态 ∈ 可编辑三态
    （draft / pending_approval / cancelled）才允许编辑，其余状态在 `loadEdit` 里拦下并退回详情页。 */
 const editId = computed(() => Number((route.query && route.query.edit) || 0) || 0)
+/* 🔴 P0-7：复制原单失败时（单号不存在 / 读取异常）的错误态。置位后展示明确错误提示、
+   不渲染可提交的空表单、阻断提交 —— 避免用户以为"复制成功"却填出一张与源单无关的空白单。 */
+const copyLoadError = ref('')
 
 const pageTitle = computed(() => editId.value ? cfg.value.editTitle
   : (copyId.value ? cfg.value.copyTitle : cfg.value.title))
@@ -698,15 +718,23 @@ function isAllExpired (row) {
   return !!r && Number(r.quantity) > 0 && Number(r.saleable_quantity) <= 0
 }
 
+/** P0-5 占用锁定：可用可售为负 = 已确认订单量超过可销售库存（超卖预警）。 */
+function isOversold (row) {
+  if (stockState.value !== 'ok') return false
+  const r = stockMap.value[Number(row.product_id)]
+  return !!r && Number(r.available_quantity) < 0
+}
+
 function stockTitle (row) {
   if (stockState.value !== 'ok') return '库存没读到（接口失败），不代表是 0'
   const r = stockMap.value[Number(row.product_id)]
   const w = stockWarehouseLabel.value
   if (!r) return `${w}：没有这个商品的库存`
-  const parts = [`${w}：实际 ${fmtQty(r.quantity)}、可用 ${fmtQty(r.saleable_quantity)}`]
+  const parts = [`${w}：实际 ${fmtQty(r.quantity)}、可销售 ${fmtQty(r.saleable_quantity)}、已订未发占用 ${fmtQty(r.occupied_quantity)}、可用可售 ${fmtQty(r.available_quantity)}`]
   if (Number(r.expired_quantity) > 0) parts.push(`其中 ${fmtQty(r.expired_quantity)} 已过期（须报损）`)
   if (Number(r.no_expiry_quantity) > 0) parts.push(`${fmtQty(r.no_expiry_quantity)} 没有到期日`)
   if (Number(r.batch_rows) > 0) parts.push(`${r.batch_rows} 个批次`)
+  if (Number(r.available_quantity) < 0) parts.push('⚠️ 已超卖：可用可售为负，已确认订单量超过可销售库存')
   return parts.join('；')
 }
 
@@ -1012,6 +1040,7 @@ function pkBlur (row) { row._popen = false; cellOff() }
       这批货在库里被并进上次那个批次（批次号相同 ⇒ `batch_in` 累加），库存与效期都错。
       所以这里清空并要求重填，并显式告知用户（不静默）。 */
 async function loadCopy (oid) {
+  copyLoadError.value = ''
   try {
     const d = await psiApi.getPurchase(oid)
     const o = d.order || {}
@@ -1042,8 +1071,10 @@ async function loadCopy (oid) {
        显式说出来，免得用户以为复制漏了东西。 */
     toast('已按原单带出商品与价格；批次号、到期日和自定义字段要按这一单重新登记', 'info')
   } catch (e) {
-    toast(e.message || '原单读取失败', 'error')
-    addRow()
+    /* 🔴 P0-7：复制失败（单号不存在 / 接口异常）⇒ 置错误态、不 addRow、不给可提交的空表单。
+       用户看到明确报错即可决定「返回列表重新选单」或「直接手填新单」。 */
+    copyLoadError.value = e.message || '原单读取失败（单号可能不存在）'
+    toast(copyLoadError.value, 'error')
   }
 }
 
@@ -1696,6 +1727,23 @@ watch([copyId], () => { reinit() })
   padding: 2px 4px 2px 10px; background: var(--bg); border: 1px solid var(--bd);
   border-radius: 999px; font-size: 12px; color: var(--t1);
 }
+
+/* 🔴 P0-7：复制原单失败时的明确错误态横幅 */
+.ipn-copy-err {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin-bottom: 14px; padding: 12px 16px;
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg));
+  border: 1px solid var(--danger); border-radius: var(--radius-md);
+}
+.ipn-copy-err-ico {
+  flex: 0 0 auto; width: 22px; height: 22px; line-height: 22px; text-align: center;
+  font-weight: 700; color: #fff; background: var(--danger); border-radius: 50%;
+}
+.ipn-copy-err-body { display: flex; flex-direction: column; gap: 4px }
+.ipn-copy-err-t { font-weight: 600; color: var(--danger) }
+.ipn-copy-err-m { font-size: 13px; color: var(--t1) }
+.ipn-copy-err-acts { display: flex; align-items: center; gap: 12px; margin-top: 4px }
+.ipn-copy-err-hint { font-size: 12px; color: var(--t3) }
 .ipn-at-nm { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .ipn-at-sz { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
 .ipn-at-x {

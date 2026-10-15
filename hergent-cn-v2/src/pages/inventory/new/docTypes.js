@@ -120,13 +120,10 @@ const SALE_CFG = {
     whLabel: '退货仓库',
     priceLabel: '退货价',
     tblTitle: '退货明细',
-    /* 🔴 v500：与采购退货单同一个理由 —— 底部改成了**双下拉**
-       （「保存 ▾ ｜ 保存并审核 ▾」，对齐舟谱），主按钮要短到能与 caret 拼成
-       一个复合控件；「保存并审核」是那颗品牌色主按钮，这里只管左边 ghost 那颗。 */
-    saveLabel: '保存',
+    saveLabel: '保存退货单',
     isReturn: true,
     hasDriver: false,
-    hasDept: false,
+    hasDept: true,
     orderType: 'self_pickup',
     idemSalt: 'sale-pickup-ret',
     listPath: '/inventory/sale',
@@ -155,11 +152,10 @@ const SALE_CFG = {
     whLabel: '退货仓库',
     priceLabel: '退货价',
     tblTitle: '退货明细',
-    /* v500：同上（双下拉主按钮要短），注释在 `SELF_PICKUP_RETURN` 那一份里。 */
-    saveLabel: '保存',
+    saveLabel: '保存退货单',
     isReturn: true,
     hasDriver: true,
-    hasDept: false,
+    hasDept: true,
     orderType: 'vehicle_sale',
     idemSalt: 'sale-vehicle-ret',
     listPath: '/inventory/sale',
@@ -330,4 +326,35 @@ export function legacyPurchasePath (kind) {
   return String(kind || '').trim() === 'return'
     ? DOC_PATHS.purchaseReturn
     : DOC_PATHS.purchaseOrder
+}
+
+/* ---------------------------------------------------------------------------
+   列表页「顶部导航标签名」解析（v499 补）—— 进销存 3 个列表页共用单一路由路径，
+   子类型靠 query(kind/type) 区分，而全局标签栏 `tabTitle()` 默认只认 route.meta.title
+   （笼统名）。本函数把「路径 + query」翻译成正确的单据名，**取值一律来自上方 *_CFG
+   的 `shortTitle`**（docTypes 是唯一来源，不在此手抄中文）。
+   返回 null = 不是这三个列表页 ⇒ 调用方回落到原逻辑（建单页/其它页不受影响）。
+   --------------------------------------------------------------------------- */
+export function shortTitleForList (path, query) {
+  const q = query || {}
+  if (path === '/inventory/purchase') {
+    return q.kind === 'return'
+      ? PURCHASE_CFG[PURCHASE_DOC_TYPES.PURCHASE_RETURN].shortTitle
+      : PURCHASE_CFG[PURCHASE_DOC_TYPES.PURCHASE_ORDER].shortTitle
+  }
+  if (path === '/inventory/sale') {
+    const t = String(q.type || 'self_pickup').trim()
+    const k = String(q.kind || 'order').trim()
+    const map = {
+      'self_pickup|order':   SALE_CFG[SALE_DOC_TYPES.SELF_PICKUP_ORDER].shortTitle,
+      'self_pickup|return':  SALE_CFG[SALE_DOC_TYPES.SELF_PICKUP_RETURN].shortTitle,
+      'vehicle_sale|order':  SALE_CFG[SALE_DOC_TYPES.VEHICLE_SALE_ORDER].shortTitle,
+      'vehicle_sale|return': SALE_CFG[SALE_DOC_TYPES.VEHICLE_SALE_RETURN].shortTitle,
+    }
+    return map[`${t}|${k}`] || SALE_CFG[SALE_DOC_TYPES.SELF_PICKUP_ORDER].shortTitle
+  }
+  if (path === '/inventory/transfer') {
+    return TRANSFER_CFG[TRANSFER_DOC_TYPES.TRANSFER_ORDER].shortTitle
+  }
+  return null
 }

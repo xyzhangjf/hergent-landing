@@ -760,6 +760,14 @@ const NAV = [
         { path: '/reports/stock-upload', name: '库存上报分析', icon: 'bars' }
       ] },
       { label: '经营分析', items: [
+        /* v506（2026-10-14 数据报表 P1-3）：毛利分析**落真身**，排经营分析组首位
+           —— 本组其余六条仍是占位页；三处登记缺一不可（本侧栏 + pages.js + router）。 */
+        /* v507（2026-10-14 数据报表 P1-3 续）：均单分析 / 库存周转 落真身，紧随毛利分析。
+           注：账龄汇总表**不在此新增** —— 它原本就在「往来报表」组（/reports/ageing），
+           本轮只是把该 path 从占位表移除、换成真组件 ⇒ 避免出现两个同名入口。 */
+        { path: '/reports/gross-profit',             name: '毛利分析',     icon: 'coins' },
+        { path: '/reports/avg-order',                name: '均单分析',     icon: 'bars' },
+        { path: '/reports/inventory-turnover',       name: '库存周转',     icon: 'refresh' },
         { path: '/reports/company-profit',           name: '企业经营利润', icon: 'coins' },
         { path: '/reports/customer-profit',          name: '客户利润概览', icon: 'bars' },
         { path: '/reports/customer-profit-analysis', name: '客户利润分析', icon: 'search' },

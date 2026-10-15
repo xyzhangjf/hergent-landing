@@ -284,6 +284,20 @@ export const PAGE_RULES = {
   '/wh/expiry-report': { title: '效期预警表',   module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   '/wh/vehicle-stock': { title: '车辆库存查询', module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   '/wh/stock-alert':   { title: '库存预警',     module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* —— v506（2026-10-14 数据报表 P1-3）：**毛利分析落真身**的正式登记行 ——
+     🔴 `module:'reports'` 与数据源一致：本页读 `GET /api/reports/profit-breakdown`，
+        该路径归 `reports`（同 Dashboard 三张毛利图的 `canModule('reports')` 判断）：
+        若这里写成 `module:null` 会退化成「只读占位」语义，写成别的域会造出
+        「入口可见、一开就 403」的局部假入口。
+     🔴 v472 纪律：四区（仓配 / 资金 / 报表 / 市场）开发期**一律 `BOSS_ROLES + lock`**，只给老板。
+     ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
+  '/reports/gross-profit': { title: '毛利分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* v507（2026-10-14 数据报表 P1-3 续）：均单分析 / 账龄汇总表 / 库存周转。
+     三张数据源都在 /api/reports/*（账龄与均单读 BI，同为报表域）⇒ module 一律 'reports'；
+     角色轴沿用 v472 纪律：开发期四区只放 BOSS_ROLES + lock。 */
+  '/reports/avg-order': { title: '均单分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/ageing': { title: '账龄汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/inventory-turnover': { title: '库存周转', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   /* —— v465e（2026-10-11 仓配管理 P1）：「仓库作业」组六页**落真身**的正式登记行 ——
      🔴 `module:'stock'` 与后端域**逐项一致**：六页的数据源分别是
         `/api/inbound`、`/api/wh/outbound`、`/api/wh/stocktake`、`/api/wms/*`、
@@ -573,7 +587,8 @@ export const PLACEHOLDER_PAGES = [
   { path: '/reports/other-inout',    title: '其他出入库汇总表', area: '数据报表' },
   { path: '/reports/summary',        title: '汇总报表',         area: '数据报表' },
   { path: '/reports/ar-summary',     title: '应收账款汇总表',   area: '数据报表' },
-  { path: '/reports/ageing',         title: '账龄汇总表',       area: '数据报表' },
+  /* v507（2026-10-14）：账龄汇总表已落真身（ArAging.vue），
+     故**从占位表移除** —— 否则占位页会遮蔽真路由（路由注册先者胜）。 */
   { path: '/reports/other-receivable', title: '其他应收汇总表', area: '数据报表' },
   { path: '/reports/fee-summary',    title: '费用单汇总表',     area: '数据报表' },
   { path: '/reports/income-summary', title: '收入汇总表',       area: '数据报表' },

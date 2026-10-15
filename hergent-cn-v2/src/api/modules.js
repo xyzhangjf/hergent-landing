@@ -44,6 +44,32 @@ export const reportsApi = {
   /** 业务员龙虎榜（当月起）：{ month, has_data, top_sales[], top_payments[], top_new[] }，
    *  每榜 **前端只取一榜**；后端已过滤 0 值（本月无业绩 ⇒ 空数组，宁可「暂无」不排「¥0」）。 */
   salesLeaderboard: (month = '') => api(`/api/reports/sales-leaderboard${month ? `?month=${month}` : ''}`),
+
+  /** 应收账龄：{ '1_30':[], '31_60':[], '60_plus':[] }
+   *  行结构 = receivables 全字段 + { balance(=amount-paid_amount), overdue_days, contact_name, phone }。
+   *  分档依据 **到期日 due_date**（缺失才回退 created_at），overdue_days = 今天 − 到期日。
+   *  🔴 生产实测（tenant 1，2026-10-14）：181 笔**全部**落在 60_plus —— 根因是这批应收
+   *     due_date 全为 2023-11-30/2023-12-31、created_at 同为 2026-06-29 16:01（批量导入）、
+   *     且 paid_amount>0 的笔数 = 0（从未核销）。⇒ 多为**未核销的历史挂账**，
+   *     不能直接当成当期真实欠款读。页面须显式提示，不得静默展示。 */
+  arAging: () => api('/api/reports/ar-aging'),
+
+  /** 库存周转：{ days, since, summary{sku_with_stock,sku_without_stock,stock_value,
+   *   period_cost,turnover_days,turnover_times}, items[], no_stock_items[] }
+   *  口径：周转天数 = 当前库存金额 ÷ 日均销售成本（期间天数可配）。
+   *  🔴 「无库存记录」的商品不参与周转计算（分母为 0 无意义），单列在 no_stock_items，
+   *     避免把「库存数据缺失」静默当成「周转飞快」。 */
+  inventoryTurnover: (days = 90) => api(`/api/reports/inventory-turnover?days=${days}`),
+
+  /** BI 透视：POST /api/bi/pivot —— body { dimensions:[], measures:[], filters:{}, limit, order_by }
+   *  可选 measures：revenue / cost / profit / quantity / order_count / avg_order_value / margin_pct /
+   *                 customer_count / ar_balance
+   *  可选 dimensions：customer_name / product_name / brand / category / salesperson / warehouse / month
+   *  🔴 口径坑（实测）：后端 `avg_order_value` = SUM(全部订单 total_amount) ÷ COUNT(DISTINCT 全部订单)，
+   *     **未过滤订单状态**；而 `revenue` 只统计已送达/已签收、`order_count` 也只数已送达/已签收。
+   *     ⇒ 三者不同源，直接拿 avg_order_value 当均单会混入未送达订单、把均单算小。
+   *     ⇒ 均单一律用 **revenue ÷ order_count**（两者同为已送达口径），本文件不提供捷径。 */
+  biPivot: (body) => api('/api/bi/pivot', { method: 'POST', body }),
 }
 
 /* ---- 预报订货 ---- */

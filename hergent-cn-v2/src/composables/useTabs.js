@@ -82,6 +82,7 @@ export function tabKey(path, query) {
    这里**只做一次回落**，绝不把回落逻辑散到调用点（那会变成第二份实现）。 */
 import { SUB_TITLES, QUERY_SUB_TITLES, DEFAULT_SUB_KEY } from '../constants/tabTitles'
 import { PAGE_RULES, pageTitle } from '../constants/pages'
+import { shortTitleForList } from '../pages/inventory/new/docTypes.js'
 
 export function tabTitle(path, query, metaTitle) {
   const t = String((query && query.tab) || '')
@@ -93,15 +94,26 @@ export function tabTitle(path, query, metaTitle) {
     const d = map._default
     if (d && map[d]) return map[d]
   }
-  /* v501：**非 `tab` 的 query 键**也能决定标题（进销存七入口：同 path 不同
-     `kind` / `type`）。必须排在 `PAGE_RULES` 之前 —— 那几条的 path 主标题
-     （「采购单」/「销售单」）会盖掉正确名字。
-     ⚠️ 查不到就回落主标题（例如深链没带 query 进来），不新增第二套默认逻辑。 */
+  /* v509：列表页**身份名**按 query 解析（进销存七入口：同 path 不同 `kind`/`type`）。
+     必须排在 `PAGE_RULES` 之前 —— 那几条的 path 主标题（「采购单」/「销售单」）
+     会盖掉正确名字。⚠️ 查不到就回落（深链没带 query 时），不新增第二套默认逻辑。
+
+     🔴 **两张表同时存在的原因（v509 合并时登记，勿当成抄重）**：
+       · `tabTitles.QUERY_SUB_TITLES` = 列表页身份名，**逐字承接 v509 删掉的页头
+         `<h2>` 原文**（采购页头写的是「采购单」，不是「采购订单」）。删页头后标签
+         名必须与原页头一致，否则等于偷偷改名 —— 所以这张表优先。
+       · `docTypes.shortTitleForList` = 建单页配置里的短名（采购那一项是「采购订单」），
+         由并行会话先加。此处保留作**回落**，不是死代码：新增单据类型只要进了
+         docTypes 就有名字，不必同步维护两张表。
+       将来若要合成一张：以「列表页页头原文」为准改 docTypes 的 `shortTitle`，
+       再删本表 —— 不要反过来（会把列表页改名）。 */
   const qt = QUERY_SUB_TITLES[path]
   if (qt) {
     const v = qt.keys.map(function (k) { return String((query && query[k]) || '') }).join('|')
     if (qt.map[v]) return qt.map[v]
   }
+  const nav = shortTitleForList(path, query)
+  if (nav) return nav
   /* 🔴 必须用 `PAGE_RULES[path]` **精确**命中，不能直接 `pageTitle(path)`：
      `pageTitle` 走 `ruleFor`（**逐级去尾**），对 `/inventory/purchase` 会继承到
      `/inventory` 的「进销存」—— 于是「采购单 / 销售单 / 库存查询」三个标签**同名**，
