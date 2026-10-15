@@ -1,5 +1,5 @@
 /**
- * 表格密度偏好（P2 / v417k）：**舒适 cozy**（默认，即现状）/ **紧凑 compact**。
+ * 表格密度偏好（P2 / v417k）：**紧凑 compact**（v511 起默认）/ **舒适 cozy**（用户可手动切回）。
  *
  * ## 为什么要跟着租户走（云端），而不是只存 localStorage
  * 只存本地 ⇒ 换台电脑 / 换个浏览器就要重调一次；老板常在电脑与手机之间切。
@@ -26,9 +26,10 @@ import { api } from '../api/client'
 const LS_KEY = 'hergent_density'
 const PAGE = 'ui-density'
 
-/** 只认这两个值：localStorage 里被人手改成别的 ⇒ 回落到 cozy（不静默用脏值）。 */
+/** 默认 **紧凑 compact**（v511：全站默认启用紧凑密度）；localStorage 里被人手改成
+   `cozy` ⇒ 回落 cozy（尊重用户显式选择，不静默覆盖）。 */
 function readLocal () {
-  try { return localStorage.getItem(LS_KEY) === 'compact' ? 'compact' : 'cozy' } catch (_) { return 'cozy' }
+  try { return localStorage.getItem(LS_KEY) === 'cozy' ? 'cozy' : 'compact' } catch (_) { return 'compact' }
 }
 
 /** 模块级单例 ⇒ 全站共享同一个值（每页各 import 一份 ref 会各存各的，改一处不生效另一处）。 */

@@ -182,6 +182,19 @@
               </td>
             </tr>
           </tbody>
+          <!-- v511（C）：本页合计 —— 跟随列设置，金额列落值、其余留空。
+               后端不返回合计 ⇒ 客户端对当前页可见行求和；明确标注「本页合计」，不是全单。 -->
+          <tfoot>
+            <tr>
+              <td class="psi-frz psi-frz-1 ft-lb">本页合计</td>
+              <td v-for="c in visibleCols" :key="'ft-' + c.key"
+                  :class="{ num: c.num,
+                             'psi-frz': c.key === 'order_no', 'psi-frz-2': c.key === 'order_no' }">
+                <template v-if="c.num">¥{{ fmtMoney(pageTotals[c.key] || 0) }}</template>
+              </td>
+              <td class="ft-op"></td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
@@ -291,6 +304,17 @@ const activeToggleCol = computed(() => (_kindReturn.value ? toggleRetCol : toggl
 const activeResetCols = computed(() => (_kindReturn.value ? resetRetCols : resetCols))
 const visibleCols = computed(() =>
   activeCOLS.value.filter(c => activeIsVisible.value(c.key)))
+/* v511（C）：客户端「本页合计」—— 后端 `/api/psi/sale-orders` 与 `sale-return-orders`
+   均不返回合计（真表在 erp 后端仓库，本仓前端只拉当前页行），故这里对**当前页可见行**
+   的数值列求和。⚠️ 是"本页"不是"全单"：单据可能跨多页，明确写「本页合计」避免误读成总量。
+   合计行跟随列设置（逐个可见数值列落值、其余留空），与采购页全单合计同款跟随口径。 */
+const pageTotals = computed(() => {
+  const defs = activeCOLS.value
+  const t = {}
+  for (const c of defs) if (c.num) t[c.key] = 0
+  for (const r of rows.value) for (const c of defs) if (c.num) t[c.key] += Number(r[c.key] || 0)
+  return t
+})
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
 /* v496：序号列宽与全局序号列逐字一致（variables.css `table.tbl th.seq-th{width:46px}`）；
@@ -659,7 +683,9 @@ onMounted(load)
 </script>
 
 <style scoped>
-.inv-page { display: block }
+/* v511：`.inv-page` 撑满 `.view-wrap` 高度（flex 列），让下方 `.isl-card` 能 flex:1 占满
+   剩余空间、再由 `.table-wrap` 自己滚动 ⇒ 表头 / 合计行冻结。三列表页同口径。 */
+.inv-page { display: flex; flex-direction: column; min-height: 0; height: 100% }
 /* v501：`.isl-acts`（页头动作组）随 `.page-hd` 一起删除 —— 新建 / 刷新已并入页签行右侧。 */
 /* 筛选
    🔴 v501：筛选行 / 标签 / 控件尺寸 / 按钮组 / 下拉三角的样式已上提 `psi-list.css`
@@ -722,6 +748,9 @@ onMounted(load)
      只会以为"这列坏了"。采购单列表的 print CSS 漏了这一条（齿轮会随序号列印到纸上），
      本页不复制该瑕疵。 */
   .isl-tbl thead .col-cfg, .isl-tbl .isl-sort-ind { display: none !important }
+  /* v511：本页合计行在打印稿里略去（只印当前页部分行、合计没有全局含义，且冻结列回静态后
+     表头已是静态，合计行再钉底反而错位）。与采购页 `.ipl-tbl tfoot` 同口径。 */
+  .isl-tbl tfoot { display: none !important }
   .isl-tbl.print-one tbody tr:not(.print-target) { display: none !important }
 }
 

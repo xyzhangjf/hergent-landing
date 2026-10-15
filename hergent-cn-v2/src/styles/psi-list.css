@@ -49,6 +49,47 @@
 .psi-tbl tbody tr:hover td.psi-frz { background: var(--bg2) }
 .psi-tbl tbody tr.psi-on td.psi-frz { background: var(--p-bg) }
 
+/* ══════════════════════════════════════════════════════════════════════
+   v511：表头 / 合计行冻结 + 密度 B（进销存七页在紧凑档**再**压一行）
+   ----------------------------------------------------------------------
+   冻结（用户需求）：表头与合计行钉住，只允许表体商品行上下滚动。
+   机制：列表卡片 flex 列、`.table-wrap` 成为受限高度滚动容器（flex:1; overflow:auto），
+   再给 thead th 加 sticky top、tfoot td 加 sticky bottom。
+   ⚠️ 不动全局 `.view-wrap`（影响全站所有页）；只让进销存单列表页自己的卡片承担滚动，
+      页头 / 筛选 / 状态页签仍留在卡片外、钉在顶部，只有表体滚动。
+   ⚠️ `.ipl-card` / `.isl-card` 只被三张列表页使用（表单页用 `.ipn-*` / `.isn-*`），
+      故这里的布局规则不会误伤建单页。
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* 卡片：flex 列 + flex:1 ⇒ 撑满 `.inv-page`（三页 scoped 已把 `.inv-page` 设成
+   height:100% 的 flex 列）。min-height:0 让表体区能收缩到比内容矮、把溢出交给
+   `.table-wrap` 滚动（flex 默认 min-height:auto 会把卡片撑高、破坏冻结）。 */
+.ipl-card, .isl-card { display: flex; flex-direction: column; min-height: 0; flex: 1 }
+/* 表体区：受卡片剩余高度约束，自己纵向 + 横向滚动 ⇒ 表头 / 合计行冻结生效。 */
+.ipl-card > .table-wrap, .isl-card > .table-wrap { flex: 1; min-height: 0; overflow: auto }
+
+/* 表头钉顶（所有 th，含冻结列）：冻结列已有 left 偏移 ⇒ 同时水平 / 垂直吸住。
+   z-index：非冻结 8 < 冻结列 9（见下方 `.psi-frz` 段），必须高于表体（6）。 */
+.psi-tbl thead th { position: sticky; top: 0; z-index: 8 }
+/* 合计行钉底（所有 td，含冻结列）：bottom:0 与冻结列 left 偏移共存。
+   z-index：非冻结 6 < 冻结列 7，必须高于表体内容（默认 0）。 */
+.psi-tbl tfoot td { position: sticky; bottom: 0; z-index: 6; background: var(--bg2);
+  font-weight: 600; color: var(--t1); border-top: 1px solid var(--border-subtle);
+  border-bottom: none; font-variant-numeric: tabular-nums; }
+.psi-tbl tfoot td.num { text-align: right }
+.psi-tbl tfoot .ft-lb { text-align: left; color: var(--t2) }
+
+/* 密度 B：进销存七页在「紧凑」档**再**压一行（覆盖全局紧凑的 5/10 · 4/10 与控件 24px）。
+   🔴 选择器精确打到 `table.tbl.psi-tbl`（0,3,2）> 全局紧凑（0,2,2）> 默认（0,1,2）：
+      只压 psi 列表表，不动其它表（报表 / 档案等仍走全局密度）。 */
+[data-density="compact"] table.tbl.psi-tbl th { padding: 3px 8px }
+[data-density="compact"] table.tbl.psi-tbl td { padding: 2px 8px }
+[data-density="compact"] table.tbl.psi-tbl th.seq-th { padding: 3px 4px }
+[data-density="compact"] table.tbl.psi-tbl td.seq-cell { padding: 2px 4px }
+[data-density="compact"] table.tbl.psi-tbl .input,
+[data-density="compact"] table.tbl.psi-tbl input,
+[data-density="compact"] table.tbl.psi-tbl select { height: 22px }
+
 /* ---- 快捷时间档（规范 §3.3；五枚 chip 的 label + 排列外壳） ---- */
 /* v501：改**横排** —— 竖排时「快捷」标签独占一行，筛选区凭空多出约 20px 纵向空间，
    而它本身只是个标签、不是第二个筛选项（本轮要消掉的正是这类无效纵向占用）。 */

@@ -1579,7 +1579,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </script>
 
 <style scoped>
-.inv-page { display: block }
+/* v511：`.inv-page` 撑满 `.view-wrap` 高度（flex 列），让下方 `.ipl-card` 能 flex:1 占满
+   剩余空间、再由 `.table-wrap` 自己滚动 ⇒ 表头 / 合计行冻结。三列表页同口径。 */
+.inv-page { display: flex; flex-direction: column; min-height: 0; height: 100% }
 /* v501：`.ipl-acts`（页头动作组）随 `.page-hd` 一起删除 —— 新建 / 刷新已并入页签行右侧
    （`.psi-tabact`，共享样式在 psi-list.css）。 */
 
