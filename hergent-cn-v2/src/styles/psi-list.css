@@ -9,6 +9,8 @@
      · .psi-quick*   快捷时间档外壳（chips 本体是全局 .chip）
      · .psi-tabs     状态页签条 + 计数徽章 .psi-tabn（v498，自采购页上提）
      · .psi-on       行选中态（采购页批量操作）
+     · v501         页签行 .psi-tabbar（含右侧动作）／筛选行 .psi-frow·.psi-f·.psi-lb／
+                    工具栏 .psi-tb／分页器 .psi-pager（共享件 PsiPager.vue）
    🔴 改本文件 = 同时改三页：InvPurchaseList / InvSaleList / InvTransferList。
       加参数、改默认值前必须核对三处调用方（规范文档 §11 共享件清单）。
    规范全文：docs/进销存列表页统一设计规范-v496.md
@@ -46,8 +48,10 @@
 .psi-tbl tbody tr.psi-on td.psi-frz { background: var(--p-bg) }
 
 /* ---- 快捷时间档（规范 §3.3；五枚 chip 的 label + 排列外壳） ---- */
-.psi-quick { display: flex; flex-direction: column; gap: 4px }
-.psi-quick-lb { font-size: 12px; color: var(--t3) }
+/* v501：改**横排** —— 竖排时「快捷」标签独占一行，筛选区凭空多出约 20px 纵向空间，
+   而它本身只是个标签、不是第二个筛选项（本轮要消掉的正是这类无效纵向占用）。 */
+.psi-quick { display: flex; flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap }
+.psi-quick-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
 .psi-quick-row { display: flex; gap: 6px; flex-wrap: wrap }
 
 /* ---- 状态页签（规范 §2.6.2；共享件 components/StatusTabs.vue） ----
@@ -66,12 +70,109 @@
 }
 .main-tab.on .psi-tabn { background: var(--p-bg); color: var(--p-ink) }
 
+/* ══════════════════════════════════════════════════════════════════════
+   v501：页签行 / 筛选行 / 工具栏 / 分页器 —— 三页同构部分上提
+   ----------------------------------------------------------------------
+   由来：七个列表入口（3 组件 × path+query 组合）此前两套私有前缀
+   （ipl-* / isl-*）各写一份「筛选行 / 工具栏 / 分页器」，间距与控件尺寸
+   有细微差别（采购 select min-width 150px、销售 130px；采购分页器 padding
+   12px、调拨同值但散在各自文件里），且每页顶部还有一块 `.page-hd`
+   （大标题 + 副标题 + 新建/刷新）—— 与全局标签栏**重复承担页面身份**。
+
+   v501 三件事：
+     ① `.page-hd` 退役，页面身份收归顶部标签栏；「新建 / 刷新」并入页签行右侧；
+     ② 筛选项改为**标签与输入框同行**（原 label 在上、input 在下 ⇒ 每项占两倍高）；
+     ③ 筛选行 / 工具栏 / 分页器的结构与样式上提本文件（三页唯一出处）。
+
+   ⛔ 各页 scoped CSS 里不再留这些规则（那就是第二个真相来源）。
+   ⛔ 本段只动**结构与样式**：筛选字段、请求参数、分页算法一律未改。
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ---- 页签行：左 = 状态页签（筛选控件），右 = 页面动作（新建 / 刷新） ----
+   🔴 为什么动作放这里而不是另起一行：删掉 `.page-hd` 后页面顶部第一条就是页签行，
+      新建 / 刷新是**页面级**动作，跟着页面身份走最顺手，且不再单独占一行。
+   ⚠️ 页签条本体（`.main-tabs`）自带 `margin-bottom:16px`，放进本行后由外层
+      统一给间距（否则页签与工具栏之间会出现 16px 的"来历不明"的空白）。 */
+.psi-tabbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin: 0 0 12px;
+}
+.psi-tabbar .psi-tabs { margin-bottom: 0 }
+.psi-tabact { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto }
+
+/* ---- 筛选行：一行放不下就**整组换行**（flex-wrap），绝不把标签与输入框拆到两行 ----
+   拆行 = 每个筛选项高度翻倍 ⇒ 筛选区吃掉本该给表格的空间（本轮要消掉的正是这个）。 */
+.psi-frow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap }
+.psi-frow-sub { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-subtle) }
+.psi-f { display: flex; align-items: center; gap: 6px }
+.psi-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
+.psi-fbtns { display: flex; align-items: center; gap: 8px; margin-left: auto }
+/* 筛选控件尺寸三页统一（此前采购 150px / 销售·调拨 130px 两套 min-width 并存） */
+.psi-sel { min-width: 140px; height: 32px }
+.psi-date { min-width: 140px; height: 32px }
+.psi-kw { min-width: 180px; height: 32px }
+/* 「更多选项 / 批量操作」的下拉三角（无 chevron 图标，用 CSS 三角） */
+.psi-caret {
+  width: 0; height: 0; margin-left: 2px;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid currentColor; transition: transform .15s;
+}
+.psi-caret.up { transform: rotate(180deg) }
+
+/* ---- 工具栏：左 = 当前视图状态说明（已选 N 条 / 按 X 排序），右 = 导出 / 打印 / 批量 ---- */
+.psi-tb {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin: 0 0 12px;
+}
+.psi-tb-l, .psi-tb-r { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.psi-selinfo { font-size: 12px; color: var(--t2) }
+.psi-selinfo b { color: var(--p-ink); font-variant-numeric: tabular-nums }
+.psi-sortinfo { display: inline-flex; align-items: center; gap: 4px }
+
+/* ---- 分页器（共享件 `components/PsiPager.vue`；对齐舟谱：
+        共 N 条记录 + 页码窗 + 每页条数 + 跳至） ---- */
+.psi-pager {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; border-top: 1px solid var(--border-subtle);
+}
+.psi-pg-cnt { font-size: 12px; color: var(--t3); margin-right: auto }
+.psi-pg-nums { display: inline-flex; align-items: center; gap: 4px }
+.psi-pg {
+  min-width: 28px; height: 28px; padding: 0 6px;
+  border: 1px solid var(--bd); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--t1); font-size: 13px;
+  cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.psi-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
+.psi-pg:disabled { opacity: .45; cursor: not-allowed }
+.psi-pg.on { background: var(--p-dark); border-color: var(--p-dark); color: #fff }
+.psi-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
+.psi-pg-jump { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t3) }
+.psi-pg-in { width: 52px; height: 28px; padding: 0 6px; text-align: center; border-radius: var(--radius-sm) }
+
 /* ---- 打印：冻结是屏幕上的滚动手感，纸上 sticky 只会把几列叠在一起 ----
    （各页 @media print 里另有 .xx-tbl 回 auto 布局的规则，与本条不冲突：
    同值不同选择器。） */
 @media print {
   .psi-tbl .psi-frz { position: static !important }
-  /* 页签是**筛选控件**，纸上没有意义 —— 隐藏规则放这里（唯一出处），
-     三页 scoped 的 @media print 里不必再列一遍（列了就是第二份）。 */
-  .psi-tabs { display: none !important }
+  /* 页签行 / 工具栏 / 分页器都是**筛选与操作控件**，纸上没有意义 —— 隐藏规则放这里
+     （唯一出处），三页 scoped 的 @media print 里不必再列一遍（列了就是第二份）。
+     🔴 v501：这三处类名已由页面私有（`.ipl-pager` / `.isl-tb` …）换成共享件，
+        共享件的根元素虽然带父页的 scope id，但**类名不匹配** ⇒ 父页 scoped 里
+        那条旧选择器会静默失效（分页器被印到纸上）。故本轮把三者的隐藏规则
+        一并上提到这里，父页只留它自己外壳（`.xx-filter` / `.xx-card`）的规则。
+        ⚠️ 整条 `.psi-tabbar` 隐藏（不止 `.psi-tabs`）—— 页头退役后「新建 / 刷新」
+           已并入该行右侧，只藏页签会把两颗按钮印到纸上。 */
+  .psi-tabbar, .psi-tb, .psi-pager { display: none !important }
+}
+
+/* ---- 窄屏：筛选项整项占满一行（**标签与输入框仍同行**） ----
+   🔴 规则放这里而不是各页 scoped：`.psi-frow` / `.psi-f` / `.psi-fbtns` 都是共享类，
+      三页各写一份 media 查询，数值必然漂移（本文件存在的理由）。
+      各页 scoped 里只留**本页私有控件**的窄屏规则（如采购页的 `.ipl-chk-mark`）。 */
+@media (max-width: 640px) {
+  .psi-frow { align-items: stretch }
+  .psi-f, .psi-sel, .psi-date, .psi-kw { width: 100%; min-width: 0 }
+  .psi-fbtns { margin-left: 0 }
+  .psi-tabact { margin-left: 0 }
 }

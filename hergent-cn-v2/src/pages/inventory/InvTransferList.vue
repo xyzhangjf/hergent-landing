@@ -1,42 +1,31 @@
 <template>
   <div class="inv-page">
-    <div class="page-hd split">
-      <div>
-        <h2>{{ title }}</h2>
-        <span class="page-sub">{{ subTitle }}</span>
-      </div>
-      <div class="isl-acts">
-        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="go(newTo)">
-          <Icon name="plus" :size="14" />新建{{ title }}
-        </button>
-        <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
-          <Icon name="refresh" :size="14" />刷新
-        </button>
-      </div>
-    </div>
+    <!-- v501：页头（`.page-hd` = 大标题 + 副标题 + 新建/刷新）**整块退役**，与采购 /
+         销售两页同口径 —— 页面身份收归顶部标签栏（本页单入口，标签标题本来就不冲突）。
+         「新建 / 刷新」下移到下方状态页签行右侧（`#actions` 插槽）。 -->
 
     <!-- 筛选：状态 + 创建日期区间 + 商品关键字（三项均为**后端过滤**，对齐采购/销售列表）。
          ⚠️ 不放「前端 filter」：本页服务端分页，前端过滤只作用于当前页行数 ⇒ 假结果。 -->
     <div class="card isl-filter">
-      <div class="isl-frow">
+      <div class="psi-frow">
         <!-- v498：「状态**下拉**」删除 —— 改由筛选区下方的**状态页签**承载（共享件
              StatusTabs，与采购 / 销售两页同款）。`TO_OPTIONS` 一并移除（无引用）。 -->
-        <div class="isl-f">
-          <label class="isl-lb">创建起</label>
-          <input type="date" v-model="f.date_from" class="input isl-date" @change="onDateManual" />
+        <div class="psi-f">
+          <label class="psi-lb">创建起</label>
+          <input type="date" v-model="f.date_from" class="input psi-date" @change="onDateManual" />
         </div>
-        <div class="isl-f">
-          <label class="isl-lb">创建止</label>
-          <input type="date" v-model="f.date_to" class="input isl-date" @change="onDateManual" />
+        <div class="psi-f">
+          <label class="psi-lb">创建止</label>
+          <input type="date" v-model="f.date_to" class="input psi-date" @change="onDateManual" />
         </div>
-        <div class="isl-f isl-f-kw">
-          <label class="isl-lb">商品</label>
-          <input v-model.trim="f.keyword" class="input isl-kw" placeholder="商品名" @keyup.enter="load()" />
+        <div class="psi-f psi-f-kw">
+          <label class="psi-lb">商品</label>
+          <input v-model.trim="f.keyword" class="input psi-kw" placeholder="商品名" @keyup.enter="load()" />
         </div>
         <!-- v496：快捷时间档（规范 §3.3）—— 与采购/销售列表同款五枚 chip；
              手动改上面两个日期框会经 onDateManual 清掉芯片高亮。 -->
         <QuickRangeChips :range="quickRange" @pick="pickRange" />
-        <div class="isl-fbtns">
+        <div class="psi-fbtns">
           <button class="btn btn-primary btn-sm" :disabled="loading" @click="load()">
             <Icon name="search" :size="14" />查询
           </button>
@@ -48,19 +37,29 @@
     <!-- v498：状态页签（共享件 StatusTabs）。调拨只有 3 个状态值
          （draft / completed / cancelled；无退货 —— 老板 2026-10-11 口径），故只有三档。
          计数来自服务端 `counts`（`erp_db.transfer_order_counts`，v498 新增）。 -->
-    <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab" />
+    <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab">
+      <!-- v501：原页头的「新建 / 刷新」移到这里（页签行右侧），见上方注释。 -->
+      <template #actions>
+        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="go(newTo)">
+          <Icon name="plus" :size="14" />新建{{ title }}
+        </button>
+        <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
+          <Icon name="refresh" :size="14" />刷新
+        </button>
+      </template>
+    </StatusTabs>
 
-    <div class="isl-tb">
-      <div class="isl-tb-l">
+    <div class="psi-tb">
+      <div class="psi-tb-l">
         <!-- v496：删除此处的「共 N 张」—— 总数唯一出处 = 分页器左侧（规范 §1）。 -->
         <!-- v478：当前排序的显式提示。排序键对应列一旦被「列设置」隐藏，表头指示器随之消失，
              顺序来历就变成看不见的状态，用户会以为数据乱了。这里常显「按 X 升/降序」+ 一键清除。 -->
-        <span v-if="sortKey" class="isl-selinfo isl-sortinfo">
+        <span v-if="sortKey" class="psi-selinfo psi-sortinfo">
           按<b>{{ sortLabel }}</b>{{ sortDir === 'asc' ? '升序' : '降序' }}
           <button class="isl-link" @click="clearSort">清除</button>
         </span>
       </div>
-      <div class="isl-tb-r">
+      <div class="psi-tb-r">
         <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doExport">
           <Icon name="download" :size="14" />导出
         </button>
@@ -153,22 +152,13 @@
 
       <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
 
-      <div class="isl-pager">
-        <span class="isl-pg-cnt">共 {{ total }} 条记录，第 {{ pageFrom }}–{{ pageTo }} 条</span>
-        <div class="isl-pg-nums">
-          <button class="isl-pg" :disabled="page <= 1" @click="goPage(page - 1)">‹</button>
-          <button v-for="p in pageNums" :key="p" class="isl-pg" :class="{ on: p === page }" @click="goPage(p)">{{ p }}</button>
-          <button class="isl-pg" :disabled="page >= pageCount" @click="goPage(page + 1)">›</button>
-        </div>
-        <select v-model.number="limit" class="input isl-pg-size" @change="goPage(1)">
-          <option v-for="s in PAGE_SIZES" :key="s" :value="s">{{ s }} 条/页</option>
-        </select>
-        <span class="isl-pg-jump">
-          跳至
-          <input v-model.number="jumpTo" class="input isl-pg-in" inputmode="numeric" @keyup.enter="doJump" />
-          页
-        </span>
-      </div>
+      <!-- v501：分页器换共享件 `PsiPager`（与采购 / 销售两页同一条）。
+           只有结构与样式换了：`total` / `pageNums` / `pageCount` 仍由本页 computed 算，
+           翻页仍走本页 `goPage`，每页条数候选仍是本页 `PAGE_SIZES`。 -->
+      <PsiPager :total="total" :from="pageFrom" :to="pageTo" :page="page"
+                :page-nums="pageNums" :page-count="pageCount"
+                :limit="limit" :sizes="PAGE_SIZES"
+                @go="goPage" @size="onSize" />
     </div>
   </div>
 </template>
@@ -207,6 +197,8 @@ import { useQuickRange } from '../../composables/useQuickRange.js'
 import QuickRangeChips from '../../components/QuickRangeChips.vue'
 /* v498：状态页签共享件（与采购 / 销售两页同一条；样式在 psi-list.css 的 .psi-tabs）。 */
 import StatusTabs from '../../components/StatusTabs.vue'
+/* v501：分页器共享件（采购 / 销售 / 调拨三页同一条）。 */
+import PsiPager from '../../components/PsiPager.vue'
 
 /* 列设置（齿轮）。核心列（单号 / 状态）进本清单 `core:true` ⇒ 不进云端显隐配置、恒显；
    可选列 key 一旦定下就进云端，改名会丢用户已存配置（故保持稳定）。
@@ -293,7 +285,7 @@ const busyPost = ref(false)
 const PAGE_SIZES = [20, 50, 100, 200]
 const limit = ref(50)
 const offset = ref(0)
-const jumpTo = ref('')
+/* v501：`jumpTo` 删除 —— 「跳至」输入框的状态随分页器搬进共享件 `PsiPager`。 */
 
 function baseFilter () { return { status: '', date_from: '', date_to: '', keyword: '' } }
 const f = ref(baseFilter())
@@ -367,11 +359,11 @@ function goPage (p) {
   offset.value = (n - 1) * limit.value
   load(false)
 }
-function doJump () {
-  const n = parseInt(jumpTo.value, 10)
-  jumpTo.value = ''
-  if (!Number.isFinite(n)) return
-  goPage(n)
+/* v501：「跳至」输入框随分页器搬进共享件 `PsiPager`，本页 `jumpTo` / `doJump` 随之删除。
+   改每页条数必须回到第 1 页（offset 还停在第 N 页而总页数已变 ⇒ 会落在空白页）。 */
+function onSize (n) {
+  limit.value = n
+  goPage(1)
 }
 const pageNums = computed(() => {
   const n = pageCount.value, cur = page.value
@@ -447,21 +439,15 @@ onMounted(load)
 
 <style scoped>
 .inv-page { display: block }
-.isl-acts { display: flex; gap: 8px; flex-wrap: wrap }
+/* v501：`.isl-acts`（页头动作组）随 `.page-hd` 一起删除 —— 新建 / 刷新已并入页签行右侧。 */
+/* 筛选
+   🔴 v501：筛选行 / 标签 / 控件尺寸 / 按钮组的样式已上提 `psi-list.css`（`.psi-frow` /
+      `.psi-f` / `.psi-lb` / `.psi-sel` / `.psi-date` / `.psi-kw` / `.psi-fbtns`），
+      三页唯一出处 ⇒ 这里不再留第二份（原 `.isl-f-kw{margin-left:4px}` 一并删除：
+      它只是给商品框补的手动偏移，共享尺寸统一后不再需要）。
+      本页只剩筛选卡外壳 `.isl-filter`。 */
 .isl-filter { margin-bottom: 12px }
-.isl-frow { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap }
-.isl-f { display: flex; flex-direction: column; gap: 4px }
-.isl-lb { font-size: 12px; color: var(--t3) }
-.isl-sel { min-width: 130px; height: 32px }
-.isl-date { height: 32px }
-.isl-f-kw { margin-left: 4px }
-.isl-kw { min-width: 150px; height: 32px }
-.isl-fbtns { display: flex; align-items: center; gap: 8px; margin-left: auto }
-
-.isl-tb { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 12px }
-.isl-tb-l, .isl-tb-r { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.isl-selinfo { font-size: 12px; color: var(--t2) }
-.isl-selinfo b { color: var(--p-ink); font-variant-numeric: tabular-nums }
+/* 工具栏：v501 上提 `psi-list.css`（`.psi-tb` / `.psi-tb-l,r` / `.psi-selinfo`）。 */
 
 .isl-card { padding-bottom: 0 }
 /* v496：固定布局 + colgroup 定宽（规范 §2.1）。min-width = 序号46 + 八列定宽 + 操作120
@@ -486,20 +472,14 @@ onMounted(load)
 .isl-op-btn:disabled { opacity: .45; cursor: not-allowed }
 .isl-op-go { border-color: var(--p); color: var(--p-ink) }
 
-.isl-pager { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-top: 1px solid var(--border-subtle) }
-.isl-pg-cnt { font-size: 12px; color: var(--t3); margin-right: auto }
-.isl-pg-nums { display: inline-flex; align-items: center; gap: 4px }
-.isl-pg { min-width: 28px; height: 28px; padding: 0 6px; border: 1px solid var(--bd); border-radius: var(--radius-sm); background: var(--bg); color: var(--t1); font-size: 13px; cursor: pointer; font-variant-numeric: tabular-nums }
-.isl-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
-.isl-pg:disabled { opacity: .45; cursor: not-allowed }
-.isl-pg.on { background: var(--p-dark); border-color: var(--p-dark); color: #fff }
-.isl-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
-.isl-pg-jump { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t3) }
-.isl-pg-in { width: 52px; height: 28px; padding: 0 6px; text-align: center; border-radius: var(--radius-sm) }
+/* 分页器
+   🔴 v501：整段删除 —— 改共享件 `PsiPager.vue`，样式随 `psi-list.css` 的 `.psi-pager`。 */
 
 /* 打印：只留数据表；单张打印时只留那一行。 */
 @media print {
-  .page-hd, .isl-filter, .isl-tb, .isl-pager, .col-menu, .col-menu-overlay { display: none !important }
+  /* v501：`.page-hd` 已删除，`.isl-tb` / `.isl-pager` 已换共享件 ⇒ 三者隐藏规则
+     都在 `psi-list.css`（三页唯一出处）。这里只留本页外壳。 */
+  .isl-filter, .col-menu, .col-menu-overlay { display: none !important }
   .isl-card { border: none; box-shadow: none; padding-bottom: 0 }
   .isl-card .table-wrap { overflow: visible; border: none; border-radius: 0 }
   .isl-tbl { min-width: 0; width: 100%; table-layout: auto }
@@ -509,9 +489,6 @@ onMounted(load)
   .isl-tbl.print-one tbody tr:not(.print-target) { display: none !important }
 }
 
-@media (max-width: 640px) {
-  .isl-frow { align-items: stretch }
-  .isl-f, .isl-sel, .isl-date, .isl-kw { width: 100%; min-width: 0 }
-  .isl-fbtns { margin-left: 0 }
-}
+/* v501：窄屏规则随共享类一起上提 `psi-list.css`（三页唯一出处）——
+   本页已无私有的筛选控件需要窄屏规则，故整段删除。 */
 </style>

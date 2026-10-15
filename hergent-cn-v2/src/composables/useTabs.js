@@ -80,7 +80,7 @@ export function tabKey(path, query) {
 
 /* 子页标题：唯一源 = `constants/tabTitles.js`（主标题唯一源仍是 `pages.js::pageTitle`）。
    这里**只做一次回落**，绝不把回落逻辑散到调用点（那会变成第二份实现）。 */
-import { SUB_TITLES, DEFAULT_SUB_KEY } from '../constants/tabTitles'
+import { SUB_TITLES, QUERY_SUB_TITLES, DEFAULT_SUB_KEY } from '../constants/tabTitles'
 import { PAGE_RULES, pageTitle } from '../constants/pages'
 
 export function tabTitle(path, query, metaTitle) {
@@ -92,6 +92,15 @@ export function tabTitle(path, query, metaTitle) {
        而不是直接拿它当标题 —— 否则标签会显示成 'dashboard' 这种英文枚举。 */
     const d = map._default
     if (d && map[d]) return map[d]
+  }
+  /* v501：**非 `tab` 的 query 键**也能决定标题（进销存七入口：同 path 不同
+     `kind` / `type`）。必须排在 `PAGE_RULES` 之前 —— 那几条的 path 主标题
+     （「采购单」/「销售单」）会盖掉正确名字。
+     ⚠️ 查不到就回落主标题（例如深链没带 query 进来），不新增第二套默认逻辑。 */
+  const qt = QUERY_SUB_TITLES[path]
+  if (qt) {
+    const v = qt.keys.map(function (k) { return String((query && query[k]) || '') }).join('|')
+    if (qt.map[v]) return qt.map[v]
   }
   /* 🔴 必须用 `PAGE_RULES[path]` **精确**命中，不能直接 `pageTitle(path)`：
      `pageTitle` 走 `ruleFor`（**逐级去尾**），对 `/inventory/purchase` 会继承到

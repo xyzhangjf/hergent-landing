@@ -1,22 +1,15 @@
 <template>
   <div class="inv-page">
-    <div class="page-hd split">
-      <div>
-        <h2>{{ isReturn ? '采购退货单' : '采购单' }}</h2>
-        <span class="page-sub">{{ isReturn ? '退给供应商的退货单据' : '向供应商进货的单据' }}</span>
-      </div>
-      <div class="ipl-acts">
-        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="goNew()">
-          <Icon name="plus" :size="14" />{{ isReturn ? '新建采购退货单' : '新建采购单' }}
-        </button>
-        <!-- v496：页头补「刷新」（规范 §1 第 1 段：页头右侧 = 新建 + 刷新，
-             与销售/调拨列表同款）。工具栏里那颗重复的「新建」同轮删除 ——
-             新建只留页头与空态两处，避免同屏三个入口互相稀释。 -->
-        <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
-          <Icon name="refresh" :size="14" />刷新
-        </button>
-      </div>
-    </div>
+    <!-- v501：页头（`.page-hd` = 大标题「采购单」+ 副标题 + 新建/刷新）**整块退役** ——
+         它与顶部标签栏显示的是**同一个名字**，是重复的页面标识（老板原话：「删除页面
+         内部重复的标签页导航，顶部导航标签已承担该功能」）。删掉它 ⇒ 页面身份收归
+         顶部标签栏，同时省下约 54px 纵向空间。
+         🔴 前提（v501 同步补上，否则删了就丢信息）：标签栏原先对同 path 不同 `kind`
+            的两个入口（`/inventory/purchase?kind=order|return`）取的是**同一个标题**
+            ⇒ 两条标签都叫「采购单」。现已按 `kind` 取标题（见 `tabTitles.js` 的
+            `QUERY_SUB_TITLES`），与侧栏显示名逐字一致。
+         「新建 / 刷新」**不是**被删掉，而是下移到下方状态页签行的右侧（`#actions`
+            插槽）——它们是页面级动作，跟着页面身份走，且不再单独占一行。 -->
 
     <!-- v451（L3）：**待审核退货草稿**。草稿是 v451 引入的新状态 —— 它没扣库存、
          没冲应付、也没回写任何采购单 ⇒ 在下面那张（基于 `purchase_orders` 的）主列表里
@@ -45,39 +38,44 @@
 
     <!-- 筛选：常用项一行 + 「更多选项」展开（对齐舟谱工具栏） -->
     <div class="card ipl-filter">
-      <div class="ipl-frow">
-        <div class="ipl-f ipl-f-kw">
-          <label class="ipl-lb">搜索</label>
-          <input v-model.trim="f.keyword" class="input ipl-kw"
+      <!-- v501：类名换成共享的 `.psi-frow` / `.psi-f` / `.psi-lb` / `.psi-*(控件)`，
+           样式在 `styles/psi-list.css`（三页唯一出处）。
+           🔴 关键变化：`.psi-f` 是**标签与输入框同行**（原 `.psi-f` 竖排：label 一行、
+              input 一行 ⇒ 每个筛选项占两倍高度）。放不下时由 `.psi-frow` 的
+              `flex-wrap:wrap` **整组换行**，不会把标签和输入框拆开。 -->
+      <div class="psi-frow">
+        <div class="psi-f">
+          <label class="psi-lb">搜索</label>
+          <input v-model.trim="f.keyword" class="input psi-kw"
                  placeholder="单号 / 供应商 / 备注" @keyup.enter="load()" />
         </div>
-        <div class="ipl-f">
-          <label class="ipl-lb">供应商</label>
-          <select v-model.number="f.supplier_id" class="input ipl-sel" @change="load()">
+        <div class="psi-f">
+          <label class="psi-lb">供应商</label>
+          <select v-model.number="f.supplier_id" class="input psi-sel" @change="load()">
             <option :value="0">全部供应商</option>
             <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
         </div>
-        <div class="ipl-f">
-          <label class="ipl-lb">单据日期从</label>
-          <input type="date" v-model="f.date_from" class="input ipl-date" @change="onDateManual" />
+        <div class="psi-f">
+          <label class="psi-lb">单据日期从</label>
+          <input type="date" v-model="f.date_from" class="input psi-date" @change="onDateManual" />
         </div>
-        <div class="ipl-f">
-          <label class="ipl-lb">至</label>
-          <input type="date" v-model="f.date_to" class="input ipl-date" @change="onDateManual" />
+        <div class="psi-f">
+          <label class="psi-lb">至</label>
+          <input type="date" v-model="f.date_to" class="input psi-date" @change="onDateManual" />
         </div>
         <!-- v496：快捷时间档换**共享件** `QuickRangeChips` + `useQuickRange`
              （进销存列表页统一设计规范 §3.3；v479 P0-2 引入、v482 换全局 .chip、
              v496 连逻辑一起上提，三页共用一套口径）。
              行为不变：点一下自动填日期区间并重拉；高亮当前档；手动改日期框会清掉高亮。 -->
         <QuickRangeChips :range="quickRange" @pick="pickRange" />
-        <div class="ipl-fbtns">
+        <div class="psi-fbtns">
           <button class="btn btn-primary btn-sm" :disabled="loading" @click="load()">
             <Icon name="search" :size="14" />查询
           </button>
           <button class="btn btn-ghost btn-sm" @click="resetFilter">重置</button>
           <button class="btn btn-ghost btn-sm" :class="{ on: more }" @click="more = !more">
-            更多选项<span class="ipl-caret" :class="{ up: more }"></span>
+            更多选项<span class="psi-caret" :class="{ up: more }"></span>
           </button>
         </div>
       </div>
@@ -87,17 +85,17 @@
            摆着就是「选了没反应」（FastAPI 静默忽略未声明参数 ⇒ **零报错**的假控件）。
            退货视图直接不给这一块；它用得上的「仓库」筛选由后端 v500 补上了参数，
            但那一项在下面单独出现。 -->
-      <div v-if="more && !isReturn" class="ipl-frow ipl-frow-sub">
-        <div class="ipl-f">
-          <label class="ipl-lb">入库仓库</label>
-          <select v-model.number="f.warehouse_id" class="input ipl-sel" @change="load()">
+      <div v-if="more && !isReturn" class="psi-frow psi-frow-sub">
+        <div class="psi-f">
+          <label class="psi-lb">入库仓库</label>
+          <select v-model.number="f.warehouse_id" class="input psi-sel" @change="load()">
             <option :value="0">全部仓库</option>
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
         </div>
-        <div v-if="creators.length" class="ipl-f">
-          <label class="ipl-lb">创建人</label>
-          <select v-model="f.creator" class="input ipl-sel" @change="load()">
+        <div v-if="creators.length" class="psi-f">
+          <label class="psi-lb">创建人</label>
+          <select v-model="f.creator" class="input psi-sel" @change="load()">
             <option value="">全部创建人</option>
             <option v-for="u in creators" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
           </select>
@@ -112,51 +110,51 @@
                 已经记 `auditor_id` 了。是**本轮只做列不做筛**（报告只要求列），且真要加
                 必须先定「审核人为空的历史单怎么筛」（占绝大多数 ⇒ 需要一个「未标注」选项）。
                 见 `baseFilter()` 里的同期注释。 -->
-        <div class="ipl-f">
-          <label class="ipl-lb">单据来源</label>
-          <select v-model="f.source" class="input ipl-sel" @change="load()">
+        <div class="psi-f">
+          <label class="psi-lb">单据来源</label>
+          <select v-model="f.source" class="input psi-sel" @change="load()">
             <option v-for="o in PO_SOURCE_OPTIONS" :key="o.value || 'all'" :value="o.value">{{ o.text }}</option>
           </select>
         </div>
-        <div class="ipl-f">
-          <label class="ipl-lb">打印状态</label>
-          <select v-model="f.print_state" class="input ipl-sel" @change="load()">
+        <div class="psi-f">
+          <label class="psi-lb">打印状态</label>
+          <select v-model="f.print_state" class="input psi-sel" @change="load()">
             <option value="">全部</option>
             <option value="printed">已打印</option>
             <option value="unprinted">未打印</option>
           </select>
         </div>
-        <div class="ipl-f">
-          <label class="ipl-lb">商品</label>
-          <input v-model.trim="f.product_keyword" class="input ipl-sel"
+        <div class="psi-f">
+          <label class="psi-lb">商品</label>
+          <input v-model.trim="f.product_keyword" class="input psi-sel"
                  placeholder="商品名 / 条码" @keyup.enter="load()" />
         </div>
         <!-- P1-3：部门 / 经办人 / 审核人 / 标记内容 四个筛选。全部默认空 = 不筛（与后端默认值一致）。 -->
-        <div class="ipl-f">
-          <label class="ipl-lb">部门</label>
-          <select v-model.number="f.department_id" class="input ipl-sel" @change="load()">
+        <div class="psi-f">
+          <label class="psi-lb">部门</label>
+          <select v-model.number="f.department_id" class="input psi-sel" @change="load()">
             <option :value="0">全部部门</option>
             <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
           </select>
         </div>
-        <div class="ipl-f">
-          <label class="ipl-lb">经办人</label>
-          <select v-model="f.handler" class="input ipl-sel" @change="load()">
+        <div class="psi-f">
+          <label class="psi-lb">经办人</label>
+          <select v-model="f.handler" class="input psi-sel" @change="load()">
             <option value="">全部经办人</option>
             <option v-for="u in creators" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
           </select>
         </div>
-        <div class="ipl-f">
-          <label class="ipl-lb">审核人</label>
-          <select v-model="f.auditor" class="input ipl-sel" @change="load()">
+        <div class="psi-f">
+          <label class="psi-lb">审核人</label>
+          <select v-model="f.auditor" class="input psi-sel" @change="load()">
             <option value="">全部审核人</option>
             <option value="__none__">未标注</option>
             <option v-for="u in creators" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
           </select>
         </div>
-        <div class="ipl-f">
-          <label class="ipl-lb">标记内容</label>
-          <input v-model.trim="f.mark" class="input ipl-sel"
+        <div class="psi-f">
+          <label class="psi-lb">标记内容</label>
+          <input v-model.trim="f.mark" class="input psi-sel"
                  placeholder="标记含关键字" @keyup.enter="load()" />
         </div>
         <!-- 🔴 「只看已标记」必须留在**最后**：它的样式是 `margin-left:auto`
@@ -172,10 +170,10 @@
            ⚠️ 只放**后端真的认**的项：`supplier_id` / `warehouse_id` / `date_*` / `keyword`
               （后端 v500 补了前两个）。不放「退货原因」独立框 —— 关键字已覆盖
               「供应商 / 原因 / 单号」，再造一个框就是又一个静默无效的控件。 -->
-      <div v-if="more && isReturn" class="ipl-frow ipl-frow-sub">
-        <div class="ipl-f">
-          <label class="ipl-lb">退货仓库</label>
-          <select v-model.number="f.warehouse_id" class="input ipl-sel" @change="load()">
+      <div v-if="more && isReturn" class="psi-frow psi-frow-sub">
+        <div class="psi-f">
+          <label class="psi-lb">退货仓库</label>
+          <select v-model.number="f.warehouse_id" class="input psi-sel" @change="load()">
             <option :value="0">全部仓库</option>
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
@@ -185,26 +183,37 @@
 
     <!-- 状态页签（v498 起用**共享件** StatusTabs —— 销售 / 调拨两页同一个组件、同一套样式；
          计数来自服务端 counts：忽略状态筛选、保留其它筛选 ⇒ 切页签数字不漂移） -->
-    <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab" />
+    <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab">
+      <!-- v501：原页头的「新建 / 刷新」移到这里（页签行右侧），见上方注释。
+           新建仍只留这一处与空态两处（v496 定的规范：不造第三个入口）。 -->
+      <template #actions>
+        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="goNew()">
+          <Icon name="plus" :size="14" />{{ isReturn ? '新建采购退货单' : '新建采购单' }}
+        </button>
+        <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
+          <Icon name="refresh" :size="14" />刷新
+        </button>
+      </template>
+    </StatusTabs>
 
     <!-- 工具栏 -->
-    <div class="ipl-tb">
-      <div class="ipl-tb-l">
+    <div class="psi-tb">
+      <div class="psi-tb-l">
         <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="selectAll">全选</button>
         <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="invertSel">反选</button>
-        <span class="ipl-selinfo">
+        <span class="psi-selinfo">
           已选择 <b>{{ selected.length }}</b> 条
           <button v-if="selected.length" class="ipl-link" @click="selected = []">清空</button>
         </span>
         <!-- v470：当前排序的**显式提示**。为什么必须有：排序键对应的列一旦被「列设置」
              隐藏，表头指示器就跟着消失 —— 顺序的来历就变成**看不见的状态**，用户会以为
              数据是乱的。这里常显「按 X 升/降序」，并给一键清除。 -->
-        <span v-if="sortKey" class="ipl-selinfo ipl-sortinfo">
+        <span v-if="sortKey" class="psi-selinfo psi-sortinfo">
           按<b>{{ sortLabel }}</b>{{ sortDir === 'asc' ? '升序' : '降序' }}
           <button class="ipl-link" @click="clearSort">清除</button>
         </span>
       </div>
-      <div class="ipl-tb-r">
+      <div class="psi-tb-r">
         <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doExport">
           <Icon name="download" :size="14" />导出
         </button>
@@ -218,7 +227,7 @@
         <div v-if="!isReturn" class="ipl-mw">
           <button class="btn btn-ghost btn-sm" :class="{ on: batchOpen }"
                   :disabled="!canWrite" @click.stop="toggleBatch">
-            批量操作<span class="ipl-caret" :class="{ up: batchOpen }"></span>
+            批量操作<span class="psi-caret" :class="{ up: batchOpen }"></span>
           </button>
           <div v-if="batchOpen" class="ipl-menu" @click.stop>
             <button v-for="a in BATCH_ACTIONS" :key="a.op" class="ipl-mi"
@@ -409,24 +418,15 @@
         </table>
       </div>
 
-      <div class="ipl-pager">
-        <span class="ipl-pg-cnt">共 {{ total }} 条记录，第 {{ pageFrom }}–{{ pageTo }} 条</span>
-        <div class="ipl-pg-nums">
-          <button class="ipl-pg" :disabled="page <= 1" @click="goPage(page - 1)">‹</button>
-          <button v-for="p in pageNums" :key="p" class="ipl-pg" :class="{ on: p === page }"
-                  @click="goPage(p)">{{ p }}</button>
-          <button class="ipl-pg" :disabled="page >= pageCount" @click="goPage(page + 1)">›</button>
-        </div>
-        <select v-model.number="limit" class="input ipl-pg-size" @change="goPage(1)">
-          <option v-for="s in PAGE_SIZES" :key="s" :value="s">{{ s }} 条/页</option>
-        </select>
-        <span class="ipl-pg-jump">
-          跳至
-          <input v-model.number="jumpTo" class="input ipl-pg-in" inputmode="numeric"
-                 @keyup.enter="doJump" />
-          页
-        </span>
-      </div>
+      <!-- v501：分页器换共享件 `PsiPager`（与销售 / 调拨两页同一条；样式在
+           `psi-list.css` 的 `.psi-pager`）。**只有结构与样式换了**：`total` /
+           `pageNums` / `pageCount` 仍由本页 computed 算，翻页仍走本页 `goPage`
+           （要发请求），每页条数候选仍是本页 `PAGE_SIZES`（刻意不与销售统一 ——
+           那是各页既有能力，不是样式）。 -->
+      <PsiPager :total="total" :from="pageFrom" :to="pageTo" :page="page"
+                :page-nums="pageNums" :page-count="pageCount"
+                :limit="limit" :sizes="PAGE_SIZES"
+                @go="goPage" @size="onSize" />
     </div>
 
     <!-- 列设置面板（UI-SPEC §2.6.1「三、」）——
@@ -566,6 +566,9 @@ import QuickRangeChips from '../../components/QuickRangeChips.vue'
 /* v498：状态页签改共享件（`StatusTabs.vue`）—— 销售 / 调拨两页 v498 起换成同一条页签条，
    三页共用同一份结构与样式（`.psi-tabs` / `.psi-tabn` 在 psi-list.css）。 */
 import StatusTabs from '../../components/StatusTabs.vue'
+/* v501：分页器改共享件（采购 / 销售 / 调拨三页同一条；`.psi-pager` 在 psi-list.css）。
+   分页算法与每页条数候选仍留在本页 —— 共享件只搬结构与样式。 */
+import PsiPager from '../../components/PsiPager.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -596,7 +599,7 @@ const departments = ref([])
 
 const limit = ref(20)
 const offset = ref(0)
-const jumpTo = ref('')
+/* v501：`jumpTo` 删除 —— 「跳至」输入框的状态随分页器搬进共享件 `PsiPager`（见 goPage 附近注释）。 */
 const selected = ref([])
 const more = ref(false)
 const batchOpen = ref(false)
@@ -1378,11 +1381,13 @@ function goPage (p) {
   offset.value = (n - 1) * limit.value
   load(false)
 }
-function doJump () {
-  const n = parseInt(jumpTo.value, 10)
-  jumpTo.value = ''
-  if (!Number.isFinite(n)) return
-  goPage(n)
+/* v501：「跳至」的输入框随分页器一起进了共享件 `PsiPager`（越界钳制与清空都在那里做），
+   本页的 `jumpTo` / `doJump` 随之删除 —— 留着就是"从未被执行过的代码"。
+   每页条数下拉改为响应共享件的 `size` 事件：改条数必须回到第 1 页
+   （否则 offset 还停在第 8 页的位置而总页数已变 ⇒ 落在空白页）。 */
+function onSize (n) {
+  limit.value = n
+  goPage(1)
 }
 
 /* ---- 选择 ---- */
@@ -1625,7 +1630,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 <style scoped>
 .inv-page { display: block }
-.ipl-acts { display: flex; gap: 8px; flex-wrap: wrap }
+/* v501：`.ipl-acts`（页头动作组）随 `.page-hd` 一起删除 —— 新建 / 刷新已并入页签行右侧
+   （`.psi-tabact`，共享样式在 psi-list.css）。 */
 
 /* v451（L3）：待审核退货草稿条 —— 与筛选卡同族观感（`.card`），但用**警示色**左边框
    提醒"这里有没生效的单"，不与正常数据混同（深色/浅色主题下都靠 --war 一色成立）。
@@ -1646,40 +1652,17 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-draft-amt { font-variant-numeric: tabular-nums; color: var(--p-ink) }
 .ipl-draft-date { color: var(--t3); font-size: 12px; font-variant-numeric: tabular-nums }
 
-/* 筛选 */
+/* 筛选
+   🔴 v501：筛选**行 / 标签 / 控件尺寸 / 按钮组 / 下拉三角**的样式已全部上提
+      `styles/psi-list.css`（`.psi-frow` / `.psi-f` / `.psi-lb` / `.psi-sel` /
+      `.psi-date` / `.psi-kw` / `.psi-fbtns` / `.psi-caret`）—— 三页唯一出处，
+      这里不再留第二份（留了就是"改一处漂移两处"）。
+      本页只剩筛选卡**外壳** `.ipl-filter`（它的内距/下距是本页值）。 */
 .ipl-filter { margin-bottom: 12px }
-.ipl-frow { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap }
-.ipl-frow-sub { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-subtle) }
-.ipl-f { display: flex; flex-direction: column; gap: 4px }
-.ipl-lb { font-size: 12px; color: var(--t3) }
-.ipl-f-kw { min-width: 220px }
-.ipl-kw { height: 32px }
-.ipl-sel { min-width: 150px; height: 32px }
-.ipl-date { height: 32px }
-/* v482 曾在此定义私有 .ipl-f-quick / .ipl-date-quick（配全局 .chip）；v496 快捷档整体换
-   共享件 QuickRangeChips.vue，外壳样式随全局 psi-list.css 的 .psi-quick* —— 本页不再保留
-   这两条死规则（模板里也没有这两个类了）。 */
-.ipl-fbtns { display: flex; align-items: center; gap: 8px; margin-left: auto }
-.ipl-chk-mark { align-self: flex-end; height: 32px; margin-left: auto }
-
-/* 「更多选项 / 批量操作」的下拉箭头（无 chevron 图标，用 CSS 三角） */
-.ipl-caret {
-  width: 0; height: 0; margin-left: 2px;
-  border-left: 4px solid transparent; border-right: 4px solid transparent;
-  border-top: 5px solid currentColor; transition: transform .15s;
-}
-.ipl-caret.up { transform: rotate(180deg) }
-
-/* 工具栏 */
-.ipl-tb {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin: 0 0 12px;
-}
-.ipl-tb-l, .ipl-tb-r { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.ipl-selinfo { font-size: 12px; color: var(--t2) }
-.ipl-selinfo b { color: var(--p-ink); font-variant-numeric: tabular-nums }
-/* v470：排序提示（与「已选择 X 条」同族 —— 都是当前视图的**状态说明**，不是新按钮）。 */
-.ipl-sortinfo { display: inline-flex; align-items: center; gap: 4px }
+/* 「只看已标记」是**本页独有**的筛选控件（销售 / 调拨没有）⇒ 留在 scoped 里。
+   v501：删掉原 `align-self:flex-end` —— 筛选行改 `align-items:center` 后它已居中，
+   再写 flex-end 会让它比同行的下拉框低半格。 */
+.ipl-chk-mark { margin-left: auto }
 .ipl-mw { position: relative }
 .ipl-menu {
   position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-dropdown);
@@ -1806,25 +1789,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* 读定义失败 / 无权限的说明：**必须显式**（藏起来用户会以为这页没有这个功能） */
 .ipl-cm-err { font-size: 11px; color: var(--danger-txt); line-height: 1.4; flex-basis: 100% }
 
-/* 分页器（对齐舟谱：共 N 条记录 + 页码 + 每页条数 + 跳至） */
-.ipl-pager {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 12px 14px; border-top: 1px solid var(--border-subtle);
-}
-.ipl-pg-cnt { font-size: 12px; color: var(--t3); margin-right: auto }
-.ipl-pg-nums { display: inline-flex; align-items: center; gap: 4px }
-.ipl-pg {
-  min-width: 28px; height: 28px; padding: 0 6px;
-  border: 1px solid var(--bd); border-radius: var(--radius-sm);
-  background: var(--bg); color: var(--t1); font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-.ipl-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
-.ipl-pg:disabled { opacity: .45; cursor: not-allowed }
-.ipl-pg.on { background: var(--p-dark); border-color: var(--p-dark); color: #fff }
-.ipl-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
-.ipl-pg-jump { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t3) }
-.ipl-pg-in { width: 52px; height: 28px; padding: 0 6px; text-align: center; border-radius: var(--radius-sm) }
+/* 分页器
+   🔴 v501：整段删除 —— 分页器改共享件 `PsiPager.vue`，样式随 `psi-list.css` 的
+      `.psi-pager` / `.psi-pg-*`（三页唯一出处）。本页 scoped 里再留一份就是
+      第二个真相来源（且共享件根元素虽带本页 scope id，类名已不匹配 ⇒ 留着也无效）。 */
 
 /* 批量操作浮层 */
 .ipl-mask {
@@ -1841,9 +1809,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* 打印：只留数据表；单张打印时只留那一行。合计行在打印稿里略去（复选框/操作列被隐藏，
    tfoot 的 colspan 会错位 ⇒ 与其印一行错位的数字，不如不印）。 */
 @media print {
-  /* v498：`.ipl-tabs` 已从本页删掉 —— 页签改共享件后类名是 `.psi-tabs`，
-     其打印隐藏规则已上提 `psi-list.css`（三页唯一出处），这里不再重复列一遍。 */
-  .page-hd, .ipl-filter, .ipl-tb, .ipl-result, .ipl-pager, .ipl-mask,
+  /* v501：`.page-hd` 已整块删除（页头退役），`.ipl-tb` / `.ipl-pager` 已换成共享件
+     （`.psi-tb` / `.psi-pager`）—— 三者的打印隐藏规则都已上提 `psi-list.css`
+     （三页唯一出处），这里不再列（列了也是死选择器：类名已不匹配）。
+     本页只剩自己外壳的部分：筛选卡 / 批量结果条 / 浮层 / 列设置面板。 */
+  .ipl-filter, .ipl-result, .ipl-mask,
   .col-menu, .col-menu-overlay { display: none !important }
   .ipl-card { border: none; box-shadow: none }
   .ipl-card .table-wrap { overflow: visible; border: none; border-radius: 0 }
@@ -1856,10 +1826,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   .psi-on { background: transparent !important }
 }
 
+/* 窄屏：筛选行整体转竖排（每个筛选项占满一行，标签与输入框仍同行）
+   🔴 v501：`.psi-frow` / `.psi-f` / `.psi-fbtns` 是共享类 ⇒ 窄屏规则也得上提
+      `psi-list.css`，否则三页各写一份、数值必然漂移。这里只留本页私有控件。 */
 @media (max-width: 640px) {
-  .ipl-frow { align-items: stretch }
-  .ipl-f, .ipl-kw, .ipl-sel, .ipl-date { width: 100%; min-width: 0 }
-  .ipl-fbtns { margin-left: 0 }
   .ipl-chk-mark { margin-left: 0 }
 }
 </style>

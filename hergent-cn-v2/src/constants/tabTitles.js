@@ -103,6 +103,43 @@ export const SUB_TITLES = {
   }
 }
 
+/* ============================================================================
+   v501：按**非 `tab` 的 query 键**取子页标题（进销存七入口专用）
+   ----------------------------------------------------------------------------
+   🔴 为什么必须有这段：`SUB_TITLES` 只认 `?tab=`，而进销存七个入口是
+      **同 path、不同 `kind` / `type`**：
+         /inventory/purchase?kind=order   → 采购单
+         /inventory/purchase?kind=return  → 采购退货单
+         /inventory/sale?type=self_pickup&kind=order  → 自提订单
+         …（共四条）/inventory/transfer → 调拨单（单入口，无需登记）
+      在它之前，这七个标签里同 path 的那几条**全部同名**（都回落成 `pages.js`
+      的 path 主标题）⇒ 标签栏里并排出现两条「采购单」、四条「销售单」。
+
+      这原本只是"有点乱"，v501 退役各页的 `.page-hd`（页内大标题）后就成了
+      **硬前提**：页内再没有写明"我现在是哪个视图"，标签栏必须能承担身份。
+
+   ⚠️ 键 = `keys` 里各 query 参数的**当前值按序用 `|` 连接**；缺省值算空串。
+      取值必须与 `Shell.vue::NAV` 各条目的 `q` **逐字一致**，并与侧栏显示名
+      **逐字一致**（本仓纪律：侧栏名 / 标签栏标题 / 页面标题三处同名，
+      否则老板跨面对照会当成两个不同的功能）。
+   ========================================================================= */
+
+export const QUERY_SUB_TITLES = {
+  '/inventory/purchase': {
+    keys: ['kind'],
+    map: { order: '采购单', return: '采购退货单' }
+  },
+  '/inventory/sale': {
+    keys: ['type', 'kind'],
+    map: {
+      'self_pickup|order': '自提订单',
+      'self_pickup|return': '自提退单',
+      'vehicle_sale|order': '车销订单',
+      'vehicle_sale|return': '车销退单'
+    }
+  }
+}
+
 /** path → 默认子页 key（只从上面的 `_default` 派生，不再手抄第二份名单）。 */
 export const DEFAULT_SUB_KEY = Object.keys(SUB_TITLES).reduce(function (m, p) {
   const d = SUB_TITLES[p]._default
