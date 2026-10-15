@@ -445,14 +445,21 @@ const NAV = [
         { path: '/inventory/transfer', name: '调拨单', icon: 'refresh',
           create: { to: { path: DOC_PATHS.transferOrder }, module: 'inventory', title: '新建调拨单' } }
       ] },
-      // 「库存查询」(`/inventory/stock`，默认按到期日升序) 与「库存效期补录」(`/data-fill`)：
-      // 前者是本轮新页；后者是**已上线**页面，此前不在侧栏（只能从设置页 / 货损页的
-      // 「去补录」按钮进）⇒ v390 按 §5.3 归位到本列。⚠️ 后者的 `module` 是**宽模块**
-      // `stock`，所以本区必须靠上面的 `path: '/inventory'` 闸门兜住（见本区注释）。
-      { label: '库存', items: [
-        { path: '/inventory/stock', name: '库存查询', icon: 'package' },
-        { path: '/data-fill', name: '库存效期补录', icon: 'paste' }
-      ] },
+      /* 🔴 v515（2026-10-15）**整列移除「库存」**：老板拍板「库存查询 / 库存效期补录
+         已在其它模块实现，无需在此重复暴露」⇒ 原列两条全部撤下：
+           · 库存查询（`/inventory/stock`）→ 侧栏唯一入口移到**仓配管理区**「库存查询」列；
+           · 库存效期补录（`/data-fill`）→ 侧栏唯一入口同样在仓配管理区，另由设置页 /
+             货损页 / 算工资页的「去补录」按钮与命令面板承接。
+         ⚠️ **只删菜单项，路由与 `pages.js` 登记一行不动** —— 两者仍被别处依赖：
+             · `/inventory/stock` ← 进销存工作台 `InvWorkbench.vue`「去库存查询看是哪些」、
+               仓配管理区侧栏条目；
+             · `/data-fill` ← 设置页 / 货损计算工作流 / 算工资工作流的 `router.push`
+               与 `canSee('/data-fill')` 守卫、命令面板、副驾下钻 `drillTo('#/data-fill')`。
+             删路由 = 这些跳转全断；删 `pages.js` 的 `/data-fill` 登记 = 门禁从
+             `BIZ_ROLES` **放宽**给所有人（`ruleFor` 对未登记 path 一律放行，v499 教训）。
+         ⚠️ 页面文件 `InvStock.vue` / `DataFill.vue` **保留**（仍被上述模块调用）。
+         ⚠️ 本列撤空后整列消失（`resolveNavItem` 收口，同「往来」空列）；此处**不留空标题** ——
+            这两项是「迁走」而非「待建」，将来也不会回填空列。 */
       { label: '往来', items: [] },
       { label: '其他', items: [
         // 进销存工作台（v392 起真身 = `pages/inventory/InvWorkbench.vue`：4 个 KPI +
