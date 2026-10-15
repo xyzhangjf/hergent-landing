@@ -70,11 +70,12 @@
           </div>
 
           <!-- ③ 未登记到期日的提示 —— 它会让整套效期管理失效，必须显式提示
-               （原「去库存查询看是哪些」下钻按钮 v516 移除：库存查询入口已从进销存区
-                撤到仓配管理区，本区不再保留跳转，避免与撤入口决策自相矛盾） -->
+               （v516 曾撤此按钮，v517 老板口误纠正后恢复：进销存工作台保留这一
+                页内下钻，与侧栏入口是否暴露是两件事，互不绑定） -->
           <div v-if="s.missing_expiry_rows" class="card iw-warn">
             <Icon name="alert" :size="16" />
             <span>{{ PSI_NOTES.stockNoExpiry }}</span>
+            <button class="btn btn-ghost btn-sm" @click="go('/inventory/stock')">去库存查询看是哪些</button>
           </div>
 
           <!-- ④ 临期分档 -->
