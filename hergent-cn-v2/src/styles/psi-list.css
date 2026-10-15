@@ -65,8 +65,13 @@
    height:100% 的 flex 列）。min-height:0 让表体区能收缩到比内容矮、把溢出交给
    `.table-wrap` 滚动（flex 默认 min-height:auto 会把卡片撑高、破坏冻结）。 */
 .ipl-card, .isl-card { display: flex; flex-direction: column; min-height: 0; flex: 1 }
-/* 表体区：受卡片剩余高度约束，自己纵向 + 横向滚动 ⇒ 表头 / 合计行冻结生效。 */
-.ipl-card > .table-wrap, .isl-card > .table-wrap { flex: 1; min-height: 0; overflow: auto }
+/* 表体区：受卡片剩余高度约束，自己纵向 + 横向滚动 ⇒ 表头 / 合计行冻结生效。
+   🔴 v513 修复：上方 `.inv-page{height:100%}` 因父级 `.page`（InventoryShell）是
+      `min-height:100%`（高度 auto）而解析不出确定高度 ⇒ 本应 flex:1 的 `.table-wrap`
+      拿不到受限高度、整页滚动 ⇒ thead/tfoot 的 sticky 找不到滚动祖先、表头/合计行
+      跟着滚走（采购单列表实测）。补 `max-height` 让 `.table-wrap` **自成为受限滚动容器**，
+      不依赖那条脆弱的高度链，sticky 立即生效（flex 链若正常则 max-height 仅作安全兜底）。 */
+.ipl-card > .table-wrap, .isl-card > .table-wrap { flex: 1; min-height: 0; overflow: auto; max-height: calc(100vh - 240px) }
 
 /* 表头钉顶（所有 th，含冻结列）：冻结列已有 left 偏移 ⇒ 同时水平 / 垂直吸住。
    z-index：非冻结 8 < 冻结列 9（见下方 `.psi-frz` 段），必须高于表体（6）。 */

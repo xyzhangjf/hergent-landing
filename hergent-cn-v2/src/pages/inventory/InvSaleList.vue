@@ -685,7 +685,11 @@ onMounted(load)
 <style scoped>
 /* v511：`.inv-page` 撑满 `.view-wrap` 高度（flex 列），让下方 `.isl-card` 能 flex:1 占满
    剩余空间、再由 `.table-wrap` 自己滚动 ⇒ 表头 / 合计行冻结。三列表页同口径。 */
-.inv-page { display: flex; flex-direction: column; min-height: 0; height: 100% }
+/* v513：原为 `height:100%`，但父级 `.page`（InventoryShell）是 `min-height:100%`（高度 auto），
+   `height:100%` 解析不出确定高度 ⇒ flex 链断裂、`.table-wrap` 从不成为滚动容器、表头/合计行
+   不冻结。改为 `flex:1`：内容不足一屏时撑满 `.page`，卡片随之填到底；内容超高时退化为内容高度、
+   由 `.table-wrap` 的 max-height 兜底滚动。 */
+.inv-page { display: flex; flex-direction: column; min-height: 0; flex: 1 }
 /* v501：`.isl-acts`（页头动作组）随 `.page-hd` 一起删除 —— 新建 / 刷新已并入页签行右侧。 */
 /* 筛选
    🔴 v501：筛选行 / 标签 / 控件尺寸 / 按钮组 / 下拉三角的样式已上提 `psi-list.css`
