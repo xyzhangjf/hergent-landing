@@ -41,7 +41,7 @@
       <!-- 流水 -->
       <div class="card fbk-card">
         <div v-if="!rows.length" class="state-empty">该账户 / 日期范围内暂无已过账流水。</div>
-        <div v-else class="table-wrap">
+        <div v-else class="table-wrap freeze-list">
           <table class="tbl">
             <thead><tr><th class="seq-th">序号</th><th>日期</th><th>单据号</th><th>类型</th><th>对方</th><th>账户</th><th class="num">发生额</th><th class="num">余额</th></tr></thead>
             <tbody>
@@ -53,6 +53,14 @@
                 <td class="num">¥{{ fmtMoney(r.balance_after) }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb">本页合计</td>
+                <td></td><td></td><td></td><td></td><td></td>
+                <td class="num">{{ pageTotals.amount >= 0 ? '+' : '' }}{{ fmtMoney(pageTotals.amount) }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <p class="fbk-foot">说明：本表列出所有「银行类账户」的已过账资金流水，供与银行对账单逐笔勾对。期初 / 期末余额见上方账户卡片。</p>
@@ -75,6 +83,12 @@ import { fundDocLabel } from '../../constants/fundLabels'
 const sub = '按银行账户归集的已过账流水，逐笔与银行对账单勾对'
 const loading = ref(true), err = ref(''), banks = ref([]), rows = ref([])
 const f = reactive({ account: '', date_from: '', date_to: '' })
+/* v512：客户端「本页合计」—— 对当前页可见流水发生额求和（代数和）；余额列滚动余额，不合计。 */
+const pageTotals = computed(() => {
+  let amount = 0
+  for (const r of rows.value) amount += Number(r.amount || 0)
+  return { amount }
+})
 
 const bankTotal = computed(() => banks.value.reduce((s, a) => s + Number(a.current_balance || 0), 0))
 

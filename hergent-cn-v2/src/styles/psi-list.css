@@ -236,3 +236,41 @@
   .psi-fbtns { margin-left: 0 }
   .psi-tabact { margin-left: 0 }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   v512：共享「冻结列表」—— 表头 / 合计行钉住、只滚表体（档案 + 资金台账共 13 页）
+   ----------------------------------------------------------------------
+   背景：v511 的冻结只覆盖进销存七页，且依赖它们特有的 flex 列卡片
+        （`.ipl-card`/`.isl-card` 撑满 `.inv-page`，`.table-wrap` 作 flex:1 滚动区）。
+        档案 / 资金页是**整页滚动**结构（.page → .page-hd → .card → .table-wrap），
+        没有 flex 列卡片 ⇒ 不能复用 v511 路线，否则 sticky 相对整页滚动、表头会乱飘。
+
+   机制（与 v511 解耦、自包含）：给 `.table-wrap.freeze-list` 直接限高
+        （max-height + overflow:auto），让它成为**自己的滚动容器**；
+        thead th / tfoot td 的 sticky 相对该容器生效 ⇒ 表头钉在卡片内、只滚表体。
+        ⚠️ 不依赖任何卡片是 flex 列，也不动全局 `.view-wrap`（影响全站）。
+        ⚠️ 只作用于带 `freeze-list` 类的主列表；弹窗明细表 / 内层展开表不加该类。
+
+   用法：13 个目标页只在其**主列表**的 `<div class="table-wrap">` 加 `freeze-list` 即可，
+        无需各写一套 CSS（共享件在此一处定义）。无 tfoot 的页（档案 6 页）只钉表头。
+   ══════════════════════════════════════════════════════════════════════ */
+/* 表体区：受 max-height 约束，自己纵向 + 横向滚动 ⇒ 表头 / 合计行冻结生效。 */
+.table-wrap.freeze-list { max-height: calc(100vh - 240px); overflow: auto }
+/* 表头钉顶（所有 th）：z-index 高于表体（默认 0）。表头底色沿用 variables.css 的
+   `table.tbl th{background:var(--bg2)}`，滚动时不会透出表体内容。 */
+.table-wrap.freeze-list > table.tbl > thead th { position: sticky; top: 0; z-index: 8 }
+/* 合计行钉底（所有 td，资金页用到）：bottom:0 与横向滚共存。
+   底色 var(--bg2) 不透明 ⇒ 滚到底时不会透出表体。 */
+.table-wrap.freeze-list > table.tbl > tfoot td { position: sticky; bottom: 0; z-index: 6;
+  background: var(--bg2); font-weight: 600; color: var(--t1);
+  border-top: 1px solid var(--border-subtle); border-bottom: none;
+  font-variant-numeric: tabular-nums; }
+.table-wrap.freeze-list > table.tbl > tfoot td.num { text-align: right }
+.table-wrap.freeze-list > table.tbl > tfoot .ft-lb { text-align: left; color: var(--t2) }
+
+/* 打印：冻结是屏幕滚动手感，纸上 sticky 会把几列叠在一起 + 截断表体 ⇒ 还原成自然流。 */
+@media print {
+  .table-wrap.freeze-list { max-height: none !important; overflow: visible !important }
+  .table-wrap.freeze-list > table.tbl > thead th,
+  .table-wrap.freeze-list > table.tbl > tfoot td { position: static !important }
+}

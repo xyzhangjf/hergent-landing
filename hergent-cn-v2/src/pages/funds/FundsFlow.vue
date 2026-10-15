@@ -21,7 +21,7 @@
       </div>
       <div class="card ff-card">
         <div v-if="!rows.length" class="state-empty">暂无资金流水。</div>
-        <div v-else class="table-wrap">
+        <div v-else class="table-wrap freeze-list">
           <table class="tbl">
             <thead><tr><th class="seq-th">序号</th><th>日期</th><th>单据号</th><th>类型</th><th>对方</th><th>账户</th><th class="num">发生额</th><th class="num">余额</th></tr></thead>
             <tbody>
@@ -33,6 +33,14 @@
                 <td class="num">¥{{ fmtMoney(r.balance_after) }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb">本页合计</td>
+                <td></td><td></td><td></td><td></td><td></td>
+                <td class="num">{{ pageTotals.amount >= 0 ? '+' : '' }}{{ fmtMoney(pageTotals.amount) }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -41,7 +49,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { fundsApi } from '../../api/funds'
 import { fmtMoney } from '../../constants/psiLabels'
@@ -49,6 +57,13 @@ import { fundDocLabel } from '../../constants/fundLabels'
 
 const loading = ref(true), err = ref(''), rows = ref([]), accounts = ref([])
 const f = reactive({ account: '', date_from: '', date_to: '' })
+/* v512：客户端「本页合计」—— 后端流水账不返回合计，对当前页可见行发生额求和（代数和，收正付负）。
+   ⚠️ 余额列是滚动余额，绝不合计（与 v511 资金台账同口径）。 */
+const pageTotals = computed(() => {
+  let amount = 0
+  for (const r of rows.value) amount += Number(r.amount || 0)
+  return { amount }
+})
 async function load() {
   loading.value = true; err.value = ''
   try {

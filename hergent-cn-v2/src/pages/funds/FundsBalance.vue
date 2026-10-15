@@ -15,7 +15,7 @@
       </div>
       <div class="card fb-card">
         <div v-if="!accounts.length" class="state-empty">还没有资金账户。收款单 / 付款单需要先选择账户。</div>
-        <div v-else class="table-wrap">
+        <div v-else class="table-wrap freeze-list">
           <table class="tbl">
             <thead><tr><th class="seq-th">序号</th><th>账户</th><th>类型</th><th>开户行</th><th class="num">期初余额</th><th class="num">当前余额</th></tr></thead>
             <tbody>
@@ -26,6 +26,14 @@
                 <td class="num" :class="a.current_balance < 0 ? 'val-bad' : 'val-ok'">¥{{ fmtMoney(a.current_balance) }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb">本页合计</td>
+                <td></td><td></td><td></td>
+                <td class="num">¥{{ fmtMoney(pageTotals.opening) }}</td>
+                <td class="num">¥{{ fmtMoney(pageTotals.current) }}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -34,12 +42,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { fundsApi } from '../../api/funds'
 import { fmtMoney } from '../../constants/psiLabels'
 
 const loading = ref(true), err = ref(''), accounts = ref([]), total = ref(0)
+/* v512：客户端「本页合计」—— 后端余额表不返回合计，对当前页可见账户期初 / 当前余额求和。 */
+const pageTotals = computed(() => {
+  let opening = 0, current = 0
+  for (const a of accounts.value) {
+    opening += Number(a.opening_balance || 0)
+    current += Number(a.current_balance || 0)
+  }
+  return { opening, current }
+})
 async function load() {
   loading.value = true; err.value = ''
   try {

@@ -42,7 +42,7 @@
       </div>
 
       <div v-if="loading" class="state-empty">加载中…</div>
-      <div v-else-if="products.length" class="table-wrap">
+      <div v-else-if="products.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
             <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th><th>名称</th><th v-if="isVisible('barcode')">条码</th><th v-if="isVisible('spec')">规格</th><th>单位</th>

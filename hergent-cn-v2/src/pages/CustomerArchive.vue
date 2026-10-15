@@ -40,7 +40,7 @@
       </div>
 
       <div v-if="loading" class="state-empty">加载中…</div>
-      <div v-else-if="items.length" class="table-wrap">
+      <div v-else-if="items.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead>
             <tr>

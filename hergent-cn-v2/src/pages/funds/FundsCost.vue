@@ -17,7 +17,7 @@
       </div>
       <div class="card fc-card">
         <div v-if="!rows.length" class="state-empty">{{ emptyText }}</div>
-        <div v-else class="table-wrap">
+        <div v-else class="table-wrap freeze-list">
           <table class="tbl">
             <thead><tr>
               <th class="seq-th">序号</th><th>商品</th><th>规格</th><th>单位</th>
@@ -35,6 +35,16 @@
                 <td v-if="mode === 'abnormal'"><span class="tag bad">{{ c.avg_cost <= 0 ? '零/负成本' : '已标记' }}</span></td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb">本页合计</td>
+                <td></td><td></td><td></td>
+                <td class="num">{{ fmtQty(pageTotals.qty) }}</td>
+                <td></td>
+                <td class="num">¥{{ fmtMoney(pageTotals.amount) }}</td>
+                <td v-if="mode === 'abnormal'"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <p v-if="mode === 'qty'" class="fc-foot">数量成本价 = 数量 × 单位成本，由成本快照现算（与入库/出库核算同源）。</p>
@@ -65,6 +75,16 @@ const emptyText = computed(() => (mode.value === 'abnormal' ? '没有成本异�
 
 const loading = ref(true), err = ref(''), rows = ref([])
 const f = reactive({ keyword: '' })
+/* v512：客户端「本页合计」—— 后端成本快照不返回合计，对当前页可见行数量 / 成本金额求和。
+   ⚠️ 单位成本是单价、绝不合计（与 v511 资金台账同口径）。 */
+const pageTotals = computed(() => {
+  let qty = 0, amount = 0
+  for (const c of rows.value) {
+    qty += Number(c.qty || 0)
+    amount += Number(c.amount || 0)
+  }
+  return { qty, amount }
+})
 function fmtQty(n) { const v = Number(n || 0); return Number.isInteger(v) ? v.toLocaleString('zh-CN') : v.toFixed(2) }
 async function load() {
   loading.value = true; err.value = ''

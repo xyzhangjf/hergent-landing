@@ -24,7 +24,7 @@
         请联系管理员在「设置 → 权限」里为该角色勾选「库存」模块。
       </div>
       <div v-else-if="loading" class="state-empty">加载中…</div>
-      <div v-else-if="rows.length" class="table-wrap">
+      <div v-else-if="rows.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
             <th class="seq-th">序号</th><th>仓库名称</th><th>地址</th><th>联系人</th><th>联系电话</th><th>角色</th><th></th>

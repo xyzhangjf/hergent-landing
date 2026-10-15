@@ -47,7 +47,7 @@
       <!-- 列表 -->
       <div class="card fd-card">
         <div v-if="!list.length" class="state-empty">暂无{{ meta.label }}。</div>
-        <div v-else class="table-wrap">
+        <div v-else class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -72,6 +72,18 @@
                 </td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb">本页合计</td>
+                <td></td>
+                <td></td>
+                <td v-if="meta.partyType !== 'none'"></td>
+                <td></td>
+                <td class="num">¥{{ fmtMoney(pageTotals.amount) }}</td>
+                <td></td>
+                <td class="fd-op"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -218,6 +230,13 @@ const stats = computed(() => {
     else if (d.status === 'posted') { posted++; amount += Number(d.amount || 0) }
   }
   return { draft, posted, amount }
+})
+/* v512：客户端「本页合计」—— 后端单据列表不返回合计，对当前页可见行金额求和。
+   ⚠️ 含草稿 / 已过账 / 已作废全部可见行（与 v511「本页可见行」同口径）；「已过账金额合计」见上方 KPI。 */
+const pageTotals = computed(() => {
+  let amount = 0
+  for (const d of list.value) amount += Number(d.amount || 0)
+  return { amount }
 })
 
 const itemCols = computed(() => (meta.value.itemMode ? FUND_ITEM_COLS[meta.value.itemMode] : []))

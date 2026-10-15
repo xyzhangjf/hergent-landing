@@ -33,7 +33,7 @@
       </p>
 
       <div v-if="extLoading" class="state-empty">加载中…</div>
-      <div v-else-if="extAccounts.length" class="table-wrap">
+      <div v-else-if="extAccounts.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
             <th class="seq-th">序号</th><th>客户</th><th>登录账号</th><th>可登录端</th>
@@ -78,7 +78,7 @@
       </div>
 
       <div v-if="loading" class="state-empty">加载中…</div>
-      <div v-else-if="employees.length" class="table-wrap">
+      <div v-else-if="employees.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
             <th class="seq-th">序号</th><th>员工</th><th>岗位</th><th class="num">底薪/月</th>

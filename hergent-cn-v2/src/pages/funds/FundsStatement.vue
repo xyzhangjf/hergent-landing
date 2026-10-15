@@ -18,7 +18,7 @@
       </div>
       <div class="card fs-card">
         <div v-if="!rows.length" class="state-empty">暂无对账数据。先建立并过账对应的收/付款单据。</div>
-        <div v-else class="table-wrap">
+        <div v-else class="table-wrap freeze-list">
           <table class="tbl">
             <thead><tr><th class="seq-th">序号</th><th>{{ partyLabel }}名称</th><th class="num">单据数</th><th class="num">应收</th><th class="num">应付</th><th class="num">期末余额</th><th class="fd-op">明细</th></tr></thead>
             <tbody>
@@ -47,6 +47,17 @@
                 </td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb">本页合计</td>
+                <td></td>
+                <td class="num">{{ pageTotals.doc_count }}</td>
+                <td class="num">¥{{ fmtMoney(pageTotals.receivable) }}</td>
+                <td class="num">¥{{ fmtMoney(pageTotals.payable) }}</td>
+                <td class="num">¥{{ fmtMoney(pageTotals.balance) }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -72,6 +83,17 @@ const sub = computed(() => `按${partyLabel.value}归集的应收 / 应付与期
 
 const loading = ref(true), err = ref(''), rows = ref([]), openRow = ref(-1)
 const f = reactive({ date_from: '', date_to: '' })
+/* v512：客户端「本页合计」—— 后端对账单不返回合计，对当前页可见行单据数 / 应收 / 应付 / 期末余额求和。 */
+const pageTotals = computed(() => {
+  let doc_count = 0, receivable = 0, payable = 0, balance = 0
+  for (const r of rows.value) {
+    doc_count += Number(r.doc_count || 0)
+    receivable += Number(r.receivable || 0)
+    payable += Number(r.payable || 0)
+    balance += Number(r.balance || 0)
+  }
+  return { doc_count, receivable, payable, balance }
+})
 function toggle(i) { openRow.value = openRow.value === i ? -1 : i }
 async function load() {
   loading.value = true; err.value = ''

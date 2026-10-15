@@ -20,7 +20,7 @@
       </div>
 
       <div v-if="loading" class="state-empty">加载中…</div>
-      <div v-else-if="brands.length" class="table-wrap">
+      <div v-else-if="brands.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
             <th class="seq-th">序号</th><th>品牌</th><th>厂商</th><th>等级</th>
