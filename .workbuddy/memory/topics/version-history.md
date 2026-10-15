@@ -1519,3 +1519,14 @@ v3 初稿里我**编了两个示意数字**（「本月货损率 7.8%，比上�
 ⚠️ **生产数据事实（真 boss）**：采购单 20 行 / 自提订单 50 行 / 调拨单 1 行；**采购退货单 / 自提退单 / 车销订单 / 车销退单 = 0 行**（`return_orders`/`purchase_returns` 生产本就空）⇒ 探针按 `rows>0` 分支跳过分页器断言（0 行是空态，本就没有分页器）。
 ⚠️ **探针两条坑**：① 分页总数文案含区间（`共 83 条记录，第 1–20 条`）⇒ 翻页后**整串比对必假 FAIL**，只比 `/共 (\d+) 条记录/` 的数字；② 探针 token 用 `demo_boss`（`/tmp/v392-probe-tokens.py boss`）**无权访问 tenant 1** ⇒ 七入口全空态、100+ 条假 FAIL，须用生产 `sessions` 表 **user_id=2 真 boss** 的 43 字符 token。
 下一可用号 = **v510**（v501-v509 均已占用）。
+
+**v510**（2026-10-15 · 前端 `laozhangai-product` `2525b2e` · ✅ 已部署）**进销存七列表页动作组抽离为共享件：删全选/反选/打印、导出与批量前置、纵向再压一行**。起因=老板「『全部/草稿/待审核』页签行 与 『全选/反选/导出/打印/批量操作』工具栏行各占一行 ⇒ 删 全选/反选/打印，导出和批量操作 放 新建 前面；抽成可复用列表页布局/工具栏组件+公共样式，运用到七个列表页」。🔴 沿用 v509 铁律：**筛选/查询/分页/列表数据逻辑零改动**。
+① **新建共享件** `src/components/PsiListActions.vue`：动作组顺序固定 **导出 → 批量操作 → 新建 → 刷新**（老板口径），收进 `StatusTabs` 的 `#actions` 插槽（页签行右侧，不再单独占一行）；`#status` 插槽承载排序提示（按 X 升/降序 + 清除）；props（`exportDisabled`/`showBatch`/`batchItems`/`batchOpen`/`batchDisabled`/`showNew`/`newDisabled`/`newLabel`/`refreshDisabled`）+ emits（`export`/`toggle-batch`/`batch-pick`/`new`/`refresh`）。
+② **三页删各自 `.psi-tb` 工具栏整行**（含 全选/反选/清空/已选N条/打印）：采购页 `BATCH_ACTIONS` 经 props 传入仍保留批量菜单；销售/调拨无批量后端 ⇒ `showBatch=false`。
+③ **采购页删表头 `headChk` 全选复选框**（老板指明「列设置 ⚙️ 前面就是全选按钮」），**保留行内勾选列** ⇒ 批量仍可逐行勾选，不靠表头全选；逐行「打印」(`rowPrint`) 保留，仅删工具栏批量打印 `doPrint`。
+④ `psi-list.css`：新增 `.psi-acts` 系列共享样式（动作组 / 状态 / 批量下拉菜单，替代各页私有 `.ipl-mw/.ipl-menu/.ipl-mi`），移除已退役 `.psi-tb` 规则（保留 `.psi-selinfo/.psi-sortinfo`）；打印隐藏规则 `.psi-tb`→`.psi-acts`。
+🔴 **孤儿代码清理**（死代码≠安全代码）：`headChk`/`allChecked`/`selectAll`/`invertSel`/`toggleAll`/`syncHead` 及对应 `watch`、`doPrint`（采购/销售/调拨三处）、采购页私有 `.ipl-mw/.ipl-menu/.ipl-mi`。
+**验收**：隔离构建 `dist-v510`（entry `index-LEpPLOd8.js`）；rsync 至 `/opt/hergent-cn-v2/`（无 `--delete`，先备份 `index.html.bak-v509`）；生产真机核实 = 新 `InvPurchaseList-CvnwsEqp.js` 上线、`headChk:0` / 无 `.psi-tb` 生效类（`psi-tb` 仅作 `psi-tbl` 前缀误匹配）、`PsiListActions-*.js` 含 `psi-acts`(5) 与「批量操作」、`index.html` 指向本构建；HTTPS 200 服务新入口。
+⚠️ **打印功能边界**：工具栏批量打印已删，但**操作列逐行打印保留**（采购/销售/调拨均有 `rowPrint`）；批量入口仅采购单（销售/调拨后端无批量接口 ⇒ `showBatch=false`）。
+⚠️ **一处行为对齐**：「新建」按钮沿用 v496 约定 —— 无写权限（`canWrite=false`）时按 `:show-new="canWrite"` **隐藏**（非禁用），与三页原 `v-if="canWrite"` 口径一致。
+下一可用号 = **v511**（v510 本轮占用；起号前仍须实搜两仓 `git log --all` 与未提交文件）。

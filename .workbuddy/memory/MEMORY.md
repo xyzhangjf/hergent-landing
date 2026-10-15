@@ -27,8 +27,8 @@
 🔴 `hergent-pre-launch-audit`｜`scoped-commit`｜`parallel-session-safety`｜`rebate-caliber-consistency`｜`chart-render-verify`｜`ui-copy-guard`｜`external-material-pdf`。
 
 ## 编号约定 → 流水明细 `topics/changelog-v484-v496.md`
-🔴 **已用到 v509（本轮布局优化），下一号 v510**（v501-v508 已被并行会话占用：v501 防超卖+列表标签名、v502/v503 开单页占用、v504 col-prefs、v505 调拨落库、v506/v507 毛利报表、v508 进价回填）。号=全局共享序列 ⇒ 起号前必读 `topics/version-history.md` + 实搜未提交文件 / 两仓 `git log --all` / `git worktree list`。⚠️ 2026-10-11 一天内 v452~v469 被用光 ⇒「下轮从 vN 起」当天就可能过期，务必实搜；⚠️ **v509 付学费**：本轮开工时照记忆里的「下一号 v501」起号，实际 v501-v508 已被用完，工作目录与探针名沿用旧前缀无法回收 —— 起号只看记忆不够，**必须 `git log --all` 实搜**。
-🔴 未推送（起手先跑两仓 `git status -sb` 核实）：后端 v495 `3bed185`、v496 `c8ac326`、v497 `845c998`、**v500 `aa658a5`**（分支 `upgrade/v84-international`）；前端 v495 `a6ac11e`、v497 `2df12fb`+`516aedb`、v498 `abffb39`+`da1e746`+`99fc5d5`、v499 `f679a39`、**v500 `a2735c0`**、**v509 `7f1a8ba`**（+ merge `1141250` 合入对方 v501-v508、memory `8db11f0`）。⚠️ **前端 main 已于 v509 与 origin/main 合并**（本地 ahead 3，未推送）；后端仓本轮零改动。
+🔴 **已用到 v510（动作组抽离为共享件 PsiListActions，七列表页复用），下一号 v511**（v501-v509 已被占用：v501 防超卖+列表标签名、v502/v503 开单页占用、v504 col-prefs、v505 调拨落库、v506/v507 毛利报表、v508 进价回填、v509 七列表页统一布局）。号=全局共享序列 ⇒ 起号前必读 `topics/version-history.md` + 实搜未提交文件 / 两仓 `git log --all` / `git worktree list`。⚠️ 2026-10-11 一天内 v452~v469 被用光 ⇒「下轮从 vN 起」当天就可能过期，务必实搜；⚠️ **v509 付学费**：本轮开工时照记忆里的「下一号 v501」起号，实际 v501-v508 已被用完，工作目录与探针名沿用旧前缀无法回收 —— 起号只看记忆不够，**必须 `git log --all` 实搜**。
+🔴 未推送（起手先跑两仓 `git status -sb` 核实）：后端 v495 `3bed185`、v496 `c8ac326`、v497 `845c998`、**v500 `aa658a5`**（分支 `upgrade/v84-international`）；前端 v495 `a6ac11e`、v497 `2df12fb`+`516aedb`、v498 `abffb39`+`da1e746`+`99fc5d5`、v499 `f679a39`、**v500 `a2735c0`**、**v509 `7f1a8ba`**（+ merge `1141250` 合入对方 v501-v508、memory `8db11f0`）、**v510 `2525b2e`**（动作组共享件，已部署未推送）。⚠️ **前端 main 已于 v509 与 origin/main 合并**，v510 在其上叠加（本地 ahead 多，未推送）；后端仓本轮零改动。
 🔴 **侧栏重复入口**（老板连报两处，均为 v465 权宜复用同一 path+tab）：删「数据报表›实时概览」v497、删「市场营销›供应商返利方案」v498、删「市场营销›供应商返利试算」v499。
 🔴 **改 `pages.js` 前先分清这张表管"路由"还是"门禁"**：本项目 `pages.js` = **门禁唯一源**（不生成路由），
 且 `ruleFor()` 对**未登记 path 一律放行** ⇒ 删占位页登记 = 把 boss 硬锁**放宽**成所有人可深链进（v499 差点踩）。
