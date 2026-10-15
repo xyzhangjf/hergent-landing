@@ -1505,3 +1505,17 @@ v3 初稿里我**编了两个示意数字**（「本月货损率 7.8%，比上�
 验收：影子库 harness `v500-pr-list-counts-harness.py` **38/38**、`v500-sr-list-draft-harness.py` **63/63**（含反例 + 真库指纹前后一致）；隔离构建 `dist-v500`；**三方 md5 逐字一致**（`index.html` / `index-DVFbpy3K.js` / `SaleDocForm-dCiIaezh.js` / `SaleDocForm-BJhWzLln.css`）；生产 `order_no` 列在 `erp.db` 与 `tenant_1.db` 双双就位。
 🔴 **探针教训（本轮付学费）**：未登录 `curl` 对新端点与**假路径**都回 **401**（鉴权中间件先于路由）⇒ 该探针**零判别力**。改为**进程内路由表探针**（`.env` 加载后 `from routers.psi import router`，`inspect.signature` 逐个核对 query 参数是否显式声明 —— 正是 v443 铁律），并带**阳性对照**（假路径必须取不到）⇒ **ALL PASS**。
 ⚠️ **生产数据事实**：`return_orders` / `purchase_returns` **均为 0 行** ⇒ 三个退单页签当前显示「全部 0 / 草稿 0 / 已过账 0」，是**真实现状**（此前退货从未落这两张表），不是坏了。下一可用号 = **v501**（v499 已被并行会话占用）。
+
+**v509**（2026-10-15 · 前端 `laozhangai-product` `7f1a8ba` + merge `1141250` · ✅ 已部署）**进销存七列表页统一布局：删页内页头 / 筛选单行 / 共享分页器（业务逻辑零改动）**。起因=老板「对采购订单/采购退单/自提订单/自提退单/车销订单/车销退单/调拨单七个列表页做统一布局优化，参考舟谱采购订单列表页风格，提升信息密度、压缩无效纵向空间」。硬约束=**筛选/查询/分页/列表数据逻辑一律不改**。
+① **删页内页头**：三页 `.page-hd split`（大标题+副标题+新建/刷新，54px）整块退役；「新建/刷新」并入 `StatusTabs` 新增 `#actions` 插槽落在页签行右侧（`.psi-tabbar` / `.psi-tabact`）。保留的状态页签条（41px）是舟谱同款、v498 刚补齐，不动。🔴 **删页头的硬前提**：顶部标签栏原先对「同 path 不同 query」的七入口取同一标题（`/inventory/purchase?kind=return` 也叫「采购单」）。
+② **筛选单行**：`.psi-f` 由 `flex-direction:column` 改 `row` + `align-items:center;gap:6px`；整组换行交给 `.psi-frow` 的 `flex-wrap` ⇒ 标签与输入框**永不被拆到两行**。控件尺寸三页统一（`.psi-sel/.psi-date` 140px、`.psi-kw` 180px、全部 32px；原采购 150 / 销售 130 不一致）；640px 以下整组转竖排、控件撑满。
+③ **共享件**：三份逐字同构分页器抽成 `PsiPager.vue`（🔴 刻意**不统一** `PAGE_SIZES`——采购 [20,50,100]、销售/调拨 [20,50,100,200] 是各页既有能力）；三页 scoped 里的筛选行/标签/控件/按钮组/三角/分页/640px media 全部上提 `psi-list.css`。列设置 storage key 与云端列配置**一动不动**。
+**实测压缩**（真 boss token）：采购筛选区 137→114px，销售/调拨 93→70px，页头 54px 整块消失。
+**验收**：隔离构建 `dist-v509`（entry `index-DbSZ3kpF.js` / CSS `index-D7eTT7xb.css`）；`index.html` md5 双侧一致 `2706665f1b08e46a6854deb1b21cd7c5`；生产真机探针 `v501-list-layout-verify.mjs` 七入口 × 1600/1366 双宽度 **PASS 139 / FAIL 0**（结构 / 标签与输入框中心对齐 / 行内无重叠 / 无横向滚动 / 翻页+查询+切页签计数不漂移 / 零 JS 错误）；**部署后当轮复核**线上 entry 与 md5 未变。
+🔴 **三条本轮付学费**：
+1. **编号撞号**：开工照记忆「下一号 v501」起号，实际 v501-v508 已被并行会话用完（v501 防超卖+列表标签名、v506/v507 毛利报表…）⇒ 本轮实为 **v509**，但工作目录 `dist-v501` 与探针名沿用旧前缀无法回收。**起号只看记忆不够，必须 `git log --all` 实搜。**
+2. **部署把对方功能回退了（P0，已止血）**：本地 main 落后 origin **18** 个提交，我的构建不含对方已上线的 v501-v505，覆盖 `index.html` 后线上功能倒退。止血=还原部署前备份（entry `index-BKLSq47Y.js`，md5 `b52181a3…`）；根治=**先 `git merge origin/main` 再用合并后的 HEAD 重新构建**（`dist-v509`）再部署。新铁律已写入 MEMORY.md「部署」条目。
+3. **两份实现做同一件事**：并行会话 `a7c8db4` 已用 `docTypes::shortTitleForList(path,query)` 修「标签名按 query 解析」，本轮用 `tabTitles::QUERY_SUB_TITLES` 另起一套。**两者只有采购一项不同**：对方「采购订单」 vs 被删页头 `<h2>` 原文「采购单」（router `meta.title` 亦为「采购单」）⇒ 删页头后标签名必须**原样承接页头原文**，否则等于偷偷改名。收敛=**QUERY_SUB_TITLES 优先、`shortTitleForList` 降级回落**（非死代码：新增单据类型进了 docTypes 就有名字），代码注释写明将来合成一张时以页头原文为准改 `shortTitle`、再删本表。
+⚠️ **生产数据事实（真 boss）**：采购单 20 行 / 自提订单 50 行 / 调拨单 1 行；**采购退货单 / 自提退单 / 车销订单 / 车销退单 = 0 行**（`return_orders`/`purchase_returns` 生产本就空）⇒ 探针按 `rows>0` 分支跳过分页器断言（0 行是空态，本就没有分页器）。
+⚠️ **探针两条坑**：① 分页总数文案含区间（`共 83 条记录，第 1–20 条`）⇒ 翻页后**整串比对必假 FAIL**，只比 `/共 (\d+) 条记录/` 的数字；② 探针 token 用 `demo_boss`（`/tmp/v392-probe-tokens.py boss`）**无权访问 tenant 1** ⇒ 七入口全空态、100+ 条假 FAIL，须用生产 `sessions` 表 **user_id=2 真 boss** 的 43 字符 token。
+下一可用号 = **v510**（v501-v509 均已占用）。
