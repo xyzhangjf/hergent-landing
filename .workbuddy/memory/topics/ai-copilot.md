@@ -553,3 +553,11 @@ L2 真差别 = `ai_roles` 扩 `skills/tools/model/data_scope/guard` + **后端�
   **发送时必须过滤**）、常驻「将由 X 回答」、`RoleManage` 能力配置弹窗（可选项来自 `/api/ai/role-catalog`）。
 
 🔴 **未做**：数据范围的**执行面**拦截（现为提示词层软边界）；`/api/bot/*` 的 token 洞（见今日日志 v319 段）。
+
+## v456 · 副驾「朗读」改走服务端合成（Edge 神经语音，2026-10-11）
+
+- 🔴 **「浏览器 Web Speech 换音色」是死路**：Chrome 只暴露 **19 个 Google 在线语音，中文普通话仅 1 个**（headless 与有头**实测结果完全一样**，不是 headless 限制）；macOS 系统语音（`say -v '?'` 里的 Tingting/Meijia/Sinji…）**Chrome 一个都取不到** ⇒ 用户无从换声、各端音色不一致。**判据：先普查真实能力上限，再谈选方案**（同族 v455「属性存在 ≠ 属性生效」）。
+- **正解**：朗读改**服务端出音频、前端只播放**。后端 `routers/ai_tts.py`（`POST /api/ai/tts` → `audio/mpeg`，`GET /api/ai/tts/voices`）；依托 Hermes 引擎自带 TTS registry 的 `edge` provider（免费无 key）。默认 `zh-CN-XiaoxiaoNeural`，白名单 5 音色，语速 ±50% 钳制，3000 字上限，25s 超时，4 并发，64 LRU 缓存（sha1 + `X-TTS-Cache` 头），失败 **503 + 明确文案**。
+- 🔴 **权限自动继承、无需登记**：`_PATH_MODULE_MAP` 首个 `startswith` 即停，`"/api/ai": "chat"` ⇒ `/api/ai/tts` 继承副驾同权限；无通配路由 ⇒ 无遮蔽。
+- 🔴 **前端必须留"内置朗读"回落**：服务端失败（503/超时）时 `speakLocal()` 兜底，**不静默哑掉**；`ttsSeq` 序号防竞态；卸载/换消息先 `stopRead()`。`apiBlob` 复用 `auth.token` 头（token 头唯一真相来源）。
+- ⚠️ `edge-tts` 走微软 Edge「大声朗读」接口（**非公开 / 非付费商用通道**）；上游若变可一键切回内置朗读（前端已内置回落，无需改后端）。

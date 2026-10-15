@@ -1017,3 +1017,176 @@
 9. 👀 `/root/.hermes/SOUL.md` root 属主软链（**别重复新建**）。
 10. ⚠️ 业务侧人工复测「组合拆零 / 撤回 / 删除本人预报单」（持续未做）。
 11. ✅ 已结案、无需再跟：备份保留策略（连续 10 天）；`[v264 分配]` / `.env` / `tenant-scan` / 保活（全 0）；`tenant_9.db`；24h 发版式重启（4 次在阈值内）。
+
+---
+
+## 最近执行：2026-10-11（第 15 次 · 04:00）
+- 模式：严格只读。未改/删/重命名生产文件，未部署、未重启服务；**本轮全程未连接数据库**。副作用 1 条（1 次 `demo-login`，用新工具 `docs/prod-inspection/tools/authz-probe-ext.py`）。
+- 结果：**总体 🔴 高危（2 条）** —— 3 项正常、3 项需关注、**2 项高危**、0 项未知。
+  - 🔴 **第 4 项 `Traceback` = 308（新增高危，突破零）**：`[ERROR]` 14 = 真实 5xx 14（此前连续 9 天全 0）。四类：`GET /api/psi/purchase-orders` SQL `near "("` ×5（06:10:11~44）/ `PUT /api/psi/purchase-orders/177` SQL `near ","` ×4（23:52:31~41）/ `GET /api/product-targets/avg-target` `not enough values to unpack (expected 2, got 0)` ×3（06:19:48~06:23:17）/ `GET /api/return-orders` `can only concatenate tuple (not "list") to tuple` ×2（23:22:27/23:26:59）。24h 状态码：200×5648 / 400×723 / 401×312 / **500×14** / 404×8 / 403×5。来源 `27.27.126.209`×12 + `127.0.0.1`×2。**与发版对齐**：`06:23:22` 重启↔`routers/product_targets.py` 06:23（报错后 5 秒）；`23:21:51`↔`erp_db.py` 23:21；`23:53:23`↔`psi.py`+`sales.py` 23:53:04（**报错后 23 秒**）。近 1 小时 5xx = 0 ⇒ 疑似已修，**未验证**。
+  - 🔴 **第 8 项 总判定 = 1（基线 0）**：`v386-shadow-write-test.py`（9694B / `2026-10-06 23:23` / `d07799bd…`，**第 3 次逐字一致**）。⚠️ 属主本轮由 `root:root` → `hergent:hergent`（内容未变）。零引用。**三方一致 244 + 判定 1 = 生产 245 ✅**；「本机有生产无」100（正常不报）。
+  - ✅ 第 2 项备份连续第 14 天：`7/7 ok / 51.2 MB / cleaned 0`、快照目录 **13**、零字节 0、异地云同步 `OSS sync OK` 累计 18 / FAILED 0、03:20 告警「全部正常 ✅」、今日失败关键字 0。
+  - ✅ 第 1 项 200/200 + active（`ActiveEnterTimestamp = 10-10 23:53:23`）；✅ 第 6 项证书**已续期**：`notBefore=Oct 10 10:50:29 2026` / `notAfter=Jan 8 10:50:28 2027` ⇒ 剩余约 **89 天**，SAN 覆盖 `hergent.cn` / `erp.hergent.cn` / `api.hergent.cn`（上轮是 Nov 9 到期的那张 ⇒ 已换）。
+  - ✅ **未推送提交结案**：后台仓 `origin/upgrade/v84-international...HEAD` = `0 0`（HEAD `469dc92` v443）；前端仓 `origin/main...HEAD` = `0 0`（HEAD `d61d81c` v444）。
+  - ⚠️ 第 3 项：`Started` 24h = **6（越 5 阈值）**（06:16:47 / 06:18:45 / 06:23:22 / 08:19:56 / 23:21:51 / 23:53:23）；`NRestarts` = 0。**06:16/06:18 两次无对应落盘 ⇒ 疑调试式**。
+  - ⚠️ 第 5 项：磁盘 **79%** ✅；系统日志 **736.0 兆**（上轮 688.0 ⇒ 3 天 +48.0，约 +16 兆/天，涨速加快；配置 `SystemMaxUse=500M`，越限 236 兆）。
+  - ⚠️ 4b：24h 原始 `WARNING` **102 行** = **51 弃用尾巴（剔除）+ 51 `Duplicate Operation ID`**；按「带 `hergent: ` 前缀」剔噪后重复项 = **0**；`Duplicate Operation ID` 24h=51（**17 个端点标识 × 3，单项 <5 ⇒ 未达阈值**），7 日 `Oct 08` 17 / `Oct 09` 51 / `Oct 10` 68；**`/openapi.json` 24h 访问 5 次（上轮 0 ⇒ 触发条件本轮发生）**。两条连续失败继续累加：**Off-site backup error 已连续 13 天**（Sep 29~Oct 11 每天 1）/ **Daily profit push 已连续 12 天**（Sep 29~Oct 10 每天 2）。`v264`/`tenant-scan`/`保活`/`hermes_tenants` 24h 全 0；`.env` 4 条 = 公网扫描器（常态噪音，不报）。
+  - ⚠️ 第 7 项：越权 **4/4 = 403 + 对照 `GET /api/products` = 200，无越权 200**；第 4 探针**判据失效持续**（`error_code=READONLY_TENANT`）≈ **第 17 天**。
+- ⚠️ **回滚副本条目数无新增，但 ctime 被整体刷新**（**新观察**）：`_backup/` **3 个**、`_rollback/` **8 条目**（= 上轮），但 **11 个条目 ctime 统一为 `2026-10-09 21:35:40`**（上轮为分散的 10-02 / 10-04 / 10-06）⇒ 10-09 21:35 有一次批量重拷（与 `routers/purchase.py` 10-09 21:35 落盘同刻 = 发版前备份步骤）。字节数未变。`-before` 后缀非 `.py` ⇒ 不影响第 8 项。**巡检未动这些文件。**
+- ⚠️ **报告缺失扩大到 3 天**：目录 15 → 16 份；**10-09 / 10-10 本轮新发现缺失**（今日日志显示当日「本机未在线」）+ 10-02。未触发 30 份上限、无删除。
+- ✅ **推送成功（改法！）**：本轮**不再在生产落地推送稿文件**，改用管道直传 ——
+  `ssh root@... 'runuser -u hergent -- env HERMES_HOME=/opt/hermes-tenants/hergent_t1 /usr/local/bin/hermes send --to wecom -f - --json'` < 本地稿。
+  `message_id = aibot_send_msg-e501b3271d5547a7bb78095e8798dccb`，`mirrored: true`，`chat_id = ZhangJunFeng`。**消除了历史 `/tmp/*.txt` 残留**。本机通道 `850003` 仍未试。
+- 本机新增/修复工具：`docs/prod-inspection/tools/authz-probe-ext.py`（1 次 demo-login 内做 4 越权探针 + 对照 + 3 个报错端点只读复现）。⚠️ **首跑因自身 `for label, method, path, _b in extra` 解包缺陷中断**（extra 是三元组）⇒ 已修为三元；因「每轮最多 1 次演示登录」**未重跑** ⇒ **500 的独立复现本轮未完成（如实披露）**。
+- 日志落盘：`memory/2026-10-11.md`（已存在，本次为追加）。
+
+## 下轮必做（2026-10-12 起）
+1. 🔴 **第 4 项：确认 4 个端点缺陷是否已在 HEAD 修好** —— 对 `routers/psi.py`（采购单列表 + 更新两处 SQL 拼接）、`routers/product_targets.py`（`avg_target` 解包）、`routers/sales.py`（`return_order_list`）逐处核。**若下轮 24h 仍 0 次，要先证明「是修好」而不是「该路径没人调」**（本轮末次 23:52:41 + 立即发版，未验证）。
+2. 🔴 **第 8 项 = 1**（`v386-shadow-write-test.py`，连续约 5 天；注意属主已变 `hergent:hergent`）。≥1 继续 🔴；**基线仍 0、巡检不得调高**。
+3. ⚠️ **未推送提交已结案**（两仓 0/0）⇒ 下轮只需一句复核；若又 ≠0 再报。
+4. ⚠️ **第 3 项重启**：阈值 5，本轮 6 ⇒ 下轮看是否回落；**用 `find -newermt` 把每次重启与落盘对齐**（本轮 4/6 可对齐，2 次疑调试式）。
+5. ⚠️ **系统日志 736.0 兆**（+48.0/3 天）⇒ 下轮看是否继续加速。
+6. ⚠️ **两条调度器连续失败**：Off-site 13 天 / profit push 12 天 ⇒ 继续计数；**若 Off-site 停止报错先确认是修好还是被跳过**。
+7. ⚠️ **回滚副本**：判据用 `ls -lc` 的 **ctime**（mtime 可能被保留）⇒ 本轮 ctime 被整体刷新但条目数未增，下轮两者都要看。
+8. ⚠️ 越权第 4 探针**判据失效**约 17 天 ⇒ 是否已换非只读测试账号。
+9. ⚠️ **报告缺失 3 天**（10-02 / 10-09 / 10-10）⇒ 下轮先 `ls docs/prod-inspection/`。**今日日志显示 10-09/10-10「本机未在线」** ⇒ 这是**本机没开机**导致的漏跑，不是自动化逻辑故障。
+10. 👀 `Duplicate Operation ID`：**必须写清 `/openapi.json` 是否被访问**（本轮访问 5 次 ⇒ 触发），单项计数未达 5 是因**每个标识只 3 次**。
+11. 👀 `/root/.hermes/SOUL.md` root 属主软链（**别重复新建**）。
+12. ✅ 已结案：备份保留策略（连续 14 天）；`[v264 分配]` / `.env` / `tenant-scan` / 保活（全 0）；`tenant_9.db`；证书续期已完成（下次到期 Jan 8 2027）；未推送提交。
+
+## 复用要点补充（2026-10-11 新增）
+- ✅ **推送不用再写生产临时文件**：`hermes send` 支持**位置参数**或 `-f -`（强制读 stdin）。用
+  `ssh root@47.113.224.140 'runuser -u hergent -- env HERMES_HOME=/opt/hermes-tenants/hergent_t1 /usr/local/bin/hermes send --to wecom -f - --json' < 本地稿.txt`
+  ⇒ **零生产文件残留**，比过去的「scp 推送稿到 /tmp」干净。**下轮沿用**。
+- ✅ **`grep -c "500"` 仍会因端口号误报**（历史多次）。**真实 5xx 一律用** `grep -oE '(GET|POST|PUT|DELETE|PATCH) [^ ]+ HTTP/1\.[01]" 5[0-9][0-9]'`；并同时拉 `grep -oE 'HTTP/1\.[01]" [0-9]{3}' | sort | uniq -c` 看全量状态码分布（本轮 5648/723/312/14/8/5）——比单看 5xx 更能说明严重度。
+- ✅ **判「错误是否已修」不能只看「是否再复现」**：本轮末次错误后 23 秒即发版，必须把 `[ERROR]` 时间戳与 `find -newermt` 的落盘时间**逐条对齐**，才能说「疑似由该次发版修掉」。**「未再复现」≠「已修复」**，报告里要显式写明未验证。
+- ⚠️ **`WARNING` 剔噪流水线会漏掉不带 `hergent: ` 前缀的行**：本轮 102 行 WARNING 中 51 行 `Duplicate Operation ID` 来自 `fastapi/openapi/utils.py`，**不含 `hergent: ` 前缀** ⇒ 按 `sed 's/...hergent: //p'` 归并得 0，**看起来像「无重复」**。⇒ 必须**再跑一遍关键字计数**（`grep -c "Duplicate Operation ID"`）并看原始去重（`cut -c1-160 | sort | uniq -c`）才不会被假零骗到。
+- ⚠️ **本机脚本也会有自己的 bug**：`authz-probe-ext.py` 首跑 `for label, method, path, _b in extra` 对三元组解包 ⇒ `ValueError`。**新增探针脚本先本地空跑一遍**，否则会白耗掉「每轮仅 1 次演示登录」的额度（本轮即如此，500 复现因此未完成）。
+
+---
+
+## 最近执行：2026-10-12（第 16 次 · 04:00）
+- 模式：严格只读。未改/删/重命名生产文件，未部署、未重启服务；仅以 `mode=ro` 查两租户库**表结构**（sqlite_master / PRAGMA），未读业务数据。副作用 1 条（1 次 `demo-login`，沿用 `docs/prod-inspection/tools/authz-probe-ext.py`，本轮脚本未再中断）。
+- 结果：**总体 🔴 高危（2 条）** —— 3 项正常、3 项需关注、**2 项高危**、0 项未知。
+  - 🔴 **第 4 项 `Traceback` = 352 / `[ERROR]` = 16 / 真实 5xx = 17（16×500 + 1×503）（连续第 2 天突破零，根因全换新）**：
+    - `GET /api/wh/entries` `no such table: wh_stock_entries`（in 4 + out 3）+ `GET /api/wh/outbound` `wh_outbound_orders` ×3 + `GET /api/wh/stocktake` `wh_stock_takes` ×1 = **11 次**（21:14~21:39）——`routers/wh.py` 落盘 21:08，**当时租户库还没建表**。
+    - `GET /api/wms/replenishment/needed` `no such column: pfc.pick_face_qty` ×3（21:11~21:12）——已只读核实 `pick_face_config` 实列为 `id/product_id/warehouse_id/forward_min/forward_max/reserve_bin`，**根本没有 pick_face_qty** ⇒ 「SQL 与表结构不匹配」的恒失败缺陷。
+    - `GET /api/psi/transfer-orders` `can only concatenate tuple (not "list") to tuple` ×2（10:34）；`POST /api/ai/tts` 503 ×1。
+    - Traceback 分桶 `10:34` 44 / `21:11` 44 / `21:12` 22 / `21:14` 154 / `21:39` 88。状态码全域：200×6039 / 400×780 / **403×756** / 401×358 / 404×18 / **500×16** / 413×4 / 422×3 / **503×1**。**近 1h 5xx = 0；自 22:30 起 5xx/[ERROR]/Traceback 全 0**。已只读核实 `tenant_1.db` / `tenant_10.db` 均有 `wh_*` 六表 + `pick_face_config`（疑由 **22:33 落盘的 v465g「`_ensure_wh` 去掉进程级缓存」** 补建）⇒ **未独立验证，不得判已修复**。
+  - ✅ **首次完成「昨日缺陷是否已修」独立验证**：10-10 曾 500 的 3 端点（`/api/psi/purchase-orders?limit=20&exclude_status=returned`、`/api/product-targets/avg-target?period_id=29`、`/api/return-orders`）实调**全 200** ⇒ **10-10 三处缺陷确认已修复**（昨日标「未验证」今日结案）。⚠️ 这也证明「附加复现探针」这条路可行：`authz-probe-ext.py` 修好后一次跑通。
+  - 🔴 **第 8 项 总判定 = 4 个文件（基线 0 ⇒ 🔴；上轮 1 ⇒ 扩大）**：① 【🔴🔴 生产有独有版本（本地==HEAD）】= **`server.py`**（生产 316347B / md5 `1e829248cb1c4c0119cb12632f0ad769` / 10-11 22:18 ≠ 本地==HEAD 316112B / md5 `0c47eb2bea765a1c6cad6a318f0911cc`，多约 235B）；②③ 【⚠️ 只在生产存在（未入库）】= **`funds_db.py`**（28178B / 21:56 / md5 `55052cfebecfaa6ac142272450584fb7`）+ **`routers/funds.py`**（9701B / 21:58 / md5 `a6d8876f59abc50dc666ffe42607b9b5`）——**v468/v469 资金管理模块，生产有、git 根本没有**（`git ls-files | grep -i funds` 仅命中 `server/tools/v469-funds-gate-migrate.py`；`git log --all -- '*funds*'` 仅 `1ca6452`，**只提交了接线、漏提交模块本体**）；④ `v386-shadow-write-test.py`（9694B / 10-06 23:23 / md5 `d07799bd…`，连续约 6 天逐字未变）。其余类别全 0。自洽 **244 + 3（未上线不报）+ 1 + 3 = 251 ✅**；「本机有、生产无」103（正常不报）。基线仍 0、**巡检未调高**。
+  - ✅ 第 2 项**备份连续第 15 天**：`backups/2026-10-12/` `7/7 ok / 51.4 MB / cleaned 0`、零字节 0、`700 hergent:hergent`、日期快照 **14**（09-29~10-12）；异地 `OSS sync OK` 累计 **19** / FAILED **0**（`Total num 7, size 53,903,360`）；03:20 告警「全部正常 ✅」；今日失败关键字 0。👀 新观察：产物权限由 `-rw-------`(600) 变 `-rw-r-----`(640)。
+  - ✅ 第 1 项 200/200 + active（`ActiveEnterTimestamp = Sun 2026-10-11 22:33:23 CST`）；✅ 第 6 项证书 `notAfter=Jan 8 10:50:28 2027 GMT` ⇒ 剩余约 **88 天**，SAN 三域名不变。
+  - ⚠️ 第 3 项：`Started` 24h = **13**（`10:34:04 10:38:00 13:38:11 19:42:33 19:42:48 21:08:56 21:57:37 21:58:33 22:15:56 22:18:23 22:20:54 22:21:00 22:33:23`）**远超 5 阈值**；`NRestarts` = **0**（无崩溃式）。**10 次可与落盘对齐**（psi+sales 10:33 / ai_tts 13:38 / inventory 19:42 / wh 21:08 / funds_db 21:56 / funds 21:58 / core 22:14 / erp_db 22:15 + tools 22:17 / server 22:18 / pre-v465g 22:33）；`10:38:00`、`19:42:48`、`22:21:00` 无独立对应 ⇒ 疑同次发版的二次重启。
+  - ⚠️ **第 5 项磁盘 83%（本轮首次突破 80% 阈值**；上轮 79% / 用 30G ⇒ 24h +1G / +4 个百分点）**；系统日志 `760.0M`**（24h +24.0；越 500M 上限 260M）。
+  - ⚠️ 4b：24h 原始 `WARNING` **仅 6 行**（无弃用尾巴、无 Duplicate Operation ID），剔噪归并后 = **2 项各 3 次**：`query failed: no such column: soi.sale_order_id` ×3 + `no such column: poi.purchase_order_id` ×3（21:11:06 / 21:12:40 / 21:14:41，与 wh/wms 报错同窗）⇒ **未达 5 次阈值 ⇒ 👀 观察，但属「静默失效」形态**。`Duplicate Operation ID` 24h = **0**（`/openapi.json` 访问 **0** 次 ⇒ 未触发）；7 日 `Oct 08` 17 / `Oct 09` 51 / `Oct 10` 68。两条连续失败：**Off-site backup error Sep 29~Oct 12 连续 14 天**（每天 1）/ **Daily profit push Sep 29~Oct 11 连续 13 天**（每天 2）。`v264`/`tenant-scan`/`保活`/`hermes_tenants`/`v365` 24h 全 0；`.env` 22 条 = 公网扫描器（常态噪音）。
+  - ⚠️ 第 7 项：越权 **4/4 = 403 + 对照 `GET /api/products` = 200，无越权 200**；第 4 探针**判据失效约第 18 天**（`error_code=READONLY_TENANT`）。
+- ⚠️ **未推送提交由「结案」回到两仓各 1 个**：后台 `origin/upgrade/v84-international...HEAD` = `0 1`（HEAD `bcefcd9` v465g）/ 前端 `origin/main...HEAD` = `0 1`（HEAD `b03fc35` v465g）。后台工作区另有 3 个已跟踪文件被改未提交（`server/db/queries/purchases.py` / `server/routers/psi.py` / `server/routers/purchase.py` = 采购单列表排序在途）⇒ 对应第 8 项「本机未提交、也尚未上线」3 个，**未部署 ⇒ 按规则不报**。
+- ⚠️ **回滚副本 / 发版备份条目增加**：`_backup/` **3 → 7** 个条目（新增 `tenant_10.db.pre-v469-20261011-221738`、`tenant_10.db.pre-v469ab-20261011-222052`、`tenant_1.db.pre-v469-20261011-221738`、`tenant_1.pre-v468-20261011-215843.db`，**均为 `.db` / 非 `.py` ⇒ 不影响第 8 项**）；`_rollback/` 仍 **8 条目**（ctime 仍统一 `2026-10-09 21:35:40`）；`backups/` 内新增 `pre-v465f-20261011_221544/` 与 `pre-v465g-20261011_223307/` ⇒ **发版脚本已开始把备份写进 `backups/`（此前报告建议的方向）**，但 `_backup/`/`_rollback/` 未收敛。**巡检未动这些文件。**
+- ✅ 报告落盘：`docs/prod-inspection/2026-10-12.md`（目录内 **17 份**，未触发 30 份上限，**无删除**；仍缺 10-02 / 10-09 / 10-10）。
+- ✅ **推送成功**（生产端 Hermes，**管道直传**，本机 850003 未试）：`message_id = aibot_send_msg-da6a7dee3d7a4fe5acda86875d2e7ede`，`mirrored: true`，`chat_id = ZhangJunFeng`。
+- 日志落盘：`memory/2026-10-12.md`（**新建**）。
+- 残留披露：生产 `/tmp/hergent-inspect-push-20261008.txt`（历史遗留，**不删**，删生产文件同样违反红线）；**本轮无新增生产残留**。
+
+## 下轮必做（2026-10-13 起）
+1. 🔴 **第 4 项：本轮 4 类新缺陷**（`wh` 表未建 / `wms` 拣货面缺列 / `psi` 调拨单元组拼接 / `ai/tts` 503）—— 下轮看是否再复现。**若为 0，要先证明「是修好」而不是「该路径没人调」**（本轮 `pick_face_qty` 已证实是「SQL 与表结构不匹配」，除非改 SQL 否则再调必 500 ⇒ 下轮可**只读查 `routers/wh.py` / wms 相关文件**确认列名是否已改）。
+   ⚠️ **下轮建议**：把 `wh_entries` / `wh_outbound` / `wh_stocktake` / `wms/replenishment/needed` 四条 GET 追加进 `authz-probe-ext.py` 的「附加只读复现」段（**它们只是 GET 只读，不额外消耗演示登录额度**）——这样每轮都能自动追踪是否真修好。
+2. 🔴 **第 8 项 = 4（`server.py` + `funds_db.py` + `routers/funds.py` + `v386-shadow-write-test.py`）** ⇒ 继续 🔴；**基线仍 0、巡检不得调高**。**最高优先：资金模块两文件入库**（否则按 HEAD 重部署 ⇒ 模块消失 + 服务起不来）。下轮复核是否已入库/已清理。
+3. ⚠️ **根分区 83%（新突破 80%）** ⇒ 下轮看是否继续上涨；若 ≥85% 应升级为高危口径写明。
+4. ⚠️ **系统日志 760.0 兆** ⇒ 下轮看涨速。
+5. ⚠️ **第 3 项重启 13 次** ⇒ 下轮看是否回落（**用 `find -newermt` 把每次重启与落盘对齐**）。
+6. ⚠️ **两条调度器连续失败**：Off-site 14 天 / profit push 13 天 ⇒ 继续计数。
+7. ⚠️ **回滚副本**：判据 = `_backup/` + `_rollback/` **条目数是否增加** + `ls -lc` 的 **ctime**；本轮 `_backup/` 3→7。**巡检不要动**。
+8. ⚠️ 越权第 4 探针**判据失效**约 18 天 ⇒ 是否已换非只读测试账号。
+9. ⚠️ **未推送提交两仓各 1（v465g）** ⇒ 下轮复核是否已推送。
+10. ⚠️ **报告缺失 3 天**（10-02 / 10-09 / 10-10）⇒ 下轮先 `ls docs/prod-inspection/`。
+11. 👀 `query failed: no such column: soi.sale_order_id` / `poi.purchase_order_id`（各 3 次）⇒ 下轮看是否升到 ≥5 次（升则按 ⚠️ 报）。
+12. 👀 `Duplicate Operation ID`：**必须写清 `/openapi.json` 是否被访问**（本轮 0 ⇒ 24h 计数 0）。
+13. 👀 备份产物权限 600→640；👀 `/root/.hermes/SOUL.md` root 属主软链（**别重复新建**）。
+14. ✅ 已结案、无需再跟：备份保留策略（连续 15 天）；**10-10 三处 500 缺陷（已实调验证）；未推送提交基线、`tenant_9.db`、证书续期、`[v264 分配]`/`.env`/`tenant-scan`/`保活`**。
+
+## 复用要点补充（2026-10-12 新增）
+- ✅ **「附加只读复现」是低成本的闭环验证手段**：`authz-probe-ext.py` 的 EXTRA 段（纯 GET）在**同一次 demo-login 令牌**下跑，**不额外消耗额度**。本轮即靠它证明了 10-10 三处缺陷已修。**建议把每轮新出现的 5xx 端点都临时追加进 EXTRA 段做复现**（只读、幂等）。
+- ✅ **判「新部署模块的 500」先只读查表结构**：`no such table` / `no such column` 两类，用 `python3` 以 `file:<db>?mode=ro` 打开租户库查 `sqlite_master` 与 `PRAGMA table_info(<表>)` 就能**区分「表没建」与「列名写错」**——本轮据此判定 `pick_face_qty` 是后者（表在、列不在 ⇒ 恒失败形态）。**注意**：从 Bash 工具经 ssh 传内联 python 极易被多层引号毁掉，**改用 `printf "%s\n" "行1" "行2" | ssh ... 'python3 -'`（外层用双引号包裹、python 内用单引号）最稳**，且**不往生产写任何文件**。
+- ⚠️ **`pss-check.py` 的「本机有、生产无」会随本机新增文件数增长**（本轮 103），其中「本机未提交、也尚未上线」（本轮 3）与「本机新增未部署」**都不报**；真正要报的只有「已部署但从未提交 / 生产有独有版本 / 三值全不同 / 未入库但已部署的新文件 / 只在生产存在」**五类**。**审计仓布局是 `server/<name>.py`（`--strip-prefix server/`），"本机有没有"要在 `server/` 下找**——直接 `ls funds_db.py`（仓库根）会误判为「不存在」。
+- ⚠️ **`.pre-*` / `.db` 后缀的备份件不会进第 8 项审计**（`--suffix .py`）；但 `_backup/` 里出现 `.db` 快照说明发版脚本对数据库也做前备份 ⇒ **计数时要把条目数与后缀一起看**。
+
+---
+
+## 最近执行：2026-10-13（第 17 次 · 04:00）
+- 模式：严格只读。未改/删/重命名生产文件，未部署、未重启服务；**本轮未做任何数据库访问**。副作用 1 条（1 次 `demo-login`，沿用 `docs/prod-inspection/tools/authz-probe-ext.py`，EXTRA 段已扩到 10 条纯 GET）。
+- 结果：**总体 🔴 高危（2 条）** —— 3 项正常、3 项需关注、**2 项高危**、0 项未知。
+  - 🔴 **第 3/4 项（本轮最重要·全新根因）：22:13~22:17 服务「崩溃-自动拉起」循环 41 次**。`erp_db.py`（22:12 落盘）第 74 行 `from db.queries.purchases import purchase_order_update_header`，而 `db/queries/purchases.py` **晚 3 小时**（23:25）才同步 ⇒ 每次启动即 `ImportError` 秒退；`Restart=always`/`RestartUSec=5s` ⇒ **每约 6 秒拉起一次**；**39 条 ImportError（22:13:01~22:16:51）**，22:17:07 恢复（22:16 重新落盘 `erp_db.py`）。24h `Started` **13 → 60**（按分钟：22:13×10/22:14×10/22:15×10/22:16×10/22:17×1 = 崩溃循环 41；其余 19 次分散 + 23:26:09 一次）。🔴**`NRestarts` 仍 0 与日志矛盾 ⇒ 该指标不可信，主判据改用「24h Started 计数」。** 第 4 项：`Traceback` **127** / `[ERROR]` **4** / 真实 5xx **7**（状态码全域 200×3993/403×333/401×311/400×249/404×69/500×4/503×3/422×2；近 1h 5xx=0）。新增三类 5xx：`POST /api/psi/purchase-return-orders/1/attachments` 500×2 = `[Errno 13] Permission denied: '/opt/hergent-erp/static/uploads'`（08:32:26；该目录 mtime **08:33** = 失败后 1 分钟，**疑似已修、未独立验证**）、`GET /api/ai/roles/copilot/avatar` **500×2**（23:08:09/23:09:10，`tenant_id=9999` 未登记租户**未优雅降级成 4xx**，来源 IP `27.27.126.209`）、`POST /api/ai/tts` **503×3**（21:22/22:31/23:17，上轮 1 ⇒ 上升）。Traceback 分桶 `08:32`44 / `22:13`10 / `22:14`10 / `22:15`10 / `22:16`9 / `23:08`22 / `23:09`22。
+  - ✅ **上轮 5 类 500 缺陷本轮结案**：把 `wh/entries?direction=in|out`、`wh/outbound`、`wh/stocktake`、`wms/replenishment/needed`、`psi/transfer-orders` **6 条纯只读 GET 追加进 EXTRA 段 ⇒ 全部 200**；24h 关键词 `wh_stock_entries`/`wh_outbound_orders`/`wh_stock_takes`/`pick_face_qty`/`can only concatenate` **全 0**。✅ 这次是「实调验证」而非只靠「不再复现」。
+  - 🔴 **第 8 项 总判定 = 6 个文件（上轮 4；基线仍 0、巡检未调高）**：新增 **`psi.py`(147661B/22:12/md5 `1f6332be…`) + `purchase.py`(31621B/22:12/md5 `9277a098…`) 落在生产仓库根目录**（`grep "^(import|from) (psi|purchase)\b" server.py` 只命中 `db.queries.purchases` 的 import ⇒ **未被引用，属位置放错的散落件/发版脚本路径缺陷**）+ `_rollback/v470-20261012-071542/{psi,purchase,purchases}.py` 3 个快照 + `v386-shadow-write-test.py`（连续约 7 天）。✅ **上轮三项已消除**：`funds_db.py`+`routers/funds.py` 由 **`9204e07` v471 入库**（`git ls-files server/|grep funds` 三命中）、生产 `server.py` md5 **`158b77aa…` == HEAD md5**。其余类别全 0；自洽 **251 + 0 + 6 = 257 ✅**；「本机有、生产无」103（正常不报）。
+  - ✅ 第 1 项 200/200 + active（`ActiveEnterTimestamp = Mon 2026-10-12 23:26:09 CST`，`Restart=always`/`RestartUSec=5s`/`Result=success`）。✅ 第 2 项**备份连续第 16 天**：`backups/2026-10-13/` `7/7 ok / 51.5 MB / cleaned 0`、零字节 0、`700 hergent:hergent`、快照 **15 个**（09-29~10-13）；异地 `OSS sync OK` 累计 **20** / FAILED **0**（`Total num 7, size 54,050,816`）；03:20 告警「全部正常 ✅」；今日失败关键字 0。**产物权限回到 600**（昨日 640 观察撤销）。✅ 第 6 项证书 `notAfter=Jan 8 10:50:28 2027 GMT` ⇒ 约 **87 天**，SAN 三域名不变。
+  - ⚠️ 第 5 项：根分区 **83%**（连续第 2 天；剩 6.6G→**6.4G**）；`journalctl --disk-usage` = **776.0M**（24h +16.0，**涨速较上轮 +24.0 放缓**；越 500M 上限 276M）。
+  - 👀 4b：24h 原始 `WARNING` **136 行** = **68 弃用尾巴（剔除）+ 68 `Duplicate Operation ID`**（`fastapi/openapi/utils.py:252`）；按「带 `hergent: ` 前缀」归并 = **0 项** ⇒ 无新静默失效（**注意：DupOpID 行无前缀，必须另跑关键字计数才看得到**）。`Duplicate Operation ID` 24h **0 → 68**（`/openapi.json` 访问 **5 次 ⇒ 触发**）；`query failed: no such column…` 24h **= 0**（上轮两项各 3 次，未复现）。两条连续失败：**Off-site `erp_db` 缺 `backup_config_get` Sep 29~Oct 13 连续 15 天**（每天 1）/ **Daily profit push Sep 29~Oct 12 连续 14 天**（每天 2）。`v264`/`tenant-scan`/`保活`/`hermes_tenants`/`v365` 24h 全 0；`.env` 28 条 = 公网扫描器。
+  - ⚠️ 第 7 项：越权 **4/4 = 403 + 对照 200，无越权 200**；前 3 条「此功能仅平台管理员可用」= 真实防守；第 4 探针 **判据失效约第 19 天**（`READONLY_TENANT`）。
+- ⚠️ **未推送提交：后台 1 → 5**（`origin/upgrade/v84-international...HEAD` = `0 5`，HEAD `682010f v453 采购单详情行内编辑`；**无已跟踪文件被改未提交**）；**前端已推送结案**（`1c0986e v485`，`0 0`）。
+- ⚠️ **回滚副本 / 发版备份**：`_backup/` 仍 **7**；`_rollback/` **9 子项（新增 `v470-20261012-071542/`）且 9 项 ctime 统一刷新为 `2026-10-12 22:13`**（与崩溃循环起点同刻 ⇒ 同一次发版顺带复制的）；`backups/` 新增 `pre-v465i-20261012_065630/`、`pre-v465j-20261012_073236/`。⚠️ **`_rollback/*.py` 会被第 8 项计入**（审计未排除该目录）⇒ 本轮 6 个判定里 3 个来自此。
+- ✅ 报告落盘：`docs/prod-inspection/2026-10-13.md`（目录内 **18 份**，未触发 30 上限，**无删除**；仍缺 10-02 / 10-09 / 10-10）。
+- ✅ **推送成功**（生产端 Hermes，**管道直传**，本机 850003 未试）：`message_id = aibot_send_msg-19ce27df3242497baaf958e497ea2c9a`，`mirrored: true`，`chat_id = ZhangJunFeng`。**本地推送稿用 Write 落到 `.workbuddy/tmp-wecom-push-*.txt`，推送后 `rm -f` 清掉**（比 Bash heredoc 稳）。
+- 日志落盘：`memory/2026-10-13.md`（已存在，本次为追加）。
+- 残留披露：生产 `/tmp/hergent-inspect-push-20261008.txt`（1782B / 10-08，历史遗留，**不删**）；**本轮无新增生产残留**。
+
+## 下轮必做（2026-10-14 起）
+1. 🔴 **第 3/4 项：崩溃循环是否续发** —— 若 24h 内再出现 `ImportError: purchase_order_update_header` 或任何「每 ~6 秒一次 Started」，按高危报；**并复核发版是否已改成「先全部落盘再重启」**。同时**继续用「24h Started 计数」当主判据**（`NRestarts` 不可信）。
+2. 🔴 **第 4 项新增三类是否复现**：`psi/purchase-return-orders/1/attachments`（**权限**，08:32）、`ai/roles/copilot/avatar`（**未登记租户 500**）、`ai/tts`（503 上升）。建议**把前两条也追加进 EXTRA 段**（attachments 是 POST 会写库 ⇒ **不可**；改用 `GET /api/psi/purchase-return-orders` 之类只读代理，或人工确认）。
+3. 🔴 **第 8 项 = 6** ⇒ 继续 🔴；**基线仍 0、巡检不得调高**。重点看：① 生产根目录 `psi.py`/`purchase.py` 是否被清；② `_rollback/` 是否被审计脚本排除；③ `v386-shadow-write-test.py` 留删。
+4. ⚠️ **根分区 83%（剩 6.4G）** ⇒ 下轮看是否上涨；**≥85% 升级为高危口径**。
+5. ⚠️ **系统日志 776.0M** ⇒ 下轮看涨速（上轮 +24.0、本轮 +16.0，在放缓）。
+6. ⚠️ **第 3 项重启** ⇒ 下轮看是否回落到个位数。
+7. ⚠️ **两条调度器连续失败**：Off-site 15 天 / profit push 14 天 ⇒ 继续计数。
+8. ⚠️ **回滚副本**：判据 = `_backup/` + `_rollback/` **条目数是否增加** + `ls -lc` 的 **ctime**。**巡检不要动**。
+9. ⚠️ 越权第 4 探针**判据失效**约 19 天 ⇒ 是否已换非只读测试账号。
+10. ⚠️ **未推送提交后台 5 个** ⇒ 下轮复核是否已推送。
+11. ⚠️ **报告缺失 3 天**（10-02 / 10-09 / 10-10）⇒ 下轮先 `ls docs/prod-inspection/`。
+12. 👀 `Duplicate Operation ID`：**必须写清 `/openapi.json` 是否被访问**（本轮 5 ⇒ 24h 计数 68）。
+13. 👀 `/root/.hermes/SOUL.md` root 属主软链（**别重复新建**）。
+14. ✅ 已结案、无需再跟：**10-11 五类 500 缺陷（已实调全 200）；资金模块入库 + `server.py` 对齐；前端未推送提交；10-10 三处 500；备份保留策略（连续 16 天）；`tenant_9.db`；证书续期；`[v264 分配]`/`.env`/`tenant-scan`/`保活`**。
+
+## 复用要点补充（2026-10-13 新增）
+- 🔴 **`NRestarts` 不可信**：本服务 `Restart=always`，但一次 41 连的崩溃循环后 `NRestarts` 仍是 **0**（疑被末次人工 `systemctl restart` 重置）。**判「是否崩溃重启」一律用「24h `Started Hergent ERP Server` 计数 + 同窗口 `traceback`/`ImportError` 堆栈」双证**；`NRestarts` 只作参考。
+- ✅ **「崩溃-自动拉起」的指纹很好认**：`Started` 时间戳**间隔高度均匀（≈`RestartUSec`）且成串出现**（本例每 6 秒、41 次），且**同窗口有等量启动期异常堆栈**（`ImportError` 在 `server.py` 顶部 import 链上）。**与「发版式重启」的区别**：发版式是零星几次、每次都能 `find -newermt` 对齐到某个 `.py` 落盘。
+- ✅ **半成品部署是这类事故的根因模式**：`erp_db.py` 顶层 `from db.queries.purchases import <新符号>`，而 `db/queries/purchases.py` 晚 3 小时才同步 ⇒ 服务在中间态反复起不来。**排查顺序**：`grep "ImportError\|ModuleNotFoundError"` 取符号名 → 到生产 `grep -rn "<符号名>"` 找到引用文件 → 用 `find -newermt` 比两个文件的落盘先后。
+- ✅ **推送稿用 Write 落本地临时文件 + `ssh ... < 文件` + 推完 `rm -f`**：比在 Bash 工具里写 heredoc 稳（避免多行引号/编码坑），且**生产端零残留**。
+- ⚠️ **`_rollback/` 目录内的 `.py` 会计入第 8 项审计**（`--suffix .py`，脚本未排除该目录）⇒ 判定数会被「发版回滚副本」灌水。**报「只在生产存在」时要把「死副本」与「真散落代码」分开说**，并建议审计脚本排除 `_backup/`、`_rollback/`。
+- ⚠️ **「位置放错的散落文件」要判「有没有被引用」**：`grep -nE "^(import|from) (psi|purchase)\b" /opt/hergent-erp/server.py` ⇒ 无命中即证明未被加载（风险低于「已加载的半成品」），但**仍按基线 0 规则报 🔴**。
+
+---
+
+## 最近执行：2026-10-15（第 18 次 · 04:00）
+- 模式：严格只读。未改/删/重命名生产文件，未部署、未重启服务；**本轮未做任何数据库访问**。副作用 1 条（1 次 `demo-login`，复用 `docs/prod-inspection/tools/tenant-probe.sh`）。⚠️ **注意：2026-10-14 那轮未在本文件留痕**（当前文件里最后一次「最近执行」是 10-13）。
+- 结果：**总体 🔴 高危（2 条）** —— 3 项正常、3 项需关注、**2 项高危**、0 项未知。
+  - 🔴 **第 4 项由正常转高危：24h `traceback` = 21**（昨日 0），全部落在 **10-14 19:51:13~19:53:25**，形态 = `ImportError: cannot import name 'COL_PREF_PAGES' from 'db.queries.ui_prefs'`（`server.py:14` → `erp_db.py:68`）；`ImportError` 计数同为 21；`[ERROR]` = 0；剔除噪声后重复警告 = 0 项。⇒ **与 10-13 完全同一成因模式（半成品部署：上游先落、下游未落）**，**这是第 2 次复现**。
+  - 🔴 **第 3 项 24h `Started` 8 → 31**，其中 **23 次是 19:51:13~19:53:36 的崩溃—自动拉起循环**（间隔 ≈6 秒 = `RestartUSec=5s`）；其余 8 次里 `16:25:59`/`20:53:58`/`23:36:34` **可分别对齐 `routers/psi.py`(16:25)/`erp_db.py`(20:53)/`routers/reports.py`(23:36) 的落盘 ⇒ 部署式**。`NRestarts` 仍 = 0（**再次证明该指标不可信**）。
+  - 🔴 **第 8 项 总判定 7 → 9（基线仍 0、巡检未调高），且「形态变了」**：✅ 昨日 4 个散落文件（仓库根 `psi.py`/`purchase.py`、`tools/probe_token.py`、`v386-shadow-write-test.py`）**已全部清理消失**；⚠️ 新出现 **6 个「生产有独有版本（本地 == HEAD）」**：`db/queries/purchases.py`(166973B/10-14 21:49/`3b11f69f…`)、`db/queries/sales.py`(89553/20:53/`d45e976b…`)、`db/queries/ui_prefs.py`(9371/19:50/`4434d775…`)、`erp_db.py`(1328454/20:53/`c93ecbb9…`)、`routers/psi.py`(157043/16:25/`f7defef5…`)、`routers/reports.py`(22873/23:36/`29d0a071…`)。**本机工作区 == HEAD（分支 `upgrade/v84-international`，HEAD `aa658a5`，与 origin 差 11 个提交），6 个生产版本比 HEAD 都更大且在本机不存在** ⇒ **来源不明**（`git stash list` 空、`git worktree list` 仅一个）。`_rollback/v470-20261012-071542/{psi,purchase,purchases}.py` 3 个死副本仍在。「本机有、生产无」107（正常不报）。
+  - ✅ 第 1 项 200/200 + active（`MainPID=3434412`，`ActiveEnterTimestamp=2026-10-14 23:36:34`）。✅ 第 2 项**备份连续第 18 天**：`backups/2026-10-15/` **7/7 ok / 51.9 MB / cleaned 0**、零字节 0、落盘 02:00、当天失败关键字 **0**（无「先失败后恢复」）；历史日快照 **15 个**。⚠️ **产物权限 600 → 640**（👀 新观察）。✅ 第 6 项证书 `notAfter=Jan 8 10:50:28 2027 GMT` ⇒ 约 **85 天**。
+  - ⚠️ 第 5 项：根分区 **84% → 83%（剩 6.6G，首次回落）**，仍连续第 4 天越 80%；**`journalctl --disk-usage` 792.0M → 424.0M ⇒ 已回到 500M 以内，该项结案**。`backups/` 子目录 **73**（新增 3 个 **root 属主的发版前备份目录 `p04/`(20:47) / `p05/`(16:25) / `p06/`(19:53)**，内含 `erp_db.py.<时间戳>` 等；其中 `155494/1327908/8144` 字节与本机(==HEAD)版本尺寸逐字吻合 ⇒ **发版脚本在覆盖前先备份旧版本**）。👀 新观察项。
+  - ⚠️ 第 7 项：越权 **4/4 = 403 + 对照 `GET /api/products` = 200，无越权 200**；前 3 条「此功能仅平台管理员可用」= 真实防守；第 4 探针 **判据失效约第 21 天**（`READONLY_TENANT`，非新问题）。
+  - 补充计数：24h 5 开头状态码 = **1**（无端点明细；昨日 6 = 全 tts 503）；`Off-site backup error`（缺 `backup_config_get`）= **1**（连续 **17 天**）；`Daily profit push failed {'wecom': False,'feishu': False}` = **2**（连续 **16 天**）；`tenant-scan` = 0、`hermes_tenants` 保活 = 0（与 `tenant_9.db` 已不存在一致；`tenant_9.db` 本轮仍不存在，**保持结案**）。
+- ✅ 报告落盘：`docs/prod-inspection/2026-10-15.md`（目录内 **20 份**，未触发 30 上限，**无删除**；仍缺 10-02 / 10-09 / 10-10）。
+- ✅ **推送成功**（生产端 Hermes，**管道直传**，本机 `wecom-cli` 仍 `unauthorized` 未试）：`message_id = aibot_send_msg-2465556dcaaf46fea100ab52cab8e156`，`mirrored: true`，`chat_id = ZhangJunFeng`。本地推送稿用 Write 落到 `.workbuddy/tmp-wecom-push-*.txt`，推送后 `rm -f` 清掉；**生产端零残留**。
+
+## 下轮必做（2026-10-16 起）
+1. 🔴 **第 3/4 项：崩溃循环是否第 3 次复现** —— 关键字 `ImportError` / `COL_PREF_PAGES` / 「每 ~6 秒一次 Started」。**并复核发版顺序是否已改成「先全部落盘再重启」**（这是连续两次事故的共同根因）。**主判据一律用「24h Started 计数 + 同窗口堆栈」双证，`NRestarts` 只作参考**。
+2. 🔴 **第 8 项 = 9（新形态）** ⇒ 继续 🔴；**基线仍 0、巡检不得调高**。重点：① 那 6 个「生产独有版本」**是谁在 10-14 16:25~23:36 推上生产的**（本机 == HEAD，本机无这些内容）⇒ 若内容有效须尽快回灌入 git；② `_rollback/` 是否被审计脚本排除；③ 散落文件已清理，可把「`tools/probe_token.py` 是谁放的」从清单里删掉。
+3. ⚠️ **根分区 83%（剩 6.6G，首次回落）** ⇒ 下轮看是继续回落还是反弹；**≥85% 升级为高危口径**。
+4. ✅ **系统日志已结案（424.0M）** ⇒ 下轮只需看是否再涨（若回到 >600M 才重挂 ⚠️）。
+5. ⚠️ **第 3 项重启** ⇒ 下轮看是否回落到个位数。
+6. ⚠️ **两条调度器连续失败**：Off-site **17 天** / profit push **16 天** ⇒ 继续计数。
+7. ⚠️ 越权第 4 探针**判据失效约 21 天** ⇒ 是否已换非只读测试账号。
+8. ⚠️ **报告缺失 3 天**（10-02 / 10-09 / 10-10）⇒ 下轮先 `ls docs/prod-inspection/`（已连续 7 天提及）。
+9. 👀 新观察：**备份产物权限 600 → 640**；**`backups/` 下 root 属主 `p04/p05/p06` 发版前备份目录**（建议纳入清理策略，与磁盘 83% 相关）。
+10. 👀 `Duplicate Operation ID`：**必须写清 `/openapi.json` 是否被访问**（本轮 24h `WARNING` 原始仅 1 行、归并 0）。
+11. ⚠️ **未推送提交后台 11 个**（`origin/upgrade/v84-international...HEAD` ahead 11，HEAD `aa658a5` v500）⇒ 下轮复核是否已推送。
+12. 👀 `/root/.hermes/SOUL.md` root 属主软链（**别重复新建**）。
+13. ✅ 已结案、无需再跟：**系统日志容量；`tenant_9.db`；备份保留策略（连续 18 天）；证书续期；昨日 4 个散落文件；语音合成 503（本轮未复现）**。
+
+## 复用要点补充（2026-10-15 新增）
+- 🔴 **第 8 项会「换形态」**：判定的**总数**不足以说明问题，必须看**分类**。本轮总数 7→9 看着涨了，其实是「4 个散落新文件被清理（✅ 好转）」+「6 个生产独有版本新出现（⚠️ 更隐蔽：生产内容在 git 和本机都不存在，来源不明）」。**报告里必须把这两类分开写**，否则会误判成同一种问题在恶化。
+- ✅ **判「生产独有版本」来源的只读三步**：① `git rev-parse --abbrev-ref HEAD`+`--short HEAD`+`git status -sb`（确认本机工作区是否 == HEAD，以及是否 ahead/behind）；② 对每个文件 `md5sum <本地路径>` 与 `git show HEAD:<路径> | md5sum` 对照（相同即「本机 == HEAD」）；③ `git stash list` + `git worktree list`（排除「改动藏在 stash / 另一个 worktree」）。三步都空 ⇒ 只能判「来源不明」，**不要臆测是哪个分支**（⚠️ 用 `git show <分支>:server/<路径>` 比 md5 时，**若该分支没有 `server/` 前缀布局，`git show` 会失败而 md5sum 的输出是「空内容」的同一个值**，六列全相同 ⇒ 一眼就能识破这个假象）。
+- ✅ **`backups/` 下的 `pNN/` 目录是「发版前备份」而非每日快照**：内容形如 `erp_db.py.20261014204713`（**后缀不是 `.py`** ⇒ 不进第 8 项审计），root 属主；**若其中的旧文件字节数与本机(==HEAD)版本逐字吻合**，即证明发版脚本是「先备份旧版、再写新版」（可作为第 8 项「生产 ≠ HEAD」的**独立旁证**）。
+- ✅ **`ls -1dt backups/*/ | head -3` 会被 `pNN/` 抢位**：本轮前 3 名是 `2026-10-15/`、`p04/`、`p06/`。**判「最近每日快照」要配合 `ls -1d /opt/hergent-erp/backups/20*/`（按数字前缀过滤）**，否则会以为没有当天快照。
+- ⚠️ **本文件（自动化记忆）会被静默回退或漏写**：本轮发现 **2026-10-14 那轮完全没有留痕**（最后一次「最近执行」是 10-13）。⇒ **下轮起手先 `grep -n "^## 最近执行" 本文件 | tail -3`**，若上一轮缺失就据报告文件补记一行，避免「连续天数」类计数断链。

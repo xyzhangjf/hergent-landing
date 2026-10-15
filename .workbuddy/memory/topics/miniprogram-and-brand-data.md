@@ -929,3 +929,41 @@ order_date = 期次的 order_start      # 不信任客户端传的日期
 - 改单现在是「已报过弹窗 → 明细层」两次操作（原为一次弹窗）；若嫌啰嗦可把「已报过」提示并进
   明细层顶部变成一次 —— 老板未表态，**保持现状**
 - 📄 交付报告：`docs/小程序提交明细核对层-v393-2026-10-07.md`
+
+---
+
+## ⭐ v433/v434 报单页两项增强：一键清空 ＋ 复制历史期次（2026-10-10）
+
+> 两件都在 `pages/fill` 与 `pages/mine`；🔴 **小程序改动须重新上传 + 提审才生效**（≠ Web 端直接部署）。
+
+### v433 常驻「一键清空」
+
+- 入口：`fill.wxml` 的 `.prod-head` 右上角 `.prod-clear`（`wx:if="{{cartCount}}"` —— 无已填则不显示）；样式 `.prod-clear`（红描边胶囊）。
+- 逻辑：`fill.js onClearAll()` → **破坏性 ⇒ 先 `wx.showModal` 确认**（正文带「本次已填报的 N 项 / M 件」）→ 确认才 `clearCart()`（行内数量 / `cartCount` / `cartQty` / `cartMap` 全清）。
+- 🔴 `cartCount===0` 时连确认框都不弹（自防护）。
+
+### v434 「我的提交」每期次「复制」→ 带入当前填报
+
+- 入口：`mine.wxml` 每条记录卡片行尾 `.rec-copy`（**青**描边胶囊，区别于**红**描边的「撤回」—— 复制=建设性导入，撤回=破坏性）。**作废单（`recalled`/`rejected`）不给按钮**（`wx:if`）。
+- `mine.js copyRecord(e)`：取该记录（`mine.js` 记录含 `items`，服务端一次返回，无二次拉取）→ **过滤有效明细**（`product_id>0 && quantity>0 && name!=='__列占位__'`）→ 写 `app.globalData._fsCopy = {store_id, store_kind, store_name, period_id, name, items[]}` → 打点 `EVENTS.SUBMIT {action:'copy_to_fill'}` → `wx.switchTab({url:'/pages/fill/fill'})`。作废单 / 无有效明细 ⇒ 明确拒绝。
+- 🔴 **跨 tab 传参只能走 `app.globalData`**（`switchTab` 不带参数）；`_fsCopy` **消费一次即清**。
+- `fill.js` 三处改动：
+  ① `onShow` 取 `this._pendingCopy = app.globalData._fsCopy`，随即清空 `_fsCopy`（**必须在 `loadPeriods` 之前**）；
+  ② `syncProductsForPeriod` 两个出口（已加载短路 / 新加载 `.then`）都挂 `_maybeApplyPendingCopy()`；
+  ③ `_maybeApplyPendingCopy(tries)` = **有界重试**（`storesReady && productsReady` 才落，最多 16×250ms；超时提示「数据还没加载好，请稍后重试」并清 pending）；
+     `_applyCopySample(p)` = **门店对齐**（异店先 `_switchStore(i)`；本期没有该商品 ⇒ `showModal('无法带入')` 明确拒绝，不硬塞）→ 最后**复用既有 `_applySample()`**。
+- 🔴 **复用不重写**：带入链路一律走既有 `_applySample()` —— 铺样单 + 越界预检 + 「覆盖当前已填内容?」确认 + 打点全继承，避免第二份实现。
+
+### 验收
+
+- 判据台 `.workbuddy/tools/v393-miniprogram-confirm-sheet-harness.mjs` **94 PASS / 1 FAIL**（唯一 FAIL = S7 故意负向自证）：
+  **S10** = v433 清空（确认清 / 取消不动 / `cartCount=0` 自防护）；**S11** = v434 复制（同店带入 / 异店先切店 / 越界拒绝 / 未就绪超时）。`vm` 装载**真实 `fill.js`**，非重写实现。
+- 真机清单：`真机E2E测试清单.md` **D34（v433）/ D35（v434）**（D33 = v420/421 定位链）。
+- ⚠️ **外观面未验** ⇒ 必须真机看：胶囊按钮触达、切店瞬间是否闪烁、覆盖确认层与既有核对层是否叠对。
+
+### ⚠️ 版本号订正（多会话撞号，本仓老病）
+
+- 一键清空初标 **v422** → 实搜发现已被占 → 改 **v429**；复制标 **v430**。
+- 后发现并行会话已用：**v429 = Web「业务数据源」拆三子页**（已提交 `96867ca` 已部署）、**v430~432 = 进销存新建采购单**。
+- ⇒ 两项小程序增强统一改号：**一键清空 = v433、复制 = v434**（首个空闲号；实搜两仓 `git log --all` + 未提交文件确认 v433/434 均空）。
+- 🔴 教训：**号是全局共享序列，多会话并行 ⇒ 「光看号表必撞号」** —— 起号前须「读号表 + 实搜未提交文件 + 两仓 `git log --all` + 同日改动 + `git worktree list`」。

@@ -106,6 +106,50 @@
 
 ---
 
+## 最近执行：2026-10-13
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-11 02:00→10-13 02:00，覆盖 v445–v485 全量（约 40 提交）—— 资金域(funds 前后端)、仓配 wh 模块、进销存拆页(v449)、列表排序三连(v470/v473/v477/v478)、权限页(v472–v479)、副驾(v482/v483/v486)。
+- 结果：高 0 / 中 0 新增 / 低 2 新增（L6 原生 confirm 随 wh 模块扩张约 18 处；funds_db LIMIT/OFFSET f-string 但被 int() 双击拦截非活漏洞）。
+- 上一轮(10-11)报的 中-1(InvSaleList.vue:329 退单列表空)/中-2(sales.py:567-569 同商品多行少算) **均未修** → 转历史遗留·第2轮；低-1(L6) 反而扩大。本轮闭环 0 项。
+- 资金域安全基线合格：每租户独立 .db + `_tid` fail-closed 403 + `/api/funds`→funds 能力闸门(全 3 层)；无裸 except/print。v473 offset/sort 已正确落地(sales.py:400 + 白名单 + 占位符)。RoleAvatar 保留兜底无空头像。
+- 未提交：前端 3 src 文件(CopilotDrawer/useCardTrigger/md.js = v486 WIP，逐行复核无缺陷)；后端无 M 跟踪文件(仅未跟踪 tools/tests)。
+- UI规范：inventory/new 零硬编码色；wh 仅 #fff 选中态(合法)；偏离= L6 扩张 + H3 v-html残留 + H4 内联svg。
+- 报告落盘：docs/code-review/2026-10-13.md（目录 21 份 ≤30，无需清理）。
+
+## 最近执行：2026-10-14
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-13 02:00→10-14 02:00。前端 hergent-cn-v2/src 33 文件 mtime 变动，全部已提交（v493 图表补齐/客户销额排行 + ChartHbar 名称列修复；v494 毛利空态两档；v496 进销存列表统一规范+经营工作台重组+侧栏去重+QuickRangeChips/useQuickRange 新共用件；v497 侧栏重复入口删除）。后端 hergent-erp/server：v495 internal_ai.py（副驾执行闭环，已部署）、v497 erp_db.py P0（get_profit_report status 过滤空转+收入改实际成交金额，已部署重启）、v498（sales.py/erp_db.py/psi.py 状态页签计数，未提交）。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。v493–v497 这批代码文档化充分、逻辑自洽，逐项核对无空引用/裸吞错/注入面/新硬编码色/裸 v-html。
+- 上一轮(10-13)报的 中-1(退货列表空)/中-2(同商品多行少算)/低-1(L6) **均未修** → 升第3轮（中-1 仍列注入 MEMORY「待修·未动」；v496 注释明言「业务逻辑零改动」故未触及退货逻辑）。本轮闭环 0 项。
+- 历史遗留未修 9 项（中 2 / 低 7）：中-1、中-2、L6(本轮再 +3 处原生 confirm：InvPurchaseList.vue:940/1329、InvTransferList.vue:414)、H1/H2/H3/H4/L5/L7。L6 持续扩张。
+- 未提交代码：后端 v498 三文件（sales.py/erp_db.py/psi.py），逻辑已逐行复核正确（计数忽略当前状态、保留其余筛选；白名单+参数化无注入），但「已写未提交」，上线前须受控提交。前端 src 全已提交；根目录 erp/ 脚本窗口内无改动。
+- UI 规范：新增合规；WeatherWidget 硬编码趋势色属用户明确豁免，非新增偏离。
+- 正向：v497 P0 毛利报表口径修复已部署（备份 backups/erp_db.py.before-v497-20261014-001812.py），收口 v493 暴露的「毛利在生产无数据基础」根因。
+- 报告落盘：docs/code-review/2026-10-14.md（目录 22 份 ≤30，无需清理）。
+
+## 最近执行：2026-10-15
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-14 02:04→10-15 02:00。前端 hergent-cn-v2/src 9 文件（v498 状态页签+counts / v499 侧栏去重 / v500 退单三入口接真表+销售退单草稿态+单据编号）；后端 hergent-erp/server 7 文件（v498 列表 counts、v499 备份保留 28→14 天+安全发版闸门、v500 退单接真表+草稿审核+order_no 迁移）。全部已提交。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。v498–v500 逐行复核无空引用/裸吞错/注入面/新硬编码色/新 v-html/新原生 confirm；counts 口径统一「忽略 status 保留其余筛选」；sale_return_post 乐观锁幂等。
+- 上一轮(10-14)报的 中-1(退货列表空)/中-2(同品多行重复扣减)/低7(H1-H4/L5-L7) → **中-1 本轮闭环**（v500 改查真表 return_orders + 新端点 /api/psi/sale-return-orders + 草稿审核，git a2735c0/aa658a5）；中-2 + 低7 持续未修。
+- 历史遗留未修 8 项（中 1 / 低 7）：中-2(sales.py:578-589)、L6(InvPurchaseList.vue:1024/1463、InvTransferList.vue:431 等全族)、H1(15处 .catch)、H2(import_router.py:966/1283/1303/1361+forecast_submissions.py:773/785/1291)、H3、H4(BidRadar.vue:5/66)、L5、L7(SettlementScheduleTab.vue:274)。
+- 未提交代码：窗口内产品源码全已提交（上轮标记的未提交 v498 三文件已 commit，git e6bf718/aa658a5）；git status 两仓 src/server 路径干净。
+- UI 规范：v500 新增 StatusTabs/SaleDocForm 双下拉/psi-list.css 零硬编码色、复用主题令牌、无 v-html、用 <Icon>，合规；仅 H4/L6 历史偏离。
+- 报告落盘：docs/code-review/2026-10-15.md（目录 23 份 ≤30，无需清理）。
+
+## 最近执行：2026-10-11
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-10 02:00→10-11 02:00。前端 hergent-cn-v2/src 34 文件（v432–v444 进销存建单页 + 列设置齿轮 + 列宽拖动）+ 后端 hergent-erp/server 6 源码（v441 销售退货、v443 列表 limit 透传、v427 应收修复等）。全部已提交。
+- 结果：高 0 / 中 2 / 低 1（新增）。
+  - 中-1：`InvSaleList.vue:163` 退单列表筛 `sale_orders.status='returned'`，全仓无代码写该状态（退货落 `return_orders`，见 sales.py:578 + psi_sale_return docstring）→ 退单列表恒空、已建退货单不可见。
+  - 中-2：`sales.py:490-491`（v441 新）+ `purchases.py:1338-1339` 同款：`returned` 按商品总已退、`delivered` 按行，同单同商品多行时重复扣减 → 可退少算、端点 limit 同错。
+  - 低-1（L6 增量）：`InvSaleNew.vue:608` / `InvPurchaseNew.vue:1512` 新增原生 `window.confirm`（违反全站统一确认弹窗约定，ProductArchive.vue:1428）。
+- 本轮闭环 1 项：采购退货候选粗筛「把不可退单也列出」待修已闭合——前端传 `returnable:1`（InvPurchaseNew.vue:1450）+ 后端 `purchase_order_list` 实采纳（purchases.py:925/1018 `if returnable:`）。
+- 历史遗留未修：H1 前端 fire-and-forget ~15 处 / H2 后端 print 7 处（import_router.py:966/1283/1303/1361 + forecast_submissions.py:773/785/1291）/ H3 CopilotDrawer.vue:131 v-html / H4 BidRadar.vue:5/:66 内联 svg / L5 rebate_settlement.py 缺键3 / L7 SettlementScheduleTab.vue:274 静默。均未触及。
+- 未提交：窗口产品源码全已提交；未提交项为 miniprogram、outputs、.workbuddy（均排除范围）。
+- 对比基准：最近一次落盘报告为 2026-10-08（10-09/10-10 两次 02:00 审查未落盘，疑似本机未在线，不补跑）。
+- 报告落盘：docs/code-review/2026-10-11.md（目录 19 份 ≤30，无需清理）。
+
 ## 最近执行：2026-10-08
 - 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
 - 范围：窗口 10-07 02:00→10-08 02:00。实质新增＝进销存（PSI）模块：前端 19 文件（18 个新 inventory 页＋api/psi.js/psiLabels.js/pages.js/permView.js/router/index.js 接线）＋ 后端 hergent-erp/server 10 个 .py（routers/psi.py / domain/batch_tracker.py / db/queries/purchases.py / db/queries/sales.py / routers/sales.py 等，属 v391/v392）。**全部已提交**（a96ad3d/1eeabcf/v393 系列），无未提交产品源码。
