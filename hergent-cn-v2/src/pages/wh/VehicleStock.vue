@@ -53,7 +53,7 @@
       </div>
 
       <div v-if="items.length" class="card">
-        <div class="table-wrap">
+        <div class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -71,6 +71,13 @@
                 <td class="num">{{ fmtMoney(r.cost_price) }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="4">本页合计</td>
+                <td class="num">{{ fmtQty(pageTotals.qty) }}</td>
+                <td class="num"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -140,6 +147,12 @@ async function load () {
   }
 }
 
+/* 本页合计：只对当前车辆可见行的「在车数量」求和（成本价为单位成本，不合计）。 */
+const pageTotals = computed(() => {
+  let qty = 0
+  for (const r of items.value) qty += Number(r.quantity || 0)
+  return { qty }
+})
 onMounted(load)
 defineExpose({ load })
 </script>

@@ -79,7 +79,7 @@
       </div>
 
       <div v-else class="card win-card">
-        <div class="table-wrap">
+        <div class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>

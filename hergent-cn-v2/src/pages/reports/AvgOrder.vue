@@ -54,7 +54,7 @@
           </div>
         </div>
 
-        <div v-if="rows.length" class="table-wrap">
+        <div v-if="rows.length" class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -78,6 +78,16 @@
                 <td class="num">{{ shareText(r.revenue) }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="2">本页合计</td>
+                <td class="num">{{ fmtInt(totalOrders) }}</td>
+                <td class="num">{{ fmtMoney(totalRevenue) }}</td>
+                <td class="num">{{ fmtNum(totalQty) }}</td>
+                <td class="num"></td>
+                <td class="num"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <div v-else class="state-empty">该维度暂无数据。</div>

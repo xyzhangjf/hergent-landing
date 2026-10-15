@@ -163,7 +163,7 @@
         </div>
 
         <div v-else class="card kt-card">
-          <div class="table-wrap">
+          <div class="table-wrap freeze-list">
             <table class="tbl">
               <thead>
                 <tr>
@@ -197,6 +197,17 @@
                   </td>
                 </tr>
               </tbody>
+              <tfoot>
+                <tr>
+                  <td class="ft-lb" colspan="4">本页合计</td>
+                  <td class="num">{{ fmtQty(ktTotals) }}</td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
@@ -576,6 +587,9 @@ async function doVoid () {
     busy.value = false
   }
 }
+
+/* 本页合计：只对可见组合 / 拆分单行的「数量」求和。 */
+const ktTotals = computed(() => rows.value.reduce((s, r) => s + Number(r.total_quantity || 0), 0))
 
 onMounted(async () => {
   await Promise.allSettled([loadRefs(), loadList()])

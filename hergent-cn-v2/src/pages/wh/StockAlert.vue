@@ -58,7 +58,7 @@
       </div>
 
       <div v-if="rows.length" class="card">
-        <div class="table-wrap">
+        <div class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -81,6 +81,16 @@
                 </td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="4">本页合计</td>
+                <td></td>
+                <td class="num">{{ fmtQty(pageTotals.stock) }}</td>
+                <td class="num">{{ fmtQty(pageTotals.safety) }}</td>
+                <td class="num wsa-gap">{{ fmtQty(pageTotals.gap) }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -104,7 +114,7 @@
    🔴 预警口径（阈值、缺货判定、缺口计算）**全部在后端**（与全站低库存 SQL 同源），
       前端只做展示 —— 前端再判一次 = 第二份口径，必然漂移。
    🔴 本页**只读**：补货动作去采购/调拨，不在这里改库存。 */
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'
 
@@ -141,6 +151,16 @@ async function load () {
   }
 }
 
+/* 本页合计：只对当前预警列表可见行的可加总列求和（当前库存 / 安全库存 / 缺口）。 */
+const pageTotals = computed(() => {
+  let stock = 0, safety = 0, gap = 0
+  for (const r of rows.value) {
+    stock += Number(r.stock || 0)
+    safety += Number(r.safety_stock || 0)
+    gap += Number(r.gap || 0)
+  }
+  return { stock, safety, gap }
+})
 onMounted(load)
 defineExpose({ load })
 </script>

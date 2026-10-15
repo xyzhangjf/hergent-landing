@@ -58,7 +58,8 @@
           {{ emptyText }}
           <div class="dvo-empty-hint">{{ emptyHint }}</div>
         </div>
-        <table v-else class="tbl dvo-tbl">
+        <div v-else class="table-wrap freeze-list">
+          <table class="tbl dvo-tbl">
           <thead>
             <tr>
               <th style="width:120px">单号</th>
@@ -91,7 +92,20 @@
               </td>
             </tr>
           </tbody>
-        </table>
+            <tfoot>
+              <tr>
+                <td class="ft-lb">本页合计</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="num dvo-mono">¥{{ money(dvoTotal) }}</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
 
       <p class="dvo-foot">
@@ -222,6 +236,8 @@ async function mark (o, status) {
   }
 }
 
+/* 本页合计：只对当前视图可见配送单的「金额」求和。 */
+const dvoTotal = computed(() => viewRows.value.reduce((s, o) => s + Number(o.total_amount || 0), 0))
 onMounted(loadRows)
 </script>
 

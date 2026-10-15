@@ -61,7 +61,7 @@
 
     <template v-else>
       <div class="card is-tbl">
-        <div class="table-wrap">
+        <div class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -96,6 +96,19 @@
                 </td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="2">本页合计</td>
+                <td v-if="isVisible('spec')"></td>
+                <td></td>
+                <td v-if="isVisible('batch')"></td>
+                <td v-if="isVisible('expiry')"></td>
+                <td v-if="isVisible('days')"></td>
+                <td class="num">{{ fmtQty(pageTotals.qty) }}</td>
+                <td class="num" v-if="isVisible('cost')"></td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 
@@ -200,6 +213,12 @@ function daysText (r) {
 }
 
 function fmtQty (n) { return Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
+/* 本页合计：只合计当前页可见行的「数量」（金额类单位成本不合计，见 v512 规则）。 */
+const pageTotals = computed(() => {
+  let qty = 0
+  for (const r of rows.value) qty += Number(r.quantity || 0)
+  return { qty }
+})
 onMounted(load)
 </script>
 

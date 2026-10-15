@@ -65,7 +65,7 @@
           </div>
         </div>
 
-        <div v-if="rows.length" class="table-wrap">
+        <div v-if="rows.length" class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -96,6 +96,18 @@
                 <td class="num">{{ pctText(r.margin) }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="2">本页合计</td>
+                <td v-if="dim === 'product'"></td>
+                <td v-if="dim === 'product'"></td>
+                <td v-if="dim !== 'product'" class="num"></td>
+                <td class="num">{{ fmtMoney(rowTotals.revenue) }}</td>
+                <td class="num">{{ fmtMoney(rowTotals.cost) }}</td>
+                <td class="num" :class="rowTotals.profit >= 0 ? 'val-ok' : 'val-bad'">{{ fmtMoney(rowTotals.profit) }}</td>
+                <td class="num"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <div v-else class="state-empty">该维度暂无数据。</div>
@@ -198,6 +210,16 @@ async function load () {
   }
 }
 
+/* 本页合计：只对当前维度可见行的可加总列求和（销售额 / 成本 / 毛利）；毛利率为比率，不合计。 */
+const rowTotals = computed(() => {
+  let revenue = 0, cost = 0, profit = 0
+  for (const r of rows.value) {
+    revenue += Number(r.revenue || 0)
+    cost += Number(r.cost || 0)
+    profit += Number(r.profit || 0)
+  }
+  return { revenue, cost, profit }
+})
 onMounted(load)
 defineExpose({ load })
 </script>

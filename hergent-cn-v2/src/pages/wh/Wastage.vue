@@ -165,7 +165,7 @@
         </div>
 
         <div v-else class="card wl-card">
-          <div class="table-wrap">
+          <div class="table-wrap freeze-list">
             <table class="tbl">
               <thead>
                 <tr>
@@ -193,9 +193,19 @@
                   <td class="wl-dim">{{ r.operator_id || '—' }}</td>
                   <td class="wl-time">{{ dt(r.created_at) }}</td>
                   <td><button class="wl-op" @click="openDetail(r.id)">查看</button></td>
-                </tr>
-              </tbody>
-            </table>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="5">本页合计</td>
+                <td class="num wl-amt">{{ fmtMoney(wlTotals) }}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
           </div>
         </div>
 
@@ -536,6 +546,9 @@ async function doReject () {
     busy.value = false
   }
 }
+
+/* 本页合计：只对可见报损单行的「报损金额」求和。 */
+const wlTotals = computed(() => rows.value.reduce((s, r) => s + Number(r.total_loss || 0), 0))
 
 onMounted(async () => {
   await Promise.allSettled([loadRefs(), loadList()])

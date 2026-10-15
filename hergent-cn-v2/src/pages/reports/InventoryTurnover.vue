@@ -65,7 +65,7 @@
         <div class="sec-hd rpt-sec">
           <span>可算周转的商品（按周转天数从慢到快）</span>
         </div>
-        <div v-if="items.length" class="table-wrap">
+        <div v-if="items.length" class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -94,6 +94,16 @@
                 <td class="num">{{ r.turnover_times ?? '—' }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="3">本页合计</td>
+                <td class="num">{{ fmtNum(tot1.stock_qty) }}</td>
+                <td class="num">{{ fmtMoney(tot1.stock_value) }}</td>
+                <td class="num">{{ fmtMoney(tot1.period_cost) }}</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <div v-else class="state-empty">暂无可算周转的商品（需同时有库存记录与销量）。</div>
@@ -103,7 +113,7 @@
         <div class="sec-hd rpt-sec">
           <span>有销量但无库存记录（{{ noStock.length }} 个 · 按期间成本从高到低）</span>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -125,6 +135,14 @@
                 <td class="num">缺库存</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="3">本页合计</td>
+                <td class="num">{{ fmtNum(tot2.sold_qty) }}</td>
+                <td class="num">{{ fmtMoney(tot2.period_cost) }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -191,6 +209,24 @@ async function load() {
   }
 }
 
+/* 本页合计：可算周转表 / 无库存表各自对可见行的可加总列求和；周转天数 / 次数均为比率，不合计。 */
+const tot1 = computed(() => {
+  let stock_qty = 0, stock_value = 0, period_cost = 0
+  for (const r of items.value) {
+    stock_qty += Number(r.stock_qty || 0)
+    stock_value += Number(r.stock_value || 0)
+    period_cost += Number(r.period_cost || 0)
+  }
+  return { stock_qty, stock_value, period_cost }
+})
+const tot2 = computed(() => {
+  let sold_qty = 0, period_cost = 0
+  for (const r of noStock.value) {
+    sold_qty += Number(r.sold_qty || 0)
+    period_cost += Number(r.period_cost || 0)
+  }
+  return { sold_qty, period_cost }
+})
 onMounted(load)
 </script>
 

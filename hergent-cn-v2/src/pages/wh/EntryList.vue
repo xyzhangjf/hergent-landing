@@ -85,7 +85,7 @@
       </div>
 
       <div v-else class="card woi-card">
-        <div class="table-wrap">
+        <div class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -125,6 +125,17 @@
                 </td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="5">本页合计</td>
+                <td class="num">{{ pageTotals.itemCount }}</td>
+                <td class="num">{{ fmtQty(pageTotals.totalQty) }}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 
@@ -409,6 +420,15 @@ async function doCancel (r) {
   }
 }
 
+/* 本页合计：只对当前页可见行的可加总列求和（明细行 + 合计数量）。 */
+const pageTotals = computed(() => {
+  let itemCount = 0, totalQty = 0
+  for (const r of pageRows.value) {
+    itemCount += Number(r.item_count || 0)
+    totalQty += Number(r.total_qty || 0)
+  }
+  return { itemCount, totalQty }
+})
 onMounted(async () => {
   await loadRefs()
   await load()

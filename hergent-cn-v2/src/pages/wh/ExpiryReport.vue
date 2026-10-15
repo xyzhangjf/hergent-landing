@@ -47,7 +47,7 @@
 
       <div class="card wer-card">
         <div class="sec-hd">红区 · 30 天内到期（{{ red.length }} 批）</div>
-        <div v-if="red.length" class="table-wrap">
+        <div v-if="red.length" class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -66,6 +66,13 @@
                 <td class="num">{{ fmtQty(r.quantity) }} {{ r.unit || '' }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="5">本页合计</td>
+                <td></td>
+                <td class="num">{{ fmtQty(redQty) }}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <div v-else class="state-empty">红区暂无临期库存。</div>
@@ -73,7 +80,7 @@
 
       <div class="card wer-card">
         <div class="sec-hd">黄区 · 31–60 天到期（{{ yellow.length }} 批）</div>
-        <div v-if="yellow.length" class="table-wrap">
+        <div v-if="yellow.length" class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -92,6 +99,13 @@
                 <td class="num">{{ fmtQty(r.quantity) }} {{ r.unit || '' }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="5">本页合计</td>
+                <td></td>
+                <td class="num">{{ fmtQty(yellowQty) }}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <div v-else class="state-empty">黄区暂无临期库存。</div>
@@ -159,6 +173,9 @@ async function load () {
   }
 }
 
+/* 本页合计：红 / 黄两区各自对可见批次行的「数量」求和；剩余天数为天数，不合计。 */
+const redQty = computed(() => red.value.reduce((s, r) => s + Number(r.quantity || 0), 0))
+const yellowQty = computed(() => yellow.value.reduce((s, r) => s + Number(r.quantity || 0), 0))
 onMounted(load)
 defineExpose({ load })
 </script>

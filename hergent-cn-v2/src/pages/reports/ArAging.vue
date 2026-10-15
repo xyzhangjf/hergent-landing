@@ -58,7 +58,7 @@
         <div class="sec-hd rpt-sec">
           <span>{{ g.name }}（{{ list(g.key).length }} 笔 · {{ fmtMoney(sum(g.key)) }}）</span>
         </div>
-        <div v-if="list(g.key).length" class="table-wrap">
+        <div v-if="list(g.key).length" class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>
@@ -82,6 +82,15 @@
                 <td class="num" :class="Number(r.balance || 0) > 0 ? 'val-bad' : ''">{{ fmtMoney(r.balance) }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td class="ft-lb" colspan="3">本页合计</td>
+                <td></td>
+                <td class="num">{{ fmtMoney(gtot(g.key).amount) }}</td>
+                <td class="num">{{ fmtMoney(gtot(g.key).paid) }}</td>
+                <td class="num">{{ fmtMoney(gtot(g.key).balance) }}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <div v-else class="state-empty">该档暂无数据。</div>
@@ -121,6 +130,17 @@ const groups = [
 
 function list(k) { return Array.isArray(data.value[k]) ? data.value[k] : [] }
 function sum(k) { return list(k).reduce((s, r) => s + Number(r.balance || 0), 0) }
+/* 本页合计：只对当前档可见行的可加总列求和（应收 / 已收 / 余额）；逾期天数为天数，不合计。 */
+function gtot(k) {
+  const rows = list(k)
+  let amount = 0, paid = 0, balance = 0
+  for (const r of rows) {
+    amount += Number(r.amount || 0)
+    paid += Number(r.paid_amount || 0)
+    balance += Number(r.balance || 0)
+  }
+  return { amount, paid, balance }
+}
 const countAll = computed(() => groups.reduce((s, g) => s + list(g.key).length, 0))
 const sumAll = computed(() => groups.reduce((s, g) => s + sum(g.key), 0))
 
