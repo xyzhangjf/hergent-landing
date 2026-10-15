@@ -61,41 +61,29 @@
          计数来自服务端 `counts`（后端 `sale_order_list` v498 起返回）：忽略 status 筛选、
          保留其余筛选（含订单入口的 `exclude_status='returned'`）⇒ 切页签数字不漂移。 -->
     <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab">
-      <!-- v501：原页头的「新建 / 刷新」移到这里（页签行右侧），见上方注释。 -->
+      <!-- v510：动作组收进页签行右侧（共享件 PsiListActions），顺序 导出 → 批量操作 → 新建 → 刷新。
+           销售单无批量接口 ⇒ showBatch=false；排序提示经 #status 插槽保留在左侧。 -->
       <template #actions>
-        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="go(newTo)">
-          <Icon name="plus" :size="14" />新建{{ title }}
-        </button>
-        <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
-          <Icon name="refresh" :size="14" />刷新
-        </button>
+        <PsiListActions
+          :export-disabled="!rows.length"
+          :show-batch="false"
+          :show-new="canWrite"
+          :new-disabled="!canWrite"
+          :new-label="'新建' + title"
+          :refresh-disabled="loading"
+          @export="doExport"
+          @new="() => go(newTo)"
+          @refresh="load">
+          <template #status>
+            <!-- v473：排序显式提示（列被隐藏时表头指示器消失，顺序来历变看不见的状态） -->
+            <span v-if="sortKey" class="psi-selinfo psi-sortinfo">
+              按<b>{{ sortLabel }}</b>{{ sortDir === 'asc' ? '升序' : '降序' }}
+              <button class="isl-link" @click="clearSort">清除</button>
+            </span>
+          </template>
+        </PsiListActions>
       </template>
     </StatusTabs>
-
-    <!-- 工具栏。⚠️ 本页**没有**「全选 / 批量操作」——不是遗漏：销售单没有审核流，
-         后端也没有任何销售单批量接口（`psiApi.batchPurchases` 只对采购单）。造一排
-         点了会 404 的批量按钮才是缺陷。 -->
-    <div class="psi-tb">
-      <div class="psi-tb-l">
-        <!-- v496：删除此处的「共 N 张」—— 总数唯一出处 = 分页器左侧（规范 §1）。
-             同屏两处各显示一次总数，是「同屏两个说法」的起点。 -->
-        <!-- v473：当前排序的**显式提示**。为什么必须有：排序键对应的列一旦被「列设置」
-             隐藏，表头指示器就跟着消失 —— 顺序的来历就变成**看不见的状态**，用户会以为
-             数据是乱的。这里常显「按 X 升/降序」，并给一键清除。 -->
-        <span v-if="sortKey" class="psi-selinfo psi-sortinfo">
-          按<b>{{ sortLabel }}</b>{{ sortDir === 'asc' ? '升序' : '降序' }}
-          <button class="isl-link" @click="clearSort">清除</button>
-        </span>
-      </div>
-      <div class="psi-tb-r">
-        <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doExport">
-          <Icon name="download" :size="14" />导出
-        </button>
-        <button class="btn btn-ghost btn-sm" :disabled="!rows.length || printing" @click="doPrint">
-          <Icon name="print" :size="14" />打印
-        </button>
-      </div>
-    </div>
 
     <div v-if="loading" class="state-empty">加载中…</div>
 
@@ -250,6 +238,9 @@ import QuickRangeChips from '../../components/QuickRangeChips.vue'
 import StatusTabs from '../../components/StatusTabs.vue'
 /* v501：分页器共享件（采购 / 销售 / 调拨三页同一条）。 */
 import PsiPager from '../../components/PsiPager.vue'
+/* v510：动作组共享件（导出 → 批量操作 → 新建 → 刷新；收进页签行右侧）。
+   销售单无审核流、无批量后端接口 ⇒ showBatch 传 false。 */
+import PsiListActions from '../../components/PsiListActions.vue'
 
 /* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。
    v473：核心列（单号 / 客户 / 金额 / 状态）**进了本清单** —— 表头从写死的 `<th>` 改成
@@ -649,18 +640,8 @@ async function approveReturn (row) {
    🔴 与采购单列表的**唯一差异**：采购单有「打印数」列（后端 `batchPurchases('print')` 记数），
       销售单**没有**这个后端能力 ⇒ 这里不调任何接口、也不显示打印数。⛔ 不要为了"对齐"
       造一个前端自增的假计数：刷新即归零，那一列等于假的。
-   打印由 `window.print()` 完成，`@media print` 决定纸上留什么（见文件末）。 */
-async function doPrint () {
-  if (printing.value) return
-  printing.value = true
-  try {
-    printOnly.value = 0
-    await nextTick()
-    window.print()
-  } finally {
-    printing.value = false
-  }
-}
+   打印由 `window.print()` 完成，`@media print` 决定纸上留什么（见文件末）。
+   v510：工具栏批量打印入口已移除（与采购页同口径），仅保留操作列逐行 `rowPrint`。 */
 async function rowPrint (r) {
   if (printing.value) return
   printing.value = true
@@ -688,8 +669,8 @@ onMounted(load)
 .isl-filter { margin-bottom: 12px }
 
 /* 工具栏
-   🔴 v501：`.isl-tb` / `.isl-tb-l` / `.isl-tb-r` / `.isl-selinfo` / `.isl-sortinfo`
-      一并上提 `psi-list.css`（`.psi-tb` …），三页同一份形态。 */
+   🔴 v510：工具栏 `.psi-tb` 已退役，动作组收进页签行右侧（共享件 PsiListActions）。
+      排序提示（`.isl-selinfo` / `.isl-sortinfo`）经 #status 插槽注入，仍由本页提供。 */
 .isl-link {
   border: none; background: none; padding: 0 2px; cursor: pointer;
   color: var(--p-dark); font-size: 12px; text-decoration: underline;

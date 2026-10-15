@@ -8,9 +8,11 @@
      · .psi-frz-N    左侧冻结列，left 偏移由页面在表元素上用 --psi-frz-N 给出
      · .psi-quick*   快捷时间档外壳（chips 本体是全局 .chip）
      · .psi-tabs     状态页签条 + 计数徽章 .psi-tabn（v498，自采购页上提）
-     · .psi-on       行选中态（采购页批量操作）
-     · v501         页签行 .psi-tabbar（含右侧动作）／筛选行 .psi-frow·.psi-f·.psi-lb／
-                    工具栏 .psi-tb／分页器 .psi-pager（共享件 PsiPager.vue）
+   · .psi-on       行选中态（采购页批量操作）
+   · v501         页签行 .psi-tabbar（含右侧动作）／筛选行 .psi-frow·.psi-f·.psi-lb／
+                   分页器 .psi-pager（共享件 PsiPager.vue）
+   · v510         动作组 .psi-acts（共享件 PsiListActions.vue：导出→批量→新建→刷新，
+                   收进页签行右侧；原各页私有工具栏 .psi-tb 退役）
    🔴 改本文件 = 同时改三页：InvPurchaseList / InvSaleList / InvTransferList。
       加参数、改默认值前必须核对三处调用方（规范文档 §11 共享件清单）。
    规范全文：docs/进销存列表页统一设计规范-v496.md
@@ -119,12 +121,30 @@
 }
 .psi-caret.up { transform: rotate(180deg) }
 
-/* ---- 工具栏：左 = 当前视图状态说明（已选 N 条 / 按 X 排序），右 = 导出 / 打印 / 批量 ---- */
-.psi-tb {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin: 0 0 12px;
+/* ---- 共享动作组（v510，共享件 components/PsiListActions.vue）----
+   顺序固定：导出 → 批量操作 → 新建 → 刷新；收进页签行右侧（StatusTabs #actions），
+   不再单独占一行。`#status` 插槽（排序提示等）落在动作组左侧。
+   ⚠️ 三页**唯一出处**：采购 / 销售 / 调拨的动作组长相一致，改这里 = 同时改三页。 */
+.psi-acts { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.psi-acts-status { display: inline-flex; align-items: center }
+/* 批量操作下拉（替代原各页私有的 `.ipl-mw` / `.ipl-menu` / `.ipl-mi`） */
+.psi-acts-mw { position: relative; display: inline-flex }
+.psi-acts-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  min-width: 150px; padding: 4px;
+  background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
 }
-.psi-tb-l, .psi-tb-r { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.psi-acts-mi {
+  display: block; width: 100%; padding: 8px 12px; border: none; background: none;
+  border-radius: var(--radius-sm); text-align: left; font-size: 13px; color: var(--t1);
+  white-space: nowrap; cursor: pointer;
+}
+.psi-acts-mi:hover { background: var(--bg2) }
+.psi-acts-mi.danger { color: var(--danger-txt) }
+.psi-acts-mi.danger:hover { background: var(--danger-bg) }
+
+/* 排序 / 选中提示（经 #status 插槽注入，保留文本观感） */
 .psi-selinfo { font-size: 12px; color: var(--t2) }
 .psi-selinfo b { color: var(--p-ink); font-variant-numeric: tabular-nums }
 .psi-sortinfo { display: inline-flex; align-items: center; gap: 4px }
@@ -155,15 +175,14 @@
    同值不同选择器。） */
 @media print {
   .psi-tbl .psi-frz { position: static !important }
-  /* 页签行 / 工具栏 / 分页器都是**筛选与操作控件**，纸上没有意义 —— 隐藏规则放这里
+  /* 页签行 / 动作组 / 分页器都是**筛选与操作控件**，纸上没有意义 —— 隐藏规则放这里
      （唯一出处），三页 scoped 的 @media print 里不必再列一遍（列了就是第二份）。
-     🔴 v501：这三处类名已由页面私有（`.ipl-pager` / `.isl-tb` …）换成共享件，
-        共享件的根元素虽然带父页的 scope id，但**类名不匹配** ⇒ 父页 scoped 里
-        那条旧选择器会静默失效（分页器被印到纸上）。故本轮把三者的隐藏规则
-        一并上提到这里，父页只留它自己外壳（`.xx-filter` / `.xx-card`）的规则。
-        ⚠️ 整条 `.psi-tabbar` 隐藏（不止 `.psi-tabs`）—— 页头退役后「新建 / 刷新」
-           已并入该行右侧，只藏页签会把两颗按钮印到纸上。 */
-  .psi-tabbar, .psi-tb, .psi-pager { display: none !important }
+     🔴 v510：动作组（导出 / 批量 / 新建 / 刷新）已收进 `.psi-tabbar` 的 #actions 插槽，
+        共享件根元素带父页 scope id、但类名 `.psi-acts` 不匹配旧私有选择器 ⇒ 父页 scoped
+        里那条旧规则会静默失效。故隐藏规则上提到这里，父页只留它自己外壳规则。
+        ⚠️ 整条 `.psi-tabbar` 隐藏（不止 `.psi-tabs`）—— 「新建 / 刷新 / 导出」都已
+           并入该行右侧，只藏页签会把按钮印到纸上。 */
+  .psi-tabbar, .psi-acts, .psi-pager { display: none !important }
 }
 
 /* ---- 窄屏：筛选项整项占满一行（**标签与输入框仍同行**） ----

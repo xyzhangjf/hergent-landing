@@ -38,36 +38,29 @@
          （draft / completed / cancelled；无退货 —— 老板 2026-10-11 口径），故只有三档。
          计数来自服务端 `counts`（`erp_db.transfer_order_counts`，v498 新增）。 -->
     <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab">
-      <!-- v501：原页头的「新建 / 刷新」移到这里（页签行右侧），见上方注释。 -->
+      <!-- v510：动作组收进页签行右侧（共享件 PsiListActions），顺序 导出 → 批量操作 → 新建 → 刷新。
+           调拨单无批量接口 ⇒ showBatch=false；排序提示经 #status 插槽保留在左侧。 -->
       <template #actions>
-        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="go(newTo)">
-          <Icon name="plus" :size="14" />新建{{ title }}
-        </button>
-        <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
-          <Icon name="refresh" :size="14" />刷新
-        </button>
+        <PsiListActions
+          :export-disabled="!rows.length"
+          :show-batch="false"
+          :show-new="canWrite"
+          :new-disabled="!canWrite"
+          :new-label="'新建' + title"
+          :refresh-disabled="loading"
+          @export="doExport"
+          @new="() => go(newTo)"
+          @refresh="load">
+          <template #status>
+            <!-- v478：排序显式提示（列被隐藏时表头指示器消失，顺序来历变看不见的状态） -->
+            <span v-if="sortKey" class="psi-selinfo psi-sortinfo">
+              按<b>{{ sortLabel }}</b>{{ sortDir === 'asc' ? '升序' : '降序' }}
+              <button class="isl-link" @click="clearSort">清除</button>
+            </span>
+          </template>
+        </PsiListActions>
       </template>
     </StatusTabs>
-
-    <div class="psi-tb">
-      <div class="psi-tb-l">
-        <!-- v496：删除此处的「共 N 张」—— 总数唯一出处 = 分页器左侧（规范 §1）。 -->
-        <!-- v478：当前排序的显式提示。排序键对应列一旦被「列设置」隐藏，表头指示器随之消失，
-             顺序来历就变成看不见的状态，用户会以为数据乱了。这里常显「按 X 升/降序」+ 一键清除。 -->
-        <span v-if="sortKey" class="psi-selinfo psi-sortinfo">
-          按<b>{{ sortLabel }}</b>{{ sortDir === 'asc' ? '升序' : '降序' }}
-          <button class="isl-link" @click="clearSort">清除</button>
-        </span>
-      </div>
-      <div class="psi-tb-r">
-        <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doExport">
-          <Icon name="download" :size="14" />导出
-        </button>
-        <button class="btn btn-ghost btn-sm" :disabled="!rows.length || printing" @click="doPrint">
-          <Icon name="print" :size="14" />打印
-        </button>
-      </div>
-    </div>
 
     <div v-if="loading" class="state-empty">加载中…</div>
 
@@ -199,6 +192,9 @@ import QuickRangeChips from '../../components/QuickRangeChips.vue'
 import StatusTabs from '../../components/StatusTabs.vue'
 /* v501：分页器共享件（采购 / 销售 / 调拨三页同一条）。 */
 import PsiPager from '../../components/PsiPager.vue'
+/* v510：动作组共享件（导出 → 批量操作 → 新建 → 刷新；收进页签行右侧）。
+   调拨单无批量接口 ⇒ showBatch 传 false。 */
+import PsiListActions from '../../components/PsiListActions.vue'
 
 /* 列设置（齿轮）。核心列（单号 / 状态）进本清单 `core:true` ⇒ 不进云端显隐配置、恒显；
    可选列 key 一旦定下就进云端，改名会丢用户已存配置（故保持稳定）。
@@ -405,12 +401,8 @@ function doExport () {
   downloadCsv(`${title}-${localDateStamp()}.csv`, [head, ...body])
 }
 
-/* ---- 打印（纯前端 `window.print()`）---- 没有打印数（后端无计数接口）。 */
-async function doPrint () {
-  if (printing.value) return
-  printing.value = true
-  try { printOnly.value = 0; await nextTick(); window.print() } finally { printing.value = false }
-}
+/* ---- 打印（纯前端 `window.print()`）---- 没有打印数（后端无计数接口）。
+   v510：工具栏批量打印入口已移除（与采购 / 销售页同口径），仅保留操作列逐行 `rowPrint`。 */
 async function rowPrint (r) {
   if (printing.value) return
   printing.value = true
@@ -447,7 +439,8 @@ onMounted(load)
       它只是给商品框补的手动偏移，共享尺寸统一后不再需要）。
       本页只剩筛选卡外壳 `.isl-filter`。 */
 .isl-filter { margin-bottom: 12px }
-/* 工具栏：v501 上提 `psi-list.css`（`.psi-tb` / `.psi-tb-l,r` / `.psi-selinfo`）。 */
+/* 工具栏：v510 工具栏 `.psi-tb` 已退役，动作组收进页签行右侧（共享件 PsiListActions）；
+   排序提示（`.psi-selinfo` / `.psi-sortinfo`）经 #status 插槽注入。 */
 
 .isl-card { padding-bottom: 0 }
 /* v496：固定布局 + colgroup 定宽（规范 §2.1）。min-width = 序号46 + 八列定宽 + 操作120

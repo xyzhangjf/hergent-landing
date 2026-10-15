@@ -184,60 +184,34 @@
     <!-- 状态页签（v498 起用**共享件** StatusTabs —— 销售 / 调拨两页同一个组件、同一套样式；
          计数来自服务端 counts：忽略状态筛选、保留其它筛选 ⇒ 切页签数字不漂移） -->
     <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab">
-      <!-- v501：原页头的「新建 / 刷新」移到这里（页签行右侧），见上方注释。
-           新建仍只留这一处与空态两处（v496 定的规范：不造第三个入口）。 -->
+      <!-- v510：动作组收进页签行右侧（共享件 PsiListActions），顺序 导出 → 批量操作 → 新建 → 刷新。
+           排序提示经 #status 插槽保留在动作组左侧；全选/反选/打印已移除（批量走行内勾选列）。 -->
       <template #actions>
-        <button v-if="canWrite" class="btn btn-primary btn-sm" @click="goNew()">
-          <Icon name="plus" :size="14" />{{ isReturn ? '新建采购退货单' : '新建采购单' }}
-        </button>
-        <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
-          <Icon name="refresh" :size="14" />刷新
-        </button>
+        <PsiListActions
+          :export-disabled="!rows.length"
+          :show-batch="!isReturn"
+          :batch-items="BATCH_ACTIONS"
+          :batch-open="batchOpen"
+          :batch-disabled="!canWrite"
+          :show-new="canWrite"
+          :new-disabled="!canWrite"
+          :new-label="isReturn ? '新建采购退货单' : '新建采购单'"
+          :refresh-disabled="loading"
+          @export="doExport"
+          @toggle-batch="toggleBatch"
+          @batch-pick="pickBatch"
+          @new="goNew"
+          @refresh="load">
+          <template #status>
+            <!-- v470：排序显式提示（列被隐藏时表头指示器消失，顺序来历变看不见的状态） -->
+            <span v-if="sortKey" class="psi-selinfo psi-sortinfo">
+              按<b>{{ sortLabel }}</b>{{ sortDir === 'asc' ? '升序' : '降序' }}
+              <button class="ipl-link" @click="clearSort">清除</button>
+            </span>
+          </template>
+        </PsiListActions>
       </template>
     </StatusTabs>
-
-    <!-- 工具栏 -->
-    <div class="psi-tb">
-      <div class="psi-tb-l">
-        <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="selectAll">全选</button>
-        <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="invertSel">反选</button>
-        <span class="psi-selinfo">
-          已选择 <b>{{ selected.length }}</b> 条
-          <button v-if="selected.length" class="ipl-link" @click="selected = []">清空</button>
-        </span>
-        <!-- v470：当前排序的**显式提示**。为什么必须有：排序键对应的列一旦被「列设置」
-             隐藏，表头指示器就跟着消失 —— 顺序的来历就变成**看不见的状态**，用户会以为
-             数据是乱的。这里常显「按 X 升/降序」，并给一键清除。 -->
-        <span v-if="sortKey" class="psi-selinfo psi-sortinfo">
-          按<b>{{ sortLabel }}</b>{{ sortDir === 'asc' ? '升序' : '降序' }}
-          <button class="ipl-link" @click="clearSort">清除</button>
-        </span>
-      </div>
-      <div class="psi-tb-r">
-        <button class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doExport">
-          <Icon name="download" :size="14" />导出
-        </button>
-        <!-- v500：打印（记数走采购单批量端点）与「批量操作」**都是采购单的** ——
-             它们批量提交的是 `purchase_orders` 的 id。退货行的 id 是另一套编号空间，
-             沿用会在**别的单据**上执行这些动作（静默错账）⇒ 退货视图不给。
-             导出保留：它是纯前端按当前行导出，不涉及后端 id 空间。 -->
-        <button v-if="!isReturn" class="btn btn-ghost btn-sm" :disabled="!rows.length" @click="doPrint()">
-          <Icon name="print" :size="14" />打印
-        </button>
-        <div v-if="!isReturn" class="ipl-mw">
-          <button class="btn btn-ghost btn-sm" :class="{ on: batchOpen }"
-                  :disabled="!canWrite" @click.stop="toggleBatch">
-            批量操作<span class="psi-caret" :class="{ up: batchOpen }"></span>
-          </button>
-          <div v-if="batchOpen" class="ipl-menu" @click.stop>
-            <button v-for="a in BATCH_ACTIONS" :key="a.op" class="ipl-mi"
-                    :class="{ danger: a.danger }" @click="pickBatch(a)">{{ a.text }}</button>
-          </div>
-        </div>
-        <!-- v496：删除工具栏里重复的「新建」（规范 §1：新建只在页头与空态）。
-             页头那颗是同一动作（goNew()），不是功能下线。 -->
-      </div>
-    </div>
 
     <!-- 批量结果（逐单回报：失败必须带原因，否则用户无法行动） -->
     <div v-if="lastBatch" class="ipl-result" :class="{ warn: lastBatch.fail_count }">
@@ -298,9 +272,9 @@
           </colgroup>
           <thead>
             <tr>
-              <th class="ipl-c-chk psi-frz psi-frz-1">
-                <input ref="headChk" type="checkbox" :checked="allChecked" title="全选本页" @change="toggleAll" />
-              </th>
+              <!-- v510：表头全选框移除（老板口径：全选/反选从工具栏删掉）。
+                   行内勾选列保留 ⇒ 批量仍可逐行勾选，不靠表头全选。 -->
+              <th class="ipl-c-chk psi-frz psi-frz-1"></th>
               <!-- 🔴 §2.6.1「一、」：齿轮长在**序号列表头**格子里、是该格**唯一**的按钮，
                    包在 `.th-in` 里（`.th-in > .col-cfg{margin-inline:auto}` 把它拉回格子正中）。
                    ⛔ 不放工具栏、⛔ 不放别的表头列。 -->
@@ -569,6 +543,9 @@ import StatusTabs from '../../components/StatusTabs.vue'
 /* v501：分页器改共享件（采购 / 销售 / 调拨三页同一条；`.psi-pager` 在 psi-list.css）。
    分页算法与每页条数候选仍留在本页 —— 共享件只搬结构与样式。 */
 import PsiPager from '../../components/PsiPager.vue'
+/* v510：列表动作组改共享件（导出 → 批量操作 → 新建 → 刷新；收进页签行右侧）。
+   顺序与「全选/反选/打印移除」是老板口径；批量菜单项仍由本页 BATCH_ACTIONS 提供。 */
+import PsiListActions from '../../components/PsiListActions.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -607,7 +584,6 @@ const lastBatch = ref(null)
 const printing = ref(false)
 const printOnly = ref(0)
 const busyOp = ref(false)
-const headChk = ref(null)
 
 const PAGE_SIZES = [20, 50, 100]
 
@@ -1217,7 +1193,6 @@ watch(kind, () => {
 })
 
 const canWrite = computed(() => canDo('inventory', 'create'))
-const allChecked = computed(() => rows.value.length > 0 && selected.value.length === rows.value.length)
 const hasFilter = computed(() => !!(
   f.value.supplier_id || f.value.date_from || f.value.date_to || f.value.keyword ||
   f.value.warehouse_id || f.value.creator || f.value.only_marked ||
@@ -1332,7 +1307,6 @@ async function load (resetPage = true) {
   } finally {
     loading.value = false
     await nextTick()
-    syncHead()
   }
 }
 
@@ -1389,22 +1363,6 @@ function onSize (n) {
   limit.value = n
   goPage(1)
 }
-
-/* ---- 选择 ---- */
-function selectAll () { selected.value = rows.value.map(r => r.id) }
-function invertSel () {
-  const s = new Set(selected.value)
-  selected.value = rows.value.map(r => r.id).filter(id => !s.has(id))
-}
-function toggleAll (e) { selected.value = e.target.checked ? rows.value.map(r => r.id) : [] }
-/* 表头复选框的「部分选中」态只能通过 DOM 属性表达（无对应 HTML 属性），
-   漏了它会出现「3 选 1 但表头看着像是全选」的误读。 */
-function syncHead () {
-  if (headChk.value) {
-    headChk.value.indeterminate = selected.value.length > 0 && selected.value.length < rows.value.length
-  }
-}
-watch(selected, syncHead, { deep: true })
 
 /* ---- 批量操作 ---- */
 const dlg = ref({ open: false, title: '', msg: '', needInput: false, ph: '', value: '', busy: false, action: null })
@@ -1488,14 +1446,6 @@ async function bumpPrint (ids) {
   } catch (e) {
     toast(e.message || '打印计数未记录', 'error')
   }
-}
-async function doPrint () {
-  const ids = selected.value.length ? [...selected.value] : rows.value.map(r => r.id)
-  if (!ids.length) return
-  await bumpPrint(ids)
-  printOnly.value = 0
-  await nextTick()
-  window.print()
 }
 async function rowPrint (r) {
   if (printing.value) return
@@ -1663,20 +1613,6 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
    v501：删掉原 `align-self:flex-end` —— 筛选行改 `align-items:center` 后它已居中，
    再写 flex-end 会让它比同行的下拉框低半格。 */
 .ipl-chk-mark { margin-left: auto }
-.ipl-mw { position: relative }
-.ipl-menu {
-  position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-dropdown);
-  min-width: 150px; padding: 4px;
-  background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-}
-.ipl-mi {
-  display: block; width: 100%; padding: 8px 12px; border: none; background: none;
-  border-radius: var(--radius-sm); text-align: left; font-size: 13px; color: var(--t1);
-}
-.ipl-mi:hover { background: var(--bg2) }
-.ipl-mi.danger { color: var(--danger-txt) }
-.ipl-mi.danger:hover { background: var(--danger-bg) }
 
 .ipl-link {
   border: none; background: none; padding: 0; font-size: 13px;
@@ -1809,8 +1745,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* 打印：只留数据表；单张打印时只留那一行。合计行在打印稿里略去（复选框/操作列被隐藏，
    tfoot 的 colspan 会错位 ⇒ 与其印一行错位的数字，不如不印）。 */
 @media print {
-  /* v501：`.page-hd` 已整块删除（页头退役），`.ipl-tb` / `.ipl-pager` 已换成共享件
-     （`.psi-tb` / `.psi-pager`）—— 三者的打印隐藏规则都已上提 `psi-list.css`
+  /* v510：`.page-hd` 已整块删除（页头退役），工具栏 `.psi-tb` 也已退役、动作组收进
+     `.psi-tabbar`（`.psi-acts`）—— 两者的打印隐藏规则都已上提 `psi-list.css`
      （三页唯一出处），这里不再列（列了也是死选择器：类名已不匹配）。
      本页只剩自己外壳的部分：筛选卡 / 批量结果条 / 浮层 / 列设置面板。 */
   .ipl-filter, .ipl-result, .ipl-mask,
