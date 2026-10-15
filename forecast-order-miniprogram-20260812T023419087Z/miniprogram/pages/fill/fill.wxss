@@ -29,6 +29,9 @@
 .prod-head{display:flex;align-items:center;justify-content:space-between;padding:24rpx 32rpx 0}
 .prod-head-t{font-size:28rpx;color:#1d1d1f;font-weight:600}
 .prod-head-n{font-size:24rpx;color:#86868b}
+.prod-head-r{display:flex;align-items:center;gap:20rpx}
+.prod-clear{font-size:24rpx;line-height:1;color:#ff3b30;padding:8rpx 20rpx;border:1rpx solid #ff3b30;border-radius:24rpx}
+.prod-clear:active{background:rgba(255,59,48,.08)}
 .load-more{text-align:center;color:#86868b;font-size:26rpx;padding:32rpx 0}
 .load-end{text-align:center;color:#c7c7cc;font-size:24rpx;padding:32rpx 0}
 /* 期次窗口提示
@@ -204,15 +207,44 @@
       否则提交栏 / 回顶按钮会从半屏层下面透出来，看起来像"层没盖住"。
    ⚠️ 面板竖向 flex + 列表自己滚（scroll-view）：明细几十项时，
       底部那两个按钮**始终停在原地**（不能让列表把按钮顶出屏幕 ——
-      那正是"想取消却找不到取消按钮"的成因，而取消是这一层最不能缺的出口）。 */
+      那正是"想取消却找不到取消按钮"的成因，而取消是这一层最不能缺的出口）。
+   🔴 v418（2026-10-09）：上一段**当时只是意图，并未落地** —— 商品一多就既翻不动、
+      又把「返回修改 / 确认提交」推出屏幕（真机复现：只能看到一屏，两个按钮点不到）。
+      根因不在 flex，而在微信对 scroll-view 的硬约束：
+        官方原文「使用竖向滚动时，需要给 scroll-view 一个固定高度，通过 WXSS 设置 height」。
+      而 .cf-body 只写了 `flex:1;min-height:0`（没有确定高度）⇒ 组件把高度算成"内容高度"
+        ⇒ 容器高度 = 内容高度 ⇒ 没有可滚动空间，滚动条根本不生成。
+      同项目内**唯一另一处**竖向 scroll-view 写的正是确定高度（login.wxss:43 `.privacy-body{…height:52vh}`），
+      它从没出过这个问题 —— 差别只在这一条。
+      ⇒ 修法见下方 .cf-body：给它一个**确定的高度上限**（而不是靠 flex 去"猜"高度）。
+      ⚠️ 用 `calc(78vh - 560rpx)` 而非固定 `height`：前者在明细少时**自动收缩**（面板不凭空变高、
+        不留白），明细多时才封顶并滚动；`560rpx` = 标题区 + 两条提示条 + 底栏的保守上界
+        （实测各 494rpx，留 66rpx 余量，保证面板总高恒 < 78vh ⇒ 底栏永远在视口内）。 */
 .cf-mask{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.45);z-index:30;display:flex;align-items:flex-end}
 .cf-sheet{width:100%;background:#fff;border-radius:24rpx 24rpx 0 0;max-height:78vh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
 .cf-hd{padding:32rpx 32rpx 20rpx;border-bottom:1rpx solid #f0f0f2}
 .cf-title{font-size:32rpx;font-weight:600;color:#1d1d1f}
 .cf-sub{display:block;font-size:24rpx;color:#86868b;margin-top:8rpx}
 .cf-dup{margin:20rpx 32rpx 0;background:#fff7ed;border:1rpx solid #fed7aa;border-radius:14rpx;padding:16rpx 20rpx;font-size:24rpx;color:#9a3412;line-height:1.5}
+/* v419（方案 2）：cf-dup 第二行 —— 原「本期已报过」弹窗正文里的「已报 n 项 / M 件」，
+   外加原弹窗取消出口「去查看」的可点文字（承接跳「我的提交」）。 */
+.cf-dup-sub{margin-top:8rpx;font-size:24rpx;color:#b45309}
+.cf-link{color:#06b6d4}
 .cf-sum{margin:20rpx 32rpx 0;background:#fef2f2;border:1rpx solid #fecaca;border-radius:14rpx;padding:16rpx 20rpx;font-size:24rpx;color:#b91c1c}
-.cf-body{flex:1;min-height:0;padding:8rpx 32rpx 0}
+/* v419（方案 2）：未达标提醒清单 —— 放在滚动区（.cf-body 已含左右 padding）里，与明细一起滚。
+   它是「未填」商品**唯一**的可见出口（未填的不进 cart ⇒ 下方明细表里没有它们）。 */
+.cf-warn{margin:16rpx 0 4rpx;background:#fef2f2;border:1rpx solid #fecaca;border-radius:14rpx;padding:16rpx 20rpx}
+.cf-warn-line{font-size:24rpx;color:#b91c1c;line-height:1.7}
+.cf-warn-more{font-size:22rpx;color:#dc2626;margin-top:6rpx}
+.cf-warn-note{font-size:20rpx;color:#9a3412;line-height:1.5;margin-top:8rpx}
+/* v420：明细层「未填」清单项可点 → 跳回列表定位该商品 */
+.cf-warn-line{position:relative;padding-right:96rpx}
+.cf-warn-line-h{background:#fff1f0}
+.cf-go{position:absolute;right:18rpx;top:50%;transform:translateY(-50%);color:#06b6d4;font-size:22rpx}
+/* v420：主列表被定位到的商品行：高亮闪烁 3 次，引导用户填数量 */
+.prod-row-flash{animation:cfRowFlash 1s ease 3;box-shadow:0 0 0 3rpx #06b6d4 inset;border-radius:14rpx}
+@keyframes cfRowFlash{0%,100%{background:#fff}50%{background:#ecfeff}}
+.cf-body{min-height:0;max-height:calc(78vh - 560rpx);padding:8rpx 32rpx 0}
 .cf-row{display:flex;align-items:center;gap:16rpx;padding:20rpx 0;border-bottom:1rpx solid #f0f0f2}
 .cf-row-low{background:#fffafa}
 .cf-info{flex:1;min-width:0}

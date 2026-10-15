@@ -96,6 +96,9 @@
                  用户点「查看我的报单」过来必须能**对上号** —— 否则给了单号却无处可查。 -->
             <text class="rec-no">单号 {{item.id}}</text>
             <text class="rec-total">共 {{item.total_qty}} 件</text>
+            <!-- v434：把这一期复制到当前填报（快速填报）。作废单（已撤回/已驳回）不给入口 ——
+                 与填报页「复制生成样单」同一条纪律：拿作废的量再报一次会误导用户。 -->
+            <button class="rec-copy" wx:if="{{item.status !== 'recalled' && item.status !== 'rejected'}}" size="mini" bindtap="copyRecord" data-id="{{item.id}}">复制</button>
             <button class="recall-btn" wx:if="{{item.status === 'pending'}}" size="mini" loading="{{recallingId === item.id}}" bindtap="recall" data-id="{{item.id}}">撤回</button>
             <text class="rec-expand" wx:if="{{expandedId !== item.id}}" bindtap="toggleExpand" data-id="{{item.id}}">展开</text>
             <text class="rec-expand" wx:else bindtap="toggleExpand" data-id="{{item.id}}">收起</text>

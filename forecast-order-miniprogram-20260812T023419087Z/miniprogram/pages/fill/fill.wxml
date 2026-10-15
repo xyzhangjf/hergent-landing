@@ -155,7 +155,11 @@
     <text class="prod-head-t">本期可报商品</text>
     <!-- v266：有筛选时同样该说「匹配」—— 此时 `total` 是**筛过之后**的条数，
          还写「共」会让人以为本期就这么多（而 Web 端显示的是另一个数）。 -->
-    <text class="prod-head-n">{{kw || brandSel || freqOn ? '匹配 ' : '共 '}}{{total}} 项</text>
+    <view class="prod-head-r">
+      <text class="prod-head-n">{{kw || brandSel || freqOn ? '匹配 ' : '共 '}}{{total}} 项</text>
+      <!-- v433：常驻「一键清空」入口（仅在有已填数量时出现）；破坏性操作先确认再清 -->
+      <text class="prod-clear" wx:if="{{cartCount}}" bindtap="onClearAll">清空</text>
+    </view>
   </view>
 
   <!-- v370（2026-10-03）：销量数据新鲜度提示（老板选项 B）。
@@ -172,7 +176,7 @@
 
   <view class="prod-list">
     <!-- 行内填报：直接在这一行填数量，已填行高亮；库存/日均辅助判断 -->
-    <view class="prod-row {{item.qty ? 'prod-row-on' : ''}}" wx:for="{{products}}" wx:key="id">
+    <view class="prod-row {{item.qty ? 'prod-row-on' : ''}} {{item.id === flashId ? 'prod-row-flash' : ''}}" id="prod-{{item.id}}" wx:for="{{products}}" wx:key="id">
       <view class="prod-info">
         <view class="prod-name">{{item.name}}</view>
         <view class="prod-spec">{{item.spec || ''}} · {{item.unit || '件'}}</view>
@@ -193,7 +197,7 @@
       <view class="qty-ctl">
         <view class="qty-btn {{item.qty ? '' : 'qty-btn-off'}}" data-id="{{item.id}}" bindtap="onQtyMinus">−</view>
         <input class="qty-input {{item.qty ? 'qty-input-on' : ''}}" type="number" value="{{item.qty || ''}}"
-               placeholder="0" placeholder-class="qty-ph" data-id="{{item.id}}" bindinput="onQtyInput" />
+               placeholder="0" placeholder-class="qty-ph" data-id="{{item.id}}" bindinput="onQtyInput" focus="{{item.id === focusId}}" />
         <view class="qty-btn qty-btn-add" data-id="{{item.id}}" bindtap="onQtyPlus">+</view>
       </view>
     </view>
@@ -323,10 +327,24 @@
         <text class="cf-sub">{{store.name || '未选门店'}} · {{period.name || period.display || ''}}</text>
       </view>
 
-      <view class="cf-dup" wx:if="{{confirmDup}}">本期已报过，这次是更新同一单（单号 {{confirmDup.sid}} 不变，不会多出一条）</view>
-      <view class="cf-sum" wx:if="{{confirmLow}}">{{confirmLow}} 项低于均单目标，已在下方标出</view>
+      <!-- v419（方案 2）：两条系统弹窗并进本层。cf-dup 保住 D30 的验收串，并把原弹窗的
+           「去查看」出口（跳「我的提交」）用一行可点文字承接 —— 改单人不能少了这个出口。 -->
+      <view class="cf-dup" wx:if="{{confirmDup}}">
+        <view>本期已报过，这次是更新同一单（单号 {{confirmDup.sid}} 不变，不会多出一条）</view>
+        <view class="cf-dup-sub">{{store.name || '本店'}} 在「{{period.name || period.display || ''}}」已报 {{confirmDup.count}} 项 / {{confirmDup.qty}} 件 ·<text class="cf-link" catchtap="goMine">去查看</text></view>
+      </view>
+      <view class="cf-sum" wx:if="{{confirmLow}}">{{confirmLowTitle}}</view>
 
       <scroll-view class="cf-body" scroll-y>
+        <!-- v419：未达标提醒清单（**含「未填」的商品** —— 它们不在 cart 里、下方明细表看不到，
+             这里是它们唯一的出口）。文案与原弹窗逐字一致（D21/D25/D27 的验收串）；
+             放进滚动区 ⇒ 条数多时与明细一起滚，不额外占固定高度。 -->
+        <view class="cf-warn" wx:if="{{confirmLow}}">
+          <view class="cf-warn-line" hover-class="cf-warn-line-h" wx:for="{{confirmLowRows}}" wx:key="id" bindtap="jumpToLow" data-id="{{item.id}}" data-name="{{item.name}}">{{item.text}}<text class="cf-go">去填 ›</text></view>
+          <view class="cf-warn-more" wx:if="{{confirmLowMore}}">{{confirmLowMore}}</view>
+          <view class="cf-warn-note">均单目标是按月目标和剩余可报期次推算的参考值，不是必须达到的数。</view>
+          <view class="cf-warn-note" wx:if="{{confirmLowNote}}">{{confirmLowNote}}</view>
+        </view>
         <view class="cf-row {{item.low ? 'cf-row-low' : ''}}" wx:for="{{confirmRows}}" wx:key="key">
           <view class="cf-info">
             <view class="cf-name">{{item.name}}</view>

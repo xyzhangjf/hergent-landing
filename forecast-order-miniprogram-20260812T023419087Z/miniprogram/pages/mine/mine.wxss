@@ -57,6 +57,11 @@
    改用 `box-shadow: inset` 画描边 + `::after{display:none}` 彻底移除原生边框层。 */
 .recall-btn{margin-left:16rpx;font-size:24rpx;color:#ff3b30;background:#fff;border:none;box-shadow:inset 0 0 0 2rpx #ff3b30;border-radius:10rpx;padding:6rpx 20rpx;line-height:1.4;box-sizing:border-box}
 .recall-btn::after{display:none}
+/* v434：复制该期次到当前填报 —— 描边按钮，用品牌青（非红）。
+   为什么与「撤回」同为描边钮却不同色：撤回是**破坏性**（红），复制只是把旧数据搬过来（建设性导入），
+   并排时颜色就是"哪个会改数据、哪个只是复制"的第一眼区分。 */
+.rec-copy{margin-left:16rpx;font-size:24rpx;color:#06b6d4;background:#fff;border:none;box-shadow:inset 0 0 0 2rpx #06b6d4;border-radius:10rpx;padding:6rpx 20rpx;line-height:1.4;box-sizing:border-box}
+.rec-copy::after{display:none}
 /* 展开 / 收起：推到行尾，避免与撤回挤在一起 */
 .rec-expand{margin-left:auto;font-size:24rpx;color:#06b6d4;font-weight:400}
 /* ===== v259：左滑删除 =====

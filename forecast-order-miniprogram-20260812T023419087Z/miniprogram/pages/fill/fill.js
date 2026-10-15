@@ -65,6 +65,15 @@ Page({
        ⚠️ 标题沿用「确认提交预报？」—— D21/D22/D24 三条验收的锚点就是这串文案，
           本次只换载体（原生弹窗 → 页内层），文案一字不改，既有验收串全部继续成立。 */
     confirmOpen: false,        // 明细核对层是否展开
+    /* v420/v421：点明细层「未填 / 未达标」项 → 关层回到主列表、**真的定位到那一行**。
+       🔴 两个状态**必须分开**（v421 拆的，v420 合用一个是错的）：
+          · `flashId` = 高亮（青边 + 闪烁），由 CSS 动画播完自然停，4 秒后撤类；
+          · `focusId` = 数量输入框聚焦（`focus="{{item.id === focusId}}"`）。
+       合用一个 id 的后果：清理定时器到点时会**连带把 input 的聚焦撤掉**，用户正打字
+       就被收键盘。拆开后，高亮的撤除与聚焦的撤除各自独立、互不牵连。
+       ⚠️ `focusId` 清理前会检查该行是否已填数（用户开始填了就不打扰他，见 `_scrollTo`）。 */
+    focusId: '',
+    flashId: '',
     confirmRows: [],           // 明细行 [{ key, name, spec, qty, unit, low }]；low ∈ ''|'未达标'|'未填'
     confirmDup: null,          // 改单场景 { sid, count, qty }；非空 ⇒ 层内提示"将更新这一单"
     confirmLow: 0,             // 本单内低于均单目标的项数（>0 ⇒ 层内顶部汇总一行）
@@ -255,6 +264,11 @@ Page({
       wx.reLaunch({ url: '/pages/no-permission/no-permission' })
       return
     }
+    /* v434：从「我的预报提交」点「复制」过来的源数据（跨页送达，见 mine.js copyRecord）。
+       必须在 loadPeriods（→ syncProductsForPeriod）**之前**取出 —— 期次/门店缓存命中时
+       那条链会同步跑完，晚一步就赶不上带入。取出即清 globalData，保证只消费一次。 */
+    this._pendingCopy = (app.globalData && app.globalData._fsCopy) || null
+    if (this._pendingCopy) app.globalData._fsCopy = null
     this.restoreCart()       // M8: 恢复持久化购物车（跨页面销毁不丢）
     this.loadStores()        // P1-4: 内部带 5min 内存缓存
     // v215（2026-09-20）：期次必须**先于**商品定下来。
@@ -505,10 +519,11 @@ Page({
     // `periodEmpty` 也算"铺过了"—— 否则本期清单为空的用户每次 onShow 都要空跑一次请求。
     if (String(this._loadedPeriodId) === String(pid) &&
         (this.data.products.length || this.data.periodEmpty)) {
+      this._maybeApplyPendingCopy()   // v434：商品已就绪 ⇒ 若有「复制源」待带入，此刻落
       return Promise.resolve()
     }
     this._loadedPeriodId = pid
-    return this.loadProducts('', false)
+    return this.loadProducts('', false).then(() => this._maybeApplyPendingCopy())
   },
 
   /* A 方案：切换报单期次 */
@@ -897,6 +912,66 @@ Page({
     this.setData({ sampleInfo: null })
   },
 
+  /* ============ v434：「我的预报提交」→ 复制某期到当前填报 ============
+     与上面的「复制生成样单」(genSample) 是同一件事的两条入口：
+       · genSample：在**填报页内**按当前门店挑往期（ActionSheet，源取自服务端）；
+       · 本族：在**「我的提交」列表里**按期次点「复制」，源数据随页面带过来。
+     两条最终都落到 `_applySample()`（同一份"铺样单 + 越界预检 + 覆盖确认 + 打点"实现）。 */
+
+  /* 等「门店列表 + 商品清单」都就绪后再带入。两者都是 onShow 里的异步链、谁先到不定
+     （缓存命中时又可能同步完成），故用**有界重试**收敛，而不是赌某个时序。
+     最多 ~4s（16×250ms），超时明确提示、不静默吞掉。 */
+  _maybeApplyPendingCopy(tries) {
+    const p = this._pendingCopy
+    if (!p) return
+    const storesReady = (this.data.stores || []).length > 0
+    const productsReady = this.data.products.length > 0 || this.data.periodEmpty
+    if (!storesReady || !productsReady) {
+      if ((tries || 0) < 16) {
+        setTimeout(() => this._maybeApplyPendingCopy((tries || 0) + 1), 250)
+      } else {
+        this._pendingCopy = null
+        wx.showToast({ title: '数据还没加载好，请稍后重试', icon: 'none' })
+      }
+      return
+    }
+    this._pendingCopy = null
+    this._applyCopySample(p)
+  },
+
+  /* 把复制源落到当前填报。
+     🔴 **门店对齐**：源单是「某门店某期次」的 ⇒ 必须回到**同一门店**，否则会把 A 店的货
+        填进 B 店（且不报错）。找到就切（复用 `_switchStore`，自带 flush/串店防护/恢复购物车）；
+        找不到（该门店已不在报单范围）就**明确拒绝**，绝不硬塞进当前门店。 */
+  _applyCopySample(p) {
+    if (!p) return
+    const items = (p.items || []).filter(it => it && Number(it.product_id) > 0 && Number(it.quantity) > 0)
+    if (!items.length) { wx.showToast({ title: '这条单没有可复制的商品', icon: 'none' }); return }
+    const sid = p.store_id, skd = p.store_kind || 'store'
+    const i = (this.data.stores || []).findIndex(s =>
+      String(s.id) === String(sid) && (s.kind || 'store') === skd)
+    const cur = this.data.store || {}
+    const same = String(cur.id) === String(sid) && (cur.kind || 'store') === skd
+    if (i < 0 && !same) {
+      wx.showModal({
+        title: '无法带入',
+        content: '这条单的门店（' + (p.store_name || '未知') + '）不在你当前的报单门店列表里。',
+        showCancel: false
+      })
+      return
+    }
+    // 先切店、再带入：`_switchStore` 会恢复目标店的购物车，随后 `_applySample` 覆盖它
+    // （若目标店本就有在填内容，`_applySample` 的「覆盖当前已填内容?」确认会拦一道）。
+    if (i >= 0 && !same) this._switchStore(i)
+    this._applySample({
+      name: p.name || '历史单',
+      count: items.length,
+      qty: items.reduce((s, it) => s + Number(it.quantity || 0), 0),
+      pid: p.period_id || 0,
+      items: items,
+    })
+  },
+
   /* 把已填数量回填到已加载的商品行（带入上次 / 翻页 / 搜索后用） */
   applyQtyToRows() {
     const qm = this._qtyMap || {}
@@ -1025,7 +1100,11 @@ Page({
     if (this._searchTimer) clearTimeout(this._searchTimer)
     this._lastKw = ''
     this.setData({ brandSel: '', freqOn: false, kw: '', filterEmpty: false, filterHint: '' })
-    this.loadProducts('', false)
+    /* v421：**返回 Promise**（原来丢弃返回值）。v420 的定位链靠 `setTimeout(600ms)` 猜
+       "网络回没回"，猜早了就查不到、退化成一个"自己找"的提示 —— 那正是用户报的故障。
+       现在调用方 `await` 它，等这次重铺真的落地（`products` 已换、`_prodIndex` 已重建）
+       再往下走，时序不再靠猜。既有调用方忽略返回值，行为不变。 */
+    return this.loadProducts('', false)
   },
 
   /* v215（2026-09-20）：**按期次**拉取商品 —— 数据源从「商品档案」换成「本期报单清单」。
@@ -1588,15 +1667,27 @@ Page({
        未达标提醒、改单（dup）提醒两条**原样保留**（它们各有验收依赖，见 `_doSubmit()`）。
      · 「返回修改」= 只关掉这一层，**一个已填数量都不动**（购物车本来就在本机 Storage 里，
        关个层更不会碰它）—— 这正是用户要的"点取消，然后返回去再修改"。 */
-  _askConfirm() {
+  _askConfirm(opts) {
+    opts = opts || {}
     const { cart } = this.data
+    /* v419（2026-10-09）· **方案 2**：原是「未达标提醒」「本期已报过」两条 **系统弹窗**
+       （`wx.showModal`）+ 这一层（自绘）⇒ 提交一次连弹三次、其中两次长得一样。
+       现在两条**不再各自弹窗**，信息与出口**全部并进本层**（口径与原弹窗逐字一致）：
+         · 未达标 → `.cf-sum` 标题 + `.cf-warn` 明细（含"未填 / 均单 M"与"x / 均单 M"两种写法）
+         · 已报过 → `.cf-dup` 两行（原文案串 + 已报 n 项 /「去查看」= 原弹窗的取消出口）
+       ⇒ 一次看全、一处确认，**信息一条不少、选择权一个不少**。
+       ⚠️ 参数可选：不传时按现状自算（`_askConfirm()` 的旧调用方仍可用）。 */
+    const low = opts.low != null ? opts.low
+      : ((this._avgHolder === false) ? [] : this._lowList())
+    const dup = opts.dup != null ? opts.dup
+      : (wx.getStorageSync(this._subKey()) || null)
     /* 未达标标记：只标注**本单里**的商品。
        `_lowList()` 是按**整期目标表**遍历的（所以它也会列出"完全没填"的商品），
-       而没填的商品根本不进 cart ⇒ 不属于"本次提交的明细"，不列进来。
-       ⚠️ `_avgHolder === false` 的短路与 `_doSubmit()` 里那条提醒**同一判据**：
+       而没填的商品根本不进 cart ⇒ 不属于"本次提交的明细"，不列进下方明细表。
+       ⚠️ `_avgHolder === false` 的短路（在 low 的取值处）与旧提醒**同一判据**：
           非目标承接人（如分销商唐成）不拿别人的目标来给他标红。 */
     const lowMap = {}
-    ;(this._avgHolder === false ? [] : this._lowList()).forEach(x => {
+    low.forEach(x => {
       lowMap[String(x.id)] = x.empty ? '未填' : '未达标'
     })
     // 行序 = cart 顺序 = 用户填报顺序；**绝不重排**（商品顺序是后端契约，见 _lowList 注释）
@@ -1608,13 +1699,40 @@ Page({
       unit: c.unit || '',
       low: lowMap[String(c.id)] || ''
     }))
-    const dup = wx.getStorageSync(this._subKey()) || null
+    /* 未达标提醒区（v419）：文案与原弹窗**逐字一致**（D21/D25/D27 的验收串就靠它）。
+       🔴 「未填」的商品**不在 cart 里** ⇒ 下方明细表看不到它们 —— 这一区是它们**唯一**的出口，
+          必须列出来，否则用户永远不知道"有商品漏填了"（v298 立这条提醒的全部意义）。
+       ⚠️ 只列前 LOW_SHOW 条 + 「…等 N 个」：清单条数天然有界（生产实测本期只有 3 个商品设了
+          月目标），但万一客户设多了也不能让这块把面板撑爆（面板高度必须 < 78vh）。 */
+    const lineOf = (x) => x.empty
+      ? (x.name + ' 未填 / 均单 ' + this._numText(x.target) + ' ' + (x.unit || ''))
+      : (x.name + ' ' + this._numText(x.qty) + ' / 均单 ' + this._numText(x.target) + ' ' + (x.unit || ''))
+    const notFilled = low.filter(x => x.empty)
+    const short = low.filter(x => !x.empty)
+    const lowTitle = (notFilled.length && short.length)
+      ? ('有 ' + low.length + ' 个有目标的商品未达标')
+      : (notFilled.length
+          ? ('有 ' + notFilled.length + ' 个有目标的商品还没填')
+          : ('有 ' + short.length + ' 个商品低于均单目标'))
+    const LOW_SHOW = 5
     return new Promise(res => {
       this._confirmResolve = res
       this.setData({
         confirmOpen: true,
         confirmRows: rows,
-        confirmLow: rows.filter(r => r.low).length,
+        confirmLow: low.length,                       // v419：改为**全部**未达标/未填数（不止 cart 内的）
+        confirmLowTitle: lowTitle,
+        /* v421：每项多带一个 `name` —— 交给 `jumpToLow()` 做**兜底定位**用。
+           🔴 为什么必须有它：这份清单是按**整期目标表**算的（`_lowList()`），
+              而主列表是按 `pageSize=30` 分页铺开的 ⇒ 清单里的商品**大多不在**
+              当前已渲染的 30 行里。v420 只带 `id` 时，定位查不到索引就只能弹一句
+              「请在列表里找这一项」—— 用户点的目的是**省去自己找**，这不是解决。
+              带上名字后，可以用它做一次「清单内搜索」把目标拉进首屏（见 `_locateRow`）。 */
+        confirmLowRows: low.slice(0, LOW_SHOW).map(x => ({ id: x.id, name: x.name, text: lineOf(x) })),
+        confirmLowMore: low.length > LOW_SHOW ? ('…等 ' + low.length + ' 个') : '',
+        confirmLowNote: notFilled.length
+          ? ('没填的商品按 0 计算（共 ' + notFilled.length + ' 个）。')
+          : '',
         confirmDup: (dup && dup.sid) ? dup : null
       })
     })
@@ -1634,6 +1752,121 @@ Page({
     this.setData({ confirmOpen: false })
     if (r) r(false)
   },
+  /* v419：「去查看」—— 原「本期已报过」弹窗取消时的出口（跳「我的提交」）。
+     方案 2 把那条弹窗并进本层后，这个出口**不能丢**（否则改单人没法回去看已报的那一单）。
+     关层 + 兑现 Promise(false) ⇒ `_doSubmit()` 随即 return（与原行为等价）。 */
+  goMine() {
+    const r = this._confirmResolve
+    this._confirmResolve = null
+    this.setData({ confirmOpen: false })
+    if (r) r(false)
+    wx.switchTab({ url: '/pages/mine/mine' })
+  },
+  /* v420（起）/ v421（**重写定位链**）：点明细层「有 N 个有目标的商品还没填」清单里的某一项
+     → 关层回到主列表、并**直接定位**到那个商品行（滚动 + 高亮 + 聚焦数量框），
+     省去用户手动在几十行里找。语义 = 「返回修改」（不落库、不动数量），只是多一步定位。
+
+     🔴 v421 修的是 v420 的**假实现**。真机故障（用户 2026-10-09 截图）：
+        点了一下，页面纹丝不动，只弹出一句「已清掉筛选，请在列表里找这一项」。
+        根因：这份清单是按**整期目标表**算的（`_lowList()`），而主列表按 `pageSize=30`
+        分页铺开 ⇒ 清单里的商品**大多还没被加载**，`_prodIndex` 里根本没有它。
+        v420 遇到这种情况就**放弃定位**、把活儿推回给用户 —— 而用户点它正是为了不自己找。
+        另有一个独立缺陷：v420 靠 `setTimeout(600ms)` 猜"网络回没回"，猜早了同样落到那句提示。
+
+     ⇒ 现在三步递进，**点了一定到位**：
+        ① 目标已在当前列表（`_prodIndex` 命中）→ 直接定位；
+        ② 有筛选（关键词/品牌/常报）→ `await clearFilters()`（**等重铺真的落地**，不猜时序）
+           后重查，命中即定位；
+        ③ 仍不在（目标在整期清单里、但排在已加载的 30 条之后）→ **用它自己的名字做
+           「清单内搜索」**（`loadProducts(name)`）把目标拉进首屏，再定位。
+           ⚠️ 这一步成立的前提：`_lowList()`（`avg-target`）与 `fill-search` **数据源同源**
+              （两者都取 `forecast_period_product_ids`）⇒ 清单里的商品一定能被搜到。
+        三步都落空才提示 —— 且文案必须是**能行动的**（指向搜索框），绝不写"你自己找"。 */
+  jumpToLow(e) {
+    const ds = e.currentTarget.dataset || {}
+    const id = Number(ds.id)
+    if (!id) return
+    const name = String(ds.name || '')
+    const r = this._confirmResolve
+    this._confirmResolve = null
+    this.setData({ confirmOpen: false })
+    if (r) r(false)      // 关层的出口 = 「返回修改」（与 `cancelConfirm()` 同一条路，不动任何已填数）
+    this._locateRow(id, name)
+  },
+  async _locateRow(id, name) {
+    if (!this._hasRow(id) && (this.data.kw || this.data.brandSel || this.data.freqOn)) {
+      await this.clearFilters()
+    }
+    if (this._hasRow(id)) { this._scrollTo(id); return }
+    /* 目标在整期清单里、但排在已加载的 30 条之后 ⇒ 逐级用搜索词把它拉进首屏。
+       为什么不"把全部翻完"：整期一两百条要连发 5~7 次请求，且用户得等；搜索是后端一次
+       `LIKE` 过滤（`fill-search` 的 `q`），代价恒定、一次到位。 */
+    const words = this._searchWords(name)
+    for (let i = 0; i < words.length; i++) {
+      await this.loadProducts(words[i], false)   // 内部已 catch，不会抛
+      if (this._hasRow(id)) { this._scrollTo(id); return }
+    }
+    /* 真到不了（商品名全是符号 / 目标已不在本期清单）⇒ 给**能行动**的出口。
+       🔴 文案纪律：不许出现"请在列表里找这一项" —— 用户点它就是为了不找。 */
+    wx.showToast({
+      title: '没找到「' + (name || '该商品') + '」，请用上方搜索框按名称找',
+      icon: 'none', duration: 2500
+    })
+  },
+  /* 目标行是否**已在渲染中的列表里**。`_prodIndex`（id -> products 下标）只在
+     `loadProducts` 落地时重建 ⇒ 它就是"当前列表"的权威判据（比遍历 `products` 便宜）。 */
+  _hasRow(id) {
+    return (this._prodIndex || {})[String(id)] !== undefined
+  },
+  /* 把商品名变成**递进的搜索词**：先用原名（唯一性最强）→ 去掉符号 → 截前 8 字。
+     ⚠️ 为什么要递进：生产上的商品名含 `*`、`(`、`+`、`·` 与全角字符
+        （如「每日鲜酪桂花马蹄125g*…」「每日鲜酪蓝莓+3发货(2…」），而搜索是 `LIKE '%词%'`：
+        原样搜通常没事，但名字里一旦夹着省略号 / 不可见字符，原样搜必然 0 命中 ——
+        此时截短取前几个字是**唯一**还能定位的路径。 */
+  _searchWords(name) {
+    const raw = String(name || '').trim()
+    if (!raw) return []
+    const out = [raw]
+    const noSym = raw.replace(/[…·*+()（）\s]/g, '').trim()
+    if (noSym && noSym !== raw) out.push(noSym)
+    const head = noSym.slice(0, 8)
+    if (head.length >= 4 && head !== noSym) out.push(head)
+    return out
+  },
+  _scrollTo(id) {
+    const q = wx.createSelectorQuery().in(this)
+    q.select('#prod-' + id).boundingClientRect()
+    q.selectViewport().scrollOffset()
+    q.exec(res => {
+      if (res && res[0]) {
+        // 上留 110px：让目标行落在**屏幕上部** —— 键盘弹起后它仍在可视区内、不被压住
+        const top = (res[1] ? res[1].scrollTop : 0) + res[0].top - 110
+        wx.pageScrollTo({ scrollTop: top, duration: 200 })
+      }
+      /* v421：**先滚动、后聚焦**（v420 是同时 setData）。因为 input 一旦 focus，
+         微信会自动把它滚进可视区 ⇒ 与上面这次 `pageScrollTo` 抢同一个滚动位置，
+         最终停在哪取决于谁后到（实测会落在"目标行看得见但被键盘压住"的地方）。
+         现在等滚动跑完（200ms）再聚焦，键盘弹起时目标行已在上部，两者不再打架。 */
+      setTimeout(() => {
+        this.setData({ focusId: id, flashId: id })
+      }, 220)
+    })
+    /* 高亮 4 秒、聚焦 2.5 秒后各自撤掉。两个状态**不共用**同一个 id（v421 拆开，
+       见 data 注释）：否则撤高亮的定时器会连带收掉用户正在打字的键盘。
+       两个 setData 前都先核对"要撤的还是不是本次定位的那一项" —— 连续点两项时，
+       前一次的定时器绝不能把后一次的高亮/聚焦误撤。 */
+    setTimeout(() => {
+      if (this.data.flashId !== id) return
+      this.setData({ flashId: '' })
+    }, 4000)
+    setTimeout(() => {
+      if (this.data.focusId !== id) return
+      const row = this._rowOf(id)
+      if (row && Number(row.qty) > 0) return   // 用户已经开始填了 ⇒ 不收他的键盘
+      this.setData({ focusId: '' })
+    }, 2500)
+  },
+
   noop() {},   // v393: 阻断弹层内部的点击/滑动冒泡到遮罩（照 login.js 的 A3 范式）
 
   /* v224：单号一键复制 —— 结果卡上的单号必须**能被拿去用**（对账、报给主管、找回这一单）。 */
@@ -1684,66 +1917,33 @@ Page({
        不在任何 `product_target_alloc` 名单里）⇒ 均单那个团队参考值与他无关，
        提示「有 1 个有目标的商品还没填」只会让他以为自己漏填了别人的目标。
        🔴 判据**只认服务端给的明确 false**：字段缺失（老后端）时照常提醒，不静默关闭。 */
+    /* v419（2026-10-09）· **方案 2**：这里原先先弹「未达标提醒」、再弹「本期已报过」，
+       然后才进明细核对层 —— 提交一次要过三关，其中两关是系统弹窗（与第三关视觉不同）。
+       现在两条提醒的数据原样交给 `_askConfirm()`，由层内**一次**呈现（文案口径一字未改）。
+       ⇒ 判据与旧实现完全相同：`_avgHolder === false` 短路、`_lowList()` 的 `q < target`、
+          dup 快照取自 `_subKey()`；变的只是"在哪显示"。
+       ⚠️ 旧 dup 弹窗的「去查看」（取消时跳「我的提交」）已由层内 `.cf-dup` 的「去查看」承接。 */
     const low = (this._avgHolder === false) ? [] : this._lowList()
-    if (low.length) {
-      const notFilled = low.filter(x => x.empty)      // 完全未填
-      const short = low.filter(x => !x.empty)         // 填了但低于目标
-      const lineOf = (x) => x.empty
-        ? (x.name + ' 未填 / 均单 ' + this._numText(x.target) + ' ' + (x.unit || ''))
-        : (x.name + ' ' + this._numText(x.qty) + ' / 均单 ' + this._numText(x.target) + ' ' + (x.unit || ''))
-      const title = (notFilled.length && short.length)
-        ? ('有 ' + low.length + ' 个有目标的商品未达标')
-        : (notFilled.length
-            ? ('有 ' + notFilled.length + ' 个有目标的商品还没填')
-            : ('有 ' + short.length + ' 个商品低于均单目标'))
-      // 只有「未填」时多一句说明口径（"没填 = 按 0 计"），否则用户会以为系统算错了
-      const note = notFilled.length
-        ? ('\n没填的商品按 0 计算（共 ' + notFilled.length + ' 个）。')
-        : ''
-      const ok = await new Promise(res => {
-        wx.showModal({
-          title,
-          content: low.slice(0, 3).map(lineOf).join('\n')
-                 + (low.length > 3 ? '\n…等 ' + low.length + ' 个' : '')
-                 + '\n\n均单目标是按月目标和剩余可报期次推算的参考值，不是必须达到的数。'
-                 + note
-                 + '照常提交请点「继续提交」。',
-          confirmText: '继续提交', cancelText: '返回修改',
-          confirmColor: '#06b6d4',
-          success: (r) => res(!!r.confirm),
-          fail: () => res(false)
-        })
-      })
-      if (!ok) return
-    }
     /* 2026-09-06 / v224：同一门店 + 同一期次已报过 —— 先确认。
        v224 订正文案：后端语义是**覆盖同一单**（v224 起单号还保持不变），
        原文案却写「再提交会新增一单」—— 与后端相反：会把用户吓住（怕重复下单）、
        也会让人按"新增"去理解对账。现在三件事一次说清：改的是哪一单、单号不变、不会多一条。
        ⚠️ showModal 的 content 是**纯文本**，不要写 markdown 强调符号（`**` 会原样显示）。 */
+    /* v419：原来这里弹「本期已报过，将更新这一单」—— 已并进层内 `.cf-dup`（见 `_askConfirm()`）。
+       `store` / `period` 的取值改由层内模板直接呈现（`{{store.name}}` / `{{period.name}}`）。 */
     const dup = wx.getStorageSync(this._subKey())
-    if (dup && dup.sid) {
-      const ok = await new Promise(res => {
-        wx.showModal({
-          title: '本期已报过，将更新这一单',
-          content: `${store.name} 在「${period.name}」已报 ${dup.count} 项 / ${dup.qty} 件。\n`
-                 + `继续提交将修改这同一单（单号 ${dup.sid} 不变），不会多出一条。`,
-          confirmText: '提交修改', cancelText: '去查看',
-          success: (r) => res(!!r.confirm),
-          fail: () => res(false)
-        })
-      })
-      if (!ok) { wx.switchTab({ url: '/pages/mine/mine' }); return }
-    }
     /* v393（2026-10-07）：最后一步改为**明细核对层**（取代原「确认提交预报？」原生弹窗）。
-       🔴 本次修的洞：原实现是 `if (!confirmed)` —— 于是 **dup 存在时（= 改单）整段被跳过**，
+       🔴 v393 修的洞：原实现是 `if (!confirmed)` —— 于是 **dup 存在时（= 改单）整段被跳过**，
           改数量重报的人**看不到任何核对界面**。而改单恰恰是最需要核对明细的场景
           （用户原话：「让用户可以检查自己…如果不合适，也可以直接点取消，然后返回去再修改」）。
-          ⇒ 现在**无条件**走这一层：首次提交与改单一视同仁。
-       ⚠️ 标题仍是「确认提交预报？」—— D21 / D22 / D24 三条验收的锚点就是这串文案，
-          本次只换载体（原生弹窗 → 页内层），文案一字不改，验收串继续成立。
-       ⚠️ 这层只负责"确认/取消"；「返回修改」不动任何已填数量（见 `cancelConfirm()`）。 */
-    const okConfirm = await this._askConfirm()
+          ⇒ **无条件**走这一层：首次提交与改单一视同仁。
+       🔴 v419（2026-10-09）**方案 2**：未达标提醒、已报过提醒**也并进这一层**（原先各自弹系统弹窗）
+          ⇒ 提交只过**一关**。三条验收串（「确认提交预报？」/「有 N 个商品低于均单目标」/
+          「有 N 个有目标的商品未达标」/「本期已报过，这次是更新同一单（单号 X 不变，不会多出一条）」）
+          **一字未改**，只是全部搬到了层内 ⇒ 验收串继续成立、只换了载体。
+       ⚠️ 这层只负责"确认/取消"；「返回修改」不动任何已填数量（见 `cancelConfirm()`）；
+          「去查看」（改单退出到「我的提交」）见 `goMine()`。 */
+    const okConfirm = await this._askConfirm({ low, dup })
     if (!okConfirm) return
     this.setData({ submitting: true, pendingSubmit: false })
     try {
@@ -1833,6 +2033,21 @@ Page({
     this.syncCart()
     this.clearRowQty()
     this.setData({ pendingSubmit: false, submitResult: null, submitError: null, cartOpen: false, sampleInfo: null })
+  },
+
+  /* v433：常驻「一键清空」入口（prod-head 右上角，cartCount>0 时显示）。
+     🔴 破坏性操作（清掉所有已填数量，不可撤销）⇒ 先确认再清，避免销售手滑把半张单清空。
+     确认后直接复用 clearCart()（已是"清空全部"的完整实现：cartMap 置空 + 行内 qty 归零 + 清提交/草稿态）。 */
+  onClearAll() {
+    if (!this.data.cartCount) return
+    wx.showModal({
+      title: '清空已填数量',
+      content: '确定清空本次已填报的 ' + this.data.cartCount + ' 项 / ' + this.data.cartQty + ' 件吗？清空后需重新填写，且不可撤销。',
+      confirmText: '清空',
+      confirmColor: '#ff3b30',
+      cancelText: '取消',
+      success: (res) => { if (res.confirm) this.clearCart() },
+    })
   },
 
   /* 清空所有行内已填数量（提交成功 / 清空购物车后） */

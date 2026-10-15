@@ -1190,3 +1190,42 @@
 - ✅ **`backups/` 下的 `pNN/` 目录是「发版前备份」而非每日快照**：内容形如 `erp_db.py.20261014204713`（**后缀不是 `.py`** ⇒ 不进第 8 项审计），root 属主；**若其中的旧文件字节数与本机(==HEAD)版本逐字吻合**，即证明发版脚本是「先备份旧版、再写新版」（可作为第 8 项「生产 ≠ HEAD」的**独立旁证**）。
 - ✅ **`ls -1dt backups/*/ | head -3` 会被 `pNN/` 抢位**：本轮前 3 名是 `2026-10-15/`、`p04/`、`p06/`。**判「最近每日快照」要配合 `ls -1d /opt/hergent-erp/backups/20*/`（按数字前缀过滤）**，否则会以为没有当天快照。
 - ⚠️ **本文件（自动化记忆）会被静默回退或漏写**：本轮发现 **2026-10-14 那轮完全没有留痕**（最后一次「最近执行」是 10-13）。⇒ **下轮起手先 `grep -n "^## 最近执行" 本文件 | tail -3`**，若上一轮缺失就据报告文件补记一行，避免「连续天数」类计数断链。
+  （2026-10-16 复核：`## 最近执行` 现为 10-08 / 10-11 / 10-12 / 10-13 / 10-15 ⇒ **10-14 仍缺**，与 10-09 / 10-10 报告本身缺失（本机疑未开机）一致；不再补记。）
+
+---
+
+## 最近执行：2026-10-16（第 19 次 · 04:00）
+- 模式：严格只读。未改/删/重命名生产文件，未部署、未重启服务；**未做任何数据库访问**。副作用 1 条（1 次 `demo-login`，复用 `docs/prod-inspection/tools/tenant-probe.sh`，**改为 `ssh 'bash -s' < 脚本` 在生产端执行**）。
+- 结果：**总体 🔴 高危（2 条）** —— 4 项正常、2 项需关注、**2 项高危**、0 项未知。
+  - 🔴 **第 4 项仍高危，但根因换了（本轮最重要）**：`traceback` 相关行 **44**（昨 21）/ 堆栈头 **8 个** / `ImportError` **0**（昨 21）/ `[ERROR]` **2** / 真实 5xx **3**（500×2 + 503×1）。全部集中在 **10-15 14:14:41 与 14:14:50**，根因 `sqlite3.IntegrityError: FOREIGN KEY constraint failed`，调用链 `routers/psi.py:1439 psi_confirm_purchase_order` → `routers/purchase.py:518 confirm_purchase` → `db/queries/purchases.py:762 purchase_order_confirm` → `db/queries/inventory.py:255 batch_in`。即 **「确认采购单」真实业务动作 500 失败**（订单 168，真实用户 IP `111.170.201.237`，请求号 `cfa80cdf6196`/`11608219ed78`）。**性质与 10-13/10-14 的启动期 `ImportError` 崩溃循环完全不同（本轮无重启）**。⚠️ **出事文件 `db/queries/purchases.py` 恰是第 8 项那 6 个「生产独有版本」之一 ⇒ 本机无法复现、常规发版也修不了**，这正是「生产 ≠ git」的真实代价第一次显形。
+  - ✅ **第 3 项结案（好转）**：`Started` 24h **31 → 0**、`Stopped` **0**；服务自 `2026-10-14 23:36:34` 连续运行约 28 小时（放宽到 30 小时窗口也只有这 1 次启动）⇒ **崩溃循环确认止血**。`NRestarts` 仍 0（继续不可信）。
+  - 🔴 **第 8 项仍 9（未恶化、也未修复）**：6 个「生产有独有版本」（`db/queries/purchases.py` 166973/10-14 21:49/`3b11f69f…`、`db/queries/sales.py` 89553/20:53/`d45e976b…`、`db/queries/ui_prefs.py` 9371/19:50/`4434d775…`、`erp_db.py` 1328454/20:53/`c93ecbb9…`、`routers/psi.py` 157043/16:25/`f7defef5…`、`routers/reports.py` 22873/23:36/`29d0a071…`）**校验值与昨日逐字节相同** + `_rollback/v470-…/{psi,purchase,purchases}.py` 3 个死副本；其余分类全 0；「本机有、生产无」107。**近 24h 生产侧零 `.py` 落盘**（`find -newermt` 空）。本机 `upgrade/v84-international` == HEAD `aa658a5`，`git stash`/`worktree` 均干净，ahead 11。
+  - ✅ 第 1 项 200/200 + active（`MainPID=3434412` 未变）。✅ 第 2 项**备份连续第 19 天**：`backups/2026-10-16/` **7/7 ok / 51.9 MB / cleaned 1**（保留策略首次真删 1 个旧目录）、零字节 0、**权限回到 600**（昨日 640 观察撤销）、当天失败关键字 0；历史日快照 15。✅ 第 6 项证书 `notAfter=Jan 8 10:50:28 2027 GMT` ⇒ 约 **84 天**。
+  - ⚠️ 第 5 项：根分区 **83%（剩 6.5G，连续第 5 天）**；`journalctl --disk-usage` **424.0M → 440.0M**（在 500M 内）。`backups/` 子目录 **73**（+今日新增 −保留策略清理 1 = 持平）；root 属主 `p04/p05/p06` 仍在。`_rollback/` 9 子项、`_backup/` 7 文件均与昨日同。
+  - ⚠️ 第 7 项：越权 **4/4 = 403 + 对照 200，无越权 200**；前 3 条「此功能仅平台管理员可用」= 真实防守；第 4 探针 **判据失效约第 22 天**（`READONLY_TENANT`）。24h **原始 `WARNING` = 0 行 ⇒ 归并项 0**（`Duplicate Operation ID` 0、`openapi.json` 访问 0、`no such column` 0）。
+  - 补充计数：`Off-site backup error`（缺 `backup_config_get`）= **1**（连续 **18 天**）；`Daily profit push failed {'wecom': False,'feishu': False}` = **2**（连续 **17 天**）；`tenant-scan` = 0、`保活拉起网关` = 0（`tenant_9.db` 仍不存在，**保持结案**）；`/.env` 13 条 = 公网扫描器噪音。
+- ✅ 报告落盘：`docs/prod-inspection/2026-10-16.md`（291 行；目录内 **21 份**，未触发 30 上限，**无删除**；仍缺 10-02 / 10-09 / 10-10）。
+- ✅ **推送成功**（生产端 Hermes，管道直传）：`message_id = aibot_send_msg-503098b4726c4d6685b101e8bd435289`，`mirrored: true`，`chat_id = ZhangJunFeng`。推送稿 Write 落 `.workbuddy/tmp-wecom-push-20261016.txt` → 推送后 `rm -f`；**生产端零残留**。
+
+## 下轮必做（2026-10-17 起）
+1. 🔴 **「确认采购单 500（外键约束）」是否复现** —— 关键字 `FOREIGN KEY constraint failed` / `purchase-orders/168/confirm` / `psi_confirm_purchase_order`。**若再出现，说明是稳定缺陷而非偶发**；并核对 `db/queries/inventory.py:255 batch_in` 是否已被改动落盘（`find -newermt`）。
+2. 🔴 **第 8 项 = 9** ⇒ 继续 🔴；**基线仍 0、巡检不得调高**。这是本轮业务故障的根因土壤：**先解决「生产 ≠ git」才能修第 4 项**。重点：谁在 10-14 16:25~23:36 推的、内容是否有效、能否回灌入 git。
+3. ✅ **第 3 项已结案（24h `Started` = 0）** ⇒ 下轮只守「是否再出现每 ~6 秒成串重启」。**主判据仍用「24h Started 计数 + 同窗口堆栈」双证**。
+4. ⚠️ **根分区 83%（剩 6.5G，连续第 5 天）** ⇒ **≥85% 升级为高危口径**。
+5. ⚠️ **系统日志 440.0M** ⇒ 只需看是否再涨（>600M 才重挂 ⚠️）。
+6. ⚠️ **两条调度器连续失败**：Off-site **18 天** / profit push **17 天** ⇒ 继续计数。
+7. ⚠️ 越权第 4 探针**判据失效约 22 天** ⇒ 是否已换非只读测试账号。
+8. ⚠️ **报告缺失 3 天**（10-02 / 10-09 / 10-10）⇒ 下轮先 `ls docs/prod-inspection/`（已连续 8 天提及）。
+9. ⚠️ **未推送提交（后端）11 个**（HEAD `aa658a5`）⇒ 下轮复核。
+10. 👀 `backups/` 下 root 属主 `p04/p05/p06` 发版前备份目录（建议纳入清理策略，与磁盘 83% 相关）。
+11. 👀 `/root/.hermes/SOUL.md` root 属主软链（**别重复新建**）。
+12. ✅ 已结案、无需再跟：**24h 重启（回 0）；备份产物权限（回 600）；系统日志容量；`tenant_9.db`；备份保留策略（连续 19 天）；证书续期；10-14 的 `ImportError` 崩溃循环**。
+
+## 复用要点补充（2026-10-16 新增）
+- 🔴 **「生产 ≠ git」不只是合规隐患，它会让线上故障无法在本机复现**：本轮第 4 项 `confirm` 500 的调用链贯穿 `db/queries/purchases.py`，而该文件正是第 8 项「生产有独有版本」之一 ⇒ **拿着 git HEAD 在本地跑，永远跑不出这个 500**。报第 4 项时**必须点出这条关联**，否则会被当成普通业务缺陷、按常规流程去修（修不了）。
+- ✅ **`traceback` 行数 ≠ 堆栈个数**：FastAPI + anyio 的 `BaseExceptionGroup` 会把同一次异常嵌套打印，`grep -ci traceback` 会因「The above exception was the direct cause」等续行翻倍（本轮 44 行 vs 实际 `Traceback (most recent call last)` 头 **8 个**）。**报告里两个数都要给**，并说明关系。
+- ✅ **取根因不要 `grep -A6`（截断）**：正确做法是**按时间窗取整段再逐层剥**：`journalctl --since "T1" --until "T2" --no-pager | grep -v -e "dist-packages" -e "^--$" | tail -60`，最后一行就是真正的异常类型。`grep -A6 "Traceback"` 只会拿到中间帧。
+- ✅ **越权探针改在「生产端」跑更稳**：`ssh root@… 'bash -s' < docs/prod-inspection/tools/tenant-probe.sh` —— 避免本机代理（`HTTP(S)_PROXY=127.0.0.1:63932`）干扰，且 `demo-login` 的副作用落在生产侧、语义与真实登录一致。**注意脚本内用 `/usr/bin/python3`，生产端存在**。
+- ✅ **`ls -1d backups/20*/`（数字+短横线开头）能干净过滤出每日快照**：`backups/20260709_v2` 这类无短横线的也会被 `20*` 匹配到，故「日快照数」= 15 而非 14（10-03~10-16 连续 14 个 + 1 个历史遗留）。**报数时说明口径**。
+- ✅ **保留策略的判据是 `cleaned N old dir(s)`**：本轮首次出现 `cleaned 1`，与「`backups/` 子目录总数持平（73）」自洽（+1 新增 −1 清理）。**总数不变 ≠ 什么都没发生**，要结合 `cleaned` 字段读。
+- 👀 **`nohup`/后台进程无涉**：本任务全部命令走 `ssh '<命令组>'` 同步返回，无人值守轮次**不启动任何常驻进程**，符合「不做进程游离」纪律。

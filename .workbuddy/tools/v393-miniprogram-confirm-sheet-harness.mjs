@@ -2,6 +2,11 @@
 /* v393 判据台：小程序「提交前明细核对层」
    （pages/fill/fill.js + fill.wxml + fill.wxss）
 
+   v421（2026-10-09）扩展：补 S8/S9 —— 层内「未填项」点击后的**定位链**。
+   🔴 要守住的那件事：用户点它就是为了**不自己找**。v420 的实现在目标尚未被
+      分页加载时会弹「请在列表里找这一项」并把活儿推回用户 —— S9 就是钉住这条
+      假实现的回归测试（目标不在 `_prodIndex` 里 ⇒ 必须走搜索把它拉进首屏并定位）。
+
    用户原话：「提交报单的时候，弹窗里边能不能显示本次提交的这个订单的明细，让用户可以
              检查自己。如果不合适，可以直接点取消，然后返回去再修改。」
 
@@ -40,6 +45,7 @@ const toasts = []
 const switchTabs = []
 let storage = Object.create(null)
 
+const pageScrolls = []
 const wx = {
   getStorageSync: (k) => (k in storage ? storage[k] : ''),
   setStorageSync: (k, v) => { storage[k] = v },
@@ -53,12 +59,37 @@ const wx = {
   switchTab: (o) => switchTabs.push(o),
   navigateTo: () => {}, showLoading: () => {}, hideLoading: () => {},
   setClipboardData: (o) => { if (o.success) o.success({}) },
+  createSelectorQuery: () => ({
+    in: () => ({
+      select: () => ({ boundingClientRect: () => ({}) }),
+      selectViewport: () => ({ scrollOffset: () => ({}) }),
+      exec: (cb) => cb([{ top: 100 }, { scrollTop: 0 }]),
+    }),
+  }),
+  pageScrollTo: (o) => { pageScrolls.push(o) },
 }
+/* v421：判据台自己的「本期商品清单」—— `_locateRow()` 的搜索兜底会真的打
+   `/products/fill-search?q=...`，这里按 keyword 做同样的「包含」过滤。
+   🔴 必须让这条链能走完（找得到 ⇒ 进首屏 ⇒ 定位），否则判据台只会看到空列表，
+      变成"实现错了也通过"。999 刻意**不在** BASE 的 3 行里 —— 它模拟
+      「本期有目标、但排在 pageSize=30 之后、还没被加载」的商品（= 用户报的那个现场）。 */
+const CATALOG = [
+  { id: 101, name: '蒙牛纯甄原味', unit: '件' },
+  { id: 102, name: '蒙牛特仑苏', unit: '件' },
+  { id: 103, name: '简爱裸酸奶', unit: '件' },
+  { id: 999, name: '没填的目标品', unit: '件' },
+]
 const requireMock = (p) => {
   if (/utils\/api$/.test(p)) {
     return {
       request: async (url, method, body) => {
         requests.push({ url, method, body })
+        if (String(url).indexOf('/products/fill-search') >= 0) {
+          const m = String(url).match(/[?&]q=([^&]*)/)
+          const kw = m ? decodeURIComponent(m[1]) : ''
+          const items = CATALOG.filter(it => !kw || it.name.indexOf(kw) >= 0)
+          return { items, total: items.length, scope: 'period' }
+        }
         const q = (body.items || []).reduce((s, i) => s + i.quantity, 0)
         return { id: 'FS20261007001', total_qty: q, created: true }
       },
@@ -125,6 +156,7 @@ const BASE = () => ({
 })
 const PROD_INDEX = { '101': 0, '102': 1, '103': 2 }
 const tick = async (n = 4) => { for (let i = 0; i < n; i++) await new Promise(r => setTimeout(r, 0)) }
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 function reset() {
   modalCalls.length = 0; requests.length = 0; toasts.length = 0; switchTabs.length = 0
   modalQueue = []; storage = Object.create(null)
@@ -174,34 +206,35 @@ async function s2() {
 }
 
 async function s3() {
-  console.log('\n=== S3 改单（本期已报过）⇒ 仍打开明细层（本轮修的洞）===')
+  console.log('\n=== S3 改单（本期已报过）⇒ 不弹原生弹窗、直接进明细层（v419 方案 2）===')
   reset()
   const inst = makePage({ data: BASE() })
   inst._prodIndex = PROD_INDEX
   storage['fs_sub_5_19'] = { sid: 'FS2026OLD', count: 2, qty: 9, at: '2026-10-07 09:00' }
-  modalQueue = [true]
   const p = inst._doSubmit()
   await tick(4)
-  ck('弹了 1 个原生弹窗', modalCalls.length, 1)
-  ck('弹窗标题（D1 验收锚点，一字未改）', modalCalls[0].title, '本期已报过，将更新这一单')
+  ck('不再弹原生弹窗（两条提醒已并进层内）', modalCalls.length, 0)
   ck('改单路径也打开了明细层', inst.data.confirmOpen, true)
   ck('层内带改单提示（单号不变）', (inst.data.confirmDup || {}).sid, 'FS2026OLD')
+  ck('层内带「已报 n 项 / M 件」（原弹窗正文的信息）',
+    [(inst.data.confirmDup || {}).count, (inst.data.confirmDup || {}).qty], [2, 9])
   inst.cancelConfirm()
   await p
   ck('点「返回修改」⇒ 不落库', requests.length, 0)
 }
 
 async function s4() {
-  console.log('\n=== S4 改单弹窗点「去查看」⇒ 不进明细层、不落库 ===')
+  console.log('\n=== S4 层内点「去查看」⇒ 关层、跳「我的提交」、不落库 ===')
   reset()
   const inst = makePage({ data: BASE() })
   inst._prodIndex = PROD_INDEX
   storage['fs_sub_5_19'] = { sid: 'FS2026OLD', count: 2, qty: 9, at: '2026-10-07 09:00' }
-  modalQueue = [false]
   const p = inst._doSubmit()
   await tick(4)
-  ck('未打开明细层', inst.data.confirmOpen, false)
+  ck('层已打开（改单不再有前置弹窗）', inst.data.confirmOpen, true)
+  inst.goMine()
   await p
+  ck('关层', inst.data.confirmOpen, false)
   ck('跳转到「我的报单」', switchTabs.map(s => s.url), ['/pages/mine/mine'])
   ck('不落库', requests.length, 0)
 }
@@ -218,11 +251,12 @@ async function s5() {
     _avgMapPid: 19,
   })
   inst._prodIndex = PROD_INDEX
-  modalQueue = [true]
   const p = inst._doSubmit()
   await tick(4)
-  ck('先弹未达标提醒（D21/D25 锚点：只有「低于」时保持原文案）',
-    /低于均单目标/.test(modalCalls[0] ? modalCalls[0].title : ''), true)
+  ck('不再弹原生弹窗（v419 方案 2：提醒并进层内）', modalCalls.length, 0)
+  ck('层内标题「低于均单目标」（D21/D25/D27 锚点：只有「低于」时保持原文案）',
+    /低于均单目标/.test(inst.data.confirmLowTitle || ''), true)
+  ck('层内列出未达标明细行（原弹窗正文的信息）', inst.data.confirmLowRows.length, 1)
   ck('明细层打开', inst.data.confirmOpen, true)
   ck('未达标行被标出',
     (inst.data.confirmRows.find(r => r.name === '蒙牛纯甄原味') || {}).low, '未达标')
@@ -243,7 +277,18 @@ function s6() {
   ck('wxml 遮罩拦滚动穿透 catchtouchmove="noop"', wxml.includes('catchtouchmove="noop"'), true)
   ck('js 有 noop()', /noop\(\)\s*\{\}/.test(js), true)
   ck('js 有 confirmSubmit / cancelConfirm', js.includes('confirmSubmit()') && js.includes('cancelConfirm()'), true)
-  ck('js 仍保留「本期已报过，将更新这一单」（D1 锚点）', js.includes('本期已报过，将更新这一单'), true)
+  /* v419 方案 2：两条提醒（未达标 / 已报过）从「原生弹窗」搬进层内 —— 文案一字未改，只换载体。 */
+  ck('wxml 保留 D30 锚点串「本期已报过，这次是更新同一单」',
+    wxml.includes('本期已报过，这次是更新同一单'), true)
+  ck('wxml 保留「（单号 … 不变，不会多出一条）」', wxml.includes('不变，不会多出一条'), true)
+  ck('wxml 有层内「去查看」出口（catchtap="goMine"）', wxml.includes('catchtap="goMine"'), true)
+  ck('js 有 goMine()', js.includes('goMine()'), true)
+  ck('wxml 有未达标提醒清单 .cf-warn（v419）', wxml.includes('cf-warn'), true)
+  ck('wxml 清单绑定 confirmLowRows', wxml.includes('confirmLowRows'), true)
+  ck('js 层内标题取值 confirmLowTitle（v419）', js.includes('confirmLowTitle'), true)
+  ck('js 中 wx.showModal 调用只剩样单路径 1 处（提交链路已无原生弹窗）',
+    (js.match(/wx\.showModal\(\{/g) || []).length, 1)
+  ck('wxss 有 .cf-warn 样式（新类名不漏定义）', /\.cf-warn\{/.test(wxss), true)
   const zi = (cls) => {
     const m = wxss.match(new RegExp('\\.' + cls + '\\{[^}]*z-index:(\\d+)'))
     return m ? Number(m[1]) : null
@@ -266,8 +311,208 @@ async function s7(rowsLen) {
   if (hasPower) PASS++; else FAIL++
 }
 
+async function s8() {
+  console.log('\n=== S8 v421 点「未填」项（目标已在列表里）→ 关层 + 滚动/高亮/聚焦 + 不落库 ===')
+  reset()
+  const inst = makePage({
+    data: Object.assign(BASE(), {
+      products: BASE().products.concat([{ id: 999, name: '没填的目标品', unit: '件', qty: 0 }]),
+    }),
+    _avgMap: {
+      '101': { product_name: '蒙牛纯甄原味', unit: '件', flags: {}, avg_per_unit: { '件': 3 } },
+      '999': { product_name: '没填的目标品', unit: '件', flags: {}, avg_per_unit: { '件': 10 } },
+    },
+    _avgMapPid: 19,
+  })
+  inst._prodIndex = Object.assign({ '999': 3 }, PROD_INDEX)   // 目标已在当前列表里 ⇒ 不该再发搜索
+  modalQueue = []
+  const p = inst._doSubmit()
+  await tick(4)
+  ck('明细层打开', inst.data.confirmOpen, true)
+  ck('层内有未填项（confirmLowRows）', inst.data.confirmLowRows.length, 1)
+  const row = inst.data.confirmLowRows[0]
+  const targetId = row.id
+  ck('未填项 id = 999', targetId, 999)
+  ck('未填项带 name（v421 定位兜底要用它）', row.name, '没填的目标品')
+  pageScrolls.length = 0
+  requests.length = 0
+  toasts.length = 0
+  inst.jumpToLow({ currentTarget: { dataset: { id: targetId, name: row.name } } })
+  ck('点后关层（= 返回修改语义，不落库不动数量）', inst.data.confirmOpen, false)
+  ck('未落库（没提交）', requests.length, 0)
+  await sleep(300)   // 等 `_scrollTo` 的「先滚动、后聚焦」那 220ms
+  ck('触发主列表滚动定位（pageScrollTo 被调用 1 次）', pageScrolls.length, 1)
+  ck('高亮 flashId = 目标商品', inst.data.flashId, targetId)
+  ck('聚焦 focusId = 目标商品（键盘直接弹到这一行）', inst.data.focusId, targetId)
+  ck('已在列表里 ⇒ 一次到位、零提示', toasts.length, 0)
+}
+
+async function s9() {
+  console.log('\n=== S9 v421（用户报的现场）目标尚未被分页加载 → 必须搜索定位，绝不甩回用户 ===')
+  reset()
+  const inst = makePage({
+    data: BASE(),
+    _avgMap: {
+      '101': { product_name: '蒙牛纯甄原味', unit: '件', flags: {}, avg_per_unit: { '件': 3 } },
+      '999': { product_name: '没填的目标品', unit: '件', flags: {}, avg_per_unit: { '件': 10 } },
+    },
+    _avgMapPid: 19,
+  })
+  inst._prodIndex = PROD_INDEX     // 只有 101/102/103 ⇒ 999 查不到（= 排在 pageSize=30 之后）
+  modalQueue = []
+  const p = inst._doSubmit()
+  await tick(4)
+  const row = inst.data.confirmLowRows[0]
+  ck('未填项 id = 999', row.id, 999)
+  ck('前置：999 不在当前列表索引里（正是生产上的现场）', inst._hasRow(999), false)
+  pageScrolls.length = 0
+  requests.length = 0
+  toasts.length = 0
+  inst.jumpToLow({ currentTarget: { dataset: { id: row.id, name: row.name } } })
+  await sleep(150)
+  const searches = requests.filter(r => String(r.url).indexOf('fill-search') >= 0)
+  ck('发起了「清单内搜索」（1 次）', searches.length, 1)
+  ck('搜索词 = 该商品的完整名字',
+    searches.length ? decodeURIComponent((searches[0].url.match(/[?&]q=([^&]*)/) || [])[1] || '') : '',
+    '没填的目标品')
+  ck('搜索把目标拉进了首屏（products 里出现 999）',
+    inst.data.products.map(x => x.id).indexOf(999) >= 0, true)
+  await sleep(300)
+  ck('搜索成功后照样定位（pageScrollTo 1 次）', pageScrolls.length, 1)
+  ck('高亮落在目标商品上', inst.data.flashId, 999)
+  ck('🔴 没有出现「请在列表里找这一项」（钉死 v420 的假实现）',
+    toasts.filter(t => String(t.title).indexOf('列表里找') >= 0).length, 0)
+  ck('🔴 一次到位、零提示（toasts 为空）', toasts.length, 0)
+
+  /* 判别力自证：把目标从「本期清单」里摘掉（= 真的搜不到）⇒ **必须**给出一个
+     能行动的提示，且**仍然不许**是 v420 那句甩锅文案。
+     若这段不 FAIL 也别通过 —— 它证明的是"断言真的在看提示内容"。 */
+  reset()
+  const inst2 = makePage({
+    data: BASE(),
+    _avgMap: { '999': { product_name: '没填的目标品', unit: '件', flags: {}, avg_per_unit: { '件': 10 } } },
+    _avgMapPid: 19,
+  })
+  inst2._prodIndex = PROD_INDEX
+  modalQueue = []
+  const p2 = inst2._doSubmit()
+  await tick(4)
+  const row2 = inst2.data.confirmLowRows[0]
+  CATALOG.splice(CATALOG.findIndex(x => x.id === 999), 1)   // 确保搜不到
+  toasts.length = 0
+  inst2.jumpToLow({ currentTarget: { dataset: { id: row2.id, name: row2.name } } })
+  await sleep(300)
+  ck('真搜不到时给出**能行动**的提示（指向搜索框）',
+    toasts.map(t => String(t.title)).join('|').indexOf('搜索框') >= 0, true)
+  ck('真搜不到时也**不许**写「请在列表里找」（文案纪律）',
+    toasts.filter(t => String(t.title).indexOf('列表里找') >= 0).length, 0)
+  CATALOG.push({ id: 999, name: '没填的目标品', unit: '件' })   // 复原，别影响别的场景
+}
+
 /* ---------------- 跑 ---------------- */
-await s1(); await s2(); await s3(); await s4(); await s5(); s6()
+async function s10() {
+  console.log('\n=== S10 v433 常驻「一键清空」：确认后清掉全部已填数量，取消则不动 ===')
+  // (a) 确认 ⇒ 清空
+  reset()
+  const inst = makePage({ data: BASE() })
+  inst.cartMap = JSON.parse(JSON.stringify(CART))
+  modalQueue = [true]                 // showModal 回 confirm=true
+  inst.onClearAll()
+  ck('弹了确认框（title 含「清空」）', modalCalls.some(m => String(m.title).indexOf('清空') >= 0), true)
+  ck('确认后 cartCount 归零', inst.data.cartCount, 0)
+  ck('确认后 cartQty 归零', inst.data.cartQty, 0)
+  ck('确认后购物车数组清空', inst.data.cart.length, 0)
+  ck('确认后所有行内 qty 归零', inst.data.products.every(p => p.qty === 0), true)
+  ck('确认后 cartMap 清空', Object.keys(inst.cartMap).length, 0)
+
+  // (b) 取消 ⇒ 不动
+  reset()
+  const inst2 = makePage({ data: BASE() })
+  inst2.cartMap = JSON.parse(JSON.stringify(CART))
+  modalQueue = [false]                // 用户点取消
+  inst2.onClearAll()
+  ck('也弹了确认框', modalCalls.some(m => String(m.title).indexOf('清空') >= 0), true)
+  ck('取消后 cartCount 不变', inst2.data.cartCount, 3)
+  ck('取消后 cartQty 不变', inst2.data.cartQty, 33)
+  ck('取消后行内数量不变（第 3 行 = 25）', inst2.data.products[2].qty, 25)
+  ck('取消后 cartMap 不变', Object.keys(inst2.cartMap).length, 3)
+
+  // (c) 没填数量时不弹（按钮本就 wx:if 不显示，方法自身也防护）
+  reset()
+  const inst3 = makePage({ data: BASE() })
+  inst3.data.cartCount = 0
+  modalQueue = []
+  inst3.onClearAll()
+  ck('cartCount=0 时不弹确认框（自防护）', modalCalls.length, 0)
+}
+async function s11() {
+  console.log('\n=== S11 v434 「我的提交」复制某期 → 带入当前填报（同店/异店/越界/未就绪）===')
+  // (a) 同门店：直接带入；BASE 已有 3 项 ⇒ 触发覆盖确认，确认后带入源单
+  reset()
+  const inst = makePage({ data: Object.assign(BASE(), {
+    stores: [{ id: 5, kind: 'store', name: '永诺旗舰店' }],
+    store: { id: 5, kind: 'store', name: '永诺旗舰店' },
+    total: 3,
+  }) })
+  inst._prodIndex = PROD_INDEX
+  inst._pendingCopy = {
+    store_id: 5, store_kind: 'store', store_name: '永诺旗舰店', period_id: 9,
+    name: '2026-09-19 · 永诺旗舰店',
+    items: [{ product_id: 101, product_name: '蒙牛纯甄原味', unit: '件', quantity: 4 }],
+  }
+  modalQueue = [true]                        // 覆盖确认 → 是
+  inst._maybeApplyPendingCopy()
+  ck('同门店：带入前弹「覆盖当前已填内容?」确认', modalCalls.some(m => String(m.title).indexOf('覆盖') >= 0), true)
+  ck('同门店：带入后购物车只剩源单的 1 项', inst.data.cartCount, 1)
+  ck('同门店：带入后 cartQty = 源数量 4', inst.data.cartQty, 4)
+  ck('同门店：行内数量回填（101→4，其余归 0）', inst.data.products.map(p => p.qty), [4, 0, 0])
+  ck('同门店：样单说明条已出（_applySample 生效）', !!inst.data.sampleInfo, true)
+  ck('同门店：pendingCopy 消费后清空（只带入一次）', inst._pendingCopy, null)
+
+  // (b) 异门店且目标在列表 ⇒ 先切店（id=5）再带入
+  reset()
+  const inst2 = makePage({ data: Object.assign(BASE(), {
+    stores: [{ id: 7, kind: 'store', name: 'B店' }, { id: 5, kind: 'store', name: '永诺旗舰店' }],
+    store: { id: 7, kind: 'store', name: 'B店' }, storeIdx: 0, total: 3,
+  }) })
+  inst2._prodIndex = PROD_INDEX
+  inst2._pendingCopy = {
+    store_id: 5, store_kind: 'store', store_name: '永诺旗舰店', period_id: 9, name: 'x',
+    items: [{ product_id: 102, product_name: '蒙牛特仑苏', unit: '件', quantity: 7 }],
+  }
+  modalQueue = [true]
+  inst2._maybeApplyPendingCopy()
+  ck('异门店：先切到源单门店（id=5）', inst2.data.store.id, 5)
+  ck('异门店：带入生效（cartQty = 7）', inst2.data.cartQty, 7)
+
+  // (c) 目标门店不在列表 ⇒ 明确拒绝、不带入、不切店、不动当前内容
+  reset()
+  const inst3 = makePage({ data: Object.assign(BASE(), {
+    stores: [{ id: 6, kind: 'store', name: 'C店' }],
+    store: { id: 6, kind: 'store', name: 'C店' }, total: 3,
+  }) })
+  inst3._prodIndex = PROD_INDEX
+  inst3._pendingCopy = {
+    store_id: 99, store_kind: 'store', store_name: '已停用店', period_id: 9, name: 'x',
+    items: [{ product_id: 101, unit: '件', quantity: 4 }],
+  }
+  modalQueue = []
+  inst3._maybeApplyPendingCopy()
+  ck('越界：弹「无法带入」而非硬塞', modalCalls.some(m => String(m.title).indexOf('无法带入') >= 0), true)
+  ck('越界：不带入（cartCount 不变 = 3）', inst3.data.cartCount, 3)
+  ck('越界：不切店（仍是 id=6）', inst3.data.store.id, 6)
+
+  // (d) 门店/商品都未就绪 ⇒ 有界重试到顶后明确提示、清 pending（不无限重试、不静默）
+  reset()
+  const inst4 = makePage({ data: Object.assign(BASE(), { stores: [] }) })
+  inst4.data.products = []
+  inst4._pendingCopy = { store_id: 5, store_kind: 'store', name: 'x', items: [{ product_id: 101, unit: '件', quantity: 1 }] }
+  inst4._maybeApplyPendingCopy(16)           // 直接推到重试上限
+  ck('未就绪超时：明确提示（不静默吞掉）', toasts.some(t => String(t.title).indexOf('加载') >= 0 || String(t.title).indexOf('重试') >= 0), true)
+  ck('未就绪超时：清掉 pending（避免无限重试）', inst4._pendingCopy, null)
+}
+
+await s1(); await s2(); await s3(); await s4(); await s5(); s6(); await s8(); await s9(); await s10(); await s11()
 reset()
 {
   const inst = makePage({ data: BASE() })

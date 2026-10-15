@@ -230,6 +230,35 @@ Page({
       this.setData({ recallingId: 0 })
     }
   },
+
+  /* v434：把某一期历史报单**复制到当前填报**（快速填报）。
+     🔴 跨页送达：fill 是 tabBar 页，`switchTab` **不带参数** ⇒ 源数据经
+        `app.globalData._fsCopy` 传递，由 fill.onShow 消费一次。
+     🔴 作废单不做源（已撤回 / 已驳回）—— 与 fill 页「复制生成样单」同一条纪律：
+        拿作废的量再报一次会误导用户以为在沿用有效的单。
+     🔴 只带**有效明细**（product_id>0 且 quantity>0），与服务端列表口径一致（v362 已剔空占位单）。 */
+  copyRecord(e) {
+    const id = +e.currentTarget.dataset.id
+    const rec = (this.data.records || []).find(r => r.id === id)
+    if (!rec) return
+    if (rec.status === 'recalled' || rec.status === 'rejected') {
+      wx.showToast({ title: '已撤回 / 已驳回的单不能复制', icon: 'none' }); return
+    }
+    const items = (rec.items || []).filter(it =>
+      it && Number(it.product_id) > 0 && Number(it.quantity) > 0 && it.product_name !== '__列占位__')
+    if (!items.length) { wx.showToast({ title: '这条单没有可复制的商品', icon: 'none' }); return }
+    app.globalData._fsCopy = {
+      store_id: rec.store_id, store_kind: rec.store_kind || 'store', store_name: rec.store_name || '',
+      period_id: rec.period_id || 0,
+      name: (rec.order_date || '') + (rec.store_name ? ' · ' + rec.store_name : ''),
+      items: items.map(it => ({
+        product_id: it.product_id, product_name: it.product_name || '',
+        spec: it.spec || '', unit: it.unit || '件', quantity: Number(it.quantity) || 0,
+      })),
+    }
+    track(EVENTS.SUBMIT, { action: 'copy_to_fill', id })
+    wx.switchTab({ url: '/pages/fill/fill' })
+  },
   logout() {
     // P1-1（2026-09-20）：改走 `utils/session.js` —— 除本机清态外**同时通知服务端销毁会话**。
     // 原实现只清本机（全仓 `/api/auth/logout` **0 命中**）⇒ 点过「退出」的 token 在服务端

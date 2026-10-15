@@ -127,6 +127,16 @@
 - 正向：v497 P0 毛利报表口径修复已部署（备份 backups/erp_db.py.before-v497-20261014-001812.py），收口 v493 暴露的「毛利在生产无数据基础」根因。
 - 报告落盘：docs/code-review/2026-10-14.md（目录 22 份 ≤30，无需清理）。
 
+## 最近执行：2026-10-16
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-15 02:00→10-16 02:00。前端 `hergent-cn-v2/src` 47 文件（38 .vue/8 .js/1 .css）变动，对应 **v509–v514** 大批次：v509 七列表页统一布局、v510 动作组抽离 `PsiListActions`、v511 表头冻结+紧凑密度+本页合计、v512 档案+资金 13 页冻结/合计行、v513 修进销存三列表页冻结失效、v514 全站 14 主列表「表头冻结+本页合计」全覆盖。后端 `hergent-erp/server` 0 .py 改动；根目录 `erp/` 0 改动。
+- 结果：高 0 / 中 0 / 低 0（无独立新缺陷）。差异扫描：新增 `v-html`=0、新增内联 `<svg>`=0、新增 fire-and-forget `.catch`=0、新增问题 hex 仅 `color:#fff`（合法）。唯一新增反模式 = 1 例原生 `window.confirm`（`SaleDocForm.vue:550` 超卖预警）→ 归入历史 **L6 同族 +1 例**。
+- 本页合计逻辑正确（InvSaleList.vue:311-317 / OutboundList.vue:388-395 / DeliveryOrder.vue:240 `dvoTotal` 均 `Number()+||0` 兜底，无字符串拼接/NaN）；冻结 CSS 自洽（psi-list.css:263/.table-wrap.freeze-list + :74 v513 flex 修复）。
+- 本轮闭环 0 项（v509–v514 是纯 UI 布局批次，不触碰中-2/L6/H1–H4/L5/L7）。历史遗留未修 8 项（中 1 / 低 7）持续，L6 因本轮 +1 例。
+- 未提交产品源码：1 文件 = `hergent-cn-v2/src/components/Shell.vue`（**v515** 未提交：删侧栏「库存」列，两条入口迁至仓配管理区且已核实目标存在 `Shell.vue:532-537`，路由/pages.js 未动，低风险在途）。后端仅未跟踪 tools/tests/prompts（排除）。本仓 `main` 较 origin 落后 3（文档/记忆类提交，非产品码）。
+- 对比前一天：上轮=修旧账（退单接真表）小窗口；本轮=大步向前 UI 统一批次，零新增缺陷、零新规范偏离。N 高=0，M 历史遗留=8。
+- 报告落盘：docs/code-review/2026-10-16.md（目录 24 份 ≤30，无需清理）。
+
 ## 最近执行：2026-10-15
 - 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
 - 范围：窗口 10-14 02:04→10-15 02:00。前端 hergent-cn-v2/src 9 文件（v498 状态页签+counts / v499 侧栏去重 / v500 退单三入口接真表+销售退单草稿态+单据编号）；后端 hergent-erp/server 7 文件（v498 列表 counts、v499 备份保留 28→14 天+安全发版闸门、v500 退单接真表+草稿审核+order_no 迁移）。全部已提交。
