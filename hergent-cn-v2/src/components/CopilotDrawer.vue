@@ -641,6 +641,10 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             <span>内容由AI生成，请核实重要信息</span>
           </div>
+          <div v-if="queueHint" class="cp-queue-hint" role="status" aria-live="polite">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>{{ queueHint }}</span>
+          </div>
           <div v-if="aiMode === 'disabled'" class="cp-mode-banner disabled">AI 已停用（后台设置）。当前无法对话，请联系管理员开启。</div>
         <div v-else-if="aiMode === 'readonly'" class="cp-mode-banner readonly">只读模式：AI 仅给建议，不会执行任何写操作。</div>
         </footer>
@@ -2792,6 +2796,11 @@ let stopConfirmTimer = null
 const canStop = computed(() => store.chat.streaming && !!sctrl.value)
 const stopHint = computed(() => (stopConfirm.value ? '再次按下 Esc 停止' : '停止生成（Esc）'))
 
+// v522：流式进行中用户又发来的输入 → 入队（只保留最新一条），当前回复结束后自动补发。
+// 修复「连发几条只有第一条真正发出、后几条被 store.chat.streaming 守卫静默丢弃」的已读不回缺陷。
+const pendingInput = ref(null)      // { q, attachments }
+const queueHint = ref('')
+
 function resetStopConfirm() {
   if (stopConfirmTimer) { clearTimeout(stopConfirmTimer); stopConfirmTimer = null }
   stopConfirm.value = false
@@ -2805,11 +2814,35 @@ function stopReply() {
   stopRequested.value = true
   try { sctrl.value.abort() } catch (_) { /* 已收尾，忽略 */ }
   store.chat.streaming = false
+  // 🔴 不在 stopReply 里直接 flush：abort 后旧 streamReply 的 catch→stopped 分支会负责补发，
+  // 这里抢先 flush 会与旧 catch 的 sctrl.value=null 形成竞态、误清新建流的停止器。
+}
+
+/** v522：当前流式回复结束后，若有排队输入，自动补发（取最新一条）。
+ *  流式进行中用户连发的新消息不再被静默丢弃 —— 这是「已读不回」的根因修复点。 */
+function flushPending() {
+  if (store.chat.streaming) return           // 还在流，不能抢发
+  if (!pendingInput.value) return
+  const item = pendingInput.value
+  pendingInput.value = null
+  queueHint.value = ''
+  draft.value = item.q
+  attachments.value = item.attachments || []
+  // 等本次 streamReply 的收尾（saveCurrentSession 等）彻底走完再发
+  nextTick(() => send())
 }
 
 async function send() {
   const q = draft.value.trim()
-  if ((!q && !attachments.value.length) || store.chat.streaming) return
+  if (!q && !attachments.value.length) return
+  // v522：流式进行中不直接丢弃，改为入队排队（当前回复结束自动补发），杜绝已读不回
+  if (store.chat.streaming) {
+    pendingInput.value = { q, attachments: attachments.value.slice() }
+    attachments.value = []
+    draft.value = ''
+    queueHint.value = '已排队，当前回复完成后自动发送'
+    return
+  }
   if (aiMode.value === 'disabled') { store.chat.error = 'AI 已停用（后台设置）。如需使用请管理员开启。'; return }
   if (aiMode.value === 'readonly') aiGuard.value = 'advise'  // 只读模式强制只建议
   draft.value = ''
@@ -3009,6 +3042,7 @@ async function streamReply(payload, reuseUserMsg = false) {
       saveCurrentSession()      // 停在哪留哪：用户提问 + 已生成部分 + 「已停止」标记一起落盘
       store.chat.error = ''     // 不是错误，不给红字
       store.chat.streaming = false
+      flushPending()            // v522：停止后若有排队输入立即补发
       return
     }
 
@@ -3042,9 +3076,12 @@ async function streamReply(payload, reuseUserMsg = false) {
     store.chat.streaming = false
 
     // 对"服务不可用"类错误尝试一次静默退避重试（1.5s），避免瞬时抖动直接报离线
-    if (/\[HTTP (502|503|504)\]|离线|offline|暂时不可用|service unavailable|bad gateway|gateway timeout/i.test(msg) && !payload.__retried) {
+    const willRetry = /\[HTTP (502|503|504)\]|离线|offline|暂时不可用|service unavailable|bad gateway|gateway timeout/i.test(msg) && !payload.__retried
+    if (willRetry) {
       setTimeout(() => { streamReply({ ...payload, __retried: true }) }, 1500)
+      return   // 重试会重新进入流式，待其结束再 flush，避免两个流并发
     }
+    flushPending()   // v522：终态失败也补发排队输入（非 502/503/504 抖动，不会再重试）
     return
   }
 
@@ -3072,6 +3109,7 @@ async function streamReply(payload, reuseUserMsg = false) {
     triggerCards(q)
   }
   saveCurrentSession()
+  flushPending()   // v522：本轮回复结束，自动补发流式期间用户排队的新消息
   reportUsage(content, reply)
 }
 
@@ -3505,6 +3543,8 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* v408：AI 生成内容免责提示 —— 输入框正下方，整行居中、低对比灰字，不抢视线。
    用 --t3（次要文字色）而非警示红：这是常驻免责声明，不是报错/危险。 */
 .cp-ai-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;font-size:11.5px;line-height:1.4;color:var(--t3,#94a3b8);user-select:none}
+.cp-queue-hint{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;font-size:11.5px;line-height:1.4;color:var(--brand,#2563eb);user-select:none;animation:cp-queue-pulse 1.4s ease-in-out infinite}
+@keyframes cp-queue-pulse{0%,100%{opacity:.55}50%{opacity:1}}
 .cp-ai-note svg{flex-shrink:0;opacity:.85}
 
 /* P0-③ AI 权限护栏开关 */
