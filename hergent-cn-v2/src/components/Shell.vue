@@ -580,6 +580,7 @@ const NAV = [
         { path: '/funds/balance',        name: '资金余额表',   icon: 'bars' },
         { path: '/funds/flow',           name: '资金流水账',   icon: 'list' },
         { path: '/funds/bank-reconcile', name: '银行流水对账', icon: 'search' },
+        { path: '/funds/reconcile',      name: '对账工作台',   icon: 'file-text' },
         { path: '/funds/staff-debt',     name: '员工欠款',     icon: 'users' }
       ] },
       { label: '库存成本', items: [

@@ -139,6 +139,7 @@ const FundsStatement = () => import('../pages/funds/FundsStatement.vue')
 const FundsBalance = () => import('../pages/funds/FundsBalance.vue')
 const FundsFlow = () => import('../pages/funds/FundsFlow.vue')
 const FundsBankReconcile = () => import('../pages/funds/FundsBankReconcile.vue')
+const FundsReconcile = () => import('../pages/funds/FundsReconcile.vue')
 const FundsStaffDebt = () => import('../pages/funds/FundsStaffDebt.vue')
 const FundsCost = () => import('../pages/funds/FundsCost.vue')
 // v265（2026-09-24）：ProductTarget 不再由路由懒加载 —— 它已收进 Forecast.vue 当第 4 个页签
@@ -406,6 +407,7 @@ export const router = createRouter({
         { path: 'funds/balance',            component: FundsBalance,   meta: { title: '资金余额表' } },
         { path: 'funds/flow',              component: FundsFlow,      meta: { title: '资金流水账' } },
         { path: 'funds/bank-reconcile',    component: FundsBankReconcile, meta: { title: '银行流水对账' } },
+        { path: 'funds/reconcile',         component: FundsReconcile,  meta: { title: '对账工作台' } },
         { path: 'funds/staff-debt',        component: FundsStaffDebt, meta: { title: '员工欠款' } },
         { path: 'funds/cost-query',        component: FundsCost,      meta: { title: '库存成本查询', costMode: 'query' } },
         { path: 'funds/cost-summary',      component: FundsCost,      meta: { title: '库存成本汇总', costMode: 'summary' } },

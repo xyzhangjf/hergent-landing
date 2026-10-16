@@ -564,6 +564,7 @@ export const PAGE_RULES = {
   '/funds/balance':            { title: '资金余额表', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/flow':              { title: '资金流水账', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/bank-reconcile':     { title: '银行流水对账', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/reconcile':          { title: '对账工作台',   module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/staff-debt':         { title: '员工欠款',   module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/cost-query':        { title: '库存成本查询', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/cost-summary':      { title: '库存成本汇总', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
