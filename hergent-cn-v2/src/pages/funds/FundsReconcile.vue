@@ -174,7 +174,7 @@
         </button>
         <span v-if="!canRun" class="frc-run-hint">{{ runBlockReason }}</span>
       </div>
-    </div>
+    </template>
 
     <div v-if="runErr" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ runErr }}</p></div>
 
