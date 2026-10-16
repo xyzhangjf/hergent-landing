@@ -988,7 +988,8 @@ const canSeeSupplierCategory = computed(() => canDo('accounts', 'read'))
    🔴 全部走同一个窄端点 `PUT /api/psi/purchase-orders/{id}/header` —— 后端**按列逐个校验**，
       与全量编辑端点（改已发生事实必须拦在未入库）分开。
    🔴 仓库是唯一例外：已入库的单禁用（见 `whLocked`），与后端闸门逐字一致。
-   🔴 入口只对 `canWrite`（= canDo('inventory','create')，即老板/管理员/会计）可见，销售员看不到。 */
+   🔴 v517 更正：入口只对 `canWrite`（= canDo('inventory','update')）可见 ⇒ **老板 / 管理员**。
+      会计与主管按 v517 档位只拿到 `read` + `create`，**看不到本入口**（此处原写「含会计」已过时）。 */
 const editHeader = ref(false)
 const editNote = ref('')
 const editExpected = ref('')
@@ -1236,7 +1237,16 @@ const payBusy = ref(false)
 const payErr = ref('')
 const payForm = ref({ amount: '', account: '现金', note: '' })
 
-const canWrite = computed(() => canDo('inventory', 'create'))
+// 🔴 v517（2026-10-16）：本页的 `canWrite` **实为"改"权限**，收口已从 `create` 提到 `update`。
+//    理由：本页**没有任何新建动作**，15 处引用全是改写类 —— 编辑表头 / 审核 / 收货 / 确认 /
+//    登记付款 / 上传附件 / 改自定义字段。按老板拍板的档位（会计·主管 = 能看 + 能建单，
+//    **不能改**），这些入口必须对他们隐藏。
+//    等价性：老板与管理员的权限是 list / `["*"]` 格式 ⇒ `update` 恒真 ⇒ **行为零变化**；
+//    会计 / 主管只拿到 `inventory: ["read","create"]` ⇒ `update` 为假 ⇒ 入口整体收起。
+//    ⚠️ 不是"藏按钮"而是真分权：后端 `_perm_granted` 对 dict 格式按 action 判，
+//       他们即使绕过界面直连接口也会被 403（`_auth_perm('inventory')` 之外的 action 判定同理）。
+//    ⚠️ 若将来本页要加"复制新建"这类动作，**另起一个 `canCreate`**，不要把这里改回 create。
+const canWrite = computed(() => canDo('inventory', 'update'))
 /* 判据与后端逐字对齐：`purchase_order_confirm` 只接受 `status IN ('draft','approved')` */
 const canConfirm = computed(() => ['draft', 'approved'].includes(o.value.status))
 const canReceive = computed(() => ['draft', 'approved', 'partial'].includes(o.value.status))

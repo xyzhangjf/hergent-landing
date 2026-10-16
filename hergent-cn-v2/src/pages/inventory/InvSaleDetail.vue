@@ -137,7 +137,10 @@ const o = ref({})
 const items = ref([])
 const warehouses = ref([])
 
-const canWrite = computed(() => canDo('inventory', 'create'))
+// 🔴 v517：本页 `canWrite` 的两处引用（发货 / 签收）都是**状态流转**，属"改" ⇒ 收口提到 `update`。
+//    老板 / 管理员是 list / `["*"]` 格式 ⇒ 恒真，行为不变；会计 / 主管只有 `read` + `create`
+//    ⇒ 看不到「发货」「签收」按钮（老板拍板：他们能看、能建单，但不能改单据状态）。
+const canWrite = computed(() => canDo('inventory', 'update'))
 const canDeliver = computed(() => o.value.status === 'draft')
 const canSign = computed(() => o.value.status === 'delivered')
 

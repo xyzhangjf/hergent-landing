@@ -172,7 +172,7 @@
                 <div class="isl-ops">
                   <!-- v500：退单视图的「审核」= 过账草稿（回增库存 + 冲减应收）。
                        只有 `status==='draft'` 才给 —— 已确认的单点它是重复过账。 -->
-                  <button v-if="_kindReturn && canWrite && r.status === 'draft'"
+                  <button v-if="_kindReturn && canUpdate && r.status === 'draft'"
                           class="isl-op-btn" :disabled="approvingId === r.id"
                           @click.stop="approveReturn(r)">
                     {{ approvingId === r.id ? '审核中' : '审核' }}
@@ -451,7 +451,11 @@ const subTitle = computed(() => title.value === '销售单'
      并打 `console.warn`，与旧链接的处理口径完全一致。 */
 const newTo = computed(() => ({ path: legacySalePath(_qType.value, _qKind.value) }))
 
+// 新建单据（本页 70/71/104 三处「＋ 新建」）按老板拍板给会计 / 主管 ⇒ 仍走 `create`。
 const canWrite = computed(() => canDo('inventory', 'create'))
+// 🔴 v517：行内「审核」（= 退单过账）是**状态流转**，属"改" ⇒ 单独用 `update` 收口。
+//    老板 / 管理员 list / `["*"]` ⇒ 恒真；会计 / 主管只有 `read` + `create` ⇒ 不显示该按钮。
+const canUpdate = computed(() => canDo('inventory', 'update'))
 const hasFilter = computed(() => !!(f.value.status || f.value.order_type || f.value.customer_id
   || f.value.date_from || f.value.date_to))
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))

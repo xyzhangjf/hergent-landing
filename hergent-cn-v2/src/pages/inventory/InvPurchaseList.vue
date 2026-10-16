@@ -192,7 +192,7 @@
           :show-batch="!isReturn"
           :batch-items="BATCH_ACTIONS"
           :batch-open="batchOpen"
-          :batch-disabled="!canWrite"
+          :batch-disabled="!canUpdate"
           :show-new="canWrite"
           :new-disabled="!canWrite"
           :new-label="isReturn ? '新建采购退货单' : '新建采购单'"
@@ -352,15 +352,15 @@
               </td>
               <td class="ipl-c-op">
                 <div class="ipl-op">
-                  <button v-if="!isReturn && canWrite && isEditable(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="goEdit(r)">编辑</button>
+                  <button v-if="!isReturn && canUpdate && isEditable(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="goEdit(r)">编辑</button>
                   <!-- v500：退货视图的「审核」= 过账草稿（端点与采购单的批量审核**不是一套**） -->
-                  <button v-if="canWrite && canApproveReturn(r)" class="ipl-op-btn"
+                  <button v-if="canUpdate && canApproveReturn(r)" class="ipl-op-btn"
                           :disabled="approvingId === r.id" @click.stop="approveDraft(r)">
                     {{ approvingId === r.id ? '审核中' : '审核' }}
                   </button>
-                  <button v-if="canWrite && canApprove(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="rowOp('approve', r)">审核</button>
-                  <button v-if="canWrite && canUnapprove(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="rowOp('unapprove', r)">反审核</button>
-                  <button v-if="canWrite && canCancel(r)" class="ipl-op-btn danger" :disabled="busyOp" @click.stop="rowOp('cancel', r)">取消</button>
+                  <button v-if="canUpdate && canApprove(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="rowOp('approve', r)">审核</button>
+                  <button v-if="canUpdate && canUnapprove(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="rowOp('unapprove', r)">反审核</button>
+                  <button v-if="canUpdate && canCancel(r)" class="ipl-op-btn danger" :disabled="busyOp" @click.stop="rowOp('cancel', r)">取消</button>
                   <!-- v500：打印计数 / 复制依赖**采购单**端点与编号空间 ⇒ 退货视图不给
                        （给了就是"点了没反应"或"复制出一个空表单"的假入口）。 -->
                   <button v-if="!isReturn" class="ipl-op-btn" :disabled="printing" @click.stop="rowPrint(r)">打印</button>
@@ -1192,7 +1192,12 @@ watch(kind, () => {
   drafts.value = []
 })
 
+// 新建 / 复制（本页 196/197/251/367 四处）按老板拍板给会计 / 主管 ⇒ 仍走 `create`。
 const canWrite = computed(() => canDo('inventory', 'create'))
+// 🔴 v517：行内「编辑 / 审核 / 反审核 / 取消 / 退货审核」与批量操作都是**改写或状态流转**
+//    ⇒ 单独用 `update` 收口。老板 / 管理员 list / `["*"]` ⇒ 恒真；会计 / 主管只有
+//    `read` + `create` ⇒ 这些按钮对他们整体收起（老板拍板：能看能建，但不能改不能删）。
+const canUpdate = computed(() => canDo('inventory', 'update'))
 const hasFilter = computed(() => !!(
   f.value.supplier_id || f.value.date_from || f.value.date_to || f.value.keyword ||
   f.value.warehouse_id || f.value.creator || f.value.only_marked ||
@@ -1368,7 +1373,7 @@ function onSize (n) {
 const dlg = ref({ open: false, title: '', msg: '', needInput: false, ph: '', value: '', busy: false, action: null })
 
 function toggleBatch () {
-  if (!canWrite.value) return
+  if (!canUpdate.value) return
   batchOpen.value = !batchOpen.value
 }
 function pickBatch (a) {
@@ -1421,7 +1426,7 @@ async function runBatch (op, extra) {
 /** 单行操作（审核 / 反审核 / 取消）：复用同一后端端点，仅把 ids 换成单张。
    取消是危险动作，先弹确认；`busyOp` 防连点。 */
 async function rowOp (op, r) {
-  if (!canWrite.value || busyOp.value) return
+  if (!canUpdate.value || busyOp.value) return
   if (op === 'cancel') {
     if (!r || !window.confirm(`确认取消单据 #${r.order_no || r.id}？\n\n`
       + '已入库的单据不会被取消，需要走退货单。此操作不可恢复。')) return
