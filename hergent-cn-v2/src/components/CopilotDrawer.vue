@@ -115,13 +115,19 @@
                 接着《{{ resumeTarget.title }}》聊
               </button>
             </div>
-            <span v-else-if="m.role === 'assistant'" class="msg-avatar" :title="(m.roleMeta && m.roleMeta.name) || ''">
-              <!-- 🔴 用**消息自己的**角色快照，不用 currentRole：否则切角色会追溯改写历史署名。
-                   v322：存量消息（v319 之前存的 / 服务端直接拉回的）**没有快照** ⇒ 此前只回落成
-                   emoji，于是历史回复显示 🚀 而顶栏显示 3D 头像。现在整份回落，走同一渲染口。 -->
-              <RoleAvatar :role="m.roleMeta || currentRole" img-class="msg-av-img" fallback="AI" />
-            </span>
+            <!-- v523：助手回复顶部信息区 = 头像(居左) + 角色名(紧邻右侧) + 时间；与下方正文保留间距。
+                 用消息自带的角色快照 m.roleMeta（不读 currentRole），避免切角色后历史署名被追溯改写。 -->
+            <div v-else-if="m.role === 'assistant'" class="msg-head">
+              <span class="msg-avatar" :title="(m.roleMeta && m.roleMeta.name) || 'AI'">
+                <RoleAvatar :role="m.roleMeta || currentRole" img-class="msg-av-img" fallback="AI" />
+              </span>
+              <span class="msg-role">{{ (m.roleMeta && m.roleMeta.name) || (currentRole && currentRole.name) || 'AI' }}</span>
+              <span class="msg-time" v-if="m.created_at">{{ fmtMsgTime(m.created_at) }}</span>
+            </div>
             <div class="msg-col">
+              <!-- v495b：每条消息显示沟通时间（绝对时间，便于回看历史）；
+                   助手回复时间已上移至顶部信息区，此处仅用户消息仍显示在正文首行。 -->
+              <div class="msg-time" v-if="m.created_at && m.role !== 'assistant'">{{ fmtMsgTime(m.created_at) }}</div>
               <!-- 深度思考（推理流）：默认折叠，点开看模型想什么。对齐 WorkBuddy 的「深度思考」。 -->
               <div v-if="m.reasoning" class="msg-think">
                 <button class="mt-hd" @click="toggleThink(i)">
@@ -341,10 +347,6 @@
                    复制 / 点赞 / 点踩 / 朗读 / 重新生成 / 分享 + 当前模型标识。
                    只在「有内容且非正在流式输出的最后一条」时显示（流式时只露出气泡，避免干扰）。 -->
               <div v-if="m.role === 'assistant' && m.content && !(store.chat.streaming && i === store.chat.messages.length - 1)" class="cp-msg-actions">
-                <span class="cp-mdl" :title="modelBadge.title">
-                  <Icon :name="modelBadge.icon" :size="13" />
-                  <span class="cp-mdl-tx">{{ modelBadge.label }}</span>
-                </span>
                 <button class="cp-act" title="复制" @click="copyMsg(m)">
                   <Icon name="copy" :size="16" />
                 </button>
@@ -638,6 +640,10 @@
           <div class="cp-ai-note" role="note" aria-live="polite">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             <span>内容由AI生成，请核实重要信息</span>
+          </div>
+          <div v-if="queueHint" class="cp-queue-hint" role="status" aria-live="polite">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>{{ queueHint }}</span>
           </div>
           <div v-if="aiMode === 'disabled'" class="cp-mode-banner disabled">AI 已停用（后台设置）。当前无法对话，请联系管理员开启。</div>
         <div v-else-if="aiMode === 'readonly'" class="cp-mode-banner readonly">只读模式：AI 仅给建议，不会执行任何写操作。</div>
@@ -1974,12 +1980,6 @@ const readingId = ref(null)      // 正在朗读的助手消息下标（同时�
 const shareOpen = ref(null)      // 打开的分享菜单对应的消息下标
 
 // 当前模型/智能体标识（WorkBuddy 在消息栏左侧展示所用模型）
-const modelBadge = computed(() => {
-  const r = currentRole.value
-  const label = (r && r.name) || '经营副驾'
-  return { label, icon: 'bot', title: `当前由「${label}」回答` }
-})
-
 // 纯前端复制（带非安全上下文兜底）
 async function copyText(t) {
   try {
@@ -2690,16 +2690,39 @@ const artifacts = computed(() => {
   }
   return list.reverse()
 })
+/* v495b：时间戳归一 —— 本地存的是 Date.now() 数字，服务端回的是 'YYYY-MM-DD HH:MM:SS' 字符串
+   （空格分隔不是合法 ISO，new Date() 会解析成 Invalid Date ⇒ 产物时间显示 NaN月NaN日）。统一转毫秒。 */
+function toTs(v) {
+  if (v == null || v === '') return 0
+  if (typeof v === 'number') return v
+  const n = Date.parse(String(v).replace(' ', 'T'))
+  return isNaN(n) ? 0 : n
+}
 /* v487 P2-⑨：产物生成时间相对化（刚刚 / x 分钟前 / 时:分 / 月日） */
 function fmtArtTime(ts) {
-  if (!ts) return ''
-  const d = new Date(ts)
-  const diff = (Date.now() - ts) / 1000
+  const t = toTs(ts)
+  if (!t) return ''
+  const d = new Date(t)
+  const diff = (Date.now() - t) / 1000
   if (diff < 60) return '刚刚'
   if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前'
   const pad = (n) => String(n).padStart(2, '0')
   if (diff < 86400 && d.getDate() === new Date().getDate()) return pad(d.getHours()) + ':' + pad(d.getMinutes())
   return (d.getMonth() + 1) + '月' + d.getDate() + '日'
+}
+/* v495b：消息气泡的绝对时间（老板要"查看沟通时间"，绝对时间比相对更便于回看历史） */
+function fmtMsgTime(ts) {
+  const t = toTs(ts)
+  if (!t) return ''
+  const d = new Date(t)
+  const pad = (n) => String(n).padStart(2, '0')
+  const now = new Date()
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+  if (sameDay) return pad(d.getHours()) + ':' + pad(d.getMinutes())
+  const date = (now.getFullYear() === d.getFullYear()
+    ? (pad(d.getMonth() + 1) + '-' + pad(d.getDate()))
+    : (d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())))
+  return date + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes())
 }
 /* 新产物（artifact 数量增加）时自动弹开；数量减少或初始化/切会话不触发，避免误弹。
    必须放在 artifacts 定义之后，否则 watch 初始化取值会触发 const 的 TDZ 报错。 */
@@ -2767,6 +2790,11 @@ let stopConfirmTimer = null
 const canStop = computed(() => store.chat.streaming && !!sctrl.value)
 const stopHint = computed(() => (stopConfirm.value ? '再次按下 Esc 停止' : '停止生成（Esc）'))
 
+// v522：流式进行中用户又发来的输入 → 入队（只保留最新一条），当前回复结束后自动补发。
+// 修复「连发几条只有第一条真正发出、后几条被 store.chat.streaming 守卫静默丢弃」的已读不回缺陷。
+const pendingInput = ref(null)      // { q, attachments }
+const queueHint = ref('')
+
 function resetStopConfirm() {
   if (stopConfirmTimer) { clearTimeout(stopConfirmTimer); stopConfirmTimer = null }
   stopConfirm.value = false
@@ -2780,11 +2808,35 @@ function stopReply() {
   stopRequested.value = true
   try { sctrl.value.abort() } catch (_) { /* 已收尾，忽略 */ }
   store.chat.streaming = false
+  // 🔴 不在 stopReply 里直接 flush：abort 后旧 streamReply 的 catch→stopped 分支会负责补发，
+  // 这里抢先 flush 会与旧 catch 的 sctrl.value=null 形成竞态、误清新建流的停止器。
+}
+
+/** v522：当前流式回复结束后，若有排队输入，自动补发（取最新一条）。
+ *  流式进行中用户连发的新消息不再被静默丢弃 —— 这是「已读不回」的根因修复点。 */
+function flushPending() {
+  if (store.chat.streaming) return           // 还在流，不能抢发
+  if (!pendingInput.value) return
+  const item = pendingInput.value
+  pendingInput.value = null
+  queueHint.value = ''
+  draft.value = item.q
+  attachments.value = item.attachments || []
+  // 等本次 streamReply 的收尾（saveCurrentSession 等）彻底走完再发
+  nextTick(() => send())
 }
 
 async function send() {
   const q = draft.value.trim()
-  if ((!q && !attachments.value.length) || store.chat.streaming) return
+  if (!q && !attachments.value.length) return
+  // v522：流式进行中不直接丢弃，改为入队排队（当前回复结束自动补发），杜绝已读不回
+  if (store.chat.streaming) {
+    pendingInput.value = { q, attachments: attachments.value.slice() }
+    attachments.value = []
+    draft.value = ''
+    queueHint.value = '已排队，当前回复完成后自动发送'
+    return
+  }
   if (aiMode.value === 'disabled') { store.chat.error = 'AI 已停用（后台设置）。如需使用请管理员开启。'; return }
   if (aiMode.value === 'readonly') aiGuard.value = 'advise'  // 只读模式强制只建议
   draft.value = ''
@@ -2871,11 +2923,13 @@ async function streamReply(payload, reuseUserMsg = false) {
   store.chat.error = ''
   // v423：regenerate 时用户消息已在对话里（上一条），不再重复 push，避免重复气泡
   if (!reuseUserMsg) {
-    store.chat.messages.push({ role: 'user', content, files: files || [], vision: vision && vision.length ? vision : null })
+    // v495b：带上 created_at —— 沟通面板每条消息都要显示时间，产物区时间也由此继承
+    store.chat.messages.push({ role: 'user', content, files: files || [], vision: vision && vision.length ? vision : null, created_at: Date.now() })
   }
   // v319（L2）：把**回答时的角色**快照进消息 —— 历史署名与头像从此不再随后续切换被改写
+  // v495b：带上 created_at —— 气泡与产物区时间都依赖它
   store.chat.messages.push({ role: 'assistant', content: '', tools: [],
-                             roleId: roleId || '', roleMeta: roleMetaOf(roleId) })
+                             roleId: roleId || '', roleMeta: roleMetaOf(roleId), created_at: Date.now() })
   const replyIndex = store.chat.messages.length - 1
   store.chat.streaming = true
   // v309：给这次请求挂上可被「停止」的中止器（按钮据此呈现停止态）
@@ -2982,6 +3036,7 @@ async function streamReply(payload, reuseUserMsg = false) {
       saveCurrentSession()      // 停在哪留哪：用户提问 + 已生成部分 + 「已停止」标记一起落盘
       store.chat.error = ''     // 不是错误，不给红字
       store.chat.streaming = false
+      flushPending()            // v522：停止后若有排队输入立即补发
       return
     }
 
@@ -3015,9 +3070,12 @@ async function streamReply(payload, reuseUserMsg = false) {
     store.chat.streaming = false
 
     // 对"服务不可用"类错误尝试一次静默退避重试（1.5s），避免瞬时抖动直接报离线
-    if (/\[HTTP (502|503|504)\]|离线|offline|暂时不可用|service unavailable|bad gateway|gateway timeout/i.test(msg) && !payload.__retried) {
+    const willRetry = /\[HTTP (502|503|504)\]|离线|offline|暂时不可用|service unavailable|bad gateway|gateway timeout/i.test(msg) && !payload.__retried
+    if (willRetry) {
       setTimeout(() => { streamReply({ ...payload, __retried: true }) }, 1500)
+      return   // 重试会重新进入流式，待其结束再 flush，避免两个流并发
     }
+    flushPending()   // v522：终态失败也补发排队输入（非 502/503/504 抖动，不会再重试）
     return
   }
 
@@ -3045,6 +3103,7 @@ async function streamReply(payload, reuseUserMsg = false) {
     triggerCards(q)
   }
   saveCurrentSession()
+  flushPending()   // v522：本轮回复结束，自动补发流式期间用户排队的新消息
   reportUsage(content, reply)
 }
 
@@ -3320,12 +3379,27 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-demo{margin-top:14px;padding:8px 18px;border:1px solid var(--p-border);border-radius:20px;background:var(--p-bg);font-size:12.5px;color:var(--p-dark);cursor:pointer;transition:all .15s}
 .cp-demo:hover{background:rgba(6,182,212,.12);border-color:var(--p-dark)}
 
-.msg{display:flex;gap:8px;align-items:flex-end}
-.msg.user{justify-content:flex-end}
+.msg{display:flex;gap:8px}
+.msg.user{flex-direction:row;align-items:flex-end;justify-content:flex-end}
+.msg.assistant{flex-direction:column;align-items:stretch;gap:0}
+.msg.is-switch{flex-direction:row;align-items:flex-end;justify-content:flex-start}
+/* v523：助手回复顶部信息区（头像居左 + 角色名紧邻右侧 + 时间）；
+   角色名过长自动省略，时间不收缩，保证「谁在答 + 何时答」一眼可见。 */
+.msg-head{display:flex;align-items:center;gap:8px;margin:0 0 6px;min-width:0}
+.msg-role{font-size:12.5px;font-weight:600;color:var(--t2);line-height:1.3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-head .msg-time{margin-left:6px;padding:0;flex-shrink:0}
 .msg-avatar{width:26px;height:26px;border-radius:50%;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;overflow:hidden}
 .msg-av-img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
 .msg-col{display:flex;flex-direction:column;gap:5px;max-width:82%}
 .msg.user .msg-col{align-items:flex-end}
+/* v523：窄屏/移动端适配 —— 顶部信息区间距收紧、正文用更宽比例，头像与角色名不变形 */
+@media (max-width:760px){
+  .msg-col{max-width:92%}
+  .msg-head{gap:6px;margin-bottom:5px}
+  .msg-role{font-size:12px}
+}
+/* v495b：每条消息的沟通时间（次级灰字，随气泡左/右对齐） */
+.msg-time{font-size:11px;color:var(--t3,#94a3b8);line-height:1.4;padding:1px 4px;user-select:none;font-variant-numeric:tabular-nums}
 .msg-bubble{max-width:100%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
 .msg.user .msg-bubble{background:var(--p-dark);color:#fff;border-bottom-right-radius:4px}
 .msg.assistant .msg-bubble{background:var(--bg2);border-bottom-left-radius:4px;color:var(--t1)}
@@ -3476,6 +3550,8 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* v408：AI 生成内容免责提示 —— 输入框正下方，整行居中、低对比灰字，不抢视线。
    用 --t3（次要文字色）而非警示红：这是常驻免责声明，不是报错/危险。 */
 .cp-ai-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;font-size:11.5px;line-height:1.4;color:var(--t3,#94a3b8);user-select:none}
+.cp-queue-hint{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;font-size:11.5px;line-height:1.4;color:var(--brand,#2563eb);user-select:none;animation:cp-queue-pulse 1.4s ease-in-out infinite}
+@keyframes cp-queue-pulse{0%,100%{opacity:.55}50%{opacity:1}}
 .cp-ai-note svg{flex-shrink:0;opacity:.85}
 
 /* P0-③ AI 权限护栏开关 */
@@ -3697,9 +3773,9 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
    默认色 var(--cb-text-secondary)（浅色 #666）、hover **只换背景** var(--cb-bg-primary-hover)（#ebebeb）
    且不改字色、:focus/:focus-visible outline:none、图标 16px、按钮间距 8px。
    颜色映射到本仓 token：--cb-text-secondary → --t2；--cb-bg-primary-hover → --b2。 */
-.cp-msg-actions{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--b2,#eef1f5)}
-.cp-mdl{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid var(--b2,#e6e9ee);border-radius:999px;color:var(--t3,#94a3b8);font-size:11px;line-height:1.6;user-select:none;white-space:nowrap}
-.cp-mdl .ico{opacity:.85}
+/* v524：分割线由「按钮上方」移至「按钮下方」—— 让复制/点赞等操作条归到本条消息，
+   线作为消息与消息之间的分隔；保留顶部 8px 间距，底部 8px 内边距后落线。 */
+.cp-msg-actions{display:flex;align-items:center;gap:8px;margin-top:8px;padding-bottom:8px;border-bottom:1px solid var(--b2,#eef1f5)}
 .cp-act{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:none;background:transparent;border-radius:8px;color:var(--t2,#6e6e73);cursor:pointer;transition:background-color .15s}
 .cp-act:hover{background:var(--b2,#ebebeb)}
 .cp-act:focus,.cp-act:focus-visible{outline:none}
