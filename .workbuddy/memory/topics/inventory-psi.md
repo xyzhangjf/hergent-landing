@@ -1770,7 +1770,41 @@ v441 六界面探针里三条断言「退货模式**没有** `hd-box`」—— �
 - **冻结列类名**：`psi-frz` + `psi-frz-1..4`（采购页四层：复选/序号/主键/关联列；销售与调拨两层：序号/单号）。基准页原 `ipl-frz-*` 与死常量 `LEFT_*` 已被 `:style` 绑定激活。
 - **分页器唯一结构**：「共 N 条记录，第 X–Y 条 | 页码窗≤7 | 条/页 | 跳页」，`pageFrom/pageTo` computed；**总数唯一出处 = 分页器**（销售/调拨原工具栏「共 N 张」已删）。
 - **新建只在页头 + 空态**（基准页工具栏重复新建已删）；页头右侧 = 新建(primary) + 刷新(ghost)。
-- **有意差异（⛔ 不得对齐掉）**：D6 = **调拨无详情页 ⇒ 单号纯文本，不造假链接**（销售/采购单号是链接）；状态页签计数 / 批量操作 / tfoot 合计 / 打印数 / 自定义字段列仅采购页有（后端无销售调拨的 counts/summary/批量接口）；调拨无「更多选项」折叠（4 个筛选项一行放得下）。
+- **有意差异（⛔ 不得对齐掉）**：D6 = **调拨无详情页 ⇒ 单号纯文本，不造假链接**（销售/采购单号是链接）；tfoot 合计 / 打印数 / 自定义字段列仍仅采购页有；**批量操作自 v532 起三页齐平**（后端补了销售/调拨的批量端点 ⇒ 原括注「后端无批量接口」**已作废**，见文末 §批量栏）；调拨无「更多选项」折叠（4 个筛选项一行放得下）。
 - **业务逻辑零改动**：服务端过滤 / `limit-offset` / `SORTABLE ⊆ _PO_ORDER_SQL|_SO_ORDER_SQL|_TRANSFER_ORDER_SQL` / 权限门 / 批量 / 打印 / 导出 `colText` 全部原样；本工作只动观感与信息架构。
 - 🔴 **生产数据事实（断言设计依据）**：采购单 83、自提订单 22254、调拨单 1；**采购退单 / 自提退单 / 车销订单 / 车销退单生产均 0 行**（真实空态，非缺陷）。⇒ 这四条入口**不能断言「有行」**，必须断言「发出了正确服务端筛选参数」：自提退单=`status=returned&order_type=self_pickup`（即待修项「销售退货列表恒空」的回归防线）、采购退单=`status=returned`、车销订单=`order_type=vehicle_sale`、采购订单=`exclude_status=returned`。
 - 探针 `.workbuddy/tools/v496-psi-list-align-e2e.mjs`（本地服 dist-v496 + `/api` 透传 hergent.cn + 注入 boss 令牌，跑完删令牌）**59/59 全绿**；截图 `outputs/v496-psi-list-align/`。部署入口 `index-CGMfY6ko.js` / `index-4cR5pEMd.css`，8/8 双侧 md5 一致。
+
+
+---
+
+## §批量栏（P1-6，v532/v532b/v532c，2026-10-17 前后端均上生产）
+
+**真缺口不是导出**：v510 抽出共享件 `PsiListActions.vue` 时只给采购页留了批量，销售/调拨 `showBatch=false` 且**根本没有行勾选列**；CSV 导出三页早就有（`utils/csv.js`，跟随列设置）⇒ P1-6 = **通用勾选列 + 批量操作**。
+
+### 后端（erp 仓）
+- 新增 `POST /api/psi/sale-orders/batch`（op: deliver/sign/cancel/reject）与 `POST /api/psi/transfer-orders/batch`（op: complete），与采购端点同构。
+- 🔴 **逐单显式回报**：`results[{id, ok, reason?, status?}] + ok_count + fail_count`，单张失败不带塌整批（不回笼统 `success=true`）；失败 reason 走 `_err_reason()` 拼上业务 `detail`（如「库存不足：测试低温奶 需要5件, 可售仅1件」）。
+- `_BATCH_IDS_MAX = 200`（超限 400「一次最多操作 200 张单据，请分批操作」）；三态分开：不存在 / 读单异常 / 越权。
+- 🔴 **归属校验**：`sales` 角色走现成 `_doc_owner_ok`（`core.py:489`），不匹配 ⇒ 该张 `ok=False, reason='不是你创建的单据，无权操作'`，不 raise。原因：销售员开门靠勾 `inventory` 模块，而 `/api/psi` 正映射该模块 ⇒ 不加校验销售员能传别人的单 id 批量取消/出库。用 `_doc_owner_ok` 而非严格 id 比对，是因为历史单据 `operator_id` 已被下述 bug 污染成人名。
+- 🔴 **既有缺陷 1（必抛）**：`sale_order_reject` 写**不存在的 `updated_at` 列** ⇒ 老端点 `/api/sale-orders/{oid}/reject` 一直 500（「从未被执行过的代码」≠安全，第三次应验）。删该赋值、状态闸门下沉 db 层做唯一源、补 return。**不做 schema 加列**（生产 migrate 风险 > 收益）。
+- 🔴 **既有缺陷 2（数据污染）**：老 reject 端点把 `display_name` 当 `operator_id` 写库 ⇒ 归属写成人名，v526 的 owner 过滤从此对不上；改传 `str(u.get("id"))`（实测落 `'9001'`）。同文件 `cancel_sale` 早用 id ⇒ reject 是孤例写歪。
+- 🔴 **既有缺陷 3（批次盲，生产已命中）**：`transfer_order_complete` 调出腿原用 `inventory_adjust`，它是 `SELECT ... WHERE product_id=? AND warehouse_id=?` 的 `fetchone()`，**完全不看 batch_no** ⇒ 多批次商品要么瞎扣要么误报库存不足。改 **`gross_deduct`**（逐批扣、不过滤效期，服务报损/领用/盘亏一族；`db` 必传首参、不自开事务）。生产只读实证：`inventory` 5 行中存在「最早批次行=0 但合计>0」的组合 ⇒ 缺陷已在生产命中。调入腿仍 `inventory_adjust(+qty)`。
+- 事务内 `return` 改 `raise _TransferPostingError("调拨单不存在或已完成")`（原静默返回 dict，调用方分不出成功失败）。副作用：v449 harness 断言同步改为 try/except + 断言异常类型，30/30 恢复全绿。
+- 老域 `POST /sale-orders/batch-sign` 经 grep 确认**前端零调用**（孤儿端点），已在新端点注释注明勿复用。
+
+### 前端（hergent-cn-v2）
+- `src/api/psi.js` 加 `batchSales`/`batchTransfers`；`PsiListActions.vue` 的 `showBatch` **由父页按后端能力传**（退单视图 `:show-batch="!_kindReturn"` —— 退单表与原单表编号空间互不相干）。
+- 销售/调拨两页加**行勾选列**（插在序号前，`.psi-chk`）+ `selected` ref + `load()` 后清空 + 二次确认 + **逐单结果条** + 导出「勾选优先」。
+- 🔴 `InvPurchaseList.vue` 的 `runOp()` 里 `lastBatch.value = {...}` 必须放在 `await load(false)` **之后** —— 原顺序导致结果条刚设就被自己的刷新抹掉，采购页批量结果条一直是死的（v532b 才发现的既有 bug）。
+- 文案归一：结果条/toast 取本页 `text`，不读后端 `op_label`（避免「拒绝」/「驳回」两套叫法；后端 op_label 亦随 v532c 改为「驳回」）；`:batch-disabled="!canUpdate || busyBatch"` 且防重闸门提到 `window.confirm` 之前（防连点重复提交）。
+
+### 拍板结论
+- **A：批量菜单含库存写动作**（销售出库/签收、调拨完成）——理由是后端有真函数 + 逐单回报，FEFO 不足那张单独失败并给原因。
+- **B：过期批次也能调拨**（维持现状）——调拨调出腿走 `gross_deduct` 不过滤效期，不走 FEFO。理由：调拨是内部移库不是销售出库；过期库存的处置归报损流程。
+
+### 可复用坑
+- **「修了一个双胞胎」≠修了数据面**：`/api/batch/trace`（老域）与 `/api/batch-trace`（psi 域）是同数据的两个实现；本轮同理，`/sale-orders/{oid}/reject` 与 `/psi/sale-orders/batch` 的 reject 走同一 db 函数 ⇒ 改 db 层时两个出口都要扫。
+- **前端批量结果条被自身刷新抹掉**：写状态与刷新顺序错了就是「恒空 UI」，零报错零异常。
+- `scp` 多远程源必须各带 `host:`（否则后面的源被当本地路径报 ENOENT，极易误判「生产没这个文件」）；两个同名 `sales.py`（routers / db/queries）拉同目录会互相覆盖 ⇒ 分子目录。
+- vite 构建命令别串在同一条 bash 里（第二条会在前一条的 `emptyDir` 阶段抛 `rmSync`）。
