@@ -149,6 +149,31 @@ export const psiApi = {
     api('/api/psi/purchase-orders/batch', { method: 'POST', body: { op, ids, ...extra } }),
 
   /**
+   * v532：销售单批量操作（后端 v532 已交付并部署，erp 仓 dc7e6a0 + 2eecc2e）。
+   * @param {'deliver'|'sign'|'cancel'|'reject'} op
+   * @param {number[]} ids 销售单 id（**仅限 `sale_orders`** —— 退单视图的行来自
+   *   `return_orders`，是另一套编号空间，传过去会打到不相干的单上）
+   * @param {object} [extra] 预留扩展字段
+   * @returns `{ok, op, op_label, requested, ok_count, fail_count, results:[{id, ok, reason?, status?}]}`
+   *   🔴 与 `batchPurchases` 同口径：后端**逐单回报**，绝不回一个笼统的 success。
+   *      真实失败原因示例（界面必须原样展示，用户据此行动）：
+   *        · 「状态错误：只有草稿或已确认状态的订单才能发货」
+   *        · 「不是你创建的单据，无权操作」
+   */
+  batchSales: (op, ids, extra = {}) =>
+    api('/api/psi/sale-orders/batch', { method: 'POST', body: { op, ids, ...extra } }),
+
+  /**
+   * v532：调拨单批量操作（端点 `POST /api/psi/transfer-orders/batch`）。
+   * @param {'complete'} op 目前后端只支持「完成」（= 过账，真正移库）
+   * @param {number[]} ids 调拨单 id
+   * @param {object} [extra] 预留扩展字段
+   * @returns 同 `batchSales`（逐单回报，失败带原因）
+   */
+  batchTransfers: (op, ids, extra = {}) =>
+    api('/api/psi/transfer-orders/batch', { method: 'POST', body: { op, ids, ...extra } }),
+
+  /**
    * 单张「打印」计数（+1）。
    * 🔴 只记数、不生成文件 —— 真正的打印是浏览器 `window.print()`。落库是必须的：
    *    「打印数」是判断「这张单到底打没打给供应商」的依据，只在前端打印的话刷新即归 0。

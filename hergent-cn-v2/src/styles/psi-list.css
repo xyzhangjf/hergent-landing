@@ -11,6 +11,8 @@
    · .psi-on       行选中态（采购页批量操作）
    · v501         页签行 .psi-tabbar（含右侧动作）／筛选行 .psi-frow·.psi-f·.psi-lb／
                    分页器 .psi-pager（共享件 PsiPager.vue）
+   · v532         行勾选列 .psi-chk（原采购页私有 .ipl-c-chk 上提）／批量结果条 .psi-bres*
+                  （原采购页私有 .ipl-result 上提）—— 销售 / 调拨两页 v532 起也有批量端点
    · v510         动作组 .psi-acts（共享件 PsiListActions.vue：导出→批量→新建→刷新，
                    收进页签行右侧；原各页私有工具栏 .psi-tb 退役）
    🔴 改本文件 = 同时改三页：InvPurchaseList / InvSaleList / InvTransferList。
@@ -25,8 +27,15 @@
 .psi-tbl { table-layout: fixed }
 .psi-tbl th, .psi-tbl td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 
-/* ---- 行选中态（采购页批量操作勾选） ---- */
+/* ---- 行选中态（列表页批量操作勾选） ---- */
 .psi-tbl tbody tr.psi-on { background: var(--p-bg) }
+
+/* ---- v532：行勾选列（三页批量操作共用） ----
+   由来：v510 之前只有采购页有勾选列，样式是它私有的 `.ipl-c-chk{text-align:center}`；
+   v532 销售 / 调拨两页补上勾选列后，私有的那份照不过去（带 ipl- 前缀、且在 scoped 块里）
+   ⇒ 上提本文件。⛔ 各页 scoped CSS 里不再写勾选列样式（第二个真相来源）。
+   ⚠️ v510 按老板口径删掉了**表头全选框**，本列只承载逐行勾选 —— 不要恢复全选。 */
+.psi-tbl th.psi-chk, .psi-tbl td.psi-chk { text-align: center }
 
 /* ---- 左侧冻结列 ----
    位置 1~4 的 left 偏移 = 左侧各列宽之和，每页列宽不同 ⇒ 由页面在 <table> 元素上
@@ -190,6 +199,34 @@
 .psi-acts-mi.danger { color: var(--danger-txt) }
 .psi-acts-mi.danger:hover { background: var(--danger-bg) }
 
+/* ---- v532：批量结果条（逐单回报：成功几张 / 失败几张 + 失败原因） ----
+   由来：采购页私有的 `.ipl-result` / `.ipl-rsum` / `.ipl-rlist`（v498 起）三页都要用
+   —— v532 销售 / 调拨两页才等来后端批量端点，私有的那份同样照不过去 ⇒ 上提本文件。
+   🔴 为什么必须有这一条而**不能**只弹个 toast：批量动的是库存与钱，
+      「提交 20 张、实际成了 12 张」是常态（状态不对 / 不是本人创建的单都会逐单失败），
+      失败的那几张连同**后端给的中文原因**必须留在屏幕上让用户照着处理 ——
+      toast 几秒就消失，用户只能重来一遍才知道哪几张没成。 */
+.psi-bres {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  margin: 0 0 12px; padding: 10px 12px;
+  border: 1px solid var(--p); border-radius: var(--radius-md);
+  background: var(--p-bg); font-size: 13px; color: var(--t1);
+}
+/* 有失败 ⇒ 整条转危险色（「部分成功」不能显示成一片绿） */
+.psi-bres.warn { border-color: var(--danger-txt); background: var(--danger-bg) }
+.psi-bres-sum { font-weight: 600 }
+.psi-bres-sum b { font-variant-numeric: tabular-nums }
+.psi-bres-sum .dan { color: var(--danger-txt) }
+/* 失败清单可能几十行 ⇒ 限高自滚，不把列表顶出屏幕 */
+.psi-bres-list {
+  margin: 0; padding-left: 18px; max-height: 160px; overflow: auto;
+  font-size: 12px; line-height: 1.6; color: var(--t2);
+}
+.psi-bres-close {
+  border: none; background: none; padding: 0; cursor: pointer;
+  color: var(--p-dark); font-size: 12px; text-decoration: underline;
+}
+
 /* 排序 / 选中提示（经 #status 插槽注入，保留文本观感） */
 .psi-selinfo { font-size: 12px; color: var(--t2) }
 .psi-selinfo b { color: var(--p-ink); font-variant-numeric: tabular-nums }
@@ -221,6 +258,8 @@
    同值不同选择器。） */
 @media print {
   .psi-tbl .psi-frz { position: static !important }
+  /* v532：勾选框是交互控件（纸上点不动），批量结果条带「知道了」按钮 ⇒ 都不上纸。 */
+  .psi-tbl .psi-chk, .psi-bres { display: none !important }
   /* 页签行 / 动作组 / 分页器都是**筛选与操作控件**，纸上没有意义 —— 隐藏规则放这里
      （唯一出处），三页 scoped 的 @media print 里不必再列一遍（列了就是第二份）。
      🔴 v510：动作组（导出 / 批量 / 新建 / 刷新）已收进 `.psi-tabbar` 的 #actions 插槽，

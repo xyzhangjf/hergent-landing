@@ -62,16 +62,26 @@
          保留其余筛选（含订单入口的 `exclude_status='returned'`）⇒ 切页签数字不漂移。 -->
     <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab">
       <!-- v510：动作组收进页签行右侧（共享件 PsiListActions），顺序 导出 → 批量操作 → 新建 → 刷新。
-           销售单无批量接口 ⇒ showBatch=false；排序提示经 #status 插槽保留在左侧。 -->
+           v532：销售单后端批量端点 `POST /api/psi/sale-orders/batch` 已交付并部署
+           （出货 / 签收 / 取消 / 驳回四op）⇒ showBatch 开起来，菜单项由本页 BATCH_ACTIONS 给。
+           🔴 **退单视图（kind=return）不开批量**：它查的是真退货表 `return_orders`，
+              行 id 与 `sale_orders.id` 是**两套编号空间**，把退货行 id 交给销售单批量端点
+              会打到不相干的销售单上（零报错的越界 —— 与 v500 单号链接同一个坑）。
+              等后端给出退货单批量端点再开。排序提示经 #status 插槽保留在左侧。 -->
       <template #actions>
         <PsiListActions
           :export-disabled="!rows.length"
-          :show-batch="false"
+          :show-batch="!_kindReturn"
+          :batch-items="BATCH_ACTIONS"
+          :batch-open="batchOpen"
+          :batch-disabled="!canUpdate"
           :show-new="canWrite"
           :new-disabled="!canWrite"
           :new-label="'新建' + title"
           :refresh-disabled="loading"
           @export="doExport"
+          @toggle-batch="toggleBatch"
+          @batch-pick="pickBatch"
           @new="() => go(newTo)"
           @refresh="load">
           <template #status>
@@ -84,6 +94,20 @@
         </PsiListActions>
       </template>
     </StatusTabs>
+
+    <!-- v532：批量结果（逐单回报：失败必须带原因，否则用户无法据此行动）。
+         失败行显示**单号**而不是裸 id —— 老板要拿着它去开那张单处理。
+         样式走共享 `.psi-bres*`（psi-list.css，三页唯一出处），本页不留第二份。 -->
+    <div v-if="lastBatch" class="psi-bres" :class="{ warn: lastBatch.fail_count }">
+      <span class="psi-bres-sum">
+        {{ lastBatch.op_label }}：成功 <b>{{ lastBatch.ok_count }}</b> 张<template v-if="lastBatch.fail_count">，
+        失败 <b class="dan">{{ lastBatch.fail_count }}</b> 张</template>
+      </span>
+      <ul v-if="lastBatch.fails.length" class="psi-bres-list">
+        <li v-for="x in lastBatch.fails" :key="x.id">{{ noOfId(x.id) }} — {{ x.reason || '未说明原因' }}</li>
+      </ul>
+      <button class="psi-bres-close" @click="lastBatch = null">知道了</button>
+    </div>
 
     <div v-if="loading" class="state-empty">加载中…</div>
 
@@ -111,28 +135,35 @@
     <div v-else class="card isl-card">
       <div class="table-wrap">
         <!-- v496：挂 .psi-tbl（全局固定布局 + nowrap/ellipsis，规范 §2.1）+ colgroup
-             定宽（宽度唯一权威）+ 冻结序号/单号两列（--psi-frz-2 = 序号宽）。
-             与采购单列表同款：横向滚动由 .table-wrap 负责，列不被内容撑宽。 -->
+             定宽（宽度唯一权威）+ 冻结序号/单号两列。
+             与采购单列表同款：横向滚动由 .table-wrap 负责，列不被内容撑宽。
+             v532：勾选列插在序号**前面**（与采购页同序）⇒ 冻结位次整体右移一格
+             （勾选 1 / 序号 2 / 单号 3），left 偏移见 LEFT_CHK / LEFT_SEQ / LEFT_FROZEN。 -->
         <table class="tbl isl-tbl psi-tbl" :class="{ 'print-one': !!printOnly }"
-               :style="{ '--psi-frz-2': SEQ_W + 'px' }">
+               :style="{ '--psi-frz-1': LEFT_CHK + 'px', '--psi-frz-2': LEFT_SEQ + 'px', '--psi-frz-3': LEFT_FROZEN + 'px' }">
           <colgroup>
+            <!-- v532：勾选列（批量操作逐行勾选；表头**不给全选框** —— v510 按老板口径删除） -->
+            <col :style="{ width: CHK_W + 'px' }" />
             <col :style="{ width: SEQ_W + 'px' }" />
             <col v-for="c in visibleCols" :key="'cg-' + c.key" :style="{ width: c.w + 'px' }" />
             <col :style="{ width: OP_W + 'px' }" />
           </colgroup>
           <thead>
             <tr>
+              <!-- v532：勾选列表头 —— **空的**（不恢复表头全选框：v510 按老板口径删掉，
+                   批量一律逐行勾选）。留这一格是为了与表体列数对齐（table-layout:fixed）。 -->
+              <th class="psi-chk psi-frz psi-frz-1"></th>
               <!-- 齿轮长在**序号列表头**格子里（§2.6.1：不放工具栏、不放别的表头列）。
-                   v496：序号列同时是冻结位置 1（psi-frz-1，left:0）。 -->
-              <th class="seq-th col-gear-th psi-frz psi-frz-1"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+                   v532：序号列让位给勾选列 ⇒ 冻结位置改 2（psi-frz-2）。 -->
+              <th class="seq-th col-gear-th psi-frz psi-frz-2"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
               <!-- v473：可排序列 = `SORTABLE`。点击三态循环（降 → 升 → 取消），由 `onSort()`
                    重新拉数据（**服务端排序**，不是前端对当前页重排 —— 本页是服务端分页，
                    对当前 50 行重排「看着排好了」，一翻页就散架）。
                    指示器：未排 `sort`（中性 ⇅）→ 升 `arrow-up` → 降 `arrow-down`。
-                   v496：单号列同时是冻结位置 2（psi-frz-2，紧贴序号列右侧）。 -->
+                   v532：单号列冻结位置改 3（psi-frz-3，紧贴序号列右侧）。 -->
               <th v-for="c in visibleCols" :key="c.key"
                   :class="[{ num: c.num, 'isl-sh': canSort(c),
-                             'psi-frz': c.key === 'order_no', 'psi-frz-2': c.key === 'order_no' }]"
+                             'psi-frz': c.key === 'order_no', 'psi-frz-3': c.key === 'order_no' }]"
                   :aria-sort="ariaSortOf(c)"
                   :title="canSort(c) ? '点击排序：降序 → 升序 → 取消' : null"
                   @click="onSort(c)">
@@ -143,13 +174,19 @@
           </thead>
           <tbody>
             <tr v-for="(r, i) in rows" :key="r.id"
-                :class="{ 'print-target': printOnly === r.id }"
+                :class="{ 'print-target': printOnly === r.id, 'psi-on': selected.includes(r.id) }"
                 class="isl-row" @click="onRowClick(r)">
+              <!-- v532：行勾选列（批量操作逐行勾选，样式走共享 .psi-chk）。
+                   🔴 整格 `@click.stop`：本页 `<tr>` 带 `onRowClick`（点行进详情页），
+                      不 stop 的话「勾一下就跳走了」，勾选永远留不住。 -->
+              <td class="psi-chk psi-frz psi-frz-1" @click.stop>
+                <input type="checkbox" :value="r.id" v-model="selected" />
+              </td>
               <!-- 序号 = 服务端分页 ⇒ 必须 `offset + i + 1`（写 i+1 第 2 页会从 1 重来）。
-                   v496：冻结位置 1。 -->
-              <td class="seq-cell psi-frz psi-frz-1"><span class="seq-num">{{ offset + i + 1 }}</span></td>
+                   v532：冻结位置改 2。 -->
+              <td class="seq-cell psi-frz psi-frz-2"><span class="seq-num">{{ offset + i + 1 }}</span></td>
               <td v-for="c in visibleCols" :key="c.key"
-                  :class="{ num: c.num, 'psi-frz': c.key === 'order_no', 'psi-frz-2': c.key === 'order_no' }">
+                  :class="{ num: c.num, 'psi-frz': c.key === 'order_no', 'psi-frz-3': c.key === 'order_no' }">
                 <template v-if="c.key === 'order_no'">
                   <!-- v496：单号改**链接**（与采购单列表同款；行点击仍进同一详情页，
                        link 上 .stop 防止父子两个 handler 各推一次路由）。
@@ -186,10 +223,13 @@
                后端不返回合计 ⇒ 客户端对当前页可见行求和；明确标注「本页合计」，不是全单。 -->
           <tfoot>
             <tr>
-              <td class="psi-frz psi-frz-1 ft-lb">本页合计</td>
+              <!-- v532：勾选列的合计格（空）—— 表体多了一列，tfoot 必须同步补一格，
+                   否则整行单元格右移一格、合计数字落在错误的列下面。 -->
+              <td class="psi-frz psi-frz-1"></td>
+              <td class="psi-frz psi-frz-2 ft-lb">本页合计</td>
               <td v-for="c in visibleCols" :key="'ft-' + c.key"
                   :class="{ num: c.num,
-                             'psi-frz': c.key === 'order_no', 'psi-frz-2': c.key === 'order_no' }">
+                             'psi-frz': c.key === 'order_no', 'psi-frz-3': c.key === 'order_no' }">
                 <template v-if="c.num">¥{{ fmtMoney(pageTotals[c.key] || 0) }}</template>
               </td>
               <td class="ft-op"></td>
@@ -252,7 +292,8 @@ import StatusTabs from '../../components/StatusTabs.vue'
 /* v501：分页器共享件（采购 / 销售 / 调拨三页同一条）。 */
 import PsiPager from '../../components/PsiPager.vue'
 /* v510：动作组共享件（导出 → 批量操作 → 新建 → 刷新；收进页签行右侧）。
-   销售单无审核流、无批量后端接口 ⇒ showBatch 传 false。 */
+   v532：销售单后端批量端点已上线（出货 / 签收 / 取消 / 驳回）⇒ 批量菜单开起来，
+   仅退单视图关掉（行 id 属另一张表，见 BATCH_ACTIONS 处注释）。 */
 import PsiListActions from '../../components/PsiListActions.vue'
 
 /* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。
@@ -318,9 +359,15 @@ const pageTotals = computed(() => {
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
 /* v496：序号列宽与全局序号列逐字一致（variables.css `table.tbl th.seq-th{width:46px}`）；
-   冻结偏移 `--psi-frz-2` 也用它 —— 改序号宽必须同时改这两处（同一常量，不会漂）。
-   操作列 76px = 一枚「打印」按钮 + 单元格 padding 的实测需要宽度。 */
+   冻结偏移也用它 —— 改序号宽必须同时改这两处（同一常量，不会漂）。
+   操作列 76px = 一枚「打印」按钮 + 单元格 padding 的实测需要宽度。
+   v532：勾选列 36px 与采购页 `CHK_W` **同值**（三页勾选框观感一致）；
+   左侧冻结偏移改为 勾选0 / 序号36 / 单号82，与采购页同一套算法。 */
+const CHK_W = 36
 const SEQ_W = 46
+const LEFT_CHK = 0                      // 勾选列在最左
+const LEFT_SEQ = CHK_W                  // 36
+const LEFT_FROZEN = CHK_W + SEQ_W       // 82 = 勾选 + 序号（单号列贴在其右侧）
 /* 操作列：订单视图 76px（一枚「打印」）；退单视图 132px（「审核」+ 12px 间隔 + padding）。
    🔴 写死一个数会让退单视图的「审核」被挤出格子（表格是 `table-layout:fixed`，
       列宽权威在 `<colgroup>` ⇒ 这里必须跟着按钮数变）。 */
@@ -413,6 +460,14 @@ const customers = ref([])
 const more = ref(false)
 const printing = ref(false)
 const printOnly = ref(0)
+/* v532：行勾选（批量操作）—— 与采购页 `selected` 同构。
+   🔴 `load()` 成功后**必须清空**：换页 / 换筛选后旧选择指向看不见的行，
+      照着它执行批量 = 对"以为没选中的单据"动手（改库存 / 改钱，不可逆）。 */
+const selected = ref([])
+const batchOpen = ref(false)              // 批量菜单展开态（共享件 PsiListActions）
+/* v532：上一次批量操作的逐单结果（成功几张 / 失败几张 + 后端给的中文原因）。
+   放屏幕上而不是只弹 toast —— 失败原因要留着让用户照着处理，toast 几秒就没了。 */
+const lastBatch = ref(null)
 
 /* 分页：服务端分页，`limit` 可调（默认 50 = v473 之前的固定值 ⇒ 首屏观感不变）。 */
 const PAGE_SIZES = [20, 50, 100, 200]
@@ -498,6 +553,23 @@ const tabs = computed(() => {
 })
 function pickTab (v) { f.value.status = v; load() }
 
+/* ── v532：批量操作 ──────────────────────────────────────────────────────
+   后端端点 `POST /api/psi/sale-orders/batch`（erp 仓 dc7e6a0 + 2eecc2e，已部署生产）。
+   🔴 四个 op **全部**标 `danger` ⇒ 走二次确认：出货 / 签收 / 取消 / 驳回都会动库存或动钱，
+      没有一个是"点了可以反悔"的（老板口径：危险操作必须二次确认）。
+   🔴 后端**逐单**判否并给中文原因（原样展示，用户据此行动），例如：
+        · 「状态错误：只有草稿或已确认状态的订单才能发货」
+        · 「不是你创建的单据，无权操作」
+      ⇒ 界面必须如实报「成功 N 张，失败 M 张」+ 逐张原因，不能只弹一个"操作成功"。
+   ⛔ 退单视图（kind=return）不走这条：行 id 属 `return_orders`，交给销售单端点会打到
+      不相干的单上（两套编号空间），见模板 `:show-batch` 处注释。 */
+const BATCH_ACTIONS = [
+  { op: 'deliver', text: '单据出库', danger: true },
+  { op: 'sign', text: '单据签收', danger: true },
+  { op: 'cancel', text: '单据取消', danger: true },
+  { op: 'reject', text: '单据驳回', danger: true },
+]
+
 /* 未知出货方式也必须是中文（不许回落英文值） */
 function orderTypeText (v) { return textOf(ORDER_TYPE, v, '未标注') }
 
@@ -521,6 +593,9 @@ async function load (resetPage = true) {
       rows.value = d.rows || []
       total.value = Number(d.total || 0)
       counts.value = d.counts || {}
+      /* v532：换页 / 换筛选 ⇒ 勾选作废（否则会对着看不见的行做批量操作）。 */
+      selected.value = []
+      lastBatch.value = null
       return
     }
     const p = { ...f.value, limit: limit.value, offset: offset.value }
@@ -540,6 +615,11 @@ async function load (resetPage = true) {
        拿不到就给 `{}` ⇒ 页签全部显示 0（**可降级**：不隐藏页签、不报错）。 */
     counts.value = d.counts || {}
     if (refs && Array.isArray(refs.customers)) customers.value = refs.customers
+    /* v532：换页 / 换筛选 ⇒ 勾选作废（见上方退单分支同款注释）。
+       ⚠️ `lastBatch` 也在清，但批量执行体是在 `load()` **之后**才写 `lastBatch`
+       ⇒ 刚跑完的那次结果不会被自己发起的刷新抹掉。 */
+    selected.value = []
+    lastBatch.value = null
   } catch (e) {
     err.value = e.message || (_kindReturn.value ? '销售退货单读取失败' : '销售单读取失败')
   } finally {
@@ -623,14 +703,15 @@ function cellVal (r, k) {
    🔴 导出**跟随列设置**（顺序 + 显隐）—— 表里看到什么就导出什么。写死一份固定列会出现
       「表里没有的列被导出」与「表里有的列导不出」两个说法，而「同屏两个说法互相打脸」
       正是本仓一类专项缺陷。取值一律走 `colText`（唯一口径）。
-   ⚠️ 本页**没有**行选择（后端无销售单批量接口，见工具栏注释）⇒ 「导出勾选」这一支不存在，
-      导出范围 = 当前页全部行。这一点必须在按钮的 `title` 里说清，否则用户会以为
-      导出的是「筛选后的 2.2 万张」。
+   🔴 v532：导出范围 = **有勾选就导勾选行，没勾选就导当前页**（与采购页同口径）。
+      「当前页」而不是「筛选后的全部 2.2 万张」—— 本页是服务端分页，前端手上只有这 50 行。
    ⚠️ CSV 的转义 / BOM / 文件名日期戳走 `utils/csv.js`（v408 上提的唯一实现）——
       文件名日期戳用 `localDateStamp()`（**本地时区**），不用 `toISOString()`：后者是 UTC，
       北京时间凌晨 0–8 点导出的文件会标成前一天，用户按文件名归档会以为导错了。 */
 function doExport () {
-  const list = rows.value
+  const list = selected.value.length
+    ? rows.value.filter(r => selected.value.includes(r.id))
+    : rows.value
   if (!list.length) return
   const cols = visibleCols.value
   if (!cols.length) { toast('当前没有可导出的列，请先在列设置里勾选', 'warn'); return }
@@ -661,6 +742,64 @@ async function approveReturn (row) {
     await load(false)        // 失败可能是"已被别人审过"⇒ 拉一次让界面回到事实
   } finally {
     approvingId.value = 0
+  }
+}
+
+/* ---- v532：批量操作的执行体 ----
+   🔴 逐单结果**如实告知**（老板硬要求）：后端逐单判否并给中文原因，界面必须报出
+      「成功 N 张，失败 M 张」并把每一张失败的原因列出来 —— 只弹一个"操作成功"是撒谎，
+      用户会以为 20 张全成了、实际只成了 12 张，剩下的永远没人处理。
+   ⚠️ 顺序有讲究：`lastBatch` 在 `load()` **之后**才写 —— `load()` 会清掉它，
+      写早了结果条刚出现就被自己发起的刷新抹掉（采购页 `runOp` 就是这个顺序坑，
+      本轮不复制）。 */
+const busyBatch = ref(false)
+function toggleBatch () {
+  if (!canUpdate.value) return
+  batchOpen.value = !batchOpen.value
+}
+/** 结果条里的失败行显示**单号**（老板要拿它去开那张单），查不到就退回 `#编号`。 */
+function noOfId (id) {
+  const r = rows.value.find(x => x.id === id)
+  return r ? (r.order_no || ('#' + r.id)) : ('#' + id)
+}
+function pickBatch (a) {
+  batchOpen.value = false
+  if (!canUpdate.value) return
+  if (!selected.value.length) { toast('请先勾选要操作的单据', 'warn'); return }
+  /* 二次确认：写清「对已勾选的 N 张执行 XX」，并预告可能部分失败 ——
+     让人在按下之前就知道会发生什么，以及"没全成"是正常的。 */
+  const n = selected.value.length
+  const ok = window.confirm(
+    `确认${a.text}？\n\n将对已勾选的 ${n} 张单据执行「${a.text}」。` +
+    '\n\n状态不符或不是你创建的单据会被逐单拒绝；执行后会如实列出成功几张、失败几张及原因。' +
+    '\n\n确定执行吗？')
+  if (!ok) return
+  runBatch(a.op, a.text)
+}
+async function runBatch (op, text) {
+  const ids = [...selected.value]
+  if (!ids.length) { toast('请先勾选要操作的单据', 'warn'); return }
+  if (busyBatch.value) return
+  busyBatch.value = true
+  try {
+    const d = await psiApi.batchSales(op, ids)
+    await load(false)                  // 状态变了 ⇒ 重拉当前页（页签计数一并同步）
+    const fails = (d.results || []).filter(x => !x.ok)
+    lastBatch.value = {
+      op_label: d.op_label || text,
+      ok_count: Number(d.ok_count || 0),
+      fail_count: Number(d.fail_count || 0),
+      fails,
+    }
+    if (lastBatch.value.fail_count) {
+      toast(`${lastBatch.value.op_label}：成功 ${lastBatch.value.ok_count} 张，失败 ${lastBatch.value.fail_count} 张 —— 失败原因见列表上方`, 'warn')
+    } else {
+      toast(`${lastBatch.value.op_label}完成：${lastBatch.value.ok_count} 张`, 'success')
+    }
+  } catch (e) {
+    toast(e.message || '批量操作失败', 'error')
+  } finally {
+    busyBatch.value = false
   }
 }
 
@@ -712,8 +851,9 @@ onMounted(load)
 
 .isl-card { padding-bottom: 0 }
 /* v496：固定布局 + colgroup 定宽（规范 §2.1）。min-width = 序号46 + 七列定宽 + 操作76
-   之和（942px，取整 950）—— 窄屏由 .table-wrap 横向滚动，列不被内容撑宽。 */
-.isl-tbl { min-width: 950px }
+   之和（942px，取整 950）；v532 加勾选列 36 ⇒ 986。
+   窄屏由 .table-wrap 横向滚动，列不被内容撑宽。 */
+.isl-tbl { min-width: 986px }
 .isl-row { cursor: pointer }
 /* v496：单号是链接（进详情页）。isl-no 保留等宽数字，补 500 字重对齐基准页
    `.ipl-link.strong` 的观感。 */
