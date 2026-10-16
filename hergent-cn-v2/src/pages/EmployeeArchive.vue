@@ -568,6 +568,18 @@ const editForm = reactive({
 const formSnap = ref('')
 function snapshotForm() { formSnap.value = JSON.stringify(editForm) }
 
+/* v518（2026-10-16）保存后**回读校验**的字段清单。
+   背景（老板实测）：员工岗位首次保存成功后，改成别的岗位再点保存，修改不生效、
+   且界面无任何报错（toast 照常「已保存」）。前端全量提交、后端白名单更新、
+   连接层事务提交三层均已逐一验证正确（含本地复现两连写均落地），但浏览器里
+   依旧复现 ⇒ 结论：**凡是「可能静默」的路径都不值得信**，唯一可靠的判据是
+   落库后读回来的值。于是每次保存后立刻回读本行，把下列字段逐项与库里比对，
+   不一致即按失败处理（报错 + 不关窗 + 不报成功）。
+   ⚠️ 只列**原样落库**的字符串字段：`salary_structure`（底薪 JSON）、两个基数
+   （数字）刻意不列 —— 它们的库里形态与提交形态不同，混进来会误报。 */
+const DRIFT_CHECK_FIELDS = ['name', 'employee_no', 'position', 'hire_date', 'id_card',
+  'bank_name', 'bank_account', 'social_insurance_city']
+
 /* ---- 登录账号（整合进"编辑员工"弹窗）与门店 ---- */
 /* 角色下拉的**值域**。
  *
@@ -792,7 +804,9 @@ async function loadEmployees() {
     employees.value = await employeeApi.list({ include_inactive: 1 }) || []
     const missing = employees.value.filter(e => !salaryOf(e)).length
     empStats.value = { total: employees.value.length, missing }
-  } catch (e) { toast(e.message || '加载员工失败', 'err') }
+    // v518：把行数据返回给调用方 —— 保存后回读校验要用（见 saveEmployeeCore）。
+    return employees.value
+  } catch (e) { toast(e.message || '加载员工失败', 'err'); return [] }
   finally { loading.value = false }
 }
 
@@ -902,7 +916,30 @@ async function saveEmployeeCore() {
       return { ok: true, created: true }
     }
     const r = await employeeApi.update(editTarget.value.id, body)
-    loadEmployees()
+    // 🔴 v518（2026-10-16）：保存后**立刻回读**刚写的这一行做落库校验。
+    //   PUT 回 200 只证明「SQL 执行了」，不证明「值留在库里了」—— 老板实测的
+    //   「岗位改了再保存不生效、且无任何报错」正是这条缝里的静默失效。
+    //   判据只认落库后的值：本次提交的字段与回读值逐项比对，不一致一律按失败
+    //   处理（不报成功、不关窗），让这类故障从「无声消失」变成「当场响叮当」。
+    const rows = await loadEmployees()
+    const fresh = (rows || []).find(x => x.id === editTarget.value.id) || null
+    if (!fresh) {
+      // 行没刷到 ≠ 没写成功（PUT 回执里 updated≥1）—— 不误报失败，但必须说出来，
+      // 否则用户看到列表不更新又会以为没保存（v383 同族：列表未刷到要提示）。
+      toast('已保存，但列表没刷到该员工，请点「刷新」核对', 'warn')
+    } else {
+      const drift = []
+      for (const k of DRIFT_CHECK_FIELDS) {
+        if (body[k] === undefined) continue        // 没传的字段不参与比对
+        const sent = body[k] == null ? '' : String(body[k])
+        const got = fresh[k] == null ? '' : String(fresh[k])
+        if (sent !== got) drift.push(k)
+      }
+      if (drift.length) {
+        toast(`保存未生效：${drift.join('、')} 与库里不一致。请重试；重试仍失败请把此提示反馈给技术人员`, 'err')
+        return { ok: false, drift }
+      }
+    }
     // 🔴 v326（2026-09-29）：**改名会联动该员工的登录账号显示名**（后端已改，见
     //    `erp_db.sync_employee_account_display_name`）。这里要接住它的回执：
     //      ① 后端明确回带了失败原因 ⇒ **说出来**（否则"名字改了但账号没改"又变回
@@ -916,7 +953,7 @@ async function saveEmployeeCore() {
       toast('基本信息已保存，但登录账号名称没同步成功：' + renameError, 'err')
     }
     if (renamed > 0) store.loadPerms(true)
-    return { ok: true, created: false, renamed, renameError }
+    return { ok: true, created: false, renamed, renameError, fresh }
   } catch (e2) { toast(e2.message || '保存失败', 'err'); return { ok: false } }
 }
 
@@ -1537,6 +1574,11 @@ async function saveAll() {
     await loadEmployees()
     const fresh = employees.value.find(x => x.id === (t && t.id))
     if (fresh) { editTarget.value = fresh; syncRoleEdit(fresh) }
+    // v518：保存成功后把脏检查基线对齐到刚存下的值 —— 否则「有未保存的改动」标记
+    // 在保存成功后依然亮着（editForm 不经 resetEditForm 刷新、formSnap 还是打开
+    // 弹窗时的旧基线），误导用户反复保存。放在 pending 检查之前：人事档案这半段
+    // 确实已落库，不该再算「未保存」。
+    snapshotForm()
 
     // 「改登录名」「重置密码」是**独立动作**（各有自己的按钮与提交时机），不在本次合并范围内。
     // 若它们有没提交的内容，就别把窗关掉 —— 关了同样静默丢。
