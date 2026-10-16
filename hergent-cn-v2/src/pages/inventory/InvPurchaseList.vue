@@ -1404,6 +1404,13 @@ async function runDlg () {
 async function runOp (op, ids, extra) {
   const d = await psiApi.batchPurchases(op, ids, extra)
   const fails = (d.results || []).filter(x => !x.ok)
+  /* v532b：状态/标记/备注都变了 ⇒ 先重拉当前页（计数与合计一并更新）。
+     🔴 `lastBatch` **必须**在 `load()` 之后才赋值 —— `load()` 里（两个分支末尾）
+        都有 `lastBatch.value = null`（换页 / 换筛选要让上一次的结果作废）。
+        写在 `load()` 之前的话，结果条刚设好就被自己发起的这次刷新抹掉 ⇒ 用户永远
+        看不到「成功几张、失败几张及原因」，而这是批量操作的硬要求（v532 实测修）。
+     ⚠️ `d` 是局部变量，`load()` 之后照常可用 —— 不要为了"怕顺序错"去复制一份响应。 */
+  await load(false)
   lastBatch.value = { op_label: d.op_label || op, ok_count: Number(d.ok_count || 0),
     fail_count: Number(d.fail_count || 0), fails }
   if (d.fail_count) {
@@ -1411,7 +1418,6 @@ async function runOp (op, ids, extra) {
   } else {
     toast(`${d.op_label}完成：${d.ok_count} 张`, 'success')
   }
-  await load(false)             // 状态/标记/备注都变了，重拉当前页（计数与合计一并更新）
 }
 async function runBatch (op, extra) {
   const ids = [...selected.value]
