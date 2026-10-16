@@ -7,6 +7,20 @@
       </div>
       <div class="isd-acts">
         <button class="btn btn-ghost btn-sm" @click="back">返回列表</button>
+        <!-- v525（P1-2 多级可配审批）：销售单三段式，逻辑与采购详情同源。
+             销售单没有「审核并打印」场景，故只 通过/驳回。审完落 `approved` → 才能「发货」。 -->
+        <button v-if="canWrite && o.status === 'draft'" class="btn btn-primary btn-sm" :disabled="busy" @click="doSubmit">
+          <Icon name="upload" :size="14" />提交审核
+        </button>
+        <template v-if="o.status === 'pending_approval'">
+          <button v-if="apprCanAct" class="btn btn-primary btn-sm" :disabled="busy" @click="doApprove(apprFinal)">
+            <Icon name="check" :size="14" />通过
+          </button>
+          <button v-if="apprCanAct" class="btn btn-ghost btn-sm" :disabled="busy" @click="doReject">
+            <Icon name="close" :size="14" />驳回
+          </button>
+          <span v-else class="isd-note">待【{{ currentNodeName }}】审批（{{ approvalProgressText }}）</span>
+        </template>
         <button v-if="canWrite && canSign" class="btn btn-primary btn-sm" :disabled="busy" @click="doSign">
           <Icon name="check" :size="14" />{{ busy ? '处理中…' : '确认签收' }}
         </button>
@@ -108,7 +122,8 @@ import Icon from '../../components/Icon.vue'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
-import { canDo, toast } from '../../store'
+import { approvalApi } from '../../api/approvals'
+import { canDo, toast, store } from '../../store'
 import {
   SO_STATUS, DELIVERY_STATUS, ORDER_TYPE, textOf, tagOf, fmtMoney,
 } from '../../constants/psiLabels'
@@ -143,6 +158,25 @@ const warehouses = ref([])
 const canWrite = computed(() => canDo('inventory', 'update'))
 const canDeliver = computed(() => o.value.status === 'draft')
 const canSign = computed(() => o.value.status === 'delivered')
+
+/* v525（P1-2 多级可配审批）：与采购详情同源派生。销售单审完落 `approved` → 才能「发货」。 */
+const apprChain = computed(() => { try { return JSON.parse(o.value.approval_chain || '[]') } catch (e) { return [] } })
+const apprNode = computed(() => Number(o.value.approval_node || 0))
+const apprPending = computed(() => o.value.status === 'pending_approval')
+const apprCanAct = computed(() => {
+  if (!apprPending.value) return false
+  const role = store.user.role
+  if (role === 'admin' || role === 'boss') return true
+  const nd = apprChain.value[apprNode.value]
+  return !!(nd && nd.role === role)
+})
+const apprFinal = computed(() =>
+  apprPending.value && apprChain.value.length > 0 && apprNode.value >= apprChain.value.length - 1)
+const currentNodeName = computed(() => { const nd = apprChain.value[apprNode.value]; return nd ? (nd.name || nd.role) : '' })
+const approvalProgressText = computed(() => {
+  if (!apprPending.value) return o.value.status === 'approved' ? '已审待执行' : ''
+  return `第 ${apprNode.value + 1} / ${apprChain.value.length} 关：待【${currentNodeName.value}】审批`
+})
 
 const warehouseName = computed(() => {
   const w = warehouses.value.find(x => x.id === o.value.warehouse_id)
@@ -222,6 +256,48 @@ async function doSign () {
   } finally {
     busy.value = false
   }
+}
+
+/* v525 销售单审批（与采购详情同引擎）。销售单没有「审核并打印」场景，故只 通过/驳回。 */
+async function doSubmit () {
+  if (busy.value) return
+  const chainTxt = apprChain.value.map((n, i) => `${i + 1}. ${n.name || n.role}`).join('\n')
+  if (!window.confirm(`提交这一单进入审批流程？\n\n当前审批链：\n${chainTxt}\n\n提交后状态变为「待审批」。`)) return
+  busy.value = true
+  try {
+    const r = await approvalApi.submit('sale', oid)
+    if (r && r.error) throw new Error(r.error)
+    toast('已提交审核', 'success')
+    await load()
+  } catch (e) { toast(e.message || '提交失败', 'error') } finally { busy.value = false }
+}
+async function doApprove () {
+  if (busy.value) return
+  const final = apprFinal.value
+  const ok = window.confirm(
+    `通过这一关的审批？\n\n当前：${approvalProgressText}\n` +
+    (final ? `这是最后一关，通过即「已审待执行」，之后可发货。\n` : `通过后流转到下一关审批人。\n`) +
+    `确定吗？`)
+  if (!ok) return
+  busy.value = true
+  try {
+    const r = await approvalApi.approve('sale', oid, '')
+    if (r && r.error) throw new Error(r.error)
+    toast(final ? '终审通过：已审待执行' : '已通过，流转下一关', 'success')
+    await load()
+  } catch (e) { toast(e.message || '审批失败', 'error') } finally { busy.value = false }
+}
+async function doReject () {
+  if (busy.value) return
+  const reason = window.prompt('驳回理由（退回草稿，并记入日志）：')
+  if (reason === null) return
+  busy.value = true
+  try {
+    const r = await approvalApi.reject('sale', oid, reason || '无理由')
+    if (r && r.error) throw new Error(r.error)
+    toast('已驳回，退回草稿', 'success')
+    await load()
+  } catch (e) { toast(e.message || '驳回失败', 'error') } finally { busy.value = false }
 }
 
 function back () { router.push('/inventory/sale') }

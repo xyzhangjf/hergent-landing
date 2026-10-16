@@ -501,6 +501,11 @@ export const PAGE_RULES = {
   //      改单/删单/审核/收货/发货由页面用 `canDo('inventory','update')` 收口（v517 同批改）。
   //   ⚠️ 想给销售员开门 ⇒ 先拆 `inventory` 子模块（采购/销售/库存），别直接改本行名单。
   '/inventory':       { title: '进销存',       module: 'inventory', roles: PSI_ROLES, cat: 'admin' },
+  // v525（P1-2 多级可配审批）：审批链配置 —— 仅管理员可改（与后端 `_admin` 双保险）。
+  //   🔴 窄名单 ADMIN_ROLES：会计/主管能看到「待我审核」入口，但**看不到**「审批链配置」
+  //      （改审批关 = 改权限分配，不该对他们开放）。本行是精确匹配，深链也会被守卫按本行拦。
+  //   「待我审核」(`/inventory/approvals`) 不单独登记 ⇒ 继承父级 `/inventory` 的 PSI_ROLES（可见）。
+  '/inventory/flow-config': { title: '审批链配置', module: 'inventory', roles: ADMIN_ROLES, cat: 'admin' },
   // AI 团队（管 AI 团队成员与提示词）—— 配置页，同「设置」一族。
   // 🔴 v296 `lock: true`：它挂的 `module: 'chat'` 而**每个角色都持有 chat**（`_DEFAULT_PERMS`
   //    里 staff/driver/guide 全有）⇒ 一旦「用户配置优先」让位生效，任何被改过权限的角色

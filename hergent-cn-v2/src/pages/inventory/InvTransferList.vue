@@ -134,8 +134,20 @@
               <td class="isl-op">
                 <div class="isl-ops">
                   <button class="isl-op-btn" :disabled="printing" @click.stop="rowPrint(r)">打印</button>
-                  <!-- 过账是唯一真后端行内动作（草稿 → 已过账，真正移库）；调拨无退单 / 无取消接口 ⇒ 不摆这两类按钮 -->
-                  <button v-if="r.status === 'draft'" class="isl-op-btn isl-op-go" :disabled="busyPost" @click.stop="rowPost(r)">过账</button>
+                  <!-- v525（P1-2 多级可配审批）：调拨单在列表内直接走完审批流（无详情页）。
+                       草稿→提交；待审且轮到我→通过/驳回；待审且非我→待【x】；已审→过账。
+                       审批人资格：节点 role==当前用户 role，或 admin/boss 恒可审（服务端 `_can_approve` 再挡）。 -->
+                  <template v-if="r.status === 'draft'">
+                    <button class="isl-op-btn isl-op-go" :disabled="busyPost" @click.stop="rowSubmit(r)">提交审核</button>
+                  </template>
+                  <template v-else-if="r.status === 'pending_approval'">
+                    <template v-if="trApprCanAct(r)">
+                      <button class="isl-op-btn isl-op-go" :disabled="busyPost" @click.stop="rowApprove(r)">通过</button>
+                      <button class="isl-op-btn" :disabled="busyPost" @click.stop="rowReject(r)">驳回</button>
+                    </template>
+                    <span v-else class="isl-appr-wait">待【{{ trCurrentNodeName(r) }}】</span>
+                  </template>
+                  <button v-else-if="r.status === 'approved'" class="isl-op-btn isl-op-go" :disabled="busyPost" @click.stop="rowPost(r)">过账</button>
                 </div>
               </td>
             </tr>
@@ -194,7 +206,8 @@ import { useColSettings } from '../../composables/useColSettings.js'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { downloadCsv, localDateStamp } from '../../utils/csv'
 import { psiApi } from '../../api/psi'
-import { canDo, toast } from '../../store'
+import { approvalApi } from '../../api/approvals'
+import { canDo, toast, store } from '../../store'
 import { TRANSFER_STATUS, textOf, tagOf } from '../../constants/psiLabels'
 import { DOC_PATHS } from './new/docTypes.js'
 /* v496：快捷时间档改共享件（进销存列表页统一设计规范 §3.3）—— 与采购/销售列表
@@ -238,7 +251,8 @@ function openColMenu (e) { if (panel.value) panel.value.open(e) }
 /* v496：序号列宽与全局序号列逐字一致（variables.css `table.tbl th.seq-th{width:46px}`）；
    冻结偏移 `--psi-frz-2` 也用它。操作列 120px = 「打印 + 过账」两枚按钮 + padding 的实测宽度。 */
 const SEQ_W = 46
-const OP_W = 120
+/* v525：操作列加宽到 172px —— 行内新增「提交审核 / 通过 / 驳回」三类审批按钮（原仅 打印 + 过账）。 */
+const OP_W = 172
 
 /* ── v478：服务端排序 ──────────────────────────────────────────────────────
    🔴 排序键必须**映射**：列 key（云端列配置主键，不能改）≠ 后端白名单键（`_TRANSFER_ORDER_SQL`）。
@@ -432,7 +446,7 @@ async function rowPrint (r) {
 
 /* ---- 过账（草稿 → 已过账，真正移库）---- 唯一真后端行内动作；带确认（动了库存不可逆）。 */
 async function rowPost (r) {
-  if (busyPost.value || r.status !== 'draft') return
+  if (busyPost.value || (r.status !== 'draft' && r.status !== 'approved')) return
   if (!window.confirm(`确认过账调拨单 #${r.order_no || r.id}？\n\n过账将立刻在调出仓减库存、调入仓加库存，同一事务，不可撤销。`)) return
   busyPost.value = true
   try {
@@ -444,6 +458,60 @@ async function rowPost (r) {
   } finally {
     busyPost.value = false
   }
+}
+
+/* v525（P1-2 多级可配审批）：调拨单行内审批（无详情页，就地走完）。
+   🔴 资格判定：服务端 `_can_approve` 是硬闸；前端只决定按钮显隐，越权点也会被 403。 */
+function trParseChain (r) { try { return JSON.parse(r.approval_chain || '[]') } catch (e) { return [] } }
+function trApprCanAct (r) {
+  if (r.status !== 'pending_approval') return false
+  const role = store.user.role
+  if (role === 'admin' || role === 'boss') return true
+  const nd = trParseChain(r)[Number(r.approval_node || 0)]
+  return !!(nd && nd.role === role)
+}
+function trCurrentNodeName (r) {
+  const nd = trParseChain(r)[Number(r.approval_node || 0)]
+  return nd ? (nd.name || nd.role) : ''
+}
+function trApprProgress (r) {
+  const chain = trParseChain(r)
+  return `第 ${Number(r.approval_node || 0) + 1} / ${chain.length} 关：待【${trCurrentNodeName(r)}】审批`
+}
+async function rowSubmit (r) {
+  if (busyPost.value) return
+  const txt = trParseChain(r).map((n, i) => `${i + 1}. ${n.name || n.role}`).join('\n')
+  if (!window.confirm(`提交调拨单 #${r.order_no || r.id} 进入审批流程？\n\n当前审批链：\n${txt}`)) return
+  busyPost.value = true
+  try {
+    const res = await approvalApi.submit('transfer', r.id)
+    if (res && res.error) throw new Error(res.error)
+    toast('已提交审核', 'success'); await load(false)
+  } catch (e) { toast(e.message || '提交失败', 'error') } finally { busyPost.value = false }
+}
+async function rowApprove (r) {
+  if (busyPost.value) return
+  const chain = trParseChain(r)
+  const final = Number(r.approval_node || 0) >= chain.length - 1
+  if (!window.confirm(`通过这一关的审批？\n\n当前：${trApprProgress(r)}\n` +
+    (final ? '这是最后一关，通过即「已审待执行」，之后可过账。\n' : '通过后流转到下一关审批人。\n') + '确定吗？')) return
+  busyPost.value = true
+  try {
+    const res = await approvalApi.approve('transfer', r.id, '')
+    if (res && res.error) throw new Error(res.error)
+    toast(final ? '终审通过：已审待执行' : '已通过，流转下一关', 'success'); await load(false)
+  } catch (e) { toast(e.message || '审批失败', 'error') } finally { busyPost.value = false }
+}
+async function rowReject (r) {
+  if (busyPost.value) return
+  const reason = window.prompt('驳回理由（退回草稿）：')
+  if (reason === null) return
+  busyPost.value = true
+  try {
+    const res = await approvalApi.reject('transfer', r.id, reason || '无理由')
+    if (res && res.error) throw new Error(res.error)
+    toast('已驳回，退回草稿', 'success'); await load(false)
+  } catch (e) { toast(e.message || '驳回失败', 'error') } finally { busyPost.value = false }
 }
 
 function go (p) { router.push(p) }
@@ -482,6 +550,8 @@ onMounted(load)
 .isl-tbl thead th.isl-sh:hover .isl-sort-ind { color: var(--p-ink) }
 .isl-sort-ind svg.ico { width: 12px; height: 12px }
 .isl-op { color: var(--p-dark); white-space: nowrap }
+/* v525：待他人审批时的占位提示（无按钮、纯信息） */
+.isl-appr-wait { font-size: 12px; color: var(--t3); padding: 2px 6px; border: 1px dashed var(--bd); border-radius: 6px }
 /* v496：删 `.isl-op-hd{width:1%}` —— 操作列宽进 colgroup（OP_W=120），宽度唯一权威。 */
 .isl-ops { display: inline-flex; align-items: center; gap: 6px }
 .isl-op-btn {

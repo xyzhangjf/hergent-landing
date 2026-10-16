@@ -29,6 +29,10 @@
 export const PO_STATUS = {
   draft:            { text: '草稿',     tag: 'info' },
   pending_approval: { text: '待审批',   tag: 'warn' },
+  /* 🔴 v525：审批流终态。采购单审完 → 落 `approved`（与既有 `confirmed`/`received` 不冲突）：
+     它代表「已审、待执行（入库/发货/过账）」，真正执行由对应动作按钮完成。
+     后端 `purchase_order_confirm` / `sale_order_deliver` / `transfer_order_complete` 均已认此态。 */
+  approved:         { text: '已审待执行', tag: 'ok' },
   confirmed:        { text: '已确认',   tag: 'info' },
   received:         { text: '已入库',   tag: 'ok' },
   partial:          { text: '部分入库', tag: 'warn' },
@@ -39,6 +43,7 @@ export const PO_STATUS = {
 /* ---- 销售单状态 ---- */
 export const SO_STATUS = {
   draft:     { text: '草稿',   tag: 'info' },
+  approved:  { text: '已审待执行', tag: 'ok' },
   confirmed: { text: '已确认', tag: 'info' },
   delivered: { text: '已发货', tag: 'warn' },
   signed:    { text: '已签收', tag: 'ok' },
@@ -52,6 +57,7 @@ export const SO_STATUS = {
      `completed` = 已过账（库存真正移动的时刻），与列表「过账」按钮同名（徽标与动作同名纪律）。 */
 export const TRANSFER_STATUS = {
   draft:     { text: '草稿',   tag: 'info' },
+  approved:  { text: '已审待执行', tag: 'ok' },
   completed: { text: '已过账', tag: 'ok' },
   cancelled: { text: '已取消', tag: '' },
 }

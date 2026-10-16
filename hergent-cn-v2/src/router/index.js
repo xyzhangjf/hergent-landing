@@ -124,6 +124,11 @@ const VehicleSaleOrderNew = () => import('../pages/inventory/new/VehicleSaleOrde
 const VehicleSaleReturnNew = () => import('../pages/inventory/new/VehicleSaleReturnNew.vue')
 const TransferOrderNew = () => import('../pages/inventory/new/TransferOrderNew.vue')
 const InvSaleDetail = () => import('../pages/inventory/InvSaleDetail.vue')
+/* v525（P1-2 多级可配审批）：待我审核中心（所有 inventory 用户可见）+ 审批链配置（仅管理员）。
+   两个路由都挂在 `/inventory` 下，继承父级 PSI_ROLES 可达；「审批链配置」的可见性再靠
+   `pages.js` 的窄名单（`ADMIN_ROLES`）收紧，与后端 `_admin` 双保险。 */
+const InvApprovalCenter = () => import('../pages/inventory/InvApprovalCenter.vue')
+const InvFlowConfig = () => import('../pages/inventory/InvFlowConfig.vue')
 const InvStock = () => import('../pages/inventory/InvStock.vue')
 /* v465d（2026-10-11 资金管理）：7 张报表页 + 参数化单据引擎（覆盖 17 类资金单据）。
    🔴 单据引擎 FundsDoc 由 `meta.docType` 驱动（一处组件、28 页复用）；
@@ -302,6 +307,8 @@ export const router = createRouter({
             { path: 'transfer',     component: InvTransferList,   meta: { title: '调拨单' } },
             { path: 'transfer/new', component: TransferOrderNew,  meta: { title: '新建调拨单' } },
             { path: 'sale/:id',      component: InvSaleDetail,     meta: { title: '销售单详情' } },
+            { path: 'approvals',     component: InvApprovalCenter, meta: { title: '待我审核' } },
+            { path: 'flow-config',   component: InvFlowConfig,     meta: { title: '审批链配置' } },
             { path: 'stock',         component: InvStock,          meta: { title: '库存查询' } }
           ]
         },

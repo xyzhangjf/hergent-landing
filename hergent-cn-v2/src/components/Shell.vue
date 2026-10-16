@@ -464,7 +464,11 @@ const NAV = [
       { label: '其他', items: [
         // 进销存工作台（v392 起真身 = `pages/inventory/InvWorkbench.vue`：4 个 KPI +
         // 临期六档 chips；v380 的 82 行占位页 `Inventory.vue` 已删）。
-        { path: '/inventory', name: '进销存总览', icon: 'activity' }
+        { path: '/inventory', name: '进销存总览', icon: 'activity' },
+        // v525（P1-2 多级可配审批）：待我审核（所有 inventory 用户可见，继承父级 PSI_ROLES）；
+        // 审批链配置（仅管理员，靠 pages.js 窄名单 ADMIN_ROLES 隐入口，与后端 `_admin` 双保险）。
+        { path: '/inventory/approvals', name: '待我审核', icon: 'audit' },
+        { path: '/inventory/flow-config', name: '审批链配置', icon: 'settings' },
       ] }
     ]
   },

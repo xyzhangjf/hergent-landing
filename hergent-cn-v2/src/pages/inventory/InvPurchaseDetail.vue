@@ -80,23 +80,36 @@
                 ⇒ 收进箭头，主按钮留给日常路径（审核完打给供应商）。
                 这里复用打印组那套 `.ipd-pm*` 样式，**不新写一份定位**（§8 同选择器 ≥3 次才上提，
                 这两处是同一定位范式的两个实例，先复用类）。 -->
-        <div v-if="canWrite && canAudit" class="ipd-pm" @click.stop>
-          <button class="btn btn-ghost btn-sm ipd-pm-main" :disabled="busy" @click="doApprovePrint">
-            <Icon name="audit" :size="14" />审核并打印
+        <!-- v525（P1-2 多级可配审批）：提交 / 通过 / 驳回 三段式，由 `approval_chain` 驱动。
+             🔴 谁能点「通过/驳回」= 该关节点 role == 当前用户 role，或 admin/boss 恒可审（代审/终审）。
+                资格判定服务端 `_can_approve` 还挡一道，前端只是把不该出现的按钮藏起来。
+             🔴 「审核并入库」刻意拆两步：先审（这里）→ 状态变 `approved` → 下方「确认入库」按钮出现，
+                再点一次才真入库（货没到不诱导虚增库存，沿用 v412 纪律）。 -->
+        <div v-if="canWrite && o.status === 'draft'" class="ipd-pm" @click.stop>
+          <button class="btn btn-primary btn-sm ipd-pm-main" :disabled="busy" @click="doSubmit">
+            <Icon name="upload" :size="14" />提交审核
           </button>
-          <button class="btn btn-ghost btn-sm ipd-pm-caret" :class="{ on: auditOpen }" :disabled="busy"
-                  title="更多审核方式" @click="auditOpen = !auditOpen">
-            <span class="ipd-pm-tri" :class="{ up: auditOpen }"></span>
+        </div>
+        <div v-else-if="apprCanAct" class="ipd-pm" @click.stop>
+          <button class="btn btn-primary btn-sm ipd-pm-main" :disabled="busy" @click="doApprove(apprFinal)">
+            <Icon name="check" :size="14" />{{ apprFinal ? '通过并打印' : '通过' }}
           </button>
-          <div v-if="auditOpen" class="ipd-pm-menu">
-            <div class="ipd-pm-hd">审核</div>
-            <button class="ipd-mi" @click="doApprovePrint">
-              审核并打印<span class="ipd-mi-n">审核完直接打印给供应商</span>
+          <button class="btn btn-ghost btn-sm ipd-pm-caret" :class="{ on: apprOpen }" :disabled="busy"
+                  title="更多审核方式" @click="apprOpen = !apprOpen">
+            <span class="ipd-pm-tri" :class="{ up: apprOpen }"></span>
+          </button>
+          <div v-if="apprOpen" class="ipd-pm-menu">
+            <div class="ipd-pm-hd">审批（{{ approvalProgressText }}）</div>
+            <button v-if="apprFinal" class="ipd-mi" @click="doApprove(false)">
+              仅通过不打印<span class="ipd-mi-n">通过即可，不打印给供应商</span>
             </button>
-            <button class="ipd-mi" @click="doApproveReceive">
-              审核并入库<span class="ipd-mi-n">审核完接着去确认入库（入库前还要确认一次）</span>
+            <button class="ipd-mi" @click="doReject">
+              驳回<span class="ipd-mi-n">退回草稿，需填理由</span>
             </button>
           </div>
+        </div>
+        <div v-else-if="apprPending" class="ipd-pm" @click.stop>
+          <span class="ipd-appr-wait">待【{{ currentNodeName }}】审批（{{ approvalProgressText }}）</span>
         </div>
         <button v-if="canWrite && canReceive" class="btn btn-ghost btn-sm" :disabled="busy"
                 @click="showRecv = !showRecv">
@@ -882,7 +895,8 @@ import Icon from '../../components/Icon.vue'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
-import { canDo, toast } from '../../store'
+import { approvalApi } from '../../api/approvals'
+import { canDo, toast, store } from '../../store'
 import { PO_STATUS, textOf, tagOf, PSI_NOTES, fmtMoney } from '../../constants/psiLabels'
 import { downloadCsv, localDateStamp } from '../../utils/csv'
 /* v415（P2-7）采购单自定义字段。定义归一 / 取值读取都在 composable 里
@@ -1124,7 +1138,7 @@ const printOpen = ref(false)
 const printCount = computed(() => Number(o.value.print_count || 0))
 /* v412（P2-5）审核动作组的下拉开关（主按钮是「审核并打印」，箭头里是「审核并入库」）。
    与 `printOpen` 分开存：两个菜单同时开着会叠在一起，且各自关闭时机不同。 */
-const auditOpen = ref(false)
+const apprOpen = ref(false)
 /* v452（O1）「更多 ▾」菜单开关。转单为 / 日志 / 附件 / 相邻单据都搬进了这一个菜单，
    所以 v414 的 `transOpen` 随之退役（删除而非留一个无人设置的开关）。 */
 const moreOpen = ref(false)
@@ -1254,7 +1268,34 @@ const canReceive = computed(() => ['draft', 'approved', 'partial'].includes(o.va
    `WHERE status IN (...)` **逐字对齐**：`pending_approval`（真待审）/ `draft` /
    `confirmed`（免审单补记审核时间与审核人，后端也认）。已入库 / 部分入库 / 已取消
    不在内 —— 后端会拒绝，前端就别摆这个按钮出来。 */
-const canAudit = computed(() => ['pending_approval', 'draft', 'confirmed'].includes(o.value.status))
+/* v525（P1-2 多级可配审批）状态派生。
+   🔴 数据来源：详情接口随行返回 `approval_node` / `approval_chain`（psi.py 兜底注入）。
+      链是 JSON 数组 `[{role,name}, ...]`，`approval_node` 指向当前待审节点下标。
+   🔴 谁能操作 = 当前关节点 role == 当前用户 role，或 admin/boss 恒可审（代审/终审）。 */
+const apprChain = computed(() => {
+  try { return JSON.parse(o.value.approval_chain || '[]') } catch (e) { return [] }
+})
+const apprNode = computed(() => Number(o.value.approval_node || 0))
+const apprPending = computed(() => o.value.status === 'pending_approval')
+const apprCanAct = computed(() => {
+  if (!apprPending.value) return false
+  const role = store.user.role
+  if (role === 'admin' || role === 'boss') return true
+  const nd = apprChain.value[apprNode.value]
+  return !!(nd && nd.role === role)
+})
+const apprFinal = computed(() =>
+  apprPending.value && apprChain.value.length > 0 && apprNode.value >= apprChain.value.length - 1)
+const currentNodeName = computed(() => {
+  const nd = apprChain.value[apprNode.value]
+  return nd ? (nd.name || nd.role) : ''
+})
+const approvalProgressText = computed(() => {
+  if (!apprPending.value) return o.value.status === 'approved' ? '已审待执行' : ''
+  return `第 ${apprNode.value + 1} / ${apprChain.value.length} 关：待【${currentNodeName.value}】审批`
+})
+const approvalChainText = computed(() =>
+  apprChain.value.map((n, i) => `${i + 1}. ${n.name || n.role}`).join('\n'))
 
 /* ③ 「有明细」是一等事实：零明细的历史导入单，数量/金额格子一律显示 `—` */
 const hasItems = computed(() => items.value.length > 0)
@@ -1577,7 +1618,7 @@ function doEdit () {
 /** 打印原语（**唯一实现**）：可选计数 + 让菜单先卸载 + `window.print()`。
     ⚠️ **刻意不含 `busy` 守卫** —— 「审核并打印」在外侧已经 `busy=true`，这里若再判一次
        `busy` 就会直接 return，成品是「审核成功了、纸没出来」且零报错（静默半截）。
-       互斥由调用方负责：`doPrint` 自己判一次，`doApprovePrint` 用它自己那一层。 */
+       互斥由调用方负责：`doPrint` 自己判一次，`doApprove` 用它自己那一层。 */
 async function _printNow (count = true) {
   printOpen.value = false
   if (count) await psiApi.printPurchase(oid.value)
@@ -1607,76 +1648,78 @@ async function doPrint (count = true) {
       比不打印更糟（供应商会照着没经过审批的量备货）。
    🔴 **先刷新再打印**：审核改的是状态 / 审核时间 / 审核人 —— 不刷就印，
       纸上的状态还写着「待审批」（而库里已经是草稿）。 */
-async function doApprovePrint () {
+/* ---- v525（P1-2 多级可配审批）------------------------------------------------
+   三段式：提交（draft→pending_approval）→ 逐节点通过 → 终审 approved（→ 确认入库）。
+   🔴 资格双保险：前端 `apprCanAct` 藏按钮，服务端 `_can_approve` 再挡一道
+      （节点 role==当前用户 role，或 admin/boss 恒可审）。越权点也会被 403。
+   🔴 「审核并入库」刻意拆开：本页只做「审」，审完状态 `approved`，下方「确认入库」按钮才出现，
+      再点一次才真入库 —— 不在货到之前诱导虚增库存（沿用 v412 纪律）。 */
+async function doSubmit () {
   if (busy.value) return
-  auditOpen.value = false
-  const pend = o.value.status === 'pending_approval'
-  const ok = window.confirm(
-    `审核这一单，然后打印？\n\n` +
-    (pend
-      ? `审核后状态从「待审批」变为「草稿」，就可以确认入库了。\n`
-      : `这张单金额没到审批线，本来就不需要审批 —— 审核只补记审核时间与审核人。\n`) +
-    `打印会把「打印数」+1（判断这批货到底打没打给供应商，看的就是它）。\n\n确定吗？`
-  )
-  if (!ok) return
+  apprOpen.value = false
+  if (!window.confirm(
+    `提交这一单进入审批流程？\n\n当前审批链：\n${approvalChainText}\n\n` +
+    `提交后状态变为「待审批」，轮到对应审批人处理。`
+  )) return
   busy.value = true
   try {
-    const b = await psiApi.batchPurchases('approve', [oid.value])
-    const f = ((b && b.results) || []).find(x => !x.ok)
-    if (!(b && b.ok_count)) throw new Error((f && f.reason) || '审核未成功')
+    const r = await approvalApi.submit('purchase', oid.value)
+    if (r && r.error) throw new Error(r.error)
+    toast('已提交审核', 'success')
     await loadAll()
-    await _printNow(true)
-    toast('已审核并打印', 'success')
   } catch (e) {
-    toast(e.message || '审核失败', 'error')
+    toast(e.message || '提交失败', 'error')
   } finally {
     busy.value = false
   }
 }
 
-/* ---- v412（P2-5）「审核并入库」—— **刻意不直接写库** --------------------------
-   它做的是「审核 → 接着**拉起入库确认**」：用户仍要在入库那一步再确认一次
-   （`doConfirm` 自带二次确认与「有几行没登记批次」的提醒）。
-   为什么不干脆做成"一键 approve + confirm"：采购单的「审核」发生在**货到之前**
-   （审的是价与量），「入库」发生在**货到之后**。合成一个不可逆的动作，
-   诱导的就是"货还没到先把账做上" ⇒ **库存虚增**，而且这批库存的批次号 / 到期日
-   多半还是空的（临期预警与「先出最早到期」会一起失真）。
-   🔴 `busy` 必须在调 `doConfirm` **之前**放开 —— 它自己带 `busy` 守卫，拿着 `true`
-      进去会直接 return，成品是「审核好了、入库确认没出来」且**零报错**（静默半截）。 */
-async function doApproveReceive () {
+/* 通过当前节点。`print` 只在**终审**时由主按钮传 true（老板终审后打印给供应商）；
+   非终审节点点「通过」只流转下一关，不该打印未获批的单。 */
+async function doApprove (print) {
   if (busy.value) return
-  auditOpen.value = false
-  const pend = o.value.status === 'pending_approval'
+  apprOpen.value = false
+  const final = apprFinal.value
   const ok = window.confirm(
-    `审核这一单，然后去入库？\n\n` +
-    (pend
-      ? `审核后状态从「待审批」变为「草稿」，就可以确认入库了。\n`
-      : `这张单金额没到审批线，本来就不需要审批 —— 审核只补记审核时间与审核人。\n`) +
-    `审核完会再弹一次入库确认；货没到齐就别往下点。\n\n确定吗？`
+    `通过这一关的审批？\n\n` +
+    `当前：${approvalProgressText}\n` +
+    (final
+      ? `这是最后一关，通过即「已审待执行」，之后可确认入库。\n`
+      : `通过后流转到下一关审批人。\n`) +
+    (print ? `通过后立刻打印这张单（打印数 +1）。\n` : '') +
+    `确定吗？`
   )
   if (!ok) return
   busy.value = true
-  let approved = false
   try {
-    const b = await psiApi.batchPurchases('approve', [oid.value])
-    const f = ((b && b.results) || []).find(x => !x.ok)
-    if (!(b && b.ok_count)) throw new Error((f && f.reason) || '审核未成功')
-    approved = true
-    /* 先刷新：`canConfirm` 是基于 `o.status` 的 computed，不刷它就还在读审核**前**的状态。 */
+    const r = await approvalApi.approve('purchase', oid.value, '')
+    if (r && r.error) throw new Error(r.error)
+    toast(final ? '终审通过：已审待执行' : '已通过，流转下一关', 'success')
     await loadAll()
+    if (print) await _printNow(true)
   } catch (e) {
-    toast(e.message || '审核失败', 'error')
+    toast(e.message || '审批失败', 'error')
   } finally {
     busy.value = false
   }
-  if (!approved) return
-  /* 审过了、但这张单此刻仍不能入库（后端 `confirm` 只收 `draft` / `approved`）
-     ⇒ **如实说**，不去调一个注定失败的入库（那会变成"点了没反应 + 一句看不懂的错"）。 */
-  if (!canConfirm.value) {
-    toast('已审核；这一单现在的状态还不能入库', 'warn')
-    return
+}
+
+async function doReject () {
+  if (busy.value) return
+  apprOpen.value = false
+  const reason = window.prompt('驳回理由（退回草稿，并记入日志）：')
+  if (reason === null) return
+  busy.value = true
+  try {
+    const r = await approvalApi.reject('purchase', oid.value, reason || '无理由')
+    if (r && r.error) throw new Error(r.error)
+    toast('已驳回，退回草稿', 'success')
+    await loadAll()
+  } catch (e) {
+    toast(e.message || '驳回失败', 'error')
+  } finally {
+    busy.value = false
   }
-  await doConfirm()
 }
 
 /* 「刷新打印次数」：只重取这一张单，不动页面其它数据 —— 用户在别处打印过之后，
@@ -1906,7 +1949,7 @@ function back () { router.push('/inventory/purchase') }
    v452：更多菜单里的动作（复制 / 日志 / 附件 / 转单 / 翻单）点了也要收起来，
    否则菜单挂在页面上跟着 `window.print()` 一起印出去（打印样式只兜了 `.ipd-pm-menu`，
    但用户视角是"菜单没关"）。 */
-function onDocClick () { printOpen.value = false; auditOpen.value = false; moreOpen.value = false }
+function onDocClick () { printOpen.value = false; apprOpen.value = false; moreOpen.value = false }
 
 onMounted(() => {
   document.addEventListener('click', onDocClick)
@@ -1929,6 +1972,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       写成 `--bg-card` 那种不存在的名字**不报错、也不生效**（静默失效），
       所以我先把 `variables.css` 里的真名查出来才下笔。 */
 .ipd-pm { position: relative; display: inline-flex; align-items: center; gap: 0 }
+/* v525：待他人审批时的占位提示（无按钮、纯信息）；`.ipd-pm` 同款行高，排进动作区不突兀 */
+.ipd-appr-wait {
+  display: inline-flex; align-items: center; height: 30px; padding: 0 12px;
+  font-size: 13px; color: var(--t2);
+  background: var(--bg-2, #f3f4f6); border: 1px solid var(--bd); border-radius: var(--radius-sm, 8px);
+}
 /* 两半拼成一个按钮：去掉中间的重复边框与内侧圆角，否则接缝处是双线 */
 .ipd-pm-main { border-top-right-radius: 0; border-bottom-right-radius: 0 }
 .ipd-pm-caret {
