@@ -347,10 +347,6 @@
                    复制 / 点赞 / 点踩 / 朗读 / 重新生成 / 分享 + 当前模型标识。
                    只在「有内容且非正在流式输出的最后一条」时显示（流式时只露出气泡，避免干扰）。 -->
               <div v-if="m.role === 'assistant' && m.content && !(store.chat.streaming && i === store.chat.messages.length - 1)" class="cp-msg-actions">
-                <span class="cp-mdl" :title="modelBadge.title">
-                  <Icon :name="modelBadge.icon" :size="13" />
-                  <span class="cp-mdl-tx">{{ modelBadge.label }}</span>
-                </span>
                 <button class="cp-act" title="复制" @click="copyMsg(m)">
                   <Icon name="copy" :size="16" />
                 </button>
@@ -1984,12 +1980,6 @@ const readingId = ref(null)      // 正在朗读的助手消息下标（同时�
 const shareOpen = ref(null)      // 打开的分享菜单对应的消息下标
 
 // 当前模型/智能体标识（WorkBuddy 在消息栏左侧展示所用模型）
-const modelBadge = computed(() => {
-  const r = currentRole.value
-  const label = (r && r.name) || '经营副驾'
-  return { label, icon: 'bot', title: `当前由「${label}」回答` }
-})
-
 // 纯前端复制（带非安全上下文兜底）
 async function copyText(t) {
   try {
@@ -3783,9 +3773,9 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
    默认色 var(--cb-text-secondary)（浅色 #666）、hover **只换背景** var(--cb-bg-primary-hover)（#ebebeb）
    且不改字色、:focus/:focus-visible outline:none、图标 16px、按钮间距 8px。
    颜色映射到本仓 token：--cb-text-secondary → --t2；--cb-bg-primary-hover → --b2。 */
-.cp-msg-actions{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--b2,#eef1f5)}
-.cp-mdl{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid var(--b2,#e6e9ee);border-radius:999px;color:var(--t3,#94a3b8);font-size:11px;line-height:1.6;user-select:none;white-space:nowrap}
-.cp-mdl .ico{opacity:.85}
+/* v524：分割线由「按钮上方」移至「按钮下方」—— 让复制/点赞等操作条归到本条消息，
+   线作为消息与消息之间的分隔；保留顶部 8px 间距，底部 8px 内边距后落线。 */
+.cp-msg-actions{display:flex;align-items:center;gap:8px;margin-top:8px;padding-bottom:8px;border-bottom:1px solid var(--b2,#eef1f5)}
 .cp-act{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:none;background:transparent;border-radius:8px;color:var(--t2,#6e6e73);cursor:pointer;transition:background-color .15s}
 .cp-act:hover{background:var(--b2,#ebebeb)}
 .cp-act:focus,.cp-act:focus-visible{outline:none}

@@ -1569,3 +1569,5 @@ v3 初稿里我**编了两个示意数字**（「本月货损率 7.8%，比上�
 下一可用号 = **v523**（v522 本轮占用；起号前仍须实搜两仓 `git log --all` 与未提交文件）。
 
 - **v523（2026-10-16）**：副驾回复消息「头像+角色名固定在顶部」布局改造。`CopilotDrawer.vue` 把助手消息从「头像左、底部对齐、无角色名」改为顶部 `.msg-head` 信息区（头像居左 + 角色名紧邻右侧 + 时间），与正文间留 6px 间距；`@media(max-width:760px)` 放宽正文、收紧头部间距，桌面维持 82% 宽；用户消息/切换分隔标记布局不变。隔离构建 `dist-v523`（Shell `Shell-C1b1P2uG.js`）0 错误，rsync 无 `--delete`，生产 Shell chunk md5=`49374a3e…` 逐字节一致。下一可用号 = **v524**。
+
+- **v524（2026-10-16 13:37 老板微调）**：副驾消息操作栏去冗余 + 分割线下移。① 删底部 `cp-mdl` 角色名徽标（实际渲染 `currentRole.name`，与 v523 顶部 `.msg-head` 重复）+ 死代码 `modelBadge` computed 及 `.cp-mdl` CSS；② `.cp-msg-actions` 由 `border-top` 改 `border-bottom`，分割线从按钮上方移到下方。隔离构建 `dist-v524`，部署 `/opt/hergent-cn-v2/`（备份 `index.html.bak-v524-20261016_133715`），JS `Shell-BBzU1DCL.js`+CSS `Shell-B-Pf0FUA.css` md5 本地↔生产逐字节一致。下一可用号 = **v525**。
