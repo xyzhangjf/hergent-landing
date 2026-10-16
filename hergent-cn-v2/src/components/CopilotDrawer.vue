@@ -122,6 +122,8 @@
               <RoleAvatar :role="m.roleMeta || currentRole" img-class="msg-av-img" fallback="AI" />
             </span>
             <div class="msg-col">
+              <!-- v495b：每条消息显示沟通时间（绝对时间，便于回看历史）；切换分隔标记无时间 -->
+              <div class="msg-time" v-if="m.created_at && !m.isSwitch">{{ fmtMsgTime(m.created_at) }}</div>
               <!-- 深度思考（推理流）：默认折叠，点开看模型想什么。对齐 WorkBuddy 的「深度思考」。 -->
               <div v-if="m.reasoning" class="msg-think">
                 <button class="mt-hd" @click="toggleThink(i)">
@@ -2690,16 +2692,39 @@ const artifacts = computed(() => {
   }
   return list.reverse()
 })
+/* v495b：时间戳归一 —— 本地存的是 Date.now() 数字，服务端回的是 'YYYY-MM-DD HH:MM:SS' 字符串
+   （空格分隔不是合法 ISO，new Date() 会解析成 Invalid Date ⇒ 产物时间显示 NaN月NaN日）。统一转毫秒。 */
+function toTs(v) {
+  if (v == null || v === '') return 0
+  if (typeof v === 'number') return v
+  const n = Date.parse(String(v).replace(' ', 'T'))
+  return isNaN(n) ? 0 : n
+}
 /* v487 P2-⑨：产物生成时间相对化（刚刚 / x 分钟前 / 时:分 / 月日） */
 function fmtArtTime(ts) {
-  if (!ts) return ''
-  const d = new Date(ts)
-  const diff = (Date.now() - ts) / 1000
+  const t = toTs(ts)
+  if (!t) return ''
+  const d = new Date(t)
+  const diff = (Date.now() - t) / 1000
   if (diff < 60) return '刚刚'
   if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前'
   const pad = (n) => String(n).padStart(2, '0')
   if (diff < 86400 && d.getDate() === new Date().getDate()) return pad(d.getHours()) + ':' + pad(d.getMinutes())
   return (d.getMonth() + 1) + '月' + d.getDate() + '日'
+}
+/* v495b：消息气泡的绝对时间（老板要"查看沟通时间"，绝对时间比相对更便于回看历史） */
+function fmtMsgTime(ts) {
+  const t = toTs(ts)
+  if (!t) return ''
+  const d = new Date(t)
+  const pad = (n) => String(n).padStart(2, '0')
+  const now = new Date()
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+  if (sameDay) return pad(d.getHours()) + ':' + pad(d.getMinutes())
+  const date = (now.getFullYear() === d.getFullYear()
+    ? (pad(d.getMonth() + 1) + '-' + pad(d.getDate()))
+    : (d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())))
+  return date + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes())
 }
 /* 新产物（artifact 数量增加）时自动弹开；数量减少或初始化/切会话不触发，避免误弹。
    必须放在 artifacts 定义之后，否则 watch 初始化取值会触发 const 的 TDZ 报错。 */
@@ -2871,11 +2896,13 @@ async function streamReply(payload, reuseUserMsg = false) {
   store.chat.error = ''
   // v423：regenerate 时用户消息已在对话里（上一条），不再重复 push，避免重复气泡
   if (!reuseUserMsg) {
-    store.chat.messages.push({ role: 'user', content, files: files || [], vision: vision && vision.length ? vision : null })
+    // v495b：带上 created_at —— 沟通面板每条消息都要显示时间，产物区时间也由此继承
+    store.chat.messages.push({ role: 'user', content, files: files || [], vision: vision && vision.length ? vision : null, created_at: Date.now() })
   }
   // v319（L2）：把**回答时的角色**快照进消息 —— 历史署名与头像从此不再随后续切换被改写
+  // v495b：带上 created_at —— 气泡与产物区时间都依赖它
   store.chat.messages.push({ role: 'assistant', content: '', tools: [],
-                             roleId: roleId || '', roleMeta: roleMetaOf(roleId) })
+                             roleId: roleId || '', roleMeta: roleMetaOf(roleId), created_at: Date.now() })
   const replyIndex = store.chat.messages.length - 1
   store.chat.streaming = true
   // v309：给这次请求挂上可被「停止」的中止器（按钮据此呈现停止态）
@@ -3326,6 +3353,8 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .msg-av-img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
 .msg-col{display:flex;flex-direction:column;gap:5px;max-width:82%}
 .msg.user .msg-col{align-items:flex-end}
+/* v495b：每条消息的沟通时间（次级灰字，随气泡左/右对齐） */
+.msg-time{font-size:11px;color:var(--t3,#94a3b8);line-height:1.4;padding:1px 4px;user-select:none;font-variant-numeric:tabular-nums}
 .msg-bubble{max-width:100%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
 .msg.user .msg-bubble{background:var(--p-dark);color:#fff;border-bottom-right-radius:4px}
 .msg.assistant .msg-bubble{background:var(--bg2);border-bottom-left-radius:4px;color:var(--t1)}
