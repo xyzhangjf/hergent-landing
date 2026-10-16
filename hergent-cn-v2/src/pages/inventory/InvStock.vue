@@ -83,7 +83,7 @@
                 <td>{{ r.product_name || ('商品 ' + r.product_id) }}</td>
                 <td v-if="isVisible('spec')">{{ r.spec || '—' }}</td>
                 <td>{{ r.warehouse_name || ('仓库 ' + r.warehouse_id) }}</td>
-                <td v-if="isVisible('batch')"><a v-if="r.batch_no" class="ibt-link" role="button" tabindex="0" :title="'追溯批次 ' + r.batch_no" @click="onTraceBatch(r.batch_no)" @keydown.enter.prevent="onTraceBatch(r.batch_no)">{{ r.batch_no }}</a><span v-else>—</span></td>
+                <td v-if="isVisible('batch')"><a v-if="r.batch_no" class="ibt-link" role="button" tabindex="0" :title="'追溯批次 ' + r.batch_no" @click="onTraceBatch(r.batch_no)" @keydown.enter.prevent="onTraceBatch(r.batch_no)" @keydown.space.prevent="onTraceBatch(r.batch_no)">{{ r.batch_no }}</a><span v-else>—</span></td>
                 <td v-if="isVisible('expiry')">{{ r.expiry_date || '—' }}</td>
                 <!-- 剩余天数由后端算（与排序、可售判定同源），前端不再拿今天去减 -->
                 <td v-if="isVisible('days')">{{ daysText(r) }}</td>

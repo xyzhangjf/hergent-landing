@@ -111,10 +111,14 @@
         <!-- 召回影响区 -->
         <div class="card ibt-card">
           <div class="sec-hd">召回影响<span class="sec-sub">以下客户收到过该批次，如需召回按电话联系</span></div>
+          <!-- v531（QA P2-6）：后端 get_recall_affected_customers 用
+               LEFT JOIN contacts ON contact_name=name 按**客户名**匹配电话 ——
+               联系人重名时电话可能错配，必须明示让人工核对 -->
+          <p class="ibt-hint">召回清单按客户名匹配电话，若客户重名请人工核对后再联系。</p>
           <div v-if="recallLoading" class="state-empty">正在查召回清单…</div>
           <div v-else-if="recallErr" class="state-error">
             <p>{{ recallErr }}</p>
-            <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadRecall(batchNo)">重试</button>
+            <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadRecall(tracedNo)">重试</button>
           </div>
           <div v-else-if="!recall.length" class="state-empty">系统内无该批次的销售出库记录，无客户受影响</div>
           <div v-else class="table-wrap">
@@ -156,6 +160,13 @@ import { fmtMoney } from '../../constants/psiLabels'
 const route = useRoute()
 
 const batchNo = ref('')
+/* v531（QA P2-1）tracedNo：本次追溯**实际生效**的批次号。输入框可能被用户
+   清空/改写，召回区的「重试」只认 tracedNo —— 否则重试会拿当前输入框
+   （甚至空值）去拉召回清单，错批次或空转。 */
+const tracedNo = ref('')
+/* v531（QA P2-1）traceSeq：单调递增令牌。连续追溯 A→B 时，A 的召回响应
+   可能晚于 B 到达 ⇒ 不设令牌就会用旧批次数据覆盖新结果。 */
+const traceSeq = ref(0)
 /* searched 在点击「追溯」时即置真 —— 否则失败后 v-if 链会退回「输入批次号开始追溯」，
    错误信息永远露不出来（v-else-if 顺序依赖）。 */
 const searched = ref(false)
@@ -174,7 +185,8 @@ const REF_TYPE_TEXT = {
 }
 function refTypeText (v) {
   if (!v) return '—'
-  return REF_TYPE_TEXT[v] || v
+  // v531（QA P2-2）：未收录的 ref_type 不再回落英文原值 —— 界面一律不出现英文
+  return REF_TYPE_TEXT[v] || '其他单据'
 }
 
 /* 数量格式化：整数千分位（与 InvStock.vue 的 fmtQty 同口径） */
@@ -216,30 +228,39 @@ async function trace () {
   data.value = null
   recall.value = []
   recallErr.value = ''
+  tracedNo.value = no
+  const seq = ++traceSeq.value
   try {
     const d = await batchTraceApi.full(no)
+    if (seq !== traceSeq.value) return // 已被更新的追溯取代，丢弃过期响应
     data.value = d || {}
   } catch (e) {
+    if (seq !== traceSeq.value) return
     err.value = e.message || '追溯失败'
   } finally {
-    loading.value = false
+    if (seq === traceSeq.value) loading.value = false
   }
   /* 主结果落定后再拉召回清单（不阻塞结果区渲染；主请求失败则不拉） */
-  if (!err.value) loadRecall(no)
+  if (!err.value) loadRecall(no, seq)
 }
 
-async function loadRecall (no) {
-  const key = (no || batchNo.value || '').trim()
+async function loadRecall (no, seq) {
+  /* v531（QA P2-1）：不再回落 batchNo.value —— 只接受显式传入的批次号；
+     seq 缺省时取当前令牌（供召回区「重试」按钮使用）。 */
+  const key = (no || '').trim()
   if (!key) return
+  const token = seq === undefined ? traceSeq.value : seq
   recallLoading.value = true
   recallErr.value = ''
   try {
     const list = await batchTraceApi.recall(key)
+    if (token !== traceSeq.value) return
     recall.value = Array.isArray(list) ? list : []
   } catch (e) {
+    if (token !== traceSeq.value) return
     recallErr.value = e.message || '召回清单读取失败'
   } finally {
-    recallLoading.value = false
+    if (token === traceSeq.value) recallLoading.value = false
   }
 }
 
@@ -258,4 +279,5 @@ onMounted(() => {
 .ibt-input { max-width: 340px }
 .ibt-card { margin-bottom: 12px }
 .ibt-empty { text-align: center; color: var(--t2) }
+.ibt-hint { margin: -4px 0 10px; font-size: 12px; color: var(--t2) }
 </style>

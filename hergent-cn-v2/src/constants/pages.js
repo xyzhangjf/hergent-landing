@@ -509,6 +509,11 @@ export const PAGE_RULES = {
   // v529（P1-5 批次追溯）：召回清单含客户电话 ⇒ 显式收窄到 ADMIN_ROLES。
   //   🔴 不单独登记（指望 `/inventory` 父行前缀继承）是不行的：ruleFor 的前缀继承会给
   //      PSI_ROLES 放行，侧栏虽在仓配区，深链却会漏给会计/主管 —— 客户电话不该外溢。
+  //   🔴 v531：光靠本行 ADMIN_ROLES **不是**真保险 —— roleGateOpen 第 ③ 档「用户配置
+  //      优先」会让位给模块轴 canModule('inventory')，而生产会计/主管已被 v517 迁入
+  //      inventory ⇒ 深链仍可进页面。真正的双保险在后端：5 个批次端点自 v531 起
+  //      一律 `_admin(request)`（role ∈ admin/boss，否则 403），与 flow-config 同构。
+  //      本行 ADMIN_ROLES 管的是「侧栏/入口可见性」，与后端守卫各司其职。
   '/inventory/batch-trace': { title: '批次追溯', module: 'inventory', roles: ADMIN_ROLES, cat: 'admin' },
   // AI 团队（管 AI 团队成员与提示词）—— 配置页，同「设置」一族。
   // 🔴 v296 `lock: true`：它挂的 `module: 'chat'` 而**每个角色都持有 chat**（`_DEFAULT_PERMS`
