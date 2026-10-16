@@ -115,15 +115,19 @@
                 接着《{{ resumeTarget.title }}》聊
               </button>
             </div>
-            <span v-else-if="m.role === 'assistant'" class="msg-avatar" :title="(m.roleMeta && m.roleMeta.name) || ''">
-              <!-- 🔴 用**消息自己的**角色快照，不用 currentRole：否则切角色会追溯改写历史署名。
-                   v322：存量消息（v319 之前存的 / 服务端直接拉回的）**没有快照** ⇒ 此前只回落成
-                   emoji，于是历史回复显示 🚀 而顶栏显示 3D 头像。现在整份回落，走同一渲染口。 -->
-              <RoleAvatar :role="m.roleMeta || currentRole" img-class="msg-av-img" fallback="AI" />
-            </span>
+            <!-- v523：助手回复顶部信息区 = 头像(居左) + 角色名(紧邻右侧) + 时间；与下方正文保留间距。
+                 用消息自带的角色快照 m.roleMeta（不读 currentRole），避免切角色后历史署名被追溯改写。 -->
+            <div v-else-if="m.role === 'assistant'" class="msg-head">
+              <span class="msg-avatar" :title="(m.roleMeta && m.roleMeta.name) || 'AI'">
+                <RoleAvatar :role="m.roleMeta || currentRole" img-class="msg-av-img" fallback="AI" />
+              </span>
+              <span class="msg-role">{{ (m.roleMeta && m.roleMeta.name) || (currentRole && currentRole.name) || 'AI' }}</span>
+              <span class="msg-time" v-if="m.created_at">{{ fmtMsgTime(m.created_at) }}</span>
+            </div>
             <div class="msg-col">
-              <!-- v495b：每条消息显示沟通时间（绝对时间，便于回看历史）；切换分隔标记无时间 -->
-              <div class="msg-time" v-if="m.created_at && !m.isSwitch">{{ fmtMsgTime(m.created_at) }}</div>
+              <!-- v495b：每条消息显示沟通时间（绝对时间，便于回看历史）；
+                   助手回复时间已上移至顶部信息区，此处仅用户消息仍显示在正文首行。 -->
+              <div class="msg-time" v-if="m.created_at && m.role !== 'assistant'">{{ fmtMsgTime(m.created_at) }}</div>
               <!-- 深度思考（推理流）：默认折叠，点开看模型想什么。对齐 WorkBuddy 的「深度思考」。 -->
               <div v-if="m.reasoning" class="msg-think">
                 <button class="mt-hd" @click="toggleThink(i)">
@@ -3385,12 +3389,25 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-demo{margin-top:14px;padding:8px 18px;border:1px solid var(--p-border);border-radius:20px;background:var(--p-bg);font-size:12.5px;color:var(--p-dark);cursor:pointer;transition:all .15s}
 .cp-demo:hover{background:rgba(6,182,212,.12);border-color:var(--p-dark)}
 
-.msg{display:flex;gap:8px;align-items:flex-end}
-.msg.user{justify-content:flex-end}
+.msg{display:flex;gap:8px}
+.msg.user{flex-direction:row;align-items:flex-end;justify-content:flex-end}
+.msg.assistant{flex-direction:column;align-items:stretch;gap:0}
+.msg.is-switch{flex-direction:row;align-items:flex-end;justify-content:flex-start}
+/* v523：助手回复顶部信息区（头像居左 + 角色名紧邻右侧 + 时间）；
+   角色名过长自动省略，时间不收缩，保证「谁在答 + 何时答」一眼可见。 */
+.msg-head{display:flex;align-items:center;gap:8px;margin:0 0 6px;min-width:0}
+.msg-role{font-size:12.5px;font-weight:600;color:var(--t2);line-height:1.3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-head .msg-time{margin-left:6px;padding:0;flex-shrink:0}
 .msg-avatar{width:26px;height:26px;border-radius:50%;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;overflow:hidden}
 .msg-av-img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
 .msg-col{display:flex;flex-direction:column;gap:5px;max-width:82%}
 .msg.user .msg-col{align-items:flex-end}
+/* v523：窄屏/移动端适配 —— 顶部信息区间距收紧、正文用更宽比例，头像与角色名不变形 */
+@media (max-width:760px){
+  .msg-col{max-width:92%}
+  .msg-head{gap:6px;margin-bottom:5px}
+  .msg-role{font-size:12px}
+}
 /* v495b：每条消息的沟通时间（次级灰字，随气泡左/右对齐） */
 .msg-time{font-size:11px;color:var(--t3,#94a3b8);line-height:1.4;padding:1px 4px;user-select:none;font-variant-numeric:tabular-nums}
 .msg-bubble{max-width:100%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
