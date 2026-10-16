@@ -74,7 +74,7 @@
           :show-batch="!_kindReturn"
           :batch-items="BATCH_ACTIONS"
           :batch-open="batchOpen"
-          :batch-disabled="!canUpdate"
+          :batch-disabled="!canUpdate || busyBatch"
           :show-new="canWrite"
           :new-disabled="!canWrite"
           :new-label="'新建' + title"
@@ -562,12 +562,22 @@ function pickTab (v) { f.value.status = v; load() }
         · 「不是你创建的单据，无权操作」
       ⇒ 界面必须如实报「成功 N 张，失败 M 张」+ 逐张原因，不能只弹一个"操作成功"。
    ⛔ 退单视图（kind=return）不走这条：行 id 属 `return_orders`，交给销售单端点会打到
-      不相干的单上（两套编号空间），见模板 `:show-batch` 处注释。 */
+      不相干的单上（两套编号空间），见模板 `:show-batch` 处注释。
+
+   🔴 v532c：文案口径 —— **同一个动作只有一个说法**（菜单 / 二次确认 / 结果条 / toast
+      四处同一个串）。取值一律用这里的 `text`，**不读**后端 `op_label`：
+        · 后端 op_label 是 `deliver=发货 / sign=签收 / cancel=取消 / reject=拒绝`；
+        · 本页既有词表是 `SO_STATUS` 的「已发货 / 已签收 / 已取消 / **已驳回**」，
+          详情页也写「这一张被驳回了」—— 全系统没有一处说「拒绝」；
+        ⇒ 若照后端写「拒绝」，菜单说驳回、结果条说拒绝，又成了同动作两个说法。
+      四项里前三项与后端 op_label **天然同字**（发货 / 签收 / 取消），只有 `reject`
+      一项是「驳回」（对齐本页状态列）。建议后端把 reject 的 op_label 改成「驳回」
+      （只改一个显示串，不影响单张端点语义），改完两边就完全收敛。 */
 const BATCH_ACTIONS = [
-  { op: 'deliver', text: '单据出库', danger: true },
-  { op: 'sign', text: '单据签收', danger: true },
-  { op: 'cancel', text: '单据取消', danger: true },
-  { op: 'reject', text: '单据驳回', danger: true },
+  { op: 'deliver', text: '发货', danger: true },
+  { op: 'sign', text: '签收', danger: true },
+  { op: 'cancel', text: '取消', danger: true },
+  { op: 'reject', text: '驳回', danger: true },
 ]
 
 /* 未知出货方式也必须是中文（不许回落英文值） */
@@ -765,6 +775,9 @@ function noOfId (id) {
 function pickBatch (a) {
   batchOpen.value = false
   if (!canUpdate.value) return
+  /* v532c：执行中**先挡在确认框之前** —— 挡在后面的话用户已经点了「确定」，
+     再被静默 return，就是"点了没反应"（按钮禁用态同时也在 :batch-disabled 里）。 */
+  if (busyBatch.value) return
   if (!selected.value.length) { toast('请先勾选要操作的单据', 'warn'); return }
   /* 二次确认：写清「对已勾选的 N 张执行 XX」，并预告可能部分失败 ——
      让人在按下之前就知道会发生什么，以及"没全成"是正常的。 */
@@ -785,8 +798,11 @@ async function runBatch (op, text) {
     const d = await psiApi.batchSales(op, ids)
     await load(false)                  // 状态变了 ⇒ 重拉当前页（页签计数一并同步）
     const fails = (d.results || []).filter(x => !x.ok)
+    /* v532c：`op_label` 取本页 `text`（BATCH_ACTIONS 的中文），**不读** `d.op_label`
+       —— 后端 reject 的 op_label 是「拒绝」，与菜单「驳回」不是同一个说法（详见
+       BATCH_ACTIONS 处注释）。同一个动作从头到尾只显示一个串。 */
     lastBatch.value = {
-      op_label: d.op_label || text,
+      op_label: text,
       ok_count: Number(d.ok_count || 0),
       fail_count: Number(d.fail_count || 0),
       fails,

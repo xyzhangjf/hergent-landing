@@ -17,7 +17,9 @@
       <Icon name="download" :size="14" />导出
     </button>
 
-    <!-- 批量操作：仅采购单有后端批量端点（psiApi.batchPurchases）；销售 / 调拨无 ⇒ showBatch=false -->
+    <!-- 批量操作：由**父页按后端能力**传 `showBatch`（v532 起三页都有后端批量端点：
+         采购 / 销售 / 调拨；销售「退单视图」除外 —— 它的行来自 `return_orders`，
+         与 `sale_orders.id` 两套编号空间 ⇒ 该视图传 false）。 -->
     <div v-if="showBatch" class="psi-acts-mw">
       <button class="btn btn-ghost btn-sm" :class="{ on: batchOpen }"
               :disabled="batchDisabled" @click.stop="emit('toggle-batch')">
@@ -43,10 +45,12 @@
 import Icon from './Icon.vue'
 /* props / emits —— 业务状态全部来自父页：
    · exportDisabled  导出无数据时禁用（父页传 `!rows.length`）
-   · showBatch       是否显示批量操作（采购单 true，销售 / 调拨 false）
+   · showBatch       是否显示批量操作 —— 由父页按**后端能力**给（v532 起三页都有批量端点；
+                     销售「退单视图」因 id 属 `return_orders` 仍传 false）
    · batchItems      批量菜单项数组（父页的 BATCH_ACTIONS）
    · batchOpen       菜单展开态
-   · batchDisabled   无写权限时禁用
+   · batchDisabled   禁用批量入口（无写权限，或父页正在执行上一次批量 —— v532c 起
+                     父页会把「执行中」也并进这里，避免重复提交）
    · newLabel        「新建」按钮文案（采购单随入口变「新建采购单 / 新建采购退货单」）
    · refreshDisabled 加载中禁用刷新
    事件：export / toggle-batch / batch-pick(item) / new / refresh */

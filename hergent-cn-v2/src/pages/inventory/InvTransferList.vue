@@ -40,7 +40,7 @@
     <StatusTabs :tabs="tabs" :model-value="f.status" @pick="pickTab">
       <!-- v510：动作组收进页签行右侧（共享件 PsiListActions），顺序 导出 → 批量操作 → 新建 → 刷新。
            v532：调拨单后端批量端点 `POST /api/psi/transfer-orders/batch` 已交付并部署
-           （目前一op：完成/过账）⇒ showBatch 开起来，菜单项由本页 BATCH_ACTIONS 给。
+           （目前一 op：过账）⇒ showBatch 开起来，菜单项由本页 BATCH_ACTIONS 给。
            排序提示经 #status 插槽保留在左侧。 -->
       <template #actions>
         <PsiListActions
@@ -48,7 +48,7 @@
           :show-batch="true"
           :batch-items="BATCH_ACTIONS"
           :batch-open="batchOpen"
-          :batch-disabled="!canUpdate"
+          :batch-disabled="!canUpdate || busyBatch"
           :show-new="canWrite"
           :new-disabled="!canWrite"
           :new-label="'新建' + title"
@@ -229,7 +229,8 @@
         ⚠️ 「备注」列**不进**排序白名单（自由文本无意义）⇒ 该列表头不可点 = 有意差异（不是漏做）；
            若强行点会静默回落 id 排序，反而像是"点了没反应"的假控件。
      ② **批量操作只有一项**（v532 起）：后端 `POST /api/psi/transfer-orders/batch` 只给
-        「调拨完成」一个 op ⇒ 菜单就一项，不摆取消 / 删除这类点了 404 的按钮。
+        「过账」一个 op（后端 op 名 `complete`，与行内「过账」按钮同名）⇒ 菜单就一项，
+        不摆取消 / 删除这类点了 404 的按钮。
         （v532 之前后端无批量接口 ⇒ 批量入口整个不显示；现在有了就开，但仍只开真的有的。）
      ③ **没有打印数**：后端无 `batchTransfers('print')` 这类计数接口，不造前端自增的假计数。
      ④ **行内动作只有「打印 / 过账」**：过账(`POST /complete`)是唯一真后端动作（草稿→已过账，
@@ -256,7 +257,7 @@ import StatusTabs from '../../components/StatusTabs.vue'
 /* v501：分页器共享件（采购 / 销售 / 调拨三页同一条）。 */
 import PsiPager from '../../components/PsiPager.vue'
 /* v510：动作组共享件（导出 → 批量操作 → 新建 → 刷新；收进页签行右侧）。
-   v532：调拨单后端批量端点已上线（一 op：调拨完成）⇒ 批量菜单开起来。 */
+   v532：调拨单后端批量端点已上线（一 op：过账）⇒ 批量菜单开起来。 */
 import PsiListActions from '../../components/PsiListActions.vue'
 
 /* 列设置（齿轮）。核心列（单号 / 状态）进本清单 `core:true` ⇒ 不进云端显隐配置、恒显；
@@ -405,13 +406,20 @@ function pickTab (v) { f.value.status = v; load() }
 
 /* ── v532：批量操作 ──────────────────────────────────────────────────────
    后端端点 `POST /api/psi/transfer-orders/batch`（erp 仓 dc7e6a0 + 2eecc2e，已部署生产）。
-   🔴 目前只有一 op：`complete`（调拨完成 = 过账，**真的在两个仓之间搬库存**）
+   🔴 目前只有一 op：`complete`（界面叫「过账」，**真的在两个仓之间搬库存**）
       ⇒ 标 `danger` 走二次确认（老板口径：危险操作必须二次确认）。
    🔴 后端**逐单**判否并给中文原因（原样展示，用户据此行动），例如状态已完成的单会被拒
       ⇒ 界面必须如实报「成功 N 张，失败 M 张」+ 逐张原因，不能只弹一个"操作成功"。
-   ⛔ 不要照后端 op 名写英文或缩写到界面上（op 值只留在代码里）。 */
+   ⛔ 不要照后端 op 名写英文或缩写到界面上（op 值只留在代码里）。
+
+   🔴 v532c：文案口径 —— **同一个动作只有一个说法**（菜单 / 二次确认 / 结果条 / toast
+      四处同一个串），一律取这里的 `text`，**不读**后端 `op_label`：
+        · 这里定「过账」，与**行内按钮 `rowPost` 的「过账」**同名（psiLabels 里
+          `TRANSFER_STATUS.completed` 的注释也是这条纪律：徽标与动作同名）；
+        · 后端 op_label 恰好也是「过账」，两边一致 —— 但显示仍以本页 `text` 为准，
+          免得后端哪天改了词，界面就自己分裂成两个说法。 */
 const BATCH_ACTIONS = [
-  { op: 'complete', text: '调拨完成', danger: true },
+  { op: 'complete', text: '过账', danger: true },
 ]
 
 async function load (resetPage = true) {
@@ -529,6 +537,9 @@ function noOfId (id) {
 function pickBatch (a) {
   batchOpen.value = false
   if (!canUpdate.value) return
+  /* v532c：执行中**先挡在确认框之前** —— 挡在后面的话用户已经点了「确定」，
+     再被静默 return，就是"点了没反应"（按钮禁用态同时也在 :batch-disabled 里）。 */
+  if (busyBatch.value) return
   if (!selected.value.length) { toast('请先勾选要操作的单据', 'warn'); return }
   /* 二次确认：写清「对已勾选的 N 张执行 XX」，并预告可能部分失败 ——
      让人在按下之前就知道会发生什么（这里是真搬库存），以及"没全成"是正常的。 */
@@ -550,8 +561,10 @@ async function runBatch (op, text) {
     const d = await psiApi.batchTransfers(op, ids)
     await load(false)                  // 状态变了 ⇒ 重拉当前页（页签计数一并同步）
     const fails = (d.results || []).filter(x => !x.ok)
+    /* v532c：`op_label` 取本页 `text`（BATCH_ACTIONS 的中文），**不读** `d.op_label`
+       —— 同一个动作从头到尾只显示一个串（详见 BATCH_ACTIONS 处注释）。 */
     lastBatch.value = {
-      op_label: d.op_label || text,
+      op_label: text,
       ok_count: Number(d.ok_count || 0),
       fail_count: Number(d.fail_count || 0),
       fails,
