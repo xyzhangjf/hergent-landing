@@ -83,7 +83,7 @@
                 <td>{{ r.product_name || ('商品 ' + r.product_id) }}</td>
                 <td v-if="isVisible('spec')">{{ r.spec || '—' }}</td>
                 <td>{{ r.warehouse_name || ('仓库 ' + r.warehouse_id) }}</td>
-                <td v-if="isVisible('batch')">{{ r.batch_no || '—' }}</td>
+                <td v-if="isVisible('batch')"><a v-if="r.batch_no" class="ibt-link" role="button" tabindex="0" :title="'追溯批次 ' + r.batch_no" @click="onTraceBatch(r.batch_no)" @keydown.enter.prevent="onTraceBatch(r.batch_no)">{{ r.batch_no }}</a><span v-else>—</span></td>
                 <td v-if="isVisible('expiry')">{{ r.expiry_date || '—' }}</td>
                 <!-- 剩余天数由后端算（与排序、可售判定同源），前端不再拿今天去减 -->
                 <td v-if="isVisible('days')">{{ daysText(r) }}</td>
@@ -131,6 +131,7 @@
    🔴 本页**刻意没有「创建」入口**（计划 §七 页面 8）：库存是采购/销售的**结果**，
       手改库存要走去库存效期补录或盘点，不该在这里凭空加。 */
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
@@ -149,6 +150,8 @@ const STOCK_COLS = [
   { key: 'status', label: '状态', core: true },
 ]
 const { isVisible, toggleCol, resetCols } = useColSettings('inv-stock', STOCK_COLS)
+/* v529（P1-5）：批次号下钻去追溯页 */
+const router = useRouter()
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
@@ -199,6 +202,9 @@ async function load (resetPage = true) {
 function next () { offset.value += limit; load(false) }
 function prev () { offset.value = Math.max(0, offset.value - limit); load(false) }
 
+/* 批次号下钻（v529 P1-5）：带 ?batch= 进追溯页，对方进入即自动查一次 */
+function onTraceBatch (no) { router.push('/inventory/batch-trace?batch=' + encodeURIComponent(no)) }
+
 /* 「剩余天数」文案：后端给的是 `expiry_days_left`（null = 无到期日或日期不可解析，
    两者已由 `expiry_status` 区分）⇒ 这里只做**单位中文化**，不参与任何判断。 */
 function daysText (r) {
@@ -241,6 +247,11 @@ onMounted(load)
   padding-top: 12px; flex-wrap: wrap;
 }
 .is-cnt { font-size: 12px; color: var(--t3); margin-right: auto }
+
+/* 批次号下钻（v529 P1-5）：有批次号即可点击进追溯页。
+   品牌色走 --p-dark（与 .btn-primary / .main-tab.on 同源；不写死色值，深色模式自动跟随） */
+.ibt-link { color: var(--p-dark); cursor: pointer; text-decoration: none; border-bottom: 1px dashed currentColor }
+.ibt-link:hover { opacity: .8 }
 
 @media (max-width: 640px) {
   .is-kw { width: 100% }

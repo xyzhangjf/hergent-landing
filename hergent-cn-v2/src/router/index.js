@@ -130,6 +130,10 @@ const InvSaleDetail = () => import('../pages/inventory/InvSaleDetail.vue')
 const InvApprovalCenter = () => import('../pages/inventory/InvApprovalCenter.vue')
 const InvFlowConfig = () => import('../pages/inventory/InvFlowConfig.vue')
 const InvStock = () => import('../pages/inventory/InvStock.vue')
+/* v529（P1-5 批次追溯）：批次全链路查询页。从库存查询页批次号下钻进来
+   （URL 带 ?batch=xxx 即自动查一次）；可见性收窄在 pages.js 登记行
+   （召回清单含客户电话 ⇒ ADMIN_ROLES），这里只负责路由可达。 */
+const InvBatchTrace = () => import('../pages/inventory/InvBatchTrace.vue')
 /* v465d（2026-10-11 资金管理）：7 张报表页 + 参数化单据引擎（覆盖 17 类资金单据）。
    🔴 单据引擎 FundsDoc 由 `meta.docType` 驱动（一处组件、28 页复用）；
       报表页由 `meta.partyType` / `meta.costMode` 驱动。差异全在路由 meta，不在本文件写第二份。
@@ -310,7 +314,8 @@ export const router = createRouter({
             { path: 'sale/:id',      component: InvSaleDetail,     meta: { title: '销售单详情' } },
             { path: 'approvals',     component: InvApprovalCenter, meta: { title: '待我审核' } },
             { path: 'flow-config',   component: InvFlowConfig,     meta: { title: '审批链配置' } },
-            { path: 'stock',         component: InvStock,          meta: { title: '库存查询' } }
+            { path: 'stock',         component: InvStock,          meta: { title: '库存查询' } },
+            { path: 'batch-trace',   component: InvBatchTrace,     meta: { title: '批次追溯' } }
           ]
         },
 

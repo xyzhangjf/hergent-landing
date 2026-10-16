@@ -535,6 +535,7 @@ const NAV = [
       ] },
       { label: '库存查询', items: [
         { path: '/inventory/stock',  name: '库存查询',     icon: 'package' },
+        { path: '/inventory/batch-trace', name: '批次追溯', icon: 'package' },
         { path: '/wh/vehicle-stock', name: '车辆库存查询', icon: 'smartphone' },
         { path: '/wh/expiry-report', name: '效期预警表',   icon: 'clock' },
         { path: '/wh/stock-alert',   name: '库存预警',     icon: 'alert' },

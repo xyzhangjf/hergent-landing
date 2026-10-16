@@ -506,6 +506,10 @@ export const PAGE_RULES = {
   //      （改审批关 = 改权限分配，不该对他们开放）。本行是精确匹配，深链也会被守卫按本行拦。
   //   「待我审核」(`/inventory/approvals`) 不单独登记 ⇒ 继承父级 `/inventory` 的 PSI_ROLES（可见）。
   '/inventory/flow-config': { title: '审批链配置', module: 'inventory', roles: ADMIN_ROLES, cat: 'admin' },
+  // v529（P1-5 批次追溯）：召回清单含客户电话 ⇒ 显式收窄到 ADMIN_ROLES。
+  //   🔴 不单独登记（指望 `/inventory` 父行前缀继承）是不行的：ruleFor 的前缀继承会给
+  //      PSI_ROLES 放行，侧栏虽在仓配区，深链却会漏给会计/主管 —— 客户电话不该外溢。
+  '/inventory/batch-trace': { title: '批次追溯', module: 'inventory', roles: ADMIN_ROLES, cat: 'admin' },
   // AI 团队（管 AI 团队成员与提示词）—— 配置页，同「设置」一族。
   // 🔴 v296 `lock: true`：它挂的 `module: 'chat'` 而**每个角色都持有 chat**（`_DEFAULT_PERMS`
   //    里 staff/driver/guide 全有）⇒ 一旦「用户配置优先」让位生效，任何被改过权限的角色
