@@ -394,7 +394,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
         <!-- 时间进度：与下方进度条的虚线标记同源（口径＝本期到货月），右对齐到本行最右侧 -->
         <span class="sprint-tp" v-if="rebateSprint.length" :title="sprintTimeProgress.shown ? '虚线＝时间进度：进度条超过虚线＝超前，短于虚线＝落后时间进度' : ''">本月时间进度：<b>{{ sprintTimeProgress.pct1 }}%</b></span>
         <button class="sprint-toggle" @click="rebateSprintOpen = !rebateSprintOpen" :title="rebateSprintOpen ? '收起明细' : '展开看达成率、缺口与建议均单'" :aria-label="rebateSprintOpen ? '收起明细' : '展开明细'">
-          <Icon :name="rebateSprintOpen ? 'chevron-up' : 'chevron-down'"/>
+          <Icon :name="rebateSprintOpen ? 'chevron-down' : 'chevron-right'"/>
         </button>
       </div>
       <!-- 决策横幅（A2）：看板结论的常驻摘要行 —— 折叠/展开都在，明细只在展开时出现。
@@ -494,9 +494,11 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 </template>
 
 <style scoped>
-/* 返利冲刺看板展开/收起控件 —— v551 原为 imp-x 小灰叉图标（14px 灰、无边框无背景），几乎不可见；
-   v552 改为纯 Lucide 线性图标按钮：圆形 + 浅底淡青描边托出边界，青色 chevron 图标（currentColor），
-   符合 UI 规范（线性图标、品牌青、不用彩色 emoji），同时保证可发现性。title 承载语义，无需文字。 */
+/* 返利冲刺看板展开/收起控件 —— v551 原为 imp-x 小灰叉（14px 灰、无框无底），几乎不可见；
+   v552 改纯 Lucide 线性图标圆按钮（浅底淡青描边 + 青色 chevron）；v553 按用户审美改：
+   折叠态 chevron-right、展开态 chevron-down（手风琴旋转语言，比上下 chevron 耐看）；
+   去掉青色描边、改成干净浅灰圆（浅灰底 + 透明描边），hover 仅用品牌青微染 + 深青图标反馈，
+   不靠彩色边框托边界，更克制。图标仍为 currentColor 线性（符合 UI 规范，不用彩色 emoji）。 */
 .sprint-card .panel-hd .sprint-toggle{
   margin-left:auto;
   flex:0 0 auto;
@@ -505,14 +507,13 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
   padding:0;
   color:var(--p-dark);
   background:var(--bg2);
-  border:1px solid var(--p-border);
+  border:1px solid transparent;
   border-radius:50%;
   cursor:pointer;
-  transition:background .12s ease,border-color .12s ease,color .12s ease;
+  transition:background .12s ease,color .12s ease;
 }
 .sprint-card .panel-hd .sprint-toggle:hover{
   background:var(--p-bg);
-  border-color:var(--p);
   color:var(--p-deep);
 }
 .sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:18px;height:18px}
