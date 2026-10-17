@@ -672,12 +672,10 @@ const NAV = [
         { path: '/mkt/material-transfer', name: '物料调拨单', icon: 'import' }
       ] },
       { label: '促销活动', items: [
-        { path: '/mkt/combo-gift',        name: '组合搭赠',     icon: 'gift' },
-        { path: '/mkt/flash-price',       name: '限时特价',     icon: 'clock' },
-        { path: '/mkt/gift',              name: '满赠',         icon: 'gift' },
-        { path: '/mkt/discount',          name: '满减',         icon: 'coins' },
-        { path: '/mkt/with-order-rebate', name: '随单返利',     icon: 'target' },
-        { path: '/mkt/buy-gift',          name: '买赠随单返利', icon: 'gift' }
+        /* v537（2026-10-17 P2-1 二期）：6 个占位促销页合并为 1 个真身「买赠活动管理」。
+           原 combo-gift/flash-price/gift/discount/with-order-rebate/buy-gift 占位入口已随
+           PLACEHOLDER_PAGES 移除；买赠/满赠/满减等规则现在统一在 Promotions.vue 里按 promo_type 管理。 */
+        { path: '/mkt/promotions', name: '买赠活动管理', icon: 'gift' }
       ] }
     ]
   },

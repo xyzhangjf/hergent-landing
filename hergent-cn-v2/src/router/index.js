@@ -59,6 +59,10 @@ const ReportsGrossProfit = () => import('../pages/reports/GrossProfit.vue')
    生产促销活动 0 条 ⇒ 活动区为诚实空态。三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）
    缺一不可；路由条目必须排在下方 `PLACEHOLDER_PAGES.map` 之前（静态段先者胜）。 */
 const ReportsPromoRoi = () => import('../pages/reports/PromoRoi.vue')
+/* v537（2026-10-17 P2-1 二期）：**买赠活动管理落真身**。独立真组件，不在 PLACEHOLDER_PAGES。
+   数据读 GET/POST/PUT/DELETE /api/promotions（后端 crm.py：读归 `sales` 模块门、写挂 `_admin`）。
+   三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）缺一不可。 */
+const MktPromotions = () => import('../pages/mkt/Promotions.vue')
 /* v465c（2026-10-11 仓配管理 P0）：库存查询三页**落真身** —— 从 `PLACEHOLDER_PAGES`
    移出、改为独立组件（对齐「落真身四步」，见 docs/仓配模块开发规范.md）。 */
 const WhExpiryReport = () => import('../pages/wh/ExpiryReport.vue')
@@ -345,6 +349,10 @@ export const router = createRouter({
            故此条是它唯一的真实路由；必须排在下方 `PLACEHOLDER_PAGES.map(...)` 之前。
            `meta.title` 与 pages.js 的 title、Shell.vue 的 name 逐字对应（同族纪律）。 */
         { path: 'reports/promo-roi', component: ReportsPromoRoi, meta: { title: '促销ROI分析' } },
+        /* v537（2026-10-17 P2-1 二期）：买赠活动管理。**新建** path、不在 PLACEHOLDER_PAGES，
+           故此条是它唯一的真实路由；必须排在下方 `PLACEHOLDER_PAGES.map(...)` 之前。
+           `meta.title` 与 pages.js 的 title、Shell.vue 的 name 逐字对应（同族纪律）。 */
+        { path: 'mkt/promotions', component: MktPromotions, meta: { title: '买赠活动管理' } },
 
         /* v465e（2026-10-11 仓配管理 P1）：**仓库作业 6 页落真身**。
            🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——

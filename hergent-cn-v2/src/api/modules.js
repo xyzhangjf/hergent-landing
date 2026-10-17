@@ -81,6 +81,25 @@ export const reportsApi = {
   biPivot: (body) => api('/api/bi/pivot', { method: 'POST', body }),
 }
 
+/* ---- 买赠活动管理（v537 P2-1 二期）----
+   🔴 模块轴 = `sales`（GET /api/promotions 在后端 crm.py 归 sales 模块门）；
+      写操作（POST / PUT / DELETE / toggle）后端另挂 `_admin`（role∈admin/boss）双保险，
+      销售员不可自建让利政策 ⇒ 前端调用即被后端拦截（fail-closed），无需前端再判角色。
+   🔴 端点契约（与 v537 后端逐字对齐）：
+      GET    /api/promotions               → [{id,name,start_date,end_date,promo_type,discount_pct,
+                                             buy_qty,free_qty,gift_product_name,gift_qty,is_active,product_ids[]}]
+      POST   /api/promotions               → 新建（body = PromotionCreate 全量）
+      PUT    /api/promotions/{pid}         → 全量替换
+      DELETE /api/promotions/{pid}         → 删除（已落库归因 sale_order_promos 不动）
+      POST   /api/promotions/{pid}/toggle  → {is_active} 启停 */
+export const promotionsApi = {
+  list: () => api('/api/promotions'),
+  create: (body) => api('/api/promotions', { method: 'POST', body }),
+  update: (id, body) => api(`/api/promotions/${id}`, { method: 'PUT', body }),
+  remove: (id) => api(`/api/promotions/${id}`, { method: 'DELETE' }),
+  toggle: (id, isActive) => api(`/api/promotions/${id}/toggle`, { method: 'POST', body: { is_active: isActive } }),
+}
+
 /* ---- 预报订货 ---- */
 /* ---- 报单自动化（v242，租户级契约）----
    后端存储**复用** rebate_target_rules 的四列，但前端**只认这套契约**：

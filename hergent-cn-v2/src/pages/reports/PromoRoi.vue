@@ -54,6 +54,23 @@
         </div>
       </div>
 
+      <!-- 零价出库成本拆分：已打标 / 未打标（2026-10 起新单强制打标；历史单未追补，诚实单列） -->
+      <div class="card pro-card pro-split">
+        <div class="sec-hd pro-sec"><span>零价出库成本拆分（已标 / 未标）</span></div>
+        <div class="pro-split-rows">
+          <div class="pro-split-row">
+            <span class="pro-split-k">已打标成本</span>
+            <span class="pro-split-v">{{ fmtWan(gift.tagged?.total_cost) }}</span>
+            <span class="pro-split-s">（{{ fmtNum(gift.tagged?.item_count) }} 行 · 已选出库原因）</span>
+          </div>
+          <div class="pro-split-row">
+            <span class="pro-split-k">未打标成本</span>
+            <span class="pro-split-v">{{ fmtWan(gift.untagged?.total_cost) }}</span>
+            <span class="pro-split-s">（{{ fmtNum(gift.untagged?.item_count) }} 行 · 含历史未追补单）</span>
+          </div>
+        </div>
+      </div>
+
       <!-- 表 1：赠品成本 TOP 商品（by_product，前 20 行 + 本页合计） -->
       <div class="card pro-card">
         <div class="sec-hd pro-sec">
@@ -147,7 +164,7 @@
       </div>
 
       <p class="pro-foot">
-        口径：{{ giftNote }}仅统计已送达 / 已签收订单；成本口径与库存周转报表同源；本页不做归因增量测算——让利额中客户建档价、临期折价、门店等级价混合，系统未打标。
+        口径：{{ giftNote }}仅统计已送达 / 已签收订单；成本口径与库存周转报表同源；已标 / 未标拆分见上方卡片，本页不做归因增量测算。
       </p>
     </template>
   </div>
@@ -169,7 +186,7 @@ import { reportsApi } from '../../api/modules'
 const loading = ref(true)
 const err = ref('')
 const days = ref(90)
-const gift = ref({ order_count: 0, item_count: 0, total_cost: 0, by_product: [] })
+const gift = ref({ order_count: 0, item_count: 0, total_cost: 0, by_product: [], tagged: {}, untagged: {} })
 const activities = ref([])
 const activityNote = ref('')
 const giftNote = ref('')
@@ -237,14 +254,16 @@ async function load () {
       order_count: Number(g.order_count || 0),
       item_count: Number(g.item_count || 0),
       total_cost: Number(g.total_cost || 0),
-      by_product: Array.isArray(g.by_product) ? g.by_product : []
+      by_product: Array.isArray(g.by_product) ? g.by_product : [],
+      tagged: g.tagged || {},
+      untagged: g.untagged || {}
     }
     activities.value = Array.isArray(d.activities) ? d.activities : []
     activityNote.value = String(d.activity_note || '')
     giftNote.value = String(g.note || '')
   } catch (e) {
     err.value = (e && e.message) || '促销 ROI 分析读取失败'
-    gift.value = { order_count: 0, item_count: 0, total_cost: 0, by_product: [] }
+    gift.value = { order_count: 0, item_count: 0, total_cost: 0, by_product: [], tagged: {}, untagged: {} }
     activities.value = []
     activityNote.value = ''
     giftNote.value = ''
@@ -262,6 +281,12 @@ onMounted(load)
 .pro-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
 .pro-sel { padding: 4px 8px }
 .pro-card { margin-top: 14px }
+.pro-split { margin-top: 14px; padding: 12px 14px }
+.pro-split-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 8px }
+.pro-split-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap }
+.pro-split-k { font-size: 13px; color: var(--t1); min-width: 92px }
+.pro-split-v { font-size: 15px; font-weight: 600; color: var(--t1) }
+.pro-split-s { font-size: 12px; color: var(--t3) }
 .pro-sec { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap }
 .pro-badge {
   display: inline-block; margin-left: 6px; padding: 0 6px; font-size: 11px; font-weight: 400;

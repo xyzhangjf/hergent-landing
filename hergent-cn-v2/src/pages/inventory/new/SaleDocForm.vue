@@ -123,6 +123,7 @@
               <th class="num isn-c-qty" :style="wStyle('qty')"><span class="isn-req">*</span>数量<ColResizeHandle col="qty" :start="startResize" :reset="resetColW" /></th>
               <th class="isn-c-unit" v-if="isVisible('unit')" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-price" :style="wStyle('price')"><span class="isn-req">*</span>{{ cfg.priceLabel }}<ColResizeHandle col="price" :start="startResize" :reset="resetColW" /></th>
+              <th class="isn-c-reason" v-if="!cfg.isReturn">零价出库原因</th>
               <th class="num isn-c-amt" v-if="isVisible('amt')" :style="wStyle('amt')">金额<ColResizeHandle col="amt" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-stk" v-if="isVisible('stk')" :style="wStyle('stk')" title="可用可售 = 可销售库存 − 已订未发占用（已过期批次须报损，不计入）">可用可售<ColResizeHandle col="stk" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-stk" v-if="isVisible('stk2')" :style="wStyle('stk2')" title="该仓全部批次的数量合计（含已过期）">实际库存<ColResizeHandle col="stk2" :start="startResize" :reset="resetColW" /></th>
@@ -147,6 +148,13 @@
               </td>
               <td>
                 <input v-model="row.unit_price" class="input isn-in num" inputmode="decimal" placeholder="0.00" />
+              </td>
+              <td class="isn-c-reason" v-if="!cfg.isReturn">
+                <select v-if="Number(row.unit_price) === 0" v-model="row.note" class="input isn-in">
+                  <option value="">请选择原因</option>
+                  <option v-for="zr in ZERO_REASONS" :key="zr" :value="zr">{{ zr }}</option>
+                </select>
+                <span v-else class="isn-reason-na">—</span>
               </td>
               <td class="num isn-amt" v-if="isVisible('amt')">¥{{ fmtMoney(rowAmount(row)) }}</td>
               <td v-if="isVisible('stk')" class="num isn-c-stk">
@@ -397,13 +405,18 @@ function rowAmount (r) {
   return (q && p) ? Math.round(q * p * 100) / 100 : 0
 }
 
+/* v537（P2-1 二期）：零价出库必须选原因 —— 枚举与后端 sale_order_items.note 口径一致：
+   厂家赠品 / 买赠活动 / 内部领用 / 临期处理 / 其他。仅销售单（非退货）强制；
+   退货单价格 0 是「全额退」的正常语义，且退货有独立的退货原因字段，不在此强制。 */
+const ZERO_REASONS = ['厂家赠品', '买赠活动', '内部领用', '临期处理', '其他']
+
 /** v444：建单页明细表的**出厂预设空行数**（规范 §4.1 —— 采购 / 销售两页必须同值）。 */
 const PRESET_ROWS = 15
 
 function blankRow () {
   return {
     uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false, unit_price: '',
-    unitOptions: [], convText: '', baseUnit: '', barcode: '',
+    unitOptions: [], convText: '', baseUnit: '', barcode: '', note: '',
   }
 }
 function removeRow (i) { items.value.splice(i, 1) }
@@ -451,6 +464,7 @@ function validate () {
     const at = `第 ${items.value.indexOf(r) + 1} 行`
     if (!(Number(r.quantity) > 0)) return `${at}：数量要大于 0`
     if (r.unit_price === '' || Number(r.unit_price) < 0) return `${at}：请填写${cfg.value.priceLabel}`
+    if (!cfg.value.isReturn && Number(r.unit_price) === 0 && !r.note) return `${at}：零价出库必须选择出库原因`
   }
   return ''
 }
@@ -467,6 +481,7 @@ async function submit (act = 'save') {
       product_id: r.product_id,
       quantity: Number(r.quantity),
       unit_price: Number(r.unit_price),
+      note: r.note || '',
     }))
     if (cfg.value.isReturn) {
       /* v500：四种模式（与采购退货页 v451 同一个 `mode` 语义）——
@@ -781,6 +796,8 @@ onMounted(() => { reset(); loadRefs() })
 .isn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
 .isn-cnt { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
 .isn-tip { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--t2); margin: 0 0 10px }
+.isn-c-reason { min-width: 132px }
+.isn-reason-na { color: var(--t3); font-size: 12px }
 .isn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
 .isn-tip b { color: var(--t1) }
 /* 退货明细的工具条（全部可退 / 清零）：推到右侧，不与标题挤在一起 */

@@ -257,6 +257,7 @@
               <th class="num isn-c-qty" :style="wStyle('qty')"><span class="isn-req">*</span>数量<ColResizeHandle col="qty" :start="startResize" :reset="resetColW" /></th>
               <th class="isn-c-unit" v-if="isVisible('unit')" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-price" :style="wStyle('price')"><span class="isn-req">*</span>单价<ColResizeHandle col="price" :start="startResize" :reset="resetColW" /></th>
+              <th class="isn-c-reason">零价出库原因</th>
               <th class="num isn-c-amt" v-if="isVisible('amt')" :style="wStyle('amt')">金额<ColResizeHandle col="amt" :start="startResize" :reset="resetColW" /></th>
               <th class="isn-c-del"></th>
             </tr>
@@ -280,6 +281,13 @@
               </td>
               <td>
                 <input v-model="row.unit_price" class="input isn-in num" inputmode="decimal" placeholder="0.00" />
+              </td>
+              <td class="isn-c-reason">
+                <select v-if="Number(row.unit_price) === 0" v-model="row.note" class="input isn-in">
+                  <option value="">请选择原因</option>
+                  <option v-for="zr in ZERO_REASONS" :key="zr" :value="zr">{{ zr }}</option>
+                </select>
+                <span v-else class="isn-reason-na">—</span>
               </td>
               <td class="num isn-amt" v-if="isVisible('amt')">¥{{ fmtMoney(rowAmount(row)) }}</td>
               <td class="isn-c-del">
@@ -437,6 +445,9 @@ const selCustomer = computed(() => customers.value.find(c => Number(c.id) === Nu
 /** 只把**填过商品**的行算作有效行：空行是给用户预备的，不参与校验、不提交、不计项数。
     采购建单页同口径（预设的空行在提交前过滤掉），避免「留着空行就提交不了」。 */
 const filledRows = computed(() => items.value.filter(r => Number(r.product_id) > 0))
+/* v537（P2-1 二期）：零价出库必须选原因 —— 枚举与后端 sale_order_items.note 口径一致：
+   厂家赠品 / 买赠活动 / 内部领用 / 临期处理 / 其他。Web 强制选、后端软落库（失败不阻断建单）。 */
+const ZERO_REASONS = ['厂家赠品', '买赠活动', '内部领用', '临期处理', '其他']
 const totalAmount = computed(() => items.value.reduce((s, r) => s + rowAmount(r), 0))
 
 function rowAmount (r) {
@@ -455,7 +466,7 @@ function soStatusText (s) { return textOf(SO_STATUS, s) }
 const PRESET_ROWS = 15
 
 function blankRow () {
-  return { uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false, unit_price: '' }
+  return { uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false, unit_price: '', note: '' }
 }
 function addRow () { items.value.push(blankRow()) }
 function removeRow (i) { items.value.splice(i, 1) }
@@ -656,6 +667,7 @@ function validate () {
     const at = `第 ${items.value.indexOf(r) + 1} 行`
     if (!(Number(r.quantity) > 0)) return `${at}：数量要大于 0`
     if (r.unit_price === '' || Number(r.unit_price) < 0) return `${at}：请填写单价`
+    if (Number(r.unit_price) === 0 && !r.note) return `${at}：零价出库必须选择出库原因`
   }
   return ''
 }
@@ -678,6 +690,7 @@ async function submit (act = 'save') {
         product_id: r.product_id,
         quantity: Number(r.quantity),
         unit_price: Number(r.unit_price),
+        note: r.note || '',
       })),
     }
     const r = await psiApi.createSale(body)
@@ -920,6 +933,8 @@ onMounted(async () => {
 .isn-cnt { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
 .isn-prod-kw { width: 240px; height: 32px; margin-left: auto }
 .isn-tip { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--t2); margin: 0 0 10px }
+.isn-c-reason { min-width: 132px }
+.isn-reason-na { color: var(--t3); font-size: 12px }
 .isn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
 .isn-tip b { color: var(--t1) }
 /* 退货明细的工具条（全部可退 / 清零）：推到右侧，不与标题挤在一起 */

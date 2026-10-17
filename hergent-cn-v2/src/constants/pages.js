@@ -329,6 +329,12 @@ export const PAGE_RULES = {
      🔴 v472 纪律：四区（仓配 / 资金 / 报表 / 市场）开发期**一律 `BOSS_ROLES + lock`**，只给老板。
      ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
   '/reports/promo-roi': { title: '促销ROI分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* —— v537（2026-10-17 P2-1 二期）：**买赠活动管理落真身**的正式登记行 ——
+     🔴 `module:'sales'` 与数据源一致：本页读 GET /api/promotions（后端 crm.py 归 `sales` 模块门）；
+        写操作（POST/PUT/DELETE/toggle）后端另挂 `_admin`（role∈admin/boss）双保险，销售员不可自建让利政策。
+     🔴 v472 纪律：市场营销区开发期**一律 `BOSS_ROLES + lock`**，只给老板；入口可见性与后端 `_admin` 口径对齐。
+     ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
+  '/mkt/promotions': { title: '买赠活动管理', module: 'sales', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   /* —— v465e（2026-10-11 仓配管理 P1）：「仓库作业」组六页**落真身**的正式登记行 ——
      🔴 `module:'stock'` 与后端域**逐项一致**：六页的数据源分别是
         `/api/inbound`、`/api/wh/outbound`、`/api/wh/stocktake`、`/api/wms/*`、
@@ -689,13 +695,10 @@ export const PLACEHOLDER_PAGES = [
   { path: '/mkt/material-scrap',      title: '物料报废单',      area: '市场营销' },
   { path: '/mkt/material-recycle',    title: '物料回收单',      area: '市场营销' },
   { path: '/mkt/material-sale',       title: '物料销售单',      area: '市场营销' },
-  { path: '/mkt/material-transfer',   title: '物料调拨单',      area: '市场营销' },
-  { path: '/mkt/combo-gift',          title: '组合搭赠',        area: '市场营销' },
-  { path: '/mkt/flash-price',         title: '限时特价',        area: '市场营销' },
-  { path: '/mkt/gift',                title: '满赠',            area: '市场营销' },
-  { path: '/mkt/discount',            title: '满减',            area: '市场营销' },
-  { path: '/mkt/with-order-rebate',   title: '随单返利',        area: '市场营销' },
-  { path: '/mkt/buy-gift',            title: '买赠随单返利',    area: '市场营销' }
+  { path: '/mkt/material-transfer',   title: '物料调拨单',      area: '市场营销' }
+  /* v537（2026-10-17 P2-1 二期）：原「促销活动」组 6 个占位页（组合搭赠 / 限时特价 / 满赠 /
+     满减 / 随单返利 / 买赠随单返利）合并为 1 个真身「买赠活动管理」(/mkt/promotions)：
+     已移出占位表、在 PAGE_RULES 写正式行，故不再生成占位路由（避免与真身路由冲突）。 */
 ]
 
 /* 合并进 PAGE_RULES（必须在 `PAGE_PATHS` 计算之前 ⇒ 全量可见；见上表头注释）。
