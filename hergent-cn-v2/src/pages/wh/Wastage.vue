@@ -337,7 +337,7 @@
       「Auto-post journal entry (wastage is immediate, not pending approval)」）。
       ⇒ 页面上：
         ① 「保存」按钮文案写成「保存并立即生效」，并在表单顶部放**显著警示条**；
-        ② 保存前 `window.confirm` 二次确认；
+        ② 保存前统一确认弹窗二次确认；
         ③ 纠正走「撤销报损」（`POST /{wid}/reject`：恢复库存 + 冲销分录）。
 
    ⚠️ 返回形状与兄弟页不同，务必按实际来：
@@ -359,7 +359,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'
-import { toast } from '../../store'
+import { toast, confirm } from '../../store'
 import ProductCombo from '../inventory/new/ProductCombo.vue'
 
 const LIST_LIMIT = 100
@@ -503,7 +503,7 @@ async function doCreate () {
     + `（未填成本的行走后端自动取价，实际金额以保存结果为准）。\n\n`
     + `⚠️ 保存后【立即】扣减库存并生成会计凭证，没有"待审"这一步。\n`
     + `填错了要到单据详情用「撤销报损」恢复。`
-  if (!window.confirm(msg)) return
+  if (!await confirm(msg)) return
   busy.value = true
   try {
     const r = await whApi.wastageCreate({
@@ -533,7 +533,7 @@ async function doCreate () {
 async function doReject () {
   if (busy.value) return
   const o = detail.value.order
-  if (!window.confirm(`撤销报损单 ${o.order_no}？\n\n会恢复库存并生成冲销分录（原分录不会被删除，另记一笔反向的）。\n撤销后本单不可恢复。`)) return
+  if (!await confirm(`撤销报损单 ${o.order_no}？\n\n会恢复库存并生成冲销分录（原分录不会被删除，另记一笔反向的）。\n撤销后本单不可恢复。`)) return
   busy.value = true
   try {
     const r = await whApi.wastageReject(o.id)

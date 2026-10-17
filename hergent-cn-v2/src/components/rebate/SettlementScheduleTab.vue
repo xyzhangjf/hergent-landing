@@ -196,7 +196,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../Icon.vue'
-import { toast, canDo } from '../../store'
+import { toast, canDo, confirm } from '../../store'
 import { rebateSettlementApi } from '../../api/modules'
 import { api } from '../../api/client.js'
 
@@ -374,7 +374,7 @@ async function toggleActive(it) {
 
 async function removeOne(it) {
   const name = it.scope_type === 'all' ? '默认（所有未单独配置的品牌）' : it.scope_name
-  if (!window.confirm(`删除这条结算节奏？\n\n作用对象：${name}\n删除后该品牌的结算日历会改用「默认」那条（若无默认则不显示）。`)) return
+  if (!await confirm(`删除这条结算节奏？\n\n作用对象：${name}\n删除后该品牌的结算日历会改用「默认」那条（若无默认则不显示）。`)) return
   try {
     await rebateSettlementApi.remove(it.id)
     toast('已删除', 'ok')

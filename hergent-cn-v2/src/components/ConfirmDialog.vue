@@ -1,6 +1,7 @@
 <template>
-  <!-- ══ 危险操作确认弹窗（Phase 0 · 组件复用治理第一批 · 2026-10-17）═══════════════
-       统一全站危险操作二次确认，替换原生 `window.confirm`（此前 48 处 / 22 文件割裂）。
+  <!-- ══ 危险操作确认弹窗（Phase 0 · 组件复用治理 · 2026-10-17）═══════════════
+       全站危险操作二次确认的统一宿主：经 `store.confirm()` 命令式触发（App.vue 全局挂载），
+       替换原生 `window.confirm`（已收敛约 40 处 / 22 文件；Forecast 高风险件 11 处待 Phase 3 拆分时一并收）。
        能力对齐 hergent-admin 的 ConfirmDialog.vue：
          - consequence 后果说明（浅红底，写清生效后果，降低误操作）
          - requireText 输入原串二次确认（对标 Stripe 删除项目）

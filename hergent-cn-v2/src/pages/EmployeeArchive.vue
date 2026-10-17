@@ -532,7 +532,7 @@ import ImportReceipt from '../components/ImportReceipt.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/client'
-import { toast, store, canDo } from '../store'
+import { toast, store, canDo, confirm } from '../store'
 /* v291：页内跳转入口同判据（见 goConnect）。 */
 import { canSee } from '../constants/pages'
 import { employeeApi, importApi, staffAccountApi } from '../api/modules'
@@ -1413,12 +1413,12 @@ const footerBtnLabel = computed(() =>
 )
 
 /** 关闭编辑弹窗的**唯一入口**（遮罩 / ✕ / 取消 三处都走它，别再直接写 editOpen=false）。 */
-function tryCloseEdit() {
+async function tryCloseEdit() {
   if (anyDirty.value) {
     const what = [formDirty.value ? '人事档案' : '', accAnyDirty.value ? '登录账号' : '']
       .filter(Boolean).join('和')
     const nm = (editTarget.value && editTarget.value.name) || ''
-    if (!window.confirm(`「${nm}」的${what}还有未保存的改动。\n\n关闭后这些改动会丢失，确定关闭吗？`)) return
+    if (!await confirm(`「${nm}」的${what}还有未保存的改动。\n\n关闭后这些改动会丢失，确定关闭吗？`)) return
   }
   editOpen.value = false
 }
@@ -1450,7 +1450,7 @@ async function saveAccRoleCore(role, roles, askDrift) {
       const nm = t.name || '该员工'
       const want = loginScopeLabel(r.default_login_scope)
       const now = loginScopeLabel(r.login_scope)
-      const yes = window.confirm(
+      const yes = await confirm(
         `「${nm}」的角色已改为「${roleDisplay(role)}」，` +
         `但他现在能登录的范围还是 ${now}（新角色的默认是 ${want}）。\n\n` +
         `要按新角色对齐成 ${want} 吗？`

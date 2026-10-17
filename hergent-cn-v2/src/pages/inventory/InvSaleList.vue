@@ -277,7 +277,7 @@ import { useColSettings } from '../../composables/useColSettings.js'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { downloadCsv, localDateStamp } from '../../utils/csv'
 import { psiApi } from '../../api/psi'
-import { canDo, toast } from '../../store'
+import { canDo, toast, confirm } from '../../store'
 import { SO_STATUS, ORDER_TYPE, ORDER_TYPE_OPTIONS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
 /* v449：`legacySalePath(type, kind)` 把旧入口的 `?type=&kind=` 解析成**拆分后的独立建单页**
    路径（未知组合 / 调拨退单落自提订单，并 `console.warn`）。列表页「＋」直接用它，
@@ -772,7 +772,7 @@ function noOfId (id) {
   const r = rows.value.find(x => x.id === id)
   return r ? (r.order_no || ('#' + r.id)) : ('#' + id)
 }
-function pickBatch (a) {
+async function pickBatch (a) {
   batchOpen.value = false
   if (!canUpdate.value) return
   /* v532c：执行中**先挡在确认框之前** —— 挡在后面的话用户已经点了「确定」，
@@ -782,7 +782,7 @@ function pickBatch (a) {
   /* 二次确认：写清「对已勾选的 N 张执行 XX」，并预告可能部分失败 ——
      让人在按下之前就知道会发生什么，以及"没全成"是正常的。 */
   const n = selected.value.length
-  const ok = window.confirm(
+  const ok = await confirm(
     `确认${a.text}？\n\n将对已勾选的 ${n} 张单据执行「${a.text}」。` +
     '\n\n状态不符或不是你创建的单据会被逐单拒绝；执行后会如实列出成功几张、失败几张及原因。' +
     '\n\n确定执行吗？')

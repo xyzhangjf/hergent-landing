@@ -283,7 +283,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'
-import { toast } from '../../store'
+import { toast, confirm } from '../../store'
 import ProductCombo from '../inventory/new/ProductCombo.vue'
 
 const LIST_LIMIT = 50
@@ -424,7 +424,7 @@ function backToList () {
 
 async function doStart () {
   if (busy.value) return
-  if (!window.confirm('开始新盘点？\n\n系统会给当前库存拍一张账面快照。'
+  if (!await confirm('开始新盘点？\n\n系统会给当前库存拍一张账面快照。'
     + '已经有一期进行中的盘点时，两期互不影响，但建议先把上一期关掉。')) return
   busy.value = true
   try {
@@ -491,7 +491,7 @@ async function doFinalize () {
     + `已录 ${d.counted} / ${d.item_count} 行，其中 ${d.diff_count || 0} 行有差异。\n`
     + '完成后差异会立即写入库存（盘盈入库 / 盘亏扣减），本期不可再修改。'
     + (d.counted < d.item_count ? `\n\n⚠️ 还有 ${d.item_count - d.counted} 行没录数，这些行会按"无差异"处理。` : '')
-  if (!window.confirm(msg)) return
+  if (!await confirm(msg)) return
   busy.value = true
   try {
     const r = await whApi.stocktakeFinalize(d.id)

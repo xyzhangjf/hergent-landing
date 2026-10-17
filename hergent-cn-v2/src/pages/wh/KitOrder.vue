@@ -348,7 +348,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'
-import { toast } from '../../store'
+import { toast, confirm } from '../../store'
 import ProductCombo from '../inventory/new/ProductCombo.vue'
 
 const props = defineProps({
@@ -556,8 +556,8 @@ async function doConfirm () {
       ? `将逐行<b>扣减</b> ${items.value.length} 个组件的库存，并<b>加上</b>「${d.product_name || ('商品#' + d.product_id)}」× ${fmtQty(d.total_quantity)}。`
       : `将<b>扣减</b>「${d.product_name || ('商品#' + d.product_id)}」× ${fmtQty(d.total_quantity)}，并逐行<b>加上</b> ${items.value.length} 个组件的库存。`)
     + '\n\n这是实际库存变动，确认后本单不可修改。'
-  /* window.confirm 不吃 HTML，把 <b> 去掉再弹 */
-  if (!window.confirm(msg.replace(/<\/?b>/g, ''))) return
+  /* ConfirmDialog 纯文本渲染，去掉 <b> 避免显示字面标签 */
+  if (!await confirm(msg.replace(/<\/?b>/g, ''))) return
   busy.value = true
   try {
     const r = await whApi.kitConfirm(d.id)
@@ -575,7 +575,7 @@ async function doConfirm () {
 async function doVoid () {
   if (busy.value) return
   const d = detail.value
-  if (!window.confirm(`作废 ${d.order_no || ('#' + d.id)}？\n\n草稿作废不涉及库存，作废后不可恢复。`)) return
+  if (!await confirm(`作废 ${d.order_no || ('#' + d.id)}？\n\n草稿作废不涉及库存，作废后不可恢复。`)) return
   busy.value = true
   try {
     await whApi.kitVoid(d.id)

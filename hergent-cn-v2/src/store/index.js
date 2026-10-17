@@ -23,7 +23,8 @@ export const useAppStore = defineStore('app', () => {
     theme: 'light',
     mobileDrawer: false,   // 手机"更多"抽屉
     copilotOpen: false,    // AI 副驾全局抽屉
-    toasts: []             // 通知栈（v362）：最多 3 条，长文案不自动消失 —— 见下方 toast()
+    toasts: [],            // 通知栈（v362）：最多 3 条，长文案不自动消失 —— 见下方 toast()
+    confirm: null          // 全局确认弹窗（Phase 0）：单槽位 {id,text,title,consequence,requireText,confirmLabel,cancelLabel,resolve}，见下方 confirm()
   })
   const user = reactive({
     name: '',
@@ -140,6 +141,41 @@ export const useAppStore = defineStore('app', () => {
       _toastTimers.set(id, setTimeout(() => dismissToast(id),
         Math.min(6000, 3000 + text.length * 30)))
     return id
+  }
+
+  /* 全局确认弹窗（Phase 0 · 组件复用治理）—— 替换原生 `window.confirm`。
+     为什么做成 Promise 化命令式：此前约 40 处 `window.confirm(msg)` 割裂在 22 个文件，
+     若要每处 import 组件 + ref + 模板 + 改造函数，改动啰嗦且易错；`await confirm(msg)`
+     与 `window.confirm(msg)` 语义完全对齐（都返回布尔，只是同步→异步），
+     调用点只需一行替换。单槽位：同一时刻只许一个确认挂起。 */
+  let _confirmSeq = 0
+  function confirm(message, opts = {}) {
+    return new Promise((resolve) => {
+      // 若已有未决确认，先以「取消」收掉旧的（避免 Promise 悬挂泄漏）
+      if (ui.confirm && ui.confirm.resolve) {
+        const old = ui.confirm
+        ui.confirm = null
+        old.resolve(false)
+      }
+      const o = opts || {}
+      ui.confirm = {
+        id: ++_confirmSeq,
+        text: message == null ? '' : String(message),
+        title: o.title || '确认操作',
+        consequence: o.consequence || '',
+        requireText: o.requireText || '',
+        confirmLabel: o.confirmLabel || '确认',
+        cancelLabel: o.cancelLabel || '取消',
+        resolve
+      }
+    })
+  }
+
+  function settleConfirm(ok) {
+    const c = ui.confirm
+    if (!c) return
+    ui.confirm = null
+    if (c.resolve) c.resolve(ok)
   }
 
   function setTheme(t) {
@@ -571,6 +607,7 @@ export const useAppStore = defineStore('app', () => {
   return {
     ui, user, demo, chat,
     toast, dismissToast, setTheme,
+    confirm, settleConfirm,
     perms, permsTenant, loadPerms, canModule, canUseAi, resetPerms,
     permsRev, customRoles, refreshPermsIfChanged,
     plan, caps, canCap,
@@ -589,6 +626,8 @@ export const store = useAppStore(pinia)
 // 具名函数导出：委托到单例 store 上的同名 action
 export const toast = (...a) => store.toast(...a)
 export const setTheme = (...a) => store.setTheme(...a)
+// Phase 0：全局确认弹窗 —— `import { confirm } from '../store'` 后 `await confirm(msg)`
+export const confirm = (...a) => store.confirm(...a)
 // v335：页内**按钮级门禁**的模板用法 —— `import { toast, canDo } from '../store'`
 //   然后 `v-if="canDo('data', 'create')"`。页面大多只 import 了 `toast`（没有 `store`），
 //   给一个具名导出就不必为了一个判据去改 12 个页面的 import 列表（少动一行少一处夹带）。

@@ -578,7 +578,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import { psiApi } from '../../api/psi'
-import { toast } from '../../store'
+import { toast, confirm } from '../../store'
 import { PSI_NOTES, fmtMoney, PO_STATUS, textOf } from '../../constants/psiLabels'
 /* v415（P2-7）采购单自定义字段。定义与值读取抽在 composable 里（列表页 / 详情页共用），
    本页只用它的「定义」与「类型」两件事：按类型给文本框 / 数字框。 */
@@ -1521,7 +1521,7 @@ async function submitReturn () {
   if (bad) { toast(bad, 'warn'); return }
   if (saving.value) return
   const no = (retOrder.value && retOrder.value.order_no) || fromPo.value
-  if (!window.confirm(`确认对采购单 ${no} 退货 ¥${fmtMoney(retTotal.value)} 吗？\n\n`
+  if (!await confirm(`确认对采购单 ${no} 退货 ¥${fmtMoney(retTotal.value)} 吗？\n\n`
     + '提交后会扣减库存，并把这张单标记为「已退货」。此操作不可撤销。')) return
   saving.value = true
   try {

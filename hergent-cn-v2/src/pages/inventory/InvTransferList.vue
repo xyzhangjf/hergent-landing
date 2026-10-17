@@ -245,7 +245,7 @@ import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { downloadCsv, localDateStamp } from '../../utils/csv'
 import { psiApi } from '../../api/psi'
 import { approvalApi } from '../../api/approvals'
-import { canDo, toast, store } from '../../store'
+import { canDo, toast, store, confirm } from '../../store'
 import { TRANSFER_STATUS, textOf, tagOf } from '../../constants/psiLabels'
 import { DOC_PATHS } from './new/docTypes.js'
 /* v496：快捷时间档改共享件（进销存列表页统一设计规范 §3.3）—— 与采购/销售列表
@@ -534,7 +534,7 @@ function noOfId (id) {
   const r = rows.value.find(x => x.id === id)
   return r ? (r.order_no || ('#' + r.id)) : ('#' + id)
 }
-function pickBatch (a) {
+async function pickBatch (a) {
   batchOpen.value = false
   if (!canUpdate.value) return
   /* v532c：执行中**先挡在确认框之前** —— 挡在后面的话用户已经点了「确定」，
@@ -544,7 +544,7 @@ function pickBatch (a) {
   /* 二次确认：写清「对已勾选的 N 张执行 XX」，并预告可能部分失败 ——
      让人在按下之前就知道会发生什么（这里是真搬库存），以及"没全成"是正常的。 */
   const n = selected.value.length
-  const ok = window.confirm(
+  const ok = await confirm(
     `确认${a.text}？\n\n将对已勾选的 ${n} 张调拨单执行「${a.text}」：` +
     '立刻在调出仓减库存、调入仓加库存，同一事务，不可撤销。' +
     '\n\n状态不符（如已完成 / 已取消）的单据会被逐单拒绝；执行后会如实列出成功几张、失败几张及原因。' +
@@ -592,7 +592,7 @@ async function rowPrint (r) {
 /* ---- 过账（草稿 → 已过账，真正移库）---- 唯一真后端行内动作；带确认（动了库存不可逆）。 */
 async function rowPost (r) {
   if (busyPost.value || (r.status !== 'draft' && r.status !== 'approved')) return
-  if (!window.confirm(`确认过账调拨单 #${r.order_no || r.id}？\n\n过账将立刻在调出仓减库存、调入仓加库存，同一事务，不可撤销。`)) return
+  if (!await confirm(`确认过账调拨单 #${r.order_no || r.id}？\n\n过账将立刻在调出仓减库存、调入仓加库存，同一事务，不可撤销。`)) return
   busyPost.value = true
   try {
     await psiApi.completeTransfer(r.id)
@@ -626,7 +626,7 @@ function trApprProgress (r) {
 async function rowSubmit (r) {
   if (busyPost.value) return
   const txt = trParseChain(r).map((n, i) => `${i + 1}. ${n.name || n.role}`).join('\n')
-  if (!window.confirm(`提交调拨单 #${r.order_no || r.id} 进入审批流程？\n\n当前审批链：\n${txt}`)) return
+  if (!await confirm(`提交调拨单 #${r.order_no || r.id} 进入审批流程？\n\n当前审批链：\n${txt}`)) return
   busyPost.value = true
   try {
     const res = await approvalApi.submit('transfer', r.id)
@@ -638,7 +638,7 @@ async function rowApprove (r) {
   if (busyPost.value) return
   const chain = trParseChain(r)
   const final = Number(r.approval_node || 0) >= chain.length - 1
-  if (!window.confirm(`通过这一关的审批？\n\n当前：${trApprProgress(r)}\n` +
+  if (!await confirm(`通过这一关的审批？\n\n当前：${trApprProgress(r)}\n` +
     (final ? '这是最后一关，通过即「已审待执行」，之后可过账。\n' : '通过后流转到下一关审批人。\n') + '确定吗？')) return
   busyPost.value = true
   try {

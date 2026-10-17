@@ -256,7 +256,7 @@ import { useColSettings } from '../../../composables/useColSettings.js'
 import { useColResize } from '../../../composables/useColResize.js'
 import ColResizeHandle from '../../../components/ColResizeHandle.vue'
 import { psiApi } from '../../../api/psi'
-import { toast } from '../../../store'
+import { toast, confirm } from '../../../store'
 import { fmtMoney } from '../../../constants/psiLabels'
 import { saleDocConfig } from './docTypes.js'
 import CustomerCombo from './CustomerCombo.vue'
@@ -562,7 +562,7 @@ async function submit (act = 'save') {
       }
     }
     if (_oversellWarn.length) {
-      const _ok = window.confirm('⚠️ 超卖预警（开单前提醒，仍可保存）\n\n' + _oversellWarn.join('\n') + '\n\n确认仍要保存这张销售单？')
+      const _ok = await confirm('⚠️ 超卖预警（开单前提醒，仍可保存）\n\n' + _oversellWarn.join('\n') + '\n\n确认仍要保存这张销售单？')
       if (!_ok) return
     }
     const body = {

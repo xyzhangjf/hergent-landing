@@ -199,7 +199,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'
-import { toast } from '../../store'
+import { toast, confirm } from '../../store'
 import WhDialog from './WhDialog.vue'
 import WhItems from './WhItems.vue'
 import SupplierCombo from '../inventory/new/SupplierCombo.vue'
@@ -354,7 +354,7 @@ async function save () {
 
 async function doReceive (r) {
   if (busy.value) return
-  if (!window.confirm(`确认收货 ${r.order_no || ('#' + r.id)}？\n\n`
+  if (!await confirm(`确认收货 ${r.order_no || ('#' + r.id)}？\n\n`
     + '确认后会把每行商品按批次号 / 到期日写入库存，单据不可再取消。')) return
   busy.value = true
   try {
@@ -370,7 +370,7 @@ async function doReceive (r) {
 
 async function doCancel (r) {
   if (busy.value) return
-  if (!window.confirm(`取消入库单 ${r.order_no || ('#' + r.id)}？`)) return
+  if (!await confirm(`取消入库单 ${r.order_no || ('#' + r.id)}？`)) return
   busy.value = true
   try {
     await whApi.inboundCancel(r.id)

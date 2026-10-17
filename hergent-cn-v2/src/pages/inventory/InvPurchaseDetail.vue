@@ -865,18 +865,6 @@
       </div>
     </div>
   </div>
-
-    <!-- Phase 0：删除附件二次确认（替换原生 window.confirm，全站确认弹窗收敛） -->
-    <ConfirmDialog
-      :show="!!delAttachTarget"
-      title="删除附件"
-      :text="delAttachText"
-      consequence="删除后不可恢复。"
-      confirm-label="删除"
-      :busy="attBusy"
-      @confirm="confirmRemoveAttach"
-      @cancel="delAttachTarget = null"
-    />
 </template>
 
 <script setup>
@@ -905,11 +893,10 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
-import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
 import { approvalApi } from '../../api/approvals'
-import { canDo, toast, store } from '../../store'
+import { canDo, toast, store, confirm } from '../../store'
 import { PO_STATUS, textOf, tagOf, PSI_NOTES, fmtMoney } from '../../constants/psiLabels'
 import { downloadCsv, localDateStamp } from '../../utils/csv'
 /* v415（P2-7）采购单自定义字段。定义归一 / 取值读取都在 composable 里
@@ -1570,7 +1557,7 @@ async function doConfirm () {
   if (busy.value) return
   const withBatch = items.value.filter(it => it.batch_no && it.expiry_date).length
   const noBatch = items.value.length - withBatch
-  const ok = window.confirm(
+  const ok = await confirm(
     `确认这一单的货已经到齐并入库？\n\n` +
     `${PSI_NOTES.confirmIn}\n\n` +
     (noBatch
@@ -1670,7 +1657,7 @@ async function doPrint (count = true) {
 async function doSubmit () {
   if (busy.value) return
   apprOpen.value = false
-  if (!window.confirm(
+  if (!await confirm(
     `提交这一单进入审批流程？\n\n当前审批链：\n${approvalChainText}\n\n` +
     `提交后状态变为「待审批」，轮到对应审批人处理。`
   )) return
@@ -1693,7 +1680,7 @@ async function doApprove (print) {
   if (busy.value) return
   apprOpen.value = false
   const final = apprFinal.value
-  const ok = window.confirm(
+  const ok = await confirm(
     `通过这一关的审批？\n\n` +
     `当前：${approvalProgressText}\n` +
     (final
@@ -1816,12 +1803,6 @@ const attLoading = ref(false)
 const attBusy = ref(false)
 const attMsg = ref('')
 const attaches = ref([])
-// Phase 0：删除附件二次确认（替换原生 window.confirm，全站确认弹窗收敛）
-const delAttachTarget = ref(null)
-const delAttachText = computed(() => {
-  const a = delAttachTarget.value
-  return a ? `确定删除附件「${a.filename || '未命名'}」？` : ''
-})
 const attachMaxMb = ref(20)          // 服务端下发（`max_mb`），前端默认值只是兜底
 const attFileEl = ref(null)
 const attachCount = computed(() => attaches.value.length)
@@ -1909,15 +1890,9 @@ async function downloadAttach (a) {
   }
 }
 
-function removeAttach (a) {
-  delAttachTarget.value = a
-}
-
-async function confirmRemoveAttach () {
-  const a = delAttachTarget.value
-  delAttachTarget.value = null
-  if (!a) return
+async function removeAttach (a) {
   const nm = a.filename || '未命名'
+  if (!await confirm(`确定删除附件「${nm}」？`, { title: '删除附件', consequence: '删除后不可恢复。', confirmLabel: '删除' })) return
   attBusy.value = true
   attMsg.value = ''
   try {

@@ -214,7 +214,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'
-import { toast } from '../../store'
+import { toast, confirm } from '../../store'
 import WhDialog from './WhDialog.vue'
 import WhItems from './WhItems.vue'
 import CustomerCombo from '../inventory/new/CustomerCombo.vue'
@@ -354,7 +354,7 @@ async function save () {
 
 async function doIssue (r) {
   if (busy.value) return
-  if (!window.confirm(`确认出库 ${r.order_no || ('#' + r.id)}？\n\n`
+  if (!await confirm(`确认出库 ${r.order_no || ('#' + r.id)}？\n\n`
     + '确认后按 FEFO 扣减库存，单据不可再取消。库存不足时整单不会出库。')) return
   busy.value = true
   try {
@@ -371,7 +371,7 @@ async function doIssue (r) {
 
 async function doCancel (r) {
   if (busy.value) return
-  if (!window.confirm(`取消出库单 ${r.order_no || ('#' + r.id)}？`)) return
+  if (!await confirm(`取消出库单 ${r.order_no || ('#' + r.id)}？`)) return
   busy.value = true
   try {
     await whApi.outboundCancel(r.id)

@@ -220,7 +220,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'
-import { toast } from '../../store'
+import { toast, confirm } from '../../store'
 import WhDialog from './WhDialog.vue'
 import WhItems from './WhItems.vue'
 
@@ -391,7 +391,7 @@ async function save () {
 async function doPost (r) {
   if (busy.value) return
   const verb = isIn.value ? '入库' : '出库'
-  if (!window.confirm(`确认过账 ${r.entry_no || ('#' + r.id)}？\n\n`
+  if (!await confirm(`确认过账 ${r.entry_no || ('#' + r.id)}？\n\n`
     + `确认后按「其它${verb}」调整库存，单据不可再作废。`)) return
   busy.value = true
   try {
@@ -407,7 +407,7 @@ async function doPost (r) {
 
 async function doCancel (r) {
   if (busy.value) return
-  if (!window.confirm(`作废 ${r.entry_no || ('#' + r.id)}？`)) return
+  if (!await confirm(`作废 ${r.entry_no || ('#' + r.id)}？`)) return
   busy.value = true
   try {
     await whApi.entryCancel(r.id)

@@ -515,7 +515,7 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import { psiApi } from '../../api/psi'
-import { canDo, toast } from '../../store'
+import { canDo, toast, confirm } from '../../store'
 import { PO_STATUS, PO_SOURCE, PO_SOURCE_OPTIONS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
 /* v449：采购侧的两个独立建单页路径（`legacyPurchasePath(kind)` 只做一次判据 ——
    改判据只改 `docTypes.js` 一处，不在这里再抄一遍 `kind === 'return'`）。 */
@@ -1000,7 +1000,7 @@ async function applyRename (k) {
 async function delField (k) {
   const c = colMap.value[k]
   if (!c || !c.custom) return
-  if (!window.confirm(`删除字段「${c.label}」？\n\n`
+  if (!await confirm(`删除字段「${c.label}」？\n\n`
     + '所有采购单上这个字段已经填过的值会一并清除，无法恢复。\n'
     + '（只是想改个名字的话，点「改名」。）')) return
   try {
@@ -1434,7 +1434,7 @@ async function runBatch (op, extra) {
 async function rowOp (op, r) {
   if (!canUpdate.value || busyOp.value) return
   if (op === 'cancel') {
-    if (!r || !window.confirm(`确认取消单据 #${r.order_no || r.id}？\n\n`
+    if (!r || !await confirm(`确认取消单据 #${r.order_no || r.id}？\n\n`
       + '已入库的单据不会被取消，需要走退货单。此操作不可恢复。')) return
   }
   busyOp.value = true

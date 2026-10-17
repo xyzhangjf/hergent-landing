@@ -154,7 +154,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { toast } from '../store'
+import { toast, confirm } from '../store'
 import { commitmentsApi } from '../api/modules'
 import Icon from './Icon.vue'
 
@@ -248,7 +248,7 @@ async function settle(it) {
 }
 
 async function removeOne(it) {
-  if (!window.confirm(`删除这条承诺记录？\n\n${it.content}\n\n删除后不可恢复。`)) return
+  if (!await confirm(`删除这条承诺记录？\n\n${it.content}\n\n删除后不可恢复。`)) return
   try {
     await commitmentsApi.remove(it.id)
     toast('已删除', 'ok')

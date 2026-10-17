@@ -3,6 +3,21 @@
     <router-view />
   </ErrorBoundary>
 
+  <!-- 全局确认弹窗宿主（Phase 0）—— 由 store.confirm() 命令式触发，全站统一替换原生 window.confirm。
+       :show 恒 true + v-if 控制挂载：弹窗只在有未决确认时存在，settle 后即卸载（与 toast 同构）。 -->
+  <ConfirmDialog
+    v-if="store.ui.confirm"
+    :show="true"
+    :title="store.ui.confirm.title"
+    :text="store.ui.confirm.text"
+    :consequence="store.ui.confirm.consequence"
+    :require-text="store.ui.confirm.requireText"
+    :confirm-label="store.ui.confirm.confirmLabel"
+    :cancel-label="store.ui.confirm.cancelLabel"
+    @confirm="store.settleConfirm(true)"
+    @cancel="store.settleConfirm(false)"
+  />
+
   <!-- 底部通知坞（v362）：部署自检提示 + 通知条共用**同一个固定栈**，从下往上排。
        🔴 为什么合成一个容器：此前 `.upd-tip`(bottom:140px) 与 `.toast`(bottom:96px)
           各自绝对定位，通知条一变多（现在允许叠 3 条）就会压住「有新版本可用」。
@@ -42,6 +57,7 @@
 import { onMounted, onBeforeUnmount } from 'vue'
 import { store } from './store'
 import ErrorBoundary from './components/ErrorBoundary.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
 import { useAppUpdate } from './composables/useAppUpdate'
 
 /* v306c：部署自检 —— 只提示，不自动刷新（老板可能正在输入框里打字）。 */

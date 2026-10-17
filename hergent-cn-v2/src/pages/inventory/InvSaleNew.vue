@@ -349,7 +349,7 @@ import { useColSettings } from '../../composables/useColSettings.js'
 import { useColResize } from '../../composables/useColResize.js'
 import ColResizeHandle from '../../components/ColResizeHandle.vue'
 import { psiApi } from '../../api/psi'
-import { toast } from '../../store'
+import { toast, confirm } from '../../store'
 /* ⚠️ 刻意**不**复用 `PSI_NOTES.unit`：那句讲的是「三档单位任选、换算由系统算」——
    那是**采购**路线的口径（采购明细有换算比快照）。销售明细表没有换算比列，
    这里单位不可选、也不换算，照抄那句会把用户引到错的操作上。 */
@@ -626,7 +626,7 @@ async function submitReturn () {
   if (bad) { toast(bad, 'warn'); return }
   if (saving.value) return
   const no = (retOrder.value && retOrder.value.order_no) || fromSo.value
-  if (!window.confirm(`确认对销售单 ${no} 退货 ¥${fmtMoney(retTotal.value)} 吗？\n\n`
+  if (!await confirm(`确认对销售单 ${no} 退货 ¥${fmtMoney(retTotal.value)} 吗？\n\n`
     + '提交后会回增库存、冲减这张单对应客户的应收。退货不可撤销，但可以在退货记录里作废。')) return
   saving.value = true
   try {

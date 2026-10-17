@@ -275,7 +275,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'
-import { toast } from '../../store'
+import { toast, confirm } from '../../store'
 import ProductCombo from '../inventory/new/ProductCombo.vue'
 
 const props = defineProps({
@@ -412,7 +412,7 @@ async function doCreate () {
     return
   }
   const scopeTxt = isPartial.value ? `${picked.value.length} 个商品` : '整仓所有有货商品'
-  if (!window.confirm(`创建${scopeLabel.value}？\n\n会给当前库存（${scopeTxt}·${whName(form.value.warehouse_id)}）拍一张快照。\n快照只读、不改库存，随时可以释放。`)) return
+  if (!await confirm(`创建${scopeLabel.value}？\n\n会给当前库存（${scopeTxt}·${whName(form.value.warehouse_id)}）拍一张快照。\n快照只读、不改库存，随时可以释放。`)) return
   busy.value = true
   try {
     const body = {
@@ -435,7 +435,7 @@ async function doCreate () {
 
 async function doRelease (fid, no) {
   if (busy.value) return
-  if (!window.confirm(`释放冻结单 ${no || ('#' + fid)}？\n\n释放后快照只作历史留痕，不再作为计数基准。\n⚠️ 释放**不会**改库存，也**不会**完成任何盘点期次。`)) return
+  if (!await confirm(`释放冻结单 ${no || ('#' + fid)}？\n\n释放后快照只作历史留痕，不再作为计数基准。\n⚠️ 释放**不会**改库存，也**不会**完成任何盘点期次。`)) return
   busy.value = true
   try {
     await whApi.freezeRelease(fid)

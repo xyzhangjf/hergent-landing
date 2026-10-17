@@ -123,7 +123,7 @@ import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
 import { approvalApi } from '../../api/approvals'
-import { canDo, toast, store } from '../../store'
+import { canDo, toast, store, confirm } from '../../store'
 import {
   SO_STATUS, DELIVERY_STATUS, ORDER_TYPE, textOf, tagOf, fmtMoney,
 } from '../../constants/psiLabels'
@@ -216,7 +216,7 @@ async function load () {
 
 async function doDeliver () {
   if (busy.value) return
-  const ok = window.confirm(
+  const ok = await confirm(
     `确认这一单已经发货？\n\n` +
     `发货后系统会按【最早到期的批次】扣减库存，并生成出库记录。\n` +
     `已经过期的批次不能出库；如果可售库存不够，这一单会被拦下、不会扣减。\n\n` +
@@ -239,7 +239,7 @@ async function doDeliver () {
 
 async function doSign () {
   if (busy.value) return
-  const ok = window.confirm(
+  const ok = await confirm(
     `确认客户已经签收？\n\n` +
     `签收后会生成这一单的应收账款，并按客户的账期算到期日。\n\n` +
     `确定签收吗？`
@@ -262,7 +262,7 @@ async function doSign () {
 async function doSubmit () {
   if (busy.value) return
   const chainTxt = apprChain.value.map((n, i) => `${i + 1}. ${n.name || n.role}`).join('\n')
-  if (!window.confirm(`提交这一单进入审批流程？\n\n当前审批链：\n${chainTxt}\n\n提交后状态变为「待审批」。`)) return
+  if (!await confirm(`提交这一单进入审批流程？\n\n当前审批链：\n${chainTxt}\n\n提交后状态变为「待审批」。`)) return
   busy.value = true
   try {
     const r = await approvalApi.submit('sale', oid)
@@ -274,7 +274,7 @@ async function doSubmit () {
 async function doApprove () {
   if (busy.value) return
   const final = apprFinal.value
-  const ok = window.confirm(
+  const ok = await confirm(
     `通过这一关的审批？\n\n当前：${approvalProgressText}\n` +
     (final ? `这是最后一关，通过即「已审待执行」，之后可发货。\n` : `通过后流转到下一关审批人。\n`) +
     `确定吗？`)

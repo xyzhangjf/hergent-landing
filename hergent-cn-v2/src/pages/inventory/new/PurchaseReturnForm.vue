@@ -396,7 +396,7 @@ import { useColSettings } from '../../../composables/useColSettings.js'
 import { useColResize } from '../../../composables/useColResize.js'
 import ColResizeHandle from '../../../components/ColResizeHandle.vue'
 import { psiApi } from '../../../api/psi'
-import { toast, store } from '../../../store'
+import { toast, store, confirm } from '../../../store'
 import { fmtMoney, PO_STATUS, textOf } from '../../../constants/psiLabels'
 import { purchaseDocConfig, PURCHASE_DOC_TYPES } from './docTypes.js'
 import SupplierCombo from './SupplierCombo.vue'
@@ -855,7 +855,7 @@ async function submitAttached () {
   const no = srcOrderNo.value
   /* 🔴 二次确认**必须留**：这一支会扣库存并把原单标成「已退货」，不可撤销。
      那句「可撤销」的话术是给用户判断用的，不是装饰。 */
-  if (!window.confirm(`确认对采购单 ${no} 退货 ¥${fmtMoney(retTotal.value)} 吗？\n\n`
+  if (!await confirm(`确认对采购单 ${no} 退货 ¥${fmtMoney(retTotal.value)} 吗？\n\n`
     + '提交后会扣减库存，并把这张单标记为「已退货」。此操作不可撤销。')) return
   saving.value = true
   try {

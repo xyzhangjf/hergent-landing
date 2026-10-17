@@ -520,7 +520,7 @@ import ColMenuPanel from '../components/ColMenuPanel.vue'
 import { useColSettings } from '../composables/useColSettings.js'
 /* v396（2026-10-08）：主 Tab 改由 URL 的 `?tab=` 驱动（页签条已退役）⇒ 需要路由。 */
 import { useRoute, useRouter } from 'vue-router'
-import { toast, canDo } from '../store'
+import { toast, canDo, confirm } from '../store'
 import { lossAccountingApi } from '../api/modules'
 import LossDashboard from '../components/LossDashboard.vue'
 
@@ -1057,7 +1057,7 @@ async function toggleClose() {
   const closing = !isClosed.value
   const key = closing ? '结账后本期数据将被锁定，所有录入与重算都会被拒绝（可反结账，但会留痕）。确定结账？'
                       : '反结账会解锁本期数据，允许再次修改。确定反结账？'
-  if (!window.confirm(key)) return
+  if (!await confirm(key)) return
   try {
     const r = closing ? await lossAccountingApi.close(period.value)
                       : await lossAccountingApi.reopen(period.value)
@@ -1070,7 +1070,7 @@ async function toggleClose() {
 async function onChangePricing() {
   const old = boot.value?.pricing
   if (pricing.value === old) return
-  if (!window.confirm('计价口径会切换成「' + (pricing.value === 'sale' ? '售价' : '成本价') +
+  if (!await confirm('计价口径会切换成「' + (pricing.value === 'sale' ? '售价' : '成本价') +
     '」，所有金额与货损率都会按新口径重算。确定切换？')) {
     pricing.value = old
     return

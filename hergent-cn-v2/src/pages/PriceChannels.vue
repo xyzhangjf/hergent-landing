@@ -364,7 +364,7 @@
 import Icon from '../components/Icon.vue'
 import { ref, computed, onMounted } from 'vue'
 import { priceChannelApi, reportMappingApi, productsApi, custPriceApi } from '../api/modules'
-import { toast, canDo } from '../store'
+import { toast, canDo, confirm } from '../store'
 // 列设置齿轮（替换「序号」表头）：复用共享 useColSettings + ColMenuPanel，不新建基础设施。
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
@@ -517,7 +517,7 @@ async function removeOne(c) {
   const tip = n
     ? `「${c.name}」已被 ${n} 个报单对象使用，删除会被拒绝。`
     : `确定删除「${c.name}」？它下面已录的价格/编码会一起删掉，不可恢复。`
-  if (!window.confirm(tip + '\n\n确定继续吗？')) return
+  if (!await confirm(tip + '\n\n确定继续吗？')) return
   try {
     const r = await priceChannelApi.remove(c.id)
     toast(`已删除「${c.name}」` + (r.matrix_rows_removed ? `，连带清掉 ${r.matrix_rows_removed} 行价格` : ''), 'ok')

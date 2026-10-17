@@ -101,7 +101,12 @@ watch(
       }
       lastFocused = null
     }
-  }
+  },
+  /* immediate：全局确认宿主（App.vue）是 `v-if + :show="true"` 挂载，挂载时 show 已为 true，
+     不 immediate 则焦点陷阱 / ESC / 背景锁**永远不会初始化**（Phase 0 全局 confirm 排查出的坑）。
+     对 show=false 挂载的普通用法，immediate 触发一次 else 清理 —— removeEventListener 不存在的
+     监听 + overflow='' 都是幂等的，无副作用。 */
+  { immediate: true }
 )
 
 onBeforeUnmount(() => {
