@@ -393,9 +393,9 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
         <span class="tag info" v-if="period">本期 · {{ period.name }}</span>
         <!-- 时间进度：与下方进度条的虚线标记同源（口径＝本期到货月），右对齐到本行最右侧 -->
         <span class="sprint-tp" v-if="rebateSprint.length" :title="sprintTimeProgress.shown ? '虚线＝时间进度：进度条超过虚线＝超前，短于虚线＝落后时间进度' : ''">本月时间进度：<b>{{ sprintTimeProgress.pct1 }}%</b></span>
-        <button class="sprint-toggle" @click="rebateSprintOpen = !rebateSprintOpen" :title="rebateSprintOpen ? '收起明细' : '展开看达成率、缺口与建议均单'" :aria-label="rebateSprintOpen ? '收起明细' : '展开明细'">
-          <Icon :name="rebateSprintOpen ? 'chevron-down' : 'chevron-right'"/>
-        </button>
+        <span class="sprint-toggle" @click.stop="rebateSprintOpen = !rebateSprintOpen" :title="rebateSprintOpen ? '收起明细' : '展开看达成率、缺口与建议均单'" :aria-label="rebateSprintOpen ? '收起明细' : '展开明细'">
+          <Icon :name="rebateSprintOpen ? 'chevron-down' : 'chevron-right'" :size="16"/>
+        </span>
       </div>
       <!-- 决策横幅（A2）：看板结论的常驻摘要行 —— 折叠/展开都在，明细只在展开时出现。
            四个数字全部取自既有 computed，且与展开态明细表共用同一个 fmt()（单位同源，勿在摘要上开第二套） -->
@@ -494,27 +494,19 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 </template>
 
 <style scoped>
-/* 返利冲刺看板展开/收起控件 —— v551 原为 imp-x 小灰叉（14px 灰、无框无底），几乎不可见；
-   v552 改纯 Lucide 线性图标圆按钮（浅底淡青描边 + 青色 chevron）；v553 按用户审美改：
-   折叠态 chevron-right、展开态 chevron-down（手风琴旋转语言，比上下 chevron 耐看）；
-   去掉青色描边、改成干净浅灰圆（浅灰底 + 透明描边），hover 仅用品牌青微染 + 深青图标反馈，
-   不靠彩色边框托边界，更克制。图标仍为 currentColor 线性（符合 UI 规范，不用彩色 emoji）。 */
+/* 返利冲刺看板展开/收起控件 —— v551 原为 imp-x 小灰叉几乎不可见；
+   v552/v553 先后试过圆形按钮 / 浅灰圆，用户反馈圆形容器观感奇怪。
+   v554 对齐仓库既有规范（Forecast .exp-chev / .grp-toggle / Settings / 侧栏 sb-caret）：
+   去掉一切背景与边框，改为裸 Lucide 线性 chevron 箭头，currentColor 品牌青(var(--p-dark))，
+   无圆形容器、无彩色 emoji；hover 仅加深为 var(--p-deep)。16px 保证页头清晰可点。 */
 .sprint-card .panel-hd .sprint-toggle{
   margin-left:auto;
   flex:0 0 auto;
-  width:30px;height:30px;
   display:inline-flex;align-items:center;justify-content:center;
-  padding:0;
   color:var(--p-dark);
-  background:var(--bg2);
-  border:1px solid transparent;
-  border-radius:50%;
-  cursor:pointer;
-  transition:background .12s ease,color .12s ease;
+  cursor:pointer;user-select:none;
+  transition:color .12s ease;
 }
-.sprint-card .panel-hd .sprint-toggle:hover{
-  background:var(--p-bg);
-  color:var(--p-deep);
-}
-.sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:18px;height:18px}
+.sprint-card .panel-hd .sprint-toggle:hover{ color:var(--p-deep) }
+.sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:16px;height:16px;vertical-align:middle}
 </style>
