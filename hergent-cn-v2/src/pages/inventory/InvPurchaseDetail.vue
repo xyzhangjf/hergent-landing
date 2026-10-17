@@ -896,7 +896,7 @@ import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
 import { approvalApi } from '../../api/approvals'
-import { canDo, toast, store, confirm } from '../../store'
+import { canDo, toast, store, confirm, prompt } from '../../store'
 import { PO_STATUS, textOf, tagOf, PSI_NOTES, fmtMoney } from '../../constants/psiLabels'
 import { downloadCsv, localDateStamp } from '../../utils/csv'
 /* v415（P2-7）采购单自定义字段。定义归一 / 取值读取都在 composable 里
@@ -1707,7 +1707,7 @@ async function doApprove (print) {
 async function doReject () {
   if (busy.value) return
   apprOpen.value = false
-  const reason = window.prompt('驳回理由（退回草稿，并记入日志）：')
+  const reason = await prompt('驳回理由（退回草稿，并记入日志）：')
   if (reason === null) return
   busy.value = true
   try {

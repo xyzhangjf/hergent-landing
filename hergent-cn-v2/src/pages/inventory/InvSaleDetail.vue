@@ -123,7 +123,7 @@ import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
 import { approvalApi } from '../../api/approvals'
-import { canDo, toast, store, confirm } from '../../store'
+import { canDo, toast, store, confirm, prompt } from '../../store'
 import {
   SO_STATUS, DELIVERY_STATUS, ORDER_TYPE, textOf, tagOf, fmtMoney,
 } from '../../constants/psiLabels'
@@ -289,7 +289,7 @@ async function doApprove () {
 }
 async function doReject () {
   if (busy.value) return
-  const reason = window.prompt('驳回理由（退回草稿，并记入日志）：')
+  const reason = await prompt('驳回理由（退回草稿，并记入日志）：')
   if (reason === null) return
   busy.value = true
   try {

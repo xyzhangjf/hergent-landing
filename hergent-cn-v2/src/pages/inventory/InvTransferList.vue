@@ -245,7 +245,7 @@ import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { downloadCsv, localDateStamp } from '../../utils/csv'
 import { psiApi } from '../../api/psi'
 import { approvalApi } from '../../api/approvals'
-import { canDo, toast, store, confirm } from '../../store'
+import { canDo, toast, store, confirm, prompt } from '../../store'
 import { TRANSFER_STATUS, textOf, tagOf } from '../../constants/psiLabels'
 import { DOC_PATHS } from './new/docTypes.js'
 /* v496：快捷时间档改共享件（进销存列表页统一设计规范 §3.3）—— 与采购/销售列表
@@ -649,7 +649,7 @@ async function rowApprove (r) {
 }
 async function rowReject (r) {
   if (busyPost.value) return
-  const reason = window.prompt('驳回理由（退回草稿）：')
+  const reason = await prompt('驳回理由（退回草稿）：')
   if (reason === null) return
   busyPost.value = true
   try {

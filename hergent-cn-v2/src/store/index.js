@@ -24,7 +24,8 @@ export const useAppStore = defineStore('app', () => {
     mobileDrawer: false,   // 手机"更多"抽屉
     copilotOpen: false,    // AI 副驾全局抽屉
     toasts: [],            // 通知栈（v362）：最多 3 条，长文案不自动消失 —— 见下方 toast()
-    confirm: null          // 全局确认弹窗（Phase 0）：单槽位 {id,text,title,consequence,requireText,confirmLabel,cancelLabel,resolve}，见下方 confirm()
+    confirm: null,         // 全局确认弹窗（Phase 0）：单槽位 {id,text,title,consequence,requireText,confirmLabel,cancelLabel,resolve}，见下方 confirm()
+    prompt: null           // 全局输入弹窗（Phase 0）：单槽位 {id,text,title,placeholder,defaultValue,multiline,confirmLabel,cancelLabel,resolve}，见下方 prompt()
   })
   const user = reactive({
     name: '',
@@ -176,6 +177,41 @@ export const useAppStore = defineStore('app', () => {
     if (!c) return
     ui.confirm = null
     if (c.resolve) c.resolve(ok)
+  }
+
+  /* 全局输入弹窗（Phase 0 · 组件复用治理）—— 替换原生 `window.prompt`。
+     语义与 window.prompt 完全对齐：确认返回输入字符串、取消 / ESC 返回 null，
+     调用点只需 `window.prompt(x)` → `await prompt(x)` 一行替换。单槽位：同一时刻只许一个输入挂起。 */
+  let _promptSeq = 0
+  function prompt(message, opts = {}) {
+    return new Promise((resolve) => {
+      // 若已有未决输入，先以「取消」收掉旧的（避免 Promise 悬挂泄漏）
+      if (ui.prompt && ui.prompt.resolve) {
+        const old = ui.prompt
+        ui.prompt = null
+        old.resolve(null)
+      }
+      const o = opts || {}
+      ui.prompt = {
+        id: ++_promptSeq,
+        text: message == null ? '' : String(message),
+        title: o.title || '输入',
+        placeholder: o.placeholder || '',
+        defaultValue: o.defaultValue || '',
+        multiline: !!o.multiline,
+        confirmLabel: o.confirmLabel || '确定',
+        cancelLabel: o.cancelLabel || '取消',
+        resolve
+      }
+    })
+  }
+
+  function settlePrompt(value) {
+    const p = ui.prompt
+    if (!p) return
+    ui.prompt = null
+    // 与 window.prompt 对齐：确认返回原始字符串（空串也返回空串，由调用方决定），取消传 null
+    if (p.resolve) p.resolve(value == null ? null : value)
   }
 
   function setTheme(t) {
@@ -608,6 +644,7 @@ export const useAppStore = defineStore('app', () => {
     ui, user, demo, chat,
     toast, dismissToast, setTheme,
     confirm, settleConfirm,
+    prompt, settlePrompt,
     perms, permsTenant, loadPerms, canModule, canUseAi, resetPerms,
     permsRev, customRoles, refreshPermsIfChanged,
     plan, caps, canCap,
@@ -628,6 +665,8 @@ export const toast = (...a) => store.toast(...a)
 export const setTheme = (...a) => store.setTheme(...a)
 // Phase 0：全局确认弹窗 —— `import { confirm } from '../store'` 后 `await confirm(msg)`
 export const confirm = (...a) => store.confirm(...a)
+// Phase 0：全局输入弹窗 —— `import { prompt } from '../store'` 后 `await prompt(msg)`
+export const prompt = (...a) => store.prompt(...a)
 // v335：页内**按钮级门禁**的模板用法 —— `import { toast, canDo } from '../store'`
 //   然后 `v-if="canDo('data', 'create')"`。页面大多只 import 了 `toast`（没有 `store`），
 //   给一个具名导出就不必为了一个判据去改 12 个页面的 import 列表（少动一行少一处夹带）。

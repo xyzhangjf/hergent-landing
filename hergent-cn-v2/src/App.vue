@@ -18,6 +18,22 @@
     @cancel="store.settleConfirm(false)"
   />
 
+  <!-- 全局输入弹窗宿主（Phase 0）—— 由 store.prompt() 命令式触发，全站统一替换原生 window.prompt。
+       confirm 事件携带输入值（$event），settlePrompt 对齐 window.prompt：确认返回字符串、取消返回 null。 -->
+  <PromptDialog
+    v-if="store.ui.prompt"
+    :show="true"
+    :title="store.ui.prompt.title"
+    :text="store.ui.prompt.text"
+    :placeholder="store.ui.prompt.placeholder"
+    :default-value="store.ui.prompt.defaultValue"
+    :multiline="store.ui.prompt.multiline"
+    :confirm-label="store.ui.prompt.confirmLabel"
+    :cancel-label="store.ui.prompt.cancelLabel"
+    @confirm="store.settlePrompt($event)"
+    @cancel="store.settlePrompt(null)"
+  />
+
   <!-- 底部通知坞（v362）：部署自检提示 + 通知条共用**同一个固定栈**，从下往上排。
        🔴 为什么合成一个容器：此前 `.upd-tip`(bottom:140px) 与 `.toast`(bottom:96px)
           各自绝对定位，通知条一变多（现在允许叠 3 条）就会压住「有新版本可用」。
@@ -58,6 +74,7 @@ import { onMounted, onBeforeUnmount } from 'vue'
 import { store } from './store'
 import ErrorBoundary from './components/ErrorBoundary.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import PromptDialog from './components/PromptDialog.vue'
 import { useAppUpdate } from './composables/useAppUpdate'
 
 /* v306c：部署自检 —— 只提示，不自动刷新（老板可能正在输入框里打字）。 */
