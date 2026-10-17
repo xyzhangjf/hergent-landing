@@ -499,14 +499,23 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
    v554 对齐仓库既有规范（Forecast .exp-chev / .grp-toggle / Settings / 侧栏 sb-caret）：
    去掉一切背景与边框，改为裸 Lucide 线性 chevron 箭头，currentColor 品牌青(var(--p-dark))，
    无圆形容器、无彩色 emoji；hover 仅加深为 var(--p-deep)。16px 保证页头清晰可点。 */
+/* 展开控件：v554 裸箭头在青色卡片上对比太弱、用户反映看不见；
+   v555 改为轻量 ghost 图标按钮——圆角矩形(8px，非 50% 怪圈)浅灰底，箭头放大到 18px，
+   hover 才品牌青微染。仍属线性图标语言，不破坏 UI 规范；解决"没看到箭头"的可发现性问题。 */
+.sprint-card .panel-hd{ gap:8px }
 .sprint-card .panel-hd .sprint-toggle{
   margin-left:auto;
   flex:0 0 auto;
+  width:30px;height:30px;
   display:inline-flex;align-items:center;justify-content:center;
   color:var(--p-dark);
+  background:var(--bg3);
+  border:none;border-radius:8px;
   cursor:pointer;user-select:none;
-  transition:color .12s ease;
+  transition:background .12s ease,color .12s ease;
 }
-.sprint-card .panel-hd .sprint-toggle:hover{ color:var(--p-deep) }
-.sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:16px;height:16px;vertical-align:middle}
+.sprint-card .panel-hd .sprint-toggle:hover{
+  background:var(--p-bg);color:var(--p-deep);
+}
+.sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:18px;height:18px;vertical-align:middle}
 </style>
