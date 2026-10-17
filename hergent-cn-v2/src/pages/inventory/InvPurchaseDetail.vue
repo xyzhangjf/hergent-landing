@@ -865,6 +865,18 @@
       </div>
     </div>
   </div>
+
+    <!-- Phase 0：删除附件二次确认（替换原生 window.confirm，全站确认弹窗收敛） -->
+    <ConfirmDialog
+      :show="!!delAttachTarget"
+      title="删除附件"
+      :text="delAttachText"
+      consequence="删除后不可恢复。"
+      confirm-label="删除"
+      :busy="attBusy"
+      @confirm="confirmRemoveAttach"
+      @cancel="delAttachTarget = null"
+    />
 </template>
 
 <script setup>
@@ -893,6 +905,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
+import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
 import { psiApi } from '../../api/psi'
 import { approvalApi } from '../../api/approvals'
@@ -1803,6 +1816,12 @@ const attLoading = ref(false)
 const attBusy = ref(false)
 const attMsg = ref('')
 const attaches = ref([])
+// Phase 0：删除附件二次确认（替换原生 window.confirm，全站确认弹窗收敛）
+const delAttachTarget = ref(null)
+const delAttachText = computed(() => {
+  const a = delAttachTarget.value
+  return a ? `确定删除附件「${a.filename || '未命名'}」？` : ''
+})
 const attachMaxMb = ref(20)          // 服务端下发（`max_mb`），前端默认值只是兜底
 const attFileEl = ref(null)
 const attachCount = computed(() => attaches.value.length)
@@ -1890,9 +1909,15 @@ async function downloadAttach (a) {
   }
 }
 
-async function removeAttach (a) {
+function removeAttach (a) {
+  delAttachTarget.value = a
+}
+
+async function confirmRemoveAttach () {
+  const a = delAttachTarget.value
+  delAttachTarget.value = null
+  if (!a) return
   const nm = a.filename || '未命名'
-  if (!window.confirm(`确定删除附件「${nm}」？删除后不可恢复。`)) return
   attBusy.value = true
   attMsg.value = ''
   try {

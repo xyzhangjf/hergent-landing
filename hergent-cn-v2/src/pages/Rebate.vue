@@ -36,8 +36,7 @@
         </div>
 
         <div v-if="achvLoading" class="state-empty">加载中…</div>
-        <div v-else-if="!dashboardModel || !dashboardModel.items.length" class="state-empty">
-          <div class="se-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+        <EmptyState v-else-if="!dashboardModel || !dashboardModel.items.length" icon="clock">
           <p v-if="!rules.length">暂无返利规则，请先在「目标配置」创建品牌 / 商品目标。
             <!-- v132：全页空态唯一入口，直达创建（原「去创建目标」只切 tab，还要再点一次） -->
             <!-- v335：按钮级门禁 —— 目标创建走 POST /api/rebate-rules ⇒ 动作 create -->
@@ -45,7 +44,7 @@
             <span v-else class="page-sub" style="display:block;margin-top:10px">当前角色无权创建返利目标，请联系管理员。</span>
           </p>
           <p v-else>所选月份（{{ dashMonth }}）没有处于生效期的返利目标。</p>
-        </div>
+        </EmptyState>
         <div v-else>
           <!-- KPI：钱 + 风险 置顶 -->
           <!-- P2 项11：原独立占一行的 KPI 说明，并入本标题行并弱化为小字（说明"筛选不改 KPI"是设计而非 bug） -->
@@ -268,10 +267,7 @@
     <!-- 规则列表 -->
     <div class="card list-card">
       <div v-if="loading" class="state-empty"><div class="skel-line" style="width:60%;margin:0 auto"></div></div>
-      <div v-else-if="!filteredRules.length" class="state-empty">
-        <div class="se-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
-        <p>暂无返利规则，点击上方「创建品牌目标 / 商品目标」新建</p>
-      </div>
+      <EmptyState v-else-if="!filteredRules.length" icon="clock" desc="暂无返利规则，点击上方「创建品牌目标 / 商品目标」新建" />
       <div v-else class="table-wrap">
         <table class="tbl">
           <thead>
@@ -533,10 +529,7 @@
         </div>
 
         <div v-if="contractLoading" class="state-empty">加载中…</div>
-        <div v-else-if="!contracts.length" class="state-empty">
-          <div class="se-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
-          <p>暂无返利结算。点击「录入年度合同」新增（如「蒙牛 2026 年度返利合同」）。</p>
-        </div>
+        <EmptyState v-else-if="!contracts.length" icon="clock" desc="暂无返利结算。点击「录入年度合同」新增（如「蒙牛 2026 年度返利合同」）。" />
         <div v-else class="contract-list">
           <div v-for="c in filteredContracts" :key="c.id" class="contract-card">
             <div class="cc-top">
@@ -1226,6 +1219,7 @@ import Icon from '../components/Icon.vue'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import CommitmentsTab from '../components/CommitmentsTab.vue'
 import SettlementScheduleTab from '../components/rebate/SettlementScheduleTab.vue'
+import EmptyState from '../components/EmptyState.vue'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast, canDo } from '../store'
