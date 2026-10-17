@@ -337,7 +337,7 @@ async function onFile(k, ev) {
     s.fileName = d.file_name || file.name
     s.loaded = false; s.loadErr = ''; s.mapTouched = false
     const pk = await reconcileApi.peek(d.file_id)
-    s.sheets = (pk.sheets || []).map(x => ({ name: x.name, rows: x.rows }))
+    s.sheets = (pk.sheets || []).map(x => ({ name: x.name, rows: x.rows, head: x.head }))
     if (!s.sheets.length) throw new Error('文件里没有可用工作表')
     s.sheet = s.sheets[0].name
     await loadRows(k)
@@ -368,7 +368,10 @@ async function loadRows(k) {
   s.loadingRows = true; s.loadErr = ''
   try {
     const d = await reconcileApi.rows(s.fileId, s.sheet, s.headerRow)
-    s.head = ((await_cached_head(s)) || [])
+    // 🔴 必须 await（v533 修 v528 线上真实报错）：`await_cached_head` 是 async ⇒ 漏 await 时
+    //    `(p || [])` 会把 Promise 本身（truthy）塞进 s.head ⇒ 渲染 `s.head.map is not a function`。
+    const _hd = await await_cached_head(s)
+    s.head = Array.isArray(_hd) ? _hd : []
     s.columns = d.columns || []
     s.rows = d.rows || []
     s.rowCount = d.row_count || 0
@@ -403,10 +406,13 @@ async function loadRows(k) {
    （headerRow 变化时 peek 不变，但 head 数组需要与 sheet 对应） */
 async function await_cached_head(s) {
   if (!s.fileId) return []
+  // 优先用 onFile 时同一份 peek 已带回的 head：省一次请求，也免"重发 peek 结果不同"的竞态
+  const cached = (s.sheets || []).find(x => x.name === s.sheet)
+  if (cached && Array.isArray(cached.head)) return cached.head
   try {
     const pk = await reconcileApi.peek(s.fileId)
     const one = (pk.sheets || []).find(x => x.name === s.sheet)
-    return one ? (one.head || []) : []
+    return one && Array.isArray(one.head) ? one.head : []
   } catch (_) { return [] }
 }
 
