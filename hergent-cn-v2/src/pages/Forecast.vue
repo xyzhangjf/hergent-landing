@@ -11921,51 +11921,6 @@ th.sortable:hover{color:var(--p-dark)}
 .btn-del{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .btn-del:hover{color:var(--dan);background:var(--dan-bg)}
 .rebate-section{}
-.sprint-card{}
-.sprint-card.is-pinned{margin:14px 0 4px;border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
-.sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:10px;margin-bottom:0}
-.tag.hot{background:var(--dan-bg);color:var(--dan);font-weight:600}
-/* 决策横幅（A2）：一行承载「未达标数 / 总缺口 / 剩余到货机会 / 均单需报」，折叠与展开都常显 */
-.sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:9px 16px;font-size:var(--fs-sm);line-height:1.5;color:var(--t2)}
-.sprint-banner b{color:var(--t1);font-variant-numeric:tabular-nums}
-/* 数值状态色复用既有 .val-warn / .val-ok（见本文件 L6799-6800），不另造色类；
-   因 .sprint-banner b 优先级更高，需显式压过，故写成 b.val-warn */
-.sprint-banner b.val-warn{color:var(--war)}
-.sprint-banner .sep{color:var(--t3)}
-/* 虚线挂到明细区自己这一侧（border-top）—— 它能随 v-show 一起隐藏。
-   若改挂在 .sprint-banner 的 border-bottom 上，折叠时会留下一条悬空线。 */
-.sprint-card .panel-body{padding-top:10px;border-top:1px dashed var(--border-subtle)}
-/* 冲刺看板：行内时间进度（右对齐到页头行最右侧）+ 进度条上的时间进度虚线标记
-   （虚线范式与仪表盘 .rr-bar-mark 一致：橙色 2px dashed，超出条形上下各 3px） */
-.sprint-card .sprint-tp{margin-left:auto;margin-right:2px;font-size:var(--fs-sm);color:var(--t3);white-space:nowrap}
-.sprint-card .sprint-tp b{color:var(--war);font-size:var(--fs-base);font-variant-numeric:tabular-nums}
-.sp-bar{position:relative}
-/* 仅冲刺面板加高到 12px：让时间进度虚线可读（实测行高 41px 由文字行盒决定，加高不改变行高）；
-   仪表盘参照为 16px，此表更紧凑故取 12px。不波及「厂家返利」表（仍 6px） */
-.sprint-card .progress{height:12px}
-.sp-bar-mark{position:absolute;top:-3px;bottom:-3px;width:0;border-left:2px dashed var(--war);z-index:2;pointer-events:none}
-/* v181：进度「与时间进度对比」文案（v183 起内容改为「达成率 X%」）。
-   ⚠️ v183 文案缩短后它**不再撑宽该列**：实测 1680px 下列宽 168px、文案自然宽仅 74px（占 44%）。
-   （v181/182 的长文案 212px 曾把该列撑到 240px、其余各列各缩 ~7px；文案变短后该副作用消失。）
-   ⚠️ table-layout:auto 会把该列宽度**下限**顶在 max(td 自带 min-width:110px, 文案 min-content) 上，
-   给 td 设 max-width 是无效的（实测设 64px、列宽仍为 102.8px）⇒ 要复现「放不下」只能约束本元素自身宽度。
-   放不下时用 visibility:hidden（不是 display:none）保留占位 —— 行高不跳动、显隐不引起表格重排。 */
-.sprint-card .sp-pace{display:block;width:100%;margin-top:3px;font-size:var(--fs-sm);line-height:1.25;
-  white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
-.sprint-card .sp-pace.is-hidden{visibility:hidden}
-.sprint-card .sp-pace.pace-behind{color:var(--dan)}
-.sprint-card .sp-pace.pace-ahead{color:var(--suc)}
-.sprint-card .sp-pace.pace-even{color:var(--t3)}
-/* 时间语义着色：达成未达时间进度=红，已超前=绿（复用全局 .progress>i 的绿/琥珀范式） */
-.sprint-card .progress.red>i{background:var(--dan)}
-.sprint-sum{margin:0 0 12px;font-size:13px;color:var(--t2);line-height:1.7}
-.sprint-sum b{color:var(--t1)}
-.sprint-sum .muted{color:var(--t3);font-size:var(--fs-sm)}
-.sprint-suggest{margin-top:12px;font-size:13px;color:var(--t2);line-height:1.8}
-.sprint-suggest ul{margin:6px 0 0;padding-left:18px}
-.sprint-suggest li{margin:4px 0}
-.sprint-prod{display:inline-block;margin:0 8px 0 4px;padding:1px 8px;background:var(--bg3);border-radius:var(--radius-md);font-size:12px;color:var(--t2)}
-.sprint-prod-empty{margin-left:4px;padding:1px 8px;font-size:12px;color:var(--warn-amber);background:color-mix(in srgb,var(--warn-amber) 10%,transparent);border-radius:var(--radius-md)}
 .val-ok{color:var(--suc)}
 .val-warn{color:var(--war)}
 .val-bad{color:var(--dan)}
@@ -12228,7 +12183,6 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .kbd-grid kbd{display:inline-block;padding:0 5px;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;background:var(--bg);font-family:var(--mono,ui-monospace,monospace);font-size:11px;color:var(--t1)}
 
 .panel-hd svg.ico{width:16px;height:16px;vertical-align:-3px;margin-right:5px}
-.sprint-card.is-pinned .panel-hd svg.ico{vertical-align:-3px}
 /* ---- emoji → Icon 组件后的尺寸/对齐统一（设计规范：只用线性 SVG，不用 emoji） ---- */
 .ico{vertical-align:middle}
 .btn svg.ico{width:14px;height:14px;vertical-align:-2px;margin-right:4px}
