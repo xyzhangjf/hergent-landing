@@ -781,6 +781,10 @@ const NAV = [
         { path: '/reports/gross-profit',             name: '毛利分析',     icon: 'coins' },
         { path: '/reports/avg-order',                name: '均单分析',     icon: 'bars' },
         { path: '/reports/inventory-turnover',       name: '库存周转',     icon: 'refresh' },
+        /* v536（2026-10-17 数据报表 P2-1）：促销ROI分析落真身，排经营分析组真身三页之后。
+           数据源 GET /api/promotion-impact；老板业务现实买赠为主 ⇒ 生产活动 0 条、
+           活动区为诚实空态。icon `target` 已核对存在于 components/Icon.vue ICONS 表。 */
+        { path: '/reports/promo-roi',                name: '促销ROI',      icon: 'target' },
         { path: '/reports/company-profit',           name: '企业经营利润', icon: 'coins' },
         { path: '/reports/customer-profit',          name: '客户利润概览', icon: 'bars' },
         { path: '/reports/customer-profit-analysis', name: '客户利润分析', icon: 'search' },

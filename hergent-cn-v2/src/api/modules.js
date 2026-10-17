@@ -61,6 +61,15 @@ export const reportsApi = {
    *     避免把「库存数据缺失」静默当成「周转飞快」。 */
   inventoryTurnover: (days = 90) => api(`/api/reports/inventory-turnover?days=${days}`),
 
+  /** 促销影响（v536 数据报表 P2-1）：{ days, gift_cost{order_count,item_count,total_cost,
+   *   by_product[{product_id,name,qty,cost}],note}, activities[], activity_note, generated_at }
+   *  口径：零价出库 = 赠品 ∪ 内部领用 ∪ 其他零价出库单的混合（系统未打标无法拆分）；
+   *  成本 = 数量 × 进价（批次成本优先、档案进价回落）—— 全部由后端算好，前端不重算。
+   *  🔴 老板业务现实**买赠为主**：生产促销活动 0 条 ⇒ `activities` 空数组是**诚实空态**，
+   *     不是「活动效果为零」；活动区须展示 activity_note 全文，不得编造对比数据。
+   *  🔴 本端点后端并行开发中（契约已冻结），字段结构不许前端单方面改动。 */
+  promoImpact: (days = 90) => api(`/api/promotion-impact?days=${days}`),
+
   /** BI 透视：POST /api/bi/pivot —— body { dimensions:[], measures:[], filters:{}, limit, order_by }
    *  可选 measures：revenue / cost / profit / quantity / order_count / avg_order_value / margin_pct /
    *                 customer_count / ar_balance

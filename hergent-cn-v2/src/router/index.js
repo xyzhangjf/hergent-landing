@@ -54,6 +54,11 @@ const ReportsInventoryTurnover = () => import('../pages/reports/InventoryTurnove
    数据读 `GET /api/reports/profit-breakdown`（= db.get_profit_report），与首页三张毛利图同源；
    三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）缺一不可。 */
 const ReportsGrossProfit = () => import('../pages/reports/GrossProfit.vue')
+/* v536（2026-10-17 数据报表 P2-1）：**促销ROI分析落真身** —— 独立真组件，不进 PLACEHOLDER_PAGES。
+   数据读 `GET /api/promotion-impact`（后端并行开发中，契约已冻结）；老板业务现实是买赠为主，
+   生产促销活动 0 条 ⇒ 活动区为诚实空态。三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）
+   缺一不可；路由条目必须排在下方 `PLACEHOLDER_PAGES.map` 之前（静态段先者胜）。 */
+const ReportsPromoRoi = () => import('../pages/reports/PromoRoi.vue')
 /* v465c（2026-10-11 仓配管理 P0）：库存查询三页**落真身** —— 从 `PLACEHOLDER_PAGES`
    移出、改为独立组件（对齐「落真身四步」，见 docs/仓配模块开发规范.md）。 */
 const WhExpiryReport = () => import('../pages/wh/ExpiryReport.vue')
@@ -336,6 +341,10 @@ export const router = createRouter({
         { path: 'reports/avg-order', component: ReportsAvgOrder, meta: { title: '均单分析' } },
         { path: 'reports/ageing', component: ReportsArAging, meta: { title: '账龄汇总表' } },
         { path: 'reports/inventory-turnover', component: ReportsInventoryTurnover, meta: { title: '库存周转' } },
+        /* v536（2026-10-17 数据报表 P2-1）：促销ROI分析。**新建** path、不在 PLACEHOLDER_PAGES，
+           故此条是它唯一的真实路由；必须排在下方 `PLACEHOLDER_PAGES.map(...)` 之前。
+           `meta.title` 与 pages.js 的 title、Shell.vue 的 name 逐字对应（同族纪律）。 */
+        { path: 'reports/promo-roi', component: ReportsPromoRoi, meta: { title: '促销ROI分析' } },
 
         /* v465e（2026-10-11 仓配管理 P1）：**仓库作业 6 页落真身**。
            🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——

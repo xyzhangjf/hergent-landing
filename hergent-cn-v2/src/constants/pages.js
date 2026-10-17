@@ -323,6 +323,12 @@ export const PAGE_RULES = {
   '/reports/avg-order': { title: '均单分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   '/reports/ageing': { title: '账龄汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   '/reports/inventory-turnover': { title: '库存周转', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* —— v536（2026-10-17 数据报表 P2-1）：**促销ROI分析落真身**的正式登记行 ——
+     🔴 `module:'reports'` 与数据源一致：本页读 `GET /api/promotion-impact`，与既有四张报表页同域；
+        写成 `module:null` 会退化成「只读占位」语义，写成别的域会造出「入口可见、一开就 403」的假入口。
+     🔴 v472 纪律：四区（仓配 / 资金 / 报表 / 市场）开发期**一律 `BOSS_ROLES + lock`**，只给老板。
+     ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
+  '/reports/promo-roi': { title: '促销ROI分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   /* —— v465e（2026-10-11 仓配管理 P1）：「仓库作业」组六页**落真身**的正式登记行 ——
      🔴 `module:'stock'` 与后端域**逐项一致**：六页的数据源分别是
         `/api/inbound`、`/api/wh/outbound`、`/api/wh/stocktake`、`/api/wms/*`、
