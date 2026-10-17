@@ -266,7 +266,7 @@
 
     <!-- ══ 主表 ══ -->
     <div class="card la-tbl-card">
-      <div v-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-if="loading" />
       <div v-else class="la-tblwrap">
         <table class="la-tbl">
           <colgroup>
@@ -514,6 +514,7 @@
 </template>
 
 <script setup>
+import Skeleton from '../components/Skeleton.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import Icon from '../components/Icon.vue'
 import ColMenuPanel from '../components/ColMenuPanel.vue'

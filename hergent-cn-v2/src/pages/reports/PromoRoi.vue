@@ -18,7 +18,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -179,6 +179,7 @@
    🔴 零价出库 ≠ 赠品：它是「赠品 ∪ 内部领用 ∪ 其他零价出库单」的混合，系统未打标无法拆分
      —— 页面文案与脚注都必须如实说明，不许把它包装成「促销让利」。
    🔴 本页**只读**、无新建 / 编辑入口；无图表无导出（与现有四张报表页严格对齐）。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { reportsApi } from '../../api/modules'

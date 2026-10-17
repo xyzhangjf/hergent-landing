@@ -151,7 +151,7 @@
       </p>
     </template>
 
-    <div v-else-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-else-if="loading" />
 
     <div v-else class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -211,6 +211,7 @@
       ① 按商品**聚合**预校验可售数（同一商品拆两行也能拦住）；
       ② 显式写事务（否则 `fefo_deduct` 内部的 `RELEASE SAVEPOINT` 会提交半单）。
       失败一律 400 + 人话（例如「库存不足 —— XX：需要 100，可用 60」）⇒ 直接 toast 原文。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'

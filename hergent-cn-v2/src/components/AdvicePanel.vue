@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
     <div v-else-if="!records.length" class="state-empty">还没有留痕记录。跑一次货损/工资计算后，AI 的建议会自动出现在这里。</div>
     <div v-else class="adv-list">
       <div v-for="r in records" :key="r.id" class="adv-item" :class="r.status">
@@ -29,6 +29,7 @@
 </template>
 
 <script setup>
+import Skeleton from './Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import { toast } from '../store'
 import { adviceApi } from '../api/modules'

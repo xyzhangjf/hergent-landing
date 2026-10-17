@@ -83,7 +83,7 @@
       <button class="psi-bres-close" @click="lastBatch = null">知道了</button>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -237,6 +237,7 @@
         真正移库）；调拨无退单、无取消接口 ⇒ 这两类按钮不摆（摆了 = 假控件）。
    除上述四点，本页**逐字复用**采购 / 销售列表的范式：列设置齿轮、服务端分页、导出跟随列设置、
    纯前端打印、空态 / 加载 / 错误态、分页器页码窗，保证三张列表页「看起来、用起来」一致。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'

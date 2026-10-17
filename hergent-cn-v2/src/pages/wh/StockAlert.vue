@@ -30,7 +30,7 @@
       <button class="btn btn-primary btn-sm" @click="load()">查询</button>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -114,6 +114,7 @@
    🔴 预警口径（阈值、缺货判定、缺口计算）**全部在后端**（与全站低库存 SQL 同源），
       前端只做展示 —— 前端再判一次 = 第二份口径，必然漂移。
    🔴 本页**只读**：补货动作去采购/调拨，不在这里改库存。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'

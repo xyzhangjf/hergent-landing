@@ -115,7 +115,7 @@
         </p>
       </template>
 
-      <div v-else-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-else-if="loading" />
 
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -244,6 +244,7 @@
    ⚠️ 与「静态盘点单」的分工：那一组的 `stock_freezes` 是**冻结快照 + 状态标识**，
       与这里的盘点期次**没有数据联动**。本页只读 P1 的盘点引擎。 */
 
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'

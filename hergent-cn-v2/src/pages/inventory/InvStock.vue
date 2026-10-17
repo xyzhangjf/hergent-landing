@@ -44,7 +44,7 @@
       <button class="btn btn-primary btn-sm" @click="load()">查询</button>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -130,6 +130,7 @@
       扣减（FEFO）同口径。前端再 sort 一遍就会出现「屏幕顺序 ≠ 实际扣减顺序」。
    🔴 本页**刻意没有「创建」入口**（计划 §七 页面 8）：库存是采购/销售的**结果**，
       手改库存要走去库存效期补录或盘点，不该在这里凭空加。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'

@@ -170,7 +170,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -889,6 +889,7 @@
    ⚠️ 「应付金额」来自后端 `payments.order.ap_amount`，可能是 `null`（= 没有应付记录）。
       **不在前端拿 total_amount 兜底** —— 那会把「没有应付」伪装成「应付 = 订单金额」。
 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'

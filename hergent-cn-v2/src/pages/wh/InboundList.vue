@@ -138,7 +138,7 @@
       </p>
     </template>
 
-    <div v-else-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-else-if="loading" />
 
     <div v-else class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -196,6 +196,7 @@
 
    🔴 供应商走 `SupplierCombo`（本地模糊搜名称/编号），不另造一个下拉 ——
       与进销存四个建单页的观感同源。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'

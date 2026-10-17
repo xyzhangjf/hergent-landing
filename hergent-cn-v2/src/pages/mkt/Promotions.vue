@@ -15,7 +15,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -172,6 +172,7 @@
    🔴 与「促销 ROI 分析」(PromoRoi.vue) 是上下游：这里建的活动，销售开单命中后会在 ROI 页出现对比；
       本页只读列表 + 建改删启停，不重算任何口径（成本/对比全在后端）。
    🔴 生产买赠为主、活动 0 条 ⇒ 列表空是**诚实空态**，展示说明 + 引导，不编造活动。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { api } from '../../api/client.js'

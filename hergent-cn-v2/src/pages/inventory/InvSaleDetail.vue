@@ -30,7 +30,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -116,6 +116,7 @@
       前端放宽（比如草稿就给「签收」）只会换来一次必然失败点击 + 一句后端报错。
    🔴 发货的后果要写清楚：**按最早到期批次扣减**（过期批次不可售，缺货会被拦），
       因为它会真实改变库存，且用户点之前看不到「会扣哪几个批次」。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'

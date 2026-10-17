@@ -225,7 +225,7 @@
       <button class="ipl-link" @click="lastBatch = null">知道了</button>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -511,6 +511,7 @@
       是**真没有数据**，显示 `—` 而不是 `0` —— 后者会被读成「入库了 0 元、一分没欠」，
       是把「不知道」伪装成「是 0」。但「已结款」不躲：`paid_amount` 是库里的真实值，
       0 就是 0，藏起来反而会掩盖一笔真实付款。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'

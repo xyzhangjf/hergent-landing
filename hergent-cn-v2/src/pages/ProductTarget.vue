@@ -72,7 +72,7 @@
 
     <!-- ══ 列表 ══ -->
     <div class="card pt-card">
-      <div v-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-if="loading" />
       <div v-else-if="err" class="state-empty pt-err">{{ err }}</div>
       <div v-else-if="!rows.length" class="state-empty">
         这个月还没有商品目标。点右上「新建目标」开始建第一条。
@@ -442,6 +442,7 @@
 </template>
 
 <script setup>
+import Skeleton from '../components/Skeleton.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 // v265：本页已收进「预报订货管理」当第 4 个页签 ⇒ 允许一处**同页互跳**（告警条 →「报单配置」tab）。
 // 这是本页唯一的路由耦合，语义是「同页切页签」，不是跨页导航。

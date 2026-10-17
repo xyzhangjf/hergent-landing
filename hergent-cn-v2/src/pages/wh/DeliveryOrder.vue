@@ -21,7 +21,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -141,6 +141,7 @@
  *   · `all`   → `whApi.saleOrders({limit})` 本地筛（含全部状态，含历史）
  *   混用会把「今天只有 3 单」当成事实 —— 那只是**还没送的** 3 单。
  */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import { whApi } from '../../api/wh.js'
 import Icon from '../../components/Icon.vue'

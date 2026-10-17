@@ -17,7 +17,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <!-- 🔴 失败必须显式：不吞错、不留一排 0（「恒空恒 0 且零报错」= 静默失效） -->
     <div v-else-if="err" class="state-error">
@@ -124,6 +124,7 @@
    🔴 为什么不在前端自己算：口径（含不含过期、金额按成本价、无到期日怎么算）必须与
       「库存查询 / 临期清单 / 出库扣减」**同一份**。前端再算一遍就是第二份实现。
    🔴 全 0 时**不渲染一排 0**（计划 §七 页面 1 的验收要点）—— 换成「去哪做」的引导。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'

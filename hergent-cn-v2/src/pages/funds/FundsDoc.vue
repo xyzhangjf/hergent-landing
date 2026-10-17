@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
@@ -198,6 +198,7 @@
    🔴 复用全局件：.page/.page-hd/.card/.kpi-strip/.tbl/.tag/.state-*；私有类一律 `fd-` 前缀。
    🔴 金额显示唯一实现 = psiLabels.fmtMoney；状态中文/徽标 = fundLabels 词表。
    🔴 失败显式抛出：api() 抛 Error，页面必显示 .state-error，不许 catch {} 吞。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'

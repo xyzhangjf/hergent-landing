@@ -164,7 +164,7 @@
         </p>
       </template>
 
-      <div v-else-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-else-if="loading" />
 
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -272,6 +272,7 @@
       **删掉刚建的单并返回 None**（不报错）⇒ 路由层返回 `success:false`。
       本页因此**在前端就禁掉**「没选商品」的提交按钮，不让用户走到那句失败。 */
 
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'

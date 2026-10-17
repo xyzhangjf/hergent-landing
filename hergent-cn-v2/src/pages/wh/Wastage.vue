@@ -221,7 +221,7 @@
         </p>
       </template>
 
-      <div v-else-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-else-if="loading" />
 
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -356,6 +356,7 @@
       （`wastage_tracker.py:114-120`）。前端若用商品档案的进货价硬填，会与真实批次成本不一致，
       把「报损金额」算歪 ⇒ 留空 = 交给后端按真实成本取，是更准的口径。 */
 
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'

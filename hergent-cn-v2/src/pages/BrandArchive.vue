@@ -19,7 +19,7 @@
         <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" @click="openCreate">+ 添加品牌</button>
       </div>
 
-      <div v-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-if="loading" />
       <div v-else-if="brands.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
@@ -158,6 +158,7 @@
 </template>
 
 <script setup>
+import Skeleton from '../components/Skeleton.vue'
 import Icon from '../components/Icon.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/client'

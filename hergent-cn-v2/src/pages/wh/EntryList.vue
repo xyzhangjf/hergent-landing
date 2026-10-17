@@ -156,7 +156,7 @@
       <p class="woi-foot">{{ FOOT }}</p>
     </template>
 
-    <div v-else-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-else-if="loading" />
 
     <div v-else class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -217,6 +217,7 @@
         过期奶就永远报不掉，只能烂在库存里（`wh_entry_post` 的注释写了同一件事）。
 
    🔴 计数口径同入库单/出库单：一次拉全 + 本地筛选/计数/分页（单一数据源）。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'

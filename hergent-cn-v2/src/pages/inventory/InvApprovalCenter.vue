@@ -10,7 +10,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
@@ -58,6 +58,7 @@
       前端不二次过滤，直接渲染（避免「看到了却点不动」的假清单）。
    🔴 跳转落点：采购/销售 → 详情页（带审批按钮）；调拨 → 列表页（调拨无详情页，行内直接审）。
       退单（return）暂未在前端列表页接入 ⇒ 不渲染死链，只提示。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'

@@ -224,7 +224,7 @@
         </p>
       </template>
 
-      <div v-else-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-else-if="loading" />
 
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -345,6 +345,7 @@
       ⇒ 本页在前端就先把这类行过滤掉，并在没剩下有效行时拦住提交，
       不让用户以为"5 行都提交了"而实际只落了 3 行。 */
 
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'

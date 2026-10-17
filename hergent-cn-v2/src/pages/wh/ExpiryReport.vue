@@ -12,7 +12,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -125,6 +125,7 @@
       不重新判定档位 —— 否则会出现「屏幕颜色 ≠ 后端口径」的第二份实现。
    🔴 本页**只读**、无「新建」入口：库存与效期是采购/销售/补录的**结果**，
       手改要去「库存效期补录」或盘点，不在这里凭空加。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'

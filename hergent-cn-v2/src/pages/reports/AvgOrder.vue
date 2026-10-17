@@ -12,7 +12,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -111,6 +111,7 @@
    🔴 均单不用后端 avg_order_value（口径混入未送达订单，见 api/modules.js 注释），
       改用 revenue ÷ order_count —— 分子分母同为「已送达/已签收」口径。
    🔴 本页只读、无「新建 / 编辑」入口：均单是销售的结果，不是可编辑对象。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { reportsApi } from '../../api/modules'

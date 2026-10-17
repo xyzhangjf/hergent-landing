@@ -23,7 +23,7 @@
         当前账号没有「仓库」权限，看不到仓库档案。<br>
         请联系管理员在「设置 → 权限」里为该角色勾选「库存」模块。
       </div>
-      <div v-else-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-else-if="loading" />
       <div v-else-if="rows.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
@@ -123,6 +123,7 @@
 </template>
 
 <script setup>
+import Skeleton from '../components/Skeleton.vue'
 import Icon from '../components/Icon.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { toast, canDo } from '../store'

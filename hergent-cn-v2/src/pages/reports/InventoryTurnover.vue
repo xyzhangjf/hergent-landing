@@ -18,7 +18,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -164,6 +164,7 @@
    🔴 无库存记录的商品**不参与**周转计算并单列 —— 否则「库存记录缺失」会被读成
       「库存为零 ⇒ 周转无限快」，这是比不显示更危险的假数字。
    🔴 本页只读。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { reportsApi } from '../../api/modules'

@@ -5,7 +5,7 @@
       <div class="ff-acts"><button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()"><Icon name="refresh" :size="14" />刷新</button></div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
     <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button></div>
 
     <template v-else>
@@ -49,6 +49,7 @@
 </template>
 
 <script setup>
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { fundsApi } from '../../api/funds'

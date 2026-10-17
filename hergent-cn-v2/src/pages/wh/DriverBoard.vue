@@ -13,7 +13,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -157,6 +157,7 @@
  *
  * ⚠️ 本页**只读 + 状态推进**，不做分车 —— 理由见模板里 `dbd-foot` 的口径说明。
  */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import { whApi } from '../../api/wh.js'
 import Icon from '../../components/Icon.vue'

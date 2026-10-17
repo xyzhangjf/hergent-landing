@@ -12,7 +12,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -131,6 +131,7 @@
       改数据要去商品档案（补进货价）或对应单据，不在这里凭空加。
    ⚠️ 「缺进价 ⇒ 成本记 0 ⇒ 毛利虚高」是**数据问题、不是代码 bug**（生产 473 个商品里
       相当一部分没录入进货价）。故显式提醒 + 行内打「缺进价」标，不静默把虚高数字当真。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { reportsApi } from '../../api/modules'

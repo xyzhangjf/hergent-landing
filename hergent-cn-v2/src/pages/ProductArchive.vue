@@ -41,7 +41,7 @@
         <button class="btn btn-ghost btn-sm" @click="resetFilters">重置</button>
       </div>
 
-      <div v-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-if="loading" />
       <div v-else-if="products.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
@@ -593,6 +593,7 @@
 </template>
 
 <script setup>
+import Skeleton from '../components/Skeleton.vue'
 import Icon from '../components/Icon.vue'
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'

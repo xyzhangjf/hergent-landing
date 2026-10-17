@@ -77,7 +77,7 @@
         </div>
       </div>
 
-      <div v-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-if="loading" />
       <div v-else-if="employees.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
@@ -526,6 +526,7 @@
 </template>
 
 <script setup>
+import Skeleton from '../components/Skeleton.vue'
 import Icon from '../components/Icon.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'

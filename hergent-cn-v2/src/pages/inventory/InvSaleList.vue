@@ -109,7 +109,7 @@
       <button class="psi-bres-close" @click="lastBatch = null">知道了</button>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -268,6 +268,7 @@
         `total` 不减。改成服务端 `exclude_status`（同一件事只有一个说法）。
    ⚠️ 「列设置」本页 v432 起已有（`useColSettings` + `ColMenuPanel`），本轮**只扩列**、
       不换组件 —— 换面板会把用户已存的列配置（云端）丢掉一次。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'

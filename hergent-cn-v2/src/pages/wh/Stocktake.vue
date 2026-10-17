@@ -115,7 +115,7 @@
         </p>
       </template>
 
-      <div v-else-if="loading" class="state-empty">加载中…</div>
+      <Skeleton v-else-if="loading" />
 
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -280,6 +280,7 @@
 
    🔴 计数同理与兄弟页一致：列表模式**一次拉全 + 本地计数**（KPI 与表格同一个数组）；
       明细模式的 KPI 直接取后端返回的实时统计（`_take_stats` 每次现算，不落冗余列）。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'

@@ -25,7 +25,7 @@
       <span class="wvs-hint">车辆库存与「仓库库存」分开：装车后从仓库扣减、回到车上，卸载后回仓。</span>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -102,6 +102,7 @@
 /* 车辆库存查询（仓配管理 · 库存查询）—— 数据源：GET /api/vehicles + GET /api/vehicle-stock/{id}。
    🔴 车辆库存与仓库库存是两套 `warehouse_id`（车 = 1000 + vehicle_id，见后端 vehicle_stock_query）
       ⇒ 本页**只读**、不提供跨库调拨；装/卸车走去车销或调拨单。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { whApi } from '../../api/wh'

@@ -12,7 +12,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -114,6 +114,7 @@
       due_date 全为 2023-11-30 / 2023-12-31、created_at 同为 2026-06-29（批量导入）、
       paid_amount>0 的笔数为 0 ⇒ 全部落 60+。若不提示，老板会把历史挂账读成当期欠款。
       判定方式保持宽松（前两档为空 且 存在逾期 > 365 天的单），避免写死某次数据快照。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { reportsApi } from '../../api/modules'

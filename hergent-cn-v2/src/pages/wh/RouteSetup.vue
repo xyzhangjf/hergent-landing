@@ -142,7 +142,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
 
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
@@ -266,6 +266,7 @@
  * 🔴 为什么本页要能建车辆：`delivery_route_create` 的 Pydantic 校验是 `vehicle_id: gt=0`，
  *    而生产 `vehicles` 表实测 **0 行** ⇒ 不给建车入口的话，「新建线路」永远点不动。
  */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { whApi } from '../../api/wh.js'
 import Icon from '../../components/Icon.vue'

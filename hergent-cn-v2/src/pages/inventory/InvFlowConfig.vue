@@ -7,7 +7,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
@@ -61,6 +61,7 @@
       双保险。越权直接调接口也会被 403。
    🔴 节点 role 必须落在系统角色里（与 `_can_approve` 的 `chain[node].role == 当前用户 role` 对齐）：
       给某一关选了「主管」，就只有 role=supervisor 的人能在那一关点「通过」。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { approvalApi } from '../../api/approvals'

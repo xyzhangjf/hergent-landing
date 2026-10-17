@@ -5,7 +5,7 @@
       <div class="fbk-acts"><button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()"><Icon name="refresh" :size="14" />刷新</button></div>
     </div>
 
-    <div v-if="loading" class="state-empty">加载中…</div>
+    <Skeleton v-if="loading" />
     <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button></div>
 
     <template v-else>
@@ -74,6 +74,7 @@
    🔴 复用全局件：.page/.page-hd/.card/.kpi-strip/.tbl/.state-*；私有类 fbk- 前缀。
    🔴 数据 = fundsApi.bankReconcile → `{ accounts: 银行类账户, flow: 已过账流水 }`。
    🔴 失败显式抛出：页面必显示 .state-error，不许 catch {} 吞。 */
+import Skeleton from '../../components/Skeleton.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import { fundsApi } from '../../api/funds'
