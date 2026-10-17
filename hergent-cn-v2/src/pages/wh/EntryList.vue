@@ -75,13 +75,13 @@
       </div>
 
       <div v-if="!view.length" class="card">
-        <div class="state-empty">
-          <div class="se-ic"><Icon name="inbox" :size="22" /></div>
-          <p>{{ hasFilter ? '当前条件下没有单据。' : `还没有${TITLE}。` }}</p>
-          <button v-if="!hasFilter" class="btn btn-primary btn-sm" style="margin-top:12px" @click="openCreate">
-            <Icon name="plus" :size="14" />新建{{ TITLE }}
-          </button>
-        </div>
+        <EmptyState
+          icon="inbox"
+          :desc="hasFilter ? '当前条件下没有单据。' : `还没有${TITLE}。`"
+          :action-label="!hasFilter ? `新建${TITLE}` : ''"
+          action-icon="plus"
+          @action="openCreate"
+        />
       </div>
 
       <div v-else class="card woi-card">
@@ -219,6 +219,7 @@
    🔴 计数口径同入库单/出库单：一次拉全 + 本地筛选/计数/分页（单一数据源）。 */
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
+import EmptyState from '../../components/EmptyState.vue'
 import { whApi } from '../../api/wh'
 import { toast, confirm } from '../../store'
 import WhDialog from './WhDialog.vue'

@@ -68,13 +68,13 @@
       </div>
 
       <div v-if="!view.length" class="card">
-        <div class="state-empty">
-          <div class="se-ic"><Icon name="inbox" :size="22" /></div>
-          <p>{{ hasFilter ? '当前条件下没有出库单。' : '还没有出库单。' }}</p>
-          <button v-if="!hasFilter" class="btn btn-primary btn-sm" style="margin-top:12px" @click="openCreate">
-            <Icon name="plus" :size="14" />新建出库单
-          </button>
-        </div>
+        <EmptyState
+          icon="inbox"
+          :desc="hasFilter ? '当前条件下没有出库单。' : '还没有出库单。'"
+          :action-label="!hasFilter ? '新建出库单' : ''"
+          action-icon="plus"
+          @action="openCreate"
+        />
       </div>
 
       <div v-else class="card wob-card">
@@ -213,6 +213,7 @@
       失败一律 400 + 人话（例如「库存不足 —— XX：需要 100，可用 60」）⇒ 直接 toast 原文。 */
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
+import EmptyState from '../../components/EmptyState.vue'
 import { whApi } from '../../api/wh'
 import { toast, confirm } from '../../store'
 import WhDialog from './WhDialog.vue'

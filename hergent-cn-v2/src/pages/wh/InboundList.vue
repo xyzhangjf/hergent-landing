@@ -69,13 +69,13 @@
       </div>
 
       <div v-if="!view.length" class="card">
-        <div class="state-empty">
-          <div class="se-ic"><Icon name="inbox" :size="22" /></div>
-          <p>{{ hasFilter ? '当前条件下没有入库单。' : '还没有入库单。' }}</p>
-          <button v-if="!hasFilter" class="btn btn-primary btn-sm" style="margin-top:12px" @click="openCreate">
-            <Icon name="plus" :size="14" />新建入库单
-          </button>
-        </div>
+        <EmptyState
+          icon="inbox"
+          :desc="hasFilter ? '当前条件下没有入库单。' : '还没有入库单。'"
+          :action-label="!hasFilter ? '新建入库单' : ''"
+          action-icon="plus"
+          @action="openCreate"
+        />
       </div>
 
       <div v-else class="card win-card">
@@ -198,6 +198,7 @@
       与进销存四个建单页的观感同源。 */
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
+import EmptyState from '../../components/EmptyState.vue'
 import { whApi } from '../../api/wh'
 import { toast, confirm } from '../../store'
 import WhDialog from './WhDialog.vue'

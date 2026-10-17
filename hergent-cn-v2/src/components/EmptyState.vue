@@ -18,7 +18,7 @@
       type="button"
       class="btn btn-primary btn-sm es-action"
       @click="$emit('action')"
-    >{{ actionLabel }}</button>
+    ><Icon v-if="actionIcon" :name="actionIcon" :size="14" />{{ actionLabel }}</button>
   </div>
 </template>
 
@@ -34,6 +34,8 @@ defineProps({
   desc: { type: String, default: '' },
   /** 底部动作按钮文案（可选，不传则不显示按钮） */
   actionLabel: { type: String, default: '' },
+  /** 动作按钮前的图标名（可选，默认无图标，与旧空态「plus + 新建」一致） */
+  actionIcon: { type: String, default: '' },
 })
 defineEmits(['action'])
 </script>

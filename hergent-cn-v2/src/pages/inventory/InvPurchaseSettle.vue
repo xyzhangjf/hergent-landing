@@ -50,13 +50,13 @@
       </div>
     </div>
     <div v-else-if="!rows.length" class="card">
-      <div class="state-empty">
-        <div class="se-ic"><Icon name="inbox" :size="22" /></div>
-        <p>还没有结算单。</p>
-        <button v-if="canWrite" class="btn btn-primary btn-sm" style="margin-top:12px" @click="openNew()">
-          <Icon name="plus" :size="14" />新建结算单
-        </button>
-      </div>
+      <EmptyState
+        icon="inbox"
+        desc="还没有结算单。"
+        :action-label="canWrite ? '新建结算单' : ''"
+        action-icon="plus"
+        @action="openNew()"
+      />
     </div>
 
     <div v-else class="card ips-card">
@@ -317,6 +317,7 @@
       逐字同构：**齿轮在序号列表头格内**、面板 `.col-menu` 结构一致、默认列 = 最小可用集。 */
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
+import EmptyState from '../../components/EmptyState.vue'
 import { psiApi } from '../../api/psi'
 import { canDo, toast } from '../../store'
 import { fmtMoney, textOf, tagOf, SETTLEMENT_STATUS, SETTLEMENT_STATUS_OPTIONS, SETTLEMENT_REF_TYPE } from '../../constants/psiLabels'

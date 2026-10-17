@@ -118,18 +118,16 @@
     </div>
 
     <div v-else-if="!rows.length" class="card">
-      <div class="state-empty">
-        <div class="se-ic"><Icon name="receipt" :size="22" /></div>
-        <p>{{ hasFilter ? '当前条件下没有' + (_kindReturn ? '退货单。' : '销售单。')
-                        : (_kindReturn ? '还没有退过货。' : '还没有销售单。') }}</p>
-        <!-- v449：原来写死 `/inventory/sale/new`（不带 `type`）⇒ 在「车销退单」页签下
-             点它会建出一张**自提订单**，而且看不出哪里不对。改成跟页签走（`newTo`），
-             文案也跟页头一致（`新建车销退单`），而不是笼统的「新建销售单」。 -->
-        <button v-if="canWrite" class="btn btn-primary btn-sm" style="margin-top:12px"
-                @click="go(newTo)">
-          <Icon name="plus" :size="14" />新建{{ title }}
-        </button>
-      </div>
+      <!-- v449：原来写死 `/inventory/sale/new`（不带 `type`）⇒ 在「车销退单」页签下
+           点它会建出一张**自提订单**，而且看不出哪里不对。改成跟页签走（`newTo`），
+           文案也跟页头一致（`新建车销退单`），而不是笼统的「新建销售单」。 -->
+      <EmptyState
+        icon="receipt"
+        :desc="hasFilter ? '当前条件下没有' + (_kindReturn ? '退货单。' : '销售单。') : (_kindReturn ? '还没有退过货。' : '还没有销售单。')"
+        :action-label="canWrite ? '新建' + title : ''"
+        action-icon="plus"
+        @action="go(newTo)"
+      />
     </div>
 
     <div v-else class="card isl-card">
@@ -273,6 +271,7 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
+import EmptyState from '../../components/EmptyState.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { downloadCsv, localDateStamp } from '../../utils/csv'

@@ -92,9 +92,7 @@
           </table>
         </div>
         <div v-else class="state-empty">
-          <div class="se-ic">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          </div>
+          <div class="se-ic"><Icon name="check" :size="22" /></div>
           <p>近 14 天无临期批次，保持节奏</p>
         </div>
       </div>
@@ -251,9 +249,7 @@
             <button class="btn btn-ghost" :disabled="aiLoading" @click="loadMorning(true)">重新生成</button>
           </div>
           <div v-if="!aiText && !aiLoading" class="state-empty">
-            <div class="se-ic">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M5 12H3M21 12h-3M6 6l-2-2M20 20l-2-2M6 18l-2 2M20 4l-2 2"/><circle cx="12" cy="12" r="4"/></svg>
-            </div>
+            <div class="se-ic"><Icon name="sun" :size="22" /></div>
             <p>今日晨报还没有生成</p>
             <button class="btn btn-ghost" style="margin-top:12px" :disabled="aiLoading" @click="loadMorning(true)">生成今日晨报</button>
           </div>
@@ -279,6 +275,7 @@ import { hermesChat, auth } from '../api/client'
 import { stripAllFences } from '../composables/useCardTrigger'
 import { dashboardApi, expiryApi, todayApi, importApi, aiJudgementApi, aiExperienceApi, productsApi } from '../api/modules'
 import CollectionsCard from '../components/CollectionsCard.vue'
+import Icon from '../components/Icon.vue'
 
 /* ---- 日期 ---- */
 const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })

@@ -92,13 +92,13 @@
     </div>
 
     <div v-else-if="!rows.length" class="card">
-      <div class="state-empty">
-        <div class="se-ic"><Icon name="refresh" :size="22" /></div>
-        <p>{{ hasFilter ? '当前条件下没有调拨单。' : '还没有调拨单。' }}</p>
-        <button v-if="canWrite" class="btn btn-primary btn-sm" style="margin-top:12px" @click="go(newTo)">
-          <Icon name="plus" :size="14" />新建{{ title }}
-        </button>
-      </div>
+      <EmptyState
+        icon="refresh"
+        :desc="hasFilter ? '当前条件下没有调拨单。' : '还没有调拨单。'"
+        :action-label="canWrite ? '新建' + title : ''"
+        action-icon="plus"
+        @action="go(newTo)"
+      />
     </div>
 
     <div v-else class="card isl-card">
@@ -240,6 +240,7 @@
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from '../../components/Icon.vue'
+import EmptyState from '../../components/EmptyState.vue'
 import { useColSettings } from '../../composables/useColSettings.js'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { downloadCsv, localDateStamp } from '../../utils/csv'

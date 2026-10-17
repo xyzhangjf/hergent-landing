@@ -2366,7 +2366,7 @@
         </table>
       </div>
       <div v-else class="state-empty">
-        <div class="se-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg></div>
+        <div class="se-ic"><Icon name="line-chart" :size="22" /></div>
         <p>搜索商品并添加到草稿，然后点击「智能审核」</p>
       </div>
     </div>
