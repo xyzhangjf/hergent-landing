@@ -15,6 +15,10 @@ import {ruleCoversMonth} from '../../components/rebate/useMonthlyAchv.js'
 import {parseArrivalWeekdays} from '../../utils/forecast/date.js'
 import {countWeekdayArrivalsInWindow} from '../../utils/forecast/date.js'
 import {ARR_WEEKDAY_CN} from '../../utils/forecast/date.js'
+// 🔴 v557 修复：本组件由 Forecast.vue 抽离而来，模板用到 <Icon>，但原 import 在父级，
+//    抽离脚本只探测了 api/fmt/calc/date 等 helper，漏了 Icon ⇒ 组件未解析、箭头**从未渲染**
+//    （项目无 unplugin-vue-components、main.js 也未全局注册 Icon，故必须显式 import）。
+import Icon from '../Icon.vue'
 
 const props = defineProps({
   period:    { type: Object,  default: null },
@@ -393,8 +397,11 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
         <span class="tag info" v-if="period">本期 · {{ period.name }}</span>
         <!-- 时间进度：与下方进度条的虚线标记同源（口径＝本期到货月），右对齐到本行最右侧 -->
         <span class="sprint-tp" v-if="rebateSprint.length" :title="sprintTimeProgress.shown ? '虚线＝时间进度：进度条超过虚线＝超前，短于虚线＝落后时间进度' : ''">本月时间进度：<b>{{ sprintTimeProgress.pct1 }}%</b></span>
-        <span class="sprint-toggle" @click.stop="rebateSprintOpen = !rebateSprintOpen" :title="rebateSprintOpen ? '收起明细' : '展开看达成率、缺口与建议均单'" :aria-label="rebateSprintOpen ? '收起明细' : '展开明细'">
-          <Icon :name="rebateSprintOpen ? 'chevron-down' : 'chevron-right'" :size="16"/>
+        <!-- v557：做成「侧边栏同款」箭头 —— 与 Shell.vue .sb-caret 一致：
+             永远同一个 chevron-right，展开时 rotate(90deg) 朝下（不换图标）；
+             静息 opacity .55 与侧边栏等权，hover 提到 1 给出可点反馈。 -->
+        <span class="sprint-toggle" :class="{'is-open': rebateSprintOpen}" @click.stop="rebateSprintOpen = !rebateSprintOpen" :title="rebateSprintOpen ? '收起明细' : '展开看达成率、缺口与建议均单'" :aria-label="rebateSprintOpen ? '收起明细' : '展开明细'">
+          <Icon name="chevron-right" :size="16"/>
         </span>
       </div>
       <!-- 决策横幅（A2）：看板结论的常驻摘要行 —— 折叠/展开都在，明细只在展开时出现。
@@ -494,24 +501,30 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 </template>
 
 <style scoped>
-/* 返利冲刺看板展开/收起控件 —— 定稿(v556)：干净的青色裸箭头，零容器。
-   演进：v551 imp-x 灰叉不可见 → v552/v553 圆形观感奇怪 → v554 裸箭头太弱
-        → v555 圆角矩形 ghost 按钮被否 → v556 定稿：只要箭头，不要任何形状。
-   规格：无 background、无 border、无 border-radius，只保留 currentColor 品牌青(var(--p-dark))；
-        折叠态 chevron-right、展开态 chevron-down（与全仓 .exp-chev/.grp-toggle/sb-caret 一致）；
-        18px 保证页头可发现；padding 仅扩点击热区，不产生可见形状；hover 仅加深 var(--p-deep)。 */
+/* 返利冲刺看板展开/收起控件 —— 定稿(v557)：做成「侧边栏同款」箭头。
+   🔴 真 bug（v557 修复）：抽离时漏了 `import Icon`，且项目既无 unplugin-vue-components、
+      main.js 也未全局注册 Icon ⇒ <Icon> 未解析 ⇒ **箭头从未渲染**（v552/553 用户看到的
+      "奇怪的圆/丑图标"实为空圆圈；v554/556 去掉容器后则完全空白）。此前所有样式调整都无效。
+   规格（对齐 Shell.vue `.sb-caret` @1503-1504）：
+     · 永远同一个 chevron-right，展开时 rotate(90deg) 朝下 —— 与侧边栏折叠箭头同机制；
+     · 零 background / 零 border / 零 border-radius（用户明确拒绝圆形与圆角矩形容器）；
+     · color 继承(var(--t2)) + 静息 opacity:.55（与侧边栏等权），hover 提至 1；
+     · 16px（Forecast .exp-chev 同尺寸），padding:6px 仅扩点击热区、不产生可见形状。 */
 .sprint-card .panel-hd{ gap:8px }
 .sprint-card .panel-hd .sprint-toggle{
   margin-left:auto;
   flex:0 0 auto;
   display:inline-flex;align-items:center;justify-content:center;
   padding:6px;
-  color:var(--p-dark);
+  color:var(--t2);
+  opacity:.55;
   background:none;
   border:none;
   cursor:pointer;user-select:none;
-  transition:color .12s ease;
+  transition:opacity .15s ease,transform .15s ease;
 }
-.sprint-card .panel-hd .sprint-toggle:hover{ color:var(--p-deep) }
+.sprint-card .panel-hd .sprint-toggle:hover{ opacity:1 }
+/* 展开态：同一个 chevron-right 顺时针转 90° ⇒ 朝下（与侧边栏 .sb-caret 完全一致） */
+.sprint-card .panel-hd .sprint-toggle.is-open{ transform:rotate(90deg) }
 .sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:18px;height:18px;vertical-align:middle}
 </style>
