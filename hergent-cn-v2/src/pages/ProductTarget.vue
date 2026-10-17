@@ -129,10 +129,7 @@
                   <!-- v335 按钮级门禁：改目标量=PUT /api/product-targets/{tid} ⇒ data/update；
                        删除=DELETE 同路径 ⇒ data/delete -->
                   <button v-if="canDo('data', 'update')" class="btn-icon" title="改目标量" @click="openEdit(r)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>
-                    </svg>
+                    <Icon name="edit" :size="16" />
                   </button>
                   <button v-if="canDo('data', 'delete')" class="btn-icon" title="删除目标（同时删掉分解）" @click="askDelete(r)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -192,8 +189,7 @@
           <div class="pt-modal-hd">
             <b>{{ editing ? '改目标量' : '新建商品目标' }}</b>
             <button class="btn-icon" title="关闭" @click="closeModal">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              <Icon name="close" :size="16" />
             </button>
           </div>
 
@@ -381,8 +377,7 @@
                         </td>
                         <td>
                           <button class="btn-icon" title="移除" @click="rmMember(m.employee_id)">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                 stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                            <Icon name="close" :size="14" />
                           </button>
                         </td>
                       </tr>

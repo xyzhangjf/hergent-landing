@@ -232,7 +232,7 @@
           </div>
           <div class="cc-mcp" @click="toast('MCP 接入即将上线', 'info')">
             <div class="cc-mcp-ic">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <Icon name="plus" :size="22" />
             </div>
             <div class="cc-mcp-txt">
               <div class="cc-mcp-title">添加 MCP 服务器</div>
@@ -368,7 +368,7 @@
             <div class="cc-modal-hd">
               <b>管理工作流</b>
               <button class="cc-x" @click="manageOpen = false">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <Icon name="close" :size="16" />
               </button>
             </div>
             <div class="cc-modal-body">
@@ -412,7 +412,7 @@
           <div class="cc-modal-hd">
             <b>连接{{ ccChannel(active.ch).label }}</b>
             <button class="cc-x" @click="closeChannel">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <Icon name="close" :size="16" />
             </button>
           </div>
           <div class="cc-modal-body">
@@ -476,7 +476,7 @@
           <div class="cc-modal-hd">
             <b>连接畅捷通 / T+</b>
             <button class="cc-x" @click="closeChanjet">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <Icon name="close" :size="16" />
             </button>
           </div>
           <div class="cc-modal-body">
@@ -509,7 +509,7 @@
           <div class="cc-modal-hd">
             <b>连接金蝶 / 云星空</b>
             <button class="cc-x" @click="closeKingdee">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <Icon name="close" :size="16" />
             </button>
           </div>
           <div class="cc-modal-body">
