@@ -2900,6 +2900,9 @@ import { normRole, roleName, isCanonicalRole, ROLE_VIEW_TOKEN_NAMES, canViewFore
    ruleEffectiveInMonth（按生效期逐月裁剪），年度规则 12 个月分解齐全、生效期只写
    一个月时会把其余月份判掉 ⇒ 冲刺看板少行 / 目标柱不画。已删除，改用共享谓词。 */
 import { ruleCoversMonth } from '../components/rebate/useMonthlyAchv.js'
+import { fmt, fmtBox, statFmt, toHalfNum, parseNumInput } from '../utils/forecast/format.js'
+import { rowSum, rowExtraQty, rowFinalQty, factoryPrice, perCase, boxesOf, rowBoxes, boxMissing, boxText, priceAuto, priceInherit, inheritPeriodLabel, pricePerCase, pricePh, priceTitle, amountValue } from '../utils/forecast/calc.js'
+import { fmtDate, addDaysStr, shiftPeriodNameDates, parseArrivalWeekdays, countWeekdayArrivalsInWindow, parsePeriodDates, ARR_WEEKDAY_CN } from '../utils/forecast/date.js'
 
 const periods = ref([])
 /* 🔴 purchase_orders.status 是后端英文枚举（DDL CHECK：draft / pending_approval /
@@ -3673,218 +3676,7 @@ function canSort(col) { return col.key === 'name' || col.key === 'qty' || col.ke
 function ariaSort(col) { return sortKey.value === col.key ? (sortDir.value === 'asc' ? 'ascending' : 'descending') : 'none' }
 function onHeadClick(col) { if (canSort(col)) onSort(col.key) }
 function masterVal(r, col) { if (col.fmt) return col.fmt(r); const v = r[col.key]; return v != null && v !== '' ? v : '—' }
-// v184d：**报单金额的计价基准 = 进价（元/箱）**。
-// 🔴 v226b 收紧：只认 `factory_price`，**不再回退 `purchase_price`**。为什么必须收紧：
-//   · 量纲：`purchase_price` 是**元/小单位**（生产实测 `factory_price = pp × perCase × 0.9`，46/46 成立），
-//     而本函数返回值要乘 `rowFinalQty`（**箱数**）⇒ 回退会让金额**差一个 perCase 倍**（10~36 倍）。
-//   · 语义：`purchase_price` 生产实测 **56/56 == `sale_price`**（其中 46/46 还 == `dist_price`）
-//     ⇒ 它存的是「卖给门店的价」，压根不是进货成本；拿它当进价是在说假话。
-//   · 生产影响：命中 10 个商品，而它们 `pp == sp` 逐个全等 ⇒ **金额数值零变化**
-//     （回退 pp 与回退售价本就等价），只是界面从「缺规格」如实改成「缺价」。
-// ⚠️ 与「档案完整性」口径的区别（**别把两件事混成一件事**）：
-//   `ProductArchive.fpEff()` 与后端 `db.factory_price_sql` **仍保留**回退 —— 它们回答的是
-//   「这个商品档案里有没有录过价格信息」（用于列表展示与缺价计数/闸门），**不是**「算金额用多少钱」。
-//   同一个词「进价」在两个问题下答案不同，是有意的；改任意一处前先想清问的是哪一个。
-function factoryPrice(r) {
-  return Number(r?.factory_price || 0)
-}
-/* v189：规格 → **每箱小单位数**（「合计(箱) = 合计(小单位) ÷ 规格」里那个「规格」的唯一实现）。
-   🔴 原四处都写 parseFloat(spec)，取到的是**净含量**、不是每箱数：
-        parseFloat('200g*12') = 200（克）、parseFloat('1500ML*6桶') = 1500 ⇒ 箱数被缩小 250 倍。
-        生产只读实测（期次 9）：规格 200g*12 的 24 件 → 算出 **0 箱**（正确应为 2；该期合计 0 → 3）。
-   🔴 为什么不能「先合计小单位、再除以某个规格」：生产档案 288 个商品里 **192 个规格是描述串**
-        （'250g*24瓶' / '90g*8杯*12组' / '210g*10瓶*6提手提装'）、**30 个为空** —— 规格异构时
-        该式**没有定义**。成立的唯一定义是**逐行除、再相加**（见 rowBoxes），本函数只负责那一「除」。
-   规则（对全量档案逐一验过）：
-     ① 取规格串里**最后一个**数字 = 每箱小单位数（250g*24瓶→24、100g*8杯*12组→12、1500ML*6桶→6）；
-     ② 报单单位(unit)也在规格里出现、且比末位更靠前（更细）时按层级相乘：
-        100g*8杯*12组 且 unit=杯 → 8×12 = 96（1 箱 = 12 组 = 96 杯）；
-     ③ 纯数字规格（'12'）即其本身；
-     ④ 不含任何数字 → 0（缺规格 ⇒ 不换算，界面走「缺规格」分支，**不静默当 1**）。 */
-/* v222（2026-09-21）：换算的**数据源**改为「商品档案优先 → 规格解析回退」——尺度与语义**完全不变**
-   （仍返回「1 个大单位 = 多少个小单位」= 每箱小单位数；报单单位落在中/大单位层时按层级折算）。
-   🔴 为什么改：规格串是**自由文本**，生产实测三类翻车 ——
-      · 净含量被当成装箱数：'340G' ⇒ 340 瓶（与真值 12 差 **28.3 倍**）；
-      · 末位数字不是装箱数：'195g×24盒（130g+65g）' 被末位抓成 **65**；
-      · 空规格 28 个 ⇒ 连箱数都算不出（界面显示「缺规格」）。
-     而 `products.large_ratio/medium_ratio` **结构化、有来源**（import_zhoupu.py 读舟谱「大单位换算」，
-      与本轮舟谱档案逐值比对 **96.8% 一致**），且**已被定价引擎消费**（domain/pricing_engine.py）。
-   🔴 权威唯一性：这是「1 件 = 24 瓶」在本系统的**唯一权威**；`unit_conversions` / `unit_archive`
-      在生产上都是 **0 行空表**、**不得反向写入**（同一事实存两份必然漂移）。
-   🔴 判据是 `large_ratio > 0`，**不是** `has_multi_unit` —— 实测该标志位漏标 9 条，拿它当判据会静默漏商品。
-   🔴 三级尺度以**档案**为准（规格串只是兜底）：报单单位 == 大单位 ⇒ 1；== 中单位 ⇒ lr/mr；
-      其余（更细/未知名）⇒ lr。**回退只在档案无换算时发生**，逐字保留 v189 规则，不做「先猜再看」。
-   参数 `arc` = 行对象（含 large_unit/large_ratio/medium_unit/medium_ratio，由 /api/products/grid 下发）；
-      **不传 ⇒ 完全回到 v189 行为**（供测试与未配套升级的调用方，不静默按 1 算）。 */
-function perCase(spec, unit, arc) {
-  // ① 档案换算优先（唯一权威）
-  const lr = arc ? (Number(arc.large_ratio) || 0) : 0
-  if (lr > 0) {
-    const u0 = String(unit == null ? '' : unit).trim()
-    const lu = String(arc.large_unit == null ? '' : arc.large_unit).trim()
-    const mu = String(arc.medium_unit == null ? '' : arc.medium_unit).trim()
-    const mr = Number(arc.medium_ratio) || 0
-    if (u0 && lu && u0 === lu) return 1                    // 按大单位（件/箱）报单 ⇒ 1 个 = 1 箱
-    if (u0 && mu && u0 === mu && mr > 0) return lr / mr    // 按中单位报单 ⇒ 1 箱 = lr/mr 个中单位
-    return lr                                              // 按小单位报单（当前生产全部命中此支）
-  }
-  // ② 回退：规格串解析（v189 规则，逐字保留）
-  const s = String(spec == null ? '' : spec)
-  // 「数字 + 紧随其后的单位字串」分段（'*' / 'x' / '×' 只作分隔）
-  const segs = []
-  const re = /(\d+(?:\.\d+)?)\s*([^\d\s*×xX·]*)/g
-  let m
-  while ((m = re.exec(s))) {
-    const n = parseFloat(m[1])
-    if (n > 0) segs.push({ n, u: String(m[2] || '').trim() })
-  }
-  if (!segs.length) return 0                        // ④ 无数字
-  const last = segs[segs.length - 1]
-  if (segs.length === 1 && !last.u) return last.n    // ③ 纯数字规格
-  if (!last.u) return last.n                         // 末位无单位（'500g*12'）⇒ 它就是每箱数
-  const u0 = String(unit == null ? '' : unit).trim()
-  if (!u0 || u0 === last.u) return last.n            // ① 同单位 / 报单单位缺失
-  const i = segs.findIndex(x => x.u === u0)
-  if (i >= 0 && i < segs.length - 1) {               // ② 报单单位更细 ⇒ 层级相乘
-    return segs.slice(i).reduce((p, x) => p * x.n, 1)
-  }
-  return last.n
-}
-/* v207：箱数换算的**唯一实现**（不含取整）—— rowBoxes / 只读表行构造 / 编辑格子回写共用这一处。
-   🔴 为什么去掉 Math.round（原 v184e 写法。用户 2026-09-19 报障：期次 14 / 永辉东津店
-       的报单「合计(小单位)」有 9、「合计(箱)」却是 0）：
-       报单数量按**最小销售单位**录入（瓶/杯/组/袋），「合计(箱)」= 数量 ÷ 每箱小单位数
-       **可以是小数** —— 这是用户 2026-09-13 已拍板的口径（`件数 = 数量 ÷ 规格`，明确可为小数）。
-       旧实现先 Math.round ⇒ 不足半箱的行被抹成 **0**；更贵的是连带
-       `下单金额 = 最终下单(箱) × 单价(进价/箱)` 一起变 0，而「单价(进价/箱)」列本身不为 0
-       ⇒ 用户只看到金额栏凭空归零，看不出是哪一步丢的。
-   🔴 取整**只发生在「最终下单」**（见 rowFinalQty），理由：厂商不拆零发货。
-   ⚠️ 保留 **3** 位小数（不是 2 位）：185ml×24瓶 报 3 瓶 = 0.125，2 位会显示成 0.13。
-      用户自己的报单 Excel 里「件数」就是 3 位（实锤：3.625）⇒ 同精度便于逐行对账。 */
-function boxesOf(total, spec, unit, arc) {
-  const pc = perCase(spec, unit, arc)
-  const t = Number(total) || 0
-  if (!(pc > 0) || !t) return 0
-  return Math.round(t / pc * 1000) / 1000
-}
-// v184e / v207：合计(箱) —— 与只读表「合计(箱)」列、rowFinalQty（最终下单）、下单金额同源。
-//   v188 仅改列名（原「件数(箱)」），公式与 key(`boxes`) 不变。
-//   v189 修「规格」的取法：parseFloat(spec) 取的是净含量 ⇒ 改走 perCase（唯一实现）。
-//   v207 去掉取整（抹零元凶）—— 见 boxesOf 上方说明。
-function rowBoxes(r) {
-  if (!r) return 0
-  const total = r.total != null ? (Number(r.total) || 0) : rowSum(r)
-  return boxesOf(total, r.spec, r.unit, r)
-}
-/* v207：某一行的「合计(箱)」**换算不出来**（有报单但商品档案没规格）—— 全站**唯一判据**。
-   boxText（单元格文案）、boxMissingRows（表尾未计入行数）、单元格警示样式 全部引用它。
-   ⚠️ 绝不在别处再写一遍这个条件：两处判据一旦漂移，就会出现「表尾说有 2 行缺规格、
-      单元格却一个都没标」这种自相矛盾的界面。 */
-function boxMissing(r) {
-  if (!r) return false
-  const total = r.total != null ? (Number(r.total) || 0) : rowSum(r)
-  return total > 0 && !(perCase(r.spec, r.unit, r) > 0)
-}
-/* v207：「合计(箱)」的**显示取值** —— 把「缺规格」与「真的是 0」分开。
-   缺规格时 perCase 返回 0 ⇒ 根本换算不出来；若照常显示 0，用户看到的就是「报了单却 0 箱」，
-   与本次报障**长得一模一样、根因完全不同**（一个是取整抹零、一个是商品档案没规格）。
-   与 perCase 规则④「缺规格 ⇒ 不换算，界面走「缺规格」分支，不静默当 1」一致。 */
-function boxText(r) {
-  if (!r) return '—'
-  return boxMissing(r) ? '缺规格' : fmtBox(rowBoxes(r))
-}
-/* 🔴 v223（2026-09-21）：**单价(进价/箱) = 商品档案的进价本身，不做任何乘除。**
-   轨迹 —— 三轮都在调「乘多少」，没人质疑「该不该乘」：
-     v184e 写 `进价 × parseFloat(规格)`（取到的是净含量）；v189 把「规格」换成每箱小单位数（1500ML*6桶 由 ×1500 变 ×6）；
-     v222 把「每箱小单位数」的数据源从规格解析换成档案换算 —— 三次都没动那个「×」。
-   🔴 事实：`products.factory_price` 的单位**就是「元/箱（大单位）」**，不是「元/小单位」。三条**互相独立**的数据逐条吻合：
-     ① `进价 ÷ large_ratio` = 每小单位成本，再 `÷ 0.9` = 档案 `dist_price`
-        （1494: 75÷15=5.00 → 5.5556 ✓；1454: 124.80÷24=5.20 → 5.7778 ✓；1477: 94.80÷12=7.90 → 8.7778 ✓；1539: 62÷8=7.75 → 8.6111 ✓）
-     ② `sale_order_items.unit_price` **逐字等于** `dist_price`（1494 全部 389 行 = 5.5556；1454 227 行 = 5.7778；1539 343 行 = 8.6111）
-     ③ 反证：若进价是「元/小单位」，1494 一箱成本 = 75 × 15 = 1125 元，而门店买一箱只付 83.33 元 ⇒ **卖一箱亏 1041 元**，不可能
-   旁证（后端同口径）：`domain/pricing_engine._get_standard_price` 写 `大单位价 = sale_price × large_ratio`
-     ⇒ **`sale_price` / `purchase_price` / `dist_price` 是「元/小单位」，只有 `factory_price` 是「元/大单位」**。
-   ⇒ 再乘 perCase 就是把「元/箱」又乘一次每箱单位数 ⇒ **单价与金额同时被放大 perCase 倍**
-     （1454 曾显示 124.80 × 24 = 2995.20，真值 124.80，放大 24 倍）。这正是 v217「价格被放大」诊断出的那个根，v223 才真正修掉。
-   ⚠️ 单价**不再依赖 perCase** ⇒ 缺规格的行也照样显示单价；但箱数仍算不出来 ⇒ 金额仍走「缺规格」（见 amountValue 守卫）。
-   v190：**自动价** = 换算的唯一实现，供 pricePerCase 与录入框占位提示共用。
-     结果归一化到「分」：进价是浮点（`62/0.9` 这类），不归一就会出现
-     「界面上写着 3840.00、金额却是 3839.9996 累出来的」——用户拿去对账差几分钱。这是**计价精度**，不是掩盖误差。
-   ✅ v226b 已收紧（原遗留项）：`factoryPrice()` 不再回退 `purchase_price`（元/小单位） —— 见其定义处注释。
-     命中 10 个商品、`pp == sp` 全等 ⇒ **金额数值零变化**；文案由「缺规格」改为更前置、更准确的「缺价」
-     （它们既没箱价、也没规格，先缺的是价）。要让它们能算金额，须在**商品档案**按「元/箱」补一个进价。 */
-function priceAuto(r) {
-  const fp = factoryPrice(r)
-  if (fp <= 0) return null                      // 缺价
-  return Math.round(fp * 100) / 100
-}
-/* v190：「单价(进价/箱)」取值 = **手工录入优先**，否则自动价。
-   录入值是权威 —— 直接用它（同样归一到分，钱只到分位），不再经进价回算，
-   免得「填 100、保存后显示 99.9996」。
-   🔴 2026-09-18 口径变更（用户拍板「**只在本期生效**」）：手工价随报单落进
-   `forecast_extra_qty.case_price`（唯一键含 产品×期次）⇒ 只影响本期；
-   **不再反推写回商品档案** —— 写档案会改掉**所有期次**的金额。
-   要在别期也用这个价，就在那一期自己再填一次。
-   🔴 v191b（同日稍晚，用户拍板「**直接延用上一期，不加按钮**」）⇒ 取值链由两级变**三级**：
-       ① 本期手工录入（`r.casePrice`，随 save-matrix 落库、只在本期生效）
-       ② **沿用**：本期之前**最近一次录入**过的价（`r.casePriceInherit`，后端随 summary 下发）
-       ③ 都没有 ⇒ 按商品档案进价自动算（`priceAuto`）
-   ②是**只读参考值，绝不落库** —— 不碰档案、也不写本期记录 ⇒「没填」不会被保存成「填过」，
-   清空输入框即可撤销（回落到 ②/③）。 */
-function priceInherit(r) {
-  const iv = Number(r && r.casePriceInherit)
-  return iv > 0 ? Math.round(iv * 100) / 100 : null
-}
-/* v191b：沿用来源的期次标签（后端下发 last_case_period_start/end，形如 2026-08-30 / 2026-09-15）。
-   纯展示，不参与任何计算；同一年只给「月/日」，跨年或非本年带上年份。 */
-function inheritPeriodLabel(ps, pe) {
-  const p = (s) => {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ''))
-    return m ? { y: m[1], t: m[2] + '/' + m[3] } : null
-  }
-  const a = p(ps)
-  const b = p(pe) || a
-  if (!a) return '上一期'
-  if (b.y === a.y && a.y === String(new Date().getFullYear())) return a.t + '–' + b.t
-  return a.y + '/' + a.t + '–' + b.t
-}
-function pricePerCase(r) {
-  const cv = Number(r && r.casePrice)
-  if (cv > 0) return Math.round(cv * 100) / 100   // ① 本期手工录入
-  const iv = priceInherit(r)
-  if (iv != null) return iv                        // ② 沿用上一期录入的价（不落库）
-  return priceAuto(r)                              // ③ 按商品档案进价自动算
-}
-/* v190：录入框灰字占位 —— 未手工录入时显示「**当前实际生效的价**」，让用户一眼知道现在按多少算；
-   缺价则直接说明，而不是留一个空白框让人猜。
-   ⚠️ v191b：占位值改用 `pricePerCase`（= 生效值）而不是只给 `priceAuto`（自动价）——
-   生效值还可能是「沿用上一期录入的价」，只显示自动价会与旁边「下单金额」列对不上（同屏两个口径）。
-   来源差异放在 `title` 里说清（见 priceTitle），灰字本身不区分来源。
-   ⚠️ v223：单价已不依赖 perCase ⇒ 空态**只剩「缺价」一种**（原「缺规格」分支成了死代码，已删）；
-     缺规格的提示仍在「合计(箱)」列（boxText）与金额列（amountValue 守卫）里出现，没有丢信息。 */
-function pricePh(r) {
-  const eff = pricePerCase(r)
-  if (eff != null) return eff.toFixed(2)
-  return '缺价，请填'
-}
-/* v190：来源必须可自证 —— 手工价与自动价不得长得一样。
-   v191b：三级来源各一句，且「沿用」态要点名**是哪一期的**录入价（否则老板会以为是自己本期填的）。
-   沿用态同样只进灰字占位：不实填、不加粗 ⇒ 一眼能与「本期手工录入」区分开。 */
-function priceTitle(r) {
-  const a = priceAuto(r)
-  const cv = Number(r && r.casePrice)
-  const iv = priceInherit(r)
-  let head
-  if (cv > 0) {
-    head = '本期手工录入价（只在本期生效：本次报单按这个价算金额，不写回商品档案，也不影响其他期次）'
-  } else if (iv != null) {
-    head = '沿用「' + (r.casePriceInheritPeriod || '上一期') + '」录入的价 ¥' + iv.toFixed(2)
-      + '/箱 —— 本期不用重填；直接填数即可改，清空则回到档案自动价'
-  } else {
-    head = '按商品档案的进价：进价本身就是「元/箱」，直接作为单价(进价/箱)。可直接录入覆盖。'
-  }
-  return head + (a != null ? `\n自动价 ¥${a.toFixed(2)}/箱` : '')
-}
+
 /* v190：录入箱价 → 本行立即生效（pricePerCase 优先读它，故「下单金额(进价)」自动跟随：
    下单金额 = 最终下单(箱) × 本列）。清空 = 撤掉手工价，回到档案进价自动算。
    落库发生在「保存」：随 save-matrix 的 case_price 落进 `forecast_extra_qty`
@@ -3913,16 +3705,7 @@ function onCasePriceChange(r, e) {
   }
   saveDraftNow()
 }
-/* v184e：下单金额(进价)（元）= 最终下单(箱) × 单价(进价/箱)；缺价或缺规格返回 null（界面显示「缺价/缺规格」）。
-   🔴 v223 补第二道守卫：单价改回「进价本身」后**不再依赖 perCase**，若这里仍只看 `pricePerCase`，
-      缺规格的行会算出 `rowFinalQty(=0) × 单价 = 0.00` —— 与旁边「合计(箱)」写着「缺规格」自相矛盾，
-      而且会被当成本期真的一分钱没有。⇒ 与 `perCase` 规则④「缺规格不静默当 1」同判据，显式返回 null。 */
-function amountValue(r) {
-  const pc = pricePerCase(r)
-  if (pc == null) return null
-  if (!(perCase(r.spec, r.unit, r) > 0)) return null   // v223：缺规格 ⇒ 箱数无从换算 ⇒ 金额也谈不上
-  return rowFinalQty(r) * pc
-}
+
 function cellText(r, col) {
   if (col.type === 'qty') return r.qtyByUnit[col.key] || 0
   if (col.type === 'master') return masterVal(r, col)
@@ -4781,9 +4564,7 @@ function exitEdit() {
       改签名还得同步改模板，稍不留神就是「取消按钮悄悄跳过确认框」。独立函数零耦合。 */
 function exitEditAfterSave() { leaveEdit() }
 
-function rowSum(r) {
-  return Object.values(r.qtyByUnit || {}).reduce((s, v) => s + (parseInt(v) || 0), 0)
-}
+
 /* P0(v376/P0-2 续)：整表行合计**一次算好**。
    真机 parseInt 采样归因：在修掉 rowWarn / heat 的重复之后，剩余 parseInt 的 **94.4% 仍来自 rowSum**
    —— 它每次 `Object.values(qtyByUnit)` 遍历全部数量列（21 次 parseInt），而模板每行要问它 4 遍
@@ -5966,7 +5747,7 @@ const colStats = ref(null)         // { key, label, numeric, sum, avg, min, max,
 /* v207：列统计面板按**列**选小数位 —— 箱数列必须与表格单元格同精度（3 位）。
    否则右键「合计(箱)」列的统计会显示 0.13，而同一屏的单元格写着 0.125 ⇒ 同屏两个精度。
    （用户对「同屏两个数对不上」最敏感，0.13 vs 0.125 正好会让人以为其中一个是错的。） */
-function statFmt(key, n) { return key === 'boxes' ? fmtBox(n) : fmt(n) }
+
 const hdrWidthVal = ref(120)       // 精确列宽输入
 const uniqAll = ref(false)         // 唯一值筛选：全选
 // 列统计：取某行在某列上的「数值」（可统计列返回 number，否则返回 null 视为文本列）
@@ -7203,29 +6984,7 @@ function buildXlsx(rows, fname) {
       护栏 `v213-rules-selftest.py` + `v214-halfnum-parity.py` 两侧断言）。改一侧必须改两侧。
    ⚠️ 只收「在数字格内语义唯一」的字符，不做 `O→0` / `l→1` 这类歧义映射 ——
       那会把「真打错的字」静默改成看似合法的数字，比报错贵得多。 */
-const HALF_MAP = {
-  '。': '.',   // U+3002 表意句号 —— NFKC 不转，本表的核心理由
-  '、': ',',   // U+3001 顿号     —— 数字格内只可能是千分位
-  '—': '-',    // U+2014 em dash  —— 负号手误
-  '–': '-',    // U+2013 en dash
-  '\u2212': '-',  // U+2212 数学减号 —— 从公式/某些输入法复制的「负号」常是它，不是 ASCII 的 -
-  '．': '.',   // U+FF0E 全角句点（NFKC 已覆盖，显式列出以便与后端逐字比对）
-  '，': ',',   // U+FF0C 全角逗号（同上）
-  '－': '-',   // U+FF0D 全角连字符（同上）
-  '＋': '+',   // U+FF0B 全角加号（同上）
-  // 　(U+3000) 表意空格**刻意不在这张表里**：NFKC 会先把它折成**普通空格**，
-  //    所以「先 NFKC、再查表」的实现永远匹配不到它（写进来 = 死条目）。
-  //    真正兜住它的是 `toHalfNum` 末尾的 `.trim()`（与后端 `.strip()` 同源）。
-}
-/* 全角 → 半角 + 去千分位逗号。**与后端 `normalize_num_text` 逐字同源**。
-   ⚠️ 去逗号刻意放在这里、而不是只放在提交时：`rowSum` 用 `parseInt`，model 里若留着
-      `"1,200"`，合计会**当场算成 1**（用户看见数字跳一下再跳回来）。逐字输入时逗号被吃掉
-      也符合预期 —— 千分位本来就是给人看的，不是数据的一部分。 */
-function toHalfNum(s) {
-  let t = String(s == null ? '' : s).normalize('NFKC')
-  for (const k in HALF_MAP) if (t.indexOf(k) >= 0) t = t.split(k).join(HALF_MAP[k])
-  return t.replace(/,/g, '').trim()
-}
+
 /* 数字格的 `@input`：**边打边转**。
    🔴 必须同时做两件事，缺一不可：
       ① 回写 DOM 的 value（用户**看得见**转换 —— 这是本功能的全部价值）；
@@ -7283,23 +7042,7 @@ function readCellVal(r, c) {
   if (ck2) return rw[ck2] ?? ''
   return ''
 }
-/* Q18：数值解析不再静默归 0。原实现 `parseFloat(v) || 0` 会把「12箱」「1,234」「abc」
-   全部变成 0，用户以为粘上了实际是 0 → 漏订货。现改为：
-   - 支持千分位逗号（1,234 → 1234）
-   - 解析失败时保留原始字符串 → cellErrMsg 报「必须是数字」并标红，保存时拦截
-   - 空串仍按 0 处理（=未填） */
-function parseNumInput(v) {
-  /* v214 A：补 `toHalfNum` —— 与后端 `normalize_num_text` 同源。
-     🔴 原实现只去逗号、不折全角：粘贴（`writeCellVal` 走这里）进来的 `"１２"` 因
-        `Number("１２")` = NaN 而被**保留为字符串** `"１２"` 存进 model，随后 `rowSum` 的
-        `parseInt("１２")` = NaN ⇒ 按 0 累加 ⇒ **合计静默算少**，且屏幕上一切看起来正常。
-     ⚠️ 解析失败时返回**归一后**的原串（而不是用户原始字节）：这样 model 里不残留全角字符，
-        标红与保存拦截仍照常生效（`"12箱"` 归一后还是 `"12箱"`）。 */
-  const s = toHalfNum(v).trim()
-  if (s === '') return 0
-  const n = Number(s)
-  return Number.isNaN(n) ? s : n
-}
+
 /* v184：**返回是否真的写进去了**（false = 被拒或越界）。`clearRange` 用它统计实际清掉的
    格数 —— 只读列被跳过后不能再按选区面积报数（否则提示「已清除 12 个」而实际只变 10 个）。 */
 function writeCellVal(r, c, v) {
@@ -9537,26 +9280,7 @@ function confirmAddCol() {
 }
 // 复制只针对「本期期次」（不按报单单元列拆选）
 const copyUnitName = computed(() => (cross.value.period && cross.value.period.name) ? cross.value.period.name : (cross.value.units && cross.value.units[0] ? cross.value.units[0].name : '本期'))
-// 「最终下单」唯一口径（用户口径 2026-09-15 订正）：**报单合计 + 加单**，不区分是否定稿。
-//   - 基准：只读主表行带后端权威 total（=SUM(quantity)）；编辑态草稿行无 total → 回退 rowSum（单元求和）。
-//   - 加单兼容两种存法：只读态 extra_qty（后端 forecast_extra_qty）/ 编辑态 extraQty（本地草稿）。
-//   ⚠️ 本函数是全站唯一实现 —— 模板显示 / 列统计 / 列筛选 / aria / 复制报单 / 下单金额 全部走它。
-//      改口径只改这里一处。（旧实现按「已定稿取 final_qty、未定稿取 0」分支，与显示口径并不一致。）
-const rowExtraQty = (r) => Number(r && (r.extra_qty != null ? r.extra_qty : r.extraQty)) || 0
-const rowFinalQty = (r) => {
-  if (!r) return 0
-  /* v184e：最终下单 = 合计(箱) + 加单(箱)（此前是 合计 + 加单（按件），与「合计(箱)」列脱节）。
-     v207：补上**取整** —— 用户 2026-09-13 拍板「取整只发生在最终下单」，方向 = 商品级、默认**向上**。
-       理由：**厂商不拆零发货** ⇒ 报了 3 瓶（=0.125 箱）实际下单就是 1 箱。
-       不取整会有两个说不通的后果：① 「最终下单」出现小数箱，而这列是要拿去厂家系统下单的；
-       ② `下单金额 = 最终下单(箱) × 单价(元/箱)` 会按 0.125 箱算钱 —— 现实中收不到这种货。
-       ⚠️ `- 1e-9` 是浮点护栏：24/24 可能算成 1.0000000000000002，Math.ceil 会直接跳到 2 箱。
-       ⚠️ 「按商品配置取整方向」**暂未实现** —— 商品档案里没有这个字段（`products` 无取整方向列），
-          所以一律按默认向上。将来要支持，就在此处读 `r.round_dir`（'ceil' 向上 / 'floor' 向下）。
-       ⚠️ 本函数是全站唯一实现（模板 / 列统计 / 列筛选 / aria / 复制报单 / 下单金额 / 返利达成 全走它）
-          ⇒ 改口径只改这一处；但也意味着**改一次，全站一起动**。 */
-  return Math.ceil(rowBoxes(r) - 1e-9) + rowExtraQty(r)
-}
+
 const copyCount = computed(() => {
   let n = 0
   cross.value.rows.forEach(r => {
@@ -10464,32 +10188,7 @@ const rebateSprintOrders = computed(() => {
 
 // v118 (L2细化)：到货模式感知的星期解析与剩余窗口计数
 // 与后端 domain/arrival_schedule.py 同一契约：arrival_weekdays 存 "2,6"，1=周一..7=周日
-const ARR_WEEKDAY_CN = { 1: '一', 2: '二', 3: '三', 4: '四', 5: '五', 6: '六', 7: '日' }
-function parseArrivalWeekdays(raw) {
-  if (!raw) return []
-  const items = Array.isArray(raw) ? raw : String(raw).split(',').map(s => s.trim()).filter(Boolean)
-  const out = []
-  for (const it of items) {
-    const v = parseInt(it, 10)
-    if (!isNaN(v) && v >= 1 && v <= 7 && out.indexOf(v) === -1) out.push(v)
-  }
-  return out.sort((a, b) => a - b)
-}
-// 统计 [今天, endStr] 闭区间内命中到货星期的天数（JS getDay: 0=周日..6=周六 → 存值 1=周一..7=周日）
-function countWeekdayArrivalsInWindow(weekdays, endStr) {
-  if (!weekdays.length || !endStr) return 0
-  const set = new Set(weekdays)
-  const end = new Date(endStr + 'T23:59:59')
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  let cnt = 0
-  for (let d = new Date(now); d <= end; d.setDate(d.getDate() + 1)) {
-    const jsDow = d.getDay()
-    const stored = jsDow === 0 ? 7 : jsDow
-    if (set.has(stored)) cnt++
-  }
-  return cnt
-}
+
 
 // 按「填报达成 + 本期预报贡献」聚合各规则的实际达成、缺口、建议均单
 const rebateSprint = computed(() => {
@@ -12248,28 +11947,7 @@ const pc = ref({ name: '', order_start: '', order_end: '', arrival: '' })
 const PC_SHIFT_OPTS = [3, 7, 14]   // 天。默认 7 = 低温奶报单的周节奏
 const pcShiftDays = ref(7)
 
-function addDaysStr(iso, n) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''))
-  if (!m) return String(iso || '')
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-  d.setDate(d.getDate() + Number(n || 0))
-  return fmtDate(d)
-}
 
-// 把期次名里的「M月D日」整体后移 n 天。名称里不带年份 ⇒ 只回写月日（跨年由 Date 自行滚动），
-// 年份只用于解析基准，取源期次的下单开始年。
-function shiftPeriodNameDates(text, n, baseIso) {
-  const s = String(text || '')
-  if (!n) return s
-  const _y = /^(\d{4})-/.exec(String(baseIso || ''))
-  const baseYear = _y ? Number(_y[1]) : new Date().getFullYear()
-  return s.replace(/(\d{1,2})月(\d{1,2})[日号]/g, (whole, mo, dd) => {
-    const d = new Date(baseYear, Number(mo) - 1, Number(dd))
-    if (isNaN(d.getTime())) return whole
-    d.setDate(d.getDate() + n)
-    return `${d.getMonth() + 1}月${d.getDate()}日`
-  })
-}
 
 // 按顺延天数重算名称与三个日期。⚠️ 一律**相对源期次**重算，不是相对当前值 ——
 // 否则连点两次「+7 天」会叠加成 +14，而按钮上写的是 7。
@@ -12383,12 +12061,7 @@ async function seedFromPrev() {
 }
 
 // ---- 新建期次：日期预填 + 名称解析自动填日期（2026-08-26） ----
-function fmtDate(d) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
+
 
 function openNewPeriod() {
   if (showNewPeriod.value) {
@@ -12420,26 +12093,7 @@ function cancelNewPeriod() {
 }
 
 // 从名称里提取日期（支持 2026-08-25 / 8月25日 / 8/25 / 8.25 等，年默认今年）
-function parsePeriodDates(text) {
-  if (!text) return []
-  const out = []
-  const re = /((\d{4})[-/.年\s]*)?(\d{1,2})[-月.\/](\d{1,2})(?:日|号)?/g
-  let m
-  while ((m = re.exec(text)) !== null) {
-    const year = m[2] ? parseInt(m[2], 10) : new Date().getFullYear()
-    const month = parseInt(m[3], 10)
-    const day = parseInt(m[4], 10)
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      out.push({ year, month, day })
-    }
-  }
-  const dedup = []
-  for (const d of out) {
-    const last = dedup[dedup.length - 1]
-    if (!last || last.year !== d.year || last.month !== d.month || last.day !== d.day) dedup.push(d)
-  }
-  return dedup
-}
+
 
 // v180 (2026-09-16)：手工改过的日期字段 —— 名称解析不再覆盖它们。
 // 原先 `onPeriodNameInput` **无条件**把 order_start/order_end/arrival 全按名称重算，
@@ -12593,23 +12247,7 @@ function coverClass(days) {
   if (days < 7) return 'cover-warn'
   return 'cover-ok'
 }
-/* v207：`maximumFractionDigits` 由 0 改 2 —— 原来是**显示层的二次抹零**，计算层改对了也没用。
-   两类量都受益：
-     ① 金额：最终下单(箱) × 单价(元/箱) 本来就带分（如 3 箱 × ¥97.36 = ¥292.08），
-        旧设置显示成 ¥292 ⇒ 表尾金额与逐行相加对不上（差几角几分）。现在按分显示。
-     ② 数量/库存/起订量这类整数：`maximumFractionDigits` 只是**上限**、`minimumFractionDigits`
-        仍是 0 ⇒ 整数照旧显示成整数，不会冒出「12.00」。
-   ⚠️ 箱数不走这里 —— 它要 3 位小数，见 fmtBox（24 瓶/箱报 3 瓶 = 0.125，2 位会变 0.13）。 */
-function fmt(n) {
-  if (n == null) return '—'
-  return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
-}
-/* v207：**箱数专用**格式（最多 3 位小数）。
-   与 fmt 分开的原因：元只到分（2 位）、箱要 3 位，一个函数兜不住两种精度。 */
-function fmtBox(n) {
-  if (n == null) return '—'
-  return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 3 })
-}
+
 /* P1-4 下单主体徽标配色：把主体名稳定散列到 6 色色板（oe-c0..oe-c5）。
    不针对任何具体主体名做特判 —— 主体由租户在「报单配置」里自己定义，
    相同主体恒定同色，不同主体大概率异色。 */
