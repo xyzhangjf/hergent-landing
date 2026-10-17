@@ -668,9 +668,9 @@ onMounted(() => {
 .ips-card { padding: 0 }
 .ips-tbl { min-width: 1100px }
 .ips-c-op { width: 70px }
-.ips-link { color: var(--brand); cursor: pointer; background: none; border: 0; padding: 0; font-size: 12px }
+.ips-link { color: var(--p-ink); cursor: pointer; background: none; border: 0; padding: 0; font-size: 12px }
 .ips-link.strong { font-weight: 600 }
-.ips-link.danger { color: var(--bad) }
+.ips-link.danger { color: var(--danger-txt) }
 .ips-ft-lb { font-weight: 600 }
 .ips-ft-num { font-variant-numeric: tabular-nums; font-weight: 600 }
 
@@ -679,7 +679,7 @@ onMounted(() => {
 .ips-pg-nums { display: flex; gap: 4px; margin-inline-start: auto }
 .ips-pg { min-width: 28px; height: 26px; border: 1px solid var(--bd); background: var(--bg);
           border-radius: var(--radius-md); cursor: pointer; font-size: 12px }
-.ips-pg.on { background: var(--brand); color: #fff; border-color: var(--brand) }
+.ips-pg.on { background: var(--p-dark); color: #fff; border-color: var(--p-dark) }
 
 .ips-mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: var(--z-modal);
             display: flex; align-items: center; justify-content: center; padding: 20px }
@@ -689,7 +689,7 @@ onMounted(() => {
 .ips-dlg-sub { margin: 6px 0 0; font-size: 12px; color: var(--t3) }
 .ips-dlg-ft { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px }
 .ips-hint { margin: 12px 0 0; font-size: 12px; color: var(--t3); line-height: 1.7 }
-.ips-hint-dim { color: var(--t4) }
+.ips-hint-dim { color: var(--t3) }
 
 .ips-cand-hd { display: flex; align-items: center; gap: 12px; margin-top: 12px; font-size: 12px }
 .ips-all { display: flex; align-items: center; gap: 6px; cursor: pointer }
@@ -704,7 +704,7 @@ onMounted(() => {
 .ips-amt-i span { display: block; font-size: 12px; color: var(--t3) }
 .ips-amt-i b { font-size: 16px; font-variant-numeric: tabular-nums }
 .ips-amt-i .minus { color: var(--ok) }
-.ips-amt-i.total { border-color: var(--brand) }
-.ips-amt-i.total b { color: var(--brand) }
+.ips-amt-i.total { border-color: var(--p) }
+.ips-amt-i.total b { color: var(--p-ink) }
 .ips-adj { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 12px }
 </style>

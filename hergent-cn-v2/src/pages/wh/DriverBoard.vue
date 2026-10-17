@@ -230,7 +230,7 @@ onMounted(loadBoard)
 .dbd-board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px }
 .dbd-col {
   min-width: 290px; max-width: 310px; flex: 0 0 auto;
-  background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px;
+  background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--radius-md); padding: 12px;
 }
 /* 未分配列用虚线 + 警示色，让"待处理"一眼可见 */
 .dbd-col-warn { border-style: dashed; border-color: var(--dan) }
@@ -244,7 +244,7 @@ onMounted(loadBoard)
 
 .dbd-cards { display: flex; flex-direction: column; gap: 8px }
 .dbd-card {
-  background: var(--bg-card, var(--white)); border: 1px solid var(--line);
+  background: var(--bg); border: 1px solid var(--bd);
   border-radius: 10px; padding: 10px;
 }
 .dbd-card-hd { display: flex; align-items: center; gap: 6px }
@@ -257,7 +257,7 @@ onMounted(loadBoard)
 
 .dbd-btn {
   display: inline-flex; align-items: center; gap: 4px;
-  border: 1px solid var(--line); background: none; border-radius: 6px;
+  border: 1px solid var(--bd); background: none; border-radius: 6px;
   padding: 3px 8px; font-size: 12px; color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .dbd-btn:hover { background: var(--p-bg) }

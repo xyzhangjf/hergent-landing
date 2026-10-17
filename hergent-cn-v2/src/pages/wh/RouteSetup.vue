@@ -472,7 +472,7 @@ onMounted(loadAll)
 .rts-pick-hd { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 6px }
 .rts-pick-list {
   display: flex; flex-direction: column; gap: 4px;
-  max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius-md); padding: 8px;
+  max-height: 220px; overflow-y: auto; border: 1px solid var(--bd); border-radius: var(--radius-md); padding: 8px;
 }
 .rts-pick-item { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer }
 .rts-pick-cust { font-weight: 500 }
@@ -491,7 +491,7 @@ onMounted(loadAll)
 .rts-route { padding: 0; overflow: hidden }
 .rts-route-hd {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
+  padding: 10px 12px; border-bottom: 1px solid var(--bd); flex-wrap: wrap;
 }
 .rts-route-name { font-weight: 600; margin-right: 8px }
 .rts-route-meta { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--t2) }
