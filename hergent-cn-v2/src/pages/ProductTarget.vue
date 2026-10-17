@@ -202,8 +202,24 @@
                      与白底只差 3.6% ⇒ 肉眼不可辨），且**没有任何文字**说明选到了什么
                      ⇒ 用户唯一能得出的结论就是「点了没反应」。这里改成：点选 → 列表收起 →
                      原地出现「✓ 商品名 / 换算 / 重新选择」。 -->
-                <input v-if="!editing && !pickedProd" v-model="pkw" class="fld pt-pick-in"
-                       placeholder="输入商品名或条码搜索" aria-label="搜索商品" @input="searchProducts">
+                <!-- v561（P0）：搜索框**限宽 420px** —— 原来 width:100% 在 960px 弹窗里实测
+                     824px，而 placeholder「输入商品名或条码搜索」只占 130px ⇒ 右侧近 700px 全空，
+                     与同行下方 150px 的月份框反差刺眼（用户反馈「太宽了」即指此处）。
+                     顺带把**匹配条数**摆到框右侧：列表高 260px 只露 8~9 行，搜「蒙牛」有几十条时
+                     「下面还有多少」必须说出来，否则用户会以为没搜全而反复改关键词。 -->
+                <div v-if="!editing && !pickedProd" class="pt-pick-top">
+                  <input v-model="pkw" class="fld pt-pick-in"
+                         placeholder="输入商品名或条码搜索" aria-label="搜索商品" @input="searchProducts">
+                  <!-- 🔴 结果被接口上限截断时必须**说出来**：只写「匹配 50 个商品」会让人以为
+                       全库就这 50 个（静默截断 ⇒ 用户不会想到要缩小关键词，只会以为"没这个商品"）。 -->
+                  <span v-if="prods.length" class="pt-pick-cnt"
+                        :class="{ 'pt-pick-more': prods.length >= PROD_LIMIT }">
+                    <template v-if="prods.length >= PROD_LIMIT">
+                      只列出前 {{ prods.length }} 个 —— 请继续输入关键词缩小范围
+                    </template>
+                    <template v-else>匹配 {{ prods.length }} 个商品</template>
+                  </span>
+                </div>
                 <div v-if="!editing && !pickedProd" class="pt-pick-list">
                   <!-- v277（S3）：可设目标的商品仍是 <button>（整行可选）；缺换算的商品改用 <div>
                        —— **必须换标签**，因为「补换算」要在这一条里再嵌一个 <button>，
@@ -723,6 +739,11 @@ function remText(r) {
 /* ══════════════ 弹窗 ══════════════ */
 const modal = ref(false)
 const editing = ref(null)          // null = 新建；否则是被编辑的目标行
+/** 🔴 商品搜索接口的硬上限（后端 limit）。
+ *   为什么要提成常量而不是在调用处写 50：**截断提示要用同一个数**。
+ *   两处各写一次必然漂移（改了 limit 忘了改提示 ⇒ 界面说「列出前 50 个」而实际返回 30 个）。
+ *   界面上「只列出前 N 个」这句话必须等于真实返回上限，否则就是一句假话。 */
+const PROD_LIMIT = 50
 const prods = ref([])
 const emps = ref([])
 const pkw = ref('')
@@ -999,7 +1020,7 @@ function closeModal() { modal.value = false; editing.value = null }
 
 async function searchProducts() {
   try {
-    const d = await productTargetsApi.products(pkw.value.trim(), 50)
+    const d = await productTargetsApi.products(pkw.value.trim(), PROD_LIMIT)
     prods.value = d.items || []
   } catch (e) {
     prods.value = []
@@ -1285,10 +1306,21 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-modal-ft{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--bd)}
 .pt-modal-ft .pt-quiet{flex:1 1 auto;font-size:12px}
 
-.pt-form{display:grid;grid-template-columns:96px 1fr;gap:10px 12px;align-items:start;margin-bottom:16px}
+/* v561：表单改 4 列 —— 「商品」独占整行（下方要挂搜索结果列表，必须满宽），
+   「目标月份 / 目标量（箱）」**并排**（两者都是短输入，各占一行会把弹窗顶得很高，
+   且一个 824px 的框挨着两个 150px 的框，重心严重失衡）。
+   🔴 `.pt-pick` 必须 `grid-column:2 / -1` 显式跨到末列，否则只占第 2 列（350px），
+      下面的搜索结果列表会被挤成一条窄缝。 */
+.pt-form{display:grid;grid-template-columns:96px minmax(0,1fr) 100px minmax(0,1fr);gap:10px 12px;
+  align-items:start;margin-bottom:16px}
 .pt-lb{font-size:13px;color:var(--t2);padding-top:9px}
-.pt-pick{display:flex;flex-direction:column;gap:8px}
-.pt-pick-in{width:100%}
+.pt-pick{display:flex;flex-direction:column;gap:8px;grid-column:2 / -1}
+.pt-pick-top{display:flex;align-items:center;gap:10px}
+/* v561（P0）：420px —— 够放 25 个汉字的商品名或整条条码；不再撑满 824px 的整列。 */
+.pt-pick-in{width:min(420px,100%)}
+.pt-pick-cnt{flex:0 0 auto;font-size:12px;color:var(--t2);white-space:nowrap}
+/* 被上限截断 ⇒ 升到站内琥珀告警色（成例 `.pt-audit` / `.pt-noalias`），不新造颜色。 */
+.pt-pick-more{color:var(--warn-amber);font-weight:500}
 /* v319e（P1-2）：150px 只露 4~5 行，搜「蒙牛」有 50 行要滚很久，
    而**选中项常常在可视区之外** ⇒ 用户以为"点不到"。放到 260px（约 8~9 行）。 */
 .pt-pick-list{max-height:260px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-sm)}
@@ -1407,6 +1439,10 @@ onMounted(() => { load(month.value); loadAudit() })
 @media (max-width:760px){
   .pt-2col{grid-template-columns:1fr}
   .pt-form{grid-template-columns:1fr}
+  /* 🔴 单列 grid 里 `grid-column:2 / -1` 会凭空生成隐式列 ⇒ 商品区被推到看不见的地方。
+     收成单列时必须显式改回 auto。 */
+  .pt-pick{grid-column:auto}
+  .pt-pick-in{width:100%}
   .pt-lb{padding-top:0}
 }
 </style>
