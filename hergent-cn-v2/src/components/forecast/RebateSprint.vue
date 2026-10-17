@@ -494,28 +494,24 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 </template>
 
 <style scoped>
-/* 返利冲刺看板展开/收起控件 —— v551 原为 imp-x 小灰叉几乎不可见；
-   v552/v553 先后试过圆形按钮 / 浅灰圆，用户反馈圆形容器观感奇怪。
-   v554 对齐仓库既有规范（Forecast .exp-chev / .grp-toggle / Settings / 侧栏 sb-caret）：
-   去掉一切背景与边框，改为裸 Lucide 线性 chevron 箭头，currentColor 品牌青(var(--p-dark))，
-   无圆形容器、无彩色 emoji；hover 仅加深为 var(--p-deep)。16px 保证页头清晰可点。 */
-/* 展开控件：v554 裸箭头在青色卡片上对比太弱、用户反映看不见；
-   v555 改为轻量 ghost 图标按钮——圆角矩形(8px，非 50% 怪圈)浅灰底，箭头放大到 18px，
-   hover 才品牌青微染。仍属线性图标语言，不破坏 UI 规范；解决"没看到箭头"的可发现性问题。 */
+/* 返利冲刺看板展开/收起控件 —— 定稿(v556)：干净的青色裸箭头，零容器。
+   演进：v551 imp-x 灰叉不可见 → v552/v553 圆形观感奇怪 → v554 裸箭头太弱
+        → v555 圆角矩形 ghost 按钮被否 → v556 定稿：只要箭头，不要任何形状。
+   规格：无 background、无 border、无 border-radius，只保留 currentColor 品牌青(var(--p-dark))；
+        折叠态 chevron-right、展开态 chevron-down（与全仓 .exp-chev/.grp-toggle/sb-caret 一致）；
+        18px 保证页头可发现；padding 仅扩点击热区，不产生可见形状；hover 仅加深 var(--p-deep)。 */
 .sprint-card .panel-hd{ gap:8px }
 .sprint-card .panel-hd .sprint-toggle{
   margin-left:auto;
   flex:0 0 auto;
-  width:30px;height:30px;
   display:inline-flex;align-items:center;justify-content:center;
+  padding:6px;
   color:var(--p-dark);
-  background:var(--bg3);
-  border:none;border-radius:8px;
+  background:none;
+  border:none;
   cursor:pointer;user-select:none;
-  transition:background .12s ease,color .12s ease;
+  transition:color .12s ease;
 }
-.sprint-card .panel-hd .sprint-toggle:hover{
-  background:var(--p-bg);color:var(--p-deep);
-}
+.sprint-card .panel-hd .sprint-toggle:hover{ color:var(--p-deep) }
 .sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:18px;height:18px;vertical-align:middle}
 </style>
