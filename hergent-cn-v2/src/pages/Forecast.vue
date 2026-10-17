@@ -238,6 +238,8 @@
     <!-- F3：导入弹窗抽离为 forecast/ImportPanel.vue（defineAsyncComponent 懒加载，首屏 chunk 不含它；impOpen 控制挂载，挂载即全新实例） -->
     <ImportPanel v-if="impOpen" :cross="cross" :cur-open-period-id="curOpenPeriodId" :periods="periods" :can-do="canDo" :open-new-period="openNewPeriod" :record-audit="recordAudit" @close="impOpen = false" @reload="impOpen = false; loadCross()" />
     <AllocPanel v-if="allocOpen" :open="allocOpen" :cross="cross" :row="allocRow" :pt-alloc="ptAlloc" :num-input="numInput" :num-commit="numCommit" :load-pt-gap="loadPtGap" :can-do="canDo" @close="closeAlloc" @applied="onAllocApplied" />
+    <!-- F5（v560）：关闭期次确认弹窗抽离为 forecast/PeriodOps.vue（懒加载；两入口共用，挂载即拉本期定稿推送明细） -->
+    <PeriodOps v-if="closeOpen" :open="closeOpen" :target="closeTarget" @close="onPeriodOpsClose" @confirmed="onCloseConfirmed" />
 
     <Teleport to="body">
       <Transition name="fade"><div v-if="prodProfile" class="imp-overlay" @click="prodProfile = null"></div></Transition>
@@ -2149,89 +2151,6 @@
               <!-- v335：按钮级门禁 —— 「用我这份覆盖」最终仍走 saveEdits ⇒ data/create -->
               <button class="btn btn-ghost" :disabled="savingEdit || !canSaveMatrix" @click="conflictOverride">用我这份覆盖</button>
               <button class="btn btn-primary" :disabled="savingEdit || loadingEdit" autofocus @click="conflictReload">{{ loadingEdit ? '载入中…' : '重新载入最新数据' }}</button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-
-    <!-- 关闭期次确认弹窗（始终渲染，确保两入口可唤起） -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="closeOpen" class="imp-overlay" @click="closeOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="closeOpen" class="imp-modal del-modal close-modal">
-          <div class="imp-hd"><b>确认定稿 · 关闭期次</b><button class="imp-x" @click="closeOpen = false"><Icon name="close"/></button></div>
-          <div class="imp-body">
-            <!-- v219：原文案只说「不可再编辑」，**没说**关闭会连带关掉销售的报单通道 ——
-                 那是这条操作最容易被忽略的副作用（定稿 = 停止收报单）。同时补上「可重开」，
-                 否则「仅可删除」会让人以为关闭不可逆（2026-09-21 前确实不可逆，现在不是了）。
-                 🔴 v319：原文案让用户去点「重开」，但那条路会**连带重开销售报单通道**
-                 （副作用远大于"只想改个数"）。现拆成两个语义入口，文案必须指向对的那个。 -->
-            <p class="imp-tip warn-text">确认关闭期次「{{ closeTarget && closeTarget.name }}」？<b>关闭 = 定稿</b>：该期次不可再编辑，且<b>销售的小程序报单通道会同时关闭</b>（不再接收新报单）。如需改动：到「往期预报」里点<b>「解锁编辑」</b>（只放开改数，销售照旧报不了单）；确实还要让销售补报，再点<b>「恢复报单」</b>。</p>
-            <!-- v318：定稿会把加单/减单明细**逐人推送**到小程序「我的通知」，推送出去就收不回来
-                 ⇒ 推送内容必须在这一步先亮出来让人核对（而不是点完才知道发了什么）。 -->
-            <div class="close-nf">
-              <div class="close-nf-hd">定稿后将推送给相关人员的加单 / 减单明细</div>
-              <p v-if="closeDetailErr" class="close-nf-none bad">
-                读取加单/减单明细失败（{{ closeDetailErr }}）—— 仍可定稿，但**推送内容未经核对**。
-              </p>
-              <template v-else-if="closeDetail">
-                <p v-if="!closeDetail.items.length" class="close-nf-none">
-                  本期没有加单 / 减单 ⇒ 定稿后<b>不会发送任何通知</b>。
-                </p>
-                <template v-else>
-                  <div class="close-nf-wrap">
-                    <table class="close-nf-tbl">
-                      <thead>
-                        <tr><th>商品</th><th>方向</th><th class="num">涉及</th><th class="num">合计(箱)</th><th></th></tr>
-                      </thead>
-                      <tbody>
-                        <template v-for="it in closeDetail.items" :key="it.product_id">
-                          <tr :class="{ 'not-full': it.notFull }">
-                            <td class="cn-name">{{ it.name }}</td>
-                            <td>{{ it.verb }}</td>
-                            <td class="num">{{ it.people }} 人</td>
-                            <td class="num">{{ it.total >= 0 ? '+' : '−' }}{{ fmt(Math.abs(it.total)) }}</td>
-                            <td class="num">
-                              <button type="button" class="cn-exp"
-                                      @click="closeExpandPid = (closeExpandPid === it.product_id ? 0 : it.product_id)">
-                                {{ closeExpandPid === it.product_id ? '收起' : '逐人明细' }}
-                              </button>
-                            </td>
-                          </tr>
-                          <tr v-if="closeExpandPid === it.product_id" class="cn-detail">
-                            <td colspan="5">
-                              <div v-for="p in it.rows" :key="p.employee_id" class="cn-p">
-                                <span class="cn-pname">{{ p.employee_name }}</span>
-                                <span>占比 {{ fmt(p.ratio) }}%</span>
-                                <span>报 {{ fmt(p.reported_box) }} ⇒ 定稿 {{ fmt(p.final_box) }} 箱</span>
-                                <b :class="p.alloc_box >= 0 ? 'cn-add' : 'cn-cut'">
-                                  {{ p.alloc_box >= 0 ? '加' : '减' }} {{ fmt(Math.abs(p.alloc_box)) }} 箱
-                                </b>
-                              </div>
-                              <!-- 「分不满」必须点名：否则经理以为全都推出去了，而实际有人的数据没分完 -->
-                              <div v-if="it.notFull" class="cn-p bad">
-                                ⚠ 该商品<b>未分满</b>，还差 {{ fmt(it.short) }} 箱
-                                （成因：目标分解占比合计不足 100%，或减单时有人报量不够被夹到 0）
-                              </div>
-                            </td>
-                          </tr>
-                        </template>
-                      </tbody>
-                    </table>
-                  </div>
-                  <p class="close-nf-sum">
-                    定稿后把以上明细<b>逐人推送</b>到各自的「我的通知」（小程序 / 网页端铃铛都能查），
-                    共涉及 <b>{{ closeDetail.people }}</b> 人。
-                  </p>
-                </template>
-              </template>
-              <p v-else class="close-nf-none">正在读取加单 / 减单明细…</p>
-            </div>
-            <div class="del-actions">
-              <button class="btn btn-ghost" @click="closeOpen = false">取消，继续修改</button>
-              <button class="btn btn-primary" :disabled="closing" @click="confirmClose">{{ closing ? '定稿并推送中…' : '确定定稿' }}</button>
             </div>
           </div>
         </div>
@@ -9126,6 +9045,7 @@ const auditOpen = ref(false)
 const AuditPanel = defineAsyncComponent(() => import('../components/forecast/AuditPanel.vue'))
 const RebateSprint = defineAsyncComponent(() => import('../components/forecast/RebateSprint.vue'))
 const AllocPanel = defineAsyncComponent(() => import('../components/forecast/AllocPanel.vue'))
+const PeriodOps = defineAsyncComponent(() => import('../components/forecast/PeriodOps.vue'))
 
 /* ── F5：分摊弹窗的两个共享 ref 保留在父级（「分摊」按钮在中央网格每行） ── */
 const allocOpen = ref(false)
@@ -9167,6 +9087,25 @@ function onAllocApplied(payload) {
   loadCross()
 }
 function closeAlloc() { allocOpen.value = false; allocRow.value = null }
+
+/* ── F5（v560）：关闭期次弹窗的两个共享 ref 保留在父级 ──
+   「关闭期次」有**两个入口**：① 横幅「就地关闭」askClose(staleOpenPeriod)
+   ② 往期预报列表 @close → onHistoryClose(row) ⇒ 入口分发必须留在父级。 */
+const closeOpen = ref(false)
+const closeTarget = ref(null)
+/* 打开确认弹窗 —— 只置状态；定稿推送明细由 PeriodOps 挂载时自己拉（onMounted）。 */
+function askClose(row) {
+  closeTarget.value = row
+  closeOpen.value = true   // ⇒ 挂载 PeriodOps（懒加载）
+}
+function onHistoryClose(row) { askClose(row) }
+function onPeriodOpsClose() { closeOpen.value = false; closeTarget.value = null }
+/* PeriodOps 定稿成功后的**页面级**刷新 —— 唯一执行处。
+   子组件只调后端 API + toast 回执，不碰 historyKey / loadPeriods（那是页面状态）。 */
+function onCloseConfirmed() {
+  historyKey.value++            // 重挂往期预报，状态刷新
+  loadPeriods()                 // 刷新期次下拉 / 滚动期次
+}
 
 // 2026-08-29：占位功能提示——未连接 ERP 时 AI 建议缺少实时库存/销量依据
 const chanjetLinked = ref(false)
@@ -9257,101 +9196,6 @@ async function confirmDelete() {
     toast('删除失败: ' + (e.message || ''), 'err')
   } finally {
     deleting.value = false
-  }
-}
-
-// 关闭期次（两处入口共用：工具栏「关闭期次」+ 往期预报列表「关闭」）
-const closeOpen = ref(false)
-const closeTarget = ref(null)
-const closing = ref(false)
-/* v318：定稿（= 关闭期次）确认弹窗里要列出「本次要推送给谁、每个商品加/减多少」。
-   为什么必须在**弹窗里**先说清：定稿后通知就出去了，事后无法收回；而经理点这一下时
-   并不知道自己上一步在汇总表填的加单量会变成 5 个人的手机通知。 */
-const closeDetail = ref(null)      // { items: [...], people: N }
-const closeDetailErr = ref('')
-const closeExpandPid = ref(0)      // 展开逐人明细的商品
-
-/* 拉本期分配明细，凑出确认弹窗要展示的行。
-   数据源 = `GET /extra-alloc`（**只读**，不重算）—— 与业务员收到的通知**同一份数据**，
-   否则会出现「弹窗说发 3 条、实际按另一份数发了 5 条」。 */
-async function loadCloseDetail(pid) {
-  closeDetail.value = null
-  closeDetailErr.value = ''
-  closeExpandPid.value = 0
-  if (Number(pid) <= 0) return
-  try {
-    const d = await productTargetsApi.extraAlloc(pid)
-    const src = (d && d.data && d.data.items) || {}
-    const items = []
-    const seen = new Set()
-    Object.keys(src).forEach(k => {
-      const it = src[k] || {}
-      const rows = (it.rows || []).filter(x => Math.abs(Number(x.alloc_box) || 0) > 1e-9)
-      if (!rows.length) return
-      const allocated = rows.reduce((s, x) => s + (Number(x.alloc_box) || 0), 0)
-      rows.forEach(x => { if (Number(x.employee_id) > 0) seen.add(Number(x.employee_id)) })
-      items.push({
-        product_id: Number(k),
-        name: it.product_name || ('商品#' + k),
-        verb: allocated >= 0 ? '加单' : '减单',
-        people: rows.length,
-        total: allocated,
-        short: Number(it.short_box) || 0,
-        notFull: it.fully_applied === false && (Number(it.short_box) || 0) > 0,
-        rows: rows.map(x => ({
-          employee_id: Number(x.employee_id) || 0,
-          employee_name: x.employee_name || ('员工' + x.employee_id),
-          ratio: Number(x.ratio) || 0,
-          reported_box: Number(x.reported_box) || 0,
-          alloc_box: Number(x.alloc_box) || 0,
-          final_box: Number(x.final_box) || 0,
-        })),
-      })
-    })
-    closeDetail.value = { items, people: seen.size }
-  } catch (e) {
-    // 读不到不等于"没有" ⇒ 明确说"读取失败"，不要让弹窗看起来像"本期没有加单"
-    closeDetailErr.value = (e && e.message) || '读取加单/减单明细失败'
-  }
-}
-
-function askClose(row) {
-  closeTarget.value = row
-  closeOpen.value = true
-  loadCloseDetail(row && row.id)
-}
-function onHistoryClose(row) {
-  askClose(row)
-}
-async function confirmClose() {
-  const row = closeTarget.value
-  if (!row) return
-  // A6 防御：合成行（id<0）无真实期次记录，关闭会 UPDATE 0 行伪成功
-  if (Number(row.id) <= 0) { closeOpen.value = false; closeTarget.value = null; toast('合成报单行不可关闭', 'warn'); return }
-  closing.value = true
-  try {
-    const r = await forecastApi.closePeriod(row.id)
-    closeOpen.value = false
-    closeTarget.value = null
-    historyKey.value++            // 重挂往期预报，状态刷新
-    await loadPeriods()           // 刷新期次下拉 / 滚动期次
-    /* v318：回执里带上"通知发了几条、几个人"。这必须显示 —— 经理点了定稿就该知道
-       通知到底出没出去；只回一句「已关闭期次」等于把推送这一步变成不可见的。
-       ⚠️ skipped > 0 = 有人**没有**登录账号 ⇒ 通知没送到他手上（不是"发失败"），
-          要点名提示去员工档案关联账号，否则「系统说通知了、业务员说没收到」。 */
-    const nf = (r && r.notified) || null
-    if (nf && (nf.sent || nf.skipped)) {
-      const bits = ['已定稿：' + (row.name || '')]
-      bits.push(`已通知 ${nf.people} 人（共 ${nf.sent} 条加单/减单明细）`)
-      if (nf.skipped) bits.push(`有 ${nf.skipped} 条未发出：对应员工未关联登录账号，请到「员工档案」补关联`)
-      toast(bits.join('；'), nf.skipped ? 'warn' : 'ok')
-    } else {
-      toast('已定稿：' + (row.name || '') + '（本期无加单/减单，未发送通知）', 'ok')
-    }
-  } catch (e) {
-    toast('关闭失败: ' + (e.message || ''), 'err')
-  } finally {
-    closing.value = false
   }
 }
 
@@ -11107,28 +10951,6 @@ th.sortable:hover{color:var(--p-dark)}
    两个信号同时在时：**颜色给符号、左侧竖条仍给悬空**（两者都不丢）。 */
 .cell-input.cell-qty.xm-alert.cell-minus{color:var(--danger-txt)}
 .pt-xm-b.has-void,.pt-xm.has-void .pt-xm-b{color:var(--warn-amber)}
-/* ── v318：关闭期次确认弹窗里的「定稿后将推送的明细」 ── */
-.close-modal{width:min(660px,94vw)}
-.close-nf{margin:10px 0 2px;padding:9px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2)}
-.close-nf-hd{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px}
-.close-nf-none{margin:4px 0;font-size:12px;color:var(--t3);line-height:1.6}
-.close-nf-none.bad{color:var(--danger-txt)}
-.close-nf-wrap{max-height:216px;overflow:auto;border:1px solid var(--bd);border-radius:4px;background:var(--bg)}
-.close-nf-tbl{width:100%;border-collapse:collapse;font-size:12px}
-.close-nf-tbl th{position:sticky;top:0;z-index:1;background:var(--bg3);color:var(--t2);font-weight:600;text-align:left;padding:5px 7px;border-bottom:1px solid var(--bd);white-space:nowrap}
-.close-nf-tbl td{padding:5px 7px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--t1)}
-.close-nf-tbl .num{text-align:right}
-.close-nf-tbl tr.not-full td{background:var(--warn-amber-bg)}
-.cn-name{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cn-exp{font-size:11px;padding:1px 6px;border:1px solid var(--bd);border-radius:3px;background:var(--bg);color:var(--t3);cursor:pointer}
-.cn-exp:hover{border-color:var(--p-dark);color:var(--p-dark)}
-.cn-detail td{background:var(--bg3)}
-.cn-p{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--t2);padding:2px 0;line-height:1.6}
-.cn-p.bad{color:var(--danger-txt)}
-.cn-pname{min-width:64px;font-weight:600;color:var(--t1)}
-.cn-add{color:var(--p-dark);font-weight:600}
-.cn-cut{color:var(--danger-txt);font-weight:600}
-.close-nf-sum{margin:7px 0 0;font-size:12px;color:var(--t2);line-height:1.6}
 /* ── v318：一键分摊弹窗（预演台） ── */
 /* v277（需求 5/6）：加单填负数 = 减单，必须一眼能认出来（否则会被当成手误删掉）。
    与「单价」列手工录入的红字口径一致：变色 + 加粗，不改数字本身。 */

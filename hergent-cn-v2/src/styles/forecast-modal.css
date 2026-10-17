@@ -1,0 +1,34 @@
+/* ============================================================
+   弹窗壳层共享类（全站复用，v560 建立）
+   ------------------------------------------------------------
+   🔴 为什么必须独立成全局表：这些类原先**只定义在 `Forecast.vue` 的
+   `<style scoped>` 块里**。Forecast 页面拆出懒加载子组件（AllocPanel /
+   RebateSprint / PeriodOps …）后，子组件模板照样写 `class="imp-modal"`，
+   但 Vue scoped 的 `data-v-xxx` **只打在子组件根元素上**、且父级规则
+   编译后形如 `.imp-hd[data-v-parent]` ⇒ 对子组件内部 DOM **全部不匹配**
+   ⇒ 遮罩不定位、头部不布局、关闭按钮无样式、警告色不红。
+   构建不报错、肉眼只觉得「弹窗怪怪的」，是典型的静默失效（v558 同族）。
+   ⇒ 壳层类必须放进**入口 chunk 必然加载**的全局表，不能靠某个懒加载组件
+      顺带注入（ImportPanel.vue 的非 scoped 块里曾有一份 `.imp-modal`，
+      但它随 ImportPanel 懒加载 ⇒ 用户没打开过「导入」时那份样式根本不存在）。
+   🔴 纪律：新增 forecast 子组件时，**专属类随组件走（放组件自己的 scoped），
+      壳层类一律不要复制进组件** —— 直接用这里的。
+   ============================================================ */
+
+/* 取值：页面内浮层天花板 = 天气面板 .wx-pop 1121（注释「高于页面内所有下拉浮层」），
+   故模态取 1125/1130 压过它，且远低于 toast 9999 / 空闲超时 9998。
+   不要再改回 < 1121，也不要为此抬高 .tb-pop（会破坏「弹层开着直接点别的触发按钮」）。 */
+.imp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-page-modal-overlay)}
+.imp-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(560px,94vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-page-modal);box-shadow:var(--shadow-lg);max-height:86vh;display:flex;flex-direction:column}
+.imp-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle)}
+.imp-hd b{font-size:14px}
+.imp-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.imp-x:hover{color:var(--p-dark);background:var(--bg2);border-radius:var(--radius-sm)}
+.imp-body{padding:16px 18px;overflow-y:auto}
+.imp-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin-bottom:14px}
+.del-modal{width:min(440px,92vw)}
+.warn-text{color:var(--dan);font-weight:500}
+.del-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.btn.danger{color:var(--dan)}
+.btn.danger:hover{filter:brightness(.95)}

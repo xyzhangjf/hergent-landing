@@ -8,6 +8,7 @@ import './styles/variables.css'
 import './styles/col-menu.css'   // 列设置齿轮 + 面板 + 列宽拖动手柄（全站表格页复用，v432 / v444）
 import './styles/psi-list.css'   // 进销存列表页统一规范：.psi-tbl 固定布局 / .psi-frz-N 冻结列 / .psi-quick 快捷档（三页共用，v496）
 import './styles/chart.css'      // 图表外壳 / 图例 / 三态 / tooltip / 排行条（全站图表复用，v491）
+import './styles/forecast-modal.css' // 弹窗壳层共享类：.imp-modal / .imp-hd / .imp-x / .imp-body / .imp-tip / .del-actions / .warn-text（v560：forecast 懒加载子组件共用，必须在入口 chunk）
 
 // 恢复主题
 setTheme(localStorage.getItem('hergent_theme') === 'dark' ? 'dark' : 'light')
