@@ -393,8 +393,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
         <span class="tag info" v-if="period">本期 · {{ period.name }}</span>
         <!-- 时间进度：与下方进度条的虚线标记同源（口径＝本期到货月），右对齐到本行最右侧 -->
         <span class="sprint-tp" v-if="rebateSprint.length" :title="sprintTimeProgress.shown ? '虚线＝时间进度：进度条超过虚线＝超前，短于虚线＝落后时间进度' : ''">本月时间进度：<b>{{ sprintTimeProgress.pct1 }}%</b></span>
-        <button class="sprint-toggle" @click="rebateSprintOpen = !rebateSprintOpen" :title="rebateSprintOpen ? '收起明细' : '展开看达成率、缺口与建议均单'">
-          {{ rebateSprintOpen ? '收起明细' : '展开明细' }}
+        <button class="sprint-toggle" @click="rebateSprintOpen = !rebateSprintOpen" :title="rebateSprintOpen ? '收起明细' : '展开看达成率、缺口与建议均单'" :aria-label="rebateSprintOpen ? '收起明细' : '展开明细'">
           <Icon :name="rebateSprintOpen ? 'chevron-up' : 'chevron-down'"/>
         </button>
       </div>
@@ -495,23 +494,26 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 </template>
 
 <style scoped>
-/* 返利冲刺看板展开/收起控件 —— v551：原为 imp-x 小灰叉图标，几乎不可见；
-   改为带文字的品牌色胶囊按钮，提升可发现性（非技术经销商也能一眼看到「展开明细」）。 */
+/* 返利冲刺看板展开/收起控件 —— v551 原为 imp-x 小灰叉图标（14px 灰、无边框无背景），几乎不可见；
+   v552 改为纯 Lucide 线性图标按钮：圆形 + 浅底淡青描边托出边界，青色 chevron 图标（currentColor），
+   符合 UI 规范（线性图标、品牌青、不用彩色 emoji），同时保证可发现性。title 承载语义，无需文字。 */
 .sprint-card .panel-hd .sprint-toggle{
   margin-left:auto;
-  display:inline-flex;align-items:center;gap:4px;
-  padding:4px 12px;
-  font-size:12.5px;font-weight:600;line-height:1;
+  flex:0 0 auto;
+  width:30px;height:30px;
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:0;
   color:var(--p-dark);
   background:var(--bg2);
-  border:1px solid var(--p);
-  border-radius:var(--radius-sm);
-  cursor:pointer;white-space:nowrap;
-  transition:background .12s ease,border-color .12s ease;
+  border:1px solid var(--p-border);
+  border-radius:50%;
+  cursor:pointer;
+  transition:background .12s ease,border-color .12s ease,color .12s ease;
 }
 .sprint-card .panel-hd .sprint-toggle:hover{
-  background:color-mix(in srgb,var(--p) 14%,var(--bg2));
-  border-color:var(--p-dark);
+  background:var(--p-bg);
+  border-color:var(--p);
+  color:var(--p-deep);
 }
-.sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:14px;height:14px}
+.sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:18px;height:18px}
 </style>
