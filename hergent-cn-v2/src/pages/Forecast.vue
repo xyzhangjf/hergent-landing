@@ -2884,10 +2884,13 @@ import ProductTarget from './ProductTarget.vue'
 import { useColMenu } from '../composables/useColMenu.js'
 // v411（P2-4）：列设置云端持久化（换设备 / 清缓存不再丢列）。
 import { useColPrefs } from '../composables/useColPrefs.js'
+import { useNameSuggest } from '../composables/useNameSuggest.js'
+import { useDraft } from '../composables/useDraft.js'
+import { useUndoRedo } from '../composables/useUndoRedo.js'
 /* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText } from '../utils/arrival.js'
-import { pyInitials, PY_OK } from '../utils/pinyin.js'
+import { pyInitials } from '../utils/pinyin.js'
 /* v379（P0·E-13）：打印改走仓内既有可打印页基建（PayrollWorkflow / LossWorkflow / AiHub 已在用）。
    原实现是裸 `window.print()` —— 428 行 × 30 列交给浏览器，无分页/无重复表头/无横版 ⇒ 一片乱码。 */
 import { openPrintable } from '../utils/printable.js'
@@ -3034,82 +3037,8 @@ const pyMap = computed(() => {
   return m
 })
 
-/* ---- v215：商品名候选面板 ----
-   🔴 原生 datalist 的三个硬伤（这就是要自建的理由）：
-      ① 过滤逻辑由浏览器定：Chrome 是「子串 + 模糊」，Safari 早期只认**前缀** ⇒ 同一份数据两种体验；
-      ② 只按 `value` 匹配 ⇒ **条码后四位 / 拼音首字母**根本无从表达；
-      ③ 无法控制外观与键盘行为（上下键选中项的值在多数浏览器里**读不到**）。
-   ⚠️ 定位用 `position:fixed` + Teleport 到 body：表格里有 `overflow` 容器和 sticky 表头，
-      浮层留在 `<td>` 里会被**裁掉**（这是本项目反复踩过的层级/裁剪问题，见 zindex 诊断技能）。
-   ⚠️ 候选项用 `@mousedown.prevent` 而不是 `@click`：click 之前会先触发 input 的 blur，
-      面板已关闭 ⇒ 点了没反应（经典的「死按钮」形态）。 */
-const nameSug = ref({ open: false, ri: -1, ci: -1, idx: 0, list: [], top: 0, left: 0, w: 0 })
-function nameSugList(q) {
-  const f = String(q || '').trim().toLowerCase()
-  if (!f) return []
-  const pool = masterNameOptions.value
-  const hit = []
-  for (const o of pool) {
-    if (matchMasterOne(o, f)) hit.push(o)
-    if (hit.length >= 40) break      // 面板最多 40 条 —— 再多既看不过来也拖慢渲染
-  }
-  return hit
-}
-/* 单个候选的匹配口径。**必须与 `rowMatchText` 同源**（名称 / 厂家编码 / 条码后 4 位 / 拼音首字母），
-   否则会出现「在筛选框里搜得到、在商品名格里搜不到」这种同屏两套答案。 */
-function matchMasterOne(o, f) {
-  if (!f) return true
-  const name = String(o.v || '').toLowerCase()
-  if (name.includes(f)) return true                      // 名称子串（含汉字直接搜）
-  if (String(o.code || '').toLowerCase().includes(f)) return true   // 厂家编码
-  const bc = String(o.c || '').toLowerCase()
-  if (bc && (bc.includes(f) || (f.length >= 3 && bc.endsWith(f)))) return true  // 条码 / 后 4 位
-  if (o.y && o.y.toLowerCase().includes(f.toUpperCase().toLowerCase())) return true  // 拼音首字母
-  return false
-}
-function onNameInput(r, ri, ci, e) {
-  const el = e && e.target
-  const q = el ? el.value : ''
-  const rect = el ? el.getBoundingClientRect() : null
-  const list = nameSugList(q)
-  if (!list.length || !rect) { nameSug.value.open = false; return }
-  nameSug.value = {
-    open: true, ri, ci, idx: 0, list,
-    left: rect.left, w: Math.max(rect.width, 260),
-    // 面板放不下就往上翻（贴底时往下会超出视口 ⇒ 用户看不到，等于没弹）
-    top: (rect.bottom + 226 < window.innerHeight) ? rect.bottom + 2 : Math.max(8, rect.top - 226),
-  }
-}
-/* 🔴 必须**手动** stopPropagation，且**只在面板打开时**：
-      input 在 `<table @keydown="onGridKey">` 内，方向键会冒泡上去被表格当成「跳格」
-      ⇒ 焦点在 keydown 阶段就被搬走、面板随即 blur 关闭（真机实测：↓ 后高亮消失、
-      回车写入静默失效——看起来像「键盘没反应」，属于死控件那一类）。
-      1017 行注释里记的是同一个坑的**回车版**（`focusCell()` 抢焦点导致 @keyup.enter 收不到）。
-   ⚠️ 不能写成模板上的 `@keydown.stop`：那样**面板没开时**也拦，方向键跳格就被破坏了。
-      所以放在函数里按 `s.open` 条件拦 —— 「只在我要用这几个键的时候才拦」。 */
-function nameSugKey(e) {
-  const s = nameSug.value
-  if (!s.open) return
-  e.stopPropagation()
-  if (e.key === 'ArrowDown') { s.idx = (s.idx + 1) % s.list.length; e.preventDefault() }
-  else if (e.key === 'ArrowUp') { s.idx = (s.idx - 1 + s.list.length) % s.list.length; e.preventDefault() }
-  else if (e.key === 'Enter') { nameSugPick(s.list[s.idx]); e.preventDefault() }
-  else if (e.key === 'Escape') { s.open = false; e.preventDefault() }
-}
-function nameSugPick(o) {
-  const s = nameSug.value
-  if (!o) return
-  const r = cross.value.rows[s.ri]
-  if (r) {
-    r.name = o.v
-    onCellChange()          // 🔴 必须：不调它，改名不进撤销栈、也不点亮状态条（v211 修过的老缺陷）
-  }
-  s.open = false
-}
-function nameSugClose() { nameSug.value.open = false }
-/* 占位文案**按能力给**：环境不支持拼音序时**不提拼音** —— 提了等于承诺一个搜不到的功能。
-   （`PY_OK` 由 `utils/pinyin.js` 在加载时用 4 个已知字自检得出，见该文件顶部说明。） */
-const namePh = computed(() => (PY_OK ? '商品名称 / 条码后 4 位 / 拼音首字母' : '商品名称 / 条码后 4 位'))
+/* ---- v215：商品名候选面板 —— 已抽到 `src/composables/useNameSuggest.js`（唯一实现）。 */
+const { nameSug, onNameInput, nameSugKey, nameSugPick, nameSugClose, namePh } = useNameSuggest({ masterNameOptions, cross, onCellChange })
 
 /* ---- 表体优化（P1/P2/P3）：分组/热力图/排序/筛选/风险徽标 ---- */
 const prodMeta = ref({})            // pid -> {category, brand}，loadCross 填充
@@ -7257,12 +7186,6 @@ function cycleSort() {
   applySort()
 }
 
-// 撤销/重做
-const undoStack = ref([])
-const redoStack = ref([])
-const canUndo = computed(() => undoStack.value.length > 0)
-const canRedo = computed(() => redoStack.value.length > 0)
-let _pendingSnap = null
 const selAnchor = ref({ r: -1, c: -1 })
 const selRange = ref(null)
 /* v377：当前生效的选择轴。'cell' = 原有单元格矩形（默认，行为不变）；
@@ -7367,112 +7290,6 @@ function openRowCtx(e, ri, ci) {
   fitCtxMenu()
 }
 function clone(o) { return JSON.parse(JSON.stringify(o)) }
-/* Q24：撤销栈由「全量深拷贝」改为「结构性操作用全量 + 单元格编辑用增量补丁」。
-   原实现每次单元格聚焦都 clone(cross) 全表（428 行 × 30 列 ≈ 1.2 万字段），
-   change 时再 clone 一次并 JSON.stringify 全量比较 —— 每点一格两次全表序列化。
-   现改为：单格编辑只记录 {r, c, old, new}，撤销时反向写回该格，零深拷贝。
-   行/列增删、粘贴、填充等结构性变更仍需全量快照（{ t:'full' }）。 */
-const UNDO_LIMIT = 100
-function snapshot() {
-  dirtySinceSave.value = true          // v201：结构变更 ⇒ 有未保存改动（见 refreshDirty 注释）
-  undoStack.value.push({ t: 'full', data: clone(cross.value) })
-  if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
-  redoStack.value = []
-}
-function pushCellSnap(r, c, oldVal, newVal) {
-  dirtySinceSave.value = true          // v201：单元格改动 ⇒ 有未保存改动
-  undoStack.value.push({ t: 'cell', r, c, old: oldVal, new: newVal })
-  if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
-  redoStack.value = []
-}
-/* v219 打磨⑤：批量修复入栈（一次 Ctrl+Z 退掉**整批**）。
-   为什么不复用 pushCellSnap 逐格入栈：那样「一键修复 40 处」要按 40 次 Ctrl+Z 才退干净，
-   而用户的心理模型是「我刚点了一次按钮 ⇒ 一次撤销」。 */
-function pushBatchSnap(cells) {
-  if (!cells || !cells.length) return
-  dirtySinceSave.value = true
-  undoStack.value.push({ t: 'batch', cells: cells.map(x => ({ r: x.r, c: x.c, old: x.old, new: x.new })) })
-  if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
-  redoStack.value = []
-}
-/* v219 打磨②：`silent` = 批量回退时不逐条 toast（否则连退 8 步刷 8 条提示，
-   最后一条盖住前面所有，用户只看到「已撤销」一次 ⇒ 以为只退了一步）。 */
-function undo(silent) {
-  const s = undoStack.value.pop()
-  if (!s) return
-  if (s.t === 'cell') {
-    redoStack.value.push({ t: 'cell', r: s.r, c: s.c, old: s.old, new: s.new })
-    writeCellVal(s.r, s.c, s.old)
-  } else if (s.t === 'batch') {
-    /* v219 打磨⑤：批量修复的**整批单条**回退（见 pushBatchSnap）。
-       倒序写回：一批里同一格不应出现两次（fixList 按 ri+ci 去重过），
-       倒序只是让「后写的先还原」这个直觉成立，出现重复也不会出错。 */
-    redoStack.value.push({ t: 'batch', cells: s.cells.map(x => ({ r: x.r, c: x.c, old: x.old, new: x.new })) })
-    for (let i = s.cells.length - 1; i >= 0; i--) writeCellVal(s.cells[i].r, s.cells[i].c, s.cells[i].old)
-  } else {
-    redoStack.value.push({ t: 'full', data: clone(cross.value) })
-    cross.value = s.data
-  }
-  clampSelection()
-  refreshDirty()          // v201：撤销可能正好回到上次保存的版本 ⇒ 重新比对，别谎报「有未保存改动」
-  if (!silent) toast('已撤销', 'ok')
-}
-function redo() {
-  const s = redoStack.value.pop()
-  if (!s) return
-  if (s.t === 'cell') {
-    undoStack.value.push({ t: 'cell', r: s.r, c: s.c, old: s.old, new: s.new })
-    writeCellVal(s.r, s.c, s.new)
-  } else if (s.t === 'batch') {
-    undoStack.value.push({ t: 'batch', cells: s.cells.map(x => ({ r: x.r, c: x.c, old: x.old, new: x.new })) })
-    for (const x of s.cells) writeCellVal(x.r, x.c, x.new)
-  } else {
-    undoStack.value.push({ t: 'full', data: clone(cross.value) })
-    cross.value = s.data
-  }
-  clampSelection()
-  refreshDirty()          // v201：同 undo()
-  toast('已重做', 'ok')
-}
-/* v219 打磨②：撤销栈**可见**。
-   Ctrl+Z 只能一步一步盲退 —— 用户误操作后真正想知道的是「我刚才到底改了哪几处、
-   退到第几步能回到我想要的样子」。栈不可见时只能试，退过头还得重做回去。
-   这里把最近 30 步列出来（新的在上），点哪一条就**退到那一步之前**。
-   ⚠️ 描述**不改**栈结构（`{t,r,c,old,new}` 原样保留）—— 撤销/重做的正确性靠这个结构，
-      为显示去动它不值得；描述是纯派生。 */
-const undoPanelOpen = ref(false)
-const undoShown = computed(() => {
-  const st = undoStack.value
-  const out = []
-  for (let i = st.length - 1; i >= Math.max(0, st.length - 30); i--) {
-    out.push({ i, label: undoLabel(st[i]) })
-  }
-  return out
-})
-function colLabelOf (c) {
-  const vc = visibleCols.value
-  if (c < vc.length) return String((vc[c] && (vc[c].label || vc[c].key)) || ('第' + (c + 1) + '列'))
-  const u = (cross.value.units || [])[c - vc.length]
-  return u ? String(u.name) : ('第' + (c + 1) + '列')
-}
-function briefVal (v) {
-  if (v === null || v === undefined || v === '') return '（空）'
-  const s = String(v)
-  return s.length > 10 ? s.slice(0, 10) + '…' : s
-}
-function undoLabel (s) {
-  if (!s) return ''
-  if (s.t === 'cell') return `第 ${s.r + 1} 行 · ${colLabelOf(s.c)}：${briefVal(s.old)} → ${briefVal(s.new)}`
-  if (s.t === 'batch') return `批量修复 ${s.cells.length} 处（一次撤销可整批还原）`
-  return '结构性变更（增删行 / 粘贴 / 填充等）'
-}
-function undoUpto (i) {
-  const n = undoStack.value.length - i
-  if (n <= 0) return
-  while (undoStack.value.length > i) undo(true)
-  undoPanelOpen.value = false
-  toast(`已回退 ${n} 步`, 'ok')
-}
 
 // Q5：保存成功后不再清空撤销栈（原实现保存后无法 Ctrl+Z 回退）。
 // 改为记录「上次保存基线」，并提供「回退到上次保存」入口，避免用户保存后误改无法还原。
@@ -7490,6 +7307,9 @@ const lastSavedSnap = ref(null)
       仍是用户在**离开页面前**唯一能看到的警告（草稿虽在本地，用户并不知道）。 */
 const dirtySinceSave = ref(false)   // 自上次保存以来是否改过内容
 const lastSavedAt = ref('')         // 上次保存成功的时刻（HH:MM）
+// 撤销/重做 + 撤销面板（Q24/Q5/v201/v219）—— 已抽到 src/composables/useUndoRedo.js（唯一实现）。
+// 🔴 调用点必须放在 dirtySinceSave 定义**之后**：composable 内部 snapshot/push* 要写它（const 不 hoist，提前引用会 TDZ）。
+const { undoStack, redoStack, canUndo, canRedo, snapshot, pushCellSnap, pushBatchSnap, undo, redo, undoPanelOpen, undoShown, undoUpto } = useUndoRedo({ cross, dirtySinceSave, clone, writeCellVal, clampSelection, refreshDirty, visibleCols, toast })
 /* 改动登记的两个**唯一漏斗**：一切会改内容的动作都经过 snapshot()（结构变更）或
    pushCellSnap()（单元格提交）。已逐个核对：addRow / addUnit / renameCol / delCol /
    粘贴 / 填充 / 右键删除列 / 快照恢复 / 软删行 …… 全部走这两个，无遗漏。
@@ -8065,26 +7885,8 @@ const editTotalBoxes = computed(() => liveRows.value.reduce((s, r) => s + rowBox
 const draftRestored = ref(false)
 // Q14：如实记录草稿恢复范围（数量 / 商品资料 / 新增行），横幅按实际范围展示，不再笼统称「已恢复未完成数据」
 const draftRestoreInfo = ref(null)   // { qty: n, master: n, added: n }
-const DRAFT_KEY = () => 'forecast_draft_' + (cross.value.period ? cross.value.period.id : 'default')
+const { saveDraftNow, clearDraft, loadDraft } = useDraft({ cross, draftRestored, draftRestoreInfo, toast })
 let _ignoreNextWatch = 0
-function saveDraftNow() {
-  try { localStorage.setItem(DRAFT_KEY(), JSON.stringify(cross.value)) } catch (e) {}
-}
-// Q11：保存成功路径调用 clearDraft(true) —— 静默清除，避免「已保存」后紧跟「已放弃草稿」的矛盾提示
-function clearDraft(silent) {
-  try { localStorage.removeItem(DRAFT_KEY()) } catch (e) {}
-  draftRestored.value = false
-  draftRestoreInfo.value = null
-  if (!silent) toast('已放弃草稿', 'ok')
-}
-function loadDraft() {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY())
-    if (!raw) return null
-    const d = JSON.parse(raw)
-    return d && d.rows ? d : null
-  } catch (e) { return null }
-}
 let _draftTimer = null
 watch(() => cross.value, () => {
   if (_ignoreNextWatch > 0) { _ignoreNextWatch--; return }
