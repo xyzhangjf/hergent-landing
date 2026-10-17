@@ -220,11 +220,6 @@
                     <template v-else>匹配 {{ prods.length }} 个商品</template>
                   </span>
                 </div>
-                <!-- v562：收起列表后不能只剩一个空框 —— 得说清「下一步是什么」，
-                     否则用户不知道是要输入、还是要从哪选。 -->
-                <div v-if="!editing && !pickedProd && !pkw.trim()" class="pt-pick-hint">
-                  输入商品名或条码后，下面列出可设目标的商品
-                </div>
                 <!-- v562：`&& pkw.trim()` —— 没输入关键词就不铺列表（见 openNew 的注释）。
                      列表一开就是 50 条时，用户的第一反应是"先滚一遍找"，
                      而不是"先输入关键词" ⇒ 反而更难找到。 -->
@@ -1384,10 +1379,6 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-fix-src{margin-top:7px;font-size:11.5px;color:var(--t2);line-height:1.5}
 .pt-fix-msg{margin-top:6px;font-size:12px;color:var(--danger-txt)}
 .pt-pick-empty{padding:10px}
-/* v562：列表收起后的空态引导 —— 单独一个空框会让用户不知道「下一步要输入还是要选」，
-   补一句说明。沿用 .pt-quiet 的弱色弱字，不新造视觉语言。 */
-.pt-pick-hint{padding:10px 12px;font-size:12.5px;color:var(--t2);line-height:1.5;
-  background:var(--bg3);border:1px dashed var(--bd);border-radius:var(--radius-sm)}
 /* ── v319e（P0-1）已选商品卡片 ──
    点选后列表收起，原地换成这一张 ⇒ 用户一眼能确认「选的是哪件、一箱等于多少」。
    🔴 不用半透明底色当主信号（6% 那层正是原缺陷）；改用**实心主色圆勾** + 主色描边，
