@@ -452,11 +452,12 @@
                   :title="'已收起 ' + hiddenEmptyCols + ' 个全空的主档列（客户列始终显示；勾选「显示空列」即可展开）'"
                   :aria-label="'已收起 ' + hiddenEmptyCols + ' 个全空列'"
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
-            <!-- v209：同「已隐藏 N 个零报单」，全屏时收成图标形态（实测本条占 180px，是全行最肥的单件） -->
-            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
+            <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
+                 文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
+            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter"
                   :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（勾选「显示全部商品」即可展开）'"
                   :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示'"
-            ><Icon name="filter" /><template v-if="!gridFullscreen"> 另有 {{ hiddenByRowBase }} 个在售商品未显示</template></span>
+            ><Icon name="filter" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -704,11 +705,12 @@
                   :title="'已收起 ' + hiddenEmptyCols + ' 个全空的主档列（客户列始终显示；勾选「显示空列」即可展开）'"
                   :aria-label="'已收起 ' + hiddenEmptyCols + ' 个全空列'"
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
-            <!-- v209：同「已隐藏 N 个零报单」，全屏时收成图标形态（实测本条占 180px，是全行最肥的单件） -->
-            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
+            <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
+                 文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
+            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter"
                   :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（勾选「显示全部商品」即可展开）'"
                   :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示'"
-            ><Icon name="filter" /><template v-if="!gridFullscreen"> 另有 {{ hiddenByRowBase }} 个在售商品未显示</template></span>
+            ><Icon name="filter" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -10604,15 +10606,13 @@ th.sortable:hover{color:var(--p-dark)}
    时想改单被迫先退出全屏。解法 = 在**全屏层内部**补同源入口（见模板 fsRowHosting）。
    ⚠️ 下面各条**只在全屏生效**，非全屏表格工具行一个像素都不动（方案 A 的取舍：非全屏页头那份在手边，
       且实测非全屏 1440 塞入编辑组差 273px、必然折行）。 */
-/* ① 行尾给右上角全屏按钮**留位**。.grid-fs-btn 是 position:absolute;right:14px（相对全屏层），
-      而 .grid-ctl-row 的内容右边界在 视口−12px ⇒ 两者天然重叠最后 28px：内容一长就被按钮压住
-      （看着像缺一块，且点不中）。故全屏时行尾预留 34px。 */
-.grid-area.is-fs .grid-ctl-row{padding-right:34px;gap:6px}
-/* ③ 两个计数徽标收成图标形态（文案不丢：完整句子在 title 与 aria-label 里，见模板）。
-      ⚠️ 这是全屏单行的**必要项**，不是美观取舍：徽标实测各约 150–180px，且「已隐藏 N 个零报单」
-         与「另有 N 个在售商品未显示」**可同时出现**；再加上状态条宽度随文案变
-         （「已保存 12:34」比实测时的「尚未修改」宽 84px）⇒ 全屏最坏态比稳态宽约 230px，
-         不收起必然折行。只在全屏收，非全屏保持完整文案。 */
+/* ① 行尾给右上角全屏按钮**留位**。.grid-fs-btn 是 position:absolute;right:14px、宽 26px
+      ⇒ 按钮左边缘在「视口−40px」；原 34px 留位差 6px 仍会压住行尾最后一件（看着像缺一块）。
+      v570 校正为 46px（40 + 6 间隙），彻底不重叠。 */
+.grid-area.is-fs .grid-ctl-row{padding-right:46px;gap:6px}
+/* ③ 两个计数徽标（零报单 / 空列）在全屏收成图标形态（完整句子在 title 与 aria-label 里）。
+      ⚠️「另有 N 个在售商品未显示」自 v570 起**全屏也显示完整文案**（用户要求），不再走 badge-slim；
+         行宽不足由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 */
 .grid-area.is-fs .confirm-badge.badge-slim{padding:3px 7px;gap:0}
 /* v129 修复：全屏时把主工具栏弹层容器降回普通层级。
    .tb-pop 常态 z-index:var(--z-page-bar)（要高于 .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”），
