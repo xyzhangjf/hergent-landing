@@ -596,7 +596,7 @@
                     <template v-if="col.type === 'seq'"><span class="seq-num">{{ it.seq }}</span></template>
                     <template v-else-if="col.type === 'master' && col.key === 'name'">
                       <span class="exp-chev" @click.stop="toggleExpand(it.r.product_id)" :title="isExpanded(it.r.product_id) ? '收起明细' : '展开明细'"><Icon :name="isExpanded(it.r.product_id) ? 'chevron-down' : 'chevron-right'"/></span>
-                      <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span><!-- v574：「N 人报」由原来的独立一行改为品名行尾角标（用户确认这项有用，但不能占行高）。数值 = 本期报这个商品的人数，来自后端 rows.people，前端不自己数。 --><span v-if="it.r.people" class="people-badge" :title="'本期有 ' + it.r.people + ' 人报了该商品'">{{ it.r.people }} 人报</span><span v-if="it.r.offArchive" class="oe-badge off-tag" title="这个商品在你的「在售商品档案」里已停用或已删除，但本期数据引用了它。要让它回到档案列表，请到「商品档案」重新启用。">已停用</span></div>
+                      <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span><!-- v574：「多少店报」由原来的独立一行改为品名行尾角标（用户确认这项有用，但不能占行高）。数值 = 本期报这个商品的**门店数**（后端 rows.stores，去重键含 store_kind，见 erp_db::forecast_submission_summary）。⚠️ 不是 rows.people —— 老板一人替十几家门店填单，账号数恒为 1，没有信息量。 --><span v-if="it.r.stores" class="store-badge" :title="'本期有 ' + it.r.stores + ' 家门店报了该商品'">{{ it.r.stores }} 店报</span><span v-if="it.r.offArchive" class="oe-badge off-tag" title="这个商品在你的「在售商品档案」里已停用或已删除，但本期数据引用了它。要让它回到档案列表，请到「商品档案」重新启用。">已停用</span></div>
                       <div v-if="nameSubline(it.r)" class="pspec">{{ nameSubline(it.r) }}</div>
                       <div v-if="it.r.ai != null" class="ai-hint">系统建议 {{ fmt(it.r.ai) }}{{ it.r.unit }}<span v-if="it.r.aiMethod" class="hint">（{{ it.r.aiMethod }}）</span></div>
                       <span v-if="rowWarn(it.r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
@@ -9596,6 +9596,10 @@ async function loadCross() {
         total_qty: (prev.total_qty || 0) + (r.total_qty || 0),
         total_amount: (prev.total_amount || 0) + (r.total_amount || 0),
         people: (prev.people || 0) + (r.people || 0),
+        // v574：同 people 的合并范式（此路径是「同商品多行」的防御性兜底，正常不会走到）。
+        //   两行相加是**上界**（同一门店出现在两行会重复计），但比取 MAX 少漏门店；
+        //   与 people 保持同一处置，避免两个字段口径不一致。
+        stores: (prev.stores || 0) + (r.stores || 0),
         sources: [...(prev.sources || []), ...(r.sources || [])],
         extra_qty: (prev.extra_qty || 0) + (r.extra_qty || 0),
         final_qty: (prev.final_qty != null ? prev.final_qty : r.final_qty),
@@ -9629,7 +9633,7 @@ async function loadCross() {
       const r = sumById[pd.id]
       const qtyByUnit = {}
       let total = 0, amount = 0, price = null, boxes = null
-      let ai = null, aiMethod = null, people = 0, final_qty = null, decided = false, extra_qty = 0
+      let ai = null, aiMethod = null, people = 0, stores = 0, final_qty = null, decided = false, extra_qty = 0
       if (r) {
         ;(r.sources || []).forEach(s => {
           const name = s.store || s.store_name || '未署名'
@@ -9640,7 +9644,7 @@ async function loadCross() {
         price = total ? amount / total : null
         // v207：与 rowBoxes 同源（不取整）—— 只读汇总表这一列此前也在这里被 Math.round 抹成 0。
         boxes = total ? boxesOf(total, pd.spec, pd.unit, pd) : null
-        ai = r.ai_suggested_qty; aiMethod = r.ai_method; people = r.people || 0
+        ai = r.ai_suggested_qty; aiMethod = r.ai_method; people = r.people || 0; stores = r.stores || 0
         final_qty = r.final_qty != null ? r.final_qty : null; decided = !!r.forecast_decided
         extra_qty = r.extra_qty || 0
       }
@@ -9665,7 +9669,7 @@ async function loadCross() {
         //   ⚠️ 两条加载路径都要带：漏一处会让「本期」显示 +3天 而「往期」全变「—」。
         arrival_lead_days: Number(pd.arrival_lead_days) || 0,
         qtyByUnit, total, boxes, price, amount,
-        ai, aiMethod, people, final_qty, decided, extra_qty,
+        ai, aiMethod, people, stores, final_qty, decided, extra_qty,
         /* v190：本期手工单价（元/箱）—— 只读汇总表的**金额列要靠它**。
            没有它，老板在查看态看到的「单价(进价/箱)」与「下单金额(进价)」会退回档案自动价，
            与填单人保存时看到的不一致（同屏两个口径打架）。值来自 summary 的 rows（按期次隔离）。
@@ -11000,11 +11004,13 @@ th.sortable:hover{color:var(--p-dark)}
 .oe-c3{background:var(--st-approved-bg);color:var(--st-approved-txt)}
 .oe-c4{background:var(--st-revised-bg);color:var(--st-revised-txt)}
 .oe-c5{background:var(--st-submitted-bg);color:var(--st-submitted-txt)}
-/* v574：「N 人报」角标 —— 原先这条信息跟在「规格 · 单位」那一行末尾，随该行一起被删（v573）。
+/* v574：「N 店报」角标 —— 原先这条信息跟在「规格 · 单位」那一行末尾，随该行一起被删（v573）。
    用户确认「这项有用」，故回到品名行尾：inline 元素，**不占额外行高**（实测行高不变）。
-   刻意用中性灰而非户头的彩色系 —— 户头是「谁的下单主体」，这个是「几个人报了」，量级不同。
+   🔴 口径是**门店数**（rows.stores），不是账号数（rows.people）—— 老板一人替十几家门店填单，
+      账号数恒为 1。类名刻意用 store 而非 people，防止后人又按「人」去理解。
+   中性灰而非户头的彩色系 —— 户头是「谁的下单主体」，这个是「几家店报了」，量级不同。
    ⚠️ 放在 .pname 内（同 .oe-badge 范式）：品名超长时随省略号一起被截断，这是既有行为，不额外处理。 */
-.people-badge{display:inline-flex;align-items:center;height:15px;padding:0 5px;border-radius:999px;
+.store-badge{display:inline-flex;align-items:center;height:15px;padding:0 5px;border-radius:999px;
   font-size:var(--fs-xs);font-weight:400;margin-left:6px;vertical-align:1px;
   background:var(--bg2);color:var(--t2);white-space:nowrap}
 
