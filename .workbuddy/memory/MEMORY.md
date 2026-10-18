@@ -89,6 +89,13 @@
 - 「目标与返利政策 → 创建商品目标」= `src/components/rebate/TargetFormModal.vue`（+`ProductTargetForm.vue`）。两者标题只差一字，动手前按用户给的路径确认。
 
 ## UI 风格偏好（🔴 折叠/展开控件 v551-v557 六轮返工）
+- **同行控件必须同构**（v599）：「另有 N 个在售商品未显示」曾是一枚 25.2px / 12px / 无边框 / `cursor:auto`
+  的 `<span>`，夹在一排 32px / 13px / 1px 边框 / pointer 的控件（缩放·勾选框·品牌·复制报单）中间 ⇒
+  用户一眼看出"矮一截、像被咬掉一块"。判据：**同一行的控件取 `getBoundingClientRect` 必须顶边差 0、高度差 0**。
+  修法是复用同行基准（`.tb-toggle` 的 32px/13px/1px/radius 8），不要自创新尺寸。
+- 🔴 **带图标+动词文案的徽标会被当成按钮**：凡是"看起来能点"的元素必须有 `role="button"` + `tabindex="0"` +
+  `@click` + `@keydown.enter.space` + `cursor:pointer` + hover 反馈。否则就是"看着像按钮的死元素"。
+
 - **拒绝任何容器形状**：圆形 / 圆角矩形 ghost 按钮均被否。定稿 =「干净青色裸箭头」：零 background/border/radius，永远同一个 `chevron-right`，展开时 `rotate(90deg)`（不换图标），`var(--t2)` + 静息 `opacity:.55` / hover 1，16px，`padding:6px` 扩热区。**先 grep 仓库既有同类控件**（`.exp-chev`/`.grp-toggle`/`.sb-caret`），自创形状必被否。
 - **`<Icon>` 陷阱**：`Icon.vue` 是手写 `ICONS` 映射，**写错名字静默兜底成齿轮** ⇒ 用前必须确认名字存在。
 
@@ -96,7 +103,7 @@
 P0 7/7；P1 6/6✅（分权 v517+v526｜审批流 v519+v525｜四报表 v506+v507｜对账 v527-v533｜批次追溯 v529-v531｜批量栏 v532）。报表区 33 入口仅 4 真身。P2-4 副驾经营指标 + P2-2a 预警外发已交付(v535)；剩余 促销ROI(端点坏死500)/货架位(零数据)/现金流预测页面化，成本口径待拍板。**卖前三关未过；调拨单生产仍 0 张**。BI 指标唯一源 `erp_db.py:_BI_MEASURES`（口径必须 `soi.amount`）；库存周转唯一源 `get_inventory_turnover`。
 
 ## 编号约定
-已用到v598；下一号v599。🔴 **「改了但用户说没变」第一步先查前端构建号**（v591）：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]` + 「预报 → 修改日志」面板标题旁 `前端 vNNN`。SPA 老标签页**永不重拉 index.html**，部署了也看不到（index.html 已 `no-store`，问题在"不刷新"）。每次发版**手动改这一行**（无 CI 注入）。
+已用到v599；下一号v600。🔴 **「改了但用户说没变」第一步先查前端构建号**（v591）：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]` + 「预报 → 修改日志」面板标题旁 `前端 vNNN`。SPA 老标签页**永不重拉 index.html**，部署了也看不到（index.html 已 `no-store`，问题在"不刷新"）。每次发版**手动改这一行**（无 CI 注入）。
 - 🔴 **编辑态 = 格内即输入框（v592）**：`.cell-input` 去边框/圆角/白底，横向出血 `--cell-pad-h`（舒适 8 / 紧凑 6，**不许写死**，写死 8 在紧凑档外溢 2px）；焦点视觉靠 `.td.selected` 的 2px outline + 青底。表头客户名输入框**保留方框**。手工价/负数/错误态改 `box-shadow:inset` 承接。改单网格数据行 31px 是**既有事实**（旧样式对照同为 31、line-height 归零仍 31），别照行高链结论直接改。起号必读`version-history.md`+实搜两仓`git log --all`+`git worktree list`。v517被双占。并行分叉：先scoped提交→merge origin/main→合并HEAD重建→部署→验「双方标记都在」。改`pages.js`先分清单"路由"还是"门禁"(本项目=门禁唯一源，`ruleFor`未登记path一律放行⇒删占位登记=放宽门禁)v499。前端`roles`窄名单非真保险⇒敏感页必须后端`_admin`双保险(v531先例)。
 
 ## 主体 / 脱敏 / 技能 / 本机坑
