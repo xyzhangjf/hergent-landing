@@ -10456,6 +10456,14 @@ onMounted(async () => {
 /* P1-② 表格去线：去掉表体行分隔线，行区分完全交给斑马纹 + hover（已存在），
    40+ 列大表视觉更透气；表头底线 / 列合计顶线 / 分组头底线保留（结构性分隔）。 */
 .cross-tbl tbody td{padding:7px 7px;white-space:nowrap}
+/* 🔴 v571：本表此前**无视全站密度开关**（设置页「紧凑/舒适」对这一页不生效）。
+   原因不是没写，而是**同分被后者覆盖**：页面 scoped 的 `.cross-tbl tbody td[data-v-x]` = (0,2,2)，
+   全局 `[data-density=compact] table.tbl td` 也是 (0,2,2)；而页面 CSS 属懒加载 chunk、在
+   全球样式表之后注入 ⇒ 恒由 7px 胜出（已在产物里同时确认两条规则存在）。
+   修法：本表**自己**显式声明紧凑档，特异性 (0,3,2) 稳压基础档 ⇒ 不依赖样式表加载顺序。
+   ⚠️ 别改成 `.grid-area .cross-tbl td` 那种"加一层父类"的写法 —— 那同样会把全局紧凑档压死。 */
+[data-density="compact"] .cross-tbl tbody td{padding:4px 7px}
+[data-density="compact"] .cross-tbl thead th{padding:5px 7px}
 .qty-th{text-align:center;min-width:52px}
 .qty-cell{text-align:center;color:var(--t3)}
 .qty-cell.has{color:var(--t1);font-weight:500}
@@ -10705,9 +10713,14 @@ th.sortable:hover{color:var(--p-dark)}
 /* v251：原写死 max-width:200px —— 列宽由 colgroup（拖宽/拖窄）决定，而这条硬上限把
    商品名永远卡在 200px 内，用户拖再宽也显示不全（只能出省略号）。
    现改为 max-width:100% ⇒ 跟着列宽走；表仍是 table-layout:fixed，内容不会反推列宽。 */
-.pname{font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pspec{color:var(--t3);font-size:11px;margin-top:1px}
-.ai-hint{color:var(--p-dark);font-size:11px;margin-top:2px;font-weight:500}
+/* 🔴 v571：只读态行高偏高的**唯一主因**就在这三行 —— 商品名列是「品名 / 规格·单位·人数」两行堆叠，
+   而 line-height 一直**继承 body 的 1.6**（12px→19.2、11px→17.6），再加 td 上下各 7px：
+   单行实测约 52px，比**编辑态**（1 行输入框 26px ⇒ 约 40px）还高 12px —— 只读反而更费屏，违反直觉。
+   收紧到 1.25 / 1.2 并去掉 1px 外边距后：紧凑档约 36px、舒适档约 42px，且与编辑态基本齐平。
+   ⚠️ 别再退回 1.6：这是**行内文本**不是正文段落，1.6 是给长文阅读留的，网格里只会把行撑高。 */
+.pname{font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.25}
+.pspec{color:var(--t3);font-size:11px;margin-top:0;line-height:1.2}
+.ai-hint{color:var(--p-dark);font-size:11px;margin-top:1px;font-weight:500;line-height:1.2}
 .tip-wrap{position:relative;cursor:help;border-bottom:1px dashed var(--bd)}
 .tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg);color:var(--t1);font-size:11px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);white-space:nowrap;z-index:20;box-shadow:var(--shadow-md)}
 .tip b{color:var(--p-dark)}
