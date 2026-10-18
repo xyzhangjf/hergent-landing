@@ -10486,14 +10486,21 @@ onMounted(async () => {
    v575b：紧凑档垂直 padding 3→**2px** ⇒ 数据行 **24px**（Excel 紧凑档量级）。
      两态实测：只读 24 / 编辑 24（差异仅表格取整的 0.5px，肉眼不可见）。 */
 .cross-tbl{--fc-cell:20px}
-.cross-tbl tbody td{padding:7px 7px;white-space:nowrap;line-height:var(--fc-cell)}
+/* 🔴 v577：**垂直 padding 归零，行高紧贴编辑态输入框**。
+   用户三轮反馈「太高」，前两轮只压了紧凑档（25px），但他实际用的是**舒适档 35px**
+   （云端 ui-density=cozy，2026-10-14 设的）⇒ 改的地方不是他看的地方。
+   本次直接以「内容盒 = 输入框高度」为准，不再靠 padding 撑高：
+     · 行高 = `--fc-cell` 20px + 表格分割线 ≈ **21px**，编辑态输入框同为 20px ⇒ 严丝合缝
+     · 密度开关此后**只影响横向留白**（舒适 8px / 紧凑 6px），不再拉开行高
+   ⚠️ 不要再给任一密度档单独加垂直 padding —— 那会重新把两档拉开。 */
+.cross-tbl tbody td{padding:0 8px;white-space:nowrap;line-height:var(--fc-cell)}
 /* 🔴 v571：本表此前**无视全站密度开关**（设置页「紧凑/舒适」对这一页不生效）。
    原因不是没写，而是**同分被后者覆盖**：页面 scoped 的 `.cross-tbl tbody td[data-v-x]` = (0,2,2)，
    全局 `[data-density=compact] table.tbl td` 也是 (0,2,2)；而页面 CSS 属懒加载 chunk、在
    全球样式表之后注入 ⇒ 恒由 7px 胜出（已在产物里同时确认两条规则存在）。
    修法：本表**自己**显式声明紧凑档，特异性 (0,3,2) 稳压基础档 ⇒ 不依赖样式表加载顺序。
    ⚠️ 别改成 `.grid-area .cross-tbl td` 那种"加一层父类"的写法 —— 那同样会把全局紧凑档压死。 */
-[data-density="compact"] .cross-tbl tbody td{padding:2px 7px}
+[data-density="compact"] .cross-tbl tbody td{padding:0 6px}
 [data-density="compact"] .cross-tbl thead th{padding:5px 7px}
 .qty-th{text-align:center;min-width:52px}
 .qty-cell{text-align:center;color:var(--t3)}
@@ -10716,7 +10723,7 @@ th.sortable:hover{color:var(--p-dark)}
 .exp-chev{float:left;cursor:pointer;color:var(--p-dark);width:14px;line-height:1;user-select:none;margin:1px 2px 0 0}
 .cross-tbl td.fc-name>.pspec,
 .cross-tbl td.fc-name>.ai-hint{padding-left:16px}
-.row-ops{position:absolute;top:2px;right:4px;display:none;gap:2px;z-index:5}
+.row-ops{position:absolute;top:1px;right:4px;display:none;gap:2px;z-index:5}
 .cross-tbl tr.data-row:hover .row-ops{display:flex}
 .row-ops .rop{border:none;background:var(--bg3);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;line-height:18px;padding:0 4px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .row-ops .rop:hover{background:var(--p-bg);color:var(--p-dark)}
