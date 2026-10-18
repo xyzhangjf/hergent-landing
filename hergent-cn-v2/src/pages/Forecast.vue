@@ -2321,6 +2321,7 @@ import { useDraft } from '../composables/useDraft.js'
 import { useUndoRedo } from '../composables/useUndoRedo.js'
 import { useForecastApproval } from '../composables/useForecastApproval.js'
 import { useCloudNotes } from '../composables/useCloudNotes.js'
+import { useForecastSnapshot } from '../composables/useForecastSnapshot.js'
 /* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText } from '../utils/arrival.js'
@@ -7811,88 +7812,7 @@ function applyBatch() {
   toast('已对 ' + rows.length + ' 行应用', 'ok')
 }
 
-// P4-8 版本快照对比
-const SNAP_KEY = () => 'forecast_snaps_' + (cross.value.period ? cross.value.period.id : 'default')
-const snaps = ref([])
-const snapCompare = ref(null)
-function loadSnaps() { try { snaps.value = JSON.parse(localStorage.getItem(SNAP_KEY()) || '[]') } catch (e) { snaps.value = [] } }
-async function saveSnap() {
-  const name = (await store.prompt('快照名称：') || '').trim() || ('快照 ' + new Date().toLocaleString())
-  let list = []
-  try { list = JSON.parse(localStorage.getItem(SNAP_KEY()) || '[]') } catch (e) { list = [] }
-  list.push({ name, time: Date.now(), data: clone(cross.value) })
-  localStorage.setItem(SNAP_KEY(), JSON.stringify(list.slice(-10)))
-  loadSnaps(); toast('已保存快照', 'ok')
-}
-function applySnap(name) {
-  const s = snaps.value.find(x => x.name === name); if (!s) return
-  snapshot(); cross.value = clone(s.data); toast('已恢复快照「' + name + '」', 'ok')
-}
-function diffSnap(name) {
-  const s = snaps.value.find(x => x.name === name); if (!s) return
-  snapCompare.value = name
-  const base = {}
-  ;(s.data.rows || []).forEach(r => { base[r.name] = r.qtyByUnit || {} })
-  cross.value.rows.forEach(r => {
-    const b = base[r.name] || {}
-    const d = {}
-    cross.value.units.forEach(u => { const cur = parseInt(r.qtyByUnit[u.name]) || 0; const was = parseInt(b[u.name]) || 0; if (cur !== was) d[u.name] = cur - was })
-    r._diff = d
-  })
-  toast('已对比快照「' + name + '」', 'ok')
-}
-function cellDiff(ri, ui) {
-  const d = cross.value.rows[ri]._diff; if (!d) return 0
-  return d[cross.value.units[ui].name] || 0
-}
-
-// P4-8 补充：快照差异导出 Excel
-function exportDiffXlsx() {
-  if (!snapCompare.value) { toast('请先在快照栏选择对比快照', 'warn'); return }
-  const base = snaps.value.find(s => s.name === snapCompare.value)
-  if (!base) return
-  const units = cross.value.units
-  const baseMap = {}
-  ;(base.data.rows || []).forEach(r => { baseMap[r.name] = r.qtyByUnit || {} })
-  const headers = ['商品', '当前合计', '对比合计', '合计差异']
-  units.forEach(u => headers.push(u.name + '差异'))
-  const data = [headers]
-  cross.value.rows.forEach(r => {
-    const cur = rowSum(r)
-    let was = 0
-    units.forEach(u => { was += parseInt((baseMap[r.name] || {})[u.name]) || 0 })
-    const line = [r.name || '', cur, was, cur - was]
-    units.forEach(u => {
-      const c = parseInt(r.qtyByUnit[u.name]) || 0
-      const w = parseInt((baseMap[r.name] || {})[u.name]) || 0
-      line.push(c - w)
-    })
-    data.push(line)
-  })
-  // 合计行
-  const tot = ['合计', 0, 0, 0]
-  units.forEach(() => tot.push(0))
-  cross.value.rows.forEach(r => {
-    tot[1] += rowSum(r)
-    let was = 0
-    units.forEach(u => { was += parseInt((baseMap[r.name] || {})[u.name]) || 0 })
-    tot[2] += was
-    tot[3] += rowSum(r) - was
-  })
-  units.forEach((u, ui) => {
-    cross.value.rows.forEach(r => {
-      const c = parseInt(r.qtyByUnit[u.name]) || 0
-      const w = parseInt((baseMap[r.name] || {})[u.name]) || 0
-      tot[4 + ui] += c - w
-    })
-  })
-  data.push(tot)
-  const ws = XLSX.utils.aoa_to_sheet(data)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, '差异对比')
-  XLSX.writeFile(wb, `差异对比_${snapCompare.value}.xlsx`)
-  toast('已导出差异 Excel', 'ok')
-}
+// P4-8 版本快照对比：纯逻辑已抽离至 composables/useForecastSnapshot.js（v566）
 
 // P4-9 打印 / PDF
 /* v379（P0·E-13 / G-10）：原实现是**假按钮** —— 裸 `window.print()`，把 428 行 × 30 列
@@ -8282,6 +8202,7 @@ async function loadAccuracy() {
 }
 
 const { subStatus, subBy, subAt, subReason, subOpen, SUB_LABEL, loadSubmission, doSubmit, doApprove, doReject, doRevise } = useForecastApproval(cross)
+const { snaps, snapCompare, loadSnaps, saveSnap, diffSnap, cellDiff, exportDiffXlsx } = useForecastSnapshot(cross, clone)
 
 // P9-5 云端共享批注（多人共享，localStorage 兜底）
 // 云端共享批注 loadCloudNotes / saveCloudNotes 已抽到 src/composables/useCloudNotes.js（唯一实现）
