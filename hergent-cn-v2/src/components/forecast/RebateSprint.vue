@@ -30,7 +30,16 @@ const props = defineProps({
   rows:      { type: Array,   default: () => [] },
   editMode:  { type: Boolean, default: false },
   prodMeta:  { type: Object,  default: () => ({}) },
+  /* v585：`card`（默认，页面顶部那张卡）| `bare`（页脚胶囊悬停浮层里的内容）。
+     bare 只改**外壳**（去外边距/边框/渐变/折叠箭头、常展开），内部结构与数字完全不变
+     —— 同一份模板，避免"两套看板各写一半"的漂移。 */
+  variant:   { type: String,  default: 'card' },
 })
+/* v585：把摘要回传给父级页脚胶囊（SprintChip）。
+   🔴 只回传、不重算：unmet / totalGap / orders / perOrder 全部是本组件已有的 computed，
+      父级不得自己再算一份，否则胶囊与卡片会出现两个数（同屏两把尺子的典型来源）。 */
+const emit = defineEmits(['summary'])
+const isBare = computed(() => props.variant === 'bare')
 
 /* ---- 返利冲刺看板（前置：下单时实时看品牌/商品目标达成、缺口、均单建议） ---- */
 // v116 (L2)：全局默认到货周期（天）—— 规则未单独设到货周期时沿用；可在「目标与返利」设置里改，默认 2 天。
@@ -51,8 +60,10 @@ const rebateRules = ref([])     // 活跃返利目标规则（品牌/商品维�
 const rebateRulesErr = ref('')
 // 冲刺看板折叠态（A2 决策横幅）：默认折叠 —— 结论已由卡片内常显的「决策横幅」承载，明细按需展开。
 // 编辑态自动折叠：同一块 360px 面板同时挡着「改单」进入点与编辑态「保存」，收起它一次缩短两段距离。
-const rebateSprintOpen = ref(false)
-watch(() => props.editMode, (v) => { if (v) rebateSprintOpen.value = false })
+// v585：浮层形态（bare）反过来 —— 用户是主动悬停来"看面板"的，还折叠着等于什么都没看到 ⇒ 常展开；
+//   且不跟随 editMode 收起（改单时正是最需要看缺口的时候）。
+const rebateSprintOpen = ref(isBare.value === true)
+watch(() => props.editMode, (v) => { if (v && !isBare.value) rebateSprintOpen.value = false })
 
 async function loadRebateRules() {
   try {
@@ -166,7 +177,10 @@ const rebateSprint = computed(() => {
   const sprintY = Number(sprintMonth.slice(0, 4))
   const sprintM = Number(sprintMonth.slice(5, 7))
   const rules = (rebateRules.value || []).filter(x => x.is_active !== 0 && ruleCoversMonth(x, sprintY, sprintM))
-  const rows = props.rows || []
+  /* v585：编辑态「删除行」是软删（`_deleted=true`），页面所有合计都走 liveRows 过滤掉它们。
+     本看板此前直接遍历 props.rows ⇒ **删掉一行后「本期预报贡献」不变、缺口纹丝不动**，
+     用户会以为删除没生效，或者以为缺口算错了。与 liveRows 同口径过滤。 */
+  const rows = (props.rows || []).filter(r => !r._deleted)
   const meta = props.prodMeta || {}
   // 到货截止日 → 剩余天数（用于按各品牌到货周期算剩余到货次数）
   const endStr = rebateCampaignEnd.value
@@ -296,6 +310,19 @@ const sprintOverrideNames = computed(() =>
 // 决策横幅（A2）：未达标对象数 —— 唯一实现，模板里不再重复 filter 表达式
 const unmetSprintCount = computed(() => rebateSprint.value.filter(s => s.gap > 0).length)
 
+/* v585：页脚胶囊的摘要 —— 唯一出口。
+   父级（Forecast.vue → SprintChip）只读这里回传的值，**不另算一份**；
+   编辑态改数量会重建 rebateSprint ⇒ 本 computed 重算 ⇒ emit ⇒ 胶囊与面板同一帧一致。 */
+const sprintSummaryOut = computed(() => ({
+  rules: rebateSprint.value.length,
+  unmet: unmetSprintCount.value,
+  totalGap: sprintTotalGap.value,
+  orders: rebateSprintOrders.value,
+  perOrder: sprintTotalGapPerOrder.value,
+  err: rebateRulesErr.value || '',
+}))
+watch(sprintSummaryOut, (v) => emit('summary', v), { immediate: true })
+
 /* v181：1 位小数、整数不带 .0 —— 「时间进度百分比」与「达成率」共用同一格式化，
    保证两者同精度（同屏口径同源，勿各写一套）。 */
 function paceNum(v) {
@@ -395,7 +422,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 </script>
 
 <template>
-    <div v-if="period" class="card sprint-card is-pinned">
+    <div v-if="period" class="card sprint-card is-pinned" :class="{ 'is-bare': isBare }">
       <div class="panel-hd">
         <b><Icon name="bar-chart"/> 返利冲刺看板</b>
         <span class="tag hot">副驾建议</span>
@@ -584,4 +611,16 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
       本组件拿不到 ⇒ 这里必须自带一份，否则告警色会静默丢失（v558 修复）。 */
 .val-ok{color:var(--suc)}
 .val-warn{color:var(--war)}
+
+/* ===== v585：浮层形态（bare）=====
+   只剥「卡片外壳」，内部版式与数字一处不动 —— 浮层里看到的就是同一块看板。
+   🔴 特异性统一写 .sprint-card.is-pinned.is-bare（0,3,0），压过 .is-pinned 那几条（0,2,0）；
+     不依赖书写顺序（scoped 会给两边各追加一个 [data-v]，比值不变）。 */
+.sprint-card.is-pinned.is-bare{margin:0;border:0;border-radius:0;box-shadow:none;background:none}
+/* 折叠箭头在浮层里隐藏：内容是主动悬停唤出的，还留着"再折起来"只会有两种误读
+   （以为浮层没加载完 / 手滑点掉后以为坏了）。 */
+.sprint-card.is-pinned.is-bare .panel-hd .sprint-toggle{display:none}
+.sprint-card.is-pinned.is-bare .panel-hd{padding-bottom:8px}
+/* 决策横幅横向内距归零：浮层自身已有 14px 内距，否则数字右移一截、与明细表左边缘不齐。 */
+.sprint-card.is-pinned.is-bare .sprint-banner{padding:8px 0}
 </style>

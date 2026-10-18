@@ -279,7 +279,7 @@
     <AuditPanel v-if="auditOpen" :period="cross.period" :erp-linked="erpLinked" :record-audit="recordAudit" :num-input="numInput" :go-connect="goConnect" @close="auditOpen = false" @reload="loadCross()" />
 
     <!-- 返利冲刺看板（前置到本期预报顶部：选完期次第一眼即看目标达成/缺口/均单建议；有期次即显示，不绑子视图） -->
-    <RebateSprint v-if="cross.period" :period="cross.period" :rows="cross.rows" :edit-mode="editMode" :prod-meta="prodMeta" />
+    <RebateSprint v-if="cross.period" :period="cross.period" :rows="cross.rows" :edit-mode="editMode" :prod-meta="prodMeta" @summary="onSprintSummary" />
 
     <!-- 本期预报子视图切换：汇总表（交叉表）/ 逐单补录（搜索商品加入草稿） -->
     <!-- Q1：两条填报路径此前无任何场景说明，用户不知该用哪个入口 -->
@@ -695,6 +695,17 @@
             <span class="big">合计(小单位) <b>{{ fmt(cross.grand.qty) }}</b> · 合计(箱) <b>{{ fmtBox(cross.grand.boxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></span>
             <span class="mini">下单金额 <b>¥{{ fmt(cross.grand.amount) }}</b></span>
             <span class="mini">{{ cross.grand.sku }} 个商品 · {{ cross.reportedUnits }} 个报单单元</span>
+            <!-- v585：冲刺胶囊 —— 全屏也常显（本行已在 .grid-area 内，见 v584）。
+                 数字来自看板卡回传的同一份 computed；悬停展开完整看板（向上浮出，不挡表格底部）。
+                 非全屏同样显示：两档同一份 DOM，玩家不必记住"这个信息只有全屏才有"。 -->
+            <SprintChip
+              class="pin-sprint"
+              :summary="sprintSummary"
+              :period="cross.period"
+              :rows="cross.rows"
+              :edit-mode="editMode"
+              :prod-meta="prodMeta"
+            />
           </div>
         </div>
 
@@ -1297,7 +1308,19 @@
                v187 口径自证：同屏有「分销价」主档列，若只写「金额」会被读成分销价×数量；
                本值实为 amountValue 累加 = 最终下单(箱) × 单价(进价/箱)，与「下单金额(进价)」列逐字同源。
                v188：写「合计(小单位)」而非「件」—— editTotalQty 是 Σ报单单元数量，小单位可能是盒/袋/包。 -->
-          <div class="edit-summary">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
+          <div class="edit-summary">
+            <span class="es-txt">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></span>
+            <!-- v585：改单时最需要看的就是缺口 —— 编辑态页脚同样常显冲刺胶囊（全屏改单也可见），
+                 改一个数量，缺口/均单在同一帧更新（同一份 cross.rows 行对象）。 -->
+            <SprintChip
+              class="pin-sprint"
+              :summary="sprintSummary"
+              :period="cross.period"
+              :rows="cross.rows"
+              :edit-mode="editMode"
+              :prod-meta="prodMeta"
+            />
+          </div>
 
           <!-- P8-1 下单说明文档 -->
           <div v-if="suggestBookOpen" class="info-panel">
@@ -2328,6 +2351,8 @@ import ReportMapping from './ReportMapping.vue'
 import AutoPeriodBlock from '../components/forecast/AutoPeriodBlock.vue'
 import ReminderConfig from '../components/forecast/ReminderConfig.vue'
 import TemplateParams from '../components/forecast/TemplateParams.vue'
+/* v585：页脚「返利冲刺胶囊」—— 全屏也常显达成摘要，悬停展开完整看板（组件内自取 summary，不重算数字） */
+import SprintChip from '../components/forecast/SprintChip.vue'
 // v265：商品目标（原侧栏独立页）收进本页当第 4 个页签
 import ProductTarget from './ProductTarget.vue'
 /* v408：列设置菜单的开合与定位上提为**唯一实现**（采购单列表接入齿轮后成为第二个宿主页）。
@@ -8929,6 +8954,10 @@ function openImport() {
 const auditOpen = ref(false)
 const AuditPanel = defineAsyncComponent(() => import('../components/forecast/AuditPanel.vue'))
 const RebateSprint = defineAsyncComponent(() => import('../components/forecast/RebateSprint.vue'))
+/* v585：冲刺看板回传的摘要（未达标数 / 总缺口 / 剩余到货次数 / 均单需报）。
+   页脚胶囊与看板卡共用这一份 ⇒ 两处数字不可能分歧；编辑态改数量时它随 computed 同步变。 */
+const sprintSummary = ref(null)
+function onSprintSummary (v) { sprintSummary.value = v }
 const AllocPanel = defineAsyncComponent(() => import('../components/forecast/AllocPanel.vue'))
 const PeriodOps = defineAsyncComponent(() => import('../components/forecast/PeriodOps.vue'))
 
@@ -10938,6 +10967,9 @@ th.sortable:hover{color:var(--p-dark)}
 .pin .big b{color:var(--p-dark)}
 .pin .mini{font-size:12px;color:var(--t2)}
 .pin .mini b{color:var(--t1)}
+/* v585：冲刺胶囊靠页脚最右。align-self:center 抵消 .pin 的 baseline 对齐 ——
+   胶囊是定高 20px 的 inline-flex，按文字基线对齐会被 Icon 的基线带偏 1~2px。 */
+.pin>.pin-sprint{margin-left:auto;align-self:center}
 /* ===== v584：汇总条（.pin / .edit-summary）移入 .grid-area 内，让全屏也可见 =====
    成因：全屏层 `.grid-area.is-fs{position:fixed;inset:0}` 盖住整个视口，而这两条汇总原先挂在
    `.grid-area` **之外** ⇒ 全屏看表/改单时看不到「下单金额」，必须退出全屏才能核对。
@@ -11322,7 +11354,10 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .tb-toggle:hover{background:var(--bg2)}
 .tb-toggle input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
 .basis-toggle select{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:2px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
-.edit-summary{margin-top:8px;font-size:13px;color:var(--t2)}
+/* v585：编辑态汇总行由纯文本改为「文本 + 右侧冲刺胶囊」两段（flex）。
+   gap 12px 小于只读页脚的 18px：编辑态左侧文案更长，胶囊又要靠右，挤一点更不容易折行。 */
+.edit-summary{margin-top:8px;font-size:13px;color:var(--t2);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.edit-summary>.pin-sprint{margin-left:auto;align-self:center}
 .edit-summary b{color:var(--p-dark);font-size:15px}
 .link-btn{border:none;background:none;color:var(--warn-amber);text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
 
