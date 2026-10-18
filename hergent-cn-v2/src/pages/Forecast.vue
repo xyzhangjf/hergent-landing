@@ -10634,8 +10634,16 @@ th.sortable:hover{color:var(--p-dark)}
 /* 表体全屏按钮：尺寸/图标/颜色/圆角/悬停态与 AI 副驾 .cp-icon-btn 全屏按钮完全对齐 */
 .grid-area{position:relative;display:flex;flex-direction:column;gap:10px}
 .grid-area.is-fs{position:fixed;inset:0;z-index:var(--z-page-fs);background:var(--bg);padding:12px;display:flex;flex-direction:column;gap:10px}
+/* 🔴 v578：全屏态**不再让表体强制撑满**（flex 1 1 ⇒ 0 1 auto）。
+   原 `flex:1 1 auto` 把 `.cross-viewport` 拉到剩余全部高度，而商品行数不足时表格只占
+   内容高度 ⇒ 空白全落在**表体容器内部**，视觉上就是「最后一行与合计之间大幅留白」
+   （实测 30 行 / 900 高视口：viewport 776.6、表格 665.2 ⇒ 容器内空白 110.4px）。
+   改成 `flex:0 1 auto`：
+     · 行少 ⇒ 容器贴合内容，合计紧跟最后一行，余量留在合计**之后**（无参照物，不显眼）
+     · 行多 ⇒ flex-shrink 照常压缩到可用高度并内部滚动，行数上限不受影响
+   ⚠️ 别写成 `flex:0 0 auto` —— 那样行多时**不收缩**，会顶破全屏层、合计被挤到视口外。 */
 .grid-area.is-fs .cross-viewport,
-.grid-area.is-fs .edit-grid-wrap{flex:1 1 auto;min-height:0;max-height:none}
+.grid-area.is-fs .edit-grid-wrap{flex:0 1 auto;min-height:0;max-height:none}
 /* 表体控制条：全屏按钮 + 缩放条整合为一行，置于表体上方（flex 流），与表格主体保持间距、互不遮挡（非全屏/全屏均成立） */
 .grid-ctl-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-height:30px;padding:1px 0}
 .grid-fs-btn{
