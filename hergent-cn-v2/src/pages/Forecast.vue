@@ -1030,10 +1030,7 @@
           <!-- v584：编辑态汇总行从 `.edit-hint` 移进 `.grid-area` 内（同只读态的 `.pin`）——
                全屏层 `position:fixed;inset:0` 会把 grid-area 之外的 `.edit-hint` 整块遮住
                ⇒ 全屏改单时看不到「下单金额」，必须退出全屏才能核对。移入后参与 flex 流即可见。
-               v187 口径自证：同屏有「分销价」主档列，若只写「金额」会被读成分销价×数量；
-               本值实为 amountValue 累加 = 最终下单(箱) × 单价(进价/箱)，与「下单金额(进价)」列逐字同源。
-               v188：写「合计(小单位)」而非「件」—— editTotalQty 是 Σ报单单元数量，小单位可能是盒/袋/包。 -->
-          <div class="edit-summary">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
+               （汇总行本身放在下方分页器之后，见该处注释。） -->
           <!-- ⚠️ v212 两处修正（都是真机探针抓出来的，不是推演出来的）——
                ① 判据从 `selStats` 改成 `selRange`。
                   原写法在**选区里一个数字都没有**时整条不渲染 —— 而「框选一片空格子 → 填同一个数」
@@ -1291,6 +1288,16 @@
             <button class="btn btn-ghost btn-xs" :disabled="curPage>=totalPages-1" @click="pageGo(1)">下一页 →</button>
             <button class="btn btn-ghost btn-xs" @click="pagingOn=false" title="关闭分页，显示全部行">显示全部</button>
           </div>
+
+          <!-- v584：编辑态汇总行从 `.edit-hint` 移进 `.grid-area` 内（同只读态的 `.pin`）——
+               全屏层 `position:fixed;inset:0` 会把 grid-area 之外的 `.edit-hint` 整块遮住
+               ⇒ 全屏改单时看不到「下单金额」，必须退出全屏才能核对。移入后参与 flex 流即可见。
+               位置取「分页器之后、可选面板之前」= 用户所说的「页面最下面这一行」，
+               常显元素里它最后一个（下面的下单说明/库存预警等都是点开才有的面板）。
+               v187 口径自证：同屏有「分销价」主档列，若只写「金额」会被读成分销价×数量；
+               本值实为 amountValue 累加 = 最终下单(箱) × 单价(进价/箱)，与「下单金额(进价)」列逐字同源。
+               v188：写「合计(小单位)」而非「件」—— editTotalQty 是 Σ报单单元数量，小单位可能是盒/袋/包。 -->
+          <div class="edit-summary">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
 
           <!-- P8-1 下单说明文档 -->
           <div v-if="suggestBookOpen" class="info-panel">
