@@ -2785,9 +2785,23 @@ const activeCell = ref({ pid: '', ci: 0 })   // 键盘漫游激活格
 const scrollTop = ref(0)
 const viewportH = ref(600)
 const scrollEl = ref(null)
+/* v581：`viewportH` 的 600 只是占位 —— 虚拟滚动按它决定「这一屏渲染多少行」，
+   初值比真实可视高度小 ⇒ 少渲染，底部留 spacer 空白（用户看到的就是这个）。
+   挂载后补一次实测；分页/切页签重挂组件时同样生效。 */
+onMounted(() => {
+  nextTick(() => { if (scrollEl.value) viewportH.value = scrollEl.value.clientHeight })
+})
 const crossFoot = ref(null)   // 合计底栏（只读交叉表）水平滚动同步
 const editFoot = ref(null)    // 合计底栏（编辑网格）水平滚动同步
-const ROW_H = 34, GRP_H = 30, DET_H = 132
+/* v581：这三个常量是**虚拟滚动的唯一高度依据** —— spacer 的上下占位、渲染窗口的起止行、
+   滚动到某商品时的落点，全按它们累加。一旦与实际渲染高度不符，就会出现
+   「只渲染 N 行 + 表体底部一大片空白」（多算）或「挤成一团、滚动跳行」（少算）。
+   实测（cozy 档、真实产物 CSS、无头 Chrome）：纯品名行 **21px**（--fc-cell 20 + 1px 分割线）、
+   品名下多一行（规格副行 / 系统建议）各 **+13px** ⇒ 34px；分组行 24px、明细行 134px。
+   ⚠️ 旧值 34/30/132 是 v577 把行高从 35 压到 21 **之前**的量级；v577 只改 CSS、没同步这里，
+      导致 700px 视口按 34 算只渲染 29 行，而实际这 29 行仅占 609px ⇒ 91px 空白。
+   改动纪律：再动 `.cross-tbl` 行高，必须同步这四个数（或用 v581 探针复测）。 */
+const ROW_H = 21, GRP_H = 24, DET_H = 134, SUB_H = 13
 const OVER = 8                            // 虚拟滚动上下缓冲行
 const VSCROLL_MIN = 80                    // 行数超过此值才启用虚拟滚动
 const vFocus = { mounted: el => { try { el.focus() } catch (e) {} } }
@@ -3110,6 +3124,17 @@ function riskText(r) {
 }
 function riskCls(r) { return riskText(r) === '正常' ? 'ok' : 'warn' }
 
+/* v581：逐行估算高度 —— 必须与模板里**真正渲染出来的块级子节点**一一对应。
+   品名下可能再叠两行：规格副行（v573 起仅在「规格」「单位」列被隐藏时才出现）
+   与系统建议行（`ai != null`），各占一整行 ⇒ 各 +SUB_H。
+   多算/少算都会让 spacer 高度失真（多算=底部空白，少算=滚动跳行）。 */
+function rowHeightOf (r) {
+  let h = ROW_H
+  if (nameSubline(r)) h += SUB_H
+  if (r.ai != null) h += SUB_H
+  return h
+}
+
 const flatItems = computed(() => {
   const out = []
   let seq = 0
@@ -3117,7 +3142,7 @@ const flatItems = computed(() => {
     if (it.kind === 'group') { out.push({ ...it, h: GRP_H }); continue }
     if (it.r._deleted) continue
     seq++
-    out.push({ ...it, h: ROW_H, seq })
+    out.push({ ...it, h: rowHeightOf(it.r), seq })
     if (expandedRows.value[it.r.product_id]) out.push({ kind: 'detail', r: it.r, gkey: it.gkey, h: DET_H, key: 'det-' + it.r.product_id })
   }
   return out
@@ -8004,6 +8029,14 @@ function toggleGridFullscreen() {
   // v129：全屏层 z-index:1000 会盖住主工具栏，若此时仍开着下拉（面板 fixed/1101、遮罩 1100 都在全屏层之上）
   // 会留一个浮在表体上的孤儿弹层，进出全屏一律先收起。
   _closePopPanes('')
+  /* v581：进出全屏时容器高度是**剧变**（内嵌 max-height:72vh ↔ fixed inset:0）。
+     虚拟滚动的渲染窗口按 `viewportH` 算，若不重测 · 全屏后仍按内嵌高度算 ⇒
+     该渲染的行没渲染、最后一行与合计之间留一片 spacer 空白。
+     滚动位置一并归零：旧 scrollTop 对应的是旧视口下的偏移量。 */
+  nextTick(() => {
+    scrollTop.value = 0
+    if (scrollEl.value) { scrollEl.value.scrollTop = 0; viewportH.value = scrollEl.value.clientHeight }
+  })
 }
 function onFsKey(e) { if (e.key === 'Escape' && gridFullscreen.value) gridFullscreen.value = false }
 onMounted(() => { window.addEventListener('keydown', onFsKey) })
