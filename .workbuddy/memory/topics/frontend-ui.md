@@ -3845,3 +3845,193 @@ Chrome 落到 `chrome-error://chromewebdata/`、`localStorage` 报 "Access is de
 
 
 
+
+
+---
+
+# §MEM-ARCHIVE-v585：从 MEMORY.md 迁出的详情（2026-10-18）
+
+> 原因：MEMORY.md 索引已达 30KB，超过注入上限被截断。
+> 下列原文**逐字保留**（组件抽离五条必检 / scopeId / 全屏层 / 密度开关 / 护栏与探针坑 /
+> 页面真身 / UI 风格 / 表格密度与行高 v571-v583）。索引条目已改为一句话判据 + §vNNN 锚点。
+
+## 🔴 组件抽离必检：模板里的组件引用必须逐个 import（v557 血案）
+- 本项目 **无 `unplugin-vue-components`**（`vite.config.js` 仅 `plugins:[vue()]`），**`main.js` 也不全局注册 Icon 等组件** —— 全仓 72 个文件都是**显式 import**。
+- 抽离子组件时，若模板用了 `<Icon>` 等组件却忘了 `import`，**构建照常通过**（不报错！），但运行时 `resolveComponent` 失败 ⇒ 渲染成空的未知元素 ⇒ **UI 上什么都看不到**。
+- 🔴 判据：构建产物里搜 `_resolveComponent("Icon")` —— **出现即未解析（bug）**；修复后该字符串应消失（改为直接引用导入变量）。
+- 🔴 纪律：抽离/新建 `.vue` 后，**逐个模板组件核对 import**，别只顾 script 里的 helper。护栏只校验 API 锚点+核心函数，**不校验缺失 import** ⇒ 必须人工 grep 复核。
+- 🔴 教训：UI 上"某元素看不见"时，**先确认它是否真的渲染**（组件是否解析），再去调颜色/尺寸 —— 否则就是在给空气调样式（v551-v556 六轮返工根源）。
+
+## 🔴 组件抽离必检（其二）：样式作用域 —— 从 scoped 父组件抽离必须连样式一起搬（v558 血案）
+- **`Forecast.vue` 的 `<style>` 是 `scoped` 的**（曾误判为全局非 scoped，导致 F4 定了「零样式搬迁」的错误决策）。
+- Vue scoped 规则：父的 `data-v-xxx` 属性**只打在子组件根元素上**，内部后代拿不到 ⇒ 父级 scoped 里 `.parent .child[data-v-parent]` 对**子组件内部 DOM 全部不匹配**。
+- 后果形态：抽走 DOM、留下 CSS ⇒ 子组件**只剩根元素样式**（边框/渐变还在 ⇒ 极难察觉），**内部布局/进度条/告警色全部静默失效**。
+- 🔴 判据：抽离后必须在**编译产物**里确认子组件自身 chunk 含其所需样式规则（如 `RebateSprint-*.css` 含 `.sprint-card`），且父 chunk 中对应规则残留 = 0。
+- 🔴 纪律：抽离前先确认父级 `<style>` **是否 scoped** —— `grep -n "<style" <父文件>`；scoped 则样式必须随组件搬。
+- 注：子组件若依赖**全局裸工具类**（如 `.val-ok`/`.val-warn`），需在子组件内自带一份；父级同名裸类**保留**（父模板仍用，scoped 互不影响）。
+
+## 🔴 组件抽离必检（其三）：控制器型子组件 —— 写操作必须 emit 回父级收口（v559 沉淀）
+- 判别：**叶子型**（纯展示/只读表单）可自含；**控制器型**（会写父级网格/共享状态）必须把写操作收口。
+- 反例（v559 抽取中踩到）：子组件 `applyAlloc` 里直接 `row.extraQty = …; props.saveDraftNow()` —— 看似能跑，但父级失去对「网格何时变更 / 何时重拉」的控制 ⇒ 易出现「应用后不刷新」「两处都刷」的幽灵 bug。
+- 🔴 定式：父级保留触发态（`open`）+ 输入（`row`）+ **前置校验**；子组件只负责「拉数据 + 交互 + `emit('applied', payload)`」；父级 `onXxxApplied(payload)` 统一执行写网格 + `saveDraftNow()` + 重拉。同 AuditPanel `emit('reload')` 模式。
+- 🔴 纪律：抽离后必须确认**同一件事只在一处发生**（要么子、要么父），禁止「子改一半、父再改一半」。
+- 工具链（safe-delete）：`rm -rf dist-vNNN` 与护栏 `--build` 的 `emptyDir` 会被批量删除拦截（>50 文件）⇒ 用 `--emptyOutDir false` 或 `mv` 移开。**护栏/构建报失败时先排除 safe-delete 拦截，再当成代码问题。**
+
+## 🔴 组件抽离必检（其四）：区分「专属类」vs「壳层类」，壳层类必须全局化（v560 血案，其二）
+- v558 判据「样式要一起搬」**不够**：只搬专属类（`.alloc-*` / `.close-*`）仍会漏。
+- 子组件模板常同时用两类：**专属类**（本弹窗独有，随组件 scoped 走）+ **壳层类**（`.imp-modal`/`.imp-overlay`/`.imp-hd`/`.imp-x`/`.imp-body`/`.imp-tip`/`.del-modal`/`.del-actions`/`.warn-text`，多个弹窗共用）。
+- 🔴 壳层类原先只在 `Forecast.vue` scoped 里 ⇒ 子组件拿不到 ⇒ 遮罩不定位、头部不布局、警告色不红，**构建不报错、肉眼只觉「怪怪的」**。
+- 🔴 修法：壳层类抽到**入口 chunk 必然加载的全局表** `src/styles/forecast-modal.css`（`main.js` 引入）。**不能靠某个懒加载组件顺带注入**（`ImportPanel.vue` 非 scoped 块曾有一份，但它懒加载 ⇒ 用户没打开过就不存在）。
+- 🔴 判据（产物级）：子组件自身 chunk CSS 含其**专属类**；**入口** chunk CSS 含**壳层类**。两者都要验。
+- 🔴 纪律：新增 forecast 子组件时**不要**把壳层类复制进组件的 scoped，直接用全局那份。
+
+## 🔴 组件抽离必检（其五）：纯逻辑 composable —— 必须 return，且 return 必须在外层作用域（v568→v569 两轮血案）
+- **症状**：进 `预报订单管理—本期预报` 抛 `Cannot destructure property 'snaps' of '(void 0)' as it is undefined`。
+- **根因①（v566/v567）**：抽 composable 时只把代码包进 `export function useXxx(){...}`，**没写 `return`** ⇒ 函数返回 `undefined` ⇒ 父页解构即炸。
+- **根因②（v568 修复无效）**：补 return 时用 Edit，`old_string` 以 `}` 结尾 ⇒ **匹配到的是内层函数的闭合括号**（`exportDiffXlsx`/`syncMoq`/`delScheme`），return 被插进内层，外层仍无 return。只有最后内层函数是单行的（`yoyPct`）才误打误撞正确。
+- 🔴 **判据**：外层 `return {…}` 之后到 EOF，**独立成行的 `}` 必须恰好 1 个**；若为 2 个 = return 嵌在内层函数里。
+- 🔴 **纪律**：① 补 return 后必须确认插入位置作用域，**「编辑成功」≠「位置正确」**；`old_string` 避免以 `}` 收尾。② 护栏 `forecast-split-guard.py` 已加『return 作用域校验』+『解构一致性』，但**静态检查不足以证明运行时安全** ⇒ 必须跑运行时探针 `.workbuddy/tools/composable-return-probe.cjs`（剥 import + 注入 stub + 实际执行六个 composable，断言返回对象且键齐全）。③ **构建通过 / 双侧 md5 / HTTP 200 全都探不到这类错**，只有进页面跑 setup 才暴露 ⇒ 抽 composable 后一律跑探针。
+
+## 🔴 SFC scoped 的 scopeId 由「文件内容」派生（v570）
+- `<style scoped>` 的 `data-v-xxxx` 是**内容哈希**，不是路径哈希 ⇒ **改注释也会变 scopeId**（本次 `data-v-325b432a`→`data-v-29705322`）。
+- 后果：全部 scoped 选择器与 chunk 文件名/hash 一起变 ⇒ 只要动过 SFC（哪怕只改注释），就必须重新构建并部署，否则生产 CSS 与仓库源码 scopeId 不一致。
+- 判据：产物里 `类名\[data-v-[0-9a-f]{8}\]` 的 8 位必须与本次构建一致（旧包残留会给出旧 scopeId）。
+
+## 🔴 全屏层（`.is-fs` fixed inset:0）之外的任何元素全屏时都看不见（v584）
+- 判据：`.grid-area.is-fs{position:fixed;inset:0;z-index:var(--z-page-fs)}` 覆盖整个视口 ⇒ 只有**放在 `.grid-area` 内部**的元素全屏可见。挂在它外面的兄弟节点（如 `.pin` 汇总条、`.edit-hint`）全屏一律被盖住，且**无报错**。
+- 修法优先 **DOM 移动**（一份模板、文案单源），不要 `position:fixed` 提层（要算高度/让位/z-index），也不要复制模板（文案会漂）。
+- 🔴 移动后必做间距补偿：`.grid-area{display:flex;gap:10px}`，gap 与元素自身 `margin-top` **叠加** ⇒ 原 `margin-top:14px` 会变 24px；用 `margin-top:4px` 抵回（10+4=14）。全屏要贴合上一项则 `margin-top:-10px` 抵消 gap。同理 `margin-top:8px`→`6px`。
+- 🔴 探针预期值只能取自**实测**：`getBoundingClientRect().top - prev.bottom` 量的是 border-box，不含自身 padding ⇒ 别把「margin+padding」当间距猜（v584 猜 26 实测 14，假 FAIL）。
+- 「带入编辑网格」按钮在**草稿为空时 disabled**，探针进编辑态要走页头/全屏内「改单」，主管角色还会弹「仍要进入编辑吗？」确认框。
+
+## 🔴 全站密度开关（`data-density`）会被页面 scoped 样式同分打死（v571）
+- 全局只有一份尺寸源：`variables.css` 的 `[data-density="compact"] table.tbl th/td{padding…}`，靠**祖先属性**驱动，页面本该零改动。
+- **但只要页面自己写了 `xx-tbl td{padding:…}`，切紧凑就对这页失效**：scoped 后是 `.xx-tbl tbody td[data-v]` = **(0,2,2)**，与全局 `[data-density=compact] table.tbl td` = **(0,2,2)** **同分**；页面 CSS 属懒加载 chunk、在全局样式表**之后**注入 ⇒ 恒由页面值胜出。实测本期预报 padding 一直是 7px，切到紧凑毫无变化（v571 修）。
+- 🔴 修法：页面**自己显式声明紧凑档** —— `[data-density="compact"] .xx-tbl tbody td{padding:4px 7px}` = (0,3,2) 稳压，**不依赖加载顺序**。
+- ⚠️ 别用「加一层父类」的写法（`.grid-area .xx-tbl td`）去修同名问题 —— 那同样会把全局紧凑档压死。
+- 🔴 **单元格里不重复表格已有列的信息**：商品名列曾把「规格 · 单位 · N 人报」压在品名下第二行，而规格/单位**本就是独立列**（都可隐藏）⇒ 纯冗余、白占一整行。改法：`v-if` 条件渲染，**只在对应列没在渲染时才补显示**；判断依据必须用 `colOrderList`（已含 colVis + 列权限 + 收起空列三重过滤），**不能用 `colVis`** —— 角色无权/空列收起时 colVis 仍为 true，会误判成"已有列"而把信息删光。
+- 🔴 **产物级验证不能 grep 函数名**：minify 会把局部函数改短（`nameSubline`→`rs`）⇒ grep 原名为 0 命中属于**假阴性**。正确做法：grep 稳定的**类名字符串**（如 `pspec`）→ 定位模板渲染处 → 确认 `v-if` 编译形态（`rs(t.r)?(o(),u("div",f5,…)):c("",!0)`）。
+- 🔴 **行内小图标（展开箭头等）绝不能与块级兄弟混排**：`.exp-chev` 若是 `display:inline-block` 的 `<span>`，后面跟块级 `.pname` ⇒ **块级强制换行 ⇒ 图标自占一整行**（实测 +19px，把 37px 撑到 58px）。v571 修了 line-height 后用户仍觉「很高」就是这层没找到。修法：图标改 **`float:left`**，后面的 `.pname` 因 `overflow:hidden` 已是 **BFC、会自动绕开浮动**（无需手动让位，省略号照常）；其余兄弟行（`.pspec`/`.ai-hint`）补 `padding-left:16px` 对齐文字起点。
+- 🔴 **行高主因通常不是 padding，是文本 `line-height` 继承了 body 的 1.6**：网格里两行文案（品名 12px→19.2 + 规格 11px→17.6）+ 上下 padding 14 = **51.8px/行**，比编辑态（单行输入框 26px ⇒ 40px）还高 —— 只读反而更费屏。行内文本收紧到 **1.25 / 1.2** 更合适（1.6 是给正文段落留的）。
+- 🔴 **无登录态量真实行高的方法**：playwright (`channel:'chrome'`) 直接加载 `dist/assets/` 里的**编译产物 CSS** + 手搓最小表结构，`getBoundingClientRect()` 读真实高度。⚠️ scopeId 必须从**目标选择器**（`.xx-tbl tbody td\[data-v-xxxx\]`）里取，**不能取文件里第一个** `data-v-` —— 页面 chunk 混有子组件 scope，取错则页面规则全不生效、量出来全是全局默认值（会得出「改后反而更高」的假结论）。
+- 🔴 手搓 DOM 必须**复刻单元格的全部子节点**（含 `.exp-chev`、badge、`.ai-hint`），漏一个就量不准 —— v571 漏了箭头，量出 37.3px 而线上实际 58.5px，导致误判「已修好」。
+- 🔴 **压行高时，把一整行信息改成「行内角标」是零代价方案**（v574 实测）：`.people-badge` 放进 `.pname` 后，行高 compact 29.3px / cozy 35.3px，与无角标**完全一致**（badge 自身 15px < 行内文本高度）。故「这条信息有用但不想占行高」的正解是 inline chip，不是另起一行。
+- 🔴 网格里信息**只留一处**：`spec`/`unit` 已有独立列时就别再在品名列重复（v573 用 `nameSubline` 按 `colOrderList` 真实可见性兜底，列被隐藏/无权/收起才补）。判断可见性**不能只看 `colVis`** —— 角色无权或「收起空列」时 colVis 仍是 true。
+
+## 🔴 护栏坑：API 锚点统计不分注释（v560）
+- `forecast-split-guard.py` 的 `scan_api_anchors` **不剥注释** ⇒ 注释里写完整 `xxxApi.method` 会被算成一次调用 ⇒ 误报「计数变化 = 重复/遗漏调用」（本次 `forecastApi.closePeriod` 1→2）。
+- 🔴 纪律：**子组件头注释里只写方法名**，不写 `xxxApi.method` 全称。
+- ⚠️ 别改护栏去剥注释：基线是旧口径录的，改口径会让基线失效（会暴露出一堆口径差，如 `productsApi.bulkUpsert` 4→3，全是注释造成的假差异）。要改口径必须**同时重录基线**。
+
+## 🔴 生产探针坑：`ls assets/index-*.css | head -1` 会取到旧残留（v560）
+- 生产目录**从不 `--delete`** ⇒ 累积多个 `index-*.css` / `index-*.js` 历史版本。
+- 🔴 正确做法：先 `grep -o "assets/index-[A-Za-z0-9_-]*\.\(js\|css\)" index.html` 拿**实际引用名**，再查那一个文件。否则会拿着旧文件得出「新功能没上线」的错误结论。
+- 另：`rsync --no-delete` **不是合法参数**（rsync 默认就不删），写了会报用法错误 ⇒ 直接 `rsync -avz` 即可。
+
+## 🔴 产物验证正则必须带 `[data-v-xxx]`（v561）
+- scoped 编译后选择器形如 `.pt-pick-in[data-v-eb15ae12]{width:min(420px,100%)}` ⇒ `grep -o "\.pt-pick-in\{"` **零命中**（会误判"样式没进产物"）。
+- 🔴 正确正则：`类名\[data-v[^{]*\{[^}]*\}`。只有**非 scoped 块**（如 `ImportPanel.vue`、全局 `styles/*.css`）才是裸类名。
+
+## 页面真身速查（标题近似、极易改错文件的一对）
+- **「预报订单管理 → 商品目标 → 新建商品目标」** = `src/pages/ProductTarget.vue`（`/forecast?tab=target` 第 4 页签 ⇒ **无独立 chunk，样式合进 `Forecast-*.css` / JS 合进 `Forecast-*.js`**）。
+- 「目标与返利政策 → 创建商品目标」= `src/components/rebate/TargetFormModal.vue`（+ `ProductTargetForm.vue`）。
+- 两者标题只差一字（「新建」vs「创建」），**动手前先按用户给的路径确认是哪个**。
+
+## UI 风格偏好（🔴 折叠/展开控件，v551-v557 六轮返工沉淀）
+- **拒绝任何容器形状**：圆形（`border-radius:50%`）被否（"圆看上去很奇怪"）、圆角矩形 ghost 按钮（8px + `var(--bg3)` 浅灰底）也被否（"不要圆角矩形"）。
+- **定稿规格（v557，对齐侧边栏 `.sb-caret`）**：只留「干净的青色裸箭头」= 零 `background` / 零 `border` / 零 `border-radius`；**永远同一个 `chevron-right`**，展开时 `rotate(90deg)` 朝下（不切换两个图标）；颜色 `var(--t2)` + 静息 `opacity:.55`（与侧边栏等权）、hover `opacity:1`；尺寸 16px；靠 `padding:6px` 扩点击热区（不产生可见形状）。
+- **对齐仓库既有规范**：`Forecast.vue` `.exp-chev` / `.grp-toggle`、`Settings.vue`、侧栏 `.sb-caret` 全为裸箭头 —— 自创形状必被否，先 grep 现有同类控件再动手。
+- **`<Icon>` 陷阱**：手写 `ICONS` 映射表（`src/components/Icon.vue:33`），**写错名字静默兜底成齿轮**。用前务必在 ICONS 表里确认名字存在。
+
+## 🔴 表格密度 / 行高（v571-v575 四轮沉淀，别再从头调 padding）
+- **判据：行高有几种状态就必须有几个"同一个源"**。本项目 `本期预报` 有**两个表格**（只读汇总 `.cross-tbl`、编辑网格 `.cross-tbl.edit-tbl`），前三轮只改 padding ⇒ 两态各算各的：只读吃**继承的 body line-height**（20.8px），编辑吃 `.cell-input` 的 height（26px，又被全局紧凑档压成 24px）⇒ 永远差 2.7px 且都偏高。
+- **定式（v575→v577）**：`.cross-tbl{--fc-cell:20px}` 作**唯一源**，`td` 的 `line-height` / `.pname` / `.cell-input` / `.cell-ro` 全取 `var(--fc-cell)`。**v577 起垂直 padding 归零** ⇒ 行高 = 20px + 分割线 = **21px**，与编辑态输入框严丝合缝；密度开关只影响横向留白（cozy 8px / compact 6px），不再靠 padding 撑行高。
+- 🔴🔴 **改行高/密度前先查「用户在哪一档」**：`tenant_1.db:ui_col_prefs WHERE page='ui-density'` = `{"density":"cozy"}`（用户 2026-10-14 设的，一直没改）。v571/v575 压的都是 compact，用户看的是 cozy 35px ⇒ 两次自测"已达标"、用户两次说"还是太高"。**自测样本 ≠ 用户实际场景**（与 v571 漏 `.exp-chev` 同族）。查库用 scp 脚本跑（服务器无 sqlite3 CLI）。
+- **特异性坑**：全局 `[data-density=compact] table.tbl input{height:24px}` = (0,2,2)，页面 `.cell-input[data-v]` = (0,2,0) **会输**。页面要赢必须带 `.cross-tbl` 前缀（→(0,3,0)）。
+- **行内角标对齐**：`vertical-align:1px`（相对基线上移）会让 15px 的 inline-flex 把行盒顶到 20.4px ⇒ 整行 +1px；改 `middle` 才能"有无角标同高"。**行内角标是压行高的零代价方案**（替代独立一行）。
+- **探针纪律**：产物必须按 **mtime** 取最新（`.sort().pop()` 按字典序会取到旧 hash，改完测出来数字一样 = 假阴性）；探针构造的 `<table>` 也要带 `data-v-xxx`，否则 `.cross-tbl[data-v]{--fc-cell}` 不生效、变量静默回退。**复刻 scoped 结构时「每个带 class 的容器」都要加 `data-v-xxx`**（v578：只给 table 加 ⇒ `.grid-area.is-fs` 不匹配，量出 display:block/height:712 的未套样式布局，差点误判"全屏规则没生效"）。
+- **全屏表体高度（v578）**：`.grid-area.is-fs .cross-viewport{flex:0 1 auto}`，**不要 `flex:1 1 auto`** —— 撑满会让行数不足时的空白全部堆在「最后一行与合计之间」（实测 30 行/900 高：容器 776.6 vs 表 665.2 ⇒ 空白 110px）。`flex:0 0 auto` 更不行（行多不收缩、合计被顶出视口）。
+- **表头行高（v579）**：表头与合计行必须同一条高度链。`th{padding:0 7px}`（留 1px 顶凑齐 22px）+ `line-height:var(--fc-cell)`，并逐项拆掉表头里的"撑高件"：① **列设置齿轮**在全局是 30×30（`styles/col-menu.css`）⇒ 30+16+1=**47px 才是真天花板**；压到 20×20 **还不够**，`inline-flex` 按基线参与行盒仍顶到 26 ⇒ 必须 `display:flex;margin:0 auto`；② 排序箭头 svg `inline-block+vertical-align:middle` 会多顶 2px（`.th-in` 20→22）⇒ `.sort-ind{display:inline-flex;align-items:center;height:12px}`；③ 表头客户名输入框 24→`var(--fc-cell)`。三处缺一不可（只改 padding 停在 38/26）。**定位法：逐列 `display:none` 单独量** —— 全列都在时每列都被行拉伸成同一个值，看不出元凶。
+- **合计栏不能并进表体（v580，结构性硬约束）**：`.col-total-bar` 必须是滚动容器**外**的 `<div>` + 独立表，靠 `--foot-sl` translateX 跟随横向滚动。三重原因：① 表体虚拟滚动（`vs-spacer`/`vsWindow` 只渲染可视窗口行）⇒ `<tfoot>` 位置随 spacer 变；② 表体带 `zoom` + 冻结列 `translateX` ⇒ `sticky;bottom:0` 各浏览器不一致；③ 合计列宽须与表体逐列严格对齐。**只能视觉接合，别改 tfoot**。
+- **视觉接合定式（v580）**：`.cross-viewport+.col-total-bar,.edit-grid-wrap+.col-total-bar{margin-top:-10px}`（抵消 `.grid-area{gap:10px}` 通用节奏，相邻选择器限定不误伤）+ 容器 `border-top:1px` + 去 `box-shadow` + `.col-total td`/`.foot-row td` 的 2px 上边框归零（否则叠成 4px 双线）+ `.cross-tbl tbody` 前缀补 `padding-top:1px`（回 21px）。分隔线**必须画在容器上**（横贯全宽、不随 `--foot-sl` 位移）；画在 td 上会被横向滚动/冻结列反向位移带走 ⇒ 1px 断线。
+- **虚拟滚动高度常量必须与实际行高同步（v581，血案）**：`Forecast.vue` 的 `ROW_H/GRP_H/DET_H/SUB_H` 是 spacer 占位、渲染窗口起止、`scrollToIndex` 落点的**唯一依据**。v577 把行高 35→21 只改了 CSS，常量仍写 34 ⇒ 700px 视口按 34 只算 29 行、实际只占 609px ⇒ **91px 透明 spacer 空白**，表现为"只显示 29 个商品 + 末行与合计之间大片留白"。实测值（cozy/compact 同）：纯品名 **21px**、品名下每多一行块级内容（规格副行 `nameSubline` / 系统建议 `ai`）各 **+13px**、分组行 24、明细行 134。定式：常量对齐实测 + `rowHeightOf(r)` 逐行估算 + `viewportH` **必须实测**（默认 600 只是占位；全屏是 `fixed inset:0` 高度剧变，进出全屏要重测 `clientHeight` 并把 `scrollTop` 归零）。验证工具：`v581-window-math.mjs`（复刻公式，看空白 px）+ `v581-window-dom.mjs`（真实 DOM 插 spacer，看滚动总高误差；旧 −299 → 新 0）。
+- 🔴 **表底浮层（口径说明等）必须锚在「合计栏」自身，不能锚 `.grid-area` 底部**（v582）：全屏 `.grid-area.is-fs` 是 `fixed;inset:0`（高 900），而表体 `flex:0 1 auto` 只占内容高、合计栏停在 y≈223 ⇒ 锚 `.grid-area` 的 `bottom:34px` 会把浮层甩到页面底部（实测差 665px）。且 `.col-total-bar` 原本 `overflow:hidden`（为裁横向位移的合计表）**会把浮层裁掉** ⇒ 裁剪必须下沉内层 `.col-total-vp`，`translateX(var(--foot-sl))` 同步改到 `.col-total-vp>table`（漏改 = 横向同步失效）。合计行里的 ? 入口放**序号格**（`sticky;left:0`）才不会随横向滚动跑掉。
+- **悬停浮层的定式（v583）**：① 触发器与浮层之间有 gap 时，**离开事件必须延迟再收**（220ms），且浮层自身也绑 enter/leave 取消计时 —— 否则鼠标穿过那 6px 浮层就消失，用户没法进去滚动/复制。② 有自定义浮层就**删掉 button 的 `title`**，否则原生黑框与浮层同时弹出。③ 触摸屏没有 hover ⇒ `@click` 也绑 「enter」（退化为点一下展开），**别用 toggle**（hover 已开时点一下反而关掉）。④ 真机验证必须用 `Input.dispatchMouseEvent` 真移鼠标，`dispatchEvent(new MouseEvent('mouseenter'))` 证明不了 hover 链路。
+- **域名**：cn-v2 前端 = **hergent.cn**；`erp.hergent.cn` 是另一套 admin（对 cn-v2 产物 404）。
+
+
+---
+
+## §MEM-ARCHIVE-v603（2026-10-18 从 MEMORY.md 逐字迁入：表格密度/拖动填充/浮层/护栏/UI 风格全文）
+
+## 🔴 表格密度 / 行高（v571-v581 四轮沉淀｜细节全文见 `topics/frontend-ui.md` §MEM-ARCHIVE-v585）
+- **定式**：`.cross-tbl{--fc-cell:20px}` 唯一源（`td` line-height / `.pname` / `.cell-input` / `.cell-ro` 全取它），垂直 padding 归零 ⇒ 行高 21px；密度开关只改横向留白（cozy 8 / compact 6）。
+- 🔴🔴 **改行高/密度前先查用户在哪一档**：`tenant_1.db:ui_col_prefs WHERE page='ui-density'`。v571/v575 压的都是 compact 而用户看 cozy ⇒ 两次自测"已达标"、用户两次说"还是太高"。
+- 🔴 **行高主因通常不是 padding，是 `line-height` 继承 body 1.6**；另两个隐形撑高件：inline 图标后跟块级兄弟（自占一行）、`inline-flex` 按基线顶 2-6px。
+- 🔴 **同分打死**：页面写 `xx-tbl td{padding}` 与全局 `[data-density=compact] table.tbl td` 同为 (0,2,2)，页面 CSS 懒加载后注入 ⇒ 恒页面值胜出（切紧凑无效）。修法：页面**显式声明紧凑档**=(0,3,2)；全局 `input{height:24px}` 同理会压死 `.cell-input[data-v]` ⇒ 页面须带 `.cross-tbl` 前缀。
+- 🔴 **虚拟滚动常量与真实行高同步**：`ROW_H/GRP_H/DET_H/SUB_H` 是 spacer/窗口/`scrollToIndex` 唯一依据；CSS 改了常量没改 ⇒ 算 29 行实占 609px ⇒ 凭空 91px 空白。进出全屏要重测 `viewportH` 并归零 `scrollTop`。
+- **合计栏不能并进表体**：`.col-total-bar` 必须在滚动容器**外**，只能视觉接合；表底浮层必须锚合计栏自身，`overflow:hidden` 下沉到内层视口。
+- **域名**：cn-v2 前端 = **hergent.cn**；`erp.hergent.cn` 是另一套 admin（对 cn-v2 产物 404）。
+
+## 🔴 数字的单位必须跟着口径走（v587｜目标类型分金额/数量两类）
+- 返利目标 `target_type = amount | quantity`；quantity 时目标/达成/贡献/缺口/均单**全是件数**。模板写死 `¥` 就是把量读成额（「¥96,000 / 件」）。**改任何显示数字处都先问：这个数是什么单位。**
+- 定式：`isQtyRow(s)` 单一判定 + `uVal(s,v)`（`¥1,234` / `1,234 件`）+ `uGap(s,v)`（金额型不加符号，保持原观感）。
+- 🔴 **跨口径不能相加**：多条规则可能一条按元一条按件 ⇒ 汇总必须判 `amount|quantity|mixed`，mixed 时**不给金额**、写明"口径不一致、不合并汇总、逐项看明细"，否则会印出元+件的虚构数字。同类隐患：数量型规则的「优先加单」若按金额排序，缺进价品（金额恒 0）会被整条漏掉 ⇒ 排序键必须同口径。
+- 🔴 **真实数据里不存在的分支怎么验**：生产构建已剥离 `__vueParentComponent`，改不了组件状态。正解 = `v587-unit-logic-test.mjs` 式：**从 SFC 源码原文正则抽取真实函数**配真实依赖执行 + 断言模板绑定（不是复制一份实现去测副本）。
+
+## 🔴 拖动填充 / 拖动类交互（v593）
+- 🔴 **「操作成功但看不见」先 `grep` 那个状态量读了几次**：`fillEnd` 只写不读 ⇒ 拖动全程零 DOM 变化。凡是「跟随鼠标」的交互，必须有**一个随状态变化的 DOM 物**（覆盖层/类名），否则等于没做。
+- **覆盖层定位**：绝对定位在**滚动容器内容坐标**（需给容器 `position:relative`），坐标 = 首尾网格 `getBoundingClientRect` 相减 + `scrollLeft/Top`（含 `clientLeft/Top`）。**绝不能累加行高**：密度两档不同 + 表格有 `zoom` 必错位。被筛掉的行 `display:none` 宽高 0 ⇒ 保持上一帧框。
+- 🔴 **覆盖层必须 `pointer-events:none`**：命中判定走 `elementFromPoint`，可命中就永远落在框上 ⇒ 目标不再更新，症状比原来更难查。
+- 拖动期光标定式：`.容器.is-filling *{cursor:crosshair!important}`（否则拖出填充柄即变回文本光标，用户以为拖动已结束）。
+- 收尾：拖一格未移动不弹提示；Esc 取消不写入；松手后把整段范围设为选区（结果自证）；提示要带**行号区间**（`已填充 46 格（第 1→46 行）`，行号 = 序号列显示值 = 下标+1）。
+- 🔴 **线性填充（v596）：只沿主方向铺一行/一列**（用户否掉矩形语义）。`fillAxis` ref 是范围第二唯一源，`fillSpan` 非主轴恒等于源格。方向按**屏幕像素**判（行 31/列 90，按格数比会偏行），起点 10px 内不定向、越过即锁，**只有另一轴 >当前×2 且 >40px 才改向**（45° 逐格交替不锁会抖；L 形仍可改）。非数量列 `canH=false` 锁死纵向（`writeCellVal` 只拦 `ro`，单价会被写脏直入下单金额）。自滚**只滚当前轴**。范围退化成源格 ⇒ 不写不提示。⚠️ 独立「单价」td **没有 `.fill-handle`** ⇒ 拿它当源格会取到上一个选中格的柄，测的是别的东西。
+- 🔴 **拖框选之后表格快捷键全灭**（v597 根因）：`onCellOver` 为结束"正在输入"主动 `blur()` 输入框 ⇒ `activeElement` 变 **BODY**，而快捷键全挂在 `<table @keydown>` ⇒ Ctrl+D/R/C、Delete、方向键**静默无效**（不报错、就是不动）。修法：`onCellUp` 在 `_dragMoved` 时 `focusGrid()`；**单击路径不能补**（会抢掉"单击改一位数字"的落点）。判据：快捷键失效先查 `document.activeElement` 在不在 table 里，别改业务逻辑。
+- **Excel 化五项（v597）**：`Ctrl+R` 向右填充＝Excel 语义「用选区**最左列**填满其右侧」（🔴 必须 `preventDefault`，这键浏览器默认是**刷新**，漏了会刷掉未保存草稿）；双击填充柄＝填到「**已报数量的最后一行**」（不能按"下一行有商品名"——报单表每行都有名 ⇒ 一键铺满全表）；复制蚂蚁线＝4 层 `repeating-linear-gradient` + `background-position` 位移**恰好一个周期**（5 实 + 5 空 = 10px），只在剪贴板**写成功后**才亮、Esc 清框**不清选区**且要排在 `cellTyping` 分支之后；`cleanNumText` 只认「[币符?]数字[单位?]」（`66箱`→66、`¥1,200`→1200、`1.5` 不动、`12箱24瓶` 原样），**`toHalfNum` 一个字不许动**（与后端逐字同源；NFKC 已把 nbsp 折成普通空格 ⇒ 按 `\u00a0` 匹配是死分支）。
+- 🔴 **边缘自动滚动必须与视口取交集**（v594/v595）：`vBottom = min(容器内容底, innerHeight)`、`vRight = min(容器右内界, innerWidth)`。表体 `72vh`，矮窗口下容器下沿跑到视口外（实测 1600×913：容器底 1052 > 913）⇒ 夹取出的 y 在视口外 ⇒ `elementFromPoint` 返回 **null** ⇒ 终点永不更新，症状是「滚是滚了、框不长」。rAF 每帧 4~20px，滚完必须**重新 hit-test 夹取后的坐标**（指针已拖出容器，mousemove 收不到）；松手/Esc 要 `cancelAnimationFrame`；**只有滚动真的发生（值变化）才 hit-test**，否则到底后每帧重复命中同一格会抖。
+- 🔴 **横向填充必须夹进「数量区」，预览框与写入同源**（v595）：拖到右边是合计/加单/单价/金额，`writeCellVal` 对 `edit:'num'` **一律放行**（只拦 `edit:'ro'`）⇒ 横铺会把「客户 A 的 30 箱」写进单价与加单，直接进下单金额。定式 = 单一函数 `fillSpan(a,b)` 同时供 `updateFillBox`/`doFill`/提示用，源列不在数量区就 `c0=c1=源列`（只纵向）。**横向左界 = 冻结列（seq-th + th.frozen）右边界**，不夹会命中 sticky 的商品名列 ⇒ 框长进档案区、松手把一串商品名写成本行名字；`mousemove` 与 rAF 都要过 `safeX()`，只夹横向（纵向命中 null 应「保持上一帧」，别弹回第一行）。横向热区 18px < 纵向 26px（表格 3000+px 宽，纵向拖时指针常离右边缘很近）。
+
+## 🔴 页脚胶囊 / 悬停浮层（v583+v585+v588）
+- **数字只能有一个源**：父级做「摘要胶囊」必须让子组件 `emit('summary')` 回传，**父级不得重算**。挂点选页脚 `.pin`/`.edit-summary`（已在 `.grid-area` 内）⇒ **零全屏专属分支**。
+- **软删行必须过滤**：`cross.rows` 含 `_deleted`，看板/合计须与 `liveRows` 同口径，否则改单删行后缺口纹丝不动。
+- **悬停浮层：点击不做 toggle、`@blur` 别用来关**（hover 已开则点击=收起 ⇒「点一下就没了」；点浮层内元素触发 blur ⇒ 误关）。关闭只靠 移出延迟（220-260ms）/ 点别处 / Esc；触发器与浮层有 gap 时必须延迟 + 浮层自身 enter 取消计时。
+- **浮层定位定式（v588）**：`Teleport + fixed + z-index 1250`（> `--z-page-fs` 1000），锚自身容器会被祖先 `overflow:hidden` 裁掉；**水平居中用 `left:50%+translateX(-50%)`，不要手算 left / 不要贴 `right:12px`**（1080 宽浮层在宽屏贴右，视觉重心明显偏右）；**垂直仍锚触发器**（向上/向下弹）—— 垂直居中会盖住表格主体、hover 链路跨半屏而断。`transform` 会创建 containing block ⇒ 浮层内不得有 `position:fixed/sticky` 子元素。有自定义浮层就**删掉触发器的 `title`**（原生黑框会同时弹）。
+- 真机验证必须 `Input.dispatchMouseEvent` 真移鼠标 + `Input.insertText` 真键入；几何断言用 `getBoundingClientRect` 的 `dCenter/dMargin`（视口中心差、左右边距差），别用截图目测。
+
+## 🔴 护栏与产物校验的坑
+- 🔴 **`v-focus` 类自定义指令「没注册」= 全程静默无效**（v589）：模板 10 处 `v-focus`（`Forecast` 只读列表双击进编辑 / `InvPurchaseNew` / `PurchaseOrderForm` / `ProductCombo`），而全仓**从未 `app.directive('focus')`** ⇒ Vue 只 warn 一句，构建照过、页面照开，症状是"输入框不聚焦/光标停末尾、键入变追加"（原 10 键 7 = 107）。**新增/搬运模板时，凡自定义指令必须在 `main.js` 有对应注册**；关键交互不要只靠指令，`@focus` 内联处理器最可靠。用指令修复后必须**运行时量**（`selectionStart/End`、`document.activeElement`），产物里 grep `resolveDirective` 是假阴性（minify 改短 import 名）。
+- 🔴 **「点击即全选」只能在 click/mouseup 挂载，不能在 mousedown**（v590）：mousedown 里挂 input，随后的 mouseup 会把 `select()` 折叠成光标 ⇒ 看着像"全选没生效"。另：已在编辑同一格时**禁止再给 `editingCell` 赋新对象**（会重渲染、input 重建、光标丢失、第二下点不住）。判据只看 `selectionStart/End` + `focusedInput` + `inputCount===1`，别信截图。**用户说"点击"就是单击**——v589 只做双击，被退回。
+- `forecast-split-guard.py` 的 API 锚点统计**不剥注释** ⇒ 子组件头注释里只写方法名，别写 `xxxApi.method`。⚠️ 别改护栏去剥注释（基线是旧口径录的，改口径必须同时重录基线）。
+- 产物验证正则必须带 `[data-v-xxx]`（`类名\[data-v[^{]*\{[^}]*\}`），裸类名只在非 scoped 块成立；**不能 grep 函数名**（minify 会改短 ⇒ 假阴性），要 grep 稳定的**类名字符串**再定位编译形态。
+
+## 🔴 部署必检：入口依赖闭包（v583 整站白屏血案）
+- **只传「改动的几个 chunk」不够**：新构建的文件名可能与线上那套**完全不同**（实测 190 个闭包文件里 99 个线上没有）⇒ 新 entry 引用的 `Login`/`Shell`/`Forecast` 全 404 ⇒ **整站白屏**，nginx 只给几条 404，极易误判成"没传完"。
+- 定式：`python3 ../.workbuddy/tools/deploy-frontend-closure.py --push`（以 `dist/index.html` 为种子递归解析 → 逐文件 HEAD 校验、自动补传）。**每次部署后必跑，最后才传 `index.html`**。
+- 判据「线上跑谁」= `index.html` 的 entry + **该 entry 接线的 chunk 内容**，不是 `ls assets/index-* | head -1`（会取到旧残留）。双侧 md5 五件套必对。
+- 🔴 `rsync -R dist/./x` **不锚在 dist**，会铺到 `<目标>/dist/…`；用「源文件 → 目标全路径」逐条传。别用 `comm` 比清单（locale 序 ≠ ASCII 序 ⇒ 假缺失）。
+
+## 🔴 Excel 化改单网格（v597-v598｜细节见 `2026-10-18.md`）
+- **Vue 响应式 ↔ WeakMap 基线**：基线用**原始行对象**建、模板里的 `r` 是深层 **Proxy** ⇒ 两者是不同 key，必须 `toRaw()`；否则 `get()` 恒 undefined、判据恒 false、**零报错**（v598 角标一次没亮）。同族：任何「用对象引用当 key」的缓存（WeakMap/Map/Set）都有这个坑。
+- **单值粘贴铺满选区**只在剪贴板 **1×1 且选区>1** 时成立；多行多列必须严格按左上角对齐（拉伸=粘贴后全乱）。写入复用 `batchWrite`，不另写循环。
+- **双击列边界自适应**：表级 `dblclick` 委托 + `th.cellIndex` 映射（`colgroup` 与 `<th>` 同序=唯一权威，别逐处加参数）；`v-show` 隐藏行必须跳过否则宽度被压到 40；客户列表头是 `<input>`，要读 `value` 不是 `textContent`。
+- **改过角标**判据是「当前值 ≠ 基线」而非"被点过"⇒ 改回原值自动消失；基线建在**草稿合并之前**（= 服务端已保存值）。
+- **探针两坑**：CDP 在**视口外坐标**派发鼠标事件**静默无效**（判 `inView`）；`Tab` 跳格触发 `keepCellClear` 横向滚动后**旧坐标全部失效**⇒ 每次操作前重新取坐标。
+
+## 页面真身速查（标题近似、极易改错文件的一对）
+- 「预报订单管理 → 商品目标 → 新建商品目标」= `src/pages/ProductTarget.vue`（`/forecast?tab=target` 第 4 页签 ⇒ **无独立 chunk**，样式合进 `Forecast-*.css`、JS 合进 `Forecast-*.js`）。
+- 「目标与返利政策 → 创建商品目标」= `src/components/rebate/TargetFormModal.vue`（+`ProductTargetForm.vue`）。两者标题只差一字，动手前按用户给的路径确认。
+
+## UI 风格偏好（🔴 折叠/展开控件 v551-v557 六轮返工）
+- **同行控件必须同构**（v599）：「另有 N 个在售商品未显示」曾是一枚 25.2px / 12px / 无边框 / `cursor:auto`
+  的 `<span>`，夹在一排 32px / 13px / 1px 边框 / pointer 的控件（缩放·勾选框·品牌·复制报单）中间 ⇒
+  用户一眼看出"矮一截、像被咬掉一块"。判据：**同一行的控件取 `getBoundingClientRect` 必须顶边差 0、高度差 0**。
+  修法是复用同行基准（`.tb-toggle` 的 32px/13px/1px/radius 8），不要自创新尺寸。
+- 🔴 **带图标+动词文案的徽标会被当成按钮**：凡是"看起来能点"的元素必须有 `role="button"` + `tabindex="0"` +
+  `@click` + `@keydown.enter.space` + `cursor:pointer` + hover 反馈。否则就是"看着像按钮的死元素"。
+
+- **拒绝任何容器形状**：圆形 / 圆角矩形 ghost 按钮均被否。定稿 =「干净青色裸箭头」：零 background/border/radius，永远同一个 `chevron-right`，展开时 `rotate(90deg)`（不换图标），`var(--t2)` + 静息 `opacity:.55` / hover 1，16px，`padding:6px` 扩热区。**先 grep 仓库既有同类控件**（`.exp-chev`/`.grp-toggle`/`.sb-caret`），自创形状必被否。
+- **`<Icon>` 陷阱**：`Icon.vue` 是手写 `ICONS` 映射，**写错名字静默兜底成齿轮** ⇒ 用前必须确认名字存在。
+- 🔴 **图标尺寸只由 CSS 定，`<svg width>` 属性会被覆盖**（v601）：全局 `.ico{16px}`（variables.css:438）胜于组件属性；本页 `.btn svg.ico{14px}` 又把按钮内压到 14px ⇒ 同一行里 16 与 14 并排差 2px，肉眼一眼看出。**同行所有图标必须显式统一到同一个值**（本页基准 14px），量法只能 `getBoundingClientRect().width`。
+- 🔴 **筛选徽标 = 只有文字，不要图标**（v601→v602 定稿）：v601 曾把三枚徽标（另有 N 个未显示 / 已隐藏 N 个零报单 / 已收起 N 个空列）的漏斗换成 `eye-off` 并对齐 14px，用户看过之后仍要求**全部去掉、只留文字**（"状态+撤销动作"不需要图标，同行勾选框也没图标）。随之 `badge-slim`（全屏收成图标形态）**整体废弃** —— 没图标再收就是空框，全屏也常显文案。别再给它们加图标。
+- 🔴 **Esc 放弃本格修改（v602）**：还原源必须是**进格时的原始字段值**（`rawCellVal`），**不能用 `readCellVal`** —— 后者对数量列是 `|| 0`，空格子会被还原成 0（界面 · 变 0，保存真写 0）。判据是「当前值 ≠ 进格前值」，**不能只看 `cellTyping`**：单击进的是导航态（v590 单击即全选），只看它则"单击键入后按 Esc"完全没反应。
+- 🔴 **编辑网格高度不许写死 `72vh`（v602）**：表格上方页头+工具栏+视图行 ≈300px，72vh 按视口算 ⇒ 913 溢出 44、780 溢出 81，横向滚动条与合计栏落到屏幕外（滚轮此刻滚的是表格自己，像"卡住"）。定式 = `innerHeight - vwTop - off - 底部占位`，`off` 用**文档流偏移**（`wrap.top + vw.scrollTop - vwTop`，用视觉 top 会抖）；占位须含 `.sel-stat`（fixed bottom:0）。页面滚动容器是 **`.view-wrap`**（`main.content`/body 都是 overflow:hidden）。

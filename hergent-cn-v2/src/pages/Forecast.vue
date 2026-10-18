@@ -1370,6 +1370,10 @@
               :edit-mode="editMode"
               :prod-meta="prodMeta"
             />
+            <!-- v603：快捷键说明从「表格下方独占一行」挪到页脚这一行的末尾（用户诉求：不要占一行）。
+                 两个收益：① 折叠态不再占一整行，展开态也不再顶起表体（浮层）；
+                           ② 本行在 `.grid-area` 内部 ⇒ **全屏改单时也看得见**（原来在全屏层下被遮住）。 -->
+            <KbdHelp />
           </div>
 
           <!-- P8-1 下单说明文档 -->
@@ -1977,7 +1981,9 @@
         <div v-if="editMode && loadingEdit" class="tbl-state tbl-skeleton" aria-busy="true" aria-label="编辑网格加载中">
           <div class="sk-row" v-for="n in 8" :key="n"><span class="sk-bar" v-for="m in 6" :key="m"></span></div>
         </div>
-        <div v-if="editMode" class="edit-hint">
+        <!-- v603：本块现在只剩「草稿恢复 / 保存失败」两条告示（快捷键说明已挪到页脚）。
+             故判据带上内容存在性 —— 否则无告示时会剩一条空的虚线分隔条（`.edit-hint` 带 border-top）。 -->
+        <div v-if="editMode && (draftRestored || saveFailed)" class="edit-hint">
           <!-- v584：汇总行 `.edit-summary`（含口径自证注释）已移入上方 `.grid-area` 内，
                与只读态的 `.pin` 同一处理，全屏改单时也可见。 -->
           <!-- Q14：如实写明恢复范围，不再笼统称「已恢复未完成数据」（原实现只恢复数量，用户被误导以为全保住了） -->
@@ -1997,27 +2003,8 @@
             <button class="btn btn-xs btn-primary" :disabled="saveDisabled"
                     :title="saveGateHint || (periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '重新提交本次保存'))" @click="saveEdits">重试保存</button>
           </div>
-          <!-- Q28：P5-P7 做了大量能力但埋没，用户只会最笨的逐格手输 -->
-          <div class="kbd-help">
-            <button class="link-btn" @click="toggleKbdHelp">{{ kbdHelpOpen ? '收起快捷键' : '键盘快捷键' }} <Icon :name="kbdHelpOpen ? 'chevron-up' : 'chevron-down'"/></button>
-            <div v-if="kbdHelpOpen" class="kbd-grid">
-              <span><kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴（Excel 区块 / 客户交叉表）</span>
-              <span><kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd> 复制 / 剪切选区</span>
-              <span><kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> 撤销 / 重做</span>
-              <span><kbd>Ctrl</kbd>+<kbd>D</kbd> 向下填充 · <kbd>Ctrl</kbd>+<kbd>R</kbd> 向右填充</span>
-              <span><kbd>Ctrl</kbd>+<kbd>G</kbd> 跳转（输行号 / 商品名 / 客户名）</span>
-              <span>双击单元格右下角小点 = 填到已报数量末行 · 双击列边界 = 列宽自适应</span>
-              <span><kbd>Ctrl</kbd>+<kbd>A</kbd> 全选 · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 选区批量填充</span>
-              <span><kbd>Enter</kbd>/<kbd>Tab</kbd> 下一格（格内按左右键可移动光标改数）</span>
-              <span><kbd>Esc</kbd> 放弃本格修改（还原成进格前的值）· 不在编辑时按 = 取消选中</span>
-              <span><kbd>Home</kbd>/<kbd>End</kbd> 行首 / 行尾 · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> 翻页</span>
-              <span><kbd>Ctrl</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> 跳到本列连续数据首尾</span>
-              <span><kbd>Delete</kbd> 清空选区 · 拖单元格右下角圆点填充</span>
-              <span>左键点行号或只读格 选中整行（按住上下拖动连选）· 左键点表头 选中整列（按住左右拖动连选）</span>
-              <span>行/列选中后 <kbd>Delete</kbd> 清空 · <kbd>Esc</kbd> 取消 · 也可在选中处右键</span>
-              <span>右键：全选 / 复制 / 清空 / 插入删除行列 / 按安全库存补齐</span>
-            </div>
-          </div>
+          <!-- v603：快捷键说明入口已挪到页脚 `.edit-summary`（KbdHelp 组件）——
+               原来在这里独占一行、展开还把表体顶上去，且全屏改单时被全屏层遮住。 -->
         </div>
       </div>
     </div>
@@ -2406,6 +2393,9 @@ import ReminderConfig from '../components/forecast/ReminderConfig.vue'
 import TemplateParams from '../components/forecast/TemplateParams.vue'
 /* v585：页脚「返利冲刺胶囊」—— 全屏也常显达成摘要，悬停展开完整看板（组件内自取 summary，不重算数字） */
 import SprintChip from '../components/forecast/SprintChip.vue'
+/* v603：`<script setup>` 无自动注册 ⇒ 必须显式 import（v557 教训：漏 import 构建照过、
+   运行时渲染成空元素，页面不报错）。 */
+import KbdHelp from '../components/forecast/KbdHelp.vue'
 // v265：商品目标（原侧栏独立页）收进本页当第 4 个页签
 import ProductTarget from './ProductTarget.vue'
 /* v408：列设置菜单的开合与定位上提为**唯一实现**（采购单列表接入齿轮后成为第二个宿主页）。
@@ -3811,7 +3801,8 @@ async function enterEdit() {
   // 编辑网格渲染在交叉表区域内，无论从哪个视图点进来都先切到交叉表视图
   viewMode.value = 'cross'
   editMode.value = true
-  initKbdHelp()          // Q28：首次进入编辑自动展开一次快捷键说明
+  /* v603：快捷键说明的「首次自动展开」改由 KbdHelp 组件在 onMounted 里自己判断
+     （它要等页脚真实可见才弹，页脚在首屏之下时不该弹出一个无主浮层）。 */
   loadingEdit.value = true
   try { await loadEditGrid() } finally { loadingEdit.value = false }
   // 进编辑态即自动跑一次全表校验，让「待修正」角标立即显示，无需手动点「查错」
@@ -4404,18 +4395,9 @@ const saveFailed = ref(null)    // Q26/Q27：{ kind, msg, prodDone, at }
    因此在草稿 watch 里以 1.5s 节流更新（与本地草稿同一次 deep watch，不新增 watcher）。 */
 const errCount = ref(0)
 let _errTimer = null
-// Q28：快捷键说明（首次进入编辑自动展开一次，之后记住用户选择）
-const KBD_HELP_SEEN_KEY = 'forecast_kbd_help_seen'
-const kbdHelpOpen = ref(false)
-function toggleKbdHelp() {
-  kbdHelpOpen.value = !kbdHelpOpen.value
-  try { localStorage.setItem(KBD_HELP_SEEN_KEY, '1') } catch (e) {}
-}
-function initKbdHelp() {
-  let seen = false
-  try { seen = localStorage.getItem(KBD_HELP_SEEN_KEY) === '1' } catch (e) {}
-  kbdHelpOpen.value = !seen
-}
+/* v603：Q28 的快捷键说明状态（kbdHelpOpen / toggleKbdHelp / initKbdHelp / KBD_HELP_SEEN_KEY）
+   已整块迁进 `components/forecast/KbdHelp.vue` —— 入口挂在页脚 `.edit-summary` 内，
+   开合状态与「首次自动展开一次」由该组件自己管，本页不再持有第二份状态。 */
 function colNameOf(ci) {
   if (ci < visibleCols.value.length) return (visibleCols.value[ci] || {}).label || ''
   const ui = ci - visibleCols.value.length
@@ -12463,10 +12445,8 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .save-fail-banner .sf-partial{color:var(--war);font-weight:600}
 .save-fail-banner .sf-msg{color:var(--t2)}
 .save-fail-banner .sf-time{color:var(--t2);opacity:.7}
-/* Q28：快捷键说明面板 */
-.kbd-help{margin-top:6px}
-.kbd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 18px;padding:8px 12px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--t2);line-height:1.9}
-.kbd-grid kbd{display:inline-block;padding:0 5px;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;background:var(--bg);font-family:var(--mono,ui-monospace,monospace);font-size:11px;color:var(--t1)}
+/* Q28：快捷键说明面板 —— v603 已整块迁进 `components/forecast/KbdHelp.vue`
+   （原 `.kbd-help` / `.kbd-grid` 两条规则随之删除：入口不在本页 DOM 里了，留着就是死 CSS）。 */
 
 .panel-hd svg.ico{width:16px;height:16px;vertical-align:-3px;margin-right:5px}
 /* ---- emoji → Icon 组件后的尺寸/对齐统一（设计规范：只用线性 SVG，不用 emoji） ---- */

@@ -31,6 +31,14 @@ const props = defineProps({
 
 // 统一线性图标库（Lucide 风格，24x24 viewBox，currentColor）
 const ICONS = {
+  /* v603：`keyboard`（Lucide keyboard）—— 报单页页脚「快捷键」胶囊。
+     ⚠️ 本表用 `|| ICONS.settings` 兜底 ⇒ 名字写错会静默变齿轮（v453 教训），故在此明确定义。 */
+  keyboard: [
+    'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
+    'M6 8h.01', 'M10 8h.01', 'M14 8h.01', 'M18 8h.01',
+    'M8 12h.01', 'M12 12h.01', 'M16 12h.01',
+    'M7 16h10'
+  ],
   edit: ['M12 20h9', 'M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'],
   /* v453：`pencil`（Lucide pencil）—— 字段旁「行内编辑」的铅笔。
      🔴 为什么必须补：v452-followup（O10）的 `<Icon name="pencil">` **用的图库里没有的名字**
