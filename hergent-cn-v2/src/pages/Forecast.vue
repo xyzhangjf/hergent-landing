@@ -660,6 +660,7 @@
             </table>
           </div>
           <div ref="crossFoot" class="col-total-bar">
+            <div class="col-total-vp">
           <table class="tbl cross-tbl" :style="{ zoom: gridZoom + '%' }">
             <colgroup>
               <col v-for="col in colOrderList" :key="'cfg' + col.key" :style="{ width: colW(col.key) + 'px' }"></col>
@@ -667,7 +668,8 @@
             <tbody>
               <tr class="col-total">
                 <td v-for="(col, ci) in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')">
-                  <template v-if="col.key === 'name'">合计</template>
+                  <template v-if="col.key === 'seq'"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（合计/单价换算口径）" title="口径说明（合计/单价换算口径）" @click="amtNoteOpen=!amtNoteOpen"><Icon name="help-circle" :size="13"/></button></template>
+                  <template v-else-if="col.key === 'name'">合计</template>
                   <template v-else-if="col.type === 'qty'">{{ cross.colTotals[(ci - 1) - visibleCols.length] || '' }}</template>
                   <template v-else-if="col.key === 'qty'">{{ fmt(cross.grand.qty) }}</template>
                   <template v-else-if="col.key === 'boxes'">{{ fmtBox(cross.grand.boxes) }}<span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></template>
@@ -679,9 +681,9 @@
               </tr>
             </tbody>
           </table>
+            </div>
+            <div v-if="amtNoteOpen" class="caliber-pop"><div class="caliber-pop-hd">口径说明（合计/单价换算口径）<span class="caliber-pop-x">再点 ? 收起</span></div>报单金额 = 最终下单数量（箱）× 单价（进价/箱）。<b>单价(进价/箱) = 商品档案的进价</b>（档案里的进价<b>本身就是「元/箱」</b>，不再乘任何换算）；档案进价为空时回退到档案里的历史进价列。<b>每箱数（= 每箱有几个报单单位）</b>取商品档案的单位换算，档案缺则按规格串解析（如「250g*24瓶」=24、纯数字规格「12」=12）。合计(箱) = <b>逐行</b>「报单数量 ÷ 每箱数」，<b>可为小数</b>（如报 3 瓶 ÷ 24 瓶/箱 = 0.125 箱）；最终下单(箱) = <b>合计(箱) 不足一箱按一箱</b>（厂商不拆零发货）<b>+ 加单(箱)</b>。</div>
           </div>
-          <div class="amt-note-toggle" @click="amtNoteOpen=!amtNoteOpen">口径说明（合计/单价换算口径）{{ amtNoteOpen ? ' ▴' : ' ▾' }}</div>
-          <p v-if="amtNoteOpen" class="cross-amt-note">报单金额 = 最终下单数量（箱）× 单价（进价/箱）。<b>单价(进价/箱) = 商品档案的进价</b>（档案里的进价<b>本身就是「元/箱」</b>，不再乘任何换算）；档案进价为空时回退到档案里的历史进价列。<b>每箱数（= 每箱有几个报单单位）</b>取商品档案的单位换算，档案缺则按规格串解析（如「250g*24瓶」=24、纯数字规格「12」=12）。合计(箱) = <b>逐行</b>「报单数量 ÷ 每箱数」，<b>可为小数</b>（如报 3 瓶 ÷ 24 瓶/箱 = 0.125 箱）；最终下单(箱) = <b>合计(箱) 不足一箱按一箱</b>（厂商不拆零发货）<b>+ 加单(箱)</b>。</p>
         </div>
 
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
@@ -984,13 +986,14 @@
                互不相关的表、「合计」与各列的对应关系丢失。这里给它一个可播报的名字，并把它自己的 tbody
                标为行组。⚠️ 没有把 role="rowgroup" 直接加在 <table> 上 —— rowgroup 是 <tbody> 的角色，
                加在 table 上会顶掉表格语义，反而更差。 -->
+            <div class="col-total-vp">
           <table class="tbl cross-tbl edit-tbl" role="table" aria-label="合计行">
             <colgroup>
               <col v-for="(k, i) in editColKeys" :key="'efg' + k + i" :style="{ width: colW(k) + 'px' }"></col>
             </colgroup>
             <tbody role="rowgroup">
               <tr class="foot-row">
-                <td class="seq-cell"></td>
+                <td class="seq-cell"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（下单/单价录入口径）" title="口径说明（下单/单价录入口径）" @click="amtNoteOpen=!amtNoteOpen"><Icon name="help-circle" :size="13"/></button></td>
                 <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')">{{ c.key === 'name' ? '合计' : (c.edit === 'num' ? fmt(foot.masterSum[c.key] || 0) : '') }}</td>
                 <td v-for="(u, ui) in cross.units" :key="'fu' + u.name" class="num calc">{{ fmt(foot.unitSum[ui] || 0) }}</td>
                 <td class="num calc sum">{{ fmt(foot.qty) }}</td>
@@ -1009,9 +1012,9 @@
               </tr>
             </tbody>
           </table>
+            </div>
+            <div v-if="amtNoteOpen" class="caliber-pop"><div class="caliber-pop-hd">口径说明（下单/单价录入口径）<span class="caliber-pop-x">再点 ? 收起</span></div>最终下单(箱) = 合计(箱) <b>不足一箱按一箱</b> + 加单(箱)（厂商不拆零发货）；<b>下单金额(进价) = 最终下单(箱) × 单价(进价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的进价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</div>
           </div>
-          <div class="amt-note-toggle" @click="amtNoteOpen=!amtNoteOpen">口径说明（下单/单价录入口径）{{ amtNoteOpen ? ' ▴' : ' ▾' }}</div>
-          <p v-if="amtNoteOpen" class="cross-amt-note">最终下单(箱) = 合计(箱) <b>不足一箱按一箱</b> + 加单(箱)（厂商不拆零发货）；<b>下单金额(进价) = 最终下单(箱) × 单价(进价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的进价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</p>
           <!-- ⚠️ v212 两处修正（都是真机探针抓出来的，不是推演出来的）——
                ① 判据从 `selStats` 改成 `selRange`。
                   原写法在**选区里一个数字都没有**时整条不渲染 —— 而「框选一片空格子 → 填同一个数」
@@ -10643,15 +10646,26 @@ th.sortable:hover{color:var(--p-dark)}
    ③ 表内 `.col-total td` / `.foot-row td` 自己的 2px 上边框同时降为 0 —— 否则与容器这条
       叠加成 4px 双线，断开感反而更重。
    合计行仍靠 `--bg3` 灰底 + 加粗与数据行区分，不依赖那道线。 */
-.col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:1px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden}
+.col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:1px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%}
+/* v582：横向裁剪下沉到内层 —— 合计栏自身必须 overflow:visible，否则口径说明浮层
+   向上展开时会被它裁掉（浮层以合计栏为定位锚点，bottom:100%）。 */
+.col-total-vp{overflow:hidden;width:100%;min-width:0;max-width:100%}
 .cross-viewport+.col-total-bar,
 .edit-grid-wrap+.col-total-bar{margin-top:-10px}
-.col-total-bar>table{transform:translateX(var(--foot-sl,0));will-change:transform}
-.cross-amt-note{margin:10px 2px 0;font-size:12px;line-height:1.6;color:var(--t3)}
-.amt-note-toggle{display:inline-block;margin:8px 2px 0;font-size:12px;color:var(--p-dark);cursor:pointer;user-select:none}
+.col-total-vp>table{transform:translateX(var(--foot-sl,0));will-change:transform}
+.caliber-q{display:flex;align-items:center;justify-content:center;width:16px;height:16px;padding:0;margin:0 auto;
+  border:0;border-radius:50%;background:none;color:var(--t3);cursor:pointer;vertical-align:middle}
+.caliber-q:hover{color:var(--p-dark);background:var(--bg2)}
+.caliber-q[aria-expanded="true"]{color:var(--p-dark);background:var(--p-bg)}
+.caliber-pop{position:absolute;z-index:30;left:0;right:0;bottom:100%;margin-bottom:6px;padding:10px 12px;max-width:760px;
+  background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius);
+  box-shadow:0 8px 24px rgba(15,23,42,.14);font-size:12px;line-height:1.6;color:var(--t3);
+  max-height:40vh;overflow:auto;overscroll-behavior:contain}
+.caliber-pop b{color:var(--t1)}
+.caliber-pop-hd{font-weight:600;color:var(--t1);margin-bottom:4px;display:flex;align-items:baseline;gap:8px}
+.caliber-pop-x{font-weight:400;font-size:11px;color:var(--t3)}
 /* v247：档案列空值（—）淡显，与数量格空格子同一套语言 */
 .cell-dash{color:var(--t3);opacity:.55}
-.cross-amt-note b{color:var(--t1)}
 .col-total-bar .frozen{background:var(--bg3)}
 /* 表尾「冻结列」反向同步（v176，与序号列冻结同批）：
    表尾是**另一张 table**，靠 `--foot-sl` 整体位移跟随表体（它自己不滚动，所以 sticky 在里面无效）。
