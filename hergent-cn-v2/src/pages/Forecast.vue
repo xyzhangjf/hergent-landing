@@ -2322,6 +2322,9 @@ import { useUndoRedo } from '../composables/useUndoRedo.js'
 import { useForecastApproval } from '../composables/useForecastApproval.js'
 import { useCloudNotes } from '../composables/useCloudNotes.js'
 import { useForecastSnapshot } from '../composables/useForecastSnapshot.js'
+import { useForecastMoq } from '../composables/useForecastMoq.js'
+import { useForecastYoY } from '../composables/useForecastYoY.js'
+import { useForecastSchemes } from '../composables/useForecastSchemes.js'
 /* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText } from '../utils/arrival.js'
@@ -7865,42 +7868,7 @@ function printGrid() {
 }
 
 // P4-10 配方化列方案（租户隔离 + 云端就绪：后端 /api/forecast/column-schemes 下发，localStorage 兜底）
-const SCHEME_KEY = () => 'forecast_col_schemes_' + (auth.user?.id || 'default')
-const schemes = ref([])
-const schemeName = ref('')
-const schemeSaveName = ref('')    // 「保存当前」时输入的新方案名（独立于下拉选中的 schemeName）
-async function loadSchemes() {
-  try {
-    const d = await columnSchemeApi.list()           // 后端随租户配方下发（跨设备同步）
-    if (d && Array.isArray(d.schemes)) { schemes.value = d.schemes; return }  // 后端成功即以云端为准（含空数组）
-  } catch (e) { /* 后端未部署/出错，回退本地 */ }
-  try { schemes.value = JSON.parse(localStorage.getItem(SCHEME_KEY()) || '[]') } catch (e) { schemes.value = [] }
-}
-async function saveScheme() {
-  const n = (schemeSaveName.value || '').trim(); if (!n) { toast('请输入方案名', 'warn'); return }
-  const item = { name: n, order: clone(colOrder.value), vis: clone(colVis.value) }
-  const i = schemes.value.findIndex(x => x.name === n); if (i >= 0) schemes.value[i] = item; else schemes.value.push(item)
-  localStorage.setItem(SCHEME_KEY(), JSON.stringify(schemes.value))   // 本地兜底
-  // 云端同步失败不说成成功：本地已落盘，但换设备/清缓存后会丢，须让用户知道
-  let cloudOk = true
-  try { await columnSchemeApi.save(schemes.value) } catch (e) { cloudOk = false }
-  schemeName.value = n          // 保存后下拉自动选中刚保存的方案
-  schemeSaveName.value = ''     // 清空输入框
-  toast(cloudOk ? '已保存列方案「' + n + '」' : '已存到本地，但云端同步失败（换设备不可用）', cloudOk ? 'ok' : 'warn')
-}
-function applyScheme(name) {
-  const s = schemes.value.find(x => x.name === name); if (!s) return
-  colOrder.value = clone(s.order); colVis.value = clone(s.vis); _persistCols(); toast('已应用方案「' + name + '」', 'ok')
-}
-async function delScheme(name) {
-  if (!name) return
-  schemes.value = schemes.value.filter(x => x.name !== name)
-  localStorage.setItem(SCHEME_KEY(), JSON.stringify(schemes.value)) // 本地兜底
-  if (schemeName.value === name) schemeName.value = ''
-  let cloudOk = true
-  try { await columnSchemeApi.save(schemes.value) } catch (e) { cloudOk = false }
-  toast(cloudOk ? '已删除方案「' + name + '」' : '已删除本地方案，但云端同步失败', cloudOk ? 'ok' : 'warn')
-}
+// 列方案（列顺序/可见性）：纯逻辑已抽离至 composables/useForecastSchemes.js（v567）
 
 /* ===== P5 / P6 / P7 下一代增强（前端交付，零后端风险；P6-8/P7-10 后端就绪） ===== */
 // P5-1 货损联动告警：短保商品订量明显偏高时提示货损风险
@@ -7944,43 +7912,9 @@ async function loadRebatePush() {
 }
 
 // P5-3 MOQ 起订量 + 到货周期（前端 localStorage 配置；行内可编辑，零后端风险）
-const MOQ_KEY = () => 'forecast_moq_' + (auth.user?.id || 'default')
-const moqMap = reactive({})
-function loadMoq() { try { Object.assign(moqMap, JSON.parse(localStorage.getItem(MOQ_KEY()) || '{}')) } catch (e) {} }
-function saveMoq() { localStorage.setItem(MOQ_KEY(), JSON.stringify(moqMap)) }
-function rowMoq(r) { return Number(moqMap[r.product_id]?.moq) || 0 }
-function rowLead(r) { return Number(moqMap[r.product_id]?.lead_days) || 0 }
-function moqWarn(r) { const m = rowMoq(r); return m > 0 && rowSumOf(r) < m ? 'below' : '' }
-const showMoq = ref(false)
-function syncMoq() {
-  cross.value.rows.forEach(r => { if (r.product_id) moqMap[r.product_id] = { moq: Number(r.moq) || 0, lead_days: Number(r.lead_days) || 0 } })
-  saveMoq()
-}
+// MOQ / 到货周期配置：纯逻辑已抽离至 composables/useForecastMoq.js（v567）
 
-// P5-4 季节因子同环比（去年同期基线）
-const yoyOn = ref(false)
-const yoyMap = ref({})
-const yoyPeriodName = ref('')
-async function loadYoY() {
-  const cur = cross.value.period
-  if (!cur || !periods.value.length) { toast('请先选定期次', 'warn'); return }
-  const sorted = [...periods.value].sort((a, b) => (a.order_start || '').localeCompare(b.order_start || ''))
-  const idx = sorted.findIndex(x => Number(x.id) === Number(cur.id))
-  const curStart = cur.order_start || ''
-  const yStart = (curStart.length >= 4 && curStart.slice(0, 4) !== '0000') ? (parseInt(curStart.slice(0, 4)) - 1) + curStart.slice(4) : ''
-  const yoy = yStart ? sorted.find(x => (x.order_start || '').slice(0, 7) === yStart.slice(0, 7)) : null
-  if (!yoy) { toast('无去年同期期次（需同名月份期次）', 'warn'); return }
-  yoyPeriodName.value = yoy.name
-  try {
-    const d = await forecastApproveApi.summary('', yoy.order_start || '', yoy.order_end || '', yoy.id || 0)
-    const m = {}
-    ;(d.rows || []).forEach(r => { const name = r.product_name || r.name; const total = (r.sources || []).reduce((s, x) => s + (parseInt(x.qty) || 0), 0); m[name] = (m[name] || 0) + total })
-    yoyMap.value = m; yoyOn.value = true
-    toast('已载入去年同期「' + yoy.name + '」', 'ok')
-  } catch (e) { toast('去年同期载入失败', 'err') }
-}
-function yoyQty(r) { const v = yoyMap.value[r.name]; return v != null ? v : null }
-function yoyPct(r) { const y = yoyQty(r); if (y == null || y === 0) return null; return Math.round((rowSum(r) - y) / y * 100) }
+// P5-4 季节因子同环比（去年同期基线）：纯逻辑已抽离至 composables/useForecastYoY.js（v567）
 
 // P6-5 提交前 AI 体检（异常行扫描）
 const healthOpen = ref(false)
@@ -8203,6 +8137,9 @@ async function loadAccuracy() {
 
 const { subStatus, subBy, subAt, subReason, subOpen, SUB_LABEL, loadSubmission, doSubmit, doApprove, doReject, doRevise } = useForecastApproval(cross)
 const { snaps, snapCompare, loadSnaps, saveSnap, diffSnap, cellDiff, exportDiffXlsx } = useForecastSnapshot(cross, clone)
+const { showMoq, loadMoq, rowMoq, moqWarn, syncMoq } = useForecastMoq(cross, rowSumOf)
+const { yoyOn, loadYoY, yoyQty, yoyPct } = useForecastYoY(cross, periods)
+const { schemes, schemeName, schemeSaveName, loadSchemes, saveScheme, applyScheme, delScheme } = useForecastSchemes(clone, colOrder, colVis, _persistCols)
 
 // P9-5 云端共享批注（多人共享，localStorage 兜底）
 // 云端共享批注 loadCloudNotes / saveCloudNotes 已抽到 src/composables/useCloudNotes.js（唯一实现）
