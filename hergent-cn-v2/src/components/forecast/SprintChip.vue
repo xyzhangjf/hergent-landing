@@ -68,9 +68,14 @@ function place () {
   /* 页脚通常在视口底部 ⇒ 向上弹；只有页脚跑到视口上半部（页面很短/未滚动）才改为向下弹，
      避免浮层顶出屏幕。maxH 与实际 CSS max-height 同源，判定才准。 */
   const up = r.top > maxH + 16
+  /* v588：水平**居中**（原来贴右 12px，1080 宽在宽屏上明显偏右，看着像"飘在角落"）。
+     垂直方向仍锚在胶囊上（向上/向下弹）—— 若垂直也居中，浮层会盖住表格主体，
+     而且鼠标从页脚胶囊移到浮层要跨越大半个屏幕，hover 交互会断。
+     居中用 left:50% + translateX(-50%)，比手算 left 值更稳（无需知道实际宽度）。 */
+  const base = { left: '50%', transform: 'translateX(-50%)', maxHeight: maxH + 'px' }
   popStyle.value = up
-    ? { right: '12px', bottom: (vh - r.top + 6) + 'px', maxHeight: maxH + 'px' }
-    : { right: '12px', top: (r.bottom + 6) + 'px', maxHeight: maxH + 'px' }
+    ? { ...base, bottom: (vh - r.top + 6) + 'px' }
+    : { ...base, top: (r.bottom + 6) + 'px' }
 }
 
 function cancelClose () { if (closeTimer) { clearTimeout(closeTimer); closeTimer = null } }
@@ -233,7 +238,9 @@ onBeforeUnmount(() => {
 /* 浮层：fixed + Teleport（页脚祖先一旦 overflow:hidden 也不会裁它）。
    z-index 1250 > --z-page-fs(1000) ⇒ 全屏层里同样浮在最上面；仍低于模态遮罩类，不会盖住确认框。 */
 .sprint-pop{
-  position:fixed;z-index:1250;right:12px;
+  position:fixed;z-index:1250;
+  /* v588：水平居中。place() 会写同样的一组值，这里的兜底避免"打开第一帧贴右"的跳动。 */
+  left:50%;transform:translateX(-50%);
   width:min(1080px,calc(100vw - 24px));
   overflow:auto;overscroll-behavior:contain;
   padding:12px 14px;
