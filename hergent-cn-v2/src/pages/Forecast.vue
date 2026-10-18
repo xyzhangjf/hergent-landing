@@ -451,7 +451,7 @@
                   @click="hideZeroReport = false"
                   @keydown.enter.prevent="hideZeroReport = false"
                   @keydown.space.prevent="hideZeroReport = false"
-            ><Icon name="filter" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
+            ><Icon name="eye-off" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
             <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
@@ -463,7 +463,7 @@
                   @click="showEmptyCols = true"
                   @keydown.enter.prevent="showEmptyCols = true"
                   @keydown.space.prevent="showEmptyCols = true"
-            ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
+            ><Icon name="eye-off" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
             <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter filter-act"
@@ -473,7 +473,7 @@
                   @click="showAllProducts = true"
                   @keydown.enter.prevent="showAllProducts = true"
                   @keydown.space.prevent="showAllProducts = true"
-            ><Icon name="filter" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
+            ><Icon name="eye-off" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -740,7 +740,7 @@
                   @click="hideZeroReport = false"
                   @keydown.enter.prevent="hideZeroReport = false"
                   @keydown.space.prevent="hideZeroReport = false"
-            ><Icon name="filter" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
+            ><Icon name="eye-off" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
             <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
@@ -752,7 +752,7 @@
                   @click="showEmptyCols = true"
                   @keydown.enter.prevent="showEmptyCols = true"
                   @keydown.space.prevent="showEmptyCols = true"
-            ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
+            ><Icon name="eye-off" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
             <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter filter-act"
@@ -762,7 +762,7 @@
                   @click="showAllProducts = true"
                   @keydown.enter.prevent="showAllProducts = true"
                   @keydown.space.prevent="showAllProducts = true"
-            ><Icon name="filter" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
+            ><Icon name="eye-off" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -11255,6 +11255,14 @@ onMounted(async () => {
   transition:background .15s;
 }
 .confirm-badge.filter.filter-act:hover{background:var(--bg2)}
+/* v601：三个徽标的图标与右侧「品牌」按钮**撞图**（都是漏斗 filter），而且尺寸不一样
+   —— 全局 `.ico` 是 16px，而本页 `.btn svg.ico` 被压到 14px，两个并排差 2px，一眼看出。
+   ① 换 `eye-off`：漏斗=「去设筛选」，eye-off=「有东西被藏起来了，点一下显形」，
+      正好是这三个徽标的真实语义（已隐藏零报单 / 已收起空列 / 另有未显示），
+      与旁边的「品牌」漏斗彻底分开；
+   ② 尺寸对齐 `.btn svg.ico` 的 14px，一行里所有图标同高（本页图标基准见 .btn/.rop/.grp-toggle）。
+   ⚠️ 6 处模板（只读 + 改单各 3 个）必须同步，产物里 `eye-off` 出现 6 次可核。 */
+.confirm-badge.filter.filter-act svg.ico{width:14px;height:14px}
 /* P0-1 工具栏语义分隔条（筛选/数据/编辑/AI/设置 五簇） */
 .tb-sep{display:inline-block;width:1px;height:20px;background:var(--bd);margin:0 5px;flex:0 0 auto;opacity:.65;align-self:center}
 /* P0-2 状态徽标曾独立成行（.tb-status-row 已废弃：现直接挂在 .tb-ctx 段内，紧随期次选择器） */
