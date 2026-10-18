@@ -684,6 +684,18 @@
             </div>
             <div v-if="amtNoteOpen" class="caliber-pop" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave"><div class="caliber-pop-hd">口径说明（合计/单价换算口径）</div>报单金额 = 最终下单数量（箱）× 单价（进价/箱）。<b>单价(进价/箱) = 商品档案的进价</b>（档案里的进价<b>本身就是「元/箱」</b>，不再乘任何换算）；档案进价为空时回退到档案里的历史进价列。<b>每箱数（= 每箱有几个报单单位）</b>取商品档案的单位换算，档案缺则按规格串解析（如「250g*24瓶」=24、纯数字规格「12」=12）。合计(箱) = <b>逐行</b>「报单数量 ÷ 每箱数」，<b>可为小数</b>（如报 3 瓶 ÷ 24 瓶/箱 = 0.125 箱）；最终下单(箱) = <b>合计(箱) 不足一箱按一箱</b>（厂商不拆零发货）<b>+ 加单(箱)</b>。</div>
           </div>
+          <!-- v584：底部汇总条从 `.cross-card` 移进 `.grid-area` 内 ——
+               全屏层是 `position:fixed;inset:0`，之前它作为 grid-area 的**兄弟**被整层遮住
+               ⇒ 全屏下看不到「下单金额」，用户必须退出全屏才能核对金额。
+               放进 grid-area 后参与 flex 流，全屏/非全屏同一份 DOM、同一处文案（不复制）。 -->
+          <div v-if="cross.rows.length" class="pin">
+            <!-- v189：原写「总订量 X 件」——X 是 Σ各报单单元数量（小单位，可能是盒/袋/包），
+                 「件」不对；且同屏没有箱口径，用户无法自证「合计(箱)=合计(小单位)÷规格」。
+                 两个数并列显示，规则错了一眼可见。 -->
+            <span class="big">合计(小单位) <b>{{ fmt(cross.grand.qty) }}</b> · 合计(箱) <b>{{ fmtBox(cross.grand.boxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></span>
+            <span class="mini">下单金额 <b>¥{{ fmt(cross.grand.amount) }}</b></span>
+            <span class="mini">{{ cross.grand.sku }} 个商品 · {{ cross.reportedUnits }} 个报单单元</span>
+          </div>
         </div>
 
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
@@ -1015,6 +1027,13 @@
             </div>
             <div v-if="amtNoteOpen" class="caliber-pop" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave"><div class="caliber-pop-hd">口径说明（下单/单价录入口径）</div>最终下单(箱) = 合计(箱) <b>不足一箱按一箱</b> + 加单(箱)（厂商不拆零发货）；<b>下单金额(进价) = 最终下单(箱) × 单价(进价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的进价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</div>
           </div>
+          <!-- v584：编辑态汇总行从 `.edit-hint` 移进 `.grid-area` 内（同只读态的 `.pin`）——
+               全屏层 `position:fixed;inset:0` 会把 grid-area 之外的 `.edit-hint` 整块遮住
+               ⇒ 全屏改单时看不到「下单金额」，必须退出全屏才能核对。移入后参与 flex 流即可见。
+               v187 口径自证：同屏有「分销价」主档列，若只写「金额」会被读成分销价×数量；
+               本值实为 amountValue 累加 = 最终下单(箱) × 单价(进价/箱)，与「下单金额(进价)」列逐字同源。
+               v188：写「合计(小单位)」而非「件」—— editTotalQty 是 Σ报单单元数量，小单位可能是盒/袋/包。 -->
+          <div class="edit-summary">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
           <!-- ⚠️ v212 两处修正（都是真机探针抓出来的，不是推演出来的）——
                ① 判据从 `selStats` 改成 `selRange`。
                   原写法在**选区里一个数字都没有**时整条不渲染 —— 而「框选一片空格子 → 填同一个数」
@@ -1872,25 +1891,15 @@
           </div>
         </div>
 
-        <div v-if="cross.rows.length && !editMode" class="pin">
-          <!-- v189：原写「总订量 X 件」——X 是 Σ各报单单元数量（小单位，可能是盒/袋/包），
-               「件」不对；且同屏没有箱口径，用户无法自证「合计(箱)=合计(小单位)÷规格」。
-               两个数并列显示，规则错了一眼可见。 -->
-          <span class="big">合计(小单位) <b>{{ fmt(cross.grand.qty) }}</b> · 合计(箱) <b>{{ fmtBox(cross.grand.boxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></span>
-          <span class="mini">下单金额 <b>¥{{ fmt(cross.grand.amount) }}</b></span>
-          <span class="mini">{{ cross.grand.sku }} 个商品 · {{ cross.reportedUnits }} 个报单单元</span>
-        </div>
+        <!-- v584：底部汇总条（.pin）已移入上方的 `.grid-area` 内部，全屏时也可见。 -->
+
         <!-- Q12：进入编辑要拉全量商品主档，原实现期间白屏无反馈 -->
         <div v-if="editMode && loadingEdit" class="tbl-state tbl-skeleton" aria-busy="true" aria-label="编辑网格加载中">
           <div class="sk-row" v-for="n in 8" :key="n"><span class="sk-bar" v-for="m in 6" :key="m"></span></div>
         </div>
         <div v-if="editMode" class="edit-hint">
-          <!-- v187：口径自证 —— 同屏有「分销价」主档列，若只写「金额」会被读成分销价×数量；
-               本值实为 amountValue 累加 = 最终下单(箱) × 单价(进价/箱)，与「下单金额(进价)」列逐字同源。 -->
-          <!-- v188：此处原写「合计 X 件」——但 editTotalQty 是 Σ各报单单元数量（小单位），
-               不是「件」；规格 ≠1 时「件」是错的。随列名一并改为「合计(小单位)」并去掉单位字
-               （小单位可能是盒/袋/包，统一写「件」反而误导；列名已自证）。 -->
-          <div class="edit-summary">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></div>
+          <!-- v584：汇总行 `.edit-summary`（含口径自证注释）已移入上方 `.grid-area` 内，
+               与只读态的 `.pin` 同一处理，全屏改单时也可见。 -->
           <!-- Q14：如实写明恢复范围，不再笼统称「已恢复未完成数据」（原实现只恢复数量，用户被误导以为全保住了） -->
           <div v-if="draftRestored" class="draft-banner">
             <Icon name="alert-triangle"/> 已从本地草稿恢复：数量 <b>{{ (draftRestoreInfo && draftRestoreInfo.qty) || 0 }}</b> 行 ·
@@ -10922,6 +10931,18 @@ th.sortable:hover{color:var(--p-dark)}
 .pin .big b{color:var(--p-dark)}
 .pin .mini{font-size:12px;color:var(--t2)}
 .pin .mini b{color:var(--t1)}
+/* ===== v584：汇总条（.pin / .edit-summary）移入 .grid-area 内，让全屏也可见 =====
+   成因：全屏层 `.grid-area.is-fs{position:fixed;inset:0}` 盖住整个视口，而这两条汇总原先挂在
+   `.grid-area` **之外** ⇒ 全屏看表/改单时看不到「下单金额」，必须退出全屏才能核对。
+   移进 grid-area 后参与 flex 流，同一份 DOM、同一处文案。
+   ⚠️ 间距补偿：grid-area 是 `display:flex;gap:10px`，gap 会与元素自身的 margin-top 叠加 ⇒
+      非全屏间距凭空多 10px。用 margin-top:4px / 6px 抵消回原值（10+4+12=26 = 原 14+12）。 */
+.grid-area>.pin{margin-top:4px}
+.grid-area>.edit-summary{margin-top:6px}
+/* 全屏：汇总条紧贴合计栏下方（与 v580「合计接回表格」同一口径）—— margin -10 抵消 gap，
+   同底色 bg3 连成一整条，不再出现 26px 断口 + 多一条分隔线。 */
+.grid-area.is-fs>.pin,
+.grid-area.is-fs>.edit-summary{margin-top:-10px;padding:6px 8px;border-top:0;background:var(--bg3)}
 
 /* ---- 交叉表编辑模式 ---- */
 .edit-tbl{min-width:100%}
