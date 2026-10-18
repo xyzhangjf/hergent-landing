@@ -843,7 +843,11 @@
               <button class="btn btn-ghost btn-xs" @click="resetColWidths" title="清除本地列宽记忆，恢复默认列宽">重置列宽</button>
             </div>
           </div>
-          <div class="table-wrap edit-grid-wrap" @scroll="onEditScroll">
+          <div class="table-wrap edit-grid-wrap" :class="{ 'is-filling': fillDragging }" @scroll="onEditScroll">
+          <!-- v593：拖动填充的虚线预览框。`pointer-events:none` 是**硬要求** ——
+               拖动的命中判定走 `document.elementFromPoint`，覆盖层一旦可命中就会盖住 td，
+               指针永远「落在框上」⇒ fillEnd 不再更新、拖动看起来完全没反应。 -->
+          <div v-if="fillBox" class="fill-marquee" :style="{ left: fillBox.left + 'px', top: fillBox.top + 'px', width: fillBox.width + 'px', height: fillBox.height + 'px' }"></div>
           <table ref="editTblEl" class="tbl cross-tbl edit-tbl" role="grid" tabindex="-1" :aria-rowcount="cross.rows.length" :aria-colcount="editColKeys.length" :class="{ dragging }" @paste="onPaste" @keydown="onGridKey" @contextmenu.prevent="onTbCtx" :style="{ zoom: gridZoom + '%' }">
             <colgroup>
               <col v-for="(k, i) in editColKeys" :key="'eg' + k + i" :style="{ width: colW(k) + 'px' }"></col>
@@ -5037,8 +5041,18 @@ const selected = ref({ r: -1, c: -1 })
 const cellTyping = ref(false)
 const ctx = ref({ show: false, x: 0, y: 0, top: 0, r: -1, c: -1, type: '', key: '', ui: -1, deletable: false })
 const ctxMenuEl = ref(null)
+/* v593：拖动填充的**实时视觉反馈**。
+   原来 `fillEnd` 只是个普通状态，拖的时候只更新坐标、界面无任何变化 ⇒「已经填成功了但看不见」
+   （用户 2026-10-18）。现在三件一起给：
+     ① `fillDragging`  true 期间在网格上画一个**虚线框**（整段填充范围，随鼠标长大，Excel 同款）；
+     ② 网格内光标强制 `crosshair`（拖出填充柄后不再变回文本光标 ⇒「光标没跟着动」）；
+     ③ 松手后把**填充后的整段范围**设为选区，结果本身也看得见。
+   ⚠️ 框是**绝对定位覆盖层**（放在滚动容器里、随内容滚动），不用逐格加类 ——
+      逐格加类要处理缩放/滚动/虚拟行，且虚线框会断成一格格方块。 */
+const fillStart = ref({ r: -1, c: -1 })
 const fillEnd = ref({ r: -1, c: -1 })
-let _fillStart = null
+const fillDragging = ref(false)
+const fillBox = ref(null)              // { left, top, width, height }，相对滚动容器内容坐标
 const ctxMenuStyle = computed(() => {
   const ww = typeof window !== 'undefined' ? window.innerWidth : 400
   const top = ctx.value.top != null ? ctx.value.top : ctx.value.y
@@ -6567,24 +6581,76 @@ function writeCellVal(r, c, v) {
   if (ck2) { rw[ck2] = (v == null || String(v).trim() === '') ? '' : parseNumInput(v); return true }
   return false
 }
+/* v593：把「填充范围」换算成覆盖层几何。
+   用**首尾两格的真实矩形**求外框，而不是累加行列高度 —— 行高在舒适/紧凑两档不同、
+   表格还有 `zoom`（gridZoom），累加必错位。坐标相对滚动容器内容原点，故覆盖层随滚动自然跟随。 */
+function fillRectOf(r0, c0, r1, c1) {
+  const tbl = editTblEl.value
+  const wrap = tbl && tbl.parentElement
+  if (!tbl || !wrap) return null
+  const a = tbl.querySelector(`td[data-r="${r0}"][data-c="${c0}"]`)
+  const b = tbl.querySelector(`td[data-r="${r1}"][data-c="${c1}"]`)
+  if (!a || !b) return null
+  const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect()
+  /* 被筛选隐藏的行是 `display:none` ⇒ 宽高为 0，此时**保持上一帧的框**（不要闪成左上角一个点）。 */
+  if (!ra.width || !ra.height || !rb.width || !rb.height) return null
+  const wr = wrap.getBoundingClientRect()
+  return {
+    left: ra.left - wr.left - wrap.clientLeft + wrap.scrollLeft,
+    top: ra.top - wr.top - wrap.clientTop + wrap.scrollTop,
+    width: rb.right - ra.left,
+    height: rb.bottom - ra.top
+  }
+}
+function updateFillBox() {
+  if (!fillDragging.value) { fillBox.value = null; return }
+  const a = fillStart.value, b = fillEnd.value
+  if (a.r < 0 || b.r < 0) { fillBox.value = null; return }
+  const box = fillRectOf(Math.min(a.r, b.r), Math.min(a.c, b.c), Math.max(a.r, b.r), Math.max(a.c, b.c))
+  if (box) fillBox.value = box
+}
 function startFill(r, c, e) {
-  _fillStart = { r, c }; fillEnd.value = { r, c }
+  fillStart.value = { r, c }
+  fillEnd.value = { r, c }
+  fillDragging.value = true
+  updateFillBox()
+  const wrap = editTblEl.value && editTblEl.value.parentElement
   const move = (ev) => {
+    /* 指针落在覆盖层上是正常的（pointer-events:none 会让它穿透，这里再兜一层 closest） */
     const el = document.elementFromPoint(ev.clientX, ev.clientY)
     const td = el && el.closest ? el.closest('td[data-r]') : null
     if (td) {
       const dr = parseInt(td.getAttribute('data-r')), dc = parseInt(td.getAttribute('data-c'))
-      if (!isNaN(dr) && !isNaN(dc)) fillEnd.value = { r: dr, c: dc }
+      if (!isNaN(dr) && !isNaN(dc)) {
+        fillEnd.value = { r: dr, c: dc }
+        updateFillBox()
+      }
     }
   }
-  const up = () => {
+  /* 拖动中途滚轮/滚动条改变可视区 ⇒ 框按内容坐标算，不需重算；但缩放后子像素会漂，顺手补一次。 */
+  const onScroll = () => updateFillBox()
+  const finish = (commit) => {
     document.removeEventListener('mousemove', move)
-    document.removeEventListener('mouseup', up)
-    doFill(_fillStart, fillEnd.value)
-    _fillStart = null
+    document.removeEventListener('mouseup', onUp)
+    document.removeEventListener('keydown', onKey)
+    if (wrap) wrap.removeEventListener('scroll', onScroll)
+    const a = fillStart.value, b = fillEnd.value
+    fillDragging.value = false
+    fillBox.value = null
+    fillStart.value = { r: -1, c: -1 }
+    if (!commit) { toast('已取消填充', 'info'); return }
+    /* 只拖了一格（等于没拖动）⇒ 不写、不弹提示 —— 原实现会提示「已填充 1 个单元格」，
+       而那一格本来就是它自己的值，属于**噪音提示**。 */
+    if (a.r === b.r && a.c === b.c) return
+    doFill(a, b)
   }
+  const onUp = () => finish(true)
+  /* Esc 取消（Excel 同款）：拖到一半反悔不必松手也不必承受一次写入 + 撤销。 */
+  const onKey = (ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); finish(false) } }
   document.addEventListener('mousemove', move)
-  document.addEventListener('mouseup', up)
+  document.addEventListener('mouseup', onUp)
+  document.addEventListener('keydown', onKey, true)
+  if (wrap) wrap.addEventListener('scroll', onScroll)
 }
 function doFill(a, b) {
   if (!a) return
@@ -6594,6 +6660,10 @@ function doFill(a, b) {
   const sv = readCellVal(a.r, a.c)
   for (let ri = r0; ri <= r1; ri++)
     for (let ci = c0; ci <= c1; ci++) writeCellVal(ri, ci, sv)
+  /* v593：填完把整段范围留成选区 —— 用户能看到「刚才这几格被改了」，也是撤销前的视觉锚点。 */
+  selAxis.value = 'cell'
+  selRange.value = { r0, c0, r1, c1 }
+  selected.value = { r: r1, c: c1 }
   toast(`已填充 ${(r1 - r0 + 1) * (c1 - c0 + 1)} 个单元格`, 'ok')
 }
 // 批量写入：把活动单元格的值铺到整个选区（Ctrl/Cmd+Enter）
@@ -10737,7 +10807,16 @@ th.sortable:hover{color:var(--p-dark)}
 .col-resizer{position:absolute;top:0;right:-3px;width:9px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
 .col-resizer::after{content:'';position:absolute;right:3px;top:8%;height:84%;width:2px;border-radius:2px;background:var(--resizer-bg)}
 .col-resizer:hover::after,.col-resizer.active::after{background:var(--p)}
-.table-wrap.edit-grid-wrap{flex:1 1 auto;min-height:0;max-height:72vh;overflow:auto;max-width:100%}
+/* v593：`position:relative` 是拖动填充虚线框的**定位基准**（覆盖层是它的绝对定位子元素）。
+   `.fill-handle` 等原本就有的 absolute 元素都挂在 td 上（td 自己 relative）⇒ 不受影响。 */
+.table-wrap.edit-grid-wrap{flex:1 1 auto;min-height:0;max-height:72vh;overflow:auto;max-width:100%;position:relative}
+/* v593：拖动填充的预览框 —— Excel 同款虚线。半透明填充让「哪几格会被改写」一眼可见。
+   🔴 `pointer-events:none` 不可去掉：命中判定用 elementFromPoint，可命中就会吃掉整个拖动。
+   z-index 4：低于冻结列（6）与填充柄（9），高于普通单元格。 */
+.fill-marquee{position:absolute;z-index:4;pointer-events:none;border:1.5px dashed var(--p);background:rgba(6,182,212,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.55)}
+/* v593：拖动期间全网格强制十字光标 —— 原来是「拖出填充柄就变回文本光标/箭头」，
+   用户会以为拖动已结束（原话「光标没有跟着拖动移动」）。 */
+.edit-grid-wrap.is-filling,.edit-grid-wrap.is-filling *{cursor:crosshair !important}
 /* v401：序号列的**基础样式**（列宽 46 / 居中 / 灰字 / 等宽数字）已上提为全站唯一源 —— 见
    src/styles/variables.css 的 table.tbl .seq-th / .seq-cell / .seq-num，页面里别再抄一份。
    本节只保留 **Forecast 特有的宽表横向冻结** 规则（下面几条）。 */
