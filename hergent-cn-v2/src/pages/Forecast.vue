@@ -1091,7 +1091,7 @@
           <!-- v584：编辑态汇总行从 `.edit-hint` 移进 `.grid-area` 内（同只读态的 `.pin`）——
                全屏层 `position:fixed;inset:0` 会把 grid-area 之外的 `.edit-hint` 整块遮住
                ⇒ 全屏改单时看不到「下单金额」，必须退出全屏才能核对。移入后参与 flex 流即可见。
-               （汇总行本身放在下方分页器之后，见该处注释。） -->
+               （v604：分页控件已并进汇总行本身，不再单独占一行。） -->
           <!-- ⚠️ v212 两处修正（都是真机探针抓出来的，不是推演出来的）——
                ① 判据从 `selStats` 改成 `selRange`。
                   原写法在**选区里一个数字都没有**时整条不渲染 —— 而「框选一片空格子 → 填同一个数」
@@ -1343,12 +1343,10 @@
               <li v-for="(it, i) in healthIssues" :key="i" :class="'sev-'+it.sev" @click="jumpToRow(it.ri)"><span class="sev-dot"></span>{{ it.msg }}</li>
             </ul>
           </div>
-          <div v-if="pagingOn" class="pager">
-            <button class="btn btn-ghost btn-xs" :disabled="curPage<=0" @click="pageGo(-1)">← 上一页</button>
-            <span class="pager-info">第 {{ curPage+1 }} / {{ totalPages }} 页 · 每页 {{ pageSize }} 行 · 共 {{ cross.rows.length }} SKU</span>
-            <button class="btn btn-ghost btn-xs" :disabled="curPage>=totalPages-1" @click="pageGo(1)">下一页 →</button>
-            <button class="btn btn-ghost btn-xs" @click="pagingOn=false" title="关闭分页，显示全部行">显示全部</button>
-          </div>
+          <!-- v604：分页控件已并入下方 `.edit-summary` 这一行的最右端（原为表格下方独占一行）。
+               同时删掉「显示全部」：它与表头「显示全部商品」容易被读成同一件事（实为两个维度：
+               前者关分页看全部行，后者把未进本期的商品拉进来）。关分页的入口保留在
+               编辑态工具栏「更多 → 分页模式」，不再在页脚重复放一个。 -->
 
           <!-- v584：编辑态汇总行从 `.edit-hint` 移进 `.grid-area` 内（同只读态的 `.pin`）——
                全屏层 `position:fixed;inset:0` 会把 grid-area 之外的 `.edit-hint` 整块遮住
@@ -1360,20 +1358,33 @@
                v188：写「合计(小单位)」而非「件」—— editTotalQty 是 Σ报单单元数量，小单位可能是盒/袋/包。 -->
           <div class="edit-summary">
             <span class="es-txt">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></span>
-            <!-- v585：改单时最需要看的就是缺口 —— 编辑态页脚同样常显冲刺胶囊（全屏改单也可见），
-                 改一个数量，缺口/均单在同一帧更新（同一份 cross.rows 行对象）。 -->
-            <SprintChip
-              class="pin-sprint"
-              :summary="sprintSummary"
-              :period="cross.period"
-              :rows="cross.rows"
-              :edit-mode="editMode"
-              :prod-meta="prodMeta"
-            />
-            <!-- v603：快捷键说明从「表格下方独占一行」挪到页脚这一行的末尾（用户诉求：不要占一行）。
-                 两个收益：① 折叠态不再占一整行，展开态也不再顶起表体（浮层）；
-                           ② 本行在 `.grid-area` 内部 ⇒ **全屏改单时也看得见**（原来在全屏层下被遮住）。 -->
-            <KbdHelp />
+            <!-- v604：右侧三件（冲刺胶囊 / 快捷键 / 分页）包进同一个 `.es-right` 并给 `margin-left:auto`。
+                 🔴 必须是**容器**上的 auto，不能再用 `.edit-summary>.pin-sprint{margin-left:auto}`：
+                 SprintChip 根元素带 `v-if="show"`（无冲刺数据时整块不渲染）⇒ 推手消失，整行退化成
+                 左对齐、分页离右边界空出 211px（v604 真机量出来的）。容器常显 ⇒ 有没有冲刺都贴右。 -->
+            <div class="es-right">
+              <!-- v585：改单时最需要看的就是缺口 —— 编辑态页脚同样常显冲刺胶囊（全屏改单也可见），
+                   改一个数量，缺口/均单在同一帧更新（同一份 cross.rows 行对象）。 -->
+              <SprintChip
+                class="pin-sprint"
+                :summary="sprintSummary"
+                :period="cross.period"
+                :rows="cross.rows"
+                :edit-mode="editMode"
+                :prod-meta="prodMeta"
+              />
+              <!-- v603：快捷键说明从「表格下方独占一行」挪到页脚这一行的末尾（用户诉求：不要占一行）。
+                   两个收益：① 折叠态不再占一整行，展开态也不再顶起表体（浮层）；
+                             ② 本行在 `.grid-area` 内部 ⇒ **全屏改单时也看得见**（原来在全屏层下被遮住）。 -->
+              <KbdHelp />
+              <!-- v604：分页控件挂在页脚行最右（原「← 上一页 / 第 n 页 / 下一页 → / 显示全部」独占一行）。
+                   页码只留「n / N」，「每页 X 行 · 共 Y SKU」收进 title（页脚已有合计，不必重复长文案）。 -->
+              <div v-if="pagingOn" class="es-pager" :title="'第 ' + (curPage+1) + ' / ' + totalPages + ' 页 · 每页 ' + pageSize + ' 行 · 共 ' + cross.rows.length + ' SKU'">
+                <button class="pg-btn" :disabled="curPage<=0" @click="pageGo(-1)">上一页</button>
+                <span class="pg-info">{{ curPage+1 }} / {{ totalPages }}</span>
+                <button class="pg-btn" :disabled="curPage>=totalPages-1" @click="pageGo(1)">下一页</button>
+              </div>
+            </div>
           </div>
 
           <!-- P8-1 下单说明文档 -->
@@ -4112,7 +4123,8 @@ async function loadEditGrid() {
     loadPtGap().catch(() => {})
     _alertedThisLoad = false
     /* Q7：编辑态默认分页。原实现强制 pagingOn=false → 全量商品主档（428 行）每行渲染
-       约 30 个 input ≈ 1.2 万节点，首屏卡顿、每次输入掉帧。现默认分页（可在分页条切「显示全部」）。 */
+       约 30 个 input ≈ 1.2 万节点，首屏卡顿、每次输入掉帧。现默认分页（v604 起关分页走工具栏
+       「更多 → 分页模式」，页脚不再放「显示全部」按钮）。 */
     pagingOn.value = true; curPage.value = 0; findIdx.value = -1
     /* v201：给「本次编辑」定一个**起点基线**。
        🔴 为什么必须在这里定，而不是等 saveEdits 时才记：原先只在保存成功后才设基线，
@@ -12239,7 +12251,9 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 /* v585：编辑态汇总行由纯文本改为「文本 + 右侧冲刺胶囊」两段（flex）。
    gap 12px 小于只读页脚的 18px：编辑态左侧文案更长，胶囊又要靠右，挤一点更不容易折行。 */
 .edit-summary{margin-top:8px;font-size:13px;color:var(--t2);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-.edit-summary>.pin-sprint{margin-left:auto;align-self:center}
+/* v604：推右交给常显容器 `.es-right`。原来 auto 挂在 `.pin-sprint` 上，而 SprintChip 根带
+   `v-if="show"`（无冲刺数据时不渲染）⇒ 推手会整块消失、整行退化成左对齐（真机实测右侧空 211px）。 */
+.edit-summary>.es-right{margin-left:auto;align-self:center;display:flex;align-items:center;gap:12px;flex-wrap:nowrap}
 .edit-summary b{color:var(--p-dark);font-size:15px}
 .link-btn{border:none;background:none;color:var(--warn-amber);text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
 
@@ -12384,8 +12398,13 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .at-global{margin-top:8px;border-top:1px dashed var(--bd);padding-top:8px}
 .at-global-hd{display:flex;align-items:center;gap:6px;border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px;padding:0;margin-bottom:4px}
 .at-global-hd:hover{color:var(--t1)}
-.pager{display:flex;gap:10px;align-items:center;margin-top:10px;font-size:12px}
-.pager-info{color:var(--t2)}
+/* v604：分页控件并入页脚「合计」行（原 .pager 独占一行，已删）。窄按钮 22px 高，
+   不超过页脚行 24px ⇒ 不会把「合计」那行顶高（v603 量过页脚行高 = 24）。 */
+.es-pager{display:flex;align-items:center;gap:6px;align-self:center;white-space:nowrap}
+.pg-btn{height:22px;padding:0 8px;font-size:12px;line-height:1;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t1);cursor:pointer}
+.pg-btn:hover:not(:disabled){border-color:var(--p);color:var(--p-dark)}
+.pg-btn:disabled{opacity:.45;cursor:not-allowed}
+.pg-info{font-size:12px;color:var(--t2);min-width:46px;text-align:center;font-variant-numeric:tabular-nums}
 /* P8/P9/P10 新增强样式 */
 .rt-badge{cursor:help;font-size:11px;margin-left:2px}
 .rt-badge.stockout{color:var(--sev-risk)}.rt-badge.low{color:var(--sev-warn)}.rt-badge.expiry{color:var(--sev-info)}.rt-badge.expired{color:var(--sev-expired)}
