@@ -596,7 +596,7 @@
                     <template v-if="col.type === 'seq'"><span class="seq-num">{{ it.seq }}</span></template>
                     <template v-else-if="col.type === 'master' && col.key === 'name'">
                       <span class="exp-chev" @click.stop="toggleExpand(it.r.product_id)" :title="isExpanded(it.r.product_id) ? '收起明细' : '展开明细'"><Icon :name="isExpanded(it.r.product_id) ? 'chevron-down' : 'chevron-right'"/></span>
-                      <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span><span v-if="it.r.offArchive" class="oe-badge off-tag" title="这个商品在你的「在售商品档案」里已停用或已删除，但本期数据引用了它。要让它回到档案列表，请到「商品档案」重新启用。">已停用</span></div>
+                      <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span><!-- v574：「N 人报」由原来的独立一行改为品名行尾角标（用户确认这项有用，但不能占行高）。数值 = 本期报这个商品的人数，来自后端 rows.people，前端不自己数。 --><span v-if="it.r.people" class="people-badge" :title="'本期有 ' + it.r.people + ' 人报了该商品'">{{ it.r.people }} 人报</span><span v-if="it.r.offArchive" class="oe-badge off-tag" title="这个商品在你的「在售商品档案」里已停用或已删除，但本期数据引用了它。要让它回到档案列表，请到「商品档案」重新启用。">已停用</span></div>
                       <div v-if="nameSubline(it.r)" class="pspec">{{ nameSubline(it.r) }}</div>
                       <div v-if="it.r.ai != null" class="ai-hint">系统建议 {{ fmt(it.r.ai) }}{{ it.r.unit }}<span v-if="it.r.aiMethod" class="hint">（{{ it.r.aiMethod }}）</span></div>
                       <span v-if="rowWarn(it.r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
@@ -11000,6 +11000,13 @@ th.sortable:hover{color:var(--p-dark)}
 .oe-c3{background:var(--st-approved-bg);color:var(--st-approved-txt)}
 .oe-c4{background:var(--st-revised-bg);color:var(--st-revised-txt)}
 .oe-c5{background:var(--st-submitted-bg);color:var(--st-submitted-txt)}
+/* v574：「N 人报」角标 —— 原先这条信息跟在「规格 · 单位」那一行末尾，随该行一起被删（v573）。
+   用户确认「这项有用」，故回到品名行尾：inline 元素，**不占额外行高**（实测行高不变）。
+   刻意用中性灰而非户头的彩色系 —— 户头是「谁的下单主体」，这个是「几个人报了」，量级不同。
+   ⚠️ 放在 .pname 内（同 .oe-badge 范式）：品名超长时随省略号一起被截断，这是既有行为，不额外处理。 */
+.people-badge{display:inline-flex;align-items:center;height:15px;padding:0 5px;border-radius:999px;
+  font-size:var(--fs-xs);font-weight:400;margin-left:6px;vertical-align:1px;
+  background:var(--bg2);color:var(--t2);white-space:nowrap}
 
 /* v193（既定方案 §五 阶段 0）：无「进行中期次」时的**常驻通告条**。
    配色沿用本页既有的提示级范式（同 .imp-gate / .tag.warn：warn-amber-bg 底 + warn-amber 字），
