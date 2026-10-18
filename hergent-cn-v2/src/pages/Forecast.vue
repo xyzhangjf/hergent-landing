@@ -10677,7 +10677,14 @@ th.sortable:hover{color:var(--p-dark)}
 .cross-tbl tr.data-row.row-error{background:var(--danger-bg)}
 .cross-tbl tr.data-row.row-error .pname{color:var(--danger-txt)}
 .cross-tbl tr.data-row.row-disabled{opacity:.45;filter:grayscale(.6)}
-.exp-chev{cursor:pointer;color:var(--p-dark);display:inline-block;width:14px;user-select:none;margin-right:2px}
+/* v572：展开箭头**不再单独占一行**。
+   原为 display:inline-block 的 span，而紧跟的 .pname 是块级 div ⇒ 块级强制换行，
+   箭头自占一整行，把只读行高从 ~37px 顶到 ~55px（这是「只读比编辑还高」的第二层原因）。
+   改为 float:left：箭头与品名同行（.pname 是 overflow:hidden 的 BFC，会自动绕开浮动，
+   省略号仍正常工作）；.pspec 在浮动下方本就与 16px 无重叠，故补左内边距保持两行左对齐。 */
+.exp-chev{float:left;cursor:pointer;color:var(--p-dark);width:14px;line-height:1;user-select:none;margin:1px 2px 0 0}
+.cross-tbl td.fc-name>.pspec,
+.cross-tbl td.fc-name>.ai-hint{padding-left:16px}
 .row-ops{position:absolute;top:2px;right:4px;display:none;gap:2px;z-index:5}
 .cross-tbl tr.data-row:hover .row-ops{display:flex}
 .row-ops .rop{border:none;background:var(--bg3);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;line-height:18px;padding:0 4px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
