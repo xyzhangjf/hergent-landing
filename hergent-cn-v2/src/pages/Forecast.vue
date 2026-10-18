@@ -607,7 +607,6 @@
                            无权限时**保留角标**（批注本身是事实，tooltip 照旧可看），只是不可点改。 -->
                       <span v-if="rowNote(it.r) && canDo('data', 'update')" class="note-badge" :title="rowNote(it.r)" @click.stop="setRowNote(cross.rows.indexOf(it.r))"><Icon name="message"/></span>
                       <span v-else-if="rowNote(it.r)" class="note-badge" style="cursor:default" :title="rowNote(it.r)"><Icon name="message"/></span>
-                      <span v-if="gapSet.has(it.r.product_id)" class="gap-badge" title="缺批次/到期资料，需补录"><Icon name="alert-triangle"/></span>
                       <span v-if="hsMap[it.r.product_id] !== undefined && hsMap[it.r.product_id] < 60" class="hs-badge" :title="'健康分 ' + hsMap[it.r.product_id] + '（偏低，需补全资料）'"><Icon name="lightbulb"/></span>
                       <span class="row-ops">
                         <button class="rop" @click.stop="viewRow(it.r.product_id)" title="查看/展开明细"><Icon name="search"/></button>
@@ -894,7 +893,6 @@
                       <span v-if="rtBadge(r)" class="rt-badge" :class="rtBadge(r)" :title="rtBadgeTip(r)"><Icon name="bell"/></span>
                       <span v-if="rowNote(r) && canDo('data', 'update')" class="note-badge" :title="rowNote(r)" @click="setRowNote(ri)"><Icon name="message"/></span>
                       <span v-else-if="rowNote(r)" class="note-badge" style="cursor:default" :title="rowNote(r)"><Icon name="message"/></span>
-                      <span v-if="gapSet.has(r.product_id)" class="gap-badge" title="缺批次/到期资料，需补录"><Icon name="alert-triangle"/></span>
                       <span v-if="hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60" class="hs-badge" :title="'健康分 '+hsMap[r.product_id]+'（偏低，需补全资料）'"><Icon name="lightbulb"/></span>
                     </div>
                   </template>
@@ -11337,7 +11335,7 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .bi-num.warn{color:var(--sev-risk)}
 .bi-lbl{font-size:11px;color:var(--t2);margin-top:2px}
 /* P11-P13 第四轮增强样式 */
-.gap-badge{cursor:help;font-size:11px;margin-left:2px}
+/* v576：删掉品名旁的「缺批次/到期」三角角标（入口统一收在「补录批次资料」按钮 + 商品详情） */
 .gap-form{display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap}
 .rolling-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .rolling-chips .on{background:var(--p);color:#fff;border-color:var(--p)}
