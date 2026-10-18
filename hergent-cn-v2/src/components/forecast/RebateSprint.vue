@@ -217,9 +217,12 @@ const rebateSprint = computed(() => {
       if (!match) continue
       const fq = rowFinalQty(r)
       const amt = amountValue(r) || 0
-      if (rule.target_type === 'quantity') contrib += fq
+      const isQty = rule.target_type === 'quantity'
+      if (isQty) contrib += fq
       else contrib += amt
-      products.push({ name: r.name, contrib: amt, qty: fq })
+      /* v587：p.contrib 同时喂「优先加单」排序与建议区文案，必须与规则口径同单位 ——
+         数量型规则若塞金额，会出现「贡献 0 元」被 top 过滤掉、而它其实报了 N 件的情况。 */
+      products.push({ name: r.name, contrib: isQty ? fq : amt, qty: fq, amount: amt })
     }
     // 填报达成：金额型规则取金额，数量型规则取数量
     const av = achvMap.get(`${dim}::${scope}`)
@@ -310,6 +313,30 @@ const sprintOverrideNames = computed(() =>
 // 决策横幅（A2）：未达标对象数 —— 唯一实现，模板里不再重复 filter 表达式
 const unmetSprintCount = computed(() => rebateSprint.value.filter(s => s.gap > 0).length)
 
+/* v587：单位随规则口径走 —— 数量型规则（target_type = 'quantity'）的
+   目标 / 已达成 / 本期贡献 / 缺口 / 建议均单**全是件数**，此前一律印 `¥`
+   ⇒ 目标写成「¥96,000 / 件」、贡献写成「¥120」，读起来是"九万六千元每件"，
+   量与额混在一起无法解读。金额型规则当前是生产唯一形态，所以一直没暴露。
+   统一走下面三个 helper，模板里不再各自写三元表达式（口径只在一处定义）。 */
+const isQtyRow = (s) => !!(s && s.targetType === 'quantity')
+// 带单位的值：金额型「¥1,234」/ 数量型「1,234 件」
+function uVal (s, v) { return isQtyRow(s) ? `${fmt(v)} 件` : `¥${fmt(v)}` }
+// 「距目标还差」列：金额型历来只印数字（保持原样，不动既有观感），数量型补「件」以免读成元
+function uGap (s, v) { return isQtyRow(s) ? `${fmt(v)} 件` : fmt(v) }
+
+/* v587：跨规则的汇总口径。各品牌规则可能一条按金额、一条按数量，
+   把「元」与「件」相加得到的数在任何单位下都不成立 ⇒ 混用时**不给数**，如实说明原因。
+   全同型才汇总，且单位跟着规则口径走。 */
+const sprintUnit = computed(() => {
+  const kinds = new Set(rebateSprint.value.map(s => (s.targetType === 'quantity' ? 'quantity' : 'amount')))
+  if (kinds.size === 0) return 'amount'
+  return kinds.size === 1 ? [...kinds][0] : 'mixed'
+})
+const sprintTotalText = computed(() => sprintUnit.value === 'mixed' ? ''
+  : (sprintUnit.value === 'quantity' ? `${fmt(sprintTotalGap.value)} 件` : `¥${fmt(sprintTotalGap.value)}`))
+const sprintPerOrderText = computed(() => sprintUnit.value === 'mixed' ? ''
+  : (sprintUnit.value === 'quantity' ? `${fmt(sprintTotalGapPerOrder.value)} 件` : `¥${fmt(sprintTotalGapPerOrder.value)}`))
+
 /* v585：页脚胶囊的摘要 —— 唯一出口。
    父级（Forecast.vue → SprintChip）只读这里回传的值，**不另算一份**；
    编辑态改数量会重建 rebateSprint ⇒ 本 computed 重算 ⇒ emit ⇒ 胶囊与面板同一帧一致。 */
@@ -319,6 +346,9 @@ const sprintSummaryOut = computed(() => ({
   totalGap: sprintTotalGap.value,
   orders: rebateSprintOrders.value,
   perOrder: sprintTotalGapPerOrder.value,
+  /* v587：'amount' | 'quantity' | 'mixed' —— 胶囊据此决定印「¥」还是「件」；
+     mixed 时 totalGap / perOrder 无单位可言，胶囊不得打印它们（元+件相加是错的）。 */
+  unit: sprintUnit.value,
   err: rebateRulesErr.value || '',
 }))
 watch(sprintSummaryOut, (v) => emit('summary', v), { immediate: true })
@@ -439,14 +469,20 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
       <!-- 决策横幅（A2）：看板结论的常驻摘要行 —— 折叠/展开都在，明细只在展开时出现。
            四个数字全部取自既有 computed，且与展开态明细表共用同一个 fmt()（单位同源，勿在摘要上开第二套） -->
       <div v-if="rebateSprint.length" class="sprint-banner">
-        <template v-if="unmetSprintCount">
+        <!-- v587：口径混用（一条规则按金额、一条按件）时不给合计数 —— 元与件相加任何单位下都不成立；
+             如实说明原因并把人引到明细表（每行各自带自己的单位）。 -->
+        <template v-if="unmetSprintCount && sprintUnit === 'mixed'">
           <b>{{ unmetSprintCount }}</b> 个品牌未达标
-          <span class="sep">·</span>总缺口 <b class="val-warn">¥{{ fmt(sprintTotalGap) }}</b>
+          <span class="sep">·</span>各品牌目标口径不一致（元 / 件），<b class="val-warn">不做合并汇总</b>，逐品牌见下表
+        </template>
+        <template v-else-if="unmetSprintCount">
+          <b>{{ unmetSprintCount }}</b> 个品牌未达标
+          <span class="sep">·</span>总缺口 <b class="val-warn">{{ sprintTotalText }}</b>
           <!-- v292：窗口已关闭（剩 0 次）时不再显示「均单需报 ¥0」——
                分母为 0 得出的均单是算式产物，不是业务含义。直接把"已无机会"说出来。 -->
           <template v-if="rebateSprintOrders > 0">
             <span class="sep">·</span>剩 <b>{{ rebateSprintOrders }}</b> 次到货
-            <span class="sep">·</span>均单需报 <b class="val-warn">¥{{ fmt(sprintTotalGapPerOrder) }}</b>
+            <span class="sep">·</span>均单需报 <b class="val-warn">{{ sprintPerOrderText }}</b>
           </template>
           <template v-else>
             <span class="sep">·</span><b class="val-warn">本月到货窗口已结束</b>，缺口无法再追补
@@ -469,7 +505,10 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
           <p class="sprint-sum">
             <template v-if="rebateSprintOrders > 0">
               本期（返利周期截止 <b>{{ rebateCampaignEnd || (period && period.order_end) }}</b>，即当月最后一天）按默认到货周期（每 {{ rebateGlobalCadence }} 天）约剩 <b>{{ rebateSprintOrders }}</b> 次到货机会；各品牌到货周期不同，下表按各自周期算「建议均单」<template v-if="sprintOverrideNames">；<b>{{ sprintOverrideNames }}</b> 按你在「到货节奏」里对本月到货的调整（停单 / 次数）折算</template>。
-              要补齐以下返利目标缺口，<b>均单需报 ¥{{ fmt(sprintTotalGapPerOrder) }}</b>（按默认周期估算）。
+              <!-- v587：口径混用时「均单需报 X」无意义（元与件不可合并）⇒ 不再给这个合计，
+                   把人引到逐行的「建议均单」列（每行自带自己的单位）。 -->
+              <template v-if="sprintUnit === 'mixed'">各品牌目标口径不一致（元 / 件），下表每行各算各的均单，请逐行查看。</template>
+              <template v-else>要补齐以下返利目标缺口，<b>均单需报 {{ sprintPerOrderText }}</b>（按默认周期估算）。</template>
             </template>
             <!-- v292：窗口已关闭时不再说「约剩 0 次到货机会 / 均单需报 ¥0」——
                  那种句子读起来像"还有机会但不用报"，实际是"这个月已经没有机会了"。 -->
@@ -488,11 +527,11 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
                   <td>{{ s.dimLabel }}</td>
                   <td>{{ s.name }}</td>
                   <td>{{ s.cadenceLabel }}</td>
-                  <td class="num">¥{{ fmt(s.target) }}<template v-if="s.targetType === 'quantity'"> / 件</template></td>
-                  <td class="num">{{ s.reported > 0 ? '¥' + fmt(s.reported) : '—' }}</td>
-                  <td class="num">¥{{ fmt(s.contrib) }}</td>
-                  <td class="num"><b :class="s.gap > 0 ? 'val-warn' : 'val-ok'">{{ s.gap > 0 ? fmt(s.gap) : '已达成' }}</b></td>
-                  <td class="num" v-if="s.gap > 0">¥{{ fmt(s.perOrder) }}</td>
+                  <td class="num">{{ uVal(s, s.target) }}</td>
+                  <td class="num">{{ s.reported > 0 ? uVal(s, s.reported) : '—' }}</td>
+                  <td class="num">{{ uVal(s, s.contrib) }}</td>
+                  <td class="num"><b :class="s.gap > 0 ? 'val-warn' : 'val-ok'">{{ s.gap > 0 ? uGap(s, s.gap) : '已达成' }}</b></td>
+                  <td class="num" v-if="s.gap > 0">{{ uVal(s, s.perOrder) }}</td>
                   <td class="num" v-else>—</td>
                   <td style="min-width:110px">
                     <!-- v183：文案＝「达成率 X%」（不再标注与时间进度的差值）；
@@ -512,8 +551,8 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
             <ul>
               <template v-for="s in rebateSprint" :key="'sg' + s.key">
                 <li v-if="s.gap > 0">
-                  为「{{ s.name }}」补齐返利，剩余 <b>{{ s.orders }}</b> 次到货（{{ s.cadenceLabel }}）中每单需报 <b>¥{{ fmt(s.perOrder) }}</b>；优先加单：
-                  <template v-if="!s.topEmpty"><span v-for="p in s.top" :key="p.name" class="sprint-prod">{{ p.name }}（本期已报 ¥{{ fmt(p.contrib) }}）</span></template>
+                  为「{{ s.name }}」补齐返利，剩余 <b>{{ s.orders }}</b> 次到货（{{ s.cadenceLabel }}）中每单需报 <b>{{ uVal(s, s.perOrder) }}</b>；优先加单：
+                  <template v-if="!s.topEmpty"><span v-for="p in s.top" :key="p.name" class="sprint-prod">{{ p.name }}（本期已报 {{ uVal(s, p.contrib) }}）</span></template>
                   <span v-else class="sprint-prod-empty">本期该品牌尚未报单，暂无可推荐加单（先报单或补全商品进货价后再生成建议）</span>
                 </li>
               </template>

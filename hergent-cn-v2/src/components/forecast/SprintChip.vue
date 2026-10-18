@@ -48,6 +48,11 @@ const unmet = computed(() => Number(s.value.unmet) || 0)
 const gap = computed(() => Number(s.value.totalGap) || 0)
 const orders = computed(() => Number(s.value.orders) || 0)
 const perOrder = computed(() => Number(s.value.perOrder) || 0)
+/* v587：汇总单位随规则口径走。quantity = 件数；mixed = 一条按金额一条按件，
+   两个数相加在任何单位下都不成立 ⇒ 胶囊不打印数额（否则会出现「缺口 ¥X」却是元+件）。 */
+const unit = computed(() => s.value.unit || 'amount')
+const mixedUnit = computed(() => unit.value === 'mixed')
+const uTxt = (v) => unit.value === 'quantity' ? `${fmt(v)} 件` : `¥${fmt(v)}`
 const allDone = computed(() => unmet.value === 0)
 
 /* 显示条件：有目标规则才显示；取数失败（403 等）时**也要显示** —— 那正是最该让人看见的状态，
@@ -150,15 +155,22 @@ onBeforeUnmount(() => {
     </template>
     <template v-else>
       <span class="sc-txt">冲刺 <b>{{ unmet }}</b> 个品牌未达标</span>
-      <span class="sc-sep">·</span>
-      <span class="sc-txt">缺口 <b>¥{{ fmt(gap) }}</b></span>
-      <template v-if="orders > 0">
+      <!-- v587：口径混用（元 / 件）时不给合计，避免把两种单位加在一起还标 ¥ -->
+      <template v-if="mixedUnit">
         <span class="sc-sep">·</span>
-        <span class="sc-txt">均单 <b>¥{{ fmt(perOrder) }}</b></span>
+        <span class="sc-txt">目标口径混用</span>
       </template>
       <template v-else>
         <span class="sc-sep">·</span>
-        <span class="sc-txt">到货窗口已结束</span>
+        <span class="sc-txt">缺口 <b>{{ uTxt(gap) }}</b></span>
+        <template v-if="orders > 0">
+          <span class="sc-sep">·</span>
+          <span class="sc-txt">均单 <b>{{ uTxt(perOrder) }}</b></span>
+        </template>
+        <template v-else>
+          <span class="sc-sep">·</span>
+          <span class="sc-txt">到货窗口已结束</span>
+        </template>
       </template>
     </template>
     <span class="sc-caret" aria-hidden="true"></span>
