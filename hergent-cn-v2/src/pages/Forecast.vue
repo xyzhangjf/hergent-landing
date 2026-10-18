@@ -10601,7 +10601,18 @@ th.sortable:hover{color:var(--p-dark)}
 .cross-tbl thead .seq-th,.cross-tbl thead .seq-cell{background:var(--bg3);z-index:9}
 .cross-tbl .col-total .seq-cell,.cross-tbl .foot-row .seq-cell{background:var(--bg3)}
 /* v408：`.gear` 已上提全局（variables.css「列设置」段），此处不再保留副本。 */
-.col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:2px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden;box-shadow:0 -2px 5px rgba(15,23,42,.06)}
+/* v580：合计从「浮层」改回「表格的最后一行」（用户选 A：Excel 心智）。
+   结构上它**必须**是滚动容器外的独立表（虚拟滚动 vs-spacer + zoom + 冻结列 translateX
+   三重约束下，<tfoot> 与 sticky;bottom 都不可靠），所以只能从视觉上接上：
+   ① `.grid-area` 的 10px flex gap 是**全页通用节奏**（工具行↔表体也是 10px），不能改它，
+      只在本条上抵消 ⇒ 用相邻选择器，空态/其他兄弟节点不受影响；
+   ② 原来 2px 粗线 + 上投影是「浮起来」的暗示，一并去掉，只留 1px 分隔；
+   ③ 表内 `.col-total td` / `.foot-row td` 自己的 2px 上边框同时降为 0 —— 否则与容器这条
+      叠加成 4px 双线，断开感反而更重。
+   合计行仍靠 `--bg3` 灰底 + 加粗与数据行区分，不依赖那道线。 */
+.col-total-bar{position:relative;z-index:9;background:var(--bg3);border-top:1px solid var(--bd);flex:0 0 auto;width:100%;min-width:0;max-width:100%;overflow:hidden}
+.cross-viewport+.col-total-bar,
+.edit-grid-wrap+.col-total-bar{margin-top:-10px}
 .col-total-bar>table{transform:translateX(var(--foot-sl,0));will-change:transform}
 .cross-amt-note{margin:10px 2px 0;font-size:12px;line-height:1.6;color:var(--t3)}
 .amt-note-toggle{display:inline-block;margin:8px 2px 0;font-size:12px;color:var(--p-dark);cursor:pointer;user-select:none}
@@ -10625,7 +10636,13 @@ th.sortable:hover{color:var(--p-dark)}
 .calc.sum{background:var(--sum-bg);color:var(--sum-txt);font-weight:500}
 .calc.final{background:var(--p-bg);color:var(--p-dark);font-weight:600}
 .calc.amount{font-weight:600}
-.col-total td{background:var(--bg3);font-weight:600;border-top:2px solid var(--bd)}
+/* v580：分隔线画在容器上（横贯全宽、不随 `--foot-sl` 位移），td 只补 1px 上内边距
+   ⇒ 合计行内容盒仍是 20px + 1 = 21px，与数据行同高、与表头 22px 目视齐平。
+   ⚠️ 必须带 `.cross-tbl tbody` 前缀：`.cross-tbl tbody td{padding:0 8px}` 是 (0,2,2)，
+      只写 `.col-total td` 的 (0,2,1) 会输（v571 同款特异性坑）。 */
+.col-total td{background:var(--bg3);font-weight:600}
+.cross-tbl tbody .col-total td,
+.cross-tbl tbody .foot-row td{padding-top:1px}
 .col-total .calc.sum{background:var(--sum-col-bg)}
 .col-total .calc.final{background:var(--final-bg)}
 
@@ -11261,7 +11278,7 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
    补一条显式声明（与 `.qty-th` / `.seq-th` / `.op-th` 同款），视觉零变化。 */
 .spark-th{text-align:center}
 .spark-td .muted{color:var(--t3);font-size:11px}
-.foot-row td{background:var(--bg3);font-weight:500;border-top:2px solid var(--bd)}
+.foot-row td{background:var(--bg3);font-weight:500}
 .foot-row td.frozen{background:var(--bg3);z-index:6}
 .grp-btn{font-size:12px;padding:5px 12px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;white-space:nowrap}
 .grp-btn:hover{border-color:var(--p)}
