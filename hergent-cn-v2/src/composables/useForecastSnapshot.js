@@ -84,6 +84,6 @@ function exportDiffXlsx() {
   XLSX.utils.book_append_sheet(wb, ws, '差异对比')
   XLSX.writeFile(wb, `差异对比_${snapCompare.value}.xlsx`)
   toast('已导出差异 Excel', 'ok')
-  return { SNAP_KEY, snaps, snapCompare, loadSnaps, saveSnap, diffSnap, cellDiff, exportDiffXlsx }
 }
+  return { SNAP_KEY, snaps, snapCompare, loadSnaps, saveSnap, diffSnap, cellDiff, exportDiffXlsx }
 }

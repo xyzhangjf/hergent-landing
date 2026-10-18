@@ -121,28 +121,42 @@ def scan_core_functions(files):
 
 
 def scan_composable_returns(files):
-    """第三类锚点：useForecast* composable 的 return { ... } 键集合。
-       v568 教训：抽离时漏写 return，导致父页解构即抛
-       'Cannot destructure snaps of undefined'（构建过、运行时静默错，HTTP 200 探不到）。
-       这里静态锁定每个 composable 实际 return 出去的名字。"""
+    """第三类锚点：useForecast* composable 的 return { ... } 键集合 + 作用域校验。
+       v568 教训（两轮）：
+         ① 抽离时漏写 return ⇒ 父页解构即抛 'Cannot destructure snaps of undefined'
+         ② 补 return 时若插进内层函数（exportDiffXlsx/syncMoq/delScheme）⇒ 外层仍返回 undefined
+       ⇒ 必须同时校验「有 return」且「return 在外层函数作用域」：
+          正确时 return 之后到 EOF 只有 1 个独立成行的 }（闭合外层函数）；
+          若错插进内层函数，则其后会有 2 个 }（内层 + 外层）。
+       返回 (ret: {name: keys}, bad: {name: 原因})"""
     ret = {}
+    bad = {}
     for f, txt in files.items():
         m = re.search(r'composables/(useForecast\w+)\.js$', f)
         if not m:
             continue
         name = m.group(1)
+        rms = list(re.finditer(r'return\s*\{([^}]*)\}', txt))
+        if not rms:
+            ret[name] = set()
+            bad[name] = '未找到 return 语句（父页解构将得到 undefined）'
+            continue
+        rm = rms[-1]  # 取最后一个 return，外层函数应在末尾 return
         keys = set()
-        rm = re.search(r'return\s*\{([^}]*)\}', txt)
-        if rm:
-            for part in rm.group(1).split(','):
-                part = part.strip()
-                if not part:
-                    continue
-                pm = re.match(r'([A-Za-z_$][\w$]*)', part)
-                if pm:
-                    keys.add(pm.group(1))
+        for part in rm.group(1).split(','):
+            part = part.strip()
+            if not part:
+                continue
+            pm = re.match(r'([A-Za-z_$][\w$]*)', part)
+            if pm:
+                keys.add(pm.group(1))
         ret[name] = keys
-    return ret
+        # 作用域校验：return 之后独立成行的 } 应恰好 1 个
+        tail = txt[rm.end():]
+        n_close = sum(1 for ln in tail.split('\n') if ln.strip() == '}')
+        if n_close != 1:
+            bad[name] = f'return 不在外层函数作用域（其后有 {n_close} 个独立 }} ，应为 1）⇒ 外层仍返回 undefined'
+    return ret, bad
 
 
 CALL_RE = re.compile(r'const\s*\{([^}]*)\}\s*=\s*(useForecast\w+)\s*\(')
@@ -206,13 +220,17 @@ def verify(build=False):
             forecast_path = f
             break
     forecast_txt = files.get(forecast_path, '')
-    comp_ret = scan_composable_returns(files)
+    comp_ret, comp_bad = scan_composable_returns(files)
     comp_calls = scan_composable_calls(forecast_txt)
     comp_issues = []
+    for cname, why in comp_bad.items():
+        comp_issues.append(f'{cname}: {why}')
     for cname, names in comp_calls.items():
         keys = comp_ret.get(cname, set())
+        if cname in comp_bad:
+            continue  # 已在上面报告作用域/缺失问题
         if not keys:
-            comp_issues.append(f'{cname}: 未找到 return 或 return 为空（父页却解构了 {len(names)} 个名字）')
+            comp_issues.append(f'{cname}: return 为空（父页却解构了 {len(names)} 个名字）')
             continue
         for n in names:
             if n not in keys:

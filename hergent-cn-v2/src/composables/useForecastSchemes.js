@@ -41,6 +41,6 @@ async function delScheme(name) {
   let cloudOk = true
   try { await columnSchemeApi.save(schemes.value) } catch (e) { cloudOk = false }
   toast(cloudOk ? '已删除方案「' + name + '」' : '已删除本地方案，但云端同步失败', cloudOk ? 'ok' : 'warn')
-  return { SCHEME_KEY, schemes, schemeName, schemeSaveName, loadSchemes, saveScheme, applyScheme, delScheme }
 }
+  return { SCHEME_KEY, schemes, schemeName, schemeSaveName, loadSchemes, saveScheme, applyScheme, delScheme }
 }
