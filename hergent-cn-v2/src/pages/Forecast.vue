@@ -10450,7 +10450,18 @@ onMounted(async () => {
 .cross-area{margin-bottom:14px}
 .cross-card{padding:0 14px 14px;overflow:hidden}
 .cross-tbl{min-width:100%;font-size:12px}
-.cross-tbl thead th{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--bd);font-weight:500;color:var(--t2);padding:8px 7px;white-space:nowrap}
+/* 🔴 v579：表头与合计行走**同一条高度链** —— 都取 --fc-cell（=20px 内容盒）。
+   原实现 th 是 `padding:8px 7px` + 继承 body 的 line-height(1.6×12=19.2) ⇒ 38px，
+   加上序号列表头那个 30×30 齿轮按钮撑到 **47px**，比合计行(22px)高一倍多。
+   现在：垂直 padding 归零（只留 1px 顶留白凑出与合计行同高的 22px）、行高取 --fc-cell、
+   表头内的齿轮/输入框一并压到 20px 内容盒 ⇒ 表头 = 合计 = 22px。
+   ⚠️ 表头里的任何子元素高过 20px 都会重新把整行撑高（见下面 .col-cfg.gear / .cell-input 两条）。 */
+.cross-tbl thead th{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--bd);font-weight:500;color:var(--t2);padding:1px 7px 0;line-height:var(--fc-cell,20px);white-space:nowrap}
+/* v579：排序箭头的 svg 是 inline-block + `vertical-align:middle` ⇒ 它按基线对齐会给行盒
+   额外顶出 2px（实测 .th-in 从 20 → 22、整行 24）。改成 12px 高的 inline-flex「盒子」后
+   svg 不再参与基线计算 ⇒ 行盒回到 20px、整行 **22px = 合计行**，且箭头视觉上更居中。
+   ⚠️ 只作用于本页表头，别上提到全局（采购单等页的表头高度另有自己的口径）。 */
+.cross-tbl thead .sort-ind{display:inline-flex;align-items:center;height:12px;vertical-align:middle}
 .cross-tbl .frozen{position:sticky;left:0;background:var(--bg);z-index:6;min-width:200px;box-shadow:1px 0 0 var(--bd)}
 /* v184：到货周期是**固定列**，但比「商品名称」窄得多 —— 覆盖 .frozen 的 200px 宽度下限。
    ⚠️ 位置：排在 `.cross-tbl .frozen` 之后（既然后写者赢，又多了个类 → 特异性更高，双重保险）。
@@ -10501,7 +10512,7 @@ onMounted(async () => {
    修法：本表**自己**显式声明紧凑档，特异性 (0,3,2) 稳压基础档 ⇒ 不依赖样式表加载顺序。
    ⚠️ 别改成 `.grid-area .cross-tbl td` 那种"加一层父类"的写法 —— 那同样会把全局紧凑档压死。 */
 [data-density="compact"] .cross-tbl tbody td{padding:0 6px}
-[data-density="compact"] .cross-tbl thead th{padding:5px 7px}
+[data-density="compact"] .cross-tbl thead th{padding:1px 7px 0}
 .qty-th{text-align:center;min-width:52px}
 .qty-cell{text-align:center;color:var(--t3)}
 .qty-cell.has{color:var(--t1);font-weight:500}
@@ -10852,9 +10863,16 @@ th.sortable:hover{color:var(--p-dark)}
    这就是「只读 29.8 / 编辑 32.5」两个高度并存的原因。
    本条带上 `.cross-tbl` 前缀后 = (0,3,0)，稳压全局那条 ⇒ 两态取同一个值。 */
 .cross-tbl .cell-input{height:var(--fc-cell,20px);padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:12px;outline:none;display:block;width:100%;min-width:0;box-sizing:border-box;text-align:center}
-/* 表头里的客户名输入框**不跟着压** —— 表头不属于"数据行行高"，跟着变矮会让表头显得局促。
-   特异性 (0,3,1) 高于全局紧凑档 (0,2,2) ⇒ 这里写 24px 就是 24px。 */
-.cross-tbl thead .cell-input{height:24px}
+/* v579：表头里的**客户名列输入框**与数据行取同一个内容盒（--fc-cell=20px）。
+   原来写死 24px ⇒ 那一列表头比其它表头高、整行被顶到 47px。现在表头 = 合计 = 22px。
+   特异性 (0,3,1) / (0,4,0) 都高于全局紧凑档 (0,2,2)，写多少就是多少。 */
+.cross-tbl thead .cell-input{height:var(--fc-cell,20px)}
+/* v579：序号列表头那个 **列设置齿轮**（全局 `.col-cfg.gear` 是 30×30 + inline-flex，见
+   styles/col-menu.css）是表头被撑高的最后一处 —— 30+8×2+1 = 47px；而即便压到 20×20，
+   inline-flex 仍按**基线**参与行盒，把整行顶到 26px。所以这里同时改 display:flex
+   （block 级 ⇒ 不生成行内行盒，块级居中用 margin:auto），行高才真正落到 22px。
+   特异性 (0,4,0) 稳压全局 (0,2,0)。 */
+.cross-tbl thead .col-cfg.gear{width:var(--fc-cell,20px);height:var(--fc-cell,20px);display:flex;margin:0 auto}
 .cell-input:focus{border-color:var(--p)}
 /* v246 零值降噪：空格子的占位点（·）淡显，避免「满屏 0」淹没有效数据 */
 .cell-input::placeholder{color:var(--t3);opacity:.4}
