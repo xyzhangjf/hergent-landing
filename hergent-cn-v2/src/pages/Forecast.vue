@@ -931,7 +931,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'cur-row-hd': isCurRowHd(ri), 'row-sel': inRowSpan(ri), 'cond-warn': condWarnOn && rowWarnArr[ri] === 'low', 'new-row': r._new }" :aria-selected="inRowSpan(ri) ? 'true' : null" :aria-current="isCurRowHd(ri) ? 'true' : null" v-show="rowShown(ri)">
+              <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'cur-row-hd': isCurRowHd(ri), 'row-sel': inRowSpan(ri), 'cond-warn': condWarnOn && rowWarnArr[ri] === 'low', 'new-row': r._new }" :aria-selected="inRowSpan(ri) ? 'true' : null" :aria-current="isCurRowHd(ri) ? 'true' : null" v-show="rowBaseShown(ri)">
                 <td class="td seq-cell" :class="{ 'row-bad': errRowSet.has(ri) }" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)"><span class="seq-num">{{ ri + 1 }}</span></td>
                 <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'sel-col': inColSpan(ci), 'range-sel': inRange(ri, ci), invalid: cellIssueAt(ri, ci) !== '', flash: isFlash(ri, ci) }]" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" :data-r="ri" :data-c="ci" :title="cellIssueAt(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
                   <template v-if="c.key === 'name'">
@@ -1091,7 +1091,7 @@
           <!-- v584：编辑态汇总行从 `.edit-hint` 移进 `.grid-area` 内（同只读态的 `.pin`）——
                全屏层 `position:fixed;inset:0` 会把 grid-area 之外的 `.edit-hint` 整块遮住
                ⇒ 全屏改单时看不到「下单金额」，必须退出全屏才能核对。移入后参与 flex 流即可见。
-               （v604：分页控件已并进汇总行本身，不再单独占一行。） -->
+               （v605：这一行现在只有合计 + 右侧「冲刺 / 快捷键」两个小控件。） -->
           <!-- ⚠️ v212 两处修正（都是真机探针抓出来的，不是推演出来的）——
                ① 判据从 `selStats` 改成 `selRange`。
                   原写法在**选区里一个数字都没有**时整条不渲染 —— 而「框选一片空格子 → 填同一个数」
@@ -1175,7 +1175,6 @@
               <button class="btn btn-ghost btn-sm" @click="loadTemplates" :disabled="tmplLoading"><Icon name="book"/> 行业模板</button>
               <button class="btn btn-ghost btn-sm" @click="loadBI" :disabled="biLoading"><Icon name="bar-chart"/> 经营看板</button>
               <button class="btn btn-ghost btn-sm" @click="suggestPanel=!suggestPanel" title="建议量算法：只影响报单汇总表的「配方建议」列，不影响「系统建议」列"><Icon name="settings"/> 建议算法</button>
-              <button class="btn btn-ghost btn-sm" @click="pagingOn=!pagingOn"><Icon name="file"/> 分页模式</button>
             </template>
           </div>
           <div v-if="suggestPanel" class="recipe-panel">
@@ -1343,25 +1342,26 @@
               <li v-for="(it, i) in healthIssues" :key="i" :class="'sev-'+it.sev" @click="jumpToRow(it.ri)"><span class="sev-dot"></span>{{ it.msg }}</li>
             </ul>
           </div>
-          <!-- v604：分页控件已并入下方 `.edit-summary` 这一行的最右端（原为表格下方独占一行）。
-               同时删掉「显示全部」：它与表头「显示全部商品」容易被读成同一件事（实为两个维度：
-               前者关分页看全部行，后者把未进本期的商品拉进来）。关分页的入口保留在
-               编辑态工具栏「更多 → 分页模式」，不再在页脚重复放一个。 -->
+          <!-- v605：分页整块撤除（用户：「不要搞那么复杂，不要上一页下一页，用户点击改单后直接显示全部」）。
+               原来那套（Q7-P7-9）只是 `<tr v-for>` + `v-show` 隐藏非当前页的行 —— **DOM 节点数一个不少**，
+               省下的只有 paint，却多出一整条翻页控件 + 「关分页」的第二个开关。现在进改单即全量可见。
+               随之删除：pagingOn / pageSize / curPage / totalPages / pageGo / gotoRowPage / pageReset /
+               ctxRowOffPage（行区间「另有 N 行不在当前页」提示）与工具栏「更多 → 分页模式」。 -->
 
           <!-- v584：编辑态汇总行从 `.edit-hint` 移进 `.grid-area` 内（同只读态的 `.pin`）——
                全屏层 `position:fixed;inset:0` 会把 grid-area 之外的 `.edit-hint` 整块遮住
                ⇒ 全屏改单时看不到「下单金额」，必须退出全屏才能核对。移入后参与 flex 流即可见。
-               位置取「分页器之后、可选面板之前」= 用户所说的「页面最下面这一行」，
+               位置取「表格之后、可选面板之前」= 用户所说的「页面最下面这一行」，
                常显元素里它最后一个（下面的下单说明/库存预警等都是点开才有的面板）。
                v187 口径自证：同屏有「分销价」主档列，若只写「金额」会被读成分销价×数量；
                本值实为 amountValue 累加 = 最终下单(箱) × 单价(进价/箱)，与「下单金额(进价)」列逐字同源。
                v188：写「合计(小单位)」而非「件」—— editTotalQty 是 Σ报单单元数量，小单位可能是盒/袋/包。 -->
           <div class="edit-summary">
             <span class="es-txt">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></span>
-            <!-- v604：右侧三件（冲刺胶囊 / 快捷键 / 分页）包进同一个 `.es-right` 并给 `margin-left:auto`。
+            <!-- v604：右侧两件（冲刺胶囊 / 快捷键）包进同一个 `.es-right` 并给 `margin-left:auto`。
                  🔴 必须是**容器**上的 auto，不能再用 `.edit-summary>.pin-sprint{margin-left:auto}`：
                  SprintChip 根元素带 `v-if="show"`（无冲刺数据时整块不渲染）⇒ 推手消失，整行退化成
-                 左对齐、分页离右边界空出 211px（v604 真机量出来的）。容器常显 ⇒ 有没有冲刺都贴右。 -->
+                 左对齐、右侧控件离右边界空出一大截（v604 真机量出来 211px）。容器常显 ⇒ 有没有冲刺都贴右。 -->
             <div class="es-right">
               <!-- v585：改单时最需要看的就是缺口 —— 编辑态页脚同样常显冲刺胶囊（全屏改单也可见），
                    改一个数量，缺口/均单在同一帧更新（同一份 cross.rows 行对象）。 -->
@@ -1377,13 +1377,6 @@
                    两个收益：① 折叠态不再占一整行，展开态也不再顶起表体（浮层）；
                              ② 本行在 `.grid-area` 内部 ⇒ **全屏改单时也看得见**（原来在全屏层下被遮住）。 -->
               <KbdHelp />
-              <!-- v604：分页控件挂在页脚行最右（原「← 上一页 / 第 n 页 / 下一页 → / 显示全部」独占一行）。
-                   页码只留「n / N」，「每页 X 行 · 共 Y SKU」收进 title（页脚已有合计，不必重复长文案）。 -->
-              <div v-if="pagingOn" class="es-pager" :title="'第 ' + (curPage+1) + ' / ' + totalPages + ' 页 · 每页 ' + pageSize + ' 行 · 共 ' + cross.rows.length + ' SKU'">
-                <button class="pg-btn" :disabled="curPage<=0" @click="pageGo(-1)">上一页</button>
-                <span class="pg-info">{{ curPage+1 }} / {{ totalPages }}</span>
-                <button class="pg-btn" :disabled="curPage>=totalPages-1" @click="pageGo(1)">下一页</button>
-              </div>
             </div>
           </div>
 
@@ -1781,7 +1774,7 @@
                     同一条规则两处实现，必然在某次改动后漂移成两个口径。
                  行数与被筛选隐藏的行数都写在菜单上 —— 看不到的行也要能被看见（不静默）。 -->
             <template v-else-if="ctx.type === 'row'">
-              <div class="ctx-note">行选中 {{ ctxRows.length }} 行<template v-if="ctxRowFiltered">，其中 {{ ctxRowFiltered }} 行已被筛选隐藏</template><template v-if="ctxRowOffPage">，另有 {{ ctxRowOffPage }} 行不在当前页</template></div>
+              <div class="ctx-note">行选中 {{ ctxRows.length }} 行<template v-if="ctxRowFiltered">，其中 {{ ctxRowFiltered }} 行已被筛选隐藏</template></div>
               <button @click="ctxCopy"><Icon name="copy"/> 复制选中行（TSV）</button>
               <button @click="ctxCopyCsv"><Icon name="copy"/> 复制为 CSV</button>
               <button @click="ctxCopyMd"><Icon name="copy"/> 复制为 Markdown</button>
@@ -4122,10 +4115,10 @@ async function loadEditGrid() {
        与 loadCross 同源同判据（都调 `loadPtGap()`、它自己从 cross.period 取期次 id）。 */
     loadPtGap().catch(() => {})
     _alertedThisLoad = false
-    /* Q7：编辑态默认分页。原实现强制 pagingOn=false → 全量商品主档（428 行）每行渲染
-       约 30 个 input ≈ 1.2 万节点，首屏卡顿、每次输入掉帧。现默认分页（v604 起关分页走工具栏
-       「更多 → 分页模式」，页脚不再放「显示全部」按钮）。 */
-    pagingOn.value = true; curPage.value = 0; findIdx.value = -1
+    /* v605：进改单即全量显示（用户：「不要搞那么复杂，不要上一页下一页，点改单直接显示全部」）。
+       Q7 当初担心「428 行 × 30 input ≈ 1.2 万节点首屏卡顿」，但那套分页只是 `v-show` 隐藏行 ——
+       DOM 节点数一个不少，省下的只有 paint ⇒ 拆掉它并没有把渲染成本加回来。 */
+    findIdx.value = -1
     /* v201：给「本次编辑」定一个**起点基线**。
        🔴 为什么必须在这里定，而不是等 saveEdits 时才记：原先只在保存成功后才设基线，
        于是**刚进编辑、什么都没改**时状态条也会显示「有未保存的改动」——
@@ -4179,7 +4172,6 @@ function leaveEdit() {
   editMode.value = false
   loadingEdit.value = false
   errListOpen.value = false   // v174：退出编辑态收起查错面板（否则下次进入会先闪一屏旧结果）
-  pagingOn.value = false   // Q7：退出编辑复位分页，read-only 表恢复全量渲染原行为
   clearCopyMark()          // v597：蚂蚁线只在编辑网格里有意义，退出即清（否则回到只读还挂一圈虚线）
   loadCross()  // 回到只读 —— 也就是「带『改单』按钮」的那一态
 }
@@ -4210,8 +4202,8 @@ function exitEditAfterSave() { leaveEdit() }
 /* P0(v376/P0-2 续)：整表行合计**一次算好**。
    真机 parseInt 采样归因：在修掉 rowWarn / heat 的重复之后，剩余 parseInt 的 **94.4% 仍来自 rowSum**
    —— 它每次 `Object.values(qtyByUnit)` 遍历全部数量列（21 次 parseInt），而模板每行要问它 4 遍
-   （合计列取值 / moqWarn 类 / rowShown 显隐 / rowWarn），154 行 ⇒ 单次渲染数万次 parseInt。
-   改 computed 后每行只算 1 次，且**不随选区、筛选、分页变化重算**（只依赖 rows / qtyByUnit）。
+   （合计列取值 / moqWarn 类 / rowBaseShown 显隐 / rowWarn），154 行 ⇒ 单次渲染数万次 parseInt。
+   改 computed 后每行只算 1 次，且**不随选区、筛选变化重算**（只依赖 rows / qtyByUnit）。
    `_rowSumByObj` 让「手里只有行对象、没有下标」的调用方（rowVisible / moqWarn / cellErrMsg /
    deltaQty …）也能命中同一份缓存：取值前先读一次 `rowSumArr.value` 注册依赖，因此 WeakMap 与
    computed 世代永远同步，不会读到过期合计；不属于本表的行对象则退回原 rowSum，行为不变。 */
@@ -4236,7 +4228,6 @@ function addRow() {
   const ri = cross.value.rows.length - 1
   /* Q4：原实现把新行 push 到 428 行末尾却既不滚动也不聚焦，
      若开着「仅显示有报单」新行 rowSum=0 还会被直接隐藏 → 用户以为功能坏了。 */
-  gotoRowPage(ri)
   nextTick(() => { selectCell(ri, 0); focusCell(ri, 0, { select: true }); scrollRowIntoView(ri) })
   if (hideZeroReport.value) toast('新行已添加（当前开启「仅显示有报单」，填入数量前它属于零报单行）', 'warn')
 }
@@ -4488,7 +4479,6 @@ function flashAt (r, c) {
 }
 
 function gotoErr(it) {
-  gotoRowPage(it.ri)
   nextTick(() => {
     selectCell(it.ri, it.ci); focusCell(it.ri, it.ci, { select: true }); scrollRowIntoView(it.ri)
     flashAt(it.ri, it.ci)
@@ -5044,7 +5034,6 @@ function tryPasteCross(block) {
       if (cellInvalid(ri, c)) bad++
     })
   })
-  gotoRowPage(cross.value.rows.length - 1)
   toast(`已按客户列粘贴：新增 ${added} 个商品 · 更新 ${updated} 个商品`
     + (skipped ? ` · 跳过 ${skipped} 行（无商品名称）` : '')
     + (blank ? ` · 跳过 ${blank} 个空格（原值保留）` : '')
@@ -5122,7 +5111,6 @@ function onPaste(e) {
     cross.value.rows.push(row)
     added++
   }
-  gotoRowPage(cross.value.rows.length - 1)
   if (added || skipped)
     toast(`已从 Excel 粘贴 ${added} 行商品`
       + (skipped ? `，跳过 ${skipped} 行（缺少商品名称或条码）` : '')
@@ -5617,7 +5605,7 @@ function extendSel(dr, dc) {
 }
 /* v379：扩选后把**推进端**滚进视口。焦点留在锚点（见 extendSelTo 注释），
    因此没有任何浏览器默认行为会去滚推进端。
-   ⚠️ 开了分页必须先翻到推进端所在页 —— 它在别的页时被 `v-show` 藏着，量不到也就滚不到。 */
+   ⚠️ v605 起不再有分页，推进端永远在当前 DOM 里（除非被筛选/「只看有数」隐藏，那时本来就不该滚）。 */
 function followEdge(er, ec) {
   /* v379（P0·B-3）修正：扩选时**视口必须跟着推进端走**（否则选区在长、屏幕不动 ＝ 用户以为键盘坏了）。
      🔴 这里**不能**用 `focusCell()` 去顺带滚动 —— 它会 `el.focus()`，而模板上的 `@focus` 是**同步**的
@@ -5629,7 +5617,6 @@ function followEdge(er, ec) {
      ⇒ 用 `scrollIntoView({block:'nearest'})`：它会把**所有**可滚动祖先 + 窗口一起算进去，
         且「已经可见时什么都不做」＝ 逐行推进不会抖。随后的 `keepCellClear` 专门修
         「停在粘性列 / 粘性表头底下」那一档（原生最小滚动解决不了），两者互补、都不是多余的。 */
-  gotoRowPage(er)
   nextTick(() => {
     const el = document.querySelector(`input[data-r="${er}"][data-c="${ec}"]`)
     if (!el) return
@@ -5935,9 +5922,9 @@ function onGridKey(e) {
     if (e.shiftKey) { const m = extendSelTo(r, maxC); if (m) followEdge(m.r, m.c) }
     else { c = maxC; selectCell(r, c); focusCell(r, c) }
   } else if (e.key === 'PageDown') {
-    e.preventDefault(); r = Math.min(maxR, r + 20); selectCell(r, c); focusCell(r, c); gotoRowPage(r)
+    e.preventDefault(); r = Math.min(maxR, r + 20); selectCell(r, c); focusCell(r, c)
   } else if (e.key === 'PageUp') {
-    e.preventDefault(); r = Math.max(0, r - 20); selectCell(r, c); focusCell(r, c); gotoRowPage(r)
+    e.preventDefault(); r = Math.max(0, r - 20); selectCell(r, c); focusCell(r, c)
   } else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowDown') {
     // 跳到当前列连续数据的最后一行（遇空行停），Excel 同款
     e.preventDefault()
@@ -5953,7 +5940,7 @@ function onGridKey(e) {
        原写法 `selectCell(nr,c,true)` 紧跟 `focusCell(nr,c)`，焦点**同步**触发
        onFocusCell → 无参 selectCell ⇒ selRange 当场被清空，**扩选等于没做**（只是活动格动了）。 */
     if (e.shiftKey) { const m = extendSelTo(nr, c); if (m) followEdge(m.r, m.c) }
-    else { selectCell(nr, c); focusCell(nr, c); gotoRowPage(nr) }
+    else { selectCell(nr, c); focusCell(nr, c) }
   } else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') {
     e.preventDefault()
     let nr = r
@@ -5963,7 +5950,7 @@ function onGridKey(e) {
       nr--
     }
     if (e.shiftKey) { const m = extendSelTo(nr, c); if (m) followEdge(m.r, m.c) }
-    else { selectCell(nr, c); focusCell(nr, c); gotoRowPage(nr) }
+    else { selectCell(nr, c); focusCell(nr, c) }
   } else if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
     /* 补齐 Ctrl+左右：原先**只有上下两个方向**，左右没实现 ⇒ 按下去毫无反应，
        与「键盘坏了」长得完全一样（不报错、就是不动）。语义与上下同源：
@@ -5977,14 +5964,14 @@ function onGridKey(e) {
       nc += step
     }
     if (e.shiftKey) { const m = extendSelTo(r, nc); if (m) followEdge(m.r, m.c) }
-    else { selectCell(r, nc); focusCell(r, nc); gotoRowPage(r) }
+    else { selectCell(r, nc); focusCell(r, nc) }
   } else if ((e.ctrlKey || e.metaKey) && e.key === 'Home') {
     /* v379（P0·B-1）：Ctrl+Home = 回整表左上角（Excel 同款）。
        旧实现**只有裸 Home**（= 本行首列），而那个分支没排除 ctrl ⇒ 按 Ctrl+Home 得到的是
        「本行第 1 格」，用户以为跳到了表头。与 B-2（Ctrl+End 不可达）同根：**分支顺序**。 */
     e.preventDefault()
     if (e.shiftKey) { const m = extendSelTo(0, 0); if (m) followEdge(m.r, m.c) }
-    else { selectCell(0, 0); focusCell(0, 0); gotoRowPage(0) }
+    else { selectCell(0, 0); focusCell(0, 0) }
   } else if ((e.ctrlKey || e.metaKey) && e.key === 'End') {
     /* v219 打磨①：跳到**最后一处有数据**的格（Excel 的 Ctrl+End）。
        与 Ctrl+方向键的区别：后者只在本列/本行的**连续**数据里走、遇空格就停；
@@ -5996,7 +5983,7 @@ function onGridKey(e) {
     /* v379（B-5）：Ctrl+Shift+End = 从锚点扩选到已用区右下角（Excel 同款）——
        与 Ctrl+Shift+方向键 共用 extendSelTo + followEdge。 */
     if (e.shiftKey) { const m = extendSelTo(p.r, p.c); if (m) followEdge(m.r, m.c) }
-    else { selectCell(p.r, p.c); focusCell(p.r, p.c); gotoRowPage(p.r) }
+    else { selectCell(p.r, p.c); focusCell(p.r, p.c) }
   }
 }
 // 右键上下文菜单（插入/删除行、插入/删除列、清空内容）
@@ -6103,21 +6090,19 @@ function ctxInsertRow(above) {
   closeCtx()
 }
 /* v377：删除行为**行轴感知** —— 在行选区里右键就删整段（一次 snapshot = 一次撤销可回），
-   否则仍是原来的「删这一行」。看不见的行也在这个区间里，删了就删了，
-   所以**必须报出行数**，不能让它悄悄发生；而且**分两种原因报**（筛掉的 / 不在本页的），
-   否则用户会拿「有 104 行被筛选隐藏」去翻一个根本没开的筛选（v377 修）。 */
+   否则仍是原来的「删这一行」。看不见的行（被筛选隐藏的）也在这个区间里，删了就删了，
+   所以**必须报出行数**，不能让它悄悄发生；否则用户会拿「有 104 行被筛选隐藏」
+   去翻一个根本没开的筛选（v377 修）。v605：分页已删，「不在本页」这一类不再存在。 */
 function ctxDeleteRow() {
   const rows = ctxRows.value
   if (!rows.length) { closeCtx(); return }
   const filtered = ctxRowFiltered.value
-  const offPage = ctxRowOffPage.value
   snapshot()
   for (let i = rows.length - 1; i >= 0; i--) cross.value.rows.splice(rows[i], 1)
   clearSel()
   closeCtx()
   const why = []
   if (filtered) why.push(`${filtered} 行已筛选隐藏`)
-  if (offPage) why.push(`${offPage} 行不在当前页`)
   toast(why.length ? `已删除 ${rows.length} 行（含 ${why.join('、')}）` : `已删除 ${rows.length} 行`, 'ok')
 }
 function ctxInsertCol(left) {
@@ -7015,7 +7000,7 @@ function startFill(r, c, e) {
   /* v594：**拖到可视区边缘自动滚动**。没有它，一次拖动最多只能填满一屏 ——
      154 行的表要重复「拖一屏 → 滚 → 再拖」十几次，而用户想的是"一路拖到底"。
      每帧滚 4~20px（离边缘越远越快），滚动后**重新取边缘那一格**当终点：
-     此时指针很可能已经不在任何格上（拖出容器/落在分页器上），只靠 mousemove 收不到。
+     此时指针很可能已经不在任何格上（拖出容器/落在页脚合计行上），只靠 mousemove 收不到。
      v595：**横向同样生效** —— 拖动填充的主用途就是快速改单，而改单最常见的动作是
      「把这一格的值横向铺到旁边几个报单单元」。横向用更小的热区（18px vs 26px）：
      表格横向有四千多像素，纵向拖时指针常常离右边缘不到一个格宽，热区大了会误横滚。
@@ -7296,12 +7281,11 @@ function displayPrice(r) {
 }
 // 筛选（商品名）
 const filterText = ref('')
-/* v377：把「为什么这行看不见」拆成两段 —— 前三条是**筛选类**（用户主动把行筛掉了），
-   最后一条是**分页**（行还在，只是不在当前页）。
-   🔴 为什么要拆：行菜单要告诉用户「你选中的区间里有几行是看不见的」，而两种原因的
-      用户动作完全不同（前者要去清筛选，后者只需翻页）。笼统算成「已被筛选隐藏」，
-      在分页模式下会报出一个巨大的数字（如 104 行），而用户明明只框了 6 行 —— 那是在骗人。
-   本函数只判筛选类；`rowShown` = 本函数 && 分页可见。 */
+/* v377：把「为什么这行看不见」拆成两段 —— 前三条是**筛选类**（用户主动把行筛掉了）；
+   原最后一条是**分页**（行还在，只是不在当前页），v605 起分页机制已删除 ⇒ 只剩筛选类。
+   🔴 为什么当初要拆：行菜单要告诉用户「你选中的区间里有几行是看不见的」，两种原因的
+      用户动作完全不同（前者要去清筛选，后者只需翻页）。笼统算成「已被筛选隐藏」会骗人。
+   本函数就是「这行现在看不看得见」的唯一判据（模板 `v-show` 直接用它）。 */
 function rowBaseShown(ri) {
   const f = (filterText.value || findText.value || '').trim().toLowerCase()
   if (f) {
@@ -7310,14 +7294,6 @@ function rowBaseShown(ri) {
   }
   if (hideZeroReport.value && rowSumArr.value[ri] <= 0) return false
   if (!passColFilter(cross.value.rows[ri])) return false
-  return true
-}
-function rowShown(ri) {
-  if (!rowBaseShown(ri)) return false
-  if (pagingOn.value) {
-    const s = curPage.value * pageSize.value
-    if (ri < s || ri >= s + pageSize.value) return false
-  }
   return true
 }
 // 排序：none / asc / desc（直接重排 rows，提交按 product_id 无关顺序）
@@ -7403,21 +7379,14 @@ const ctxRows = computed(() => {
   }
   return ctx.value.r >= 0 ? [ctx.value.r] : []
 })
-/* 行区间里看不见的行数，**按原因分两栏**（v377：原先把两者混成一个数，分页模式下会谎报）。
-   ① 筛选类：被搜索词 / 隐藏零量 / 列筛选挡掉的 —— 用户该去清筛选；
-   ② 分页类：只不在当前页 —— 用户翻页就能看到。
-   区间是**行号连续**的（与矩形选区同一语义，不另立一套），所以这两种行都会被一起操作 ——
+/* 行区间里看不见的行数（v377：原先把「筛选挡掉」和「不在当前页」混成一个数会谎报；
+   v605 分页机制删除后只剩前者这一类，故不再分栏）。
+   区间是**行号连续**的（与矩形选区同一语义，不另立一套），所以被筛掉的行也会被一起操作 ——
    唯一能做的是**把它说出来**，不让用户在看不见的地方丢数据。 */
 const ctxRowFiltered = computed(() => {
   if (ctx.value.type !== 'row' || selAxis.value !== 'row') return 0
   let n = 0
   for (const i of ctxRows.value) if (!rowBaseShown(i)) n++
-  return n
-})
-const ctxRowOffPage = computed(() => {
-  if (ctx.value.type !== 'row' || selAxis.value !== 'row') return 0
-  let n = 0
-  for (const i of ctxRows.value) if (rowBaseShown(i) && !rowShown(i)) n++
   return n
 })
 
@@ -7860,13 +7829,8 @@ function parseTSV(text) {
   while (lines.length && lines[lines.length - 1].trim() === '') lines.pop()
   return lines.map(l => l.split('\t').map(s => s.trim()))
 }
-// Q7 配套：编辑态开启分页后，任何按行索引定位的操作（粘贴/新增行/错误跳转）都需先翻到目标行所在页
-function gotoRowPage(ri) {
-  if (!pagingOn.value) return
-  const pp = Math.floor(ri / (pageSize.value || 50))
-  const maxP = Math.max(0, Math.ceil(cross.value.rows.length / (pageSize.value || 50)) - 1)
-  curPage.value = Math.max(0, Math.min(maxP, pp))
-}
+// v605：原 `gotoRowPage(ri)`（Q7 配套，翻到目标行所在页）随分页机制一并删除；
+// 它是纯空操作（只有 pagingOn 时才做事），调用点已全部清掉。
 // 把某一行滚动到可视区（新增行/错误跳转后定位）
 function scrollRowIntoView(ri) {
   nextTick(() => {
@@ -7884,7 +7848,7 @@ function scrollRowIntoView(ri) {
      · 客户名          → 列
      都命中 ⇒ 直接跳到「那一行 × 那一列」的交叉格（这是最常要的：给某客户的某个商品改数）。
    ⚠️ 行被**筛选/「只看有数」隐藏**时必须明确拒绝并说明原因，不能"跳了但看不见" ——
-      那会被理解成「跳转坏了」。分页不在此列：`gotoRowPage` 会自动翻到目标页。 */
+      那会被理解成「跳转坏了」。（v605 起不再有分页，不需要"自动翻到目标页"这一步。） */
 const jumpOpen = ref(false)
 const jumpText = ref('')
 const jumpInputEl = ref(null)
@@ -7906,7 +7870,6 @@ function jumpToCell(r, c) {
   r = Math.max(0, Math.min(maxR, r))
   c = Math.max(0, Math.min(maxC, c))
   if (!rowBaseShown(r)) { toast('目标行已被筛选隐藏 —— 请先清除筛选（或关掉「只看有数」）再跳转', 'warn'); return }
-  gotoRowPage(r)
   /* 翻页/筛选切换后行才真正可见 ⇒ 选中与滚动都放到下一帧。 */
   nextTick(() => {
     selectCell(r, c)
@@ -8010,7 +7973,6 @@ function pasteRegion(text) {
     writeCellVal(w.r, w.c, w.v)
     if (cellInvalid(w.r, w.c)) bad++
   }
-  gotoRowPage(sr)
   toast(`已粘贴 ${rows}×${useCols}` + (truncated ? '（右侧列超出表格已截断）' : '')
     + (skipped ? `，跳过 ${skipped} 个空格（原值保留）` : '')
     + (bad ? `，其中 ${bad} 格不合法（已标红，需修正后才能保存）` : ''), bad ? 'warn' : 'ok')
@@ -8957,13 +8919,9 @@ async function pushForecast() {
   } finally { pushing.value = false }
 }
 
-// P7-9 大数据分页视图（DOM 仅渲染当前页，ri 仍全局索引，交互零错位）
-const pagingOn = ref(false)
-const pageSize = ref(50)
-const curPage = ref(0)
-const totalPages = computed(() => Math.max(1, Math.ceil(cross.value.rows.length / pageSize.value)))
-function pageGo(d) { curPage.value = Math.max(0, Math.min(totalPages.value - 1, curPage.value + d)) }
-function pageReset() { curPage.value = 0; findIdx.value = -1 }
+/* v605：P7-9 那套「大数据分页视图」已整块删除（pagingOn / pageSize / curPage / totalPages /
+   pageGo / pageReset）。它靠 `v-show` 隐藏非当前页的行，DOM 节点数并不减少，只省 paint，
+   却让「改单要先翻页」成为默认体验 ⇒ 用户直接要求去掉。现在进改单一律全量可见。 */
 
 /* ============================================================
    P8 / P9 / P10 下一代增强（2026-08-23 端到端落地）
@@ -10693,7 +10651,6 @@ async function syncDraftToGrid() {
     const q = Number(d.requested_qty || d.suggested_qty || 0) || 0
     if (q > 0) r.extraQty = (Number(r.extraQty) || 0) + q
   })
-  gotoRowPage(cross.value.rows.length - 1)
   toast(`已带入编辑网格：新增 ${added} 个 · 更新 ${updated} 个（数量已填入「加单」列，请在网格内分配到各客户后保存）`, 'ok')
 }
 
@@ -12398,13 +12355,7 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .at-global{margin-top:8px;border-top:1px dashed var(--bd);padding-top:8px}
 .at-global-hd{display:flex;align-items:center;gap:6px;border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px;padding:0;margin-bottom:4px}
 .at-global-hd:hover{color:var(--t1)}
-/* v604：分页控件并入页脚「合计」行（原 .pager 独占一行，已删）。窄按钮 22px 高，
-   不超过页脚行 24px ⇒ 不会把「合计」那行顶高（v603 量过页脚行高 = 24）。 */
-.es-pager{display:flex;align-items:center;gap:6px;align-self:center;white-space:nowrap}
-.pg-btn{height:22px;padding:0 8px;font-size:12px;line-height:1;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t1);cursor:pointer}
-.pg-btn:hover:not(:disabled){border-color:var(--p);color:var(--p-dark)}
-.pg-btn:disabled{opacity:.45;cursor:not-allowed}
-.pg-info{font-size:12px;color:var(--t2);min-width:46px;text-align:center;font-variant-numeric:tabular-nums}
+/* v605：`.es-pager / .pg-btn / .pg-info` 随分页控件一起删除（页脚右侧现在只有冲刺胶囊 + 快捷键）。 */
 /* P8/P9/P10 新增强样式 */
 .rt-badge{cursor:help;font-size:11px;margin-left:2px}
 .rt-badge.stockout{color:var(--sev-risk)}.rt-badge.low{color:var(--sev-warn)}.rt-badge.expiry{color:var(--sev-info)}.rt-badge.expired{color:var(--sev-expired)}

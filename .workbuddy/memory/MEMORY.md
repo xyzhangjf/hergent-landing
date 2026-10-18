@@ -57,13 +57,14 @@
 - 🔴 边缘自动滚动必须与视口取交集（v594/v595）：`vBottom=min(容器内容底,innerHeight)`；不夹 ⇒ `elementFromPoint` 返回 null ⇒「滚是滚了、框不长」。rAF 滚完必须**重新 hit-test 夹取后的坐标**；只有滚动真的发生才 hit-test。
 - 🔴 横向填充夹进「数量区」，预览框与写入同源（v595）：单一 `fillSpan(a,b)` 供 `updateFillBox`/`doFill`/提示；横向左界 = 冻结列右边界（不夹会命中 sticky 商品名列）。横向热区 18px < 纵向 26px。
 
-## 🔴 页脚胶囊 / 浮层（v583-v588 / v603）
+## 🔴 页脚胶囊 / 浮层（v583-v588 / v603 / v605）
 - 数字只有一个源：父级做摘要胶囊必须让子组件 `emit('summary')` 回传，**父级不得重算**。软删行（`_deleted`）必须过滤，与 `liveRows` 同口径。
 - 悬停浮层：点击**不做 toggle**、`@blur` 别用来关；关闭只靠移出延迟(220-260ms)/点别处/Esc。
 - 浮层定位定式：`Teleport + fixed + z-index 1250`（> `--z-page-fs` 1000）；**水平居中**用 `left:50%+translateX(-50%)`；**垂直锚触发器**（向上/向下弹）。`transform` 创建 containing block ⇒ 浮层内不得有 `fixed/sticky` 子。有自定义浮层就删掉触发器 `title`。
 - 点开式（非悬停）浮层：Esc 监听必须挂**捕获阶段 + stopPropagation**，否则表格的 Esc（放弃本格修改）会跟着一起执行（v603）。
 - 🔴 **`margin-left:auto` 的推手不能挂在带 `v-if` 的组件上**（v604）：SprintChip 根元素 `v-if="show"`，无冲刺数据时整块不渲染 ⇒ 推手消失、整行退化成左对齐（分页离右边界空 211px，无报错）。凡"靠右组"必须包一层**常显容器**（`.es-right`）承受 auto。
-- 页脚并排控件（合计/冲刺/快捷键/分页）一律 22px 高、12px 字，页脚行高 24px 不得被顶高（v603/v604）。
+- 页脚并排控件（合计/冲刺/快捷键）一律 ≤22px 高、12px 字，页脚行高 24px 不得被顶高（v603/v604）。
+- 🔴 **v605：编辑表分页整块撤除**（改造动因=用户「不要上一页下一页，点改单直接显示全部」）。认知要点：那套分页是 `v-for` 全渲染 + `v-show` 隐藏 ⇒ **DOM 节点数一个不少**（实测 154 行 / 11990 节点），只省 paint ⇒ 「为性能而分页」在编辑表是伪命题；删掉后进改单 278ms 就全量可见，无卡顿。
 - 真机验证必须 `Input.dispatchMouseEvent` 真移鼠标 + `Input.insertText` 真键入；几何断言用 `getBoundingClientRect`，别用截图目测。
 
 ## 🔴 护栏与产物校验的坑
