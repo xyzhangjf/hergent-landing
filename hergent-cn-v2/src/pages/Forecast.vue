@@ -2819,10 +2819,10 @@ function editRow(pid) {
   editMode.value = true
   nextTick(() => { selectCell(idx, 0, false) })
 }
-function delRowSoft(pid) {
+async function delRowSoft(pid) {
   // B2 修复 (2026-07-24)：不再只是「视图内隐藏」——标记进入删除清单，
   // saveEdits 保存时随矩阵提交过滤，后端幂等重建即物理删除（保存后重新载入不再出现）。
-  if (!window.confirm('确认将该商品行从本期预报中删除？保存后生效（不保存可点「取消」放弃）')) return
+  if (!await store.confirm('确认将该商品行从本期预报中删除？保存后生效（不保存可点「取消」放弃）')) return
   const r = cross.value.rows.find(x => x.product_id === pid)
   if (r) { r._deleted = true; if (selectedPid.value === pid) selectedPid.value = null; recomputeTotals() }
   toast('已加入删除清单，点「保存」生效', 'ok')
@@ -3528,7 +3528,7 @@ async function enterEdit() {
   if (noOpenPeriod.value) { toast(saveBlockedReason.value, 'warn'); return }
   // Q30：角色不在填报白名单时前置告知（不阻断，避免误伤）
   if (entryRoleWarn.value) {
-    const ok = window.confirm(`当前角色「${roleName(bizRole.value)}」可能没有填报权限，保存时可能被服务器拒绝。\n\n仍要进入编辑吗？`)
+    const ok = await store.confirm(`当前角色「${roleName(bizRole.value)}」可能没有填报权限，保存时可能被服务器拒绝。\n\n仍要进入编辑吗？`)
     if (!ok) return
   }
   if (loadingEdit.value) return
@@ -3897,14 +3897,14 @@ function leaveEdit() {
   pagingOn.value = false   // Q7：退出编辑复位分页，read-only 表恢复全量渲染原行为
   loadCross()  // 回到只读 —— 也就是「带『改单』按钮」的那一态
 }
-function exitEdit() {
+async function exitEdit() {
   /* Q2：有未保存改动时二次确认，避免误点「取消」让长时间录入白费。
      v201：判据从「撤销栈非空」改为**真实的未保存状态**。原写法在保存成功后仍为真
      （Q5 刻意保留了撤销栈以支持 Ctrl+Z）⇒ 用户保存完点「取消」，会收到
      「放弃本次编辑？未保存的改动将不会提交」—— 改动明明已经提交了，这句是**误导**。 */
   const dirty = dirtySinceSave.value
   if (dirty) {
-    const ok = window.confirm('放弃本次编辑？\n\n未保存的改动将不会提交。\n已录入的数量仍存于本地草稿，再次点「编辑」可恢复。')
+    const ok = await store.confirm('放弃本次编辑？\n\n未保存的改动将不会提交。\n已录入的数量仍存于本地草稿，再次点「编辑」可恢复。')
     if (!ok) return
   }
   leaveEdit()
@@ -3955,11 +3955,11 @@ function addRow() {
   if (hideZeroReport.value) toast('新行已添加（当前开启「仅显示有报单」，填入数量前它属于零报单行）', 'warn')
 }
 
-function delRow(ri) {
+async function delRow(ri) {
   const r = cross.value.rows[ri]
   // Q3：原实现无确认直接 splice，误点即丢一行（虽有撤销但用户常不知道）
   if (r && (String(r.name || '').trim() || rowSum(r) > 0)) {
-    const ok = window.confirm(`删除商品行「${String(r.name || '').trim() || '（未命名）'}」？\n\n该行的报单数量会一并删除，可用 Ctrl+Z 撤销。`)
+    const ok = await store.confirm(`删除商品行「${String(r.name || '').trim() || '（未命名）'}」？\n\n该行的报单数量会一并删除，可用 Ctrl+Z 撤销。`)
     if (!ok) return
   }
   snapshot()
@@ -4493,7 +4493,7 @@ async function saveEdits(opts = {}) {
   const usable = kept.filter(r => Number(r.product_id) > 0 || String(r.name || '').trim() || String(r.barcode || '').trim())
   const ignored = kept.length - usable.length
   if (ignored > 0) {
-    const ok = window.confirm(`有 ${ignored} 行缺少商品名称/条码，保存时将被忽略（其数量也不会写入）。\n\n继续保存其余 ${usable.length} 行？`)
+    const ok = await store.confirm(`有 ${ignored} 行缺少商品名称/条码，保存时将被忽略（其数量也不会写入）。\n\n继续保存其余 ${usable.length} 行？`)
     if (!ok) return
   }
   savingEdit.value = true
@@ -6756,9 +6756,9 @@ const saveState = computed(() => {
   if (lastSavedAt.value) return { cls: 'saved', text: '已保存 ' + lastSavedAt.value }
   return { cls: 'clean', text: '尚未修改' }
 })
-function undoToLastSaved() {
+async function undoToLastSaved() {
   if (!lastSavedSnap.value) return
-  if (!window.confirm('回退到本次编辑的起点（上次保存时的内容，或刚进入编辑时的内容）？\n\n当前未保存的改动将被丢弃，可用 Ctrl+Z 再撤销回来。')) return
+  if (!await store.confirm('回退到本次编辑的起点（上次保存时的内容，或刚进入编辑时的内容）？\n\n当前未保存的改动将被丢弃，可用 Ctrl+Z 再撤销回来。')) return
   snapshot()
   cross.value = clone(lastSavedSnap.value)
   clampSelection()
@@ -7434,7 +7434,7 @@ async function loadSuggestRecipes() {
   try { suggestRecipes.value = JSON.parse(localStorage.getItem(SUGGEST_RECIPE_KEY()) || '[]') } catch (e) { suggestRecipes.value = [] }
 }
 async function saveSuggestRecipe() {
-  const n = (window.prompt('配方名称：') || '').trim(); if (!n) return
+  const n = (await store.prompt('配方名称：') || '').trim(); if (!n) return
   let list = []
   try { list = JSON.parse(localStorage.getItem(SUGGEST_RECIPE_KEY()) || '[]') || [] } catch (e) { list = [] }
   const item = { name: n, recipe: clone(suggRecipe) }
@@ -7814,8 +7814,8 @@ const SNAP_KEY = () => 'forecast_snaps_' + (cross.value.period ? cross.value.per
 const snaps = ref([])
 const snapCompare = ref(null)
 function loadSnaps() { try { snaps.value = JSON.parse(localStorage.getItem(SNAP_KEY()) || '[]') } catch (e) { snaps.value = [] } }
-function saveSnap() {
-  const name = (window.prompt('快照名称：') || '').trim() || ('快照 ' + new Date().toLocaleString())
+async function saveSnap() {
+  const name = (await store.prompt('快照名称：') || '').trim() || ('快照 ' + new Date().toLocaleString())
   let list = []
   try { list = JSON.parse(localStorage.getItem(SNAP_KEY()) || '[]') } catch (e) { list = [] }
   list.push({ name, time: Date.now(), data: clone(cross.value) })
@@ -8103,9 +8103,9 @@ function namePadStyle(r) {
   if (hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60) n++
   return n ? `padding-right:${n * 18 + 8}px` : 'padding-right:6px'
 }
-function setRowNote(ri) {
+async function setRowNote(ri) {
   const r = cross.value.rows[ri]; if (!r) return
-  const t = window.prompt('批注（商品行备注）：', rowNote(r))
+  const t = await store.prompt('批注（商品行备注）：', rowNote(r))
   if (t === null) return
   if (t.trim()) notesMap[r.product_id] = t.trim(); else delete notesMap[r.product_id]
   saveNotes(); saveCloudNotes(); toast('已保存批注', 'ok')
@@ -8313,7 +8313,7 @@ async function _subAct(action, reason = '') {
 }
 function doSubmit() { _subAct('submit') }
 function doApprove() { _subAct('approve') }
-function doReject() { const reason = window.prompt('驳回原因：') || ''; _subAct('reject', reason) }
+async function doReject() { const reason = await store.prompt('驳回原因：') || ''; _subAct('reject', reason) }
 function doRevise() { _subAct('revise') }
 
 // P9-5 云端共享批注（多人共享，localStorage 兜底）
@@ -9225,7 +9225,7 @@ async function onHistoryUnlock (row) {
   if (!row) return
   if (Number(row.id) <= 0) { toast('合成报单行不支持该操作', 'warn'); return }
   if (reopening.value) return
-  const ok = window.confirm(
+  const ok = await store.confirm(
     `解锁编辑期次「${row.name || ''}」？\n\n` +
     `解锁后你和主管/管理员可以修改本期的报单数据（保存会在通知中心留痕）。\n` +
     `✅ 销售的小程序报单通道**不会**打开 —— 销售仍然报不了这一期。\n\n` +
@@ -9244,7 +9244,7 @@ async function onHistoryUnlock (row) {
 async function onHistoryVoid (row) {
   if (!row) return
   if (Number(row.id) <= 0) { toast('合成报单行不支持该操作', 'warn'); return }
-  const ok = window.confirm(
+  const ok = await store.confirm(
     `作废期次「${row.name || ''}」？\n\n` +
     `这一期的到货日（${row.arrival_date || '—'}）已标记「不到货」—— 那批货不来，这一期本不该建。\n\n` +
     `作废只是把它关掉、让开自动建表的路：【报单数据全部保留】，之后仍可用「恢复报单」找回来。\n\n` +
@@ -9264,7 +9264,7 @@ async function onHistoryReopen (row) {
   if (!row) return
   if (Number(row.id) <= 0) { toast('合成报单行不支持该操作', 'warn'); return }
   if (reopening.value) return
-  const ok = window.confirm(
+  const ok = await store.confirm(
     `恢复报单期次「${row.name || ''}」？\n\n` +
     `本期将回到「进行中」，并且【销售的小程序报单通道会重新打开】—— 销售可以继续报单。\n\n` +
     `⚠️ 如果只是要改历史数据，请改用「解锁编辑」（那种做法不会打开报单通道）。\n\n` +
@@ -9285,7 +9285,7 @@ async function onHistoryPush (row) {
   if (!row) return
   if (Number(row.id) <= 0) { toast('合成报单行不支持该操作', 'warn'); return }
   if (reopening.value) return
-  const ok = window.confirm(
+  const ok = await store.confirm(
     `把期次「${row.name || ''}」的加单/减单明细推送给对应业务员？\n\n` +
     `推送后消息会出现在相关业务员的「我的通知」里（小程序 / 站内通知中心）。\n` +
     `⚠️ 消息发出后**无法撤回**；若数据还没改完，建议改完再推。\n\n` +
@@ -9952,7 +9952,7 @@ async function doSearch() {
    用户以为数据丢了。这里提供显式的单向同步入口（不自动同步，避免意外覆盖）。 */
 async function syncDraftToGrid() {
   if (!draft.value.length) { toast('草稿为空，先搜索加入商品', 'warn'); return }
-  const ok = window.confirm(`把草稿中的 ${draft.value.length} 个商品带入编辑网格？\n\n`
+  const ok = await store.confirm(`把草稿中的 ${draft.value.length} 个商品带入编辑网格？\n\n`
     + '说明：草稿不区分客户（只有一个总需求量），带入后数量会填入「加单」列，'
     + '你需要在网格里再分配到各客户列，最后点「保存」。')
   if (!ok) return
