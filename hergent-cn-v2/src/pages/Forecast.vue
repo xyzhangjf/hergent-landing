@@ -625,16 +625,22 @@
                       <span v-if="rowNote(it.r) && canDo('data', 'update')" class="note-badge" :title="rowNote(it.r)" @click.stop="setRowNote(cross.rows.indexOf(it.r))"><Icon name="message"/></span>
                       <span v-else-if="rowNote(it.r)" class="note-badge" style="cursor:default" :title="rowNote(it.r)"><Icon name="message"/></span>
                       <span v-if="hsMap[it.r.product_id] !== undefined && hsMap[it.r.product_id] < 60" class="hs-badge" :title="'健康分 ' + hsMap[it.r.product_id] + '（偏低，需补全资料）'"><Icon name="lightbulb"/></span>
+                      <!-- v611：「删除该行」从查看态移出（原实现只写内存 _deleted + 提示「点保存生效」，
+                           而查看态根本没有保存按钮 ⇒ 行当场消失、刷新又回来，比改数更误导）。
+                           删除仍走「改单」→ 编辑网格最左侧 ✕（那里有确认框 + Ctrl+Z 撤销）。 -->
                       <span class="row-ops">
                         <button class="rop" @click.stop="viewRow(it.r.product_id)" title="查看/展开明细"><Icon name="search"/></button>
-                        <button class="rop" @click.stop="editRow(it.r.product_id)" title="改单"><Icon name="edit"/></button>
-                        <button class="rop danger" @click.stop="delRowSoft(it.r.product_id)" title="删除该行"><Icon name="trash"/></button>
+                        <button class="rop" @click.stop="editRow(it.r.product_id)" title="改单（修改数量 / 删除商品行）"><Icon name="edit"/></button>
                       </span>
                     </template>
                     <template v-else-if="col.type === 'master'"><span :class="{ 'cell-dash': masterVal(it.r, col) === '—' }">{{ masterVal(it.r, col) }}</span></template>
+                    <!-- v611：查看态数量格**彻底只读**（删掉原来的内联 input）。
+                         原因：这里改数只写 `cross.rows` 内存、从不入库，却会当场改写「最终下单」「页脚合计金额」，
+                         而「复制报单 → 下单数量」读的正是这份内存 ⇒ 屏幕上改了、库里没改，复制去厂家下单
+                         就会与实报对不上（用户 2026-10-19 提问「对后面的数据链有影响吗」）。
+                         现在改数只走行尾「改单」→ 编辑网格 → 保存，只有一条写库路径。 -->
                     <template v-else-if="col.type === 'qty'">
-                      <input v-if="editingCell && editingCell.pid === it.r.product_id && editingCell.uname === col.key" class="cell-input cell-qty" type="text" inputmode="numeric" :value="it.r.qtyByUnit[col.key] || 0" v-focus @focus="onInlineNumFocus" @input="numInput($event, it.r.qtyByUnit, col.key)" @change="commitCell(it.r.product_id, col.key, $event.target.value)" @blur="commitCell(it.r.product_id, col.key, $event.target.value)" @keydown.stop="onCellKey($event, it.r.product_id, col.key)">
-                      <span v-else class="qty-num tip-wrap" :style="heatOf(it.r, col.key).style">{{ it.r.qtyByUnit[col.key] }}<span class="tip">¥{{ fmt(displayPrice(it.r) != null ? (it.r.qtyByUnit[col.key] || 0) * displayPrice(it.r) : 0) }}（按行单价估算）</span></span>
+                      <span class="qty-num tip-wrap" :style="heatOf(it.r, col.key).style">{{ it.r.qtyByUnit[col.key] }}<span class="tip">¥{{ fmt(displayPrice(it.r) != null ? (it.r.qtyByUnit[col.key] || 0) * displayPrice(it.r) : 0) }}（按行单价估算）</span></span>
                     </template>
                     <template v-else-if="col.key === 'qty'">{{ fmt(it.r.total) }}</template>
                     <template v-else-if="col.key === 'boxes'"><span :class="{ 'miss-price': boxMissing(it.r) }">{{ boxText(it.r) }}</span></template>
@@ -2874,7 +2880,8 @@ const selectedPid = ref(null)
 const expandedRows = ref({})            // pid -> true 展开明细
 const frozenKey = ref('name')           // 冻结列：name | product_code | none
 const rowStates = ref({})               // pid -> 'loading' | 'error' | 'disabled'
-const editingCell = ref(null)           // { pid, uname }
+/* v611：查看态数量格只读提示「每次页面加载只说一遍」，避免连点几个数字就刷一串 toast。 */
+const roHintShown = ref(false)
 /* v591：构建号只读展示（来源是 `main.js` 写入的 window.__HG_BUILD__，唯一定义处）。
    为什么放进「修改日志」面板：部署后「页面没变化」几乎每次都先怀疑代码、其实是**标签页没刷新**，
    有个能对着念的号，一眼就能分清「代码没生效」还是「浏览器还是老包」。 */
@@ -2937,89 +2944,31 @@ function editRow(pid) {
   editMode.value = true
   nextTick(() => { selectCell(idx, 0, false) })
 }
-async function delRowSoft(pid) {
-  // B2 修复 (2026-07-24)：不再只是「视图内隐藏」——标记进入删除清单，
-  // saveEdits 保存时随矩阵提交过滤，后端幂等重建即物理删除（保存后重新载入不再出现）。
-  if (!await store.confirm('确认将该商品行从本期预报中删除？保存后生效（不保存可点「取消」放弃）')) return
-  const r = cross.value.rows.find(x => x.product_id === pid)
-  if (r) { r._deleted = true; if (selectedPid.value === pid) selectedPid.value = null; recomputeTotals() }
-  toast('已加入删除清单，点「保存」生效', 'ok')
-}
-function editCell(pid, uname) {
-  editingCell.value = { pid, uname }
-  /* v591 兜底（真机 v590 已通过，这一步是防"某些浏览器/某些时序下选区又被折叠"）：
-     进编辑后延时 60ms 检查一次 —— 焦点仍在该格、但选区是**折叠态**（selectionStart===End）
-     ⇒ 说明全选被某个后续默认动作吃掉了，补一次。
-     ⚠️ 只在折叠态才补：用户"再点同一格落光标"走的是 `onCellClick` 里提前 return 的分支，
-        不会再触发 editCell，所以不会把故意落的光标又变成全选。 */
-  nextTick(() => {
-    setTimeout(() => {
-      const el = document.querySelector('td input.cell-qty')
-      if (!el || document.activeElement !== el) return
-      if (el.selectionStart === el.selectionEnd) { try { el.select() } catch (err) { /* 忽略 */ } }
-    }, 60)
-  })
-}
-/* v589：只读列表「双击数量格进编辑」后**全选原有数字**，直接打字即覆盖（原 10 键 7 = 7，而不是 107）。
-   🔴 为什么不用 `v-focus` 指令兜：该指令此前**全仓未注册**（Vue 只 warn 一句就静默失效），
-      真机实测双击后光标停在末尾。这里用最笨也最可靠的 `@focus` 内联处理，不依赖任何指令解析。
-   🔴 为什么要补一次 setTimeout：input 是 dblclick 里渲染出来的，浏览器「双击选词」的默认动作
-      可能在我们 select() 之后落地，把全选折掉 ⇒ 下一轮事件循环再选一次（此时若焦点已移走就不抢）。 */
-function onInlineNumFocus (e) {
-  const el = e && e.target
-  if (!el || !el.select) return
-  const pick = () => { try { el.select() } catch (err) { /* 少数输入类型会抛 InvalidStateError */ } }
-  pick()
-  setTimeout(() => { if (el.isConnected && document.activeElement === el) pick() }, 0)
-}
-function commitCell(pid, uname, val) {
-  const r = cross.value.rows.find(x => x.product_id === pid)
-  if (!r) { editingCell.value = null; return }
-  /* v214 A：`toHalfNum` 与其它数字格同源 —— 原实现 `parseInt("１２")` = NaN ⇒ `|| 0`
-     ⇒ 用户在查看态双击输入一个全角数量，保存下来是 **0**（看着像"填了没生效"）。 */
-  const v = Math.max(0, parseInt(toHalfNum(val), 10) || 0)
-  r.qtyByUnit = { ...r.qtyByUnit, [uname]: v }
-  const total = cross.value.units.reduce((s, u) => s + (r.qtyByUnit[u.name] || 0), 0)
-  r.total = total
-  // v184e：r.amount、boxes 与只读表/导出/列统计同源（箱口径）。r.amount = 最终下单(箱) × 单价(进价/箱)。
-  r.amount = amountValue(r) != null ? amountValue(r) : (r.amount || 0)
-  // v207：boxes 不再就地取整 —— 唯一实现是 rowBoxes()（内部 boxesOf）。r.total 上一行刚写好，可直接算。
-  r.boxes = rowBoxes(r)
-  recomputeTotals()
-  editingCell.value = null
-}
-function onCellKey(e, pid, uname) {
-  if (e.key === 'Enter') commitCell(pid, uname, e.target.value)
-  else if (e.key === 'Escape') editingCell.value = null
+/* v611：删掉 `delRowSoft`。它本来给查看态行尾的垃圾桶用 —— 只写内存 `_deleted` 并提示
+   「点保存生效」，而查看态没有保存按钮 ⇒ 行当场消失、刷新又回来。查看态的删除入口已一并移除，
+   删除走「改单」→ 编辑网格最左 ✕（`delRow`，有确认框 + Ctrl+Z 撤销 + 真正随矩阵保存）。 */
+
+/* v611：查看态数量格只读 —— 原来单击/双击都会挂一个 `<input>` 直接改 `cross.rows`，
+   改完只脏内存、不入库，却会立刻改写「最终下单」「页脚合计金额」，而「复制报单 → 下单数量」
+   读的就是这份内存 ⇒ 复制给厂家下单的量与库里实报不一致，对账时无从追溯。
+   现在唯一的写数路径是「改单 → 编辑网格 → 保存」；这里只提示一次，不做任何写入。 */
+function hintViewReadOnly() {
+  if (roHintShown.value) return
+  roHintShown.value = true
+  toast('查看态的数字是只读的（反映已保存的报单）。要改数量请点行尾的「改单」按钮', 'warn')
 }
 function onCellClick(it, col, ci, e) {
   if (it.kind !== 'row' || e.target.closest('.row-ops')) return
   activeCell.value = { pid: it.r.product_id, ci }
   selectedPid.value = it.r.product_id
-  /* v590：**单击**数量格 = 直接进编辑 + 全选原数字（用户诉求「点击即选中所有数字」）。
-     v589 只做了双击 —— 用户实际是单击，点完光标没出现、也没全选。
-     🔴 已在编辑同一格时必须 return：给 editingCell 赋新对象会触发重渲染，
-        input 被重新创建 ⇒ 光标丢失、第二次点击无法落位。
-     🔴 必须用 click（mouseup 之后）而不是 mousedown：在 mousedown 里挂载 input，
-        随后的 mouseup 会把 select() 折叠成光标，白做。 */
-  if (col.type !== 'qty') return
-  const cur = editingCell.value
-  if (cur && cur.pid === it.r.product_id && cur.uname === col.key) return
-  editCell(it.r.product_id, col.key)
+  /* 键盘漫游仍需要「当前格」概念，所以这里照旧记 activeCell；只是不再进编辑。 */
+  if (col.type === 'qty') hintViewReadOnly()
 }
 function onCellDbl(it, col, e) {
-  /* v589：阻止双击的默认动作（选中光标处的词）—— 否则「双击选词」会把全选折掉。 */
+  /* 阻止双击选词（只读表格里选出一串数字没有任何用途，反而像"选中了准备改"）。 */
   if (e && e.preventDefault) e.preventDefault()
   if (it.kind !== 'row' || col.type !== 'qty') return
-  const cur = editingCell.value
-  if (cur && cur.pid === it.r.product_id && cur.uname === col.key) {
-    // v590：单击已进编辑，双击不再重建 input（重建会丢焦点），只补一次全选
-    const td = e && e.target && e.target.closest ? e.target.closest('td') : null
-    const inp = td ? td.querySelector('input.cell-qty') : null
-    if (inp) { try { inp.focus(); inp.select() } catch (err) { /* 忽略 */ } }
-    return
-  }
-  editCell(it.r.product_id, col.key)
+  hintViewReadOnly()
 }
 function onCellFocus(it, ci) { if (it.kind === 'row') activeCell.value = { pid: it.r.product_id, ci } }
 
@@ -3418,9 +3367,11 @@ function onBodyKey(e) {
   else if (e.key === 'Enter') {
     const it = arr[ri]
     if (it && it.kind === 'row') {
+      /* v611：回车不再进数量格编辑（查看态只读）——数量格与非数量格统一为「展开/收起明细」。
+         要改数走行尾「改单」，避免键盘上也留一条不改库的写入路径。 */
       const uStart = visibleCols.value.length, uEnd = uStart + unitCount()
-      if (ci >= uStart && ci < uEnd) editCell(it.r.product_id, cross.value.units[ci - uStart].name)
-      else toggleExpand(it.r.product_id)
+      if (ci >= uStart && ci < uEnd) hintViewReadOnly()
+      toggleExpand(it.r.product_id)
     }
     e.preventDefault()
   } else if (e.key === ' ') { const it = arr[ri]; if (it && it.kind === 'row') toggleExpand(it.r.product_id); e.preventDefault() }
