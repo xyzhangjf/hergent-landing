@@ -527,7 +527,7 @@
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏（Esc）' : '全屏查看表格（Esc 退出）'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
           </button>
-          <div class="filter-row" v-if="colFilter || colFilterSet">
+          <div class="filter-row" v-if="colFilter || colFilterSet || brandSel.length">
             <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选"><Icon name="close"/></button></span>
             <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选"><Icon name="close"/></button></span>
             <span v-if="brandSel.length" class="filter-chip" :title="'按品牌（供货方）筛选'">品牌 ∈ {{ brandSel.length }} 个 <button class="chip-x" @click="brandSel = []" aria-label="清除品牌筛选"><Icon name="close"/></button></span>
@@ -830,7 +830,7 @@
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏（Esc）' : '全屏查看表格（Esc 退出）'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
           </button>
-          <div class="filter-row" v-if="colFilter || colFilterSet">
+          <div class="filter-row" v-if="colFilter || colFilterSet || brandSel.length">
             <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选"><Icon name="close"/></button></span>
             <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选"><Icon name="close"/></button></span>
             <span v-if="brandSel.length" class="filter-chip" :title="'按品牌（供货方）筛选'">品牌 ∈ {{ brandSel.length }} 个 <button class="chip-x" @click="brandSel = []" aria-label="清除品牌筛选"><Icon name="close"/></button></span>
@@ -2740,7 +2740,8 @@ function rowVisible(r) {
   if (f && !rowMatchText(r, f)) return false
   if (hideZeroReport.value && rowSumOf(r) <= 0) return false
   if (!passColFilter(r)) return false
-  if (brandSel.value.length && !brandSel.value.includes(rowBrand(r))) return false
+  // v607：品牌筛选在此统一走 brandSelSet（与编辑态 rowBaseShown 同源，见 brandSelSet 处注释）
+  if (brandSel.value.length && !brandSelSet.value.has(rowBrand(r))) return false
   return true
 }
 // 热力色：绝对值档位（用户 2026-09-23 拍板）—— 不再按「占全场最大值的比例」分档，
@@ -4224,12 +4225,23 @@ function addRow() {
   snapshot()
   const nr = blankRow()
   nr._new = true                       // Q9：新增行标识（保存后清除）
+  /* v607：品牌筛选激活时新行必须能看见（品牌判据刚接进 rowBaseShown，新行 brand 为空）。
+     - 只筛 1 个品牌 ⇒ 新行直接继承该品牌（报单本来就是按品牌逐个填的）；
+     - 筛多个品牌 ⇒ 不猜用户要给哪个品牌，提示他自己填或清筛选。
+     否则症状就是「点新增一行 → 表格纹丝不动」，与 Q4 那个「有报单筛选下新行被隐藏」同型。 */
+  const bs = brandSel.value || []
+  const brandHidden = bs.length > 1
+  if (bs.length === 1) nr.brand = bs[0]
   cross.value.rows.push(nr)
   const ri = cross.value.rows.length - 1
   /* Q4：原实现把新行 push 到 428 行末尾却既不滚动也不聚焦，
      若开着「仅显示有报单」新行 rowSum=0 还会被直接隐藏 → 用户以为功能坏了。 */
-  nextTick(() => { selectCell(ri, 0); focusCell(ri, 0, { select: true }); scrollRowIntoView(ri) })
-  if (hideZeroReport.value) toast('新行已添加（当前开启「仅显示有报单」，填入数量前它属于零报单行）', 'warn')
+  if (!brandHidden) nextTick(() => { selectCell(ri, 0); focusCell(ri, 0, { select: true }); scrollRowIntoView(ri) })
+  if (brandHidden) {
+    toast(`新行已添加，但当前按品牌筛选了 ${bs.length} 个品牌、本行品牌为空 ⇒ 暂不显示。请在「品牌」列填一个被筛的品牌，或点筛选条上的 × 清空品牌筛选`, 'warn')
+  } else if (hideZeroReport.value) {
+    toast('新行已添加（当前开启「仅显示有报单」，填入数量前它属于零报单行）', 'warn')
+  }
 }
 
 async function delRow(ri) {
@@ -5043,6 +5055,7 @@ function tryPasteCross(block) {
     + (skipped ? ` · 跳过 ${skipped} 行（无商品名称）` : '')
     + (blank ? ` · 跳过 ${blank} 个空格（原值保留）` : '')
     + (bad ? ` · ${bad} 格不合法（已标红）` : '')
+    + (added && brandSel.value.length ? ' · 品牌筛选生效中，品牌为空的新行暂不显示' : '')
     + '（改完点「保存」）', bad || skipped || blank ? 'warn' : 'ok')
   return true
 }
@@ -5119,6 +5132,7 @@ function onPaste(e) {
   if (added || skipped)
     toast(`已从 Excel 粘贴 ${added} 行商品`
       + (skipped ? `，跳过 ${skipped} 行（缺少商品名称或条码）` : '')
+      + (added && brandSel.value.length ? '，品牌筛选生效中，品牌为空的新行暂不显示' : '')
       + '（改完点「保存」）', skipped ? 'warn' : 'ok')
 }
 const savingEdit = ref(false)
@@ -5270,6 +5284,13 @@ const brandCandidates = computed(() => {
   cross.value.rows.forEach(r => { const b = rowBrand(r); if (b) s.add(b) })
   return [...s].sort((a, b) => a.localeCompare(b, 'zh'))
 })
+/* v607：品牌筛选的**唯一判定集合**，供两个行显隐判据共用。
+   🔴 根因（用户 2026-10-18 反馈「编辑态品牌按钮没用，保存后才有用」）：
+      行显隐有两条实现 —— 查看态 `rowVisible(r)`、编辑态 `rowBaseShown(ri)`（编辑表 `v-show` 的唯一判据）。
+      v607 之前品牌只写在 `rowVisible` 里，`rowBaseShown` 漏了这条 ⇒ 编辑态点品牌按钮只是把
+      `brandSel` 改了，行一条都不动（`brandSel.length` 变、表格纹丝不动），保存退出编辑态切到
+      查看态才「突然生效」。以后新增筛选条件，**两条判据必须同时改**，否则又会出现同屏两套答案。 */
+const brandSelSet = computed(() => new Set(brandSel.value || []))
 
 /* v185：承接跨页品牌上下文（`#/forecast?brand=A,B`）。
    来源页＝「目标与返利 › 仪表盘」达成列表标题行的链接「实时达成（含预报贡献）→」
@@ -7299,6 +7320,10 @@ function rowBaseShown(ri) {
   }
   if (hideZeroReport.value && rowSumArr.value[ri] <= 0) return false
   if (!passColFilter(cross.value.rows[ri])) return false
+  /* v607：品牌筛选必须与查看态 rowVisible 同口径（此前漏在这里 ⇒ 编辑态点品牌按钮行数不动）。
+     用 brandSelSet 而不是 brandSel.includes：本函数在渲染期按行调用，且还要被区间统计/跳转复用，
+     逐行 includes 是 O(品牌数×行数)，Set 降到 O(1)。 */
+  if (brandSel.value.length && !brandSelSet.value.has(rowBrand(cross.value.rows[ri]))) return false
   return true
 }
 // 排序：none / asc / desc（直接重排 rows，提交按 product_id 无关顺序）
@@ -7874,7 +7899,7 @@ function jumpToCell(r, c) {
   if (maxR < 0 || maxC < 0) return
   r = Math.max(0, Math.min(maxR, r))
   c = Math.max(0, Math.min(maxC, c))
-  if (!rowBaseShown(r)) { toast('目标行已被筛选隐藏 —— 请先清除筛选（或关掉「只看有数」）再跳转', 'warn'); return }
+  if (!rowBaseShown(r)) { toast('目标行已被筛选隐藏 —— 请先清除筛选（搜索框 / 品牌筛选 / 只看有数）再跳转', 'warn'); return }
   /* 翻页/筛选切换后行才真正可见 ⇒ 选中与滚动都放到下一帧。 */
   nextTick(() => {
     selectCell(r, c)
