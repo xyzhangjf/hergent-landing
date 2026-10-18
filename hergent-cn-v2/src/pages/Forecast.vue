@@ -442,28 +442,28 @@
             <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
             <!-- 表格级筛选器（原在主工具栏）：作用于本交叉表，下移到表格工具行，缩短「控件—作用对象」距离 -->
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
-            <!-- v209：全屏时收成图标形态（badge-slim）。文案不丢 —— 完整句子在 title 与 aria-label。
-                 它是全屏单行的必要项：本徽标与「另有 N 个」可同时出现，两者实测各约 150–180px。 -->
-            <span v-if="hideZeroReport" class="confirm-badge filter filter-act" :class="{ 'badge-slim': gridFullscreen }"
+            <!-- v602：徽标只留文字（原 v209 的 badge-slim 全屏收图标形态已废 —— 图标删了，再收就是空框）。
+                 文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
+            <span v-if="hideZeroReport" class="confirm-badge filter filter-act"
                   role="button" tabindex="0"
                   :title="'已隐藏 ' + zeroReportCount + ' 个零报单（点这里恢复显示）'"
                   :aria-label="'已隐藏 ' + zeroReportCount + ' 个零报单，点击恢复显示'"
                   @click="hideZeroReport = false"
                   @keydown.enter.prevent="hideZeroReport = false"
                   @keydown.space.prevent="hideZeroReport = false"
-            ><Icon name="eye-off" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
+            >已隐藏 {{ zeroReportCount }} 个零报单</span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
             <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
             <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
-            <span v-if="hiddenEmptyCols" class="confirm-badge filter filter-act" :class="{ 'badge-slim': gridFullscreen }"
+            <span v-if="hiddenEmptyCols" class="confirm-badge filter filter-act"
                   role="button" tabindex="0"
                   :title="'已收起 ' + hiddenEmptyCols + ' 个全空的主档列（客户列始终显示；点这里展开）'"
                   :aria-label="'已收起 ' + hiddenEmptyCols + ' 个空列，点击展开'"
                   @click="showEmptyCols = true"
                   @keydown.enter.prevent="showEmptyCols = true"
                   @keydown.space.prevent="showEmptyCols = true"
-            ><Icon name="eye-off" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
+            >已收起 {{ hiddenEmptyCols }} 个空列</span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
             <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter filter-act"
@@ -473,7 +473,7 @@
                   @click="showAllProducts = true"
                   @keydown.enter.prevent="showAllProducts = true"
                   @keydown.space.prevent="showAllProducts = true"
-            ><Icon name="eye-off" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
+            >另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -731,28 +731,28 @@
             <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。 -->
             <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
-            <!-- v209：全屏时收成图标形态（badge-slim）。文案不丢 —— 完整句子在 title 与 aria-label。
-                 它是全屏单行的必要项：本徽标与「另有 N 个」可同时出现，两者实测各约 150–180px。 -->
-            <span v-if="hideZeroReport" class="confirm-badge filter filter-act" :class="{ 'badge-slim': gridFullscreen }"
+            <!-- v602：徽标只留文字（原 v209 的 badge-slim 全屏收图标形态已废 —— 图标删了，再收就是空框）。
+                 文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
+            <span v-if="hideZeroReport" class="confirm-badge filter filter-act"
                   role="button" tabindex="0"
                   :title="'已隐藏 ' + zeroReportCount + ' 个零报单（点这里恢复显示）'"
                   :aria-label="'已隐藏 ' + zeroReportCount + ' 个零报单，点击恢复显示'"
                   @click="hideZeroReport = false"
                   @keydown.enter.prevent="hideZeroReport = false"
                   @keydown.space.prevent="hideZeroReport = false"
-            ><Icon name="eye-off" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
+            >已隐藏 {{ zeroReportCount }} 个零报单</span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
             <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
             <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
-            <span v-if="hiddenEmptyCols" class="confirm-badge filter filter-act" :class="{ 'badge-slim': gridFullscreen }"
+            <span v-if="hiddenEmptyCols" class="confirm-badge filter filter-act"
                   role="button" tabindex="0"
                   :title="'已收起 ' + hiddenEmptyCols + ' 个全空的主档列（客户列始终显示；点这里展开）'"
                   :aria-label="'已收起 ' + hiddenEmptyCols + ' 个空列，点击展开'"
                   @click="showEmptyCols = true"
                   @keydown.enter.prevent="showEmptyCols = true"
                   @keydown.space.prevent="showEmptyCols = true"
-            ><Icon name="eye-off" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
+            >已收起 {{ hiddenEmptyCols }} 个空列</span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
             <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter filter-act"
@@ -762,7 +762,7 @@
                   @click="showAllProducts = true"
                   @keydown.enter.prevent="showAllProducts = true"
                   @keydown.space.prevent="showAllProducts = true"
-            ><Icon name="eye-off" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
+            >另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -867,7 +867,7 @@
               <button class="btn btn-ghost btn-xs" @click="resetColWidths" title="清除本地列宽记忆，恢复默认列宽">重置列宽</button>
             </div>
           </div>
-          <div class="table-wrap edit-grid-wrap" :class="{ 'is-filling': fillDragging }" @scroll="onEditScroll">
+          <div class="table-wrap edit-grid-wrap" :class="{ 'is-filling': fillDragging }" :style="editMaxH ? { maxHeight: editMaxH + 'px' } : null" @scroll="onEditScroll">
           <!-- v598（C2）：跳转框（Ctrl+G）。Teleport 到 body：全屏模式下 `.grid-area.is-fs`
                是 `position:fixed;inset:0`，留在表内会被它的层叠/裁切影响；挂到 body 才是唯一稳的。 -->
           <Teleport to="body">
@@ -2009,6 +2009,7 @@
               <span>双击单元格右下角小点 = 填到已报数量末行 · 双击列边界 = 列宽自适应</span>
               <span><kbd>Ctrl</kbd>+<kbd>A</kbd> 全选 · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 选区批量填充</span>
               <span><kbd>Enter</kbd>/<kbd>Tab</kbd> 下一格（格内按左右键可移动光标改数）</span>
+              <span><kbd>Esc</kbd> 放弃本格修改（还原成进格前的值）· 不在编辑时按 = 取消选中</span>
               <span><kbd>Home</kbd>/<kbd>End</kbd> 行首 / 行尾 · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> 翻页</span>
               <span><kbd>Ctrl</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> 跳到本列连续数据首尾</span>
               <span><kbd>Delete</kbd> 清空选区 · 拖单元格右下角圆点填充</span>
@@ -5882,10 +5883,38 @@ function onGridKey(e) {
     e.preventDefault(); focusCell(r, c, { select: false })
   } else if (e.key === 'Escape') {
     if (errListOpen.value) { errListOpen.value = false; return }
-    /* v210：输入态下 Esc 先**退回导航态**（Excel 心智：Esc 退出「正在编辑」）。
-       ⚠️ 这里刻意**不回退内容** —— v-model 早已写进 r[c.key]，回退归「回退」按钮与 Ctrl+Z 管；
-          在这里顺手还原会把「改到一半按 Esc」变成静默丢数据（而且 `change` 未提交，
-          还原逻辑还得自己造一份副本，是纯粹的额外风险面）。只换态，零数据影响。 */
+    /* v602：Esc = **放弃本格修改**（还原成「进这一格那一刻」的值）。用户拍板的行为变更。
+       🔴🔴 判据是「当前值 ≠ 进格前的值」，**不能只看 `cellTyping`**：
+          单击进格的其实是**导航态**（v590 的"单击即全选"，cellTyping=false），用户点一下就键入，
+          视觉上整格就是输入框 —— 只看 cellTyping 的话这条路按 Esc 会直接掉到 clearSel，
+          「改 99 → Esc 还是 99、连 toast 都没有」。真机首轮就是这么挂的。
+          所以两种态都要认：只要「这一格有未提交的改动」就还原。
+       🔴 还原源是 `_pendingCell.rawOld`（进格时抓的**原始存储值**），不是 readCellVal ——
+          后者对数量列是 `|| 0`，空格子会被还原成 0（界面 · 变 0，保存还真写 0）。
+       🔴 还原后**不需要**调 onCellChange：它拿 `_pendingCell.old` 与当前值比，还原后两者相等
+          ⇒ 本来就直接 return。而且这次改动从头到尾没触发过 `change`，撤销栈里不该多出
+          一条「改了又改回来」的空记录。
+       🔴 只在「当前格 = 待提交格」时还原：拖框选 / 键盘跳格后 `_pendingCell` 可能指向别处，
+          那时按 Esc 只是退出/取消，绝不越界改别人。
+       ⚠️ 位置：放在 `errListOpen` 之后、蚂蚁线之前 —— 有**未提交改动**时它是最该被撤的东西，
+          比"取消复制"更贴近用户此刻的诉求（Excel 里改到一半按 Esc 也是先撤改动）。
+       ⚠️ v210 曾刻意不回退（怕"改到一半按 Esc"变静默丢数据）。现在做回退的前提有两条：
+          ① 有 toast 明确告知；② 只作用于「还没提交的这一格」。Tab 走过的改动仍归「回退」/ Ctrl+Z。
+       ⚠️ 同步写一次 DOM value：`rw[key]` 变化的 patch 在微任务里，而紧随的 focusCell().select()
+          在 nextTick —— 不显式写这一步，极端情况下会先选中旧文本再被覆盖。 */
+    const pend = _pendingCell
+    if (pend && pend.r === r && pend.c === c) {
+      const cur = rawCellVal(r, c)
+      if (String(cur ?? '') !== String(pend.rawOld ?? '')) {
+        restoreCellRaw(r, c, pend.rawOld)
+        if (e.target && e.target.tagName === 'INPUT') e.target.value = pend.rawOld == null ? '' : String(pend.rawOld)
+        toast('已放弃本格修改', 'info')
+        cellTyping.value = false
+        /* 留在这一格（保持全选，与"单击后想直接重打"的手感一致）；再按一次 Esc 才取消选中。 */
+        focusCell(r, c, { select: true })
+        return
+      }
+    }
     if (cellTyping.value) { cellTyping.value = false; focusCell(r, c, { select: true }); return }
     /* v597（A1）：**有蚂蚁线时 Esc 先取消复制**（Excel 同款），且**不清选区** ——
        用户按 Esc 十有八九是「刚才复制错了」，顺手把辛苦框的选区一起清掉更烦。
@@ -6795,6 +6824,38 @@ function readCellVal(r, c) {
   return ''
 }
 
+/* v602：**进格那一刻的原始存储值**（Esc「放弃本格修改」要用它还原）。
+   🔴 不能用 `readCellVal` 代替：数量列在那边是 `rw.qtyByUnit[name] || 0`，**空值被读成 0**，
+      拿它还原会把「本来空着、显示占位符 ·」的格子变成实打实的 0（保存时也会真的写 0 进去）。
+      这里按列种逐条取**字段本身**：空就是 undefined / ''，还原后跟没碰过完全一样。 */
+function rawCellVal(r, c) {
+  const rw = cross.value.rows[r]; if (!rw) return ''
+  if (c < visibleCols.value.length) return rw[visibleCols.value[c].key]
+  const ui = c - visibleCols.value.length
+  if (ui < unitCount()) return rw.qtyByUnit[cross.value.units[ui].name]
+  const ck2 = calcInputKey(c)
+  if (ck2) return rw[ck2]
+  return ''
+}
+/* 把原始值**原样**写回。与 writeCellVal 的唯一区别：不过 `parseNumInput`。
+   🔴 必须不过：raw 本来就是确定值（进格前就在库里），再收敛一次纯属多余；
+      更要命的是 `parseNumInput(undefined)` 会得到 NaN/''，空格子永远还原不回去。
+   只读列仍拒写（与 writeCellVal 同一道闸门，保持「界面上不留假值」的既有约束）。 */
+function restoreCellRaw(r, c, raw) {
+  const rw = cross.value.rows[r]; if (!rw) return false
+  if (c < visibleCols.value.length) {
+    const col = visibleCols.value[c]
+    if (col.edit === 'ro') return false
+    rw[col.key] = raw
+    return true
+  }
+  const ui = c - visibleCols.value.length
+  if (ui < unitCount()) { rw.qtyByUnit[cross.value.units[ui].name] = raw; return true }
+  const ck2 = calcInputKey(c)
+  if (ck2) { rw[ck2] = raw; return true }
+  return false
+}
+
 /* v184：**返回是否真的写进去了**（false = 被拒或越界）。`clearRange` 用它统计实际清掉的
    格数 —— 只读列被跳过后不能再按选区面积报数（否则提示「已清除 12 个」而实际只变 10 个）。 */
 function writeCellVal(r, c, v) {
@@ -7534,7 +7595,9 @@ function onFocusCell(r, c, e) {
      ⚠️ 同格重复 focus 不重记（保持原 old）：方向键在同一格上按左右 / 再次点击都会回到这里，
         若重记，old 会变成「改了一半的值」，撤销就撤不回去了。 */
   if (!_pendingCell || _pendingCell.r !== r || _pendingCell.c !== c) {
-    _pendingCell = { r, c, old: readCellVal(r, c) }
+    /* v602：`rawOld` = 字段原始值（未归一），Esc「放弃本格修改」靠它还原；
+       `old` 仍走 readCellVal（撤销栈比对用，口径与 pushCellSnap 一致）。 */
+    _pendingCell = { r, c, old: readCellVal(r, c), rawOld: rawCellVal(r, c) }
   }
   /* v210（需求①）：导航态下「**单击即全选内容**」——
      点一下就能直接打字整体替换，不必三击 / 拖选 / 先删再输。
@@ -8798,6 +8861,52 @@ function toggleGridFullscreen() {
 function onFsKey(e) { if (e.key === 'Escape' && gridFullscreen.value) gridFullscreen.value = false }
 onMounted(() => { window.addEventListener('keydown', onFsKey) })
 onBeforeUnmount(() => { window.removeEventListener('keydown', onFsKey) })
+
+/* v602：编辑网格高度**自适应** —— 目标是「表格底边（含那条 17px 横向滚动条）和合计栏
+   永远留在视口内」，不必再滚页面去找它们。
+   🔴 原实现写死 `max-height:72vh`：它是**相对视口**算的，可表格上方还压着页头 + 主工具栏 +
+      视图切换行 + 状态条（实测约 300px）⇒ 913 视口下 657+300 溢出 44px、780 下溢出 81px。
+      症状正是「最下几十像素点不到」：横向滚动条和合计栏都在屏幕外，而此刻滚轮滚的是
+      **表格自己**（overflow:auto），滚到表格底也不会带动页面 ⇒ 看起来像"滚不动了"。
+   🔴 必须用**文档流位置**反推，不能用视觉位置：`wrap.top` 随页面滚动变，直接拿它算会变成
+      「滚一点 → 表格长高 → 页面又变高 → 还得滚」的抖动。这里换算成「表格顶距滚动容器内容顶的
+      偏移」（off，与滚动位置无关），再由 `innerHeight - 容器顶 - off - 底部占位` 得出可用高度。
+   ⚠️ 底部占位 = 合计栏 22px + 选区统计条（`position:fixed;bottom:0`，有选区才出现，约 40px）。
+      不扣统计条 ⇒ 一框选，统计条立刻把合计栏盖住。
+   ⚠️ 全屏（`.grid-area.is-fs`）有自己的高度链（fixed inset:0 + max-height:none），
+      这里返回 0 = 不写内联 max-height，把控制权交回 CSS。
+   ⚠️ 下限 180px：极矮窗口算出来可能只剩一百出头，那样表体只有两三行、比溢出更糟，故兜个底。 */
+const editMaxH = ref(0)
+function _applyEditHeight(wrap) {
+  const vw = wrap.closest('.view-wrap')
+  const vwTop = vw ? vw.getBoundingClientRect().top : 0
+  const scrolled = vw ? vw.scrollTop : window.scrollY
+  const off = wrap.getBoundingClientRect().top + scrolled - vwTop
+  const stat = document.querySelector('.sel-stat')
+  const barH = 22 + (stat ? stat.getBoundingClientRect().height + 6 : 10)
+  editMaxH.value = Math.max(180, Math.round(window.innerHeight - vwTop - off - barH))
+}
+function recalcEditHeight() {
+  if (gridFullscreen.value) { editMaxH.value = 0; return }
+  const wrap = document.querySelector('.edit-grid-wrap')
+  if (!wrap) { editMaxH.value = 0; return }
+  _applyEditHeight(wrap)
+}
+onMounted(() => {
+  window.addEventListener('resize', recalcEditHeight)
+  nextTick(() => recalcEditHeight())
+})
+onBeforeUnmount(() => window.removeEventListener('resize', recalcEditHeight))
+watch(editMode, (v) => { if (v) nextTick(() => recalcEditHeight()) })
+watch(gridFullscreen, () => nextTick(() => recalcEditHeight()))
+/* 三个筛选开关会让工具行的徽标出现/消失 ⇒ `.grid-ctl-row` 可能 flex-wrap 折成两行 ⇒
+   表格整体下移 32px。`nextTick` 时 flex 还没重排完，必须再等一帧 rAF 才是最终几何。 */
+watch([hideZeroReport, showAllProducts, showEmptyCols], () => {
+  nextTick(() => requestAnimationFrame(recalcEditHeight))
+})
+/* 选区统计条的出现/消失改变底部占位。只在「有↔无」翻转时重算 ——
+   挂到 selRange 本身会在拖选过程中每帧改 max-height，抖得没法看。 */
+watch(() => !!selRange.value, () => { nextTick(() => recalcEditHeight()) })
 
 /* P2-⑬ 键盘可达性快捷键（与 Esc 退出全屏一起构成键盘操作层）：
    · Ctrl/Cmd+S → 保存（编辑态下；即使用户焦点在输入框也允许，避免「点了没存」焦虑）；
@@ -11255,14 +11364,12 @@ onMounted(async () => {
   transition:background .15s;
 }
 .confirm-badge.filter.filter-act:hover{background:var(--bg2)}
-/* v601：三个徽标的图标与右侧「品牌」按钮**撞图**（都是漏斗 filter），而且尺寸不一样
-   —— 全局 `.ico` 是 16px，而本页 `.btn svg.ico` 被压到 14px，两个并排差 2px，一眼看出。
-   ① 换 `eye-off`：漏斗=「去设筛选」，eye-off=「有东西被藏起来了，点一下显形」，
-      正好是这三个徽标的真实语义（已隐藏零报单 / 已收起空列 / 另有未显示），
-      与旁边的「品牌」漏斗彻底分开；
-   ② 尺寸对齐 `.btn svg.ico` 的 14px，一行里所有图标同高（本页图标基准见 .btn/.rop/.grp-toggle）。
-   ⚠️ 6 处模板（只读 + 改单各 3 个）必须同步，产物里 `eye-off` 出现 6 次可核。 */
-.confirm-badge.filter.filter-act svg.ico{width:14px;height:14px}
+/* v602：**三个徽标不带图标，只留文字**（用户拍板）。
+   来龙去脉：v601 把它们从 `filter` 漏斗换成 `eye-off`（原与右侧「品牌」按钮同图、且 16px vs 14px 差 2px），
+   用户看过之后仍嫌图标多余 —— 它们本质是「状态 + 撤销动作」，同行勾选框也都没图标，图标在这里纯冗余。
+   故整个删掉（连同 v601 那条 `svg.ico{14px}`）。
+   ⚠️ 全屏态的 `badge-slim`（收成图标形态）**随之作废** —— 没有图标再收就是空框，故模板同步去掉
+      `:class` 与 `v-if`，两个计数徽标与「另有 N 个」一样**全屏也显示完整文案**（与 v570 同一取向）。 */
 /* P0-1 工具栏语义分隔条（筛选/数据/编辑/AI/设置 五簇） */
 .tb-sep{display:inline-block;width:1px;height:20px;background:var(--bd);margin:0 5px;flex:0 0 auto;opacity:.65;align-self:center}
 /* P0-2 状态徽标曾独立成行（.tb-status-row 已废弃：现直接挂在 .tb-ctx 段内，紧随期次选择器） */
@@ -11412,6 +11519,10 @@ th.sortable:hover{color:var(--p-dark)}
 .col-resizer:hover::after,.col-resizer.active::after{background:var(--p)}
 /* v593：`position:relative` 是拖动填充虚线框的**定位基准**（覆盖层是它的绝对定位子元素）。
    `.fill-handle` 等原本就有的 absolute 元素都挂在 td 上（td 自己 relative）⇒ 不受影响。 */
+/* ⚠️ v602：这里的 `72vh` 只剩**首帧兜底**作用 —— 真值由 JS 算出的 `editMaxH` 以
+   内联 max-height 覆盖（见 recalcEditHeight：按「表格顶到视口底」反推，保证横向滚动条
+   与合计栏不落到屏幕外）。`72vh` 是按视口算的，而表格上方还有约 300px 页头/工具栏，
+   两者相加必然溢出（913 视口溢出 44px、780 溢出 81px）。别把内联那层去掉只留这条。 */
 .table-wrap.edit-grid-wrap{flex:1 1 auto;min-height:0;max-height:72vh;overflow:auto;max-width:100%;position:relative}
 /* v593：拖动填充的预览框 —— Excel 同款虚线。半透明填充让「哪几格会被改写」一眼可见。
    🔴 `pointer-events:none` 不可去掉：命中判定用 elementFromPoint，可命中就会吃掉整个拖动。
@@ -11561,13 +11672,9 @@ th.sortable:hover{color:var(--p-dark)}
       本已不重叠。v570 该徽标改为常显文案后行宽增加，留位由 34 增到 46px（内容边界 −58px），
       给行尾更多余量，避免文案变长后贴住按钮。 */
 .grid-area.is-fs .grid-ctl-row{padding-right:46px;gap:6px}
-/* ③ 两个计数徽标（零报单 / 空列）在全屏收成图标形态（完整句子在 title 与 aria-label 里）。
-      ⚠️「另有 N 个在售商品未显示」自 v570 起**全屏也显示完整文案**（用户要求），不再走 badge-slim；
-         行宽不足由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 */
-/* v599：`.filter-act` 把这三个徽标抬到 32px 后，全屏的「只留图标」形态必须跟着给高度，
-   否则 slim 档还按内容撑（3px padding + 16px 图标 ≈ 22px），全屏里又矮一截。
-   padding 只收到 7px 用于收窄 —— 高度统一 32 由 height 守住。 */
-.grid-area.is-fs .confirm-badge.badge-slim{height:32px;padding:0 7px;gap:0}
+/* ③ v602：`badge-slim`（全屏收成图标形态）**已整体废弃** —— 三个徽标在 v602 去掉了图标，
+   没有图标可收，再 slim 就是空框。现在三个徽标全屏也显示完整文案（与 v570 的取向一致），
+   行宽不足由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切，故这里不再需要任何徽标专属规则。 */
 /* v129 修复：全屏时把主工具栏弹层容器降回普通层级。
    .tb-pop 常态 z-index:var(--z-page-bar)（要高于 .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”），
    但全屏层 .grid-area.is-fs 只有 1000 → 仍在工具栏的「导出」「工具箱」触发器会盖在全屏层上，

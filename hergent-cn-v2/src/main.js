@@ -66,7 +66,7 @@ app.directive('focus', {
    长期开着的标签页不会重新拉 index.html，看的永远是旧 chunk（v590 就这样被误判成"没修好"）。
    显示在「预报订单管理 → 修改日志」面板标题旁；也可在控制台 `document.documentElement.dataset.build` 查。
    ⚠️ 每次发版必须手动改这一行（没有 CI 注入），漏改会让版本核对失效。 */
-window.__HG_BUILD__ = 'v601'
+window.__HG_BUILD__ = 'v602'
 if (typeof document !== 'undefined') document.documentElement.setAttribute('data-build', window.__HG_BUILD__)
 console.info('[HG] 前端构建', window.__HG_BUILD__)
 
