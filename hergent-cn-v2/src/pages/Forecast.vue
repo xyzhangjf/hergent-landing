@@ -5053,6 +5053,11 @@ const fillStart = ref({ r: -1, c: -1 })
 const fillEnd = ref({ r: -1, c: -1 })
 const fillDragging = ref(false)
 const fillBox = ref(null)              // { left, top, width, height }，相对滚动容器内容坐标
+/* v596：填充方向（`'v'` 纵向 / `'h'` 横向）—— **线性填充**的唯一依据。
+   之前是「矩形填充」：斜着拖就铺满一整片 m×n，从第 1 行拖到第 5 行会顺手把 5 个客户一起改。
+   而改单的真实动作是「这一格的值沿着**一个方向**铺开」⇒ 只沿主方向铺，另一轴恒等于源格。
+   ⚠️ 是 ref 而不是局部变量：`fillSpan` 同时被预览框 / 写入 / 提示三处调用，必须共用同一方向。 */
+const fillAxis = ref('v')
 const ctxMenuStyle = computed(() => {
   const ww = typeof window !== 'undefined' ? window.innerWidth : 400
   const top = ctx.value.top != null ? ctx.value.top : ctx.value.y
@@ -6586,19 +6591,28 @@ function writeCellVal(r, c, v) {
    🔴 横向**只在数量区（报单单元列）内扩散**：源列左边是商品档案（名称/规格/条码），
       右边是合计/加单/单价/金额。横向铺过去会把「客户 A 的 30 箱」写进「单价」和「加单」——
       `writeCellVal` 对 `edit:'num'` 的列一律放行（只拦 `edit:'ro'`），**不会**帮你挡住，
-      而这种脏数据直接进下单金额。横向填充只在数量列之间有意义，这是唯一安全口径。 */
+      而这种脏数据直接进下单金额。横向填充只在数量列之间有意义，这是唯一安全口径。
+   v596：**线性填充** —— 只沿 `fillAxis` 一个方向铺，另一轴恒等于源格（不再是矩形）。
+      例：从第 1 行第 3 列往下拖 5 行 ⇒ 只改第 3 列的 5 格；往右拖 4 列 ⇒ 只改第 1 行的 4 格。
+      这样「斜着拖」也不会顺手改掉旁边客户的数据。 */
 function fillSpan(a, b) {
-  const r0 = Math.min(a.r, b.r), r1 = Math.max(a.r, b.r)
-  let c0 = Math.min(a.c, b.c), c1 = Math.max(a.c, b.c)
+  const vert = fillAxis.value !== 'h'
+  const r0 = vert ? Math.min(a.r, b.r) : a.r
+  const r1 = vert ? Math.max(a.r, b.r) : a.r
+  let c0 = vert ? a.c : Math.min(a.c, b.c)
+  let c1 = vert ? a.c : Math.max(a.c, b.c)
   const unitStart = visibleCols.value.length
   const unitEnd = unitStart + unitCount()
-  if (a.c >= unitStart && a.c < unitEnd) {
-    c0 = Math.max(unitStart, c0)
-    c1 = Math.min(unitEnd - 1, c1)
-  } else {
-    c0 = c1 = a.c          // 源列不在数量区 ⇒ 横向不扩散，只按纵向填
+  if (!vert) {
+    /* 横向：源列不在数量区 ⇒ 不扩散（见上）；在数量区则在数量区内夹取，不越进合计/单价/金额 */
+    if (a.c >= unitStart && a.c < unitEnd) {
+      c0 = Math.max(unitStart, c0)
+      c1 = Math.min(unitEnd - 1, c1)
+    } else {
+      c0 = c1 = a.c
+    }
+    if (c1 < c0) c1 = c0
   }
-  if (c1 < c0) c1 = c0
   return { r0, r1, c0, c1 }
 }
 /* v593：把「填充范围」换算成覆盖层几何。
@@ -6644,6 +6658,7 @@ function startFill(r, c, e) {
   fillStart.value = { r, c }
   fillEnd.value = { r, c }
   fillDragging.value = true
+  fillAxis.value = 'v'          // v596：默认纵向，首次移动超 10px 后按主方向锁定
   updateFillBox()
   const wrap = editTblEl.value && editTblEl.value.parentElement
   const pt = { x: e && e.clientX != null ? e.clientX : 0, y: e && e.clientY != null ? e.clientY : 0 }
@@ -6663,6 +6678,38 @@ function startFill(r, c, e) {
     leftGuard = Math.max(0, fr - cLeft0)
   }
   const apply = (hit) => { if (hit) { fillEnd.value = hit; updateFillBox() } }
+  /* v596：**方向判定 = 线性填充的核心**。用屏幕像素位移而不是格数差：
+     行高 31px、列宽 90px，同样拖 90px 在纵向只是「3 行」、横向才是「1 列」，
+     按格数比会偏向行；按像素比才等于用户手感。
+     · 起点附近 10px 内方向未定（此时怎么算都只有源格，无所谓）；
+     · 一旦越过就锁住主方向 —— 45° 附近 ddx/ddy 逐格交替，不锁会一帧横一帧竖地抖；
+     · 只允许「另一轴明显超过」时改向（2 倍以上且 >40px），这样画个 L 形也能改过去，
+       而轻微手抖不会让已经铺出去的框突然换方向。 */
+  const org = { x: pt.x, y: pt.y }
+  let axisDecided = false
+  /* 横向只在**数量（报单单元）列**之间扩散：源格在单价/加单/档案列时横向铺开是错的
+     （`writeCellVal` 只拦 `edit:'ro'`，单价这类 `edit:'num'` 会被写脏 ⇒ 直接进下单金额），
+     ⇒ 这类列**直接锁死纵向**，拖右也不横向长，避免"框不长、用户以为坏了"。 */
+  const unitStartC = visibleCols.value.length
+  const canH = c >= unitStartC && c < unitStartC + unitCount()
+  const lockAxis = () => {
+    const ddx = Math.abs(pt.x - org.x), ddy = Math.abs(pt.y - org.y)
+    if (Math.max(ddx, ddy) < 10) return false
+    if (!axisDecided) {
+      fillAxis.value = (!canH || ddy >= ddx) ? 'v' : 'h'
+      axisDecided = true
+      return true
+    }
+    const cur = fillAxis.value === 'h' ? ddx : ddy
+    const other = fillAxis.value === 'h' ? ddy : ddx
+    if (other > cur * 2 && other > 40) {
+      const next = fillAxis.value === 'h' ? 'v' : 'h'
+      if (next === 'h' && !canH) return false
+      fillAxis.value = next
+      return true
+    }
+    return false
+  }
   /* 横向夹取（move 与自动滚动共用）：只夹横向，纵向保持原行为 ——
      指针移到表头/工具栏时命中 null 就"保持上一帧"，不该把框弹回第一行。 */
   const safeX = (x) => {
@@ -6675,7 +6722,10 @@ function startFill(r, c, e) {
   }
   const move = (ev) => {
     pt.x = ev.clientX; pt.y = ev.clientY
+    const flipped = lockAxis()
     apply(fillHitAt(safeX(pt.x), pt.y))
+    /* 换向时命中格可能没变（斜着拖时行列同时在动）⇒ 不补这一下，框会停在旧方向上 */
+    if (flipped) updateFillBox()
   }
   /* v594：**拖到可视区边缘自动滚动**。没有它，一次拖动最多只能填满一屏 ——
      154 行的表要重复「拖一屏 → 滚 → 再拖」十几次，而用户想的是"一路拖到底"。
@@ -6683,7 +6733,9 @@ function startFill(r, c, e) {
      此时指针很可能已经不在任何格上（拖出容器/落在分页器上），只靠 mousemove 收不到。
      v595：**横向同样生效** —— 拖动填充的主用途就是快速改单，而改单最常见的动作是
      「把这一格的值横向铺到旁边几个报单单元」。横向用更小的热区（18px vs 26px）：
-     表格横向有四千多像素，纵向拖时指针常常离右边缘不到一个格宽，热区大了会误横滚。 */
+     表格横向有四千多像素，纵向拖时指针常常离右边缘不到一个格宽，热区大了会误横滚。
+     v596：**只滚当前方向那一轴** —— 线性填充下另一轴恒等于源格，它滚了也不会改变填充结果，
+     反而会让整张表在用户垂直拖行时莫名左右跑（指针在宽表右边缘附近就会触发）。 */
   let raf = 0
   const tick = () => {
     if (!fillDragging.value) { raf = 0; return }
@@ -6705,10 +6757,13 @@ function startFill(r, c, e) {
       const topGuard = thead ? thead.offsetHeight : 0    // 表头是 sticky 的，滚到它下面才算可见区
       const EDGE = 26, EDGE_H = 18, MAX = 20
       let dy = 0, dx = 0
-      if (pt.y > vBottom - EDGE) dy = Math.min(MAX, Math.ceil((pt.y - vBottom + EDGE) / 3) + 4)
-      else if (pt.y < vTop + topGuard + EDGE) dy = -Math.min(MAX, Math.ceil((vTop + topGuard + EDGE - pt.y) / 3) + 4)
-      if (pt.x > vRight - EDGE_H) dx = Math.min(MAX, Math.ceil((pt.x - vRight + EDGE_H) / 3) + 4)
-      else if (pt.x < vLeft + leftGuard + EDGE_H) dx = -Math.min(MAX, Math.ceil((vLeft + leftGuard + EDGE_H - pt.x) / 3) + 4)
+      if (fillAxis.value === 'v') {
+        if (pt.y > vBottom - EDGE) dy = Math.min(MAX, Math.ceil((pt.y - vBottom + EDGE) / 3) + 4)
+        else if (pt.y < vTop + topGuard + EDGE) dy = -Math.min(MAX, Math.ceil((vTop + topGuard + EDGE - pt.y) / 3) + 4)
+      } else {
+        if (pt.x > vRight - EDGE_H) dx = Math.min(MAX, Math.ceil((pt.x - vRight + EDGE_H) / 3) + 4)
+        else if (pt.x < vLeft + leftGuard + EDGE_H) dx = -Math.min(MAX, Math.ceil((vLeft + leftGuard + EDGE_H - pt.x) / 3) + 4)
+      }
       /* 只有**滚动真的发生了**才重算终点：`scrollLeft/scrollTop` 到底后设值不变，
          此时再 hit-test 只会拿同一格反复触发同一帧，白费且容易在边界上抖动。 */
       let moved = false
@@ -6760,8 +6815,12 @@ function startFill(r, c, e) {
 }
 function doFill(a, b) {
   if (!a) return
-  snapshot()
   const { r0, r1, c0, c1 } = fillSpan(a, b)
+  /* v596：线性填充下可能出现「拖了但实际只覆盖源格自己」——
+     例如横向拖一个**非数量列**（安全口径禁止横向扩散），或方向还没定就松手。
+     这类情况一个字都不该写（写了也是原值），更不该弹「已填充 1 格」的噪音提示。 */
+  if (r0 === r1 && c0 === c1 && r0 === a.r && c0 === a.c) return
+  snapshot()
   const sv = readCellVal(a.r, a.c)
   for (let ri = r0; ri <= r1; ri++)
     for (let ci = c0; ci <= c1; ci++) writeCellVal(ri, ci, sv)
