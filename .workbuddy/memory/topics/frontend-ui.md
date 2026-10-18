@@ -4129,3 +4129,27 @@ B3 全屏仍 154 行全量、页脚可见（不再有「全屏又变回一页」
 ⚠️ `dist/` 里同时留着多个历史 `Forecast-*.css`（`--emptyOutDir false` 所致），**认 md5 要认 entry 里
 实际引用的那个**（`grep -o "assets/Forecast-[A-Za-z0-9_-]*\.css" dist/assets/index-*.js`），别按 `ls | tail` 取。
 下一号 **v606**。
+
+
+---
+
+## §MEM-ARCHIVE-v605（2026-10-18 从 MEMORY.md 逐字迁入：拖动填充 v593-v597 全文）
+
+## 🔴 拖动填充 / 拖动类交互（v593-v597）
+- 「操作成功但看不见」先 `grep` 那个状态量读了几次：`fillEnd` 只写不读 ⇒ 全程零 DOM 变化。跟随鼠标的交互必须有**一个随状态变化的 DOM 物**。
+- 覆盖层：绝对定位在**滚动容器内容坐标**（容器 `position:relative`），坐标由首尾格 `getBoundingClientRect` 相减 + `scrollLeft/Top`；**绝不能累加行高**（密度两档 + `zoom` 必错位）。🔴 必须 `pointer-events:none`（否则 `elementFromPoint` 永远命中框本身）。
+- 拖动期 `.容器.is-filling *{cursor:crosshair!important}`；收尾把整段范围设为选区、提示带行号区间；Esc 取消不写入。
+- 🔴 线性填充（v596）：只沿**主方向**铺一行/一列（用户否掉矩形）。方向按**屏幕像素**判（行 31 / 列 90），起点 10px 内不定向、越过即锁，只有另一轴 >当前×2 且 >40px 才改向。非数量列 `canH=false`（`writeCellVal` 只拦 `ro`，单价会被写脏直入下单金额）。⚠️ 独立「单价」td 没有 `.fill-handle`。
+- 🔴 拖框选之后快捷键全灭（v597 根因）：`onCellOver` 主动 `blur()` ⇒ `activeElement` 变 **BODY**，而快捷键挂在 `<table @keydown>` ⇒ Ctrl+D/R/C、Delete、方向键静默无效。修法：`onCellUp` 在 `_dragMoved` 时 `focusGrid()`；单击路径不能补。判据：快捷键失效先查 `document.activeElement`。
+- 🔴 边缘自动滚动必须与视口取交集（v594/v595）：`vBottom=min(容器内容底,innerHeight)`；不夹 ⇒ `elementFromPoint` 返回 null ⇒「滚是滚了、框不长」。rAF 滚完必须**重新 hit-test 夹取后的坐标**；只有滚动真的发生才 hit-test。
+- 🔴 横向填充夹进「数量区」，预览框与写入同源（v595）：单一 `fillSpan(a,b)` 供 `updateFillBox`/`doFill`/提示；横向左界 = 冻结列右边界（不夹会命中 sticky 商品名列）。横向热区 18px < 纵向 26px。
+
+
+## §MEM-ARCHIVE-v605b（2026-10-18 从 MEMORY.md 逐字迁入：Excel 化改单网格 v597-v598 全文）
+
+## 🔴 Excel 化改单网格（v597-v598）
+- 🔴 Vue 响应式 ↔ WeakMap 基线：基线用**原始对象**建、模板里 `r` 是深层 **Proxy** ⇒ 不同 key，必须 `toRaw()`；否则 `get()` 恒 undefined、判据恒 false、**零报错**（v598 角标一次没亮）。任何「用对象引用当 key」的缓存同族。
+- 单值粘贴铺满选区只在 **1×1 且选区>1** 时成立；多行多列严格按左上角对齐。写入复用 `batchWrite`。
+- 双击列边界自适应：表级 `dblclick` 委托 + `th.cellIndex`（`colgroup` 与 `<th>` 同序是唯一权威）；`v-show` 隐藏行必须跳过；客户列表头是 `<input>` ⇒ 读 `value`。
+- 改过角标判据是「当前值 ≠ 基线」而非"被点过"；基线建在**草稿合并之前**（=服务端已保存值）。
+- 探针两坑：CDP 在**视口外坐标**派发鼠标事件静默无效（判 `inView`）；`Tab` 跳格触发横向滚动后旧坐标全失效 ⇒ 每次操作前重取坐标。

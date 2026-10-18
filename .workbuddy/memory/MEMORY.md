@@ -48,21 +48,17 @@
 - 🔴 跨口径不能相加：多条规则可能一条按元一条按件 ⇒ 汇总必须判 `amount|quantity|mixed`，mixed 时**不给金额**、写明"口径不一致、不合并汇总"。同类：数量型规则的排序键必须同口径，否则缺进价品（金额恒 0）被整条漏掉。
 - 🔴 真实数据里不存在的分支怎么验：生产构建已剥离 `__vueParentComponent` ⇒ 正解是**从 SFC 源码正则抽取真实函数**执行 + 断言模板绑定（`v587-unit-logic-test.mjs` 式）。
 
-## 🔴 拖动填充 / 拖动类交互（v593-v597）
-- 「操作成功但看不见」先 `grep` 那个状态量读了几次：`fillEnd` 只写不读 ⇒ 全程零 DOM 变化。跟随鼠标的交互必须有**一个随状态变化的 DOM 物**。
-- 覆盖层：绝对定位在**滚动容器内容坐标**（容器 `position:relative`），坐标由首尾格 `getBoundingClientRect` 相减 + `scrollLeft/Top`；**绝不能累加行高**（密度两档 + `zoom` 必错位）。🔴 必须 `pointer-events:none`（否则 `elementFromPoint` 永远命中框本身）。
-- 拖动期 `.容器.is-filling *{cursor:crosshair!important}`；收尾把整段范围设为选区、提示带行号区间；Esc 取消不写入。
-- 🔴 线性填充（v596）：只沿**主方向**铺一行/一列（用户否掉矩形）。方向按**屏幕像素**判（行 31 / 列 90），起点 10px 内不定向、越过即锁，只有另一轴 >当前×2 且 >40px 才改向。非数量列 `canH=false`（`writeCellVal` 只拦 `ro`，单价会被写脏直入下单金额）。⚠️ 独立「单价」td 没有 `.fill-handle`。
-- 🔴 拖框选之后快捷键全灭（v597 根因）：`onCellOver` 主动 `blur()` ⇒ `activeElement` 变 **BODY**，而快捷键挂在 `<table @keydown>` ⇒ Ctrl+D/R/C、Delete、方向键静默无效。修法：`onCellUp` 在 `_dragMoved` 时 `focusGrid()`；单击路径不能补。判据：快捷键失效先查 `document.activeElement`。
-- 🔴 边缘自动滚动必须与视口取交集（v594/v595）：`vBottom=min(容器内容底,innerHeight)`；不夹 ⇒ `elementFromPoint` 返回 null ⇒「滚是滚了、框不长」。rAF 滚完必须**重新 hit-test 夹取后的坐标**；只有滚动真的发生才 hit-test。
-- 🔴 横向填充夹进「数量区」，预览框与写入同源（v595）：单一 `fillSpan(a,b)` 供 `updateFillBox`/`doFill`/提示；横向左界 = 冻结列右边界（不夹会命中 sticky 商品名列）。横向热区 18px < 纵向 26px。
+## 🔴 拖动填充 / 拖动类交互（v593-v597｜全文 `topics/frontend-ui.md` §MEM-ARCHIVE-v605）
+- 跟随鼠标的交互必须有**随状态变化的 DOM 物**（`fillEnd` 只写不读 = 全程零变化）；覆盖层 `pointer-events:none`，坐标靠首尾格 rect 相减（**禁累加行高**：密度两档 + zoom 必错位）。
+- 线性填充只沿主方向（按屏幕像素判向）；`fillSpan(a,b)` 单一函数同时供预览/写入/提示；横向左界 = 冻结列右边界（不夹会写脏商品名，单价格 `edit:'num'` 会被放行直入下单金额）。
+- 🔴 拖框选后快捷键全灭：`onCellOver` 主动 `blur()` ⇒ `activeElement` 变 BODY ⇒ 挂在 `<table @keydown>` 的 Ctrl+D/R/C 静默失效。先查 `document.activeElement`。边缘自滚必须与视口取交集，滚完重新 hit-test。
 
 ## 🔴 页脚胶囊 / 浮层（v583-v588 / v603 / v605）
 - 数字只有一个源：父级做摘要胶囊必须让子组件 `emit('summary')` 回传，**父级不得重算**。软删行（`_deleted`）必须过滤，与 `liveRows` 同口径。
 - 悬停浮层：点击**不做 toggle**、`@blur` 别用来关；关闭只靠移出延迟(220-260ms)/点别处/Esc。
 - 浮层定位定式：`Teleport + fixed + z-index 1250`（> `--z-page-fs` 1000）；**水平居中**用 `left:50%+translateX(-50%)`；**垂直锚触发器**（向上/向下弹）。`transform` 创建 containing block ⇒ 浮层内不得有 `fixed/sticky` 子。有自定义浮层就删掉触发器 `title`。
 - 点开式（非悬停）浮层：Esc 监听必须挂**捕获阶段 + stopPropagation**，否则表格的 Esc（放弃本格修改）会跟着一起执行（v603）。
-- 🔴 **`margin-left:auto` 的推手不能挂在带 `v-if` 的组件上**（v604）：SprintChip 根元素 `v-if="show"`，无冲刺数据时整块不渲染 ⇒ 推手消失、整行退化成左对齐（分页离右边界空 211px，无报错）。凡"靠右组"必须包一层**常显容器**（`.es-right`）承受 auto。
+- 🔴 **`margin-left:auto` 的推手不能挂在带 `v-if` 的组件上**（v604）：SprintChip 根元素 `v-if="show"`，无冲刺数据时整块不渲染 ⇒ 推手消失、整行退化成左对齐（右侧控件离右边界空 211px，无报错）。凡"靠右组"必须包一层**常显容器**（`.es-right`）承受 auto。
 - 页脚并排控件（合计/冲刺/快捷键）一律 ≤22px 高、12px 字，页脚行高 24px 不得被顶高（v603/v604）。
 - 🔴 **v605：编辑表分页整块撤除**（改造动因=用户「不要上一页下一页，点改单直接显示全部」）。认知要点：那套分页是 `v-for` 全渲染 + `v-show` 隐藏 ⇒ **DOM 节点数一个不少**（实测 154 行 / 11990 节点），只省 paint ⇒ 「为性能而分页」在编辑表是伪命题；删掉后进改单 278ms 就全量可见，无卡顿。
 - 真机验证必须 `Input.dispatchMouseEvent` 真移鼠标 + `Input.insertText` 真键入；几何断言用 `getBoundingClientRect`，别用截图目测。
@@ -79,12 +75,10 @@
 - 定式：`python3 ../.workbuddy/tools/deploy-frontend-closure.py --push`（以 `dist/index.html` 为种子递归解析 → HEAD 校验、自动补传）。**最后才传 `index.html`**，然后双侧 md5 五件套。
 - 🔴 `rsync -R dist/./x` 不锚在 dist，会铺到 `<目标>/dist/…`；用「源文件 → 目标全路径」逐条传。别用 `comm` 比清单（locale 序 ≠ ASCII 序）。
 
-## 🔴 Excel 化改单网格（v597-v598）
-- 🔴 Vue 响应式 ↔ WeakMap 基线：基线用**原始对象**建、模板里 `r` 是深层 **Proxy** ⇒ 不同 key，必须 `toRaw()`；否则 `get()` 恒 undefined、判据恒 false、**零报错**（v598 角标一次没亮）。任何「用对象引用当 key」的缓存同族。
-- 单值粘贴铺满选区只在 **1×1 且选区>1** 时成立；多行多列严格按左上角对齐。写入复用 `batchWrite`。
-- 双击列边界自适应：表级 `dblclick` 委托 + `th.cellIndex`（`colgroup` 与 `<th>` 同序是唯一权威）；`v-show` 隐藏行必须跳过；客户列表头是 `<input>` ⇒ 读 `value`。
-- 改过角标判据是「当前值 ≠ 基线」而非"被点过"；基线建在**草稿合并之前**（=服务端已保存值）。
-- 探针两坑：CDP 在**视口外坐标**派发鼠标事件静默无效（判 `inView`）；`Tab` 跳格触发横向滚动后旧坐标全失效 ⇒ 每次操作前重取坐标。
+## 🔴 Excel 化改单网格（v597-v598｜细节 `topics/frontend-ui.md` §MEM-ARCHIVE-v605）
+- 🔴 响应式 ↔ WeakMap 基线必须 `toRaw()`（模板里 `r` 是深层 Proxy，与原始对象不同 key ⇒ `get()` 恒 undefined、判据恒 false、**零报错**）。任何「用对象引用当 key」的缓存同族。
+- 单值粘贴铺满只在 1×1 且选区>1 时成立；改过角标判据 =「当前值 ≠ 基线」，基线建在**草稿合并之前**（=服务端已保存值）。
+- 探针两坑：CDP 对**视口外坐标**派发鼠标事件静默无效；`Tab` 跳格触发横向滚动后旧坐标全失效 ⇒ 每次操作前重取。
 
 ## 页面真身速查（标题近似、极易改错文件）
 - 「预报订单管理 → 商品目标 → 新建商品目标」= `src/pages/ProductTarget.vue`（`/forecast?tab=target` 第 4 页签 ⇒ 无独立 chunk，样式合进 `Forecast-*.css`）。
