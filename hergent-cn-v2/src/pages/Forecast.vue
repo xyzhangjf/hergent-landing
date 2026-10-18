@@ -10647,7 +10647,10 @@ onMounted(async () => {
    ⚠️ 20px 是下限：`.store-badge`/`.exp-chev` 高 15/18px，再压会让角标贴住上下边框。
    v575b：紧凑档垂直 padding 3→**2px** ⇒ 数据行 **24px**（Excel 紧凑档量级）。
      两态实测：只读 24 / 编辑 24（差异仅表格取整的 0.5px，肉眼不可见）。 */
-.cross-tbl{--fc-cell:20px}
+/* v592：`--cell-pad-h` = 单元格**横向**留白，与密度档同步（舒适 8 / 紧凑 6，见下方
+   `[data-density="compact"] .cross-tbl tbody td`）。编辑框靠它出血铺满整格，
+   所以它必须"跟着密度走"，不许在别处写死数字（写死 8px 在紧凑档会外溢 2px 盖到邻格）。 */
+.cross-tbl{--fc-cell:20px;--cell-pad-h:8px}
 /* 🔴 v577：**垂直 padding 归零，行高紧贴编辑态输入框**。
    用户三轮反馈「太高」，前两轮只压了紧凑档（25px），但他实际用的是**舒适档 35px**
    （云端 ui-density=cozy，2026-10-14 设的）⇒ 改的地方不是他看的地方。
@@ -10663,6 +10666,7 @@ onMounted(async () => {
    修法：本表**自己**显式声明紧凑档，特异性 (0,3,2) 稳压基础档 ⇒ 不依赖样式表加载顺序。
    ⚠️ 别改成 `.grid-area .cross-tbl td` 那种"加一层父类"的写法 —— 那同样会把全局紧凑档压死。 */
 [data-density="compact"] .cross-tbl tbody td{padding:0 6px}
+[data-density="compact"] .cross-tbl{--cell-pad-h:6px}
 [data-density="compact"] .cross-tbl thead th{padding:1px 7px 0}
 .qty-th{text-align:center;min-width:52px}
 .qty-cell{text-align:center;color:var(--t3)}
@@ -11015,7 +11019,7 @@ th.sortable:hover{color:var(--p-dark)}
 /* ── v318：一键分摊弹窗（预演台） ── */
 /* v277（需求 5/6）：加单填负数 = 减单，必须一眼能认出来（否则会被当成手误删掉）。
    与「单价」列手工录入的红字口径一致：变色 + 加粗，不改数字本身。 */
-.cell-input.cell-minus{color:var(--danger-txt);font-weight:600;border-color:var(--danger-txt)}
+.cell-input.cell-minus{color:var(--danger-txt);font-weight:600;box-shadow:inset 0 0 0 1px var(--danger-txt)}
 /* v277：最终下单被减成负数 —— 这是**真的算不通**（厂商不拆零发货），必须显式标红；
    不做静默夹断（夹了用户就不知道自己的加单量超过了合计）。 */
 .final-neg{color:var(--danger-txt)}
@@ -11055,31 +11059,51 @@ th.sortable:hover{color:var(--p-dark)}
    特异性 (0,2,2) 压过本条的 (0,2,0) ⇒ 实际渲染 24px，与只读态的 20.8px 文本行**不相等**，
    这就是「只读 29.8 / 编辑 32.5」两个高度并存的原因。
    本条带上 `.cross-tbl` 前缀后 = (0,3,0)，稳压全局那条 ⇒ 两态取同一个值。 */
-.cross-tbl .cell-input{height:var(--fc-cell,20px);padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:12px;outline:none;display:block;width:100%;min-width:0;box-sizing:border-box;text-align:center}
+/* 🔴 v592：编辑态 = **Excel 式「格内即输入框」**（用户诉求：「把输入框直接撑满网格」）。
+   旧样子是「格里再套一个圆角小方框」：input 自带 1px 边框 + 圆角 + 白底（`--bg`），
+   而 td 本身还有 8px 左右留白 ⇒ 视觉上是个嵌进去的盒子，且它把 td 的选中底色整片盖住
+   （`.cross-tbl td.selected{background:var(--p-bg)}` 被白底遮掉，只剩外面一圈 outline，
+   看起来像"框里有框"，用户实感是"输入区很小、点不准"）。
+   现在：**无边框 / 无圆角 / 透明底 / 负 margin 出血到格边** ——
+     · 文字位置不动（内侧仍 8px padding，与只读文本、`.cell-ro` 严格同列）；
+     · 点击面积 = 整个单元格（原来 8px 留白点不到，得瞄准中间那点宽）；
+     · 选中/选区/热力底色全部透出来（Excel 的"选中格"就是整格变色）；
+     · 高度仍取 `--fc-cell`（行高唯一源，见 v575 段注释），不影响 21px 行高。
+   ⚠️ 出血量必须由 `--cell-pad-h` 推导（舒适 8 / 紧凑 6），不能写死 -8px：
+      紧凑档 td 是 `padding:0 6px`，写死 8 会让输入框**外溢 2px 盖到邻格**（v592 实测）。 */
+.cross-tbl .cell-input{height:var(--fc-cell,20px);padding:0 6px;margin:0 calc(-1 * var(--cell-pad-h, 8px));width:calc(100% + var(--cell-pad-h, 8px) * 2);border:0;border-radius:0;background:transparent;color:var(--t1);font-size:12px;outline:none;display:block;min-width:0;box-sizing:border-box;text-align:center}
 /* v579：表头里的**客户名列输入框**与数据行取同一个内容盒（--fc-cell=20px）。
    原来写死 24px ⇒ 那一列表头比其它表头高、整行被顶到 47px。现在表头 = 合计 = 22px。
    特异性 (0,3,1) / (0,4,0) 都高于全局紧凑档 (0,2,2)，写多少就是多少。 */
-.cross-tbl thead .cell-input{height:var(--fc-cell,20px)}
+/* v592：**表头的客户名输入框例外** —— 它不是"格内编辑"，而是表头里一个可改的名字。
+   表头底色本身就是 `--bg3`，若也做成无框，用户完全看不出「这列名字能改」⇒ 这里保留方框外观。
+   （th 的内边距是 `1px 7px 0`，与 td 的 8px 不同，所以负 margin 必须归零、宽度回 100%。） */
+.cross-tbl thead .cell-input{height:var(--fc-cell,20px);margin:0;width:100%;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg)}
 /* v579：序号列表头那个 **列设置齿轮**（全局 `.col-cfg.gear` 是 30×30 + inline-flex，见
    styles/col-menu.css）是表头被撑高的最后一处 —— 30+8×2+1 = 47px；而即便压到 20×20，
    inline-flex 仍按**基线**参与行盒，把整行顶到 26px。所以这里同时改 display:flex
    （block 级 ⇒ 不生成行内行盒，块级居中用 margin:auto），行高才真正落到 22px。
    特异性 (0,4,0) 稳压全局 (0,2,0)。 */
 .cross-tbl thead .col-cfg.gear{width:var(--fc-cell,20px);height:var(--fc-cell,20px);display:flex;margin:0 auto}
-.cell-input:focus{border-color:var(--p)}
+/* v592：输入框已无边框（见 `.cross-tbl .cell-input`）⇒ 焦点视觉交给**单元格自身**
+   （`.cross-tbl td.selected{outline:2px solid var(--p)}` + 青底）。这正是 Excel 的表现：
+   变色的是"格"，不是"格里的小框"。⚠️ 别以为这里漏了焦点样式又给它加回边框。 */
 /* v246 零值降噪：空格子的占位点（·）淡显，避免「满屏 0」淹没有效数据 */
 .cell-input::placeholder{color:var(--t3);opacity:.4}
 /* v190：「单价(进价/箱)」录入框。
    ① 手工录入价 —— 必须与「档案进价算出来的自动价」在视觉上区分，否则用户分不清
       「这个价是系统带的还是我填的」（同屏两个来源的数必须能自证，见项目铁律）。
    ② 未录入且缺价/缺规格 —— 灰字占位改用警示色，避免空框看起来像「这一格本来就没数」。 */
-.cell-input.cell-price.manual-price{border-color:var(--p);background:var(--p-bg);font-weight:600}
+/* v592：手工价 = 主色淡底 + 1px 内描边（原来是 border-color，现已无边框，改用 inset 阴影保语义） */
+.cell-input.cell-price.manual-price{box-shadow:inset 0 0 0 1px var(--p);background:var(--p-bg);font-weight:600}
 .calc.price.miss-price .cell-input::placeholder{color:var(--danger-txt);font-weight:600;opacity:1}
 .cell-name{text-align:left;font-weight:500}
 .cell-wide{text-align:left}
 .cell-cust{}
 .cell-price{text-align:right}
-.cell-qty{background:var(--bg3)}
+/* v592：数量列原来靠灰底（`--bg3`）暗示"这格能填"。现在整格就是输入框（无框出血），
+   灰底反而会把"格内即输入框"重新画成一个盒子 ⇒ 去掉，由**选中格青底 + 热力底色**承担识别。 */
+.cell-qty{background:transparent}
 .edit-tbl .fc-code .cell-wide{width:100%}
 .edit-tbl .fc-num .cell-num{width:100%}
 .col-del{border:none;background:none;color:var(--t3);font-size:11px;cursor:pointer;padding:2px;border-radius:var(--radius-sm);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
@@ -11379,7 +11403,9 @@ th.sortable:hover{color:var(--p-dark)}
    inline 优先于类选择器 ⇒ 必须 !important，否则错误格会被热力色盖住看不出异常。
    错误语义高于热力语义：先让人看见「这里错了」，再看量级。 */
 .cell-input.invalid, .qty-cell.invalid input, td.invalid input{border-color:var(--danger-txt) !important;box-shadow:inset 0 0 0 2px var(--danger-txt);background:var(--danger-bg) !important;color:var(--danger-txt) !important;font-weight:600;font-size:var(--fs-base)}
-.cell-input.invalid, .cell-input:focus{border-color:var(--p)}
+/* v592：边框已移除，错误态靠 inset 阴影（上面那条）+ 底色，不需要再改 border-color。
+   原 `.cell-input.invalid, .cell-input:focus{border-color:var(--p)}` 一并删掉 —— 它本来就会把
+   错误态的红色边框在聚焦时顶成主色（!important 才压得住），现在没有边框，这条只剩误导。 */
 .range-sel{background:var(--p-bg) !important}
 .cross-tbl.dragging, .cross-tbl.dragging *{user-select:none}
 .fc-num.invalid, .fc-code.invalid, .fc-text.invalid{border-radius:var(--radius-sm)}
