@@ -590,7 +590,7 @@
                       :data-cell="ci" :data-pid="it.r.product_id"
                       :aria-label="cellAria(it.r, col)"
                       @click="onCellClick(it, col, ci, $event)"
-                      @dblclick="onCellDbl(it, col)"
+                      @dblclick="onCellDbl(it, col, $event)"
                       @focus="onCellFocus(it, ci)"
                       @keydown="onBodyKey">
                     <template v-if="col.type === 'seq'"><span class="seq-num">{{ it.seq }}</span></template>
@@ -616,7 +616,7 @@
                     </template>
                     <template v-else-if="col.type === 'master'"><span :class="{ 'cell-dash': masterVal(it.r, col) === '—' }">{{ masterVal(it.r, col) }}</span></template>
                     <template v-else-if="col.type === 'qty'">
-                      <input v-if="editingCell && editingCell.pid === it.r.product_id && editingCell.uname === col.key" class="cell-input cell-qty" type="text" inputmode="numeric" :value="it.r.qtyByUnit[col.key] || 0" v-focus @input="numInput($event, it.r.qtyByUnit, col.key)" @change="commitCell(it.r.product_id, col.key, $event.target.value)" @blur="commitCell(it.r.product_id, col.key, $event.target.value)" @keydown.stop="onCellKey($event, it.r.product_id, col.key)">
+                      <input v-if="editingCell && editingCell.pid === it.r.product_id && editingCell.uname === col.key" class="cell-input cell-qty" type="text" inputmode="numeric" :value="it.r.qtyByUnit[col.key] || 0" v-focus @focus="onInlineNumFocus" @input="numInput($event, it.r.qtyByUnit, col.key)" @change="commitCell(it.r.product_id, col.key, $event.target.value)" @blur="commitCell(it.r.product_id, col.key, $event.target.value)" @keydown.stop="onCellKey($event, it.r.product_id, col.key)">
                       <span v-else class="qty-num tip-wrap" :style="heatOf(it.r, col.key).style">{{ it.r.qtyByUnit[col.key] }}<span class="tip">¥{{ fmt(displayPrice(it.r) != null ? (it.r.qtyByUnit[col.key] || 0) * displayPrice(it.r) : 0) }}（按行单价估算）</span></span>
                     </template>
                     <template v-else-if="col.key === 'qty'">{{ fmt(it.r.total) }}</template>
@@ -2892,6 +2892,18 @@ async function delRowSoft(pid) {
   toast('已加入删除清单，点「保存」生效', 'ok')
 }
 function editCell(pid, uname) { editingCell.value = { pid, uname } }
+/* v589：只读列表「双击数量格进编辑」后**全选原有数字**，直接打字即覆盖（原 10 键 7 = 7，而不是 107）。
+   🔴 为什么不用 `v-focus` 指令兜：该指令此前**全仓未注册**（Vue 只 warn 一句就静默失效），
+      真机实测双击后光标停在末尾。这里用最笨也最可靠的 `@focus` 内联处理，不依赖任何指令解析。
+   🔴 为什么要补一次 setTimeout：input 是 dblclick 里渲染出来的，浏览器「双击选词」的默认动作
+      可能在我们 select() 之后落地，把全选折掉 ⇒ 下一轮事件循环再选一次（此时若焦点已移走就不抢）。 */
+function onInlineNumFocus (e) {
+  const el = e && e.target
+  if (!el || !el.select) return
+  const pick = () => { try { el.select() } catch (err) { /* 少数输入类型会抛 InvalidStateError */ } }
+  pick()
+  setTimeout(() => { if (el.isConnected && document.activeElement === el) pick() }, 0)
+}
 function commitCell(pid, uname, val) {
   const r = cross.value.rows.find(x => x.product_id === pid)
   if (!r) { editingCell.value = null; return }
@@ -2917,7 +2929,13 @@ function onCellClick(it, col, ci, e) {
   activeCell.value = { pid: it.r.product_id, ci }
   selectedPid.value = it.r.product_id
 }
-function onCellDbl(it, col) { if (it.kind === 'row' && col.type === 'qty') editCell(it.r.product_id, col.key) }
+function onCellDbl(it, col, e) {
+  /* v589：阻止双击的默认动作（选中光标处的词）。
+     本函数的 input 是 nextTick 才渲染的，但浏览器「双击选词」的默认行为在 dblclick 之后才跑完，
+     会把我们刚做的全选折掉 ⇒ 键入数字变成追加（原 10 键 7 得 107）。 */
+  if (e && e.preventDefault) e.preventDefault()
+  if (it.kind === 'row' && col.type === 'qty') editCell(it.r.product_id, col.key)
+}
 function onCellFocus(it, ci) { if (it.kind === 'row') activeCell.value = { pid: it.r.product_id, ci } }
 
 /* v248 修正（推翻 v247 的一半）：**客户列（qty）永不收**。
