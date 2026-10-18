@@ -597,7 +597,7 @@
                     <template v-else-if="col.type === 'master' && col.key === 'name'">
                       <span class="exp-chev" @click.stop="toggleExpand(it.r.product_id)" :title="isExpanded(it.r.product_id) ? '收起明细' : '展开明细'"><Icon :name="isExpanded(it.r.product_id) ? 'chevron-down' : 'chevron-right'"/></span>
                       <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span><span v-if="it.r.offArchive" class="oe-badge off-tag" title="这个商品在你的「在售商品档案」里已停用或已删除，但本期数据引用了它。要让它回到档案列表，请到「商品档案」重新启用。">已停用</span></div>
-                      <div class="pspec">{{ it.r.spec || '—' }} · {{ it.r.unit }}<span v-if="it.r.people"> · {{ it.r.people }} 人报</span></div>
+                      <div v-if="nameSubline(it.r)" class="pspec">{{ nameSubline(it.r) }}</div>
                       <div v-if="it.r.ai != null" class="ai-hint">系统建议 {{ fmt(it.r.ai) }}{{ it.r.unit }}<span v-if="it.r.aiMethod" class="hint">（{{ it.r.aiMethod }}）</span></div>
                       <span v-if="rowWarn(it.r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
                       <span v-else-if="rowWarn(it.r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）"><Icon name="alert-triangle"/></span>
@@ -2910,6 +2910,21 @@ const colOrderList = computed(() => {
   cols.push({ type: 'calc', key: 'amount', label: '下单金额(进价)' })
   return cols
 })
+
+// v573：规格 / 单位已有**独立列**（且都能在列设置里隐藏）⇒ 商品名称下方不再重复显示。
+//   用户反馈：这两项挤在品名里又白占一整行，与右侧列完全重复，纯降密度。
+//   保底：仅当对应列**没在渲染**（被列设置隐藏 / 角色无权看 / 该列被「收起空列」收起）时才补显示，
+//   避免用户一收列就把规格彻底看不见。「N 人报」不再显示 —— 那是报单聚合人数，不是商品属性。
+const _nameSubCols = computed(() => {
+  const keys = new Set(colOrderList.value.map(c => c.key))
+  return { spec: keys.has('spec'), unit: keys.has('unit') }
+})
+function nameSubline (r) {
+  const parts = []
+  if (!_nameSubCols.value.spec) parts.push(r.spec || '—')
+  if (!_nameSubCols.value.unit) parts.push(r.unit)
+  return parts.filter(Boolean).join(' · ')
+}
 function colCls(col) {
   if (col.type === 'seq') return 'seq-cell'
   if (col.type === 'master') return col.cls || ''
