@@ -2928,13 +2928,30 @@ function onCellClick(it, col, ci, e) {
   if (it.kind !== 'row' || e.target.closest('.row-ops')) return
   activeCell.value = { pid: it.r.product_id, ci }
   selectedPid.value = it.r.product_id
+  /* v590：**单击**数量格 = 直接进编辑 + 全选原数字（用户诉求「点击即选中所有数字」）。
+     v589 只做了双击 —— 用户实际是单击，点完光标没出现、也没全选。
+     🔴 已在编辑同一格时必须 return：给 editingCell 赋新对象会触发重渲染，
+        input 被重新创建 ⇒ 光标丢失、第二次点击无法落位。
+     🔴 必须用 click（mouseup 之后）而不是 mousedown：在 mousedown 里挂载 input，
+        随后的 mouseup 会把 select() 折叠成光标，白做。 */
+  if (col.type !== 'qty') return
+  const cur = editingCell.value
+  if (cur && cur.pid === it.r.product_id && cur.uname === col.key) return
+  editCell(it.r.product_id, col.key)
 }
 function onCellDbl(it, col, e) {
-  /* v589：阻止双击的默认动作（选中光标处的词）。
-     本函数的 input 是 nextTick 才渲染的，但浏览器「双击选词」的默认行为在 dblclick 之后才跑完，
-     会把我们刚做的全选折掉 ⇒ 键入数字变成追加（原 10 键 7 得 107）。 */
+  /* v589：阻止双击的默认动作（选中光标处的词）—— 否则「双击选词」会把全选折掉。 */
   if (e && e.preventDefault) e.preventDefault()
-  if (it.kind === 'row' && col.type === 'qty') editCell(it.r.product_id, col.key)
+  if (it.kind !== 'row' || col.type !== 'qty') return
+  const cur = editingCell.value
+  if (cur && cur.pid === it.r.product_id && cur.uname === col.key) {
+    // v590：单击已进编辑，双击不再重建 input（重建会丢焦点），只补一次全选
+    const td = e && e.target && e.target.closest ? e.target.closest('td') : null
+    const inp = td ? td.querySelector('input.cell-qty') : null
+    if (inp) { try { inp.focus(); inp.select() } catch (err) { /* 忽略 */ } }
+    return
+  }
+  editCell(it.r.product_id, col.key)
 }
 function onCellFocus(it, ci) { if (it.kind === 'row') activeCell.value = { pid: it.r.product_id, ci } }
 
