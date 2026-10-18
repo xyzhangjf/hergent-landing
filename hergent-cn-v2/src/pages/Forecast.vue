@@ -444,17 +444,25 @@
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
             <!-- v209：全屏时收成图标形态（badge-slim）。文案不丢 —— 完整句子在 title 与 aria-label。
                  它是全屏单行的必要项：本徽标与「另有 N 个」可同时出现，两者实测各约 150–180px。 -->
-            <span v-if="hideZeroReport" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
-                  :title="'已隐藏 ' + zeroReportCount + ' 个零报单（取消勾选「仅显示有报单」即可展开）'"
-                  :aria-label="'已隐藏 ' + zeroReportCount + ' 个零报单'"
+            <span v-if="hideZeroReport" class="confirm-badge filter filter-act" :class="{ 'badge-slim': gridFullscreen }"
+                  role="button" tabindex="0"
+                  :title="'已隐藏 ' + zeroReportCount + ' 个零报单（点这里恢复显示）'"
+                  :aria-label="'已隐藏 ' + zeroReportCount + ' 个零报单，点击恢复显示'"
+                  @click="hideZeroReport = false"
+                  @keydown.enter.prevent="hideZeroReport = false"
+                  @keydown.space.prevent="hideZeroReport = false"
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
             <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
             <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
-            <span v-if="hiddenEmptyCols" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
-                  :title="'已收起 ' + hiddenEmptyCols + ' 个全空的主档列（客户列始终显示；勾选「显示空列」即可展开）'"
-                  :aria-label="'已收起 ' + hiddenEmptyCols + ' 个全空列'"
+            <span v-if="hiddenEmptyCols" class="confirm-badge filter filter-act" :class="{ 'badge-slim': gridFullscreen }"
+                  role="button" tabindex="0"
+                  :title="'已收起 ' + hiddenEmptyCols + ' 个全空的主档列（客户列始终显示；点这里展开）'"
+                  :aria-label="'已收起 ' + hiddenEmptyCols + ' 个空列，点击展开'"
+                  @click="showEmptyCols = true"
+                  @keydown.enter.prevent="showEmptyCols = true"
+                  @keydown.space.prevent="showEmptyCols = true"
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
@@ -725,17 +733,25 @@
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
             <!-- v209：全屏时收成图标形态（badge-slim）。文案不丢 —— 完整句子在 title 与 aria-label。
                  它是全屏单行的必要项：本徽标与「另有 N 个」可同时出现，两者实测各约 150–180px。 -->
-            <span v-if="hideZeroReport" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
-                  :title="'已隐藏 ' + zeroReportCount + ' 个零报单（取消勾选「仅显示有报单」即可展开）'"
-                  :aria-label="'已隐藏 ' + zeroReportCount + ' 个零报单'"
+            <span v-if="hideZeroReport" class="confirm-badge filter filter-act" :class="{ 'badge-slim': gridFullscreen }"
+                  role="button" tabindex="0"
+                  :title="'已隐藏 ' + zeroReportCount + ' 个零报单（点这里恢复显示）'"
+                  :aria-label="'已隐藏 ' + zeroReportCount + ' 个零报单，点击恢复显示'"
+                  @click="hideZeroReport = false"
+                  @keydown.enter.prevent="hideZeroReport = false"
+                  @keydown.space.prevent="hideZeroReport = false"
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已隐藏 {{ zeroReportCount }} 个零报单</template></span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
             <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
             <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
-            <span v-if="hiddenEmptyCols" class="confirm-badge filter" :class="{ 'badge-slim': gridFullscreen }"
-                  :title="'已收起 ' + hiddenEmptyCols + ' 个全空的主档列（客户列始终显示；勾选「显示空列」即可展开）'"
-                  :aria-label="'已收起 ' + hiddenEmptyCols + ' 个全空列'"
+            <span v-if="hiddenEmptyCols" class="confirm-badge filter filter-act" :class="{ 'badge-slim': gridFullscreen }"
+                  role="button" tabindex="0"
+                  :title="'已收起 ' + hiddenEmptyCols + ' 个全空的主档列（客户列始终显示；点这里展开）'"
+                  :aria-label="'已收起 ' + hiddenEmptyCols + ' 个空列，点击展开'"
+                  @click="showEmptyCols = true"
+                  @keydown.enter.prevent="showEmptyCols = true"
+                  @keydown.space.prevent="showEmptyCols = true"
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
@@ -11222,21 +11238,23 @@ onMounted(async () => {
 .confirm-badge.ok{background:rgba(var(--suc-rgb),.14);color:var(--confirm-green)}
 .confirm-badge.draft{background:var(--bg3);color:var(--t3)}
 .confirm-badge.filter{background:var(--p-bg);color:var(--p-deep)}
-/* v599：「另有 N 个在售商品未显示」原本是 25px 的无边框浅底标签，夹在一排 32px 带框控件
-   （缩放 / 三个勾选框 / 品牌 / 复制报单）中间 —— 实测同行控件统一 32px 高、13px 字、
-   1px 边框、cursor:pointer，只有它是 25.2px / 12px / 无边框 / cursor:auto。
-   两处后果：① 一行里高低不齐，右边缘像被咬掉一块；② 它带漏斗图标、文案是"另有…未显示"，
-   看起来就是个能点的按钮，**点下去什么都不会发生**（连 hover 反馈都没有）。
-   故补 `.filter-act`：几何尺寸/字号/圆角/边框全部对齐 `.tb-toggle`（同行基准），
-   只保留浅青底以表达"这是筛选留下的结果，不是普通操作"。 */
+/* v599：「已隐藏 N 个零报单 / 已收起 N 个空列 / 另有 N 个在售商品未显示」这三个徽标原本是
+   25.2px / 12px / 无边框 / cursor:auto 的浅青标签，夹在一排 32px / 13px / 1px 边框 / pointer 的控件
+   （缩放 / 三个勾选框 / 品牌 / 复制报单）中间 —— ① 一行里高低不齐，右边缘像被咬掉一块；
+   ② 它们带漏斗图标、文案是"已隐藏…/另有…"，看起来就能点，**点下去什么都不会发生**。
+   故三个统一加 `.filter-act`：几何/字号/圆角/边框/悬停**逐属性对齐 `.tb-toggle`**（同行基准，
+   连浅青底也去掉 —— 用户要求"不要跟旁边不一样"，那就一个像素都不差）。
+   动作分别是：取消勾选「仅显示有报单」/ 勾上「显示空列」/ 勾上「显示全部商品」，
+   也就是 title 里一直写着的那个手工动作 —— 现在直接点它就做了。
+   ⚠️ 这三处在只读与改单两个分支各出现一次，模板必须同步改（否则改单里还是旧形态）。 */
 .confirm-badge.filter.filter-act{
   height:32px;padding:0 12px;font-size:13px;font-weight:500;
-  border:1px solid rgba(var(--p-rgb),.32);
+  background:transparent;color:var(--t1);
+  border:1px solid var(--bd);
   cursor:pointer;user-select:none;
-  transition:background .15s,border-color .15s;
+  transition:background .15s;
 }
-.confirm-badge.filter.filter-act:hover{background:rgba(var(--p-rgb),.16);border-color:var(--p)}
-.confirm-badge.filter.filter-act:active{transform:translateY(.5px)}
+.confirm-badge.filter.filter-act:hover{background:var(--bg2)}
 /* P0-1 工具栏语义分隔条（筛选/数据/编辑/AI/设置 五簇） */
 .tb-sep{display:inline-block;width:1px;height:20px;background:var(--bd);margin:0 5px;flex:0 0 auto;opacity:.65;align-self:center}
 /* P0-2 状态徽标曾独立成行（.tb-status-row 已废弃：现直接挂在 .tb-ctx 段内，紧随期次选择器） */
@@ -11538,7 +11556,10 @@ th.sortable:hover{color:var(--p-dark)}
 /* ③ 两个计数徽标（零报单 / 空列）在全屏收成图标形态（完整句子在 title 与 aria-label 里）。
       ⚠️「另有 N 个在售商品未显示」自 v570 起**全屏也显示完整文案**（用户要求），不再走 badge-slim；
          行宽不足由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 */
-.grid-area.is-fs .confirm-badge.badge-slim{padding:3px 7px;gap:0}
+/* v599：`.filter-act` 把这三个徽标抬到 32px 后，全屏的「只留图标」形态必须跟着给高度，
+   否则 slim 档还按内容撑（3px padding + 16px 图标 ≈ 22px），全屏里又矮一截。
+   padding 只收到 7px 用于收窄 —— 高度统一 32 由 height 守住。 */
+.grid-area.is-fs .confirm-badge.badge-slim{height:32px;padding:0 7px;gap:0}
 /* v129 修复：全屏时把主工具栏弹层容器降回普通层级。
    .tb-pop 常态 z-index:var(--z-page-bar)（要高于 .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”），
    但全屏层 .grid-area.is-fs 只有 1000 → 仍在工具栏的「导出」「工具箱」触发器会盖在全屏层上，
