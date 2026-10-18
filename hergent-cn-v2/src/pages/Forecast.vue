@@ -2319,6 +2319,8 @@ import { useColPrefs } from '../composables/useColPrefs.js'
 import { useNameSuggest } from '../composables/useNameSuggest.js'
 import { useDraft } from '../composables/useDraft.js'
 import { useUndoRedo } from '../composables/useUndoRedo.js'
+import { useForecastApproval } from '../composables/useForecastApproval.js'
+import { useCloudNotes } from '../composables/useCloudNotes.js'
 /* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText } from '../utils/arrival.js'
@@ -8086,12 +8088,7 @@ function jumpToRow(ri) {
   nextTick(() => { const el = document.querySelector(`.edit-tbl [data-r="${ri}"]`); if (el) el.scrollIntoView({ block: 'center' }) })
 }
 
-// P6-6 单元格批注（按商品行；localStorage）
-const NOTE_KEY = () => 'forecast_notes_' + (auth.user?.id || 'default')
-const notesMap = reactive({})
-function loadNotes() { try { Object.assign(notesMap, JSON.parse(localStorage.getItem(NOTE_KEY()) || '{}')) } catch (e) {} }
-function saveNotes() { localStorage.setItem(NOTE_KEY(), JSON.stringify(notesMap)) }
-function rowNote(r) { return notesMap[r.product_id] || '' }
+const { notesMap, loadNotes, saveNotes, rowNote, setRowNote, loadCloudNotes, saveCloudNotes } = useCloudNotes(cross)
 // 商品名输入框右 padding：仅当该行有右侧告警徽标时按数量预留空间，无徽标行文字可用满整框
 function namePadStyle(r) {
   let n = 0
@@ -8103,13 +8100,7 @@ function namePadStyle(r) {
   if (hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60) n++
   return n ? `padding-right:${n * 18 + 8}px` : 'padding-right:6px'
 }
-async function setRowNote(ri) {
-  const r = cross.value.rows[ri]; if (!r) return
-  const t = await store.prompt('批注（商品行备注）：', rowNote(r))
-  if (t === null) return
-  if (t.trim()) notesMap[r.product_id] = t.trim(); else delete notesMap[r.product_id]
-  saveNotes(); saveCloudNotes(); toast('已保存批注', 'ok')
-}
+// setRowNote 已抽到 src/composables/useCloudNotes.js（唯一实现）
 
 // P6-7 网格内搜索（Ctrl+F 聚焦，回车跳下一匹配）
 const findText = ref('')
@@ -8290,54 +8281,10 @@ async function loadAccuracy() {
   } catch (e) { toast('预报准确率载入失败', 'err') } finally { accLoading.value = false }
 }
 
-// P9-4 审批流回写（预报单状态机）
-const subStatus = ref('draft')
-const subBy = ref(''); const subAt = ref(''); const subReason = ref('')
-const subOpen = ref(false)
-const SUB_LABEL = { draft: '草稿', submitted: '待审批', approved: '已通过', rejected: '已驳回', revised: '退回修改' }
-async function loadSubmission() {
-  try {
-    const p = cross.value.period; if (!p) return
-    const r = await forecastApi.submissionGet(p.id)
-    subStatus.value = r.status || 'draft'; subBy.value = r.by || ''; subAt.value = r.at || ''; subReason.value = r.reason || ''
-  } catch (e) {}
-}
-async function _subAct(action, reason = '') {
-  const p = cross.value.period; if (!p) return
-  try {
-    const r = await forecastApi.submissionPost({ period_id: p.id, action, reason })
-    subStatus.value = r.status; subBy.value = r.by; subAt.value = r.at; subReason.value = r.reason || ''
-    const map = { submit: '已提交审批', approve: '已通过', reject: '已驳回', revise: '已退回修改' }
-    toast(map[action] || '已更新', 'ok')
-  } catch (e) { toast('操作失败: ' + (e.message || ''), 'err') }
-}
-function doSubmit() { _subAct('submit') }
-function doApprove() { _subAct('approve') }
-async function doReject() { const reason = await store.prompt('驳回原因：') || ''; _subAct('reject', reason) }
-function doRevise() { _subAct('revise') }
+const { subStatus, subBy, subAt, subReason, subOpen, SUB_LABEL, loadSubmission, doSubmit, doApprove, doReject, doRevise } = useForecastApproval(cross)
 
 // P9-5 云端共享批注（多人共享，localStorage 兜底）
-async function loadCloudNotes() {
-  try {
-    const p = cross.value.period; if (!p) return
-    const r = await forecastApi.notesGet(p.id)
-    const m = r.notes || {}
-    const plain = {}
-    Object.keys(m).forEach(k => { plain[k] = typeof m[k] === 'string' ? m[k] : (m[k].text || '') })
-    Object.keys(notesMap).forEach(k => delete notesMap[k])
-    Object.assign(notesMap, plain)
-  } catch (e) { /* 保留本地批注 */ }
-}
-async function saveCloudNotes() {
-  const p = cross.value.period; if (!p) return
-  try {
-    const payload = {}
-    Object.keys(notesMap).forEach(k => {
-      if (notesMap[k]) payload[k] = { text: notesMap[k], by: (auth.user && (auth.user.name || auth.user.username)) || 'me', at: new Date().toISOString() }
-    })
-    await forecastApi.notesPut({ period_id: p.id, notes: payload })
-  } catch (e) {}
-}
+// 云端共享批注 loadCloudNotes / saveCloudNotes 已抽到 src/composables/useCloudNotes.js（唯一实现）
 
 // P9-6 改动留痕审计（per period 追加）→ v166 更名「修改日志」：加修改人 + 交还全局操作
 const trailOpen = ref(false)
