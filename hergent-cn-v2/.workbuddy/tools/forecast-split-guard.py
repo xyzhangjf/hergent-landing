@@ -11,8 +11,10 @@ Forecast.vue 拆分护栏探针（回归基线 + 零回归校验）
 
 三类锚点：
   1) API 锚点（自动扫，~82 个）：forecastApi.X / auditApi.X / productsApi.X 等调用点，全库计数
-  2) 核心函数白名单（手工精选 ~40 个跨功能域代表函数）：全库必须仍存在
-  3) 构建通过（可选 --build）
+  2) 核心函数白名单（手工精选 ~74 个跨功能域代表函数）：全库必须仍存在
+  3) composable 解构一致性（v568 新增）：每个 useForecast* 的 return {…} 键集合必须覆盖
+     父页 Forecast.vue 解构的名字 —— 拦下「漏写 return / 漏导出名字」这类构建过、运行时静默错
+  4) 构建通过（可选 --build）
 
 用法：
   python3 forecast-split-guard.py baseline            # 拆分前跑一次，生成基线 JSON
@@ -118,6 +120,43 @@ def scan_core_functions(files):
     return present
 
 
+def scan_composable_returns(files):
+    """第三类锚点：useForecast* composable 的 return { ... } 键集合。
+       v568 教训：抽离时漏写 return，导致父页解构即抛
+       'Cannot destructure snaps of undefined'（构建过、运行时静默错，HTTP 200 探不到）。
+       这里静态锁定每个 composable 实际 return 出去的名字。"""
+    ret = {}
+    for f, txt in files.items():
+        m = re.search(r'composables/(useForecast\w+)\.js$', f)
+        if not m:
+            continue
+        name = m.group(1)
+        keys = set()
+        rm = re.search(r'return\s*\{([^}]*)\}', txt)
+        if rm:
+            for part in rm.group(1).split(','):
+                part = part.strip()
+                if not part:
+                    continue
+                pm = re.match(r'([A-Za-z_$][\w$]*)', part)
+                if pm:
+                    keys.add(pm.group(1))
+        ret[name] = keys
+    return ret
+
+
+CALL_RE = re.compile(r'const\s*\{([^}]*)\}\s*=\s*(useForecast\w+)\s*\(')
+
+
+def scan_composable_calls(forecast_txt):
+    """父页 Forecast.vue 里对 useForecast* 的解构调用：{ composable名: [解构名...] }"""
+    calls = {}
+    for m in CALL_RE.finditer(forecast_txt):
+        names = [x.strip() for x in m.group(1).split(',') if x.strip()]
+        calls[m.group(2)] = names
+    return calls
+
+
 def make_baseline():
     files = _read_all_sources()
     api = scan_api_anchors(files)
@@ -159,6 +198,26 @@ def verify(build=False):
 
     # diff 核心函数
     core_lost = [fn for fn in CORE_FUNCTIONS if core.get(fn, 0) == 0]
+
+    # 3) composable 解构一致性（v568 回归：漏写 return / 漏导出名字）
+    forecast_path = None
+    for f in files:
+        if f.endswith('pages/Forecast.vue'):
+            forecast_path = f
+            break
+    forecast_txt = files.get(forecast_path, '')
+    comp_ret = scan_composable_returns(files)
+    comp_calls = scan_composable_calls(forecast_txt)
+    comp_issues = []
+    for cname, names in comp_calls.items():
+        keys = comp_ret.get(cname, set())
+        if not keys:
+            comp_issues.append(f'{cname}: 未找到 return 或 return 为空（父页却解构了 {len(names)} 个名字）')
+            continue
+        for n in names:
+            if n not in keys:
+                comp_issues.append(f'{cname}: 父页解构了「{n}」但该 composable 的 return 未导出此名')
+
 
     # 构建（可选）
     build_ok = None
@@ -204,6 +263,18 @@ def verify(build=False):
             print(f'   - {fn}')
     else:
         print('✅ 核心函数零丢失')
+
+    # composable 解构一致性报告
+    print()
+    print(f'composable 解构一致性：父页调用 {len(comp_calls)} 个，return 校验 {len(comp_issues)} 个问题')
+    if comp_issues:
+        ok = False
+        print(f'🔴 发现 composable 解构不一致 {len(comp_issues)} 处（= 漏写 return / 漏导出名字，运行时静默错）：')
+        for it in comp_issues:
+            print(f'   - {it}')
+    else:
+        print('✅ composable 解构一致性通过（每个 return 均覆盖父页解构名）')
+
     if build:
         print()
         print(f'构建：{"✅ 通过" if build_ok else "🔴 失败"}')
