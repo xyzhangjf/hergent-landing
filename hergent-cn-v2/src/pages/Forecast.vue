@@ -521,7 +521,7 @@
             <span v-if="brandSel.length" class="filter-chip" :title="'按品牌（供货方）筛选'">品牌 ∈ {{ brandSel.length }} 个 <button class="chip-x" @click="brandSel = []" aria-label="清除品牌筛选"><Icon name="close"/></button></span>
           </div>
           <div class="table-wrap cross-viewport" ref="scrollEl" @scroll="onScroll">
-            <table class="tbl cross-tbl" role="grid" :aria-rowcount="flatItems.length" :aria-colcount="colOrderList.length" :style="{ zoom: gridZoom + '%' }">
+            <table class="tbl cross-tbl" role="grid" :aria-rowcount="flatItems.length" :aria-colcount="colOrderList.length" @dblclick="onResizerDblClick" :style="{ zoom: gridZoom + '%' }">
             <colgroup>
               <col v-for="col in colOrderList" :key="'cg' + col.key" :style="{ width: colW(col.key) + 'px' }"></col>
             </colgroup>
@@ -844,13 +844,24 @@
             </div>
           </div>
           <div class="table-wrap edit-grid-wrap" :class="{ 'is-filling': fillDragging }" @scroll="onEditScroll">
+          <!-- v598（C2）：跳转框（Ctrl+G）。Teleport 到 body：全屏模式下 `.grid-area.is-fs`
+               是 `position:fixed;inset:0`，留在表内会被它的层叠/裁切影响；挂到 body 才是唯一稳的。 -->
+          <Teleport to="body">
+            <div v-if="jumpOpen" class="jump-pop" role="dialog" aria-label="跳转到">
+              <span class="jump-ic"><Icon name="target" :size="15"/></span>
+              <input ref="jumpInputEl" v-model="jumpText" class="jump-input" placeholder="行号，或商品名 / 条码 / 客户名"
+                     @keydown.enter.prevent="doJump" @keydown.esc.prevent.stop="closeJump" aria-label="跳转目标" />
+              <button class="btn btn-primary btn-sm" @click="doJump">跳转</button>
+              <button class="btn btn-ghost btn-sm" @click="closeJump">取消</button>
+            </div>
+          </Teleport>
           <!-- v593：拖动填充的虚线预览框。`pointer-events:none` 是**硬要求** ——
                拖动的命中判定走 `document.elementFromPoint`，覆盖层一旦可命中就会盖住 td，
                指针永远「落在框上」⇒ fillEnd 不再更新、拖动看起来完全没反应。 -->
           <div v-if="fillBox" class="fill-marquee" :style="{ left: fillBox.left + 'px', top: fillBox.top + 'px', width: fillBox.width + 'px', height: fillBox.height + 'px' }"></div>
           <!-- v597（A1）：复制源「蚂蚁线」。粘贴后仍保留（Excel 同款：可连续粘贴），Esc 清掉。 -->
           <div v-if="copyBox" class="copy-marquee" :style="{ left: copyBox.left + 'px', top: copyBox.top + 'px', width: copyBox.width + 'px', height: copyBox.height + 'px' }"></div>
-          <table ref="editTblEl" class="tbl cross-tbl edit-tbl" role="grid" tabindex="-1" :aria-rowcount="cross.rows.length" :aria-colcount="editColKeys.length" :class="{ dragging }" @paste="onPaste" @keydown="onGridKey" @contextmenu.prevent="onTbCtx" :style="{ zoom: gridZoom + '%' }">
+          <table ref="editTblEl" class="tbl cross-tbl edit-tbl" role="grid" tabindex="-1" :aria-rowcount="cross.rows.length" :aria-colcount="editColKeys.length" :class="{ dragging }" @paste="onPaste" @keydown="onGridKey" @dblclick="onResizerDblClick" @contextmenu.prevent="onTbCtx" :style="{ zoom: gridZoom + '%' }">
             <colgroup>
               <col v-for="(k, i) in editColKeys" :key="'eg' + k + i" :style="{ width: colW(k) + 'px' }"></col>
             </colgroup>
@@ -952,6 +963,9 @@
                   <template v-else-if="c.edit === 'ro'">
                     <span class="cell-ro">{{ c.fmt ? c.fmt(r) : (r[c.key] != null && r[c.key] !== '' ? r[c.key] : '—') }}</span>
                   </template>
+                  <!-- v598（D1）：「本次改过」角标（右上角小三角）。单列判定见 cellDirty 注释；
+                       只对可编辑列显示 —— 只读列（到货周期）永远不会有改动，基线里也没有它。 -->
+                  <span v-if="c.edit !== 'ro' && cellDirty(r, 'm:' + c.key)" class="cell-dirty-dot" aria-label="本次改过" title="这一格本次改过（尚未保存）"></span>
                   <!-- v211（P1-3）：错误角标 —— **触屏唯一能读到「为什么错」的入口**（td 的 title 要悬停，
                        平板/手机没有悬停）。桌面侧它也顺带把「哪一格错了」标得比纯红框显眼。 -->
                   <span v-if="cellIssueAt(ri, ci)" class="cell-err-dot" :title="cellIssueAt(ri, ci)" @mousedown.stop.prevent @click.stop="showCellErr(ri, ci)" aria-label="查看此格的错误原因"><Icon name="alert-triangle"/></span>
@@ -963,6 +977,8 @@
                        ⚠️ 只有**数量**用 numeric（整数）；单价有 `step="0.01"`（两位小数）必须用 decimal，
                           否则安卓上小数点键会消失，用户永远填不了小数价。 -->
                   <input :value="r.qtyByUnit[u.name] ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="visibleCols.length + ui" :list="qtyListFor(ri, ui)" @focus="onFocusCell(ri, visibleCols.length + ui, $event)" @input="numInput($event, r.qtyByUnit, u.name)" @change="numCommit($event, r.qtyByUnit, u.name)">
+                  <!-- v598（D1）：数量格的「本次改过」角标 —— 同 master 列，cid 用 `q:` 前缀带客户名。 -->
+                  <span v-if="cellDirty(r, 'q:' + u.name)" class="cell-dirty-dot" aria-label="本次改过" title="这一格本次改过（尚未保存）"></span>
                   <!-- v211（P1-3）：同主档列的角标。这里用 `cellErrMsg` 而非 `cellIssue`：
                        数量格不涉及条码，与 td 自己的 title 保持**同一个判据**（否则角标和悬停会各说一套）。 -->
                   <span v-if="cellIssueAt(ri, visibleCols.length + ui)" class="cell-err-dot" :title="cellIssueAt(ri, visibleCols.length + ui)" @mousedown.stop.prevent @click.stop="showCellErr(ri, visibleCols.length + ui)" aria-label="查看此格的错误原因"><Icon name="alert-triangle"/></span>
@@ -1964,7 +1980,9 @@
               <span><kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴（Excel 区块 / 客户交叉表）</span>
               <span><kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd> 复制 / 剪切选区</span>
               <span><kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> 撤销 / 重做</span>
-              <span><kbd>Ctrl</kbd>+<kbd>D</kbd> 向下填充</span>
+              <span><kbd>Ctrl</kbd>+<kbd>D</kbd> 向下填充 · <kbd>Ctrl</kbd>+<kbd>R</kbd> 向右填充</span>
+              <span><kbd>Ctrl</kbd>+<kbd>G</kbd> 跳转（输行号 / 商品名 / 客户名）</span>
+              <span>双击单元格右下角小点 = 填到已报数量末行 · 双击列边界 = 列宽自适应</span>
               <span><kbd>Ctrl</kbd>+<kbd>A</kbd> 全选 · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 选区批量填充</span>
               <span><kbd>Enter</kbd>/<kbd>Tab</kbd> 下一格（格内按左右键可移动光标改数）</span>
               <span><kbd>Home</kbd>/<kbd>End</kbd> 行首 / 行尾 · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> 翻页</span>
@@ -3125,6 +3143,86 @@ function startResize(e, key) {
   document.body.style.cursor = 'col-resize'
   document.body.style.userSelect = 'none'
 }
+/* v598（C1）：**双击列边界 = 自适应列宽**（Excel 同款）。
+   🔴 为什么不在每个 `.col-resizer` 上挂 `@dblclick`：本页有 **30 多处** resizer（只读表表头 /
+      编辑表表头 × 主档列 / 客户列 / 8 个计算列），逐处加参数既冗长又极易漏一处 ——
+      而漏掉的那一列用户双击时「什么都不发生」，正是最难被发现的失效方式。
+   ✅ 改为**表级事件委托**：从 `.col-resizer` 反查它所在的 `<th>`，用 `th.cellIndex` 推出列 key。
+      这个映射是**唯一权威**的 —— `<colgroup>` 与 `<th>` 同序同源（都来自 editColKeys / colOrderList），
+      不存在「key 传错、宽度写到别的列上」的可能。
+   ⚠️ 两态表的 key 序列不同（只看读表「合计(小单位)」= `qty`，编辑表 = `sum`，同一量历史命名分裂）
+      ⇒ 必须按 `tbl === editTblEl` 分别取，不能共用一份数组。 */
+let _fitCtx = null
+function _measureW(text, font) {
+  if (!text) return 0
+  if (!_fitCtx) { try { _fitCtx = document.createElement('canvas').getContext('2d') } catch (e) { _fitCtx = null } }
+  if (!_fitCtx) return String(text).length * 7   // 极端兜底（无 canvas）：按 7px/字估算
+  _fitCtx.font = font
+  return _fitCtx.measureText(String(text)).width
+}
+function _fontOf(el) {
+  const cs = getComputedStyle(el)
+  return `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+}
+function autoFitCol(tbl, idx) {
+  if (!tbl || idx < 0) return
+  const isEdit = tbl === editTblEl.value
+  const key = isEdit
+    ? editColKeys.value[idx]
+    : (colOrderList.value[idx] && colOrderList.value[idx].key)
+  if (!key) return
+  const headRow = tbl.tHead && tbl.tHead.rows && tbl.tHead.rows[0]
+  const th = headRow && headRow.cells[idx]
+  if (!th) return
+  /* 表头文字：取 `.th-in`（排除齿轮按钮与 resizer 自身，它们没有文本）。
+     ⚠️ 不能用 th.textContent —— 客户列表头里有一个 **input**（其 value 不进 textContent）⇒ 量不到列名。 */
+  const thIn = th.querySelector('.th-in') || th
+  const thInput = th.querySelector('.cust-hd input')
+  const thText = String((thInput && thInput.value) || thIn.textContent || '').replace(/\s+/g, ' ').trim()
+  const thFont = _fontOf(thInput || thIn)
+  let maxW = _measureW(thText, thFont)
+  /* 数据行：只看**当前显示的**行（v-show 隐藏的行 display:none，量出来的宽度是 0，会把列压到最小）。
+     只取首行数据格的字体与左右内边距 —— 同列所有格样式一致，逐格 getComputedStyle 在 428 行上纯属浪费。 */
+  const body = tbl.tBodies && tbl.tBodies[0]
+  const trs = body ? body.rows : []
+  let padH = 16, dataFont = null
+  for (let i = 0; i < trs.length; i++) {
+    const tr = trs[i]
+    if (!tr || tr.style.display === 'none') continue
+    const td = tr.cells[idx]
+    if (!td) continue
+    if (!dataFont) {
+      const cs = getComputedStyle(td)
+      padH = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0)
+      dataFont = _fontOf(td.querySelector('input') || td)
+    }
+    const inp = td.querySelector('input')
+    let txt = inp ? inp.value : String(td.textContent || '')
+    txt = txt.replace(/\s+/g, ' ').trim()
+    /* 看不见的文本（被 ellipsis 截断）也按真实长度算 —— 这正是「自适应」要解决的问题；
+       纯图标格（无文本）跳过，别让一个 0 宽度的空串参与求最大。 */
+    if (!txt) continue
+    const w = _measureW(txt, dataFont)
+    if (w > maxW) maxW = w
+  }
+  /* +14：resizer 手柄区（9px，右侧 -3）与单元格边框，留一点余量避免贴边折行。
+     夹在 [40, 320]：下限是 `startResize` 的既有下界（再窄就点不到手柄），上限防止一格吃掉整屏。 */
+  const target = Math.max(40, Math.min(320, Math.ceil(maxW + padH + 14)))
+  colWidths.value = { ...colWidths.value, [key]: target }
+  try { localStorage.setItem('hergent-forecast-col-widths', JSON.stringify(colWidths.value)) } catch (e) {}
+  toast(`「${thText || key}」列宽已按内容调整为 ${target}px`, 'ok')
+}
+function onResizerDblClick(e) {
+  const rz = e.target && e.target.closest ? e.target.closest('.col-resizer') : null
+  if (!rz) return
+  const th = rz.closest('th')
+  const tbl = th && th.closest ? th.closest('table') : null
+  if (!th || !tbl) return
+  /* 必须有 preventDefault：双击会选中表头文字（列名），随后用户一拖就把列名拖进别的输入框。 */
+  e.preventDefault()
+  e.stopPropagation()
+  autoFitCol(tbl, th.cellIndex)
+}
 // 编辑网格表头列顺序（必须与实际 <th>/<td> 顺序一致），供 <colgroup> 与拖拽手柄使用
 const editColKeys = computed(() => {
   const keys = ['seq']
@@ -3857,6 +3955,12 @@ async function loadEditGrid() {
     prodBaseline.value = new Map(
       rows.filter(r => Number(r.product_id) > 0).map(r => [Number(r.product_id), prodPayloadOf(r)])
     )
+    /* v598（D1）：**改过角标的基线** —— 必须与 prodBaseline 同一时点（草稿合并之前）。
+       时序就是语义：基线 = 「服务端已保存的内容」。若挪到草稿合并之后，草稿里那些
+       **还没保存**的改动会被当成基线 ⇒ 角标全灭，用户以为"这轮什么都没改"。
+       ⚠️ 单元表也传进去：客户列在草稿分支里可能被 push 新列（草稿带来的未提交列），
+          那些格的基线值取不到 ⇒ 不标脏，但也不会报错。 */
+    cellBaseline = buildCellBaseline(rows, units)
     cross.value = {
       period: p, units, rows, colTotals,
       rowBaseTotal: allProds.length,   // v179：收窄前行数（= 在售商品档案总数）
@@ -5668,6 +5772,16 @@ function onGridKey(e) {
     toast(`已向下填充 ${er - sr} 格`, 'ok')
     return
   }
+  /* v598（C2）：Ctrl/Cmd+G = 打开跳转框（输行号 / 商品名 / 客户名，回车直达）。
+     🔴 同样必须 preventDefault：Cmd+G 是浏览器的「查找下一个」，漏掉会在改单途中弹出
+        浏览器查找条 —— 而且它会抢走键盘焦点，用户会以为「表格卡住了」。
+     ⚠️ 刻意放在 `editing` 判断**之前**（本分支不判 editing）：在输入框里按 Ctrl+G
+        也应该打开跳转框，而不是被浏览器接走。 */
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+    e.preventDefault()
+    openJump()
+    return
+  }
   /* v597（A2）：Ctrl/Cmd+R 向右填充。
      🔴 必须 `preventDefault` —— 这个组合键在浏览器里是**刷新页面**，一旦漏掉，
         用户改单改到一半按下去会把整个未保存的草稿刷掉（比没有这个功能严重得多）。
@@ -6595,6 +6709,51 @@ function numCommit(e, obj, key) {
 function setFillVal(v) { ctxFillVal.value = v }
 function setMiniQty(v) { miniQty.value = v }
 function setHdrWidth(v) { hdrWidthVal.value = v }
+/* v598（D1）：**改过的格打角标** —— 「这一格跟进来时不一样」。
+   为什么值得做：改单页有 428 行 × 30 列，用户填到一半被打断、或者两个人轮流改，
+   没有任何迹象能看出「哪些格是我这轮动过的」。保存前没法自查，改错了也发现不了。
+   🔴 判据是「**当前值 ≠ 本轮编辑开始时的值**」，不是「被点过」：
+      · 改了一格又改回原值 ⇒ 角标自动消失（这才对得上「有没有实际改动」）；
+      · 粘贴 / 拖填充 / Ctrl+Enter 批量写 / 撤销重做，全部自动覆盖 ——
+        因为它们最终都落到 `rw[字段]` 上，没有一条旁路需要单独挂钩子。
+   🔴 基线用 **WeakMap<行对象, Map<格id, 值>>**，不是「按行号/列号」的普通表：
+      行会被插入/删除/sort/筛选，行号一动就整体错位（表现是「满屏都是改过的」）。
+      行对象是稳定的引用（编辑只改属性、不换对象），splice 插入的新行自然没有基线 ⇒ 不标脏，
+      而「新增一行」本来就该由「新增行」自己的视觉去表达，不该混进「改过」。
+   ⚠️ WeakMap 不是响应式的 —— 但**不需要**：值变化本身会触发该 td 重渲染，
+      渲染时再读一次 `cellDirty()` 就能拿到最新结果，没有额外的依赖追踪开销。 */
+let cellBaseline = new WeakMap()
+function buildCellBaseline(rows, units) {
+  const m = new WeakMap()
+  const keys = visibleCols.value.filter(c => c.edit && c.edit !== 'ro').map(c => c.key)
+  const unames = (units || []).map(u => u.name)
+  ;(rows || []).forEach(r => {
+    if (!r) return
+    const snap = new Map()
+    keys.forEach(k => snap.set('m:' + k, r[k] == null ? '' : r[k]))
+    unames.forEach(n => snap.set('q:' + n, (r.qtyByUnit && r.qtyByUnit[n] != null) ? r.qtyByUnit[n] : 0))
+    m.set(r, snap)
+  })
+  return m
+}
+/* 值的比较键：数字一律按数值比（`30` / `"30"` / `30.0` 是同一个值 —— 输入框写回的是字符串、
+   填充与粘贴写回的是数字，不归一化会把「没改」误判成「改过」）。 */
+function cellValKey(v) {
+  if (v === '' || v === null || v === undefined) return ''
+  const s = String(v).trim()
+  if (s === '') return ''
+  const n = Number(s)
+  return Number.isFinite(n) ? 'n' + n : 's' + s
+}
+function cellDirty(rw, cid) {
+  if (!rw || !cid) return false
+  const snap = cellBaseline.get(rw)
+  if (!snap || !snap.has(cid)) return false
+  const cur = cid.charAt(0) === 'q'
+    ? (rw.qtyByUnit || {})[cid.slice(2)]
+    : rw[cid.slice(2)]
+  return cellValKey(cur) !== cellValKey(snap.get(cid))
+}
 // 填充柄：从选中单元格拖拽，复制填充到矩形范围（兼容主档列 + 客户数量列）
 function readCellVal(r, c) {
   const rw = cross.value.rows[r]; if (!rw) return ''
@@ -7630,6 +7789,85 @@ function scrollRowIntoView(ri) {
     if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'nearest' })
   })
 }
+/* ==================== v598（C2）：跳转框（Ctrl+G） ====================
+   诉求：428 行的表、三十来列客户，靠滚轮和拖滚动条找一格效率极低。
+   设计上刻意**不占工具栏**（本项目纪律：不在主工具行加按钮），
+   走 Excel 的「定位」心智：`Ctrl+G` 唤出一个输入框，回车直达。
+   三种输入（全部大小写/前后空格不敏感）：
+     · 纯数字          → 第 N 行（序号列显示的就是 N，与用户看到的一致）
+     · 商品名/条码/编码 → 行
+     · 客户名          → 列
+     都命中 ⇒ 直接跳到「那一行 × 那一列」的交叉格（这是最常要的：给某客户的某个商品改数）。
+   ⚠️ 行被**筛选/「只看有数」隐藏**时必须明确拒绝并说明原因，不能"跳了但看不见" ——
+      那会被理解成「跳转坏了」。分页不在此列：`gotoRowPage` 会自动翻到目标页。 */
+const jumpOpen = ref(false)
+const jumpText = ref('')
+const jumpInputEl = ref(null)
+function openJump() {
+  if (!editMode.value) return
+  jumpOpen.value = true
+  jumpText.value = ''
+  /* v-focus 指令只在 mounted 跑一次，而这里是条件渲染（v-if）后新出现的节点 ⇒ 必须手动聚焦。 */
+  nextTick(() => { try { if (jumpInputEl.value) jumpInputEl.value.focus() } catch (e) {} })
+}
+function closeJump() {
+  jumpOpen.value = false
+  if (selected.value.r >= 0) focusCell(selected.value.r, selected.value.c)
+}
+function jumpToCell(r, c) {
+  const maxR = cross.value.rows.length - 1
+  const maxC = visibleCols.value.length + unitCount() - 1
+  if (maxR < 0 || maxC < 0) return
+  r = Math.max(0, Math.min(maxR, r))
+  c = Math.max(0, Math.min(maxC, c))
+  if (!rowBaseShown(r)) { toast('目标行已被筛选隐藏 —— 请先清除筛选（或关掉「只看有数」）再跳转', 'warn'); return }
+  gotoRowPage(r)
+  /* 翻页/筛选切换后行才真正可见 ⇒ 选中与滚动都放到下一帧。 */
+  nextTick(() => {
+    selectCell(r, c)
+    focusCell(r, c)
+    const el = editTblEl.value && editTblEl.value.querySelector(`td[data-r="${r}"][data-c="${c}"]`)
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'nearest' })
+    jumpOpen.value = false
+  })
+}
+function doJump() {
+  const t = String(jumpText.value || '').trim()
+  if (!t) return
+  const maxR = cross.value.rows.length - 1
+  /* ① 纯数字 = 行号（Excel 名称框同款）。优先于文本匹配 —— 客户名/商品名里带数字的情况远多于
+     「用户想按名字找一行叫 12 的商品」，且这样行为可预测。 */
+  if (/^\d+$/.test(t)) {
+    const ri = parseInt(t, 10) - 1
+    if (ri < 0 || ri > maxR) { toast(`没有第 ${t} 行（当前共 ${maxR + 1} 行）`, 'warn'); return }
+    jumpToCell(ri, selected.value.c >= 0 ? selected.value.c : 0)
+    return
+  }
+  const low = t.toLowerCase()
+  const ui = cross.value.units.findIndex(u => String(u.name || '').toLowerCase().includes(low))
+  const rows = cross.value.rows
+  let ri = -1, hits = 0
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] || {}
+    if ([r.name, r.barcode, r.product_code].some(v => String(v == null ? '' : v).toLowerCase().includes(low))) {
+      hits++
+      if (ri < 0) ri = i
+    }
+  }
+  if (ri < 0 && ui < 0) { toast(`没找到「${t}」—— 可输行号、商品名 / 条码，或客户名`, 'warn'); return }
+  if (ri >= 0 && ui >= 0) {
+    jumpToCell(ri, visibleCols.value.length + ui)
+    toast(`已定位：第 ${ri + 1} 行 · ${cross.value.units[ui].name}`, 'ok')
+    return
+  }
+  if (ri >= 0) {
+    jumpToCell(ri, selected.value.c >= 0 ? selected.value.c : 0)
+    toast(hits > 1 ? `命中 ${hits} 行，已跳到第一条（第 ${ri + 1} 行）` : `已定位到第 ${ri + 1} 行`, 'ok')
+    return
+  }
+  jumpToCell(selected.value.r >= 0 ? selected.value.r : 0, visibleCols.value.length + ui)
+  toast(`已定位到客户列「${cross.value.units[ui].name}」`, 'ok')
+}
 /* v379（P0·C-2）：粘贴时「源格为空该不该覆盖」只有**这一个判据** ——
    区块粘贴（pasteRegion）与交叉表粘贴（tryPasteCross）共用，不再两处各写一套。
    空格一律**不覆盖**（= Excel 的「跳过空单元格」语义）。
@@ -7652,6 +7890,21 @@ function pasteRegion(text) {
   let useCols = cols, truncated = false
   if (sc + cols - 1 > maxC) { useCols = Math.max(0, maxC - sc + 1); truncated = true }
   if (useCols <= 0) { toast('选区右侧没有可写入的列', 'warn'); return }
+  /* v598（A4）：**单个值 + 已框选一片区域 ⇒ 铺满整个选区**（Excel 同款语义）。
+     诉求来自改单场景：给 20 个客户都报「30」，现在要先框选、再 Ctrl+Enter（或右键「批量填入」），
+     而人从 Excel 过来的肌肉记忆是「复制一个 30 → 框一片 → Ctrl+V」。
+     🔴 只在**剪贴板恰好是 1×1** 且**选区面积 > 1** 时才走这条路：
+        多行多列的区块粘贴必须严格按左上角对齐，绝不能因为「用户刚好也框了一片」就被拉伸 ——
+        那会把 5 行数据摊成一整片，是最典型的「粘贴后表格全乱」。
+     ⚠️ 写入复用 `batchWrite`（= Ctrl+Enter 同一条路径），不另写循环：
+        它已经带 snapshot / 只读列跳过 / parseNumInput 收敛 / 按实际写入格数报数。 */
+  const _sr0 = selRange.value
+  if (rows === 1 && useCols === 1 && _sr0 && (_sr0.r1 > _sr0.r0 || _sr0.c1 > _sr0.c0)) {
+    const v = block[0][0]
+    if (pasteCellEmpty(v)) { toast('粘贴内容为空，未改动任何数据', 'warn'); return }
+    batchWrite(v)
+    return
+  }
   /* v379：**先算清哪些格真要写**再动数据 —— 全空的粘贴不该补空商品行、也不该留一条撤销记录。 */
   const writes = []
   let skipped = 0
@@ -11855,6 +12108,18 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
    ⚠️ 尺寸压到 13×11、图标 9px：格子本身只有约 26px 高，再大就会压住输入文字的首字符。 */
 .cell-err-dot{position:absolute;left:0;top:0;width:13px;height:11px;display:flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger-txt);border-bottom-right-radius:6px;cursor:pointer;z-index:5;line-height:1}
 .cell-err-dot svg.ico{width:9px;height:9px;vertical-align:top;margin:0}
+/* v598（D1）：「本次改过」角标 —— 右上角 6px 实心三角（border 三角形，零额外节点）。
+   🔴 占右上角而不是左上：左上已被 `.cell-err-dot`（红底错误角标）占住，两者会叠在一起
+      谁都看不清；右下是填充柄 `.fill-handle`。三处各占一角，互不遮挡。
+   ⚠️ `pointer-events:none` 是硬要求 —— 角标盖在输入框右上角，能命中就会让用户
+      「点那一小块点不进编辑」（而且因为只差 6px，极难判断是自己点偏了还是坏了）。 */
+.cell-dirty-dot{position:absolute;right:0;top:0;width:0;height:0;border-top:6px solid var(--p);border-left:6px solid transparent;z-index:4;pointer-events:none;opacity:.9}
+/* v598（C2）：跳转框。固定垂直位置在视口上方 14%（不遮住当前行），水平居中；
+   z-index 高于页面浮层（--z-page-fs=1000）与表体浮层（1250 同档），避免被全屏网格压住。 */
+.jump-pop{position:fixed;left:50%;top:14vh;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;box-shadow:0 14px 36px rgba(0,0,0,.18);min-width:380px;box-sizing:border-box}
+.jump-ic{display:flex;align-items:center;flex:none;color:var(--t2)}
+.jump-input{flex:1;min-width:190px;height:30px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t1);font-size:13px;outline:none;box-sizing:border-box}
+.jump-input:focus{border-color:var(--p)}
 /* v212（P2-2）：软警告角标（黄=疑）—— 与红角标**同形不同角**，靠颜色深浅分两档。
    位置：**右上角**（红在左上、填充柄在右下、左下留给行号格的红条，四角不打架）。
    ⚠️ `z-index:5` 必须 < 6：`.seq-cell` / `.frozen` 的粘性列是 6 ⇒ 高了会浮在冻结列上面。
