@@ -6609,24 +6609,64 @@ function updateFillBox() {
   const box = fillRectOf(Math.min(a.r, b.r), Math.min(a.c, b.c), Math.max(a.r, b.r), Math.max(a.c, b.c))
   if (box) fillBox.value = box
 }
+/* v594：把「屏幕坐标」翻译成格子坐标 —— 鼠标移动与自动滚动共用同一套判定，
+   避免两处各写一遍（`elementFromPoint` + `closest` + 两个 data-* 属性，写两遍迟早错一处）。 */
+function fillHitAt(x, y) {
+  /* 指针落在覆盖层上是正常的（pointer-events:none 会让它穿透，这里再兜一层 closest） */
+  const el = document.elementFromPoint(x, y)
+  const td = el && el.closest ? el.closest('td[data-r]') : null
+  if (!td) return null
+  const r = parseInt(td.getAttribute('data-r')), c = parseInt(td.getAttribute('data-c'))
+  return (isNaN(r) || isNaN(c)) ? null : { r, c }
+}
 function startFill(r, c, e) {
   fillStart.value = { r, c }
   fillEnd.value = { r, c }
   fillDragging.value = true
   updateFillBox()
   const wrap = editTblEl.value && editTblEl.value.parentElement
+  const pt = { x: e && e.clientX != null ? e.clientX : 0, y: e && e.clientY != null ? e.clientY : 0 }
+  const apply = (hit) => { if (hit) { fillEnd.value = hit; updateFillBox() } }
   const move = (ev) => {
-    /* 指针落在覆盖层上是正常的（pointer-events:none 会让它穿透，这里再兜一层 closest） */
-    const el = document.elementFromPoint(ev.clientX, ev.clientY)
-    const td = el && el.closest ? el.closest('td[data-r]') : null
-    if (td) {
-      const dr = parseInt(td.getAttribute('data-r')), dc = parseInt(td.getAttribute('data-c'))
-      if (!isNaN(dr) && !isNaN(dc)) {
-        fillEnd.value = { r: dr, c: dc }
-        updateFillBox()
+    pt.x = ev.clientX; pt.y = ev.clientY
+    apply(fillHitAt(pt.x, pt.y))
+  }
+  /* v594：**拖到可视区边缘自动滚动**。没有它，一次拖动最多只能填满一屏 ——
+     154 行的表要重复「拖一屏 → 滚 → 再拖」十几次，而用户想的是"一路拖到底"。
+     每帧滚 4~20px（离边缘越远越快），滚动后**重新取边缘那一格**当终点：
+     此时指针很可能已经不在任何格上（拖出容器/落在分页器上），只靠 mousemove 收不到。
+     ⚠️ 只做纵向：数量列是**按客户一列一列**填的，横向连拖等于把 A 客户的量铺到 B 客户，
+        现实里没这个动作；横向自动滚动反而容易误伤。 */
+  let raf = 0
+  const tick = () => {
+    if (!fillDragging.value) { raf = 0; return }
+    if (wrap) {
+      const wr = wrap.getBoundingClientRect()
+      const cTop = wr.top + wrap.clientTop
+      const cBottom = cTop + wrap.clientHeight          // 扣掉横向滚动条/边框，别把"滚动条"当格子
+      /* 🔴 还要再和**视口**取交集：表体高 `72vh`，在矮窗口下它的下沿会跑到视口外
+         （实测 1600×913 时容器底 1052 > innerHeight 913，下面一百多像素根本点不到）。
+         只按容器算 ⇒ 夹取出来的 y 落在视口外 ⇒ `elementFromPoint` 返回 null ⇒ 终点永不更新，
+         症状是"滚是滚了、框却不长"。 */
+      const vBottom = Math.min(cBottom, window.innerHeight)
+      const vTop = Math.max(cTop, 0)
+      const thead = wrap.querySelector('thead')
+      const topGuard = thead ? thead.offsetHeight : 0    // 表头是 sticky 的，滚到它下面才算可见区
+      const EDGE = 26, MAX = 20
+      let dy = 0
+      if (pt.y > vBottom - EDGE) dy = Math.min(MAX, Math.ceil((pt.y - vBottom + EDGE) / 3) + 4)
+      else if (pt.y < vTop + topGuard + EDGE) dy = -Math.min(MAX, Math.ceil((vTop + topGuard + EDGE - pt.y) / 3) + 4)
+      if (dy) {
+        const max = Math.max(0, wrap.scrollHeight - wrap.clientHeight)
+        const before = wrap.scrollTop
+        wrap.scrollTop = Math.max(0, Math.min(max, before + dy))
+        const y = Math.max(vTop + topGuard + 4, Math.min(vBottom - 4, pt.y))
+        apply(fillHitAt(pt.x, y))
       }
     }
+    raf = requestAnimationFrame(tick)
   }
+  raf = requestAnimationFrame(tick)
   /* 拖动中途滚轮/滚动条改变可视区 ⇒ 框按内容坐标算，不需重算；但缩放后子像素会漂，顺手补一次。 */
   const onScroll = () => updateFillBox()
   const finish = (commit) => {
@@ -6634,6 +6674,7 @@ function startFill(r, c, e) {
     document.removeEventListener('mouseup', onUp)
     document.removeEventListener('keydown', onKey)
     if (wrap) wrap.removeEventListener('scroll', onScroll)
+    if (raf) { cancelAnimationFrame(raf); raf = 0 }
     const a = fillStart.value, b = fillEnd.value
     fillDragging.value = false
     fillBox.value = null
@@ -6664,7 +6705,11 @@ function doFill(a, b) {
   selAxis.value = 'cell'
   selRange.value = { r0, c0, r1, c1 }
   selected.value = { r: r1, c: c1 }
-  toast(`已填充 ${(r1 - r0 + 1) * (c1 - c0 + 1)} 个单元格`, 'ok')
+  /* v594：说清「填到哪儿了」。原来只报「已填充 3 个单元格」——
+     行号用的是**表格里显示的行号**（序号列 = 下标 + 1，筛选后跳号也一致），不是内部下标。 */
+  const nr = r1 - r0 + 1, nc = c1 - c0 + 1
+  const where = nr === 1 ? `第 ${r0 + 1} 行` : `第 ${r0 + 1}→${r1 + 1} 行`
+  toast(nc === 1 ? `已填充 ${nr} 格（${where}）` : `已填充 ${nr * nc} 格（${where} × ${nc} 列）`, 'ok')
 }
 // 批量写入：把活动单元格的值铺到整个选区（Ctrl/Cmd+Enter）
 function batchWrite(val) {
