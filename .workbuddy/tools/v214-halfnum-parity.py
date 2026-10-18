@@ -23,9 +23,12 @@ import subprocess
 import sys
 import tempfile
 
-NODE = "/Users/zhangjunfeng/.workbuddy/binaries/node/versions/22.22.2-3/bin/node"
+NODE = "/Users/zhangjunfeng/.workbuddy/binaries/node/versions/22.22.2-6/bin/node"
 BE_DIR = "/Users/zhangjunfeng/Documents/hergent-erp/server"
-FE = "/Users/zhangjunfeng/Documents/laozhangai-product/hergent-cn-v2/src/pages/Forecast.vue"
+FE = "/Users/zhangjunfeng/Documents/laozhangai-product/hergent-cn-v2/src/utils/forecast/format.js"
+"""🔴 v597：`HALF_MAP` / `toHalfNum` 早已从 Forecast.vue 抽到 `utils/forecast/format.js`，
+   本脚本原来还指向 Forecast.vue ⇒ 提取失败、护栏**静默失效**（跑起来只报"无法提取"）。
+   判据：护栏红了先看它读的是不是唯一源，别急着当成业务回归。"""
 
 sys.path.insert(0, BE_DIR)
 import db.queries.forecast_rules as fr   # noqa: E402

@@ -848,6 +848,8 @@
                拖动的命中判定走 `document.elementFromPoint`，覆盖层一旦可命中就会盖住 td，
                指针永远「落在框上」⇒ fillEnd 不再更新、拖动看起来完全没反应。 -->
           <div v-if="fillBox" class="fill-marquee" :style="{ left: fillBox.left + 'px', top: fillBox.top + 'px', width: fillBox.width + 'px', height: fillBox.height + 'px' }"></div>
+          <!-- v597（A1）：复制源「蚂蚁线」。粘贴后仍保留（Excel 同款：可连续粘贴），Esc 清掉。 -->
+          <div v-if="copyBox" class="copy-marquee" :style="{ left: copyBox.left + 'px', top: copyBox.top + 'px', width: copyBox.width + 'px', height: copyBox.height + 'px' }"></div>
           <table ref="editTblEl" class="tbl cross-tbl edit-tbl" role="grid" tabindex="-1" :aria-rowcount="cross.rows.length" :aria-colcount="editColKeys.length" :class="{ dragging }" @paste="onPaste" @keydown="onGridKey" @contextmenu.prevent="onTbCtx" :style="{ zoom: gridZoom + '%' }">
             <colgroup>
               <col v-for="(k, i) in editColKeys" :key="'eg' + k + i" :style="{ width: colW(k) + 'px' }"></col>
@@ -953,7 +955,7 @@
                   <!-- v211（P1-3）：错误角标 —— **触屏唯一能读到「为什么错」的入口**（td 的 title 要悬停，
                        平板/手机没有悬停）。桌面侧它也顺带把「哪一格错了」标得比纯红框显眼。 -->
                   <span v-if="cellIssueAt(ri, ci)" class="cell-err-dot" :title="cellIssueAt(ri, ci)" @mousedown.stop.prevent @click.stop="showCellErr(ri, ci)" aria-label="查看此格的错误原因"><Icon name="alert-triangle"/></span>
-                  <span v-if="selAxis === 'cell' && selected.r === ri && selected.c === ci" class="fill-handle" @mousedown.prevent.stop="startFill(ri, ci, $event)" title="拖拽填充"></span>
+                  <span v-if="selAxis === 'cell' && selected.r === ri && selected.c === ci" class="fill-handle" @mousedown.prevent.stop="startFill(ri, ci, $event)" @dblclick.stop.prevent="autoFillDown(ri, ci)" title="拖拽填充（双击 = 向下填到已报数量的末行）"></span>
                 </td>
                 <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'sel-col': inColSpan(visibleCols.length + ui), 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellIssueAt(ri, visibleCols.length + ui) !== '', 'warn-low': rowWarnArr[ri] === 'low', 'warn-short': rowWarnArr[ri] === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0, flash: isFlash(ri, visibleCols.length + ui) }" :style="heatOf(r, u.name).style" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellIssueAt(ri, visibleCols.length + ui) || heatOf(r, u.name).title || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
                   <!-- v211（P1-2）：补 `inputmode` —— 触屏设备（平板 / 手机开网页）点这一格直接弹**数字键盘**。
@@ -970,7 +972,7 @@
                        ⚠️ `z-index` 必须 < 6（`.seq-cell` / `.frozen` 都是 6）—— 否则横向滚动时
                           角标会浮在冻结列**上方**，像贴错了格子。 -->
                   <span v-if="cellSoftIssue(ri, ui)" class="cell-soft-dot" :class="'soft-' + cellSoftIssue(ri, ui)" :title="cellSoftMsg(ri, ui)" @mousedown.stop.prevent @click.stop="showCellSoft(ri, ui)" aria-label="查看此格的疑点"><Icon name="alert-triangle"/></span>
-                  <span v-if="selAxis === 'cell' && selected.r === ri && selected.c === visibleCols.length + ui" class="fill-handle" @mousedown.prevent.stop="startFill(ri, visibleCols.length + ui, $event)" title="拖拽填充"></span>
+                  <span v-if="selAxis === 'cell' && selected.r === ri && selected.c === visibleCols.length + ui" class="fill-handle" @mousedown.prevent.stop="startFill(ri, visibleCols.length + ui, $event)" @dblclick.stop.prevent="autoFillDown(ri, visibleCols.length + ui)" title="拖拽填充（双击 = 向下填到已报数量的末行）"></span>
                 </td>
                 <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)">{{ fmt(rowSumArr[ri]) }}</td>
                 <td class="num calc boxes" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)"><span :class="{ 'miss-price': boxMissing(r) }">{{ boxText(r) }}</span></td>
@@ -3265,7 +3267,7 @@ const vsWindow = computed(() => {
   return { items: arr.slice(start, end), top: offsetOf(start), bottom: Math.max(0, total - offsetOf(end)) }
 })
 function onScroll(e) { scrollTop.value = e.target.scrollTop; if (scrollEl.value) viewportH.value = scrollEl.value.clientHeight; const sl = e.target.scrollLeft; if (crossFoot.value) crossFoot.value.style.setProperty('--foot-sl', -sl + 'px') }
-function onEditScroll(e) { const sl = e.target.scrollLeft; if (editFoot.value) editFoot.value.style.setProperty('--foot-sl', -sl + 'px') }
+function onEditScroll(e) { const sl = e.target.scrollLeft; if (editFoot.value) editFoot.value.style.setProperty('--foot-sl', -sl + 'px'); if (copyMark.value) syncCopyMark() }
 function scrollToIndex(ri) {
   if (!vScrollOn.value || !scrollEl.value) return
   const off = offsetOf(ri)
@@ -4046,6 +4048,7 @@ function leaveEdit() {
   loadingEdit.value = false
   errListOpen.value = false   // v174：退出编辑态收起查错面板（否则下次进入会先闪一屏旧结果）
   pagingOn.value = false   // Q7：退出编辑复位分页，read-only 表恢复全量渲染原行为
+  clearCopyMark()          // v597：蚂蚁线只在编辑网格里有意义，退出即清（否则回到只读还挂一圈虚线）
   loadCross()  // 回到只读 —— 也就是「带『改单』按钮」的那一态
 }
 async function exitEdit() {
@@ -5058,6 +5061,30 @@ const fillBox = ref(null)              // { left, top, width, height }，相对�
    而改单的真实动作是「这一格的值沿着**一个方向**铺开」⇒ 只沿主方向铺，另一轴恒等于源格。
    ⚠️ 是 ref 而不是局部变量：`fillSpan` 同时被预览框 / 写入 / 提示三处调用，必须共用同一方向。 */
 const fillAxis = ref('v')
+/* v597（A1）：**复制源标记**（Excel 的「蚂蚁线」）。
+   诉求：「复制后没有任何反馈，不知道剪贴板里是哪块、按 Esc 会不会清掉」。
+   做法与填充框完全同源：记住范围，再把它换算成覆盖层几何（`fillRectOf`）——
+   所以缩放、滚动、冻结列都不需要另写一套坐标。
+   ⚠️ 只在**复制/剪切**时点亮，粘贴后**不清**（Excel 同款：可以连续粘贴多次），
+      按 Esc 或再次复制才换/清。清除点见 `onGridKey` 的 Escape 分支。
+   ⚠️ 只存范围、不存几何：几何每次重算（`syncCopyMark`），否则筛行/改列宽后会停在旧位置。 */
+const copyMark = ref(null)             // { r0, c0, r1, c1 }
+const copyBox = ref(null)              // { left, top, width, height }
+function syncCopyMark() {
+  const m = copyMark.value
+  if (!m) { copyBox.value = null; return }
+  const box = fillRectOf(m.r0, m.c0, m.r1, m.c1)
+  /* 范围被筛掉 / 滚出虚拟窗口 ⇒ 先隐藏（保留范围，滚回来还能亮），别留一个错位的框 */
+  copyBox.value = box || null
+}
+function setCopyMark(r0, c0, r1, c1) {
+  copyMark.value = { r0, c0, r1, c1 }
+  nextTick(syncCopyMark)
+}
+function clearCopyMark() {
+  copyMark.value = null
+  copyBox.value = null
+}
 const ctxMenuStyle = computed(() => {
   const ww = typeof window !== 'undefined' ? window.innerWidth : 400
   const top = ctx.value.top != null ? ctx.value.top : ctx.value.y
@@ -5641,6 +5668,16 @@ function onGridKey(e) {
     toast(`已向下填充 ${er - sr} 格`, 'ok')
     return
   }
+  /* v597（A2）：Ctrl/Cmd+R 向右填充。
+     🔴 必须 `preventDefault` —— 这个组合键在浏览器里是**刷新页面**，一旦漏掉，
+        用户改单改到一半按下去会把整个未保存的草稿刷掉（比没有这个功能严重得多）。
+        所以本分支放在最前面（c/x 之后、delete 之前），且**不判 editing**：
+        在输入框里按 Ctrl+R 同样要拦住刷新。 */
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
+    e.preventDefault()
+    fillRight()
+    return
+  }
   // Q22：Ctrl/Cmd+X 剪切选区（复制后清空），Excel 基本操作
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
     if (editing) return
@@ -5712,6 +5749,12 @@ function onGridKey(e) {
           在这里顺手还原会把「改到一半按 Esc」变成静默丢数据（而且 `change` 未提交，
           还原逻辑还得自己造一份副本，是纯粹的额外风险面）。只换态，零数据影响。 */
     if (cellTyping.value) { cellTyping.value = false; focusCell(r, c, { select: true }); return }
+    /* v597（A1）：**有蚂蚁线时 Esc 先取消复制**（Excel 同款），且**不清选区** ——
+       用户按 Esc 十有八九是「刚才复制错了」，顺手把辛苦框的选区一起清掉更烦。
+       ⚠️ 必须放在 `cellTyping` 分支**之后**：输入态按 Esc 的第一诉求永远是"退出输入"，
+          若在这里先吃掉事件，用户会发现 Esc 突然不退出输入了。
+       ⚠️ 也放在 `errListOpen` 之后：浮动清单是模态感更强的层，先关它。 */
+    if (copyMark.value) { clearCopyMark(); toast('已取消复制', 'info'); return }
     /* v377：Esc 是行 / 列轴唯一的**显式**退出键，必须连轴一起复位 ——
        只清 selected 会让「整行还亮着、右键却已是单元格菜单」（错位态）。
        ⚠️ 别把上面这句读成「只有 Esc 能退出」：方向键 / Home / End / PageUp·Down / Ctrl+A
@@ -6834,6 +6877,73 @@ function doFill(a, b) {
   const where = nr === 1 ? `第 ${r0 + 1} 行` : `第 ${r0 + 1}→${r1 + 1} 行`
   toast(nc === 1 ? `已填充 ${nr} 格（${where}）` : `已填充 ${nr * nc} 格（${where} × ${nc} 列）`, 'ok')
 }
+/* v597（A2）：**Ctrl/Cmd+R = 向右填充**（与 Ctrl+D 向下填充对称）。
+   为什么必须做：改单的主线动作是「把这一家的量铺到旁边几个报单单元」，而 Ctrl+D 只往下。
+   Excel 语义：用**选区最左列**的值，填满选区里它右边的所有格（不是用活动格的値）——
+   所以框选「1 个源列 + 3 个目标列」再按一下就够，不必先点回源格。
+   🔴 右侧**只在数量区（报单单元列）内**结束：再往右是合计/加单/单价/金额，
+      `writeCellVal` 对 `edit:'num'` 一律放行 ⇒ 会把数量写进单价，直接算错下单金额。
+     源列本身不在数量区时**明确拒绝并说明原因**，不静默什么都不做（静默=用户以为坏了）。 */
+function fillRight() {
+  const sr = selRange.value
+  const r = selected.value.r, c = selected.value.c
+  if (r < 0) return
+  const unitStart = visibleCols.value.length
+  const unitEnd = unitStart + unitCount() - 1
+  const deny = () => toast('向右填充只在报单数量列内生效：右边是合计 / 加单 / 单价，横铺会把数量写进单价', 'warn')
+  if (sr) {
+    const c0 = sr.c0, c1 = Math.min(sr.c1, unitEnd)
+    if (c0 < unitStart || c1 <= c0) { deny(); return }
+    snapshot()
+    let n = 0
+    for (let ri = sr.r0; ri <= sr.r1; ri++) {
+      const sv = readCellVal(ri, c0)
+      for (let ci = c0 + 1; ci <= c1; ci++) if (writeCellVal(ri, ci, sv)) n++
+    }
+    selAxis.value = 'cell'
+    selected.value = { r: sr.r0, c: c1 }
+    toast(`已向右填充 ${n} 格（第 ${sr.r0 + 1}→${sr.r1 + 1} 行 × ${c1 - c0} 列）`, 'ok')
+    return
+  }
+  if (c < unitStart || c > unitEnd) { deny(); return }
+  /* 无选区时照 Ctrl+D 的口径：填到「右边连续有数据」的最后一格 —— 与 Excel 的"填到相邻数据末端"同义。 */
+  let ec = c
+  while (ec + 1 <= unitEnd) {
+    const nv = readCellVal(r, ec + 1)
+    if (nv === '' || nv == null || Number(nv) === 0) break
+    ec++
+  }
+  if (ec <= c) { toast('请先框选填充范围，或确保右侧已有连续数据可填', 'warn'); return }
+  snapshot()
+  const sv = readCellVal(r, c)
+  for (let ci = c + 1; ci <= ec; ci++) writeCellVal(r, ci, sv)
+  selAxis.value = 'cell'
+  selRange.value = { r0: r, c0: c, r1: r, c1: ec }
+  selected.value = { r, c: ec }
+  toast(`已向右填充 ${ec - c} 格（第 ${r + 1} 行 × ${ec - c + 1} 列）`, 'ok')
+}
+/* v597（A3）：**双击填充柄 = 向下填到「本期已报数量的最后一行」**（Excel 最经典的动作）。
+   端点的取法很关键：Excel 是"填到相邻列的数据末端"，但本表的每一行都**必然**有商品名
+   （行存在 ≠ 这一行已经被填过），照搬过去等于"一键铺满全表"——一次误双击改写几百格。
+   在报单场景里真正有意义的端点是：**下面最后一行已经填了数量（任一报单单元 > 0）**。
+   这样"把这一格铺到所有已报商品的同一客户列"是一击完成的，且不会碰到还没报的行。
+   ⚠️ 仍然走 `doFill` ⇒ 提示、选区、撤销都是一套；Ctrl+Z 可整段回退。 */
+function autoFillDown(r, c) {
+  const unitStart = visibleCols.value.length
+  const unitEnd = unitStart + unitCount()
+  if (c < unitStart || c >= unitEnd) { toast('双击填充只作用于报单数量列', 'info'); return }
+  if (r < 0) return
+  const us = cross.value.units || []
+  let last = r
+  cross.value.rows.forEach((rw, i) => {
+    if (i <= r) return
+    const q = rw.qtyByUnit || {}
+    if (us.some((u) => Number(q[u.name]) > 0)) last = i
+  })
+  if (last <= r) { toast('下面还没有已填数量的商品行：可拖填充柄，或按 Ctrl+D 向下填充', 'info'); return }
+  fillAxis.value = 'v'
+  doFill({ r, c }, { r: last, c })
+}
 // 批量写入：把活动单元格的值铺到整个选区（Ctrl/Cmd+Enter）
 function batchWrite(val) {
   const sr = selRange.value; if (!sr) return
@@ -6872,9 +6982,14 @@ function _rowCode(r) {
   // 优先厂家编码，缺则用条码
   return (r.product_code || '').trim() || (r.barcode || '').trim() || ''
 }
-function _copyText(text, label, okMsg) {
+function _copyText(text, label, okMsg, after) {
   if (!text) { toast('没有可复制的内容', 'warn'); return }
-  const done = () => toast(okMsg || `已复制 ${label}（厂家编码+数量，可直接粘贴厂家系统）`, 'ok')
+  /* v597：`after` 只在**真的写进剪贴板之后**跑（蚂蚁线不能先亮——复制失败却亮框，
+     用户会以为复制成功了）。 */
+  const done = () => {
+    if (typeof after === 'function') { try { after() } catch (e) { /* 装饰性副作用，不许影响复制 */ } }
+    toast(okMsg || `已复制 ${label}（厂家编码+数量，可直接粘贴厂家系统）`, 'ok')
+  }
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done))
   } else {
@@ -7265,7 +7380,8 @@ function copyRegion() {
     for (let j = c0; j <= c1; j++) row.push(String(readCellVal(i, j)))
     lines.push(row.join('\t'))
   }
-  _copyText(lines.join('\n'), `选区 ${r1 - r0 + 1}×${c1 - c0 + 1}`, `已复制选区 ${r1 - r0 + 1}×${c1 - c0 + 1} 个单元格`)
+  _copyText(lines.join('\n'), `选区 ${r1 - r0 + 1}×${c1 - c0 + 1}`, `已复制选区 ${r1 - r0 + 1}×${c1 - c0 + 1} 个单元格`,
+    () => setCopyMark(r0, c0, r1, c1))
 }
 /* ===================================================================
    v377：单元格 / 整行 / 整列 **三轴选择**（互斥，共用同一套选区数据）
@@ -7452,7 +7568,15 @@ function onCellUp() {
   /* v377：行/列轴的「单击」在 mousedown 那一刻就已完成选中 —— 收尾不许再走 selectCell，
      否则 selectCell 会把轴复位成单元格轴（= 整行刚选中就散架）。 */
   if (_dragAxis !== 'cell') return
-  if (!_dragMoved && !_dragEditing) selectCell(selAnchor.value.r, selAnchor.value.c, false)
+  if (!_dragMoved && !_dragEditing) { selectCell(selAnchor.value.r, selAnchor.value.c, false); return }
+  /* v597（关键修复）：**拖框选之后必须把焦点还给表格**。
+     `onCellOver` 为了结束"正在输入"会主动 `blur()` 输入框（见那里的注释），
+     焦点于是落到 `<body>`；而所有快捷键（Ctrl+D / Ctrl+R / Ctrl+C / Delete / 方向键）
+     都挂在 `<table @keydown>` 上 ⇒ **鼠标框选完，键盘就整体失灵**（不报错、就是没反应）。
+     Excel 心智恰恰相反：框完一片立刻按键才是主路径（例如框选后 Ctrl+R 向右填充）。
+     ⚠️ 只 `_dragMoved` 时补：单击路径走 selectCell → focusCell，焦点已经在输入框里，
+        在这里再抢一次会把"单击即可改一位数字"的落点弄丢。 */
+  if (_dragMoved) focusGrid()
 }
 /* 表头（列轴）：单击选整列，横向拖动连选多列。
    ⚠️ 列宽拖拽手柄已 `@mousedown.stop.prevent` ⇒ 根本走不到这里，不冲突。
@@ -10907,7 +11031,12 @@ onMounted(async () => {
 [data-density="compact"] .cross-tbl{--cell-pad-h:6px}
 [data-density="compact"] .cross-tbl thead th{padding:1px 7px 0}
 .qty-th{text-align:center;min-width:52px}
-.qty-cell{text-align:center;color:var(--t3)}
+/* v597（B2）：数量列改**右对齐**（Excel 同款）。数字左/居中时个位对不齐，154 行里
+   一眼看不出 66 和 660 差在哪；右对齐 + 等宽数字后，量级差异是**数位长度**带来的，
+   扫读成本最低。
+   ⚠️ 只动数量列（`.qty-cell` 及其输入框）。商品名/规格/条码仍居中或左对齐 —— 那是文本列，
+      文本右对齐会让人找不到行首。 */
+.qty-cell{text-align:right;color:var(--t3)}
 .qty-cell.has{color:var(--t1);font-weight:500}
 .calc-th{text-align:right}
 .calc-th.sum{background:var(--sum-bg);color:var(--sum-txt)}
@@ -10982,6 +11111,27 @@ th.sortable:hover{color:var(--p-dark)}
    🔴 `pointer-events:none` 不可去掉：命中判定用 elementFromPoint，可命中就会吃掉整个拖动。
    z-index 4：低于冻结列（6）与填充柄（9），高于普通单元格。 */
 .fill-marquee{position:absolute;z-index:4;pointer-events:none;border:1.5px dashed var(--p);background:rgba(6,182,212,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.55)}
+/* v597（A1）：复制源「蚂蚁线」。用 4 条 `repeating-linear-gradient` 各画一条边（2px 宽），
+   靠 `background-position` 位移做**流动虚线** —— 比 4 个子元素省 DOM，也比动画 `border-style` 可靠。
+   ⚠️ 位移量必须等于虚线周期（5px 实 + 5px 空 = 10px），否则动画会「跳一下再走」。
+   ⚠️ 四层的顺序 = 上 / 下 / 左 / 右，`keyframes` 里必须**逐层**给值，少一层会整组失效。 */
+.copy-marquee{
+  position:absolute;z-index:5;pointer-events:none;
+  background-image:
+    repeating-linear-gradient(90deg,var(--p) 0 5px,transparent 5px 10px),
+    repeating-linear-gradient(90deg,var(--p) 0 5px,transparent 5px 10px),
+    repeating-linear-gradient(0deg,var(--p) 0 5px,transparent 5px 10px),
+    repeating-linear-gradient(0deg,var(--p) 0 5px,transparent 5px 10px);
+  background-size:100% 2px,100% 2px,2px 100%,2px 100%;
+  background-position:0 0,0 100%,0 0,100% 0;
+  background-repeat:no-repeat;
+  animation:copyAnts .9s linear infinite;
+}
+@keyframes copyAnts{
+  from{background-position:0 0,0 100%,0 0,100% 0}
+  to{background-position:10px 0,-10px 100%,0 -10px,100% 10px}
+}
+@media (prefers-reduced-motion: reduce){.copy-marquee{animation:none}}
 /* v593：拖动期间全网格强制十字光标 —— 原来是「拖出填充柄就变回文本光标/箭头」，
    用户会以为拖动已结束（原话「光标没有跟着拖动移动」）。 */
 .edit-grid-wrap.is-filling,.edit-grid-wrap.is-filling *{cursor:crosshair !important}
@@ -11319,6 +11469,10 @@ th.sortable:hover{color:var(--p-dark)}
    ⚠️ 出血量必须由 `--cell-pad-h` 推导（舒适 8 / 紧凑 6），不能写死 -8px：
       紧凑档 td 是 `padding:0 6px`，写死 8 会让输入框**外溢 2px 盖到邻格**（v592 实测）。 */
 .cross-tbl .cell-input{height:var(--fc-cell,20px);padding:0 6px;margin:0 calc(-1 * var(--cell-pad-h, 8px));width:calc(100% + var(--cell-pad-h, 8px) * 2);border:0;border-radius:0;background:transparent;color:var(--t1);font-size:12px;outline:none;display:block;min-width:0;box-sizing:border-box;text-align:center}
+/* v597（B2）：数量 / 加单这类**纯数字**输入框右对齐，与单元格本身、与 Excel 一致。
+   特异性 (0,3,0) > 上面 `.cross-tbl .cell-input` 的 (0,2,0)，不需要 !important。
+   `tabular-nums` 让 1 和 7 同宽 —— 否则右对齐后小数点位仍在跳。 */
+.cross-tbl .cell-input.cell-qty{text-align:right;font-variant-numeric:tabular-nums}
 /* v579：表头里的**客户名列输入框**与数据行取同一个内容盒（--fc-cell=20px）。
    原来写死 24px ⇒ 那一列表头比其它表头高、整行被顶到 47px。现在表头 = 合计 = 22px。
    特异性 (0,3,1) / (0,4,0) 都高于全局紧凑档 (0,2,2)，写多少就是多少。 */

@@ -25,6 +25,39 @@ export function toHalfNum(s) {
   return t.replace(/,/g, '').trim()
 }
 
+/* v597（B1）：**数字清洗** —— 把「人写着方便、机器读不懂」的写法收敛成纯数字。
+   🔴 为什么需要它：经销商的数字大多不是手敲的，是从微信、Excel、厂家系统里**复制**来的，
+      常见 `1,200`（千分位已由 toHalfNum 处理）、`¥99`、`66箱`、`99 元`。
+      这些串 `Number()` 全是 NaN ⇒ 旧实现保留原串 ⇒ 标红「必须是数字」。
+      用户看着明明是个数字，却被拒收，第一反应是「这软件坏了」。
+   🔴 为什么**不**直接放宽 `toHalfNum`：它和后端 `normalize_num_text` 是**逐字同源**的一对
+      （护栏 `v214-halfnum-parity.py` 逐样例比对）。在归一器里加"猜单位"的语义，
+      等于让前后端对同一串给出不同结果。清洗只属于**前端录入这一层**，不碰归一器。
+   ⚠️ 只认「整个串 = [货币符号?] 数字 [单位?]」这一种形态，去掉前后缀后**必须**是纯数字，
+      否则原样返回（该标红的继续标红）。所以：
+        `66箱` → 66      `¥1,200` → 1200     `12.5箱` → 12.5
+        `12箱24瓶` → 原样（两个数量，无法判定）   `约12箱` → 原样（有前缀修饰）
+        `1.5` → 1.5（绝不动小数）               `10-2` → 原样
+   ⚠️ 不做 `O→0` / `l→1` 这类歧义映射 —— 把打错的字静默改成合法数字，比报错贵得多。 */
+const NUM_UNIT_TAIL = '件|箱|包|瓶|提|个|盒|组|袋|支|罐|桶|听|杯|元|块|角|公斤|千克|kg|g|克'
+const NUM_PLAIN_RE = /^[+-]?(\d+(\.\d+)?|\.\d+)$/
+/* 空格千分位：**只认「1~3 位 + 若干组 3 位」**。`1 200` → 1200；
+   `12 34` 不匹配（34 不是 3 位）⇒ 仍然判非法。放宽到「去掉所有空格」会把
+   用户粘的「12 34」静默拼成 1234 —— 那才是真正危险的猜测。
+   ⚠️ 不用 `\u00a0` 等窄空格字符：`toHalfNum` 里的 `normalize('NFKC')` 已经把它们折成普通空格，
+      在 NFKC 之后再匹配原码位永远匹配不到（死分支）。 */
+const NUM_SPACE_GROUP_RE = /^([+-]?\d{1,3})((?:\s\d{3})+)(\.\d+)?$/
+export function cleanNumText(v) {
+  const s = toHalfNum(v)
+  if (s === '') return ''
+  let t = s.replace(/^(?:rmb|cny)\s*/i, '').replace(/^[¥$]\s*/, '')
+  t = t.replace(new RegExp('\\s*(?:' + NUM_UNIT_TAIL + ')\\s*$', 'i'), '')
+  t = t.trim()
+  const m = t.match(NUM_SPACE_GROUP_RE)
+  if (m && !NUM_PLAIN_RE.test(t)) t = (m[1] + m[2].replace(/\s+/g, '') + (m[3] || ''))
+  return NUM_PLAIN_RE.test(t) ? t : s
+}
+
 /* Q18：数值解析不再静默归 0。原实现 `parseFloat(v) || 0` 会把「12箱」「1,234」「abc」
    全部变成 0，用户以为粘上了实际是 0 → 漏订货。现改为：
    - 支持千分位逗号（1,234 → 1234）
@@ -36,8 +69,11 @@ export function parseNumInput(v) {
         `Number("１２")` = NaN 而被**保留为字符串** `"１２"` 存进 model，随后 `rowSum` 的
         `parseInt("１２")` = NaN ⇒ 按 0 累加 ⇒ **合计静默算少**，且屏幕上一切看起来正常。
      ⚠️ 解析失败时返回**归一后**的原串（而不是用户原始字节）：这样 model 里不残留全角字符，
-        标红与保存拦截仍照常生效（`"12箱"` 归一后还是 `"12箱"`）。 */
-  const s = toHalfNum(v).trim()
+        标红与保存拦截仍照常生效（`"12箱"` 归一后还是 `"12箱"`）。
+     v597（B1）：入口换成 `cleanNumText` —— 它**内部先调 toHalfNum**，
+       所以上面这条「model 不残留全角」的保证不变；额外只多做了「去货币符号 / 去单位尾缀」。
+       解析不了时同样返回归一后原串（`cleanNumText` 的 else 分支就是 `s`）。 */
+  const s = cleanNumText(v)
   if (s === '') return 0
   const n = Number(s)
   return Number.isNaN(n) ? s : n
