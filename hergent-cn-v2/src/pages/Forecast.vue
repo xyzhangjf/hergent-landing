@@ -458,9 +458,13 @@
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
-            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter"
-                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（勾选「显示全部商品」即可展开）'"
-                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示'"
+            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter filter-act"
+                  role="button" tabindex="0"
+                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（点这里显示全部商品）'"
+                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示，点击显示全部商品'"
+                  @click="showAllProducts = true"
+                  @keydown.enter.prevent="showAllProducts = true"
+                  @keydown.space.prevent="showAllProducts = true"
             ><Icon name="filter" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
@@ -735,9 +739,13 @@
             ><Icon name="filter" /><template v-if="!gridFullscreen"> 已收起 {{ hiddenEmptyCols }} 个空列</template></span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
-            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter"
-                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（勾选「显示全部商品」即可展开）'"
-                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示'"
+            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter filter-act"
+                  role="button" tabindex="0"
+                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（点这里显示全部商品）'"
+                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示，点击显示全部商品'"
+                  @click="showAllProducts = true"
+                  @keydown.enter.prevent="showAllProducts = true"
+                  @keydown.space.prevent="showAllProducts = true"
             ><Icon name="filter" /> 另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
@@ -2353,7 +2361,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch, defineAsyncComponent } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch, defineAsyncComponent, toRaw } from 'vue'
 // 🔴 v265：`useRouter` 与 `useRoute` **必须同时导入** —— `setTab()`（写 `?tab=`）用 `useRouter()`，
 //    底部 `watch(() => route.query.tab)` 用 `useRoute()`。曾因两者被分开编辑（import 行只留
 //    useRoute、`const router = useRouter()` 留着），构建不报错、`node --check` 也不报，
@@ -6747,7 +6755,11 @@ function cellValKey(v) {
 }
 function cellDirty(rw, cid) {
   if (!rw || !cid) return false
-  const snap = cellBaseline.get(rw)
+  /* 🔴 必须 `toRaw` —— 基线是用**原始行对象**建的（loadEditGrid 里 `cross.value = {rows}` 之前），
+     而模板里的 `r` 是 Vue 深层响应式包出来的 **Proxy**。Proxy 与目标对象是**不同的 WeakMap key**
+     ⇒ 不归一化的话 `cellBaseline.get(rw)` 永远 undefined，角标一次都不会亮（而且不报任何错）。
+     真机实测（v598 首轮）：改一格 99 后 `.cell-dirty-dot` 全表 0 个，正是这一条。 */
+  const snap = cellBaseline.get(toRaw(rw))
   if (!snap || !snap.has(cid)) return false
   const cur = cid.charAt(0) === 'q'
     ? (rw.qtyByUnit || {})[cid.slice(2)]
@@ -11210,6 +11222,21 @@ onMounted(async () => {
 .confirm-badge.ok{background:rgba(var(--suc-rgb),.14);color:var(--confirm-green)}
 .confirm-badge.draft{background:var(--bg3);color:var(--t3)}
 .confirm-badge.filter{background:var(--p-bg);color:var(--p-deep)}
+/* v599：「另有 N 个在售商品未显示」原本是 25px 的无边框浅底标签，夹在一排 32px 带框控件
+   （缩放 / 三个勾选框 / 品牌 / 复制报单）中间 —— 实测同行控件统一 32px 高、13px 字、
+   1px 边框、cursor:pointer，只有它是 25.2px / 12px / 无边框 / cursor:auto。
+   两处后果：① 一行里高低不齐，右边缘像被咬掉一块；② 它带漏斗图标、文案是"另有…未显示"，
+   看起来就是个能点的按钮，**点下去什么都不会发生**（连 hover 反馈都没有）。
+   故补 `.filter-act`：几何尺寸/字号/圆角/边框全部对齐 `.tb-toggle`（同行基准），
+   只保留浅青底以表达"这是筛选留下的结果，不是普通操作"。 */
+.confirm-badge.filter.filter-act{
+  height:32px;padding:0 12px;font-size:13px;font-weight:500;
+  border:1px solid rgba(var(--p-rgb),.32);
+  cursor:pointer;user-select:none;
+  transition:background .15s,border-color .15s;
+}
+.confirm-badge.filter.filter-act:hover{background:rgba(var(--p-rgb),.16);border-color:var(--p)}
+.confirm-badge.filter.filter-act:active{transform:translateY(.5px)}
 /* P0-1 工具栏语义分隔条（筛选/数据/编辑/AI/设置 五簇） */
 .tb-sep{display:inline-block;width:1px;height:20px;background:var(--bd);margin:0 5px;flex:0 0 auto;opacity:.65;align-self:center}
 /* P0-2 状态徽标曾独立成行（.tb-status-row 已废弃：现直接挂在 .tb-ctx 段内，紧随期次选择器） */
