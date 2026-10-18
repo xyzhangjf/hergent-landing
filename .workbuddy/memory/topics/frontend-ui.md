@@ -4217,3 +4217,19 @@ B3 全屏行高仍 21、154 行全量、页脚可见；Z9 零报错。
 - 🔴 **Esc 放弃本格修改**（v602）：还原源必须是 `rawCellVal`（进格时原始值），**不能用 `readCellVal`**（数量列 `|| 0` ⇒ 空格子被还原成 0）。判据是「当前值 ≠ 进格前值」，不能只看 `cellTyping`（单击进的是导航态）。
 - 🔴 **编辑态 = 格内即输入框**（v592）：`.cell-input` 去边框/圆角，横向出血 `--cell-pad-h`（8/6，不许写死）；焦点靠 `.td.selected` 2px outline。表头客户名输入框**保留方框**。
 
+
+
+---
+
+## §MEM-ARCHIVE-v607 · 表格密度 / 行高 全文（v571-v606，2026-10-18 逐字迁出，MEMORY.md 只留判据摘要）
+
+## 🔴 表格密度 / 行高（v571-v581 / v606）
+- 定式：`.cross-tbl{--fc-cell:18px}` 唯一源（`td` line-height / `.cell-input` / `.cell-ro` / 表头齿轮 全取它），垂直 padding 归零 ⇒ 数据行 **21px**（只读 20 / 表尾 19）；密度开关只改横向留白（cozy 8 / compact 6）。
+- 🔴🔴 改行高前**先查用户在哪一档**：`tenant_1.db:ui_col_prefs WHERE page='ui-density'`（v571/v575 压的都是 compact 而用户看 cozy ⇒ 两次"已达标"被打回）。真机 `documentElement.dataset.density` 更可信。
+- 🔴 **行高真凶通常不是 padding 也不是 `--fc-cell`**：v606 之前编辑表死钉 31px（变量写 20），元凶是操作列 `.btn-del` **30×30 + `inline-flex` 按基线参与行盒**（同 v579 表头齿轮）。**判据：逐格量 td 高度 → 再量格内子元素的 display/vertical-align；`inline-flex`/`inline-block` 一律 ≤ `--fc-cell`，或改 `display:flex`+`margin:auto`。**
+- 🔴 同分打死：页面 `xx-tbl td{padding}` 与全局 `[data-density=compact] table.tbl td` 同为 (0,2,2) ⇒ 页面懒加载后注入者胜（切紧凑无效）。修法：页面显式声明紧凑档=(0,3,2)；全局 `input{height:24px}` 同理压死 `.cell-input` ⇒ 页面须带 `.cross-tbl` 前缀。
+- 🔴 自适应高度**底部占位不能写死**：`_applyEditHeight` 原来写 `22+10`，真实是「合计栏 22 + gap 16 + 页脚 24 = 62」⇒ 表体多算 30px、页脚下沿被顶到视口外 30px 且不报错。定式 = 遍历 `wrap` 之后的兄弟 `gap + marginTop + height` 累加。另：不许写死 `72vh`；`off` 用**文档流偏移**（`wrap.top + vw.scrollTop - vwTop`，用视觉 top 会滚一点长高一点地抖）；滚动容器是 **`.view-wrap`**（`main.content`/body 都是 overflow:hidden）。
+- 🔴 虚拟滚动常量与真实行高同步：`ROW_H/GRP_H/DET_H/SUB_H` 是 spacer/窗口/`scrollToIndex` 唯一依据；CSS 改了常量没改 ⇒ 凭空空白。进出全屏重测 `viewportH` 并归零 `scrollTop`。
+- 合计栏不能并进表体：`.col-total-bar` 必须在滚动容器外，只能视觉接合。
+- 🔴 「删一行后 Ctrl+Z 没反应」= 焦点随按钮一起消失（`activeElement` 变 BODY，快捷键挂在 `<table @keydown>`）⇒ 写操作完成后要 `focusGrid()`；同 v597。
+- 域名：cn-v2 前端 = **hergent.cn**；`erp.hergent.cn` 是另一套 admin（对 cn-v2 产物 404）。

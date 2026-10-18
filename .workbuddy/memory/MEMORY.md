@@ -33,15 +33,18 @@
 - **全屏层之外的元素全屏一律看不见**（v584）：`.grid-area.is-fs{position:fixed;inset:0}` 盖满视口且无报错 ⇒ 要全屏可见必须**放进 `.grid-area` 内部**；补间距：gap 与自身 `margin-top` 叠加 ⇒ 用 `margin-top:4px` 抵回、贴合用 `-10px`。
 - **挂点优先选本来就存在的行**（v603）：页脚 `.pin`/`.edit-summary` 已在 grid-area 内 ⇒ 新增入口挂这里 = 零新增行 + 零全屏分支；工具栏 `.grid-ctl-row` 已近满宽，加按钮必折行 = 反而多占一行。
 
-## 🔴 表格密度 / 行高（v571-v581 / v606）
-- 定式：`.cross-tbl{--fc-cell:18px}` 唯一源（`td` line-height / `.cell-input` / `.cell-ro` / 表头齿轮 全取它），垂直 padding 归零 ⇒ 数据行 **21px**（只读 20 / 表尾 19）；密度开关只改横向留白（cozy 8 / compact 6）。
-- 🔴🔴 改行高前**先查用户在哪一档**：`tenant_1.db:ui_col_prefs WHERE page='ui-density'`（v571/v575 压的都是 compact 而用户看 cozy ⇒ 两次"已达标"被打回）。真机 `documentElement.dataset.density` 更可信。
-- 🔴 **行高真凶通常不是 padding 也不是 `--fc-cell`**：v606 之前编辑表死钉 31px（变量写 20），元凶是操作列 `.btn-del` **30×30 + `inline-flex` 按基线参与行盒**（同 v579 表头齿轮）。**判据：逐格量 td 高度 → 再量格内子元素的 display/vertical-align；`inline-flex`/`inline-block` 一律 ≤ `--fc-cell`，或改 `display:flex`+`margin:auto`。**
-- 🔴 同分打死：页面 `xx-tbl td{padding}` 与全局 `[data-density=compact] table.tbl td` 同为 (0,2,2) ⇒ 页面懒加载后注入者胜（切紧凑无效）。修法：页面显式声明紧凑档=(0,3,2)；全局 `input{height:24px}` 同理压死 `.cell-input` ⇒ 页面须带 `.cross-tbl` 前缀。
-- 🔴 自适应高度**底部占位不能写死**：`_applyEditHeight` 原来写 `22+10`，真实是「合计栏 22 + gap 16 + 页脚 24 = 62」⇒ 表体多算 30px、页脚下沿被顶到视口外 30px 且不报错。定式 = 遍历 `wrap` 之后的兄弟 `gap + marginTop + height` 累加。另：不许写死 `72vh`；`off` 用**文档流偏移**（`wrap.top + vw.scrollTop - vwTop`，用视觉 top 会滚一点长高一点地抖）；滚动容器是 **`.view-wrap`**（`main.content`/body 都是 overflow:hidden）。
-- 🔴 虚拟滚动常量与真实行高同步：`ROW_H/GRP_H/DET_H/SUB_H` 是 spacer/窗口/`scrollToIndex` 唯一依据；CSS 改了常量没改 ⇒ 凭空空白。进出全屏重测 `viewportH` 并归零 `scrollTop`。
-- 合计栏不能并进表体：`.col-total-bar` 必须在滚动容器外，只能视觉接合。
-- 🔴 「删一行后 Ctrl+Z 没反应」= 焦点随按钮一起消失（`activeElement` 变 BODY，快捷键挂在 `<table @keydown>`）⇒ 写操作完成后要 `focusGrid()`；同 v597。
+## 🔴 行筛选有两条判据（v607）
+- 🔴 行显隐**两份实现**：查看态 `rowVisible(r)`、编辑态 `rowBaseShown(ri)`（编辑表 `<tr v-show>` 的唯一判据）。**新增任何筛选条件必须同时改两处**；品牌只写在后者外的第一个 ⇒ 编辑态点品牌按钮只改 `brandSel`、行一条不动（角标会变），保存退出才「突然生效」。定式：两处共用 `brandSelSet`（computed Set，逐行 `includes` → O(1)）。
+- 🔴 筛选条渲染条件也会漏：`.filter-row` 的 `v-if` 只写了 `colFilter||colFilterSet`（品牌勾了看不到 chip）。加筛选维度时**三处一起查**：行判据（两份）+ 筛选条 `v-if`。
+- 筛选激活时「新行 brand 为空」会被直接筛掉 = 点「补录商品」什么都没出现 ⇒ 单品牌时继承该品牌，多品牌/粘贴路径必须 toast 说明（`addRow` + 两处粘贴）。
+- 🔴 **死 import 的隐形性**（v607）：`useForecastMoq.js` import 了 calc.js 从未导出的 `rowSumOf`，且被函数形参完全遮蔽 ⇒ Rollup 只 warning、产物里 undefined、线上行为正确；**dev 下 ESM 严格校验整页加载失败**，症状「点菜单 URL 变 #/forecast、页面还停在经营工作台」，无 toast 无提示。判据：**dev 进不去而线上正常 ⇒ 用 dev 的 `router.push()` 取真实错误**，别先怀疑权限/路由。
+- 探针：品牌列是 `<input>` ⇒ `td.textContent` 恒空，必须读 `input.value`；登录用裸 fetch ⇒ 必须 `Page.reload` 一次才能让 App 从 localStorage 恢复登录态。
+
+## 🔴 表格密度 / 行高（v571-v606｜全文 `topics/frontend-ui.md` §MEM-ARCHIVE-v607）
+- 定式：`.cross-tbl{--fc-cell:18px}` 唯一源（td line-height / `.cell-input` / `.cell-ro` / 表头齿轮全取它），垂直 padding 归零 ⇒ 数据行 **21px**；密度开关只改横向留白。
+- 🔴🔴 改行高前**先查用户在哪一档**（`tenant_1.db:ui_col_prefs WHERE page='ui-density'`；`html[data-density]` 更可信）：v571/v575 压的都是 compact 而用户看 cozy ⇒ 两次"已达标"被打回。
+- 🔴 **行高真凶通常不是 padding/变量，是子元素 display**：v606 编辑表死钉 31px，元凶 `.btn-del` 30×30 + `inline-flex` 按基线顶行盒。判据：先量 td 高，再量格内子元素 `display/vertical-align`；`inline-flex/block` 一律 ≤ `--fc-cell`，或改 `display:flex`+`margin:auto`。
+- 🔴 同分打死（页面 CSS 懒加载后注入者胜）/ 底部占位不许写死（遍历兄弟 `gap+marginTop+height`）/ 虚拟滚动常量必须与真实行高同步 / 合计栏在滚动容器外 —— 四条细节见归档。
 - 域名：cn-v2 前端 = **hergent.cn**；`erp.hergent.cn` 是另一套 admin（对 cn-v2 产物 404）。
 
 ## 🔴 数字的单位必须跟着口径走（v587）
@@ -96,7 +99,7 @@
 P0 7/7；P1 6/6✅（分权 v517+v526｜审批流 v519+v525｜四报表 v506+v507｜对账 v527-v533｜批次追溯 v529-v531｜批量栏 v532）。报表区 33 入口仅 4 真身。P2-4 副驾经营指标 + P2-2a 预警外发已交付(v535)；剩余促销ROI(端点坏死500)/货架位(零数据)/现金流预测页面化。**卖前三关未过；调拨单生产仍 0 张**。BI 指标唯一源 `erp_db.py:_BI_MEASURES`（口径必须 `soi.amount`）；库存周转唯一源 `get_inventory_turnover`。
 
 ## 编号约定
-已用到 v606；下一号 v607。🔴 **「改了但用户说没变」第一步先查前端构建号**：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]` + 「预报 → 修改日志」面板标题旁。SPA 老标签页**永不重拉 index.html** ⇒ 部署了也看不到。每次发版**手动改这一行**。
+已用到 v607；下一号 v608。🔴 **「改了但用户说没变」第一步先查前端构建号**：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]` + 「预报 → 修改日志」面板标题旁。SPA 老标签页**永不重拉 index.html** ⇒ 部署了也看不到。每次发版**手动改这一行**。
 - 起号必读 `version-history.md` + 实搜两仓 `git log --all` + `git worktree list`。v517 被双占。并行分叉：scoped 提交→merge origin/main→合并 HEAD 重建→部署→验「双方标记都在」。改 `pages.js` 先分清单"路由"还是"门禁"（本项目=门禁唯一源，`ruleFor` 未登记 path 一律放行 ⇒ 删占位登记=放宽门禁）v499。前端 `roles` 窄名单非真保险 ⇒ 敏感页必须后端 `_admin` 双保险(v531)。
 - ~~改单数据行 31px 是既有事实~~ **v606 已查明并修掉**：元凶是操作列 `.btn-del` 30×30 + `inline-flex` 按基线顶行盒（详见「表格密度 / 行高」段）。旧结论「别照行高链直接改」作废——当时只是没找到撑高件。
 
