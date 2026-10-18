@@ -30,4 +30,5 @@ async function loadYoY() {
 }
 function yoyQty(r) { const v = yoyMap.value[r.name]; return v != null ? v : null }
 function yoyPct(r) { const y = yoyQty(r); if (y == null || y === 0) return null; return Math.round((rowSum(r) - y) / y * 100) }
+  return { yoyOn, yoyMap, yoyPeriodName, loadYoY, yoyQty, yoyPct }
 }

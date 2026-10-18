@@ -16,5 +16,6 @@ const showMoq = ref(false)
 function syncMoq() {
   cross.value.rows.forEach(r => { if (r.product_id) moqMap[r.product_id] = { moq: Number(r.moq) || 0, lead_days: Number(r.lead_days) || 0 } })
   saveMoq()
+  return { MOQ_KEY, moqMap, loadMoq, saveMoq, rowMoq, rowLead, moqWarn, showMoq, syncMoq }
 }
 }
