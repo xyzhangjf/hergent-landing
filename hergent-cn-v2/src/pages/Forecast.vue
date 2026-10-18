@@ -4244,6 +4244,11 @@ async function delRow(ri) {
   // v189：splice 后必须重算 —— 原实现漏了这一步（delRowSoft 有调、delRow 没调），
   //   删行后 grand 会僵在删前的值：同屏「行没了、合计没变」。
   recomputeTotals()
+  /* 🔴 v606：把焦点交回表格。删除按钮就在被删的那一行里 ⇒ 点完它，按钮连同焦点一起消失，
+     `activeElement` 变成 BODY；而 Ctrl+Z / 方向键 / Delete 全挂在 `<table @keydown>` 上
+     ⇒ 上面那个确认弹窗里明明写着「可用 Ctrl+Z 撤销」，实际按下去毫无反应。
+     （与 v597「拖框选后快捷键全灭」是同一个病根：只看 activeElement 在不在表格里。） */
+  focusGrid()
 }
 
 /* 新增客户列 —— 全站唯一实现（v170 收敛）
@@ -8827,20 +8832,36 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onFsKey) })
    🔴 必须用**文档流位置**反推，不能用视觉位置：`wrap.top` 随页面滚动变，直接拿它算会变成
       「滚一点 → 表格长高 → 页面又变高 → 还得滚」的抖动。这里换算成「表格顶距滚动容器内容顶的
       偏移」（off，与滚动位置无关），再由 `innerHeight - 容器顶 - off - 底部占位` 得出可用高度。
-   ⚠️ 底部占位 = 合计栏 22px + 选区统计条（`position:fixed;bottom:0`，有选区才出现，约 40px）。
-      不扣统计条 ⇒ 一框选，统计条立刻把合计栏盖住。
+   ⚠️ 底部占位**必须按实际几何量**（v606）。原来写死 `22 + 10 = 32`，而真实是
+      「合计栏 22 + 间距 16 + 页脚 24 = 62」⇒ 表体多算 30px，页脚下沿被顶到视口外 30px
+      （1600×913 实测 sum.bottom=943 > 913），用户以为自己没滚到底，其实是算错了。
+      现在把 `wrap` 之后的兄弟节点（含 flex gap 与各自 margin-top）逐个累加，改页脚高度/间距
+      不用再回来改这个函数。
    ⚠️ 全屏（`.grid-area.is-fs`）有自己的高度链（fixed inset:0 + max-height:none），
       这里返回 0 = 不写内联 max-height，把控制权交回 CSS。
    ⚠️ 下限 180px：极矮窗口算出来可能只剩一百出头，那样表体只有两三行、比溢出更糟，故兜个底。 */
 const editMaxH = ref(0)
 function _applyEditHeight(wrap) {
+  const area = wrap.closest('.grid-area')
   const vw = wrap.closest('.view-wrap')
   const vwTop = vw ? vw.getBoundingClientRect().top : 0
   const scrolled = vw ? vw.scrollTop : window.scrollY
   const off = wrap.getBoundingClientRect().top + scrolled - vwTop
+  /* v606：表体下方真实占位 = 其后每一个兄弟的高度 + flex gap + 该兄弟自己的 margin-top。
+     （合计栏用 margin-top:-10 与表体接合成一条线 ⇒ 这一步必须带上 margin，不能用高度相加） */
+  let below = 0
+  if (area) {
+    const kids = [...area.children]
+    const gap = parseFloat(getComputedStyle(area).rowGap) || 0
+    for (const el of kids.slice(kids.indexOf(wrap) + 1)) {
+      const cs = getComputedStyle(el)
+      below += gap + (parseFloat(cs.marginTop) || 0) + el.getBoundingClientRect().height
+    }
+  }
+  if (!below) below = 32          // 兜底：拿不到 .grid-area 时退回旧口径
   const stat = document.querySelector('.sel-stat')
-  const barH = 22 + (stat ? stat.getBoundingClientRect().height + 6 : 10)
-  editMaxH.value = Math.max(180, Math.round(window.innerHeight - vwTop - off - barH))
+  const statH = stat ? stat.getBoundingClientRect().height + 6 : 0
+  editMaxH.value = Math.max(180, Math.floor(window.innerHeight - vwTop - off - below - statH - 2))
 }
 function recalcEditHeight() {
   if (gridFullscreen.value) { editMaxH.value = 0; return }
@@ -11362,21 +11383,21 @@ onMounted(async () => {
    40+ 列大表视觉更透气；表头底线 / 列合计顶线 / 分组头底线保留（结构性分隔）。 */
 /* 🔴 v575：**行高的唯一来源 = `--fc-cell`（单元格内容盒高度）**。
    为什么要单独立一个变量：此前「只读态」和「编辑态」各自算自己的高度 ——
-   只读是文本继承 body 的 line-height（实测 20.8px），编辑是 `.cell-input` 的固定
-   height（26px，且被全局紧凑档 `[data-density=compact] table.tbl input` 压到 24px）。
-   两者互不相干 ⇒ 同一行在「汇总视图」和「改单填写」里差 2.7px（实测 29.8 vs 32.5），
-   行高参差、密度也降不下来。
-   现改成：td 的 line-height、品名行、输入框**全部取同一个 20px** ⇒
-     · 紧凑档 = 20 + 3×2 = **26px**（原来 29.8 / 32.5）
-     · 舒适档 = 20 + 7×2 = 34px（只改 padding，两态依然等高）
-   ⚠️ 改这个值等于同时改两态，不要再给某一种状态单独写高度。
-   ⚠️ 20px 是下限：`.store-badge`/`.exp-chev` 高 15/18px，再压会让角标贴住上下边框。
-   v575b：紧凑档垂直 padding 3→**2px** ⇒ 数据行 **24px**（Excel 紧凑档量级）。
-     两态实测：只读 24 / 编辑 24（差异仅表格取整的 0.5px，肉眼不可见）。 */
+   只读是文本继承 body 的 line-height，编辑是 `.cell-input` 的固定 height，
+   两者互不相干 ⇒ 同一行在「汇总视图」和「改单填写」里能差 2~3px，行高参差、密度降不下来。
+   现改成：td 的 line-height、输入框、表头齿轮**全部取同一个值** ⇒ 两态必然等高。
+   🔴 v606：20 → **18px**（用户要求"每行再压一档"）。
+     · 数据行实测 18 + 2（`.seq-num` 是 20px 的 inline-block，基线对齐给行盒多顶 2px）= **20px**
+     · 表头 / 表尾合计栏同步落 20px（三者共用这一个变量，不许单独写死数字）
+   ⚠️ 改这个值等于同时改两态 + 表头 + 合计栏，不要再给某一种状态单独写高度。
+   ⚠️ 16px 是下限：错误/疑点角标 13×11、改过角标 6px 三角、填充柄 9px，再压会互相压边。
+   🔴 **行高真凶往往不是这个变量** —— v606 之前编辑态一直是 31px（18+2 之外又多 9px），
+      根因是操作列 `.btn-del` 30×30 + `inline-flex` **按基线参与行盒**（与 v579 表头齿轮同款）。
+      所以：**行比预期高一截时，先逐格量 td 高度、再量格内子元素的 display/vertical-align**。 */
 /* v592：`--cell-pad-h` = 单元格**横向**留白，与密度档同步（舒适 8 / 紧凑 6，见下方
    `[data-density="compact"] .cross-tbl tbody td`）。编辑框靠它出血铺满整格，
    所以它必须"跟着密度走"，不许在别处写死数字（写死 8px 在紧凑档会外溢 2px 盖到邻格）。 */
-.cross-tbl{--fc-cell:20px;--cell-pad-h:8px}
+.cross-tbl{--fc-cell:18px;--cell-pad-h:8px}
 /* 🔴 v577：**垂直 padding 归零，行高紧贴编辑态输入框**。
    用户三轮反馈「太高」，前两轮只压了紧凑档（25px），但他实际用的是**舒适档 35px**
    （云端 ui-density=cozy，2026-10-14 设的）⇒ 改的地方不是他看的地方。
@@ -11802,7 +11823,10 @@ th.sortable:hover{color:var(--p-dark)}
    ⚠️ 间距补偿：grid-area 是 `display:flex;gap:10px`，gap 会与元素自身的 margin-top 叠加 ⇒
       非全屏间距凭空多 10px。用 margin-top:4px / 6px 抵消回原值（10+4+12=26 = 原 14+12）。 */
 .grid-area>.pin{margin-top:4px}
-.grid-area>.edit-summary{margin-top:6px}
+/* v606：6px → **0**。改单页的诉求是「把表体让出来、页脚贴紧合计栏」——那 6px 是为了凑回
+   v584 之前的旧的 26px 间距，纯装饰性留白，在 913 高的笔记本上等于少半行。flex gap 10px
+   已经足以把两条分开（全屏态另有 -10px 贴合成一整条，不受这里影响）。 */
+.grid-area>.edit-summary{margin-top:0}
 /* 全屏：汇总条紧贴合计栏下方（与 v580「合计接回表格」同一口径）—— margin -10 抵消 gap，
    同底色 bg3 连成一整条，不再出现 26px 断口 + 多一条分隔线。 */
 .grid-area.is-fs>.pin,
@@ -12136,7 +12160,16 @@ th.sortable:hover{color:var(--p-dark)}
 .sd-meta{font-size:12px;color:var(--t3);margin-top:2px}
 .sd-bc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;opacity:.85}
 .qty-input{width:72px;height:30px;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);text-align:right;background:var(--bg3);color:var(--t1)}
-.btn-del{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+/* 🔴 v606：**编辑表 31px 行高的元凶**。原来是 30×30 + `display:inline-flex` ⇒ 按**基线**
+   参与行盒（和 v579 表头齿轮同一个坑），把 20px 的行硬顶到 31px，154 行白丢 11px×153。
+   改法同 v579：`display:flex`（block 级 ⇒ 不生成行内行盒，居中交给 `margin:0 auto`），
+   尺寸随行压到 20×20、图标 13px。只作用在编辑表格里，别动全局 `.btn-del`。 */
+.edit-tbl .op-th .btn-del{width:20px;height:20px;display:flex;margin:0 auto}
+.edit-tbl .op-th .btn-del .ico{width:13px;height:13px}
+/* ⚠️ 基础尺寸仍留在这一条上：`btn-del` 还有第二个宿主（约 2111 行「新增商品」弹窗里的
+   `draft.splice` 那一列），它不在 `.edit-tbl` 里 ⇒ 这里不能只剩 padding:0，否则会变成
+   纯图标大小（16px）的点不到的小按钮。24×24 是弹窗里的合适尺寸，编辑表格另由上面那条压到 20。 */
+.btn-del{width:24px;height:24px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .btn-del:hover{color:var(--dan);background:var(--dan-bg)}
 .rebate-section{}
 .val-ok{color:var(--suc)}
@@ -12254,6 +12287,9 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .warn-badge.short{color:var(--warn-amber)}
 .diff-chg{outline:2px solid var(--p);outline-offset:-2px}
 .mini-btn{margin-left:4px;font-size:11px;padding:1px 6px;border:1px solid var(--p);color:var(--p-dark);background:transparent;border-radius:var(--radius-sm);cursor:pointer}
+/* v606：编辑表里所有「格内的行内控件」都必须 ≤ `--fc-cell`，否则它们会按基线把行盒顶高
+   （同 `.btn-del` 那个坑）。这里把「采纳」压到 16px 内容高并改中线对齐。 */
+.edit-tbl .mini-btn{height:16px;line-height:14px;padding:0 5px;font-size:10px;vertical-align:middle}
 .mini-btn:disabled{opacity:.4;cursor:default}
 .suggest{color:var(--p-dark);font-weight:500}
 .delta.up{color:var(--suc)}

@@ -33,13 +33,15 @@
 - **全屏层之外的元素全屏一律看不见**（v584）：`.grid-area.is-fs{position:fixed;inset:0}` 盖满视口且无报错 ⇒ 要全屏可见必须**放进 `.grid-area` 内部**；补间距：gap 与自身 `margin-top` 叠加 ⇒ 用 `margin-top:4px` 抵回、贴合用 `-10px`。
 - **挂点优先选本来就存在的行**（v603）：页脚 `.pin`/`.edit-summary` 已在 grid-area 内 ⇒ 新增入口挂这里 = 零新增行 + 零全屏分支；工具栏 `.grid-ctl-row` 已近满宽，加按钮必折行 = 反而多占一行。
 
-## 🔴 表格密度 / 行高（v571-v581）
-- 定式：`.cross-tbl{--fc-cell:20px}` 唯一源（`td` line-height / `.pname` / `.cell-input` / `.cell-ro` 全取它），垂直 padding 归零 ⇒ 行高 21px；密度开关只改横向留白（cozy 8 / compact 6）。
-- 🔴🔴 改行高前**先查用户在哪一档**：`tenant_1.db:ui_col_prefs WHERE page='ui-density'`（v571/v575 压的都是 compact 而用户看 cozy ⇒ 两次"已达标"被打回）。
-- 行高主因通常不是 padding，是 `line-height` 继承 body 1.6；另两个隐形撑高件：inline 图标后跟块级兄弟、`inline-flex` 按基线顶 2-6px。
+## 🔴 表格密度 / 行高（v571-v581 / v606）
+- 定式：`.cross-tbl{--fc-cell:18px}` 唯一源（`td` line-height / `.cell-input` / `.cell-ro` / 表头齿轮 全取它），垂直 padding 归零 ⇒ 数据行 **21px**（只读 20 / 表尾 19）；密度开关只改横向留白（cozy 8 / compact 6）。
+- 🔴🔴 改行高前**先查用户在哪一档**：`tenant_1.db:ui_col_prefs WHERE page='ui-density'`（v571/v575 压的都是 compact 而用户看 cozy ⇒ 两次"已达标"被打回）。真机 `documentElement.dataset.density` 更可信。
+- 🔴 **行高真凶通常不是 padding 也不是 `--fc-cell`**：v606 之前编辑表死钉 31px（变量写 20），元凶是操作列 `.btn-del` **30×30 + `inline-flex` 按基线参与行盒**（同 v579 表头齿轮）。**判据：逐格量 td 高度 → 再量格内子元素的 display/vertical-align；`inline-flex`/`inline-block` 一律 ≤ `--fc-cell`，或改 `display:flex`+`margin:auto`。**
 - 🔴 同分打死：页面 `xx-tbl td{padding}` 与全局 `[data-density=compact] table.tbl td` 同为 (0,2,2) ⇒ 页面懒加载后注入者胜（切紧凑无效）。修法：页面显式声明紧凑档=(0,3,2)；全局 `input{height:24px}` 同理压死 `.cell-input` ⇒ 页面须带 `.cross-tbl` 前缀。
-- 🔴 虚拟滚动常量与真实行高同步：`ROW_H/GRP_H/DET_H/SUB_H` 是 spacer/窗口/`scrollToIndex` 唯一依据；CSS 改了常量没改 ⇒ 算 29 行实占 609px ⇒ 凭空 91px 空白。进出全屏重测 `viewportH` 并归零 `scrollTop`。
+- 🔴 自适应高度**底部占位不能写死**：`_applyEditHeight` 原来写 `22+10`，真实是「合计栏 22 + gap 16 + 页脚 24 = 62」⇒ 表体多算 30px、页脚下沿被顶到视口外 30px 且不报错。定式 = 遍历 `wrap` 之后的兄弟 `gap + marginTop + height` 累加。另：不许写死 `72vh`；`off` 用**文档流偏移**（`wrap.top + vw.scrollTop - vwTop`，用视觉 top 会滚一点长高一点地抖）；滚动容器是 **`.view-wrap`**（`main.content`/body 都是 overflow:hidden）。
+- 🔴 虚拟滚动常量与真实行高同步：`ROW_H/GRP_H/DET_H/SUB_H` 是 spacer/窗口/`scrollToIndex` 唯一依据；CSS 改了常量没改 ⇒ 凭空空白。进出全屏重测 `viewportH` 并归零 `scrollTop`。
 - 合计栏不能并进表体：`.col-total-bar` 必须在滚动容器外，只能视觉接合。
+- 🔴 「删一行后 Ctrl+Z 没反应」= 焦点随按钮一起消失（`activeElement` 变 BODY，快捷键挂在 `<table @keydown>`）⇒ 写操作完成后要 `focusGrid()`；同 v597。
 - 域名：cn-v2 前端 = **hergent.cn**；`erp.hergent.cn` 是另一套 admin（对 cn-v2 产物 404）。
 
 ## 🔴 数字的单位必须跟着口径走（v587）
@@ -84,23 +86,19 @@
 - 「预报订单管理 → 商品目标 → 新建商品目标」= `src/pages/ProductTarget.vue`（`/forecast?tab=target` 第 4 页签 ⇒ 无独立 chunk，样式合进 `Forecast-*.css`）。
 - 「目标与返利政策 → 创建商品目标」= `src/components/rebate/TargetFormModal.vue`（+`ProductTargetForm.vue`）。
 
-## UI 风格偏好
-- 🔴 **同行控件必须同构**（v599）：基准 = `.tb-toggle`/`.btn-sm`（32px 高 / 13px 字 / 1px 边框 / radius 8 / `padding:0 12px` / pointer）。判据：同行控件 `getBoundingClientRect` **顶边差 0、高度差 0**，别自创新尺寸。
-- 🔴 **看起来能点的元素必须真能点**：`role="button"` + `tabindex="0"` + `@click` + `@keydown.enter/space` + `cursor:pointer` + hover 反馈。
-- **拒绝任何容器形状**（圆形/圆角 ghost 均被否）：定稿=干净青色裸箭头（零 bg/border/radius，同一个 `chevron-right`，展开 `rotate(90deg)`，`--t2`、静息 `opacity:.55`、16px、`padding:6px`）。**先 grep 仓库既有同类控件**，自创形状必被否。
-- 🔴 **图标尺寸只由 CSS 定**（v601）：全局 `.ico{16px}` 胜于 `<svg width>`；本页 `.btn svg.ico{14px}` ⇒ 同行所有图标必须显式统一到同一值，量法只能 `getBoundingClientRect().width`。
-- 🔴 **筛选徽标 = 只有文字，不要图标**（v602 定稿）：三枚徽标都不带图标，`badge-slim`（全屏收成图标）**整体废弃**。别再给它们加图标。
-- 🔴 **Esc 放弃本格修改**（v602）：还原源必须是 `rawCellVal`（进格时原始值），**不能用 `readCellVal`**（数量列 `|| 0` ⇒ 空格子被还原成 0）。判据是「当前值 ≠ 进格前值」，不能只看 `cellTyping`（单击进的是导航态）。
-- 🔴 **编辑网格高度不许写死 `72vh`**（v602）：定式 = `innerHeight - vwTop - off - 底部占位`，`off` 用**文档流偏移**（`wrap.top + vw.scrollTop - vwTop`）；占位含 `.sel-stat`。页面滚动容器是 **`.view-wrap`**（`main.content`/body 都是 overflow:hidden）。
-- 🔴 **编辑态 = 格内即输入框**（v592）：`.cell-input` 去边框/圆角，横向出血 `--cell-pad-h`（8/6，不许写死）；焦点靠 `.td.selected` 2px outline。表头客户名输入框**保留方框**。
+## UI 风格偏好（全文 `topics/frontend-ui.md` §MEM-ARCHIVE-v606）
+- 🔴 **同行控件必须同构**（v599）：基准 `.tb-toggle`/`.btn-sm`（32 高 / 13 字 / 1px 边 / radius 8 / `padding:0 12px` / pointer）；判据 = 顶边差 0、高度差 0。
+- 🔴 **看起来能点的必须真能点**：`role=button`+`tabindex=0`+`@click`+`@keydown.enter/space`+`cursor:pointer`+hover。**图标尺寸只由 CSS 定**（全局 `.ico{16px}` 胜 `<svg width>`），量法只认 `getBoundingClientRect`。
+- 🔴 拒绝任何容器形状（圆形/圆角 ghost 全被否）：定稿 = 裸青色 `chevron-right`（零 bg/border/radius，展开转 90°，静息 `.55`）。**自创形状必被否，先 grep 既有同类控件**。
+- 其余（筛选徽标只留文字 / Esc 放弃本格修改的还原源 / 编辑态格内即输入框）见归档。
 
 ## 进度 / 交付锚（详情 `topics/`）
 P0 7/7；P1 6/6✅（分权 v517+v526｜审批流 v519+v525｜四报表 v506+v507｜对账 v527-v533｜批次追溯 v529-v531｜批量栏 v532）。报表区 33 入口仅 4 真身。P2-4 副驾经营指标 + P2-2a 预警外发已交付(v535)；剩余促销ROI(端点坏死500)/货架位(零数据)/现金流预测页面化。**卖前三关未过；调拨单生产仍 0 张**。BI 指标唯一源 `erp_db.py:_BI_MEASURES`（口径必须 `soi.amount`）；库存周转唯一源 `get_inventory_turnover`。
 
 ## 编号约定
-已用到 v603；下一号 v604。🔴 **「改了但用户说没变」第一步先查前端构建号**：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]` + 「预报 → 修改日志」面板标题旁。SPA 老标签页**永不重拉 index.html** ⇒ 部署了也看不到。每次发版**手动改这一行**。
+已用到 v606；下一号 v607。🔴 **「改了但用户说没变」第一步先查前端构建号**：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]` + 「预报 → 修改日志」面板标题旁。SPA 老标签页**永不重拉 index.html** ⇒ 部署了也看不到。每次发版**手动改这一行**。
 - 起号必读 `version-history.md` + 实搜两仓 `git log --all` + `git worktree list`。v517 被双占。并行分叉：scoped 提交→merge origin/main→合并 HEAD 重建→部署→验「双方标记都在」。改 `pages.js` 先分清单"路由"还是"门禁"（本项目=门禁唯一源，`ruleFor` 未登记 path 一律放行 ⇒ 删占位登记=放宽门禁）v499。前端 `roles` 窄名单非真保险 ⇒ 敏感页必须后端 `_admin` 双保险(v531)。
-- 改单网格数据行 31px 是**既有事实**（旧样式对照同为 31、line-height 归零仍 31），别照行高链结论直接改。
+- ~~改单数据行 31px 是既有事实~~ **v606 已查明并修掉**：元凶是操作列 `.btn-del` 30×30 + `inline-flex` 按基线顶行盒（详见「表格密度 / 行高」段）。旧结论「别照行高链直接改」作废——当时只是没找到撑高件。
 
 ## 主体 / 脱敏 / 技能 / 本机坑
 主体 hergent-cn-v2(`laozhangai-product`)｜hergent-erp(FastAPI+SQLite)。脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；PII 不落 `outputs/`。技能：`hergent-pre-launch-audit`｜`hergent-scoped-commit`｜`parallel-session-safety`｜`rebate-caliber-consistency`｜`chart-render-verify`｜`ui-copy-guard`｜`external-material-pdf`。本机坑→`topics/local-machine-pitfalls.md`（`grep "A\|B"` 静默失效⇒`-e`；`&&` 短路；`| head -N` 截命中；`grep -rl` 只搜顶层；探针别放 `/tmp`；ssh 嵌 python 引号错乱⇒远端脚本）。
