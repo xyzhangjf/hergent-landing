@@ -10474,14 +10474,28 @@ onMounted(async () => {
    本文件不再保留副本（本仓「同一选择器 ≥3 次且逐字相同 ⇒ 必须上提」，UI-SPEC §8.4）。 */
 /* P1-② 表格去线：去掉表体行分隔线，行区分完全交给斑马纹 + hover（已存在），
    40+ 列大表视觉更透气；表头底线 / 列合计顶线 / 分组头底线保留（结构性分隔）。 */
-.cross-tbl tbody td{padding:7px 7px;white-space:nowrap}
+/* 🔴 v575：**行高的唯一来源 = `--fc-cell`（单元格内容盒高度）**。
+   为什么要单独立一个变量：此前「只读态」和「编辑态」各自算自己的高度 ——
+   只读是文本继承 body 的 line-height（实测 20.8px），编辑是 `.cell-input` 的固定
+   height（26px，且被全局紧凑档 `[data-density=compact] table.tbl input` 压到 24px）。
+   两者互不相干 ⇒ 同一行在「汇总视图」和「改单填写」里差 2.7px（实测 29.8 vs 32.5），
+   行高参差、密度也降不下来。
+   现改成：td 的 line-height、品名行、输入框**全部取同一个 20px** ⇒
+     · 紧凑档 = 20 + 3×2 = **26px**（原来 29.8 / 32.5）
+     · 舒适档 = 20 + 7×2 = 34px（只改 padding，两态依然等高）
+   ⚠️ 改这个值等于同时改两态，不要再给某一种状态单独写高度。
+   ⚠️ 20px 是下限：`.store-badge`/`.exp-chev` 高 15/18px，再压会让角标贴住上下边框。
+   v575b：紧凑档垂直 padding 3→**2px** ⇒ 数据行 **24px**（Excel 紧凑档量级）。
+     两态实测：只读 24 / 编辑 24（差异仅表格取整的 0.5px，肉眼不可见）。 */
+.cross-tbl{--fc-cell:20px}
+.cross-tbl tbody td{padding:7px 7px;white-space:nowrap;line-height:var(--fc-cell)}
 /* 🔴 v571：本表此前**无视全站密度开关**（设置页「紧凑/舒适」对这一页不生效）。
    原因不是没写，而是**同分被后者覆盖**：页面 scoped 的 `.cross-tbl tbody td[data-v-x]` = (0,2,2)，
    全局 `[data-density=compact] table.tbl td` 也是 (0,2,2)；而页面 CSS 属懒加载 chunk、在
    全球样式表之后注入 ⇒ 恒由 7px 胜出（已在产物里同时确认两条规则存在）。
    修法：本表**自己**显式声明紧凑档，特异性 (0,3,2) 稳压基础档 ⇒ 不依赖样式表加载顺序。
    ⚠️ 别改成 `.grid-area .cross-tbl td` 那种"加一层父类"的写法 —— 那同样会把全局紧凑档压死。 */
-[data-density="compact"] .cross-tbl tbody td{padding:4px 7px}
+[data-density="compact"] .cross-tbl tbody td{padding:2px 7px}
 [data-density="compact"] .cross-tbl thead th{padding:5px 7px}
 .qty-th{text-align:center;min-width:52px}
 .qty-cell{text-align:center;color:var(--t3)}
@@ -10744,8 +10758,8 @@ th.sortable:hover{color:var(--p-dark)}
    单行实测约 52px，比**编辑态**（1 行输入框 26px ⇒ 约 40px）还高 12px —— 只读反而更费屏，违反直觉。
    收紧到 1.25 / 1.2 并去掉 1px 外边距后：紧凑档约 36px、舒适档约 42px，且与编辑态基本齐平。
    ⚠️ 别再退回 1.6：这是**行内文本**不是正文段落，1.6 是给长文阅读留的，网格里只会把行撑高。 */
-.pname{font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.25}
-.pspec{color:var(--t3);font-size:11px;margin-top:0;line-height:1.2}
+.pname{font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:var(--fc-cell,20px)}
+.pspec{color:var(--t3);font-size:11px;margin-top:0;line-height:13px}
 .ai-hint{color:var(--p-dark);font-size:11px;margin-top:1px;font-weight:500;line-height:1.2}
 .tip-wrap{position:relative;cursor:help;border-bottom:1px dashed var(--bd)}
 .tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg);color:var(--t1);font-size:11px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);white-space:nowrap;z-index:20;box-shadow:var(--shadow-md)}
@@ -10816,8 +10830,18 @@ th.sortable:hover{color:var(--p-dark)}
 /* v184：只读单元格（edit:'ro'，目前只有「到货周期」）—— 视觉口径与同排的 input 对齐
    （同字号、居中、tabular-nums 让 +3天 / +12天 的数字对齐），但**不是**输入框，
    以免暗示「这里能改」。它只出现于编辑网格的只读列；查看态走 masterVal 的纯文本路径。 */
-.cell-ro{display:block;padding:2px 6px;color:var(--t2);font-size:12px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
-.cell-input{height:26px;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:12px;outline:none;display:block;width:100%;min-width:0;box-sizing:border-box;text-align:center}
+/* v575：只读列（edit:'ro'）也必须落在同一个内容盒 20px 内 —— 原来它靠 padding 撑
+   （2px 上下 + 继承的 20.8px 行高 = 24.8px），比旁边 20px 的输入框高，会把整行顶到 30px。 */
+.cell-ro{display:block;height:var(--fc-cell,20px);line-height:calc(var(--fc-cell,20px) - 4px);box-sizing:border-box;padding:2px 6px;color:var(--t2);font-size:12px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 🔴 v575：输入框高度 = 行高唯一源 `--fc-cell`（见 `.cross-tbl{--fc-cell:20px}` 段注释）。
+   原来这里写死 26px，而全局紧凑档 `[data-density=compact] table.tbl input{height:24px}`
+   特异性 (0,2,2) 压过本条的 (0,2,0) ⇒ 实际渲染 24px，与只读态的 20.8px 文本行**不相等**，
+   这就是「只读 29.8 / 编辑 32.5」两个高度并存的原因。
+   本条带上 `.cross-tbl` 前缀后 = (0,3,0)，稳压全局那条 ⇒ 两态取同一个值。 */
+.cross-tbl .cell-input{height:var(--fc-cell,20px);padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:12px;outline:none;display:block;width:100%;min-width:0;box-sizing:border-box;text-align:center}
+/* 表头里的客户名输入框**不跟着压** —— 表头不属于"数据行行高"，跟着变矮会让表头显得局促。
+   特异性 (0,3,1) 高于全局紧凑档 (0,2,2) ⇒ 这里写 24px 就是 24px。 */
+.cross-tbl thead .cell-input{height:24px}
 .cell-input:focus{border-color:var(--p)}
 /* v246 零值降噪：空格子的占位点（·）淡显，避免「满屏 0」淹没有效数据 */
 .cell-input::placeholder{color:var(--t3);opacity:.4}
@@ -11011,7 +11035,10 @@ th.sortable:hover{color:var(--p-dark)}
    中性灰而非户头的彩色系 —— 户头是「谁的下单主体」，这个是「几家店报了」，量级不同。
    ⚠️ 放在 .pname 内（同 .oe-badge 范式）：品名超长时随省略号一起被截断，这是既有行为，不额外处理。 */
 .store-badge{display:inline-flex;align-items:center;height:15px;padding:0 5px;border-radius:999px;
-  font-size:var(--fs-xs);font-weight:400;margin-left:6px;vertical-align:1px;
+  /* v575：`vertical-align:1px`（相对基线上移）会让 15px 的 inline-flex 把品名行盒从 20px 顶到
+     20.4px ⇒ 表格取整后整行 25px，比不带角标的 24px 高 1px、也比编辑态高。
+     改成 `middle` 后角标在 20px 行盒内居中，行高与「无角标 / 编辑态」完全一致。 */
+  font-size:var(--fs-xs);font-weight:400;margin-left:6px;vertical-align:middle;
   background:var(--bg2);color:var(--t2);white-space:nowrap}
 
 /* v193（既定方案 §五 阶段 0）：无「进行中期次」时的**常驻通告条**。
