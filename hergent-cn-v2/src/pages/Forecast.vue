@@ -6581,6 +6581,26 @@ function writeCellVal(r, c, v) {
   if (ck2) { rw[ck2] = (v == null || String(v).trim() === '') ? '' : parseNumInput(v); return true }
   return false
 }
+/* v595：填充范围的**唯一源** —— 预览框、实际写入、提示文案必须共用同一套夹取规则。
+   否则会出现「框住了一大片、却只写了一部分」，比没有框更让人困惑。
+   🔴 横向**只在数量区（报单单元列）内扩散**：源列左边是商品档案（名称/规格/条码），
+      右边是合计/加单/单价/金额。横向铺过去会把「客户 A 的 30 箱」写进「单价」和「加单」——
+      `writeCellVal` 对 `edit:'num'` 的列一律放行（只拦 `edit:'ro'`），**不会**帮你挡住，
+      而这种脏数据直接进下单金额。横向填充只在数量列之间有意义，这是唯一安全口径。 */
+function fillSpan(a, b) {
+  const r0 = Math.min(a.r, b.r), r1 = Math.max(a.r, b.r)
+  let c0 = Math.min(a.c, b.c), c1 = Math.max(a.c, b.c)
+  const unitStart = visibleCols.value.length
+  const unitEnd = unitStart + unitCount()
+  if (a.c >= unitStart && a.c < unitEnd) {
+    c0 = Math.max(unitStart, c0)
+    c1 = Math.min(unitEnd - 1, c1)
+  } else {
+    c0 = c1 = a.c          // 源列不在数量区 ⇒ 横向不扩散，只按纵向填
+  }
+  if (c1 < c0) c1 = c0
+  return { r0, r1, c0, c1 }
+}
 /* v593：把「填充范围」换算成覆盖层几何。
    用**首尾两格的真实矩形**求外框，而不是累加行列高度 —— 行高在舒适/紧凑两档不同、
    表格还有 `zoom`（gridZoom），累加必错位。坐标相对滚动容器内容原点，故覆盖层随滚动自然跟随。 */
@@ -6606,7 +6626,8 @@ function updateFillBox() {
   if (!fillDragging.value) { fillBox.value = null; return }
   const a = fillStart.value, b = fillEnd.value
   if (a.r < 0 || b.r < 0) { fillBox.value = null; return }
-  const box = fillRectOf(Math.min(a.r, b.r), Math.min(a.c, b.c), Math.max(a.r, b.r), Math.max(a.c, b.c))
+  const sp = fillSpan(a, b)
+  const box = fillRectOf(sp.r0, sp.c0, sp.r1, sp.c1)
   if (box) fillBox.value = box
 }
 /* v594：把「屏幕坐标」翻译成格子坐标 —— 鼠标移动与自动滚动共用同一套判定，
@@ -6626,17 +6647,43 @@ function startFill(r, c, e) {
   updateFillBox()
   const wrap = editTblEl.value && editTblEl.value.parentElement
   const pt = { x: e && e.clientX != null ? e.clientX : 0, y: e && e.clientY != null ? e.clientY : 0 }
+  /* v595：横向夹取的左界 = **冻结列（序号/商品名/规格…）的右边界**。
+     这些列是 sticky、永远压在容器左边；不夹的话指针推到最左时 `elementFromPoint`
+     命中的是冻结列 ⇒ 终点从数量列跳到「商品名」列 ⇒ 填充框横向长进档案区，
+     松手把一串商品名写成本行商品名。 */
+  let leftGuard = 0
+  if (wrap) {
+    const wr0 = wrap.getBoundingClientRect()
+    const cLeft0 = wr0.left + wrap.clientLeft
+    let fr = 0
+    wrap.querySelectorAll('thead .seq-th, thead th.frozen').forEach((el) => {
+      const r = el.getBoundingClientRect()
+      if (r.width && r.right > fr) fr = r.right
+    })
+    leftGuard = Math.max(0, fr - cLeft0)
+  }
   const apply = (hit) => { if (hit) { fillEnd.value = hit; updateFillBox() } }
+  /* 横向夹取（move 与自动滚动共用）：只夹横向，纵向保持原行为 ——
+     指针移到表头/工具栏时命中 null 就"保持上一帧"，不该把框弹回第一行。 */
+  const safeX = (x) => {
+    if (!wrap) return x
+    const wr = wrap.getBoundingClientRect()
+    const cLeft = wr.left + wrap.clientLeft
+    const vLeft = Math.max(cLeft, 0)
+    const vRight = Math.min(cLeft + wrap.clientWidth, window.innerWidth)
+    return Math.max(vLeft + leftGuard + 4, Math.min(vRight - 4, x))
+  }
   const move = (ev) => {
     pt.x = ev.clientX; pt.y = ev.clientY
-    apply(fillHitAt(pt.x, pt.y))
+    apply(fillHitAt(safeX(pt.x), pt.y))
   }
   /* v594：**拖到可视区边缘自动滚动**。没有它，一次拖动最多只能填满一屏 ——
      154 行的表要重复「拖一屏 → 滚 → 再拖」十几次，而用户想的是"一路拖到底"。
      每帧滚 4~20px（离边缘越远越快），滚动后**重新取边缘那一格**当终点：
      此时指针很可能已经不在任何格上（拖出容器/落在分页器上），只靠 mousemove 收不到。
-     ⚠️ 只做纵向：数量列是**按客户一列一列**填的，横向连拖等于把 A 客户的量铺到 B 客户，
-        现实里没这个动作；横向自动滚动反而容易误伤。 */
+     v595：**横向同样生效** —— 拖动填充的主用途就是快速改单，而改单最常见的动作是
+     「把这一格的值横向铺到旁边几个报单单元」。横向用更小的热区（18px vs 26px）：
+     表格横向有四千多像素，纵向拖时指针常常离右边缘不到一个格宽，热区大了会误横滚。 */
   let raf = 0
   const tick = () => {
     if (!fillDragging.value) { raf = 0; return }
@@ -6644,24 +6691,42 @@ function startFill(r, c, e) {
       const wr = wrap.getBoundingClientRect()
       const cTop = wr.top + wrap.clientTop
       const cBottom = cTop + wrap.clientHeight          // 扣掉横向滚动条/边框，别把"滚动条"当格子
-      /* 🔴 还要再和**视口**取交集：表体高 `72vh`，在矮窗口下它的下沿会跑到视口外
-         （实测 1600×913 时容器底 1052 > innerHeight 913，下面一百多像素根本点不到）。
-         只按容器算 ⇒ 夹取出来的 y 落在视口外 ⇒ `elementFromPoint` 返回 null ⇒ 终点永不更新，
+      const cLeft = wr.left + wrap.clientLeft
+      const cRight = cLeft + wrap.clientWidth           // 扣掉竖向滚动条
+      /* 🔴 都要再和**视口**取交集：表体高 `72vh`，矮窗口下沿跑到视口外
+         （实测 1600×913：容器底 1052 > innerHeight 913，下面一百多像素根本点不到）。
+         只按容器算 ⇒ 夹取出来的坐标落在视口外 ⇒ `elementFromPoint` 返回 null ⇒ 终点永不更新，
          症状是"滚是滚了、框却不长"。 */
-      const vBottom = Math.min(cBottom, window.innerHeight)
       const vTop = Math.max(cTop, 0)
+      const vBottom = Math.min(cBottom, window.innerHeight)
+      const vLeft = Math.max(cLeft, 0)
+      const vRight = Math.min(cRight, window.innerWidth)
       const thead = wrap.querySelector('thead')
       const topGuard = thead ? thead.offsetHeight : 0    // 表头是 sticky 的，滚到它下面才算可见区
-      const EDGE = 26, MAX = 20
-      let dy = 0
+      const EDGE = 26, EDGE_H = 18, MAX = 20
+      let dy = 0, dx = 0
       if (pt.y > vBottom - EDGE) dy = Math.min(MAX, Math.ceil((pt.y - vBottom + EDGE) / 3) + 4)
       else if (pt.y < vTop + topGuard + EDGE) dy = -Math.min(MAX, Math.ceil((vTop + topGuard + EDGE - pt.y) / 3) + 4)
+      if (pt.x > vRight - EDGE_H) dx = Math.min(MAX, Math.ceil((pt.x - vRight + EDGE_H) / 3) + 4)
+      else if (pt.x < vLeft + leftGuard + EDGE_H) dx = -Math.min(MAX, Math.ceil((vLeft + leftGuard + EDGE_H - pt.x) / 3) + 4)
+      /* 只有**滚动真的发生了**才重算终点：`scrollLeft/scrollTop` 到底后设值不变，
+         此时再 hit-test 只会拿同一格反复触发同一帧，白费且容易在边界上抖动。 */
+      let moved = false
       if (dy) {
         const max = Math.max(0, wrap.scrollHeight - wrap.clientHeight)
         const before = wrap.scrollTop
         wrap.scrollTop = Math.max(0, Math.min(max, before + dy))
+        if (wrap.scrollTop !== before) moved = true
+      }
+      if (dx) {
+        const max = Math.max(0, wrap.scrollWidth - wrap.clientWidth)
+        const before = wrap.scrollLeft
+        wrap.scrollLeft = Math.max(0, Math.min(max, before + dx))
+        if (wrap.scrollLeft !== before) moved = true
+      }
+      if (moved) {
         const y = Math.max(vTop + topGuard + 4, Math.min(vBottom - 4, pt.y))
-        apply(fillHitAt(pt.x, y))
+        apply(fillHitAt(safeX(pt.x), y))
       }
     }
     raf = requestAnimationFrame(tick)
@@ -6696,8 +6761,7 @@ function startFill(r, c, e) {
 function doFill(a, b) {
   if (!a) return
   snapshot()
-  const r0 = Math.min(a.r, b.r), r1 = Math.max(a.r, b.r)
-  const c0 = Math.min(a.c, b.c), c1 = Math.max(a.c, b.c)
+  const { r0, r1, c0, c1 } = fillSpan(a, b)
   const sv = readCellVal(a.r, a.c)
   for (let ri = r0; ri <= r1; ri++)
     for (let ci = c0; ci <= c1; ci++) writeCellVal(ri, ci, sv)
