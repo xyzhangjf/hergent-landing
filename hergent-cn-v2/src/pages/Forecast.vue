@@ -527,10 +527,11 @@
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏（Esc）' : '全屏查看表格（Esc 退出）'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
           </button>
-          <div class="filter-row" v-if="colFilter || colFilterSet || brandSel.length">
+          <!-- v608：品牌筛选不再另起一条胶囊 —— 工具栏「品牌」按钮自带已选数量角标，
+               面板内已有「全选 / 清空」⇒ 清除途径不缺。此筛选条只服务列筛选/唯一值筛选。 -->
+          <div class="filter-row" v-if="colFilter || colFilterSet">
             <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选"><Icon name="close"/></button></span>
             <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选"><Icon name="close"/></button></span>
-            <span v-if="brandSel.length" class="filter-chip" :title="'按品牌（供货方）筛选'">品牌 ∈ {{ brandSel.length }} 个 <button class="chip-x" @click="brandSel = []" aria-label="清除品牌筛选"><Icon name="close"/></button></span>
           </div>
           <div class="table-wrap cross-viewport" ref="scrollEl" @scroll="onScroll">
             <table class="tbl cross-tbl" role="grid" :aria-rowcount="flatItems.length" :aria-colcount="colOrderList.length" @dblclick="onResizerDblClick" :style="{ zoom: gridZoom + '%' }">
@@ -830,10 +831,11 @@
           <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏（Esc）' : '全屏查看表格（Esc 退出）'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
             <Icon name="fullscreen" size="16"/>
           </button>
-          <div class="filter-row" v-if="colFilter || colFilterSet || brandSel.length">
+          <!-- v608：品牌筛选不再另起一条胶囊 —— 工具栏「品牌」按钮自带已选数量角标，
+               面板内已有「全选 / 清空」⇒ 清除途径不缺。此筛选条只服务列筛选/唯一值筛选。 -->
+          <div class="filter-row" v-if="colFilter || colFilterSet">
             <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选"><Icon name="close"/></button></span>
             <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选"><Icon name="close"/></button></span>
-            <span v-if="brandSel.length" class="filter-chip" :title="'按品牌（供货方）筛选'">品牌 ∈ {{ brandSel.length }} 个 <button class="chip-x" @click="brandSel = []" aria-label="清除品牌筛选"><Icon name="close"/></button></span>
           </div>
           <div v-if="showColMenu" class="col-menu-overlay" @click="showColMenu=false"></div>
           <div v-if="showColMenu" class="col-menu edit-col-menu" ref="colMenuEl" :style="colMenuStyle" @click.stop>
@@ -4238,7 +4240,9 @@ function addRow() {
      若开着「仅显示有报单」新行 rowSum=0 还会被直接隐藏 → 用户以为功能坏了。 */
   if (!brandHidden) nextTick(() => { selectCell(ri, 0); focusCell(ri, 0, { select: true }); scrollRowIntoView(ri) })
   if (brandHidden) {
-    toast(`新行已添加，但当前按品牌筛选了 ${bs.length} 个品牌、本行品牌为空 ⇒ 暂不显示。请在「品牌」列填一个被筛的品牌，或点筛选条上的 × 清空品牌筛选`, 'warn')
+    /* v608：品牌胶囊筛选条已撤除 ⇒ 引导改指「品牌」按钮面板（内含「清空」），
+       不能再让用户去点一个不存在的 ×。 */
+    toast(`新行已添加，但当前按品牌筛选了 ${bs.length} 个品牌、本行品牌为空 ⇒ 暂不显示。请在「品牌」列填一个被筛的品牌，或点工具栏「品牌」→「清空」取消筛选`, 'warn')
   } else if (hideZeroReport.value) {
     toast('新行已添加（当前开启「仅显示有报单」，填入数量前它属于零报单行）', 'warn')
   }
