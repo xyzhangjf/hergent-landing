@@ -98,12 +98,14 @@
 
 - **拒绝任何容器形状**：圆形 / 圆角矩形 ghost 按钮均被否。定稿 =「干净青色裸箭头」：零 background/border/radius，永远同一个 `chevron-right`，展开时 `rotate(90deg)`（不换图标），`var(--t2)` + 静息 `opacity:.55` / hover 1，16px，`padding:6px` 扩热区。**先 grep 仓库既有同类控件**（`.exp-chev`/`.grp-toggle`/`.sb-caret`），自创形状必被否。
 - **`<Icon>` 陷阱**：`Icon.vue` 是手写 `ICONS` 映射，**写错名字静默兜底成齿轮** ⇒ 用前必须确认名字存在。
+- 🔴 **图标尺寸只由 CSS 定，`<svg width>` 属性会被覆盖**（v601）：全局 `.ico{16px}`（variables.css:438）胜于组件属性；本页 `.btn svg.ico{14px}` 又把按钮内压到 14px ⇒ 同一行里 16 与 14 并排差 2px，肉眼一眼看出。**同行所有图标必须显式统一到同一个值**（本页基准 14px），量法只能 `getBoundingClientRect().width`。
+- 🔴 **同图标撞车**：三个筛选徽标原本都用 `filter`，与右侧「品牌」按钮完全同图 ⇒ 像"又一个品牌筛选"。徽标语义改 `eye-off`（漏斗=去设筛选，eye-off=有东西被藏起来，点一下显形）。注意模板写法差异：徽标 `<Icon name="filter" />` 带空格、品牌 `<Icon name="filter"/>` 不带 ⇒ `replace_all` 带空格版恰好只命中徽标。
 
 ## 进度 / 交付锚（详情 `topics/`）
 P0 7/7；P1 6/6✅（分权 v517+v526｜审批流 v519+v525｜四报表 v506+v507｜对账 v527-v533｜批次追溯 v529-v531｜批量栏 v532）。报表区 33 入口仅 4 真身。P2-4 副驾经营指标 + P2-2a 预警外发已交付(v535)；剩余 促销ROI(端点坏死500)/货架位(零数据)/现金流预测页面化，成本口径待拍板。**卖前三关未过；调拨单生产仍 0 张**。BI 指标唯一源 `erp_db.py:_BI_MEASURES`（口径必须 `soi.amount`）；库存周转唯一源 `get_inventory_turnover`。
 
 ## 编号约定
-已用到v600；下一号v601。🔴 **「改了但用户说没变」第一步先查前端构建号**（v591）：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]` + 「预报 → 修改日志」面板标题旁 `前端 vNNN`。SPA 老标签页**永不重拉 index.html**，部署了也看不到（index.html 已 `no-store`，问题在"不刷新"）。每次发版**手动改这一行**（无 CI 注入）。
+已用到v601；下一号v602。🔴 **「改了但用户说没变」第一步先查前端构建号**（v591）：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]` + 「预报 → 修改日志」面板标题旁 `前端 vNNN`。SPA 老标签页**永不重拉 index.html**，部署了也看不到（index.html 已 `no-store`，问题在"不刷新"）。每次发版**手动改这一行**（无 CI 注入）。
 - 🔴 **编辑态 = 格内即输入框（v592）**：`.cell-input` 去边框/圆角/白底，横向出血 `--cell-pad-h`（舒适 8 / 紧凑 6，**不许写死**，写死 8 在紧凑档外溢 2px）；焦点视觉靠 `.td.selected` 的 2px outline + 青底。表头客户名输入框**保留方框**。手工价/负数/错误态改 `box-shadow:inset` 承接。改单网格数据行 31px 是**既有事实**（旧样式对照同为 31、line-height 归零仍 31），别照行高链结论直接改。起号必读`version-history.md`+实搜两仓`git log --all`+`git worktree list`。v517被双占。并行分叉：先scoped提交→merge origin/main→合并HEAD重建→部署→验「双方标记都在」。改`pages.js`先分清单"路由"还是"门禁"(本项目=门禁唯一源，`ruleFor`未登记path一律放行⇒删占位登记=放宽门禁)v499。前端`roles`窄名单非真保险⇒敏感页必须后端`_admin`双保险(v531先例)。
 
 ## 主体 / 脱敏 / 技能 / 本机坑
