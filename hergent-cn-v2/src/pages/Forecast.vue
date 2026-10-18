@@ -668,7 +668,7 @@
             <tbody>
               <tr class="col-total">
                 <td v-for="(col, ci) in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')">
-                  <template v-if="col.key === 'seq'"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（合计/单价换算口径）" title="口径说明（合计/单价换算口径）" @click="amtNoteOpen=!amtNoteOpen"><Icon name="help-circle" :size="13"/></button></template>
+                  <template v-if="col.key === 'seq'"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（合计/单价换算口径）" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave" @focus="amtNoteEnter" @blur="amtNoteLeave" @click="amtNoteEnter"><Icon name="help-circle" :size="13"/></button></template>
                   <template v-else-if="col.key === 'name'">合计</template>
                   <template v-else-if="col.type === 'qty'">{{ cross.colTotals[(ci - 1) - visibleCols.length] || '' }}</template>
                   <template v-else-if="col.key === 'qty'">{{ fmt(cross.grand.qty) }}</template>
@@ -682,7 +682,7 @@
             </tbody>
           </table>
             </div>
-            <div v-if="amtNoteOpen" class="caliber-pop"><div class="caliber-pop-hd">口径说明（合计/单价换算口径）<span class="caliber-pop-x">再点 ? 收起</span></div>报单金额 = 最终下单数量（箱）× 单价（进价/箱）。<b>单价(进价/箱) = 商品档案的进价</b>（档案里的进价<b>本身就是「元/箱」</b>，不再乘任何换算）；档案进价为空时回退到档案里的历史进价列。<b>每箱数（= 每箱有几个报单单位）</b>取商品档案的单位换算，档案缺则按规格串解析（如「250g*24瓶」=24、纯数字规格「12」=12）。合计(箱) = <b>逐行</b>「报单数量 ÷ 每箱数」，<b>可为小数</b>（如报 3 瓶 ÷ 24 瓶/箱 = 0.125 箱）；最终下单(箱) = <b>合计(箱) 不足一箱按一箱</b>（厂商不拆零发货）<b>+ 加单(箱)</b>。</div>
+            <div v-if="amtNoteOpen" class="caliber-pop" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave"><div class="caliber-pop-hd">口径说明（合计/单价换算口径）</div>报单金额 = 最终下单数量（箱）× 单价（进价/箱）。<b>单价(进价/箱) = 商品档案的进价</b>（档案里的进价<b>本身就是「元/箱」</b>，不再乘任何换算）；档案进价为空时回退到档案里的历史进价列。<b>每箱数（= 每箱有几个报单单位）</b>取商品档案的单位换算，档案缺则按规格串解析（如「250g*24瓶」=24、纯数字规格「12」=12）。合计(箱) = <b>逐行</b>「报单数量 ÷ 每箱数」，<b>可为小数</b>（如报 3 瓶 ÷ 24 瓶/箱 = 0.125 箱）；最终下单(箱) = <b>合计(箱) 不足一箱按一箱</b>（厂商不拆零发货）<b>+ 加单(箱)</b>。</div>
           </div>
         </div>
 
@@ -993,7 +993,7 @@
             </colgroup>
             <tbody role="rowgroup">
               <tr class="foot-row">
-                <td class="seq-cell"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（下单/单价录入口径）" title="口径说明（下单/单价录入口径）" @click="amtNoteOpen=!amtNoteOpen"><Icon name="help-circle" :size="13"/></button></td>
+                <td class="seq-cell"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（下单/单价录入口径）" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave" @focus="amtNoteEnter" @blur="amtNoteLeave" @click="amtNoteEnter"><Icon name="help-circle" :size="13"/></button></td>
                 <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')">{{ c.key === 'name' ? '合计' : (c.edit === 'num' ? fmt(foot.masterSum[c.key] || 0) : '') }}</td>
                 <td v-for="(u, ui) in cross.units" :key="'fu' + u.name" class="num calc">{{ fmt(foot.unitSum[ui] || 0) }}</td>
                 <td class="num calc sum">{{ fmt(foot.qty) }}</td>
@@ -1013,7 +1013,7 @@
             </tbody>
           </table>
             </div>
-            <div v-if="amtNoteOpen" class="caliber-pop"><div class="caliber-pop-hd">口径说明（下单/单价录入口径）<span class="caliber-pop-x">再点 ? 收起</span></div>最终下单(箱) = 合计(箱) <b>不足一箱按一箱</b> + 加单(箱)（厂商不拆零发货）；<b>下单金额(进价) = 最终下单(箱) × 单价(进价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的进价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</div>
+            <div v-if="amtNoteOpen" class="caliber-pop" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave"><div class="caliber-pop-hd">口径说明（下单/单价录入口径）</div>最终下单(箱) = 合计(箱) <b>不足一箱按一箱</b> + 加单(箱)（厂商不拆零发货）；<b>下单金额(进价) = 最终下单(箱) × 单价(进价/箱)</b>。<b>单价可直接在格子里录入</b>（填「元/箱」）；留空 = <b>自动沿用上一期录入过的价</b>（不用每期重填），从未填过则按商品档案的进价自动算。录入的价<b>只在本期生效</b> —— 点「保存」后留在本期报单里，不改商品档案，也不影响其他期次。</div>
           </div>
           <!-- ⚠️ v212 两处修正（都是真机探针抓出来的，不是推演出来的）——
                ① 判据从 `selStats` 改成 `selRange`。
@@ -7770,8 +7770,21 @@ const foot = computed(() => {
 
 // P3-6 行内 sparkline（近 6 期趋势，按需载入）
 const showSpark = ref(false)
-// v246：口径说明默认收起，点开才显示（降噪）
+// v246：口径说明默认收起（降噪）
+// v583：改为「鼠标悬停即展开、移开即收起」，去掉「再点 ? 收起」那句提示与点击 toggle。
+//   · 按钮与浮层之间隔 6px（浮层 bottom:100% + margin-bottom）⇒ 离开后延迟 220ms 再收，
+//     鼠标在这段时间内移进浮层就取消计时，所以能「悬停后进去滚动/复制文字」。
+//   · 同时绑 focus/blur：键盘 Tab 到问号也能看；触摸屏没有 hover，点一下同样展开（等同 enter）。
 const amtNoteOpen = ref(false)
+let amtNoteTimer = 0
+function amtNoteEnter () {
+  clearTimeout(amtNoteTimer)
+  amtNoteOpen.value = true
+}
+function amtNoteLeave () {
+  clearTimeout(amtNoteTimer)
+  amtNoteTimer = setTimeout(() => { amtNoteOpen.value = false }, 220)
+}
 const historyLoading = ref(false)
 async function fetchHistory() {
   const cur = cross.value.period
@@ -10662,8 +10675,7 @@ th.sortable:hover{color:var(--p-dark)}
   box-shadow:0 8px 24px rgba(15,23,42,.14);font-size:12px;line-height:1.6;color:var(--t3);
   max-height:40vh;overflow:auto;overscroll-behavior:contain}
 .caliber-pop b{color:var(--t1)}
-.caliber-pop-hd{font-weight:600;color:var(--t1);margin-bottom:4px;display:flex;align-items:baseline;gap:8px}
-.caliber-pop-x{font-weight:400;font-size:11px;color:var(--t3)}
+.caliber-pop-hd{font-weight:600;color:var(--t1);margin-bottom:4px}
 /* v247：档案列空值（—）淡显，与数量格空格子同一套语言 */
 .cell-dash{color:var(--t3);opacity:.55}
 .col-total-bar .frozen{background:var(--bg3)}
