@@ -309,6 +309,10 @@
       <div class="panel-hd">
         <b><Icon name="list"/> 修改日志</b>
         <span class="tag info">{{ auditTrail.length }} 条</span>
+        <!-- v591：前端构建号（唯一来源 `main.js` 的 window.__HG_BUILD__）。
+             用途：**部署后页面没变化时，一眼判断浏览器跑的是不是最新代码** ——
+             长期开着的标签页不会重新拉 index.html，看的永远是老 chunk。 -->
+        <span class="hg-build">前端 {{ hgBuild }}</span>
         <button class="imp-x" @click="trailOpen=false"><Icon name="close"/></button>
       </div>
       <ul v-if="auditTrail.length" class="health-list at-log">
@@ -2825,6 +2829,10 @@ const expandedRows = ref({})            // pid -> true 展开明细
 const frozenKey = ref('name')           // 冻结列：name | product_code | none
 const rowStates = ref({})               // pid -> 'loading' | 'error' | 'disabled'
 const editingCell = ref(null)           // { pid, uname }
+/* v591：构建号只读展示（来源是 `main.js` 写入的 window.__HG_BUILD__，唯一定义处）。
+   为什么放进「修改日志」面板：部署后「页面没变化」几乎每次都先怀疑代码、其实是**标签页没刷新**，
+   有个能对着念的号，一眼就能分清「代码没生效」还是「浏览器还是老包」。 */
+const hgBuild = (typeof window !== 'undefined' && window.__HG_BUILD__) || '未知'
 const activeCell = ref({ pid: '', ci: 0 })   // 键盘漫游激活格
 const scrollTop = ref(0)
 const viewportH = ref(600)
@@ -2891,7 +2899,21 @@ async function delRowSoft(pid) {
   if (r) { r._deleted = true; if (selectedPid.value === pid) selectedPid.value = null; recomputeTotals() }
   toast('已加入删除清单，点「保存」生效', 'ok')
 }
-function editCell(pid, uname) { editingCell.value = { pid, uname } }
+function editCell(pid, uname) {
+  editingCell.value = { pid, uname }
+  /* v591 兜底（真机 v590 已通过，这一步是防"某些浏览器/某些时序下选区又被折叠"）：
+     进编辑后延时 60ms 检查一次 —— 焦点仍在该格、但选区是**折叠态**（selectionStart===End）
+     ⇒ 说明全选被某个后续默认动作吃掉了，补一次。
+     ⚠️ 只在折叠态才补：用户"再点同一格落光标"走的是 `onCellClick` 里提前 return 的分支，
+        不会再触发 editCell，所以不会把故意落的光标又变成全选。 */
+  nextTick(() => {
+    setTimeout(() => {
+      const el = document.querySelector('td input.cell-qty')
+      if (!el || document.activeElement !== el) return
+      if (el.selectionStart === el.selectionEnd) { try { el.select() } catch (err) { /* 忽略 */ } }
+    }, 60)
+  })
+}
 /* v589：只读列表「双击数量格进编辑」后**全选原有数字**，直接打字即覆盖（原 10 键 7 = 7，而不是 107）。
    🔴 为什么不用 `v-focus` 指令兜：该指令此前**全仓未注册**（Vue 只 warn 一句就静默失效），
       真机实测双击后光标停在末尾。这里用最笨也最可靠的 `@focus` 内联处理，不依赖任何指令解析。
@@ -11458,6 +11480,8 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .info-panel{margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;font-size:12px}
 .info-panel .panel-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .info-panel .imp-x{margin-left:auto;border:none;background:none;cursor:pointer;color:var(--t2);font-size:14px;line-height:1}
+/* v591：前端构建号（很淡，只在需要核对版本时才被看到） */
+.hg-build{margin-left:6px;font-size:11px;color:var(--t3,var(--t2));opacity:.7;user-select:text}
 /* v174：查错结果面板 —— 上排是「按原因分组」的总览（点一下只看该类），
    下面是逐条明细，每条自带「第几行 · 商品 · 列」，点一条跳到那一格。 */
 .err-grps{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
