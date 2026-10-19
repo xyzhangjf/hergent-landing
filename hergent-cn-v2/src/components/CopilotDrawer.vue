@@ -3479,7 +3479,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-tools-t{margin-left:auto;color:var(--t3)}
 .cp-tools-caret{transition:transform .15s}
 .cp-tools-caret.open{transform:rotate(180deg)}
-.cp-tools-body{display:flex;flex-direction:column;gap:4px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border-subtle)}
+.cp-tools-body{display:flex;flex-direction:column;gap:4px;min-width:0;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border-subtle)}
 .cp-tool-st{font-size:11px;color:var(--t3);flex-shrink:0;margin-left:auto;white-space:nowrap}
 /* 深度思考（推理流）—— 对齐 WorkBuddy「深度思考」：默认折叠，标题显示字数 */
 .msg-think{width:100%;margin-bottom:6px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg2);overflow:hidden}
@@ -3686,14 +3686,25 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 
 /* H2 AI 工具调用过程可视化 */
 /* 工具执行情况容器：回复中展开、结束后收起成一行摘要（对齐 WorkBuddy） */
-.msg-tools{display:flex;flex-direction:column;margin-top:8px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);transition:padding .15s}
+/* v623：工具行**必须能收缩**，否则长文本会把整行顶出卡片。
+   真机复现（1440 视口 / 内容区 857px）：一条 120 字符无空格串（真实形态＝MCP 工具名
+   `mcp__hermes_spreadsheet__...`、长文件路径、URL）实测行 scrollWidth 1052 > clientWidth 857，
+   **溢出 195px 且没有任何滚动条** —— 文字直接压过卡片右边界、贴到抽屉边上，整页被撑出横向滚动。
+   机理：`.cp-tool` 是 flex 行，`.cp-tool-name` 没写 min-width ⇒ 默认 `min-width:auto`
+   （＝内容最小宽度）。对无空格串，最小宽度就是整个串宽 ⇒ 不可压缩，flex 只能溢出。
+   定式（今后同类「行内一段可能超长的文本」都按这个写）：
+     · 文本项 `flex:1 1 auto; min-width:0` —— min-width:0 是让它真的能被压缩的那把钥匙；
+     · 再加 `overflow-wrap:anywhere` 允许在任意字符处断行（比 ellipsis 好：信息完整可见，
+       工具进度本来就是短列表，多一行不影响；截断反而看不出跑的是哪个表/哪个文件）。
+   对齐方式同时由 center 改 flex-start：折成两行时图标与状态标签要贴首行，不能吊在中间。 */
+.msg-tools{display:flex;flex-direction:column;min-width:0;max-width:100%;margin-top:8px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);transition:padding .15s}
 .msg-tools.folded{padding:5px 10px}
 .msg-tools.live{border-color:var(--p-border)}
-.cp-tool{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t2);line-height:1.5}
-.cp-tool-ic{display:flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--p-dark);flex-shrink:0}
+.cp-tool{display:flex;align-items:flex-start;gap:7px;min-width:0;font-size:12px;color:var(--t2);line-height:1.5}
+.cp-tool-ic{display:flex;align-items:center;justify-content:center;width:16px;height:16px;margin-top:1px;color:var(--p-dark);flex-shrink:0}
 .cp-tool.running .cp-tool-ic{color:var(--war)}
 .cp-tool.done .cp-tool-ic{color:var(--suc)}
-.cp-tool-name{font-weight:600;color:var(--t1)}
+.cp-tool-name{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;word-break:break-word;font-weight:600;color:var(--t1)}
 .cp-tool-args{color:var(--t3);font-family:var(--mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
 .cp-spin{animation:cp-spin 0.9s linear infinite}
 @keyframes cp-spin{to{transform:rotate(360deg)}}
