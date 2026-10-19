@@ -12391,16 +12391,9 @@ th.sortable:hover{color:var(--p-dark)}
    光晕不贴合胶囊边界，变成凭空浮在胶囊内部的一圈淡青方框（且 input 高 32px 溢出
    容器 30px 内容区，光晕上下还会顶出胶囊）。修法：焦点反馈上移到胶囊整体，
    对齐 CopilotDrawer 的 .cp-composer:focus-within 范式。 */
-.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;
-  /* v621：**搜索框当弹性件** —— 工具栏要加「修改日志」时，先让它缩，而不是让整行折成两行。
-     flex-basis 必须给具体值（≈当前宽度 194 的下限 120）：flex 布局决定"这行放不放得下"用的是
-     basis，不是缩完之后的宽度 —— 写 auto 就等于不参与排队，仍然靠折行解决，白改。
-     max-width 锁死现状 194：宽屏（≥1560）余量本来就够，搜索框不该因此变长。 */
-  flex:1 1 120px;min-width:120px;max-width:194px;
-  background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);
-  transition:border-color .2s,box-shadow .2s}
+.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);flex:0 0 auto;transition:border-color .2s,box-shadow .2s}
 .tb-search:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
-.tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);flex:1 1 auto;width:auto;min-width:0;height:100%}
+.tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px;height:100%}
 .tb-search .fld:focus{box-shadow:none}
 .tb-search .fld::placeholder{color:var(--t3)}
 .tb-pop{position:relative;display:inline-flex;z-index:var(--z-page-bar)}/* z 高于 .pop-overlay(1100)：弹层开着时仍可直接点触发按钮做互斥切换 */
