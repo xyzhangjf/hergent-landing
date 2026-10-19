@@ -480,15 +480,12 @@
                   @keydown.space.prevent="showEmptyCols = true"
             >已收起 {{ hiddenEmptyCols }} 个空列</span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
-                 文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
-            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter filter-act"
-                  role="button" tabindex="0"
-                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（点这里显示全部商品）'"
-                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示，点击显示全部商品'"
-                  @click="showAllProducts = true"
-                  @keydown.enter.prevent="showAllProducts = true"
-                  @keydown.space.prevent="showAllProducts = true"
-            >另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
+                 文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。
+                 v621：下面这条「另有 N 个在售商品未显示」角标**已挪到表格合计行**（.pin / .edit-summary）。
+                 实测本行已吃到 95%（1600 下 1204 / 1267），它一个人占 180px —— 加进「视图切换」后
+                 就是它把「复制报单」顶到第二行的。而它说的本来就是"行数"（还有多少商品没显示），
+                 和合计行里「N 个商品 · M 个报单单元」是同一类信息，放那边名正言顺，本行也松下来。
+                 动作与判据完全不变（同一个 showAllProducts），只是换了个位置展示。 -->
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -761,6 +758,16 @@
             <span class="big">合计(小单位) <b>{{ fmt(cross.grand.qty) }}</b> · 合计(箱) <b>{{ fmtBox(cross.grand.boxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></span>
             <span class="mini">下单金额 <b>¥{{ fmt(cross.grand.amount) }}</b></span>
             <span class="mini">{{ cross.grand.sku }} 个商品 · {{ cross.reportedUnits }} 个报单单元</span>
+            <!-- v621：从表格工具行挪来的计数（见 .grid-ctl-row 里那条注释）。放这里是因为
+                 它和左边这三个数是一回事 —— 都是"这张表里有多少行"。动作不变：点它 = 显示全部商品。 -->
+            <span v-if="!showAllProducts && hiddenByRowBase" class="pin-more"
+                  role="button" tabindex="0"
+                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（点这里显示全部商品）'"
+                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示，点击显示全部商品'"
+                  @click="showAllProducts = true"
+                  @keydown.enter.prevent="showAllProducts = true"
+                  @keydown.space.prevent="showAllProducts = true"
+            >另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <!-- v585：冲刺胶囊 —— 全屏也常显（本行已在 .grid-area 内，见 v584）。
                  数字来自看板卡回传的同一份 computed；悬停展开完整看板（向上浮出，不挡表格底部）。
                  非全屏同样显示：两档同一份 DOM，玩家不必记住"这个信息只有全屏才有"。 -->
@@ -855,15 +862,12 @@
                   @keydown.space.prevent="showEmptyCols = true"
             >已收起 {{ hiddenEmptyCols }} 个空列</span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
-                 文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
-            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter filter-act"
-                  role="button" tabindex="0"
-                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（点这里显示全部商品）'"
-                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示，点击显示全部商品'"
-                  @click="showAllProducts = true"
-                  @keydown.enter.prevent="showAllProducts = true"
-                  @keydown.space.prevent="showAllProducts = true"
-            >另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
+                 文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。
+                 v621：下面这条「另有 N 个在售商品未显示」角标**已挪到表格合计行**（.pin / .edit-summary）。
+                 实测本行已吃到 95%（1600 下 1204 / 1267），它一个人占 180px —— 加进「视图切换」后
+                 就是它把「复制报单」顶到第二行的。而它说的本来就是"行数"（还有多少商品没显示），
+                 和合计行里「N 个商品 · M 个报单单元」是同一类信息，放那边名正言顺，本行也松下来。
+                 动作与判据完全不变（同一个 showAllProducts），只是换了个位置展示。 -->
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -1506,6 +1510,16 @@
                v188：写「合计(小单位)」而非「件」—— editTotalQty 是 Σ报单单元数量，小单位可能是盒/袋/包。 -->
           <div class="edit-summary">
             <span class="es-txt">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></span>
+            <!-- v621：同查看态页脚 —— 「另有 N 个在售商品未显示」从工具行挪到这里（两态位置一致，
+                 否则点了「改单」这条角标会从表格底部跳回工具行）。 -->
+            <span v-if="!showAllProducts && hiddenByRowBase" class="pin-more"
+                  role="button" tabindex="0"
+                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（点这里显示全部商品）'"
+                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示，点击显示全部商品'"
+                  @click="showAllProducts = true"
+                  @keydown.enter.prevent="showAllProducts = true"
+                  @keydown.space.prevent="showAllProducts = true"
+            >另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <!-- v604：右侧两件（冲刺胶囊 / 快捷键）包进同一个 `.es-right` 并给 `margin-left:auto`。
                  🔴 必须是**容器**上的 auto，不能再用 `.edit-summary>.pin-sprint{margin-left:auto}`：
                  SprintChip 根元素带 `v-if="show"`（无冲刺数据时整块不渲染）⇒ 推手消失，整行退化成
@@ -12377,9 +12391,16 @@ th.sortable:hover{color:var(--p-dark)}
    光晕不贴合胶囊边界，变成凭空浮在胶囊内部的一圈淡青方框（且 input 高 32px 溢出
    容器 30px 内容区，光晕上下还会顶出胶囊）。修法：焦点反馈上移到胶囊整体，
    对齐 CopilotDrawer 的 .cp-composer:focus-within 范式。 */
-.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);flex:0 0 auto;transition:border-color .2s,box-shadow .2s}
+.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;
+  /* v621：**搜索框当弹性件** —— 工具栏要加「修改日志」时，先让它缩，而不是让整行折成两行。
+     flex-basis 必须给具体值（≈当前宽度 194 的下限 120）：flex 布局决定"这行放不放得下"用的是
+     basis，不是缩完之后的宽度 —— 写 auto 就等于不参与排队，仍然靠折行解决，白改。
+     max-width 锁死现状 194：宽屏（≥1560）余量本来就够，搜索框不该因此变长。 */
+  flex:1 1 120px;min-width:120px;max-width:194px;
+  background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);
+  transition:border-color .2s,box-shadow .2s}
 .tb-search:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
-.tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px;height:100%}
+.tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);flex:1 1 auto;width:auto;min-width:0;height:100%}
 .tb-search .fld:focus{box-shadow:none}
 .tb-search .fld::placeholder{color:var(--t3)}
 .tb-pop{position:relative;display:inline-flex;z-index:var(--z-page-bar)}/* z 高于 .pop-overlay(1100)：弹层开着时仍可直接点触发按钮做互斥切换 */
@@ -12509,6 +12530,12 @@ th.sortable:hover{color:var(--p-dark)}
    不做静默夹断（夹了用户就不知道自己的加单量超过了合计）。 */
 .final-neg{color:var(--danger-txt)}
 .pin{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
+/* v621：「另有 N 个在售商品未显示」从工具行挪到合计行。页脚是 baseline 对齐，胶囊要 align-self:center
+   才不会把行高顶歪；尺寸比工具行那版小一号（24 高），因为这里挨着的都是 12px 小字。 */
+.pin .pin-more,.edit-summary .pin-more{align-self:center;display:inline-flex;align-items:center;
+  font-size:12px;line-height:18px;padding:2px 9px;border-radius:8px;
+  background:var(--p-bg);color:var(--p-deep);cursor:pointer;white-space:nowrap}
+.pin .pin-more:hover,.edit-summary .pin-more:hover{color:var(--p-dark);text-decoration:underline}
 .pin .big{font-size:18px;font-weight:500}
 .pin .big b{color:var(--p-dark)}
 .pin .mini{font-size:12px;color:var(--t2)}
