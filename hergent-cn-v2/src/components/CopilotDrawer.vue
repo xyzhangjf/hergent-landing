@@ -82,7 +82,9 @@
         <div v-show="!showHistory && !showPager" class="cp-split">
         <div class="cp-chat" :class="{'art-hidden': artFullscreen}">
         <!-- 对话流 -->
-        <div class="cp-body" ref="cpBody">
+        <!-- v622：scroll 记录「离开时的位置」—— 抽屉是 v-if 挂载的，DOM 一销毁 scrollTop 就丢，
+             重开必然停在顶部（用户实测：看到的是历史第一条）。详见下方 restoreScroll 注释。 -->
+        <div class="cp-body" ref="cpBody" @scroll.passive="onBodyScroll">
           <!-- v488：进入副驾自动恢复最近会话期间的加载态，覆盖在对话流上，避免先闪现空白新对话 -->
           <div v-if="restoringSession" class="cp-restoring">
             <span class="cp-restoring-spin"></span>
@@ -1342,6 +1344,7 @@ function toggleHistory() {
 
 function newSession() {
   explicitNew.value = true         // v488：用户主动要空白新对话 ⇒ 抽屉重开时不再自动恢复
+  savedScroll = null               // v622：换了一段对话 ⇒ 位置记录作废，下次打开按「贴底」处理
   newChatSession()
   showHistory.value = false
   nextTick(() => { if (cpInput.value) cpInput.value.focus() })
@@ -1349,9 +1352,11 @@ function newSession() {
 
 function openSession(id) {
   explicitNew.value = false        // v488：打开了具体会话 ⇒ 撤销「要新对话」的意图
+  savedScroll = null               // v622：换了会话，旧位置记录不许串到新会话上
   openChatSession(id)
   showHistory.value = false
-  nextTick(() => { if (cpInput.value) cpInput.value.focus() })
+  // v622：切会话后落到**最新一条**（原来只靠 messages.length 变化触发，两个会话条数相同时不触发 ⇒ 停在顶部）
+  nextTick(() => { scrollBottom(); if (cpInput.value) cpInput.value.focus() })
 }
 
 function delSession(id) {
@@ -1367,6 +1372,7 @@ function delSession(id) {
    ⑤ 切换/新建后 openChatSession 会 bump updated_at，下次进入自动续上刚看的那条（见 store）。 */
 async function restoreLatestSession() {
   restoringSession.value = true                       // 覆盖层抬起（覆盖在对话流上）
+  savedScroll = null                                  // v622：自动恢复=换会话 ⇒ 旧位置记录作废
   // 兜底：任何异常都不让遮罩卡死
   const safety = setTimeout(() => { restoringSession.value = false }, 6000)
   try {
@@ -1590,6 +1596,7 @@ function pickRole(r) {
 //      旧角色的口径会污染新角色（同一段历史里两个角色的话混在一起，模型会串）。
 function startNewFromSwitch() {
   explicitNew.value = true         // v488：显式「另起一段干净对话」⇒ 同样别再自动恢复
+  savedScroll = null               // v622：换了一段对话 ⇒ 位置记录作废，按「贴底」处理
   try { store.newChatSession() } catch (_) {}
   nextTick(() => scrollBottom())
 }
@@ -1620,6 +1627,7 @@ function clear() {
   store.chat.messages = []
   store.chat.error = ''
   attachments.value = []
+  savedScroll = null               // v622：清空即新对话 ⇒ 位置记录作废
   newChatSession()
 }
 
@@ -2656,6 +2664,50 @@ function scrollBottom() {
   nextTick(() => { if (cpBody.value) cpBody.value.scrollTop = cpBody.value.scrollHeight })
 }
 
+/* ---- v622：抽屉重开时回到「你离开的位置」-------------------------------------------------
+   🔴 病根（用户实测，探针复现）：抽屉是 `v-if` 挂载的，关闭时整个 DOM（含 `.cp-body` 的
+     scrollTop）**连根销毁**。而「打开」分支只有「空白态才恢复最近会话」那一条分支做了
+     scrollBottom，**已有对话直接重开时没有任何滚动代码** ⇒ 新建出来的 `.cp-body` scrollTop=0
+     ⇒ 用户看到的是这段对话的**第一条**，刚落下的那条回复在 3000px 之外。
+     实测（24 条长消息）：首开 gapToBottom=0；关掉再开 scrollTop=0、gapToBottom=3078。
+   修法：用一次 scroll 事件把「位置 + 是否贴底」记在组件上（不依赖关的那一刻 DOM 还在不在），
+     重开时按它还原：
+       · 原来贴底（生成中 / 刚看完最新）→ 回到底部，**关闭期间流式落下的新回复也一并看到**；
+       · 原来在中段翻历史 → 还原当时的 scrollTop，不把人从读到一半的地方拽走。
+   ⚠️ 不能用「记 scrollTop 数值」单独判断：关闭期间内容可能变长，同一个数值在变长后的文档里
+      已经不是原来那段话了 —— 所以必须同时记「是否贴底」。 */
+let savedScroll = null      // { top, atBottom } | null（null = 没有记录 ⇒ 当作贴底）
+function onBodyScroll() {
+  const el = cpBody.value
+  // 关闭动画期间 / 卸载瞬间也可能收到 scroll，别把记录冲成 0（那会让下次重开反而回到顶部）
+  if (!el || !el.isConnected || !store.ui.copilotOpen) return
+  savedScroll = { top: el.scrollTop, atBottom: el.scrollHeight - el.clientHeight - el.scrollTop <= 40 }
+}
+/** 打开后还原位置。nextTick 只保证「元素在」，不保证「内容撑开了」——
+ *  Markdown/表格/图片是随渲染异步变高的，所以再补一帧 + 一次 180ms 兜底（仅贴底时补）。 */
+function restoreScroll() {
+  const el = cpBody.value
+  if (!el) return
+  const s = savedScroll
+  const toBottom = !s || s.atBottom
+  const apply = () => {
+    const e = cpBody.value
+    if (!e) return
+    if (toBottom) e.scrollTop = e.scrollHeight
+    else e.scrollTop = Math.min(s.top, Math.max(0, e.scrollHeight - e.clientHeight))
+  }
+  apply()
+  requestAnimationFrame(apply)
+  if (toBottom) {
+    setTimeout(() => {
+      // 这 180ms 内用户自己往上翻了 ⇒ savedScroll.atBottom 变 false，就别再把人拽回底部
+      if (savedScroll && savedScroll.atBottom === false) return
+      const e = cpBody.value
+      if (e) e.scrollTop = e.scrollHeight
+    }, 180)
+  }
+}
+
 /* ---- 方案 B：右侧 Artifact 面板 —— 从对话消息中派生产物索引（最新在上） ---- */
 const artifacts = computed(() => {
   const msgs = store.chat.messages
@@ -3155,6 +3207,10 @@ watch(() => store.ui.copilotOpen, (v) => {
     //   ⇒ 自动恢复当前角色最近一次会话（带加载态）。已有对话/刚点了「＋ 新对话」则原样展示，不劫持。
     if (!store.chat.messages.length && !store.chat.currentId && !explicitNew.value) {
       restoreLatestSession()
+    } else if (store.chat.messages.length) {
+      // v622：已有对话直接重开 —— DOM 是新建的，**必须主动还原位置**，否则停在顶部（历史第一条）。
+      //   空白态走 restoreLatestSession（它自己会滚到底）。
+      nextTick(() => restoreScroll())
     }
     nextTick(() => { if (cpInput.value) cpInput.value.focus() })
   } else {
