@@ -505,16 +505,12 @@
                   另有 {{ cycleUnsetHidden }} 个商品没设到货周期（档案里为空），已被排除。给它们补上周期，或把「未设置」也勾上。
                 </p>
                 <p class="bp-tip">筛完只管「看得见」的：复制报单（厂家编码 / 下单数量）也只复制这一档，两段行序一一对应，可分开两次粘到厂家系统。</p>
-                <!-- v617：入口「按品牌批量设置周期」—— 位置就在这里：用户筛 +3 发现是空的，
-                     上面那条 warn 正在报「238 个商品没设周期」，入口紧挨着就是下一步动作。
-                     刻意**不**加主工具栏按钮（用户偏好：新功能并进既有入口，不铺按钮）。
-                     ⚠️ 只在**查看态**这一份提供：它改的是商品档案（全期生效），
-                        不该在「改单中」的上下文里顺手做 —— 编辑态那份面板刻意不含此行。 -->
-                <div class="cyc-set-wrap">
-                  <button type="button" class="cyc-set-entry" @click="openCycBatch">
-                    <Icon name="settings"/> 按品牌批量设置周期
-                  </button>
-                </div>
+                <!-- v618：v617 放这里的「按品牌批量设置周期」入口已撤 —— 用户指出
+                     「同一个品牌到货周期也可能不一样」，按品牌设会把不同商品拉平。
+                     设置入口并入「批量操作」（主语 = 用户勾选的行）。
+                     🔴 指路必须写「先点改单」：本面板只在**查看态**这一份存在，而「批量操作」
+                        是编辑态的按钮 —— 只说「工具栏批量操作」会让用户在查看态四处找。 -->
+                <p class="bp-tip dim">要给一批商品补周期：先点上方<b>「改单」</b> → 品牌/搜索筛出它们 → 序号列勾选（表头复选框可全选当前可见）→ 工具栏<b>「批量操作 → 批量设置到货周期」</b>。</p>
               </div>
               </Teleport>
             </div>
@@ -785,20 +781,28 @@
             <!-- v615：「上架 / 撤下」从「按筛选整批」改成「按勾选的行」——用户提的设计。
                  为什么换：v613/v614 的主语是「当前筛选出的全部行」，撤某个品牌会连带撤掉
                  原本清单里同品牌的商品，且无法「只挑这几个」。复选框把主语还给用户。
-                 按钮**只在选中 ≥1 行时渲染**：本行（.grid-ctl-row）宽度已接近满，常驻必然折行
-                 （v603 教训）；未选中时真正的主入口是序号列表头的那个复选框。
+                 v618：**常驻**（原 v-if="selCount" 撤掉，用户明确要求）。
+                   代价是这一行（.grid-ctl-row）更紧、窄屏会折行 —— 用户已知并接受；
+                   换来的是「批量操作」不用先勾才知道有这个动作（找不到入口 ≠ 不需要）。
+                   未选中时面板照样能打开，里面写明"先勾选"，不靠隐藏来教学。
+                 v618：第三项「批量设置到货周期」—— v617 曾是周期面板里的「按品牌」入口，
+                   被用户否掉（同一品牌周期也可能不一样）⇒ 主语改为勾选的行，并入本面板。
                  用 .tb-pop + positionTbPop()，与品牌/复制共用同一套定位与互斥。 -->
-            <div v-if="selCount" class="tb-pop">
+            <div class="tb-pop">
               <button ref="batchBtn" class="btn btn-sm btn-ghost" :class="{ on: batchMenuOpen }" :disabled="savingEdit"
-                      @click="toggleBatchMenu"><Icon name="check"/> 批量操作<span class="btn-badge">{{ selCount }}</span> <Icon name="chevron-down"/></button>
+                      @click="toggleBatchMenu"><Icon name="check"/> 批量操作<span v-if="selCount" class="btn-badge">{{ selCount }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
                 <div v-if="batchMenuOpen" class="tb-pop-panel batch-pop" :style="popStyle" @click.stop>
                   <div class="bp-head">
-                    <span>已选 {{ selCount }} 个商品</span>
-                    <button class="link-btn" @click="clearRowSel">清空选择</button>
+                    <span v-if="selCount">已选 {{ selCount }} 个商品</span>
+                    <span v-else>未勾选商品</span>
+                    <button v-if="selCount" class="link-btn" @click="clearRowSel">清空选择</button>
                   </div>
-                  <p v-if="selHiddenCount" class="bp-tip warn">
-                    其中 {{ selHiddenCount }} 个被当前筛选隐藏（勾选不会因筛选变化而丢失，撤下/上架仍会对它们生效）。
+                  <p v-if="!selCount" class="bp-tip">
+                    先在序号列勾选商品：可先用<b>品牌 / 到货周期 / 搜索</b>缩小范围，再点序号列表头的复选框全选当前可见。
+                  </p>
+                  <p v-else-if="selHiddenCount" class="bp-tip warn">
+                    其中 {{ selHiddenCount }} 个被当前筛选隐藏（勾选不会因筛选变化而丢失，下面的动作仍会对它们生效）。
                   </p>
                   <button class="batch-item" :disabled="!batchAddCandidates.length || savingEdit" @click="batchAddToList">
                     <Icon name="plus"/><span class="bi-t">批量上架到本期清单</span><b>{{ batchAddCandidates.length }}</b>
@@ -806,12 +810,22 @@
                   <button class="batch-item danger" :disabled="!batchDelCandidates.length || savingEdit" @click="batchRemoveFromList">
                     <Icon name="minus"/><span class="bi-t">批量从本期清单撤下</span><b>{{ batchDelCandidates.length }}</b>
                   </button>
+                  <button class="batch-item" :disabled="!rowCycRows.length || savingEdit" @click="openRowCyc">
+                    <Icon name="clock"/><span class="bi-t">批量设置到货周期</span><b>{{ rowCycRows.length }}</b>
+                  </button>
                   <p v-if="batchDelBlocked" class="bp-tip">
                     另有 {{ batchDelBlocked }} 个已选商品本期已有人报单（有数量），不会被撤下 —— 撤了下次保存会被自动加回。
                   </p>
-                  <p class="bp-tip">
-                    上架 = 门店在小程序能搜到并报；撤下 = 搜不到。两者都不产生报单数量、不改商品档案。
-                  </p>
+                  <!-- 两条口径说明只在**有勾选**时出：什么都没选时先解释"上架是什么"属于过早解释，
+                       会把面板撑长成一篇说明书（用户此刻要的是"怎么开始"）。 -->
+                  <template v-if="selCount">
+                    <p class="bp-tip">
+                      上架 = 门店在小程序能搜到并报；撤下 = 搜不到（两者都不改商品档案）。
+                    </p>
+                    <p class="bp-tip">
+                      设置到货周期 = 改<b>商品档案</b>（全期生效、不产生报单数量），与本期清单无关。
+                    </p>
+                  </template>
                 </div>
               </Teleport>
             </div>
@@ -2484,65 +2498,56 @@
       </div>
     </Teleport>
 
-    <!-- ══════════ v617：按品牌批量设置到货周期 ══════════
-         为什么在预报页做（而不是只做在「商品档案」页）：周期缺失是在**报单场景**里暴露的
-         —— 筛 +3 发现空表。此时去档案页逐个点 238 次不现实，而周期本来就按品牌成规则。
-         弹出层用全站唯一 Modal 组件（ESC / 焦点陷阱 / 背景锁 / 焦点归还都已在组件内）。
+    <!-- ══════════ v618：按选中商品批量设置到货周期 ══════════
+         由来：v617 做成了「按品牌」，用户当场否掉 ——「同一个品牌到货周期也可能不一样」。
+         生产数据印证：蒙牛低温内部本来就并存 +3(13) / +4(21) ⇒ 按品牌设＝把不同商品拉平。
+         ⇒ 主语改为**表格里勾选的行**，入口并进「批量操作」，与批量上架/撤下同一套交互
+            （先品牌/周期/搜索筛 → 序号列勾 → 批量操作 → 设置）。
+         弹出层用全站唯一 Modal 组件（ESC / 焦点陷阱 / 背景锁 / 焦点归还都在组件内）。
 
          🔴 这一屏必须让用户看清三件事，否则批量动作会误伤：
-           ① 改的是**商品档案**、全期生效（不只是本期清单）；
-           ② 「在售 / 已设」两列 + 当前周期分布 —— 让"这个品牌还有多少没设"一眼可见；
-           ③ 留空 = 跳过、填 0 = 清除（与档案页行内编辑的「留空=清空」相反，故反复写明）。 -->
-    <Modal :show="cycBatchOpen" title="按品牌批量设置到货周期" :width="720" @close="closeCycBatch">
-      <p class="cb-lead">改的是<b>商品档案</b>：该品牌<b>所有商品</b>都会设成同一个周期（含停用的、也含本期清单外的），以后每期都按它算。</p>
-      <p class="cb-lead dim">留空 = 跳过这个品牌（不动它）；填 <b>0</b> = 清除设置（主表恢复「—」）。</p>
+           ① 改的是**商品档案**、全期生效，且不产生任何报单数量；
+           ② 勾了哪些（品牌抽样 + 当前周期分布）—— 让他能确认"我勾的确实是这批"；
+           ③ 填 0 = 清除设置（这里没有"留空 = 跳过"的语义：留空直接不给应用）。 -->
+    <Modal :show="rowCycOpen" title="批量设置到货周期" :width="560" @close="closeRowCyc">
+      <p class="cb-lead">改的是<b>商品档案</b>的到货周期，以后每期都按它算；<b>不产生报单数量</b>，也不动本期清单。</p>
 
-      <p v-if="cycStatsLoading" class="cb-empty">正在读取品牌覆盖情况…</p>
-      <p v-else-if="cycStatsErr" class="cb-empty err">{{ cycStatsErr }}</p>
-      <table v-else class="cb-table">
-        <thead>
-          <tr>
-            <th>品牌</th>
-            <th class="num">在售</th>
-            <th class="num">停用</th>
-            <th class="num">已设</th>
-            <th>当前周期分布</th>
-            <th class="num">设为</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="b in cycStatsBrands" :key="b.brand" :class="{done: b.set >= b.total}">
-            <td class="cb-bname">{{ b.brand || '未填品牌' }}</td>
-            <td class="num">{{ b.active }}</td>
-            <td class="num" :class="{dim: !b.inactive}">{{ b.inactive || '—' }}</td>
-            <td class="num" :class="{miss: b.set < b.total}">{{ b.set }}</td>
-            <td class="cb-dist">
-              <span v-for="d in b.dist" :key="d.days" class="cb-chip" :class="{unset: !d.days}">
-                {{ d.days ? '+' + d.days + '天' : '未设' }} × {{ d.n }}
-              </span>
-            </td>
-            <td class="num">
-              <span class="cb-in-wrap">
-                <input class="cb-input" type="text" inputmode="numeric"
-                       :class="{bad: !!cycBatchBad[b.brand]}"
-                       :aria-invalid="!!cycBatchBad[b.brand]"
-                       :aria-label="'给「' + (b.brand || '未填品牌') + '」设置到货天数（留空 = 跳过，0 = 清除）'"
-                       v-model="cycBatchInput[b.brand]" />
-                <em class="cb-in-unit" aria-hidden="true">天</em>
-              </span>
-            </td>
-          </tr>
-          <tr v-if="!cycStatsBrands.length">
-            <td colspan="6" class="cb-empty">没有商品</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="rc-picked">
+        <div class="rc-line">
+          <span class="rc-k">已勾选</span>
+          <span class="rc-v"><b>{{ rowCycRows.length }}</b> 个商品</span>
+        </div>
+        <div class="rc-line">
+          <span class="rc-k">涉及品牌</span>
+          <span class="rc-v">{{ rowCycBrandText }}</span>
+        </div>
+        <div class="rc-line">
+          <span class="rc-k">当前周期</span>
+          <span class="rc-v rc-dist">
+            <span v-for="c in rowCycDist" :key="c.days" class="cb-chip" :class="{ unset: !c.days }">{{ c.days ? '+' + c.days + '天' : '未设置' }} × {{ c.n }}</span>
+            <span v-if="!rowCycDist.length" class="rc-none">—</span>
+          </span>
+        </div>
+      </div>
+      <p v-if="rowCycHidden" class="cb-note">其中 {{ rowCycHidden }} 个被当前筛选隐藏（勾选在改筛选之前就存在），<b>同样会设置</b>。</p>
+
+      <div class="rc-set">
+        <label class="rc-lb" for="rowCycInput">统一设为</label>
+        <span class="cb-in-wrap">
+          <input id="rowCycInput" data-autofocus class="cb-input cb-input-lg" type="text" inputmode="numeric"
+                 :class="{ bad: rowCycBad }" :aria-invalid="rowCycBad"
+                 aria-label="统一设置的到货天数（0 = 清除设置）"
+                 v-model="rowCycDays" @keydown.enter.prevent="applyRowCyc" />
+          <em class="cb-in-unit" aria-hidden="true">天</em>
+        </span>
+        <span class="rc-hint">填 <b>0</b> = 清除设置（表格里那一格恢复「—」）</span>
+      </div>
 
       <template #footer>
-        <span class="cb-sum" :class="{warn: cycBatchHasBad}">{{ cycBatchSummary }}</span>
-        <button class="btn btn-ghost" @click="closeCycBatch">取消</button>
-        <button class="btn btn-primary" :disabled="!cycBatchCount || cycBatchHasBad || cycBatchSaving" @click="applyCycBatch">
-          {{ cycBatchSaving ? '保存中…' : '应用' }}
+        <span class="cb-sum" :class="{ warn: rowCycBad }">{{ rowCycSummary }}</span>
+        <button class="btn btn-ghost" @click="closeRowCyc">取消</button>
+        <button class="btn btn-primary" :disabled="rowCycBad || !rowCycCount || rowCycSaving" @click="applyRowCyc">
+          {{ rowCycSaving ? '保存中…' : '应用' }}
         </button>
       </template>
     </Modal>
@@ -5613,137 +5618,11 @@ const cycleUnsetHidden = computed(() => {
   return n
 })
 
-/* ===================== v617：按品牌批量设置到货周期 =====================
-   用户场景（原话）：「按品牌批量设置到货周期」。起因是 v616 做完筛选后发现**筛 +3 是空表** ——
-   生产本期 294 个清单商品里 238 个 `arrival_lead_days=0`，且含刚报过单的 3 个。
-   根因不是筛选坏了，是**档案大面积缺值**；而周期本来就按品牌成规则（蒙牛低温 +3、鲜奶 +2…），
-   让用户进「商品档案」逐个点 238 次行内编辑不现实。
+/* v618：v617 那套「按品牌批量设置」的前端逻辑已整体移除 —— 品牌粒度是错的
+   （用户原话：「同一个品牌到货周期也可能不一样」）。现改为「按勾选的行」设置，
+   实现见下方批量操作段（`rowCyc*`）。后端 `GET /products/arrival-stats` 与
+   `POST /products/bulk-arrival` 两个端点保留不动（无前端调用，CLI/后续排查可用）。 */
 
-   🔴 五个口径（改这里之前先读完）：
-     ① 范围 = 该品牌**全部在售商品**（后端 `COALESCE(is_active,1)=1`），不是本期清单子集。
-        理由：周期是档案属性，本期的清单外的商品下期一进来就该有正确周期。
-     ② **留空 = 跳过**、**填 0 = 清除** —— 与「商品档案」页行内编辑（留空=清空）**相反且有意**：
-        那边是点开某一格的定向动作，这边是成批动作（空格子多半只是"这个品牌我还没想好"）。
-        屏幕上必须写明（`.cb-lead.dim`），否则用户会以为没填就是在清空。
-     ③ 预告数 `cycBatchCount` 与后端实际 `changed` **同源**（都从 dist 差分算），
-        不会出现「预告 146、实际改了 143」。后端 UPDATE 另带 `!=days` 守卫，重复点同值 ⇒ 0。
-     ④ 应用成功只**本地同步 `arrival_lead_days` 一个字段**（不重拉数据）——
-        重拉会丢掉改单草稿；而本次改动已由后端确认落库。
-     ⑤ 入口只在**查看态**的周期面板里（编辑态那份刻意没有）：改档案不该在"改单中"顺手做。 */
-const cycBatchOpen = ref(false)
-const cycStats = ref(null)          // {brands:[{brand,active,set,dist:[{days,n}]}], total_active, total_set}
-const cycStatsLoading = ref(false)
-const cycStatsErr = ref('')
-const cycBatchInput = reactive({})  // { [brand]: '3' | '' } —— 只存用户真填了的
-const cycBatchSaving = ref(false)
-
-/* 未设满的品牌排前面（那才是要动手的），同组内按在售数降序。
-   已设满的照常列出但整行淡化 —— 用户需要能确认"这个品牌我确实已经设完了"，
-   而不是凭空消失（消失 = 以为漏了，又去设一遍）。 */
-const cycStatsBrands = computed(() => {
-  const bs = (cycStats.value && cycStats.value.brands) || []
-  return bs.slice().sort((a, b) => {
-    const da = a.set >= a.total ? 1 : 0
-    const db = b.set >= b.total ? 1 : 0
-    if (da !== db) return da - db
-    return (b.total - a.total) || String(a.brand).localeCompare(String(b.brand), 'zh')
-  })
-})
-
-function _cycClearInput() {
-  Object.keys(cycBatchInput).forEach(k => delete cycBatchInput[k])
-}
-async function openCycBatch() {
-  cyclePopOpen.value = false        // Modal 自带遮罩，下拉留着会叠两层
-  _cycClearInput()
-  cycBatchOpen.value = true
-  if (cycStats.value) return        // 本次会话已拉过；应用后会被置空强制重拉
-  await loadCycStats()
-}
-function closeCycBatch() {
-  cycBatchOpen.value = false
-  cycBatchSaving.value = false
-}
-async function loadCycStats() {
-  cycStatsLoading.value = true
-  cycStatsErr.value = ''
-  try {
-    cycStats.value = await api('/api/products/arrival-stats')
-  } catch (e) {
-    cycStatsErr.value = e.message || '读取品牌覆盖情况失败'
-  } finally {
-    cycStatsLoading.value = false
-  }
-}
-
-/* 「填了什么 → 要改多少个」：用面板上那份 dist 反推，不另查后端 ⇒ 两处数字必然一致。 */
-const cycBatchPlan = computed(() => {
-  const out = []
-  ;((cycStats.value && cycStats.value.brands) || []).forEach(b => {
-    const raw = cycBatchInput[b.brand]
-    if (raw == null || String(raw).trim() === '') return
-    const r = parseArrivalDays(raw)
-    if (!r.ok) { out.push({ brand: b.brand, days: null, n: 0, ow: 0, bad: true }); return }
-    let n = 0
-    let ow = 0
-    ;(b.dist || []).forEach(d => {
-      const dd = Number(d.days) || 0
-      if (dd === r.value) return
-      n += Number(d.n) || 0
-      if (dd > 0) ow += Number(d.n) || 0     // 原本已有别的周期 ⇒ 会被这次覆盖（最该让用户看见的一笔）
-    })
-    out.push({ brand: b.brand, days: r.value, n, ow, bad: false })
-  })
-  return out
-})
-const cycBatchBad = computed(() => {
-  const m = {}
-  cycBatchPlan.value.forEach(p => { if (p.bad) m[p.brand] = true })
-  return m
-})
-const cycBatchHasBad = computed(() => cycBatchPlan.value.some(p => p.bad))
-const cycBatchCount = computed(() => cycBatchPlan.value.reduce((s, p) => s + (p.bad ? 0 : p.n), 0))
-const cycBatchSummary = computed(() => {
-  const ps = cycBatchPlan.value
-  if (!ps.length) return '给要统一周期的品牌填上天数；留空 = 跳过'
-  if (cycBatchHasBad.value) return '有输入不合法：请填 0~365 的整数天数（如 3）'
-  const g = ps.filter(p => p.n > 0)
-  if (!g.length) return '所选品牌已经是这些周期了，无需修改'
-  const ow = ps.reduce((s, p) => s + (p.bad ? 0 : (p.ow || 0)), 0)
-  // 🔴 覆盖已有周期必须报数：生产「蒙牛低温」同时存在 +3(13) 与 +4(21)，
-  //    一律设 +3 会把这 21 个原本 +4 的改掉。不报 = 用户改完才发现某几个"变早了"。
-  return '将修改 ' + cycBatchCount.value + ' 个商品（' + g.length + ' 个品牌）'
-    + (ow ? '，其中 ' + ow + ' 个原本已有别的周期' : '')
-})
-
-async function applyCycBatch() {
-  const plan = cycBatchPlan.value.filter(p => !p.bad)
-  if (!plan.length || cycBatchSaving.value) return
-  cycBatchSaving.value = true
-  try {
-    const r = await api('/api/products/bulk-arrival', {
-      method: 'POST',
-      body: { items: plan.map(p => ({ brand: p.brand, days: p.days })) },
-    })
-    // 本地同步本期清单里的行 —— 改完立刻再筛 +3 就必须有货，不能等下次重载。
-    //   只改 arrival_lead_days：数量、加单、草稿一律不碰。
-    const m = new Map(plan.map(p => [String(p.brand || '').trim(), p.days]))
-    ;(cross.value.rows || []).forEach(row => {
-      const k = String(rowBrand(row) || '').trim()
-      if (m.has(k)) row.arrival_lead_days = m.get(k)
-    })
-    const n = Number(r && r.changed) || 0
-    toast(n > 0 ? '已更新 ' + n + ' 个商品的到货周期' : '所选品牌已是这些周期，无改动',
-          n > 0 ? 'ok' : 'warn')
-    cycBatchOpen.value = false
-    _cycClearInput()
-    cycStats.value = null        // 覆盖情况已变 ⇒ 下次打开重拉
-  } catch (e) {
-    toast(e.message || '设置失败', 'err')
-  } finally {
-    cycBatchSaving.value = false
-  }
-}
 
 /* v185：承接跨页品牌上下文（`#/forecast?brand=A,B`）。
    来源页＝「目标与返利 › 仪表盘」达成列表标题行的链接「实时达成（含预报贡献）→」
@@ -7890,6 +7769,118 @@ const batchDelPlan = computed(() => {
 })
 const batchDelCandidates = computed(() => batchDelPlan.value.ok)
 const batchDelBlocked = computed(() => batchDelPlan.value.blocked)
+
+/* ===================== v618：按勾选的行批量设置到货周期 =====================
+   v617 曾做成「按品牌」，用户当场否掉：「同一个品牌到货周期也可能不一样」。
+   生产数据印证：蒙牛低温内部本就并存 +3(13) / +4(21) ⇒ 按品牌设＝把不同商品强行拉平。
+   ⇒ 主语改为**表格里勾选的行**，入口并进「批量操作」（与上架/撤下同一套交互）。
+
+   🔴 四条口径（改这里之前先读完）：
+     ① 可设置 = `product_id > 0` 的选中行。**不排除停用、不排除本期清单外** ——
+        用户勾了就是他要改（本期清单里就混着 3 个 is_active=0 却照样在报单的商品；
+        按在售过滤 = "勾了却没变"，本项目最难查的缺陷形态）。
+     ② 这里**没有「留空 = 跳过」**：这是专为设置打开的弹窗，留空直接不给应用；
+        要清除周期必须显式填 0。（与 v617 品牌面板的「留空=跳过」相反 —— 那是多行表格，
+        空格子多半是"这个品牌还没想好"；这里是单值输入，空 = 还没填。）
+     ③ 预告数 `rowCycCount` 与后端 `changed` **同源**（都从行上的现值差分算），
+        不会出现「预告 8、实际改了 6」。后端 UPDATE 另带 `!=days` 守卫，重复设同值 ⇒ 0。
+     ④ 应用成功只**本地同步 `arrival_lead_days` 一个字段**（不重拉数据）——
+        重拉会丢掉改单草稿；而本次改动已由后端确认落库。
+   勾选状态**不清**：用户很可能接着对同一批做撤下/上架。 */
+const rowCycOpen = ref(false)
+const rowCycDays = ref('')
+const rowCycSaving = ref(false)
+
+const rowCycRows = computed(() => selRows.value.filter(r => Number(r.product_id) > 0))
+
+/* 当前周期分布：未设置（0）排最后，与周期筛选面板同序。 */
+const rowCycDist = computed(() => {
+  const m = {}
+  rowCycRows.value.forEach(r => { const d = rowCycle(r); m[d] = (m[d] || 0) + 1 })
+  return Object.keys(m).map(k => ({ days: Number(k), n: m[k] }))
+    .sort((a, b) => ((a.days === 0 ? 1 : 0) - (b.days === 0 ? 1 : 0)) || (a.days - b.days))
+})
+/* 品牌抽样：让用户确认"勾的是这批"，不是统计口径（选择很大时只列前 4 个）。 */
+const rowCycBrandText = computed(() => {
+  const seen = []
+  rowCycRows.value.forEach(r => {
+    const b = String(rowBrand(r) || '').trim() || '未填品牌'
+    if (!seen.includes(b)) seen.push(b)
+  })
+  if (!seen.length) return '—'
+  return seen.slice(0, 4).join('、') + (seen.length > 4 ? ' 等 ' + seen.length + ' 个品牌' : '')
+})
+/* 已勾但被筛选隐藏的行：动作照样生效，必须显式报（沿用 v615 selHiddenCount 的口径）。 */
+const rowCycHidden = computed(() => rowCycRows.value.filter(r => !rowFilterPass(r)).length)
+
+/* 输入解析：空 = 还没填（不能应用，也不是"清除"）；0 = 清除；其余走 parseArrivalDays。 */
+const rowCycVal = computed(() => {
+  const raw = String(rowCycDays.value == null ? '' : rowCycDays.value).trim()
+  if (raw === '') return { ok: false, empty: true, value: 0 }
+  const r = parseArrivalDays(raw)
+  return { ok: r.ok, empty: false, value: r.value }
+})
+const rowCycBad = computed(() => !rowCycVal.value.ok && !rowCycVal.value.empty)
+const rowCycCount = computed(() => {
+  const v = rowCycVal.value
+  if (!v.ok) return 0
+  return rowCycRows.value.filter(r => rowCycle(r) !== v.value).length
+})
+const rowCycSummary = computed(() => {
+  const v = rowCycVal.value
+  if (v.empty) return '填一个到货天数（如 3 表示 +3 天）'
+  if (!v.ok) return '请填 0~365 的整数天数（如 3）'
+  if (!rowCycCount.value) {
+    return v.value ? '所选商品已经是 +' + v.value + '天了，无需修改' : '所选商品本来就没设周期，无需修改'
+  }
+  /* 覆盖已有周期必须报数：勾中的行里 +3/+4 完全可能混着（同品牌也会混），
+     一律设成一个值就会改掉其中一部分 —— 不报＝用户改完才发现某几个"变早了"。 */
+  const ow = rowCycRows.value.filter(r => rowCycle(r) > 0 && rowCycle(r) !== v.value).length
+  return '将修改 ' + rowCycCount.value + ' 个商品' + (ow ? '，其中 ' + ow + ' 个原本已有别的周期' : '')
+})
+
+function openRowCyc() {
+  if (!rowCycRows.value.length || savingEdit.value) return
+  batchMenuOpen.value = false          // Modal 自带遮罩，下拉留着会叠两层
+  rowCycDays.value = ''
+  rowCycOpen.value = true
+  /* 不做手动 focus：输入框标了 `data-autofocus`，由 Modal 组件在打开时统一聚焦
+     （两处都抢会赛跑 —— watch 也在 nextTick 之后，谁后跑谁赢，结果不稳定）。 */
+}
+function closeRowCyc() {
+  rowCycOpen.value = false
+  rowCycSaving.value = false
+}
+
+async function applyRowCyc() {
+  const v = rowCycVal.value
+  if (!v.ok || !rowCycCount.value || rowCycSaving.value) return
+  const pids = rowCycRows.value.map(r => Number(r.product_id)).filter(n => n > 0)
+  if (!pids.length) return
+  rowCycSaving.value = true
+  try {
+    const r = await api('/api/products/batch-arrival', {
+      method: 'POST',
+      body: { product_ids: pids, days: v.value },
+    })
+    // 本地同步：改完立刻按周期筛就必须看得到（等下次重载 = 用户以为没生效）。
+    //   只改 arrival_lead_days 这一个字段 —— 数量、加单、草稿一律不碰。
+    const want = new Set(pids)
+    ;(cross.value.rows || []).forEach(row => {
+      if (want.has(Number(row.product_id))) row.arrival_lead_days = v.value
+    })
+    const n = Number(r && r.changed) || 0
+    toast(n > 0
+      ? '已把 ' + n + ' 个商品的到货周期设为 ' + (v.value ? '+' + v.value + '天' : '未设置')
+      : '所选商品已经是这个周期，无改动',
+      n > 0 ? 'success' : 'warn')
+    rowCycOpen.value = false
+  } catch (e) {
+    toast(e.message || '设置失败', 'err')
+  } finally {
+    rowCycSaving.value = false
+  }
+}
 
 async function batchAddToList() {
   const list = batchAddCandidates.value
@@ -12543,7 +12534,9 @@ th.sortable:hover{color:var(--p-dark)}
 .cross-tbl .row-pick:disabled{cursor:not-allowed;opacity:.35}
 /* 批量操作面板：与 .tb-pop-panel 同壳，只覆盖宽度与条目样式。
    ⚠️ 面板里**不要再放 fixed/sticky 子元素** —— 它自己就是 position:fixed。 */
-.batch-pop{width:312px;min-width:312px;gap:8px}
+/* v618：多了一条动作 + 两条说明 ⇒ 限高滚动（否则窄屏/小屏会顶出视口下边）。
+   视口 70vh 与 440px 取小：屏幕上永远看得全，内容多时在面板内滚。 */
+.batch-pop{width:312px;min-width:312px;gap:8px;max-height:min(70vh,440px);overflow:auto}
 .batch-pop .bp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--t2)}
 .batch-item{display:flex;align-items:center;gap:8px;width:100%;height:32px;padding:0 10px;
   border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t1);
@@ -13183,45 +13176,44 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
    （实测 487px，而旁边品牌面板只有 240px）。与 .addcol-pop 同一条纪律。 */
 .cycle-pop{max-width:300px}
 /* v616 补：`.brand-pop` 是 shrink-to-fit，长 tip 会把面板撑到 487px（超出工具栏，右侧被切）。
-   v617：入口那一行沿用面板的 300px 上限，不做第二个弹层定位。 */
-.cyc-set-wrap{margin-top:2px;padding-top:8px;border-top:1px solid var(--border-subtle)}
-.cyc-set-entry{display:flex;align-items:center;gap:6px;width:100%;padding:7px 8px;border:none;
-  background:none;font-family:inherit;font-size:12.5px;line-height:1.4;color:var(--t1);text-align:left;
-  border-radius:var(--radius-sm);cursor:pointer}
-.cyc-set-entry:hover{background:var(--bg2);color:var(--p)}
-.cyc-set-entry svg.ico{width:14px;height:14px;flex:none;color:var(--t3)}
-.cyc-set-entry:hover svg.ico{color:var(--p)}
+   v617 曾在这里塞「按品牌批量设置周期」入口行，v618 已撤（粒度错，见下方 .cb-* 注释）。 */
 
-/* v617：按品牌批量设置到货周期（Modal 内容）。
-   表格沿用主表的密度口径（12.5px 字 / 右侧数字走 tabular-nums 防抖），
-   输入框 28px 高（比 btn-sm 的 32 矮一档：它在表格行里，不是动作按钮）。 */
-.cb-lead{margin:0 0 6px;font-size:13px;line-height:1.6;color:var(--t1)}
-.cb-lead.dim{color:var(--t3);font-size:12.5px;margin-bottom:14px}
+/* ===================== v618：批量设置到货周期（Modal 内容） =====================
+   主语是**勾选的行**（v617 的按品牌版已废除）。三块信息按「确认 → 输入 → 后果」排：
+   勾了什么 → 设成几天 → 会改几个。字色只用 t1/t2/t3 三档，不用装饰色。 */
+.cb-lead{margin:0 0 10px;font-size:13px;line-height:1.6;color:var(--t1)}
 .cb-lead b{color:var(--t1);font-weight:600}
-.cb-empty{margin:18px 0;font-size:13px;color:var(--t3);text-align:center}
-.cb-empty.err{color:var(--danger-txt)}
-.cb-table{width:100%;border-collapse:collapse;font-size:12.5px}
-.cb-table th{position:sticky;top:0;z-index:1;background:var(--bg);text-align:left;font-weight:600;
-  color:var(--t3);font-size:12px;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
-.cb-table td{padding:6px 8px;border-bottom:1px solid var(--border-subtle);vertical-align:middle}
-.cb-table .num{text-align:right;font-variant-numeric:tabular-nums}
-.cb-table tr.done{opacity:.45}
-.cb-bname{color:var(--t1);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cb-table td.miss{color:var(--warn-amber);font-weight:600}
-.cb-table td.dim{color:var(--t3)}
-.cb-dist{max-width:300px}
-.cb-chip{display:inline-block;margin:1px 4px 1px 0;padding:1px 6px;border-radius:4px;
+.cb-note{margin:8px 0 0;font-size:12px;line-height:1.5;color:var(--warn-amber)}
+.cb-note b{font-weight:600}
+/* 勾选摘要：左标签定宽 62px ⇒ 三行值左边界对齐（不是每行各排各的） */
+.rc-picked{display:flex;flex-direction:column;gap:6px;padding:10px 12px;
+  border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--border-subtle)}
+.rc-line{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;line-height:1.5}
+.rc-k{flex:none;width:62px;color:var(--t3)}
+.rc-v{flex:1;min-width:0;color:var(--t1)}
+.rc-v b{font-variant-numeric:tabular-nums}
+.rc-dist{display:flex;flex-wrap:wrap}
+.rc-none{color:var(--t3)}
+.cb-chip{display:inline-block;margin:1px 6px 1px 0;padding:1px 6px;border-radius:4px;
   background:var(--bg3);color:var(--t2);font-size:11.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cb-chip.unset{background:var(--warn-amber-bg);color:var(--warn-amber)}
+/* 设置行：标签 + 输入 + 说明同基线；窄屏说明自然折到下一行 */
+.rc-set{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.rc-lb{font-size:13px;color:var(--t2)}
+.rc-hint{font-size:12px;color:var(--t3);line-height:1.4}
+.rc-hint b{color:var(--t2);font-weight:600}
 .cb-in-wrap{position:relative;display:inline-block}
 /* 单位「天」常驻在框内右侧（不是 placeholder）—— 填了数字也还看得见单位；
    补 20px 右内边距给这俩字腾位置，否则值会压在它上面。 */
 .cb-input{width:74px;height:28px;padding:0 20px 0 8px;box-sizing:border-box;border:1px solid var(--bd);
   border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:13px;font-family:inherit;
   text-align:right;font-variant-numeric:tabular-nums}
+/* 弹窗里只有一个输入框 ⇒ 给到与 btn-sm 同高的 32px（v599：同行控件必须同构，
+   不能比旁边的「应用」按钮矮一档）。 */
+.cb-input-lg{width:92px;height:32px;font-size:14px}
 .cb-input:focus{outline:none;border-color:var(--p);box-shadow:0 0 0 2px var(--p-bg)}
-/* 非法输入只改边框 + 底纹（不塞问号）：footer 已经用红字说明"哪里不对、该填什么"，
-   再在框边挂个 ? 属于同一状态说两遍（v608 的教训），且会顶出单元格宽度。 */
+/* 非法输入只改边框 + 底纹（不塞问号）：footer 已用红字说明"哪里不对、该填什么"，
+   再挂个 ? 属于同一状态说两遍（v608 教训），还会顶出宽度。 */
 .cb-input.bad{border-color:var(--danger-txt);background:color-mix(in srgb,var(--dan) 8%,var(--bg))}
 .cb-in-unit{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-style:normal;
   font-size:11px;line-height:1;color:var(--t3);pointer-events:none}

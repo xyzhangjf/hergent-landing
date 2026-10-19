@@ -89,9 +89,20 @@ watch(
       document.body.style.overflow = 'hidden'
       window.addEventListener('keydown', onKeydown, true)
       await nextTick()
-      const f = focusables()
-      if (f.length) f[0].focus()
-      else if (panel.value) panel.value.focus()
+      /* v618：焦点优先给**声明了 `data-autofocus` 的元素**（例如「填天数」这类
+         "打开就是要输入"的弹窗），否则才退到第一个可聚焦元素（通常是关闭按钮）。
+         为什么不让调用方自己 nextTick().focus()：本 watch 也在 nextTick 之后执行，
+         谁后跑谁赢 —— 两边赛跑的结果不稳定（实测调用方先跑、被这里覆盖成关闭按钮）。
+         声明式只有一个焦点决策点，全站行为一致；没标 data-autofocus 的弹窗零变化。 */
+      const auto = panel.value && panel.value.querySelector('[data-autofocus]')
+      if (auto && typeof auto.focus === 'function') {
+        auto.focus()
+        if (typeof auto.select === 'function') { try { auto.select() } catch (e) { /* 非输入框，忽略 */ } }
+      } else {
+        const f = focusables()
+        if (f.length) f[0].focus()
+        else if (panel.value) panel.value.focus()
+      }
     } else {
       window.removeEventListener('keydown', onKeydown, true)
       document.body.style.overflow = ''
