@@ -19,6 +19,8 @@
      祖先一旦出现 overflow:hidden（v582 合计栏就踩过）整块浮层会被裁掉。 */
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import { fmt } from '../../utils/forecast/format.js'
+/* v629：显示判据抽到共享模块 —— 工具栏「冲刺看板」按钮也判同一件事，两边不许各写一遍。 */
+import { sprintHasData } from '../../utils/forecast/sprint.js'
 import Icon from '../Icon.vue'
 
 /* 与父级 Forecast.vue 用的是同一个模块 ⇒ 浏览器只加载一次该 chunk，不会重复下载。
@@ -65,7 +67,7 @@ const allDone = computed(() => unmet.value === 0)
 
 /* 显示条件：有目标规则才显示；取数失败（403 等）时**也要显示** —— 那正是最该让人看见的状态，
    否则页脚一片空白，用户会以为"本来就没有目标"。 */
-const show = computed(() => !!s.value && (hasErr.value || ruleCount.value > 0))
+const show = computed(() => sprintHasData(s.value))
 
 function place () {
   const el = chipRef.value

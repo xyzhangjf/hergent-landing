@@ -143,6 +143,15 @@
              到这里才算回到一级入口。 -->
         <button class="btn btn-sm btn-ghost log-btn" :disabled="!cross.period" :class="{ on: trailOpen }"
                 @click="toggleTrail" title="本期报单的修改记录：谁、什么时候、把哪个商品改成了多少"><Icon name="list"/> 修改日志</button>
+        <!-- v629：「冲刺看板」—— 夹在「修改日志」与「改单」之间：三者同属"先看清局势、再动手改"，
+             最右那个 primary 的「改单」才是动作，三者按 看 → 看 → 动手 排。
+             点击就地向下展开完整看板，不必滚到页脚；页脚胶囊（那份是全屏模式用的）原样保留。
+             🔴 只在**查看态**渲染（!editMode）：编辑态第一行多个「工具箱」(89px)，
+                加本按钮会把工具栏顶折（v619 判据 62→138）；且编辑态页脚胶囊就在表格正下方。
+             🔴 fsRowHosting 时撤掉：全屏层 fixed/inset:0 把本行盖住，留一个"看得见点不到"的
+                按钮是纯噪音（v209 同族处理，与「改单」一致）。 -->
+        <SprintBoardBtn v-if="sprintVisible && !editMode && !fsRowHosting"
+                        :period="cross.period" :rows="cross.rows" :edit-mode="editMode" :prod-meta="prodMeta" />
         <!-- v209：全屏时让位给表格工具行里那一份（全屏层 fixed/inset:0 把本工具栏整条盖住 ⇒ 这里的按钮点不到）。
              非全屏照旧渲染于此。判据见 fsRowHosting。 -->
         <!-- v219：已定稿（关闭）的期次禁用改单 —— 与后端 save_matrix 闸门同源，避免「能改但保存被拒」 -->
@@ -2651,6 +2660,10 @@ import ReminderConfig from '../components/forecast/ReminderConfig.vue'
 import TemplateParams from '../components/forecast/TemplateParams.vue'
 /* v585：页脚「返利冲刺胶囊」—— 全屏也常显达成摘要，悬停展开完整看板（组件内自取 summary，不重算数字） */
 import SprintChip from '../components/forecast/SprintChip.vue'
+/* v629：工具栏「冲刺看板」按钮（   点击居中向下展开看板）—— 页脚胶囊要悬停才展开、非全屏时等于没有入口，本按钮负责入口显形。 */
+import SprintBoardBtn from '../components/forecast/SprintBoardBtn.vue'
+/* v629：与页脚胶囊共用同一条「有没有冲刺数据」判据，两边不许各写一遍。 */
+import { sprintHasData } from '../utils/forecast/sprint.js'
 /* v603：`<script setup>` 无自动注册 ⇒ 必须显式 import（v557 教训：漏 import 构建照过、
    运行时渲染成空元素，页面不报错）。 */
 import KbdHelp from '../components/forecast/KbdHelp.vue'
@@ -10468,6 +10481,9 @@ const RebateSprint = defineAsyncComponent(() => import('../components/forecast/R
    页脚胶囊与看板卡共用这一份 ⇒ 两处数字不可能分歧；编辑态改数量时它随 computed 同步变。 */
 const sprintSummary = ref(null)
 function onSprintSummary (v) { sprintSummary.value = v }
+/* v629：同一份 summary 派生出「工具栏按钮要不要出现」—— 与页脚胶囊共用 sprintHasData，
+   按钮与胶囊必须同进同退（胶囊不显示时按钮也不该显示，否则点了打开一块空面板）。 */
+const sprintVisible = computed(() => sprintHasData(sprintSummary.value))
 const AllocPanel = defineAsyncComponent(() => import('../components/forecast/AllocPanel.vue'))
 const PeriodOps = defineAsyncComponent(() => import('../components/forecast/PeriodOps.vue'))
 
