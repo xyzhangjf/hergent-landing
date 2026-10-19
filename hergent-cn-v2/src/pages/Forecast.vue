@@ -185,7 +185,7 @@
           <i class="ss-dot"></i>{{ saveState.text }}
         </span>
       </div>
-      <div v-if="(advToolsOpen && editMode) || exportMenuOpen || brandPopOpen || copyMenuOpen" class="pop-overlay" @click="advToolsOpen=false; exportMenuOpen=false; brandPopOpen=false; copyMenuOpen=false"></div>
+      <div v-if="(advToolsOpen && editMode) || exportMenuOpen || brandPopOpen || copyMenuOpen || batchMenuOpen" class="pop-overlay" @click="advToolsOpen=false; exportMenuOpen=false; brandPopOpen=false; copyMenuOpen=false; batchMenuOpen=false"></div>
     </div>
 
 
@@ -750,21 +750,39 @@
             >已隐藏 {{ zeroReportCount }} 个零报单</span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
-            <!-- v613：「上架」与「报单」分开 —— 勾「显示全部商品」+（可选）品牌筛选后，这里给出
-                 「当前筛选出、但还没进本期清单」的商品数，一点即加入清单并保存。
-                 只在**有筛选且候选 > 0** 时渲染 ⇒ 日常改单不占位；也挡住「没筛选时一键灌全表」
-                 （实测清空品牌后候选 226 个，见 listAddFiltered 注释）。
-                 文案用「清单」而不是「上架」：小程序里它表现为「能搜到」，用词要对齐用户看到的东西。 -->
-            <button v-if="listAddCandidates.length && hasActiveRowFilter" class="btn btn-sm btn-ghost" :disabled="savingEdit"
-                    :title="'当前筛选出的 ' + listAddCandidates.length + ' 个商品还没进本期清单（小程序里搜不到）。点这里加入并保存 —— 只上架，不产生报单数量'"
-                    @click="addShownToList"><Icon name="plus"/> 加入本期清单<span class="btn-badge">{{ listAddCandidates.length }}</span></button>
-            <!-- v614：「撤下」是「上架」的逆动作，同样只在**有筛选**时出现（否则一键清空整期清单）。
-                 用 minus 图标与 plus 成对；同行控件同构（btn-sm / 13 字 / 32 高），
-                 危险程度靠角标配色（.btn-badge.err）表达，不改按钮外形 —— 自创红框按钮会被否。
-                 候选里排除「有数量」的行（原因见 listDelPlan 注释：会被 qty>0 自动加回）。 -->
-            <button v-if="listDelPlan.ok.length && hasActiveRowFilter" class="btn btn-sm btn-ghost" :disabled="savingEdit"
-                    :title="'当前筛选出的 ' + listDelPlan.ok.length + ' 个商品在本期清单里。点这里撤下并保存 —— 撤下后门店在小程序搜不到（不删已报数量、不改商品档案）'"
-                    @click="removeShownFromList"><Icon name="minus"/> 撤下清单<span class="btn-badge err">{{ listDelPlan.ok.length }}</span></button>
+            <!-- v615：「上架 / 撤下」从「按筛选整批」改成「按勾选的行」——用户提的设计。
+                 为什么换：v613/v614 的主语是「当前筛选出的全部行」，撤某个品牌会连带撤掉
+                 原本清单里同品牌的商品，且无法「只挑这几个」。复选框把主语还给用户。
+                 按钮**只在选中 ≥1 行时渲染**：本行（.grid-ctl-row）宽度已接近满，常驻必然折行
+                 （v603 教训）；未选中时真正的主入口是序号列表头的那个复选框。
+                 用 .tb-pop + positionTbPop()，与品牌/复制共用同一套定位与互斥。 -->
+            <div v-if="selCount" class="tb-pop">
+              <button ref="batchBtn" class="btn btn-sm btn-ghost" :class="{ on: batchMenuOpen }" :disabled="savingEdit"
+                      @click="toggleBatchMenu"><Icon name="check"/> 批量操作<span class="btn-badge">{{ selCount }}</span> <Icon name="chevron-down"/></button>
+              <Teleport to="body">
+                <div v-if="batchMenuOpen" class="tb-pop-panel batch-pop" :style="popStyle" @click.stop>
+                  <div class="bp-head">
+                    <span>已选 {{ selCount }} 个商品</span>
+                    <button class="link-btn" @click="clearRowSel">清空选择</button>
+                  </div>
+                  <p v-if="selHiddenCount" class="bp-tip warn">
+                    其中 {{ selHiddenCount }} 个被当前筛选隐藏（勾选不会因筛选变化而丢失，撤下/上架仍会对它们生效）。
+                  </p>
+                  <button class="batch-item" :disabled="!batchAddCandidates.length || savingEdit" @click="batchAddToList">
+                    <Icon name="plus"/><span class="bi-t">批量上架到本期清单</span><b>{{ batchAddCandidates.length }}</b>
+                  </button>
+                  <button class="batch-item danger" :disabled="!batchDelCandidates.length || savingEdit" @click="batchRemoveFromList">
+                    <Icon name="minus"/><span class="bi-t">批量从本期清单撤下</span><b>{{ batchDelCandidates.length }}</b>
+                  </button>
+                  <p v-if="batchDelBlocked" class="bp-tip">
+                    另有 {{ batchDelBlocked }} 个已选商品本期已有人报单（有数量），不会被撤下 —— 撤了下次保存会被自动加回。
+                  </p>
+                  <p class="bp-tip">
+                    上架 = 门店在小程序能搜到并报；撤下 = 搜不到。两者都不产生报单数量、不改商品档案。
+                  </p>
+                </div>
+              </Teleport>
+            </div>
             <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
             <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
             <span v-if="hiddenEmptyCols" class="confirm-badge filter filter-act"
@@ -915,7 +933,16 @@
             <thead>
               <tr>
                 <th class="th seq-th" scope="col">
-                  <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings"/></button>
+                  <div class="seq-hd-in">
+                    <!-- v615：整列选行。语义 = 「勾上/取消**当前筛选可见**的这些行」，
+                         不是「全表全选」—— 与行上的 v-show 同口径（rowBaseShown）。
+                         部分选中时用 indeterminate（浏览器原生三态，比自绘方块稳）。 -->
+                    <input v-if="editMode" type="checkbox" class="row-pick" :checked="selAllVisible"
+                           :indeterminate.prop="selSomeVisible" :disabled="!visibleRowIdx.length"
+                           :title="visibleRowIdx.length ? '全选/取消当前显示的 ' + visibleRowIdx.length + ' 行（不影响被筛选隐藏的行）' : '当前没有显示的行'"
+                           @change="toggleSelectAllVisible($event.target.checked)">
+                    <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings"/></button>
+                  </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'seq')" @click.stop></span>
                 </th>
                 <th v-for="(c, ci) in visibleCols" :key="c.key" scope="col" :class="['th', c.cls, { frozen: c.fixed || c.key === frozenExtra, 'sel-col': inColSpan(ci), 'cur-col-hd': isCurColHd(ci) }]" :aria-current="isCurColHd(ci) ? 'true' : null" :aria-selected="inColSpan(ci) ? 'true' : null" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" @mousedown="onHeadDown(ci, $event)" @mouseover="onHeadOver(ci)" @contextmenu.prevent="openHdrCtx($event, c.key, 'master')">
@@ -955,7 +982,16 @@
             </thead>
             <tbody>
               <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'cur-row-hd': isCurRowHd(ri), 'row-sel': inRowSpan(ri), 'cond-warn': condWarnOn && rowWarnArr[ri] === 'low', 'new-row': r._new }" :aria-selected="inRowSpan(ri) ? 'true' : null" :aria-current="isCurRowHd(ri) ? 'true' : null" v-show="rowBaseShown(ri)">
-                <td class="td seq-cell" :class="{ 'row-bad': errRowSet.has(ri) }" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)"><span class="seq-num">{{ ri + 1 }}</span></td>
+                <td class="td seq-cell" :class="{ 'row-bad': errRowSet.has(ri) }" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)">
+                  <div class="seq-in">
+                    <!-- v615：`@mousedown.stop` 是硬要求 —— 序号格本身的 mousedown 会启动**整行选择轴**
+                         （onRowDown），不挡住的话勾一个复选框会连带把整行铺蓝、并搬走焦点。 -->
+                    <input v-if="editMode" type="checkbox" class="row-pick" :checked="!!r._sel"
+                           :title="r._sel ? '已选中：' + (r.name || '（无名称）') : '选中这一行（配合工具栏「批量操作」）'"
+                           @mousedown.stop @click.stop="toggleRowSel(ri, r)">
+                    <span class="seq-num">{{ ri + 1 }}</span>
+                  </div>
+                </td>
                 <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'sel-col': inColSpan(ci), 'range-sel': inRange(ri, ci), invalid: cellIssueAt(ri, ci) !== '', flash: isFlash(ri, ci) }]" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" :data-r="ri" :data-c="ci" :title="cellIssueAt(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
                   <template v-if="c.key === 'name'">
                     <!-- v215：商品名候选**自建面板**（替掉原生 datalist）。
@@ -3093,7 +3129,9 @@ const colWidths = ref({})
    Math.ceil 过、恒为整数，位数没变。
    ⚠️ 两态同列共用同一 key：只读表的「合计(小单位)」= `qty`，编辑网格的 = `sum`，**两个 key 同一个量**
    （历史命名分裂，改名会牵动 readCellVal/导出/col_defs，本轮不动，只保证宽度一致）。 */
-const COL_DEFAULTS = { seq: 46, name: 210, arrival_lead_days: 92, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 104, boxes: 100, extra: 78, final: 78, ai: 84, amount: 104, price: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 104, op: 64 }
+/* v615：seq 46 → 76 —— 序号格前面多了一个「选行」复选框（批量上架/撤下的入口）。
+   装不下就会出现「checkbox 压在数字上」，所以宽度必须一起改。 */
+const COL_DEFAULTS = { seq: 76, name: 210, arrival_lead_days: 92, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 104, boxes: 100, extra: 78, final: 78, ai: 84, amount: 104, price: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 104, op: 64 }
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
 // v176：序号列已冻结在 left:0，故**其后每个冻结列的 left 必须整体右移「一个序号列宽」**，
@@ -3122,7 +3160,14 @@ function frozenLeftOf(key) {                        // 某固定列的 left
 function frozenRight() {                            // 冻结区右界 —— 用户手动冻结的列排在这里
   return (colW('seq') + visibleCols.value.reduce((s, c) => s + (c.fixed ? colW(c.key) : 0), 0)) + 'px'
 }
-function loadColWidths() { try { const s = localStorage.getItem('hergent-forecast-col-widths'); if (s) colWidths.value = JSON.parse(s) || {} } catch (e) {} }
+function loadColWidths() {
+  try { const s = localStorage.getItem('hergent-forecast-col-widths'); if (s) colWidths.value = JSON.parse(s) || {} } catch (e) {}
+  /* v615 迁移：老用户的 localStorage 里 seq 存的是 46（旧默认），装不下新增的选行复选框。
+     不迁移的话本机看着正常（默认 76）、他自己的浏览器却把 checkbox 压在序号上，且无从解释。
+     只抬窄的不压宽的：用户若已手动拉到 >76 就尊重原值。 */
+  const sw = colWidths.value.seq
+  if (sw != null && sw < 76) colWidths.value = { ...colWidths.value, seq: 76 }
+}
 function resetColWidths() {
   try { localStorage.removeItem('hergent-forecast-col-widths') } catch (e) {}
   colWidths.value = {}
@@ -4906,12 +4951,12 @@ async function saveEdits(opts = {}) {
            ⚠️ 只标 `_new`（addRow / 粘贴导入时置位，保存成功后清除），
               不要改成"凡在表里就算新" —— 勾「显示全部商品」时整份在售档案都在表里。 */
         is_new: !!r._new,
-        /* v613：「加入本期清单」的显式旗标（按钮 addShownToList 置位）。
+        /* v613/v615：「上架到本期清单」的显式旗标（工具栏「批量操作 → 批量上架」置位）。
            与 is_new 分开的原因：is_new 的语义是「这一行是用户新加的（补录/粘贴）」，
            而这里整个档案商品本来就在表里、只是没登记进本期清单 —— 两件事。
            后端 eligible 取「qty>0 ∪ is_new ∪ add_to_list」三支并集。 */
         add_to_list: !!r._listAdd,
-        /* v614：「从本期清单撤下」的显式旗标（按钮 removeShownFromList 置位）。
+        /* v614/v615：「从本期清单撤下」的显式旗标（工具栏「批量操作 → 批量撤下」置位）。
            ⚠️ 与「删行」是两件事，不要合并：删行 = 从 payload 里剔除 ⇒ 后端 rem 也会删清单，
               但整期报单重建会让该行数量一并消失；而这里**行照常留在 payload**，
               只是让后端把它从清单里摘掉 ⇒ 已报数量 / 加单 / 手工单价一个字不动。
@@ -5000,12 +5045,15 @@ async function saveEdits(opts = {}) {
     // 自定义列没落库属于"静默丢数据"，不能吞。
     await collectCustVals()
     usable.forEach(rw => { delete rw._new })   // Q9：保存后清除「新增行」标识
-    /* v613：清单标记同理清掉 —— 本次已随 saveMatrix 落进清单，留着会让「加入本期清单」
+    /* v613：清单标记同理清掉 —— 本次已随 saveMatrix 落进清单，留着会让「批量上架」
        的候选数少算（同一批商品点第二次时按钮数不对），且草稿里也会带着过期标记。 */
     usable.forEach(rw => { delete rw._listAdd })
-    /* v614：撤下标记同理 —— 本次已随 saveMatrix 从清单摘掉，留着会让「撤下清单」的候选数
+    /* v614：撤下标记同理 —— 本次已随 saveMatrix 从清单摘掉，留着会让「批量撤下」的候选数
        反复虚高（同一批商品点第二次仍显示 N 个），草稿里也会带着过期标记。 */
     usable.forEach(rw => { delete rw._listDel })
+    /* v615：勾选状态也清掉 —— 本次动作已经落地，继续勾着会让工具栏「批量操作」挂着
+       一批「什么都不能做」的选中行（候选全被排除），用户会以为按钮坏了。 */
+    usable.forEach(rw => { delete rw._sel })
     saveFailed.value = null
     /* Q5：不再清空撤销栈；改为记录「上次保存基线」，保存后仍可 Ctrl+Z / 一键回退。
        ⚠️ 位置**必须**在退出编辑态之前 —— `leaveEdit()` 会调 `loadCross()` 把
@@ -7416,142 +7464,155 @@ function rowBaseShown(ri) {
   if (brandSel.value.length && !brandSelSet.value.has(rowBrand(cross.value.rows[ri]))) return false
   return true
 }
-/* ===================== v613：把「当前筛选出的商品」显式加入本期清单 =====================
-   用户原话：「改单 → 筛选品牌 → 保存」能不能把该品牌商品上架到小程序（让门店自己报）？
-   **原答案是不能，且零提示**，卡两道：
-     ① 行底（buildRowBase）默认只放「本期清单内 ∪ 本期有报单」的商品 ⇒ 清单外的商品
-        勾品牌根本筛不出来（筛选只对已进表的行做 v-show，不从档案拉行）；
-     ② 即便先勾「显示全部商品」把全部在售档案调出来，保存时能进清单的只有
-        `qty>0` 或 `is_new` 的行（后端 `_sync_period_product_list` 的 eligible）
-        ⇒ 只勾筛选、数量全 0 的行一样进不去。而「上架」本来就不该以「有人报了数量」为条件。
-   ⇒ 本函数给它一个**显式动作**：标记 + 立即保存。清单同步仍走后端同一条路（v612），
-      这里只多给后端一个 `add_to_list` 旗标，不新增写接口。
-   ⚠️ 候选范围必须是「当前筛选可见的行」，不能是「表里所有档案外行」：
-      用户勾了新希望，就该只上架新希望 —— 否则点一下把 285 个 SKU 全灌进清单。
-   ⚠️ 不做「移除」的对称按钮：撤下已有路径（删行 + 保存 ⇒ v612 的 removed），
-      再做一个按钮等于两条路改同一个结果，迟早出现「删了又被加回来」的互斗。 */
-const listAddCandidates = computed(() => {
-  if (!editMode.value) return []
+/* ===================== v615：选行 → 批量上架 / 批量撤下 =====================
+   v613/v614 给的是「按**当前筛选结果**整批上架/撤下」，主语是筛选。真机用下来暴露两个
+   结构性问题（用户因此提出本版设计）：
+     ① 撤某个品牌会连带撤掉**原本就在清单里**的同品牌商品 —— 筛选表达不了「只要这几个」；
+     ② 按钮上的数 = 候选总数（实测 156 个），手滑一下就是一次大批量动作，且无法逐项复核。
+   ⇒ v615 把主语从「筛选」还给「用户选中的行」：
+        序号列前加复选框（单勾 / 多勾 / 表头全选当前可见）→ 工具栏「批量操作」→ 上架 / 撤下。
+      筛选只决定「哪些行能被勾到」，不再直接决定「动哪些」。
+
+   语义铁律（沿用 v613/v614，一条没改）：
+   · 上架 = 只进 `forecast_import_products`（小程序 fill-search 的唯一来源），**不产生报单数量**、
+     不改商品档案。后端靠 payload 里的 `add_to_list` 旗标拿到资格（eligible 第三支）。
+   · 撤下 = 只退清单（门店搜不到），**行仍留在 payload** ⇒ 已报数量 / 加单 / 手工单价一个字不动。
+     与「删行」严格分开：删行走的是 `save_matrix` 整期清空重建，数量会一并消失。
+   · 🔴 有数量的行**不许撤**：后端 eligible 含 `qty>0`，撤了下次任何保存都会被自动加回
+     （"撤下了过几天自己回来"，且零报错）。所以候选里排除，并在面板/确认框明说被跳过几个。
+   · 补录行（`_new`）既不进「上架」候选（v612 的 is_new 已覆盖，保存即入清单），
+     也不进「撤下」候选（它此刻还不在清单里，谈不上撤）。
+
+   ⚠️ 勾选状态放在**行对象**上（`r._sel`）而不是索引数组：排序会重排行序、筛选会隐藏行，
+     而用户的心智是「我勾的是这个商品」，不是「第 7 行」。代价是已勾的行被筛选藏起来后，
+     批量动作仍对它生效 —— 所以面板与确认框都必须报出「其中 N 个被隐藏」，不能静默扩大范围。 */
+
+/* 当前可见行的索引（＝ 模板 `v-show` 用的同一判据 rowBaseShown）。
+   表头全选、候选统计、隐藏计数三处共用，避免又一次「两份实现」（v607 的老坑）。 */
+const visibleRowIdx = computed(() => {
   const rows = cross.value.rows || []
-  const inList = listPidSet.value || new Set()
   const out = []
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i]
-    if (!r || r._deleted || r._listAdd || r._listDel) continue
-    const pid = Number(r.product_id) || 0
-    if (pid <= 0) continue            // 无档案号：清单唯一键 (period_id, product_id) 登不进去
-    if (inList.has(pid)) continue     // 已在本期清单里，无需再上架
-    if (r._new) continue              // 手工补录行：保存即入清单（v612 已覆盖），不必再标
-    if (!rowBaseShown(i)) continue    // 只加「当前筛选可见」的（品牌 / 搜索 / 只看有报单 都算）
-    out.push(r)
-  }
+  for (let i = 0; i < rows.length; i++) if (rowBaseShown(i)) out.push(i)
   return out
 })
-/* 🔴 v613 真机实测（本轮的 A2 那一条）逼出来的闸门：**必须有一个生效中的筛选**，按钮才出现。
-   起因：勾了「显示全部商品」后清空品牌，候选 = 全表 380 − 清单 154 = **226 个**，
-   按钮堂而皇之写着「加入本期清单 226 个」—— 手滑一点就是一次把 226 个 SKU 灌进清单，
-   正是 v612 后端注释里那个「285 个 SKU 全灌进去」的老坑，只不过这次是从前端进来的。
-   判据：这个动作的语义是「把**筛选出的**商品上架」，没有筛选时它没有主语 ⇒ 不成立。
-   用户真想整表上架，正确姿势是先按品牌/搜索收窄（也符合他"勾新希望"的心智）。
-   v614：这条闸门**上架和撤下共用**（撤下同理会一键清空整期清单，见 listDelPlan）——
-        所以名字不带 Add，只描述事实「当前有生效中的行筛选」。 */
-const hasActiveRowFilter = computed(() => !!(brandSel.value.length
-  || (filterText.value || findText.value || '').trim()
-  || hideZeroReport.value
-  || colFilter.value || colFilterSet.value))
-async function addShownToList() {
-  const list = listAddCandidates.value
-  if (!list.length || savingEdit.value) return
-  const n = list.length
-  const scope = brandSel.value.length === 1
-    ? `「${brandSel.value[0]}」品牌下`
-    : (brandSel.value.length > 1 ? `已选 ${brandSel.value.length} 个品牌下` : '当前表里可见的')
-  const ok = await store.confirm(
-    `把${scope} ${n} 个商品加入本期报单清单？\n\n`
-    + (n >= 20 ? `⚠️ 数量较大（${n} 个）：上架后所有门店的小程序都会列出这些商品，请确认筛选条件是对的。\n\n` : '')
-    + `· 加入后：所有门店在小程序报单页都能搜到并报这些商品（这就是「上架」）。\n`
-    + `· 不产生任何报单数量，也不改商品档案。\n`
-    + `· 想撤下：在本期里删掉这个商品行再保存即可。\n\n`
-    + `点「确定」会立即保存一次。`
-  )
-  if (!ok) return
-  /* 标记而不是直接改 payload：saveEdits 是**唯一提交入口**（校验、乐观锁、留痕都在里面）。
-     标记落行上还有一个好处 —— 万一本次保存被校验/冲突拦下，标记还在，用户改完再点保存照样生效。 */
-  list.forEach(r => { r._listAdd = true })
-  saveDraftNow()
-  await saveEdits()
+const selRows = computed(() => (cross.value.rows || []).filter(r => r && r._sel && !r._deleted))
+const selCount = computed(() => selRows.value.length)
+const selAllVisible = computed(() => {
+  const vis = visibleRowIdx.value
+  if (!vis.length) return false
+  const rows = cross.value.rows || []
+  return vis.every(i => rows[i] && rows[i]._sel)
+})
+const selSomeVisible = computed(() => {
+  if (selAllVisible.value) return false
+  const rows = cross.value.rows || []
+  return visibleRowIdx.value.some(i => rows[i] && rows[i]._sel)
+})
+/* 已勾但当前被筛选隐藏的行数 —— 批量动作会波及它们，所以必须显式报出来。 */
+const selHiddenCount = computed(() => {
+  const rows = cross.value.rows || []
+  let n = 0
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]
+    if (r && r._sel && !r._deleted && !rowBaseShown(i)) n++
+  }
+  return n
+})
+
+function toggleRowSel(ri, r) {
+  if (!editMode.value) return
+  const row = r || (cross.value.rows || [])[ri]
+  if (!row) return
+  row._sel = !row._sel
+  /* 刻意**不** saveDraftNow：勾选是瞬时交互状态，而 saveDraftNow 会把整个 cross 全量
+     JSON.stringify 一次（294 行）—— 连勾几十个就是几十次全量序列化，卡在 UI 线程上。
+     代价：刷新后勾选丢失（可接受，用户此时还没开始批量动作）。 */
 }
-/* ===================== v614：把「当前筛选出的商品」从本期清单撤下 =====================
-   用户诉求：「能不能点改单，把某个品牌的勾选取消，然后保存就批量撤下」——
-   **不能**，而且原因是 v613 就写死的一条：筛选只做 `v-show`，**不参与 payload**。
-   保存提交的是整张表（除软删行），取消勾选只是把行重新显示出来，一个字段都没变；
-   真正的移除判据在后端是 `listed − keep`（清单里有、本次提交里没有），
-   而"提交里没有"只有一种产生方式：**删行**。
-
-   逐行删对"某个品牌 86 个商品"不成立（要手点 86 次垃圾桶），所以给一个显式动作。
-   ⚠️ 与 v613 注释里那句"不做对称按钮"的关系：那条担心的是**两条路改同一个结果**
-      （删行 vs 按钮 → 都靠 `rem` 删清单，会互斗）。这里不是同一结果：
-        · 删行 = 这行不要了 ⇒ 从 payload 剔除 ⇒ 清单移除 **且** 该行数量被整期重建清掉；
-        · 撤下 = 只是退清单（小程序搜不到），行仍在 payload ⇒ 报单/加单/手工单价一个字不动。
-      语义分开之后没有互斗面：撤下只多给后端一个 `list_del` 旗标（与 add_to_list 对称），
-      **不新增接口、不新增表**。
-
-   🔴 为什么候选必须排除「行内有数量」的行（本功能最重要的那条约束）：
-      后端 eligible = `qty>0 ∪ is_new ∪ add_to_list`。若允许撤下一条 qty>0 的行，
-      清单里删了、下次任何一次保存又会因 qty>0 **自动加回**（这条支路本来是给
-      「小程序先报、Web 后加进表」用的）⇒ 用户看到「撤下了，过两天自己回来了」，
-      而且没有任何报错可循。所以：
-        · 有数量 = 有人在报（或用户正在填）⇒ 不该撤，也不允许撤；
-        · 撤下的行 qty 恒为 0 ⇒ 不 eligible ⇒ 不会被自动加回。
-      被跳过的数量在确认框里明确告知，不静默少撤。 */
+/* 表头全选：只勾/取消**当前可见**的行；已勾上的隐藏行保持原状
+   （否则用户「筛品牌 A 全选 → 改筛品牌 B 全选」会把 A 的选择清掉，与他的心智相反）。 */
+function toggleSelectAllVisible(on) {
+  const rows = cross.value.rows || []
+  visibleRowIdx.value.forEach(i => { if (rows[i]) rows[i]._sel = !!on })
+}
+function clearRowSel() {
+  ;(cross.value.rows || []).forEach(r => { if (r) delete r._sel })
+  batchMenuOpen.value = false
+}
+/* 候选一律从「选中的行」里筛。与 v613/v614 的差别只在数据源（selRows vs 全表可见行）。 */
+const batchAddCandidates = computed(() => {
+  if (!editMode.value) return []
+  const inList = listPidSet.value || new Set()
+  return selRows.value.filter(r => {
+    const pid = Number(r.product_id) || 0
+    if (pid <= 0) return false          // 无档案号：清单唯一键 (period_id, product_id) 登不进去
+    if (inList.has(pid)) return false   // 已在本期清单里，无需再上架
+    if (r._new) return false            // 手工补录行：保存即入清单（v612 已覆盖）
+    return true
+  })
+})
 function rowHasQty(r) {
   const q = (r && r.qtyByUnit) || {}
   for (const k in q) { if ((Number(q[k]) || 0) > 0) return true }
   return false
 }
-const listDelPlan = computed(() => {
-  const none = { ok: [], blocked: 0 }
-  if (!editMode.value) return none
-  const rows = cross.value.rows || []
-  const inList = listPidSet.value || new Set()
+const batchDelPlan = computed(() => {
   const ok = []
   let blocked = 0
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i]
-    if (!r || r._deleted || r._listAdd || r._listDel) continue
+  if (!editMode.value) return { ok, blocked }
+  const inList = listPidSet.value || new Set()
+  selRows.value.forEach(r => {
     const pid = Number(r.product_id) || 0
-    if (pid <= 0) continue
-    if (!inList.has(pid)) continue     // 本来就不在本期清单里，无「撤下」可言
-    /* 补录行：它还没进清单（保存时才由 is_new 加进去），所以也谈不上撤下。
-       真要挡它，正确动作是删行 —— 那条路本来就不产生清单记录。 */
-    if (r._new) continue
-    if (!rowBaseShown(i)) continue     // 只撤「当前筛选可见」的（品牌 / 搜索 / 只看有报单）
-    if (rowHasQty(r)) { blocked++; continue }
+    if (pid <= 0 || !inList.has(pid)) return   // 本来就不在本期清单里，无「撤下」可言
+    if (r._new) return
+    if (rowHasQty(r)) { blocked++; return }
     ok.push(r)
-  }
+  })
   return { ok, blocked }
 })
-async function removeShownFromList() {
-  const plan = listDelPlan.value
-  const list = plan.ok
+const batchDelCandidates = computed(() => batchDelPlan.value.ok)
+const batchDelBlocked = computed(() => batchDelPlan.value.blocked)
+
+async function batchAddToList() {
+  const list = batchAddCandidates.value
   if (!list.length || savingEdit.value) return
+  batchMenuOpen.value = false
   const n = list.length
-  const scope = brandSel.value.length === 1
-    ? `「${brandSel.value[0]}」品牌下`
-    : (brandSel.value.length > 1 ? `已选 ${brandSel.value.length} 个品牌下` : '当前表里可见的')
+  const hid = selHiddenCount.value
   const ok = await store.confirm(
-    `把${scope} ${n} 个商品从本期报单清单撤下？\n\n`
-    + (n >= 20 ? `⚠️ 数量较大（${n} 个）：撤下后所有门店的小程序都搜不到这些商品，请确认筛选条件是对的。\n\n` : '')
-    + `· 撤下后：门店在小程序报单页**搜不到**这些商品（不能报新单）。\n`
-    + (plan.blocked > 0 ? `· 另有 ${plan.blocked} 个商品本期已有人报单（有数量），**不会被撤下**。\n` : '')
-    + `· 不改商品档案，不删任何已报数量。\n`
-    + `· 想再加回来：勾「显示全部商品」→ 按品牌筛选 → 点「加入本期清单」。\n\n`
+    `把选中的 ${n} 个商品上架到本期报单清单？\n\n`
+    + (hid > 0 ? `· 其中 ${hid} 个被当前筛选隐藏（勾选在改筛选之前就存在），**同样会上架**。\n` : '')
+    + (n >= 20 ? `⚠️ 数量较大（${n} 个）：上架后所有门店的小程序都会列出这些商品，请确认选中的是对的。\n\n` : '')
+    + `· 上架后：所有门店在小程序报单页都能搜到并报这些商品。\n`
+    + `· 不产生任何报单数量，也不改商品档案。\n`
+    + `· 想撤下：再勾选这些行 → 批量操作 → 批量从本期清单撤下。\n\n`
     + `点「确定」会立即保存一次。`
   )
   if (!ok) return
-  /* 与 v613 同款：只打标记，`saveEdits` 仍是唯一提交入口（校验 / 乐观锁 / 留痕）。
-     标记落行上的好处相同 —— 本次保存被拦下（校验、409 冲突）时标记还在，改完再保存照样生效。 */
-  list.forEach(r => { r._listDel = true })
+  /* 只打标记：`saveEdits` 仍是唯一提交入口（校验 / 乐观锁 / 留痕都在里面）。
+     标记落行上的好处 —— 本次保存被校验或 409 拦下时标记还在，改完再保存照样生效。 */
+  list.forEach(r => { r._listAdd = true; delete r._listDel })
+  saveDraftNow()
+  await saveEdits()
+}
+async function batchRemoveFromList() {
+  const plan = batchDelPlan.value
+  const list = plan.ok
+  if (!list.length || savingEdit.value) return
+  batchMenuOpen.value = false
+  const n = list.length
+  const hid = selHiddenCount.value
+  const ok = await store.confirm(
+    `把选中的 ${n} 个商品从本期报单清单撤下？\n\n`
+    + (hid > 0 ? `· 其中 ${hid} 个被当前筛选隐藏（勾选在改筛选之前就存在），**同样会撤下**。\n` : '')
+    + (n >= 20 ? `⚠️ 数量较大（${n} 个）：撤下后所有门店的小程序都搜不到这些商品。\n\n` : '')
+    + `· 撤下后：门店在小程序报单页**搜不到**这些商品（不能报新单）。\n`
+    + (plan.blocked > 0 ? `· 另有 ${plan.blocked} 个已选商品本期已有人报单（有数量），**不会被撤下**。\n` : '')
+    + `· 不改商品档案，不删任何已报数量。\n`
+    + `· 想再加回来：勾选这些行（需先勾「显示全部商品」才能看到清单外商品）→ 批量上架。\n\n`
+    + `点「确定」会立即保存一次。`
+  )
+  if (!ok) return
+  list.forEach(r => { r._listDel = true; delete r._listAdd })
   saveDraftNow()
   await saveEdits()
 }
@@ -9401,6 +9462,10 @@ const brandPopOpen = ref(false)
 // 工具行「新增客户」下拉（v170）：从表头那一格迁来的入口，参与同一套弹层互斥
 const addColBtn = ref(null)
 const addColPopOpen = ref(false)
+/* v615：序列表头的选行 → 工具栏「批量操作」下拉。与品牌/复制/新增客户共用同一套
+   popStyle 定位 + .pop-overlay 互斥（新开一个弹层不该发明第二套定位代码）。 */
+const batchBtn = ref(null)
+const batchMenuOpen = ref(false)
 const addColName = ref('')
 const addColInput = ref(null)
 // 主工具栏各下拉互斥：只允许同时开一个（共享 popStyle 定位 + 一个透明遮罩）。
@@ -9412,6 +9477,15 @@ function _closePopPanes(except) {
   if (except !== 'brand') brandPopOpen.value = false
   if (except !== 'copy') copyMenuOpen.value = false
   if (except !== 'addcol') addColPopOpen.value = false
+  if (except !== 'batch') batchMenuOpen.value = false
+}
+/* v615：「批量操作」下拉。面板高度（两条动作 + 说明）约 220px，positionTbPop 的 estH=320
+   对它偏保守，但只影响「下方空间不足时翻到按钮上方」的判断点 —— 宁可早翻，不压出视口。 */
+function toggleBatchMenu() {
+  const open = !batchMenuOpen.value
+  _closePopPanes(open ? 'batch' : '')
+  batchMenuOpen.value = open
+  if (open) nextTick(() => positionTbPop(batchBtn.value))
 }
 function toggleBrandPop() {
   const open = !brandPopOpen.value
@@ -12132,6 +12206,36 @@ th.sortable:hover{color:var(--p-dark)}
    （block 级 ⇒ 不生成行内行盒，块级居中用 margin:auto），行高才真正落到 22px。
    特异性 (0,4,0) 稳压全局 (0,2,0)。 */
 .cross-tbl thead .col-cfg.gear{width:var(--fc-cell,20px);height:var(--fc-cell,20px);display:flex;margin:0 auto}
+/* ===================== v615：序号列的「选行」复选框 + 批量操作下拉 =====================
+   ① 布局：`.seq-in` / `.seq-hd-in` 都用 flex 居中（checkbox + 序号 / checkbox + 齿轮），
+      **不写 height** —— 高度由 `.seq-num`（20px）决定，与原来 `inline-block` 的行盒高度一致。
+      🔴 别给这两个容器加 height/padding（v606 的教训：数据行 21px 是被子元素顶出来的，
+         多一个 20px 以上的子元素就变 31px，且不会有任何报错）。
+   ② checkbox 尺寸必须显式写：`input[type=checkbox]` 在 flex 容器里会被 stretch，
+      且 Chrome 默认 13px 与 Safari 不一致 ⇒ 写死 13px + `flex:0 0 auto`。
+   ③ `accent-color` 让勾选态用品牌青（系统主题色在深色模式下会和底撞）。 */
+.cross-tbl .seq-hd-in{display:flex;align-items:center;justify-content:center;gap:2px}
+.cross-tbl thead .seq-hd-in .col-cfg.gear{margin:0}
+.cross-tbl td.seq-cell .seq-in{display:flex;align-items:center;justify-content:center;gap:2px}
+.cross-tbl .row-pick{width:13px;height:13px;margin:0;padding:0;flex:0 0 auto;cursor:pointer;accent-color:var(--p)}
+.cross-tbl .row-pick:disabled{cursor:not-allowed;opacity:.35}
+/* 批量操作面板：与 .tb-pop-panel 同壳，只覆盖宽度与条目样式。
+   ⚠️ 面板里**不要再放 fixed/sticky 子元素** —— 它自己就是 position:fixed。 */
+.batch-pop{width:312px;min-width:312px;gap:8px}
+.batch-pop .bp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--t2)}
+.batch-item{display:flex;align-items:center;gap:8px;width:100%;height:32px;padding:0 10px;
+  border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t1);
+  font-size:13px;cursor:pointer;text-align:left}
+.batch-item:hover:not(:disabled){background:var(--bg3);border-color:var(--p)}
+.batch-item:disabled{opacity:.4;cursor:not-allowed}
+.batch-item .bi-t{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.batch-item b{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--p-dark)}
+.batch-item.danger b{color:var(--danger-txt)}
+.batch-item.danger:hover:not(:disabled){background:var(--danger-bg);border-color:var(--danger-txt)}
+/* `.bp-tip` / `.bp-head` 的基础样式只挂在 `.brand-pop` 下（见下方品牌面板那段），
+   批量面板是另一个容器 ⇒ 必须自己写全，否则提示文字会没字号/没行距/没边距。 */
+.batch-pop .bp-tip{margin:0;font-size:12px;line-height:1.5;color:var(--t3)}
+.batch-pop .bp-tip.warn{color:var(--danger-txt)}
 /* v592：输入框已无边框（见 `.cross-tbl .cell-input`）⇒ 焦点视觉交给**单元格自身**
    （`.cross-tbl td.selected{outline:2px solid var(--p)}` + 青底）。这正是 Excel 的表现：
    变色的是"格"，不是"格里的小框"。⚠️ 别以为这里漏了焦点样式又给它加回边框。 */
