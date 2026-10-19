@@ -919,7 +919,7 @@ import { isHeavyTurn, shouldInjectTableHint, spreadsheetSoftHint } from '../util
 import { importApi } from '../api/modules'
 import { chatAttachmentApi, aiPagerApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
-import { useCardTrigger, extractCard, extractCardIntent, stripAllFences, extractClarify, extractProposal, extractReminder, DENY_RE, demoCard, isAutoCardContent } from '../composables/useCardTrigger'
+import { useCardTrigger, extractCard, extractCardIntent, stripAllFences, extractClarify, extractProposal, extractReminder, DENY_RE, demoCard, isAutoCardContent, autoCardKind } from '../composables/useCardTrigger'
 import { useVoiceInput } from '../composables/useVoiceInput'
 import { renderMd, splitMedia } from '../utils/md'
 import { useRouter } from 'vue-router'   // M1：斜杠命令「跳转页面」用
@@ -2726,6 +2726,22 @@ function restoreScroll() {
 }
 
 /* ---- 方案 B：右侧 Artifact 面板 —— 从对话消息中派生产物索引（最新在上） ---- */
+/* 🔴 v626：自动经营卡在产物区**同类只留最新一张**。
+   老板原话：反复问工资，右栏就堆一屏一样的卡。产物区的语义是「现在有什么可用」，
+   不是「历次都留档」——历次记录仍在对话流里（点卡片会跳回那一刻）。
+   刻意不做的事：AI 主回复自带的卡、副驾产出的文件**不参与折叠**（每次问都可能得到
+   不同结论，它们是真交付物，折叠等于藏结论）。 */
+function artAutoKind(m) {
+  if (!m || !m.card) return ''
+  const k = autoCardKind(m.content)
+  if (k) return k
+  // 兜底：文案将来改了也仍然只留一张 —— 仅限「已标记为自动卡」的
+  if (m.cardAuto !== true) return ''
+  const t = String((m.card && m.card.type) || '').toLowerCase()
+  if (t === 'wage') return 'payroll'
+  if (t === 'wastage') return 'loss'
+  return t
+}
 const artifacts = computed(() => {
   const msgs = store.chat.messages
   const list = []
@@ -2741,7 +2757,7 @@ const artifacts = computed(() => {
       }
     }
     const base = { created_at: m.created_at || null, source }
-    if (m.card) list.push({ ...base, index: i, card: m.card })
+    if (m.card) list.push({ ...base, index: i, card: m.card, artKind: artAutoKind(m) })
     /* 🔴 v492：用户**上传**给副驾的文件（`m.files`）**不再**登记进产物集合。
        产物区语义 = 「副驾产出的报告 / 图表 / 文件」；用户发来的材料是**输入**、不是产物，
        放进产物区会让人误以为「这是 AI 生成的东西」（老板原话：这不应该是副驾的产物）。
@@ -2757,7 +2773,15 @@ const artifacts = computed(() => {
       if (pf && pf.path) list.push({ ...base, index: i, produced: { path: pf.path, name: pf.name, file_name: pf.name } })
     }
   }
-  return list.reverse()
+  /* 最新在前，然后同类自动卡只留第一条（= 最新那条） */
+  const ordered = list.reverse()
+  const seenKind = new Set()
+  return ordered.filter(a => {
+    if (!a.artKind) return true
+    if (seenKind.has(a.artKind)) return false
+    seenKind.add(a.artKind)
+    return true
+  })
 })
 /* v495b：时间戳归一 —— 本地存的是 Date.now() 数字，服务端回的是 'YYYY-MM-DD HH:MM:SS' 字符串
    （空格分隔不是合法 ISO，new Date() 会解析成 Invalid Date ⇒ 产物时间显示 NaN月NaN日）。统一转毫秒。 */

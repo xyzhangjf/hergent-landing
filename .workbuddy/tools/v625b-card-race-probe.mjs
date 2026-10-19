@@ -12,6 +12,7 @@
  * 用法：HG_BASE=https://hergent.cn node v625b-card-race-probe.mjs
  */
 import { launch } from '/Users/zhangjunfeng/Documents/laozhangai-product/.workbuddy/tools/lib/cdp-lite.mjs'
+import { freshChat } from '/Users/zhangjunfeng/Documents/laozhangai-product/.workbuddy/tools/lib/cp-fresh.mjs'
 
 const BASE = process.env.HG_BASE || 'https://hergent.cn'
 const TAG = process.env.HG_TAG || 'run'
@@ -98,7 +99,10 @@ log('打开副驾:', await page.eval(JS_OPEN))
 for (let i = 0; i < 30; i++) { if (JSON.parse(await page.eval(JS_CARDS)).count >= 0) break; await sleep(400) }
 await sleep(1200)
 
-// 基线（可能带历史卡，只关心增量）
+// 空白新对话（否则基线取在历史恢复之前，历史卡会被算成本次增量 ⇒ 假 FAIL）
+log('新对话:', await freshChat(page, sleep))
+
+// 基线（干净会话应为 0）
 const base = JSON.parse(await page.eval(JS_CARDS))
 log('基线:', JSON.stringify(base))
 

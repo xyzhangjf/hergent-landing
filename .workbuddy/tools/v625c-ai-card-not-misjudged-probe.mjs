@@ -13,6 +13,7 @@
  *   ② 全部卡消息里**没有**"顺手把…"这种兜底卡（说明 aiCarded 生效）
  */
 import { launch } from '/Users/zhangjunfeng/Documents/laozhangai-product/.workbuddy/tools/lib/cdp-lite.mjs'
+import { freshChat } from '/Users/zhangjunfeng/Documents/laozhangai-product/.workbuddy/tools/lib/cp-fresh.mjs'
 
 const BASE = process.env.HG_BASE || 'https://hergent.cn'
 const TAG = process.env.HG_TAG || 'run'
@@ -104,6 +105,9 @@ log('构建号:', await page.eval(`(() => (window.__HG_BUILD__||'?'))()`))
 
 log('打开副驾:', await page.eval(JS_OPEN))
 await sleep(1500)
+
+// 空白新对话（demo 账号会自动恢复上次那段，历史卡会污染基线）
+log('新对话:', await freshChat(page, sleep))
 
 log('展开团队菜单:', await page.eval(JS_OPEN_MENU))
 await sleep(400)

@@ -21,6 +21,7 @@
  * 用法：HG_BASE=https://erp.hergent.cn node v625-card-role-attribution-probe.mjs
  */
 import { launch } from '/Users/zhangjunfeng/Documents/laozhangai-product/.workbuddy/tools/lib/cdp-lite.mjs'
+import { freshChat } from '/Users/zhangjunfeng/Documents/laozhangai-product/.workbuddy/tools/lib/cp-fresh.mjs'
 
 const BASE = process.env.HG_BASE || 'https://hergent.cn'
 const TAG = process.env.HG_TAG || 'run'
@@ -111,6 +112,9 @@ for (let i = 0; i < 30; i++) {
   if (s.open) break
   await sleep(400)
 }
+
+// ---- 步骤 0：空白新对话（demo 账号会自动恢复上次那段，历史卡会污染基线） ----
+log('新对话:', await freshChat(page, sleep))
 
 // ---- 步骤 1：切到「会计」 ----
 log('展开团队菜单:', await page.eval(JS_OPEN_MENU))

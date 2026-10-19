@@ -296,6 +296,15 @@ export function isAutoCardContent(text) {
   return AUTO_LEAD_SET.has(String(text || '').trim())
 }
 
+/** 自动卡的**类别**（loss/payroll/rebate/forecast），拿不到返回 ''。
+    用途：右侧「本次产物」里同类自动卡只留最新一张（v626，老板原话「反复问工资就堆一屏」）。
+    判据同样走「正文逐字等值」——AI 主回复里可能写着类似的话，模糊匹配会连它一起折叠掉。 */
+export function autoCardKind(text) {
+  const t = String(text || '').trim()
+  for (const k in AUTO_CARD_LEADS) if (AUTO_CARD_LEADS[k] === t) return k
+  return ''
+}
+
 /**
  * @param {object} deps
  * @param {object} deps.store            全局响应式 store（用于 push 消息）
@@ -347,14 +356,20 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
       //   切角色（同一会话里换人答）、切会话、关抽屉另开一段。
       //   回来后无脑 push ⇒ 这条卡**落进切换后的那段对话**，看着就是"AI 主动开口"。
       //   故：归属变了就**丢弃**（它答的是上一段上下文里的问题，不该出现在新上下文里）。
-      const ownerSid = store.chat.currentId || ''
+      // 🔴 v626 修正：「会话」的判据是 **messages 数组引用**，不是 currentId。
+      //   原先比 currentId，而**新对话第一次提问**时当前 id 还是 ''，卡在飞的时候
+      //   `saveCurrentSession()` 才把 id 写成 's<时间戳>' ⇒ 回来 '' !== 's…' ⇒ 第一张卡
+      //   被静默丢弃（生产实测：连问 3 次工资只落 2 张）。数组引用能同时满足：
+      //   新会话首次提问（引用不变 ⇒ 保留）、切历史/新建对话（store 里 `chat.messages = …`
+      //   换引用 ⇒ 丢弃）。
+      const ownerArr = store.chat.messages
       const ownerRid = rid()
       return api(endpoint)
         .then(res => {
           const card = res && res.card
           if (!card) return
-          if ((store.chat.currentId || '') !== ownerSid) return   // 已换会话 ⇒ 丢弃
-          if (rid() !== ownerRid) return                          // 已换角色 ⇒ 丢弃
+          if (store.chat.messages !== ownerArr) return        // 已换会话 ⇒ 丢弃
+          if (rid() !== ownerRid) return                      // 已换角色 ⇒ 丢弃
           pushCard(lead, card, ownerRid)
         })
         .catch(() => { /* 静默降级，绝不干扰主对话 */ })
