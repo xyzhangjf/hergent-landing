@@ -4750,14 +4750,69 @@ async function saveEdits(opts = {}) {
        v213-B1：`force`（并发冲突下用户选「用我这份覆盖」）时**整段跳过** —— 商品档案在第一次
        尝试时已经写成功（那一步失败会直接抛错、根本走不到矩阵保存），重跑只会多占一次写锁。 */
     const base = prodBaseline.value
-    const prodRows = force ? [] : usable.filter(r => {
+    /* ── v612（2026-10-19）：新增行先「认回档案」，再决定要不要发给 bulk-upsert ─────
+       🔴 真实链路：用户补录商品时，商品名基本是从候选面板挑的，而 `nameSugPick` **只写 name**、
+         不带档案号（useNameSuggest.js:74-82）。于是该行 `product_id` 仍是 0，
+         保存时被当成"新商品"发给 `/api/products/bulk-upsert` —— 而它那边的字段是
+         **无条件覆盖**（缺省写 0）⇒ 这个商品档案的 规格/单位/售价/进价/保质期 被整行清零，
+         全程无提示。用户看到的是"我只加了个报单商品，怎么金额列没价了"。
+       ✅ 这里在提交前按「条码 → 名称」把档案号认回来，并把**行里还空着**的字段补成档案值：
+          行与档案一致 ⇒ 既不会被当脏行重发（不写放大），网格上也能立刻看到正确的规格/单位/价格。
+       ⚠️ 只在「行里空着」时补（`_blank`），用户手填过的值一律不覆盖。
+       ⚠️ 名称/条码不补：它们正是匹配依据，补了等于把用户的输入改掉。 */
+    const _prodByBarcode = new Map()
+    const _prodByName = new Map()
+    for (const o of masterNameOptions.value) {
+      if (!o.id) continue
+      const pid0 = Number(o.id) || 0
+      if (!pid0) continue
+      if (o.c && !_prodByBarcode.has(String(o.c))) _prodByBarcode.set(String(o.c), pid0)
+      if (o.v && !_prodByName.has(String(o.v))) _prodByName.set(String(o.v), pid0)
+    }
+    const _blank = (r, k) => {
+      const v = r[k]
+      if (k === 'unit') return !v || v === '件'      // blankRow 的默认单位是「件」⇒ 与"没填"同义
+      if (typeof v === 'number' || ['sale_price', 'purchase_price', 'factory_price',
+        'safety_stock', 'expiry_days', 'dist_price'].includes(k)) return !Number(v)
+      return !String(v == null ? '' : v).trim()
+    }
+    /* 认回档案的行 ⇒ **一律不发 bulk-upsert**。理由：
+       ① 它们的档案本来就存在，没有任何要写的东西；
+       ② 基线（prodBaseline）只含**本期网格里**的行，不含"档案里有、这期没进表"的商品
+          ⇒ 拿不到基线就判不出脏，会被当成"新商品"发出去，而后端字段**无条件覆盖**
+          ⇒ 把规格/单位/售价/进价整行写成 0（v612 首轮真机实测就是这个：候选商品
+             pid=1614 保存后 spec='' / unit='件' / sale_price=0）。
+       ③ 用户在这一行改的是**本期**的数量/加单/单价，本来就不进商品档案。 */
+    const _adopted = new Set()
+    usable.forEach(r => {
+      if (Number(r.product_id)) return
+      const bc = String(r.barcode || '').trim()
+      const pid0 = (bc && _prodByBarcode.get(bc)) || _prodByName.get(String(r.name || '').trim()) || 0
+      if (!pid0) return                                  // 真是新商品 ⇒ 照旧走 bulk-upsert 建档
+      r.product_id = pid0
+      _adopted.add(pid0)
+      const b = base && base.get(pid0)
+      if (!b) return
+      for (const k of ['spec', 'unit', 'barcode', 'sale_price', 'purchase_price', 'factory_price',
+        'safety_stock', 'expiry_days', 'product_code', 'dist_price', 'brand']) {
+        if (!_blank(r, k)) continue
+        if (b[k] === undefined || b[k] === '' || b[k] === null) continue
+        if (typeof b[k] === 'number' && !b[k]) continue
+        r[k] = b[k]
+      }
+    })
+    /* v612：这里必须同时留下**行对象**与**载荷**两列 —— 行对象用于下面回填档案号。
+       原实现 `.filter(...).map(prodPayloadOf)` 只剩载荷，回填时无法定位到是哪一行。 */
+    const prodPairs = force ? [] : usable.filter(r => {
       const pid = Number(r.product_id) || 0
+      if (pid && _adopted.has(pid)) return false              // v612：认回档案的行不发（见上）
       if (!pid) return true                                   // 新增行：档案里还没有它
       const b = base && base.get(pid)
       if (!b) return true                                     // 基线没有 ⇒ 当新行发
       const now = prodPayloadOf(r)
       return Object.keys(now).some(k => String(now[k]) !== String(b[k]))
-    }).map(prodPayloadOf)
+    })
+    const prodRows = prodPairs.map(prodPayloadOf)
     if (prodRows.length) {
       /* v196（P0-3）：给这一步单独的**较长**超时（默认 20 秒，见 client.js:184）。
          P0-1 修好后这条正常根本用不到（实测 0.17 秒）；留着是防"某天又慢下来"时，
@@ -4765,6 +4820,21 @@ async function saveEdits(opts = {}) {
          ⚠️ 放宽超时**不解决写锁**，只是让失败来得晚一点、且文案说人话（见下方 catch）。 */
       const pr = await productsApi.bulkUpsert(prodRows, { timeout: 60000 })
       prodMsg = ` · 商品 ${pr.inserted} 新增 / ${pr.updated} 更新`
+      /* ── v612（2026-10-19）：把档案号回填到行对象 ──────────────────────────────
+         🔴 为什么必须有这一步：`/api/products/bulk-upsert` 此前只回 `inserted/updated`
+            两个计数、**不回 id** ⇒ 新增行保存后 `product_id` 仍是 0。两层后果：
+            ① 每次保存都把它当"新商品"重发一遍（写放大，且不断覆盖同一行档案）；
+            ② 本期商品清单（`forecast_import_products`，小程序报单页的商品唯一来源）
+               的唯一键是 (period_id, product_id) ⇒ 没有 id 就登不进清单，
+               用户在小程序里**永远搜不到**刚补录的商品。
+         ⚠️ 按**数组下标**对齐（`ids[i] ↔ prodRows[i] ↔ prodPairs[i]`），不按名称/条码回查：
+            名称可改、条码可空，只有入参位置是确定的。
+         ⚠️ 只在「原本没有 id」时回填 —— 已有 id 的行以后端回执为准反而是倒退风险。 */
+      const _ids = Array.isArray(pr && pr.ids) ? pr.ids : []
+      prodPairs.forEach((rw, i) => {
+        const id = Number(_ids[i]) || 0
+        if (rw && !Number(rw.product_id) && id > 0) rw.product_id = id
+      })
       /* v197（P2-1）：品牌待审登记失败**不再让整个保存失败**（后端已逐个吞住并计数）。
          但「不失败」不等于「没事」—— 登记失败的那几个品牌不会进 `brand_pending`，
          也就进不了 `brands` 表，而品牌下拉候选正是从 `GET /api/brands` 读的
@@ -4799,6 +4869,11 @@ async function saveEdits(opts = {}) {
       rows: usable.map(r => ({
         product_id: r.product_id || 0, product_name: r.name || '', spec: r.spec || '',
         unit: r.unit || '件', price: r.sale_price || 0, qty_by_unit: r.qtyByUnit || {},
+        /* v612：标记「这是用户手动新增的行（补录 / 粘贴）」——
+           后端据此决定要不要把该商品登记进**本期商品清单**（小程序的商品来源）。
+           ⚠️ 只标 `_new`（addRow / 粘贴导入时置位，保存成功后清除），
+              不要改成"凡在表里就算新" —— 勾「显示全部商品」时整份在售档案都在表里。 */
+        is_new: !!r._new,
         extra_qty: Number(r.extraQty) || 0,
         /* v190：本期手工单价（元/箱）→ 后端落 `forecast_extra_qty.case_price`。
            未录入传 null（**不传 0**：前端判据是「> 0 才算手工录入」，传 0 会让两边判据
@@ -4836,8 +4911,19 @@ async function saveEdits(opts = {}) {
        否则他无法确认系统真的记了账（本项目最怕那类「看起来做了、其实没做」）。
        用 `warn` 色而非 `ok` 色：这是**例外操作**，不该长得和日常保存一样。 */
     const _ceTip = r.closed_edit ? '　· 本期次已关闭，本次修改已按授权操作留痕' : ''
-    toast(`已保存：${r.saved_customers} 个客户 · ${r.saved_items} 条商品明细${prodMsg}${_ceTip}`,
+    /* v612：本期商品清单（小程序报单页的商品来源）同步结果必须回执 ——
+       「加了商品、小程序里却没有」正是本次要修的病，不能修完还让它静默。
+       只在**有增减**时说（日常保存绝大多数是 0/0，多一句就是噪音）。 */
+    const _la = Number(r.list_added) || 0
+    const _lr = Number(r.list_removed) || 0
+    const _lTip = (_la || _lr) ? `　· 小程序商品清单：新增 ${_la} 个 / 移除 ${_lr} 个` : ''
+    toast(`已保存：${r.saved_customers} 个客户 · ${r.saved_items} 条商品明细${prodMsg}${_lTip}${_ceTip}`,
           r.closed_edit ? 'warn' : 'ok')
+    /* 清单同步失败（后端已单独 catch，报单本身是存上的）⇒ **必须**单独说一句：
+       否则用户以为小程序能看到新商品，明天销售报单时才发现搜不到。 */
+    if (r.list_sync_error) {
+      toast(`报单已保存，但本期商品清单没同步成功（小程序里可能看不到刚加的商品）：${r.list_sync_error}`, 'warn')
+    }
     /* ── v277（需求 6 / 需求 7）：把本次保存算出的「加/减单按占比分配」结果当场回执给经理 ──
        ① `r.extra_alloc` 直接采纳进 `ptAlloc` —— 后端这个回执与 `GET /extra-alloc` 的 items
           是**同一处生成**的同一结构，所以不必再打一次接口；加单列的悬停立刻能看到结果。
