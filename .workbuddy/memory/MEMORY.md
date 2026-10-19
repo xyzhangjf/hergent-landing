@@ -8,7 +8,7 @@
 - 建单/退单页→`docs/进销存建单页开发规范-v441.md`：三层高度链｜`?tab=`+`watch`单入口多子页｜`npm run build`被safe-delete拦⇒隔离`outDir dist-vNNN`｜v449起7页独立(`docTypes.js`唯一源；`redirect`不指定`query`会继承原query⇒显式`query:{}`)。§R视觉基准=getComputedStyle实测。
 - 后端→`topics/backend-invariants.md`：路由遮蔽先注册者胜§v317；静默失效=恒空恒0⇒`undefined-call-scan.py`；门禁用接口模块非页面模块§v328；FastAPI未声明query被静默忽略§v443；意图路由ROUTES按序首匹配(具体插宽泛前)v535；execute_tool返回键`success`非`ok`。
 - 部署→`topics/deploy-ops.md`：后端FLAT`/opt/hergent-erp/`(本地仓`/Users/zhangjunfeng/Documents/hergent-erp`)、前端根`/opt/hergent-cn-v2`、`/admin/`别名`/opt/hergent-admin`；后端服务`hergent-erp.service`(cwd`/opt/hergent-erp`)，`hergent-server.service`是遗留Credits Server；部署前必先`git fetch`(落后构建=回退他人功能)v509；判据「线上跑谁」=`index.html` entry+该entry接线的chunk§v498；rsync绝对路径、绝不`--delete`；本仓`git checkout/clean`会毁SPA。
-- 预报主表→`topics/forecast-order-domain.md`：报单单位永不落大单位；报单≠提货、`forecast_audit`锚`MAX(order_date)`；跨期复制只复制品清单⇒复0行传染§v282；🔴「N人报」=`COUNT(DISTINCT user_id)`是**账号数不是门店数**（老板一人替十几店填单⇒恒为1），要门店数用`stores`（带`store_kind`去重）§v574。
+- 预报主表→`topics/forecast-order-domain.md`：报单单位永不落大单位；报单≠提货、`forecast_audit`锚`MAX(order_date)`；跨期复制只复制品清单⇒复0行传染§v282；🔴「N人报」=`COUNT(DISTINCT user_id)`是**账号数不是门店数**（老板一人替十几店填单⇒恒为1），要门店数用`stores`（带`store_kind`去重）§v574。🔴 **小程序商品来源 = 本期清单**（`forecast_import_products`，v612）：`save_matrix` 现于同事务内同步它（补录的增、删行的减）；「新增资格」必须限定「有正数量 **或** `is_new`」——勾「显示全部商品」时行底是全档案，不限定会把几百个 SKU 灌进清单。🔴 **补录行别当新商品发 `bulk-upsert`**：候选面板只写 name 不带档案号，而该接口字段**无条件覆盖** ⇒ 会把档案规格/单位/售价清零（v612 真机实测发生过，已修：认回档案并补空字段 + 认回的行不发）。
 - 返利/目标→`topics/rebate-domain.md`｜货损效期→`topics/expiry-loss-domain.md`：适用月份只写到当月⇒次月规则静默消失§v376；进得去≠读得到(403被吞)§v353；到货停单⇒期次不自动建§v364。
 - 进销存→`topics/inventory-psi.md`：八页继承父行门槛；入库批次三列不写⇒效期全空；FEFO不足整体拒绝、`sale_order_deliver`只收`draft`；退货可不挂原单、调拨走`transfer_orders`真双仓(失败必须raise)、无调拨退单v449；`StatusTabs.vue`计数必须服务端(口径=忽略status保留其余筛选)§v498；退单真身`return_orders`/`purchase_returns`(counts黑名单`='draft'`)；v509七列表页布局统一。
 - 审批流(P1-2,v519+v525)→`server/routers/approvals.py`(6端点`/api/approvals`)；状态机`draft→pending_approval→approved→执行`；前端只接purchase/sale/transfer。
@@ -97,7 +97,7 @@
 P0 7/7；P1 6/6✅（分权 v517+v526｜审批流 v519+v525｜四报表 v506+v507｜对账 v527-v533｜批次追溯 v529-v531｜批量栏 v532）。报表区 33 入口仅 4 真身。P2-4 副驾经营指标 + P2-2a 预警外发已交付(v535)；剩余促销ROI(端点坏死500)/货架位(零数据)/现金流预测页面化。**卖前三关未过；调拨单生产仍 0 张**。BI 指标唯一源 `erp_db.py:_BI_MEASURES`（口径必须 `soi.amount`）；库存周转唯一源 `get_inventory_turnover`。
 
 ## 编号约定
-已用到 v611；下一号 v612。🔴 **「改了但用户说没变」第一步先查前端构建号**：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]` + 「预报 → 修改日志」面板标题旁。SPA 老标签页**永不重拉 index.html** ⇒ 部署了也看不到。每次发版**手动改这一行**。
+已用到 v612；下一号 v613。🔴 **「改了但用户说没变」第一步先查前端构建号**：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]` + 「预报 → 修改日志」面板标题旁。SPA 老标签页**永不重拉 index.html** ⇒ 部署了也看不到。每次发版**手动改这一行**。
 - 起号必读 `version-history.md` + 实搜两仓 `git log --all` + `git worktree list`。v517 被双占。并行分叉：scoped 提交→merge origin/main→合并 HEAD 重建→部署→验「双方标记都在」。改 `pages.js` 先分清单"路由"还是"门禁"（本项目=门禁唯一源，`ruleFor` 未登记 path 一律放行 ⇒ 删占位登记=放宽门禁）v499。前端 `roles` 窄名单非真保险 ⇒ 敏感页必须后端 `_admin` 双保险(v531)。
 - ~~改单数据行 31px 是既有事实~~ **v606 已查明并修掉**：元凶是操作列 `.btn-del` 30×30 + `inline-flex` 按基线顶行盒（详见「表格密度 / 行高」段）。旧结论「别照行高链直接改」作废——当时只是没找到撑高件。
 
