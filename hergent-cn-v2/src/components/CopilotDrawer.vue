@@ -3766,52 +3766,60 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* v408：回复排版对标 WorkBuddy `prose` —— 强化标题层级与纵向节奏，便于经销商一眼扫清结构。
    🔴 此前 h1/h2/h3 仅 1.05/1/0.94em，几乎与正文同高 ⇒ 长回复「平铺一片、没有骨架」。
    现在拉到 1.45/1.22/1.06em 并加大段间距，层级一眼可辨（仍受气泡宽度约束，不溢出）。 */
+/* 🔴 v624：本节每条规则都必须挂在 `:deep()` 下 —— 这些 DOM 是 `renderMd()` 用 v-html 注入的，
+   不带 scoped 的 `data-v-xxx`。原先写作 `.md p{...}`，编译成 `.md p[data-v-xxx]` ⇒ 一条都匹配不上，
+   整段排版成了死代码（只剩浏览器 UA 默认 + 全局 `*{margin:0;padding:0}`）。肉眼后果：
+   `<ol>` 的 padding 被全局 reset 清零，序号「1./2./3.」挂到盒子左侧钻进气泡内边距
+   （用户报的「数字序号从容器溢出」）；表格无边框、代码块无标题栏、标题靠 UA 的 2em。
+   **以后往 `.md` 下加规则，一律带 `:deep()`。** */
 .md{line-height:1.7;font-size:14.5px;color:var(--t1);overflow-wrap:anywhere}
-.md p{margin:0 0 8px}
-.md p:last-child{margin-bottom:0}
-.md h1,.md h2,.md h3{margin:12px 0 6px;font-weight:700;line-height:1.3;color:var(--t1)}
-.md-h1{font-size:1.45em}
-.md-h2{font-size:1.22em}
-.md-h3{font-size:1.06em}
-.md ul,.md ol{margin:6px 0;padding-left:22px}
-.md li{margin:3px 0}
+.md :deep(p){margin:0 0 8px}
+.md :deep(p:last-child){margin-bottom:0}
+.md :deep(h1),.md :deep(h2),.md :deep(h3){margin:12px 0 6px;font-weight:700;line-height:1.3;color:var(--t1)}
+.md :deep(.md-h1){font-size:1.45em}
+.md :deep(.md-h2){font-size:1.22em}
+.md :deep(.md-h3){font-size:1.06em}
+/* v624：缩进 22px → 2em（14.5px 下 ≈29px）。两位序号「10.」宽约 22px，
+   22px 的 padding 会让句点压到正文首字；2em 留出稳定间隙。 */
+.md :deep(ul),.md :deep(ol){margin:6px 0;padding-left:2em}
+.md :deep(li){margin:3px 0}
 /* 表格：长编码/单号/金额在窄气泡里易溢出 ⇒ 单元格允许换行（不撑破布局） */
-.md table{border-collapse:collapse;margin:8px 0;font-size:.9em;width:100%;table-layout:fixed}
-.md th,.md td{border:1px solid var(--b2,#e5e7eb);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}
-.md th{background:var(--bg2,#f3f4f6);font-weight:600}
-.md blockquote{margin:6px 0;padding:4px 10px;border-left:3px solid var(--p,#06b6d4);background:rgba(6,182,212,.06);color:var(--t2,#475569);border-radius:0 6px 6px 0}
-.md hr{border:none;border-top:1px solid var(--b2,#e5e7eb);margin:8px 0}
-.md code{background:var(--bg2,#f3f4f6);padding:1px 4px;border-radius:4px;font-size:.9em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.md pre{background:var(--bg2,#f3f4f6);padding:8px;border-radius:6px;overflow-x:auto;margin:6px 0}
-.md pre code{background:none;padding:0}
+.md :deep(table){border-collapse:collapse;margin:8px 0;font-size:.9em;width:100%;table-layout:fixed}
+.md :deep(th),.md :deep(td){border:1px solid var(--b2,#e5e7eb);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}
+.md :deep(th){background:var(--bg2,#f3f4f6);font-weight:600}
+.md :deep(blockquote){margin:6px 0;padding:4px 10px;border-left:3px solid var(--p,#06b6d4);background:rgba(6,182,212,.06);color:var(--t2,#475569);border-radius:0 6px 6px 0}
+.md :deep(hr){border:none;border-top:1px solid var(--b2,#e5e7eb);margin:8px 0}
+.md :deep(code){background:var(--bg2,#f3f4f6);padding:1px 4px;border-radius:4px;font-size:.9em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.md :deep(pre){background:var(--bg2,#f3f4f6);padding:8px;border-radius:6px;overflow-x:auto;margin:6px 0}
+.md :deep(pre code){background:none;padding:0}
 /* —— P1-a 代码块：语言标签 + 行号（对标 WorkBuddy 代码块范式） —— */
-.md-codeblock{margin:6px 0;border:1px solid var(--b2,#e5e7eb);border-radius:8px;overflow:hidden;background:var(--bg2,#f3f4f6)}
-.md-codeblock__bar{display:flex;align-items:center;padding:4px 10px;background:var(--bg3,#e9eef3);border-bottom:1px solid var(--b2,#e5e7eb)}
-.md-codeblock__lang{font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--t3,#94a3b8);text-transform:uppercase}
+.md :deep(.md-codeblock){margin:6px 0;border:1px solid var(--b2,#e5e7eb);border-radius:8px;overflow:hidden;background:var(--bg2,#f3f4f6)}
+.md :deep(.md-codeblock__bar){display:flex;align-items:center;padding:4px 10px;background:var(--bg3,#e9eef3);border-bottom:1px solid var(--b2,#e5e7eb)}
+.md :deep(.md-codeblock__lang){font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--t3,#94a3b8);text-transform:uppercase}
 /* v486 P1-② 代码块一键复制：靠右、低对比，hover 才提亮，不抢代码正文视线 */
-.md-code-copy{margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
-.md-code-copy:hover{color:var(--p,#06b6d4);border-color:var(--p,#06b6d4);background:var(--bg2,#f3f4f6)}
-.md-code-copy.copied{color:#16a34a;border-color:#16a34a}
-.md-codeblock .md-pre{margin:0;border-radius:0;background:transparent;padding:8px 0}
-.md-ln{display:block;white-space:pre}
-.md-ln-no{display:inline-block;width:2.2em;margin-right:10px;text-align:right;color:var(--t3,#94a3b8);user-select:none;-webkit-user-select:none}
-.md-ln-tx{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em}
+.md :deep(.md-code-copy){margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.md :deep(.md-code-copy:hover){color:var(--p,#06b6d4);border-color:var(--p,#06b6d4);background:var(--bg2,#f3f4f6)}
+.md :deep(.md-code-copy.copied){color:#16a34a;border-color:#16a34a}
+.md :deep(.md-codeblock .md-pre){margin:0;border-radius:0;background:transparent;padding:8px 0}
+.md :deep(.md-ln){display:block;white-space:pre}
+.md :deep(.md-ln-no){display:inline-block;width:2.2em;margin-right:10px;text-align:right;color:var(--t3,#94a3b8);user-select:none;-webkit-user-select:none}
+.md :deep(.md-ln-tx){font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em}
 /* —— P1-b 长回复目录（TOC），可折叠，点击跳转 —— */
-.md-toc{margin:8px 0;padding:8px 12px;border:1px solid var(--b2,#e5e7eb);border-radius:8px;background:var(--bg3,#eef2f6)}
-.md-toc__title{font-size:12px;font-weight:700;color:var(--t2,#475569);cursor:pointer;user-select:none}
-.md-toc-list{margin:6px 0 0;padding-left:0;list-style:none}
-.md-toc-li{margin:2px 0;line-height:1.5}
-.md-toc-li.lv3{padding-left:14px}
-.md-toc-link{color:var(--p,#06b6d4);cursor:pointer;font-size:13px}
-.md-toc-link:hover{text-decoration:underline}
+.md :deep(.md-toc){margin:8px 0;padding:8px 12px;border:1px solid var(--b2,#e5e7eb);border-radius:8px;background:var(--bg3,#eef2f6)}
+.md :deep(.md-toc__title){font-size:12px;font-weight:700;color:var(--t2,#475569);cursor:pointer;user-select:none}
+.md :deep(.md-toc-list){margin:6px 0 0;padding-left:0;list-style:none}
+.md :deep(.md-toc-li){margin:2px 0;line-height:1.5}
+.md :deep(.md-toc-li.lv3){padding-left:14px}
+.md :deep(.md-toc-link){color:var(--p,#06b6d4);cursor:pointer;font-size:13px}
+.md :deep(.md-toc-link:hover){text-decoration:underline}
 /* —— P2-a / P3-a 引用块：区分 AI 结论 / 引用资料 / 关键结论卡片 —— */
-.md blockquote.md-quote--ai{border-left-color:var(--p,#06b6d4);background:rgba(6,182,212,.06)}
-.md blockquote.md-quote--src{border-left-color:var(--t3,#94a3b8);background:rgba(148,163,184,.08);color:var(--t2,#64748b)}
-.md blockquote.md-quote--key{border-left-color:#f59e0b;background:rgba(245,158,11,.10);color:var(--t1)}
-.md blockquote.md-quote--key .md-quote__tag{display:inline-block;margin-bottom:2px;padding:0 6px;border-radius:4px;background:#f59e0b;color:#fff;font-size:11px;font-weight:700;line-height:1.7}
+.md :deep(blockquote.md-quote--ai){border-left-color:var(--p,#06b6d4);background:rgba(6,182,212,.06)}
+.md :deep(blockquote.md-quote--src){border-left-color:var(--t3,#94a3b8);background:rgba(148,163,184,.08);color:var(--t2,#64748b)}
+.md :deep(blockquote.md-quote--key){border-left-color:#f59e0b;background:rgba(245,158,11,.10);color:var(--t1)}
+.md :deep(blockquote.md-quote--key .md-quote__tag){display:inline-block;margin-bottom:2px;padding:0 6px;border-radius:4px;background:#f59e0b;color:#fff;font-size:11px;font-weight:700;line-height:1.7}
 /* —— P2-b 表格：横向滚动容器 + 表头吸顶 —— */
-.md-table-wrap{margin:8px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
-.md th{position:sticky;top:0;z-index:1}
+.md :deep(.md-table-wrap){margin:8px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.md :deep(th){position:sticky;top:0;z-index:1}
 /* —— v487 P2-③ 表格→图表开关（:deep 因 v-html 注入的 DOM 无 scoped 属性） —— */
 .md :deep(.md-table-bar){display:flex;justify-content:flex-end;margin:2px 0 4px}
 .md :deep(.md-table-chart-toggle){font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;padding:2px 8px;cursor:pointer;transition:color .15s,border-color .15s}
