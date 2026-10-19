@@ -116,10 +116,18 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.ui-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000}
+/* 🔴 v617：层级必须用**页面级模态 token**（1125 / 1130），不能写 1000/1001。
+   成因（v136 已在本仓踩过、这里复发过一次）：工具栏 `.tb-pop` 的常态 z-index 是 **1120**
+   （为了「弹层开着时能直接点别的触发按钮做互斥切换」而特意抬高的），
+   而本组件 Teleport 到 body、祖先链不创建 stacking context ⇒ 直接根层比较：
+   1120 > 1001，只要按钮矩形与弹窗重叠，品牌/导出/复制报单这些**触发按钮就浮在模态之上**，
+   模态正文被压住一截（v617 真机截图：第一行说明文字尾部被「期次 ⌄」盖掉）。
+   取值与 `.imp-overlay/.imp-modal`（导入弹窗）、`.al-*`（别名弹窗）保持同一对 token，
+   全站模态只有一个层级口径；且 1130 远低于 toast 9999 / 空闲超时 9998。 */
+.ui-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:var(--z-page-modal-overlay)}
 .ui-modal-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:580px;
   max-width:92vw;max-height:88vh;overflow:hidden;background:var(--bg);
-  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:1001;
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:var(--z-page-modal);
   display:flex;flex-direction:column}
 .ui-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
   border-bottom:1px solid var(--border-subtle);flex-shrink:0}
