@@ -289,8 +289,21 @@
 
     <AuditPanel v-if="auditOpen" :period="cross.period" :erp-linked="erpLinked" :record-audit="recordAudit" :num-input="numInput" :go-connect="goConnect" @close="auditOpen = false" @reload="loadCross()" />
 
-    <!-- 返利冲刺看板（前置到本期预报顶部：选完期次第一眼即看目标达成/缺口/均单建议；有期次即显示，不绑子视图） -->
-    <RebateSprint v-if="cross.period" :period="cross.period" :rows="cross.rows" :edit-mode="editMode" :prod-meta="prodMeta" @summary="onSprintSummary" />
+    <!-- v628：返利冲刺看板的**顶部卡片已撤**。用户原话「冲刺面板横在工具栏和网格中间有点不太合适，
+         很占空间」—— 真机实测它占 133px（卡片 115 + 外距 18），1366×768 上就是视口的 17.3%，
+         而它展示的四个数（未达标品牌数 / 总缺口 / 剩余到货次数 / 均单需报）与表格页脚的冲刺胶囊
+         **完全同一份**（v585 起胶囊常显、悬停即出完整看板）⇒ 同一组数字印了两遍。
+         现在唯一可见形态 = 页脚胶囊 + 悬停浮层。
+         🔴 但本组件**不能删**：页脚胶囊的 `summary` 由它算完 emit 上去（v585 单一数据源纪律）。
+            ⇒ 留一个**零布局宿主**：照常挂载、照常拉返利规则/达成、照常 emit，只是不占一个像素。
+            ⚠️ 看到这段别当成"藏起来的旧卡片"清掉 —— 删了页脚胶囊立刻归零，而且**不会报任何错**。
+         为什么不让页脚自己算：那等于把 250 行冲刺计算（品牌维度达成/缺口/均单）复制成第二份，
+         两处算出不同缺口是必然的（v183「同一行数与色不得互相矛盾」同族纪律）。
+         ⚠️ 撤卡腾出的 119px 已由 `.cross-viewport` 的高度上限补回（见该规则注释），
+            表体底边、页脚位置、整页高度均不变 ⇒ 只长高、不位移。 -->
+    <div class="sprint-src" aria-hidden="true">
+      <RebateSprint v-if="cross.period" :period="cross.period" :rows="cross.rows" :edit-mode="editMode" :prod-meta="prodMeta" @summary="onSprintSummary" />
+    </div>
 
     <!-- v621：原「视图切换行」(.view-seg-row) **整行撤掉** —— 一行 48px 却只承载三件事，
          用户要求把它们拆进已有的行里（"可以省一行出来，页面更干净"）：
@@ -3149,6 +3162,28 @@ const scrollEl = ref(null)
 onMounted(() => {
   nextTick(() => { if (scrollEl.value) viewportH.value = scrollEl.value.clientHeight })
 })
+/* v628：表体高度上限提到 `calc(72vh + 119px)` 后，多了一段「首帧内容高 < 上限 → 数据到达后长到上限」
+   的过渡：clientHeight 会变，而 `viewportH` 只在滚动 / 进全屏时更新 ⇒ 首屏按小高度算渲染窗口，
+   少渲染几行、底部留一片 spacer 空白（v581 同族坑，只是这次的诱因从"初值 600"变成"高度上限变高"）。
+   用 ResizeObserver 兜住：表体真实可视高一变就重算。
+   ⚠️ 用 watch 跟 `scrollEl` 而不是在 onMounted 里 observe 一次：`.cross-viewport` 挂在
+      `v-if="!editMode"` 分支上 —— 进编辑态时元素被卸载，`scrollEl` 变 null，观察者必须一起断开，
+      否则会盯着一个已经不在文档里的节点（不报错，只是从此失效）；切回查看态重绑即可。 */
+let vpRO = null
+let vpRAF = 0
+function _bindVpObserver (el) {
+  if (vpRO) { vpRO.disconnect(); vpRO = null }
+  if (!el) return
+  viewportH.value = el.clientHeight
+  if (typeof ResizeObserver === 'undefined') return
+  vpRO = new ResizeObserver(() => {
+    cancelAnimationFrame(vpRAF)
+    vpRAF = requestAnimationFrame(() => { if (scrollEl.value) viewportH.value = scrollEl.value.clientHeight })
+  })
+  vpRO.observe(el)
+}
+watch(scrollEl, (el) => _bindVpObserver(el), { immediate: true })
+onBeforeUnmount(() => { if (vpRO) { vpRO.disconnect(); vpRO = null } cancelAnimationFrame(vpRAF) })
 const crossFoot = ref(null)   // 合计底栏（只读交叉表）水平滚动同步
 const editFoot = ref(null)    // 合计底栏（编辑网格）水平滚动同步
 /* v581：这三个常量是**虚拟滚动的唯一高度依据** —— spacer 的上下占位、渲染窗口的起止行、
@@ -12326,7 +12361,16 @@ th.sortable:hover{color:var(--p-dark)}
 .col-total .calc.final{background:var(--final-bg)}
 
 /* ---- 表体工程化增强（T1-T8：虚拟滚动/选中/展开/行状态/行操作/空加载态/键盘a11y） ---- */
-.cross-viewport{flex:1 1 auto;min-height:0;min-width:0;max-height:72vh;overflow:auto;position:relative}
+/* v628：上限 = 视口 72%（原值）+ 撤掉的冲刺卡占位 119px。
+   顶部冲刺卡撤除后 `.grid-area` 整体上移 119px；若上限不补，表体底边与页脚会一起上移
+   119px、页面底部空出一块（真机实测，用户说的「表体整体上移不好看」就是这个）。
+   为什么是 119 而不是卡片视觉高度 133：卡片 = 115 + margin 14/4，但它的 margin-top 被父级
+   间距吸收，实际只占 119（115 + 4）。
+   ✅ 实测（1366×768 / 1600×913）：表体 553→672 / 657→776，**底边 1014 / 1078 分毫不动**，
+      页脚位置与整页高度同样不变 ⇒ 表格只长高、不位移。
+   ⚠️ 以后改顶部卡片高度（或恢复它）时这个数必须同步；现值 = 卡片高 115 + 4。
+   ⚠️ 全屏态 `.grid-area.is-fs` 下 max-height:none，本值不参与，不用改。 */
+.cross-viewport{flex:1 1 auto;min-height:0;min-width:0;max-height:calc(72vh + 119px);overflow:auto;position:relative}
 /* v454：交叉表横向滚动条加粗 + 显眼，方便鼠标点中拖动（特别是横向滚动） */
 .cross-viewport::-webkit-scrollbar,
 .edit-grid-wrap::-webkit-scrollbar{height:18px;width:14px}
@@ -12339,6 +12383,12 @@ th.sortable:hover{color:var(--p-dark)}
 /* Firefox：交叉表滚动条可见配色 */
 .cross-viewport,.edit-grid-wrap{scrollbar-color:var(--scroll-thumb) var(--scroll-track)}
 /* 表体全屏按钮：尺寸/图标/颜色/圆角/悬停态与 AI 副驾 .cp-icon-btn 全屏按钮完全对齐 */
+/* v628：冲刺看板的零布局宿主（见模板里那段注释）—— 它是页脚胶囊/悬停浮层的数据来源，
+   组件照常挂载、computed 照常求值、summary 照常 emit，只是不参与布局。
+   ⚠️ 只能 display:none。改成 visibility:hidden / opacity:0 都**仍占位**，等于白撤。
+   ⚠️ display:none 不影响 Vue 的渲染与 computed 求值；只有"拿尺寸"的逻辑会量到 0
+      （RebateSprint 的 paceFits 只影响它自己那份不显示的明细，浮层里是独立实例、自己量）。 */
+.sprint-src{display:none}
 .grid-area{position:relative;display:flex;flex-direction:column;gap:10px}
 .grid-area.is-fs{position:fixed;inset:0;z-index:var(--z-page-fs);background:var(--bg);padding:12px;display:flex;flex-direction:column;gap:10px}
 /* 🔴 v578：全屏态**不再让表体强制撑满**（flex 1 1 ⇒ 0 1 auto）。
