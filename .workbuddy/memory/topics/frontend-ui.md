@@ -716,8 +716,6 @@ S2 从表格工具行那颗按钮进入编辑态、S3 取消后入口回来、S4
 ⚠️ **既有缺陷（与本次无关，未修）**：非全屏 1280 的表格工具行**本来就折成 2 行**（−21px）。
 一行修法 = 把徽标也按窄屏收成图标形态；代价是 1280–1359 下徽标失去文字。**待用户拍板**。
 
-
-
 ---
 
 ## 🔴 v210（2026-09-20）编辑网格「单元格两态模型」—— 单击全选 + 方向键跳格
@@ -3845,8 +3843,6 @@ Chrome 落到 `chrome-error://chromewebdata/`、`localStorage` 报 "Access is de
 
 
 
-
-
 ---
 
 # §MEM-ARCHIVE-v585：从 MEMORY.md 迁出的详情（2026-10-18）
@@ -4217,8 +4213,6 @@ B3 全屏行高仍 21、154 行全量、页脚可见；Z9 零报错。
 - 🔴 **Esc 放弃本格修改**（v602）：还原源必须是 `rawCellVal`（进格时原始值），**不能用 `readCellVal`**（数量列 `|| 0` ⇒ 空格子被还原成 0）。判据是「当前值 ≠ 进格前值」，不能只看 `cellTyping`（单击进的是导航态）。
 - 🔴 **编辑态 = 格内即输入框**（v592）：`.cell-input` 去边框/圆角，横向出血 `--cell-pad-h`（8/6，不许写死）；焦点靠 `.td.selected` 2px outline。表头客户名输入框**保留方框**。
 
-
-
 ---
 
 ## §MEM-ARCHIVE-v607 · 表格密度 / 行高 全文（v571-v606，2026-10-18 逐字迁出，MEMORY.md 只留判据摘要）
@@ -4261,3 +4255,50 @@ B3 全屏行高仍 21、154 行全量、页脚可见；Z9 零报错。
   任何修改都是脏内存。同族筛查：`grep` 页面所有 mutation（`_deleted =`、`splice(`、`xxx =`）逐个问「谁把它写库」。
   只读化后必须反向断言**能力没丢**（改单里数量格 / 删行按钮计数不变），别「修 bug 顺手删功能」。
 - 探针：品牌列是 `<input>` ⇒ `td.textContent` 恒空，必须读 `input.value`；登录用裸 fetch ⇒ 必须 `Page.reload` 一次才能让 App 从 localStorage 恢复登录态。
+
+
+---
+
+## §MEM-ARCHIVE-v614（v614 迁入：组件抽离五条/表格密度行高/拖动填充/页脚胶囊浮层/Excel 化网格）
+
+## 🔴 组件抽离五条必检（v557-v569）
+1. 模板组件**逐个 import**（无自动注册）⇒ 漏 import 构建照过、运行时渲染空元素；判据：产物搜 `_resolveComponent("X")`。「元素看不见」先确认渲染了再调样式。
+2. scoped 父抽离**必须连样式搬**（父 `data-v` 只打子根元素 ⇒ 内部布局/告警色静默失效）。
+3. 多弹窗共用壳层类（`.imp-modal`/`.del-*`）放**入口必载**全局表，别放懒加载 chunk。
+4. 控制器型子组件把**写操作 emit 回父级**：父管 `open`+校验，子只拉数据+交互+emit。
+5. composable **必须 return 且在外层作用域**（以 `}` 收尾的 old_string 会匹配内层，v569 二次踩）；跑 `composable-return-probe.cjs`。
+- 工具链：`rm -rf dist-vNNN`/emptyDir 被 safe-delete 拦（>50 文件）⇒ `--emptyOutDir false` 或 `mv`。**报失败先排除 safe-delete。**
+
+## 🔴 表格密度 / 行高（v571-v606｜全文 `§MEM-ARCHIVE-v607`）
+- 定式：`.cross-tbl{--fc-cell:18px}` 唯一源（td line-height/`.cell-input`/`.cell-ro`/表头齿轮全取它），垂直 padding 归零 ⇒ 数据行 **21px**；密度开关只改横向留白。
+- 🔴🔴 改行高前**先查用户在哪一档**（`tenant_1.db:ui_col_prefs WHERE page='ui-density'`；`html[data-density]` 更可信）：压了 compact 而用户看 cozy ⇒ 两次"已达标"被打回。
+- 🔴 **行高真凶通常不是 padding/变量，是子元素 display**（v606 死钉 31px 元凶 `.btn-del` 30×30 + `inline-flex`）：先量 td，再量格内子元素；`inline-flex/block` ≤ `--fc-cell`。
+- 其余（同分打死/底部占位/虚拟滚动常量/合计栏位置）见归档。域名：cn-v2=**hergent.cn**；`erp.hergent.cn` 是另一套 admin（对 cn-v2 产物 404）。
+
+## 🔴 拖动填充 / 拖动类交互（v593-v597｜全文 `§MEM-ARCHIVE-v605`）
+- 跟随鼠标的交互必须有**随状态变化的 DOM 物**（只写不读=全程零变化）；覆盖层 `pointer-events:none`；坐标靠首尾格 rect 相减（**禁累加行高**：密度+zoom 必错位）。线性填充只沿主方向；`fillSpan(a,b)` 单一函数供预览/写入/提示；横向左界=冻结列右边界。
+- 🔴 拖框选后快捷键全灭：`onCellOver` 主动 `blur()` ⇒ `activeElement` 变 BODY ⇒ `<table @keydown>` 的 Ctrl+D/R/C 静默失效。先查 `document.activeElement`。
+
+## 🔴 页脚胶囊 / 浮层（v583-v605）
+- 数字只有一个源：父级摘要胶囊靠子组件 `emit('summary')` 回传，**父级不得重算**；软删行（`_deleted`）必须过滤，与 `liveRows` 同口径。
+- 悬停浮层：点击**不做 toggle**、别用 `@blur` 关；关闭只靠移出延迟/点别处/Esc。定位定式：`Teleport + fixed + z-index 1250`（>`--z-page-fs` 1000），水平居中 `left:50%+translateX(-50%)`，垂直锚触发器；`transform` 创建 containing block ⇒ 浮层内不得有 `fixed/sticky` 子；有自定义浮层就删触发器 `title`。点开式：Esc 监听挂**捕获阶段 + stopPropagation**（v603）。
+- 🔴 `margin-left:auto` 的推手不能挂在带 `v-if` 的组件上（v604）⇒ 靠右组必须包**常显容器**（否则无数据时整行退化左对齐、空 211px、无报错）。
+- 页脚并排控件 ≤22px 高、12px 字，行高 24px 不得被顶高。v605：编辑表那套分页是 `v-for` 全渲染+`v-show` ⇒ DOM 一个不少，「为性能而分页」是伪命题，已撤除。
+- 真机验证必须 `Input.dispatchMouseEvent` 真移鼠标 + `Input.insertText` 真键入；几何断言用 `getBoundingClientRect`。
+
+## 🔴 Excel 化改单网格（v597-v598｜全文 `§MEM-ARCHIVE-v605b`）
+- 🔴 响应式 ↔ WeakMap 基线必须 `toRaw()`（模板里 `r` 是深层 Proxy，与原对象不同 key ⇒ `get()` 恒 undefined、判据恒 false、**零报错**）。任何「对象引用当 key」的缓存同族。
+- 探针两坑：CDP 对**视口外坐标**派发鼠标事件静默无效；`Tab` 跳格触发横向滚动后旧坐标全失效 ⇒ 每次操作前重取。
+
+## 🔴 副驾消息区（v-html 渲染）—— v620-v624
+- 🔴 **`<style scoped>` 对 `v-html` 注入的 DOM 完全无效**（v624）：`renderMd()` 的产物不带 `data-v-xxx`，
+  写成 `.md p{...}` 会被编译成 `.md p[data-v-xxx]` ⇒ 一条都不匹配（本仓这套 Markdown 排版自上线起就是死代码）。
+  症状是「样式写了却没有」：`p` 没段间距、`ol` 没有缩进（全局 `*{margin:0;padding:0}` 把 UA 的 40px 也清了，
+  `list-style-position:outside` 的序号只能挂在盒子左侧 ⇒ 钻进气泡内边距，看着像「顺序号溢出容器」）、
+  表格无边框缩成 210px、代码块没标题栏、`h1` 走 UA 的 2em。
+  定式：**`.md :deep(子选择器)`**（v487 的 `.md-table-chart-toggle` 当年就用了这个写法，其余没跟上）。
+  判据：改样式没效果时先量 `getComputedStyle`，`margin/padding` 全 0 ⇒ 规则没匹配上，不是被别的规则覆盖。
+- 列表缩进给 **2em**（14.5px 下 ≈29px）：两位序号「10.」约 22px，22px padding 会把句点压到正文首字。
+- v620：多根组件（Fragment）静默丢父级 `class` ⇒ 见 MEMORY.md「按 class 选子组件根」判据。
+- v622：`v-if` 抽屉重开必须自己还原 `scrollTop`（`messages.length` 没变时不会触发任何滚动 watch）。
+- v623：flex 里「可能超长的文本」必须 `min-width:0`，否则无空格长串冲出容器并撑出整页横向滚动条。
