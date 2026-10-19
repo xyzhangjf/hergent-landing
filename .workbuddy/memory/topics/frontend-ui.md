@@ -4302,3 +4302,30 @@ B3 全屏行高仍 21、154 行全量、页脚可见；Z9 零报错。
 - v620：多根组件（Fragment）静默丢父级 `class` ⇒ 见 MEMORY.md「按 class 选子组件根」判据。
 - v622：`v-if` 抽屉重开必须自己还原 `scrollTop`（`messages.length` 没变时不会触发任何滚动 watch）。
 - v623：flex 里「可能超长的文本」必须 `min-width:0`，否则无空格长串冲出容器并撑出整页横向滚动条。
+
+## 🔴 副驾「兜底经营卡」的归属与署名（v625）
+
+**用户报**：让会计算工资，"大秘"突然发了条「顺手把本月工资提成核算拉出来了：」，
+「我没有问，AI 主动出来答」，而且这几天都有。
+
+**机制**：`src/composables/useCardTrigger.js` 每次副驾回复**成功后**，用正则匹配当轮问题
+（`PAYROLL_RE=/工资|提成|佣金|薪酬|…/`），命中就拉 `/api/ai/payroll-card` 并 push 一条
+带卡的消息（文案固定 4 句之一）。所以问题不是"AI 乱说话"，而是**这条系统自动补的卡被当成了角色的发言**。
+
+| 缺陷 | 表现 | 修法 |
+|---|---|---|
+| `pushCard` 不写 `roleMeta` | 署名 `m.roleMeta?.name \|\| currentRole.name` 回落当前角色 ⇒ 切角色后**历史卡改口** | 写入 `roleId + roleMeta + cardAuto` |
+| 卡异步补、不校验归属 | 请求在路上时切角色/切会话，回来后 push 进**当前**上下文 ⇒ 凭空冒一条 | 发起时快照 `{currentId, roleId}`，回来不一致就丢弃 |
+
+**渲染**：自动卡一律 `📊 经营数据`（中性），不署任何角色 —— 它只做数值聚合、没有口径披露，
+署谁的名都会让老板以为"某人在跟我说话"。
+
+🔴 **判据不能用「无 roleMeta ⇒ 自动卡」**：v319（2026-09-29）之前的 AI 主回复也没有 roleMeta，
+会被一起误判成"经营数据"。正确判据 = `m.cardAuto===true` **或** 正文逐字等于 `AUTO_CARD_LEADS` 的 4 句
+（导出成单一源，别在渲染层再抄一遍文案）。
+反向红线：**AI 自己用 ```card 出的卡挂在同一条带快照的消息上，必须仍署角色名**，否则老板会以为
+AI 的结论也是"系统自动算的"（v625c 探针守着这条）。
+
+**探针**（`.workbuddy/tools/`）：`v625-card-role-attribution-probe.mjs`（署名漂移）、
+`v625b-card-race-probe.mjs`（延迟 3s 卡 + 中途切角色）、`v625c-ai-card-not-misjudged-probe.mjs`（反向不打折）。
+三者都用桩 SSE 回 `copilot/chat`，秒回、可复跑，不烧真 LLM。

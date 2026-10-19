@@ -30,6 +30,13 @@
   修法：子组件 `defineOptions({inheritAttrs:false})` + 根节点 `v-bind="$attrs"`；父级 `:deep()`。
   **判据：写「按 class 选子组件根」的 CSS 前，先真机读一次 `el.className`，别 grep 模板就断定类存在。**
 - 🔴 浮层定式：`Teleport + fixed + z-index 1250`；有自定义浮层就删触发器 `title`。
+- 🔴 **异步补出来的东西必须「发起时快照归属」，回来归属变了就丢弃；系统自动产出的内容不许署角色名**（v625）：
+  副驾兜底经营卡（`useCardTrigger`）两处叠加 ⇒ 用户报「我没问，大秘主动出来答」。① 卡消息写入不带 `roleMeta`，
+  模板署名 `m.roleMeta?.name || currentRole.name` 回落到**当前角色** ⇒ 在「会计」下问工资、切到「大秘」，那张卡就改署「大秘」；
+  ② 卡是 `triggerCards` 不 await 补的，请求在路上时切角色/切会话，回来无脑 `messages.push` ⇒ 落进切换后的上下文。
+  **判据：任何「用户没直接触发、异步写进对话流」的内容（卡/提醒/推送），写入前必须比对发起时的 `{sessionId, roleId}`。**
+  另：这类纯数值聚合卡（无口径披露）一律中性署名「📊 经营数据」，**别用「无 roleMeta 就算自动卡」**——会把 v319 之前的
+  AI 主回复一起误判；正确判据是「显式 `cardAuto` ∪ 正文逐字等于 4 句固定开场白（`AUTO_CARD_LEADS` 单一源）」。
 - 🔴 **`v-html` 注入的 DOM 拿不到 scoped 的 `data-v-xxx` ⇒ `<style scoped>` 里写 `.md p{...}` 是死代码**（v624，
   副驾 40+ 条 Markdown 排版规则自上线起**一条都没生效**，编译结果是 `.md p[data-v-xxx]`）：
   只剩 UA 默认 + 全局 `*{margin:0;padding:0}` ⇒ `<ol>` 的 padding 被清零、序号「1./2./3.」挂到盒子左侧
@@ -99,7 +106,7 @@
 P0 7/7；P1 6/6✅（分权 v517+v526｜审批流 v519+v525｜四报表 v506+v507｜对账 v527-v533｜批次追溯 v529-v531｜批量栏 v532）。报表区 33 入口仅 4 真身。P2-4 副驾经营指标 + P2-2a 预警外发已交付(v535)；剩余促销ROI(端点坏死500)/货架位(零数据)/现金流预测页面化。**卖前三关未过；调拨单生产仍 0 张**。BI 指标唯一源 `erp_db.py:_BI_MEASURES`（口径必须 `soi.amount`）；库存周转唯一源 `get_inventory_turnover`。
 
 ## 编号约定
-已用到 v624；下一号 v625。🔴 **「改了但用户说没变」第一步查前端构建号**：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]`。SPA 老标签页**永不重拉 index.html** ⇒ 部署了也看不到；每次发版**手动改这一行**。
+已用到 v625；下一号 v626。🔴 **「改了但用户说没变」第一步查前端构建号**：`window.__HG_BUILD__`（`main.js` 唯一定义处）+ `html[data-build]`。SPA 老标签页**永不重拉 index.html** ⇒ 部署了也看不到；每次发版**手动改这一行**。
 - 起号必读 `version-history.md` + 实搜两仓 `git log --all` + `git worktree list`。并行分叉：scoped 提交→merge origin/main→合并 HEAD 重建→部署→验「双方标记都在」。改 `pages.js` 先分清单"路由"还是"门禁"（本项目=门禁唯一源，`ruleFor` 未登记 path 一律放行⇒删占位登记=放宽门禁）v499。前端 `roles` 窄名单非真保险⇒敏感页必须后端 `_admin` 双保险(v531)。
 
 ## 主体 / 脱敏 / 技能 / 本机坑
