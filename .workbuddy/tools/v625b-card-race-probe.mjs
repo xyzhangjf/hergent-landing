@@ -26,7 +26,8 @@ const STUB = `(() => {
     const url = typeof input === 'string' ? input : ((input && input.url) || '')
     if (url.indexOf('/api/ai/copilot/chat') > -1) {
       const mk = (txt) => 'data: ' + JSON.stringify({ choices: [{ delta: { content: txt }, index: 0, finish_reason: null }] }) + '\\n\\n'
-      return Promise.resolve(new Response(mk('好的。') + 'data: [DONE]\\n\\n',
+      // 🔴 v627：卡不再由关键词兜底触发，必须让 AI 自己表态（cards 围栏）才能复现「卡还在路上」
+      return Promise.resolve(new Response(mk('好的，数据见卡。\\n\\n\`\`\`cards\\n{"show":["wage"]}\\n\`\`\`') + 'data: [DONE]\\n\\n',
         { status: 200, headers: { 'Content-Type': 'text/event-stream' } }))
     }
     if (url.indexOf('/api/ai/payroll-card') > -1) {
@@ -58,8 +59,9 @@ const JS_HOOK = `(() => { if (window.__HG_ERRS__) return 1; window.__HG_ERRS__ =
 const JS_ERRS = `(() => JSON.stringify(window.__HG_ERRS__ || []))()`
 
 const JS_CARDS = `(() => {
+  // 🔴 v627：卡消息不再带正文，改按 DOM 事实识别（助手消息里出现 .rc）
   const msgs = [...document.querySelectorAll('.cp-body .msg')]
-  const cards = msgs.filter(m => (m.innerText || '').indexOf('顺手把本月工资') > -1)
+  const cards = msgs.filter(m => !m.classList.contains('user') && m.querySelector('.rc'))
     .map(m => { const r = m.querySelector('.msg-role'); return { role: r ? r.textContent.trim() : '' } })
   return JSON.stringify({ count: msgs.length, cards })
 })()`

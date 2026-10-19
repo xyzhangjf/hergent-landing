@@ -34,7 +34,9 @@ const STUB = `(() => {
     const url = typeof input === 'string' ? input : ((input && input.url) || '')
     if (url.indexOf('/api/ai/copilot/chat') > -1) {
       const mk = (txt) => 'data: ' + JSON.stringify({ choices: [{ delta: { content: txt }, index: 0, finish_reason: null }] }) + '\\n\\n'
-      const body = mk('好的，本月工资提成我核对了，数据如下。') + 'data: [DONE]\\n\\n'
+      // 🔴 v627：前端不再按关键词补卡，「问工资就出卡」这条路已经不通了。
+      //   本探针要测的是「卡消息的署名」，所以必须让 AI 自己表态要卡（cards 围栏）。
+      const body = mk('好的，本月工资提成我核对了，数据见卡。\\n\\n\`\`\`cards\\n{"show":["wage"]}\\n\`\`\`') + 'data: [DONE]\\n\\n'
       return Promise.resolve(new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }))
     }
     return orig(input, init)
@@ -59,7 +61,9 @@ const JS_HOOK = `(() => { if (window.__HG_ERRS__) return 1; window.__HG_ERRS__ =
   return 1 })()`
 const JS_ERRS = `(() => JSON.stringify(window.__HG_ERRS__ || []))()`
 
-/** 副驾状态：有哪些消息、各自署名 */
+/** 副驾状态：有哪些消息、各自署名
+ *  🔴 v627 改：卡消息**不再带正文**（「顺手把…拉出来了」已删），
+ *     所以不能再用文案匹配来找卡 —— 改用 DOM 事实「这条助手消息里有 .rc（ResultCard）」。 */
 const JS_STATE = `(() => {
   const aside = document.querySelector('.copilot')
   if (!aside) return JSON.stringify({ open: false })
@@ -67,9 +71,11 @@ const JS_STATE = `(() => {
   const list = msgs.map((m, i) => {
     const r = m.querySelector('.msg-role')
     const tx = (m.innerText || '').replace(/\\s+/g, ' ').trim()
-    return { i, role: r ? r.textContent.trim() : '', isSwitch: m.classList.contains('is-switch'), tx: tx.slice(0, 46) }
+    return { i, role: r ? r.textContent.trim() : '', isSwitch: m.classList.contains('is-switch'),
+      hasCard: !!m.querySelector('.rc'),
+      isUser: m.classList.contains('user'), tx: tx.slice(0, 46) }
   })
-  const cards = list.filter(o => o.tx.indexOf('顺手把本月工资') > -1)
+  const cards = list.filter(o => !o.isUser && o.hasCard)
   return JSON.stringify({ open: true, count: list.length, cards, tail: list.slice(-4) })
 })()`
 

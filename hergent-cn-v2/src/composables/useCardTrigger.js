@@ -130,8 +130,9 @@ export function extractCard(text) {
    - 无该围栏 = AI 未判断 → 由前端弱正则兜底
    老板不需要知道"卡片"，是否出卡完全由 AI 依据问题语义决定。 */
 export const CARD_INTENT_RE = /```cards\s*\n?\s*(\{[\s\S]*?\})\s*```/i
-// 显式否定（兜底层用）：用户明确要纯文字/不要图表时，即使无意图围栏也不补卡
-export const DENY_RE = /(不|别|无需|不用|免|不要).{0,6}(卡片?|图表|卡)|只要(文字|文本|正文|段落)|纯(文字|文本|正文)/i
+/* v627：DENY_RE（「只要文字/别给卡」的否定词）随兜底一起删除 ——
+   它原先只作用在兜底分支，从来没拦到过 AI 自己出的卡；现在没有兜底，它已无作用。
+   用户要纯文字时由 AI 依 SOUL.md 判断（「要文字材料 → 纯文字回复」）。 */
 
 export function extractCardIntent(text) {
   const m = (text || '').match(CARD_INTENT_RE)
@@ -270,28 +271,35 @@ export function stripReminderFence(text) {
   return (text || '').replace(REMINDER_RE, '').replace(/^\n+/, '').trim()
 }
 
-/* ---- 意图正则（仅作 AI 未输出意图围栏时的弱兜底） ---- */
-export const LOSS_RE = /货损|报损|损耗|临期|过期|破损|报废|损失|近效期|效期|保质期|坏品|烂货/i
-export const PAYROLL_RE = /工资|提成|算工资|算提成|发工资|佣金|薪酬|业绩提成|员.?工.?工资/i
-export const REBATE_RE = /返利|算返利|返点|返佣|厂家返利|供应商返利|季度返利|年终返利/i
-export const FORECAST_RE = /预报|报单|谁没报|还差.*报|订了多少|订货量|下单量|订单汇总|报单进度|催单|订货进度/i
+/* ---- 出卡完全由 AI 判断（v627）----
+   🔴 这里原先有 5 条意图正则（LOSS_RE / PAYROLL_RE / REBATE_RE / FORECAST_RE / DENY_RE）
+   和 `triggerCards()`：AI 没输出 ```cards 围栏时，前端扫**用户原话**命中关键词就补一张卡。
+   2026-10-19 用户报障「关键词触发这个感觉挺奇怪的，只要打了关键词就出卡，非常突兀」，
+   v627b 探针在生产复现：AI 按协议不出围栏（= 它判断不需要卡），前端仍然硬插一条
+   「📊 经营数据｜顺手把本月工资提成核算拉出来了：」。
 
-/* ---- 系统自动补卡的固定开场白（单一源） ----
-   两个用途：
-     ① 拼消息正文（load 时直接用）；
-     ② **渲染层识别「这条是自动卡，不是角色说的话」** —— v625：存量消息（v625 之前落盘、
-        没有 `cardAuto` 标记）也要被认出来，否则它们会继续跟着当前角色改口。
-   判据用「正文逐字等值」而不是模糊匹配：AI 主回复里也可能提到"工资提成核算"，
-   模糊匹配会把真回复误判成自动卡。 */
-export const AUTO_CARD_LEADS = {
+   为什么必然冲突：SOUL.md（Web 端唯一判据）要求「**没有卡要展示时，就完全不要输出这个围栏**」
+   ⇒ 「无围栏」在协议里表示「不要卡」，而前端把它当成「AI 没表态」。**AI 越守协议，前端越要插话。**
+
+   另外这批正则还反向伤害 AI 的意图：makeFetcher 里的 `if (!re.test(q)) return`
+   会把 AI 明确要求的卡也拦掉 —— 用户问「这个月发多少」（不含"工资"二字）时，
+   AI 即使输出了 `{"show":["wage"]}`，PAYROLL_RE 不命中 ⇒ 卡压根不拉取。
+   ⇒ 两处一起删，fetcher 只负责取数，是否取由 AI 决定。 */
+
+/* ---- 存量自动卡的旧开场白（**仅用于识别历史消息**，不再用于新卡）----
+   v627 之前，系统自动补的卡会自带一句拟人开场白「顺手把本月工资提成核算拉出来了：」。
+   老板的原话是「给人感觉非常突兀」—— 这句不是 AI 说的，是系统替 AI 说的，
+   而且以"顺手"开头像在搭话。v627 起新卡**不带任何正文**（只渲染卡本身），
+   但历史会话里躺着的这批消息还要能被认出来（否则它们会跟着当前角色改署名、也躲过产物区折叠）。 */
+export const LEGACY_AUTO_LEADS = {
   loss: '顺手把你这段时间的真实货损核算拉出来了：',
   payroll: '顺手把本月工资提成核算拉出来了：',
   rebate: '顺手把当前的返利进度拉出来了：',
   forecast: '顺手把这期的预报订单进度拉出来了：'
 }
-const AUTO_LEAD_SET = new Set(Object.values(AUTO_CARD_LEADS))
+const AUTO_LEAD_SET = new Set(Object.values(LEGACY_AUTO_LEADS))
 
-/** 这条正文是否属于「系统自动补卡」（存量识别用；新消息另有 cardAuto 标记） */
+/** 这条正文是否属于「系统自动补卡」的**旧文案**（新消息另有 cardAuto 标记） */
 export function isAutoCardContent(text) {
   return AUTO_LEAD_SET.has(String(text || '').trim())
 }
@@ -301,7 +309,7 @@ export function isAutoCardContent(text) {
     判据同样走「正文逐字等值」——AI 主回复里可能写着类似的话，模糊匹配会连它一起折叠掉。 */
 export function autoCardKind(text) {
   const t = String(text || '').trim()
-  for (const k in AUTO_CARD_LEADS) if (AUTO_CARD_LEADS[k] === t) return k
+  for (const k in LEGACY_AUTO_LEADS) if (LEGACY_AUTO_LEADS[k] === t) return k
   return ''
 }
 
@@ -319,18 +327,20 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
   const save = saveCurrentSession || (() => {})
   const rid = () => (getRoleId ? (getRoleId() || '') : '')
 
-  function pushCard(content, card, ownerRid) {
+  function pushCard(card, ownerRid) {
     // 🔴 v625：卡消息必须**自带角色快照**（与主回复 `roleMetaOf(roleId)` 同源）。
     //   此前只写 role/content/card/created_at —— 而模板的署名是
     //   `m.roleMeta?.name || currentRole.name` ⇒ 缺快照的卡**跟着当前角色漂移**：
     //   在「会计」下问工资、切到「大秘」，那条卡就署上「大秘」，老板看到的是
     //   「大秘突然主动发了条工资核算」——正是用户报的现象（v319 修过主回复这条路径，
     //   兜底卡这条漏了）。
+    // 🔴 v627：**不再带正文**（content 留空）。原先正文是固定的一句拟人开场白
+    //   「顺手把本月工资提成核算拉出来了：」——老板原话「给人感觉非常突兀」。
+    //   卡不是任何人说的话，就谁的口吻都不该用：模板对「有卡无正文」的消息直接只渲染卡。
     store.chat.messages.push({
-      role: 'assistant', content, card,
-      // cardAuto = 这条**不是 AI 说的话**，是系统按关键词自动补的数据卡。
-      //   渲染层据此给中性署名（「经营数据」），不冒充任何角色 —— 用户报的正是
-      //   「我没问，大秘主动出来答」：卡本来就不是角色在说话，署谁的名都会误导。
+      role: 'assistant', content: '', card,
+      // cardAuto = 这条**不是 AI 说的话**，是系统按 AI 意图拉来的数据卡。
+      //   渲染层据此给中性署名（「经营数据」），不冒充任何角色。
       cardAuto: true,
       roleId: ownerRid || '',
       roleMeta: (getRoleMeta && ownerRid) ? getRoleMeta(ownerRid) : null,
@@ -346,12 +356,13 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
     //   形参 pushRoleReply 保留以兼容既有调用契约，当前不再使用。
   }
 
-  /* 通用单卡抓取工厂：regex 命中 → 拉接口 → push 卡片；静默降级 */
-  function makeFetcher(re, endpoint, lead) {
-    return function fetchCard(q) {
-      if (!re.test(q || '')) return Promise.resolve()
+  /* 通用单卡抓取工厂：**只管取数**，要不要取由调用方（AI 意图）决定。
+     v627 去掉了 `re` 参数与 `if (!re.test(q)) return` 前置判据 ——
+     它会把 AI 明确要求的卡拦掉（问「这个月发多少」不含"工资"，AI 说 show:["wage"] 也拉不到）。 */
+  function makeFetcher(endpoint) {
+    return function fetchCard() {
       // 🔴 v625：**发起时快照归属（会话 + 角色）**。
-      //   卡是异步补的（`triggerCards` 不 await），而 pushCard 直接 push 到
+      //   卡是异步补的（`fireCards` 不 await），而 pushCard 直接 push 到
       //   `store.chat.messages` —— 请求飞在路上时老板很可能已经切走：
       //   切角色（同一会话里换人答）、切会话、关抽屉另开一段。
       //   回来后无脑 push ⇒ 这条卡**落进切换后的那段对话**，看着就是"AI 主动开口"。
@@ -370,16 +381,16 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
           if (!card) return
           if (store.chat.messages !== ownerArr) return        // 已换会话 ⇒ 丢弃
           if (rid() !== ownerRid) return                      // 已换角色 ⇒ 丢弃
-          pushCard(lead, card, ownerRid)
+          pushCard(card, ownerRid)
         })
         .catch(() => { /* 静默降级，绝不干扰主对话 */ })
     }
   }
 
-  const fetchLossCard = makeFetcher(LOSS_RE, '/api/ai/loss-card', AUTO_CARD_LEADS.loss)
-  const fetchPayrollCard = makeFetcher(PAYROLL_RE, '/api/ai/payroll-card', AUTO_CARD_LEADS.payroll)
-  const fetchRebateCard = makeFetcher(REBATE_RE, '/api/ai/rebate-card', AUTO_CARD_LEADS.rebate)
-  const fetchForecastCard = makeFetcher(FORECAST_RE, '/api/ai/forecast-card', AUTO_CARD_LEADS.forecast)
+  const fetchLossCard = makeFetcher('/api/ai/loss-card')
+  const fetchPayrollCard = makeFetcher('/api/ai/payroll-card')
+  const fetchRebateCard = makeFetcher('/api/ai/rebate-card')
+  const fetchForecastCard = makeFetcher('/api/ai/forecast-card')
 
   /* 按 AI 意图名单触卡：show:["loss","wage","rebate","forecast"] */
   const CARD_MAP = {
@@ -387,17 +398,12 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
     wage: fetchPayrollCard, payroll: fetchPayrollCard,
     rebate: fetchRebateCard, forecast: fetchForecastCard
   }
-  function fireCards(list, q) {
+  function fireCards(list) {
     const jobs = (list || []).map(k => {
       const f = CARD_MAP[k]
-      return f ? f(q) : Promise.resolve()
+      return f ? f() : Promise.resolve()
     })
     return Promise.all(jobs)
-  }
-
-  /* 触发所有非复盘卡片（send 完成后调用；AI 未给意图围栏时的弱兜底） */
-  function triggerCards(q) {
-    return Promise.all([fetchLossCard(q), fetchPayrollCard(q), fetchRebateCard(q), fetchForecastCard(q)])
   }
 
   return {
@@ -406,7 +412,6 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
     fetchPayrollCard,
     fetchRebateCard,
     fetchForecastCard,
-    triggerCards,
     fireCards
   }
 }

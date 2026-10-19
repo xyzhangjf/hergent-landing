@@ -143,8 +143,11 @@
                 </button>
                 <div v-if="openThink === i" class="mt-body">{{ m.reasoning }}</div>
               </div>
-              <div class="msg-bubble">
-                <div v-if="m.role === 'assistant' && m.content" class="md" v-html="renderMd(mediaView(m.content).text)" @click="onCopilotTocClick" @change="onCopilotControl"></div>
+              <!-- v627：自动经营卡**不渲染气泡**（有卡无正文）——卡自己就是内容，
+                   再套一个灰色气泡框反而像"某人在说话"。bubbleText() 对自动卡一律返回空，
+                   所以判据是「有文字 或 压根没有卡」。 -->
+              <div v-if="bubbleText(m) || !m.card" class="msg-bubble">
+                <div v-if="m.role === 'assistant' && bubbleText(m)" class="md" v-html="renderMd(mediaView(bubbleText(m)).text)" @click="onCopilotTocClick" @change="onCopilotControl"></div>
                 <!-- 等待动画：只在「正在流式 + 这是最后一条 + 还没收到内容」时显示。
                      判据必须带上 streaming —— 请求超时/报错/取消时 streaming 立刻变 false，
                      组件随之卸载，不会留在气泡里一直跳（原先只看内容为空，中断后会常驻）。 -->
@@ -152,7 +155,7 @@
                   v-else-if="m.role === 'assistant' && store.chat.streaming && i === store.chat.messages.length - 1"
                   text="思考中…"
                 />
-                <template v-else>{{ m.content }}</template>
+                <template v-else>{{ bubbleText(m) }}</template>
                 <!-- v309：用户主动停止的标记。对齐 WorkBuddy 的 `message.interrupted`（任务被中断）——
                      中断后**保留**已生成内容，只在末尾附一个中性标记，不弹错误、不删气泡。 -->
                 <div v-if="m.role === 'assistant' && m.stopped" class="cp-stopped" role="status">
@@ -350,8 +353,10 @@
 
               <!-- v423：单轮对话底部操作栏（对齐 WorkBuddy message-actions）：
                    复制 / 点赞 / 点踩 / 朗读 / 重新生成 / 分享 + 当前模型标识。
-                   只在「有内容且非正在流式输出的最后一条」时显示（流式时只露出气泡，避免干扰）。 -->
-              <div v-if="m.role === 'assistant' && m.content && !(store.chat.streaming && i === store.chat.messages.length - 1)" class="cp-msg-actions">
+                   只在「有内容且非正在流式输出的最后一条」时显示（流式时只露出气泡，避免干扰）。
+                   v627：判据从 `m.content` 换成 `bubbleText(m)` —— 自动经营卡没有正文
+                   （历史卡那句拟人开场白也已在渲染层隐掉），不该出现「复制/重新生成」。 -->
+              <div v-if="m.role === 'assistant' && bubbleText(m) && !(store.chat.streaming && i === store.chat.messages.length - 1)" class="cp-msg-actions">
                 <button class="cp-act" title="复制" @click="copyMsg(m)">
                   <Icon name="copy" :size="16" />
                 </button>
@@ -919,7 +924,7 @@ import { isHeavyTurn, shouldInjectTableHint, spreadsheetSoftHint } from '../util
 import { importApi } from '../api/modules'
 import { chatAttachmentApi, aiPagerApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
-import { useCardTrigger, extractCard, extractCardIntent, stripAllFences, extractClarify, extractProposal, extractReminder, DENY_RE, demoCard, isAutoCardContent, autoCardKind } from '../composables/useCardTrigger'
+import { useCardTrigger, extractCard, extractCardIntent, stripAllFences, extractClarify, extractProposal, extractReminder, demoCard, isAutoCardContent, autoCardKind } from '../composables/useCardTrigger'
 import { useVoiceInput } from '../composables/useVoiceInput'
 import { renderMd, splitMedia } from '../utils/md'
 import { useRouter } from 'vue-router'   // M1：斜杠命令「跳转页面」用
@@ -1553,6 +1558,16 @@ function roleMetaOf(rid) {
       从 v319 起就带 roleMeta、正文也不是那 4 句 ⇒ 不会被误判。 */
 function isAutoCard(m) {
   return !!(m && m.card) && (m.cardAuto === true || isAutoCardContent(m.content))
+}
+
+/* 🔴 v627：自动经营卡不显示正文。
+   新卡（v627 起）正文本来就是空；**历史卡**正文是那句拟人开场白
+   「顺手把本月工资提成核算拉出来了：」——老板原话「给人感觉非常突兀」。
+   这里在渲染层统一隐掉，老会话也一起变干净（不动落盘数据，可逆）。
+   判据复用 isAutoCard：它已能认出「cardAuto 标记」与「存量旧文案」两种形态。 */
+function bubbleText(m) {
+  if (!m) return ''
+  return isAutoCard(m) ? '' : (m.content || '')
 }
 
 // v320：历史列表里的「这段是谁开的」标签。
@@ -2412,7 +2427,6 @@ const {
   fetchPayrollCard,
   fetchRebateCard,
   fetchForecastCard,
-  triggerCards,
   fireCards
 } = useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRoleReply, getRoleId, getRoleMeta: roleMetaOf })
 
@@ -3180,21 +3194,15 @@ async function streamReply(payload, reuseUserMsg = false) {
   if (reply && currentRole.value && currentRole.value.role_id) {
     pushRoleReply(currentRole.value.role_id, reply, (currentRole.value.name || 'AI 经营副驾'))
   }
-  // 是否补经营卡 = AI 自主判断（老板无需知道"卡片"）：
-  //   ① AI 输出了 ```cards 意图围栏 → 完全按 AI 的 show 执行（show:[] 即纯文字一张不补）
+  // 是否出经营卡 = **完全由 AI 判断**（老板无需知道"卡片"）：
+  //   ① AI 输出 ```cards 意图围栏 → 严格按 show 执行（show:[] 或没有围栏 = 一张不补）
   //   ② AI 已出单卡（```card / 裸卡，已在 onDelta 里被 extractCard 抽成 replyMsg.card）
-  //      → 视为 AI 已自主判断，不再兜底
-  //   ③ 以上都没有（模型漏标/旧会话）→ 单卡正则弱兜底，且尊重显式否定词
-  // v156 A：判据原先只看 ```cards 复数围栏，而协议要求 AI「出单个 ```card 就别再出 ```cards」
-  //   （两者只需其一）→ AI 越守协议，前端越判定"未出卡"而再补一张，老板收到两条结论相反的
-  //   回复（2026-09-13 实测：LLM 说"算不出来/数据缺失"，兜底卡却报"库存健康"）。
-  //   修复：只要 AI 已出过卡（任意形态），兜底一律不触发。
-  const aiCarded = !!(cardIntent || (replyMsg && replyMsg.card))
-  if (cardIntent) {
-    if (cardIntent.show && cardIntent.show.length) fireCards(cardIntent.show, q)
-  } else if (!aiCarded && !DENY_RE.test(q)) {
-    triggerCards(q)
-  }
+  //      → 它自己已经给了卡，这里不再做任何事
+  // 🔴 v627：删掉了原来的第 ③ 条「AI 没表态 → 用关键词正则补卡」。
+  //   协议里「没有卡就不要输出围栏」本身就是一种表态，前端却把它读成"没表态"⇒
+  //   AI 越守规矩，前端越要硬插一条「顺手把…拉出来了：」，老板的感受是"我没问，它自己冒出来"。
+  //   2026-10-19 用户报障 + v627b 探针在生产 100% 复现（S1/S3 各插 1 条）。
+  if (cardIntent && cardIntent.show && cardIntent.show.length) fireCards(cardIntent.show)
   saveCurrentSession()
   flushPending()   // v522：本轮回复结束，自动补发流式期间用户排队的新消息
   reportUsage(content, reply)

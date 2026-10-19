@@ -31,7 +31,10 @@ const STUB = `(() => {
     if (url.indexOf('/api/ai/copilot/chat') > -1) {
       window.__STUB_N++
       const n = window.__STUB_N
-      let txt = '好的，我核对了一下，数据如下。'
+      // 🔴 v627：前端不再按关键词补卡，卡只能由 AI 表态触发 —— 桩必须自己给 cards 围栏。
+      //   前 3 问要 wage、第 4-5 问要 loss（对应探针的 A/B 两段），第 6 问出 AI 自带的单卡。
+      let txt = '好的，数据见卡。\\n\\n\`\`\`cards\\n{"show":["wage"]}\\n\`\`\`'
+      if (n > 3 && n <= 5) txt = '好的，数据见卡。\\n\\n\`\`\`cards\\n{"show":["loss"]}\\n\`\`\`'
       if (n === 6) {
         txt = '好的，这是本期工资卡。\\n\\n\`\`\`card\\n' +
           JSON.stringify({ type: 'payroll', title: '本月工资提成（AI 结论）', summary: '测试用 AI 自出卡',

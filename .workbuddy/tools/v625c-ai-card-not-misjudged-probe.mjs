@@ -62,12 +62,15 @@ const JS_STATE = `(() => {
   const list = msgs.map((m, i) => {
     const r = m.querySelector('.msg-role')
     const tx = (m.innerText || '').replace(/\\s+/g, ' ').trim()
-    return { i, role: r ? r.textContent.trim() : '', tx: tx.slice(0, 60) }
+    return { i, role: r ? r.textContent.trim() : '', isUser: m.classList.contains('user'),
+      hasCard: !!m.querySelector('.rc'), tx: tx.slice(0, 60) }
   })
   return JSON.stringify({
     count: list.length,
+    // AI 自己用 card 围栏出的卡：挂在自己的回复消息上，署名是角色名
     mine: list.filter(o => o.tx.indexOf('AI 自己出的工资卡') > -1),
-    fallback: list.filter(o => o.tx.indexOf('顺手把本月工资') > -1),
+    // 🔴 v627：系统补的卡不再有正文，按「有卡 + 署名是中性的经营数据」识别
+    fallback: list.filter(o => !o.isUser && o.hasCard && o.role === '经营数据'),
     tail: list.slice(-3)
   })
 })()`
