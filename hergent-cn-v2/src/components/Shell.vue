@@ -127,6 +127,16 @@
             </div>
           </template>
         </nav>
+        <!-- v623（2026-10-19）：阿里云备案核查（2026-10-22 17:00 截止）要求 hergent.cn
+             网站底部正确悬挂备案编号且编号链接指向工信部（beian.miit.gov.cn）。
+             登录后的主界面此前**一份备案号都没有**（只有未登录的 Login.vue 底部有）⇒
+             桌面侧栏底部补一份 11px 灰字。
+             · 折叠态（sidebarOpen=false，侧栏约 60px）放不下 ⇒ v-if 隐藏；
+             · 手机端侧栏整体 display:none（见文末媒体查询）⇒ 自动不显示，无额外判据；
+             · 纯展示 + 外链工信部，无点击态业务逻辑，样式随主题变量走。 -->
+        <div v-if="store.ui.sidebarOpen" class="sb-beian">
+          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">鄂ICP备2026027973号-1</a>
+        </div>
       </aside>
 
       <!-- 侧栏拖拽手柄（桌面、展开时可见） -->
@@ -1475,6 +1485,11 @@ function stopResize() {
 .sb-resizer::after{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);background:transparent;transition:background .15s}
 .sb-resizer:hover::after,.sb-resizer.active::after{background:var(--p)}
 .sb-nav{flex:1;overflow-y:auto;padding:12px 10px}
+/* v623：侧栏底部备案号（阿里云 2026-10 备案核查；说明见模板内 .sb-beian 处）。
+   flex-shrink:0 ⇒ 侧栏内容再长也不把它压没；折叠/手机端不渲染 ⇒ 无需媒体查询。 */
+.sb-beian{flex-shrink:0;padding:10px 8px 12px;text-align:center;font-size:11px;line-height:1.5;color:var(--t2);opacity:.55}
+.sb-beian a{color:inherit;text-decoration:none}
+.sb-beian a:hover{opacity:1;text-decoration:underline}
 .sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;color:var(--t2);text-decoration:none;font-size:13px;transition:all .15s}
 .sb-item:hover{background:var(--bg);color:var(--t1)}
 .sb-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
