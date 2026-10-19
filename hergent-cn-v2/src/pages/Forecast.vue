@@ -750,6 +750,14 @@
             >已隐藏 {{ zeroReportCount }} 个零报单</span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
+            <!-- v613：「上架」与「报单」分开 —— 勾「显示全部商品」+（可选）品牌筛选后，这里给出
+                 「当前筛选出、但还没进本期清单」的商品数，一点即加入清单并保存。
+                 只在**有筛选且候选 > 0** 时渲染 ⇒ 日常改单不占位；也挡住「没筛选时一键灌全表」
+                 （实测清空品牌后候选 226 个，见 listAddFiltered 注释）。
+                 文案用「清单」而不是「上架」：小程序里它表现为「能搜到」，用词要对齐用户看到的东西。 -->
+            <button v-if="listAddCandidates.length && listAddFiltered" class="btn btn-sm btn-ghost" :disabled="savingEdit"
+                    :title="'当前筛选出的 ' + listAddCandidates.length + ' 个商品还没进本期清单（小程序里搜不到）。点这里加入并保存 —— 只上架，不产生报单数量'"
+                    @click="addShownToList"><Icon name="plus"/> 加入本期清单<span class="btn-badge">{{ listAddCandidates.length }}</span></button>
             <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
             <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
             <span v-if="hiddenEmptyCols" class="confirm-badge filter filter-act"
@@ -972,6 +980,10 @@
                       <span v-if="rowNote(r) && canDo('data', 'update')" class="note-badge" :title="rowNote(r)" @click="setRowNote(ri)"><Icon name="message"/></span>
                       <span v-else-if="rowNote(r)" class="note-badge" style="cursor:default" :title="rowNote(r)"><Icon name="message"/></span>
                       <span v-if="hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60" class="hs-badge" :title="'健康分 '+hsMap[r.product_id]+'（偏低，需补全资料）'"><Icon name="lightbulb"/></span>
+                      <!-- v613：已点「加入本期清单」但还没保存成功的行必须看得见 ——
+                           否则保存被校验/冲突拦下后，用户只记得「我点过按钮」，回来却找不到哪些行标记过，
+                           再点一次按钮数还对不上（候选已排除它们）。 -->
+                      <span v-if="r._listAdd" class="listadd-badge" title="保存后加入本期清单（小程序里可搜到）">待上架</span>
                     </div>
                   </template>
                   <template v-else-if="c.edit === 'text' && c.options && c.options.length">
@@ -2538,6 +2550,16 @@ function unitCount() {
 // B1 修复 (2026-07-24)：默认只读模式——进入页面先看汇总表，需编辑再点「编辑」
 // （原默认 true 直接进入编辑网格，改数量/粘贴/删除等编辑能力对非录入员暴露过早）
 const editMode = ref(false)
+/* ── v613（2026-10-19）：本期商品清单的档案号集合 ──────────────────────────────
+   🔴 为什么需要它：用户的心智是「改单里勾个品牌 → 保存 = 把这批商品上架到小程序」，
+      但保存链路里**上架（写 forecast_import_products）**和**报单（写数量明细）**是两件事，
+      只有 `qty>0` 或 `is_new` 的行才会入清单（见后端 `_sync_period_product_list`）。
+      于是「勾显示全部商品 → 筛品牌 → 保存」这一步什么都不会发生，且**零提示**。
+      本集合让前端能算出「当前筛选结果里有 N 个商品还没进本期清单」，从而给出一个显式动作。
+   赋值点两处（与 `importedProducts` 同源，缺一处那一态就恒为空集合）：
+      · loadEditGrid（编辑态，约 3862）
+      · loadCross（查看态，约 10565） */
+const listPidSet = ref(new Set())
 /* v211（P1-1）：商品名称**补全候选**（数据源 = 全量商品主档，赋值点在 loadCross 两处）。
    v215：**替掉原生 datalist**，改自建候选面板 —— 因为 datalist 的过滤逻辑由浏览器决定，
       各家不一致、也**无法**支持「条码后四位 / 拼音首字母」这两种检索（它只按 value 匹配）。
@@ -3860,6 +3882,7 @@ async function loadEditGrid() {
     masterNameOptions.value = buildNameOptions(allProds)
     const importedProducts = d.imported_products || []
     const importedSet = new Set(importedProducts.map(p => Number(p.id)))
+    listPidSet.value = importedSet          // v613：编辑态赋值点（供「加入本期清单」算候选）
     const rowBase = buildRowBase(allProds, importedProducts, d.rows || [], showAllProducts.value)
     // v202：记下行底原始顺序（＝ 导入模板序 + 无导入序那批的稳定尾随）。
     //   `applySort()` 切回「默认」时按它恢复 —— 这是**编辑态**的那个赋值点。
@@ -4874,6 +4897,11 @@ async function saveEdits(opts = {}) {
            ⚠️ 只标 `_new`（addRow / 粘贴导入时置位，保存成功后清除），
               不要改成"凡在表里就算新" —— 勾「显示全部商品」时整份在售档案都在表里。 */
         is_new: !!r._new,
+        /* v613：「加入本期清单」的显式旗标（按钮 addShownToList 置位）。
+           与 is_new 分开的原因：is_new 的语义是「这一行是用户新加的（补录/粘贴）」，
+           而这里整个档案商品本来就在表里、只是没登记进本期清单 —— 两件事。
+           后端 eligible 取「qty>0 ∪ is_new ∪ add_to_list」三支并集。 */
+        add_to_list: !!r._listAdd,
         extra_qty: Number(r.extraQty) || 0,
         /* v190：本期手工单价（元/箱）→ 后端落 `forecast_extra_qty.case_price`。
            未录入传 null（**不传 0**：前端判据是「> 0 才算手工录入」，传 0 会让两边判据
@@ -4957,6 +4985,9 @@ async function saveEdits(opts = {}) {
     // 自定义列没落库属于"静默丢数据"，不能吞。
     await collectCustVals()
     usable.forEach(rw => { delete rw._new })   // Q9：保存后清除「新增行」标识
+    /* v613：清单标记同理清掉 —— 本次已随 saveMatrix 落进清单，留着会让「加入本期清单」
+       的候选数少算（同一批商品点第二次时按钮数不对），且草稿里也会带着过期标记。 */
+    usable.forEach(rw => { delete rw._listAdd })
     saveFailed.value = null
     /* Q5：不再清空撤销栈；改为记录「上次保存基线」，保存后仍可 Ctrl+Z / 一键回退。
        ⚠️ 位置**必须**在退出编辑态之前 —— `leaveEdit()` 会调 `loadCross()` 把
@@ -7366,6 +7397,69 @@ function rowBaseShown(ri) {
      逐行 includes 是 O(品牌数×行数)，Set 降到 O(1)。 */
   if (brandSel.value.length && !brandSelSet.value.has(rowBrand(cross.value.rows[ri]))) return false
   return true
+}
+/* ===================== v613：把「当前筛选出的商品」显式加入本期清单 =====================
+   用户原话：「改单 → 筛选品牌 → 保存」能不能把该品牌商品上架到小程序（让门店自己报）？
+   **原答案是不能，且零提示**，卡两道：
+     ① 行底（buildRowBase）默认只放「本期清单内 ∪ 本期有报单」的商品 ⇒ 清单外的商品
+        勾品牌根本筛不出来（筛选只对已进表的行做 v-show，不从档案拉行）；
+     ② 即便先勾「显示全部商品」把全部在售档案调出来，保存时能进清单的只有
+        `qty>0` 或 `is_new` 的行（后端 `_sync_period_product_list` 的 eligible）
+        ⇒ 只勾筛选、数量全 0 的行一样进不去。而「上架」本来就不该以「有人报了数量」为条件。
+   ⇒ 本函数给它一个**显式动作**：标记 + 立即保存。清单同步仍走后端同一条路（v612），
+      这里只多给后端一个 `add_to_list` 旗标，不新增写接口。
+   ⚠️ 候选范围必须是「当前筛选可见的行」，不能是「表里所有档案外行」：
+      用户勾了新希望，就该只上架新希望 —— 否则点一下把 285 个 SKU 全灌进清单。
+   ⚠️ 不做「移除」的对称按钮：撤下已有路径（删行 + 保存 ⇒ v612 的 removed），
+      再做一个按钮等于两条路改同一个结果，迟早出现「删了又被加回来」的互斗。 */
+const listAddCandidates = computed(() => {
+  if (!editMode.value) return []
+  const rows = cross.value.rows || []
+  const inList = listPidSet.value || new Set()
+  const out = []
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]
+    if (!r || r._deleted || r._listAdd) continue
+    const pid = Number(r.product_id) || 0
+    if (pid <= 0) continue            // 无档案号：清单唯一键 (period_id, product_id) 登不进去
+    if (inList.has(pid)) continue     // 已在本期清单里，无需再上架
+    if (r._new) continue              // 手工补录行：保存即入清单（v612 已覆盖），不必再标
+    if (!rowBaseShown(i)) continue    // 只加「当前筛选可见」的（品牌 / 搜索 / 只看有报单 都算）
+    out.push(r)
+  }
+  return out
+})
+/* 🔴 v613 真机实测（本轮的 A2 那一条）逼出来的闸门：**必须有一个生效中的筛选**，按钮才出现。
+   起因：勾了「显示全部商品」后清空品牌，候选 = 全表 380 − 清单 154 = **226 个**，
+   按钮堂而皇之写着「加入本期清单 226 个」—— 手滑一点就是一次把 226 个 SKU 灌进清单，
+   正是 v612 后端注释里那个「285 个 SKU 全灌进去」的老坑，只不过这次是从前端进来的。
+   判据：这个动作的语义是「把**筛选出的**商品上架」，没有筛选时它没有主语 ⇒ 不成立。
+   用户真想整表上架，正确姿势是先按品牌/搜索收窄（也符合他"勾新希望"的心智）。 */
+const listAddFiltered = computed(() => !!(brandSel.value.length
+  || (filterText.value || findText.value || '').trim()
+  || hideZeroReport.value
+  || colFilter.value || colFilterSet.value))
+async function addShownToList() {
+  const list = listAddCandidates.value
+  if (!list.length || savingEdit.value) return
+  const n = list.length
+  const scope = brandSel.value.length === 1
+    ? `「${brandSel.value[0]}」品牌下`
+    : (brandSel.value.length > 1 ? `已选 ${brandSel.value.length} 个品牌下` : '当前表里可见的')
+  const ok = await store.confirm(
+    `把${scope} ${n} 个商品加入本期报单清单？\n\n`
+    + (n >= 20 ? `⚠️ 数量较大（${n} 个）：上架后所有门店的小程序都会列出这些商品，请确认筛选条件是对的。\n\n` : '')
+    + `· 加入后：所有门店在小程序报单页都能搜到并报这些商品（这就是「上架」）。\n`
+    + `· 不产生任何报单数量，也不改商品档案。\n`
+    + `· 想撤下：在本期里删掉这个商品行再保存即可。\n\n`
+    + `点「确定」会立即保存一次。`
+  )
+  if (!ok) return
+  /* 标记而不是直接改 payload：saveEdits 是**唯一提交入口**（校验、乐观锁、留痕都在里面）。
+     标记落行上还有一个好处 —— 万一本次保存被校验/冲突拦下，标记还在，用户改完再点保存照样生效。 */
+  list.forEach(r => { r._listAdd = true })
+  saveDraftNow()
+  await saveEdits()
 }
 // 排序：none / asc / desc（直接重排 rows，提交按 product_id 无关顺序）
 const sortMode = ref('none')
@@ -10563,6 +10657,7 @@ async function loadCross() {
     masterNameOptions.value = buildNameOptions(allProds)
     const importedProducts = d.imported_products || []
     const importedSet = new Set(importedProducts.map(p => Number(p.id)))
+    listPidSet.value = importedSet          // v613：查看态赋值点（两处缺一不可，见 listPidSet 声明）
     // 第三参传 summary 的**原始 rows**（不是聚合后的 sumById）：要拿它的 name/spec/unit
     //   给「不在在售档案」的商品补行，聚合后的对象不带 product_name。
     const rowBase = buildRowBase(allProds, importedProducts, d.rows || [], showAllProducts.value)
@@ -12349,6 +12444,9 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .cell-soft-dot.soft-over{background:var(--sev-warn-bg);color:var(--sev-warn)}
 .name-badges{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:2px;pointer-events:none}
 .name-badges>span{margin-left:0;pointer-events:auto}
+/* v613：「待上架」角标。沿用 v606 那条纪律 —— 格内行内控件的尺寸必须自己钉死，
+   否则它会按基线/默认行高把 21px 数据行顶高（`.btn-del` 30×30 就是这么把表撑到 31px 的）。 */
+.listadd-badge{display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--p-bg);color:var(--p-dark);font-size:10px;white-space:nowrap;vertical-align:middle}
 .warn-badge{display:inline-block;margin-left:3px;font-size:11px;color:var(--danger-txt);vertical-align:middle}
 .warn-badge.short{color:var(--warn-amber)}
 .diff-chg{outline:2px solid var(--p);outline-offset:-2px}
