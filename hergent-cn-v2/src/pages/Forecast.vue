@@ -439,20 +439,10 @@
           <div class="grid-ctl-row">
             <!-- v621：视图切换（汇总表 / 逐单补录）从独立一行并入本行首位，紧跟其后就是「缩放」。
                  它本来就是"这一张表怎么看 / 怎么填"的开关，和缩放同族，放这里比单独占一行合理。
-                 ⚠️ 提示语原本常显在它右边（一整条 60 字的说明），是那行"贵"的主因之一：
-                    常显只对第一次打开的人有用，之后就纯占宽 ⇒ 改成悬停 / 键盘聚焦才出浮层
-                    （CSS 就够，不用 JS：包一层 .view-seg-wrap 定位 + :hover/:focus-within）。
-                    浮层两条各说一条填报路径，比原来那句用分号串起来的话好读。 -->
-            <span class="view-seg-wrap">
-              <span class="view-seg" role="group" aria-label="填报视图切换">
-                <button :class="{ on: viewMode === 'cross' }" @click="switchView('cross')">汇总表</button>
-                <button :class="{ on: viewMode === 'list' }" @click="switchView('list')">逐单补录</button>
-              </span>
-              <span class="seg-tip" role="tooltip">
-                <span class="st-row"><b>汇总表</b>批量粘贴 · 整表改量 · 增删商品（再点「改单」）</span>
-                <span class="st-row"><b>逐单补录</b>少量补录 · 按商品搜索加购</span>
-              </span>
-            </span>
+                 组件里自带那段"两条填报路径"的提示浮层（悬停 / 聚焦才出），这里不再有常显长文案。
+                 ⚠️ 逐单补录视图下 `.cross-area` 整块是 `v-if` 卸载的 ⇒ 组件在报单草稿卡标题栏
+                    另有一份，否则切过去就回不来（见 ViewSeg.vue 顶部注释）。 -->
+            <ViewSeg :mode="viewMode" @change="switchView" />
             <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。 -->
             <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
             <!-- 表格级筛选器（原在主工具栏）：作用于本交叉表，下移到表格工具行，缩短「控件—作用对象」距离 -->
@@ -2182,6 +2172,9 @@
     <!-- 商品搜索 + 草稿区 -->
     <div v-show="viewMode === 'list'" class="card draft-section">
       <div class="panel-hd"><b><Icon name="receipt"/> 报单草稿</b><span class="tag info">{{ draft.length }} 个商品</span>
+        <!-- v621：视图切换的**第二个落点**。`.cross-area`（含表格工具行里那一份）在逐单补录下是
+             `v-if` 卸载的，只放那一处的话切过来就回不去了。两个落点共用 ViewSeg 组件，样式同源。 -->
+        <ViewSeg :mode="viewMode" @change="switchView" class="draft-seg"/>
         <span class="ph-actions">
           <button class="btn btn-sm btn-primary" :disabled="!draft.length || auditing" @click="runAudit">{{ auditing ? '审核中…' : '智能审核' }}</button>
           <!-- Q15：去掉无说明的 disabled，改为点击后引导 -->
@@ -2611,6 +2604,7 @@ import Modal from '../components/Modal.vue'
    ⇒ 不判就是"点了被弹回工作台"的假入口。判据源仍是 `constants/pages.js`。 */
 import { canSee } from '../constants/pages'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
+import ViewSeg from '../components/forecast/ViewSeg.vue'
 import ForecastHistory from './ForecastHistory.vue'
 import ReportMapping from './ReportMapping.vue'
 // v424：「报单配置」的四条子页 —— 除上面的「报单对象」外，另外三块各自是一个现成组件
@@ -12001,32 +11995,10 @@ onMounted(async () => {
 .sel-period{width:auto;max-width:208px;height:32px;padding:0 8px;flex-shrink:0;appearance:auto;-webkit-appearance:auto;cursor:pointer;position:relative;z-index:2}
 
 /* ---- P0-1 交叉表视图 ---- */
-/* 本期预报子视图切换：汇总表 / 逐单补录（移出工具栏，内容区干净分段） */
-/* v166：视图切换行改 flex —— 「修改日志」贴右，长提示文字可换行（原本是块级容器 + 行内 span
-   的「自然流」，加了按钮后必须显式分配弹性，否则按钮会被长提示挤到下一行）。行高与下方间距
-   沿用原值（原来是靠 .view-seg 的 margin-bottom 撑开的 12px）。 */
-/* v621：视图切换不再独占一行（.view-seg-row 整行删除），并入 .grid-ctl-row 首位 ——
-   故这里不再有 margin-bottom，且几何必须与同行控件同构（v599）：
-   外框 32px 高、13px 字、1px 透明边、radius 8，与 .tb-toggle / .btn-sm 顶边、高度零差。 */
-.view-seg-wrap{position:relative;display:inline-flex;flex:0 0 auto}
-.view-seg{display:inline-flex;gap:4px;background:var(--bg3);border-radius:8px;padding:2px}
-.view-seg button{border:1px solid transparent;background:transparent;padding:3px 12px;border-radius:var(--radius-sm);font-size:13px;line-height:1.45;color:var(--t2);cursor:pointer;white-space:nowrap}
-.view-seg button:hover:not(.on){color:var(--p-dark)}
-.view-seg button.on{background:var(--bg4);color:var(--p-dark);box-shadow:var(--shadow-sm);border-color:var(--p);font-weight:500}
-/* 提示语浮层：常隐，悬停胶囊 / 键盘聚焦（Tab 进去）才出。
-   ⚠️ 必须 position:absolute 且锚在 .view-seg-wrap 上 —— 挂在 .grid-ctl-row 这层
-      （static）会以 .grid-area 为包含块，`top:100%` 变成"整块网格的底部"，直接跑到屏幕外。
-   ⚠️ pointer-events:none：浮层盖在表头上，若可命中，鼠标一移过去就抢走:hover ⇒ 闪烁。
-   延迟 160ms 出现、260ms 收起：滑过时不闪，看过之后不黏。 */
-.seg-tip{position:absolute;left:0;top:calc(100% + 6px);z-index:1240;width:340px;
-  padding:8px 10px;border-radius:8px;background:var(--bg);border:1px solid var(--bd);
-  box-shadow:var(--shadow-md);font-size:12px;line-height:1.6;color:var(--t2);
-  opacity:0;visibility:hidden;pointer-events:none;
-  transition:opacity .12s ease .16s,visibility 0s linear .28s}
-.seg-tip .st-row{display:block}
-.seg-tip .st-row+.st-row{margin-top:4px}
-.seg-tip b{color:var(--t1);font-weight:600;margin-right:6px}
-.view-seg-wrap:hover>.seg-tip,.view-seg-wrap:focus-within>.seg-tip{opacity:1;visibility:visible;transition-delay:.16s,0s}
+/* v621：视图切换整行撤销 —— 组件化到 components/forecast/ViewSeg.vue（骨架 + 提示浮层 + 样式
+   全在那儿，两个落点共用一份）。这里只留「报单草稿卡标题栏」那一份的定位微调：
+   卡片标题栏是 .panel-hd，右侧 .ph-actions 靠 margin-left:auto 推右，切换器就贴在计数后面。 */
+.draft-seg{margin-left:4px}
 .ph-actions{margin-left:auto;display:inline-flex;gap:8px}
 /* 2026-08-27 期次确认徽标（经理保存汇总表=审批定稿） */
 .confirm-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 10px;border-radius:8px;font-weight:500;white-space:nowrap}
