@@ -755,9 +755,16 @@
                  只在**有筛选且候选 > 0** 时渲染 ⇒ 日常改单不占位；也挡住「没筛选时一键灌全表」
                  （实测清空品牌后候选 226 个，见 listAddFiltered 注释）。
                  文案用「清单」而不是「上架」：小程序里它表现为「能搜到」，用词要对齐用户看到的东西。 -->
-            <button v-if="listAddCandidates.length && listAddFiltered" class="btn btn-sm btn-ghost" :disabled="savingEdit"
+            <button v-if="listAddCandidates.length && hasActiveRowFilter" class="btn btn-sm btn-ghost" :disabled="savingEdit"
                     :title="'当前筛选出的 ' + listAddCandidates.length + ' 个商品还没进本期清单（小程序里搜不到）。点这里加入并保存 —— 只上架，不产生报单数量'"
                     @click="addShownToList"><Icon name="plus"/> 加入本期清单<span class="btn-badge">{{ listAddCandidates.length }}</span></button>
+            <!-- v614：「撤下」是「上架」的逆动作，同样只在**有筛选**时出现（否则一键清空整期清单）。
+                 用 minus 图标与 plus 成对；同行控件同构（btn-sm / 13 字 / 32 高），
+                 危险程度靠角标配色（.btn-badge.err）表达，不改按钮外形 —— 自创红框按钮会被否。
+                 候选里排除「有数量」的行（原因见 listDelPlan 注释：会被 qty>0 自动加回）。 -->
+            <button v-if="listDelPlan.ok.length && hasActiveRowFilter" class="btn btn-sm btn-ghost" :disabled="savingEdit"
+                    :title="'当前筛选出的 ' + listDelPlan.ok.length + ' 个商品在本期清单里。点这里撤下并保存 —— 撤下后门店在小程序搜不到（不删已报数量、不改商品档案）'"
+                    @click="removeShownFromList"><Icon name="minus"/> 撤下清单<span class="btn-badge err">{{ listDelPlan.ok.length }}</span></button>
             <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
             <label class="tb-toggle"><input type="checkbox" v-model="showEmptyCols"> 显示空列</label>
             <span v-if="hiddenEmptyCols" class="confirm-badge filter filter-act"
@@ -984,6 +991,8 @@
                            否则保存被校验/冲突拦下后，用户只记得「我点过按钮」，回来却找不到哪些行标记过，
                            再点一次按钮数还对不上（候选已排除它们）。 -->
                       <span v-if="r._listAdd" class="listadd-badge" title="保存后加入本期清单（小程序里可搜到）">待上架</span>
+                      <!-- v614：撤下同理，标记必须看得见 —— 保存被拦下后用户回来看不出哪些行已被标记。 -->
+                      <span v-if="r._listDel" class="listdel-badge" title="保存后从本期清单撤下（门店在小程序搜不到）">待撤下</span>
                     </div>
                   </template>
                   <template v-else-if="c.edit === 'text' && c.options && c.options.length">
@@ -4902,6 +4911,12 @@ async function saveEdits(opts = {}) {
            而这里整个档案商品本来就在表里、只是没登记进本期清单 —— 两件事。
            后端 eligible 取「qty>0 ∪ is_new ∪ add_to_list」三支并集。 */
         add_to_list: !!r._listAdd,
+        /* v614：「从本期清单撤下」的显式旗标（按钮 removeShownFromList 置位）。
+           ⚠️ 与「删行」是两件事，不要合并：删行 = 从 payload 里剔除 ⇒ 后端 rem 也会删清单，
+              但整期报单重建会让该行数量一并消失；而这里**行照常留在 payload**，
+              只是让后端把它从清单里摘掉 ⇒ 已报数量 / 加单 / 手工单价一个字不动。
+           后端判据：`rem = 清单 − keep` ∪ `keep 里 list_del=True 的`（见 _sync_period_product_list）。 */
+        list_del: !!r._listDel,
         extra_qty: Number(r.extraQty) || 0,
         /* v190：本期手工单价（元/箱）→ 后端落 `forecast_extra_qty.case_price`。
            未录入传 null（**不传 0**：前端判据是「> 0 才算手工录入」，传 0 会让两边判据
@@ -4988,6 +5003,9 @@ async function saveEdits(opts = {}) {
     /* v613：清单标记同理清掉 —— 本次已随 saveMatrix 落进清单，留着会让「加入本期清单」
        的候选数少算（同一批商品点第二次时按钮数不对），且草稿里也会带着过期标记。 */
     usable.forEach(rw => { delete rw._listAdd })
+    /* v614：撤下标记同理 —— 本次已随 saveMatrix 从清单摘掉，留着会让「撤下清单」的候选数
+       反复虚高（同一批商品点第二次仍显示 N 个），草稿里也会带着过期标记。 */
+    usable.forEach(rw => { delete rw._listDel })
     saveFailed.value = null
     /* Q5：不再清空撤销栈；改为记录「上次保存基线」，保存后仍可 Ctrl+Z / 一键回退。
        ⚠️ 位置**必须**在退出编辑态之前 —— `leaveEdit()` 会调 `loadCross()` 把
@@ -7419,7 +7437,7 @@ const listAddCandidates = computed(() => {
   const out = []
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]
-    if (!r || r._deleted || r._listAdd) continue
+    if (!r || r._deleted || r._listAdd || r._listDel) continue
     const pid = Number(r.product_id) || 0
     if (pid <= 0) continue            // 无档案号：清单唯一键 (period_id, product_id) 登不进去
     if (inList.has(pid)) continue     // 已在本期清单里，无需再上架
@@ -7434,8 +7452,10 @@ const listAddCandidates = computed(() => {
    按钮堂而皇之写着「加入本期清单 226 个」—— 手滑一点就是一次把 226 个 SKU 灌进清单，
    正是 v612 后端注释里那个「285 个 SKU 全灌进去」的老坑，只不过这次是从前端进来的。
    判据：这个动作的语义是「把**筛选出的**商品上架」，没有筛选时它没有主语 ⇒ 不成立。
-   用户真想整表上架，正确姿势是先按品牌/搜索收窄（也符合他"勾新希望"的心智）。 */
-const listAddFiltered = computed(() => !!(brandSel.value.length
+   用户真想整表上架，正确姿势是先按品牌/搜索收窄（也符合他"勾新希望"的心智）。
+   v614：这条闸门**上架和撤下共用**（撤下同理会一键清空整期清单，见 listDelPlan）——
+        所以名字不带 Add，只描述事实「当前有生效中的行筛选」。 */
+const hasActiveRowFilter = computed(() => !!(brandSel.value.length
   || (filterText.value || findText.value || '').trim()
   || hideZeroReport.value
   || colFilter.value || colFilterSet.value))
@@ -7458,6 +7478,80 @@ async function addShownToList() {
   /* 标记而不是直接改 payload：saveEdits 是**唯一提交入口**（校验、乐观锁、留痕都在里面）。
      标记落行上还有一个好处 —— 万一本次保存被校验/冲突拦下，标记还在，用户改完再点保存照样生效。 */
   list.forEach(r => { r._listAdd = true })
+  saveDraftNow()
+  await saveEdits()
+}
+/* ===================== v614：把「当前筛选出的商品」从本期清单撤下 =====================
+   用户诉求：「能不能点改单，把某个品牌的勾选取消，然后保存就批量撤下」——
+   **不能**，而且原因是 v613 就写死的一条：筛选只做 `v-show`，**不参与 payload**。
+   保存提交的是整张表（除软删行），取消勾选只是把行重新显示出来，一个字段都没变；
+   真正的移除判据在后端是 `listed − keep`（清单里有、本次提交里没有），
+   而"提交里没有"只有一种产生方式：**删行**。
+
+   逐行删对"某个品牌 86 个商品"不成立（要手点 86 次垃圾桶），所以给一个显式动作。
+   ⚠️ 与 v613 注释里那句"不做对称按钮"的关系：那条担心的是**两条路改同一个结果**
+      （删行 vs 按钮 → 都靠 `rem` 删清单，会互斗）。这里不是同一结果：
+        · 删行 = 这行不要了 ⇒ 从 payload 剔除 ⇒ 清单移除 **且** 该行数量被整期重建清掉；
+        · 撤下 = 只是退清单（小程序搜不到），行仍在 payload ⇒ 报单/加单/手工单价一个字不动。
+      语义分开之后没有互斗面：撤下只多给后端一个 `list_del` 旗标（与 add_to_list 对称），
+      **不新增接口、不新增表**。
+
+   🔴 为什么候选必须排除「行内有数量」的行（本功能最重要的那条约束）：
+      后端 eligible = `qty>0 ∪ is_new ∪ add_to_list`。若允许撤下一条 qty>0 的行，
+      清单里删了、下次任何一次保存又会因 qty>0 **自动加回**（这条支路本来是给
+      「小程序先报、Web 后加进表」用的）⇒ 用户看到「撤下了，过两天自己回来了」，
+      而且没有任何报错可循。所以：
+        · 有数量 = 有人在报（或用户正在填）⇒ 不该撤，也不允许撤；
+        · 撤下的行 qty 恒为 0 ⇒ 不 eligible ⇒ 不会被自动加回。
+      被跳过的数量在确认框里明确告知，不静默少撤。 */
+function rowHasQty(r) {
+  const q = (r && r.qtyByUnit) || {}
+  for (const k in q) { if ((Number(q[k]) || 0) > 0) return true }
+  return false
+}
+const listDelPlan = computed(() => {
+  const none = { ok: [], blocked: 0 }
+  if (!editMode.value) return none
+  const rows = cross.value.rows || []
+  const inList = listPidSet.value || new Set()
+  const ok = []
+  let blocked = 0
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]
+    if (!r || r._deleted || r._listAdd || r._listDel) continue
+    const pid = Number(r.product_id) || 0
+    if (pid <= 0) continue
+    if (!inList.has(pid)) continue     // 本来就不在本期清单里，无「撤下」可言
+    /* 补录行：它还没进清单（保存时才由 is_new 加进去），所以也谈不上撤下。
+       真要挡它，正确动作是删行 —— 那条路本来就不产生清单记录。 */
+    if (r._new) continue
+    if (!rowBaseShown(i)) continue     // 只撤「当前筛选可见」的（品牌 / 搜索 / 只看有报单）
+    if (rowHasQty(r)) { blocked++; continue }
+    ok.push(r)
+  }
+  return { ok, blocked }
+})
+async function removeShownFromList() {
+  const plan = listDelPlan.value
+  const list = plan.ok
+  if (!list.length || savingEdit.value) return
+  const n = list.length
+  const scope = brandSel.value.length === 1
+    ? `「${brandSel.value[0]}」品牌下`
+    : (brandSel.value.length > 1 ? `已选 ${brandSel.value.length} 个品牌下` : '当前表里可见的')
+  const ok = await store.confirm(
+    `把${scope} ${n} 个商品从本期报单清单撤下？\n\n`
+    + (n >= 20 ? `⚠️ 数量较大（${n} 个）：撤下后所有门店的小程序都搜不到这些商品，请确认筛选条件是对的。\n\n` : '')
+    + `· 撤下后：门店在小程序报单页**搜不到**这些商品（不能报新单）。\n`
+    + (plan.blocked > 0 ? `· 另有 ${plan.blocked} 个商品本期已有人报单（有数量），**不会被撤下**。\n` : '')
+    + `· 不改商品档案，不删任何已报数量。\n`
+    + `· 想再加回来：勾「显示全部商品」→ 按品牌筛选 → 点「加入本期清单」。\n\n`
+    + `点「确定」会立即保存一次。`
+  )
+  if (!ok) return
+  /* 与 v613 同款：只打标记，`saveEdits` 仍是唯一提交入口（校验 / 乐观锁 / 留痕）。
+     标记落行上的好处相同 —— 本次保存被拦下（校验、409 冲突）时标记还在，改完再保存照样生效。 */
+  list.forEach(r => { r._listDel = true })
   saveDraftNow()
   await saveEdits()
 }
@@ -12447,6 +12541,8 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 /* v613：「待上架」角标。沿用 v606 那条纪律 —— 格内行内控件的尺寸必须自己钉死，
    否则它会按基线/默认行高把 21px 数据行顶高（`.btn-del` 30×30 就是这么把表撑到 31px 的）。 */
 .listadd-badge{display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--p-bg);color:var(--p-dark);font-size:10px;white-space:nowrap;vertical-align:middle}
+/* v614：撤下角标 —— 与上架角标同尺寸（14 高 / 10 号字），只换配色，避免行内出现两种高度 */
+.listdel-badge{display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--danger-bg);color:var(--danger-txt);font-size:10px;white-space:nowrap;vertical-align:middle}
 .warn-badge{display:inline-block;margin-left:3px;font-size:11px;color:var(--danger-txt);vertical-align:middle}
 .warn-badge.short{color:var(--warn-amber)}
 .diff-chg{outline:2px solid var(--p);outline-offset:-2px}
