@@ -276,19 +276,57 @@ export const PAYROLL_RE = /工资|提成|算工资|算提成|发工资|佣金|�
 export const REBATE_RE = /返利|算返利|返点|返佣|厂家返利|供应商返利|季度返利|年终返利/i
 export const FORECAST_RE = /预报|报单|谁没报|还差.*报|订了多少|订货量|下单量|订单汇总|报单进度|催单|订货进度/i
 
+/* ---- 系统自动补卡的固定开场白（单一源） ----
+   两个用途：
+     ① 拼消息正文（load 时直接用）；
+     ② **渲染层识别「这条是自动卡，不是角色说的话」** —— v625：存量消息（v625 之前落盘、
+        没有 `cardAuto` 标记）也要被认出来，否则它们会继续跟着当前角色改口。
+   判据用「正文逐字等值」而不是模糊匹配：AI 主回复里也可能提到"工资提成核算"，
+   模糊匹配会把真回复误判成自动卡。 */
+export const AUTO_CARD_LEADS = {
+  loss: '顺手把你这段时间的真实货损核算拉出来了：',
+  payroll: '顺手把本月工资提成核算拉出来了：',
+  rebate: '顺手把当前的返利进度拉出来了：',
+  forecast: '顺手把这期的预报订单进度拉出来了：'
+}
+const AUTO_LEAD_SET = new Set(Object.values(AUTO_CARD_LEADS))
+
+/** 这条正文是否属于「系统自动补卡」（存量识别用；新消息另有 cardAuto 标记） */
+export function isAutoCardContent(text) {
+  return AUTO_LEAD_SET.has(String(text || '').trim())
+}
+
 /**
  * @param {object} deps
  * @param {object} deps.store            全局响应式 store（用于 push 消息）
  * @param {Function} deps.scrollBottom   滚动到底部
  * @param {Function} deps.saveCurrentSession 落盘当前会话
+ * @param {Function} deps.getRoleId      当前角色 role_id（实时读）
+ * @param {Function} deps.getRoleMeta    角色快照工厂：rid → {role_id,name,avatar,custom_avatar}
  */
-export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRoleReply, getRoleId } = {}) {
+export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRoleReply, getRoleId, getRoleMeta } = {}) {
   if (!store) throw new Error('useCardTrigger: store is required')
   const scroll = scrollBottom || (() => {})
   const save = saveCurrentSession || (() => {})
+  const rid = () => (getRoleId ? (getRoleId() || '') : '')
 
-  function pushCard(content, card) {
-    store.chat.messages.push({ role: 'assistant', content, card, created_at: Date.now() })
+  function pushCard(content, card, ownerRid) {
+    // 🔴 v625：卡消息必须**自带角色快照**（与主回复 `roleMetaOf(roleId)` 同源）。
+    //   此前只写 role/content/card/created_at —— 而模板的署名是
+    //   `m.roleMeta?.name || currentRole.name` ⇒ 缺快照的卡**跟着当前角色漂移**：
+    //   在「会计」下问工资、切到「大秘」，那条卡就署上「大秘」，老板看到的是
+    //   「大秘突然主动发了条工资核算」——正是用户报的现象（v319 修过主回复这条路径，
+    //   兜底卡这条漏了）。
+    store.chat.messages.push({
+      role: 'assistant', content, card,
+      // cardAuto = 这条**不是 AI 说的话**，是系统按关键词自动补的数据卡。
+      //   渲染层据此给中性署名（「经营数据」），不冒充任何角色 —— 用户报的正是
+      //   「我没问，大秘主动出来答」：卡本来就不是角色在说话，署谁的名都会误导。
+      cardAuto: true,
+      roleId: ownerRid || '',
+      roleMeta: (getRoleMeta && ownerRid) ? getRoleMeta(ownerRid) : null,
+      created_at: Date.now()
+    })
     scroll()
     save()
     // v156 D：确定性经营卡（后端 /api/ai/*-card 聚合接口产出）**不再推 IM**。
@@ -296,27 +334,37 @@ export function useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRo
     //   读成「零风险」，错误结论会直接进老板企微 —— 2026-09-13 实测发生过
     //   （LLM 主回复说"货损算不出来"，兜底卡却推了「库存健康」到企微）。
     //   推送只保留给 AI 主回复（带口径披露），由 CopilotDrawer 负责。
-    //   形参 pushRoleReply / getRoleId 保留以兼容既有调用契约，当前不再使用。
+    //   形参 pushRoleReply 保留以兼容既有调用契约，当前不再使用。
   }
 
   /* 通用单卡抓取工厂：regex 命中 → 拉接口 → push 卡片；静默降级 */
   function makeFetcher(re, endpoint, lead) {
     return function fetchCard(q) {
       if (!re.test(q || '')) return Promise.resolve()
+      // 🔴 v625：**发起时快照归属（会话 + 角色）**。
+      //   卡是异步补的（`triggerCards` 不 await），而 pushCard 直接 push 到
+      //   `store.chat.messages` —— 请求飞在路上时老板很可能已经切走：
+      //   切角色（同一会话里换人答）、切会话、关抽屉另开一段。
+      //   回来后无脑 push ⇒ 这条卡**落进切换后的那段对话**，看着就是"AI 主动开口"。
+      //   故：归属变了就**丢弃**（它答的是上一段上下文里的问题，不该出现在新上下文里）。
+      const ownerSid = store.chat.currentId || ''
+      const ownerRid = rid()
       return api(endpoint)
         .then(res => {
           const card = res && res.card
           if (!card) return
-          pushCard(lead, card)
+          if ((store.chat.currentId || '') !== ownerSid) return   // 已换会话 ⇒ 丢弃
+          if (rid() !== ownerRid) return                          // 已换角色 ⇒ 丢弃
+          pushCard(lead, card, ownerRid)
         })
         .catch(() => { /* 静默降级，绝不干扰主对话 */ })
     }
   }
 
-  const fetchLossCard = makeFetcher(LOSS_RE, '/api/ai/loss-card', '顺手把你这段时间的真实货损核算拉出来了：')
-  const fetchPayrollCard = makeFetcher(PAYROLL_RE, '/api/ai/payroll-card', '顺手把本月工资提成核算拉出来了：')
-  const fetchRebateCard = makeFetcher(REBATE_RE, '/api/ai/rebate-card', '顺手把当前的返利进度拉出来了：')
-  const fetchForecastCard = makeFetcher(FORECAST_RE, '/api/ai/forecast-card', '顺手把这期的预报订单进度拉出来了：')
+  const fetchLossCard = makeFetcher(LOSS_RE, '/api/ai/loss-card', AUTO_CARD_LEADS.loss)
+  const fetchPayrollCard = makeFetcher(PAYROLL_RE, '/api/ai/payroll-card', AUTO_CARD_LEADS.payroll)
+  const fetchRebateCard = makeFetcher(REBATE_RE, '/api/ai/rebate-card', AUTO_CARD_LEADS.rebate)
+  const fetchForecastCard = makeFetcher(FORECAST_RE, '/api/ai/forecast-card', AUTO_CARD_LEADS.forecast)
 
   /* 按 AI 意图名单触卡：show:["loss","wage","rebate","forecast"] */
   const CARD_MAP = {

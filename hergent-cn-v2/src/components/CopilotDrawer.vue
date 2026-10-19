@@ -118,12 +118,15 @@
               </button>
             </div>
             <!-- v523：助手回复顶部信息区 = 头像(居左) + 角色名(紧邻右侧) + 时间；与下方正文保留间距。
-                 用消息自带的角色快照 m.roleMeta（不读 currentRole），避免切角色后历史署名被追溯改写。 -->
+                 用消息自带的角色快照 m.roleMeta（不读 currentRole），避免切角色后历史署名被追溯改写。
+                 v625：**系统自动补的经营卡**（cardAuto / 存量无快照的卡）走中性署名「经营数据」——
+                 这类卡不是 AI 说的话（后端只做数值聚合，没有口径披露），署任何角色名都会让老板
+                 以为"某某主动发了一条"（用户原话：「我没有问，大秘主动出来答」）。 -->
             <div v-else-if="m.role === 'assistant'" class="msg-head">
-              <span class="msg-avatar" :title="(m.roleMeta && m.roleMeta.name) || 'AI'">
-                <RoleAvatar :role="m.roleMeta || currentRole" img-class="msg-av-img" fallback="AI" />
+              <span class="msg-avatar" :title="isAutoCard(m) ? '经营数据（系统按关键词自动补充）' : ((m.roleMeta && m.roleMeta.name) || 'AI')">
+                <RoleAvatar :role="isAutoCard(m) ? null : (m.roleMeta || currentRole)" img-class="msg-av-img" :fallback="isAutoCard(m) ? '📊' : 'AI'" />
               </span>
-              <span class="msg-role">{{ (m.roleMeta && m.roleMeta.name) || (currentRole && currentRole.name) || 'AI' }}</span>
+              <span class="msg-role">{{ isAutoCard(m) ? '经营数据' : ((m.roleMeta && m.roleMeta.name) || (currentRole && currentRole.name) || 'AI') }}</span>
               <span class="msg-time" v-if="m.created_at">{{ fmtMsgTime(m.created_at) }}</span>
             </div>
             <div class="msg-col">
@@ -916,7 +919,7 @@ import { isHeavyTurn, shouldInjectTableHint, spreadsheetSoftHint } from '../util
 import { importApi } from '../api/modules'
 import { chatAttachmentApi, aiPagerApi } from '../api/modules'
 import ResultCard from './ResultCard.vue'
-import { useCardTrigger, extractCard, extractCardIntent, stripAllFences, extractClarify, extractProposal, extractReminder, DENY_RE, demoCard } from '../composables/useCardTrigger'
+import { useCardTrigger, extractCard, extractCardIntent, stripAllFences, extractClarify, extractProposal, extractReminder, DENY_RE, demoCard, isAutoCardContent } from '../composables/useCardTrigger'
 import { useVoiceInput } from '../composables/useVoiceInput'
 import { renderMd, splitMedia } from '../utils/md'
 import { useRouter } from 'vue-router'   // M1：斜杠命令「跳转页面」用
@@ -1536,6 +1539,20 @@ function roleMetaOf(rid) {
   if (!rid) return null
   const r = (store.chat.roles || []).find(x => x.role_id === rid)
   return r ? { role_id: r.role_id, name: r.name, avatar: r.avatar, custom_avatar: r.custom_avatar } : null
+}
+
+/* v625：「系统自动补的经营卡」判据 —— 这类消息**不是角色说的话**。
+   背景（用户报障）：在「会计」下问工资会触发后端 /api/ai/payroll-card，前端补一条
+   「顺手把本月工资提成核算拉出来了：」。它此前不带角色快照，而模板署名是
+   `m.roleMeta?.name || currentRole.name` ⇒ 切到「大秘」后这条卡改署「大秘」，
+   老板看到的就是「我没问，大秘主动出来答」。
+   两条判据：① 新写入的带显式 cardAuto；② 存量（v625 之前落盘的）靠**正文逐字等值**
+   识别（`isAutoCardContent` 的 4 句固定开场白）。**不能用「无 roleMeta 就算自动卡」** ——
+   那会把 v319（2026-09-29）之前的 AI 主回复也误判成经营数据。
+   ⚠️ AI 主回复自己出的卡（```card / 裸卡）挂在**同一条消息**的 `card` 上，而那条消息
+      从 v319 起就带 roleMeta、正文也不是那 4 句 ⇒ 不会被误判。 */
+function isAutoCard(m) {
+  return !!(m && m.card) && (m.cardAuto === true || isAutoCardContent(m.content))
 }
 
 // v320：历史列表里的「这段是谁开的」标签。
@@ -2397,7 +2414,7 @@ const {
   fetchForecastCard,
   triggerCards,
   fireCards
-} = useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRoleReply, getRoleId })
+} = useCardTrigger({ store, scrollBottom, saveCurrentSession, pushRoleReply, getRoleId, getRoleMeta: roleMetaOf })
 
 /* ---- M5 语音输入（A6 拆分至 composables/useVoiceInput） ---- */
 const { recognizing, speechOk, toggleVoice: _toggleVoice } = useVoiceInput({
