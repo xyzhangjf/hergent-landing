@@ -4329,3 +4329,15 @@ AI 的结论也是"系统自动算的"（v625c 探针守着这条）。
 **探针**（`.workbuddy/tools/`）：`v625-card-role-attribution-probe.mjs`（署名漂移）、
 `v625b-card-race-probe.mjs`（延迟 3s 卡 + 中途切角色）、`v625c-ai-card-not-misjudged-probe.mjs`（反向不打折）。
 三者都用桩 SSE 回 `copilot/chat`，秒回、可复跑，不烧真 LLM。
+
+## 🔴 副驾产物区折叠 + 异步归属判据（v626）
+
+- **产物区语义 = 「现在有什么可用」**，不是「历次都留档」：老板裁定反复问工资只留**最新一张**
+  （不是"同天同类合并"，别自作主张按日期分桶）。历次仍在对话流里，点卡能跳回那一刻。
+- 只折叠 `artKind`（loss/payroll/rebate/forecast）——即 `useCardTrigger` 按关键词自动补的经营卡；
+  **AI 主回复自出的 ```card、副驾产出的文件不参与**（每次问可能不同结论，折了等于藏结论）。
+  判据同样用「正文逐字等于 AUTO_CARD_LEADS 的 4 句」，**不能模糊匹配**（AI 回复里也会写"工资提成核算"）。
+- 🔴 **异步补内容（卡/回复）判归属：比 `store.chat.messages` 数组引用，不比 `chat.currentId`**。
+  `currentId` 在新对话首次提问时是 `''`，`saveCurrentSession()` 要等卡回来才写 id ⇒ 比 id 会把第一张卡丢掉。
+- 🔴 **副驾探针必须先 `freshChat()`**（`tools/lib/cp-fresh.mjs`）：demo 账号会自动恢复上次会话，
+  历史卡污染基线，v625 三探针复跑全假红。
