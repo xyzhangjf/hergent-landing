@@ -185,7 +185,7 @@
           <i class="ss-dot"></i>{{ saveState.text }}
         </span>
       </div>
-      <div v-if="(advToolsOpen && editMode) || exportMenuOpen || brandPopOpen || copyMenuOpen || batchMenuOpen" class="pop-overlay" @click="advToolsOpen=false; exportMenuOpen=false; brandPopOpen=false; copyMenuOpen=false; batchMenuOpen=false"></div>
+      <div v-if="(advToolsOpen && editMode) || exportMenuOpen || brandPopOpen || cyclePopOpen || copyMenuOpen || batchMenuOpen" class="pop-overlay" @click="advToolsOpen=false; exportMenuOpen=false; brandPopOpen=false; cyclePopOpen=false; copyMenuOpen=false; batchMenuOpen=false"></div>
     </div>
 
 
@@ -483,7 +483,28 @@
                   <label v-for="b in brandCandidates" :key="b" class="bp-item"><input type="checkbox" :value="b" v-model="brandSel"> {{ b }}</label>
                   <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
                 </div>
-                <p class="bp-tip">只勾选要报单的品牌：表格将只显示这些品牌，复制厂家编码/数量也只针对它们（多品牌合并报单时先勾选再复制）。</p>
+                <p class="bp-tip">只勾选要报单的品牌：表格将只显示这些品牌，复制厂家编码/数量也只针对它们（与到货周期、搜索等筛选叠加生效）。</p>
+              </div>
+              </Teleport>
+            </div>
+            <!-- v616：到货周期筛选 —— 用户按「下单后第几天到货」分批下单（今天 +3、明天 +2），
+                 需要一键只看某一档，且复制出去也只能是这一档。
+                 与品牌完全同构：同一个 .tb-pop + positionTbPop() + .pop-overlay 互斥，
+                 面板外壳复用 .brand-pop（bp-head/bp-list/bp-item 那套样式只挂在这个类下）。
+                 按钮文案自己说出当前档位（「到货周期 +3天」），不再另出 chip 复述 —— v608 的教训。 -->
+            <div class="tb-pop">
+              <button ref="cycleBtn" class="btn btn-sm btn-ghost" :class="{on:cyclePopOpen}" @click="toggleCyclePop" title="按到货周期（下单后第几天到货）筛选：表格只显示这一档，复制报单也只复制这一档"><Icon name="clock"/> {{ cycleBtnLabel }}<span v-if="cycleSel.length" class="btn-badge">{{ cycleSel.length }}</span> <Icon name="chevron-down"/></button>
+              <Teleport to="body">
+              <div v-if="cyclePopOpen" class="tb-pop-panel brand-pop cycle-pop" :style="popStyle" @click.stop>
+                <div class="bp-head"><span>按到货周期筛选</span><div class="bp-acts"><button class="link-btn" @click="cycleSel = cycleCandidates.map(c => c.days)">全选</button><button class="link-btn" @click="cycleSel = []">清空</button></div></div>
+                <div class="bp-list">
+                  <label v-for="c in cycleCandidates" :key="c.days" class="bp-item"><input type="checkbox" :value="c.days" v-model="cycleSel"> {{ c.label }}<span class="bp-n">{{ c.n }}</span></label>
+                  <p v-if="!cycleCandidates.length" class="bp-empty">当前表格没有商品行</p>
+                </div>
+                <p v-if="cycleUnsetHidden" class="bp-tip warn">
+                  另有 {{ cycleUnsetHidden }} 个商品没设到货周期（档案里为空），已被排除。给它们补上周期，或把「未设置」也勾上。
+                </p>
+                <p class="bp-tip">筛完只管「看得见」的：复制报单（厂家编码 / 下单数量）也只复制这一档，两段行序一一对应，可分开两次粘到厂家系统。</p>
               </div>
               </Teleport>
             </div>
@@ -497,13 +518,14 @@
               <Teleport to="body">
               <div v-if="copyMenuOpen" class="tb-pop-panel copy-pop" :style="popStyle" @click.stop>
                 <div class="cp-title">复制本期报单<span v-if="copyUnitName" class="cp-title-sub"> · {{ copyUnitName }}</span></div>
-                <p v-if="brandSel.length" class="cp-tip">已按品牌筛选：{{ brandSel.join('、') }}（只复制这些品牌）</p>
-                <p class="cp-tip">有报单 = 「最终下单(箱)」列有数量（合计(箱) + 加单(箱)）；行序与表格一致</p>
+                <p v-if="brandSel.length || cycleSel.length" class="cp-tip">只复制当前筛选出来的行：<span v-if="brandSel.length">品牌 {{ brandSel.join('、') }}</span><span v-if="brandSel.length && cycleSel.length"> · </span><span v-if="cycleSel.length">到货周期 {{ cycleSelText }}</span></p>
+                <p class="cp-tip">有报单 = 「最终下单(箱)」列有数量（合计(箱) + 加单(箱)）；搜索 / 列筛选 / 「仅显示有报单」也计入；行序与表格一致</p>
                 <div class="cp-unit-btns">
                   <button class="grp-btn cp-act" :disabled="!copyCount" title="复制厂家编码（有报单，按行序）" @click="doCopyCodes"><Icon name="barcode"/> 厂家编码</button>
                   <button class="grp-btn cp-act" :disabled="!copyCount" title="复制最终下单数量（与编码行序一致）" @click="doCopyQty"><Icon name="hash"/> 下单数量</button>
                 </div>
                 <p v-if="copyCount" class="cp-tip ok">共 <b>{{ copyCount }}</b> 个 SKU 有最终下单可复制</p>
+                <p v-else-if="brandSel.length || cycleSel.length" class="cp-empty">当前筛选下没有「最终下单」有数量的 SKU</p>
                 <p v-else class="cp-empty">本期没有「最终下单」有数量的 SKU</p>
               </div>
               </Teleport>
@@ -812,7 +834,28 @@
                   <label v-for="b in brandCandidates" :key="b" class="bp-item"><input type="checkbox" :value="b" v-model="brandSel"> {{ b }}</label>
                   <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
                 </div>
-                <p class="bp-tip">只勾选要报单的品牌：表格将只显示这些品牌，复制厂家编码/数量也只针对它们（多品牌合并报单时先勾选再复制）。</p>
+                <p class="bp-tip">只勾选要报单的品牌：表格将只显示这些品牌，复制厂家编码/数量也只针对它们（与到货周期、搜索等筛选叠加生效）。</p>
+              </div>
+              </Teleport>
+            </div>
+            <!-- v616：到货周期筛选 —— 用户按「下单后第几天到货」分批下单（今天 +3、明天 +2），
+                 需要一键只看某一档，且复制出去也只能是这一档。
+                 与品牌完全同构：同一个 .tb-pop + positionTbPop() + .pop-overlay 互斥，
+                 面板外壳复用 .brand-pop（bp-head/bp-list/bp-item 那套样式只挂在这个类下）。
+                 按钮文案自己说出当前档位（「到货周期 +3天」），不再另出 chip 复述 —— v608 的教训。 -->
+            <div class="tb-pop">
+              <button ref="cycleBtn" class="btn btn-sm btn-ghost" :class="{on:cyclePopOpen}" @click="toggleCyclePop" title="按到货周期（下单后第几天到货）筛选：表格只显示这一档，复制报单也只复制这一档"><Icon name="clock"/> {{ cycleBtnLabel }}<span v-if="cycleSel.length" class="btn-badge">{{ cycleSel.length }}</span> <Icon name="chevron-down"/></button>
+              <Teleport to="body">
+              <div v-if="cyclePopOpen" class="tb-pop-panel brand-pop cycle-pop" :style="popStyle" @click.stop>
+                <div class="bp-head"><span>按到货周期筛选</span><div class="bp-acts"><button class="link-btn" @click="cycleSel = cycleCandidates.map(c => c.days)">全选</button><button class="link-btn" @click="cycleSel = []">清空</button></div></div>
+                <div class="bp-list">
+                  <label v-for="c in cycleCandidates" :key="c.days" class="bp-item"><input type="checkbox" :value="c.days" v-model="cycleSel"> {{ c.label }}<span class="bp-n">{{ c.n }}</span></label>
+                  <p v-if="!cycleCandidates.length" class="bp-empty">当前表格没有商品行</p>
+                </div>
+                <p v-if="cycleUnsetHidden" class="bp-tip warn">
+                  另有 {{ cycleUnsetHidden }} 个商品没设到货周期（档案里为空），已被排除。给它们补上周期，或把「未设置」也勾上。
+                </p>
+                <p class="bp-tip">筛完只管「看得见」的：复制报单（厂家编码 / 下单数量）也只复制这一档，两段行序一一对应，可分开两次粘到厂家系统。</p>
               </div>
               </Teleport>
             </div>
@@ -2810,15 +2853,25 @@ function rowMatchText(r, f) {
   if (py && py.toLowerCase().includes(f)) return true
   return false
 }
-function rowVisible(r) {
+/* v616：「这行现在看不看得见」的**唯一实现** —— 查看态 rowVisible 与编辑态 rowBaseShown 都只调它。
+   🔴 为什么要合并（此前是两份几乎相同的实现）：
+      v607 的事故就是「品牌条件只写进了 rowVisible，rowBaseShown 漏了」⇒ 编辑态点品牌纹丝不动、
+      保存退回查看态才突然生效。两份实现 = 迟早再分叉一次。现在新增任何筛选条件只改这里一处，
+      两态天然同口径；将来若必须分态判断，也要在这里加参数，而不是另起一份。
+   调用面比「渲染」更广：复制报单 / 区间统计 / 跳转到下一行都用它 ⇒ 改语义前先搜调用点。 */
+function rowFilterPass(r) {
+  if (!r) return false
   const f = (filterText.value || findText.value || '').trim().toLowerCase()
   if (f && !rowMatchText(r, f)) return false
   if (hideZeroReport.value && rowSumOf(r) <= 0) return false
   if (!passColFilter(r)) return false
-  // v607：品牌筛选在此统一走 brandSelSet（与编辑态 rowBaseShown 同源，见 brandSelSet 处注释）
+  // v607：品牌筛选走 brandSelSet（Set 命中 O(1)，本函数每帧按行调用）
   if (brandSel.value.length && !brandSelSet.value.has(rowBrand(r))) return false
+  // v616：到货周期（+N 天到货）—— 用户按天分批下单，故按这一档筛行
+  if (cycleSel.value.length && !cycleSelSet.value.has(rowCycle(r))) return false
   return true
 }
+function rowVisible(r) { return rowFilterPass(r) }
 // 热力色：绝对值档位（用户 2026-09-23 拍板）—— 不再按「占全场最大值的比例」分档，
 // v253 改「绝对值档位 + 预警」：兼顾美观（绿=正常量大，扫读谁订得多）与预警（大单风险）。
 // 语义：<100 干净无底色；100~499 浅绿；500~1499 绿（健康大单）；
@@ -5430,6 +5483,60 @@ const brandCandidates = computed(() => {
       查看态才「突然生效」。以后新增筛选条件，**两条判据必须同时改**，否则又会出现同屏两套答案。 */
 const brandSelSet = computed(() => new Set(brandSel.value || []))
 
+/* ===================== v616：按「到货周期」筛行 =====================
+   用户场景（原话）：「不同到货周期下单时间不一样，比如今天下 +3 订单，需要快速把 +3 订单筛出来，
+   修改后复制商品编码粘贴到蒙牛系统，然后再粘一次数量。」
+   ⇒ 需要的是「一键只看某一档」+「复制只复制这一档」，两者缺一不可
+     （只加筛选不改复制 = 屏幕上是 +3、粘贴进厂家系统的是全表，直接下错单）。
+
+   🔴 数据源 = 每行的 `products.arrival_lead_days`（= 下单后第 N 天到货，0 = 未设置）。
+      两条加载路径都已带：`loadEditGrid` 的显式映射 + `asProdRow` 的显式白名单
+      （后者漏列会让停用商品的这一列恒显示「—」，v184 已踩过）。展示统一走 `arrivalCycleText`。
+      ⚠️ 三个「天数」不是一个东西，别互相顶替：
+         · 本处 `arrival_lead_days` = 下单后第几天到（单品维度）；
+         · `products.lead_time_days` = 补货算法的提前期（默认 7，进安全库存公式）；
+         · `rebate_target_rules.arrival_cadence_days` = 每几天到一次货的**频率**（品牌维度）。
+       今天要按「+N 到货」分批下单，用的是第一个。
+
+   为什么不做成本地持久化（品牌筛选是持久的）：到货周期**每天要换**（今天 +3、明天 +2），
+   记住上次的选择 = 第二天打开就停在一个不完整的集合上、且毫无提示 ⇒ 会漏单。
+   品牌是长期稳定的视角，两者语义不同，故这里刻意每次进入都是「全部」。 */
+const cycleSel = ref([])                       // number[]；空 = 不过滤；0 = 未设置
+const cycleSelSet = computed(() => new Set(cycleSel.value || []))
+function rowCycle(r) { return Number(r && r.arrival_lead_days) || 0 }
+/* 候选档位 + 每档行数：行数是这个控件的**核心信息** —— 「+3天 18 个」才是今天要下多少 SKU。
+   0（未设置）永远排最后：它是「没归类」的桶，不该混在真实天数中间。 */
+const cycleCandidates = computed(() => {
+  const m = new Map()
+  ;(cross.value.rows || []).forEach(r => {
+    const d = rowCycle(r)
+    m.set(d, (m.get(d) || 0) + 1)
+  })
+  return [...m.entries()]
+    .sort((a, b) => (a[0] === 0 ? 1 : b[0] === 0 ? -1 : a[0] - b[0]))
+    .map(([days, n]) => ({ days, n, label: days > 0 ? '+' + days + '天' : '未设置' }))
+})
+/* 按钮自己说出当前状态（不另加 chip 复述 —— v608 的教训：触发器能表达的就别再出一个徽标）。
+   单选时直接写档位（「到货周期 +3天」），多选写档数。 */
+const cycleBtnLabel = computed(() => {
+  const s = cycleSel.value || []
+  if (!s.length) return '到货周期'
+  if (s.length === 1) return s[0] > 0 ? '到货周期 +' + s[0] + '天' : '到货周期 未设置'
+  return '到货周期 ' + s.length + ' 档'
+})
+const cycleSelText = computed(() => (cycleSel.value || [])
+  .map(d => (d > 0 ? '+' + d + '天' : '未设置')).join('、'))
+/* 筛选激活时被藏起来的「未设置」行数 —— 面板与复制确认里要显式报出来。
+   理由：本期 294 个商品里 238 个没设周期（含刚报过单的那 3 个）。只要用户一筛 +3，
+   这 238 个就整体消失。不报数 = 用户以为「本期只有 18 个商品」，直接漏单。 */
+const cycleUnsetHidden = computed(() => {
+  if (!cycleSel.value.length) return 0
+  if (cycleSelSet.value.has(0)) return 0
+  let n = 0
+  ;(cross.value.rows || []).forEach(r => { if (rowCycle(r) === 0) n++ })
+  return n
+})
+
 /* v185：承接跨页品牌上下文（`#/forecast?brand=A,B`）。
    来源页＝「目标与返利 › 仪表盘」达成列表标题行的链接「实时达成（含预报贡献）→」
    （Rebate.vue 的 goSprint）。此前那个链接只做 `location.hash = '#/forecast'`，
@@ -7397,37 +7504,49 @@ function fallbackCopy(text, done) {
   try { document.execCommand('copy'); done() } catch (e) { toast('复制失败，请手动选择', 'err') }
   document.body.removeChild(ta)
 }
-// 复制厂家编码（仅含「最终下单」有数量的行；若勾选品牌则只限选中品牌）
-function copyCodes() {
-  const lines = []
-  cross.value.rows.forEach(r => {
-    const q = rowFinalQty(r)
-    if (q <= 0) return                       // ① 「最终下单」无数量 = 无报单，不复制
-    const b = rowBrand(r)
-    if (brandSel.value.length && !brandSel.value.includes(b)) return
-    const code = _rowCode(r)
-    if (!code) return
-    lines.push(code)
+/* v616：复制报单的**唯一取行实现** —— 「编码」与「数量」必须逐行对齐。
+   此前是两个各自实现的 forEach（品牌条件各写一遍）：任何一处改口径，
+   两份清单就错行（第 3 个编码配第 4 个数量，厂家系统不会报错，直接下错单）。
+   现在只产出一次，两个复制动作都从它取，天然对齐。
+
+   取行口径 = 当前表格里**看得见的行**：品牌 / 到货周期 / 搜索 / 列筛选 / 只看有报单 全部计入。
+   🔴 v616 之前只认品牌：用户筛了「+3天」再点复制，粘进厂家系统的仍是全表数量 ——
+      屏幕与剪贴板不是同一个集合，这是本次最重要的修正。
+   再叠两条硬门槛：无「最终下单」数量 = 不该下单；无厂家编码 = 厂家系统认不出这一行。 */
+function copyRows() {
+  const out = []
+  ;(cross.value.rows || []).forEach(r => {
+    if (rowFinalQty(r) <= 0) return
+    if (!_rowCode(r)) return
+    if (!rowFilterPass(r)) return
+    out.push(r)
   })
-  if (!lines.length) { toast(brandSel.value.length ? '筛选品牌后本期没有可复制的厂家编码' : '本期没有可复制的厂家编码（最终下单为空）', 'warn'); return }
-  const tail = brandSel.value.length ? `（品牌：${brandSel.value.join('、')}）` : ''
-  _copyText(lines.join('\n'), 'codes', `已复制 ${lines.length} 个厂家编码${tail}`)
+  return out
 }
-// 复制下单数量（与编码列表行序一致：同样跳过无厂家编码的行；数值 = 最终下单，便于分别粘贴到厂家系统不同字段）
+/* 复制回执里报出「按什么筛的」—— 用户粘完才发现数量对不上时，这是唯一的自查线索 */
+function copyScopeText() {
+  const parts = []
+  if (brandSel.value.length) parts.push('品牌：' + brandSel.value.join('、'))
+  if (cycleSel.value.length) parts.push('到货周期：' + cycleSelText.value)
+  return parts.length ? `（${parts.join('；')}）` : ''
+}
+// 复制厂家编码（按当前可见行序；与「下单数量」逐行对应）
+function copyCodes() {
+  const rows = copyRows()
+  if (!rows.length) {
+    toast((brandSel.value.length || cycleSel.value.length) ? '当前筛选下没有可复制的厂家编码' : '本期没有可复制的厂家编码（最终下单为空）', 'warn')
+    return
+  }
+  _copyText(rows.map(r => _rowCode(r)).join('\n'), 'codes', `已复制 ${rows.length} 个厂家编码${copyScopeText()}`)
+}
+// 复制下单数量（行序与编码完全一致：同一次 copyRows() 产出，不各自过滤）
 function copyQty() {
-  const lines = []
-  cross.value.rows.forEach(r => {
-    const q = rowFinalQty(r)
-    if (q <= 0) return
-    const b = rowBrand(r)
-    if (brandSel.value.length && !brandSel.value.includes(b)) return
-    const code = _rowCode(r)
-    if (!code) return
-    lines.push(String(q))
-  })
-  if (!lines.length) { toast(brandSel.value.length ? '筛选品牌后本期没有可复制的下单数量' : '本期没有可复制的下单数量（最终下单为空）', 'warn'); return }
-  const tail = brandSel.value.length ? `（品牌：${brandSel.value.join('、')}）` : ''
-  _copyText(lines.join('\n'), 'qty', `已复制 ${lines.length} 条下单数量${tail}`)
+  const rows = copyRows()
+  if (!rows.length) {
+    toast((brandSel.value.length || cycleSel.value.length) ? '当前筛选下没有可复制的下单数量' : '本期没有可复制的下单数量（最终下单为空）', 'warn')
+    return
+  }
+  _copyText(rows.map(r => String(rowFinalQty(r))).join('\n'), 'qty', `已复制 ${rows.length} 条下单数量${copyScopeText()}`)
 }
 
 /* ---- 增强：撤销/重做 · 校验 · 区域复制 · 金额 · 草稿 · 筛选 · 口径 · 导出 ---- */
@@ -7451,18 +7570,10 @@ const filterText = ref('')
       用户动作完全不同（前者要去清筛选，后者只需翻页）。笼统算成「已被筛选隐藏」会骗人。
    本函数就是「这行现在看不看得见」的唯一判据（模板 `v-show` 直接用它）。 */
 function rowBaseShown(ri) {
-  const f = (filterText.value || findText.value || '').trim().toLowerCase()
-  if (f) {
-    const r = cross.value.rows[ri]
-    if (!rowMatchText(r, f)) return false
-  }
-  if (hideZeroReport.value && rowSumArr.value[ri] <= 0) return false
-  if (!passColFilter(cross.value.rows[ri])) return false
-  /* v607：品牌筛选必须与查看态 rowVisible 同口径（此前漏在这里 ⇒ 编辑态点品牌按钮行数不动）。
-     用 brandSelSet 而不是 brandSel.includes：本函数在渲染期按行调用，且还要被区间统计/跳转复用，
-     逐行 includes 是 O(品牌数×行数)，Set 降到 O(1)。 */
-  if (brandSel.value.length && !brandSelSet.value.has(rowBrand(cross.value.rows[ri]))) return false
-  return true
+  /* v616：判据已合并到 rowFilterPass（与查看态 rowVisible 同源）。
+     v607 那条「品牌条件只写在查看态」的根因就是两份实现，现只保留一条。
+     rowSumOf 命中 rowSumArr 建的 WeakMap，等价于原先直接取 rowSumArr[ri]，无额外开销。 */
+  return rowFilterPass(cross.value.rows[ri])
 }
 /* ===================== v615：选行 → 批量上架 / 批量撤下 =====================
    v613/v614 给的是「按**当前筛选结果**整批上架/撤下」，主语是筛选。真机用下来暴露两个
@@ -9459,6 +9570,16 @@ const exportBtn = ref(null)
 // 品牌筛选下拉
 const brandBtn = ref(null)
 const brandPopOpen = ref(false)
+/* v616：「到货周期」筛选下拉 —— 与品牌完全同构（同一个 popStyle 定位、同一套 .pop-overlay 互斥），
+   不另起一套定位代码。两态工具栏各一份按钮、共用这一个开关（v-if/v-else 保证同时只有一份存在）。 */
+const cycleBtn = ref(null)
+const cyclePopOpen = ref(false)
+function toggleCyclePop() {
+  const open = !cyclePopOpen.value
+  _closePopPanes(open ? 'cycle' : '')
+  cyclePopOpen.value = open
+  if (open) nextTick(() => positionTbPop(cycleBtn.value))
+}
 // 工具行「新增客户」下拉（v170）：从表头那一格迁来的入口，参与同一套弹层互斥
 const addColBtn = ref(null)
 const addColPopOpen = ref(false)
@@ -9475,6 +9596,7 @@ function _closePopPanes(except) {
   if (except !== 'adv') advToolsOpen.value = false
   if (except !== 'export') exportMenuOpen.value = false
   if (except !== 'brand') brandPopOpen.value = false
+  if (except !== 'cycle') cyclePopOpen.value = false
   if (except !== 'copy') copyMenuOpen.value = false
   if (except !== 'addcol') addColPopOpen.value = false
   if (except !== 'batch') batchMenuOpen.value = false
@@ -9530,17 +9652,9 @@ function confirmAddCol() {
 // 复制只针对「本期期次」（不按报单单元列拆选）
 const copyUnitName = computed(() => (cross.value.period && cross.value.period.name) ? cross.value.period.name : (cross.value.units && cross.value.units[0] ? cross.value.units[0].name : '本期'))
 
-const copyCount = computed(() => {
-  let n = 0
-  cross.value.rows.forEach(r => {
-    if (rowFinalQty(r) <= 0) return
-    const b = rowBrand(r)
-    if (brandSel.value.length && !brandSel.value.includes(b)) return
-    if (!_rowCode(r)) return
-    n++
-  })
-  return n
-})
+/* v616：与 copyCodes/copyQty 共用同一份取行逻辑 —— 面板上写的「共 N 个」必须等于
+   实际复制的条数，否则用户拿着 N 去核对厂家系统，差一条就要重来。 */
+const copyCount = computed(() => copyRows().length)
 function doCopyCodes() { copyMenuOpen.value = false; copyCodes() }
 function doCopyQty() { copyMenuOpen.value = false; copyQty() }
 function positionTbPop(btnEl) {
@@ -12853,6 +12967,13 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .brand-pop .bp-item:hover{background:var(--bg2)}
 .brand-pop .bp-empty{color:var(--t3);font-size:12px;margin:4px 0}
 .brand-pop .bp-tip{font-size:12px;color:var(--t3);margin:0;line-height:1.5}
+/* v616：到货周期面板 —— 每档右侧的行数（「+3天 18」才是今天要下多少 SKU，是这个控件的核心信息）；
+   未设置档的告警用 danger 色，因为它代表「这批商品不会出现在任何 +N 筛选里」= 漏单风险。 */
+.brand-pop .bp-item .bp-n{margin-left:auto;font-variant-numeric:tabular-nums;font-size:12px;color:var(--t3);padding-left:10px}
+.brand-pop .bp-tip.warn{color:var(--danger-txt)}
+/* ⚠️ max-width 必写：.tb-pop-panel 是 shrink-to-fit，长 tip 的 max-content 会把面板撑开
+   （实测 487px，而旁边品牌面板只有 240px）。与 .addcol-pop 同一条纪律。 */
+.cycle-pop{max-width:300px}
 /* v170：工具行「新增客户」弹层（承接表头撤下的那一格；外壳复用 .tb-pop-panel）
    ⚠️ max-width 必写：.tb-pop-panel 是 flex column 的 shrink-to-fit，缺它时长 tip 的
    max-content 会把面板撑到 700px+（真机实测 707.7px，而旁边的品牌面板只有 240px）。 */
