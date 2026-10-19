@@ -132,6 +132,13 @@
       <span class="tb-sep"></span>
       <div class="tb-group tb-act">
         <button class="btn btn-sm btn-ghost" :disabled="!cross.period" @click="onSuggest" title="按配方规则（体检/货损/返利/起订量）算出建议补货量，并打开审核台"><Icon name="sparkle"/> <span class="tb-ai-txt">补货建议</span></button>
+        <!-- v621：修改日志从撤掉的「视图切换行」搬来，紧贴「改单」左侧 —— 两者是同一动作族：
+             先看这张表被谁改过什么，再决定要不要动手改。
+             **两态都渲染**（不跟 v-if="!editMode"）：编辑态「改单」不渲染，它就接替成为
+             .tb-act 里最后一个常显按钮；且编辑态原本只有「工具箱 → 更多工具」三级下的入口，
+             到这里才算回到一级入口。 -->
+        <button class="btn btn-sm btn-ghost log-btn" :disabled="!cross.period" :class="{ on: trailOpen }"
+                @click="toggleTrail" title="本期报单的修改记录：谁、什么时候、把哪个商品改成了多少"><Icon name="list"/> 修改日志</button>
         <!-- v209：全屏时让位给表格工具行里那一份（全屏层 fixed/inset:0 把本工具栏整条盖住 ⇒ 这里的按钮点不到）。
              非全屏照旧渲染于此。判据见 fsRowHosting。 -->
         <!-- v219：已定稿（关闭）的期次禁用改单 —— 与后端 save_matrix 闸门同源，避免「能改但保存被拒」 -->
@@ -281,30 +288,22 @@
     <!-- 返利冲刺看板（前置到本期预报顶部：选完期次第一眼即看目标达成/缺口/均单建议；有期次即显示，不绑子视图） -->
     <RebateSprint v-if="cross.period" :period="cross.period" :rows="cross.rows" :edit-mode="editMode" :prod-meta="prodMeta" @summary="onSprintSummary" />
 
-    <!-- 本期预报子视图切换：汇总表（交叉表）/ 逐单补录（搜索商品加入草稿） -->
-    <!-- Q1：两条填报路径此前无任何场景说明，用户不知该用哪个入口 -->
-    <div class="view-seg-row" v-if="!editMode">
-      <div class="view-seg">
-        <button :class="{ on: viewMode === 'cross' }" @click="switchView('cross')">汇总表</button>
-        <button :class="{ on: viewMode === 'list' }" @click="switchView('list')">逐单补录</button>
-      </div>
-      <span class="view-seg-tip">批量粘贴 · 整表改量 · 增删商品 → 用「汇总表」再点「改单」；少量补录 · 按商品搜索加购 → 用「逐单补录」</span>
-      <!-- 修改日志（原 P9-6「审计」）：汇总表是文员与业务经理多人共改的，出纠纷时要能答
-           「这一版是谁、什么时候改的」。原按钮埋在 改单 → 工具箱 → 更多工具 三级之下，
-           非编辑态（文员/经理日常看表的默认状态）根本看不到，故 v166 改名并提到这里常显
-           ——业务人员不认识"审计"这个词，而"日志"他们一看就懂。
-           ⚠️ 为什么不放主工具栏：实测量过，工具栏 1280 宽仅剩 22px、1440 仅剩 69px 余量，
-           任何带字按钮都会把单行挤成两行（工具栏单行是 2026-09-12 专门收敛出来的设计）。
-           本行是汇总表区最顶一行的常显行，零工具栏代价，且紧贴它描述的这张表。 -->
-      <button class="btn btn-sm btn-ghost log-btn" :disabled="!cross.period" :class="{ on: trailOpen }" @click="toggleTrail"><Icon name="list"/> 修改日志</button>
-    </div>
+    <!-- v621：原「视图切换行」(.view-seg-row) **整行撤掉** —— 一行 48px 却只承载三件事，
+         用户要求把它们拆进已有的行里（"可以省一行出来，页面更干净"）：
+           ① 视图切换（汇总表 / 逐单补录）→ 表格工具行首位，见下方 .grid-ctl-row 的 .view-seg-wrap；
+           ② 修改日志 → 主工具栏「改单」左侧（同属"先看历史留痕、再动手改"一族）；
+           ③ 那行长提示语 → 改成**悬停 / 聚焦视图切换才出现**的浮层。常显是噪音：
+              第二次看就没价值了，而它一直在抢最贵的一行。
+         ⚠️ v166 当初写"不能放主工具栏（1280 仅剩 22px）"是对的**当时**：此后 v209/v602 把
+            品牌筛选、复制报单、缩放那一排整体下移进 .grid-ctl-row，工具栏才腾出余量
+            （实测 1600 下 193px、1512 下 105px）。-->
 
     <!-- P9-6 改动留痕审计 → v166 更名「修改日志」：① 每条加「修改人」；② 交还全局操作；
          ③ **搬出编辑态分支**——原实现挂在 `v-if=editMode` 的网格区内，而非编辑态（文员/经理
          日常看汇总表的默认状态）里点了按钮什么都不会出现。
-         位置：紧贴「汇总表视图切换行」下方 —— 那行右侧就是常显入口，面板开在触发它的按钮
-         正下方（原先放在工具栏下、隔着返利冲刺看板，触发点在页面下半部，视线要跨过一屏）。
-         本块不依赖 editMode，故两态都能渲染。 -->
+         位置：仍在返利冲刺看板下方（v166 的"离触发点近"原则不变）；v621 起触发按钮在
+         **主工具栏**，「改单」左侧 —— 面板与按钮之间隔着一块冲刺看板，这是撤掉整行视图
+         切换行必须付的代价（换来 48px 垂直空间）。本块不依赖 editMode，故两态都能渲染。 -->
     <div v-if="trailOpen" class="info-panel audit-log-panel">
       <div class="panel-hd">
         <b><Icon name="list"/> 修改日志</b>
@@ -438,6 +437,22 @@
              见下方 tbody 里的 .empty-row。 -->
         <div v-else-if="!editMode" class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
+            <!-- v621：视图切换（汇总表 / 逐单补录）从独立一行并入本行首位，紧跟其后就是「缩放」。
+                 它本来就是"这一张表怎么看 / 怎么填"的开关，和缩放同族，放这里比单独占一行合理。
+                 ⚠️ 提示语原本常显在它右边（一整条 60 字的说明），是那行"贵"的主因之一：
+                    常显只对第一次打开的人有用，之后就纯占宽 ⇒ 改成悬停 / 键盘聚焦才出浮层
+                    （CSS 就够，不用 JS：包一层 .view-seg-wrap 定位 + :hover/:focus-within）。
+                    浮层两条各说一条填报路径，比原来那句用分号串起来的话好读。 -->
+            <span class="view-seg-wrap">
+              <span class="view-seg" role="group" aria-label="填报视图切换">
+                <button :class="{ on: viewMode === 'cross' }" @click="switchView('cross')">汇总表</button>
+                <button :class="{ on: viewMode === 'list' }" @click="switchView('list')">逐单补录</button>
+              </span>
+              <span class="seg-tip" role="tooltip">
+                <span class="st-row"><b>汇总表</b>批量粘贴 · 整表改量 · 增删商品（再点「改单」）</span>
+                <span class="st-row"><b>逐单补录</b>少量补录 · 按商品搜索加购</span>
+              </span>
+            </span>
             <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。 -->
             <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
             <!-- 表格级筛选器（原在主工具栏）：作用于本交叉表，下移到表格工具行，缩短「控件—作用对象」距离 -->
@@ -1301,8 +1316,9 @@
               <button class="btn btn-ghost btn-sm" @click="showMoq=!showMoq"><Icon name="package"/> 起订量</button>
               <button class="btn btn-ghost btn-sm" @click="genSuggestBook" :disabled="suggestBookLoading"><Icon name="file-text"/> 生成下单说明</button>
               <button class="btn btn-ghost btn-sm" @click="loadAccuracy" :disabled="accLoading"><Icon name="target"/> 预报准确率</button>
-              <!-- v166：非编辑态的常显入口在「汇总表视图切换行」；编辑态那一行不渲染，故这里
-                   保留同一面板的第二个入口（文案与图标与常显入口逐字一致，避免两条路径说两套话）。 -->
+              <!-- v166：常显入口在**主工具栏**（「改单」左侧，v621 起两态都有）；这里保留
+                   同一面板的第二个入口，服务"已经在工具箱里找工具"的人 —— 文案 / 图标与
+                   常显入口逐字一致，避免两条路径说两套话。 -->
               <button class="btn btn-ghost btn-sm" :class="{on:trailOpen}" @click="toggleTrail"><Icon name="list"/> 修改日志</button>
               <button class="btn btn-ghost btn-sm" @click="loadTemplates" :disabled="tmplLoading"><Icon name="book"/> 行业模板</button>
               <button class="btn btn-ghost btn-sm" @click="loadBI" :disabled="biLoading"><Icon name="bar-chart"/> 经营看板</button>
@@ -11975,13 +11991,28 @@ onMounted(async () => {
 /* v166：视图切换行改 flex —— 「修改日志」贴右，长提示文字可换行（原本是块级容器 + 行内 span
    的「自然流」，加了按钮后必须显式分配弹性，否则按钮会被长提示挤到下一行）。行高与下方间距
    沿用原值（原来是靠 .view-seg 的 margin-bottom 撑开的 12px）。 */
-.view-seg-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.view-seg-row>.view-seg{margin-bottom:0}
-.view-seg-row>.view-seg-tip{flex:1 1 260px;min-width:0}
-.view-seg-row>.log-btn{margin-left:auto;flex:0 0 auto}
-.view-seg{display:inline-flex;gap:4px;background:var(--bg3);border-radius:8px;padding:3px;margin-bottom:12px}
-.view-seg button{border:1px solid transparent;background:transparent;padding:5px 16px;border-radius:var(--radius-sm);font-size:13px;color:var(--t2);cursor:pointer}
+/* v621：视图切换不再独占一行（.view-seg-row 整行删除），并入 .grid-ctl-row 首位 ——
+   故这里不再有 margin-bottom，且几何必须与同行控件同构（v599）：
+   外框 32px 高、13px 字、1px 透明边、radius 8，与 .tb-toggle / .btn-sm 顶边、高度零差。 */
+.view-seg-wrap{position:relative;display:inline-flex;flex:0 0 auto}
+.view-seg{display:inline-flex;gap:4px;background:var(--bg3);border-radius:8px;padding:2px}
+.view-seg button{border:1px solid transparent;background:transparent;padding:3px 12px;border-radius:var(--radius-sm);font-size:13px;line-height:1.45;color:var(--t2);cursor:pointer;white-space:nowrap}
+.view-seg button:hover:not(.on){color:var(--p-dark)}
 .view-seg button.on{background:var(--bg4);color:var(--p-dark);box-shadow:var(--shadow-sm);border-color:var(--p);font-weight:500}
+/* 提示语浮层：常隐，悬停胶囊 / 键盘聚焦（Tab 进去）才出。
+   ⚠️ 必须 position:absolute 且锚在 .view-seg-wrap 上 —— 挂在 .grid-ctl-row 这层
+      （static）会以 .grid-area 为包含块，`top:100%` 变成"整块网格的底部"，直接跑到屏幕外。
+   ⚠️ pointer-events:none：浮层盖在表头上，若可命中，鼠标一移过去就抢走:hover ⇒ 闪烁。
+   延迟 160ms 出现、260ms 收起：滑过时不闪，看过之后不黏。 */
+.seg-tip{position:absolute;left:0;top:calc(100% + 6px);z-index:1240;width:340px;
+  padding:8px 10px;border-radius:8px;background:var(--bg);border:1px solid var(--bd);
+  box-shadow:var(--shadow-md);font-size:12px;line-height:1.6;color:var(--t2);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .12s ease .16s,visibility 0s linear .28s}
+.seg-tip .st-row{display:block}
+.seg-tip .st-row+.st-row{margin-top:4px}
+.seg-tip b{color:var(--t1);font-weight:600;margin-right:6px}
+.view-seg-wrap:hover>.seg-tip,.view-seg-wrap:focus-within>.seg-tip{opacity:1;visibility:visible;transition-delay:.16s,0s}
 .ph-actions{margin-left:auto;display:inline-flex;gap:8px}
 /* 2026-08-27 期次确认徽标（经理保存汇总表=审批定稿） */
 .confirm-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 10px;border-radius:8px;font-weight:500;white-space:nowrap}
