@@ -95,11 +95,15 @@
                原菜单中的「关闭期次 / 删除期次」属低频且只作用于“当前已选中的那个期次”，
                已由「历史期次」页每行的「关闭 / 删除」按钮承担（ForecastHistory.vue，同样走 askClose / askDelete），
                故移除 ⋯ 菜单不损失任何能力。 -->
-          <button v-if="canDo('data', 'create')" class="btn btn-sm btn-ghost" @click="openNewPeriod"
+          <button v-if="canDo('data', 'create')" class="btn btn-sm btn-ghost new-period-btn" @click="openNewPeriod"
                   :title="showNewPeriod ? '收起新建期次表单' : '新建期次：设置期次名称与下单 / 到货日期'"
-                  aria-label="新建期次"><Icon name="plus"/> 新建期次</button>
-          <!-- 审批状态属于「期次」上下文，紧随期次选择器（原在行1 尾部、与筛选器混排） -->
-          <span v-if="confirmInfo" class="confirm-badge ok"><Icon name="check" /> 已确认{{ confirmInfo.by ? ' · ' + confirmInfo.by : '' }}</span>
+                  aria-label="新建期次"><Icon name="plus"/> <span class="np-txt">新建期次</span></button>
+          <!-- 审批状态属于「期次」上下文，紧随期次选择器（原在行1 尾部、与筛选器混排）
+               v621f：「已确认 · 微信审核-主管」整条实测 164px —— 其中「已确认/待审核」是**状态**
+               （必看），「· 审批人姓名」是补充信息，却在窄屏（≤1459）把工具栏顶折一行，
+               正好抵消掉用户要省的那一行。窄屏只留状态，姓名降级到 title/悬停（悬停即出，不丢信息）。
+               判据：这是纯展示分层，状态与姓名都还在，不删任何控件。 -->
+          <span v-if="confirmInfo" class="confirm-badge ok" :title="confirmInfo.by ? '确认人：' + confirmInfo.by : null"><Icon name="check" /> 已确认<i v-if="confirmInfo.by" class="cb-by"> · {{ confirmInfo.by }}</i></span>
           <span v-else class="confirm-badge draft">待审核</span>
       </div>
       <span class="tb-sep"></span>
@@ -11977,6 +11981,8 @@ onMounted(async () => {
   .toolbar .tb-sep{margin:0 3px}
   .tb-ai-txt{display:none}
   .toolbar .sel-period{max-width:192px}
+  /* v621f：审批人姓名让位（见 .cb-by 注释）。1440 及以下工具栏单行是用户这轮的核心诉求 */
+  .confirm-badge .cb-by{display:none}
 }
 /* 🔴 v619 编辑态单独收窄：编辑态第一行比查看态多一个「工具箱」按钮（89px），胶囊放宽后会顶折。
    真机基线（同一构建只改内联宽度，量 toolbar 高：编辑态正常两行=100，多折一行=138）：
@@ -12001,6 +12007,9 @@ onMounted(async () => {
   .toolbar .sel-period{max-width:150px}
   /* v619：该档编辑态回落到 126（v619 之前的原值）—— 实测 150 会让编辑态多折一行（100 → 138） */
   .toolbar.tb-dense .sel-period{max-width:126px}
+  /* v621f：「新建期次」收成纯 `+` 图标（省 66px）。它本来就带 title 与 aria-label，
+     窄屏下悬停即知；与「补货建议」在同档用同一手法（.tb-ai-txt），属既有约定不是新发明。 */
+  .np-txt{display:none}
 }
 /* 期次选择器：v619 从「限宽 150」改为「按内容自适应」。
    🔴 v619 之前这里是 max-width:150 —— 实测（1600 视口、14px 字体）当前期次名
@@ -12025,6 +12034,11 @@ onMounted(async () => {
 .confirm-badge.ok{background:rgba(var(--suc-rgb),.14);color:var(--confirm-green)}
 .confirm-badge.draft{background:var(--bg3);color:var(--t3)}
 .confirm-badge.filter{background:var(--p-bg);color:var(--p-deep)}
+/* v621f：审批人姓名单独成元素，窄屏（≤1459）降级到 title —— 实测「已确认 · 微信审核-主管」
+   整条 164px，姓名部分约 88px，而「修改日志」进工具栏后 1512 及以下本来就只差 21~111px，
+   这一条就是把它顶折的元凶。状态（「已确认」/「待审核」）任何宽度都常显。
+   ⚠️ 用<i> 而不是裸文本节点：display:none 才有作用点，裸文本得包一层。 */
+.cb-by{font-style:normal}
 /* v599：「已隐藏 N 个零报单 / 已收起 N 个空列 / 另有 N 个在售商品未显示」这三个徽标原本是
    25.2px / 12px / 无边框 / cursor:auto 的浅青标签，夹在一排 32px / 13px / 1px 边框 / pointer 的控件
    （缩放 / 三个勾选框 / 品牌 / 复制报单）中间 —— ① 一行里高低不齐，右边缘像被咬掉一块；
