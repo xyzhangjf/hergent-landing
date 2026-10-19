@@ -1495,6 +1495,14 @@
                  SprintChip 根元素带 `v-if="show"`（无冲刺数据时整块不渲染）⇒ 推手消失，整行退化成
                  左对齐、右侧控件离右边界空出一大截（v604 真机量出来 211px）。容器常显 ⇒ 有没有冲刺都贴右。 -->
             <div class="es-right">
+              <!-- v603：快捷键说明从「表格下方独占一行」挪到页脚这一行的末尾（用户诉求：不要占一行）。
+                   两个收益：① 折叠态不再占一整行，展开态也不再顶起表体（浮层）；
+                             ② 本行在 `.grid-area` 内部 ⇒ **全屏改单时也看得见**（原来在全屏层下被遮住）。
+                   v620：**排在胶囊左边** —— 用户报「底部冲刺胶囊两态位置不一样，对齐非编辑态」。
+                     查看态页脚（`.pin`）里胶囊是这一行**最后一个**元素、贴右边界；编辑态原来是
+                     「胶囊 → 快捷键」，胶囊被挤在快捷键左侧，两态肉眼差约 90px（快捷键宽 + 12 间距）。
+                     把 KbdHelp 提到前面，胶囊成为 `.es-right` 最后一项 ⇒ 与非编辑态同一处右边界。 -->
+              <KbdHelp />
               <!-- v585：改单时最需要看的就是缺口 —— 编辑态页脚同样常显冲刺胶囊（全屏改单也可见），
                    改一个数量，缺口/均单在同一帧更新（同一份 cross.rows 行对象）。 -->
               <SprintChip
@@ -1505,10 +1513,6 @@
                 :edit-mode="editMode"
                 :prod-meta="prodMeta"
               />
-              <!-- v603：快捷键说明从「表格下方独占一行」挪到页脚这一行的末尾（用户诉求：不要占一行）。
-                   两个收益：① 折叠态不再占一整行，展开态也不再顶起表体（浮层）；
-                             ② 本行在 `.grid-area` 内部 ⇒ **全屏改单时也看得见**（原来在全屏层下被遮住）。 -->
-              <KbdHelp />
             </div>
           </div>
 
@@ -12479,8 +12483,15 @@ th.sortable:hover{color:var(--p-dark)}
 .pin .mini{font-size:12px;color:var(--t2)}
 .pin .mini b{color:var(--t1)}
 /* v585：冲刺胶囊靠页脚最右。align-self:center 抵消 .pin 的 baseline 对齐 ——
-   胶囊是定高 20px 的 inline-flex，按文字基线对齐会被 Icon 的基线带偏 1~2px。 */
-.pin>.pin-sprint{margin-left:auto;align-self:center}
+   胶囊是定高 20px 的 inline-flex，按文字基线对齐会被 Icon 的基线带偏 1~2px。
+   🔴 v620：这条 v585 的规则**从来没生效过**（真机量：胶囊 margin-left 恒 0px，
+   1600 视口下右侧空 316px、1440 空 156px —— 胶囊其实是跟在「N 个商品」后面的行内元素）。
+   根因不在选择器写错，而在 **SprintChip 的模板是 Fragment**（`<button>` + `<Teleport>` 两个根）：
+   Vue 只给「单一根组件」的根元素打父组件的 scope id，Fragment 不打 ⇒ 编译产物
+   `.pin>.pin-sprint[data-v-xxx]` 里的 `[data-v-xxx]` 在按钮上永远找不到。
+   改成 `:deep()`：scope 锚点落在 `.pin` 上，右半边不再要求 scope 属性。
+   ⚠️ 别再写回 `.pin>.pin-sprint` —— 那个选择器在这套 DOM 上恒为空，且**零报错**（静默失效）。 */
+.pin>:deep(.pin-sprint){margin-left:auto;align-self:center}
 /* ===== v584：汇总条（.pin / .edit-summary）移入 .grid-area 内，让全屏也可见 =====
    成因：全屏层 `.grid-area.is-fs{position:fixed;inset:0}` 盖住整个视口，而这两条汇总原先挂在
    `.grid-area` **之外** ⇒ 全屏看表/改单时看不到「下单金额」，必须退出全屏才能核对。
