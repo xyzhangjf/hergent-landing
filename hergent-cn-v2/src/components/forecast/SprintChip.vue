@@ -25,6 +25,14 @@ import Icon from '../Icon.vue'
    （父级已 defineAsyncComponent 过它；这里再声明一次不会产生第二份代码，只多一个加载器。） */
 const RebateSprint = defineAsyncComponent(() => import('./RebateSprint.vue'))
 
+/* 🔴 v620：**必须显式转发 attrs** —— 本组件模板是 Fragment（`.sprint-chip` + 一个 `<Teleport>`），
+   Vue 对「多根组件」不会自动把父级传的 class/style 合并到任何一个根节点上（单根才会）
+   ⇒ 父级写的 `class="pin-sprint"` **从未出现在 DOM 里**（真机查：按钮 className 只有
+   `sprint-chip warn`）。后果是 `Forecast.vue` 里 `.pin>.pin-sprint{margin-left:auto}`
+   （v585，让页脚胶囊贴最右）整整 5 个版本都是空选择器、零报错 —— 查看态页脚右侧因此
+   一直空着 82~316px，而编辑态靠 `.es-right` 容器推右，两态看起来「位置不一样」。
+   现在 inheritAttrs:false + 根节点 v-bind="$attrs"，class 真正落到按钮上。 */
+defineOptions({ inheritAttrs: false })
 const props = defineProps({
   summary:  { type: Object,  default: null },
   period:   { type: Object,  default: null },
@@ -139,6 +147,7 @@ onBeforeUnmount(() => {
   <span
     v-if="show"
     ref="chipRef"
+    v-bind="$attrs"
     class="sprint-chip"
     :class="{ on: open, warn: !hasErr && unmet > 0, ok: !hasErr && allDone, err: hasErr }"
     role="button"
