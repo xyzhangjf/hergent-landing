@@ -469,13 +469,23 @@
                   @keydown.enter.prevent="showEmptyCols = true"
                   @keydown.space.prevent="showEmptyCols = true"
             >已收起 {{ hiddenEmptyCols }} 个空列</span>
+            <!-- v621：**窄屏专用落点**。≥1462 时这条角标在表格合计行（.pin / .edit-summary），
+                 本行那份由 CSS 隐藏 —— 因为本行在 1600 已用到 95%，它这 180px 就是把
+                 「复制报单」顶到第二行的那一刀；而 ≤1461 本行反正要折行，合计行那边也没有余量
+                 （1440 下合计行剩不到 130px，塞 180 会把它挤成两行 —— 更亏）。
+                 判据与动作与合计行那份**完全相同**（同一个 showAllProducts）。
+                 用媒体查询而不是 v-if：模板里拿不到视口宽度，为这一个角标引 resize 监听不值得。 -->
+            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter filter-act row-more"
+                  role="button" tabindex="0"
+                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（点这里显示全部商品）'"
+                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示，点击显示全部商品'"
+                  @click="showAllProducts = true"
+                  @keydown.enter.prevent="showAllProducts = true"
+                  @keydown.space.prevent="showAllProducts = true"
+            >另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。
-                 v621：下面这条「另有 N 个在售商品未显示」角标**已挪到表格合计行**（.pin / .edit-summary）。
-                 实测本行已吃到 95%（1600 下 1204 / 1267），它一个人占 180px —— 加进「视图切换」后
-                 就是它把「复制报单」顶到第二行的。而它说的本来就是"行数"（还有多少商品没显示），
-                 和合计行里「N 个商品 · M 个报单单元」是同一类信息，放那边名正言顺，本行也松下来。
-                 动作与判据完全不变（同一个 showAllProducts），只是换了个位置展示。 -->
+                 v621（上一条角标的落点）：≥1462 时在表格合计行、本行那份由 CSS 隐藏；≤1461 时留在本行。 -->
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -851,13 +861,23 @@
                   @keydown.enter.prevent="showEmptyCols = true"
                   @keydown.space.prevent="showEmptyCols = true"
             >已收起 {{ hiddenEmptyCols }} 个空列</span>
+            <!-- v621：**窄屏专用落点**。≥1462 时这条角标在表格合计行（.pin / .edit-summary），
+                 本行那份由 CSS 隐藏 —— 因为本行在 1600 已用到 95%，它这 180px 就是把
+                 「复制报单」顶到第二行的那一刀；而 ≤1461 本行反正要折行，合计行那边也没有余量
+                 （1440 下合计行剩不到 130px，塞 180 会把它挤成两行 —— 更亏）。
+                 判据与动作与合计行那份**完全相同**（同一个 showAllProducts）。
+                 用媒体查询而不是 v-if：模板里拿不到视口宽度，为这一个角标引 resize 监听不值得。 -->
+            <span v-if="!showAllProducts && hiddenByRowBase" class="confirm-badge filter filter-act row-more"
+                  role="button" tabindex="0"
+                  :title="'另有 ' + hiddenByRowBase + ' 个在售商品未显示（点这里显示全部商品）'"
+                  :aria-label="'另有 ' + hiddenByRowBase + ' 个在售商品未显示，点击显示全部商品'"
+                  @click="showAllProducts = true"
+                  @keydown.enter.prevent="showAllProducts = true"
+                  @keydown.space.prevent="showAllProducts = true"
+            >另有 {{ hiddenByRowBase }} 个在售商品未显示</span>
             <!-- v570：全屏也完整显示文案（原 v209 收成纯图标 ⇒ 用户反馈全屏下只看到漏斗、信息缺失）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。
-                 v621：下面这条「另有 N 个在售商品未显示」角标**已挪到表格合计行**（.pin / .edit-summary）。
-                 实测本行已吃到 95%（1600 下 1204 / 1267），它一个人占 180px —— 加进「视图切换」后
-                 就是它把「复制报单」顶到第二行的。而它说的本来就是"行数"（还有多少商品没显示），
-                 和合计行里「N 个商品 · M 个报单单元」是同一类信息，放那边名正言顺，本行也松下来。
-                 动作与判据完全不变（同一个 showAllProducts），只是换了个位置展示。 -->
+                 v621（上一条角标的落点）：≥1462 时在表格合计行、本行那份由 CSS 隐藏；≤1461 时留在本行。 -->
             <div class="tb-pop">
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
@@ -12501,6 +12521,11 @@ th.sortable:hover{color:var(--p-dark)}
   font-size:12px;line-height:18px;padding:2px 9px;border-radius:8px;
   background:var(--p-bg);color:var(--p-deep);cursor:pointer;white-space:nowrap}
 .pin .pin-more:hover,.edit-summary .pin-more:hover{color:var(--p-dark);text-decoration:underline}
+/* v621：这条计数有两个落点，按视口宽度二选一（见模板里 .row-more 的注释）：
+     ≥1462 → 合计行（工具行腾出 180px，视图切换才塞得进「缩放」前）
+     ≤1461 → 工具行（合计行在 1440 已只剩 ~130px，塞不下；工具行那一档本来就要折行） */
+@media(min-width:1462px){ .grid-ctl-row .row-more{display:none} }
+@media(max-width:1461px){ .pin .pin-more,.edit-summary .pin-more{display:none} }
 .pin .big{font-size:18px;font-weight:500}
 .pin .big b{color:var(--p-dark)}
 .pin .mini{font-size:12px;color:var(--t2)}
