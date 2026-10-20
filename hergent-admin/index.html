@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#06b6d4" />
+    <style>
+    /* v623b（2026-10-20）：阿里云备案核查（2026-10-22 17:00 截止）要求 erp.hergent.cn
+       悬挂备案编号且链接指向工信部。v622 当时只改了**生产产物**（/opt/static/index.html），
+       源码壳里没有 ⇒ 下次任何人重新构建部署 ERP 前端，备案号就会丢。
+       这里补进源码：构建产物自动继承，生产直改不再是无源之水。
+       SPA 的 #app 全屏布局 ⇒ footer 自然落在视口外，但**网页源码可见**（核查机器人
+       抓 HTML 即命中）。mobile.html / portal.html 无源码仓托底（历史静态页直投生产），
+       只能守生产文件 + /opt/static/_rollback/ 备份。 */
+    .beian-ft{padding:6px 0;text-align:center;font-size:11px;line-height:1.6;color:#999;background:#fff}
+    .beian-ft a{color:inherit;text-decoration:none}
+    </style>
     <link rel="icon" type="image/png" sizes="32x32" href="/admin/icons/brand-32.png" />
     <link rel="icon" type="image/png" sizes="64x64" href="/admin/icons/brand-64.png" />
     <link rel="apple-touch-icon" href="/admin/icons/brand-180.png" />
@@ -11,6 +22,7 @@
   </head>
   <body>
     <div id="app"></div>
+    <footer class="beian-ft"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">鄂ICP备2026027973号-1</a></footer>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
