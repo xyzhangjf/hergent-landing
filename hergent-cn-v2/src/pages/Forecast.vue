@@ -160,7 +160,7 @@
              非全屏照旧渲染于此。判据见 fsRowHosting。 -->
         <!-- v219：已定稿（关闭）的期次禁用改单 —— 与后端 save_matrix 闸门同源，避免「能改但保存被拒」 -->
         <button v-if="!editMode && !fsRowHosting" class="btn btn-sm btn-primary" :disabled="loadingEdit || periodLocked"
-                :title="periodLocked ? lockHint : (closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'))"
+                :title="periodLocked ? lockHint : (closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : (editPermBlocked ? editPermHint : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'))"
                 @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
         <!-- 编辑态：高级工具（审批/推送/打印 + 健康体检/AI工具/协同闭环/更多工具） -->
         <div v-if="editMode" class="tb-pop">
@@ -592,7 +592,7 @@
               <span class="tb-sep"></span>
               <!-- v219：同第一处 —— 已定稿期次禁用改单（三处按钮共用 periodClosed 判据） -->
               <button class="btn btn-sm btn-primary" :disabled="loadingEdit || periodLocked"
-                      :title="periodLocked ? lockHint : (closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'))"
+                      :title="periodLocked ? lockHint : (closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : (editPermBlocked ? editPermHint : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'))"
                       @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
             </template>
             <!-- v631：行尾视图组 = 「缩放 + 全屏」。用户要求：缩放高频、放全屏前面更顺手。
@@ -3989,13 +3989,26 @@ function onColDrop(ci) {
 // Q12：进入编辑要拉全量商品主档 + 期次汇总，原实现期间按钮无禁用、无骨架屏，
 // 大数据量下白屏等待，用户会重复点击。
 const loadingEdit = ref(false)
-/* Q30：填报权限前置提示。可填报角色白名单（与列级权限同一套角色体系）。
-   其余角色不硬禁用（避免误伤有后端权限的账号），改为点击时二次确认 + 说明。
-   2026-09-19：白名单改用**后端规范角色名**并补 admin —— 原词表 owner/finance/dealer 在后端都不存在，
-   与列级权限同一处漂移；`dealer`（经销商）没有对应后端角色（本租户主体就是经销商）。
-   比对前先 normRole 归一，历史视图令牌（owner/finance/…）照旧命中，行为不变。 */
-const ENTRY_ROLES = ['admin', 'boss', 'accountant', 'sales']
-const entryRoleWarn = computed(() => !ENTRY_ROLES.includes(normRole(bizRole.value) || 'boss'))
+/* 🔴 v632（2026-10-20）：填报权限判据改为**模块动作权限**，不再用硬编码角色白名单。
+   缺陷原样（用户报「给主管配了改单权限，点改单仍提示可能没有填报权限」）：
+     旧判据是 `ENTRY_ROLES = ['admin','boss','accountant','sales']` —— 一个写死的角色名数组。
+     它跟「权限页里有没有勾上预报订货管理」**毫无关系** ⇒ `supervisor`（主管）无论怎么配都命中
+     warn 分支。而主管是最后审单、按预报调整订单的人，恰恰最需要改单。
+   为什么是 `canDo('data','create')` 而不是别的：
+     · 保存走 `POST /api/forecast-submissions/save-matrix`，后端 `_PATH_MODULE_MAP` 里
+       `/api/forecast-submissions` → `data`，动作由 HTTP 方法推（POST=create）。
+     · 这就是**保存按钮自己用的那一条**（`canSaveMatrix`，v335 门禁）。同一语义只许一份判据
+       —— 否则又会出现「提示说没权限、按钮却是亮的」这种自相矛盾。
+     · 生产实测（erp.db `role_permissions`）：tenants 的 supervisor = `["data","sales","stock",
+       "bid","messages","forecast-audit","forecast","loss"]`，经 `normalize_perms_shape` 展开
+       为 data 全动作 ⇒ 后端**本来就会接受**他保存。旧提示纯属误报。
+   语义也随之改了：旧版是「可能没权限，仍要进入吗？」—— 但保存按钮此时是 disabled 的，
+   点「仍要进入」= 改半天存不进去（正是 v244 要消灭的「白干」）。现在直接拦 + 说清下一步。
+   ⚠️ `canDo` 三态是 fail-open（`permActs === null` ⇒ true）⇒ 权限接口抖动时**不会**把
+      人挡在门外，方向正确。 */
+const editPermBlocked = computed(() => !canDo('data', 'create'))
+const editPermHint = '当前角色没有「报单数据 · 新增」权限，改不了单。'
+  + '如需改单，请让管理员在「设置 › 权限」里给该角色勾上「预报订货管理」。'
 /* v219：当期期次是否已定稿（关闭）。三处「改单」按钮与 `enterEdit` 共用**这一个**判据 ——
    判据散在四处迟早会漂移（一处漏判 = 用户能改但保存被拒 = 白干半天）。
    ⚠️ 与后端 `save_matrix` 闸门**同源**：`pid>0 且 status !== 'open'`；
@@ -4081,11 +4094,10 @@ async function enterEdit() {
      既定方案的判据同向：「📌 禁用 + 说明好过『点了弹错误』」（§五 阶段 0）。
      后端 `save_matrix` 的 v244 闸是最终约束，这里是同一判据的 UX 层提前拦。 */
   if (noOpenPeriod.value) { toast(saveBlockedReason.value, 'warn'); return }
-  // Q30：角色不在填报白名单时前置告知（不阻断，避免误伤）
-  if (entryRoleWarn.value) {
-    const ok = await store.confirm(`当前角色「${roleName(bizRole.value)}」可能没有填报权限，保存时可能被服务器拒绝。\n\n仍要进入编辑吗？`)
-    if (!ok) return
-  }
+  /* v632：角色**没有写权限**时不许进编辑态 —— 与 noOpenPeriod 同族判据（改半天存不进去 = 白干）。
+     判据 = 保存按钮同一条 `canDo('data','create')`（模板里的 `editPermBlocked`），
+     不再看角色名（旧版主管被误伤，见该常量上方注释）。 */
+  if (editPermBlocked.value) { toast(editPermHint, 'warn'); return }
   if (loadingEdit.value) return
   // 编辑网格渲染在交叉表区域内，无论从哪个视图点进来都先切到交叉表视图
   viewMode.value = 'cross'
