@@ -473,8 +473,10 @@
                  ⚠️ 逐单补录视图下 `.cross-area` 整块是 `v-if` 卸载的 ⇒ 组件在报单草稿卡标题栏
                     另有一份，否则切过去就回不来（见 ViewSeg.vue 顶部注释）。 -->
             <ViewSeg :mode="viewMode" @change="switchView" />
-            <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。 -->
-            <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
+            <!-- v631：缩放条**不再在行首**，搬到了本行末尾、紧挨「全屏」（见 .grid-tail）。
+                 理由：它是"这一张表怎么看"的视图操作，与「全屏」同族；放在行首会把
+                 「查看 / 填报」这类内容开关和视图操作混在一起，且高频操作离右手更远。
+                 去掉「缩放」二字后这一组约 210px，比原来（242px）更窄 ⇒ 行宽反而宽裕。 -->
             <!-- 表格级筛选器（原在主工具栏）：作用于本交叉表，下移到表格工具行，缩短「控件—作用对象」距离 -->
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
             <!-- v602：徽标只留文字（原 v209 的 badge-slim 全屏收图标形态已废 —— 图标删了，再收就是空框）。
@@ -593,10 +595,20 @@
                       :title="periodLocked ? lockHint : (closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : (entryRoleWarn ? '当前角色（' + roleName(bizRole) + '）可能无填报权限，点击会先提示确认' : '改单：进入可编辑网格，支持整表粘贴、批量录入、增删商品行'))"
                       @click="enterEdit"><Icon name="edit"/> {{ loadingEdit ? '载入中…' : '改单' }}</button>
             </template>
+            <!-- v631：行尾视图组 = 「缩放 + 全屏」。用户要求：缩放高频、放全屏前面更顺手。
+                 ① 全屏按钮从 `position:absolute;right:8px` 的**浮空元素**改为本行流内元素 ——
+                    原来它浮在右上角，靠 `.grid-ctl-row` 的 padding-right 留洞避让（全屏态 46px）；
+                    入流后这块洞还给了内容，两者距离也由 gap 精确控制（原先是"看运气不重叠"）。
+                 ② `margin-left:auto` 的推手挂在 `.grid-tail` 这个**常显容器**上 ——
+                    不能挂带 v-if 的组件（v604：v-if 为假时推手一起消失，整组左移）。
+                 ③ 全屏态下面还有编辑组（fsRowHosting），它不受影响：本组仍贴行尾。 -->
+            <div class="grid-tail">
+              <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
+              <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏（Esc）' : '全屏查看表格（Esc 退出）'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
+                <Icon name="fullscreen" size="16"/>
+              </button>
+            </div>
           </div>
-          <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏（Esc）' : '全屏查看表格（Esc 退出）'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
-            <Icon name="fullscreen" size="16"/>
-          </button>
           <!-- v608：品牌筛选不再另起一条胶囊 —— 工具栏「品牌」按钮自带已选数量角标，
                面板内已有「全选 / 清空」⇒ 清除途径不缺。此筛选条只服务列筛选/唯一值筛选。 -->
           <div class="filter-row" v-if="colFilter || colFilterSet">
@@ -815,8 +827,6 @@
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
         <div v-else class="grid-area" :class="{ 'is-fs': gridFullscreen }">
           <div class="grid-ctl-row">
-            <!-- v209：compact 只在全屏生效（去掉「缩放」二字、滑杆收窄）——全屏这一行要塞进整个编辑组。 -->
-            <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
             <!-- v602：徽标只留文字（原 v209 的 badge-slim 全屏收图标形态已废 —— 图标删了，再收就是空框）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
@@ -992,10 +1002,17 @@
                 </span>
               </div>
             </template>
+            <!-- v631：行尾视图组与查看态同构（两处必须同步改，本文件沿此惯例）——
+                 缩放紧挨全屏，贴行尾靠右。编辑态这一行本来就挤（v618 起「批量操作」常驻），
+                 但去掉「缩放」二字 + 全屏按钮从浮空改入流（原占 padding-right 46px）后净变化
+                 约 −12px，不会因此多折一行；实测见 v631 验收。 -->
+            <div class="grid-tail">
+              <GridZoomCtl v-model="gridZoom" :compact="gridFullscreen"/>
+              <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏（Esc）' : '全屏查看表格（Esc 退出）'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
+                <Icon name="fullscreen" size="16"/>
+              </button>
+            </div>
           </div>
-          <button class="grid-fs-btn" :title="gridFullscreen ? '退出全屏（Esc）' : '全屏查看表格（Esc 退出）'" @click="toggleGridFullscreen" aria-label="表体全屏切换">
-            <Icon name="fullscreen" size="16"/>
-          </button>
           <!-- v608：品牌筛选不再另起一条胶囊 —— 工具栏「品牌」按钮自带已选数量角标，
                面板内已有「全选 / 清空」⇒ 清除途径不缺。此筛选条只服务列筛选/唯一值筛选。 -->
           <div class="filter-row" v-if="colFilter || colFilterSet">
@@ -12421,27 +12438,39 @@ th.sortable:hover{color:var(--p-dark)}
    ⚠️ 别写成 `flex:0 0 auto` —— 那样行多时**不收缩**，会顶破全屏层、合计被挤到视口外。 */
 .grid-area.is-fs .cross-viewport,
 .grid-area.is-fs .edit-grid-wrap{flex:0 1 auto;min-height:0;max-height:none}
-/* 表体控制条：全屏按钮 + 缩放条整合为一行，置于表体上方（flex 流），与表格主体保持间距、互不遮挡（非全屏/全屏均成立） */
+/* 表体控制条：筛选开关 + 行尾「缩放 + 全屏」整合为一行，置于表体上方（flex 流），与表格主体保持间距、互不遮挡（非全屏/全屏均成立） */
 .grid-ctl-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-height:30px;padding:1px 0}
+/* v631：行尾视图组。
+   成因：全屏按钮原先是 `position:absolute;top:8px;right:8px` 的**浮空元素**，靠本行 padding-right
+   留洞避让 —— 那种写法有两个隐性代价：① 洞的宽度是猜的（留 46px 时按钮左缘在视口−40px，靠人工对数字）；
+   ② 它与「内容」之间没有结构关系，缩放条想挨着它就只能再补一条绝对定位 + 再挖一个洞。
+   用户要求「缩放放到全屏前面」⇒ 把两者收进同一个常显容器、由 flex 的 gap 决定间距：
+   结构关系成立后，"挨着"这件事不再依赖像素计算。
+   🔴 `margin-left:auto` 必须挂在本容器上，不能挂带 v-if 的组件（v604：v-if 为假时推手一起没了，整组左移）。
+   🔴 本组 `flex:0 0 auto`：宁可让它折到下一行，也不许它被压缩 —— 滑杆被压窄会先失去精度感。 */
+.grid-tail{display:flex;align-items:center;gap:6px;margin-left:auto;flex:0 0 auto}
 .grid-fs-btn{
-  position:absolute;top:8px;right:8px;z-index:30;
   width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
   border:none;background:none;border-radius:8px;color:var(--t2);cursor:pointer;
 }
 .grid-fs-btn:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .grid-fs-btn:disabled{opacity:.35;cursor:default}
-.grid-area.is-fs .grid-fs-btn{top:14px;right:14px}
 /* ===== v209：全屏态把「改单 / 编辑组」搬进表格工具行（方案 A：全屏专属）=====
    背景：全屏层 .grid-area.is-fs 是 position:fixed;inset:0;z-index:var(--z-page-fs)，把主工具栏整条盖住
    ⇒ 全屏下页头那个「改单」点不到（真机 elementFromPoint 命中到无 class 的元素）。用户在**全屏看表**
    时想改单被迫先退出全屏。解法 = 在**全屏层内部**补同源入口（见模板 fsRowHosting）。
    ⚠️ 下面各条**只在全屏生效**，非全屏表格工具行一个像素都不动（方案 A 的取舍：非全屏页头那份在手边，
       且实测非全屏 1440 塞入编辑组差 273px、必然折行）。 */
-/* ① 行尾给右上角全屏按钮**留位**。.grid-fs-btn 是 position:absolute;right:14px、宽 26px
-      ⇒ 按钮左缘在「视口−40px」；父层 padding 12px + 本行 padding-right 34px 时内容边界在「视口−46px」，
-      本已不重叠。v570 该徽标改为常显文案后行宽增加，留位由 34 增到 46px（内容边界 −58px），
-      给行尾更多余量，避免文案变长后贴住按钮。 */
-.grid-area.is-fs .grid-ctl-row{padding-right:46px;gap:6px}
+/* ① v631：行尾**不再需要留洞**。原先是给 position:absolute 的全屏按钮让位（padding-right 34→46px）；
+      现在全屏按钮已入流、住在 `.grid-tail` 里（26px + gap 6），这块洞还给了内容。
+      🔴 别再往这里加 padding-right —— 那会变成「留了洞但没人站」的空白，行尾看起来被咬掉一块。
+   🔴 v631 补 `flex:0 0 auto`（这次的真 bug，不是外观微调）：本行是 `.grid-area`（column flex）
+      的子项，默认 `flex:0 1 auto` ⇒ **可以被压缩到 min-height:30**。一旦内容折行（全屏 1366/1280
+      确实放不下：行内 1340px 内容 + gap ≈ 1400 vs 可用 1256~1342），第二行会被压出容器外、
+      直接落到表头下面被表格盖住 —— 实测全屏 1366 的「缩放 + 全屏」组 top=51、表头 top=53，
+      截图里整组**完全看不见**（零报错，只是没了）。原来浮空按钮不占流宽，所以这个坑一直没被踩到。
+      写法必须是 `0 0 auto`：宁可让表格少 30px 也要让控件可见（控件没了就没法操作）。 */
+.grid-area.is-fs .grid-ctl-row{flex:0 0 auto;gap:6px}
 /* ③ v602：`badge-slim`（全屏收成图标形态）**已整体废弃** —— 三个徽标在 v602 去掉了图标，
    没有图标可收，再 slim 就是空框。现在三个徽标全屏也显示完整文案（与 v570 的取向一致），
    行宽不足由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切，故这里不再需要任何徽标专属规则。 */
