@@ -154,7 +154,7 @@
                 五档实测 toolbar 均恒 62（未折行），与查看态同一套断点正好吻合，不必另开规则。
              🔴 fsRowHosting 时撤掉：全屏层 fixed/inset:0 把本行盖住，留一个"看得见点不到"的
                 按钮是纯噪音（v209 同族处理，与「改单」一致）。 -->
-        <SprintBoardBtn v-if="sprintVisible && !fsRowHosting"
+        <SprintBoardBtn v-if="!fsRowHosting"
                         :period="cross.period" :rows="cross.rows" :edit-mode="editMode" :prod-meta="prodMeta" />
         <!-- v209：全屏时让位给表格工具行里那一份（全屏层 fixed/inset:0 把本工具栏整条盖住 ⇒ 这里的按钮点不到）。
              非全屏照旧渲染于此。判据见 fsRowHosting。 -->
@@ -483,12 +483,12 @@
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
             <span v-if="hideZeroReport" class="confirm-badge filter filter-act"
                   role="button" tabindex="0"
-                  :title="'已隐藏 ' + zeroReportCount + ' 个零报单（点这里恢复显示）'"
-                  :aria-label="'已隐藏 ' + zeroReportCount + ' 个零报单，点击恢复显示'"
+                  :title="'已隐藏零报单（点这里恢复显示）'"
+                  :aria-label="'已隐藏零报单，点击恢复显示'"
                   @click="hideZeroReport = false"
                   @keydown.enter.prevent="hideZeroReport = false"
                   @keydown.space.prevent="hideZeroReport = false"
-            >已隐藏 {{ zeroReportCount }} 个零报单</span>
+            >已隐藏 <ForecastAgg kind="zeroReportCount"/> 个零报单</span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
             <!-- v248：只收「整列全空的主档列」（档案缺口）；客户列永不收（跨期名册） -->
@@ -775,12 +775,12 @@
                 <td v-for="(col, ci) in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')">
                   <template v-if="col.key === 'seq'"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（合计/单价换算口径）" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave" @focus="amtNoteEnter" @blur="amtNoteLeave" @click="amtNoteEnter"><Icon name="help-circle" :size="13"/></button></template>
                   <template v-else-if="col.key === 'name'">合计</template>
-                  <template v-else-if="col.type === 'qty'">{{ cross.colTotals[(ci - 1) - visibleCols.length] || '' }}</template>
-                  <template v-else-if="col.key === 'qty'">{{ fmt(cross.grand.qty) }}</template>
-                  <template v-else-if="col.key === 'boxes'">{{ fmtBox(cross.grand.boxes) }}<span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></template>
-                  <template v-else-if="col.key === 'extra'">{{ fmt(liveRows.reduce((s, r) => s + rowExtraQty(r), 0)) }}</template>
-                  <template v-else-if="col.key === 'final'">{{ fmt(liveRows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</template>
-                  <template v-else-if="col.key === 'amount'">{{ fmt(cross.grand.amount) }}</template>
+                  <template v-else-if="col.type === 'qty'"><ForecastAgg kind="colTotal" :ci="ci"/></template>
+                  <template v-else-if="col.key === 'qty'"><ForecastAgg kind="grandQty"/></template>
+                  <template v-else-if="col.key === 'boxes'"><ForecastAgg kind="grandBoxes"/><ForecastAgg kind="boxMissSpan"/></template>
+                  <template v-else-if="col.key === 'extra'"><ForecastAgg kind="viewExtraQty"/></template>
+                  <template v-else-if="col.key === 'final'"><ForecastAgg kind="viewFinalQty"/></template>
+                  <template v-else-if="col.key === 'amount'"><ForecastAgg kind="grandAmountFoot"/></template>
                   <template v-else>—</template>
                 </td>
               </tr>
@@ -797,9 +797,9 @@
             <!-- v189：原写「总订量 X 件」——X 是 Σ各报单单元数量（小单位，可能是盒/袋/包），
                  「件」不对；且同屏没有箱口径，用户无法自证「合计(箱)=合计(小单位)÷规格」。
                  两个数并列显示，规则错了一眼可见。 -->
-            <span class="big">合计(小单位) <b>{{ fmt(cross.grand.qty) }}</b> · 合计(箱) <b>{{ fmtBox(cross.grand.boxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></span>
-            <span class="mini">下单金额 <b>¥{{ fmt(cross.grand.amount) }}</b></span>
-            <span class="mini">{{ cross.grand.sku }} 个商品 · {{ cross.reportedUnits }} 个报单单元</span>
+            <span class="big">合计(小单位) <b><ForecastAgg kind="grandQty"/></b> · 合计(箱) <b><ForecastAgg kind="grandBoxes"/></b><ForecastAgg kind="boxMissSpan"/></span>
+            <span class="mini">下单金额 <b><ForecastAgg kind="grandAmountBar"/></b></span>
+            <span class="mini"><ForecastAgg kind="grandSku"/> 个商品 · <ForecastAgg kind="reportedUnits"/> 个报单单元</span>
             <!-- v621：从表格工具行挪来的计数（见 .grid-ctl-row 里那条注释）。放这里是因为
                  它和左边这三个数是一回事 —— 都是"这张表里有多少行"。动作不变：点它 = 显示全部商品。 -->
             <span v-if="!showAllProducts && hiddenByRowBase" class="pin-more"
@@ -815,7 +815,6 @@
                  非全屏同样显示：两档同一份 DOM，玩家不必记住"这个信息只有全屏才有"。 -->
             <SprintChip
               class="pin-sprint"
-              :summary="sprintSummary"
               :period="cross.period"
               :rows="cross.rows"
               :edit-mode="editMode"
@@ -832,12 +831,12 @@
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
             <span v-if="hideZeroReport" class="confirm-badge filter filter-act"
                   role="button" tabindex="0"
-                  :title="'已隐藏 ' + zeroReportCount + ' 个零报单（点这里恢复显示）'"
-                  :aria-label="'已隐藏 ' + zeroReportCount + ' 个零报单，点击恢复显示'"
+                  :title="'已隐藏零报单（点这里恢复显示）'"
+                  :aria-label="'已隐藏零报单，点击恢复显示'"
                   @click="hideZeroReport = false"
                   @keydown.enter.prevent="hideZeroReport = false"
                   @keydown.space.prevent="hideZeroReport = false"
-            >已隐藏 {{ zeroReportCount }} 个零报单</span>
+            >已隐藏 <ForecastAgg kind="zeroReportCount"/> 个零报单</span>
             <!-- v179 行底范围：默认只列「本批导入 + 有报单」，勾上回到全量在售商品档案 -->
             <label class="tb-toggle"><input type="checkbox" v-model="showAllProducts"> 显示全部商品</label>
             <!-- v615：「上架 / 撤下」从「按筛选整批」改成「按勾选的行」——用户提的设计。
@@ -1088,19 +1087,14 @@
                   </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'seq')" @click.stop></span>
                 </th>
-                <th v-for="(c, ci) in visibleCols" :key="c.key" scope="col" :class="['th', c.cls, { frozen: c.fixed || c.key === frozenExtra, 'sel-col': inColSpan(ci), 'cur-col-hd': isCurColHd(ci) }]" :aria-current="isCurColHd(ci) ? 'true' : null" :aria-selected="inColSpan(ci) ? 'true' : null" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" @mousedown="onHeadDown(ci, $event)" @mouseover="onHeadOver(ci)" @contextmenu.prevent="openHdrCtx($event, c.key, 'master')">
-                  <div class="th-in">
-                    <span>{{ c.label }}</span>
-                  </div>
-                  <span class="col-resizer" @mousedown.stop.prevent="startResize($event, c.key)" @click.stop></span>
-                </th>
-                <th v-for="(u, ui) in cross.units" :key="u.name" class="qty-th" scope="col" :class="{ 'sel-col': inColSpan(visibleCols.length + ui), 'cur-col-hd': isCurColHd(visibleCols.length + ui) }" :aria-current="isCurColHd(visibleCols.length + ui) ? 'true' : null" :aria-selected="inColSpan(visibleCols.length + ui) ? 'true' : null" @mousedown="onHeadDown(visibleCols.length + ui, $event)" @mouseover="onHeadOver(visibleCols.length + ui)" @contextmenu.prevent="openHdrCtx($event, u.name, 'qty', ui)">
-                  <div class="cust-hd">
-                    <input :value="u.name" class="cell-input cell-cust" @change="renameCol(ui, $event.target.value)" :title="u.role || '报单单元'">
-                    <button class="col-del" @click="delCol(ui)" title="删除该客户列"><Icon name="close"/></button>
-                  </div>
-                  <span class="col-resizer" @mousedown.stop.prevent="startResize($event, u.name)" @click.stop></span>
-                </th>
+                <!-- v655：表头单元格下沉 ForecastHeadCell —— 选区判据（isCurColHd/inColSpan 内部读
+                     selected/selRange）随之下沉，父模板不再订阅 ⇒ 聚焦换格只重渲染新旧两个表头格，
+                     父组件 0 次重渲染（原先整模板 + 295 行 vnode 全重建）。
+                     🔴 样式连续性：根级规则（.th/.qty-th/.frozen/.sel-col/.cur-col-hd）经「子组件
+                        根元素继承父 scope id」继续生效；.cust-hd/.col-resizer/.col-del 是**非 :deep
+                        的后代**规则，已在 ForecastHeadCell.vue 内自备副本（根级元素拿不到父 scope）。 -->
+                <ForecastHeadCell v-for="(c, ci) in visibleCols" :key="c.key" kind="master" :col="c" :ci="ci" />
+                <ForecastHeadCell v-for="(u, ui) in cross.units" :key="u.name" kind="unit" :unit="u" :ui="ui" :ci="visibleCols.length + ui" />
                 <!-- v188：列名自证单位（用户 2026-09-18）——「合计」→「合计(小单位)」、「件数(箱)」→「合计(箱)」。
                      原「合计」二字未标单位、同屏又与按箱的「件数(箱)」并列，易被读成同一个量。 -->
                 <th class="num calc-th sum" scope="col">合计(小单位)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'sum')" @click.stop></span></th>
@@ -1138,9 +1132,8 @@
                      本处不需要 —— 只有聚焦格才带 list，其它格谁也引用不到它）。
                  ⚠️ `v-if="editMode && qtyOptKey"`：查看态不渲染；没有任何数量格聚焦时不渲染
                     （避免留一个空壳 datalist，被别处的 `list=` 意外命中）。 -->
-            <datalist v-if="editMode && qtyOptKey" id="opt-qty" :key="qtyOptKey">
-              <option v-for="o in qtyCellOptions" :key="o.v" :value="o.v" :label="o.l"></option>
-            </datalist>
+            <!-- v655：datalist 下沉到 ForecastQtyOptions（从 ctx 读 qtyOptKey / qtyCellOptions），父模板不再订阅这两个随换格变化的 ref -->
+            <ForecastQtyOptions/>
           </div>
           <div ref="editFoot" class="col-total-bar">
           <!-- P1-3(v376)：表尾是**独立的第二张 table**（粘性底栏布局所必需，无 thead），读屏听到的是两张
@@ -1155,15 +1148,15 @@
             <tbody role="rowgroup">
               <tr class="foot-row">
                 <td class="seq-cell"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（下单/单价录入口径）" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave" @focus="amtNoteEnter" @blur="amtNoteLeave" @click="amtNoteEnter"><Icon name="help-circle" :size="13"/></button></td>
-                <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')">{{ c.key === 'name' ? '合计' : (c.edit === 'num' ? fmt(foot.masterSum[c.key] || 0) : '') }}</td>
-                <td v-for="(u, ui) in cross.units" :key="'fu' + u.name" class="num calc">{{ fmt(foot.unitSum[ui] || 0) }}</td>
-                <td class="num calc sum">{{ fmt(foot.qty) }}</td>
-                <td class="num calc boxes">{{ fmtBox(editTotalBoxes) }}<span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></td>
-                <td v-if="showSuggest" class="num calc suggest">{{ fmt(foot.suggest) }}</td>
-                <td class="num calc extra">{{ fmt(liveRows.reduce((s, r) => s + (Number(r.extraQty) || 0), 0)) }}</td>
-                <td class="num calc final">{{ fmt(liveRows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</td>
+                <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')"><template v-if="c.key === 'name'">合计</template><ForecastAgg v-else-if="c.edit === 'num'" kind="footMaster" :ck="c.key"/></td>
+                <td v-for="(u, ui) in cross.units" :key="'fu' + u.name" class="num calc"><ForecastAgg kind="footUnitSum" :ui="ui"/></td>
+                <td class="num calc sum"><ForecastAgg kind="footQty"/></td>
+                <td class="num calc boxes"><ForecastAgg kind="editTotalBoxes"/><ForecastAgg kind="boxMissSpan"/></td>
+                <td v-if="showSuggest" class="num calc suggest"><ForecastAgg kind="footSuggest"/></td>
+                <td class="num calc extra"><ForecastAgg kind="editExtraQty"/></td>
+                <td class="num calc final"><ForecastAgg kind="editFinalQty"/></td>
                 <td class="num calc price">—</td>
-                <td class="num calc amount">{{ fmt(foot.amount) }}</td>
+                <td class="num calc amount"><ForecastAgg kind="footAmount"/></td>
                 <td v-if="compareOn" class="num calc">—</td>
                 <td v-if="compareOn" class="num calc delta">—</td>
                 <td v-if="showSpark" class="spark-td"></td>
@@ -1446,7 +1439,7 @@
                本值实为 amountValue 累加 = 最终下单(箱) × 单价(进价/箱)，与「下单金额(进价)」列逐字同源。
                v188：写「合计(小单位)」而非「件」—— editTotalQty 是 Σ报单单元数量，小单位可能是盒/袋/包。 -->
           <div class="edit-summary">
-            <span class="es-txt">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></span>
+            <span class="es-txt">合计(小单位) <b><ForecastAgg kind="editTotalQty"/></b> · 合计(箱) <b><ForecastAgg kind="editTotalBoxes"/></b><ForecastAgg kind="boxMissSpan"/> · 下单金额(进价) <b><ForecastAgg kind="editTotalAmount"/></b></span>
             <!-- v621：同查看态页脚 —— 「另有 N 个在售商品未显示」从工具行挪到这里（两态位置一致，
                  否则点了「改单」这条角标会从表格底部跳回工具行）。 -->
             <span v-if="!showAllProducts && hiddenByRowBase" class="pin-more"
@@ -1474,7 +1467,6 @@
                    改一个数量，缺口/均单在同一帧更新（同一份 cross.rows 行对象）。 -->
               <SprintChip
                 class="pin-sprint"
-                :summary="sprintSummary"
                 :period="cross.period"
                 :rows="cross.rows"
                 :edit-mode="editMode"
@@ -2556,6 +2548,10 @@ import { canSee } from '../constants/pages'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ViewSeg from '../components/forecast/ViewSeg.vue'
 import ForecastRow from '../components/forecast/ForecastRow.vue'
+import ForecastAgg from '../components/forecast/ForecastAgg.vue'
+import ForecastQtyOptions from '../components/forecast/ForecastQtyOptions.vue'
+/* v655：编辑网格表头单元格下沉（父模板不再读 isCurColHd ⇒ 聚焦换格父组件 0 重渲染）。 */
+import ForecastHeadCell from '../components/forecast/ForecastHeadCell.vue'
 import { FC_ROW_CTX } from '../components/forecast/rowCtx.js'
 import ForecastHistory from './ForecastHistory.vue'
 import ReportMapping from './ReportMapping.vue'
@@ -2568,8 +2564,6 @@ import TemplateParams from '../components/forecast/TemplateParams.vue'
 import SprintChip from '../components/forecast/SprintChip.vue'
 /* v629：工具栏「冲刺看板」按钮（   点击居中向下展开看板）—— 页脚胶囊要悬停才展开、非全屏时等于没有入口，本按钮负责入口显形。 */
 import SprintBoardBtn from '../components/forecast/SprintBoardBtn.vue'
-/* v629：与页脚胶囊共用同一条「有没有冲刺数据」判据，两边不许各写一遍。 */
-import { sprintHasData } from '../utils/forecast/sprint.js'
 /* v603：`<script setup>` 无自动注册 ⇒ 必须显式 import（v557 教训：漏 import 构建照过、
    运行时渲染成空元素，页面不报错）。 */
 import KbdHelp from '../components/forecast/KbdHelp.vue'
@@ -10544,9 +10538,9 @@ const RebateSprint = defineAsyncComponent(() => import('../components/forecast/R
    页脚胶囊与看板卡共用这一份 ⇒ 两处数字不可能分歧；编辑态改数量时它随 computed 同步变。 */
 const sprintSummary = ref(null)
 function onSprintSummary (v) { sprintSummary.value = v }
-/* v629：同一份 summary 派生出「工具栏按钮要不要出现」—— 与页脚胶囊共用 sprintHasData，
-   按钮与胶囊必须同进同退（胶囊不显示时按钮也不该显示，否则点了打开一块空面板）。 */
-const sprintVisible = computed(() => sprintHasData(sprintSummary.value))
+/* 🔴 v655：`sprintVisible`（工具栏按钮是否显示）不再是父级 computed，
+   改为 SprintBoardBtn 自己 inject sprintSummary 后内部 `sprintHasData` 判（见该组件），
+   父模板不再订阅 sprintSummary ⇒ 改格不触发父重渲染。 */
 const AllocPanel = defineAsyncComponent(() => import('../components/forecast/AllocPanel.vue'))
 const PeriodOps = defineAsyncComponent(() => import('../components/forecast/PeriodOps.vue'))
 
@@ -12085,8 +12079,23 @@ const rowCtx = reactive({
   numInput, numCommit, onCasePriceChange, onCellChange,
   onCellDown, onCellOver, onFocusCell, onRowDown,
   openAlloc, showCellErr, showCellSoft, startFill, toggleRowSel,
+  /* 🔴 v655：数量格候选 datalist 的 `qtyOptKey` / `qtyCellOptions` 原在父模板里被读
+     （`<datalist v-if="editMode && qtyOptKey" :key="qtyOptKey">` + `<option v-for="o in qtyCellOptions">`），
+     导致父组件 render effect 订阅这两个随换格变化的 ref ⇒ 改一格/换格时父整模板重渲染。
+     下放到 ForecastQtyOptions 子组件（从该 ctx 读），父模板不再碰这两个值。 */
+  qtyOptKey, qtyCellOptions,
+  /* 🔴 v655：表头单元格抽到 ForecastHeadCell 子组件（从 ctx 读选区判据），父模板不再读
+     `isCurColHd`（它内部读 selected）⇒ 聚焦换格只重渲染那一个表头格，父组件 0 次重渲染。 */
+  isCurColHd, onHeadDown, onHeadOver, openHdrCtx, startResize, renameCol, delCol,
 })
 provide(FC_ROW_CTX, rowCtx)
+/* 🔴 v655：返利冲刺摘要 `sprintSummary` 原被父模板直接读（工具栏 `v-if="sprintVisible"` +
+   `<SprintChip :summary="sprintSummary">` 两处），而 `RebateSprint` 在改任意一格时会 emit 新
+   summary ⇒ 父组件 render effect 订阅该 ref ⇒ 改一格父整模板重渲染一次。
+   改为 provide 给子组件（SprintChip / SprintBoardBtn）自行 inject 读取，父模板不再碰
+   `sprintSummary` ⇒ 改格只重渲染那两个叶子，父组件 0 次重渲染。数据仍只来自 RebateSprint
+   的 emit（单一数据源纪律不变），只是不再经父模板中转。 */
+provide('sprintSummary', sprintSummary)
 </script>
 
 <style scoped>

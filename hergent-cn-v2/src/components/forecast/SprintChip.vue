@@ -17,7 +17,7 @@
 
    ⚠️ 浮层必须 Teleport 到 body + position:fixed：页脚在长页面底部，若锚在自身容器上，
      祖先一旦出现 overflow:hidden（v582 合计栏就踩过）整块浮层会被裁掉。 */
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent, inject } from 'vue'
 import { fmt } from '../../utils/forecast/format.js'
 /* v629：显示判据抽到共享模块 —— 工具栏「冲刺看板」按钮也判同一件事，两边不许各写一遍。 */
 import { sprintHasData } from '../../utils/forecast/sprint.js'
@@ -36,12 +36,16 @@ const RebateSprint = defineAsyncComponent(() => import('./RebateSprint.vue'))
    现在 inheritAttrs:false + 根节点 v-bind="$attrs"，class 真正落到按钮上。 */
 defineOptions({ inheritAttrs: false })
 const props = defineProps({
-  summary:  { type: Object,  default: null },
   period:   { type: Object,  default: null },
   rows:     { type: Array,   default: () => [] },
   editMode: { type: Boolean, default: false },
   prodMeta: { type: Object,  default: () => ({}) },
 })
+
+/* 🔴 v655：冲刺摘要改由父级 provide（单一数据源仍是 RebateSprint 的 emit），
+   本组件 inject 后自行读取 ⇒ 父模板不再订阅 sprintSummary，改格不会触发父重渲染。
+   仍保留「自己不算任何数字」纪律：s 完全来自 inject 的同一份 summary。 */
+const sprintSummary = inject('sprintSummary', ref(null))
 
 const chipRef = ref(null)
 const popRef = ref(null)
@@ -51,7 +55,7 @@ const popStyle = ref({})
 let openTimer = null
 let closeTimer = null
 
-const s = computed(() => props.summary || {})
+const s = computed(() => (sprintSummary && sprintSummary.value) || {})
 const hasErr = computed(() => !!s.value.err)
 const ruleCount = computed(() => Number(s.value.rules) || 0)
 const unmet = computed(() => Number(s.value.unmet) || 0)

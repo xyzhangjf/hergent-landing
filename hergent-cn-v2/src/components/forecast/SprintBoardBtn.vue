@@ -19,8 +19,10 @@
      （v582 合计栏踩过同一坑）。
    ⚠️ 本组件模板是 Fragment（button + Teleport）⇒ 必须 inheritAttrs:false + 根节点 v-bind="$attrs"，
      否则父级写的 class **永远不会出现在 DOM 里**（v620 教训：`.pin>.pin-sprint` 空选择器 5 版零报错）。 */
-import { ref, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent, inject, computed } from 'vue'
 import Icon from '../Icon.vue'
+/* v629：与页脚胶囊共用同一条「有没有冲刺数据」判据，两边不许各写一遍。 */
+import { sprintHasData } from '../../utils/forecast/sprint.js'
 
 /* 与 SprintChip / 父级 Forecast.vue 用的是同一个模块 ⇒ 浏览器只加载一次该 chunk，
    不会重复下载（三处 defineAsyncComponent 共用一份代码，只多一个加载器）。 */
@@ -34,6 +36,12 @@ const props = defineProps({
   editMode: { type: Boolean, default: false },
   prodMeta: { type: Object,  default: () => ({}) },
 })
+
+/* 🔴 v655：按钮是否显示改由本组件自己 inject sprintSummary 后判（原由父级
+   `sprintVisible` 控制）。这样父模板不再订阅 sprintSummary，改格不会触发父重渲染。
+   单一数据源纪律不变：summary 仍来自 RebateSprint 的 emit，经父级 provide 注入。 */
+const sprintSummary = inject('sprintSummary', ref(null))
+const show = computed(() => sprintHasData(sprintSummary && sprintSummary.value))
 
 const btnRef = ref(null)
 const popRef = ref(null)
@@ -99,38 +107,40 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <button
-    ref="btnRef"
-    v-bind="$attrs"
-    class="btn btn-sm btn-ghost sb-btn"
-    :class="{ on: open }"
-    :disabled="!period"
-    aria-label="冲刺看板"
-    :aria-expanded="open"
-    title="冲刺看板：各品牌返利目标达成率、还差多少、每次到货建议报多少（点击展开，Esc 或点别处收起）"
-    @click="toggle"
-  >
-    <Icon name="target" />
-    <span class="tb-board-txt">冲刺看板</span>
-  </button>
-
-  <Teleport to="body">
-    <div
-      v-if="open && everOpened"
-      ref="popRef"
-      class="sb-pop"
-      :style="popStyle"
-      @click.stop
+  <template v-if="show">
+    <button
+      ref="btnRef"
+      v-bind="$attrs"
+      class="btn btn-sm btn-ghost sb-btn"
+      :class="{ on: open }"
+      :disabled="!period"
+      aria-label="冲刺看板"
+      :aria-expanded="open"
+      title="冲刺看板：各品牌返利目标达成率、还差多少、每次到货建议报多少（点击展开，Esc 或点别处收起）"
+      @click="toggle"
     >
-      <RebateSprint
-        :period="period"
-        :rows="rows"
-        :edit-mode="editMode"
-        :prod-meta="prodMeta"
-        variant="bare"
-      />
-    </div>
-  </Teleport>
+      <Icon name="target" />
+      <span class="tb-board-txt">冲刺看板</span>
+    </button>
+
+    <Teleport to="body">
+      <div
+        v-if="open && everOpened"
+        ref="popRef"
+        class="sb-pop"
+        :style="popStyle"
+        @click.stop
+      >
+        <RebateSprint
+          :period="period"
+          :rows="rows"
+          :edit-mode="editMode"
+          :prod-meta="prodMeta"
+          variant="bare"
+        />
+      </div>
+    </Teleport>
+  </template>
 </template>
 
 <style scoped>

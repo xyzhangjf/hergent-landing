@@ -13,7 +13,7 @@ import path from 'path'
 import os from 'os'
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-const BASE = 'https://hergent.cn'
+const BASE = process.env.HG_BASE || 'https://hergent.cn'
 const OUT_DIR = path.dirname(new URL(import.meta.url).pathname)
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
@@ -103,7 +103,7 @@ try {
   for (const [name, value, httpOnly] of [
     ['erp_token', TOKEN, true], ['hergent_auth', '1', false],
     ['hergent_tenant', '1', false], ['csrf_token', csrf, false],
-  ]) await S('Network.setCookie', { name, value, url: 'https://hergent.cn/', httpOnly, secure: true, sameSite: 'Lax' })
+  ]) await S('Network.setCookie', { name, value, url: BASE + '/', httpOnly, secure: BASE.startsWith('https'), sameSite: 'Lax' })
 
   await S('Page.navigate', { url: BASE + '/#/forecast' }, 60000)
   await waitFor(`document.readyState==='complete'`, 60000, 'readyState')
@@ -113,8 +113,34 @@ try {
   console.log('build =', out.build)
 
   /* ---------- 进编辑态 ---------- */
+  /* 忠实路径优先（点「改单」走完整守卫链）；演示租户可能没有进行中的期次
+     （enterEdit 的 noOpenPeriod 守卫提前 return）⇒ 回落 setupState 直驱
+     （editMode=true + loadEditGrid()，与 enterEdit 内部同一个函数同一条数据流，
+     绕过的只是 UX 守卫）。判据同 tests/perf/v655/parent-rerender.mjs 的回落段。 */
   const clicked = await evalJS(`(()=>{const el=[...document.querySelectorAll('button')].find(e=>/改单/.test((e.textContent||'').trim())&&e.offsetParent!==null);if(!el)return false;el.click();return true})()`)
   if (!clicked) throw new Error('找不到「改单」按钮')
+  let inEdit = false
+  try {
+    await waitFor(`document.querySelectorAll('.cross-tbl.edit-tbl .cell-qty').length>50`, 12000, 'qty inputs')
+    inEdit = true
+  } catch { /* 忠实路径没进编辑态 ⇒ 回落 */ }
+  if (!inEdit) {
+    const bypass = await evalJS(`(async () => {
+      const trEl = document.querySelector('.cross-tbl:not(.edit-tbl) tbody tr') || document.querySelector('.cross-tbl tbody tr')
+      if (!trEl || !trEl.__vueParentComponent) return { error: '找不到只读网格行' }
+      let p = trEl.__vueParentComponent, guard = 0
+      while (p && guard++ < 30) {
+        const nm = (p.type && (p.type.name || p.type.__name)) || 'anon'
+        if (/Forecast/.test(nm) && !/Row|Agg|History|Head|QtyOptions/.test(nm)) break
+        p = p.parent
+      }
+      if (!p || !p.setupState || typeof p.setupState.loadEditGrid !== 'function') return { error: '找不到预报页组件实例' }
+      p.setupState.editMode = true
+      await p.setupState.loadEditGrid()
+      return { ok: true }
+    })()`, true)
+    if (!bypass || bypass.error) throw new Error('回落失败: ' + (bypass && bypass.error || '无返回'))
+  }
   await waitFor(`document.querySelectorAll('.cross-tbl.edit-tbl .cell-qty').length>50`, 120000, 'qty inputs')
   await sleep(800)
 

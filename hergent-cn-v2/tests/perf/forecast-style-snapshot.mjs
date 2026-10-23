@@ -164,6 +164,29 @@ try {
     const c=[...document.querySelectorAll('button,a,span,div')].filter(el=>/^(改单|编辑报单|修改)$/.test((el.textContent||'').trim())&&el.offsetParent!==null);
     if(!c.length) return false; c[0].click(); return true })()`)
   if (!opened) throw new Error('未找到「改单」按钮')
+  /* 演示租户可能没有进行中的期次（enterEdit 的 noOpenPeriod 守卫提前 return）⇒
+     忠实路径进不去时回落 setupState 直驱（editMode=true + loadEditGrid()，
+     与 enterEdit 内部同一个函数、同一条数据流；绕过的只是 UX 守卫）。
+     判据同 tests/perf/v655/parent-rerender.mjs 的回落段。 */
+  try {
+    await waitFor(`!!document.querySelector('.cross-tbl.edit-tbl')`, 12000, '编辑表')
+  } catch {
+    const bypass = await evalJS(`(async () => {
+      const trEl = document.querySelector('.cross-tbl:not(.edit-tbl) tbody tr') || document.querySelector('.cross-tbl tbody tr')
+      if (!trEl || !trEl.__vueParentComponent) return { error: '找不到只读网格行' }
+      let p = trEl.__vueParentComponent, guard = 0
+      while (p && guard++ < 30) {
+        const nm = (p.type && (p.type.name || p.type.__name)) || 'anon'
+        if (/Forecast/.test(nm) && !/Row|Agg|History|Head|QtyOptions/.test(nm)) break
+        p = p.parent
+      }
+      if (!p || !p.setupState || typeof p.setupState.loadEditGrid !== 'function') return { error: '找不到预报页组件实例' }
+      p.setupState.editMode = true
+      await p.setupState.loadEditGrid()
+      return { ok: true }
+    })()`, true)
+    if (!bypass || bypass.error) throw new Error('回落失败: ' + (bypass && bypass.error || '无返回'))
+  }
   await waitFor(`!!document.querySelector('.cross-tbl.edit-tbl')`, 90000, '编辑表')
   await waitFor(`document.querySelectorAll('.cross-tbl.edit-tbl tbody tr').length > 200`, 90000, '294 行')
   await sleep(2500)
