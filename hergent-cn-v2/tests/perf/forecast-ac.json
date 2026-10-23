@@ -1,0 +1,381 @@
+{
+  "meta": {
+    "browser": "Chrome/155.0.8059.85",
+    "authMode": "session-token(tenant1)",
+    "me": {
+      "tenant": null,
+      "user": null,
+      "role": null
+    },
+    "build": "v651",
+    "density": "compact",
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1
+    },
+    "navTiming": {
+      "domInteractiveMs": 104,
+      "loadMs": 208
+    },
+    "viewDom": {
+      "tr": 47,
+      "td": 1397,
+      "allNodes": 4813
+    },
+    "jseventListeners": 45696,
+    "measuredAt": "2026-10-23T04:44:44.411Z"
+  },
+  "viewScroll": {
+    "fps": 46.3,
+    "maxGapMs": 33.4,
+    "p95GapMs": 33.3,
+    "container": "table-wrap cross-viewport",
+    "rowsRendered": 55
+  },
+  "open": {
+    "button": {
+      "found": true,
+      "disabled": false,
+      "text": "改单"
+    },
+    "ok": true,
+    "wallMs": 1788,
+    "inPageMs": 1787.7,
+    "cost": {
+      "TaskDuration": 0.97832,
+      "ScriptDuration": 0.001077,
+      "LayoutDuration": 0.069056,
+      "RecalcStyleDuration": 0.069005,
+      "LayoutCount": 7,
+      "RecalcStyleCount": 24,
+      "JSEventListeners": 28481,
+      "Nodes": 71866
+    },
+    "dom": {
+      "tr": 295,
+      "td": 9440,
+      "inputs": 7664,
+      "allNodes": 21450
+    }
+  },
+  "keystroke": {
+    "chars": 10,
+    "perChar": {
+      "taskMs": 145.8,
+      "scriptMs": 0.2,
+      "layoutMs": 6.4,
+      "recalcStyleMs": 0.5,
+      "layoutCount": 2.1,
+      "recalcStyleCount": 2.1,
+      "otherMs": 138.8
+    },
+    "latency": {
+      "n": 10,
+      "min": 115.6,
+      "p50": 122.9,
+      "p90": 124.3,
+      "max": 139.2
+    },
+    "longtasks": [
+      151,
+      118,
+      125,
+      126,
+      127,
+      127,
+      127,
+      122,
+      127,
+      126
+    ],
+    "dispatchMs": [
+      151,
+      119,
+      127,
+      126,
+      127,
+      128,
+      128,
+      123,
+      128,
+      127
+    ]
+  },
+  "editScroll": {
+    "fps": 52.8,
+    "maxGapMs": 33.3,
+    "p95GapMs": 16.8,
+    "container": "table-wrap edit-grid-wrap",
+    "rowsRendered": 295
+  },
+  "errors": [],
+  "variants": {
+    "no-shadow": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 147.1,
+        "scriptMs": 0.1,
+        "layoutMs": 6.7,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 139.8
+      },
+      "latency": {
+        "n": 8,
+        "min": 118,
+        "p50": 120.7,
+        "p90": 124.3,
+        "max": 150.6
+      },
+      "longtasks": [
+        163,
+        124,
+        127,
+        121,
+        123,
+        126,
+        123,
+        127
+      ],
+      "dispatchMs": [
+        164,
+        125,
+        128,
+        122,
+        124,
+        126,
+        124,
+        128
+      ]
+    },
+    "zoom-off": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 147.3,
+        "scriptMs": 0.1,
+        "layoutMs": 7.4,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 139.3
+      },
+      "latency": {
+        "n": 8,
+        "min": 116.3,
+        "p50": 120.6,
+        "p90": 121.5,
+        "max": 143.6
+      },
+      "longtasks": [
+        157,
+        120,
+        124,
+        123,
+        124,
+        125,
+        124,
+        119
+      ],
+      "dispatchMs": [
+        158,
+        121,
+        124,
+        123,
+        125,
+        125,
+        125,
+        119
+      ]
+    },
+    "sticky-off": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 144.9,
+        "scriptMs": 0.1,
+        "layoutMs": 6.1,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 138.2
+      },
+      "latency": {
+        "n": 8,
+        "min": 113.1,
+        "p50": 115.4,
+        "p90": 116.9,
+        "max": 138.4
+      },
+      "longtasks": [
+        148,
+        117,
+        119,
+        120,
+        118,
+        119,
+        117,
+        116
+      ],
+      "dispatchMs": [
+        149,
+        118,
+        120,
+        120,
+        119,
+        120,
+        118,
+        116
+      ]
+    },
+    "content-vis": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 146.6,
+        "scriptMs": 0.1,
+        "layoutMs": 5.5,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 140.5
+      },
+      "latency": {
+        "n": 8,
+        "min": 114.6,
+        "p50": 120.4,
+        "p90": 123.8,
+        "max": 138.9
+      },
+      "longtasks": [
+        150,
+        120,
+        120,
+        127,
+        116,
+        126,
+        123,
+        125
+      ],
+      "dispatchMs": [
+        151,
+        120,
+        120,
+        127,
+        117,
+        127,
+        123,
+        126
+      ]
+    },
+    "heat-off": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 141.5,
+        "scriptMs": 0.1,
+        "layoutMs": 5.3,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 135.5
+      },
+      "latency": {
+        "n": 8,
+        "min": 114.5,
+        "p50": 118.9,
+        "p90": 122.4,
+        "max": 138.8
+      },
+      "longtasks": [
+        148,
+        125,
+        121,
+        124,
+        117,
+        125,
+        118,
+        121
+      ],
+      "dispatchMs": [
+        149,
+        125,
+        122,
+        125,
+        118,
+        126,
+        119,
+        122
+      ]
+    }
+  },
+  "autocompleteOff": {
+    "chars": 8,
+    "perChar": {
+      "taskMs": 145.2,
+      "scriptMs": 0.1,
+      "layoutMs": 5.6,
+      "recalcStyleMs": 0.5,
+      "layoutCount": 2.1,
+      "recalcStyleCount": 2.1,
+      "otherMs": 139.1
+    },
+    "latency": {
+      "n": 8,
+      "min": 113.6,
+      "p50": 120.3,
+      "p90": 127.6,
+      "max": 141.6
+    },
+    "longtasks": [
+      153,
+      123,
+      123,
+      130,
+      116,
+      124,
+      123,
+      125
+    ],
+    "dispatchMs": [
+      154,
+      125,
+      124,
+      132,
+      116,
+      125,
+      124,
+      126
+    ]
+  },
+  "controlTiny": {
+    "chars": 8,
+    "perChar": {
+      "taskMs": 16.4,
+      "scriptMs": 0.7,
+      "layoutMs": 0.1,
+      "recalcStyleMs": 0,
+      "layoutCount": 1,
+      "recalcStyleCount": 0.1,
+      "otherMs": 15.6
+    },
+    "latency": {
+      "n": 8,
+      "min": 0,
+      "p50": 0.1,
+      "p90": 0.9,
+      "max": 1
+    },
+    "longtasks": [
+      147
+    ],
+    "dispatchMs": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1
+    ]
+  }
+}

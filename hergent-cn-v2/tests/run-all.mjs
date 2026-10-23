@@ -1,0 +1,157 @@
+#!/usr/bin/env node
+/**
+ * 前端测试统一入口（P1-1）
+ *
+ * 此前 package.json **没有 test 脚本**，三个契约测试只能靠人记命令手敲 ⇒
+ * 等于没有基线。这里把它们收成一条 `npm test`。
+ *
+ * 三组：
+ *   ① 万元↔元 往返（loss-accounting-money）—— 纯函数，必跑
+ *   ② SFC 模板符号检查（sfc-symbols）—— 全量扫 src 下所有 .vue 文件。
+ *      模板里引用未定义标识符时 **构建不报错**、只在运行时静默不渲染，
+ *      是"页面能开但某处没反应"的高发形态，必须全量扫。
+ *   ③ 返利口径契约（rebate-calc）—— 打真实 HTTP，需账号；
+ *      没给账号时 **跳过而非失败**（不能因为没凭据就红）。
+ *
+ * 用法：
+ *   npm test
+ *   npm test -- --user mptest --pass 'Mptest@1'
+ *   node tests/run-all.mjs --skip-sfc        # 跳过耗时的全量 SFC 扫描
+ * 退出码：有失败 1，全过 0。
+ */
+import fs from 'node:fs'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const ROOT = path.resolve(__dirname, '..')
+const NODE = process.execPath
+
+const argv = process.argv.slice(2)
+const has = (n) => argv.includes('--' + n)
+const val = (n, def) => {
+  const i = argv.indexOf('--' + n)
+  return i >= 0 && i + 1 < argv.length ? argv[i + 1] : def
+}
+
+function run(file, args, opts = {}) {
+  const r = spawnSync(NODE, [path.join(__dirname, file), ...args], {
+    cwd: ROOT, encoding: 'utf8', timeout: opts.timeout || 120000,
+    env: { ...process.env, ...(opts.env || {}) },
+  })
+  return {
+    code: r.status ?? (r.error ? -1 : 0),
+    out: ((r.stdout || '') + (r.stderr || '')).trim(),
+  }
+}
+
+/* 已知缺陷白名单：基线**不因它变红**，但每次运行都显式打印。
+   为什么不一刀切改红：单个遗留缺陷会让 CI 长期红 ⇒ 没人看 ⇒ 新引入的缺陷也混进去。
+   为什么不一刀切删掉：忘了就等于永远不修。登记即负债，必须带说明。 */
+/* 2026-10-22：首条已销账 —— Forecast.vue 的 openAlloc(allocRowRef(r)) 已改 openAlloc(r)，
+   AllocPanel 里那个从未被调用的 allocRowRef 也一并删除。当前无遗留缺陷。
+   机制保留：新发现的已知缺陷照此登记（带说明 + 修法），不要删掉这套白名单。 */
+const KNOWN_ISSUES = []
+
+function walkVue(dir, acc = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.')) continue
+    const p = path.join(dir, e.name)
+    if (e.isDirectory()) walkVue(p, acc)
+    else if (e.name.endsWith('.vue')) acc.push(p)
+  }
+  return acc
+}
+
+const results = []
+const t0 = Date.now()
+
+// ── ① 万元↔元 往返 ──────────────────────────────────────────
+console.log('── ① 万元↔元 往返（真实 SFC 实现）──')
+{
+  const r = run('loss-accounting-money.contract.mjs', ['src/pages/LossAccounting.vue'])
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '万元↔元往返', ok: r.code === 0, code: r.code })
+}
+
+// ── ② SFC 全量符号检查 ──────────────────────────────────────
+if (has('skip-sfc')) {
+  console.log('\n── ② SFC 全量符号检查 —— 已跳过(--skip-sfc) ──')
+} else {
+  console.log('\n── ② SFC 全量符号检查（src/**/*.vue）──')
+  const files = walkVue(path.join(ROOT, 'src'))
+  const bad = []
+  const crashed = []
+  const accepted = []
+  for (const f of files) {
+    const rel = path.relative(ROOT, f)
+    const r = run('sfc-symbols.contract.mjs', [rel], { timeout: 60000 })
+    if (r.code === 0) continue
+    // 检查器自身崩了（编译器抛异常）≠ 模板符号缺失，必须分开统计，
+    // 否则"脚本坏了"会被当成"代码坏了"，基线永远修不干净。
+    if (/Node\.js v\d|at async asyncRunEntryPoint|^\w*Error:/m.test(r.out)) {
+      const first = r.out.split('\n').find((l) => /Error:/.test(l)) || '(未知)'
+      crashed.push({ rel, err: first.slice(0, 120) })
+      continue
+    }
+    // 精确取「① 被调用 / ② 被引用的标识符」里未定义的那两行 —— 那才是判失败的依据
+    // （v629 起 ② 也判失败：漏掉它等于放过 `v-if="open"` 那类「静默不渲染」）
+    const m1 = r.out.match(/① 被调用的标识符：共 \d+ 个，未定义 (\d+) 个\n\s*(.*)/)
+    const m2 = r.out.match(/② 指令\/插值中引用的标识符：共 \d+ 个，未定义 (\d+) 个\n\s*(.*)/)
+    const miss = [m1 && m1[1] !== '0' ? '调用:' + m1[2] : '', m2 && m2[1] !== '0' ? '引用:' + m2[2] : '']
+      .filter(Boolean).join(' | ').slice(0, 200) || '(未能解析)'
+    const known = KNOWN_ISSUES.find((k) => k.file === rel && miss.includes(k.sym))
+    if (known) accepted.push({ rel, miss, note: known.note })
+    else bad.push({ rel, miss })
+  }
+  console.log(`  扫描 ${files.length} 个 .vue | 符号缺失 ${bad.length} 个 | 已知缺陷 ${accepted.length} 个 | 检查器崩溃 ${crashed.length} 个`)
+  for (const b of bad) console.log(`  ❌ ${b.rel}\n        │ 未定义: ${b.miss}`)
+  for (const a of accepted) console.log(`  ⚠️  ${a.rel}（已登记已知缺陷，不阻断）\n        │ ${a.note}`)
+  for (const c of crashed) console.log(`  ⛔ ${c.rel}\n        │ 检查器崩溃: ${c.err}`)
+  results.push({
+    name: 'SFC 符号检查',
+    ok: bad.length === 0 && crashed.length === 0,
+    detail: `共 ${files.length}，新增缺失 ${bad.length}，已知 ${accepted.length}，崩溃 ${crashed.length}`,
+  })
+}
+
+// ── ③ 返利口径契约（需账号） ────────────────────────────────
+{
+  const user = val('user', process.env.REBATE_USER || '')
+  const pass = val('pass', process.env.REBATE_PASS || '')
+  const base = val('base', process.env.REBATE_BASE || 'https://hergent.cn')
+  console.log('\n── ③ 返利口径契约（真实 HTTP）──')
+  if (!user || !pass) {
+    console.log('  ⏭ SKIP：未提供账号（--user/--pass 或 REBATE_USER/REBATE_PASS）')
+  } else {
+    const r = run('rebate-calc.contract.mjs', ['--base', base, '--user', user, '--pass', pass], { timeout: 300000 })
+    const tail = r.out.split('\n').filter(Boolean).slice(-4).join('\n   ')
+    console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+    results.push({ name: '返利口径契约', ok: r.code === 0, code: r.code })
+  }
+}
+
+// ── ④ <script setup> 跨组件 / 漏 import 符号检查 ───────────
+/* 为什么需要第 4 组（v629）：② 只扫**模板**表达式，而 `_allocPid()` / `parseNumInput()`
+   这类调用写在 <script setup> 里 ⇒ 构建不报错、模板检查也看不见，
+   只有**真机点那一下**才 ReferenceError，还被 ErrorBoundary 吞成"点了没反应"。 */
+{
+  console.log('\n── ④ <script setup> 跨组件 / 漏 import 符号检查 ──')
+  const r = run('cross-sfc-symbol.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '脚本内符号检查', ok: r.code === 0, code: r.code })
+}
+
+// ── 汇总 ────────────────────────────────────────────────────
+const failed = results.filter((r) => !r.ok)
+console.log('\n' + '='.repeat(66))
+for (const r of results) {
+  console.log(`  ${r.ok ? '✅' : '❌'} ${r.name.padEnd(20)} ${r.detail ?? ('rc=' + r.code)}`)
+}
+console.log('RESULT: ' + (failed.length === 0 ? 'ALL PASS' : `FAILED (${failed.length})`)
+  + `   ${((Date.now() - t0) / 1000).toFixed(1)}s`)
+console.log('='.repeat(66))
+process.exit(failed.length === 0 ? 0 : 1)

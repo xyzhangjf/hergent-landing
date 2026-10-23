@@ -1,50 +1,19 @@
 <template>
-  <div class="page">
-    <div class="page-hd split">
-      <div>
-        <h2>账龄汇总表</h2>
-        <span class="page-sub">应收账款按逾期天数分档 · 1-30 天 / 31-60 天 / 60 天以上</span>
-      </div>
-      <div class="rpt-acts">
-        <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
-          <Icon name="refresh" :size="14" />刷新
-        </button>
-      </div>
-    </div>
-
-    <Skeleton v-if="loading" />
-
-    <div v-else-if="err" class="state-error">
-      <div class="se-ic"><Icon name="alert" :size="22" /></div>
-      <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
-    </div>
-
-    <template v-else>
-      <div class="card kpi-strip cols-4">
-        <div class="kpi">
-          <div class="kpi-label">应收合计</div>
-          <div class="kpi-val">{{ fmtMoney(sumAll) }}</div>
-          <div class="kpi-sub">{{ countAll }} 笔未结清</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">1-30 天</div>
-          <div class="kpi-val">{{ fmtMoney(sum('1_30')) }}</div>
-          <div class="kpi-sub">{{ list('1_30').length }} 笔</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">31-60 天</div>
-          <div class="kpi-val val-warn">{{ fmtMoney(sum('31_60')) }}</div>
-          <div class="kpi-sub">{{ list('31_60').length }} 笔</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">60 天以上</div>
-          <div class="kpi-val val-bad">{{ fmtMoney(sum('60_plus')) }}</div>
-          <div class="kpi-sub">{{ list('60_plus').length }} 笔</div>
-        </div>
-      </div>
-
-      <!-- ⚠️ 数据完整性：这批应收全部落在 60+，根因是到期日为 2023 年且从未核销 -->
+  <ReportTable
+    title="账龄汇总表"
+    subtitle="应收账款按逾期天数分档 · 1-30 天 / 31-60 天 / 60 天以上"
+    :table-title="'账龄明细（共 ' + rows.length + ' 笔）'"
+    :columns="columns"
+    :rows="rows"
+    :kpis="kpis"
+    :loading="loading"
+    :err="err"
+    empty-hint="当前没有未结清的应收单。"
+    @reload="load"
+  >
+    <template #extra>
+      <!-- ⚠️ 数据完整性提醒：原文案整段保留，只换容器（原分档 tfoot 的「应收 / 已收」合计
+           已并入各档 KPI 的副行，避免重复渲染一列同样的数字）。 -->
       <div v-if="staleHint" class="card rpt-warn">
         <div class="rpt-warn-hd"><Icon name="alert" :size="14" /> 数据完整性提醒</div>
         <p>
@@ -53,57 +22,16 @@
           属于<b>未核销的历史挂账</b>：请先核销已收回的款项（或修正到期日），本表分档才会反映真实欠款。
         </p>
       </div>
-
-      <div v-for="g in groups" :key="g.key" class="card rpt-card">
-        <div class="sec-hd rpt-sec">
-          <span>{{ g.name }}（{{ list(g.key).length }} 笔 · {{ fmtMoney(sum(g.key)) }}）</span>
-        </div>
-        <div v-if="list(g.key).length" class="table-wrap freeze-list">
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th class="seq-th">序号</th>
-                <th>客户</th>
-                <th>到期日</th>
-                <th class="num">逾期天数</th>
-                <th class="num">应收金额</th>
-                <th class="num">已收</th>
-                <th class="num">余额</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(r, i) in list(g.key)" :key="g.key + '-' + i">
-                <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-                <td>{{ r.contact_name || '—' }}</td>
-                <td>{{ fmtDate(r.due_date) }}</td>
-                <td class="num">{{ r.overdue_days ?? '—' }}</td>
-                <td class="num">{{ fmtMoney(r.amount) }}</td>
-                <td class="num">{{ fmtMoney(r.paid_amount) }}</td>
-                <td class="num" :class="Number(r.balance || 0) > 0 ? 'val-bad' : ''">{{ fmtMoney(r.balance) }}</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr>
-                <td class="ft-lb" colspan="3">本页合计</td>
-                <td></td>
-                <td class="num">{{ fmtMoney(gtot(g.key).amount) }}</td>
-                <td class="num">{{ fmtMoney(gtot(g.key).paid) }}</td>
-                <td class="num">{{ fmtMoney(gtot(g.key).balance) }}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-        <div v-else class="state-empty">该档暂无数据。</div>
-      </div>
-
-      <p class="rpt-foot">
-        口径：只统计 <code>type='ar'</code>、状态非已结清、且 <code>amount &gt; paid_amount</code> 的应收单；
-        余额 = 应收金额 − 已收金额；逾期天数 = 今天 − 到期日（到期日缺失才回退取创建日），按
-        1-30 / 31-60 / 60 以上 三档归类。数据源 <code>GET /api/reports/ar-aging</code>，
-        与「坏账计提」读的是同一个后端函数；前端不重算分档。
-      </p>
     </template>
-  </div>
+
+    <template #footnote>
+      口径：只统计 <code>type='ar'</code>、状态非已结清、且 <code>amount &gt; paid_amount</code> 的应收单；
+      余额 = 应收金额 − 已收金额；逾期天数 = 今天 − 到期日（到期日缺失才回退取创建日），按
+      1-30 / 31-60 / 60 以上 三档归类。数据源 <code>GET /api/reports/ar-aging</code>，
+      与「坏账计提」读的是同一个后端函数；前端不重算分档。
+      表格按三档顺序合并展示，「账龄档」列标出每行所属档位。
+    </template>
+  </ReportTable>
 </template>
 
 <script setup>
@@ -113,10 +41,13 @@
    🔴 staleHint（数据完整性提示）是**生产实测后**加的：tenant 1 的 181 笔应收
       due_date 全为 2023-11-30 / 2023-12-31、created_at 同为 2026-06-29（批量导入）、
       paid_amount>0 的笔数为 0 ⇒ 全部落 60+。若不提示，老板会把历史挂账读成当期欠款。
-      判定方式保持宽松（前两档为空 且 存在逾期 > 365 天的单），避免写死某次数据快照。 */
-import Skeleton from '../../components/Skeleton.vue'
-import { ref, computed, onMounted } from 'vue'
+      判定方式保持宽松（前两档为空 且 存在逾期 > 365 天的单），避免写死某次数据快照。
+   v646：外壳收编进 ReportTable。原三张分档表合并为一张（新增「账龄档」列标识归属），
+      取数、分档、合计、警示判定一字未动；各档「应收 / 已收」合计并入 KPI 副行。
+   🔴 不开 `filterable`：/api/reports/ar-aging 不支持 date_from/date_to，开了就是假筛选。 */
+import ReportTable from '../../components/ReportTable.vue'
 import Icon from '../../components/Icon.vue'
+import { ref, computed, onMounted } from 'vue'
 import { reportsApi } from '../../api/modules'
 
 const loading = ref(true)
@@ -129,9 +60,20 @@ const groups = [
   { key: '60_plus', name: '60 天以上' },
 ]
 
+const columns = [
+  { key: 'seq', label: '序号', cls: 'num' },
+  { key: 'bucket', label: '账龄档' },
+  { key: 'contact_name', label: '客户' },
+  { key: 'due_date', label: '到期日', fmt: 'date' },
+  { key: 'overdue_days', label: '逾期天数', fmt: 'num', cls: 'num' },
+  { key: 'amount', label: '应收金额', fmt: 'money', cls: 'num' },
+  { key: 'paid_amount', label: '已收', fmt: 'money', cls: 'num' },
+  { key: 'balance', label: '余额', fmt: 'money', cls: 'num val-bad' },
+]
+
 function list(k) { return Array.isArray(data.value[k]) ? data.value[k] : [] }
 function sum(k) { return list(k).reduce((s, r) => s + Number(r.balance || 0), 0) }
-/* 本页合计：只对当前档可见行的可加总列求和（应收 / 已收 / 余额）；逾期天数为天数，不合计。 */
+/* 每档合计：只对当前档可见行的可加总列求和（应收 / 已收 / 余额）；逾期天数为天数，不合计。 */
 function gtot(k) {
   const rows = list(k)
   let amount = 0, paid = 0, balance = 0
@@ -142,6 +84,28 @@ function gtot(k) {
   }
   return { amount, paid, balance }
 }
+
+/* 三档顺序铺平成一表；空值统一转成空串，交给骨架 fmt 显示「—」，避免出现 NaN。 */
+const rows = computed(() => {
+  const out = []
+  for (const g of groups) {
+    for (const r of list(g.key)) {
+      out.push({
+        ...r,
+        seq: out.length + 1,
+        bucket: g.name,
+        contact_name: r.contact_name || '',
+        due_date: String(r.due_date || '').slice(0, 10),
+        overdue_days: r.overdue_days ?? '',
+        amount: Number(r.amount || 0),
+        paid_amount: Number(r.paid_amount || 0),
+        balance: Number(r.balance || 0),
+      })
+    }
+  }
+  return out
+})
+
 const countAll = computed(() => groups.reduce((s, g) => s + list(g.key).length, 0))
 const sumAll = computed(() => groups.reduce((s, g) => s + sum(g.key), 0))
 
@@ -157,14 +121,19 @@ const staleDueText = computed(() => {
   return ds[0] === ds[ds.length - 1] ? ds[0] : (ds[0] + ' 至 ' + ds[ds.length - 1])
 })
 
+const kpis = computed(() => [
+  { label: '应收合计', value: fmtMoney(sumAll.value), sub: `${countAll.value} 笔未结清` },
+  ...groups.map(g => ({
+    label: g.name,
+    value: fmtMoney(sum(g.key)),
+    sub: `${list(g.key).length} 笔 · 应收 ${fmtMoney(gtot(g.key).amount)} · 已收 ${fmtMoney(gtot(g.key).paid)}`,
+  })),
+])
+
 function fmtMoney(v) {
   const n = Number(v || 0)
   if (Math.abs(n) >= 10000) return '¥' + (n / 10000).toFixed(1) + ' 万'
   return '¥' + n.toFixed(0)
-}
-function fmtDate(v) {
-  const s = String(v || '')
-  return s ? s.slice(0, 10) : '—'
 }
 
 async function load() {
@@ -188,15 +157,9 @@ onMounted(load)
 </script>
 
 <style scoped>
-.rpt-acts { display: flex; gap: 8px; align-items: center; }
-.rpt-card { margin-top: 14px; }
-.rpt-sec { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.rpt-warn {
-  margin-top: 14px; padding: 12px 14px;
-  border-left: 3px solid var(--warn-amber); background: var(--bg2);
-}
+/* 仅保留仍被引用的私有类：警示卡挂在 ReportTable 的 #extra 插槽里，插槽内容在本页作用域编译，
+   故这里的作用域样式照样生效。 */
+.rpt-warn { margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--warn-amber); background: var(--bg2); }
 .rpt-warn-hd { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--war); font-size: 13px; }
 .rpt-warn p { margin: 6px 0 0; font-size: 12px; line-height: 1.9; color: var(--t2); }
-.rpt-foot { margin: 14px 2px 0; font-size: 12px; line-height: 1.9; color: var(--t2); }
-.rpt-foot code { background: var(--bg2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 </style>

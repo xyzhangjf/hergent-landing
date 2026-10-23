@@ -1,0 +1,374 @@
+{
+ "checks": [
+  {
+   "name": "准备：取到首行数量格与行合计",
+   "pass": true,
+   "detail": {
+    "sumText": "30",
+    "qtyVal": "0",
+    "qtyC": "8",
+    "dirtyAll": 0,
+    "dirtyRow": 0
+   }
+  },
+  {
+   "name": "准备：数量格获得焦点",
+   "pass": true,
+   "detail": {
+    "focusOK": true
+   }
+  },
+  {
+   "name": "①-1 字符进 DOM 后未被重渲染刷回旧值（样本里没有「先 9 又回 0」）",
+   "pass": true,
+   "detail": {
+    "firstNine": 0,
+    "nineAtMs": 13,
+    "flippedBack": false,
+    "前12个样本": [
+     [
+      13,
+      "9"
+     ],
+     [
+      21,
+      "9"
+     ],
+     [
+      33,
+      "9"
+     ],
+     [
+      43,
+      "9"
+     ],
+     [
+      53,
+      "9"
+     ],
+     [
+      63,
+      "9"
+     ],
+     [
+      72,
+      "9"
+     ],
+     [
+      83,
+      "9"
+     ],
+     [
+      93,
+      "9"
+     ],
+     [
+      103,
+      "9"
+     ],
+     [
+      113,
+      "9"
+     ],
+     [
+      123,
+      "9"
+     ]
+    ]
+   }
+  },
+  {
+   "name": "①-2 字符进 DOM 后的那段时间里合计仍是旧值（防抖确实延后，不是\"没在算\"）",
+   "pass": true,
+   "detail": {
+    "sumBefore": "30",
+    "sumEarly": "30",
+    "earlyQty": "9",
+    "dirty": 0
+   }
+  },
+  {
+   "name": "② 停手 500ms：行合计已变化（值已落进响应式，合计链路正常）",
+   "pass": true,
+   "detail": {
+    "sumBefore": "30",
+    "sumSettled": "39",
+    "qtyVal": "9"
+   }
+  },
+  {
+   "name": "② 改过角标亮起（cellDirty 链路正常）",
+   "pass": true,
+   "detail": {
+    "dirtyAll": 1
+   }
+  },
+  {
+   "name": "③ 打成 90 后立刻失焦：80ms 内行合计已按 90 更新（无 150ms 延迟、不丢值）",
+   "pass": true,
+   "detail": {
+    "qty900": "90",
+    "sumBeforeBlur": "39",
+    "sumAfterBlur": "120"
+   }
+  },
+  {
+   "name": "③ 失焦后再等 400ms 无二次变化（防抖定时器没有重复写）",
+   "pass": true,
+   "detail": {
+    "sumStable": "120",
+    "qtyVal": "90"
+   }
+  },
+  {
+   "name": "④ 价格格：失焦收敛成 12，且 450ms 后未被防抖定时器改回 \"12.\"（防反向覆盖）",
+   "pass": true,
+   "detail": {
+    "before": "",
+    "typedP": "12.",
+    "afterBlurP": "12",
+    "settledP": "12"
+   }
+  },
+  {
+   "name": "无 JS 异常",
+   "pass": true,
+   "detail": {
+    "errors": []
+   }
+  },
+  {
+   "name": "无 console error",
+   "pass": true,
+   "detail": []
+  }
+ ],
+ "logs": [],
+ "errors": [],
+ "badResponses": [],
+ "build": "v653",
+ "phase1": {
+  "samples": [
+   [
+    13,
+    "9"
+   ],
+   [
+    21,
+    "9"
+   ],
+   [
+    33,
+    "9"
+   ],
+   [
+    43,
+    "9"
+   ],
+   [
+    53,
+    "9"
+   ],
+   [
+    63,
+    "9"
+   ],
+   [
+    72,
+    "9"
+   ],
+   [
+    83,
+    "9"
+   ],
+   [
+    93,
+    "9"
+   ],
+   [
+    103,
+    "9"
+   ],
+   [
+    113,
+    "9"
+   ],
+   [
+    123,
+    "9"
+   ],
+   [
+    133,
+    "9"
+   ],
+   [
+    143,
+    "9"
+   ],
+   [
+    153,
+    "9"
+   ],
+   [
+    163,
+    "9"
+   ],
+   [
+    314,
+    "9"
+   ],
+   [
+    322,
+    "9"
+   ],
+   [
+    332,
+    "9"
+   ],
+   [
+    342,
+    "9"
+   ],
+   [
+    352,
+    "9"
+   ],
+   [
+    362,
+    "9"
+   ],
+   [
+    372,
+    "9"
+   ],
+   [
+    382,
+    "9"
+   ],
+   [
+    393,
+    "9"
+   ],
+   [
+    403,
+    "9"
+   ],
+   [
+    413,
+    "9"
+   ],
+   [
+    422,
+    "9"
+   ],
+   [
+    433,
+    "9"
+   ],
+   [
+    443,
+    "9"
+   ],
+   [
+    453,
+    "9"
+   ],
+   [
+    463,
+    "9"
+   ],
+   [
+    473,
+    "9"
+   ],
+   [
+    483,
+    "9"
+   ],
+   [
+    493,
+    "9"
+   ],
+   [
+    502,
+    "9"
+   ],
+   [
+    513,
+    "9"
+   ],
+   [
+    521,
+    "9"
+   ],
+   [
+    532,
+    "9"
+   ],
+   [
+    542,
+    "9"
+   ]
+  ],
+  "firstNine": 0,
+  "nineAtMs": 13,
+  "flippedBack": false
+ },
+ "afterDebounce": {
+  "before": {
+   "sumText": "30",
+   "qtyVal": "0",
+   "qtyC": "8",
+   "dirtyAll": 0,
+   "dirtyRow": 0
+  },
+  "early": {
+   "sumText": "30",
+   "qtyVal": "9",
+   "qtyC": "8",
+   "dirtyAll": 0,
+   "dirtyRow": 0
+  },
+  "settled": {
+   "sumText": "39",
+   "qtyVal": "9",
+   "qtyC": "8",
+   "dirtyAll": 1,
+   "dirtyRow": 1
+  }
+ },
+ "afterBlur": {
+  "typed2": {
+   "sumText": "39",
+   "qtyVal": "90",
+   "qtyC": "8",
+   "dirtyAll": 1,
+   "dirtyRow": 1
+  },
+  "blurred": {
+   "sumText": "120",
+   "qtyVal": "90",
+   "qtyC": "8",
+   "dirtyAll": 1,
+   "dirtyRow": 1
+  },
+  "stable": {
+   "sumText": "120",
+   "qtyVal": "90",
+   "qtyC": "8",
+   "dirtyAll": 1,
+   "dirtyRow": 1
+  }
+ },
+ "panelImmediate": {
+  "note": "softWarnCfg 走 immediate 分支，由代码审查保证；此处仅记录未做面板交互",
+  "qtyC": "8"
+ },
+ "priceCell": {
+  "before": "",
+  "typedP": "12.",
+  "afterBlurP": "12",
+  "settledP": "12"
+ },
+ "consoleErrors": []
+}

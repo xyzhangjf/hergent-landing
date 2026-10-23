@@ -464,7 +464,8 @@ async function downloadWeeklyDocx() {
       ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
       ...(auth.tenant ? { 'X-Tenant-Id': String(auth.tenant) } : {}),
     }
-    const res = await fetch('/api/meeting/export-docx', { method: 'GET', headers })
+    // P0-4：凭证在 httpOnly cookie 里，必须显式带上（同源默认即带，写明防后人误删）
+    const res = await fetch('/api/meeting/export-docx', { method: 'GET', headers, credentials: 'same-origin' })
     if (!res.ok) { toast(`生成失败（${res.status}）`, 'warn'); return }
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)

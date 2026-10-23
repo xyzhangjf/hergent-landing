@@ -5,10 +5,60 @@
 
 const TOKEN_KEY = 'hergent_v2_token'
 const TENANT_KEY = 'hergent_v2_tenant'
+const LEGACY_CSRF_KEY = 'hergent_v2_csrf'
+
+/* ============================================================
+   P0-4 (v628)：会话凭证从「localStorage + Bearer」迁到「httpOnly Cookie」
+   ------------------------------------------------------------
+   🔴 为什么要迁：token 存在 localStorage ⇒ 页面上**任意** JS（含第三方脚本、XSS
+      注入）都能读到它，等于把会话凭证摊在能被脚本够到的地方。迁到 httpOnly cookie
+      后，浏览器自动携带、JS 读不到，XSS 即便执行也偷不走会话。
+
+   分工（后端 /opt/hergent-erp/routers/auth.py 同步改造）：
+     erp_token    = 真凭证，httponly=True ⇒ JS 不可读（这才是本次的安全收益）
+     hergent_auth = 非 httpOnly 的「已登录」标记，仅供前端路由守卫/UI 判断，
+                    **无鉴权价值**（真边界始终是后端 _auth；泄露它换不到任何东西）
+     csrf_token / __Host-csrf = 非 httpOnly，前端读出来回传 X-CSRF-Token 头
+
+   ⚠️ 为什么必须有个「非 httpOnly 标记」：httpOnly 的本质就是 JS 看不见，
+      于是前端**无法**判断"我登录了没"。业界通行解（如 GitHub 的 logged_in）
+      就是另发一个只读标记，这里同法。
+
+   ⚠️ 不删 Bearer 分支：小程序 / 桌面端 / bot token 仍走 Authorization 头，
+      后端 _extract_token_candidates 保持「Bearer 优先、失效回退 cookie」。
+   ============================================================ */
+
+/** 读 cookie。httpOnly 的读不到（这正是 erp_token 想要的效果）。 */
+function getCookie(name) {
+  try {
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const m = document.cookie.match(new RegExp('(?:^|; )' + esc + '=([^;]*)'))
+    return m ? decodeURIComponent(m[1]) : ''
+  } catch { return '' }
+}
+
+/** 一次性抹掉历史 localStorage 残留（老版本把 token / CSRF 存在这里）。
+ *  迁移后这里必须为空 —— 否则"XSS 能读到凭证"这个洞就没真补上。 */
+function purgeLegacyToken() {
+  try {
+    if (localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_CSRF_KEY)) {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(LEGACY_CSRF_KEY)
+    }
+  } catch { /* 隐私模式 / 禁用存储：忽略，cookie 通道不受影响 */ }
+}
+purgeLegacyToken()
 
 export const auth = {
-  get token() { return localStorage.getItem(TOKEN_KEY) || '' },
-  set token(v) { v ? localStorage.setItem(TOKEN_KEY, v) : localStorage.removeItem(TOKEN_KEY) },
+  /* 🔴 恒为空 —— 凭证已移到 httpOnly cookie，JS 不该再看见它。
+     保留这个 getter 是为了让既有 `auth.token ? { Authorization: ... } : {}`
+     **全部自动退化成空对象**：一处收口，不必改 N 个调用点，也留了唯一改回点。 */
+  get token() { return '' },
+  set token(_v) { /* 兼容旧赋值点（login/register/logout 等）：凭证由后端 Set-Cookie 下发，这里忽略 */ },
+  /** 是否已登录 —— 读**非** httpOnly 的标记 cookie（见上方说明）。 */
+  get hasSession() { return getCookie('hergent_auth') === '1' },
+  /** CSRF —— 后端校验顺序是 `__Host-csrf` 优先、`csrf_token` 兜底，这里同序取。 */
+  get csrf() { return getCookie('__Host-csrf') || getCookie('csrf_token') },
   get user() {
     try { return JSON.parse(localStorage.getItem('hergent_v2_user') || 'null') } catch { return null }
   },
@@ -50,7 +100,8 @@ export function resetTenantContext() {
 
 /** 启动自愈：已有登录态却没有 tenant_id（老会话/演示残留）→ 清掉失效的租户 cookie */
 export function bootstrapTenantContext() {
-  if (auth.token && !auth.tenant) clearTenantCookie()
+  // P0-4：token 已不落 localStorage，登录态改由 hergent_auth 标记 cookie 判定
+  if (auth.hasSession && !auth.tenant) clearTenantCookie()
 }
 
 /* 认证类接口的统一错误文案。
@@ -77,11 +128,12 @@ export async function login(username, password) {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(_authErrText(res, data, '登录失败'))
-  auth.token = data.access_token || data.token || ''
-  // 后端返回 user: {id, username, display_name, role}；存 CSRF 供写操作
+  // P0-4：不再落 token / CSRF 到 localStorage —— 二者都由后端 Set-Cookie 下发：
+  //   erp_token  httpOnly，JS 读不到（XSS 偷不走）
+  //   csrf_token 非 httpOnly，写操作时由 `auth.csrf` 现读现用
+  // ⚠️ 响应体里仍带 token 字段（小程序要用），网页端**故意不读**。
   auth.user = data.user || null
   if (data.tenant_id) auth.tenant = data.tenant_id   // 显式租户上下文（优先于 cookie）
-  if (data.csrf_token) localStorage.setItem('hergent_v2_csrf', data.csrf_token)
   return data
 }
 
@@ -107,10 +159,9 @@ export async function register(company, phone, password, { inviteCode = '', smsC
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(_authErrText(res, data, '注册失败'))
-  auth.token = data.token || ''
+  // P0-4：同 login() —— 凭证与 CSRF 均由后端 Set-Cookie 下发，前端不再落 localStorage
   auth.user = data.user || null
   if (data.tenant_id) auth.tenant = data.tenant_id
-  if (data.csrf_token) localStorage.setItem('hergent_v2_csrf', data.csrf_token)
   return data
 }
 
@@ -130,7 +181,7 @@ export async function sendCode(phone) {
    POST /api/auth/password，body { old_password, new_password }。
    成功后后端会置 password_changed=1，并删除该用户其它会话（保留当前会话）。 */
 export async function changePassword(oldPassword, newPassword) {
-  const csrf = localStorage.getItem('hergent_v2_csrf') || ''
+  const csrf = auth.csrf   // P0-4：改从 cookie 现读（后端 Set-Cookie 下发，不再存 localStorage）
   const res = await fetch('/api/auth/password', {
     method: 'POST',
     headers: {
@@ -150,12 +201,26 @@ export async function demoLogin() {
   const res = await fetch('/api/auth/demo-login', { method: 'POST' })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(_authErrText(res, data, '演示入口暂不可用'))
-  auth.token = data.token || ''
+  // P0-4：同 login() —— 凭证由后端 Set-Cookie 下发（demo 亦已补发 erp_token + csrf）
   auth.user = data.user || null
   auth.demo = !!data.demo
   if (data.tenant_id) auth.tenant = data.tenant_id
   return data
 }
+
+/* ============================================================
+   v653：写操作失效钩子（供缓存层登记）
+   ------------------------------------------------------------
+   为什么放在 client 层而不是各业务模块：商品主档缓存（`api/productsCache.js`）
+   必须在**任何**商品写操作后失效。写入口分散在 bulkUpsert / PUT / extra-values /
+   batch-factory-price …，逐个包一层等于「漏一个就静默读到旧档案」——正是本仓
+   反复吃过的「同一规则抄多份、漏抄那份出错」。在这里按 path 前缀统一拦截，
+   以后新增的商品写接口**自动**被覆盖。
+   用回调注册而不是 import 业务模块：避免 client ↔ modules 循环依赖。
+   ============================================================ */
+const _writeHooks = []
+/** 登记一个「某前缀的写请求成功后」的回调。多次登记互不影响；回调异常绝不影响请求本身。 */
+export function onWriteSuccess(prefix, fn) { _writeHooks.push({ prefix, fn }) }
 
 /* 统一 api()：带 Bearer + CSRF、错误信封、超时
  *
@@ -180,7 +245,8 @@ async function probeSession() {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 8000)
     const r = await fetch('/api/auth/me', {
-      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+      // P0-4：凭证在 httpOnly cookie 里，无需手拼头；显式声明带上 cookie
+      credentials: 'same-origin',
       signal: ctrl.signal
     })
     clearTimeout(timer)
@@ -192,7 +258,7 @@ export async function api(path, opts = {}) {
   const { method = 'GET', body, timeout = 20000, raw = false, silent401 = false } = opts
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeout)
-  const csrf = localStorage.getItem('hergent_v2_csrf') || ''
+  const csrf = auth.csrf   // P0-4：改从 cookie 现读
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData
   try {
     const headers = {
@@ -205,6 +271,9 @@ export async function api(path, opts = {}) {
     const res = await fetch(path, {
       method,
       headers,
+      // P0-4：显式声明携带同源 cookie —— 会话凭证（erp_token）走的就是它。
+      // 同源下这本来就是默认值，写明是防后人误加 `credentials:'omit'` 把登录态静默掐掉。
+      credentials: 'same-origin',
       body: body !== undefined ? (isForm ? body : JSON.stringify(body)) : undefined,
       signal: ctrl.signal
     })
@@ -245,6 +314,14 @@ export async function api(path, opts = {}) {
       err.payload = data
       throw err
     }
+    /* v653：写操作成功 ⇒ 通知缓存层失效。只在**真的成功**后才触发（上面 !res.ok 已抛）。
+       ⚠️ 用独立 try 包住：钩子里的异常绝不能让一次成功的写请求变成失败
+          （否则「保存成功但界面报错」= 用户会重试，造成重复写入）。 */
+    if (method !== 'GET' && _writeHooks.length) {
+      for (const h of _writeHooks) {
+        if (path.startsWith(h.prefix)) { try { h.fn(path) } catch (e) { /* 缓存失效失败不影响业务 */ } }
+      }
+    }
     return raw ? data : (data.data !== undefined ? data.data : data)
   } catch (e) {
     /* v196：把「到点 abort」转成**可读、可判定**的错误。
@@ -269,8 +346,9 @@ export async function api(path, opts = {}) {
 
 /* 🔴 二进制下载专用（v408 P1-8 附件下载）—— **不能**用 `api()`：
      · `api()` 一律 `res.json()` ⇒ 拿到的是空对象，文件根本取不回来；
-     · 也不能 `<a href="...">` 直接跳：鉴权是 **Bearer 头**（token 在 localStorage，
-       不是 cookie）⇒ 浏览器跳转**不会**带上它，后端只会回 401。
+     · 也不能 `<a href="...">` 直接跳：P0-4 起凭证在 httpOnly cookie（跳转确实会带上），
+       但链接跳转**拿不到响应码与后端 detail**，失败只会表现成"下载了半个文件/没反应"，
+       排查成本极高。仍必须 fetch → blob → objectURL。
    所以必须自己 fetch 成 blob 再触发下载。放在**本文件**是因为只有这里知道鉴权头怎么拼 ——
    放到页面里再拼一份就是第二个真相来源（token 头一改就漂移）。
    返回 `Blob`；失败抛 `Error`（带 `status`），错误文案优先用后端的 detail。
@@ -291,6 +369,7 @@ export async function apiBlob(path, { timeout = 60000, method = 'GET', body = nu
         ...(body != null ? { 'Content-Type': 'application/json' } : {})
       },
       body: body != null ? JSON.stringify(body) : undefined,
+      credentials: 'same-origin',   // P0-4：凭证在 httpOnly cookie，靠它带上去
       signal: ctrl.signal
     })
     if (!res.ok) {
@@ -387,10 +466,14 @@ export async function hermesChat(messages, { onDelta, onTool, onReasoning, model
     //   不传（老客户端）后端逐字沿用旧行为，所以这里是纯 additive。
     if (roleId) payload.role_id = roleId
     const proxyHdrs = { 'Content-Type': 'application/json' }
-    const _t = localStorage.getItem('hergent_v2_token') || ''
-    if (_t) proxyHdrs.Authorization = `Bearer ${_t}`   // Bearer 免 CSRF
+    // P0-4：改走 cookie 凭证后，**POST 必须带 CSRF**（server.py 的 CSRF 中间件只对 Bearer
+    //   放行；cookie 模式缺 X-CSRF-Token 一律 403 CSRF_REQUIRED）。
+    //   🔴 漏这一条 = 整个 AI 对话直接瘫痪，且报的是 **403 不是 401**，很容易误判成权限问题。
+    const _csrf = auth.csrf
+    if (_csrf) proxyHdrs['X-CSRF-Token'] = _csrf
     const post = (url, hdrs) => fetch(url, {
-      method: 'POST', headers: hdrs, body: JSON.stringify(payload), signal: sig
+      method: 'POST', headers: hdrs, body: JSON.stringify(payload), signal: sig,
+      credentials: 'same-origin'   // P0-4：带上 erp_token cookie
     })
     const res = await post('/api/ai/copilot/chat', proxyHdrs)
     if (!res.ok) {

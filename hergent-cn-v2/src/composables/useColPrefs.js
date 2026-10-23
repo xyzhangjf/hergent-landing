@@ -3,9 +3,12 @@
  *
  * ## 为什么抽成 composable
  * 本页要把「列顺序 / 可见性 / 冻结列」从**只活在这台浏览器**升级成**跟着租户走**。
- * 三个宿主页（`/forecast`、`/inventory/purchase`、`/inventory/purchase-settlement`）
- * 都要这件事，而本仓已有一类缺陷叫「同一规则抄多份 ⇒ 漏抄的那份整页出错」——
+ * 最初只有三个宿主页（`/forecast`、`/inventory/purchase`、结算单列表），现已扩到 **27 个页面**
+ * （各明细 / 单据 / 档案页的列可见性都走这里）—— `useColSettings` 是它们的统一入口。
+ * 而本仓已有一类缺陷叫「同一规则抄多份 ⇒ 漏抄的那份整页出错」——
  * 故上提为**唯一实现**，与 `useColMenu.js`（列菜单定位）同一处置。
+ * 🔴 新增宿主页时必须同时在后端 `db/queries/ui_prefs.py` 的 `COL_PREF_PAGES` 登记 page 键，
+ *    否则 400 ⇒ 该页列设置永远同步不上去（2026-10 之前 15 个页面就这么静默失效过）。
  *
  * ⚠️ 本 composable **只管网络与合并时机**，不含列数据集本身
  *    （清单 / 顺序 / 可见性怎么算、怎么应用到界面）—— 那部分各页差异大，
@@ -33,6 +36,20 @@ import { api } from '../api/client'
 
 const PUSH_DEBOUNCE = 800   // 拖列会连发多次变更，合并成一次写
 
+/* 🔴 400 单独说人话（v652b）：本端点**有白名单**（后端 `db/queries/ui_prefs.py`）。
+   页面键没登记 ⇒ 400 ⇒ 本页列设置永远同步不上去，而界面上毫无提示。
+   2026-10 之前有 15 个页面就栽在这——只 `console.warn('读取失败')`，
+   谁也不会去点开那条 warn 看是 400 还是网络抖动。所以这里把它升成 `error` 并给出下一步动作。 */
+function _prefFailHint (page, e, action) {
+  if (e && e.status === 400) {
+    console.error(
+      `[列设置] 页面键「${page}」未被后端登记（400），本页${action}无法跨设备同步。` +
+      ' 修法：在后端 db/queries/ui_prefs.py 的 COL_PREF_PAGES 里登记这个 page 键。')
+    return
+  }
+  console.warn(`[列设置] ${action}失败（本次沿用本地）`, e && e.message)
+}
+
 export function useColPrefs (page, { apply, snapshot } = {}) {
   let timer = null
   let pending = null
@@ -48,7 +65,7 @@ export function useColPrefs (page, { apply, snapshot } = {}) {
       }
       return { ok: true, cfg: (d.pref && typeof d.pref === 'object') ? d.pref : null }
     } catch (e) {
-      console.warn('[列设置] 读取云端配置失败（本次沿用本地）', e && e.message)
+      _prefFailHint(page, e, '读取云端配置')
       return { ok: false, cfg: null }
     }
   }
@@ -61,7 +78,7 @@ export function useColPrefs (page, { apply, snapshot } = {}) {
     timer = null
     if (!cfg) return
     api('/api/ui/col-prefs', { method: 'POST', body: { page, cfg } }).catch(e => {
-      console.warn('[列设置] 云端保存失败（本地已生效，换设备后可能不一致）', e && e.message)
+      _prefFailHint(page, e, '保存云端配置')
     })
   }
 

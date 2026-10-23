@@ -3,8 +3,11 @@
  *
  * ## 为什么要跟着租户走（云端），而不是只存 localStorage
  * 只存本地 ⇒ 换台电脑 / 换个浏览器就要重调一次；老板常在电脑与手机之间切。
- * 复用 `/api/ui/col-prefs`（page = `ui-density`）：该表按 page 存任意 cfg、无白名单，
- * 不必为密度单独加后端接口。
+ * 复用 `/api/ui/col-prefs`（page = `ui-density`）存一个 `{density}` 单值，不必为密度单独加接口。
+ * 🔴 **后端有白名单**（`db/queries/ui_prefs.py` 的 `COL_PREF_PAGES` + `GENERIC_KV_PAGES`），
+ *    page 必须已登记，否则 400。这里曾写着"该表按 page 存任意 cfg、无白名单"，与现实不符 ——
+ *    后果是 2026-10 之前每次进站都 400、密度云端同步**静默失效**（只 console.warn，界面无感）。
+ *    新增页面键时先在后端登记，别指望"随便传个 page 就能存"。
  *
  * ## 🔴 `ok` 必须与 `cfg` 分开（沿用 useColPrefs 那条血泪纪律）
  *   云端没有（ok=true,  cfg=null）⇒ 把本地那份**推上去**（用户此前调好的不能白调）

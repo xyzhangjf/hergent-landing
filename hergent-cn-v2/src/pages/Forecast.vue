@@ -1124,128 +1124,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(r, ri) in cross.rows" :key="ri" :class="{ 'cur-row-hd': isCurRowHd(ri), 'row-sel': inRowSpan(ri), 'cond-warn': condWarnOn && rowWarnArr[ri] === 'low', 'new-row': r._new }" :aria-selected="inRowSpan(ri) ? 'true' : null" :aria-current="isCurRowHd(ri) ? 'true' : null" v-show="rowBaseShown(ri)">
-                <td class="td seq-cell" :class="{ 'row-bad': errRowSet.has(ri) }" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)">
-                  <div class="seq-in">
-                    <!-- v615：`@mousedown.stop` 是硬要求 —— 序号格本身的 mousedown 会启动**整行选择轴**
-                         （onRowDown），不挡住的话勾一个复选框会连带把整行铺蓝、并搬走焦点。 -->
-                    <input v-if="editMode" type="checkbox" class="row-pick" :checked="!!r._sel"
-                           :title="r._sel ? '已选中：' + (r.name || '（无名称）') : '选中这一行（配合工具栏「批量操作」）'"
-                           @mousedown.stop @click.stop="toggleRowSel(ri, r)">
-                    <span class="seq-num">{{ ri + 1 }}</span>
-                  </div>
-                </td>
-                <td v-for="(c,  ci) in visibleCols" :key="c.key" :class="['td', c.cls, { frozen: c.fixed || c.key === frozenExtra, selected: selected.r === ri && selected.c === ci, 'sel-col': inColSpan(ci), 'range-sel': inRange(ri, ci), invalid: cellIssueAt(ri, ci) !== '', flash: isFlash(ri, ci) }]" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" :data-r="ri" :data-c="ci" :title="cellIssueAt(ri, ci) || null" @mousedown="onCellDown(ri, ci, $event)" @mouseover="onCellOver(ri, ci)">
-                  <template v-if="c.key === 'name'">
-                    <!-- v215：商品名候选**自建面板**（替掉原生 datalist）。
-                         🔴 为什么必须自建：datalist 的过滤由浏览器定（Safari 只认前缀）、
-                            只按 value 匹配 ⇒ 条码后四位 / 拼音首字母**无从表达**。
-                         ⚠️ `@input` 里开面板（datalist 时代没有这一格的输入事件）；
-                            `@keydown` 上下选 / 回车选中 / Esc 关闭；`@blur` 关闭。 -->
-                    <input v-model="r.name" class="cell-input cell-name" :placeholder="namePh" :style="namePadStyle(r)" :title="r.name || ''" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @input="onNameInput(r, ri, ci, $event)" @keydown="nameSugKey" @blur="nameSugClose" @change="onCellChange">
-                    <!-- v211（P1-1）：商品名称**补全候选** —— 数据源是 /api/products/grid 下发的**全量商品主档**
-                         （约 428 条），不是本期那 158 行。
-                         🔴 为什么这一格最值得补：保存时 `prodPayloadOf` 会把 name 一起回写**商品档案**
-                            （走 productsApi.bulkUpsert）⇒ 名字打歪一次就等于**给档案里添一条错商品**，
-                            比「打错字」严重得多（下游的对账/返利/统计都会带上它）。
-                         原实现这一格**既无候选、也没有 @change** —— 后者是个静默缺陷：
-                            商品名改动不进撤销栈（`_pendingCell` 只在 onCellChange 里消费），
-                            改了之后 Ctrl+Z / 「回退」都还原不了，也不点亮状态条。
-                         ⚠️ 照 1026 行同款「**仅首行渲染一份**」：每行都渲染会得到重复 id + 428×行数 个
-                            option 节点（实测同类做法会让点击展开时标签页卡死）。
-                         ⚠️ 非编辑态不渲染（查看态没有输入框，白挂 428 个节点）。
-                         ⚠️ option 的 `label` 在 Chrome 里是**下拉里显示的辅助文字**、`value` 才是填入值
-                            ⇒ label 放「名称 · 规格」，用户在下拉里看到规格便于区分同名的不同规格。 -->
-                    <!-- datalist 已由下面的**自建面板**取代（v215）。刻意**不保留空壳 datalist** ——
-                         留着会被别处的 `list=` 意外命中（v212 数量格那条注释里的同款教训）。 -->
-                    <div class="name-badges">
-                      <span v-if="rowWarnArr[ri] === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
-                      <span v-else-if="rowWarnArr[ri] === 'short'" class="warn-badge short" title="短保（保质期≤7天）"><Icon name="alert-triangle"/></span>
-                      <span v-if="lossWarn(r)" class="loss-badge" :class="lossWarn(r)" :title="lossTip(r)"><Icon name="flame"/></span>
-                      <span v-if="rtBadge(r)" class="rt-badge" :class="rtBadge(r)" :title="rtBadgeTip(r)"><Icon name="bell"/></span>
-                      <span v-if="rowNote(r) && canDo('data', 'update')" class="note-badge" :title="rowNote(r)" @click="setRowNote(ri)"><Icon name="message"/></span>
-                      <span v-else-if="rowNote(r)" class="note-badge" style="cursor:default" :title="rowNote(r)"><Icon name="message"/></span>
-                      <span v-if="hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60" class="hs-badge" :title="'健康分 '+hsMap[r.product_id]+'（偏低，需补全资料）'"><Icon name="lightbulb"/></span>
-                      <!-- v613：已点「加入本期清单」但还没保存成功的行必须看得见 ——
-                           否则保存被校验/冲突拦下后，用户只记得「我点过按钮」，回来却找不到哪些行标记过，
-                           再点一次按钮数还对不上（候选已排除它们）。 -->
-                      <span v-if="r._listAdd" class="listadd-badge" title="保存后加入本期清单（小程序里可搜到）">待上架</span>
-                      <!-- v614：撤下同理，标记必须看得见 —— 保存被拦下后用户回来看不出哪些行已被标记。 -->
-                      <span v-if="r._listDel" class="listdel-badge" title="保存后从本期清单撤下（门店在小程序搜不到）">待撤下</span>
-                    </div>
-                  </template>
-                  <template v-else-if="c.edit === 'text' && c.options && c.options.length">
-                    <input v-model="r[c.key]" class="cell-input cell-wide" :placeholder="c.label" :data-r="ri" :data-c="ci" :list="'opt-' + c.key" @focus="onFocusCell(ri, ci, $event)" @change="onCellChange">
-                    <!-- 共享 datalist：仅首行渲染一份，避免每行重复 id + 海量 option 节点导致点击展开时标签页崩溃 -->
-                    <datalist v-if="ri === 0" :id="'opt-' + c.key">
-                      <option v-for="o in c.options" :key="o" :value="o"></option>
-                    </datalist>
-                  </template>
-                  <template v-else-if="c.edit === 'text'">
-                    <input v-model="r[c.key]" class="cell-input cell-wide" :placeholder="c.label" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @change="onCellChange">
-                  </template>
-                  <template v-else-if="c.edit === 'num'">
-                    <input :value="r[c.key] ?? ''" class="cell-input cell-num" type="text" :inputmode="c.num === 'int' ? 'numeric' : 'decimal'" placeholder="·" :data-r="ri" :data-c="ci" @focus="onFocusCell(ri, ci, $event)" @input="numInput($event, r, c.key)" @change="numCommit($event, r, c.key)">
-                  </template>
-                  <!-- v184：只读列（edit:'ro'）—— 有**展示**、没有写入口。
-                       ⚠️ 这里刻意不放 input：本列（到货周期）唯一写入口是「预报导入」，
-                          后端 bulk_upsert 的字段白名单里没有 arrival_lead_days ⇒
-                          摆个输入框就是**假旋钮**（用户改了、保存后静默回旧值、且不报错）。
-                       文案与查看态共用同一个 fmt（masterVal 也走 fmt）⇒ 两态显示必然一致。 -->
-                  <template v-else-if="c.edit === 'ro'">
-                    <span class="cell-ro">{{ c.fmt ? c.fmt(r) : (r[c.key] != null && r[c.key] !== '' ? r[c.key] : '—') }}</span>
-                  </template>
-                  <!-- v598（D1）：「本次改过」角标（右上角小三角）。单列判定见 cellDirty 注释；
-                       只对可编辑列显示 —— 只读列（到货周期）永远不会有改动，基线里也没有它。 -->
-                  <span v-if="c.edit !== 'ro' && cellDirty(r, 'm:' + c.key)" class="cell-dirty-dot" aria-label="本次改过" title="这一格本次改过（尚未保存）"></span>
-                  <!-- v211（P1-3）：错误角标 —— **触屏唯一能读到「为什么错」的入口**（td 的 title 要悬停，
-                       平板/手机没有悬停）。桌面侧它也顺带把「哪一格错了」标得比纯红框显眼。 -->
-                  <span v-if="cellIssueAt(ri, ci)" class="cell-err-dot" :title="cellIssueAt(ri, ci)" @mousedown.stop.prevent @click.stop="showCellErr(ri, ci)" aria-label="查看此格的错误原因"><Icon name="alert-triangle"/></span>
-                  <span v-if="selAxis === 'cell' && selected.r === ri && selected.c === ci" class="fill-handle" @mousedown.prevent.stop="startFill(ri, ci, $event)" @dblclick.stop.prevent="autoFillDown(ri, ci)" title="拖拽填充（双击 = 向下填到已报数量的末行）"></span>
-                </td>
-                <td v-for="(u, ui) in cross.units" :key="u.name" class="qty-cell" :class="{ selected: selected.r === ri && selected.c === visibleCols.length + ui, 'sel-col': inColSpan(visibleCols.length + ui), 'range-sel': inRange(ri, visibleCols.length + ui), invalid: cellIssueAt(ri, visibleCols.length + ui) !== '', 'warn-low': rowWarnArr[ri] === 'low', 'warn-short': rowWarnArr[ri] === 'short', 'diff-chg': snapCompare && cellDiff(ri, ui) !== 0, flash: isFlash(ri, visibleCols.length + ui) }" :style="heatOf(r, u.name).style" :data-r="ri" :data-c="visibleCols.length + ui" :title="cellIssueAt(ri, visibleCols.length + ui) || heatOf(r, u.name).title || null" @mousedown="onCellDown(ri, visibleCols.length + ui, $event)" @mouseover="onCellOver(ri, visibleCols.length + ui)">
-                  <!-- v211（P1-2）：补 `inputmode` —— 触屏设备（平板 / 手机开网页）点这一格直接弹**数字键盘**。
-                       ⚠️ 不能只靠 `type="number"`：iOS 会弹数字键盘，但部分安卓浏览器不给 ⇒ 加 inputmode 是双保险。
-                       ⚠️ 只有**数量**用 numeric（整数）；单价有 `step="0.01"`（两位小数）必须用 decimal，
-                          否则安卓上小数点键会消失，用户永远填不了小数价。 -->
-                  <input :value="r.qtyByUnit[u.name] ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="visibleCols.length + ui" :list="qtyListFor(ri, ui)" @focus="onFocusCell(ri, visibleCols.length + ui, $event)" @input="numInput($event, r.qtyByUnit, u.name)" @change="numCommit($event, r.qtyByUnit, u.name)">
-                  <!-- v598（D1）：数量格的「本次改过」角标 —— 同 master 列，cid 用 `q:` 前缀带客户名。 -->
-                  <span v-if="cellDirty(r, 'q:' + u.name)" class="cell-dirty-dot" aria-label="本次改过" title="这一格本次改过（尚未保存）"></span>
-                  <!-- v211（P1-3）：同主档列的角标。这里用 `cellErrMsg` 而非 `cellIssue`：
-                       数量格不涉及条码，与 td 自己的 title 保持**同一个判据**（否则角标和悬停会各说一套）。 -->
-                  <span v-if="cellIssueAt(ri, visibleCols.length + ui)" class="cell-err-dot" :title="cellIssueAt(ri, visibleCols.length + ui)" @mousedown.stop.prevent @click.stop="showCellErr(ri, visibleCols.length + ui)" aria-label="查看此格的错误原因"><Icon name="alert-triangle"/></span>
-                  <!-- v212（P2-2）：**软警告角标**（黄=疑）—— 只有数量格有。
-                       三类角标各占一角，互不遮挡：红（一定错）在**左上**、黄（可能错）在**右上**、
-                       填充柄在**右下**（左下留给「行号格标红」那条视觉通道，不占）。
-                       ⚠️ `z-index` 必须 < 6（`.seq-cell` / `.frozen` 都是 6）—— 否则横向滚动时
-                          角标会浮在冻结列**上方**，像贴错了格子。 -->
-                  <span v-if="cellSoftIssue(ri, ui)" class="cell-soft-dot" :class="'soft-' + cellSoftIssue(ri, ui)" :title="cellSoftMsg(ri, ui)" @mousedown.stop.prevent @click.stop="showCellSoft(ri, ui)" aria-label="查看此格的疑点"><Icon name="alert-triangle"/></span>
-                  <span v-if="selAxis === 'cell' && selected.r === ri && selected.c === visibleCols.length + ui" class="fill-handle" @mousedown.prevent.stop="startFill(ri, visibleCols.length + ui, $event)" @dblclick.stop.prevent="autoFillDown(ri, visibleCols.length + ui)" title="拖拽填充（双击 = 向下填到已报数量的末行）"></span>
-                </td>
-                <td class="num calc sum" :class="[warnClass(ri), moqWarn(r) === 'below' ? 'moq-below' : '']" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)">{{ fmt(rowSumArr[ri]) }}</td>
-                <td class="num calc boxes" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)"><span :class="{ 'miss-price': boxMissing(r) }">{{ boxText(r) }}</span></td>
-                <td v-if="showSuggest" class="num calc suggest" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)" title="配方建议：按「建议算法」面板策略算出">{{ fmt(r.suggest || 0) }}<button class="mini-btn" @click="adoptSuggestion(ri)" :disabled="!(r.suggest > 0)">采纳</button></td>
-                <td class="num calc extra pt-xmtd" :class="ptExtraCellCls(r)" :data-r="ri"><input :value="r.extraQty ?? ''" class="cell-input cell-qty" :class="{ 'cell-minus': isMinus(r.extraQty), 'xm-alert': ptExtraAlert(r) }" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="C_EXTRA_INPUT" @focus="onFocusCell(ri, C_EXTRA_INPUT, $event)" @input="numInput($event, r, 'extraQty')" @change="numCommit($event, r, 'extraQty')" :title="ptExtraInputTitle(r)"><!-- v318：一键分摊入口。**只在编辑态**出现（比例写档案、加单量回填本行，都属"改单"范畴），
-                     readonly 态不放开 —— 免得在"只是看一眼"的状态下误写全期目标档案。
-                     v336：判据从「有目标且有承接人」放宽为「**有人可分**」
-                     （后端 `alloc_members` 唯一判定：目标承接人 或 本期报单人）。
-                     且**只有 ≥2 人时才出按钮** —— 只有一个人可承接时分摊是恒等映射，
-                     弹窗纯属打扰（用户 2026-09-30 拍板方案 B）。
-                     ⚠️ readonly 态不出按钮，但**悬停说明两种状态都给**（见 ptExtraInputTitle）。 -->
-                <button v-if="hasAllocTarget(r)" type="button" class="pt-alloc-btn" :title="ptAllocBtnTitle(r)" @click.stop.prevent="openAlloc(allocRowRef(r))">分摊</button><b v-if="ptExtraMark(r)" class="pt-xm-b pt-xm-abs" :class="'has-' + ptExtraMark(r).kind">{{ ptExtraMark(r).text }}</b><span v-if="ptExtraMark(r)" class="tip pt-tip pt-tip-abs"><i v-for="(L, li) in ptExtraTip(r)" :key="li">{{ L }}</i></span></td>
-                <td class="num calc final" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)"><b>{{ fmt(rowFinalQty(r)) }}</b></td>
-                <td class="num calc price" :class="{ 'miss-price': pricePerCase(r) == null }" :data-r="ri"><input :value="r.casePrice ?? ''" class="cell-input cell-price" :class="{ 'manual-price': Number(r.casePrice) > 0 }" type="text" inputmode="decimal" :placeholder="pricePh(r)" :title="priceTitle(r)" :data-r="ri" :data-c="C_PRICE_INPUT" @focus="onFocusCell(ri, C_PRICE_INPUT, $event)" @input="numInput($event, r, 'casePrice')" @change="onCasePriceChange(r, $event)"></td>
-                <td class="num calc amount" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)"><span :class="{ 'miss-price': pricePerCase(r) == null }">{{ amountValue(r) != null ? fmt(amountValue(r)) : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }}</span></td>
-                <td v-if="compareOn" class="num calc" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)">{{ prevQty(r) != null ? fmt(prevQty(r)) : '—' }}</td>
-                <td v-if="compareOn" class="num calc delta" :class="deltaClass(r)" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)">{{ deltaQty(r) == null ? '—' : (deltaQty(r) > 0 ? '+' : '') + fmt(deltaQty(r)) }}</td>
-                <td v-if="showSpark" class="spark-td" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)">
-                  <svg v-if="(r.history || []).length >= 2" width="84" height="18"><polyline :points="sparkPoints(r)" fill="none" :stroke="sparkColor(r)" stroke-width="1.5"/></svg>
-                  <span v-else class="muted">—</span>
-                </td>
-                <td v-if="yoyOn" class="num calc" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)">{{ yoyQty(r) != null ? fmt(yoyQty(r)) : '—' }}</td>
-                <td v-if="yoyOn" class="num calc delta" :class="yoyPct(r) > 0 ? 'up' : (yoyPct(r) < 0 ? 'down' : '')" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)">{{ yoyPct(r) == null ? '—' : (yoyPct(r) > 0 ? '+' : '') + yoyPct(r) + '%' }}</td>
-                <td class="op-th" :data-r="ri" @mousedown="onRowDown(ri, $event)" @mouseover="onCellOver(ri, SEQ_CI)"><button class="btn-del" @click="delRow(ri)" title="删除该商品行"><Icon name="close"/></button></td>
-              </tr>
+              <!-- v654：一行 = 一个组件实例 ⇒ 改一格只重渲染这一行（见 script 末尾 rowCtx 注释）。隔离子组件的代价是：本行的样式必须能在子组件内命中，见 ForecastRow.vue 的 <style>。 -->
+              <ForecastRow v-for="(r, ri) in cross.rows" :key="ri" :row="r" :ri="ri" :units="cross.units" />
             </tbody>
             </table>
             <!-- v212（P2-1）：数量格候选的**唯一** datalist（全表共用一个）。
@@ -2074,7 +1954,7 @@
             <button :class="{ 'ctx-on': softWarnCfg.overOn }" @click="toggleSoftWarn('over')"><Icon v-if="softWarnCfg.overOn" name="check"/> 疑超放量角标（≥ 上期几倍）</button>
             <div v-if="softWarnCfg.overOn" class="ctx-ipt-row">
               <span class="ctx-ipt-unit">超放量倍数</span>
-              <input :value="softWarnCfg.overRatio" class="ctx-ipt" type="text" inputmode="numeric" style="width:76px" @input="numInput($event, softWarnCfg, 'overRatio'); saveSoftWarnCfg()">
+              <input :value="softWarnCfg.overRatio" class="ctx-ipt" type="text" inputmode="numeric" style="width:76px" @input="numInput($event, softWarnCfg, 'overRatio', true); saveSoftWarnCfg()">
               <span class="ctx-ipt-unit">倍</span>
             </div>
             <div class="ctx-sep"></div>
@@ -2311,7 +2191,7 @@
               <td>{{ d.name }}</td>
               <td>{{ d.spec || '—' }}</td>
               <td>{{ d.unit || '—' }}</td>
-              <td class="num"><input :value="d.requested_qty" class="qty-input" type="text" inputmode="numeric" @input="numInput($event, d, 'requested_qty')" @change="d.requested_qty = parseNumInput($event.target.value)"></td>
+              <td class="num"><input :value="d.requested_qty" class="qty-input" type="text" inputmode="numeric" @input="numInput($event, d, 'requested_qty')" @change="numCommit($event, d, 'requested_qty')"></td>
               <td class="num">{{ d.current_stock ?? '—' }}</td>
               <td class="num">{{ d.avg_daily_sales ?? '—' }}</td>
               <td class="num">
@@ -2649,7 +2529,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch, defineAsyncComponent, toRaw } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch, defineAsyncComponent, toRaw, provide } from 'vue'
 // 🔴 v265：`useRouter` 与 `useRoute` **必须同时导入** —— `setTab()`（写 `?tab=`）用 `useRouter()`，
 //    底部 `watch(() => route.query.tab)` 用 `useRoute()`。曾因两者被分开编辑（import 行只留
 //    useRoute、`const router = useRouter()` 留着），构建不报错、`node --check` 也不报，
@@ -2661,6 +2541,9 @@ import * as XLSX from 'xlsx'
 import { store, toast, canDo } from '../store'
 import { auth, api } from '../api/client.js'
 import { forecastApi, auditApi, forecastApproveApi, productsApi, forecastRecipeApi, columnSchemeApi, forecastColumnsApi, productTargetsApi } from '../api/modules'
+/* v653：商品主档走「缓存 + 预取」而不是直接 productsApi.grid()。
+   同一进程内二次进改单/切视图时零等待；写档案后自动失效（钩子在 api() 层统一拦截）。 */
+import { fetchProductsGrid, prefetchProductsGrid } from '../api/productsCache'
 import Icon from '../components/Icon.vue'
 /* v617：通用模态（全站唯一实现，见 components/Modal.vue 头部）。用来承载
    「按品牌批量设置到货周期」面板 —— 全局 esc / 焦点陷阱 / 背景锁都在组件里，不重写。 */
@@ -2672,6 +2555,8 @@ import Modal from '../components/Modal.vue'
 import { canSee } from '../constants/pages'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ViewSeg from '../components/forecast/ViewSeg.vue'
+import ForecastRow from '../components/forecast/ForecastRow.vue'
+import { FC_ROW_CTX } from '../components/forecast/rowCtx.js'
 import ForecastHistory from './ForecastHistory.vue'
 import ReportMapping from './ReportMapping.vue'
 // v424：「报单配置」的四条子页 —— 除上面的「报单对象」外，另外三块各自是一个现成组件
@@ -3043,7 +2928,12 @@ function rowFilterPass(r) {
   if (!r) return false
   const f = (filterText.value || findText.value || '').trim().toLowerCase()
   if (f && !rowMatchText(r, f)) return false
-  if (hideZeroReport.value && rowSumOf(r) <= 0) return false
+  /* 🔴 v654：这里必须是逐行纯函数 `rowSum(r)`，**不能**用 `rowSumOf(r)`。
+     `rowSumOf` 内部读全表 `rowSumArr.value` 来注册依赖 ⇒ 每一行的 `v-show`（rowBaseShown）
+     都挂在全表合计上，任一格变更就把 294 行全部重渲染，拆行组件等于白拆。
+     两者取值口径完全相同（rowSumOf 只是 rowSumArr 建的 WeakMap 缓存，未命中时回落到 rowSum），
+     差别只在「依赖范围」。 */
+  if (hideZeroReport.value && rowSum(r) <= 0) return false
   if (!passColFilter(r)) return false
   // v607：品牌筛选走 brandSelSet（Set 命中 O(1)，本函数每帧按行调用）
   if (brandSel.value.length && !brandSelSet.value.has(rowBrand(r))) return false
@@ -3581,6 +3471,10 @@ function masterVal(r, col) { if (col.fmt) return col.fmt(r); const v = r[col.key
    （按 产品×期次 唯一）⇒ **只在本期生效**，且换浏览器 / 换个人打开本期表看到的都是同一个价。
    录入过程中**不**在行上存任何派生态副本（草稿恢复、复制行都会让副本漂移）。 */
 function onCasePriceChange(r, e) {
+  /* 🔴 v652：这个处理器不走 `numCommit`（它自己有一套「清空=回退档案价」的分支），
+     所以必须**自己**先把防抖里挂着的原串落掉 —— 否则 150ms 后那个定时器会把
+     未收敛的原始输入（`"12."`、甚至已被这里清成 null 的那个值）重新写回去。 */
+  _numFlush(r, 'casePrice')
   /* v214 A：先把编辑期间的中间态收敛成确定值（`"12."` → 12），与数量格同理 ——
      不收敛会被后端 `_NUM_RE` 判「非数字」拒收，而用户填的明明是 12。
      ⚠️ 顺带堵一个静默清除：原实现直接 `Number(r.casePrice)`，若这一格是**全角**的
@@ -3655,19 +3549,67 @@ const flatItems = computed(() => {
   return out
 })
 const vScrollOn = computed(() => flatItems.value.length > VSCROLL_MIN)
-function offsetOf(i) { let h = 0; const arr = flatItems.value; for (let k = 0; k < i; k++) h += arr[k].h || ROW_H; return h }
+/* 🔴 v652：累计行高提成独立 computed（只在行 / 展开态变化时算一次）。
+   原来每次滚动算窗口要做 **5 遍全表遍历**：`reduce` 求 total、两个 `while` 推进 start/end、
+   再 `offsetOf(start)` + `offsetOf(end)` 各一遍。294 行看不出，428 行 + 展开明细就明显了。 */
+const vsOffsets = computed(() => {
+  const arr = flatItems.value
+  const off = new Float64Array(arr.length + 1)
+  for (let i = 0; i < arr.length; i++) off[i + 1] = off[i] + (arr[i].h || ROW_H)
+  return off
+})
+function offsetOf(i) {
+  if (i <= 0) return 0
+  const off = vsOffsets.value
+  return off[i < off.length ? i : off.length - 1]
+}
 const vsWindow = computed(() => {
   const arr = flatItems.value
-  const total = arr.reduce((s, it) => s + (it.h || ROW_H), 0)
+  const off = vsOffsets.value
   if (!vScrollOn.value) return { items: arr, top: 0, bottom: 0 }
-  let start = 0, acc = 0
-  while (start < arr.length && acc + (arr[start].h || ROW_H) < scrollTop.value - OVER * ROW_H) { acc += arr[start].h || ROW_H; start++ }
-  let end = start, acc2 = acc
-  while (end < arr.length && acc2 < scrollTop.value + viewportH.value + OVER * ROW_H) { acc2 += arr[end].h || ROW_H; end++ }
-  return { items: arr.slice(start, end), top: offsetOf(start), bottom: Math.max(0, total - offsetOf(end)) }
+  const n = arr.length
+  const lo = scrollTop.value - OVER * ROW_H
+  const hi = scrollTop.value + viewportH.value + OVER * ROW_H
+  /* 二分边界，语义与原来的线性推进逐字对齐：
+     start = 第一个「下沿 ≥ lo」的行（原式继续条件 `off[start+1] < lo`）；
+     end   = 第一个「上沿 ≥ hi」的行（原式继续条件 `off[end] < hi`）。 */
+  let a = 0, b = n
+  while (a < b) { const mid = (a + b) >> 1; if (off[mid + 1] < lo) a = mid + 1; else b = mid }
+  const start = a
+  a = start; b = n
+  while (a < b) { const mid = (a + b) >> 1; if (off[mid] < hi) a = mid + 1; else b = mid }
+  const end = a
+  return { items: arr.slice(start, end), top: off[start], bottom: Math.max(0, off[n] - off[end]) }
 })
-function onScroll(e) { scrollTop.value = e.target.scrollTop; if (scrollEl.value) viewportH.value = scrollEl.value.clientHeight; const sl = e.target.scrollLeft; if (crossFoot.value) crossFoot.value.style.setProperty('--foot-sl', -sl + 'px') }
-function onEditScroll(e) { const sl = e.target.scrollLeft; if (editFoot.value) editFoot.value.style.setProperty('--foot-sl', -sl + 'px'); if (copyMark.value) syncCopyMark() }
+/* 🔴 v652：滚动**每帧只处理一次**。
+   原来每个 scroll 事件都要：① 写 `scrollTop.value`（触发 vsWindow 重算 + 重渲染一屏行）
+   ② 读 `scrollEl.clientHeight`（**强制同步布局**，在滚动中等于每个事件打断一次合成）
+   ③ 写 footer 的 `--foot-sl`。
+   笔记本触控板一次滑动能发几十个事件 ⇒ ② 是最贵的（布局抖动），① 紧随其后。
+   现在：`--foot-sl` 仍同步写（纯样式、不读布局，跟随才能跟手），
+   其余合并到一帧一次。`viewportH` 已由 ResizeObserver（`_bindVpObserver`）在尺寸真变时更新，
+   滚动里再读一遍纯属重复。 */
+let _scrollRaf = 0
+let _pendScrollTop = 0
+function onScroll(e) {
+  const el = e.target
+  _pendScrollTop = el.scrollTop
+  if (crossFoot.value) crossFoot.value.style.setProperty('--foot-sl', -el.scrollLeft + 'px')
+  if (_scrollRaf) return
+  _scrollRaf = requestAnimationFrame(() => {
+    _scrollRaf = 0
+    if (scrollTop.value !== _pendScrollTop) scrollTop.value = _pendScrollTop
+  })
+}
+let _editScrollRaf = 0
+function onEditScroll(e) {
+  const sl = e.target.scrollLeft
+  if (editFoot.value) editFoot.value.style.setProperty('--foot-sl', -sl + 'px')
+  /* `syncCopyMark` 要读表格几何（`fillRectOf`）⇒ 属于布局读取，滚动里必须合并到帧。 */
+  if (copyMark.value && !_editScrollRaf) {
+    _editScrollRaf = requestAnimationFrame(() => { _editScrollRaf = 0; if (copyMark.value) syncCopyMark() })
+  }
+}
 function scrollToIndex(ri) {
   if (!vScrollOn.value || !scrollEl.value) return
   const off = offsetOf(ri)
@@ -4127,7 +4069,7 @@ async function loadEditGrid() {
   prevUnitsPeriod.value = ''
   try {
     const [prods, d] = await Promise.all([
-      productsApi.grid(),
+      fetchProductsGrid(),
       forecastApproveApi.summary('', p.order_start || '', p.order_end || '', p.id || 0),
       /* v213：校验规格（上限 + 五类文案）。**并发**取 —— 单加一次串行请求会让「改单」变慢。
          失败由 loadValidationSpec 内部吞掉（沿用默认口径），不会让整个加载失败。 */
@@ -7198,7 +7140,55 @@ function buildXlsx(rows, fname) {
       （会把光标顶到逗号右侧）。按「光标左侧文本转换后的长度」重算。
    ⚠️ IME 组合期（`e.isComposing`）**一律不碰 DOM** —— 改 value 会打断输入法候选框。
       组合结束时浏览器会再补一次 `input`（`isComposing` 已为 false）⇒ 转换不会漏。 */
-function numInput(e, obj, key) {
+/* 🔴 v652（实测驱动）：**输入期不再每键写响应式**。
+   真机 CDP 实测（tenant 1，294 行 × 41 列）：同一输入框
+     · 保留 `@input`（写 `obj[key]`）⇒ 单键 ~121ms、EventDispatch 内 ~130ms 未打点 C++；
+     · cloneNode 丢监听器 / 加空监听器 ⇒ 0.1ms。
+   ⇒ 卡顿的触发点就是「每敲一键写一次响应式」引起的整表重算/重渲染，与表格 DOM 规模无关。
+   改为 **150ms 尾部防抖**：打字过程零响应式开销；停手 150ms 后合计/校验自动更新；
+   失焦 / 回车走 `numCommit` 立即落值，保证最后一次编辑不丢。
+   附带好处：防抖期间若发生其它重渲染把 DOM 值刷掉，pending 的 `rec.val` 仍会写回，不丢输入。 */
+const NUM_DEBOUNCE_MS = 150
+const _numDebounce = new WeakMap()   // obj -> Map(key -> { timer, val, el })
+/* 反向索引：输入框元素 -> 待落值。失焦时只有元素可用（拿不到 obj/key），
+   所以必须按元素能查回来 —— 否则「打完最后一个字符 100ms 内点别的按钮」会丢这次输入。 */
+const _numPendingEl = new Map()      // el -> rec（rec 自带 obj/key，失焦时就地能落值）
+
+function _numFlush(obj, key) {
+  const m = _numDebounce.get(obj)
+  if (!m) return
+  const rec = m.get(key)
+  if (!rec) return
+  if (rec.timer) { clearTimeout(rec.timer); rec.timer = null }
+  m.delete(key)
+  if (rec.el && _numPendingEl.get(rec.el) === rec) _numPendingEl.delete(rec.el)
+  obj[key] = rec.val
+}
+/* 失焦兜底：把这一格挂着没落的值立刻落掉（等价于「用户手已经离开这一格」）。 */
+function _numFlushEl(el) {
+  const rec = el && _numPendingEl.get(el)
+  if (!rec) return
+  _numFlush(rec.obj, rec.key)
+}
+/* 整体兜底：离开编辑态 / 卸载页面时把还挂着的待落值全部落掉。 */
+function _numFlushAll() {
+  if (!_numPendingEl.size) return
+  Array.from(_numPendingEl.values()).forEach(rec => _numFlush(rec.obj, rec.key))
+}
+/* 失焦就用**捕获阶段**在 document 上收一次 —— 覆盖全表 7000+ 个数字格 + 各面板里的输入框，
+   不必逐个挂 `@blur`（也不会因为新增输入框忘了挂而丢值）。
+   为什么必须有它：`@change` 在「输入后立刻用鼠标点别的按钮」时**不一定**先于 click 到达
+   目标处理器（尤其滚动容器内有 preventDefault 的场景）；而 pending 值不落库，合计/校验就停在旧值上。 */
+onMounted(() => document.addEventListener('focusout', _onNumFocusOut, true))
+onBeforeUnmount(() => {
+  document.removeEventListener('focusout', _onNumFocusOut, true)
+  _numFlushAll()
+})
+function _onNumFocusOut(e) { _numFlushEl(e.target) }
+
+/* `immediate`：调用方在**同一条处理语句里**紧接着要读这个值（如 `saveSoftWarnCfg()`
+   直接持久化配置）时传 true —— 否则防抖会让它存到旧值，属于静默失效。 */
+function numInput(e, obj, key, immediate) {
   const el = e && e.target
   if (!el) return
   if (e.isComposing) return
@@ -7211,9 +7201,25 @@ function numInput(e, obj, key) {
     try { el.setSelectionRange(newPos, newPos) } catch (_) {}
   }
   /* 写入目标：`obj[key]`（对象字段）；`obj` 本身是函数时当 setter 用 —— 供 ref 场景
-     （如批量填值框 `ctxFillVal` 是个 ref，没有可写的字段名）。 */
-  if (typeof obj === 'function') obj(after)
-  else if (obj) obj[key] = after
+     （如批量填值框 `ctxFillVal` 是个 ref，没有可写的字段名）。
+     ⚠️ 函数 setter（批量填值等非逐键场景）保持立即写入，不做防抖。 */
+  if (typeof obj === 'function') { obj(after); return }
+  if (!obj) return
+  if (immediate) { obj[key] = after; return }
+  let m = _numDebounce.get(obj)
+  if (!m) { m = new Map(); _numDebounce.set(obj, m) }
+  let rec = m.get(key)
+  if (!rec) { rec = { timer: null, val: after, el, obj, key }; m.set(key, rec) }
+  rec.el = el
+  rec.val = after
+  _numPendingEl.set(el, rec)
+  if (rec.timer) clearTimeout(rec.timer)
+  rec.timer = setTimeout(() => {
+    rec.timer = null
+    if (m.get(key) === rec) m.delete(key)
+    if (rec.el && _numPendingEl.get(rec.el) === rec) _numPendingEl.delete(rec.el)
+    obj[key] = rec.val
+  }, NUM_DEBOUNCE_MS)
 }
 /* 数字格的 `@change`：把编辑期间的中间态收敛成**确定值**。
    ⚠️ 收敛只能在离开这一格时做，**不能**放进 `@input`：`Number("12.")` = 12，边打边收敛
@@ -7222,6 +7228,8 @@ function numInput(e, obj, key) {
       小数点后必须有数字 ⇒ `"12."` 被判「非数字」拒收。用户填的明明是 12，却看到红框。 */
 function numCommit(e, obj, key) {
   const el = e && e.target
+  /* v652：离开这一格时先把防抖里挂着的值落掉，再按输入框真实值收敛 —— 保证最后一次编辑不丢。 */
+  if (obj && typeof obj !== 'function') _numFlush(obj, key)
   obj[key] = parseNumInput(el ? el.value : obj[key])
   onCellChange()
 }
@@ -8753,7 +8761,9 @@ function cellErrMsg(r, c) {
     if (col.edit !== 'num') {
       raw = rw[col.key]
       // Q16：商品名称「有数量才必填」——该行已填报单数量却没名字，保存后会变成无名商品/孤儿数量
-      if (col.key === 'name' && !String(raw == null ? '' : raw).trim() && rowSumOf(rw) > 0)
+      // v654：这里必须用纯函数 `rowSum()`，**不能用 `rowSumOf()`** —— 后者读全表 `rowSumArr`，
+      //   会把「全表任意一格变化」变成每一行的依赖，行组件隔离随即失效（值相同，代价是渲染）。
+      if (col.key === 'name' && !String(raw == null ? '' : raw).trim() && rowSum(rw) > 0)
         return specText('name')   // v213：文案与后端同一来源
       // options 仅作输入候选提示（datalist 下拉），不强制校验；如需强制枚举约束的列，设 enforceOptions:true
       if (col.options && col.options.length && col.enforceOptions && raw !== '' && raw != null && raw !== undefined && !col.options.includes(String(raw)))
@@ -9024,9 +9034,14 @@ function applySuggestRecipe(name) {
 }
 
 // P3-2 条件格式告警
-function rowWarn(r) {
+/* 本行库存/效期警告档。v654：`sumOpt` 允许调用方传入本行合计 ——
+   `rowSumOf()` 会读全表 `rowSumArr`（见其定义），于是「任何一格变」都会让每个调用方失效。
+   行组件（ForecastRow.vue）必须传自己的 `rowSum(row)`，否则拆行隔离就白拆了。
+   ⚠️ 算法**只有这一份**：父级不传参仍走 rowSumOf（等价于 rowSum），别在子组件里另写一套。 */
+function rowWarn(r, sumOpt) {
   if (!r) return ''
-  if (r.safety_stock > 0 && rowSumOf(r) < r.safety_stock) return 'low'
+  const s = sumOpt === undefined ? rowSumOf(r) : sumOpt
+  if (r.safety_stock > 0 && s < r.safety_stock) return 'low'
   if (r.expiry_days > 0 && r.expiry_days <= 7) return 'short'
   return ''
 }
@@ -9233,27 +9248,38 @@ function softRatio() { const n = Number(softWarnCfg.overRatio); return n >= 2 ? 
    模板侧退化为 `Map.get` 的 O(1) 查询。
    ⚠️ 快路径刻意放在最前面：**该行本期一条数量都没填 ⇒ 整行跳过**。
       新建期次进编辑态时这就是绝大多数行的情况（全 0），软警告等于零成本。 */
+/* v654：软警告的**行级实现**（唯一算法）。
+   原先只有双层全表扫描一份代码（`softAt`），行组件无法复用 —— 若行组件仍调 `cellSoftIssue`
+   （读 `softAt.value`），则「任何一格变 ⇒ 全表 Map 换新 ⇒ 所有行重渲染」，拆组件白拆。
+   故把判据抽成本纯函数：父级用来组装全表 Map（其他消费方继续用），行组件只算自己那一行。
+   ⚠️ 不要在两个地方各写一套判据 —— 阈值/快路径/优先级（over 先于 miss）都只在这里。 */
+function softOfRow(r, units, cfg, ratio, prevMap) {
+  const m = new Map()   // ui → 'miss' | 'over'
+  if (!r || !units.length) return m
+  const b = prevMap[Number(r.product_id) || 0]
+  if (!b) return m
+  // 本行本期报单合计 —— 同时是 miss 判据的前提，也是本行的快路径开关
+  let rowTotal = 0
+  for (let ui = 0; ui < units.length; ui++) rowTotal += parseInt(r.qtyByUnit[units[ui].name]) || 0
+  if (rowTotal <= 0) return m
+  for (let ui = 0; ui < units.length; ui++) {
+    const pv = b[units[ui].name]
+    if (pv == null || pv <= 0) continue
+    const cur = parseFloat(r.qtyByUnit[units[ui].name]) || 0
+    if (cfg.overOn && cur > 0 && cur >= pv * ratio) m.set(ui, 'over')
+    else if (cfg.missOn && cur === 0) m.set(ui, 'miss')
+  }
+  return m
+}
 const softAt = computed(() => {
   const m = new Map()   // `${ri}-${ui}` → 'miss' | 'over'
   if (!softWarnCfg.missOn && !softWarnCfg.overOn) return m
   const rows = cross.value.rows, units = cross.value.units
   if (!rows.length || !units.length) return m
-  const ratio = softRatio()
+  const ratio = softRatio(), prev = prevUnitMap.value
   for (let ri = 0; ri < rows.length; ri++) {
-    const r = rows[ri]
-    const b = prevUnitMap.value[Number(r.product_id) || 0]
-    if (!b) continue
-    // 本行本期报单合计 —— 同时是 miss 判据的前提，也是本行的快路径开关
-    let rowTotal = 0
-    for (let ui = 0; ui < units.length; ui++) rowTotal += parseInt(r.qtyByUnit[units[ui].name]) || 0
-    if (rowTotal <= 0) continue
-    for (let ui = 0; ui < units.length; ui++) {
-      const pv = b[units[ui].name]
-      if (pv == null || pv <= 0) continue
-      const cur = parseFloat(r.qtyByUnit[units[ui].name]) || 0
-      if (softWarnCfg.overOn && cur > 0 && cur >= pv * ratio) m.set(ri + '-' + ui, 'over')
-      else if (softWarnCfg.missOn && cur === 0) m.set(ri + '-' + ui, 'miss')
-    }
+    softOfRow(rows[ri], units, softWarnCfg, ratio, prev)
+      .forEach((kind, ui) => m.set(ri + '-' + ui, kind))
   }
   return m
 })
@@ -9525,7 +9551,11 @@ const { notesMap, loadNotes, saveNotes, rowNote, setRowNote, loadCloudNotes, sav
 // 商品名输入框右 padding：仅当该行有右侧告警徽标时按数量预留空间，无徽标行文字可用满整框
 function namePadStyle(r) {
   let n = 0
-  if (rowWarn(r)) n++
+  /* 🔴 v654：`rowWarn(r)` 不带第二参会走 `rowSumOf` → 读全表 `rowSumArr`，
+     于是每一行的 render effect 都订阅了全表合计 ⇒ 改一格 ⇒ 294 行全部重渲染
+     （实测 rowSumArr 的 294 个订阅者全是行组件 render effect，元凶就是这一行）。
+     传本行合计进去，`rowWarn` 就走纯函数分支，依赖收窄到本行。 */
+  if (rowWarn(r, rowSum(r))) n++
   if (lossWarn(r)) n++
   if (rtBadge(r)) n++
   if (rowNote(r)) n++
@@ -10546,7 +10576,13 @@ function openAlloc(row) {
           + '或在「商品目标」里建目标并填承接人', 'warn')
     return
   }
-  const periodId = _allocPid()
+  /* 🔴 v629 修真缺陷：这里原本写 `_allocPid()` —— 那玩意儿**定义在子组件
+     AllocPanel.vue 里**（`const _allocPid = () => ...`），父级根本拿不到
+     ⇒ 点「分摊」抛 `ReferenceError: _allocPid is not defined`，被 ErrorBoundary
+     吞掉 ⇒ 弹窗打不开、零 toast（与上一版 `allocRowRef` 同一类：子组件的
+     私有函数在父级被引用）。构建不报错、只有真机点击才现形。
+     ⇒ 期次 id 在本文件内**就地取**（`cross` 就是本文件的 ref，与子组件那份同源同式）。 */
+  const periodId = Number((cross.value && cross.value.period && cross.value.period.id) || 0)
   if (!pid || !periodId) { toast('当前没有可分摊的期次（合成「今日报单」没有期次）', 'warn'); return }
   allocRow.value = row
   allocOpen.value = true   // ⇒ 挂载 AllocPanel（懒加载），由其内部 onMounted 拉数据
@@ -11218,7 +11254,7 @@ async function loadCross() {
     scrollTop.value = 0
     const [d, prods] = await Promise.all([
       forecastApproveApi.summary('', p.order_start || '', p.order_end || '', p.id || 0),
-      productsApi.grid(),
+      fetchProductsGrid(),
     ])
     confirmInfo.value = (d.confirmed || null)
     const meta = {}
@@ -11995,7 +12031,62 @@ onMounted(async () => {
   if (viewMode.value === 'cross') {
     if (editMode.value) loadEditGrid(); else loadCross()
   }
+  /* v653：空闲预取商品主档。用户在这次页面停留里**几乎一定会点「改单」**，
+     而那一键要等 `/api/products/grid`（实测 0.31 秒）。预取把它藏进浏览时间里。
+     ⚠️ 必须放在首屏那两个请求**发起之后**（本行以下）、且走 requestIdleCallback ——
+        否则会和首屏抢连接，把「进页面」变慢、去换一个用户还没触发的操作。 */
+  prefetchProductsGrid()
 })
+
+/* ===================================================================
+   v654：编辑网格的「一行」拆成子组件 —— 行级渲染隔离
+   -------------------------------------------------------------------
+   问题（实测 2026-10-23，tenant 1 / 期次 36 / 294 行 × 53 列）：
+     这 294 行原先是**同一个组件**里的一段 v-for ⇒ 改任意一格都会让整个组件的
+     render effect 失效 ⇒ 294 行 × 53 列全部重建 vnode 并 patch。
+     CPU profile 显示停手后那次 flush 为 143~186ms，其中 `(program)` 105ms（DOM 内建）
+     + 两个模板渲染匿名函数 21ms 都在 patch 上；而 JS 侧的校验/合计合计不到 20ms。
+     ⇒ 瓶颈是**渲染粒度**，不是计算量（这一点与最初的猜测相反，故按实测改）。
+
+   做法：`<ForecastRow v-for>`，每行一个组件实例。改一格 ⇒ 只有该行的 render effect 失效。
+     🔴 收益前提是下面这个 ctx **不含任何「另一行变化它就会变」的东西**：
+        · 全表错误集合 `cellIssueIndex` / `errRowSet` —— 不进 ctx（行组件内按 issues 重算）
+        · 全表行合计 `rowSumArr` —— 不进 ctx（行组件内 rowSum(row)）
+        · 全表行警告 `rowWarnArr` —— 不进 ctx（rowWarn(row, sum)）
+        · 全表软警告 `softAt` —— 不进 ctx（softOfRow(row, …) 按行调用）
+        新增字段前先自问一句「它会不会因为别的行变化而变化」，会就不要放进来。
+
+   🔴 必须用 `reactive`，**不能**用 `shallowReactive`：
+      `cross` 是 ref、`visibleCols` 是 computed，而 `shallowReactive` **不解包 ref**
+      ⇒ 子组件里 `ctx.cross` 拿到的是 RefImpl 对象，`ctx.cross.units.length` 直接
+      `Cannot read properties of undefined (reading 'length')`，整个编辑表渲染崩掉。
+      `reactive` 会在读取属性时解包 ref（Vue 文档「Ref 解包」），这才是这里要的语义。
+      深层代理的代价只是每个对象被包一次（Vue 内部 WeakMap 缓存），不是每次读取都新建。
+   =================================================================== */
+const rowCtx = reactive({
+  /* —— 状态（低频变化；变则全表重渲染，这是正确语义）—— */
+  cross, visibleCols, selected, selAxis, selRange, editMode, condWarnOn, frozenExtra,
+  hsMap, snapCompare, compareOn, showSuggest, showSpark, yoyOn, namePh, flashCell,
+  softWarnCfg, prevUnitMap,
+  C_EXTRA_INPUT, C_PRICE_INPUT, SEQ_CI,
+  /* —— 行级判据（只读本行 / 只读低频全局）—— */
+  cellIssue, isFlash, inRange, inColSpan, frozenLeftOf, frozenRight,
+  isCurRowHd, inRowSpan, rowBaseShown,
+  moqWarn, heatOf, qtyListFor, cellDirty, cellDiff,
+  cellSoftMsg, softOfRow, softRatio,
+  lossWarn, lossTip, rtBadge, rtBadgeTip, rowNote, setRowNote,
+  ptExtraCellCls, ptExtraAlert, ptExtraInputTitle, hasAllocTarget, ptAllocBtnTitle,
+  ptExtraMark, ptExtraTip,
+  prevQty, deltaClass, deltaQty, sparkPoints, sparkColor, yoyQty, yoyPct,
+  rowWarn,
+  /* —— 交互（全是不依赖其它行的命令式函数）—— */
+  adoptSuggestion, autoFillDown, delRow,
+  isMinus, namePadStyle, nameSugKey, nameSugClose, onNameInput,
+  numInput, numCommit, onCasePriceChange, onCellChange,
+  onCellDown, onCellOver, onFocusCell, onRowDown,
+  openAlloc, showCellErr, showCellSoft, startFill, toggleRowSel,
+})
+provide(FC_ROW_CTX, rowCtx)
 </script>
 
 <style scoped>
@@ -12166,25 +12257,25 @@ onMounted(async () => {
    现在：垂直 padding 归零（只留 1px 顶留白凑出与合计行同高的 22px）、行高取 --fc-cell、
    表头内的齿轮/输入框一并压到 20px 内容盒 ⇒ 表头 = 合计 = 22px。
    ⚠️ 表头里的任何子元素高过 20px 都会重新把整行撑高（见下面 .col-cfg.gear / .cell-input 两条）。 */
-.cross-tbl thead th{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--bd);font-weight:500;color:var(--t2);padding:1px 7px 0;line-height:var(--fc-cell,20px);white-space:nowrap}
+.cross-tbl :deep( thead th){position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--bd);font-weight:500;color:var(--t2);padding:1px 7px 0;line-height:var(--fc-cell,20px);white-space:nowrap}
 /* v579：排序箭头的 svg 是 inline-block + `vertical-align:middle` ⇒ 它按基线对齐会给行盒
    额外顶出 2px（实测 .th-in 从 20 → 22、整行 24）。改成 12px 高的 inline-flex「盒子」后
    svg 不再参与基线计算 ⇒ 行盒回到 20px、整行 **22px = 合计行**，且箭头视觉上更居中。
    ⚠️ 只作用于本页表头，别上提到全局（采购单等页的表头高度另有自己的口径）。 */
 .cross-tbl thead .sort-ind{display:inline-flex;align-items:center;height:12px;vertical-align:middle}
-.cross-tbl .frozen{position:sticky;left:0;background:var(--bg);z-index:6;min-width:200px;box-shadow:1px 0 0 var(--bd)}
+:deep(.cross-tbl .frozen){position:sticky;left:0;background:var(--bg);z-index:6;min-width:200px;box-shadow:1px 0 0 var(--bd)}
 /* v184：到货周期是**固定列**，但比「商品名称」窄得多 —— 覆盖 .frozen 的 200px 宽度下限。
    ⚠️ 位置：排在 `.cross-tbl .frozen` 之后（既然后写者赢，又多了个类 → 特异性更高，双重保险）。
    ⚠️ 本表是 `table-layout:fixed` ⇒ **列宽实际由 colgroup 的 colW() 单独决定**
       （COL_DEFAULTS.arrival_lead_days = 92），这条 min-width 当前不参与计算、属**防御**：
       一旦有人把表改回 auto，它会阻止该列被 `.frozen` 的 200px 下限顶宽。
    ⚠️ 别把 min-width 写回模板的 inline style：inline 优先级最高，会盖掉这条。 */
-.cross-tbl .frozen.fc-cycle{min-width:88px}
-.cross-tbl thead .frozen{background:var(--bg3)}
-.fc-code{min-width:96px;font-variant-numeric:tabular-nums;color:var(--t2);font-size:11px}
-.fc-num{min-width:72px;text-align:right;font-variant-numeric:tabular-nums;color:var(--t2)}
-.fc-text{min-width:70px;color:var(--t2)}
-.fc-name{min-width:200px}
+:deep(.cross-tbl .frozen.fc-cycle){min-width:88px}
+:deep(.cross-tbl thead .frozen){background:var(--bg3)}
+:deep(.fc-code){min-width:96px;font-variant-numeric:tabular-nums;color:var(--t2);font-size:11px}
+:deep(.fc-num){min-width:72px;text-align:right;font-variant-numeric:tabular-nums;color:var(--t2)}
+:deep(.fc-text){min-width:70px;color:var(--t2)}
+:deep(.fc-name){min-width:200px}
 
 /* ---- 列配置条 + 菜单 ---- */
 /* 🔴 v408：`.col-config-bar` / `.col-menu*` / `.col-cfg` / `.gear` / `.th-in` / `.btn-xs`
@@ -12217,23 +12308,23 @@ onMounted(async () => {
      · 行高 = `--fc-cell` 20px + 表格分割线 ≈ **21px**，编辑态输入框同为 20px ⇒ 严丝合缝
      · 密度开关此后**只影响横向留白**（舒适 8px / 紧凑 6px），不再拉开行高
    ⚠️ 不要再给任一密度档单独加垂直 padding —— 那会重新把两档拉开。 */
-.cross-tbl tbody td{padding:0 8px;white-space:nowrap;line-height:var(--fc-cell)}
+.cross-tbl :deep( tbody td){padding:0 8px;white-space:nowrap;line-height:var(--fc-cell)}
 /* 🔴 v571：本表此前**无视全站密度开关**（设置页「紧凑/舒适」对这一页不生效）。
    原因不是没写，而是**同分被后者覆盖**：页面 scoped 的 `.cross-tbl tbody td[data-v-x]` = (0,2,2)，
    全局 `[data-density=compact] table.tbl td` 也是 (0,2,2)；而页面 CSS 属懒加载 chunk、在
    全球样式表之后注入 ⇒ 恒由 7px 胜出（已在产物里同时确认两条规则存在）。
    修法：本表**自己**显式声明紧凑档，特异性 (0,3,2) 稳压基础档 ⇒ 不依赖样式表加载顺序。
    ⚠️ 别改成 `.grid-area .cross-tbl td` 那种"加一层父类"的写法 —— 那同样会把全局紧凑档压死。 */
-[data-density="compact"] .cross-tbl tbody td{padding:0 6px}
+[data-density="compact"] .cross-tbl :deep( tbody td){padding:0 6px}
 [data-density="compact"] .cross-tbl{--cell-pad-h:6px}
-[data-density="compact"] .cross-tbl thead th{padding:1px 7px 0}
+[data-density="compact"] .cross-tbl :deep( thead th){padding:1px 7px 0}
 .qty-th{text-align:center;min-width:52px}
 /* v597（B2）：数量列改**右对齐**（Excel 同款）。数字左/居中时个位对不齐，154 行里
    一眼看不出 66 和 660 差在哪；右对齐 + 等宽数字后，量级差异是**数位长度**带来的，
    扫读成本最低。
    ⚠️ 只动数量列（`.qty-cell` 及其输入框）。商品名/规格/条码仍居中或左对齐 —— 那是文本列，
       文本右对齐会让人找不到行首。 */
-.qty-cell{text-align:right;color:var(--t3)}
+:deep(.qty-cell){text-align:right;color:var(--t3)}
 .qty-cell.has{color:var(--t1);font-weight:500}
 .calc-th{text-align:right}
 .calc-th.sum{background:var(--sum-bg);color:var(--sum-txt)}
@@ -12242,15 +12333,15 @@ onMounted(async () => {
 /* 表体优化 P1/P2/P3：斑马纹/排序/分组/吸底合计 */
 .tb-toolbar{display:flex;gap:12px;align-items:center;margin:4px 0 8px;flex-wrap:wrap}
 .tb-toolbar .hint{color:var(--t3);font-size:12px}
-.cross-tbl tbody tr.data-row.zebra{background:var(--bg2)}
-.cross-tbl tbody tr.data-row:hover{background:var(--bg3)}
-.cross-tbl.edit-tbl tbody tr:nth-child(even){background:var(--bg2)}
-.cross-tbl.edit-tbl tbody tr:hover{background:var(--bg3)}
-th.sortable{cursor:pointer;user-select:none}
-th.sortable:hover{color:var(--p-dark)}
+:deep(.cross-tbl tbody tr.data-row.zebra){background:var(--bg2)}
+:deep(.cross-tbl tbody tr.data-row:hover){background:var(--bg3)}
+.cross-tbl.edit-tbl :deep( tbody tr:nth-child(even)){background:var(--bg2)}
+.cross-tbl.edit-tbl :deep( tbody tr:hover){background:var(--bg3)}
+:deep(th.sortable){cursor:pointer;user-select:none}
+:deep(th.sortable:hover){color:var(--p-dark)}
 .sort-ind{font-size:var(--fs-xs);margin-left:2px;color:var(--p)}
 .grp-head{background:var(--bg3);cursor:pointer}
-.grp-head td{padding:6px 8px;border-bottom:1px solid var(--border-subtle)}
+.grp-head :deep( td){padding:6px 8px;border-bottom:1px solid var(--border-subtle)}
 .grp-toggle{display:inline-block;width:14px;color:var(--p-dark)}
 .grp-sub-info{margin-left:10px;color:var(--t2);font-size:12px;font-weight:400}
 
@@ -12297,7 +12388,7 @@ th.sortable:hover{color:var(--p-dark)}
 .pf-ok{color:var(--suc) !important}
 .pf-mid{color:var(--war) !important}
 .cross-tbl,.edit-tbl{border-collapse:separate;border-spacing:0;table-layout:fixed}
-.cross-tbl>tbody>tr>td,.edit-tbl>tbody>tr>td{position:relative}
+.cross-tbl :deep(>tbody>tr>td), .edit-tbl :deep(>tbody>tr>td){position:relative}
 .col-resizer{position:absolute;top:0;right:-3px;width:9px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
 .col-resizer::after{content:'';position:absolute;right:3px;top:8%;height:84%;width:2px;border-radius:2px;background:var(--resizer-bg)}
 .col-resizer:hover::after,.col-resizer.active::after{background:var(--p)}
@@ -12350,9 +12441,9 @@ th.sortable:hover{color:var(--p-dark)}
       否则横向滚过来的普通表头会盖在序号表头上（同为 sticky，z 相同时后出现者胜）；
    ⑤ 权威列宽是 <colgroup> 的 colW('seq')（.cross-tbl/.edit-tbl 为 table-layout:fixed）；
       冻结列的右移量见 v184 的 frozenLeftOf()。 */
-.cross-tbl .seq-th,.cross-tbl .seq-cell{position:sticky;left:0;background:var(--bg);z-index:6}
-.cross-tbl thead .seq-th,.cross-tbl thead .seq-cell{background:var(--bg3);z-index:9}
-.cross-tbl .col-total .seq-cell,.cross-tbl .foot-row .seq-cell{background:var(--bg3)}
+.cross-tbl .seq-th, :deep(.cross-tbl .seq-cell){position:sticky;left:0;background:var(--bg);z-index:6}
+.cross-tbl thead .seq-th, :deep(.cross-tbl thead .seq-cell){background:var(--bg3);z-index:9}
+:deep(.cross-tbl .col-total .seq-cell), :deep(.cross-tbl .foot-row .seq-cell){background:var(--bg3)}
 /* v408：`.gear` 已上提全局（variables.css「列设置」段），此处不再保留副本。 */
 /* v580：合计从「浮层」改回「表格的最后一行」（用户选 A：Excel 心智）。
    结构上它**必须**是滚动容器外的独立表（虚拟滚动 vs-spacer + zoom + 冻结列 translateX
@@ -12382,32 +12473,31 @@ th.sortable:hover{color:var(--p-dark)}
 .caliber-pop-hd{font-weight:600;color:var(--t1);margin-bottom:4px}
 /* v247：档案列空值（—）淡显，与数量格空格子同一套语言 */
 .cell-dash{color:var(--t3);opacity:.55}
-.col-total-bar .frozen{background:var(--bg3)}
+:deep(.col-total-bar .frozen){background:var(--bg3)}
 /* 表尾「冻结列」反向同步（v176，与序号列冻结同批）：
    表尾是**另一张 table**，靠 `--foot-sl` 整体位移跟随表体（它自己不滚动，所以 sticky 在里面无效）。
    位移对冻结列一视同仁 ⇒ 横向滚动时表尾的「合计」标签会滑出左边界，冻结列下方反而显示**别的列**的表尾格
    （2026-09-16 实测 scrollLeft=600：冻结列下方是 标准售价 / 进价 / 分销价 三格）。
    给冻结格反向位移一份即对齐。⚠️ `--foot-sl=0` 时本规则为 **no-op** ⇒ 不滚动时静态外观零变化。 */
-.col-total-bar .frozen,.col-total-bar .seq-cell{transform:translateX(calc(-1 * var(--foot-sl,0px)))}
-.miss-price{color:var(--danger-txt);font-weight:500}
+:deep(.col-total-bar .frozen), :deep(.col-total-bar .seq-cell){transform:translateX(calc(-1 * var(--foot-sl,0px)))}
+:deep(.miss-price){color:var(--danger-txt);font-weight:500}
 /* v207：表尾/汇总条里「有几行没被算进合计(箱)」的补充说明。
    小字 + 警示色，挂在主数字**之后** —— 不抢主数字，但也不允许静默省略。
    （单元格级的「缺规格」直接复用上面的 .miss-price —— 同一个视觉语言：「数据缺」，不另立类。） */
 .box-miss{margin-left:4px;font-size:11px;font-weight:400;color:var(--war)}
 .calc-th.amount{min-width:80px}
-.calc{text-align:right;font-variant-numeric:tabular-nums}
-.calc.sum{background:var(--sum-bg);color:var(--sum-txt);font-weight:500}
-.calc.final{background:var(--p-bg);color:var(--p-dark);font-weight:600}
-.calc.amount{font-weight:600}
+:deep(.calc){text-align:right;font-variant-numeric:tabular-nums}
+:deep(.calc.sum){background:var(--sum-bg);color:var(--sum-txt);font-weight:500}
+:deep(.calc.final){background:var(--p-bg);color:var(--p-dark);font-weight:600}
+:deep(.calc.amount){font-weight:600}
 /* v580：分隔线画在容器上（横贯全宽、不随 `--foot-sl` 位移），td 只补 1px 上内边距
    ⇒ 合计行内容盒仍是 20px + 1 = 21px，与数据行同高、与表头 22px 目视齐平。
    ⚠️ 必须带 `.cross-tbl tbody` 前缀：`.cross-tbl tbody td{padding:0 8px}` 是 (0,2,2)，
       只写 `.col-total td` 的 (0,2,1) 会输（v571 同款特异性坑）。 */
-.col-total td{background:var(--bg3);font-weight:600}
-.cross-tbl tbody .col-total td,
-.cross-tbl tbody .foot-row td{padding-top:1px}
-.col-total .calc.sum{background:var(--sum-col-bg)}
-.col-total .calc.final{background:var(--final-bg)}
+.col-total :deep( td){background:var(--bg3);font-weight:600}
+.cross-tbl tbody .col-total :deep( td), .cross-tbl tbody .foot-row :deep( td){padding-top:1px}
+:deep(.col-total .calc.sum){background:var(--sum-col-bg)}
+:deep(.col-total .calc.final){background:var(--final-bg)}
 
 /* ---- 表体工程化增强（T1-T8：虚拟滚动/选中/展开/行状态/行操作/空加载态/键盘a11y） ---- */
 /* v628：上限 = 视口 72%（原值）+ 撤掉的冲刺卡占位 119px。
@@ -12529,17 +12619,17 @@ th.sortable:hover{color:var(--p-dark)}
 .pop-overlay{position:fixed;inset:0;z-index:var(--z-page-overlay)}
 .tb-pop-sep{height:1px;background:var(--bd);margin:2px 0}
 .filter-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.cross-tbl thead th{position:sticky;top:0;z-index:7}
-.cross-tbl thead th.frozen{z-index:8}
-.cross-tbl td{position:relative}
-.cross-tbl tr.data-row.selected{background:rgba(6,182,212,.10)}
-.cross-tbl td.cell-active{outline:2px solid var(--p);outline-offset:-2px;background:var(--p-bg);z-index:4}
-.cross-tbl td:focus{outline:2px solid var(--p);outline-offset:-2px}
-.cross-tbl tr.data-row.row-loading{opacity:.6}
+.cross-tbl :deep( thead th){position:sticky;top:0;z-index:7}
+:deep(.cross-tbl thead th.frozen){z-index:8}
+.cross-tbl :deep( td){position:relative}
+:deep(.cross-tbl tr.data-row.selected){background:rgba(6,182,212,.10)}
+:deep(.cross-tbl td.cell-active){outline:2px solid var(--p);outline-offset:-2px;background:var(--p-bg);z-index:4}
+.cross-tbl :deep( td:focus){outline:2px solid var(--p);outline-offset:-2px}
+:deep(.cross-tbl tr.data-row.row-loading){opacity:.6}
 .cross-tbl tr.data-row.row-loading .pname::after{content:' 加载中…';font-size:11px}
-.cross-tbl tr.data-row.row-error{background:var(--danger-bg)}
+:deep(.cross-tbl tr.data-row.row-error){background:var(--danger-bg)}
 .cross-tbl tr.data-row.row-error .pname{color:var(--danger-txt)}
-.cross-tbl tr.data-row.row-disabled{opacity:.45;filter:grayscale(.6)}
+:deep(.cross-tbl tr.data-row.row-disabled){opacity:.45;filter:grayscale(.6)}
 /* v572：展开箭头**不再单独占一行**。
    原为 display:inline-block 的 span，而紧跟的 .pname 是块级 div ⇒ 块级强制换行，
    箭头自占一整行，把只读行高从 ~37px 顶到 ~55px（这是「只读比编辑还高」的第二层原因）。
@@ -12559,12 +12649,12 @@ th.sortable:hover{color:var(--p-dark)}
 .det-row2>span{color:var(--t3)}
 .det-row2>b{font-weight:500}
 .det-row2 b.ok{color:var(--suc)}
-.det-row2 b.warn{color:var(--dan)}
+:deep(.det-row2 b.warn){color:var(--dan)}
 .det-i{font-style:normal;color:var(--t3);font-size:11px}
 .det-units{display:flex;flex-wrap:wrap;gap:4px 10px}
 .det-unit{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:1px 6px}
 .det-units-row{grid-column:1 / -1}
-.vs-spacer td{border:none;padding:0;height:0;line-height:0;background:transparent;font-size:0}
+.vs-spacer :deep( td){border:none;padding:0;height:0;line-height:0;background:transparent;font-size:0}
 .qty-num{display:inline-block;min-width:18px}
 .tbl-state{padding:40px 16px;text-align:center}
 /* v267：无报单汇总权限的常驻说明 —— 用琥珀（--warn-amber）而**不是**红（--dan）：
@@ -12592,39 +12682,39 @@ th.sortable:hover{color:var(--p-dark)}
 .pspec{color:var(--t3);font-size:11px;margin-top:0;line-height:13px}
 .ai-hint{color:var(--p-dark);font-size:11px;margin-top:1px;font-weight:500;line-height:1.2}
 .tip-wrap{position:relative;cursor:help;border-bottom:1px dashed var(--bd)}
-.tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg);color:var(--t1);font-size:11px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);white-space:nowrap;z-index:20;box-shadow:var(--shadow-md)}
-.tip b{color:var(--p-dark)}
-.tip-wrap:hover .tip{display:block}
+:deep(.tip){display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg);color:var(--t1);font-size:11px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);white-space:nowrap;z-index:20;box-shadow:var(--shadow-md)}
+.tip :deep( b){color:var(--p-dark)}
+:deep(.tip-wrap:hover .tip){display:block}
 /* ── v277（需求 4 / 需求 6）：「加单(箱)」列的角标 + 多行悬浮算路 ──
    · 角标（`pt-xm-b`）是**纯提示、不可点**：编辑格里它压在 input 的右上角，
      若可点会把「点进这一格输数字」挡住（那是这一列最常用的动作）⇒ 只给视觉，
      悬停的触发面交给**整格**（`.pt-xmtd:hover`），符合「鼠标悬停时展示计算逻辑」。
    · `.tip` 本体是 `white-space:nowrap`（单行 ¥金额 用的）—— 这里要多行算路，必须覆盖。 */
-.pt-xm-b{font-size:9px;font-weight:600;line-height:1;letter-spacing:-.2px}
-.pt-xm .pt-xm-b{vertical-align:super;margin-left:2px}
-.pt-xm.has-gap .pt-xm-b{color:var(--warn-amber)}
-.pt-xm.has-done .pt-xm-b{color:var(--p-dark)}
+:deep(.pt-xm-b){font-size:9px;font-weight:600;line-height:1;letter-spacing:-.2px}
+:deep(.pt-xm .pt-xm-b){vertical-align:super;margin-left:2px}
+:deep(.pt-xm.has-gap .pt-xm-b){color:var(--warn-amber)}
+:deep(.pt-xm.has-done .pt-xm-b){color:var(--p-dark)}
 .pt-xm.has-gap{border-bottom-color:var(--warn-amber)}
 .pt-xm.has-done{border-bottom-color:var(--p-dark)}
-.pt-xmtd{position:relative}
-.pt-xm-abs{position:absolute;top:0;right:1px;z-index:3;pointer-events:none}
-.pt-tip{white-space:normal;text-align:left;max-width:430px;min-width:240px;line-height:1.55;font-size:11px}
-.pt-tip i{display:block;font-style:normal}
-.pt-tip i+i{margin-top:2px}
+:deep(.pt-xmtd){position:relative}
+:deep(.pt-xm-abs){position:absolute;top:0;right:1px;z-index:3;pointer-events:none}
+:deep(.pt-tip){white-space:normal;text-align:left;max-width:430px;min-width:240px;line-height:1.55;font-size:11px}
+.pt-tip :deep( i){display:block;font-style:normal}
+.pt-tip :deep( i+i){margin-top:2px}
 /* 编辑格里 tip 挂在 td 上（不在 `.tip-wrap` 内）⇒ 悬停面自己声明；定位沿用 `.tip` 本体 */
-.pt-xmtd:hover .pt-tip-abs{display:block}
+.pt-xmtd:hover :deep( .pt-tip-abs){display:block}
 /* ── v318（一键分摊 + 分不满点名）────────────────────────────────────────────
    · 「分摊」入口刻意**不复用角标**：角标压在 input 的右上角且 `pointer-events:none`
      （见上一段注释：它不能挡住"点进这一格输数字"这个最常用动作）。
      新按钮放**右下角**，与角标不重叠、也不压输入区；只在"该商品本月有目标"时才渲染。
    · 第四态角标 `has-short`（**分不满** = 经理填的 > 实际分出去的）用危险色：
      它是**要人去处理的告警**，不是"已完成"那种回执，两者必须一眼能分开。 */
-.pt-alloc-btn{position:absolute;bottom:0;right:1px;z-index:4;
+:deep(.pt-alloc-btn){position:absolute;bottom:0;right:1px;z-index:4;
   font-size:9px;line-height:1;padding:1px 3px;letter-spacing:-.2px;
   border:1px solid var(--bd);border-radius:3px;background:var(--bg);color:var(--t3);cursor:pointer}
-.pt-alloc-btn:hover{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
+:deep(.pt-alloc-btn:hover){border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
 .pt-xm-b.has-short{color:var(--danger-txt)}
-.pt-xm.has-short .pt-xm-b{color:var(--danger-txt)}
+:deep(.pt-xm.has-short .pt-xm-b){color:var(--danger-txt)}
 .pt-xm.has-short{border-bottom-color:var(--danger-txt)}
 /* ── v336：加单格「到底加没加上」的视觉通道（悬空 / 分不满）───────────────────
    🔴 用**琥珀 `--warn-amber`** 而不是红 —— 理由见 Forecast.vue 里 `ptExtraAlert()` 上方
@@ -12635,15 +12725,15 @@ th.sortable:hover{color:var(--p-dark)}
    左侧竖条用 `box-shadow: inset`（不占布局、不受 td 裁剪）；`void` 实线、`short` 虚线。 */
 .pt-xmtd.xm-void{box-shadow:inset 2px 0 0 var(--warn-amber)}
 .pt-xmtd.xm-short{background-image:repeating-linear-gradient(to bottom,var(--warn-amber) 0 4px,transparent 4px 8px);background-repeat:no-repeat;background-position:left top;background-size:2px 100%}
-.cell-input.cell-qty.xm-alert{color:var(--warn-amber);font-weight:600}
+.cross-tbl :deep(.cell-input.cell-qty.xm-alert){color:var(--warn-amber);font-weight:600}
 /* 负数（减单）的红**优先**于"悬空"的琥珀 —— 数值符号是最基础的一层语义。
    两个信号同时在时：**颜色给符号、左侧竖条仍给悬空**（两者都不丢）。 */
-.cell-input.cell-qty.xm-alert.cell-minus{color:var(--danger-txt)}
-.pt-xm-b.has-void,.pt-xm.has-void .pt-xm-b{color:var(--warn-amber)}
+.cross-tbl :deep(.cell-input.cell-qty.xm-alert.cell-minus){color:var(--danger-txt)}
+.pt-xm-b.has-void, :deep(.pt-xm.has-void .pt-xm-b){color:var(--warn-amber)}
 /* ── v318：一键分摊弹窗（预演台） ── */
 /* v277（需求 5/6）：加单填负数 = 减单，必须一眼能认出来（否则会被当成手误删掉）。
    与「单价」列手工录入的红字口径一致：变色 + 加粗，不改数字本身。 */
-.cell-input.cell-minus{color:var(--danger-txt);font-weight:600;box-shadow:inset 0 0 0 1px var(--danger-txt)}
+.cross-tbl :deep(.cell-input.cell-minus){color:var(--danger-txt);font-weight:600;box-shadow:inset 0 0 0 1px var(--danger-txt)}
 /* v277：最终下单被减成负数 —— 这是**真的算不通**（厂商不拆零发货），必须显式标红；
    不做静默夹断（夹了用户就不知道自己的加单量超过了合计）。 */
 .final-neg{color:var(--danger-txt)}
@@ -12691,14 +12781,14 @@ th.sortable:hover{color:var(--p-dark)}
 
 /* ---- 交叉表编辑模式 ---- */
 .edit-tbl{min-width:100%}
-.edit-tbl thead th{background:var(--bg3)}
+.edit-tbl :deep( thead th){background:var(--bg3)}
 .cust-hd{display:flex;align-items:center;gap:4px}
 /* v184：只读单元格（edit:'ro'，目前只有「到货周期」）—— 视觉口径与同排的 input 对齐
    （同字号、居中、tabular-nums 让 +3天 / +12天 的数字对齐），但**不是**输入框，
    以免暗示「这里能改」。它只出现于编辑网格的只读列；查看态走 masterVal 的纯文本路径。 */
 /* v575：只读列（edit:'ro'）也必须落在同一个内容盒 20px 内 —— 原来它靠 padding 撑
    （2px 上下 + 继承的 20.8px 行高 = 24.8px），比旁边 20px 的输入框高，会把整行顶到 30px。 */
-.cell-ro{display:block;height:var(--fc-cell,20px);line-height:calc(var(--fc-cell,20px) - 4px);box-sizing:border-box;padding:2px 6px;color:var(--t2);font-size:12px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
+:deep(.cell-ro){display:block;height:var(--fc-cell,20px);line-height:calc(var(--fc-cell,20px) - 4px);box-sizing:border-box;padding:2px 6px;color:var(--t2);font-size:12px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
 /* 🔴 v575：输入框高度 = 行高唯一源 `--fc-cell`（见 `.cross-tbl{--fc-cell:20px}` 段注释）。
    原来这里写死 26px，而全局紧凑档 `[data-density=compact] table.tbl input{height:24px}`
    特异性 (0,2,2) 压过本条的 (0,2,0) ⇒ 实际渲染 24px，与只读态的 20.8px 文本行**不相等**，
@@ -12716,18 +12806,18 @@ th.sortable:hover{color:var(--p-dark)}
      · 高度仍取 `--fc-cell`（行高唯一源，见 v575 段注释），不影响 21px 行高。
    ⚠️ 出血量必须由 `--cell-pad-h` 推导（舒适 8 / 紧凑 6），不能写死 -8px：
       紧凑档 td 是 `padding:0 6px`，写死 8 会让输入框**外溢 2px 盖到邻格**（v592 实测）。 */
-.cross-tbl .cell-input{height:var(--fc-cell,20px);padding:0 6px;margin:0 calc(-1 * var(--cell-pad-h, 8px));width:calc(100% + var(--cell-pad-h, 8px) * 2);border:0;border-radius:0;background:transparent;color:var(--t1);font-size:12px;outline:none;display:block;min-width:0;box-sizing:border-box;text-align:center}
+:deep(.cross-tbl .cell-input){height:var(--fc-cell,20px);padding:0 6px;margin:0 calc(-1 * var(--cell-pad-h, 8px));width:calc(100% + var(--cell-pad-h, 8px) * 2);border:0;border-radius:0;background:transparent;color:var(--t1);font-size:12px;outline:none;display:block;min-width:0;box-sizing:border-box;text-align:center}
 /* v597（B2）：数量 / 加单这类**纯数字**输入框右对齐，与单元格本身、与 Excel 一致。
    特异性 (0,3,0) > 上面 `.cross-tbl .cell-input` 的 (0,2,0)，不需要 !important。
    `tabular-nums` 让 1 和 7 同宽 —— 否则右对齐后小数点位仍在跳。 */
-.cross-tbl .cell-input.cell-qty{text-align:right;font-variant-numeric:tabular-nums}
+:deep(.cross-tbl .cell-input.cell-qty){text-align:right;font-variant-numeric:tabular-nums}
 /* v579：表头里的**客户名列输入框**与数据行取同一个内容盒（--fc-cell=20px）。
    原来写死 24px ⇒ 那一列表头比其它表头高、整行被顶到 47px。现在表头 = 合计 = 22px。
    特异性 (0,3,1) / (0,4,0) 都高于全局紧凑档 (0,2,2)，写多少就是多少。 */
 /* v592：**表头的客户名输入框例外** —— 它不是"格内编辑"，而是表头里一个可改的名字。
    表头底色本身就是 `--bg3`，若也做成无框，用户完全看不出「这列名字能改」⇒ 这里保留方框外观。
    （th 的内边距是 `1px 7px 0`，与 td 的 8px 不同，所以负 margin 必须归零、宽度回 100%。） */
-.cross-tbl thead .cell-input{height:var(--fc-cell,20px);margin:0;width:100%;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg)}
+:deep(.cross-tbl thead .cell-input){height:var(--fc-cell,20px);margin:0;width:100%;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg)}
 /* v579：序号列表头那个 **列设置齿轮**（全局 `.col-cfg.gear` 是 30×30 + inline-flex，见
    styles/col-menu.css）是表头被撑高的最后一处 —— 30+8×2+1 = 47px；而即便压到 20×20，
    inline-flex 仍按**基线**参与行盒，把整行顶到 26px。所以这里同时改 display:flex
@@ -12744,9 +12834,9 @@ th.sortable:hover{color:var(--p-dark)}
    ③ `accent-color` 让勾选态用品牌青（系统主题色在深色模式下会和底撞）。 */
 .cross-tbl .seq-hd-in{display:flex;align-items:center;justify-content:center;gap:2px}
 .cross-tbl thead .seq-hd-in .col-cfg.gear{margin:0}
-.cross-tbl td.seq-cell .seq-in{display:flex;align-items:center;justify-content:center;gap:2px}
-.cross-tbl .row-pick{width:13px;height:13px;margin:0;padding:0;flex:0 0 auto;cursor:pointer;accent-color:var(--p)}
-.cross-tbl .row-pick:disabled{cursor:not-allowed;opacity:.35}
+:deep(.cross-tbl td.seq-cell .seq-in){display:flex;align-items:center;justify-content:center;gap:2px}
+:deep(.cross-tbl .row-pick){width:13px;height:13px;margin:0;padding:0;flex:0 0 auto;cursor:pointer;accent-color:var(--p)}
+:deep(.cross-tbl .row-pick:disabled){cursor:not-allowed;opacity:.35}
 /* 批量操作面板：与 .tb-pop-panel 同壳，只覆盖宽度与条目样式。
    ⚠️ 面板里**不要再放 fixed/sticky 子元素** —— 它自己就是 position:fixed。 */
 /* v618：多了一条动作 + 两条说明 ⇒ 限高滚动（否则窄屏/小屏会顶出视口下边）。
@@ -12770,32 +12860,32 @@ th.sortable:hover{color:var(--p-dark)}
    （`.cross-tbl td.selected{outline:2px solid var(--p)}` + 青底）。这正是 Excel 的表现：
    变色的是"格"，不是"格里的小框"。⚠️ 别以为这里漏了焦点样式又给它加回边框。 */
 /* v246 零值降噪：空格子的占位点（·）淡显，避免「满屏 0」淹没有效数据 */
-.cell-input::placeholder{color:var(--t3);opacity:.4}
+.cross-tbl :deep(.cell-input)::placeholder{color:var(--t3);opacity:.4}
 /* v190：「单价(进价/箱)」录入框。
    ① 手工录入价 —— 必须与「档案进价算出来的自动价」在视觉上区分，否则用户分不清
       「这个价是系统带的还是我填的」（同屏两个来源的数必须能自证，见项目铁律）。
    ② 未录入且缺价/缺规格 —— 灰字占位改用警示色，避免空框看起来像「这一格本来就没数」。 */
 /* v592：手工价 = 主色淡底 + 1px 内描边（原来是 border-color，现已无边框，改用 inset 阴影保语义） */
-.cell-input.cell-price.manual-price{box-shadow:inset 0 0 0 1px var(--p);background:var(--p-bg);font-weight:600}
-.calc.price.miss-price .cell-input::placeholder{color:var(--danger-txt);font-weight:600;opacity:1}
-.cell-name{text-align:left;font-weight:500}
-.cell-wide{text-align:left}
+.cross-tbl :deep(.cell-input.cell-price.manual-price){box-shadow:inset 0 0 0 1px var(--p);background:var(--p-bg);font-weight:600}
+:deep(.calc.price.miss-price .cell-input)::placeholder{color:var(--danger-txt);font-weight:600;opacity:1}
+:deep(.cell-name){text-align:left;font-weight:500}
+:deep(.cell-wide){text-align:left}
 .cell-cust{}
-.cell-price{text-align:right}
+:deep(.cell-price){text-align:right}
 /* v592：数量列原来靠灰底（`--bg3`）暗示"这格能填"。现在整格就是输入框（无框出血），
    灰底反而会把"格内即输入框"重新画成一个盒子 ⇒ 去掉，由**选中格青底 + 热力底色**承担识别。 */
-.cell-qty{background:transparent}
-.edit-tbl .fc-code .cell-wide{width:100%}
-.edit-tbl .fc-num .cell-num{width:100%}
+:deep(.cell-qty){background:transparent}
+:deep(.edit-tbl .fc-code .cell-wide){width:100%}
+:deep(.edit-tbl .fc-num .cell-num){width:100%}
 .col-del{border:none;background:none;color:var(--t3);font-size:11px;cursor:pointer;padding:2px;border-radius:var(--radius-sm);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 .col-del:hover{color:var(--dan);background:var(--dan-bg)}
 .col-del:hover{color:var(--dan)}
-.op-th{text-align:center;min-width:34px}
+:deep(.op-th){text-align:center;min-width:34px}
 .edit-hint{font-size:12px;color:var(--t3);margin-top:10px;line-height:1.7;border-top:1px dashed var(--bd);padding-top:8px}
 
 /* ---- Excel 式交互视觉（选中/行列高亮/填充柄/右键菜单） ---- */
-.edit-tbl td{position:relative}
-.cross-tbl td.selected{outline:2px solid var(--p);outline-offset:-2px;background:var(--p-bg);z-index:3}
+.edit-tbl :deep( td){position:relative}
+:deep(.cross-tbl td.selected){outline:2px solid var(--p);outline-offset:-2px;background:var(--p-bg);z-index:3}
 /* ---- v378：「定位指示」（弱通道）—— 只画在**表头 / 行号格**，永不进入数据区 ----
    语义：这是「我在哪一列 / 哪一行」的**指位**，**不是选中**。对照 Excel：点一个单元格时，
    行号与列标变灰（定位），而数据区的其他格**一点颜色都不上**（选中只发生在真选区）。
@@ -12805,30 +12895,30 @@ th.sortable:hover{color:var(--p-dark)}
      ③ **不抢 box-shadow**：用 background-image 叠一层（而不是 box-shadow），
         否则会把冻结列的 1px 分隔线（.frozen 的 box-shadow）整条顶掉。
    ⚠️ 令牌 `--t3-rgb` 两套主题都有定义（浅 161,161,166 / 深 142,142,147）⇒ 深浅自适应、零裸色值。 */
-.cross-tbl th.cur-col-hd{background-image:linear-gradient(rgba(var(--t3-rgb),.16),rgba(var(--t3-rgb),.16))}
-.cross-tbl tr.cur-row-hd > td.seq-cell{background-image:linear-gradient(rgba(var(--t3-rgb),.16),rgba(var(--t3-rgb),.16))}
+:deep(.cross-tbl th.cur-col-hd){background-image:linear-gradient(rgba(var(--t3-rgb),.16),rgba(var(--t3-rgb),.16))}
+:deep(.cross-tbl tr.cur-row-hd > td.seq-cell){background-image:linear-gradient(rgba(var(--t3-rgb),.16),rgba(var(--t3-rgb),.16))}
 /* 列**选中**（强通道，只在列轴出现）：表头 = 青底 + 青字 + 2px 主色下划线
    （与全站激活态 .main-tab.on::after 同一语法）。
    表体 = 左右 1px 主色边线 + 6% 半透明青覆盖（box-shadow inset 实现，不抢 background）。
    🔴 v378 起本类**只由 `inColSpan()` 驱动** —— 单元格轴下改用 `cur-col-hd`（中性灰弱态）。
    两个类由两条互斥的判据驱动，永不同时命中；`--p-bg` 因此只表达「选中」一种含义。 */
-.cross-tbl th.sel-col{background:var(--p-bg);color:var(--p-ink);font-weight:500;box-shadow:inset 0 -2px 0 var(--p)}
-.cross-tbl td.sel-col{box-shadow:inset 1px 0 0 var(--p-border),inset -1px 0 0 var(--p-border),inset 0 0 0 100vmax var(--p-bg)}
+:deep(.cross-tbl th.sel-col){background:var(--p-bg);color:var(--p-ink);font-weight:500;box-shadow:inset 0 -2px 0 var(--p)}
+:deep(.cross-tbl td.sel-col){box-shadow:inset 1px 0 0 var(--p-border),inset -1px 0 0 var(--p-border),inset 0 0 0 100vmax var(--p-bg)}
 /* v377：行轴选中 —— 用 tr 级类**一次覆盖整行**（含计算列 / 操作列：它们没有统一列号，
    拿不到 per-cell 的 .range-sel）。这也是两轴视觉语言的差异来源：
    行轴 = 左侧竖条 + 整行底色；列轴 = 列头高亮 + 整列左右描边。
    🔴 必须 `background … !important`：数量格的底色由 heatOf() 以内联 :style 写死，
       类选择器不加 !important 压不住内联样式（`.range-sel` 用的就是同一招）。
    ⚠️ 新增行的左侧 3px 竖条由 `.new-row` 那条规则按更高特异性负责，此处不抢它。 */
-.cross-tbl tr.row-sel > td{background:var(--p-bg) !important}
-.cross-tbl tr.row-sel > td.seq-cell{box-shadow:inset 3px 0 0 var(--p)}
-.cross-tbl tr.row-sel > td.seq-cell .seq-num{color:var(--p-ink);font-weight:600}
+.cross-tbl :deep( tr.row-sel > td){background:var(--p-bg) !important}
+:deep(.cross-tbl tr.row-sel > td.seq-cell){box-shadow:inset 3px 0 0 var(--p)}
+:deep(.cross-tbl tr.row-sel > td.seq-cell .seq-num){color:var(--p-ink);font-weight:600}
 /* v377：编辑网格成为可聚焦容器（模板上加了 tabindex="-1"）—— 行/列轴选中后焦点交还表格，
    Delete / 方向键才到得了 @keydown。焦点可见性的替代**不是** outline，而是选中本身
    （整行 / 整列高亮 + 左侧竖条）；见 UI-SPEC §4「禁止 outline:none 后不补替代」。 */
 .cross-tbl.edit-tbl:focus{outline:none}
-.fill-handle{position:absolute;right:-4px;bottom:-4px;width:9px;height:9px;background:var(--p);border:1.5px solid #fff;border-radius:2px;cursor:crosshair;z-index:9;box-shadow:0 1px 2px rgba(0,0,0,.25)}
-.fill-handle:hover{background:var(--p-dark)}
+:deep(.fill-handle){position:absolute;right:-4px;bottom:-4px;width:9px;height:9px;background:var(--p);border:1.5px solid #fff;border-radius:2px;cursor:crosshair;z-index:9;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+:deep(.fill-handle:hover){background:var(--p-dark)}
 .ctx-overlay{position:fixed;inset:0;z-index:var(--z-ctx-overlay)}
 .ctx-menu{position:fixed;z-index:var(--z-ctx-menu);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:5px;min-width:172px;font-size:var(--fs-sm);max-height:calc(100vh - 16px);overflow-y:auto}
 .ctx-menu button{display:flex;width:100%;align-items:center;gap:8px;padding:7px 10px;border:none;background:none;color:var(--t1);cursor:pointer;text-align:left;border-radius:var(--radius-sm);font-size:var(--fs-sm)}
@@ -12857,10 +12947,8 @@ th.sortable:hover{color:var(--p-dark)}
 .ctx-uniq-val{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ctx-ipt-unit{color:var(--t2)}
 /* 条件格式：库存<安全库存 整行高亮 */
-.edit-tbl tr.cond-warn > td,
-.cross-tbl tr.cond-warn > td{background:color-mix(in srgb,var(--dan) 14%,var(--bg))!important}
-.edit-tbl tr.cond-warn:hover > td,
-.cross-tbl tr.cond-warn:hover > td{background:color-mix(in srgb,var(--dan) 20%,var(--bg))!important}
+.edit-tbl tr.cond-warn :deep( > td), .cross-tbl tr.cond-warn :deep( > td){background:color-mix(in srgb,var(--dan) 14%,var(--bg))!important}
+.edit-tbl tr.cond-warn:hover :deep( > td), .cross-tbl tr.cond-warn:hover :deep( > td){background:color-mix(in srgb,var(--dan) 20%,var(--bg))!important}
 /* 列统计弹层 */
 .stats-body{padding:6px 12px 12px}
 .stat-row{display:flex;justify-content:space-between;gap:16px;padding:5px 2px;border-bottom:1px dashed var(--border-subtle)}
@@ -12915,8 +13003,8 @@ th.sortable:hover{color:var(--p-dark)}
 .imp-gate{margin:10px 0 12px;padding:8px 12px;border-radius:var(--radius-sm);font-size:var(--fs-sm);line-height:1.6;background:var(--warn-amber-bg);color:var(--warn-amber)}
 .imp-matrix{max-height:180px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-md);margin-bottom:12px}
 .imp-matrix table{font-size:var(--fs-sm)}
-.imp-matrix th,.imp-matrix td{padding:5px 8px;border-bottom:1px solid var(--border-subtle);white-space:nowrap}
-.imp-matrix thead th{position:sticky;top:0;background:var(--bg3)}
+:deep(.imp-matrix th), :deep(.imp-matrix td){padding:5px 8px;border-bottom:1px solid var(--border-subtle);white-space:nowrap}
+:deep(.imp-matrix thead th){position:sticky;top:0;background:var(--bg3)}
 .imp-ft{display:flex;justify-content:flex-end;gap:10px;padding-top:6px}
 .imp-ok{color:var(--suc);font-size:13px;margin-bottom:12px}
 .imp-warn{color:var(--war);font-size:var(--fs-sm);margin-bottom:8px}
@@ -13008,7 +13096,7 @@ th.sortable:hover{color:var(--p-dark)}
 .imp-own{margin:0 0 12px;font-size:var(--fs-sm);line-height:1.7;color:var(--t2)}
 .imp-own b{color:var(--t1)}
 .imp-own.warn{color:var(--war)}
-.imp-own.warn b{color:var(--war)}
+.imp-own.warn :deep( b){color:var(--war)}
 .imp-own .btn{margin-left:6px;vertical-align:middle}
 /* v180 改期次弹窗 */
 .pe-modal{width:min(520px,94vw)}
@@ -13016,7 +13104,7 @@ th.sortable:hover{color:var(--p-dark)}
 .pc-shift-lab{font-size:var(--fs-sm);color:var(--t2)}
 .pc-shift-tip{font-size:var(--fs-sm);color:var(--t3)}
 /* v184 空期次的表内引导行：表头保留（列与列右键可达），只替换表体 */
-.empty-row td{background:transparent;border-bottom:none;padding:34px 16px!important;text-align:center}
+.empty-row :deep( td){background:transparent;border-bottom:none;padding:34px 16px!important;text-align:center}
 .empty-row .er-t{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:6px}
 .empty-row .er-s{font-size:var(--fs-sm);color:var(--t3);line-height:1.7;margin-bottom:14px}
 .empty-row .er-ic{width:48px;height:48px;border-radius:14px;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
@@ -13053,13 +13141,13 @@ th.sortable:hover{color:var(--p-dark)}
    参与行盒（和 v579 表头齿轮同一个坑），把 20px 的行硬顶到 31px，154 行白丢 11px×153。
    改法同 v579：`display:flex`（block 级 ⇒ 不生成行内行盒，居中交给 `margin:0 auto`），
    尺寸随行压到 20×20、图标 13px。只作用在编辑表格里，别动全局 `.btn-del`。 */
-.edit-tbl .op-th .btn-del{width:20px;height:20px;display:flex;margin:0 auto}
-.edit-tbl .op-th .btn-del .ico{width:13px;height:13px}
+:deep(.edit-tbl .op-th .btn-del){width:20px;height:20px;display:flex;margin:0 auto}
+:deep(.edit-tbl .op-th .btn-del .ico){width:13px;height:13px}
 /* ⚠️ 基础尺寸仍留在这一条上：`btn-del` 还有第二个宿主（约 2111 行「新增商品」弹窗里的
    `draft.splice` 那一列），它不在 `.edit-tbl` 里 ⇒ 这里不能只剩 padding:0，否则会变成
    纯图标大小（16px）的点不到的小按钮。24×24 是弹窗里的合适尺寸，编辑表格另由上面那条压到 20。 */
-.btn-del{width:24px;height:24px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
-.btn-del:hover{color:var(--dan);background:var(--dan-bg)}
+:deep(.btn-del){width:24px;height:24px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+:deep(.btn-del:hover){color:var(--dan);background:var(--dan-bg)}
 .rebate-section{}
 .val-ok{color:var(--suc)}
 .val-warn{color:var(--war)}
@@ -13092,19 +13180,19 @@ th.sortable:hover{color:var(--p-dark)}
    ⚠️ 数量列（.qty-cell）的底色/字色来自 heatStyle 的 inline style（热力色），
    inline 优先于类选择器 ⇒ 必须 !important，否则错误格会被热力色盖住看不出异常。
    错误语义高于热力语义：先让人看见「这里错了」，再看量级。 */
-.cell-input.invalid, .qty-cell.invalid input, td.invalid input{border-color:var(--danger-txt) !important;box-shadow:inset 0 0 0 2px var(--danger-txt);background:var(--danger-bg) !important;color:var(--danger-txt) !important;font-weight:600;font-size:var(--fs-base)}
+.cross-tbl :deep(.cell-input.invalid), :deep(.qty-cell.invalid input), :deep(td.invalid input){border-color:var(--danger-txt) !important;box-shadow:inset 0 0 0 2px var(--danger-txt);background:var(--danger-bg) !important;color:var(--danger-txt) !important;font-weight:600;font-size:var(--fs-base)}
 /* v592：边框已移除，错误态靠 inset 阴影（上面那条）+ 底色，不需要再改 border-color。
    原 `.cell-input.invalid, .cell-input:focus{border-color:var(--p)}` 一并删掉 —— 它本来就会把
    错误态的红色边框在聚焦时顶成主色（!important 才压得住），现在没有边框，这条只剩误导。 */
-.range-sel{background:var(--p-bg) !important}
+:deep(.range-sel){background:var(--p-bg) !important}
 .cross-tbl.dragging, .cross-tbl.dragging *{user-select:none}
-.fc-num.invalid, .fc-code.invalid, .fc-text.invalid{border-radius:var(--radius-sm)}
-td.invalid, .qty-cell.invalid{background:var(--danger-bg) !important}
+:deep(.fc-num.invalid), :deep(.fc-code.invalid), :deep(.fc-text.invalid){border-radius:var(--radius-sm)}
+:deep(td.invalid), :deep(.qty-cell.invalid){background:var(--danger-bg) !important}
 /* v219 打磨④：错误跳转/清单点击后目标格闪两下。
    ⚠️ 用 outline 而不是 background —— 背景色会跟「红框错误色 / 热力图底色 / 选区底色」
       抢同一块视觉（用户会分不清「这是刚跳到的格」还是「这格错了」）。outline 不占位、
       不影响布局，也不改背景。 */
-td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
+:deep(td.flash), :deep(.qty-cell.flash){animation:cellFlash .45s ease-out 2}
 @keyframes cellFlash{0%{outline:2px solid var(--p-dark);outline-offset:-2px}100%{outline-color:transparent}}
 /* v219 打磨②：改动记录列表 */
 .undo-list{display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;margin:8px 0;border:1px solid var(--bd);border-radius:var(--radius-md)}
@@ -13114,8 +13202,8 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .undo-idx{flex:0 0 28px;color:var(--t3);font-variant-numeric:tabular-nums;font-size:var(--fs-sm)}
 .undo-label{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 行号格标红：长表里先看见「哪一行有问题」，再落到具体格 */
-.td.seq-cell.row-bad{background:var(--danger-bg);color:var(--danger-txt);font-weight:600}
-.td.seq-cell.row-bad .seq-num{color:var(--danger-txt)}
+:deep(.td.seq-cell.row-bad){background:var(--danger-bg);color:var(--danger-txt);font-weight:600}
+:deep(.td.seq-cell.row-bad .seq-num){color:var(--danger-txt)}
 .basis-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)}
 /* 表格工具行的「仅显示有报单」开关。
    v169 规格对齐：它原先自成一派（12px/400/var(--bg3) 底/10px 内边距），与同行的
@@ -13137,21 +13225,21 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .link-btn{border:none;background:none;color:var(--warn-amber);text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
 
 /* ---- P3-P4 增强样式 ---- */
-.warn-low{background:var(--danger-bg) !important}
-.warn-short{background:var(--sum-bg) !important}
+:deep(.warn-low){background:var(--danger-bg) !important}
+:deep(.warn-short){background:var(--sum-bg) !important}
 /* v211（P1-3）：错误角标。**左上角是格内唯一空闲位** —— 右侧垂直中线被 .name-badges 占、
    右下角被 .fill-handle 占（拖拽填充要用手势起在那里）。触屏点它即弹原因（td 的 title 要悬停，触屏没有）。
    ⚠️ z-index 取 5：**必须低于粘性列（.seq-cell / .frozen 都是 6）** ——
       否则横向滚动时，被冻结列盖住的那半张表上的角标会浮出来「飘在冻结列上面」。
    ⚠️ 尺寸压到 13×11、图标 9px：格子本身只有约 26px 高，再大就会压住输入文字的首字符。 */
-.cell-err-dot{position:absolute;left:0;top:0;width:13px;height:11px;display:flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger-txt);border-bottom-right-radius:6px;cursor:pointer;z-index:5;line-height:1}
-.cell-err-dot svg.ico{width:9px;height:9px;vertical-align:top;margin:0}
+:deep(.cell-err-dot){position:absolute;left:0;top:0;width:13px;height:11px;display:flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger-txt);border-bottom-right-radius:6px;cursor:pointer;z-index:5;line-height:1}
+:deep(.cell-err-dot svg.ico){width:9px;height:9px;vertical-align:top;margin:0}
 /* v598（D1）：「本次改过」角标 —— 右上角 6px 实心三角（border 三角形，零额外节点）。
    🔴 占右上角而不是左上：左上已被 `.cell-err-dot`（红底错误角标）占住，两者会叠在一起
       谁都看不清；右下是填充柄 `.fill-handle`。三处各占一角，互不遮挡。
    ⚠️ `pointer-events:none` 是硬要求 —— 角标盖在输入框右上角，能命中就会让用户
       「点那一小块点不进编辑」（而且因为只差 6px，极难判断是自己点偏了还是坏了）。 */
-.cell-dirty-dot{position:absolute;right:0;top:0;width:0;height:0;border-top:6px solid var(--p);border-left:6px solid transparent;z-index:4;pointer-events:none;opacity:.9}
+:deep(.cell-dirty-dot){position:absolute;right:0;top:0;width:0;height:0;border-top:6px solid var(--p);border-left:6px solid transparent;z-index:4;pointer-events:none;opacity:.9}
 /* v598（C2）：跳转框。固定垂直位置在视口上方 14%（不遮住当前行），水平居中；
    z-index 高于页面浮层（--z-page-fs=1000）与表体浮层（1250 同档），避免被全屏网格压住。 */
 .jump-pop{position:fixed;left:50%;top:14vh;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;box-shadow:0 14px 36px rgba(0,0,0,.18);min-width:380px;box-sizing:border-box}
@@ -13166,37 +13254,37 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
      · soft-over（疑超放量，占库存/压资金）→ 浅琥珀描边感、次要
    ⚠️ 实心那档的**文字色用 `var(--bg)`**（浅色主题=白、深色主题=近黑）：
       写死 #fff 在深色主题下是「浅琥珀底 + 白字」→ 几乎看不见（对比度 < 2:1）。 */
-.cell-soft-dot{position:absolute;right:0;top:0;width:13px;height:11px;display:flex;align-items:center;justify-content:center;border-bottom-left-radius:6px;cursor:pointer;z-index:5;line-height:1}
-.cell-soft-dot svg.ico{width:9px;height:9px;vertical-align:top;margin:0}
+:deep(.cell-soft-dot){position:absolute;right:0;top:0;width:13px;height:11px;display:flex;align-items:center;justify-content:center;border-bottom-left-radius:6px;cursor:pointer;z-index:5;line-height:1}
+:deep(.cell-soft-dot svg.ico){width:9px;height:9px;vertical-align:top;margin:0}
 .cell-soft-dot.soft-miss{background:var(--sev-warn);color:var(--bg)}
 .cell-soft-dot.soft-over{background:var(--sev-warn-bg);color:var(--sev-warn)}
-.name-badges{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:2px;pointer-events:none}
-.name-badges>span{margin-left:0;pointer-events:auto}
+:deep(.name-badges){position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:2px;pointer-events:none}
+.name-badges :deep(>span){margin-left:0;pointer-events:auto}
 /* v613：「待上架」角标。沿用 v606 那条纪律 —— 格内行内控件的尺寸必须自己钉死，
    否则它会按基线/默认行高把 21px 数据行顶高（`.btn-del` 30×30 就是这么把表撑到 31px 的）。 */
-.listadd-badge{display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--p-bg);color:var(--p-dark);font-size:10px;white-space:nowrap;vertical-align:middle}
+:deep(.listadd-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--p-bg);color:var(--p-dark);font-size:10px;white-space:nowrap;vertical-align:middle}
 /* v614：撤下角标 —— 与上架角标同尺寸（14 高 / 10 号字），只换配色，避免行内出现两种高度 */
-.listdel-badge{display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--danger-bg);color:var(--danger-txt);font-size:10px;white-space:nowrap;vertical-align:middle}
-.warn-badge{display:inline-block;margin-left:3px;font-size:11px;color:var(--danger-txt);vertical-align:middle}
-.warn-badge.short{color:var(--warn-amber)}
-.diff-chg{outline:2px solid var(--p);outline-offset:-2px}
-.mini-btn{margin-left:4px;font-size:11px;padding:1px 6px;border:1px solid var(--p);color:var(--p-dark);background:transparent;border-radius:var(--radius-sm);cursor:pointer}
+:deep(.listdel-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--danger-bg);color:var(--danger-txt);font-size:10px;white-space:nowrap;vertical-align:middle}
+:deep(.warn-badge){display:inline-block;margin-left:3px;font-size:11px;color:var(--danger-txt);vertical-align:middle}
+:deep(.warn-badge.short){color:var(--warn-amber)}
+:deep(.diff-chg){outline:2px solid var(--p);outline-offset:-2px}
+:deep(.mini-btn){margin-left:4px;font-size:11px;padding:1px 6px;border:1px solid var(--p);color:var(--p-dark);background:transparent;border-radius:var(--radius-sm);cursor:pointer}
 /* v606：编辑表里所有「格内的行内控件」都必须 ≤ `--fc-cell`，否则它们会按基线把行盒顶高
    （同 `.btn-del` 那个坑）。这里把「采纳」压到 16px 内容高并改中线对齐。 */
-.edit-tbl .mini-btn{height:16px;line-height:14px;padding:0 5px;font-size:10px;vertical-align:middle}
-.mini-btn:disabled{opacity:.4;cursor:default}
-.suggest{color:var(--p-dark);font-weight:500}
-.delta.up{color:var(--suc)}
-.delta.down{color:var(--danger-txt)}
-.spark-td{text-align:center}
+:deep(.edit-tbl .mini-btn){height:16px;line-height:14px;padding:0 5px;font-size:10px;vertical-align:middle}
+:deep(.mini-btn:disabled){opacity:.4;cursor:default}
+:deep(.suggest){color:var(--p-dark);font-weight:500}
+:deep(.delta.up){color:var(--suc)}
+:deep(.delta.down){color:var(--danger-txt)}
+:deep(.spark-td){text-align:center}
 /* v367：`.spark-th` 此前**全仓无定义** —— 它靠 `<th>` 的浏览器默认对齐（center）**碰巧**
    与数据格 `.spark-td`（居中，内嵌 svg 折线）对齐；而 `.cross-tbl thead th` 并未声明对齐，
    一旦哪天给它加了 text-align，趋势列表头就会与数据格错位。
    补一条显式声明（与 `.qty-th` / `.seq-th` / `.op-th` 同款），视觉零变化。 */
 .spark-th{text-align:center}
-.spark-td .muted{color:var(--t3);font-size:11px}
-.foot-row td{background:var(--bg3);font-weight:500}
-.foot-row td.frozen{background:var(--bg3);z-index:6}
+:deep(.spark-td .muted){color:var(--t3);font-size:11px}
+.foot-row :deep( td){background:var(--bg3);font-weight:500}
+:deep(.foot-row td.frozen){background:var(--bg3);z-index:6}
 .grp-btn{font-size:12px;padding:5px 12px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;white-space:nowrap}
 .grp-btn:hover{border-color:var(--p)}
 .grp-btn.on{background:var(--p);color:#fff;border-color:var(--p)}
@@ -13209,12 +13297,12 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .recipe-panel{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;font-size:12px}
 .recipe-panel>span{display:inline-flex;align-items:center;gap:4px;color:var(--t2)}
 .recipe-val{width:64px;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:3px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
-.loss-badge{cursor:help;font-size:11px;margin-left:2px}
+:deep(.loss-badge){cursor:help;font-size:11px;margin-left:2px}
 .loss-badge.risk{color:var(--sev-risk)}
 .loss-badge.watch{color:var(--sev-warn)}
-.note-badge{cursor:pointer;font-size:11px;margin-left:2px;opacity:.65}
-.note-badge:hover{opacity:1}
-.moq-below{background:var(--sev-risk-bg);color:var(--sev-risk);font-weight:500}
+:deep(.note-badge){cursor:pointer;font-size:11px;margin-left:2px;opacity:.65}
+:deep(.note-badge:hover){opacity:1}
+:deep(.moq-below){background:var(--sev-risk-bg);color:var(--sev-risk);font-weight:500}
 .info-panel{margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;font-size:12px}
 .info-panel .panel-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .info-panel .imp-x{margin-left:auto;border:none;background:none;cursor:pointer;color:var(--t2);font-size:14px;line-height:1}
@@ -13287,11 +13375,11 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .at-global-hd:hover{color:var(--t1)}
 /* v605：`.es-pager / .pg-btn / .pg-info` 随分页控件一起删除（页脚右侧现在只有冲刺胶囊 + 快捷键）。 */
 /* P8/P9/P10 新增强样式 */
-.rt-badge{cursor:help;font-size:11px;margin-left:2px}
-.rt-badge.stockout{color:var(--sev-risk)}.rt-badge.low{color:var(--sev-warn)}.rt-badge.expiry{color:var(--sev-info)}.rt-badge.expired{color:var(--sev-expired)}
+:deep(.rt-badge){cursor:help;font-size:11px;margin-left:2px}
+.rt-badge.stockout{color:var(--sev-risk)}:deep(.rt-badge.low){color:var(--sev-warn)}.rt-badge.expiry{color:var(--sev-info)}.rt-badge.expired{color:var(--sev-expired)}
 .book-area{width:100%;box-sizing:border-box;font-family:inherit;font-size:12px;line-height:1.6;padding:8px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);resize:vertical;margin-top:4px}
 .acc-tbl{margin-top:6px;font-size:12px}
-.acc-tbl td.num,.acc-tbl th.num{text-align:right}
+:deep(.acc-tbl td.num), :deep(.acc-tbl th.num){text-align:right}
 .sub-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 .tag.st-draft{background:var(--st-draft-bg);color:var(--st-draft-txt)}.tag.st-submitted{background:var(--st-submitted-bg);color:var(--st-submitted-txt)}
 .tag.st-approved{background:var(--st-approved-bg);color:var(--st-approved-txt)}.tag.st-rejected{background:var(--st-rejected-bg);color:var(--st-rejected-txt)}.tag.st-revised{background:var(--st-revised-bg);color:var(--st-revised-txt)}
@@ -13314,7 +13402,7 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .tag.info{background:var(--info-blue-bg);color:var(--info-blue)}
 .tag.warn{background:var(--warn-amber-bg);color:var(--warn-amber)}
 /* P14-P16 第五轮增强样式 */
-.hs-badge{cursor:help;font-size:11px;margin-left:2px;color:var(--info-blue)}
+:deep(.hs-badge){cursor:help;font-size:11px;margin-left:2px;color:var(--info-blue)}
 .mini-form{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
 .mini-form .input{flex:1;min-width:90px}
 .mini-msg{margin-top:6px;font-size:12px;color:var(--ok-green)}
@@ -13329,14 +13417,11 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
   .batch-panel,.snap-bar,.edit-hint,.col-config-bar,.draft-banner,.ctx-menu,.ctx-overlay,.sel-stat{display:none !important}
 }
 /* Q9：编辑态新增行标识（左侧品牌色竖条 + 轻微底色，保存后随 _new 清除） */
-.cross-tbl.edit-tbl tbody tr.new-row > td,
-.edit-tbl tbody tr.new-row > td{box-shadow:inset 3px 0 0 var(--p);background:color-mix(in srgb,var(--p) 9%,var(--bg))}
+.cross-tbl.edit-tbl :deep( tbody tr.new-row > td), .edit-tbl :deep( tbody tr.new-row > td){box-shadow:inset 3px 0 0 var(--p);background:color-mix(in srgb,var(--p) 9%,var(--bg))}
 /* 列选中 × 新增行：两者同屏并存 —— 新增行的左侧 3px 竖条特异性(0,3,3)高于 .sel-col(0,2,1)，
    若不显式合并，选中任意列时新增行的整条列高亮会被顶掉。此处左条(3px)+右线+覆盖一次写全。 */
-.cross-tbl.edit-tbl tbody tr.new-row > td.sel-col,
-.edit-tbl tbody tr.new-row > td.sel-col{box-shadow:inset 3px 0 0 var(--p),inset -1px 0 0 var(--p-border),inset 0 0 0 100vmax var(--p-bg)}
-.cross-tbl.edit-tbl tbody tr.new-row:hover > td,
-.edit-tbl tbody tr.new-row:hover > td{background:color-mix(in srgb,var(--p) 14%,var(--bg))}
+:deep(.cross-tbl.edit-tbl tbody tr.new-row > td.sel-col), :deep(.edit-tbl tbody tr.new-row > td.sel-col){box-shadow:inset 3px 0 0 var(--p),inset -1px 0 0 var(--p-border),inset 0 0 0 100vmax var(--p-bg)}
+.cross-tbl.edit-tbl :deep( tbody tr.new-row:hover > td), .edit-tbl :deep( tbody tr.new-row:hover > td){background:color-mix(in srgb,var(--p) 14%,var(--bg))}
 /* Q14：草稿恢复范围说明条 */
 .draft-banner{margin:6px 0;padding:6px 10px;border-radius:var(--radius-sm);background:color-mix(in srgb,var(--war) 14%,var(--bg));color:var(--t1);font-size:12px;line-height:1.6}
 .draft-banner .link-btn{margin-left:4px}
@@ -13348,18 +13433,18 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 /* Q28：快捷键说明面板 —— v603 已整块迁进 `components/forecast/KbdHelp.vue`
    （原 `.kbd-help` / `.kbd-grid` 两条规则随之删除：入口不在本页 DOM 里了，留着就是死 CSS）。 */
 
-.panel-hd svg.ico{width:16px;height:16px;vertical-align:-3px;margin-right:5px}
+:deep(.panel-hd svg.ico){width:16px;height:16px;vertical-align:-3px;margin-right:5px}
 /* ---- emoji → Icon 组件后的尺寸/对齐统一（设计规范：只用线性 SVG，不用 emoji） ---- */
-.ico{vertical-align:middle}
-.btn svg.ico{width:14px;height:14px;vertical-align:-2px;margin-right:4px}
-.btn-primary svg.ico,.btn-ghost svg.ico{vertical-align:-2px}
-.rop svg.ico{width:14px;height:14px;vertical-align:middle}
-.grp-toggle svg.ico,.exp-chev svg.ico{width:14px;height:14px;vertical-align:middle}
-.name-badges svg.ico{width:12px;height:12px;vertical-align:middle;margin-left:2px}
-.filter-chip .chip-x svg.ico{width:12px;height:12px;vertical-align:middle}
-.empty-ico svg.ico{width:40px;height:40px;opacity:.35}
-.ctx-menu button svg.ico{width:14px;height:14px;vertical-align:-2px;margin-right:6px}
-.link-btn svg.ico{width:14px;height:14px;vertical-align:-2px}
+:deep(.ico){vertical-align:middle}
+:deep(.btn svg.ico){width:14px;height:14px;vertical-align:-2px;margin-right:4px}
+:deep(.btn-primary svg.ico), :deep(.btn-ghost svg.ico){vertical-align:-2px}
+:deep(.rop svg.ico){width:14px;height:14px;vertical-align:middle}
+:deep(.grp-toggle svg.ico), :deep(.exp-chev svg.ico){width:14px;height:14px;vertical-align:middle}
+:deep(.name-badges svg.ico){width:12px;height:12px;vertical-align:middle;margin-left:2px}
+:deep(.filter-chip .chip-x svg.ico){width:12px;height:12px;vertical-align:middle}
+:deep(.empty-ico svg.ico){width:40px;height:40px;opacity:.35}
+:deep(.ctx-menu button svg.ico){width:14px;height:14px;vertical-align:-2px;margin-right:6px}
+:deep(.link-btn svg.ico){width:14px;height:14px;vertical-align:-2px}
 /* v215 商品名候选面板 —— 配色/圆角/阴影沿用 `.ctx-menu`（同一套浮层观感）。
    🔴 z-index 取 1101+：与 `.tb-pop-panel` 同级但更高，保证盖在工具栏浮层之上；
       又远低于全屏遮罩层（950 那条是表格内的），不会压住真正的模态。
@@ -13372,8 +13457,8 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .ns-spec{flex:0 0 auto;color:var(--t3);font-size:var(--fs-sm)}
 .ns-code{flex:0 0 auto;color:var(--t3);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 .st-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dan);margin-right:5px;vertical-align:middle}
-.sort-ind svg.ico{width:12px;height:12px;vertical-align:middle;margin-left:3px}
-.zb-btn svg.ico{width:14px;height:14px;vertical-align:middle}
+:deep(.sort-ind svg.ico){width:12px;height:12px;vertical-align:middle;margin-left:3px}
+:deep(.zb-btn svg.ico){width:14px;height:14px;vertical-align:middle}
 /* 品牌筛选下拉 + 期次复制弹窗 */
 .brand-pop{min-width:240px;max-height:62vh;overflow:auto}
 .brand-pop .bp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:600;color:var(--t1)}

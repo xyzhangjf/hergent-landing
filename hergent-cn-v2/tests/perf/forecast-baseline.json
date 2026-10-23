@@ -1,0 +1,111 @@
+{
+  "meta": {
+    "browser": "Chrome/155.0.8059.85",
+    "authMode": "session-token(tenant1)",
+    "me": {
+      "tenant": null,
+      "user": null,
+      "role": null
+    },
+    "build": "v651",
+    "density": "compact",
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1
+    },
+    "navTiming": {
+      "domInteractiveMs": 107,
+      "loadMs": 207
+    },
+    "viewDom": {
+      "tr": 47,
+      "td": 1397,
+      "allNodes": 4813
+    },
+    "jseventListeners": 45696,
+    "measuredAt": "2026-10-23T04:39:54.327Z"
+  },
+  "viewScroll": {
+    "fps": 48.5,
+    "maxGapMs": 33.4,
+    "p95GapMs": 33.3,
+    "container": "table-wrap cross-viewport",
+    "rowsRendered": 56
+  },
+  "open": {
+    "button": {
+      "found": true,
+      "disabled": false,
+      "text": "改单"
+    },
+    "ok": true,
+    "wallMs": 1791,
+    "inPageMs": 1791.5,
+    "cost": {
+      "TaskDuration": 0.943352,
+      "ScriptDuration": 0.001202,
+      "LayoutDuration": 0.068475,
+      "RecalcStyleDuration": 0.068242,
+      "LayoutCount": 7,
+      "RecalcStyleCount": 19,
+      "JSEventListeners": 28735,
+      "Nodes": 72206
+    },
+    "dom": {
+      "tr": 295,
+      "td": 9440,
+      "inputs": 7664,
+      "allNodes": 21450
+    }
+  },
+  "keystroke": {
+    "chars": 10,
+    "total": {
+      "TaskDuration": 1.448719,
+      "ScriptDuration": 0.009928,
+      "LayoutDuration": 0.058942,
+      "RecalcStyleDuration": 0.005219,
+      "LayoutCount": 20,
+      "RecalcStyleCount": 20,
+      "JSEventListeners": -5744,
+      "Nodes": -8137
+    },
+    "perChar": {
+      "taskMs": 144.9,
+      "scriptMs": 1,
+      "layoutMs": 5.9,
+      "recalcStyleMs": 0.5,
+      "layoutCount": 2,
+      "recalcStyleCount": 2
+    },
+    "latency": {
+      "n": 10,
+      "min": 114.9,
+      "p50": 119.8,
+      "p90": 123.5,
+      "max": 142.2
+    },
+    "longtasks": [
+      82,
+      153,
+      119,
+      124,
+      121,
+      121,
+      126,
+      123,
+      119,
+      123,
+      125
+    ]
+  },
+  "editScroll": {
+    "fps": 50.6,
+    "maxGapMs": 50,
+    "p95GapMs": 16.8,
+    "container": "table-wrap edit-grid-wrap",
+    "rowsRendered": 295
+  },
+  "errors": []
+}

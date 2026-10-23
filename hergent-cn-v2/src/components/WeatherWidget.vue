@@ -324,7 +324,7 @@ function pick(r) {
 
 // 账户级城市偏好：登录后写入后端（跨设备/浏览器生效），覆盖本地/IP 自动
 async function savePref() {
-  if (!auth.token) return
+  if (!auth.hasSession) return   // P0-4：登录态判据改为标记 cookie
   try {
     const c = sel.value
     await api('/api/weather/pref', {
@@ -348,7 +348,7 @@ function resetIp() {
 
 // 登录后拉取账户保存的城市偏好；有则覆盖本地/IP，无则保持现状
 async function fetchPref() {
-  if (!auth.token) return
+  if (!auth.hasSession) return   // P0-4：登录态判据改为标记 cookie
   try {
     const r = await api('/api/weather/pref')
     const c = r && r.city
@@ -515,7 +515,7 @@ onMounted(() => {
   load()                       // 先用本地/IP 即时显示
   // 节假日表：走后端接口（每年自动更新）；失败时静默回落到内置静态表，不阻塞天气渲染
   loadRemoteHolidays()
-  if (auth.token) fetchPref()  // 再用账户偏好覆盖（跨设备/浏览器生效）
+  if (auth.hasSession) fetchPref()  // 再用账户偏好覆盖（跨设备/浏览器生效）
   // 趋势线宽度跟随容器（弹层展开/窗口变化/窄屏）实时对齐日卡片行
   if (typeof ResizeObserver !== 'undefined') {
     ro = new ResizeObserver(() => syncTrend())

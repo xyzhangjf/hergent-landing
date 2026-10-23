@@ -1,0 +1,248 @@
+{
+  "meta": {
+    "browser": "Chrome/155.0.8059.85",
+    "authMode": "session-token(tenant1)",
+    "me": {
+      "tenant": null,
+      "user": null,
+      "role": null
+    },
+    "build": "v651",
+    "density": "compact",
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1
+    },
+    "navTiming": {
+      "domInteractiveMs": 105,
+      "loadMs": 210
+    },
+    "viewDom": {
+      "tr": 47,
+      "td": 1397,
+      "allNodes": 4813
+    },
+    "jseventListeners": 45696,
+    "measuredAt": "2026-10-23T04:41:03.359Z"
+  },
+  "viewScroll": {
+    "fps": 49.2,
+    "maxGapMs": 33.4,
+    "p95GapMs": 33.3,
+    "container": "table-wrap cross-viewport",
+    "rowsRendered": 56
+  },
+  "open": {
+    "button": {
+      "found": true,
+      "disabled": false,
+      "text": "改单"
+    },
+    "ok": true,
+    "wallMs": 1789,
+    "inPageMs": 1789.1,
+    "cost": {
+      "TaskDuration": 0.941088,
+      "ScriptDuration": 0.001452,
+      "LayoutDuration": 0.071284,
+      "RecalcStyleDuration": 0.061263,
+      "LayoutCount": 7,
+      "RecalcStyleCount": 19,
+      "JSEventListeners": 31117,
+      "Nodes": 74940
+    },
+    "dom": {
+      "tr": 295,
+      "td": 9440,
+      "inputs": 7664,
+      "allNodes": 21450
+    }
+  },
+  "keystroke": {
+    "chars": 10,
+    "perChar": {
+      "taskMs": 146.4,
+      "scriptMs": 0.1,
+      "layoutMs": 6.4,
+      "recalcStyleMs": 0.5,
+      "layoutCount": 2.1,
+      "recalcStyleCount": 2.1,
+      "otherMs": 139.4
+    },
+    "latency": {
+      "n": 10,
+      "min": 121.7,
+      "p50": 124.1,
+      "p90": 128.4,
+      "max": 134.2
+    },
+    "longtasks": [
+      128,
+      127,
+      128,
+      124,
+      127,
+      131,
+      128,
+      125,
+      138,
+      131
+    ]
+  },
+  "editScroll": {
+    "fps": 49.9,
+    "maxGapMs": 50,
+    "p95GapMs": 16.8,
+    "container": "table-wrap edit-grid-wrap",
+    "rowsRendered": 295
+  },
+  "errors": [],
+  "variants": {
+    "no-shadow": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 143.3,
+        "scriptMs": 0.1,
+        "layoutMs": 6.3,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.3,
+        "recalcStyleCount": 2.3,
+        "otherMs": 136.4
+      },
+      "latency": {
+        "n": 8,
+        "min": 120,
+        "p50": 122.5,
+        "p90": 124.2,
+        "max": 125.7
+      },
+      "longtasks": [
+        129,
+        127,
+        123,
+        124,
+        126,
+        124,
+        126,
+        128
+      ]
+    },
+    "zoom-off": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 138.8,
+        "scriptMs": 0.1,
+        "layoutMs": 6.5,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 131.7
+      },
+      "latency": {
+        "n": 8,
+        "min": 113.9,
+        "p50": 117.2,
+        "p90": 121,
+        "max": 122.1
+      },
+      "longtasks": [
+        126,
+        122,
+        120,
+        121,
+        118,
+        125,
+        122,
+        118
+      ]
+    },
+    "sticky-off": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 151.3,
+        "scriptMs": 0.1,
+        "layoutMs": 8.1,
+        "recalcStyleMs": 0.4,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 142.6
+      },
+      "latency": {
+        "n": 8,
+        "min": 113.7,
+        "p50": 115.7,
+        "p90": 123.1,
+        "max": 139.7
+      },
+      "longtasks": [
+        153,
+        118,
+        117,
+        126,
+        119,
+        120,
+        122,
+        118
+      ]
+    },
+    "content-vis": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 139.9,
+        "scriptMs": 0.1,
+        "layoutMs": 5.3,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 134
+      },
+      "latency": {
+        "n": 8,
+        "min": 113.3,
+        "p50": 115.6,
+        "p90": 122.8,
+        "max": 135.7
+      },
+      "longtasks": [
+        145,
+        123,
+        117,
+        121,
+        115,
+        118,
+        118,
+        125
+      ]
+    },
+    "heat-off": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 142,
+        "scriptMs": 0.1,
+        "layoutMs": 5.6,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 135.7
+      },
+      "latency": {
+        "n": 8,
+        "min": 114.4,
+        "p50": 115.7,
+        "p90": 121.6,
+        "max": 136.9
+      },
+      "longtasks": [
+        147,
+        118,
+        121,
+        117,
+        118,
+        124,
+        120,
+        117
+      ]
+    }
+  }
+}

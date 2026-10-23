@@ -1,0 +1,687 @@
+{
+ "tag": "flush-v652b",
+ "build": "v652b / v652b",
+ "profile": {
+  "flushAfterType": {
+   "total": 785.7,
+   "top": [
+    {
+     "fn": "(idle)",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 537.39
+    },
+    {
+     "fn": "(program)",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 105.34
+    },
+    {
+     "fn": "bt",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 2,
+     "col": 122,
+     "ms": 18.44
+    },
+    {
+     "fn": "get",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 9068,
+     "ms": 16.06
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 95,
+     "col": 44382,
+     "ms": 14.47
+    },
+    {
+     "fn": "(garbage collector)",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 6.81
+    },
+    {
+     "fn": "setAttribute",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 5.92
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 95,
+     "col": 48257,
+     "ms": 5.79
+    },
+    {
+     "fn": "sc",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 1,
+     "col": 100571,
+     "ms": 5.18
+    },
+    {
+     "fn": "m",
+     "loc": "format-CmM0oIYt.js",
+     "line": 0,
+     "col": 775,
+     "ms": 4.78
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "RebateSprint-BkTDNDip.js",
+     "line": 0,
+     "col": 7195,
+     "ms": 3.79
+    },
+    {
+     "fn": "hn",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 15,
+     "col": 3612,
+     "ms": 3.67
+    },
+    {
+     "fn": "vt",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 42261,
+     "ms": 3.54
+    },
+    {
+     "fn": "Yu",
+     "loc": "index-QOA9-0KB.js",
+     "line": 17,
+     "col": 8236,
+     "ms": 3.36
+    },
+    {
+     "fn": "Mt",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 16646,
+     "ms": 3.21
+    },
+    {
+     "fn": "V",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 30838,
+     "ms": 3.13
+    },
+    {
+     "fn": "H",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 29741,
+     "ms": 3.05
+    },
+    {
+     "fn": "Tv",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 31,
+     "col": 8169,
+     "ms": 2.73
+    },
+    {
+     "fn": "$b",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 58,
+     "col": 2864,
+     "ms": 2.43
+    },
+    {
+     "fn": "get value",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 15121,
+     "ms": 2.2
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 95,
+     "col": 45017,
+     "ms": 2.18
+    },
+    {
+     "fn": "ownKeys",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 10185,
+     "ms": 1.9
+    },
+    {
+     "fn": "E",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 28826,
+     "ms": 1.45
+    },
+    {
+     "fn": "Io",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 15191,
+     "ms": 1.38
+    },
+    {
+     "fn": "Xi",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 2988,
+     "ms": 1.34
+    },
+    {
+     "fn": "$u",
+     "loc": "index-QOA9-0KB.js",
+     "line": 17,
+     "col": 7287,
+     "ms": 1.27
+    },
+    {
+     "fn": "Xt",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 2605,
+     "ms": 1.22
+    },
+    {
+     "fn": "So",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 3183,
+     "ms": 1.18
+    },
+    {
+     "fn": "W",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 31721,
+     "ms": 1.17
+    },
+    {
+     "fn": "zr",
+     "loc": "index-QOA9-0KB.js",
+     "line": 5,
+     "col": 2009,
+     "ms": 1.04
+    },
+    {
+     "fn": "Re",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 40334,
+     "ms": 1.04
+    },
+    {
+     "fn": "Uu",
+     "loc": "index-QOA9-0KB.js",
+     "line": 17,
+     "col": 5327,
+     "ms": 0.93
+    },
+    {
+     "fn": "P",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 15,
+     "col": 844,
+     "ms": 0.85
+    },
+    {
+     "fn": "Qi",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 58,
+     "col": 11402,
+     "ms": 0.84
+    },
+    {
+     "fn": "run",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 2035,
+     "ms": 0.79
+    },
+    {
+     "fn": "ai",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 1,
+     "col": 99598,
+     "ms": 0.78
+    },
+    {
+     "fn": "si",
+     "loc": "index-QOA9-0KB.js",
+     "line": 17,
+     "col": 6623,
+     "ms": 0.73
+    },
+    {
+     "fn": "Jl",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 1,
+     "col": 101024,
+     "ms": 0.72
+    },
+    {
+     "fn": "Pe",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 39979,
+     "ms": 0.72
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 58,
+     "col": 12217,
+     "ms": 0.71
+    },
+    {
+     "fn": "gu",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 40914,
+     "ms": 0.65
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "RebateSprint-BkTDNDip.js",
+     "line": 0,
+     "col": 2863,
+     "ms": 0.59
+    },
+    {
+     "fn": "jl",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 91,
+     "col": 675,
+     "ms": 0.53
+    },
+    {
+     "fn": "on",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 40131,
+     "ms": 0.52
+    },
+    {
+     "fn": "Ko",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 1,
+     "col": 100369,
+     "ms": 0.46
+    }
+   ]
+  },
+  "typeOnly": {
+   "total": 123.9,
+   "top": [
+    {
+     "fn": "(program)",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 71.54
+    },
+    {
+     "fn": "(idle)",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 52.3
+    },
+    {
+     "fn": "n",
+     "loc": "index-QOA9-0KB.js",
+     "line": 17,
+     "col": 7802,
+     "ms": 0.07
+    }
+   ]
+  },
+  "blurFlush": {
+   "total": 905.3,
+   "top": [
+    {
+     "fn": "(idle)",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 673.64
+    },
+    {
+     "fn": "(program)",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 86.39
+    },
+    {
+     "fn": "bt",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 2,
+     "col": 122,
+     "ms": 18.94
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 95,
+     "col": 44382,
+     "ms": 16.67
+    },
+    {
+     "fn": "get",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 9068,
+     "ms": 15.9
+    },
+    {
+     "fn": "(garbage collector)",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 6.96
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 95,
+     "col": 48257,
+     "ms": 5.88
+    },
+    {
+     "fn": "sc",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 1,
+     "col": 100571,
+     "ms": 4.72
+    },
+    {
+     "fn": "setAttribute",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 4.52
+    },
+    {
+     "fn": "m",
+     "loc": "format-CmM0oIYt.js",
+     "line": 0,
+     "col": 775,
+     "ms": 3.92
+    },
+    {
+     "fn": "Yu",
+     "loc": "index-QOA9-0KB.js",
+     "line": 17,
+     "col": 8236,
+     "ms": 3.8
+    },
+    {
+     "fn": "H",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 29741,
+     "ms": 3.59
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "RebateSprint-BkTDNDip.js",
+     "line": 0,
+     "col": 7195,
+     "ms": 3.55
+    },
+    {
+     "fn": "blur",
+     "loc": "",
+     "line": -1,
+     "col": -1,
+     "ms": 3.51
+    },
+    {
+     "fn": "hn",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 15,
+     "col": 3612,
+     "ms": 3.29
+    },
+    {
+     "fn": "vt",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 42261,
+     "ms": 3.01
+    },
+    {
+     "fn": "Mt",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 16646,
+     "ms": 2.84
+    },
+    {
+     "fn": "V",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 1,
+     "col": 94786,
+     "ms": 2.62
+    },
+    {
+     "fn": "$b",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 58,
+     "col": 2864,
+     "ms": 2.35
+    },
+    {
+     "fn": "V",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 30838,
+     "ms": 2.23
+    },
+    {
+     "fn": "get value",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 15121,
+     "ms": 2.1
+    },
+    {
+     "fn": "Tv",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 31,
+     "col": 8169,
+     "ms": 2.1
+    },
+    {
+     "fn": "ownKeys",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 10185,
+     "ms": 2.09
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 95,
+     "col": 45017,
+     "ms": 1.7
+    },
+    {
+     "fn": "zr",
+     "loc": "index-QOA9-0KB.js",
+     "line": 5,
+     "col": 2009,
+     "ms": 1.4
+    },
+    {
+     "fn": "Qi",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 58,
+     "col": 11402,
+     "ms": 1.33
+    },
+    {
+     "fn": "Xi",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 2988,
+     "ms": 1.32
+    },
+    {
+     "fn": "Re",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 40334,
+     "ms": 1.32
+    },
+    {
+     "fn": "$u",
+     "loc": "index-QOA9-0KB.js",
+     "line": 17,
+     "col": 7287,
+     "ms": 1.32
+    },
+    {
+     "fn": "So",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 3183,
+     "ms": 1.3
+    },
+    {
+     "fn": "E",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 28826,
+     "ms": 1.18
+    },
+    {
+     "fn": "Io",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 15191,
+     "ms": 1.1
+    },
+    {
+     "fn": "ai",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 1,
+     "col": 99598,
+     "ms": 0.94
+    },
+    {
+     "fn": "gu",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 40914,
+     "ms": 0.93
+    },
+    {
+     "fn": "W",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 31721,
+     "ms": 0.92
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 58,
+     "col": 12205,
+     "ms": 0.78
+    },
+    {
+     "fn": "run",
+     "loc": "index-QOA9-0KB.js",
+     "line": 9,
+     "col": 2035,
+     "ms": 0.72
+    },
+    {
+     "fn": "Uu",
+     "loc": "index-QOA9-0KB.js",
+     "line": 17,
+     "col": 5327,
+     "ms": 0.72
+    },
+    {
+     "fn": "Dn",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 2,
+     "col": 272,
+     "ms": 0.68
+    },
+    {
+     "fn": "Xt",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 2605,
+     "ms": 0.66
+    },
+    {
+     "fn": "oi",
+     "loc": "index-QOA9-0KB.js",
+     "line": 17,
+     "col": 6408,
+     "ms": 0.62
+    },
+    {
+     "fn": "Ge",
+     "loc": "index-QOA9-0KB.js",
+     "line": 13,
+     "col": 34811,
+     "ms": 0.54
+    },
+    {
+     "fn": "P",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 15,
+     "col": 844,
+     "ms": 0.47
+    },
+    {
+     "fn": "Kb",
+     "loc": "Forecast-B94Fx0cB.js",
+     "line": 58,
+     "col": 10409,
+     "ms": 0.46
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "RebateSprint-BkTDNDip.js",
+     "line": 0,
+     "col": 2863,
+     "ms": 0.46
+    }
+   ]
+  }
+ },
+ "samples": {
+  "nextTickFlush": [
+   151.6,
+   186.4,
+   172.5,
+   185,
+   176.4
+  ],
+  "rows": {
+   "tr": 294,
+   "td": 10584,
+   "inputs": 8546
+  }
+ },
+ "errors": []
+}

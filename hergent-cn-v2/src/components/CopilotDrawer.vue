@@ -1067,9 +1067,11 @@ async function downloadAuthed(url, name) {
   try {
     const res = await fetch(url, {
       headers: {
+        // P0-4：凭证已移到 httpOnly cookie，`auth.token` 恒空（此分支自然不生效，保留作唯一改回点）
         ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
         ...(auth.tenant ? { 'X-Tenant-Id': String(auth.tenant) } : {}),
       },
+      credentials: 'same-origin',   // P0-4：靠它把 erp_token 带上去
     })
     if (!res.ok) {
       // 失败必须出声：静默的话用户看到的就是「点了没反应」，比报错更难排查
@@ -1105,6 +1107,7 @@ async function fetchAuthedBlob(url) {
         ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
         ...(auth.tenant ? { 'X-Tenant-Id': String(auth.tenant) } : {}),
       },
+      credentials: 'same-origin',   // P0-4：凭证在 httpOnly cookie
     })
     if (!res.ok) {
       let msg = ''

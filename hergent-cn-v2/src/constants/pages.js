@@ -329,12 +329,90 @@ export const PAGE_RULES = {
      🔴 v472 纪律：四区（仓配 / 资金 / 报表 / 市场）开发期**一律 `BOSS_ROLES + lock`**，只给老板。
      ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
   '/reports/promo-roi': { title: '促销ROI分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* —— v634（2026-10-22 P2-1 经营报表分析）：6 张报表页落真身的正式登记行 ——
+     🔴 路径与 PLACEHOLDER_PAGES 中对应的 6 条**同时移除**（上方已删），否则占位页
+        会以 module:null 盖掉本行的 module:'reports'，造出「入口可见、一开就 403 / 读不到数」的假入口。
+     🔴 `module:'reports'` 与数据源一致：六页分别读
+        /api/reports/sales（销售汇总）、/api/reports/purchase-summary（采购汇总）、
+        /api/reports/transfer-summary（调拨汇总）、/api/reports/ar-summary（应收汇总）、
+        /api/reports/customer-profitability（客户销额）、/api/reports/sales-leaderboard（业务员业绩）。
+     🔴 v472 纪律：四区（报表）开发期一律 BOSS_ROLES + lock，只给老板。 */
+  '/reports/sales-order': { title: '销售订单汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/purchase':    { title: '采购汇总表',     module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/transfer':    { title: '调拨汇总表',     module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* v640b：三张明细报表页（与汇总同源，drill 下钻目标）。
+     🔴 同源铁律：明细必须读与汇总**同一张表**（sale_orders / purchase_orders / transfer_orders），
+        绝不可指向进销存 psi/inventory 那套订单列表（口径不同会对不上数）。 */
+  '/reports/sales-detail':    { title: '销售订单明细',   module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/purchase-detail': { title: '采购订单明细',   module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/transfer-detail': { title: '调拨订单明细',   module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/ar-summary':  { title: '应收账款汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/customer-profit': { title: '客户利润概览', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/staff-profit':    { title: '员工利润分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* —— v635（2026-10-22 P2-1 批次2）：5 张分析类报表页落真身的正式登记行 ——
+     🔴 路径与 PLACEHOLDER_PAGES 中对应的 5 条**同时移除**（上方已删）。
+     🔴 零后端风险：五页全部复用现有 BI 引擎（POST /api/bi/pivot / /api/bi/top），
+        不新造端点；只读、前端不重算，口径同毛利分析页。
+     🔴 客户利润 / 经营利润页：缺进货价时成本记 0、毛利虚高，页面顶部红色警示，不静默当真盈利。 */
+  '/reports/summary':        { title: '汇总报表',     module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/goods-sales':    { title: '商品销售分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/customer-rank':  { title: '客户销额排名', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/customer-profit-analysis': { title: '客户利润分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/company-profit': { title: '企业经营利润', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* —— v636（2026-10-22 P2-1 批次4+3）：剩余 18 张报表页落真身的正式登记行 ——
+     🔴 路径与 PLACEHOLDER_PAGES 中对应的 18 条**同时移除**（上方已删）。
+     🔴 批次4（12 页）：各自新增只读端点 GET /api/reports/{fee-summary|income-summary|receipt-detail|
+        payment-detail|account-flow|online-receipt|other-receivable|other-inout|fee-usage|attendance|
+        visit-log|visit-achv}，统一返回 {rows,total}，fail-safe，绝不 500。
+     🔴 批次3（6 页：预订货/物料/库存上报/个性化）：对应业务模块在系统中**尚无数据表**，
+        页面为诚实空态（ReportUnavailable 组件），显式「数据待接入」、不编造数字。
+     🔴 v472 纪律：四区（报表）一律 BOSS_ROLES + lock，只给老板。 */
+  '/reports/other-inout':     { title: '其他出入库汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/other-receivable':{ title: '其他应收汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/fee-summary':     { title: '费用单汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/income-summary':  { title: '收入汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/account-flow':    { title: '账户收支明细', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/online-receipt':  { title: '线上收款流水', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/receipt-detail':  { title: '收款明细表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/payment-detail':  { title: '付款明细表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/presale-goods':   { title: '预订货品汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/presale-orders':  { title: '预订货单明细表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/fee-usage':       { title: '费用使用记录', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/material-data':   { title: '物料数据汇总', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/material-usage':  { title: '物料使用汇总', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/attendance':      { title: '考勤统计', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/visit-log':       { title: '拜访记录', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/visit-achv':      { title: '拜访达成', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/stock-upload':    { title: '库存上报分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/personal':        { title: '个性化报表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   /* —— v537（2026-10-17 P2-1 二期）：**买赠活动管理落真身**的正式登记行 ——
      🔴 `module:'sales'` 与数据源一致：本页读 GET /api/promotions（后端 crm.py 归 `sales` 模块门）；
         写操作（POST/PUT/DELETE/toggle）后端另挂 `_admin`（role∈admin/boss）双保险，销售员不可自建让利政策。
      🔴 v472 纪律：市场营销区开发期**一律 `BOSS_ROLES + lock`**，只给老板；入口可见性与后端 `_admin` 口径对齐。
      ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
   '/mkt/promotions': { title: '买赠活动管理', module: 'sales', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* v638（P2 市场区收口）：/mkt 17 占位页 + 新增 visit-plan，共 18 条。
+     🔴 纪律：市场营销区 dev 期一律 `module:null + roles:BOSS_ROLES + lock`（与 v472 一致）。
+     🔴 订货模板 / 拜访计划 有真实表（order_templates / visit_plans）= 落真身；
+        其余 15 张后端**无表** ⇒ 诚实空态（MktPlaceholder），绝不编造。 */
+  '/mkt/display':             { title: '陈列巡查',     module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/lend':                { title: '借货单',       module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/return-goods':        { title: '还货单',       module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/writeoff':            { title: '市场核销',     module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/inspection':          { title: '市场检验',     module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/presale-order':       { title: '预订订货单',   module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/order-template':      { title: '订货模板',     module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/rebate-template':     { title: '返利模板',     module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/fee-contract':        { title: '费用合同',     module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/prepay-contract':     { title: '先付协议',     module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/supplier-rebate-calc': { title: '供应商返利试算', module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/material':            { title: '物料档案',     module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/material-use':        { title: '物料领用单',   module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/material-scrap':      { title: '物料报废单',   module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/material-recycle':    { title: '物料回收单',   module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/material-sale':       { title: '物料销售单',   module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/material-transfer':   { title: '物料调拨单',   module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/mkt/visit-plan':          { title: '拜访计划',     module: null, roles: BOSS_ROLES, lock: true, cat: 'biz' },
   /* —— v465e（2026-10-11 仓配管理 P1）：「仓库作业」组六页**落真身**的正式登记行 ——
      🔴 `module:'stock'` 与后端域**逐项一致**：六页的数据源分别是
         `/api/inbound`、`/api/wh/outbound`、`/api/wh/stocktake`、`/api/wms/*`、
@@ -492,6 +570,19 @@ export const PAGE_RULES = {
   //   ⚠️ 影响面（已核实）：主管 / 会计 / 业务员 / 员工 / 司机 失去本页**入口**；
   //      老板与管理员不受影响。本页此前对他们是"误得"，不是既有业务能力。
   '/cron':            { title: '定时任务',     module: 'cron',      roles: ADMIN_ROLES, lock: true, cat: 'admin' },
+  // v633（2026-10-22 P1-4）：**告警规则** —— 系统级监控规则的管理页。
+  //   🔴 为什么在本行：v88 的告警引擎**端点在、db 函数不在**（`alert_rule_list/create/update/
+  //      delete` 全仓库无定义 ⇒ 一调必 500）⇒ 规则只能直写 SQL 播种、管理界面端到端不可用。
+  //      本轮补齐数据层 + 端点守卫后，规则才终于能由界面维护（新建/改/删/启停 + 告警历史）。
+  //   🔴 `module: 'cron'`：与后端 `_PATH_MODULE_MAP` 逐字一致 —— 本轮把 `/api/alerts` 由
+  //      `'hr'` 改挂 `'cron'`（系统自动化同域，与 `/api/cron` 同一模块）。写成别的域会造成
+  //      「入口可见、一开就 403」的局部假入口（v347/v349 同族纪律）。
+  //   🔴 `roles: ADMIN_ROLES` + `lock: true`：与同族的 `/cron` 完全对齐 ——
+  //      后端 8 个端点**全部**挂 `_admin`（role∈admin/boss），前端角色轴必须逐项一致；
+  //      `lock` 防的是 `roleGateOpen` 第 ③ 档「让位」把本页放给持 `cron` 的主管
+  //      （v345「郝洋不该看到我的定时任务」同款活洞）。
+  //   ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。
+  '/alerts':          { title: '告警规则',     module: 'cron',      roles: ADMIN_ROLES, lock: true, cat: 'admin' },
   // v380（2026-10-06）：进销存 —— 老板自研新能力，**开发闸门：默认只 boss/admin 可见**。
   //   🔴 为什么 `lock: true`：本行是**窄名单**（ADMIN_ROLES ≤2），挂的 `module: 'inventory'`
   //      目前只有 boss（admin 经 `["*"]`）持有 ⇒ 若不加锁，`roleGateOpen` 第 ③ 档「让位」会
@@ -540,6 +631,8 @@ export const PAGE_RULES = {
   //    （能进页面、改任何一项都被 403）。锁是显式声明：即使它因 `module: null` 天然不会让位，
   //    也照样标上 —— 后人给它补 module 时，锁还在。
   '/settings':        { title: '设置',         module: null,        roles: ADMIN_ROLES, lock: true, cat: 'admin' },
+  /* v637（P2 开放API）：租户级 API 令牌控制台，dev 期 boss 硬锁；module:null 同系统/设置区。 */
+  '/openapi/console': { title: '开放API 控制台', module: null,      roles: BOSS_ROLES, lock: true, cat: 'admin' },
   // v395（2026-10-08）：打印 —— 入口先立、页面为占位骨架。
   //   🔴 `module: null` = **只读页**（v348–351 纪律）：本页现在不写任何数据，
   //      将来要存打印配置时，必须先给它一个真实模块键再开写 —— 别直接放开。
@@ -589,6 +682,13 @@ export const PAGE_RULES = {
   '/funds/staff-debt':         { title: '员工欠款',   module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/cost-query':        { title: '库存成本查询', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/cost-summary':      { title: '库存成本汇总', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+
+  /* v637（P2 数电票）：销项/进项发票台账 + 开票配置，挂在资金管理区，dev 期 boss 硬锁。
+     数据来自后端 einvoices / ap_invoices / einvoice_config；当前多为 0 行（尚未启用开票），
+     页面显式「暂无数据」，不静默当零。 */
+  '/invoice/sales':    { title: '销项发票台账', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/invoice/purchase': { title: '进项发票台账', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/invoice/config':   { title: '开票配置',     module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/in-cost':            { title: '入库核算单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/out-cost':           { title: '出库核算单', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/qty-cost':           { title: '数量成本价', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
@@ -646,56 +746,35 @@ export const PLACEHOLDER_PAGES = [
 
 
   /* —— 数据报表（/reports/*）—— */
-  { path: '/reports/sales-order',    title: '销售订单汇总表',   area: '数据报表' },
-  { path: '/reports/purchase',       title: '采购汇总表',       area: '数据报表' },
-  { path: '/reports/transfer',       title: '调拨汇总表',       area: '数据报表' },
-  { path: '/reports/other-inout',    title: '其他出入库汇总表', area: '数据报表' },
-  { path: '/reports/summary',        title: '汇总报表',         area: '数据报表' },
-  { path: '/reports/ar-summary',     title: '应收账款汇总表',   area: '数据报表' },
+  /* v636（P2-1 批次4）：其他出入库汇总表已落真身（OtherInout.vue），从占位表移除 */
+  /* v635（P2-1 批次2）：汇总报表已落真身（SummaryReport.vue），从占位表移除 */
   /* v507（2026-10-14）：账龄汇总表已落真身（ArAging.vue），
      故**从占位表移除** —— 否则占位页会遮蔽真路由（路由注册先者胜）。 */
-  { path: '/reports/other-receivable', title: '其他应收汇总表', area: '数据报表' },
-  { path: '/reports/fee-summary',    title: '费用单汇总表',     area: '数据报表' },
-  { path: '/reports/income-summary', title: '收入汇总表',       area: '数据报表' },
-  { path: '/reports/account-flow',   title: '账户收支明细',     area: '数据报表' },
-  { path: '/reports/online-receipt', title: '线上收款流水',     area: '数据报表' },
-  { path: '/reports/receipt-detail', title: '收款明细表',       area: '数据报表' },
-  { path: '/reports/payment-detail', title: '付款明细表',       area: '数据报表' },
-  { path: '/reports/presale-goods',  title: '预订货品汇总表',   area: '数据报表' },
-  { path: '/reports/presale-orders', title: '预订货单明细表',   area: '数据报表' },
-  { path: '/reports/fee-usage',      title: '费用使用记录',     area: '数据报表' },
-  { path: '/reports/material-data',  title: '物料数据汇总',     area: '数据报表' },
-  { path: '/reports/material-usage', title: '物料使用汇总',     area: '数据报表' },
-  { path: '/reports/attendance',     title: '考勤统计',         area: '数据报表' },
-  { path: '/reports/visit-log',      title: '拜访记录',         area: '数据报表' },
-  { path: '/reports/visit-achv',     title: '拜访达成',         area: '数据报表' },
-  { path: '/reports/stock-upload',   title: '库存上报分析',     area: '数据报表' },
-  { path: '/reports/company-profit', title: '企业经营利润',     area: '数据报表' },
-  { path: '/reports/customer-profit', title: '客户利润概览',    area: '数据报表' },
-  { path: '/reports/customer-profit-analysis', title: '客户利润分析', area: '数据报表' },
-  { path: '/reports/staff-profit',   title: '员工利润分析',     area: '数据报表' },
-  { path: '/reports/goods-sales',    title: '商品销售分析',     area: '数据报表' },
-  { path: '/reports/customer-rank',  title: '客户销额排名',     area: '数据报表' },
-  { path: '/reports/personal',       title: '个性化报表',       area: '数据报表' },
+  /* v636（P2-1 批次4）：其他应收汇总表已落真身（OtherReceivable.vue），从占位表移除 */
+  /* v636（P2-1 批次4）：费用单汇总表已落真身（FeeSummary.vue），从占位表移除 */
+  /* v636（P2-1 批次4）：收入汇总表已落真身（IncomeSummary.vue），从占位表移除 */
+  /* v636（P2-1 批次4）：账户收支明细已落真身（AccountFlow.vue），从占位表移除 */
+  /* v636（P2-1 批次4）：线上收款流水已落真身（OnlineReceipt.vue），从占位表移除 */
+  /* v636（P2-1 批次4）：收款明细表已落真身（ReceiptDetail.vue），从占位表移除 */
+  /* v636（P2-1 批次4）：付款明细表已落真身（PaymentDetail.vue），从占位表移除 */
+  /* v636（P2-1 批次3）：预订货品汇总表已落真身（PresaleGoods.vue，诚实空态），从占位表移除 */
+  /* v636（P2-1 批次3）：预订货单明细表已落真身（PresaleOrders.vue，诚实空态），从占位表移除 */
+  /* v636（P2-1 批次4）：费用使用记录已落真身（FeeUsage.vue），从占位表移除 */
+  /* v636（P2-1 批次3）：物料数据汇总已落真身（MaterialData.vue，诚实空态），从占位表移除 */
+  /* v636（P2-1 批次3）：物料使用汇总已落真身（MaterialUsage.vue，诚实空态），从占位表移除 */
+  /* v636（P2-1 批次4）：考勤统计已落真身（Attendance.vue），从占位表移除 */
+  /* v636（P2-1 批次4）：拜访记录已落真身（VisitLog.vue），从占位表移除 */
+  /* v636（P2-1 批次4）：拜访达成已落真身（VisitAchv.vue），从占位表移除 */
+  /* v636（P2-1 批次3）：库存上报分析已落真身（StockUpload.vue，诚实空态），从占位表移除 */
+  /* v635（P2-1 批次2）：企业经营利润已落真身（CompanyProfit.vue），从占位表移除 */
+  /* v635（P2-1 批次2）：客户利润分析已落真身（CustomerProfitAnalysis.vue），从占位表移除 */
+  /* v635（P2-1 批次2）：商品销售分析已落真身（GoodsSales.vue），从占位表移除 */
+  /* v635（P2-1 批次2）：客户销额排名已落真身（CustomerRank.vue），从占位表移除 */
+  /* v636（P2-1 批次3）：个性化报表已落真身（PersonalReport.vue，诚实空态），从占位表移除 */
 
-  /* —— 市场营销（/mkt/*）—— */
-  { path: '/mkt/display',             title: '陈列巡查',        area: '市场营销' },
-  { path: '/mkt/lend',                title: '借货单',          area: '市场营销' },
-  { path: '/mkt/return-goods',        title: '还货单',          area: '市场营销' },
-  { path: '/mkt/writeoff',            title: '市场核销',        area: '市场营销' },
-  { path: '/mkt/inspection',          title: '市场检验',        area: '市场营销' },
-  { path: '/mkt/presale-order',       title: '预订订货单',      area: '市场营销' },
-  { path: '/mkt/order-template',      title: '订货模板',        area: '市场营销' },
-  { path: '/mkt/rebate-template',     title: '返利模板',        area: '市场营销' },
-  { path: '/mkt/fee-contract',        title: '费用合同',        area: '市场营销' },
-  { path: '/mkt/prepay-contract',     title: '先付协议',        area: '市场营销' },
-  { path: '/mkt/supplier-rebate-calc', title: '供应商返利试算', area: '市场营销' },
-  { path: '/mkt/material',            title: '物料档案',        area: '市场营销' },
-  { path: '/mkt/material-use',        title: '物料领用单',      area: '市场营销' },
-  { path: '/mkt/material-scrap',      title: '物料报废单',      area: '市场营销' },
-  { path: '/mkt/material-recycle',    title: '物料回收单',      area: '市场营销' },
-  { path: '/mkt/material-sale',       title: '物料销售单',      area: '市场营销' },
-  { path: '/mkt/material-transfer',   title: '物料调拨单',      area: '市场营销' }
+  /* —— 市场营销（/mkt/*）—— v638（P2 市场区）：原 17 占位页已收口：
+       2 张有表/已实现落真身（订货模板 / 拜访计划），其余 15 张后端无表 ⇒ 诚实空态（MktPlaceholder）。
+       具体规则见 PAGE_RULES 的 /mkt/* 行（module:null + BOSS_ROLES + lock，dev 期 boss 硬锁）。 */
   /* v537（2026-10-17 P2-1 二期）：原「促销活动」组 6 个占位页（组合搭赠 / 限时特价 / 满赠 /
      满减 / 随单返利 / 买赠随单返利）合并为 1 个真身「买赠活动管理」(/mkt/promotions)：
      已移出占位表、在 PAGE_RULES 写正式行，故不再生成占位路由（避免与真身路由冲突）。 */

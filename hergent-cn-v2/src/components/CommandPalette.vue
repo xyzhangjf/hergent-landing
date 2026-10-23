@@ -49,7 +49,7 @@ import { useRouter } from 'vue-router'
 import { store, setTheme } from '../store'
 /* v291（2026-09-27）：入口可见性判据 —— 与侧栏 / 路由守卫读**同一份**页面注册表，
    见下方 `canSee()` 与 `COMMANDS` 头部注释。 */
-import { canSee } from '../constants/pages'
+import { canSee, PAGE_RULES, pageTitle } from '../constants/pages'
 import Icon from './Icon.vue'
 
 const props = defineProps({
@@ -121,8 +121,25 @@ const COMMANDS = [
   { id: 'settings', group: '页面', icon: 'settings', title: '设置', path: '/settings',
     when: () => canSee('/settings') },
   { id: 'bid-radar', group: '页面', icon: 'search', title: '招投标雷达', path: '/bid-radar',
-    when: () => canSee('/bid-radar') }
+    when: () => canSee('/bid-radar') },
 ]
+
+/* v643 P1-①：数据报表全部条目由 `pages.js::PAGE_RULES` **自动派生**（不手写 41 条）。
+   🔴 为什么要派生而不是抄一份：判据若抄三份（侧栏 NAV / 路由 / 命令面板）必然漂移，
+      症状是"侧栏没有、⌘K 却能搜到"的假入口 —— v267 修过、本仓反复踩的同一类坑。
+      这里只做「取路径 → 取标题 → 走 canSee」三步，权限与可见性仍然**只有一份判据**（pages.js）。 */
+const REPORT_COMMANDS = Object.keys(PAGE_RULES)
+  .filter(p => p.startsWith('/reports/'))
+  .map(p => ({
+    id: 'rpt-' + p,
+    group: '数据报表',
+    icon: 'bar-chart',
+    title: pageTitle(p) || p,
+    path: p,
+    when: () => canSee(p),
+  }))
+
+const ALL_COMMANDS = [...COMMANDS, ...REPORT_COMMANDS]
 
 const filtered = computed(() => {
   /* v206：先按权限收窄（未配 module 的条目一律保留），再按关键词过滤。
@@ -130,7 +147,7 @@ const filtered = computed(() => {
        `module` 只能表达「本租户有没有这个模块」，表达不了「同一模块下按角色区分」——
        报单汇总正是后者（`/api/forecast` 归 `data`，业务员持有 `data`；v347 起该前缀
        已改归窄模块 `forecast`，但**这不改变本轴的结论** —— 同一模块下仍可能按角色区分）。 */
-  const pool = COMMANDS.filter(c => (!c.module || store.canModule(c.module)) && (!c.when || c.when()))
+  const pool = ALL_COMMANDS.filter(c => (!c.module || store.canModule(c.module)) && (!c.when || c.when()))
   const kw = q.value.trim().toLowerCase()
   if (!kw) return pool
   return pool.filter(c => c.title.toLowerCase().includes(kw) || (c.keywords || '').includes(kw))

@@ -1,0 +1,496 @@
+{
+ "tag": "flush-v652",
+ "build": "v652b / v652b",
+ "profile": {
+  "flushAfterType": {
+   "total": 780.3,
+   "top": [
+    {
+     "fn": "(idle)",
+     "loc": ":-1",
+     "ms": 540.6
+    },
+    {
+     "fn": "(program)",
+     "loc": ":-1",
+     "ms": 100.36
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js:95",
+     "ms": 21.66
+    },
+    {
+     "fn": "bt",
+     "loc": "Forecast-B94Fx0cB.js:2",
+     "ms": 19.72
+    },
+    {
+     "fn": "get",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 14.27
+    },
+    {
+     "fn": "setAttribute",
+     "loc": ":-1",
+     "ms": 5.82
+    },
+    {
+     "fn": "(garbage collector)",
+     "loc": ":-1",
+     "ms": 5.78
+    },
+    {
+     "fn": "sc",
+     "loc": "Forecast-B94Fx0cB.js:1",
+     "ms": 4.73
+    },
+    {
+     "fn": "m",
+     "loc": "format-CmM0oIYt.js:0",
+     "ms": 4.17
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "RebateSprint-BkTDNDip.js:0",
+     "ms": 3.79
+    },
+    {
+     "fn": "H",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 3.71
+    },
+    {
+     "fn": "hn",
+     "loc": "Forecast-B94Fx0cB.js:15",
+     "ms": 3.65
+    },
+    {
+     "fn": "Tv",
+     "loc": "Forecast-B94Fx0cB.js:31",
+     "ms": 3.65
+    },
+    {
+     "fn": "Yu",
+     "loc": "index-QOA9-0KB.js:17",
+     "ms": 3.44
+    },
+    {
+     "fn": "V",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 2.77
+    },
+    {
+     "fn": "Mt",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 2.74
+    },
+    {
+     "fn": "vt",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 2.56
+    },
+    {
+     "fn": "get value",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 2.37
+    },
+    {
+     "fn": "$b",
+     "loc": "Forecast-B94Fx0cB.js:58",
+     "ms": 2.19
+    },
+    {
+     "fn": "ownKeys",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 2.1
+    },
+    {
+     "fn": "E",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 1.97
+    },
+    {
+     "fn": "Re",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 1.91
+    },
+    {
+     "fn": "Io",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 1.48
+    },
+    {
+     "fn": "Xi",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 1.33
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js:58",
+     "ms": 1.27
+    },
+    {
+     "fn": "Xt",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 1.26
+    },
+    {
+     "fn": "So",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 1.24
+    },
+    {
+     "fn": "Qi",
+     "loc": "Forecast-B94Fx0cB.js:58",
+     "ms": 1.1
+    },
+    {
+     "fn": "$u",
+     "loc": "index-QOA9-0KB.js:17",
+     "ms": 1.05
+    },
+    {
+     "fn": "W",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 0.98
+    },
+    {
+     "fn": "si",
+     "loc": "index-QOA9-0KB.js:17",
+     "ms": 0.92
+    },
+    {
+     "fn": "run",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 0.84
+    },
+    {
+     "fn": "P",
+     "loc": "Forecast-B94Fx0cB.js:15",
+     "ms": 0.84
+    },
+    {
+     "fn": "ai",
+     "loc": "Forecast-B94Fx0cB.js:1",
+     "ms": 0.84
+    },
+    {
+     "fn": "zr",
+     "loc": "index-QOA9-0KB.js:5",
+     "ms": 0.79
+    },
+    {
+     "fn": "Ko",
+     "loc": "Forecast-B94Fx0cB.js:1",
+     "ms": 0.72
+    },
+    {
+     "fn": "track",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 0.7
+    },
+    {
+     "fn": "on",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 0.66
+    },
+    {
+     "fn": "Lc",
+     "loc": "Forecast-B94Fx0cB.js:20",
+     "ms": 0.65
+    },
+    {
+     "fn": "Kb",
+     "loc": "Forecast-B94Fx0cB.js:58",
+     "ms": 0.59
+    },
+    {
+     "fn": "Tu",
+     "loc": "Forecast-B94Fx0cB.js:58",
+     "ms": 0.53
+    },
+    {
+     "fn": "Pe",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 0.47
+    },
+    {
+     "fn": "beforeUpdate",
+     "loc": "index-QOA9-0KB.js:18",
+     "ms": 0.47
+    },
+    {
+     "fn": "jl",
+     "loc": "Forecast-B94Fx0cB.js:91",
+     "ms": 0.45
+    },
+    {
+     "fn": "gu",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 0.45
+    }
+   ]
+  },
+  "typeOnly": {
+   "total": 117.9,
+   "top": [
+    {
+     "fn": "(program)",
+     "loc": ":-1",
+     "ms": 64.96
+    },
+    {
+     "fn": "(idle)",
+     "loc": ":-1",
+     "ms": 52.98
+    }
+   ]
+  },
+  "blurFlush": {
+   "total": 896.9,
+   "top": [
+    {
+     "fn": "(idle)",
+     "loc": ":-1",
+     "ms": 672.06
+    },
+    {
+     "fn": "(program)",
+     "loc": ":-1",
+     "ms": 78.14
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js:95",
+     "ms": 23.77
+    },
+    {
+     "fn": "bt",
+     "loc": "Forecast-B94Fx0cB.js:2",
+     "ms": 18.99
+    },
+    {
+     "fn": "get",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 15.99
+    },
+    {
+     "fn": "(garbage collector)",
+     "loc": ":-1",
+     "ms": 5.9
+    },
+    {
+     "fn": "sc",
+     "loc": "Forecast-B94Fx0cB.js:1",
+     "ms": 5.11
+    },
+    {
+     "fn": "m",
+     "loc": "format-CmM0oIYt.js:0",
+     "ms": 4.5
+    },
+    {
+     "fn": "blur",
+     "loc": ":-1",
+     "ms": 4.41
+    },
+    {
+     "fn": "setAttribute",
+     "loc": ":-1",
+     "ms": 4.29
+    },
+    {
+     "fn": "Yu",
+     "loc": "index-QOA9-0KB.js:17",
+     "ms": 4.18
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "RebateSprint-BkTDNDip.js:0",
+     "ms": 4.13
+    },
+    {
+     "fn": "Mt",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 3.33
+    },
+    {
+     "fn": "Tv",
+     "loc": "Forecast-B94Fx0cB.js:31",
+     "ms": 3.19
+    },
+    {
+     "fn": "get value",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 3.15
+    },
+    {
+     "fn": "H",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 3.12
+    },
+    {
+     "fn": "hn",
+     "loc": "Forecast-B94Fx0cB.js:15",
+     "ms": 2.92
+    },
+    {
+     "fn": "vt",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 2.57
+    },
+    {
+     "fn": "V",
+     "loc": "Forecast-B94Fx0cB.js:1",
+     "ms": 2.47
+    },
+    {
+     "fn": "V",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 2.38
+    },
+    {
+     "fn": "$b",
+     "loc": "Forecast-B94Fx0cB.js:58",
+     "ms": 2.18
+    },
+    {
+     "fn": "ownKeys",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 1.72
+    },
+    {
+     "fn": "ai",
+     "loc": "Forecast-B94Fx0cB.js:1",
+     "ms": 1.51
+    },
+    {
+     "fn": "W",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 1.49
+    },
+    {
+     "fn": "So",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 1.46
+    },
+    {
+     "fn": "Xi",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 1.45
+    },
+    {
+     "fn": "(anonymous)",
+     "loc": "Forecast-B94Fx0cB.js:58",
+     "ms": 1.39
+    },
+    {
+     "fn": "Xt",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 1.3
+    },
+    {
+     "fn": "Io",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 1.27
+    },
+    {
+     "fn": "Qi",
+     "loc": "Forecast-B94Fx0cB.js:58",
+     "ms": 1.24
+    },
+    {
+     "fn": "$u",
+     "loc": "index-QOA9-0KB.js:17",
+     "ms": 1.13
+    },
+    {
+     "fn": "Re",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 1.03
+    },
+    {
+     "fn": "zr",
+     "loc": "index-QOA9-0KB.js:5",
+     "ms": 0.91
+    },
+    {
+     "fn": "Pe",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 0.86
+    },
+    {
+     "fn": "E",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 0.79
+    },
+    {
+     "fn": "run",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 0.73
+    },
+    {
+     "fn": "si",
+     "loc": "index-QOA9-0KB.js:17",
+     "ms": 0.72
+    },
+    {
+     "fn": "Lc",
+     "loc": "Forecast-B94Fx0cB.js:20",
+     "ms": 0.67
+    },
+    {
+     "fn": "gu",
+     "loc": "index-QOA9-0KB.js:13",
+     "ms": 0.66
+    },
+    {
+     "fn": "Jl",
+     "loc": "Forecast-B94Fx0cB.js:1",
+     "ms": 0.53
+    },
+    {
+     "fn": "P",
+     "loc": "Forecast-B94Fx0cB.js:15",
+     "ms": 0.52
+    },
+    {
+     "fn": "Ko",
+     "loc": "Forecast-B94Fx0cB.js:1",
+     "ms": 0.52
+    },
+    {
+     "fn": "beforeUpdate",
+     "loc": "index-QOA9-0KB.js:18",
+     "ms": 0.52
+    },
+    {
+     "fn": "track",
+     "loc": "index-QOA9-0KB.js:9",
+     "ms": 0.47
+    },
+    {
+     "fn": "Dn",
+     "loc": "Forecast-B94Fx0cB.js:2",
+     "ms": 0.46
+    }
+   ]
+  }
+ },
+ "samples": {
+  "nextTickFlush": [
+   146,
+   173.7,
+   143.8,
+   138.6,
+   177.5
+  ],
+  "rows": {
+   "tr": 294,
+   "td": 10584,
+   "inputs": 8546
+  }
+ },
+ "errors": []
+}

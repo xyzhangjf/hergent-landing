@@ -1,0 +1,381 @@
+{
+  "changes": [
+    {
+      "old": ".edit-tbl .op-th .btn-del .ico",
+      "new": ":deep(.edit-tbl .op-th .btn-del .ico)"
+    },
+    {
+      "old": ".cell-err-dot svg.ico",
+      "new": ":deep(.cell-err-dot svg.ico)"
+    },
+    {
+      "old": ".cell-soft-dot svg.ico",
+      "new": ":deep(.cell-soft-dot svg.ico)"
+    },
+    {
+      "old": ".panel-hd svg.ico",
+      "new": ":deep(.panel-hd svg.ico)"
+    },
+    {
+      "old": ".ico",
+      "new": ":deep(.ico)"
+    },
+    {
+      "old": ".btn svg.ico",
+      "new": ":deep(.btn svg.ico)"
+    },
+    {
+      "old": ".btn-primary svg.ico,.btn-ghost svg.ico",
+      "new": ":deep(.btn-primary svg.ico), :deep(.btn-ghost svg.ico)"
+    },
+    {
+      "old": ".rop svg.ico",
+      "new": ":deep(.rop svg.ico)"
+    },
+    {
+      "old": ".grp-toggle svg.ico,.exp-chev svg.ico",
+      "new": ":deep(.grp-toggle svg.ico), :deep(.exp-chev svg.ico)"
+    },
+    {
+      "old": ".name-badges svg.ico",
+      "new": ":deep(.name-badges svg.ico)"
+    },
+    {
+      "old": ".filter-chip .chip-x svg.ico",
+      "new": ":deep(.filter-chip .chip-x svg.ico)"
+    },
+    {
+      "old": ".empty-ico svg.ico",
+      "new": ":deep(.empty-ico svg.ico)"
+    },
+    {
+      "old": ".ctx-menu button svg.ico",
+      "new": ":deep(.ctx-menu button svg.ico)"
+    },
+    {
+      "old": ".link-btn svg.ico",
+      "new": ":deep(.link-btn svg.ico)"
+    },
+    {
+      "old": ".sort-ind svg.ico",
+      "new": ":deep(.sort-ind svg.ico)"
+    },
+    {
+      "old": ".zb-btn svg.ico",
+      "new": ":deep(.zb-btn svg.ico)"
+    }
+  ],
+  "broaden": [
+    {
+      "sel": ".edit-tbl .op-th .btn-del .ico",
+      "nd": ":deep(.edit-tbl .op-th .btn-del .ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".cell-err-dot svg.ico",
+      "nd": ":deep(.cell-err-dot svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".cell-soft-dot svg.ico",
+      "nd": ":deep(.cell-soft-dot svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".panel-hd svg.ico",
+      "nd": ":deep(.panel-hd svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".ico",
+      "nd": ":deep(.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".btn svg.ico",
+      "nd": ":deep(.btn svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".btn-primary svg.ico",
+      "nd": ":deep(.btn-primary svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".btn-ghost svg.ico",
+      "nd": ":deep(.btn-ghost svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".rop svg.ico",
+      "nd": ":deep(.rop svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".grp-toggle svg.ico",
+      "nd": ":deep(.grp-toggle svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".exp-chev svg.ico",
+      "nd": ":deep(.exp-chev svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".name-badges svg.ico",
+      "nd": ":deep(.name-badges svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".filter-chip .chip-x svg.ico",
+      "nd": ":deep(.filter-chip .chip-x svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".empty-ico svg.ico",
+      "nd": ":deep(.empty-ico svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".ctx-menu button svg.ico",
+      "nd": ":deep(.ctx-menu button svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".link-btn svg.ico",
+      "nd": ":deep(.link-btn svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".sort-ind svg.ico",
+      "nd": ":deep(.sort-ind svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    },
+    {
+      "sel": ".zb-btn svg.ico",
+      "nd": ":deep(.zb-btn svg.ico)",
+      "classes": [
+        "ico"
+      ],
+      "hitPanels": []
+    }
+  ],
+  "alreadyDeep": [
+    ".rcfg-obj :deep(.page)",
+    ".rcfg-obj :deep(.page-hd h2)",
+    ".target-panel :deep(.page)",
+    ".target-panel :deep(.page-hd h2)",
+    ".cross-tbl :deep( thead th)",
+    ":deep(.cross-tbl .frozen)",
+    ":deep(.cross-tbl .frozen.fc-cycle)",
+    ":deep(.cross-tbl thead .frozen)",
+    ":deep(.fc-code)",
+    ":deep(.fc-num)",
+    ":deep(.fc-text)",
+    ":deep(.fc-name)",
+    ".cross-tbl :deep( tbody td)",
+    "[data-density=\"compact\"] .cross-tbl :deep( tbody td)",
+    "[data-density=\"compact\"] .cross-tbl :deep( thead th)",
+    ":deep(.qty-cell)",
+    ":deep(.cross-tbl tbody tr.data-row.zebra)",
+    ":deep(.cross-tbl tbody tr.data-row:hover)",
+    ".cross-tbl.edit-tbl :deep( tbody tr:nth-child(even))",
+    ".cross-tbl.edit-tbl :deep( tbody tr:hover)",
+    ":deep(th.sortable)",
+    ":deep(th.sortable:hover)",
+    ".grp-head :deep( td)",
+    ".cross-tbl :deep(>tbody>tr>td)",
+    ".edit-tbl :deep(>tbody>tr>td)",
+    ":deep(.cross-tbl .seq-cell)",
+    ":deep(.cross-tbl thead .seq-cell)",
+    ":deep(.cross-tbl .col-total .seq-cell)",
+    ":deep(.cross-tbl .foot-row .seq-cell)",
+    ":deep(.col-total-bar .frozen)",
+    ":deep(.col-total-bar .frozen)",
+    ":deep(.col-total-bar .seq-cell)",
+    ":deep(.miss-price)",
+    ":deep(.calc)",
+    ":deep(.calc.sum)",
+    ":deep(.calc.final)",
+    ":deep(.calc.amount)",
+    ".col-total :deep( td)",
+    ".cross-tbl tbody .col-total :deep( td)",
+    ".cross-tbl tbody .foot-row :deep( td)",
+    ":deep(.col-total .calc.sum)",
+    ":deep(.col-total .calc.final)",
+    ".cross-tbl :deep( thead th)",
+    ":deep(.cross-tbl thead th.frozen)",
+    ".cross-tbl :deep( td)",
+    ":deep(.cross-tbl tr.data-row.selected)",
+    ":deep(.cross-tbl td.cell-active)",
+    ".cross-tbl :deep( td:focus)",
+    ":deep(.cross-tbl tr.data-row.row-loading)",
+    ":deep(.cross-tbl tr.data-row.row-error)",
+    ":deep(.cross-tbl tr.data-row.row-disabled)",
+    ":deep(.det-row2 b.warn)",
+    ".vs-spacer :deep( td)",
+    ":deep(.tip)",
+    ".tip :deep( b)",
+    ":deep(.tip-wrap:hover .tip)",
+    ":deep(.pt-xm-b)",
+    ":deep(.pt-xm .pt-xm-b)",
+    ":deep(.pt-xm.has-gap .pt-xm-b)",
+    ":deep(.pt-xm.has-done .pt-xm-b)",
+    ":deep(.pt-xmtd)",
+    ":deep(.pt-xm-abs)",
+    ":deep(.pt-tip)",
+    ".pt-tip :deep( i)",
+    ".pt-tip :deep( i+i)",
+    ".pt-xmtd:hover :deep( .pt-tip-abs)",
+    ":deep(.pt-alloc-btn)",
+    ":deep(.pt-alloc-btn:hover)",
+    ":deep(.pt-xm.has-short .pt-xm-b)",
+    ".cross-tbl :deep(.cell-input.cell-qty.xm-alert)",
+    ".cross-tbl :deep(.cell-input.cell-qty.xm-alert.cell-minus)",
+    ":deep(.pt-xm.has-void .pt-xm-b)",
+    ".cross-tbl :deep(.cell-input.cell-minus)",
+    ".pin>:deep(.pin-sprint)",
+    ".edit-tbl :deep( thead th)",
+    ":deep(.cell-ro)",
+    ":deep(.cross-tbl .cell-input)",
+    ":deep(.cross-tbl .cell-input.cell-qty)",
+    ":deep(.cross-tbl thead .cell-input)",
+    ":deep(.cross-tbl td.seq-cell .seq-in)",
+    ":deep(.cross-tbl .row-pick)",
+    ":deep(.cross-tbl .row-pick:disabled)",
+    ".cross-tbl :deep(.cell-input)::placeholder",
+    ".cross-tbl :deep(.cell-input.cell-price.manual-price)",
+    ":deep(.calc.price.miss-price .cell-input)::placeholder",
+    ":deep(.cell-name)",
+    ":deep(.cell-wide)",
+    ":deep(.cell-price)",
+    ":deep(.cell-qty)",
+    ":deep(.edit-tbl .fc-code .cell-wide)",
+    ":deep(.edit-tbl .fc-num .cell-num)",
+    ":deep(.op-th)",
+    ".edit-tbl :deep( td)",
+    ":deep(.cross-tbl td.selected)",
+    ":deep(.cross-tbl th.cur-col-hd)",
+    ":deep(.cross-tbl tr.cur-row-hd > td.seq-cell)",
+    ":deep(.cross-tbl th.sel-col)",
+    ":deep(.cross-tbl td.sel-col)",
+    ".cross-tbl :deep( tr.row-sel > td)",
+    ":deep(.cross-tbl tr.row-sel > td.seq-cell)",
+    ":deep(.cross-tbl tr.row-sel > td.seq-cell .seq-num)",
+    ":deep(.fill-handle)",
+    ":deep(.fill-handle:hover)",
+    ".edit-tbl tr.cond-warn :deep( > td)",
+    ".cross-tbl tr.cond-warn :deep( > td)",
+    ".edit-tbl tr.cond-warn:hover :deep( > td)",
+    ".cross-tbl tr.cond-warn:hover :deep( > td)",
+    ":deep(.imp-matrix th)",
+    ":deep(.imp-matrix td)",
+    ":deep(.imp-matrix thead th)",
+    ".imp-own.warn :deep( b)",
+    ".empty-row :deep( td)",
+    ":deep(.edit-tbl .op-th .btn-del)",
+    ":deep(.btn-del)",
+    ":deep(.btn-del:hover)",
+    ".cross-tbl :deep(.cell-input.invalid)",
+    ":deep(.qty-cell.invalid input)",
+    ":deep(td.invalid input)",
+    ":deep(.range-sel)",
+    ":deep(.fc-num.invalid)",
+    ":deep(.fc-code.invalid)",
+    ":deep(.fc-text.invalid)",
+    ":deep(td.invalid)",
+    ":deep(.qty-cell.invalid)",
+    ":deep(td.flash)",
+    ":deep(.qty-cell.flash)",
+    ":deep(.td.seq-cell.row-bad)",
+    ":deep(.td.seq-cell.row-bad .seq-num)",
+    ":deep(.warn-low)",
+    ":deep(.warn-short)",
+    ":deep(.cell-err-dot)",
+    ":deep(.cell-dirty-dot)",
+    ":deep(.cell-soft-dot)",
+    ":deep(.name-badges)",
+    ".name-badges :deep(>span)",
+    ":deep(.listadd-badge)",
+    ":deep(.listdel-badge)",
+    ":deep(.warn-badge)",
+    ":deep(.warn-badge.short)",
+    ":deep(.diff-chg)",
+    ":deep(.mini-btn)",
+    ":deep(.edit-tbl .mini-btn)",
+    ":deep(.mini-btn:disabled)",
+    ":deep(.suggest)",
+    ":deep(.delta.up)",
+    ":deep(.delta.down)",
+    ":deep(.spark-td)",
+    ":deep(.spark-td .muted)",
+    ".foot-row :deep( td)",
+    ":deep(.foot-row td.frozen)",
+    ":deep(.loss-badge)",
+    ":deep(.note-badge)",
+    ":deep(.note-badge:hover)",
+    ":deep(.moq-below)",
+    ":deep(.rt-badge)",
+    ":deep(.rt-badge.low)",
+    ":deep(.acc-tbl td.num)",
+    ":deep(.acc-tbl th.num)",
+    ":deep(.hs-badge)",
+    ".cross-tbl.edit-tbl :deep( tbody tr.new-row > td)",
+    ".edit-tbl :deep( tbody tr.new-row > td)",
+    ":deep(.cross-tbl.edit-tbl tbody tr.new-row > td.sel-col)",
+    ":deep(.edit-tbl tbody tr.new-row > td.sel-col)",
+    ".cross-tbl.edit-tbl :deep( tbody tr.new-row:hover > td)",
+    ".edit-tbl :deep( tbody tr.new-row:hover > td)"
+  ]
+}

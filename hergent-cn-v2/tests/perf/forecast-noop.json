@@ -1,0 +1,575 @@
+{
+  "meta": {
+    "browser": "Chrome/155.0.8059.85",
+    "authMode": "session-token(tenant1)",
+    "me": {
+      "tenant": null,
+      "user": null,
+      "role": null
+    },
+    "build": "v651",
+    "density": "compact",
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1
+    },
+    "navTiming": {
+      "domInteractiveMs": 106,
+      "loadMs": 207
+    },
+    "viewDom": {
+      "tr": 47,
+      "td": 1397,
+      "allNodes": 4813
+    },
+    "jseventListeners": 45699,
+    "measuredAt": "2026-10-23T04:48:53.480Z"
+  },
+  "viewScroll": {
+    "fps": 49.2,
+    "maxGapMs": 33.3,
+    "p95GapMs": 33.2,
+    "container": "table-wrap cross-viewport",
+    "rowsRendered": 56
+  },
+  "open": {
+    "button": {
+      "found": true,
+      "disabled": false,
+      "text": "改单"
+    },
+    "ok": true,
+    "wallMs": 1794,
+    "inPageMs": 1794,
+    "cost": {
+      "TaskDuration": 0.981565,
+      "ScriptDuration": 0.001403,
+      "LayoutDuration": 0.072881,
+      "RecalcStyleDuration": 0.06042,
+      "LayoutCount": 7,
+      "RecalcStyleCount": 17,
+      "JSEventListeners": 28704,
+      "Nodes": 71710
+    },
+    "dom": {
+      "tr": 295,
+      "td": 9440,
+      "inputs": 7664,
+      "allNodes": 21450
+    }
+  },
+  "keystroke": {
+    "chars": 10,
+    "perChar": {
+      "taskMs": 148,
+      "scriptMs": 0.2,
+      "layoutMs": 7,
+      "recalcStyleMs": 0.6,
+      "layoutCount": 2.1,
+      "recalcStyleCount": 2.1,
+      "otherMs": 140.2
+    },
+    "latency": {
+      "n": 10,
+      "min": 120.5,
+      "p50": 124.3,
+      "p90": 129,
+      "max": 141
+    },
+    "longtasks": [
+      153,
+      131,
+      132,
+      126,
+      123,
+      133,
+      128,
+      127,
+      127,
+      128
+    ],
+    "dispatchMs": [
+      154,
+      131,
+      132,
+      126,
+      124,
+      134,
+      129,
+      127,
+      127,
+      129
+    ]
+  },
+  "editScroll": {
+    "fps": 51.3,
+    "maxGapMs": 16.8,
+    "p95GapMs": 16.8,
+    "container": "table-wrap edit-grid-wrap",
+    "rowsRendered": 295
+  },
+  "errors": [],
+  "variants": {
+    "no-shadow": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 148.6,
+        "scriptMs": 0.1,
+        "layoutMs": 7.4,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 140.5
+      },
+      "latency": {
+        "n": 8,
+        "min": 118.3,
+        "p50": 122.9,
+        "p90": 125.9,
+        "max": 144
+      },
+      "longtasks": [
+        157,
+        130,
+        129,
+        122,
+        127,
+        123,
+        121,
+        128
+      ],
+      "dispatchMs": [
+        158,
+        131,
+        130,
+        123,
+        127,
+        124,
+        122,
+        128
+      ]
+    },
+    "zoom-off": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 147.5,
+        "scriptMs": 0.1,
+        "layoutMs": 7.3,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 139.6
+      },
+      "latency": {
+        "n": 8,
+        "min": 118.5,
+        "p50": 122.2,
+        "p90": 128.4,
+        "max": 140.3
+      },
+      "longtasks": [
+        152,
+        125,
+        129,
+        127,
+        121,
+        132,
+        125,
+        123
+      ],
+      "dispatchMs": [
+        153,
+        125,
+        130,
+        128,
+        122,
+        133,
+        126,
+        125
+      ]
+    },
+    "sticky-off": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 154.4,
+        "scriptMs": 0.1,
+        "layoutMs": 8.6,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 145.3
+      },
+      "latency": {
+        "n": 8,
+        "min": 118.4,
+        "p50": 120,
+        "p90": 123.8,
+        "max": 143
+      },
+      "longtasks": [
+        159,
+        124,
+        121,
+        123,
+        125,
+        124,
+        127,
+        123
+      ],
+      "dispatchMs": [
+        160,
+        124,
+        122,
+        124,
+        126,
+        124,
+        128,
+        124
+      ]
+    },
+    "content-vis": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 145.4,
+        "scriptMs": 0.1,
+        "layoutMs": 5.7,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 139.2
+      },
+      "latency": {
+        "n": 8,
+        "min": 117.4,
+        "p50": 120,
+        "p90": 126.2,
+        "max": 144.1
+      },
+      "longtasks": [
+        155,
+        128,
+        122,
+        120,
+        125,
+        123,
+        120,
+        129
+      ],
+      "dispatchMs": [
+        157,
+        129,
+        122,
+        120,
+        126,
+        125,
+        121,
+        130
+      ]
+    },
+    "heat-off": {
+      "chars": 8,
+      "perChar": {
+        "taskMs": 146.5,
+        "scriptMs": 0.1,
+        "layoutMs": 6,
+        "recalcStyleMs": 0.5,
+        "layoutCount": 2.1,
+        "recalcStyleCount": 2.1,
+        "otherMs": 139.9
+      },
+      "latency": {
+        "n": 8,
+        "min": 118,
+        "p50": 120.9,
+        "p90": 126.3,
+        "max": 144.8
+      },
+      "longtasks": [
+        156,
+        123,
+        127,
+        123,
+        121,
+        129,
+        124,
+        121
+      ],
+      "dispatchMs": [
+        156,
+        124,
+        128,
+        124,
+        123,
+        130,
+        125,
+        122
+      ]
+    }
+  },
+  "autocompleteOff": {
+    "chars": 8,
+    "perChar": {
+      "taskMs": 146.5,
+      "scriptMs": 0.1,
+      "layoutMs": 6.1,
+      "recalcStyleMs": 0.5,
+      "layoutCount": 2.1,
+      "recalcStyleCount": 2.1,
+      "otherMs": 139.9
+    },
+    "latency": {
+      "n": 8,
+      "min": 117.5,
+      "p50": 120.4,
+      "p90": 128.3,
+      "max": 140
+    },
+    "longtasks": [
+      152,
+      124,
+      122,
+      131,
+      122,
+      125,
+      127,
+      120
+    ],
+    "dispatchMs": [
+      154,
+      125,
+      123,
+      132,
+      123,
+      126,
+      127,
+      121
+    ]
+  },
+  "detachedInput": {
+    "chars": 8,
+    "perChar": {
+      "taskMs": 141.3,
+      "scriptMs": 0.1,
+      "layoutMs": 2.3,
+      "recalcStyleMs": 0.4,
+      "layoutCount": 2.1,
+      "recalcStyleCount": 2.1,
+      "otherMs": 138.5
+    },
+    "latency": {
+      "n": 8,
+      "min": 117.7,
+      "p50": 119,
+      "p90": 125.7,
+      "max": 154.4
+    },
+    "longtasks": [
+      155,
+      121,
+      118,
+      122,
+      119,
+      118,
+      126,
+      119
+    ],
+    "dispatchMs": [
+      156,
+      121,
+      118,
+      123,
+      119,
+      119,
+      126,
+      119
+    ]
+  },
+  "dupInput": {
+    "chars": 6,
+    "perChar": {
+      "taskMs": 16.5,
+      "scriptMs": 1,
+      "layoutMs": 0.1,
+      "recalcStyleMs": 0,
+      "layoutCount": 1,
+      "recalcStyleCount": 0.2,
+      "otherMs": 15.5
+    },
+    "latency": {
+      "n": 6,
+      "min": 0,
+      "p50": 0.1,
+      "p90": 0.2,
+      "max": 0.2
+    },
+    "longtasks": [
+      143
+    ],
+    "dispatchMs": [
+      1,
+      1,
+      1,
+      2,
+      1,
+      2
+    ]
+  },
+  "datalistInfo": {
+    "present": true,
+    "options": 2
+  },
+  "dupWithList": {
+    "chars": 6,
+    "perChar": {
+      "taskMs": 15,
+      "scriptMs": 0.1,
+      "layoutMs": 0.1,
+      "recalcStyleMs": 0,
+      "layoutCount": 1,
+      "recalcStyleCount": 0.2,
+      "otherMs": 14.9
+    },
+    "latency": {
+      "n": 6,
+      "min": 0,
+      "p50": 0.1,
+      "p90": 1.2,
+      "max": 1.4
+    },
+    "longtasks": [
+      71
+    ],
+    "dispatchMs": [
+      1,
+      0,
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "cloneNoListeners": {
+    "chars": 6,
+    "perChar": {
+      "taskMs": 17.3,
+      "scriptMs": 0,
+      "layoutMs": 0.1,
+      "recalcStyleMs": 0.1,
+      "layoutCount": 1.2,
+      "recalcStyleCount": 1.2,
+      "otherMs": 17.1
+    },
+    "latency": {
+      "n": 6,
+      "min": 0,
+      "p50": 0.1,
+      "p90": 0.1,
+      "max": 0.1
+    },
+    "longtasks": [],
+    "dispatchMs": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "cloneWithNoopListener": {
+    "chars": 6,
+    "perChar": {
+      "taskMs": 18.2,
+      "scriptMs": 0.1,
+      "layoutMs": 0.1,
+      "recalcStyleMs": 0.1,
+      "layoutCount": 1.2,
+      "recalcStyleCount": 1.2,
+      "otherMs": 17.9
+    },
+    "latency": {
+      "n": 6,
+      "min": 0,
+      "p50": 0.1,
+      "p90": 0.2,
+      "max": 1.3
+    },
+    "longtasks": [],
+    "dispatchMs": [
+      1,
+      1,
+      1,
+      2,
+      2,
+      1
+    ]
+  },
+  "strippedAttrs": {
+    "chars": 6,
+    "perChar": {
+      "taskMs": 142.3,
+      "scriptMs": 0.1,
+      "layoutMs": 2.4,
+      "recalcStyleMs": 0.4,
+      "layoutCount": 2,
+      "recalcStyleCount": 1.2,
+      "otherMs": 139.4
+    },
+    "latency": {
+      "n": 6,
+      "min": 117.5,
+      "p50": 122,
+      "p90": 129.6,
+      "max": 150.1
+    },
+    "longtasks": [
+      150,
+      129,
+      121,
+      117,
+      124,
+      122
+    ],
+    "dispatchMs": [
+      152,
+      130,
+      122,
+      118,
+      125,
+      122
+    ]
+  },
+  "controlTiny": {
+    "chars": 8,
+    "perChar": {
+      "taskMs": 15,
+      "scriptMs": 0.7,
+      "layoutMs": 0.1,
+      "recalcStyleMs": 0,
+      "layoutCount": 1,
+      "recalcStyleCount": 0.1,
+      "otherMs": 14.2
+    },
+    "latency": {
+      "n": 8,
+      "min": 0.1,
+      "p50": 0.1,
+      "p90": 0.2,
+      "max": 1
+    },
+    "longtasks": [
+      146
+    ],
+    "dispatchMs": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ]
+  }
+}

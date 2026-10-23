@@ -303,7 +303,10 @@ async function abortChangePw() {
   try {
     await fetch('/api/auth/logout', {
       method: 'POST',
-      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {}
+      // P0-4：cookie 模式下 state-changing **必须**带 CSRF（只有 Bearer 才免），
+      //   否则后端直接 403 CSRF_REQUIRED ⇒ 表现为"点了退出却没退出"。
+      headers: auth.csrf ? { 'X-CSRF-Token': auth.csrf } : {},
+      credentials: 'same-origin',
     })
   } catch (e) { /* 忽略网络错误：本地凭证照样清掉 */ }
   auth.token = ''

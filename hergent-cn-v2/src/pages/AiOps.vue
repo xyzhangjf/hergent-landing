@@ -242,8 +242,13 @@ function recipeLabel(k) { return RECIPE_LABELS[k] || k }
 async function loadVersions() {
   verLoading.value = true; verError.value = ''
   try {
-    const d = await api('/api/ai/recipe-versions')
-    const data = (d && d.data) || {}
+      const d = await api('/api/ai/recipe-versions')
+      /* 🔴 v629 修真缺陷（同上）：`api()` 已解包 `data` ⇒ `d` 就是
+         `{loss_recipe:[…], payroll_recipe:[…], forecast_recipe:[…]}`。
+         再取 `d.data` 恒 undefined ⇒ `data` 恒 `{}` ⇒ **配方版本列表永远为空**
+         （不是报错，是"查过了、没有历史版本"这种假象）。
+         已核对后端 recipe_io.py：`return {"success":True,"data":out}` ⇒ 单层即可。 */
+      const data = d || {}
     const out = []
     for (const k of Object.keys(data)) for (const v of (data[k] || [])) out.push(v)
     out.sort((a, b) => b.id - a.id)

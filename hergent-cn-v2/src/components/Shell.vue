@@ -107,6 +107,14 @@
                        列标题置顶 + 列间竖分隔线（样式见 `.sb-pop-col`）。
                        ⚠️ 只多了「列」这一层容器：**判据仍然只有 `canSee(path)` 一处**，
                        空列早已由 `resolveNavItem` 过滤（不会露出空标题）。 -->
+                  <!-- v645 P2：本区「最近打开」（最多 6 个）。
+                       🔴 渲染前先与本区条目求交集并过 `canSee` —— 角色变小后不得露出无权项
+                          （与侧栏同一套判据，不另立名单）。数据存 localStorage，仅本区显示。 -->
+                  <div v-if="recentFor(it).length" class="sb-pop-recent">
+                    <span class="sb-pop-recent-lb">最近打开</span>
+                    <router-link v-for="r in recentFor(it)" :key="r.path" :to="r.path"
+                                 class="sb-pop-recent-chip" @click="onPick(r.path)">{{ r.name }}</router-link>
+                  </div>
                   <div v-for="sg in it.groups" :key="sg.label" class="sb-pop-col">
                     <div v-if="sg.label" class="sb-pop-hd">{{ sg.label }}</div>
                     <!-- v390 · L1「双入口」：一行 = 两个可点区域。
@@ -116,7 +124,20 @@
                     <!-- v395：`key` 必须带上 `q` —— 「自提订单 / 自提退单 / 车销订单 …」
                          是**同一 path、不同 query** 的几条，只按 path 拼 key 会重复。 -->
                     <div v-for="x in sg.items" :key="x.path + (x.tab || '') + (x.q ? JSON.stringify(x.q) : '')" class="sb-pop-row">
-                      <router-link :to="navTo({ path: x.path, tab: x.tab, q: x.q })" class="sb-pop-item" :class="{cur: isCur(x)}" @click="areaClose"><Icon :name="x.icon" :size="15" /><span>{{ x.name }}</span></router-link>
+                      <router-link :to="navTo({ path: x.path, tab: x.tab, q: x.q })" class="sb-pop-item" :class="{cur: isCur(x)}" @click="onPick(x.path)"><Icon :name="x.icon" :size="15" /><span>{{ x.name }}</span>
+                        <!-- v645 P2：已打开标记（读 useTabs，与标签栏同源）—— 避免重复开同一张表。 -->
+                        <i v-if="isTabOpen(x.path)" class="sb-pop-dot" title="已打开" aria-label="已打开"></i>
+                      </router-link>
+                      <!-- v640（2026-10-22）：借鉴舟谱「弹窗内汇总行直接挂明细入口 + 状态标签」。
+                           ① `x.drill`（明细）：与舟谱「明细」次级入口同形态 —— 点开对应明细报表，
+                              一步从汇总下钻到明细，不用另去侧栏找。仅当目标页真实存在才配，
+                              绝不挂空链接（未接通的行保持纯汇总，避免死链）。
+                           ② `x.badge`（状态标签）：与舟谱「可催收」同形态 —— 在入口层就提示"有事要做"。
+                              tone=danger 沿用舟谱红（这是逾期催收状态、非股价涨跌，红=紧急合理）；
+                              其余场景默认 warn（琥珀）以防与 A 股红涨惯例混淆。 -->
+                      <span v-if="badgeOf(x)" class="sb-pop-badge" :class="'tone-' + (badgeOf(x).tone || 'warn')">{{ badgeOf(x).text }}</span>
+                      <router-link v-if="x.drill" :to="navTo({ path: x.drill })" class="sb-pop-drill"
+                                   :title="'查看『' + x.name + '』明细'" :aria-label="'查看『' + x.name + '』明细'" @click="onPick(x.drill)">明细</router-link>
                       <router-link v-if="x.create" :to="navTo(x.create.to)" class="sb-pop-new"
                                    :title="x.create.title || ('新建' + x.name)"
                                    :aria-label="x.create.title || ('新建' + x.name)" @click="areaClose"><Icon name="plus" :size="13" /><span>创建</span></router-link>
@@ -602,6 +623,11 @@ const NAV = [
         { path: '/funds/qty-cost',      name: '数量成本价',   icon: 'list' },
         { path: '/funds/cost-adjust',   name: '成本调价单',   icon: 'edit' },
         { path: '/funds/cost-abnormal', name: '成本异常调整', icon: 'alert' }
+      ] },
+      { label: '发票管理', items: [
+        { path: '/invoice/sales',    name: '销项发票台账', icon: 'file-text' },
+        { path: '/invoice/purchase', name: '进项发票台账', icon: 'file-text' },
+        { path: '/invoice/config',   name: '开票配置',     icon: 'settings' }
       ] }
     ]
   },
@@ -663,7 +689,9 @@ const NAV = [
         { path: '/mkt/lend',       name: '借货单',   icon: 'undo' },
         { path: '/mkt/return-goods', name: '还货单', icon: 'redo' },
         { path: '/mkt/writeoff',   name: '市场核销', icon: 'check' },
-        { path: '/mkt/inspection', name: '市场检验', icon: 'alert' }
+        { path: '/mkt/inspection', name: '市场检验', icon: 'alert' },
+        /* v638（P2 市场区收口）：拜访计划落真身（复用 /api/reports/mkt-visit-plans），补侧栏锚点。 */
+        { path: '/mkt/visit-plan', name: '拜访计划', icon: 'calendar' }
       ] },
       { label: '合约管理', items: [
         { path: '/mkt/presale-order',      name: '预订订货单',     icon: 'list' },
@@ -746,21 +774,32 @@ const NAV = [
     key: 'reports', name: '数据报表', icon: 'bar-chart', path: '/reports/sales-order',
     groups: [
       { label: '业财报表', items: [
-        { path: '/reports/sales-order',  name: '销售订单汇总表',   icon: 'list' },
-        { path: '/reports/purchase',     name: '采购汇总表',       icon: 'list' },
-        { path: '/reports/transfer',     name: '调拨汇总表',       icon: 'list' },
+        /* v640b：汇总行挂「明细」drill（与舟谱同形态），指向同源明细页。
+           🔴 不另设同名独立行 —— 否则同一明细页出现「徽标 + 独立行」两个入口（用户实测指出）。
+           舟谱的「采购待入库明细表」这类独立行是**不同**报表，才留独立入口；本组 3 张明细
+           与汇总同源同义，只保留徽标入口，明细页仍可经 drill 直达、URL 深链可达。 */
+        { path: '/reports/sales-order',  name: '销售订单汇总表',   icon: 'list', drill: '/reports/sales-detail' },
+        { path: '/reports/purchase',     name: '采购汇总表',       icon: 'list', drill: '/reports/purchase-detail' },
+        { path: '/reports/transfer',     name: '调拨汇总表',       icon: 'list', drill: '/reports/transfer-detail' },
         { path: '/reports/other-inout',  name: '其他出入库汇总表', icon: 'list' },
         { path: '/reports/summary',      name: '汇总报表',         icon: 'bars' }
       ] },
       { label: '往来报表', items: [
+        /* v640（2026-10-22）：借鉴舟谱「汇总行挂明细 + 状态标签」（应收汇总 → 账龄汇总表
+           是同组内已有真页 /reports/ageing，故不挂 drill，避免两个入口）。
+           v649：「可催收」徽标改为**动态待办数** —— 由 /api/reports/badges 给真实逾期笔数，
+           与账龄表同源（db.get_ar_aging）。
+           🔴 不再写死静态文案：0 笔逾期时还挂着「可催收」是在骗人，所以 count=0 就不显示。 */
         { path: '/reports/ar-summary',      name: '应收账款汇总表', icon: 'list' },
         { path: '/reports/ageing',          name: '账龄汇总表',     icon: 'clock' },
         { path: '/funds/customer-statement', name: '客户对账单',    icon: 'list' },
         { path: '/reports/other-receivable', name: '其他应收汇总表', icon: 'list' },
+        /* 费用使用记录已是组内独立行（/reports/fee-usage），故汇总行不再挂同名 drill，避免两个入口。 */
         { path: '/reports/fee-summary',     name: '费用单汇总表',   icon: 'list' },
         { path: '/reports/income-summary',  name: '收入汇总表',     icon: 'list' }
       ] },
       { label: '资金报表', items: [
+        /* 账户收支明细已是组内独立行（/reports/account-flow），故余额表不再挂同名 drill，避免两个入口。 */
         { path: '/funds/balance',         name: '资金余额表',   icon: 'bars' },
         { path: '/reports/account-flow',  name: '账户收支明细', icon: 'list' },
         { path: '/reports/online-receipt', name: '线上收款流水', icon: 'smartphone' },
@@ -881,7 +920,21 @@ const NAV = [
         { path: '/connect', tab: 'datasource', name: '数据台账',   icon: 'list' },
         { path: '/connect', tab: 'mcp',        name: 'MCP 连接',   icon: 'link' }
       ] },
-      { label: '自动化', items: [ { path: '/cron', name: '定时任务', icon: 'clock' } ] },
+      /* v637（P2 开放API）：租户级 API 令牌控制台 —— 与「连接与集成」同属对外打通能力。
+         入口唯一源 = `canSee(path)` → `pages.js`（本组不补 v-if）；pages.js 该行
+         `module:null + roles:BOSS_ROLES + lock:true` 与后端 `_auth` 守卫一致。 */
+      { label: '开放接口', items: [
+        { path: '/openapi/console', name: '开放API 控制台', icon: 'code' }
+      ] },
+      { label: '自动化', items: [
+        { path: '/cron', name: '定时任务', icon: 'clock' },
+        // v633（2026-10-22 P1-4）：**告警规则** —— 与「定时任务」同属系统自动化。
+        //   🔴 可见性唯一源 = `canSee(path)` → `pages.js`（本组**不补任何 v-if**，v291 纪律）。
+        //      本行在 `pages.js` 是 `module:'cron' + roles:ADMIN_ROLES + lock:true`
+        //      ⇒ 与后端 8 个端点的 `_admin` 守卫逐项一致（不会造出「入口在、点进去 403」）。
+        //   ⚠️ 图标名必须在 `Icon.vue` 真实存在（写错会静默变齿轮）—— `bell` 已核。
+        { path: '/alerts', name: '告警规则', icon: 'bell' }
+      ] },
       // v427：「设置」同样拆成 5 个独立子页（与上方同源）。
       // v474：「权限管理」已**移出本组** → 「档案管理 › 组织相关 › 角色权限」（见上方该条注释）。
       // ⚠️ 这里只剩 4 项，但 `tabTitles.js` 的 `SUB_TITLES['/settings']` 仍**保留 `perm` 键** ——
@@ -1088,7 +1141,15 @@ function _placePop(ev) {
      这里按「到视口右边缘还剩多少」给一个上限（留 24px 余量）：列数多到放不下时，
      由 `.sb-pop` 的 `flex-wrap` 折行，绝不把列挤没或溢出屏幕。 */
   const maxW = Math.max(280, window.innerWidth - r.right - 24)
-  popStyle.value = { top: (r.top - 6) + 'px', left: (r.right + 8) + 'px', maxWidth: maxW + 'px' }
+  /* v643：补**纵向**夹取（改之前只算了宽度 ⇒ 列长的区在小屏会溢出屏底、且无法滚动）。
+     逻辑与横向同构：先算 top（最小 8px 贴边保护），再用「视口底 − top − 16px 余量」给
+     高度上限，配 `.sb-pop{overflow-y:auto}` ⇒ 内容超长时弹窗**内部滚动**，永不溢出视口。 */
+  const top = Math.max(8, r.top - 6)
+  const maxH = Math.max(160, window.innerHeight - top - 16)
+  popStyle.value = {
+    top: top + 'px', left: (r.right + 8) + 'px',
+    maxWidth: maxW + 'px', maxHeight: maxH + 'px',
+  }
 }
 
 function areaKeep() {
@@ -1114,6 +1175,79 @@ function areaClose() {
   if (_closeTimer) { clearTimeout(_closeTimer); _closeTimer = null }
   pinnedArea.value = ''
   openArea.value = ''
+}
+
+/* ---------------------------------------------------------------------------
+   v645 P2：弹窗手感三件套 —— 最近打开 / 已打开标记 / 键盘可达
+   --------------------------------------------------------------------------- */
+const RECENT_KEY = 'hergent_recent_pages'
+const recents = ref([])
+try { recents.value = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch (_) { recents.value = [] }
+
+/** 记录一次访问（最多 12 条，去重后最新的在前）。写失败（隐私模式）不影响使用。 */
+function pushRecent(path) {
+  if (!path) return
+  const arr = recents.value.filter((p) => p !== path)
+  arr.unshift(path)
+  recents.value = arr.slice(0, 12)
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recents.value)) } catch (_) { /* 忽略 */ }
+}
+/** 本区「最近打开」：与本区条目求交集 ⇒ 只显示属于本区的、且当前角色仍有权访问的。 */
+function recentFor(it) {
+  if (!it || !it.groups) return []
+  const items = it.groups.flatMap((g) => g.items)
+  const out = []
+  for (const p of recents.value) {
+    if (out.length >= 6) break
+    if (!canSee(p)) continue                      // 🔴 判据与侧栏同源，不另立名单
+    const hit = items.find((x) => x.path === p)
+    if (hit) out.push({ path: p, name: hit.name })
+  }
+  return out
+}
+/** 点击弹窗条目：记最近 + 收起（收起行为与原来一致）。 */
+function onPick(path) {
+  pushRecent(path)
+  areaClose()
+}
+/** 该页面是否已在标签栏打开（读 useTabs，与 TabBar 同一份状态）。 */
+function isTabOpen(path) {
+  return tabs.value.some((t) => t.path === path)
+}
+
+/* v649：徽标的**动态待办数**（后端 /api/reports/badges，与对应报表同源）。
+   🔴 取不到就不显示（回落 NAV 里的静态 badge 或隐藏），绝不显示一个"永远不变"的假数。 */
+const badges = ref({})
+function badgeOf(x) {
+  return badges.value[x.path] || x.badge || null
+}
+async function loadBadges() {
+  try {
+    const d = await api('/api/reports/badges', { silent401: true })
+    const m = (d && d.badges) || {}
+    // count 为 0 ⇒ 没有待办 ⇒ 不显示徽标（"可催收 0"是噪音）
+    const out = {}
+    for (const k of Object.keys(m)) {
+      const b = m[k]
+      if (b && Number(b.count) > 0) out[k] = b
+    }
+    badges.value = out
+  } catch (_) {
+    badges.value = {}
+  }
+}
+/** 弹窗内条目（供方向键导航用）。弹窗 Teleport 到 body ⇒ 需按 class 查询。 */
+function _popItems() {
+  const pop = document.querySelector('.sb-pop')
+  return pop ? Array.from(pop.querySelectorAll('.sb-pop-item')) : []
+}
+/** 方向键在当前弹窗条目间移动焦点；Enter 由浏览器默认的链接行为接管。 */
+function _moveFocus(step) {
+  const items = _popItems()
+  if (!items.length) return
+  const cur = items.indexOf(document.activeElement)
+  const next = cur < 0 ? (step > 0 ? 0 : items.length - 1) : (cur + step + items.length) % items.length
+  items[next].focus()
 }
 /* v388：弹窗的「跟随收起」两处 `watch` 见下方（必须写在 `useRoute()` **之后**）：
    `const route` 有 TDZ，提前引用会 `ReferenceError`。 */
@@ -1297,15 +1431,20 @@ onBeforeUnmount(() => { if (notiTimer) clearInterval(notiTimer) })
       合并会让"通知失败"和"权限失败"互相拖累，也会让任一个的改动都要重算另一个。
 --------------------------------------------------------------------------- */
 let permsTimer = null
+let badgeTimer = null   // v649：徽标待办数刷新定时器
 function onVisibilityCheck() {
   if (document.visibilityState === 'visible') store.refreshPermsIfChanged(true)
 }
 onMounted(() => {
   permsTimer = setInterval(() => store.refreshPermsIfChanged(true), 60000)
   document.addEventListener('visibilitychange', onVisibilityCheck)
+  // v649：入口徽标的待办数。首屏拉一次 + 每 10 分钟刷新（应收状态一天内会变）。
+  loadBadges()
+  badgeTimer = setInterval(loadBadges, 600000)
 })
 onBeforeUnmount(() => {
   if (permsTimer) clearInterval(permsTimer)
+  if (badgeTimer) clearInterval(badgeTimer)
   document.removeEventListener('visibilitychange', onVisibilityCheck)
 })
 
@@ -1391,6 +1530,18 @@ function onKeydown(e) {
     e.preventDefault()
     if (e.shiftKey) cmdOpen.value = true
     else store.ui.copilotOpen = !store.ui.copilotOpen
+  }
+  /* v645 P2：弹窗打开时的键盘操作 —— Esc 收起、↑↓ 在条目间移焦点。
+     🔴 为什么必须补：弹窗此前**只能靠鼠标**（Tab 能进但没法遍历方向、也没有 Esc），
+        键盘用户/触控板用户在弹窗里"卡住"只能移开鼠标等 180ms 延时收起。 */
+  if (e.key === 'Escape' && openArea.value) {
+    e.preventDefault()
+    areaClose()
+    return
+  }
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && openArea.value) {
+    e.preventDefault()
+    _moveFocus(e.key === 'ArrowDown' ? 1 : -1)
   }
 }
 
@@ -1529,6 +1680,9 @@ function stopResize() {
 .sb-pop{position:fixed;min-width:168px;display:flex;align-items:flex-start;flex-wrap:wrap;
   background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
   border:1px solid var(--bd);border-radius:12px;padding:6px;z-index:30;
+  /* v643：`maxHeight` 由 `_placePop` 按视口算好 ⇒ 内容超长时在弹窗**内部滚动**，
+     不再溢出屏幕底部（改之前无高度约束，长列会被截断且无法滚到）。 */
+  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   box-shadow:0 8px 24px rgba(0,0,0,.12)}
 /* 一个分组 = 一列。列宽自适应：`min-width` 保底、`max-width` 防某列过长，
    条目名字长的列自然更宽（同舟谱「设置」弹窗各列宽窄不一）。 */
@@ -1556,6 +1710,26 @@ function stopResize() {
   background:var(--p-bg);color:var(--p-dark);text-decoration:none;font-size:12px;
   white-space:nowrap;transition:all .15s}
 .sb-pop-new:hover{background:var(--p);color:#fff}
+/* v640（2026-10-22）：借鉴舟谱弹窗内「明细」次级入口 + 状态标签。
+   两者都 `flex-shrink:0` 右对齐（行内 `.sb-pop-item` 是 `flex:1` 吃掉剩余宽度）；
+   与 `.sb-pop-new`（L1 双入口右半区）同一套版式语言。 */
+.sb-pop-drill{font-size:11px;line-height:1;padding:3px 7px;border-radius:6px;
+  background:var(--p-bg);color:var(--p-dark);text-decoration:none;flex-shrink:0;white-space:nowrap;transition:all .15s}
+.sb-pop-drill:hover{background:var(--p);color:#fff}
+.sb-pop-badge{font-size:11px;line-height:1;padding:2px 6px;border-radius:6px;white-space:nowrap;flex-shrink:0}
+.sb-pop-badge.tone-warn{background:#fff4e5;color:#b45309}
+.sb-pop-badge.tone-danger{background:#fde8e8;color:#c0392b}
+.sb-pop-badge.tone-info{background:var(--p-bg);color:var(--p-dark)}
+/* v645 P2：最近打开（弹窗顶部一行 chip）+ 已打开小圆点。 */
+.sb-pop-recent{display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:4px 8px 8px;margin:2px 0 6px;border-bottom:1px solid var(--bd);width:100%}
+.sb-pop-recent-lb{font-size:11px;color:var(--t3);letter-spacing:.5px;flex-shrink:0}
+.sb-pop-recent-chip{font-size:12px;padding:3px 8px;border-radius:999px;background:var(--bg);
+  color:var(--t2);text-decoration:none;white-space:nowrap;max-width:160px;overflow:hidden;
+  text-overflow:ellipsis;transition:all .15s}
+.sb-pop-recent-chip:hover{background:var(--p-bg);color:var(--p-dark)}
+/* 已打开：条目名右侧一个小圆点（不占额外行高，避免改动行节奏）。 */
+.sb-pop-dot{width:5px;height:5px;border-radius:50%;background:var(--p);flex-shrink:0;margin-left:auto}
 
 .md-group-hd{font-size:11px;font-weight:500;color:var(--t3);padding:14px 20px 4px;letter-spacing:.8px}
 

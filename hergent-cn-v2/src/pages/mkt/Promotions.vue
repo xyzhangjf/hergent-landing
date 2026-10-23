@@ -57,7 +57,10 @@
                 <td class="pm-op">
                   <button class="btn-row-ic" title="编辑" @click="openEdit(p)"><Icon name="edit" :size="14" /></button>
                   <button class="btn-row-ic" :title="p.is_active ? '停用' : '启用'" @click="doToggle(p)">
-                    <Icon :name="p.is_active ? 'pause' : 'play'" :size="14" />
+                    <!-- 🔴 v633 修：原为 `pause`/`play`，但 `Icon.vue` 里**这两个名字不存在**
+                         ⇒ 兜底成 `ICONS.settings`（齿轮）⇒ 启停按钮一直显示成齿轮（静默假象）。
+                         改用真实存在的 `eye-off`/`eye`（已核 Icon.vue 清单）。 -->
+                    <Icon :name="p.is_active ? 'eye-off' : 'eye'" :size="14" />
                   </button>
                   <button class="btn-row-ic danger" title="删除" @click="doRemove(p)"><Icon name="trash" :size="14" /></button>
                 </td>

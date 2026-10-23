@@ -10,11 +10,22 @@
       scoped 父组件的 data-v 只打在子组件根元素上，样式必须一起搬。 */
 import { ref, computed, watch, onMounted } from 'vue'
 import { productTargetsApi } from '../../api/modules'
-import { fmt } from '../../utils/forecast/format.js'
+/* 🔴 v629 补 `parseNumInput`：本文件 `_allocNum()` 一直在调它，却**从未 import**
+   （抽离时漏带）⇒ 弹窗一渲染数字就抛 `parseNumInput is not defined`，
+   被 ErrorBoundary 吞掉 ⇒ 弹窗空白 / 数字全 NaN。构建不报错，只有真机点开才现形。
+   与父级 `_allocPid()` 同一类：**引用了本文件没有的标识符**。 */
+import { fmt, parseNumInput } from '../../utils/forecast/format.js'
 import { toast } from '../../store'
 import Icon from '../Icon.vue'
 
 const props = defineProps({
+  /* 🔴 v629 修真缺陷：模板写的是 `<div v-if="open" class="imp-modal alloc-modal">`，
+     而 `open` **一直没在 defineProps 里声明** —— 父级 `:open="allocOpen"` 传下来后
+     落进 `$attrs`（inheritAttrs 默认开），模板里的裸 `open` 却解析成 **undefined**
+     ⇒ 弹窗**永远不渲染**：点了「分摊」没弹窗、没 toast、没报错（生产构建连
+     dev warning 都没有）。同类第三例（前两例：父级 `_allocPid()`、本文件漏 import
+     `parseNumInput`）—— 都是「引用了本文件不存在的标识符」。 */
+  open:         { type: Boolean,  default: false },
   cross:        { type: Object,   default: null },
   row:          { type: Object,   default: null },   // = 父级 allocRow（本次要分摊的编辑态行）
   ptAlloc:      { type: Object,   default: null },   // product_id → extra-alloc item（预留）
@@ -69,15 +80,19 @@ let _allocTimer = null
    故：输入期只做全角折算 + 存原串；**离开这一格（@change）**才收敛成数字并触发联动。 */
 const _r3 = (v) => Math.round((Number(v) || 0) * 1000) / 1000
 const _r2 = (v) => Math.round((Number(v) || 0) * 100) / 100
-const _allocPid = () => Number((props.cross.value && props.cross.value.period && props.cross.value.period.id) || 0)
+/* 🔴 v629 修真缺陷：原文是 `props.cross.value` —— **prop 到手时已被 Vue 解包**
+   （父模板里 `:cross="cross"` 的 `cross` 是 ref，渲染时就脱壳成 `{period,rows,…}` 对象）。
+   于是 `props.cross.value` 恒为 undefined ⇒ `_allocPid()` 恒 0 ⇒ `loadAllocSetup`
+   在「期次为空」那一行静默 return ⇒ **弹窗永远停在「正在读取分摊依据…」**。
+   本组件所有 `props.row` / `props.cross` 同理，一律**直接当对象用**。 */
+const _allocPid = () => Number((props.cross && props.cross.period && props.cross.period.id) || 0)
 
-function allocRowRef(r) {
-  // 模板里的 `r` 就是 `cross.rows` 的元素（编辑态唯一实例）⇒ 一般直接可用；
-  // 这里再按 product_id 定一次位，避免"传进来的其实是只读表那份副本"时把值写丢。
-  const pid = Number(r && r.product_id)
-  const rows = (props.cross.value && props.cross.value.rows) || []
-  return rows.find(x => Number(x.product_id) === pid) || r
-}
+/* ⚠️ 这里**曾**有个 allocRowRef(r)：按 product_id 回查 cross.rows 再返回。
+   它在本组件内从未被调用，却让父级 Forecast.vue 误以为可以 `openAlloc(allocRowRef(r))`
+   ⇒ 点了「分摊」直接抛 allocRowRef is not defined（构建不报错、运行时静默失效）。
+   2026-10-22 已删：父级直接传 v-for 的 r（本就是编辑态唯一实例），
+   且按 product_id 回查在**同品多行**时会命中错行 —— 比不查更糟。
+   本组件读行一律用 props.row（**不加 .value**，见 `_allocPid` 处注释）。 */
 
 function syncAllocAllocsFromRows() {
   const m = {}
@@ -108,7 +123,8 @@ async function runAllocPreview() {
       ratios,
     })
     if (seq !== _allocSeq) return              // 过期响应直接丢弃（连点/连改会并发多个请求）
-    const dd = (d && d.data) || null
+    // 同上：api() 已解包一层，`d` 就是 {rows,summary,ratio_total,…}，不要再取 `.data`
+    const dd = d || null
     allocRows.value = (dd && dd.rows) || []
     allocSummary.value = (dd && dd.summary) || null
     allocRatioTotal.value = dd ? Number(dd.ratio_total) : 0
@@ -132,7 +148,7 @@ function allocPreviewSoon() {
 
 /* 打开后的数据加载：父级 openAlloc 校验通过、allocOpen=true 挂载本组件时触发 */
 async function loadAllocSetup() {
-  const row = props.row.value
+  const row = props.row          // 见 `_allocPid` 处注释：prop 已解包，不要再 `.value`
   if (!row) return
   const pid = Number(row.product_id) || 0
   const periodId = _allocPid()
@@ -154,8 +170,14 @@ async function loadAllocSetup() {
   try {
     const d = await productTargetsApi.extraAllocSetup(periodId, pid)
     // 期间用户可能关了、或又点了别的商品 ⇒ 只在"还是这一个商品"时才落盘
-    if (!props.open.value || !props.row.value || Number(props.row.value.product_id) !== pid) return
-    const data = (d && d.data) || null
+    if (!props.open || !props.row || Number(props.row.product_id) !== pid) return
+    /* 🔴 v629 修真缺陷（第五例）：**不能**再写 `(d && d.data)`。
+       `api()`（src/api/client.js）末尾已经做过 `return data.data !== undefined ? data.data : data`
+       ⇒ 到这里的 `d` **就是** data 本体（`{period,product,target,members,…}`）。
+       再解一次 `.data` ⇒ 恒 undefined ⇒ allocSetup 恒 null ⇒ 弹窗永远停在
+       「正在读取分摊依据…」，且**零报错**（catch 不触发、finally 正常收尾）。
+       参照同文件 `avgTarget` 的正确写法：拿到 d 直接 `d.items`。 */
+    const data = d || null
     allocSetup.value = data
     if (data) {
       // 总量的初值：优先用接口给的"经理填的"（本行可能还没进编辑），否则用本行当前值
@@ -291,7 +313,7 @@ function allocAllocNum(eid) {
 
 /* 应用：① 比例写目标档案（全期生效，仅在改动时写）② 加单量回填本行（仍随「保存」落库） */
 async function applyAlloc() {
-  const data = allocSetup.value, row = props.row.value
+  const data = allocSetup.value, row = props.row
   if (!data || !row || allocBusy.value) return
   if (allocRatioOk.value !== true) {
     toast(`占比合计 ${fmt(allocRatioTotal.value)}%，必须等于 100% 才能应用到目标档案`, 'warn'); return

@@ -45,7 +45,13 @@ async function loadCloseDetail(pid) {
   if (Number(pid) <= 0) return
   try {
     const d = await productTargetsApi.extraAlloc(pid)
-    const src = (d && d.data && d.data.items) || {}
+    /* 🔴 v629 修真缺陷（同 AllocPanel 第五例）：`api()` 已把 `{success,data}` 解包，
+       这里的 `d` 就是 `{period, items, caliber}` 本体 —— **不能再取 `d.data`**。
+       原写法恒 `{}` ⇒ 关闭期次确认弹窗里的「定稿推送明细」**永远空**（一行都没有），
+       而后端关闭时是**按真实数据**推的 —— 恰好是上面注释最怕的
+       「弹窗说的和实际发的是两个数」，只是方向反过来（弹窗说 0 条、实际发了 N 条）。
+       已核对后端 product_targets.py：`return {"success":True,"data":{...items...}}` ⇒ 单层。 */
+    const src = (d && d.items) || {}
     const items = []
     const seen = new Set()
     Object.keys(src).forEach(k => {

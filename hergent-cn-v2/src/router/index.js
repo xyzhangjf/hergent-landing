@@ -11,6 +11,8 @@ import { createRouter, createWebHashHistory } from 'vue-router'
       而 store/index.js 用的是 `useAppStore(pinia)`（显式传实例）⇒ 不依赖"当前 active pinia"，
       在 app 挂载前被求值也没问题。 */
 import { store } from '../store'
+// P0-4：登录态判据（原本读 localStorage 里的 token，现已移入 httpOnly cookie，JS 不可见）
+import { auth } from '../api/client'
 /* v291（2026-09-27）：「哪些角色能进哪些页」已收敛到 `constants/pages.js` 的**页面注册表**。
    本文件不再自己写判据 —— 侧栏 / 命令面板 / 守卫 / 页内跳转读的是同一份表。
    （旧写法是各页 `meta.roles` 自己带名单，只有 1 个页面填了。见文件末尾守卫处注释。） */
@@ -59,10 +61,63 @@ const ReportsGrossProfit = () => import('../pages/reports/GrossProfit.vue')
    生产促销活动 0 条 ⇒ 活动区为诚实空态。三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）
    缺一不可；路由条目必须排在下方 `PLACEHOLDER_PAGES.map` 之前（静态段先者胜）。 */
 const ReportsPromoRoi = () => import('../pages/reports/PromoRoi.vue')
+/* v634（2026-10-22 P2-1 经营报表分析）：6 张报表页落真身。独立真组件，不在 PLACEHOLDER_PAGES。
+   数据分别读 /api/reports/sales、/api/reports/purchase-summary、/api/reports/transfer-summary、
+   /api/reports/ar-summary、/api/reports/customer-profitability、/api/reports/sales-leaderboard。
+   三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏 NAV）缺一不可；均排在 PLACEHOLDER_PAGES.map 之前。 */
+const ReportsSalesOrder = () => import('../pages/reports/SalesOrderSummary.vue')
+const ReportsPurchase = () => import('../pages/reports/PurchaseSummary.vue')
+const ReportsTransfer = () => import('../pages/reports/TransferSummary.vue')
+/* v640b：三张明细报表页（与汇总同源，drill 下钻目标）。三处登记缺一不可。 */
+const ReportsSalesDetail = () => import('../pages/reports/SalesDetail.vue')
+const ReportsPurchaseDetail = () => import('../pages/reports/PurchaseDetail.vue')
+const ReportsTransferDetail = () => import('../pages/reports/TransferDetail.vue')
+const ReportsArSummary = () => import('../pages/reports/ArSummary.vue')
+const ReportsCustomerProfit = () => import('../pages/reports/CustomerProfit.vue')
+const ReportsStaffProfit = () => import('../pages/reports/StaffProfit.vue')
+/* v635（2026-10-22 P2-1 批次2）：5 张分析类报表页落真身。复用现有 BI 引擎（/api/bi/pivot、/api/bi/top），
+   不新造后端端点；三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）缺一不可。 */
+const ReportsSummary = () => import('../pages/reports/SummaryReport.vue')
+const ReportsGoodsSales = () => import('../pages/reports/GoodsSales.vue')
+const ReportsCustomerRank = () => import('../pages/reports/CustomerRank.vue')
+const ReportsCustomerProfitAnalysis = () => import('../pages/reports/CustomerProfitAnalysis.vue')
+const ReportsCompanyProfit = () => import('../pages/reports/CompanyProfit.vue')
+/* v636（2026-10-22 P2-1 批次4+3）：剩余 18 张报表页落真身。批次4 各自新增只读端点；
+   批次3（预订货/物料/库存上报/个性化）为诚实空态组件，无后端端点。三处登记缺一不可。 */
+const ReportsOtherInout = () => import('../pages/reports/OtherInout.vue')
+const ReportsOtherReceivable = () => import('../pages/reports/OtherReceivable.vue')
+const ReportsFeeSummary = () => import('../pages/reports/FeeSummary.vue')
+const ReportsIncomeSummary = () => import('../pages/reports/IncomeSummary.vue')
+const ReportsAccountFlow = () => import('../pages/reports/AccountFlow.vue')
+const ReportsOnlineReceipt = () => import('../pages/reports/OnlineReceipt.vue')
+const ReportsReceiptDetail = () => import('../pages/reports/ReceiptDetail.vue')
+const ReportsPaymentDetail = () => import('../pages/reports/PaymentDetail.vue')
+const ReportsPresaleGoods = () => import('../pages/reports/PresaleGoods.vue')
+const ReportsPresaleOrders = () => import('../pages/reports/PresaleOrders.vue')
+const ReportsFeeUsage = () => import('../pages/reports/FeeUsage.vue')
+const ReportsMaterialData = () => import('../pages/reports/MaterialData.vue')
+const ReportsMaterialUsage = () => import('../pages/reports/MaterialUsage.vue')
+const ReportsAttendance = () => import('../pages/reports/Attendance.vue')
+const ReportsVisitLog = () => import('../pages/reports/VisitLog.vue')
+const ReportsVisitAchv = () => import('../pages/reports/VisitAchv.vue')
+const ReportsStockUpload = () => import('../pages/reports/StockUpload.vue')
+const ReportsPersonalReport = () => import('../pages/reports/PersonalReport.vue')
+
+/* v637（P2 数电票 / 开放API）：销项/进项发票台账 + 开票配置 + 开放API 控制台 */
+const InvoiceSales = () => import('../pages/reports/InvoiceSales.vue')
+const InvoicePurchase = () => import('../pages/reports/InvoicePurchase.vue')
+const InvoiceConfig = () => import('../pages/reports/InvoiceConfig.vue')
+const OpenApiConsole = () => import('../pages/reports/OpenApiConsole.vue')
 /* v537（2026-10-17 P2-1 二期）：**买赠活动管理落真身**。独立真组件，不在 PLACEHOLDER_PAGES。
    数据读 GET/POST/PUT/DELETE /api/promotions（后端 crm.py：读归 `sales` 模块门、写挂 `_admin`）。
    三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）缺一不可。 */
 const MktPromotions = () => import('../pages/mkt/Promotions.vue')
+/* v638（P2 市场区收口）：订货模板 / 拜访计划 落真身 + 16 张诚实空态（含 supplier-rebate-calc，
+   v499 撤入口留门禁）。3 个组件；真实列表页复用了 reports 区的只读端点（/api/reports/mkt-*），
+   诚实空态页用通用 MktPlaceholder（读 route.meta.title 显示模块名，绝不编造）。 */
+const MktOrderTemplate = () => import('../pages/reports/OrderTemplate.vue')
+const MktVisitPlan = () => import('../pages/reports/VisitPlan.vue')
+const MktPlaceholder = () => import('../pages/reports/MktPlaceholder.vue')
 /* v465c（2026-10-11 仓配管理 P0）：库存查询三页**落真身** —— 从 `PLACEHOLDER_PAGES`
    移出、改为独立组件（对齐「落真身四步」，见 docs/仓配模块开发规范.md）。 */
 const WhExpiryReport = () => import('../pages/wh/ExpiryReport.vue')
@@ -91,6 +146,9 @@ const WhDeliveryOrder = () => import('../pages/wh/DeliveryOrder.vue')
 const WhDriverBoard = () => import('../pages/wh/DriverBoard.vue')
 const WhRouteSetup = () => import('../pages/wh/RouteSetup.vue')
 const CronJobs = () => import('../pages/CronJobs.vue')
+/* v633（2026-10-22 P1-4）：**告警规则** —— 系统级监控规则的管理页（新建/改/删/启停 + 告警历史）。
+   与「定时任务」同属「系统 › 自动化」区。懒加载，与其余页面一致。 */
+const AlertRules = () => import('../pages/AlertRules.vue')
 const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
 const AiHub = () => import('../pages/AiHub.vue')
@@ -232,6 +290,12 @@ export const router = createRouter({
           ]
         },
         { path: 'cron', component: CronJobs, meta: { title: '定时任务' } },
+        /* v633（2026-10-22 P1-4）：**告警规则落真身** —— 与「定时任务」同属「系统 › 自动化」。
+           数据读 `GET /api/alerts/rules`（+ `/api/alerts/metrics` 指标目录 + `/api/alerts/history` 历史）。
+           🔴 后端 8 个端点**全部**挂 `_admin`（role∈admin/boss）⇒ 非管理岗拿不到数据。
+           🔴 三处登记（本路由 + `pages.js::PAGE_RULES` + `Shell.vue` 侧栏）缺一不可，
+              否则出现「入口在、点进去 403」或「深链能进、侧栏没入口」两类假象。 */
+        { path: 'alerts', component: AlertRules, meta: { title: '告警规则' } },
         // v311（2026-09-28）：「AI 中心」并入「AI 引擎」当第 5 个页签（侧栏不再单列）。
         //   ⚠️ 路由**保留为活的**，不做 redirect —— 与本仓 `/roles`（AI 团队）同构：
         //      有路由、无侧栏项、靠容器页签进入。副驾 `CopilotDrawer` 有 `drillTo('#/ai-hub')`、
@@ -349,10 +413,78 @@ export const router = createRouter({
            故此条是它唯一的真实路由；必须排在下方 `PLACEHOLDER_PAGES.map(...)` 之前。
            `meta.title` 与 pages.js 的 title、Shell.vue 的 name 逐字对应（同族纪律）。 */
         { path: 'reports/promo-roi', component: ReportsPromoRoi, meta: { title: '促销ROI分析' } },
+        /* v634（2026-10-22 P2-1 经营报表分析）：6 张报表页。均**新建** path、不在 PLACEHOLDER_PAGES，
+           故此 6 条是它们唯一的真实路由；必须排在下方 `PLACEHOLDER_PAGES.map(...)` 之前。
+           `meta.title` 与 pages.js 的 title、Shell.vue 的 NAV name 逐字对应（同族纪律）。 */
+        { path: 'reports/sales-order', component: ReportsSalesOrder, meta: { title: '销售订单汇总表' } },
+        { path: 'reports/purchase', component: ReportsPurchase, meta: { title: '采购汇总表' } },
+        { path: 'reports/transfer', component: ReportsTransfer, meta: { title: '调拨汇总表' } },
+        /* v640b：三张明细页路由（与汇总同源）。 */
+        { path: 'reports/sales-detail', component: ReportsSalesDetail, meta: { title: '销售订单明细' } },
+        { path: 'reports/purchase-detail', component: ReportsPurchaseDetail, meta: { title: '采购订单明细' } },
+        { path: 'reports/transfer-detail', component: ReportsTransferDetail, meta: { title: '调拨订单明细' } },
+        { path: 'reports/ar-summary', component: ReportsArSummary, meta: { title: '应收账款汇总表' } },
+        { path: 'reports/customer-profit', component: ReportsCustomerProfit, meta: { title: '客户利润概览' } },
+        { path: 'reports/staff-profit', component: ReportsStaffProfit, meta: { title: '员工利润分析' } },
+        /* v635（2026-10-22 P2-1 批次2）：5 张分析类报表页真实路由，必须排在下方
+           `PLACEHOLDER_PAGES.map(...)` 之前（已从占位表移除）。meta.title 与 pages.js 逐字对应。 */
+        { path: 'reports/summary', component: ReportsSummary, meta: { title: '汇总报表' } },
+        { path: 'reports/goods-sales', component: ReportsGoodsSales, meta: { title: '商品销售分析' } },
+        { path: 'reports/customer-rank', component: ReportsCustomerRank, meta: { title: '客户销额排名' } },
+        { path: 'reports/customer-profit-analysis', component: ReportsCustomerProfitAnalysis, meta: { title: '客户利润分析' } },
+        { path: 'reports/company-profit', component: ReportsCompanyProfit, meta: { title: '企业经营利润' } },
+        /* v636（2026-10-22 P2-1 批次4+3）：剩余 18 张报表页真实路由，必须排在下方
+           `PLACEHOLDER_PAGES.map(...)` 之前（已从占位表移除）。meta.title 与 pages.js 逐字对应。 */
+        { path: 'reports/other-inout', component: ReportsOtherInout, meta: { title: '其他出入库汇总表' } },
+        { path: 'reports/other-receivable', component: ReportsOtherReceivable, meta: { title: '其他应收汇总表' } },
+        { path: 'reports/fee-summary', component: ReportsFeeSummary, meta: { title: '费用单汇总表' } },
+        { path: 'reports/income-summary', component: ReportsIncomeSummary, meta: { title: '收入汇总表' } },
+        { path: 'reports/account-flow', component: ReportsAccountFlow, meta: { title: '账户收支明细' } },
+        { path: 'reports/online-receipt', component: ReportsOnlineReceipt, meta: { title: '线上收款流水' } },
+        { path: 'reports/receipt-detail', component: ReportsReceiptDetail, meta: { title: '收款明细表' } },
+        { path: 'reports/payment-detail', component: ReportsPaymentDetail, meta: { title: '付款明细表' } },
+        { path: 'reports/presale-goods', component: ReportsPresaleGoods, meta: { title: '预订货品汇总表' } },
+        { path: 'reports/presale-orders', component: ReportsPresaleOrders, meta: { title: '预订货单明细表' } },
+        { path: 'reports/fee-usage', component: ReportsFeeUsage, meta: { title: '费用使用记录' } },
+        { path: 'reports/material-data', component: ReportsMaterialData, meta: { title: '物料数据汇总' } },
+        { path: 'reports/material-usage', component: ReportsMaterialUsage, meta: { title: '物料使用汇总' } },
+        { path: 'reports/attendance', component: ReportsAttendance, meta: { title: '考勤统计' } },
+        { path: 'reports/visit-log', component: ReportsVisitLog, meta: { title: '拜访记录' } },
+        { path: 'reports/visit-achv', component: ReportsVisitAchv, meta: { title: '拜访达成' } },
+        { path: 'reports/stock-upload', component: ReportsStockUpload, meta: { title: '库存上报分析' } },
+        { path: 'reports/personal', component: ReportsPersonalReport, meta: { title: '个性化报表' } },
+        { path: 'invoice/sales', component: InvoiceSales, meta: { title: '销项发票台账' } },
+        { path: 'invoice/purchase', component: InvoicePurchase, meta: { title: '进项发票台账' } },
+        { path: 'invoice/config', component: InvoiceConfig, meta: { title: '开票配置' } },
+        { path: 'openapi/console', component: OpenApiConsole, meta: { title: '开放API 控制台' } },
         /* v537（2026-10-17 P2-1 二期）：买赠活动管理。**新建** path、不在 PLACEHOLDER_PAGES，
            故此条是它唯一的真实路由；必须排在下方 `PLACEHOLDER_PAGES.map(...)` 之前。
            `meta.title` 与 pages.js 的 title、Shell.vue 的 name 逐字对应（同族纪律）。 */
         { path: 'mkt/promotions', component: MktPromotions, meta: { title: '买赠活动管理' } },
+
+        /* v638（P2 市场区收口）：订货模板 / 拜访计划 落真身 + 其余 16 张诚实空态。
+           🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` 之前（已从占位表移除）。
+           🔴 `/mkt/supplier-rebate-calc`：v499 已从侧栏撤入口、门禁（boss 锁）保留，
+              故仍挂 MktPlaceholder 路由（深链不 404），只是侧栏不可见（"入口撤、门禁留"）。
+           🔴 `meta.title` 与 `pages.js` 的 title、`Shell.vue` 的 NAV name 逐字对应。 */
+        { path: 'mkt/order-template',   component: MktOrderTemplate, meta: { title: '订货模板' } },
+        { path: 'mkt/visit-plan',       component: MktVisitPlan,     meta: { title: '拜访计划' } },
+        { path: 'mkt/display',          component: MktPlaceholder,   meta: { title: '陈列巡查' } },
+        { path: 'mkt/lend',             component: MktPlaceholder,   meta: { title: '借货单' } },
+        { path: 'mkt/return-goods',     component: MktPlaceholder,   meta: { title: '还货单' } },
+        { path: 'mkt/writeoff',         component: MktPlaceholder,   meta: { title: '市场核销' } },
+        { path: 'mkt/inspection',       component: MktPlaceholder,   meta: { title: '市场检验' } },
+        { path: 'mkt/presale-order',    component: MktPlaceholder,   meta: { title: '预订订货单' } },
+        { path: 'mkt/rebate-template',  component: MktPlaceholder,   meta: { title: '返利模板' } },
+        { path: 'mkt/fee-contract',     component: MktPlaceholder,   meta: { title: '费用合同' } },
+        { path: 'mkt/prepay-contract',  component: MktPlaceholder,   meta: { title: '先付协议' } },
+        { path: 'mkt/supplier-rebate-calc', component: MktPlaceholder, meta: { title: '供应商返利试算' } },
+        { path: 'mkt/material',         component: MktPlaceholder,   meta: { title: '物料档案' } },
+        { path: 'mkt/material-use',     component: MktPlaceholder,   meta: { title: '物料领用单' } },
+        { path: 'mkt/material-scrap',   component: MktPlaceholder,   meta: { title: '物料报废单' } },
+        { path: 'mkt/material-recycle', component: MktPlaceholder,   meta: { title: '物料回收单' } },
+        { path: 'mkt/material-sale',    component: MktPlaceholder,   meta: { title: '物料销售单' } },
+        { path: 'mkt/material-transfer',component: MktPlaceholder,   meta: { title: '物料调拨单' } },
 
         /* v465e（2026-10-11 仓配管理 P1）：**仓库作业 6 页落真身**。
            🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——
@@ -510,7 +642,10 @@ function roleGuarded(path) {
 }
 
 router.beforeEach(async (to) => {
-  const token = localStorage.getItem('hergent_v2_token')
+  // P0-4：凭证已迁到 httpOnly cookie（erp_token），JS 读不到 ⇒ 改读后端同步下发的
+  // 非 httpOnly 标记 cookie（hergent_auth）。它只表达"浏览器里有会话"，无鉴权价值，
+  // 真正能不能进某页仍由后端 _auth + 本文件下方的角色门禁裁决。
+  const token = auth.hasSession
   if (!token && to.path !== '/login') return '/login'
   if (token && to.path === '/login') return '/'
 

@@ -58,7 +58,8 @@ function markActive(force = false) {
 }
 
 function tick() {
-  if (!auth.token) return
+  // P0-4：登录态改由 hergent_auth 标记 cookie 判定（token 已移入 httpOnly cookie，JS 读不到）
+  if (!auth.hasSession) return
   const remain = idleMs() - (Date.now() - lastActive)
   if (remain <= 0) {
     warnOpen.value = false

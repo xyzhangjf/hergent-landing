@@ -2,7 +2,7 @@
    modules.js — 领域 API 封装
    对接 hergent-erp 后端真实接口
    ============================================================ */
-import { api } from './client.js'
+import { api, auth } from './client.js'
 
 /* ---- Dashboard / 工作台 ---- */
 export const dashboardApi = {
@@ -30,8 +30,23 @@ export const expiryApi = {
         「入口看得见、一进来图全是空的」这种局部假入口（v347/v349 同一族）。
    后端返回的都是**算好的**成品结构，前端只负责画 —— 不做任何二次计算。 */
 export const reportsApi = {
-  /** 收支趋势：{ labels:[], income:[], expense:[] } */
+  /** 收支趋势：{ labels:[], income:[], expense:[] }（读 cash_flow，是**资金**流水，不是销售额） */
   trend: (days = 7) => api(`/api/reports/trend?days=${days}`),
+  /** v648 销售趋势：{ labels:['2026-01'...], amount:[], count:[] }
+   *  🔴 与 /reports/sales **同源**（sale_orders + status!='cancelled'），按月聚合。
+   *     months 只在**不传日期区间**时生效；给了区间就以区间为准。 */
+  salesTrend: ({ months = 12, date_from = '', date_to = '', salesperson = '' } = {}) => {
+    const q = [`months=${encodeURIComponent(months)}`]
+    if (date_from) q.push(`date_from=${encodeURIComponent(date_from)}`)
+    if (date_to) q.push(`date_to=${encodeURIComponent(date_to)}`)
+    if (salesperson) q.push(`salesperson=${encodeURIComponent(salesperson)}`)
+    return api(`/api/reports/sales-trend?${q.join('&')}`)
+  },
+  /** 报单人（业务员）字典 —— v650。返回 { items:[{ id, name, orders }] }。
+   *  🔴 字典 = 销售订单里**真实出现过**的 operator_id，不是员工档案：
+   *     实测 tenant_1 有 3 个真实报单人（尹红燕 / 李琴 / 秦小芳）不在 hr_employees ∪ report_alias
+   *     两套字典里，用员工档案当下拉会漏掉真业务员；反过来那两套又有 18 个从没报过单的名字。 */
+  salespersons: () => api('/api/reports/salespersons'),
   /** 利润结构：{ by_brand:[{brand,revenue,cost,profit,margin,count}], by_category:[...], products:[...], total_revenue, total_cost, total_profit } */
   profitBreakdown: () => api('/api/reports/profit-breakdown'),
   /** 客户经营明细：后端给的是**数组**，已按 profit 从高到低排好。
@@ -79,6 +94,93 @@ export const reportsApi = {
    *     ⇒ 三者不同源，直接拿 avg_order_value 当均单会混入未送达订单、把均单算小。
    *     ⇒ 均单一律用 **revenue ÷ order_count**（两者同为已送达口径），本文件不提供捷径。 */
   biPivot: (body) => api('/api/bi/pivot', { method: 'POST', body }),
+
+  /** BI 排名：POST /api/bi/top —— body { dimension, measure, n, direction, filters }
+   *  dimension 取 _BI_DIMS 的键（customer_name / product_name / brand / category / warehouse / month …），
+   *  measure 取 _BI_MEASURES 的键（revenue / profit / quantity / order_count …）。 */
+  biTopN: (body) => api('/api/bi/top', { method: 'POST', body }),
+
+  /* —— v634（P2-1 经营报表分析）：以下 4 个只读汇总端点，数据源全部由后端算好，前端不重算 —— */
+  /** 销售订单汇总：{ count, total_amount, total_received, total_discount }
+   *  口径：仅统计未取消订单；金额单位元；后端 = db.report_sales_summary。
+   *  v646：params 为已拼好的 query 串（'?date_from=..&date_to=..'），与 salesDetail 同写法；
+   *  不传时 URL 与改造前完全一致 —— 后端该端点已支持 date_from/date_to，参数由后端算口径。 */
+  salesSummary: (params = '') => api(`/api/reports/sales${params}`),
+  /** 采购汇总：{ summary{order_count,total_amount,paid_amount,unpaid_amount,received_amount},
+   *   by_status[{status,cnt,amount}], by_supplier[{sid,name,order_count,total_amount,unpaid_amount}] }
+   *  口径：排除已作废；金额单位元。
+   *  v651：params 已拼好的 query 串（'?date_from=..&date_to=..'）；后端该端点已支持 date_from/date_to（order_date）。 */
+  purchaseSummary: (params = '') => api(`/api/reports/purchase-summary${params}`),
+  /** 调拨汇总：{ summary{order_count,total_quantity,total_handling_fee},
+   *   by_status[{status,cnt,quantity}], details[{id,order_no,product_name,from_warehouse_id,
+   *   to_warehouse_id,quantity,status,handling_fee,created_at}] } —— 金额元、数量与单据一致。
+   *  v651：params 已拼好的 query 串；后端该端点已支持 date_from/date_to（created_at）。 */
+  transferSummary: (params = '') => api(`/api/reports/transfer-summary${params}`),
+  /** 应收汇总：{ summary{bill_count,customer_count,total_amount,paid_amount,ar_balance},
+   *   by_customer[{contact_id,name,bill_count,amount,ar_balance}] } —— 仅 type='ar'；金额元。
+   *  v651：params 已拼好的 query 串；后端该端点已支持 date_from/date_to（按应收到期日 due_date）。 */
+  arSummary: (params = '') => api(`/api/reports/ar-summary${params}`),
+
+  /* —— v640b：三张明细报表页（与汇总同源的只读列表）。返回 { rows:[...] }，前端不重算 —— */
+  /** 销售订单明细：读 sale_orders（与 salesSummary 同源，排除已取消）。
+   *  行：{ order_no, customer, order_date, total_amount, received_amount, status, delivery_status, invoice_status } */
+  salesDetail: (params = '') => api(`/api/reports/sales-detail${params}`),
+  /** 采购订单明细：读 purchase_orders（与 purchaseSummary 同源，排除已取消）。
+   *  行：{ order_no, supplier, order_date, total_amount, paid_amount, status } */
+  purchaseDetail: (params = '') => api(`/api/reports/purchase-detail${params}`),
+  /** 调拨订单明细：读 transfer_orders（与 transferSummary 同源）。
+   *  行：{ order_no, product_name, from_wh, to_wh, quantity, handling_fee, status, created_at } */
+  transferDetail: (params = '') => api(`/api/reports/transfer-detail${params}`),
+
+  /* —— v636（P2-1 批次4）：12 个只读报表端点，全部由后端算好 {rows, total}，前端不重算 ——
+     🔴 数据源各自真实表；空结果（模块尚未使用）是真实状态，前端显式「暂无数据」，不静默当零。 */
+  /** v651：params 已拼好的 query 串；后端 /api/reports/fee-summary 已支持 date_from/date_to（order_date）。 */
+  feeSummary: (params = '') => api(`/api/reports/fee-summary${params}`),
+  /** v651：params 已拼好的 query 串；后端 /api/reports/income-summary 已支持 date_from/date_to（order_date）。 */
+  incomeSummary: (params = '') => api(`/api/reports/income-summary${params}`),
+  receiptDetail: () => api('/api/reports/receipt-detail'),
+  paymentDetail: () => api('/api/reports/payment-detail'),
+  accountFlow: () => api('/api/reports/account-flow'),
+  onlineReceipt: () => api('/api/reports/online-receipt'),
+  otherReceivable: () => api('/api/reports/other-receivable'),
+  otherInout: () => api('/api/reports/other-inout'),
+  feeUsage: () => api('/api/reports/fee-usage'),
+  attendanceReport: () => api('/api/reports/attendance'),
+  visitLog: () => api('/api/reports/visit-log'),
+  visitAchv: () => api('/api/reports/visit-achv'),
+
+  /* —— v637（P2 数电票）：3 个只读端点，数据源后端算好 {rows, summary}，前端不重算 —— */
+  /** 销项发票台账：{ rows[{invoice_no,invoice_type,customer_name,invoice_date,total_amount,
+   *   tax_amount,amount_with_tax,status,red_flush_of}], summary{count,total_with_tax,total_tax} }
+   *  口径：来自 einvoices；金额元；status 取值 scanned/issued/red-flushed 等。 */
+  invoiceSales: () => api('/api/reports/invoice-sales'),
+  /** 进项发票：{ rows[{invoice_no,supplier_name,invoice_date,total_amount,tax_amount,match_status}],
+   *   summary{count,total_amount,total_tax} } —— 来自 ap_invoices；金额元。 */
+  invoicePurchase: () => api('/api/reports/invoice-purchase'),
+  /** 开票配置：{ rows[{config_key,config_json,is_active,created_at}] } —— 来自 einvoice_config。 */
+  invoiceConfig: () => api('/api/reports/invoice-config'),
+
+  /* —— v638（P2 市场区）：3 个有表的营销模块只读列表，前端不重算 —— */
+  /** 订货模板：{ rows[{id,name,customer_name,user_id}] } —— 来自 order_templates。 */
+  mktOrderTemplates: () => api('/api/reports/mkt-order-templates'),
+  /** 拜访计划：{ rows[{id,plan_date,salesperson,created_at}] } —— 来自 visit_plans。 */
+  mktVisitPlans: () => api('/api/reports/mkt-visit-plans'),
+  /** 促销（买赠/折扣）活动：{ rows[{id,name,start_date,end_date,discount_pct,bonus_qty,
+   *   is_active,promo_type,buy_qty,free_qty,gift_product_name,gift_qty}] } —— 来自 promotions。 */
+  mktPromotions: () => api('/api/reports/mkt-promotions'),
+}
+
+/* ---- 开放API 控制台（v637 P2 开放API）：租户级 API 令牌自助管理 ---- */
+export const openapiApi = {
+  /** 接口信息：{ tenant_id, auth_header, token_prefix, scopes, note } —— GET /api/openapi/info */
+  info: () => api('/api/openapi/info'),
+  /** 列出当前租户的令牌：{ tokens[{id,name,created_at,expires_at,is_active}] } */
+  listTokens: () => api('/api/openapi/tokens'),
+  /** 创建令牌：POST /api/openapi/tokens body { name, expires_days } → { id, token, name, expires_at, is_active }
+   *  🔴 返回体含明文 token（仅此一次），前端须提示用户立即复制。 */
+  createToken: (body) => api('/api/openapi/tokens', { method: 'POST', body }),
+  /** 吊销令牌：DELETE /api/openapi/tokens/{id} → { ok } */
+  revokeToken: (id) => api('/api/openapi/tokens/' + id, { method: 'DELETE' }),
 }
 
 /* ---- 买赠活动管理（v537 P2-1 二期）----
@@ -98,6 +200,35 @@ export const promotionsApi = {
   update: (id, body) => api(`/api/promotions/${id}`, { method: 'PUT', body }),
   remove: (id) => api(`/api/promotions/${id}`, { method: 'DELETE' }),
   toggle: (id, isActive) => api(`/api/promotions/${id}/toggle`, { method: 'POST', body: { is_active: isActive } }),
+}
+
+/* ---- 告警规则（P1-4，v633）----
+   🔴 后端 v88 告警管理 API —— 此前**端点在、db 函数不在**（一调必 500），本轮补齐后才可用。
+      权限：8 个端点**全部**挂 `_admin`（role∈admin/boss）⇒ 只管理岗能看/改系统级监控配置。
+   🔴 指标与比较条件目录由**后端下发**（`GET /api/alerts/metrics`，唯一源 = `alerting.ALERT_METRICS`）
+      ⇒ 前端**不另写一份**指标清单，否则后端加指标前端就得同步改（两处真相来源 = 迟早漂移）。
+   🔴 `api()` 已解一层信封（`client.js` 里 `return data.data ?? data`）⇒
+      这里拿到的就是业务载荷，**调用方不可再取 `.data`**（双重解包恒空，v629 踩过）。
+   端点契约：
+      GET    /api/alerts/rules            → [{id,name,metric,rule_condition,threshold,severity,channels,is_active,priority,created_at}]
+      GET    /api/alerts/metrics          → {metrics:[{key,label,unit}], conditions:[{key,label}]}
+      GET    /api/alerts/history?limit=N  → [{id,rule_id,metric,current_value,threshold,message,severity,acknowledged,resolved,created_at}]
+      GET    /api/alerts/active           → 未确认且未解决的告警
+      POST   /api/alerts/rules            → 新建（body: name/metric/condition/threshold/severity/is_active/priority）
+      PUT    /api/alerts/rules/{rid}      → 改（白名单列，后端把 condition 映射到 rule_condition）
+      DELETE /api/alerts/rules/{rid}      → 删（历史保留）
+      POST   /api/alerts/{aid}/acknowledge → 标记已确认
+      POST   /api/alerts/{aid}/resolve     → 标记已解决 */
+export const alertsApi = {
+  rules: () => api('/api/alerts/rules'),
+  metrics: () => api('/api/alerts/metrics'),
+  history: (limit = 50) => api(`/api/alerts/history?limit=${limit}`),
+  active: () => api('/api/alerts/active'),
+  create: (body) => api('/api/alerts/rules', { method: 'POST', body }),
+  update: (id, body) => api(`/api/alerts/rules/${id}`, { method: 'PUT', body }),
+  remove: (id) => api(`/api/alerts/rules/${id}`, { method: 'DELETE' }),
+  acknowledge: (id) => api(`/api/alerts/${id}/acknowledge`, { method: 'POST' }),
+  resolve: (id) => api(`/api/alerts/${id}/resolve`, { method: 'POST' }),
 }
 
 /* ---- 预报订货 ---- */
@@ -158,15 +289,15 @@ export const forecastApi = {
   zhoupuTemplate: (body) => api('/api/forecast/zhoupu-template', { method: 'POST', body }),
   // 舟谱订单导入模板附件下载（确定性生成不依赖 LLM）：tid=zhoupu-pickup/transfer/all；窗口=当前期次 order_start~order_end
   zhoupuGenerate: async (tid, { start, end }) => {
-    const token = localStorage.getItem('hergent_v2_token') || ''
-    const csrf = localStorage.getItem('hergent_v2_csrf') || ''
+    // P0-4：凭证在 httpOnly cookie，不再从 localStorage 取 token
+    const csrf = auth.csrf
     const res = await fetch(`/api/forecast/import-templates/${tid}/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
       },
+      credentials: 'same-origin',
       body: JSON.stringify({ start, end }),
     })
     if (!res.ok) {
@@ -686,8 +817,8 @@ export const importApi = {
      为什么走后端而不在前端用 SheetJS 造：钥匙规则（编号优先/条码兜底、共码与无条码商品）
      必须在**唯一一处**实现，否则前端一份、后端一份 → 静默漂移（v158 实测两者的行为已经不一致）。 */
   factoryPriceTemplate: async ({ brand = '', category = '' } = {}) => {
-    const token = localStorage.getItem('hergent_v2_token') || ''
-    const csrf = localStorage.getItem('hergent_v2_csrf') || ''
+    // P0-4：凭证在 httpOnly cookie；tenant 不是凭证，仍从本地读（显式头优先于后端 cookie）
+    const csrf = auth.csrf
     const tenant = localStorage.getItem('hergent_v2_tenant') || ''
     const qs = new URLSearchParams()
     if (brand) qs.set('brand', brand)
@@ -695,10 +826,10 @@ export const importApi = {
     const url = '/api/import/factory-price-template' + (qs.toString() ? `?${qs}` : '')
     const res = await fetch(url, {
       headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(tenant ? { 'X-Tenant-Id': String(tenant) } : {}),
         ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
       },
+      credentials: 'same-origin',
     })
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))
@@ -713,13 +844,13 @@ export const importApi = {
     return api('/api/import/factory-price-apply', { method: 'POST', body: fd, timeout: 60000 })
   },
   templateFile: async (category) => {
-    const token = localStorage.getItem('hergent_v2_token') || ''
-    const csrf = localStorage.getItem('hergent_v2_csrf') || ''
+    // P0-4：凭证在 httpOnly cookie，不再从 localStorage 取 token
+    const csrf = auth.csrf
     const res = await fetch(`/api/import/template-file/${category}`, {
       headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
       },
+      credentials: 'same-origin',
     })
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))

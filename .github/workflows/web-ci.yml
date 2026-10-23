@@ -1,0 +1,53 @@
+name: Web CI (hergent-cn-v2)
+
+# 此前主前端 **完全没有 CI**：改动靠本地 npm build + rsync 手工上线，
+# 153 个 .vue 没有任何自动化检查（desktop-app 反而有完整 CI）。
+# 本工作流补上「构建 + 测试 + 契约」三道闸。
+
+on:
+  push:
+    paths:
+      - "hergent-cn-v2/**"
+      - ".github/workflows/web-ci.yml"
+  pull_request:
+    paths:
+      - "hergent-cn-v2/**"
+      - ".github/workflows/web-ci.yml"
+
+defaults:
+  run:
+    working-directory: hergent-cn-v2
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: hergent-cn-v2/package-lock.json
+
+      - name: 安装依赖（锁文件为准，不用 npm install 漂移版本）
+        run: npm ci
+
+      - name: 测试基线（万元换算 / 全量 SFC 符号 / 返利口径）
+        run: npm test
+        # 返利口径契约需要真实账号，未配置 REBATE_USER/REBATE_PASS 时自动 SKIP（不阻断）。
+        # 需在 CI 跑真实契约时，把这两个值配成仓库 Secrets 并取消下面注释：
+        # env:
+        #   REBATE_USER: ${{ secrets.REBATE_USER }}
+        #   REBATE_PASS: ${{ secrets.REBATE_PASS }}
+
+      - name: 生产构建
+        run: npm run build
+
+      - name: 构建产物登记（便于出问题时对照）
+        uses: actions/upload-artifact@v4
+        with:
+          name: hergent-web-dist
+          path: hergent-cn-v2/dist
+          retention-days: 7

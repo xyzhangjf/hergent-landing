@@ -46,8 +46,15 @@ const isBare = computed(() => props.variant === 'bare')
 const rebateGlobalCadence = ref(2)
 async function loadTenantParams() {
   try {
-    const r = await api('/api/params')
-    const d = (r && r.data) ? r.data : {}
+      const r = await api('/api/params')
+      /* 🔴 v629 修真缺陷（同 AllocPanel 第五例）：`api()` **已经**把 `{success,data}` 解包
+         （client.js: `return data.data !== undefined ? data.data : data`），到这里的 `r`
+         就是 `{default_arrival_cadence_days:'2'}` 本体。再取 `r.data` 恒 undefined ⇒
+         `d` 恒 `{}` ⇒ 全局默认到货周期**永远回落到写死的 2 天** —— 用户在「目标与
+         返利」里改成 3 天，冲刺看板照旧按 2 天算剩余到货次数与均单，零报错。
+         已核对后端：`/api/params`（server.py，注意与 /api/ai/experience/params 不是同一个）
+         确为 `{"success":true,"data":{...}}` ⇒ 这里只能单层。 */
+      const d = r || {}
     const c = parseInt(d.default_arrival_cadence_days, 10)
     rebateGlobalCadence.value = (Number.isFinite(c) && c > 0) ? c : 2
   } catch (e) { /* 取默认 2 */ }
