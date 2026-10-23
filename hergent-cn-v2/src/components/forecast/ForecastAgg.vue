@@ -4,18 +4,17 @@
    父模板只传 cross（一个稳定的引用），**不再**在父 render effect 里读这些会随格变化的值
    ⇒ 改一格时父组件整模板不再重渲染（v654 已把行拆成子组件，本步补上「表尾 + 汇总条」）。
 
-   口径严格对齐原模板：
-   - grand.* / colTotals 直接读 cross（与 recomputeTotals 写入的值同源）
-   - editTotal* / foot.* 用 calc 纯函数（rowSum/rowBoxes/amountValue…）逐行累加，
-     与父组件原 computed 用 rowSumOf 算出的值完全一致，只是不订阅全表 rowSumArr。
-   - 格式化：fmt / fmtBox 与父模板一致；金额列只在「汇总条/es-txt」带 ¥（脚注列不带）。
-*/
+   v656：本组件**不再自行全表扫描**。v655 版每个 Agg 实例各自对 liveRows  reduce 一遍
+   （21 个 footUnitSum + ~13 个 footMaster + qty/boxes/amount… ≈ 40 个实例），
+   改一格 = 40 遍全表扫描，实测是停手后 ~60ms flush 的主因。
+   现在统一读父组件 `aggTotals`（一遍算完所有槽位，经 rowCtx 下发）：
+   - 槽位口径与 v655 版逐字一致（同函数同行序同累加顺序）⇒ 显示值不变；
+   - Vue 3.5「computed 值不变不通知」：只有自己槽位变了的实例才重渲染；
+   - grand.* / colTotal 仍直读 cross（那是 recomputeTotals 写入的值，非本组件派生）。
+   🔴 新增 kind 时同步 Forecast.vue 的 aggTotals 槽位定义 —— 同一份口径，别写两遍。 */
 import { computed, inject } from 'vue'
 import { FC_ROW_CTX } from './rowCtx.js'
 import { fmt, fmtBox } from '../../utils/forecast/format.js'
-import {
-  rowSum, rowBoxes, rowExtraQty, rowFinalQty, amountValue, boxMissing,
-} from '../../utils/forecast/calc.js'
 
 const props = defineProps({
   kind: { type: String, required: true },
@@ -29,23 +28,15 @@ if (!ctx) throw new Error('[ForecastAgg] 缺少 FC_ROW_CTX 注入')
 
 const cross = computed(() => ctx.cross)
 const visN = computed(() => ctx.visibleCols.length)
-const liveRows = computed(() => cross.value.rows.filter(r => !r._deleted))
 
-// 缺规格行数（原 boxMissingRows.length）
-const boxMissLen = computed(() => {
-  const rows = liveRows.value
-  let n = 0
-  for (const r of rows) if (boxMissing(r)) n++
-  return n
-})
+// 缺规格行数（原 boxMissingRows.length；v656 起读 aggTotals.boxMiss 槽）
+const boxMissLen = computed(() => ctx.aggTotals.boxMiss)
 
 const val = computed(() => {
   const c = cross.value
-  const rows = liveRows.value
-  const units = c.units
+  const t = ctx.aggTotals
   switch (props.kind) {
-    case 'zeroReportCount':
-      return rows.filter(r => rowSum(r) <= 0).length
+    case 'zeroReportCount': return t.zero
     case 'grandQty':    return c.grand.qty
     case 'grandBoxes':  return c.grand.boxes
     case 'grandAmountFoot': return c.grand.amount
@@ -54,29 +45,27 @@ const val = computed(() => {
     case 'reportedUnits':  return c.reportedUnits
     case 'colTotal':
       return c.colTotals[(props.ci - 1) - visN.value] || ''
-    case 'viewExtraQty': return rows.reduce((s, r) => s + rowExtraQty(r), 0)
-    case 'viewFinalQty': return rows.reduce((s, r) => s + rowFinalQty(r), 0)
-    case 'editTotalQty':   return rows.reduce((s, r) => s + rowSum(r), 0)
-    case 'editTotalBoxes': return rows.reduce((s, r) => s + rowBoxes(r), 0)
-    case 'editTotalAmount':return rows.reduce((s, r) => s + (amountValue(r) || 0), 0)
-    case 'editExtraQty':   return rows.reduce((s, r) => s + (Number(r.extraQty) || 0), 0)
-    case 'editFinalQty':   return rows.reduce((s, r) => s + rowFinalQty(r), 0)
+    case 'viewExtraQty': return t.viewExtra
+    case 'viewFinalQty': return t.finalQty
+    case 'editTotalQty':   return t.qty
+    case 'editTotalBoxes': return t.boxes
+    case 'editTotalAmount':return t.amount
+    case 'editExtraQty':   return t.editExtra
+    case 'editFinalQty':   return t.finalQty
     case 'footUnitSum': {
-      const u = units[props.ui]
+      const u = c.units[props.ui]
       const name = u && u.name
       if (!name) return 0
-      return rows.reduce((s, r) => s + (Number(r.qtyByUnit[name]) || 0), 0)
+      return t.unitSum[name] || 0
     }
-    case 'footQty':     return rows.reduce((s, r) => s + rowSum(r), 0)
-    case 'footAmount':  return rows.reduce((s, r) => s + (amountValue(r) || 0), 0)
-    case 'footSuggest': return rows.reduce((s, r) => s + (Number(r.suggest) || 0), 0)
+    case 'footQty':     return t.qty
+    case 'footAmount':  return t.amount
+    case 'footSuggest': return t.suggest
     case 'footMaster': {
       // 与父组件原 foot.masterSum[c.key] 逐字一致：活跃行上按列 key 累加 parseFloat(r[c.key])
       const k = props.ck
       if (!k) return 0
-      let s = 0
-      for (const r of rows) s += (parseFloat(r[k]) || 0)
-      return s
+      return t.masterSum[k] || 0
     }
     default: return ''
   }

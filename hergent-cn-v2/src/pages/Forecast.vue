@@ -2759,7 +2759,9 @@ const showAllProducts = ref(false)
 // v247：查看态默认**收起整列全空的列**（历史期次列 / 档案未填列），勾上才铺开。
 // 背景：期次一多，十几列全空的列把「合计(小单位)」挤出视口，有用的信息要横向滚才看得到。
 const showEmptyCols = ref(false)
-const zeroReportCount = computed(() => cross.value.rows.filter(r => rowSumOf(r) <= 0).length)
+/* v656：原 `zeroReportCount` computed（读 rowSumOf ⇒ 订阅全表 rowSumArr）已删 ——
+   v655 起「已隐藏 N 个零报单」由 ForecastAgg kind="zeroReportCount" 渲染，
+   v656 起它读 aggTotals.zero 槽（单遍聚合的一部分），不再有任何逐实例扫描。 */
 // 行底被收窄时隐藏了多少行 —— 数字必须由**同一份 rows** 现算，不另存计数
 // （旧铁律：同屏数字口径必须同源；人工维护的计数必然漂移）。
 // 🔴 2026-09-16 口径修正：文案说的是「**在售**商品未显示」，所以被减数只能是**来自在售档案的行**
@@ -3123,6 +3125,53 @@ const vFocus = { mounted: el => { try { el.focus() } catch (e) {} } }
    **全量 rows** 求和 ⇒ 同屏两个「合计」对不上（只读表 3 箱、编辑表尾却是别的数）。
    判据只留这一份，别处一律引用，不再各写一遍 filter。 */
 const liveRows = computed(() => cross.value.rows.filter(r => !r._deleted))
+
+/* v656：**聚合值单遍计算**（ForecastAgg 的数据源）。
+   背景（v655 达标后遗留的 ~60ms flush）：v655 把表尾/汇总条拆成 ~40 个 ForecastAgg
+   实例，但每个实例各自对 liveRows 做全表扫描（21 个 footUnitSum + ~13 个 footMaster
+   + qty/boxes/amount/extra/final/suggest/zero/boxMiss…）⇒ 改一格 = 每个实例全表跑一遍
+   （295 行 × rowSum/rowBoxes/amountValue…），这就是停手后 flush 降不到 20ms 以下的主因。
+   改为**父组件一遍算完所有槽位**，Agg 实例只读自己的槽：
+   - 口径与 v655 版逐字一致：同一批 calc 纯函数、同一条 liveRows 行序、同一累加顺序
+     ⇒ 显示值逐字节相同（渲染指纹零差异是验收线，不是感觉）；
+   - 经 rowCtx 下发（reactive 解包），**父模板不读它** ⇒ 父 render effect 不订阅，
+     v655 的 parentRenders=0 不回归；
+   - Vue 3.5「computed 值不变则不通知」保证：只有自己槽位变了的 Agg 才重渲染。
+   🔴 新增槽位必须同步 ForecastAgg.vue 的 val switch —— 两边是同一份口径，别写出两把尺。 */
+const aggTotals = computed(() => {
+  const rows = liveRows.value
+  const units = cross.value.units
+  const numCols = visibleCols.value.filter(c => c.edit === 'num')
+  const t = {
+    qty: 0, boxes: 0, amount: 0,
+    viewExtra: 0,                    // viewExtraQty：rowExtraQty 之和（只读表尾）
+    editExtra: 0,                    // editExtraQty：Number(r.extraQty) 之和（编辑表尾）
+    finalQty: 0, suggest: 0, zero: 0, boxMiss: 0,
+    unitSum: {}, masterSum: {},
+  }
+  for (const c of numCols) t.masterSum[c.key] = 0
+  for (const r of rows) {
+    const s = rowSum(r)
+    t.qty += s
+    t.boxes += rowBoxes(r)
+    t.amount += (amountValue(r) || 0)
+    t.viewExtra += rowExtraQty(r)
+    t.editExtra += (Number(r.extraQty) || 0)
+    t.finalQty += rowFinalQty(r)
+    t.suggest += (Number(r.suggest) || 0)
+    if (s <= 0) t.zero++
+    if (boxMissing(r)) t.boxMiss++
+    for (let ui = 0; ui < units.length; ui++) {
+      const n = units[ui].name
+      t.unitSum[n] = (t.unitSum[n] || 0) + (Number(r.qtyByUnit[n]) || 0)
+    }
+    for (let i = 0; i < numCols.length; i++) {
+      const k = numCols[i].key
+      t.masterSum[k] += (parseFloat(r[k]) || 0)
+    }
+  }
+  return t
+})
 
 function recomputeTotals() {
   const rows = liveRows.value
@@ -9000,7 +9049,9 @@ function adoptSuggestion(ri) {
   r.suggest = 0
   toast('已采纳建议 +' + s, 'ok')
 }
-const totalSuggest = computed(() => cross.value.rows.reduce((s, r) => s + (Number(r.suggest) || 0), 0))
+/* v656：原 `totalSuggest` computed 已删 —— 唯一读者是已删除的 `foot`（v655 起
+   表尾各列 Σ 全部由 ForecastAgg 渲染）。建议列合计现在的唯一实现是
+   aggTotals.suggest 槽 + ForecastAgg kind="footSuggest"。 */
 // 建议配方：命名保存/载入（localStorage 持久化；后端 /api/forecast/recipe 随租户下发就绪）
 async function loadSuggestRecipes() {
   try {
@@ -9303,13 +9354,11 @@ function toggleSoftWarn(which) {
 }
 
 // P3-4 冻结小计行
-const foot = computed(() => {
-  const rows = liveRows.value
-  const masterSum = {}
-  visibleCols.value.forEach(c => { if (c.key !== 'name' && c.edit === 'num') masterSum[c.key] = rows.reduce((s, r) => s + (parseFloat(r[c.key]) || 0), 0) })
-  const unitSum = cross.value.units.map(u => rows.reduce((s, r) => s + (parseInt(r.qtyByUnit[u.name]) || 0), 0))
-  return { masterSum, unitSum, qty: editTotalQty.value, amount: editTotalAmount.value, suggest: totalSuggest.value }
-})
+/* v656：原 `foot` computed（masterSum/unitSum/qty/amount/suggest）已删 —— v655 起
+   冻结小计行的每个单元格都是 ForecastAgg 实例（footMaster/footUnitSum/footQty/
+   footAmount/footSuggest…），各自按行扫描；v656 起这些实例统一读 aggTotals 槽位。
+   注意它临终读者只剩自己引用的 editTotalQty/editTotalAmount（推送流程仍在用，
+   那两个 computed 保留）。 */
 
 // P3-6 行内 sparkline（近 6 期趋势，按需载入）
 const showSpark = ref(false)
@@ -10231,7 +10280,15 @@ function maybeAutoAlert() {
   pushForecast()
   toast('已主动推送预警（' + healthIssues.value.length + ' 项异常）', 'ok')
 }
-watch(healthIssues, () => maybeAutoAlert())
+/* v656：触发源从 healthIssues 换成 aggTotals。
+   原 `watch(healthIssues, …)` 的 getter 每次改格都强制重算 healthIssues ——
+   那是一条 295 行全表扫描（rowSum + 历史均值 + lossWarn + moqWarn × 每行），
+   而 healthIssues 在编辑态变化的唯一来源就是**数量**（漏订/暴涨/暴跌/MOQ 全看 qty；
+   safety_stock / history / 效期库存都是随网格载入的主档数据，编辑期不变）。
+   aggTotals 覆盖全部数量变化（qty/boxes/amount…），且它本来就要为表尾算一遍
+   ⇒ 这个 watch 不再引入任何额外全表扫描。面板/保存/推送仍按需直接读
+   healthIssues.value（computed 惰性，不读不算）。 */
+watch(aggTotals, () => maybeAutoAlert())
 
 /* ================= P14-P16 第五轮增强 ================= */
 
@@ -12066,6 +12123,12 @@ const rowCtx = reactive({
   /* —— 行级判据（只读本行 / 只读低频全局）—— */
   cellIssue, isFlash, inRange, inColSpan, frozenLeftOf, frozenRight,
   isCurRowHd, inRowSpan, rowBaseShown,
+  /* 🔴 v656：聚合值单遍计算的结果（qty/boxes/amount/unitSum/masterSum/zero/boxMiss…）。
+     放它进 ctx 不违反 v654 铁律「不放会因别的行变化的东西」—— 它**就是**全表合计，
+     读取方是 ForecastAgg（表尾/汇总条），它们的职责就是显示全表数字；
+     父模板不读它（parentRenders=0 不回归），且槽位级读取让 Vue 3.5 的
+     「值不变不通知」自动剪掉与自己无关的重渲染。 */
+  aggTotals,
   moqWarn, heatOf, qtyListFor, cellDirty, cellDiff,
   cellSoftMsg, softOfRow, softRatio,
   lossWarn, lossTip, rtBadge, rtBadgeTip, rowNote, setRowNote,
