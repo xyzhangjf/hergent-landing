@@ -2595,7 +2595,7 @@ import { openPrintable } from '../utils/printable.js'
 //   有 AST 护栏）。本页用它①提前拦掉那个注定 403 的请求 ②把「无权限」与「加载失败」分开说。
 import { normRole, roleName, isCanonicalRole, ROLE_VIEW_TOKEN_NAMES, canViewForecastSummary } from '../constants/roles'
 import { fmt, fmtBox, statFmt, toHalfNum, parseNumInput } from '../utils/forecast/format.js'
-import { rowSum, rowExtraQty, rowFinalQty, factoryPrice, perCase, boxesOf, rowBoxes, boxMissing, boxText, priceAuto, priceInherit, inheritPeriodLabel, pricePerCase, pricePh, priceTitle, amountValue } from '../utils/forecast/calc.js'
+import { rowSum, rowSumAll, rowExtraQty, rowFinalQty, factoryPrice, perCase, boxesOf, rowBoxes, boxMissing, boxText, priceAuto, priceInherit, inheritPeriodLabel, pricePerCase, pricePh, priceTitle, amountValue, allocOfStore } from '../utils/forecast/calc.js'
 import { fmtDate, addDaysStr, shiftPeriodNameDates, parseArrivalWeekdays, countWeekdayArrivalsInWindow, parsePeriodDates, ARR_WEEKDAY_CN } from '../utils/forecast/date.js'
 
 const periods = ref([])
@@ -3151,7 +3151,9 @@ const aggTotals = computed(() => {
   }
   for (const c of numCols) t.masterSum[c.key] = 0
   for (const r of rows) {
-    const s = rowSum(r)
+    /* v661：合计走 `rowSumAll`（报量 + 分摊），与门店列显示值同源 —— 门店列加了分摊，
+       合计不加就会「各列加起来 ≠ 合计」。 */
+    const s = rowSumAll(r)
     t.qty += s
     t.boxes += rowBoxes(r)
     t.amount += (amountValue(r) || 0)
@@ -3163,7 +3165,8 @@ const aggTotals = computed(() => {
     if (boxMissing(r)) t.boxMiss++
     for (let ui = 0; ui < units.length; ui++) {
       const n = units[ui].name
-      t.unitSum[n] = (t.unitSum[n] || 0) + (Number(r.qtyByUnit[n]) || 0)
+      // v661：列合计也要带上该列分摊到的量（否则表尾列合计与格内显示值对不上）
+      t.unitSum[n] = (t.unitSum[n] || 0) + (Number(r.qtyByUnit[n]) || 0) + allocOfStore(r, n)
     }
     for (let i = 0; i < numCols.length; i++) {
       const k = numCols[i].key
@@ -3176,10 +3179,12 @@ const aggTotals = computed(() => {
 function recomputeTotals() {
   const rows = liveRows.value
   const units = cross.value.units
-  cross.value.colTotals = units.map(u => rows.reduce((s, r) => s + (r.qtyByUnit[u.name] || 0), 0))
+  // v661：列合计 / 合计(小单位) 都带上分摊（与格内显示值、`rowBoxes` 同源）
+  cross.value.colTotals = units.map(u => rows.reduce((s, r) => s + (r.qtyByUnit[u.name] || 0) + allocOfStore(r, u.name), 0))
   cross.value.grand = {
     sku: rows.length,
-    qty: rows.reduce((s, r) => s + (r.total || 0), 0),   // 合计(小单位)
+    qty: rows.reduce((s, r) => s + rowSumAll(r), 0),      // 合计(小单位)
+    boxes: rows.reduce((s, r) => s + rowBoxes(r), 0),     // 合计(箱)
     boxes: rows.reduce((s, r) => s + rowBoxes(r), 0),     // 合计(箱)
     // v184e：报单金额合计 = 最终下单(箱) × 单价(进价/箱)，与只读表「下单金额(进价)」列同源。
     amount: rows.reduce((s, r) => s + (amountValue(r) || 0), 0),
@@ -9956,7 +9961,8 @@ async function doWriteback() {
   if (subStatus.value !== 'approved') { toast('需先审批通过再回写 ERP', 'warn'); return }
   writebackLoading.value = true
   try {
-    const items = cross.value.rows.map(r => ({ product_id: r.product_id, name: r.name, qty: rowSum(r) }))
+    // v661：下单/回写载荷必须与界面显示的「最终量」一致（门店列已含分摊）
+    const items = cross.value.rows.map(r => ({ product_id: r.product_id, name: r.name, qty: rowSumAll(r) }))
     const r = await forecastApi.connectorWriteback({ period_id: p.id, connector: 'kingdee', items })
     if (r.soft_fail) toast('连接器未配置（已留痕），需配置 DataSourceAdapter', 'warn')
     else toast('已回写 ERP', 'ok')
@@ -10250,7 +10256,8 @@ const poLoading = ref(false)
 async function loadPo() {
   poLoading.value = true
   try {
-    const items = cross.value.rows.map(r => ({ product_id: r.product_id, qty: rowSum(r) }))
+    // v661：同上 —— 采购单/PO 按「最终量」（报量 + 分摊）生成，不能比界面少一截
+    const items = cross.value.rows.map(r => ({ product_id: r.product_id, qty: rowSumAll(r) }))
     const r = await forecastApi.supplierPo({ items })
     poData.value = r
   } catch (e) { poData.value = null; toast('聚合失败：' + (e.message || e), 'err') }
@@ -10366,7 +10373,8 @@ const po2List = ref([])
 async function loadPo2() {
   po2Loading.value = true; po2Open.value = true; po2Data.value = null
   try {
-    const items = cross.value.rows.map(r => ({ product_id: r.product_id, qty: rowSum(r) }))
+    // v661：同上 —— 采购单/PO 按「最终量」（报量 + 分摊）生成，不能比界面少一截
+    const items = cross.value.rows.map(r => ({ product_id: r.product_id, qty: rowSumAll(r) }))
     const r = await forecastApi.purchaseOrderCreate({ items })
     po2Data.value = r.po
     toast('已生成采购单 #' + r.po.id, 'ok')
@@ -10664,7 +10672,13 @@ function openAlloc(row) {
       （守 v318 纪律③：不新增第二条写路径）。 */
 function onAllocApplied(payload) {
   const row = allocRow.value
-  if (row && payload) row.extraQty = Number(payload.extraQty) || 0
+  if (row && payload) {
+    row.extraQty = Number(payload.extraQty) || 0
+    /* v661：把这次分摊的结果**当场**叠到各门店列 —— 不能只等 `loadPtGap()`（那是异步的），
+       否则用户点完保存、关窗那一刻门店列还是旧数，观感就是"又没回填"。
+       `payload.allocs` 由弹窗直接带出来（比再读一次接口更准：那是他刚确认过的那一版）。 */
+    applyAllocToRow(row, payload.allocs)
+  }
   saveDraftNow()
 }
 function closeAlloc() { allocOpen.value = false; allocRow.value = null }
@@ -10942,6 +10956,81 @@ async function loadPtGap() {
     Object.keys(items).forEach(k => { m[Number(k)] = items[k] })
     ptAlloc.value = m
   } catch (e) {}
+  /* v661：分摊结果一到就叠到各门店列上（含刷新/换期次/重进页面）——
+     用户「分摊数量没有回填」的落点就在这里：门店列要显示「报量 + 分到的加单」。 */
+  applyAllocToAllRows()
+}
+
+/* ── v661：把分摊结果叠加到「门店列」（显示层，不改任何持久化数据）───────────────
+   用户 2026-10-24 拍板：分摊后**门店那一格直接显示最终量**
+   （例：东津报 30 桶 + 分到 2.5 箱 ⇒ 那格显示 55 桶）。
+
+   🔴 为什么叠加而不是把量写进 `qtyByUnit`：写进去就改写了业务员报的原始量，
+      下一次分摊会以"已被改过的量"为基准 ⇒ 在定稿上再加一遍，永远滚雪球。
+      叠加层以报单原值为基准 ⇒ 幂等、清除本期占比即归零、随时可撤销。
+   单位：`alloc_box` 是**箱**，门店列是**最小单位** ⇒ 用 `perCase`（与「合计(箱)」同源）
+      换算，绝不用别的系数（两处系数一旦不一致，门店列加起来就≠合计箱）。 */
+function buildAllocMap(r, allocs) {
+  const pc = perCase(r.spec, r.unit, r) || 0
+  const map = {}
+  ;(Array.isArray(allocs) ? allocs : []).forEach(x => {
+    const sn = String((x && x.store_name) || '').trim()
+    const ab = Number(x && x.alloc_box) || 0
+    if (!sn || !ab) return
+    const small = pc > 0 ? ab * pc : ab      // 缺规格 ⇒ 按 1:1（与 boxesOf 的降级一致）
+    map[sn] = Math.round(small * 1000) / 1000
+  })
+  return map
+}
+function applyAllocToRow(r, allocs) {
+  if (!r) return
+  const map = buildAllocMap(r, allocs)
+  const keys = Object.keys(map)
+  const next = keys.length ? map : null
+  // 只有真的变了才赋值 —— 否则每次重新装载都会把全部行对象写成新引用（全表重渲染）
+  if (JSON.stringify(r.allocByStore || null) !== JSON.stringify(next)) r.allocByStore = next
+  if (r.allocTaken) r.allocTaken = null     // 新一轮分摊 ⇒ 之前"用户接管过"的格作废（以新分摊为准）
+}
+/* 全表重算（装载完 ptAlloc / 刷新角标时调用一次，不是每格） */
+function applyAllocToAllRows() {
+  const rows = (cross.value && cross.value.rows) || []
+  if (!rows.length || !Object.keys(ptAlloc.value || {}).length) {
+    // 本期没有分摊 ⇒ 把残留的叠加层清掉（否则清除占比后门店列还挂着旧量）
+    rows.forEach(r => { if (r.allocByStore) r.allocByStore = null })
+    return
+  }
+  const m = ptAlloc.value || {}
+  for (const r of rows) {
+    const it = m[Number(r && r.product_id)]
+    applyAllocToRow(r, (it && it.rows) || [])
+  }
+}
+/* 门店格的**显示值**：报量 + 分摊（用户手动改过那一格则只显示他自己填的）
+   ⚠️ 没有分摊时必须原样返回原串（null/空 ⇒ ''）—— 直接返回 0 会让几千个空格子
+      凭空冒出「0」，那是纯视觉噪声，还会被误当成"报过 0"。 */
+function qtyCellShown(r, store) {
+  const raw = (r && r.qtyByUnit) ? r.qtyByUnit[store] : undefined
+  const add = allocOfStore(r, store)
+  if (!add) return (raw == null || raw === '') ? '' : (parseInt(raw) || 0)
+  const base = parseInt(raw || 0) || 0
+  return Math.round((base + add) * 1000) / 1000
+}
+/* 门店格被手动编辑 ⇒ 该格视为"用户接管"，此后不再叠加分摊（否则用户填 60，界面会显示 60+分摊）。
+   ⚠️ 只标这一格，不影响同一行别的门店 —— 用户常常只调一个店。 */
+function qtyCellTakeOver(r, store) {
+  if (!r || !store) return
+  const m = (r && r.allocByStore) || null
+  if (!m || !m[store]) return
+  if (r.allocTaken && r.allocTaken[store]) return
+  r.allocTaken = Object.assign({}, r.allocTaken || {}, { [store]: true })
+}
+function onQtyCellInput(e, r, store) {
+  qtyCellTakeOver(r, store)
+  numInput(e, r.qtyByUnit, store)
+}
+function onQtyCellCommit(e, r, store) {
+  qtyCellTakeOver(r, store)
+  numCommit(e, r.qtyByUnit, store)
 }
 
 /* 加单列角标的**唯一取值处**（渲染与悬停都读它，免得两处各判一次口径）。
@@ -12209,6 +12298,8 @@ const rowCtx = reactive({
   adoptSuggestion, autoFillDown, delRow,
   isMinus, namePadStyle, nameSugKey, nameSugClose, onNameInput,
   numInput, numCommit, onCasePriceChange, onCellChange,
+  /* v661：门店列的分摊叠加（显示值 / 接管标记）—— 见 applyAllocToRow 注释 */
+  qtyCellShown, onQtyCellInput, onQtyCellCommit,
   onCellDown, onCellOver, onFocusCell, onRowDown,
   openAlloc, showCellErr, showCellSoft, startFill, toggleRowSel,
   /* 🔴 v655：数量格候选 datalist 的 `qtyOptKey` / `qtyCellOptions` 原在父模板里被读

@@ -101,7 +101,9 @@
            ⚠️ 不能只靠 `type="number"`：iOS 会弹数字键盘，但部分安卓浏览器不给 ⇒ 加 inputmode 是双保险。
            ⚠️ 只有**数量**用 numeric（整数）；单价有 `step="0.01"`（两位小数）必须用 decimal，
               否则安卓上小数点键会消失，用户永远填不了小数价。 -->
-      <input :value="row.qtyByUnit[u.name] ?? ''" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="ctx.visibleCols.length + ui" :list="ctx.qtyListFor(ri, ui)" @focus="ctx.onFocusCell(ri, ctx.visibleCols.length + ui, $event)" @input="ctx.numInput($event, row.qtyByUnit, u.name)" @change="ctx.numCommit($event, row.qtyByUnit, u.name)">
+      <!-- v661：`:value` 走 `ctx.qtyCellShown()`（报量 + 分摊），用户手动改这一格即"接管"
+           （见 Forecast.vue::qtyCellTakeOver）—— 否则填 60 会被显示成 60+分摊，越改越乱。 -->
+      <input :value="ctx.qtyCellShown(row, u.name)" class="cell-input cell-qty" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="ctx.visibleCols.length + ui" :list="ctx.qtyListFor(ri, ui)" @focus="ctx.onFocusCell(ri, ctx.visibleCols.length + ui, $event)" @input="ctx.onQtyCellInput($event, row, u.name)" @change="ctx.onQtyCellCommit($event, row, u.name)">
       <!-- v598（D1）：数量格的「本次改过」角标 —— 同 master 列，cid 用 `q:` 前缀带客户名。 -->
       <span v-if="ctx.cellDirty(row, 'q:' + u.name)" class="cell-dirty-dot" aria-label="本次改过" title="这一格本次改过（尚未保存）"></span>
       <!-- v211（P1-3）：同主档列的角标。这里用与本格 title **同一个判据**，
@@ -148,7 +150,7 @@ import { computed, inject } from 'vue'
 import Icon from '../Icon.vue'
 import { canDo } from '../../store'
 import { fmt } from '../../utils/forecast/format.js'
-import { rowSum, rowFinalQty, factoryPrice, boxMissing, boxText, pricePerCase, pricePh, priceTitle, amountValue } from '../../utils/forecast/calc.js'
+import { rowSum, rowSumAll, rowFinalQty, factoryPrice, boxMissing, boxText, pricePerCase, pricePh, priceTitle, amountValue } from '../../utils/forecast/calc.js'
 import { FC_ROW_CTX } from './rowCtx.js'
 
 const props = defineProps({
@@ -184,8 +186,10 @@ function issueAt(ci) { return issues.value.get(ci) || '' }
 /** 本行是否有错（等价于原先的 `errRowSet.has(ri)`）—— 序号格标红用。 */
 const hasIssue = computed(() => issues.value.size > 0)
 
-/** 本行合计（小单位）。原先取自 `rowSumArr[ri]`，现按本行算（O(单位数)，不再是全表 O(行×单位)）。 */
-const sum = computed(() => rowSum(props.row))
+/** 本行合计（小单位）。原先取自 `rowSumArr[ri]`，现按本行算（O(单位数)，不再是全表 O(行×单位)）。
+ *  v661：改用 `rowSumAll`（报量 + 分摊）—— 门店列已经显示分摊后的量，合计必须跟着走，
+ *        否则「各门店加起来 220，合计却写 120」，用户一眼就判这是错的。 */
+const sum = computed(() => rowSumAll(props.row))
 /** 本行库存/效期警告档（'low' | 'short' | ''）。原先取自 `rowWarnArr[ri]`。
     传 `sum.value` 进去 —— 不传的话 rowWarn 内部会走 `rowSumOf` → 全表 `rowSumArr`，
     于是「别的行改了」也会让本行的 warn 失效（等于没拆）。 */

@@ -701,7 +701,17 @@ async function applyAlloc() {
       focusTotal()
       return
     }
-    emit('applied', { extraQty: _amt })
+    /* v661：连**分配结果**一起交给父级 —— 父级要把每个门店分到的量叠到它那一列
+       （用户 2026-10-24 拍板「门店列直接显示最终量」）。带 `alloc_box`（箱）而不是
+       已换算的桶：换算必须由父级用 `perCase` 做，与「合计(箱)」同源，本组件不复制那份口径。 */
+    emit('applied', {
+      extraQty: _amt,
+      allocs: (allocRows.value || []).map(x => ({
+        store_name: String(x.store_name || '').trim(),
+        employee_id: Number(x.employee_id) || 0,
+        alloc_box: Number(x.alloc_box) || 0,
+      })),
+    })
     // toast 必须按**实际写了什么**说 —— 说错就是让用户对"全期比例变没变"产生错误预期。
     toast(_periodPath
       ? (changed

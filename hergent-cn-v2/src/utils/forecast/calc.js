@@ -103,8 +103,16 @@ export function boxesOf(total, spec, unit, arc) {
 //   v207 去掉取整（抹零元凶）—— 见 boxesOf 上方说明。
 export function rowBoxes(r) {
   if (!r) return 0
-  const total = r.total != null ? (Number(r.total) || 0) : rowSum(r)
+  const total = rowTotalForBox(r)
   return boxesOf(total, r.spec, r.unit, r)
+}
+
+/* v661：换算「合计(箱)」时用的总量 —— 有分摊叠加就用「报量 + 分摊」，否则用后端权威 total。
+   `r.total` 是后端 `SUM(quantity)`（只读行才有），它**不含**分摊 ⇒ 不能直接拿来算。 */
+function rowTotalForBox(r) {
+  if (!r) return 0
+  if (r.total != null && !rowHasAlloc(r)) return Number(r.total) || 0
+  return rowSumAll(r)
 }
 
 /* v207：某一行的「合计(箱)」**换算不出来**（有报单但商品档案没规格）—— 全站**唯一判据**。
@@ -113,7 +121,7 @@ export function rowBoxes(r) {
       单元格却一个都没标」这种自相矛盾的界面。 */
 export function boxMissing(r) {
   if (!r) return false
-  const total = r.total != null ? (Number(r.total) || 0) : rowSum(r)
+  const total = rowTotalForBox(r)
   return total > 0 && !(perCase(r.spec, r.unit, r) > 0)
 }
 
@@ -239,6 +247,40 @@ export function rowSum(r) {
   return Object.values(r.qtyByUnit || {}).reduce((s, v) => s + (parseInt(v) || 0), 0)
 }
 
+/* ── v661：分摊结果叠加层（用户 2026-10-24 拍板「门店列直接显示最终量」）──────────
+   用户原话：「分摊数量没有回填」→ 补问后确认：他要的是**各门店那一列**出现分摊后的量
+   （例：东津报 3 箱 + 分到 2.5 箱 ⇒ 那格显示 5.5 箱）。
+
+   🔴 为什么是**显示层叠加**而不是把量写进 `qtyByUnit`：
+      写进去就等于改写了业务员报的原始量，且 `forecast_extra_alloc.reported_box`
+      下一次就会以"已被改过的量"为基准 ⇒ 再分摊一次会在定稿上**再加一遍**（无解的死循环）。
+      叠加层则以**报单原值**为基准 ⇒ 天然幂等、清除本期占比即归零、随时可撤销。
+
+   行上的两个字段（都由 `Forecast.vue::applyAllocToRows` 写入，**均非持久化**）：
+     · `r.allocByStore` = { 门店名: 数量 }，已换算成与 `qtyByUnit` **同单位**（最小单位）
+     · `r.allocTaken`   = { 门店名: true }，用户手动改过那一格 ⇒ 视为接管，不再叠加
+   ⚠️ 判据必须走 `allocOfStore`（它统一处理 `allocTaken`），别在别处直接读 `allocByStore`。 */
+export function allocOfStore(r, store) {
+  const m = (r && r.allocByStore) || null
+  if (!m || !store) return 0
+  if (r.allocTaken && r.allocTaken[store]) return 0
+  const v = Number(m[store])
+  return isFinite(v) ? v : 0
+}
+export function allocSum(r) {
+  const m = (r && r.allocByStore) || null
+  if (!m) return 0
+  let s = 0
+  for (const k of Object.keys(m)) s += allocOfStore(r, k)
+  return s
+}
+/* 本行是否真的叠加了分摊（= 门店列已含加单）。为真时「合计(箱)」已包含加单，
+   「最终下单」就**不能**再 + extraQty，否则同一笔加单会被算两遍。 */
+export const rowHasAlloc = (r) => allocSum(r) !== 0
+/* 合计(小单位) 的**显示口径**（含分摊）。`rowSum` 保持纯净不变 —— 它被 40+ 处
+   （含保存后的下单载荷）调用，改它会连带把"报单量"的含义改掉。 */
+export const rowSumAll = (r) => rowSum(r) + allocSum(r)
+
 // 「最终下单」唯一口径（用户口径 2026-09-15 订正）：**报单合计 + 加单**，不区分是否定稿。
 //   - 基准：只读主表行带后端权威 total（=SUM(quantity)）；编辑态草稿行无 total → 回退 rowSum（单元求和）。
 //   - 加单兼容两种存法：只读态 extra_qty（后端 forecast_extra_qty）/ 编辑态 extraQty（本地草稿）。
@@ -256,6 +298,10 @@ export const rowFinalQty = (r) => {
        ⚠️ 「按商品配置取整方向」**暂未实现** —— 商品档案里没有这个字段（`products` 无取整方向列），
           所以一律按默认向上。将来要支持，就在此处读 `r.round_dir`（'ceil' 向上 / 'floor' 向下）。
        ⚠️ 本函数是全站唯一实现（模板 / 列统计 / 列筛选 / aria / 复制报单 / 下单金额 / 返利达成 全走它）
-          ⇒ 改口径只改这一处；但也意味着**改一次，全站一起动**。 */
-  return Math.ceil(rowBoxes(r) - 1e-9) + rowExtraQty(r)
+          ⇒ 改口径只改这一处；但也意味着**改一次，全站一起动**。
+     🔴 v661：有分摊叠加时**不再 + 加单** —— 分摊已经把加单分进各门店列，那些量已含在
+        `rowBoxes` 里，再加一次就是把同一笔加单算两遍（22 箱的定稿会显示成 32 箱）。
+        判据 `rowHasAlloc` 只看"这一行此刻是否真的叠加了分摊"，所以：
+        填了加单但没分摊 ⇒ 老口径；分摊了但门店列还没叠加 ⇒ 老口径。两者都对。 */
+  return Math.ceil(rowBoxes(r) - 1e-9) + (rowHasAlloc(r) ? 0 : rowExtraQty(r))
 }
