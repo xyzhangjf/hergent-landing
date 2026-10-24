@@ -12,7 +12,7 @@
       <li v-for="c in colList" :key="c.key" :class="{ locked: c.core }">
         <label>
           <input type="checkbox" :checked="isVisible(c.key)" :disabled="c.core"
-                 @click.prevent="toggleCol(c.key)" />
+                 @change="onCheck(c.key, $event)" />
           {{ c.label }}<span v-if="c.core" class="col-core-tag">固定</span>
         </label>
       </li>
@@ -24,6 +24,7 @@
 </template>
 
 <script setup>
+import { nextTick } from 'vue'
 import { useColMenu } from '../composables/useColMenu.js'
 import Icon from './Icon.vue'
 
@@ -35,6 +36,18 @@ const props = defineProps({
 })
 
 const { showColMenu, colMenuEl, colMenuStyle, toggleColMenu } = useColMenu()
+
+/* 🔴 v669：**别再写 `@click.prevent` + 单向 `:checked`**（原写法在这里和 Forecast.vue 各一份）。
+   Chrome 的 pre-click activation 会在派发 click **之前**翻转复选框，`preventDefault()` 让浏览器在
+   派发结束后把翻转**还原**——而 Vue 的 patch 只写这次翻转前的值，还原之后不会再有 patch
+   ⇒ 勾选态与列显隐永久相反，直到关掉面板重开（v-if 重建节点）。真实鼠标必现，JS `el.click()` 不现。
+   改成 `@change`（不 prevent）+ nextTick 按状态回写，见宿主页 Forecast.vue::onColCheck 的同一段注释。 */
+function onCheck (key, e) {
+  props.toggleCol(key)
+  const el = e && e.target
+  if (!el) return
+  nextTick(() => { el.checked = props.isVisible(key) })
+}
 
 /** 外部齿轮按钮调用：toggleColMenu 会读 e.currentTarget（齿轮）的 rect 来定位。 */
 function open (e) { toggleColMenu(e) }

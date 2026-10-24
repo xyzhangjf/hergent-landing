@@ -407,7 +407,7 @@
                        toggleCol 拒绝（点了跟没点一样 = 假控件）。 -->
                   <li v-if="canSeeCol(c.key)" :class="{ locked: isLockedCol(c.key), hidden: colVis[c.key] === false }" :draggable="!isLockedCol(c.key)" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
                     <span class="drag">⠿</span>
-                    <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="isLockedCol(c.key)" @click.prevent="toggleCol(c.key)"> {{ c.label }}</label>
+                    <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="isLockedCol(c.key)" @change="onColCheck(c.key, $event)"> {{ c.label }}</label>
                     <button v-if="!isLockedCol(c.key) && c.deletable" class="col-menu-del" @click="deleteMasterCol(c.key)" title="删除该列"><Icon name="close"/></button>
                   </li>
                 </template>
@@ -1039,7 +1039,7 @@
                    成了「点了跟没点一样」的假控件（查看态菜单 v184 已修好，改单态这处漏了）。 -->
               <li v-for="(c, ci) in colOrder" :key="c.key" :class="{ locked: isLockedCol(c.key), hidden: colVis[c.key] === false }" :draggable="!isLockedCol(c.key)" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
                 <span class="drag">⠿</span>
-                <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="isLockedCol(c.key)" @click.prevent="toggleCol(c.key)"> {{ c.label }}</label>
+                <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="isLockedCol(c.key)" @change="onColCheck(c.key, $event)"> {{ c.label }}</label>
                 <button v-if="!isLockedCol(c.key) && c.deletable" class="col-menu-del" @click="deleteMasterCol(c.key)" title="删除该列"><Icon name="close"/></button>
               </li>
             </ul>
@@ -4017,6 +4017,26 @@ function toggleCol(key) {
   // colVis[key]: undefined/true=显示, false=隐藏。点击切换为相反态。
   colVis.value[key] = colVis.value[key] === false ? true : false
   _persistCols()
+}
+/* 🔴 v669：列设置复选框的**唯一**入口（查看态 + 改单态两个面板共用）。
+   起因（用户 2026-10-24 报）：取消勾选某列后，列确实从表里消失了，但面板里的勾**还留着**，
+   必须关掉面板再打开才对齐。
+   根因不是响应式 —— 实测 `li.hidden` 与状态同帧就更新了，只有 `input.checked` 不动：
+   Chrome 对复选框有 **pre-click activation** —— 真实鼠标点击时，它会在**派发 click 之前**
+   先把 `checked` 翻过去；原实现用 `@click.prevent` 取消默认行为，浏览器就在**事件派发结束之后**
+   把这次翻转**还原**回去。而 Vue 只在 vnode prop 值变化时才写 DOM，toggleCol 触发的那次 patch
+   已经把 `el.checked` 写成新值（= 浏览器刚翻到的值），此后浏览器再还原，Vue **不会再纠正**
+   ⇒ DOM 与状态永久相反，直到面板重开（v-if 重建节点）才按状态渲染。
+   （JS 的 `el.click()` 没有 pre-click activation，所以旧写法在自动化探针里是"看起来正常"的 ——
+    这条缺陷只有真实鼠标能踩到。）
+   改法：① 模板改 `@change`（不 prevent）：浏览器翻转 → change → 状态同向变化，两者天然一致；
+        ② 再在 nextTick 后按状态强制回写一次，兜住"状态没变但 DOM 已被浏览器翻过去"的残余情况
+           （例如某列被 isLockedCol 拒绝 —— 这类列现在是 disabled，属纵深防御，不是死代码）。 */
+function onColCheck(key, e) {
+  toggleCol(key)
+  const el = e && e.target
+  if (!el) return
+  nextTick(() => { el.checked = colVis.value[key] !== false })
 }
 function quickHide(key) {
   if (isLockedCol(key)) { toast('「' + _colLabel(key) + '」是固定列，不能隐藏', 'warn'); return }

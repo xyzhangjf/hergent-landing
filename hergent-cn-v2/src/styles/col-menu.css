@@ -10,9 +10,19 @@
   color: var(--t2); cursor: pointer; border-radius: var(--radius-sm);
 }
 .col-cfg.gear:hover { background: var(--bg2); color: var(--t1) }
-.col-menu-overlay { position: fixed; inset: 0; z-index: calc(var(--z-sticky, 50) + 10) }
+/* 🔴 v669：档位从 `--z-sticky(600)+10/+11` 改到变量表里的**页面级浮层**档
+   （`--z-page-overlay/--z-page-menu`，1100/1101 —— 变量注释里本来就写着"列菜单"）。
+   原值 610/611 的病根：面板**不在**全屏层里面 —— 预报页的 `.col-menu` 挂在 `.cross-card`
+   的 `.col-config-bar` 上，而全屏层是 `.grid-area.is-fs{position:fixed;inset:0;z-index:--z-page-fs(1000)}`
+   ⇒ 全屏时整块白底把 610 的面板**盖在下面**。生产实测（v668，1440×780 全屏）：
+   面板 rect 114~635 正常，但面板中心 / 顶部 / 底部的 `elementFromPoint` 全部命中
+   `div.pname`（全屏层里的表格单元格）= 面板确实被压在表体下，不是定位算错。
+   取 1100/1101 而不是 1250：这一档在 `--z-page-fs(1000)` 之上、页面模态（1125/1130）之下，
+   与 `.pop-overlay` / `.tb-pop-panel` 完全同档 ⇒ 列菜单永远不会浮到确认框上面。
+   ⚠️ 遮罩必须同步抬升：只抬面板的话，全屏下"点空白处关闭"也会失效（点击落到表体上）。 */
+.col-menu-overlay { position: fixed; inset: 0; z-index: var(--z-page-overlay, 1100) }
 .col-menu {
-  position: fixed; z-index: calc(var(--z-sticky, 50) + 11);
+  position: fixed; z-index: var(--z-page-menu, 1101);
   width: 240px; background: var(--bg); border: 1px solid var(--border-subtle);
   border-radius: var(--radius); box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
   display: flex; flex-direction: column; overflow: hidden;

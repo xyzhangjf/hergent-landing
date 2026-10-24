@@ -169,6 +169,19 @@ if (has('skip-sfc')) {
   results.push({ name: '舟谱分批号段', ok: r.code === 0, code: r.code })
 }
 
+// ── ⑦ 列设置面板契约（层级 / 勾选同步）──────────────────────
+/* 为什么需要第 7 组（v669）：两个缺陷都"改动一眼看不出坏" ——
+   ① 面板 z 档一回落，全屏时就被全屏层盖住（真实鼠标点不到，零报错）；
+   ② 复选框写回 `@click.prevent` + 单向 `:checked`，真实鼠标必现「勾选态不刷新」，
+      而 JS 的 `el.click()` 探针**量不出来**（无 pre-click activation）⇒ 只能靠静态契约钉住。 */
+{
+  console.log('\n── ⑦ 列设置面板契约（全屏层级 + 勾选态同步）──')
+  const r = run('colmenu-sync.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '列设置面板契约', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
