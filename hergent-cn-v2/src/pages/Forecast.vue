@@ -13132,7 +13132,13 @@ provide('sprintSummary', sprintSummary)
 /* v277：最终下单被减成负数 —— 这是**真的算不通**（厂商不拆零发货），必须显式标红；
    不做静默夹断（夹了用户就不知道自己的加单量超过了合计）。 */
 .final-neg{color:var(--danger-txt)}
-.pin{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
+/* v668：汇总条整条瘦身（用户：「合计(小单位) 570 · 合计(箱) 62.833 这些字体过大，调小一点省一点行高」）。
+   原来主数字 18px、上间距 14 + 内上边距 12 ⇒ 这一条实测占 42px 高 + 14px 外边距，
+   在笔记本视口下刚好把表格挤掉一行半。
+   现在与编辑态 `.edit-summary` **同一档**（标签 13 / 数字 15），两态不再一大一小；
+   间距 14/12 收到 10/8。⚠️ 别再把 `.big` 单独放大：它和右侧 12px 的「下单金额」是同一行信息，
+   字号拉开只会让这一行的高度由最大那个字决定，省不下来。 */
+.pin{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px solid var(--bd)}
 /* v621：「另有 N 个在售商品未显示」从工具行挪到合计行。页脚是 baseline 对齐，胶囊要 align-self:center
    才不会把行高顶歪；尺寸比工具行那版小一号（24 高），因为这里挨着的都是 12px 小字。 */
 .pin .pin-more,.edit-summary .pin-more{align-self:center;display:inline-flex;align-items:center;
@@ -13144,8 +13150,8 @@ provide('sprintSummary', sprintSummary)
      ≤1461 → 工具行（合计行在 1440 已只剩 ~130px，塞不下；工具行那一档本来就要折行） */
 @media(min-width:1462px){ .grid-ctl-row .row-more{display:none} }
 @media(max-width:1461px){ .pin .pin-more,.edit-summary .pin-more{display:none} }
-.pin .big{font-size:18px;font-weight:500}
-.pin .big b{color:var(--p-dark)}
+.pin .big{font-size:13px;font-weight:500}
+.pin .big b{color:var(--p-dark);font-size:15px}
 .pin .mini{font-size:12px;color:var(--t2)}
 .pin .mini b{color:var(--t1)}
 /* v585：冲刺胶囊靠页脚最右。align-self:center 抵消 .pin 的 baseline 对齐 ——
