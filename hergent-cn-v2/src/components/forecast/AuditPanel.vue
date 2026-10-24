@@ -20,7 +20,7 @@ const props = defineProps({
   numInput: { type: Function, required: true },
   goConnect: { type: Function, required: true },
 })
-const emit = defineEmits(['close', 'reload'])
+const emit = defineEmits(['close', 'reload', 'audited'])
 
 const auditState = ref(null)   // null | 'loading' | 'done' | 'empty'
 const auditData = ref(null)
@@ -60,6 +60,9 @@ async function loadAudit() {
     ;(r.items || []).forEach(a => { if (a.suggested_qty != null && a.final_qty == null) a.final_qty = a.suggested_qty })
     auditData.value = r
     auditState.value = (r.items || []).length ? 'done' : 'empty'
+    /* v662：把后端算好的建议量回抛给汇总表 —— 表格「建议」列不再自己算第二套公式
+       （旧 computeSuggestion 读 products.safety_stock，而全库该字段恒 0 ⇒ 该列永远 0）。 */
+    emit('audited', r.items || [])
   } catch (e) {
     toast(e.message || '审核失败', 'err')
     emit('close')
@@ -125,23 +128,38 @@ onMounted(loadAudit)
             <p v-if="auditData?.rebate_hint" class="imp-ok">{{ auditData.rebate_hint }}</p>
             <div class="audit-sum">
               <span>{{ auditData.summary?.sku_count || 0 }} 个 SKU</span>
-              <span>预报 <b>{{ fmt(auditData.summary?.total_requested) }}</b> 件</span>
-              <span>系统建议 <b class="audit-sug">{{ fmt(auditData.summary?.total_suggested) }}</b> 件</span>
+              <span>预报 <b>{{ fmt(auditData.summary?.total_requested_cases) }}</b> 件</span>
+              <span>系统建议 <b class="audit-sug">{{ fmt(auditData.summary?.total_suggested_cases) }}</b> 件</span>
+              <span v-if="auditData.summary?.lead_gap_count" class="val-bad">到货前可能断货 {{ auditData.summary.lead_gap_count }} 个</span>
               <span v-if="auditData.summary?.missing_count" class="val-bad">缺货 {{ auditData.summary.missing_count }}</span>
               <span v-if="auditData.summary?.excess_count" class="val-warn">积压 {{ auditData.summary.excess_count }}</span>
             </div>
+            <!-- v662：口径自述。旧版弹窗只给一个数字、不说怎么算，用户只能来问。
+                 公式由后端下发（唯一实现），前端不重写。 -->
+            <p v-if="auditData.formula?.text" class="audit-formula">
+              <Icon name="info"/> {{ auditData.formula.text }}
+              <span v-if="auditData.summary?.no_ratio_count">（有 {{ auditData.summary.no_ratio_count }} 个商品未配「每件数量」，这部分未按件折算）</span>
+            </p>
             <p class="legacy-note">本周期经「确认定稿」即为唯一定稿出口；逐单审批为历史流程，仅用于追溯，不生成采购申请。</p>
             <div class="imp-matrix">
               <table class="tbl">
-                <thead><tr><th>商品</th><th class="num">预报</th><th class="num">库存</th><th class="num">日均</th><th class="num">建议</th><th class="num">定稿</th><th>判定</th></tr></thead>
+                <thead><tr><th>商品</th><th class="num">预报(件)</th><th class="num">库存</th><th class="num">日均</th><th class="num">建议(件)</th><th class="num">到货前缺口</th><th class="num">定稿</th><th>判定</th></tr></thead>
                 <tbody>
                   <tr v-for="a in auditPaged" :key="a.product_id">
-                    <td class="audit-name">{{ a.name || '商品#' + a.product_id }}<span v-if="a.spec" class="hint"> {{ a.spec }}</span></td>
-                    <td class="num">{{ a.requested_qty != null ? fmt(a.requested_qty) : '—' }}</td>
-                    <td class="num">{{ a.current_stock ?? '—' }}</td>
-                    <td class="num">{{ a.avg_daily_sales ?? '—' }}</td>
-                    <td class="num"><b class="audit-sug">{{ a.suggested_qty != null ? fmt(a.suggested_qty) : '—' }}</b></td>
-                    <td class="num"><input v-if="a.final_qty != null" :value="a.final_qty" class="qty-input" type="text" inputmode="numeric" @input="numInput($event, a, 'final_qty')" @change="a.final_qty = parseNumInput($event.target.value)"><span v-else class="hint">—</span></td>
+                    <td class="audit-name">
+                      <span class="an-t">{{ a.name || '商品#' + a.product_id }}<span v-if="a.spec" class="hint"> {{ a.spec }}</span></span>
+                      <!-- v662：每行自带换算口径，避免「1841」到底是件还是桶再被误读 -->
+                      <span v-if="a.case_ratio > 1" class="an-u">1{{ a.large_unit || '件' }}={{ a.case_ratio }}{{ a.unit }}</span>
+                    </td>
+                    <td class="num">{{ a.requested_cases != null ? fmt(a.requested_cases) : '—' }}</td>
+                    <td class="num">{{ a.current_stock ?? '—' }}<span class="u">{{ a.unit }}</span></td>
+                    <td class="num">{{ a.avg_daily_sales ?? '—' }}<span class="u">/天</span></td>
+                    <td class="num"><b class="audit-sug">{{ a.suggested_cases != null ? fmt(a.suggested_cases) : (a.suggested_qty != null ? fmt(a.suggested_qty) : '—') }}</b></td>
+                    <td class="num" :class="{ 'val-bad': a.lead_gap > 0 }">
+                      <template v-if="a.lead_gap > 0">{{ a.lead_gap }}<span class="u">{{ a.unit }}</span></template>
+                      <span v-else class="hint">够</span>
+                    </td>
+                    <td class="num"><input v-if="a.final_qty != null" :value="a.final_qty" class="qty-input" type="text" inputmode="numeric" :title="'按最小单位（' + (a.unit || '件') + '）录入，1' + (a.large_unit || '件') + '=' + (a.case_ratio || 1) + (a.unit || '')" @input="numInput($event, a, 'final_qty')" @change="a.final_qty = parseNumInput($event.target.value)"><span v-else class="hint">—</span></td>
                     <td class="audit-verdict"><span :class="verdictCls(a.error || a.verdict)">{{ a.error || a.verdict }}</span></td>
                   </tr>
                 </tbody>
@@ -164,7 +182,12 @@ onMounted(loadAudit)
 
 <style>
 /* AuditPanel 专属样式（F4 从 Forecast.vue 迁出）；基础 .imp-* 由父级全局样式提供 */
-.audit-modal{width:min(760px,96vw)}
+.audit-modal{width:min(880px,97vw)}
+.audit-formula{margin:0 0 10px;font-size:var(--fs-sm);color:var(--t2);line-height:1.6;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--radius-sm);padding:7px 10px}
+.audit-formula .ico{color:var(--p);opacity:.75;margin-right:4px}
+.an-t{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.an-u{display:block;font-size:11px;color:var(--t3);font-weight:400;margin-top:1px}
+.audit-modal .num .u{font-size:11px;color:var(--t3);margin-left:2px;font-weight:400}
 .audit-fresh{margin:8px 0 0;line-height:1.7}
 .audit-fresh-ok{background:var(--bg3);border:1px solid var(--bd);border-left:3px solid var(--p);border-radius:var(--radius-sm);padding:8px 12px}
 .audit-fresh-ok .ico{color:var(--p);opacity:.8}

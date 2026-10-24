@@ -119,7 +119,13 @@
     </td>
     <td class="num calc sum" :class="[warnCls, ctx.moqWarn(row) === 'below' ? 'moq-below' : '']" :data-r="ri" @mousedown="ctx.onRowDown(ri, $event)" @mouseover="ctx.onCellOver(ri, ctx.SEQ_CI)">{{ fmt(sum) }}</td>
     <td class="num calc boxes" :data-r="ri" @mousedown="ctx.onRowDown(ri, $event)" @mouseover="ctx.onCellOver(ri, ctx.SEQ_CI)"><span :class="{ 'miss-price': boxMissing(row) }">{{ boxText(row) }}</span></td>
-    <td v-if="ctx.showSuggest" class="num calc suggest" :data-r="ri" @mousedown="ctx.onRowDown(ri, $event)" @mouseover="ctx.onCellOver(ri, ctx.SEQ_CI)" title="配方建议：按「建议算法」面板策略算出">{{ fmt(row.suggest || 0) }}<button class="mini-btn" @click="ctx.adoptSuggestion(ri)" :disabled="!(row.suggest > 0)">采纳</button></td>
+    <!-- v662：建议列一律按「件」显示（后端与弹窗同一算层）；建议为 0 但到货前会断货时，
+         显示缺口数而不是一个光秃秃的 0 —— 否则用户会以为"不用补"而断货。 -->
+    <td v-if="ctx.showSuggest" class="num calc suggest" :data-r="ri" @mousedown="ctx.onRowDown(ri, $event)" @mouseover="ctx.onCellOver(ri, ctx.SEQ_CI)" :title="row.suggest > 0 ? ('建议 ' + row.suggest + ' ' + (row.suggestBigUnit || '件') + '（' + (row.suggestQty || 0) + (row.suggestUnit || '') + '）；点「采纳」写入加单') : (row.leadGap > 0 ? ('按到货间隔不用补货，但到货前（提前下单期）约缺 ' + row.leadGap + (row.suggestUnit || '') + '，需另补或催在途') : '点工具栏「补货建议」按后端算法填入')">
+      <template v-if="row.suggest > 0">{{ fmt(row.suggest) }}<button class="mini-btn" @click="ctx.adoptSuggestion(ri)">采纳</button></template>
+      <template v-else-if="row.leadGap > 0"><span class="sg-gap">缺{{ row.leadGap }}</span></template>
+      <span v-else class="hint">—</span>
+    </td>
     <td class="num calc extra pt-xmtd" :class="ctx.ptExtraCellCls(row)" :data-r="ri"><input :value="row.extraQty ?? ''" class="cell-input cell-qty" :class="{ 'cell-minus': ctx.isMinus(row.extraQty), 'xm-alert': ctx.ptExtraAlert(row) }" type="text" inputmode="numeric" placeholder="·" :data-r="ri" :data-c="ctx.C_EXTRA_INPUT" @focus="ctx.onFocusCell(ri, ctx.C_EXTRA_INPUT, $event)" @input="ctx.numInput($event, row, 'extraQty')" @change="ctx.numCommit($event, row, 'extraQty')" :title="ctx.ptExtraInputTitle(row)"><!-- v318：一键分摊入口。**只在编辑态**出现（比例写档案、加单量回填本行，都属"改单"范畴），
          readonly 态不放开 —— 免得在"只是看一眼"的状态下误写全期目标档案。
          v336：判据从「有目标且有承接人」放宽为「**有人可分**」

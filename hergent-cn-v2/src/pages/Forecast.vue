@@ -300,7 +300,7 @@
       </Transition>
     </Teleport>
 
-    <AuditPanel v-if="auditOpen" :period="cross.period" :erp-linked="erpLinked" :record-audit="recordAudit" :num-input="numInput" :go-connect="goConnect" @close="auditOpen = false" @reload="loadCross()" />
+    <AuditPanel v-if="auditOpen" :period="cross.period" :erp-linked="erpLinked" :record-audit="recordAudit" :num-input="numInput" :go-connect="goConnect" @close="auditOpen = false" @reload="loadCross()" @audited="onAudited" />
 
     <!-- v628：返利冲刺看板的**顶部卡片已撤**。用户原话「冲刺面板横在工具栏和网格中间有点不太合适，
          很占空间」—— 真机实测它占 133px（卡片 115 + 外距 18），1366×768 上就是视口的 17.3%，
@@ -697,7 +697,7 @@
                       <span class="exp-chev" @click.stop="toggleExpand(it.r.product_id)" :title="isExpanded(it.r.product_id) ? '收起明细' : '展开明细'"><Icon :name="isExpanded(it.r.product_id) ? 'chevron-down' : 'chevron-right'"/></span>
                       <div class="pname">{{ it.r.name }}<span v-if="it.r.ordering_entity" class="oe-badge" :class="'oe-c' + oeColorIdx(it.r.ordering_entity)">{{ it.r.ordering_entity }}</span><!-- v574：「多少店报」由原来的独立一行改为品名行尾角标（用户确认这项有用，但不能占行高）。数值 = 本期报这个商品的**门店数**（后端 rows.stores，去重键含 store_kind，见 erp_db::forecast_submission_summary）。⚠️ 不是 rows.people —— 老板一人替十几家门店填单，账号数恒为 1，没有信息量。 --><span v-if="it.r.stores" class="store-badge" :title="'本期有 ' + it.r.stores + ' 家门店报了该商品'">{{ it.r.stores }} 店报</span><span v-if="it.r.offArchive" class="oe-badge off-tag" title="这个商品在你的「在售商品档案」里已停用或已删除，但本期数据引用了它。要让它回到档案列表，请到「商品档案」重新启用。">已停用</span></div>
                       <div v-if="nameSubline(it.r)" class="pspec">{{ nameSubline(it.r) }}</div>
-                      <div v-if="it.r.ai != null" class="ai-hint">系统建议 {{ fmt(it.r.ai) }}{{ it.r.unit }}<span v-if="it.r.aiMethod" class="hint">（{{ it.r.aiMethod }}）</span></div>
+                      <div v-if="it.r.suggestAudited" class="ai-hint">建议 {{ fmt(it.r.suggest) }}{{ it.r.suggestBigUnit || '件' }}<span v-if="it.r.leadGap > 0" class="hint"> · 到货前缺 {{ it.r.leadGap }}{{ it.r.suggestUnit }}</span></div>
                       <span v-if="rowWarn(it.r) === 'low'" class="warn-badge" title="低于安全库存"><Icon name="alert-triangle"/></span>
                       <span v-else-if="rowWarn(it.r) === 'short'" class="warn-badge short" title="短保（保质期≤7天）"><Icon name="alert-triangle"/></span>
                       <span v-if="lossWarn(it.r)" class="loss-badge" :class="lossWarn(it.r)" :title="lossTip(it.r)"><Icon name="flame"/></span>
@@ -737,7 +737,13 @@
                       </span>
                     </template>
                     <template v-else-if="col.key === 'final'"><b :class="{ 'final-neg': rowFinalQty(it.r) < 0 }" :title="rowFinalQty(it.r) < 0 ? '最终下单为负：加单(箱)的负数比「合计(箱)」还大。厂商不拆零发货，负数量无法下单 —— 请核对加单量。' : ''">{{ fmt(rowFinalQty(it.r)) }}</b></template>
-                    <template v-else-if="col.key === 'ai'">{{ it.r.ai != null ? fmt(it.r.ai) : '—' }}</template>
+                    <!-- v662：只读表原来直接渲染 `it.r.ai`（= 预报引擎的「未来 7 天需求预测」，
+                         不减库存、只对 件/瓶/袋/个 生效 ⇒ 用户的桶/杯/组全恒空）。
+                         现在与弹窗/编辑网格同源，读审核回填的 `suggest`（按件）。 -->
+                    <template v-else-if="col.key === 'ai'">
+                      <span v-if="it.r.suggestAudited" :title="'建议 ' + it.r.suggest + (it.r.suggestBigUnit || '件') + '（' + it.r.suggestQty + (it.r.suggestUnit || '') + '）' + (it.r.leadGap > 0 ? '；到货前约缺 ' + it.r.leadGap + (it.r.suggestUnit || '') : '')">{{ fmt(it.r.suggest) }}</span>
+                      <span v-else class="muted">—</span>
+                    </template>
                     <template v-else-if="col.key === 'price'"><span :class="{ 'miss-price': pricePerCase(it.r) == null }">{{ pricePerCase(it.r) != null ? pricePerCase(it.r).toFixed(2) + ' /箱' : (factoryPrice(it.r) <= 0 ? '缺价' : '缺规格') }}</span></template>
                     <template v-else-if="col.key === 'amount'"><span :class="{ 'miss-price': pricePerCase(it.r) == null }">{{ amountValue(it.r) != null ? fmt(amountValue(it.r)) : (factoryPrice(it.r) <= 0 ? '缺价' : '缺规格') }}</span></template>
                   </td>
@@ -747,7 +753,7 @@
                     <div class="det-grid">
                       <div class="det-row2"><span>品类</span><b>{{ it.r.category || '—' }}</b></div>
                       <div class="det-row2"><span>品牌</span><b>{{ it.r.brand || '—' }}</b></div>
-                      <div class="det-row2"><span>系统建议</span><b v-if="it.r.ai != null">{{ fmt(it.r.ai) }}{{ it.r.unit }} <i v-if="it.r.aiMethod" class="det-i">{{ it.r.aiMethod }}</i></b><span v-else>—</span></div>
+                      <div class="det-row2"><span>建议(件)</span><b v-if="it.r.suggestAudited">{{ fmt(it.r.suggest) }}{{ it.r.suggestBigUnit || '件' }}<i v-if="it.r.leadGap > 0" class="det-i">到货前缺 {{ it.r.leadGap }}{{ it.r.suggestUnit }}</i></b><span v-else>—</span></div>
                       <div class="det-row2"><span>备注</span><b>{{ rowNote(it.r) || '—' }}</b></div>
                       <div class="det-row2"><span>风险</span><b :class="riskCls(it.r)">{{ riskText(it.r) }}</b></div>
                       <div class="det-row2 det-units-row"><span>各单元</span>
@@ -1099,7 +1105,7 @@
                      原「合计」二字未标单位、同屏又与按箱的「件数(箱)」并列，易被读成同一个量。 -->
                 <th class="num calc-th sum" scope="col">合计(小单位)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'sum')" @click.stop></span></th>
                 <th class="num calc-th boxes" scope="col">合计(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'boxes')" @click.stop></span></th>
-                <th v-if="showSuggest" class="num calc-th suggest" scope="col" title="配方建议：按「建议算法」面板当前策略算出，只受该面板影响">配方建议<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'suggest')" @click.stop></span></th>
+                <th v-if="showSuggest" class="num calc-th suggest" scope="col" title="系统补货建议（按件）：与工具栏「补货建议」弹窗同一套算法 —— 后端唯一实现，前端不再自算；点过一次「补货建议」后填入">建议(件)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'suggest')" @click.stop></span></th>
                 <th class="num calc-th extra" scope="col">加单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'extra')" @click.stop></span></th>
                 <th class="num calc-th final" scope="col">最终下单(箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'final')" @click.stop></span></th>
                 <th class="num calc-th price" scope="col" title="可直接录入：填「元/箱」。留空则**自动沿用上一期录入过的价**（本期之前最近一次填过的，不用重填）；从未填过则按商品档案的进价自动算（档案进价本身就是「元/箱」，直接作为本单价）。录入的价只在本期生效：点「保存」后随本期报单留存，不改商品档案，也不影响其他期次。">单价(进价/箱)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'price')" @click.stop></span></th>
@@ -1256,29 +1262,19 @@
               <button class="btn btn-ghost btn-sm" :class="{on:trailOpen}" @click="toggleTrail"><Icon name="list"/> 修改日志</button>
               <button class="btn btn-ghost btn-sm" @click="loadTemplates" :disabled="tmplLoading"><Icon name="book"/> 行业模板</button>
               <button class="btn btn-ghost btn-sm" @click="loadBI" :disabled="biLoading"><Icon name="bar-chart"/> 经营看板</button>
-              <button class="btn btn-ghost btn-sm" @click="suggestPanel=!suggestPanel" title="建议量算法：只影响报单汇总表的「配方建议」列，不影响「系统建议」列"><Icon name="settings"/> 建议算法</button>
+              <!-- v662：原「建议算法」是可切换策略（safety/avg/trend/blend）+ 存配方，
+                   但那套前端公式在 v662 已被删除（安全库存恒 0 ⇒ 建议列恒 0；avg/trend 又
+                   把每期量乘 7 天）。留着可点的开关就是新的静默失效 ⇒ 改为**只读说明**。 -->
+              <button class="btn btn-ghost btn-sm" @click="suggestPanel=!suggestPanel" title="建议量算法说明：全站唯一实现，弹窗与表格「建议(件)」列同一份"><Icon name="settings"/> 建议算法</button>
             </template>
           </div>
           <div v-if="suggestPanel" class="recipe-panel">
-            <span class="hint">只影响「配方建议」列</span>
-            <span>策略</span>
-            <select v-model="suggRecipe.strategy">
-              <option value="safety">安全库存法</option>
-              <option value="avg">历史均值法</option>
-              <option value="trend">趋势外推法</option>
-              <option value="blend">加权混合法</option>
-            </select>
-            <span v-if="suggRecipe.strategy !== 'safety'">覆盖天数<input :value="suggRecipe.coverageDays" type="text" inputmode="numeric" class="recipe-val" @input="numInput($event, suggRecipe, 'coverageDays')"></span>
-            <span v-if="suggRecipe.strategy === 'trend'">外推步数<input :value="suggRecipe.trendSteps" type="text" inputmode="numeric" class="recipe-val" @input="numInput($event, suggRecipe, 'trendSteps')"></span>
-            <span v-if="suggRecipe.strategy === 'blend'">历史权重<input :value="suggRecipe.trendWeight" type="text" inputmode="decimal" class="recipe-val" @input="numInput($event, suggRecipe, 'trendWeight')"></span>
-            <label class="basis-toggle">配方
-              <select v-model="recipePick" @change="applySuggestRecipe(recipePick)">
-                <option value="">选择…</option>
-                <option v-for="s in suggestRecipes" :key="s.name" :value="s.name">{{ s.name }}</option>
-              </select>
-              <!-- v335：按钮级门禁 —— 存建议配方 = PUT /api/forecast/recipe ⇒ data/update -->
-              <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-xs" @click="saveSuggestRecipe">存</button>
-            </label>
+            <span class="hint"><Icon name="info"/> 建议量全站只有一套算法（「补货建议」弹窗顶部同一份说明）</span>
+            <span>日均销量 = 近 30 天出库 ÷ 30</span>
+            <span>需求 = 日均销量 × 到货间隔</span>
+            <span>建议(件) = max(0, 需求 − 当前库存) ÷ 每件数量</span>
+            <span>安全库存只作下限、不额外叠加</span>
+            <span>「到货前缺口」单独提示，<b>不计入</b>建议量</span>
             <button class="btn btn-ghost btn-xs" @click="suggestPanel = false">收起</button>
           </div>
           <div v-if="batchMode" class="batch-panel">
@@ -2197,10 +2193,13 @@
                   <span v-if="d.suggested_qty != null && d.avg_daily_sales" class="why">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                     <span class="why-tip">
-                      <div class="why-formula">日均销 {{ d.avg_daily_sales }} 件 × 覆盖 {{ d.coverage_days }} 天</div>
-                      <div class="why-formula">+ 安全库存 {{ d.safety_stock }} 件 = 需求 {{ d.required_stock }} 件</div>
-                      <div class="why-formula">− 当前库存 {{ d.current_stock }} 件</div>
-                      <div class="why-result">= 建议补货 {{ d.suggested_qty }} 件</div>
+                      <!-- v662：算式必须与后端同一口径（需求只按到货间隔、安全库存只作下限），
+                           否则浮层讲的是一套、弹窗算的是另一套。单位一律带小单位，不再冒充「件」。 -->
+                      <div class="why-formula">日均销 {{ d.avg_daily_sales }} {{ d.unit }} × 到货间隔 {{ d.coverage_days }} 天 = 需求 {{ d.required_stock }} {{ d.unit }}</div>
+                      <div class="why-formula">安全库存 {{ d.safety_stock }} {{ d.unit }}（只作下限，<b>不叠加</b>）</div>
+                      <div class="why-formula">− 当前库存 {{ d.current_stock }} {{ d.unit }}</div>
+                      <div class="why-result">= 建议补货 {{ d.suggested_cases != null ? d.suggested_cases : d.suggested_qty }} {{ d.large_unit || '件' }}<span v-if="d.case_ratio > 1">（{{ d.suggested_qty }} {{ d.unit }}）</span></div>
+                      <div v-if="d.lead_gap > 0" class="why-formula">到货前缺口 {{ d.lead_gap }} {{ d.unit }}（库存只够 {{ d.days_of_cover }} 天）</div>
                     </span>
                   </span>
                 </span>
@@ -3268,10 +3267,12 @@ const colOrderList = computed(() => {
   cross.value.units.forEach(u => cols.push({ type: 'qty', key: u.name, label: u.name }))
   cols.push({ type: 'calc', key: 'qty', label: '合计(小单位)' })
   cols.push({ type: 'calc', key: 'boxes', label: '合计(箱)' })
-  // v184e：系统建议用于辅助决定「加单」填多少，移到「加单」左侧，形成「建议→加单→最终下单」阅读流。
-  // ⚠️ 命名纪律：本列是**后端固定口径**（routers/forecast_audit.py 的安全库存/到货周期/提前期常量），
-  // 与受「建议算法」面板控制的「配方建议」列**是两个不同的量**，不得同名（改名前叫「AI建议」）。
-  if (showSuggest.value) cols.push({ type: 'calc', key: 'ai', label: '系统建议' })
+  // v662：本列原叫「系统建议」，但它的值其实是 `_forecast_product_cached(pid, 7).forecast_total`
+  //   —— **未来 7 天的需求预测**：不减库存、不看到货间隔，且只对 unit∈(件/瓶/袋/个) 生效
+  //   ⇒ 用户的桶/杯/组商品该列**恒为空**（又一例「名字与口径不符」，旧注释也写错了来源）。
+  //   现改为消费「补货建议」的同一份结果（按件），与弹窗、编辑态「建议(件)」列**三处同数**；
+  //   未点过「补货建议」时显示「—」而不是 0（0 会被读成"不需要补"）。
+  if (showSuggest.value) cols.push({ type: 'calc', key: 'ai', label: '建议(件)' })
   cols.push({ type: 'calc', key: 'extra', label: '加单(箱)' })
   cols.push({ type: 'calc', key: 'final', label: '最终下单(箱)' })
   cols.push({ type: 'calc', key: 'price', label: '单价(进价/箱)' })
@@ -5907,7 +5908,7 @@ function colStatVal(r, desc) {
     case 'boxes': return Number(rowBoxes(r))
     case 'extra': return rowExtraQty(r)
     case 'final': return rowFinalQty(r)
-    case 'ai': return r.ai != null ? Number(r.ai) : null
+    case 'ai': return r.suggestAudited ? Number(r.suggest || 0) : null
     case 'suggest': return Number(r.suggest || 0)
     case 'comparePrev': return prevQty(r)
     case 'compareDelta': return deltaQty(r)
@@ -6753,7 +6754,7 @@ function ctxAskAi() {
   let hist = ''
   try { (r.history || []).slice(-4).forEach(h => { hist += ` ${h.period}:${h.qty || h.value || ''}` }) } catch (e) {}
   const units = cross.value.units.map(u => `${u.name}:${r.qtyByUnit[u.name] || 0}`).join('，')
-  hermesCtx.value = `我是低温奶经销商，请基于以下商品分析本期订货建议，重点说明：是否合理、库存/货损风险、可优化点。\n商品：${r.name}（规格 ${r.spec || '—'} ${r.unit || ''}）\n安全库存：${r.safety_stock || 0}　保质期：${r.expiry_days || 0}天\n各报单单元订量：${units || '无'}\n合计：${r.total || 0}${r.unit || ''}　下单金额：¥${fmt(r.amount)}\n系统建议：${r.ai != null ? r.ai : '—'}\n历史销量：${hist || '无'}`
+  hermesCtx.value = `我是低温奶经销商，请基于以下商品分析本期订货建议，重点说明：是否合理、库存/货损风险、可优化点。\n商品：${r.name}（规格 ${r.spec || '—'} ${r.unit || ''}）\n安全库存：${r.safety_stock || 0}　保质期：${r.expiry_days || 0}天\n各报单单元订量：${units || '无'}\n合计：${r.total || 0}${r.unit || ''}　下单金额：¥${fmt(r.amount)}\n系统建议：${r.suggestAudited ? (r.suggest + (r.suggestBigUnit || '件') + (r.leadGap > 0 ? '（到货前缺 ' + r.leadGap + (r.suggestUnit || '') + '）' : '')) : '未审核'}\n历史销量：${hist || '无'}`
   hermesOpen.value = true
   closeCtx()
   runHermes()
@@ -7137,7 +7138,7 @@ function gridHeaders() {
   visibleCols.value.forEach(c => { if (c.key !== 'name') headers.push(c.label) })
   cross.value.units.forEach(u => headers.push(u.name))
   headers.push('下单金额(进价)')
-  headers.push('建议')
+  headers.push('建议(件)')
   return headers
 }
 function gridRowCells(r) {
@@ -8996,63 +8997,59 @@ const suggRecipe = reactive({
 function recipeLabel(s) {
   return ({ safety: '安全库存法', avg: '历史均值法', trend: '趋势外推法', blend: '加权混合法' })[s] || s
 }
-function computeSuggestion(r, recipe) {
-  const current = rowSum(r)
-  const strat = (recipe && recipe.strategy) || 'safety'
-  if (strat === 'safety') {
-    const safety = Number(r.safety_stock) || 0
-    return safety > 0 ? Math.max(0, Math.round(safety - current)) : 0
-  }
-  const hist = r.history || []
-  if (hist.length < 2) return 0
-  const avg = hist.reduce((s, x) => s + (Number(x) || 0), 0) / hist.length
-  if (strat === 'avg') {
-    const cov = Number(recipe.coverageDays) || 7
-    return Math.max(0, Math.round(avg * cov - current))
-  }
-  if (strat === 'trend') {
-    const n = hist.length
-    const slope = hist[n - 1] - hist[n - 2]
-    const proj = hist[n - 1] + slope * (Number(recipe.trendSteps) || 1)
-    const cov = Number(recipe.coverageDays) || 7
-    return Math.max(0, Math.round(proj * cov - current))
-  }
-  // blend：安全库存与历史均值按权重融合
-  const safety = Number(r.safety_stock) || 0
-  const w = Number(recipe.trendWeight) || 0.3
-  const base = safety > 0 ? Math.round(safety * (1 - w) + avg * w) : Math.round(avg)
-  const cov = Number(recipe.coverageDays) || 7
-  return Math.max(0, Math.round((base * cov) / 7 - current))
+/* 🔴 v662（2026-10-24）：这里**删掉**了前端那套 `computeSuggestion` 独立公式。
+   生产实测它的两个死法：
+     ① `safety` 策略读 `r.safety_stock`，而全库 1270 个商品该字段恒为 0
+        ⇒ 该列**永远返回 0**（静默失效，界面上只看到一列 0，没有任何报错）；
+     ② 切到 avg/trend 策略时，`avg` 是「每期(2 天)历史量」，却乘 `coverageDays=7`
+        ⇒ 放大 3.5 倍。
+   现在唯一算法是后端 `routers/forecast_audit.py::_audit_items`（与审核台弹窗同源），
+   由 AuditPanel 的 `audited` 事件回抛，本页只负责按 product_id 落到行上。
+   单位：表内一律按「件」（与弹窗一致）；最小单位原值留 `suggestQty` 供核对。 */
+function applyAudited(items) {
+  const map = {}
+  ;(items || []).forEach(a => { if (a && a.product_id) map[Number(a.product_id)] = a })
+  const rows = cross.value.rows || []
+  if (!rows.length) return
+  snapshot()   // 整表建议列会被改写 ⇒ 必须可一键撤销
+  rows.forEach(r => {
+    const a = map[Number(r.product_id)]
+    if (!a) { r.suggest = 0; r.suggestCases = 0; r.suggestQty = 0; r.leadGap = 0; r.suggestAudited = false; return }
+    r.suggestCases = Number(a.suggested_cases) || 0
+    r.suggestQty = Number(a.suggested_qty) || 0
+    r.leadGap = Number(a.lead_gap) || 0
+    r.suggest = r.suggestCases
+    r.suggestAudited = true          // 只在"确实审核过这个商品"时显示 0，否则显示「—」
+    r.suggestUnit = a.unit || ''
+    r.suggestBigUnit = a.large_unit || '件'
+    r.caseRatio = Number(a.case_ratio) || 1
+  })
+  saveDraftNow()
 }
-async function genSuggestions() {
-  const recipe = suggRecipe
-  const needHist = recipe.strategy !== 'safety'
-  if (needHist && !cross.value.rows.every(r => (r.history || []).length >= 2)) {
-    const ok = await fetchHistory()
-    if (!ok) { toast('历史不足，无法用「' + recipeLabel(recipe.strategy) + '」计算（先点「历史趋势」）', 'warn'); return }
-  }
-  snapshot()
-  cross.value.rows.forEach(r => { r.suggest = computeSuggestion(r, recipe) })
-  toast('已按「' + recipeLabel(recipe.strategy) + '」算出建议量' + (needHist ? '（基于近 6 期趋势）' : ''), 'ok')
+function onAudited(items) {
+  try { applyAudited(items) } catch (e) { console.warn('[audit] 建议列回填失败', e) }
 }
-// 合并入口：按钮「补货建议」(openAudit) 与前端配方计算 (genSuggestions) 合一，避免两个都算建议量造成混淆
-// 点「补货建议」同时：弹后端审核窗（r.ai，定稿）+ 填前端配方建议列（r.suggest，可采纳）
+// 合并入口：按钮「补货建议」= 弹后端审核台（唯一算层）→ 结果自动回填表内「建议(件)」列
 function onSuggest() {
   openAudit()
-  genSuggestions().catch(() => {})
 }
 function adoptSuggestion(ri) {
   const r = cross.value.rows[ri]; if (!r) return
-  const s = Number(r.suggest) || 0
-  if (s <= 0) { toast('该商品当前无需补货', 'warn'); return }
-  snapshot()
-  const units = cross.value.units
-  if (units.length) {
-    const u0 = units[0].name
-    r.qtyByUnit[u0] = (parseInt(r.qtyByUnit[u0]) || 0) + s
+  const cases = Number(r.suggestCases) || 0
+  if (!(cases > 0)) {
+    const gap = Number(r.leadGap) || 0
+    toast(gap > 0
+      ? ('按到货间隔不用补货，但到货前约缺 ' + gap + (r.suggestUnit || '') + '，需另补或催在途')
+      : '该商品当前无需补货', 'warn')
+    return
   }
-  r.suggest = 0
-  toast('已采纳建议 +' + s, 'ok')
+  snapshot()
+  /* 写「加单(箱)」而不是 `units[0]`（门店列）—— 建议量是整行总量，
+     落到某一个门店会把归属算错（旧实现 `qtyByUnit[units[0].name] += s` 就是这个错）。 */
+  r.extraQty = Math.round(((Number(r.extraQty) || 0) + cases) * 10) / 10
+  r.suggest = 0; r.suggestCases = 0
+  saveDraftNow()
+  toast('已采纳 +' + cases + ' 件（写入加单）', 'ok')
 }
 /* v656：原 `totalSuggest` computed 已删 —— 唯一读者是已删除的 `foot`（v655 起
    表尾各列 Σ 全部由 ForecastAgg 渲染）。建议列合计现在的唯一实现是
@@ -13506,6 +13503,8 @@ provide('sprintSummary', sprintSummary)
 :deep(.edit-tbl .mini-btn){height:16px;line-height:14px;padding:0 5px;font-size:10px;vertical-align:middle}
 :deep(.mini-btn:disabled){opacity:.4;cursor:default}
 :deep(.suggest){color:var(--p-dark);font-weight:500}
+/* v662：建议为 0 但到货前会断货 —— 显示缺口，别让「0」看着像"不用管" */
+:deep(.sg-gap){color:var(--dan);font-size:11px;font-weight:600;cursor:help}
 :deep(.delta.up){color:var(--suc)}
 :deep(.delta.down){color:var(--danger-txt)}
 :deep(.spark-td){text-align:center}
