@@ -57,11 +57,16 @@ if (histStart < 0 || splitStart < 0) {
   ok(false, '历史面板/双栏锚点可定位（否则本条无法判定，需更新锚点）')
 } else {
   ok(histStart < splitStart, '历史面板区块边界可解析', `${histStart}<${splitStart}`)
-  const histBlock = drawer.slice(histStart, splitStart)
+  /* 🔴 断言只扫**有效模板**，先剥 HTML 注释：注释里出现「＋ 新对话」字样是说明文字，
+     不是入口（本轮就撞到过 —— 加了条说明注释，断言当场误报 FAILED）。 */
+  const histBlock = drawer.slice(histStart, splitStart).replace(/<!--[\s\S]*?-->/g, '')
   ok(!/cp-new-btn/.test(histBlock), '「新对话」按钮不在历史会话面板区块内（藏在里面 = 用户原话的回退形态）')
   ok(btnAt >= 0 && btnAt < histStart, '按钮位于历史面板之前（即标题栏区）', `btn@${btnAt} < hist@${histStart}`)
-  /* 历史面板里那个 `＋ 新对话` 可以保留（随手点方便），但它**不能是唯一入口** */
-  ok(/＋ 新对话/.test(histBlock), '历史面板内仍保留 `＋ 新对话`（辅助入口，不承载"唯一性"）')
+  /* v664：历史面板里那个 v488 遗留的 `＋ 新对话` 已删除（同一动作两个入口是冗余）。
+     🔴 反过来钉住：历史面板内**不许**再出现任何开新对话的按钮，否则就是冗余回潮。 */
+  ok(!/＋ 新对话/.test(histBlock), '历史面板内不再有重复的 `＋ 新对话`（v664 已删，防冗余回潮）')
+  const histNewBtn = (histBlock.match(/@click="(newSession|clear)"/g) || []).length
+  ok(histNewBtn === 0, '历史面板内不绑定 newSession/clear（开新对话只走标题栏）', `count=${histNewBtn}`)
 }
 
 /* ③ 快捷键链路：store → Shell → Drawer 三处缺一即静默失效 */

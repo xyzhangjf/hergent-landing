@@ -61,8 +61,10 @@
         <!-- 历史会话视图 -->
         <div v-if="showHistory" class="cp-hist">
           <div class="cp-hist-hd">
+            <!-- v664：这里原先还有一个 `＋ 新对话` 按钮（v488 时代的唯一入口）。
+                 标题栏已有 v663 常驻按钮 ⇒ 同一动作两个入口是冗余，用户 2026-10-24 要求删掉。
+                 🔴 别再加回来：历史面板是"看/找旧会话"的地方，开新对话属于全局动作。 -->
             <b>历史会话</b>
-            <button class="btn btn-primary btn-sm" @click="newSession">＋ 新对话</button>
           </div>
           <!-- 跨会话检索（P2-⑤：搜历史对话） -->
           <div class="cp-hist-search">
@@ -1388,7 +1390,7 @@ function delSession(id) {
    ② 先等本地缓存 + 服务端对齐完再取最新（服务端可能比本地新/多），期间 restoringSession 遮罩覆盖，不闪空白；
    ③ 有最近会话 → openChatSession 恢复完整历史并滚到上次浏览位置（底部最新一条）；
       无会话 / 最近会话失效 → newChatSession 回退新建；
-   ④ 「＋ 新对话」入口保留（newSession 仍可用），用户仍可主动开新会话；
+   ④ 「新对话」入口在**标题栏**（v663 常驻按钮 + ⌘⇧O；历史面板里那个 v488 遗留下来的重复按钮已于 v664 删除），用户随时可主动开新会话；
    ⑤ 切换/新建后 openChatSession 会 bump updated_at，下次进入自动续上刚看的那条（见 store）。 */
 async function restoreLatestSession() {
   restoringSession.value = true                       // 覆盖层抬起（覆盖在对话流上）
