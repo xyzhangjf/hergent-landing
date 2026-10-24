@@ -223,6 +223,10 @@ try {
   ok(/px$/.test(gf.afterInline || ''), `退出全屏后内联值自动恢复（"${gf.afterInline}"）`)
   ok(gf.afterTotalBottom !== null && gf.afterTotalBottom <= gf.innerH, `退出全屏后合计行 bottom=${gf.afterTotalBottom} ≤ ${gf.innerH}`)
 
+  // 截图（查看态首屏 —— 必须在进编辑态之前拍，编辑态那份会被快捷键浮层挡住）
+  const shot = await S('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
+  fs.writeFileSync(path.join(OUT_DIR, `v667-${VW}x${VH}-view.png`), Buffer.from(shot.data, 'base64'))
+
   // ⑧ 编辑态（点改单）合计栏回归
   console.log('\n=== ⑧ 编辑态（点改单）合计栏仍首屏可见 ===')
   const ge = await evalJS(`(async () => {
@@ -246,9 +250,7 @@ try {
   ok(ge.foot && ge.foot.bottom <= ge.innerH, `编辑态合计行 bottom=${ge.foot && ge.foot.bottom} ≤ 视口 ${ge.innerH}（无回归）`)
   ok(/px$/.test(ge.wrapInline || ''), `编辑态表体内联 max-height = ${ge.wrapInline}（v602 逻辑未受影响）`)
 
-  // 截图
-  const shot = await S('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
-  fs.writeFileSync(path.join(OUT_DIR, `v667-${VW}x${VH}-view.png`), Buffer.from(shot.data, 'base64'))
+  // （编辑态截图已删 —— 那份会被「键盘快捷键」浮层挡住，查看态那张才是本版要看的东西）
 
   console.log(`\n================ RESULT: ${fail === 0 ? 'ALL PASS' : 'FAILED(' + fail + ')'}  pass=${pass} fail=${fail} ================`)
   if (fail) process.exitCode = 1
