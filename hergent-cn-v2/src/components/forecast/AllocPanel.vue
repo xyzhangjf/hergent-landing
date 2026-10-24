@@ -65,9 +65,19 @@ const allocIsOverride = computed(() =>
 const allocPickMode = computed(() =>
   !!(allocSetup.value && allocFlags.value.no_members
      && (allocSetup.value.candidates || []).length))
-const allocPicked = ref({})          // {eid: true} 勾选态（默认**全不勾**，用户拍板）
-const allocPickedCount = computed(() =>
-  Object.keys(allocPicked.value).filter(k => allocPicked.value[k] && Number(k) > 0).length)
+const allocPicked = ref({})          // {<门店键>: true} 勾选态（默认**全不勾**，用户拍板）
+/* ── v658：分摊的**身份键从「工号」换成「门店」** ────────────────────────────
+   用户 2026-10-24 原话：「**分摊要以门店为维度来分**」。
+   同一员工可挂多个门店（生产 tenant_1：柏万红 eid=3 名下「东津」「吾悦」）——
+   按工号做键会把两店并成一行，也**勾不出**「东津分 60%、吾悦分 40%」。
+   🔴 键从此可能是**非数字字符串**（门店别名）⇒ 本文件内**禁止**再用 `Number(k) > 0`
+      当「这个键有效吗」的判据（旧代码到处这么写；换维后它会恒为假 ⇒ 所有勾选
+      静默判成"没勾"、占比全部发不出去，而且**零报错**）。
+      有效性统一用 `!!k` / `allocKeyOf()`。 */
+const allocKeyOf = (x) => {
+  const sn = String((x && x.store_name) || '').trim()
+  return sn || ('e' + Number((x && x.employee_id) || 0))
+}
 /* 名册里**没有登录账号**的人数（`has_account` 由后端按 `employee_account_map`
    同一判据解析）—— 定稿通知只投有账号的人（v318 纪律：取不到账号不投、按
    employee_id 硬发会错投）。勾选模式要**汇总提示一次**，不逐行打标（生产
@@ -86,21 +96,28 @@ const allocPoolNoAcct = computed(() =>
 const allocRatioEditable = computed(() =>
   !!allocSetup.value && (!allocFlags.value.no_members || allocPickMode.value))
 
-/* v657：表格行 —— 普通模式 = 预演结果；勾选模式 = **候选池**每人一行，
-   预演结果（占比/报量/加单/定稿）按 employee_id 贴上，没勾的人全是 0。 */
+/* v657：表格行 —— 普通模式 = 预演结果；勾选模式 = **候选池**一门店一行，
+   预演结果（占比/报量/加单/定稿）按**门店键**贴上，没勾的人全是 0。
+   ⚠️ v658：普通模式的行也必须带 `key` —— 同一员工的两个门店现在是**两行**，
+      直接用 `employee_id` 当 `v-for` 的 key 会重复（Vue 会复用错节点、
+      改一格的数字跑到另一格去）。 */
 const allocTableRows = computed(() => {
   if (!allocPickMode.value) return allocRows.value || []
   const prev = {}
-  ;(allocRows.value || []).forEach(x => { prev[Number(x.employee_id)] = x })
+  ;(allocRows.value || []).forEach(x => { prev[allocKeyOf(x)] = x })
   return ((allocSetup.value && allocSetup.value.candidates) || []).map(c => {
-    const e = Number(c.employee_id)
-    const p = prev[e] || null
+    const e = Number(c.employee_id) || 0
+    const sn = String(c.store_name || '').trim()
+    const k = allocKeyOf(c)
+    const p = prev[k] || null
     return {
+      key: k,
+      store_name: sn,
       employee_id: e,
       employee_name: c.employee_name || ('员工' + e),
       aliases: c.aliases || [],
       has_account: !!c.has_account,
-      picked: !!allocPicked.value[e],
+      picked: !!allocPicked.value[k],
       ratio: p ? p.ratio : 0,
       reported_box: p ? p.reported_box : 0,
       alloc_box: p ? p.alloc_box : 0,
@@ -108,6 +125,12 @@ const allocTableRows = computed(() => {
     }
   })
 })
+/* 已勾选的门店数（勾选模式下「分不满」提示与角落汇总都用它）。
+   🔴 必须从**表格行**数，不能从 `allocPicked` 的键数 —— 换门店时用户可能先勾了
+      一个随后被删掉的门店，键还在对象里但行已经没了（数字虚高 ⇒ 提示自相矛盾）。 */
+const allocPickedCount = computed(() =>
+  allocTableRows.value.filter(x => x.picked).length)
+
 const allocErr = ref('')
 const allocSetup = ref(null)          // setup 接口的 data
 const allocRows = ref([])             // 预演结果（**唯一权威**：加单/定稿两列直接读它）
@@ -117,10 +140,13 @@ const allocRatioOk = ref(false)
 const allocTargetId = ref(0)
 const allocFlags = ref({})
 const allocTotalRaw = ref('')         // 总量输入框的**原串**（见下方"为什么存原串"）
-const allocRatiosRaw = ref({})        // {eid: '占比原串'}
-const allocAllocsRaw = ref({})        // {eid: '加单原串'}（显示用；每轮预演后回填）
+/* v658：三张原串表全部按**门店键**索引（`allocKeyOf(row)`，可能是别名而非数字）。
+   ⚠️ 用对象当 map 时数字键与字符串键会被压成同一个字符串，混用不会报错但会串行 ——
+      故**全组件统一用 `allocKeyOf()` 产出的字符串键**，不再自己拼。 */
+const allocRatiosRaw = ref({})        // {门店键: '占比原串'}
+const allocAllocsRaw = ref({})        // {门店键: '加单原串'}（显示用；每轮预演后回填）
 const allocArchiveRatios = ref({})    // 档案原比例（供「恢复档案原比例」）
-const allocFocusEid = ref(0)          // 当前聚焦的「加单(箱)」输入框所属人（防预演回填打断输入）
+const allocFocusKey = ref('')         // 当前聚焦的「加单(箱)」输入框所属**门店键**（防预演回填打断输入）
 let _allocSeq = 0
 let _allocTimer = null
 
@@ -147,13 +173,31 @@ const _allocPid = () => Number((props.cross && props.cross.period && props.cross
 function syncAllocAllocsFromRows() {
   const m = {}
   ;(allocRows.value || []).forEach(x => {
-    const e = Number(x.employee_id)
-    if (e !== Number(allocFocusEid.value || 0)) m[e] = String(_r3(x.alloc_box))
+    const k = allocKeyOf(x)
+    if (k !== allocFocusKey.value) m[k] = String(_r3(x.alloc_box))
   })
   // 正在打字的那一格保留用户原串（预演回填不得打断输入）
-  const fe = Number(allocFocusEid.value || 0)
-  if (fe && allocAllocsRaw.value[fe] != null) m[fe] = allocAllocsRaw.value[fe]
+  const fk = allocFocusKey.value
+  if (fk && allocAllocsRaw.value[fk] != null) m[fk] = allocAllocsRaw.value[fk]
   allocAllocsRaw.value = m
+}
+
+/* v658：把「占比原串表」翻译成后端契约 —— 每项 `{store_name, employee_id, ratio}`。
+   身份键是门店，但 `employee_id` 仍要带上：后端在门店名对不上（老数据/别名改名）时
+   用它兜底；两者都空的项**直接丢弃**（否则后端会把它算成一个无名承接人）。
+   ⚠️ 只发**表格里真实存在**的行 —— `allocRatiosRaw` 可能残留已被删掉的门店键。 */
+function _ratioPayload() {
+  const out = []
+  ;(allocTableRows.value || []).forEach(x => {
+    const k = (x && x.key) || allocKeyOf(x)
+    if (!k) return
+    out.push({
+      store_name: String((x && x.store_name) || '').trim(),
+      employee_id: Number((x && x.employee_id) || 0),
+      ratio: _allocNum(allocRatiosRaw.value[k]),
+    })
+  })
+  return out
 }
 
 async function runAllocPreview() {
@@ -164,19 +208,23 @@ async function runAllocPreview() {
   const seq = ++_allocSeq
   allocPrev.value = true
   try {
-    const ratios = Object.keys(allocRatiosRaw.value).map(k => ({
-      employee_id: Number(k), ratio: _allocNum(allocRatiosRaw.value[k]),
-    }))
-    /* v657：勾选模式把「勾了谁 + 各自占比」一并带给后端 —— 后端按这份名单算
-       （并校验每个人都在「本来就能分摊 ∪ 候选池」里，不允许凭空造人）。
+    /* v658：占比按**门店键**下发（`{store_name, employee_id, ratio}`）—— 后端
+       `extra_alloc_preview` 优先用 `store_name` 当覆盖键、无门店名才回落工号。 */
+    const ratios = _ratioPayload()
+    /* v657：勾选模式把「勾了哪些门店 + 各自占比」一并带给后端 —— 后端按这份名单算
+       （并校验每个门店都在「本来就能分摊 ∪ 候选池」里，不允许凭空造门店）。
        ⚠️ 首开时 `allocFlags` 还没被 setup 之后的第一次预览刷新 ⇒ `allocPickMode`
-          此刻为假 ⇒ members 为空 ⇒ 后端按自然承接人（空）算，返回空表 + 
+          此刻为假 ⇒ members 为空 ⇒ 后端按自然承接人（空）算，返回空表 +
           no_members —— 正是「还没勾人」的正确展示，随后 flags 落地再点勾即变。 */
     let members = []
     if (allocPickMode.value) {
-      members = Object.keys(allocPicked.value)
-        .filter(k => allocPicked.value[k] && Number(k) > 0)
-        .map(k => ({ employee_id: Number(k), ratio: _allocNum(allocRatiosRaw.value[k]) }))
+      members = (allocTableRows.value || [])
+        .filter(x => x.picked)
+        .map(x => ({
+          store_name: String(x.store_name || '').trim(),
+          employee_id: Number(x.employee_id) || 0,
+          ratio: _allocNum(allocRatiosRaw.value[x.key]),
+        }))
     }
     const d = await productTargetsApi.extraAllocPreview({
       periodId, productId: pid,
@@ -225,7 +273,7 @@ async function loadAllocSetup() {
   allocArchiveRatios.value = {}
   allocRatiosRaw.value = {}
   allocAllocsRaw.value = {}
-  allocFocusEid.value = 0
+  allocFocusKey.value = ''
   allocPicked.value = {}            // v657：勾选态每次重开都重置为「全不勾」
   allocTotalRaw.value = String(_r3(row.extraQty))
   allocBusy.value = true
@@ -247,10 +295,11 @@ async function loadAllocSetup() {
       if (cur) allocTotalRaw.value = String(_r3(cur))
       const arch = {}, raw = {}
       ;(data.members || []).forEach(m => {
-        const e = Number(m.employee_id) || 0
-        if (!e) return
-        arch[e] = Number(m.ratio) || 0
-        raw[e] = String(_r2(m.ratio))
+        // v658：键 = 门店（`store_name`），同一员工的两个门店各占一条
+        const k = allocKeyOf(m)
+        if (!k || k === 'e0') return
+        arch[k] = Number(m.ratio) || 0
+        raw[k] = String(_r2(m.ratio))
       })
       allocArchiveRatios.value = arch
       allocRatiosRaw.value = raw
@@ -276,10 +325,10 @@ function onAllocTotalCommit(e) {
   runAllocPreview()
 }
 /* 占比（同上；比例始终是"输入源"，预演**不回写**它） */
-function onAllocRatioInput(e, eid) { props.numInput(e, (v) => { allocRatiosRaw.value[eid] = v }) }
-function onAllocRatioCommit(e, eid) {
-  const v = _allocNum(e && e.target ? e.target.value : allocRatiosRaw.value[eid])
-  allocRatiosRaw.value[eid] = String(v)
+function onAllocRatioInput(e, key) { props.numInput(e, (v) => { allocRatiosRaw.value[key] = v }) }
+function onAllocRatioCommit(e, key) {
+  const v = _allocNum(e && e.target ? e.target.value : allocRatiosRaw.value[key])
+  allocRatiosRaw.value[key] = String(v)
   runAllocPreview()
 }
 function loadAllocArchivedRatiosIfEmpty() {
@@ -297,16 +346,16 @@ function loadAllocArchivedRatiosIfEmpty() {
    ⇒ 下一次预演会把用户刚填的数**改回去**（"填了没用"）。两条路径必须同时收敛。
    🔴 归一化是**公开的界面规则**（不是 `allocate` 的第二份实现）：它只做"按权重缩放"，
      不碰夹断/重分 —— 那部分仍只由后端算。 */
-function onAllocAllocInput(e, eid) { props.numInput(e, (v) => { allocAllocsRaw.value[eid] = v }) }
-function onAllocAllocCommit(e, eid) {
+function onAllocAllocInput(e, key) { props.numInput(e, (v) => { allocAllocsRaw.value[key] = v }) }
+function onAllocAllocCommit(e, key) {
   const rows = allocRows.value || []
   if (!rows.length) return
-  const v = _allocNum(e && e.target ? e.target.value : allocAllocsRaw.value[eid])
-  allocAllocsRaw.value[eid] = String(v)
-  const want = {}          // {eid: 用户想要的加单量}
+  const v = _allocNum(e && e.target ? e.target.value : allocAllocsRaw.value[key])
+  allocAllocsRaw.value[key] = String(v)
+  const want = {}          // {门店键: 用户想要的加单量}
   rows.forEach(x => {
-    const k = Number(x.employee_id)
-    want[k] = (k === Number(eid)) ? v
+    const k = allocKeyOf(x)
+    want[k] = (k === key) ? v
       : _allocNum(allocAllocsRaw.value[k] != null ? allocAllocsRaw.value[k] : _r3(x.alloc_box))
   })
   const sum = Object.keys(want).reduce((s, k) => s + (Number(want[k]) || 0), 0)
@@ -334,36 +383,37 @@ function onAllocAllocCommit(e, eid) {
 function allocSplitEven() {
   const rows = allocPickMode.value
     ? ((allocSetup.value && allocSetup.value.candidates) || [])
-        .map(c => ({ employee_id: Number(c.employee_id) }))
     : (allocRows.value || [])
   if (!rows.length) return
   if (allocPickMode.value) {
     const picked = {}
-    rows.forEach(x => { picked[Number(x.employee_id)] = true })
+    rows.forEach(x => { const k = allocKeyOf(x); if (k) picked[k] = true })
     allocPicked.value = picked
   }
   const n = rows.length
   const base = Math.round((100 / n) * 100) / 100
   const raw = {}
   rows.forEach((x, i) => {
-    const e = Number(x.employee_id)
-    raw[e] = String(i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base)
+    const k = allocKeyOf(x)
+    if (!k) return
+    raw[k] = String(i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base)
   })
   allocRatiosRaw.value = raw
   runAllocPreview()
 }
-/* v657：勾选 / 取消某个承接人。取消时**顺手清掉他的占比原串** —— 否则再勾回来
-   会残留旧值，而 Σ=100 的校验一直把它算进去（「取消了还占额度」）。 */
-function togglePick(eid) {
-  const e = Number(eid)
-  if (!e) return
+/* v657：勾选 / 取消某个承接人（v658 起单位 = **门店**）。取消时**顺手清掉它的
+   占比原串** —— 否则再勾回来会残留旧值，而 Σ=100 的校验一直把它算进去
+   （「取消了还占额度」）。 */
+function togglePick(key) {
+  const k = String(key || '')
+  if (!k) return
   const next = { ...allocPicked.value }
-  if (next[e]) delete next[e]
-  else next[e] = true
+  if (next[k]) delete next[k]
+  else next[k] = true
   allocPicked.value = next
-  if (!next[e]) {
+  if (!next[k]) {
     const raw = { ...allocRatiosRaw.value }
-    delete raw[e]
+    delete raw[k]
     allocRatiosRaw.value = raw
   }
   runAllocPreview()
@@ -392,10 +442,10 @@ function _allocNum(v) {
   return (typeof n === 'number' && isFinite(n)) ? n : 0
 }
 function allocTotalNum() { return _allocNum(allocTotalRaw.value) }
-function allocAllocNum(eid) {
-  const raw = allocAllocsRaw.value[eid]
+function allocAllocNum(key) {
+  const raw = allocAllocsRaw.value[key]
   if (raw != null) return _allocNum(raw)
-  const r = (allocRows.value || []).find(x => Number(x.employee_id) === Number(eid))
+  const r = (allocRows.value || []).find(x => allocKeyOf(x) === key)
   return r ? Number(r.alloc_box) || 0 : 0
 }
 
@@ -434,19 +484,21 @@ async function applyAlloc() {
       if (_periodPath) {
         // v339：本期临时占比（**只影响本期**）。整组提交 —— 占比是一组相互约束的值（Σ=100），
         //   逐行 upsert 会让并发读取侧读到"合计不是 100%"的中间态。
+        // v658：按**门店**提交（`{store_name, employee_id, ratio}`），与预演同源。
         await productTargetsApi.extraAllocOverride({
           periodId: _periodId, productId: _pid,
-          ratios: (allocRows.value || []).map(x => ({
-            employee_id: Number(x.employee_id),
-            ratio: _allocNum(allocRatiosRaw.value[Number(x.employee_id)]),
-          })),
+          ratios: _ratioPayload(),
         })
       } else {
         // 全量提交（`_write_allocs` 是整体替换）—— 保持与档案同样的排序（sort_no = 数组下标）
+        // v658：**必须带 `store_name`** —— 档案承接人的唯一键是 (target_id, store_name)，
+        //   漏了它后端会退回员工名兜底 ⇒ 同一员工的两个门店被写成一模一样的两行、
+        //   撞唯一约束（整笔保存 500），或更糟：并成一行、丢掉其中一个门店的分法。
         const allocs = (allocRows.value || []).map(x => ({
-          employee_id: Number(x.employee_id),
+          employee_id: Number(x.employee_id) || 0,
           employee_name: x.employee_name || '',
-          ratio: _allocNum(allocRatiosRaw.value[Number(x.employee_id)]),
+          store_name: String(x.store_name || '').trim(),
+          ratio: _allocNum(allocRatiosRaw.value[allocKeyOf(x)]),
         }))
         await productTargetsApi.update(tid, { allocs })
       }
@@ -457,7 +509,7 @@ async function applyAlloc() {
     toast(_periodPath
       ? (changed
         ? '已保存本期临时占比（**只影响本期**，没改商品目标档案），并把加单量回填到本行 —— 记得点「保存」'
-        : `已把加单量回填到本行 —— 本商品本期按**各人报单量**自动分给 ${(allocRows.value || []).length} 人，记得点「保存」`)
+        : `已把加单量回填到本行 —— 本商品本期按**各门店报单量**自动分给 ${(allocRows.value || []).length} 个门店/人，记得点「保存」`)
       : (changed
         ? '已更新该商品的目标档案占比（全期生效），并把加单量回填到本行 —— 记得点「保存」'
         : '已把加单量回填到本行 —— 记得点「保存」'), 'ok')
@@ -525,9 +577,9 @@ onMounted(() => { loadAllocSetup() })
               请先让业务员在「报单」里报这个商品，或到「商品目标」页为它建目标并填分解比例。
             </p>
             <p v-else-if="allocPickMode" class="imp-tip alloc-note">
-              ⓘ 该商品<b>本期没有人报过单、也没有启用目标</b> ⇒ 从下方<b>报单对象名册</b>里
-              <b>勾选</b>谁承接这笔{{ allocTotalNum() >= 0 ? '加单' : '减单' }}（默认全不勾；
-              点「平均分配」一键全勾并均分）。保存的是<b>本期专用占比</b>，只影响本期。
+              ⓘ 该商品<b>本期没有人报过单、也没有启用目标</b> ⇒ 从下方<b>报单门店名册</b>里
+              <b>勾选</b>哪个门店承接这笔{{ allocTotalNum() >= 0 ? '加单' : '减单' }}（默认全不勾；
+              点「平均分配」= 一键全勾并均分）。保存的是<b>本期专用占比</b>，只影响本期。
             </p>
             <p v-else-if="allocSetup && allocFlags.no_target" class="imp-tip alloc-note">
               该商品在 <b>{{ (allocSetup.product && allocSetup.product.month) || '' }}</b> 没有启用目标
@@ -537,8 +589,8 @@ onMounted(() => { loadAllocSetup() })
             <!-- v657：名册里没有登录账号的人，定稿通知到不了 —— **汇总说一次**，
                  不逐行打标（生产 tenant_1 全员无账号 ⇒ 逐行标全是噪音）。 -->
             <p v-if="allocPickMode && allocPoolNoAcct > 0" class="imp-tip warn-text">
-              名册中有 {{ allocPoolNoAcct }} 人没有关联登录账号 —— 期次<b>定稿（关闭期次）</b>时
-              这些人收不到加/减单通知（分配本身不受影响）。要收到通知，请先到「员工档案」
+              名册中有 {{ allocPoolNoAcct }} 个门店的负责人没有关联登录账号 —— 期次<b>定稿（关闭期次）</b>时
+              这些门店收不到加/减单通知（分配本身不受影响）。要收到通知，请先到「员工档案」
               给他们关联登录账号。
             </p>
             <template v-if="allocSetup && (!allocFlags.no_members || allocPickMode)">
@@ -570,21 +622,28 @@ onMounted(() => { loadAllocSetup() })
                 <table class="alloc-tbl">
                   <thead>
                     <tr>
-                      <th v-if="allocPickMode" class="chk" title="勾选后才参与本期分摊">勾选</th>
-                      <th>{{ allocPickMode ? '报单对象' : ((allocIsDerived || allocIsOverride) ? '报单人' : '承接人') }}</th><th class="num">占比%</th><th class="num">本期报量(箱)</th>
+                      <th v-if="allocPickMode" class="chk" title="勾选后这个门店才参与本期分摊">勾选</th>
+                      <th>{{ allocPickMode ? '报单门店' : ((allocIsDerived || allocIsOverride) ? '报单门店' : '承接门店') }}</th><th class="num">占比%</th><th class="num">本期报量(箱)</th>
                       <th class="num">加单(箱)</th><th class="num">定稿(箱)</th>
                     </tr>
                   </thead>
                   <tbody>
                     <!-- 逐行顺序 = `product_target_alloc.sort_no`（与目标档案一致，改比例时按它整表回写）；
-                         v657 勾选模式 = 候选池顺序（后端按员工 id 排） -->
-                    <tr v-for="x in allocTableRows" :key="x.employee_id">
+                         v657 勾选模式 = 候选池顺序（后端按「工号 → 门店名」排，同一员工的两门店相邻）
+                         🔴 v658：`v-for` 的 key 用**门店键**，不能用 employee_id ——
+                            同一员工的两个门店是两行，用 employee_id 会重复 ⇒ Vue 复用错节点。 -->
+                    <tr v-for="x in allocTableRows" :key="allocKeyOf(x)">
                       <td v-if="allocPickMode" class="chk">
-                        <input type="checkbox" :checked="x.picked" @change="togglePick(x.employee_id)"
-                               title="勾选后才参与本期分摊">
+                        <input type="checkbox" :checked="x.picked" @change="togglePick(allocKeyOf(x))"
+                               title="勾选后这个门店才参与本期分摊">
                       </td>
-                      <td>{{ x.employee_name || ('员工' + x.employee_id) }}
-                        <span v-if="allocPickMode && x.aliases && x.aliases.length > 1" class="alloc-alias"
+                      <!-- v658：主标签 = **门店**（别名），员工名退到括号里 —— 用户要按门店分，
+                           一眼看「东津」「吾悦」才认得出；但同一员工的两个门店必须能看出是谁的。 -->
+                      <td>
+                        <b>{{ x.store_name || x.employee_name || ('员工' + x.employee_id) }}</b>
+                        <span v-if="x.store_name && x.employee_name && x.store_name !== x.employee_name"
+                              class="alloc-alias">（{{ x.employee_name }}）</span>
+                        <span v-else-if="allocPickMode && x.aliases && x.aliases.length > 1" class="alloc-alias"
                               :title="'报单别名：' + x.aliases.join('、')">（{{ x.aliases.join('、') }}）</span>
                       </td>
                       <td class="num">
@@ -592,33 +651,33 @@ onMounted(() => { loadAllocSetup() })
                              而 L2 商品根本没有档案可写 ⇒ 用户**没有别的入口**，
                              「想按本月实际情况调整分法」这个需求完全无解。
                              现在可改：改动存成**本期专用**占比（不写档案、只影响本期）。
-                             v657 勾选模式：**没勾上的行禁用**（先勾人才能定比例）。 -->
+                             v657 勾选模式：**没勾上的行禁用**（先勾门店才能定比例）。 -->
                         <input class="cell-input alloc-mini" type="text" inputmode="decimal"
                                :readonly="!allocRatioEditable || (allocPickMode && !x.picked)"
                                :class="{ 'alloc-ro': !allocRatioEditable || (allocPickMode && !x.picked) }"
-                               :title="(allocPickMode && !x.picked) ? '先勾选上，才能给他定占比'
+                               :title="(allocPickMode && !x.picked) ? '先勾选上，才能给这个门店定占比'
                                        : (!allocRatioEditable ? '本期没有可分摊对象'
                                        : (allocIsOverride ? '本期临时占比：改动只影响本期，不会改商品目标档案'
-                                       : (allocIsDerived ? '原本按各人本期报单量推导；改动会存成本期专用占比（只影响本期）'
+                                       : (allocIsDerived ? '原本按各门店本期报单量推导；改动会存成本期专用占比（只影响本期）'
                                        : '来自商品目标档案；改动会同时改写档案，影响本月所有期次')))"
-                               :value="allocRatiosRaw[x.employee_id] != null ? allocRatiosRaw[x.employee_id] : x.ratio"
-                               @input="onAllocRatioInput($event, x.employee_id)"
-                               @change="onAllocRatioCommit($event, x.employee_id)">
+                               :value="allocRatiosRaw[allocKeyOf(x)] != null ? allocRatiosRaw[allocKeyOf(x)] : x.ratio"
+                               @input="onAllocRatioInput($event, allocKeyOf(x))"
+                               @change="onAllocRatioCommit($event, allocKeyOf(x))">
                       </td>
                       <td class="num">{{ fmt(x.reported_box) }}</td>
                       <td class="num">
                         <!-- ⚠️ @focus/@blur 记「正在打字的是哪一格」：预演回来时**不回填这一格**，
                              否则用户敲到一半的数字会被后端的四舍五入值顶掉（"填了不算"）。 -->
                         <input class="cell-input alloc-mini" type="text" inputmode="decimal"
-                               :value="allocAllocsRaw[x.employee_id] != null ? allocAllocsRaw[x.employee_id] : fmt(x.alloc_box)"
-                               @focus="allocFocusEid = x.employee_id" @blur="allocFocusEid = 0"
-                               @input="onAllocAllocInput($event, x.employee_id)"
-                               @change="onAllocAllocCommit($event, x.employee_id)">
+                               :value="allocAllocsRaw[allocKeyOf(x)] != null ? allocAllocsRaw[allocKeyOf(x)] : fmt(x.alloc_box)"
+                               @focus="allocFocusKey = allocKeyOf(x)" @blur="allocFocusKey = ''"
+                               @input="onAllocAllocInput($event, allocKeyOf(x))"
+                               @change="onAllocAllocCommit($event, allocKeyOf(x))">
                       </td>
                       <td class="num" :class="{ 'alloc-neg': Number(x.final_box) < 0 }">{{ fmt(x.final_box) }}</td>
                     </tr>
                     <tr v-if="!allocTableRows.length">
-                      <td :colspan="allocPickMode ? 6 : 5" class="alloc-empty">{{ allocBusy || allocPrev ? '计算中…' : (allocErr || (allocPickMode ? '名册里没有可勾选的人' : '没有可分摊的承接人')) }}</td>
+                      <td :colspan="allocPickMode ? 6 : 5" class="alloc-empty">{{ allocBusy || allocPrev ? '计算中…' : (allocErr || (allocPickMode ? '名册里没有可勾选的门店' : '没有可分摊的承接门店')) }}</td>
                     </tr>
                   </tbody>
                 </table>

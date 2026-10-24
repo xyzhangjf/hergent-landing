@@ -153,11 +153,17 @@
                     </div>
                     <table class="pt-sub">
                       <thead>
-                        <tr><th>承接人</th><th class="num">占比</th><th class="num">目标(箱)</th></tr>
+                        <tr><th>承接门店</th><th class="num">占比</th><th class="num">目标(箱)</th></tr>
                       </thead>
                       <tbody>
-                        <tr v-for="a in r.allocs" :key="a.employee_id">
-                          <td>{{ a.employee_name || ('员工 #' + a.employee_id) }}</td>
+                        <!-- v658：身份键 = 门店（`store_name`）—— 同一员工的两个门店是两行，
+                             用 employee_id 当 key 会重复 ⇒ Vue 复用错节点。 -->
+                        <tr v-for="a in r.allocs" :key="memberKey(a)">
+                          <td>
+                            <b>{{ a.store_name || a.employee_name || ('员工 #' + a.employee_id) }}</b>
+                            <span v-if="a.store_name && a.employee_name && a.store_name !== a.employee_name"
+                                  class="pt-alias">（{{ a.employee_name }}）</span>
+                          </td>
                           <td class="num">{{ fmt(a.ratio) }}%</td>
                           <td class="num">{{ fmt(a.target_qty) }}</td>
                         </tr>
@@ -325,29 +331,29 @@
               </div>
             </div>
 
-            <!-- 选人双栏：左候选 / 右已选占比 -->
+            <!-- 选门店双栏：左候选（**一个门店一行**）/ 右已选占比
+                 🔴 v658：候选单位从「员工」改成「**门店**（报单别名）」—— 同一员工挂多个
+                 门店时每个门店各占一行，否则第二个门店选不到、永远分不到目标量。 -->
             <div class="pt-2col">
               <div class="pt-col">
                 <div class="pt-col-hd">
-                  <b>可选员工</b>
-                  <input v-model="ekw" class="fld pt-ekw" placeholder="搜索姓名" aria-label="搜索员工">
+                  <b>可选门店</b>
+                  <input v-model="ekw" class="fld pt-ekw" placeholder="搜索门店或姓名" aria-label="搜索门店">
                 </div>
                 <div class="pt-col-bd">
-                  <button v-for="e in candEmps" :key="e.id" class="pt-emp"
-                          :disabled="isPicked(e.id)" @click="addMember(e)">
-                    <span>{{ e.name }}</span>
-                    <span v-if="e.report_alias" class="pt-alias" title="报单别名：他报的单挂在哪个门店名下">
-                      {{ e.report_alias }}
-                    </span>
+                  <button v-for="s in candStores" :key="storeKey(s)" class="pt-emp"
+                          :disabled="isPicked(storeKey(s))" @click="addMember(s)">
+                    <span>{{ s.store_name || s.name }}</span>
+                    <span v-if="s.store_name" class="pt-alias" title="这个门店由谁负责报单">{{ s.name }}</span>
                     <span v-else class="pt-noalias" title="没分别名 ⇒ 逐人实报算不出来">未配别名</span>
                   </button>
-                  <div v-if="!candEmps.length" class="pt-quiet pt-col-empty">没有匹配的在职员工。</div>
+                  <div v-if="!candStores.length" class="pt-quiet pt-col-empty">没有匹配的在职门店/员工。</div>
                 </div>
               </div>
 
               <div class="pt-col">
                 <div class="pt-col-hd">
-                  <b>分解到人</b>
+                  <b>分解到门店</b>
                   <!-- v358：合计条改成一个数说完两件事 —— 因为**它们本来就是一件事**
                        （Σ比例=100 ⟺ Σ数量=目标量，见 script 里的论证）。
                        摆两个独立的百分比/箱数只会让人以为要同时满足两个条件。 -->
@@ -357,51 +363,57 @@
                   </span>
                   <!-- v359：自动配平必须**说出来**。能自动改数，就得能自动交代"改了谁" ——
                        否则「填一格、旁边几格自己变了」就是本项目最忌讳的静默改数。 -->
-                  <span v-if="allocAutoCount" class="pt-auto-hint">已自动配平 {{ allocAutoCount }} 人</span>
+                  <span v-if="allocAutoCount" class="pt-auto-hint">已自动配平 {{ allocAutoCount }} 个门店</span>
                   <button class="btn btn-ghost btn-sm pt-split" @click="splitEven">平均分配</button>
                 </div>
                 <div class="pt-col-bd">
                   <table class="pt-sub pt-sub-in">
                     <thead>
                       <!-- v358：两列都可填。谁被编辑谁就是「源」，另一列由后端落定后回填。 -->
-                      <tr><th>承接人</th><th class="num">占比%</th><th class="num">分摊数量(箱)</th><th></th></tr>
+                      <tr><th>承接门店</th><th class="num">占比%</th><th class="num">分摊数量(箱)</th><th></th></tr>
                     </thead>
                     <tbody>
-                      <tr v-for="m in members" :key="m.employee_id">
-                        <td>{{ m.employee_name }}</td>
+                      <tr v-for="m in members" :key="memberKey(m)">
+                        <!-- v658：主标签 = **门店**，员工名退到括号里（同一员工两门店必须能分清） -->
+                        <td>
+                          <b>{{ m.store_name || m.employee_name }}</b>
+                          <span v-if="m.store_name && m.employee_name && m.store_name !== m.employee_name"
+                                class="pt-alias">（{{ m.employee_name }}）</span>
+                        </td>
                         <td class="num">
                           <!-- 🔴 必须 `type="text"`：`type="number"` 会把中文输入法打出的
                                `１２。５` **静默改成 `125`**（小数点被吃掉、数量放大 10 倍），
-                               而且没有任何提示。改成 text 后原串原样收下来，交给后端归一。 -->
+                               而且没有任何提示。改成 text 后原串原样收下来，交给后端归一。
+                               v658：标识格用 `memberKey(m)`（门店键），不再用 employee_id。 -->
                           <input class="fld pt-num" type="text" inputmode="decimal"
-                                 :class="{ 'pt-num-bad': allocBad['r:' + m.employee_id],
-                                           'pt-num-auto': allocAutoIds.has(Number(m.employee_id)) }"
-                                 :aria-label="m.employee_name + ' 分摊比例'"
-                                 :value="allocFocus === ('r:' + m.employee_id) ? allocRaw : fmt(m.ratio)"
-                                 @focus="onAllocFocus($event, 'ratio', m.employee_id)"
-                                 @input="onAllocInput($event, 'ratio', m.employee_id)"
-                                 @change="onAllocCommit($event, 'ratio', m.employee_id)"
-                                 @blur="onAllocBlur('ratio', m.employee_id)">
+                                 :class="{ 'pt-num-bad': allocBad['r:' + memberKey(m)],
+                                           'pt-num-auto': allocAutoIds.has(memberKey(m)) }"
+                                 :aria-label="(m.store_name || m.employee_name) + ' 分摊比例'"
+                                 :value="allocFocus === ('r:' + memberKey(m)) ? allocRaw : fmt(m.ratio)"
+                                 @focus="onAllocFocus($event, 'ratio', memberKey(m))"
+                                 @input="onAllocInput($event, 'ratio', memberKey(m))"
+                                 @change="onAllocCommit($event, 'ratio', memberKey(m))"
+                                 @blur="onAllocBlur('ratio', memberKey(m))">
                         </td>
                         <td class="num">
                           <input class="fld pt-num" type="text" inputmode="decimal"
-                                 :class="{ 'pt-num-bad': allocBad['q:' + m.employee_id],
-                                           'pt-num-auto': allocAutoIds.has(Number(m.employee_id)) }"
-                                 :aria-label="m.employee_name + ' 分摊数量（箱）'"
-                                 :value="allocFocus === ('q:' + m.employee_id) ? allocRaw : fmt(m.target_qty)"
-                                 @focus="onAllocFocus($event, 'qty', m.employee_id)"
-                                 @input="onAllocInput($event, 'qty', m.employee_id)"
-                                 @change="onAllocCommit($event, 'qty', m.employee_id)"
-                                 @blur="onAllocBlur('qty', m.employee_id)">
+                                 :class="{ 'pt-num-bad': allocBad['q:' + memberKey(m)],
+                                           'pt-num-auto': allocAutoIds.has(memberKey(m)) }"
+                                 :aria-label="(m.store_name || m.employee_name) + ' 分摊数量（箱）'"
+                                 :value="allocFocus === ('q:' + memberKey(m)) ? allocRaw : fmt(m.target_qty)"
+                                 @focus="onAllocFocus($event, 'qty', memberKey(m))"
+                                 @input="onAllocInput($event, 'qty', memberKey(m))"
+                                 @change="onAllocCommit($event, 'qty', memberKey(m))"
+                                 @blur="onAllocBlur('qty', memberKey(m))">
                         </td>
                         <td>
-                          <button class="btn-icon" title="移除" @click="rmMember(m.employee_id)">
+                          <button class="btn-icon" title="移除" @click="rmMember(memberKey(m))">
                             <Icon name="close" :size="14" />
                           </button>
                         </td>
                       </tr>
                       <tr v-if="!members.length">
-                        <td colspan="4" class="pt-quiet">从左栏点员工加入。至少要 1 人，分摊数量合计要等于目标量。</td>
+                        <td colspan="4" class="pt-quiet">从左栏点门店加入。至少要 1 个门店，分摊数量合计要等于目标量。</td>
                       </tr>
                     </tbody>
                   </table>
@@ -777,14 +789,38 @@ const pickedConv = computed(() => {
   return '（' + convText(p) + '）'
 })
 
-const candEmps = computed(() => {
+/* ── v658：分解承接人的身份从「员工」改为「**门店**」（报单别名）────────────────
+   用户 2026-10-24 原话：「分摊要以门店为维度来分」，且明确「商品目标档案承接人也改门店」。
+   同一员工可挂多个门店（生产 tenant_1：柏万红 eid=3 ⇒ 东津 / 吾悦）——
+   按员工列候选的话，他只会出现一次、第二个门店**根本选不到**
+   （选不到 ⇒ 那个门店永远分不到目标量，界面上还完全看不出少了什么）。
+   🔴 键从此可能是**非数字字符串**（门店别名）⇒ 本文件内所有「按 eid 比对」的地方
+      都必须换成 `memberKey()` / `storeKey()`，否则门店维度下恒不相等、静默失效。 */
+const memberKey = (m) => {
+  const sn = String((m && m.store_name) || '').trim()
+  return sn || ('e' + Number((m && m.employee_id) || 0))
+}
+const storeKey = (s) => String((s && s.store_name) || '').trim() || ('e' + Number((s && s.id) || 0))
+
+/* 左栏候选 = **一个门店一行**（员工的每个报单别名各一行）；没配别名的员工仍列一行
+   （`store_name` 为空 ⇒ 键回退工号），否则「还没来得及维护别名」的人会被整批藏起来。 */
+const candStores = computed(() => {
   const kw = ekw.value.trim()
-  const pickedIds = new Set(members.value.map(m => m.employee_id))
-  return emps.value.filter(e => {
-    if (pickedIds.has(e.id)) return false
-    if (!kw) return true
-    return String(e.name || '').includes(kw)
+  const pickedKeys = new Set(members.value.map(memberKey))
+  const out = []
+  emps.value.forEach(e => {
+    const als = (Array.isArray(e.report_aliases) && e.report_aliases.length)
+      ? e.report_aliases
+      : ['']
+    als.forEach((al) => {
+      const s = { id: e.id, name: e.name, store_name: String(al || '').trim() }
+      const k = storeKey(s)
+      if (pickedKeys.has(k)) return
+      if (kw && !String(e.name || '').includes(kw) && !String(s.store_name).includes(kw)) return
+      out.push(s)
+    })
   })
+  return out
 })
 /* ══ v358：分解到人 = 比例(%) ↔ 数量(箱) **双向联动** ════════════════════════════════
    用户 2026-10-01：「目前仅支持填写分摊比例，分摊数量只能由比例自动推算，无法手动填写。
@@ -855,7 +891,9 @@ const qtyGapText = computed(() => {
 const allocHasBad = computed(() => Object.keys(allocBad.value).length > 0)
 /* v359：被系统自动配平的行 —— 模板用 Set 做 O(1) 命中（数组每次 `includes` 是 O(n)，
    而这段在 v-for 里会跑「行数 × 2 格」次）。 */
-const allocAutoIds = computed(() => new Set((allocAuto.value || []).map(Number)))
+// v658：`auto_filled` 回来的是**门店键**（字符串）⇒ 集合统一按字符串存，
+//   模板里用 `allocAutoIds.has(memberKey(m))` 比对（别再 Number()）。
+const allocAutoIds = computed(() => new Set((allocAuto.value || []).map(x => String(x))))
 const allocAutoCount = computed(() => allocAutoIds.value.size)
 
 const canSave = computed(() => {
@@ -874,19 +912,21 @@ const canSave = computed(() => {
    `axis` = 'ratio' | 'qty'（用户改的是哪一列）；`raw` = 那一格的**原始串**（未解析）。
    ⚠️ `eid` 传 `null` = 这一轮**没有任何格子被单独改写**（例如只改了目标量）——
       此时两列都按当前值算，`source` 只决定「谁是源」。 */
-const allocKey = (axis, eid) => (axis === 'ratio' ? 'r:' : 'q:') + eid
+const allocKey = (axis, key) => (axis === 'ratio' ? 'r:' : 'q:') + key
 
-async function runAllocSettle(axis, eid, raw) {
+async function runAllocSettle(axis, key, raw) {
   if (!members.value.length) return
-  const key = allocKey(axis, eid)
+  const cellKey = allocKey(axis, key)
   const seq = ++_allocSeq
   allocBusy.value = true
   allocErr.value = ''
   try {
     const allocs = members.value.map(m => {
-      const same = (eid != null) && Number(m.employee_id) === Number(eid)
+      // v658：比对用**门店键**（同一员工的两个门店是两行，按工号比会把两行一起当"被改的那行"）
+      const same = (key != null) && memberKey(m) === String(key)
       return {
         employee_id: m.employee_id,
+        store_name: String(m.store_name || '').trim(),
         ratio: (same && axis === 'ratio') ? raw : m.ratio,
         target_qty: (same && axis === 'qty') ? raw : m.target_qty,
       }
@@ -901,25 +941,26 @@ async function runAllocSettle(axis, eid, raw) {
     })
     if (seq !== _allocSeq) return                 // 过期响应直接丢弃
     const by = {}
-    ;(d.items || []).forEach(x => { by[Number(x.employee_id)] = x })
+    ;(d.items || []).forEach(x => { by[memberKey(x)] = x })
     members.value = members.value.map(m => {
-      const x = by[Number(m.employee_id)]
+      const x = by[memberKey(m)]
       return x ? { ...m, ratio: x.ratio, target_qty: x.target_qty } : m
     })
     const bad = {}
     ;((d.meta && d.meta.bad) || []).forEach(b => {
       // 只认这两列（后端还会回一条 `field:'total'`，那是总量格的问题，本页总量格是数值框、
       //   走不到这里；显式挡掉免得它落到某一行上）。
-      if (b.field === 'ratio' || b.field === 'qty') bad[allocKey(b.field, b.employee_id)] = true
+      if (b.field === 'ratio' || b.field === 'qty') bad[allocKey(b.field, memberKey(b))] = true
     })
     allocBad.value = bad
     /* v359：把「这一轮系统动了哪几行」记下来（为空 ⇒ 清掉上一轮的标记）。
-       ⚠️ 放在过期响应判断**之后**：过期响应连 `members` 都不该改，更不该改标记。 */
-    allocAuto.value = ((d.meta && d.meta.auto_filled) || []).map(Number)
+       ⚠️ 放在过期响应判断**之后**：过期响应连 `members` 都不该改，更不该改标记。
+       v658：后端回的 `auto_filled` 现在是**门店键**（字符串），不能 `.map(Number)`。 */
+    allocAuto.value = ((d.meta && d.meta.auto_filled) || []).map(x => String(x))
     /* 这一格的落定值已经回来了 ⇒ 收起原始串、显示落定值。
        🔴 两道都要判：① 聚焦格还是它；② **原始串没变** —— 用户按回车提交后又接着敲，
          这两个条件不同时成立，此时**绝不能**把还在打字的格子顶掉。 */
-    if (allocFocus.value === key && allocRaw.value === raw) allocFocus.value = ''
+    if (allocFocus.value === cellKey && allocRaw.value === raw) allocFocus.value = ''
   } catch (e) {
     if (seq === _allocSeq) allocErr.value = e?.message || '联动计算失败'
   } finally {
@@ -927,32 +968,33 @@ async function runAllocSettle(axis, eid, raw) {
   }
 }
 
-function onAllocFocus(e, axis, eid) {
-  allocFocus.value = allocKey(axis, eid)
+function onAllocFocus(e, axis, key) {
+  allocFocus.value = allocKey(axis, key)
   allocRaw.value = String((e && e.target && e.target.value) != null ? e.target.value : '')
 }
-function onAllocInput(e, axis, eid) {
-  allocFocus.value = allocKey(axis, eid)
+function onAllocInput(e, axis, key) {
+  allocFocus.value = allocKey(axis, key)
   allocRaw.value = String((e && e.target && e.target.value) != null ? e.target.value : '')
 }
-function onAllocBlur(axis, eid) {
-  if (allocFocus.value === allocKey(axis, eid)) allocFocus.value = ''
+function onAllocBlur(axis, key) {
+  if (allocFocus.value === allocKey(axis, key)) allocFocus.value = ''
 }
 /* 离开这一格（失焦 / 回车）⇒ 提交给后端联动。
    ⚠️ **中间态不在 @input 里收敛**：`Number("12.")` = 12，边打边收敛会让用户永远打不出小数点；
       而原串一直留在框里又不能让后端判「非数字」—— 所以只有「离开这一格」时收敛。 */
-function onAllocCommit(e, axis, eid) {
+function onAllocCommit(e, axis, key) {
   const raw = String((e && e.target && e.target.value) != null ? e.target.value : allocRaw.value)
   allocRaw.value = raw
-  allocFocus.value = allocKey(axis, eid)
+  allocFocus.value = allocKey(axis, key)
   /* 🔴 v359：**先入锁、再落定**。顺序反了会有个很难查的症状 ——
      用户刚敲 70 的那一行在同一轮里仍被当作"自由行"，于是它被自己的配平重算掉，
      表现为「填了 70、一松手变成 33.33」（用户会说"填了不算"，而这正是本页第 ② 条纪律
-     要防的那件事，只是一个新的成因）。 */
-  if (eid != null && !allocLocked.value.some(x => Number(x) === Number(eid))) {
-    allocLocked.value = [...allocLocked.value, Number(eid)]
+     要防的那件事，只是一个新的成因）。
+     v658：锁的是**门店键**（别名是字符串，不能进 Number()）。 */
+  if (key != null && !allocLocked.value.some(x => String(x) === String(key))) {
+    allocLocked.value = [...allocLocked.value, String(key)]
   }
-  runAllocSettle(axis, eid, raw)
+  runAllocSettle(axis, key, raw)
 }
 /* 目标量改了 ⇒ 以**比例**为源重新落定（"只改总量"不该动比例，数量跟着新总量走）。
    与后端 `update_target` 里「只改目标量、不给新分解」那条分支**同一条规则**。
@@ -1008,8 +1050,11 @@ function openEdit(r) {
   form.period_month = r.period_month
   form.target_qty = Number(r.target_qty) || null
   // v358：两列都要带回来（数量列现在是可编辑的，缺了它会显示成 0 ⇒ 用户一打开就以为分解没了）
+  // v658：`store_name` 必须带回来 —— 它是行的身份键；丢了会让同一员工的两行共用
+  //   `e3` 这个键 ⇒ 改一格两行一起变、删一行两行一起没。
   members.value = (r.allocs || []).map(a => ({
     employee_id: a.employee_id, employee_name: a.employee_name,
+    store_name: String(a.store_name || '').trim(),
     ratio: Number(a.ratio) || 0, target_qty: Number(a.target_qty) || 0,
   }))
   ekw.value = ''
@@ -1128,23 +1173,31 @@ async function submitFix(p) {
   }
 }
 
-function isPicked(id) { return members.value.some(m => m.employee_id === id) }
-function addMember(e) {
-  if (isPicked(e.id)) return
+function isPicked(key) { return members.value.some(m => memberKey(m) === key) }
+function addMember(s) {
+  const k = storeKey(s)
+  if (isPicked(k)) return
   // v358：要带 `target_qty` —— 少了它这一行的数量列会是 undefined，
   //   而"保留原始串"的显示逻辑会把它渲染成空白（看起来像这一行没分解）。
-  members.value.push({ employee_id: e.id, employee_name: e.name, ratio: 0, target_qty: 0 })
+  // v658：**必须带 `store_name`** —— 它是承接人的身份键（唯一索引 target_id+store_name）。
+  members.value.push({
+    employee_id: s.id,
+    employee_name: s.name,
+    store_name: String(s.store_name || '').trim(),
+    ratio: 0, target_qty: 0,
+  })
   // 首次加入时自动平均，省掉「加一个人再手填占比」这一步
   if (members.value.length === 1) members.value[0].ratio = 100
   /* 加人后要重落定：新人是 0% ⇒ 比例合计仍是 100、数量对照样守恒，
      但**具体到每一行的数量**要由后端重算（尾差补给谁可能变化）。 */
   runAllocSettle('ratio', null, null)
 }
-function rmMember(id) {
-  members.value = members.value.filter(m => m.employee_id !== id)
+function rmMember(key) {
+  members.value = members.value.filter(m => memberKey(m) !== key)
   /* v359：他走了，锁定集合里也要删掉 —— 否则同名同 id 再加回来时是"幽灵锁定"，
-     表现为「新加的人怎么填都不参与配平」，而界面完全看不出原因。 */
-  allocLocked.value = allocLocked.value.filter(x => Number(x) !== Number(id))
+     表现为「新加的人怎么填都不参与配平」，而界面完全看不出原因。
+     v658：键是**门店**，别再用 Number() 比（别名转数字恒 NaN）。 */
+  allocLocked.value = allocLocked.value.filter(x => String(x) !== String(key))
   runAllocSettle('ratio', null, null)
 }
 function splitEven() {
@@ -1177,6 +1230,10 @@ async function save() {
     const allocs = members.value.map(m => ({
       employee_id: m.employee_id,
       employee_name: m.employee_name,
+      // v658：`store_name` 是承接人的**身份键**（唯一索引 target_id+store_name）——
+      //   漏了它后端只能拿员工名兜底 ⇒ 同一员工的两个门店会写成两行完全相同的数据，
+      //   撞唯一约束整笔 500；更糟的是并成一行、丢掉其中一个门店的分法。
+      store_name: String(m.store_name || '').trim(),
       ratio: Number(m.ratio) || 0,
       // v358：**逐人数量也要落库**。两列都给，且两列都来自后端落定的那一份 ——
       //   后端 `_write_allocs` 见数量就以数量为准反算比例（服务端唯一实现），

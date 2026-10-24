@@ -10617,8 +10617,9 @@ function openAlloc(row) {
   //   🔴 关键：**必须 toast 说清**，不能静默返回 —— 用户点了没反应会以为坏了。
   const _mem = allocMembers(row)
   if (_mem.length === 1) {
-    const _nm = _mem[0].employee_name || ('员工' + _mem[0].employee_id)
-    toast(`本商品本期只有「${_nm}」一人能承接 —— 保存汇总表时会自动把全部加/减单给他，`
+    // v658：分摊单位是**门店**
+    const _nm = _mem[0].store_name || _mem[0].employee_name || ('员工' + _mem[0].employee_id)
+    toast(`本商品本期只有「${_nm}」一个门店能承接 —— 保存汇总表时会自动把全部加/减单给它，`
           + `不需要手动分摊`, 'ok')
     return
   }
@@ -11163,9 +11164,10 @@ function ptExtraInputTitle(r) {
                  : (_bs === 'reported'
                     ? '**本期各人报单量**（原本自动推导；可在「分摊」里改成本期专用占比）'
                     : '**商品目标分解占比**（档案配置，改了全期生效）'))
-         + '分给 ' + mem.length + ' 人：')
+         + '分给 ' + mem.length + ' 个门店/人：')
   mem.forEach(m => {
-    const nm = m.employee_name || ('员工' + m.employee_id)
+    // v658：分摊对象是**门店**（可能同一员工多门店）⇒ 名字优先显示门店
+    const nm = m.store_name || m.employee_name || ('员工' + m.employee_id)
     const al = eq * (Number(m.ratio) || 0) / 100
     L.push('· ' + nm + '：占比 ' + fmt(m.ratio) + '% ⇒ '
            + (al >= 0 ? '加' : '减') + ' ' + fmt(Math.abs(al)) + ' 箱'
@@ -11262,16 +11264,17 @@ function ptExtraTip(r) {
   if (!_void && !allocMembers(r).length && allocPool.value.length) {
     const eq2 = Number(r && r.extraQty) || 0
     L.push(`本商品本期没有人报过、也没有启用目标 —— 这 ${fmt(Math.abs(eq2))} 箱`
-           + '**还没有落点**，需要手动勾选承接人。')
-    L.push('点本格右下角的「分摊」打开**报单对象名册**（默认全不勾；「平均分配」一键全勾均分），'
-           + '应用占比后，还要点汇总表**右上角「保存」**才真正落到各人名下。')
+           + '**还没有落点**，需要手动勾选承接门店。')
+    L.push('点本格右下角的「分摊」打开**报单门店名册**（默认全不勾；「平均分配」一键全勾均分），'
+           + '应用占比后，还要点汇总表**右上角「保存」**才真正落到各门店名下。')
   }
   if (g && (g.operators || []).length) {
     const avg = Number(g.avg_box) || 0
     L.push(`差额合计 ${fmt(g.gap_total_box)} 箱 —— 均单目标 ${fmt(avg)} 箱，`
            + `逐人算「均单 − 本人本期报单」，只累计不足的（超报不抵扣别人的缺口）`)
     ;(g.operators || []).forEach(o => {
-      const nm = o.employee_name || ('员工' + o.employee_id)
+      // v658：逐门店差额（同一员工两门店各占一行）⇒ 名字优先显示门店
+      const nm = o.store_name || o.employee_name || ('员工' + o.employee_id)
       const rb = fmt(o.reported_box)
       const gp = Number(o.gap_box) || 0
       L.push(`· ${nm}（占比 ${fmt(o.ratio)}%）：报 ${rb} 箱` +
@@ -11298,7 +11301,8 @@ function ptExtraTip(r) {
            + `　＝ ${_basisTxt} × ${fmt(Math.abs(d))} 箱`
            + (a.operator ? `　· 操作人：${a.operator}` : ''))
     ;(a.rows || []).forEach(o => {
-      const nm = o.employee_name || ('员工' + o.employee_id)
+      // v658：落账明细按**门店**展示（`store_name` 由后端保证非空，退回员工名）
+      const nm = o.store_name || o.employee_name || ('员工' + o.employee_id)
       const al = Number(o.alloc_box) || 0
       L.push(`· ${nm}：占比 ${fmt(o.ratio)}% ⇒ ${al >= 0 ? '加' : '减'} ${fmt(Math.abs(al))} 箱；`
              + `原报 ${fmt(o.reported_box)} ⇒ 定稿 ${fmt(o.final_box)} 箱`)

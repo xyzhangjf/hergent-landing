@@ -718,8 +718,11 @@ export const productTargetsApi = {
      归一（全角数字 / 中文句号 → 半角）由后端既有唯一实现 `normalize_num_text` 做。
      （前端确实已有一份 `toHalfNum`，但它是 `Forecast.vue` 的**页内私有函数**、没提取成
      共享 util ⇒ 本页复用不了；在本页另写一份就等于**第三份**归一实现。）
-     v359：`locked` = **用户显式敲过的行**（employee_id 数组）。这些行在源轴上的值原样
-     保留，剩余量由后端分给其余行 —— 也就是「自动配平」。空数组 = 谁都不动（v358 老行为）。 */
+     v359：`locked` = **用户显式敲过的行**（身份键数组）。这些行在源轴上的值原样
+     保留，剩余量由后端分给其余行 —— 也就是「自动配平」。空数组 = 谁都不动（v358 老行为）。
+     🔴 v658：行身份键从「employee_id」换成「**门店**」—— `allocs` 每项要带 `store_name`，
+        `locked` 里放门店名（无门店名才放工号）。同一员工的两个门店是**两行**，
+        按工号锁会把两行一起锁住 ⇒ 改「东津」连带「吾悦」也不参与配平。 */
   allocPreview: ({ targetQty, source, allocs, locked }) =>
     api('/api/product-targets/alloc-preview', {
       method: 'POST',
@@ -737,9 +740,11 @@ export const productTargetsApi = {
      🔴 必须走后端：减单的「夹断到 0 后按相对占比重分」是边界敏感的，前端另写一份
         必然在边界上给出第二个答案（本项目反复栽的「同屏两个同名数对不上」）。
      本接口一个字节都不写 —— 比例落档案走 `update()`，加单量落库仍随汇总结表的保存。
-     v657：`members` = **勾选的承接人**（{employee_id, ratio}）—— 「本期无人报过、
-        也没有目标」的商品从**报单对象名册**里勾人承接时带给后端（后端按这份名单分，
-         并校验每个人都在名册里）。空 = 既有行为（按自然承接人）。 */
+     v657：`members` = **勾选的承接门店**（{store_name, employee_id, ratio}）—— 「本期无人报过、
+        也没有目标」的商品从**报单门店名册**里勾选承接时带给后端（后端按这份名单分，
+         并校验每个门店都在名册里）。空 = 既有行为（按自然承接人）。
+     v658：`ratios` 同样按门店下发（`{store_name, employee_id, ratio}`）—— 后端优先用
+        `store_name` 当覆盖键，无门店名才回落工号（老前端/老数据仍能工作）。 */
   extraAllocPreview: ({ periodId, productId, totalDelta, ratios, members }) =>
     api('/api/product-targets/extra-alloc/preview', {
       method: 'POST',
