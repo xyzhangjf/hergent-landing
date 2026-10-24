@@ -39,11 +39,13 @@
 - 发布：`rsync -av --no-owner --no-group dist/assets/ root@…:/opt/hergent-cn-v2/assets/`（**绝不带 `--delete`**，线上有 2.6 万历史文件）→ favicon/legal → **最后** scp `index.html` → 双侧 md5。macOS rsync 不支持 `--chown`，传完单独 chown。
 - 🔴 **只传改动 chunk 会白屏**：新 entry 引用的闭包可能线上全无 ⇒ 传**整个** `dist/assets/`。
 - 🔴 **「改了但用户说没变」第一步查构建号** `window.__HG_BUILD__` + `html[data-build]`（每次发版手动改）；SPA 老标签页永不重拉 index.html。
+- 🔴 **生产热修不进 git ⇒ 下次整包同步必回退**：cn-v2 是整份 `rsync dist/assets/` 发布，只存在于线上产物、没进源码的改动一定会被覆盖（v663 副驾「新对话」按钮就这样回退过，只在 2026-10-21 的 `Shell-BLfJ9bAV.js` 里）。**「以前修过现在又坏了」的处理法：去 `/opt/hergent-cn-v2/assets/*.js` 数各历史产物里关键字出现次数（`grep -o … | wc -l` + `ls -t`），次数多的那版就是修好的版本，从产物里逐项复刻，别从零重新设计；修完必须进 git 并加源码级契约护栏。**
+- 🔴 **站点归属**：`hergent.cn`/`www` → `root /opt/hergent-cn-v2`（cn-v2，预报/副驾全在这）；`erp.hergent.cn` → `root /opt/static`（旧 hergent-admin，`main-*.js`）。**发版核验只认 hergent.cn，打 erp 会看到"没生效"的假象。**
 - 样式常落在**懒加载 chunk** 的 css（`Forecast-*.css`），别只 grep `index-*.css`。
 
 ## 🔴 测试基线
 
-- 入口：后端 `tests/run_all_tests.py`（AST 分类两代测试 + 自带 `.env` 注入）｜前端 `tests/run-all.mjs`（万元往返 + 153 SFC 符号 + **跨组件/漏 import/双重解包** + 返利 HTTP 契约）。
+- 入口：后端 `tests/run_all_tests.py`（AST 分类两代测试 + 自带 `.env` 注入）｜前端 `tests/run-all.mjs`（万元往返 + 153 SFC 符号 + **跨组件/漏 import/双重解包** + 返利 HTTP 契约 + **⑤ 副驾「新对话」入口契约**）。
 - 🔴 **「有测试文件」≠「有测试」**：17/23 后端文件是脚本式（顶层 `sys.exit`）混在 pytest 里 ⇒ 收集 `INTERNALERROR`、零覆盖却看着健全。
 - 🔴 **基线转绿前先自证判别力**：注回已知缺陷看能否抓红。假阴性比假红危险得多。
 - 🔴 正则前导要**零宽断言** `(?<![\w.$'"])`；消费前导字符会让嵌套调用整层漏检。
