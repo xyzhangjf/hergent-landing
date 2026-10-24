@@ -1125,7 +1125,13 @@
             </thead>
             <tbody>
               <!-- v654：一行 = 一个组件实例 ⇒ 改一格只重渲染这一行（见 script 末尾 rowCtx 注释）。隔离子组件的代价是：本行的样式必须能在子组件内命中，见 ForecastRow.vue 的 <style>。 -->
-              <ForecastRow v-for="(r, ri) in cross.rows" :key="ri" :row="r" :ri="ri" :units="cross.units" />
+              <!-- v666：⚠️ 数据源是 `editRowsShown`（分批挂载），**不是** `cross.rows`。改成后者会让「点改单一卡 3 秒」立刻回归。 -->
+              <ForecastRow v-for="(r, ri) in editRowsShown" :key="ri" :row="r" :ri="ri" :units="cross.units" />
+              <!-- v666：尚未挂载的行占一块等高的占位 —— 撑住表格高度，滚动条就不会在补齐过程中跳动；
+                   文字如实说明"还在准备"，而不是让用户以为商品少了。补齐完成后本行自动消失。 -->
+              <tr v-if="editPendingRows > 0" class="render-pending" :style="{ height: (editPendingRows * 26) + 'px' }">
+                <td :colspan="editColKeys.length" class="render-pending-td">正在准备剩余 {{ editPendingRows }} 行…</td>
+              </tr>
             </tbody>
             </table>
             <!-- v212（P2-1）：数量格候选的**唯一** datalist（全表共用一个）。
@@ -3125,6 +3131,83 @@ const vFocus = { mounted: el => { try { el.focus() } catch (e) {} } }
    判据只留这一份，别处一律引用，不再各写一遍 filter。 */
 const liveRows = computed(() => cross.value.rows.filter(r => !r._deleted))
 
+/* ── v666：编辑网格**分批挂载** ────────────────────────────────────────────────
+   用户 2026-10-24：「用笔记本电脑点『改单』、改报单数据的时候，卡顿还是很严重」。
+   实测（4x CPU 模拟笔记本，生产同一份 dist）：
+     · 点「改单」→ 第一个输入框可用 **864ms**，行数完全稳定 **3427ms**；
+     · 单次长任务峰值 **936ms**（295 行 × 28 列 = 8252 个 input、2.3 万节点一次性同步建完）。
+   v654~v656 优化的是「敲键 → reactive flush」（现 11.5ms，那部分没退化），**入口这段从没量过**。
+   A/B 实测 `content-visibility: auto` 对 `tr` 无效（±1~4%，table 布局需要全行尺寸），
+   唯一出路是**别一次建完**：首屏先 60 行（约 3 屏），其余在浏览器空闲时每批 24 行补上。
+   🔴 判据是「首帧可用 + 长任务峰值」，**不是总时长** —— 活还是那么多，变的是用户多久能开始改。
+   🔴 任何「按行号定位 DOM」的入口（focusCell / editRow）都必须先 `ensureRowsRendered`，
+      否则 querySelector 找不到未挂载的行 ⇒ **静默 focus 失败**（点查错跳到第 200 行会没反应）。 */
+const EDIT_FIRST_BATCH = 24        // 首批（≈620px，一屏出头）；实测 60 行在 4x 下要 700ms，太慢
+const EDIT_BATCH = 24              // 后续每批；够小才把长任务切碎
+const editRenderCount = ref(0)     // 0 / >=总行数 都表示「全渲染」
+const editRowsShown = computed(() => {
+  const rows = cross.value.rows || []
+  /* 🔴 载入中不建任何行 —— 这条是分批真正生效的前提。
+     点「改单」时 `editMode=true` 先落地、`loadEditGrid()` 随后才换掉 `cross.value`；
+     这中间模板会拿**只读态那 295 行**渲染一次编辑网格（`editRenderCount` 还是 0 = 全量）
+     ⇒ 首帧已经是 295 行，后面的分批等于没做（实测首帧 901ms，与改动前 864ms 一样）。
+     载入中给空表（顶部本来就有「载入中…」），数据到位后从 24 行开始长。 */
+  if (loadingEdit.value) return []
+  const n = editRenderCount.value
+  return (!n || n >= rows.length) ? rows : rows.slice(0, n)
+})
+const editPendingRows = computed(() => {
+  const rows = cross.value.rows || []
+  if (loadingEdit.value) return 0
+  const n = editRenderCount.value
+  return (!n || n >= rows.length) ? 0 : rows.length - n
+})
+let _editFillToken = 0
+let _lastGridTypeAt = 0            // 最近一次在格子里敲键的时刻（补齐要让路给输入）
+function fillEditRows(token) {
+  const total = () => (cross.value.rows || []).length
+  if (editRenderCount.value >= total()) return
+  /* 🔴 必须「排到下一帧之后」，不能用 requestIdleCallback：实测首批之后浏览器判定主线程
+     一直"忙"，十个批次在首帧绘制**之前**连着跑完 ⇒ 首帧仍挂 295 行、耗时 878ms，白改。
+     双 rAF = 等这一批真的画出来，再排下一批。 */
+  const nextFrame = (fn) => requestAnimationFrame(() => requestAnimationFrame(fn))
+  const step = () => {
+    if (token !== _editFillToken) return          // 退出编辑 / 重新加载 ⇒ 本批作废
+    if (!editMode.value) return
+    const t = total()
+    if (editRenderCount.value >= t) return
+    /* 用户正在连打（500ms 内有击键）⇒ 让路，免得补齐批次吃掉输入的那一帧 */
+    if (Date.now() - _lastGridTypeAt < 500) { nextFrame(step); return }
+    editRenderCount.value = Math.min(t, editRenderCount.value + EDIT_BATCH)
+    if (editRenderCount.value < t) nextFrame(step)
+  }
+  nextFrame(step)
+}
+/* 每次重建编辑网格（进改单 / 保存后回填 / 换期次）都从首屏开始 */
+function resetEditRender() {
+  const total = (cross.value.rows || []).length
+  const my = ++_editFillToken
+  editRenderCount.value = Math.min(total, EDIT_FIRST_BATCH)
+  fillEditRows(my)
+}
+/* 按行号定位 DOM 之前必须调：把渲染窗口撑到目标行。
+   返回 true 表示「刚撑开过」，调用方若在**同一个 tick 里**就要查 DOM，需等 nextTick。 */
+function ensureRowsRendered(ri) {
+  if (!editMode.value) return false
+  const total = (cross.value.rows || []).length
+  const want = Math.min(total, (Number(ri) || 0) + EDIT_BATCH)
+  if (want <= editRenderCount.value) return false
+  editRenderCount.value = want
+  return true
+}
+/* v666：加/删行后行数变了 —— 原本已经展示到末尾的，直接跟到新长度（新增那几行成本极小）；
+   否则补齐循环会因为「count >= total」提前停住，新增的行**永远不会显示**（用户以为没加上）。 */
+watch(() => (cross.value.rows || []).length, (n) => {
+  if (!editMode.value) return
+  if (editRenderCount.value >= n - 1) editRenderCount.value = n
+  else fillEditRows(_editFillToken)
+})
+
 /* v656：**聚合值单遍计算**（ForecastAgg 的数据源）。
    背景（v655 达标后遗留的 ~60ms flush）：v655 把表尾/汇总条拆成 ~40 个 ForecastAgg
    实例，但每个实例各自对 liveRows 做全表扫描（21 个 footUnitSum + ~13 个 footMaster
@@ -4096,7 +4179,13 @@ async function enterEdit() {
   /* v603：快捷键说明的「首次自动展开」改由 KbdHelp 组件在 onMounted 里自己判断
      （它要等页脚真实可见才弹，页脚在首屏之下时不该弹出一个无主浮层）。 */
   loadingEdit.value = true
-  try { await loadEditGrid() } finally { loadingEdit.value = false }
+  try { await loadEditGrid() } finally {
+    /* v666 兜底：loadEditGrid 内部 catch 了异常（toast 后正常返回），那种情况下它末尾的
+       resetEditRender 不会执行 ⇒ `editRenderCount` 还是 0（=全量），loadingEdit 一落下
+       就会把整表一次性建完。这里补一次，且只在「没被设过」时补，免得把刚排好的补齐打回重来。 */
+    if (!editRenderCount.value) resetEditRender()
+    loadingEdit.value = false
+  }
   // 进编辑态即自动跑一次全表校验，让「待修正」角标立即显示，无需手动点「查错」
   errCount.value = validateAll().length
 }
@@ -4446,6 +4535,9 @@ async function loadEditGrid() {
       lastSavedSnap.value = clone(cross.value)
       dirtySinceSave.value = false
     }
+    /* v666：编辑网格分批挂载的**唯一启动点** —— 放在 loadEditGrid 最末，两条草稿分支都已把
+       rows 定稿之后。若挪到 enterEdit 里（rows 尚未就绪）会以 0 行为基准算出「已全部渲染」。 */
+    resetEditRender()
   } catch (e) {
     toast('商品清单加载失败: ' + (e.message || ''), 'error')
   }
@@ -6162,6 +6254,10 @@ function focusCell(r, c, opts) {
         那里面要读 cellTyping 才能决定「要不要全选」。放到 nextTick 里就晚了一步 ⇒
         用 F2 进输入态时会被 @focus 抢先把内容全选掉（正好把 F2 的语义做反）。 */
   cellTyping.value = !doSelect
+  /* v666：目标行可能还没挂载（编辑网格分批渲染）⇒ 先把渲染窗口撑到它。
+     下面 nextTick 里的 querySelector 是在本次 flush **之后**跑的，所以这里改了
+     editRenderCount 就能查到新行；漏了这一行 = 跳到未挂载的行**静默无反应**。 */
+  ensureRowsRendered(r)
   nextTick(() => {
     const el = document.querySelector(`input[data-r="${r}"][data-c="${c}"]`)
     if (el) {
@@ -7261,6 +7357,9 @@ function numInput(e, obj, key, immediate) {
   const el = e && e.target
   if (!el) return
   if (e.isComposing) return
+  /* v666：记一次「刚在格子里敲过键」—— 编辑网格的分批补齐见到它就主动让路
+     （否则补齐的 24 行会在两次击键之间抢走一帧，连打时手感一顿一顿）。 */
+  _lastGridTypeAt = Date.now()
   const before = el.value
   const after = toHalfNum(before)
   if (after !== before) {
@@ -12339,6 +12438,18 @@ provide('sprintSummary', sprintSummary)
 </script>
 
 <style scoped>
+/* v666：编辑网格「分批挂载」期间的占位行。
+   作用有两个，缺一不可：① 用等高的空行撑住表格高度 ⇒ 补齐过程中滚动条不跳动（用户在
+   看第一屏时，位置不会被后面的补渲染顶走）；② 如实说明还有多少行在路上，而不是让人
+   以为「商品变少了」。补齐完成后这一行自动消失。 */
+.render-pending { background: transparent; }
+.render-pending-td {
+  padding: 6px 12px;
+  vertical-align: top;      /* 文字贴顶：撑出来的是空白，居中会飘在那一大片空白中央 */
+  color: var(--fg-3, #8a8f98);
+  font-size: 12px;
+  border: none;
+}
 /* v405（2026-10-08）：`.module-tabs` 的样式块已随页签条一起删除（净删除，无迁移遗漏）。
    ⚠️ 别把它当成"全站消失"：`Settings.vue`（设置）页内那一条同名的 `.module-tabs`
       是**另一个页面**自己的分区导航，与这里无关，未在本次范围内。
