@@ -9,6 +9,7 @@ import './styles/col-menu.css'   // 列设置齿轮 + 面板 + 列宽拖动手�
 import './styles/psi-list.css'   // 进销存列表页统一规范：.psi-tbl 固定布局 / .psi-frz-N 冻结列 / .psi-quick 快捷档（三页共用，v496）
 import './styles/chart.css'      // 图表外壳 / 图例 / 三态 / tooltip / 排行条（全站图表复用，v491）
 import './styles/forecast-modal.css' // 弹窗壳层共享类：.imp-modal / .imp-hd / .imp-x / .imp-body / .imp-tip / .del-actions / .warn-text（v560：forecast 懒加载子组件共用，必须在入口 chunk）
+import './styles/select-all.css'     // v671：全站统一的「全选」三态复选框 .sa-cb（配合 components/SelectAllCheckbox.vue）
 
 // 恢复主题
 setTheme(localStorage.getItem('hergent_theme') === 'dark' ? 'dark' : 'light')
@@ -66,7 +67,7 @@ app.directive('focus', {
    长期开着的标签页不会重新拉 index.html，看的永远是旧 chunk（v590 就这样被误判成"没修好"）。
    显示在「预报订单管理 → 修改日志」面板标题旁；也可在控制台 `document.documentElement.dataset.build` 查。
    ⚠️ 每次发版必须手动改这一行（没有 CI 注入），漏改会让版本核对失效。 */
-window.__HG_BUILD__ = 'v670'
+window.__HG_BUILD__ = 'v671'
 if (typeof document !== 'undefined') document.documentElement.setAttribute('data-build', window.__HG_BUILD__)
 console.info('[HG] 前端构建', window.__HG_BUILD__)
 

@@ -182,6 +182,19 @@ if (has('skip-sfc')) {
   results.push({ name: '列设置面板契约', ok: r.code === 0, code: r.code })
 }
 
+// ── ⑧ 全站「全选」统一契约 ─────────────────────────────────
+/* 为什么需要第 8 组（v671）：本期预报那颗三态全选框上提成共享件后推广到 10 处，
+   这类约定最典型的死法是「新页面照着老写法抄一遍」—— 抄出来的框没半选态，
+   或用 `@click.prevent` 手写 ⇒ 真实鼠标一点勾选态就与真实状态永久相反
+   （v669 同源，且 JS 的 el.click() 探针量不出来）⇒ 只能靠静态契约**扫全站**钉住。 */
+{
+  console.log('\n── ⑧ 全站「全选」统一契约（共享件 + 半选态 + 不得手写三态）──')
+  const r = run('select-all.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '全站全选统一', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

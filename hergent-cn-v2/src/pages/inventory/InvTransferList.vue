@@ -119,9 +119,13 @@
           </colgroup>
           <thead>
             <tr>
-              <!-- v532：勾选列表头 —— **空的**（不恢复表头全选框，批量一律逐行勾选）。
-                   留这一格是为了与表体列数对齐（table-layout:fixed）。 -->
-              <th class="psi-chk psi-frz psi-frz-1"></th>
+              <!-- v671：勾选列表头放**全选三态框**（v532 曾按 v510 口径留空，本轮恢复）。
+                   范围 = 当前页，部分选中显示半选。留这一格也是为了与表体列数对齐（table-layout:fixed）。 -->
+              <th class="psi-chk psi-frz psi-frz-1">
+                <SelectAllCheckbox :checked="pageAllOn" :indeterminate="pageSomeOn"
+                                   :disabled="!rows.length" :count="rows.length" unit="张"
+                                   @toggle="toggleSelectPage" />
+              </th>
               <!-- 齿轮长在序号列表头格子里（与采购/销售列表同一处）。
                    v532：序号列让位给勾选列 ⇒ 冻结位置改 2（psi-frz-2）。 -->
               <th class="seq-th col-gear-th psi-frz psi-frz-2"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
@@ -254,6 +258,8 @@ import { DOC_PATHS } from './new/docTypes.js'
    同一套芯片 + 同一套日期算法。 */
 import { useQuickRange } from '../../composables/useQuickRange.js'
 import QuickRangeChips from '../../components/QuickRangeChips.vue'
+/* v671：表头全选（三态）全站统一件，范围 = 当前页。v532 曾按 v510 口径留空，本轮按最新口径恢复。 */
+import SelectAllCheckbox from '../../components/SelectAllCheckbox.vue'
 /* v498：状态页签共享件（与采购 / 销售两页同一条；样式在 psi-list.css 的 .psi-tabs）。 */
 import StatusTabs from '../../components/StatusTabs.vue'
 /* v501：分页器共享件（采购 / 销售 / 调拨三页同一条）。 */
@@ -362,6 +368,22 @@ const busyPost = ref(false)
    🔴 `load()` 成功后**必须清空**：换页 / 换筛选后旧选择指向看不见的行，
       照着它执行批量 = 对"以为没选中的单据"动手（调拨完成会真移库，不可逆）。 */
 const selected = ref([])
+/* ---- v671：表头全选（范围 = 当前页）---- */
+const pageIds = computed(() => rows.value.map(r => r.id))
+const pageAllOn = computed(() => pageIds.value.length > 0 && pageIds.value.every(id => selected.value.includes(id)))
+const pageSomeOn = computed(() => !pageAllOn.value && pageIds.value.some(id => selected.value.includes(id)))
+function toggleSelectPage (on) {
+  const ids = pageIds.value
+  if (!ids.length) return
+  if (on) {
+    const set = new Set(selected.value)
+    for (const id of ids) set.add(id)
+    selected.value = [...set]
+  } else {
+    const drop = new Set(ids)
+    selected.value = selected.value.filter(id => !drop.has(id))
+  }
+}
 const batchOpen = ref(false)              // 批量菜单展开态（共享件 PsiListActions）
 /* v532：上一次批量操作的逐单结果（成功几张 / 失败几张 + 后端给的中文原因）。
    放屏幕上而不是只弹 toast —— 失败原因要留着让用户照着处理，toast 几秒就没了。 */

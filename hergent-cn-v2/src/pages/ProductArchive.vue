@@ -530,14 +530,19 @@
                 <option value="">全部分类</option>
                 <option v-for="c in fpCategoryOptions" :key="c" :value="c">{{ c }}</option>
               </select>
-              <button class="btn btn-ghost btn-sm" @click="fpSelectAll(true)">全选</button>
-              <button class="btn btn-ghost btn-sm" @click="fpSelectAll(false)">取消全选</button>
+              <!-- v671：原「全选 / 取消全选」两个按钮并入表头那颗三态复选框 ——
+                   全站统一为「一个控件 + 半选态」，不再每个面板一套按钮。 -->
             </div>
 
             <div v-if="fpViewRows.length" class="pa-fp-wrap">
               <table class="tbl pa-fp-tbl">
                 <thead><tr>
-                  <th class="pa-fp-ck"></th><th>条码</th><th>名称</th><th>规格</th><th>单位</th>
+                  <th class="pa-fp-ck">
+                    <SelectAllCheckbox :checked="fpAllOn" :indeterminate="fpSomeOn"
+                                       :disabled="!fpViewRows.length" :count="fpViewRows.length" unit="个商品"
+                                       title="全选/取消当前筛选显示的这些商品（勾选的才会被填入进价）"
+                                       @toggle="fpSelectAll" />
+                  </th><th>条码</th><th>名称</th><th>规格</th><th>单位</th>
                   <th class="num">参考：分销价</th><th class="num">填入进价</th>
                 </tr></thead>
                 <tbody>
@@ -607,6 +612,8 @@ import { toast, canDo } from '../store'
 /* v184b：到货周期文案 / 解析的**唯一实现**（与「本期预报」主表共用同一份，见该文件注释）。
    本页若自己再写一份格式化 = 第二份拷贝 = 静默漂移（同一商品两处显示不一致）。 */
 import { arrivalCycleText, parseArrivalDays, ARRIVAL_MAX } from '../utils/arrival.js'
+/* v671：表头全选（三态）全站统一件，原型 = 本期预报 v615 那颗。 */
+import SelectAllCheckbox from '../components/SelectAllCheckbox.vue'
 
 /* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。 */
 const COLS = [
@@ -671,6 +678,10 @@ const fpCategoryOptions = computed(() => [...new Set(fpRows.value.map(r => r.cat
 const fpFiltered = computed(() => fpRows.value.filter(r =>
   (!fpBrand.value || r.brand === fpBrand.value) && (!fpCategory.value || r.category === fpCategory.value)))
 const fpViewRows = computed(() => fpFiltered.value.slice(0, fpShowLimit))
+/* v671：表头全选三态。范围 = **当前筛选可见**（fpViewRows，与表体 v-for 同一份数据），
+   而不是 fpRows 全量 —— 否则用户「筛品牌 A 全选」会把别的品牌也勾上。 */
+const fpAllOn = computed(() => fpViewRows.value.length > 0 && fpViewRows.value.every(r => r._ck))
+const fpSomeOn = computed(() => !fpAllOn.value && fpViewRows.value.some(r => r._ck))
 const fpCheckedCount = computed(() => fpViewRows.value.filter(r => r._ck).length)
 const fpFilledCount = computed(() => fpViewRows.value.filter(r => r._ck && Number(r._fp) > 0).length)
 

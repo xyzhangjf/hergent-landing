@@ -272,9 +272,14 @@
           </colgroup>
           <thead>
             <tr>
-              <!-- v510：表头全选框移除（老板口径：全选/反选从工具栏删掉）。
-                   行内勾选列保留 ⇒ 批量仍可逐行勾选，不靠表头全选。 -->
-              <th class="ipl-c-chk psi-frz psi-frz-1"></th>
+              <!-- v671：表头全选框**恢复**（v510 曾按老板口径删掉）。
+                   与 v510 时代的差别是范围与三态：只作用于**当前页**，部分选中显示半选，
+                   ⇒ 不会出现"点一下把看不见的几百张单都勾上"。行内勾选列行为不变。 -->
+              <th class="ipl-c-chk psi-frz psi-frz-1">
+                <SelectAllCheckbox :checked="pageAllOn" :indeterminate="pageSomeOn"
+                                   :disabled="!rows.length" :count="rows.length" unit="张"
+                                   @toggle="toggleSelectPage" />
+              </th>
               <!-- 🔴 §2.6.1「一、」：齿轮长在**序号列表头**格子里、是该格**唯一**的按钮，
                    包在 `.th-in` 里（`.th-in > .col-cfg{margin-inline:auto}` 把它拉回格子正中）。
                    ⛔ 不放工具栏、⛔ 不放别的表头列。 -->
@@ -552,6 +557,10 @@ import PsiPager from '../../components/PsiPager.vue'
 /* v510：列表动作组改共享件（导出 → 批量操作 → 新建 → 刷新；收进页签行右侧）。
    顺序与「全选/反选/打印移除」是老板口径；批量菜单项仍由本页 BATCH_ACTIONS 提供。 */
 import PsiListActions from '../../components/PsiListActions.vue'
+/* v671：表头全选（三态）全站统一件 —— 原型是本期预报 v615 那颗。
+   ⚠️ v510 曾按老板口径把表头全选框删掉，本轮按最新口径恢复：
+   范围 = **当前页**（不是全表），半选态明确"只勾了一部分"，不再有"全表全选"的误伤。 */
+import SelectAllCheckbox from '../../components/SelectAllCheckbox.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -584,6 +593,25 @@ const limit = ref(20)
 const offset = ref(0)
 /* v501：`jumpTo` 删除 —— 「跳至」输入框的状态随分页器搬进共享件 `PsiPager`（见 goPage 附近注释）。 */
 const selected = ref([])
+/* ---- v671：表头全选（范围 = 当前页） ----
+   `selected` 装的是 id，理论上可跨页；但 L1323 换页/换筛选时会清空，
+   所以实际上它恒等于「当前页里被勾上的那些」。这里仍按「当前页」口径写，
+   是为了在换页清空那天被改掉时也不会误伤别的页（加只加本页、去只去本页）。 */
+const pageIds = computed(() => rows.value.map(r => r.id))
+const pageAllOn = computed(() => pageIds.value.length > 0 && pageIds.value.every(id => selected.value.includes(id)))
+const pageSomeOn = computed(() => !pageAllOn.value && pageIds.value.some(id => selected.value.includes(id)))
+function toggleSelectPage (on) {
+  const ids = pageIds.value
+  if (!ids.length) return
+  if (on) {
+    const set = new Set(selected.value)
+    for (const id of ids) set.add(id)
+    selected.value = [...set]
+  } else {
+    const drop = new Set(ids)
+    selected.value = selected.value.filter(id => !drop.has(id))
+  }
+}
 const more = ref(false)
 const batchOpen = ref(false)
 const lastBatch = ref(null)

@@ -21,6 +21,8 @@ import { productTargetsApi } from '../../api/modules'
 import { fmt, parseNumInput } from '../../utils/forecast/format.js'
 import { toast } from '../../store'
 import Icon from '../Icon.vue'
+/* v671：表头全选（三态）全站统一件 —— 与本期预报序号列那颗同款。 */
+import SelectAllCheckbox from '../SelectAllCheckbox.vue'
 
 const props = defineProps({
   /* 🔴 v629 修真缺陷：模板写的是 `<div v-if="open" class="imp-modal alloc-modal">`，
@@ -535,7 +537,13 @@ function togglePick(key) {
   if (next[k]) delete next[k]
   else next[k] = true
   allocPicked.value = next
-  const keys = Object.keys(next)
+  _allocAfterPickChange(Object.keys(next))
+}
+
+/* v671：勾选集合变了之后的固定收尾（重新均分占比 + 重跑预览）。
+   `togglePick`（单个）与 `togglePickAll`（表头全选）共用 ——
+   🔴 不写两份：两份实现迟早漂移，v607 就是这么踩的。 */
+function _allocAfterPickChange (keys) {
   if (!keys.length) {
     allocRatiosRaw.value = {}
     runAllocPreview()
@@ -549,6 +557,20 @@ function togglePick(key) {
   })
   allocRatiosRaw.value = raw
   runAllocPreview()
+}
+/* v671：表头全选 —— 范围 = 当前候选表里列出的这些门店（与表体 v-for 同一份数据）。 */
+const allocAllOn = computed(() => allocTableRows.value.length > 0 && allocTableRows.value.every(x => x.picked))
+const allocSomeOn = computed(() => !allocAllOn.value && allocTableRows.value.some(x => x.picked))
+function togglePickAll (on) {
+  const next = { ...allocPicked.value }
+  ;(allocTableRows.value || []).forEach(x => {
+    const k = x.key || allocKeyOf(x)
+    if (!k) return
+    if (on) next[k] = true
+    else delete next[k]
+  })
+  allocPicked.value = next
+  _allocAfterPickChange(Object.keys(next))
 }
 /* v659：手动切进「报单门店名册」—— 让**没报单的门店**也能被选来分摊。
    进入时**预勾当前表格里的人**（本期报单人 / 目标承接人），并保留他们现有的占比，
@@ -853,7 +875,14 @@ onMounted(() => { loadAllocSetup() })
                 <table class="alloc-tbl">
                   <thead>
                     <tr>
-                      <th v-if="allocPickMode" class="chk" title="勾选后这个门店才参与本期分摊">勾选</th>
+                      <!-- v671：勾选列表头放全选三态框（原型 = 本期预报 v615 那颗）。
+                           范围 = 当前候选表里可见的这些门店，部分选中显示半选。 -->
+                      <th v-if="allocPickMode" class="chk" title="勾选后这个门店才参与本期分摊">
+                        <SelectAllCheckbox :checked="allocAllOn" :indeterminate="allocSomeOn"
+                                           :disabled="!allocTableRows.length" :count="allocTableRows.length"
+                                           unit="个门店" title="全选/取消当前列出的这些门店（勾选的才参与本期分摊）"
+                                           @toggle="togglePickAll" />
+                      </th>
                       <th>{{ allocPickMode ? '报单门店' : ((allocIsDerived || allocIsOverride) ? '报单门店' : '承接门店') }}</th><th class="num">占比%</th><th class="num">本期报量(箱)</th>
                       <th class="num">加单(箱)</th><th class="num">定稿(箱)</th>
                     </tr>

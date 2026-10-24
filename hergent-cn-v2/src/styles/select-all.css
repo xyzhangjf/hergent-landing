@@ -1,0 +1,28 @@
+/* ============================================================================
+   v671：全站统一的「全选」三态复选框（配合 components/SelectAllCheckbox.vue）
+   ----------------------------------------------------------------------------
+   由来：这颗框的视觉此前只写在 Forecast.vue 的 scoped 块里（`:deep(.cross-tbl .row-pick)`），
+   别的页面想同款只能复制数值 ⇒ 一旦 Forecast 侧改了，别处就静默漂移（v408 同族教训）。
+
+   ⛔ 各页 scoped CSS 里**不要再给全选框写** width / height / accent-color / cursor
+      —— 那是第二个真相来源。要改就改这里。
+   ⛔ 本文件只管「全选」这一颗；逐行勾选框（行级 .row-pick）仍归各页自己管。
+
+   数值与 Forecast v615 那颗**逐字一致**（13×13 / 无内外边距 / 主色 accent / 禁用 35%），
+   上提不改值 —— 本期预报的外观因此零变化。
+   ============================================================================ */
+
+.sa-cb {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  cursor: pointer;
+  accent-color: var(--p);
+}
+.sa-cb:disabled { cursor: not-allowed; opacity: .35 }
+
+/* 半选态：浏览器原生 indeterminate 已经画了横杠，这里只补「不可读」的兜底 ——
+   部分主题下原生三态的对比度偏低，加一点主色让它在密集表头里仍看得出不是空框。 */
+.sa-cb:indeterminate { accent-color: var(--p) }

@@ -522,7 +522,7 @@
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="brandPopOpen" class="tb-pop-panel brand-pop" :style="popStyle" @click.stop>
-                <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><button class="link-btn" @click="brandSel = brandCandidates.slice()">全选</button><button class="link-btn" @click="brandSel = []">清空</button></div></div>
+                <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><SelectAllCheckbox :checked="brandAllOn" :indeterminate="brandSomeOn" :disabled="!brandCandidates.length" :count="brandCandidates.length" unit="个品牌" title="全选/取消全选当前列出的品牌（不勾 = 不过滤，显示全部品牌）" @toggle="toggleBrandAll" /><button class="link-btn" @click="brandSel = []">清空</button></div></div>
                 <div class="bp-list">
                   <label v-for="b in brandCandidates" :key="b" class="bp-item"><input type="checkbox" :value="b" v-model="brandSel"> {{ b }}</label>
                   <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
@@ -540,7 +540,7 @@
               <button ref="cycleBtn" class="btn btn-sm btn-ghost" :class="{on:cyclePopOpen}" @click="toggleCyclePop" title="按到货周期（下单后第几天到货）筛选：表格只显示这一档，复制报单也只复制这一档"><Icon name="clock"/> {{ cycleBtnLabel }}<span v-if="cycleSel.length" class="btn-badge">{{ cycleSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="cyclePopOpen" class="tb-pop-panel brand-pop cycle-pop" :style="popStyle" @click.stop>
-                <div class="bp-head"><span>按到货周期筛选</span><div class="bp-acts"><button class="link-btn" @click="cycleSel = cycleCandidates.map(c => c.days)">全选</button><button class="link-btn" @click="cycleSel = []">清空</button></div></div>
+                <div class="bp-head"><span>按到货周期筛选</span><div class="bp-acts"><SelectAllCheckbox :checked="cycleAllOn" :indeterminate="cycleSomeOn" :disabled="!cycleCandidates.length" :count="cycleCandidates.length" unit="档" title="全选/取消全选当前列出的到货周期（不勾 = 不过滤，显示全部周期）" @toggle="toggleCycleAll" /><button class="link-btn" @click="cycleSel = []">清空</button></div></div>
                 <div class="bp-list">
                   <label v-for="c in cycleCandidates" :key="c.days" class="bp-item"><input type="checkbox" :value="c.days" v-model="cycleSel"> {{ c.label }}<span class="bp-n">{{ c.n }}</span></label>
                   <p v-if="!cycleCandidates.length" class="bp-empty">当前表格没有商品行</p>
@@ -932,7 +932,7 @@
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="brandPopOpen" class="tb-pop-panel brand-pop" :style="popStyle" @click.stop>
-                <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><button class="link-btn" @click="brandSel = brandCandidates.slice()">全选</button><button class="link-btn" @click="brandSel = []">清空</button></div></div>
+                <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><SelectAllCheckbox :checked="brandAllOn" :indeterminate="brandSomeOn" :disabled="!brandCandidates.length" :count="brandCandidates.length" unit="个品牌" title="全选/取消全选当前列出的品牌（不勾 = 不过滤，显示全部品牌）" @toggle="toggleBrandAll" /><button class="link-btn" @click="brandSel = []">清空</button></div></div>
                 <div class="bp-list">
                   <label v-for="b in brandCandidates" :key="b" class="bp-item"><input type="checkbox" :value="b" v-model="brandSel"> {{ b }}</label>
                   <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
@@ -950,7 +950,7 @@
               <button ref="cycleBtn" class="btn btn-sm btn-ghost" :class="{on:cyclePopOpen}" @click="toggleCyclePop" title="按到货周期（下单后第几天到货）筛选：表格只显示这一档，复制报单也只复制这一档"><Icon name="clock"/> {{ cycleBtnLabel }}<span v-if="cycleSel.length" class="btn-badge">{{ cycleSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="cyclePopOpen" class="tb-pop-panel brand-pop cycle-pop" :style="popStyle" @click.stop>
-                <div class="bp-head"><span>按到货周期筛选</span><div class="bp-acts"><button class="link-btn" @click="cycleSel = cycleCandidates.map(c => c.days)">全选</button><button class="link-btn" @click="cycleSel = []">清空</button></div></div>
+                <div class="bp-head"><span>按到货周期筛选</span><div class="bp-acts"><SelectAllCheckbox :checked="cycleAllOn" :indeterminate="cycleSomeOn" :disabled="!cycleCandidates.length" :count="cycleCandidates.length" unit="档" title="全选/取消全选当前列出的到货周期（不勾 = 不过滤，显示全部周期）" @toggle="toggleCycleAll" /><button class="link-btn" @click="cycleSel = []">清空</button></div></div>
                 <div class="bp-list">
                   <label v-for="c in cycleCandidates" :key="c.days" class="bp-item"><input type="checkbox" :value="c.days" v-model="cycleSel"> {{ c.label }}<span class="bp-n">{{ c.n }}</span></label>
                   <p v-if="!cycleCandidates.length" class="bp-empty">当前表格没有商品行</p>
@@ -1089,11 +1089,14 @@
                   <div class="seq-hd-in">
                     <!-- v615：整列选行。语义 = 「勾上/取消**当前筛选可见**的这些行」，
                          不是「全表全选」—— 与行上的 v-show 同口径（rowBaseShown）。
-                         部分选中时用 indeterminate（浏览器原生三态，比自绘方块稳）。 -->
-                    <input v-if="editMode" type="checkbox" class="row-pick" :checked="selAllVisible"
-                           :indeterminate.prop="selSomeVisible" :disabled="!visibleRowIdx.length"
+                         部分选中时用 indeterminate（浏览器原生三态，比自绘方块稳）。
+                         v671：这段逻辑上行成为全站共享件 SelectAllCheckbox.vue，
+                         全站（进销存三列表 / 分摊 / 筛选面板…）都用它，见 styles/select-all.css。 -->
+                    <SelectAllCheckbox v-if="editMode" :checked="selAllVisible"
+                           :indeterminate="selSomeVisible" :disabled="!visibleRowIdx.length"
+                           :count="visibleRowIdx.length"
                            :title="visibleRowIdx.length ? '全选/取消当前显示的 ' + visibleRowIdx.length + ' 行（不影响被筛选隐藏的行）' : '当前没有显示的行'"
-                           @change="toggleSelectAllVisible($event.target.checked)">
+                           @toggle="toggleSelectAllVisible" />
                     <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
                   </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'seq')" @click.stop></span>
@@ -2057,7 +2060,11 @@
             <!-- 内联：唯一值筛选 -->
             <template v-else-if="hdrCtx.mode === 'uniq'">
               <div class="ctx-uniq-hd">按唯一值筛选「{{ colLabel(hdrCtx._fk ? hdrCtx._fk.key : hdrCtx.key, hdrCtx._fk ? hdrCtx._fk.type : hdrCtx.type, hdrCtx._fk ? hdrCtx._fk.ui : hdrCtx.ui) }}」
-                <label class="ctx-uniq-all"><input type="checkbox" :checked="uniqAll" @change="uniqAll = !uniqAll; hdrUniqChecked = uniqAll ? hdrUniqVals.slice() : []"> 全选</label>
+                <!-- v671：改用全站统一的三态全选件。原写法在 @change 里自己取反
+                     （`uniqAll = !uniqAll; ...`）—— 与 v669 同源的隐患：浏览器翻转 DOM 与
+                     组件里取反是**两次**改动，一旦顺序反了勾选态就与真实选中集合永久相反。
+                     现在 DOM 只由 `uniqAll` 单向决定。 -->
+                <label class="ctx-uniq-all"><SelectAllCheckbox :checked="uniqAll" :indeterminate="uniqSomeOn" :disabled="!hdrUniqVals.length" :count="hdrUniqVals.length" unit="个值" title="全选/取消全选当前列出的唯一值" @toggle="toggleUniqAll" /> 全选</label>
               </div>
               <div class="ctx-uniq-list">
                 <label v-for="v in hdrUniqVals" :key="v" class="ctx-uniq-item"><input type="checkbox" :checked="hdrUniqChecked.includes(v)" @change="toggleUniqVal(v)"> <span class="ctx-uniq-val">{{ v }}</span></label>
@@ -2562,6 +2569,8 @@ import ForecastAgg from '../components/forecast/ForecastAgg.vue'
 import ForecastQtyOptions from '../components/forecast/ForecastQtyOptions.vue'
 /* v655：编辑网格表头单元格下沉（父模板不再读 isCurColHd ⇒ 聚焦换格父组件 0 重渲染）。 */
 import ForecastHeadCell from '../components/forecast/ForecastHeadCell.vue'
+/* v671：全选复选框上提为全站共享件（本节 v615 那颗就是它的原型，外观与行为零变化）。 */
+import SelectAllCheckbox from '../components/SelectAllCheckbox.vue'
 import { FC_ROW_CTX } from '../components/forecast/rowCtx.js'
 import ForecastHistory from './ForecastHistory.vue'
 import ReportMapping from './ReportMapping.vue'
@@ -5804,6 +5813,12 @@ const brandCandidates = computed(() => {
       `brandSel` 改了，行一条都不动（`brandSel.length` 变、表格纹丝不动），保存退出编辑态切到
       查看态才「突然生效」。以后新增筛选条件，**两条判据必须同时改**，否则又会出现同屏两套答案。 */
 const brandSelSet = computed(() => new Set(brandSel.value || []))
+/* ---- v671：品牌筛选面板的全选三态 ----
+   ⚠️ 本面板的「空集」= **不过滤**（显示全部品牌），不是「一个品牌都没选」
+   —— 所以提示文案必须写明，否则未勾的框会被读成"什么都不显示"。 */
+const brandAllOn = computed(() => brandCandidates.value.length > 0 && brandSel.value.length === brandCandidates.value.length)
+const brandSomeOn = computed(() => !brandAllOn.value && brandSel.value.length > 0)
+function toggleBrandAll (on) { brandSel.value = on ? brandCandidates.value.slice() : [] }
 
 /* ===================== v616：按「到货周期」筛行 =====================
    用户场景（原话）：「不同到货周期下单时间不一样，比如今天下 +3 订单，需要快速把 +3 订单筛出来，
@@ -5838,6 +5853,10 @@ const cycleCandidates = computed(() => {
     .sort((a, b) => (a[0] === 0 ? 1 : b[0] === 0 ? -1 : a[0] - b[0]))
     .map(([days, n]) => ({ days, n, label: days > 0 ? '+' + days + '天' : '未设置' }))
 })
+/* ---- v671：到货周期筛选面板的全选三态（空集 = 不过滤，同品牌面板） ---- */
+const cycleAllOn = computed(() => cycleCandidates.value.length > 0 && cycleSel.value.length === cycleCandidates.value.length)
+const cycleSomeOn = computed(() => !cycleAllOn.value && cycleSel.value.length > 0)
+function toggleCycleAll (on) { cycleSel.value = on ? cycleCandidates.value.map(c => c.days) : [] }
 /* 按钮自己说出当前状态（不另加 chip 复述 —— v608 的教训：触发器能表达的就别再出一个徽标）。
    单选时直接写档位（「到货周期 +3天」），多选写档数。 */
 const cycleBtnLabel = computed(() => {
@@ -6009,6 +6028,13 @@ const colStats = ref(null)         // { key, label, numeric, sum, avg, min, max,
 
 const hdrWidthVal = ref(120)       // 精确列宽输入
 const uniqAll = ref(false)         // 唯一值筛选：全选
+/* v671：补半选态。原实现只有「全选 / 不全选」两态 —— 手动勾掉一个值后框就整个空掉，
+   看不出「还选着 8 个」。现在三态与下面每一项联动。 */
+const uniqSomeOn = computed(() => !uniqAll.value && (hdrUniqChecked.value || []).length > 0)
+function toggleUniqAll (on) {
+  hdrUniqChecked.value = on ? (hdrUniqVals.value || []).slice() : []
+  uniqAll.value = !!on
+}
 // 列统计：取某行在某列上的「数值」（可统计列返回 number，否则返回 null 视为文本列）
 const NUMERIC_MASTER = { sale_price: 1, factory_price: 1, purchase_price: 1, dist_price: 1, safety_stock: 1, expiry_days: 1, moq: 1, lead_days: 1 }
 function colStatVal(r, desc) {
@@ -13886,7 +13912,9 @@ provide('sprintSummary', sprintSummary)
 /* 品牌筛选下拉 + 期次复制弹窗 */
 .brand-pop{min-width:240px;max-height:62vh;overflow:auto}
 .brand-pop .bp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:600;color:var(--t1)}
-.brand-pop .bp-acts{display:flex;gap:6px}
+/* v671：头部里现在装着「全选三态框 + 清空链接」⇒ 必须 align-items:center，
+   否则 13px 的复选框与 12px 的链接文字基线对不齐（看着像错位）。 */
+.brand-pop .bp-acts{display:flex;align-items:center;gap:6px}
 .brand-pop .bp-list{display:flex;flex-direction:column;gap:4px;max-height:42vh;overflow:auto;padding:2px 0}
 .brand-pop .bp-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);cursor:pointer;padding:2px 2px}
 .brand-pop .bp-item:hover{background:var(--bg2)}

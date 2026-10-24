@@ -34,8 +34,14 @@
    由来：v510 之前只有采购页有勾选列，样式是它私有的 `.ipl-c-chk{text-align:center}`；
    v532 销售 / 调拨两页补上勾选列后，私有的那份照不过去（带 ipl- 前缀、且在 scoped 块里）
    ⇒ 上提本文件。⛔ 各页 scoped CSS 里不再写勾选列样式（第二个真相来源）。
-   ⚠️ v510 按老板口径删掉了**表头全选框**，本列只承载逐行勾选 —— 不要恢复全选。 */
+   ⚠️ v510 曾按老板口径删掉表头全选框，本列只承载逐行勾选。
+   v671：**恢复**表头全选，但换成本期预报那套口径 —— 范围 = **当前页**、部分选中显示半选
+   （原生 `:indeterminate`，不是自绘方块）⇒ 不再有 v510 时代「点一下勾上全表」的误伤。
+   控件是共享件 `components/SelectAllCheckbox.vue`，视觉唯一源 `styles/select-all.css`。 */
 .psi-tbl th.psi-chk, .psi-tbl td.psi-chk { text-align: center }
+/* 表头那颗全选框：与表体行勾选框（13px）同款，靠 text-align 居中即可 ——
+   不要给它在页面 scoped 里写尺寸（第二个真相来源，v408 教训）。 */
+.psi-tbl th.psi-chk .sa-cb { vertical-align: middle }
 
 /* ---- 左侧冻结列 ----
    位置 1~4 的 left 偏移 = 左侧各列宽之和，每页列宽不同 ⇒ 由页面在 <table> 元素上
@@ -113,7 +119,7 @@
 .psi-quick-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
 .psi-quick-row { display: flex; gap: 6px; flex-wrap: wrap }
 
-/* ---- 状态页签（规范 §2.6.2；共享件 components/StatusTabs.vue） ----
+/* ---- 状态页签（规范 §2.6.3；共享件 components/StatusTabs.vue） ----
    由来：v498 把采购页私有的 `.ipl-tabs` / `.ipl-tabn` 上提为三页共用 —— 销售 / 调拨
    两页原先只有状态**下拉框**，本轮换成同一条页签条（含计数徽章）。
    条本体复用全局 .main-tabs / .main-tab（variables.css），这里只补两件事：

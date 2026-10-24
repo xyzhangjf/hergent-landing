@@ -109,6 +109,13 @@
 
       <div class="rts-pick">
         <div class="rts-pick-hd">
+          <!-- v671：全选三态框（与本站其它多选场景同款）。范围 = 当日待配送单全列表。
+               🔴 顺序敏感：勾选顺序 = 线路顺序 ⇒ 全选必须按列表顺序逐个走 togglePick，
+               不能自己另起一份数组拼接（否则顺序与逐手勾的不一致）。 -->
+          <SelectAllCheckbox :checked="pickAllOn" :indeterminate="pickSomeOn"
+                             :disabled="!tasks.length" :count="tasks.length" unit="张单"
+                             title="全选/取消当日待配送单（按列表顺序串成线路）"
+                             @toggle="togglePickAll" />
           <span>停靠点（{{ stops.length }}）</span>
           <span class="rts-new-sub">从下面勾选当日待配送单，按勾选顺序串成线路；顺序可用「优化排序」重排</span>
         </div>
@@ -271,6 +278,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { whApi } from '../../api/wh.js'
 import Icon from '../../components/Icon.vue'
 import { toast } from '../../store'
+/* v671：全选三态复选框（全站统一件，原型 = 本期预报 v615 那颗）。 */
+import SelectAllCheckbox from '../../components/SelectAllCheckbox.vue'
 
 function today () {
   const d = new Date()
@@ -324,6 +333,18 @@ function togglePick (t) {
     address: t.delivery_address || t.address || '',
     order_ids: [Number(t.id)],
   }])
+}
+/* ---- v671：全选三态 ---- */
+const pickAllOn = computed(() => tasks.value.length > 0 && tasks.value.every(t => isPicked(t.id)))
+const pickSomeOn = computed(() => !pickAllOn.value && tasks.value.some(t => isPicked(t.id)))
+function togglePickAll (on) {
+  if (on) {
+    // 逐个走 togglePick：复用「追加到末尾」的语义 ⇒ 线路顺序 = 列表顺序
+    tasks.value.forEach(t => { if (!isPicked(t.id)) togglePick(t) })
+    return
+  }
+  const ids = new Set(tasks.value.map(t => Number(t.id)))
+  stops.value = stops.value.filter(s => !(s.order_ids || []).some(id => ids.has(Number(id))))
 }
 function removeStop (i) {
   stops.value = stops.value.filter((_, idx) => idx !== i)
