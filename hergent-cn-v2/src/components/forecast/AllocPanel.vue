@@ -62,9 +62,23 @@ const allocIsOverride = computed(() =>
    此时表格改渲染**名册**：逐人一个 checkbox，勾谁谁承接；未勾行占比禁用。
    ⚠️ 保存过本期占比的商品**不会**再进这个模式 —— override 行即自然承接人
       （`_alloc_members_of` 第 0 层），走普通表格，可继续改/清除。 */
-const allocPickMode = computed(() =>
-  !!(allocSetup.value && allocFlags.value.no_members
-     && (allocSetup.value.candidates || []).length))
+/* 🔴🔴 v658b 真缺陷（用户 2026-10-24 实测：「**只勾选了一家门店，弹窗即关闭**」）：
+   原判据是 `allocFlags.no_members && candidates.length`，而 `allocFlags` 每轮预演都被
+   **后端返回值覆盖**（见 `runAllocPreview` 里的 `allocFlags.value = dd.flags`），
+   后端 `extra_alloc_preview` 的 flags 是 `({} if base_mem else {"no_members": True})`
+   —— **只要勾了任何一家，`base_mem` 就非空 ⇒ 返回的 flags 里没有 `no_members`**
+   ⇒ 本 computed 由真变假 ⇒ 13 行名册整块消失、弹窗只剩勾中的那一行。
+   用户看到的就是「弹窗被关掉了」，而且**再也勾不到第二家**（名册没了）。
+   修法：判据改取 **setup 的 `can_pick`**（后端 v657 专为此预留：
+   `(not members_out) and bool(_pool)`），setup 只在打开弹窗时拉一次、
+   不会被任何后续请求改写 ⇒ 天然稳定。旧后端（无该字段）回落到 setup 的 flags
+   （同样是快照，**不用** `allocFlags` —— 那是会被覆盖的那一份）。 */
+const allocPickMode = computed(() => {
+  const s = allocSetup.value
+  if (!s || !((s.candidates || []).length)) return false
+  if (s.can_pick != null) return !!s.can_pick
+  return !!(s.flags && s.flags.no_members)
+})
 const allocPicked = ref({})          // {<门店键>: true} 勾选态（默认**全不勾**，用户拍板）
 /* ── v658：分摊的**身份键从「工号」换成「门店」** ────────────────────────────
    用户 2026-10-24 原话：「**分摊要以门店为维度来分**」。
@@ -185,10 +199,17 @@ function syncAllocAllocsFromRows() {
 /* v658：把「占比原串表」翻译成后端契约 —— 每项 `{store_name, employee_id, ratio}`。
    身份键是门店，但 `employee_id` 仍要带上：后端在门店名对不上（老数据/别名改名）时
    用它兜底；两者都空的项**直接丢弃**（否则后端会把它算成一个无名承接人）。
-   ⚠️ 只发**表格里真实存在**的行 —— `allocRatiosRaw` 可能残留已被删掉的门店键。 */
+   ⚠️ 只发**表格里真实存在**的行 —— `allocRatiosRaw` 可能残留已被删掉的门店键。
+   🔴 v658b：勾选模式下**只发勾中的门店**。名册是 13 行，若把未勾的 11 行也发上去
+      （ratio=0），`extra-alloc/override` 是**整组替换** ⇒ `forecast_alloc_ratio`
+      会落 13 行、其中 11 行 0% ⇒ 下次打开时 `basis=override` 且有 13 个成员
+      ⇒ `can_pick` 为假 ⇒ **再也回不到名册**（用户没法把漏勾的门店补上，
+      只能在 13 行 0% 的表格里自己找）。这条不修，勾选模式是"一次性"的。 */
 function _ratioPayload() {
+  const pick = allocPickMode.value
   const out = []
   ;(allocTableRows.value || []).forEach(x => {
+    if (pick && !x.picked) return
     const k = (x && x.key) || allocKeyOf(x)
     if (!k) return
     out.push({
@@ -401,9 +422,16 @@ function allocSplitEven() {
   allocRatiosRaw.value = raw
   runAllocPreview()
 }
-/* v657：勾选 / 取消某个承接人（v658 起单位 = **门店**）。取消时**顺手清掉它的
-   占比原串** —— 否则再勾回来会残留旧值，而 Σ=100 的校验一直把它算进去
-   （「取消了还占额度」）。 */
+/* v657：勾选 / 取消某个承接门店（v658 起单位 = **门店**）。
+   🔴 v658b：勾选集合一变就**按当前勾选数均分**，理由有两条，都是用户当场会撞上的：
+     ① 后端把「勾了但没给占比」按 `ratio=0` 处理 ⇒ Σ≠100 ⇒「应用」按钮恒灰
+        （`:disabled="... || !allocRatioOk"`）⇒ 用户勾了一家还得自己手填 100
+        才点得动，对他就叫"勾了没用"。勾一家 = 100%、勾两家 = 50/50，
+        这正是他最常做的动作，不该让他手算。
+     ② `allocRatiosRaw` 里只留**当前勾中**的键 —— 未勾的键若残留，`_ratioPayload`
+        （虽已过滤）之外的地方仍可能读到它，属于"取消了还占额度"的老毛病。
+   ⚠️ 代价：这会覆盖他手调过的比例。但成员集合刚变过，重设一份是合理的；
+      要保留自己那套，就别改勾选、直接改数字。 */
 function togglePick(key) {
   const k = String(key || '')
   if (!k) return
@@ -411,11 +439,19 @@ function togglePick(key) {
   if (next[k]) delete next[k]
   else next[k] = true
   allocPicked.value = next
-  if (!next[k]) {
-    const raw = { ...allocRatiosRaw.value }
-    delete raw[k]
-    allocRatiosRaw.value = raw
+  const keys = Object.keys(next)
+  if (!keys.length) {
+    allocRatiosRaw.value = {}
+    runAllocPreview()
+    return
   }
+  const n = keys.length
+  const base = Math.round((100 / n) * 100) / 100
+  const raw = {}
+  keys.forEach((key2, i) => {
+    raw[key2] = String(i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base)
+  })
+  allocRatiosRaw.value = raw
   runAllocPreview()
 }
 function allocResetRatios() {
@@ -578,8 +614,9 @@ onMounted(() => { loadAllocSetup() })
             </p>
             <p v-else-if="allocPickMode" class="imp-tip alloc-note">
               ⓘ 该商品<b>本期没有人报过单、也没有启用目标</b> ⇒ 从下方<b>报单门店名册</b>里
-              <b>勾选</b>哪个门店承接这笔{{ allocTotalNum() >= 0 ? '加单' : '减单' }}（默认全不勾；
-              点「平均分配」= 一键全勾并均分）。保存的是<b>本期专用占比</b>，只影响本期。
+              <b>勾选</b>承接这笔{{ allocTotalNum() >= 0 ? '加单' : '减单' }}的门店（<b>可以勾多家</b>，
+              一家也能分）。每勾一个/取消一个，占比会<b>按勾中的门店数自动均分</b>，均完还能自己改；
+              点「平均分配」= 一键全勾并均分。保存的是<b>本期专用占比</b>，只影响本期。
             </p>
             <p v-else-if="allocSetup && allocFlags.no_target" class="imp-tip alloc-note">
               该商品在 <b>{{ (allocSetup.product && allocSetup.product.month) || '' }}</b> 没有启用目标
@@ -717,7 +754,10 @@ onMounted(() => { loadAllocSetup() })
                       class="btn btn-sm btn-ghost"
                       :title="allocPickMode ? '一键勾选名册里的所有人，并均分占比' : '把占比平均分给所有承接人'"
                       @click="allocSplitEven">平均分配</button>
-              <button v-if="allocSetup && !allocFlags.no_members && !allocIsOverride"
+              <!-- v658b：加 `!allocPickMode` —— 勾选模式下勾了人之后 preview 会把
+                   `flags.no_members` 翻成假，这个按钮就会冒出来；可名册里的人**没有档案
+                   比例可恢复**（`allocArchiveRatios` 为空）⇒ 点一下会把所有占比清成 0。 -->
+              <button v-if="allocSetup && !allocFlags.no_members && !allocIsOverride && !allocPickMode"
                       class="btn btn-sm btn-ghost"
                       :title="allocIsDerived ? '恢复为按各人本期报单量自动算' : '恢复为商品目标档案里的比例'"
                       @click="allocResetRatios">{{ allocIsDerived ? '恢复自动比例' : '恢复档案原比例' }}</button>
