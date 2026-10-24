@@ -197,6 +197,7 @@ const allocRatioOk = ref(false)
 const allocTargetId = ref(0)
 const allocFlags = ref({})
 const allocTotalRaw = ref('')         // 总量输入框的**原串**（见下方"为什么存原串"）
+const totalInput = ref(null)          // v660：总量输入框（总量为 0 时自动聚焦，见 loadAllocSetup 结尾）
 /* v658：三张原串表全部按**门店键**索引（`allocKeyOf(row)`，可能是别名而非数字）。
    ⚠️ 用对象当 map 时数字键与字符串键会被压成同一个字符串，混用不会报错但会串行 ——
       故**全组件统一用 `allocKeyOf()` 产出的字符串键**，不再自己拼。 */
@@ -355,9 +356,15 @@ async function loadAllocSetup() {
     const data = d || null
     allocSetup.value = data
     if (data) {
-      // 总量的初值：优先用接口给的"经理填的"（本行可能还没进编辑），否则用本行当前值
+      /* 总量的初值。🔴 v660：**只有本行还没填（0/空）时才用接口的已落库值兜底**。
+         旧实现是 `if (cur)` 无条件覆盖 —— 后果：用户已经在加单格里把 100 改成 200
+         （未保存），一点「分摊」总量就被后端 `forecast_extra_qty` 里的旧值 100 顶掉，
+         他再点保存，回填的自然是 100 ⇒ 体感就是「我填的数没有回填」。
+         本行有值就以本行为准（那是用户此刻的手笔），后端值只做空值兜底。 */
       const cur = Number(data.total_delta) || 0
-      if (cur) allocTotalRaw.value = String(_r3(cur))
+      if (cur && !(Math.abs(Number(row.extraQty) || 0) > 1e-9)) {
+        allocTotalRaw.value = String(_r3(cur))
+      }
       const arch = {}, raw = {}
       ;(data.members || []).forEach(m => {
         // v658：键 = 门店（`store_name`），同一员工的两个门店各占一条
@@ -370,6 +377,12 @@ async function loadAllocSetup() {
       allocRatiosRaw.value = raw
     }
     await runAllocPreview()
+    /* v660：总量为 0 ⇒ 这次分摊**分不出任何数量**（0 × 任何占比还是 0）。
+       用户 2026-10-24 报的「分摊数量没有回填」就是这种情形：他勾了 10 个门店、
+       占比设成 10 家各 10%，点「保存本期占比并回填」—— 占比存下了，但加单格
+       回填的还是 0，界面上什么都没变，看起来像"没回填"。
+       ⇒ 进窗就把光标放到总量框，让他第一眼看到该填哪儿。 */
+    if (allocTotalZero.value) focusTotal()
   } catch (e) {
     allocErr.value = (e && e.message) || '读取分摊依据失败'
     toast('读取分摊依据失败：' + allocErr.value, 'err')
@@ -380,6 +393,15 @@ async function loadAllocSetup() {
 
 /* 关闭：交还父组件统一清 allocOpen / allocRow（单一收口，避免两边各清一半） */
 function closeAlloc() { emit('close') }
+/* v660：把光标放到「本期加单总量」框并全选 —— 总量为 0 时唯一的正事就是填它。 */
+function focusTotal() {
+  try {
+    const el = totalInput.value
+    if (!el) return
+    el.focus()
+    if (el.select) el.select()
+  } catch (_) { /* 聚焦失败不影响业务 */ }
+}
 
 /* 总量（改完离开这一格 ⇒ 联动重算） */
 function onAllocTotalInput(e) { props.numInput(e, (v) => { allocTotalRaw.value = v }) }
@@ -413,8 +435,20 @@ function loadAllocArchivedRatiosIfEmpty() {
      不碰夹断/重分 —— 那部分仍只由后端算。 */
 function onAllocAllocInput(e, key) { props.numInput(e, (v) => { allocAllocsRaw.value[key] = v }) }
 function onAllocAllocCommit(e, key) {
-  const rows = allocRows.value || []
+  /* 🔴 v660：名册态下必须按**表格行**（= 候选池 + 遗留承接人）算，不能再用 `allocRows`
+     —— 后者只含**已勾选**的门店。用户去改一个「还没勾」的门店的加单量时，
+     它不在 `allocRows` 里 ⇒ 新值进不了 `want` ⇒ 被静默丢弃，然后占比与总量按
+     其余行重算，他刚敲的数当场"自己变回去"（同 v359「填了不算」的老病，新成因）。 */
+  const rows = allocPickMode.value
+    ? (allocTableRows.value || []).filter(x => x.picked)
+        .map(x => ({ key: x.key, store_name: x.store_name, employee_id: x.employee_id, alloc_box: x.alloc_box }))
+    : (allocRows.value || [])
   if (!rows.length) return
+  if (!rows.some(x => allocKeyOf(x) === key)) {
+    toast('这个门店还没勾选 —— 先勾上，才能给它单独改加单量', 'warn')
+    runAllocPreview()
+    return
+  }
   const v = _allocNum(e && e.target ? e.target.value : allocAllocsRaw.value[key])
   allocAllocsRaw.value[key] = String(v)
   const want = {}          // {门店键: 用户想要的加单量}
@@ -587,6 +621,10 @@ function _allocNum(v) {
   return (typeof n === 'number' && isFinite(n)) ? n : 0
 }
 function allocTotalNum() { return _allocNum(allocTotalRaw.value) }
+/* v660：总量是不是 0（= 这一趟分摊分不出任何数量）。
+   ⚠️ 必须定义在 `allocTotalNum` **之后**：本仓的 SFC 符号检查器按声明顺序静态解析，
+      前置引用会被判成「未定义: (未能解析)」而把基线打红（cd 前 200 行的位置就是坑）。 */
+const allocTotalZero = computed(() => Math.abs(allocTotalNum()) < 1e-9)
 function allocAllocNum(key) {
   const raw = allocAllocsRaw.value[key]
   if (raw != null) return _allocNum(raw)
@@ -649,7 +687,21 @@ async function applyAlloc() {
       }
     }
     /* 写网格统一交给父级执行（emit('applied')），本组件不直接改 cross.rows */
-    emit('applied', { extraQty: allocTotalNum() })
+    /* 🔴 v660（2026-10-24，用户报「分摊数量没有回填」）：总量是 0 时**不许静默过**。
+       0 × 任何占比都是 0 ⇒ 回填 0 ⇒ 加单格与点之前毫无差别，用户看到的就是
+       "我把分摊设好了、也点了保存，可汇总表那格什么都没出现"。
+       而界面上的承诺恰恰是「保存本期占比**并回填**」—— 承诺了没做到，且零提示，
+       正是本项目反复要防的那类静默失效。
+       ⇒ 占比照存（那是他真正设好的东西），但**不关闭弹窗**、聚焦总量框、
+         用 warn 说明「占比已存、数量还是 0」，让他当场填完再点一次。 */
+    const _amt = allocTotalNum()
+    if (Math.abs(_amt) < 1e-9) {
+      toast('占比已保存，但本期加单/减单总量还是 0 —— 没有任何数量可回填。'
+            + '请在上方「本期加单总量」里填数量，再点一次这个按钮。', 'warn')
+      focusTotal()
+      return
+    }
+    emit('applied', { extraQty: _amt })
     // toast 必须按**实际写了什么**说 —— 说错就是让用户对"全期比例变没变"产生错误预期。
     toast(_periodPath
       ? (changed
@@ -750,7 +802,7 @@ onMounted(() => { loadAllocSetup() })
             <template v-if="allocSetup && (!allocFlags.no_members || allocPickMode)">
               <div class="alloc-top">
                 <label>本期{{ allocTotalNum() >= 0 ? '加单' : '减单' }}总量</label>
-                <input class="cell-input alloc-num" type="text" inputmode="decimal" :value="allocTotalRaw"
+                <input ref="totalInput" class="cell-input alloc-num" type="text" inputmode="decimal" :value="allocTotalRaw"
                        title="正数 = 加单，负数 = 减单；改完按回车或点别处即重新联动"
                        @input="onAllocTotalInput" @change="onAllocTotalCommit">
                 <span class="alloc-unit">箱</span>
@@ -758,6 +810,15 @@ onMounted(() => { loadAllocSetup() })
                   ≈ {{ fmt(Math.abs(allocTotalNum()) * Number(allocSetup.product.large_ratio)) }} {{ (allocSetup.product && allocSetup.product.unit) || '小单位' }}
                 </span>
               </div>
+              <!-- v660：总量为 0 = 这次分摊分不出任何数量（0 × 占比还是 0）。
+                   保存按钮照旧可点（占比是他真设好的东西），但必须让他**事先**知道
+                   这一趟不会产生数量 —— 否则就是用户 2026-10-24 报的「分摊数量没有回填」：
+                   勾了 10 家、占比设好、点了保存，汇总表那格原样不动，一句提示都没有。 -->
+              <p v-if="allocSetup && allocTotalZero" class="imp-tip warn-text">
+                ⚠ 还没有填<b>本期{{ allocTotalNum() >= 0 ? '加单' : '减单' }}总量</b> ——
+                现在保存只会记住占比，<b>不会产生任何分摊数量</b>。先在上面那个输入框里填数量
+                （正数加单、负数减单），勾选的结果才会真正分到各门店名下。
+              </p>
               <!-- v659：这三段讲的是「改动会落到哪」（档案 = 全期 / 本期专用），
                    在**名册态**下全是假话 —— 名册里挑的人恒走「本期专用占比」
                    （`_periodPath` 含 allocPickMode），不会改目标档案。
@@ -914,16 +975,19 @@ onMounted(() => { loadAllocSetup() })
               <!-- v335 门禁：两条写路都归 data/update ——
                    写档案 = PUT /api/product-targets/{tid}；v339 本期临时占比 = PUT .../extra-alloc/override；
                    v657 勾选模式 = 同一条 override 路（名册里的人不在任何档案里，本期专用是唯一落点）。 -->
+              <!-- v660：总量为 0 时按钮**照旧可点**（占比确实是用户设好的、值得存），
+                   但文案与 title 必须改成「只保存占比」—— 继续写「并回填」就是
+                   承诺一件做不到的事，用户点完看到加单格没变只会以为坏了。 -->
               <button class="btn btn-primary"
                       :disabled="allocBusy || allocPrev || !allocSetup || (!!allocFlags.no_members && !allocPickMode) || !allocRatioOk || !canDo('data', 'update')"
                       :title="!canDo('data', 'update') ? '当前角色没有分摊加单/减单的权限'
                               : (!allocRatioOk ? '占比合计必须等于 100% 才能保存'
-                              : (allocPickMode ? '保存本期专用占比（只影响本期、不改商品目标档案），并把加单量回填到本行'
-                              : (allocIsOverride ? '保存本期临时占比（只影响本期），并把加单量回填到本行'
-                              : (allocIsDerived ? '保存本期临时占比（只影响本期、不改商品目标档案），并把加单量回填到本行'
-                              : '把占比写进商品目标档案（全期生效），并把加单量回填到本行'))))"
+                              : (allocTotalZero ? '本期总量还是 0 ⇒ 只能保存占比，不会有数量回填。先在「本期加单总量」里填数量'
+                              : '保存本期占比，并把加单量回填到本行'))"
                       @click="applyAlloc">{{ allocBusy ? '应用中…'
-                        : ((allocIsOverride || allocIsDerived || allocPickMode) ? '保存本期占比并回填' : '应用到汇总表') }}</button>
+                        : (allocTotalZero
+                          ? '只保存占比（未填数量）'
+                          : ((allocIsOverride || allocIsDerived || allocPickMode) ? '保存本期占比并回填' : '应用到汇总表')) }}</button>
             </div>
           </div>
         </div>
