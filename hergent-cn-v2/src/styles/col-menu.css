@@ -3,7 +3,11 @@
    供 16 个表格页复用（详见 composables/useColSettings.js + components/ColMenuPanel.vue）。
    定位（position:fixed + 视口坐标 + 限高）由 useColMenu 注入 inline，这里只管长相。 */
 
-.col-gear-th { width: 44px; text-align: center; padding: 0 4px }
+/* 🔴 v670：**这里不许再写 width / padding** —— 修前是 `width:44px;padding:0 4px`，与全站序号列
+   唯一源 `table.tbl th.seq-th{width:46px;padding:8px 4px}`（specificity 0,2,2）**打架**：
+   本规则是 (0,1,0)，恒定被压 ⇒ 44px 从来没生效过，只是"序号列宽"的第二个真相源（死代码）。
+   齿轮宿主就是序号列 ⇒ 宽 / 内距 / 居中一律由全局那一份给，本类只留语义标记。 */
+.col-gear-th { text-align: center }
 .col-cfg.gear {
   display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; padding: 0; border: 0; background: transparent;

@@ -819,12 +819,14 @@ onMounted(() => { reset(); loadRefs() })
    同屏只放得下 14.99 行 vs 基准 21.12 行 —— 少 6 行。
    🔴 选择器**必须**带 `table.isn-tbl`：写成 `.isn-tbl td` 的 specificity (0,1,1)
       低于全局 `table.tbl td` (0,1,2) ⇒ 静默不生效（这一条与采购建单页同源）。
-   🔴 `td.seq-cell` 那条是**与全局 `table.tbl td.seq-cell`(0,2,2) 打平手**后靠
-      「页面样式后加载」才赢的 —— 采购建单页也是这么做的（实测 2px 4px 生效）。
+   🔴 v670：写 `table.tbl.isn-tbl td.seq-cell` = (0,3,2) —— 修前是
+      `table.isn-tbl td.seq-cell` = (0,2,2)，与全局 `table.tbl td.seq-cell` **同分**，
+      靠「页面样式后加载」才赢。同分靠顺序是脆的：一旦加载顺序变了（异步 chunk、
+      构建合并、样式上提）就会静默翻车且**没有任何报错**。加一个 `.tbl` 提权即可稳压。
       去掉它就退回全局的 `padding:6px 4px`，序号列会自己被顶高、把整行撑起来。 */
 table.isn-tbl th { padding: 4px 8px }
 table.isn-tbl td { padding: 2px 8px }
-table.isn-tbl td.seq-cell { padding: 2px 4px }
+table.tbl.isn-tbl td.seq-cell { padding: 2px 4px }
 /* 🔴 紧凑档必须**在本页再收一档**（同采购建单页）：全局
    `[data-density="compact"] table.tbl td{padding:4px 10px}` = (0,2,2) 压过上面的
    `table.isn-tbl td` (0,1,2) ⇒ 只写普通档的话，开关一打开本页反而比基准更松（半截生效）。 */

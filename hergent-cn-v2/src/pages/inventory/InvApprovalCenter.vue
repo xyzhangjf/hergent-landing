@@ -25,6 +25,10 @@
       <table class="tbl">
         <thead>
           <tr>
+            <!-- v670：本表补上序号列表头。⛔ 修前表体有 `td.seq-cell` 而表头**没有**对应 th
+                 ⇒ 表体比表头多一列，整行右移一格（「单据类型」压到序号列下面）。
+                 按 §2.6.1「四、」判据：这是「长清单只读表、列固定」⇒ **要序号、不要齿轮**。 -->
+            <th class="seq-th">序号</th>
             <th>单据类型</th>
             <th>单号</th>
             <th>当前审批关</th>
@@ -34,7 +38,7 @@
         </thead>
         <tbody>
           <tr v-for="(it, i) in items" :key="it.doc_type + '-' + it.id">
-            <td class="seq-cell">{{ i + 1 }}</td>
+            <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
             <td>{{ docTypeLabel(it.doc_type) }}</td>
             <td class="mono">{{ it.order_no || ('#' + it.id) }}</td>
             <td>第 {{ it.node + 1 }} 关：{{ it.current_node_name || '—' }}</td>
@@ -110,7 +114,10 @@ onMounted(load)
 .empty { display: flex; align-items: center; gap: 10px; padding: 28px; color: var(--t2) }
 .empty svg { color: var(--ok, #16a34a) }
 .tbl th, .tbl td { padding: 10px 12px; text-align: left }
-.seq-cell { color: var(--t3); width: 40px }
+/* v670：删掉原来的 `.seq-cell{color:var(--t3);width:40px}` ——
+   ① 列宽与全局 `table.tbl td.seq-cell` 的 46px 冲突，而本规则 specificity (0,1,0) 恒定被
+      全局 (0,2,2) 压掉 ⇒ 40px 从来没生效过（死代码）；② 它是「序号列宽」的第二个真相源。
+   序号列样式一律走全站唯一源（variables.css），本页不再抄。 */
 .mono { font-variant-numeric: tabular-nums }
 .op-th, .op-td { text-align: right; width: 120px }
 .muted { font-size: 12px; color: var(--t3) }

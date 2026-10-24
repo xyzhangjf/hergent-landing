@@ -629,7 +629,8 @@
                 <th v-for="(col, ci) in colOrderList" :key="col.key" :class="['th', colCls(col), { frozen: isFrozen(col), sortable: canSort(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')" :aria-sort="ariaSort(col)" @click="onHeadClick(col)" @contextmenu.prevent="openHdrCtx($event, col.key, col.type)">
                   <div class="th-in">
                     <template v-if="col.type === 'seq'">
-                      <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings"/></button>
+                      <!-- v670：补 `:size="15"` 与全站另 26 处齿轮一致（`<Icon>` 默认是 16）。 -->
+                      <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
                     </template>
                     <template v-else>
                       <span>{{ col.label }}<span v-if="canSort(col)" class="sort-ind"><Icon v-if="sortInd(col.key)" :name="sortInd(col.key)"/></span></span>
@@ -1093,7 +1094,7 @@
                            :indeterminate.prop="selSomeVisible" :disabled="!visibleRowIdx.length"
                            :title="visibleRowIdx.length ? '全选/取消当前显示的 ' + visibleRowIdx.length + ' 行（不影响被筛选隐藏的行）' : '当前没有显示的行'"
                            @change="toggleSelectAllVisible($event.target.checked)">
-                    <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings"/></button>
+                    <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
                   </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'seq')" @click.stop></span>
                 </th>

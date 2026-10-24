@@ -78,5 +78,85 @@ console.log('② 复选框：@change + 状态回写')
   ok(!!pWrite && /isVisible\(/.test(pWrite[0]), 'ColMenuPanel 回写值取自 isVisible（不写死）')
 }
 
+/* ── ③ 全站扫描（v670 加）：v669 只查了 Forecast/ColMenuPanel 两个文件，
+      结果 `InvPurchaseList.vue` 那份**自写面板**带着同一个缺陷活到了 v670。
+      ⇒ 凡是"全站约定"，判据就必须扫全站，不能只扫基准实现。 ── */
+console.log('③ 全站扫描（26 页齿轮 / 77 张序号表）')
+{
+  const files = []
+  const walk = (d) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      if (['node_modules', 'dist', '.git'].includes(e.name)) continue
+      const p = path.join(d, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (e.name.endsWith('.vue') || e.name.endsWith('.js')) files.push(p)
+    }
+  }
+  walk(path.join(ROOT, 'src'))
+
+  let clickPrevent = [], sizeMismatch = [], seqMismatch = [], numMissing = []
+  for (const p of files) {
+    const raw = read(p)
+    const code = strip(raw)
+    const rel = path.relative(ROOT, p)
+    // ③-a 复选框缺陷写法（全站一律禁止）
+    for (const m of code.matchAll(/@click\.prevent\s*=\s*"\s*(?:toggleCol|toggle)\s*\([^"]*\)/g)) {
+      clickPrevent.push(rel + ':' + (code.slice(0, m.index).split('\n').length))
+    }
+    // ③-b 齿轮图标尺寸必须写 :size="15"（<Icon> 默认 16，不写就不一致）
+    for (const m of code.matchAll(/<button[^>]*class="[^"]*\bcol-cfg\b[^"]*"[^>]*>\s*<Icon([^>]*)\/>/g)) {
+      if (!/:size="15"/.test(m[1])) sizeMismatch.push(rel)
+    }
+    // ③-c 有 thead 且表体有 seq-cell ⇒ 表头必须有 seq-th（否则列数不等、整行右移）
+    const hasThead = /<thead[\s>]/.test(code)
+    const nTh = [...code.matchAll(/<th[^>]*\bseq-th\b/g)].length
+    const nCell = [...code.matchAll(/<td[^>]*\bseq-cell\b/g)].length
+    const nNum = [...code.matchAll(/\bseq-num\b/g)].length
+    if (hasThead && nCell > 0 && nTh === 0) seqMismatch.push(rel)
+    if (nCell > 0 && nNum < nCell) numMissing.push(rel)
+  }
+  ok(clickPrevent.length === 0, '全站零 @click.prevent="toggleCol(...)"', clickPrevent.length ? '→ ' + clickPrevent.join(', ') : '')
+  ok(sizeMismatch.length === 0, '全站齿轮 <Icon> 一律 :size="15"', sizeMismatch.length ? '→ ' + sizeMismatch.join(', ') : '')
+  ok(seqMismatch.length === 0, '有 thead 的表：表体有 seq-cell ⇒ 表头必有 seq-th', seqMismatch.length ? '→ ' + seqMismatch.join(', ') : '')
+  ok(numMissing.length === 0, '序号一律包 .seq-num（等宽数字）', numMissing.length ? '→ ' + numMissing.join(', ') : '')
+}
+
+/* ── ④ 序号列样式：不许出现"第二真相源"并与全局同分靠顺序赢 ── */
+console.log('④ 序号列样式的唯一源与权重')
+{
+  const cssFiles = []
+  /* 🔴 只排除 `variables.css` 这一个文件 —— 它里面写的 `table.seq-host th.seq-th`(0,2,2)
+     正是**唯一源本身**，不是"页面覆盖"，扫它必然假红（第一版踩过）。
+     ⚠️ 别图省事把整个 `src/styles/` 排掉：`col-menu.css`（齿轮长相）也是"组件级实现"，
+     `.col-gear-th{width:44px}` 那种死规则就藏在里面 —— 第二版整目录排除 ⇒ 那条判据恒绿、
+     判别力为 0（注回自证时才发现）。 */
+  const SKIP = new Set([path.join(ROOT, 'src/styles/variables.css')])
+  const walk = (d) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      if (['node_modules', 'dist', '.git'].includes(e.name)) continue
+      const p = path.join(d, e.name)
+      if (e.isDirectory()) walk(p)
+      else if ((e.name.endsWith('.vue') || e.name.endsWith('.css')) && !SKIP.has(p)) cssFiles.push(p)
+    }
+  }
+  walk(path.join(ROOT, 'src'))
+
+  const bad = []      // 与全局同分（0,2,2）靠加载顺序赢
+  const dead = []     // 裸 .seq-* 或给宿主列另写 width
+  for (const p of cssFiles) {
+    const code = strip(read(p))
+    const rel = path.relative(ROOT, p)
+    for (const m of code.matchAll(/table\.(?!tbl\b)([A-Za-z0-9_-]+)\s+(?:th\.seq-th|td\.seq-cell)\s*\{/g)) {
+      bad.push(`${rel}: table.${m[1]} ${m[0].match(/(th\.seq-th|td\.seq-cell)/)[0]}`)
+    }
+    // 裸 .seq-cell{...} / .col-gear-th{width:...} —— 恒被全局 (0,2,2) 压掉 ⇒ 死代码
+    if (/^\s*\.seq-(th|cell|num)\s*\{/m.test(code)) dead.push(rel + ': 裸 .seq-* 规则')
+    const gearTh = code.match(/\.col-gear-th\s*\{[^}]*\}/)
+    if (gearTh && /(width|padding)\s*:/.test(gearTh[0])) dead.push(rel + ': .col-gear-th 里写了 width/padding')
+  }
+  ok(bad.length === 0, '私有序号样式已提权（选择器带 .tbl，不靠加载顺序）', bad.length ? '→ ' + bad.join(', ') : '')
+  ok(dead.length === 0, '无"恒被压掉的死规则"（裸 .seq-* / .col-gear-th 写宽）', dead.length ? '→ ' + dead.join(', ') : '')
+}
+
 console.log(failed === 0 ? '\n  ALL PASS' : `\n  FAILED(${failed})`)
 process.exit(failed === 0 ? 0 : 1)

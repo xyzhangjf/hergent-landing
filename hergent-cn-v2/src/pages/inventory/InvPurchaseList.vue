@@ -280,7 +280,7 @@
                    ⛔ 不放工具栏、⛔ 不放别的表头列。 -->
               <th class="seq-th psi-frz psi-frz-2">
                 <div class="th-in">
-                  <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" /></button>
+                  <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
                 </div>
               </th>
               <!-- v470：可排序列 = `SORTABLE`。点击三态循环（降 → 升 → 取消），
@@ -428,8 +428,13 @@
               :draggable="k !== FIXED_FROZEN"
               @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
             <span class="drag">⠿</span>
+            <!-- 🔴 v670：原写 `@click.prevent="toggleCol(k)"`，与 v669 修掉的 Forecast.vue /
+                 ColMenuPanel.vue 是**同一个缺陷**（本页是自写面板，v669 漏网）。
+                 Chrome 的 pre-click activation 先在派发 click **前**翻转复选框，preventDefault()
+                 让浏览器在派发结束后把翻转**还原** —— 而 Vue 的 patch 只写翻转前的值 ⇒ 勾选态与列显隐
+                 永久相反，只有重开面板（v-if 重建节点）才对齐。真实鼠标必现、`el.click()` 不现。 -->
             <label><input type="checkbox" :checked="colVis[k] !== false" :disabled="k === FIXED_FROZEN"
-                          @click.prevent="toggleCol(k)"> {{ colMap[k].label }}</label>
+                          @change="onColCheck(k, $event)"> {{ colMap[k].label }}</label>
             <!-- v415：自定义字段的改名 / 删除，长在**它自己那一行**里 ——
                  本页没有表头右键菜单，面板是列管理唯一的家（§2.6.1 也不许往工具栏加按钮）。 -->
             <template v-if="colMap[k].custom">
@@ -870,6 +875,15 @@ function toggleCol (k) {
   if (k === FIXED_FROZEN) return                 // 固定列不参与显隐（勾选框已 disabled）
   colVis.value = { ...colVis.value, [k]: !(colVis.value[k] !== false) }
   persistCols()
+}
+/* v670：列清单复选框的**唯一**事件入口（与 ColMenuPanel.vue::onCheck 同写法）。
+   `@change` 不 prevent ⇒ 浏览器翻转与状态同向；再 nextTick 按状态回写一次，
+   兜住「状态没变（如固定列）但 DOM 已被翻过」的残余。 */
+function onColCheck (k, e) {
+  toggleCol(k)
+  const el = e && e.target
+  if (!el) return
+  nextTick(() => { el.checked = colVis.value[k] !== false })
 }
 function onColDragStart (ci) { colDragFrom.value = ci }
 function onColDrop (ci) {

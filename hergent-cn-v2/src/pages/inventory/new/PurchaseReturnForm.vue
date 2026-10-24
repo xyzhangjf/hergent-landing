@@ -1222,7 +1222,7 @@ watch([fromPo], () => { reinit() })
       （样式看着写了、实际没生效）。 */
 table.ipn-tbl th { padding: 4px 8px }
 table.ipn-tbl td { padding: 2px 8px }
-table.ipn-tbl td.seq-cell { padding: 2px 4px }
+table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
 .ipn-c-stk { width: 78px; font-variant-numeric: tabular-nums; white-space: nowrap }
 /* 「实际有货、一件都不可售（全过期）」——必须扎眼，否则用户以为有货能卖 */
 .ipn-c-stk .danger { color: var(--danger-txt) }
