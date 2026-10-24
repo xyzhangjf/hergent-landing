@@ -736,11 +736,15 @@ export const productTargetsApi = {
   /* v318：**只读预演** —— 给定总量与（可选的）覆盖占比，返回逐人分配结果。
      🔴 必须走后端：减单的「夹断到 0 后按相对占比重分」是边界敏感的，前端另写一份
         必然在边界上给出第二个答案（本项目反复栽的「同屏两个同名数对不上」）。
-     本接口一个字节都不写 —— 比例落档案走 `update()`，加单量落库仍随汇总结表的保存。 */
-  extraAllocPreview: ({ periodId, productId, totalDelta, ratios }) =>
+     本接口一个字节都不写 —— 比例落档案走 `update()`，加单量落库仍随汇总结表的保存。
+     v657：`members` = **勾选的承接人**（{employee_id, ratio}）—— 「本期无人报过、
+        也没有目标」的商品从**报单对象名册**里勾人承接时带给后端（后端按这份名单分，
+         并校验每个人都在名册里）。空 = 既有行为（按自然承接人）。 */
+  extraAllocPreview: ({ periodId, productId, totalDelta, ratios, members }) =>
     api('/api/product-targets/extra-alloc/preview', {
       method: 'POST',
-      body: { period_id: periodId, product_id: productId, total_delta: totalDelta, ratios: ratios || [] },
+      body: { period_id: periodId, product_id: productId, total_delta: totalDelta,
+              ratios: ratios || [], members: members || [] },
     }),
   /* v339（P1）：**保存 / 清除本期临时占比** —— 只影响本期，**不写商品目标档案**。
      老板原话：「L2 的比例『临时改只影响本期』放 P1」。

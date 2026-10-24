@@ -10623,9 +10623,16 @@ function openAlloc(row) {
     return
   }
   if (!_mem.length) {
-    toast('本商品本期没有人能承接这笔加/减单 —— 先让业务员在「报单」里报这个商品，'
-          + '或在「商品目标」里建目标并填承接人', 'warn')
-    return
+    /* ── v657：没有自然承接人 ≠ 不能分 ─────────────────────────────────────────
+       「仅在有报单时才触发」是老口径；现在只要**候选池有人**（报单对象名册）且本行
+       **填了加单量**，就落入**勾选模式**：AllocPanel 依 setup 下发的 candidates
+       渲染名册表格，勾谁谁承接（默认全不勾，「平均分配」一键全勾均分）。
+       两者缺一仍走老路 toast：没池 = 真没人可勾；没填量 = 空分摊没有意义。 */
+    if (!(allocPool.value.length && Math.abs(Number(row.extraQty) || 0) > 1e-9)) {
+      toast('本商品本期没有人能承接这笔加/减单 —— 可以先填上加单数量，再从「分摊」里勾选报单对象；'
+            + '或让业务员在「报单」里报这个商品、在「商品目标」里建目标并填承接人', 'warn')
+      return
+    }
   }
   /* 🔴 v629 修真缺陷：这里原本写 `_allocPid()` —— 那玩意儿**定义在子组件
      AllocPanel.vue 里**（`const _allocPid = () => ...`），父级根本拿不到
@@ -10639,12 +10646,25 @@ function openAlloc(row) {
   allocOpen.value = true   // ⇒ 挂载 AllocPanel（懒加载），由其内部 onMounted 拉数据
 }
 /* F5：AllocPanel 应用成功后的**网格回填**—— 唯一写网格的地方。
-   子组件只调后端 API，不直接改 cross.rows。 */
+   子组件只调后端 API，不直接改 cross.rows。
+
+   🔴 v657（P0 回归修复，2026-10-24）：**删掉这里的 `loadCross()`**。
+   它是 v559（2c38f63，10-18 抽离分摊弹窗）照抄「只读态面板 reload 模式」引入的：
+   编辑态下这一调用会把整个网格换成**服务端重造的只读行**——
+     · 用户刚在「加单(箱)」格填的量当场从界面消失（loadCross 造的行只有蛇形
+       `extra_qty`，编辑格 `<input :value="row.extraQty ?? ''">` 读的是驼峰）；
+     · 保存汇总表时 `extra_qty: Number(r.extraQty) || 0` 传出 **0** ⇒ 分配落空；
+     · 期间用户若还改过别的格子，同样被一并冲掉（草稿都救不回视觉，因为行对象已换）。
+   生产实锤（2026-10-23 11:21~11:23，期次 36 / 商品 1475）：三次 PUT override 全 200、
+   每次必跟 summary+products/grid，但**从未出现过 save-matrix** —— 用户连点三次
+   「保存本期占比并回填」，加单格每次都被刷成空白，最终放弃。
+   ⇒ 编辑态应用后**网格保持不动**（加单量留在格子里），角标数据由 AllocPanel
+      自己的 `props.loadPtGap()`（finally 里）刷新；真正落库仍只走右上角「保存」
+      （守 v318 纪律③：不新增第二条写路径）。 */
 function onAllocApplied(payload) {
   const row = allocRow.value
   if (row && payload) row.extraQty = Number(payload.extraQty) || 0
   saveDraftNow()
-  loadCross()
 }
 function closeAlloc() { allocOpen.value = false; allocRow.value = null }
 
@@ -10883,6 +10903,14 @@ async function onHistoryPush (row) {
    ══════════════════════════════════════════════════════════════════════════ */
 const ptGap = ref({})      // product_id → avg-target 的 item（gap_total_box / operators / achieved_*）
 const ptAlloc = ref({})    // product_id → extra-alloc 的 item（total_delta / rows）
+/* ── v657：**报单对象候选池**（avg-target 的 `alloc_candidates`）─────────────────
+   用户 2026-10-24 拍板：加单分摊的候选池 = **报单对象名册**（启用中的 report_mapping
+   别名、按员工去重；停用与外部客户按 v342/v343 既有口径排除，后端唯一实现
+   `_alloc_candidate_pool()` 下发）。
+   用途只有一个：商品**本期没有自然承接人**（无目标 ∧ 没人报过）时，让经理从这个
+   名册里**勾选**承接人（勾选模式见 AllocPanel）。⚠️ 它与商品无关、是**期次维度**
+   的一份名册 ⇒ 每次 loadPtGap 随 avg-target 一次带回，不另开端点。 */
+const allocPool = ref([])
 
 /* 从 `cross.value.period` 自己取期次 id，**不接受调用方传参** ——
    本页有两条装载路径（loadCross / loadEditGrid），传参就意味着两处各写一遍，
@@ -10891,6 +10919,7 @@ async function loadPtGap() {
   const pid = Number((cross.value && cross.value.period && cross.value.period.id) || 0)
   ptGap.value = {}
   ptAlloc.value = {}
+  allocPool.value = []
   if (!pid) return                      // 「今日报单」合成期次（id=0）没有期次 ⇒ 无目标可谈
   try {
     const d = await productTargetsApi.avgTarget(pid)
@@ -10898,6 +10927,9 @@ async function loadPtGap() {
     const items = (d && d.items) || {}
     Object.keys(items).forEach(k => { m[Number(k)] = items[k] })
     ptGap.value = m
+    // v657：候选池与 items 同一次响应带回（期次维度）。老后端没这个键 ⇒ 空池
+    //   ⇒ 门禁自动回落到 v336 行为（勾选模式不可用），不是错误。
+    allocPool.value = (d && d.alloc_candidates) || []
   } catch (e) {
     /* 辅助提示层：查不到就整层不出现。**刻意不 toast** ——
        没设过目标的期次这里必然为空，属正常态；弹提示会把「功能未使用」说成「功能坏了」。 */
@@ -11006,7 +11038,11 @@ function ptExtraAlert(r) {
     return (a.fully_applied === false && short > 0) ? 'short' : ''
   }
   // 还没有分配结果 ⇒ 只有「**一个人都分不到**」才是真问题（保存后也不会有落点）
-  return allocMembers(r).length ? '' : 'void'
+  // ── v657：判据加一层「候选池也为空」—— 名册里有人时这不是死路：点本格右下角
+  //    「分摊」就能勾选承接人（勾选模式）。此时若还标「悬空」等于说假话
+  //    （明明有路可走），而「悬空」的橙色告警样式会被当成"这一格出事了"。
+  //    改由 `ptExtraTip` 指路（见该函数 no_mem 分支）。
+  return (allocMembers(r).length || allocPool.value.length) ? '' : 'void'
 }
 /* 加单格容器的类（左侧竖条走它：在 input 上做 box-shadow 会被单元格裁剪） */
 function ptExtraCellCls(r) {
@@ -11096,6 +11132,17 @@ function ptExtraInputTitle(r) {
     //   分类判据与文案共用 `unmappedCauseLines` / `unmappedFixLine`，两处不再各写一遍。
     const g = ptGap.value[Number(r && r.product_id)] || null
     const _unm = Number(g && g.unmapped_box) || 0
+    // ── v657：候选池有人 ⇒ **不是死路，是还没勾选** ────────────────────────────
+    //   老文案在这里一律说「分不到任何人头上」，而名册里明明有人可勾 ——
+    //   那是假话，会把经理引去"让业务员补报"这件未必需要做的事。
+    if (allocPool.value.length) {
+      L.push('本期没有人报过这个商品、该商品也没有启用目标（或目标没填承接人）'
+             + '⇒ 需要**手动勾选承接人**。')
+      L.push('点本格右下角的「分摊」，从**报单对象名册**（' + allocPool.value.length
+             + ' 人）里勾选谁承接这 ' + fmt(Math.abs(eq)) + ' 箱，保存汇总表后落到他头上。')
+      if (_unm > 0) unmappedCauseLines(g).forEach(x => L.push(x))
+      return L.join('\n')
+    }
     L.push('⚠ 这 ' + fmt(Math.abs(eq)) + ' 箱**分不到任何人头上** —— '
            + (_unm > 0 ? '该商品的报单有一部分没接上人' : '本期没有人报过这个商品')
            + '，也没有商品目标（或目标没填承接人）。')
@@ -11147,9 +11194,17 @@ function ptAllocBtnTitle(r) {
      ② **收紧** —— **只有 1 人时不弹窗**：分摊是恒等映射（全部给他），
         弹窗纯属打扰；改由加单格悬停告知「保存时自动全部给他」。
    ⚠️ 判据取「可分摊对象」，**不取**「有没有角标」—— 角标还要求"差额 > 0"，
-      而经理在**差额为 0** 时同样可能想预分一笔加单。 */
+      而经理在**差额为 0** 时同样可能想预分一笔加单。
+
+   v657（2026-10-24 用户拍板）：**再放宽一层** —— 本期一个自然承接人都没有时，
+      只要**候选池有人**（报单对象名册）且本行**填了加单量**，按钮也出现：
+      点开进入**勾选模式**（从名册里挑承接人，默认全不勾）。
+      ⚠️ 刻意**不**放宽「只有 1 个自然承接人」—— v336 方案 B 拍板过那是恒等映射。 */
 function hasAllocTarget(r) {
-  return allocMembers(r).length >= 2
+  if (allocMembers(r).length >= 2) return true
+  return allocMembers(r).length === 0
+    && Math.abs(Number(r && r.extraQty) || 0) > 1e-9
+    && allocPool.value.length > 0
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -11200,6 +11255,16 @@ function ptExtraTip(r) {
       L.push('要让它生效：先让业务员在「报单」里报这个商品，'
              + '或在「商品目标」里建目标并填承接人。')
     }
+  }
+  // ── v657：**候选池有人、但还没勾选** —— 指路，不贴「悬空」标签 ──────────────
+  //   `_void` 为假（名册里有人可勾）但也没自然承接人 ⇒ 这笔量**还没有落点**，
+  //   只是出路在「分摊」弹窗里。悬停必须说清下一步，否则用户以为已经生效了。
+  if (!_void && !allocMembers(r).length && allocPool.value.length) {
+    const eq2 = Number(r && r.extraQty) || 0
+    L.push(`本商品本期没有人报过、也没有启用目标 —— 这 ${fmt(Math.abs(eq2))} 箱`
+           + '**还没有落点**，需要手动勾选承接人。')
+    L.push('点本格右下角的「分摊」打开**报单对象名册**（默认全不勾；「平均分配」一键全勾均分），'
+           + '应用占比后，还要点汇总表**右上角「保存」**才真正落到各人名下。')
   }
   if (g && (g.operators || []).length) {
     const avg = Number(g.avg_box) || 0
