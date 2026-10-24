@@ -6713,8 +6713,28 @@ async function zhoupuGen(tid) {
     a.download = r.fname || `舟谱${lab}导入模板.xlsx`
     document.body.appendChild(a); a.click(); a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 5000)
-    const info = tid === 'zhoupu-all' ? (r.rows || '') : (r.rows ? `${r.rows} 行` : '')
-    toast(`已下载${lab}导入文件${info ? '（' + info + '）' : ''}`, 'ok')
+    // v665：分批导出时，「第几批 / 用了哪段单号」是唯一能跟舟谱里那批单对上的凭据，
+    //   必须当场说给用户；同内容重复下载（复用原号段）也要点明，否则他会以为每次都吃了新号。
+    // 🔴 整段包 try：文件**已经下载成功**了，提示文案绝不能因为解析头部出错而把流程
+    //   打到 catch 里变成「提示失败」—— 那会让用户以为没导出来，重新点一次。
+    let _info = ''
+    try {
+      const _pick = (k) => { const m = (r.batch || '').match(new RegExp(k + '=(\\d+)')); return m ? Number(m[1]) : 0 }
+      const _seqOf = (k) => {
+        const hit = String(r.seq || '').split(';').map(s => s.split('=')).find(x => x[0] === k)
+        return (hit && hit[1] && hit[1] !== '-') ? hit[1].replace(/^(\d+)-(\d+)$/, '$1–$2') : ''
+      }
+      const _bzt = _pick('ZT'), _bdb = _pick('DB')
+      const bits = []
+      if (_bzt) bits.push(`自提第 ${_bzt} 批`)
+      if (_bdb && tid !== 'zhoupu-pickup') bits.push(`调拨第 ${_bdb} 批`)
+      const _szt = _seqOf('ZT')
+      if (_szt) bits.push(`自提单号 ${_szt}`)
+      if (r.rows && tid !== 'zhoupu-all') bits.push(`${r.rows} 行`)
+      if (r.reuse) bits.push('内容同上次，沿用原号段')
+      if (bits.length) _info = '（' + bits.join(' · ') + '）'
+    } catch (e) { _info = '' }
+    toast(`已下载${lab}导入文件${_info}`, 'ok')
     if (r.warnings) toast(`提示：${r.warnings}`, 'warn')
     exportMenuOpen.value = false
   } catch (e) {

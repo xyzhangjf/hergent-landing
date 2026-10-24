@@ -312,7 +312,11 @@ export const forecastApi = {
     else { const m2 = cd.match(/filename="?([^";]+)"?/i); if (m2) fname = m2[1] }
     let warnings = ''
     try { warnings = decodeURIComponent(res.headers.get('X-Template-Warnings') || '') } catch (e) { warnings = '' }
-    return { blob, fname, rows: res.headers.get('X-Template-Rows') || '', warnings }
+    // v665：批次 / 号段 / 是否复用（同内容重复下载不吃号）。纯 ASCII 头，不经 URL 编码。
+    return { blob, fname, rows: res.headers.get('X-Template-Rows') || '', warnings,
+             batch: res.headers.get('X-Template-Batch') || '',
+             seq: res.headers.get('X-Template-Seq') || '',
+             reuse: res.headers.get('X-Template-Reuse') === '1' }
   },
   rebateGap: (body) => api('/api/forecast/rebate-gap', { method: 'POST', body }),
   push: (body) => api('/api/forecast/push', { method: 'POST', body }),

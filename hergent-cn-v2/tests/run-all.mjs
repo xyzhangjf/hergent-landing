@@ -157,6 +157,18 @@ if (has('skip-sfc')) {
   results.push({ name: '副驾新对话入口', ok: r.code === 0, code: r.code })
 }
 
+// ── ⑥ 舟谱模板分批号段契约 ───────────────────────────────────
+/* 为什么需要第 6 组（v665）：同期次因各品牌到货不同要分几批导出，而舟谱要求源单据号
+   唯一 —— 号段统一性在后端（库内水位），但前端两处会让它白费：`zt_seq_start` 默认值
+   被改回 21，或导出后不把「第几批 / 哪段单号」说给用户（分批时那是对账的唯一凭据）。 */
+{
+  console.log('\n── ⑥ 舟谱模板分批号段契约（起始序号 01 起 + 导出回报批次）──')
+  const r = run('zhoupu-batch.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '舟谱分批号段', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

@@ -29,6 +29,9 @@
         <div class="field">
           <label>自提单号起始序号</label>
           <input v-model.number="tp.zt_seq_start" type="number" min="1" max="99" />
+          <!-- v665：语义变了 —— 从「每次生成的起点」变成「该期次**第一个批次**的起点」。
+               之后每批自动接在上批后面（号段不回收），否则同期次分几批就会重号（舟谱拒收）。 -->
+          <span class="tp-hint">只决定本期<u>第一批</u>从几号起；之后每批自动接着上一批往后排（已出的号不再复用）。</span>
         </div>
         <div class="field tp-wide">
           <label>下单主体</label>
@@ -69,7 +72,7 @@ import ConfigCard from './ConfigCard.vue'
 // 下单主体清单。原先硬编码在后端代码里且是**一家客户的值**，现改为租户自配。
 const tpOpen = ref(true)
 const tpSaving = ref(false)
-const tp = reactive({ company_name: '', salesman: '', warehouse: '总仓', zt_seq_start: 21 })
+const tp = reactive({ company_name: '', salesman: '', warehouse: '总仓', zt_seq_start: 1 })
 const tpEntities = ref('')
 // v163：户头 → 舟谱「部门」列值。键是下单主体名（与 tpEntities 同源）。
 const tpDepts = ref({})
@@ -83,7 +86,7 @@ async function loadProfile() {
     tp.company_name = p.company_name || ''
     tp.salesman = p.salesman || ''
     tp.warehouse = p.warehouse || '总仓'
-    tp.zt_seq_start = p.zt_seq_start || 21
+    tp.zt_seq_start = p.zt_seq_start || 1
     tpEntities.value = (p.order_entities || []).join(',')
     tpDepts.value = { ...(p.entity_departments || {}) }
     if (profileMissing.value) tpOpen.value = true   // 未配置 → 自动展开引导填写
@@ -97,7 +100,7 @@ async function saveProfile() {
       company_name: tp.company_name,
       salesman: tp.salesman,
       warehouse: tp.warehouse,
-      zt_seq_start: Number(tp.zt_seq_start) || 21,
+      zt_seq_start: Number(tp.zt_seq_start) || 1,
       order_entities: (tpEntities.value || '').split(/[,，、\s]+/).filter(Boolean),
       // v163：只提交**当前户头清单里**且**非空**的部门名 —— 户头被删掉后它的旧部门名一并清掉，
       // 不留孤儿配置（否则以后重新加回同名户头会悄悄套用一条早已不想要的部门名）。
