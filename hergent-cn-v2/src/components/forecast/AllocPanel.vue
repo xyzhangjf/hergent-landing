@@ -73,12 +73,25 @@ const allocIsOverride = computed(() =>
    `(not members_out) and bool(_pool)`），setup 只在打开弹窗时拉一次、
    不会被任何后续请求改写 ⇒ 天然稳定。旧后端（无该字段）回落到 setup 的 flags
    （同样是快照，**不用** `allocFlags` —— 那是会被覆盖的那一份）。 */
-const allocPickMode = computed(() => {
+/* ── v659：**名册模式可以手动进**（用户 2026-10-24：「当前如果该产品有人报单，
+   点击分摊后只能分给有报单的这几个人，请把它做成没报单的人也可以选择去分摊」）──
+   原来只有「本期没人报过、也没有目标」才进名册（`can_pick`）；商品一旦有人报单，
+   表格就是那几个报单人，**加不进别人**。现在多一条入口：用户点「选择承接门店」
+   ⇒ `allocPickForced` 置真 ⇒ 照常渲染全量名册，并**预勾当前表格里的人**，
+   再补勾没报单的门店即可。
+   ⚠️ `allocPickAuto` 必须单独留着 —— 两种进入原因的说明文案完全不同
+      （自动进 = "一个人都分不到，只能从名册挑"；手动进 = "已勾上本期报单人，
+      你还可以再加"）。混用一句话会造成假话。 */
+const allocPickForced = ref(false)
+const allocPickAuto = computed(() => {
   const s = allocSetup.value
   if (!s || !((s.candidates || []).length)) return false
   if (s.can_pick != null) return !!s.can_pick
   return !!(s.flags && s.flags.no_members)
 })
+const allocPickMode = computed(() =>
+  !!allocSetup.value && !!((allocSetup.value.candidates || []).length)
+  && (allocPickAuto.value || allocPickForced.value))
 const allocPicked = ref({})          // {<门店键>: true} 勾选态（默认**全不勾**，用户拍板）
 /* ── v658：分摊的**身份键从「工号」换成「门店」** ────────────────────────────
    用户 2026-10-24 原话：「**分摊要以门店为维度来分**」。
@@ -110,21 +123,30 @@ const allocPoolNoAcct = computed(() =>
 const allocRatioEditable = computed(() =>
   !!allocSetup.value && (!allocFlags.value.no_members || allocPickMode.value))
 
-/* v657：表格行 —— 普通模式 = 预演结果；勾选模式 = **候选池**一门店一行，
+/* v657：表格行 —— 普通模式 = 预演结果；名册模式 = **候选池**一门店一行，
    预演结果（占比/报量/加单/定稿）按**门店键**贴上，没勾的人全是 0。
    ⚠️ v658：普通模式的行也必须带 `key` —— 同一员工的两个门店现在是**两行**，
       直接用 `employee_id` 当 `v-for` 的 key 会重复（Vue 会复用错节点、
-      改一格的数字跑到另一格去）。 */
+      改一格的数字跑到另一格去）。
+   🔴 v659：名册模式**末尾必须补上「名册里没有的原有承接人」**。
+      `_alloc_candidate_pool()` 只收「启用别名 + 绑了员工」的门店，**没有报单别名的
+      员工根本不在名册里**。手动切名册时若只渲染 candidates，这些人的承接关系会
+      当场消失（用户看到"我原来分给张三的那份不见了"），而且**保存后真的就没了**
+      —— 这是会吃掉数据的，不是显示问题。 */
 const allocTableRows = computed(() => {
   if (!allocPickMode.value) return allocRows.value || []
   const prev = {}
   ;(allocRows.value || []).forEach(x => { prev[allocKeyOf(x)] = x })
-  return ((allocSetup.value && allocSetup.value.candidates) || []).map(c => {
+  const out = []
+  const seen = {}
+  ;((allocSetup.value && allocSetup.value.candidates) || []).forEach(c => {
     const e = Number(c.employee_id) || 0
     const sn = String(c.store_name || '').trim()
     const k = allocKeyOf(c)
+    if (!k) return
+    seen[k] = true
     const p = prev[k] || null
-    return {
+    out.push({
       key: k,
       store_name: sn,
       employee_id: e,
@@ -136,8 +158,29 @@ const allocTableRows = computed(() => {
       reported_box: p ? p.reported_box : 0,
       alloc_box: p ? p.alloc_box : 0,
       final_box: p ? p.final_box : 0,
-    }
+    })
   })
+  // 不在名册里的原有承接人（无报单别名）—— 保留在表格末尾，可继续分摊/移除
+  ;(allocRows.value || []).forEach(x => {
+    const k = allocKeyOf(x)
+    if (!k || seen[k]) return
+    seen[k] = true
+    out.push({
+      key: k,
+      store_name: String(x.store_name || '').trim(),
+      employee_id: Number(x.employee_id) || 0,
+      employee_name: x.employee_name || ('员工' + (Number(x.employee_id) || 0)),
+      aliases: [],
+      has_account: false,
+      no_alias: true,
+      picked: !!allocPicked.value[k],
+      ratio: Number(x.ratio) || 0,
+      reported_box: Number(x.reported_box) || 0,
+      alloc_box: Number(x.alloc_box) || 0,
+      final_box: Number(x.final_box) || 0,
+    })
+  })
+  return out
 })
 /* 已勾选的门店数（勾选模式下「分不满」提示与角落汇总都用它）。
    🔴 必须从**表格行**数，不能从 `allocPicked` 的键数 —— 换门店时用户可能先勾了
@@ -296,6 +339,7 @@ async function loadAllocSetup() {
   allocAllocsRaw.value = {}
   allocFocusKey.value = ''
   allocPicked.value = {}            // v657：勾选态每次重开都重置为「全不勾」
+  allocPickForced.value = false     // v659：手动进入名册的开关也随之复位
   allocTotalRaw.value = String(_r3(row.extraQty))
   allocBusy.value = true
   try {
@@ -399,18 +443,36 @@ function onAllocAllocCommit(e, key) {
 }
 
 /* 平均分配：Σ 精确 = 100，尾差给最后一人（与 `ProductTarget.vue::splitEven` 同规则）
-   v657：勾选模式下它就是**「一键全勾 + 均分」**（用户拍板：默认全不勾，要全勾就点它）
-   —— 名单取**候选池**而不是预演结果（还没勾人时预演结果本来是空的）。 */
+   v657：名册态下如果**一个都没勾**，它就是「一键全勾 + 均分」（用户拍板：默认全不勾，
+   要全勾就点它）—— 名单取候选池而不是预演结果（还没勾人时预演结果本来是空的）。
+   🔴 v659：名册态下**已经勾了人**时，只均分**已勾选**的那些，不再顺手把 13 家全勾上。
+      原因：手动进入名册后（`enterPickMode` 会预勾本期报单人），用户点「平均分配」的
+      真实意思是「这几家平摊」，若在这里全勾，等于把量摊给了 11 个他没打算给的门店
+      —— 而界面上只是个"平均分配"按钮，他完全预期不到这个后果。 */
 function allocSplitEven() {
-  const rows = allocPickMode.value
-    ? ((allocSetup.value && allocSetup.value.candidates) || [])
-    : (allocRows.value || [])
-  if (!rows.length) return
   if (allocPickMode.value) {
-    const picked = {}
-    rows.forEach(x => { const k = allocKeyOf(x); if (k) picked[k] = true })
-    allocPicked.value = picked
+    let rows = allocTableRows.value.filter(x => x.picked)
+    if (!rows.length) {
+      const picked = {}
+      allocTableRows.value.forEach(x => { if (x.key) picked[x.key] = true })
+      allocPicked.value = picked
+      rows = allocTableRows.value
+    }
+    const n = rows.length
+    if (!n) return
+    const base = Math.round((100 / n) * 100) / 100
+    const raw = {}
+    rows.forEach((x, i) => {
+      const k = x.key || allocKeyOf(x)
+      if (!k) return
+      raw[k] = String(i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base)
+    })
+    allocRatiosRaw.value = raw
+    runAllocPreview()
+    return
   }
+  const rows = allocRows.value || []
+  if (!rows.length) return
   const n = rows.length
   const base = Math.round((100 / n) * 100) / 100
   const raw = {}
@@ -452,6 +514,53 @@ function togglePick(key) {
     raw[key2] = String(i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base)
   })
   allocRatiosRaw.value = raw
+  runAllocPreview()
+}
+/* v659：手动切进「报单门店名册」—— 让**没报单的门店**也能被选来分摊。
+   进入时**预勾当前表格里的人**（本期报单人 / 目标承接人），并保留他们现有的占比，
+   所以"只是进来看看"不会有任何变化；要加人再勾。
+   ⚠️ 不在这里做均分：现有占比是用户/系统算好的一份（Σ 通常本来就是 100），
+      进来就重分等于擅自改数。只有他**勾/取消**（`togglePick`）才重新均分。 */
+function enterPickMode() {
+  const s = allocSetup.value
+  if (!s || !((s.candidates || []).length)) {
+    toast('没有可挑的报单门店（报单配置里还没有启用的别名）', 'warn')
+    return
+  }
+  const picked = {}
+  const raw = {}
+  let sum = 0
+  ;(allocTableRows.value || []).forEach(x => {
+    const k = x.key || allocKeyOf(x)
+    if (!k) return
+    const r = (allocRatiosRaw.value[k] != null)
+      ? _allocNum(allocRatiosRaw.value[k])
+      : (Number(x.ratio) || 0)
+    if (r <= 1e-9) return          // 0 占比的人不预勾（勾了也只是 0，纯噪音）
+    picked[k] = true
+    raw[k] = String(_r2(r))
+    sum += r
+  })
+  allocPicked.value = picked
+  /* 现有占比合计不是 100（例如 override 只留下一部分、或按报单量推导有缺口）⇒
+     均分兜底，否则用户一进来「保存」就是灰的，还得先自己凑够 100。 */
+  const keys = Object.keys(raw)
+  if (keys.length && Math.abs(sum - 100) > 0.5) {
+    const n = keys.length
+    const base = Math.round((100 / n) * 100) / 100
+    keys.forEach((k, i) => {
+      raw[k] = String(i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base)
+    })
+  }
+  allocRatiosRaw.value = raw
+  allocPickForced.value = true
+  runAllocPreview()
+}
+/* 退出名册、回到"系统自动按报单量/档案分"的表格（**不改任何已存数据**） */
+function exitPickMode() {
+  allocPickForced.value = false
+  allocPicked.value = {}
+  allocRatiosRaw.value = {}
   runAllocPreview()
 }
 function allocResetRatios() {
@@ -612,11 +721,19 @@ onMounted(() => { loadAllocSetup() })
               ⇒ 这笔加/减单<b>一个人都分不到</b>，保存后也不会有任何人的量被调整。
               请先让业务员在「报单」里报这个商品，或到「商品目标」页为它建目标并填分解比例。
             </p>
-            <p v-else-if="allocPickMode" class="imp-tip alloc-note">
+            <p v-else-if="allocPickMode && allocPickAuto" class="imp-tip alloc-note">
               ⓘ 该商品<b>本期没有人报过单、也没有启用目标</b> ⇒ 从下方<b>报单门店名册</b>里
               <b>勾选</b>承接这笔{{ allocTotalNum() >= 0 ? '加单' : '减单' }}的门店（<b>可以勾多家</b>，
               一家也能分）。每勾一个/取消一个，占比会<b>按勾中的门店数自动均分</b>，均完还能自己改；
               点「平均分配」= 一键全勾并均分。保存的是<b>本期专用占比</b>，只影响本期。
+            </p>
+            <!-- v659：用户手动切进来的名册态（该商品本期有人报单，但要把量分给没报单的门店） -->
+            <p v-else-if="allocPickMode" class="imp-tip alloc-note">
+              ⓘ 你正在<b>手动挑选承接门店</b>：已经勾上本期<b>报过单</b>的门店，
+              你可以继续勾<b>其他门店</b>（<b>本期没报单的也能勾</b>）——
+              勾上的门店会按占比直接分到这笔{{ allocTotalNum() >= 0 ? '加单' : '减单' }}。
+              每勾一个/取消一个，占比会<b>按勾中的门店数自动均分</b>，均完还能自己改。
+              保存的是<b>本期专用占比</b>，只影响本期、不改商品目标档案。
             </p>
             <p v-else-if="allocSetup && allocFlags.no_target" class="imp-tip alloc-note">
               该商品在 <b>{{ (allocSetup.product && allocSetup.product.month) || '' }}</b> 没有启用目标
@@ -641,20 +758,26 @@ onMounted(() => { loadAllocSetup() })
                   ≈ {{ fmt(Math.abs(allocTotalNum()) * Number(allocSetup.product.large_ratio)) }} {{ (allocSetup.product && allocSetup.product.unit) || '小单位' }}
                 </span>
               </div>
-              <p v-if="allocIsOverride" class="imp-tip alloc-note">
-                ⓘ 占比是<b>本期临时设定</b>的<template v-if="allocSetup.override && allocSetup.override.operator"
-                  >（{{ allocSetup.override.operator }} 设定）</template> —— 改动<b>只影响本期</b>，
-                不会改商品目标档案。
-              </p>
-              <p v-else-if="allocIsDerived" class="imp-tip alloc-note">
-                ⓘ 该商品本期没有目标 ⇒ 原本按<b>各人本期报单量</b>推导占比。
-                在这里改动会存成<b>本期专用</b>占比（<b>只影响本期</b>、不改商品目标档案）；
-                存下之后，业务员后来补报也不会再自动改变你定下的分法。
-              </p>
-              <p v-else class="imp-tip alloc-note">
-                ⓘ 占比来自该商品的<b>目标档案</b>。在这里改动会<b>同时改写目标档案</b> ——
-                该商品<b>本月所有期次</b>的加单分摊都会跟着变（不只是本期）。
-              </p>
+              <!-- v659：这三段讲的是「改动会落到哪」（档案 = 全期 / 本期专用），
+                   在**名册态**下全是假话 —— 名册里挑的人恒走「本期专用占比」
+                   （`_periodPath` 含 allocPickMode），不会改目标档案。
+                   故名册态一律不显示，只留上面那条名册说明。 -->
+              <template v-if="!allocPickMode">
+                <p v-if="allocIsOverride" class="imp-tip alloc-note">
+                  ⓘ 占比是<b>本期临时设定</b>的<template v-if="allocSetup.override && allocSetup.override.operator"
+                    >（{{ allocSetup.override.operator }} 设定）</template> —— 改动<b>只影响本期</b>，
+                  不会改商品目标档案。
+                </p>
+                <p v-else-if="allocIsDerived" class="imp-tip alloc-note">
+                  ⓘ 该商品本期没有目标 ⇒ 原本按<b>各人本期报单量</b>推导占比。
+                  在这里改动会存成<b>本期专用</b>占比（<b>只影响本期</b>、不改商品目标档案）；
+                  存下之后，业务员后来补报也不会再自动改变你定下的分法。
+                </p>
+                <p v-else class="imp-tip alloc-note">
+                  ⓘ 占比来自该商品的<b>目标档案</b>。在这里改动会<b>同时改写目标档案</b> ——
+                  该商品<b>本月所有期次</b>的加单分摊都会跟着变（不只是本期）。
+                </p>
+              </template>
               <div class="alloc-tbl-wrap">
                 <table class="alloc-tbl">
                   <thead>
@@ -694,14 +817,20 @@ onMounted(() => { loadAllocSetup() })
                                :class="{ 'alloc-ro': !allocRatioEditable || (allocPickMode && !x.picked) }"
                                :title="(allocPickMode && !x.picked) ? '先勾选上，才能给这个门店定占比'
                                        : (!allocRatioEditable ? '本期没有可分摊对象'
+                                       : (allocPickMode ? '本期专用占比：改动只影响本期，不会改商品目标档案'
                                        : (allocIsOverride ? '本期临时占比：改动只影响本期，不会改商品目标档案'
                                        : (allocIsDerived ? '原本按各门店本期报单量推导；改动会存成本期专用占比（只影响本期）'
-                                       : '来自商品目标档案；改动会同时改写档案，影响本月所有期次')))"
+                                       : '来自商品目标档案；改动会同时改写档案，影响本月所有期次'))))"
                                :value="allocRatiosRaw[allocKeyOf(x)] != null ? allocRatiosRaw[allocKeyOf(x)] : x.ratio"
                                @input="onAllocRatioInput($event, allocKeyOf(x))"
                                @change="onAllocRatioCommit($event, allocKeyOf(x))">
                       </td>
-                      <td class="num">{{ fmt(x.reported_box) }}</td>
+                      <!-- v659：名册态下标出「未报单」—— 用户要的正是把量分给这些人，
+                           显示 0 容易让人以为"这家没份"，写清楚他才知道这是自己挑的 -->
+                      <td class="num">
+                        <span v-if="allocPickMode && !(Number(x.reported_box) > 0)" class="alloc-idle">未报单</span>
+                        <template v-else>{{ fmt(x.reported_box) }}</template>
+                      </td>
                       <td class="num">
                         <!-- ⚠️ @focus/@blur 记「正在打字的是哪一格」：预演回来时**不回填这一格**，
                              否则用户敲到一半的数字会被后端的四舍五入值顶掉（"填了不算"）。 -->
@@ -745,6 +874,19 @@ onMounted(() => { loadAllocSetup() })
             </template>
             <p v-else class="imp-tip">正在读取分摊依据…</p>
             <div class="alloc-actions">
+              <!-- v659：**让没报单的门店也能分** —— 用户原话：「当前如果该产品有人报单，
+                   点击分摊后只能分给有报单的这几个人，请把它做成没报单的人也可以选择去分摊」。
+                   后端白名单本来就是「自然承接人 ∪ 报单对象名册」（`_base ∪ _pool_keys`），
+                   所以这里只差一个入口：切到名册，把没报单的门店勾进来。 -->
+              <button v-if="allocSetup && !allocPickMode && (allocSetup.candidates || []).length"
+                      class="btn btn-sm btn-ghost"
+                      title="打开报单门店名册，把本期没报单的门店也选来分摊（存本期专用占比，只影响本期）"
+                      @click="enterPickMode">选择承接门店（含没报单的）</button>
+              <!-- v659：只有「手动进入」才有返回；自动进入（一个人都分不到）退了没有意义 -->
+              <button v-if="allocPickMode && !allocPickAuto"
+                      class="btn btn-sm btn-ghost"
+                      title="退出名册，回到系统自动按报单量/目标档案分摊（不改任何已存数据）"
+                      @click="exitPickMode">返回自动分摊</button>
               <!-- v339：L2（无目标）也能分摊之后，「**有没有目标**」不再是能不能操作的前提 ——
                    旧版两处 `!no_target` 把 L2 商品的「平均分配 / 恢复」**整对按钮藏掉了**。
                    现在唯一的前提是"本期有没有可分摊对象"（= no_members）。
@@ -752,7 +894,7 @@ onMounted(() => { loadAllocSetup() })
                    （用户拍板：默认全不勾，要全勾点它）。 -->
               <button v-if="allocSetup && (!allocFlags.no_members || allocPickMode)"
                       class="btn btn-sm btn-ghost"
-                      :title="allocPickMode ? '一键勾选名册里的所有人，并均分占比' : '把占比平均分给所有承接人'"
+                      :title="allocPickMode ? '把占比平摊给已勾选的门店（一个都没勾时才会一键全勾）' : '把占比平均分给所有承接人'"
                       @click="allocSplitEven">平均分配</button>
               <!-- v658b：加 `!allocPickMode` —— 勾选模式下勾了人之后 preview 会把
                    `flags.no_members` 翻成假，这个按钮就会冒出来；可名册里的人**没有档案
@@ -807,6 +949,8 @@ onMounted(() => { loadAllocSetup() })
 .alloc-tbl .chk{width:34px;text-align:center}
 .alloc-tbl td.chk{text-align:center}
 .alloc-alias{color:var(--t3);font-size:11.5px;margin-left:2px}
+/* v659：名册态里的「未报单」标记（弱化，不抢数字的视线） */
+.alloc-idle{color:var(--t3);font-size:11.5px}
 /* v336：占比「只读」态 —— 来源是本期报单量推导（客观事实），不是可配置的档案比例。
    视觉上必须一眼看出"这格改不了"，否则用户会反复点进去以为输入框坏了。 */
 .alloc-mini.alloc-ro{background:var(--bg2);color:var(--t2);cursor:not-allowed;border-style:dashed}
