@@ -1516,7 +1516,8 @@ function openCopilot() {
 
 const cmdOpen = ref(false)
 
-/* 快捷键：⌘K / Ctrl+K 唤起 AI 副驾；⌘Shift+K / Ctrl+Shift+K 唤起命令面板（均对输入框豁免） */
+/* 快捷键：⌘K / Ctrl+K 唤起 AI 副驾；⌘Shift+K / Ctrl+Shift+K 唤起命令面板（均对输入框豁免）；
+   ⌘Shift+O / Ctrl+Shift+O 让副驾另起一段新对话（v663） */
 function onKeydown(e) {
   if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
     const t = e.target
@@ -1530,6 +1531,16 @@ function onKeydown(e) {
     e.preventDefault()
     if (e.shiftKey) cmdOpen.value = true
     else store.ui.copilotOpen = !store.ui.copilotOpen
+  }
+  /* v663：⌘Shift+O / Ctrl+Shift+O = 副驾「另起一段新对话」。
+     🔴 必须先 `copilotOpen = true` 再递增 tick —— 抽屉是 v-if 挂载的，关着的时候
+        它没实例可监听；靠 open 监听里 `consumeNewTick()` 就能在"从关到开"的同一拍
+        直接落到空白新对话（而不是先恢复历史、再被 tick 拽走，那样会闪一下旧会话）。 */
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'o' || e.key === 'O')) {
+    if (!store.canUseAi()) return
+    e.preventDefault()
+    store.ui.copilotOpen = true
+    store.ui.copilotNewTick++
   }
   /* v645 P2：弹窗打开时的键盘操作 —— Esc 收起、↑↓ 在条目间移焦点。
      🔴 为什么必须补：弹窗此前**只能靠鼠标**（Tab 能进但没法遍历方向、也没有 Esc），

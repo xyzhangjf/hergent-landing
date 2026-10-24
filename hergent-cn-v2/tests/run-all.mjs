@@ -145,6 +145,18 @@ if (has('skip-sfc')) {
   results.push({ name: '脚本内符号检查', ok: r.code === 0, code: r.code })
 }
 
+// ── ⑤ 副驾「新对话」入口契约 ─────────────────────────────────
+/* 为什么需要第 5 组（v663）：用户报「新对话按键藏在历史会话里，修过又回退了」。
+   查实是**生产热修没进 git** —— 下次从源码整包构建同步就自动覆盖回旧形态。
+   这条护栏盯的就是那个"唯一入口被藏起来"的结构，不依赖样式和浏览器。 */
+{
+  console.log('\n── ⑤ 副驾「新对话」入口契约（常驻标题栏，不许藏进历史面板）──')
+  const r = run('copilot-newchat.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '副驾新对话入口', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

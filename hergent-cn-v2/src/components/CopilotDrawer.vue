@@ -24,6 +24,15 @@
             </div>
           </div>
           <div class="cp-actions">
+            <!-- v663：**常驻**「新对话」按钮 —— 必须是标题栏一级入口。
+                 🔴 判据（用户 2026-10-24 报"又回退了"）：它此前只在「历史会话」视图里
+                    出现过（历史面板头部那个 `＋ 新对话`），等于"想开新对话，得先点开历史"。
+                    这个按钮的**位置**就是需求本身，别为了省一个按钮把它并回历史面板。
+                 窄屏（≤760px）自动收成纯图标，靠 title 提示「另起一段新对话（⌘⇧O）」。 -->
+            <button class="cp-new-btn" :title="newChatTip" @click="newSession">
+              <svg class="cp-new-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              <span class="cp-new-tx">新对话</span>
+            </button>
             <button class="cp-icon-btn cp-art-toggle" title="本次产物" :class="{on:artOpen}" @click="artOpen ? hideArtifacts() : (artOpen = true)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
               <span v-if="artifacts.length" class="cp-art-badge">{{ artifacts.length }}</span>
@@ -1536,6 +1545,25 @@ const titleRoleSuffix = computed(() => {
   const n = (currentRole.value && currentRole.value.name) || ''
   return n && !'AI 经营副驾'.includes(n) ? n : ''
 })
+
+/* v663：顶栏「新对话」按钮的 tooltip（带快捷键，Mac 用 ⌘⇧O）。
+   与 Shell.vue 里的按键监听必须**同一套口径**，否则提示与实际按键不符（用户按了没反应）。 */
+const isMac = /Mac|iPhone|iPad|iPod/.test((navigator && navigator.userAgent) || '')
+const newChatTip = computed(() => `另起一段新对话（${isMac ? '⌘⇧O' : 'Ctrl+Shift+O'}）`)
+
+/* v663：消费 Shell 发来的「另起一段新对话」信号。
+   🔴 用「比上次看到的大」而不是布尔：抽屉关闭期间 Shell 可能递增过多次，
+      只要本次打开时 tick > 已消费值，就说明"最新这次是要求开新对话"。
+      消费后立刻记录，避免 open 监听与 tick 监听**同一次打开触发两遍 newSession**。 */
+let newTickSeen = 0
+function consumeNewTick() {
+  if (store.ui.copilotNewTick > newTickSeen) {
+    newTickSeen = store.ui.copilotNewTick
+    return true
+  }
+  return false
+}
+
 // v322：自定义头像 URL 的计算已收进 `RoleAvatar.vue`（唯一渲染口）。
 // 原来这里有一份 `avatarUrl()`，与本文件 5 处各自的 `v-if="custom_avatar"` 并存 ——
 // 正是"判断散落多处、两处漏写"的成因（「将由 X 回答」行就漏了，生产上一直显示 🚀）。
@@ -3255,9 +3283,13 @@ watch(() => store.ui.copilotOpen, (v) => {
   if (v) {
     loadAiMode()
     loadTtsVoices()      // v461：提前取音色清单 ⇒ 「朗读声音」胶囊能直接显示当前声音名
-    // v488：本次打开若处于「空白态」（无消息、无当前会话）且用户没主动要新对话
-    //   ⇒ 自动恢复当前角色最近一次会话（带加载态）。已有对话/刚点了「＋ 新对话」则原样展示，不劫持。
-    if (!store.chat.messages.length && !store.chat.currentId && !explicitNew.value) {
+    // v663：本次打开是 ⌘⇧O 触发的 ⇒ 直接落到空白新对话，**不许先恢复历史**
+    //   （否则会先闪一下上次的旧对话，再被拽走，看起来像"点了新对话却还在旧会话里"）。
+    if (consumeNewTick()) {
+      newSession()
+    } else if (!store.chat.messages.length && !store.chat.currentId && !explicitNew.value) {
+      // v488：本次打开若处于「空白态」（无消息、无当前会话）且用户没主动要新对话
+      //   ⇒ 自动恢复当前角色最近一次会话（带加载态）。已有对话/刚点了「＋ 新对话」则原样展示，不劫持。
       restoreLatestSession()
     } else if (store.chat.messages.length) {
       // v622：已有对话直接重开 —— DOM 是新建的，**必须主动还原位置**，否则停在顶部（历史第一条）。
@@ -3270,6 +3302,12 @@ watch(() => store.ui.copilotOpen, (v) => {
     showVoiceMenu.value = false   // v461
     saveCurrentSession()  // 关闭时落盘
   }
+})
+
+/* v663：抽屉**已经开着**时按 ⌘⇧O —— 不必重开抽屉，直接换一段空白对话。
+   与上面的 open 监听共用 consumeNewTick()，所以同一次按键只会触发一次 newSession。 */
+watch(() => store.ui.copilotNewTick, () => {
+  if (store.ui.copilotOpen && consumeNewTick()) newSession()
 })
 
 function onKeydown(e) {
@@ -3449,6 +3487,14 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-title-role{font-size:12px;font-weight:500;color:var(--t3)}
 .cp-sub{font-size:11px;color:var(--t3);margin-top:1px}
 .cp-actions{display:flex;gap:6px}
+/* v663：顶栏「新对话」按钮（常驻一级入口，不再藏在历史会话面板里）。
+   主色底 + 白字，视觉权重高于右侧那排图标按钮 —— 它是主动作，不是次要工具。 */
+.cp-new-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;height:30px;padding:0 10px;border:none;border-radius:8px;background:var(--p-dark);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;transition:filter .15s}
+.cp-new-btn:hover{filter:brightness(1.12)}
+.cp-new-ic{flex:0 0 auto}
+.cp-new-tx{white-space:nowrap}
+/* 窄屏（手机/半屏）空间不够 ⇒ 只留 ＋ 图标，文案交给 title 提示 */
+@media(max-width:760px){.cp-new-btn{width:30px;padding:0}.cp-new-tx{display:none}}
 .cp-icon-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2);cursor:pointer}
 .cp-icon-btn:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .cp-icon-btn:disabled{opacity:.35;cursor:default}

@@ -23,6 +23,12 @@ export const useAppStore = defineStore('app', () => {
     theme: 'light',
     mobileDrawer: false,   // 手机"更多"抽屉
     copilotOpen: false,    // AI 副驾全局抽屉
+    /* v663：副驾「另起一段新对话」的跨组件信号（⌘/Ctrl+Shift+O）。
+       🔴 为什么用递增计数而不是布尔：Shell（快捷键）与 CopilotDrawer（真正执行）是两个组件，
+          布尔量「开→关→开」在同一次打开里表达不了"再来一次新对话"；计数只增不减，
+          抽屉侧用「比上次看到的大」判定，天然幂等、不会重复触发。
+          见 CopilotDrawer.consumeNewTick()。 */
+    copilotNewTick: 0,
     toasts: [],            // 通知栈（v362）：最多 3 条，长文案不自动消失 —— 见下方 toast()
     confirm: null,         // 全局确认弹窗（Phase 0）：单槽位 {id,text,title,consequence,requireText,confirmLabel,cancelLabel,resolve}，见下方 confirm()
     prompt: null           // 全局输入弹窗（Phase 0）：单槽位 {id,text,title,placeholder,defaultValue,multiline,confirmLabel,cancelLabel,resolve}，见下方 prompt()
