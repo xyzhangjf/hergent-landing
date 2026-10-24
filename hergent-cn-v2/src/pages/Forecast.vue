@@ -615,7 +615,11 @@
             <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选"><Icon name="close"/></button></span>
             <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选"><Icon name="close"/></button></span>
           </div>
-          <div class="table-wrap cross-viewport" ref="scrollEl" @scroll="onScroll">
+          <!-- v667：`:style` 的 maxHeight 是 JS 反推的可用高度（见 recalcCrossHeight）——
+               与编辑网格同一套口径，保证「合计行 + 底部汇总条」首屏就在视口内。
+               `crossMaxH` 为 0 时不写内联值，退回 CSS 的 72vh+119px 兜底（全屏态专属）。 -->
+          <div class="table-wrap cross-viewport" ref="scrollEl" @scroll="onScroll"
+               :style="crossMaxH ? { maxHeight: crossMaxH + 'px' } : null">
             <table class="tbl cross-tbl" role="grid" :aria-rowcount="flatItems.length" :aria-colcount="colOrderList.length" @dblclick="onResizerDblClick" :style="{ zoom: gridZoom + '%' }">
             <colgroup>
               <col v-for="col in colOrderList" :key="'cg' + col.key" :style="{ width: colW(col.key) + 'px' }"></col>
@@ -9793,7 +9797,13 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onFsKey) })
       这里返回 0 = 不写内联 max-height，把控制权交回 CSS。
    ⚠️ 下限 180px：极矮窗口算出来可能只剩一百出头，那样表体只有两三行、比溢出更糟，故兜个底。 */
 const editMaxH = ref(0)
-function _applyEditHeight(wrap) {
+/* v667：查看态表体上限（内联 max-height），与 editMaxH 同一套几何算法。
+   成因（用户 2026-10-24 报）：查看态写死 `max-height:calc(72vh + 119px)`，
+   而表格上方压着页头 + 主工具栏 + 视图切换行 + 表格工具行（笔记本实测约 300px）
+   ⇒ 表体底边溢出视口，**合计行与底部汇总条都得往下翻才看得到**；
+   编辑态（改单）走 `recalcEditHeight` 反推 ⇒ 合计栏首屏可见。两态行为不一致。 */
+const crossMaxH = ref(0)
+function _measureGridHeight(wrap) {
   const area = wrap.closest('.grid-area')
   const vw = wrap.closest('.view-wrap')
   const vwTop = vw ? vw.getBoundingClientRect().top : 0
@@ -9805,37 +9815,56 @@ function _applyEditHeight(wrap) {
   if (area) {
     const kids = [...area.children]
     const gap = parseFloat(getComputedStyle(area).rowGap) || 0
-    for (const el of kids.slice(kids.indexOf(wrap) + 1)) {
-      const cs = getComputedStyle(el)
-      below += gap + (parseFloat(cs.marginTop) || 0) + el.getBoundingClientRect().height
+    const idx = kids.indexOf(wrap)
+    /* v667：`idx < 0` 说明 wrap 不是 `.grid-area` 的直接子（被中间容器包着）——
+       此时整段兄弟累加无意义，落到下面的 32px 兜底，不要拿"全部 children"去凑数。 */
+    if (idx >= 0) {
+      for (const el of kids.slice(idx + 1)) {
+        const cs = getComputedStyle(el)
+        below += gap + (parseFloat(cs.marginTop) || 0) + el.getBoundingClientRect().height
+      }
     }
   }
   if (!below) below = 32          // 兜底：拿不到 .grid-area 时退回旧口径
   const stat = document.querySelector('.sel-stat')
   const statH = stat ? stat.getBoundingClientRect().height + 6 : 0
-  editMaxH.value = Math.max(180, Math.floor(window.innerHeight - vwTop - off - below - statH - 2))
+  return Math.max(180, Math.floor(window.innerHeight - vwTop - off - below - statH - 2))
 }
 function recalcEditHeight() {
   if (gridFullscreen.value) { editMaxH.value = 0; return }
   const wrap = document.querySelector('.edit-grid-wrap')
-  if (!wrap) { editMaxH.value = 0; return }
-  _applyEditHeight(wrap)
+  editMaxH.value = wrap ? _measureGridHeight(wrap) : 0
 }
+/* v667：查看态同款反推。三个前置条件都必须判：
+   · 全屏 —— `.grid-area.is-fs` 有自己的高度链（fixed inset:0 + max-height:none），内联值会顶掉它；
+   · 编辑态 —— 此时 `.cross-viewport` 根本没渲染（v-else-if="!editMode"），量不到；
+   · 逐单补录 —— `.cross-area` 是 v-if，表格不在 DOM 里。
+   任何一条成立就清 0（= 不写内联 max-height，把控制权交回 CSS）。 */
+function recalcCrossHeight() {
+  if (gridFullscreen.value || editMode.value || viewMode.value !== 'cross') { crossMaxH.value = 0; return }
+  const wrap = document.querySelector('.cross-viewport')
+  crossMaxH.value = wrap ? _measureGridHeight(wrap) : 0
+}
+function recalcGridHeights() { recalcEditHeight(); recalcCrossHeight() }
 onMounted(() => {
-  window.addEventListener('resize', recalcEditHeight)
-  nextTick(() => recalcEditHeight())
+  window.addEventListener('resize', recalcGridHeights)
+  nextTick(() => recalcGridHeights())
 })
-onBeforeUnmount(() => window.removeEventListener('resize', recalcEditHeight))
-watch(editMode, (v) => { if (v) nextTick(() => recalcEditHeight()) })
-watch(gridFullscreen, () => nextTick(() => recalcEditHeight()))
+onBeforeUnmount(() => window.removeEventListener('resize', recalcGridHeights))
+watch(editMode, () => nextTick(() => recalcGridHeights()))
+watch(gridFullscreen, () => nextTick(() => recalcGridHeights()))
+watch(viewMode, () => nextTick(() => recalcGridHeights()))
+/* 查看态数据从骨架换成真表格后才量得到高度（骨架期间 `.cross-viewport` 不在 DOM 里，
+   量出来是 0 ⇒ 内联 max-height 缺失、表格按 72vh 兜底）。crossLoading 落回 false 就要重算。 */
+watch(crossLoading, () => nextTick(() => requestAnimationFrame(recalcGridHeights)))
 /* 三个筛选开关会让工具行的徽标出现/消失 ⇒ `.grid-ctl-row` 可能 flex-wrap 折成两行 ⇒
    表格整体下移 32px。`nextTick` 时 flex 还没重排完，必须再等一帧 rAF 才是最终几何。 */
 watch([hideZeroReport, showAllProducts, showEmptyCols], () => {
-  nextTick(() => requestAnimationFrame(recalcEditHeight))
+  nextTick(() => requestAnimationFrame(recalcGridHeights))
 })
 /* 选区统计条的出现/消失改变底部占位。只在「有↔无」翻转时重算 ——
    挂到 selRange 本身会在拖选过程中每帧改 max-height，抖得没法看。 */
-watch(() => !!selRange.value, () => { nextTick(() => recalcEditHeight()) })
+watch(() => !!selRange.value, () => { nextTick(() => recalcGridHeights()) })
 
 /* P2-⑬ 键盘可达性快捷键（与 Esc 退出全屏一起构成键盘操作层）：
    · Ctrl/Cmd+S → 保存（编辑态下；即使用户焦点在输入框也允许，避免「点了没存」焦虑）；
@@ -12869,6 +12898,12 @@ provide('sprintSummary', sprintSummary)
       页脚位置与整页高度同样不变 ⇒ 表格只长高、不位移。
    ⚠️ 以后改顶部卡片高度（或恢复它）时这个数必须同步；现值 = 卡片高 115 + 4。
    ⚠️ 全屏态 `.grid-area.is-fs` 下 max-height:none，本值不参与，不用改。 */
+/* ⚠️ v667：这条 `72vh + 119px` 也只剩**首帧兜底**作用 —— 真值由 JS 的 `crossMaxH`
+   以内联 max-height 覆盖（见 recalcCrossHeight，与编辑网格同一套反推）。
+   原因：72vh 是相对视口算的，而表格上方还压着页头 + 主工具栏 + 视图切换行 + 表格工具行
+   （笔记本实测约 300px）⇒ 表体底边溢出视口，合计行与底部汇总条都得往下翻；
+   编辑态早就是反推的 ⇒ 两态行为不一致（用户 2026-10-24 报的就是这个差）。
+   全屏态不写内联值（`.grid-area.is-fs` 下 max-height:none 接管）。 */
 .cross-viewport{flex:1 1 auto;min-height:0;min-width:0;max-height:calc(72vh + 119px);overflow:auto;position:relative}
 /* v454：交叉表横向滚动条加粗 + 显眼，方便鼠标点中拖动（特别是横向滚动） */
 .cross-viewport::-webkit-scrollbar,
