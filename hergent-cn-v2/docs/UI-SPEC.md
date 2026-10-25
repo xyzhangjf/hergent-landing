@@ -1034,6 +1034,30 @@ SUB_TITLES[path][query.tab] → SUB_TITLES[path]._default → PAGE_RULES[path].t
 **静态一致性自检**（改了本节或 `TabBar.vue` 后必跑，防规范与实现脱节）：
 `.workbuddy/tools/v396-spec-tabbar-consistency.py --strict` —— A 类名 / B 数值 / C 机制 / D 反例禁令，当前 **ALL PASS**。
 
+### 3.6 应用外壳顶栏高度（v675）
+
+| 项 | 值 | 说明 |
+|---|---|---|
+| 令牌 | `--topbar-h: 48px` | **唯一源**：`src/styles/variables.css`；唯一使用者 = `Shell.vue` 的 `.topbar{height:var(--topbar-h)}` |
+| 栏内最高控件 | 34px | `.tb-btn`（铃铛/主题）、`.tb-copilot`（AI 胶囊）、`.wx-now`（天气胶囊）均为 34；`.tb-user` 32 |
+| 上下呼吸位 | 6.5px | 内容盒 = 48 − 1(`border-bottom`) = 47 ⇒ `(47 − 34) / 2`，与 `padding:0 20px` 的左右留白成比例 |
+
+> 🔴 **"顶栏看着高"先量这三件**，不要去改字号或往里塞 `padding`。
+> 高度 = 控件高 + 2 × 呼吸位；控件的 `border-radius:18px`（胶囊）要求呼吸位 ≥ 6px，
+> 否则圆角会被栏边切出一道平口。⇒ 合法区间 **44–52px**（呼吸位按内容盒算）。
+>
+> 历史：v674 及以前为 **56px**（呼吸位 10.5px），老板反馈「有一点点高了」；
+> v675 收到 48px（6.5px）。改动只动令牌一行，**不许**在页面或组件里写死 `height:56px`。
+>
+> 真机实测（v675，演示租户 · 1440×900 与 1366×768 双档）：`.topbar` 高度 **48.00**，
+> 控件 34.00，上下呼吸位 **6.5 / 6.5**，栏内无溢出（`scrollH == clientH == 47`）；
+> A/B 运行时注回 56px ⇒ 高度 56、呼吸位 10.5/10.5。截图 `tests/perf/v675/v675-topbar-ab.png`。
+> ⚠️ 量呼吸位**必须扣 `border-bottom`**：直接拿 `rect.bottom` 当底会得出"上 6.5 下 7.5"的假不对称（首跑误判 4 条）。
+
+**契约**：`tests/shell-topbar-h.contract.mjs`（run-all ⑫，10 条）——
+钉「区间 + 呼吸位 + 唯一源（不许别处重复定义 `--topbar-h`，也不许改名成 `--header-h`/`--nav-h`）
++ `.topbar` 不许写死 px + 栏内控件不得 ≥ 顶栏高」。判别力自证：注入 56/40/写死 px/同义令牌 共 8 例全部抓红。
+
 ---
 
 ## 4. 交互与状态

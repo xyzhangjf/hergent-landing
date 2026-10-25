@@ -237,6 +237,20 @@ if (has('skip-sfc')) {
   results.push({ name: '外壳浮层层级', ok: r.code === 0, code: r.code })
 }
 
+// ⑫ 顶部导航栏高度（v675）
+/* 反馈原话：「顶部导航栏我觉得有一点点高了，请稍微调矮一点」。
+   事实：高度只由 --topbar-h 决定，原先 56px，而栏内最高的三件（.tb-btn /
+   .tb-copilot / .wx-now）都是 34px ⇒ 上下各 11px，比控件"松"一圈。
+   修法：48px（上下各 7px）。契约钉区间 [44,52] + 上下呼吸位 ≥6px +
+   唯一源（不许别处重复/改名定义、.topbar 不许写死 px）。 */
+{
+  console.log('\n── ⑫ 顶栏高度契约（48px · 唯一源 · 控件不挤爆）──')
+  const r = run('shell-topbar-h.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '顶栏高度', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

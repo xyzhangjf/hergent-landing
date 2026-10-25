@@ -122,7 +122,17 @@
 
   /* 布局 */
   --sidebar-w:248px;
-  --topbar-h:56px;
+  /* 顶部导航栏高度（v675：56 → 48）。
+     🔴 唯一使用者 = `Shell.vue` 的 `.topbar{height:var(--topbar-h)}`，
+        **不许**在别处再写死 px，也不许另立 `--header-h` 之类同义令牌。
+     定 48 的依据（不是拍脑袋）：栏内最高的三件都是 34px ——
+        `.tb-btn`（铃铛/主题）、`.tb-copilot`（AI 胶囊）、`.wx-now`（天气胶囊）；
+        48 含 `border-bottom:1px` ⇒ 内容盒 47，(47 − 34) / 2 = **6.5px** 上下呼吸位，
+        与 20px 左右内边距成比例。
+     原先 56 ⇒ 内容盒 55，上下各 10.5px，比栏内控件"松"一圈，老板反馈「有一点点高」。
+     ⚠️ 下限校验：再往下压到 44 时呼吸位只剩 4.5px，34px 胶囊的圆角(18px)会贴到栏边、
+        看起来像被裁；要改之前先跑 `tests/shell-topbar-h.contract.mjs`（run-all ⑫）。 */
+  --topbar-h:48px;
   --ai-bar-h:58px;
 
   /* 页面宽度档位（L1）：**默认不用**（页面一律全宽，见 docs/UI-SPEC.md §3.1）。
