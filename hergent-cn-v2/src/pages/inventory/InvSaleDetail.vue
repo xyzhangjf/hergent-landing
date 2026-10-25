@@ -89,9 +89,25 @@
                 <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td>{{ it.product_name || ('商品 ' + it.product_id) }}</td>
                 <td v-if="isVisible('spec')">{{ it.spec || '—' }}</td>
-                <td class="num">{{ fmtQty(it.quantity) }}</td>
-                <td v-if="isVisible('unit')">{{ it.unit || '—' }}</td>
-                <td class="num">¥{{ fmtMoney(it.unit_price) }}</td>
+                <td class="num">
+                  {{ fmtQty(it.quantity) }}
+                  <!-- v683：按中/大档下单时，直接告出折小单位量 —— 否则「2 箱」旁边
+                       没有任何地方能看出实际出库了 48 瓶，对账时只能靠猜。
+                       判据用 base_ratio>1（=1 时两行数字相同，纯噪声）。 -->
+                  <span v-if="Number(it.base_ratio) > 1 && Number(it.base_qty) > 0" class="isd-conv">
+                    = {{ fmtQty(it.base_qty) }} {{ it.base_unit || '小单位' }}
+                  </span>
+                </td>
+                <!-- v683：单位优先用 `unit_label`（行上单位 → 报单单位 → 档案小单位 的回退链，
+                     与采购详情同源）。只读 `it.unit` 会让**改造前的历史单**全部显示「—」，
+                     因为 `sale_order_items.unit` 是本次才补的列，14.28 万行都是空串。 -->
+                <td v-if="isVisible('unit')">{{ it.unit_label || it.unit || '—' }}</td>
+                <td class="num">
+                  ¥{{ fmtMoney(it.unit_price) }}
+                  <span v-if="Number(it.base_ratio) > 1 && Number(it.base_unit_price) > 0" class="isd-conv">
+                    折 {{ fmtMoney(it.base_unit_price) }} 元/{{ it.base_unit || '小单位' }}
+                  </span>
+                </td>
                 <td class="num">¥{{ fmtMoney(it.amount) }}</td>
                 <td v-if="isVisible('batch')">
                   <span v-if="it.batch_no">{{ it.batch_no }}</span>
@@ -323,6 +339,12 @@ onMounted(load)
 
 .isd-bar { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap }
 .isd-note { font-size: 12px; color: var(--t3) }
+/* v683：明细「折小单位」小字（数量列 / 单价列）。与采购详情 `.ipd-conv` 同一口径：
+   块级 + 11px + 弱色，**不占行高**（明细行是只读表格，不涉及建单页那套 29.8px 约束）。 */
+.isd-conv {
+  display: block; margin-top: 2px;
+  font-size: 11px; color: var(--t3); white-space: nowrap;
+}
 
 @media (max-width: 640px) {
   .isd-hd { gap: 14px }

@@ -141,13 +141,22 @@
                 <input v-model="row.quantity" class="input isn-in num" inputmode="decimal" placeholder="0" />
               </td>
               <td v-if="isVisible('unit')" class="isn-c-unit">
-                <span v-if="row.unit" class="isn-unit" :class="{ fallback: row.unitFromBase }"
-                      :title="row.unitFromBase ? '商品档案里没设「报单单位」，按基础单位显示' : ''">{{ row.unit }}</span>
+                <!-- v683：单位改成**下拉**（可选项 = 商品档案里配的可用单位）。
+                     🔴 用 `:value` + 事件取值，不用 `v-model` + `@change`：
+                        v-model 会在 change 派发**前**改掉 row.unit，事件里就再也
+                        说不出"从哪一档切到哪一档"（采购页 `_prevUnit` 快照绕的就是这个坑）。 -->
+                <select v-if="unitOptionsOf(row).length" class="input isn-in isn-unit-sel"
+                        :value="row.unit" :title="unitTitle(row)"
+                        @change="onUnitChange(row, $event)">
+                  <option v-for="o in unitOptionsOf(row)" :key="o.key" :value="o.name">{{ o.name }}</option>
+                </select>
+                <span v-else-if="row.unit" class="isn-unit">{{ row.unit }}</span>
                 <span v-else class="isn-unit none"></span>
                 <div v-if="row.convText" class="isn-conv">{{ row.convText }}</div>
               </td>
               <td>
-                <input v-model="row.unit_price" class="input isn-in num" inputmode="decimal" placeholder="0.00" />
+                <input v-model="row.unit_price" class="input isn-in num" inputmode="decimal" placeholder="0.00"
+                       :title="priceTitle(row)" />
               </td>
               <td class="isn-c-reason" v-if="!cfg.isReturn">
                 <select v-if="Number(row.unit_price) === 0" v-model="row.note" class="input isn-in">
@@ -259,6 +268,9 @@ import { psiApi } from '../../../api/psi'
 import { toast, confirm } from '../../../store'
 import { fmtMoney } from '../../../constants/psiLabels'
 import { saleDocConfig } from './docTypes.js'
+import {
+  applyPricingToRow, applyUnitChange, createPricingCache, unitOptionsOf, PRICE_SOURCE_LABEL,
+} from './unitPricing.js'
 import CustomerCombo from './CustomerCombo.vue'
 import ProductCombo from './ProductCombo.vue'
 
@@ -417,6 +429,8 @@ function blankRow () {
   return {
     uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false, unit_price: '',
     unitOptions: [], convText: '', baseUnit: '', barcode: '', note: '',
+    // v683：默认档 / 价格来源 —— 后端定价下发，前端不算
+    defaultUnit: '', priceSource: '',
   }
 }
 function removeRow (i) { items.value.splice(i, 1) }
@@ -432,26 +446,76 @@ function scrollRowIntoView (uid) {
   })
 }
 
-function applyProduct (row) {
+/* v683：单位与价格**全部来自后端定价接口**（`GET /api/psi/product-pricing`）。
+   🔴 为什么不能继续读 `p.sale_price` 直接预填：那只是**小单位**价。用户选的若是
+      「箱」，预填 0.91（元/瓶）会被当成 0.91 元/箱 —— 少算 24 倍。后端的
+      `unit_options[].price` 已经把该档的价格算好（上次成交价优先，其次档案价×ratio）。
+   🔴 `kind` 分销售单与退单：退单走 `sale_return`（同一套档案价，但默认档取
+      `default_sale_unit`，与销售单一致）。 */
+const pricingKind = computed(() => (cfg.value.isReturn ? 'sale_return' : 'sale'))
+const pricingCache = createPricingCache(id =>
+  psiApi.productPricing(id, pricingKind.value, { customer_id: Number(form.value.customer_id) || 0 }))
+
+/* 换客户 ⇒ 归属价变了（同客户上次成交价优先）⇒ 缓存必须清掉重取。
+   不清就会把上一个客户的价格带过来，而且**看起来完全正常**。 */
+watch(() => form.value.customer_id, (now, before) => {
+  if (Number(now) === Number(before)) return
+  pricingCache.clear()
+})
+watch(pricingKind, () => pricingCache.clear())
+
+async function applyProduct (row) {
   const p = products.value.find(x => Number(x.id) === Number(row.product_id))
   if (!p) {
     row.unitOptions = []; row.convText = ''; row.baseUnit = ''; row.barcode = ''
+    row.unit = ''; row.unitFromBase = false; row.defaultUnit = ''; row.priceSource = ''
     return
   }
-  row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
-  row.convText = String(p.conv_text || '')
-  row.baseUnit = String(p.unit || '')
   row.barcode = String(p.barcode || '')
+  try {
+    const pricing = await pricingCache.get(row.product_id)
+    if (pricing) applyPricingToRow(row, pricing)
+  } catch (e) {
+    /* 定价接口失败 ⇒ 退回档案字段兜底（与改造前同源），并如实提示。
+       🔴 兜底时**只用小单位价**：那是唯一无需换算就成立的口径。 */
+    row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
+    row.convText = String(p.conv_text || '')
+    row.baseUnit = String(p.unit || '')
+    if (!row.unit) row.unit = String(p.order_unit || p.unit || '').trim()
+    if (!row.unit_price && Number(p.sale_price || 0) > 0) row.unit_price = String(p.sale_price)
+    toast('单位/价格没取到，已按商品档案兜底：' + (e && e.message ? e.message : e))
+  }
+  row.unitFromBase = false
 }
 function onPick (row) {
-  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
-  if (!p) return
   applyProduct(row)
-  const ou = String(p.order_unit || '').trim()
-  row.unit = ou || String(p.unit || '').trim()
-  row.unitFromBase = !ou && !!row.unit
-  // 客户专属价由后端在建单时套用；这里只是给个**默认值**让用户少填一次（可改）。
-  if (!row.unit_price && Number(p.sale_price || 0) > 0) row.unit_price = String(p.sale_price)
+}
+
+/** v683 切档：**数量不动，只重算单价**（老板拍板，四页统一）。 */
+function onUnitChange (row, ev) {
+  const want = String((ev && ev.target && ev.target.value) || '')
+  if (!want) return
+  applyUnitChange(row, want)
+}
+
+/** 单位格的说明：换算关系 + 当前档多少钱（用户不用心算）。 */
+function unitTitle (row) {
+  const base = row.convText || row.unit || ''
+  const o = unitOptionsOf(row).find(x => x.name === row.unit)
+  if (!o) return base
+  const src = PRICE_SOURCE_LABEL[o.price_source] || ''
+  return src ? `${base}｜该单位价来自：${src}` : base
+}
+
+/** 单价格的说明：这个价从哪来的 —— 用户要能判断对不对，不能只给一个数。 */
+function priceTitle (row) {
+  const src = PRICE_SOURCE_LABEL[row.priceSource] || ''
+  const o = unitOptionsOf(row).find(x => x.name === row.unit)
+  if (!src) return ''
+  const parts = [`价格来源：${src}`]
+  if (o && Number(o.archive_price) > 0) parts.push(`档案价 ¥${o.archive_price}/${o.name}`)
+  if (row.priceSource === 'none') parts.push('可以直接改')
+  return parts.join('｜')
 }
 
 function validate () {
@@ -481,6 +545,10 @@ async function submit (act = 'save') {
       product_id: r.product_id,
       quantity: Number(r.quantity),
       unit_price: Number(r.unit_price),
+      /* 🔴 v683：`unit` **必须提交**。后端据此快照 `base_ratio` / `base_qty`，
+         发货时按折小单位量扣库存。不传 ⇒ 用户填「2 箱」，库存只扣 2 瓶
+         （过去一个月销售明细全走这条路径，14.28 万行一条单位都没有）。 */
+      unit: r.unit || '',
       note: r.note || '',
     }))
     if (cfg.value.isReturn) {
@@ -916,6 +984,11 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
 .isn-unit { font-size: 13px; color: var(--t1) }
 /* 档案没设报单单位时的回落值 —— 用弱化色标注，不静默 */
 .isn-unit.fallback, .isn-unit.none { color: var(--t3) }
+/* v683：单位下拉。高度与行内输入框同高（26px），否则多档单位商品一选中，
+   整行被 UA 默认高度顶高，与「六页行高统一 29.8px」冲突。
+   `padding:0 2px` 收掉 UA 给 select 的左右内距：单位名只有 1~2 个字，
+   8px 内距会让「箱」看着偏右。 */
+.isn-unit-sel { height: 26px; padding: 0 2px; font-size: 13px }
 
 /* 底部动作条：普通 flex 项，由 `.inv-page` 布局推到 `.isn-body` 下方
    （不用 sticky —— `.isn-body` 自己滚动占满剩余高度，动作条自然落在它下面，

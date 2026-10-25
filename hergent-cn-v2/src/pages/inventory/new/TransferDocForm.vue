@@ -135,8 +135,17 @@
                 <input v-model="row.quantity" class="input isn-in num" inputmode="decimal" placeholder="0" />
               </td>
               <td v-if="isVisible('unit')" class="isn-c-unit">
-                <span v-if="row.unit" class="isn-unit" :class="{ fallback: row.unitFromBase }"
-                      :title="row.unitFromBase ? '商品档案里没设「报单单位」，按基础单位显示' : ''">{{ row.unit }}</span>
+                <!-- v683：单位改成**下拉**（可选项 = 该商品档案里配的可用单位）。
+                     🔴 不用 `v-model` + `@change`：v-model 会在 change 派发**前**改掉
+                        row.unit，于是"切成哪一档"这个事实在事件里已经丢了
+                        （采购页 `_prevUnit` 快照就是为了绕开同一个坑）。
+                        用 `:value` + 事件取值，语义干净。 -->
+                <select v-if="unitOptionsOf(row).length" class="input isn-in isn-unit-sel"
+                        :value="row.unit" :title="row.convText || row.unit"
+                        @change="onUnitChange(row, $event)">
+                  <option v-for="o in unitOptionsOf(row)" :key="o.key" :value="o.name">{{ o.name }}</option>
+                </select>
+                <span v-else-if="row.unit" class="isn-unit">{{ row.unit }}</span>
                 <span v-else class="isn-unit none"></span>
                 <div v-if="row.convText" class="isn-conv">{{ row.convText }}</div>
               </td>
@@ -227,6 +236,9 @@ import ColResizeHandle from '../../../components/ColResizeHandle.vue'
 import { psiApi } from '../../../api/psi'
 import { toast } from '../../../store'
 import { transferDocConfig, TRANSFER_DOC_TYPES } from './docTypes.js'
+import {
+  applyPricingToRow, applyUnitChange, createPricingCache, unitOptionsOf, PRICE_SOURCE_LABEL,
+} from './unitPricing.js'
 
 const props = defineProps({
   type: { type: String, default: TRANSFER_DOC_TYPES.TRANSFER_ORDER },
@@ -278,7 +290,12 @@ const toWhName = computed(() => (form.value.to_warehouse_id ? whName(form.value.
 const PRESET_ROWS = 15
 
 function blankRow () {
-  return { uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false, unitOptions: [], convText: '', baseUnit: '', barcode: '' }
+  return {
+    uid: ++_uid, product_id: 0, quantity: '', unit: '', unitFromBase: false,
+    unitOptions: [], convText: '', baseUnit: '', barcode: '',
+    // v683：默认档 / 价格来源 —— 由后端定价下发，前端不算
+    defaultUnit: '', priceSource: '',
+  }
 }
 function insertAfter (i) {
   const r = blankRow()
@@ -293,30 +310,44 @@ function scrollRowIntoView (uid) {
   })
 }
 
-/** 从商品档案带出单位 / 条码 / 换算式提示（调拨单无价格列，不取 purchase_price）。
-    与采购单 applyProduct 同规则：默认档 = order_unit 命中的档位；没设 / 没命中 ⇒ 小档；
-    已有单位（复制旧单 / 编辑）且在档位内则保留，不被档案默认值顶掉。 */
-function applyProduct (row) {
-  const p = products.value.find(x => x.id === row.product_id)
+/* v683：单位与默认档**全部来自后端定价接口**（`GET /api/psi/product-pricing`）。
+   🔴 前端不再自己按 `order_unit` 推默认档：那样四个建单页会各推一套，而"同一商品
+      该默认选哪一档"是**同一件事**，必须只有一份实现（后端 `product_pricing.py`）。
+   调拨是内部移库 ⇒ `kind='transfer'`，接口不返价格，本页也没有价格列。 */
+const pricingCache = createPricingCache(id => psiApi.productPricing(id, 'transfer'))
+
+async function applyProduct (row) {
+  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
   if (!p) {
     row.unitOptions = []; row.convText = ''; row.baseUnit = ''; row.barcode = ''
-    row.unit = ''; row.unitFromBase = false
+    row.unit = ''; row.unitFromBase = false; row.defaultUnit = ''; row.priceSource = ''
     return
   }
-  row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
-  row.convText = String(p.conv_text || '')
-  row.baseUnit = String(p.unit || '')
-  const ou = String(p.order_unit || '').trim()
-  const hit = row.unitOptions.find(o => o.name === ou)
-  const keep = row.unit && row.unitOptions.some(o => o.name === row.unit)
-  if (!keep) {
-    row.unit = hit ? hit.name : (row.unitOptions[0] ? row.unitOptions[0].name : '')
-    row.unitFromBase = !hit && !!row.unit
-  }
   row.barcode = String(p.barcode || '')
+  try {
+    const pricing = await pricingCache.get(row.product_id)
+    if (pricing) applyPricingToRow(row, pricing)
+  } catch (e) {
+    /* 定价接口失败 ⇒ 退回商品档案里已有的档位（与改造前同源），并**如实提示**。
+       🔴 不静默留空：单位下拉空着，用户会以为这个商品没配单位。 */
+    row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
+    row.convText = String(p.conv_text || '')
+    row.baseUnit = String(p.unit || '')
+    if (!row.unit) row.unit = row.baseUnit
+    toast('单位没取到，已按商品档案兜底：' + (e && e.message ? e.message : e))
+  }
+  row.unitFromBase = false
 }
 function onPick (row) {
   applyProduct(row)
+}
+
+/** v683 切档：**数量不动，只重算单价**（老板拍板，四页统一）。
+    调拨无价格 ⇒ 这里只会改单位名。 */
+function onUnitChange (row, ev) {
+  const want = String((ev && ev.target && ev.target.value) || '')
+  if (!want) return
+  applyUnitChange(row, want)
 }
 
 function validate () {
@@ -345,11 +376,14 @@ function buildBody () {
     department_id: Number(form.value.department_id || 0),
     /* ⚠️ `product_name` 一起带上：后端 `_parse_doc_items` 那一族用它拼错误提示
        （「「蒙牛纯甄」的调拨数量要大于 0」），不带就只能显示「商品 123」。
-       `unit_price` **不传** —— 调拨是内部移库，我方明细表没有价格列。 */
+       `unit_price` **不传** —— 调拨是内部移库，我方明细表没有价格列。
+       🔴 v683：`unit` **必须传**。后端据此快照 `base_ratio` / `base_qty`，过账时按
+          折小单位量搬货；不传 ⇒ 用户填「2 箱」，库存只搬 2 瓶（过去就是这条路径）。 */
     items: filledRows.value.map(r => ({
       product_id: r.product_id,
       product_name: (products.value.find(p => Number(p.id) === Number(r.product_id)) || {}).name || '',
       quantity: Number(r.quantity),
+      unit: r.unit || '',
     })),
   }
 }
@@ -699,6 +733,11 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
 .isn-unit { font-size: 13px; color: var(--t1) }
 /* 档案没设报单单位时的回落值 —— 用弱化色标注，不静默 */
 .isn-unit.fallback, .isn-unit.none { color: var(--t3) }
+/* v683：单位下拉。高度与行内数字输入框同高（26px）—— 否则多档单位商品一选中，
+   整行被下拉的 UA 默认高度（约 28~30px）顶高，与「六页行高统一 29.8px」冲突。
+   `padding:0 2px` 是把 UA 给 select 的左右内距收掉：单位名只有 1~2 个字，
+   8px 的内距会让「箱」这个字看着偏右。 */
+.isn-unit-sel { height: 26px; padding: 0 2px; font-size: 13px }
 
 /* 底部动作条：普通 flex 项，由 `.inv-page` 布局推到 `.isn-body` 下方
    （不用 sticky —— `.isn-body` 自己滚动占满剩余高度，动作条自然落在它下面，

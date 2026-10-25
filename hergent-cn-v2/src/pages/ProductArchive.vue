@@ -287,12 +287,16 @@
                   <label class="pa-f"><span>换算比<span class="pa-hint">1 大单位 = ? 个小单位</span></span><input v-model="editForm.large_ratio" class="input" type="number" min="0" step="1" placeholder="如 40"></label>
                 </div>
               </div>
-              <!-- v234 P0：默认单位（采购/销售/赠送各选一个档位，空 = 跟随档案单位） -->
-              <div class="sub-sec">默认单位<span class="pa-hint">开单时预选的单位，空 = 跟随档案单位</span></div>
+              <!-- v683：本节由「默认单位」更名为**默认开单单位**，并说清它真正的作用。
+                   🔴 为什么改名：这三个字段自 v234 起就有控件、能保存，但**没有任何建单页
+                      读过它们**（生产非空值 0 条 ⇒ 等于没人用过、也没人发现不生效）。
+                      v683 起它们决定"开单时单位下拉默认选中哪一档"，是本轮改造的落点。
+                   空 = 跟随档案单位（再由后端按单据类型回退：采购回大包装、退货回小单位）。 -->
+              <div class="sub-sec">默认开单单位<span class="pa-hint">开单时单位下拉**默认选中**哪一档；留空 = 跟随档案单位</span></div>
               <div class="pa-form">
-                <label class="pa-f"><span>采购默认单位</span>
+                <label class="pa-f" title="新建采购订单 / 采购退货时，单位下拉默认选中这一档"><span>采购默认单位</span>
                   <select v-model="editForm.default_purchase_unit" class="input"><option value="">跟随档案单位</option><option v-for="o in unitOptions" :key="'p'+o" :value="o">{{ o }}</option></select></label>
-                <label class="pa-f"><span>销售默认单位</span>
+                <label class="pa-f" title="新建自提 / 车销 订单与退单时，单位下拉默认选中这一档"><span>销售默认单位</span>
                   <select v-model="editForm.default_sale_unit" class="input"><option value="">跟随档案单位</option><option v-for="o in unitOptions" :key="'s'+o" :value="o">{{ o }}</option></select></label>
                 <!-- v240：报单默认单位（原「报单单位」，在基本信息 Tab 的手填输入框）。
                      🔴 字段仍绑 `products.order_unit`（v233 落地的真身：主表「单位」列与舟谱模板「*单位」列同源），
@@ -300,9 +304,15 @@
                      🔴 单值语义 ⇒ 天然满足「最多一个报单默认单位」：选中新值即顶掉旧值；新增单位不会自动选中。 -->
                 <label class="pa-f" title="报单时使用的单位 —— 主表「单位」列与舟谱模板「*单位」列都用它；留空 = 跟随档案单位"><span>报单默认单位</span>
                   <select v-model="editForm.order_unit" class="input"><option value="">跟随档案单位</option><option v-for="o in orderUnitOptions" :key="'o'+o" :value="o">{{ o }}</option></select></label>
-                <label class="pa-f"><span>赠送默认单位</span>
+                <label class="pa-f" title="赠品出库时单位下拉默认选中这一档"><span>赠送默认单位</span>
                   <select v-model="editForm.default_gift_unit" class="input"><option value="">跟随档案单位</option><option v-for="o in unitOptions" :key="'g'+o" :value="o">{{ o }}</option></select></label>
               </div>
+              <!-- v683：配了不存在的单位名 ⇒ 后端 PUT 会 400（`routers/data.py`）。这里提前
+                   标出来，别等用户点保存才看到报错。历史上 `order_unit` 有 29 个商品是手填的
+                   孤儿值（档案没录过小单位那批），所以只对 `order_unit` 放行、不判红。 -->
+              <p v-if="staleUnitWarning" class="pa-warn">
+                {{ staleUnitWarning }}
+              </p>
               <!-- v234 P0：移动端开单可见单位（位掩码，勾选才在报单小程序出现） -->
               <div class="sub-sec" id="lbl-mobile">移动端开单可见单位<span class="pa-hint">勾选的单位才会在小程序报单里出现</span></div>
               <div class="check-group" role="group" aria-labelledby="lbl-mobile">
@@ -799,6 +809,28 @@ const orderUnitOptions = computed(() => {
   const v = String(editForm.value.order_unit || '').trim()
   if (v && !arr.includes(v)) arr.push(v)
   return arr
+})
+
+/* v683：三个「默认开单单位」配了已不存在的单位名时的提示。
+   🔴 为什么只提示、不自动纠正：那可能是用户刚把某个包装层级清空（例如删掉大单位），
+      自动改成「跟随档案」会**静默丢掉一条人工决定**；提示出来让人自己定。
+   🔴 `order_unit` 不在此列：它历史上有 29 个商品是手填的孤儿值（档案没录过小单位那批），
+      那个通道按 v240 的设计允许孤儿值存在并显式列进下拉。 */
+const staleUnitWarning = computed(() => {
+  const f = editForm.value
+  const opts = unitOptions.value
+  const pairs = [
+    ['采购默认单位', f.default_purchase_unit],
+    ['销售默认单位', f.default_sale_unit],
+    ['赠送默认单位', f.default_gift_unit],
+  ]
+  const bad = pairs.filter(([, v]) => {
+    const s = String(v || '').trim()
+    return s && !opts.includes(s)
+  })
+  if (!bad.length) return ''
+  return bad.map(([lab, v]) => `${lab}「${v}」不是这个商品的单位`).join('；')
+    + '。保存会被拒绝，请重选或改成「跟随档案单位」。'
 })
 
 /* v234 P1：拉取价格矩阵（按单位档位）。先按商品可售档位铺空行，再异步用已有数据覆盖。 */
@@ -1553,6 +1585,11 @@ onMounted(() => {
    「大字」无豁免）⇒ 说明性文字对弱视用户基本不可读。字号提到 --fs-sm(12px)、
    颜色换 --t2(#6e6e73 ≈ 5.0:1 达标)。--t3 今后只用于**装饰性/非说明性**文字。 */
 .pa-hint{font-size:var(--fs-sm);color:var(--t2);font-weight:400;margin-left:4px}
+/* v683：默认开单单位配错时的提示条。用告警色而不是错误红框 —— 它是"保存前先提醒"，
+   还没发生提交失败；红框会让人以为已经存坏了。 */
+.pa-warn{margin:6px 0 0;padding:6px 10px;border-radius:var(--radius-sm);
+  background:var(--warn-bg, #fff7e6);color:var(--warn, #b45309);
+  font-size:var(--fs-sm);line-height:1.5}
 
 /* v184b 到货周期列：行内可编，沿用进价列的视觉语言（虚线下划 + hover 变品牌色），
    但**不用**警示色 —— 见下面 .pa-cyc-none 的注释。 */

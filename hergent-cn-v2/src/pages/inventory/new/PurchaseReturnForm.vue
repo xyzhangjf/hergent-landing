@@ -241,18 +241,12 @@
         <div class="ipn-bar">
           <b>{{ cfg.tblTitle }}</b>
           <span class="ipn-cnt">{{ filledRows.length }} 项</span>
-          <!-- v451（L3）：舟谱第二行的「按小单位采购」勾选框（截图实见）。
-               🔴 语义（用户 2026-10-12 拍板）：
-                  · **勾选（默认）** ⇒ 单位列锁死商品的**小单位**（= v449 起的现状，
-                    默认行为零变化，老板已跑熟的退货口径不动）；
-                  · **取消勾选** ⇒ 单位列放开**小 / 中 / 大**三档下拉（档位与换算比全由后端
-                    `unit_options` 下发，前端不自己算）。
-               🔴 无论选哪一档，落库都**折成小单位**（后端 `db/queries/units` 唯一实现）——
-                  明细表 `quantity`/`unit_price` 恒为小单位口径，下游"已退量"才不会静默缩水。 -->
-          <label class="ipn-chk" title="勾选后单位固定为商品小单位；取消勾选可选小/中/大三档">
-            <input type="checkbox" v-model="smallUnitOnly" />
-            按小单位采购
-          </label>
+          <!-- v683：原先这里是「按小单位采购」勾选框（勾上锁小单位、取消才放开三档）。
+               🔴 为什么去掉这个开关：它与商品档案里的「默认开单单位」是**同一件事的
+                  两个入口** —— 一个全局开关 + 一个逐商品配置，用户永远说不清"到底谁生效"。
+                  现在统一成：单位列**恒为下拉**，默认选哪一档由商品档案的
+                  `default_purchase_unit` 决定（没配则回退最小单位 = 退货的老口径）。
+                  老口径不会变：大多数商品档案没配默认单位 ⇒ 退货仍然默认按小单位退。 -->
         </div>
 
         <p v-if="cfg.tip" class="ipn-tip">
@@ -285,20 +279,23 @@
                   <input v-model="row.quantity" class="input ipn-in num" inputmode="decimal" placeholder="0" />
                 </td>
                 <td v-if="isVisible('unit')" class="ipn-c-unit">
-                  <!-- v451：取消「按小单位采购」后放开三档下拉（档位来自后端 unit_options）。
+                  <!-- v683：单位**恒为下拉**（可选项 = 商品档案里配的可用单位）。
                        ⚠️ 选项里没有中/大档的商品（档案没维护）只会有小档一项 ——
-                          这是常态（生产实测 449 个商品只有 74 个中/大档齐全），不是缺陷。 -->
-                  <select v-if="!smallUnitOnly && row.unitOptions && row.unitOptions.length"
-                          v-model="row.unit" class="input ipn-in ipn-unit-sel"
-                          :title="row.convText || row.unit">
-                    <option v-for="o in row.unitOptions" :key="o.key" :value="o.name">{{ o.name }}</option>
+                          这是常态（生产实测 449 个商品只有 74 个中/大档齐全），不是缺陷。
+                       🔴 `:value` + 事件取值，不用 `v-model` + `@change`：v-model 会在
+                          change 派发**前**改掉 row.unit，事件里就再也说不出"从哪档到哪档"。 -->
+                  <select v-if="unitOptionsOf(row).length"
+                          :value="row.unit" class="input ipn-in ipn-unit-sel"
+                          :title="unitTitle(row)" @change="onUnitChange(row, $event)">
+                    <option v-for="o in unitOptionsOf(row)" :key="o.key" :value="o.name">{{ o.name }}</option>
                   </select>
                   <span v-else-if="row.unit" class="ipn-unit">{{ row.unit }}</span>
                   <span v-else class="ipn-unit none"></span>
                   <div v-if="unitHint(row)" class="ipn-conv">{{ unitHint(row) }}</div>
                 </td>
                 <td>
-                  <input v-model="row.unit_price" class="input ipn-in num" inputmode="decimal" placeholder="0.00" />
+                  <input v-model="row.unit_price" class="input ipn-in num" inputmode="decimal" placeholder="0.00"
+                         :title="priceTitle(row)" />
                 </td>
                 <td class="num ipn-amt" v-if="isVisible('amt')">¥{{ fmtMoney(rowAmount(row)) }}</td>
                 <td class="ipn-c-op">
@@ -401,6 +398,9 @@ import { fmtMoney, PO_STATUS, textOf } from '../../../constants/psiLabels'
 import { purchaseDocConfig, PURCHASE_DOC_TYPES } from './docTypes.js'
 import SupplierCombo from './SupplierCombo.vue'
 import ProductCombo from './ProductCombo.vue'
+import {
+  applyPricingToRow, applyUnitChange, createPricingCache, unitOptionsOf, PRICE_SOURCE_LABEL,
+} from './unitPricing.js'
 
 const props = defineProps({
   /* 单据类型键，见 `docTypes.js` 的 `PURCHASE_DOC_TYPES`。本内核只承载采购退货单。 */
@@ -428,11 +428,6 @@ const reason = ref('')
 /* v451（L3）：「保存 / 保存并审核」两个下拉菜单的开合态（与采购订单建单页同名同义）。 */
 const saveOpen = ref(false)
 const approveOpen = ref(false)
-/* v451（L3）：「按小单位采购」勾选框。
-   🔴 **默认勾选 = 锁小单位 = v449 起跑熟的现状**（默认行为零变化）；
-      取消勾选才放开 小/中/大 三档下拉。反过来的默认会让"退货数量"的量纲
-      在用户没注意时变一个档位 —— 那正是本页最该防的静默错账。 */
-const smallUnitOnly = ref(true)
 const form = ref({
   supplier_id: 0, warehouse_id: 0, department_id: 0, order_date: '', note: '',
 })
@@ -533,10 +528,10 @@ function rowAmount (r) {
   return (q && p) ? Math.round(q * p * 100) / 100 : 0
 }
 function blankRow () {
-  /* 🔴 `unit` 取**基础单位**（下面 `applyProduct` 里赋 `baseUnit`），不是 `p.order_unit` ——
-     见文件头「单位口径」。 */
   return { uid: ++_uid, product_id: 0, quantity: '', unit: '', unit_price: '',
-           unitOptions: [], convText: '', baseUnit: '', barcode: '' }
+           unitOptions: [], convText: '', baseUnit: '', barcode: '',
+           // v683：默认档 / 价格来源 —— 后端定价下发，前端不算
+           defaultUnit: '', priceSource: '' }
 }
 function insertAfter (i) {
   const r = blankRow()
@@ -551,38 +546,68 @@ function scrollRowIntoView (uid) {
   })
 }
 
-/** 从商品档案带出单位 / 条码 / 换算式提示。
-    退货单位口径 = **基础单位**（`products.unit`，见文件头）：`quantity` 直接交给 `inventory_adjust`
-    扣库存、不乘任何 ratio，所以这里**不设**多档单位选择，unit 恒为基础单位。
-    convText 一并带出，悬停单位格可见「1 箱 = 12 袋」之类的换算式提示（与采购单同款）。 */
-function applyProduct (row) {
-  const p = products.value.find(x => x.id === row.product_id)
+/* v683：单位与价格**全部来自后端定价接口**（`GET /api/psi/product-pricing`，kind='purchase_return'）。
+   🔴 后端对 `purchase_return` 的默认档回退是**最小档**（不是采购单的"最大档"）：
+      退货按小单位退才对得上"已退量"，这是老板拍板的「保持各页现状」。
+   🔴 换供应商 ⇒ 归属价变了 ⇒ 缓存清空重取。 */
+const pricingCache = createPricingCache(id =>
+  psiApi.productPricing(id, 'purchase_return', { supplier_id: Number(form.value.supplier_id) || 0 }))
+watch(() => form.value.supplier_id, (now, before) => {
+  if (Number(now) === Number(before)) return
+  pricingCache.clear()
+})
+
+/** 从商品档案带出单位 / 条码 / 换算式提示 / 该档单价。
+    🔴 落库口径不变：后端仍把 `quantity`/`unit_price` 折成小单位存（`purchase_return_items`
+       的历史铁律，见 `erp_db.py::purchase_return_create` docstring）。本页只负责
+       让用户能选档，并把"所选档的价"正确带出来。 */
+async function applyProduct (row) {
+  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
   if (!p) {
     row.unitOptions = []; row.convText = ''; row.baseUnit = ''; row.barcode = ''
-    row.unit = ''
+    row.unit = ''; row.defaultUnit = ''; row.priceSource = ''
     return
   }
-  row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
-  row.convText = String(p.conv_text || '')
-  row.baseUnit = String(p.unit || '')
   row.barcode = String(p.barcode || '')
-  /* v451（L3）默认档位：
-       · 勾了「按小单位采购」⇒ 恒小单位（= v449 起的现状，行为零变化）；
-       · 没勾 ⇒ 取商品档案「报单单位」命中的那一档，命中不了回落小档。
-     🔴 前端**只做相等匹配**，不重算任何比值 —— `unit_options` 由后端
-        `db/queries/units.unit_options` 算好下发（混类型列 `medium_ratio` 空串
-        在 SQL/JS 两端结论相反，是生产实测过的坑，判定只准有一份）。 */
-  row.unit = smallUnitOnly.value ? row.baseUnit : (defaultUnitOf(row) || row.baseUnit)
+  try {
+    const pricing = await pricingCache.get(row.product_id)
+    if (pricing) applyPricingToRow(row, pricing)
+  } catch (e) {
+    row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
+    row.convText = String(p.conv_text || '')
+    row.baseUnit = String(p.unit || '')
+    if (!row.unit) row.unit = row.baseUnit
+    const pp = Number(p.purchase_price || p.cost_price || 0)
+    if (!row.unit_price && pp > 0) row.unit_price = String(pp)
+    toast('单位/价格没取到，已按商品档案兜底：' + (e && e.message ? e.message : e))
+  }
 }
 
-/** 该行的默认档位名（不勾「按小单位采购」时用）：命中 `order_unit` 则用它，否则小档。 */
-function defaultUnitOf (row) {
-  const opts = Array.isArray(row.unitOptions) ? row.unitOptions : []
-  if (!opts.length) return ''
-  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
-  const ou = String((p && p.order_unit) || '').trim()
-  if (ou && opts.some(o => o.name === ou)) return ou
-  return opts[0].name
+/** v683 切档：**数量不动，只重算单价**（老板拍板，四页统一）。 */
+function onUnitChange (row, ev) {
+  const want = String((ev && ev.target && ev.target.value) || '')
+  if (!want) return
+  applyUnitChange(row, want)
+}
+
+/** 单位格说明：换算关系 + 该档价来自哪里。 */
+function unitTitle (row) {
+  const base = row.convText || row.unit || ''
+  const o = unitOptionsOf(row).find(x => x.name === row.unit)
+  if (!o) return base
+  const src = PRICE_SOURCE_LABEL[o.price_source] || ''
+  return src ? `${base}｜该单位价来自：${src}` : base
+}
+
+/** 单价格说明：这个价从哪来 —— 用户要能判断对不对，不能只给一个数。 */
+function priceTitle (row) {
+  const src = PRICE_SOURCE_LABEL[row.priceSource] || ''
+  if (!src) return ''
+  const o = unitOptionsOf(row).find(x => x.name === row.unit)
+  const parts = [`价格来源：${src}`]
+  if (o && Number(o.archive_price) > 0) parts.push(`档案价 ¥${o.archive_price}/${o.name}`)
+  if (row.priceSource === 'none') parts.push('可以直接改')
+  return parts.join('｜')
 }
 
 /** 单位格上的换算提示：选了比小单位大的档时，直接告出「折多少小单位」。
@@ -599,26 +624,8 @@ function unitHint (row) {
   return row.convText || ''
 }
 
-/* 勾选框一动就把已有行统一到对应口径 —— 否则"勾着"的行还留着上一刻选的大单位，
-   提交时按大单位折、与用户眼前看到的勾选状态矛盾（静默错账的又一变体）。 */
-watch(smallUnitOnly, (only) => {
-  items.value.forEach(r => {
-    if (!r.baseUnit) return
-    r.unit = only ? r.baseUnit : (defaultUnitOf(r) || r.baseUnit)
-  })
-})
-
 function onPick (row) {
   applyProduct(row)
-  /* 默认带出商品档案的进货价（可改）—— 退货价通常就是当时那个价，让用户少填一次。
-     ⚠️ 档案价是「元 / 报单单位」还是「元 / 小单位」本页无从判断，所以**只做预填**，
-        不作为计算依据；退货数量按商品档案「小单位」（即明细「单位」列显示项）填写，提交后库存直接扣减。 */
-  if (!row.unit_price && Number(row.product_id)) {
-    const p = products.value.find(x => x.id === row.product_id)
-    if (p && Number(p.purchase_price || p.cost_price || 0) > 0) {
-      row.unit_price = String(p.purchase_price || p.cost_price)
-    }
-  }
 }
 
 function validateStandalone () {

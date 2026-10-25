@@ -324,6 +324,25 @@ if (has('skip-sfc')) {
   results.push({ name: '建单页行高与规范一致性', ok: r.code === 0, code: r.code })
 }
 
+// ── ⑱ 开单单位可选 + 单位×价格联动契约（v683）────────────────
+/* 老板原话：「各类单据开单时的商品单位需支持手动选择，替代当前写死的"箱"」。
+   改造前四页各一套口径：采购三档下拉但换档「价×k、量÷k」；采购退货要勾"按小单位"；
+   销售/调拨只读文字；档案 default_*_unit 有控件能存但全仓零读取；销售/退货/调拨
+   三张明细表 DDL 里压根没有 unit 列。
+   这类约定最易死的死法：① 前端自己乘 ratio 带价 ⇒ 采购页把「元/小单位」的档案价
+   当「元/大单位」（7.22 元/板 算成 0.72，差 10 倍，330 个商品）；② 换档顺手把数量
+   也除了（老板拍板的是「数量不动、金额跟着变」）；③ 切客户不清定价缓存 ⇒ 带错价
+   且界面看着完全正常；④ 下拉能选但不提交 unit ⇒ 选了「箱」只扣 1 瓶。
+   契约钉「共享模块唯一入口 + 四页下拉/提交/清缓存 + 后端快照 archive×ratio +
+   只采购回退大包装 + 详情 unit_label 回退链」，每条带坏样本自证判别力。 */
+{
+  console.log('\n── ⑱ 开单单位可选 + 单位×价格联动契约（v683）──')
+  const r = run('unit-pricing.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '开单单位×价格联动', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

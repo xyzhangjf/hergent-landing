@@ -52,6 +52,23 @@ export const psiApi = {
   refs: (kind = 'all', keyword = '', limit = 200) =>
     api(`/api/psi/refs${qs({ kind, keyword, limit })}`),
 
+  /**
+   * 建单页「单位 × 价格」联动（v683）—— 可用档位 / 预选档 / 每档该填的单价及来源。
+   *
+   * @param {number} productId 商品 id
+   * @param {string} kind `purchase` | `purchase_return` | `sale` | `sale_return` | `gift` | `transfer`
+   * @param {object} extra  `{customer_id}`（销售侧）或 `{supplier_id}`（采购侧）—— 给了就
+   *                        **优先**带出该客户/该供应商的上次成交价
+   * @returns `{product_id,kind,base_unit,conv_text,archive_price,default_unit,
+   *            unit_options:[{key,name,ratio,price,price_source,archive_price}],last_scoped}`
+   *
+   * 🔴 这是单位与价格的**唯一来源**。前端不许把 `archive_price` / `purchase_price`
+   *    自己乘 ratio —— 档案价是「元/小单位」，乘错一个量级就是真实的错价
+   *    （v680 之前采购页把 7.22 元/板 算成 0.72 元/板，生产 330 个商品受影响）。
+   */
+  productPricing: (productId, kind = 'sale', extra = {}) =>
+    api(`/api/psi/product-pricing${qs({ product_id: productId, kind, ...(extra || {}) })}`),
+
   /* ---- 库存（只读投影） ---- */
   /**
    * 批次级库存，**默认按到期日升序**（低温奶先出最早到期；无到期日排最后）。

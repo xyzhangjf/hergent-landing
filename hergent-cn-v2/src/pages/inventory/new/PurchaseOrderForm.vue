@@ -486,6 +486,10 @@ import ColResizeHandle from '../../../components/ColResizeHandle.vue'
    不再出现这些文案的第二份。 */
 import { purchaseDocConfig, PURCHASE_DOC_TYPES } from './docTypes.js'
 import SupplierCombo from './SupplierCombo.vue'
+import {
+  applyPricingToRow, applyUnitChange, createPricingCache, unitOptionsOf, findUnitOption,
+  PRICE_SOURCE_LABEL,
+} from './unitPricing.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -778,9 +782,8 @@ function rowAmount (r) {
    🔴 为什么：`medium_ratio / large_ratio` 在库里是**混类型列**（有 191 行是空串），
       `'' > 0` 在 SQLite 为真、在 JS 为假 —— 同一条规则两端结论相反，前端再判一次
       就是「第二份实现」。判定只有一份，在 `server/db/queries/units.py`。 */
-function unitOptionsOf (row) {
-  return Array.isArray(row.unitOptions) ? row.unitOptions : []
-}
+/* v683：`unitOptionsOf` 已统一到 `./unitPricing.js`（四页共用同一份判定）。
+   本页原先在这里有一份逐字相同的本地实现 —— 删掉，避免"同一件事两份实现"。 */
 /** 当前所选档位的换算比（1 该档 = ratio 个小单位）。没选 / 单档 ⇒ 1。 */
 function ratioOf (row) {
   const o = unitOptionsOf(row).find(x => x.name === row.unit)
@@ -812,13 +815,20 @@ const smallUnitMode = ref((() => {
   try { return localStorage.getItem('ipn_small_unit_mode') === '1' } catch (_) { return false }
 })())
 
-/** 某一行的**默认档名**：总闸开着 ⇒ 小档；否则 ⇒ 现有最大档（`unit_options` 按 小→中→大 排）。
+/** 某一行的**默认档名**：总闸开着 ⇒ 小档；否则 ⇒ 商品档案的「默认开单单位」
+    （`default_purchase_unit`），没配 / 配了无效值 ⇒ 现有最大档。
+    🔴 v683：档案默认单位优先于"最大档"这条隐含规则 —— 老板要求「开单时下拉框默认
+       选中该单位」。这三个 `default_*_unit` 字段在过去**有控件、能保存、零消费**
+       （生产非空值 0 条），本次起才真正生效。
     🔴 取「最后一个」而不是找 `key==='large'`：两级商品（没有大档）必须落到中档或小档，
        写死 large 会让这些商品拿到空单位名。 */
 function defaultUnitOf (row) {
   const opts = unitOptionsOf(row)
   if (!opts.length) return ''
-  return smallUnitMode.value ? opts[0].name : opts[opts.length - 1].name
+  if (smallUnitMode.value) return opts[0].name
+  const want = String(row.defaultUnit || '').trim()
+  if (want && opts.some(o => o.name === want)) return want
+  return opts[opts.length - 1].name
 }
 
 /** 把行单位换成 `newName`，并**按比例换算已填的采购价与数量**。
@@ -837,36 +847,40 @@ function defaultUnitOf (row) {
     🔴 换算比一律用后端下发的 `ratio`（小→该档），本函数不出现第二种换算算法。
     🔴 算不出比（档位缺失 / ratio≤0）⇒ **只换单位、不换算**，交给用户自己看；
        绝不猜一个 1 顶上去（猜 1 = 把一箱当成一个）。 */
+/** 把行单位换成 `newName`，并按**该档的实际价格**重算单价。
+    🔴 v683（老板 2026-10-25 拍板）：**数量不动，只重算单价**。
+       这与 v455 的「价×k、量÷k（金额不变）」**相反** —— 那是"总货量不变"的算法，
+       现在的语义是"我就是要这些数量"。四页统一，不要再给某一页开特例。
+    🔴 新价从哪来：`row.unitOptions[].price`（后端算好的：同客户/供应商上次成交价 →
+       该商品上次成交价 → 历史成交价 → 档案价×ratio）。**前端不乘除** ——
+       v680 之前就是在这里乘错方向，把 7.22 元/板 算成 0.72 元/板。
+    🔴 该档没有可参考价（price=0）⇒ 保留原单价不清零：清零会被读成"这档不要钱"，
+       实际是"没有价可参考"，界面上由价格来源提示「请手填」。 */
 function switchRowUnit (row, newName) {
-  const oldName = row.unit
-  row.unit = newName || ''
+  const name = String(newName || '').trim()
+  if (!name) { row.unit = ''; row._prevUnit = ''; return }
+  // `force: true` ⇒ 无论行上原单位是什么都按目标档重算一次。
+  // 这样就不必先"还原旧档"再切（旧写法依赖 `_prevUnit` 快照，而 `<select>` 的
+  // v-model 与 @change 触发顺序无规范 ⇒ 半开概率下静默变成"下拉变了、价没变"）。
+  applyUnitChange(row, name, { force: true })
   row._prevUnit = row.unit
-  if (!oldName || !newName || oldName === newName) return
-  const o = unitOptionsOf(row).find(x => x.name === oldName)
-  const n = unitOptionsOf(row).find(x => x.name === newName)
-  if (!o || !n || !(Number(o.ratio) > 0) || !(Number(n.ratio) > 0)) return
-  const k = Number(n.ratio) / Number(o.ratio)          // 价 × k、量 ÷ k ⇒ 金额与折小量都不变
-  const p = Number(row.unit_price || 0)
-  if (p > 0) row.unit_price = String(Math.round(p * k * 10000) / 10000)
-  const q = Number(row.quantity || 0)
-  if (q > 0) row.quantity = String(Math.round(q / k * 10000) / 10000)
 }
 
 /** 行内单位下拉的 @change。
-    🔴 旧档位取 `row._prevUnit`（`cellOn(row,'unit')` 时快照的），**不读 `row.unit`：
-       `<select>` 上 v-model 与 @change 同时监听 change，两者触发顺序不写在任何规范里，
-       读 row.unit 有半开概率拿到「已经是新值」—— 那这次换算就静默失效（正是要防的那类 bug）。
+    🔴 v683：切档只重算单价 ⇒ **不再需要"先还原旧档"**（那套 `_prevUnit` 机制是为
+       v455「价×k、量÷k 同时换算」服务的）。`switchRowUnit` 内部用 `force` 直接重算，
+       彻底摆脱对 v-model/@change 触发顺序的依赖。
     🔴 必须操作 **row 本体**：`{...row}` 副本上的赋值不会写回响应式行（v455 初版犯过，
        症状是下拉变了、价量没换算，而且不报错）。 */
 function onUnitChange (row, ev) {
   const want = String((ev && ev.target && ev.target.value) || '')
   if (!want) return
-  row.unit = row._prevUnit || row.unit   // 先还原旧档，switchRowUnit 才能按「旧→新」换算
   switchRowUnit(row, want)
 }
 
 /** 总闸切换：全表所有**已选商品**的行一次切到目标档（空行不带单位，跳过）。
-    🔴 走 `switchRowUnit` ⇒ 每行已填的价 / 量按各自的比例换算，金额与折小数量保持不变。
+    🔴 v683 起 `switchRowUnit` 只重算**单价**、不动数量（老板拍板）⇒ 切总闸后
+       每行数量保持不变，金额按该档价重算。这与 v455 的「量÷k」相反，是刻意的。
     🔴 行内若有人为某行单独选过档，这一下会把它也带过来 —— 舟谱的总闸同样是全表生效，
        这是「开关」该有的语义；要保留个别行就切完总闸再去行内改回来。 */
 function applyUnitMode () {
@@ -886,34 +900,29 @@ function onSmallUnitMode () {
   applyUnitMode()
 }
 
-/** 参考成本价按**本行所选档位**折算后显示。
-    🔴 口径（老板 2026-10-13）：档案里的采购价按**大单位**理解（默认按大单位进货）。
-       行内换成小档时这一列必须一起折算 —— 否则「参考成本价 ¥86/箱」摆在
-       「采购价 __ 元/组」旁边，两个数差 12 倍，根本没法对照着填。
-    🔴 方向（与 switchRowUnit 同一条算式，别各写一份）：
-        档案价是「元/大单位」，当前档是「元/ratio 个小单位」
-        ⇒ 显示价 = 档案价 × (当前档 ratio / 大档 ratio)
-        验算：7.22 元/箱（1箱=12组）→ 组：7.22×1/12 = 0.60 元/组 ✅
-        （v455 探针实测：我第一版写成 ×大/当前，算出 86.67 —— 大了 144 倍。）
-    🔴 没有大档的商品**不折算**（档案价是哪个单位的无从判断 ⇒ 不猜，本仓铁律：缺值不编）。
-    🔴 这与 `onPick` 的预填同源：预填值就是折算后的档案价，两者必须永远同一个单位。 */
+/** 参考成本价按**本行所选档位**取 —— v683 起这个数由**后端算**（`unit_options[].price`）。
+    🔴 为什么不再自己折算：v455 的假设是「档案 `purchase_price` = 元/大单位」，据此写
+       `档案价 × 当前档ratio / 大档ratio`。**生产实测该假设是错的**：
+         · 「小优原味」小=板/大=箱(10)，`purchase_price=7.22`，真实采购成交 6.4 元/板
+         · 「CD杯8杯」小=组/大=箱(12)，`purchase_price=7.67`，成交 7.67 元/组
+         · 而 `factory_price` 才是元/大单位（`factory ≈ purchase × large_ratio`，
+           321 个双价商品里命中 263 个、完全相等 0 个）
+       ⇒ `purchase_price` / `sale_price` 是**元/小单位**。按老假设算，选「板」时
+          7.22 × 1/10 = 0.72 元/板 —— 少算 10 倍，生产 330 个有大包装的商品全受影响。
+       现在一律以后端 `db/queries/product_pricing.py` 的结论为准，前端不出现第二种算法。 */
 function refPriceOf (row) {
-  const p = Number(row.purchase_price || 0)
-  if (!p) return 0
-  const big = unitOptionsOf(row).find(o => o.key === 'large')
-  if (!big) return p
-  const r = ratioOf(row)
-  if (!(r > 0) || r === Number(big.ratio)) return p
-  return Math.round(p * r / Number(big.ratio) * 100) / 100
+  const o = findUnitOption(row, row.unit)
+  if (!o) return 0
+  return Number(o.price) || 0
 }
-/** 折算提示：只在**真的折算过**时出现，写清档案原价和它的单位 —— 可审计，不是静默改数。 */
+/** 折算提示：只在**档案价与当前档价不同**时出现，写清档案价折算到本档是多少 —— 可审计。 */
 function refConvText (row) {
-  const p = Number(row.purchase_price || 0)
-  const big = unitOptionsOf(row).find(o => o.key === 'large')
-  if (!p || !big) return ''
-  const r = ratioOf(row)
-  if (!(r > 0) || r === Number(big.ratio)) return ''
-  return `档案价 ¥${fmtMoney(p)}/${big.name}`
+  const o = findUnitOption(row, row.unit)
+  if (!o) return ''
+  const ap = Number(o.archive_price)
+  if (!(ap > 0)) return ''
+  const src = PRICE_SOURCE_LABEL[o.price_source] || ''
+  return `档案价 ¥${fmtMoney(ap)}/${o.name}${src ? '｜' + src : ''}`
 }
 
 /** v444：建单页明细表的**出厂预设空行数**。规范 §4.1 —— 两页（采购 / 销售）必须同值。 */
@@ -935,6 +944,8 @@ function blankRow () {
     note: '',
     // v409（P1-2→P2-1）三档单位：档位清单 / 换算文案 / 档案小单位名，都由后端随商品下发。
     unitOptions: [], convText: '', baseUnit: '',
+    // v683：档案默认开单单位 + 当前价来自哪里（后端下发，前端只显示不算）
+    defaultUnit: '', priceSource: '',
   }
 }
 function addRow () { items.value.push(blankRow()) }
@@ -955,40 +966,54 @@ function scrollRowIntoView (uid) {
   })
 }
 
+/* v683：单位与价格**全部来自后端定价接口**（`GET /api/psi/product-pricing`，kind='purchase'）。
+   返回的 `unit_options[i].price` 已经是「该档该填多少」的最终答案：
+   同供应商上次成交价 → 该商品上次成交价 → 历史成交价 → 档案价×ratio → 0(手填)。
+   🔴 换供应商 ⇒ 归属价变了 ⇒ 缓存必须清空重取（否则把上一个供应商的价带过来，
+      而界面看起来完全正常）。 */
+const pricingCache = createPricingCache(id =>
+  psiApi.productPricing(id, 'purchase', { supplier_id: Number(form.value.supplier_id) || 0 }))
+watch(() => form.value.supplier_id, (now, before) => {
+  if (Number(now) === Number(before)) return
+  pricingCache.clear()
+})
+
 /** 从商品档案带出单位 / 条码 / 参考成本价（价格可改）。
-    v409（P2-1）单位改成**三档可选**（小 / 中 / 大），档位清单由后端 `unit_options` 下发。
-    v455（老板口径 2026-10-13）：默认档从「`order_unit` 命中档 / 小档」改为
-      · 「按小单位采购」开关**开着** ⇒ 小档；
-      · 否则 ⇒ **现有最大档**（没有大档就取中档，再没有就只有小档）。
-      🔴 为什么改：老板原话「进货是按大单位进货，默认采购价格是大单位」。
-         旧默认（order_unit / 小档）与档案价（大单位价）**差一整个量级** ——
-         预填的采购价会被读成「一箱 86 元」而实际是「一组 7.2 元」这类错。
-      ⚠️ 已有单位（复制旧单 / 编辑）且在档位里 ⇒ **保留**，不要被默认值顶掉。 */
-function applyProduct (row) {
-  const p = products.value.find(x => x.id === row.product_id)
+    v683：档位清单与每档价格都由后端下发，本函数只负责"套到行上"。
+    ⚠️ 已有单位（复制旧单 / 编辑回填）且在档位里 ⇒ **保留**，不要被默认值顶掉。 */
+async function applyProduct (row) {
+  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
   if (!p) {
     row.barcode = ''; row.purchase_price = 0
     row.unitOptions = []; row.convText = ''; row.baseUnit = ''; row.unit = ''
-    row._prevUnit = ''
+    row._prevUnit = ''; row.defaultUnit = ''; row.priceSource = ''
     return
   }
-  row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
-  row.convText = String(p.conv_text || '')
-  row.baseUnit = String(p.unit || '')
-  // 已有单位（复制旧单 / 编辑）且在档位里 ⇒ **保留**，不要被档案默认值顶掉。
-  const keep = row.unit && row.unitOptions.some(o => o.name === row.unit)
-  if (!keep) row.unit = defaultUnitOf(row)
-  row._prevUnit = row.unit
   row.barcode = String(p.barcode || '')
   row.purchase_price = Number(p.purchase_price || 0)
+  try {
+    const pricing = await pricingCache.get(row.product_id)
+    if (pricing) {
+      applyPricingToRow(row, pricing)
+      // 总闸开着 = 强制小档（老行为，老板在用的开关不动）
+      if (smallUnitMode.value && unitOptionsOf(row).length) {
+        switchRowUnit(row, unitOptionsOf(row)[0].name)
+      }
+    }
+  } catch (e) {
+    /* 定价接口失败 ⇒ 退回商品档案兜底（与改造前同源），并**如实提示**。
+       🔴 兜底时预填的是档案原价（元/小单位），只在小档下才等价于该档价。 */
+    row.unitOptions = Array.isArray(p.unit_options) ? p.unit_options : []
+    row.convText = String(p.conv_text || '')
+    row.baseUnit = String(p.unit || '')
+    if (!row.unit) row.unit = defaultUnitOf(row)
+    if (!row.unit_price && row.purchase_price > 0) row.unit_price = String(row.purchase_price)
+    toast('单位/价格没取到，已按商品档案兜底：' + (e && e.message ? e.message : e))
+  }
+  row._prevUnit = row.unit
 }
 function onPick (row) {
   applyProduct(row)
-  /* v455：预填值走 `refPriceOf`（按本行当前档位折算），不再直接取档案原价。
-     🔴 为什么：总闸「按小单位采购」开着时默认档是小档，此时把**大单位**的档案价
-        原样填进小档的采购价框，一上来就差一整个量级（老板会被这个预填带偏）。
-        走 refPriceOf 后，预填值与「参考成本价」列永远是同一个单位、同一个数。 */
-  if (!row.unit_price && row.purchase_price > 0) row.unit_price = String(refPriceOf(row))
 }
 
 /* v430：商品「名称 + 条码」模糊查找组合框（行内 per-row 临时状态，避免多行实例互相串）。
