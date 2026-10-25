@@ -4464,3 +4464,85 @@ v673 只测了②就宣布修好，用户回「没有修复」。**两处都要�
 ⚠️ `.sb-pop` 的样式在 `Shell-*.css` 懒加载 chunk 里、scoped 后是 `.sb-pop[data-v-xxx]`，
 grep `.sb-pop{` 或只翻 `index-*.css` 都会空手而归。
 契约 `tests/shell-pop-layer.contract.mjs`（run-all 第 ⑪ 组），规范 UI-SPEC §1.7.3。
+
+---
+
+# 列表页 / 建单页密度三连（v678 → v679 → v680，2026-10-25）
+
+三次都是老板"看着挤/看着松/行太高"的反馈，共同点：**真凶都不是字号/行距/控件高度**，
+而是「容器留白」与「列宽没按内容倒推」。排查顺序：先量，再 A/B 注入，最后才改源码。
+
+## v678 · 表格行内「⋯更多操作」菜单（采购单列表 关联/操作 两列）
+
+- **现象**：两列内容自动换行 ⇒ 行高过高、信息密度下降。
+- **修法**：常用动作仍直出（`INLINE_MAX=2`，`rowActions()` 按 `rank<=3` 拆 `inline/more`），
+  其余收进「⋯」；关联列的「退货」移入操作列 ⋯，关联列只留入库/货款。
+- **列宽**：`OP_W=128` / `REL_W=96` + `td{white-space:nowrap}` + 行内容器 `flex-wrap:nowrap`。
+- 🔴 **共享件 `components/RowMoreMenu.vue`**：单根 `<span class="row-more">`，
+  `<Teleport to="body">` + `.row-more-pop{position:fixed;z-index:var(--z-page-menu,1101)}`。
+  **必须 Teleport+fixed**——单元格普遍 `overflow:hidden`，绝对定位的下拉会被静默裁掉。
+  关闭时机 = mousedown 空白 + Esc + scroll/resize；触发按钮 `.row-more-btn` 18×18；
+  危险项由**宿主页**排序（组件不管业务语义）。
+- 🔴 **列宽按最不利（最宽松）密度核算**：内容宽 = 列宽 − 28（宽松档 `padding:10px 14px`）。
+  首版按紧凑档(−16)定 124 ⇒ 差 3px，「⋯」被静默裁掉。
+- 契约 `tests/row-more-menu.contract.mjs`（run-all ⑮）：Teleport+fixed / 接入与 inline↔more 拆分 /
+  单行不溢出 / 全站其余 10 个列表页行内单元格无折行。
+- 全站复核：DeliveryOrder / FundsDoc / Promotions / AlertRules / BrandArchive / EmployeeArchive /
+  ReportMapping 的 `flex-wrap:wrap` **都是页面级工具条或卡片级操作区，不是行内单元格** ⇒ 不得误改。
+
+## v679 · 列表页页头控制区密度（筛选工具条 + 状态页签条）
+
+- **红框范围**：`.card.xx-filter`（`.psi-frow` 单行控件条）+ `.psi-tabbar`（`StatusTabs` + `PsiListActions`）。
+- **实测（改前 1920）**：页头 **123px**，其中控件只占 **72px ⇒ 51px（41%）是纯留白**。
+  筛选卡 70px 高而控件行仅 32px（上下各 18px）；`.main-tab` `padding:10px 18px`/14px ⇒ 单条 **40px**，
+  比刚压过的表格行（32.8px）还高；筛选卡底距 12 + 页签行底距 12 再叠一层缝。
+- **修法**：`variables.css` 新增 `.card.{ipl,isl,is,fc,ff,fd,fbk,fs,wob,woi,wsa,win,wvs}-filter{padding:10px 14px}`；
+  `psi-list.css` 的 `.psi-tabbar .main-tab{padding:7px 12px;font-size:13px}`（**只限列表页，不动全局 `.main-tab`**）、
+  `.psi-frow` gap 12→10、`.psi-tabbar` 底距 12→10。**`.card` 基线 18px 不动**（内容卡仍需要呼吸位）。
+- **实测（改后）**：1920 页头 123→**99**（−19.5%）、留白 51→35；1440 页头 211→**141**（−33%）、
+  页签行 85→33（**消掉换行**）、留白 95→35。
+- **A/B 注入法**（定位与验收都靠它）：不改源码，用 `page.addStyleTag()` 把候选规则注入**线上页**，
+  同页前后各量一次 ⇒ 一次拿到确定因果，避免"改了不知道是哪个改动起效"。
+- 契约 `tests/toolbar-density.contract.mjs`（run-all ⑯）含「页面 scoped 不得另写 padding」漂移检查 ——
+  否则哪天有人在单页里补一条 padding，中心规则就静默失效。
+
+## v680 · 六个建单页商品行行高对齐「采购订货单」基准
+
+- **现象**：基准页数据行 **29.8px**，采购退货单/自提订单/自提退单/车销订单/车销退单/调拨单 **56.6px**（≈翻倍）。
+- 🔴 **根因＝操作列固定宽写小了**：行内两个 `.btn-row-ic`（26×26，全局 `variables.css:440`）+ 4px 间距
+  = **56px 净宽**，加 `td` 左右各 8px ⇒ 操作列须 **≥72px**。v449 拆页时新页写成 **`width:64px`**
+  （净宽只剩 48px）⇒ 两个按钮**换行成两行** ⇒ 行高 26+26+4+2 = **56.6px**。
+  **基准页当时不写宽度**（按内容自适应）所以一直单行 —— **「抄列宽」比「抄机制」更危险**：
+  抄的人看到新页有个 `width` 就当它是规范，抄了个更脆的值。
+  同族：§11 #13（删行按钮 30×30→26×26）⇒ **行内图标按钮是行高决定者**。
+- **统一口径（四组件一致）**：`width:76px; min-width:76px` + `white-space:nowrap`
+  （76 = 26×2+4+8×2 = 72，再留 4px 余量）。**基准页也同步定死 76px**（原自适应 119.5px），
+  不然七页操作列宽仍各不相同 —— 一致性要求"两边都钉住"，不能只钉坏的那个。
+- **sticky 操作列配色**：销售/调拨此前**只有 `position:sticky`**，补 `background:var(--bg)`
+  + `box-shadow:inset 1px 0 0 var(--border-subtle)`。不补则横向滚动时右侧列**从操作列底下透出来**、
+  且无左侧分割线（`border-collapse:collapse` 下 sticky 真 `border` 会丢，只能用 inset 阴影当线）。
+- **换算小字改绝对定位浮层**（销售/调拨仍是 v417c **之前**的行内第二行写法 ⇒ 选中多档单位商品时行高再涨）：
+  `display:none;position:absolute;z-index:6`，hover/focus 才 `display:block`，锚点格 `position:relative`。
+- **同名列宽地板值**对齐基准：单位 84 / 数量 86 / 单价 86 / 金额 92 / 库存 78 / 商品 `min-width:240`
+  （原 110·110·110 / 76 / 86 / 280）。
+- **共享件 `ProductCombo.vue`** 的 `.ipn-v` 文本态 20px → **18px**（紧凑 16px，§R.2）：
+  它是**组件自带 scoped 规则**，**页面级 CSS 改不动** ⇒ 拆页时最容易漏抄。
+- **实测（生产 v680，1920 紧凑档，7 页逐页量）**：七页**全部**行高 29.8 / 操作列 76 / 按钮 1 行 /
+  底色 `rgb(255,255,255)` / 分割线 `inset 1px` / 数量 86 / 单位 84 / 库存 78 / 表头 36.5 / 底部条 41。
+- **刻意保留的差异（不是遗漏，别去"凑"）**：销售/调拨 `.<pfx>-save` 多 `gap:8px`（装**两个**下拉/按钮，
+  基准只装一个）｜调拨底部条显示「已录商品 N 项」而非「合计」（小单位不同，加起来没意义）｜
+  车销订单表单头 74px（多一格送货司机，整格换行，§R.3）｜表 `min-width` 1372 vs 720（列数不同）。
+- 契约 `tests/psi-order-form-density.contract.mjs`（run-all ⑰，**74 断言 + 8 判别力自证**）：
+  A 操作列宽 / B sticky 配色 / C 换算浮层 / D 同名列宽 / E 表格内距与控件高 / F 共享件文本态。
+  🔴 已做「注回已知缺陷」自证：销售页操作列改回 64px + 换算小字退回行内 ⇒ 立即判红 4 条并点名页面与实际值。
+
+## 方法论沉淀（三次都复用）
+
+1. **先量再改**：写 `tests/perf/vXXX/*.mjs` 探针，把「页头总高 / 卡内距 / 控件行高 / 列宽 / 按钮行数」
+   逐项打数，算出**纯留白占比**，再决定改哪一层。
+2. **A/B 注入定因果**：`page.addStyleTag()` 注入候选规则 → 同页前后对比 ⇒ 不猜。
+3. **宽度要倒推**：所有「固定宽度」都写成推导式（`按钮数×26 + gap + td 内距 + 余量`）放进注释，
+   下次换按钮尺寸时才知道该改谁。
+4. **一致性＝两边都钉住**：不能只把坏的那个改成"自适应"，也不能只钉住好的那个；
+   基准与副本必须同一份显式值，否则下次又漂。
+5. **契约必须自证判别力**：每条关键断言都要对"真实样本"判过、对"注入的已知坏样本"判红。

@@ -1100,3 +1100,40 @@ v493 真实缺陷：`ChartHbar` 的名称文本 `x = PAD.l - 10 = -2` 配 `text-
 
 
 ---
+
+---
+
+# 生产探针三连坑 + CDP 纪律（v655 / v666 实测，代价极大）
+
+## 1. 生产 minify 产物让常规 Vue 探针全部失灵
+
+- 🔴 **所有组件实例的 `setupState` 恒为 EMPTY_OBJ、key 被 mangle** ⇒
+  ① 探针**别用 setupState 做判据或 bypass**；② 类型判据用 `type.__name`（prod 保留）；
+  ③ 实例入口用 `#app._vnode`（无条件可写）+ **vnode DFS**——`element` 的 children 也要穿透，
+  只 walk 实例级一层会漏掉孙层。
+- 🔴 `__vueParentComponent` / `app._instance` 被 `NODE_ENV!=="production" || __VUE_PROD_DEVTOOLS__` 门禁，
+  prod 完全不可用。
+- 🔴 无开放期次时「改单」被 `noOpenPeriod` 守卫**静默拦下（只 toast）** ⇒ 解法
+  `reopenPeriod(pid,'full')`（❗**unlock 不改 status 无效**）→ 走忠实路径 → 测完 `closePeriod` 恢复。
+- 本地验证服务：`tests/perf/v655/serve-dist.mjs`（静态 dist + `/api` 反代 erp.hergent.cn）。
+
+## 2. CDP 指令无顺序保证
+
+- 🔴 `Input.insertText` 与紧随的 `Runtime.evaluate` **之间没有顺序保证** ⇒ 会误判成「字符被重渲染刷掉」。
+  判「字符有没有被抹掉」必须在**页面内** 10ms 采样 `input.value`，别用 CDP 往返。
+- 🔴 **点击切换类控件（复选框/开关）不许用 `el.click()` 验收**：`preventDefault()` 的还原发生在
+  Vue patch 之后 ⇒ 量不出来真实鼠标的错乱。必须 `Input.dispatchMouseEvent`。
+- 🔴 **偶发 fetch 挂起**：headless Chrome 经 CDP 发的 `PUT` 写请求偶发**永不 resolve**（弹窗卡住、无 toast），
+  但同一端点 curl 直连 / 经 vite 反代均 200 落库 ⇒ 是 headless+CDP 环境假象，不是产品缺陷。
+  判据取「应用后本行加单格仍=10」这类**页内事实**，apply 是否真落库用 curl 独立证伪。
+- 🔴 **视口陷阱**：1440 下操作列常在视口外，`elementFromPoint` 返 `null` ⇒ 先 `scrollIntoView` 再点。
+  真机量带 transition 的元素（侧栏条目等）**必须等动画结束**（150ms），否则读到中间值。
+
+## 3. 「某个操作卡不卡」按阶段分开量
+
+- 🔴 别只看总时长（v666「点改单」慢的是**入口一次性建 8252 个 input**，而打字路径 11.5ms 一直没问题）。
+  手法：`Emulation.setCPUThrottlingRate(4)` 模拟笔记本 + `PerformanceObserver(longtask)`
+  + **三线勾稽**（页内 hook fetch 记起止 / 每 50ms 采样 DOM 节点数 / 长任务时间戳）。
+  `window.fetch` hook 会漏「点之前就在飞」的请求 ⇒ 用 `performance.getEntriesByType("resource")` 兜底。
+  判据用「首帧可用 + 长任务峰值」，不是总时长（总活量不变，变的是多久能开始干活）。
+- 探针脚本放项目 `tests/perf/vXXX/`，**别放 `/tmp`**（`import 'playwright'` 解析不到）。
