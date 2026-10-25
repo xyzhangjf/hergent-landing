@@ -32,6 +32,9 @@
 - **改"恒空 getter"前先 grep 布尔/三元用法**（`auth.token` 改恒空曾让 IdleTimeout 静默失效=安全倒退）。
 - 🔴 **「底栏/合计行要往下翻才看得见」先查它是不是被写死的 `72vh` 类相对视口高度顶出去的**（同款两次：编辑网格 v602、查看态 v667）。判据=量 `底栏.getBoundingClientRect().bottom` vs `innerHeight`；修法=按「表格顶到视口底」反推（`_measureGridHeight`）内联覆盖，多态共用一份算法、另一态/全屏清 0 交回 CSS。🔴 探针别拿 `getComputedStyle().maxHeight` 当「CSS 兜底值」比 —— 内联会覆盖它、两者恒等（第一版就这么把自己骗了）；要比就按公式算（`0.72*innerH+119`），且必须有「清掉内联值 ⇒ 复现溢出」的判别力自证。
 - **任何 Modal/浮层**：`Teleport + fixed + z-index 1250`；有自定义浮层就删触发器 `title`。
+- 🔴 **表格行内下拉/浮层（如「⋯更多操作」菜单）必须 `Teleport to="body"` + `position:fixed`**（v678 实证）：单元格普遍 `overflow:hidden`，绝对定位的下拉会被静默裁掉 ⇒ 唯一正解是渲染到 body。共享件 `components/RowMoreMenu.vue`（`.row-more-pop{z-index:var(--z-page-menu,1101)}`）。改任意表格内的下拉前先确认它走 Teleport+fixed。
+- 🔴 **列宽按「最不利（最宽松）密度」核算余量**（v678 实证）：内容宽 = 列宽 − 28（宽松档 padding 10px 14px）。按紧凑档(−16)定列宽会差 3px 被静默裁掉末位按钮（如「⋯」）。表格列宽权威在 `<colgroup>`，td 不写 width；密度分宽松（padding 10px 14px）与紧凑（2px 8px）。
+- 🔴 **`.card` 的 18px 内距只是「内容卡」基线，不能套到「单行工具条」**（v679 实证）：14 个列表页筛选卡（`.ipl-filter/.isl-filter/.is-filter/.fc-ff-fd-fbk-fs-filter/.wob-woi-wsa-win-wvs-filter`）裸用 `.card` ⇒ 卡高 70px 里 36px 是纯留白。唯一源在 `variables.css` 的 `.card.xx-filter{padding:10px 14px}` 组；**新增筛选卡必须把类名补进这组，否则静默回落 18px**（无报错）。状态页签密度只改 `.psi-tabbar .main-tab`，**不要动全局 `.main-tab`**（其它页主页签会跟着变）。
 
 ## 🔴 后端写库 / 建表（v665 实读，极易静默不落盘）
 
