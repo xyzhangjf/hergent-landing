@@ -518,6 +518,22 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 }
 .card:hover{box-shadow:var(--shadow-md);border-color:var(--bd)}
 
+/* ---- 列表页筛选工具条：`.card` 的 18px 四周内距对「单行控件条」过松 ----
+   🔴 由来（v679 实测，老板红框反馈）：采购单列表 1920 视口下筛选卡高 70px，
+      其中 **36px 是纯上下留白**（18px×2），真正的控件行只有 32px ⇒ 留白占卡高 51%。
+      全站 13 个列表页的筛选卡（采购 / 销售 / 调拨 / 库存查询 / 资金 5 页 / 仓配 5 页）
+      都是同一份 `.card` 起的、内距一律继承 18px —— 这就是「信息密度偏低」的根因，
+      **不是字号、不是行距、不是控件太高**（控件 32px 是标准触达尺寸，不动）。
+   收紧到 10px 14px：只作用于**筛选工具条卡片**；内容卡片（表格 / 面板 / KPI）仍走 18px。
+   与既有更紧的 `.rpt-filter{padding:10px 12px}` 口径一致（不是新发明，是收敛到既有口径）。
+   ⚠️ 各页 scoped 的 `.xx-filter` 只声明 display/gap/margin，**都不声明 padding** ⇒ 本规则
+      生效且不会被页面覆盖；新增筛选卡请把类名补进下面这一组，否则会静默回落 18px。 */
+.card.ipl-filter, .card.isl-filter, .card.is-filter,
+.card.fc-filter, .card.ff-filter, .card.fd-filter, .card.fbk-filter, .card.fs-filter,
+.card.wob-filter, .card.woi-filter, .card.wsa-filter, .card.win-filter, .card.wvs-filter{
+  padding:10px 14px;
+}
+
 /* ============================================================
    Bento 网格 / KPI 概览条（全站复用）
    ------------------------------------------------------------

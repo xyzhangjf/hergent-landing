@@ -301,6 +301,20 @@ if (has('skip-sfc')) {
   results.push({ name: '行内更多菜单/单行不溢出', ok: r.code === 0, code: r.code })
 }
 
+// ⑯ 列表页页头控制区密度（筛选工具条卡片 + 状态页签条，v679）
+/* 现象：筛选一行控件塞进 18px 内距的 `.card` 里 ⇒ 1920 实测卡高 70px、纯留白 36px（占 51%）；
+   状态页签 `.main-tab` 40px 高、横向 18px 内距，与下方紧凑表格脱节。
+   收敛 = 13 个筛选卡内距 18→10/14、`.psi-tabbar .main-tab` 收紧到 7/12 + 13px、`.psi-frow` gap 12→10。
+   这类"密度"约定最易死的死法：① 新页面裸用 `.card` 不补筛选类名 ⇒ 回落 18px；② 页面 scoped
+   给筛选卡另写 padding ⇒ 第二份真相源。契约同时钉"无页面 scoped padding"以防漂移。 */
+{
+  console.log('\n── ⑯ 页头控制区密度契约（v679）──')
+  const r = run('toolbar-density.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '页头控制区密度', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

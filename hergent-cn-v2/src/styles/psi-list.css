@@ -187,14 +187,20 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
       统一给间距（否则页签与工具栏之间会出现 16px 的"来历不明"的空白）。 */
 .psi-tabbar {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin: 0 0 12px;
+  gap: 12px; flex-wrap: wrap; margin: 0 0 10px;
 }
 .psi-tabbar .psi-tabs { margin-bottom: 0 }
+/* v679：状态页签条是「筛选控件」，不是内容标题 —— 收紧到与工具栏同密度。
+   改前 .main-tab padding 10px 18px / font 14px ⇒ 单条 40px 高、字间空 36px，
+   与下方表格的紧凑行（v678 后 32.8px）明显脱节。改成 7px 12px / 13px ⇒ 约 32px，
+   横向也收窄（7 档页签省出 ~84px，1440 视口更不容易把动作组挤到第二行）。
+   🔴 只作用于 `.psi-tabbar` 内的页签（列表页）—— 不影响其它页面用 `.main-tabs` 的主页签。 */
+.psi-tabbar .main-tab { padding: 7px 12px; font-size: 13px }
 .psi-tabact { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto }
 
 /* ---- 筛选行：一行放不下就**整组换行**（flex-wrap），绝不把标签与输入框拆到两行 ----
    拆行 = 每个筛选项高度翻倍 ⇒ 筛选区吃掉本该给表格的空间（本轮要消掉的正是这个）。 */
-.psi-frow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap }
+.psi-frow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
 .psi-frow-sub { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-subtle) }
 .psi-f { display: flex; align-items: center; gap: 6px }
 .psi-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
