@@ -356,6 +356,18 @@ if (has('skip-sfc')) {
   results.push({ name: '自由退货提醒（不拦截）', ok: r.code === 0, code: r.code })
 }
 
+/* ⑳ v685：老板报「新建采购订单页，商品单位还是不能选择」。
+   真因不是单位控件坏了，而是 ①refs 只拉 500 条（生产 1270 个商品，后端 ORDER BY id DESC
+   ⇒ 老商品压根不在列表里）②候选只显示名称+条码，同名的「单档无价」垃圾档案长得一模一样
+   且排在前面。两条都**零报错**，只能靠这一组机械钉住。 */
+{
+  console.log('\n── ⑳ 商品候选「可辨识+可用优先」+ refs 拉全量契约（v685）──')
+  const r = run('product-pick.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '商品候选可用优先', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

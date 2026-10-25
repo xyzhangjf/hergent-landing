@@ -39,6 +39,27 @@ export function unitOptionsOf(row) {
   return Array.isArray(row && row.unitOptions) ? row.unitOptions : []
 }
 
+/**
+ * 单位格的 tooltip（四建单页共用）。
+ *
+ * v685 生产事实：1270 个商品里 800 个是「单档且无价」的档案，用户搜同名商品
+ * 点错后，单位下拉只有 1 项 —— 现象就是**「单位不能选」**，但界面不解释为什么。
+ * 这里把"为什么只有一项 / 想去掉这个限制该去哪儿"直接写进 title。
+ */
+export function unitCellTitle(row) {
+  const opts = unitOptionsOf(row)
+  const base = String((row && row.convText) || (row && row.unit) || '').trim()
+  const tail = base ? '｜' + base : ''
+  if (!opts.length) {
+    return '这个商品档案里没配单位，开单前请先到「商品档案」补上' + tail
+  }
+  if (opts.length === 1) {
+    return `这个商品档案只配了「${opts[0].name}」1 个单位，所以没别的可选；`
+      + '想按中/大包装开单，请先到「商品档案」把包装单位补上' + tail
+  }
+  return base
+}
+
 /** 按单位名找档位；找不到返回 `null`。 */
 export function findUnitOption(row, name) {
   const want = String(name || '').trim()

@@ -413,8 +413,11 @@ import { purchaseDocConfig, PURCHASE_DOC_TYPES } from './docTypes.js'
 import SupplierCombo from './SupplierCombo.vue'
 import ProductCombo from './ProductCombo.vue'
 import {
-  applyPricingToRow, applyUnitChange, createPricingCache, unitOptionsOf, PRICE_SOURCE_LABEL,
+  applyPricingToRow, applyUnitChange, createPricingCache, unitOptionsOf, unitCellTitle,
+  PRICE_SOURCE_LABEL,
 } from './unitPricing.js'
+/* v685：refs 拉全量（limit=500 会截断商品/客户，表现为"搜不到商品 / 单位不能选"）。 */
+import { REF_LIMIT } from './productPick.js'
 /* v684：自由退货的「这行商品在该供应商那儿有没有历史采购」提醒（唯一入口，只提醒不拦截）。 */
 import { createHistoryChecker, historyWarnText, HISTORY_NOTE } from './partnerHistory.js'
 
@@ -647,7 +650,9 @@ function onUnitChange (row, ev) {
 
 /** 单位格说明：换算关系 + 该档价来自哪里。 */
 function unitTitle (row) {
-  const base = row.convText || row.unit || ''
+  /* v685：base 走 unitCellTitle —— 只有 1 档时它会解释「为什么只有一项、去哪儿补」，
+     否则用户看到只有一个选项会以为功能坏了。 */
+  const base = unitCellTitle(row)
   const o = unitOptionsOf(row).find(x => x.name === row.unit)
   if (!o) return base
   const src = PRICE_SOURCE_LABEL[o.price_source] || ''
@@ -944,7 +949,7 @@ async function submitAttached () {
 /* ══ 基础资料 / 初始化 ═══════════════════════════════════════════════════════════ */
 async function loadRefs () {
   try {
-    const d = await psiApi.refs('warehouses,suppliers,products,departments', '', 500)
+    const d = await psiApi.refs('warehouses,suppliers,products,departments', '', REF_LIMIT)
     warehouses.value = d.warehouses || []
     suppliers.value = d.suppliers || []
     products.value = d.products || []

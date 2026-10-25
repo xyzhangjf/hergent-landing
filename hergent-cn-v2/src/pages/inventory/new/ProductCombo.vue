@@ -8,6 +8,9 @@
    🔴 只做「搜 + 选」，不做「带出」—— 带出逻辑留在父页 onPick，避免把四套
       业务口径（采购价 / 售价 / 退货价 / 调拨无价）塞进一个组件里。 */
 import { ref, computed } from 'vue'
+/* v685：候选「可辨识 + 可用优先」——同名档案不再长得一模一样（唯一实现在 productPick.js）。
+   生产实测 130 组重名里 119 组是「一条多档、其余单档无价」，点错就表现为「单位不能选」。 */
+import { pickMatches, pickBadge, pickSummary } from './productPick.js'
 
 const props = defineProps({
   row: { type: Object, required: true },
@@ -21,15 +24,7 @@ const active = ref(0)
 
 const vFocus = { mounted: el => { try { el.focus() } catch (_) {} } }
 
-const matches = computed(() => {
-  const q = (kw.value || '').trim().toLowerCase()
-  const list = Array.isArray(props.products) ? props.products : []
-  if (!q) return list.slice(0, 50)
-  return list.filter(p =>
-    (p.name || '').toLowerCase().includes(q) ||
-    (p.barcode || '').toLowerCase().includes(q)
-  ).slice(0, 50)
-})
+const matches = computed(() => pickMatches(props.products, kw.value, 50))
 
 function currentName () {
   const p = (props.products || []).find(x => Number(x.id) === Number(props.row.product_id))
@@ -73,8 +68,13 @@ function onBlur () { editing.value = false }
            @blur="onBlur" />
     <ul v-if="editing && matches.length" class="ipn-prod-list">
       <li v-for="(p, i) in matches" :key="p.id" :class="{ active: i === active }"
+          :title="pickSummary(p)"
           @mousedown.prevent="choose(p)" @mouseenter="active = i">
         <span class="ipn-prod-name">{{ p.name }}</span>
+        <!-- v685：档位徽标 —— 同名档案的唯一区分点（多档 `杯·组·件` / 单档 `仅件` / 无价标红） -->
+        <span class="ipn-prod-tier" :class="{ 'is-muted': pickBadge(p).muted, 'is-warn': pickBadge(p).warn }">
+          {{ pickBadge(p).text }}<template v-if="pickBadge(p).warn"> · 无价</template>
+        </span>
         <span v-if="p.barcode" class="ipn-prod-bar">{{ p.barcode }}</span>
       </li>
     </ul>
@@ -99,6 +99,14 @@ function onBlur () { editing.value = false }
 }
 .ipn-prod-list li.active, .ipn-prod-list li:hover { background: var(--bg2) }
 .ipn-prod-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+/* v685：档位徽标。`flex:none` 且不换行 —— 它是"用来分辨同名商品"的信息，
+   被省略号吃掉就等于没有。单档灰、无价红。 */
+.ipn-prod-tier {
+  flex: none; font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: 4px;
+  color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.ipn-prod-tier.is-muted { color: var(--t3) }
+.ipn-prod-tier.is-warn { color: var(--danger-txt, var(--war, #c0392b)) }
 .ipn-prod-bar { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
 .ipn-prod-empty {
   position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 30;

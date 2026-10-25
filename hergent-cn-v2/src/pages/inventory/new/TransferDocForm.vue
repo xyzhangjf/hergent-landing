@@ -141,7 +141,7 @@
                         （采购页 `_prevUnit` 快照就是为了绕开同一个坑）。
                         用 `:value` + 事件取值，语义干净。 -->
                 <select v-if="unitOptionsOf(row).length" class="input isn-in isn-unit-sel"
-                        :value="row.unit" :title="row.convText || row.unit"
+                        :value="row.unit" :title="unitCellTitle(row)"
                         @change="onUnitChange(row, $event)">
                   <option v-for="o in unitOptionsOf(row)" :key="o.key" :value="o.name">{{ o.name }}</option>
                 </select>
@@ -237,8 +237,11 @@ import { psiApi } from '../../../api/psi'
 import { toast } from '../../../store'
 import { transferDocConfig, TRANSFER_DOC_TYPES } from './docTypes.js'
 import {
-  applyPricingToRow, applyUnitChange, createPricingCache, unitOptionsOf, PRICE_SOURCE_LABEL,
+  applyPricingToRow, applyUnitChange, createPricingCache, unitOptionsOf, unitCellTitle,
+  PRICE_SOURCE_LABEL,
 } from './unitPricing.js'
+/* v685：refs 拉全量（limit=500 会截断商品，表现为"搜不到商品 / 单位不能选"）。 */
+import { REF_LIMIT } from './productPick.js'
 
 const props = defineProps({
   type: { type: String, default: TRANSFER_DOC_TYPES.TRANSFER_ORDER },
@@ -461,7 +464,7 @@ function back () {
 
 async function loadRefs () {
   try {
-    const d = await psiApi.refs('warehouses,products,departments', '', 500)
+    const d = await psiApi.refs('warehouses,products,departments', '', REF_LIMIT)
     warehouses.value = d.warehouses || []
     products.value = d.products || []
     departments.value = Array.isArray(d.departments) ? d.departments : []

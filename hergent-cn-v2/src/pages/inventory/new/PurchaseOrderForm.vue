@@ -250,8 +250,13 @@
                          @blur="pkBlur(row)" />
                   <ul v-if="row._popen && prodMatches(row).length" class="ipn-prod-list">
                     <li v-for="(p, i) in prodMatches(row)" :key="p.id" :class="{ active: i === row._pactive }"
+                        :title="pickSummary(p)"
                         @mousedown.prevent="pkChoose(row, p)" @mouseenter="row._pactive = i">
                       <span class="ipn-prod-name">{{ p.name }}</span>
+                      <!-- v685：档位徽标 —— 同名档案的唯一区分点 -->
+                      <span class="ipn-prod-tier" :class="{ 'is-muted': pickBadge(p).muted, 'is-warn': pickBadge(p).warn }">
+                        {{ pickBadge(p).text }}<template v-if="pickBadge(p).warn"> · 无价</template>
+                      </span>
                       <span v-if="p.barcode" class="ipn-prod-bar">{{ p.barcode }}</span>
                     </li>
                   </ul>
@@ -269,11 +274,12 @@
                         写 `onUnitChange(row)` 时第二个参数是 undefined ⇒ 新档位读不到 ⇒
                         换算整段静默跳过（v455 探针实测抓到过，单位变了、价量没换）。 -->
                 <select v-if="isCellOn(row, 'unit') && unitOptionsOf(row).length" v-model="row.unit" v-focus
-                        class="input ipn-in ipn-unit-sel" :title="row.convText || row.unit"
+                        class="input ipn-in ipn-unit-sel" :title="unitCellTitle(row)"
                         @change="onUnitChange(row, $event)" @blur="cellOff" @keydown.esc="cellOff">
                   <option v-for="o in unitOptionsOf(row)" :key="o.key" :value="o.name">{{ o.name }}</option>
                 </select>
                 <span v-else class="ipn-v" tabindex="0" :class="{ 'is-ph': !row.unit }"
+                      :title="unitCellTitle(row)"
                       @keydown.enter.prevent="cellOn(row, 'unit')">{{ row.unit || (row.product_id ? '—' : '') }}</span>
                 <div v-if="row.convText" class="ipn-conv">{{ row.convText }}</div>
               </td>
@@ -488,8 +494,11 @@ import { purchaseDocConfig, PURCHASE_DOC_TYPES } from './docTypes.js'
 import SupplierCombo from './SupplierCombo.vue'
 import {
   applyPricingToRow, applyUnitChange, createPricingCache, unitOptionsOf, findUnitOption,
-  PRICE_SOURCE_LABEL,
+  unitCellTitle, PRICE_SOURCE_LABEL,
 } from './unitPricing.js'
+/* v685：商品候选「可辨识 + 可用优先」。生产实测 130 组重名里 119 组是
+   「一条多档、其余单档无价」—— 同名档案长得一模一样，点错就表现为「单位不能选」。 */
+import { pickMatches, pickBadge, pickSummary, REF_LIMIT } from './productPick.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -1029,14 +1038,10 @@ function openProd (row) {
 }
 function onProdKw (row, e) { row._pkw = e.target.value; row._pactive = 0; row._popen = true }
 function prodMatches (row) {
-  const q = (row._pkw || '').trim().toLowerCase()
-  const list = products.value
-  if (!q) return list.slice(0, 50)
-  // 包含式模糊匹配：名称或条码任一含关键词即命中
-  return list.filter(p =>
-    (p.name || '').toLowerCase().includes(q) ||
-    (p.barcode || '').toLowerCase().includes(q)
-  ).slice(0, 50)
+  /* v685：过滤 + **可用优先排序**收口到 productPick.js（与 ProductCombo 共用一份）。
+     改动前这里只按"包含"过滤、保持后端顺序 —— 生产里 800 条「单档无价」档案
+     会排在真正能用的那条前面，用户点到就只能看到 1 个单位。 */
+  return pickMatches(products.value, row._pkw, 50)
 }
 function pkMove (row, d) {
   const m = prodMatches(row); const n = m.length
@@ -1450,7 +1455,7 @@ function onDocClick () { saveOpen.value = false; approveOpen.value = false; batc
 */
 async function loadRefs () {
   try {
-    const d = await psiApi.refs('warehouses,suppliers,products,departments,users', '', 500)
+    const d = await psiApi.refs('warehouses,suppliers,products,departments,users', '', REF_LIMIT)
     warehouses.value = d.warehouses || []
     suppliers.value = d.suppliers || []
     products.value = d.products || []
@@ -1711,6 +1716,13 @@ watch([copyId], () => { reinit() })
 }
 .ipn-prod-list li.active, .ipn-prod-list li:hover { background: var(--bg2) }
 .ipn-prod-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+/* v685：档位徽标（同名商品靠它分辨多档 / 仅一档 / 无价）。不换行、不被省略号吃掉。 */
+.ipn-prod-tier {
+  flex: none; font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: 4px;
+  color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.ipn-prod-tier.is-muted { color: var(--t3) }
+.ipn-prod-tier.is-warn { color: var(--danger-txt, var(--war, #c0392b)) }
 .ipn-prod-bar { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
 .ipn-prod-empty {
   position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);

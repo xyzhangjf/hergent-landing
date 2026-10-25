@@ -282,6 +282,9 @@ import { useColSettings } from '../../composables/useColSettings.js'
 import ColMenuPanel from '../../components/ColMenuPanel.vue'
 import { downloadCsv, localDateStamp } from '../../utils/csv'
 import { psiApi } from '../../api/psi'
+/* v685：客户筛选下拉也要拉全量 —— 生产 702 个客户，原来 limit=200 会截断
+   （筛不到某些客户的单据，且界面完全正常 = 静默失效）。 */
+import { REF_LIMIT } from './new/productPick.js'
 import { canDo, toast, confirm } from '../../store'
 import { SO_STATUS, ORDER_TYPE, ORDER_TYPE_OPTIONS, textOf, tagOf, fmtMoney } from '../../constants/psiLabels'
 /* v449：`legacySalePath(type, kind)` 把旧入口的 `?type=&kind=` 解析成**拆分后的独立建单页**
@@ -640,7 +643,7 @@ async function load (resetPage = true) {
     if (_kindOrder.value) p.exclude_status = 'returned'
     const [d, refs] = await Promise.all([
       psiApi.listSales(p),
-      customers.value.length ? Promise.resolve(null) : psiApi.refs('customers', '', 200),
+      customers.value.length ? Promise.resolve(null) : psiApi.refs('customers', '', REF_LIMIT),
     ])
     rows.value = d.orders || []
     total.value = Number(d.total || 0)
