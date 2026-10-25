@@ -4546,3 +4546,24 @@ grep `.sb-pop{` 或只翻 `index-*.css` 都会空手而归。
 4. **一致性＝两边都钉住**：不能只把坏的那个改成"自适应"，也不能只钉住好的那个；
    基准与副本必须同一份显式值，否则下次又漂。
 5. **契约必须自证判别力**：每条关键断言都要对"真实样本"判过、对"注入的已知坏样本"判红。
+
+---
+
+## v683 开单单位可选 + 单位×价格联动（四建单页统一）
+
+**需求原话**：「各类单据开单时的商品单位需支持手动选择，替代当前写死的"箱"」，并要求「优先带出该单位的上次开单价格；首次取档案价；档案无价允许手填」，保存后详情与再次编辑正确回显。
+
+**改造前真实现状（四页四套口径）**：采购三档下拉但换档「价×k、量÷k」；采购退货要勾「按小单位」才放开；销售/调拨单位是只读文字；档案 `default_*_unit` 有控件能存但**全仓零读取**（生产非空 0 条）；销售/退货/调拨三张明细表 DDL **没有 unit 列**。
+
+**唯一入口**：`src/pages/inventory/new/unitPricing.js`
+- `PRICE_SOURCE_LABEL`（last_owner/last/last_legacy/archive/none 五种来源中文）、`unitOptionsOf`、`findUnitOption`、`priceOfUnit`、`defaultUnitName`、`applyPricingToRow`、`applyUnitChange`、`createPricingCache`。
+- `applyUnitChange(row, name, {force})` 只重算**单价**，**不碰 quantity**（老板拍板：数量不动、金额跟着变；与 v455 相反）。
+- 价格由后端 `/api/psi/product-pricing` 下发，前端**只透传与显示，绝不乘 ratio**。
+
+**四页接入**：单位格 `<select :value="row.unit" @change="onUnitChange(row,$event)">`（不用 v-model：它会在 change 派发前改掉 `row.unit`）；`buildBody` 逐行带 `unit`；`watch(customer_id|supplier_id)` 与 `watch(pricingKind)` 都 `pricingCache.clear()`；采购页 `refPriceOf` 改读 `findUnitOption(row,row.unit).price`（修掉 v409 的 10 倍错价）。
+
+**详情回显**：`sale_order_get` 下发 `unit_label`（行单位→报单单位→档案小单位的回退链）、`base_unit`、`base_qty`、`base_unit_price`、`unit_options`；`InvSaleDetail` 单位列用 `it.unit_label || it.unit`，数量列补「= N 瓶」小字。
+
+**档案**：「默认单位」→**「默认开单单位」**，三个字段加 `title` 说明；`staleUnitWarning` 在配了已不存在的单位名时提示；后端 `data.py::_DU_FIELDS` 校验必须属于「将要生效」的三档名，否则 400 并列出可用单位。
+
+**契约**：`tests/unit-pricing.contract.mjs`（组 ⑱，56 条，含坏样本判别力自证）。

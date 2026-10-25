@@ -830,3 +830,22 @@ PY
   （`profit-breakdown` 收入=0 ⇒ 任何非零毛利都是假象，一律不画）。
   🔴 **教训**：「数据缺陷被恒 0 掩盖」与「恒 0 本身就是缺陷」是两回事 ——
   补数的**同一轮**必须重跑依赖该数的下游判据/图表，否则旧缺陷换一身皮继续骗人。
+
+---
+
+## v683 单位三档 + 价格折算（后端唯一实现）
+
+**新增 `db/queries/product_pricing.py`**（生产 `/opt/hergent-erp`，快照归档 `hergent-cn-v2/tests/perf/v683/product_pricing.py`）：
+- 导出 `resolve_pricing(product_id, kind, customer_id, supplier_id)` / `default_unit_of` / `price_of_unit` / `KINDS`。
+- 价格链 5 档：`last_owner`（同客户/供应商 + 同单位）→ `last`（全局 + 同单位）→ `last_legacy`（旧单无 unit，元/小单位，只在小档生效）→ `archive`（**档案价 × 该档 ratio**）→ `none`。
+- 默认档：`default_purchase_unit` → `order_unit` → 最大档；`_FALLBACK_LARGE = {"purchase": True}`（只有采购回大包装，其余回最小档）。
+
+🔴 **量纲**：`purchase_price`/`sale_price` 是**元/小单位**；`factory_price` 才是元/大单位（生产 321 个双价商品，`factory ≈ purchase × large_ratio` 命中 263，完全相等 0）。把前者当大单位价 = 差 ratio 倍（采购页 v409 起 7.22 元/板算成 0.72）。
+
+**端点**：`GET /api/psi/product-pricing?product_id&kind&customer_id&supplier_id`，`_auth` 守卫；kind 非法回落 `sale`。
+
+**落库三件套**：`unit` / `base_ratio` / `base_qty` 写入 `sale_order_items`、`return_order_items`、`transfer_order_items`（采购 `purchase_order_items` v409 已有）。迁移两处同写：主库 `_safe_migrate` 9 条 + `_ensure_tenant_module_tables` 租户列清单 9 条。已是 `_cols/_vals` 动态 INSERT。
+
+**扣减/回增口径**：`_qty_to_base(row)` = `base_qty>0 ? base_qty : quantity`；发货 FEFO、退单回增、调拨过账全走它 ⇒ 历史 14.28 万条销售明细行为零变化。
+
+**隔离租户 e2e**：`hergent-cn-v2/tests/perf/v683/v683-e2e.py`（prepare/run/teardown，40 断言，见该文件头部的两条重启纪律）。
