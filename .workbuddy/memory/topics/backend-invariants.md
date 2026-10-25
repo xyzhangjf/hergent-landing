@@ -849,3 +849,24 @@ PY
 **扣减/回增口径**：`_qty_to_base(row)` = `base_qty>0 ? base_qty : quantity`；发货 FEFO、退单回增、调拨过账全走它 ⇒ 历史 14.28 万条销售明细行为零变化。
 
 **隔离租户 e2e**：`hergent-cn-v2/tests/perf/v683/v683-e2e.py`（prepare/run/teardown，40 断言，见该文件头部的两条重启纪律）。
+
+---
+
+## v684 「商品在该伙伴那儿有没有历史」唯一实现
+
+**新增 `db/queries/partner_history.py`**（生产 `/opt/hergent-erp`，快照 `hergent-cn-v2/tests/perf/v684/partner_history.py`，
+三处 md5 一致 `c099f04b…`）：
+- `missing_products(kind, partner_id, product_ids)` → `{kind, partner_id, checked, matched, missing, skipped}`。
+  purchase 按 `purchase_orders.supplier_id`、sale 按 `sale_orders.customer_id`；两类各一条 SQL，不共用。
+- 🔴 状态口径 `_SKIP_STATUS = (draft, cancelled, void, rejected)`：**草稿不算「有历史」**
+  （没真进货，凑不出事实），`confirmed`（在途）与 `signed` 算数。生产实测 PO：received 79 / draft 2 / confirmed 1 / cancelled 1。
+- 🔴 `partner_id<=0` 或 `product_ids` 空 ⇒ `skipped=True` 且 `missing=[]`；
+  **读库异常向上抛（端点 500），不许降级成"全部缺失"**。
+- `_BATCH = 400`（SQLite 变量上限 999）。
+
+**端点** `GET /api/psi/partner-product-history?kind&partner_id&product_ids`，`_auth` 守卫；
+`kind` 非法（含 `zzz`）归一到 purchase；非法商品 id 直接丢弃。`/api/psi` 前缀**已在 `_PATH_MODULE_MAP`**，
+不需要新登记（新增别的顶层前缀才要）。
+
+**验收**：`tests/perf/v684/verify_history.py`（16 条，与直连 SQL ground truth 对照 + 「换伙伴结论必须变化」反假阳性）；
+`v684-e2e.py` J/K 组（tenant_98 隔离租户，51 断言）；`neginject_v684.py` 注入「无历史则拒绝」⇒ K 组 5 条全红。

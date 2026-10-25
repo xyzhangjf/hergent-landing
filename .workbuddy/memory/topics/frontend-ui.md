@@ -4567,3 +4567,38 @@ grep `.sb-pop{` 或只翻 `index-*.css` 都会空手而归。
 **档案**：「默认单位」→**「默认开单单位」**，三个字段加 `title` 说明；`staleUnitWarning` 在配了已不存在的单位名时提示；后端 `data.py::_DU_FIELDS` 校验必须属于「将要生效」的三档名，否则 400 并列出可用单位。
 
 **契约**：`tests/unit-pricing.contract.mjs`（组 ⑱，56 条，含坏样本判别力自证）。
+
+---
+
+## v684 三个退货渠道统一自由退货 + 「商品不在该伙伴历史里」只提醒不拦截
+
+**需求原话**：「采购退货页不再以『按原单退货』作为主入口，改为默认支持用户自由退货。当用户选择的
+产品不在该供应商的采购记录中时，系统仅给出提醒，但仍允许其继续完成退货。自提退单和车销退单需
+采用相同的自由退货逻辑与提醒机制」。
+
+**改造前真实现状**：采购退货页**已有**两种形态（`?from_po=` ⇒ 挂原单；否则自由退货），但列表行
+「退货」走的正是 `?from_po=`（事实上的主入口）；自提/车销退单 2026-10-11 起就已自由。
+**三个渠道都没有任何「这个商品他从来没经手过」的提示**。
+
+**唯一前端入口**：`src/pages/inventory/new/partnerHistory.js`
+- `createHistoryChecker(fetchFn, onResult)`：300ms 防抖 + seq 防竞态 + `clear()`；返回 `{check, recheck, clear}`。
+- `HISTORY_NOTE.failed`（取不到时的文案）+ `historyWarnText(kind, n)`（业务话术，明写「仍可继续退货/退单」）。
+- 🔴 两条短路必须先写：`partnerId<=0 || !ids.length ⇒ skipped`（否则刚进页面一片⚠）；
+  `catch ⇒ emit(空集, {failed:true})`（**绝不**把失败当"全都没有历史"，那会给每行挂假警告）。
+
+**两页接线**：`histMissing: Set` + `histNote` + watch([伙伴, 商品 id 拼接串])（**不要 watch(items)**：
+改数量/单位会触发，与"有没有历史"无关）+ 切模式清空。
+- 采购退货页 `.ipn-hist-warn` / `.ipn-hist-dot`；`kind='purchase'`。
+- SaleDocForm `.isn-hist-warn` / `.isn-hist-dot`；`kind='sale'`，且**仅 `cfg.isReturn` 生效**
+  （正向销售单挂这个纯噪音）。
+- 角标**绝对定位**（不占行高、不挤列宽）；`td.ipn-c-prod` / `td.isn-c-prod` 补 `position:relative`。
+- 行对象没有 `product_name`（ProductCombo 只写 product_id）⇒ 提示 title 用 `productNameOf(row)` 现查。
+
+**入口改造**：`InvPurchaseList.goReturn(r)` 改跳 `legacyPurchasePath('return') + '?supplier_id=' + r.supplier_id`，
+`canReturnFrom`（原单状态限制）删除 —— 自由退货不看原单状态。挂原单通道仍在详情页「转单为」。
+
+**页面回读**：`PurchaseReturnForm.reinit()` 的独立分支在 `loadRefs()` 后读 `route.query.supplier_id`，
+**必须校验它真的在 suppliers 里**（URL 用户可改；脏 id 会让界面看着有供应商、提交却 400）。
+🔴 同 path 只换 query 不会重跑 `reinit()`（watch 只挂 `from_po`）⇒ 真机探针必须先跳别的页再进来。
+
+**契约**：`tests/free-return.contract.mjs`（组 ⑲，52 条，含坏样本判别力自证）。

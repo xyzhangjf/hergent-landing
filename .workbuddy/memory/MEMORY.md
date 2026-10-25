@@ -52,6 +52,14 @@
 - 老板拍板口径：**换档数量不动、金额跟着变**（与 v455 的「价×k、量÷k」相反）；档案没配默认单位时保持各页现状（采购回大包装、其余最小档）。
 - 🔴 切客户/供应商/单据类型必须清定价缓存，否则带错价且界面完全正常。契约 ⑱。
 
+## 🔴 自由退货 / 「只提醒不拦截」类需求（v684 起）
+
+- 三退货渠道（采购退货 / 自提退单 / 车销退单）**一律自由退货**，不挂原单也能退。挂原单通道仍在采购单详情页「转单为」（唯一带服务端可退上限的护栏），只是不是入口。列表行「退货」跳自由退货 + `?supplier_id=` 预填供应商。
+- 唯一实现：后端 `db/queries/partner_history.py::missing_products`（采购按 `supplier_id`、销售按 `customer_id`；排除 draft/cancelled/void/rejected）＋端点 `GET /api/psi/partner-product-history`；前端唯一入口 `pages/inventory/new/partnerHistory.js`。
+- 🔴 「只提醒」的机器判据：提醒状态**不得**出现在 `validate*()` 函数体与任何 `:disabled` 里（契约 ⑲ 扫函数体）。一进校验就变成拦截，而界面**看不出区别**（提示条照旧显示）。
+- 🔴 两个静默失效：① 接口失败当成「全都没有历史」⇒ 每行挂假警告；② 没选伙伴/商品当成「全都没有历史」⇒ 刚进页面一片⚠。两条都必须在 checker 里显式短路。
+- 🔴 同 path 只换 query **不会重跑** `reinit()`（`watch` 只挂在 `from_po`）⇒ 探针验 `?supplier_id=` 预填必须先跳别的页再进来，否则把"探针跳法不对"误记成缺陷。
+
 ## 🔴 后端新增路由必须登记「三张表」
 
 ① `_TENANT_MASTER_PREFIXES`/`_TENANT_REQUIRED_PREFIXES`（`server.py` 顶部）② **`_PATH_MODULE_MAP`**（不是 `_PATH_MODULES`）＝模块门禁，**fail-closed**：未登记返回 **403 `MODULE_NOT_CONFIGURED`，连 boss 都打不开** ③ 前端 `pages.js`+`permView.js`。
