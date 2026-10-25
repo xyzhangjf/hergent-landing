@@ -275,7 +275,7 @@
               <!-- v671：表头全选框**恢复**（v510 曾按老板口径删掉）。
                    与 v510 时代的差别是范围与三态：只作用于**当前页**，部分选中显示半选，
                    ⇒ 不会出现"点一下把看不见的几百张单都勾上"。行内勾选列行为不变。 -->
-              <th class="ipl-c-chk psi-frz psi-frz-1">
+              <th class="psi-chk psi-frz psi-frz-1">
                 <SelectAllCheckbox :checked="pageAllOn" :indeterminate="pageSomeOn"
                                    :disabled="!rows.length" :count="rows.length" unit="张"
                                    @toggle="toggleSelectPage" />
@@ -305,7 +305,7 @@
           <tbody>
             <tr v-for="(r, i) in rows" :key="r.id"
                 :class="{ 'print-target': printOnly === r.id, 'psi-on': selected.includes(r.id) }">
-              <td class="ipl-c-chk psi-frz psi-frz-1">
+              <td class="psi-chk psi-frz psi-frz-1">
                 <input type="checkbox" :value="r.id" v-model="selected" />
               </td>
               <!-- §2.6.1「二、」：序号 = 服务端分页 ⇒ 必须 `offset + i + 1`（写 i+1 第 2 页会从 1 重来） -->
@@ -1727,7 +1727,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-card { padding: 0; overflow: hidden }
 .ipl-tbl { min-width: 1700px }
 .ipl-clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.ipl-c-chk { text-align: center }
+/* v672：勾选列类名 `.ipl-c-chk` 退役，改用共享 `.psi-chk`（唯一源 styles/psi-list.css）。
+   原因：本页那份只写了 `text-align:center`，缺了「左右内边距归零」⇒ 内容盒 8px < 13px
+   复选框 ⇒ `text-overflow:ellipsis` 在复选框右边画出「…」（老板截图里的"三个小点"）。
+   ⛔ 别再在页面 scoped 里补勾选列样式。 */
 .ipl-c-op { text-align: right }
 /* ── v470：表头可排序。可点列手型 + hover 高亮；指示器（⇅ 中性 / ↑ 升 / ↓ 降）贴标签后。
    中性图标常显是**有意的**：不给提示的话，用户根本不知道这几列能点（"功能做了但没人发现"）。 */
@@ -1815,7 +1818,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   .ipl-card .table-wrap { overflow: visible; border: none; border-radius: 0 }
   /* 打印稿一次性摊开 ⇒ 回到 auto 布局按纸张宽度收缩；fixed + colgroup 硬宽会溢出纸面 */
   .ipl-tbl { min-width: 0; width: 100%; table-layout: auto }
-  .ipl-c-chk, .ipl-c-rel, .ipl-c-op { display: none !important }
+  /* v672：勾选列已改用共享 `.psi-chk`，它的隐藏规则在 psi-list.css 的 @media print（唯一出处）。 */
+  .ipl-c-rel, .ipl-c-op { display: none !important }
   .ipl-tbl tfoot, .ipl-mark { display: none !important }
   /* 冻结列回静态已随 .psi-frz 上提全局（psi-list.css 的 @media print）—— 三页同一条。 */
   .ipl-tbl.print-one tbody tr:not(.print-target) { display: none !important }

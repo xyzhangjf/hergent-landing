@@ -195,6 +195,20 @@ if (has('skip-sfc')) {
   results.push({ name: '全站全选统一', ok: r.code === 0, code: r.code })
 }
 
+// ── ⑨ 勾选列内边距契约（复选框右边三个小点）──────────────────
+/* 为什么需要第 9 组（v672）：缺陷由三条各自合理的规则叠出来 ——
+   `.psi-tbl td{overflow:hidden;text-overflow:ellipsis}` + `table.tbl td{padding:10px 14px}`
+   + 36px 勾选列 ⇒ 内容盒 8px < 13px 复选框 ⇒ Chrome 补画「…」。
+   而它**只在默认密度露出来**（紧凑档 padding 8px 不溢出），所以从 v532 起潜伏了很久。
+   这条契约钉「左右内边距归零 + 私有勾选列类名不得复活 + 不许靠加宽列遮」。 */
+{
+  console.log('\n── ⑨ 勾选列内边距契约（复选框右侧不画省略号）──')
+  const r = run('chk-col-padding.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '勾选列内边距', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

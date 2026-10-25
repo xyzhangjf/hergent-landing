@@ -622,6 +622,28 @@ v400 立本节时登记的两处真机偏差，**v401 已按本节修掉实现**
   契约会抓（扫全站，不只扫基准实现 —— v669 只扫 3 个文件才漏网）。
 - ⛔ 按 v510 的旧口径把表头全选框删掉：v671 已恢复，范围改成"当前页 + 半选"，不再有"全表全选"的误伤。
 
+**F. 勾选列的盒模型：左右内边距必须为 0（v672，真实缺陷）**
+
+| 项 | 规定 |
+|---|---|
+| 列宽 | 36px（`CHK_W`，三页同值；它同时是冻结列 sticky 偏移 `0 / 36 / 82` 的基准） |
+| 单元格内边距 | **左右归零**，纵向照密度档不变（行高不变） |
+| 类名 | 只许 `.psi-chk`（唯一源 `styles/psi-list.css`）；**禁止**在页面 scoped 里再写一份勾选列样式 |
+| 控件居中 | `text-align:center`，13px 复选框 ⇒ 左右各留 11.5px |
+| 契约 | `tests/chk-col-padding.contract.mjs`（run-all 第 ⑨ 组） |
+
+成因（不是审美，是缺陷）：`.psi-tbl th/td` 带 `overflow:hidden; text-overflow:ellipsis`（能画省略号）+
+`table.tbl td` 默认 `padding:10px 14px`（内容盒只剩 36−28 = **8px**）< 13px 复选框
+⇒ 溢出 5px，Chrome 在复选框右边补画一个「…」，界面上就是"复选框右边三个小点"。
+紧凑密度 `padding:2px 8px` ⇒ 内容盒 20px 不溢出，**所以只有默认密度看得见**，从 v532 潜伏至今。
+
+🔴 三个反面做法：
+- ⛔ 用 `text-overflow:clip` 遮：溢出还在，复选框一变大就复现。
+- ⛔ 把列加宽到 44px：36 是 sticky 偏移基准，改了冻结列整体错位。
+- ⛔ 只写 `.psi-tbl td.psi-chk{padding-left:0}`：权重 (0,2,1) 被
+  `[data-density=compact] table.tbl.psi-tbl td{padding:2px 8px}`（(0,3,2)，且在本文件更靠后）压掉，
+  紧凑档静默不生效。**必须**写成 `table.tbl.psi-tbl …` 并把 `[data-density="compact"]` 变体一并列出。
+
 ### 2.6.3 进销存列表页统一规范（v496）
 
 采购 / 采购退货 / 自提订单 / 自提退单 / 车销订单 / 车销退单 / 调拨单**七个列表入口**
@@ -1276,3 +1298,4 @@ NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
 | v669 | 2026-10-24 | **列设置面板两条真缺陷**（补记，实现已上线）：① 全屏下开列设置面板被遮挡 —— 面板/遮罩原取 `calc(--z-sticky(600)+10/11)`=610/611，而全屏层 `.grid-area.is-fs` 是 `--z-page-fs`(1000) ⇒ 整块被压在表体下（生产实测面板 rect 正常但三点 `elementFromPoint` 全命中 `div.pname`）；改为变量表里本就标注「列菜单」的 `--z-page-overlay/--z-page-menu`(1100/1101)，**遮罩必须成对抬升**。② 取消勾选某列后功能生效但勾还留着 —— `@click.prevent` + 单向 `:checked` 撞上 Chrome 的 **pre-click activation**：浏览器先翻转 `checked` 再派发 click，`preventDefault()` 后在派发结束后把翻转**还原**，而 Vue 的 patch 只写翻转前的值 ⇒ 勾选态与列显隐永久相反；改 `@change` + `nextTick` 按状态回写。🔴 探针纪律：**点击切换类控件必须发真实鼠标事件**，JS `el.click()` 没有 pre-click activation ⇒ 会把这类缺陷全部漏掉。 
 | v670 | 2026-10-24 | **§2.6.1 重写为全站通用设计规范 ＋ 全站排查整改**（本节首次给出「视觉层级 / 间距 / 对齐 / 交互状态 / 响应式」五个维度的取值，并补「适用范围与判定标准」）。① **排查工具**：新增 `tests/spec/seq-colcfg-audit.py`（可复跑，`--json` 机器读），扫模板/样式前先剥注释。② **P0-1** `InvPurchaseList.vue` 自写列菜单仍是 `@click.prevent="toggleCol(k)"` —— v669 只修了共享件与 `Forecast.vue`，此页漏网，同一缺陷仍活着 ⇒ 改 `@change` + 回写。③ **P0-2** `InvApprovalCenter.vue` 表体有 `td.seq-cell` 而表头**没有** `th.seq-th` ⇒ 表体比表头多一列、**整行右移一格**；补表头（该页列固定 ⇒ 要序号不要齿轮）、序号包 `.seq-num`。④ **P1**：`.col-gear-th{width:44px}` 与 `InvApprovalCenter` 的 `width:40px` 都与全站 46px 冲突且恒被压 ⇒ 删（死代码 + 第二真相源）；齿轮 `<Icon>` 尺寸 2 处默认 16 vs 26 处 15 ⇒ 统一 15；6 个单据页 `table.ipn-tbl/isn-tbl td.seq-cell` 与全局**同分靠加载顺序赢** ⇒ 加 `.tbl` 提权到 (0,3,2)。⑤ **文档对齐实现**：本节旧的齿轮 CSS（11px/14px/`--t3`）是 v400 版，v432 上提后已换成 30×30/`--t2` ⇒ 作废重抄；「齿轮仍只在 `/forecast`」等三处过期现状刷新（实际 28 处/22 页、序号列 77 张表/56 文件、emoji 齿轮 0、分页漏补偿 0）。⑥ 「九、」留全站问题清单与修复汇总（10 条）。 |
 | v671 | 2026-10-25 | **全站「全选」交互统一（新增 §2.6.2）**：把本期预报 v615 那颗三态全选框上提为共享件 `components/SelectAllCheckbox.vue` + `styles/select-all.css`，推广到 **10 处**。 ① 列表表头（v510 曾按老板口径删掉，**本轮恢复**、范围改成**当前页 + 半选**）：采购单 / 销售单 / 调拨单。 ② 商品档案·批量补进价表头（原「全选 / 取消全选」两个按钮并入一颗框）。 ③ 分摊面板·门店勾选表头。④ 线路设置·停靠点（顺序敏感 ⇒ 全选按列表顺序逐个走 `togglePick`）。 ⑤ 预报品牌 / 到货周期 / 唯一值三个筛选面板（唯一值面板顺手修掉 `@change="uniqAll = !uniqAll"` 的自取反写法）。 ⑥ 有意**不纳入**：权限矩阵（v350 必选项上锁）、列显隐、Promotions「全部商品」、各类开关，理由见 §2.6.2 D。 ⑦ 契约 `tests/select-all.contract.mjs` 进 run-all 第 ⑧ 组，**扫全站**（v669 只扫 3 个文件才漏网）；注回 5 处旧写法 ⇒ FAILED(8)，还原 ⇒ ALL PASS。真机 1440×780 与 1366×640 各 **29 PASS / 0 FAIL**。 |
+| v672 | 2026-10-25 | **勾选列「复选框右边三个小点」（新增 §2.6.2 F）**。老板截图：采购单列表每行复选框右侧多出「…」。成因不是伪元素也不是图标字体 —— 是三条**各自合理**的规则叠出来的：`styles/psi-list.css` 给 `.psi-tbl th/td` 加了 `overflow:hidden; text-overflow:ellipsis`（这一格**能画省略号**）＋ `table.tbl td` 默认 `padding:10px 14px`（36px 勾选列内容盒只剩 **8px**）＋ 复选框 13px ⇒ **溢出内容盒 5px**，Chrome 按 `text-overflow` 补画一个「…」。紧凑密度 `padding:2px 8px` ⇒ 内容盒 20px 不溢出，**所以只有默认密度看得见**，从 v532 上提共享类那天起潜伏至今（销售/调拨两页同样中招）。① **修复**：勾选列左右内边距归零（纵向不动 ⇒ 行高不变），内容盒回到整列 36px、13px 复选框居中，零溢出。② **同时退役** `InvPurchaseList.vue` 的私有 `.ipl-c-chk`（只写了 `text-align:center`，正是漏掉内边距的那份第二真相源），改用共享 `.psi-chk`；打印隐藏规则同步（全局 `.media print` 已覆盖）。③ 🔴 **第一版修错了**：只写 `.psi-tbl td.psi-chk{padding-left:0}`（(0,2,1)），被同文件更靠后的 `[data-density=compact] table.tbl.psi-tbl td{padding:2px 8px}`（(0,3,2)）整块压掉 ⇒ 紧凑档静默不生效；真机注入实测 padding 仍是 8px，改为 `table.tbl.psi-tbl …` 并把 `[data-density="compact"]` 变体列进同一组（(0,4,2)）。④ **拒绝的两个治症状方案**：`text-overflow:clip`（溢出还在）、加宽列到 44px（36 是 sticky 偏移 0/36/82 的基准，会连带冻结列错位）。⑤ 契约 `tests/chk-col-padding.contract.mjs` 进 run-all 第 ⑨ 组（19 条，扫全站）：唯一源归零规则 + 权重 ≥ 紧凑密度规则 + 含紧凑变体 + 无 `xx-c-chk` 私有类 + 页面 scoped 不得覆盖 `.psi-chk` 盒模型 + 三页 `CHK_W = 36` 且列宽只由 `<colgroup>` 给 + **成因链自检**（从源码读列宽与基础 padding 复算「36−14×2=8 < 13 ⇒ 归零是必需的」）；判别力自证：删掉归零规则 ⇒ FAILED(1)、恢复 `.ipl-c-chk` ⇒ FAILED(2)，还原 ⇒ ALL PASS。⑥ 真机（生产 v672，两种密度）：默认密度修复前 `overflowPx = +5`、修复后 **−11.5**（padL/padR = 0px）；紧凑密度同样 0px；截图 A/B 同屏对照「…」消失。⚠️ 演示租户被能力闸门拦在进销存表体之外（采购单 0 行 ⇒ 空态），故真机测量采用「真实页面 + 与模板逐字一致的表结构注入」，未写任何数据。 |

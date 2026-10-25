@@ -43,6 +43,33 @@
    不要给它在页面 scoped 里写尺寸（第二个真相来源，v408 教训）。 */
 .psi-tbl th.psi-chk .sa-cb { vertical-align: middle }
 
+/* 🔴 v672：勾选列**左右内边距必须归零**（不是审美偏好，是缺陷修复）。
+   成因链（真机 + 最小复现双重确认）：
+     ① 本文件第 28 行给所有 `.psi-tbl` 单元格加了 `overflow:hidden; text-overflow:ellipsis`
+        ⇒ 这一格**具备画省略号的能力**；
+     ② 勾选列列宽只有 36px（各页 `CHK_W`），而 `table.tbl th/td` 默认 `padding:10px 14px`
+        ⇒ 内容盒 = 36 − 28 = **8px**，比 13px 的复选框还窄 ⇒ 内联内容**溢出内容盒**；
+     ③ Chrome 于是按 text-overflow 规则在复选框右侧补画一个省略号「…」
+        ⇒ 界面上表现为「复选框右边有三个小点」。表头（`th` 同样是 14px 内边距）与每一行都中招。
+   为什么紧凑密度下看不见：`[data-density=compact] table.tbl.psi-tbl td{padding:2px 8px}`
+   ⇒ 内容盒 20px > 13px，不溢出，自然不画省略号。**只有默认密度会露出来**，所以长期没被发现。
+   ⛔ 别用 `text-overflow:clip` 遮（治症状）：溢出还在，将来复选框一变大又复现；
+     也别靠加宽列（36px 是冻结列 sticky 偏移 0/36/82 的基准，改了会连带位移）。
+   ✅ 归零侧内边距后内容盒 = 整列 36px，13px 复选框居中（`text-align:center`），零溢出。
+      纵向内边距**保留**（行高不变）。
+   🔴 选择器写成 `table.tbl.psi-tbl …`（(0,3,2)）是**必需的**，不是啰嗦：
+      `[data-density=compact] table.tbl.psi-tbl td`（本文件第 131 行）也是 (0,3,2) 且带
+      `padding:2px 8px` 简写，写成 `.psi-tbl td.psi-chk`（(0,2,1)）会被它**整块压掉**。
+      同权重时靠源码顺序决胜，而那条密度规则在本文件更靠后 ⇒ 必须显式把紧凑档列进同一组
+      （写 `[data-density="compact"] …` 后权重 (0,4,2)，稳压）。
+      ⚠️ 这是**真机量出来的**：第一版只写了基础选择器，注入实测紧凑档 padding 仍是 8px，
+      修复静默失效。紧凑档眼下 36−16=20px 恰好不溢出所以看不出来，但密度值一改缺陷立刻回来。
+   ⚠️ 紧凑档归零后观感不变：8px 内边距 + 13px 居中 = `8+(20−13)/2 = 11.5`，
+      与 0 内边距居中 `(36−13)/2 = 11.5` 完全同一点 —— 只是把"隐形溢出"彻底拆掉。 */
+table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
+[data-density="compact"] table.tbl.psi-tbl th.psi-chk,
+[data-density="compact"] table.tbl.psi-tbl td.psi-chk { padding-left: 0; padding-right: 0 }
+
 /* ---- 左侧冻结列 ----
    位置 1~4 的 left 偏移 = 左侧各列宽之和，每页列宽不同 ⇒ 由页面在 <table> 元素上
    给 CSS 变量（--psi-frz-1..4），这里只定义"怎么吸"：
