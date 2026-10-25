@@ -223,6 +223,20 @@ if (has('skip-sfc')) {
   results.push({ name: '副驾抽屉层级', ok: r.code === 0, code: r.code })
 }
 
+// ⑪ 应用外壳浮层层级（v674）
+/* 现象：左侧导航悬停/点开「进销存」「仓配管理」等，弹窗上有「品牌 / 到货周期 /
+   复制报单」按钮浮着，条目点不到。
+   根因：`.sb-pop` 写死 z-index:30，而页面工具条容器 .tb-pop 是 --z-page-bar:1120
+   ⇒ 两套层级体系没对齐，位置一重叠按钮必然在上（1440 中 5 个职能区、
+   1366 中 5 个且含两个按钮）。修法：新增 --z-shell-pop:1122（1120 与 1125 之间）。 */
+{
+  console.log('\n── ⑪ 应用外壳浮层层级契约（侧栏弹窗不被页面按钮盖）──')
+  const r = run('shell-pop-layer.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '外壳浮层层级', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

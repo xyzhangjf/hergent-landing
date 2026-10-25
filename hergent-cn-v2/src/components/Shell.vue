@@ -1690,7 +1690,7 @@ function stopResize() {
    `flex-wrap:wrap` 是列数过多时的兜底（配合 `_placePop` 给的 `maxWidth`）。 */
 .sb-pop{position:fixed;min-width:168px;display:flex;align-items:flex-start;flex-wrap:wrap;
   background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
-  border:1px solid var(--bd);border-radius:12px;padding:6px;z-index:30;
+  border:1px solid var(--bd);border-radius:12px;padding:6px;z-index:var(--z-shell-pop);
   /* v643：`maxHeight` 由 `_placePop` 按视口算好 ⇒ 内容超长时在弹窗**内部滚动**，
      不再溢出屏幕底部（改之前无高度约束，长列会被截断且无法滚到）。 */
   overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
