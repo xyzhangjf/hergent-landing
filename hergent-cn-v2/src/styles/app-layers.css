@@ -30,6 +30,7 @@ body.copilot-on .tb-pop-panel,        /* 弹层本体（Teleport 到 body，页�
 body.copilot-on .pop-overlay,         /* 弹层互斥遮罩 */
 body.copilot-on .col-menu,            /* 列设置面板 */
 body.copilot-on .col-menu-overlay,    /* 列设置遮罩 */
+body.copilot-on .row-more-pop,        /* v678：行内「⋯ 更多操作」菜单（1101，Teleport 到 body） */
 body.copilot-on .grid-area.is-fs {    /* 表体全屏查看层（1000）—— 否则整屏表格盖住抽屉 */
   z-index: auto
 }

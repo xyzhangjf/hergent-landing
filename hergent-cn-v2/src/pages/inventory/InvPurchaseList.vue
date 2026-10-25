@@ -340,36 +340,33 @@
                 </template>
                 <template v-else>{{ cellVal(r, c.key) }}</template>
               </td>
-              <!-- v470 关联单据穿透。三个入口都**不新开页面**：
-                   「入库 / 货款」是采购单详情页的**派生 tab**（`?tab=`），
-                   「退货」是既有采购退货建单页（`?from_po=`，带服务端可退上限）。
-                   ⛔ 退货单视图（isReturn）不给这一列：那些行本身就是退货单，没有"下游"。 -->
+              <!-- v470 关联单据穿透。入口都**不新开页面**：
+                   「入库 / 货款」是采购单详情页的**派生 tab**（`?tab=`）。
+                   ⛔ 退货单视图（isReturn）不给这一列：那些行本身就是退货单，没有"下游"。
+                   v678：「退货」**移进操作列的 ⋯ 菜单** —— 三个两字链接在 108px 列里
+                   必然换行（实测 2 行 ⇒ 行高 48.6px），而它本质是「对这张单发起退货」的
+                   **动作**（跳的是退货建单页 `?from_po=`），不是"查看下游"，归到操作列才顺。 -->
               <td v-if="!isReturn" class="ipl-c-rel">
                 <div class="ipl-rel">
                   <a class="ipl-link" :href="'#/inventory/purchase/' + r.id + '?tab=inbound'"
                      @click.prevent="go('/inventory/purchase/' + r.id + '?tab=inbound')">入库</a>
                   <a class="ipl-link" :href="'#/inventory/purchase/' + r.id + '?tab=payments'"
                      @click.prevent="go('/inventory/purchase/' + r.id + '?tab=payments')">货款</a>
-                  <a v-if="canReturnFrom(r)" class="ipl-link"
-                     :href="'#/inventory/purchase/return/new?from_po=' + r.id"
-                     @click.prevent="goReturn(r)">退货</a>
                 </div>
               </td>
               <td class="ipl-c-op">
+                <!-- v678：外面最多 2 个主操作，其余进 ⋯。
+                     🔴 之前是「6 个按钮全靠 flex-wrap 换行」⇒ 2 行 ⇒ 行高 32.8→43。
+                        现在外面固定单行（`.ipl-op` 不再 wrap），换行这件事从根上没有了。 -->
                 <div class="ipl-op">
-                  <button v-if="!isReturn && canUpdate && isEditable(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="goEdit(r)">编辑</button>
-                  <!-- v500：退货视图的「审核」= 过账草稿（端点与采购单的批量审核**不是一套**） -->
-                  <button v-if="canUpdate && canApproveReturn(r)" class="ipl-op-btn"
-                          :disabled="approvingId === r.id" @click.stop="approveDraft(r)">
-                    {{ approvingId === r.id ? '审核中' : '审核' }}
-                  </button>
-                  <button v-if="canUpdate && canApprove(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="rowOp('approve', r)">审核</button>
-                  <button v-if="canUpdate && canUnapprove(r)" class="ipl-op-btn" :disabled="busyOp" @click.stop="rowOp('unapprove', r)">反审核</button>
-                  <button v-if="canUpdate && canCancel(r)" class="ipl-op-btn danger" :disabled="busyOp" @click.stop="rowOp('cancel', r)">取消</button>
-                  <!-- v500：打印计数 / 复制依赖**采购单**端点与编号空间 ⇒ 退货视图不给
-                       （给了就是"点了没反应"或"复制出一个空表单"的假入口）。 -->
-                  <button v-if="!isReturn" class="ipl-op-btn" :disabled="printing" @click.stop="rowPrint(r)">打印</button>
-                  <button v-if="!isReturn" class="ipl-op-btn" :disabled="!canWrite" @click.stop="rowCopy(r)">复制</button>
+                  <button v-for="a in (rowActMap[r.id] || NO_ACT).inline" :key="a.key"
+                          class="ipl-op-btn" :class="{ danger: a.danger }"
+                          :disabled="a.disabled" :title="a.title || null"
+                          @click.stop="onRowAction(a.key, r)">{{ a.text }}</button>
+                  <!-- ⋯ 只在**真的还有剩下的**动作时才渲染（否则是个空菜单＝死按钮） -->
+                  <RowMoreMenu v-if="(rowActMap[r.id] || NO_ACT).more.length"
+                               :items="(rowActMap[r.id] || NO_ACT).more" label="更多操作"
+                               @pick="k => onRowAction(k, r)" />
                 </div>
               </td>
             </tr>
@@ -561,6 +558,10 @@ import PsiListActions from '../../components/PsiListActions.vue'
    ⚠️ v510 曾按老板口径把表头全选框删掉，本轮按最新口径恢复：
    范围 = **当前页**（不是全表），半选态明确"只勾了一部分"，不再有"全表全选"的误伤。 */
 import SelectAllCheckbox from '../../components/SelectAllCheckbox.vue'
+/* v678：行内「更多操作」菜单（⋯）—— 共享件（采购 / 销售 / 调拨 / 仓库各列表同一套）。
+   🔴 为什么必须有它：本页操作列最多 5 个按钮（编辑/审核/取消/打印/复制）+ 关联列 3 个链接，
+      靠 `flex-wrap` 挤成两行 ⇒ 行高 32.8 → 43~48.6px。详见 `.ipl-op` 处注释。 */
+import RowMoreMenu from '../../components/RowMoreMenu.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -773,10 +774,21 @@ const canDelCol = computed(() => canDo('inventory', 'delete'))
    ⛔ 单据编号不可隐藏：藏了它这张表就只剩金额，无法定位单据（行操作「打印 / 复制」也随之失去锚点）。 */
 const CHK_W = 36
 const SEQ_W = 46
-const OP_W = 152
+/* v678：152 → 128。依据（真机实测文本宽，13px 字）：编辑/审核/打印/复制 = 26px，
+   反审核 = 39px，⋯ 按钮 = 18px，`.ipl-op` 间距 6px ⇒ 最宽组合
+   「反审核 + 打印 + ⋯」= 39+6+26+6+18 = 95px。
+   🔴 必须按**宽松密度**（`td` padding 10px 14px）核算，不能按紧凑档：
+      内容宽 = 128 − 28 = 100 ≥ 95 ✓（紧凑档 padding 2px 8px ⇒ 112，更宽松）。
+      首版按紧凑档量出 96 就定了 124，宽松档会差 3px ⇒ 横向溢出、被 `overflow:hidden`
+      静默裁掉半个 ⋯（v678 自查发现，教训：**内容宽要按最不利的那个密度算**）。
+   ⚠️ 若把主操作放到 3 个（或这里再收窄），先跑 `tests/row-more-menu.contract.mjs` 的
+      「单行不溢出」判据 —— 挤不下时 `nowrap` 会**横向溢出**（看得见），
+      而不是换行涨行高（隐蔽），这正是 v678 要的可观测性。 */
+const OP_W = 128
 /* v470 关联单据穿透列（**仅采购单视图**出现，退货单视图无"下游"可言）。
-   108px = 「入库 / 货款 / 退货」三个两字链接单行放下（含 10px 间隔）后的实测需要宽度。 */
-const REL_W = 108
+   v678：108 → 96。「入库 / 货款」两个两字链接 = 26+10+26 = 62px ≤ 内容宽 68（96 − 14×2）；
+   第三个「退货」已移进操作列 ⋯（三个链接要 90px+，塞不进且会静默裁字）。 */
+const REL_W = 96
 const FIXED_FROZEN = 'order_no'
 const LEFT_CHK = 0
 const LEFT_SEQ = CHK_W                                  // 36
@@ -1612,6 +1624,77 @@ async function approveDraft (row) {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   v678：行内操作模型 —— 「外面 ≤2 个主操作 + ⋯ 里其余」
+   ──────────────────────────────────────────────────────────────────────────
+   🔴 为什么要模型化（而不是继续在模板里堆 `v-if`）：
+      改前操作列有 6 个 `v-if` 按钮 + 关联列 3 个链接，全部靠 `flex-wrap` 换行 ——
+      实测一行最多塞 4 个（反审核 39 + 取消 26 + 打印 26 + 复制 26 + 3×10 间距 = 147px
+      > 列内容宽 124px）⇒ 折 2 行 ⇒ 行高 43px；带「退货」的行更惨（48.6px）。
+      **换行是唯一成因**，与字号/密度无关。
+   🔴 判据是"主操作"而不是"我觉得它常用"：
+      rank 1 = 状态机上的**主推进**（编辑 / 审核）；rank 2 = 反审核；rank 3 = 打印；
+      其余（取消 / 复制 / 退货）= 9，一律进 ⋯。
+      外面最多 `INLINE_MAX` 个 ⇒ 最宽组合是「反审核 + 打印 + ⋯」= 39+26+8+20 = 93px
+      ≤ 124（`OP_W` 内容宽），单行成立；「编辑 + 审核 + ⋯」更窄（80px）。
+      ⇒ 已入库/已退货这种**没有状态动作**的行，外面留「打印」（唯一日常动作），不会只剩一个 ⋯。
+   🔴 取消（危险动作）**永不外露**：误点代价是真金白银，进 ⋯ 多一步正好当防呆。
+   ⚠️ 退货虽在「关联」语义下，但它跳的是**退货建单页**（`?from_po=`），是动作不是查看 ⇒
+      并入本列 ⋯，关联列只留「入库 / 货款」两个纯查看链接（2 个 = 62px，96px 列放得下）。
+   ══════════════════════════════════════════════════════════════════════════ */
+const INLINE_MAX = 2
+const NO_ACT = { inline: [], more: [] }
+
+/** 单行动作清单（**按状态机算可见性**，与后端一致；不臆造后端不支持的动作）。 */
+function rowActions (r) {
+  const all = []
+  const busy = busyOp.value
+  if (!isReturn.value && canUpdate.value && isEditable(r)) {
+    all.push({ key: 'edit', text: '编辑', rank: 1, disabled: busy })
+  }
+  /* 退货视图的「审核」= 过账草稿（端点与采购单的批量审核**不是一套**） */
+  if (canUpdate.value && canApproveReturn(r)) {
+    all.push({ key: 'approveReturn', text: approvingId.value === r.id ? '审核中' : '审核', rank: 1, disabled: approvingId.value === r.id })
+  }
+  if (canUpdate.value && canApprove(r)) all.push({ key: 'approve', text: '审核', rank: 1, disabled: busy })
+  if (canUpdate.value && canUnapprove(r)) all.push({ key: 'unapprove', text: '反审核', rank: 2, disabled: busy })
+  if (canUpdate.value && canCancel(r)) all.push({ key: 'cancel', text: '取消', rank: 9, danger: true, disabled: busy })
+  /* v500：打印计数 / 复制依赖**采购单**端点与编号空间 ⇒ 退货视图不给
+     （给了就是"点了没反应"或"复制出一个空表单"的假入口）。 */
+  if (!isReturn.value) all.push({ key: 'print', text: '打印', rank: 3, disabled: printing.value })
+  if (!isReturn.value) {
+    all.push({ key: 'copy', text: '复制', rank: 9, disabled: !canWrite.value, title: canWrite.value ? null : '没有新建权限，无法复制' })
+  }
+  if (!isReturn.value && canReturnFrom(r)) all.push({ key: 'return', text: '退货', rank: 9 })
+  const inline = []
+  const more = []
+  for (const a of all) (a.rank <= 3 && inline.length < INLINE_MAX ? inline : more).push(a)
+  /* ⋯ 里把危险项排到最后（取消别顶在第一条，手指滑一下就点到） */
+  more.sort((a, b) => (a.danger ? 1 : 0) - (b.danger ? 1 : 0))
+  return { inline, more }
+}
+
+/** 每行算一次的索引（模板里 `rowActMap[r.id]`；避免一次渲染把 `rowActions` 调 3 遍/行）。 */
+const rowActMap = computed(() => {
+  const m = {}
+  for (const r of rows.value) m[r.id] = rowActions(r)
+  return m
+})
+
+/** 统一分发（外面按钮与 ⋯ 菜单项共用这一条，避免两处各写一份 `if` 链而漂移）。 */
+function onRowAction (key, r) {
+  switch (key) {
+    case 'edit': return goEdit(r)
+    case 'approveReturn': return approveDraft(r)
+    case 'approve': return rowOp('approve', r)
+    case 'unapprove': return rowOp('unapprove', r)
+    case 'cancel': return rowOp('cancel', r)
+    case 'print': return rowPrint(r)
+    case 'copy': return rowCopy(r)
+    case 'return': return goReturn(r)
+  }
+}
+
 onMounted(async () => {
   document.addEventListener('click', onDocClick)
   /* 🔴 v415：**先**拉自定义字段定义，**再**同步云端列配置。
@@ -1683,10 +1766,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-link:disabled { color: var(--t3); cursor: default; text-decoration: none }
 .ipl-c-op .ipl-link + .ipl-link { margin-left: 10px }
 
-/* 单行操作按钮：复用 .ipl-link 的观感，但改为可换行排布的「操作组」
-   （一行容纳 编辑/审核/反审核/取消/打印/复制，不再只占两格）。 */
-.ipl-tbl td.ipl-c-op { white-space: normal; text-align: right }
-.ipl-op { display: flex; flex-wrap: wrap; gap: 2px 10px; justify-content: flex-end }
+/* 单行操作按钮：复用 .ipl-link 的观感，改为**恒定单行**的「主操作 + ⋯」。
+   v678：这里曾是 `flex-wrap: wrap` —— 6 个按钮挤成 2 行，行高 32.8 → 43/48.6px。
+     现在外面最多 2 个主操作（`rowActions()` 里定 INLINE_MAX=2），其余进 ⋯，
+     ⇒ `nowrap` 才是正确约束：真挤不下时**暴露**（横向溢出）而不是偷偷换行涨行高。
+     ⚠️ `align-items:center` 必须留着：⋯ 按钮 18px、文字按钮 18px，居中对齐才不歪。 */
+.ipl-tbl td.ipl-c-op { white-space: nowrap; text-align: right }
+.ipl-op { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; justify-content: flex-end }
 .ipl-op-btn {
   border: none; background: none; padding: 0; font-size: 13px;
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
@@ -1739,10 +1825,15 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-sort-ind { display: inline-flex; vertical-align: middle; margin-left: 3px; color: var(--t3) }
 .ipl-tbl thead th.ipl-sh:hover .ipl-sort-ind { color: var(--p-ink) }
 .ipl-sort-ind svg.ico { width: 12px; height: 12px }
-/* ── v470：关联单据穿透列（**仅采购单视图**）。三链接一行；窄了允许换行但不挤掉操作列。 */
+/* ── v470：关联单据穿透列（**仅采购单视图**）。
+   v678：从「3 个链接」收到「2 个」（退货移进操作列 ⋯），列宽 108 → 96；
+   两个两字链接 = 26+10+26 = 62px ≤ 内容宽 68（96 − 14×2）。
+   🔴 为什么不是「把 3 个塞窄一点」：3 个要 90px 以上，任何 `padding` 微调都会在
+      字号/字体回退时**静默裁掉第三个链接**（`.psi-tbl` 是 overflow:hidden）。
+      宁可移走，不留一个"看不见但存在"的入口。 */
 .ipl-c-rel { text-align: right }
-.ipl-tbl td.ipl-c-rel { white-space: normal }
-.ipl-rel { display: inline-flex; flex-wrap: wrap; gap: 2px 10px; justify-content: flex-end }
+.ipl-tbl td.ipl-c-rel { white-space: nowrap }
+.ipl-rel { display: inline-flex; flex-wrap: nowrap; gap: 10px; justify-content: flex-end }
 .ipl-tbl td.num { font-variant-numeric: tabular-nums }
 
 /* ---- 左侧冻结区（UI-SPEC §2.6.1「二、」的冻结约定）----

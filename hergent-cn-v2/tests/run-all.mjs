@@ -285,6 +285,22 @@ if (has('skip-sfc')) {
   results.push({ name: '标签栏高度', ok: r.code === 0, code: r.code })
 }
 
+// ⑮ 行内「更多操作」菜单 + 列表操作列单行不溢出（v678）
+/* 现象：采购单列表「关联 / 操作」两列把 6 按钮 + 3 链接全靠 `flex-wrap` 挤两行 ⇒
+   行高 32.8 → 43~48.6px，一屏少看三行。修复 = 不常用动作收进共享件 `RowMoreMenu`
+   （Teleport 到 body 的下拉），常用动作留外面单行；关联列「退货」移入操作列 ⋯。
+   这类约定最易死的死法：① 下拉没 Teleport+fixed 被 overflow 裁掉；② `.ipl-op` 回退成
+   wrap 复发；③ INLINE_MAX / NO_ACT 改坏 ⇒ 模板 `|| NO_ACT` 取不到 .inline 直接炸。
+   契约钉「共享件 Teleport+fixed / 单根 / 开合关闭 + InvPurchaseList 接入 + inline↔more 拆分
+   + 单行不溢出（nowrap + 列宽按最不利密度算）」，每条断言带"已知坏样本"自证判别力。 */
+{
+  console.log('\n── ⑮ 行内更多操作菜单 + 操作列单行不溢出契约（v678）──')
+  const r = run('row-more-menu.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '行内更多菜单/单行不溢出', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
