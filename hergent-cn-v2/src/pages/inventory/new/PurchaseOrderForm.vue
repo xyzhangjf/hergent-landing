@@ -1855,6 +1855,15 @@ table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
 .ipn-in.ipn-dim { opacity: .38 }
 /* v408（P1-2）行备注：选填短文本，给足宽度但不抢主列 */
 .ipn-c-note { width: 150px }
+/* v680：操作列**固定 76px**（此前不限宽，靠内容自适应）。
+   🔴 为什么要定死：行内两个 26×26 图标按钮 + 4px 间距 = **56px** 净宽，
+      再加 td 左右各 8px 内距 ⇒ 列宽必须 ≥ 72px，否则两个按钮**换行成两行**，
+      行高由 29.8px 直接翻成 56.6px（= 26+26+4）。
+      这个「行高被操作列撑高」的传导链在 v447 就踩过一次（当时是按钮 30×30 的 `.btn-icon`），
+      v449 拆页时新页把列宽写成 64px ⇒ 净宽只剩 48px ⇒ **换行复发**（6 页全中）。
+      取 76px（56 + 16 内距 + 4px 余量）⇒ 任何视口下都单行，行高恒定。
+      🔴 `white-space:nowrap` 是第二道保险：即便将来有人把宽度改小，按钮也不许换行。 */
+.ipn-c-op { width: 76px; min-width: 76px }
 /* v417g：操作列 **sticky 右贴** —— 即便窄屏出横向滚动，「新增/删除」也永远够得着
    （对齐舟谱：操作列永远可见）。border-collapse:collapse 下 sticky 边框会丢，
    用 inset box-shadow 当左边分割线；行悬停时跟着换 bg2，不然悬停行上这块是「洞」。 */
@@ -1862,6 +1871,7 @@ table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
   position: sticky; right: 0; z-index: 2;
   background: var(--bg);
   box-shadow: inset 1px 0 0 var(--border-subtle);
+  white-space: nowrap;
 }
 .ipn-tbl th.ipn-c-op { background: var(--bg2) }
 .ipn-tbl tbody tr:hover td.ipn-c-op { background: var(--bg2) }

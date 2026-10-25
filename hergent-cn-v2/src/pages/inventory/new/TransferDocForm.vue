@@ -626,14 +626,29 @@ table.tbl.isn-tbl td.seq-cell { padding: 2px 4px }
 [data-density="compact"] table.isn-tbl td { padding: 1px 8px }
 [data-density="compact"] .isn-in { height: 20px }
 
-/* 明细表列宽。数量 / 单价 / 金额等宽数字 + 右对齐，成列才好扫读。 */
+/* 明细表列宽。数量 / 单价 / 金额等宽数字 + 右对齐，成列才好扫读。
+   🔴 v680：同名同义列的**地板值**对齐基准页「新建采购订单」（数量 86、单位 84、
+      商品 min-width 240）。改之前本页是 110 / 76 / 280 ⇒ 切页面时列宽会跳。
+      ⚠️ 这些值是**地板**不是实际宽：表是 `table-layout:auto` + `width:100%`，
+         列少时余量摊给最宽那列（商品），宽屏下实际列宽仍随列数浮动（规范 §R.9 同口径）。 */
 .isn-tbl { min-width: 720px }
-.isn-c-prod { min-width: 280px }
-.isn-c-qty, .isn-c-price, .isn-c-amt { width: 110px }
-.isn-c-unit { width: 76px }
-.isn-c-stk { width: 86px; font-variant-numeric: tabular-nums; white-space: nowrap }
-.isn-c-op { width: 64px }
-table.isn-tbl th.isn-c-op, table.isn-tbl td.isn-c-op { position: sticky; right: 0; z-index: 2 }
+.isn-c-prod { min-width: 240px }
+.isn-c-qty { width: 86px }
+.isn-c-unit { width: 84px }
+.isn-c-stk { width: 78px; font-variant-numeric: tabular-nums; white-space: nowrap }
+/* v680：操作列 64px → 76px。64px 净宽只有 48px，而行内两个 26×26 图标按钮 + 4px 间距
+   = 56px ⇒ 按钮装不下就**换行成两行** ⇒ 数据行高 29.8px 翻成 **56.6px**。 */
+.isn-c-op { width: 76px; min-width: 76px }
+/* v680：sticky 操作列**补底色 + 左侧分割线**（此前只写了 sticky 定位）。
+   🔴 不补底色：横向滚动时右侧列会**从操作列底下透出来**；少的那条左边框线，
+      也让「操作」区与左边内容区没有分界。基准页用 inset 阴影当分割线
+      （border-collapse:collapse 下 sticky 的真 border 会丢）。 */
+table.isn-tbl th.isn-c-op, table.isn-tbl td.isn-c-op {
+  position: sticky; right: 0; z-index: 2;
+  background: var(--bg);
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+  white-space: nowrap;
+}
 table.isn-tbl th.isn-c-op { background: var(--bg2) }
 table.isn-tbl tbody tr:hover td.isn-c-op { background: var(--bg2) }
 /* v447：与采购建单页 `.ipn-in` **逐值对齐**（明细格控件高 28 → 22）。
@@ -665,9 +680,22 @@ table.isn-tbl .isn-in.err:focus { border-color: var(--dan) }
 table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
 .isn-in.num { text-align: right; font-variant-numeric: tabular-nums }
 .isn-amt { font-variant-numeric: tabular-nums; white-space: nowrap }
-/* 换算 / 原单数量小字：它是解释不是数据，弱化色 + 不换行（不加 nowrap 会在窄列里
-   断成两行，把行高顶起来）。 */
-.isn-conv { font-size: 11px; color: var(--t3); white-space: nowrap }
+/* v680：换算小字从「行内第二行」改为「指向该格才浮出的浮层」—— 照抄基准页 v417c。
+   🔴 为什么必须改：这段小字是**解释**不是数据，却占掉整整一行的行高；
+      多档单位商品一选中，行高立刻从 29.8px 再涨一截 ⇒ 与「六页行高统一到基准」冲突。
+      基准页 v417c 早就改掉（改后**不占行高**），本页是 v417c **之前**的老写法 ⇒ 拆页时漏抄。 */
+.isn-c-unit, .isn-c-price, .isn-c-qty { position: relative }
+.isn-conv {
+  display: none; position: absolute; z-index: 6;
+  left: 2px; top: calc(100% - 4px);
+  padding: 1px 6px; white-space: nowrap; pointer-events: none;
+  font-size: 11px; color: var(--t2); font-variant-numeric: tabular-nums;
+  background: var(--bg); border: 1px solid var(--bd);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);
+}
+.isn-c-unit:hover .isn-conv, .isn-c-unit:focus-within .isn-conv,
+.isn-c-price:hover .isn-conv, .isn-c-price:focus-within .isn-conv,
+.isn-c-qty:hover .isn-conv, .isn-c-qty:focus-within .isn-conv { display: block }
 .isn-unit { font-size: 13px; color: var(--t1) }
 /* 档案没设报单单位时的回落值 —— 用弱化色标注，不静默 */
 .isn-unit.fallback, .isn-unit.none { color: var(--t3) }

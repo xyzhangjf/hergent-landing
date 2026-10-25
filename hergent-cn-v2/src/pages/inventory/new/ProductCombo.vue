@@ -106,10 +106,19 @@ function onBlur () { editing.value = false }
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-sm);
   box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
 }
+/* v680：文本态高度 20px → **18px**，与基准页「新建采购订单」的 `.ipn-v` 逐值一致
+   （规范 §R.2「明细格文本态 = 18px」，紧凑档 16px）。
+   🔴 为什么改：ProductCombo 被采购退货 / 自提 / 车销 / 调拨四个建单页共用，
+      它的 `.ipn-v` 是**组件自带**的 scoped 规则，页面级 CSS 改不动它 ——
+      拆页时从基准页抄结构没抄到这个数值，于是四页的商品格比基准页高 2px。
+      ⚠️ 这 2px 平时不显形（行高由操作列的 26px 按钮决定），但它让"文本态 18px"
+         这条规范在四页上名存实亡。 */
 .ipn-v {
-  display: block; width: 100%; min-height: 20px; line-height: 20px;
+  display: block; width: 100%; min-height: 18px; line-height: 18px;
   font-size: 13px; color: var(--t1); cursor: pointer; outline: none;
 }
+/* 紧凑档再收一档（与基准页同口径：18 → 16） */
+[data-density="compact"] .ipn-v { min-height: 16px; line-height: 16px }
 .ipn-v.is-ph { color: var(--t3) }
 .ipn-v:focus, .ipn-v:hover { box-shadow: inset 0 0 0 1px var(--bd); border-radius: 4px }
 </style>

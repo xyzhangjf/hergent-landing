@@ -1274,6 +1274,8 @@ table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
   position: sticky; right: 0; z-index: 2;
   background: var(--bg);
   box-shadow: inset 1px 0 0 var(--border-subtle);
+  /* v680：禁止按钮换行（第二道保险，配合上面的 76px 固定宽） */
+  white-space: nowrap;
 }
 .ipn-tbl th.ipn-c-op { background: var(--bg2) }
 .ipn-tbl tbody tr:hover td.ipn-c-op { background: var(--bg2) }
@@ -1491,8 +1493,13 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
 
 /* ---- 本页与采购订单页**共用**的「操作列」宽度（采购订单页也有 `.ipn-c-op`）---- */
 
-/* 操作列：插行 + 删除两个图标按钮，64px 与销售 / 调拨建单页同值。
+/* v680：操作列 **64px → 76px**（本页与销售 / 调拨建单页同批修正）。
+   🔴 64px 是**错的**：净宽 = 64 − 8×2 = 48px，而行内两个 26×26 图标按钮 + 4px 间距
+      = **56px** ⇒ 按钮装不下就**换行成两行** ⇒ 数据行高 29.8px 直接翻成 56.6px。
+      基准页（采购订货单）此前不限宽、按内容自适应，所以一直是单行；本页硬写成 64px
+      才暴露出来 —— 这是"抄列宽"比"抄机制"更危险的一个例子。
+   取 76px（56 净宽 + 16 内距 + 4 余量）⇒ 与基准页同宽、同行高。
    sticky 吸右规则见上方 `table.ipn-tbl th.ipn-c-op`（与采购订单页同源抄来）。 */
-.ipn-c-op { width: 64px }
+.ipn-c-op { width: 76px; min-width: 76px }
 
 </style>

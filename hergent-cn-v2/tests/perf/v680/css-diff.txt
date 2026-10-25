@@ -1,0 +1,322 @@
+
+========================================================================
+### ret  (PurchaseReturnForm.vue)
+========================================================================
+
+-- 基准有、本页没有 (19) --
+  .ipn-legend
+  .ipn-legend .ipn-req
+  .ipn-copy-err
+  .ipn-copy-err-ico
+  .ipn-copy-err-body
+  .ipn-copy-err-t
+  .ipn-copy-err-m
+  .ipn-copy-err-acts
+  .ipn-copy-err-hint
+  .ipn-unitsw
+  .ipn-unitsw input
+  .ipn-unitsw:hover
+  .ipn-unitsw.on
+  .ipn-unitsw.on .ipn-unitsw-tx
+  .ipn-batch-caret
+  .ipn-batch-btn:not(:disabled):hover .ipn-batch-caret, .ipn-c-batch:focus-within .ipn-batch-caret, .ipn-c-batch.batch-open .ipn-batch-caret
+  .ipn-kbd-hint
+  .ipn-kbd-hint kbd
+  .ipn-kbd-hint em
+
+-- 本页独有 (2) --
+  .ipn-chk  { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; color: var(--t2); cursor: pointer; user-select: none; white-space: nowrap; }
+  .ipn-chk input  { margin: 0; cursor: pointer }
+
+-- 同选择器但声明不同 (1) --
+  .ipn-tbl th.ipn-c-op, .ipn-tbl td.ipn-c-op
+    基准: position: sticky; right: 0; z-index: 2; background: var(--bg); box-shadow: inset 1px 0 0 var(--border-subtle); white-space: nowrap;
+    本页: position: sticky; right: 0; z-index: 2; background: var(--bg); box-shadow: inset 1px 0 0 var(--border-subtle);
+
+========================================================================
+### sale  (SaleDocForm.vue)
+========================================================================
+
+-- 基准有、本页没有 (94) --
+  .ipn-body > .ipn-bar, .ipn-body > .ipn-tip, .ipn-body > .state-empty
+  .ipn-f-sup
+  .ipn-f-po
+  .ipn-legend
+  .ipn-legend .ipn-req
+  .hd-box .ipn-f .ipn-cf-in
+  .hd-box .ipn-f .ipn-sup-combo
+  .hd-box .ipn-f .ipn-sup-input
+  .hd-box .ipn-f-po
+  .hd-box .ipn-f-po .ipn-kw
+  .hd-box .ipn-f-po .ipn-sel
+  .ipn-cf-in
+  .ipn-sup-pick
+  .ipn-prod-combo
+  .ipn-prod-combo .ipn-in
+  .ipn-prod-list
+  .ipn-prod-list li
+  .ipn-prod-list li.active, .ipn-prod-list li:hover
+  .ipn-prod-name
+  .ipn-prod-bar
+  .ipn-prod-empty
+  .ipn-at-bar
+  .ipn-at-hd
+  .ipn-at-tip
+  .ipn-at-list
+  .ipn-at-list li
+  .ipn-copy-err
+  .ipn-copy-err-ico
+  .ipn-copy-err-body
+  .ipn-copy-err-t
+  .ipn-copy-err-m
+  .ipn-copy-err-acts
+  .ipn-copy-err-hint
+  .ipn-at-nm
+  .ipn-at-sz
+  .ipn-at-x
+  .ipn-at-x:hover
+  .ipn-at-msg
+  .ipn-at-badge
+  .ipn-at-file
+  .ipn-unitsw
+  .ipn-unitsw input
+  .ipn-unitsw:hover
+  .ipn-unitsw.on
+  .ipn-unitsw.on .ipn-unitsw-tx
+  .ipn-tip-link
+  .ipn-tip-link:hover
+  .ipn-tip-stk
+  .ipn-tip-stk svg
+  .ipn-tip-stk b
+  .ipn-c-code
+  .ipn-unit-sel
+  .ipn-c-ref
+  .ipn-c-price, .ipn-c-qty
+  .ipn-c-batch
+  .ipn-c-batch:not(.has-val) .ipn-batch-txt
+  .ipn-in.ipn-dim
+  .ipn-c-note
+  .ipn-tbl th.ipn-c-op, .ipn-tbl td.ipn-c-op
+  .ipn-tbl th.ipn-c-op
+  .ipn-tbl tbody tr:hover td.ipn-c-op
+  .ipn-tbl tbody tr
+  .ipn-v
+  table.ipn-tbl tr:hover .ipn-v
+  .ipn-v:focus
+  .ipn-v.num
+  .ipn-v.is-ph
+  [data-density="compact"] .ipn-v
+  [data-density="compact"] .ipn-in, [data-density="compact"] .ipn-unit-sel, [data-density="compact"] .ipn-batch-btn
+  .ipn-batch-btn
+  .ipn-batch-btn:hover
+  .ipn-batch-btn:disabled
+  .ipn-batch-txt
+  .ipn-batch-caret
+  .ipn-batch-btn:not(:disabled):hover .ipn-batch-caret, .ipn-c-batch:focus-within .ipn-batch-caret, .ipn-c-batch.batch-open .ipn-batch-caret
+  .ipn-batch-pop
+  .ipn-bp-row
+  .ipn-bp-lb
+  .ipn-bp-tip
+  .ipn-bp-done
+  .ipn-unit.fallback
+  .ipn-unit.none
+  .ipn-link
+  .ipn-link + .ipn-link
+  .ipn-link:hover
+  .ipn-link.danger
+  .ipn-warn
+  .ipn-kbd-hint
+  .ipn-kbd-hint kbd
+  .ipn-kbd-hint em
+  .ipn-save-main
+  .ipn-save-caret
+  .ipn-mi-disabled
+  .ipn-mi-tag
+
+-- 本页独有 (21) --
+  .ipn-body > .ipn-bar, .ipn-body > .ipn-tip, .ipn-body > .state-empty, .ipn-body > .state-error  { flex: 0 0 auto }
+  .ipn-f-so  { width: 380px }
+  .hd-box .ipn-f .ipn-kw  { width: 112px }
+  .hd-box .ipn-f .ipn-addr  { width: 150px }
+  .hd-box .ipn-f-so  { width: 420px }
+  .hd-box .ipn-f-so .ipn-kw  { width: 130px }
+  .hd-box .ipn-f-so .ipn-sel  { width: 200px; min-width: 0 }
+  .ipn-pick  { display: flex; gap: 6px }
+  .ipn-addr  { width: 180px; height: 32px }
+  .ipn-c-reason  { min-width: 132px }
+  .ipn-reason-na  { color: var(--t3); font-size: 12px }
+  .ipn-tip b  { color: var(--t1) }
+  [data-density="compact"] .ipn-in  { height: 20px }
+  .ipn-c-qty  { width: 86px }
+  .ipn-c-price  { width: 86px }
+  table.ipn-tbl th.ipn-c-op, table.ipn-tbl td.ipn-c-op  { position: sticky; right: 0; z-index: 2; background: var(--bg); box-shadow: inset 1px 0 0 var(--border-subtle); white-space: nowrap; }
+  table.ipn-tbl th.ipn-c-op  { background: var(--bg2) }
+  table.ipn-tbl tbody tr:hover td.ipn-c-op  { background: var(--bg2) }
+  .ipn-unit.fallback, .ipn-unit.none  { color: var(--t3) }
+  .hd-box .ipn-f .ipn-cust-combo  { flex: 1; min-width: 0 }
+  .hd-box .ipn-f .ipn-cust-input  { width: 100% }
+
+-- 同选择器但声明不同 (4) --
+  .ipn-tip
+    基准: display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--t2); margin: 0 0 10px;
+    本页: display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--t2); margin: 0 0 10px
+  .ipn-tbl
+    基准: min-width: 1372px
+    本页: min-width: 720px
+  .ipn-save
+    基准: position: relative; display: inline-flex; margin-left: auto
+    本页: position: relative; display: inline-flex; gap: 8px; margin-left: auto
+  @media (max-width: 640px)
+    基准: .ipn-hd { align-items: stretch } .ipn-f, .ipn-kw, .ipn-sel, .ipn-date { width: 100%; min-width: 0 } .ipn-sup-pick { flex-direction: column } .ipn-bottom { margin-inline: 0; padding-inline: 0 } .hd-box .ipn-f { width: 100% } .hd-box .ipn-f .ipn-sel, .hd-box .ipn-f .ipn-date, .hd-box .ipn-f .ipn-kw { width: auto; flex: 1; min-width: 0 }
+    本页: .ipn-hd { align-items: stretch } .ipn-f, .ipn-kw, .ipn-sel, .ipn-date, .ipn-addr { width: 100%; min-width: 0 } .ipn-pick { flex-direction: column } .ipn-bottom { margin-inline: 0; padding-inline: 0 } .hd-box .ipn-f { width: 100% } .hd-box .ipn-f .ipn-sel, .hd-box .ipn-f .ipn-date, .hd-box .ipn-f .ipn-kw, .hd-box .ipn-f .ipn-addr { width: auto; flex: 1; min-width: 0 }
+
+========================================================================
+### trf  (TransferDocForm.vue)
+========================================================================
+
+-- 基准有、本页没有 (103) --
+  .ipn-body > .ipn-bar, .ipn-body > .ipn-tip, .ipn-body > .state-empty
+  .ipn-f-sup
+  .ipn-f-po
+  .ipn-legend
+  .ipn-legend .ipn-req
+  .hd-box .ipn-f .ipn-cf-in
+  .hd-box .ipn-f .ipn-sup-combo
+  .hd-box .ipn-f .ipn-sup-input
+  .hd-box .ipn-f-po
+  .hd-box .ipn-f-po .ipn-kw
+  .hd-box .ipn-f-po .ipn-sel
+  .ipn-cf-in
+  .ipn-sup-pick
+  .ipn-prod-combo
+  .ipn-prod-combo .ipn-in
+  .ipn-prod-list
+  .ipn-prod-list li
+  .ipn-prod-list li.active, .ipn-prod-list li:hover
+  .ipn-prod-name
+  .ipn-prod-bar
+  .ipn-prod-empty
+  .ipn-at-hd
+  .ipn-at-tip
+  .ipn-at-list
+  .ipn-at-list li
+  .ipn-copy-err
+  .ipn-copy-err-ico
+  .ipn-copy-err-body
+  .ipn-copy-err-t
+  .ipn-copy-err-m
+  .ipn-copy-err-acts
+  .ipn-copy-err-hint
+  .ipn-at-nm
+  .ipn-at-sz
+  .ipn-at-x
+  .ipn-at-x:hover
+  .ipn-at-msg
+  .ipn-at-badge
+  .ipn-at-file
+  .ipn-unitsw
+  .ipn-unitsw input
+  .ipn-unitsw:hover
+  .ipn-unitsw.on
+  .ipn-unitsw.on .ipn-unitsw-tx
+  .ipn-tip-link
+  .ipn-tip-link:hover
+  .ipn-tip-stk
+  .ipn-tip-stk svg
+  .ipn-tip-stk b
+  .ipn-c-stk .danger
+  .ipn-c-code
+  .ipn-unit-sel
+  .ipn-c-ref
+  .ipn-c-price, .ipn-c-qty
+  .ipn-c-amt
+  .ipn-c-batch
+  .ipn-c-batch:not(.has-val) .ipn-batch-txt
+  .ipn-in.ipn-dim
+  .ipn-c-note
+  .ipn-tbl th.ipn-c-op, .ipn-tbl td.ipn-c-op
+  .ipn-tbl th.ipn-c-op
+  .ipn-tbl tbody tr:hover td.ipn-c-op
+  .ipn-tbl tbody tr
+  .ipn-v
+  table.ipn-tbl tr:hover .ipn-v
+  .ipn-v:focus
+  .ipn-v.num
+  .ipn-v.is-ph
+  [data-density="compact"] .ipn-v
+  [data-density="compact"] .ipn-in, [data-density="compact"] .ipn-unit-sel, [data-density="compact"] .ipn-batch-btn
+  .ipn-batch-btn
+  .ipn-batch-btn:hover
+  .ipn-batch-btn:disabled
+  .ipn-batch-txt
+  .ipn-batch-caret
+  .ipn-batch-btn:not(:disabled):hover .ipn-batch-caret, .ipn-c-batch:focus-within .ipn-batch-caret, .ipn-c-batch.batch-open .ipn-batch-caret
+  .ipn-batch-pop
+  .ipn-bp-row
+  .ipn-bp-lb
+  .ipn-bp-tip
+  .ipn-bp-done
+  .ipn-unit.fallback
+  .ipn-unit.none
+  .ipn-link
+  .ipn-link + .ipn-link
+  .ipn-link:hover
+  .ipn-link.danger
+  .ipn-warn
+  .ipn-kbd-hint
+  .ipn-kbd-hint kbd
+  .ipn-kbd-hint em
+  .ipn-save-main
+  .ipn-save-caret
+  .ipn-dd
+  .ipn-dd-main
+  .ipn-dd-caret
+  .ipn-mi-disabled
+  .ipn-mi-tag
+  .ipn-caret
+  .ipn-caret.up
+  .ipn-menu
+  .ipn-mi
+  .ipn-mi:hover
+
+-- 本页独有 (23) --
+  .ipn-body > .ipn-bar, .ipn-body > .ipn-tip, .ipn-body > .state-empty, .ipn-body > .state-error  { flex: 0 0 auto }
+  .ipn-f-so  { width: 380px }
+  .hd-box .ipn-f .ipn-kw  { width: 112px }
+  .hd-box .ipn-f .ipn-addr  { width: 150px }
+  .hd-box .ipn-f-so  { width: 420px }
+  .hd-box .ipn-f-so .ipn-kw  { width: 130px }
+  .hd-box .ipn-f-so .ipn-sel  { width: 200px; min-width: 0 }
+  .ipn-pick  { display: flex; gap: 6px }
+  .ipn-addr  { width: 180px; height: 32px }
+  .ipn-tip b  { color: var(--t1) }
+  [data-density="compact"] .ipn-in  { height: 20px }
+  .ipn-c-qty  { width: 86px }
+  table.ipn-tbl th.ipn-c-op, table.ipn-tbl td.ipn-c-op  { position: sticky; right: 0; z-index: 2; background: var(--bg); box-shadow: inset 1px 0 0 var(--border-subtle); white-space: nowrap; }
+  table.ipn-tbl th.ipn-c-op  { background: var(--bg2) }
+  table.ipn-tbl tbody tr:hover td.ipn-c-op  { background: var(--bg2) }
+  .ipn-unit.fallback, .ipn-unit.none  { color: var(--t3) }
+  .hd-box .ipn-f-cust .ipn-kw  { width: 130px }
+  .hd-box .ipn-f-cust .ipn-sel  { width: 200px; min-width: 0 }
+  .ipn-arrow  { flex: none; align-self: center; font-size: 15px; line-height: 1; color: var(--t3); padding: 0 2px }
+  .ipn-at-bar > b  { flex: none }
+  .ipn-at-bar > span  { flex: 1; min-width: 200px; color: var(--t2) }
+  .ipn-at-bar > .btn  { flex: none }
+  .ipn-at-bar.ok  { background: var(--bg2); border-color: var(--bd) }
+
+-- 同选择器但声明不同 (5) --
+  .ipn-tip
+    基准: display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--t2); margin: 0 0 10px;
+    本页: display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--t2); margin: 0 0 10px
+  .ipn-tbl
+    基准: min-width: 1372px
+    本页: min-width: 720px
+  .ipn-save
+    基准: position: relative; display: inline-flex; margin-left: auto
+    本页: position: relative; display: inline-flex; gap: 8px; margin-left: auto
+  @media (max-width: 640px)
+    基准: .ipn-hd { align-items: stretch } .ipn-f, .ipn-kw, .ipn-sel, .ipn-date { width: 100%; min-width: 0 } .ipn-sup-pick { flex-direction: column } .ipn-bottom { margin-inline: 0; padding-inline: 0 } .hd-box .ipn-f { width: 100% } .hd-box .ipn-f .ipn-sel, .hd-box .ipn-f .ipn-date, .hd-box .ipn-f .ipn-kw { width: auto; flex: 1; min-width: 0 }
+    本页: .ipn-hd { align-items: stretch } .ipn-f, .ipn-kw, .ipn-sel, .ipn-date, .ipn-addr { width: 100%; min-width: 0 } .ipn-pick { flex-direction: column } .ipn-bottom { margin-inline: 0; padding-inline: 0 } .hd-box .ipn-f { width: 100% } .hd-box .ipn-f .ipn-sel, .hd-box .ipn-f .ipn-date, .hd-box .ipn-f .ipn-kw, .hd-box .ipn-f .ipn-addr { width: auto; flex: 1; min-width: 0 }
+  .ipn-at-bar
+    基准: display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; padding: 9px 16px; background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--radius-md); font-size: 13px; color: var(--t1);
+    本页: display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; padding: 9px 16px; background: var(--p-bg); border: 1px solid var(--p-dark); border-radius: var(--radius-md); font-size: 13px; color: var(--t1);

@@ -315,6 +315,15 @@ if (has('skip-sfc')) {
   results.push({ name: '页头控制区密度', ok: r.code === 0, code: r.code })
 }
 
+// ── ⑰ 建单页行高/规范一致性契约（v680）─────────────────────────
+{
+  console.log('\n── ⑰ 建单页行高与规范一致性契约（v680）──')
+  const r = run('psi-order-form-density.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '建单页行高与规范一致性', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
