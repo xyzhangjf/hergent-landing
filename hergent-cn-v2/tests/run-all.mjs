@@ -251,19 +251,38 @@ if (has('skip-sfc')) {
   results.push({ name: '顶栏高度', ok: r.code === 0, code: r.code })
 }
 
-// ⑬ 侧栏条目高度（v676）
-/* 反馈原话：「顶部导航栏也有点高，就是侧边栏各功能模块的导航栏」。
+// ⑬ 侧栏条目高度（v676 建 / v677 恢复高度）
+/* 反馈原话（v676）：「顶部导航栏也有点高，就是侧边栏各功能模块的导航栏」。
    事实：`.sb-item` 高度 = line-height + 上下 padding（从没设 height）。改前 9px 纵向 padding
    + 13px/1.6 ⇒ 38.8px；而职能区按钮因 `.sb-area-btn{font:inherit}` 被冲回 14px ⇒ 40.4px
-   ⇒ 同一列两种行高。修法：padding 7 + 显式 line-height:20px ⇒ 34px 整，两条路径归一。
-   契约钉「推算高度 32–36 + 行高必须显式（否则 button 走 UA normal 又分叉）+ 禁 font 简写
+   ⇒ 同一列两种行高。v676 收到 34px。
+   v677（老板：「把模块页签恢复到之前的高度」）⇒ padding 回 9px、line-height 回 1.6 ⇒ **38.8px**，
+   **只退高度、不回滚 v676 的两个缺陷修复**（行高仍显式、`.sb-area-btn` 仍是 font-family:inherit），
+   故契约区间随之上移到 37–40。
+   契约钉「推算高度 37–40 + 行高必须显式（否则 button 走 UA normal 又分叉）+ 禁 font 简写
    + 禁写死 height + 禁止页面覆写」。 */
 {
-  console.log('\n── ⑬ 侧栏条目高度契约（34px · 两种条目归一 · 不写死 height）──')
+  console.log('\n── ⑬ 侧栏条目高度契约（38.8px · 两种条目归一 · 不写死 height）──')
   const r = run('sidebar-item-h.contract.mjs', [], { timeout: 60000 })
   const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
   console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
   results.push({ name: '侧栏条目高度', ok: r.code === 0, code: r.code })
+}
+
+// ⑭ 全局标签栏高度（v677）
+/* 反馈原话：「请把全局标签栏调矮一点」。
+   这块 = 顶栏正下方那一行「[⟳] 采购单 × ｜ [⟳] 本期预报 ×」（TabBar.vue），
+   **不是**顶栏（v675）、**不是**侧栏条目（v676/v677）、**不是**页内 StatusTabs。
+   整条高度 = 条目高 + 2×纵向 padding + 1px 底边线：v676 及以前 28+12+1=41，v677 收成 26+8+1=35。
+   契约钉「三处条目高必须相等（漏改 .tab-more-btn 会把整条重新撑回 37）+ 推算整条 33–39
+   + .tabbar 禁写死 height + .tab-more-menu 的 top 必须跟条目同步（差值容差 1px）
+   + 禁止页面覆写」。 */
+{
+  console.log('\n── ⑭ 全局标签栏高度契约（35px · 三处条目同步 · 下拉 top 跟随）──')
+  const r = run('tabbar-h.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '标签栏高度', ok: r.code === 0, code: r.code })
 }
 
 // ── 汇总 ────────────────────────────────────────────────────

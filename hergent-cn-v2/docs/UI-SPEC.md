@@ -1058,14 +1058,14 @@ SUB_TITLES[path][query.tab] → SUB_TITLES[path]._default → PAGE_RULES[path].t
 钉「区间 + 呼吸位 + 唯一源（不许别处重复定义 `--topbar-h`，也不许改名成 `--header-h`/`--nav-h`）
 + `.topbar` 不许写死 px + 栏内控件不得 ≥ 顶栏高」。判别力自证：注入 56/40/写死 px/同义令牌 共 8 例全部抓红。
 
-### 3.7 侧栏一级条目高度（v676）
+### 3.7 侧栏一级条目高度（v676 收窄 → v677 恢复）
 
 | 项 | 值 | 说明 |
 |---|---|---|
-| 高度 | **34px** | = `line-height:20px` + `padding:7px 10px` × 2；**不写死 `height`** |
-| 字形 | 13px / 行高 20px | 唯一源 = `.sb-item`；`.sb-area-btn` 只继承 `font-family` |
-| 12 项总高 | 408px | 改前 38.8/40.4px 混排、共 485px（省 77px） |
-| 纵向 padding 下限 | 6px | 低于此，16px 图标贴上下边、10px 圆角吃到图标 |
+| 高度 | **38.8px**（v677） | = `line-height:1.6`（13 × 1.6 = 20.8px） + `padding:9px 10px` × 2；**不写死 `height`** |
+| 字形 | 13px / 行高 1.6 | 唯一源 = `.sb-item`；`.sb-area-btn` 只继承 `font-family` |
+| 12 项总高 | 485px | v676 曾收到 34px / 408px，老板反馈太挤，v677 退回 38.8px |
+| 纵向 padding 下限 | 5px | 低于此，16px 图标贴上下边、10px 圆角吃到图标 |
 
 > 🔴 **侧栏条目高度 = 行高 + 上下 padding，从来不是 `height`**。判「条目偏高」先看这两项，
 > 不要去改字号（13px 已是最小可读档）或给 `.sb-item` 补 `height`（字号一变文字就被挤出去）。
@@ -1075,17 +1075,53 @@ SUB_TITLES[path][query.tab] → SUB_TITLES[path]._default → PAGE_RULES[path].t
 > ⇒ ① `line-height` 必须显式写在 `.sb-item` 上；② `.sb-area-btn` **只能写 `font-family:inherit`**，
 > 写 `font:inherit` 会把 `font-size` 一起重置成 body 的 14px（实测 38.8 vs 40.4，肉眼可见参差）。
 >
-> 历史：v675 及以前 `padding:9px 10px` ⇒ 38.8px（职能区 40.4px）；老板反馈「侧边栏各功能模块的
-> 导航栏也有点高」；v676 收到 34px。真机实测（演示租户 1440×900）：12 项 `heights:[34]`、
-> `fs:["13px"]`、`paddingTop:["7px"]`、合计 408；运行时注回 `padding:9px` ⇒ 38.8。
+> 历史：v675 及以前 `padding:9px 10px` ⇒ 38.8px（职能区 40.4px）；v676 收到 34px；
+> **v677 按反馈退回 38.8px —— 只退高度、不回滚 v676 的两个缺陷修复**
+> （行高仍显式、`.sb-area-btn` 仍是 `font-family:inherit`），否则又会回到 38.8/40.4 混排。
+> 真机实测（演示租户 1440×900）：12 项 `heights:[38.8]`、`fs:["13px"]`、`paddingTop:["9px"]`。
 > A/B 图 `tests/perf/v676/v676-sidebar-ab.png`。
 
 **契约**：`tests/sidebar-item-h.contract.mjs`（run-all ⑬，12 条）——
-推算高度 32–36px + 行高必须显式且在 18–22px + 禁 `font:` 简写 + 禁在 `.sb-area-btn` 另设 `font-size`
-+ 禁写死 `height` + 禁止页面覆写 `.sb-item`。判别力自证：注入 padding 回 9 / 删行高 / `font:inherit`
-回潮 / 写死 height / 另设 font-size / 行高 `normal` / 页面覆写 共 **7 例全部抓红**。
+推算高度 **37–40px**（v677 由 32–36 上移）+ 行高必须显式且在 18–22px + 禁 `font:` 简写
++ 禁在 `.sb-area-btn` 另设 `font-size` + 禁写死 `height` + 禁止页面覆写 `.sb-item`。
+判别力自证：注入 padding 回 9 / 删行高 / `font:inherit` 回潮 / 写死 height / 另设 font-size /
+行高 `normal` / 页面覆写 共 **7 例全部抓红**。
 > ⚠️ 真机量这类改动的元素**必须等过渡结束**：`.sb-item` 带 `transition:all .15s`，
 > 注入样式后立刻量会读到中间值（首测 `34.4` 就是动画中间态，不是最终 38.8）。
+
+### 3.8 全局标签栏高度（v677）
+
+先认清这块是什么：**全局标签栏** = 顶栏正下方那一行
+「`[⟳] 采购单 ×` ｜ `[⟳] 本期预报 ×` ｜ …」，语义 = **我打开过哪些页**（对齐舟谱），
+组件 `components/TabBar.vue`、状态 `composables/useTabs.js`、标题唯一源 `constants/tabTitles.js`。
+
+> 🔴 它和另外三样**完全不是一回事**，改之前先分清（老板曾用"顶部导航栏/侧栏导航栏"混叫）：
+> ① 应用外壳顶栏 = `--topbar-h`（§3.6，48px）；② 侧栏模块条目 = `.sb-item`（§3.7，38.8px）；
+> ③ 页内筛选签「全部 / 草稿 / 已确认」= `StatusTabs`（各页自有，本规范不管）。
+
+| 项 | 值 | 说明 |
+|---|---|---|
+| 整条高度 | **35px** | = 条目 26 + 纵向 padding 4 × 2 + 底边线 1；v676 及以前 41px |
+| 条目高度 | 26px | `.tab-item` / `.tab-more-btn` / `.tab-more-item` **三处必须相等** |
+| 条目字号 | 12.5px | 与 26px 条目配套；再矮只能减字号（中文会不可读）⇒ 26px 是下限 |
+| 下拉定位 | `top:32px` | `.tab-more-menu` 相对 `.tab-more` 定位，必须 = 条目高 + 6px 间隙 |
+
+> 🔴 **改这块必须三件同步，漏一件就是假修复**：① `.tabbar` 纵向 padding；
+> ② 三处条目 `height`；③ `.tab-more-menu` 的 `top`。
+> 最阴的是第 ② 只改 `.tab-item` 不改 `.tab-more-btn` —— 「更多」按钮是 `.tabbar` 的 flex 子项，
+> 它会把整条重新撑高，而 `.tab-item` 看着已经矮了，肉眼极难发现。
+>
+> 🔴 `.tabbar` **不许**写死 `height`（同 `.sb-item` 纪律），也**不许**加 `overflow:hidden`
+> （右侧「更多」下拉是 `position:absolute`，会被裁掉；裁剪留在 `.tb-strip` 上）。
+> 下限 26px：`.tab-ic` 是 16×16、条目圆角 8px 要求高度 ≥16 才不被切平，26 − 16 = 10 ⇒ 上下各 5px。
+
+**契约**：`tests/tabbar-h.contract.mjs`（run-all ⑭，14 条）——
+三处条目高相等且在 26–30px + 推算整条 33–39px + `.tabbar` 禁写死 height
++ `.tab-more-menu` 的 `top` 与条目高同步（容差 **1px**）+ 禁止页面覆写。
+判别力自证：注入 padding 回 6 / 单件条目回 28 / 条目压到 20 / 条目撑到 32 / `.tabbar` 写死 height /
+只漏 `.tab-more-btn` / `top` 回 34 / 页面覆写 / **完全回滚 v677** 共 **9 例全部抓红**；
+另验「padding 6 + 条目 26 = 39px」这类**合法上限组合会被放行**（证明区间不是死钉一个数）。
+> ⚠️ 容差写 1 而非 2：旧 `top:34` 与新值 32 只差 2px，容差 2 会让"改了条目高、忘了改 top"**静默通过**。
 
 ---
 

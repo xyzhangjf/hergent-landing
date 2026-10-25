@@ -16,8 +16,15 @@
  *   ③ 纵向 padding 9 → 7 ⇒ 20 + 14 = **34px**，12 项 408px（省 77px）。
  *
  * 🔴 本契约钉「高度必须由 line-height + padding 推出来、且两种条目归一」，不钉某个魔数：
- *      推算高度 ∈ [32, 36]，纵向 padding ∈ [6, 9]，行高 ∈ [18, 22]px。
+ *      推算高度 ∈ [37, 40]，纵向 padding ∈ [6, 9]，行高 ∈ [18, 22]px。
  *   这样 6.5→7 之类的微调不会被拦，被拦的是"回到松档 / 又分叉 / 写死 height"。
+ *
+ * v677（2026-10-25）：老板看 34px 觉得太挤，要求**恢复到 v676 之前的高度** ⇒
+ *   `padding` 7 → 9、`line-height` 20px → 1.6(=20.8px) ⇒ 回到 **38.8px**。
+ *   ⚠️ 只恢复高度、**不回滚 v676 的两个缺陷修复**（行高仍显式、`.sb-area-btn` 仍是
+ *      `font-family:inherit`）—— 否则又会回到"平铺 38.8 / 职能区 40.4"的混排。
+ *   ⇒ 故本契约的高度区间跟着上移到 [37, 40]；若再往回收（如 34），需同步改这里，
+ *      不许为了过测试而放宽到把"松档"也放进来。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -35,12 +42,12 @@ function ok (cond, label, extra) {
 const read = (p) => fs.readFileSync(p, 'utf8')
 const stripCss = (s) => s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
 
-const H_MIN = 32
-const H_MAX = 36
+const H_MIN = 37
+const H_MAX = 40
 const PAD_MIN = 6
 const PAD_MAX = 9
 
-console.log('\n=== 侧栏条目高度契约（v676）===')
+console.log('\n=== 侧栏条目高度契约（v676 建 / v677 恢复高度）===')
 
 const shell = stripCss(read(SHELL))
 

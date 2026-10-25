@@ -166,11 +166,21 @@ function close(t) {
    `.content` 是 flex 纵向容器，`.tabbar` 作为它的一个 `flex-shrink:0` 子项，
    自然撑满整行；这里只补「通栏底色 + 底分隔线 + 内边距」。
    🔴 **不要**给 `.tabbar` 加 `overflow:hidden`：右侧「更多」的下拉是
-      `position:absolute`，会被它裁掉（裁剪发生在 `.tb-strip` 上就够了）。 */
-.tabbar{display:flex;align-items:center;gap:6px;flex-shrink:0;padding:6px 20px;background:var(--bg2);border-bottom:1px solid var(--border-subtle);position:relative}
+      `position:absolute`，会被它裁掉（裁剪发生在 `.tb-strip` 上就够了）。
+
+   v677 收矮（老板：「把全局标签栏调矮一点」）：
+     整条高度 = 条目高(26) + 上下 padding(4×2) + 底边线(1) = **35px**（旧 28+12+1 = 41px，-6px）。
+     三件必须**同步**改，漏一件就等于没改：
+       ① `.tabbar` 纵向 padding 6 → 4  ② `.tab-item` / `.tab-more-btn` / `.tab-more-item`
+       高度 28 → 26  ③ `.tab-more-menu` 的 `top` 34 → 32（它是相对 `.tab-more` 定位的，
+       原值 = 条目 28 + 6 间隙，条目变矮必须同步，否则下拉与条之间会裂开一条缝）。
+     🔴 下限 26px：`.tab-ic` 是 16×16、`border-radius:8px` 的圆角要 ≥16px 才不被切平，
+        26 − 16 = 10 ⇒ 上下各 5px 余量，已是这套字号(12.5px)下的合理下限。
+     26px 以下的"再矮"只能靠减字号，那会让 12.5px 掉到 11px 级、中文实际不可读 ⇒ 不做。 */
+.tabbar{display:flex;align-items:center;gap:6px;flex-shrink:0;padding:4px 20px;background:var(--bg2);border-bottom:1px solid var(--border-subtle);position:relative}
 .tb-strip{flex:1;min-width:0;display:flex;gap:4px;overflow:hidden}
 
-.tab-item{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:28px;
+.tab-item{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:26px;
   padding:0 7px 0 5px;border:1px solid transparent;border-radius:8px;background:transparent;
   color:var(--t2);font-size:12.5px;cursor:pointer;max-width:200px;
   transition:background .15s,color .15s,border-color .15s}
@@ -186,18 +196,18 @@ function close(t) {
 .tab-item.on .tab-close{color:var(--t3)}
 
 .tab-more{flex:0 0 auto;position:relative}
-.tab-more-btn{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;
+.tab-more-btn{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;
   border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg);color:var(--t2);
   font-size:12.5px;cursor:pointer;transition:background .15s,color .15s}
 .tab-more-btn:hover{background:var(--bg3);color:var(--t1)}
 .tab-more-n{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;
   padding:0 4px;border-radius:8px;background:var(--p-bg);color:var(--p-dark);font-size:11px;font-weight:600}
-.tab-more-menu{position:absolute;top:34px;right:0;min-width:180px;max-height:320px;overflow-y:auto;
+.tab-more-menu{position:absolute;top:32px;right:0;min-width:180px;max-height:320px;overflow-y:auto;
   background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:6px;
   box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:40}
 .tab-more-row{display:flex;align-items:center;gap:4px;border-radius:7px;padding:0 4px 0 6px}
 .tab-more-row:hover{background:var(--bg2)}
-.tab-more-item{flex:1;min-width:0;display:flex;align-items:center;height:28px;border:none;
+.tab-more-item{flex:1;min-width:0;display:flex;align-items:center;height:26px;border:none;
   background:none;color:var(--t2);font-size:12.5px;cursor:pointer;text-align:left;padding:0}
 .tab-more-item.on{color:var(--p-dark);font-weight:600}
 .tab-more-mask{position:fixed;inset:0;z-index:30}
