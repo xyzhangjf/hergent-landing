@@ -219,6 +219,16 @@
 
       <p v-if="cfg.hint" class="ipn-hint">{{ cfg.hint }}</p>
 
+      <!-- v684：自由退货提醒。
+           🔴 **只提示、不拦截**：这里没有任何 `disabled` / `return` 绑到它。
+              老板 2026-10-25 口径：没有历史采购的商品也允许退（跨渠道调货、跨期老货都真实存在）。
+           🔴 接口没读出来时显示 `histNote`（如实说"没读到，本次不提醒"），
+              而不是把每一行都标成"没有历史" —— 假警告比不提醒更糟。 -->
+      <p v-if="histWarn || histNote" class="ipn-hist-warn">
+        <Icon name="alert" :size="14" />
+        <span>{{ histWarn || histNote }}</span>
+      </p>
+
       <div v-if="selSupplier" class="ipn-strip">
         <span class="ipn-si">
           <span class="ipn-sk">供应商</span><b>{{ selSupplier.name }}</b>
@@ -274,6 +284,10 @@
                 <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td class="ipn-c-prod">
                   <ProductCombo :row="row" :products="products" @pick="onPick" />
+                  <!-- v684：该供应商从没采购过这个商品时挂个角标（绝对定位 ⇒ 不占行高、
+                       不挤商品列宽）。仍可正常提交，这里只是提醒。 -->
+                  <span v-if="isHistMissing(row)" class="ipn-hist-dot"
+                        :title="`该供应商的历史采购记录里没有「${productNameOf(row) || '这个商品'}」。仍可正常退货，这里只是提醒。`">⚠</span>
                 </td>
                 <td>
                   <input v-model="row.quantity" class="input ipn-in num" inputmode="decimal" placeholder="0" />
@@ -401,6 +415,8 @@ import ProductCombo from './ProductCombo.vue'
 import {
   applyPricingToRow, applyUnitChange, createPricingCache, unitOptionsOf, PRICE_SOURCE_LABEL,
 } from './unitPricing.js'
+/* v684：自由退货的「这行商品在该供应商那儿有没有历史采购」提醒（唯一入口，只提醒不拦截）。 */
+import { createHistoryChecker, historyWarnText, HISTORY_NOTE } from './partnerHistory.js'
 
 const props = defineProps({
   /* 单据类型键，见 `docTypes.js` 的 `PURCHASE_DOC_TYPES`。本内核只承载采购退货单。 */
@@ -556,6 +572,45 @@ watch(() => form.value.supplier_id, (now, before) => {
   if (Number(now) === Number(before)) return
   pricingCache.clear()
 })
+
+/* ══ v684：自由退货提醒 ══════════════════════════════════════════════════════════
+   老板 2026-10-25 口径：本页**不再以「按原单退货」为主入口**（列表行 / 工具栏进来都走自由退货），
+   选到「该供应商从没供过」的商品**只提醒、不拦截** —— 现实里退的货常常是上次从
+   别的渠道调的，或跨期老货。
+   🔴 判定「什么算历史采购」只在后端 `db/queries/partner_history.py`（哪些单据状态算数），
+      前端只负责显示；不许在这里补一条 SQL 或加一个 `if (missing) return`。
+   🔴 `histCount` **不参与** `validateStandalone()` —— 一参与就从「提醒」变成「拦截」。
+   ══════════════════════════════════════════════════════════════════════════════ */
+const histMissing = ref(new Set())
+const histNote = ref('')
+const history = createHistoryChecker(psiApi.partnerProductHistory, (miss, meta) => {
+  histMissing.value = miss
+  histNote.value = (meta && meta.failed) ? HISTORY_NOTE.failed : ''
+})
+const histCount = computed(() => items.value.filter(
+  r => Number(r.product_id) > 0 && histMissing.value.has(Number(r.product_id))).length)
+const histWarn = computed(() => historyWarnText('purchase', histCount.value))
+function isHistMissing (row) {
+  return Number(row.product_id) > 0 && histMissing.value.has(Number(row.product_id))
+}
+/** 行上没有 `product_name` 字段（ProductCombo 只写 product_id）⇒ 从 products 现查。
+    只用于提示文案，不参与任何计算。 */
+function productNameOf (row) {
+  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
+  return (p && p.name) || ''
+}
+/* 供应商或**商品集合**一变就重查（防抖在 checker 里：连续改行只打一次接口）。
+   🔴 watch 源用「商品 id 拼接串」，不用 `watch(items)`：后者在改数量/单位时也触发，
+      而那两件事跟「有没有历史采购」无关 —— 会让每敲一个数字打一次接口。 */
+watch([
+  () => form.value.supplier_id,
+  () => items.value.map(r => Number(r.product_id) || 0).join(','),
+], () => {
+  history.check('purchase', Number(form.value.supplier_id) || 0,
+    items.value.map(r => Number(r.product_id) || 0))
+})
+/* 切模式（挂原单 ⇄ 自由退货）必须清掉提醒：模式 A 的明细来自原单，不存在"没有历史"。 */
+watch(isAttached, () => history.clear())
 
 /** 从商品档案带出单位 / 条码 / 换算式提示 / 该档单价。
     🔴 落库口径不变：后端仍把 `quantity`/`unit_price` 折成小单位存（`purchase_return_items`
@@ -927,6 +982,13 @@ async function reinit () {
   items.value = []
   for (let i = 0; i < PRESET_ROWS; i++) items.value.push(blankRow())
   await loadRefs()
+  /* v684：列表行「退货」跳过来时带 `?supplier_id=` —— 自由退货不再挂原单，
+     供应商只能从这里补上下文（不然用户还得重选一遍）。
+     🔴 必须校验该 id **真的在 suppliers 下拉里**：URL 用户可改，带个不存在/被停用的 id
+        会让 SupplierCombo 显示空白、而 `form.supplier_id` 仍是脏值 ⇒ 提交时后端 400
+        「请先选择退货供应商」，用户看着界面有供应商却报错，无从下手。 */
+  const sq = Number((route.query && route.query.supplier_id) || 0) || 0
+  form.value.supplier_id = (sq > 0 && suppliers.value.some(x => Number(x.id) === sq)) ? sq : 0
 }
 
 onMounted(() => {
@@ -1233,7 +1295,7 @@ table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
 .ipn-c-stk { width: 78px; font-variant-numeric: tabular-nums; white-space: nowrap }
 /* 「实际有货、一件都不可售（全过期）」——必须扎眼，否则用户以为有货能卖 */
 .ipn-c-stk .danger { color: var(--danger-txt) }
-.ipn-c-prod { min-width: 240px }
+.ipn-c-prod { min-width: 240px; position: relative }
 .ipn-c-code { width: 100px; color: var(--t2); font-variant-numeric: tabular-nums }
 /* v409（P2-1）：单位列 64→92px 是给「下拉 + 换算浮层」的；v417g 浮层已不占宽，收到 84px。 */
 .ipn-c-unit { width: 84px }
@@ -1437,6 +1499,24 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
 .ipn-total { font-size: 14px }
 .ipn-total b { font-size: 18px; font-variant-numeric: tabular-nums }
 .ipn-warn { font-size: 12px; color: var(--war) }
+
+/* v684：自由退货提醒条 + 行内「无历史采购」角标。
+   🔴 角标必须绝对定位：写成行内第二行会把数据行高从 29.8px 顶到 40+（契约 ⑰ 的判据）；
+      写成列内 flex 会挤掉商品输入框宽度。 */
+.ipn-hist-warn {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: 0 0 12px; padding: 7px 10px; max-width: 900px;
+  font-size: 12px; line-height: 1.5; color: var(--t1);
+  background: rgba(var(--war-rgb), .1);
+  border: 1px solid rgba(var(--war-rgb), .35);
+  border-radius: 6px;
+}
+.ipn-hist-warn svg { flex: 0 0 auto; margin-top: 2px; color: var(--war) }
+.ipn-hist-dot {
+  position: absolute; right: 5px; top: 2px;
+  font-size: 11px; line-height: 1; color: var(--war);
+  cursor: help;
+}
 .ipn-save { position: relative; display: inline-flex; margin-left: auto }
 .ipn-save-main { border-top-right-radius: 0; border-bottom-right-radius: 0 }
 .ipn-save-caret {

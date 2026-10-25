@@ -1406,8 +1406,18 @@ function goNew () {
       点进去只会看到一张空的可退表（造**假入口**是本仓反复付学费的那类）。
       口径与后端 `returnable=True` 的 `status IN ('received','partial','returned')` 对齐
       —— 这里不含 `returned`：已退完的单再点退货没有意义。 */
-function canReturnFrom (r) { return ['received', 'partial'].includes(r.status) }
-function goReturn (r) { router.push(legacyPurchasePath('return') + '?from_po=' + r.id) }
+/* v684（老板 2026-10-25）：行内「退货」改走**自由退货**，不再以「按原单退货」为主入口。
+   · 跳的是空白退货单 + `?supplier_id=`：把这一行的供应商预填，省得用户重选。
+   · **状态限制随之取消**（原先只在 `received/partial` 给入口）：那套限制是「按原单退货」
+     语义下的东西（原单没入库就没有可退量）。自由退货根本不看原单，货早在仓里，
+     退货事实与"那张采购单走到哪一步"无关。
+   · 「按原单退货 · 服务端算可退上限」**没有删**，仍在采购单详情页的
+     「转单为 → 采购退货」（`?from_po=`）—— 那里才是需要上限的场景（同一批货防超退）。
+     注：`legacyPurchasePath('return')` 是 `/inventory/purchase/return/new`。 */
+function goReturn (r) {
+  const sid = Number(r.supplier_id) || 0
+  router.push(legacyPurchasePath('return') + (sid > 0 ? '?supplier_id=' + sid : ''))
+}
 function go (p) { router.push(p) }
 
 function goPage (p) {
@@ -1665,7 +1675,8 @@ function rowActions (r) {
   if (!isReturn.value) {
     all.push({ key: 'copy', text: '复制', rank: 9, disabled: !canWrite.value, title: canWrite.value ? null : '没有新建权限，无法复制' })
   }
-  if (!isReturn.value && canReturnFrom(r)) all.push({ key: 'return', text: '退货', rank: 9 })
+  /* v684：自由退货 ⇒ 不再按原单状态过滤（理由见 `goReturn` 上方）。 */
+  if (!isReturn.value) all.push({ key: 'return', text: '退货', rank: 9 })
   const inline = []
   const more = []
   for (const a of all) (a.rank <= 3 && inline.length < INLINE_MAX ? inline : more).push(a)

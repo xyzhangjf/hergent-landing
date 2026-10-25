@@ -69,6 +69,23 @@ export const psiApi = {
   productPricing: (productId, kind = 'sale', extra = {}) =>
     api(`/api/psi/product-pricing${qs({ product_id: productId, kind, ...(extra || {}) })}`),
 
+  /**
+   * 自由退货的**提醒**（v684）：这批商品在该供应商/该客户的历史单据里出现过吗？
+   *
+   * @param {string} kind `purchase`（采购退货）| `sale`（自提退单 / 车销退单）
+   * @param {number} partnerId 供应商 id / 客户 id。0 = 还没选人 ⇒ 后端 `skipped=true`
+   * @param {number[]} productIds 商品 id 列表
+   * @returns `{kind, partner_id, checked, matched, missing, skipped}`
+   *
+   * 🔴 只用于**行内提醒**，**绝不拦提交**：老板口径是「选到没有历史记录的商品也允许退，
+   *    只是让人知道一下」。判定口径（哪些单据状态算数）只在后端
+   *    `db/queries/partner_history.py`，前端不许自己拼 SQL 或猜。
+   */
+  partnerProductHistory: (kind = 'purchase', partnerId = 0, productIds = []) =>
+    api(`/api/psi/partner-product-history${qs({
+      kind, partner_id: partnerId, product_ids: (productIds || []).join(','),
+    })}`),
+
   /* ---- 库存（只读投影） ---- */
   /**
    * 批次级库存，**默认按到期日升序**（低温奶先出最早到期；无到期日排最后）。

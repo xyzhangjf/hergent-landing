@@ -80,6 +80,15 @@
     <!-- 说明行**必须在表单头之外**（规范 §2.2）：留在框里会把那一格撑高 ⇒ 框不再等高。 -->
     <p v-if="cfg.hint" class="isn-hint">{{ cfg.hint }}</p>
 
+    <!-- v684：自由退单提醒（自提退单 / 车销退单共用）。
+         🔴 **只提示、不拦截**：没有任何 `disabled` / `return` 绑到这里。
+         🔴 接口没读出来时显示 `histNote`（"没读到，本次不提醒"），
+            绝不把每一行都标成"没买过" —— 假警告比不提醒更糟。 -->
+    <p v-if="histWarn || histNote" class="isn-hist-warn">
+      <Icon name="alert" :size="14" />
+      <span>{{ histWarn || histNote }}</span>
+    </p>
+
     <div v-if="selCustomer" class="isn-strip">
       <span class="isn-si">
         <span class="isn-sk">客户</span><b>{{ selCustomer.name }}</b>
@@ -136,6 +145,10 @@
               <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td class="isn-c-prod">
                 <ProductCombo :row="row" :products="products" @pick="onPick" />
+                <!-- v684：该客户从没买过这个商品时挂角标（绝对定位 ⇒ 不占行高、不挤列宽）。
+                     仍可正常提交，这里只是提醒。 -->
+                <span v-if="isHistMissing(row)" class="isn-hist-dot"
+                      :title="`该客户的历史销售记录里没有「${productNameOf(row) || '这个商品'}」。仍可正常退单，这里只是提醒。`">⚠</span>
               </td>
               <td>
                 <input v-model="row.quantity" class="input isn-in num" inputmode="decimal" placeholder="0" />
@@ -273,6 +286,8 @@ import {
 } from './unitPricing.js'
 import CustomerCombo from './CustomerCombo.vue'
 import ProductCombo from './ProductCombo.vue'
+/* v684：退单的「这行商品在该客户那儿有没有历史销售」提醒（唯一入口，只提醒不拦截）。 */
+import { createHistoryChecker, historyWarnText, HISTORY_NOTE } from './partnerHistory.js'
 
 const props = defineProps({
   /* 类型键，见 `docTypes.js` 的 `SALE_DOC_TYPES`。 */
@@ -463,6 +478,44 @@ watch(() => form.value.customer_id, (now, before) => {
   pricingCache.clear()
 })
 watch(pricingKind, () => pricingCache.clear())
+
+/* ══ v684：自由退单提醒（自提退单 / 车销退单共用本页）══════════════════════════
+   老板 2026-10-25 口径：三个退货渠道（采购退货 / 自提退单 / 车销退单）行为要一致 ——
+   选到「该客户从没买过」的商品**只提醒、不拦截**。
+   🔴 只在 `cfg.isReturn` 生效：销售单（正向开单）上没有"历史"这回事，
+      给正向单挂这个提醒只会变成噪音。
+   🔴 判定口径在后端 `db/queries/partner_history.py`（kind='sale'），前端只显示。
+   🔴 `histCount` 不参与 `validate()` —— 一参与就从提醒变成拦截。
+   ══════════════════════════════════════════════════════════════════════════════ */
+const histMissing = ref(new Set())
+const histNote = ref('')
+const history = createHistoryChecker(psiApi.partnerProductHistory, (miss, meta) => {
+  histMissing.value = miss
+  histNote.value = (meta && meta.failed) ? HISTORY_NOTE.failed : ''
+})
+const histCount = computed(() => items.value.filter(
+  r => Number(r.product_id) > 0 && histMissing.value.has(Number(r.product_id))).length)
+const histWarn = computed(() =>
+  (cfg.value.isReturn ? historyWarnText('sale', histCount.value) : ''))
+function isHistMissing (row) {
+  return !!cfg.value.isReturn && Number(row.product_id) > 0 &&
+    histMissing.value.has(Number(row.product_id))
+}
+/** 行上没有 `product_name` 字段（ProductCombo 只写 product_id）⇒ 从 products 现查。
+    只用于提示文案，不参与任何计算。 */
+function productNameOf (row) {
+  const p = products.value.find(x => Number(x.id) === Number(row.product_id))
+  return (p && p.name) || ''
+}
+watch([
+  () => form.value.customer_id,
+  () => items.value.map(r => Number(r.product_id) || 0).join(','),
+  () => cfg.value.isReturn,
+], () => {
+  if (!cfg.value.isReturn) { history.clear(); return }
+  history.check('sale', Number(form.value.customer_id) || 0,
+    items.value.map(r => Number(r.product_id) || 0))
+})
 
 async function applyProduct (row) {
   const p = products.value.find(x => Number(x.id) === Number(row.product_id))
@@ -864,6 +917,24 @@ onMounted(() => { reset(); loadRefs() })
 .isn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
 .isn-cnt { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
 .isn-tip { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--t2); margin: 0 0 10px }
+
+/* v684：自由退单提醒条 + 行内「该客户没买过」角标。
+   🔴 角标必须绝对定位：写成行内第二行会把数据行高从 29.8px 顶上去（契约 ⑰ 的判据）；
+      写成列内 flex 会挤掉商品输入框宽度。 */
+.isn-hist-warn {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: -6px 0 12px; padding: 7px 10px; max-width: 900px;
+  font-size: 12px; line-height: 1.5; color: var(--t1);
+  background: rgba(var(--war-rgb), .1);
+  border: 1px solid rgba(var(--war-rgb), .35);
+  border-radius: 6px;
+}
+.isn-hist-warn svg { flex: 0 0 auto; margin-top: 2px; color: var(--war) }
+.isn-hist-dot {
+  position: absolute; right: 5px; top: 2px;
+  font-size: 11px; line-height: 1; color: var(--war);
+  cursor: help;
+}
 .isn-c-reason { min-width: 132px }
 .isn-reason-na { color: var(--t3); font-size: 12px }
 .isn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
@@ -910,7 +981,7 @@ table.tbl.isn-tbl td.seq-cell { padding: 2px 4px }
          列少时余量摊给最宽那列（商品），所以宽屏下实际列宽仍随列数浮动 ——
          这是布局的固有差异，不是缺陷（规范 §R.9 同此口径）。 */
 .isn-tbl { min-width: 720px }
-.isn-c-prod { min-width: 240px }
+.isn-c-prod { min-width: 240px; position: relative }
 .isn-c-qty { width: 86px }
 .isn-c-price { width: 86px }
 .isn-c-amt { width: 92px }

@@ -343,6 +343,19 @@ if (has('skip-sfc')) {
   results.push({ name: '开单单位×价格联动', ok: r.code === 0, code: r.code })
 }
 
+/* ⑲ v684：自由退货 + 「商品不在该伙伴历史记录里」提醒（采购退货 / 自提退单 / 车销退单）。
+   老板原话：「采购退货页不再以『按原单退货』作为主入口…选中不在采购记录中的商品时
+   仅给出提醒，但仍允许继续退货。自提退单和车销退单需采用相同的逻辑与提醒机制」。
+   本组最重要的一条：提醒状态**不得**出现在 validate / disabled 里 —— 一旦有人顺手
+   在校验里加一句 `if (histCount) return`，功能就变成拦截，而界面**看不出区别**。 */
+{
+  console.log('\n── ⑲ 自由退货 + 商品不在伙伴历史记录提醒契约（v684）──')
+  const r = run('free-return.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '自由退货提醒（不拦截）', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
