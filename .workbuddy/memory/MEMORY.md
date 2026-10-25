@@ -48,6 +48,17 @@
 - 🔴 **拆行后仍全表重渲染 ⇒ 先查行内 helper 有没有摸全表聚合**（`rowSumOf`/`cellIssueIndex`/`dupBarcodeAt`）。定位唯一手法：hook `Dep.prototype.notify` 按 `this.subs` ≈ 行数找 computed。`onRenderTriggered` 的字段不可信。
 - 🔴 **「打字卡」根因是「每敲一键写一次响应式」，不是 DOM 规模/行高**（v652）：判据=保留 `@input` 121ms vs `cloneNode` 0.1ms。
 
+## 🔴 后端新增路由必须登记「三张表」
+
+- 🔴 **① `_TENANT_MASTER_PREFIXES` / `_TENANT_REQUIRED_PREFIXES`**（`server.py` 顶部）= 租户上下文；
+  **② `_PATH_MODULES`**（`server.py` P0-2.1 区块）= 模块门禁，**fail-closed**：
+  未登记的路径返回 **403 `MODULE_NOT_CONFIGURED`「路径未配置访问模块」，连 boss/admin 都打不开**；
+  **③** 若前端有页面，还要在 `pages.js` + `permView.js` 登记（见前端铁律）。
+  只登记 ① 不登记 ② ＝ **接口上线即死**（2026-10-25 实证：v88 P1-4 的 `/api/monitor/health`、
+  `/api/monitor/test-alert` 就这样躺了一个月，健康检查/测试告警全不可用，而已登记 ③ 的
+  `AlertRules` 页面是好的 ⇒ 「页面能开」不能证明「接口能调」）。
+  纯管理员路由惯用 `"hr"`（仅 boss 持有）保持 owner-only，如 `/api/config`、`/api/force-logout`。
+
 ## 🔴 后端写库 / 建表（极易静默不落盘）
 
 - 🔴 **`db.get_db()` 不 commit**（`finally` 只 rollback）⇒ 写库必须 **`db.get_db_tx()`**。否则「接口 200、库里 0 行」。
