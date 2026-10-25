@@ -60,6 +60,14 @@
 - 🔴 两个静默失效：① 接口失败当成「全都没有历史」⇒ 每行挂假警告；② 没选伙伴/商品当成「全都没有历史」⇒ 刚进页面一片⚠。两条都必须在 checker 里显式短路。
 - 🔴 同 path 只换 query **不会重跑** `reinit()`（`watch` 只挂在 `from_po`）⇒ 探针验 `?supplier_id=` 预填必须先跳别的页再进来，否则把"探针跳法不对"误记成缺陷。
 
+## 🔴 建单页商品候选（v685 起；「搜不到 / 单位只有一项」都先查这里）
+
+- 🔴 `psiApi.refs(..., N)` 的 N 是**硬截断**：后端 `product_list` 是 `ORDER BY id DESC LIMIT ?` ⇒ 建单页本地过滤只拿「id 最大的 N 条」，N < 在售商品数就等于**老商品搜不到**，且接口 200、界面零报错。唯一源 `productPick.js::REF_LIMIT`（现 5000，生产在售 1159 / 客户 702）。契约 ⑳。
+- 🔴 生产档案脏：1270 个商品里 **800 条「单档且无采购价」**、130 组重名（916 条）、**119 组「同名但一条多档、其余单档」**。同名档案只显示「名称+条码」时用户无从分辨 ⇒ 点到单档那条，单位下拉只有 1 项，现象就是「单位不能选」。
+- 唯一实现 `pages/inventory/new/productPick.js`：`pickBadge`（多档 `杯·组·件` / 单档 `仅件` 灰 / 无价红）、`pickScore`（有价+多档 0 → 无价单档 3，同分保持后端序）、`pickMatches`、`pickSummary`。候选行徽标 `.ipn-prod-tier`，页面不许再抄 filter。
+- 🔴 单位格只有 1 档时**必须解释原因**（`unitPricing.js::unitCellTitle`，四页共用）：不然用户只会说「不能选」。
+- 🔴 徽标/换算是**浮层信息**，必须 absolute（不占行高）；行高别拿「29.8」当全局基线 —— 它随 `data-density`（cozy/compact）变，采购页在 cozy 下是 31.8。用「摘掉元素前后行高一致」做因果判据。
+
 ## 🔴 后端新增路由必须登记「三张表」
 
 ① `_TENANT_MASTER_PREFIXES`/`_TENANT_REQUIRED_PREFIXES`（`server.py` 顶部）② **`_PATH_MODULE_MAP`**（不是 `_PATH_MODULES`）＝模块门禁，**fail-closed**：未登记返回 **403 `MODULE_NOT_CONFIGURED`，连 boss 都打不开** ③ 前端 `pages.js`+`permView.js`。
