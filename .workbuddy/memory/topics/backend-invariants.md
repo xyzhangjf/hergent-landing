@@ -870,3 +870,27 @@ PY
 
 **验收**：`tests/perf/v684/verify_history.py`（16 条，与直连 SQL ground truth 对照 + 「换伙伴结论必须变化」反假阳性）；
 `v684-e2e.py` J/K 组（tenant_98 隔离租户，51 断言）；`neginject_v684.py` 注入「无历史则拒绝」⇒ K 组 5 条全红。
+
+
+<!-- ===== 自 MEMORY.md 索引归并 2026-10-25（原文逐字保留，勿删）===== -->
+
+### 🔴 后端新增路由必须登记「三张表」
+
+① `_TENANT_MASTER_PREFIXES`/`_TENANT_REQUIRED_PREFIXES`（`server.py` 顶部）② **`_PATH_MODULE_MAP`**（不是 `_PATH_MODULES`）＝模块门禁，**fail-closed**：未登记返回 **403 `MODULE_NOT_CONFIGURED`，连 boss 都打不开** ③ 前端 `pages.js`+`permView.js`。
+只登记①不登记②＝接口上线即死（`/api/monitor/health` 躺了一个月）⇒ **「页面能开」不能证明「接口能调」**。纯管理员路由惯用 `"hr"`。
+
+### 🔴 隔离租户 e2e（会动业务数据的验收，唯一安全做法）
+
+- 建 `tenant_99.db`：**只从 `tenant_1.db` 的 `sqlite_master` 复制结构**（不读行）→ 主库 `tenants` 插行 + `user_tenants` 给 boss 加 (2,99) → `X-Tenant-Id: 99` 打真机 HTTP。跑完删库+删两行+删探针 session，并自证 `tenants` 回到 1/10、`tenant_1` 里 `like '%E2E%'` 命中 0。
+- 🔴 **prepare 建完库必须 `chown hergent:hergent`**（root 建的库 ⇒ 全线 `attempt to write a readonly database`，含定价接口 500）。改完属主仍 readonly ⇒ 重启进程（`db/connection.py` 的 `_sqlite_cache` 缓存旧 handle，`SELECT 1` 探活照样通过）。
+- 🔴 **teardown 删库后必须重启服务再 prepare**：进程持有已删 inode，后续写入落进「幽灵文件」⇒ 现象是「建单 200、详情回显全对，但直连 SQL 查不到明细行」。
+- 探针落 `tests/perf/vXXX/`（v681 模板 / v683 含 40 断言）。
+
+### 🔴 后端写库 / 建表 / 格式化
+
+- `db.get_db()` **不 commit** ⇒ 写库必须 `db.get_db_tx()`，否则「接口 200、库里 0 行」。
+- `conn.executescript()` 会隐式 commit 之前的写 ⇒ 建表语句放事务块首条。
+- 新增表两处同写 DDL：`_safe_migrate_script`（新库）+ 使用侧 lazy `CREATE TABLE IF NOT EXISTS`（老库），逐字一致；租户列清单 `_ensure_tenant_module_tables` 也要同步写，否则当次启动有「建单 500」窗口。
+- `sqlite3.Row` 缺列抛 `IndexError` ⇒ 用 `_row_get()` 安全取名，别让「少一个字段」变成「开不了单」。
+- 🔴 `erp_db.py` 的 CREATE TABLE 模板曾与真实库 schema 漂移 ⇒ 改表/查询前以 `tenant_1.db` 真实 schema 为准。
+- 🔴 `"…%（…" % x` 运行时崩 500（v682）：`%` 后紧跟全角字符被当格式符 ⇒ 用 `100%%（` 或改 f-string。**凡 %-format 里出现 `%（），。、；：` 一律复查**。

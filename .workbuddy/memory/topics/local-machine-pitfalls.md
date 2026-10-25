@@ -1137,3 +1137,20 @@ v493 真实缺陷：`ChartHbar` 的名称文本 `x = PAD.l - 10 = -2` 配 `text-
   `window.fetch` hook 会漏「点之前就在飞」的请求 ⇒ 用 `performance.getEntriesByType("resource")` 兜底。
   判据用「首帧可用 + 长任务峰值」，不是总时长（总活量不变，变的是多久能开始干活）。
 - 探针脚本放项目 `tests/perf/vXXX/`，**别放 `/tmp`**（`import 'playwright'` 解析不到）。
+
+
+<!-- ===== 自 MEMORY.md 索引归并 2026-10-25（原文逐字保留，勿删）===== -->
+
+### 探针纪律（细节→`local-machine-pitfalls.md`）
+
+- 登录只能走真实流程（点「先看看演示效果」让后端 Set-Cookie）；脚本放 `tests/perf/vXXX/`，**别放 `/tmp`**（playwright 在仓库 node_modules 里，`/tmp` 下 import 不到）。
+- 临时登录态只能插主库 `erp.db` 的 `sessions`（**不是 `tenant_1.db`**）；测完 DELETE 并确认两库均 0。
+- 副驾第一个动作 `freshChat()`；识别卡片靠 DOM 事实（`.rc`+`m.role`），不许靠文案。
+- 数据不具备时 SKIP 退出 0（演示租户 `readonly=1`、只有 13 个商品、无商品档案权限是环境约束）。
+- HTTP 探针读响应头必须全小写；`Content-Disposition` 中文是 percent-encoded。toast 瞬时 ⇒ 150ms 采样存 `window.__toastLog`。
+- 生产 minify 三连坑：`setupState` 恒 EMPTY_OBJ（用 `type.__name` + `#app._vnode` vnode DFS）；`__vueParentComponent` 被 NODE_ENV 门禁；「改单」需 `reopenPeriod(pid,'full')`。
+- 1440 下操作列常在视口外 ⇒ 先 `scrollIntoView` 再点。**`v-if` 切换单元格会把 `<select>` 整块卸载** ⇒ 选项要在格子还开着时读。
+
+### 本机坑
+
+`grep "A\|B"` 静默失效⇒用 `-e` 或拆两条；`&&` 前段无匹配会短路；`| head -N` 截掉决定性命中；`grep -rl X *.py` 只搜顶层；zsh 里 `$c[ ]` 当数组下标；`timeout` 不存在。**「搜不到」先排除「搜错范围/被截断」。**

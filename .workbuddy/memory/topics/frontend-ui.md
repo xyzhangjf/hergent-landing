@@ -4645,3 +4645,54 @@ grep `.sb-pop{` 或只翻 `index-*.css` 都会空手而归。
 
 **契约**：`tests/product-pick.contract.mjs`（组 ⑳，45 条，含坏样本自证：
 `REF_LIMIT` 改回 500 ⇒ 立刻判红 2 条；排序退化样本 `4,2,3,1` ⇒ 排序断言有判别力）。
+
+
+<!-- ===== 自 MEMORY.md 索引归并 2026-10-25（原文逐字保留，勿删）===== -->
+
+### 高频硬判据
+
+- prop 到子组件已解包 ⇒ `props.row.value` 恒 undefined，写 `props.row`。
+- 模板裸标识符必须在 setup 声明，否则落 `$attrs` 静默 undefined。
+- `api()` 只解一层（`client.js` 已 `return data.data ?? data`）⇒ 再写 `(d && d.data)` 恒空；仅 `{raw:true}` 才取 `.data`。
+- scopeId 由文件内容派生 ⇒ 动过 SFC 必须重构建重部署。多根组件静默丢父级 `class`。`v-html` 的 DOM 无 scoped ⇒ 要 `:deep()`。
+- `v-if` 面板销毁带走 `scrollTop` ⇒ 重开还原；flex 行长文本必须 `min-width:0`。
+- 改「恒空 getter」前先 grep 布尔/三元用法（`auth.token` 曾让 IdleTimeout 静默失效）。
+- `Teleport to="body"` 的浮层不在页面子树 ⇒ `.page.xxx` 后代选择器对它是死代码。
+
+### 浮层层级（唯一源 `variables.css` v367 阶梯，别自拍 `--z-sticky+N`）
+
+`--z-page-fs`1000 / `--z-page-overlay`1100 / `--z-page-menu`1101 / `--z-page-bar`1120 / Modal 1125·1130 / `--z-sug-pop`1150。
+- 🔴 低于 1000 的浮层在全屏页必被整块盖住；**遮罩与本体必须成对抬升**（只抬本体则「点空白关闭」失效）。
+- 🔴 页面内 Modal 用 1125/1130（写 1000/1001 会被 `.tb-pop`(1120) 盖住）；`Teleport + fixed`；有自定义浮层就删触发器 `title`。
+- 🔴 表格行内下拉必须 `Teleport to="body"` + `fixed`（单元格 `overflow:hidden` 静默裁掉）⇒ 共享件 `RowMoreMenu.vue`。
+
+### 表格 / 控件
+
+- 🔴 **行内图标按钮是行高决定者**：2×`.btn-row-ic`(26)+4 gap=56 净宽，加 td 左右各 8 ⇒ 操作列 ≥72（定 76 + `nowrap`）。抄 `width:64px` ⇒ 换行 ⇒ 行高 29.8→56.6px。**「抄列宽」比「抄机制」更危险**。契约 ⑰。
+- 🔴 sticky 列必须补 `background` + `box-shadow:inset 1px 0 0`（`border-collapse:collapse` 下真 border 会丢）。
+- 🔴 「换算/解释小字」不占行高 ⇒ 绝对定位浮层；写行内第二行会顶高行高。
+- 🔴 列宽按**最不利（宽松）密度**核算：内容宽=列宽−28（`10px 14px`）／紧凑 −16；权威在 `<colgroup>`，td 不写 width。
+- 🔴 `.card` 18px 只是「内容卡」基线，套「单行工具条」必须把类名补进 `variables.css` 的 `.card.xx-filter{padding:10px 14px}` 组（否则静默回落 18px）；状态页签只改 `.psi-tabbar .main-tab`。
+- 🔴 全站「全选」只能用 `SelectAllCheckbox.vue`（`:indeterminate.prop` + `@change`），范围≡所见。有意不纳入：权限矩阵/列显隐/品牌周期筛选/开关。
+- 🔴 `@click.prevent` + 单向 `:checked` 是经典坑（真实鼠标必现，`el.click()` 量不出）⇒ 用 `@change` + `nextTick` 回写；点击切换类控件不许用 `el.click()` 验收。
+- 🔴 `<select>` 单位/档位切换用 `:value` + `@change` 取值，**不用 `v-model`**（v-model 在 change 派发前就改掉 `row.unit`，事件里拿不到旧值）；实在要用则必须 `applyUnitChange(..., {force:true})` 摆脱顺序依赖。
+
+### 「改错了」类排查
+
+- 🔴 「模式开关」判据只能用 setup 快照，不能用会被预览覆盖/后端每轮重算回传的 flags。
+- 🔴 换唯一键/加列：补列 → **回填** → 建索引，缺一即静默失效；`_create_indexes_on` 是 `except: pass`，只能 `PRAGMA index_list` 逐库复核。
+- 🔴 「数字没回填」先分「算错」还是「没量可算」（`0 × 占比 = 0` 与什么都没做同构）。
+- 🔴 「底栏要往下翻才看得见」先查写死的 `72vh` 类相对视口高度；判据=量 `bottom` vs `innerHeight`。
+- 🔴 拆行后仍全表重渲染 ⇒ 查行内 helper 是否摸全表聚合（hook `Dep.prototype.notify` 按 `this.subs`≈行数找 computed）。「打字卡」根因是「每敲一键写一次响应式」，不是 DOM 规模。
+
+### 布局高度三条唯一源
+
+- 🔴 顶栏：唯一源 `--topbar-h`（**48px**），栏内最高控件 34px ⇒ 内容盒 47、呼吸位 6.5px。别改字号/padding/写死 height，别另立 `--header-h`。契约 ⑫。
+- 🔴 侧栏条目：高度 = line-height + 上下 padding，**从来没设 height**，现 **38.8px**（`padding:9px` + 13×1.6）。`line-height` 必须显式写；`.sb-area-btn` 只许 `font-family:inherit`；禁写死 height。契约 ⑬。
+- 🔴 全局标签栏 = 顶栏正下方「[⟳] 采购单 ×」（`TabBar.vue`），现 **35px**。**三件必须同步**：`.tabbar` padding、`.tab-item`/`.tab-more-btn`/`.tab-more-item` height（必须全等，漏改「更多」撑回 37 而肉眼查不出）、`.tab-more-menu` 的 `top`。契约 ⑭。❗造溢出须开 2+ 标签（hash 跳 `#/forecast`）。
+
+### 页面真身速查（标题近似，极易改错文件）
+
+- 「预报订单管理→商品目标→新建」=`pages/ProductTarget.vue`（`/forecast?tab=target` 第 4 页签）｜「目标与返利→创建商品目标」=`components/rebate/TargetFormModal.vue`。
+- 商品档案 = `pages/ProductArchive.vue`，路由 **`/archive/products`**（`/archive` 是员工档案）。
+- 🔴 建单页现行落点（v449 拆分后）：采购订货 `PurchaseOrderForm`｜采购退货 `PurchaseReturnForm`｜自提/车销**订单+退单**共 4 入口走 `SaleDocForm`｜调拨 `TransferDocForm`｜商品格共享件 `ProductCombo`。`InvPurchaseNew.vue`/`InvSaleNew.vue` 是**已死引用**（无路由）；规范文档 §9/§9.1 是拆分前历史对照，现行看 **§9.3 + §R.11**。

@@ -1808,3 +1808,35 @@ v441 六界面探针里三条断言「退货模式**没有** `hd-box`」—— �
 - **前端批量结果条被自身刷新抹掉**：写状态与刷新顺序错了就是「恒空 UI」，零报错零异常。
 - `scp` 多远程源必须各带 `host:`（否则后面的源被当本地路径报 ENOENT，极易误判「生产没这个文件」）；两个同名 `sales.py`（routers / db/queries）拉同目录会互相覆盖 ⇒ 分子目录。
 - vite 构建命令别串在同一条 bash 里（第二条会在前一条的 `emptyDir` 阶段抛 `rmSync`）。
+
+
+<!-- ===== 自 MEMORY.md 索引归并 2026-10-25（原文逐字保留，勿删）===== -->
+
+### 🔴 单位三档模型（v683 起全局生效）
+
+- 三档：`products.unit`(小/基础, ratio=1) / `medium_unit`+`medium_ratio` / `large_unit`+`large_ratio`。`order_unit` 只是「默认选哪一档」的偏好，**不是第四档**。
+- 🔴 **档案价量纲 = 元/小单位**（`purchase_price`/`sale_price`）；`factory_price` 才是元/大单位。⇒ 按档带价 = `档案价 × 该档 ratio`。采购页曾把它当大单位价（v409 起 7.22 元/板算成 0.72，330 个商品中招）。
+- 唯一实现：后端 `db/queries/product_pricing.py`（价格链 last_owner→last→last_legacy→archive→none）；前端唯一入口 `pages/inventory/new/unitPricing.js`。**两边都不许再写第二套**。
+- 三件套 `unit` / `base_ratio` / `base_qty` 才落库；扣减/回增一律用 `base_qty`，`base_qty<=0` 回退 `quantity` ⇒ 历史 14.28 万条明细零变化。
+- 老板拍板口径：**换档数量不动、金额跟着变**（与 v455 的「价×k、量÷k」相反）；档案没配默认单位时保持各页现状（采购回大包装、其余最小档）。
+- 🔴 切客户/供应商/单据类型必须清定价缓存，否则带错价且界面完全正常。契约 ⑱。
+
+### 🔴 自由退货 / 「只提醒不拦截」类需求（v684 起）
+
+- 三退货渠道（采购退货 / 自提退单 / 车销退单）**一律自由退货**，不挂原单也能退。挂原单通道仍在采购单详情页「转单为」（唯一带服务端可退上限的护栏），只是不是入口。列表行「退货」跳自由退货 + `?supplier_id=` 预填供应商。
+- 唯一实现：后端 `db/queries/partner_history.py::missing_products`（采购按 `supplier_id`、销售按 `customer_id`；排除 draft/cancelled/void/rejected）＋端点 `GET /api/psi/partner-product-history`；前端唯一入口 `pages/inventory/new/partnerHistory.js`。
+- 🔴 「只提醒」的机器判据：提醒状态**不得**出现在 `validate*()` 函数体与任何 `:disabled` 里（契约 ⑲ 扫函数体）。一进校验就变成拦截，而界面**看不出区别**（提示条照旧显示）。
+- 🔴 两个静默失效：① 接口失败当成「全都没有历史」⇒ 每行挂假警告；② 没选伙伴/商品当成「全都没有历史」⇒ 刚进页面一片⚠。两条都必须在 checker 里显式短路。
+- 🔴 同 path 只换 query **不会重跑** `reinit()`（`watch` 只挂在 `from_po`）⇒ 探针验 `?supplier_id=` 预填必须先跳别的页再进来，否则把"探针跳法不对"误记成缺陷。
+
+### 🔴 建单页商品候选（v685 起；「搜不到 / 单位只有一项」都先查这里）
+
+- 🔴 `psiApi.refs(..., N)` 的 N 是**硬截断**：后端 `product_list` 是 `ORDER BY id DESC LIMIT ?` ⇒ 建单页本地过滤只拿「id 最大的 N 条」，N < 在售商品数就等于**老商品搜不到**，且接口 200、界面零报错。唯一源 `productPick.js::REF_LIMIT`（现 5000，生产在售 1159 / 客户 702）。契约 ⑳。
+- 🔴 生产档案脏：1270 个商品里 **800 条「单档且无采购价」**、130 组重名（916 条）、**119 组「同名但一条多档、其余单档」**。同名档案只显示「名称+条码」时用户无从分辨 ⇒ 点到单档那条，单位下拉只有 1 项，现象就是「单位不能选」。
+- 唯一实现 `pages/inventory/new/productPick.js`：`pickBadge`（多档 `杯·组·件` / 单档 `仅件` 灰 / 无价红）、`pickScore`（有价+多档 0 → 无价单档 3，同分保持后端序）、`pickMatches`、`pickSummary`。候选行徽标 `.ipn-prod-tier`，页面不许再抄 filter。
+- 🔴 单位格只有 1 档时**必须解释原因**（`unitPricing.js::unitCellTitle`，四页共用）：不然用户只会说「不能选」。
+- 🔴 徽标/换算是**浮层信息**，必须 absolute（不占行高）；行高别拿「29.8」当全局基线 —— 它随 `data-density`（cozy/compact）变，采购页在 cozy 下是 31.8。用「摘掉元素前后行高一致」做因果判据。
+
+### 🔴 数字的单位跟着口径走
+
+返利 `target_type=amount|quantity`；quantity 时目标/达成/缺口/均单全是件数，写死 `¥` 就是把量读成额。跨口径不能相加。**改任何显示数字处先问：这个数什么单位。**

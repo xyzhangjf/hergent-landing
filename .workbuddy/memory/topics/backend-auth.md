@@ -1091,3 +1091,10 @@ tab 本身**无条件渲染**，所以**入口轴与按钮轴可以各不满足�
 `Forecast.vue:3351-3365` 用 `forecastDenied`（判 403 状态码）给整页补了常驻横幅，
 但那是**只读数据的补救**，不是写入门禁。**新增写入口时不能只靠"入口不显示"当门禁。**
 （本条目前仅据代码注释自述，**未做真机验证**，收紧前先实测。）
+
+
+<!-- ===== 自 MEMORY.md 索引归并 2026-10-25（原文逐字保留，勿删）===== -->
+
+### 会话凭证（v628 httpOnly Cookie）
+
+`erp_token`（httpOnly/Secure/lax）+ `hergent_auth=1` + `csrf_token`（回传 `X-CSRF-Token`）。state-changing 缺 CSRF ⇒ **403 CSRF_REQUIRED**（不是 401）。**永远别删 Bearer 分支**（小程序/桌面端/bot 在用）。

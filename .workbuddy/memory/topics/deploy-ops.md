@@ -2726,3 +2726,23 @@ emoji 集合两侧完全相同（11 个，含并行会话那份未提交的 🌁
 **生产真机探针的假绿陷阱**：探针 goto 生产时必须带 **`?__r=<ts>` 缓存破坏**。
 CDN / 浏览器可能命中**上一次部署的** `index.html` ⇒ 探针实际验的是旧产物，全绿但验错了版本。
 
+
+
+<!-- ===== 自 MEMORY.md 索引归并 2026-10-25（原文逐字保留，勿删）===== -->
+
+### 🔴 部署 / 构建
+
+- 构建 `node ./node_modules/vite/bin/vite.js build --emptyOutDir false`（PATH 无 `.bin`）；旧 chunk 留在 dist ⇒ 查符号必须 grep **新** chunk 名。
+- 发布 `rsync -av --no-owner --no-group dist/assets/`（**绝不 `--delete`**）→ 最后 scp `index.html` → 双侧 md5。macOS rsync 不支持 `--chown`。
+- 🔴 只传改动 chunk 会白屏（新 entry 闭包线上可能全无）⇒ 传整个 `dist/assets/`。
+- 🔴 「改了但用户说没变」第一步查构建号：打包后是**双引号** `__HG_BUILD__="v683"`（源头在 `src/main.js`，**发版前先升版本号**）；懒加载 chunk **不出现**在 index.html 的 script 标签（据此判「没部署」必误判）；SPA 老标签页永不重拉 index.html。
+- 🔴 生产热修不进 git ⇒ 下次整包同步必回退。**「以前修过现在又坏了」：数 `/opt/hergent-cn-v2/assets/*.js` 里关键字出现次数（`grep -o … | wc -l` + `ls -t`），次数多的那版就是修好的，从产物复刻，修完必须进 git + 契约护栏。**
+- 🔴 站点归属：`hergent.cn`/`www` → `/opt/hergent-cn-v2`；`erp.hergent.cn` → `/opt/static`（旧 admin）。**发版核验只认 hergent.cn**。样式常在懒加载 chunk 的 css。
+
+### 🔴 测试基线
+
+- 入口：后端 `tests/run_all_tests.py`｜前端 `tests/run-all.mjs`（**18 组**：万元往返 / SFC 符号 / 跨组件·漏 import·双重解包 / 返利 HTTP 契约 / 副驾入口 / ⑫顶栏 ⑬侧栏 ⑭标签栏 ⑮行内更多菜单 ⑯页头密度 ⑰建单页密度 ⑱单位×价格联动）。
+- 🔴 「有测试文件」≠「有测试」：17/23 后端文件是脚本式（顶层 `sys.exit`）混在 pytest 里 ⇒ 收集 `INTERNALERROR`、零覆盖却看着健全。
+- 🔴 转绿前先自证判别力（注回已知缺陷看能否抓红）；假阴性比假红危险。自证框架本身也会错（v683 `bodyOf` 把默认参数 `{}` 当函数体 ⇒ 坏样本全漏抓）。
+- 🔴 正则前导要零宽断言 `(?<![\w.$'"])`；扫模板别扫全文，扫前剥 HTML 注释；已知缺陷进 `KNOWN_ISSUES`。
+- 🔴 后端无 CI、回滚只靠手工 `.bak-*`（生产后端不在 git）。
