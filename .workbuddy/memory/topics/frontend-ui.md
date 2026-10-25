@@ -4399,3 +4399,31 @@ AI 的结论也是"系统自动算的"（v625c 探针守着这条）。
 
 **探针**：注入实测取 `checkbox.right − (cellWidth − paddingRight)`，> 0 即会画省略号。
 `getComputedStyle(cell).textOverflow` 只证明"能画"，不能证明"画了"，两者要一起看。
+
+## 副驾抽屉打开时页面浮层必须让位（v673）
+
+**症状**：侧栏（AI 副驾抽屉 `.copilot`，z **950**）打开时，预报页「品牌 / 到货周期 / 复制报单」
+的**弹层**整块浮在抽屉之上。
+
+**根因是两层，缺一不可**：
+1. `.tb-pop-panel` 是 `Teleport to="body"` ⇒ 早已不在 `.page` 后代里 ⇒ v135 写的
+   `.page.copilot-on .tb-pop-panel` **选择器写对了、祖先没了**，永不匹配 ⇒ 面板恒 1101 > 950。
+   （v135 当年只治住了**按钮容器** `.tb-pop`，弹层本体从没被管住。）
+2. `.col-menu`(1101) / `.col-menu-overlay`(1100) 根本不在那份名单里。
+
+**修法**：`CopilotDrawer` 的 `watch(copilotOpen)` 切 `body.classList.toggle('copilot-on')`
+（+ `onBeforeUnmount` 摘除），规则唯一源 `src/styles/app-layers.css`（main.js 入口引入）：
+`.tb-pop` / `.tb-pop-panel` / `.pop-overlay` / `.col-menu` / `.col-menu-overlay` /
+`.grid-area.is-fs` ⇒ `z-index:auto`。页面里不许再写 `.page.copilot-on`（第二真相源）。
+
+⛔ **只降非模态**：模态（`--z-page-modal-overlay` 1125 / `--z-page-modal` 1130）、`--z-sug-pop` 1150、
+toast 一律不动。**抬抽屉到 1105 是错的** —— 会盖掉 `--z-modal`(990) 的 5 处页面模态
+（WhDialog / CustomerArchive / SupplierArchive / InvPurchaseList / ProductArchive）。
+
+🔴 **通用判据**：判断一个浮层"该由谁让位"，先问**它渲染在 DOM 的哪个位置**。
+`Teleport to="body"` 的元素不在页面子树里，任何 `.page.xxx` 后代选择器对它都是死代码。
+新增页面级非模态浮层 ⇒ 登记进 `app-layers.css` + 跑 `tests/overlay-layers.contract.mjs`（run-all ⑩）。
+
+**探针**：判"有没有被盖"用 `elementFromPoint(浮层中心)` 看命中谁，别只看 `getComputedStyle().zIndex`
+（auto 也可能被祖先层级顶上去）；往返验证必须**关闭后复测**（防 body 类残留让浮层永久停在 auto）。
+⚠️ ⌘K 在副驾输入框里被豁免（`onKeydown` 对 INPUT 直接 return）⇒ 关抽屉用点遮罩，别用第二次 ⌘K。
