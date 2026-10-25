@@ -32,6 +32,19 @@
              失焦还原已选名、键盘 ↑/↓/Enter/Esc）。仅语义词「供应商→客户」不同，交互照搬。 -->
         <CustomerCombo v-model="form.customer_id" :customers="customers" />
       </div>
+      <!-- v686：业务员 —— 舟谱建单头是 `*客户 / *业务员 / *部门` 三格。
+           此前四页**根本没有**这个字段（只有 `operator_id` = 谁建的、`driver_id` = 送货司机），
+           老板要求「全链路统一叫业务员」⇒ 这一步是**补字段**，不是改名。
+           落 `sale_orders.handler` / `return_orders.handler`，取值域 = 主库 users.id 字符串
+           （与采购单 `handler` 同一套，共用同一个下拉）。
+           ⚠️ 选填：存量单（含舟谱导入）都没有这个值，强制必填会在快速开单时直接卡住。 -->
+      <div class="isn-f">
+        <label class="isn-lb">业务员</label>
+        <select v-model="form.handler" class="input isn-sel" @change="onHandlerChange">
+          <option value="">不指定</option>
+          <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
+        </select>
+      </div>
       <!-- 部门：舟谱建单头那一格 `*部门`。我方**选填**（后端 `sale_orders.department`
            是 TEXT，v88 迁移就有，但 v449 之前**没有任何调用方写过它** ⇒ 舟谱导入的
            单据上这格有值、手工建的单一直是空）。
@@ -79,6 +92,15 @@
 
     <!-- 说明行**必须在表单头之外**（规范 §2.2）：留在框里会把那一格撑高 ⇒ 框不再等高。 -->
     <p v-if="cfg.hint" class="isn-hint">{{ cfg.hint }}</p>
+
+    <!-- v686：业务员没配部门时的提示。
+         🔴 **只提示、不拦截**：不参与 `validate()`、不绑任何 `:disabled`
+            （一进校验就变成拦截，而界面上看不出区别 —— v684 那条纪律）。
+         🔴 只在「选了人 + 这个人确实没配部门」时出现；刚进页面不许有一片警告。 -->
+    <p v-if="handlerDeptHint" class="isn-hist-warn">
+      <Icon name="alert" :size="14" />
+      <span>{{ handlerDeptHint }}</span>
+    </p>
 
     <!-- v684：自由退单提醒（自提退单 / 车销退单共用）。
          🔴 **只提示、不拦截**：没有任何 `disabled` / `return` 绑到这里。
@@ -144,7 +166,10 @@
             <tr v-for="(row, i) in items" :key="row.uid" :data-uid="row.uid">
               <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
               <td class="isn-c-prod">
-                <ProductCombo :row="row" :products="products" @pick="onPick" />
+                <!-- v686：未选客户 ⇒ 商品格锁定（老板口径 2026-10-25：没选客户不许筛商品、不许开单）。
+                     已填过商品的行仍可点（来自编辑/复制单，锁住反而让人改不了）。 -->
+                <ProductCombo :row="row" :products="products" :disabled="prodLocked(row)"
+                              disabled-hint="先选客户" @pick="onPick" @blocked="warnNeedCustomer" />
                 <!-- v684：该客户从没买过这个商品时挂角标（绝对定位 ⇒ 不占行高、不挤列宽）。
                      仍可正常提交，这里只是提醒。 -->
                 <span v-if="isHistMissing(row)" class="isn-hist-dot"
@@ -287,6 +312,8 @@ import {
 } from './unitPricing.js'
 import CustomerCombo from './CustomerCombo.vue'
 import ProductCombo from './ProductCombo.vue'
+/* v686：业务员 → 部门（唯一实现；采购 / 退货 / 调拨三页共用同一份）。 */
+import { handlerDepartment, handlerDeptWarn } from './handlerDept.js'
 /* v685：refs 拉全量（limit=500 会截断商品/客户，表现为"搜不到商品 / 单位不能选"）。 */
 import { REF_LIMIT } from './productPick.js'
 /* v684：退单的「这行商品在该客户那儿有没有历史销售」提醒（唯一入口，只提醒不拦截）。 */
@@ -335,6 +362,8 @@ const form = ref({
   order_date: '', delivery_date: '', delivery_address: '', note: '',
   /* 部门名（TEXT），**不是** departments.id —— 见模板里那格注释。 */
   department: '',
+  /* v686：业务员（主库 users.id 的字符串，空串 = 不指定）。 */
+  handler: '',
 })
 
 /* `uid` 只用于 `v-for` 的 key —— 用下标当 key 时，删中间一行会让后面所有行的
@@ -575,6 +604,34 @@ function priceTitle (row) {
   return parts.join('｜')
 }
 
+/* ══ v686：业务员 —— 选人自动带出部门（唯一实现 `handlerDept.js`）══════════════
+   🔴 「带出」不是「绑定」：带出来的部门**仍然可改**（同一个业务员可能替别的部门开单）。
+      所以这里只在选人那一刻写一次，之后不再 watch —— 用户改过的值必须留得住。
+   🔴 没配部门时（`known=false`）**不清空**当前部门：用户可能已经手选过，
+      清掉等于把他刚填的东西删了。只出提示条。
+   ⚠️ 销售单的部门列是 **TEXT（部门名）**，与采购单 `department_id`(INTEGER) 不同 ——
+      这里填 `hit.name`，采购页填 `hit.id`，两处**不能互抄**。 */
+const handlerDeptHint = computed(() =>
+  handlerDeptWarn(users.value, departments.value, form.value.handler))
+
+function onHandlerChange () {
+  const hit = handlerDepartment(users.value, departments.value, form.value.handler)
+  if (hit.known && hit.name) form.value.department = hit.name
+}
+
+/* ══ v686：未选客户 ⇒ 商品格锁定（老板口径 2026-10-25）══════════════════════
+   为什么锁在**商品格**上而不只是靠提交校验：客户决定价格口径（专属价 / 信用额度 /
+   历史价），先挑商品再选客户会带出一套价、等选完客户又变一套 —— 用户看到的是
+   「价格自己变了」。锁住入口是唯一不产生中间态的解法。
+   🔴 已填过商品的行**不锁**：那种行只可能来自「先选后清空客户」或编辑/复制单，
+      锁住等于让人没法纠正历史值。这里的判据只看 `product_id`，不看客户。 */
+function prodLocked (row) {
+  return !form.value.customer_id && !(row && Number(row.product_id) > 0)
+}
+function warnNeedCustomer () {
+  toast('请先选择客户，再选择商品', 'warn')
+}
+
 function validate () {
   if (!form.value.customer_id) return '请先选择客户'
   if (!form.value.warehouse_id) return `请选择${cfg.value.whLabel}`
@@ -629,6 +686,8 @@ async function submit (act = 'save') {
         order_date: form.value.order_date || '',
         note: form.value.note || '',
         reason: reason.value.trim(),
+        /* v686：业务员（空串 ⇒ 后端「空则不写列」⇒ 建单 SQL 与改动前逐字一致） */
+        handler: form.value.handler || '',
         idempotency_key: idemKey,
         draft: true,
         items: lines,
@@ -700,6 +759,8 @@ async function submit (act = 'save') {
       order_type: cfg.value.orderType || 'self_pickup',
       order_date: form.value.order_date || '',
       note: form.value.note || '',
+      /* v686：业务员（同退单那条口径：空串 ⇒ 后端不写列） */
+      handler: form.value.handler || '',
       idempotency_key: idemKey,
       items: lines,
     }
@@ -739,17 +800,17 @@ function back () {
  * 基础资料 —— **按需拉**，不整表拉。
  *
  * 🔴 为什么要拼 `kinds` 而不是一律 `all`：`all` 会把 702 个客户的资料一起解密返回
- *    （`customers` 是 PII），退单 / 自提这类根本用不到 `users` 的类型没必要多跑一次
- *    大查询。
+ *    （`customers` 是 PII），还会把整仓商品与供应商一起端上来 —— 一页用不到那么多。
  * ⚠️ `users` / `departments` 主库或租户库读不到时后端**不返回该键**（不是空数组）
  *    ⇒ 一律 `Array.isArray()` 判存在。**不要**拿 `hr_employees` 顶替 `users`
  *    （两表编号不同，同 id 会显示成另一个人，选出来归属是错的且零报错）。
+ * 🔴 v686：`users` / `departments` 改成**四种类型全都拉** —— 业务员下拉现在是
+ *    四页共有的字段（此前只有车销因为有「送货司机」才拉 `users`）。少拉一页的表现
+ *    不是报错，而是那一页的业务员下拉**只有「不指定」一项**、且部门永远带不出来。
  */
 async function loadRefs () {
   try {
-    const kinds = ['warehouses', 'customers', 'products']
-    if (cfg.value.hasDriver) kinds.push('users')
-    if (cfg.value.hasDept) kinds.push('departments')
+    const kinds = ['warehouses', 'customers', 'products', 'users', 'departments']
     const d = await psiApi.refs(kinds.join(','), '', REF_LIMIT)
     warehouses.value = d.warehouses || []
     customers.value = d.customers || []
@@ -770,7 +831,7 @@ function reset () {
   form.value = {
     customer_id: 0, warehouse_id: form.value.warehouse_id || 0, driver_id: '',
     order_date: todayISO(), delivery_date: todayISO(), delivery_address: '', note: '',
-    department: '',
+    department: '', handler: '',
   }
   reason.value = ''
   items.value = []

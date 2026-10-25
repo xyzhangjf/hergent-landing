@@ -15,8 +15,16 @@ import { pickMatches, pickBadge, pickSummary } from './productPick.js'
 const props = defineProps({
   row: { type: Object, required: true },
   products: { type: Array, required: true },
+  /* v686：**未选供应商/客户时锁定本格**（老板口径 2026-10-25：没选往来单位就不许挑商品，
+     也不许开单）。锁定时不进入搜索态，改为 emit('blocked') 让父页给一句可读的提示 ——
+     「点了没反应」是最容易被当成 bug 的交互，所以这里**必须**有出声的地方。
+     ⚠️ 这是**真拦截**（不是 v684 那种「只提醒」），所以放在交互入口上是对的；
+        但它不参与 `validate()` 的必填判定 —— 校验里另有一条「请先选择供应商/客户」。 */
+  disabled: { type: Boolean, default: false },
+  /** 锁定时占位文案。父页按单据类型传「先选供应商」/「先选客户」。 */
+  disabledHint: { type: String, default: '请先选择往来单位' },
 })
-const emit = defineEmits(['pick'])
+const emit = defineEmits(['pick', 'blocked'])
 
 const editing = ref(false)
 const kw = ref('')
@@ -32,6 +40,8 @@ function currentName () {
 }
 
 function open () {
+  /* v686：未选往来单位 ⇒ 不进搜索态，出声提示（见 props.disabled 注释）。 */
+  if (props.disabled) { emit('blocked'); return }
   kw.value = currentName()
   active.value = 0
   editing.value = true
@@ -79,8 +89,12 @@ function onBlur () { editing.value = false }
       </li>
     </ul>
     <div v-else-if="editing && kw && !matches.length" class="ipn-prod-empty">没有匹配的商品</div>
-    <span v-else class="ipn-v" :class="{ 'is-ph': !row.product_id }" tabindex="0"
-          @click="open" @keydown.enter.prevent="open">{{ currentName() }}</span>
+    <!-- v686：锁定态（未选供应商/客户）—— 显示「先选供应商」而不是空白，
+         点一下会经 `blocked` 让父页 toast 出声。已选过商品的行**照旧显示商品名**
+         （那是事实，不该被锁掉），只是不能再改。 -->
+    <span v-else class="ipn-v" :class="{ 'is-ph': !row.product_id, 'is-locked': disabled }"
+          :title="disabled ? disabledHint : ''" tabindex="0"
+          @click="open" @keydown.enter.prevent="open">{{ row.product_id ? currentName() : (disabled ? disabledHint : '') }}</span>
   </div>
 </template>
 
@@ -128,5 +142,8 @@ function onBlur () { editing.value = false }
 /* 紧凑档再收一档（与基准页同口径：18 → 16） */
 [data-density="compact"] .ipn-v { min-height: 16px; line-height: 16px }
 .ipn-v.is-ph { color: var(--t3) }
+/* v686：锁定态 —— `not-allowed` 光标 + 去掉 hover 的「可点」边框（否则看起来像能点）。 */
+.ipn-v.is-locked { color: var(--t3); cursor: not-allowed }
+.ipn-v.is-locked:hover { box-shadow: none }
 .ipn-v:focus, .ipn-v:hover { box-shadow: inset 0 0 0 1px var(--bd); border-radius: 4px }
 </style>

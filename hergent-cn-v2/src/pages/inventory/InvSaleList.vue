@@ -319,6 +319,9 @@ import PsiListActions from '../../components/PsiListActions.vue'
 const COLS = [
   { key: 'order_no',     label: '单号',     core: true, w: 150 },
   { key: 'customer',     label: '客户',     core: true, w: 160 },
+  /* v686：业务员 —— 建单页新增的可选字段（落 `sale_orders.handler`）。
+     默认显示：它是「这张单归谁办」的唯一出口，藏起来等于白加一个字段。 */
+  { key: 'handler',      label: '业务员',   core: false, w: 96 },
   { key: 'total_amount', label: '金额',     core: true,  num: true, w: 110 },
   { key: 'status',       label: '状态',     core: true, w: 84 },
   { key: 'otype',        label: '出货方式', core: false, w: 96 },
@@ -336,6 +339,8 @@ const COLS = [
 const SR_COLS = [
   { key: 'order_no',     label: '退货单号',   core: true, w: 150 },
   { key: 'customer',     label: '客户',       core: true, w: 160 },
+  /* v686：退单也有业务员（落 `return_orders.handler`），与订单视图同名同义。 */
+  { key: 'handler',      label: '业务员',     core: false, w: 96 },
   { key: 'total_amount', label: '退货金额',   core: true, num: true, w: 110 },
   { key: 'status',       label: '状态',       core: true, w: 84 },
   { key: 'wh',           label: '退货仓库',   core: false, w: 100 },
@@ -727,6 +732,10 @@ function colText (r, k) {
     case 'wh': return r.warehouse_name || ''
     case 'srcreason': return r.reason || ''
     case 'srcno': return r.src_order_no || ''
+    /* v686：业务员。🔴 取 `handler_name`（后端 `_creator_names` 解析过的**姓名**），
+       不是 `handler`（那是主库 users.id 的字符串）—— 直接显示 id 用户看不懂，
+       且会把「谁办的」读成「某个编号」。后端没解析出来时显示 `—`（不编名字）。 */
+    case 'handler': return r.handler_name || ''
   }
   return ''
 }

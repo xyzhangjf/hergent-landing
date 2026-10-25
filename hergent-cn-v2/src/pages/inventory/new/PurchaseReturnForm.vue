@@ -162,9 +162,17 @@
                不再单独打接口搜索。 -->
           <SupplierCombo v-model="form.supplier_id" :suppliers="suppliers" placeholder="输入名称或编号搜索供应商" />
         </div>
+        <!-- v686：原「经办人」只读格（显示当前登录人）→ 可选「业务员」下拉。
+             🔴 原来那格显示的是 `operator_id`（**谁建的**），标签却写「经办人」
+                （**归谁办**）—— 两个概念被一个只读格合并，等于把创建人冒充业务员。
+                现在业务员可选、落 `purchase_returns.handler`；创建人仍看详情页的「创建人」。
+             🔴 选填：存量单都没有这个值，强制必填会在快速退货时把人卡住。 -->
         <div class="ipn-f">
-          <label class="ipn-lb">经办人</label>
-          <span class="ipn-ro">{{ operatorName }}</span>
+          <label class="ipn-lb">业务员</label>
+          <select v-model="form.handler" class="input ipn-sel" @change="onHandlerChange">
+            <option value="">不指定</option>
+            <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
+          </select>
         </div>
         <!-- v451（L3）：部门 —— 舟谱退货单头的 `*部门`（截图实见，紧跟在经办人之后）。
              🔴 数据源 `psi_refs(kind='departments')`（后端 **已存在**，无需新端点）；
@@ -218,6 +226,13 @@
       </div>
 
       <p v-if="cfg.hint" class="ipn-hint">{{ cfg.hint }}</p>
+
+      <!-- v686：业务员没配部门时的提示 —— **只提示、不拦截**（不进 `validate`、不绑 disabled）。
+           只在「选了人 + 这个人确实没配部门」时出现。 -->
+      <p v-if="handlerDeptHint" class="ipn-hist-warn">
+        <Icon name="alert" :size="14" />
+        <span>{{ handlerDeptHint }}</span>
+      </p>
 
       <!-- v684：自由退货提醒。
            🔴 **只提示、不拦截**：这里没有任何 `disabled` / `return` 绑到它。
@@ -283,7 +298,9 @@
               <tr v-for="(row, i) in items" :key="row.uid" :data-uid="row.uid">
                 <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td class="ipn-c-prod">
-                  <ProductCombo :row="row" :products="products" @pick="onPick" />
+                  <!-- v686：未选供应商 ⇒ 商品格锁定（与采购订单页同一口径，见 openPick 处判定）。 -->
+                  <ProductCombo :row="row" :products="products" :disabled="prodLocked(row)"
+                                disabled-hint="先选供应商" @pick="onPick" @blocked="warnNeedSupplier" />
                   <!-- v684：该供应商从没采购过这个商品时挂个角标（绝对定位 ⇒ 不占行高、
                        不挤商品列宽）。仍可正常提交，这里只是提醒。 -->
                   <span v-if="isHistMissing(row)" class="ipn-hist-dot"
@@ -418,6 +435,8 @@ import {
 } from './unitPricing.js'
 /* v685：refs 拉全量（limit=500 会截断商品/客户，表现为"搜不到商品 / 单位不能选"）。 */
 import { REF_LIMIT } from './productPick.js'
+/* v686：业务员 → 部门（唯一实现；采购订单 / 调拨 / 销售四页共用同一份）。 */
+import { handlerDepartment, handlerDeptWarn } from './handlerDept.js'
 /* v684：自由退货的「这行商品在该供应商那儿有没有历史采购」提醒（唯一入口，只提醒不拦截）。 */
 import { createHistoryChecker, historyWarnText, HISTORY_NOTE } from './partnerHistory.js'
 
@@ -443,12 +462,18 @@ const products = ref([])
 /* v451（L3）：部门下拉的数据源。`psi_refs(kind='departments')` **后端已存在**
    （v408 P0-5 为采购订单页加的），这里只是同一份数据的第二个消费方 —— 不新增端点。 */
 const departments = ref([])
+/* v686：业务员下拉的数据源（主库账号）。`refs?kind=users` 读不到时后端**不返回该键**
+   ⇒ 一律 `Array.isArray` 判存在，缺了就是空数组（下拉只剩「不指定」），
+   **不要**拿 `hr_employees` 顶替：两表不同编号，同 id 会显示成另一个人且零报错。 */
+const users = ref([])
 const reason = ref('')
 /* v451（L3）：「保存 / 保存并审核」两个下拉菜单的开合态（与采购订单建单页同名同义）。 */
 const saveOpen = ref(false)
 const approveOpen = ref(false)
 const form = ref({
   supplier_id: 0, warehouse_id: 0, department_id: 0, order_date: '', note: '',
+  /* v686：业务员（主库 users.id 的字符串，空串 = 不指定）。 */
+  handler: '',
 })
 
 /** 列设置：**新的云端偏好键** `purchase-return-new`。
@@ -527,9 +552,21 @@ const PRESET_ROWS = 15
 
 const selSupplier = computed(() =>
   suppliers.value.find(s => Number(s.id) === Number(form.value.supplier_id)) || null)
-/* L1（B方案·舟谱创建页对齐）：经办人 = 当前登录用户，只读展示（operator_id 已落库于
-   `purchase_returns.operator_id`，后端从登录态自动带；这里只显示、不引入选人逻辑）。 */
+/* L1（B方案·舟谱创建页对齐）：创建人 = 当前登录用户（`operator_id` 由后端从登录态自动带）。
+   🔴 v686：原来这里被当成「经办人」显示 —— 那是**把创建人冒充业务员**。
+      现在业务员是独立可选字段（`form.handler` → `purchase_returns.handler`），
+      创建人只在详情页看。本 computed 已无消费方，保留是因为详情页的「创建人」
+      口径需要在同一条注释里被指认（删掉会让人以为本页没有创建人概念）。 */
 const operatorName = computed(() => (store.user && store.user.name) ? store.user.name : '—')
+/* ══ v686：业务员 → 部门（唯一实现 `handlerDept.js`；本页部门是 `department_id` 整数）══
+   🔴 带出**不是绑定**：同一个业务员可能替别的部门退货，带出来的值仍可改 ⇒ 只在 change 时写一次。
+   🔴 没配部门时**不清空**已选部门（用户可能刚手选），只出提示条；且提示不进 `validate`。 */
+const handlerDeptHint = computed(() =>
+  handlerDeptWarn(users.value, departments.value, form.value.handler))
+function onHandlerChange () {
+  const hit = handlerDepartment(users.value, departments.value, form.value.handler)
+  if (hit.known && hit.id) form.value.department_id = hit.id
+}
 /** L1（B方案）：选供应商后拉该供应商应付/预付余额，对齐舟谱创建页「应付金额 / 预付金额」读数。
     复用现成 `GET /api/psi/suppliers/{sid}/balance`（psi.js:181），只读、不动后端、不动表。 */
 const supplierBal = ref(null)
@@ -688,6 +725,17 @@ function onPick (row) {
   applyProduct(row)
 }
 
+/* ══ v686：未选供应商 ⇒ 商品格锁定（老板口径 2026-10-25）════════════════════
+   与销售侧 `SaleDocForm.vue::prodLocked` **同一条口径**：供应商决定退货价来源
+   （上次进货价 / 档案价），先挑商品再选供应商会带出一套价、选完又变一套。
+   🔴 已填过商品的行不锁（来自编辑单 / 先选后清空供应商）—— 锁住没法纠正历史值。 */
+function prodLocked (row) {
+  return !form.value.supplier_id && !(row && Number(row.product_id) > 0)
+}
+function warnNeedSupplier () {
+  toast(`请先选择${cfg.value.partnerLabel}，再选择商品`, 'warn')
+}
+
 function validateStandalone () {
   if (!form.value.supplier_id) return `请先选择${cfg.value.partnerLabel}`
   if (!form.value.warehouse_id) return `请选择${cfg.value.whLabel}`
@@ -729,6 +777,8 @@ async function submitStandalone (mode = 'save') {
       order_date: form.value.order_date || '',
       note: form.value.note || '',
       reason: reason.value.trim(),
+      /* v686：业务员（空串 ⇒ 后端「空则不写列」⇒ 建单 SQL 与改动前逐字一致） */
+      handler: form.value.handler || '',
       // 🔴 恒以 `draft:true` 建单：要审核就紧接着调 approve（同一条通道）。
       //    这样"保存"与"保存并审核"的**建单部分**逐字同款，差别只在多一次过账调用。
       draft: true,
@@ -949,13 +999,15 @@ async function submitAttached () {
 /* ══ 基础资料 / 初始化 ═══════════════════════════════════════════════════════════ */
 async function loadRefs () {
   try {
-    const d = await psiApi.refs('warehouses,suppliers,products,departments', '', REF_LIMIT)
+    const d = await psiApi.refs('warehouses,suppliers,products,departments,users', '', REF_LIMIT)
     warehouses.value = d.warehouses || []
     suppliers.value = d.suppliers || []
     products.value = d.products || []
     // v451（L3）：部门下拉。后端读不到时**返回空数组/不返回这个键** ⇒ 回落 `[]`
     //   （下拉只剩「请选择」）—— 与采购订单页同款降级，不抛错。
     departments.value = d.departments || []
+    // v686：业务员下拉（主库账号）。同上：读不到就是空数组，只留「不指定」。
+    users.value = Array.isArray(d.users) ? d.users : []
     // 默认仓：优先 is_default，其次第一个（两个 is_default 时取 id 最小，仅作默认值，用户可改）
     const defs = warehouses.value.filter(w => w.is_default)
     const pick = (defs.length ? defs : warehouses.value).slice().sort((a, b) => a.id - b.id)[0]

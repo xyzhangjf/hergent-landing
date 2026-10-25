@@ -138,9 +138,9 @@
           </select>
         </div>
         <div class="psi-f">
-          <label class="psi-lb">经办人</label>
+          <label class="psi-lb">业务员</label>
           <select v-model="f.handler" class="input psi-sel" @change="load()">
-            <option value="">全部经办人</option>
+            <option value="">全部业务员</option>
             <option v-for="u in creators" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
           </select>
         </div>

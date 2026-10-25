@@ -49,15 +49,19 @@
              与采购退货单页共用，保证两页供应商输入框外观 / 交互逐像素一致）。 -->
         <SupplierCombo v-model="form.supplier_id" :suppliers="suppliers" />
       </div>
-      <!-- v408（P0-5）经办人 / 部门 —— 对齐舟谱建单表单里的 `*经办人` / `*部门`。
+      <!-- v408（P0-5）业务员 / 部门 —— 对齐舟谱建单表单里的 `*经办人` / `*部门`。
+           🔴 v686（2026-10-25）：「经办人」全站统一更名「业务员」（老板口径）。
+              字段名 `handler` / 后端列 / 接口参数**不改** —— 只改界面上的名字，
+              改名是给老板看的，不是给数据库看的；跟着改字段名会牵连导入脚本、
+              小程序与历史数据，收益为零、风险为正。
            🔴 做成**选填**（舟谱那边标了 `*`＝必填）：存量单（舟谱导入 79 张）都没有这两个值，
               强制必填会在老板快速建单时直接卡住；且这两个字段眼下只用于归属/统计，
               不是单据成立的前提。要改成必填只需给 `form.handler` 加非空校验 —— 不涉及后端。
            v439：**不再挂「选填」小字**（老板要求去掉）—— 无 `*` 即选填是通行读法，
               与「有 `*`＝必填」配成一对；这不改变上面的校验行为（它们**仍然不是**必填）。 -->
       <div class="ipn-f">
-        <label class="ipn-lb">经办人</label>
-        <select v-model="form.handler" class="input ipn-sel">
+        <label class="ipn-lb">业务员</label>
+        <select v-model="form.handler" class="input ipn-sel" @change="onHandlerChange">
           <option value="">不指定</option>
           <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
         </select>
@@ -92,6 +96,13 @@
         <span class="ipn-cnt">{{ (form.note || '').length }}/500</span>
       </div>
     </div>
+
+    <!-- v686：业务员没配部门时的提示 —— **只提示、不拦截**（不进 `validate()`、不绑 disabled）。
+         只在「选了人 + 这个人确实没配部门」时出现，刚进页面不许有一片警告。 -->
+    <p v-if="handlerDeptHint" class="ipn-hist-warn">
+      <Icon name="alert" :size="14" />
+      <span>{{ handlerDeptHint }}</span>
+    </p>
 
     <!-- v438：附件暂存条 —— 建单页没有单据 id，附件不能即时落库。
          选完先列在这里，点「保存」拿到 id 后随单上传（详情页「附件」里可见 / 可下）。
@@ -262,8 +273,11 @@
                   </ul>
                   <div v-else-if="row._popen && row._pkw && !prodMatches(row).length" class="ipn-prod-empty">没有匹配的商品</div>
                 </div>
-                <span v-else class="ipn-v" tabindex="0" :class="{ 'is-ph': !row.product_id }"
-                      @keydown.enter.prevent="openProd(row)">{{ prodName(row) }}</span>
+                <!-- v686：未选供应商 ⇒ 空格显示「先选供应商」（锁定态），点一下 toast 出声。 -->
+                <span v-else class="ipn-v" tabindex="0"
+                      :class="{ 'is-ph': !row.product_id, 'is-locked': !form.supplier_id }"
+                      :title="!form.supplier_id ? '先选供应商，再选商品' : ''"
+                      @keydown.enter.prevent="openProd(row)">{{ row.product_id ? prodName(row) : (form.supplier_id ? '' : '先选供应商') }}</span>
               </td>
               <td v-if="isVisible('code')" class="ipn-c-code">{{ row.barcode || (row.product_id ? '—' : '') }}</td>
               <td class="ipn-c-unit" @click="cellOn(row, 'unit')">
@@ -499,6 +513,8 @@ import {
 /* v685：商品候选「可辨识 + 可用优先」。生产实测 130 组重名里 119 组是
    「一条多档、其余单档无价」—— 同名档案长得一模一样，点错就表现为「单位不能选」。 */
 import { pickMatches, pickBadge, pickSummary, REF_LIMIT } from './productPick.js'
+/* v686：业务员 → 部门（唯一实现；采购退货 / 调拨 / 销售四页共用同一份）。 */
+import { handlerDepartment, handlerDeptWarn } from './handlerDept.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -586,6 +602,18 @@ const products = ref([])
       hr_employees id=2=王老板），同一个 id 会显示成另一个人、选出来归属是错的且零报错。 */
 const users = ref([])
 const departments = ref([])
+/* ══ v686：业务员 → 部门（唯一实现 `handlerDept.js`）══════════════════════════
+   🔴 采购侧部门列是 `department_id`（INTEGER，存 `departments.id`），
+      销售侧是 `department`（TEXT，存部门**名**）—— 这里填 id，与销售页不同，别互抄。
+   🔴 带出**不是绑定**：同一个业务员可能替别的部门开单，带出来的值仍可改，
+      所以只在 `change` 那一刻写一次，不做 watch。
+   🔴 没配部门时（`known=false`）**不清空**已选部门（用户可能刚手选过），只出提示条。 */
+const handlerDeptHint = computed(() =>
+  handlerDeptWarn(users.value, departments.value, form.value.handler))
+function onHandlerChange () {
+  const hit = handlerDepartment(users.value, departments.value, form.value.handler)
+  if (hit.known && hit.id) form.value.department_id = hit.id
+}
 /* 建单页的两种「非新建」入口 —— `?copy=` 复制、`?edit=` 编辑。
    🔴 v449 拆页面后本页**只承载采购订单**：原来的 `?kind=order|return` 那对
       `kind` / `isReturn` / `fromPoQ` 三个 computed 已随退货模式一起搬到
@@ -1031,6 +1059,14 @@ function onPick (row) {
    🔴 选中后走既有 onPick(row) —— 单位 / 条码 / 采购价等完整信息由 applyProduct 一次性带出，
       与改前「选 <select> 选项触发 @change=onPick」行为完全一致。 */
 function openProd (row) {
+  /* v686：**没选供应商就不许挑商品**（老板口径 2026-10-25）。
+     ⚠️ 已填了商品的行仍然放行 —— 那种行只可能来自复制单 / 编辑单 / 先选后退回，
+        锁住它等于让人没法改正一个历史值；要拦的是「凭空开始挑商品」。
+     ⚠️ 出声而不是静默 return：点了没反应会被当成页面卡住。 */
+  if (!form.value.supplier_id && !row.product_id) {
+    toast('请先选择供应商，再选择商品', 'warn')
+    return
+  }
   cellOn(row, 'prod')
   row._pkw = prodName(row) || ''   // 已选商品 ⇒ 默认词即其名（便于继续搜）；空行 ⇒ 空，列全部
   row._popen = true
@@ -1997,6 +2033,21 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
    行高顶起来（v417e 紧凑档 min-height:16 会切字），inset 描边不占盒模型 ⇒ 零抖动。 */
 .ipn-v:focus { outline: none; box-shadow: inset 0 0 0 1px var(--p-dark), 0 0 0 3px var(--p-bg) }
 .ipn-v.num { text-align: right; font-variant-numeric: tabular-nums }
+/* v686：未选供应商时的商品格锁定态 —— `text` 光标换 `not-allowed`，并撤掉 hover 描边
+   （留着描边会让人以为点得进去）。文字色沿用占位色 `--t3`（与 `.is-ph` 同一条口径）。 */
+.ipn-v.is-locked { color: var(--t3); cursor: not-allowed }
+table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
+/* v686：业务员没配部门的提示条 —— 观感与采购退货页的 v684 退货提醒**逐值一致**
+   （同一个「提醒但不拦截」家族，两种提示长得不一样会让人以为严重程度不同）。 */
+.ipn-hist-warn {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: 0 0 12px; padding: 7px 10px; max-width: 900px;
+  font-size: 12px; line-height: 1.5; color: var(--t1);
+  background: rgba(var(--war-rgb), .1);
+  border: 1px solid rgba(var(--war-rgb), .35);
+  border-radius: 6px;
+}
+.ipn-hist-warn svg { flex: 0 0 auto; margin-top: 2px; color: var(--war) }
 .ipn-v.is-ph { color: var(--t3) }
 /* v417k：本页自带更紧的行高（scoped specificity 高于全局），故紧凑档要**在这里**再收一档，
    否则开关对采购页无效（全局那条打不破 scoped 规则）—— 这是「开关全局生效」最容易漏的一处。 */

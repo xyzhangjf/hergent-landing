@@ -209,7 +209,9 @@
                🔴 `v-if="canWrite"` 必须带着：无写权限的人看不到铅笔、也改不了，
                   给他们标 `*` 是纯误导。 -->
           <div class="ipd-bf">
-            <span class="ipd-lb"><i v-if="canWrite" class="ipd-req" title="本页可直接修改">*</i>经办人</span>
+            <!-- v686：「经办人」→「业务员」（老板口径：全站统一）。字段名/接口参数不动，
+                 只改界面叫法 —— 改名是给人看的，不是给数据库看的。 -->
+            <span class="ipd-lb"><i v-if="canWrite" class="ipd-req" title="本页可直接修改">*</i>业务员</span>
             <template v-if="editHeader">
               <select v-model="editHandler" class="input ipd-edit-sel">
                 <option value="">不指定</option>

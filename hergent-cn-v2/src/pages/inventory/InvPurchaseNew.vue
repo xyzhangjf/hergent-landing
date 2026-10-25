@@ -208,9 +208,13 @@
               强制必填会在老板快速建单时直接卡住；且这两个字段眼下只用于归属/统计，
               不是单据成立的前提。要改成必填只需给 `form.handler` 加非空校验 —— 不涉及后端。
            v439：**不再挂「选填」小字**（老板要求去掉）—— 无 `*` 即选填是通行读法，
-              与「有 `*`＝必填」配成一对；这不改变上面的校验行为（它们**仍然不是**必填）。 -->
+              与「有 `*`＝必填」配成一对；这不改变上面的校验行为（它们**仍然不是**必填）。
+           🔴 v686：标签「经办人」→「业务员」（全站统一，老板口径）。
+              本页 v449 拆分后**已不在路由里**（`/inventory/purchase/new` 指向
+              `new/PurchaseOrderForm.vue`），改它只是为了让「全站同名」这件事**没有例外**——
+              哪天有人把它挂回路由，也不会突然冒出一个叫「经办人」的格子。 -->
       <div class="ipn-f">
-        <label class="ipn-lb">经办人</label>
+        <label class="ipn-lb">业务员</label>
         <select v-model="form.handler" class="input ipn-sel">
           <option value="">不指定</option>
           <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>

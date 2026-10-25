@@ -368,6 +368,17 @@ if (has('skip-sfc')) {
   results.push({ name: '商品候选可用优先', ok: r.code === 0, code: r.code })
 }
 
+/* ㉑ v686：老板三项要求（未选伙伴锁商品 / 业务员带出部门 / 「经办人」统一叫「业务员」）。
+   三项全是**静默失效体质**：锁没锁商品格、部门有没有带出来、少改一处名字，
+   接口都一路 200、界面都"看着正常"，只有真去点、真去读才发现。 */
+{
+  console.log('\n── ㉑ 开单三件事：锁商品 / 带出部门 / 业务员命名契约（v686）──')
+  const r = run('handler-business.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '开单三件事（v686）', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

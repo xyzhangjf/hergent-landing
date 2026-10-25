@@ -14,6 +14,54 @@
       </div>
     </div>
 
+    <!-- ══ v686：业务员部门 ══════════════════════════════════════════════════════
+         进销存建单页选中「业务员」后会自动带出他的所属部门（老板口径 2026-10-25）。
+         🔴 为什么这张卡在**员工档案**而不是进销存里：它配的是**账号**的属性
+            （主库 `users.department_id`），不是某张单据的属性；而本页本来就是
+            「员工 + 登录账号」的唯一落点（见 `Settings.vue` 权限页那句
+            「成员/账号归位『员工档案』」）。
+         🔴 为什么必须有它：`users.department_id` 此前**没有任何写入口**，
+            生产 27 个账号全是 0 ⇒ 带出功能会 100% 落到「这人没设部门」的提示分支，
+            等于永远不生效。没有写端的读字段就是死字段。
+         🔴 门禁 `canDo('data','update')`：`PUT /api/users/*` 的模块就是 `data`，
+            与「外部客户账号」那张卡同一套判据（没权限就别摆一个点了会 403 的控件）。 -->
+    <div v-if="canDo('data', 'update')" class="card">
+      <div class="panel-hd">
+        <b>业务员部门</b>
+        <span class="page-sub">开单时选中业务员，会自动带出这里配的部门</span>
+      </div>
+      <p class="df-tip">
+        配的是<b>登录账号</b>的所属部门。没配的人照样能开单、能保存，只是不会自动带出部门，
+        需要手动选一次 —— 这不是错误，只是少一步省事。
+      </p>
+      <div v-if="hdLoading" class="state-empty">加载中…</div>
+      <div v-else-if="!hdUsers.length" class="state-empty">没有可配置的账号</div>
+      <div v-else class="table-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th class="seq-th">序号</th><th>业务员</th><th>登录账号</th><th>所属部门</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="(u, i) in hdUsers" :key="u.id" :class="{ stopped: !u.is_active }">
+              <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
+              <td>{{ u.display_name || u.username }}</td>
+              <td>{{ u.username }}</td>
+              <td>
+                <!-- 🔴 `:value` + `@change`，不用 `v-model`：保存失败时要把下拉**退回旧值**，
+                     而 `v-model` 在 change 派发前就已经改掉了绑定值 ⇒ 拿不到"改前是哪个"。
+                     与进销存建单页的 `<select>` 是同一条纪律。 -->
+                <select class="input hd-sel" :value="String(u.department_id || 0)"
+                        :disabled="hdSaving === u.id" @change="saveHandlerDept(u, $event)">
+                  <option value="0">不指定</option>
+                  <option v-for="d in hdDepts" :key="d.id" :value="String(d.id)">{{ d.name }}</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- v308 外部客户账号（分销商）· v317（2026-09-29）版式与「在职员工」对齐：
          页头「＋ 新建外部客户」+ **常驻列表**。
          🔴 为什么撤销「默认收起」：收起时整块只剩一行标题，老板看到的现象是
@@ -1770,11 +1818,64 @@ async function doImportEmployees() {
   finally { importing.value = false }
 }
 
+/* ══ v686：业务员部门（账号级配置）═════════════════════════════════════════════
+   数据源与进销存建单页**同源**：`GET /api/users`（主库 `users`，含 `department_id`）
+   + `GET /api/departments`（当前租户 `departments`，`is_active=1`）。
+   🔴 `api()` 只解一层（`client.js` 已 `return data.data ?? data`）⇒ `/api/users`
+      返回的 `{success,data,total}` 到这里**已经是数组**，再写 `r.data` 恒为空。
+   🔴 保存失败必须把下拉**退回旧值**：界面显示成功而库里没改，是本仓库最贵的一类缺陷
+      （用户以为配好了，开单时部门永远带不出来）。 */
+const hdUsers = ref([])
+const hdDepts = ref([])
+const hdLoading = ref(false)
+const hdSaving = ref(0)
+
+async function loadHandlerDepts () {
+  hdLoading.value = true
+  try {
+    const [us, ds] = await Promise.all([
+      api('/api/users', { silent401: true }),
+      api('/api/departments', { silent401: true }),
+    ])
+    hdUsers.value = Array.isArray(us) ? us : []
+    hdDepts.value = Array.isArray(ds) ? ds : []
+  } catch (e) {
+    /* 无权限（admin/boss 才有 /api/users）⇒ 当成"没有账号"安静降级。
+       ⚠️ 不能弹错：这张卡对非管理员本来就该消失（外层 `canDo` 已挡一道）。 */
+    hdUsers.value = []
+    hdDepts.value = []
+  } finally {
+    hdLoading.value = false
+  }
+}
+
+async function saveHandlerDept (u, ev) {
+  const did = Number((ev && ev.target && ev.target.value) || 0)
+  const prev = Number(u.department_id || 0)
+  if (did === prev) return
+  hdSaving.value = u.id
+  try {
+    await api(`/api/users/${u.id}/department`, { method: 'PUT', body: { department_id: did } })
+    u.department_id = did
+    const d = hdDepts.value.find(x => Number(x.id) === did)
+    toast(did
+      ? `已把「${u.display_name || u.username}」的部门设为${d ? d.name : ''}`
+      : `已清空「${u.display_name || u.username}」的部门`, 'success')
+  } catch (e) {
+    /* 回滚控件显示：用户的手势已经把下拉挪到新值，后端失败时界面必须退回去。 */
+    if (ev && ev.target) ev.target.value = String(prev)
+    toast(e.message || '部门保存失败', 'error')
+  } finally {
+    hdSaving.value = 0
+  }
+}
+
 onMounted(() => {
   loadEmployees()
   loadRoleCatalog()  // v300：角色下拉的动态值域（403/失败静默降级为内置 8 项，见函数注释）
   probeConnectors()
   loadExtAccounts()  // v308：外部客户账号（失败静默 —— 无权限就当"没有"，不打断整页）
+  loadHandlerDepts()  // v686：业务员部门（同上：无权限就当"没有"）
 })
 </script>
 
@@ -1786,6 +1887,10 @@ onMounted(() => {
 
 .df-panel{padding:18px;margin-bottom:14px}
 .df-tip{font-size:12.5px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
+/* v686：业务员部门表里的下拉 —— 表格行内控件必须矮。
+   🔴 用全局 `.input` 的原高（40px）会把整行顶到 40+，表格瞬间变稀疏；
+      这里收到 26px（与 .btn-row-ic 同档），行高由它决定，不再被文本撑。 */
+.hd-sel{height:26px;line-height:24px;padding:0 6px;font-size:12.5px;min-width:120px}
 .df-tip code{background:var(--bg2);padding:1px 6px;border-radius:5px;font-size:12px}
 /* v312：角色默认端的出处说明 / 内联小按钮 / 「与角色配置不一致」提示条 */
 .df-scope-src{margin:0 0 12px}
