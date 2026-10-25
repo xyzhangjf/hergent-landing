@@ -209,6 +209,20 @@ if (has('skip-sfc')) {
   results.push({ name: '勾选列内边距', ok: r.code === 0, code: r.code })
 }
 
+/* v673：副驾抽屉层级 —— 页面级非模态浮层必须让位。
+   现象：侧栏（AI 副驾抽屉 z950）打开时，预报页「品牌/到货周期/复制报单」的**弹层**
+   整块浮在抽屉上。根因：`.tb-pop-panel` 是 `Teleport to="body"`，v135 那条
+   `.page.copilot-on .tb-pop-panel` **永不匹配**（祖先没了）⇒ 面板恒 1101；
+   列菜单（.col-menu 1101 / 遮罩 1100）更是从没进过名单。
+   修法：CopilotDrawer 给 `<body>` 挂 copilot-on，规则收到 styles/app-layers.css（唯一源）。 */
+{
+  console.log('\n── ⑩ 副驾抽屉层级契约（页面浮层不给盖抽屉）──')
+  const r = run('overlay-layers.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '副驾抽屉层级', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

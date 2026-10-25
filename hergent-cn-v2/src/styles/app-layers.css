@@ -1,0 +1,35 @@
+/* ============================================================
+   应用级浮层联动（v673 建立）
+   ------------------------------------------------------------
+   唯一职责：**AI 副驾抽屉打开时，页面级「非模态」浮层一律让位**。
+
+   为什么要单独一张表、且挂在 <body> 上：
+   `CopilotDrawer` 是 950 档的应用级抽屉（贴右，宽 min(1120px,94vw)）。
+   页面里的非模态浮层比它高 —— 工具栏弹层 1120、弹层面板 / 列菜单 1101、
+   列菜单遮罩 1100 —— 抽屉一打开，这些浮层就整块浮在抽屉上面。
+
+   v135 曾用 `.page.copilot-on .tb-pop` 在**预报页**降级过一批，但只治了一半：
+     ① `.tb-pop-panel` 是 `Teleport to="body"` 的，早就不在 `.page` 后代里
+        ⇒ `.page.copilot-on .tb-pop-panel` **永不匹配**（选择器匹配不到 = 静默失效），
+        面板恒 1101，品牌筛选 / 到货周期 / 复制报单 三块弹层全部盖住抽屉；
+     ② 列菜单 `.col-menu`(1101) / `.col-menu-overlay`(1100) 当年根本不在名单里。
+   真机取证（2026-10-25，1440×900，演示租户）：副驾打开后
+     .tb-pop 已 auto ✓，但 .tb-pop-panel = 1101、.col-menu = 1101，elementFromPoint
+     命中的都是面板/列表项自己 —— 确证浮在抽屉之上。
+
+   ⇒ 统一挂在 `body.copilot-on`（由 CopilotDrawer 的 watch 维护），
+     一条规则覆盖全部页面，不再逐个页面补类。
+
+   ⛔ 这里**只降非模态浮层**（页面级下拉 / 弹层 / 全屏查看层）。
+     模态（--z-page-modal-overlay 1125 / --z-page-modal 1130）、toast(9999)、
+     建议浮层(--z-sug-pop 1150) 一律不动 —— 确认框必须还能压住抽屉。
+   ============================================================ */
+
+body.copilot-on .tb-pop,              /* 工具栏弹层容器（触发按钮所在） */
+body.copilot-on .tb-pop-panel,        /* 弹层本体（Teleport 到 body，页面级选择器管不到） */
+body.copilot-on .pop-overlay,         /* 弹层互斥遮罩 */
+body.copilot-on .col-menu,            /* 列设置面板 */
+body.copilot-on .col-menu-overlay,    /* 列设置遮罩 */
+body.copilot-on .grid-area.is-fs {    /* 表体全屏查看层（1000）—— 否则整屏表格盖住抽屉 */
+  z-index: auto
+}

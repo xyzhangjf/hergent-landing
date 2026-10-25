@@ -153,6 +153,34 @@ v367 按页面浮层的**语义**补足下列档位，并把该页 18 处字面�
 > 🔴 迁移纪律：**新令牌的值必须与页面既有字面量逐值相同** ⇒ 零视觉变化、相对顺序必然不变。
 > v367 迁移后已自证「剩余字面量 = 0」且「令牌展开值集合 = 原值集合」。
 
+#### 1.7.2 副驾抽屉与页面浮层的让位规则（v673 建立）
+
+AI 副驾抽屉 `.copilot` 是**应用级常驻层**（`z-index:950`，贴右、宽 `min(1120px,94vw)`）。
+页面里的非模态浮层（工具栏弹层 1120、弹层本体 / 列菜单 1101、遮罩 1100、全屏查看层 1000）
+都比它高 ⇒ **抽屉一打开，这些浮层就整块浮在抽屉上**。
+
+**唯一修法**：抽屉打开时给 `<body>` 挂 `copilot-on`，
+规则集中在 `src/styles/app-layers.css`（唯一源，`main.js` 入口引入）：
+
+| 被降为 `z-index:auto` 的类 | 是什么 |
+|---|---|
+| `.tb-pop` | 工具栏弹层容器（触发按钮所在） |
+| `.tb-pop-panel` | 弹层本体（品牌 / 到货周期 / 复制报单…） |
+| `.pop-overlay` | 弹层互斥遮罩 |
+| `.col-menu` / `.col-menu-overlay` | 列设置面板与遮罩 |
+| `.grid-area.is-fs` | 表体全屏查看层 |
+
+🔴 **必须挂 `<body>`，不能挂页面根**（这是 v135 栽过的坑）：
+`.tb-pop-panel` 等多处浮层是 `Teleport to="body"`，早已不在 `.page` 后代里
+⇒ `.page.copilot-on .tb-pop-panel` **选择器写对了、祖先没了**，永不匹配，面板恒 1101。
+判断一个浮层该挂哪儿，只问一句：**它渲染在 DOM 的哪个位置**。
+
+⛔ **只降非模态浮层**。模态（`--z-page-modal-overlay` 1125 / `--z-page-modal` 1130）、
+`--z-sug-pop` 1150、toast 一律不动 —— 确认框与输入建议必须还能压住抽屉。
+
+📌 **新增页面级非模态浮层时**：把类登记进 `app-layers.css`，并确认 `tests/overlay-layers.contract.mjs`
+（run-all 第 ⑩ 组）能覆盖到；否则抽屉一开就复现同样的覆盖问题。
+
 #### 1.8 滚动条（scrollbar，v454 建立）
 
 **目标**：全站上下/左右滚动条加粗到 14px，方便鼠标点中拖动；预报订单交叉表横向滚动条专门加高，解决「横向滚动不易点中」的痛点。
@@ -1299,3 +1327,4 @@ NODE_PATH=/Users/zhangjunfeng/.workbuddy/binaries/node/workspace/node_modules \
 | v670 | 2026-10-24 | **§2.6.1 重写为全站通用设计规范 ＋ 全站排查整改**（本节首次给出「视觉层级 / 间距 / 对齐 / 交互状态 / 响应式」五个维度的取值，并补「适用范围与判定标准」）。① **排查工具**：新增 `tests/spec/seq-colcfg-audit.py`（可复跑，`--json` 机器读），扫模板/样式前先剥注释。② **P0-1** `InvPurchaseList.vue` 自写列菜单仍是 `@click.prevent="toggleCol(k)"` —— v669 只修了共享件与 `Forecast.vue`，此页漏网，同一缺陷仍活着 ⇒ 改 `@change` + 回写。③ **P0-2** `InvApprovalCenter.vue` 表体有 `td.seq-cell` 而表头**没有** `th.seq-th` ⇒ 表体比表头多一列、**整行右移一格**；补表头（该页列固定 ⇒ 要序号不要齿轮）、序号包 `.seq-num`。④ **P1**：`.col-gear-th{width:44px}` 与 `InvApprovalCenter` 的 `width:40px` 都与全站 46px 冲突且恒被压 ⇒ 删（死代码 + 第二真相源）；齿轮 `<Icon>` 尺寸 2 处默认 16 vs 26 处 15 ⇒ 统一 15；6 个单据页 `table.ipn-tbl/isn-tbl td.seq-cell` 与全局**同分靠加载顺序赢** ⇒ 加 `.tbl` 提权到 (0,3,2)。⑤ **文档对齐实现**：本节旧的齿轮 CSS（11px/14px/`--t3`）是 v400 版，v432 上提后已换成 30×30/`--t2` ⇒ 作废重抄；「齿轮仍只在 `/forecast`」等三处过期现状刷新（实际 28 处/22 页、序号列 77 张表/56 文件、emoji 齿轮 0、分页漏补偿 0）。⑥ 「九、」留全站问题清单与修复汇总（10 条）。 |
 | v671 | 2026-10-25 | **全站「全选」交互统一（新增 §2.6.2）**：把本期预报 v615 那颗三态全选框上提为共享件 `components/SelectAllCheckbox.vue` + `styles/select-all.css`，推广到 **10 处**。 ① 列表表头（v510 曾按老板口径删掉，**本轮恢复**、范围改成**当前页 + 半选**）：采购单 / 销售单 / 调拨单。 ② 商品档案·批量补进价表头（原「全选 / 取消全选」两个按钮并入一颗框）。 ③ 分摊面板·门店勾选表头。④ 线路设置·停靠点（顺序敏感 ⇒ 全选按列表顺序逐个走 `togglePick`）。 ⑤ 预报品牌 / 到货周期 / 唯一值三个筛选面板（唯一值面板顺手修掉 `@change="uniqAll = !uniqAll"` 的自取反写法）。 ⑥ 有意**不纳入**：权限矩阵（v350 必选项上锁）、列显隐、Promotions「全部商品」、各类开关，理由见 §2.6.2 D。 ⑦ 契约 `tests/select-all.contract.mjs` 进 run-all 第 ⑧ 组，**扫全站**（v669 只扫 3 个文件才漏网）；注回 5 处旧写法 ⇒ FAILED(8)，还原 ⇒ ALL PASS。真机 1440×780 与 1366×640 各 **29 PASS / 0 FAIL**。 |
 | v672 | 2026-10-25 | **勾选列「复选框右边三个小点」（新增 §2.6.2 F）**。老板截图：采购单列表每行复选框右侧多出「…」。成因不是伪元素也不是图标字体 —— 是三条**各自合理**的规则叠出来的：`styles/psi-list.css` 给 `.psi-tbl th/td` 加了 `overflow:hidden; text-overflow:ellipsis`（这一格**能画省略号**）＋ `table.tbl td` 默认 `padding:10px 14px`（36px 勾选列内容盒只剩 **8px**）＋ 复选框 13px ⇒ **溢出内容盒 5px**，Chrome 按 `text-overflow` 补画一个「…」。紧凑密度 `padding:2px 8px` ⇒ 内容盒 20px 不溢出，**所以只有默认密度看得见**，从 v532 上提共享类那天起潜伏至今（销售/调拨两页同样中招）。① **修复**：勾选列左右内边距归零（纵向不动 ⇒ 行高不变），内容盒回到整列 36px、13px 复选框居中，零溢出。② **同时退役** `InvPurchaseList.vue` 的私有 `.ipl-c-chk`（只写了 `text-align:center`，正是漏掉内边距的那份第二真相源），改用共享 `.psi-chk`；打印隐藏规则同步（全局 `.media print` 已覆盖）。③ 🔴 **第一版修错了**：只写 `.psi-tbl td.psi-chk{padding-left:0}`（(0,2,1)），被同文件更靠后的 `[data-density=compact] table.tbl.psi-tbl td{padding:2px 8px}`（(0,3,2)）整块压掉 ⇒ 紧凑档静默不生效；真机注入实测 padding 仍是 8px，改为 `table.tbl.psi-tbl …` 并把 `[data-density="compact"]` 变体列进同一组（(0,4,2)）。④ **拒绝的两个治症状方案**：`text-overflow:clip`（溢出还在）、加宽列到 44px（36 是 sticky 偏移 0/36/82 的基准，会连带冻结列错位）。⑤ 契约 `tests/chk-col-padding.contract.mjs` 进 run-all 第 ⑨ 组（19 条，扫全站）：唯一源归零规则 + 权重 ≥ 紧凑密度规则 + 含紧凑变体 + 无 `xx-c-chk` 私有类 + 页面 scoped 不得覆盖 `.psi-chk` 盒模型 + 三页 `CHK_W = 36` 且列宽只由 `<colgroup>` 给 + **成因链自检**（从源码读列宽与基础 padding 复算「36−14×2=8 < 13 ⇒ 归零是必需的」）；判别力自证：删掉归零规则 ⇒ FAILED(1)、恢复 `.ipl-c-chk` ⇒ FAILED(2)，还原 ⇒ ALL PASS。⑥ 真机（生产 v672，两种密度）：默认密度修复前 `overflowPx = +5`、修复后 **−11.5**（padL/padR = 0px）；紧凑密度同样 0px；截图 A/B 同屏对照「…」消失。⚠️ 演示租户被能力闸门拦在进销存表体之外（采购单 0 行 ⇒ 空态），故真机测量采用「真实页面 + 与模板逐字一致的表结构注入」，未写任何数据。 |
+| v673 | 2026-10-25 | **副驾抽屉被页面浮层盖住（新增 §1.7.2）**。老板报：侧栏（AI 副驾抽屉）打开时，本期预报页「品牌 / 到货周期 / 复制报单」的**弹层**浮在抽屉之上。① **根因（真机取证，1440×900，演示租户）**：v135 那条 `.page.copilot-on .tb-pop{z-index:auto}` 只治住了**按钮容器**（实测 auto ✓），而三块弹层是 `Teleport to="body"` ⇒ 早就不在 `.page` 后代里 ⇒ `.page.copilot-on .tb-pop-panel` **选择器写对了、祖先没了**，永不匹配，面板恒 **1101 > 抽屉 950**；`elementFromPoint` 在面板中心命中 `P.cp-tip`/`LABEL.bp-item`（面板自己）⇒ 确证浮在抽屉上。列菜单 `.col-menu`(1101) / `.col-menu-overlay`(1100) 更是从来没进过那份名单，同样盖住抽屉。② **修法**：`CopilotDrawer` 的 `watch(store.ui.copilotOpen)` 里切 `document.body.classList.toggle('copilot-on')`（+ `onBeforeUnmount` 摘除），规则收进新增全局表 `styles/app-layers.css`（唯一源，`main.js` 入口引入）：`.tb-pop` / `.tb-pop-panel` / `.pop-overlay` / `.col-menu` / `.col-menu-overlay` / `.grid-area.is-fs` 一律 `z-index:auto`。删掉 `Forecast.vue` 的 `.page.copilot-on` 四条规则与根节点类绑定（对 Teleport 浮层无效，且是第二真相源）。③ 🔴 **只降非模态浮层**：模态 1125/1130、`--z-sug-pop` 1150、toast 一律不动 —— 确认框与输入建议必须还能压住抽屉（若图省事把抽屉抬到 1105，会盖掉 `--z-modal`(990) 的 5 处页面模态，属严重回归，已排除）。④ **契约** `tests/overlay-layers.contract.mjs` 进 run-all 第 ⑩ 组（16 条）：body 类由抽屉维护 + 6 个类逐个 `z-index:auto` + 入口必须 import + 页面不得再有 `.page.copilot-on` + 扫全站 `Teleport to="body"` 的弹层必须被覆盖 + 不许出现模态档位；判别力自证三组：删 `.tb-pop-panel` ⇒ FAILED(2)、去掉 body 类切换 ⇒ FAILED(1)、恢复 `.page.copilot-on` 规则 ⇒ FAILED(1)，还原 ⇒ ALL PASS（全套 9 组 ALL PASS）。⑤ **真机验证（生产 v673）**：副驾关 → 面板 1101 / 列菜单 1101；副驾开 → 两者 **auto**，`elementFromPoint` 命中 `DIV.cp-body`/`DIV.cp-welcome`，全局「z>950 的 fixed 元素」扫描结果 **空数组**；点遮罩关闭后 `body.copilot-on` 摘除、面板恢复 1101、`.tb-pop` 恢复 1120（往返无残留）；全屏 + 列菜单 + 副驾三态：`fsZ` 1000→**auto**、列菜单 1101→**auto**。⑥ 部署 `index-BmUmNsTO.js` / `index-BJgF3_Rt.css`，index.html 与两者**双侧 md5 全等**；构建号 v673。 |

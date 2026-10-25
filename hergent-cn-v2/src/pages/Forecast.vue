@@ -1,7 +1,10 @@
 <template>
   <!-- v129：全屏时给根节点挂 grid-fs-on，用于把主工具栏弹层容器降回普通层级（见样式区注释） -->
   <!-- v135：AI 副驾抽屉打开时挂 copilot-on，同理收掉主工具栏弹层的超高 z-index，避免三个触发按钮浮在抽屉之上 -->
-  <div class="page" :class="{ 'grid-fs-on': gridFullscreen, 'copilot-on': store.ui.copilotOpen }">
+  <!-- v673：`copilot-on` **已迁到 `<body>`**（见 styles/app-layers.css）。原因：本页三块弹层
+       （品牌 / 到货周期 / 复制报单）都是 `Teleport to="body"`，`.page.copilot-on .tb-pop-panel`
+       永远匹配不到 ⇒ 面板恒 1101 盖在抽屉 950 上（真机取证）。挂在 body 上才能覆盖它们。 -->
+  <div class="page" :class="{ 'grid-fs-on': gridFullscreen }">
     <!-- 🔴 v405（2026-10-08）：**本页的页内模块页签条已退役** ——
          原先是 `本期预报 / 历史期次 / 报单配置 / 商品目标` 四个按钮排成一条
          （类名 `.module-tabs`，v405 连同其样式块一并净删除）。
@@ -13031,16 +13034,14 @@ provide('sprintSummary', sprintSummary)
 /* ④ 编辑组在全屏再收一档：按钮横向内边距 12→9、组内间距 8→6。仅外观微调，不删任何按钮。 */
 .grid-area.is-fs .grid-ctl-row>.tb-edit-group{gap:6px}
 .grid-area.is-fs .grid-ctl-row>.tb-edit-group>.btn{padding-left:9px;padding-right:9px}
-/* v135 修复：AI 副驾全局抽屉（.copilot z-index:950）打开时，主工具栏 .tb-pop 的常态
+/* v135 修复（**v673 已迁走**）：AI 副驾抽屉（.copilot z-index:950）打开时，主工具栏 .tb-pop 的常态
    z-index:var(--z-page-bar) 会浮在抽屉之上——触发按钮（工具栏内「导出 / 期次 / 高级工具」，表体工具行内
-   「品牌 / 复制报单」）脱离页面悬浮在副驾抽屉上。与全屏层 .grid-fs-on 同构：副驾打开时统一
-   降为 auto（< 950），随页面一起被抽屉遮罩（.cp-overlay 940）覆盖。弹层面板/遮罩一并降级，
-   避免抽屉开着时旧弹层仍浮在上层。不动 .tb-pop 常态值，关闭副驾后互斥点击行为完全不变。 */
-.page.copilot-on .tb-pop,
-.page.copilot-on .tb-pop-panel,
-.page.copilot-on .pop-overlay{z-index:auto}
-/* 全屏表格层（1000）同理：副驾打开时应让位给抽屉，否则整屏表格会盖住 AI 副驾。 */
-.page.copilot-on .grid-area.is-fs{z-index:auto}
+   「品牌 / 复制报单」）脱离页面悬浮在副驾抽屉上。
+   🔴 v673：这段逻辑整体**迁到 `styles/app-layers.css`（`body.copilot-on …`）**，原因有二：
+     ① `.tb-pop-panel` 是 `Teleport to="body"` ⇒ `.page.copilot-on .tb-pop-panel` **永不匹配**，
+        三块弹层（品牌/到货周期/复制报单）恒 1101 盖在抽屉上（v135 当年只治住了按钮容器）；
+     ② 列菜单 `.col-menu`(1101) / 遮罩(1100) 从来不在名单里，同样盖住抽屉。
+   ⇒ 不要在页面里再写一份（第二个真相源），全站唯一位置是 app-layers.css。 */
 /* 主工具栏整合：搜索框 / 表格设置&高级工具 弹层 / 活动筛选行 */
 /* 2026-09-12 修复「点击后浮出淡淡品牌色光圈」：
    本控件是「胶囊 + 内层无边框 input」的复合结构，内层 .fld 的 border 被置 none，

@@ -3282,6 +3282,12 @@ async function loadAiMode() {
 
 /* 打开抽屉时聚焦输入框 */
 watch(() => store.ui.copilotOpen, (v) => {
+  /* 🔴 v673：抽屉打开 ⇒ 给 <body> 挂 `copilot-on`，页面级**非模态**浮层统一让位（规则见 styles/app-layers.css）。
+     为什么必须挂 body、不能挂页面根：`.tb-pop-panel`（品牌 / 到货周期 / 复制报单 的弹层）是
+     `Teleport to="body"`，早已不在页面 DOM 里 ⇒ `.page.copilot-on .tb-pop-panel` **永不匹配**，
+     面板恒 1101 > 抽屉 950，整块盖在副驾抽屉上（v135 那条规则当年只管住了按钮容器）。
+     列菜单（.col-menu 1101 / .col-menu-overlay 1100）同理会被抽屉压住 —— 两条一并由新规则兜。 */
+  document.body.classList.toggle('copilot-on', !!v)
   if (v) {
     loadAiMode()
     loadTtsVoices()      // v461：提前取音色清单 ⇒ 「朗读声音」胶囊能直接显示当前声音名
@@ -3305,6 +3311,8 @@ watch(() => store.ui.copilotOpen, (v) => {
     saveCurrentSession()  // 关闭时落盘
   }
 })
+/* v673：组件卸载（切租户 / 极端分支）时摘掉 body 类，避免页面浮层永久停在 auto。 */
+onBeforeUnmount(() => document.body.classList.remove('copilot-on'))
 
 /* v663：抽屉**已经开着**时按 ⌘⇧O —— 不必重开抽屉，直接换一段空白对话。
    与上面的 open 监听共用 consumeNewTick()，所以同一次按键只会触发一次 newSession。 */
