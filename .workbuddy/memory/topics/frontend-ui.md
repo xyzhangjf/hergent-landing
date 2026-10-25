@@ -4374,3 +4374,28 @@ AI 的结论也是"系统自动算的"（v625c 探针守着这条）。
 - `JS_STATE` 是模板字符串，**注释里也不能出现反引号**（``` 会提前闭合字符串，报
   `SyntaxError: Unexpected identifier`，一晚踩三次）。
 - demo 租户**调不通真模型**（3 问各等 180s 全超时）⇒ 测前端逻辑就用桩，别赌真链路。
+
+## 勾选列盒模型：左右内边距必须为 0（v672）
+
+**症状**：列表每行（连表头）复选框右侧多一个「…」。
+
+**根因是三条各自合理的规则叠加**，不是伪元素、不是图标字体、不是省略的文本：
+1. `.psi-tbl th, .psi-tbl td { overflow:hidden; text-overflow:ellipsis }` ⇒ 这一格**会画省略号**；
+2. `table.tbl td { padding:10px 14px }` + 勾选列 36px（`CHK_W`）⇒ 内容盒 **8px**；
+3. 复选框 13px ⇒ 溢出 5px ⇒ Chrome 在右侧补画「…」。
+
+**只有默认密度看得见**：紧凑档 `padding:2px 8px` ⇒ 内容盒 20px 不溢出。三页共用 `.psi-chk`
+⇒ 采购 / 销售 / 调拨**同时中招**，只是只报了采购。
+
+**判据/写法**
+- 修复 = `padding-left/right: 0`（纵向不动，行高不变），内容盒 36px、13px 居中 11.5px。
+- 🔴 选择器必须 `table.tbl.psi-tbl …` **并把 `[data-density="compact"]` 变体列进同一组**：
+  compact 那条 `padding:2px 8px` 是 (0,3,2) 且**在本文件更靠后**，`.psi-tbl td.psi-chk`（(0,2,1)）
+  会被整块压掉 ⇒ 紧凑档静默不生效（真机注入实测 padding 仍是 8px）。
+  **同文件内的密度档覆盖，先算权重再下笔，别默认"后写就赢"。**
+- ⛔ 别用 `text-overflow:clip` 遮（溢出还在）；⛔ 别加宽列（36 是冻结列 sticky 偏移 0/36/82 的基准）。
+- 页面 scoped 里不许再写勾选列样式（`.ipl-c-chk` 那种只写 `text-align:center` 的副本 = 第二真相源）。
+- 契约 `tests/chk-col-padding.contract.mjs`（run-all 第 ⑨ 组）；规范 UI-SPEC §2.6.2 F。
+
+**探针**：注入实测取 `checkbox.right − (cellWidth − paddingRight)`，> 0 即会画省略号。
+`getComputedStyle(cell).textOverflow` 只证明"能画"，不能证明"画了"，两者要一起看。
