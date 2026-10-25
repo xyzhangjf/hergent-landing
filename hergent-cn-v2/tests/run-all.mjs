@@ -251,6 +251,21 @@ if (has('skip-sfc')) {
   results.push({ name: '顶栏高度', ok: r.code === 0, code: r.code })
 }
 
+// ⑬ 侧栏条目高度（v676）
+/* 反馈原话：「顶部导航栏也有点高，就是侧边栏各功能模块的导航栏」。
+   事实：`.sb-item` 高度 = line-height + 上下 padding（从没设 height）。改前 9px 纵向 padding
+   + 13px/1.6 ⇒ 38.8px；而职能区按钮因 `.sb-area-btn{font:inherit}` 被冲回 14px ⇒ 40.4px
+   ⇒ 同一列两种行高。修法：padding 7 + 显式 line-height:20px ⇒ 34px 整，两条路径归一。
+   契约钉「推算高度 32–36 + 行高必须显式（否则 button 走 UA normal 又分叉）+ 禁 font 简写
+   + 禁写死 height + 禁止页面覆写」。 */
+{
+  console.log('\n── ⑬ 侧栏条目高度契约（34px · 两种条目归一 · 不写死 height）──')
+  const r = run('sidebar-item-h.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '侧栏条目高度', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

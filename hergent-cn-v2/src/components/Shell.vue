@@ -1652,7 +1652,19 @@ function stopResize() {
 .sb-beian{flex-shrink:0;padding:10px 8px 12px;text-align:center;font-size:11px;line-height:1.5;color:var(--t2);opacity:.55}
 .sb-beian a{color:inherit;text-decoration:none}
 .sb-beian a:hover{opacity:1;text-decoration:underline}
-.sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;color:var(--t2);text-decoration:none;font-size:13px;transition:all .15s}
+/* v676：侧栏条目收矮（老板：「侧边栏各功能模块的导航栏也有点高」）。
+   行高 = line-height + 上下 padding（**不另设 height**）。
+   v675 及以前是 `padding:9px 10px` + 13px/行高 1.6 ⇒ **38.8px**（职能区按钮更惨：
+   `.sb-area-btn{font:inherit}` 把字号冲成 14 ⇒ 40.4px），12 个模块吃掉 485px。
+   改 `padding:7px 10px` + `line-height:20px` ⇒ **34px 整**，12 项共 408px（省 77px），
+   与 v675 的顶栏 48px 也协调（顶栏 : 条目 ≈ 48 : 34）。
+   🔴 `line-height` 必须写在**这里**（`.sb-item` 上）：不写的话，平铺项走继承的 1.6、
+       而 `.sb-area-btn` 这类 `<button>` 走 UA 的 `line-height:normal` ⇒ 同一列里
+       两种行高（实测 34.8 / 32，比改之前更参差）。作者规则写死行高，两条路径才归一。
+   🔴 高度**不写死**：加 `height:34px` 会在字号/行高一变时把文字挤出去
+      （`.psi-tbl` 就踩过"内容盒 8px < 复选框 13px"的同类坑）。
+   🔴 纵向 padding 不要再压到 ≤5px：图标 16px 会贴上下边，圆角 10px 会吃到图标。 */
+.sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:7px 10px;border-radius:10px;color:var(--t2);text-decoration:none;font-size:13px;line-height:20px;transition:all .15s}
 .sb-item:hover{background:var(--bg);color:var(--t1)}
 .sb-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 /* ⚠️ v390（2026-10-07）：原 `.sb-grp`（分组标题：经营 / 核算 / 配置）**已随分组一起删除**
@@ -1671,7 +1683,13 @@ function stopResize() {
       表现为"hover 了但弹窗不出现"。故坐标由 JS 实测后写进 `:style`，见 `_placePop`。
       `.sb-area` 仍需 `position:relative` 作为语义锚点（不含定位职责）。 */
 .sb-area{position:relative}
-.sb-area-btn{font:inherit;border:none;background:none;cursor:pointer;text-align:left}
+/* 🔴 v676：这里原来写的是 `font:inherit` —— 简写会把 **font-size 一起重置为继承值**，
+   于是带 `.sb-area-btn` 的职能区条目从 `.sb-item` 的 13px 漂到 body 的 14px
+   （行高 22.4 ⇒ 整行 40.4px），而平铺项（「经营工作台」这类 router-link）仍是
+   13px ⇒ **同一列里两种行高**（38.8 / 40.4），肉眼能看出轻微参差。
+   只继承字体族（button 的 UA 字体必须换掉），字号/行高交回 `.sb-item` 统一定义。
+   ⚠️ 别再写回 `font:` 简写，也别在这里补 `font-size` —— 那是第二个来源，改一处必漏一处。 */
+.sb-area-btn{font-family:inherit;border:none;background:none;cursor:pointer;text-align:left}
 .sb-area.open>.sb-area-btn{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 .sb-area.pinned>.sb-area-btn{box-shadow:inset 0 0 0 1px var(--bd)}
 /* v390：一级项「当前页高亮」（§七 要求）—— 与扁平项的 `.router-link-active`

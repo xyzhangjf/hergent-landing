@@ -1058,6 +1058,35 @@ SUB_TITLES[path][query.tab] → SUB_TITLES[path]._default → PAGE_RULES[path].t
 钉「区间 + 呼吸位 + 唯一源（不许别处重复定义 `--topbar-h`，也不许改名成 `--header-h`/`--nav-h`）
 + `.topbar` 不许写死 px + 栏内控件不得 ≥ 顶栏高」。判别力自证：注入 56/40/写死 px/同义令牌 共 8 例全部抓红。
 
+### 3.7 侧栏一级条目高度（v676）
+
+| 项 | 值 | 说明 |
+|---|---|---|
+| 高度 | **34px** | = `line-height:20px` + `padding:7px 10px` × 2；**不写死 `height`** |
+| 字形 | 13px / 行高 20px | 唯一源 = `.sb-item`；`.sb-area-btn` 只继承 `font-family` |
+| 12 项总高 | 408px | 改前 38.8/40.4px 混排、共 485px（省 77px） |
+| 纵向 padding 下限 | 6px | 低于此，16px 图标贴上下边、10px 圆角吃到图标 |
+
+> 🔴 **侧栏条目高度 = 行高 + 上下 padding，从来不是 `height`**。判「条目偏高」先看这两项，
+> 不要去改字号（13px 已是最小可读档）或给 `.sb-item` 补 `height`（字号一变文字就被挤出去）。
+>
+> 🔴 **两种条目必须同一行高**：平铺项是 `<router-link>`（走继承的 1.6），
+> 职能区项是 `<button class="sb-item sb-area-btn">`（走 UA 的 `line-height:normal`）。
+> ⇒ ① `line-height` 必须显式写在 `.sb-item` 上；② `.sb-area-btn` **只能写 `font-family:inherit`**，
+> 写 `font:inherit` 会把 `font-size` 一起重置成 body 的 14px（实测 38.8 vs 40.4，肉眼可见参差）。
+>
+> 历史：v675 及以前 `padding:9px 10px` ⇒ 38.8px（职能区 40.4px）；老板反馈「侧边栏各功能模块的
+> 导航栏也有点高」；v676 收到 34px。真机实测（演示租户 1440×900）：12 项 `heights:[34]`、
+> `fs:["13px"]`、`paddingTop:["7px"]`、合计 408；运行时注回 `padding:9px` ⇒ 38.8。
+> A/B 图 `tests/perf/v676/v676-sidebar-ab.png`。
+
+**契约**：`tests/sidebar-item-h.contract.mjs`（run-all ⑬，12 条）——
+推算高度 32–36px + 行高必须显式且在 18–22px + 禁 `font:` 简写 + 禁在 `.sb-area-btn` 另设 `font-size`
++ 禁写死 `height` + 禁止页面覆写 `.sb-item`。判别力自证：注入 padding 回 9 / 删行高 / `font:inherit`
+回潮 / 写死 height / 另设 font-size / 行高 `normal` / 页面覆写 共 **7 例全部抓红**。
+> ⚠️ 真机量这类改动的元素**必须等过渡结束**：`.sb-item` 带 `transition:all .15s`，
+> 注入样式后立刻量会读到中间值（首测 `34.4` 就是动画中间态，不是最终 38.8）。
+
 ---
 
 ## 4. 交互与状态
