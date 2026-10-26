@@ -173,6 +173,11 @@
                   <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg>
                   <span>已停止生成</span>
                 </div>
+                <!-- v693：本次消耗。用对话前后的额度差算（一次请求后端只落一行，
+                     差值就是那一行）。轻问答抹零为 0 ⇒ 不渲染，免得像坏了。 -->
+                <div v-if="m.role === 'assistant' && m.credits" class="cp-cost" role="note">
+                  本次约 {{ m.credits }} 积分<template v-if="creditsMoney(m.credits)">（{{ creditsMoney(m.credits) }}）</template>
+                </div>
                 <!-- v301：副驾产出的文件（Hermes `MEDIA:` 标记）→ 可直接下载/打开。
                      原先 Web 端只显示一串服务器路径（企微客户端里却能点开），就是这个缺口。
                      v306：🔴 下载**必须**走 downloadAuthed()（带 Authorization 头取 blob）——
@@ -312,6 +317,13 @@
                     </li>
                   </ol>
                   <div v-if="m.proposal.rationale" class="cp-prop-rationale">{{ m.proposal.rationale }}</div>
+                  <!-- v693 P4：执行前先把预计消耗摆出来（对齐 WorkBuddy 的
+                       「计费工具每次调用都实际扣费，必须在执行前让用户确认」）。
+                       ⚠️ 只提醒不拦截：不绑 :disabled，不进任何 validate()。 -->
+                  <div v-if="planCredits(m) && !m.proposalStatus" class="cp-prop-cost">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    <span>共 {{ m.proposal.steps.length }} 步，预计约 {{ planCredits(m) }} 积分<template v-if="creditsMoney(planCredits(m))">（{{ creditsMoney(planCredits(m)) }}）</template>，执行后才计费<template v-if="peakTip"><br><em class="cp-peak-tip">{{ peakTip }}</em></template></span>
+                  </div>
                   <div v-if="!m.proposalStatus" class="cp-prop-ops">
                     <button class="cp-prop-btn ghost" :disabled="m.propBusy || aiMode === 'readonly'" @click="cancelPlan(m)">取消</button>
                     <button class="cp-prop-btn primary" :disabled="m.propBusy || aiMode === 'readonly'" @click="applyPlan(m)">{{ m.propBusy ? '执行中…' : '执行计划' }}</button>
@@ -652,6 +664,15 @@
               </div>
             </div>
           </div>
+          <!-- v693：额度阈值提醒（80% / 用完）。只提示不拦截 ——
+               拦截由后端 `exceeded` 决定，这里不绑任何 disabled。 -->
+          <div v-if="quotaWarn" class="cp-quota-warn" role="status" aria-live="polite">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+            <span>{{ quotaWarn }}</span>
+          </div>
+          <!-- v693：常驻额度读数。用**业务单位**说话（「还能跑约 N 件这样的活」），
+               积分是次要信息 —— 经销商关心「会不会突然断」，不是「我还剩多少分」。 -->
+          <div v-if="quotaTip" class="cp-quota-tip" aria-live="off">{{ quotaTip }}</div>
           <!-- v408：AI 生成内容免责提示 —— 常驻于**聊天输入框下方**（composer 之后、模式横幅之前）。
                展示位置：footer 内、输入框卡片正下方，整行居中、低对比灰字，不抢视线。
                触发逻辑：抽屉打开即常驻显示（每次进入副驾都能看到），不依赖是否已发问/已收到回复 ——
@@ -3061,6 +3082,10 @@ async function send() {
 async function streamReply(payload, reuseUserMsg = false) {
   const { content, sys, roleId, q, tableFiles, files, vision } = payload
   store.chat.error = ''
+  // v693：记下这轮开始前的积分读数 —— 结束后用差值算「本次消耗」。
+  //   为什么用差值而不是按 token 推：一次请求在 Hermes 内部可能调 15 次工具，
+  //   后端只落**一行**累计值，差值正好等于那一行；前端自己推必然对不上。
+  _creditBeforeTurn = quota.value ? (quota.value.credits_used || 0) : null
   // v423：regenerate 时用户消息已在对话里（上一条），不再重复 push，避免重复气泡
   if (!reuseUserMsg) {
     // v495b：带上 created_at —— 沟通面板每条消息都要显示时间，产物区时间也由此继承
@@ -3239,7 +3264,90 @@ async function streamReply(payload, reuseUserMsg = false) {
   saveCurrentSession()
   flushPending()   // v522：本轮回复结束，自动补发流式期间用户排队的新消息
   reportUsage(content, reply)
+  settleTurnCost(replyMsg)   // v693：刷新额度，并把本轮消耗挂到这条回复上
 }
+
+/* ── v693 积分与成本（P3 展示 / P4 前置确认）─────────────────────────────
+   口径：**1 积分 = 1 分钱**，按 AI 实际成本 1:1 折算、不加价 —— 积分是护栏不是商品。
+   🔴 三条纪律（违反任一条都会变成这个项目最忌讳的形态）：
+     1) 取不到配额就**什么都不显示**：计量坏了绝不能把对话挡住；
+     2) 优先说业务单位「还能跑约 N 件这样的活」，积分与金额放一起给 ——
+        经销商不懂 token，也不想每月算积分账；
+     3) 「本次消耗」用对话前后的额度差值算。轻问答差值为 0（四舍五入到 0 积分）
+        ⇒ **不显示**。每次都挂一句「0 积分」反而像坏了。
+   实测标定（2026-10-26 一条 15 轮重型任务：写入货损 27 条）：
+     闲时 ¥0.2964 → 30 积分；高峰 ¥0.5926 → 59 积分；
+     随便问一句 ¥0.0011 → 0 积分。 */
+const quota = ref(null)
+let _creditBeforeTurn = null
+
+// 一件「实事」按重型任务估 40 积分：实测闲时 30 / 高峰 59，取中间偏保守。
+// 宁可少承诺 —— 让客户按 100 件算完只跑了 50 件，比说 50 件更伤人。
+const CREDITS_PER_TASK = 40
+
+async function refreshQuota() {
+  try {
+    const d = await api('/api/ai/quota')
+    if (d && d.ok) quota.value = d
+  } catch (_) { /* 取不到就不显示，静默 */ }
+}
+
+/* 输入框下方常驻小字：本月用量 + 还能干多少活 */
+const quotaTip = computed(() => {
+  const q = quota.value
+  if (!q || !q.credits_limit) return ''
+  if (q.exceeded) return `本月 ${q.credits_used} 积分 · 额度已用完`
+  const left = Math.floor((q.credits_remaining || 0) / CREDITS_PER_TASK)
+  if (left >= 1) return `本月 ${q.credits_used} 积分 · 还能跑约 ${left} 件这样的活`
+  return `本月 ${q.credits_used} 积分 · 额度快用完了`
+})
+
+/* 80% / 100% 阈值横幅。只提示不拦截 —— 真正的拦截由后端 `exceeded` 决定。
+   ⚠️ 不要给它绑 :disabled 或塞进任何 validate()，否则会从「提醒」变「拦截」。 */
+const quotaWarn = computed(() => {
+  const q = quota.value
+  if (!q || !q.credits_limit || q.exempt) return ''
+  if (q.exceeded) return '本月 AI 额度已用完，下月 1 日恢复'
+  if (q.credits_pct >= 80) return `本月 AI 额度已用 ${q.credits_pct}%，快用完了`
+  return ''
+})
+
+/* 积分 → 人民币（1 积分 = 1 分钱）。经销商看「毛」比看「0.6 元」更顺。 */
+function creditsMoney(c) {
+  const yuan = (Number(c) || 0) / 100
+  if (yuan <= 0) return ''
+  return yuan >= 1 ? `约 ${yuan.toFixed(1)} 元` : `约 ${Math.round(yuan * 10)} 毛`
+}
+
+/* P4：执行计划的预计消耗。按步数线性估 ——
+   实测 15 步 ≈ 30 积分（闲时），即每步约 2 积分，与 `CREDITS_PER_TASK` 互相印证。
+   3 步以内不提示：那时消耗不到 1 毛，弹出来只会干扰。 */
+function planCredits(m) {
+  const n = (m && m.proposal && m.proposal.steps) ? m.proposal.steps.length : 0
+  return n >= 3 ? n * 2 : 0
+}
+
+/* 一轮对话结束后：刷新额度，把本轮消耗挂到这条回复上 */
+async function settleTurnCost(msg) {
+  const before = _creditBeforeTurn
+  _creditBeforeTurn = null
+  await refreshQuota()
+  const q = quota.value
+  if (!msg || !q || before == null) return
+  const delta = (q.credits_used || 0) - before
+  if (delta > 0) msg.credits = delta
+}
+
+/* P5-a：高峰提示。DeepSeek 的高峰价是闲时的 2 倍（北京时间工作日 9-12、14-18），
+   而「补数据 / 批量核算」这类活本来就不急 —— 把这条信息摆到执行按钮上方，
+   比在文档里写「建议晚上跑」有用得多。判定只认后端下发的 `is_peak`，前端不自己算时段。 */
+const peakTip = computed(() => {
+  const q = quota.value
+  if (!q || !q.is_peak) return ''
+  const left = Number(q.peak_until_min) || 0
+  if (left > 0 && left <= 180) return `现在是高峰时段（剩约 ${left} 分钟），等一等只要一半`
+  return '现在是高峰时段，挪到晚上 8 点后只要一半'
+})
 
 /* P2-⑥ 用量归因：副驾每次成功回复上报字符量，落主库 ai_usage（支撑 B 端分层定价）。
    fail-closed：计量失败绝不干扰主对话。 */
@@ -3343,6 +3451,7 @@ onMounted(() => {
   //   改为在 copilotOpen 打开分支按需恢复（见上方 watch）。
   loadAiMode()
   loadTtsVoices()          // v461
+  refreshQuota()           // v693：输入框下方那行积分读数
   onWinResize()
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('resize', onWinResize)
@@ -3702,6 +3811,16 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-send-esc{font-size:11px;font-weight:600;line-height:1;letter-spacing:.02em}
 /* 已停止标记（对齐 WB 的 message.interrupted「任务被中断」）：中性、不喧哗 */
 .cp-stopped{display:flex;align-items:center;gap:5px;margin-top:8px;font-size:12px;color:var(--t3)}
+/* ── v693 积分与成本 ────────────────────────────────────────────────────
+   三处都是**低对比小字**，不抢视线：额度读数贴输入框、本次消耗贴气泡尾、
+   执行计划预估贴按钮上方。琥珀色只用于「快用完了」这一种状态。
+   字号沿用组件既有口径（11~12px），不单独另立一套。 */
+.cp-quota-warn{display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:6px;padding:5px 10px;border-radius:8px;font-size:11.5px;line-height:1.45;color:var(--warn-amber);background:var(--warn-amber-bg)}
+.cp-quota-tip{text-align:center;font-size:11px;line-height:1.5;color:var(--t3);margin-bottom:4px;font-variant-numeric:tabular-nums}
+.cp-cost{margin-top:7px;font-size:11px;line-height:1.4;color:var(--t3);font-variant-numeric:tabular-nums}
+.cp-prop-cost{display:flex;align-items:flex-start;gap:5px;margin-bottom:9px;font-size:11.5px;line-height:1.5;color:var(--warn-amber)}
+.cp-prop-cost svg{flex:none;margin-top:1.5px}
+.cp-peak-tip{font-style:normal;color:var(--t3)}
 /* 字数内联：绝对定位在文本区**第一行**右侧，不占布局高度（composer 高度不变）。
    🔴 top 的算法：绝对定位相对 **padding box** ⇒ 文本区顶 = 8px(padding-top)，
       其第一行文字再 +13px(textarea padding-top) ⇒ **21px** 才是第一行基线区。
