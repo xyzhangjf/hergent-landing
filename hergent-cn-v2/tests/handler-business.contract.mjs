@@ -59,12 +59,44 @@ for (const [f, hint] of [
   const s = stripComments(read(path.join(NEW, f)))
   ok(new RegExp(`:disabled="[^"]*prodLocked`).test(s), `${f}：ProductCombo 绑 :disabled="prodLocked(...)"`)
   ok(/@blocked="warnNeed/.test(s), `${f}：ProductCombo 绑 @blocked 出声`)
-  ok(s.includes(hint), `${f}：锁定态占位文案含「${hint}」`)
   ok(/function prodLocked\s*\(/.test(s), `${f}：prodLocked() 存在（判据集中在函数里）`)
   /* 🔴 已填过商品的行必须放行：判据里要看得到 `product_id` —— 只看客户/供应商
      会把编辑单、复制单里已有的行一起锁死，用户没法改一个历史值。 */
   ok(/function prodLocked[\s\S]{0,220}product_id/.test(s),
     `${f}：prodLocked 对「已填商品的行」放行（判据含 product_id）`)
+  /* v687：这几个字**只在 title 里**了（老板口径：格内占位太吵，要页面整洁）。
+     断言「文件里出现过」仍然成立 —— 但别把它当「格内有字」的证据。 */
+  ok(s.includes(hint), `${f}：锁定态悬停提示仍指向「${hint}」（v687 起只在 title 里）`)
+}
+
+/* v687 护栏：锁定态**格内不许再显示占位文字**。
+   🔴 判据只取 `>` 之后的插值部分，不扫整个标签 —— `:title="disabled ? disabledHint : ''"`
+      就挂在同一个 span 上，扫全标签会把 title 一起判死，而 title 正是「没字也有解释」的保障。 */
+{
+  const comboHtml = stripComments(read(path.join(NEW, 'ProductCombo.vue')))
+  const span = (comboHtml.match(/<span v-else class="ipn-v"[\s\S]*?<\/span>/) || [''])[0]
+  const interp = (span.match(/>({{[\s\S]*?}})<\/span>/) || ['', ''])[1]
+  ok(span.length > 0 && interp.length > 0, 'ProductCombo：找得到锁定态插值表达式', interp)
+  ok(!/disabledHint|disabled\s*\?/.test(interp),
+    'ProductCombo：锁定态格内不显示占位文字（v687 整洁化）', interp)
+  ok(/disabled\s*\?\s*disabledHint\s*:\s*''/.test(span),
+    'ProductCombo：锁定态的 title（悬停说明）仍在 —— 没字≠没解释', span.slice(0, 200))
+}
+{
+  const s = stripComments(read(path.join(NEW, 'PurchaseOrderForm.vue')))
+  const span = (s.match(/<span v-else class="ipn-v"[\s\S]*?<\/span>/) || [''])[0]
+  ok(span.length > 0, 'PurchaseOrderForm：找得到锁定态商品格')
+  ok(!/supplier_id\s*\?\s*''\s*:\s*'先选供应商'/.test(span),
+    'PurchaseOrderForm：锁定态格内不显示「先选供应商」（v687 整洁化）', span.slice(0, 200))
+  ok(/title="!form\.supplier_id\s*\?/.test(span),
+    'PurchaseOrderForm：锁定态的 title 悬停说明仍在')
+}
+{
+  const s = stripComments(read(path.join(NEW, 'SaleDocForm.vue')))
+  ok(!/请选择原因/.test(s), 'SaleDocForm：格内不再写「请选择原因」（v687 整洁化）')
+  ok(/title="零价出库必须选择出库原因"/.test(s), 'SaleDocForm：零价原因改用 title 说明')
+  /* 🔴 「文案删了、约束也删了」是最危险的一种改法：校验兜底必须在。 */
+  ok(/零价出库必须选择出库原因/.test(s), 'SaleDocForm：validate 仍兜底拦「零价出库必须选择出库原因」')
 }
 
 /* 采购订单页是**内联**组合框，不走 ProductCombo —— 判据在 openProd 里 */

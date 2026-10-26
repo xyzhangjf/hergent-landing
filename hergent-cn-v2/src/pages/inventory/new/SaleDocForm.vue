@@ -197,8 +197,15 @@
                        :title="priceTitle(row)" />
               </td>
               <td class="isn-c-reason" v-if="!cfg.isReturn">
-                <select v-if="Number(row.unit_price) === 0" v-model="row.note" class="input isn-in">
-                  <option value="">请选择原因</option>
+                <!-- v687：「请选择原因」不再当格内常驻文案（老板口径：这类占位太吵）。
+                     空选项改成「—」，与同列非零价时的 `.isn-reason-na` 长得一样。
+                     🔴 删掉文案**不等于**删掉约束：`validate()` 里仍有
+                        「零价出库必须选择出库原因」的兜底 toast，表头列名也写着
+                        「零价出库原因」—— 两处都在，用户不会不知道要选；
+                        但格内那句「请选择原因」在还没选之前就占着位置，纯噪音。 -->
+                <select v-if="Number(row.unit_price) === 0" v-model="row.note" class="input isn-in"
+                        title="零价出库必须选择出库原因">
+                  <option value="">—</option>
                   <option v-for="zr in ZERO_REASONS" :key="zr" :value="zr">{{ zr }}</option>
                 </select>
                 <span v-else class="isn-reason-na">—</span>

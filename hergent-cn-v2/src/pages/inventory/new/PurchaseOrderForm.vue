@@ -273,11 +273,13 @@
                   </ul>
                   <div v-else-if="row._popen && row._pkw && !prodMatches(row).length" class="ipn-prod-empty">没有匹配的商品</div>
                 </div>
-                <!-- v686：未选供应商 ⇒ 空格显示「先选供应商」（锁定态），点一下 toast 出声。 -->
+                <!-- v686：未选供应商 ⇒ 商品格锁定（不进入搜索态）。
+                     v687：格内**不再显示「先选供应商」**（老板口径：这类占位太吵，要页面整洁）
+                     —— 留空即可，因为「为什么点不动」另有两条出口：`title` 悬停 + 点击 toast。 -->
                 <span v-else class="ipn-v" tabindex="0"
                       :class="{ 'is-ph': !row.product_id, 'is-locked': !form.supplier_id }"
                       :title="!form.supplier_id ? '先选供应商，再选商品' : ''"
-                      @keydown.enter.prevent="openProd(row)">{{ row.product_id ? prodName(row) : (form.supplier_id ? '' : '先选供应商') }}</span>
+                      @keydown.enter.prevent="openProd(row)">{{ row.product_id ? prodName(row) : '' }}</span>
               </td>
               <td v-if="isVisible('code')" class="ipn-c-code">{{ row.barcode || (row.product_id ? '—' : '') }}</td>
               <td class="ipn-c-unit" @click="cellOn(row, 'unit')">

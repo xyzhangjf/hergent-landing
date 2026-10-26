@@ -283,8 +283,11 @@
                 <input v-model="row.unit_price" class="input isn-in num" inputmode="decimal" placeholder="0.00" />
               </td>
               <td class="isn-c-reason">
-                <select v-if="Number(row.unit_price) === 0" v-model="row.note" class="input isn-in">
-                  <option value="">请选择原因</option>
+                <!-- v687：与 `new/SaleDocForm.vue` 同口径 —— 空选项目文案「请选择原因」→「—」。
+                     本页已无路由（tree-shaking 排除），改它只为两处写法不打架。 -->
+                <select v-if="Number(row.unit_price) === 0" v-model="row.note" class="input isn-in"
+                        title="零价出库必须选择出库原因">
+                  <option value="">—</option>
                   <option v-for="zr in ZERO_REASONS" :key="zr" :value="zr">{{ zr }}</option>
                 </select>
                 <span v-else class="isn-reason-na">—</span>

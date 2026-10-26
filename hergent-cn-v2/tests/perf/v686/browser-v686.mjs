@@ -59,7 +59,7 @@ await page.waitForSelector('.topbar', { timeout: 30000 })
 await sleep(1500)
 
 const build = await page.evaluate(() => window.__HG_BUILD__ || '')
-say('构建号 = v686', build === 'v686' ? 'PASS' : 'FAIL', build)
+say('构建号 = v687', build === 'v687' ? 'PASS' : 'FAIL', build)
 
 /* ── 参考数据：业务员名单 + 部门表 ────────────────────────────────────── */
 const refs = await page.evaluate(async () => {
@@ -97,17 +97,22 @@ for (const [label, route, pre, partyWord, lockHint] of PAGES) {
   say(`${label}：头部有「业务员」`, heads.includes('业务员') ? 'PASS' : 'FAIL', heads)
   say(`${label}：头部无「经办人」`, heads.includes('经办人') ? 'FAIL' : 'PASS')
 
-  /* ② 未选伙伴 ⇒ 商品格锁定 + 占位文案 */
+  /* ② 未选伙伴 ⇒ 商品格锁定；v687 起格内**不显示**占位文字，但 title 悬停说明还在 */
   const locked = await page.evaluate((p) => {
     const td = document.querySelector(`td.${p}-c-prod`)
     if (!td) return null
     const v = td.querySelector('.ipn-v')
     if (!v) return { noCombo: true }
-    return { hasLockedClass: v.classList.contains('is-locked'), text: (v.textContent || '').trim() }
+    return {
+      hasLockedClass: v.classList.contains('is-locked'),
+      text: (v.textContent || '').trim(),
+      title: v.getAttribute('title') || '',
+    }
   }, pre)
   if (!locked || locked.noCombo) { say(`${label}：商品格存在`, 'SKIP', locked); continue }
-  say(`${label}：未选${partyWord}时商品格锁定`, locked.hasLockedClass ? 'PASS' : 'FAIL', locked.text)
-  say(`${label}：占位显示「${lockHint}」`, locked.text === lockHint ? 'PASS' : 'FAIL', locked.text)
+  say(`${label}：未选${partyWord}时商品格锁定`, locked.hasLockedClass ? 'PASS' : 'FAIL', locked.hasLockedClass)
+  say(`${label}：锁定态格内不显示占位文字（v687 整洁化）`, locked.text === '' ? 'PASS' : 'FAIL', locked.text)
+  say(`${label}：锁定态仍有悬停说明（没字≠没解释）`, locked.title.includes(lockHint) ? 'PASS' : 'FAIL', locked.title)
 
   /* ③ 点锁定格 ⇒ toast 出声，且**没有**打开输入框 */
   await page.evaluate(() => { window.__toastLog = [] })
@@ -183,6 +188,39 @@ for (const [label, route, pre, partyWord, lockHint] of PAGES) {
       deptState.btnsDisabled.every((d) => d === false) ? 'PASS' : 'FAIL',
       { 按钮: deptState.btnsText, 禁用: deptState.btnsDisabled })
   }
+}
+
+/* ── ⑤ 零价原因格：不再常驻「请选择原因」（v687） ───────────────────── */
+/* 只改表单内状态（把某行单价填 0），不提交、不产生单据。单价框靠 `placeholder="0.00"`
+   精确定位 —— 数量框的 placeholder 是 `0`，两者可区分。 */
+console.log('\n=== 零价原因格（v687 整洁化）===')
+await page.evaluate(() => { location.hash = '/inventory/sale/self-pickup/new' })
+await sleep(2600)
+const priceInp = page.locator('tbody input[placeholder="0.00"]').first()
+if (await priceInp.count()) {
+  await priceInp.fill('0')
+  await priceInp.press('Tab')
+  await sleep(600)
+  const z = await page.evaluate(() => {
+    const sel = document.querySelector('td.isn-c-reason select')
+    if (!sel) return null
+    return {
+      value: sel.value,
+      first: (sel.options[0]?.textContent || '').trim(),
+      title: sel.getAttribute('title') || '',
+      count: sel.options.length,
+    }
+  })
+  if (!z) {
+    say('单价填 0 后出现原因下拉', 'SKIP', '未渲染（可能该行没有可编辑单价格）')
+  } else {
+    say('单价填 0 后出现原因下拉', 'PASS', `${z.count} 项`)
+    say('格内首项不再是「请选择原因」', z.first === '—' ? 'PASS' : 'FAIL', z.first)
+    say('原因下拉仍有悬停说明', z.title.includes('零价出库') ? 'PASS' : 'FAIL', z.title)
+    say('零价原因仍是必选（默认值为空）', z.value === '' ? 'PASS' : 'FAIL', z.value)
+  }
+} else {
+  say('单价输入框可定位', 'SKIP', '没找到 placeholder=0.00 的输入框')
 }
 
 /* ── 列表页：业务员列 ─────────────────────────────────────────────────── */

@@ -21,7 +21,8 @@ const props = defineProps({
      ⚠️ 这是**真拦截**（不是 v684 那种「只提醒」），所以放在交互入口上是对的；
         但它不参与 `validate()` 的必填判定 —— 校验里另有一条「请先选择供应商/客户」。 */
   disabled: { type: Boolean, default: false },
-  /** 锁定时占位文案。父页按单据类型传「先选供应商」/「先选客户」。 */
+  /** 锁定时的**悬停提示**（v687 起不再当格内占位文字显示）。父页按单据类型传
+      「先选供应商」/「先选客户」。 */
   disabledHint: { type: String, default: '请先选择往来单位' },
 })
 const emit = defineEmits(['pick', 'blocked'])
@@ -89,12 +90,16 @@ function onBlur () { editing.value = false }
       </li>
     </ul>
     <div v-else-if="editing && kw && !matches.length" class="ipn-prod-empty">没有匹配的商品</div>
-    <!-- v686：锁定态（未选供应商/客户）—— 显示「先选供应商」而不是空白，
-         点一下会经 `blocked` 让父页 toast 出声。已选过商品的行**照旧显示商品名**
-         （那是事实，不该被锁掉），只是不能再改。 -->
+    <!-- v686：锁定态（未选供应商/客户）。v687 起**格内不再显示文字**（老板口径：
+         「先选供应商/先选客户」这类占位太吵，要页面整洁）—— 留空，但**不静默**：
+           · 悬停有 `title`（`disabledHint`），键盘可聚焦，光标 `not-allowed`；
+           · 点一下仍经 `blocked` 让父页 toast 出声。
+         🔴 「没字」不等于「没解释」：这三样只要有一样丢了，用户就会说「点了没反应」，
+            而被当成 bug。
+         ⚠️ 已填过商品的行**照旧显示商品名**（那是事实，不该被锁掉），只是不能再改。 -->
     <span v-else class="ipn-v" :class="{ 'is-ph': !row.product_id, 'is-locked': disabled }"
           :title="disabled ? disabledHint : ''" tabindex="0"
-          @click="open" @keydown.enter.prevent="open">{{ row.product_id ? currentName() : (disabled ? disabledHint : '') }}</span>
+          @click="open" @keydown.enter.prevent="open">{{ row.product_id ? currentName() : '' }}</span>
   </div>
 </template>
 
