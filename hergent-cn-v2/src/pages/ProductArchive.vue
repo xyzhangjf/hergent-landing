@@ -193,11 +193,12 @@
         <div v-if="detailOpen" class="pa-modal pa-edit" role="dialog" aria-modal="true"
              aria-labelledby="pa-edit-title" tabindex="-1" ref="editModal" @keydown.esc="tryCloseEdit()">
           <div class="pa-modal-hd">
-            <b id="pa-edit-title">编辑商品 · {{ detailTarget?.name }}</b>
+            <b id="pa-edit-title">{{ isAdd ? '新增商品' : '编辑商品 · ' + (detailTarget?.name || '') }}</b>
             <button class="pa-x" @click="tryCloseEdit()"><Icon name="close"/></button>
           </div>
           <div class="pa-modal-body">
-            <p class="pa-tip">改哪个字段就只提交哪个 —— 没动过的字段不会被覆盖，也不会产生多余的修改记录。</p>
+            <p class="pa-tip" v-if="isAdd">四个页签按需填，只填必填（商品名称）也能建档。留空的数值 = 用默认值，不会变成 0。</p>
+            <p class="pa-tip" v-else>改哪个字段就只提交哪个 —— 没动过的字段不会被覆盖，也不会产生多余的修改记录。</p>
 
             <!-- v241：校验错误汇总条。字段级错误（红框 + 框下文案）覆盖名称与到货周期；
                  其余数值字段分散在 3 个 Tab，用这条统一列出并**可点击跳转** ——
@@ -212,7 +213,7 @@
             <!-- v241：改用**全局** .main-tabs / .main-tab（variables.css 注释明确「全站唯一一份」）。
                  此前自造的 pa-tabs/pa-tab **全仓零 CSS 定义** ⇒ 退化成浏览器默认按钮。
                  role="tablist"/"tab" + aria-selected：屏幕阅读器才能知道这是 Tab 组、当前在哪一页。 -->
-            <div class="main-tabs" role="tablist" aria-label="编辑商品分区">
+            <div class="main-tabs" role="tablist" aria-label="商品资料分区">
               <button type="button" class="main-tab" role="tab" :aria-selected="tab==='base'" :class="{on: tab==='base'}" @click="tab='base'">基本信息</button>
               <button type="button" class="main-tab" role="tab" :aria-selected="tab==='pack'" :class="{on: tab==='pack'}" @click="tab='pack'">包装单位</button>
               <button type="button" class="main-tab" role="tab" :aria-selected="tab==='price'" :class="{on: tab==='price'}" @click="tab='price'">价格</button>
@@ -237,8 +238,17 @@
                 <!-- v241：disabled → readonly。差别：disabled 元素**不进 Tab 焦点序列**，
                      屏幕阅读器会整段跳过，用户既读不到也复制不了条码；readonly 保留焦点与复制能力，
                      视觉由全局 .input[readonly] 表达「不可编辑」。 -->
-                <label class="pa-f"><span>条码<span class="pa-hint">关联键，不可改</span></span><input :value="detailTarget?.barcode || '—'" class="input" readonly aria-readonly="true" title="条码是关联键，不可修改"></label>
-                <label class="pa-f"><span>厂家编码<span class="pa-hint">不可改</span></span><input :value="detailTarget?.product_code || '—'" class="input" readonly aria-readonly="true" title="厂家编码由上游同步，不可修改"></label>
+                <!-- v689：新增时条码 / 厂家编码**可填**（建档必须有入口）；编辑时仍只读。
+                     编辑侧只读的理由不变：条码是唯一索引且是至少 5 条链路的关联键，
+                     给它一个输入框就是给一把能断链路的钥匙（见上方 ② ）。 -->
+                <label class="pa-f"><span>条码<span class="pa-hint">{{ isAdd ? '选填，扫码与导入靠它匹配' : '关联键，不可改' }}</span></span>
+                  <input v-if="isAdd" v-model="editForm.barcode" class="input" data-f="barcode" placeholder="选填；留空则不参与扫码匹配">
+                  <input v-else :value="detailTarget?.barcode || '—'" class="input" readonly aria-readonly="true" title="条码是关联键，不可修改">
+                </label>
+                <label class="pa-f"><span>厂家编码<span class="pa-hint">{{ isAdd ? '选填' : '不可改' }}</span></span>
+                  <input v-if="isAdd" v-model="editForm.product_code" class="input" data-f="product_code" placeholder="选填，上游厂家编码">
+                  <input v-else :value="detailTarget?.product_code || '—'" class="input" readonly aria-readonly="true" title="厂家编码由上游同步，不可修改">
+                </label>
                 <label class="pa-f"><span>品牌<span class="pa-hint">保存时自动归一</span></span><input v-model="editForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
                 <label class="pa-f"><span>别名<span class="pa-hint">逗号分隔的俗称，用于智能匹配</span></span><input v-model="editForm.alias" class="input" placeholder="如 纯甄,蒙牛纯甄"></label>
                 <!-- v234 P1：业务范围控制 —— 该商品可用于哪些业务。三个开关独立，默认都开。 -->
@@ -265,7 +275,7 @@
                 <div class="sub-card-hd">小单位（基础单位）</div>
                 <div class="pa-form">
                   <label class="pa-f"><span>单位名</span><input v-model="editForm.unit" class="input" placeholder="件"></label>
-                  <label class="pa-f"><span>条码</span><input :value="detailTarget?.barcode || '—'" class="input" disabled></label>
+                  <label class="pa-f"><span>条码</span><input :value="isAdd ? (editForm.barcode || '—') : (detailTarget?.barcode || '—')" class="input" readonly aria-readonly="true" title="小单位条码就是这个商品的条码，在「基本信息」页签填"></label>
                   <label class="pa-f"><span>换算比</span><input class="input" value="1" readonly aria-readonly="true" title="小单位是基准单位，换算比恒为 1"></label>
                 </div>
               </div>
@@ -327,7 +337,7 @@
               <div class="pa-form">
                 <label class="pa-f"><span>标准售价<span class="pa-hint">导入模版里叫「售价」</span></span><input v-model="editForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
                 <!-- v226：只留一个「进价」输入框（绑 factory_price）。 -->
-                <label class="pa-f"><span>进价<span class="pa-hint">厂家跟你结算的价（元/箱）；留空 = 按档案历史进价列取</span></span><input v-model="editForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="留空 = 按档案历史进价列取"></label>
+                <label class="pa-f"><span>进价<span class="pa-hint">厂家跟你结算的价（元/箱）；{{ isAdd ? '留空 = 暂不填，可后补' : '留空 = 按档案历史进价列取' }}</span></span><input v-model="editForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="留空 = 按档案历史进价列取"></label>
                 <label class="pa-f"><span>分销价</span><input v-model="editForm.dist_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
               </div>
               <!-- v234 P1：价格矩阵（按单位档位），本轮仅展示/录入，不切换预报/返利读价链 -->
@@ -351,7 +361,9 @@
                 </table>
                 <!-- v335 按钮级门禁：PUT /api/products/{pid}/unit-prices ⇒ data/update
                      （价格矩阵这一块可直接打开，不受上面「编辑」入口影响 ⇒ 单独判） -->
-                <button v-if="canDo('data', 'update')" type="button" class="btn btn-ghost btn-sm" :disabled="savingPrices" @click="saveUnitPrices()">{{ savingPrices ? '保存中…' : '保存价格矩阵' }}</button>
+                <!-- v689：新增时价格矩阵随**主保存**一起落库（那时才有 pid），故不给独立按钮。 -->
+                <button v-if="!isAdd && canDo('data', 'update')" type="button" class="btn btn-ghost btn-sm" :disabled="savingPrices" @click="saveUnitPrices()">{{ savingPrices ? '保存中…' : '保存价格矩阵' }}</button>
+                <span v-else-if="isAdd" class="pa-hint">点底部「保存」时一起写入</span>
               </div>
             </div>
 
@@ -361,7 +373,7 @@
                 <label class="pa-f"><span>安全库存</span><input v-model="editForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
                 <label class="pa-f"><span>保质期(天)</span><input v-model="editForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
                 <label class="pa-f">
-                  <span>到货周期<span class="pa-hint">+几天到货；留空 = 取消设置</span></span>
+                  <span>到货周期<span class="pa-hint">+几天到货；留空 = {{ isAdd ? '不设置' : '取消设置' }}</span></span>
                   <input v-model="editForm.arrival_lead_days" class="input" data-f="arrival_lead_days" type="number" min="0" :max="ARRIVAL_MAX" step="1"
                          :class="{err: !!errors.arrival_lead_days}" :aria-invalid="!!errors.arrival_lead_days"
                          aria-describedby="err-arrival" placeholder="如 3">
@@ -372,9 +384,11 @@
 
             <!-- 常驻底部：描述 / 状态 / 修改记录 -->
             <div class="pa-sec">描述</div>
-            <label class="pa-f pa-f-full"><span>描述<span class="pa-hint">内部备注，不印在单据上；留空 = 清空</span></span>
+            <label class="pa-f pa-f-full"><span>描述<span class="pa-hint">内部备注，不印在单据上{{ isAdd ? '' : '；留空 = 清空' }}</span></span>
               <textarea v-model="editForm.description" class="input pa-ta" rows="3" placeholder="选填"></textarea></label>
 
+            <!-- 状态（仅编辑模式：新建商品一律启用，改状态是编辑的事） -->
+            <template v-if="!isAdd">
             <div class="pa-sec">状态</div>
             <div class="pa-active">
               <span class="pa-status" :class="detailTarget?.is_active === 0 ? 'off' : 'on'">{{ detailTarget?.is_active === 0 ? '已停用' : '启用中' }}</span>
@@ -387,10 +401,14 @@
                 <button class="btn btn-ghost btn-sm" @click="confirmActive = false">取消</button>
               </template>
             </div>
+            </template>
+
+            <!-- 修改记录（仅编辑模式：新商品还没有任何改动可查） -->
 
             <!-- 修改记录：后端自 v107.41 起**一直在写**（`product_update` 内部自动留痕），
                  本区块只是把**早已存在**的查询端点接出来 —— 在此之前前端零入口，
                  于是「改了但查不到谁改的」。首次展开才请求，不拖慢打开弹窗。 -->
+            <template v-if="!isAdd">
             <div class="pa-sec pa-sec-click" @click="toggleChanges()">
               <span>修改记录</span>
               <span class="pa-hint">{{ changesLoaded ? ('共 ' + changesList.length + ' 条') : '点此展开' }}</span>
@@ -408,61 +426,31 @@
                 </div>
               </div>
             </div>
+            </template>
           </div>
           <div class="pa-modal-ft">
-            <span class="pa-ft-note" v-if="dirtyCount">{{ dirtyCount }} 个字段已改，未保存</span>
+            <span class="pa-ft-note" v-if="dirtyCount">{{ isAdd ? dirtyCount + ' 个字段已填，未保存' : dirtyCount + ' 个字段已改，未保存' }}</span>
             <!-- v241：有改动时「取消」先进内联确认态（放弃 / 继续编辑），
                  不直接关窗丢数据；按钮换成危险色以匹配「这是不可逆动作」。 -->
             <template v-if="confirmDiscard">
-              <span class="pa-ft-ask">放弃这 {{ dirtyCount }} 处改动？</span>
+              <span class="pa-ft-ask">{{ isAdd ? '放弃这次新增？' : '放弃这 ' + dirtyCount + ' 处改动？' }}</span>
               <button class="btn btn-danger btn-sm" @click="tryCloseEdit(true)">确认放弃</button>
-              <button class="btn btn-ghost btn-sm" @click="confirmDiscard = false">继续编辑</button>
+              <button class="btn btn-ghost btn-sm" @click="confirmDiscard = false">{{ isAdd ? '继续填写' : '继续编辑' }}</button>
+            </template>
+            <template v-else-if="isAdd">
+              <button class="btn btn-ghost" @click="tryCloseEdit()">取消</button>
+              <button class="btn btn-primary" :disabled="saving || !canSaveAdd"
+                      :title="canSaveAdd ? '' : '商品名称必填'" @click="saveForm()">{{ saving ? '保存中…' : '保存' }}</button>
             </template>
             <template v-else>
               <button class="btn btn-ghost" @click="tryCloseEdit()">取消</button>
               <button class="btn btn-primary" :disabled="saving || !dirtyCount"
-                      :title="dirtyCount ? '' : '还没有改动任何字段'" @click="saveEdit()">{{ saving ? '保存中…' : '保存' }}</button>
+                      :title="dirtyCount ? '' : '还没有改动任何字段'" @click="saveForm()">{{ saving ? '保存中…' : '保存' }}</button>
             </template>
           </div>
         </div>
       </Transition>
 
-      <!-- 新增商品弹窗 -->
-      <Transition name="fade"><div v-if="addOpen" class="pa-overlay" @click="addOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="addOpen" class="pa-modal">
-          <div class="pa-modal-hd"><b>新增商品</b><button class="pa-x" @click="addOpen = false"><Icon name="close"/></button></div>
-          <div class="pa-modal-body">
-            <p class="pa-tip">名称重复将更新已有商品（其余字段按填写覆盖）。品牌自动归一，未匹配品牌进入待审。</p>
-            <div class="pa-form">
-              <label class="pa-f"><span>商品名称 <i>*</i></span><input v-model="addForm.name" class="input" placeholder="必填"></label>
-              <label class="pa-f"><span>条码</span><input v-model="addForm.barcode" class="input" placeholder="唯一编码，留空按名称匹配"></label>
-              <label class="pa-f"><span>规格</span><input v-model="addForm.spec" class="input" placeholder="如 200g×12"></label>
-              <label class="pa-f"><span>单位</span><input v-model="addForm.unit" class="input" placeholder="件（默认）"></label>
-              <!-- v233：报单单位（可选）。留空 = 跟随「单位」；填了就同时作用于**主表**与**舟谱模板**，
-                   并且模板会按档案换算把数量一并折算（不是只换标签）。与进价同一条守卫：留空 = 不带该键。
-                   v240：与编辑弹窗同一字段名（报单默认单位）。此处仍是**手填** —— 新建时还不知道中/大单位名，
-                   下拉无项可选；档位建好后到「编辑 → 包装单位」用下拉改即可。 -->
-              <label class="pa-f"><span>报单默认单位<span class="pa-hint">留空 = 跟随「单位」；填了则报单/导舟谱都用它</span></span><input v-model="addForm.order_unit" class="input" maxlength="8" placeholder="如 条 / 组 / 板"></label>
-              <label class="pa-f"><span>品牌</span><input v-model="addForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
-              <label class="pa-f"><span>分类</span><input v-model="addForm.category" class="input" placeholder="如 液态奶"></label>
-              <!-- v226：同编辑弹窗 —— 只留一个「进价」输入框（绑 factory_price）。 -->
-              <label class="pa-f"><span>进价<span class="pa-hint">厂家跟你结算的价（元/箱），可留空</span></span><input v-model="addForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
-              <label class="pa-f"><span>售价</span><input v-model="addForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
-              <label class="pa-f"><span>安全库存</span><input v-model="addForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
-              <label class="pa-f"><span>保质期(天)</span><input v-model="addForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
-              <!-- v184b：到货周期。留空 = **不改动**（不写这一列）—— 本弹窗保存走 bulk-upsert，
-                   同名商品会走更新分支；若把空值当 0 提交，会把别人已设好的到货周期清零
-                   （进价列踩过同一个坑，见 saveAdd 里的条件展开）。 -->
-              <label class="pa-f"><span>到货周期<span class="pa-hint">+几天到货，留空 = 不设置</span></span><input v-model="addForm.arrival_lead_days" class="input" type="number" min="0" :max="ARRIVAL_MAX" step="1" placeholder="如 3"></label>
-            </div>
-          </div>
-          <div class="pa-modal-ft">
-            <button class="btn btn-ghost" @click="addOpen = false">取消</button>
-            <button class="btn btn-primary" :disabled="addSaving" @click="saveAdd">{{ addSaving ? '保存中…' : '保存' }}</button>
-          </div>
-        </div>
-      </Transition>
 
       <!-- 导入弹窗 -->
       <Transition name="fade"><div v-if="impOpen" class="pa-overlay" @click="impOpen = false"></div></Transition>
@@ -614,7 +602,7 @@ import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { api } from '../api/client'
 import { productsApi, importApi } from '../api/modules'
 import * as XLSX from 'xlsx'
@@ -954,10 +942,20 @@ const dirtyCount = computed(() => {
   return n
 })
 
-/* 新增弹窗 */
-const addOpen = ref(false)
-const addSaving = ref(false)
-const addForm = ref({ name: '', barcode: '', spec: '', unit: '', order_unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '', arrival_lead_days: '' })
+/* v689：新增与编辑**共用同一份弹窗模板**（靠 `formMode` 切换），不再各写一套。
+   🔴 为什么必须共用：此前「新增」是另一个独立弹窗（`.pa-modal` 平铺 12 个字段），
+      与编辑那套（4 个页签 + 包装单位 + 价格矩阵 + 业务范围）越改越不像 ——
+      用户看到的就是「同一个商品，两个页面两种样子」。共用后字段/顺序/校验/样式
+      天然一致，将来加字段也只需改一处。 */
+const formMode = ref('edit')              // 'edit' | 'add'
+const isAdd = computed(() => formMode.value === 'add')
+/** 弹窗是否「有未保存内容」（关闭时要问一句）。新增模式额外算条码/厂家编码 ——
+ *  这两个不在 `EDIT_FIELDS` 里（编辑只读），所以 `dirtyCount` 看不见它们。 */
+const hasUnsaved = computed(() => isAdd.value
+  ? (dirtyCount.value > 0 || !!String(editForm.value.barcode || '').trim() || !!String(editForm.value.product_code || '').trim())
+  : dirtyCount.value > 0)
+/** 新增时「保存」按钮的可用条件：只要求名称非空（其余字段都有默认值）。 */
+const canSaveAdd = computed(() => !!String(editForm.value.name || '').trim())
 
 // 导入弹窗
 const impOpen = ref(false)
@@ -1255,6 +1253,7 @@ async function saveFpBatch() {
  *  「取进价 3.5」说的是「factory_price 没单独录，按口径用 purchase_price」，若在这里显示 3.5，
  *  用户会以为已录，保存时也会把 0 写成 3.5。 */
 function openDetail(p) {
+  formMode.value = 'edit'          // v689：与新增共用同一弹窗，切回编辑模式
   detailTarget.value = p
   const f = {}, b = {}
   for (const k of EDIT_FIELDS) {
@@ -1295,8 +1294,10 @@ function openDetail(p) {
  *  与「停用商品」同一套交互，不叠第二层弹窗。 */
 function tryCloseEdit(force) {
   if (saving.value) return                    // 保存进行中不给关，避免半途状态
-  if (dirtyCount.value && !force) { confirmDiscard.value = true; return }
-  if (dirtyCount.value) toast(`已放弃 ${dirtyCount.value} 处未保存的改动`, 'warn')
+  if (hasUnsaved.value && !force) { confirmDiscard.value = true; return }
+  if (hasUnsaved.value) toast(isAdd.value
+    ? '已放弃这次新增'
+    : `已放弃 ${dirtyCount.value} 处未保存的改动`, 'warn')
   detailOpen.value = false
   confirmActive.value = false
   confirmDiscard.value = false
@@ -1411,56 +1412,143 @@ async function loadChanges(pid) {
 }
 
 
-/* ---- 新增商品 ---- */
-function openAdd() {
-  addForm.value = { name: '', barcode: '', spec: '', unit: '', order_unit: '', brand: '', category: '', purchase_price: '', factory_price: '', sale_price: '', safety_stock: '', expiry_days: '', arrival_lead_days: '' }
-  addSaving.value = false
-  addOpen.value = true
+/* ---- 新增商品（v689：与编辑共用同一弹窗模板）---- */
+
+/** 新增时的空表单 —— 字段清单与编辑**完全一致**（同一个 `editForm` 结构），
+ *  再按 `products` 表的列默认值预填。预填值来自生产 schema 实查（不是猜）：
+ *  `can_sale/can_return/can_purchase=1`、`mobile_order_units=7`、`min_order_qty=1`、`unit='件'`。
+ *  ⚠️ `barcode` / `product_code` 不在 `EDIT_FIELDS` 里（编辑时只读、不进 diff），
+ *     但新增必须能填 ⇒ 单独挂在这份表单对象上，提交时单独带。 */
+function emptyAddForm() {
+  const f = {}
+  for (const k of EDIT_FIELDS) f[k] = ''
+  f.can_sale = 1
+  f.can_return = 1
+  f.can_purchase = 1
+  f.mobile_order_units = 7
+  f.min_order_qty = 1
+  f.unit = '件'
+  f.barcode = ''
+  f.product_code = ''
+  return f
 }
-function _num(v, d = 0) { const n = Number(v); return isNaN(n) ? d : n }
+
+function openAdd() {
+  formMode.value = 'add'
+  detailTarget.value = null
+  const f = emptyAddForm(), b = {}
+  for (const k of EDIT_FIELDS) b[k] = _norm(k, f[k])
+  editForm.value = f
+  editBaseline.value = b
+  saving.value = false
+  confirmActive.value = false
+  confirmDiscard.value = false
+  errors.value = {}
+  showChanges.value = false
+  changesLoaded.value = false
+  changesList.value = []
+  tab.value = 'base'
+  rebuildPriceRows()                 // 价格矩阵先铺「小单位」一行，填了中/大单位会自动增行
+  nextTick(() => editModal.value?.focus())
+  detailOpen.value = true
+}
+
+/** 按当前三档单位名重建价格矩阵行（同 level 已填的数值保留）。
+ *  新增模式下单位名是边填边变的，行名要跟着变，否则矩阵里永远是「件」。 */
+function rebuildPriceRows() {
+  const f = editForm.value || {}
+  const prev = new Map((priceRows.value || []).map(r => [r.level, r]))
+  const specs = [{ level: 0, name: String(f.unit || '').trim() || '小单位' }]
+  if (String(f.medium_unit || '').trim()) specs.push({ level: 1, name: String(f.medium_unit).trim() })
+  if (String(f.large_unit || '').trim()) specs.push({ level: 2, name: String(f.large_unit).trim() })
+  priceRows.value = specs.map(s => {
+    const p = prev.get(s.level)
+    return p
+      ? { ...p, name: s.name }
+      : { level: s.level, name: s.name, wholesale_price: 0, retail_price: 0, min_price: 0, purchase_price: 0, allow_reprice: true, allow_view_cost: true }
+  })
+}
+
+/* 新增模式下单位名变化 ⇒ 矩阵行跟着变（编辑模式由 `loadUnitPrices` 拉库，不在这里动）。 */
+watch(() => [editForm.value.unit, editForm.value.medium_unit, editForm.value.large_unit], () => {
+  if (isAdd.value && detailOpen.value) rebuildPriceRows()
+})
+
+/** 新增校验：**全量**判（编辑那边只判 diff 过的字段 —— 存量脏值不该挡住无关保存）。 */
+function validateAdd() {
+  const f = editForm.value
+  const errs = {}
+  if (!String(f.name || '').trim()) errs.name = '商品名称不能为空'
+  const r = parseArrivalDays(f.arrival_lead_days)
+  if (!r.ok) errs.arrival_lead_days = `请填 0~${ARRIVAL_MAX} 之间的整数（留空或 0 = 不设置）`
+  for (const k of EDIT_NUM_FIELDS) {
+    const raw = String(f[k] ?? '').trim()
+    if (raw === '') continue
+    const n = Number(raw)
+    if (!isFinite(n) || n < 0) errs[k] = '不能是负数或非数字'
+  }
+  return errs
+}
+
+/** 新增保存：`POST /api/products` —— 走 `product_create`，**28 个字段全支持**。
+ *
+ *  🔴 为什么不再走 `bulk-upsert`（v689 换掉）：那个端点是「条码→名称 upsert」的批量语义，
+ *     只认 17 个列，且**同名即更新别人那行**。三个后果都在生产踩过：
+ *       ① 进价被清零（v226）、② 到货周期被清零（v184b）、③ 报单单位被清空（v233）——
+ *       根因全是「空值也跟着覆盖」。而 `products.name` 本来就**没有唯一索引**
+ *       （生产已有 130 组同名商品），所以「同名=同一条」这个前提根本不成立。
+ *     ⇒ 新增就老老实实新建一条；要改已有商品走「编辑」（那里是 diff 提交，只写改过的字段）。 */
 async function saveAdd() {
-  const f = addForm.value
-  if (!f.name.trim()) { toast('请填写商品名称', 'err'); return }
-  // v184b：到货周期先校验再提交 —— 非法值一律不发请求（与后端同一口径「宁可不写，不写脏」）。
-  const _cyc = parseArrivalDays(f.arrival_lead_days)
-  if (!_cyc.ok) { toast(`到货天数请填 0~${ARRIVAL_MAX} 之间的整数（留空 = 不设置）`, 'err'); return }
-  addSaving.value = true
+  const errs = validateAdd()
+  if (Object.keys(errs).length) {
+    errors.value = errs
+    await focusField(Object.keys(errs)[0])
+    toast('请先修正标红的字段', 'err')
+    return
+  }
+  const f = editForm.value
+  saving.value = true
   try {
-    const row = {
-      name: f.name.trim(),
-      barcode: f.barcode.trim(),
-      spec: f.spec.trim(),
-      unit: f.unit.trim() || '件',
-      brand: f.brand.trim(),
-      category: f.category.trim(), // 显式提供（含空），后端仅当提供时更新
-      // 🔴 v226：此处原为 `purchase_price: _num(f.purchase_price)`（**无条件**带键）。
-      //   界面已把两个进价输入框合成一个 ⇒ `f.purchase_price` 恒为空 ⇒ `_num("")` = 0
-      //   ⇒ 新增同名商品走 upsert 时会把库里已有的 `purchase_price` **清零**。
-      //   故本键改为**只在真填了值时才带**（与下面 factory_price 同一条守卫）。
-      ...(String(f.purchase_price).trim() === '' ? {} : { purchase_price: _num(f.purchase_price) }),
-      // 进价：空 = 「不动已录的进价」。本页新增同名商品会走 upsert 覆盖其它字段，
-      // 若把空值当 0 提交，会把用户补好的进价清零 —— 故只在真填了值时才带上该键。
-      ...(String(f.factory_price).trim() === '' ? {} : { factory_price: _num(f.factory_price) }),
-      sale_price: _num(f.sale_price),
-      safety_stock: _num(f.safety_stock),
-      expiry_days: _num(f.expiry_days),
-      // v184b 到货周期：与进价同一条守卫 —— **留空 = 不带该键**（= 不改动已有的值）。
-      //   本弹窗走 bulk-upsert，同名商品会命中更新分支；若把空值当 0 提交，
-      //   会把导入或档案里已设好的到货周期清零（进价列踩过同一个坑）。
-      ...(_cyc.empty ? {} : { arrival_lead_days: _cyc.value }),
-      // v233 报单单位：与上一条**同一条守卫** —— 留空 = 不带该键（= 不动已有的人工指定值）。
-      //   本弹窗走 bulk-upsert，同名商品会命中更新分支；若把空串无条件提交，
-      //   `normalize_order_unit('')` 返回 `''` 是**合法值**（= 清掉人工指定）⇒ 会把
-      //   用户在档案里特意指定的报单单位**清空**（进价 / 到货周期两列都踩过同一个坑）。
-      ...(String(f.order_unit || '').trim() === '' ? {} : { order_unit: String(f.order_unit).trim() }),
+    const body = {}
+    for (const k of EDIT_FIELDS) body[k] = _norm(k, f[k])
+    body.unit = body.unit || '件'
+    body.barcode = String(f.barcode || '').trim()
+    body.product_code = String(f.product_code || '').trim()
+    const r = await api('/api/products', { method: 'POST', body })
+    const pid = Number(r?.id) || 0
+    // 价格矩阵：整表替换端点要 pid，故只能建完再写；失败不回滚商品（商品已建档是既成事实），
+    // 但要**说清楚哪一半没成**，不能让用户以为全存上了。
+    const priced = (priceRows.value || []).some(r0 =>
+      Number(r0.wholesale_price) || Number(r0.retail_price) || Number(r0.min_price) || Number(r0.purchase_price))
+    if (pid && priced) {
+      try {
+        await api('/api/products/' + pid + '/unit-prices', {
+          method: 'PUT',
+          body: {
+            items: priceRows.value.map(r0 => ({
+              unit_level: r0.level, unit_name: r0.name,
+              wholesale_price: Number(r0.wholesale_price) || 0, retail_price: Number(r0.retail_price) || 0,
+              min_price: Number(r0.min_price) || 0, purchase_price: Number(r0.purchase_price) || 0,
+              allow_reprice: r0.allow_reprice ? 1 : 0, allow_view_cost: r0.allow_view_cost ? 1 : 0,
+            })),
+          },
+        })
+      } catch (e2) {
+        toast('商品已建档，但价格矩阵没存上：' + (e2.message || '未知错误'), 'warn')
+      }
     }
-    const r = await productsApi.bulkUpsert([row])
-    toast(`已保存（新增 ${r.inserted || 0} / 更新 ${r.updated || 0}）`, 'ok')
-    addOpen.value = false
+    toast(`已新增商品「${body.name}」`, 'ok')
+    detailOpen.value = false
+    formMode.value = 'edit'
     loadProducts()
     refreshProductIndex()
   } catch (e) { toast(e.message || '保存失败', 'err') }
-  finally { addSaving.value = false }
+  finally { saving.value = false }
+}
+
+/** 底部「保存」的唯一入口：按模式分流（模板只绑这一个，免得两套按钮又漂移）。 */
+async function saveForm() {
+  return isAdd.value ? await saveAdd() : await saveEdit()
 }
 
 /* ---- 导入商品 ---- */

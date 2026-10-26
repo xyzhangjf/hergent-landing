@@ -379,6 +379,16 @@ if (has('skip-sfc')) {
   results.push({ name: '开单三件事（v686）', ok: r.code === 0, code: r.code })
 }
 
+/* ㉒ v689：老板「新增商品和编辑商品 UI 应该一样」。钉的是**结构只有一个弹窗**，
+   不是像素 —— 两套模板哪怕今天改一样，明天加个字段就又漂开。 */
+{
+  console.log('\n── ㉒ 新增/编辑商品同一个界面契约（v689）──')
+  const r = run('product-form-parity.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '新增/编辑商品同界面（v689）', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
