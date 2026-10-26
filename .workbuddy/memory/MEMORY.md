@@ -30,4 +30,5 @@
 
 卖前三关未过；调拨单生产仍 0 张。BI 唯一源 `_BI_MEASURES`（`soi.amount`）；库存周转 `get_inventory_turnover`。
 脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；PII 不落 `outputs/`。编号已到 **v687**。
+字号：主力 **11–12.5px**（业界 13–14px），老板 2026-10-26 定**暂不提档**（笔记本用浏览器 125%）。⇒ 别再重复提议改字号；卖客户前必重上桌面。**连带**：采购建单表 `.ipn-tbl` 固定 `min-width:1372px` 是按 **1920 视口**算的，1536（=1920×125%）下超 124px 要横拖；销售页 `.isn-tbl:720` 自适应无此问题。**别照抄 1372**（详情 `topics/frontend-ui.md`）。
 历史交付（P1-4 告警、P1-5 审计、consignment）→ `topics/backend-invariants.md`。
