@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hergent AI 用量日报 · 2026-10-26</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f4f5f7;color:#1f2329;padding:28px 20px 60px;
+ font:14px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+ -webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:22px;font-weight:650;letter-spacing:-.2px}
+.sub{color:#6b7280;font-size:13px;margin-top:6px}
+.sub b{color:#1f2329;font-weight:600}
+section{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px 22px;margin-top:16px}
+h2{font-size:15px;font-weight:650;margin-bottom:4px}
+h2 .hint{font-size:12px;color:#9ca3af;font-weight:400;margin-left:8px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+.kpi{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px}
+.kpi .lab{font-size:12px;color:#6b7280}
+.kpi .big{font-size:27px;font-weight:660;line-height:1.25;margin-top:5px;letter-spacing:-.5px}
+.kpi .big small{font-size:14px;font-weight:500;color:#6b7280;margin-left:2px}
+.kpi .foot{font-size:12px;color:#9ca3af;margin-top:4px}
+.kpi.today{border-color:#bfdbfe;background:linear-gradient(180deg,#f0f7ff,#fff 60%)}
+.kpi.today .big{color:#1d4ed8}
+.chart{display:flex;align-items:flex-end;gap:5px;height:170px;margin-top:18px;padding-top:8px}
+.bcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;cursor:default}
+.bwrap{height:100%;display:flex;align-items:flex-end}
+.bar{width:100%;background:#93b4f7;border-radius:3px 3px 0 0;min-height:2px;transition:background .15s}
+.bar.hi{background:#2563eb}
+.bar.zero{background:#e8eaed}
+.bcol:hover .bar{background:#1d4ed8}
+.bday{font-size:10px;color:#b0b5bd;text-align:center;margin-top:5px;height:14px;overflow:hidden}
+.crow{display:grid;grid-template-columns:190px 1fr 96px;gap:14px;align-items:center;padding:9px 0;border-bottom:1px dashed #f0f1f3}
+.crow:last-child{border-bottom:0}
+.cname{font-size:13px;font-weight:560}
+.cnote{display:block;font-size:11px;color:#9ca3af;font-weight:400;margin-top:1px;line-height:1.4}
+.ctrack{background:#f1f2f4;border-radius:5px;height:9px;overflow:hidden}
+.cfill{height:100%;background:linear-gradient(90deg,#7aa2f0,#3b6fd4);border-radius:5px}
+.cval{text-align:right;font-size:13px}
+.cval span{display:block;font-size:11px;color:#9ca3af}
+table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12.5px}
+th{text-align:left;font-weight:560;color:#6b7280;font-size:11.5px;padding:7px 8px;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+td{padding:8px;border-bottom:1px solid #f3f4f6}
+tr:last-child td{border-bottom:0}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-variant-numeric:tabular-nums;color:#4b5563}
+.pk{font-style:normal;font-size:11px;padding:1px 6px;border-radius:4px;background:#fef3c7;color:#b45309}
+.off{font-style:normal;font-size:11px;padding:1px 6px;border-radius:4px;background:#ecfdf5;color:#047857}
+.find{display:flex;gap:12px;padding:14px 0;border-bottom:1px dashed #f0f1f3}
+.find:last-child{border-bottom:0}
+.find .n{flex:none;width:22px;height:22px;border-radius:6px;background:#eef2ff;color:#4338ca;
+ font-size:12px;font-weight:650;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.find .t{font-size:13px}
+.find .t b{font-weight:650}
+.find .t em{font-style:normal;color:#b91c1c;font-weight:600}
+.find .t i{font-style:normal;color:#047857;font-weight:600}
+.note{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 16px;margin-top:14px}
+.note h3{font-size:12.5px;color:#92400e;margin-bottom:6px}
+.note p{font-size:12px;color:#92400e;line-height:1.75}
+.note code{background:#fef3c7;padding:1px 4px;border-radius:3px;font-size:11.5px}
+.empty{color:#9ca3af;font-size:13px;padding:16px 0}
+@media (max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}.crow{grid-template-columns:120px 1fr 80px}}
+</style></head><body><div class="wrap">
+
+<h1>AI 副驾用了多少钱</h1>
+<div class="sub">
+  统计到 <b>2026 年 10 月 26 日 18:56</b>　·　
+  模型 <b>deepseek-v4-flash</b>　·　
+  口径：现行价 + 峰谷（高峰价 = 闲时 ×2）　·　<b>1 积分 = 1 分钱</b>
+</div>
+
+<div class="kpis">
+  <div class="kpi today">
+    <div class="lab">今天</div>
+    <div class="big">6.4 毛<small>= 64 积分</small></div>
+    <div class="foot">5 个会话 / 33 次调用</div>
+  </div>
+  <div class="kpi">
+    <div class="lab">近 7 天</div>
+    <div class="big">5.01 元<small>= 501 积分</small></div>
+    <div class="foot">3 天有用量，日均 1.67 元</div>
+  </div>
+  <div class="kpi">
+    <div class="lab">近 30 天</div>
+    <div class="big">20.56 元<small>= 2,056 积分</small></div>
+    <div class="foot">12 天有用量，日均 1.71 元<br>另有 23% 跨天会话未摊入</div>
+  </div>
+  <div class="kpi">
+    <div class="lab">6 月底至今累计</div>
+    <div class="big">31.59 元<small>= 3,159 积分</small></div>
+    <div class="foot">212 个会话 / 3,686 次调用</div>
+  </div>
+</div>
+
+<section>
+  <h2>每天花了多少<span class="hint">近 30 天 · 鼠标停在柱子上看当天明细</span></h2>
+  <div class="chart"><div class="bcol" title="2026-09-27　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday">9/27</div></div><div class="bcol" title="2026-09-28　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-09-29　1.1 毛（11 积分）\n4 个会话 / 4 次调用"><div class="bwrap"><div class="bar" style="height:3.0%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-09-30　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday">9/30</div></div><div class="bcol" title="2026-10-01　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-02　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-03　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday">10/3</div></div><div class="bcol" title="2026-10-04　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-05　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-06　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday">10/6</div></div><div class="bcol" title="2026-10-07　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-08　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-09　4.08 元（408 积分）\n9 个会话 / 387 次调用"><div class="bwrap"><div class="bar hi" style="height:75.1%"></div></div><div class="bday">10/9</div></div><div class="bcol" title="2026-10-10　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-11　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-12　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday">10/12</div></div><div class="bcol" title="2026-10-13　6.8 毛（68 积分）\n6 个会话 / 104 次调用"><div class="bwrap"><div class="bar" style="height:12.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-14　7.5 毛（75 积分）\n5 个会话 / 60 次调用"><div class="bwrap"><div class="bar" style="height:13.8%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-15　1.9 毛（19 积分）\n2 个会话 / 8 次调用"><div class="bwrap"><div class="bar" style="height:3.5%"></div></div><div class="bday">10/15</div></div><div class="bcol" title="2026-10-16　1.42 元（142 积分）\n7 个会话 / 127 次调用"><div class="bwrap"><div class="bar" style="height:26.1%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-17　1.30 元（130 积分）\n9 个会话 / 226 次调用"><div class="bwrap"><div class="bar" style="height:24.0%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-18　1.58 元（158 积分）\n8 个会话 / 250 次调用"><div class="bwrap"><div class="bar" style="height:29.0%"></div></div><div class="bday">10/18</div></div><div class="bcol" title="2026-10-19　5.44 元（544 积分）\n18 个会话 / 587 次调用"><div class="bwrap"><div class="bar hi" style="height:100.0%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-20　4.01 元（401 积分）\n23 个会话 / 368 次调用"><div class="bwrap"><div class="bar hi" style="height:73.7%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-21　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday">10/21</div></div><div class="bcol" title="2026-10-22　0 分（0 积分）\n1 个会话 / 2 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-23　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-24　0（0 积分）\n0 个会话 / 0 次调用"><div class="bwrap"><div class="bar zero" style="height:1.5%"></div></div><div class="bday">10/24</div></div><div class="bcol" title="2026-10-25　3.6 毛（36 积分）\n3 个会话 / 47 次调用"><div class="bwrap"><div class="bar" style="height:6.6%"></div></div><div class="bday"></div></div><div class="bcol" title="2026-10-26　6.4 毛（64 积分）\n5 个会话 / 33 次调用"><div class="bwrap"><div class="bar" style="height:11.7%"></div></div><div class="bday">10/26</div></div></div>
+</section>
+
+<section>
+  <h2>钱花在哪<span class="hint">按成本占比排序 · 累计 31.59 元</span></h2>
+  <div class="crow"><div class="cname">未缓存输入<span class="cnote">每轮新进来的数据（工具返回的明细）</span></div><div class="ctrack"><div class="cfill" style="width:44.1%"></div></div><div class="cval"><b>13.92 元</b><span>44%</span></div></div><div class="crow"><div class="cname">输出·思考过程<span class="cnote">你看不见，但按输出全价付钱</span></div><div class="ctrack"><div class="cfill" style="width:25.7%"></div></div><div class="cval"><b>8.11 元</b><span>26%</span></div></div><div class="crow"><div class="cname">缓存命中输入<span class="cnote">上下文复用，单价只有 1/50</span></div><div class="ctrack"><div class="cfill" style="width:15.6%"></div></div><div class="cval"><b>4.92 元</b><span>16%</span></div></div><div class="crow"><div class="cname">输出·正文<span class="cnote">你真正读到的那几段话</span></div><div class="ctrack"><div class="cfill" style="width:14.7%"></div></div><div class="cval"><b>4.64 元</b><span>15%</span></div></div>
+</section>
+
+<section>
+  <h2>今天在干什么<span class="hint">只统计今天内开始并结束的会话；跨天长会话不计入单日</span></h2>
+  <table><thead><tr><th>时段</th><th>调用</th><th>新输入</th><th>输出</th><th>峰谷</th><th>成本</th><th>积分</th></tr></thead><tbody><tr><td class="mono">16:15–16:18</td><td>15</td><td class="mono">165,209</td><td class="mono">26,065</td><td><i class="pk">高峰</i></td><td class="num">5.9 毛</td><td class="num">59 分</td></tr><tr><td class="mono">15:46–15:47</td><td>8</td><td class="mono">5,057</td><td class="mono">1,524</td><td><i class="pk">高峰</i></td><td class="num">3 分</td><td class="num">3 分</td></tr><tr><td class="mono">14:35–15:56</td><td>4</td><td class="mono">661</td><td class="mono">281</td><td><i class="pk">高峰</i></td><td class="num">1 分</td><td class="num">1 分</td></tr><tr><td class="mono">15:46–15:47</td><td>5</td><td class="mono">1,662</td><td class="mono">436</td><td><i class="pk">高峰</i></td><td class="num">1 分</td><td class="num">1 分</td></tr><tr><td class="mono">15:47–15:47</td><td>1</td><td class="mono">134</td><td class="mono">12</td><td><i class="pk">高峰</i></td><td class="num">0 分</td><td class="num">&lt;1 分</td></tr></tbody></table>
+</section>
+
+<section>
+  <h2>三个判断</h2>
+  <div class="find">
+    <div class="n">1</div>
+    <div class="t">单个任务大约 <b>21 积分</b>（2.1 毛），
+    近 30 天一共 100 个会话、2,056 积分。
+    你用得最狠的一天是 <b>5.44 元</b>（544 积分）—— 那天是在开发调系统，不是在正常经营。</div>
+  </div>
+  <div class="find">
+    <div class="n">2</div>
+    <div class="t">输出里有 <b>63%</b> 是模型的思考过程（累计 147 万字），
+    你完全看不见却按输出全价付钱。这是唯一「花了钱但用户无感」的部分 ——
+    要省钱先从这里下手，但它同时决定回答质量，不能盲砍。</div>
+  </div>
+  <div class="find">
+    <div class="n">3</div>
+    <div class="t">free 档 3,000 积分 = <b>30.00 元</b>，你近 30 天用掉
+    <b>2,056–2,654 积分</b>
+    （下限只算能归日的会话，上限按比例补上跨天会话）——
+    <b>刚好把 free 档用满</b>，而这还是你天天折腾系统的开发期强度。
+    经销商正常用（一天三五次、每次约 21 积分），一个月约
+    1,890–3,150 积分，同样正好卡在档位线上。
+    所以 3,000 不是拍错，是<i>刚好卡在「够用但不宽裕」</i>：平时不会被拦，月底会想升级。
+    —— 对定价这是对的设计，但别在客户面前说「用不完」。</div>
+  </div>
+</section>
+
+<section>
+  <h2>口径说明<span class="hint">这三条决定了上面数字可不可信，请一并看</span></h2>
+  <div class="note">
+    <h3>为什么这张表的钱比 Hermes 自己记的多</h3>
+    <p>
+      Hermes 账面记 <code>$2.42</code>（约 ¥17.29），
+      这张表算 <code>31.59 元</code>，高约 1.8 倍。三个原因，缺一个都解释不通：
+      <br>① Hermes 用的是 7 月价目表，输出价低估约 2 倍（我们 10-26 已打补丁对齐 9 月现价）；
+      <br>② 模型名叫 <code>deepseek-flash</code> 的 890 次调用它算不出价，直接记 0 —— 这张表补上了；
+      <br>③ Hermes 不分峰谷，这张表按北京时间分了（高峰 2 倍价）。
+    </p>
+  </div>
+  <div class="note" style="background:#f8fafc;border-color:#e2e8f0">
+    <h3 style="color:#475569">按天统计为什么只覆盖 77% 的钱</h3>
+    <p style="color:#475569">
+      Hermes 的账是「一个会话一行累计」，不是「一次调用一行」。最长的一条会话跨度
+      <code>1436 小时</code>（60 天，319 次调用）——
+      整条算到它结束那天，会把那天虚高好几倍。
+      所以跨度超过 4 小时的 <b>¥7.12</b> 只计入总量、不摊到某一天。
+      <br>v693 起我们自己的账本已经改成<b>每次请求一行</b>，这个缺陷从今天开始不再存在。自有账本已记 <b>1</b> 条（合计 ¥0.5928），与 Hermes 账本互校一致 —— 以后 Hermes 那份丢了，这张日报照样能出。
+    </p>
+  </div>
+</section>
+
+<div class="sub" style="margin-top:18px;text-align:center">
+  数据源：Hermes <code>session_model_usage</code> 212 行 + 自有账本 <code>ai_usage_v2</code> 1 行　·　
+  生成于 2026-10-26 18:56
+</div>
+</div></body></html>
