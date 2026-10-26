@@ -20,12 +20,16 @@
       <div class="kpi">
         <div class="kpi-label">本月 AI 调用</div>
         <div class="kpi-val">{{ value ? fmtNum(value.usage.calls) : '—' }}</div>
-        <div class="kpi-sub">{{ value ? value.month + ' 月至今' : '暂无数据' }}</div>
+        <!-- v695：明确标注「自然月」。额度已改为按购买日滚动（见下方用量卡片），
+             两项若都只说「本月」，客户会误以为 83 次就是本轮额度用掉的部分。 -->
+        <div class="kpi-sub">{{ value ? value.month + ' 月至今（自然月）' : '暂无数据' }}</div>
       </div>
       <div class="kpi">
         <div class="kpi-label">配额剩余</div>
         <div class="kpi-val" :class="quota && quota.exceeded ? 'val-bad' : ''">{{ quota ? fmtNum(quota.remaining) : '—' }}</div>
-        <div class="kpi-sub">{{ quota ? tierLabel(quota.tier) : '—' }}</div>
+        <!-- v695：补上单位。v693 起 remaining 的语义已是**积分**（不是字符），
+             这里原来只写档位名，等于让一个四位数字孤零零地挂着，没人知道它是什么。 -->
+        <div class="kpi-sub">{{ quota ? tierLabel(quota.tier) + ' · 剩余积分' : '—' }}</div>
       </div>
       <div class="kpi">
         <div class="kpi-label">建议采纳率</div>
@@ -71,7 +75,7 @@
     <div class="card quota-card">
       <div class="panel-hd">
         <b>用量与配额</b>
-        <span class="page-sub">本月 AI 用量</span>
+        <span class="page-sub">本轮额度（按购买日起算，不是按自然月）</span>
       </div>
       <div v-if="quota" class="quota">
         <div class="quota-row">
@@ -79,19 +83,27 @@
             套餐：{{ tierLabel(quota.tier) }}
             <em v-if="quota.exceeded" class="quota-badge">已超限</em>
           </span>
-          <span class="quota-num">已用 {{ fmtNum(quota.used_this_month) }} / 额度 {{ fmtNum(quota.monthly_limit) }}</span>
+          <!-- v695：单位从「字符」改为「积分」（v693 起口径已变，标签当时没跟着改）。 -->
+          <span class="quota-num">已用 {{ fmtNum(quota.used_this_month) }} / 额度 {{ fmtNum(quota.monthly_limit) }} 积分</span>
         </div>
         <div class="quota-bar">
           <div class="quota-fill" :class="{ over: quota.exceeded }"
                :style="{ width: pct(quota.used_this_month, quota.monthly_limit) + '%' }"></div>
         </div>
-        <div class="quota-sub">剩余 {{ fmtNum(quota.remaining) }} 字符 · 每月 1 日重置</div>
-        <div class="quota-set" v-if="isAdmin">
-          <span class="page-sub">调整套餐（管理员）：</span>
+        <div class="quota-sub">
+          剩余 {{ fmtNum(quota.remaining) }} 积分<template v-if="cycleTip"> · {{ cycleTip }}</template>
+        </div>
+        <!-- v695：改档 = 商业条款，只给**平台管理员**看。
+             原判据是租户管理员（每个自注册用户的 role 就是 boss）⇒ 客户自己就能升档。
+             后端已同步收紧到 _platform_admin，这里判据必须一致，否则客户会看到一个必然 403 的下拉。
+             选项**不带额度数字**：额度唯一来源是后端 QUOTA_TIERS，前端另抄一份必然分叉。 -->
+        <div class="quota-set" v-if="isPlatformAdmin">
+          <span class="page-sub">调整套餐（仅平台管理员）：</span>
           <select v-model="quotaForm.tier" class="fld" @change="applyQuota">
-            <option value="free">免费版 (20万)</option>
-            <option value="pro">专业版 (200万)</option>
-            <option value="enterprise">企业版 (1000万)</option>
+            <option value="free">免费版</option>
+            <option value="plus">标准版</option>
+            <option value="pro">专业版</option>
+            <option value="enterprise">企业版</option>
           </select>
         </div>
       </div>
@@ -329,6 +341,33 @@ const quotaForm = ref({ tier: 'free' })
    `/api/ai/quota` 与 `/api/ai/recipe-proposals/*`，其后端模块键未核实 —— 猜一个键写上去，
    写错会把**所有人的按钮一起藏掉**（`canDo` 对未知模块 fail-closed）。这一步留待核后端后单独做。 */
 const isAdmin = computed(() => roleIn(store.user.role, ADMIN_ROLES))
+
+/* v695：**平台管理员**（创始人）标记 —— 与 `isAdmin`（租户管理员）是两件事，别混用。
+   改套餐决定的是"每月能免费用多少 AI"，属于商业条款，只有平台方能改。
+   判据必须由后端 `/api/auth/me` 下发（`platform_admins` 名单表）：
+   前端**不能**用 role 自己推 —— 每个自注册用户的 role 就是 boss，
+   那样等于把提权口子重新打开。拿不到就 false（fail-closed，只是少一个下拉）。 */
+const isPlatformAdmin = ref(false)
+async function loadPlatformAdmin() {
+  try {
+    const me = await api('/api/auth/me')
+    isPlatformAdmin.value = !!(me && me.platform_admin)
+  } catch (_) { isPlatformAdmin.value = false }
+}
+
+/* v695：本轮额度什么时候恢复。后端按「购买日」滚动给 cycle_end，
+   前端**不自己算**（算月份天数的坑太多，且口径必须与后端一致）。 */
+const cycleTip = computed(() => {
+  const q = quota.value
+  if (!q || !q.cycle_end) return ''
+  const s = String(q.cycle_end)
+  const m = Number(s.slice(5, 7))
+  const d = Number(s.slice(8, 10))
+  if (!m || !d) return ''
+  const left = Number(q.cycle_days_left)
+  const when = Number.isFinite(left) && left > 0 ? `还有 ${left} 天` : '今天'
+  return `额度 ${m} 月 ${d} 日恢复（${when}）`
+})
 const insight = ref('')
 const insightAt = ref('')
 const insighting = ref(false)
@@ -341,6 +380,7 @@ const hasChat = computed(() => store.chat.messages.some(m => m.content))
 onMounted(() => {
   loadReports()
   loadQuota()
+  loadPlatformAdmin()   // v695：平台管理员标记（决定「改套餐」下拉要不要画）
   loadValue()
   loadProfile()
   loadProposals()
@@ -352,9 +392,11 @@ function fmt(t) {
   return String(t).replace('T', ' ').slice(0, 16)
 }
 function fmtNum(n) {
-  n = Number(n || 0)
-  if (n >= 10000) return (n / 10000).toFixed(1) + '万'
-  return String(n)
+  // v695：改成**千分位**，与副驾明细卡、用量日报统一口径。
+  //   原来 ≥1 万写成「1.2万」，同一页里额度是「3000」、副驾是「3,000」⇒ 三处三种写法。
+  //   额度动辄四位数，千分位是财务/发票的通用读法（「3,000」不会被读成三十千）。
+  n = Math.round(Number(n || 0))
+  return n.toLocaleString('en-US')
 }
 function pct(used, limit) {
   limit = Number(limit || 0)
@@ -362,7 +404,9 @@ function pct(used, limit) {
   return Math.min(100, Math.round((Number(used || 0) / limit) * 100))
 }
 function tierLabel(t) {
-  return { free: '免费版', pro: '专业版', enterprise: '企业版' }[t] || t
+  // v695：补上 plus（后端 QUOTA_TIERS 有 free/plus/pro/enterprise 四档，
+  //   这里原来漏了 plus ⇒ 选了标准版的客户看到的是原始字符串 "plus"）。
+  return { free: '免费版', plus: '标准版', pro: '专业版', enterprise: '企业版' }[t] || t
 }
 
 /* ②·6 口径提案审核台（M3）——后端 /api/ai/recipe-proposals（list / review） */

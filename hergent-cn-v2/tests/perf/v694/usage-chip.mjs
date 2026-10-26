@@ -69,7 +69,7 @@ const main = async () => {
 
   console.log('\n[1] 构建号')
   const build = await page.evaluate(() => window.__HG_BUILD__ || '')
-  ck('__HG_BUILD__ = v694（允许 v694b 这类小版本后缀）', build.startsWith('v694'), 'got=' + build)
+  ck('__HG_BUILD__ 已升到 v694 或更高（v694b / v695 都算过）', /^v69[4-9]/.test(build), 'got=' + build)
 
   console.log('\n[2] 配额接口')
   const quota = await page.evaluate(async () => {
@@ -174,7 +174,9 @@ const main = async () => {
   ck('有剩余积分', /还剩\s*450\s*积分/.test(panel), '')
   ck('有已用与额度（千分位）', /2,550/.test(panel) && /3,000/.test(panel), '')
   ck('有「还能干几件活」推演', /还能干\s*11\s*件/.test(panel), '')
-  ck('有恢复日期', /每月 1 日自动恢复额度/.test(panel), '')
+  // v695：恢复日改为按购买日滚动的具体日期（兜底文案为「额度用完后下一轮恢复」）
+  ck('有恢复日期（具体某月某日，或兜底文案）',
+    /额度 \d+ 月 \d+ 日恢复/.test(panel) || /下一轮恢复/.test(panel), '')
   const fit = await page.evaluate(() => {
     const el = document.querySelector('.cp-usage-menu')
     if (!el) return null

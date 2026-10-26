@@ -721,7 +721,7 @@
                 <div class="cp-um-row">本月已用 {{ fmtNum(quotaInfo.used) }} 积分，额度 {{ fmtNum(quotaInfo.limit) }}</div>
                 <div v-if="quotaInfo.leftTasks > 0" class="cp-um-sub">按最近的用量，大约还能干 <b>{{ quotaInfo.leftTasks }}</b> 件这样的活</div>
                 <div v-else class="cp-um-sub">额度快用完了，先别安排大活</div>
-                <div class="cp-um-foot">每月 1 日自动恢复额度</div>
+                <div class="cp-um-foot">{{ quotaResetTip }}</div>
                 <div v-if="quotaInfo.peak" class="cp-um-peak">现在是用量高峰时段，同一件事消耗约为平时的两倍</div>
               </div>
             </div>
@@ -3355,7 +3355,8 @@ function toggleUsageMenu() {
   showUsageMenu.value = on
 }
 
-/* 明细卡取数：全部从 `/api/ai/quota` 来，前端**不自己算额度**（口径只有后端一处）。 */
+/* 明细卡取数：全部从 `/api/ai/quota` 来，前端**不自己算额度**（口径只有后端一处）。
+   v695：周期也由后端给（cycle_end / cycle_days_left）—— 前端算月份天数必然算错。 */
 const quotaInfo = computed(() => {
   const q = quota.value || {}
   const limit = Number(q.credits_limit) || 0
@@ -3367,8 +3368,20 @@ const quotaInfo = computed(() => {
     exempt: !!q.exempt,
     exceeded: !!q.exceeded,
     peak: !!q.is_peak,
+    cycleEnd: q.cycle_end || '',
+    daysLeft: Number.isFinite(Number(q.cycle_days_left)) ? Number(q.cycle_days_left) : null,
     leftTasks: Math.floor(left / CREDITS_PER_TASK)
   }
+})
+
+/* v695：恢复日跟着「购买日周期」走，不再写死「每月 1 日」。
+   后端 `cycle_end` 是本轮结束那天 = 下一轮开始的前一天边界，直接把那天说成「恢复日」。 */
+const quotaResetTip = computed(() => {
+  const i = quotaInfo.value
+  const at = cycleDateText()
+  if (at === '下一轮') return '额度用完后下一轮恢复'
+  const when = i.daysLeft !== null && i.daysLeft > 0 ? `还有 ${i.daysLeft} 天` : '就是今天'
+  return `额度 ${at}恢复（${when}）`
 })
 
 /* 何时显示：**只在临界**。四种状态里只有两种会被渲染 ——
@@ -3422,10 +3435,21 @@ const quotaTierName = computed(() => QUOTA_TIER_CN[(quota.value && quota.value.t
 const quotaWarn = computed(() => {
   const q = quota.value
   if (!q || !q.credits_limit || q.exempt) return ''
-  if (q.exceeded) return '本月 AI 额度已用完，下月 1 日恢复'
-  if (q.credits_pct >= CREDITS_SHOW_PCT) return '本月 AI 额度快用完了，下月 1 日恢复'
+  // v695：恢复日改为「本轮周期结束日」（按购买日滚动），不再写死「下月 1 日」。
+  const at = cycleDateText()
+  if (q.exceeded) return `本轮 AI 额度已用完，${at}恢复`
+  if (q.credits_pct >= CREDITS_SHOW_PCT) return `本轮 AI 额度快用完了，${at}恢复`
   return ''
 })
+
+/* 「M 月 D 日」这种口径在横幅与明细卡里都要用 ⇒ 只写一处。
+   拿不到 cycle_end 时返回「下一轮」—— 文言仍通顺（「下一轮恢复」），不留空。 */
+function cycleDateText() {
+  const s = String((quotaInfo.value && quotaInfo.value.cycleEnd) || '')
+  const m = Number(s.slice(5, 7))
+  const d = Number(s.slice(8, 10))
+  return (m && d) ? `${m} 月 ${d} 日` : '下一轮'
+}
 
 /* 积分 → 人民币（1 积分 = 1 分钱）。经销商看「毛」比看「0.6 元」更顺。 */
 function creditsMoney(c) {
