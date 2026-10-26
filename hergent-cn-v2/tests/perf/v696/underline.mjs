@@ -141,7 +141,9 @@ const main = async () => {
     await sleep(1500)
   }
   const build = await page.evaluate(() => window.__HG_BUILD__ || '')
-  ck('构建号 v696', /^v696/.test(build), 'got=' + build)
+  // 断言「至少是 v696」而不是「正好 v696」：这条的本意是确认线上跑的是含本次修复的版本，
+  // 写死等号会让每次后续发版都亮一条红（那是探针维护成本，不是功能回归）。
+  ck('构建号 >= v696', /^v69[6-9]/.test(build) || /^v7\d\d/.test(build), 'got=' + build)
 
   await page.goto(BASE + '/#/inventory/purchase/1', { waitUntil: 'domcontentloaded' })
   await sleep(3000)

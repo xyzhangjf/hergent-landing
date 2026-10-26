@@ -320,6 +320,17 @@ export const psiApi = {
     api(`/api/psi/purchase-orders/${id}/payments`, { method: 'POST', body }),
 
   /**
+   * v697「预付款」：货还没到，先付给供应商。
+   *
+   * 🔴 与 `createPurchasePayment` **是两个端点、两套前置条件**，不要合并：
+   *    · 本方法 = 货未到（`status='approved'`），后端**不碰应付行**（那时还没有）；
+   *    · `createPurchasePayment` = 货已到，后端要求有应付行且金额 ≤ 未结。
+   *    合并成一个端点后「用哪套安全闸」就取决于客户端传的参数 —— 钱的操作不这样设计。
+   */
+  createPurchasePrepayment: (id, body) =>
+    api(`/api/psi/purchase-orders/${id}/prepayments`, { method: 'POST', body }),
+
+  /**
    * 「入库单」：这张单的到货入库明细。
    * 返回 `{empty, reason?, derived, head, items, summary}`。
    *   · `empty=true` ⇒ 只有一个 `reason`（人话，如「这张单还是草稿，没有入库单。」），

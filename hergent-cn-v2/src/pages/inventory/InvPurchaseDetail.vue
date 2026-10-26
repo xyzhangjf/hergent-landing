@@ -547,7 +547,9 @@
             <div class="ipd-info-hd">订单信息</div>
             <div class="ipd-row"><span class="ipd-lb">订单编号</span><span class="ipd-mono">{{ pay.order_no || '—' }}</span></div>
             <div class="ipd-row"><span class="ipd-lb">供应商名称</span><span>{{ pay.supplier_name || '—' }}</span></div>
-            <div class="ipd-row"><span class="ipd-lb">已预付</span><span>¥{{ fmtMoney(pay.prepaid_amount) }}</span></div>
+            <!-- v697：口径改为**本单**已预付（原先是该供应商所有预付的余额，字段名一样但含义不同）。
+                 改名写清「本单」，避免与「该供应商预付余额」（在新建页/供应商维度看）混淆。 -->
+            <div class="ipd-row"><span class="ipd-lb">本单已预付</span><span>¥{{ fmtMoney(pay.prepaid_amount) }}</span></div>
             <!-- P1-2：本采购单归属的结算单号（可能多张；已作废的标出）。数据来自后端 `pay.settlements`。
                  没被结算过 ⇒ `—`（不是 0、也不是空串伪装）。让老板在货款页一眼看到「这张单进了哪几张结算单」。 -->
             <div class="ipd-row"><span class="ipd-lb">结算单号</span>
@@ -560,7 +562,15 @@
             <div class="ipd-row"><span class="ipd-lb">入库金额</span><span>{{ moneyOrDash(pay.received_amount, hasItems) }}</span></div>
             <div class="ipd-row"><span class="ipd-lb">应付金额</span><span>{{ apAmountText }}</span></div>
             <div class="ipd-row"><span class="ipd-lb">已结金额</span><span>¥{{ fmtMoney(pay.paid_amount) }}</span></div>
-            <div class="ipd-row ipd-row-b"><span class="ipd-lb">未结金额</span><b class="ipd-amt" :class="{ 'ipd-amt-due': hasDue }">¥{{ fmtMoney(pay.unpaid_amount) }}</b></div>
+            <!-- v697：未入库时「未结金额」显示 `—` 而不是 `¥0.00`。
+                 货还没到就**没有形成需要结算的欠款**，写 0.00 会被读成「不用付了」——
+                 而这一页恰恰是来预付的。灰色 `—` + 悬停说明，比一个假 0 诚实。 -->
+            <div class="ipd-row ipd-row-b"
+                 :title="payMode === 'prepay' ? '货还没到，还没有形成需要结算的欠款；这一页可以先登记预付款' : ''">
+              <span class="ipd-lb">未结金额</span>
+              <b v-if="payMode === 'prepay'" class="ipd-none">—</b>
+              <b v-else class="ipd-amt" :class="{ 'ipd-amt-due': hasDue }">¥{{ fmtMoney(pay.unpaid_amount) }}</b>
+            </div>
 
             <div v-if="apMismatch" class="ipd-warn">
               <Icon name="alert" :size="15" />
@@ -568,11 +578,22 @@
                 以本页为准；建议到「往来账」核对这一单。</span>
             </div>
 
-            <button class="btn btn-primary ipd-paybtn" :disabled="!canWrite || payBusy || !canPay"
-                    @click="openPay">
-              <Icon name="payment" :size="15" />付款
+            <!-- v697：按钮是「预付款」还是「付款」**由后端 `pay_mode` 决定**（'prepay'|'pay'|'none'）。
+                 🔴 前端不许拿 `received_amount` 自己猜模式 —— 那会让「界面说能预付、
+                    后端说状态不对」这类自相矛盾重新长出来。none 时整颗按钮不渲染。 -->
+            <button v-if="payMode !== 'none'" class="btn btn-primary ipd-paybtn"
+                    :disabled="!canWrite || payBusy" @click="openPay">
+              <Icon name="payment" :size="15" />{{ payMode === 'prepay' ? '预付款' : '付款' }}
             </button>
-            <p v-if="!canPay && pay.unpaid_amount >= 0" class="ipd-note ipd-payhint">{{ payHint }}</p>
+            <!-- 🔴 超付必须显式说出来：老板定了「预付不设上限」，而未结金额用 `max(0, …)`
+                 兜底（永不为负）⇒ 多付的钱会被那个 max 吃掉，界面显示「未结 0」。
+                 那是**看起来刚好付完、实际多给了钱**，属于本仓最忌讳的静默错数。 -->
+            <div v-if="overpaid > 0" class="ipd-warn ipd-overpaid">
+              <Icon name="alert" :size="15" />
+              <span>已多付 ¥{{ fmtMoney(overpaid) }}{{ payMode === 'prepay' ? '（超过订单金额）' : '（超过已到货金额）' }}，
+                请向供应商追回，或留抵下次货款。</span>
+            </div>
+            <p v-if="payHint" class="ipd-note ipd-payhint">{{ payHint }}</p>
           </div>
 
           <!-- 付款信息 -->
@@ -580,16 +601,22 @@
             <div class="ipd-info-hd">付款信息</div>
             <div v-if="!payments.length" class="ipd-empty">
               <div class="ipd-empty-ic"><Icon name="receipt" :size="26" /></div>
-              <p>还没有付款记录。</p>
-              <p v-if="canPay" class="ipd-note">这张单还有 ¥{{ fmtMoney(pay.unpaid_amount) }} 未结，点左侧「付款」登记一笔。</p>
+              <p>{{ payMode === 'prepay' ? '还没有预付款记录。' : '还没有付款记录。' }}</p>
+              <p v-if="canPay" class="ipd-note">
+                <template v-if="payMode === 'prepay'">货还没到，可以点左侧「预付款」先把钱付给供应商。</template>
+                <template v-else>这张单还有 ¥{{ fmtMoney(pay.unpaid_amount) }} 未结，点左侧「付款」登记一笔。</template>
+              </p>
             </div>
             <div v-else class="table-wrap">
               <table class="tbl">
                 <thead>
-                  <tr><th>付款时间</th><th class="num">金额</th><th>账户</th><th>经手人</th><th>备注</th></tr>
+                  <tr><th>类型</th><th>时间</th><th class="num">金额</th><th>账户</th><th>经手人</th><th>备注</th></tr>
                 </thead>
                 <tbody>
                   <tr v-for="p in payments" :key="p.id">
+                    <!-- v697：预付与付款在库里同为 `type='expense'`，唯一区分点是 category。
+                         不标出来，老板会以为「货没到就先付的 500」是普通结货款。 -->
+                    <td><span class="tag" :class="p.category === '采购预付款' ? 'warn' : 'info'">{{ payKind(p) }}</span></td>
                     <td>{{ (p.created_at || '').slice(0, 16) || '—' }}</td>
                     <td class="num">¥{{ fmtMoney(p.amount) }}</td>
                     <td>{{ p.account || '—' }}</td>
@@ -598,9 +625,16 @@
                   </tr>
                 </tbody>
                 <tfoot>
+                  <!-- 🔴 v697：预付与付款**必须分行合计**。若只留一个「合计 = paid_amount」，
+                       预付款会凭空从表里消失（`paid_amount` 不含预付），而上面明明列着那笔钱。 -->
+                  <tr v-if="prepaidTotal > 0">
+                    <td colspan="2">预付合计</td>
+                    <td class="num">¥{{ fmtMoney(prepaidTotal) }}</td>
+                    <td colspan="3"></td>
+                  </tr>
                   <tr>
-                    <td>合计</td>
-                    <td class="num">¥{{ fmtMoney(pay.paid_amount) }}</td>
+                    <td colspan="2">付款合计</td>
+                    <td class="num">¥{{ fmtMoney(paidTotal) }}</td>
                     <td colspan="3"></td>
                   </tr>
                 </tfoot>
@@ -612,6 +646,27 @@
 
       <!-- ══════════ 入库单 ══════════ -->
       <div v-else class="tab-pane">
+        <!-- 🔵 v697：**入库动作的第二个入口**（老板要求「已保存并审核后，可在入库单页直接发起入库」）。
+             病历：此前本页是纯只读派生视图（`purchase_order_inbound`，不建表、不落库），
+             想入库必须切回「采购订单详情」页找按钮 —— 而「该入库了」这个念头正是在这一页产生的。
+             🔴 条件与详情页**逐字一致**（复用同一组 `canConfirm` / `canReceive`），
+                不另写一套判断：两处各写一遍，迟早一处能点、一处不能。
+             🔴 「分批到货」不在本页展开表单：那要按商品逐行填数量，必须在有明细表的详情页做。
+                这里给的是**跳过去并自动展开**，不是复制第二套表单（复制的那套迟早漏掉单位换算）。 -->
+        <div v-if="canWrite && (canConfirm || canReceive)" class="card ipd-inb-act">
+          <div class="ipd-inb-act-t">
+            <b>{{ inbActionTitle }}</b>
+            <span class="ipd-note">{{ inbActionHint }}</span>
+          </div>
+          <div class="ipd-inb-act-b">
+            <button v-if="canReceive" class="btn btn-ghost btn-sm" :disabled="busy" @click="gotoPartialReceive">
+              <Icon name="inbox" :size="14" />分批到货
+            </button>
+            <button v-if="canConfirm" class="btn btn-primary btn-sm" :disabled="busy" @click="doConfirm">
+              <Icon name="check" :size="14" />{{ busy ? '处理中…' : '确认入库' }}
+            </button>
+          </div>
+        </div>
         <div v-if="inb.empty" class="card ipd-empty">
           <div class="ipd-empty-ic"><Icon name="inbox" :size="26" /></div>
           <p>{{ inb.reason || '这张单还没有到货记录。' }}</p>
@@ -698,15 +753,21 @@
       </div>
     </template>
 
-    <!-- 付款弹层 -->
+    <!-- 货款/预付款弹层（v697：同一个弹层，标题与提示随 `payMode` 变 —— 两个模式
+         结构完全一样（金额/账户/备注），没必要维护两份定位与校验，只有文案与接口不同）。 -->
     <div v-if="payOpen" class="ipd-mask" @click.self="closePay">
       <div class="card ipd-dlg">
-        <div class="ipd-dlg-hd">登记付款</div>
+        <div class="ipd-dlg-hd">{{ payMode === 'prepay' ? '登记预付款' : '登记付款' }}</div>
         <p class="ipd-dlg-msg">
-          {{ o.order_no }} · {{ o.supplier_name || '供应商' }} —— 未结 ¥{{ fmtMoney(pay.unpaid_amount) }}
+          {{ o.order_no }} · {{ o.supplier_name || '供应商' }} ——
+          <template v-if="payMode === 'prepay'">
+            货还没到，先付给供应商。订单金额 ¥{{ fmtMoney(pay.total_amount) }}<template v-if="Number(pay.prepaid_amount) > 0">，已预付 ¥{{ fmtMoney(pay.prepaid_amount) }}</template>
+          </template>
+          <template v-else>未结 ¥{{ fmtMoney(pay.unpaid_amount) }}</template>
         </p>
-        <label class="ipd-fl"><span class="ipd-lb">付款金额（元）</span>
-          <input v-model="payForm.amount" class="input ipd-in num" inputmode="decimal" placeholder="0.00" />
+        <label class="ipd-fl"><span class="ipd-lb">{{ payMode === 'prepay' ? '预付款金额（元）' : '付款金额（元）' }}</span>
+          <input v-model="payForm.amount" class="input ipd-in num" inputmode="decimal"
+                 :placeholder="payMode === 'prepay' ? '按约定填写，可超过订单金额' : '0.00'" />
         </label>
         <label class="ipd-fl"><span class="ipd-lb">付款账户</span>
           <select v-model="payForm.account" class="input ipd-in">
@@ -720,7 +781,7 @@
         <div class="ipd-dlg-ft">
           <button class="btn btn-ghost btn-sm" :disabled="payBusy" @click="closePay">取消</button>
           <button class="btn btn-primary btn-sm" :disabled="payBusy" @click="doPay">
-            {{ payBusy ? '处理中…' : '确认付款' }}
+            {{ payBusy ? '处理中…' : (payMode === 'prepay' ? '确认预付款' : '确认付款') }}
           </button>
         </div>
       </div>
@@ -1267,6 +1328,26 @@ const canWrite = computed(() => canDo('inventory', 'update'))
 /* 判据与后端逐字对齐：`purchase_order_confirm` 只接受 `status IN ('draft','approved')` */
 const canConfirm = computed(() => ['draft', 'approved'].includes(o.value.status))
 const canReceive = computed(() => ['draft', 'approved', 'partial'].includes(o.value.status))
+
+/* v697：入库单页操作条的文案 —— **按状态说实话**，不一律写「确认入库」。
+   🔴 `draft` 能入库是**既有设计，不是漏洞**：建单时 `total < approval_threshold`
+     直接落 `draft`（默认阈值 5000），这类单没有审批链，只能从 draft 直接入库。
+     **不要**为了字面上「已审核才能入库」把 canConfirm 收紧成只剩 approved ——
+     那会让所有小额单永远进不了库，而且是静默的（按钮消失，没有任何报错）。
+     这与后端 `purchase_order_confirm` 的守卫 `status IN ('draft','approved')` 逐字一致。 */
+const inbActionTitle = computed(() => {
+  const s = o.value.status
+  if (s === 'draft') return '这张单还是草稿 —— 小额免审单可以直接入库'
+  if (s === 'approved') return '已审核，货到齐后在这里确认入库'
+  if (s === 'partial') return '已到一部分货，剩下的到齐后确认入库'
+  return ''
+})
+const inbActionHint = computed(() => {
+  if (o.value.status === 'draft') {
+    return '要走审批就先回「采购订单详情」点提交审核；低于审批阈值的小额单允许直接入库。'
+  }
+  return '确认入库 = 整单全收（加库存 + 生成应付单 + 记账凭证）；分批到货只加在库数量，批次与到期日在确认入库时登记。'
+})
 /* v412（P2-5）「审核并打印」的可见判据，与后端 `purchase_order_approve` 的
    `WHERE status IN (...)` **逐字对齐**：`pending_approval`（真待审）/ `draft` /
    `confirmed`（免审单补记审核时间与审核人，后端也认）。已入库 / 部分入库 / 已取消
@@ -1308,11 +1389,16 @@ const apAmountText = computed(() => {
   const v = pay.value.ap_amount
   return (v === null || v === undefined) ? '—' : ('¥' + fmtMoney(v))
 })
-/* 两处记账（往来账的应付 vs 采购单的未结）分叉时**必须说出来**，不静默 */
+/* 两处记账（往来账的应付 vs 采购单的未结）分叉时**必须说出来**，不静默。
+   🔴 v697：比较前必须把**预付款**从应付余额里减掉 —— 预付记在采购单
+      （`purchase_orders.prepaid_amount`），不记在应付行上（`receivables`）。
+      不减的话，只要发生过预付，这两个数就必然差一个预付额 ⇒ **每一张预付过的单
+      都会亮「对不上」的警告**，而它们其实是对的。这是本次改动最容易连坐的地方。 */
 const apMismatch = computed(() => {
   const a = pay.value.ap_unpaid_amount
   if (a === null || a === undefined) return false
-  return Math.abs(Number(a) - Number(pay.value.unpaid_amount || 0)) > 0.01
+  const adj = Number(a) - Number(pay.value.prepaid_amount || 0)
+  return Math.abs(adj - Number(pay.value.unpaid_amount || 0)) > 0.01
 })
 
 /* 🔴 v404b：「已入库」**不等于**「应付已生成」。
@@ -1325,11 +1411,54 @@ const apExists = computed(() => pay.value.ap_exists === true)
    而同一屏的提示恰好写着「不用登记付款」—— 又是一处同屏自相矛盾。 */
 const hasDue = computed(() => Number(pay.value.unpaid_amount || 0) > 0.005)
 
-const canPay = computed(() => apExists.value && hasDue.value)
+/* v697：付款模式 **完全由后端 `pay_mode` 下发**（'prepay' | 'pay' | 'none'）。
+   判定规则在后端 `purchase_order_payments` 里一处实现：
+     货未到 + 已审 → prepay；有到货金额且未结 > 0 → pay；其余 → none。
+   🔴 这里**不做任何本地推导**：一旦前端也按 received_amount 猜一遍，两处口径迟早分叉，
+      出现「按钮写着预付款、后端回你状态不对」这种最难解释的错。 */
+const payMode = computed(() => String(pay.value.pay_mode || 'none'))
+/* 超付金额（元）。>0 时界面必须提示 —— 见模板里那段说明。 */
+const overpaid = computed(() => Number(pay.value.overpaid_amount || 0))
+
+/* 预付合计：从**看得见的流水行**里加总，不直接用 `pay.prepaid_amount`。
+   两者理论上相等；真不相等时，以列表里这些行为准更容易查（差额本身就是要查的问题，
+   用库里那个汇总值会把矛盾藏起来）。 */
+const prepaidTotal = computed(() =>
+  payments.value
+    .filter(p => p.category === '采购预付款')
+    .reduce((s, p) => s + Number(p.amount || 0), 0))
+
+/* 付款合计：同样按行加总，**不用 `pay.paid_amount`**。
+   实测踩过：`paid_amount` 是库内汇总、`payments` 是流水行，两者可能不同步
+   （历史数据、或某笔流水写成功而汇总没跟上）⇒ 用汇总值会让表尾出现
+   「表里明明有一行 ¥500，合计却写 ¥0.00」这种自相矛盾。表尾的语义就是
+   「上面这些行加起来」，那就真的按行加。 */
+const paidTotal = computed(() =>
+  payments.value
+    .filter(p => p.category !== '采购预付款')
+    .reduce((s, p) => s + Number(p.amount || 0), 0))
+
+/* 流水类型的中文 —— **不用 category 原文直接印**（'采购预付款' 是内部枚举口径）。
+   v697 之前的行也写了 category，所以这里基本不会落空；真落空就显示 `—`，不猜。 */
+function payKind (p) {
+  if (p.category === '采购预付款') return '预付'
+  if (p.category === '采购付款') return '付款'
+  return '—'
+}
+
+const canPay = computed(() => payMode.value !== 'none')
 const payHint = computed(() => {
   if (!canWrite.value) return '当前账号没有登记付款的权限。'
-  if (!apExists.value) return '这张单没有对应的应付单，不用登记付款。'
-  if (!canPay.value) return '这张单已经结清，没有需要付的金额。'
+  const s = o.value.status
+  if (s === 'cancelled') return '这张单已取消，不能再付款。'
+  if (s === 'returned') return '这张单已退货，不需要付款。'
+  if (payMode.value === 'prepay') return ''
+  if (payMode.value === 'pay') return ''
+  if (s === 'draft' || s === 'pending_approval') return '这张单还没审核通过，审核后才能预付款。'
+  /* 超付时**不再说「已经结清」** —— 同一屏上「已结清」和「已多付 500」并列，
+     读起来像两个结论打架。超付提示已经把事情说清楚了。 */
+  if (overpaid.value > 0) return ''
+  if (apExists.value && !hasDue.value) return '这张单已经结清，没有需要付的金额。'
   return ''
 })
 
@@ -1601,6 +1730,19 @@ async function doReceive () {
   } finally {
     busy.value = false
   }
+}
+
+/* v697：从「入库单」页跳去填「分批到货」。
+   🔴 不在这里复制一份分批表单 —— 那需要按商品逐行填数量，必须看到明细表，
+      所以是「切到详情页 + 展开面板 + 滚到可见」三步。
+      复制第二套输入框的话，单位换算与可收上限迟早有一套漏掉（2026-10-26 教训同族）。 */
+function gotoPartialReceive () {
+  showRecv.value = true
+  pickTab('detail')
+  nextTick(() => {
+    const el = document.querySelector('.ipd-recv')
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  })
 }
 
 function doCopy () {
@@ -1911,33 +2053,43 @@ async function removeAttach (a) {
 
 function openPay () {
   payErr.value = ''
-  payForm.value = { amount: String(pay.value.unpaid_amount || ''), account: '现金', note: '' }
+  /* v697：预付款**不预填金额**。付款是「把欠的结掉」⇒ 预填未结额是对的；
+     预付是「先给一笔」⇒ 预填一个数字会诱导用户直接点确认（那笔钱就出去了）。
+     留空 + 占位提示「按约定填写」，让它必须是有意识的一次输入。 */
+  const preset = payMode.value === 'prepay' ? '' : String(pay.value.unpaid_amount || '')
+  payForm.value = { amount: preset, account: '现金', note: '' }
   payOpen.value = true
-}function closePay () {
+}
+function closePay () {
   if (payBusy.value) return
   payOpen.value = false
 }
 
 async function doPay () {
   if (payBusy.value) return
+  const isPrepay = payMode.value === 'prepay'
   const amt = Number(payForm.value.amount)
-  if (!Number.isFinite(amt) || amt <= 0) { payErr.value = '请填写大于 0 的付款金额。'; return }
+  if (!Number.isFinite(amt) || amt <= 0) {
+    payErr.value = isPrepay ? '请填写大于 0 的预付款金额。' : '请填写大于 0 的付款金额。'
+    return
+  }
   payBusy.value = true
   payErr.value = ''
   try {
-    /* 🔴 超付 / 期间已关闭 / 没有应付记录这三道判据**只在后端**，这里不预判 ——
-       拿到 400 的中文原因原样显示在弹层里，用户当场就能改。 */
-    const r = await psiApi.createPurchasePayment(oid.value, {
-      amount: amt,
-      account: payForm.value.account,
-      note: payForm.value.note,
-    })
+    /* 🔴 金额闸门与状态闸门**只在后端**，这里不预判：
+       · 付款：超付 / 期间已关闭 / 没有应付记录 → 400，中文原因原样显示；
+       · 预付：状态不是「已审待执行」→ 400，同样原样显示。
+       前端预判一份必然与后端分叉（尤其预付不设上限这条，前端很难猜对）。 */
+    const body = { amount: amt, account: payForm.value.account, note: payForm.value.note }
+    const r = isPrepay
+      ? await psiApi.createPurchasePrepayment(oid.value, body)
+      : await psiApi.createPurchasePayment(oid.value, body)
     if (r && r.error) throw new Error(r.error)
-    toast('付款已登记', 'success')
+    toast(isPrepay ? '预付款已登记' : '付款已登记', 'success')
     payOpen.value = false
     await loadAll()
   } catch (e) {
-    payErr.value = e.message || '付款登记失败'
+    payErr.value = e.message || (isPrepay ? '预付款登记失败' : '付款登记失败')
   } finally {
     payBusy.value = false
   }
@@ -2295,6 +2447,15 @@ tfoot td { font-weight: 600 }
   border-radius: var(--radius-md); padding: 10px 12px;
 }
 .ipd-warn svg { flex: none; margin-top: 2px; color: var(--warn) }
+/* 超付提示可能与前一条「往来账对不上」同屏出现 ⇒ 留 6px，避免两条糊成一块 */
+.ipd-overpaid { margin-top: 6px }
+/* v697：入库单页的操作条。左说明 / 右按钮，与详情页顶部动作区同一范式，
+   但它是**页面内的卡片**而非工具条 ⇒ 用 card 自带底 + 内边距，不另画一条分隔线。 */
+.ipd-inb-act { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 14px; margin-bottom: 10px; flex-wrap: wrap }
+.ipd-inb-act-t { display: flex; flex-direction: column; gap: 3px; min-width: 0 }
+.ipd-inb-act-t b { font-size: 12.5px; font-weight: 600; color: var(--t1) }
+.ipd-inb-act-t .ipd-note { margin: 0 }
+.ipd-inb-act-b { display: flex; gap: 8px; flex: none }
 .ipd-paybtn { justify-content: center; margin-top: 4px }
 .ipd-payhint { margin-top: -4px }
 
