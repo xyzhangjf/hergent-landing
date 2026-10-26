@@ -1325,20 +1325,25 @@ const payForm = ref({ amount: '', account: '现金', note: '' })
 //       他们即使绕过界面直连接口也会被 403（`_auth_perm('inventory')` 之外的 action 判定同理）。
 //    ⚠️ 若将来本页要加"复制新建"这类动作，**另起一个 `canCreate`**，不要把这里改回 create。
 const canWrite = computed(() => canDo('inventory', 'update'))
-/* 判据与后端逐字对齐：`purchase_order_confirm` 只接受 `status IN ('draft','approved')` */
-const canConfirm = computed(() => ['draft', 'approved'].includes(o.value.status))
-const canReceive = computed(() => ['draft', 'approved', 'partial'].includes(o.value.status))
+/* 判据与后端逐字对齐：`purchase_order_confirm` 守卫
+   `status IN ('draft','approved','confirmed')`（v697c 补的 `confirmed`）。
+   🔴 `confirmed` **必须**在这里：v417「保存并审核」落库写的就是 `confirmed`，
+     而后端守卫原本只收 `approved` ⇒ 审核通过的单既入不了库、按钮也不显示。
+     生产实测：84 张采购单里 `approved` 一张都没有，`confirmed` 2 张。 */
+const canConfirm = computed(() => ['draft', 'approved', 'confirmed'].includes(o.value.status))
+const canReceive = computed(() => ['draft', 'approved', 'confirmed', 'partial'].includes(o.value.status))
 
 /* v697：入库单页操作条的文案 —— **按状态说实话**，不一律写「确认入库」。
    🔴 `draft` 能入库是**既有设计，不是漏洞**：建单时 `total < approval_threshold`
      直接落 `draft`（默认阈值 5000），这类单没有审批链，只能从 draft 直接入库。
      **不要**为了字面上「已审核才能入库」把 canConfirm 收紧成只剩 approved ——
      那会让所有小额单永远进不了库，而且是静默的（按钮消失，没有任何报错）。
-     这与后端 `purchase_order_confirm` 的守卫 `status IN ('draft','approved')` 逐字一致。 */
+     这与后端 `purchase_order_confirm` 的守卫 `status IN ('draft','approved','confirmed')`
+     逐字一致（v697c 补的 `confirmed`）。 */
 const inbActionTitle = computed(() => {
   const s = o.value.status
   if (s === 'draft') return '这张单还是草稿 —— 小额免审单可以直接入库'
-  if (s === 'approved') return '已审核，货到齐后在这里确认入库'
+  if (s === 'approved' || s === 'confirmed') return '已审核，货到齐后在这里确认入库'
   if (s === 'partial') return '已到一部分货，剩下的到齐后确认入库'
   return ''
 })
@@ -1375,7 +1380,9 @@ const currentNodeName = computed(() => {
   return nd ? (nd.name || nd.role) : ''
 })
 const approvalProgressText = computed(() => {
-  if (!apprPending.value) return o.value.status === 'approved' ? '已审待执行' : ''
+  if (!apprPending.value) {
+    return (o.value.status === 'approved' || o.value.status === 'confirmed') ? '已审待执行' : ''
+  }
   return `第 ${apprNode.value + 1} / ${apprChain.value.length} 关：待【${currentNodeName.value}】审批`
 })
 const approvalChainText = computed(() =>
