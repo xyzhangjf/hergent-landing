@@ -21,32 +21,28 @@ const ck = (label, ok, extra) => {
 
 const CASES = [
   {
-    name: '豁免账号（老板自己的 tenant 1）',
+    name: '豁免账号（老板自己的 tenant 1）—— 不该出现',
     data: { ok: true, tier: 'free', credits_limit: 3000, credits_used: 59, credits_remaining: 2941, credits_pct: 2, exempt: true, exceeded: false, is_peak: false, peak_until_min: 0 },
-    chip: /^不限额度$/,
-    state: 'exempt',
-    panel: [/不限额度/, /只记账/, /59 积分/]
+    hidden: true
   },
   {
-    name: '接近上限（85%）',
-    data: { ok: true, tier: 'free', credits_limit: 3000, credits_used: 2550, credits_remaining: 450, credits_pct: 85, exempt: false, exceeded: false, is_peak: false, peak_until_min: 0 },
+    name: '79%（阈值边界下方）—— 不该出现',
+    data: { ok: true, tier: 'free', credits_limit: 3000, credits_used: 2370, credits_remaining: 630, credits_pct: 79, exempt: false, exceeded: false, is_peak: false, peak_until_min: 0 },
+    hidden: true
+  },
+  {
+    name: '85% + 高峰 —— 出现，琥珀 + 高峰提示',
+    data: { ok: true, tier: 'free', credits_limit: 3000, credits_used: 2550, credits_remaining: 450, credits_pct: 85, exempt: false, exceeded: false, is_peak: true, peak_until_min: 95 },
     chip: /^已用 85%$/,
     state: 'warn',
-    panel: [/还剩 450 积分/, /还能干 11 件这样的活/]
+    panel: [/还剩 450 积分/, /还能干 11 件这样的活/, /高峰/]
   },
   {
-    name: '已用完',
+    name: '已用完 —— 出现，红色',
     data: { ok: true, tier: 'plus', credits_limit: 20000, credits_used: 20120, credits_remaining: 0, credits_pct: 100, exempt: false, exceeded: true, is_peak: false, peak_until_min: 0 },
     chip: /^额度已用完$/,
     state: 'danger',
     panel: [/还剩 0 积分/, /额度快用完了/]
-  },
-  {
-    name: '高峰时段',
-    data: { ok: true, tier: 'free', credits_limit: 3000, credits_used: 900, credits_remaining: 2100, credits_pct: 30, exempt: false, exceeded: false, is_peak: true, peak_until_min: 95 },
-    chip: /^额度充足$/,
-    state: 'ok',
-    panel: [/高峰/, /大约还能干 52 件这样的活/]
   }
 ]
 
@@ -89,13 +85,27 @@ const main = async () => {
 
     const snap = await page.evaluate(() => {
       const btn = document.querySelector('.cp-usage-btn')
-      const cls = btn ? btn.className : ''
+      const note = document.querySelector('.cp-foot-meta .cp-ai-note')
+      const meta = document.querySelector('.cp-foot-meta')
       return {
+        exists: !!(btn && btn.offsetHeight > 0),
         text: btn ? btn.innerText.trim() : '',
-        cls,
-        title: btn ? (btn.getAttribute('title') || '') : ''
+        cls: btn ? btn.className : '',
+        title: btn ? (btn.getAttribute('title') || '') : '',
+        note: note ? note.innerText.trim() : '',
+        metaH: meta ? meta.getBoundingClientRect().height : 0
       }
     })
+
+    if (c.hidden) {
+      ck('胶囊不渲染（平时消失）', !snap.exists, snap.exists ? '仍显示 ' + snap.text : '已隐藏')
+      ck('免责提示仍在', /内容由AI生成/.test(snap.note), snap.note)
+      ck('footer 回到单行', snap.metaH <= 26, 'h=' + snap.metaH.toFixed(1))
+      ck('无 JS 异常', errs.length === 0, errs.join('|') || '干净')
+      await page.close()
+      continue
+    }
+
     ck('胶囊文案 = ' + c.chip.source.replace(/[\^$]/g, ''), c.chip.test(snap.text), 'got=' + JSON.stringify(snap.text))
     ck('配色类 .' + c.state, new RegExp('\\b' + c.state + '\\b').test(snap.cls), snap.cls)
 

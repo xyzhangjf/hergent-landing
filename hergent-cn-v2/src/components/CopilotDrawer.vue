@@ -670,18 +670,13 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
             <span>{{ quotaWarn }}</span>
           </div>
-          <!-- 🔵 v694（2026-10-26）：底部信息条重做 —— 从「两行居中小字」收成「一行两个件」。
-               改动动因（老板原话）：常驻那句「本月 59 积分 · 还能跑约 73 件这样的活」
-               摆在输入框下面「看着太不协调」。
-               病根不在文案长短，而在**信息层级放错了**：它是一个天天变的账本数字，
-               却被放在了「每次打开都要读一眼」的常驻层，和免责声明挤成两行居中灰字。
-               新做法（信息分层，对齐 Linear / Vercel 的 footer meta 范式）：
-                 ① 左 = 免责提示（不变，仍常驻）；
-                 ② 右 = **只给状态**（额度充足 / 已用 82% / 额度已用完 / 不限额度），
-                    数字与「还能干几件活」降级到**点一下才展开**的明细卡；
-                 ③ 两个件**成组居中**（不是两端对齐 —— 抽屉宽度可变，两端对齐在大宽屏
-                    会把两小件甩到两头、中间空 900px，比原来更散，已实测）；
-                 ④ 整块高度不增加（原来两行 11px+1.5 行高，现在一行）。
+          <!-- 🔵 v694（2026-10-26）：底部信息条 —— 免责常驻 / 额度**只在临界才出现**。
+               演进：第一版把「本月 59 积分 · 还能跑约 73 件这样的活」从常驻账本降级为
+                    状态胶囊（数字收进明细卡），老板看了仍觉得常驻碍眼 ⇒ 第二版（现行）：
+                    **平时完全消失，只在 ≥80% 或已超限时才冒出来**。
+               语义：额度是**护栏信息**，不是功能入口。够用时不必知道，快不够时才提醒
+                    （对齐话费/流量提醒的产品直觉）。低于阈值时 `.cp-usage` 整块不渲染，
+                    footer 只剩免责提示单件居中 —— 视觉上就等于原来那行免责，不多一行。
                ⚠️ 纪律不变：这里**只显示、不拦截**。拦截仍由后端 `exceeded` 决定，
                   绝不绑 :disabled，也绝不进任何 validate()。 -->
           <div class="cp-foot-meta">
@@ -714,23 +709,20 @@
               </button>
               <!-- 明细卡：向上弹（复用 .cp-role-menu 的几何与层级，见样式段）
                    信息只留三件：**还剩多少**（大）、**用了多少 / 额度多少**（小）、
-                   **还能干几件活**（业务推演）+ 恢复日期。不做「共 X」这种重复表述。 -->
+                   **还能干几件活**（业务推演）+ 恢复日期。不做「共 X」这种重复表述。
+                   🔴 这里**没有** exempt（豁免账号）分支：豁免账号整块 `.cp-usage` 都不渲染
+                      （见 quotaChip 的 `if (i.exempt) return ''`）⇒ 明细卡根本打不开。
+                      第一版曾写过「不限额度」分支，现行口径下是**不可达的死代码**，已删除；
+                      若日后放开阈值让豁免账号也显示，再按 quotaInfo.exempt 加分支不迟。 -->
               <div v-if="showUsageMenu" class="cp-role-menu cp-usage-menu">
                 <div class="cp-role-menu-hd">本月 AI 额度<span v-if="quotaTierName" class="cp-hd-note">· {{ quotaTierName }}</span></div>
-                <template v-if="quotaInfo.exempt">
-                  <div class="cp-um-num"><b>不限额度</b></div>
-                  <div class="cp-um-row">本月已用 {{ fmtNum(quotaInfo.used) }} 积分</div>
-                  <div class="cp-um-sub">平台自有账号，只记账、不拦断。</div>
-                </template>
-                <template v-else>
-                  <div class="cp-um-num">还剩 <b>{{ fmtNum(quotaInfo.left) }}</b> 积分</div>
-                  <div class="cp-um-bar" aria-hidden="true"><i :class="quotaState" :style="{ width: quotaInfo.pct + '%' }"></i></div>
-                  <div class="cp-um-row">本月已用 {{ fmtNum(quotaInfo.used) }} 积分，额度 {{ fmtNum(quotaInfo.limit) }}</div>
-                  <div v-if="quotaInfo.leftTasks > 0" class="cp-um-sub">按最近的用量，大约还能干 <b>{{ quotaInfo.leftTasks }}</b> 件这样的活</div>
-                  <div v-else class="cp-um-sub">额度快用完了，先别安排大活</div>
-                  <div class="cp-um-foot">每月 1 日自动恢复额度</div>
-                  <div v-if="quotaInfo.peak" class="cp-um-peak">现在是用量高峰时段，同一件事消耗约为平时的两倍</div>
-                </template>
+                <div class="cp-um-num">还剩 <b>{{ fmtNum(quotaInfo.left) }}</b> 积分</div>
+                <div class="cp-um-bar" aria-hidden="true"><i :class="quotaState" :style="{ width: quotaInfo.pct + '%' }"></i></div>
+                <div class="cp-um-row">本月已用 {{ fmtNum(quotaInfo.used) }} 积分，额度 {{ fmtNum(quotaInfo.limit) }}</div>
+                <div v-if="quotaInfo.leftTasks > 0" class="cp-um-sub">按最近的用量，大约还能干 <b>{{ quotaInfo.leftTasks }}</b> 件这样的活</div>
+                <div v-else class="cp-um-sub">额度快用完了，先别安排大活</div>
+                <div class="cp-um-foot">每月 1 日自动恢复额度</div>
+                <div v-if="quotaInfo.peak" class="cp-um-peak">现在是用量高峰时段，同一件事消耗约为平时的两倍</div>
               </div>
             </div>
           </div>
@@ -3346,10 +3338,16 @@ async function refreshQuota() {
 }
 
 /* ── v694：底部额度「状态胶囊」+ 明细卡 ────────────────────────────────
-   设计原则（老板 2026-10-26 定）：**常驻层只放状态，数字放明细层。**
-   原因：积分是天天变的账本数字，摆在常驻层 = 每打开一次就被念一次账，
-   与免责声明挤成两行居中灰字 ⇒ 视觉噪音。状态词（够用 / 82% / 用完）才是
-   用户当下真正需要的判断，「还能干几件活」这种推演留给他想算的时候再点开看。 */
+   设计口径（老板 2026-10-26 定，两版）：
+     ① 第一版：常驻层只放状态、数字收进明细卡（治「账本挂在脸上」）；
+     ② 第二版（现行）：**平时完全消失，只在 ≥80% 才出现**。
+        老板原话「可以只在 ≥80% 才出现，平时完全消失」。
+   ⇒ 额度是**护栏信息**，不是功能入口：够用时不需要知道，快不够时才需要被提醒。
+      对齐话费/流量提醒的产品直觉。低于阈值时 `.cp-usage` 整块不渲染，
+      footer 只剩免责提示单件居中 —— 视觉上等于原来那行免责，不多一行。
+   ⚠️ 若日后要把入口重新放出来（例如客户抱怨「想看还剩多少没处看」），
+      改下面 CREDITS_SHOW_PCT 一个常量即可，不要改显示分支。 */
+const CREDITS_SHOW_PCT = 80
 const showUsageMenu = ref(false)
 function toggleUsageMenu() {
   const on = !showUsageMenu.value
@@ -3373,46 +3371,42 @@ const quotaInfo = computed(() => {
   }
 })
 
-/* 只有拿不到额度（未登录 / 老后端 / limit=0）时才整颗胶囊消失 —— 宁可不显示，不显示假数。 */
+/* 何时显示：**只在临界**。四种状态里只有两种会被渲染 ——
+     超限 → 「额度已用完」（任何情况都出，这是必须看到的）
+     ≥80% → 「已用 N%」
+   其余（豁免账号 / 79% 以下）一律返回 '' ⇒ 整块 `.cp-usage` 不渲染。
+   豁免账号（老板自己 tenant 1）永远不显示：它永不拦断，提醒它没有意义。 */
 const quotaChip = computed(() => {
   const q = quota.value
   if (!q || !q.credits_limit) return ''
   const i = quotaInfo.value
-  if (i.exempt) return '不限额度'
+  if (i.exempt) return ''
   if (i.exceeded) return '额度已用完'
-  if (i.pct >= 80) return `已用 ${Math.round(i.pct)}%`
-  return '额度充足'
+  if (i.pct < CREDITS_SHOW_PCT) return ''
+  return `已用 ${Math.round(i.pct)}%`
 })
 
-/* 状态 → 配色（样式段用 .ok / .warn / .danger / .exempt 四个类） */
+/* 状态 → 配色（只有两个分支会用到：临界 .warn / 超限 .danger）。
+   豁免账号整块不渲染，故不再有 .exempt，样式段里也已删除该规则。 */
 const quotaState = computed(() => {
   const i = quotaInfo.value
-  if (i.exempt) return 'exempt'
-  if (i.exceeded) return 'danger'
-  if (i.pct >= 80) return 'warn'
-  return 'ok'
+  return i.exceeded ? 'danger' : 'warn'
 })
 
-/* 悬停说全（鼠标党不必点开）：一行讲清「多少 / 多少 / 能不能超」 */
+/* 悬停说全（鼠标党不必点开）：一行讲清「多少 / 多少 / 能不能超」
+   ⚠️ 豁免账号走不到这里（胶囊整块不渲染）⇒ 不写 exempt 分支，避免留下不生效的代码。 */
 const quotaHover = computed(() => {
   const i = quotaInfo.value
-  if (i.exempt) return '平台自有账号，不计 AI 额度（仅记账）'
-  if (i.exceeded) return `本月已用 ${i.used} 积分，额度 ${i.limit} 已用完，每月 1 日恢复`
-  return `本月已用 ${i.used} / ${i.limit} 积分，点开看明细`
+  if (i.exceeded) return `本月已用 ${fmtNum(i.used)} 积分，额度 ${fmtNum(i.limit)} 已用完，每月 1 日恢复`
+  return `本月已用 ${fmtNum(i.used)} / ${fmtNum(i.limit)} 积分，点开看明细`
 })
 
 /* 环形进度：r=6 ⇒ 周长 2πr≈37.70。0% 时整圈不画（避免画出一个小圆点，看着像"有数据"）。 */
 const RING_R = 6
 const RING_C = 2 * Math.PI * RING_R
-const quotaRingLen = computed(() => {
-  const i = quotaInfo.value
-  if (i.exempt) return RING_C
-  return i.pct > 0 ? RING_C : 0
-})
+const quotaRingLen = computed(() => (quotaInfo.value.pct > 0 ? RING_C : 0))
 const quotaRingOffset = computed(() => {
-  const i = quotaInfo.value
-  if (i.exempt) return 0
-  const pct = Math.min(100, Math.max(0, i.pct))
+  const pct = Math.min(100, Math.max(0, quotaInfo.value.pct))
   return RING_C * (1 - pct / 100)
 })
 
@@ -3421,12 +3415,15 @@ const QUOTA_TIER_CN = { free: '免费版', plus: '标准版', pro: '专业版' }
 const quotaTierName = computed(() => QUOTA_TIER_CN[(quota.value && quota.value.tier) || ''] || '')
 
 /* 80% / 100% 阈值横幅。只提示不拦截 —— 真正的拦截由后端 `exceeded` 决定。
-   ⚠️ 不要给它绑 :disabled 或塞进任何 validate()，否则会从「提醒」变「拦截」。 */
+   ⚠️ 不要给它绑 :disabled 或塞进任何 validate()，否则会从「提醒」变「拦截」。
+   v694-2：≥80% 时横幅与胶囊**必然同时出现**（胶囊也只在 ≥80% 才显示）⇒
+   横幅不再重复百分比（那是胶囊的事），只说「后果 + 什么时候恢复」，两者分工：
+     横幅 = 提醒你注意；胶囊 = 具体用了多少、点开看明细。 */
 const quotaWarn = computed(() => {
   const q = quota.value
   if (!q || !q.credits_limit || q.exempt) return ''
   if (q.exceeded) return '本月 AI 额度已用完，下月 1 日恢复'
-  if (q.credits_pct >= 80) return `本月 AI 额度已用 ${q.credits_pct}%，快用完了`
+  if (q.credits_pct >= CREDITS_SHOW_PCT) return '本月 AI 额度快用完了，下月 1 日恢复'
   return ''
 })
 
@@ -3955,8 +3952,6 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-usage-btn{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border:1px solid transparent;border-radius:10px;background:transparent;font-size:11px;line-height:1;color:var(--t3);cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums;transition:background .15s,color .15s}
 .cp-usage-btn:hover{background:var(--bg4);color:var(--t1)}
 .cp-usage-btn .cp-usage-ring{flex:none;opacity:.9}
-/* 豁免账号画的是**整圈**（没有进度含义）⇒ 环会显得比文字重，压到 .55 才与灰字同重。 */
-.cp-usage-btn.exempt .cp-usage-ring{opacity:.55}
 .cp-usage-btn.warn{color:var(--war)}
 .cp-usage-btn.danger{color:var(--danger-txt)}
 /* 明细卡：从胶囊左侧向左展开（右对齐），向上弹 —— 底部空间比上方更稀缺。
