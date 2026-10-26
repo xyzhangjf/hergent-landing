@@ -670,18 +670,69 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
             <span>{{ quotaWarn }}</span>
           </div>
-          <!-- v693：常驻额度读数。用**业务单位**说话（「还能跑约 N 件这样的活」），
-               积分是次要信息 —— 经销商关心「会不会突然断」，不是「我还剩多少分」。 -->
-          <div v-if="quotaTip" class="cp-quota-tip" aria-live="off">{{ quotaTip }}</div>
-          <!-- v408：AI 生成内容免责提示 —— 常驻于**聊天输入框下方**（composer 之后、模式横幅之前）。
-               展示位置：footer 内、输入框卡片正下方，整行居中、低对比灰字，不抢视线。
-               触发逻辑：抽屉打开即常驻显示（每次进入副驾都能看到），不依赖是否已发问/已收到回复 ——
-                       与 ChatGPT/Claude 的「AI 可能犯错」提示同范式（被动免责，而非条件触发）。
-                       若日后想改成「仅在收到首条 AI 回复后显示」，把 v-if 换成
-                       `v-if="store.chat.messages.some(m => m.role === 'assistant')"` 即可。 -->
-          <div class="cp-ai-note" role="note" aria-live="polite">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span>内容由AI生成，请核实重要信息</span>
+          <!-- 🔵 v694（2026-10-26）：底部信息条重做 —— 从「两行居中小字」收成「一行两个件」。
+               改动动因（老板原话）：常驻那句「本月 59 积分 · 还能跑约 73 件这样的活」
+               摆在输入框下面「看着太不协调」。
+               病根不在文案长短，而在**信息层级放错了**：它是一个天天变的账本数字，
+               却被放在了「每次打开都要读一眼」的常驻层，和免责声明挤成两行居中灰字。
+               新做法（信息分层，对齐 Linear / Vercel 的 footer meta 范式）：
+                 ① 左 = 免责提示（不变，仍常驻）；
+                 ② 右 = **只给状态**（额度充足 / 已用 82% / 额度已用完 / 不限额度），
+                    数字与「还能干几件活」降级到**点一下才展开**的明细卡；
+                 ③ 两个件**成组居中**（不是两端对齐 —— 抽屉宽度可变，两端对齐在大宽屏
+                    会把两小件甩到两头、中间空 900px，比原来更散，已实测）；
+                 ④ 整块高度不增加（原来两行 11px+1.5 行高，现在一行）。
+               ⚠️ 纪律不变：这里**只显示、不拦截**。拦截仍由后端 `exceeded` 决定，
+                  绝不绑 :disabled，也绝不进任何 validate()。 -->
+          <div class="cp-foot-meta">
+            <!-- v408：AI 生成内容免责提示（常驻；改为与额度同排左侧） -->
+            <div class="cp-ai-note" role="note" aria-live="polite">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>内容由AI生成，请核实重要信息</span>
+            </div>
+            <!-- v694：额度状态胶囊（点击展开明细）。环形进度条 = 一眼看「还剩多少」，
+                 不需要读数；读数在明细卡里，可查不可碍。 -->
+            <div v-if="quotaChip" class="cp-usage">
+              <button
+                class="cp-usage-btn"
+                :class="quotaState"
+                :title="quotaHover"
+                :aria-expanded="showUsageMenu ? 'true' : 'false'"
+                aria-haspopup="true"
+                @click.stop="toggleUsageMenu"
+              >
+                <svg class="cp-usage-ring" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="2.2"/>
+                  <circle
+                    v-if="quotaRingLen > 0"
+                    cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2.2"
+                    stroke-linecap="round" :stroke-dasharray="quotaRingLen" :stroke-dashoffset="quotaRingOffset"
+                    transform="rotate(-90 8 8)"
+                  />
+                </svg>
+                <span class="cp-usage-tx">{{ quotaChip }}</span>
+              </button>
+              <!-- 明细卡：向上弹（复用 .cp-role-menu 的几何与层级，见样式段）
+                   信息只留三件：**还剩多少**（大）、**用了多少 / 额度多少**（小）、
+                   **还能干几件活**（业务推演）+ 恢复日期。不做「共 X」这种重复表述。 -->
+              <div v-if="showUsageMenu" class="cp-role-menu cp-usage-menu">
+                <div class="cp-role-menu-hd">本月 AI 额度<span v-if="quotaTierName" class="cp-hd-note">· {{ quotaTierName }}</span></div>
+                <template v-if="quotaInfo.exempt">
+                  <div class="cp-um-num"><b>不限额度</b></div>
+                  <div class="cp-um-row">本月已用 {{ fmtNum(quotaInfo.used) }} 积分</div>
+                  <div class="cp-um-sub">平台自有账号，只记账、不拦断。</div>
+                </template>
+                <template v-else>
+                  <div class="cp-um-num">还剩 <b>{{ fmtNum(quotaInfo.left) }}</b> 积分</div>
+                  <div class="cp-um-bar" aria-hidden="true"><i :class="quotaState" :style="{ width: quotaInfo.pct + '%' }"></i></div>
+                  <div class="cp-um-row">本月已用 {{ fmtNum(quotaInfo.used) }} 积分，额度 {{ fmtNum(quotaInfo.limit) }}</div>
+                  <div v-if="quotaInfo.leftTasks > 0" class="cp-um-sub">按最近的用量，大约还能干 <b>{{ quotaInfo.leftTasks }}</b> 件这样的活</div>
+                  <div v-else class="cp-um-sub">额度快用完了，先别安排大活</div>
+                  <div class="cp-um-foot">每月 1 日自动恢复额度</div>
+                  <div v-if="quotaInfo.peak" class="cp-um-peak">现在是用量高峰时段，同一件事消耗约为平时的两倍</div>
+                </template>
+              </div>
+            </div>
           </div>
           <div v-if="queueHint" class="cp-queue-hint" role="status" aria-live="polite">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -1641,19 +1692,21 @@ function closeMenus(except) {
   if (except !== 'guard') showGuardMenu.value = false
   if (except !== 'add') showAddMenu.value = false
   if (except !== 'voice') showVoiceMenu.value = false   // v461：朗读声音下拉
+  if (except !== 'usage') showUsageMenu.value = false   // v694：额度明细卡
 }
 function toggleRoleMenu() { const on = !showRoleMenu.value; closeMenus('role'); showRoleMenu.value = on }
 // 点胶囊/菜单以外的任意空白处 → 收起菜单（抽屉内空白 + 抽屉外页面空白都算）。
 // 用捕获阶段 pointerdown，避免被内层 @click.stop 或抽屉遮罩的 click 抢走。
 // 2026-09-25：新增权限下拉后改为「各管各的」——两个菜单各自判断点击是否落在自己容器内。
 function onDocPointerDown(e) {
-  if (!showRoleMenu.value && !showGuardMenu.value && !showAddMenu.value && !showVoiceMenu.value) return
+  if (!showRoleMenu.value && !showGuardMenu.value && !showAddMenu.value && !showVoiceMenu.value && !showUsageMenu.value) return
   const t = e.target
   const inside = (sel) => !!(t && t.closest && t.closest(sel))
   if (showRoleMenu.value && !inside('.cp-role')) showRoleMenu.value = false
   if (showGuardMenu.value && !inside('.cp-guard')) showGuardMenu.value = false
   if (showAddMenu.value && !inside('.cp-add')) showAddMenu.value = false
   if (showVoiceMenu.value && !inside('.cp-ttsv')) showVoiceMenu.value = false   // v461
+  if (showUsageMenu.value && !inside('.cp-usage')) showUsageMenu.value = false  // v694
 }
 function pickRole(r) {
   const prev = store.chat.currentRole
@@ -3292,15 +3345,80 @@ async function refreshQuota() {
   } catch (_) { /* 取不到就不显示，静默 */ }
 }
 
-/* 输入框下方常驻小字：本月用量 + 还能干多少活 */
-const quotaTip = computed(() => {
+/* ── v694：底部额度「状态胶囊」+ 明细卡 ────────────────────────────────
+   设计原则（老板 2026-10-26 定）：**常驻层只放状态，数字放明细层。**
+   原因：积分是天天变的账本数字，摆在常驻层 = 每打开一次就被念一次账，
+   与免责声明挤成两行居中灰字 ⇒ 视觉噪音。状态词（够用 / 82% / 用完）才是
+   用户当下真正需要的判断，「还能干几件活」这种推演留给他想算的时候再点开看。 */
+const showUsageMenu = ref(false)
+function toggleUsageMenu() {
+  const on = !showUsageMenu.value
+  closeMenus('usage')
+  showUsageMenu.value = on
+}
+
+/* 明细卡取数：全部从 `/api/ai/quota` 来，前端**不自己算额度**（口径只有后端一处）。 */
+const quotaInfo = computed(() => {
+  const q = quota.value || {}
+  const limit = Number(q.credits_limit) || 0
+  const used = Number(q.credits_used) || 0
+  const left = Math.max(0, Number(q.credits_remaining) || 0)
+  const pct = Math.min(100, Math.max(0, Number(q.credits_pct) || 0))
+  return {
+    limit, used, left, pct,
+    exempt: !!q.exempt,
+    exceeded: !!q.exceeded,
+    peak: !!q.is_peak,
+    leftTasks: Math.floor(left / CREDITS_PER_TASK)
+  }
+})
+
+/* 只有拿不到额度（未登录 / 老后端 / limit=0）时才整颗胶囊消失 —— 宁可不显示，不显示假数。 */
+const quotaChip = computed(() => {
   const q = quota.value
   if (!q || !q.credits_limit) return ''
-  if (q.exceeded) return `本月 ${q.credits_used} 积分 · 额度已用完`
-  const left = Math.floor((q.credits_remaining || 0) / CREDITS_PER_TASK)
-  if (left >= 1) return `本月 ${q.credits_used} 积分 · 还能跑约 ${left} 件这样的活`
-  return `本月 ${q.credits_used} 积分 · 额度快用完了`
+  const i = quotaInfo.value
+  if (i.exempt) return '不限额度'
+  if (i.exceeded) return '额度已用完'
+  if (i.pct >= 80) return `已用 ${Math.round(i.pct)}%`
+  return '额度充足'
 })
+
+/* 状态 → 配色（样式段用 .ok / .warn / .danger / .exempt 四个类） */
+const quotaState = computed(() => {
+  const i = quotaInfo.value
+  if (i.exempt) return 'exempt'
+  if (i.exceeded) return 'danger'
+  if (i.pct >= 80) return 'warn'
+  return 'ok'
+})
+
+/* 悬停说全（鼠标党不必点开）：一行讲清「多少 / 多少 / 能不能超」 */
+const quotaHover = computed(() => {
+  const i = quotaInfo.value
+  if (i.exempt) return '平台自有账号，不计 AI 额度（仅记账）'
+  if (i.exceeded) return `本月已用 ${i.used} 积分，额度 ${i.limit} 已用完，每月 1 日恢复`
+  return `本月已用 ${i.used} / ${i.limit} 积分，点开看明细`
+})
+
+/* 环形进度：r=6 ⇒ 周长 2πr≈37.70。0% 时整圈不画（避免画出一个小圆点，看着像"有数据"）。 */
+const RING_R = 6
+const RING_C = 2 * Math.PI * RING_R
+const quotaRingLen = computed(() => {
+  const i = quotaInfo.value
+  if (i.exempt) return RING_C
+  return i.pct > 0 ? RING_C : 0
+})
+const quotaRingOffset = computed(() => {
+  const i = quotaInfo.value
+  if (i.exempt) return 0
+  const pct = Math.min(100, Math.max(0, i.pct))
+  return RING_C * (1 - pct / 100)
+})
+
+/* 档位名：对客户说「免费版」，不说「free」。 */
+const QUOTA_TIER_CN = { free: '免费版', plus: '标准版', pro: '专业版' }
+const quotaTierName = computed(() => QUOTA_TIER_CN[(quota.value && quota.value.tier) || ''] || '')
 
 /* 80% / 100% 阈值横幅。只提示不拦截 —— 真正的拦截由后端 `exceeded` 决定。
    ⚠️ 不要给它绑 :disabled 或塞进任何 validate()，否则会从「提醒」变「拦截」。 */
@@ -3317,6 +3435,13 @@ function creditsMoney(c) {
   const yuan = (Number(c) || 0) / 100
   if (yuan <= 0) return ''
   return yuan >= 1 ? `约 ${yuan.toFixed(1)} 元` : `约 ${Math.round(yuan * 10)} 毛`
+}
+
+/* 千分位（3000 → 3,000）。额度动辄四位数，不分位很难一眼读。
+   统一用 en-US 分组：与日报、与财务习惯一致（「3,000」而不是「3000」）。 */
+function fmtNum(n) {
+  const v = Math.round(Number(n) || 0)
+  return v.toLocaleString('en-US')
 }
 
 /* P4：执行计划的预计消耗。按步数线性估 ——
@@ -3816,7 +3941,39 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
    执行计划预估贴按钮上方。琥珀色只用于「快用完了」这一种状态。
    字号沿用组件既有口径（11~12px），不单独另立一套。 */
 .cp-quota-warn{display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:6px;padding:5px 10px;border-radius:8px;font-size:11.5px;line-height:1.45;color:var(--warn-amber);background:var(--warn-amber-bg)}
-.cp-quota-tip{text-align:center;font-size:11px;line-height:1.5;color:var(--t3);margin-bottom:4px;font-variant-numeric:tabular-nums}
+/* ── v694 底部信息条（免责 + 额度状态，成对居中）──────────────────────────
+   原来是「额度读数」+「免责声明」两行各自居中，每行都短 ⇒ 视觉上像两行碎片。
+   改成一行两个件、**整体居中**（不是两端对齐）：
+   ⚠️ 实测（1440 宽）两端对齐会把两个小元素甩到画面两头，中间空出 900px，
+      比原来更散 —— 抽屉宽度是会变的，所以必须用「成组居中」而不是 space-between。
+   阅读顺序仍自然：先免责，余光看到额度。 */
+.cp-foot-meta{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:2px;min-height:18px}
+.cp-foot-meta .cp-ai-note{margin-top:0;justify-content:flex-start;flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 额度状态胶囊：比工具条按钮更轻 —— 无边框、无背景，只在 hover 时才有一层浅底。
+   它是**信息**，不是控件；一旦做得像按钮，用户就会以为能点出个设置页。 */
+.cp-usage{position:relative;flex:none}
+.cp-usage-btn{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border:1px solid transparent;border-radius:10px;background:transparent;font-size:11px;line-height:1;color:var(--t3);cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums;transition:background .15s,color .15s}
+.cp-usage-btn:hover{background:var(--bg4);color:var(--t1)}
+.cp-usage-btn .cp-usage-ring{flex:none;opacity:.9}
+/* 豁免账号画的是**整圈**（没有进度含义）⇒ 环会显得比文字重，压到 .55 才与灰字同重。 */
+.cp-usage-btn.exempt .cp-usage-ring{opacity:.55}
+.cp-usage-btn.warn{color:var(--war)}
+.cp-usage-btn.danger{color:var(--danger-txt)}
+/* 明细卡：从胶囊左侧向左展开（右对齐），向上弹 —— 底部空间比上方更稀缺。
+   宽度 268：实测 252 会把「大约还能干 N 件这样的活」折在「这样/的活」中间，很难看。
+   ⚠️ 窄屏（抽屉 < 300）时右对齐仍不会溢出，因为 `right:0` 是相对胶囊、胶囊在容器内。 */
+.cp-usage-menu{left:auto;right:0;width:268px;cursor:default}
+.cp-um-num{padding:2px 10px 7px;font-size:11.5px;color:var(--t2);font-variant-numeric:tabular-nums}
+.cp-um-num b{font-size:16px;font-weight:650;color:var(--t1);letter-spacing:-.01em}
+.cp-um-bar{height:5px;margin:0 10px 9px;border-radius:3px;background:var(--bg4);overflow:hidden}
+.cp-um-bar i{display:block;height:100%;border-radius:3px;background:var(--p);transition:width .3s}
+.cp-um-bar i.warn{background:var(--war)}
+.cp-um-bar i.danger{background:var(--danger-txt)}
+.cp-um-row{padding:0 10px;font-size:11.5px;line-height:1.55;color:var(--t2);font-variant-numeric:tabular-nums}
+.cp-um-sub{padding:3px 10px 4px;font-size:11.5px;line-height:1.55;color:var(--t3)}
+.cp-um-sub b{font-weight:650;color:var(--t2)}
+.cp-um-foot{padding:2px 10px 3px;font-size:11px;line-height:1.5;color:var(--t3);opacity:.85}
+.cp-um-peak{margin:7px 10px 2px;padding:5px 8px;border-radius:7px;font-size:11px;line-height:1.5;color:var(--warn-amber);background:var(--warn-amber-bg)}
 .cp-cost{margin-top:7px;font-size:11px;line-height:1.4;color:var(--t3);font-variant-numeric:tabular-nums}
 .cp-prop-cost{display:flex;align-items:flex-start;gap:5px;margin-bottom:9px;font-size:11.5px;line-height:1.5;color:var(--warn-amber)}
 .cp-prop-cost svg{flex:none;margin-top:1.5px}
