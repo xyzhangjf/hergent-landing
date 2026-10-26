@@ -2056,17 +2056,46 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   color: var(--t3); line-height: 0; border-radius: 5px;
 }
 .ipd-pencil:hover { color: var(--c-blue, #2f6fed); background: rgba(47, 111, 237, .08) }
-.ipd-edit-in {
-  width: 220px; max-width: 100%; padding: 4px 8px; font-size: 13px;
-  border: 1px solid var(--t3, #cfd6e0); border-radius: 6px; background: #fff; color: var(--t1);
+/* 🔵 v696（2026-10-26）编辑态控件改「下划线式就地改」，弃白底圆角框。
+   ────────────────────────────────────────────────────────────────────
+   报障：点「备注」后的铅笔，六个字段一起变成白底输入框。
+   真根因不是"白"这件事本身，而是这两条规则写死了 `background: #fff`：
+     ① 绕开主题变量（全局 `.input` 用 `var(--bg3)`，浅 #fafafa / 深 #3a3a3c）；
+     ② 组件 scoped 选择器 `(0,2,0)` 压过 `.input` 的 `(0,1,0)` ⇒ 写死的白必胜。
+   实测后果：暗色主题下 `#fff` 底 + `#f5f5f7` 字 = **1.09:1**，内容几乎看不见；
+             禁用态 `.input:disabled` 的灰底也被吃掉（已入库时仓库看不出不能改）；
+             控件高 40px（继承 `.input`）而同行文本只有 20.8px，信息带被从 21px 顶到 57px。
+   改法（老板选 B：舟谱那种"就地改"）：**透明底 + 只留底边 + 高度收到 26px**，
+     让控件看起来像"这段文字下面多了一条线"，而不是"凭空长出一个框"。
+   🔴 纪律：这里**不许再出现任何写死的底色**（`#fff` / `white` / 不透明 rgba 白）。
+      项目里 `CopilotDrawer.vue` 已因同一个病留过警告 —— 写死白底是反复发作的家族。
+   🔴 背景必须显式写 `transparent`：input/select 的 UA 默认底是白的，
+      不写就等于又回到白块。 */
+.ipd-edit-in, .ipd-edit-sel {
+  max-width: 100%; height: 26px; padding: 0 4px; font-size: 13px;
+  border: 0; border-bottom: 1px solid var(--bd); border-radius: 0;
+  background: transparent; color: var(--t1); outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+/* 聚焦：底线转主色并"加粗"到 2px 观感（用 box-shadow 而不是改 border，免得元素高度跳动）。 */
+.ipd-edit-in:focus, .ipd-edit-sel:focus {
+  border-bottom-color: var(--p-dark);
+  box-shadow: 0 1px 0 0 var(--p-dark);
+}
+/* 🔴 禁用态必须单独写，且特异度要压过上面那条（scoped 后是 `.x[data-v]:disabled`）。
+   不加这段的话：背景已 transparent ⇒ 看着和可编辑态一模一样，而 `.input:disabled`
+   的灰底又进不来（被本类的 `background: transparent` 覆盖）⇒ 用户点不动也不知道为什么。
+   虚线底边是"看得见的不可改"，比只靠光标 `not-allowed` 靠谱（打印/触屏看不到光标）。 */
+.ipd-edit-in:disabled, .ipd-edit-sel:disabled {
+  background: var(--bg4); color: var(--t3);
+  border-bottom-style: dashed; border-bottom-color: var(--border-subtle);
+  box-shadow: none; cursor: not-allowed;
 }
 /* v453（R5）：下拉（经办人 / 部门 / 仓库）用的窄控件。
-   🔴 比 `.ipd-edit-in` 窄一号是刻意的：这四个下拉挤在**同一行信息带**里，
+   🔴 比备注输入框窄一号是刻意的：这几个下拉挤在**同一行信息带**里，
       都用 220px 会把一行撑成三行，信息带就失去"一眼看完"的意义了。 */
-.ipd-edit-sel {
-  width: 150px; max-width: 100%; padding: 4px 6px; font-size: 13px;
-  border: 1px solid var(--t3, #cfd6e0); border-radius: 6px; background: #fff; color: var(--t1);
-}
+.ipd-edit-in { width: 220px }
+.ipd-edit-sel { width: 150px }
 /* 日期输入（单据日期 / 预计到货）：内容宽度固定，比文本输入更窄。 */
 .ipd-edit-in-sm { width: 140px }
 /* v453（R3）备注字数计数。`maxlength` 到顶是**静默截断**（不提示、不报错），
